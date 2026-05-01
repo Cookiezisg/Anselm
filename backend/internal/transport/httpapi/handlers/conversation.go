@@ -10,8 +10,8 @@ import (
 
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/pagination"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // ConversationHandler serves the 4 /api/v1/conversations/* endpoints.
@@ -53,24 +53,24 @@ type renameConvRequest struct {
 func (h *ConversationHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createConvRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	c, err := h.svc.Create(r.Context(), req.Title)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, c)
+	responsehttpapi.Created(w, c)
 }
 
 // List: GET /api/v1/conversations?cursor=&limit= → 200 paged.
 //
 // List：GET /api/v1/conversations?cursor=&limit= → 200 分页。
 func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	items, next, err := h.svc.List(r.Context(), convdomain.ListFilter{
@@ -78,10 +78,10 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		Limit:  p.Limit,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Paged(w, items, next, next != "")
+	responsehttpapi.Paged(w, items, next, next != "")
 }
 
 // Rename: PATCH /api/v1/conversations/{id} → 200.
@@ -91,15 +91,15 @@ func (h *ConversationHandler) Rename(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req renameConvRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	c, err := h.svc.Rename(r.Context(), id, req.Title)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, c)
+	responsehttpapi.Success(w, http.StatusOK, c)
 }
 
 // Delete: DELETE /api/v1/conversations/{id} → 204.
@@ -107,8 +107,8 @@ func (h *ConversationHandler) Rename(w http.ResponseWriter, r *http.Request) {
 // Delete：DELETE /api/v1/conversations/{id} → 204。
 func (h *ConversationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Delete(r.Context(), r.PathValue("id")); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }

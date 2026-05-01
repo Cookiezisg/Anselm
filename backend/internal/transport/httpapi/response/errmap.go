@@ -12,6 +12,8 @@ import (
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // errMapping pairs a sentinel with its HTTP status and stable wire code.
@@ -71,6 +73,15 @@ var errTable = map[error]errMapping{
 	tooldomain.ErrRunFailed:        {http.StatusUnprocessableEntity, "TOOL_RUN_FAILED"},
 	tooldomain.ErrASTParseError:    {http.StatusUnprocessableEntity, "TOOL_AST_PARSE_FAILED"},
 	tooldomain.ErrImportInvalid:    {http.StatusBadRequest, "TOOL_IMPORT_INVALID"},
+
+	// Cross-cutting: explicitly registered to suppress the "unmapped domain
+	// error" warning while still returning 500. Both represent server-side
+	// state that the user can't recover from.
+	//
+	// 跨层 sentinel：显式登记以抑制"unmapped domain error"警告，
+	// 同时仍返回 500。两者都代表用户无法自行恢复的服务端状态。
+	reqctxpkg.ErrMissingUserID:       {http.StatusInternalServerError, "INTERNAL_ERROR"},
+	cryptoinfra.ErrUnsupportedVersion: {http.StatusInternalServerError, "INTERNAL_ERROR"},
 }
 
 // FromDomainError translates a domain error to an HTTP envelope via errTable.

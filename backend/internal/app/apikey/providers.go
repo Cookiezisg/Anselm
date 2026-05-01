@@ -70,8 +70,11 @@ func IsValidProvider(name string) bool {
 }
 
 // ListProviders returns all supported provider names (unordered).
+// Production code does not call this — it exists for the contract test
+// that asserts the registry stays at exactly 11 providers.
 //
 // ListProviders 返回所有支持的 provider 名字（无序）。
+// 生产代码不调用本函数——它存在仅为支撑"注册表恒为 11 项"契约测试。
 func ListProviders() []string {
 	names := make([]string, 0, len(providers))
 	for name := range providers {

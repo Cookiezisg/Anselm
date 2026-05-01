@@ -43,9 +43,9 @@ func NewService(repo convdomain.Repository, log *zap.Logger) *Service {
 //
 // Create 创建一个新对话，title 可为空。
 func (s *Service) Create(ctx context.Context, title string) (*convdomain.Conversation, error) {
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return nil, fmt.Errorf("conversation.Service.Create: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("conversation.Service.Create: %w", err)
 	}
 	now := time.Now().UTC()
 	c := &convdomain.Conversation{

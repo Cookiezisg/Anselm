@@ -84,9 +84,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*apikeydomain.API
 	if err := validateCreate(in); err != nil {
 		return nil, err
 	}
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return nil, fmt.Errorf("apikey.Service.Create: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("apikey.Service.Create: %w", err)
 	}
 	ciphertext, err := s.encryptor.Encrypt(ctx, []byte(in.Key))
 	if err != nil {

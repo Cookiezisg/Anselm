@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 )
@@ -29,6 +30,18 @@ const (
 type Params struct {
 	Cursor string
 	Limit  int
+}
+
+// Cursor is the standard (created_at, id) tuple used by every store's
+// list endpoint. The (CreatedAt, ID) ordering is stable even when timestamps
+// collide. JSON tags are short ("c"/"i") to keep encoded cursors compact.
+//
+// Cursor 是所有 store 列表端点统一的 (created_at, id) 元组。
+// (CreatedAt, ID) 排序在时间戳相同的情况下也能稳定分页。
+// JSON tag 用短名（"c"/"i"）让编码后的 cursor 字符串更紧凑。
+type Cursor struct {
+	CreatedAt time.Time `json:"c"`
+	ID        string    `json:"i"`
 }
 
 // Parse extracts pagination params from query string. Invalid values

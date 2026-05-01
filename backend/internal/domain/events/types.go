@@ -202,48 +202,11 @@ type ToolPendingCreated struct {
 // EventName 返回 "tool.pending_created"。
 func (ToolPendingCreated) EventName() string { return "tool.pending_created" }
 
-// ToolTestCaseGenerated fires once per test case during generate-test-cases.
-// Each event carries a complete test case (not individual tokens), so the
-// frontend can render it immediately as it arrives.
+// NOTE: generate-test-cases SSE does NOT go through this Bridge. It uses a
+// direct emit callback in app/tool (toolapp.GenerateEvent) wired straight to
+// the HTTP handler's SSE writer. If we ever route it through the Bridge, the
+// corresponding event types should be re-added here.
 //
-// ToolTestCaseGenerated 在 generate-test-cases 流程中每生成一条完整测试用例时触发。
-// 每个事件携带完整用例（非 token），前端收到即可直接渲染。
-type ToolTestCaseGenerated struct {
-	ToolID         string `json:"toolId"`
-	TestCaseID     string `json:"testCaseId"`
-	Name           string `json:"name"`
-	InputData      string `json:"inputData"`      // JSON object string
-	ExpectedOutput string `json:"expectedOutput"` // JSON string
-}
-
-// EventName returns "tool.test_case_generated".
-// EventName 返回 "tool.test_case_generated"。
-func (ToolTestCaseGenerated) EventName() string { return "tool.test_case_generated" }
-
-// ToolTestCasesDone fires when generate-test-cases has finished producing all
-// test cases and saved them to the database.
-//
-// ToolTestCasesDone 在 generate-test-cases 生成全部测试用例并写入数据库后触发。
-type ToolTestCasesDone struct {
-	ToolID string `json:"toolId"`
-	Count  int    `json:"count"` // number of test cases generated and saved
-}
-
-// EventName returns "tool.test_cases_done".
-// EventName 返回 "tool.test_cases_done"。
-func (ToolTestCasesDone) EventName() string { return "tool.test_cases_done" }
-
-// ToolTestCasesNotSupported fires when the LLM determines that the tool
-// cannot be reliably tested automatically (e.g. it depends on local file
-// paths, network calls, or randomness). No test cases are saved.
-//
-// ToolTestCasesNotSupported 在 LLM 判断工具无法可靠地自动生成测试用例时触发
-// （如依赖本地文件路径、网络请求、随机性等）。不保存任何测试用例。
-type ToolTestCasesNotSupported struct {
-	ToolID string `json:"toolId"`
-	Reason string `json:"reason"` // LLM explanation; shown directly to the user
-}
-
-// EventName returns "tool.test_cases_not_supported".
-// EventName 返回 "tool.test_cases_not_supported"。
-func (ToolTestCasesNotSupported) EventName() string { return "tool.test_cases_not_supported" }
+// 注意：generate-test-cases 的 SSE 不走本 Bridge，直接通过 app/tool 中的
+// emit callback（toolapp.GenerateEvent）写入 HTTP handler 的 SSE。
+// 若未来改走 Bridge，再在此处补回相应事件类型。

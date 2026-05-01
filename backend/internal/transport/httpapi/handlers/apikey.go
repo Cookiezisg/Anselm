@@ -19,8 +19,8 @@ import (
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/pagination"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // APIKeyHandler serves the 5 /api/v1/api-keys/* endpoints. Holds a
@@ -79,7 +79,7 @@ type updateRequest struct {
 func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	k, err := h.svc.Create(r.Context(), apikeyapp.CreateInput{
@@ -90,19 +90,19 @@ func (h *APIKeyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		APIFormat:   req.APIFormat,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, k)
+	responsehttpapi.Created(w, k)
 }
 
 // List: GET /api/v1/api-keys?cursor=&limit=&provider= → 200 paged envelope.
 //
 // List：GET /api/v1/api-keys?cursor=&limit=&provider= → 200 分页 envelope。
 func (h *APIKeyHandler) List(w http.ResponseWriter, r *http.Request) {
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	items, next, err := h.svc.List(r.Context(), apikeydomain.ListFilter{
@@ -111,10 +111,10 @@ func (h *APIKeyHandler) List(w http.ResponseWriter, r *http.Request) {
 		Provider: r.URL.Query().Get("provider"),
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Paged(w, items, next, next != "")
+	responsehttpapi.Paged(w, items, next, next != "")
 }
 
 // Update: PATCH /api/v1/api-keys/{id} → 200 with the updated APIKey.
@@ -124,7 +124,7 @@ func (h *APIKeyHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req updateRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	k, err := h.svc.Update(r.Context(), id, apikeyapp.UpdateInput{
@@ -132,10 +132,10 @@ func (h *APIKeyHandler) Update(w http.ResponseWriter, r *http.Request) {
 		BaseURL:     req.BaseURL,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, k)
+	responsehttpapi.Success(w, http.StatusOK, k)
 }
 
 // Delete: DELETE /api/v1/api-keys/{id} → 204.
@@ -144,10 +144,10 @@ func (h *APIKeyHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *APIKeyHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }
 
 // postOnID dispatches POST requests that land on the `/{id}` segment —
@@ -161,14 +161,14 @@ func (h *APIKeyHandler) postOnID(w http.ResponseWriter, r *http.Request) {
 	if !found {
 		// POST on bare /{id} has no semantics — spec reserves the `:action` form.
 		// 裸 /{id} 上的 POST 无语义——规范保留 `:action` 形式。
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "route not found", nil)
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "route not found", nil)
 		return
 	}
 	switch action {
 	case "test":
 		h.test(w, r, id)
 	default:
-		response.Error(w, http.StatusNotFound, "NOT_FOUND",
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND",
 			fmt.Sprintf("unknown action %q", action), nil)
 	}
 }
@@ -183,7 +183,7 @@ func (h *APIKeyHandler) postOnID(w http.ResponseWriter, r *http.Request) {
 func (h *APIKeyHandler) test(w http.ResponseWriter, r *http.Request, id string) {
 	res, err := h.svc.Test(r.Context(), id)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	if !res.OK {
@@ -192,7 +192,7 @@ func (h *APIKeyHandler) test(w http.ResponseWriter, r *http.Request, id string) 
 		//
 		// 非 OK 结果是 422（N2：422 = 业务规则拒绝）。
 		// details 带 latency，UI 可展示探测耗时。
-		response.Error(w, http.StatusUnprocessableEntity,
+		responsehttpapi.Error(w, http.StatusUnprocessableEntity,
 			"API_KEY_TEST_FAILED", res.Message,
 			map[string]any{"latencyMs": res.LatencyMs})
 		return
@@ -203,7 +203,7 @@ func (h *APIKeyHandler) test(w http.ResponseWriter, r *http.Request, id string) 
 	if models == nil {
 		models = []string{}
 	}
-	response.Success(w, http.StatusOK, map[string]any{
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
 		"ok":          true,
 		"message":     res.Message,
 		"latencyMs":   res.LatencyMs,

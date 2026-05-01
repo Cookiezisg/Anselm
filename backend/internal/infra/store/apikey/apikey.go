@@ -16,7 +16,6 @@ package apikey
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +24,7 @@ import (
 	"gorm.io/gorm"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -42,24 +42,12 @@ func New(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
-// userID extracts the user ID from ctx. A missing value is a server
-// wiring bug (middleware didn't run), not a 401.
-//
-// userID 从 ctx 取 user ID。缺失代表服务端接线 bug（中间件未跑），不是 401。
-func userID(ctx context.Context) (string, error) {
-	id, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("apikeystore: missing user id in context")
-	}
-	return id, nil
-}
-
 // Get fetches a single APIKey by id, scoped to the caller. Returns
 // apikeydomain.ErrNotFound if no live row matches.
 //
 // Get 按 id 查单条 APIKey，按调用者过滤。未命中活跃行返回 apikeydomain.ErrNotFound。
 func (s *Store) Get(ctx context.Context, id string) (*apikeydomain.APIKey, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +71,7 @@ func (s *Store) Get(ctx context.Context, id string) (*apikeydomain.APIKey, error
 // List 返回调用者的一页 Key，按 created_at DESC（以 id 作 tiebreaker）排序。
 // cursor 是 (created_at, id) 元组，保证时间戳相同也稳定分页。
 func (s *Store) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -98,8 +86,8 @@ func (s *Store) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*ap
 		q = q.Where("provider = ?", filter.Provider)
 	}
 	if filter.Cursor != "" {
-		c, err := decodeCursor(filter.Cursor)
-		if err != nil {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
 			return nil, "", fmt.Errorf("apikeystore.List: %w", err)
 		}
 		// Tuple comparison: rows strictly "older" than the cursor position.
@@ -117,7 +105,7 @@ func (s *Store) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*ap
 	var next string
 	if len(rows) > limit {
 		last := rows[limit-1]
-		next, err = encodeCursor(pageCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
 		if err != nil {
 			return nil, "", fmt.Errorf("apikeystore.List: %w", err)
 		}
@@ -141,7 +129,7 @@ func (s *Store) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*ap
 //
 // 未命中返回 apikeydomain.ErrNotFoundForProvider。
 func (s *Store) GetByProvider(ctx context.Context, provider string) (*apikeydomain.APIKey, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +166,7 @@ func (s *Store) Save(ctx context.Context, k *apikeydomain.APIKey) error {
 // Delete 按 id 软删除，按调用者过滤。未命中活跃行返回 apikeydomain.ErrNotFound
 // （让重试不会静默成功）。
 func (s *Store) Delete(ctx context.Context, id string) error {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return err
 	}
@@ -200,7 +188,7 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 // UpdateTestResult 仅写 test_status / test_error / last_tested_at。
 // Service.Test 和 MarkInvalid 用来避免整行往返。
 func (s *Store) UpdateTestResult(ctx context.Context, id, status, errMsg string, models []string) error {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return err
 	}
@@ -228,32 +216,3 @@ func (s *Store) UpdateTestResult(ctx context.Context, id, status, errMsg string,
 	return nil
 }
 
-// pageCursor is the opaque continuation token for List. The tuple
-// (created_at, id) is a stable cursor even when timestamps collide.
-//
-// pageCursor 是 List 的不透明续传 token。(created_at, id) 元组在时间戳
-// 相同的情况下也能稳定分页。
-type pageCursor struct {
-	CreatedAt time.Time `json:"c"`
-	ID        string    `json:"i"`
-}
-
-func encodeCursor(c pageCursor) (string, error) {
-	raw, err := json.Marshal(c)
-	if err != nil {
-		return "", fmt.Errorf("encode cursor: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
-}
-
-func decodeCursor(s string) (pageCursor, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	var c pageCursor
-	if err := json.Unmarshal(raw, &c); err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	return c, nil
-}

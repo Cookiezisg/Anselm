@@ -61,12 +61,11 @@
 
 | 事件名 | 用途 | 过滤 key | 状态 |
 |---|---|---|---|
-| `tool.code_streaming` | create_tool / edit_tool 代码生成逐 token（`messageId` + `toolCallId` + `toolId` + `actionType` + `delta`）| `conversationId` | ✅ |
-| `tool.created` | create_tool 成功保存新工具（`conversationId` + `messageId` + `toolCallId` + `toolId` + `toolName`）| `conversationId` | ✅ |
-| `tool.pending_created` | edit_tool 保存 pending 变更（`conversationId` + `messageId` + `toolCallId` + `toolId` + `pendingId` + `instruction`）| `conversationId` | ✅ |
-| `tool.test_case_generated` | generate-test-cases 生成一条完整测试用例（`toolId` + `testCaseId` + `name` + `inputData` + `expectedOutput`）| `toolId` | ✅ |
-| `tool.test_cases_done` | generate-test-cases 全部完成（`toolId` + `count`）| `toolId` | ✅ |
-| `tool.test_cases_not_supported` | LLM 判断工具不可自动测试（`toolId` + `reason`）| `toolId` | ✅ |
+| `tool.code_streaming` | create_tool / edit_tool 代码生成逐 token（`messageId` + `toolCallId` + `toolId` + `actionType` + `delta`）| `conversationId` | ✅ Bridge |
+| `tool.created` | create_tool 成功保存新工具（`conversationId` + `messageId` + `toolCallId` + `toolId` + `toolName`）| `conversationId` | ✅ Bridge |
+| `tool.pending_created` | edit_tool 保存 pending 变更（`conversationId` + `messageId` + `toolCallId` + `toolId` + `pendingId` + `instruction`）| `conversationId` | ✅ Bridge |
+
+> **不走 Bridge 的特例**：`POST /api/v1/tools/{id}:generate-test-cases` 端点的 SSE 通过 `app/tool` 内部 `GenerateEvent` callback 直接写到 HTTP response writer，**不经 events Bridge**。wire 格式为 `data: {"Type":"test_case|done|not_supported", ...}`，前端按 `Type` 字段分派。这是该端点独有形态，不在本表覆盖范围内。
 
 ---
 

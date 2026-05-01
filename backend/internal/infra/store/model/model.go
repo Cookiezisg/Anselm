@@ -37,24 +37,12 @@ func New(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
-// userID extracts the user ID from ctx. A missing value is a server wiring
-// bug (middleware didn't run), not a 401.
-//
-// userID 从 ctx 取 user ID。缺失代表服务端接线 bug（中间件未跑），不是 401。
-func userID(ctx context.Context) (string, error) {
-	id, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("modelstore: missing user id in context")
-	}
-	return id, nil
-}
-
 // GetByScenario fetches the active config for (current user, scenario).
 // Returns modeldomain.ErrNotConfigured if none exists.
 //
 // GetByScenario 返回 (当前用户, scenario) 的活跃配置；无则返 ErrNotConfigured。
 func (s *Store) GetByScenario(ctx context.Context, scenario string) (*modeldomain.ModelConfig, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +63,7 @@ func (s *Store) GetByScenario(ctx context.Context, scenario string) (*modeldomai
 //
 // List 返回当前用户所有活跃配置，按 scenario 排序。
 func (s *Store) List(ctx context.Context) ([]*modeldomain.ModelConfig, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}

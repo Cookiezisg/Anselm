@@ -744,9 +744,22 @@ func (s *Service) Export(ctx context.Context, toolID string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	cases, _ := s.repo.ListTestCases(ctx, toolID)
+	cases, err := s.repo.ListTestCases(ctx, toolID)
+	if err != nil {
+		// Test cases failure shouldn't block exporting the tool body itself —
+		// degrade gracefully but log so the user can see the partial export.
+		//
+		// 测试用例查询失败不应阻止工具本身的导出——降级处理但记日志。
+		s.log.Warn("export: failed to list test cases, exporting without them",
+			zap.String("tool_id", toolID), zap.Error(err))
+		cases = nil
+	}
 	var tags []string
-	_ = json.Unmarshal([]byte(t.Tags), &tags)
+	if err := json.Unmarshal([]byte(t.Tags), &tags); err != nil {
+		s.log.Warn("export: malformed tags JSON, exporting empty tags",
+			zap.String("tool_id", toolID), zap.Error(err))
+		tags = nil
+	}
 	tcInputs := make([]TestCaseInput, len(cases))
 	for i, tc := range cases {
 		tcInputs[i] = TestCaseInput{Name: tc.Name, InputData: tc.InputData, ExpectedOutput: tc.ExpectedOutput}
@@ -772,8 +785,20 @@ func (s *Service) Import(ctx context.Context, data []byte) (*tooldomain.Tool, er
 	if err != nil {
 		return nil, err
 	}
+	// Best-effort import of test cases: a single bad case (e.g. malformed
+	// JSON in InputData) shouldn't abort the whole import — the tool itself
+	// is already saved. Log each failure so the user knows partial import.
+	//
+	// 测试用例尽力导入：单条用例失败（如 InputData JSON 损坏）不应中断整体——
+	// 工具本身已保存。每条失败记日志，让用户知晓部分导入。
 	for _, tc := range shape.TestCases {
-		_, _ = s.CreateTestCase(ctx, t.ID, tc)
+		if _, err := s.CreateTestCase(ctx, t.ID, tc); err != nil {
+			s.log.Warn("import: skipped test case",
+				zap.String("tool_id", t.ID),
+				zap.String("test_case_name", tc.Name),
+				zap.Error(err),
+			)
+		}
 	}
 	return t, nil
 }
@@ -852,7 +877,15 @@ func newVersion(t *tooldomain.Tool, status string, version *int, message string)
 
 func newID(prefix string) string {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// crypto/rand failure means broken entropy source — IDs would
+		// collide, so fail loudly and let the caller crash. Matches the
+		// other newID functions (apikey / model / conversation / chat).
+		//
+		// crypto/rand 失败说明熵源损坏——继续会生成碰撞 ID，必须立刻 panic。
+		// 与其他 newID（apikey / model / conversation / chat）保持一致。
+		panic(fmt.Sprintf("tool: crypto/rand failed: %v", err))
+	}
 	return prefix + "_" + hex.EncodeToString(b)
 }
 
@@ -865,9 +898,9 @@ func tagsJSON(tags []string) string {
 }
 
 func mustSetUserID(ctx context.Context, t *tooldomain.Tool) error {
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return fmt.Errorf("toolapp: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return fmt.Errorf("toolapp: %w", err)
 	}
 	t.UserID = uid
 	return nil

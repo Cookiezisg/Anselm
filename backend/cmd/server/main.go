@@ -41,7 +41,7 @@ import (
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	toolstore "github.com/sunweilin/forgify/backend/internal/infra/store/tool"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
+	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
 
 func main() {
@@ -170,7 +170,7 @@ func main() {
 	// Electron 从 stdout 读取此行发现端口。
 	fmt.Printf("BACKEND_PORT=%d\n", actualPort)
 
-	handler := router.New(router.Deps{
+	handler := routerhttpapi.New(routerhttpapi.Deps{
 		Log:                 log,
 		APIKeyService:       apikeyService,
 		ModelService:        modelService,

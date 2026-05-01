@@ -16,8 +16,8 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/pagination"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // ChatHandler serves the 5 chat endpoints.
@@ -54,19 +54,19 @@ func (h *ChatHandler) Register(mux *http.ServeMux) {
 // UploadAttachment：POST /api/v1/attachments → 201。
 func (h *ChatHandler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(chatdomain.MaxAttachmentBytes); err != nil {
-		response.FromDomainError(w, h.log, fmt.Errorf("%w: %v", chatdomain.ErrAttachmentTooLarge, err))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: %v", chatdomain.ErrAttachmentTooLarge, err))
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		response.FromDomainError(w, h.log, fmt.Errorf("%w: missing file field", chatdomain.ErrAttachmentParseFailed))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: missing file field", chatdomain.ErrAttachmentParseFailed))
 		return
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		response.FromDomainError(w, h.log, fmt.Errorf("%w: read failed", chatdomain.ErrAttachmentParseFailed))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: read failed", chatdomain.ErrAttachmentParseFailed))
 		return
 	}
 
@@ -77,10 +77,10 @@ func (h *ChatHandler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
 
 	att, err := h.svc.UploadAttachment(r.Context(), data, mimeType, header.Filename)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, att)
+	responsehttpapi.Created(w, att)
 }
 
 // ── POST /api/v1/conversations/{id}/messages ─────────────────────────────────
@@ -97,7 +97,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	var req sendMessageRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	msgID, err := h.svc.Send(r.Context(), id, chatapp.SendInput{
@@ -105,10 +105,10 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		AttachmentIDs: req.AttachmentIDs,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
 }
 
 // ── DELETE /api/v1/conversations/{id}/stream ─────────────────────────────────
@@ -119,10 +119,10 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 func (h *ChatHandler) CancelStream(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := h.svc.Cancel(r.Context(), id); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }
 
 // ── GET /api/v1/conversations/{id}/messages ──────────────────────────────────
@@ -132,9 +132,9 @@ func (h *ChatHandler) CancelStream(w http.ResponseWriter, r *http.Request) {
 // ListMessages：GET /api/v1/conversations/{id}/messages → 200 分页。
 func (h *ChatHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	items, next, err := h.svc.ListMessages(r.Context(), id, chatdomain.ListFilter{
@@ -142,10 +142,10 @@ func (h *ChatHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 		Limit:  p.Limit,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Paged(w, items, next, next != "")
+	responsehttpapi.Paged(w, items, next, next != "")
 }
 
 // ── GET /api/v1/events ───────────────────────────────────────────────────────
@@ -161,13 +161,13 @@ func (h *ChatHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
 func (h *ChatHandler) EventsSSE(w http.ResponseWriter, r *http.Request) {
 	conversationID := r.URL.Query().Get("conversationId")
 	if conversationID == "" {
-		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "conversationId is required", nil)
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "conversationId is required", nil)
 		return
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming not supported", nil)
+		responsehttpapi.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming not supported", nil)
 		return
 	}
 

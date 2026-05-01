@@ -14,15 +14,13 @@ package tool
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
 	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -40,16 +38,6 @@ func New(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
-// uid extracts the user ID from ctx. A missing value is a server wiring bug.
-//
-// uid 从 ctx 取 user ID。缺失代表服务端接线 bug，不是 401。
-func uid(ctx context.Context) (string, error) {
-	id, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("toolstore: missing user id in context")
-	}
-	return id, nil
-}
 
 // ── Tool CRUD ─────────────────────────────────────────────────────────────────
 
@@ -67,7 +55,7 @@ func (s *Store) SaveTool(ctx context.Context, t *tooldomain.Tool) error {
 //
 // GetTool 按 id 查当前用户的单条活跃 Tool。
 func (s *Store) GetTool(ctx context.Context, id string) (*tooldomain.Tool, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +81,7 @@ func (s *Store) GetToolsByIDs(ctx context.Context, ids []string) ([]*tooldomain.
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +111,7 @@ func (s *Store) GetToolsByIDs(ctx context.Context, ids []string) ([]*tooldomain.
 //
 // ListTools 返回当前用户活跃工具的 cursor 分页结果，按 created_at DESC 排序。
 func (s *Store) ListTools(ctx context.Context, filter tooldomain.ListFilter) ([]*tooldomain.Tool, string, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -133,8 +121,8 @@ func (s *Store) ListTools(ctx context.Context, filter tooldomain.ListFilter) ([]
 	}
 	q := s.db.WithContext(ctx).Where("user_id = ?", userID)
 	if filter.Cursor != "" {
-		c, err := decodeCursor(filter.Cursor)
-		if err != nil {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
 			return nil, "", fmt.Errorf("toolstore.ListTools: %w", err)
 		}
 		q = q.Where("(created_at, id) < (?, ?)", c.CreatedAt, c.ID)
@@ -146,7 +134,7 @@ func (s *Store) ListTools(ctx context.Context, filter tooldomain.ListFilter) ([]
 	var next string
 	if len(rows) > limit {
 		last := rows[limit-1]
-		next, err = encodeCursor(pageCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
 		if err != nil {
 			return nil, "", fmt.Errorf("toolstore.ListTools: %w", err)
 		}
@@ -159,7 +147,7 @@ func (s *Store) ListTools(ctx context.Context, filter tooldomain.ListFilter) ([]
 //
 // ListAllTools 返回当前用户全部活跃工具，不分页。
 func (s *Store) ListAllTools(ctx context.Context) ([]*tooldomain.Tool, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +165,7 @@ func (s *Store) ListAllTools(ctx context.Context) ([]*tooldomain.Tool, error) {
 //
 // DeleteTool 软删除当前用户的指定工具。
 func (s *Store) DeleteTool(ctx context.Context, id string) error {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return err
 	}
@@ -205,7 +193,7 @@ func (s *Store) SaveVersion(ctx context.Context, v *tooldomain.ToolVersion) erro
 //
 // GetVersion 查询指定版本号的已接受版本记录。
 func (s *Store) GetVersion(ctx context.Context, toolID string, version int) (*tooldomain.ToolVersion, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +215,7 @@ func (s *Store) GetVersion(ctx context.Context, toolID string, version int) (*to
 //
 // GetActivePending 返回工具当前的 pending ToolVersion。
 func (s *Store) GetActivePending(ctx context.Context, toolID string) (*tooldomain.ToolVersion, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +237,7 @@ func (s *Store) GetActivePending(ctx context.Context, toolID string) (*tooldomai
 //
 // ListAcceptedVersions 返回工具所有已接受版本，最新在前。
 func (s *Store) ListAcceptedVersions(ctx context.Context, toolID string) ([]*tooldomain.ToolVersion, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +320,7 @@ func (s *Store) SaveTestCase(ctx context.Context, tc *tooldomain.ToolTestCase) e
 //
 // GetTestCase 按 id 查测试用例。
 func (s *Store) GetTestCase(ctx context.Context, id string) (*tooldomain.ToolTestCase, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +341,7 @@ func (s *Store) GetTestCase(ctx context.Context, id string) (*tooldomain.ToolTes
 //
 // ListTestCases 返回指定工具所有测试用例，按 created_at ASC 排序。
 func (s *Store) ListTestCases(ctx context.Context, toolID string) ([]*tooldomain.ToolTestCase, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +359,7 @@ func (s *Store) ListTestCases(ctx context.Context, toolID string) ([]*tooldomain
 //
 // DeleteTestCase 硬删除测试用例。
 func (s *Store) DeleteTestCase(ctx context.Context, id string) error {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return err
 	}
@@ -399,7 +387,7 @@ func (s *Store) SaveRunHistory(ctx context.Context, h *tooldomain.ToolRunHistory
 //
 // ListRunHistory 返回最近 limit 条运行历史，按 created_at DESC。
 func (s *Store) ListRunHistory(ctx context.Context, toolID string, limit int) ([]*tooldomain.ToolRunHistory, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +451,7 @@ func (s *Store) SaveTestHistory(ctx context.Context, h *tooldomain.ToolTestHisto
 //
 // ListTestHistory 返回工具最近 limit 条测试历史，按 created_at DESC。
 func (s *Store) ListTestHistory(ctx context.Context, toolID string, limit int) ([]*tooldomain.ToolTestHistory, error) {
-	userID, err := uid(ctx)
+	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -525,29 +513,3 @@ func (s *Store) DeleteOldestTestHistory(ctx context.Context, toolID string) erro
 	return nil
 }
 
-// ── Cursor helpers ────────────────────────────────────────────────────────────
-
-type pageCursor struct {
-	CreatedAt time.Time `json:"t"`
-	ID        string    `json:"i"`
-}
-
-func encodeCursor(c pageCursor) (string, error) {
-	b, err := json.Marshal(c)
-	if err != nil {
-		return "", fmt.Errorf("encodeCursor: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func decodeCursor(s string) (pageCursor, error) {
-	b, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return pageCursor{}, fmt.Errorf("decodeCursor: %w", err)
-	}
-	var c pageCursor
-	if err = json.Unmarshal(b, &c); err != nil {
-		return pageCursor{}, fmt.Errorf("decodeCursor: %w", err)
-	}
-	return c, nil
-}

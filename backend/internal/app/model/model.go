@@ -76,9 +76,9 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	if strings.TrimSpace(in.ModelID) == "" {
 		return nil, modeldomain.ErrModelIDRequired
 	}
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return nil, fmt.Errorf("model.Service.Upsert: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("model.Service.Upsert: %w", err)
 	}
 	m, err := s.repo.GetByScenario(ctx, scenario)
 	if err != nil && !errors.Is(err, modeldomain.ErrNotConfigured) {

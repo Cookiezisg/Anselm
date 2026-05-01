@@ -29,7 +29,7 @@ import (
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
 
 // fakeTester returns pre-canned TestResult / error.
@@ -73,7 +73,7 @@ func newTestServer(t *testing.T, tester apikeyapp.ConnectivityTester) *httptest.
 
 	// Wrap with InjectUserID so reqctx.GetUserID returns DefaultLocalUserID.
 	// 用 InjectUserID 包裹，让 reqctx.GetUserID 返回 DefaultLocalUserID。
-	return httptest.NewServer(middleware.InjectUserID(mux))
+	return httptest.NewServer(middlewarehttpapi.InjectUserID(mux))
 }
 
 // do is a small helper: serialize body, fire request, decode envelope.

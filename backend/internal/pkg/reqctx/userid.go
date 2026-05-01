@@ -5,7 +5,18 @@
 // 让任何层都能读取而不制造反向依赖。
 package reqctx
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrMissingUserID is returned by RequireUserID when no user ID is present
+// in ctx (auth middleware didn't run). Treat as a server-side wiring bug
+// (HTTP 500), not as auth failure (401).
+//
+// ErrMissingUserID 由 RequireUserID 在 ctx 中无 user ID 时返回（auth 中间件未跑）。
+// 视为服务端接线 bug（HTTP 500），而非鉴权失败（401）。
+var ErrMissingUserID = errors.New("reqctx: missing user id in context")
 
 // DefaultLocalUserID is the hardcoded user ID used by Phase 2 single-user mode.
 // Will be replaced by real auth extraction later.
@@ -31,4 +42,19 @@ func SetUserID(ctx context.Context, id string) context.Context {
 func GetUserID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(userIDKey{}).(string)
 	return id, ok && id != ""
+}
+
+// RequireUserID is the (string, error) variant of GetUserID for callers
+// that want to bubble up ErrMissingUserID rather than handle a bool.
+// All store/app methods scoped to a user should use this.
+//
+// RequireUserID 是 GetUserID 的 (string, error) 版本，供希望直接上抛
+// ErrMissingUserID 而不处理 bool 的调用者使用。
+// 所有按用户过滤的 store / app 方法都应该用它。
+func RequireUserID(ctx context.Context) (string, error) {
+	id, ok := GetUserID(ctx)
+	if !ok {
+		return "", ErrMissingUserID
+	}
+	return id, nil
 }

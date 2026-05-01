@@ -7,15 +7,13 @@ package conversation
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"gorm.io/gorm"
 
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -33,14 +31,6 @@ func New(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
-func userID(ctx context.Context) (string, error) {
-	id, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("convstore: missing user id in context")
-	}
-	return id, nil
-}
-
 // Save inserts or updates by primary key.
 //
 // Save 按主键插入或更新。
@@ -55,7 +45,7 @@ func (s *Store) Save(ctx context.Context, c *convdomain.Conversation) error {
 //
 // Get 按 id 查单条，按当前用户过滤。
 func (s *Store) Get(ctx context.Context, id string) (*convdomain.Conversation, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +67,7 @@ func (s *Store) Get(ctx context.Context, id string) (*convdomain.Conversation, e
 //
 // List 返回一页对话，最新优先，使用 (created_at, id) 元组 cursor 稳定分页。
 func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*convdomain.Conversation, string, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -87,8 +77,8 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 	}
 	q := s.db.WithContext(ctx).Where("user_id = ?", uid)
 	if filter.Cursor != "" {
-		c, err := decodeCursor(filter.Cursor)
-		if err != nil {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
 			return nil, "", fmt.Errorf("convstore.List: %w", err)
 		}
 		q = q.Where("(created_at, id) < (?, ?)", c.CreatedAt, c.ID)
@@ -102,7 +92,7 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 	var next string
 	if len(rows) > limit {
 		last := rows[limit-1]
-		next, err = encodeCursor(pageCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
 		if err != nil {
 			return nil, "", fmt.Errorf("convstore.List: %w", err)
 		}
@@ -115,7 +105,7 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 //
 // Delete 按 id 软删除，按当前用户过滤。
 func (s *Store) Delete(ctx context.Context, id string) error {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return err
 	}
@@ -131,27 +121,3 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-type pageCursor struct {
-	CreatedAt time.Time `json:"c"`
-	ID        string    `json:"i"`
-}
-
-func encodeCursor(c pageCursor) (string, error) {
-	raw, err := json.Marshal(c)
-	if err != nil {
-		return "", fmt.Errorf("encode cursor: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
-}
-
-func decodeCursor(s string) (pageCursor, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	var c pageCursor
-	if err := json.Unmarshal(raw, &c); err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	return c, nil
-}

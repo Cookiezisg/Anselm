@@ -138,9 +138,9 @@ func (s *Service) UploadAttachment(ctx context.Context, fileBytes []byte, mimeTy
 	if int64(len(fileBytes)) > chatdomain.MaxAttachmentBytes {
 		return nil, chatdomain.ErrAttachmentTooLarge
 	}
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return nil, fmt.Errorf("chat.Service.UploadAttachment: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("chat.Service.UploadAttachment: %w", err)
 	}
 
 	id := newAttachmentID()
@@ -184,9 +184,9 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err != nil {
 		return "", err
 	}
-	uid, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("chat.Service.Send: missing user id in context")
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return "", fmt.Errorf("chat.Service.Send: %w", err)
 	}
 
 	blocks, err := s.buildUserBlocks(ctx, in)

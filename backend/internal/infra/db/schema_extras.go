@@ -38,15 +38,6 @@ type extraGroup struct {
 // 旧索引基于已删除的 messages.content 列。后续将基于 message_blocks.data 重建。
 var schemaExtraGroups = []extraGroup{
 	{
-		// message_blocks — composite index for ordered block retrieval per message.
-		// message_blocks — 按消息有序取 block 的复合索引。
-		table: "message_blocks",
-		stmts: []string{
-			`CREATE INDEX IF NOT EXISTS idx_mb_msg_seq
-				ON message_blocks(message_id, seq)`,
-		},
-	},
-	{
 		// tools — partial UNIQUE index so that soft-deleted tools do not
 		// block re-creation of a tool with the same name.
 		// A regular GORM uniqueIndex would include deleted rows.
@@ -70,12 +61,7 @@ var schemaExtraGroups = []extraGroup{
 // 所需表缺失的组静默跳过，待下次含该表的 Migrate 调用时补上。
 func applySchemaExtras(db *gorm.DB) error {
 	for _, g := range schemaExtraGroups {
-		var n int64
-		db.Raw(
-			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
-			g.table,
-		).Scan(&n)
-		if n == 0 {
+		if !db.Migrator().HasTable(g.table) {
 			continue
 		}
 		if err := db.Transaction(func(tx *gorm.DB) error {

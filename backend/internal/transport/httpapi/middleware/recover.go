@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // Recover catches handler panics and returns a 500 INTERNAL_ERROR
@@ -39,7 +39,7 @@ func Recover(log *zap.Logger) func(http.Handler) http.Handler {
 				)
 				// Best-effort 500. If headers already flushed, write fails silently.
 				// 尽力写 500。若 header 已刷出，此写入静默失败。
-				response.Error(w, http.StatusInternalServerError,
+				responsehttpapi.Error(w, http.StatusInternalServerError,
 					"INTERNAL_ERROR", "internal server error", nil)
 			}()
 			next.ServeHTTP(w, r)

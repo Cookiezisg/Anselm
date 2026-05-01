@@ -81,8 +81,8 @@ const (
 // 所有内容都在 Block 中——Message 行只存元数据。
 type Block struct {
 	ID        string    `gorm:"primaryKey;type:text" json:"id"`
-	MessageID string    `gorm:"not null;index;type:text" json:"-"`
-	Seq       int       `gorm:"not null" json:"seq"`
+	MessageID string    `gorm:"not null;index:idx_mb_msg_seq,priority:1;type:text" json:"-"`
+	Seq       int       `gorm:"not null;index:idx_mb_msg_seq,priority:2" json:"seq"`
 	Type      string    `gorm:"not null;type:text" json:"type"`
 	Data      string    `gorm:"not null;type:text" json:"data"` // JSON, structure varies by Type
 	CreatedAt time.Time `json:"createdAt"`

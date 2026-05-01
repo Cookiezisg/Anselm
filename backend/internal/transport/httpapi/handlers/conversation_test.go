@@ -15,7 +15,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
 
 func newConvTestServer(t *testing.T) *httptest.Server {
@@ -33,7 +33,7 @@ func newConvTestServer(t *testing.T) *httptest.Server {
 	h := NewConversationHandler(svc, log)
 	mux := http.NewServeMux()
 	h.Register(mux)
-	return httptest.NewServer(middleware.InjectUserID(mux))
+	return httptest.NewServer(middlewarehttpapi.InjectUserID(mux))
 }
 
 func TestConvHandler_Create_Success(t *testing.T) {

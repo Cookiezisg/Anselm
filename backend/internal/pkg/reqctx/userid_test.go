@@ -56,7 +56,8 @@ func TestGetUserID_PrivateKeyIsolation(t *testing.T) {
 	//
 	// 外部代码可能用 string key "userID" 注入 userID。我们的私有空结构体
 	// key **不得**与之冲突。
-	ctx := context.WithValue(context.Background(), "userID", "attacker") //nolint:staticcheck // intentional bad key type
+	//lint:ignore SA1029 intentional: simulating external code that uses a raw string key
+	ctx := context.WithValue(context.Background(), "userID", "attacker")
 	id, ok := GetUserID(ctx)
 	if ok {
 		t.Errorf("string-keyed value leaked into private key: got id=%q", id)

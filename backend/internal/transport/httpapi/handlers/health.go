@@ -11,7 +11,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // HealthHandler serves /api/v1/health. Used by Electron after spawning
@@ -39,5 +39,5 @@ func (h *HealthHandler) Register(mux *http.ServeMux) {
 //
 // Get 返回 {"data": {"status": "ok"}}。
 func (h *HealthHandler) Get(w http.ResponseWriter, _ *http.Request) {
-	response.Success(w, http.StatusOK, map[string]string{"status": "ok"})
+	responsehttpapi.Success(w, http.StatusOK, map[string]string{"status": "ok"})
 }

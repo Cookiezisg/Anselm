@@ -99,6 +99,9 @@ func (h *DevHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Late write error means client disconnected mid-response; nothing
+	// useful to do (status already sent). Intentionally ignored.
+	// 写出错通常是客户端中途断开，状态码已发出无可挽回，故意忽略。
 	_, _ = w.Write(data)
 }
 

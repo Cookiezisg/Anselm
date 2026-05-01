@@ -272,10 +272,8 @@ func toOpenAITools(defs []ToolDef) []oaiTool {
 	out := make([]oaiTool, len(defs))
 	for i, d := range defs {
 		out[i] = oaiTool{
-			Type: "function",
-			Function: oaiFuncDef{
-				Name: d.Name, Description: d.Description, Parameters: d.Parameters,
-			},
+			Type:     "function",
+			Function: oaiFuncDef(d), // ToolDef and oaiFuncDef have identical fields; tags ignored by conversion
 		}
 	}
 	return out

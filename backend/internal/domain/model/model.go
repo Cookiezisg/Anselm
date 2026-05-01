@@ -78,8 +78,11 @@ func IsValidScenario(s string) bool {
 }
 
 // ListScenarios returns all currently recognised scenario names.
+// Production code does not call this — it exists for the contract test
+// that asserts ListScenarios() and IsValidScenario() stay in sync.
 //
 // ListScenarios 返回当前所有已知 scenario 名称。
+// 生产代码不调用本函数——它存在仅为支撑"ListScenarios 与 IsValidScenario 列表一致"契约测试。
 func ListScenarios() []string {
 	return []string{ScenarioChat}
 }

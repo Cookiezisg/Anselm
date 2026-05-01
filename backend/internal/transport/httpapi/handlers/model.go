@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // ModelConfigHandler serves the 2 /api/v1/model-configs/* endpoints.
@@ -48,10 +48,10 @@ type upsertModelRequest struct {
 func (h *ModelConfigHandler) List(w http.ResponseWriter, r *http.Request) {
 	items, err := h.svc.List(r.Context())
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, items)
+	responsehttpapi.Success(w, http.StatusOK, items)
 }
 
 // Upsert: PUT /api/v1/model-configs/{scenario} → 200 with the created/updated config.
@@ -61,7 +61,7 @@ func (h *ModelConfigHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	scenario := r.PathValue("scenario")
 	var req upsertModelRequest
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	m, err := h.svc.Upsert(r.Context(), scenario, modelapp.UpsertInput{
@@ -69,8 +69,8 @@ func (h *ModelConfigHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 		ModelID:  req.ModelID,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, m)
+	responsehttpapi.Success(w, http.StatusOK, m)
 }

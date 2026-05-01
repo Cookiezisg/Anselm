@@ -3,8 +3,8 @@ package router
 import (
 	"net/http"
 
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+	handlershttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
 
 // New builds the complete HTTP handler: routes + middleware chain +
@@ -30,29 +30,29 @@ func New(deps Deps) http.Handler {
 
 	// Each handler registers its own routes.
 	// 每个 handler 注册自己的路由。
-	handlers.NewHealthHandler().Register(mux)
+	handlershttpapi.NewHealthHandler().Register(mux)
 	if deps.APIKeyService != nil {
-		handlers.NewAPIKeyHandler(deps.APIKeyService, deps.Log).Register(mux)
+		handlershttpapi.NewAPIKeyHandler(deps.APIKeyService, deps.Log).Register(mux)
 	}
 	if deps.ModelService != nil {
-		handlers.NewModelConfigHandler(deps.ModelService, deps.Log).Register(mux)
+		handlershttpapi.NewModelConfigHandler(deps.ModelService, deps.Log).Register(mux)
 	}
 	if deps.ConversationService != nil {
-		handlers.NewConversationHandler(deps.ConversationService, deps.Log).Register(mux)
+		handlershttpapi.NewConversationHandler(deps.ConversationService, deps.Log).Register(mux)
 	}
 	if deps.ToolService != nil {
-		handlers.NewToolHandler(deps.ToolService, deps.Log).Register(mux)
+		handlershttpapi.NewToolHandler(deps.ToolService, deps.Log).Register(mux)
 	}
 	if deps.ChatService != nil && deps.EventsBridge != nil {
-		handlers.NewChatHandler(deps.ChatService, deps.EventsBridge, deps.Log).Register(mux)
+		handlershttpapi.NewChatHandler(deps.ChatService, deps.EventsBridge, deps.Log).Register(mux)
 	}
 	if deps.Dev {
-		handlers.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.Port, deps.Tools, deps.Log).Register(mux)
+		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.Port, deps.Tools, deps.Log).Register(mux)
 	}
 
 	// 404 fallback — must be last so specific routes take precedence.
 	// 404 兜底——必须最后，让具体路由优先。
-	mux.HandleFunc("/", middleware.NotFound)
+	mux.HandleFunc("/", middlewarehttpapi.NotFound)
 
 	return applyChain(mux, deps)
 }
@@ -63,10 +63,10 @@ func New(deps Deps) http.Handler {
 // applyChain 用完整中间件链包裹 h。从内向外：最外层中间件（Recover）
 // 最后应用，因而在每次请求中最先运行。
 func applyChain(h http.Handler, deps Deps) http.Handler {
-	h = middleware.InjectUserID(h) // innermost / 最内层
-	h = middleware.InjectLocale(h)
-	h = middleware.CORS(middleware.DefaultCORSConfig())(h)
-	h = middleware.RequestLogger(deps.Log)(h)
-	h = middleware.Recover(deps.Log)(h) // outermost / 最外层
+	h = middlewarehttpapi.InjectUserID(h) // innermost / 最内层
+	h = middlewarehttpapi.InjectLocale(h)
+	h = middlewarehttpapi.CORS(middlewarehttpapi.DefaultCORSConfig())(h)
+	h = middlewarehttpapi.RequestLogger(deps.Log)(h)
+	h = middlewarehttpapi.Recover(deps.Log)(h) // outermost / 最外层
 	return h
 }

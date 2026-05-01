@@ -14,8 +14,8 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/pagination"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // ToolHandler serves the 22 /api/v1/tools/* endpoints.
@@ -80,7 +80,7 @@ func (h *ToolHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Tags        []string `json:"tags"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	t, err := h.svc.Create(r.Context(), toolapp.CreateInput{
@@ -88,33 +88,33 @@ func (h *ToolHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Code: req.Code, Tags: req.Tags,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, t)
+	responsehttpapi.Created(w, t)
 }
 
 func (h *ToolHandler) List(w http.ResponseWriter, r *http.Request) {
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	items, next, err := h.svc.List(r.Context(), tooldomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Paged(w, items, next, next != "")
+	responsehttpapi.Paged(w, items, next, next != "")
 }
 
 func (h *ToolHandler) Get(w http.ResponseWriter, r *http.Request) {
 	t, err := h.svc.Get(r.Context(), r.PathValue("id"))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, t)
+	responsehttpapi.Success(w, http.StatusOK, t)
 }
 
 func (h *ToolHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -125,25 +125,25 @@ func (h *ToolHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Code        *string   `json:"code"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	t, err := h.svc.Update(r.Context(), r.PathValue("id"), toolapp.UpdateInput{
 		Name: req.Name, Description: req.Description, Tags: req.Tags, Code: req.Code,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, t)
+	responsehttpapi.Success(w, http.StatusOK, t)
 }
 
 func (h *ToolHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Delete(r.Context(), r.PathValue("id")); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }
 
 // ── Import / Export ───────────────────────────────────────────────────────────
@@ -151,15 +151,15 @@ func (h *ToolHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *ToolHandler) Import(w http.ResponseWriter, r *http.Request) {
 	var data json.RawMessage
 	if err := decodeJSON(r, &data); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	t, err := h.svc.Import(r.Context(), []byte(data))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, t)
+	responsehttpapi.Created(w, t)
 }
 
 // ── Resource action dispatcher ────────────────────────────────────────────────
@@ -171,7 +171,7 @@ func (h *ToolHandler) postOnTool(w http.ResponseWriter, r *http.Request) {
 	idAction := r.PathValue("idAction")
 	id, action, ok := strings.Cut(idAction, ":")
 	if !ok {
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
 		return
 	}
 	switch action {
@@ -186,7 +186,7 @@ func (h *ToolHandler) postOnTool(w http.ResponseWriter, r *http.Request) {
 	case "generate-test-cases":
 		h.GenerateTestCases(w, r, id)
 	default:
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
 	}
 }
 
@@ -195,25 +195,28 @@ func (h *ToolHandler) Run(w http.ResponseWriter, r *http.Request, id string) {
 		Input map[string]any `json:"input"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	result, err := h.svc.RunTool(r.Context(), id, req.Input)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, result)
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 func (h *ToolHandler) Export(w http.ResponseWriter, r *http.Request, id string) {
 	data, err := h.svc.Export(r.Context(), id)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	// Late write error means client disconnected mid-response; status
+	// already sent, intentionally ignored.
+	// 写出错通常是客户端中途断开，状态码已发出无可挽回，故意忽略。
 	_, _ = w.Write(data)
 }
 
@@ -222,21 +225,21 @@ func (h *ToolHandler) Revert(w http.ResponseWriter, r *http.Request, id string) 
 		Version int `json:"version"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	t, err := h.svc.RevertToVersion(r.Context(), id, req.Version)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, t)
+	responsehttpapi.Success(w, http.StatusOK, t)
 }
 
 func (h *ToolHandler) RunAllTests(w http.ResponseWriter, r *http.Request, id string) {
 	results, err := h.svc.RunAllTests(r.Context(), id)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	total, passed := len(results), 0
@@ -245,7 +248,7 @@ func (h *ToolHandler) RunAllTests(w http.ResponseWriter, r *http.Request, id str
 			passed++
 		}
 	}
-	response.Success(w, http.StatusOK, map[string]any{
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
 		"total": total, "passed": passed, "failed": total - passed, "results": results,
 	})
 }
@@ -282,24 +285,24 @@ func (h *ToolHandler) GenerateTestCases(w http.ResponseWriter, r *http.Request, 
 func (h *ToolHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
 	versions, err := h.svc.ListVersions(r.Context(), r.PathValue("id"))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, versions)
+	responsehttpapi.Success(w, http.StatusOK, versions)
 }
 
 func (h *ToolHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
 	v, err := strconv.Atoi(r.PathValue("version"))
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "version must be an integer", nil)
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "version must be an integer", nil)
 		return
 	}
 	version, err := h.svc.GetVersion(r.Context(), r.PathValue("id"), v)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, version)
+	responsehttpapi.Success(w, http.StatusOK, version)
 }
 
 // ── Pending ───────────────────────────────────────────────────────────────────
@@ -307,27 +310,27 @@ func (h *ToolHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
 func (h *ToolHandler) GetPending(w http.ResponseWriter, r *http.Request) {
 	pending, err := h.svc.GetActivePending(r.Context(), r.PathValue("id"))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, pending)
+	responsehttpapi.Success(w, http.StatusOK, pending)
 }
 
 func (h *ToolHandler) AcceptPending(w http.ResponseWriter, r *http.Request) {
 	t, err := h.svc.AcceptPending(r.Context(), r.PathValue("id"))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, t)
+	responsehttpapi.Success(w, http.StatusOK, t)
 }
 
 func (h *ToolHandler) RejectPending(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.RejectPending(r.Context(), r.PathValue("id")); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }
 
 // ── Test cases ────────────────────────────────────────────────────────────────
@@ -335,10 +338,10 @@ func (h *ToolHandler) RejectPending(w http.ResponseWriter, r *http.Request) {
 func (h *ToolHandler) ListTestCases(w http.ResponseWriter, r *http.Request) {
 	cases, err := h.svc.ListTestCases(r.Context(), r.PathValue("id"))
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, cases)
+	responsehttpapi.Success(w, http.StatusOK, cases)
 }
 
 func (h *ToolHandler) CreateTestCase(w http.ResponseWriter, r *http.Request) {
@@ -348,25 +351,25 @@ func (h *ToolHandler) CreateTestCase(w http.ResponseWriter, r *http.Request) {
 		ExpectedOutput string `json:"expectedOutput"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	tc, err := h.svc.CreateTestCase(r.Context(), r.PathValue("id"), toolapp.TestCaseInput{
 		Name: req.Name, InputData: req.InputData, ExpectedOutput: req.ExpectedOutput,
 	})
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Created(w, tc)
+	responsehttpapi.Created(w, tc)
 }
 
 func (h *ToolHandler) DeleteTestCase(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.DeleteTestCase(r.Context(), r.PathValue("tcId")); err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.NoContent(w)
+	responsehttpapi.NoContent(w)
 }
 
 // postOnTestCase dispatches POST /api/v1/tools/{id}/test-cases/{tcIdAction}.
@@ -376,37 +379,37 @@ func (h *ToolHandler) postOnTestCase(w http.ResponseWriter, r *http.Request) {
 	tcIdAction := r.PathValue("tcIdAction")
 	tcID, action, ok := strings.Cut(tcIdAction, ":")
 	if !ok || action != "run" {
-		response.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
 		return
 	}
 	result, err := h.svc.RunTestCase(r.Context(), tcID, "")
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, result)
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 // ── History ───────────────────────────────────────────────────────────────────
 
 func (h *ToolHandler) ListRunHistory(w http.ResponseWriter, r *http.Request) {
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	items, err := h.svc.ListRunHistoryForTool(r.Context(), r.PathValue("id"), p.Limit)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, items)
+	responsehttpapi.Success(w, http.StatusOK, items)
 }
 
 func (h *ToolHandler) ListTestHistory(w http.ResponseWriter, r *http.Request) {
-	p, err := pagination.Parse(r)
+	p, err := paginationpkg.Parse(r)
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	batchID := r.URL.Query().Get("batchId")
@@ -417,8 +420,8 @@ func (h *ToolHandler) ListTestHistory(w http.ResponseWriter, r *http.Request) {
 		items, err = h.svc.ListTestHistoryForTool(r.Context(), r.PathValue("id"), p.Limit)
 	}
 	if err != nil {
-		response.FromDomainError(w, h.log, err)
+		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	response.Success(w, http.StatusOK, items)
+	responsehttpapi.Success(w, http.StatusOK, items)
 }

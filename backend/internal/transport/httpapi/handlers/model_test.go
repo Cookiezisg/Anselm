@@ -19,7 +19,7 @@ import (
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
-	"github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
 
 func newModelTestServer(t *testing.T) *httptest.Server {
@@ -38,7 +38,7 @@ func newModelTestServer(t *testing.T) *httptest.Server {
 
 	mux := http.NewServeMux()
 	h.Register(mux)
-	return httptest.NewServer(middleware.InjectUserID(mux))
+	return httptest.NewServer(middlewarehttpapi.InjectUserID(mux))
 }
 
 // ---- GET /api/v1/model-configs ----

@@ -8,8 +8,6 @@ package chat
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -18,6 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -33,14 +32,6 @@ type Store struct {
 // New 基于给定 *gorm.DB 构造 Store。
 func New(db *gorm.DB) *Store {
 	return &Store{db: db}
-}
-
-func userID(ctx context.Context) (string, error) {
-	id, ok := reqctxpkg.GetUserID(ctx)
-	if !ok {
-		return "", fmt.Errorf("chatstore: missing user id in context")
-	}
-	return id, nil
 }
 
 // Save inserts or updates a Message and replaces its Blocks atomically.
@@ -92,7 +83,7 @@ func (s *Store) Save(ctx context.Context, m *chatdomain.Message) error {
 //
 // Get 按 id 查单条 Message，按当前用户过滤。未命中活跃记录返回 ErrMessageNotFound。
 func (s *Store) Get(ctx context.Context, id string) (*chatdomain.Message, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +107,7 @@ func (s *Store) Get(ctx context.Context, id string) (*chatdomain.Message, error)
 // ListByConversation 返回带 Blocks 的 cursor 分页消息，按 created_at ASC 排序。
 // 使用 (created_at, id) 元组 cursor 保证分页稳定。
 func (s *Store) ListByConversation(ctx context.Context, conversationID string, filter chatdomain.ListFilter) ([]*chatdomain.Message, string, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -125,8 +116,8 @@ func (s *Store) ListByConversation(ctx context.Context, conversationID string, f
 	q := s.db.WithContext(ctx).
 		Where("conversation_id = ? AND user_id = ?", conversationID, uid)
 	if filter.Cursor != "" {
-		c, err := decodeCursor(filter.Cursor)
-		if err != nil {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
 			return nil, "", fmt.Errorf("chatstore.ListByConversation: %w", err)
 		}
 		q = q.Where("(created_at, id) > (?, ?)", c.CreatedAt, c.ID)
@@ -142,7 +133,7 @@ func (s *Store) ListByConversation(ctx context.Context, conversationID string, f
 	var next string
 	if len(rows) > limit {
 		last := rows[limit-1]
-		next, err = encodeCursor(pageCursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
 		if err != nil {
 			return nil, "", fmt.Errorf("chatstore.ListByConversation cursor: %w", err)
 		}
@@ -200,7 +191,7 @@ func (s *Store) SaveAttachment(ctx context.Context, a *chatdomain.Attachment) er
 //
 // GetAttachment 按 id 查 Attachment，按当前用户过滤。
 func (s *Store) GetAttachment(ctx context.Context, id string) (*chatdomain.Attachment, error) {
-	uid, err := userID(ctx)
+	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -217,32 +208,6 @@ func (s *Store) GetAttachment(ctx context.Context, id string) (*chatdomain.Attac
 	return &a, nil
 }
 
-// ── Cursor pagination ─────────────────────────────────────────────────────────
-
-type pageCursor struct {
-	CreatedAt time.Time `json:"c"`
-	ID        string    `json:"i"`
-}
-
-func encodeCursor(c pageCursor) (string, error) {
-	raw, err := json.Marshal(c)
-	if err != nil {
-		return "", fmt.Errorf("encode cursor: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
-}
-
-func decodeCursor(s string) (pageCursor, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(s)
-	if err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	var c pageCursor
-	if err := json.Unmarshal(raw, &c); err != nil {
-		return pageCursor{}, fmt.Errorf("decode cursor: %w", err)
-	}
-	return c, nil
-}
 
 // Compile-time check that *Store satisfies chatdomain.Repository.
 // 编译期确认 *Store 满足 chatdomain.Repository。

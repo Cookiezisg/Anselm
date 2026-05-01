@@ -38,7 +38,8 @@ func TestGetLocale_UnsupportedFallsBackToDefault(t *testing.T) {
 func TestGetLocale_PrivateKeyIsolation(t *testing.T) {
 	// Private empty-struct key must not collide with external string keys.
 	// 私有空结构体 key 不得与外部 string key 冲突。
-	ctx := context.WithValue(context.Background(), "locale", "en") //nolint:staticcheck // intentional bad key type
+	//lint:ignore SA1029 intentional: simulating external code that uses a raw string key
+	ctx := context.WithValue(context.Background(), "locale", "en")
 	if got := GetLocale(ctx); got != DefaultLocale {
 		t.Errorf("string-keyed value leaked: got %q, want default %q", got, DefaultLocale)
 	}
