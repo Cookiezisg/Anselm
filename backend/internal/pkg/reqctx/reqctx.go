@@ -1,8 +1,32 @@
-// Package reqctx carries per-request metadata (user identity, locale)
-// through ctx so any layer can read it without reverse dependencies.
+// Package reqctx carries identity and lifecycle metadata through ctx so any
+// layer can read it without reverse dependencies. Three concept families:
 //
-// Package reqctx 通过 ctx 传递每次请求的元数据（用户身份、locale），
-// 让任何层都能读取而不制造反向依赖。
+//   - User identity (this file): stamped by HTTP auth middleware at request
+//     boundary; missing = server-side wiring bug (500), not auth failure.
+//
+//   - Locale (locale.go): stamped by HTTP locale middleware; missing or
+//     unsupported = silent fallback to DefaultLocale.
+//
+//   - Agent-run IDs (agentrun.go): stamped by chat layer just before invoking
+//     a tool's Execute. Per-tool-call lifetime, not per-HTTP-request. Missing
+//     = silent (events get an empty filter key — degrades, doesn't fail).
+//
+// Convention: each Set/With function returns a copy of ctx; private
+// empty-struct ctx keys to avoid string-key collisions.
+//
+// Package reqctx 通过 ctx 传递身份和生命周期元数据，让任何层都能读取而不制造反向依赖。
+// 三类概念：
+//
+//   - 用户身份（本文件）：HTTP auth 中间件在请求边界注入；缺失 = 服务端接线 bug（500），
+//     不是鉴权失败。
+//
+//   - Locale（locale.go）：HTTP locale 中间件注入；缺失或不支持 = 静默降级到 DefaultLocale。
+//
+//   - Agent 运行 ID（agentrun.go）：chat 层在调用 tool.Execute 前注入。
+//     单次 tool 调用生命周期，不是单 HTTP 请求；缺失 = 静默（事件 filter key 为空，
+//     降级而非失败）。
+//
+// 约定：每个 Set/With 函数返回 ctx 拷贝；私有 empty-struct ctx key 避免与 string key 冲突。
 package reqctx
 
 import (

@@ -19,17 +19,17 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
@@ -40,7 +40,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
-	toolstore "github.com/sunweilin/forgify/backend/internal/infra/store/tool"
+	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
 
@@ -84,11 +84,11 @@ func main() {
 		&chatdomain.Message{},
 		&chatdomain.Block{}, // message_blocks table (chat infra refactor)
 		&chatdomain.Attachment{},
-		&tooldomain.Tool{},
-		&tooldomain.ToolVersion{},
-		&tooldomain.ToolTestCase{},
-		&tooldomain.ToolRunHistory{},
-		&tooldomain.ToolTestHistory{},
+		&forgedomain.Forge{},
+		&forgedomain.ForgeVersion{},
+		&forgedomain.ForgeTestCase{},
+		&forgedomain.ForgeRunHistory{},
+		&forgedomain.ForgeTestHistory{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -116,20 +116,20 @@ func main() {
 
 	llmFactory := llminfra.NewFactory()
 
-	// toolLLMClient satisfies toolapp.LLMClient for GenerateTestCases
+	// forgeLLMClient satisfies forgeapp.LLMClient for GenerateTestCases
 	// (non-streaming JSON calls only).
 	//
-	// toolLLMClient 满足 toolapp.LLMClient 接口，仅用于 GenerateTestCases
+	// forgeLLMClient 满足 forgeapp.LLMClient 接口，仅用于 GenerateTestCases
 	// 的非流式 JSON 调用。
-	toolLLM := &toolLLMClientAdapter{
+	forgeLLM := &forgeLLMClientAdapter{
 		picker:  modelService,
 		keys:    apikeyService,
 		factory: llmFactory,
 	}
-	toolService := toolapp.NewService(
-		toolstore.New(gdb),
+	forgeService := forgeapp.NewService(
+		forgestore.New(gdb),
 		sandboxinfra.New("python3"),
-		toolLLM,
+		forgeLLM,
 		log,
 	)
 
@@ -146,18 +146,15 @@ func main() {
 		log,
 	)
 
-	forgeTools := agentapp.ForgeTools(
-		toolService,
+	forgeTools := forgetool.ForgeTools(
+		forgeService,
 		chatRepo,
 		modelService,
 		apikeyService,
 		llmFactory,
 		eventsBridge,
 	)
-	webTools := agentapp.WebTools()
-	allTools := append(forgeTools, webTools...)
-	allTools = append(allTools, agentapp.SystemTools()...)
-	chatService.SetTools(allTools)
+	chatService.SetTools(forgeTools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
@@ -175,11 +172,11 @@ func main() {
 		APIKeyService:       apikeyService,
 		ModelService:        modelService,
 		ConversationService: convService,
-		ToolService:         toolService,
+		ForgeService:        forgeService,
 		ChatService:         chatService,
 		EventsBridge:        eventsBridge,
 		Dev:                 *dev,
-		Tools:               allTools,
+		Tools:               forgeTools,
 		DB:                  gdb,
 		LogBroadcaster:      broadcaster,
 		CollectionsDir:      *collectionsDir,
@@ -216,32 +213,32 @@ func main() {
 	}
 }
 
-// toolLLMClientAdapter satisfies toolapp.LLMClient using infra/llm.
+// forgeLLMClientAdapter satisfies forgeapp.LLMClient using infra/llm.
 // Used only for non-streaming calls (GenerateTestCases).
 //
-// toolLLMClientAdapter 用 infra/llm 满足 toolapp.LLMClient 接口，
+// forgeLLMClientAdapter 用 infra/llm 满足 forgeapp.LLMClient 接口，
 // 仅用于非流式调用（GenerateTestCases）。
-type toolLLMClientAdapter struct {
+type forgeLLMClientAdapter struct {
 	picker  modeldomain.ModelPicker
 	keys    apikeydomain.KeyProvider
 	factory *llminfra.Factory
 }
 
-func (c *toolLLMClientAdapter) Generate(ctx context.Context, prompt string) (string, error) {
+func (c *forgeLLMClientAdapter) Generate(ctx context.Context, prompt string) (string, error) {
 	provider, modelID, err := c.picker.PickForChat(ctx)
 	if err != nil {
-		return "", fmt.Errorf("toolLLMClient: pick model: %w", err)
+		return "", fmt.Errorf("forgeLLMClient: pick model: %w", err)
 	}
 	creds, err := c.keys.ResolveCredentials(ctx, provider)
 	if err != nil {
-		return "", fmt.Errorf("toolLLMClient: resolve credentials: %w", err)
+		return "", fmt.Errorf("forgeLLMClient: resolve credentials: %w", err)
 	}
 	client, baseURL, err := c.factory.Build(llminfra.Config{
 		Provider: provider, ModelID: modelID,
 		Key: creds.Key, BaseURL: creds.BaseURL,
 	})
 	if err != nil {
-		return "", fmt.Errorf("toolLLMClient: build client: %w", err)
+		return "", fmt.Errorf("forgeLLMClient: build client: %w", err)
 	}
 	return llminfra.Generate(ctx, client, llminfra.Request{
 		ModelID: modelID, Key: creds.Key, BaseURL: baseURL,

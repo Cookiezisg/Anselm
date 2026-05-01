@@ -104,9 +104,10 @@
 - **S12 包结构** — 见 §S12 详节
 - **S13 包命名** — 见 §S13 详节
 - **S14 📌 文档同步纪律** — 见 §S14 详节（**最高优先级**）
-- **S15 ID 生成统一**：业务 ID 一律 `<prefix>_<16hex>` 格式（前缀按 domain 取，如 `aki_` / `mc_` / `cv_` / `msg_` / `att_` / `blk_` / `t_` / `tv_` / `tc_` / `trh_` / `tth_`）；8 字节从 `crypto/rand` 取，**`rand.Read` 失败必须 panic**——熵源损坏继续会生成碰撞 ID。所有 `newID()` 函数遵守此格式
+- **S15 ID 生成统一**：业务 ID 一律 `<prefix>_<16hex>` 格式（前缀按 domain 取，如 `aki_` apikey / `mc_` model config / `cv_` conversation / `msg_` message / `att_` attachment / `blk_` block / `f_` forge / `fv_` forge version / `tc_` test case / `frh_` forge run history / `fth_` forge test history）；8 字节从 `crypto/rand` 取，**`rand.Read` 失败必须 panic**——熵源损坏继续会生成碰撞 ID。所有 `newID()` 函数遵守此格式
 - **S16 错误包装格式**：上抛错误用 `fmt.Errorf("<pkg>.<Method>: %w", err)`，sentinel 在最里层。例：`apikeystore.List: missing user id in context`。**禁止**裸 `errors.New` 套娃丢失原 sentinel；**禁止**自创新前缀代替 `%w` 包装。`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17 errmap 单一事实源**：每个会到达 handler 的 sentinel 必须登记到 `transport/httpapi/response/errmap.go::errTable`——**包括** `pkg/` 和 `infra/` 中跨层使用的（如 `reqctxpkg.ErrMissingUserID` / `cryptoinfra.ErrUnsupportedVersion`）。未登记的 sentinel 会触发"unmapped domain error" ERROR 日志，污染烟雾报警
+- **S18 Tool 接口规约** — 见 §S18 详节
 
 ## 测试（T 系列）
 
@@ -230,6 +231,21 @@ infra/store/apikey/apikey.go  ← 主文件（不叫 store.go）
 1. 有独立的**词汇体系**
 2. 至少 **10+ 个文件** 围绕这个子词汇
 
+### 例外：tool framework meta-namespace
+
+`internal/app/tool/` 是 tool 框架的 meta-namespace（不是业务 domain），允许按 tool 家族嵌套子包：
+
+```
+app/tool/
+├── tool.go          ← Tool 接口、ToolEvent、ctx helpers
+├── forge/           ← user-forged-tool 系统工具（search/get/create/edit/run）
+├── filesystem/      ← Read/Write/Edit/Glob/Grep/LS
+├── shell/           ← Bash
+└── web/             ← WebSearch/Fetch
+```
+
+理由：每个家族有独立词汇体系（forge ≠ filesystem ≠ shell），对外靠相同的 `Tool` 接口契约统一。仅本目录例外，其他 domain 仍遵守"平铺 + 拆文件不拆包"。
+
 ## 5. 共享纯工具
 
 跨 domain 用的纯函数（无业务、无 infra 依赖）放 `internal/pkg/<name>/`（如 `pkg/reqctx/`、`pkg/pagination/`）。
@@ -256,8 +272,10 @@ infra/store/apikey/apikey.go  ← 主文件（不叫 store.go）
 | `internal/infra/store/<name>/` | `store` | `apikeystore`, `chatstore`, `convstore` |
 | `internal/pkg/<name>/` | `pkg` | `reqctxpkg`, `paginationpkg` |
 | `internal/transport/httpapi/<name>/` | `httpapi` | `responsehttpapi`, `middlewarehttpapi`, `handlershttpapi`, `routerhttpapi` |
+| `internal/app/tool/<sub>/`（嵌套子包，§S12 例外位置）| `tool`（用 `<sub>tool` 形式）| `forgetool`, `fstool`, `shelltool`, `webtool` |
 
 > `<name>` 取包路径最后一段（允许约定缩写，如 `conversation` → `conv`）。
+> 嵌套子包别名 = `<子名><父名>`，与父级 `toolapp` 区分。例：`tool/forge/` → `forgetool`（系统 tool 那侧）vs `app/forge/` → `forgeapp`（user-forge service）一眼分辨。
 
 ## 2. 包内统一名
 
@@ -352,6 +370,134 @@ import (
 - 项目边做边讨论，规范随项目演化；文档是**持久保存演化结果** 的唯一地方
 - 代码告诉"是什么"，文档告诉"为什么 / 怎么连"——后者失真整个协作就失血
 - 单人项目，**对未来的自己诚实 = 给未来的自己减负**
+
+---
+
+# §S18 Tool 接口规约
+
+LLM 调用的 system tool 实现 `app/tool.Tool` 接口。**10 个方法全必填，无 BaseTool 嵌入**——每个 tool 的元数据全部显式声明，可 grep 可读。
+
+## 1. 接口结构
+
+```go
+type Tool interface {
+    // ── Identity（3 个）──
+    Name() string                              // LLM 看到的工具名（如 "search_forges"）
+    Description() string                       // 说明工具用途
+    Parameters() json.RawMessage               // 输入 JSON Schema（不含 summary / destructive）
+
+    // ── 静态元数据（3 个，固有属性）──
+    IsReadOnly() bool                          // 决定 runTools 并发分批默认
+    NeedsReadFirst() bool                      // 操作的文件是否必须 session 内 Read 过（Phase 5 Edit/Write）
+    RequiresWorkspace() bool                   // cwd 是否必须在 workspace 白名单（Phase 5）
+
+    // ── args-dependent 钩子（3 个）──
+    IsConcurrencySafe(args json.RawMessage) bool                                       // 默认 = IsReadOnly；Bash 这种 args 决定的覆盖
+    ValidateInput(args json.RawMessage) error                                          // 进 Execute 前校验
+    CheckPermissions(args json.RawMessage, mode PermissionMode) PermissionResult       // Allow / Deny / Ask
+
+    // ── 主入口（1 个）──
+    Execute(ctx context.Context, argsJSON string) (string, error)                      // argsJSON 已剥除 summary / destructive
+}
+```
+
+## 2. 标准注入字段
+
+框架在每个 tool 的 Parameters schema 自动注入两个 LLM-facing 字段：
+
+| 字段 | 类型 | 必填 | 用途 |
+|---|---|---|---|
+| `summary` | string | ✅ 必填 | LLM 一句话描述本次调用在干啥（"Searching forges for csv parsing"）|
+| `destructive` | bool | 可选默认 false | LLM 自报本次调用是否可能不可逆破坏；UI 据此显示警示徽章 |
+
+二者由 framework 在传给 `Execute` 前剥除（`StripStandardFields`），存进 `chatdomain.ToolCallData` 的一等字段（`Summary` / `Destructive`）。**tool 实现的 Parameters() 不得包含这两个字段名**——冲突时 framework panic。
+
+## 3. 推流约定
+
+Tool 实现要推 SSE 时：直接 `bridge.Publish(ctx, convID, eventsdomain.SomeEvent{...})`。从 `pkg/reqctx` 读 `convID` / `msgID` / `toolCallID`：
+
+```go
+import reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+
+func (t *MyTool) Execute(ctx context.Context, args string) (string, error) {
+    convID, _ := reqctxpkg.GetConversationID(ctx)
+    msgID, _ := reqctxpkg.GetMessageID(ctx)
+    toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+    t.bridge.Publish(ctx, convID, eventsdomain.SomeEvent{
+        ConversationID: convID, MessageID: msgID, ToolCallID: toolCallID, ...
+    })
+}
+```
+
+**不引入 emit 抽象**——心智统一优先，所有 SSE 推流走同一形态（详见 progress-record.md Phase 3 决策）。
+
+## 4. runTools 分批语义
+
+`chat/tools.go::runTools` 按 `IsConcurrencySafe(args)` 分批：
+
+- **相邻 safe 调用合并并行 batch**：例 `[Read, Read]` 一起跑
+- **non-safe 调用各自独立串行 batch**：例 `[Write]` 单跑
+- **safe → unsafe → safe** 的 unsafe 边界**强制起新 batch**：safe 不能跨边界合并
+
+例：`[A=safe, B=safe, C=unsafe, D=safe, E=unsafe]`
+→ `[B1: A,B 并行] [B2: C 串行] [B3: D 单跑] [B4: E 串行]`
+
+## 5. 进 Execute 前的钩子链
+
+每次 tool 调用顺序：
+
+1. `ValidateInput(args)` — 失败转失败 tool_result，不进后续
+2. `CheckPermissions(args, mode)` — Deny 转失败 tool_result；Ask 当前阶段当 Allow
+3. `Execute(ctx, args)` — 主体；返 error 转失败 tool_result（LLM 看到错误文本）
+
+## 6. 子包结构
+
+`tool/` 是 framework meta-namespace，**§S12 例外允许嵌套子包**（按 tool 家族）：
+
+```
+internal/app/tool/
+├── tool.go         ← Tool 接口、PermissionMode/Result、injectStandardFields/StripStandardFields/ToLLMDef
+├── forge/          ← user-forged-tool 系统工具（5 个）
+│   ├── forge.go    ← ForgeTools() 工厂 + buildClient + extractJSON / extractCode / streamCode / resolveAttachments
+│   ├── search.go   ← SearchForge
+│   ├── get.go      ← GetForge
+│   ├── create.go   ← CreateForge
+│   ├── edit.go     ← EditForge
+│   └── run.go      ← RunForge
+├── filesystem/     ← Read/Write/Edit/Glob/Grep/LS（Phase 5）
+├── shell/          ← Bash（Phase 5）
+└── web/            ← WebSearch/Fetch（Phase 5）
+```
+
+调用方按 §S13 嵌套子包别名规则导入：`forgetool` / `fstool` / `shelltool` / `webtool`。
+
+## 7. 例：Search 实现 10 方法（最简单 readOnly tool）
+
+```go
+type SearchForge struct{ ... }
+
+// Identity
+func (t *SearchForge) Name() string                  { return "search_forges" }
+func (t *SearchForge) Description() string           { return "Search the user's forge library..." }
+func (t *SearchForge) Parameters() json.RawMessage   { return json.RawMessage(`{...}`) }
+
+// Static metadata
+func (t *SearchForge) IsReadOnly() bool        { return true }
+func (t *SearchForge) NeedsReadFirst() bool    { return false }
+func (t *SearchForge) RequiresWorkspace() bool { return false }
+
+// Hooks
+func (t *SearchForge) IsConcurrencySafe(json.RawMessage) bool { return true }
+func (t *SearchForge) ValidateInput(json.RawMessage) error    { return nil }
+func (t *SearchForge) CheckPermissions(json.RawMessage, toolapp.PermissionMode) toolapp.PermissionResult {
+    return toolapp.PermissionAllow
+}
+
+// Main
+func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) { ... }
+```
+
+简单 tool 的 6 个 boilerplate 方法每个 1 行。复杂 tool（Bash）实现 args-dependent `IsConcurrencySafe` 才有内容。
 
 ---
 

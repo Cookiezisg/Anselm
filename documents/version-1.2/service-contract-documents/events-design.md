@@ -49,7 +49,7 @@
 | `chat.reasoning_token` | 推理模型 thinking 内容增量（`messageId` + `delta`），仅 DeepSeek-R1 等推理型模型产生 | `conversationId` | ✅ |
 | `chat.token` | 流式 token 增量（`messageId` + `delta`）| `conversationId` | ✅ |
 | `chat.tool_call_start` | LLM 流中首次出现 tool name 时立刻推（`messageId` + `toolCallId` + `toolName`），arguments 尚未完整 | `conversationId` | ✅ |
-| `chat.tool_call` | arguments 完整、执行前推（`messageId` + `toolCallId` + `toolName` + `toolInput` + `summary`）| `conversationId` | ✅ |
+| `chat.tool_call` | arguments 完整、执行前推（`messageId` + `toolCallId` + `toolName` + `toolInput` + `summary` + `destructive`）；`destructive=true` 让前端显示警示徽章 | `conversationId` | ✅ |
 | `chat.tool_result` | Tool 执行完成（`toolCallId` + `result` + `ok`）| `conversationId` | ✅ |
 | `chat.done` | 流式完成（`messageId` + `stopReason` + `inputTokens` + `outputTokens`）| `conversationId` | ✅ |
 | `chat.error` | 流式错误（`code` + `message`，code 匹配 SCREAMING_SNAKE_CASE）| `conversationId` | ✅ |
@@ -61,11 +61,10 @@
 
 | 事件名 | 用途 | 过滤 key | 状态 |
 |---|---|---|---|
-| `tool.code_streaming` | create_tool / edit_tool 代码生成逐 token（`messageId` + `toolCallId` + `toolId` + `actionType` + `delta`）| `conversationId` | ✅ Bridge |
-| `tool.created` | create_tool 成功保存新工具（`conversationId` + `messageId` + `toolCallId` + `toolId` + `toolName`）| `conversationId` | ✅ Bridge |
-| `tool.pending_created` | edit_tool 保存 pending 变更（`conversationId` + `messageId` + `toolCallId` + `toolId` + `pendingId` + `instruction`）| `conversationId` | ✅ Bridge |
-
-> **不走 Bridge 的特例**：`POST /api/v1/tools/{id}:generate-test-cases` 端点的 SSE 通过 `app/tool` 内部 `GenerateEvent` callback 直接写到 HTTP response writer，**不经 events Bridge**。wire 格式为 `data: {"Type":"test_case|done|not_supported", ...}`，前端按 `Type` 字段分派。这是该端点独有形态，不在本表覆盖范围内。
+| `forge.code_streaming` | create_forge / edit_forge 代码生成逐 token（`messageId` + `toolCallId` + `forgeId` + `actionType` + `delta`）；`forgeId` 在 create_forge 时为空 | `conversationId` | ✅ Bridge |
+| `forge.created` | create_forge 成功保存新工具（`messageId` + `toolCallId` + `forgeId` + `forgeName`）| `conversationId` | ✅ Bridge |
+| `forge.pending_created` | edit_forge 保存 pending 代码变更（`messageId` + `toolCallId` + `forgeId` + `pendingId` + `instruction`）| `conversationId` | ✅ Bridge |
+| `forge.metadata_updated` | edit_forge 仅元数据变更（`messageId` + `toolCallId` + `forgeId` + `pendingId`）；区别于 `forge.pending_created`：本事件意味着 LLM 没传 instruction、不会推 `forge.code_streaming` 流，前端可显示"仅改元数据"而非等代码刷出 | `conversationId` | ✅ Bridge |
 
 ---
 

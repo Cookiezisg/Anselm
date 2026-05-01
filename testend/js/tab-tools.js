@@ -109,7 +109,7 @@ document.addEventListener('alpine:init', () => {
 
     async loadUserTools() {
       try {
-        const r = await fetch('/api/v1/tools?limit=200')
+        const r = await fetch('/api/v1/forges?limit=200')
         if (r.ok) { const j = await r.json(); this.userTools = j.data || [] }
       } catch { /* server not up yet */ }
     },
@@ -155,7 +155,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const tags = this.createForm.tags
           ? this.createForm.tags.split(',').map(s => s.trim()).filter(Boolean) : []
-        const r = await fetch('/api/v1/tools', {
+        const r = await fetch('/api/v1/forges', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -188,7 +188,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const tags = this.editForm.tags
           ? this.editForm.tags.split(',').map(s => s.trim()).filter(Boolean) : []
-        const r = await fetch(`/api/v1/tools/${this.userSelected.id}`, {
+        const r = await fetch(`/api/v1/forges/${this.userSelected.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -212,14 +212,14 @@ document.addEventListener('alpine:init', () => {
     async deleteTool() {
       if (!this.userSelected || !confirm(`Delete "${this.userSelected.name}"?`)) return
       const id = this.userSelected.id
-      await fetch(`/api/v1/tools/${id}`, { method: 'DELETE' })
+      await fetch(`/api/v1/forges/${id}`, { method: 'DELETE' })
       this.userTools = this.userTools.filter(t => t.id !== id)
       this.userSelected = null
     },
 
     async exportTool() {
       if (!this.userSelected) return
-      const r = await fetch(`/api/v1/tools/${this.userSelected.id}:export`, { method: 'POST' })
+      const r = await fetch(`/api/v1/forges/${this.userSelected.id}:export`, { method: 'POST' })
       if (!r.ok) return
       const blob = await r.blob()
       const url = URL.createObjectURL(blob)
@@ -240,7 +240,7 @@ document.addEventListener('alpine:init', () => {
         let payload
         try { payload = JSON.parse(this.importJson) }
         catch { this.crudError = 'Invalid JSON'; this.crudLoading = false; return }
-        const r = await fetch('/api/v1/tools:import', {
+        const r = await fetch('/api/v1/forges:import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -262,7 +262,7 @@ document.addEventListener('alpine:init', () => {
       try {
         let input = {}
         try { input = JSON.parse(this.userInput) } catch { /* bad JSON */ }
-        const r = await fetch(`/api/v1/tools/${this.userSelected.id}:run`, {
+        const r = await fetch(`/api/v1/forges/${this.userSelected.id}:run`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ input }),
@@ -288,7 +288,7 @@ document.addEventListener('alpine:init', () => {
 
     async loadTestCases() {
       if (!this.userSelected) return
-      const r = await fetch(`/api/v1/tools/${this.userSelected.id}/test-cases`)
+      const r = await fetch(`/api/v1/forges/${this.userSelected.id}/test-cases`)
       if (r.ok) { const j = await r.json(); this.testCases = j.data || [] }
     },
 
@@ -313,7 +313,7 @@ document.addEventListener('alpine:init', () => {
       this.testRunning = { ...this.testRunning, [tcId]: true }
       try {
         const r = await fetch(
-          `/api/v1/tools/${this.userSelected.id}/test-cases/${tcId}:run`,
+          `/api/v1/forges/${this.userSelected.id}/test-cases/${tcId}:run`,
           { method: 'POST' }
         )
         const j = await r.json()
@@ -328,7 +328,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userSelected || this.testAllLoading) return
       this.testAllLoading = true; this.testAllSummary = null
       try {
-        const r = await fetch(`/api/v1/tools/${this.userSelected.id}:test`, { method: 'POST' })
+        const r = await fetch(`/api/v1/forges/${this.userSelected.id}:test`, { method: 'POST' })
         const j = await r.json()
         const data = j.data ?? j
         this.testAllSummary = { total: data.total, passed: data.passed, failed: data.failed }
@@ -343,7 +343,7 @@ document.addEventListener('alpine:init', () => {
       this.generating = true; this.generateLog = []
       try {
         const r = await fetch(
-          `/api/v1/tools/${this.userSelected.id}:generate-test-cases?count=5`,
+          `/api/v1/forges/${this.userSelected.id}:generate-test-cases?count=5`,
           { method: 'POST' }
         )
         if (!r.ok) { this.generating = false; return }
@@ -389,7 +389,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userSelected || this.addCaseLoading) return
       this.addCaseLoading = true
       try {
-        const r = await fetch(`/api/v1/tools/${this.userSelected.id}/test-cases`, {
+        const r = await fetch(`/api/v1/forges/${this.userSelected.id}/test-cases`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -409,7 +409,7 @@ document.addEventListener('alpine:init', () => {
 
     async deleteTestCase(tcId) {
       if (!this.userSelected) return
-      await fetch(`/api/v1/tools/${this.userSelected.id}/test-cases/${tcId}`, { method: 'DELETE' })
+      await fetch(`/api/v1/forges/${this.userSelected.id}/test-cases/${tcId}`, { method: 'DELETE' })
       this.testCases = this.testCases.filter(tc => tc.id !== tcId)
       const results = { ...this.testResults }; delete results[tcId]
       this.testResults = results
@@ -429,8 +429,8 @@ document.addEventListener('alpine:init', () => {
       this.versionsLoading = true
       try {
         const [vr, pr] = await Promise.all([
-          fetch(`/api/v1/tools/${this.userSelected.id}/versions`),
-          fetch(`/api/v1/tools/${this.userSelected.id}/pending`),
+          fetch(`/api/v1/forges/${this.userSelected.id}/versions`),
+          fetch(`/api/v1/forges/${this.userSelected.id}/pending`),
         ])
         if (vr.ok) { const j = await vr.json(); this.versions = j.data || [] }
         this.pending = pr.ok ? ((await pr.json()).data ?? null) : null
@@ -439,7 +439,7 @@ document.addEventListener('alpine:init', () => {
 
     async revertToVersion(version) {
       if (!this.userSelected || !confirm(`Revert to v${version}?`)) return
-      const r = await fetch(`/api/v1/tools/${this.userSelected.id}:revert`, {
+      const r = await fetch(`/api/v1/forges/${this.userSelected.id}:revert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version }),
@@ -457,7 +457,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userSelected || !this.pending) return
       this.pendingLoading = true
       try {
-        const r = await fetch(`/api/v1/tools/${this.userSelected.id}/pending:accept`, { method: 'POST' })
+        const r = await fetch(`/api/v1/forges/${this.userSelected.id}/pending:accept`, { method: 'POST' })
         if (r.ok) {
           const j = await r.json(); this.userSelected = j.data
           this.pending = null; await this.loadVersions()
@@ -469,7 +469,7 @@ document.addEventListener('alpine:init', () => {
       if (!this.userSelected || !this.pending) return
       this.pendingLoading = true
       try {
-        await fetch(`/api/v1/tools/${this.userSelected.id}/pending:reject`, { method: 'POST' })
+        await fetch(`/api/v1/forges/${this.userSelected.id}/pending:reject`, { method: 'POST' })
         this.pending = null
       } finally { this.pendingLoading = false }
     },

@@ -3,7 +3,7 @@ description: "创建 → 添加测试用例 → 导出 → 删除 → 导入 →
 steps:
   - name: "创建原始工具（字符串反转）"
     method: POST
-    path: /api/v1/tools
+    path: /api/v1/forges
     body:
       name: "test_str_reverse"
       description: "Reverse a string"
@@ -16,7 +16,7 @@ steps:
 
   - name: "添加测试用例 1"
     method: POST
-    path: /api/v1/tools/{{origId}}/test-cases
+    path: /api/v1/forges/{{origId}}/test-cases
     body:
       name: "reverse_hello"
       inputData: "{\"s\": \"hello\"}"
@@ -26,7 +26,7 @@ steps:
 
   - name: "添加测试用例 2（空字符串）"
     method: POST
-    path: /api/v1/tools/{{origId}}/test-cases
+    path: /api/v1/forges/{{origId}}/test-cases
     body:
       name: "reverse_empty"
       inputData: "{\"s\": \"\"}"
@@ -36,7 +36,7 @@ steps:
 
   - name: "执行工具（验证可用）"
     method: POST
-    path: /api/v1/tools/{{origId}}:run
+    path: /api/v1/forges/{{origId}}:run
     body:
       input:
         s: "Forgify"
@@ -45,31 +45,31 @@ steps:
 
   - name: "运行全部测试（导出前验证）"
     method: POST
-    path: /api/v1/tools/{{origId}}:test
+    path: /api/v1/forges/{{origId}}:test
     expect:
       status: 200
 
   - name: "导出工具"
     method: POST
-    path: /api/v1/tools/{{origId}}:export
+    path: /api/v1/forges/{{origId}}:export
     expect:
       status: 200
 
   - name: "删除原始工具"
     method: DELETE
-    path: /api/v1/tools/{{origId}}
+    path: /api/v1/forges/{{origId}}
     expect:
       status: 204
 
   - name: "验证原始工具已不存在"
     method: GET
-    path: /api/v1/tools/{{origId}}
+    path: /api/v1/forges/{{origId}}
     expect:
       status: 404
 
   - name: "导入工具（完整 JSON）"
     method: POST
-    path: /api/v1/tools:import
+    path: /api/v1/forges:import
     body:
       name: "test_str_reverse"
       description: "Reverse a string"
@@ -89,7 +89,7 @@ steps:
 
   - name: "执行导入后的工具（验证代码完整）"
     method: POST
-    path: /api/v1/tools/{{importedId}}:run
+    path: /api/v1/forges/{{importedId}}:run
     body:
       input:
         s: "world"
@@ -98,7 +98,7 @@ steps:
 
   - name: "执行导入工具（palindrome: racecar）"
     method: POST
-    path: /api/v1/tools/{{importedId}}:run
+    path: /api/v1/forges/{{importedId}}:run
     body:
       input:
         s: "racecar"
@@ -107,19 +107,19 @@ steps:
 
   - name: "导入工具的测试用例列表"
     method: GET
-    path: /api/v1/tools/{{importedId}}/test-cases
+    path: /api/v1/forges/{{importedId}}/test-cases
     expect:
       status: 200
 
   - name: "运行全部测试（导入后验证）"
     method: POST
-    path: /api/v1/tools/{{importedId}}:test
+    path: /api/v1/forges/{{importedId}}:test
     expect:
       status: 200
 
   - name: "尝试导入同名工具 → 409"
     method: POST
-    path: /api/v1/tools:import
+    path: /api/v1/forges:import
     body:
       name: "test_str_reverse"
       description: "Duplicate import attempt"
@@ -129,7 +129,7 @@ steps:
 
   - name: "导入格式非法（缺 name 字段）"
     method: POST
-    path: /api/v1/tools:import
+    path: /api/v1/forges:import
     body:
       description: "Missing name"
       code: "def foo(): pass\n"
@@ -138,6 +138,6 @@ steps:
 
   - name: "清理：删除导入的工具"
     method: DELETE
-    path: /api/v1/tools/{{importedId}}
+    path: /api/v1/forges/{{importedId}}
     expect:
       status: 204

@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
@@ -76,7 +76,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 		q.cancel = nil
 		q.mu.Unlock()
 	}()
-	agentCtx = agentapp.WithConversationID(agentCtx, conversationID)
+	agentCtx = reqctxpkg.WithConversationID(agentCtx, conversationID)
 
 	provider, modelID, err := s.modelPicker.PickForChat(agentCtx)
 	if err != nil {
@@ -102,7 +102,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 		Key:     creds.Key,
 		BaseURL: baseURL,
 		System:  s.buildSystemPrompt(agentCtx, task.conv),
-		Tools:   agentapp.ToLLMDefs(s.tools),
+		Tools:   toolapp.ToLLMDefs(s.tools),
 	}
 	s.agentRun(agentCtx, task.uid, task.conv, task.userMsgID, client, baseReq)
 }

@@ -4,7 +4,7 @@
 //
 // Package tool — Store 集成测试（内存 SQLite）。
 // 覆盖 CRUD、用户隔离、版本/pending 生命周期、历史保留、接口满足检查。
-package tool
+package forge
 
 import (
 	"context"
@@ -15,13 +15,13 @@ import (
 
 	gormlogger "gorm.io/gorm/logger"
 
-	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // compile-time interface satisfaction check.
-var _ tooldomain.Repository = (*Store)(nil)
+var _ forgedomain.Repository = (*Store)(nil)
 
 const (
 	userAlice = "u-alice"
@@ -36,11 +36,11 @@ func newStore(t *testing.T) *Store {
 	}
 	t.Cleanup(func() { _ = dbinfra.Close(database) })
 	if err := dbinfra.Migrate(database,
-		&tooldomain.Tool{},
-		&tooldomain.ToolVersion{},
-		&tooldomain.ToolTestCase{},
-		&tooldomain.ToolRunHistory{},
-		&tooldomain.ToolTestHistory{},
+		&forgedomain.Forge{},
+		&forgedomain.ForgeVersion{},
+		&forgedomain.ForgeTestCase{},
+		&forgedomain.ForgeRunHistory{},
+		&forgedomain.ForgeTestHistory{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -51,8 +51,8 @@ func ctxFor(userID string) context.Context {
 	return reqctxpkg.SetUserID(context.Background(), userID)
 }
 
-func mkTool(id, userID, name string) *tooldomain.Tool {
-	return &tooldomain.Tool{
+func mkForge(id, userID, name string) *forgedomain.Forge {
+	return &forgedomain.Forge{
 		ID:           id,
 		UserID:       userID,
 		Name:         name,
@@ -65,86 +65,86 @@ func mkTool(id, userID, name string) *tooldomain.Tool {
 	}
 }
 
-// ── Tool CRUD ─────────────────────────────────────────────────────────────────
+// ── Forge CRUD ─────────────────────────────────────────────────────────────────
 
-func TestSaveAndGetTool(t *testing.T) {
+func TestSaveAndGetForge(t *testing.T) {
 	s := newStore(t)
-	tool := mkTool("t_001", userAlice, "parse_csv")
-	if err := s.SaveTool(ctxFor(userAlice), tool); err != nil {
-		t.Fatalf("SaveTool: %v", err)
+	tool := mkForge("t_001", userAlice, "parse_csv")
+	if err := s.SaveForge(ctxFor(userAlice), tool); err != nil {
+		t.Fatalf("SaveForge: %v", err)
 	}
-	got, err := s.GetTool(ctxFor(userAlice), "t_001")
+	got, err := s.GetForge(ctxFor(userAlice), "t_001")
 	if err != nil {
-		t.Fatalf("GetTool: %v", err)
+		t.Fatalf("GetForge: %v", err)
 	}
 	if got.Name != "parse_csv" {
 		t.Errorf("name: want parse_csv, got %s", got.Name)
 	}
 }
 
-func TestGetTool_NotFound(t *testing.T) {
+func TestGetForge_NotFound(t *testing.T) {
 	s := newStore(t)
-	_, err := s.GetTool(ctxFor(userAlice), "t_missing")
-	if !errors.Is(err, tooldomain.ErrNotFound) {
+	_, err := s.GetForge(ctxFor(userAlice), "t_missing")
+	if !errors.Is(err, forgedomain.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
 
-func TestGetTool_UserIsolation(t *testing.T) {
+func TestGetForge_UserIsolation(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.GetTool(ctxFor(userBob), "t_001")
-	if !errors.Is(err, tooldomain.ErrNotFound) {
+	_, err := s.GetForge(ctxFor(userBob), "t_001")
+	if !errors.Is(err, forgedomain.ErrNotFound) {
 		t.Errorf("Bob should not see Alice's tool, got %v", err)
 	}
 }
 
-func TestDeleteTool_SoftDelete(t *testing.T) {
+func TestDeleteForge_SoftDelete(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeleteTool(ctxFor(userAlice), "t_001"); err != nil {
-		t.Fatalf("DeleteTool: %v", err)
+	if err := s.DeleteForge(ctxFor(userAlice), "t_001"); err != nil {
+		t.Fatalf("DeleteForge: %v", err)
 	}
-	_, err := s.GetTool(ctxFor(userAlice), "t_001")
-	if !errors.Is(err, tooldomain.ErrNotFound) {
+	_, err := s.GetForge(ctxFor(userAlice), "t_001")
+	if !errors.Is(err, forgedomain.ErrNotFound) {
 		t.Errorf("deleted tool should not be found, got %v", err)
 	}
 }
 
-func TestListAllTools(t *testing.T) {
+func TestListAllForges(t *testing.T) {
 	s := newStore(t)
 	for _, name := range []string{"tool_a", "tool_b", "tool_c"} {
-		if err := s.SaveTool(ctxFor(userAlice), mkTool("t_"+name, userAlice, name)); err != nil {
+		if err := s.SaveForge(ctxFor(userAlice), mkForge("t_"+name, userAlice, name)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Bob's tool should not appear in Alice's list.
-	if err := s.SaveTool(ctxFor(userBob), mkTool("t_bob", userBob, "bob_tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userBob), mkForge("t_bob", userBob, "bob_tool")); err != nil {
 		t.Fatal(err)
 	}
-	tools, err := s.ListAllTools(ctxFor(userAlice))
+	tools, err := s.ListAllForges(ctxFor(userAlice))
 	if err != nil {
-		t.Fatalf("ListAllTools: %v", err)
+		t.Fatalf("ListAllForges: %v", err)
 	}
 	if len(tools) != 3 {
 		t.Errorf("want 3 tools, got %d", len(tools))
 	}
 }
 
-func TestGetToolsByIDs_OrderPreserved(t *testing.T) {
+func TestGetForgesByIDs_OrderPreserved(t *testing.T) {
 	s := newStore(t)
 	for _, id := range []string{"t_1", "t_2", "t_3"} {
-		if err := s.SaveTool(ctxFor(userAlice), mkTool(id, userAlice, "tool_"+id)); err != nil {
+		if err := s.SaveForge(ctxFor(userAlice), mkForge(id, userAlice, "tool_"+id)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	tools, err := s.GetToolsByIDs(ctxFor(userAlice), []string{"t_3", "t_1"})
+	tools, err := s.GetForgesByIDs(ctxFor(userAlice), []string{"t_3", "t_1"})
 	if err != nil {
-		t.Fatalf("GetToolsByIDs: %v", err)
+		t.Fatalf("GetForgesByIDs: %v", err)
 	}
 	if len(tools) != 2 || tools[0].ID != "t_3" || tools[1].ID != "t_1" {
 		t.Errorf("order not preserved: %v", tools)
@@ -153,10 +153,10 @@ func TestGetToolsByIDs_OrderPreserved(t *testing.T) {
 
 // ── Versions ─────────────────────────────────────────────────────────────────
 
-func mkVersion(id, toolID, userID, status string, version *int) *tooldomain.ToolVersion {
-	return &tooldomain.ToolVersion{
+func mkVersion(id, forgeID, userID, status string, version *int) *forgedomain.ForgeVersion {
+	return &forgedomain.ForgeVersion{
 		ID:      id,
-		ToolID:  toolID,
+		ForgeID:  forgeID,
 		UserID:  userID,
 		Version: version,
 		Status:  status,
@@ -170,12 +170,12 @@ func intPtr(n int) *int { return &n }
 
 func TestVersionLifecycle(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
 
 	// Save a pending version.
-	pending := mkVersion("tv_p1", "t_001", userAlice, tooldomain.VersionStatusPending, nil)
+	pending := mkVersion("tv_p1", "t_001", userAlice, forgedomain.VersionStatusPending, nil)
 	if err := s.SaveVersion(ctxFor(userAlice), pending); err != nil {
 		t.Fatalf("SaveVersion pending: %v", err)
 	}
@@ -190,13 +190,13 @@ func TestVersionLifecycle(t *testing.T) {
 	}
 
 	// Accept it.
-	if err := s.UpdateVersionStatus(ctxFor(userAlice), "tv_p1", tooldomain.VersionStatusAccepted, intPtr(1)); err != nil {
+	if err := s.UpdateVersionStatus(ctxFor(userAlice), "tv_p1", forgedomain.VersionStatusAccepted, intPtr(1)); err != nil {
 		t.Fatalf("UpdateVersionStatus: %v", err)
 	}
 
 	// No more pending.
 	_, err = s.GetActivePending(ctxFor(userAlice), "t_001")
-	if !errors.Is(err, tooldomain.ErrPendingNotFound) {
+	if !errors.Is(err, forgedomain.ErrPendingNotFound) {
 		t.Errorf("expected ErrPendingNotFound after accept, got %v", err)
 	}
 
@@ -212,11 +212,11 @@ func TestVersionLifecycle(t *testing.T) {
 
 func TestDeleteOldestAcceptedVersion(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
 	for i, vid := range []string{"tv_v1", "tv_v2", "tv_v3"} {
-		v := mkVersion(vid, "t_001", userAlice, tooldomain.VersionStatusAccepted, intPtr(i+1))
+		v := mkVersion(vid, "t_001", userAlice, forgedomain.VersionStatusAccepted, intPtr(i+1))
 		v.CreatedAt = time.Now().Add(time.Duration(i) * time.Second)
 		if err := s.SaveVersion(ctxFor(userAlice), v); err != nil {
 			t.Fatal(err)
@@ -235,7 +235,7 @@ func TestDeleteOldestAcceptedVersion(t *testing.T) {
 	}
 	// v1 (lowest) should be gone.
 	_, err := s.GetVersion(ctxFor(userAlice), "t_001", 1)
-	if !errors.Is(err, tooldomain.ErrVersionNotFound) {
+	if !errors.Is(err, forgedomain.ErrVersionNotFound) {
 		t.Errorf("v1 should be deleted, got %v", err)
 	}
 }
@@ -244,12 +244,12 @@ func TestDeleteOldestAcceptedVersion(t *testing.T) {
 
 func TestTestCaseCRUD(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
-	tc := &tooldomain.ToolTestCase{
+	tc := &forgedomain.ForgeTestCase{
 		ID:             "tc_001",
-		ToolID:         "t_001",
+		ForgeID:         "t_001",
 		UserID:         userAlice,
 		Name:           "basic",
 		InputData:      `{"x":1}`,
@@ -269,7 +269,7 @@ func TestTestCaseCRUD(t *testing.T) {
 		t.Fatalf("DeleteTestCase: %v", err)
 	}
 	_, err = s.GetTestCase(ctxFor(userAlice), "tc_001")
-	if !errors.Is(err, tooldomain.ErrTestCaseNotFound) {
+	if !errors.Is(err, forgedomain.ErrTestCaseNotFound) {
 		t.Errorf("expected ErrTestCaseNotFound after delete, got %v", err)
 	}
 }
@@ -278,16 +278,16 @@ func TestTestCaseCRUD(t *testing.T) {
 
 func TestRunHistoryRetention(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
 	// Insert 3 records.
 	for i := range 3 {
-		h := &tooldomain.ToolRunHistory{
+		h := &forgedomain.ForgeRunHistory{
 			ID:          fmt.Sprintf("trh_%02d", i),
-			ToolID:      "t_001",
+			ForgeID:      "t_001",
 			UserID:      userAlice,
-			ToolVersion: 1,
+			ForgeVersion: 1,
 			Input:       "{}",
 			OK:          true,
 			CreatedAt:   time.Now().Add(time.Duration(i) * time.Second),
@@ -314,16 +314,16 @@ func TestRunHistoryRetention(t *testing.T) {
 
 func TestTestHistoryBatch(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveTool(ctxFor(userAlice), mkTool("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
 		t.Fatal(err)
 	}
 	pass := true
 	for i := range 3 {
-		h := &tooldomain.ToolTestHistory{
+		h := &forgedomain.ForgeTestHistory{
 			ID:          fmt.Sprintf("tth_%02d", i),
-			ToolID:      "t_001",
+			ForgeID:      "t_001",
 			UserID:      userAlice,
-			ToolVersion: 1,
+			ForgeVersion: 1,
 			TestCaseID:  fmt.Sprintf("tc_%02d", i),
 			BatchID:     "batch_001",
 			Input:       "{}",

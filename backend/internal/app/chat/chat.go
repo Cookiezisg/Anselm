@@ -32,7 +32,7 @@ import (
 
 	"go.uber.org/zap"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -76,7 +76,7 @@ type Service struct {
 	modelPicker modeldomain.ModelPicker
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
-	tools       []agentapp.Tool
+	tools       []toolapp.Tool
 	bridge      eventsdomain.Bridge
 	dataDir     string
 	log         *zap.Logger
@@ -118,7 +118,7 @@ func NewService(
 // Safe to call before any conversation starts.
 //
 // SetTools 将 system tools 注入 ReAct Agent，在任何对话启动前调用均安全。
-func (s *Service) SetTools(tools []agentapp.Tool) {
+func (s *Service) SetTools(tools []toolapp.Tool) {
 	s.tools = tools
 }
 

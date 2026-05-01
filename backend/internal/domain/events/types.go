@@ -66,17 +66,18 @@ type ChatToolCallStart struct {
 func (ChatToolCallStart) EventName() string { return "chat.tool_call_start" }
 
 // ChatToolCall fires when the Agent decides to call a system tool.
-// Arguments are complete and stripped of "summary" at this point.
+// Arguments are complete and stripped of "summary" + "destructive" at this point.
 //
 // ChatToolCall 在 Agent 决定调用某个 system tool 时触发。
-// 此时 arguments 已完整，且已剥除 "summary" 字段。
+// 此时 arguments 已完整，且已剥除 "summary" 和 "destructive" 字段。
 type ChatToolCall struct {
 	ConversationID string `json:"conversationId"`
 	MessageID      string `json:"messageId"`
 	ToolCallID     string `json:"toolCallId"`
 	ToolName       string `json:"toolName"`
-	ToolInput      string `json:"toolInput"` // JSON string of full arguments
-	Summary        string `json:"summary"`   // human-readable core info, e.g. "$ git status"
+	ToolInput      string `json:"toolInput"`   // JSON string of full arguments
+	Summary        string `json:"summary"`     // human-readable core info, e.g. "$ git status"
+	Destructive    bool   `json:"destructive"` // LLM-marked: this call may cause irreversible damage; UI shows warning
 }
 
 // EventName returns "chat.tool_call".
@@ -145,68 +146,78 @@ type ConversationTitleUpdated struct {
 // EventName 返回 "conversation.title_updated"。
 func (ConversationTitleUpdated) EventName() string { return "conversation.title_updated" }
 
-// ── Tool events (Phase 3) ─────────────────────────────────────────────────────
+// ── Forge events (Phase 3) ────────────────────────────────────────────────────
 
-// ToolCodeStreaming fires for every LLM token during code generation inside
-// create_tool or edit_tool. MessageID and ToolCallID bind the stream to the
+// ForgeCodeStreaming fires for every LLM token during code generation inside
+// create_forge or edit_forge. MessageID and ToolCallID bind the stream to the
 // specific conversation turn that triggered it, so the frontend can associate
 // the code panel update with the right message.
-// ToolID is empty during create_tool (the tool does not exist yet).
+// ForgeID is empty during create_forge (the forge does not exist yet).
 //
-// ToolCodeStreaming 在 create_tool / edit_tool 内部 LLM 代码生成阶段
+// ForgeCodeStreaming 在 create_forge / edit_forge 内部 LLM 代码生成阶段
 // 逐 token 触发。MessageID 和 ToolCallID 把流绑定到触发它的对话轮次，
 // 前端据此将代码面板更新关联到正确的消息。
-// create_tool 期间 ToolID 为空（工具尚未创建）。
-type ToolCodeStreaming struct {
+// create_forge 期间 ForgeID 为空（工具尚未创建）。
+type ForgeCodeStreaming struct {
 	ConversationID string `json:"conversationId"`
 	MessageID      string `json:"messageId"`  // assistant message that triggered the tool call
 	ToolCallID     string `json:"toolCallId"` // LLM-assigned tool call id
-	ToolID         string `json:"toolId"`     // empty for create_tool; existing id for edit_tool
+	ForgeID        string `json:"forgeId"`    // empty for create_forge; existing id for edit_forge
 	ActionType     string `json:"actionType"` // "create" | "edit"
 	Delta          string `json:"delta"`
 }
 
-// EventName returns "tool.code_streaming".
-// EventName 返回 "tool.code_streaming"。
-func (ToolCodeStreaming) EventName() string { return "tool.code_streaming" }
+// EventName returns "forge.code_streaming".
+// EventName 返回 "forge.code_streaming"。
+func (ForgeCodeStreaming) EventName() string { return "forge.code_streaming" }
 
-// ToolCreated fires after create_tool successfully saves the new tool.
+// ForgeCreated fires after create_forge successfully saves the new forge.
 //
-// ToolCreated 在 create_tool 成功保存新工具后触发。
-type ToolCreated struct {
+// ForgeCreated 在 create_forge 成功保存新工具后触发。
+type ForgeCreated struct {
 	ConversationID string `json:"conversationId"`
 	MessageID      string `json:"messageId"`
 	ToolCallID     string `json:"toolCallId"`
-	ToolID         string `json:"toolId"`
-	ToolName       string `json:"toolName"`
+	ForgeID        string `json:"forgeId"`
+	ForgeName      string `json:"forgeName"`
 }
 
-// EventName returns "tool.created".
-// EventName 返回 "tool.created"。
-func (ToolCreated) EventName() string { return "tool.created" }
+// EventName returns "forge.created".
+// EventName 返回 "forge.created"。
+func (ForgeCreated) EventName() string { return "forge.created" }
 
-// ToolPendingCreated fires after edit_tool saves a pending change awaiting
+// ForgePendingCreated fires after edit_forge saves a pending change awaiting
 // user review.
 //
-// ToolPendingCreated 在 edit_tool 保存待用户审核的 pending 变更后触发。
-type ToolPendingCreated struct {
+// ForgePendingCreated 在 edit_forge 保存待用户审核的 pending 变更后触发。
+type ForgePendingCreated struct {
 	ConversationID string `json:"conversationId"`
 	MessageID      string `json:"messageId"`
 	ToolCallID     string `json:"toolCallId"`
-	ToolID         string `json:"toolId"`
-	PendingID      string `json:"pendingId"`   // ToolVersion id with status='pending'
+	ForgeID        string `json:"forgeId"`
+	PendingID      string `json:"pendingId"`   // ForgeVersion id with status='pending'
 	Instruction    string `json:"instruction"` // the LLM instruction that produced this change
 }
 
-// EventName returns "tool.pending_created".
-// EventName 返回 "tool.pending_created"。
-func (ToolPendingCreated) EventName() string { return "tool.pending_created" }
+// EventName returns "forge.pending_created".
+// EventName 返回 "forge.pending_created"。
+func (ForgePendingCreated) EventName() string { return "forge.pending_created" }
 
-// NOTE: generate-test-cases SSE does NOT go through this Bridge. It uses a
-// direct emit callback in app/tool (toolapp.GenerateEvent) wired straight to
-// the HTTP handler's SSE writer. If we ever route it through the Bridge, the
-// corresponding event types should be re-added here.
+// ForgeMetadataUpdated fires when edit_forge is called with empty Instruction —
+// only name / description / tags are being changed, no code regeneration.
+// Lets the UI distinguish "metadata-only edit" from "code-regenerating edit"
+// (ForgeCodeStreaming will not fire in the metadata-only path).
 //
-// 注意：generate-test-cases 的 SSE 不走本 Bridge，直接通过 app/tool 中的
-// emit callback（toolapp.GenerateEvent）写入 HTTP handler 的 SSE。
-// 若未来改走 Bridge，再在此处补回相应事件类型。
+// ForgeMetadataUpdated 在 edit_forge 仅修改 name/description/tags（不重生代码）时触发。
+// 让前端区分"只改元数据" vs "重写代码"——后者会推 ForgeCodeStreaming 流。
+type ForgeMetadataUpdated struct {
+	ConversationID string `json:"conversationId"`
+	MessageID      string `json:"messageId"`
+	ToolCallID     string `json:"toolCallId"`
+	ForgeID        string `json:"forgeId"`
+	PendingID      string `json:"pendingId"` // ForgeVersion id with status='pending'
+}
+
+// EventName returns "forge.metadata_updated".
+// EventName 返回 "forge.metadata_updated"。
+func (ForgeMetadataUpdated) EventName() string { return "forge.metadata_updated" }

@@ -8,12 +8,12 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 )
@@ -41,9 +41,9 @@ type Deps struct {
 	// ConversationService 为 /api/v1/conversations/* 提供 CRUD。
 	ConversationService *convapp.Service
 
-	// ToolService manages the user's Python tool library (CRUD, versions, sandbox execution).
-	// ToolService 管理用户的 Python 工具库（CRUD、版本、沙箱执行）。
-	ToolService *toolapp.Service
+	// ForgeService manages the user's Python forge library (CRUD, versions, sandbox execution).
+	// ForgeService 管理用户的 Python 工具库（CRUD、版本、沙箱执行）。
+	ForgeService *forgeapp.Service
 
 	// ChatService implements messaging, attachment upload, and Agent streaming.
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。
@@ -90,5 +90,5 @@ type Deps struct {
 	// for direct invocation via /dev/invoke (dev mode only).
 	// Tools 是注册到 agent 的 system tool 列表，在 dev 模式下可通过
 	// /dev/invoke 直接调用。
-	Tools []agentapp.Tool
+	Tools []toolapp.Tool
 }

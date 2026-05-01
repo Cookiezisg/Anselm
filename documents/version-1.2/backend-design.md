@@ -64,7 +64,7 @@ Eino 框架已完全移除（`infra/eino/` 目录删除，go.mod 中 Eino 依赖
 |---|---|
 | LLM 流式客户端 | 自有 `infra/llm`（openai.go + anthropic.go + factory.go）|
 | ReAct 循环 | `app/chat/runner.go` 自实现（agentRun）|
-| Tool 接口 | `app/agent/tool.go` 4 方法接口 + summary 注入机制 |
+| Tool 接口 | `app/tool/tool.go` 10 方法接口 + summary/destructive 标准字段注入机制（详见 CLAUDE.md §S18）|
 | Workflow Engine | Phase 4 自实现（不依赖 Eino compose）|
 | Cron 调度 | `robfig/cron`（Phase 4）|
 | MCP 集成 | `mark3labs/mcp-go`（Phase 5）|
@@ -104,7 +104,9 @@ handler.SendMessage
 ```
 
 ### Phase 3 — 工具锻造能力（已完成）
-`tool` 主 domain（版本 / pending / 测试用例 / 沙箱执行 / 导入导出，22 端点）+ `app/agent/forge.go`（5 个工具锻造 system tool：search / get / create / edit / run）+ `app/agent/system.go` + `app/agent/web.go`（共 8 个通用 system tool：datetime / read_file / write_file / list_dir / run_shell / run_python / web_search / fetch_url）+ chat 升级支持 ReAct 多步循环。Python 沙箱 `infra/sandbox/python.go`（subprocess + 30s 超时 + AST 函数提取）。
+`forge` 主 domain（版本 / pending / 测试用例 / 沙箱执行 / 导入导出，22 端点）+ `app/tool/forge/`（5 个 forge 系统工具：search/get/create/edit/run.go 各一文件）+ chat 升级支持 ReAct 多步循环。Python 沙箱 `infra/sandbox/python.go`（subprocess + 30s 超时 + AST 函数提取）。
+
+> Phase 3 后优化轮（2026-05-02）大改造：(1) `tool` 大重命名 → `forge`（types/tables/IDs/paths/22 endpoints/LLM-facing 名）；(2) `agent` 包重命名 `tool`，新建嵌套子包结构（forge/filesystem/shell/web）；(3) Tool 接口扩到 10 方法（IsReadOnly / NeedsReadFirst / RequiresWorkspace / IsConcurrencySafe / ValidateInput / CheckPermissions 等）；(4) 删除 8 个旧通用 system tool（read_file / write_file / list_dir / run_shell / run_python / datetime / web_search / fetch_url），新一代 system tools（Read/Write/Edit/Bash/Glob/Grep/LS）将在 Phase 5 重建。详见 progress-record.md。
 
 **Phase 3 后基础设施优化轮（2026-04-27 起，进行中）**：chat 基础设施重构（移除 Eino + Block 模型）/ chat pipeline.go → runner.go 二次重构 / Brewfile + Makefile setup / Claude Code 内部机制调研（9 份报告）/ SQLite 驱动迁移（mattn → modernc，纯 Go） / 桌面端 Wails 分发方向定型 / 大规模代码 review 战役（staticcheck / 死代码 / 跨域重复 / errmap 完整性等）。详见 [`progress-record.md`](./progress-record.md) §2。
 
@@ -173,7 +175,7 @@ backend/
     │   ├── model/                  ← ✅
     │   ├── conversation/           ← ✅
     │   ├── chat/                   ← ✅ Message + Block + Attachment（Block 模型，2026-04-27 重构）
-    │   ├── tool/                   ← ✅ Tool + ToolVersion + TestCase + RunHistory + TestHistory
+    │   ├── forge/                  ← ✅ Forge + ForgeVersion + ForgeTestCase + ForgeRunHistory + ForgeTestHistory（Phase 1 大重命名 tool→forge）
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
@@ -190,13 +192,17 @@ backend/
     │   ├── model/                  ← ✅ model.go（Service + ModelPicker 合并）
     │   ├── conversation/           ← ✅ conversation.go
     │   ├── chat/                   ← ✅ 6 文件：chat.go / runner.go / stream.go / tools.go / history.go / util.go
-    │   ├── tool/                   ← ✅ tool.go（30 方法 Service）+ ast.go（Python AST 解析）
-    │   ├── agent/                  ← ✅ tool.go（Tool 接口 + summary 注入）+ system.go + web.go + forge.go
+    │   ├── forge/                  ← ✅ forge.go（30 方法 Service + ParseCode）+ ast.go（Python AST 解析）
+    │   ├── tool/                   ← ✅ Tool framework：tool.go（10 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
+    │   │   ├── forge/              ← ✅ 5 个 user-forged-tool 系统工具（forge.go 工厂 + search/get/create/edit/run.go 各一文件）
+    │   │   ├── filesystem/         ← ⬜ Phase 5（Read/Write/Edit/Glob/Grep/LS）
+    │   │   ├── shell/              ← ⬜ Phase 5（Bash）
+    │   │   └── web/                ← ⬜ Phase 5（WebSearch/Fetch）
     │   └── <Phase 4-5>/
     │
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
-    │   ├── store/                  ← ✅ apikey / model / conversation / chat / tool 各一份
+    │   ├── store/                  ← ✅ apikey / model / conversation / chat / forge 各一份
     │   ├── llm/                    ← ✅ 自有 LLM 流式客户端（替代 Eino，2026-04-27）
     │   │   ├── llm.go              ← StreamEvent / LLMMessage / Client 接口 / Generate helper
     │   │   ├── openai.go           ← OpenAI-compat SSE（DeepSeek/Qwen/Moonshot/Ollama 等）
@@ -209,7 +215,7 @@ backend/
     │   └── logger/                 ← ✅ zap.go + broadcast.go（dev-only LogBroadcaster）
     │
     ├── pkg/                        ← 跨层共享纯工具（无业务、无 infra 依赖）
-    │   ├── reqctx/                 ← ✅ userid.go + locale.go
+    │   ├── reqctx/                 ← ✅ reqctx.go（user 身份）+ locale.go + agentrun.go（convID/msgID/toolCallID）
     │   └── pagination/             ← ✅ cursor.go（Parse + EncodeCursor + DecodeCursor + Cursor 共享类型；4 store + 4 handler 共享）
     │
     └── transport/
@@ -217,7 +223,7 @@ backend/
             ├── router/             ← ✅ router.go + deps.go（DI struct，nil-tolerant）
             ├── response/           ← ✅ envelope.go + errmap.go
             ├── middleware/         ← ✅ recover / logger / cors / locale / auth(InjectUserID) / notfound
-            └── handlers/           ← ✅ health / apikey / model / conversation / chat / tool / dev
+            └── handlers/           ← ✅ health / apikey / model / conversation / chat / forge / dev
 ```
 
 `legacy/` 存放 V1.0/V1.1 的旧实现（Electron + Eino）作为参考。`testend/` 是开发期调试控制台（详见 [`testend-design.md`](./testend-design.md)）。

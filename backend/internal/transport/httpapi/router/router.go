@@ -40,8 +40,8 @@ func New(deps Deps) http.Handler {
 	if deps.ConversationService != nil {
 		handlershttpapi.NewConversationHandler(deps.ConversationService, deps.Log).Register(mux)
 	}
-	if deps.ToolService != nil {
-		handlershttpapi.NewToolHandler(deps.ToolService, deps.Log).Register(mux)
+	if deps.ForgeService != nil {
+		handlershttpapi.NewForgeHandler(deps.ForgeService, deps.Log).Register(mux)
 	}
 	if deps.ChatService != nil && deps.EventsBridge != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.EventsBridge, deps.Log).Register(mux)

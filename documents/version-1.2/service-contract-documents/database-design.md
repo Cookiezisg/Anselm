@@ -65,7 +65,7 @@ GORM tag 表达不了的 SQL 都在这里：
 chat domain 所有；主键 `msg_<16hex>`；字段：`conversation_id`（索引）/ `user_id` / `role`（**user\|assistant**，`tool` 角色已移除——tool result 变为 message_blocks 的 block）/ `status`（pending\|streaming\|completed\|error\|cancelled）/ `stop_reason` / `input_tokens INT` / `output_tokens INT` / 软删 `deleted_at`。**内容字段已移除**：`content`、`reasoning_content`、`tool_calls`、`tool_call_id`、`attachment_ids`、`token_usage` 全部转移到 `message_blocks` 表。FTS5 已移除（原基于 `content` 列，后续按 message_blocks 重建）。
 
 #### `message_blocks` ✅（chat infra 重构新增）
-chat domain 所有；主键 `blk_<16hex>`；外键 `message_id → messages.id`；字段：`seq INT`（消息内顺序）/ `type`（text\|reasoning\|tool_call\|tool_result\|attachment_ref）/ `data TEXT`（JSON，格式随 type 变化）。复合索引 `(message_id, seq)`。无软删（随 message 一起管理）。block type 的 data JSON 结构：`text/reasoning → {text}`；`tool_call → {id, name, summary, arguments}`；`tool_result → {toolCallId, ok, result}`；`attachment_ref → {attachmentId, fileName, mimeType}`。
+chat domain 所有；主键 `blk_<16hex>`；外键 `message_id → messages.id`；字段：`seq INT`（消息内顺序）/ `type`（text\|reasoning\|tool_call\|tool_result\|attachment_ref）/ `data TEXT`（JSON，格式随 type 变化）。复合索引 `(message_id, seq)`。无软删（随 message 一起管理）。block type 的 data JSON 结构：`text/reasoning → {text}`；`tool_call → {id, name, summary, destructive, arguments}`（`destructive` 由 LLM 自报、framework 剥除参数后存入；UI 据此显示警示徽章）；`tool_result → {toolCallId, ok, result}`；`attachment_ref → {attachmentId, fileName, mimeType}`。
 
 #### `chat_attachments` ✅
 chat domain 所有；主键 `att_<16hex>`；字段：`user_id` / `file_name` / `mime_type` / `size_bytes` / `storage_path`（相对 dataDir，json:"-" 不对外暴露）。文件实体存 `{dataDir}/attachments/{att_id}/original.{ext}`，50MB 限制。无软删（附件随对话消亡）。
@@ -75,28 +75,28 @@ chat domain 所有；主键 `att_<16hex>`；字段：`user_id` / `file_name` / `
 ### Phase 3
 
 #### `tools` ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §3.1。
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.1。
 主键 `t_<16hex>`；软删（`deleted_at`）；`user_id` 索引；partial UNIQUE `UNIQUE(user_id, name) WHERE deleted_at IS NULL`（在 `schema_extras.go`）。
 字段：`name` / `description` / `code`（当前活跃代码）/ `parameters`（JSON 数组）/ `return_schema`（JSON 对象）/ `tags`（JSON 数组）/ `version_count`（最大已接受版本号，0=未保存）。
 工具搜索通过 LLM 排序实现（SearchTool 把全量工具发给 LLM），无独立向量索引。
 
-#### `tool_versions` ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §3.2。
+#### `forge_versions` ✅
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.2。
 主键 `tv_<16hex>`；**兼作 pending 变更存储**：`status` 字段区分 `pending`/`accepted`/`rejected`，pending/rejected 时 `version` 为 NULL。
 完整快照字段：`name` / `description` / `code` / `parameters` / `return_schema` / `tags` / `message`（LLM 指令 | "manual edit" | "reverted to v{N}" | "initial"）。
 accepted 版本上限 50 条/工具，超限硬删最旧。
 
-#### `tool_test_cases` ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §3.3。
+#### `forge_test_cases` ✅
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.3。
 主键 `tc_<16hex>`；`tool_id` 索引。字段：`name` / `input_data`（JSON）/ `expected_output`（JSON，空=不断言）。
 
-#### `tool_run_history` ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §3.4。
+#### `forge_run_history` ✅
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.4。
 主键 `trh_<16hex>`；`tool_id` 索引；无软删。每次 `:run` 写一条，保留最近 100 条/工具。
 字段：`tool_version`（执行时版本号）/ `input` / `output` / `ok` / `error_msg` / `elapsed_ms`。
 
-#### `tool_test_history` ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §3.5。
+#### `forge_test_history` ✅
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.5。
 主键 `tth_<16hex>`；`tool_id` + `test_case_id` + `batch_id`（索引）；无软删。每次测试用例执行写一条，保留最近 200 条/工具。
 字段：`tool_version` / `test_case_id` / `batch_id`（批跑时共享，单跑为空）/ `input` / `output` / `ok` / `pass`（*bool，nil=无断言）/ `error_msg` / `elapsed_ms`。
 
@@ -141,8 +141,8 @@ api_keys    model_configs   conversations
                                    │ att_id
                           chat_attachments
 
-tools ──────── tool_versions (status: pending/accepted/rejected)
-  │ ─────────  tool_test_cases
-  │ ─────────  tool_run_history
-  └ ─────────  tool_test_history (batch_id 串联批跑)
+tools ──────── forge_versions (status: pending/accepted/rejected)
+  │ ─────────  forge_test_cases
+  │ ─────────  forge_run_history
+  └ ─────────  forge_test_history (batch_id 串联批跑)
 ```

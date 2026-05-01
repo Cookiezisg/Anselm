@@ -1,19 +1,21 @@
-# tool domain — 详细设计文档 v2
+# forge domain — 详细设计文档 v3
 
 **所属 Phase**：Phase 3
-**状态**：✅ 已实现（2026-04-26）
+**状态**：✅ 已实现（2026-04-26 初版；2026-05-02 Phase 3 后优化轮重命名 tool→forge + Tool 接口重构 + 子包重组）
 **职责**：管理用户锻造的 Python 工具全生命周期——CRUD、版本历史、pending 变更确认、测试用例、沙箱执行、导入导出；并向 ReAct Agent 提供 5 个 System Tool（search / get / create / edit / run）
 
 **依赖**：
 - `infra/db`（GORM + modernc.org/sqlite）
 - `infra/sandbox`（Python subprocess 沙箱）
-- `infra/llm`（create_tool / edit_tool 内部 LLM 调用 + GenerateTestCases）
-- `pkg/reqctx`（userID 读取）
+- `infra/llm`（create_forge / edit_forge 内部 LLM 调用 + GenerateTestCases）
+- `pkg/reqctx`（userID 读取，agent-run IDs 读取）
 - `domain/events`（SSE 事件推送）
 
 **被依赖**：
-- `app/agent/forge.go`（System Tool 实现，由 app/chat 组装注入 ReAct Agent）
+- `app/tool/forge/`（5 个 system tool 实现的子包，由 app/chat 组装注入 ReAct Agent；`forgetool.ForgeTools()` 工厂返回 `[]toolapp.Tool`）
 - Phase 4 workflow 节点
+
+**Tool 接口规约**：所有 5 个 forge system tool 实现 `app/tool.Tool` 接口（10 方法全必填，详见 [`CLAUDE.md §S18`](../../../CLAUDE.md)）。
 
 ---
 
@@ -21,19 +23,22 @@
 
 | 决策 | 选择 | 理由 |
 |---|---|---|
-| pending 与 version 的关系 | **合并为一张表** `tool_versions`，用 `status` 区分 | pending 和 version 形状完全一样，都是完整工具快照，无需两张表 |
+| pending 与 version 的关系 | **合并为一张表** `forge_versions`，用 `status` 区分 | pending 和 version 形状完全一样，都是完整工具快照，无需两张表 |
 | 版本快照内容 | **完整快照**：name + description + code + parameters + returnSchema + tags | 只存 code 的版本无法完整回滚，也无法看到历史状态 |
 | pending 触发条件 | **所有 LLM 发起的变更**（code + 元数据）统一走 pending | 用户直接操作（HTTP PATCH / revert）立即生效，不走 pending |
-| 工具搜索 | **LLM 排序**：SearchTool 把全部工具名+描述发给 LLM，LLM 返回按相关度排好的 ID + score 列表 | 比向量搜索准确（LLM 完整理解语义）；工具数量少（20-200），一次 prompt 能全放进去；无需 embedding API 或本地向量库，任何 LLM provider 都能用 |
-| System Tool 位置 | `app/agent/forge.go`，组装留在 `app/chat` | 避免 app/chat 成为巨无霸；未来 web/workflow/knowledge 各加一个文件 |
-| resolveAttachments | **RunTool（System Tool）调用前完成**，不进 Service | tool Service 不感知 att_id 概念，保持纯粹 |
-| GenerateTestCases | Service 方法 + **callback（emit func）** 解耦 HTTP | Service 不导入 net/http；emit 函数由 Handler 注入 |
+| 工具搜索 | **LLM 排序**：SearchForge 把全部工具名+描述发给 LLM，LLM 返回按相关度排好的 ID + score 列表 | 比向量搜索准确（LLM 完整理解语义）；工具数量少（20-200），一次 prompt 能全放进去；无需 embedding API 或本地向量库，任何 LLM provider 都能用 |
+| System Tool 位置 | `app/tool/forge/` 嵌套子包（每文件一 tool：search/get/create/edit/run.go），工厂 `ForgeTools()` 返 `[]toolapp.Tool`；组装留在 `cmd/server/main.go` | §S12 例外：tool framework meta-namespace 允许嵌套子包；Style B 命名 `SearchForge / GetForge / CreateForge / EditForge / RunForge` 显式不重叠 |
+| resolveAttachments | **RunForge（System Tool）调用前完成**，不进 Service | forge Service 不感知 att_id 概念，保持纯粹 |
+| GenerateTestCases | Service 方法**同步返回 `*GenerateResult`** | LLM 是非流式调用（`llm.Generate`），逐条流式推送只是化妆——直接整批返回更清晰 |
 | LLM 注入 | **LLMClient 接口注入 Service** | GenerateTestCases 是 tool domain 自己的能力，不是 chat 触发的 |
 | 代码生成方式 | **One-shot**，LLM 一次生成完整函数 | 工具是单函数，全量重写比 patch 更可靠 |
 | 沙箱隔离 | **subprocess + 30s timeout** | 本地单用户；Docker 是过度工程 |
 | AST 解析 | **Python subprocess + Google-style docstring** | 可靠提取 parameters（含 required）和 returnSchema |
 | 归档 | **不做**，只有软删除 | 本地单用户，工具数量有限 |
 | LLM 能否删除工具 | **不能** | 删除是破坏性操作，只走 HTTP API |
+| 危险操作提示 | LLM 在 tool_call args 自报 `destructive: true` | per-call 标注比静态 IsDestructive() 精准（同一 tool 不同 args 可能不同）；UI 据此显示警示徽章；存进 ToolCallData 一等字段 + ChatToolCall SSE 字段 |
+| AST dry-run | CreateForge / EditForge 在 streamCode 后调 `forgeapp.Service.ParseCode(code)` 验证，失败立刻返 LLM 重试信号 | 不进 svc.Create 的存储 I/O；干净的错误路径 |
+| RunForge 输出 | 50KB 截断（`maxOutputBytes`）| 防失控 forge 撑爆 LLM context；超限替换为 notice 字符串而非裁剪 |
 
 ---
 
@@ -65,7 +70,7 @@ type Tool struct {
     DeletedAt    gorm.DeletedAt `gorm:"index"                          json:"-"`
 }
 
-func (Tool) TableName() string { return "tools" }
+func (Tool) TableName() string { return "forges" }
 ```
 
 | 字段 | 说明 |
@@ -77,10 +82,10 @@ func (Tool) TableName() string { return "tools" }
 | `ReturnSchema` | `{"type":"list","description":"..."}` |
 | `VersionCount` | 最新 accepted version 号，从 1 开始 |
 
-### 3.2 ToolVersion（版本历史 + pending 变更，合并表）
+### 3.2 ForgeVersion（版本历史 + pending 变更，合并表）
 
 ```go
-type ToolVersion struct {
+type ForgeVersion struct {
     ID           string    `gorm:"primaryKey;type:text"           json:"id"`
     ToolID       string    `gorm:"not null;index;type:text"       json:"toolId"`
     UserID       string    `gorm:"not null;type:text"             json:"-"`
@@ -100,7 +105,7 @@ type ToolVersion struct {
     UpdatedAt    time.Time `json:"updatedAt"`
 }
 
-func (ToolVersion) TableName() string { return "tool_versions" }
+func (ForgeVersion) TableName() string { return "forge_versions" }
 ```
 
 **状态流转**：
@@ -113,10 +118,10 @@ pending → rejected  （用户拒绝）→ version 保持 nil
 
 **上限**：每工具最多保留 50 条 `status='accepted'` 记录，超限硬删最旧的 accepted 版本。rejected/pending 不计入上限。
 
-### 3.3 ToolTestCase（测试用例定义）
+### 3.3 ForgeTestCase（测试用例定义）
 
 ```go
-type ToolTestCase struct {
+type ForgeTestCase struct {
     ID             string    `gorm:"primaryKey;type:text"        json:"id"`
     ToolID         string    `gorm:"not null;index;type:text"    json:"toolId"`
     UserID         string    `gorm:"not null;type:text"          json:"-"`
@@ -127,19 +132,19 @@ type ToolTestCase struct {
     UpdatedAt      time.Time `json:"updatedAt"`
 }
 
-func (ToolTestCase) TableName() string { return "tool_test_cases" }
+func (ForgeTestCase) TableName() string { return "forge_test_cases" }
 ```
 
-### 3.4 ToolRunHistory（运行历史）
+### 3.4 ForgeRunHistory（运行历史）
 
 每次 `:run` 写一条，不管成功失败。
 
 ```go
-type ToolRunHistory struct {
+type ForgeRunHistory struct {
     ID          string    `gorm:"primaryKey;type:text"     json:"id"`
     ToolID      string    `gorm:"not null;index;type:text" json:"toolId"`
     UserID      string    `gorm:"not null;type:text"       json:"-"`
-    ToolVersion int       `gorm:"not null"                 json:"toolVersion"` // 执行时的 accepted version 号
+    ForgeVersion int       `gorm:"not null"                 json:"toolVersion"` // 执行时的 accepted version 号
     Input       string    `gorm:"type:text;default:'{}'"   json:"input"`
     Output      string    `gorm:"type:text;default:''"     json:"output"`
     OK          bool      `gorm:"not null"                 json:"ok"`
@@ -148,19 +153,19 @@ type ToolRunHistory struct {
     CreatedAt   time.Time `json:"createdAt"`
 }
 
-func (ToolRunHistory) TableName() string { return "tool_run_history" }
+func (ForgeRunHistory) TableName() string { return "forge_run_history" }
 ```
 
-### 3.5 ToolTestHistory（测试历史）
+### 3.5 ForgeTestHistory（测试历史）
 
 每次测试用例执行写一条（单跑和批跑都写）。
 
 ```go
-type ToolTestHistory struct {
+type ForgeTestHistory struct {
     ID          string    `gorm:"primaryKey;type:text"       json:"id"`
     ToolID      string    `gorm:"not null;index;type:text"   json:"toolId"`
     UserID      string    `gorm:"not null;type:text"         json:"-"`
-    ToolVersion int       `gorm:"not null"                   json:"toolVersion"`
+    ForgeVersion int       `gorm:"not null"                   json:"toolVersion"`
     TestCaseID  string    `gorm:"not null;index;type:text"   json:"testCaseId"`
     BatchID     string    `gorm:"type:text;default:'';index" json:"batchId"` // 批跑时共享，单跑时为空
     Input       string    `gorm:"type:text;default:'{}'"     json:"input"`
@@ -172,7 +177,7 @@ type ToolTestHistory struct {
     CreatedAt   time.Time `json:"createdAt"`
 }
 
-func (ToolTestHistory) TableName() string { return "tool_test_history" }
+func (ForgeTestHistory) TableName() string { return "forge_test_history" }
 ```
 
 ### 3.6 ExecutionResult（domain 层共享类型）
@@ -234,33 +239,33 @@ type Repository interface {
     GetTool(ctx context.Context, id string) (*Tool, error)
     GetToolsByIDs(ctx context.Context, ids []string) ([]*Tool, error) // LLM 排序后按 ID 批量拉完整对象
     ListTools(ctx context.Context, filter ListFilter) ([]*Tool, string, error)
-    ListAllTools(ctx context.Context) ([]*Tool, error) // 供 search_tools 把全量工具发给 LLM 排序
+    ListAllTools(ctx context.Context) ([]*Tool, error) // 供 search_forges 把全量工具发给 LLM 排序
     DeleteTool(ctx context.Context, id string) error
 
     // Versions（含 pending）
-    SaveVersion(ctx context.Context, v *ToolVersion) error
-    GetVersion(ctx context.Context, toolID string, version int) (*ToolVersion, error)
-    GetActivePending(ctx context.Context, toolID string) (*ToolVersion, error) // status='pending'
-    ListAcceptedVersions(ctx context.Context, toolID string) ([]*ToolVersion, error) // status='accepted', version DESC
+    SaveVersion(ctx context.Context, v *ForgeVersion) error
+    GetVersion(ctx context.Context, toolID string, version int) (*ForgeVersion, error)
+    GetActivePending(ctx context.Context, toolID string) (*ForgeVersion, error) // status='pending'
+    ListAcceptedVersions(ctx context.Context, toolID string) ([]*ForgeVersion, error) // status='accepted', version DESC
     UpdateVersionStatus(ctx context.Context, id, status string, version *int) error
     DeleteOldestAcceptedVersion(ctx context.Context, toolID string) error
 
     // Test cases
-    SaveTestCase(ctx context.Context, tc *ToolTestCase) error
-    GetTestCase(ctx context.Context, id string) (*ToolTestCase, error)
-    ListTestCases(ctx context.Context, toolID string) ([]*ToolTestCase, error)
+    SaveTestCase(ctx context.Context, tc *ForgeTestCase) error
+    GetTestCase(ctx context.Context, id string) (*ForgeTestCase, error)
+    ListTestCases(ctx context.Context, toolID string) ([]*ForgeTestCase, error)
     DeleteTestCase(ctx context.Context, id string) error
 
     // Run history
-    SaveRunHistory(ctx context.Context, h *ToolRunHistory) error
-    ListRunHistory(ctx context.Context, toolID string, limit int) ([]*ToolRunHistory, error)
+    SaveRunHistory(ctx context.Context, h *ForgeRunHistory) error
+    ListRunHistory(ctx context.Context, toolID string, limit int) ([]*ForgeRunHistory, error)
     CountRunHistory(ctx context.Context, toolID string) (int64, error)
     DeleteOldestRunHistory(ctx context.Context, toolID string) error
 
     // Test history
-    SaveTestHistory(ctx context.Context, h *ToolTestHistory) error
-    ListTestHistory(ctx context.Context, toolID string, limit int) ([]*ToolTestHistory, error)
-    ListTestHistoryByBatch(ctx context.Context, batchID string) ([]*ToolTestHistory, error)
+    SaveTestHistory(ctx context.Context, h *ForgeTestHistory) error
+    ListTestHistory(ctx context.Context, toolID string, limit int) ([]*ForgeTestHistory, error)
+    ListTestHistoryByBatch(ctx context.Context, batchID string) ([]*ForgeTestHistory, error)
     CountTestHistory(ctx context.Context, toolID string) (int64, error)
     DeleteOldestTestHistory(ctx context.Context, toolID string) error
 }
@@ -320,12 +325,12 @@ type LLMClient interface {
     Generate(ctx context.Context, prompt string) (string, error)
 }
 
-// GenerateEvent 是 GenerateTestCases 通过 emit callback 推送的事件。
-type GenerateEvent struct {
-    Type     string                   // "test_case" | "done" | "not_supported"
-    TestCase *tooldomain.ToolTestCase // Type="test_case" 时有值
-    Count    int                      // Type="done" 时有值
-    Reason   string                   // Type="not_supported" 时有值
+// GenerateResult 是 GenerateTestCases 同步返回的形状。
+// 要么 NotSupported=true（含 Reason），要么 TestCases 含已保存的用例。
+type GenerateResult struct {
+    NotSupported bool                       `json:"notSupported"`
+    Reason       string                     `json:"reason,omitempty"`
+    TestCases    []*tooldomain.ForgeTestCase `json:"testCases,omitempty"`
 }
 ```
 
@@ -377,7 +382,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*tooldomain.Tool,
 func (s *Service) Get(ctx context.Context, id string) (*tooldomain.Tool, error)
 
 func (s *Service) GetDetail(ctx context.Context, id string) (*ToolDetail, error)
-// 供 get_tool System Tool 使用：Get + 聚合最近 test history 摘要
+// 供 get_forge System Tool 使用：Get + 聚合最近 test history 摘要
 
 type ToolDetail struct {
     *tooldomain.Tool
@@ -411,10 +416,10 @@ func (s *Service) Delete(ctx context.Context, id string) error
 ### 8.4 版本管理
 
 ```go
-func (s *Service) ListVersions(ctx context.Context, toolID string) ([]*tooldomain.ToolVersion, error)
+func (s *Service) ListVersions(ctx context.Context, toolID string) ([]*tooldomain.ForgeVersion, error)
 // repo.ListAcceptedVersions（status='accepted', version DESC）
 
-func (s *Service) GetVersion(ctx context.Context, toolID string, version int) (*tooldomain.ToolVersion, error)
+func (s *Service) GetVersion(ctx context.Context, toolID string, version int) (*tooldomain.ForgeVersion, error)
 
 func (s *Service) RevertToVersion(ctx context.Context, toolID string, version int) (*tooldomain.Tool, error)
 // 1. GetVersion → 拿完整快照（name/description/code/parameters/returnSchema/tags）
@@ -427,7 +432,7 @@ func (s *Service) RevertToVersion(ctx context.Context, toolID string, version in
 ### 8.5 Pending 管理
 
 ```go
-func (s *Service) GetActivePending(ctx context.Context, toolID string) (*tooldomain.ToolVersion, error)
+func (s *Service) GetActivePending(ctx context.Context, toolID string) (*tooldomain.ForgeVersion, error)
 // repo.GetActivePending → ErrPendingNotFound if nil
 
 func (s *Service) AcceptPending(ctx context.Context, toolID string) (*tooldomain.Tool, error)
@@ -449,34 +454,33 @@ func (s *Service) RunTool(ctx context.Context, toolID string, input map[string]a
 // input 已由调用方预处理（att_id 解析在 RunTool System Tool 内完成；HTTP 调用者直接传真实路径）
 // 1. GetTool → code
 // 2. sandbox.Run(code, input, SandboxTimeout)
-// 3. 写 ToolRunHistory（无论成功失败）
+// 3. 写 ForgeRunHistory（无论成功失败）
 // 4. 若 count > MaxRunHistoryPerTool → DeleteOldestRunHistory
 ```
 
 ### 8.7 测试用例
 
 ```go
-func (s *Service) CreateTestCase(ctx context.Context, toolID string, in TestCaseInput) (*tooldomain.ToolTestCase, error)
-func (s *Service) ListTestCases(ctx context.Context, toolID string) ([]*tooldomain.ToolTestCase, error)
+func (s *Service) CreateTestCase(ctx context.Context, toolID string, in TestCaseInput) (*tooldomain.ForgeTestCase, error)
+func (s *Service) ListTestCases(ctx context.Context, toolID string) ([]*tooldomain.ForgeTestCase, error)
 func (s *Service) DeleteTestCase(ctx context.Context, id string) error
 
 func (s *Service) RunTestCase(ctx context.Context, testCaseID string, batchID string) (*TestRunResult, error)
 // sandbox.Run + 若 ExpectedOutput != "" 则断言 pass/fail
-// 写 ToolTestHistory
+// 写 ForgeTestHistory
 // 若 count > MaxTestHistoryPerTool → DeleteOldestTestHistory
 
 func (s *Service) RunAllTests(ctx context.Context, toolID string) ([]*TestRunResult, error)
 // 生成 batchID → 逐条 RunTestCase(id, batchID) → 汇总返回
 
-func (s *Service) GenerateTestCases(ctx context.Context, toolID string, count int, emit func(GenerateEvent)) error
+func (s *Service) GenerateTestCases(ctx context.Context, toolID string, count int) (*GenerateResult, error)
 // 1. GetTool → code + parameters + returnSchema
 // 2. llm.Generate(ctx, prompt) — 等完整 JSON
 //    prompt：分析函数，若依赖外部状态输出 {"not_supported":true,"reason":"..."}
 //            否则输出 {"test_cases":[{name,input,expected_output},...]}
 // 3. 解析结果：
-//    not_supported → emit({Type:"not_supported", Reason:...})
-//    test_cases    → 逐条 SaveTestCase + emit({Type:"test_case", TestCase:tc})
-//    完成          → emit({Type:"done", Count:N})
+//    not_supported → return &GenerateResult{NotSupported:true, Reason:...}
+//    test_cases    → 逐条 SaveTestCase 累积 → return &GenerateResult{TestCases:saved}
 // 注意：追加到现有测试集
 ```
 
@@ -534,21 +538,45 @@ HTTP 直接调用 `:run` 的用户传真实文件路径，不需要解析。
 
 ---
 
-## 10. System Tools（app/agent/forge.go）
+## 10. System Tools（`app/tool/forge/` 嵌套子包）
 
-```go
-func ForgeTools(
-    toolSvc      *toolapp.Service,
-    attachRepo  chatdomain.Repository,
-    modelPicker modeldomain.ModelPicker,
-    keyProvider apikeydomain.KeyProvider,
-    llmFactory  *llminfra.Factory,        // 自有 LLM 流式客户端工厂
-    bridge      eventsdomain.Bridge,
-) []agentapp.Tool
-// 返回 5 个 System Tool：search / get / create / edit / run（实现 agentapp.Tool 接口）
+5 个 forge system tool 各自一个文件（Phase 3 后优化轮重组），实现 `app/tool.Tool` 接口（10 方法全必填，详见 [`CLAUDE.md §S18`](../../../CLAUDE.md)）。包别名 `forgetool`（§S13 嵌套子包规则 `<sub><parent>`）。
+
+```
+internal/app/tool/forge/
+├── forge.go        ← ForgeTools() 工厂 + 共享 helpers（buildClient / streamCode / extractJSON / extractCode / resolveAttachments / prompt builders）
+├── search.go       ← SearchForge struct
+├── get.go          ← GetForge struct
+├── create.go       ← CreateForge struct
+├── edit.go         ← EditForge struct
+└── run.go          ← RunForge struct
 ```
 
-### search_tools
+```go
+package forge
+
+func ForgeTools(
+    svc        *forgeapp.Service,
+    attachRepo chatdomain.Repository,
+    picker     modeldomain.ModelPicker,
+    keys       apikeydomain.KeyProvider,
+    factory    *llminfra.Factory,
+    bridge     eventsdomain.Bridge,
+) []toolapp.Tool
+// 返回 5 个 forge system tool（实现 toolapp.Tool 接口的 10 方法）
+```
+
+**统一注入 / 钩子链**（每个 forge tool 都走）：framework 自动注入 `summary` (必填) + `destructive` (可选) 字段进 Parameters；`runOneTool` 在 Execute 前跑 `ValidateInput` + `CheckPermissions`；推流时 tool 直接 `bridge.Publish(...)`，从 `pkg/reqctx` 读 convID/msgID/toolCallID。
+
+| Tool | IsReadOnly | IsConcurrencySafe | 推 SSE | 备注 |
+|---|---|---|---|---|
+| SearchForge | true | true | — | LLM 排序，并发安全 |
+| GetForge | true | true | — | 单条查询，并发安全 |
+| CreateForge | false | false | `forge.code_streaming` + `forge.created` | 写库；AST dry-run 后再 svc.Create |
+| EditForge | false | false | `forge.code_streaming` + `forge.pending_created` 或 `forge.metadata_updated` | 走 pending；元数据-only 路径推后者 |
+| RunForge | false | false | — | sandbox 执行；输出 50KB 截断 |
+
+### search_forges
 
 ```
 参数：{ "query": string, "limit"?: int（默认 3，最大 5）}
@@ -556,123 +584,118 @@ func ForgeTools(
   id, name, description,
   parameters: [{name, type, required, description, default}],
   returnSchema: {type, description},
-  similarity: float   // LLM 给出的相关度评分 0~1
+  score: float   // LLM 给出的相关度评分 0~1（注意：原 "similarity" 在 Phase 3 改名 score——更诚实，不是向量 cosine）
 }]
 
-实现（SearchTool 内部）：
-  1. toolSvc.ListAll(ctx) → 全部工具（name + description）
-  2. llm.Generate(ctx, rankPrompt) → "[{\"id\":\"t_xxx\",\"score\":0.95},...]"
-     rankPrompt：列出所有工具 + query，要求返回最相关的 limit 个 ID+score
-  3. 解析 JSON → 按 score DESC 取前 limit 条
-  4. repo.GetToolsByIDs(ids) → 完整 Tool 对象
-  5. 组装返回，score 填入 similarity 字段
+实现（SearchForge 内部）：
+  1. svc.ListAll(ctx) → 全部 forge（name + description）
+  2. llm.Generate(ctx, rankPrompt) → "[{\"id\":\"f_xxx\",\"score\":0.95},...]"
+     rankPrompt：列出所有 forge + query，要求返回最相关的 limit 个 ID+score
+  3. extractJSON 兼容 markdown fence 优先（` ```json ... ``` `）+ bracket fallback
+  4. svc.GetForgesByIDs(ids) → 完整 Forge 对象
+  5. 组装返回，score 填入
 
 LLM 使用指引：
-- similarity >= 0.8：高度相关，可直接 get_tool 确认后使用
-- similarity 0.5~0.8：可能相关，建议 get_tool 读代码判断
-- 返回空或全部低分：工具库无合适工具，考虑 create_tool
+- score >= 0.8：高度相关，可直接 get_forge 确认后使用
+- score 0.5~0.8：可能相关，建议 get_forge 读代码判断
+- 返回空或全部低分：forge 库无合适工具，考虑 create_forge
 ```
 
-### get_tool
+### get_forge
 
 ```
-参数：{ "tool_id": string }
+参数：{ "forge_id": string }
 返回：{
   id, name, description, code,
-  parameters: [{name, type, required, description, default}],
-  returnSchema: {type, description},
-  tags,
-  versionCount,
-  testSummary: {           // 最近一批测试的摘要，帮助 LLM 判断工具可靠性
-    total: int,            // 测试用例总数
-    lastPassRate: string,  // "3/3" | "2/3" | ""（无记录）
-    lastRunAt: string      // ISO 8601 或 ""
-  }
+  parameters, returnSchema, tags, versionCount,
+  testSummary: { total, lastPassRate, lastRunAt }
 }
-实现：toolSvc.GetDetail(tool_id)
-说明：LLM 在 search_tools 拿到候选后，对不确定的工具调此接口读完整代码再决定是否使用
+实现：svc.GetDetail(forge_id)
+说明：LLM 在 search_forges 拿到候选后，对不确定的 forge 调此接口读完整代码再决定是否使用
 ```
 
-### create_tool
+### create_forge
 
 ```
 参数：{ "name": string, "description": string, "instruction": string }
-返回：{ "tool_id": string, "name": string, "parameters": [...] }
+返回：{ "forge_id": string, "name": string, "parameters": [...] }
 流程：
-  1. llm.Stream(createPrompt + instruction) → 逐 token 推 tool.code_streaming{actionType:"create"}
-  2. toolSvc.Create({name, description, code})
-  3. 推 tool.created
-  4. 返回 {tool_id, name, parameters}
+  1. streamCode(createPrompt + instruction) → 逐 token 推 forge.code_streaming{actionType:"create"}
+  2. svc.ParseCode(code) — AST dry-run；语法错立刻返 LLM 重试（不进存储 I/O）
+  3. svc.Create({name, description, code})
+  4. bridge.Publish forge.created
+  5. 返回 {forge_id, name, parameters}
 ```
 
-### edit_tool
+### edit_forge
 
 ```
 参数：{
-  "tool_id": string,
-  "instruction"?: string,    // 有 → LLM 生成新代码（流式）
+  "forge_id": string,
+  "instruction"?: string,    // 有 → LLM 生成新代码（流式）；无 → 仅改元数据
   "name"?: string,
-  "description"?: string,
-  "tags"?: [string]
+  "description"?: string
 }
 // instruction 和其余字段至少提供一个
 
-返回：{ "pending_id": string, "tool_id": string }
+返回：{ "pending_id": string, "forge_id": string }
 流程：
-  1. GetTool → 当前完整状态
-  2. 检查 active pending → ErrPendingConflict（先检查，避免白做工作）
-  3. 若有 instruction：llm.Stream(editPrompt + currentCode + instruction)
-     → 逐 token 推 tool.code_streaming{actionType:"edit"}
-     → 生成新代码，parseToolCode → parameters, returnSchema
-  4. 构建完整 pending 快照（合并当前状态 + 参数中的变更）
-  5. repo.SaveVersion(status='pending', message=instruction or "metadata update")
-  6. 推 tool.pending_created
-  7. 返回 {pending_id, tool_id}
+  1. 若有 instruction：
+     a. svc.Get(forge_id) → 当前 code
+     b. streamCode(editPrompt + currentCode + instruction) → 逐 token 推 forge.code_streaming{actionType:"edit"}
+     c. svc.ParseCode(newCode) — AST dry-run
+     d. snap.Code = newCode
+  2. svc.CreatePending(forge_id, snap)
+  3. 推事件（按路径选）：
+     - 含 instruction → forge.pending_created
+     - 仅元数据 → forge.metadata_updated（让前端区分"代码重生" vs "静默元数据"）
+  4. 返回 {pending_id, forge_id}
 ```
 
-### run_tool
+### run_forge
 
 ```
-参数：{ "tool_id": string, "input": object }
+参数：{ "forge_id": string, "input": object }
 返回：{ "ok": bool, "output": any, "error"?: string, "elapsed_ms": int }
 流程：
-  1. resolveAttachments(ctx, input)
-  2. toolSvc.RunTool(ctx, tool_id, resolvedInput)
-注意：执行失败返回 ok=false，不是 HTTP 错误
+  1. resolveAttachments(ctx, input) — 顶层 string 字段 "att_xxx" → storage path
+  2. svc.RunForge(ctx, forge_id, resolvedInput)
+  3. 输出 JSON 编码后超 50KB 截断为 notice 字符串
+注意：sandbox 执行失败返回 ok=false，不是 Go error
 ```
 
 ---
 
-## 11. HTTP API（22 个端点，get_tool 仅为 System Tool，无对应 HTTP 端点）
+## 11. HTTP API（22 个端点，get_forge 仅为 System Tool，无对应 HTTP 端点）
 
 | Method | Path | 用途 | 状态码 |
 |---|---|---|---|
-| POST | `/api/v1/tools` | 创建（直接传 code，不走 LLM）| 201 |
-| GET | `/api/v1/tools` | 列表（分页 + `?q=` 语义搜索）| 200 |
-| GET | `/api/v1/tools/{id}` | 详情 | 200 |
-| PATCH | `/api/v1/tools/{id}` | 更新（直接生效，任意字段）| 200 |
-| DELETE | `/api/v1/tools/{id}` | 软删 | 204 |
-| POST | `/api/v1/tools/{id}:run` | 执行工具 | 200 |
-| POST | `/api/v1/tools/{id}:export` | 导出 JSON | 200 |
-| POST | `/api/v1/tools:import` | 导入 JSON | 201 |
-| GET | `/api/v1/tools/{id}/versions` | accepted 版本列表 | 200 |
-| GET | `/api/v1/tools/{id}/versions/{version}` | 单版本详情（含完整快照）| 200 |
-| POST | `/api/v1/tools/{id}:revert` | 回滚到指定版本 | 200 |
-| GET | `/api/v1/tools/{id}/pending` | 当前 pending（无则 404）| 200/404 |
-| POST | `/api/v1/tools/{id}/pending:accept` | 接受 | 200 |
-| POST | `/api/v1/tools/{id}/pending:reject` | 拒绝 | 204 |
-| GET | `/api/v1/tools/{id}/test-cases` | 测试用例列表 | 200 |
-| POST | `/api/v1/tools/{id}/test-cases` | 创建测试用例 | 201 |
-| DELETE | `/api/v1/tools/{id}/test-cases/{tcId}` | 删除测试用例 | 204 |
-| POST | `/api/v1/tools/{id}/test-cases/{tcId}:run` | 运行单个测试用例 | 200 |
-| POST | `/api/v1/tools/{id}:test` | 运行全部测试用例 | 200 |
-| POST | `/api/v1/tools/{id}:generate-test-cases` | LLM 生成测试用例（SSE）| 200 SSE |
-| GET | `/api/v1/tools/{id}/run-history` | 运行历史 | 200 |
-| GET | `/api/v1/tools/{id}/test-history` | 测试历史（`?batchId=` 过滤）| 200 |
+| POST | `/api/v1/forges` | 创建（直接传 code，不走 LLM）| 201 |
+| GET | `/api/v1/forges` | 列表（分页 + `?q=` 语义搜索）| 200 |
+| GET | `/api/v1/forges/{id}` | 详情 | 200 |
+| PATCH | `/api/v1/forges/{id}` | 更新（直接生效，任意字段）| 200 |
+| DELETE | `/api/v1/forges/{id}` | 软删 | 204 |
+| POST | `/api/v1/forges/{id}:run` | 执行工具 | 200 |
+| POST | `/api/v1/forges/{id}:export` | 导出 JSON | 200 |
+| POST | `/api/v1/forges:import` | 导入 JSON | 201 |
+| GET | `/api/v1/forges/{id}/versions` | accepted 版本列表 | 200 |
+| GET | `/api/v1/forges/{id}/versions/{version}` | 单版本详情（含完整快照）| 200 |
+| POST | `/api/v1/forges/{id}:revert` | 回滚到指定版本 | 200 |
+| GET | `/api/v1/forges/{id}/pending` | 当前 pending（无则 404）| 200/404 |
+| POST | `/api/v1/forges/{id}/pending:accept` | 接受 | 200 |
+| POST | `/api/v1/forges/{id}/pending:reject` | 拒绝 | 204 |
+| GET | `/api/v1/forges/{id}/test-cases` | 测试用例列表 | 200 |
+| POST | `/api/v1/forges/{id}/test-cases` | 创建测试用例 | 201 |
+| DELETE | `/api/v1/forges/{id}/test-cases/{tcId}` | 删除测试用例 | 204 |
+| POST | `/api/v1/forges/{id}/test-cases/{tcId}:run` | 运行单个测试用例 | 200 |
+| POST | `/api/v1/forges/{id}:test` | 运行全部测试用例 | 200 |
+| POST | `/api/v1/forges/{id}:generate-test-cases` | LLM 生成测试用例（一次性返回 JSON 批量）| 200 |
+| GET | `/api/v1/forges/{id}/run-history` | 运行历史 | 200 |
+| GET | `/api/v1/forges/{id}/test-history` | 测试历史（`?batchId=` 过滤）| 200 |
 
 **关键说明**：
 - `POST /tools` 和 `PATCH /tools/{id}` 是用户直接操作，立即生效，创建 accepted version
-- `edit_tool`（System Tool）是 LLM 发起的变更，统一走 pending，用户审核后生效
+- `edit_forge`（System Tool）是 LLM 发起的变更，统一走 pending，用户审核后生效
 - `:run` 执行失败是业务结果（200 + `ok:false`），不是 HTTP 错误
 
 ---
@@ -685,7 +708,7 @@ LLM 使用指引：
 | `TOOL_NAME_DUPLICATE` | 409 | `ErrDuplicateName` | 创建/改名撞名 |
 | `TOOL_VERSION_NOT_FOUND` | 404 | `ErrVersionNotFound` | revert / get version 时版本不存在 |
 | `TOOL_PENDING_NOT_FOUND` | 404 | `ErrPendingNotFound` | accept/reject 时无 pending |
-| `TOOL_PENDING_CONFLICT` | 409 | `ErrPendingConflict` | edit_tool 时已有未处理 pending |
+| `TOOL_PENDING_CONFLICT` | 409 | `ErrPendingConflict` | edit_forge 时已有未处理 pending |
 | `TOOL_TEST_CASE_NOT_FOUND` | 404 | `ErrTestCaseNotFound` | 测试用例找不到 |
 | `TOOL_RUN_FAILED` | 422 | `ErrRunFailed` | sandbox 内部错误（≠ 执行失败，执行失败是 ok=false）|
 | `TOOL_AST_PARSE_FAILED` | 422 | `ErrASTParseError` | 代码无法被 Python AST 解析 |
@@ -696,11 +719,11 @@ LLM 使用指引：
 ## 13. SSE 事件（6 个新增，追加到 domain/events/types.go）
 
 ```go
-// ToolCodeStreaming 在 create_tool / edit_tool 的 LLM 代码生成阶段逐 token 推送。
-// ToolCodeStreaming 在 create_tool / edit_tool 的 LLM 代码生成阶段逐 token 推送。
+// ForgeCodeStreaming 在 create_forge / edit_forge 的 LLM 代码生成阶段逐 token 推送。
+// ForgeCodeStreaming 在 create_forge / edit_forge 的 LLM 代码生成阶段逐 token 推送。
 // MessageID + ToolCallID 把流绑定到触发它的对话轮次，前端据此关联代码面板更新。
-// create_tool 期间 ToolID 为空（工具尚未创建）。
-type ToolCodeStreaming struct {
+// create_forge 期间 ToolID 为空（工具尚未创建）。
+type ForgeCodeStreaming struct {
     ConversationID string `json:"conversationId"`
     MessageID      string `json:"messageId"`  // 触发此 tool call 的 assistant 消息 id
     ToolCallID     string `json:"toolCallId"` // LLM 分配的 tool call id
@@ -708,52 +731,33 @@ type ToolCodeStreaming struct {
     ActionType     string `json:"actionType"` // "create" | "edit"
     Delta          string `json:"delta"`
 }
-func (ToolCodeStreaming) EventName() string { return "tool.code_streaming" }
+func (ForgeCodeStreaming) EventName() string { return "forge.code_streaming" }
 
-// ToolCreated 在 create_tool 成功保存工具后推送。
-type ToolCreated struct {
+// ForgeCreated 在 create_forge 成功保存工具后推送。
+type ForgeCreated struct {
     ConversationID string `json:"conversationId"`
     MessageID      string `json:"messageId"`
     ToolCallID     string `json:"toolCallId"`
     ToolID         string `json:"toolId"`
     ToolName       string `json:"toolName"`
 }
-func (ToolCreated) EventName() string { return "tool.created" }
+func (ForgeCreated) EventName() string { return "forge.created" }
 
-// ToolPendingCreated 在 edit_tool 保存 pending 变更后推送。
-type ToolPendingCreated struct {
+// ForgePendingCreated 在 edit_forge 保存 pending 变更后推送。
+type ForgePendingCreated struct {
     ConversationID string `json:"conversationId"`
     MessageID      string `json:"messageId"`
     ToolCallID     string `json:"toolCallId"`
     ToolID         string `json:"toolId"`
-    PendingID      string `json:"pendingId"`  // status='pending' 的 ToolVersion id
+    PendingID      string `json:"pendingId"`  // status='pending' 的 ForgeVersion id
     Instruction    string `json:"instruction"`
 }
-func (ToolPendingCreated) EventName() string { return "tool.pending_created" }
+func (ForgePendingCreated) EventName() string { return "forge.pending_created" }
 
-// ToolTestCaseGenerated 在 generate-test-cases 每生成一条完整用例时推送（完整对象，非 token）。
-type ToolTestCaseGenerated struct {
-    ToolID         string `json:"toolId"`
-    TestCaseID     string `json:"testCaseId"`
-    Name           string `json:"name"`
-    InputData      string `json:"inputData"`
-    ExpectedOutput string `json:"expectedOutput"`
-}
-func (ToolTestCaseGenerated) EventName() string { return "tool.test_case_generated" }
-
-// ToolTestCasesDone 在 generate-test-cases 全部完成后推送。
-type ToolTestCasesDone struct {
-    ToolID string `json:"toolId"`
-    Count  int    `json:"count"`
-}
-func (ToolTestCasesDone) EventName() string { return "tool.test_cases_done" }
-
-// ToolTestCasesNotSupported 在 LLM 判断工具不可自动测试时推送。
-type ToolTestCasesNotSupported struct {
-    ToolID string `json:"toolId"`
-    Reason string `json:"reason"` // LLM 解释，直接展示给用户
-}
-func (ToolTestCasesNotSupported) EventName() string { return "tool.test_cases_not_supported" }
+// generate-test-cases 端点是同步 HTTP，不推 SSE 事件。
+// 旧版（Phase 3）曾推 tool.test_case_generated / tool.test_cases_done /
+// tool.test_cases_not_supported，Phase 3 后优化轮（2026-05-02）废弃——
+// LLM 调用本身非流式，逐条推送是化妆。详见 progress-record.md。
 ```
 
 ---
@@ -764,11 +768,11 @@ func (ToolTestCasesNotSupported) EventName() string { return "tool.test_cases_no
 
 ```
 用户："帮我写一个解析 CSV 的工具"
-  → LLM 调 create_tool({name, description, instruction})
+  → LLM 调 create_forge({name, description, instruction})
   → CreateTool.InvokableRun
-      → llm.Stream → 推 tool.code_streaming tokens
+      → llm.Stream → 推 forge.code_streaming tokens
       → toolSvc.Create → SaveTool + SaveVersion(v1, accepted)
-      → 推 tool.created
+      → 推 forge.created
       → return {tool_id, name, parameters}
 ```
 
@@ -776,19 +780,19 @@ func (ToolTestCasesNotSupported) EventName() string { return "tool.test_cases_no
 
 ```
 用户："帮 parse_csv 加 delimiter 参数，顺便改个好听的名字"
-  → LLM 调 edit_tool({tool_id, instruction:"add delimiter param", name:"csv_parser"})
+  → LLM 调 edit_forge({tool_id, instruction:"add delimiter param", name:"csv_parser"})
   → EditTool.InvokableRun
-      → llm.Stream(currentCode + instruction) → 推 tool.code_streaming tokens
+      → llm.Stream(currentCode + instruction) → 推 forge.code_streaming tokens
       → 构建完整 pending 快照（name="csv_parser", 新代码, 新 parameters...）
       → repo.SaveVersion(status='pending')
-      → 推 tool.pending_created
+      → 推 forge.pending_created
       → return {pending_id, tool_id}
 ```
 
 ### 链 3：用户接受 pending
 
 ```
-POST /api/v1/tools/t_xxx/pending:accept
+POST /api/v1/forges/t_xxx/pending:accept
   → toolSvc.AcceptPending
       → 分配 version = VersionCount + 1
       → 更新 Tool 主表为 pending 快照（名字也改了）
@@ -801,11 +805,11 @@ POST /api/v1/tools/t_xxx/pending:accept
 
 ```
 用户："帮我处理这段 CSV"
-  → LLM 调 search_tools({query:"csv"}) → [{id, name, parameters, returnSchema, similarity:0.91}]
-  → LLM 调 run_tool({tool_id, input:{csv_text:"..."}})
+  → LLM 调 search_forges({query:"csv"}) → [{id, name, parameters, returnSchema, similarity:0.91}]
+  → LLM 调 run_forge({tool_id, input:{csv_text:"..."}})
   → RunTool.InvokableRun
       → resolveAttachments（无 att_ 字段，直接透传）
-      → toolSvc.RunTool → sandbox.Run → 写 ToolRunHistory
+      → toolSvc.RunTool → sandbox.Run → 写 ForgeRunHistory
       → return {ok:true, output:[...], elapsed_ms:35}
 ```
 
@@ -814,7 +818,7 @@ POST /api/v1/tools/t_xxx/pending:accept
 ```
 用户上传 report.csv → att_abc123
 用户："用工具处理这个文件"
-  → LLM 调 run_tool({tool_id, input:{file_path:"att_abc123"}})
+  → LLM 调 run_forge({tool_id, input:{file_path:"att_abc123"}})
   → RunTool.InvokableRun
       → resolveAttachments → 查 chat_attachments → {file_path:"/data/.../original.csv"}
       → toolSvc.RunTool → sandbox.Run
@@ -823,16 +827,18 @@ POST /api/v1/tools/t_xxx/pending:accept
 ### 链 6：用户点击"AI 生成测试用例"
 
 ```
-POST /api/v1/tools/t_xxx:generate-test-cases  (SSE)
-  → handler 调 toolSvc.GenerateTestCases(ctx, id, 5, emit)
+POST /api/v1/forges/t_xxx:generate-test-cases  (200 JSON)
+  → handler 调 toolSvc.GenerateTestCases(ctx, id, 5)
       → llm.Generate(prompt) — 等完整 JSON
 
       情况 A（可测）：
-        → 逐条 SaveTestCase + emit({Type:"test_case", TestCase})  → SSE: tool.test_case_generated
-        → emit({Type:"done", Count:5})                            → SSE: tool.test_cases_done
+        → 逐条 SaveTestCase 累积进 saved
+        → return &GenerateResult{TestCases:saved}
 
       情况 B（不可测，如依赖文件路径）：
-        → emit({Type:"not_supported", Reason:"..."})              → SSE: tool.test_cases_not_supported
+        → return &GenerateResult{NotSupported:true, Reason:"..."}
+
+  ← 200 envelope: {data: {testCases: [...]} 或 {notSupported:true, reason:"..."}}
 ```
 
 ---
@@ -842,10 +848,10 @@ POST /api/v1/tools/t_xxx:generate-test-cases  (SSE)
 | 表 | 主键前缀 | 说明 |
 |---|---|---|
 | `tools` | `t_` | 主实体，当前 active 状态 |
-| `tool_versions` | `tv_` | 版本历史 + pending 变更（status 字段区分），accepted 最多保留 50 条 |
-| `tool_test_cases` | `tc_` | 测试用例定义 |
-| `tool_run_history` | `trh_` | 每次 `:run` 记录，最多 100 条/工具 |
-| `tool_test_history` | `tth_` | 每次测试用例执行记录，最多 200 条/工具 |
+| `forge_versions` | `tv_` | 版本历史 + pending 变更（status 字段区分），accepted 最多保留 50 条 |
+| `forge_test_cases` | `tc_` | 测试用例定义 |
+| `forge_run_history` | `trh_` | 每次 `:run` 记录，最多 100 条/工具 |
+| `forge_test_history` | `tth_` | 每次测试用例执行记录，最多 200 条/工具 |
 
 `schema_extras.go` 追加：`UNIQUE(user_id, name) WHERE deleted_at IS NULL`（tools 表）
 

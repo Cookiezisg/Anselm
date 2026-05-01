@@ -21,7 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 )
 
@@ -34,7 +34,7 @@ type DevHandler struct {
 	collectionsDir string
 	integrationDir string
 	port           int
-	tools          []agentapp.Tool
+	tools          []toolapp.Tool
 	log            *zap.Logger
 }
 
@@ -46,7 +46,7 @@ func NewDevHandler(
 	broadcaster *loggerinfra.LogBroadcaster,
 	collectionsDir, integrationDir string,
 	port int,
-	tools []agentapp.Tool,
+	tools []toolapp.Tool,
 	log *zap.Logger,
 ) *DevHandler {
 	return &DevHandler{
@@ -354,7 +354,7 @@ func (h *DevHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	var target agentapp.Tool
+	var target toolapp.Tool
 	for _, t := range h.tools {
 		if t.Name() == req.Tool {
 			target = t

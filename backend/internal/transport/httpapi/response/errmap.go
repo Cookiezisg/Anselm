@@ -11,7 +11,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -64,15 +64,15 @@ var errTable = map[error]errMapping{
 	modeldomain.ErrModelIDRequired:  {http.StatusBadRequest, "MODEL_ID_REQUIRED"},
 
 	// tool domain / tool domain 层
-	tooldomain.ErrNotFound:         {http.StatusNotFound, "TOOL_NOT_FOUND"},
-	tooldomain.ErrDuplicateName:    {http.StatusConflict, "TOOL_NAME_DUPLICATE"},
-	tooldomain.ErrVersionNotFound:  {http.StatusNotFound, "TOOL_VERSION_NOT_FOUND"},
-	tooldomain.ErrPendingNotFound:  {http.StatusNotFound, "TOOL_PENDING_NOT_FOUND"},
-	tooldomain.ErrPendingConflict:  {http.StatusConflict, "TOOL_PENDING_CONFLICT"},
-	tooldomain.ErrTestCaseNotFound: {http.StatusNotFound, "TOOL_TEST_CASE_NOT_FOUND"},
-	tooldomain.ErrRunFailed:        {http.StatusUnprocessableEntity, "TOOL_RUN_FAILED"},
-	tooldomain.ErrASTParseError:    {http.StatusUnprocessableEntity, "TOOL_AST_PARSE_FAILED"},
-	tooldomain.ErrImportInvalid:    {http.StatusBadRequest, "TOOL_IMPORT_INVALID"},
+	forgedomain.ErrNotFound:         {http.StatusNotFound, "TOOL_NOT_FOUND"},
+	forgedomain.ErrDuplicateName:    {http.StatusConflict, "TOOL_NAME_DUPLICATE"},
+	forgedomain.ErrVersionNotFound:  {http.StatusNotFound, "TOOL_VERSION_NOT_FOUND"},
+	forgedomain.ErrPendingNotFound:  {http.StatusNotFound, "TOOL_PENDING_NOT_FOUND"},
+	forgedomain.ErrPendingConflict:  {http.StatusConflict, "TOOL_PENDING_CONFLICT"},
+	forgedomain.ErrTestCaseNotFound: {http.StatusNotFound, "TOOL_TEST_CASE_NOT_FOUND"},
+	forgedomain.ErrRunFailed:        {http.StatusUnprocessableEntity, "TOOL_RUN_FAILED"},
+	forgedomain.ErrASTParseError:    {http.StatusUnprocessableEntity, "TOOL_AST_PARSE_FAILED"},
+	forgedomain.ErrImportInvalid:    {http.StatusBadRequest, "TOOL_IMPORT_INVALID"},
 
 	// Cross-cutting: explicitly registered to suppress the "unmapped domain
 	// error" warning while still returning 500. Both represent server-side

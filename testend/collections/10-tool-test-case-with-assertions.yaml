@@ -5,7 +5,7 @@ steps:
 
   - name: "创建：类型检测工具"
     method: POST
-    path: /api/v1/tools
+    path: /api/v1/forges
     body:
       name: "test_type_info"
       description: "Return type name and value of input"
@@ -18,7 +18,7 @@ steps:
 
   - name: "TC: 整数输入（42）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_int"
       inputData: "{\"value\": 42}"
@@ -30,7 +30,7 @@ steps:
 
   - name: "TC: 字符串输入"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_str"
       inputData: "{\"value\": \"hello\"}"
@@ -42,7 +42,7 @@ steps:
 
   - name: "TC: 浮点输入"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_float"
       inputData: "{\"value\": 3.14}"
@@ -54,7 +54,7 @@ steps:
 
   - name: "TC: 布尔值 true"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_bool_true"
       inputData: "{\"value\": true}"
@@ -66,7 +66,7 @@ steps:
 
   - name: "TC: 列表输入"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_list"
       inputData: "{\"value\": [1, 2, 3]}"
@@ -78,7 +78,7 @@ steps:
 
   - name: "TC: 故意错误断言（应 fail）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases
+    path: /api/v1/forges/{{typeToolId}}/test-cases
     body:
       name: "type_intentional_fail"
       inputData: "{\"value\": 42}"
@@ -90,25 +90,25 @@ steps:
 
   - name: "运行整数用例（应 pass）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases/{{tcTypeInt}}:run
+    path: /api/v1/forges/{{typeToolId}}/test-cases/{{tcTypeInt}}:run
     expect:
       status: 200
 
   - name: "运行字符串用例（应 pass）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases/{{tcTypeStr}}:run
+    path: /api/v1/forges/{{typeToolId}}/test-cases/{{tcTypeStr}}:run
     expect:
       status: 200
 
   - name: "运行故意失败用例（ok=true，pass=false）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}/test-cases/{{tcFail}}:run
+    path: /api/v1/forges/{{typeToolId}}/test-cases/{{tcFail}}:run
     expect:
       status: 200
 
   - name: "运行全部（应 5 pass + 1 fail）"
     method: POST
-    path: /api/v1/tools/{{typeToolId}}:test
+    path: /api/v1/forges/{{typeToolId}}:test
     expect:
       status: 200
 
@@ -116,7 +116,7 @@ steps:
 
   - name: "创建：字符串返回工具"
     method: POST
-    path: /api/v1/tools
+    path: /api/v1/forges
     body:
       name: "test_greet"
       description: "Return a greeting string"
@@ -129,7 +129,7 @@ steps:
 
   - name: "TC greet: 正常名字"
     method: POST
-    path: /api/v1/tools/{{greetId}}/test-cases
+    path: /api/v1/forges/{{greetId}}/test-cases
     body:
       name: "greet_alice"
       inputData: "{\"name\": \"Alice\"}"
@@ -141,7 +141,7 @@ steps:
 
   - name: "TC greet: 空名字"
     method: POST
-    path: /api/v1/tools/{{greetId}}/test-cases
+    path: /api/v1/forges/{{greetId}}/test-cases
     body:
       name: "greet_empty"
       inputData: "{\"name\": \"\"}"
@@ -153,7 +153,7 @@ steps:
 
   - name: "TC greet: Unicode 名字"
     method: POST
-    path: /api/v1/tools/{{greetId}}/test-cases
+    path: /api/v1/forges/{{greetId}}/test-cases
     body:
       name: "greet_chinese"
       inputData: "{\"name\": \"张三\"}"
@@ -165,7 +165,7 @@ steps:
 
   - name: "运行全部 greet 用例"
     method: POST
-    path: /api/v1/tools/{{greetId}}:test
+    path: /api/v1/forges/{{greetId}}:test
     expect:
       status: 200
 
@@ -173,12 +173,12 @@ steps:
 
   - name: "清理：删除 type_info 工具"
     method: DELETE
-    path: /api/v1/tools/{{typeToolId}}
+    path: /api/v1/forges/{{typeToolId}}
     expect:
       status: 204
 
   - name: "清理：删除 greet 工具"
     method: DELETE
-    path: /api/v1/tools/{{greetId}}
+    path: /api/v1/forges/{{greetId}}
     expect:
       status: 204

@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 )
 
 // driver is appended to user code to bridge stdin → function → stdout.
@@ -67,7 +67,7 @@ func (s *PythonSandbox) Run(
 	ctx context.Context,
 	code string,
 	input map[string]any,
-) (*tooldomain.ExecutionResult, error) {
+) (*forgedomain.ExecutionResult, error) {
 	funcName, err := extractFuncName(code)
 	if err != nil {
 		return nil, fmt.Errorf("sandbox.Run: %w", err)
@@ -105,7 +105,7 @@ func (s *PythonSandbox) Run(
 		if exitErr, ok := runErr.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
 			errMsg = string(exitErr.Stderr)
 		}
-		return &tooldomain.ExecutionResult{
+		return &forgedomain.ExecutionResult{
 			OK:        false,
 			ErrorMsg:  strings.TrimSpace(errMsg),
 			ElapsedMs: elapsed,
@@ -118,7 +118,7 @@ func (s *PythonSandbox) Run(
 		output = strings.TrimSpace(string(stdout))
 	}
 
-	return &tooldomain.ExecutionResult{
+	return &forgedomain.ExecutionResult{
 		OK:        true,
 		Output:    output,
 		ElapsedMs: elapsed,

@@ -171,10 +171,13 @@ func TestAssemble_CreatedAtSet(t *testing.T) {
 
 // ── parseToolArgs ─────────────────────────────────────────────────────────────
 
-func TestParseToolArgs_WithSummary(t *testing.T) {
-	summary, args := parseToolArgs(`{"summary":"doing X","key":"val"}`)
+func TestParseToolArgs_WithSummaryAndDestructive(t *testing.T) {
+	summary, destructive, args := parseToolArgs(`{"summary":"doing X","destructive":true,"key":"val"}`)
 	if summary != "doing X" {
 		t.Errorf("summary = %q", summary)
+	}
+	if !destructive {
+		t.Errorf("destructive = false, want true")
 	}
 	if args["key"] != "val" {
 		t.Errorf("key = %v", args["key"])
@@ -182,12 +185,18 @@ func TestParseToolArgs_WithSummary(t *testing.T) {
 	if _, ok := args["summary"]; ok {
 		t.Error("summary should be stripped from args map")
 	}
+	if _, ok := args["destructive"]; ok {
+		t.Error("destructive should be stripped from args map")
+	}
 }
 
-func TestParseToolArgs_NoSummary(t *testing.T) {
-	summary, args := parseToolArgs(`{"key":"val"}`)
+func TestParseToolArgs_NoStandardFields(t *testing.T) {
+	summary, destructive, args := parseToolArgs(`{"key":"val"}`)
 	if summary != "" {
 		t.Errorf("summary = %q, want empty", summary)
+	}
+	if destructive {
+		t.Error("destructive = true, want false (default when missing)")
 	}
 	if args["key"] != "val" {
 		t.Errorf("key = %v", args["key"])
@@ -195,9 +204,12 @@ func TestParseToolArgs_NoSummary(t *testing.T) {
 }
 
 func TestParseToolArgs_MalformedJSON(t *testing.T) {
-	summary, args := parseToolArgs(`not-json`)
+	summary, destructive, args := parseToolArgs(`not-json`)
 	if summary != "" {
 		t.Errorf("summary = %q, want empty for bad JSON", summary)
+	}
+	if destructive {
+		t.Error("destructive = true, want false for bad JSON")
 	}
 	if args["raw"] != "not-json" {
 		t.Errorf("fallback raw = %v", args["raw"])

@@ -1,9 +1,9 @@
 // tool_test.go — unit tests for Tool interface utilities:
-// injectSummaryField, StripSummary, ToLLMDef, context helpers.
+// injectStandardFields, StripStandardFields, ToLLMDef.
 //
 // tool_test.go — Tool 接口工具函数的单元测试：
-// injectSummaryField、StripSummary、ToLLMDef、context helpers。
-package agent
+// injectStandardFields、StripStandardFields、ToLLMDef。
+package tool
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-// ── injectSummaryField ────────────────────────────────────────────────────────
+// ── injectStandardFields ──────────────────────────────────────────────────────
 
-func TestInjectSummaryField_AddsField(t *testing.T) {
+func TestInjectStandardFields_AddsSummaryAndDestructive(t *testing.T) {
 	params := json.RawMessage(`{
 		"type": "object",
 		"properties": {
@@ -24,7 +24,7 @@ func TestInjectSummaryField_AddsField(t *testing.T) {
 		"required": ["path"]
 	}`)
 
-	result := injectSummaryField(params)
+	result := injectStandardFields(params)
 
 	var schema map[string]json.RawMessage
 	if err := json.Unmarshal(result, &schema); err != nil {
@@ -38,6 +38,9 @@ func TestInjectSummaryField_AddsField(t *testing.T) {
 	if _, ok := props["summary"]; !ok {
 		t.Error("summary field not injected into properties")
 	}
+	if _, ok := props["destructive"]; !ok {
+		t.Error("destructive field not injected into properties")
+	}
 
 	var required []string
 	json.Unmarshal(schema["required"], &required)
@@ -47,11 +50,15 @@ func TestInjectSummaryField_AddsField(t *testing.T) {
 	if !contains(required, "path") {
 		t.Error("original 'path' field removed from required")
 	}
+	// destructive 不应进 required（默认 false）
+	if contains(required, "destructive") {
+		t.Errorf("destructive must NOT be in required (default false): %v", required)
+	}
 }
 
-func TestInjectSummaryField_NoRequired(t *testing.T) {
+func TestInjectStandardFields_NoRequired(t *testing.T) {
 	params := json.RawMessage(`{"type":"object","properties":{"x":{"type":"string"}}}`)
-	result := injectSummaryField(params)
+	result := injectStandardFields(params)
 
 	var schema map[string]json.RawMessage
 	json.Unmarshal(result, &schema)
@@ -63,7 +70,7 @@ func TestInjectSummaryField_NoRequired(t *testing.T) {
 	}
 }
 
-func TestInjectSummaryField_ConflictPanics(t *testing.T) {
+func TestInjectStandardFields_SummaryConflictPanics(t *testing.T) {
 	params := json.RawMessage(`{
 		"type": "object",
 		"properties": {
@@ -75,28 +82,44 @@ func TestInjectSummaryField_ConflictPanics(t *testing.T) {
 			t.Error("expected panic on summary conflict, got none")
 		}
 	}()
-	injectSummaryField(params)
+	injectStandardFields(params)
 }
 
-func TestInjectSummaryField_NonObjectPanics(t *testing.T) {
-	// Non-object schemas are programmer errors and must panic.
-	// 非 object schema 是编程错误，必须 panic。
+func TestInjectStandardFields_DestructiveConflictPanics(t *testing.T) {
+	params := json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"destructive": {"type": "boolean"}
+		}
+	}`)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic on destructive conflict, got none")
+		}
+	}()
+	injectStandardFields(params)
+}
+
+func TestInjectStandardFields_NonObjectPanics(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("expected panic for non-object schema, got none")
 		}
 	}()
-	injectSummaryField(json.RawMessage(`"just a string"`))
+	injectStandardFields(json.RawMessage(`"just a string"`))
 }
 
-// ── StripSummary ──────────────────────────────────────────────────────────────
+// ── StripStandardFields ───────────────────────────────────────────────────────
 
-func TestStripSummary_ExtractsAndStrips(t *testing.T) {
-	args := `{"summary":"Checking Beijing weather","city":"Beijing"}`
-	summary, stripped := StripSummary(args)
+func TestStripStandardFields_ExtractsBoth(t *testing.T) {
+	args := `{"summary":"Deleting all logs","destructive":true,"path":"/var/log"}`
+	summary, destructive, stripped := StripStandardFields(args)
 
-	if summary != "Checking Beijing weather" {
-		t.Errorf("summary = %q, want 'Checking Beijing weather'", summary)
+	if summary != "Deleting all logs" {
+		t.Errorf("summary = %q, want 'Deleting all logs'", summary)
+	}
+	if !destructive {
+		t.Error("destructive = false, want true")
 	}
 
 	var m map[string]any
@@ -106,51 +129,84 @@ func TestStripSummary_ExtractsAndStrips(t *testing.T) {
 	if _, ok := m["summary"]; ok {
 		t.Error("summary still present in stripped JSON")
 	}
-	if m["city"] != "Beijing" {
-		t.Errorf("city = %v, want Beijing", m["city"])
+	if _, ok := m["destructive"]; ok {
+		t.Error("destructive still present in stripped JSON")
+	}
+	if m["path"] != "/var/log" {
+		t.Errorf("path = %v, want /var/log", m["path"])
 	}
 }
 
-func TestStripSummary_NoSummary(t *testing.T) {
-	args := `{"city":"Beijing"}`
-	summary, stripped := StripSummary(args)
+func TestStripStandardFields_DefaultsWhenMissing(t *testing.T) {
+	// summary missing → empty; destructive missing → false (zero values).
+	// summary 缺失 → 空；destructive 缺失 → false（零值）。
+	args := `{"path":"/etc/hosts"}`
+	summary, destructive, stripped := StripStandardFields(args)
 
 	if summary != "" {
 		t.Errorf("summary = %q, want empty", summary)
 	}
+	if destructive {
+		t.Error("destructive = true, want false")
+	}
 	var m map[string]any
 	json.Unmarshal([]byte(stripped), &m)
-	if m["city"] != "Beijing" {
+	if m["path"] != "/etc/hosts" {
 		t.Errorf("args modified unexpectedly: %s", stripped)
 	}
 }
 
-func TestStripSummary_InvalidJSON(t *testing.T) {
-	args := `not-json`
-	summary, stripped := StripSummary(args)
-	if summary != "" {
-		t.Errorf("expected empty summary for invalid JSON, got %q", summary)
+func TestStripStandardFields_OnlySummary(t *testing.T) {
+	args := `{"summary":"reading","path":"/tmp"}`
+	summary, destructive, stripped := StripStandardFields(args)
+	if summary != "reading" {
+		t.Errorf("summary = %q, want 'reading'", summary)
 	}
-	if stripped != args {
-		t.Errorf("stripped should equal input for invalid JSON")
-	}
-}
-
-func TestStripSummary_EmptySummary(t *testing.T) {
-	args := `{"summary":"","city":"Beijing"}`
-	summary, stripped := StripSummary(args)
-	if summary != "" {
-		t.Errorf("empty summary string should return empty, got %q", summary)
+	if destructive {
+		t.Error("destructive should default to false")
 	}
 	var m map[string]any
 	json.Unmarshal([]byte(stripped), &m)
 	if _, ok := m["summary"]; ok {
-		t.Error("summary key should be removed even when empty")
+		t.Error("summary not stripped")
+	}
+}
+
+func TestStripStandardFields_OnlyDestructive(t *testing.T) {
+	args := `{"destructive":true,"command":"rm"}`
+	summary, destructive, stripped := StripStandardFields(args)
+	if summary != "" {
+		t.Errorf("summary = %q, want empty", summary)
+	}
+	if !destructive {
+		t.Error("destructive = false, want true")
+	}
+	var m map[string]any
+	json.Unmarshal([]byte(stripped), &m)
+	if _, ok := m["destructive"]; ok {
+		t.Error("destructive not stripped")
+	}
+}
+
+func TestStripStandardFields_InvalidJSON(t *testing.T) {
+	args := `not-json`
+	summary, destructive, stripped := StripStandardFields(args)
+	if summary != "" {
+		t.Errorf("expected empty summary for invalid JSON, got %q", summary)
+	}
+	if destructive {
+		t.Error("expected destructive=false for invalid JSON")
+	}
+	if stripped != args {
+		t.Errorf("stripped should equal input for invalid JSON, got %q", stripped)
 	}
 }
 
 // ── ToLLMDef ─────────────────────────────────────────────────────────────────
 
+// stubTool implements the full Tool interface for testing.
+//
+// stubTool 用于测试，实现完整 Tool 接口。
 type stubTool struct {
 	name   string
 	desc   string
@@ -160,9 +216,17 @@ type stubTool struct {
 func (s *stubTool) Name() string                                        { return s.name }
 func (s *stubTool) Description() string                                 { return s.desc }
 func (s *stubTool) Parameters() json.RawMessage                         { return s.params }
+func (s *stubTool) IsReadOnly() bool                                    { return true }
+func (s *stubTool) NeedsReadFirst() bool                                { return false }
+func (s *stubTool) RequiresWorkspace() bool                             { return false }
+func (s *stubTool) IsConcurrencySafe(json.RawMessage) bool              { return true }
+func (s *stubTool) ValidateInput(json.RawMessage) error                 { return nil }
+func (s *stubTool) CheckPermissions(json.RawMessage, PermissionMode) PermissionResult {
+	return PermissionAllow
+}
 func (s *stubTool) Execute(_ context.Context, _ string) (string, error) { return "", nil }
 
-func TestToLLMDef_SummaryInjected(t *testing.T) {
+func TestToLLMDef_SummaryAndDestructiveInjected(t *testing.T) {
 	tool := &stubTool{
 		name:   "read_file",
 		desc:   "Reads a file",
@@ -180,6 +244,9 @@ func TestToLLMDef_SummaryInjected(t *testing.T) {
 	json.Unmarshal(schema["properties"], &props)
 	if _, ok := props["summary"]; !ok {
 		t.Error("ToLLMDef should inject summary into parameters")
+	}
+	if _, ok := props["destructive"]; !ok {
+		t.Error("ToLLMDef should inject destructive into parameters")
 	}
 }
 
@@ -208,29 +275,6 @@ func TestToLLMDef_OriginalParamsUnchanged(t *testing.T) {
 	}
 }
 
-// ── Context helpers ───────────────────────────────────────────────────────────
-
-func TestConversationIDContext(t *testing.T) {
-	ctx := context.Background()
-	id, ok := GetConversationID(ctx)
-	if ok || id != "" {
-		t.Errorf("empty context: ok=%v id=%q", ok, id)
-	}
-
-	ctx2 := WithConversationID(ctx, "cv-123")
-	id2, ok2 := GetConversationID(ctx2)
-	if !ok2 || id2 != "cv-123" {
-		t.Errorf("with ID: ok=%v id=%q", ok2, id2)
-	}
-
-	// Original ctx unchanged.
-	// 原始 ctx 不受影响。
-	_, ok3 := GetConversationID(ctx)
-	if ok3 {
-		t.Error("original context should not have conversation ID")
-	}
-}
-
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func contains(ss []string, s string) bool {
@@ -242,6 +286,6 @@ func contains(ss []string, s string) bool {
 	return false
 }
 
-// Compile-time check: stubTool satisfies Tool and is usable as llminfra.ToolDef.
+// Compile-time checks.
 var _ Tool = (*stubTool)(nil)
 var _ llminfra.ToolDef = llminfra.ToolDef{}

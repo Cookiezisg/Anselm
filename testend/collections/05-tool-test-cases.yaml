@@ -3,7 +3,7 @@ description: "创建用例 → 运行单个 → 运行全部 → 查看历史 �
 steps:
   - name: "创建被测工具（Fibonacci）"
     method: POST
-    path: /api/v1/tools
+    path: /api/v1/forges
     body:
       name: "test_fibonacci"
       description: "Return the nth Fibonacci number (0-indexed)"
@@ -16,13 +16,13 @@ steps:
 
   - name: "测试用例列表（初始为空）"
     method: GET
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     expect:
       status: 200
 
   - name: "创建用例：fib(0)=0"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_zero"
       inputData: "{\"n\": 0}"
@@ -34,7 +34,7 @@ steps:
 
   - name: "创建用例：fib(1)=1"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_one"
       inputData: "{\"n\": 1}"
@@ -46,7 +46,7 @@ steps:
 
   - name: "创建用例：fib(10)=55"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_ten"
       inputData: "{\"n\": 10}"
@@ -58,7 +58,7 @@ steps:
 
   - name: "创建用例：fib(20)=6765（大数）"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_twenty"
       inputData: "{\"n\": 20}"
@@ -70,7 +70,7 @@ steps:
 
   - name: "创建用例：无断言（仅执行，不比对）"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_large_no_assert"
       inputData: "{\"n\": 50}"
@@ -82,7 +82,7 @@ steps:
 
   - name: "创建用例：边界 n=-1（负数）"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     body:
       name: "fib_negative"
       inputData: "{\"n\": -1}"
@@ -94,90 +94,90 @@ steps:
 
   - name: "测试用例列表（应有 6 条）"
     method: GET
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     expect:
       status: 200
 
   - name: "运行单用例：fib(0)"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc1Id}}:run
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc1Id}}:run
     expect:
       status: 200
 
   - name: "运行单用例：fib(10)"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc3Id}}:run
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc3Id}}:run
     expect:
       status: 200
 
   - name: "运行单用例：fib(20)"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc4Id}}:run
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc4Id}}:run
     expect:
       status: 200
 
   - name: "运行单用例：无断言"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc5Id}}:run
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc5Id}}:run
     expect:
       status: 200
 
   - name: "运行单用例：负数边界"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc6Id}}:run
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc6Id}}:run
     expect:
       status: 200
 
   - name: "运行全部测试"
     method: POST
-    path: /api/v1/tools/{{toolId}}:test
+    path: /api/v1/forges/{{toolId}}:test
     expect:
       status: 200
 
   - name: "查看测试历史"
     method: GET
-    path: /api/v1/tools/{{toolId}}/test-history
+    path: /api/v1/forges/{{toolId}}/test-history
     expect:
       status: 200
 
   - name: "删除无断言用例"
     method: DELETE
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc5Id}}
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc5Id}}
     expect:
       status: 204
 
   - name: "再次删除同一用例 → 404"
     method: DELETE
-    path: /api/v1/tools/{{toolId}}/test-cases/{{tc5Id}}
+    path: /api/v1/forges/{{toolId}}/test-cases/{{tc5Id}}
     expect:
       status: 404
 
   - name: "测试用例列表（现在应有 5 条）"
     method: GET
-    path: /api/v1/tools/{{toolId}}/test-cases
+    path: /api/v1/forges/{{toolId}}/test-cases
     expect:
       status: 200
 
   - name: "再次运行全部（5 条）"
     method: POST
-    path: /api/v1/tools/{{toolId}}:test
+    path: /api/v1/forges/{{toolId}}:test
     expect:
       status: 200
 
   - name: "查看测试历史（有更多批次记录）"
     method: GET
-    path: /api/v1/tools/{{toolId}}/test-history
+    path: /api/v1/forges/{{toolId}}/test-history
     expect:
       status: 200
 
   - name: "运行不存在的测试用例 → 404"
     method: POST
-    path: /api/v1/tools/{{toolId}}/test-cases/tc_nonexistent_00:run
+    path: /api/v1/forges/{{toolId}}/test-cases/tc_nonexistent_00:run
     expect:
       status: 404
 
   - name: "清理：删除工具"
     method: DELETE
-    path: /api/v1/tools/{{toolId}}
+    path: /api/v1/forges/{{toolId}}
     expect:
       status: 204

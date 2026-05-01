@@ -1,4 +1,4 @@
-package tool
+package forge
 
 import (
 	"encoding/json"
@@ -132,23 +132,23 @@ print(json.dumps({
 }))
 `
 
-// parseToolCode launches a Python subprocess to parse the function structure
+// parseForgeCode launches a Python subprocess to parse the function structure
 // of code. Requires Python 3.8+ (ast.unparse added in 3.9; falls back
 // gracefully for older versions).
 // Description fields are empty when the code lacks a Google-style docstring
 // — this is not an error.
 //
-// parseToolCode 启动 Python subprocess 解析 code 的函数结构。需要 Python 3.8+。
+// parseForgeCode 启动 Python subprocess 解析 code 的函数结构。需要 Python 3.8+。
 // 代码缺少 Google-style docstring 时 Description 字段为空字符串，不报错。
-func parseToolCode(code string) (*ParsedCode, error) {
+func parseForgeCode(code string) (*ParsedCode, error) {
 	tmp, err := os.CreateTemp("", "forgify-ast-*.py")
 	if err != nil {
-		return nil, fmt.Errorf("parseToolCode: create temp: %w", err)
+		return nil, fmt.Errorf("parseForgeCode: create temp: %w", err)
 	}
 	defer os.Remove(tmp.Name())
 	if _, err = tmp.WriteString(astScript); err != nil {
 		tmp.Close()
-		return nil, fmt.Errorf("parseToolCode: write script: %w", err)
+		return nil, fmt.Errorf("parseForgeCode: write script: %w", err)
 	}
 	tmp.Close()
 
@@ -179,10 +179,10 @@ func parseToolCode(code string) (*ParsedCode, error) {
 		Docstring string `json:"docstring"`
 	}
 	if err = json.Unmarshal(out, &raw); err != nil {
-		return nil, fmt.Errorf("parseToolCode: unmarshal: %w", err)
+		return nil, fmt.Errorf("parseForgeCode: unmarshal: %w", err)
 	}
 	if raw.Error != "" {
-		return nil, fmt.Errorf("parseToolCode: %w: %s", errASTProcess, raw.Error)
+		return nil, fmt.Errorf("parseForgeCode: %w: %s", errASTProcess, raw.Error)
 	}
 
 	params := make([]ParsedParam, len(raw.Params))

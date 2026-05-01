@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -132,9 +132,9 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 		if !ok {
 			continue
 		}
-		summary, args := parseToolArgs(a.args.String())
+		summary, destructive, args := parseToolArgs(a.args.String())
 		d, _ := json.Marshal(chatdomain.ToolCallData{
-			ID: a.id, Name: a.name, Summary: summary, Arguments: args,
+			ID: a.id, Name: a.name, Summary: summary, Destructive: destructive, Arguments: args,
 		})
 		blocks = append(blocks, chatdomain.Block{
 			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeToolCall,
@@ -162,16 +162,16 @@ func extractToolCalls(blocks []chatdomain.Block) []chatdomain.ToolCallData {
 	return out
 }
 
-// parseToolArgs extracts the "summary" field from a raw args JSON string and
-// returns the summary and the remaining arguments as a map.
+// parseToolArgs extracts the "summary" and "destructive" fields from a raw
+// args JSON string and returns them along with the remaining arguments as a map.
 // Falls back to {"raw": original} when the JSON is malformed.
 //
-// parseToolArgs 从原始 args JSON 中提取 "summary"，返回 summary 和剩余参数 map。
-// JSON 不合法时兜底为 {"raw": original}。
-func parseToolArgs(argsJSON string) (summary string, args map[string]any) {
-	summary, stripped := agentapp.StripSummary(argsJSON)
+// parseToolArgs 从原始 args JSON 中提取 "summary" 和 "destructive"，
+// 返回二者和剩余参数 map。JSON 不合法时兜底为 {"raw": original}。
+func parseToolArgs(argsJSON string) (summary string, destructive bool, args map[string]any) {
+	summary, destructive, stripped := toolapp.StripStandardFields(argsJSON)
 	if err := json.Unmarshal([]byte(stripped), &args); err != nil {
 		args = map[string]any{"raw": argsJSON}
 	}
-	return summary, args
+	return summary, destructive, args
 }

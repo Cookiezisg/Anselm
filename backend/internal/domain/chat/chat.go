@@ -113,15 +113,17 @@ type TextData struct {
 }
 
 // ToolCallData is the Data payload for BlockTypeToolCall.
-// Arguments never contains "summary" — that is stored separately.
+// Arguments never contains "summary" or "destructive" — those are stored
+// separately as first-class fields.
 //
 // ToolCallData 是 BlockTypeToolCall 的 Data 载荷。
-// Arguments 不含 "summary"，summary 单独存储。
+// Arguments 不含 "summary" 和 "destructive"，二者单独存储为一等字段。
 type ToolCallData struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Summary   string         `json:"summary"`   // LLM-provided one-liner, may be empty
-	Arguments map[string]any `json:"arguments"` // stripped of "summary"
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Summary     string         `json:"summary"`     // LLM-provided one-liner, may be empty
+	Destructive bool           `json:"destructive"` // LLM-marked: true if call may cause irreversible damage; UI shows warning
+	Arguments   map[string]any `json:"arguments"`   // stripped of "summary" and "destructive"
 }
 
 // ToolResultData is the Data payload for BlockTypeToolResult.

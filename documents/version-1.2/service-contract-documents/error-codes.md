@@ -112,7 +112,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 3：工具锻造能力
 
 #### tool ✅
-详见 [`../service-design-documents/tool.md`](../service-design-documents/tool.md) §12。
+详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §12。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -120,7 +120,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `TOOL_NAME_DUPLICATE` | 409 | `tool.ErrDuplicateName` | 创建/改名时撞名 | ✅ |
 | `TOOL_VERSION_NOT_FOUND` | 404 | `tool.ErrVersionNotFound` | revert/get version 版本不存在 | ✅ |
 | `TOOL_PENDING_NOT_FOUND` | 404 | `tool.ErrPendingNotFound` | accept/reject 时无 pending | ✅ |
-| `TOOL_PENDING_CONFLICT` | 409 | `tool.ErrPendingConflict` | edit_tool 时已有未处理 pending | ✅ |
+| `TOOL_PENDING_CONFLICT` | 409 | `tool.ErrPendingConflict` | edit_forge 时已有未处理 pending | ✅ |
 | `TOOL_TEST_CASE_NOT_FOUND` | 404 | `tool.ErrTestCaseNotFound` | 测试用例找不到 | ✅ |
 | `TOOL_RUN_FAILED` | 422 | `tool.ErrRunFailed` | sandbox 内部错误（≠ ok=false 的执行失败）| ✅ |
 | `TOOL_AST_PARSE_FAILED` | 422 | `tool.ErrASTParseError` | 代码无法被 Python AST 解析 | ✅ |

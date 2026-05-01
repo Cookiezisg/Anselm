@@ -1,956 +1,274 @@
-// Package tool (app layer) owns the Service that orchestrates the tool domain:
-// CRUD, version/pending lifecycle, sandbox execution, test cases, and
-// AI-powered test-case generation.
+// Package tool defines the Tool interface that every system tool implements
+// and the framework-level machinery for LLM tool-call handling.
 //
-// All three tool packages (domain / app / store) declare `package tool`;
-// external callers alias at import (e.g. toolapp "…/internal/app/tool").
+// Architecture:
 //
-// Package tool（app 层）负责 Service 编排 tool domain：CRUD、版本/pending
-// 生命周期、沙箱执行、测试用例和 AI 辅助测试用例生成。
+//   - Tool interface: 10 required methods covering identity, static metadata,
+//     args-dependent hooks, and main execution.
+//   - Standard injected fields: every tool's Parameters schema is augmented
+//     with two LLM-facing fields, "summary" (required string) and
+//     "destructive" (optional bool). The framework strips them before passing
+//     args to Execute. They are stored as first-class fields on ToolCallData.
+//   - Sub-packages by tool family: tool/forge/ for user-forged-tool tools,
+//     plus future tool/filesystem/, tool/shell/, tool/web/ (Phase 5).
+//     §S12 example position; alias `<sub><parent>` per §S13.
 //
-// 三个 tool 包均声明 `package tool`；外部调用方 import 时按角色起别名，
-// 如 toolapp "…/internal/app/tool"。
+// Package tool 定义每个 system tool 必须实现的 Tool 接口及框架层 LLM 工具调用处理设施。
+//
+// 架构：
+//   - Tool 接口：10 个必须方法，涵盖 identity / 静态元数据 / args-dependent 钩子 / 主入口
+//   - 标准注入字段：每个 tool 的 Parameters schema 自动加上两个 LLM-facing 字段——
+//     "summary"（必填 string）和 "destructive"（可选 bool）。框架在传给 Execute 前剥除。
+//     二者作为 ToolCallData 的一等字段独立存储。
+//   - 按 tool 家族分子包：tool/forge/、tool/filesystem/、tool/shell/、tool/web/
+//     （§S12 例外位置，§S13 别名规则 `<sub><parent>`）
 package tool
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
-	"time"
 
-	"go.uber.org/zap"
-
-	tooldomain "github.com/sunweilin/forgify/backend/internal/domain/tool"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-// ── Interfaces ────────────────────────────────────────────────────────────────
+// ── Permission types ──────────────────────────────────────────────────────────
 
-// Sandbox executes user Python tool code.
+// PermissionMode is the agent's current permission mode for a turn.
+// Phase 3 (current): only PermissionModeDefault is wired; runTools always
+// passes Default. Reserved for Phase 4+ workflow scheduler / acceptEdits UI.
 //
-// Sandbox 执行用户 Python 工具代码。
-type Sandbox interface {
-	Run(ctx context.Context, code string, input map[string]any) (*tooldomain.ExecutionResult, error)
-}
+// PermissionMode 是 agent 当前回合的权限模式。
+// Phase 3（当下）只串通 PermissionModeDefault；runTools 一律传 Default。
+// 保留接口位给 Phase 4+ workflow scheduler / acceptEdits UI 用。
+type PermissionMode string
 
-// LLMClient makes non-streaming LLM calls that return complete JSON responses.
-// Used by GenerateTestCases. The implementation resolves model/key internally.
+const (
+	PermissionModeDefault     PermissionMode = "default"
+	PermissionModeAcceptEdits PermissionMode = "acceptEdits"
+	PermissionModePlan        PermissionMode = "plan"
+	PermissionModeBypass      PermissionMode = "bypass"
+)
+
+// PermissionResult is what CheckPermissions returns.
 //
-// LLMClient 进行非流式 LLM 调用，返回完整 JSON 响应。
-// 供 GenerateTestCases 使用；实现层内部解析 model/key。
-type LLMClient interface {
-	Generate(ctx context.Context, prompt string) (string, error)
-}
+// PermissionResult 是 CheckPermissions 的返回值。
+type PermissionResult int
 
-// GenerateEvent is emitted by GenerateTestCases via the emit callback.
+const (
+	PermissionAllow PermissionResult = iota // 允许执行
+	PermissionDeny                          // 拒绝执行（返错给 LLM）
+	PermissionAsk                           // 问用户（Phase 4+，当前等价 Allow）
+)
+
+// ── Tool interface ────────────────────────────────────────────────────────────
+
+// Tool is the contract every system tool must implement.
+// All 10 methods are required — there is no BaseTool to inherit defaults from.
+// This is intentional: each tool's metadata is explicit and greppable.
 //
-// GenerateEvent 是 GenerateTestCases 通过 emit callback 推送的事件。
-type GenerateEvent struct {
-	Type     string                   // "test_case" | "done" | "not_supported"
-	TestCase *tooldomain.ToolTestCase // non-nil when Type="test_case"
-	Count    int                      // non-zero when Type="done"
-	Reason   string                   // non-empty when Type="not_supported"
-}
+// Tool 是每个 system tool 必须实现的契约。
+// 10 个方法全部必须实现——不通过 BaseTool 提供默认。这是有意为之：
+// 每个 tool 的元数据都显式且可 grep。
+type Tool interface {
+	// ── Identity ──────────────────────────────────────────────────────────
 
-// ── Input / Output types ──────────────────────────────────────────────────────
+	// Name returns the LLM-facing tool name (e.g. "search_forges").
+	// Name 返回 LLM 看到的工具名（如 "search_forges"）。
+	Name() string
 
-// CreateInput is the request shape for Service.Create.
-//
-// CreateInput 是 Service.Create 的请求形状。
-type CreateInput struct {
-	Name        string
-	Description string
-	Code        string
-	Tags        []string
-}
+	// Description tells the LLM what the tool does and when to use it.
+	// Description 告诉 LLM 工具的作用和何时使用。
+	Description() string
 
-// UpdateInput is the request shape for Service.Update. Nil fields are unchanged.
-//
-// UpdateInput 是 Service.Update 的请求形状。nil 字段不更新。
-type UpdateInput struct {
-	Name        *string
-	Description *string
-	Tags        *[]string
-	Code        *string
-}
-
-// PendingSnapshot is the proposed new state passed to Service.CreatePending.
-//
-// PendingSnapshot 是传给 Service.CreatePending 的提案新状态。
-type PendingSnapshot struct {
-	Name        string
-	Description string
-	Code        string
-	Tags        string // JSON string
-	Instruction string
-}
-
-// TestCaseInput is the request shape for Service.CreateTestCase.
-//
-// TestCaseInput 是 Service.CreateTestCase 的请求形状。
-type TestCaseInput struct {
-	Name           string
-	InputData      string // JSON object string
-	ExpectedOutput string // JSON string; empty = no assertion
-}
-
-// TestRunResult is the outcome of a single test case execution.
-//
-// TestRunResult 是单次测试用例执行的结果。
-type TestRunResult struct {
-	TestCaseID string
-	Name       string
-	Input      string
-	Output     string
-	OK         bool
-	Pass       *bool
-	ErrorMsg   string
-	ElapsedMs  int64
-}
-
-// ToolDetail extends Tool with a pre-computed TestSummary for get_tool.
-//
-// ToolDetail 在 Tool 基础上追加预计算的 TestSummary，供 get_tool 使用。
-type ToolDetail struct {
-	*tooldomain.Tool
-	TestSummary TestSummary
-}
-
-// TestSummary is a short digest of the most recent :test batch run.
-//
-// TestSummary 是最近一次 :test 批跑的简要摘要。
-type TestSummary struct {
-	Total        int    // current test case count
-	LastPassRate string // "3/3" | "2/3" | "" (no record)
-	LastRunAt    string // ISO 8601 or ""
-}
-
-// ── Service ───────────────────────────────────────────────────────────────────
-
-// Service orchestrates the tool domain.
-//
-// Service 编排 tool domain。
-type Service struct {
-	repo    tooldomain.Repository
-	sandbox Sandbox
-	llm     LLMClient
-	log     *zap.Logger
-}
-
-// NewService wires Service dependencies. Panics on nil logger.
-//
-// NewService 装配 Service 依赖。nil logger 会 panic。
-func NewService(repo tooldomain.Repository, sandbox Sandbox, llm LLMClient, log *zap.Logger) *Service {
-	if log == nil {
-		panic("toolapp.NewService: logger is nil")
-	}
-	return &Service{repo: repo, sandbox: sandbox, llm: llm, log: log}
-}
-
-// ── CRUD ──────────────────────────────────────────────────────────────────────
-
-// Create parses the code, persists the Tool, and saves v1 accepted version.
-//
-// Create 解析代码，持久化 Tool，保存 v1 已接受版本。
-func (s *Service) Create(ctx context.Context, in CreateInput) (*tooldomain.Tool, error) {
-	parsed, err := s.parse(in.Code)
-	if err != nil {
-		return nil, err
-	}
-	id := newID("t")
-	now := time.Now().UTC()
-	t := &tooldomain.Tool{
-		ID:           id,
-		Name:         in.Name,
-		Description:  in.Description,
-		Code:         in.Code,
-		Parameters:   parsed.parametersJSON,
-		ReturnSchema: parsed.returnSchemaJSON,
-		Tags:         tagsJSON(in.Tags),
-		VersionCount: 1,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-	if err = mustSetUserID(ctx, t); err != nil {
-		return nil, err
-	}
-	if err = s.repo.SaveTool(ctx, t); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
-			return nil, tooldomain.ErrDuplicateName
-		}
-		return nil, fmt.Errorf("toolapp.Create: %w", err)
-	}
-	one := 1
-	v := newVersion(t, tooldomain.VersionStatusAccepted, &one, "initial")
-	if err = s.repo.SaveVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("toolapp.Create: save version: %w", err)
-	}
-	return t, nil
-}
-
-// Get fetches a single live Tool.
-//
-// Get 查询单条活跃 Tool。
-func (s *Service) Get(ctx context.Context, id string) (*tooldomain.Tool, error) {
-	return s.repo.GetTool(ctx, id)
-}
-
-// GetDetail returns the Tool plus a TestSummary for get_tool system tool.
-//
-// GetDetail 返回 Tool 及 TestSummary，供 get_tool system tool 使用。
-func (s *Service) GetDetail(ctx context.Context, id string) (*ToolDetail, error) {
-	t, err := s.repo.GetTool(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	cases, _ := s.repo.ListTestCases(ctx, id)
-	summary := TestSummary{Total: len(cases)}
-
-	// Last batch: find most recent batchID from test history.
-	hist, _ := s.repo.ListTestHistory(ctx, id, 200)
-	if len(hist) > 0 && hist[0].BatchID != "" {
-		lastBatch, _ := s.repo.ListTestHistoryByBatch(ctx, hist[0].BatchID)
-		if len(lastBatch) > 0 {
-			passed := 0
-			for _, h := range lastBatch {
-				if h.Pass != nil && *h.Pass {
-					passed++
-				}
-			}
-			summary.LastPassRate = fmt.Sprintf("%d/%d", passed, len(lastBatch))
-			summary.LastRunAt = lastBatch[len(lastBatch)-1].CreatedAt.UTC().Format(time.RFC3339)
-		}
-	}
-	return &ToolDetail{Tool: t, TestSummary: summary}, nil
-}
-
-// List returns a cursor-paginated page of tools.
-//
-// List 返回 cursor 分页的工具列表。
-func (s *Service) List(ctx context.Context, filter tooldomain.ListFilter) ([]*tooldomain.Tool, string, error) {
-	return s.repo.ListTools(ctx, filter)
-}
-
-// ListAll returns all live tools without pagination (used by SearchTool).
-//
-// ListAll 返回所有活跃工具，不分页（供 SearchTool 使用）。
-func (s *Service) ListAll(ctx context.Context) ([]*tooldomain.Tool, error) {
-	return s.repo.ListAllTools(ctx)
-}
-
-// GetToolsByIDs fetches multiple live tools by ID slice, preserving order.
-//
-// GetToolsByIDs 按 ID 切片批量查活跃工具，保持顺序。
-func (s *Service) GetToolsByIDs(ctx context.Context, ids []string) ([]*tooldomain.Tool, error) {
-	return s.repo.GetToolsByIDs(ctx, ids)
-}
-
-// ListRunHistoryForTool returns recent run history for a tool.
-//
-// ListRunHistoryForTool 返回工具最近的运行历史。
-func (s *Service) ListRunHistoryForTool(ctx context.Context, toolID string, limit int) ([]*tooldomain.ToolRunHistory, error) {
-	return s.repo.ListRunHistory(ctx, toolID, limit)
-}
-
-// ListTestHistoryForTool returns recent test history for a tool.
-//
-// ListTestHistoryForTool 返回工具最近的测试历史。
-func (s *Service) ListTestHistoryForTool(ctx context.Context, toolID string, limit int) ([]*tooldomain.ToolTestHistory, error) {
-	return s.repo.ListTestHistory(ctx, toolID, limit)
-}
-
-// ListTestHistoryByBatch returns test history records for a batch run.
-//
-// ListTestHistoryByBatch 返回指定批次的测试历史记录。
-func (s *Service) ListTestHistoryByBatch(ctx context.Context, batchID string) ([]*tooldomain.ToolTestHistory, error) {
-	return s.repo.ListTestHistoryByBatch(ctx, batchID)
-}
-
-// Update applies partial changes to a Tool. Code changes trigger an AST
-// re-parse and auto-reject any active pending.
-//
-// Update 对 Tool 做局部更新。代码变更触发 AST 重解析并自动 reject 现有 pending。
-func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*tooldomain.Tool, error) {
-	t, err := s.repo.GetTool(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if in.Name != nil {
-		t.Name = *in.Name
-	}
-	if in.Description != nil {
-		t.Description = *in.Description
-	}
-	if in.Tags != nil {
-		t.Tags = tagsJSON(*in.Tags)
-	}
-	if in.Code != nil {
-		if err = s.autoRejectPending(ctx, id); err != nil {
-			return nil, err
-		}
-		parsed, err := s.parse(*in.Code)
-		if err != nil {
-			return nil, err
-		}
-		t.Code = *in.Code
-		t.Parameters = parsed.parametersJSON
-		t.ReturnSchema = parsed.returnSchemaJSON
-		t.VersionCount++
-		v := newVersion(t, tooldomain.VersionStatusAccepted, &t.VersionCount, "manual edit")
-		if err = s.repo.SaveVersion(ctx, v); err != nil {
-			return nil, fmt.Errorf("toolapp.Update: save version: %w", err)
-		}
-		if err = s.trimVersions(ctx, id); err != nil {
-			return nil, err
-		}
-	}
-	t.UpdatedAt = time.Now().UTC()
-	if err = s.repo.SaveTool(ctx, t); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
-			return nil, tooldomain.ErrDuplicateName
-		}
-		return nil, fmt.Errorf("toolapp.Update: %w", err)
-	}
-	return t, nil
-}
-
-// Delete soft-deletes a Tool.
-//
-// Delete 软删除 Tool。
-func (s *Service) Delete(ctx context.Context, id string) error {
-	return s.repo.DeleteTool(ctx, id)
-}
-
-// ── Version management ────────────────────────────────────────────────────────
-
-// ListVersions returns accepted versions newest-first.
-//
-// ListVersions 返回已接受版本，最新在前。
-func (s *Service) ListVersions(ctx context.Context, toolID string) ([]*tooldomain.ToolVersion, error) {
-	return s.repo.ListAcceptedVersions(ctx, toolID)
-}
-
-// GetVersion returns a specific accepted version.
-//
-// GetVersion 返回指定已接受版本。
-func (s *Service) GetVersion(ctx context.Context, toolID string, version int) (*tooldomain.ToolVersion, error) {
-	return s.repo.GetVersion(ctx, toolID, version)
-}
-
-// RevertToVersion restores a tool to the complete snapshot of a prior version.
-//
-// RevertToVersion 将工具恢复到指定历史版本的完整快照。
-func (s *Service) RevertToVersion(ctx context.Context, toolID string, version int) (*tooldomain.Tool, error) {
-	v, err := s.repo.GetVersion(ctx, toolID, version)
-	if err != nil {
-		return nil, err
-	}
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	if err = s.autoRejectPending(ctx, toolID); err != nil {
-		return nil, err
-	}
-	t.Name = v.Name
-	t.Description = v.Description
-	t.Code = v.Code
-	t.Parameters = v.Parameters
-	t.ReturnSchema = v.ReturnSchema
-	t.Tags = v.Tags
-	t.VersionCount++
-	t.UpdatedAt = time.Now().UTC()
-	msg := fmt.Sprintf("reverted to v%d", version)
-	newV := newVersion(t, tooldomain.VersionStatusAccepted, &t.VersionCount, msg)
-	if err = s.repo.SaveVersion(ctx, newV); err != nil {
-		return nil, fmt.Errorf("toolapp.RevertToVersion: %w", err)
-	}
-	if err = s.repo.SaveTool(ctx, t); err != nil {
-		return nil, fmt.Errorf("toolapp.RevertToVersion: %w", err)
-	}
-	if err = s.trimVersions(ctx, toolID); err != nil {
-		return nil, err
-	}
-	return t, nil
-}
-
-// ── Pending management ────────────────────────────────────────────────────────
-
-// GetActivePending returns the pending ToolVersion or ErrPendingNotFound.
-//
-// GetActivePending 返回 pending ToolVersion，不存在时返回 ErrPendingNotFound。
-func (s *Service) GetActivePending(ctx context.Context, toolID string) (*tooldomain.ToolVersion, error) {
-	return s.repo.GetActivePending(ctx, toolID)
-}
-
-// CreatePending checks for conflict, parses code if present, and saves a
-// pending ToolVersion. Called by edit_tool system tool.
-//
-// CreatePending 检查冲突，解析代码（如有），保存 pending ToolVersion。
-// 由 edit_tool system tool 调用。
-func (s *Service) CreatePending(ctx context.Context, toolID string, snap PendingSnapshot) (*tooldomain.ToolVersion, error) {
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.repo.GetActivePending(ctx, toolID)
-	if err == nil {
-		return nil, tooldomain.ErrPendingConflict
-	}
-	if !errors.Is(err, tooldomain.ErrPendingNotFound) {
-		return nil, fmt.Errorf("toolapp.CreatePending: %w", err)
-	}
-
-	// Use snapshot fields if provided; fall back to current tool state.
-	name := t.Name
-	if snap.Name != "" {
-		name = snap.Name
-	}
-	description := t.Description
-	if snap.Description != "" {
-		description = snap.Description
-	}
-	tags := t.Tags
-	if snap.Tags != "" {
-		tags = snap.Tags
-	}
-	code := t.Code
-	params := t.Parameters
-	returnSchema := t.ReturnSchema
-	if snap.Code != "" {
-		code = snap.Code
-		parsed, err := s.parse(code)
-		if err != nil {
-			return nil, err
-		}
-		params = parsed.parametersJSON
-		returnSchema = parsed.returnSchemaJSON
-	}
-
-	uid, _ := uidFromTool(t)
-	v := &tooldomain.ToolVersion{
-		ID:           newID("tv"),
-		ToolID:       toolID,
-		UserID:       uid,
-		Status:       tooldomain.VersionStatusPending,
-		Name:         name,
-		Description:  description,
-		Code:         code,
-		Parameters:   params,
-		ReturnSchema: returnSchema,
-		Tags:         tags,
-		Message:      snap.Instruction,
-		CreatedAt:    time.Now().UTC(),
-		UpdatedAt:    time.Now().UTC(),
-	}
-	if err = s.repo.SaveVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("toolapp.CreatePending: %w", err)
-	}
-	return v, nil
-}
-
-// AcceptPending promotes the active pending for toolID to accepted and updates the tool.
-//
-// AcceptPending 将 toolID 的 active pending 提升为 accepted，并更新工具主表。
-func (s *Service) AcceptPending(ctx context.Context, toolID string) (*tooldomain.Tool, error) {
-	pv, err := s.repo.GetActivePending(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	t.Name = pv.Name
-	t.Description = pv.Description
-	t.Code = pv.Code
-	t.Parameters = pv.Parameters
-	t.ReturnSchema = pv.ReturnSchema
-	t.Tags = pv.Tags
-	t.VersionCount++
-	t.UpdatedAt = time.Now().UTC()
-
-	if err = s.repo.UpdateVersionStatus(ctx, pv.ID, tooldomain.VersionStatusAccepted, &t.VersionCount); err != nil {
-		return nil, fmt.Errorf("toolapp.AcceptPending: %w", err)
-	}
-	if err = s.repo.SaveTool(ctx, t); err != nil {
-		return nil, fmt.Errorf("toolapp.AcceptPending: %w", err)
-	}
-	if err = s.trimVersions(ctx, toolID); err != nil {
-		return nil, err
-	}
-	return t, nil
-}
-
-// RejectPending marks the active pending for toolID as rejected.
-//
-// RejectPending 将 toolID 的 active pending 标记为 rejected。
-func (s *Service) RejectPending(ctx context.Context, toolID string) error {
-	pv, err := s.repo.GetActivePending(ctx, toolID)
-	if err != nil {
-		return err
-	}
-	if err = s.repo.UpdateVersionStatus(ctx, pv.ID, tooldomain.VersionStatusRejected, nil); err != nil {
-		return fmt.Errorf("toolapp.RejectPending: %w", err)
-	}
-	return nil
-}
-
-// ── Execution ─────────────────────────────────────────────────────────────────
-
-// RunTool executes the tool's current code in the sandbox and records history.
-// input must already have att_ids resolved to file paths by the caller.
-//
-// RunTool 在沙箱中执行工具当前代码并记录历史。
-// input 中的 att_id 必须由调用方预先解析为真实路径。
-func (s *Service) RunTool(ctx context.Context, toolID string, input map[string]any) (*tooldomain.ExecutionResult, error) {
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	result, err := s.sandbox.Run(ctx, t.Code, input)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", tooldomain.ErrRunFailed, err)
-	}
-	inputJSON, _ := json.Marshal(input)
-	outputJSON := ""
-	if result.Output != nil {
-		if b, e := json.Marshal(result.Output); e == nil {
-			outputJSON = string(b)
-		}
-	}
-	uid, _ := uidFromTool(t)
-	h := &tooldomain.ToolRunHistory{
-		ID:          newID("trh"),
-		ToolID:      toolID,
-		UserID:      uid,
-		ToolVersion: t.VersionCount,
-		Input:       string(inputJSON),
-		Output:      outputJSON,
-		OK:          result.OK,
-		ErrorMsg:    result.ErrorMsg,
-		ElapsedMs:   result.ElapsedMs,
-		CreatedAt:   time.Now().UTC(),
-	}
-	_ = s.repo.SaveRunHistory(ctx, h)
-	if n, _ := s.repo.CountRunHistory(ctx, toolID); n > tooldomain.MaxRunHistoryPerTool {
-		_ = s.repo.DeleteOldestRunHistory(ctx, toolID)
-	}
-	return result, nil
-}
-
-// ── Test cases ────────────────────────────────────────────────────────────────
-
-// CreateTestCase adds a test case to a tool.
-//
-// CreateTestCase 为工具添加测试用例。
-func (s *Service) CreateTestCase(ctx context.Context, toolID string, in TestCaseInput) (*tooldomain.ToolTestCase, error) {
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	uid, _ := uidFromTool(t)
-	tc := &tooldomain.ToolTestCase{
-		ID:             newID("tc"),
-		ToolID:         toolID,
-		UserID:         uid,
-		Name:           in.Name,
-		InputData:      in.InputData,
-		ExpectedOutput: in.ExpectedOutput,
-		CreatedAt:      time.Now().UTC(),
-		UpdatedAt:      time.Now().UTC(),
-	}
-	if err = s.repo.SaveTestCase(ctx, tc); err != nil {
-		return nil, fmt.Errorf("toolapp.CreateTestCase: %w", err)
-	}
-	return tc, nil
-}
-
-// ListTestCases returns all test cases for a tool.
-//
-// ListTestCases 返回工具所有测试用例。
-func (s *Service) ListTestCases(ctx context.Context, toolID string) ([]*tooldomain.ToolTestCase, error) {
-	return s.repo.ListTestCases(ctx, toolID)
-}
-
-// DeleteTestCase hard-deletes a test case.
-//
-// DeleteTestCase 硬删除测试用例。
-func (s *Service) DeleteTestCase(ctx context.Context, id string) error {
-	return s.repo.DeleteTestCase(ctx, id)
-}
-
-// RunTestCase executes a single test case and records history.
-// batchID is empty for individual runs.
-//
-// RunTestCase 执行单条测试用例并记录历史。单跑时 batchID 为空。
-func (s *Service) RunTestCase(ctx context.Context, testCaseID, batchID string) (*TestRunResult, error) {
-	tc, err := s.repo.GetTestCase(ctx, testCaseID)
-	if err != nil {
-		return nil, err
-	}
-	t, err := s.repo.GetTool(ctx, tc.ToolID)
-	if err != nil {
-		return nil, err
-	}
-	var input map[string]any
-	_ = json.Unmarshal([]byte(tc.InputData), &input)
-
-	result, sandboxErr := s.sandbox.Run(ctx, t.Code, input)
-	if sandboxErr != nil {
-		return nil, fmt.Errorf("%w: %v", tooldomain.ErrRunFailed, sandboxErr)
-	}
-
-	var pass *bool
-	if tc.ExpectedOutput != "" && result.OK {
-		actual, _ := json.Marshal(result.Output)
-		p := strings.TrimSpace(string(actual)) == strings.TrimSpace(tc.ExpectedOutput)
-		pass = &p
-	}
-
-	outputJSON := ""
-	if b, e := json.Marshal(result.Output); e == nil {
-		outputJSON = string(b)
-	}
-
-	uid, _ := uidFromTool(t)
-	h := &tooldomain.ToolTestHistory{
-		ID:          newID("tth"),
-		ToolID:      t.ID,
-		UserID:      uid,
-		ToolVersion: t.VersionCount,
-		TestCaseID:  testCaseID,
-		BatchID:     batchID,
-		Input:       tc.InputData,
-		Output:      outputJSON,
-		OK:          result.OK,
-		Pass:        pass,
-		ErrorMsg:    result.ErrorMsg,
-		ElapsedMs:   result.ElapsedMs,
-		CreatedAt:   time.Now().UTC(),
-	}
-	_ = s.repo.SaveTestHistory(ctx, h)
-	if n, _ := s.repo.CountTestHistory(ctx, t.ID); n > tooldomain.MaxTestHistoryPerTool {
-		_ = s.repo.DeleteOldestTestHistory(ctx, t.ID)
-	}
-
-	return &TestRunResult{
-		TestCaseID: testCaseID,
-		Name:       tc.Name,
-		Input:      tc.InputData,
-		Output:     outputJSON,
-		OK:         result.OK,
-		Pass:       pass,
-		ErrorMsg:   result.ErrorMsg,
-		ElapsedMs:  result.ElapsedMs,
-	}, nil
-}
-
-// RunAllTests runs all test cases for a tool under a shared batch ID.
-//
-// RunAllTests 使用共享 batchID 运行工具的全部测试用例。
-func (s *Service) RunAllTests(ctx context.Context, toolID string) ([]*TestRunResult, error) {
-	cases, err := s.repo.ListTestCases(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	batchID := newID("b")
-	results := make([]*TestRunResult, 0, len(cases))
-	for _, tc := range cases {
-		r, err := s.RunTestCase(ctx, tc.ID, batchID)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, r)
-	}
-	return results, nil
-}
-
-// GenerateTestCases asks the LLM to generate test cases and emits them one
-// by one via the emit callback. The HTTP handler injects emit to write SSE.
-//
-// GenerateTestCases 请求 LLM 生成测试用例，通过 emit callback 逐条推送。
-// HTTP handler 注入 emit 以写入 SSE。
-func (s *Service) GenerateTestCases(ctx context.Context, toolID string, count int, emit func(GenerateEvent)) error {
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return err
-	}
-	prompt := buildGeneratePrompt(t, count)
-	raw, err := s.llm.Generate(ctx, prompt)
-	if err != nil {
-		return fmt.Errorf("toolapp.GenerateTestCases: llm: %w", err)
-	}
-	jsonRaw := extractJSONFromLLM(raw)
-	var resp struct {
-		NotSupported bool   `json:"not_supported"`
-		Reason       string `json:"reason"`
-		TestCases    []struct {
-			Name           string          `json:"name"`
-			Input          json.RawMessage `json:"input"`
-			ExpectedOutput json.RawMessage `json:"expected_output"`
-		} `json:"test_cases"`
-	}
-	if err = json.Unmarshal([]byte(jsonRaw), &resp); err != nil {
-		return fmt.Errorf("toolapp.GenerateTestCases: parse response: %w", err)
-	}
-	if resp.NotSupported {
-		emit(GenerateEvent{Type: "not_supported", Reason: resp.Reason})
-		return nil
-	}
-	uid, _ := uidFromTool(t)
-	for _, tc := range resp.TestCases {
-		saved := &tooldomain.ToolTestCase{
-			ID:             newID("tc"),
-			ToolID:         toolID,
-			UserID:         uid,
-			Name:           tc.Name,
-			InputData:      string(tc.Input),
-			ExpectedOutput: string(tc.ExpectedOutput),
-			CreatedAt:      time.Now().UTC(),
-			UpdatedAt:      time.Now().UTC(),
-		}
-		if err = s.repo.SaveTestCase(ctx, saved); err != nil {
-			return fmt.Errorf("toolapp.GenerateTestCases: save: %w", err)
-		}
-		emit(GenerateEvent{Type: "test_case", TestCase: saved})
-	}
-	emit(GenerateEvent{Type: "done", Count: len(resp.TestCases)})
-	return nil
-}
-
-// ── Import / Export ───────────────────────────────────────────────────────────
-
-// exportShape is the JSON shape for tool export/import.
-//
-// exportShape 是工具导入/导出的 JSON 形状。
-type exportShape struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Code        string          `json:"code"`
-	Tags        []string        `json:"tags"`
-	TestCases   []TestCaseInput `json:"testCases"`
-}
-
-// Export serialises a tool and its test cases to JSON.
-//
-// Export 把工具及测试用例序列化为 JSON。
-func (s *Service) Export(ctx context.Context, toolID string) ([]byte, error) {
-	t, err := s.repo.GetTool(ctx, toolID)
-	if err != nil {
-		return nil, err
-	}
-	cases, err := s.repo.ListTestCases(ctx, toolID)
-	if err != nil {
-		// Test cases failure shouldn't block exporting the tool body itself —
-		// degrade gracefully but log so the user can see the partial export.
-		//
-		// 测试用例查询失败不应阻止工具本身的导出——降级处理但记日志。
-		s.log.Warn("export: failed to list test cases, exporting without them",
-			zap.String("tool_id", toolID), zap.Error(err))
-		cases = nil
-	}
-	var tags []string
-	if err := json.Unmarshal([]byte(t.Tags), &tags); err != nil {
-		s.log.Warn("export: malformed tags JSON, exporting empty tags",
-			zap.String("tool_id", toolID), zap.Error(err))
-		tags = nil
-	}
-	tcInputs := make([]TestCaseInput, len(cases))
-	for i, tc := range cases {
-		tcInputs[i] = TestCaseInput{Name: tc.Name, InputData: tc.InputData, ExpectedOutput: tc.ExpectedOutput}
-	}
-	return json.Marshal(exportShape{
-		Name: t.Name, Description: t.Description, Code: t.Code,
-		Tags: tags, TestCases: tcInputs,
-	})
-}
-
-// Import creates a new tool from exported JSON, including test cases.
-//
-// Import 从导出的 JSON 新建工具，包含测试用例。
-func (s *Service) Import(ctx context.Context, data []byte) (*tooldomain.Tool, error) {
-	var shape exportShape
-	if err := json.Unmarshal(data, &shape); err != nil || shape.Name == "" || shape.Code == "" {
-		return nil, tooldomain.ErrImportInvalid
-	}
-	t, err := s.Create(ctx, CreateInput{
-		Name: shape.Name, Description: shape.Description,
-		Code: shape.Code, Tags: shape.Tags,
-	})
-	if err != nil {
-		return nil, err
-	}
-	// Best-effort import of test cases: a single bad case (e.g. malformed
-	// JSON in InputData) shouldn't abort the whole import — the tool itself
-	// is already saved. Log each failure so the user knows partial import.
+	// Parameters returns the JSON Schema describing the tool's input shape.
+	// MUST NOT include "summary" or "destructive" — the framework injects them.
 	//
-	// 测试用例尽力导入：单条用例失败（如 InputData JSON 损坏）不应中断整体——
-	// 工具本身已保存。每条失败记日志，让用户知晓部分导入。
-	for _, tc := range shape.TestCases {
-		if _, err := s.CreateTestCase(ctx, t.ID, tc); err != nil {
-			s.log.Warn("import: skipped test case",
-				zap.String("tool_id", t.ID),
-				zap.String("test_case_name", tc.Name),
-				zap.Error(err),
-			)
-		}
+	// Parameters 返回描述工具输入的 JSON Schema。
+	// 不得包含 "summary" 或 "destructive"——框架自动注入。
+	Parameters() json.RawMessage
+
+	// ── Static metadata: properties of the tool itself ────────────────────
+
+	// IsReadOnly reports whether this tool only reads state (no side effects).
+	// True → safe to run concurrently with other read-only tools.
+	//
+	// IsReadOnly 报告本 tool 是否纯读（无副作用）。
+	// true → 可与其他 read-only tool 并发。
+	IsReadOnly() bool
+
+	// NeedsReadFirst reports whether the file this tool operates on must have
+	// been Read in this session before the tool can be invoked. Phase 5 Edit/Write.
+	//
+	// NeedsReadFirst 报告本 tool 操作的文件是否必须在 session 内被 Read 过。
+	// Phase 5 Edit/Write 用。
+	NeedsReadFirst() bool
+
+	// RequiresWorkspace reports whether the tool's cwd must be inside the
+	// user-configured workspace whitelist. Phase 5 Bash/Edit/Write.
+	//
+	// RequiresWorkspace 报告本 tool 的 cwd 是否必须在用户 workspace 白名单内。
+	// Phase 5 Bash/Edit/Write 用。
+	RequiresWorkspace() bool
+
+	// ── Args-dependent hooks ──────────────────────────────────────────────
+
+	// IsConcurrencySafe decides if a specific call can run in parallel with
+	// other calls. For most tools this matches IsReadOnly(); for Bash and
+	// similar it depends on the actual command.
+	//
+	// IsConcurrencySafe 决定此次具体调用能否与其他并行。多数 tool 与 IsReadOnly() 一致；
+	// Bash 这种 args 决定（"ls" 安全 / "rm" 不安全）。
+	IsConcurrencySafe(args json.RawMessage) bool
+
+	// ValidateInput performs pre-Execute parameter validation. Return nil if
+	// input is valid; an error halts the call before Execute (the error text
+	// becomes the tool_result, fed back to the LLM).
+	//
+	// ValidateInput 在 Execute 前做参数级校验。返回 nil 表示通过；
+	// 返错则不进 Execute，错误文本作为 tool_result 喂回 LLM。
+	ValidateInput(args json.RawMessage) error
+
+	// CheckPermissions decides if a call is allowed under the current mode.
+	// Returns Allow / Deny / Ask. Forgify Phase 3 always passes mode=Default
+	// and most tools return Allow; reserved for Phase 4+ workflow scheduler.
+	//
+	// CheckPermissions 决定当前 mode 下是否允许调用。返回 Allow / Deny / Ask。
+	// Forgify Phase 3 一律传 mode=Default，多数 tool 返 Allow；
+	// 保留位给 Phase 4+ workflow scheduler。
+	CheckPermissions(args json.RawMessage, mode PermissionMode) PermissionResult
+
+	// ── Main entry ────────────────────────────────────────────────────────
+
+	// Execute runs the tool with stripped args (no "summary" / "destructive").
+	// Returns the result string (fed back to LLM as tool_result) and an error.
+	// If err != nil, the framework converts it to a failure tool_result.
+	//
+	// Execute 用剥除标准字段（"summary" / "destructive"）的 args 执行。
+	// 返回结果字符串（作为 tool_result 喂回 LLM）和 error。
+	// err != nil 时框架转成失败 tool_result。
+	Execute(ctx context.Context, argsJSON string) (string, error)
+}
+
+// ── LLM def conversion ────────────────────────────────────────────────────────
+
+// ToLLMDef converts a Tool to the ToolDef sent to the LLM, automatically
+// injecting "summary" and "destructive" fields into the Parameters schema.
+//
+// ToLLMDef 把 Tool 转成发给 LLM 的 ToolDef，自动注入 "summary" 和 "destructive" 字段。
+func ToLLMDef(t Tool) llminfra.ToolDef {
+	return llminfra.ToolDef{
+		Name:        t.Name(),
+		Description: t.Description(),
+		Parameters:  injectStandardFields(t.Parameters()),
 	}
-	return t, nil
 }
 
-// ── Internal helpers ──────────────────────────────────────────────────────────
-
-type parsedFields struct {
-	parametersJSON   string
-	returnSchemaJSON string
+// ToLLMDefs batch-converts a slice of Tools to ToolDefs.
+//
+// ToLLMDefs 批量转换 Tool 为 ToolDef。
+func ToLLMDefs(tools []Tool) []llminfra.ToolDef {
+	defs := make([]llminfra.ToolDef, len(tools))
+	for i, t := range tools {
+		defs[i] = ToLLMDef(t)
+	}
+	return defs
 }
 
-func (s *Service) parse(code string) (parsedFields, error) {
-	p, err := parseToolCode(code)
+// ── injectStandardFields ──────────────────────────────────────────────────────
+
+// injectStandardFields adds "summary" (required string) and "destructive"
+// (optional bool, default false) to the tool's Parameters schema.
+// If either field name is already present (implementation bug), it panics
+// to fail fast at development time.
+//
+// injectStandardFields 向 tool 参数 schema 注入 "summary"（必填 string）
+// 和 "destructive"（可选 bool，默认 false）。
+// 若任一字段名已被占用（实现 bug）直接 panic——开发期快速失败。
+func injectStandardFields(params json.RawMessage) json.RawMessage {
+	var schema map[string]json.RawMessage
+	if err := json.Unmarshal(params, &schema); err != nil {
+		panic(fmt.Sprintf("tool: parameters are not a valid JSON object: %v", err))
+	}
+
+	var props map[string]json.RawMessage
+	if raw, ok := schema["properties"]; ok {
+		if err := json.Unmarshal(raw, &props); err != nil {
+			panic(fmt.Sprintf("tool: parameters.properties is not a valid JSON object: %v", err))
+		}
+		if _, conflict := props["summary"]; conflict {
+			panic("tool: parameters already contain 'summary' field; rename to avoid conflict")
+		}
+		if _, conflict := props["destructive"]; conflict {
+			panic("tool: parameters already contain 'destructive' field; rename to avoid conflict")
+		}
+	} else {
+		props = map[string]json.RawMessage{}
+	}
+
+	props["summary"] = json.RawMessage(`{
+		"type": "string",
+		"description": "One sentence describing what you are doing and why. Required."
+	}`)
+	props["destructive"] = json.RawMessage(`{
+		"type": "boolean",
+		"description": "Set to true if this call may cause irreversible damage (rm -rf, DELETE FROM, git push --force, deleting forges, running forges that modify external state, etc.). The user will see a warning when true. Default false.",
+		"default": false
+	}`)
+
+	propsRaw, err := json.Marshal(props)
 	if err != nil {
-		return parsedFields{}, tooldomain.ErrASTParseError
+		return params
 	}
-	params := make([]map[string]any, len(p.Parameters))
-	for i, pp := range p.Parameters {
-		m := map[string]any{
-			"name": pp.Name, "type": pp.Type,
-			"required": pp.Required, "description": pp.Description,
-		}
-		if pp.Default != nil {
-			m["default"] = *pp.Default
-		} else {
-			m["default"] = nil
-		}
-		params[i] = m
-	}
-	pb, _ := json.Marshal(params)
-	rb, _ := json.Marshal(map[string]string{"type": p.Return.Type, "description": p.Return.Description})
-	return parsedFields{parametersJSON: string(pb), returnSchemaJSON: string(rb)}, nil
-}
+	schema["properties"] = propsRaw
 
-func (s *Service) autoRejectPending(ctx context.Context, toolID string) error {
-	v, err := s.repo.GetActivePending(ctx, toolID)
-	if errors.Is(err, tooldomain.ErrPendingNotFound) {
-		return nil
+	// Prepend "summary" to required so most LLMs output it first.
+	// "destructive" stays optional (default false handles it).
+	// "summary" 排在 required 首位引导 LLM 优先输出；"destructive" 不必填，缺省 false。
+	var required []string
+	if raw, ok := schema["required"]; ok {
+		_ = json.Unmarshal(raw, &required)
 	}
+	required = append([]string{"summary"}, required...)
+	reqRaw, err := json.Marshal(required)
 	if err != nil {
-		return fmt.Errorf("toolapp.autoRejectPending: %w", err)
+		return params
 	}
-	return s.repo.UpdateVersionStatus(ctx, v.ID, tooldomain.VersionStatusRejected, nil)
-}
+	schema["required"] = reqRaw
 
-func (s *Service) trimVersions(ctx context.Context, toolID string) error {
-	n, err := s.repo.CountAcceptedVersions(ctx, toolID)
+	result, err := json.Marshal(schema)
 	if err != nil {
-		return fmt.Errorf("toolapp.trimVersions: %w", err)
+		return params
 	}
-	if n > tooldomain.MaxAcceptedVersions {
-		return s.repo.DeleteOldestAcceptedVersion(ctx, toolID)
-	}
-	return nil
+	return result
 }
 
-func newVersion(t *tooldomain.Tool, status string, version *int, message string) *tooldomain.ToolVersion {
-	now := time.Now().UTC()
-	return &tooldomain.ToolVersion{
-		ID:           newID("tv"),
-		ToolID:       t.ID,
-		UserID:       t.UserID,
-		Version:      version,
-		Status:       status,
-		Name:         t.Name,
-		Description:  t.Description,
-		Code:         t.Code,
-		Parameters:   t.Parameters,
-		ReturnSchema: t.ReturnSchema,
-		Tags:         t.Tags,
-		Message:      message,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-	}
-}
+// ── StripStandardFields ───────────────────────────────────────────────────────
 
-func newID(prefix string) string {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		// crypto/rand failure means broken entropy source — IDs would
-		// collide, so fail loudly and let the caller crash. Matches the
-		// other newID functions (apikey / model / conversation / chat).
-		//
-		// crypto/rand 失败说明熵源损坏——继续会生成碰撞 ID，必须立刻 panic。
-		// 与其他 newID（apikey / model / conversation / chat）保持一致。
-		panic(fmt.Sprintf("tool: crypto/rand failed: %v", err))
+// StripStandardFields extracts "summary" and "destructive" from argsJSON and
+// returns them along with the JSON with both fields removed.
+// Missing fields default to zero values (empty summary, false destructive).
+// Invalid JSON returns zero values and the original argsJSON unchanged.
+//
+// StripStandardFields 从 argsJSON 中提取 "summary" 和 "destructive"，
+// 返回二者和剥除后的 JSON。字段缺失则取零值（summary 空、destructive false）。
+// JSON 不合法时返回零值和原始 argsJSON。
+func StripStandardFields(argsJSON string) (summary string, destructive bool, strippedJSON string) {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(argsJSON), &m); err != nil {
+		return "", false, argsJSON
 	}
-	return prefix + "_" + hex.EncodeToString(b)
-}
-
-func tagsJSON(tags []string) string {
-	if tags == nil {
-		tags = []string{}
+	if raw, ok := m["summary"]; ok {
+		_ = json.Unmarshal(raw, &summary)
+		delete(m, "summary")
 	}
-	b, _ := json.Marshal(tags)
-	return string(b)
-}
-
-func mustSetUserID(ctx context.Context, t *tooldomain.Tool) error {
-	uid, err := reqctxpkg.RequireUserID(ctx)
+	if raw, ok := m["destructive"]; ok {
+		_ = json.Unmarshal(raw, &destructive)
+		delete(m, "destructive")
+	}
+	b, err := json.Marshal(m)
 	if err != nil {
-		return fmt.Errorf("toolapp: %w", err)
+		return summary, destructive, argsJSON
 	}
-	t.UserID = uid
-	return nil
-}
-
-// extractJSONFromLLM strips markdown code fences that LLMs often wrap around
-// JSON responses, then finds the outermost JSON object or array.
-// Returns the original string unchanged if no JSON delimiter is found.
-func extractJSONFromLLM(s string) string {
-	s = strings.TrimSpace(s)
-	// Strip ```json ... ``` or ``` ... ``` fences.
-	for _, fence := range []string{"```json\n", "```\n", "```json", "```"} {
-		if after, ok := strings.CutPrefix(s, fence); ok {
-			s = after
-			if idx := strings.LastIndex(s, "```"); idx >= 0 {
-				s = s[:idx]
-			}
-			s = strings.TrimSpace(s)
-			break
-		}
-	}
-	// Find outermost { } or [ ].
-	for _, pair := range [][2]byte{{'{', '}'}, {'[', ']'}} {
-		start := strings.IndexByte(s, pair[0])
-		end := strings.LastIndexByte(s, pair[1])
-		if start >= 0 && end > start {
-			return s[start : end+1]
-		}
-	}
-	return s
-}
-
-func uidFromTool(t *tooldomain.Tool) (string, bool) {
-	return t.UserID, t.UserID != ""
-}
-
-func buildGeneratePrompt(t *tooldomain.Tool, count int) string {
-	return fmt.Sprintf(`Analyze this Python function and generate test cases.
-
-Function name: %s
-Description: %s
-Code:
-%s
-
-If the function depends on external state (file paths, network, randomness, side effects),
-respond with: {"not_supported": true, "reason": "<explanation>"}
-
-Otherwise, generate %d diverse test cases and respond with:
-{"test_cases": [{"name": "<name>", "input": <json_object>, "expected_output": <json_value>}, ...]}
-
-Respond with valid JSON only, no explanation.`,
-		t.Name, t.Description, t.Code, count)
+	return summary, destructive, string(b)
 }
