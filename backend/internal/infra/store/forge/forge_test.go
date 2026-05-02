@@ -1,9 +1,11 @@
-// Package tool — integration tests for Store using an in-memory SQLite.
-// Covers CRUD, user scoping, version/pending lifecycle, history retention,
-// and the interface satisfaction compile-time check.
+// Package forge — integration tests for Store using an in-memory SQLite.
+// Covers CRUD, user scoping, version/pending lifecycle, unified execution
+// history (run+test), cursor pagination, and the interface satisfaction
+// compile-time check.
 //
-// Package tool — Store 集成测试（内存 SQLite）。
-// 覆盖 CRUD、用户隔离、版本/pending 生命周期、历史保留、接口满足检查。
+// Package forge — Store 集成测试（内存 SQLite）。
+// 覆盖 CRUD、用户隔离、版本/pending 生命周期、统一执行历史（run+test）、
+// cursor 分页、接口满足检查。
 package forge
 
 import (
@@ -39,8 +41,7 @@ func newStore(t *testing.T) *Store {
 		&forgedomain.Forge{},
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
-		&forgedomain.ForgeRunHistory{},
-		&forgedomain.ForgeTestHistory{},
+		&forgedomain.ForgeExecution{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -69,11 +70,11 @@ func mkForge(id, userID, name string) *forgedomain.Forge {
 
 func TestSaveAndGetForge(t *testing.T) {
 	s := newStore(t)
-	tool := mkForge("t_001", userAlice, "parse_csv")
-	if err := s.SaveForge(ctxFor(userAlice), tool); err != nil {
+	f := mkForge("f_001", userAlice, "parse_csv")
+	if err := s.SaveForge(ctxFor(userAlice), f); err != nil {
 		t.Fatalf("SaveForge: %v", err)
 	}
-	got, err := s.GetForge(ctxFor(userAlice), "t_001")
+	got, err := s.GetForge(ctxFor(userAlice), "f_001")
 	if err != nil {
 		t.Fatalf("GetForge: %v", err)
 	}
@@ -84,7 +85,7 @@ func TestSaveAndGetForge(t *testing.T) {
 
 func TestGetForge_NotFound(t *testing.T) {
 	s := newStore(t)
-	_, err := s.GetForge(ctxFor(userAlice), "t_missing")
+	_, err := s.GetForge(ctxFor(userAlice), "f_missing")
 	if !errors.Is(err, forgedomain.ErrNotFound) {
 		t.Errorf("expected ErrNotFound, got %v", err)
 	}
@@ -92,62 +93,61 @@ func TestGetForge_NotFound(t *testing.T) {
 
 func TestGetForge_UserIsolation(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.GetForge(ctxFor(userBob), "t_001")
+	_, err := s.GetForge(ctxFor(userBob), "f_001")
 	if !errors.Is(err, forgedomain.ErrNotFound) {
-		t.Errorf("Bob should not see Alice's tool, got %v", err)
+		t.Errorf("Bob should not see Alice's forge, got %v", err)
 	}
 }
 
 func TestDeleteForge_SoftDelete(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.DeleteForge(ctxFor(userAlice), "t_001"); err != nil {
+	if err := s.DeleteForge(ctxFor(userAlice), "f_001"); err != nil {
 		t.Fatalf("DeleteForge: %v", err)
 	}
-	_, err := s.GetForge(ctxFor(userAlice), "t_001")
+	_, err := s.GetForge(ctxFor(userAlice), "f_001")
 	if !errors.Is(err, forgedomain.ErrNotFound) {
-		t.Errorf("deleted tool should not be found, got %v", err)
+		t.Errorf("deleted forge should not be found, got %v", err)
 	}
 }
 
 func TestListAllForges(t *testing.T) {
 	s := newStore(t)
-	for _, name := range []string{"tool_a", "tool_b", "tool_c"} {
-		if err := s.SaveForge(ctxFor(userAlice), mkForge("t_"+name, userAlice, name)); err != nil {
+	for _, name := range []string{"forge_a", "forge_b", "forge_c"} {
+		if err := s.SaveForge(ctxFor(userAlice), mkForge("f_"+name, userAlice, name)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	// Bob's tool should not appear in Alice's list.
-	if err := s.SaveForge(ctxFor(userBob), mkForge("t_bob", userBob, "bob_tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userBob), mkForge("f_bob", userBob, "bob_forge")); err != nil {
 		t.Fatal(err)
 	}
-	tools, err := s.ListAllForges(ctxFor(userAlice))
+	forges, err := s.ListAllForges(ctxFor(userAlice))
 	if err != nil {
 		t.Fatalf("ListAllForges: %v", err)
 	}
-	if len(tools) != 3 {
-		t.Errorf("want 3 tools, got %d", len(tools))
+	if len(forges) != 3 {
+		t.Errorf("want 3 forges, got %d", len(forges))
 	}
 }
 
 func TestGetForgesByIDs_OrderPreserved(t *testing.T) {
 	s := newStore(t)
-	for _, id := range []string{"t_1", "t_2", "t_3"} {
-		if err := s.SaveForge(ctxFor(userAlice), mkForge(id, userAlice, "tool_"+id)); err != nil {
+	for _, id := range []string{"f_1", "f_2", "f_3"} {
+		if err := s.SaveForge(ctxFor(userAlice), mkForge(id, userAlice, "forge_"+id)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	tools, err := s.GetForgesByIDs(ctxFor(userAlice), []string{"t_3", "t_1"})
+	forges, err := s.GetForgesByIDs(ctxFor(userAlice), []string{"f_3", "f_1"})
 	if err != nil {
 		t.Fatalf("GetForgesByIDs: %v", err)
 	}
-	if len(tools) != 2 || tools[0].ID != "t_3" || tools[1].ID != "t_1" {
-		t.Errorf("order not preserved: %v", tools)
+	if len(forges) != 2 || forges[0].ID != "f_3" || forges[1].ID != "f_1" {
+		t.Errorf("order not preserved: %v", forges)
 	}
 }
 
@@ -155,14 +155,14 @@ func TestGetForgesByIDs_OrderPreserved(t *testing.T) {
 
 func mkVersion(id, forgeID, userID, status string, version *int) *forgedomain.ForgeVersion {
 	return &forgedomain.ForgeVersion{
-		ID:      id,
-		ForgeID:  forgeID,
-		UserID:  userID,
-		Version: version,
-		Status:  status,
-		Name:    "tool",
-		Code:    "def tool(): pass",
-		Message: "initial",
+		ID:           id,
+		ForgeID:      forgeID,
+		UserID:       userID,
+		Version:      version,
+		Status:       status,
+		Name:         "forge",
+		Code:         "def forge(): pass",
+		ChangeReason: "initial",
 	}
 }
 
@@ -170,38 +170,33 @@ func intPtr(n int) *int { return &n }
 
 func TestVersionLifecycle(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
 
-	// Save a pending version.
-	pending := mkVersion("tv_p1", "t_001", userAlice, forgedomain.VersionStatusPending, nil)
+	pending := mkVersion("fv_p1", "f_001", userAlice, forgedomain.VersionStatusPending, nil)
 	if err := s.SaveVersion(ctxFor(userAlice), pending); err != nil {
 		t.Fatalf("SaveVersion pending: %v", err)
 	}
 
-	// GetActivePending should return it.
-	got, err := s.GetActivePending(ctxFor(userAlice), "t_001")
+	got, err := s.GetActivePending(ctxFor(userAlice), "f_001")
 	if err != nil {
 		t.Fatalf("GetActivePending: %v", err)
 	}
-	if got.ID != "tv_p1" {
-		t.Errorf("want tv_p1, got %s", got.ID)
+	if got.ID != "fv_p1" {
+		t.Errorf("want fv_p1, got %s", got.ID)
 	}
 
-	// Accept it.
-	if err := s.UpdateVersionStatus(ctxFor(userAlice), "tv_p1", forgedomain.VersionStatusAccepted, intPtr(1)); err != nil {
+	if err := s.UpdateVersionStatus(ctxFor(userAlice), "fv_p1", forgedomain.VersionStatusAccepted, intPtr(1)); err != nil {
 		t.Fatalf("UpdateVersionStatus: %v", err)
 	}
 
-	// No more pending.
-	_, err = s.GetActivePending(ctxFor(userAlice), "t_001")
+	_, err = s.GetActivePending(ctxFor(userAlice), "f_001")
 	if !errors.Is(err, forgedomain.ErrPendingNotFound) {
 		t.Errorf("expected ErrPendingNotFound after accept, got %v", err)
 	}
 
-	// GetVersion should find it.
-	v, err := s.GetVersion(ctxFor(userAlice), "t_001", 1)
+	v, err := s.GetVersion(ctxFor(userAlice), "f_001", 1)
 	if err != nil {
 		t.Fatalf("GetVersion: %v", err)
 	}
@@ -212,29 +207,28 @@ func TestVersionLifecycle(t *testing.T) {
 
 func TestDeleteOldestAcceptedVersion(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
-	for i, vid := range []string{"tv_v1", "tv_v2", "tv_v3"} {
-		v := mkVersion(vid, "t_001", userAlice, forgedomain.VersionStatusAccepted, intPtr(i+1))
+	for i, vid := range []string{"fv_v1", "fv_v2", "fv_v3"} {
+		v := mkVersion(vid, "f_001", userAlice, forgedomain.VersionStatusAccepted, intPtr(i+1))
 		v.CreatedAt = time.Now().Add(time.Duration(i) * time.Second)
 		if err := s.SaveVersion(ctxFor(userAlice), v); err != nil {
 			t.Fatal(err)
 		}
 	}
-	n, _ := s.CountAcceptedVersions(ctxFor(userAlice), "t_001")
+	n, _ := s.CountAcceptedVersions(ctxFor(userAlice), "f_001")
 	if n != 3 {
 		t.Fatalf("want 3 versions, got %d", n)
 	}
-	if err := s.DeleteOldestAcceptedVersion(ctxFor(userAlice), "t_001"); err != nil {
+	if err := s.DeleteOldestAcceptedVersion(ctxFor(userAlice), "f_001"); err != nil {
 		t.Fatalf("DeleteOldestAcceptedVersion: %v", err)
 	}
-	n, _ = s.CountAcceptedVersions(ctxFor(userAlice), "t_001")
+	n, _ = s.CountAcceptedVersions(ctxFor(userAlice), "f_001")
 	if n != 2 {
 		t.Errorf("want 2 versions after delete, got %d", n)
 	}
-	// v1 (lowest) should be gone.
-	_, err := s.GetVersion(ctxFor(userAlice), "t_001", 1)
+	_, err := s.GetVersion(ctxFor(userAlice), "f_001", 1)
 	if !errors.Is(err, forgedomain.ErrVersionNotFound) {
 		t.Errorf("v1 should be deleted, got %v", err)
 	}
@@ -244,12 +238,12 @@ func TestDeleteOldestAcceptedVersion(t *testing.T) {
 
 func TestTestCaseCRUD(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
 	tc := &forgedomain.ForgeTestCase{
 		ID:             "tc_001",
-		ForgeID:         "t_001",
+		ForgeID:        "f_001",
 		UserID:         userAlice,
 		Name:           "basic",
 		InputData:      `{"x":1}`,
@@ -274,83 +268,190 @@ func TestTestCaseCRUD(t *testing.T) {
 	}
 }
 
-// ── Run history ───────────────────────────────────────────────────────────────
+// ── Executions (unified run + test history) ───────────────────────────────────
 
-func TestRunHistoryRetention(t *testing.T) {
+func mkExecution(id, forgeID, userID, kind string, t time.Time) *forgedomain.ForgeExecution {
+	return &forgedomain.ForgeExecution{
+		ID:           id,
+		ForgeID:      forgeID,
+		UserID:       userID,
+		ForgeVersion: 1,
+		Kind:         kind,
+		Input:        "{}",
+		OK:           true,
+		TriggeredBy:  forgedomain.TriggeredByHTTP,
+		CreatedAt:    t,
+	}
+}
+
+func TestExecutionRetention(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
-	// Insert 3 records.
 	for i := range 3 {
-		h := &forgedomain.ForgeRunHistory{
-			ID:          fmt.Sprintf("trh_%02d", i),
-			ForgeID:      "t_001",
-			UserID:      userAlice,
-			ForgeVersion: 1,
-			Input:       "{}",
-			OK:          true,
-			CreatedAt:   time.Now().Add(time.Duration(i) * time.Second),
-		}
-		if err := s.SaveRunHistory(ctxFor(userAlice), h); err != nil {
-			t.Fatalf("SaveRunHistory: %v", err)
+		e := mkExecution(fmt.Sprintf("fe_%02d", i), "f_001", userAlice,
+			forgedomain.ExecutionKindRun, time.Now().Add(time.Duration(i)*time.Second))
+		if err := s.SaveExecution(ctxFor(userAlice), e); err != nil {
+			t.Fatalf("SaveExecution: %v", err)
 		}
 	}
-	n, err := s.CountRunHistory(ctxFor(userAlice), "t_001")
+	n, err := s.CountExecutions(ctxFor(userAlice), "f_001")
 	if err != nil || n != 3 {
 		t.Fatalf("want count=3, got %d, err=%v", n, err)
 	}
-	// Delete oldest, then count.
-	if err := s.DeleteOldestRunHistory(ctxFor(userAlice), "t_001"); err != nil {
-		t.Fatalf("DeleteOldestRunHistory: %v", err)
+	if err := s.DeleteOldestExecution(ctxFor(userAlice), "f_001"); err != nil {
+		t.Fatalf("DeleteOldestExecution: %v", err)
 	}
-	n, _ = s.CountRunHistory(ctxFor(userAlice), "t_001")
+	n, _ = s.CountExecutions(ctxFor(userAlice), "f_001")
 	if n != 2 {
 		t.Errorf("want 2 after delete, got %d", n)
 	}
 }
 
-// ── Test history ──────────────────────────────────────────────────────────────
-
-func TestTestHistoryBatch(t *testing.T) {
+func TestExecutionFilter_KindAndBatch(t *testing.T) {
 	s := newStore(t)
-	if err := s.SaveForge(ctxFor(userAlice), mkForge("t_001", userAlice, "tool")); err != nil {
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
 		t.Fatal(err)
 	}
 	pass := true
+	now := time.Now()
+	// 2 run rows + 3 test rows in one batch.
+	// 2 行 run + 3 行同批次 test。
+	for i := range 2 {
+		e := mkExecution(fmt.Sprintf("fe_run_%02d", i), "f_001", userAlice,
+			forgedomain.ExecutionKindRun, now.Add(time.Duration(i)*time.Second))
+		if err := s.SaveExecution(ctxFor(userAlice), e); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for i := range 3 {
-		h := &forgedomain.ForgeTestHistory{
-			ID:          fmt.Sprintf("tth_%02d", i),
-			ForgeID:      "t_001",
-			UserID:      userAlice,
-			ForgeVersion: 1,
-			TestCaseID:  fmt.Sprintf("tc_%02d", i),
-			BatchID:     "batch_001",
-			Input:       "{}",
-			OK:          true,
-			Pass:        &pass,
-			CreatedAt:   time.Now().Add(time.Duration(i) * time.Second),
-		}
-		if err := s.SaveTestHistory(ctxFor(userAlice), h); err != nil {
-			t.Fatalf("SaveTestHistory: %v", err)
+		e := mkExecution(fmt.Sprintf("fe_test_%02d", i), "f_001", userAlice,
+			forgedomain.ExecutionKindTest, now.Add(time.Duration(10+i)*time.Second))
+		e.TestCaseID = fmt.Sprintf("tc_%02d", i)
+		e.BatchID = "batch_001"
+		e.Pass = &pass
+		if err := s.SaveExecution(ctxFor(userAlice), e); err != nil {
+			t.Fatal(err)
 		}
 	}
-	byBatch, err := s.ListTestHistoryByBatch(ctxFor(userAlice), "batch_001")
+
+	// Kind filter.
+	runs, _, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ForgeID: "f_001", Kind: forgedomain.ExecutionKindRun,
+	})
 	if err != nil {
-		t.Fatalf("ListTestHistoryByBatch: %v", err)
+		t.Fatalf("ListExecutions kind=run: %v", err)
 	}
-	if len(byBatch) != 3 {
-		t.Errorf("want 3, got %d", len(byBatch))
+	if len(runs) != 2 {
+		t.Errorf("want 2 run rows, got %d", len(runs))
 	}
-	n, _ := s.CountTestHistory(ctxFor(userAlice), "t_001")
-	if n != 3 {
-		t.Errorf("want count=3, got %d", n)
+
+	// Batch filter — expect ASC ordering.
+	// batch 过滤——预期 ASC 排序。
+	batch, _, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ForgeID: "f_001", BatchID: "batch_001",
+	})
+	if err != nil {
+		t.Fatalf("ListExecutions batch: %v", err)
 	}
-	if err := s.DeleteOldestTestHistory(ctxFor(userAlice), "t_001"); err != nil {
-		t.Fatalf("DeleteOldestTestHistory: %v", err)
+	if len(batch) != 3 {
+		t.Fatalf("want 3 batch rows, got %d", len(batch))
 	}
-	n, _ = s.CountTestHistory(ctxFor(userAlice), "t_001")
-	if n != 2 {
-		t.Errorf("want 2 after delete, got %d", n)
+	if batch[0].ID != "fe_test_00" || batch[2].ID != "fe_test_02" {
+		t.Errorf("batch should be ASC, got order %s, %s, %s",
+			batch[0].ID, batch[1].ID, batch[2].ID)
+	}
+}
+
+func TestExecutionFilter_ChatContext(t *testing.T) {
+	s := newStore(t)
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	for i := range 3 {
+		e := mkExecution(fmt.Sprintf("fe_%02d", i), "f_001", userAlice,
+			forgedomain.ExecutionKindRun, now.Add(time.Duration(i)*time.Second))
+		e.TriggeredBy = forgedomain.TriggeredByChat
+		e.ConversationID = "cv_xyz"
+		e.MessageID = fmt.Sprintf("msg_%02d", i)
+		if err := s.SaveExecution(ctxFor(userAlice), e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Filter by conversation: all 3.
+	conv, _, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ConversationID: "cv_xyz",
+	})
+	if err != nil {
+		t.Fatalf("ListExecutions conv: %v", err)
+	}
+	if len(conv) != 3 {
+		t.Errorf("want 3 by conversation, got %d", len(conv))
+	}
+	// Filter by single message.
+	msg, _, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		MessageID: "msg_01",
+	})
+	if err != nil {
+		t.Fatalf("ListExecutions msg: %v", err)
+	}
+	if len(msg) != 1 || msg[0].ID != "fe_01" {
+		t.Errorf("want 1 row fe_01, got %v", msg)
+	}
+}
+
+func TestExecutionPagination_Cursor(t *testing.T) {
+	s := newStore(t)
+	if err := s.SaveForge(ctxFor(userAlice), mkForge("f_001", userAlice, "forge")); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	for i := range 5 {
+		e := mkExecution(fmt.Sprintf("fe_%02d", i), "f_001", userAlice,
+			forgedomain.ExecutionKindRun, now.Add(time.Duration(i)*time.Second))
+		if err := s.SaveExecution(ctxFor(userAlice), e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// First page (DESC; newest first): limit=2 → fe_04, fe_03.
+	page1, next, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ForgeID: "f_001", Limit: 2,
+	})
+	if err != nil {
+		t.Fatalf("page1: %v", err)
+	}
+	if len(page1) != 2 || page1[0].ID != "fe_04" || page1[1].ID != "fe_03" {
+		t.Fatalf("page1 wrong: %v", page1)
+	}
+	if next == "" {
+		t.Fatal("expected nextCursor on page1")
+	}
+	// Second page: fe_02, fe_01.
+	page2, next2, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ForgeID: "f_001", Limit: 2, Cursor: next,
+	})
+	if err != nil {
+		t.Fatalf("page2: %v", err)
+	}
+	if len(page2) != 2 || page2[0].ID != "fe_02" || page2[1].ID != "fe_01" {
+		t.Errorf("page2 wrong: %v", page2)
+	}
+	if next2 == "" {
+		t.Fatal("expected nextCursor on page2")
+	}
+	// Final page: fe_00, no nextCursor.
+	page3, next3, err := s.ListExecutions(ctxFor(userAlice), forgedomain.ExecutionFilter{
+		ForgeID: "f_001", Limit: 2, Cursor: next2,
+	})
+	if err != nil {
+		t.Fatalf("page3: %v", err)
+	}
+	if len(page3) != 1 || page3[0].ID != "fe_00" {
+		t.Errorf("page3 wrong: %v", page3)
+	}
+	if next3 != "" {
+		t.Errorf("expected empty cursor on final page, got %q", next3)
 	}
 }

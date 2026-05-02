@@ -1,15 +1,15 @@
-// Package tool (infra/store/tool) is the GORM-backed implementation of the
-// domain tool Repository port. Every method scopes queries to the userID
+// Package forge (infra/store/forge) is the GORM-backed implementation of the
+// domain forge Repository port. Every method scopes queries to the userID
 // carried in ctx — callers MUST have run the InjectUserID middleware.
 //
-// The package shares its name with domain/tool and app/tool by design;
-// external callers alias at import: `forgestore "…/infra/store/tool"`.
+// The package shares its name with domain/forge and app/forge by design;
+// external callers alias at import: `forgestore "…/infra/store/forge"`.
 //
-// Package tool（infra/store/tool）是 domain tool Repository port 的 GORM 实现。
+// Package forge（infra/store/forge）是 domain forge Repository port 的 GORM 实现。
 // 所有方法按 ctx 中的 userID 过滤——调用方必须先经过 InjectUserID 中间件。
 //
-// 本包与 domain/tool、app/tool 同名是刻意的；外部调用方 import 时起别名，
-// 如 `forgestore "…/infra/store/tool"`。
+// 本包与 domain/forge、app/forge 同名是刻意的；外部调用方 import 时起别名，
+// 如 `forgestore "…/infra/store/forge"`。
 package forge
 
 import (
@@ -38,14 +38,13 @@ func New(db *gorm.DB) *Store {
 	return &Store{db: db}
 }
 
-
 // ── Forge CRUD ─────────────────────────────────────────────────────────────────
 
 // SaveForge inserts or updates a Forge by primary key.
 //
 // SaveForge 按主键插入或更新 Forge。
-func (s *Store) SaveForge(ctx context.Context, t *forgedomain.Forge) error {
-	if err := s.db.WithContext(ctx).Save(t).Error; err != nil {
+func (s *Store) SaveForge(ctx context.Context, f *forgedomain.Forge) error {
+	if err := s.db.WithContext(ctx).Save(f).Error; err != nil {
 		return fmt.Errorf("forgestore.SaveForge: %w", err)
 	}
 	return nil
@@ -59,17 +58,17 @@ func (s *Store) GetForge(ctx context.Context, id string) (*forgedomain.Forge, er
 	if err != nil {
 		return nil, err
 	}
-	var t forgedomain.Forge
+	var f forgedomain.Forge
 	err = s.db.WithContext(ctx).
 		Where("id = ? AND user_id = ?", id, userID).
-		First(&t).Error
+		First(&f).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, forgedomain.ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("forgestore.GetForge: %w", err)
 	}
-	return &t, nil
+	return &f, nil
 }
 
 // GetForgesByIDs fetches multiple live Forges by id slice, preserving the
@@ -91,25 +90,23 @@ func (s *Store) GetForgesByIDs(ctx context.Context, ids []string) ([]*forgedomai
 		Find(&rows).Error; err != nil {
 		return nil, fmt.Errorf("forgestore.GetForgesByIDs: %w", err)
 	}
-	// Re-order to match the requested id slice.
-	// 按请求的 id 顺序重排。
 	idx := make(map[string]*forgedomain.Forge, len(rows))
 	for _, r := range rows {
 		idx[r.ID] = r
 	}
 	ordered := make([]*forgedomain.Forge, 0, len(ids))
 	for _, id := range ids {
-		if t, ok := idx[id]; ok {
-			ordered = append(ordered, t)
+		if f, ok := idx[id]; ok {
+			ordered = append(ordered, f)
 		}
 	}
 	return ordered, nil
 }
 
-// ListForges returns a cursor-paginated page of live tools for the current user,
+// ListForges returns a cursor-paginated page of live forges for the current user,
 // ordered by created_at DESC with id as tiebreaker.
 //
-// ListForges 返回当前用户活跃工具的 cursor 分页结果，按 created_at DESC 排序。
+// ListForges 返回当前用户活跃 forge 的 cursor 分页结果，按 created_at DESC 排序。
 func (s *Store) ListForges(ctx context.Context, filter forgedomain.ListFilter) ([]*forgedomain.Forge, string, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -143,9 +140,9 @@ func (s *Store) ListForges(ctx context.Context, filter forgedomain.ListFilter) (
 	return rows, next, nil
 }
 
-// ListAllForges returns all live tools for the current user without pagination.
+// ListAllForges returns all live forges for the current user without pagination.
 //
-// ListAllForges 返回当前用户全部活跃工具，不分页。
+// ListAllForges 返回当前用户全部活跃 forge，不分页。
 func (s *Store) ListAllForges(ctx context.Context) ([]*forgedomain.Forge, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -161,9 +158,9 @@ func (s *Store) ListAllForges(ctx context.Context) ([]*forgedomain.Forge, error)
 	return rows, nil
 }
 
-// DeleteForge soft-deletes a tool by id for the current user.
+// DeleteForge soft-deletes a forge by id for the current user.
 //
-// DeleteForge 软删除当前用户的指定工具。
+// DeleteForge 软删除当前用户的指定 forge。
 func (s *Store) DeleteForge(ctx context.Context, id string) error {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -211,9 +208,9 @@ func (s *Store) GetVersion(ctx context.Context, forgeID string, version int) (*f
 	return &v, nil
 }
 
-// GetActivePending returns the pending ForgeVersion for the tool.
+// GetActivePending returns the pending ForgeVersion for the forge.
 //
-// GetActivePending 返回工具当前的 pending ForgeVersion。
+// GetActivePending 返回 forge 当前的 pending ForgeVersion。
 func (s *Store) GetActivePending(ctx context.Context, forgeID string) (*forgedomain.ForgeVersion, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -233,9 +230,9 @@ func (s *Store) GetActivePending(ctx context.Context, forgeID string) (*forgedom
 	return &v, nil
 }
 
-// ListAcceptedVersions returns all accepted versions for a tool, newest first.
+// ListAcceptedVersions returns all accepted versions for a forge, newest first.
 //
-// ListAcceptedVersions 返回工具所有已接受版本，最新在前。
+// ListAcceptedVersions 返回 forge 所有已接受版本，最新在前。
 func (s *Store) ListAcceptedVersions(ctx context.Context, forgeID string) ([]*forgedomain.ForgeVersion, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -269,9 +266,9 @@ func (s *Store) UpdateVersionStatus(ctx context.Context, id, status string, vers
 	return nil
 }
 
-// CountAcceptedVersions returns the number of accepted versions for a tool.
+// CountAcceptedVersions returns the number of accepted versions for a forge.
 //
-// CountAcceptedVersions 返回工具已接受版本数。
+// CountAcceptedVersions 返回 forge 已接受版本数。
 func (s *Store) CountAcceptedVersions(ctx context.Context, forgeID string) (int64, error) {
 	var n int64
 	if err := s.db.WithContext(ctx).Model(&forgedomain.ForgeVersion{}).
@@ -283,9 +280,9 @@ func (s *Store) CountAcceptedVersions(ctx context.Context, forgeID string) (int6
 }
 
 // DeleteOldestAcceptedVersion hard-deletes the accepted version with the
-// lowest version number for the given tool.
+// lowest version number for the given forge.
 //
-// DeleteOldestAcceptedVersion 硬删除指定工具版本号最小的已接受版本。
+// DeleteOldestAcceptedVersion 硬删除指定 forge 版本号最小的已接受版本。
 func (s *Store) DeleteOldestAcceptedVersion(ctx context.Context, forgeID string) error {
 	var v forgedomain.ForgeVersion
 	err := s.db.WithContext(ctx).
@@ -337,9 +334,9 @@ func (s *Store) GetTestCase(ctx context.Context, id string) (*forgedomain.ForgeT
 	return &tc, nil
 }
 
-// ListTestCases returns all test cases for the given tool, ordered by created_at ASC.
+// ListTestCases returns all test cases for the given forge, ordered by created_at ASC.
 //
-// ListTestCases 返回指定工具所有测试用例，按 created_at ASC 排序。
+// ListTestCases 返回指定 forge 所有测试用例，按 created_at ASC 排序。
 func (s *Store) ListTestCases(ctx context.Context, forgeID string) ([]*forgedomain.ForgeTestCase, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -371,145 +368,126 @@ func (s *Store) DeleteTestCase(ctx context.Context, id string) error {
 	return nil
 }
 
-// ── Run history ───────────────────────────────────────────────────────────────
+// ── Executions (unified run + test history) ───────────────────────────────────
 
-// SaveRunHistory inserts a ForgeRunHistory record.
+// SaveExecution inserts a ForgeExecution record.
 //
-// SaveRunHistory 插入 ForgeRunHistory 记录。
-func (s *Store) SaveRunHistory(ctx context.Context, h *forgedomain.ForgeRunHistory) error {
-	if err := s.db.WithContext(ctx).Create(h).Error; err != nil {
-		return fmt.Errorf("forgestore.SaveRunHistory: %w", err)
+// SaveExecution 插入一条 ForgeExecution 记录。
+func (s *Store) SaveExecution(ctx context.Context, e *forgedomain.ForgeExecution) error {
+	if err := s.db.WithContext(ctx).Create(e).Error; err != nil {
+		return fmt.Errorf("forgestore.SaveExecution: %w", err)
 	}
 	return nil
 }
 
-// ListRunHistory returns the most recent limit records, ordered by created_at DESC.
+// ListExecutions returns a cursor-paginated page of execution records matching
+// the filter. Order: BatchID set → created_at ASC (single batch in run order);
+// otherwise created_at DESC. Pagination uses (created_at, id) tuple via the
+// shared paginationpkg.Cursor.
 //
-// ListRunHistory 返回最近 limit 条运行历史，按 created_at DESC。
-func (s *Store) ListRunHistory(ctx context.Context, forgeID string, limit int) ([]*forgedomain.ForgeRunHistory, error) {
+// ListExecutions 返回匹配 filter 的执行记录 cursor 分页结果。排序：指定 BatchID
+// 时按 created_at ASC（单批次按运行顺序）；否则 created_at DESC。分页用 (created_at, id)
+// 元组，通过共享的 paginationpkg.Cursor。
+func (s *Store) ListExecutions(ctx context.Context, filter forgedomain.ExecutionFilter) ([]*forgedomain.ForgeExecution, string, error) {
 	userID, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	var rows []*forgedomain.ForgeRunHistory
-	if err = s.db.WithContext(ctx).
-		Where("forge_id = ? AND user_id = ?", forgeID, userID).
-		Order("created_at DESC").
-		Limit(limit).
-		Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("forgestore.ListRunHistory: %w", err)
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = paginationpkg.DefaultLimit
 	}
-	return rows, nil
+
+	q := s.db.WithContext(ctx).Where("user_id = ?", userID)
+	if filter.ForgeID != "" {
+		q = q.Where("forge_id = ?", filter.ForgeID)
+	}
+	if filter.Kind != "" {
+		q = q.Where("kind = ?", filter.Kind)
+	}
+	if filter.BatchID != "" {
+		q = q.Where("batch_id = ?", filter.BatchID)
+	}
+	if filter.TestCaseID != "" {
+		q = q.Where("test_case_id = ?", filter.TestCaseID)
+	}
+	if filter.ConversationID != "" {
+		q = q.Where("conversation_id = ?", filter.ConversationID)
+	}
+	if filter.MessageID != "" {
+		q = q.Where("message_id = ?", filter.MessageID)
+	}
+	if filter.ToolCallID != "" {
+		q = q.Where("tool_call_id = ?", filter.ToolCallID)
+	}
+
+	// Cursor predicate flips with sort direction: DESC uses (c, id) <;
+	// ASC uses (c, id) >.
+	//
+	// cursor 谓词随排序方向反转：DESC 用 (c, id) <；ASC 用 (c, id) >。
+	asc := filter.BatchID != ""
+	if filter.Cursor != "" {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
+			return nil, "", fmt.Errorf("forgestore.ListExecutions: %w", err)
+		}
+		if asc {
+			q = q.Where("(created_at, id) > (?, ?)", c.CreatedAt, c.ID)
+		} else {
+			q = q.Where("(created_at, id) < (?, ?)", c.CreatedAt, c.ID)
+		}
+	}
+	if asc {
+		q = q.Order("created_at ASC, id ASC")
+	} else {
+		q = q.Order("created_at DESC, id DESC")
+	}
+
+	var rows []*forgedomain.ForgeExecution
+	if err = q.Limit(limit + 1).Find(&rows).Error; err != nil {
+		return nil, "", fmt.Errorf("forgestore.ListExecutions: %w", err)
+	}
+	var next string
+	if len(rows) > limit {
+		last := rows[limit-1]
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{CreatedAt: last.CreatedAt, ID: last.ID})
+		if err != nil {
+			return nil, "", fmt.Errorf("forgestore.ListExecutions: %w", err)
+		}
+		rows = rows[:limit]
+	}
+	return rows, next, nil
 }
 
-// CountRunHistory returns the total run history count for a tool.
+// CountExecutions returns the total execution count for a forge (across all kinds).
 //
-// CountRunHistory 返回工具运行历史总条数。
-func (s *Store) CountRunHistory(ctx context.Context, forgeID string) (int64, error) {
+// CountExecutions 返回 forge 执行记录总数（所有 kind 合计）。
+func (s *Store) CountExecutions(ctx context.Context, forgeID string) (int64, error) {
 	var n int64
-	if err := s.db.WithContext(ctx).Model(&forgedomain.ForgeRunHistory{}).
+	if err := s.db.WithContext(ctx).Model(&forgedomain.ForgeExecution{}).
 		Where("forge_id = ?", forgeID).Count(&n).Error; err != nil {
-		return 0, fmt.Errorf("forgestore.CountRunHistory: %w", err)
+		return 0, fmt.Errorf("forgestore.CountExecutions: %w", err)
 	}
 	return n, nil
 }
 
-// DeleteOldestRunHistory hard-deletes the oldest run history record for a tool.
+// DeleteOldestExecution hard-deletes the oldest execution record for a forge.
 //
-// DeleteOldestRunHistory 硬删除工具最早的运行历史记录。
-func (s *Store) DeleteOldestRunHistory(ctx context.Context, forgeID string) error {
-	var h forgedomain.ForgeRunHistory
+// DeleteOldestExecution 硬删除 forge 最早的执行记录。
+func (s *Store) DeleteOldestExecution(ctx context.Context, forgeID string) error {
+	var e forgedomain.ForgeExecution
 	err := s.db.WithContext(ctx).
 		Where("forge_id = ?", forgeID).
 		Order("created_at ASC").
-		First(&h).Error
+		First(&e).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("forgestore.DeleteOldestRunHistory: find: %w", err)
+		return fmt.Errorf("forgestore.DeleteOldestExecution: find: %w", err)
 	}
-	if err = s.db.WithContext(ctx).Delete(&h).Error; err != nil {
-		return fmt.Errorf("forgestore.DeleteOldestRunHistory: delete: %w", err)
-	}
-	return nil
-}
-
-// ── Test history ──────────────────────────────────────────────────────────────
-
-// SaveTestHistory inserts a ForgeTestHistory record.
-//
-// SaveTestHistory 插入 ForgeTestHistory 记录。
-func (s *Store) SaveTestHistory(ctx context.Context, h *forgedomain.ForgeTestHistory) error {
-	if err := s.db.WithContext(ctx).Create(h).Error; err != nil {
-		return fmt.Errorf("forgestore.SaveTestHistory: %w", err)
+	if err = s.db.WithContext(ctx).Delete(&e).Error; err != nil {
+		return fmt.Errorf("forgestore.DeleteOldestExecution: delete: %w", err)
 	}
 	return nil
 }
-
-// ListTestHistory returns the most recent limit records for a tool, DESC.
-//
-// ListTestHistory 返回工具最近 limit 条测试历史，按 created_at DESC。
-func (s *Store) ListTestHistory(ctx context.Context, forgeID string, limit int) ([]*forgedomain.ForgeTestHistory, error) {
-	userID, err := reqctxpkg.RequireUserID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var rows []*forgedomain.ForgeTestHistory
-	if err = s.db.WithContext(ctx).
-		Where("forge_id = ? AND user_id = ?", forgeID, userID).
-		Order("created_at DESC").
-		Limit(limit).
-		Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("forgestore.ListTestHistory: %w", err)
-	}
-	return rows, nil
-}
-
-// ListTestHistoryByBatch returns all records sharing a batchID, ordered ASC.
-//
-// ListTestHistoryByBatch 返回指定 batchID 的所有记录，按 created_at ASC。
-func (s *Store) ListTestHistoryByBatch(ctx context.Context, batchID string) ([]*forgedomain.ForgeTestHistory, error) {
-	var rows []*forgedomain.ForgeTestHistory
-	if err := s.db.WithContext(ctx).
-		Where("batch_id = ?", batchID).
-		Order("created_at ASC").
-		Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("forgestore.ListTestHistoryByBatch: %w", err)
-	}
-	return rows, nil
-}
-
-// CountTestHistory returns the total test history count for a tool.
-//
-// CountTestHistory 返回工具测试历史总条数。
-func (s *Store) CountTestHistory(ctx context.Context, forgeID string) (int64, error) {
-	var n int64
-	if err := s.db.WithContext(ctx).Model(&forgedomain.ForgeTestHistory{}).
-		Where("forge_id = ?", forgeID).Count(&n).Error; err != nil {
-		return 0, fmt.Errorf("forgestore.CountTestHistory: %w", err)
-	}
-	return n, nil
-}
-
-// DeleteOldestTestHistory hard-deletes the oldest test history record for a tool.
-//
-// DeleteOldestTestHistory 硬删除工具最早的测试历史记录。
-func (s *Store) DeleteOldestTestHistory(ctx context.Context, forgeID string) error {
-	var h forgedomain.ForgeTestHistory
-	err := s.db.WithContext(ctx).
-		Where("forge_id = ?", forgeID).
-		Order("created_at ASC").
-		First(&h).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("forgestore.DeleteOldestTestHistory: find: %w", err)
-	}
-	if err = s.db.WithContext(ctx).Delete(&h).Error; err != nil {
-		return fmt.Errorf("forgestore.DeleteOldestTestHistory: delete: %w", err)
-	}
-	return nil
-}
-

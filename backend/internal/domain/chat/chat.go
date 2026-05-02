@@ -21,10 +21,15 @@ import (
 // Message is one turn in a conversation. Role identifies the speaker;
 // Status tracks the generation lifecycle for assistant messages.
 // Content is stored in the associated Blocks, not directly on Message.
+// ErrorCode/ErrorMessage are populated only when Status="error" — they
+// carry the structured failure reason so the UI can show it without
+// re-parsing the assistant text or trailing tool_result blocks.
 //
 // Message 是对话中的一个回合。Role 标识发言方；
 // Status 追踪 assistant 消息的生成生命周期。
 // 内容存储在关联的 Blocks 中，不直接在 Message 上。
+// ErrorCode / ErrorMessage 仅在 Status="error" 时填充——存放结构化失败原因，
+// 让 UI 无需再解析 assistant 文本或 trailing tool_result block。
 type Message struct {
 	ID             string         `gorm:"primaryKey;type:text" json:"id"`
 	ConversationID string         `gorm:"not null;index;type:text" json:"conversationId"`
@@ -32,9 +37,12 @@ type Message struct {
 	Role           string         `gorm:"not null;type:text" json:"role"` // "user" | "assistant"
 	Status         string         `gorm:"not null;type:text;default:'completed'" json:"status"`
 	StopReason     string         `gorm:"type:text;default:''" json:"stopReason,omitempty"`
+	ErrorCode      string         `gorm:"type:text;default:''" json:"errorCode,omitempty"`    // "" when Status != "error"
+	ErrorMessage   string         `gorm:"type:text;default:''" json:"errorMessage,omitempty"` // "" when Status != "error"
 	InputTokens    int            `gorm:"default:0" json:"inputTokens,omitempty"`
 	OutputTokens   int            `gorm:"default:0" json:"outputTokens,omitempty"`
 	CreatedAt      time.Time      `json:"createdAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Blocks is not a DB column — populated by the store layer after a query.
@@ -127,11 +135,19 @@ type ToolCallData struct {
 }
 
 // ToolResultData is the Data payload for BlockTypeToolResult.
+// Result holds the success payload (free-form string, often JSON);
+// ErrorMsg is populated only when OK=false so callers don't have to
+// parse the error out of Result. ElapsedMs is end-to-end wall time.
+//
 // ToolResultData 是 BlockTypeToolResult 的 Data 载荷。
+// Result 存成功负载（自由格式字符串，常为 JSON）；ErrorMsg 仅在 OK=false 时
+// 填充，调用方无需从 Result 中再解析错误。ElapsedMs 是端到端 wall time。
 type ToolResultData struct {
 	ToolCallID string `json:"toolCallId"`
 	OK         bool   `json:"ok"`
 	Result     string `json:"result"`
+	ErrorMsg   string `json:"errorMsg,omitempty"`
+	ElapsedMs  int64  `json:"elapsedMs,omitempty"`
 }
 
 // AttachmentRefData is the Data payload for BlockTypeAttachmentRef.
@@ -145,22 +161,27 @@ type AttachmentRefData struct {
 // ── Attachment ────────────────────────────────────────────────────────────────
 
 // Attachment is a file uploaded by the user. File bytes are stored on disk
-// at StoragePath; the DB row holds only metadata.
+// at StoragePath; the DB row holds only metadata. Soft-deletable so a
+// deleted user-message attachment doesn't break older conversations that
+// still reference it.
 //
 // Attachment 是用户上传的文件。文件字节存在磁盘的 StoragePath；DB 行只存元数据。
+// 支持软删除——用户删除附件后，仍引用它的旧对话不会失去引用。
 type Attachment struct {
-	ID          string    `gorm:"primaryKey;type:text" json:"id"`
-	UserID      string    `gorm:"not null;type:text" json:"-"`
-	FileName    string    `gorm:"not null;type:text" json:"fileName"`
-	MimeType    string    `gorm:"not null;type:text" json:"mimeType"`
-	SizeBytes   int64     `gorm:"not null" json:"sizeBytes"`
-	StoragePath string    `gorm:"not null;type:text" json:"-"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID          string         `gorm:"primaryKey;type:text" json:"id"`
+	UserID      string         `gorm:"not null;index;type:text" json:"-"`
+	FileName    string         `gorm:"not null;type:text" json:"fileName"`
+	MimeType    string         `gorm:"not null;type:text" json:"mimeType"`
+	SizeBytes   int64          `gorm:"not null" json:"sizeBytes"`
+	StoragePath string         `gorm:"not null;type:text" json:"-"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// TableName locks the DB table to "chat_attachments".
-// TableName 把表名锁定为 "chat_attachments"。
-func (Attachment) TableName() string { return "chat_attachments" }
+// TableName locks the DB table to "attachments".
+// TableName 把表名锁定为 "attachments"。
+func (Attachment) TableName() string { return "attachments" }
 
 // MaxAttachmentBytes is the upload size limit (50 MB).
 // MaxAttachmentBytes 是上传大小限制（50 MB）。

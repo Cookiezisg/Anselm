@@ -102,6 +102,7 @@
                                 <span x-show="item.summary && item.summary !== item.toolName"
                                       style="font-family:'Consolas',monospace;font-size:10px;color:var(--text-mute);margin-left:5px"
                                       x-text="item.toolName"></span>
+                                <span x-show="item.destructive" class="destructive-badge" title="LLM marked this call as potentially destructive">⚠ destructive</span>
                               </span>
                               <span class="tool-step-status"
                                     :class="item.result === null ? 'running' : (item.ok ? 'ok' : 'err')"
@@ -305,13 +306,14 @@
 
       </div>
 
-      <!-- SSE Tab -->
+      <!-- SSE Tab (Phase 6 entity-state model: chat.message / forge / conversation) -->
       <div class="tab-content" x-show="activeRightTab==='sse'" x-data="sseTab()">
         <div class="panel-toolbar">
           <!-- Source selector (left) -->
           <div style="display:flex;gap:2px">
-            <button class="sse-view-btn" :class="{active: source==='conversation'}" @click="setSource('conversation')">conversation</button>
+            <button class="sse-view-btn" :class="{active: source==='chat'}"         @click="setSource('chat')">chat.message</button>
             <button class="sse-view-btn" :class="{active: source==='forge'}"        @click="setSource('forge')">forge</button>
+            <button class="sse-view-btn" :class="{active: source==='conversation'}" @click="setSource('conversation')">conversation</button>
           </div>
           <!-- View toggle (right) -->
           <div style="display:flex;gap:2px;margin-left:auto">
@@ -324,68 +326,94 @@
         <!-- Stream view -->
         <div class="event-log" x-show="view==='stream'">
 
-          <!-- Conversation stream -->
-          <template x-if="source === 'conversation'">
+          <!-- chat.message stream — each entry = full Message snapshot replaced by id -->
+          <template x-if="source === 'chat'">
             <div>
-              <template x-for="(turn, i) in turns" :key="i">
+              <template x-for="(m, i) in messages" :key="m.id">
                 <div class="sse-turn">
-                  <div class="sse-turn-header" x-text="'msg ' + shortId(turn.messageId)"></div>
-                  <template x-for="(item, j) in turn.items" :key="j">
+                  <div class="sse-turn-header">
+                    <span x-text="m.role + ' · ' + shortId(m.id) + ' · ' + m.status"></span>
+                    <span x-show="m.stopReason" style="color:var(--text-mute);font-size:10px;margin-left:6px"
+                          x-text="'stop:' + m.stopReason"></span>
+                    <span x-show="m.errorCode" class="destructive-badge" :title="m.errorMessage"
+                          x-text="m.errorCode"></span>
+                  </div>
+                  <template x-for="(b, j) in (m.blocks || [])" :key="b.id || j">
                     <div>
-                      <template x-if="item.type === 'thinking'">
-                        <details class="sse-thinking-block" :open="!item.collapsed">
-                          <summary class="sse-thinking-summary"
-                                   @click="item.collapsed = !item.collapsed"
-                                   x-text="item.done ? 'Thought' : 'Thinking...'"></summary>
-                          <pre class="sse-pre" x-text="item.content"></pre>
+                      <template x-if="b.type === 'reasoning'">
+                        <details class="sse-thinking-block" open>
+                          <summary class="sse-thinking-summary">Thinking</summary>
+                          <pre class="sse-pre" x-text="blockText(b)"></pre>
                         </details>
                       </template>
-                      <template x-if="item.type === 'text' && item.content">
-                        <pre class="sse-text" x-text="item.content"></pre>
+                      <template x-if="b.type === 'text'">
+                        <pre class="sse-text" x-text="blockText(b)"></pre>
                       </template>
-                      <template x-if="item.type === 'tool'">
+                      <template x-if="b.type === 'tool_call'">
                         <div class="sse-tool-row">
-                          <span class="sse-tool-icon"
-                                x-text="item.result === null ? '⚙' : (item.ok ? '✓' : '✗')"></span>
+                          <span class="sse-tool-icon">⚙</span>
                           <span style="min-width:0;flex-shrink:0">
-                            <span class="sse-tool-name" x-text="item.summary || item.toolName"></span>
-                            <span x-show="item.summary && item.summary !== item.toolName"
-                                  style="font-family:monospace;font-size:10px;color:var(--text-mute);margin-left:4px"
-                                  x-text="item.toolName"></span>
+                            <span class="sse-tool-name"
+                                  x-text="blockToolCall(b).summary || blockToolCall(b).name"></span>
+                            <span x-show="blockToolCall(b).destructive" class="destructive-badge"
+                                  title="LLM marked this call as potentially destructive">⚠</span>
                           </span>
-                          <!-- Only show args/result details if there's something worth showing -->
-                          <details style="flex:1;min-width:0"
-                                   x-show="(item.input && item.input.trim() !== '{}') || item.result !== null">
-                            <summary style="cursor:pointer;color:var(--text-mute);font-size:10px">args / result</summary>
-                            <pre class="sse-pre" x-show="item.input && item.input.trim() !== '{}'" x-text="tryFmt(item.input)"></pre>
-                            <pre class="sse-pre" x-show="item.result !== null" x-text="tryFmt(item.result)"></pre>
+                          <details style="flex:1;min-width:0">
+                            <summary style="cursor:pointer;color:var(--text-mute);font-size:10px">args</summary>
+                            <pre class="sse-pre" x-text="pretty(blockToolCall(b).arguments || {})"></pre>
                           </details>
                         </div>
                       </template>
+                      <template x-if="b.type === 'tool_result'">
+                        <div class="sse-tool-row">
+                          <span class="sse-tool-icon"
+                                x-text="blockToolResult(b).ok ? '✓' : '✗'"></span>
+                          <span style="min-width:0;flex-shrink:0;color:var(--text-mute);font-size:10px"
+                                x-text="'result · ' + (blockToolResult(b).elapsedMs || 0) + 'ms'"></span>
+                          <details style="flex:1;min-width:0" open>
+                            <summary style="cursor:pointer;color:var(--text-mute);font-size:10px">output</summary>
+                            <pre class="sse-pre" x-text="tryFmt(blockToolResult(b).result || '')"></pre>
+                            <pre class="sse-pre" x-show="blockToolResult(b).errorMsg"
+                                 style="color:var(--err)"
+                                 x-text="blockToolResult(b).errorMsg"></pre>
+                          </details>
+                        </div>
+                      </template>
+                      <template x-if="b.type === 'attachment_ref'">
+                        <div style="font-size:11px;color:var(--text-mute)"
+                             x-text="'📎 ' + (blockToolCall(b).fileName || '')"></div>
+                      </template>
                     </div>
                   </template>
-                  <div x-show="turn.done"  class="sse-done"  x-text="'▶ ' + turn.stopReason"></div>
-                  <div x-show="turn.error" class="sse-error" x-text="turn.error"></div>
+                  <div x-show="m.inputTokens || m.outputTokens" class="sse-done"
+                       x-text="'▶ in:' + (m.inputTokens || 0) + ' / out:' + (m.outputTokens || 0)"></div>
                 </div>
               </template>
-              <div x-show="turns.length === 0"
-                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for events…</div>
+              <div x-show="messages.length === 0"
+                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for chat.message events…</div>
             </div>
           </template>
 
-          <!-- Forge stream -->
+          <!-- forge stream — each entry = full Forge snapshot, replaced by id; code grows live -->
           <template x-if="source === 'forge'">
             <div>
-              <template x-for="(f, i) in forges" :key="i">
+              <template x-for="(f, i) in forges" :key="f.id">
                 <div class="sse-turn">
-                  <div class="sse-turn-header"
-                       x-text="(f.actionType || '?') + (f.toolName ? ' · ' + f.toolName : '') + ' · tc:' + shortId(f.toolCallId) + (f.messageId ? ' · msg:' + shortId(f.messageId) : '')"></div>
-                  <details style="margin-bottom:4px">
+                  <div class="sse-turn-header">
+                    <span x-text="(f.name || '(unnamed)') + ' · ' + shortId(f.id)"></span>
+                    <span x-show="f.versionCount" style="color:var(--text-mute);font-size:10px;margin-left:6px"
+                          x-text="'v' + f.versionCount"></span>
+                    <span x-show="f.pending" class="destructive-badge" title="Pending review">pending</span>
+                  </div>
+                  <details style="margin-bottom:4px" x-show="f.code">
                     <summary style="cursor:pointer;font-size:10px;color:var(--text-mute)">code</summary>
                     <pre class="sse-pre" style="max-height:200px;overflow-y:auto" x-text="f.code"></pre>
                   </details>
-                  <div x-show="f.done" class="sse-done"
-                       x-text="f.result === 'created' ? '▶ created: ' + f.toolName : '▶ pending review'"></div>
+                  <details style="margin-bottom:4px" x-show="f.pending && f.pending.code">
+                    <summary style="cursor:pointer;font-size:10px;color:var(--warn)">pending.code (← live stream)</summary>
+                    <pre class="sse-pre" style="max-height:200px;overflow-y:auto"
+                         x-text="f.pending ? f.pending.code : ''"></pre>
+                  </details>
                 </div>
               </template>
               <div x-show="forges.length === 0"
@@ -393,9 +421,27 @@
             </div>
           </template>
 
+          <!-- conversation stream — each entry = full Conversation snapshot -->
+          <template x-if="source === 'conversation'">
+            <div>
+              <template x-for="(c, i) in convs" :key="c.id">
+                <div class="sse-turn">
+                  <div class="sse-turn-header">
+                    <span x-text="(c.title || '(untitled)') + ' · ' + shortId(c.id)"></span>
+                    <span x-show="c.autoTitled" style="color:var(--text-mute);font-size:10px;margin-left:6px">auto-titled</span>
+                  </div>
+                  <pre class="sse-pre" style="font-size:10px;color:var(--text-mute)"
+                       x-text="'createdAt: ' + (c.createdAt || '') + (c.systemPrompt ? '\nsystemPrompt: ' + c.systemPrompt : '')"></pre>
+                </div>
+              </template>
+              <div x-show="convs.length === 0"
+                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for conversation events…</div>
+            </div>
+          </template>
+
         </div>
 
-        <!-- Raw view (same for both sources) -->
+        <!-- Raw view (all 3 event types interleaved) -->
         <div class="event-log" x-show="view==='raw'">
           <template x-for="(ev, i) in events" :key="i">
             <div class="event-item">
@@ -803,7 +849,7 @@
                 <div x-show="pending" class="tool-pending-bar">
                   <span style="color:var(--yellow)">⚠</span>
                   <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                        x-text="'Pending: ' + (pending?.message || '')"></span>
+                        x-text="'Pending: ' + (pending?.changeReason || '')"></span>
                   <button class="btn btn-ghost btn-sm" @click="acceptPending()" :disabled="pendingLoading">Accept</button>
                   <button class="btn btn-ghost btn-sm" @click="rejectPending()" :disabled="pendingLoading">Reject</button>
                 </div>
@@ -816,7 +862,7 @@
                       <span class="tool-ver-num" x-text="'v' + v.version"></span>
                       <span x-show="v.version === userSelected.versionCount"
                             class="tool-ver-badge">current</span>
-                      <span class="tool-ver-msg" x-text="v.message || '—'"></span>
+                      <span class="tool-ver-msg" x-text="v.changeReason || '—'"></span>
                       <span class="tool-ver-time" x-text="fmtTime(v.createdAt)"></span>
                       <button x-show="v.version !== userSelected.versionCount"
                               class="btn btn-ghost btn-sm" style="flex-shrink:0"

@@ -26,7 +26,6 @@ import (
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // ── ForgeTools factory ────────────────────────────────────────────────────────
@@ -144,41 +143,40 @@ func resolveAttachments(ctx context.Context, repo chatdomain.Repository, input m
 
 // ── Streaming code generation ─────────────────────────────────────────────────
 
-// streamCode calls the LLM to generate Python code, publishing
-// ForgeCodeStreaming SSE for each text token. Returns the cleanly extracted
-// code (markdown fences stripped).
+// streamCode calls the LLM to generate Python code, invoking onChunk after
+// each text token with the fence-stripped accumulated code so the caller
+// can publish snapshot events. Returns the final cleanly extracted code.
 //
-// streamCode 调 LLM 生成 Python 代码，每个文本 token 推 ForgeCodeStreaming SSE。
-// 返回剥除 markdown fence 的干净代码。
+// onChunk receives the in-progress code (markdown fences best-effort stripped
+// for live rendering); the returned code is the final post-stream stripped
+// version. onChunk may be nil for non-streaming use.
+//
+// streamCode 调 LLM 生成 Python 代码，每个文本 token 后调用 onChunk（携带
+// 已 trim fence 的累积代码），让调用方据此推快照。返回最终剥除 fence 的代码。
+//
+// onChunk 接收实时（已尽力剥 fence）代码；返回值是完整流结束后的最终结果。
+// 不需要流式时可传 nil。
 func streamCode(
 	ctx context.Context,
-	convID, forgeID, actionType, prompt string,
+	prompt string,
 	picker modeldomain.ModelPicker,
 	keys apikeydomain.KeyProvider,
 	factory *llminfra.Factory,
-	bridge eventsdomain.Bridge,
+	onChunk func(accumulated string),
 ) (string, error) {
 	bc, err := buildClient(ctx, picker, keys, factory)
 	if err != nil {
 		return "", err
 	}
 
-	msgID, _ := reqctxpkg.GetMessageID(ctx)
-	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
-
 	var buf strings.Builder
 	for event := range bc.client.Stream(ctx, bc.newRequest("", prompt)) {
 		switch event.Type {
 		case llminfra.EventText:
 			buf.WriteString(event.Delta)
-			bridge.Publish(ctx, convID, eventsdomain.ForgeCodeStreaming{
-				ConversationID: convID,
-				MessageID:      msgID,
-				ToolCallID:     toolCallID,
-				ForgeID:        forgeID,
-				ActionType:     actionType,
-				Delta:          event.Delta,
-			})
+			if onChunk != nil {
+				onChunk(extractCode(buf.String()))
+			}
 		case llminfra.EventError:
 			return "", fmt.Errorf("streamCode: %w", event.Err)
 		}

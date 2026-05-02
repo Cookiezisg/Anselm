@@ -5,13 +5,13 @@ steps:
 
   - name: "GET 不存在的工具 → 404"
     method: GET
-    path: /api/v1/forges/t_nonexistent_00000000
+    path: /api/v1/forges/f_nonexistent_00000000
     expect:
       status: 404
 
   - name: "PATCH 不存在的工具 → 404"
     method: PATCH
-    path: /api/v1/forges/t_nonexistent_00000000
+    path: /api/v1/forges/f_nonexistent_00000000
     body:
       description: "ghost"
     expect:
@@ -19,13 +19,13 @@ steps:
 
   - name: "DELETE 不存在的工具 → 404"
     method: DELETE
-    path: /api/v1/forges/t_nonexistent_00000000
+    path: /api/v1/forges/f_nonexistent_00000000
     expect:
       status: 404
 
   - name: "运行不存在的工具 → 404"
     method: POST
-    path: /api/v1/forges/t_nonexistent_00000000:run
+    path: /api/v1/forges/f_nonexistent_00000000:run
     body:
       input: {}
     expect:
@@ -33,13 +33,13 @@ steps:
 
   - name: "导出不存在的工具 → 404"
     method: POST
-    path: /api/v1/forges/t_nonexistent_00000000:export
+    path: /api/v1/forges/f_nonexistent_00000000:export
     expect:
       status: 404
 
   - name: "回滚不存在的工具 → 404"
     method: POST
-    path: /api/v1/forges/t_nonexistent_00000000:revert
+    path: /api/v1/forges/f_nonexistent_00000000:revert
     body:
       version: 1
     expect:
@@ -47,31 +47,31 @@ steps:
 
   - name: "运行全部测试（不存在的工具）→ 404"
     method: POST
-    path: /api/v1/forges/t_nonexistent_00000000:test
+    path: /api/v1/forges/f_nonexistent_00000000:test
     expect:
       status: 404
 
   - name: "列出版本（不存在的工具）→ 404"
     method: GET
-    path: /api/v1/forges/t_nonexistent_00000000/versions
+    path: /api/v1/forges/f_nonexistent_00000000/versions
     expect:
       status: 404
 
   - name: "获取 pending（不存在的工具）→ 404"
     method: GET
-    path: /api/v1/forges/t_nonexistent_00000000/pending
+    path: /api/v1/forges/f_nonexistent_00000000/pending
     expect:
       status: 404
 
   - name: "列出测试用例（不存在工具）→ 404"
     method: GET
-    path: /api/v1/forges/t_nonexistent_00000000/test-cases
+    path: /api/v1/forges/f_nonexistent_00000000/test-cases
     expect:
       status: 404
 
   - name: "创建测试用例（不存在工具）→ 404"
     method: POST
-    path: /api/v1/forges/t_nonexistent_00000000/test-cases
+    path: /api/v1/forges/f_nonexistent_00000000/test-cases
     body:
       name: "ghost"
       inputData: "{}"

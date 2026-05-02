@@ -175,7 +175,7 @@ steps:
 
   - name: "工具运行历史 limit=1"
     method: GET
-    path: /api/v1/forges/{{pgTool1}}/run-history?limit=1
+    path: /api/v1/forges/{{pgTool1}}/executions?kind=run&limit=1
     expect:
       status: 200
 

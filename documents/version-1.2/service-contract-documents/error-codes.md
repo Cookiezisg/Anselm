@@ -107,6 +107,17 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `ATTACHMENT_PARSE_FAILED` | 422 | `chat.ErrAttachmentParseFailed` | 文件损坏或解析失败 | ✅ |
 | `VISION_NOT_SUPPORTED` | 422 | `chat.ErrVisionNotSupported` | 当前 provider 不支持图片 | ✅ |
 
+**Message.errorCode 字段值**（Phase 5 新增字段，仅 status="error" 时填；不走 HTTP 路径，由 SSE `chat.message` 事件携带，前端按 code 解释失败原因）：
+
+| Code | 触发点 | 含义 |
+|---|---|---|
+| `MODEL_NOT_CONFIGURED` | `processTask` PickForChat 失败 | 用户尚未配置 chat scenario 模型 |
+| `API_KEY_PROVIDER_NOT_FOUND` | `processTask` ResolveCredentials 失败 | 当前 provider 无活跃 key |
+| `LLM_PROVIDER_ERROR` | `processTask` LLMFactory.Build 失败 | 上游 LLM 客户端构造失败 |
+| `LLM_STREAM_ERROR` | `streamLLM` 收到 EventError（非取消）| LLM 流式响应中途出错（401 / 网络等）|
+| `HISTORY_EXTEND_FAILED` | `agentRun` extendHistory 失败 | tool result 注入历史时 JSON 序列化失败（极罕见）|
+| `INTERNAL_ERROR` | writeAndPublish 写库 fatal 失败 | 终态 message 落库失败——message 已无法持久化 |
+
 ---
 
 ### Phase 3：工具锻造能力

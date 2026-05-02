@@ -2,19 +2,29 @@
 // a new forge. AST is dry-run validated before persistence so a syntactically
 // invalid generation gives the LLM a clean retry signal without DB churn.
 //
+// SSE: emits forge events (entity-state). The forge ID is pre-allocated up
+// front so every snapshot during streaming carries the same identity that
+// the final saved row will have. The Forge stays in-memory until the final
+// save — failures discard the draft cleanly without DB writes.
+//
 // create.go — create_forge 系统工具：LLM 流式生成 Python 代码作为新 forge。
 // 持久化前先 dry-run AST 校验——语法错的生成给 LLM 干净的重试信号，不污染 DB。
+//
+// SSE：发 forge 事件（entity-state）。forge ID 提前预分配，让流式每帧快照
+// 与最终落库行身份一致。落库前 forge 仅在内存——失败时干净丢弃，不污染 DB。
 package forge
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -82,12 +92,41 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("create_forge: bad args: %w", err)
 	}
 	convID, _ := reqctxpkg.GetConversationID(ctx)
-	msgID, _ := reqctxpkg.GetMessageID(ctx)
-	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	uid, _ := reqctxpkg.GetUserID(ctx)
 
-	code, err := streamCode(ctx, convID, "", "create",
+	// Pre-allocate the forge ID and build an in-memory draft. Each streaming
+	// chunk updates draft.Code and publishes a forge snapshot — the forge
+	// panel sees the entity grow in real time. Nothing is written to the DB
+	// until the final svc.Create call below.
+	//
+	// 预分配 forge ID 并构造内存 draft。每个流 chunk 更新 draft.Code 并推
+	// forge 快照——forge 面板看到 entity 实时生长。落库只在下方 svc.Create 时发生。
+	forgeID := forgeapp.NewForgeID()
+	now := time.Now().UTC()
+	draft := &forgedomain.Forge{
+		ID:           forgeID,
+		UserID:       uid,
+		Name:         args.Name,
+		Description:  args.Description,
+		Code:         "",
+		Parameters:   "[]",
+		ReturnSchema: "{}",
+		Tags:         "[]",
+		VersionCount: 0,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	t.bridge.Publish(ctx, convID, eventsdomain.Forge{Forge: draft})
+
+	code, err := streamCode(ctx,
 		buildCreatePrompt(args.Name, args.Description, args.Instruction),
-		t.picker, t.keys, t.factory, t.bridge)
+		t.picker, t.keys, t.factory,
+		func(accumulated string) {
+			draft.Code = accumulated
+			draft.UpdatedAt = time.Now().UTC()
+			t.bridge.Publish(ctx, convID, eventsdomain.Forge{Forge: draft})
+		},
+	)
 	if err != nil {
 		return "", fmt.Errorf("create_forge: generate code: %w", err)
 	}
@@ -103,16 +142,18 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 	}
 
 	forge, err := t.svc.Create(ctx, forgeapp.CreateInput{
+		ID:   forgeID,
 		Name: args.Name, Description: args.Description, Code: code,
 	})
 	if err != nil {
 		return "", fmt.Errorf("create_forge: save: %w", err)
 	}
 
-	t.bridge.Publish(ctx, convID, eventsdomain.ForgeCreated{
-		ConversationID: convID, MessageID: msgID, ToolCallID: toolCallID,
-		ForgeID: forge.ID, ForgeName: forge.Name,
-	})
+	// Final snapshot reflects the persisted entity (parameters / return schema
+	// parsed, version_count=1, etc.).
+	//
+	// 最终快照反映落库后的 entity（parameters / return schema 已解析、version_count=1 等）。
+	t.bridge.Publish(ctx, convID, eventsdomain.Forge{Forge: forge})
 
 	var params any
 	if err := json.Unmarshal([]byte(forge.Parameters), &params); err != nil {

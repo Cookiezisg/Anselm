@@ -87,8 +87,7 @@ func main() {
 		&forgedomain.Forge{},
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
-		&forgedomain.ForgeRunHistory{},
-		&forgedomain.ForgeTestHistory{},
+		&forgedomain.ForgeExecution{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)

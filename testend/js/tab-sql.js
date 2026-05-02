@@ -39,27 +39,31 @@ LIMIT 100`,
       },
       {
         label: 'attachments',
-        sql: 'SELECT id, user_id, file_name, mime_type, size_bytes, created_at FROM chat_attachments ORDER BY created_at DESC LIMIT 20',
+        sql: 'SELECT id, user_id, file_name, mime_type, size_bytes, created_at FROM attachments WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 20',
       },
       {
-        label: 'tools',
-        sql: "SELECT id, name, description, version_count, tags FROM tools WHERE deleted_at IS NULL ORDER BY created_at DESC",
+        label: 'forges',
+        sql: "SELECT id, name, description, version_count, tags FROM forges WHERE deleted_at IS NULL ORDER BY created_at DESC",
       },
       {
-        label: 'tool_versions',
-        sql: "SELECT id, tool_id, version, status, message FROM tool_versions ORDER BY created_at DESC LIMIT 20",
+        label: 'forge_versions',
+        sql: "SELECT id, forge_id, version, status, change_reason FROM forge_versions ORDER BY created_at DESC LIMIT 20",
       },
       {
-        label: 'tool_test_cases',
-        sql: "SELECT id, tool_id, name, input_data, expected_output FROM tool_test_cases WHERE deleted_at IS NULL",
+        label: 'forge_test_cases',
+        sql: "SELECT id, forge_id, name, input_data, expected_output FROM forge_test_cases",
       },
       {
-        label: 'tool_run_history',
-        sql: "SELECT id, tool_id, tool_version, ok, elapsed_ms, created_at FROM tool_run_history ORDER BY created_at DESC LIMIT 20",
+        label: 'forge_executions (run)',
+        sql: "SELECT id, forge_id, forge_version, ok, elapsed_ms, triggered_by, created_at FROM forge_executions WHERE kind='run' ORDER BY created_at DESC LIMIT 20",
       },
       {
-        label: 'tool_test_history',
-        sql: "SELECT id, tool_id, batch_id, ok, pass, created_at FROM tool_test_history ORDER BY created_at DESC LIMIT 20",
+        label: 'forge_executions (test)',
+        sql: "SELECT id, forge_id, batch_id, ok, pass, triggered_by, created_at FROM forge_executions WHERE kind='test' ORDER BY created_at DESC LIMIT 20",
+      },
+      {
+        label: 'forge_executions (chat-triggered)',
+        sql: "SELECT id, forge_id, kind, ok, conversation_id, message_id, tool_call_id, created_at FROM forge_executions WHERE triggered_by='chat' ORDER BY created_at DESC LIMIT 20",
       },
     ],
 
@@ -105,11 +109,15 @@ LIMIT 100`,
       } else if (s.startsWith('blk_')) {
         q = `SELECT * FROM message_blocks WHERE id = '${s}'`
       } else if (s.startsWith('cv_')) {
-        q = `SELECT id, conversation_id, role, status, stop_reason, input_tokens, output_tokens, created_at\nFROM messages WHERE conversation_id = '${s}' ORDER BY created_at ASC`
+        q = `SELECT id, conversation_id, role, status, stop_reason, error_code, error_message, input_tokens, output_tokens, created_at, updated_at\nFROM messages WHERE conversation_id = '${s}' ORDER BY created_at ASC`
       } else if (s.startsWith('att_')) {
-        q = `SELECT id, user_id, file_name, mime_type, size_bytes, storage_path, created_at FROM chat_attachments WHERE id = '${s}'`
-      } else if (s.startsWith('t_')) {
-        q = `SELECT id, name, description, code, version_count, tags FROM tools WHERE id = '${s}'`
+        q = `SELECT id, user_id, file_name, mime_type, size_bytes, storage_path, created_at, deleted_at FROM attachments WHERE id = '${s}'`
+      } else if (s.startsWith('f_')) {
+        q = `SELECT id, name, description, code, version_count, tags FROM forges WHERE id = '${s}'`
+      } else if (s.startsWith('fv_')) {
+        q = `SELECT id, forge_id, version, status, change_reason, code FROM forge_versions WHERE id = '${s}'`
+      } else if (s.startsWith('fe_')) {
+        q = `SELECT * FROM forge_executions WHERE id = '${s}'`
       }
       if (q) { this.sql = q; this.run() }
     },

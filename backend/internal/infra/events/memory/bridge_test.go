@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 )
 
@@ -29,13 +30,21 @@ func newTestBridge(t *testing.T) (*Bridge, *observer.ObservedLogs) {
 	return NewBridge(zap.New(core)), obs
 }
 
-// sampleToken returns a ChatToken payload for tests.
-// sampleToken 返回测试用的 ChatToken。
-func sampleToken(delta string) eventsdomain.ChatToken {
-	return eventsdomain.ChatToken{
-		ConversationID: "conv-1",
-		MessageID:      "msg-1",
-		Delta:          delta,
+// sampleToken returns a ChatMessage event whose Message.StopReason carries
+// the test marker `delta` — the bridge tests just need any concrete Event
+// they can identify after delivery.
+//
+// sampleToken 返回 ChatMessage 事件，把测试 marker `delta` 放在
+// Message.StopReason——bridge 测试只需要一个能识别的具体 Event 类型。
+func sampleToken(delta string) eventsdomain.ChatMessage {
+	return eventsdomain.ChatMessage{
+		Message: &chatdomain.Message{
+			ID:             "msg-1",
+			ConversationID: "conv-1",
+			Role:           chatdomain.RoleAssistant,
+			Status:         chatdomain.StatusStreaming,
+			StopReason:     delta,
+		},
 	}
 }
 
@@ -55,12 +64,12 @@ func TestBridge_SubscribeReceivesPublishedEvent(t *testing.T) {
 
 	select {
 	case e := <-ch:
-		token, ok := e.(eventsdomain.ChatToken)
+		evt, ok := e.(eventsdomain.ChatMessage)
 		if !ok {
-			t.Fatalf("expected ChatToken, got %T", e)
+			t.Fatalf("expected ChatMessage, got %T", e)
 		}
-		if token.Delta != "hello" {
-			t.Errorf("token: got %q, want hello", token.Delta)
+		if evt.Message == nil || evt.Message.StopReason != "hello" {
+			t.Errorf("token: got %+v, want StopReason=hello", evt.Message)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for event")
@@ -82,8 +91,8 @@ func TestBridge_FiltersByKey(t *testing.T) {
 
 	select {
 	case e := <-ch2:
-		if e.(eventsdomain.ChatToken).Delta != "for-two" {
-			t.Errorf("conv-2 got wrong token: %+v", e)
+		if evt := e.(eventsdomain.ChatMessage); evt.Message == nil || evt.Message.StopReason != "for-two" {
+			t.Errorf("conv-2 got wrong event: %+v", e)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("conv-2 didn't receive its event")
@@ -119,8 +128,8 @@ func TestBridge_MultipleSubscribersSameKey(t *testing.T) {
 	for i, ch := range channels {
 		select {
 		case e := <-ch:
-			if e.(eventsdomain.ChatToken).Delta != "broadcast" {
-				t.Errorf("subscriber %d: wrong token %+v", i, e)
+			if evt := e.(eventsdomain.ChatMessage); evt.Message == nil || evt.Message.StopReason != "broadcast" {
+				t.Errorf("subscriber %d: wrong event %+v", i, e)
 			}
 		case <-time.After(time.Second):
 			t.Errorf("subscriber %d: timed out", i)

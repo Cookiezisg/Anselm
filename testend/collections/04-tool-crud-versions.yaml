@@ -12,11 +12,11 @@ steps:
     expect:
       status: 201
     capture:
-      toolId: "$.data.id"
+      forgeId: "$.data.id"
 
   - name: "获取工具详情"
     method: GET
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     expect:
       status: 200
 
@@ -28,7 +28,7 @@ steps:
 
   - name: "只更新描述（PATCH 单字段）"
     method: PATCH
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     body:
       description: "Updated description only"
     expect:
@@ -36,7 +36,7 @@ steps:
 
   - name: "只更新 tags"
     method: PATCH
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     body:
       tags: ["math", "crud-test", "v1"]
     expect:
@@ -44,7 +44,7 @@ steps:
 
   - name: "执行工具（1+2=3）"
     method: POST
-    path: /api/v1/forges/{{toolId}}:run
+    path: /api/v1/forges/{{forgeId}}:run
     body:
       input:
         a: 1
@@ -54,7 +54,7 @@ steps:
 
   - name: "执行工具（负数：-5+3=-2）"
     method: POST
-    path: /api/v1/forges/{{toolId}}:run
+    path: /api/v1/forges/{{forgeId}}:run
     body:
       input:
         a: -5
@@ -64,7 +64,7 @@ steps:
 
   - name: "执行工具（超大数）"
     method: POST
-    path: /api/v1/forges/{{toolId}}:run
+    path: /api/v1/forges/{{forgeId}}:run
     body:
       input:
         a: 999999999
@@ -74,19 +74,19 @@ steps:
 
   - name: "查看运行历史（3 条）"
     method: GET
-    path: /api/v1/forges/{{toolId}}/run-history
+    path: /api/v1/forges/{{forgeId}}/executions?kind=run
     expect:
       status: 200
 
   - name: "版本列表（v1 初始应有 1 条）"
     method: GET
-    path: /api/v1/forges/{{toolId}}/versions
+    path: /api/v1/forges/{{forgeId}}/versions
     expect:
       status: 200
 
   - name: "更新代码 → 触发保存 v2"
     method: PATCH
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     body:
       code: "def test_add_v1(a: int, b: int) -> int:\n    \"\"\"Add two integers (v2: with type coercion).\n\n    Args:\n        a: First integer\n        b: Second integer\n\n    Returns:\n        Sum of a and b\n    \"\"\"\n    return int(a) + int(b)\n"
     expect:
@@ -94,19 +94,19 @@ steps:
 
   - name: "版本列表（应有 v1 + v2）"
     method: GET
-    path: /api/v1/forges/{{toolId}}/versions
+    path: /api/v1/forges/{{forgeId}}/versions
     expect:
       status: 200
 
   - name: "获取 v1 版本详情"
     method: GET
-    path: /api/v1/forges/{{toolId}}/versions/1
+    path: /api/v1/forges/{{forgeId}}/versions/1
     expect:
       status: 200
 
   - name: "再次更新代码 → 触发保存 v3"
     method: PATCH
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     body:
       code: "def test_add_v1(a, b):\n    \"\"\"Add two numbers (v3: any type).\n\n    Args:\n        a: First number\n        b: Second number\n\n    Returns:\n        Sum\n    \"\"\"\n    return a + b\n"
     expect:
@@ -114,13 +114,13 @@ steps:
 
   - name: "版本列表（应有 v1/v2/v3）"
     method: GET
-    path: /api/v1/forges/{{toolId}}/versions
+    path: /api/v1/forges/{{forgeId}}/versions
     expect:
       status: 200
 
   - name: "回滚到 v1"
     method: POST
-    path: /api/v1/forges/{{toolId}}:revert
+    path: /api/v1/forges/{{forgeId}}:revert
     body:
       version: 1
     expect:
@@ -128,7 +128,7 @@ steps:
 
   - name: "执行回滚后的工具（100+200）"
     method: POST
-    path: /api/v1/forges/{{toolId}}:run
+    path: /api/v1/forges/{{forgeId}}:run
     body:
       input:
         a: 100
@@ -138,13 +138,13 @@ steps:
 
   - name: "获取不存在的版本 → 404"
     method: GET
-    path: /api/v1/forges/{{toolId}}/versions/999
+    path: /api/v1/forges/{{forgeId}}/versions/999
     expect:
       status: 404
 
   - name: "回滚到不存在的版本 → 404"
     method: POST
-    path: /api/v1/forges/{{toolId}}:revert
+    path: /api/v1/forges/{{forgeId}}:revert
     body:
       version: 999
     expect:
@@ -152,25 +152,25 @@ steps:
 
   - name: "导出工具"
     method: POST
-    path: /api/v1/forges/{{toolId}}:export
+    path: /api/v1/forges/{{forgeId}}:export
     expect:
       status: 200
 
   - name: "删除工具"
     method: DELETE
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     expect:
       status: 204
 
   - name: "访问已删除工具 → 404"
     method: GET
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     expect:
       status: 404
 
   - name: "运行已删除工具 → 404"
     method: POST
-    path: /api/v1/forges/{{toolId}}:run
+    path: /api/v1/forges/{{forgeId}}:run
     body:
       input:
         a: 1
@@ -180,6 +180,6 @@ steps:
 
   - name: "再次删除已删除工具 → 404"
     method: DELETE
-    path: /api/v1/forges/{{toolId}}
+    path: /api/v1/forges/{{forgeId}}
     expect:
       status: 404

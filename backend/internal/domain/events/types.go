@@ -1,223 +1,162 @@
-// Package events defines typed event types for SSE streaming and
-// in-process notification. Every event is a concrete Go struct — no
-// map[string]any allowed — so the compiler catches shape drift.
+// Package events defines the typed payloads streamed over the in-process
+// Bridge and out to clients via SSE. The model is **entity-state**: each
+// event carries the full current snapshot of one domain entity, in the
+// same shape returned by the corresponding REST GET endpoint. Subscribers
+// render purely by replacing their local copy keyed on the entity's ID.
 //
-// Naming: snake_case, dot-separated by domain. e.g. "chat.token",
-// "tool.code_updated".
+// Three event types, one per user-facing domain:
 //
-// Package events 定义 SSE 流推送和进程内通知的类型化事件。每个事件都是
-// 具体的 Go struct——禁止 map[string]any——让编译器捕获载荷形状漂移。
+//   - ChatMessage    — a Message changed (token streamed, tool call started,
+//     tool result arrived, status updated, error). Payload = full Message.
+//   - Forge          — a Forge changed (CRUD, pending lifecycle, mid-tool
+//     code streaming during create_forge / edit_forge). Payload = full Forge.
+//   - Conversation   — a Conversation changed (auto-title, archive, etc.).
+//     Payload = full Conversation.
 //
-// 命名：snake_case，按 domain 加点号前缀。如 "chat.token"、"tool.code_updated"。
+// Naming: snake_case, dot-separated. e.g. "chat.message", "forge",
+// "conversation".
+//
+// Package events 定义流过进程内 Bridge 并通过 SSE 推到客户端的类型化载荷。
+// 模型是 **entity-state**：每个事件携带某个 domain entity 的完整当前快照，
+// 形状与对应的 REST GET 端点返回一致。订阅方按 entity ID 替换本地拷贝即可渲染。
+//
+// 三种事件，每个用户可见 domain 一种：
+//
+//   - ChatMessage    — Message 发生变化（token 流入、tool call 出现、
+//     tool result 返回、状态更新、error）。载荷 = 完整 Message。
+//   - Forge          — Forge 发生变化（CRUD、pending 生命周期、create_forge /
+//     edit_forge 期间内嵌 LLM 代码逐 token 流入）。载荷 = 完整 Forge。
+//   - Conversation   — Conversation 发生变化（auto-title、归档等）。
+//     载荷 = 完整 Conversation。
+//
+// 命名：snake_case，按 domain 加点号前缀。如 "chat.message"、"forge"、
+// "conversation"。
 package events
 
-// Event is any typed message flowing through a Bridge.
+import (
+	"encoding/json"
+
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+)
+
+// Event is any typed message flowing through a Bridge. Implementations
+// must marshal to the same JSON shape as the corresponding REST GET response.
 //
-// Event 是在 Bridge 中流动的类型化消息。
+// Event 是在 Bridge 中流动的类型化消息。实现必须 marshal 出与对应
+// REST GET 响应一致的 JSON 形状。
 type Event interface {
 	EventName() string
 }
 
-// ChatToken fires for every streamed token from the LLM.
-// Expect hundreds to thousands per conversation turn.
+// ── ChatMessage ───────────────────────────────────────────────────────────────
+
+// ChatMessage carries a full Message snapshot. Fired at message-level
+// milestones — never per-byte inside tool execution.
 //
-// ChatToken 在 LLM 流式返回的每个 token 到达时触发，单轮对话会产生几百到几千条。
-type ChatToken struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"` // 当前 assistant 消息 id
-	Delta          string `json:"delta"`     // 增量文本
+// Trigger points:
+//   - Initial publish when the assistant message slot opens
+//   - Each LLM text / reasoning token (text block grows)
+//   - When a tool call is first identified (tool_call block appears with name only)
+//   - When tool call args are complete
+//   - When a tool result returns (tool_result block added)
+//   - On final write (status = completed | cancelled | error)
+//
+// JSON shape: identical to GET /api/v1/messages/{id} — the embedded
+// *chatdomain.Message marshals at top level (no wrapper key).
+//
+// ChatMessage 携带完整 Message 快照。在 message 级关键时刻触发——绝不在
+// tool 执行内部逐字节推送。
+//
+// 触发点：
+//   - assistant message 槽位创建时初始发布
+//   - 每个 LLM text / reasoning token（text block 生长）
+//   - tool call 首次被识别时（tool_call block 仅有 name）
+//   - tool call args 完整时
+//   - tool result 返回时（tool_result block 加入）
+//   - 最终写入（status = completed | cancelled | error）
+//
+// JSON 形状：与 GET /api/v1/messages/{id} 一致——嵌入的 *chatdomain.Message
+// 字段直接出现在顶层（无 wrapper key）。
+type ChatMessage struct {
+	*chatdomain.Message
 }
 
-// EventName returns "chat.token".
-// EventName 返回 "chat.token"。
-func (ChatToken) EventName() string { return "chat.token" }
+// EventName returns "chat.message".
+// EventName 返回 "chat.message"。
+func (ChatMessage) EventName() string { return "chat.message" }
 
-// ChatReasoningToken fires for every streamed token of the model's reasoning
-// (thinking) content. Only produced by reasoning-capable models such as
-// DeepSeek-R1. Clients may display this in a collapsible "Thinking…" block.
+// MarshalJSON delegates to the embedded *chatdomain.Message so the wire
+// shape exactly matches GET /api/v1/messages/{id}. A nil Message produces
+// JSON null.
 //
-// ChatReasoningToken 在 LLM 推理内容（thinking）流式返回时触发，
-// 仅推理型模型（如 DeepSeek-R1）产生。前端可折叠展示。
-type ChatReasoningToken struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	Delta          string `json:"delta"`
+// MarshalJSON 委托给嵌入的 *chatdomain.Message，让 wire 形状与
+// GET /api/v1/messages/{id} 严格一致。Message 为 nil 时输出 JSON null。
+func (e ChatMessage) MarshalJSON() ([]byte, error) {
+	if e.Message == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(e.Message)
 }
 
-// EventName returns "chat.reasoning_token".
-// EventName 返回 "chat.reasoning_token"。
-func (ChatReasoningToken) EventName() string { return "chat.reasoning_token" }
+// ── Forge ─────────────────────────────────────────────────────────────────────
 
-// ChatToolCallStart fires as soon as the LLM names a tool in its streaming
-// output — before arguments are complete. Lets the frontend show "calling X…"
-// immediately without waiting for the full tool call.
+// Forge carries a full Forge snapshot, including the .Pending field when a
+// pending change exists. Fired on every change to a Forge entity, including
+// per-token updates while create_forge / edit_forge stream code into the
+// entity (or its pending). For create_forge the tool pre-saves a stub Forge
+// up front so that streaming snapshots always carry a real, persisted entity.
 //
-// ChatToolCallStart 在 LLM 流式输出中首次出现 tool name 时立刻触发——
-// 此时 arguments 尚未完整，让前端无需等待即可立刻显示"正在调用 X…"。
-type ChatToolCallStart struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	ToolCallID     string `json:"toolCallId"`
-	ToolName       string `json:"toolName"`
+// JSON shape: identical to GET /api/v1/forges/{id}.
+//
+// Forge 携带完整 Forge 快照，含 .Pending 字段（如有 pending 变更）。Forge entity
+// 任何变化都会触发，包括 create_forge / edit_forge 期间逐 token 流入主代码或
+// pending 代码。create_forge 进入时会预存 stub Forge，使流式快照始终承载真实落库的
+// entity。
+//
+// JSON 形状：与 GET /api/v1/forges/{id} 一致。
+type Forge struct {
+	*forgedomain.Forge
 }
 
-// EventName returns "chat.tool_call_start".
-// EventName 返回 "chat.tool_call_start"。
-func (ChatToolCallStart) EventName() string { return "chat.tool_call_start" }
+// EventName returns "forge".
+// EventName 返回 "forge"。
+func (Forge) EventName() string { return "forge" }
 
-// ChatToolCall fires when the Agent decides to call a system tool.
-// Arguments are complete and stripped of "summary" + "destructive" at this point.
-//
-// ChatToolCall 在 Agent 决定调用某个 system tool 时触发。
-// 此时 arguments 已完整，且已剥除 "summary" 和 "destructive" 字段。
-type ChatToolCall struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	ToolCallID     string `json:"toolCallId"`
-	ToolName       string `json:"toolName"`
-	ToolInput      string `json:"toolInput"`   // JSON string of full arguments
-	Summary        string `json:"summary"`     // human-readable core info, e.g. "$ git status"
-	Destructive    bool   `json:"destructive"` // LLM-marked: this call may cause irreversible damage; UI shows warning
+// MarshalJSON delegates to the embedded *forgedomain.Forge.
+// MarshalJSON 委托给嵌入的 *forgedomain.Forge。
+func (e Forge) MarshalJSON() ([]byte, error) {
+	if e.Forge == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(e.Forge)
 }
 
-// EventName returns "chat.tool_call".
-// EventName 返回 "chat.tool_call"。
-func (ChatToolCall) EventName() string { return "chat.tool_call" }
+// ── Conversation ──────────────────────────────────────────────────────────────
 
-// ChatToolResult fires when a tool execution completes.
+// Conversation carries a full Conversation snapshot. Fired on every change
+// (auto-title, archive, system prompt update, etc.).
 //
-// ChatToolResult 在 tool 执行完成时触发。
-type ChatToolResult struct {
-	ConversationID string `json:"conversationId"`
-	ToolCallID     string `json:"toolCallId"`
-	Result         string `json:"result"`
-	OK             bool   `json:"ok"`
+// JSON shape: identical to GET /api/v1/conversations/{id}.
+//
+// Conversation 携带完整 Conversation 快照。任何变化（auto-title、归档、系统
+// prompt 更新等）都会触发。
+//
+// JSON 形状：与 GET /api/v1/conversations/{id} 一致。
+type Conversation struct {
+	*convdomain.Conversation
 }
 
-// EventName returns "chat.tool_result".
-// EventName 返回 "chat.tool_result"。
-func (ChatToolResult) EventName() string { return "chat.tool_result" }
+// EventName returns "conversation".
+// EventName 返回 "conversation"。
+func (Conversation) EventName() string { return "conversation" }
 
-// ChatDone fires when the Agent finishes the full response.
-// StopReason distinguishes normal completion from truncation or cancellation.
-//
-// ChatDone 在 Agent 完成完整回复时触发。
-// StopReason 区分正常完成、截断和取消。
-type ChatDone struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	StopReason     string `json:"stopReason"` // end_turn | max_tokens | cancelled | error
-	InputTokens    int    `json:"inputTokens"`
-	OutputTokens   int    `json:"outputTokens"`
+// MarshalJSON delegates to the embedded *convdomain.Conversation.
+// MarshalJSON 委托给嵌入的 *convdomain.Conversation。
+func (e Conversation) MarshalJSON() ([]byte, error) {
+	if e.Conversation == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(e.Conversation)
 }
-
-// EventName returns "chat.done".
-// EventName 返回 "chat.done"。
-func (ChatDone) EventName() string { return "chat.done" }
-
-// ChatError fires when the Agent encounters a non-recoverable error.
-// Code matches the SCREAMING_SNAKE_CASE error codes in error-codes.md.
-//
-// ChatError 在 Agent 遇到不可恢复错误时触发。
-// Code 与 error-codes.md 中的 SCREAMING_SNAKE_CASE 错误码对应。
-type ChatError struct {
-	ConversationID string `json:"conversationId"`
-	Code           string `json:"code"`
-	Message        string `json:"message"`
-}
-
-// EventName returns "chat.error".
-// EventName 返回 "chat.error"。
-func (ChatError) EventName() string { return "chat.error" }
-
-// ConversationTitleUpdated fires after auto-titling writes a generated
-// title back to the conversation, so the frontend sidebar updates without
-// a manual refresh.
-//
-// ConversationTitleUpdated 在 auto-titling 把生成的标题写回对话后触发，
-// 让前端侧边栏无需手动刷新即可更新。
-type ConversationTitleUpdated struct {
-	ConversationID string `json:"conversationId"`
-	Title          string `json:"title"`
-	AutoTitled     bool   `json:"autoTitled"`
-}
-
-// EventName returns "conversation.title_updated".
-// EventName 返回 "conversation.title_updated"。
-func (ConversationTitleUpdated) EventName() string { return "conversation.title_updated" }
-
-// ── Forge events (Phase 3) ────────────────────────────────────────────────────
-
-// ForgeCodeStreaming fires for every LLM token during code generation inside
-// create_forge or edit_forge. MessageID and ToolCallID bind the stream to the
-// specific conversation turn that triggered it, so the frontend can associate
-// the code panel update with the right message.
-// ForgeID is empty during create_forge (the forge does not exist yet).
-//
-// ForgeCodeStreaming 在 create_forge / edit_forge 内部 LLM 代码生成阶段
-// 逐 token 触发。MessageID 和 ToolCallID 把流绑定到触发它的对话轮次，
-// 前端据此将代码面板更新关联到正确的消息。
-// create_forge 期间 ForgeID 为空（工具尚未创建）。
-type ForgeCodeStreaming struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`  // assistant message that triggered the tool call
-	ToolCallID     string `json:"toolCallId"` // LLM-assigned tool call id
-	ForgeID        string `json:"forgeId"`    // empty for create_forge; existing id for edit_forge
-	ActionType     string `json:"actionType"` // "create" | "edit"
-	Delta          string `json:"delta"`
-}
-
-// EventName returns "forge.code_streaming".
-// EventName 返回 "forge.code_streaming"。
-func (ForgeCodeStreaming) EventName() string { return "forge.code_streaming" }
-
-// ForgeCreated fires after create_forge successfully saves the new forge.
-//
-// ForgeCreated 在 create_forge 成功保存新工具后触发。
-type ForgeCreated struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	ToolCallID     string `json:"toolCallId"`
-	ForgeID        string `json:"forgeId"`
-	ForgeName      string `json:"forgeName"`
-}
-
-// EventName returns "forge.created".
-// EventName 返回 "forge.created"。
-func (ForgeCreated) EventName() string { return "forge.created" }
-
-// ForgePendingCreated fires after edit_forge saves a pending change awaiting
-// user review.
-//
-// ForgePendingCreated 在 edit_forge 保存待用户审核的 pending 变更后触发。
-type ForgePendingCreated struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	ToolCallID     string `json:"toolCallId"`
-	ForgeID        string `json:"forgeId"`
-	PendingID      string `json:"pendingId"`   // ForgeVersion id with status='pending'
-	Instruction    string `json:"instruction"` // the LLM instruction that produced this change
-}
-
-// EventName returns "forge.pending_created".
-// EventName 返回 "forge.pending_created"。
-func (ForgePendingCreated) EventName() string { return "forge.pending_created" }
-
-// ForgeMetadataUpdated fires when edit_forge is called with empty Instruction —
-// only name / description / tags are being changed, no code regeneration.
-// Lets the UI distinguish "metadata-only edit" from "code-regenerating edit"
-// (ForgeCodeStreaming will not fire in the metadata-only path).
-//
-// ForgeMetadataUpdated 在 edit_forge 仅修改 name/description/tags（不重生代码）时触发。
-// 让前端区分"只改元数据" vs "重写代码"——后者会推 ForgeCodeStreaming 流。
-type ForgeMetadataUpdated struct {
-	ConversationID string `json:"conversationId"`
-	MessageID      string `json:"messageId"`
-	ToolCallID     string `json:"toolCallId"`
-	ForgeID        string `json:"forgeId"`
-	PendingID      string `json:"pendingId"` // ForgeVersion id with status='pending'
-}
-
-// EventName returns "forge.metadata_updated".
-// EventName 返回 "forge.metadata_updated"。
-func (ForgeMetadataUpdated) EventName() string { return "forge.metadata_updated" }

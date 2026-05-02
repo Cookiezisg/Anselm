@@ -61,44 +61,50 @@ GORM tag 表达不了的 SQL 都在这里：
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md) §8。
 主键 `cv_<16hex>`；软删（`deleted_at`）；`user_id` 索引。新增字段：`system_prompt TEXT`（对话级自定义系统提示词，可为空）/ `auto_titled BOOLEAN`（标记标题是 AI 自动生成的还是用户手动改的）。Title 允许空字符串，首轮完成后 auto-titling goroutine 回写。
 
-#### `messages` ✅（chat infra 重构后精简）
-chat domain 所有；主键 `msg_<16hex>`；字段：`conversation_id`（索引）/ `user_id` / `role`（**user\|assistant**，`tool` 角色已移除——tool result 变为 message_blocks 的 block）/ `status`（pending\|streaming\|completed\|error\|cancelled）/ `stop_reason` / `input_tokens INT` / `output_tokens INT` / 软删 `deleted_at`。**内容字段已移除**：`content`、`reasoning_content`、`tool_calls`、`tool_call_id`、`attachment_ids`、`token_usage` 全部转移到 `message_blocks` 表。FTS5 已移除（原基于 `content` 列，后续按 message_blocks 重建）。
+#### `messages` ✅（chat infra 重构后精简；Phase 5 加错误信息字段）
+chat domain 所有；主键 `msg_<16hex>`；字段：`conversation_id`（索引）/ `user_id` / `role`（**user\|assistant**，`tool` 角色已移除——tool result 变为 message_blocks 的 block）/ `status`（pending\|streaming\|completed\|error\|cancelled）/ `stop_reason` / **`error_code`**（status="error" 时填，如 `LLM_STREAM_ERROR` / `HISTORY_EXTEND_FAILED` / `MODEL_NOT_CONFIGURED` / `INTERNAL_ERROR` 等；其他 status 时为空）/ **`error_message`**（结构化错误原因人类可读文本）/ `input_tokens INT` / `output_tokens INT` / `created_at` / **`updated_at`**（GORM 自动维护）/ 软删 `deleted_at`。**内容字段已移除**：`content`、`reasoning_content`、`tool_calls`、`tool_call_id`、`attachment_ids`、`token_usage` 全部转移到 `message_blocks` 表。FTS5 已移除（原基于 `content` 列，后续按 message_blocks 重建）。
 
-#### `message_blocks` ✅（chat infra 重构新增）
-chat domain 所有；主键 `blk_<16hex>`；外键 `message_id → messages.id`；字段：`seq INT`（消息内顺序）/ `type`（text\|reasoning\|tool_call\|tool_result\|attachment_ref）/ `data TEXT`（JSON，格式随 type 变化）。复合索引 `(message_id, seq)`。无软删（随 message 一起管理）。block type 的 data JSON 结构：`text/reasoning → {text}`；`tool_call → {id, name, summary, destructive, arguments}`（`destructive` 由 LLM 自报、framework 剥除参数后存入；UI 据此显示警示徽章）；`tool_result → {toolCallId, ok, result}`；`attachment_ref → {attachmentId, fileName, mimeType}`。
+#### `message_blocks` ✅（chat infra 重构新增；Phase 5 给 tool_result 加 errorMsg/elapsedMs）
+chat domain 所有；主键 `blk_<16hex>`；外键 `message_id → messages.id`；字段：`seq INT`（消息内顺序）/ `type`（text\|reasoning\|tool_call\|tool_result\|attachment_ref）/ `data TEXT`（JSON，格式随 type 变化）。复合索引 `(message_id, seq)`。无软删（随 message 一起管理）。block type 的 data JSON 结构：`text/reasoning → {text}`；`tool_call → {id, name, summary, destructive, arguments}`（`destructive` 由 LLM 自报、framework 剥除参数后存入；UI 据此显示警示徽章）；`tool_result → {toolCallId, ok, result, errorMsg, elapsedMs}`（`errorMsg` 仅 ok=false 时填；`elapsedMs` 是工具 wall time）；`attachment_ref → {attachmentId, fileName, mimeType}`。
 
-#### `chat_attachments` ✅
-chat domain 所有；主键 `att_<16hex>`；字段：`user_id` / `file_name` / `mime_type` / `size_bytes` / `storage_path`（相对 dataDir，json:"-" 不对外暴露）。文件实体存 `{dataDir}/attachments/{att_id}/original.{ext}`，50MB 限制。无软删（附件随对话消亡）。
+#### `attachments` ✅（Phase 5 重命名 chat_attachments → attachments + 加软删）
+chat domain 所有；主键 `att_<16hex>`；字段：`user_id`（索引）/ `file_name` / `mime_type` / `size_bytes` / `storage_path`（相对 dataDir，json:"-" 不对外暴露）/ `created_at` / **`updated_at`** / **`deleted_at`** GORM 软删。文件实体存 `{dataDir}/attachments/{att_id}/original.{ext}`，50MB 限制。**支持软删**——用户删附件后旧对话仍能解引用（不再硬删导致 dangling reference）。
 
 ---
 
 ### Phase 3
 
-#### `tools` ✅
+#### `forges` ✅
 详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.1。
-主键 `t_<16hex>`；软删（`deleted_at`）；`user_id` 索引；partial UNIQUE `UNIQUE(user_id, name) WHERE deleted_at IS NULL`（在 `schema_extras.go`）。
-字段：`name` / `description` / `code`（当前活跃代码）/ `parameters`（JSON 数组）/ `return_schema`（JSON 对象）/ `tags`（JSON 数组）/ `version_count`（最大已接受版本号，0=未保存）。
-工具搜索通过 LLM 排序实现（SearchTool 把全量工具发给 LLM），无独立向量索引。
+主键 `f_<16hex>`；软删（`deleted_at`）；`user_id` 索引；partial UNIQUE `UNIQUE(user_id, name) WHERE deleted_at IS NULL`（在 `schema_extras.go`）。
+字段：`name` / `description` / `code`（当前活跃代码）/ `parameters`（JSON 数组）/ `return_schema`（JSON 对象）/ `tags`（JSON 数组）/ `version_count`（最大已接受版本号，0=未保存）/ `created_at` / `updated_at` / `deleted_at`。
+**计算字段（非列）**：`Pending *ForgeVersion`（`gorm:"-"`），由 service 层 `attachPending` 在 GET / List 后填充——存在 pending 时是完整 ForgeVersion 对象，无 pending 时 nil。entity-state SSE `forge` 事件载荷依赖此字段。
+forge 搜索通过 LLM 排序实现（SearchForge 把全量 forge 发给 LLM），无独立向量索引。
 
 #### `forge_versions` ✅
 详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.2。
-主键 `tv_<16hex>`；**兼作 pending 变更存储**：`status` 字段区分 `pending`/`accepted`/`rejected`，pending/rejected 时 `version` 为 NULL。
-完整快照字段：`name` / `description` / `code` / `parameters` / `return_schema` / `tags` / `message`（LLM 指令 | "manual edit" | "reverted to v{N}" | "initial"）。
-accepted 版本上限 50 条/工具，超限硬删最旧。
+主键 `fv_<16hex>`；**兼作 pending 变更存储**：`status` 字段区分 `pending`/`accepted`/`rejected`，pending/rejected 时 `version` 为 NULL。
+完整快照字段：`name` / `description` / `code` / `parameters` / `return_schema` / `tags` / **`change_reason`**（Phase 5 改名 from `message`：LLM 指令 | "manual edit" | "reverted to v{N}" | "initial"）/ `created_at` / `updated_at`。
+accepted 版本上限 50 条/forge，超限硬删最旧。
 
 #### `forge_test_cases` ✅
 详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.3。
-主键 `tc_<16hex>`；`tool_id` 索引。字段：`name` / `input_data`（JSON）/ `expected_output`（JSON，空=不断言）。
+主键 `tc_<16hex>`；`forge_id` 索引。字段：`name` / `input_data`（JSON）/ `expected_output`（JSON，空=不断言）。
 
-#### `forge_run_history` ✅
+#### `forge_executions` ✅（Phase 5 统一表，替代 forge_run_history + forge_test_history）
 详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.4。
-主键 `trh_<16hex>`；`tool_id` 索引；无软删。每次 `:run` 写一条，保留最近 100 条/工具。
-字段：`tool_version`（执行时版本号）/ `input` / `output` / `ok` / `error_msg` / `elapsed_ms`。
+主键 `fe_<16hex>`；无软删；保留最近 300 条/forge（合并上限，原 100+200）。
+字段：
+- `forge_id`（索引：`idx_fe_forge_created` 复合 priority:1）/ `user_id` / `forge_version`（执行时版本号）
+- **`kind`**（**"run"** 临时运行 / LLM 调用，**"test"** 测试用例执行）—— 区分两类历史
+- `input`（JSON）/ `output` / `ok` / `error_msg` / `elapsed_ms`
+- **test 专属可空字段**（kind="run" 时为空字符串）：`test_case_id`（索引）/ `batch_id`（索引；批跑共享，单跑为空）/ `pass *bool`（nil=无断言）
+- **触发上下文**：**`triggered_by`**（**"chat"** LLM 在 chat 中调用 / **"http"** 用户直接调）/ `conversation_id` / `message_id` / `tool_call_id`（chat 触发时填，HTTP 触发时空）
+- `created_at`（索引：`idx_fe_forge_created` 复合 priority:2，`idx_fe_msg` 复合 with conversation_id+message_id）
 
-#### `forge_test_history` ✅
-详见 [`../service-design-documents/forge.md`](../service-design-documents/forge.md) §3.5。
-主键 `tth_<16hex>`；`tool_id` + `test_case_id` + `batch_id`（索引）；无软删。每次测试用例执行写一条，保留最近 200 条/工具。
-字段：`tool_version` / `test_case_id` / `batch_id`（批跑时共享，单跑为空）/ `input` / `output` / `ok` / `pass`（*bool，nil=无断言）/ `error_msg` / `elapsed_ms`。
+复合索引 2 个：`idx_fe_forge_created (forge_id, created_at)` 单 forge 历史按时间倒序检索；`idx_fe_msg (conversation_id, message_id)` 一次 chat 消息触发的所有 forge 调用追溯。
+HTTP 端点：`GET /api/v1/forges/{id}/executions?kind=&batchId=&cursor=&limit=`（cursor 分页 envelope）。
+内部使用 `ExecutionFilter` struct 支持 forge / kind / batch_id / test_case_id / chat 上下文 / cursor / limit 任意组合查询。
 
 ---
 
@@ -127,22 +133,26 @@ accepted 版本上限 50 条/工具，超限硬删最旧。
 
 > 每完成一个 Phase 更新一次。
 
-**当前（Phase 3 + chat infra 重构完成，2026-04-27）**：
+**当前（Phase 3 + chat infra 重构 + Phase 5 schema 统一，2026-05-02）**：
 ```
 api_keys    model_configs   conversations
     │             │               │
     └─────────────┴───── local-user ──────┘
                                    │ conversation_id
                                messages ────────── message_blocks
-                               (纯元数据)              (内容存储：
-                                   │                   text/reasoning/
-                                   │                   tool_call/tool_result/
-                                   │                   attachment_ref)
+                               (含 error_code/                (text/reasoning/
+                                error_message/                 tool_call/tool_result
+                                updated_at)                    含 errorMsg+elapsedMs/
+                                   │                           attachment_ref)
                                    │ att_id
-                          chat_attachments
+                              attachments (软删)
 
-tools ──────── forge_versions (status: pending/accepted/rejected)
+forges ──────── forge_versions (status: pending/accepted/rejected;
+  │             change_reason 为变更意图)
+  │
   │ ─────────  forge_test_cases
-  │ ─────────  forge_run_history
-  └ ─────────  forge_test_history (batch_id 串联批跑)
+  │
+  └ ─────────  forge_executions (kind=run|test; batch_id 串联批跑;
+                triggered_by + conversation_id/message_id/tool_call_id
+                把 chat 触发的执行串回去)
 ```

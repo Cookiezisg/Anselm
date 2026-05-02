@@ -1,15 +1,20 @@
-// tab-sse.js — SSE event inspector: source × view matrix.
-// Source: conversation | forge
-// View:   stream | raw
+// tab-sse.js — SSE event inspector (Phase 6 entity-state model).
+// Subscribes to the 3 unified event types and renders them in a matrix:
+//
+//   Source: chat | forge | conversation   (which event family to show)
+//   View:   stream | raw                  (rendered or raw JSON)
+//
+// Each event = full entity snapshot; subscribers find by id and replace.
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('sseTab', () => ({
-    source: 'conversation',  // 'conversation' | 'forge'
-    view:   'stream',        // 'stream' | 'raw'
+    source: 'chat',     // 'chat' | 'forge' | 'conversation'
+    view:   'stream',   // 'stream' | 'raw'
 
-    events: [],   // raw view: [{type, time, data}]
-    turns:  [],   // stream view (conversation): [{messageId, items[], done, stopReason, error}]
-    forges: [],   // stream view (forge): [{toolCallId, toolId, toolName, actionType, code, done, result}]
+    events: [],         // raw view: [{type, time, data}]
+    messages: [],       // chat view: [Message snapshot]
+    forges:   [],       // forge view: [Forge snapshot]
+    convs:    [],       // conversation view: [Conversation snapshot]
 
     _es: null,
     autoScroll: true,
@@ -25,7 +30,6 @@ document.addEventListener('alpine:init', () => {
     setSource(s) {
       this.source = s
       this.clear()
-      this._reconnect()
     },
 
     // ── SSE connection ────────────────────────────────────────────────────────
@@ -38,146 +42,77 @@ document.addEventListener('alpine:init', () => {
       const es = new EventSource(`/api/v1/events?conversationId=${id}`)
       this._es = es
 
-      const types = this.source === 'forge'
-        ? ['tool.code_streaming', 'tool.created', 'tool.pending_created']
-        : ['chat.reasoning_token', 'chat.token', 'chat.tool_call_start',
-           'chat.tool_call', 'chat.tool_result', 'chat.done', 'chat.error',
-           'conversation.title_updated']
-
+      // Subscribe to all 3 — even when only one source is shown, we keep raw
+      // log of everything for debugging.
+      // 订阅全 3 个——即使只展示一个 source，raw 日志保留全部供调试。
+      const types = ['chat.message', 'forge', 'conversation']
       types.forEach(type => {
         es.addEventListener(type, e => {
           const data = JSON.parse(e.data)
-
           this.events.push({
             type,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
             data,
           })
-
-          if (this.source === 'forge') {
-            this._handleForge(type, data)
-          } else {
-            this._handleConversation(type, data)
-          }
-
+          if (type === 'chat.message') this._handleChatMessage(data)
+          else if (type === 'forge')   this._handleForge(data)
+          else if (type === 'conversation') this._handleConversation(data)
           if (this.autoScroll) this._scroll()
         })
       })
     },
 
-    // ── conversation stream ───────────────────────────────────────────────────
+    // ── chat.message handler — replace by id ──────────────────────────────────
 
-    _turnFor(messageId) {
-      let t = this.turns.find(t => t.messageId === messageId)
-      if (!t) {
-        t = { messageId, items: [], done: false, stopReason: '', error: null }
-        this.turns.push(t)
-      }
-      return t
+    _handleChatMessage(m) {
+      if (!m || !m.id) return
+      const idx = this.messages.findIndex(x => x.id === m.id)
+      if (idx >= 0) this.messages[idx] = m
+      else this.messages.push(m)
     },
 
-    _lastOfType(turn, type) {
-      const items = turn.items
-      return (items.length && items[items.length - 1].type === type)
-        ? items[items.length - 1] : null
+    // ── forge handler — replace by id ─────────────────────────────────────────
+
+    _handleForge(f) {
+      if (!f || !f.id) return
+      const idx = this.forges.findIndex(x => x.id === f.id)
+      if (idx >= 0) this.forges[idx] = f
+      else this.forges.push(f)
     },
 
-    _handleConversation(type, data) {
-      const turn = this._turnFor(data.messageId || data.conversationId)
+    // ── conversation handler — single entity, replace ─────────────────────────
 
-      if (type === 'chat.reasoning_token') {
-        let item = this._lastOfType(turn, 'thinking')
-        if (!item) { item = { type: 'thinking', content: '', done: false }; turn.items.push(item) }
-        item.content += data.delta
-
-      } else if (type === 'chat.token') {
-        const thinking = turn.items.find(i => i.type === 'thinking' && !i.done)
-        if (thinking) thinking.done = true
-        let item = this._lastOfType(turn, 'text')
-        if (!item) { item = { type: 'text', content: '' }; turn.items.push(item) }
-        item.content += data.delta
-
-      } else if (type === 'chat.tool_call_start') {
-        // Show tool name immediately before arguments arrive
-        turn.items.push({
-          type: 'tool', toolCallId: data.toolCallId,
-          toolName: data.toolName, summary: '', input: null, result: null, ok: null,
-        })
-
-      } else if (type === 'chat.tool_call') {
-        // Fill in arguments on the existing placeholder (or create if no start received)
-        const existing = turn.items.find(i => i.type === 'tool' && i.toolCallId === data.toolCallId)
-        if (existing) {
-          existing.summary = data.summary || ''
-          existing.input = data.toolInput
-        } else {
-          turn.items.push({
-            type: 'tool', toolCallId: data.toolCallId,
-            toolName: data.toolName, summary: data.summary || '',
-            input: data.toolInput, result: null, ok: null,
-          })
-        }
-        turn.items.push({ type: 'text', content: '' })
-
-      } else if (type === 'chat.tool_result') {
-        const item = turn.items.find(i => i.type === 'tool' && i.toolCallId === data.toolCallId)
-        if (item) { item.result = data.result; item.ok = data.ok }
-
-      } else if (type === 'chat.done') {
-        turn.done = true; turn.stopReason = data.stopReason
-        while (turn.items.length && turn.items[turn.items.length - 1].type === 'text'
-               && !turn.items[turn.items.length - 1].content) {
-          turn.items.pop()
-        }
-      } else if (type === 'chat.error') {
-        turn.error = data.message
-      }
-    },
-
-    // ── forge stream ──────────────────────────────────────────────────────────
-
-    _forgeFor(toolCallId) {
-      let f = this.forges.find(f => f.toolCallId === toolCallId)
-      if (!f) {
-        f = { toolCallId, messageId: '', toolId: '', toolName: '', actionType: '', code: '', done: false, result: '' }
-        this.forges.push(f)
-      }
-      return f
-    },
-
-    _handleForge(type, data) {
-      if (type === 'tool.code_streaming') {
-        const f = this._forgeFor(data.toolCallId)
-        if (!f.actionType) f.actionType = data.actionType
-        if (data.toolId)   f.toolId = data.toolId
-        if (data.messageId && !f.messageId) f.messageId = data.messageId
-        f.code += data.delta
-
-      } else if (type === 'tool.created') {
-        const f = this._forgeFor(data.toolCallId)
-        f.toolId    = data.toolId
-        f.toolName  = data.toolName
-        f.messageId = data.messageId || ''
-        f.done      = true
-        f.result    = 'created'
-
-      } else if (type === 'tool.pending_created') {
-        const f = this._forgeFor(data.toolCallId)
-        f.toolId    = data.toolId
-        f.messageId = data.messageId || ''
-        f.done      = true
-        f.result    = 'pending'
-      }
+    _handleConversation(c) {
+      if (!c || !c.id) return
+      const idx = this.convs.findIndex(x => x.id === c.id)
+      if (idx >= 0) this.convs[idx] = c
+      else this.convs.push(c)
     },
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    clear() { this.events = []; this.turns = []; this.forges = [] },
+    clear() {
+      this.events = []
+      this.messages = []
+      this.forges = []
+      this.convs = []
+    },
 
     pretty(data) { return JSON.stringify(data, null, 2) },
-    cssClass(type) { return type.replace('.', '-') },
-    shortId(id) { return id ? id.slice(0, 8) : '?' },
+    cssClass(type) { return type.replace(/\./g, '-') },
+    shortId(id) { return id ? id.slice(0, 12) : '?' },
     tryFmt(s) { try { return JSON.stringify(JSON.parse(s), null, 2) } catch { return s } },
+
+    // Block helpers for chat.message stream view
+    blockText(b) {
+      try { return JSON.parse(b.data).text || '' } catch { return '' }
+    },
+    blockToolCall(b) {
+      try { return JSON.parse(b.data) } catch { return {} }
+    },
+    blockToolResult(b) {
+      try { return JSON.parse(b.data) } catch { return {} }
+    },
 
     _scroll() {
       this.$nextTick(() => {

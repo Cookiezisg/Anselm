@@ -17,9 +17,9 @@ import (
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
-// ForgeHandler serves the 22 /api/v1/forges/* endpoints.
+// ForgeHandler serves the /api/v1/forges/* endpoints.
 //
-// ForgeHandler 提供 /api/v1/forges/* 的 22 个端点。
+// ForgeHandler 提供 /api/v1/forges/* 端点。
 type ForgeHandler struct {
 	svc *forgeapp.Service
 	log *zap.Logger
@@ -64,9 +64,8 @@ func (h *ForgeHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/v1/forges/{id}/test-cases/{tcId}", h.DeleteTestCase)
 	mux.HandleFunc("POST /api/v1/forges/{id}/test-cases/{tcIdAction}", h.postOnTestCase)
 
-	// History
-	mux.HandleFunc("GET /api/v1/forges/{id}/run-history", h.ListRunHistory)
-	mux.HandleFunc("GET /api/v1/forges/{id}/test-history", h.ListTestHistory)
+	// Executions (unified run + test history)
+	mux.HandleFunc("GET /api/v1/forges/{id}/executions", h.ListExecutions)
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -380,38 +379,31 @@ func (h *ForgeHandler) postOnTestCase(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
-// ── History ───────────────────────────────────────────────────────────────────
+// ── Executions (unified run + test history) ───────────────────────────────────
 
-func (h *ForgeHandler) ListRunHistory(w http.ResponseWriter, r *http.Request) {
+// ListExecutions returns a cursor-paginated page of executions for a forge.
+// Supports filtering by kind (run|test) and batchId (single test batch).
+// Single endpoint replaces the previous /run-history + /test-history split.
+//
+// ListExecutions 返回 forge 执行记录的 cursor 分页结果。支持按 kind（run|test）
+// 和 batchId（单次 test 批次）过滤。单端点取代原 /run-history + /test-history。
+func (h *ForgeHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 	p, err := paginationpkg.Parse(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, err := h.svc.ListRunHistoryForForge(r.Context(), r.PathValue("id"), p.Limit)
+	filter := forgedomain.ExecutionFilter{
+		ForgeID: r.PathValue("id"),
+		Kind:    r.URL.Query().Get("kind"),
+		BatchID: r.URL.Query().Get("batchId"),
+		Cursor:  p.Cursor,
+		Limit:   p.Limit,
+	}
+	items, next, err := h.svc.ListExecutions(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, items)
-}
-
-func (h *ForgeHandler) ListTestHistory(w http.ResponseWriter, r *http.Request) {
-	p, err := paginationpkg.Parse(r)
-	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
-	batchID := r.URL.Query().Get("batchId")
-	var items any
-	if batchID != "" {
-		items, err = h.svc.ListTestHistoryByBatch(r.Context(), batchID)
-	} else {
-		items, err = h.svc.ListTestHistoryForForge(r.Context(), r.PathValue("id"), p.Limit)
-	}
-	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
-	responsehttpapi.Success(w, http.StatusOK, items)
+	responsehttpapi.Paged(w, items, next, next != "")
 }

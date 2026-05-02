@@ -31,9 +31,11 @@ const (
 	EventReasoning StreamEventType = "reasoning"
 
 	// EventToolStart fires when a tool call name is first known.
-	// The pipeline should immediately publish chat.tool_call_start SSE.
+	// The chat pipeline rebuilds the in-progress Message snapshot and
+	// publishes a chat.message SSE event with the new tool_call block.
 	//
-	// EventToolStart 在 tool call name 首次确定时触发，pipeline 应立即推 SSE。
+	// EventToolStart 在 tool call name 首次确定时触发；chat pipeline 据此
+	// 重建 in-progress Message 快照并推一次 chat.message 事件（含新 tool_call block）。
 	EventToolStart StreamEventType = "tool_start"
 
 	// EventToolDelta carries a fragment of a tool call's arguments JSON.

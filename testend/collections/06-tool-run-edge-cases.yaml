@@ -163,19 +163,19 @@ steps:
 
   - name: "查看除法工具运行历史"
     method: GET
-    path: /api/v1/forges/{{divId}}/run-history
+    path: /api/v1/forges/{{divId}}/executions?kind=run
     expect:
       status: 200
 
   - name: "查看统计工具运行历史"
     method: GET
-    path: /api/v1/forges/{{statsId}}/run-history
+    path: /api/v1/forges/{{statsId}}/executions?kind=run
     expect:
       status: 200
 
   - name: "运行历史 limit=3"
     method: GET
-    path: /api/v1/forges/{{divId}}/run-history?limit=3
+    path: /api/v1/forges/{{divId}}/executions?kind=run&limit=3
     expect:
       status: 200
 

@@ -1,16 +1,20 @@
 // chat.js — center chat panel: message list, streaming, send/cancel, attachments.
-// Adapted for the Block model: messages carry blocks[], not flat content columns.
+// Phase 6 entity-state SSE model: each `chat.message` event = full Message
+// snapshot. Subscribers find by id and replace; no per-token / delta logic.
+//
+// Block model conversion:
+//   user blocks      → [{type:'text'|'attachment', ...}]
+//   assistant blocks → items[] with reasoning/tool/text entries (tool_call +
+//                      tool_result paired by toolCallId)
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('chatPanel', () => ({
     messages: [],
     input: '',
     streaming: false,
-    pendingAtts: [],      // [{id, fileName, mimeType}] — attachments queued for next send
+    pendingAtts: [],      // [{id, fileName, mimeType}]
     uploading: false,
     _es: null,
-    _streamMsgId: null,
-    _pendingToolItems: {},  // toolCallId → item ref (for result matching)
 
     get conversationId() { return Alpine.store('app').conversationId },
     get title() { return Alpine.store('app').conversationTitle },
@@ -28,23 +32,21 @@ document.addEventListener('alpine:init', () => {
     },
 
     // ── loadMessages ──────────────────────────────────────────────────────────
-    // Converts the Block model from the API into display-ready message objects.
-    // User messages:    blocks → [{type:'text'|'attachment', ...}]
-    // Assistant messages: blocks → items[] with reasoning/tool/text entries
 
     async loadMessages(id) {
       const r = await fetch(`/api/v1/conversations/${id}/messages?limit=200`)
       if (!r.ok) return
       const j = await r.json()
       const raw = (j.data || []).filter(m => m.status !== 'pending')
+      this.messages = raw.map(m => this._messageFromSnapshot(m))
+    },
 
-      this.messages = raw.map(m => {
-        if (m.role === 'user') {
-          return this._userMsgFromBlocks(m)
-        } else {
-          return this._assistantMsgFromBlocks(m)
-        }
-      })
+    // ── snapshot → display message ────────────────────────────────────────────
+
+    _messageFromSnapshot(m) {
+      return m.role === 'user'
+        ? this._userMsgFromBlocks(m)
+        : this._assistantMsgFromBlocks(m)
     },
 
     _userMsgFromBlocks(m) {
@@ -64,7 +66,7 @@ document.addEventListener('alpine:init', () => {
 
     _assistantMsgFromBlocks(m) {
       const items = []
-      const toolMap = {}  // toolCallId → item (for pairing with tool_results)
+      const toolMap = {}  // toolCallId → item
 
       for (const b of (m.blocks || [])) {
         try {
@@ -74,24 +76,45 @@ document.addEventListener('alpine:init', () => {
           } else if (b.type === 'tool_call') {
             const item = {
               type: 'tool', toolCallId: d.id, toolName: d.name,
-              summary: d.summary || '', input: JSON.stringify(d.arguments || {}),
-              result: null, ok: null,
+              summary: d.summary || '', destructive: d.destructive || false,
+              input: JSON.stringify(d.arguments || {}),
+              result: null, ok: null, errorMsg: '', elapsedMs: 0,
             }
             items.push(item)
             toolMap[d.id] = item
           } else if (b.type === 'tool_result') {
             const item = toolMap[d.toolCallId]
-            if (item) { item.result = d.result; item.ok = d.ok }
+            if (item) {
+              item.result = d.result
+              item.ok = d.ok
+              item.errorMsg = d.errorMsg || ''
+              item.elapsedMs = d.elapsedMs || 0
+            }
           } else if (b.type === 'text') {
             if (d.text) items.push({ type: 'text', content: d.text })
           }
         } catch {}
       }
 
+      // While streaming, the assistant message may end with an in-progress
+      // tool_call whose tool_result hasn't arrived yet — that's fine, keep it.
+      // Mark trailing reasoning as not-done if no text block follows it.
+      // 流式途中 assistant 消息可能以未配对的 tool_call 结尾——保留即可。
+      // 末尾 reasoning 若后面没 text block 还在生成，标 done=false。
+      let lastReasoning = null
+      for (const it of items) {
+        if (it.type === 'reasoning') lastReasoning = it
+        if (it.type === 'text') lastReasoning = null
+      }
+      if (lastReasoning && m.status === 'streaming') lastReasoning.done = false
+
       return {
         id: m.id, role: 'assistant', items, status: m.status,
-        stopReason: m.stopReason,
-        inputTokens: m.inputTokens, outputTokens: m.outputTokens,
+        stopReason: m.stopReason || '',
+        errorCode: m.errorCode || '',
+        errorMessage: m.errorMessage || '',
+        inputTokens: m.inputTokens || 0,
+        outputTokens: m.outputTokens || 0,
       }
     },
 
@@ -107,7 +130,7 @@ document.addEventListener('alpine:init', () => {
       for (const file of files) {
         await this.uploadAttachment(file)
       }
-      e.target.value = ''  // reset so same file can be re-selected
+      e.target.value = ''
     },
 
     async uploadAttachment(file) {
@@ -135,7 +158,6 @@ document.addEventListener('alpine:init', () => {
       if ((!content && this.pendingAtts.length === 0) || this.streaming) return
       if (this.uploading) return
 
-      // If no conversation yet, create one first
       let convId = this.conversationId
       if (!convId) {
         const rc = await fetch('/api/v1/conversations', {
@@ -148,7 +170,6 @@ document.addEventListener('alpine:init', () => {
         convId = jc.data.id
         Alpine.store('app').conversationId = convId
         Alpine.store('app').conversationTitle = ''
-        // Refresh sidebar
         document.dispatchEvent(new CustomEvent('conv-created'))
         await new Promise(r => setTimeout(r, 100))
       }
@@ -167,15 +188,14 @@ document.addEventListener('alpine:init', () => {
 
       const j = await r.json()
 
-      // Push optimistic user message
+      // Optimistic user message — backend's chat.message snapshot will
+      // confirm later (id matches j.data.messageId).
+      // 乐观插入用户消息——后端 chat.message 快照（id 与 j.data.messageId 同）会确认。
       const userBlocks = []
       if (content) userBlocks.push({ type: 'text', content })
       for (const a of attsSnapshot) userBlocks.push({ type: 'attachment', fileName: a.fileName, mimeType: a.mimeType, id: a.id })
       this.messages.push({ id: j.data.messageId, role: 'user', blocks: userBlocks, status: 'completed' })
 
-      // Placeholder assistant message
-      this._streamMsgId = 'stream-' + Date.now()
-      this.messages.push({ id: this._streamMsgId, role: 'assistant', items: [], status: 'streaming' })
       this.streaming = true
       this._scrollBottom()
     },
@@ -186,124 +206,44 @@ document.addEventListener('alpine:init', () => {
       await fetch(`/api/v1/conversations/${id}/stream`, { method: 'DELETE' })
     },
 
-    // ── SSE ───────────────────────────────────────────────────────────────────
+    // ── SSE (Phase 6 entity-state model) ──────────────────────────────────────
+    //
+    // Three event types:
+    //   chat.message  — full Message snapshot; replace by id, append if new.
+    //   conversation  — full Conversation snapshot (title updates etc.).
+    //   forge         — full Forge snapshot (consumed by tab-tools / tab-sse).
 
     _connectSSE(id) {
       this._closeSSE()
       const es = new EventSource(`/api/v1/events?conversationId=${id}`)
       this._es = es
 
-      const _msg = () => this.messages.find(m => m.id === this._streamMsgId)
-      const _lastOfType = (type) => {
-        const msg = _msg(); if (!msg) return null
-        const items = msg.items
-        return (items.length && items[items.length - 1].type === type)
-          ? items[items.length - 1] : null
-      }
-
-      // Reasoning token (DeepSeek-R1 etc.)
-      es.addEventListener('chat.reasoning_token', e => {
-        const d = JSON.parse(e.data)
-        const msg = _msg(); if (!msg) return
-        let item = _lastOfType('reasoning')
-        if (!item) { item = { type: 'reasoning', content: '', done: false }; msg.items.push(item) }
-        item.content += d.delta
-        this._scrollBottom()
-      })
-
-      // Text token
-      es.addEventListener('chat.token', e => {
-        const d = JSON.parse(e.data)
-        const msg = _msg(); if (!msg) return
-        const r = msg.items.find(i => i.type === 'reasoning' && !i.done)
-        if (r) r.done = true
-        let item = _lastOfType('text')
-        if (!item) { item = { type: 'text', content: '' }; msg.items.push(item) }
-        item.content += d.delta
-        this._scrollBottom()
-      })
-
-      // Tool call start — show "calling X…" immediately before args arrive
-      es.addEventListener('chat.tool_call_start', e => {
-        const d = JSON.parse(e.data)
-        const msg = _msg(); if (!msg) return
-        const item = {
-          type: 'tool', toolCallId: d.toolCallId, toolName: d.toolName,
-          summary: '', input: null, result: null, ok: null,
-        }
-        msg.items.push(item)
-        this._pendingToolItems[d.toolCallId] = item
-        this._scrollBottom()
-      })
-
-      // Tool call — arguments now complete
-      es.addEventListener('chat.tool_call', e => {
-        const d = JSON.parse(e.data)
-        const msg = _msg(); if (!msg) return
-        let item = this._pendingToolItems[d.toolCallId]
-        if (item) {
-          // Upgrade the existing placeholder
-          item.summary = d.summary || ''
-          item.input = d.toolInput
+      es.addEventListener('chat.message', e => {
+        const m = JSON.parse(e.data)
+        if (!m || !m.id) return
+        const display = this._messageFromSnapshot(m)
+        const idx = this.messages.findIndex(x => x.id === m.id)
+        if (idx >= 0) {
+          this.messages[idx] = display
         } else {
-          // Fallback: no start event received
-          item = { type: 'tool', toolCallId: d.toolCallId, toolName: d.toolName,
-                   summary: d.summary || '', input: d.toolInput, result: null, ok: null }
-          msg.items.push(item)
-          this._pendingToolItems[d.toolCallId] = item
+          this.messages.push(display)
         }
-        // Open a text slot for post-tool text
-        msg.items.push({ type: 'text', content: '' })
+        if (m.role === 'assistant' && m.status !== 'streaming') {
+          this.streaming = false
+        }
         this._scrollBottom()
       })
 
-      // Tool result
-      es.addEventListener('chat.tool_result', e => {
-        const d = JSON.parse(e.data)
-        const item = this._pendingToolItems[d.toolCallId]
-        if (item) { item.result = d.result; item.ok = d.ok }
-      })
-
-      // Done
-      es.addEventListener('chat.done', e => {
-        const data = JSON.parse(e.data)
-        const msg = _msg()
-        if (msg) {
-          while (msg.items.length
-                 && msg.items[msg.items.length - 1].type === 'text'
-                 && !msg.items[msg.items.length - 1].content) {
-            msg.items.pop()
-          }
-          msg.status = data.stopReason === 'cancelled' ? 'cancelled' : 'completed'
-          msg.stopReason = data.stopReason
-          msg.inputTokens = data.inputTokens
-          msg.outputTokens = data.outputTokens
-        }
-        this.streaming = false
-        this._streamMsgId = null
-        this._pendingToolItems = {}
-        this.loadMessages(id)
-      })
-
-      // Error
-      es.addEventListener('chat.error', e => {
-        const data = JSON.parse(e.data)
-        const msg = _msg()
-        if (msg) { msg.status = 'error'; msg.errorMsg = data.message }
-        this.streaming = false
-        this._streamMsgId = null
-      })
-
-      // Auto-title update
-      es.addEventListener('conversation.title_updated', e => {
-        Alpine.store('app').conversationTitle = JSON.parse(e.data).title
-        document.dispatchEvent(new CustomEvent('conv-created'))  // trigger sidebar reload
+      es.addEventListener('conversation', e => {
+        const c = JSON.parse(e.data)
+        if (!c) return
+        Alpine.store('app').conversationTitle = c.title || ''
+        document.dispatchEvent(new CustomEvent('conv-created'))
       })
     },
 
     _closeSSE() {
       if (this._es) { this._es.close(); this._es = null }
-      this._pendingToolItems = {}
     },
 
     _scrollBottom() {

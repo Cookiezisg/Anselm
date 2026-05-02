@@ -118,7 +118,7 @@ steps:
     method: POST
     path: /api/v1/conversations/{{e2eConvId}}/messages
     body:
-      content: "What is today's date and time? Use the datetime tool."
+      content: "Search my forge library for any utility forges, then summarize what I have."
     expect:
       status: 202
 
@@ -170,13 +170,13 @@ steps:
 
   - name: "查看工具运行历史"
     method: GET
-    path: /api/v1/forges/{{e2eToolId}}/run-history
+    path: /api/v1/forges/{{e2eToolId}}/executions?kind=run
     expect:
       status: 200
 
   - name: "查看测试历史"
     method: GET
-    path: /api/v1/forges/{{e2eToolId}}/test-history
+    path: /api/v1/forges/{{e2eToolId}}/executions?kind=test
     expect:
       status: 200
 

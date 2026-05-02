@@ -42,29 +42,32 @@
 
 > **状态**：⬜ 未设计 | 🔄 struct 定义中 | ✅ 已实现（struct + 真实发布点）
 
-### Phase 2：基础对话能力
+### entity-state 模型（Phase 6 重构 · 2026-05-02）
 
-| 事件名 | 用途 | 过滤 key | 状态 |
-|---|---|---|---|
-| `chat.reasoning_token` | 推理模型 thinking 内容增量（`messageId` + `delta`），仅 DeepSeek-R1 等推理型模型产生 | `conversationId` | ✅ |
-| `chat.token` | 流式 token 增量（`messageId` + `delta`）| `conversationId` | ✅ |
-| `chat.tool_call_start` | LLM 流中首次出现 tool name 时立刻推（`messageId` + `toolCallId` + `toolName`），arguments 尚未完整 | `conversationId` | ✅ |
-| `chat.tool_call` | arguments 完整、执行前推（`messageId` + `toolCallId` + `toolName` + `toolInput` + `summary` + `destructive`）；`destructive=true` 让前端显示警示徽章 | `conversationId` | ✅ |
-| `chat.tool_result` | Tool 执行完成（`toolCallId` + `result` + `ok`）| `conversationId` | ✅ |
-| `chat.done` | 流式完成（`messageId` + `stopReason` + `inputTokens` + `outputTokens`）| `conversationId` | ✅ |
-| `chat.error` | 流式错误（`code` + `message`，code 匹配 SCREAMING_SNAKE_CASE）| `conversationId` | ✅ |
-| `conversation.title_updated` | Auto-titling 回写标题（`title` + `autoTitled`）| `conversationId` | ✅ |
+**3 个事件，每个 = 一个 user-facing domain entity 的完整 GET 快照**。订阅方按 entity ID 替换本地拷贝即可渲染——不再追 token / 不再合 delta / 不再分 12 种事件形状。
 
----
+每个事件 struct 嵌入 `*<domain>.Entity` 指针 + 自定义 `MarshalJSON` → wire 形状 = `GET /api/v1/<entities>/{id}` 的响应（无 wrapper key，entity 字段直接出现在顶层）。
 
-### Phase 3：工具锻造能力
+| 事件名 | 载荷 = | 过滤 key | 触发点 | 状态 |
+|---|---|---|---|---|
+| `chat.message` | 完整 `Message`（含 `blocks`/`status`/`stopReason`/`errorCode`/`errorMessage`/`inputTokens`/`outputTokens`/`updatedAt`）| `conversationId` | message slot 创建、每个 LLM token、tool_call 出现、tool_call args 完整、每个 tool result 完成、最终写、pre-LLM 失败的 stub 错误消息 | ✅ |
+| `forge` | 完整 `Forge`（含 `pending` 子对象/`code`/`parameters`/`returnSchema`/`tags`/`versionCount`）| `conversationId` | create_forge / edit_forge 期间逐 token（draft 在内存增长）、最终 save 后定型；HTTP CRUD 暂不广播（MVP 单用户单窗口）| ✅ |
+| `conversation` | 完整 `Conversation`（含 `title`/`autoTitled`/`systemPrompt` 等）| `conversationId` | auto-title 回写、未来归档/系统 prompt 更新等 | ✅ |
 
-| 事件名 | 用途 | 过滤 key | 状态 |
-|---|---|---|---|
-| `forge.code_streaming` | create_forge / edit_forge 代码生成逐 token（`messageId` + `toolCallId` + `forgeId` + `actionType` + `delta`）；`forgeId` 在 create_forge 时为空 | `conversationId` | ✅ Bridge |
-| `forge.created` | create_forge 成功保存新工具（`messageId` + `toolCallId` + `forgeId` + `forgeName`）| `conversationId` | ✅ Bridge |
-| `forge.pending_created` | edit_forge 保存 pending 代码变更（`messageId` + `toolCallId` + `forgeId` + `pendingId` + `instruction`）| `conversationId` | ✅ Bridge |
-| `forge.metadata_updated` | edit_forge 仅元数据变更（`messageId` + `toolCallId` + `forgeId` + `pendingId`）；区别于 `forge.pending_created`：本事件意味着 LLM 没传 instruction、不会推 `forge.code_streaming` 流，前端可显示"仅改元数据"而非等代码刷出 | `conversationId` | ✅ Bridge |
+**配套实现细节**：
+
+- create_forge 进入即预分配 `forgeID = forgeapp.NewForgeID()`，构建内存 stub Forge，逐 token 更新 `Forge.Code` 并发快照；末尾才走 `svc.Create(ID=forgeID)` 真正落库。失败干净丢弃 draft，无 DB 污染。
+- edit_forge 进入预分配 `pendingID = forgeapp.NewVersionID()`，构建 `draftPending` 挂在 `Forge.Pending` 上，逐 token 更新 `Pending.Code` 并发快照；末尾走 `svc.CreatePending(ID=pendingID)`。仅元数据路径不流，但仍发一次最终快照。
+- chat 层 `runner.go` 是 `chat.message` 的唯一发布事实源（`publishMessageSnapshot` / `writeAndPublish` / `emitFatalError`）；`stream.go` 与 `tools.go` 通过 closure 调它，从不自己 `bridge.Publish`。
+- pre-LLM 错误（MODEL_NOT_CONFIGURED / API_KEY_PROVIDER_NOT_FOUND / LLM_PROVIDER_ERROR）也走 stub Message 路径——`status="error"` + `errorCode/errorMessage` 填好。所有错误现都装进 `chat.message` 快照里。
+
+**已删除事件（Phase 6 之前 12 个）**：
+
+- chat 域：`chat.reasoning_token` / `chat.token` / `chat.tool_call_start` / `chat.tool_call` / `chat.tool_result` / `chat.done` / `chat.error`
+- conversation 域：`conversation.title_updated`
+- forge 域：`forge.code_streaming` / `forge.created` / `forge.pending_created` / `forge.metadata_updated`
+
+旧事件的所有信息都在新 entity 快照里：tokens 体现为 text/reasoning block 内容生长；tool_call_start vs tool_call vs tool_result 体现为 block 序列演化；done/error 体现为 message.status + stopReason + errorCode/errorMessage；conversation.title_updated 体现为 conversation.title + autoTitled 字段。
 
 ---
 

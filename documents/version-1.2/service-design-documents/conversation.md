@@ -240,10 +240,28 @@ CREATE INDEX idx_conversations_deleted_at ON conversations(deleted_at);
 
 ## 9. 事件
 
-**Phase 2 不推送事件**。
+**Phase 6 重构（2026-05-02）**：conversation domain 用 **1 个 SSE 事件 `conversation`**——载荷 = 完整 Conversation 实体的 GET 形状（entity-state 模型）。详见 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)。
 
-未来可能加（Phase 5+）：
-- `conversation.title_updated`：自动命名后推给前端（不用刷新列表）
+```go
+type Conversation struct {
+    *convdomain.Conversation
+}
+
+func (Conversation) EventName() string { return "conversation" }
+
+// MarshalJSON 委托给嵌入 Conversation——wire shape = GET /api/v1/conversations/{id}。
+func (e Conversation) MarshalJSON() ([]byte, error) {
+    if e.Conversation == nil { return []byte("null"), nil }
+    return json.Marshal(e.Conversation)
+}
+```
+
+**当前触发点**：
+- auto-titling 完成后（chat domain 的 `autoTitle` goroutine 调 `bridge.Publish(ctx, conv.ID, eventsdomain.Conversation{...})`），让前端侧边栏即时更新标题。
+
+**未来扩展**（Phase 5+）：归档 / 系统 prompt 更新 / pin 等任何 conversation entity 变化都走同一事件。前端按 `id` 替换本地拷贝即可，无需区分子类型。
+
+旧事件 `conversation.title_updated`（仅含 `{title, autoTitled}` 增量）已删除。
 
 ---
 

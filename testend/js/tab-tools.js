@@ -346,41 +346,26 @@ document.addEventListener('alpine:init', () => {
           `/api/v1/forges/${this.userSelected.id}:generate-test-cases?count=5`,
           { method: 'POST' }
         )
-        if (!r.ok) { this.generating = false; return }
-        const reader = r.body.getReader()
-        const dec = new TextDecoder()
-        let buf = ''
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buf += dec.decode(value, { stream: true })
-          const parts = buf.split('\n\n')
-          buf = parts.pop()
-          for (const chunk of parts) {
-            let evType = '', evData = ''
-            for (const line of chunk.split('\n')) {
-              if (line.startsWith('event:')) evType = line.slice(6).trim()
-              if (line.startsWith('data:'))  evData = line.slice(5).trim()
-            }
-            if (evType === 'tool.test_case_generated' && evData) {
-              try {
-                const d = JSON.parse(evData)
-                this.generateLog = [...this.generateLog, { name: d.name, ok: true }]
-                this.testCases = [...this.testCases, {
-                  id: d.testCaseId, name: d.name,
-                  inputData: d.inputData, expectedOutput: d.expectedOutput,
-                }]
-              } catch {}
-            } else if (evType === 'tool.test_cases_not_supported' && evData) {
-              try {
-                const d = JSON.parse(evData)
-                this.generateLog = [...this.generateLog, { name: `Not supported: ${d.reason}`, ok: false }]
-              } catch {}
-            }
+        const json = await r.json()
+        if (!r.ok) {
+          this.generateLog = [{ name: `Error: ${json.error?.message || 'failed'}`, ok: false }]
+        } else {
+          // Backend returns envelope { data: { notSupported, reason, testCases } }
+          // 后端返回 envelope { data: { notSupported, reason, testCases } }
+          const result = json.data || {}
+          if (result.notSupported) {
+            this.generateLog = [{ name: `Not supported: ${result.reason}`, ok: false }]
+          } else {
+            const cases = result.testCases || []
+            this.testCases = [...this.testCases, ...cases.map(tc => ({
+              id: tc.id, name: tc.name,
+              inputData: tc.inputData, expectedOutput: tc.expectedOutput,
+            }))]
+            this.generateLog = cases.map(tc => ({ name: tc.name, ok: true }))
           }
         }
       } catch (e) {
-        this.generateLog = [...this.generateLog, { name: `Error: ${e.message}`, ok: false }]
+        this.generateLog = [{ name: `Error: ${e.message}`, ok: false }]
       }
       this.generating = false
     },

@@ -249,8 +249,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .event-name.chat-error { background: #fde8e8; color: var(--red); }
 .event-name.chat-tool_call, .event-name.chat-tool_result { background: #fef9e1; color: var(--yellow); }
 .event-name.conversation-title_updated { background: #ede8fe; color: #6f42c1; }
-.event-name.tool-code_streaming { background: #e8f5e9; color: var(--green); }
-.event-name.tool-created, .event-name.tool-pending_created { background: #e3f2fd; color: var(--accent); }
+.event-name.forge-code_streaming { background: #e8f5e9; color: var(--green); }
+.event-name.forge-created, .event-name.forge-pending_created, .event-name.forge-metadata_updated { background: #e3f2fd; color: var(--accent); }
 .event-name.chat-reasoning_token { background: #f3e8ff; color: #7b2d8b; }
 .event-name.log { background: var(--bg3); color: var(--text-dim); }
 .event-time { font-size: 10px; color: var(--text-mute); float: right; }
@@ -506,3 +506,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 select.cfg-input { cursor: pointer; }
 /* model warning */
 .cfg-warn { font-size: 11px; color: var(--yellow); padding: 4px 0; }
+
+/* destructive badge — LLM-marked dangerous tool calls */
+.destructive-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  background: #fde7e7;
+  color: var(--red);
+  border: 1px solid #f5b6b6;
+  border-radius: 3px;
+  vertical-align: middle;
+  white-space: nowrap;
+  cursor: help;
+}

@@ -423,25 +423,33 @@ func (s *Service) writeDB(ctx, msgID, convID, uid, blocks, status, stopReason, .
 
 ## 6. 消息存储（Block 模型）
 
-### 6.1 messages 表（精简为纯元数据）
+### 6.1 messages 表（精简为纯元数据；Phase 5 加错误信息字段）
 
 ```go
 type Message struct {
     ID             string         `gorm:"primaryKey;type:text" json:"id"`
     ConversationID string         `gorm:"not null;index;type:text" json:"conversationId"`
     UserID         string         `gorm:"not null;type:text" json:"-"`
-    Role           Role           `gorm:"not null;type:text" json:"role"`  // user | assistant
-    Status         Status         `gorm:"not null;type:text" json:"status"`
-    StopReason     string         `gorm:"type:text" json:"stopReason,omitempty"`
-    InputTokens    int            `json:"inputTokens,omitempty"`
-    OutputTokens   int            `json:"outputTokens,omitempty"`
-    Blocks         []Block        `gorm:"-" json:"blocks"`  // 查询时填充，不存这列
+    Role           string         `gorm:"not null;type:text" json:"role"`            // user | assistant
+    Status         string         `gorm:"not null;type:text" json:"status"`
+    StopReason     string         `gorm:"type:text;default:''" json:"stopReason,omitempty"`
+    ErrorCode      string         `gorm:"type:text;default:''" json:"errorCode,omitempty"`    // status="error" 时填
+    ErrorMessage   string         `gorm:"type:text;default:''" json:"errorMessage,omitempty"` // status="error" 时填
+    InputTokens    int            `gorm:"default:0" json:"inputTokens,omitempty"`
+    OutputTokens   int            `gorm:"default:0" json:"outputTokens,omitempty"`
     CreatedAt      time.Time      `json:"createdAt"`
+    UpdatedAt      time.Time      `json:"updatedAt"`                                 // GORM 自动维护
     DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+
+    Blocks         []Block        `gorm:"-" json:"blocks"`  // 查询时填充，不存这列
 }
 ```
 
 **已移除**：`Content`、`ReasoningContent`、`ToolCalls`、`ToolCallID`、`AttachmentIDs`、`TokenUsage`（全部转为 `message_blocks`）。
+
+**Phase 5 新增字段**：
+- `ErrorCode` / `ErrorMessage` — 仅 `status="error"` 时填，承载结构化失败原因。前端从 SSE `chat.message` 事件读取，无需另行解析 trailing tool_result block。值见 `error-codes.md` chat 域 "Message.errorCode 字段值" 表（`MODEL_NOT_CONFIGURED` / `LLM_STREAM_ERROR` / `HISTORY_EXTEND_FAILED` / `INTERNAL_ERROR` 等）。
+- `UpdatedAt` — GORM 自动维护，每次 message 状态变化（streaming → completed / error）都会更新。
 
 **Role 值**：`user` | `assistant`（`tool` 角色已移除，tool result 变为 assistant 消息内的 block）。
 
@@ -468,8 +476,8 @@ type Block struct {
 |---|---|---|
 | `text` | `{"text":"..."}` | 普通文字（user 输入或 assistant 回复）|
 | `reasoning` | `{"text":"..."}` | 推理型模型的 thinking 内容 |
-| `tool_call` | `{"id":"call_xxx","name":"datetime","summary":"获取时间","arguments":{...}}` | LLM 决定调用某工具 |
-| `tool_result` | `{"toolCallId":"call_xxx","ok":true,"result":"..."}` | 工具执行结果 |
+| `tool_call` | `{"id":"call_xxx","name":"datetime","summary":"获取时间","destructive":false,"arguments":{...}}` | LLM 决定调用某工具；`destructive` 由 LLM 自报 |
+| `tool_result` | `{"toolCallId":"call_xxx","ok":true,"result":"...","errorMsg":"...","elapsedMs":42}` | 工具执行结果；Phase 5 新增 `errorMsg`（仅 `ok=false` 时填，结构化错误原因）+ `elapsedMs`（wall time）|
 | `attachment_ref` | `{"attachmentId":"att_xxx","fileName":"report.pdf","mimeType":"application/pdf"}` | 附件引用 |
 
 ### 6.3 chatstore.Save 的 ON CONFLICT 保护
@@ -486,21 +494,24 @@ tx.Clauses(clause.OnConflict{
 
 `created_at` **不在** DoUpdates 列表里，保证首次 INSERT 写入的时间戳在后续 status 更新时不被覆盖。这解决了 GORM `Save()` upsert 会把零值 `created_at` 写回 DB 的问题。
 
-### 6.4 chat_attachments 表
+### 6.4 attachments 表（Phase 5 重命名 + 加软删）
 
 ```go
 type Attachment struct {
-    ID          string    `gorm:"primaryKey;type:text" json:"id"`       // att_<16hex>
-    UserID      string    `gorm:"not null;type:text" json:"-"`
-    FileName    string    `gorm:"not null;type:text" json:"fileName"`
-    MimeType    string    `gorm:"not null;type:text" json:"mimeType"`
-    SizeBytes   int64     `gorm:"not null" json:"sizeBytes"`
-    StoragePath string    `gorm:"not null;type:text" json:"-"`  // 不对外暴露
-    CreatedAt   time.Time `json:"createdAt"`
+    ID          string         `gorm:"primaryKey;type:text" json:"id"`       // att_<16hex>
+    UserID      string         `gorm:"not null;index;type:text" json:"-"`
+    FileName    string         `gorm:"not null;type:text" json:"fileName"`
+    MimeType    string         `gorm:"not null;type:text" json:"mimeType"`
+    SizeBytes   int64          `gorm:"not null" json:"sizeBytes"`
+    StoragePath string         `gorm:"not null;type:text" json:"-"`  // 不对外暴露
+    CreatedAt   time.Time      `json:"createdAt"`
+    UpdatedAt   time.Time      `json:"updatedAt"`
+    DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`               // Phase 5 加软删
 }
 ```
 
 文件存 `{dataDir}/attachments/{att_id}/original.{ext}`，50MB 限制。
+**Phase 5 重命名**：表名从 `chat_attachments` 改为 `attachments`，并加 `UpdatedAt` + `DeletedAt`（软删）。理由：用户删附件后旧对话仍持有 `attachment_ref` block，软删保留行让解引用不变 dangling reference。
 
 ### 6.5 历史重建（`history.go`）
 
@@ -578,7 +589,9 @@ POST /api/v1/attachments (multipart/form-data)
 
 ---
 
-## 8. SSE 事件
+## 8. SSE 事件（Phase 6 重构 · entity-state 模型）
+
+chat domain 现只用 **1 个 SSE 事件 `chat.message`**——载荷 = 完整 Message 实体（含所有 blocks 当前状态、status、stopReason、errorCode/errorMessage、token 计数、updatedAt）的 GET 形状。详见 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)。
 
 ### 8.1 传输机制
 
@@ -589,27 +602,61 @@ POST /api/v1/attachments (multipart/form-data)
  │                                     │
  ├──POST /conversations/{id}/messages→ │  202（异步），入队
  │                                     │  ↓ worker goroutine
- │←── event: chat.tool_call_start ───  │  tool name 出现即推（arguments 尚未完整）
- │←── event: chat.token ─────────────  │  每个文字 delta
- │←── event: chat.tool_call ─────────  │  arguments 完整，执行前推
- │←── event: chat.tool_result ───────  │  执行完成
- │←── event: chat.done ──────────────  │  全部结束
+ │←── event: chat.message ───────────  │  message slot 创建（status=streaming, blocks=[]）
+ │←── event: chat.message ───────────  │  每个 LLM token（text/reasoning block 内容生长）
+ │←── event: chat.message ───────────  │  tool call 出现（tool_call block 仅有 name）
+ │←── event: chat.message ───────────  │  tool args 完整
+ │←── event: chat.message ───────────  │  每个 tool result 完成（tool_result block 加入）
+ │←── event: chat.message ───────────  │  最终（status=completed/error/cancelled）
 ```
 
 Keep-alive ping：每 15 秒推 `: keep-alive\n\n` 防代理断连。
 
-### 8.2 Chat 事件完整列表
+### 8.2 Event struct
 
-| 事件 | 触发时机 | 关键字段 |
-|---|---|---|
-| `chat.token` | 每个文字 delta | `messageId`, `delta` |
-| `chat.reasoning_token` | 推理模型 thinking delta | `messageId`, `delta` |
-| `chat.tool_call_start` | stream 中 tool name 首次出现 | `messageId`, `toolCallId`, `toolName` |
-| `chat.tool_call` | arguments 完整、执行前 | `messageId`, `toolCallId`, `toolName`, `toolInput`, `summary` |
-| `chat.tool_result` | 工具执行完成 | `toolCallId`, `result`, `ok` |
-| `chat.done` | Agent 全部完成 | `messageId`, `stopReason`, `inputTokens`, `outputTokens` |
-| `chat.error` | 不可恢复错误 | `code`, `message` |
-| `conversation.title_updated` | auto-titling 回写 | `conversationId`, `title`, `autoTitled` |
+```go
+type ChatMessage struct {
+    *chatdomain.Message
+}
+
+func (ChatMessage) EventName() string { return "chat.message" }
+
+// MarshalJSON 委托给嵌入的 Message——wire shape 严格 = GET /api/v1/conversations/{id}/messages 单条。
+func (e ChatMessage) MarshalJSON() ([]byte, error) {
+    if e.Message == nil { return []byte("null"), nil }
+    return json.Marshal(e.Message)
+}
+```
+
+### 8.3 触发点（chat 层是唯一发布事实源）
+
+`runner.go` 三个 helper 是唯一发布入口；`stream.go` 与 `tools.go` 通过 closure 调它们，从不自己 `bridge.Publish`：
+
+| Helper | 用途 |
+|---|---|
+| `publishMessageSnapshot` | 仅推 SSE，不写库（流式中间状态）|
+| `writeAndPublish` | 写库（fatal=true 是终态、false 是 streaming checkpoint）+ 推 SSE |
+| `emitFatalError` | 写 stub error message + 推 SSE（pre-LLM 错误如 MODEL_NOT_CONFIGURED 走这里）|
+
+**触发场景**：
+- agentRun 起始 — `publishMessageSnapshot(status=streaming, blocks=nil)` 打开前端 assistant slot
+- streamLLM 内每个 EventText / EventReasoning / EventToolStart / EventToolDelta — 重建 blocks 并 publish
+- runTools 内每个 tool 完成（mutex 守护并行批次）— publish 含新 tool_result block
+- 每步 ReAct checkpoint — `writeAndPublish(streaming, fatal=false)`
+- 终态（completed / cancelled / error）— `writeAndPublish(..., fatal=true)`
+- pre-LLM 失败 — `emitFatalError(code, message)`
+
+### 8.4 旧事件 → 字段对照（Phase 6 之前 12 个事件信息全在新 Message 里）
+
+| 旧事件 | 现等价 |
+|---|---|
+| `chat.token` / `chat.reasoning_token` | text/reasoning block 内容生长 |
+| `chat.tool_call_start` | tool_call block 出现（仅 name）|
+| `chat.tool_call` | tool_call block 的 arguments / summary / destructive 填齐 |
+| `chat.tool_result` | tool_result block 加入（含 ok / result / errorMsg / elapsedMs）|
+| `chat.done` | message.status="completed" + stopReason + inputTokens + outputTokens |
+| `chat.error` | message.status="error" + errorCode + errorMessage |
+| `conversation.title_updated` | 走 `conversation` 事件（载荷 = 完整 Conversation 实体）|
 
 ---
 

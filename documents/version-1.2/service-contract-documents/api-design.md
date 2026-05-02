@@ -151,11 +151,13 @@ type Error = {
 | POST | `/api/v1/forges/{id}/test-cases/{tcId}:run` | 运行单个测试 |
 | POST | `/api/v1/forges/{id}:test` | 运行全部测试 |
 | POST | `/api/v1/forges/{id}:generate-test-cases` | LLM 生成测试用例（一次性返回 JSON 批量）|
-| GET | `/api/v1/forges/{id}/run-history` | 运行历史 |
-| GET | `/api/v1/forges/{id}/test-history` | 测试历史（?batchId= 过滤）|
+| GET | `/api/v1/forges/{id}/executions` | 执行历史（统一端点，?kind=run\|test &batchId=&cursor=&limit= 过滤；替代旧的 run-history + test-history）✅ Phase 5 |
+| GET | `/api/v1/forges/{id}` | 详情（响应含 `pending` 字段，存在时为完整 ForgeVersion 对象，否则缺省）✅ Phase 5 |
+
+> Phase 5 整合（2026-05-02）：原 `forge_run_history` + `forge_test_history` 两表合并为 `forge_executions`（kind 字段区分），HTTP 端点对应合并为单 `:executions`。响应是分页 envelope（`{data, nextCursor, hasMore}`），与其他列表端点一致。
 
 #### chat（Phase 3 升级）✅
-Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 新增 `chat.tool_call_start`（tool name 出现即推）。无新 HTTP 端点，见 Phase 2 chat 端点。
+Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 events-design.md。无新 HTTP 端点，见 Phase 2 chat 端点。
 
 > Phase 3 后优化轮（2026-05-02）删除了原 Phase 3 装的 8 个通用 system tool（read_file/write_file/list_dir/run_shell/run_python/datetime/web_search/fetch_url）。新一代 system tools（Read/Write/Edit/Bash/Glob/Grep/LS）将在 Phase 5 重建。
 
