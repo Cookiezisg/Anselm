@@ -1,6 +1,9 @@
 // tools.go — Tool call execution within the ReAct loop.
-// Calls are partitioned by IsConcurrencySafe: adjacent safe calls run in
-// parallel batches; non-safe calls each get their own serial batch.
+// Calls are partitioned by the LLM-supplied ExecutionGroup field: same group
+// = parallel batch; different groups = sequential in ascending order.
+// Calls without an explicit group (ExecutionGroup ≤ 0) get a unique
+// auto-assigned group placed after all explicit ones, so the safe default
+// is "run alone, sequentially."
 // Each call passes through ValidateInput + CheckPermissions before Execute.
 //
 // SSE: this file does NOT publish events directly. After each tool finishes,
@@ -10,7 +13,9 @@
 // using its own domain event (forge), not chat.message.
 //
 // tools.go — ReAct 循环内的工具调用执行。
-// 调用按 IsConcurrencySafe 分批：相邻 safe 调用合并并行 batch；non-safe 调用各自独立串行。
+// 调用按 LLM 提供的 ExecutionGroup 字段分批：同 group = 并行 batch；不同
+// group = 升序串行。无显式 group（ExecutionGroup ≤ 0）的调用获得唯一的
+// 自动 group 排在所有显式 group 之后，因此安全默认是"独自运行，串行"。
 // 每个调用进 Execute 前先过 ValidateInput + CheckPermissions。
 //
 // SSE：本文件**不直接推事件**。每个 tool 跑完后，runTools 通过
@@ -23,6 +28,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -33,14 +39,16 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// runTools executes all tool calls grouped by concurrency safety, publishing
-// a chat.message snapshot after each tool completes. parentBlocks are the
-// blocks accumulated from earlier in this assistant message (text, tool calls)
-// — snapshots prepend them so subscribers always see the full message-so-far.
+// runTools executes all tool calls grouped by LLM-supplied ExecutionGroup,
+// publishing a chat.message snapshot after each tool completes. parentBlocks
+// are the blocks accumulated from earlier in this assistant message (text,
+// tool calls) — snapshots prepend them so subscribers always see the full
+// message-so-far.
 //
-// runTools 按并发安全性分组执行所有 tool 调用，每个 tool 跑完即推一次
-// chat.message 快照。parentBlocks 是当前 assistant 消息已积累的 blocks
-// （text、tool calls）——快照前置它们让订阅者始终看到完整 message-so-far。
+// runTools 按 LLM 提供的 ExecutionGroup 分组执行所有 tool 调用，每个 tool
+// 跑完即推一次 chat.message 快照。parentBlocks 是当前 assistant 消息已积累
+// 的 blocks（text、tool calls）——快照前置它们让订阅者始终看到完整
+// message-so-far。
 func (s *Service) runTools(
 	ctx context.Context,
 	calls []chatdomain.ToolCallData,
@@ -51,7 +59,7 @@ func (s *Service) runTools(
 		return nil
 	}
 	byName := s.toolsByName()
-	batches := partitionByConcurrencySafety(calls, byName)
+	batches := partitionByExecutionGroup(calls)
 
 	blocks := make([]chatdomain.Block, len(calls))
 
@@ -73,9 +81,13 @@ func (s *Service) runTools(
 	}
 
 	for _, b := range batches {
-		if b.safe && len(b.items) > 1 {
-			// Parallel batch.
-			// 并行 batch。
+		if len(b.items) > 1 {
+			// Parallel batch — LLM grouped these calls together by giving
+			// them the same execution_group, asserting they have no
+			// interdependence and no shared mutable state.
+			//
+			// 并行 batch——LLM 通过给这些调用分配相同 execution_group 把它们
+			// 归在一起，断言它们之间无依赖、无共享可变状态。
 			var wg sync.WaitGroup
 			for _, item := range b.items {
 				wg.Add(1)
@@ -90,15 +102,17 @@ func (s *Service) runTools(
 			}
 			wg.Wait()
 		} else {
-			// Serial batch (single non-safe call, or single safe call alone).
-			// 串行 batch（单个 non-safe，或仅一个 safe）。
-			for _, item := range b.items {
-				blk := s.runOneTool(ctx, byName[item.tc.Name], item.tc, msgID, item.idx)
-				mu.Lock()
-				blocks[item.idx] = blk
-				mu.Unlock()
-				publishProgress()
-			}
+			// Single-item batch (auto-assigned group, or a singleton
+			// explicit group). Run inline to skip goroutine setup.
+			//
+			// 单项 batch（自动分配的 group，或仅一项的显式 group）。
+			// 内联运行，省一次 goroutine 启动开销。
+			item := b.items[0]
+			blk := s.runOneTool(ctx, byName[item.tc.Name], item.tc, msgID, item.idx)
+			mu.Lock()
+			blocks[item.idx] = blk
+			mu.Unlock()
+			publishProgress()
 		}
 	}
 	return blocks
@@ -193,7 +207,7 @@ func (s *Service) executeTool(ctx context.Context, t toolapp.Tool, name string, 
 	return output, "", true
 }
 
-// ── Concurrency partitioning ──────────────────────────────────────────────────
+// ── ExecutionGroup partitioning ───────────────────────────────────────────────
 
 // indexedCall pairs a tool call with its original index in the calls slice
 // so block ordering survives parallel scheduling.
@@ -205,49 +219,93 @@ type indexedCall struct {
 	tc  chatdomain.ToolCallData
 }
 
-// concurrencyBatch is one execution group: either parallel (safe) or serial.
+// executionBatch is one set of calls that runs in parallel — its members
+// share an execution_group number (or all hit the auto-assignment fallback,
+// in which case each is in its own singleton batch). Distinct
+// executionBatches run sequentially in ascending group-number order.
 //
-// concurrencyBatch 是一个执行组：要么并行（safe）要么串行。
-type concurrencyBatch struct {
-	safe  bool
+// executionBatch 是一组并行执行的调用——成员共享一个 execution_group 号
+// （或都落入自动分配的 fallback，那种情况下每个独立成单项 batch）。
+// 不同 executionBatch 之间按 group 号升序串行。
+type executionBatch struct {
 	items []indexedCall
 }
 
-// partitionByConcurrencySafety groups calls into batches where adjacent
-// IsConcurrencySafe calls merge for parallel execution and non-safe calls
-// each get a singleton serial batch.
+// autoGroupBase is the floor used when assigning auto groups to calls
+// that omitted execution_group. Picking a value visibly higher than typical
+// LLM-supplied numbers makes auto assignments easy to spot in logs / tracing
+// while still preserving correct ordering (auto groups always sort after
+// any explicit group).
 //
-// Example: calls [A=safe, B=safe, C=unsafe, D=safe, E=unsafe]
+// autoGroupBase 是给省略了 execution_group 的调用分配自动 group 时的下限。
+// 选一个显著高于 LLM 典型值的数让自动分配在 log/trace 里一眼可见，同时
+// 保持顺序正确（自动 group 永远排在显式 group 之后）。
+const autoGroupBase = 1000
+
+// partitionByExecutionGroup buckets calls by their LLM-provided
+// ExecutionGroup field. Any call with ExecutionGroup ≤ 0 (missing or
+// negative) gets a unique auto-assigned group higher than autoGroupBase
+// (and higher than any explicit group), so unspecified calls run alone
+// after all the explicit batches.
 //
-//	→ batch 1: [A, B]   parallel
-//	  batch 2: [C]      serial
-//	  batch 3: [D]      parallel-of-1 (cannot merge across the unsafe boundary)
-//	  batch 4: [E]      serial
+// Example: calls [A:1, B:1, C:0, D:2, E:0]
 //
-// partitionByConcurrencySafety 按相邻 IsConcurrencySafe 合并的规则分组：
-// 相邻 safe 合并并行执行；non-safe 各自独立串行。
-func partitionByConcurrencySafety(
-	calls []chatdomain.ToolCallData,
-	byName map[string]toolapp.Tool,
-) []concurrencyBatch {
-	var out []concurrencyBatch
+//	maxExplicit = 2 → autoStart = max(maxExplicit+1, autoGroupBase) = 1000
+//	assignments: A:1, B:1, C:1000, D:2, E:1001
+//	sorted groups: [1, 2, 1000, 1001]
+//	batches:
+//	  batch 1: [A, B]   parallel (group 1)
+//	  batch 2: [D]      single   (group 2)
+//	  batch 3: [C]      single   (group 1000, auto)
+//	  batch 4: [E]      single   (group 1001, auto)
+//
+// partitionByExecutionGroup 按 LLM 提供的 ExecutionGroup 字段分桶。
+// 任何 ExecutionGroup ≤ 0（缺失或负值）的调用获得唯一的自动 group 号
+// （高于 autoGroupBase 且高于任何显式 group），未指定的调用独自运行，
+// 且都排在显式 batch 之后。
+func partitionByExecutionGroup(calls []chatdomain.ToolCallData) []executionBatch {
+	if len(calls) == 0 {
+		return nil
+	}
+
+	// Find max explicit group to keep auto assignments cleanly separated.
+	// 找最大显式 group，让自动分配干净分隔。
+	maxExplicit := 0
+	for _, tc := range calls {
+		if tc.ExecutionGroup > maxExplicit {
+			maxExplicit = tc.ExecutionGroup
+		}
+	}
+	nextAuto := maxExplicit + 1
+	if nextAuto < autoGroupBase {
+		nextAuto = autoGroupBase
+	}
+
+	// Bucket by group, preserving original call index inside each bucket.
+	// Iteration order over calls is deterministic, so the per-bucket
+	// item order matches LLM emission order — important for stable
+	// snapshot rendering.
+	//
+	// 按 group 分桶，桶内保留原 call 索引。calls 的迭代顺序确定，
+	// 桶内 item 顺序匹配 LLM 发送顺序——快照渲染稳定的前提。
+	buckets := map[int][]indexedCall{}
+	var groupNums []int
 	for i, tc := range calls {
-		argsRaw, _ := json.Marshal(tc.Arguments)
-		safe := false
-		if t, ok := byName[tc.Name]; ok {
-			safe = t.IsConcurrencySafe(argsRaw)
+		g := tc.ExecutionGroup
+		if g <= 0 {
+			g = nextAuto
+			nextAuto++
 		}
-		// Merge into the last batch only if both it and the new call are safe.
-		// Otherwise the unsafe boundary forces a new batch.
-		// 仅当上一 batch 和新调用都 safe 时合并；否则 unsafe 边界强制起新 batch。
-		if last := len(out) - 1; last >= 0 && out[last].safe && safe {
-			out[last].items = append(out[last].items, indexedCall{idx: i, tc: tc})
-		} else {
-			out = append(out, concurrencyBatch{
-				safe:  safe,
-				items: []indexedCall{{idx: i, tc: tc}},
-			})
+		if _, ok := buckets[g]; !ok {
+			groupNums = append(groupNums, g)
 		}
+		buckets[g] = append(buckets[g], indexedCall{idx: i, tc: tc})
+	}
+
+	sort.Ints(groupNums)
+	out := make([]executionBatch, 0, len(groupNums))
+	for _, g := range groupNums {
+		out = append(out, executionBatch{items: buckets[g]})
 	}
 	return out
 }

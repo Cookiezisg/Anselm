@@ -15,14 +15,27 @@ import (
 	"testing"
 )
 
-// testKey returns the DeepSeek API key from env or the hardcoded fallback.
+// requireKey returns the DeepSeek API key from env, or skips the test when
+// it is absent. Per §T3: integration tests that hit real upstream APIs must
+// be env-gated and skip gracefully so plain `go test ./...` (no .env load)
+// does not produce noisy auth failures.
 //
-// testKey 从环境变量或硬编码兜底返回 DeepSeek API Key。
-func testKey() string {
-	if k := os.Getenv("DEEPSEEK_API_KEY"); k != "" {
-		return k
+// Use `make test-unit` to skip all TestIntegration_* tests; use
+// `make test-pipeline` (sources .env) to run them when keys exist.
+//
+// requireKey 从 env 取 DeepSeek API key，缺失则 t.Skip。按 §T3：调真实
+// 上游 API 的集成测试必须 env 门控、缺失优雅 skip——这样 `go test ./...`
+// 在没 source .env 时不会刷一堆假 auth 失败。
+//
+// `make test-unit` 跳过所有 TestIntegration_*；`make test-pipeline`（自动
+// source .env）才在 key 存在时跑这些 live 集成测试。
+func requireKey(t *testing.T) string {
+	t.Helper()
+	k := os.Getenv("DEEPSEEK_API_KEY")
+	if k == "" {
+		t.Skip("DEEPSEEK_API_KEY not set; skipping integration test (use `make test-pipeline` to load .env)")
 	}
-	return "shabi"
+	return k
 }
 
 // TestIntegration_TextStream verifies that text tokens are streamed correctly.
@@ -34,7 +47,7 @@ func TestIntegration_TextStream(t *testing.T) {
 	client, baseURL, err := factory.Build(Config{
 		Provider: "deepseek",
 		ModelID:  "deepseek-chat",
-		Key:      testKey(),
+		Key:      requireKey(t),
 	})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -42,7 +55,7 @@ func TestIntegration_TextStream(t *testing.T) {
 
 	req := Request{
 		ModelID: "deepseek-chat",
-		Key:     testKey(),
+		Key:     requireKey(t),
 		BaseURL: baseURL,
 		System:  "Reply in exactly 5 words.",
 		Messages: []LLMMessage{
@@ -85,13 +98,13 @@ func TestIntegration_TextStream(t *testing.T) {
 func TestIntegration_Generate(t *testing.T) {
 	ctx := context.Background()
 	factory := NewFactory()
-	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: testKey()})
+	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: requireKey(t)})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 
 	req := Request{
-		ModelID: "deepseek-chat", Key: testKey(), BaseURL: baseURL,
+		ModelID: "deepseek-chat", Key: requireKey(t), BaseURL: baseURL,
 		System:   "Reply with only the number, nothing else.",
 		Messages: []LLMMessage{{Role: RoleUser, Content: "What is 2+2?"}},
 	}
@@ -114,7 +127,7 @@ func TestIntegration_Generate(t *testing.T) {
 func TestIntegration_ToolCall(t *testing.T) {
 	ctx := context.Background()
 	factory := NewFactory()
-	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: testKey()})
+	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: requireKey(t)})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
@@ -132,7 +145,7 @@ func TestIntegration_ToolCall(t *testing.T) {
 	}
 
 	req := Request{
-		ModelID: "deepseek-chat", Key: testKey(), BaseURL: baseURL,
+		ModelID: "deepseek-chat", Key: requireKey(t), BaseURL: baseURL,
 		System:   "Use tools when asked.",
 		Messages: []LLMMessage{{Role: RoleUser, Content: "What's the weather in Beijing?"}},
 		Tools:    []ToolDef{weatherTool},
@@ -207,13 +220,13 @@ func TestIntegration_ToolCall(t *testing.T) {
 func TestIntegration_MultiTurn(t *testing.T) {
 	ctx := context.Background()
 	factory := NewFactory()
-	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: testKey()})
+	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: requireKey(t)})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 
 	req := Request{
-		ModelID: "deepseek-chat", Key: testKey(), BaseURL: baseURL,
+		ModelID: "deepseek-chat", Key: requireKey(t), BaseURL: baseURL,
 		System: "You are a concise assistant.",
 		Messages: []LLMMessage{
 			{Role: RoleUser, Content: "My favourite number is 42. Remember it."},
@@ -240,13 +253,13 @@ func TestIntegration_ContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	factory := NewFactory()
-	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: testKey()})
+	client, baseURL, err := factory.Build(Config{Provider: "deepseek", ModelID: "deepseek-chat", Key: requireKey(t)})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 
 	req := Request{
-		ModelID: "deepseek-chat", Key: testKey(), BaseURL: baseURL,
+		ModelID: "deepseek-chat", Key: requireKey(t), BaseURL: baseURL,
 		Messages: []LLMMessage{{Role: RoleUser, Content: "Count from 1 to 100 slowly."}},
 	}
 

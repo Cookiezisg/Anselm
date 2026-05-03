@@ -8,7 +8,7 @@
 // sse.go — pipeline 测试用的 SSE 收集器。HTTP 打开 GET /api/v1/events?conversationId=，
 // 解 text/event-stream，同时暴露原始事件流和按 entity-state 模型整理过的快照
 // （Message 按 id keyed，Forge 按 id keyed），让测试可以断言"最终状态"而无需轮询。
-package test
+package harness
 
 import (
 	"bufio"
@@ -353,6 +353,28 @@ func (s *SSESub) WaitForAssistantTerminal(timeout time.Duration) *chatdomain.Mes
 				m.Status == chatdomain.StatusError ||
 				m.Status == chatdomain.StatusCancelled)
 	}, timeout)
+}
+
+// WaitForConversation polls for a conversation snapshot matching predicate.
+// Fails the test on timeout.
+//
+// WaitForConversation 等满足 predicate 的 conversation 快照，超时 fail。
+func (s *SSESub) WaitForConversation(predicate func(*convdomain.Conversation) bool, timeout time.Duration) *convdomain.Conversation {
+	s.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		s.mu.Lock()
+		if s.conv != nil && predicate(s.conv) {
+			out := *s.conv
+			s.mu.Unlock()
+			return &out
+		}
+		s.mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+	}
+	s.t.Fatalf("WaitForConversation: timed out after %s; saw %d raw events",
+		timeout, len(s.raw))
+	return nil
 }
 
 // WaitForForge waits for a forge snapshot matching predicate.

@@ -762,7 +762,7 @@ Run 时 ctx-cancel → 走通用 `context.Canceled`，不需要 forge 专门 sen
 
 - [ ] `cmd/server/main.go` Bootstrap + Sandbox 注入
 - [ ] dev 模式从 `FORGIFY_DEV_RESOURCES` 拷资源
-- [ ] Makefile 加 `make download-resources` 一次性下 uv + python-build-standalone
+- [ ] `backend/cmd/resources/main.go` 一次性下 uv + python-build-standalone（`cd backend && go run ./cmd/resources`）
 
 ### Phase E：文档同步（~1 天，按 §S14）
 

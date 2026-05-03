@@ -3,25 +3,28 @@
 //
 // Architecture:
 //
-//   - Tool interface: 10 required methods covering identity, static metadata,
+//   - Tool interface: 9 required methods covering identity, static metadata,
 //     args-dependent hooks, and main execution.
 //   - Standard injected fields: every tool's Parameters schema is augmented
-//     with two LLM-facing fields, "summary" (required string) and
-//     "destructive" (optional bool). The framework strips them before passing
-//     args to Execute. They are stored as first-class fields on ToolCallData.
+//     with three LLM-facing fields — "summary" (required string),
+//     "destructive" (optional bool, default false), and "execution_group"
+//     (optional integer ≥ 1; same group = parallel batch). The framework
+//     strips all three before passing args to Execute and stores them as
+//     first-class fields on ToolCallData.
 //   - Sub-packages by tool family: tool/forge/ for user-forged-tool tools,
-//     plus future tool/filesystem/, tool/shell/, tool/web/ (Phase 5).
-//     §S12 example position; alias `<sub><parent>` per §S13.
+//     plus future tool/filesystem/, tool/shell/, tool/web/, tool/tasks/,
+//     tool/ux/ (Phase 5). §S12 example position; alias `<sub><parent>` per §S13.
 //
 // Package tool 定义每个 system tool 必须实现的 Tool 接口及框架层 LLM 工具调用处理设施。
 //
 // 架构：
-//   - Tool 接口：10 个必须方法，涵盖 identity / 静态元数据 / args-dependent 钩子 / 主入口
-//   - 标准注入字段：每个 tool 的 Parameters schema 自动加上两个 LLM-facing 字段——
-//     "summary"（必填 string）和 "destructive"（可选 bool）。框架在传给 Execute 前剥除。
-//     二者作为 ToolCallData 的一等字段独立存储。
-//   - 按 tool 家族分子包：tool/forge/、tool/filesystem/、tool/shell/、tool/web/
-//     （§S12 例外位置，§S13 别名规则 `<sub><parent>`）
+//   - Tool 接口：9 个必须方法，涵盖 identity / 静态元数据 / args-dependent 钩子 / 主入口
+//   - 标准注入字段：每个 tool 的 Parameters schema 自动加上三个 LLM-facing 字段——
+//     "summary"（必填 string）、"destructive"（可选 bool 默认 false）、
+//     "execution_group"（可选 integer ≥ 1，同 group = 并行 batch）。框架在传给
+//     Execute 前剥除三者，并作为 ToolCallData 一等字段独立存储。
+//   - 按 tool 家族分子包：tool/forge/、tool/filesystem/、tool/shell/、tool/web/、
+//     tool/tasks/、tool/ux/（§S12 例外位置，§S13 别名规则 `<sub><parent>`）
 package tool
 
 import (
@@ -64,12 +67,22 @@ const (
 // ── Tool interface ────────────────────────────────────────────────────────────
 
 // Tool is the contract every system tool must implement.
-// All 10 methods are required — there is no BaseTool to inherit defaults from.
+// All 9 methods are required — there is no BaseTool to inherit defaults from.
 // This is intentional: each tool's metadata is explicit and greppable.
 //
+// Concurrency note: there is no IsConcurrencySafe method anymore. Parallel
+// scheduling is driven by the LLM-supplied "execution_group" standard field
+// (extracted by StripStandardFields). Same group = parallel batch; different
+// groups = sequential in ascending order. See chat/tools.go for the
+// partitioning logic.
+//
 // Tool 是每个 system tool 必须实现的契约。
-// 10 个方法全部必须实现——不通过 BaseTool 提供默认。这是有意为之：
+// 9 个方法全部必须实现——不通过 BaseTool 提供默认。这是有意为之：
 // 每个 tool 的元数据都显式且可 grep。
+//
+// 并发说明：不再有 IsConcurrencySafe 方法。并行调度由 LLM 自报的
+// "execution_group" 标准字段（StripStandardFields 提取）驱动。同 group =
+// 并行 batch；不同 group = 升序串行。分批逻辑见 chat/tools.go。
 type Tool interface {
 	// ── Identity ──────────────────────────────────────────────────────────
 
@@ -113,14 +126,6 @@ type Tool interface {
 
 	// ── Args-dependent hooks ──────────────────────────────────────────────
 
-	// IsConcurrencySafe decides if a specific call can run in parallel with
-	// other calls. For most tools this matches IsReadOnly(); for Bash and
-	// similar it depends on the actual command.
-	//
-	// IsConcurrencySafe 决定此次具体调用能否与其他并行。多数 tool 与 IsReadOnly() 一致；
-	// Bash 这种 args 决定（"ls" 安全 / "rm" 不安全）。
-	IsConcurrencySafe(args json.RawMessage) bool
-
 	// ValidateInput performs pre-Execute parameter validation. Return nil if
 	// input is valid; an error halts the call before Execute (the error text
 	// becomes the tool_result, fed back to the LLM).
@@ -140,12 +145,13 @@ type Tool interface {
 
 	// ── Main entry ────────────────────────────────────────────────────────
 
-	// Execute runs the tool with stripped args (no "summary" / "destructive").
+	// Execute runs the tool with stripped args (the three standard fields
+	// "summary" / "destructive" / "execution_group" have been removed).
 	// Returns the result string (fed back to LLM as tool_result) and an error.
 	// If err != nil, the framework converts it to a failure tool_result.
 	//
-	// Execute 用剥除标准字段（"summary" / "destructive"）的 args 执行。
-	// 返回结果字符串（作为 tool_result 喂回 LLM）和 error。
+	// Execute 用剥除三个标准字段（"summary" / "destructive" / "execution_group"）
+	// 的 args 执行。返回结果字符串（作为 tool_result 喂回 LLM）和 error。
 	// err != nil 时框架转成失败 tool_result。
 	Execute(ctx context.Context, argsJSON string) (string, error)
 }
@@ -177,14 +183,27 @@ func ToLLMDefs(tools []Tool) []llminfra.ToolDef {
 
 // ── injectStandardFields ──────────────────────────────────────────────────────
 
-// injectStandardFields adds "summary" (required string) and "destructive"
-// (optional bool, default false) to the tool's Parameters schema.
-// If either field name is already present (implementation bug), it panics
+// injectStandardFields adds the three standard LLM-facing fields to the
+// tool's Parameters schema:
+//
+//   - "summary"          required string — one-sentence description of this call
+//   - "destructive"      optional bool   — flag for irreversible operations (UI badge)
+//   - "execution_group"  optional int ≥1 — same group = parallel batch; missing
+//     = framework auto-assigns a unique sequential group (run alone, after any
+//     explicit groups). See chat/tools.go partition logic.
+//
+// If any field name is already present (implementation bug), it panics
 // to fail fast at development time.
 //
-// injectStandardFields 向 tool 参数 schema 注入 "summary"（必填 string）
-// 和 "destructive"（可选 bool，默认 false）。
-// 若任一字段名已被占用（实现 bug）直接 panic——开发期快速失败。
+// injectStandardFields 向 tool 参数 schema 注入三个标准 LLM-facing 字段：
+//
+//   - "summary"          必填 string  —— 一句话描述本次调用
+//   - "destructive"      可选 bool    —— 不可逆操作标记（UI 徽章）
+//   - "execution_group"  可选 int ≥1  —— 同 group = 并行 batch；缺失 =
+//     框架自动分配唯一串行 group（独自运行，且排在所有显式 group 之后）。
+//     分批逻辑见 chat/tools.go。
+//
+// 任一字段名已被占用（实现 bug）直接 panic——开发期快速失败。
 func injectStandardFields(params json.RawMessage) json.RawMessage {
 	var schema map[string]json.RawMessage
 	if err := json.Unmarshal(params, &schema); err != nil {
@@ -202,6 +221,9 @@ func injectStandardFields(params json.RawMessage) json.RawMessage {
 		if _, conflict := props["destructive"]; conflict {
 			panic("tool: parameters already contain 'destructive' field; rename to avoid conflict")
 		}
+		if _, conflict := props["execution_group"]; conflict {
+			panic("tool: parameters already contain 'execution_group' field; rename to avoid conflict")
+		}
 	} else {
 		props = map[string]json.RawMessage{}
 	}
@@ -214,6 +236,11 @@ func injectStandardFields(params json.RawMessage) json.RawMessage {
 		"type": "boolean",
 		"description": "Set to true if this call may cause irreversible damage (rm -rf, DELETE FROM, git push --force, deleting forges, running forges that modify external state, etc.). The user will see a warning when true. Default false.",
 		"default": false
+	}`)
+	props["execution_group"] = json.RawMessage(`{
+		"type": "integer",
+		"minimum": 1,
+		"description": "Optional execution batch identifier. Tool calls with the same execution_group run in parallel; different groups run sequentially in ascending order. Set the same number on calls that have NO interdependence and NO shared mutable state (typical example: parallel git status + git diff + git log). If omitted, this call gets a unique sequential group — runs alone, after any explicit groups. When unsure, omit the field (sequential is always safe)."
 	}`)
 
 	propsRaw, err := json.Marshal(props)
@@ -251,20 +278,59 @@ func injectStandardFields(params json.RawMessage) json.RawMessage {
 	return result
 }
 
-// ── StripStandardFields ───────────────────────────────────────────────────────
+// ── StandardFields + StripStandardFields ──────────────────────────────────────
 
-// StripStandardFields extracts "summary" and "destructive" from argsJSON and
-// returns them along with the JSON with both fields removed.
-// Missing fields default to zero values (empty summary, false destructive).
-// Invalid JSON returns zero values and the original argsJSON unchanged.
+// StandardFields is the parsed form of the three framework-injected fields
+// extracted by StripStandardFields. Fields stay zero-valued when absent or
+// type-mismatched in the LLM's args (the tool's ValidateInput surfaces real
+// problems back to the LLM).
 //
-// StripStandardFields 从 argsJSON 中提取 "summary" 和 "destructive"，
-// 返回二者和剥除后的 JSON。字段缺失则取零值（summary 空、destructive false）。
-// JSON 不合法时返回零值和原始 argsJSON。
-func StripStandardFields(argsJSON string) (summary string, destructive bool, strippedJSON string) {
+// StandardFields 是 StripStandardFields 提取出的三个框架注入字段的解析结果。
+// 字段在 LLM args 中缺失或类型不对时保持零值（真正的问题由 tool 的
+// ValidateInput 反馈给 LLM）。
+type StandardFields struct {
+	// Summary is the LLM's one-sentence description of this call.
+	// Empty when the LLM omitted it (a schema-required-field violation
+	// the LLM should rarely commit).
+	//
+	// Summary 是 LLM 对本次调用的一句话描述。LLM 漏填时为空（schema 必填
+	// 字段被违反，LLM 应该很少这么干）。
+	Summary string
+
+	// Destructive is the LLM's self-report that this call may cause
+	// irreversible damage. Used by the UI to show a warning badge; not
+	// enforced by the framework.
+	//
+	// Destructive 是 LLM 自报"本次调用可能不可逆破坏"。UI 据此显示警示
+	// 徽章；框架不强制。
+	Destructive bool
+
+	// ExecutionGroup is the LLM's parallel-batch hint (≥1) for this call.
+	// 0 means "missing/auto" — chat/tools.go's partition logic assigns a
+	// unique sequential group to each 0-valued call (run alone, after any
+	// explicit groups). Negative values are treated as 0.
+	//
+	// ExecutionGroup 是 LLM 自报的并行 batch 提示（≥1）。0 表示"缺失/自动"
+	// ——chat/tools.go 的分批逻辑给每个 0 值调用分配唯一的串行 group
+	// （独自运行，且排在所有显式 group 之后）。负值视同 0。
+	ExecutionGroup int
+}
+
+// StripStandardFields extracts the three injected fields from argsJSON and
+// returns them along with the JSON with all three fields removed.
+// Missing fields default to zero values (empty Summary, false Destructive,
+// zero ExecutionGroup which the partition layer treats as "auto"). Invalid
+// JSON returns a zero StandardFields and the original argsJSON unchanged.
+//
+// StripStandardFields 从 argsJSON 中提取三个注入字段，返回它们和剥除三者
+// 后的 JSON。字段缺失则取零值（Summary 空 / Destructive false /
+// ExecutionGroup 0——分层逻辑会将其视为"auto"）。JSON 不合法时返回零值
+// StandardFields 和原始 argsJSON。
+func StripStandardFields(argsJSON string) (StandardFields, string) {
+	var fields StandardFields
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(argsJSON), &m); err != nil {
-		return "", false, argsJSON
+		return fields, argsJSON
 	}
 	// LLM-produced args: if the LLM emits the wrong type (e.g. summary as
 	// an int) the field stays zero. We deliberately don't return / log
@@ -275,16 +341,23 @@ func StripStandardFields(argsJSON string) (summary string, destructive bool, str
 	// 此处刻意不返错 / 不打日志——下游 tool 的 ValidateInput 会拒绝并以
 	// 重试信号回到 LLM，那才是真正的暴露面。
 	if raw, ok := m["summary"]; ok {
-		_ = json.Unmarshal(raw, &summary)
+		_ = json.Unmarshal(raw, &fields.Summary)
 		delete(m, "summary")
 	}
 	if raw, ok := m["destructive"]; ok {
-		_ = json.Unmarshal(raw, &destructive)
+		_ = json.Unmarshal(raw, &fields.Destructive)
 		delete(m, "destructive")
+	}
+	if raw, ok := m["execution_group"]; ok {
+		_ = json.Unmarshal(raw, &fields.ExecutionGroup)
+		if fields.ExecutionGroup < 0 {
+			fields.ExecutionGroup = 0 // negative → treat as missing
+		}
+		delete(m, "execution_group")
 	}
 	b, err := json.Marshal(m)
 	if err != nil {
-		return summary, destructive, argsJSON
+		return fields, argsJSON
 	}
-	return summary, destructive, string(b)
+	return fields, string(b)
 }

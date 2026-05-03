@@ -47,7 +47,6 @@ func (t *GetForge) RequiresWorkspace() bool { return false }
 
 // ── Args-dependent hooks ──────────────────────────────────────────────────────
 
-func (t *GetForge) IsConcurrencySafe(json.RawMessage) bool { return true }
 
 func (t *GetForge) ValidateInput(json.RawMessage) error { return nil }
 

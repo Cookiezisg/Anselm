@@ -100,7 +100,6 @@ func (t *EditForge) RequiresWorkspace() bool { return false }
 
 // ── Args-dependent hooks ──────────────────────────────────────────────────────
 
-func (t *EditForge) IsConcurrencySafe(json.RawMessage) bool { return false }
 
 func (t *EditForge) ValidateInput(json.RawMessage) error { return nil }
 

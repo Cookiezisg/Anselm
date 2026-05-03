@@ -24,7 +24,9 @@ import (
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -42,6 +44,7 @@ import (
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
 
@@ -150,7 +153,7 @@ func main() {
 				zap.Error(err))
 		}
 	} else {
-		log.Warn("FORGIFY_DEV_RESOURCES not set; forge sandbox will be unavailable. Run `make download-resources` to enable forge ops.")
+		log.Warn("FORGIFY_DEV_RESOURCES not set; forge sandbox will be unavailable. Run `go run ./cmd/resources` from backend/ to enable forge ops.")
 	}
 
 	forgeService := forgeapp.NewService(
@@ -173,14 +176,26 @@ func main() {
 		log,
 	)
 
-	forgeTools := forgetool.ForgeTools(
+	// PathGuard for filesystem tools — denies a curated list of sensitive
+	// paths (~/.ssh / ~/.aws / ~/.gnupg / ~/.netrc / ~/.config/git-credentials
+	// / ~/.forgify/ / system paths). See pkg/pathguard for the full list and
+	// 02-tools-deep/03-shell.md decision D5 for why we use a thin deny-list
+	// rather than OS-level sandboxing.
+	//
+	// 文件系统 tool 的 PathGuard——拒绝精选的敏感路径清单。详见 pkg/pathguard
+	// 与 02-tools-deep/03-shell.md 决策 D5。
+	pathGuard := pathguardpkg.NewDefault()
+
+	tools := forgetool.ForgeTools(
 		forgeService,
 		chatRepo,
 		modelService,
 		apikeyService,
 		llmFactory,
 	)
-	chatService.SetTools(forgeTools)
+	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
+	tools = append(tools, searchtool.SearchTools(pathGuard)...)
+	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
 	if err != nil {
@@ -202,7 +217,7 @@ func main() {
 		ChatService:         chatService,
 		EventsBridge:        eventsBridge,
 		Dev:                 *dev,
-		Tools:               forgeTools,
+		Tools:               tools,
 		DB:                  gdb,
 		LogBroadcaster:      broadcaster,
 		CollectionsDir:      *collectionsDir,

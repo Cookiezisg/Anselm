@@ -121,17 +121,40 @@ type TextData struct {
 }
 
 // ToolCallData is the Data payload for BlockTypeToolCall.
-// Arguments never contains "summary" or "destructive" — those are stored
-// separately as first-class fields.
+// Arguments never contains the three framework-injected standard fields
+// ("summary" / "destructive" / "execution_group") — those are stored
+// separately as first-class fields here.
 //
 // ToolCallData 是 BlockTypeToolCall 的 Data 载荷。
-// Arguments 不含 "summary" 和 "destructive"，二者单独存储为一等字段。
+// Arguments 不含三个框架注入的标准字段（"summary" / "destructive" /
+// "execution_group"），三者作为一等字段独立存储。
 type ToolCallData struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Summary     string         `json:"summary"`     // LLM-provided one-liner, may be empty
-	Destructive bool           `json:"destructive"` // LLM-marked: true if call may cause irreversible damage; UI shows warning
-	Arguments   map[string]any `json:"arguments"`   // stripped of "summary" and "destructive"
+	ID   string `json:"id"`
+	Name string `json:"name"`
+
+	// Summary is the LLM-provided one-line description; may be empty when
+	// the LLM omitted the (schema-required) field.
+	//
+	// Summary 是 LLM 提供的一句话描述；LLM 漏填 schema 必填字段时为空。
+	Summary string `json:"summary"`
+
+	// Destructive is the LLM's self-report that this call may cause
+	// irreversible damage; the UI shows a warning badge when true.
+	//
+	// Destructive 是 LLM 自报"本次调用可能不可逆破坏"；为 true 时 UI 显示警示徽章。
+	Destructive bool `json:"destructive"`
+
+	// ExecutionGroup is the LLM's parallel-batch hint (≥1). 0 means
+	// "missing/auto" — chat/tools.go's partition layer assigns a unique
+	// sequential group to each 0-valued call (run alone, after any explicit
+	// groups). Same explicit group value across calls = parallel batch.
+	//
+	// ExecutionGroup 是 LLM 自报的并行 batch 提示（≥1）。0 表示"缺失/自动"
+	// ——chat/tools.go 的分批层给每个 0 值调用分配唯一的串行 group（独自运行，
+	// 排在所有显式 group 之后）。多个调用的显式 group 值相同 = 并行 batch。
+	ExecutionGroup int `json:"executionGroup"`
+
+	Arguments map[string]any `json:"arguments"` // stripped of the three standard fields
 }
 
 // ToolResultData is the Data payload for BlockTypeToolResult.

@@ -171,13 +171,16 @@ func TestAssemble_CreatedAtSet(t *testing.T) {
 
 // ── parseToolArgs ─────────────────────────────────────────────────────────────
 
-func TestParseToolArgs_WithSummaryAndDestructive(t *testing.T) {
-	summary, destructive, args := parseToolArgs(`{"summary":"doing X","destructive":true,"key":"val"}`)
-	if summary != "doing X" {
-		t.Errorf("summary = %q", summary)
+func TestParseToolArgs_WithAllStandardFields(t *testing.T) {
+	fields, args := parseToolArgs(`{"summary":"doing X","destructive":true,"execution_group":3,"key":"val"}`)
+	if fields.Summary != "doing X" {
+		t.Errorf("Summary = %q", fields.Summary)
 	}
-	if !destructive {
-		t.Errorf("destructive = false, want true")
+	if !fields.Destructive {
+		t.Errorf("Destructive = false, want true")
+	}
+	if fields.ExecutionGroup != 3 {
+		t.Errorf("ExecutionGroup = %d, want 3", fields.ExecutionGroup)
 	}
 	if args["key"] != "val" {
 		t.Errorf("key = %v", args["key"])
@@ -188,15 +191,21 @@ func TestParseToolArgs_WithSummaryAndDestructive(t *testing.T) {
 	if _, ok := args["destructive"]; ok {
 		t.Error("destructive should be stripped from args map")
 	}
+	if _, ok := args["execution_group"]; ok {
+		t.Error("execution_group should be stripped from args map")
+	}
 }
 
 func TestParseToolArgs_NoStandardFields(t *testing.T) {
-	summary, destructive, args := parseToolArgs(`{"key":"val"}`)
-	if summary != "" {
-		t.Errorf("summary = %q, want empty", summary)
+	fields, args := parseToolArgs(`{"key":"val"}`)
+	if fields.Summary != "" {
+		t.Errorf("Summary = %q, want empty", fields.Summary)
 	}
-	if destructive {
-		t.Error("destructive = true, want false (default when missing)")
+	if fields.Destructive {
+		t.Error("Destructive = true, want false (default when missing)")
+	}
+	if fields.ExecutionGroup != 0 {
+		t.Errorf("ExecutionGroup = %d, want 0 (auto when missing)", fields.ExecutionGroup)
 	}
 	if args["key"] != "val" {
 		t.Errorf("key = %v", args["key"])
@@ -204,12 +213,15 @@ func TestParseToolArgs_NoStandardFields(t *testing.T) {
 }
 
 func TestParseToolArgs_MalformedJSON(t *testing.T) {
-	summary, destructive, args := parseToolArgs(`not-json`)
-	if summary != "" {
-		t.Errorf("summary = %q, want empty for bad JSON", summary)
+	fields, args := parseToolArgs(`not-json`)
+	if fields.Summary != "" {
+		t.Errorf("Summary = %q, want empty for bad JSON", fields.Summary)
 	}
-	if destructive {
-		t.Error("destructive = true, want false for bad JSON")
+	if fields.Destructive {
+		t.Error("Destructive = true, want false for bad JSON")
+	}
+	if fields.ExecutionGroup != 0 {
+		t.Errorf("ExecutionGroup = %d, want 0 for bad JSON", fields.ExecutionGroup)
 	}
 	if args["raw"] != "not-json" {
 		t.Errorf("fallback raw = %v", args["raw"])

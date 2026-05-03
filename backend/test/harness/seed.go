@@ -5,20 +5,20 @@
 //
 // seed.go — 基于 harness Service 层的 fixture helper。pipeline 测试开头几行就能
 // 走到"准备聊天"状态。
-package test
+package harness
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
+	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-
-	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
-	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 )
 
 // ProviderDeepSeek is the provider name string the apikey/model layers expect.
@@ -27,6 +27,19 @@ import (
 // ProviderDeepSeek 是 apikey/model 层期望的 provider 名字字符串。放这里
 // （不放 domain）因为 domain 把 provider 当自由字符串。
 const ProviderDeepSeek = "deepseek"
+
+// SimpleForgeCode is minimal valid Python for forge tests.
+const SimpleForgeCode = `def hello(name: str) -> str:
+    """Greet someone.
+
+    Args:
+        name: Person's name.
+
+    Returns:
+        Greeting message.
+    """
+    return f"Hello, {name}!"
+`
 
 // LocalCtx returns a context stamped with the default local user — the same
 // user the InjectUserID middleware stamps for HTTP requests. Use this for
@@ -56,6 +69,7 @@ func (h *Harness) SeedDeepSeek(t *testing.T, apiKey string) {
 		Provider:    ProviderDeepSeek,
 		DisplayName: "pipeline-deepseek",
 		Key:         apiKey,
+		BaseURL:     h.fakeLLMBaseURL, // non-empty → routes calls to FakeLLMServer
 	}); err != nil {
 		t.Fatalf("seed apikey: %v", err)
 	}
@@ -97,4 +111,21 @@ func (h *Harness) NewForge(t *testing.T, name, code string) *forgedomain.Forge {
 		t.Fatalf("create forge %q: %v", name, err)
 	}
 	return f
+}
+
+// RequireForgeResources skips the test if FORGIFY_DEV_RESOURCES is not set
+// or if the harness sandbox was not successfully bootstrapped (Python binary
+// absent). All forge-sandbox pipeline tests call this at the top.
+//
+// RequireForgeResources 在 FORGIFY_DEV_RESOURCES 未设置或沙箱 Bootstrap 失败
+// （Python 不存在）时 skip 测试。所有 forge sandbox pipeline 测试在开头调用。
+func RequireForgeResources(t *testing.T, h *Harness) {
+	t.Helper()
+	if os.Getenv("FORGIFY_DEV_RESOURCES") == "" {
+		t.Skip("FORGIFY_DEV_RESOURCES not set; skipping (run `go run ./cmd/resources` from backend/ first)")
+	}
+	pythonPath := h.Sandbox.PythonPath()
+	if _, err := os.Stat(pythonPath); err != nil {
+		t.Skipf("sandbox Python not found at %q (Bootstrap may have failed): %v", pythonPath, err)
+	}
 }

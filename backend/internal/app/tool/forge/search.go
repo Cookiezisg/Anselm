@@ -58,7 +58,6 @@ func (t *SearchForge) RequiresWorkspace() bool { return false }
 
 // ── Args-dependent hooks ──────────────────────────────────────────────────────
 
-func (t *SearchForge) IsConcurrencySafe(json.RawMessage) bool { return true }
 
 func (t *SearchForge) ValidateInput(json.RawMessage) error { return nil }
 

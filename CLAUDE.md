@@ -108,7 +108,11 @@
 - **S16 错误包装格式**：上抛错误用 `fmt.Errorf("<pkg>.<Method>: %w", err)`，sentinel 在最里层。例：`apikeystore.List: missing user id in context`。**禁止**裸 `errors.New` 套娃丢失原 sentinel；**禁止**自创新前缀代替 `%w` 包装。`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17 errmap 单一事实源**：每个会到达 handler 的 sentinel 必须登记到 `transport/httpapi/response/errmap.go::errTable`——**包括** `pkg/` 和 `infra/` 中跨层使用的（如 `reqctxpkg.ErrMissingUserID` / `cryptoinfra.ErrUnsupportedVersion`）。未登记的 sentinel 会触发"unmapped domain error" ERROR 日志，污染烟雾报警
 - **S18 Tool 接口规约** — 见 §S18 详节
-- **S19 Dev log 节制**：`progress-record.md` 每条 dev log 1-2 句、~30-100 汉字，跟 Phase 0-2 早期条目同密度。保留：日期标签（`[refactor]` / `[fix]` / `[doc]` 等）/ 模块 / 关键数字（测试数 / 文件数 / 端点数）/ 一句结论。砍：实现细节、设计权衡 why/how、踩坑过程、命名漂移记录——这些归 git log / commit message / 设计文档。**Dev log 是日期索引，不是工程档案**——长篇是噪音，密度过高反而难找历史。新条目超 100 字时回头砍——多半是把"做了什么"写成了"为什么这么做"。
+- **S19 Dev log 节制**：`progress-record.md` 每条 dev log 1-2 句、~30-100 汉字，跟 Phase 0-2 早期条目同密度。保留：日期标签（`[refactor]` / `[fix]` / `[doc]` 等）/ 模块 / 关键数字（测试数 / 文件数 / 端点数）/ 一句结论。砍：实现细节、设计权衡 why/how、踩坑过程、命名漂移记录——这些归 git log / commit message / 设计文档。**Dev log 是日期索引，不是工程档案**——长篇是噪音，密度过高反而难找历史。
+  - **超 100 字回头砍**——多半是把"做了什么"写成了"为什么这么做"，把"为什么"删了通常立刻就回到 100 字以内
+  - **超 200 字硬上限**——压不下去就**裂成多条**（一条做多件事时 split 成多行表格），每行专注一个 [tag]
+  - **设计文档内容禁入 dev log**——若新建/重写了 `documents/` 下某个 .md，dev log 只写 `[doc]` + 文件路径 + 一句话功能（"完整方案见该文件"），具体决策 / phase 划分 / 风险缓解全留在那个文档里
+  - **文档同步是默认要求，不必每条 dev log 都列**——只在"这条改动联动了 N 处文档"这种异常情况才提；常规 S14 联动属于工程纪律，不是新闻
 
 ## 测试（T 系列）
 
@@ -117,6 +121,7 @@
 - **T3 外部依赖测试用环境变量门控**：调真实 LLM API / 网络等的集成测试，必须用 `os.Getenv("DEEPSEEK_API_KEY")` 等检查 + `t.Skip` 跳过，**不允许默认跑**——否则离线 / CI 必红
 - **T4 删导出符号必搜测试引用**：`deadcode` 工具默认不扫测试代码，所以"看起来死的"导出函数可能正被契约测试用。删之前 grep 一遍 `_test.go` 确认。**反之**，如果导出符号确实只用于测试，加注释说明"生产不调用，仅测试契约用"避免再被误判（例：`ListProviders` / `ListScenarios`）
 - **T5 大功能模块完工必加 pipeline 测试 + 必须幂等**：每个**大功能模块**——一个 domain 的 CRUD 闭环 / 一个跨域流程 / 一个 SSE 事件家族 / 一个新 system tool 家族——完工时必须在 `backend/test/<domain>_pipeline_test.go` 追加端到端测试，用 `harness.New(t)` 真起 in-process backend（真 Bridge / 真 LLM / 真 sandbox / 真 SQLite），HTTP 驱动 + SSE 观测对真实 wire 行为做断言。运行入口 `make test-pipeline`（自动 source `.env` + `-tags=pipeline`），单测套件不进。**幂等是硬要求**——同一个 test 任意次数重跑结果必须一致：(a) 默认 `harness.New(t)` 每次拿全新内存 SQLite，天然隔离；(b) 若 test 故意复用 harness 跑多步骤，每步开头自己用 `h.DB.Exec("DELETE FROM ... WHERE ...")` 显式清理；(c) 涉及外部状态（文件系统 / 长生效的 LLM 上下文 / 外部 API 副作用）的，test 末尾或 `t.Cleanup` 兜底回滚；(d) **任何 test 不得依赖前一次运行残留**——这条破了 CI 红一片你都查不到原因。**触发场景**：完成 Phase X / 大重构 / 新 endpoint family 后，"端到端跑通一遍"是 acceptance criteria 的一部分，不是 nice-to-have
+- **T6 Pipeline 默认 fake LLM；依赖项缺失时优雅 skip**：`backend/test/` 下的 pipeline 测试默认用 `FakeLLMServer`（不依赖外网）。**需要真实 LLM** 的测试：(a) 函数名加 `Live_` 前缀（如 `TestChat_Live_ReasoningModel_BlocksSeparate`）；(b) 开头调 `RequireDeepSeekKey(t)` gate——`DEEPSEEK_API_KEY` 未设时 skip（`make test-pipeline` source `.env`，有 key 则自动跑）。**需要真实 sandbox** 的测试：开头调 `RequireForgeResources(t, h)` gate——`FORGIFY_DEV_RESOURCES` 未设时 skip；`cd backend && go run ./cmd/resources` 下载资源后可跑。fake LLM 注入点：`harness.New(t, WithFakeLLMBaseURL(fake.URL()))` + `SeedDeepSeek(t, "fake-key")`
 
 ---
 
@@ -377,7 +382,7 @@ import (
 
 # §S18 Tool 接口规约
 
-LLM 调用的 system tool 实现 `app/tool.Tool` 接口。**10 个方法全必填，无 BaseTool 嵌入**——每个 tool 的元数据全部显式声明，可 grep 可读。
+LLM 调用的 system tool 实现 `app/tool.Tool` 接口。**9 个方法全必填，无 BaseTool 嵌入**——每个 tool 的元数据全部显式声明，可 grep 可读。
 
 ## 1. 接口结构
 
@@ -386,33 +391,35 @@ type Tool interface {
     // ── Identity（3 个）──
     Name() string                              // LLM 看到的工具名（如 "search_forges"）
     Description() string                       // 说明工具用途
-    Parameters() json.RawMessage               // 输入 JSON Schema（不含 summary / destructive）
+    Parameters() json.RawMessage               // 输入 JSON Schema（不含 summary / destructive / execution_group）
 
     // ── 静态元数据（3 个，固有属性）──
-    IsReadOnly() bool                          // 决定 runTools 并发分批默认
+    IsReadOnly() bool                          // 仅文档/语义参考；不再驱动并发调度
     NeedsReadFirst() bool                      // 操作的文件是否必须 session 内 Read 过（Phase 5 Edit/Write）
-    RequiresWorkspace() bool                   // cwd 是否必须在 workspace 白名单（Phase 5）
+    RequiresWorkspace() bool                   // 路径是否需经 PathGuard 黑名单守卫（Phase 5）
 
-    // ── args-dependent 钩子（3 个）──
-    IsConcurrencySafe(args json.RawMessage) bool                                       // 默认 = IsReadOnly；Bash 这种 args 决定的覆盖
+    // ── args-dependent 钩子（2 个）──
     ValidateInput(args json.RawMessage) error                                          // 进 Execute 前校验
     CheckPermissions(args json.RawMessage, mode PermissionMode) PermissionResult       // Allow / Deny / Ask
 
     // ── 主入口（1 个）──
-    Execute(ctx context.Context, argsJSON string) (string, error)                      // argsJSON 已剥除 summary / destructive
+    Execute(ctx context.Context, argsJSON string) (string, error)                      // argsJSON 已剥除三个标准字段
 }
 ```
 
+> ⚠️ **没有 `IsConcurrencySafe(args)` 方法**——并行调度由 LLM 自报的 `execution_group` 标准字段驱动（见 §2 + §4），tool 不再参与判断。
+
 ## 2. 标准注入字段
 
-框架在每个 tool 的 Parameters schema 自动注入两个 LLM-facing 字段：
+框架在每个 tool 的 Parameters schema 自动注入**三个** LLM-facing 字段：
 
 | 字段 | 类型 | 必填 | 用途 |
 |---|---|---|---|
 | `summary` | string | ✅ 必填 | LLM 一句话描述本次调用在干啥（"Searching forges for csv parsing"）|
 | `destructive` | bool | 可选默认 false | LLM 自报本次调用是否可能不可逆破坏；UI 据此显示警示徽章 |
+| `execution_group` | int (≥1) | 可选 | LLM 自报并行 batch 提示——同 group = 并行；不同 group = 升序串行；缺失 = 框架自动分配唯一 group 排在所有显式 group 之后（独自串行） |
 
-二者由 framework 在传给 `Execute` 前剥除（`StripStandardFields`），存进 `chatdomain.ToolCallData` 的一等字段（`Summary` / `Destructive`）。**tool 实现的 Parameters() 不得包含这两个字段名**——冲突时 framework panic。
+三者由 framework 在传给 `Execute` 前剥除（`StripStandardFields` 返回 `StandardFields` struct），存进 `chatdomain.ToolCallData` 的一等字段（`Summary` / `Destructive` / `ExecutionGroup`）。**tool 实现的 Parameters() 不得包含这三个字段名**——冲突时 framework panic。
 
 ## 3. 推流约定
 
@@ -433,16 +440,18 @@ func (t *MyTool) Execute(ctx context.Context, args string) (string, error) {
 
 **不引入 emit 抽象**——心智统一优先，所有 SSE 推流走同一形态（详见 progress-record.md Phase 3 决策）。
 
-## 4. runTools 分批语义
+## 4. runTools 分批语义（按 LLM 自报的 execution_group）
 
-`chat/tools.go::runTools` 按 `IsConcurrencySafe(args)` 分批：
+`chat/tools.go::runTools` 调 `partitionByExecutionGroup(calls)` 分批，纯按 LLM 在每个 tool call 的 `execution_group` 字段决定：
 
-- **相邻 safe 调用合并并行 batch**：例 `[Read, Read]` 一起跑
-- **non-safe 调用各自独立串行 batch**：例 `[Write]` 单跑
-- **safe → unsafe → safe** 的 unsafe 边界**强制起新 batch**：safe 不能跨边界合并
+- **同 group = 并行 batch**：LLM 给多个调用相同 group 号 = 它担保它们之间无依赖、无共享可变状态
+- **不同 group = 串行**：按 group 号升序执行，前一个 group 全跑完才进下一个
+- **缺省（≤0）= 自动分配唯一 group ≥1000**：每个未标 group 的 call 各自独占一个 batch（独自串行，且**排在所有显式 group 之后**）。这是 fail-safe 默认——LLM 不主动声明并行就不并行
 
-例：`[A=safe, B=safe, C=unsafe, D=safe, E=unsafe]`
-→ `[B1: A,B 并行] [B2: C 串行] [B3: D 单跑] [B4: E 串行]`
+例：LLM 同 turn 发 `[A:1, B:1, C:0, D:2, E:0]`：
+→ 分配后 `[A:1, B:1, C:1000, D:2, E:1001]` （`maxExplicit=2`，autoBase=max(3, 1000)=1000）
+→ 排序 `[1, 2, 1000, 1001]`
+→ 4 个 batches: `[A, B 并行] [D 单跑] [C 单跑] [E 单跑]`
 
 ## 5. 进 Execute 前的钩子链
 
@@ -473,7 +482,7 @@ internal/app/tool/
 
 调用方按 §S13 嵌套子包别名规则导入：`forgetool` / `fstool` / `shelltool` / `webtool`。
 
-## 7. 例：Search 实现 10 方法（最简单 readOnly tool）
+## 7. 例：Search 实现 9 方法（最简单 readOnly tool）
 
 ```go
 type SearchForge struct{ ... }
@@ -488,8 +497,7 @@ func (t *SearchForge) IsReadOnly() bool        { return true }
 func (t *SearchForge) NeedsReadFirst() bool    { return false }
 func (t *SearchForge) RequiresWorkspace() bool { return false }
 
-// Hooks
-func (t *SearchForge) IsConcurrencySafe(json.RawMessage) bool { return true }
+// Args-dependent hooks
 func (t *SearchForge) ValidateInput(json.RawMessage) error    { return nil }
 func (t *SearchForge) CheckPermissions(json.RawMessage, toolapp.PermissionMode) toolapp.PermissionResult {
     return toolapp.PermissionAllow
@@ -499,7 +507,7 @@ func (t *SearchForge) CheckPermissions(json.RawMessage, toolapp.PermissionMode) 
 func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) { ... }
 ```
 
-简单 tool 的 6 个 boilerplate 方法每个 1 行。复杂 tool（Bash）实现 args-dependent `IsConcurrencySafe` 才有内容。
+简单 tool 的 5 个 boilerplate 方法每个 1 行。并行决策由 LLM 自报的 `execution_group` 完成，tool 不再做 `IsConcurrencySafe` 判断。
 
 ---
 
@@ -513,6 +521,29 @@ func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) 
 - **项目内禁用 sed 批量改 import / 函数名**——BSD sed `\b` word boundary 不识别，`sed -i '' 's/\bX/Y/g' file.go` 会清空整个文件。已踩 2 次坑。批量改用 Edit 工具或具体上下文匹配
 - **跨平台编译当 PR 阶段烟雾测试**：`GOOS=windows/linux/darwin go build ./...` 任一平台编不过都该立刻拦下。modernc.org/sqlite 之后这是 1 行命令的事
 
+## 测试命令的正确选择（**不要直接 `go test ./...`**）
+
+| 命令 | 用途 | 是否 source `.env` | 范围 |
+|---|---|---|---|
+| **`make test-unit`** | **改完代码默认跑这个**——纯函数 / in-memory SQLite 套件 | ❌ 不 source | `go test -count=1 ./... -skip TestIntegration_`（明确跳过所有 `TestIntegration_*` 集成测试） |
+| **`make test-pipeline`** | 端到端套件（Phase 边界 / 大重构 / 新 endpoint family 后必跑） | ✅ source `.env` | `go test -count=1 -tags=pipeline ./test/...`；DEEPSEEK key 在则跑 Live_ 测试，否则 t.Skip；FORGIFY_DEV_RESOURCES 在则跑真 sandbox |
+| **`make test-console`** | 起 dev 服务器（不是测试，是手动验证用的入口） | ✅ source `.env` | `go run ./cmd/server --dev` + 自动开浏览器 testend 控制台 |
+
+**为何不直接 `go test ./...`**：会跑到 `TestIntegration_*` 这种调真实 LLM API 的集成测试。`go test` 不自动 load `.env`，env 缺 `DEEPSEEK_API_KEY` 时这些测试 fail——但这是 **noise，不是真 regression**。`make test-unit` 用 `-skip TestIntegration_` 一刀切掉，测试输出干净。
+
+**集成测试的规矩（§T3 的具体落地）**：所有 `TestIntegration_*` 必须用 `os.Getenv("DEEPSEEK_API_KEY")` 等 + `t.Skip` 门控，**禁止 hardcoded fallback key**——历史曾用 `"shabi"` 当兜底（自嘲 placeholder），导致 noise 失败被当成"基线"忽视，掩盖真实问题。Pattern：
+
+```go
+func requireKey(t *testing.T) string {
+    t.Helper()
+    k := os.Getenv("DEEPSEEK_API_KEY")
+    if k == "" {
+        t.Skip("DEEPSEEK_API_KEY not set; use `make test-pipeline` to load .env")
+    }
+    return k
+}
+```
+
 ---
 
 # 项目特殊性（防止用通用 Go 习惯做错事）
@@ -523,4 +554,4 @@ func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) 
 - **桌面端集成方式**：Wails 当窗口外壳 + 复用 httpapi（**不走** Wails native binding，详见 `desktop-packaging-notes.md`）
 - **chat 已用 Block 模型**（messages 表是元数据，内容在 message_blocks）
 - **测试基线**：~170 单测全绿；5 个 LLM 集成测试因 `DEEPSEEK_API_KEY` 环境失效，与基线一致，不算回归
-- **`infra/sandbox` 捆绑 uv + python-build-standalone**，每个不同 deps 集合一个独立 venv（按 EnvID hash 命名共享），不是 Docker（本地单用户，过度工程）。dev 期资源走 `$FORGIFY_DEV_RESOURCES`（默认 `~/.forgify-dev-resources`），prod 走 `cmd/desktop` embed.FS。`make dev` / `test-console` / `test-pipeline` 都 `ensure-resources` 前置（缺则自动 `download-resources`）；裸跑 `go run ./cmd/server` 时记得自己 `export FORGIFY_DEV_RESOURCES=...`，否则 AST parser 落到不存在的捆绑 python 路径会让 forge 代码生成误报 "AST parse failed"
+- **`infra/sandbox` 捆绑 uv + python-build-standalone**，每个不同 deps 集合一个独立 venv（按 EnvID hash 命名共享），不是 Docker（本地单用户，过度工程）。dev 期资源走 `$FORGIFY_DEV_RESOURCES`（默认 `~/.forgify-dev-resources`），prod 走 `cmd/desktop` embed.FS。`make dev` / `test-console` / `test-pipeline` 都 `ensure-resources` 前置（缺则自动跑 `cd backend && go run ./cmd/resources`）；裸跑 `go run ./cmd/server` 时记得自己 `export FORGIFY_DEV_RESOURCES=...`，否则 AST parser 落到不存在的捆绑 python 路径会让 forge 代码生成误报 "AST parse failed"

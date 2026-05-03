@@ -590,7 +590,7 @@ FORGE_DEPENDENCY_RESOLUTION    422  forge.ErrDependencyResolution
 
 **目标**：forge 22 端点 + sandbox iteration 1 lifecycle 全覆盖（真 sandbox）。
 
-**前置**：`$FORGIFY_DEV_RESOURCES` 资源就绪（`make download-resources`）。
+**前置**：`$FORGIFY_DEV_RESOURCES` 资源就绪（`cd backend && go run ./cmd/resources`）。
 
 子任务：
 1. `forge_http_pipeline_test.go`：~15 个测试，覆盖 22 端点（含 cursor / executions filter / test cases batch）

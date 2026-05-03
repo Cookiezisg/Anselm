@@ -94,7 +94,6 @@ func (t *CreateForge) RequiresWorkspace() bool { return false }
 
 // ── Args-dependent hooks ──────────────────────────────────────────────────────
 
-func (t *CreateForge) IsConcurrencySafe(json.RawMessage) bool { return false }
 
 func (t *CreateForge) ValidateInput(json.RawMessage) error { return nil }
 

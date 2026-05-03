@@ -39,6 +39,7 @@ import (
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -49,12 +50,18 @@ import (
 const queueCapacity = 5
 
 // convQueue manages sequential Agent execution for one conversation.
+// agentState carries cross-tool state (most notably SeenFiles for the
+// must-Read-first guard); it lives as long as the queue itself, so it
+// is GC'd together with the conversation when the idle timer fires.
 //
 // convQueue 管理单个 conversation 的顺序 Agent 执行。
+// agentState 携带跨 tool 状态（最重要的是 must-Read-first 守卫用的 SeenFiles）；
+// 生命周期跟 queue 同步，conversation idle 触发清队列时一并 GC。
 type convQueue struct {
-	ch     chan queuedTask
-	mu     sync.Mutex
-	cancel context.CancelFunc // nil when idle
+	ch         chan queuedTask
+	mu         sync.Mutex
+	cancel     context.CancelFunc // nil when idle
+	agentState *agentstatepkg.AgentState
 }
 
 // queuedTask is one pending chat turn waiting to be processed.

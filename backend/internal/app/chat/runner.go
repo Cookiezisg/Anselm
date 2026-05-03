@@ -28,6 +28,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -35,7 +36,10 @@ import (
 // ── Queue / worker ────────────────────────────────────────────────────────────
 
 func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
-	q := &convQueue{ch: make(chan queuedTask, queueCapacity)}
+	q := &convQueue{
+		ch:         make(chan queuedTask, queueCapacity),
+		agentState: &agentstatepkg.AgentState{},
+	}
 	actual, loaded := s.queues.LoadOrStore(conversationID, q)
 	if loaded {
 		return actual.(*convQueue)
@@ -86,6 +90,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 		q.mu.Unlock()
 	}()
 	agentCtx = reqctxpkg.WithConversationID(agentCtx, conversationID)
+	agentCtx = reqctxpkg.WithAgentState(agentCtx, q.agentState)
 
 	// Allocate the assistant msgID up front so pre-LLM errors can be
 	// emitted as a stub assistant Message (entity-state SSE — every

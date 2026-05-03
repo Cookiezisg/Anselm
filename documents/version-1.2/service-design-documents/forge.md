@@ -1387,6 +1387,6 @@ def parse_csv(csv_text: str, delimiter: str = ',') -> list:
 - [x] `app/tool/forge/{create,edit}.go` — schema 加 dependencies + python_version；tool_result 含 env_status/env_error；EditForge 守卫已有 pending
 - [x] `transport/httpapi/response/errmap.go` — 4 个 FORGE_* 映射
 - [x] `cmd/server/main.go` — sandboxinfra.New + Bootstrap from $FORGIFY_DEV_RESOURCES（fail-soft warn）
-- [x] `Makefile` + `scripts/download-sandbox-resources.sh` — download-resources 目标
+- [x] `backend/cmd/resources/main.go` — uv + python-build-standalone 下载器（Go 重写自原 bash 脚本，devbox bootstrap 调用）
 - [x] `testend/` — forge-env-badge + envSyncDetail progress + envError 显示
 - [x] 8 份文档同步（forge.md / database-design / error-codes / events / api-design / desktop-packaging-notes / CLAUDE / progress-record）

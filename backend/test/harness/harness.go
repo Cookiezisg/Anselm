@@ -1,21 +1,20 @@
 //go:build pipeline
 
-// Package test is the whole-stack pipeline test harness. It boots the same DI graph as
-// cmd/server/main.go (real Bridge, real LLM client, real Python sandbox) but
-// with in-memory SQLite and an httptest server, and exposes helpers so test
-// cases can drive the system through HTTP and observe SSE without ceremony.
+// Package harness is the whole-stack pipeline test harness. It boots the same
+// DI graph as cmd/server/main.go (real Bridge, real LLM client, real Python
+// sandbox) but with in-memory SQLite and an httptest server, so tests can drive
+// the system through HTTP and observe SSE without ceremony.
 //
-// Build tag `pipeline` keeps these files out of the default `go test ./...` path —
-// they hit real DeepSeek API and spawn Python subprocesses, so they belong to
-// `make test-pipeline` (which sources .env and adds -tags=pipeline).
+// By default, tests use FakeLLMServer (no external network). Pass
+// WithFakeLLMBaseURL to route the injected apikey's BaseURL to the fake server.
+// Tests that need a real provider use RequireDeepSeekKey and the "Live_" naming
+// prefix.
 //
-// Package test 是pipeline 测试脚手架。装配的 DI 图与 cmd/server/main.go 一致
-// （真 Bridge / 真 LLM 客户端 / 真 Python sandbox），区别仅在于用内存 SQLite
-// 和 httptest server，并提供 helper 让测试用例通过 HTTP 驱动 + 观测 SSE。
-//
-// `pipeline` build tag 让这些文件默认不进 `go test ./...`——它们调真 DeepSeek API
-// 并起 Python 子进程，归 `make test-pipeline`（自动 source .env + 加 -tags=pipeline）使用。
-package test
+// Package harness 是 pipeline 测试脚手架。DI 图与 cmd/server/main.go 一致
+// （真 Bridge / 真 LLM 客户端 / 真 Python sandbox），区别在于内存 SQLite +
+// httptest server。默认走 FakeLLMServer（无外网）；需真实 provider 的测试
+// 用 RequireDeepSeekKey + "Live_" 前缀命名。
+package harness
 
 import (
 	"bytes"
@@ -39,7 +38,9 @@ import (
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -57,8 +58,28 @@ import (
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
+
+// Option configures the Harness at construction time.
+//
+// Option 在构造时配置 Harness。
+type Option func(*options)
+
+type options struct {
+	fakeLLMBaseURL string
+}
+
+// WithFakeLLMBaseURL routes the injected DeepSeek apikey's BaseURL to the
+// given fake server URL instead of the real provider. Use together with
+// NewFakeLLMServer to test chat flows without network calls.
+//
+// WithFakeLLMBaseURL 把注入的 DeepSeek apikey 的 BaseURL 指向 fake server
+// 而非真实 provider。配合 NewFakeLLMServer 做无网络 chat 测试。
+func WithFakeLLMBaseURL(url string) Option {
+	return func(o *options) { o.fakeLLMBaseURL = url }
+}
 
 // Harness is a booted in-process backend ready to drive over HTTP.
 //
@@ -68,8 +89,13 @@ type Harness struct {
 	server *httptest.Server
 	log    *zap.Logger
 
-	DB     *gorm.DB
-	Bridge eventsdomain.Bridge
+	// fakeLLMBaseURL is stored so SeedDeepSeek can inject it into the apikey.
+	// fakeLLMBaseURL 存这里让 SeedDeepSeek 注入到 apikey 里。
+	fakeLLMBaseURL string
+
+	DB      *gorm.DB
+	Bridge  eventsdomain.Bridge
+	Sandbox *sandboxinfra.Sandbox
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -83,10 +109,20 @@ type Harness struct {
 // is started, the same migrations as production are applied, and the DI graph
 // matches main.go. Cleanup (server stop + DB close) is registered on t.
 //
-// New 启动一个全新的 harness，底层是内存 SQLite。httptest server 启动、应用
-// 与生产一致的迁移、DI 图与 main.go 对齐。清理（server 停 + DB 关）注册到 t。
-func New(t *testing.T) *Harness {
+// Pass WithFakeLLMBaseURL to redirect LLM calls to a FakeLLMServer so tests
+// run without external network access. Without it the harness is wired for
+// real provider calls (requires SeedDeepSeek with a live key).
+//
+// New 启动内存 SQLite + httptest server 的全新 harness，迁移 + DI 图与
+// main.go 对齐，清理注册到 t。传 WithFakeLLMBaseURL 把 LLM 调用路由到
+// FakeLLMServer，无需外网；不传则需真实 apikey。
+func New(t *testing.T, opts ...Option) *Harness {
 	t.Helper()
+
+	cfg := &options{}
+	for _, o := range opts {
+		o(cfg)
+	}
 
 	log := zaptest.NewLogger(t)
 
@@ -99,6 +135,14 @@ func New(t *testing.T) *Harness {
 			t.Logf("close db: %v", err)
 		}
 	})
+
+	// SQLite :memory: gives each connection its own independent DB instance.
+	// Force a single connection so all goroutines share the migrated tables.
+	//
+	// SQLite :memory: 每个连接独立实例；强制单连接让所有 goroutine 共享迁移后的表。
+	if sqlDB, err := gdb.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(1)
+	}
 
 	if err := dbinfra.Migrate(gdb,
 		&apikeydomain.APIKey{},
@@ -139,11 +183,30 @@ func New(t *testing.T) *Harness {
 
 	llmFactory := llminfra.NewFactory()
 
+	// Sandbox: each harness gets its own temp dir (auto-cleaned by testing).
+	// Bootstrap from FORGIFY_DEV_RESOURCES if set; otherwise sandbox stays
+	// unavailable — forge ops that need Python will return ErrSandboxUnavailable
+	// and tests that need the sandbox can t.Skip themselves.
+	//
+	// 沙箱：每个 harness 独立临时目录（testing 自动清理）。
+	// 设了 FORGIFY_DEV_RESOURCES 则 Bootstrap；否则保持 unavailable——需要 Python
+	// 的 forge 操作返 ErrSandboxUnavailable，依赖沙箱的测试自行 t.Skip。
+	sandbox := sandboxinfra.New(sandboxinfra.Config{
+		DataDir:       t.TempDir(),
+		DefaultPython: forgedomain.DefaultPythonVersion,
+		Logger:        log,
+	})
+	if resourceDir := os.Getenv("FORGIFY_DEV_RESOURCES"); resourceDir != "" {
+		if err := sandbox.Bootstrap(context.Background(), resourceDir); err != nil {
+			t.Logf("sandbox.Bootstrap failed: %v (forge ops requiring Python will be unavailable)", err)
+		}
+	}
+
 	forgeLLM := &forgeLLMAdapter{picker: modelService, keys: apikeyService, factory: llmFactory}
 	bridge := memoryinfra.NewBridge(log)
 	forgeService := forgeapp.NewService(
 		forgestore.New(gdb),
-		sandboxinfra.New("python3"),
+		sandbox,
 		forgeLLM,
 		bridge,
 		log,
@@ -161,9 +224,17 @@ func New(t *testing.T) *Harness {
 		log,
 	)
 
+	// PathGuard for filesystem tools — NewDefault deny-list is fine for tests
+	// (tests use t.TempDir paths which aren't on the deny list).
+	// 文件系统 tool 的 PathGuard——NewDefault 黑名单足够测试用（t.TempDir 路径
+	// 不在黑名单里）。
+	pathGuard := pathguardpkg.NewDefault()
+
 	tools := forgetool.ForgeTools(
 		forgeService, chatRepo, modelService, apikeyService, llmFactory,
 	)
+	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
+	tools = append(tools, searchtool.SearchTools(pathGuard)...)
 	chatService.SetTools(tools)
 
 	handler := routerhttpapi.New(routerhttpapi.Deps{
@@ -184,17 +255,19 @@ func New(t *testing.T) *Harness {
 	t.Cleanup(srv.Close)
 
 	return &Harness{
-		t:            t,
-		server:       srv,
-		log:          log,
-		DB:           gdb,
-		Bridge:       bridge,
-		APIKey:       apikeyService,
-		Model:        modelService,
-		Conversation: convService,
-		Forge:        forgeService,
-		Chat:         chatService,
-		Tools:        tools,
+		t:              t,
+		server:         srv,
+		log:            log,
+		fakeLLMBaseURL: cfg.fakeLLMBaseURL,
+		DB:             gdb,
+		Bridge:         bridge,
+		Sandbox:        sandbox,
+		APIKey:         apikeyService,
+		Model:          modelService,
+		Conversation:   convService,
+		Forge:          forgeService,
+		Chat:           chatService,
+		Tools:          tools,
 	}
 }
 

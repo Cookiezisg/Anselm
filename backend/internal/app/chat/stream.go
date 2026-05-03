@@ -149,13 +149,14 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 	sortInts(indices)
 	for _, i := range indices {
 		a := accums[i]
-		summary, destructive, args := parseToolArgs(a.args.String())
+		fields, args := parseToolArgs(a.args.String())
 		td := chatdomain.ToolCallData{
-			ID:          a.id,
-			Name:        a.name,
-			Arguments:   args,
-			Summary:     summary,
-			Destructive: destructive,
+			ID:             a.id,
+			Name:           a.name,
+			Arguments:      args,
+			Summary:        fields.Summary,
+			Destructive:    fields.Destructive,
+			ExecutionGroup: fields.ExecutionGroup,
 		}
 		d, _ := json.Marshal(td)
 		blocks = append(blocks, chatdomain.Block{
@@ -196,25 +197,28 @@ func extractToolCalls(blocks []chatdomain.Block) []chatdomain.ToolCallData {
 	return calls
 }
 
-// parseToolArgs extracts summary / destructive from raw JSON args and returns
-// the remaining args as a map for assembly into ToolCallData. Delegates to the
-// canonical toolapp.StripStandardFields and only adds the chat-side fallback
-// of surfacing malformed JSON as args["raw"] — that way the LLM still sees
+// parseToolArgs extracts the three standard fields (summary / destructive /
+// execution_group) from raw JSON args and returns the remaining args as a
+// map for assembly into ToolCallData. Delegates to the canonical
+// toolapp.StripStandardFields and only adds the chat-side fallback of
+// surfacing malformed JSON as args["raw"] — that way the LLM still sees
 // what it sent and the tool's ValidateInput can reject with a retry signal.
 //
-// parseToolArgs 从原始 JSON args 中提取 summary / destructive，把剩余字段
-// 装回 map 供 ToolCallData 使用。直接复用 toolapp.StripStandardFields，
-// 仅追加 chat 侧的兜底：JSON 损坏时塞 args["raw"]——让 LLM 至少能看到自己发了
-// 什么，工具 ValidateInput 据此报错让 LLM 重试。
-func parseToolArgs(raw string) (summary string, destructive bool, args map[string]any) {
+// parseToolArgs 从原始 JSON args 中提取三个标准字段（summary / destructive /
+// execution_group），把剩余字段装回 map 供 ToolCallData 使用。直接复用
+// toolapp.StripStandardFields，仅追加 chat 侧的兜底：JSON 损坏时塞
+// args["raw"]——让 LLM 至少能看到自己发了什么，工具 ValidateInput 据此报错
+// 让 LLM 重试。
+func parseToolArgs(raw string) (toolapp.StandardFields, map[string]any) {
 	if raw == "" {
-		return "", false, map[string]any{}
+		return toolapp.StandardFields{}, map[string]any{}
 	}
-	summary, destructive, stripped := toolapp.StripStandardFields(raw)
+	fields, stripped := toolapp.StripStandardFields(raw)
+	var args map[string]any
 	if err := json.Unmarshal([]byte(stripped), &args); err != nil || args == nil {
-		return summary, destructive, map[string]any{"raw": raw}
+		return fields, map[string]any{"raw": raw}
 	}
-	return summary, destructive, args
+	return fields, args
 }
 
 // sortInts is a tiny in-place ascending int sort (stdlib's sort.Ints adds

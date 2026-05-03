@@ -10,15 +10,15 @@ import (
 )
 
 // TestSmokeBootstrap_FromDevResources verifies the full Bootstrap flow against
-// real resources downloaded by `make download-resources`. Gated by
+// real resources downloaded by `go run ./cmd/resources`. Gated by
 // FORGIFY_DEV_RESOURCES so unit-test runs / CI / offline machines skip it.
 //
-// TestSmokeBootstrap_FromDevResources 用 `make download-resources` 拉的真资源
+// TestSmokeBootstrap_FromDevResources 用 `go run ./cmd/resources` 拉的真资源
 // 跑完整 Bootstrap 流程。FORGIFY_DEV_RESOURCES 门控，CI / 离线机器跳过。
 func TestSmokeBootstrap_FromDevResources(t *testing.T) {
 	resourcesDir := os.Getenv("FORGIFY_DEV_RESOURCES")
 	if resourcesDir == "" {
-		t.Skip("FORGIFY_DEV_RESOURCES not set; run `make download-resources` first")
+		t.Skip("FORGIFY_DEV_RESOURCES not set; run `go run ./cmd/resources` first")
 	}
 
 	dataDir := t.TempDir()

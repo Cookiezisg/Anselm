@@ -62,7 +62,6 @@ func (t *RunForge) RequiresWorkspace() bool { return false }
 
 // ── Args-dependent hooks ──────────────────────────────────────────────────────
 
-func (t *RunForge) IsConcurrencySafe(json.RawMessage) bool { return false }
 
 func (t *RunForge) ValidateInput(json.RawMessage) error { return nil }
 
