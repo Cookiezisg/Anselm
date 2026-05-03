@@ -165,6 +165,31 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 
 ---
 
+### Phase 5：System Tool 第二代 + 任务追踪 + 用户问询（2026-05-04）
+
+#### 系统工具家族（注入 chat agent，无新 HTTP 端点）
+
+| 家族 | 工具 | 说明 |
+|---|---|---|
+| filesystem | `Read` / `Write` / `Edit` | 文件读写编辑；PathGuard 守敏感路径；Edit 走 must-Read-first 守卫 + 原子写 |
+| search | `Grep` / `Glob` | rg 优先 + stdlib 兜底；Glob 输出 JSON 含 type/size/mtime（决策 D3：替代 LS）|
+| web | `WebFetch` / `WebSearch` | Jina r.jina.ai 摘要 + 直 GET fallback；3 层搜索 fallback（SearXNG 池 → Bing → Bing CN）；SSRF 守卫拒私网 / loopback / link-local |
+| shell | `Bash` / `BashOutput` / `KillShell` | 前后台双模式；cwd 状态机（AgentState.Cwd）；后台子进程 ProcessManager 注册 256 KB 环形缓冲；KillShell SIGKILL 幂等 |
+| task | `TaskCreate` / `TaskList` / `TaskGet` / `TaskUpdate` | 对话级任务追踪（mini-domain，详见 [`../service-design-documents/task.md`](../service-design-documents/task.md)）|
+| ask | `AskUserQuestion` | 暂停 agent loop 等用户回答；问题坐 chat.message SSE，答案走下方 answers endpoint |
+
+详细工具集在 chat agent 注入清单见 [`../service-design-documents/chat.md`](../service-design-documents/chat.md)。
+
+#### chat（Phase 5 新增端点）✅
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST | `/api/v1/conversations/{id}/answers` | 投递 AskUserQuestion 工具的用户答案 → 204；body: `{toolCallId, answer}`；404 ASK_NO_PENDING_QUESTION 表 toolCallId 未在 Wait |
+
+> 决策 D11：问题本身坐 `chat.message` SSE 流（AskUserQuestion tool_call block 含 `question` + `options`），不新建事件家族；answers endpoint 仅闭合答案投递路径。
+
+---
+
 ### Phase 4：工作流能力
 
 #### workflow ⬜

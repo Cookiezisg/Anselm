@@ -56,6 +56,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `INVALID_REQUEST` | 400 | `derrors.ErrInvalidRequest` | JSON 坏 / 字段缺 / cursor 格式错 | ✅ |
 | `INTERNAL_ERROR` | 500 | `derrors.ErrInternal` | 兜底；未映射错误降级到此 | ✅ |
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingUserID` | auth middleware 未跑（接线 bug）。显式登记以抑制 "unmapped" 警告 | ✅ |
+| `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingConversationID` | chat-runner 未在 ctx 印 conversation ID（接线 bug）。task / ask 工具依赖此 ID | ✅ |
 | `INTERNAL_ERROR` | 500 | `cryptoinfra.ErrUnsupportedVersion` | DB 中密文版本前缀（如 `v2:`）超出当前 encryptor 支持范围（升降级 / 数据损坏）| ✅ |
 | `NOT_FOUND` | 404 | (middleware 直接发，不走 errmap) | 路由未匹配 | ✅ |
 
@@ -143,6 +144,30 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `FORGE_DEPENDENCY_RESOLUTION` | 422 | `forge.ErrDependencyResolution` | uv 无法解析依赖（包名拼错 / 版本约束冲突 / 网络错误）；EnvError 含 uv 完整 stderr | ✅ |
 
 > 现有 `TOOL_*` wire codes 是 Phase 1 大重命名时为客户端兼容保留——sentinel 自身已是 `forgedomain.Err*`。新增的沙箱迭代 sentinel 用 `FORGE_*` 前缀；客户端兼容性清理留到未来独立任务。
+
+---
+
+### Phase 5：System Tool 第二代（2026-05-04）
+
+#### task ✅
+详见 [`../service-design-documents/task.md`](../service-design-documents/task.md)。
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `TASK_NOT_FOUND` | 404 | `task.ErrNotFound` | TaskGet/Update/Delete 时 ID 不存在；**也覆盖跨 conversation 访问场景**（防存在性泄漏，统一返 NotFound 而非 mismatch）| ✅ |
+| `TASK_SUBJECT_REQUIRED` | 400 | `task.ErrSubjectRequired` | TaskCreate / TaskUpdate 的 subject 字段为空 | ✅ |
+| `TASK_INVALID_STATUS` | 400 | `task.ErrInvalidStatus` | TaskUpdate status 不在 4 值白名单（pending/in_progress/completed/deleted）| ✅ |
+
+#### ask ✅
+AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 错误。
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `ASK_NO_PENDING_QUESTION` | 404 | `ask.ErrNoPendingQuestion` | 投递的 toolCallId 未在 Service.Wait 注册（已超时 / 已答 / 拼错）| ✅ |
+| `ASK_ALREADY_ANSWERED` | 409 | `ask.ErrAlreadyAnswered` | （保留）历史 sentinel；当前实现 Resolve 原子摘条目，二次答总走 `ASK_NO_PENDING_QUESTION` | ✅ |
+| `ASK_TIMEOUT` | 504 | `ask.ErrTimeout` | （Service 内部）AskUserQuestion 工具 Wait 超过 5 分钟；当前实现工具内部转为友好字符串而非上抛，因此实际不到 handler——保留登记便于将来若改语义 | ✅ |
+
+> ASK_* 端点错误不属于任一 domain entity，归属 app/ask 服务（in-memory 会合，无持久化）。
 
 ---
 

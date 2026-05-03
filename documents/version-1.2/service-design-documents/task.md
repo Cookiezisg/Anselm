@@ -1,0 +1,387 @@
+# Task — V1.2 详设计
+
+**Phase**：5（System Tool 第二代 + UX 集成）
+**状态**：✅ 实现完成（2026-05-04）
+**关联**：
+- [`../backend-design.md`](../backend-design.md) — 总规范
+- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `tasks` 表行
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — task ×3 + ask ×3
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `task` entity-state 事件
+
+---
+
+## 1. 一句话
+
+LLM 在长任务里给自己用的 to-do 列表。每个 conversation 一份独立列表，4 个 system tool 操作（Create / List / Get / Update），状态变更通过 entity-state SSE 实时推给前端。**附带** AskUserQuestion 工具的 in-memory 会合服务（不持久化、无 entity，但与 task 同 batch 提交，故合并到本文档 §10）。
+
+---
+
+## 2. 端到端推演（设计原则 #5）
+
+```
+触发源：LLM 在 chat agent 循环里调 TaskCreate 工具
+  → transport 层：无（system tool 不走 HTTP；chat agent 直接调 tool.Execute）
+    → app 层：app/tool/task.TaskCreate.Execute
+        → 调谁：app/task.Service.Create（按 ctx 中 conversation ID 作用域）
+        → 用什么：从 reqctx 取 conversation ID + user ID
+      → infra 层：infra/store/task.Store.Create（GORM insert）
+  → 响应路径：
+    成功 → 返新 Task JSON 给 LLM 当 tool_result；同时通过 events.Bridge 发 `task` SSE 事件给前端
+    失败 → ErrSubjectRequired/ErrInvalidStatus → app/tool/task.classifyTaskErr 转友好字符串返 LLM
+```
+
+**端到端跨 domain 依赖**：
+- `pkg/reqctx`：取 conversation ID（Service 用）+ user ID（GORM ctx 透传）
+- `domain/events`：`Task` 事件类型（entity-state，与 forge / conversation 同模式）
+- `infra/events/memory`：Bridge 实现（chat 已用，复用即可）
+- 无前端 HTTP 端点：LLM 通过 system tool 操作；前端只通过 chat.message SSE + task SSE 渲染状态
+
+**AskUserQuestion 推演**（同 batch 完成，详 §10）：
+```
+LLM → AskUserQuestion 工具 → app/ask.Service.Wait（阻塞 5 分钟）
+  ↑                                                          ↓
+  ↑                                                  POST answers endpoint
+  ↑← Resolve ← app/ask.Service.Resolve ← handler ←──┘
+```
+
+---
+
+## 3. 领域模型
+
+### Task entity（`internal/domain/task/task.go`）
+
+```go
+type Task struct {
+    ID             string         `gorm:"primaryKey;type:text" json:"id"`
+    ConversationID string         `gorm:"not null;index:idx_tk_conv_status,priority:1;type:text" json:"conversationId"`
+    Subject        string         `gorm:"not null;type:text" json:"subject"`
+    Description    string         `gorm:"type:text" json:"description,omitempty"`
+    ActiveForm     string         `gorm:"type:text" json:"activeForm,omitempty"`
+    Status         string         `gorm:"not null;type:text;index:idx_tk_conv_status,priority:2;default:pending" json:"status"`
+    Owner          string         `gorm:"type:text" json:"owner,omitempty"`
+    BlockedBy      []string       `gorm:"serializer:json" json:"blockedBy,omitempty"`
+    Metadata       map[string]any `gorm:"serializer:json" json:"metadata,omitempty"`
+    CreatedAt      time.Time      `json:"createdAt"`
+    UpdatedAt      time.Time      `json:"updatedAt"`
+    DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (Task) TableName() string { return "tasks" }
+```
+
+### 字段说明
+
+| 字段 | 说明 |
+|---|---|
+| `ID` | `tk_<16hex>` 格式（per §S15）；8 字节 crypto/rand |
+| `ConversationID` | 作用域键；任务跨 conversation 不可移植；Service 在变更前断言匹配 |
+| `Subject` | 必填、非空；imperative 一行（"Run tests"）|
+| `Description` | 可选；长文上下文 |
+| `ActiveForm` | 可选；present continuous（"Running tests"）；UI 在 in_progress 状态显示 spinner 文案用 |
+| `Status` | 4 值白名单（见 §4），app 层校验，DB 不 CHECK——便于将来扩展 |
+| `Owner` | 可选；agent 名（多 agent 协作未来）|
+| `BlockedBy` | JSON 序列化的 task ID 数组；依赖关系（不强约束，仅信息）|
+| `Metadata` | JSON 自由扩展位 |
+
+### 复合索引
+
+```
+INDEX idx_tk_conv_status (conversation_id, status)
+```
+
+ListByConversation + 未来按 status 过滤（如"只显示未完成"）共用此索引。
+
+### Sentinel 错误（4 个）
+
+```go
+var (
+    ErrNotFound             = errors.New("task: not found")
+    ErrSubjectRequired      = errors.New("task: subject is required")
+    ErrInvalidStatus        = errors.New("task: invalid status")
+    ErrConversationMismatch = errors.New("task: conversation mismatch")
+)
+```
+
+`ErrConversationMismatch` 仅 domain 层定义；**Service 层把跨 conversation 访问转成 `ErrNotFound`**，避免向 LLM/前端泄漏"该 ID 在另一对话存在"的存在性信息。
+
+---
+
+## 4. Status 枚举
+
+```go
+const (
+    StatusPending    = "pending"
+    StatusInProgress = "in_progress"
+    StatusCompleted  = "completed"
+    StatusDeleted    = "deleted"
+)
+
+func IsValidStatus(s string) bool { ... }  // 白名单 4 值
+func ListStatuses() []string      { ... }  // 同 4 值；契约测试支撑
+```
+
+**生命周期**：`pending → in_progress → completed`（终态）。任意时点可标 `deleted`（实际走 `Service.Delete` 软删 + 最终快照广播）。
+
+**为什么 app 层校验而非 DB CHECK**：与 model_configs.scenario 同理——未来加 status 不需要 schema 迁移；扩展性优先于约束严格性。
+
+---
+
+## 5. Repository 接口（`internal/domain/task/task.go`）
+
+```go
+type Repository interface {
+    Create(ctx context.Context, t *Task) error
+    Get(ctx context.Context, id string) (*Task, error)
+    ListByConversation(ctx context.Context, conversationID string) ([]*Task, error)
+    Update(ctx context.Context, t *Task) error
+    SoftDelete(ctx context.Context, id string) error
+}
+```
+
+实现在 `internal/infra/store/task/task.go`：
+- `Create` / `Update` 走 GORM `Create` / `Save`
+- `Get` 把 `gorm.ErrRecordNotFound` → `ErrNotFound`
+- `ListByConversation` 按 `conversation_id` 过滤，`ORDER BY created_at ASC`（LLM 看到创建顺序）
+- `SoftDelete` GORM 软删 + `RowsAffected==0` 视为 not found 返规范 sentinel
+
+**作用域**：store 仅按 `ConversationID` 过滤，**不**强制 user_id 所有权——chat-runner 印的 ctx 里有 user_id，conversation_id 来自前端 URL（已在 chat 层校验对应用户）。Service 层做 `t.ConversationID != ctxConvID` 断言。
+
+---
+
+## 6. Service 层（`internal/app/task/task.go`）
+
+```go
+type Service struct {
+    repo   taskdomain.Repository
+    bridge eventsdomain.Bridge   // 每次变更发 entity-state SSE
+    log    *zap.Logger
+}
+
+type CreateInput struct {
+    Subject     string
+    Description string
+    ActiveForm  string
+    BlockedBy   []string
+    Metadata    map[string]any
+}
+
+type UpdateInput struct {
+    Subject     *string         // pointer encodes "set" vs "unchanged"
+    Description *string
+    ActiveForm  *string
+    Status      *string
+    Owner       *string
+    BlockedBy   *[]string
+    Metadata    map[string]any  // map: nil = unchanged, non-nil = set
+}
+
+func (s *Service) Create(ctx context.Context, in CreateInput) (*taskdomain.Task, error)
+func (s *Service) Get(ctx context.Context, id string) (*taskdomain.Task, error)
+func (s *Service) List(ctx context.Context) ([]*taskdomain.Task, error)
+func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*taskdomain.Task, error)
+func (s *Service) Delete(ctx context.Context, id string) error
+```
+
+**关键行为**：
+1. 每方法首句 `RequireConversationID(ctx)` 失败立即返 `ErrMissingConversationID`
+2. Get/Update/Delete 加载后断言 `t.ConversationID != convID` 返 `ErrNotFound`（防泄漏）
+3. Create / Update / Delete 末尾 `s.publish(ctx, t)` 广播 entity-state（best-effort）
+4. Delete 把最终快照的 `Status` 设为 `"deleted"`，广播让订阅方丢本地拷贝
+
+**ID 生成**：`newID() = idgenpkg.New("tk")`（§S15）。
+
+---
+
+## 7. 4 个 System Tool
+
+注入位置：`cmd/server/main.go` + `test/harness/harness.go` 末段：
+```go
+taskService := taskapp.NewService(taskstore.New(gdb), eventsBridge, log)
+tools = append(tools, tasktool.TaskTools(taskService)...)
+```
+
+### 7.1 TaskCreate（`internal/app/tool/task/create.go`）
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `subject` | ✅ | imperative 一行 |
+| `description` | | 长文 |
+| `active_form` | | UI 文案 |
+| `blocked_by` | | 依赖 task ID 数组 |
+
+返回：新 Task 的缩进 JSON。
+错误：`ErrSubjectRequired` → "Task subject is required and must be non-empty."
+
+### 7.2 TaskList
+
+无参数。返回：
+```json
+{
+  "total": 3,
+  "tasks": [{...}, {...}, {...}]
+}
+```
+
+按 created_at ASC 排，过滤掉软删。
+
+### 7.3 TaskGet
+
+| 字段 | 必填 |
+|---|---|
+| `task_id` | ✅ |
+
+返回：单 Task 的缩进 JSON。
+错误：`ErrNotFound` → "Task not found in this conversation."（含跨 conversation 防泄漏场景）。
+
+### 7.4 TaskUpdate
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `task_id` | ✅ | |
+| `subject` | | 非空时校验非空 |
+| `description` | | 空字符串清空 |
+| `active_form` | | |
+| `status` | | enum 4 值 |
+| `owner` | | |
+| `blocked_by` | | 整体替换；空数组清空 |
+
+特例：**`status: "deleted"` 路由到 `Service.Delete`**——软删 + 最终快照集中一处。返回 `{"deleted": true, "id": "tk_..."}`。
+其他更新返完整新 Task 的 JSON。
+
+---
+
+## 8. SSE 事件（`internal/domain/events/types.go`）
+
+```go
+type Task struct {
+    *taskdomain.Task
+}
+
+func (Task) EventName() string { return "task" }
+
+func (e Task) MarshalJSON() ([]byte, error) {
+    if e.Task == nil { return []byte("null"), nil }
+    return json.Marshal(e.Task)
+}
+```
+
+**触发点**：Service.Create / Update / Delete 内部 `bridge.Publish(ctx, t.ConversationID, eventsdomain.Task{Task: t})`。
+**过滤 key**：`conversationId`（与 chat.message / forge / conversation 同标准）。
+**Wire 形状**：与 `Task` entity JSON 一致，无 wrapper key。
+
+---
+
+## 9. 测试覆盖
+
+| 层 | 文件 | 测试数 | 覆盖 |
+|---|---|---|---|
+| domain | `internal/domain/task/task_test.go` | 4 | IsValidStatus / ListStatuses 契约 |
+| store | `internal/infra/store/task/task_test.go` | 7 | CRUD + 跨 conv 隔离 + 软删不可见 |
+| app/task | `internal/app/task/task_test.go` | 13 | Create / Get / List / Update / Delete + cross-conv 防泄漏 + ID 前缀 + bridge publish 断言 |
+| app/tool/task | `internal/app/tool/task/task_test.go` | 17 | TaskTools factory + 每工具 identity / Validate / Execute |
+| pipeline | `test/uxtask/uxtask_test.go::TestUxTask_TaskCreateAndList` | 1 场景 | LLM ↔ tool 端到端 |
+
+总计 41+ 单元/集成测试 + 1 pipeline 场景。
+
+---
+
+## 10. 附：ask 服务 + AskUserQuestion 工具
+
+**为什么放本文档**：与 task 同 V1 batch 完成；都是"LLM 在 chat 中操控 UX 状态"的工具；ask 体量太小不值得单独拉一份 design doc。
+
+### 10.1 设计
+
+**Decision D11**（progress-record.md 2026-05-03）：问题坐 `chat.message` SSE，**不**新建事件家族；答案走 `POST /api/v1/conversations/{id}/answers`。
+
+```
+LLM 调 AskUserQuestion(question, options?)
+  → 工具从 ctx 取 toolCallID → svc.Wait(ctx, toolCallID, 5min)
+                                  ↓ 注册 chan 阻塞
+  → AgentLoop 暂停（工具 Execute 阻塞中）
+  → chat.message SSE 已经把 tool_call block 推给前端
+    （block.arguments 含 question + options，UI 渲染问题）
+  
+  ┌────────── 用户在 UI 点选/输入 ──────────┐
+  ↓                                          ↑
+POST /api/v1/conversations/{id}/answers      ↑
+  body: {toolCallId, answer}                 ↑
+    → AnswerHandler → svc.Resolve            ↑
+                        ↓ 原子从 map 摘条目  ↑
+                        ↓ chan <- answer     ↑
+  → svc.Wait 解锁 → 工具返答案为 tool_result
+  → chat.message SSE 推 tool_result block
+  → AgentLoop 继续
+```
+
+### 10.2 Service（`internal/app/ask/ask.go`）
+
+```go
+type Service struct {
+    mu      sync.Mutex
+    pending map[string]chan string
+}
+
+func (s *Service) Wait(ctx context.Context, toolCallID string, timeout time.Duration) (string, error)
+func (s *Service) Resolve(toolCallID, answer string) error
+```
+
+**关键正确性细节**：`Resolve` 在持锁状态下**原子地** `delete(map, ID)` + send to chan，让二次 Resolve 必走 `ErrNoPendingQuestion` 路径——避免了 buffered channel 的双答竞态（第一版 bug，已修，详 progress-record.md 2026-05-04）。
+
+**Sentinels**：
+- `ErrNoPendingQuestion`（404）——toolCallID 不在 Wait（已超时 / 已答 / 拼错）
+- `ErrAlreadyAnswered`（409，保留）——当前实现不再产生，原子摘条目后必走 `ErrNoPendingQuestion`；保留 sentinel 用于错误码字典文档化
+- `ErrTimeout`（504，仅 Service 内部抛）——工具 Execute 转友好字符串而非上抛 handler
+
+### 10.3 AskUserQuestion 工具（`internal/app/tool/ask/ask.go`）
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `question` | ✅ | 问题文本 |
+| `options` | | 建议选项数组（UI 可渲染按钮；用户**不**受限于这些）|
+
+**Execute**：
+1. `reqctxpkg.GetToolCallID(ctx)` 取 LLM 分配的 callID（缺则报 wiring bug 字符串）
+2. `svc.Wait(ctx, callID, 5min)`
+3. 答案到 → 返答案字符串
+4. `ErrTimeout` → "User did not respond within the timeout. Re-ask later if still needed."
+5. `context.Canceled` → "Question cancelled by the user (conversation interrupted)."
+
+### 10.4 HTTP endpoint
+
+```
+POST /api/v1/conversations/{id}/answers
+Body: {"toolCallId": "...", "answer": "..."}
+→ 204 No Content（成功投递）
+→ 400 INVALID_REQUEST（缺字段）
+→ 404 ASK_NO_PENDING_QUESTION（toolCallId 未在 Wait）
+```
+
+**为什么 conversation 在 URL 但 callID 在 body**：路由 RESTful 清晰，但实际会合 key 是 callID（路径里的 conv-id 仅用于路由分组与未来日志/审计；当前不强制校验所有权——`§6 反校验剧场`）。
+
+### 10.5 测试覆盖
+
+| 层 | 文件 | 测试数 | 覆盖 |
+|---|---|---|---|
+| app/ask | `internal/app/ask/ask_test.go` | 7 | Wait/Resolve happy path / timeout / ctx cancel / 双答竞态防护 / 重复注册拒绝 / 50 并发清理 |
+| app/tool/ask | `internal/app/tool/ask/ask_test.go` | 12 | identity / schema / Validate / wiring bug 短路 / 答案到达 / timeout / ctx cancel |
+| pipeline | `test/uxtask/uxtask_test.go::TestUxTask_AskUserQuestionAnswerDelivered` + `_AnswerEndpoint_UnknownCallID_404` | 2 场景 | 端到端旁路 goroutine POST 答案验真实接线 + 404 |
+
+---
+
+## 11. 与其他 domain 的关系
+
+| 关系 | 说明 |
+|---|---|
+| **chat** | LLM 在 chat agent 循环里调本 domain 的 4 工具 + AskUserQuestion；conversation_id 通过 ctx 透传 |
+| **conversation** | 弱关联——task.conversation_id 引用 conversations.id 但**不**加 FK（softdelete + 跨 conv 隔离已经够，FK 仅增加迁移负担）|
+| **events** | task 事件 entity-state 模式与 forge / conversation 同标准 |
+| **reqctx** | 依赖 `RequireConversationID`（本 batch 新加 sentinel）+ `GetToolCallID`（ask 工具用）|
+
+---
+
+## 12. 演化方向（未来）
+
+- **依赖图渲染**：UI 用 `BlockedBy` 画 DAG；当前后端只存不强制
+- **跨 agent 协作**：Owner 字段已在 entity 里；多 agent workflow 落地后承担调度
+- **持久化用户工单**：当前 task 软删后仍能 Get（GORM 默认过滤可绕过）；将来加专门的"已归档"视图
+- **HTTP CRUD 端点**（如 `GET /api/v1/conversations/{id}/tasks`）：当前不暴露；前端通过 SSE `task` 事件维护状态，无需主动拉取

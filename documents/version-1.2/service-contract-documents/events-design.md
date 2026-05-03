@@ -42,17 +42,18 @@
 
 > **状态**：⬜ 未设计 | 🔄 struct 定义中 | ✅ 已实现（struct + 真实发布点）
 
-### entity-state 模型（Phase 6 重构 · 2026-05-02）
+### entity-state 模型（Phase 6 重构 · 2026-05-02；Phase 5 加 task · 2026-05-04）
 
-**3 个事件，每个 = 一个 user-facing domain entity 的完整 GET 快照**。订阅方按 entity ID 替换本地拷贝即可渲染——不再追 token / 不再合 delta / 不再分 12 种事件形状。
+**4 个事件，每个 = 一个 user-facing domain entity 的完整 GET 快照**。订阅方按 entity ID 替换本地拷贝即可渲染——不再追 token / 不再合 delta / 不再分 12 种事件形状。
 
 每个事件 struct 嵌入 `*<domain>.Entity` 指针 + 自定义 `MarshalJSON` → wire 形状 = `GET /api/v1/<entities>/{id}` 的响应（无 wrapper key，entity 字段直接出现在顶层）。
 
 | 事件名 | 载荷 = | 过滤 key | 触发点 | 状态 |
 |---|---|---|---|---|
-| `chat.message` | 完整 `Message`（含 `blocks`/`status`/`stopReason`/`errorCode`/`errorMessage`/`inputTokens`/`outputTokens`/`updatedAt`）| `conversationId` | message slot 创建、每个 LLM token、tool_call 出现、tool_call args 完整、每个 tool result 完成、最终写、pre-LLM 失败的 stub 错误消息 | ✅ |
+| `chat.message` | 完整 `Message`（含 `blocks`/`status`/`stopReason`/`errorCode`/`errorMessage`/`inputTokens`/`outputTokens`/`updatedAt`）| `conversationId` | message slot 创建、每个 LLM token、tool_call 出现、tool_call args 完整、每个 tool result 完成、最终写、pre-LLM 失败的 stub 错误消息；**Phase 5 起 AskUserQuestion 工具的提问也通过此事件**——question/options 在 tool_call block 的 arguments 里，UI 据此渲染问询 | ✅ |
 | `forge` | 完整 `Forge`（含 `pending` 子对象/`code`/`parameters`/`returnSchema`/`tags`/`versionCount`/`activeVersionId`/`envStatus`/`envError`/`envSyncedAt`/`envSyncStage`/`envSyncDetail`）| `conversationId` | create_forge / edit_forge 期间逐 token（draft 在内存增长）、最终 save 后定型；**沙箱迭代 1 新增**：EnvStatus 状态转换（pending→syncing→ready/failed/evicted）、每行 uv stderr 解析（envSyncStage / envSyncDetail 变化）；HTTP CRUD 暂不广播（MVP 单用户单窗口）| ✅ |
 | `conversation` | 完整 `Conversation`（含 `title`/`autoTitled`/`systemPrompt` 等）| `conversationId` | auto-title 回写、未来归档/系统 prompt 更新等 | ✅ |
+| `task` | 完整 `Task`（含 `id`/`conversationId`/`subject`/`description`/`activeForm`/`status`/`owner`/`blockedBy`/`metadata`/时间戳）| `conversationId` | TaskCreate / TaskUpdate / TaskDelete 任意时点；删除时最后一帧 status="deleted" 让订阅方丢本地拷贝 | ✅ |
 
 **配套实现细节**：
 
