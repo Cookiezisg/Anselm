@@ -6,12 +6,14 @@ import (
 
 	"go.uber.org/zap"
 
+	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -82,14 +84,26 @@ var errTable = map[error]errMapping{
 	forgedomain.ErrSandboxUnavailable:   {http.StatusServiceUnavailable, "FORGE_SANDBOX_UNAVAILABLE"},
 	forgedomain.ErrDependencyResolution: {http.StatusUnprocessableEntity, "FORGE_DEPENDENCY_RESOLUTION"},
 
+	// task domain / task domain 层
+	taskdomain.ErrNotFound:         {http.StatusNotFound, "TASK_NOT_FOUND"},
+	taskdomain.ErrSubjectRequired:  {http.StatusBadRequest, "TASK_SUBJECT_REQUIRED"},
+	taskdomain.ErrInvalidStatus:    {http.StatusBadRequest, "TASK_INVALID_STATUS"},
+
+	// ask service (AskUserQuestion answer-delivery handler) /
+	// ask service（AskUserQuestion 答案投递 handler）
+	askapp.ErrNoPendingQuestion: {http.StatusNotFound, "ASK_NO_PENDING_QUESTION"},
+	askapp.ErrAlreadyAnswered:   {http.StatusConflict, "ASK_ALREADY_ANSWERED"},
+	askapp.ErrTimeout:           {http.StatusGatewayTimeout, "ASK_TIMEOUT"},
+
 	// Cross-cutting: explicitly registered to suppress the "unmapped domain
 	// error" warning while still returning 500. Both represent server-side
 	// state that the user can't recover from.
 	//
 	// 跨层 sentinel：显式登记以抑制"unmapped domain error"警告，
 	// 同时仍返回 500。两者都代表用户无法自行恢复的服务端状态。
-	reqctxpkg.ErrMissingUserID:        {http.StatusInternalServerError, "INTERNAL_ERROR"},
-	cryptoinfra.ErrUnsupportedVersion: {http.StatusInternalServerError, "INTERNAL_ERROR"},
+	reqctxpkg.ErrMissingUserID:         {http.StatusInternalServerError, "INTERNAL_ERROR"},
+	reqctxpkg.ErrMissingConversationID: {http.StatusInternalServerError, "INTERNAL_ERROR"},
+	cryptoinfra.ErrUnsupportedVersion:  {http.StatusInternalServerError, "INTERNAL_ERROR"},
 }
 
 // FromDomainError translates a domain error to an HTTP envelope via errTable.

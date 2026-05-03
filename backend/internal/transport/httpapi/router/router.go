@@ -46,6 +46,9 @@ func New(deps Deps) http.Handler {
 	if deps.ChatService != nil && deps.EventsBridge != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.EventsBridge, deps.Log).Register(mux)
 	}
+	if deps.AskService != nil {
+		handlershttpapi.NewAnswerHandler(deps.AskService, deps.Log).Register(mux)
+	}
 	if deps.Dev {
 		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.Port, deps.Tools, deps.Log).Register(mux)
 	}

@@ -39,6 +39,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 )
 
 // Event is any typed message flowing through a Bridge. Implementations
@@ -159,4 +160,37 @@ func (e Conversation) MarshalJSON() ([]byte, error) {
 		return []byte("null"), nil
 	}
 	return json.Marshal(e.Conversation)
+}
+
+// ── Task ──────────────────────────────────────────────────────────────────────
+
+// Task carries a full Task snapshot. Fired on Create / Update /
+// SoftDelete by the app/task.Service so the LLM (and any UI subscribed
+// to chat SSE) sees task-list state changes in near real time.
+//
+// JSON shape: identical to GET /api/v1/tasks/{id} (when that REST
+// endpoint exists; v1 only exposes the SSE event because the LLM tool
+// calls are the primary interface).
+//
+// Task 携带完整 Task 快照。app/task.Service 在 Create / Update /
+// SoftDelete 时触发，让 LLM（与订阅 chat SSE 的 UI）近实时看到任务列表
+// 变化。
+//
+// JSON 形状：与 GET /api/v1/tasks/{id} 一致（v1 仅出 SSE 事件——LLM 工具
+// 调用是主要接口）。
+type Task struct {
+	*taskdomain.Task
+}
+
+// EventName returns "task".
+// EventName 返回 "task"。
+func (Task) EventName() string { return "task" }
+
+// MarshalJSON delegates to the embedded *taskdomain.Task.
+// MarshalJSON 委托给嵌入的 *taskdomain.Task。
+func (e Task) MarshalJSON() ([]byte, error) {
+	if e.Task == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(e.Task)
 }

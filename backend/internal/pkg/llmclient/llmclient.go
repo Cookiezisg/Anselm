@@ -72,6 +72,45 @@ func Resolve(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPickModel, err)
 	}
+	return finishResolve(ctx, provider, modelID, keys, factory)
+}
+
+// ResolveForWebSummary resolves the LLM bundle the WebFetch tool uses to
+// summarise fetched content. Tries the user's web_summary scenario first;
+// if not configured, transparently falls back to the chat scenario so
+// summarisation works out of the box without a separate setup step.
+//
+// ResolveForWebSummary 解析 WebFetch 工具用于摘要的 LLM bundle。先尝试
+// 用户的 web_summary 场景；未配置则透明 fallback 到 chat 场景，保证摘要
+// 开箱即用，无需额外配置。
+func ResolveForWebSummary(
+	ctx context.Context,
+	picker modeldomain.ModelPicker,
+	keys apikeydomain.KeyProvider,
+	factory *llminfra.Factory,
+) (*Bundle, error) {
+	provider, modelID, err := picker.PickForWebSummary(ctx)
+	if errors.Is(err, modeldomain.ErrNotConfigured) {
+		provider, modelID, err = picker.PickForChat(ctx)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrPickModel, err)
+	}
+	return finishResolve(ctx, provider, modelID, keys, factory)
+}
+
+// finishResolve runs the keys → factory portion shared by Resolve and
+// ResolveForWebSummary so the picker step is the only thing that varies
+// between callsites.
+//
+// finishResolve 跑 keys → factory 部分，被 Resolve 与 ResolveForWebSummary
+// 共用——picker 步骤是两者唯一差异。
+func finishResolve(
+	ctx context.Context,
+	provider, modelID string,
+	keys apikeydomain.KeyProvider,
+	factory *llminfra.Factory,
+) (*Bundle, error) {
 	creds, err := keys.ResolveCredentials(ctx, provider)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrResolveCreds, err)

@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
+	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
@@ -55,6 +56,13 @@ type Deps struct {
 	// EventsBridge 是进程内发布-订阅总线，由 ChatService（发布方）
 	// 和 SSE handler（订阅方）共享。
 	EventsBridge eventsdomain.Bridge
+
+	// AskService routes user answers from POST /api/v1/conversations/{id}/answers
+	// back to the AskUserQuestion tool that is currently blocking on Wait.
+	//
+	// AskService 把 POST /api/v1/conversations/{id}/answers 收到的用户答案
+	// 路由回正在 Wait 阻塞的 AskUserQuestion 工具。
+	AskService *askapp.Service
 
 	// ── Dev-only fields (nil/zero when Dev=false) ─────────────────────────────
 

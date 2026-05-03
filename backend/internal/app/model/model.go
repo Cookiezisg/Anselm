@@ -116,4 +116,20 @@ func (s *Service) PickForChat(ctx context.Context) (provider, modelID string, er
 	return m.Provider, m.ModelID, nil
 }
 
+// PickForWebSummary returns the (provider, modelID) the user picked for the
+// WebFetch summarisation scenario. Returns ErrNotConfigured if the user
+// never set it — the WebFetch tool is expected to fall back to
+// PickForChat so summarisation still works out of the box.
+//
+// PickForWebSummary 返回用户为 WebFetch 摘要场景选定的 (provider, modelID)。
+// 未设置返 ErrNotConfigured——WebFetch tool 应 fallback 到 PickForChat，
+// 让开箱即用。
+func (s *Service) PickForWebSummary(ctx context.Context) (provider, modelID string, err error) {
+	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioWebSummary)
+	if err != nil {
+		return "", "", err
+	}
+	return m.Provider, m.ModelID, nil
+}
+
 func newID() string { return idgenpkg.New("mc") }

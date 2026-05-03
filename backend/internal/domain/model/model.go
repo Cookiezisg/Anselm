@@ -56,7 +56,8 @@ func (ModelConfig) TableName() string { return "model_configs" }
 // Scenario 常量。每个常量对应 model_configs 里的一类行。
 // 新 scenario 随后续 Phase 推进在此处追加。
 const (
-	ScenarioChat = "chat" // main user conversation / 用户主对话
+	ScenarioChat       = "chat"        // main user conversation / 用户主对话
+	ScenarioWebSummary = "web_summary" // WebFetch summarisation model / WebFetch 内容摘要模型
 	// Phase 4+: ScenarioWorkflowLLM = "workflow_llm"
 	// Phase 5+: ScenarioEmbedding   = "embedding"
 	// Phase 5+: ScenarioIntent      = "intent"
@@ -70,7 +71,7 @@ const (
 // 校验放在 app 层而非 DB CHECK，便于新增 scenario 时不做 schema 迁移。
 func IsValidScenario(s string) bool {
 	switch s {
-	case ScenarioChat:
+	case ScenarioChat, ScenarioWebSummary:
 		return true
 	default:
 		return false
@@ -84,7 +85,7 @@ func IsValidScenario(s string) bool {
 // ListScenarios 返回当前所有已知 scenario 名称。
 // 生产代码不调用本函数——它存在仅为支撑"ListScenarios 与 IsValidScenario 列表一致"契约测试。
 func ListScenarios() []string {
-	return []string{ScenarioChat}
+	return []string{ScenarioChat, ScenarioWebSummary}
 }
 
 // Sentinel errors. Mapped to HTTP responses by
@@ -161,4 +162,14 @@ type ModelPicker interface {
 	// PickForChat 返回当前用户主对话 scenario 的 (provider, modelID)。
 	// 用户从未配置过则返回 ErrNotConfigured。
 	PickForChat(ctx context.Context) (provider, modelID string, err error)
+
+	// PickForWebSummary returns the (provider, modelID) used to summarise
+	// content fetched by the WebFetch tool. Returns ErrNotConfigured if the
+	// user has never set it; callers (the WebFetch tool) MUST fall back to
+	// PickForChat in that case so summarisation still works out of the box.
+	//
+	// PickForWebSummary 返回 WebFetch 工具用于摘要抓取内容的 (provider, modelID)。
+	// 用户从未设置返 ErrNotConfigured；调用方（WebFetch 工具）必须 fallback
+	// 到 PickForChat，确保开箱即用。
+	PickForWebSummary(ctx context.Context) (provider, modelID string, err error)
 }

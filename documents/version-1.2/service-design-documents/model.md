@@ -64,11 +64,12 @@ chat 发消息时要回答"该调 OpenAI 的 gpt-4o 还是 Anthropic 的 claude-
 
 代码位置：`internal/domain/model/model.go`
 
-### Phase 2 清单（1 个）
+### 当前清单（2 个）
 
 | Scenario 常量 | 值 | 含义 | 典型模型 |
 |---|---|---|---|
 | `ScenarioChat` | `"chat"` | 用户主对话（`POST /chat/messages` 走的）| GPT-4o / Claude Sonnet / DeepSeek Chat |
+| `ScenarioWebSummary` | `"web_summary"` | WebFetch 工具用于摘要抓取内容的模型；用户未配置时由 WebFetch 自动 fallback 到 `ScenarioChat` | gpt-4o-mini / Haiku / DeepSeek（小快省）|
 
 ### 演化（其他 Phase 再加 const）
 
@@ -86,13 +87,14 @@ chat 发消息时要回答"该调 OpenAI 的 gpt-4o 还是 Anthropic 的 claude-
 ```go
 // internal/domain/model/model.go
 const (
-    ScenarioChat = "chat"
+    ScenarioChat       = "chat"
+    ScenarioWebSummary = "web_summary"
     // Phase 3+: 随 Phase 加 const
 )
 
 func IsValidScenario(s string) bool {
     switch s {
-    case ScenarioChat:
+    case ScenarioChat, ScenarioWebSummary:
         return true
     default:
         return false
@@ -100,7 +102,7 @@ func IsValidScenario(s string) bool {
 }
 
 func ListScenarios() []string {
-    return []string{ScenarioChat}
+    return []string{ScenarioChat, ScenarioWebSummary}
 }
 ```
 
@@ -133,7 +135,7 @@ func (ModelConfig) TableName() string { return "model_configs" }
 |---|---|
 | `ID` | `mc_<16hex>` 格式（8 字节 crypto/rand，与 apikey 的 `aki_` 一致）|
 | `UserID` | JSON 不输出（`json:"-"`，与前端无关）|
-| `Scenario` | 白名单常量（Phase 2 仅 `"chat"`）|
+| `Scenario` | 白名单常量（当前：`"chat"` / `"web_summary"`）|
 | `Provider` | 11 白名单之一，**但不在 model 层校验**（反剧场原则）|
 | `ModelID` | 字符串，如 `"gpt-4o"` / `"claude-3-5-sonnet-latest"`；**不校验**（不同 provider 的 model 命名无统一白名单）|
 | 时间戳 | GORM 自动维护 |
@@ -204,6 +206,16 @@ type ModelPicker interface {
     // 用户未设置过返回 ErrNotConfigured。
     PickForChat(ctx context.Context) (provider, modelID string, err error)
 
+    // PickForWebSummary returns (provider, modelID) for the WebFetch tool's
+    // summarisation scenario. Returns ErrNotConfigured if never set —
+    // callers (the WebFetch tool) MUST fall back to PickForChat so
+    // summarisation works out of the box.
+    //
+    // PickForWebSummary 返回 WebFetch 工具摘要场景的 (provider, modelID)。
+    // 未设置返 ErrNotConfigured——调用方（WebFetch tool）必须 fallback 到
+    // PickForChat，让开箱即用。
+    PickForWebSummary(ctx context.Context) (provider, modelID string, err error)
+
     // Phase 4+ 按需追加方法（不泛化成 Pick(ctx, scenario) 的理由见下）
     // PickForWorkflow(ctx, nodeType string) (provider, modelID string, err error)
     // PickForEmbedding(ctx) (provider, modelID string, err error)
@@ -226,7 +238,7 @@ type ModelPicker interface {
 | Repository 实现 | `Store` | `infra/store/model/store.go`（别名 modelstore） | main.go DI |
 | Service（CRUD + ModelPicker 实现）| `Service` | `app/model/service.go`（别名 modelapp） | handler + main.go |
 | ModelPicker 实现 | 同 `Service` | `app/model/modelpicker.go` | 其他 domain（通过接口） |
-| Scenario 工具 | `ScenarioChat`, `IsValidScenario`, `ListScenarios` | `domain/model/model.go` | Service + handler 校验 |
+| Scenario 工具 | `ScenarioChat`, `ScenarioWebSummary`, `IsValidScenario`, `ListScenarios` | `domain/model/model.go` | Service + handler 校验 |
 
 ---
 
@@ -311,6 +323,7 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 
 // ModelPicker 接口实现（在 modelpicker.go）
 func (s *Service) PickForChat(ctx context.Context) (provider, modelID string, err error)
+func (s *Service) PickForWebSummary(ctx context.Context) (provider, modelID string, err error)
 ```
 
 ### Upsert 流程

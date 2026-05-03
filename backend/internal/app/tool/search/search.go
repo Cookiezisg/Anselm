@@ -37,13 +37,11 @@ import (
 // dependencies. Returns []toolapp.Tool because the chat ReAct loop consumes
 // the abstract Tool interface.
 //
-// Glob (S2) will be appended once implemented.
-//
 // SearchTools 构造装配好依赖的 search system tool。返回 []toolapp.Tool。
-// Glob（S2）实现完成后追加。
 func SearchTools(pathGuard pathguardpkg.PathGuard) []toolapp.Tool {
 	return []toolapp.Tool{
 		newGrep(pathGuard),
+		newGlob(pathGuard),
 	}
 }
 
@@ -54,4 +52,11 @@ func SearchTools(pathGuard pathguardpkg.PathGuard) []toolapp.Tool {
 func newGrep(pathGuard pathguardpkg.PathGuard) *Grep {
 	rgPath, _ := exec.LookPath("rg") // err = not in PATH; treat as fallback
 	return &Grep{pathGuard: pathGuard, rgPath: rgPath}
+}
+
+// newGlob constructs a Glob.
+//
+// newGlob 构造 Glob。
+func newGlob(pathGuard pathguardpkg.PathGuard) *Glob {
+	return &Glob{pathGuard: pathGuard}
 }

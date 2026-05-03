@@ -23,9 +23,11 @@ package agentstate
 import "sync"
 
 // AgentState is the per-conversation shared state for tool invocations.
-// Methods are safe for concurrent use — backed by sync.Map.
+// Methods are safe for concurrent use — backed by sync.Map for SeenFiles
+// and a sync.Mutex for the cwd cell.
 //
-// AgentState 是 tool 调用的对话级共享状态。方法并发安全——底层 sync.Map。
+// AgentState 是 tool 调用的对话级共享状态。方法并发安全——SeenFiles 走
+// sync.Map，cwd 单元走 sync.Mutex。
 type AgentState struct {
 	// SeenFiles maps absolute file path → file size at the time it was Read.
 	// Edit/Write check membership to enforce must-Read-first; the size lets
@@ -35,6 +37,18 @@ type AgentState struct {
 	// Edit/Write 检查存在性以强制 must-Read-first；size 让后续代码能检测
 	// Read 与 Edit 之间的外部修改。
 	SeenFiles sync.Map // string → int64
+
+	// cwd is the conversation's tracked current working directory for the
+	// Bash tool. Updated by `cd <path>` invocations the tool detects as
+	// the entire command. Empty string means "use process cwd" — the Bash
+	// tool resolves that lazily so a fresh AgentState doesn't need a
+	// constructor.
+	//
+	// cwd 是对话级追踪的 Bash 工作目录；当 Bash 工具识别整条命令是
+	// `cd <path>` 时更新。空串表示"用进程 cwd"——Bash 工具懒解析，让
+	// 新建的 AgentState 不需要构造函数。
+	cwdMu sync.Mutex
+	cwd   string
 }
 
 // MarkRead records that path has been Read this conversation, capturing its
@@ -59,4 +73,26 @@ func (s *AgentState) WasRead(path string) (int64, bool) {
 		return 0, false
 	}
 	return v.(int64), true
+}
+
+// Cwd returns the conversation's tracked working directory for the Bash
+// tool. Empty string means "use process cwd" — the caller resolves it.
+//
+// Cwd 返回 Bash 工具追踪的对话级工作目录。空串表示"用进程 cwd"，由调用方解析。
+func (s *AgentState) Cwd() string {
+	s.cwdMu.Lock()
+	defer s.cwdMu.Unlock()
+	return s.cwd
+}
+
+// SetCwd updates the tracked working directory. Bash detects an entire-
+// command `cd <path>` and calls this so subsequent commands run in the
+// updated directory.
+//
+// SetCwd 更新追踪的工作目录。Bash 识别整条命令为 `cd <path>` 时调用，
+// 让后续命令在新目录运行。
+func (s *AgentState) SetCwd(path string) {
+	s.cwdMu.Lock()
+	defer s.cwdMu.Unlock()
+	s.cwd = path
 }

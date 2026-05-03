@@ -1,6 +1,17 @@
 package reqctx
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrMissingConversationID is returned by RequireConversationID when no
+// conversation ID is present in ctx — typically a wiring bug (the chat
+// runner did not stamp it before invoking a tool).
+//
+// ErrMissingConversationID 由 RequireConversationID 在 ctx 无
+// conversation ID 时返回——通常是接线 bug（chat runner 漏在调 tool 前印）。
+var ErrMissingConversationID = errors.New("reqctx: missing conversation id in context")
 
 // agentrun.go — Per-agent-run identifiers stamped by the chat layer just before
 // invoking a tool's Execute. Tool implementations read them to scope SSE event
@@ -43,6 +54,19 @@ func WithConversationID(ctx context.Context, id string) context.Context {
 func GetConversationID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(conversationIDKey{}).(string)
 	return id, ok && id != ""
+}
+
+// RequireConversationID returns the conversation ID or ErrMissingConversationID.
+// Use this when the caller wants to bubble up the sentinel rather than
+// handle a bool.
+//
+// RequireConversationID 返回 conversation ID 或 ErrMissingConversationID。
+// 调用方想上抛 sentinel 而不处理 bool 时使用。
+func RequireConversationID(ctx context.Context) (string, error) {
+	if id, ok := GetConversationID(ctx); ok {
+		return id, nil
+	}
+	return "", ErrMissingConversationID
 }
 
 // ── assistant message ID ──────────────────────────────────────────────────────

@@ -20,18 +20,25 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
+	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	taskapp "github.com/sunweilin/forgify/backend/internal/app/task"
+	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
+	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
+	tasktool "github.com/sunweilin/forgify/backend/internal/app/tool/task"
+	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
@@ -43,6 +50,7 @@ import (
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
+	taskstore "github.com/sunweilin/forgify/backend/internal/infra/store/task"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
@@ -92,6 +100,7 @@ func main() {
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
 		&forgedomain.ForgeExecution{},
+		&taskdomain.Task{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -195,6 +204,15 @@ func main() {
 	)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
+	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
+	shells := shelltool.NewShellTools()
+	defer shells.Manager.Stop() // graceful shutdown: kill any background children
+	tools = append(tools, shells.Tools...)
+
+	taskService := taskapp.NewService(taskstore.New(gdb), eventsBridge, log)
+	tools = append(tools, tasktool.TaskTools(taskService)...)
+	askService := askapp.NewService()
+	tools = append(tools, asktool.AskTools(askService)...)
 	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
@@ -216,6 +234,7 @@ func main() {
 		ForgeService:        forgeService,
 		ChatService:         chatService,
 		EventsBridge:        eventsBridge,
+		AskService:          askService,
 		Dev:                 *dev,
 		Tools:               tools,
 		DB:                  gdb,
