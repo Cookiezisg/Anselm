@@ -108,6 +108,7 @@
 - **S16 错误包装格式**：上抛错误用 `fmt.Errorf("<pkg>.<Method>: %w", err)`，sentinel 在最里层。例：`apikeystore.List: missing user id in context`。**禁止**裸 `errors.New` 套娃丢失原 sentinel；**禁止**自创新前缀代替 `%w` 包装。`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17 errmap 单一事实源**：每个会到达 handler 的 sentinel 必须登记到 `transport/httpapi/response/errmap.go::errTable`——**包括** `pkg/` 和 `infra/` 中跨层使用的（如 `reqctxpkg.ErrMissingUserID` / `cryptoinfra.ErrUnsupportedVersion`）。未登记的 sentinel 会触发"unmapped domain error" ERROR 日志，污染烟雾报警
 - **S18 Tool 接口规约** — 见 §S18 详节
+- **S19 Dev log 节制**：`progress-record.md` 每条 dev log 1-2 句、~30-100 汉字，跟 Phase 0-2 早期条目同密度。保留：日期标签（`[refactor]` / `[fix]` / `[doc]` 等）/ 模块 / 关键数字（测试数 / 文件数 / 端点数）/ 一句结论。砍：实现细节、设计权衡 why/how、踩坑过程、命名漂移记录——这些归 git log / commit message / 设计文档。**Dev log 是日期索引，不是工程档案**——长篇是噪音，密度过高反而难找历史。新条目超 100 字时回头砍——多半是把"做了什么"写成了"为什么这么做"。
 
 ## 测试（T 系列）
 
