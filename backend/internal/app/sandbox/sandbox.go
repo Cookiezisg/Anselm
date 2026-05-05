@@ -104,6 +104,16 @@ type Service struct {
 	// envLocks per-(ownerKind, ownerID) serialize concurrent EnsureEnv.
 	// envLocks per-(ownerKind, ownerID) 序列化并发 EnsureEnv。
 	envLocks sync.Map // map["<ownerKind>:<ownerID>"]*sync.Mutex
+
+	// activeHandles tracks LongLived spawn handles for Service.Shutdown
+	// (Layer A leak prevention). nextHandleID hands out unique IDs so
+	// trackedHandle can un-register itself on Wait/Kill.
+	//
+	// activeHandles 跟踪 LongLived spawn handle 给 Service.Shutdown（层 A
+	// leak 防御）用。nextHandleID 发唯一 ID 让 trackedHandle 能在 Wait/Kill
+	// 时反注册。
+	activeHandles sync.Map      // map[uint64]*trackedHandle
+	nextHandleID  atomic.Uint64 // monotonic ID source
 }
 
 // New constructs a Service bound to the given repository, data directory,
