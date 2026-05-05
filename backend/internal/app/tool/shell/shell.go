@@ -40,6 +40,7 @@
 package shell
 
 import (
+	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
@@ -55,17 +56,22 @@ type ShellTools struct {
 }
 
 // NewShellTools wires Bash + BashOutput + KillShell against a fresh
-// ProcessManager. The caller owns the manager and should call Stop()
+// ProcessManager. sandbox is the optional auto-route target — pass the
+// sandboxapp.Service to enable sandbox.md §9.5 conversation scratch env
+// routing for runtime-bound commands; pass nil to keep Bash on plain
+// system shell. The caller owns the manager and should call Stop()
 // during shutdown.
 //
 // NewShellTools 用一个新建的 ProcessManager 装配 Bash + BashOutput + KillShell。
-// 调用方拥有 manager，关停时应调 Stop()。
-func NewShellTools() *ShellTools {
+// sandbox 是可选自动路由目标——传 sandboxapp.Service 启用 sandbox.md §9.5
+// 对话 scratch env 路由（runtime 相关命令），传 nil 保 Bash 走 plain system
+// shell。调用方拥有 manager，关停时应调 Stop()。
+func NewShellTools(sandbox *sandboxapp.Service) *ShellTools {
 	mgr := NewProcessManager()
 	return &ShellTools{
 		Manager: mgr,
 		Tools: []toolapp.Tool{
-			&Bash{mgr: mgr},
+			&Bash{mgr: mgr, sandbox: sandbox},
 			&BashOutput{mgr: mgr},
 			&KillShell{mgr: mgr},
 		},

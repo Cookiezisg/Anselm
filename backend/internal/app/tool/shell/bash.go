@@ -40,7 +40,9 @@ import (
 	"sync"
 	"time"
 
+	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -128,12 +130,20 @@ type bashArgs struct {
 // ── Tool struct & 9 methods ───────────────────────────────────────────────────
 
 // Bash implements the Bash system tool. mgr is shared with BashOutput +
-// KillShell so all three operate on the same registry.
+// KillShell so all three operate on the same registry. sandbox is the
+// optional auto-route target — when non-nil and ready, runtime-bound
+// commands (`pip install`, `python ...`, `npm ...`, etc.) execute with
+// PATH augmented by a per-conversation scratch env (sandbox.md §9.5).
+// nil sandbox or a degraded service falls through to plain system shell.
 //
-// Bash struct 是 Bash 系统工具。mgr 与 BashOutput + KillShell 共享，三者操作
-// 同一注册表。
+// Bash struct 是 Bash 系统工具。mgr 与 BashOutput + KillShell 共享。sandbox
+// 是可选自动路由目标——非 nil 且 ready 时，runtime 相关命令
+// （`pip install`、`python ...`、`npm ...` 等）以 per-conversation scratch
+// env 增强 PATH 执行（sandbox.md §9.5）。nil 或 degraded service 落到 plain
+// system shell。
 type Bash struct {
-	mgr *ProcessManager
+	mgr     *ProcessManager
+	sandbox *sandboxapp.Service // optional; nil → no auto-route
 }
 
 // Identity --------------------------------------------------------------------
@@ -201,15 +211,64 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 
 	cwd := resolveCwd(ctx)
 
+	// Conversation auto-route: detect runtime kind, lazily create the
+	// scratch env, derive PATH-prepend dirs. Failures degrade to plain
+	// shell — we never block the LLM on sandbox unavailability.
+	//
+	// 对话自动路由：检测 runtime kind，懒建 scratch env，派生 PATH 前置
+	// 目录。失败降级到 plain shell——绝不让 sandbox 不可用阻 LLM。
+	extraPath := t.maybeAutoRoute(ctx, cmdText)
+
 	if args.Background {
-		return t.runBackground(ctx, cmdText, cwd)
+		return t.runBackground(ctx, cmdText, cwd, extraPath)
 	}
 
 	timeoutMS := args.Timeout
 	if timeoutMS == 0 {
 		timeoutMS = defaultTimeoutMS
 	}
-	return t.runForeground(ctx, cmdText, cwd, time.Duration(timeoutMS)*time.Millisecond)
+	return t.runForeground(ctx, cmdText, cwd, extraPath, time.Duration(timeoutMS)*time.Millisecond)
+}
+
+// maybeAutoRoute returns the bin directories to prepend onto PATH when
+// the command targets a sandboxed runtime, or nil to pass through to
+// plain system shell. Quiet failure is intentional — sandbox unavailable
+// must never block a vanilla `ls` or `git status`.
+//
+// maybeAutoRoute 返命令瞄准 sandboxed runtime 时该前置到 PATH 的 bin 目录，
+// nil 直传 plain system shell。静默失败故意——sandbox 不可用绝不该挡普通
+// `ls` 或 `git status`。
+func (t *Bash) maybeAutoRoute(ctx context.Context, command string) []string {
+	if t.sandbox == nil || !t.sandbox.IsReady() {
+		return nil
+	}
+	kind := detectRuntime(command)
+	if kind == "" {
+		return nil
+	}
+	convID, ok := reqctxpkg.GetConversationID(ctx)
+	if !ok || convID == "" {
+		return nil
+	}
+	owner := sandboxdomain.Owner{
+		Kind: sandboxdomain.OwnerKindConversation,
+		ID:   convID + ":" + kind,
+		Name: fmt.Sprintf("Conv %s scratch (%s)", convID, kind),
+	}
+	env, err := t.sandbox.EnsureEnv(ctx, owner, sandboxdomain.EnvSpec{
+		Runtime: sandboxdomain.RuntimeSpec{Kind: kind},
+	}, nil)
+	if err != nil {
+		// Don't surface to the LLM via the tool result — the LLM cares
+		// about its command running, not about sandbox internals.
+		// Plain system shell is the documented fallback.
+		//
+		// 不通过 tool result 暴露给 LLM——LLM 关心自己命令是否跑，不是
+		// sandbox 内部。plain system shell 是文档化的兜底。
+		return nil
+	}
+	envPath := filepath.Join(t.sandbox.SandboxRoot(), env.Path)
+	return envBinDirsForKind(envPath, kind)
 }
 
 // ── cd state machine ──────────────────────────────────────────────────────────
@@ -302,11 +361,11 @@ func resolveCwd(ctx context.Context) string {
 //
 // runForeground 带硬墙钟超时执行 command，捕获合并 stdout+stderr（截断），
 // 返格式化结果。
-func (t *Bash) runForeground(ctx context.Context, command, cwd string, timeout time.Duration) (string, error) {
+func (t *Bash) runForeground(ctx context.Context, command, cwd string, extraPath []string, timeout time.Duration) (string, error) {
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := buildShellCmd(runCtx, command, cwd)
+	cmd := buildShellCmd(runCtx, command, cwd, extraPath)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
@@ -378,9 +437,19 @@ func capOutput(b []byte) string {
 //
 // runBackground 不等待启动 command，注册 BgProcess 并返 bash_id；Wait + 输出
 // pump 在子 goroutine 跑，结束时更新 BgProcess。
-func (t *Bash) runBackground(ctx context.Context, command, cwd string) (string, error) {
+func (t *Bash) runBackground(ctx context.Context, command, cwd string, extraPath []string) (string, error) {
 	convID, _ := reqctxpkg.GetConversationID(ctx)
-	cmd := buildShellCmd(context.Background(), command, cwd)
+	// Detached ctx — by design: background children outlive a single chat
+	// turn. Using the request ctx would let conversation cancel kill running
+	// `make build` / `npm run dev` / etc., which contradicts the whole point
+	// of run_in_background:true. Final cleanup happens via KillShell or
+	// ProcessManager.Stop() at backend shutdown.
+	//
+	// 切断 ctx——按设计：后台子进程 outlive 单次 chat turn。用请求 ctx 会让
+	// 对话取消把跑着的 `make build` / `npm run dev` 等都杀掉，违背
+	// run_in_background:true 的整个意图。最终清理走 KillShell 或 backend
+	// 关停时的 ProcessManager.Stop()。
+	cmd := buildShellCmd(context.Background(), command, cwd, extraPath)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -468,7 +537,7 @@ func pumpReader(wg *sync.WaitGroup, proc *BgProcess, r io.Reader) {
 //
 // buildShellCmd 构造 *exec.Cmd。Unix 用 `sh -c "<cmd>"`（Forgify 目标
 // macOS/Linux；Windows 走 cmd.exe / PowerShell——超出本期范围）。
-func buildShellCmd(ctx context.Context, command, cwd string) *exec.Cmd {
+func buildShellCmd(ctx context.Context, command, cwd string, extraPath []string) *exec.Cmd {
 	shell := "/bin/sh"
 	if runtime.GOOS == "windows" {
 		// Best-effort Windows support; not officially in scope.
@@ -482,7 +551,7 @@ func buildShellCmd(ctx context.Context, command, cwd string) *exec.Cmd {
 		cmd = exec.CommandContext(ctx, shell, "-c", command)
 	}
 	cmd.Dir = cwd
-	cmd.Env = os.Environ()
+	cmd.Env = prependPath(os.Environ(), extraPath)
 	return cmd
 }
 

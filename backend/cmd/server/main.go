@@ -201,7 +201,7 @@ func main() {
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
 	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
-	shells := shelltool.NewShellTools()
+	shells := shelltool.NewShellTools(sandboxSvc)
 	defer shells.Manager.Stop() // graceful shutdown: kill any background children
 	tools = append(tools, shells.Tools...)
 

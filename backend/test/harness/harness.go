@@ -245,7 +245,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
 	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
-	shells := shelltool.NewShellTools()
+	shells := shelltool.NewShellTools(nil) // pipeline harness skips sandbox auto-route
 	t.Cleanup(shells.Manager.Stop)
 	tools = append(tools, shells.Tools...)
 	taskService := taskapp.NewService(taskstore.New(gdb), bridge, log)
