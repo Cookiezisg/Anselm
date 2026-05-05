@@ -1,9 +1,8 @@
-// Package conversation is the domain layer for conversation thread management.
-// A Conversation is a named container for a chat session. It holds no
-// messages itself — the chat domain owns message history.
+// Package conversation is the domain layer for chat thread management.
+// A Conversation is a named container; messages live in chat domain.
 //
-// Package conversation 是对话线程管理的 domain 层。
-// Conversation 是聊天会话的命名容器，本身不含消息——消息历史由 chat domain 管理。
+// Package conversation 是对话线程 domain 层。
+// Conversation 是命名容器；消息归 chat domain。
 package conversation
 
 import (
@@ -14,11 +13,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// Conversation is a chat thread container. Title may be empty until the
-// user renames it or Phase 5 auto-names it from the first exchange.
+// Conversation is a chat thread container. Title may be empty until rename
+// or Phase 5 auto-naming.
 //
-// Conversation 是对话线程容器。Title 可为空，待用户手动改名或
-// Phase 5 根据首轮对话自动命名。
+// Conversation 是对话线程容器。Title 可空，待重命名或 Phase 5 自动命名。
 type Conversation struct {
 	ID           string         `gorm:"primaryKey;type:text" json:"id"`
 	UserID       string         `gorm:"not null;index;type:text" json:"-"`
@@ -30,48 +28,37 @@ type Conversation struct {
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// TableName locks the DB table to "conversations".
-//
-// TableName 把表名锁定为 "conversations"。
 func (Conversation) TableName() string { return "conversations" }
 
-// ListFilter is the query shape accepted by Repository.List.
+// ListFilter is the query shape for Repository.List.
 //
-// ListFilter 是 Repository.List 接受的查询形状。
+// ListFilter 是 Repository.List 的查询形状。
 type ListFilter struct {
 	Cursor string
 	Limit  int
 }
 
-// ErrNotFound is returned when a conversation id does not match any live record.
-//
-// ErrNotFound：conversation id 未命中任何活跃记录。
+// ErrNotFound: conversation id has no matching live record.
+// ErrNotFound：conversation id 无匹配活跃记录。
 var ErrNotFound = errors.New("conversation: not found")
 
-// Repository is the storage contract for Conversation.
-// Implementations scope every query to the userID in ctx.
+// Repository is the storage contract for Conversation, scoped to ctx user.
 //
-// Repository 是 Conversation 的存储契约。实现按 ctx 中的 userID 过滤。
+// Repository 是 Conversation 的存储契约，按 ctx 用户过滤。
 type Repository interface {
 	// Save inserts or updates by primary key.
-	//
 	// Save 按主键插入或更新。
 	Save(ctx context.Context, c *Conversation) error
 
-	// Get fetches one Conversation by id, scoped to the current user.
-	// Returns ErrNotFound if no live record matches.
-	//
-	// Get 按 id 查单条，按当前用户过滤。未命中活跃记录返回 ErrNotFound。
+	// Get fetches by id, scoped to ctx user; ErrNotFound when absent.
+	// Get 按 id 取，按 ctx 用户过滤；不存在返 ErrNotFound。
 	Get(ctx context.Context, id string) (*Conversation, error)
 
-	// List returns a page of conversations for the current user, newest first.
-	//
-	// List 返回当前用户的一页对话，最新优先。
+	// List returns one page for ctx user, newest first.
+	// List 返当前用户一页，最新优先。
 	List(ctx context.Context, filter ListFilter) ([]*Conversation, string, error)
 
-	// Delete soft-deletes by id, scoped to the current user.
-	// Returns ErrNotFound if no live record was matched.
-	//
-	// Delete 按 id 软删除，按当前用户过滤。未命中返回 ErrNotFound。
+	// Delete soft-deletes; ErrNotFound when no live record matched.
+	// Delete 软删除；未命中返 ErrNotFound。
 	Delete(ctx context.Context, id string) error
 }

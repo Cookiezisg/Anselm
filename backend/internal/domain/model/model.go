@@ -1,22 +1,10 @@
-// Package model is the domain layer for LLM model strategy management.
-// It records which (provider, modelID) the user has chosen for each scenario
-// and exposes two contracts:
+// Package model is the domain layer for LLM model strategy: records which
+// (provider, modelID) the user picked per scenario. Two ports — Repository
+// (→ infra/store/model) and ModelPicker (→ app/model).
 //
-//   - Repository  — storage port (implemented by infra/store/model)
-//   - ModelPicker — cross-domain consumer port (implemented by app/model)
-//
-// Naming convention: all three model packages (domain / app / store) declare
-// `package model`. External callers alias by role at import:
-//
-//	modeldomain "…/internal/domain/model"
-//	modelapp    "…/internal/app/model"
-//	modelstore  "…/internal/infra/store/model"
-//
-// Package model 是 LLM 模型策略管理的 domain 层。记录用户为每个 scenario
-// 选定的 (provider, modelID)，对外暴露两个契约：
-//
-//   - Repository   — 存储 port（由 infra/store/model 实现）
-//   - ModelPicker  — 跨 domain 消费 port（由 app/model 实现）
+// Package model 是 LLM 模型策略 domain 层：记录用户为各 scenario 选定的
+// (provider, modelID)。两个 port——Repository（→ infra/store/model）+
+// ModelPicker（→ app/model）。
 package model
 
 import (
@@ -27,13 +15,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// ModelConfig records the user's chosen (provider, modelID) for one scenario.
-// At most one active row exists per (user_id, scenario) pair — enforced by a
-// partial UNIQUE index in schema_extras.go.
+// ModelConfig records the user's (provider, modelID) for one scenario.
+// At most one active row per (user_id, scenario), enforced by a partial
+// UNIQUE index in schema_extras.go.
 //
-// ModelConfig 记录用户为某一 scenario 选定的 (provider, modelID)。
-// 每个 (user_id, scenario) 对最多存在一条活跃行——由 schema_extras.go
-// 的 partial UNIQUE 索引保证。
+// ModelConfig 记录用户某 scenario 下的 (provider, modelID)。
+// 每对 (user_id, scenario) 最多一条活跃行——schema_extras.go 的
+// partial UNIQUE 索引保证。
 type ModelConfig struct {
 	ID        string         `gorm:"primaryKey;type:text" json:"id"`
 	UserID    string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:1" json:"-"`
@@ -45,30 +33,21 @@ type ModelConfig struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// TableName locks the DB table to "model_configs".
-//
-// TableName 把表名锁定为 "model_configs"。
 func (ModelConfig) TableName() string { return "model_configs" }
 
-// Scenario constants. Each constant maps to one row in model_configs.
-// New scenarios are added here as later Phases introduce them.
+// Scenario constants. New scenarios appended here as Phases introduce them.
+// App-layer validation (not DB CHECK) so adding scenarios needs no migration.
 //
-// Scenario 常量。每个常量对应 model_configs 里的一类行。
-// 新 scenario 随后续 Phase 推进在此处追加。
+// Scenario 常量。后续 Phase 在此追加。校验在 app 层（非 DB CHECK），
+// 新增不需 schema 迁移。
 const (
-	ScenarioChat       = "chat"        // main user conversation / 用户主对话
-	ScenarioWebSummary = "web_summary" // WebFetch summarisation model / WebFetch 内容摘要模型
-	// Phase 4+: ScenarioWorkflowLLM = "workflow_llm"
-	// Phase 5+: ScenarioEmbedding   = "embedding"
-	// Phase 5+: ScenarioIntent      = "intent"
+	ScenarioChat       = "chat"
+	ScenarioWebSummary = "web_summary"
 )
 
 // IsValidScenario reports whether s is a recognised scenario name.
-// Validation lives in the app layer (not DB CHECK) so new scenarios can be
-// added without a schema migration.
 //
-// IsValidScenario 报告 s 是否是已知的 scenario 名称。
-// 校验放在 app 层而非 DB CHECK，便于新增 scenario 时不做 schema 迁移。
+// IsValidScenario 报告 s 是否合法 scenario。
 func IsValidScenario(s string) bool {
 	switch s {
 	case ScenarioChat, ScenarioWebSummary:
@@ -78,98 +57,57 @@ func IsValidScenario(s string) bool {
 	}
 }
 
-// ListScenarios returns all currently recognised scenario names.
-// Production code does not call this — it exists for the contract test
-// that asserts ListScenarios() and IsValidScenario() stay in sync.
+// ListScenarios returns every recognised scenario. Backs the contract test
+// asserting ListScenarios ≡ IsValidScenario; production code does not call it.
 //
-// ListScenarios 返回当前所有已知 scenario 名称。
-// 生产代码不调用本函数——它存在仅为支撑"ListScenarios 与 IsValidScenario 列表一致"契约测试。
+// ListScenarios 返所有合法 scenario。支撑 ListScenarios ≡ IsValidScenario
+// 契约测试；生产不调。
 func ListScenarios() []string {
 	return []string{ScenarioChat, ScenarioWebSummary}
 }
 
-// Sentinel errors. Mapped to HTTP responses by
-// transport/httpapi/response/errmap.go.
-//
-// Sentinel 错误。由 transport/httpapi/response/errmap.go 映射到 HTTP 响应。
 var (
-	// ErrNotConfigured: scenario has no active config (user never set it).
-	// ErrNotConfigured：该 scenario 无活跃配置（用户从未设置过）。
-	ErrNotConfigured = errors.New("model: not configured for scenario")
-
-	// ErrInvalidScenario: scenario name not in the supported whitelist.
-	// ErrInvalidScenario：scenario 名称不在支持的白名单内。
-	ErrInvalidScenario = errors.New("model: invalid scenario")
-
-	// ErrProviderRequired: PUT body is missing a non-empty provider.
-	// ErrProviderRequired：PUT body 缺少非空的 provider。
+	ErrNotConfigured    = errors.New("model: not configured for scenario")
+	ErrInvalidScenario  = errors.New("model: invalid scenario")
 	ErrProviderRequired = errors.New("model: provider is required")
-
-	// ErrModelIDRequired: PUT body is missing a non-empty modelId.
-	// ErrModelIDRequired：PUT body 缺少非空的 modelId。
-	ErrModelIDRequired = errors.New("model: model id is required")
+	ErrModelIDRequired  = errors.New("model: model id is required")
 )
 
-// Repository is the storage contract for ModelConfig. Implementations filter
-// by the userID in ctx — callers MUST ensure InjectUserID middleware has run.
+// Repository is the storage contract for ModelConfig. Scoped to ctx userID;
+// caller must run InjectUserID middleware first.
 //
-// Implemented by: infra/store/model.Store
-// Consumer:       app/model.Service (only)
-//
-// Repository 是 ModelConfig 的存储契约。实现按 ctx 中的 userID 过滤——
-// 调用方必须保证 InjectUserID 中间件已运行。
-//
-// 实现：infra/store/model.Store
-// 消费：仅 app/model.Service
+// Repository 是 ModelConfig 存储契约。按 ctx userID 过滤；调用方先跑 InjectUserID。
 type Repository interface {
-	// GetByScenario fetches the active config for (current user, scenario).
-	// Returns ErrNotConfigured if none exists.
-	//
-	// GetByScenario 返回 (当前用户, scenario) 的活跃配置；无则返 ErrNotConfigured。
+	// GetByScenario returns active config for (ctx user, scenario);
+	// ErrNotConfigured if none.
+	// GetByScenario 返 (ctx 用户, scenario) 的活跃配置；无则 ErrNotConfigured。
 	GetByScenario(ctx context.Context, scenario string) (*ModelConfig, error)
 
-	// List returns all active configs for the current user, ordered by scenario.
-	// No pagination — Phase 2 has at most 1 entry; future phases ≤ ~6.
-	//
-	// List 返回当前用户所有活跃配置，按 scenario 排序。
-	// 不分页——Phase 2 最多 1 条；未来各 Phase 加起来 ≤ ~6 条。
+	// List returns every active config for current user, ordered by scenario.
+	// No pagination — at most ~6 entries.
+	// List 返当前用户所有活跃配置，按 scenario 排序；不分页（最多 ~6 条）。
 	List(ctx context.Context) ([]*ModelConfig, error)
 
-	// Upsert creates or updates the config for (user_id, scenario). Caller must
-	// have set m.UserID and m.Scenario before calling.
-	//
-	// Upsert 按 (user_id, scenario) 创建或更新配置。
-	// 调用方须先填 m.UserID 和 m.Scenario。
+	// Upsert creates or updates by (user_id, scenario). Caller fills UserID + Scenario.
+	// Upsert 按 (user_id, scenario) 创建或更新；调用方先填 UserID + Scenario。
 	Upsert(ctx context.Context, m *ModelConfig) error
 }
 
-// ModelPicker is the cross-domain interface. Services that need to call an
-// LLM (chat, workflow nodes, embedding) use this to obtain the user's chosen
-// (provider, modelID) for their scenario — they never touch Repository or
-// ModelConfig directly.
+// ModelPicker is the cross-domain port for LLM-using services. Implemented
+// by app/model.Service.
 //
-// Implemented by: app/model.Service
-//
-// ModelPicker 是跨 domain 接口。需要调 LLM 的 service（chat、workflow 节点、
-// embedding）通过本接口获取用户为其 scenario 选定的 (provider, modelID)，
-// 不直接接触 Repository 或 ModelConfig。
-//
-// 由 app/model.Service 实现。
+// ModelPicker 是跨 domain 端口，由 app/model.Service 实现。
 type ModelPicker interface {
-	// PickForChat returns the (provider, modelID) for the user's main chat
-	// scenario. Returns ErrNotConfigured if the user has never set it.
-	//
-	// PickForChat 返回当前用户主对话 scenario 的 (provider, modelID)。
-	// 用户从未配置过则返回 ErrNotConfigured。
+	// PickForChat returns (provider, modelID) for the chat scenario;
+	// ErrNotConfigured when unset.
+	// PickForChat 返 chat scenario 的 (provider, modelID)；未配置返 ErrNotConfigured。
 	PickForChat(ctx context.Context) (provider, modelID string, err error)
 
-	// PickForWebSummary returns the (provider, modelID) used to summarise
-	// content fetched by the WebFetch tool. Returns ErrNotConfigured if the
-	// user has never set it; callers (the WebFetch tool) MUST fall back to
-	// PickForChat in that case so summarisation still works out of the box.
+	// PickForWebSummary returns (provider, modelID) for WebFetch summary;
+	// ErrNotConfigured when unset (caller MUST fall back to PickForChat so
+	// summarisation works out of the box).
 	//
-	// PickForWebSummary 返回 WebFetch 工具用于摘要抓取内容的 (provider, modelID)。
-	// 用户从未设置返 ErrNotConfigured；调用方（WebFetch 工具）必须 fallback
-	// 到 PickForChat，确保开箱即用。
+	// PickForWebSummary 返 WebFetch 摘要的 (provider, modelID)；未配置返
+	// ErrNotConfigured，调用方必须 fallback 到 PickForChat（保证开箱即用）。
 	PickForWebSummary(ctx context.Context) (provider, modelID string, err error)
 }

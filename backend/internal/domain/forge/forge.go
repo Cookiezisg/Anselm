@@ -1,45 +1,11 @@
-// Package forge is the domain layer for the user's Python forge library.
-// It owns four entities (Forge, ForgeVersion, ForgeTestCase, ForgeExecution),
-// the shared ExecutionResult value object, enumeration constants, sentinel
-// errors, and the storage contract (Repository).
+// Package forge is the domain layer for the user's Python forge library:
+// Forge / ForgeVersion / ForgeTestCase / ForgeExecution entities,
+// ExecutionResult value object, sentinels, Repository contract.
+// See documents/version-1.2/service-design-documents/forge.md for design.
 //
-// Design notes:
-//
-//   - ForgeVersion doubles as pending-change storage: status='pending' means
-//     awaiting user confirmation; status='accepted' is a committed version.
-//
-//   - ForgeExecution is a single immutable history table for ALL forge
-//     executions (ad-hoc :run + test-case runs + LLM-triggered run_forge),
-//     discriminated by Kind ("run"|"test"). Test-only fields (TestCaseID,
-//     BatchID, Pass) are nullable. Includes chat context (ConversationID,
-//     MessageID, ToolCallID) when triggered via LLM, so a chat turn can be
-//     fully traced to its forge invocations.
-//
-//   - ExecutionResult lives here (not in app/forge) so that infra/sandbox can
-//     return it without importing app/forge, avoiding a circular dependency.
-//
-//   - All three forge packages (domain / app / store) declare `package forge`.
-//     External callers alias by role at import time:
-//
-//     forgedomain "…/internal/domain/forge"
-//     forgeapp    "…/internal/app/forge"
-//     forgestore  "…/internal/infra/store/forge"
-//
-// Package forge 是用户 Python forge 库的 domain 层。拥有 4 个实体
-// （Forge / ForgeVersion / ForgeTestCase / ForgeExecution）、共享值对象
-// ExecutionResult、枚举常量、sentinel 错误及存储契约（Repository）。
-//
-// 设计说明：
-//   - ForgeVersion 同时承担 pending 变更存储：status='pending' 表示待用户确认；
-//     status='accepted' 是已提交版本。
-//   - ForgeExecution 是唯一的不可变历史表，覆盖 forge 所有执行
-//     （:run 临时运行 + 测试用例 + LLM 触发的 run_forge），用 Kind 区分
-//     ("run"|"test")。test 专属字段（TestCaseID / BatchID / Pass）可空。
-//     LLM 触发时记录 chat 上下文（ConversationID / MessageID / ToolCallID），
-//     一次 chat turn 可完整追溯触发的 forge 调用。
-//   - ExecutionResult 定义在本层（而非 app/forge），使 infra/sandbox 可直接
-//     返回它而不必 import app/forge（否则循环依赖）。
-//   - 三个 forge 包均声明 `package forge`，调用方 import 时按角色起别名（见上）。
+// Package forge 是 Python forge 库的 domain 层：4 个实体 + ExecutionResult
+// 值对象 + sentinel + Repository。设计见
+// documents/version-1.2/service-design-documents/forge.md。
 package forge
 
 import (
@@ -50,19 +16,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// ── Forge ──────────────────────────────────────────────────────────────────────
-
-// Forge is the main entity representing a user-forged Python tool.
-// Code holds the currently active version; VersionCount is the highest
-// accepted version number (0 before first save). ActiveVersionID points at
-// the ForgeVersion row that owns the venv currently in use. Pending and
-// the Env* fields are computed (not DB columns) — populated by service
-// layer attach helpers before serialization.
+// Forge is the main user-forged Python tool entity. Code = currently active
+// version's code; VersionCount = highest accepted version number.
+// ActiveVersionID points at the ForgeVersion owning the venv in use.
+// Pending + Env* are computed (gorm:"-") — service layer fills before serialize.
 //
-// Forge 是用户锻造的 Python 工具主实体。
-// Code 存当前活跃代码；VersionCount 是最大已接受版本号（首次保存前为 0）。
-// ActiveVersionID 指向当前在用 venv 所属的 ForgeVersion。Pending 和 Env*
-// 字段是计算字段（非 DB 列）——序列化前由 service 层 attach helper 填充。
+// Forge 是用户锻造的 Python 工具主实体。Code 是当前活跃版本代码；
+// VersionCount 是最大已接受版本号。ActiveVersionID 指向当前在用 venv 所属
+// ForgeVersion。Pending + Env* 是计算字段（gorm:"-"）——service 层序列化前填。
 type Forge struct {
 	ID           string         `gorm:"primaryKey;type:text"           json:"id"`
 	UserID       string         `gorm:"not null;index;type:text"       json:"-"`
@@ -77,32 +38,18 @@ type Forge struct {
 	UpdatedAt    time.Time      `json:"updatedAt"`
 	DeletedAt    gorm.DeletedAt `gorm:"index"                          json:"-"`
 
-	// ActiveVersionID points at the current active ForgeVersion.ID. Empty
-	// during draft (forge created but no version yet accepted). sandbox.Run
-	// uses this field (via service layer) to pick the right venv directory.
-	//
-	// ActiveVersionID 指向当前活跃的 ForgeVersion.ID。草稿期为空（forge
-	// 已建但还没 accept 任何版本）。sandbox.Run 通过 service 层用此字段
-	// 选 venv 目录。
+	// ActiveVersionID is the current active ForgeVersion.ID; "" during draft.
+	// ActiveVersionID 是当前活跃 ForgeVersion.ID；草稿期为空。
 	ActiveVersionID string `gorm:"type:text;default:''" json:"activeVersionId"`
 
-	// ── Computed fields (gorm:"-", filled by service attach helpers) ──
-
-	// Pending is the active pending ForgeVersion (if any). Filled by
-	// attachPending after Get / List. nil means no pending change.
-	//
-	// Pending 是当前活跃的 pending ForgeVersion（如有）。Get / List 后由
-	// attachPending 填充。nil 表示无 pending。
+	// Pending is the active pending ForgeVersion (if any). nil = no pending.
+	// Pending 是当前活跃 pending ForgeVersion；nil = 无 pending。
 	Pending *ForgeVersion `gorm:"-" json:"pending,omitempty"`
 
-	// Env* mirror the active version's environment runtime state so that
-	// GET /forges/{id} surfaces the current venv status directly. Filled
-	// by attachActiveEnv after the forge row is loaded; empty during draft
-	// when ActiveVersionID == "".
-	//
-	// Env* 镜像活跃版本的环境运行时态，让 GET /forges/{id} 直接含当前 venv
-	// 状态。forge 行加载后由 attachActiveEnv 填充；草稿期 ActiveVersionID==""
-	// 时为空。
+	// Env* mirror active version's env runtime state for GET /forges/{id}.
+	// Empty when ActiveVersionID == "".
+	// Env* 镜像活跃版本 env 运行时态，让 GET /forges/{id} 直接含 venv 状态。
+	// ActiveVersionID == "" 时为空。
 	EnvStatus     string     `gorm:"-" json:"envStatus"`
 	EnvError      string     `gorm:"-" json:"envError"`
 	EnvSyncedAt   *time.Time `gorm:"-" json:"envSyncedAt"`
@@ -110,9 +57,6 @@ type Forge struct {
 	EnvSyncDetail string     `gorm:"-" json:"envSyncDetail"`
 }
 
-// TableName locks the DB table to "forges".
-//
-// TableName 把表名锁定为 "forges"。
 func (Forge) TableName() string { return "forges" }
 
 // ── ForgeVersion ───────────────────────────────────────────────────────────────

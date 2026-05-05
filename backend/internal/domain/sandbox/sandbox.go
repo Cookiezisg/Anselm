@@ -1,41 +1,10 @@
-// Package sandbox is the domain layer for the unified PluginSandbox v2 —
-// the runtime / env manifest used by forge, mcp, skill, and conversation
-// scratch envs alike.
+// Package sandbox is the domain layer for PluginSandbox v2 — the runtime /
+// env manifest shared by forge, mcp, skill, and conversation scratch envs.
+// See documents/version-1.2/service-design-documents/sandbox.md for design.
 //
-// Two persisted entities live here:
-//
-//   - Runtime: one installed (kind, version) tuple on disk (e.g. python
-//     3.12.5, node 22.5.0). Shared across all envs of the same kind.
-//   - Env: one per-owner package-isolation directory (venv / node_modules /
-//     etc.) bound to a Runtime. Owner is one of forge / mcp / skill /
-//     conversation; UNIQUE(owner_kind, owner_id) — a plugin instance has
-//     at most one env at a time.
-//
-// Supporting value objects (Owner, RuntimeSpec, EnvSpec, SpawnOpts,
-// ExecutionResult, LongLivedHandle, ProgressFunc) describe inputs to
-// EnsureRuntime / EnsureEnv / Spawn. Sentinels surface install / spawn
-// failures to the app + transport layers.
-//
-// Two open/closed extension ports (RuntimeInstaller, EnvManager) live in
-// installer.go — adding a new runtime kind is one Installer/Manager pair
-// plus one main.go registration line, with zero changes to sandbox core.
-//
-// Package sandbox 是统一 PluginSandbox v2 的 domain 层——forge / mcp / skill /
-// 对话 scratch env 共用的 runtime / env 清单。
-//
-// 两个持久化实体：
-//   - Runtime：磁盘上一份已装的 (kind, version)（如 python 3.12.5、node 22.5.0），
-//     同 kind 的所有 env 共享。
-//   - Env：per-owner 的包隔离目录（venv / node_modules / 等），绑定到一个 Runtime。
-//     Owner 取 forge / mcp / skill / conversation 之一；UNIQUE(owner_kind, owner_id)
-//     ——一个 plugin 实例同时最多一份 env。
-//
-// 支持值对象（Owner / RuntimeSpec / EnvSpec / SpawnOpts / ExecutionResult /
-// LongLivedHandle / ProgressFunc）描述 EnsureRuntime / EnsureEnv / Spawn 的入参。
-// Sentinels 把 install / spawn 失败上抛到 app + transport 层。
-//
-// 两个开闭扩展端口（RuntimeInstaller / EnvManager）放在 installer.go——加新
-// runtime kind = 写一对 Installer/Manager + main.go 一行注册，sandbox 核心 0 修改。
+// Package sandbox 是 PluginSandbox v2 的 domain 层——forge / mcp / skill /
+// conversation scratch env 共用的 runtime / env 清单。
+// 设计见 documents/version-1.2/service-design-documents/sandbox.md。
 package sandbox
 
 import (
@@ -45,14 +14,10 @@ import (
 	"time"
 )
 
-// ── Owner ─────────────────────────────────────────────────────────────────────
-
-// OwnerKind enumerates the four kinds of env owners. Stable strings — DB
-// values + JSON wire values use these directly, so renames require a
-// migration.
+// OwnerKind enumerates env owner types. Stable strings — used as DB / JSON
+// values; renames require migration.
 //
-// OwnerKind 枚举四种 env 所有者类型。稳定字符串——DB 值 + JSON wire 值直接使用，
-// 改名需迁移。
+// OwnerKind 枚举 env 所有者类型。稳定字符串——直接作 DB / JSON 值；改名需迁移。
 const (
 	OwnerKindForge        = "forge"
 	OwnerKindMCP          = "mcp"
@@ -60,40 +25,28 @@ const (
 	OwnerKindConversation = "conversation"
 )
 
-// Owner identifies who owns an Env. ID semantics depend on Kind:
-//
-//   - forge:        EnvID hash (deps-content addressed; multiple forge
-//                   versions sharing same deps share one env)
+// Owner identifies an Env's owner. ID semantics depend on Kind:
+//   - forge:        EnvID hash (deps-content addressed)
 //   - mcp:          server name (e.g. "playwright")
 //   - skill:        skill name
-//   - conversation: "<conv_id>:<runtime_kind>" (e.g. "cv_abc:python")
+//   - conversation: "<conv_id>:<runtime_kind>"
+// Name is UI-only, not part of identity.
 //
-// Name is for UI display only; not part of identity.
-//
-// Owner 标识 Env 的所有者。ID 语义依 Kind 而定（见上）。Name 仅用于 UI 显示，
-// 不参与身份判断。
+// Owner 标识 Env 所有者。ID 语义依 Kind（见上）。Name 仅 UI 用，不参与身份。
 type Owner struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
 	Name string `json:"name,omitempty"`
 }
 
-// ── Runtime ───────────────────────────────────────────────────────────────────
-
-// Runtime is one installed (kind, version) on disk. Shared across all envs
-// of the same kind — there is exactly one row per (kind, version) pair
-// (UNIQUE constraint). IsDefault marks the kind's default version (the one
-// EnsureEnv resolves an empty Version spec to).
-//
+// Runtime is one installed (kind, version) on disk; UNIQUE(kind, version).
+// IsDefault marks the kind's default (resolved from empty Version spec).
 // Insertion is all-or-nothing: EnsureRuntime only inserts after Install
-// succeeds. Failed installs leave no row — caller retries from scratch.
+// succeeds — failed installs leave no row.
 //
-// Runtime 是磁盘上一份已装的 (kind, version)，同 kind 所有 env 共享——
-// 每对 (kind, version) 仅一行（UNIQUE）。IsDefault 标记该 kind 的默认版本
-// （EnsureEnv 收到空 Version spec 时解析到这个）。
-//
-// 插入 all-or-nothing：EnsureRuntime 仅在 Install 成功后插行。失败不留行——
-// 调用方从头重试。
+// Runtime 是磁盘上一份已装的 (kind, version)；UNIQUE(kind, version)。
+// IsDefault 标记该 kind 默认版本（空 Version spec 解析到这个）。
+// all-or-nothing 插入：EnsureRuntime 仅在 Install 成功后插行——失败不留行。
 type Runtime struct {
 	ID          string    `gorm:"primaryKey;type:text"                                            json:"id"` // sr_<16hex>
 	Kind        string    `gorm:"not null;type:text;uniqueIndex:uniq_sr_kind_version,priority:1;index:idx_sr_kind_def,priority:1" json:"kind"`
@@ -105,18 +58,12 @@ type Runtime struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-// TableName pins the SQLite table name.
-// TableName 钉死 SQLite 表名。
 func (Runtime) TableName() string { return "sandbox_runtimes" }
 
-// ── Env ───────────────────────────────────────────────────────────────────────
-
-// EnvStatus enumerates the installation lifecycle of an Env row. Stable
-// strings — DB CHECK constraint enforces the whitelist; renames require
-// a migration.
+// EnvStatus enumerates Env install lifecycle. DB CHECK enforces the whitelist;
+// renames require migration.
 //
-// EnvStatus 枚举 Env 行的装机生命周期。稳定字符串——DB CHECK 约束执行白名单；
-// 改名需迁移。
+// EnvStatus 枚举 Env 装机生命周期。DB CHECK 强制白名单；改名需迁移。
 const (
 	EnvStatusInstalling = "installing"
 	EnvStatusReady      = "ready"
@@ -124,14 +71,11 @@ const (
 )
 
 // Env is one per-owner package-isolation directory bound to a Runtime.
-// UNIQUE(owner_kind, owner_id) — one plugin instance has at most one env
-// at a time. Path is relative to the sandbox envs root. Status tracks
-// install lifecycle; ErrorMsg holds the captured failure text when Status
-// is "failed".
+// UNIQUE(owner_kind, owner_id). Path is relative to sandbox envs root.
+// ErrorMsg holds failure text when Status="failed".
 //
-// Env 是 per-owner 的包隔离目录，绑定到一个 Runtime。UNIQUE(owner_kind,
-// owner_id)——一个 plugin 实例同时最多一份 env。Path 相对 sandbox envs 根目录。
-// Status 追装机生命周期；Status="failed" 时 ErrorMsg 存捕获的失败文本。
+// Env 是 per-owner 包隔离目录，绑定一个 Runtime。UNIQUE(owner_kind, owner_id)。
+// Path 相对 sandbox envs 根目录。Status="failed" 时 ErrorMsg 存失败文本。
 type Env struct {
 	ID         string    `gorm:"primaryKey;type:text"                                      json:"id"` // se_<16hex>
 	OwnerKind  string    `gorm:"not null;type:text;uniqueIndex:uniq_se_owner,priority:1;index:idx_se_owner,priority:1;check:owner_kind IN ('forge','mcp','skill','conversation')" json:"ownerKind"`
@@ -148,60 +92,48 @@ type Env struct {
 	LastUsedAt time.Time `gorm:"index"                                                     json:"lastUsedAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 
-	// RunningPID > 0 means a long-lived process from this env was alive
-	// at last manifest write. Service.Bootstrap scans for these on boot
-	// and kills any survivors (Layer B leak prevention; covers app crashes
-	// that bypass Layer A's graceful Shutdown). 0 = no tracked process.
+	// RunningPID > 0 = a long-lived process from this env was alive at last
+	// manifest write. Service.Bootstrap scans these on boot and kills survivors
+	// (Layer B leak prevention; covers app crashes bypassing graceful Shutdown).
+	// Explicit column:running_pid — GORM default would produce "running_p_id"
+	// (doesn't recognise PID as an acronym).
 	//
-	// RunningPID > 0 表示上次 manifest 写时该 env 有长生命周期进程活着。
-	// Service.Bootstrap 启动扫这些 + 杀残留（层 B leak 防御；防 app crash
-	// 绕过层 A 优雅 Shutdown）。0 = 无跟踪进程。
-	// Note: explicit `column:running_pid` tag — GORM's default NamingStrategy
-	// would otherwise produce "running_p_id" from the RunningPID field name
-	// (it doesn't recognize PID as an acronym).
-	//
-	// 注：显式 `column:running_pid` tag——GORM 默认 NamingStrategy 否则
-	// 会把 RunningPID 字段名转成 "running_p_id"（不识别 PID 是缩略词）。
-	RunningPID       int       `gorm:"column:running_pid;default:0;index"  json:"runningPid,omitempty"`
-	RunningStartedAt time.Time `                                            json:"runningStartedAt,omitempty"`
+	// RunningPID > 0 = 上次 manifest 写时该 env 有长生命周期进程活着。
+	// Service.Bootstrap 启动扫 + 杀残留（层 B leak 防御；防 app crash 绕过优雅 Shutdown）。
+	// 显式 column:running_pid——GORM 默认会转成 "running_p_id"（不认 PID 缩写）。
+	RunningPID       int       `gorm:"column:running_pid;default:0;index" json:"runningPid,omitempty"`
+	RunningStartedAt time.Time `json:"runningStartedAt,omitempty"`
 }
 
-// TableName pins the SQLite table name.
-// TableName 钉死 SQLite 表名。
 func (Env) TableName() string { return "sandbox_envs" }
 
-// ── Specs / Spawn / Result ────────────────────────────────────────────────────
-
-// RuntimeSpec describes a runtime requirement. Empty Version means "use
-// the kind's default" (resolved via RuntimeInstaller.ResolveDefault).
+// RuntimeSpec describes a runtime requirement. Empty Version = kind's default
+// (resolved via RuntimeInstaller.ResolveDefault).
 //
-// RuntimeSpec 描述一个 runtime 需求。Version 为空表示"用该 kind 默认版本"
-// （通过 RuntimeInstaller.ResolveDefault 解析）。
+// RuntimeSpec 描述 runtime 需求。Version 空 = 该 kind 默认版本
+// （RuntimeInstaller.ResolveDefault 解析）。
 type RuntimeSpec struct {
 	Kind    string `json:"kind"`
 	Version string `json:"version,omitempty"`
 }
 
-// EnvSpec describes the env an owner wants. Deps are package names per the
-// runtime's native package manager (pip / npm / cargo / etc.); Extras name
-// post-install steps (e.g. "browsers/chromium" for Playwright).
+// EnvSpec describes an owner's env. Deps follow the runtime's native package
+// manager (pip / npm / cargo); Extras name post-install steps (e.g.
+// "browsers/chromium" for Playwright).
 //
-// EnvSpec 描述 owner 需要的 env。Deps 是按 runtime 包管理器原生命名的包名
-// （pip / npm / cargo / 等）；Extras 是装后步骤的引用（如 Playwright 的
-// "browsers/chromium"）。
+// EnvSpec 描述 owner 的 env。Deps 按 runtime 原生包管理器（pip / npm / cargo）；
+// Extras 是装后步骤（如 Playwright "browsers/chromium"）。
 type EnvSpec struct {
 	Runtime RuntimeSpec `json:"runtime"`
 	Deps    []string    `json:"deps,omitempty"`
 	Extras  []string    `json:"extras,omitempty"`
 }
 
-// SpawnOpts is one spawn-process order. LongLived=false returns
-// ExecutionResult (one-shot subprocess); LongLived=true returns a
-// LongLivedHandle so caller drives stdin/stdout/wait.
+// SpawnOpts is one spawn order. LongLived=false → ExecutionResult (one-shot);
+// LongLived=true → LongLivedHandle (caller drives stdin/stdout/wait).
 //
-// SpawnOpts 是一份 spawn 进程指令。LongLived=false 返 ExecutionResult
-// （一次性子进程）；LongLived=true 返 LongLivedHandle，由调用方驱动
-// stdin/stdout/wait。
+// SpawnOpts 是一份 spawn 指令。LongLived=false → ExecutionResult（一次性）；
+// LongLived=true → LongLivedHandle（调用方驱 stdin/stdout/wait）。
 type SpawnOpts struct {
 	Cmd       string            `json:"cmd"`
 	Args      []string          `json:"args,omitempty"`
@@ -211,8 +143,8 @@ type SpawnOpts struct {
 	LongLived bool              `json:"longLived,omitempty"`
 }
 
-// ExecutionResult is the one-shot Spawn return shape.
-// ExecutionResult 是一次性 Spawn 的返回形状。
+// ExecutionResult is the one-shot Spawn return.
+// ExecutionResult 是一次性 Spawn 的返回。
 type ExecutionResult struct {
 	Ok       bool          `json:"ok"`
 	Stdout   []byte        `json:"-"`
@@ -221,11 +153,9 @@ type ExecutionResult struct {
 	Duration time.Duration `json:"durationMs"`
 }
 
-// LongLivedHandle is the long-running spawn return shape — caller owns the
-// process lifecycle and must call Wait or Kill to release resources.
+// LongLivedHandle: caller owns the lifecycle, must Wait or Kill to release.
 //
-// LongLivedHandle 是长生命周期 spawn 的返回——调用方拥有进程生命周期，
-// 必须调 Wait 或 Kill 释放资源。
+// LongLivedHandle：调用方拥有生命周期，必须 Wait 或 Kill 释放。
 type LongLivedHandle interface {
 	Stdin() io.WriteCloser
 	Stdout() io.ReadCloser
@@ -235,24 +165,11 @@ type LongLivedHandle interface {
 	PID() int
 }
 
-// ProgressFunc is the install/sync progress callback. Stage is the coarse
-// phase ("downloading" / "extracting" / "installing-deps"); message is a
-// human-readable detail; percent is 0-100 (use -1 when unknown).
+// ProgressFunc reports install / sync progress. percent 0-100 (or -1 unknown).
 //
-// ProgressFunc 是装机/同步进度 callback。Stage 是粗阶段（"downloading" /
-// "extracting" / "installing-deps"）；message 人类可读细节；percent 取 0-100
-// （未知用 -1）。
+// ProgressFunc 报装机/同步进度。percent 0-100（未知 -1）。
 type ProgressFunc func(stage, message string, percent int)
 
-// ── Sentinels ─────────────────────────────────────────────────────────────────
-
-// Sandbox sentinels. The transport layer maps each to an HTTP status via
-// errmap (§S17); app layer wraps with `fmt.Errorf("<pkg>.<Method>: %w", err)`
-// per §S16 so errors.Is walks back to these.
-//
-// Sandbox sentinels。transport 层通过 errmap 映射到 HTTP 状态（§S17）；
-// app 层按 §S16 用 `fmt.Errorf("<pkg>.<Method>: %w", err)` 包装，errors.Is
-// 可以走回这些。
 var (
 	ErrRuntimeNotSupported  = errors.New("sandbox: runtime kind not registered")
 	ErrRuntimeInstallFailed = errors.New("sandbox: runtime install failed")
@@ -263,8 +180,6 @@ var (
 	ErrSpawnTimeout         = errors.New("sandbox: spawn process timeout")
 	ErrEnvInUse             = errors.New("sandbox: env in use; cannot destroy")
 )
-
-// ── Repository ────────────────────────────────────────────────────────────────
 
 // Repository is the persistence contract for sandbox manifest tables
 // (sandbox_runtimes + sandbox_envs). Implemented by infra/store/sandbox.
@@ -290,13 +205,11 @@ type Repository interface {
 	UpdateEnv(ctx context.Context, e *Env) error
 	DeleteEnv(ctx context.Context, id string) error
 
-	// Aggregate queries — UI disk-usage display + GC candidate selection.
-	// 聚合查询——UI 显示磁盘占用 + GC 候选筛选。
+	// Aggregate — UI disk usage + GC candidate selection.
 	TotalSizeBytes(ctx context.Context) (int64, error)
 	ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*Env, error)
 
-	// Layer B leak prevention: track + scan running PIDs.
-	// 层 B leak 防御：跟踪 + 扫描 running PID。
+	// Layer B leak prevention — track + scan running PIDs.
 	SetEnvRunningPID(ctx context.Context, envID string, pid int) error
 	ClearEnvRunningPID(ctx context.Context, envID string) error
 	ListEnvsWithRunningPID(ctx context.Context) ([]*Env, error)

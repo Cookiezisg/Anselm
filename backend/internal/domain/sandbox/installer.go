@@ -1,145 +1,90 @@
-// installer.go: open/closed extension ports for adding new runtime kinds.
-// Adding a new runtime (say, Deno) is one RuntimeInstaller + one EnvManager
-// implementation plus one main.go registration line — sandbox core code is
-// untouched.
-//
-// Two responsibilities, deliberately split:
-//
-//   - RuntimeInstaller knows how to download / locate / version-resolve the
-//     runtime binary (e.g. mise install python@3.12; rustup; dotnet-install).
-//   - EnvManager knows how to build a per-owner package-isolation env on top
-//     of an installed runtime (uv venv + uv pip install for Python, pnpm
-//     install --prefix for Node, cargo install --root for Rust, etc.).
-//
-// installer.go：加新 runtime kind 的开闭扩展端口。
-// 新增 runtime（如 Deno）= 写一对 RuntimeInstaller + EnvManager 实现
-// 并在 main.go 加一行注册——sandbox 核心代码不改。
-//
-// 两个职责故意拆开：
-//   - RuntimeInstaller 管下载 / 定位 / 版本解析（如 mise install python@3.12 /
-//     rustup / dotnet-install）。
-//   - EnvManager 管在已装 runtime 上建 per-owner 包隔离 env（Python 用
-//     uv venv + uv pip install；Node 用 pnpm install --prefix；Rust 用
-//     cargo install --root；等）。
+// Open/closed extension ports — adding a new runtime kind = one
+// RuntimeInstaller + EnvManager pair + one main.go registration. Sandbox
+// core unchanged.
 
 package sandbox
 
 import "context"
 
 // RuntimeInstaller is the install + locate contract for one runtime kind.
-// Implementations register at app boot (main.go); the sandbox service
-// dispatches by Kind.
+// One per kind; registered at boot (main.go).
 //
 // RuntimeInstaller 是单个 runtime kind 的装机 + 定位契约。
-// 实现在 app 启动时（main.go）注册，sandbox service 按 Kind 派发。
+// 每 kind 一个；启动时（main.go）注册。
 type RuntimeInstaller interface {
-	// Kind is the stable string identifier — must match RuntimeSpec.Kind
-	// and the kind column in sandbox_runtimes. One Installer per kind.
-	//
-	// Kind 是稳定字符串标识——必须与 RuntimeSpec.Kind 和 sandbox_runtimes
-	// 的 kind 列匹配。一个 kind 对应一个 Installer。
+	// Kind must match RuntimeSpec.Kind and the kind column in sandbox_runtimes.
+	// Kind 必须与 RuntimeSpec.Kind 和 sandbox_runtimes.kind 一致。
 	Kind() string
 
-	// Install installs the requested version somewhere under sandboxRoot
-	// (the absolute path to <dataDir>/sandbox/) and returns the install
-	// directory's path *relative* to sandboxRoot — that relative path goes
-	// into Runtime.Path. The Installer chooses the layout (e.g. mise
-	// shares a single MISE_DATA_DIR across all kinds + versions, so its
-	// returned relPath is "mise-data/installs/<kind>/<version>"). stream
-	// receives progress updates (downloading / extracting / etc.); pass
-	// nil to skip. Returns ErrRuntimeInstallFailed wrapped with stderr
-	// context on failure.
+	// Install installs version under sandboxRoot and returns the install dir's
+	// path RELATIVE to sandboxRoot (stored in Runtime.Path). Installer chooses
+	// the layout (e.g. mise: "mise-data/installs/<kind>/<version>"). stream
+	// gets progress updates; pass nil to skip. Returns ErrRuntimeInstallFailed
+	// (wrapping stderr) on failure.
 	//
-	// Install 把指定版本装到 sandboxRoot（<dataDir>/sandbox/ 的绝对路径）
-	// 下某个位置，返回相对 sandboxRoot 的安装目录路径——该相对路径会存进
-	// Runtime.Path。Installer 自己选 layout（如 mise 让所有 kind + version
-	// 共享单个 MISE_DATA_DIR，返 relPath 是 "mise-data/installs/<kind>/<version>"）。
-	// stream 接进度（downloading / extracting / 等），传 nil 跳过。失败返
-	// ErrRuntimeInstallFailed 包装 stderr 上下文。
+	// Install 把 version 装到 sandboxRoot 下，返相对 sandboxRoot 的安装目录路径
+	// （存进 Runtime.Path）。Installer 自选 layout（如 mise:
+	// "mise-data/installs/<kind>/<version>"）。stream 接进度，传 nil 跳过。
+	// 失败返 ErrRuntimeInstallFailed（含 stderr）。
 	Install(ctx context.Context, version, sandboxRoot string, stream ProgressFunc) (relPath string, err error)
 
 	// Locate returns the absolute path to the runtime's primary executable
-	// for an installed (version, sandboxRoot) pair (e.g. "<sandboxRoot>/
-	// mise-data/installs/python/3.12.5/bin/python"). Implementations
-	// typically call out to the underlying installer's lookup mechanism
-	// (mise where, etc.) so the path stays in sync with whatever the
-	// installer actually did.
+	// for an installed (version, sandboxRoot) pair.
 	//
-	// Locate 返回已装 (version, sandboxRoot) runtime 主可执行文件的绝对路径
-	// （如 "<sandboxRoot>/mise-data/installs/python/3.12.5/bin/python"）。实现
-	// 通常调用底层 installer 的查找机制（mise where 等）保持与 installer
-	// 实际行为同步。
+	// Locate 返回已装 (version, sandboxRoot) 主可执行绝对路径。
 	Locate(version, sandboxRoot string) (binPath string, err error)
 
-	// ListAvailable returns versions the user could install, for UI
-	// pickers. Optional — return (nil, nil) when enumeration is not
-	// supported (e.g. "stable" pseudo-versions).
+	// ListAvailable returns installable versions for UI pickers. Return
+	// (nil, nil) when enumeration is unsupported.
 	//
-	// ListAvailable 返回用户可装的版本列表，供 UI picker 用。可选——
-	// 不支持枚举（如 "stable" 伪版本）时返 (nil, nil)。
+	// ListAvailable 返可装版本列表给 UI picker；不支持枚举时返 (nil, nil)。
 	ListAvailable(ctx context.Context) ([]string, error)
 
-	// ResolveDefault returns the kind's default version (e.g. "3.12.5" for
-	// python). Used when an EnvSpec.Runtime.Version is empty.
+	// ResolveDefault returns the kind's default version (used when
+	// EnvSpec.Runtime.Version is empty).
 	//
-	// ResolveDefault 返回该 kind 的默认版本（如 python 返 "3.12.5"）。
-	// EnvSpec.Runtime.Version 为空时使用。
+	// ResolveDefault 返该 kind 默认版本（EnvSpec.Runtime.Version 为空时用）。
 	ResolveDefault(ctx context.Context) (string, error)
 }
 
-// EnvManager is the per-owner env build contract for one runtime kind. One
-// Manager per kind, paired with the matching RuntimeInstaller.
+// EnvManager is the per-owner env build contract for one runtime kind.
+// Paired with the matching RuntimeInstaller.
 //
 // EnvManager 是单个 runtime kind 的 per-owner env 构建契约。
-// 每 kind 一个 Manager，与对应的 RuntimeInstaller 配对。
+// 与对应 RuntimeInstaller 配对。
 type EnvManager interface {
-	// Kind matches RuntimeInstaller.Kind() — sandbox dispatches both via
-	// the same key.
-	//
-	// Kind 与 RuntimeInstaller.Kind() 一致——sandbox 用同一 key 派发两者。
+	// Kind matches RuntimeInstaller.Kind() — same key dispatches both.
+	// Kind 与 RuntimeInstaller.Kind() 一致——同 key 派发两者。
 	Kind() string
 
-	// CreateEnv materializes an empty isolation env at envPath against the
-	// installed runtime at runtimePath (e.g. uv venv for Python, mkdir +
-	// package.json init for Node). Idempotent — already-existing env
-	// returns nil.
+	// CreateEnv materialises an empty isolation env at envPath against the
+	// runtime at runtimePath. Idempotent — existing env returns nil.
 	//
-	// CreateEnv 在 envPath 物化一个空的隔离 env，使用 runtimePath 处的已装
-	// runtime（如 Python 调 uv venv，Node 调 mkdir + package.json init）。
-	// 幂等——已存在直接返 nil。
+	// CreateEnv 在 envPath 物化空隔离 env，针对 runtimePath 的 runtime。
+	// 幂等——已存在返 nil。
 	CreateEnv(ctx context.Context, runtimePath, envPath string) error
 
-	// InstallDeps installs deps into the env via the runtime's native
-	// package manager — uv pip install / pnpm install --prefix / cargo
-	// install --root / etc. Deps are package names per the language's
-	// idiom (with optional version specifiers). Returns
-	// ErrDepInstallFailed wrapped with stderr on failure.
+	// InstallDeps installs deps via the runtime's native package manager
+	// (uv / pnpm / cargo / ...). ErrDepInstallFailed (wrapping stderr) on failure.
 	//
-	// InstallDeps 通过 runtime 原生包管理器把 deps 装进 env——uv pip install /
-	// pnpm install --prefix / cargo install --root / 等。Deps 是按语言习惯
-	// 的包名（可带版本约束）。失败返 ErrDepInstallFailed 包装 stderr。
+	// InstallDeps 通过 runtime 原生包管理器装 deps（uv / pnpm / cargo / ...）。
+	// 失败返 ErrDepInstallFailed（含 stderr）。
 	InstallDeps(ctx context.Context, runtimePath, envPath string, deps []string, stream ProgressFunc) error
 
-	// InstallExtras runs post-install steps that aren't regular deps —
-	// e.g. "browsers/chromium" triggers `playwright install chromium` for
-	// the Playwright MCP server. Pass nil/empty extras to skip.
+	// InstallExtras runs post-install steps (e.g. "browsers/chromium" =
+	// `playwright install chromium`). nil/empty = skip.
 	//
-	// InstallExtras 跑非常规 deps 的装后步骤——如 "browsers/chromium" 触发
-	// `playwright install chromium`（Playwright MCP server 用）。
-	// extras 为 nil/空跳过。
+	// InstallExtras 跑装后步骤（如 "browsers/chromium" = `playwright install chromium`）。
+	// nil/空跳过。
 	InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream ProgressFunc) error
 
-	// EnvBin returns the absolute path to a binary inside the env (e.g.
-	// "<envPath>/.venv/bin/python" for Python). Used by Spawn to launch
-	// processes against env-isolated tools.
+	// EnvBin returns the absolute path of binName inside envPath
+	// (e.g. "<envPath>/.venv/bin/python").
 	//
-	// EnvBin 返回 env 内某 binary 的绝对路径（如 Python 返
-	// "<envPath>/.venv/bin/python"）。Spawn 用它针对 env 隔离的工具启进程。
+	// EnvBin 返 envPath 内 binName 的绝对路径（如 "<envPath>/.venv/bin/python"）。
 	EnvBin(envPath, binName string) string
 
-	// EnvDir returns the env's primary directory — typically Spawn's cwd
-	// candidate.
-	//
-	// EnvDir 返回 env 主目录——通常作 Spawn cwd 候选。
+	// EnvDir returns the env's primary directory (typically Spawn cwd).
+	// EnvDir 返 env 主目录（通常作 Spawn cwd）。
 	EnvDir(envPath string) string
 }
