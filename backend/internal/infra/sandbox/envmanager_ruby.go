@@ -35,17 +35,21 @@ import (
 //
 // RubyEnvManager 满足 sandboxdomain.EnvManager 的 Ruby 实现。
 type RubyEnvManager struct {
-	bundleBin string // absolute path to bundle binary
+	tools sandboxdomain.ToolRegistry // resolves bundle binary lazily on first use
 }
 
-// NewRubyEnvManager constructs the manager. bundleBin must point at a
-// working `bundle` executable (typically Ruby's runtime install ships
-// it; mise puts it at <runtimePath>/bin/bundle).
+// NewRubyEnvManager constructs the manager. tools must be a working
+// ToolRegistry; RubyEnvManager calls tools.EnsureTool(ctx, "bundler", "")
+// whenever it needs the bundle CLI. Bundler ships with stdlib in modern
+// Ruby but mise still tracks it as a separate runtime (the gem wraps the
+// binary so versioning matters for compat).
 //
-// NewRubyEnvManager 构造 manager。bundleBin 必须指有效 `bundle` 可执行
-// （通常 Ruby runtime 自带；mise 装的在 <runtimePath>/bin/bundle）。
-func NewRubyEnvManager(bundleBin string) *RubyEnvManager {
-	return &RubyEnvManager{bundleBin: bundleBin}
+// NewRubyEnvManager 构造 manager。tools 必须是可工作的 ToolRegistry；
+// RubyEnvManager 需要 bundle CLI 时调 tools.EnsureTool(ctx, "bundler", "")。
+// 现代 Ruby 自带 Bundler 但 mise 仍把它当独立 runtime 追踪（gem 包二进制
+// 兼容性按版本走）。
+func NewRubyEnvManager(tools sandboxdomain.ToolRegistry) *RubyEnvManager {
+	return &RubyEnvManager{tools: tools}
 }
 
 // Kind reports the dispatch key.
@@ -86,9 +90,13 @@ func (r *RubyEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 	}
 	bundleDir := filepath.Join(envPath, "bundle")
 	gemfile := filepath.Join(envPath, "Gemfile")
+	bundleBin, err := r.tools.EnsureTool(ctx, "bundler", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.RubyEnvManager.InstallDeps: locate bundle: %w", err)
+	}
 
 	for _, dep := range deps {
-		cmd := exec.CommandContext(ctx, r.bundleBin, "add", dep)
+		cmd := exec.CommandContext(ctx, bundleBin, "add", dep)
 		cmd.Env = append(os.Environ(),
 			"BUNDLE_PATH="+bundleDir,
 			"BUNDLE_GEMFILE="+gemfile,

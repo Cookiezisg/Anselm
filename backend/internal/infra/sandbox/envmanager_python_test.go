@@ -24,14 +24,14 @@ import (
 var _ sandboxdomain.EnvManager = (*PythonEnvManager)(nil)
 
 func TestPythonEnvManager_Kind(t *testing.T) {
-	pm := NewPythonEnvManager("/tmp/uv")
+	pm := NewPythonEnvManager(newFakeToolRegistry(map[string]string{"uv": "/tmp/uv"}))
 	if got := pm.Kind(); got != "python" {
 		t.Errorf("Kind() = %q, want python", got)
 	}
 }
 
 func TestPythonEnvManager_EnvBin_PerOS(t *testing.T) {
-	pm := NewPythonEnvManager("/tmp/uv")
+	pm := NewPythonEnvManager(newFakeToolRegistry(map[string]string{"uv": "/tmp/uv"}))
 	got := pm.EnvBin("/data/envs/forge/abc", "python")
 
 	var want string
@@ -52,7 +52,7 @@ func TestPythonEnvManager_EnvBin_PerOS(t *testing.T) {
 // TestPythonEnvManager_EnvBin_PreservesExplicitExtension 确认调用方传带
 // 显式扩展名（如 "uvicorn.exe"）时 Windows 不会被重复加后缀。
 func TestPythonEnvManager_EnvBin_PreservesExplicitExtension(t *testing.T) {
-	pm := NewPythonEnvManager("/tmp/uv")
+	pm := NewPythonEnvManager(newFakeToolRegistry(map[string]string{"uv": "/tmp/uv"}))
 	got := pm.EnvBin("/data/envs/forge/abc", "uvicorn.exe")
 
 	var want string
@@ -67,7 +67,7 @@ func TestPythonEnvManager_EnvBin_PreservesExplicitExtension(t *testing.T) {
 }
 
 func TestPythonEnvManager_EnvDir_ReturnsInputUnchanged(t *testing.T) {
-	pm := NewPythonEnvManager("/tmp/uv")
+	pm := NewPythonEnvManager(newFakeToolRegistry(map[string]string{"uv": "/tmp/uv"}))
 	if got := pm.EnvDir("/data/envs/conv/cv_abc:python"); got != "/data/envs/conv/cv_abc:python" {
 		t.Errorf("EnvDir = %q, want input unchanged", got)
 	}

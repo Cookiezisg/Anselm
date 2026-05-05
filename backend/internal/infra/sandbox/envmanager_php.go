@@ -33,17 +33,17 @@ import (
 //
 // PHPEnvManager 满足 sandboxdomain.EnvManager 的 PHP 实现。
 type PHPEnvManager struct {
-	composerBin string // absolute path to composer binary
+	tools sandboxdomain.ToolRegistry // resolves composer binary lazily on first use
 }
 
-// NewPHPEnvManager constructs the manager. composerBin must point at a
-// working `composer` executable (mise installs Composer alongside PHP;
-// path is `<runtimePath>/composer` typically).
+// NewPHPEnvManager constructs the manager. tools must be a working
+// ToolRegistry; PHPEnvManager calls tools.EnsureTool(ctx, "composer", "")
+// whenever it needs the composer CLI.
 //
-// NewPHPEnvManager 构造 manager。composerBin 必须指有效 `composer`
-// 可执行（mise 把 Composer 跟 PHP 一起装；路径通常 `<runtimePath>/composer`）。
-func NewPHPEnvManager(composerBin string) *PHPEnvManager {
-	return &PHPEnvManager{composerBin: composerBin}
+// NewPHPEnvManager 构造 manager。tools 必须是可工作的 ToolRegistry；
+// PHPEnvManager 需要 composer CLI 时调 tools.EnsureTool(ctx, "composer", "")。
+func NewPHPEnvManager(tools sandboxdomain.ToolRegistry) *PHPEnvManager {
+	return &PHPEnvManager{tools: tools}
 }
 
 // Kind reports the dispatch key.
@@ -96,9 +96,13 @@ func (p *PHPEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath st
 		return nil
 	}
 	composerHome := filepath.Join(envPath, ".composer")
+	composerBin, err := p.tools.EnsureTool(ctx, "composer", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.PHPEnvManager.InstallDeps: locate composer: %w", err)
+	}
 
 	for _, dep := range deps {
-		cmd := exec.CommandContext(ctx, p.composerBin,
+		cmd := exec.CommandContext(ctx, composerBin,
 			"require",
 			"--working-dir="+envPath,
 			"--no-interaction",

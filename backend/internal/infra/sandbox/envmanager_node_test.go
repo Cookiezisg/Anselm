@@ -25,14 +25,14 @@ import (
 var _ sandboxdomain.EnvManager = (*NodeEnvManager)(nil)
 
 func TestNodeEnvManager_Kind(t *testing.T) {
-	nm := NewNodeEnvManager("/tmp/pnpm")
+	nm := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	if got := nm.Kind(); got != "node" {
 		t.Errorf("Kind() = %q, want node", got)
 	}
 }
 
 func TestNodeEnvManager_CreateEnv_WritesPackageJSON(t *testing.T) {
-	nm := NewNodeEnvManager("/tmp/pnpm")
+	nm := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	envPath := filepath.Join(t.TempDir(), "envs", "mcp", "context7")
 	if err := nm.CreateEnv(context.Background(), "/tmp/node", envPath); err != nil {
 		t.Fatalf("CreateEnv: %v", err)
@@ -56,7 +56,7 @@ func TestNodeEnvManager_CreateEnv_WritesPackageJSON(t *testing.T) {
 }
 
 func TestNodeEnvManager_CreateEnv_Idempotent(t *testing.T) {
-	nm := NewNodeEnvManager("/tmp/pnpm")
+	nm := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	envPath := filepath.Join(t.TempDir(), "envs", "mcp", "context7")
 	if err := nm.CreateEnv(context.Background(), "/tmp/node", envPath); err != nil {
 		t.Fatalf("first CreateEnv: %v", err)
@@ -76,7 +76,7 @@ func TestNodeEnvManager_CreateEnv_Idempotent(t *testing.T) {
 }
 
 func TestNodeEnvManager_EnvBin_PerOS(t *testing.T) {
-	nm := NewNodeEnvManager("/tmp/pnpm")
+	nm := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	got := nm.EnvBin("/data/envs/mcp/context7", "tsc")
 
 	var want string
@@ -91,7 +91,7 @@ func TestNodeEnvManager_EnvBin_PerOS(t *testing.T) {
 }
 
 func TestNodeEnvManager_EnvBin_PreservesExplicitExtension(t *testing.T) {
-	nm := NewNodeEnvManager("/tmp/pnpm")
+	nm := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	got := nm.EnvBin("/data/envs/mcp/context7", "tsc.cmd")
 	want := "/data/envs/mcp/context7/node_modules/.bin/tsc.cmd"
 	if got != want {

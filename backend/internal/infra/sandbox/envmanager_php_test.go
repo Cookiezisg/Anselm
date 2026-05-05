@@ -20,14 +20,14 @@ import (
 var _ sandboxdomain.EnvManager = (*PHPEnvManager)(nil)
 
 func TestPHPEnvManager_Kind(t *testing.T) {
-	pm := NewPHPEnvManager("/tmp/composer")
+	pm := NewPHPEnvManager(newFakeToolRegistry(map[string]string{"composer": "/tmp/composer"}))
 	if got := pm.Kind(); got != "php" {
 		t.Errorf("Kind() = %q, want php", got)
 	}
 }
 
 func TestPHPEnvManager_CreateEnv_WritesComposerJSON(t *testing.T) {
-	pm := NewPHPEnvManager("/tmp/composer")
+	pm := NewPHPEnvManager(newFakeToolRegistry(map[string]string{"composer": "/tmp/composer"}))
 	envPath := filepath.Join(t.TempDir(), "envs", "conv", "cv:php")
 	if err := pm.CreateEnv(context.Background(), "/tmp/php", envPath); err != nil {
 		t.Fatalf("CreateEnv: %v", err)
@@ -50,7 +50,7 @@ func TestPHPEnvManager_CreateEnv_WritesComposerJSON(t *testing.T) {
 }
 
 func TestPHPEnvManager_EnvBin_PerOS(t *testing.T) {
-	pm := NewPHPEnvManager("/tmp/composer")
+	pm := NewPHPEnvManager(newFakeToolRegistry(map[string]string{"composer": "/tmp/composer"}))
 	got := pm.EnvBin("/data/envs/conv/cv:php", "phpunit")
 	var want string
 	if runtime.GOOS == "windows" {

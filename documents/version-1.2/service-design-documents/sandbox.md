@@ -347,8 +347,20 @@ type RuntimeInstaller interface {
     ResolveDefault(ctx context.Context) (string, error)
 }
 
-// EnvManager 知道怎么在 runtime 上建包隔离环境。
-// 比如 Python 用 venv + uv（hardlink 共享 wheel cache），Node 用 pnpm install --prefix（content-addressable store）。
+// ToolRegistry 让 EnvManager 懒解析支持工具（uv / pnpm / mvn / bundler /
+// composer）的二进制路径，而不耦合 mise / boot 顺序 / Service 内部。
+// app/sandbox/Service 实现 ToolRegistry——main.go 构造 EnvManager 时把
+// Service 自己作 registry 注入。
+type ToolRegistry interface {
+    // EnsureTool 返 (kind, version) 对应的绝对二进制路径，缺则懒装 runtime。
+    // version="" 请求该 kind 默认。无 installer 注册返 ErrRuntimeNotSupported。
+    EnsureTool(ctx context.Context, kind, version string) (binPath string, err error)
+}
+
+// EnvManager 知道怎么在 runtime 上建包隔离环境。需要支持工具的实现
+// （Python/uv、Node/pnpm、Java/maven、Ruby/bundler、PHP/composer）构造时
+// 接 ToolRegistry，操作时按需 EnsureTool 拿路径。无支持工具的实现
+// （Rust、Go、Dotnet、Static、Generic、Playwright wrapper）构造无参数。
 type EnvManager interface {
     Kind() string  // 同 RuntimeInstaller.Kind()
 
@@ -414,65 +426,59 @@ type EnvManager interface {
 
 **Java EnvManager 决策**：选**方案 A**（每 env 独立 Maven local repo），代价是磁盘大但 demo 阶段不显著。pnpm/uv 共享缓存的优雅在 Maven 上做要重写 jar 解析，不值——v2 视用户反馈再优化。
 
-### Mise installer 多 kind 注册示例
+### main.go 装配示例
 
 ```go
 // main.go
-miseBin := bootstrap.MiseBin()
+sandboxService := sandboxapp.New(repo, dataDir, log)
+if err := sandboxService.Bootstrap(ctx); err != nil {
+    log.Warn("sandbox degraded mode", zap.Error(err)) // 不致命
+}
+miseBin := sandboxService.MiseBin()
 
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "python", "3.12"),  // default 版本
-    mise.NewEnvManager("python"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "node", "22"),
-    mise.NewEnvManager("node"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "rust", "stable"),
-    mise.NewEnvManager("rust"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "java", "21"),
-    mise.NewEnvManager("java"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "go", "1.22"),
-    mise.NewEnvManager("go"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "ruby", "3.3"),
-    mise.NewEnvManager("ruby"),
-)
-sandboxService.RegisterInstaller(
-    mise.NewInstaller(miseBin, "php", "8.3"),
-    mise.NewEnvManager("php"),
-)
+// 1. RuntimeInstaller —— 7 种主流 mise 通配 + 4 种支持工具（uv/pnpm/maven/
+//    bundler/composer 也是 mise 装的 runtime）+ Playwright/Static/Dotnet 专用
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "python", "3.12"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "node", "22"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "rust", "stable"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "java", "21"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "go", "1.22"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "ruby", "3.3"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "php", "8.3"))
+// 支持工具（用 mise 装但不直接给 plugin 用，给 EnvManager 用）
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "uv", ""))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "pnpm", ""))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "maven", ""))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "bundler", ""))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "composer", ""))
+// 专用 installer
+sandboxService.RegisterInstaller(sandboxinfra.NewPlaywrightInstaller(/* playwright cli path */))
+sandboxService.RegisterInstaller(sandboxinfra.NewDotnetInstaller("8.0"))
+sandboxService.RegisterInstaller(sandboxinfra.NewStaticBinaryInstaller("github-mcp", log))
 
-// Browsers 单独一个
-sandboxService.RegisterInstaller(
-    playwright.NewInstaller(),
-    playwright.NewEnvManager(),
-)
-
-// .NET 走微软官方
-sandboxService.RegisterInstaller(
-    dotnet.NewInstaller(),
-    dotnet.NewEnvManager(),
-)
-
-// 静态二进制（GitHub MCP 等）
-sandboxService.RegisterInstaller(
-    static.NewInstaller(),
-    static.NewEnvManager(),
-)
-
-// 长尾语言（Erlang / Elixir / Lua / Zig / Deno / etc.）v1 已可用——
-// MiseInstaller 通配负责装 runtime，env 走 GenericEnvManager 兜底（mkdir
-// + 让 LLM/用户在 cwd 自己跑该语言包管理器）。仅当**给某长尾语言写专用
-// EnvManager**（深度集成，类似 Python/Node）时才需 1 行新注册。
-// sandboxService.RegisterInstaller(mise.NewInstaller(miseBin, "elixir", "1.16"), elixir.NewEnvManager())
+// 2. EnvManager —— 需要支持工具的传 sandboxService 作 ToolRegistry；
+//    无支持工具的（rust/go/dotnet/static/generic/playwright wrapper）直接构造
+sandboxService.RegisterEnvManager(sandboxinfra.NewPythonEnvManager(sandboxService))
+sandboxService.RegisterEnvManager(sandboxinfra.NewNodeEnvManager(sandboxService))
+sandboxService.RegisterEnvManager(sandboxinfra.NewRustEnvManager())
+sandboxService.RegisterEnvManager(sandboxinfra.NewGoEnvManager())
+sandboxService.RegisterEnvManager(sandboxinfra.NewJavaEnvManager(sandboxService))
+sandboxService.RegisterEnvManager(sandboxinfra.NewRubyEnvManager(sandboxService))
+sandboxService.RegisterEnvManager(sandboxinfra.NewPHPEnvManager(sandboxService))
+sandboxService.RegisterEnvManager(sandboxinfra.NewDotnetEnvManager())
+sandboxService.RegisterEnvManager(sandboxinfra.NewStaticBinaryEnvManager("github-mcp", sandboxService.SandboxRoot()))
+sandboxService.RegisterEnvManager(sandboxinfra.NewPlaywrightEnvManager(
+    sandboxinfra.NewNodeEnvManager(sandboxService), sandboxService.SandboxRoot()))
+// 长尾语言（Erlang / Elixir / Lua / Zig / Deno / etc.）：MiseInstaller 已通配
+// 装 runtime；env 走 GenericEnvManager 兜底（mkdir + 让 LLM/用户在 cwd 自己跑
+// 该语言包管理器）。按需注册：
+sandboxService.RegisterEnvManager(sandboxinfra.NewGenericEnvManager("elixir"))
+sandboxService.RegisterEnvManager(sandboxinfra.NewGenericEnvManager("zig"))
+// ... 仅当深度集成（写专用 EnvManager 类似 Python/Node）才用专门实现
 ```
+
+**注**：构造 EnvManager 不触发任何装机——支持工具（uv/pnpm/etc.）首次
+ `EnsureEnv` 调 `tools.EnsureTool(ctx, "uv", "")` 时才装。boot 极快。
 
 ---
 
@@ -491,8 +497,15 @@ type Service struct {
     installLocks sync.Map    // map[runtimeKind]*sync.Mutex 防并发同 runtime install
 }
 
-// RegisterInstaller 注册 installer + env manager（同 kind 一对）
-func (s *Service) RegisterInstaller(i RuntimeInstaller, m EnvManager) error
+// 装配（main.go 调）。Installer 与 EnvManager 分两次注册——一种 runtime kind
+// 可有 installer 但无 EnvManager（如支持工具 uv/pnpm/maven 只给其他 EnvManager
+// 用，自己不当 plugin runtime）。
+func (s *Service) RegisterInstaller(i RuntimeInstaller)
+func (s *Service) RegisterEnvManager(m EnvManager)
+
+// EnsureTool 实现 sandboxdomain.ToolRegistry——给 EnvManager 懒解析支持工具
+// 路径用。内部链 EnsureRuntime + Installer.Locate。
+func (s *Service) EnsureTool(ctx context.Context, kind, version string) (binPath string, err error)
 
 // EnsureRuntime 保证某 runtime 装好；返 Runtime 行
 func (s *Service) EnsureRuntime(ctx context.Context, spec RuntimeSpec, stream ProgressFunc) (*Runtime, error)

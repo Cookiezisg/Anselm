@@ -20,14 +20,14 @@ import (
 var _ sandboxdomain.EnvManager = (*RubyEnvManager)(nil)
 
 func TestRubyEnvManager_Kind(t *testing.T) {
-	rm := NewRubyEnvManager("/tmp/bundle")
+	rm := NewRubyEnvManager(newFakeToolRegistry(map[string]string{"bundler": "/tmp/bundle"}))
 	if got := rm.Kind(); got != "ruby" {
 		t.Errorf("Kind() = %q, want ruby", got)
 	}
 }
 
 func TestRubyEnvManager_CreateEnv_WritesGemfile(t *testing.T) {
-	rm := NewRubyEnvManager("/tmp/bundle")
+	rm := NewRubyEnvManager(newFakeToolRegistry(map[string]string{"bundler": "/tmp/bundle"}))
 	envPath := filepath.Join(t.TempDir(), "envs", "conv", "cv:ruby")
 	if err := rm.CreateEnv(context.Background(), "/tmp/ruby", envPath); err != nil {
 		t.Fatalf("CreateEnv: %v", err)
@@ -45,7 +45,7 @@ func TestRubyEnvManager_CreateEnv_WritesGemfile(t *testing.T) {
 }
 
 func TestRubyEnvManager_EnvBin_PerOS(t *testing.T) {
-	rm := NewRubyEnvManager("/tmp/bundle")
+	rm := NewRubyEnvManager(newFakeToolRegistry(map[string]string{"bundler": "/tmp/bundle"}))
 	got := rm.EnvBin("/data/envs/conv/cv:ruby", "rake")
 	var want string
 	if runtime.GOOS == "windows" {

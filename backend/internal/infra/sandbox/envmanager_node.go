@@ -1,26 +1,24 @@
 // envmanager_node.go — pnpm-backed EnvManager for Node plugin envs.
 //
-// pnpm installs to <envPath>/node_modules/ via `pnpm install --prefix=<envPath>`.
-// pnpm's content-addressable global store at ~/.local/share/pnpm/store keeps a
-// single copy of every (package, version) tuple on disk; per-env node_modules
-// is symlinks into that store. N envs depending on the same `playwright@1.50.0`
-// share one disk-bytes copy.
+// pnpm installs to <envPath>/node_modules/ via `pnpm add <pkgs...>` from
+// envPath. pnpm's content-addressable global store at
+// ~/.local/share/pnpm/store keeps a single copy of every (package, version)
+// tuple on disk; per-env node_modules is symlinks into that store. N envs
+// depending on the same `playwright@1.50.0` share one disk-bytes copy.
 //
-// pnpm itself is installed by mise (registered as a separate runtime kind in
-// main.go — see sandbox.md §4 "Python's 二级火箭" pattern, mirrored for Node).
-// The pnpm absolute path is passed at construction so NodeEnvManager stays a
-// pure file/process orchestrator.
+// pnpm is treated as a support tool: NodeEnvManager resolves it via
+// sandboxdomain.ToolRegistry on each operation, which lazily installs pnpm
+// on first use (mise-managed in production; pre-seeded in tests).
 //
 // envmanager_node.go ——基于 pnpm 的 Node plugin env EnvManager。
 //
-// pnpm 用 `pnpm install --prefix=<envPath>` 装到 <envPath>/node_modules/。
+// pnpm 用 `pnpm add <pkgs...>` 在 envPath 装到 <envPath>/node_modules/。
 // pnpm 的 content-addressable 全局 store（~/.local/share/pnpm/store）每个
 // (package, version) 元组只有一份磁盘 copy；per-env node_modules 是指向 store
 // 的 symlink。N 个依赖 `playwright@1.50.0` 的 env 共享一份磁盘字节。
 //
-// pnpm 本身由 mise 装（main.go 注册为独立 runtime kind——见 sandbox.md §4
-// "Python 二级火箭" 模式，Node 镜像）。pnpm 绝对路径构造时传入，让
-// NodeEnvManager 保持纯文件/进程编排。
+// pnpm 当作支持工具：NodeEnvManager 每次操作经 sandboxdomain.ToolRegistry
+// 解析 pnpm 路径，首次使用时懒装（生产 mise 管，测试预填）。
 
 package sandbox
 
@@ -42,17 +40,18 @@ import (
 //
 // NodeEnvManager 满足 sandboxdomain.EnvManager 的 Node 实现。
 type NodeEnvManager struct {
-	pnpmBin string // absolute path to pnpm binary (mise-installed at boot)
+	tools sandboxdomain.ToolRegistry // resolves pnpm binary lazily on first use
 }
 
-// NewNodeEnvManager constructs the manager. pnpmBin must be an absolute path
-// to a working pnpm executable (typically mise-installed via a separate
-// MiseInstaller("pnpm", ...) registration).
+// NewNodeEnvManager constructs the manager. tools must be a working
+// ToolRegistry (typically the sandbox app Service). NodeEnvManager calls
+// tools.EnsureTool(ctx, "pnpm", "") whenever it needs pnpm.
 //
-// NewNodeEnvManager 构造 manager。pnpmBin 必须是可工作 pnpm 可执行文件的
-// 绝对路径（通常通过独立的 MiseInstaller("pnpm", ...) 注册由 mise 装）。
-func NewNodeEnvManager(pnpmBin string) *NodeEnvManager {
-	return &NodeEnvManager{pnpmBin: pnpmBin}
+// NewNodeEnvManager 构造 manager。tools 必须是可工作的 ToolRegistry（通常
+// sandbox app Service）。NodeEnvManager 需要 pnpm 时调
+// tools.EnsureTool(ctx, "pnpm", "")。
+func NewNodeEnvManager(tools sandboxdomain.ToolRegistry) *NodeEnvManager {
+	return &NodeEnvManager{tools: tools}
 }
 
 // Kind reports the dispatch key — must match MiseInstaller("node").
@@ -107,8 +106,12 @@ func (n *NodeEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 	if len(deps) == 0 {
 		return nil
 	}
+	pnpmBin, err := n.tools.EnsureTool(ctx, "pnpm", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.NodeEnvManager.InstallDeps: locate pnpm: %w", err)
+	}
 	args := append([]string{"add"}, deps...)
-	cmd := exec.CommandContext(ctx, n.pnpmBin, args...)
+	cmd := exec.CommandContext(ctx, pnpmBin, args...)
 	cmd.Dir = envPath
 
 	stderrPipe, err := cmd.StderrPipe()

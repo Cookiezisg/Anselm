@@ -50,18 +50,18 @@ import (
 //
 // JavaEnvManager 满足 sandboxdomain.EnvManager 的 Java 实现。
 type JavaEnvManager struct {
-	mvnBin string // absolute path to mvn binary (mise-installed at boot)
+	tools sandboxdomain.ToolRegistry // resolves mvn binary lazily on first use
 }
 
-// NewJavaEnvManager constructs the manager. mvnBin must be an absolute
-// path to a working Maven binary — typically mise installs Maven as a
-// separate runtime kind and the path comes from MiseInstaller("maven").Locate.
+// NewJavaEnvManager constructs the manager. tools must be a working
+// ToolRegistry (typically the sandbox app Service). JavaEnvManager calls
+// tools.EnsureTool(ctx, "maven", "") whenever it needs mvn.
 //
-// NewJavaEnvManager 构造 manager。mvnBin 必须是可工作 Maven 二进制绝对
-// 路径——通常 mise 把 Maven 装为独立 runtime kind，路径来自
-// MiseInstaller("maven").Locate。
-func NewJavaEnvManager(mvnBin string) *JavaEnvManager {
-	return &JavaEnvManager{mvnBin: mvnBin}
+// NewJavaEnvManager 构造 manager。tools 必须是可工作的 ToolRegistry（通常
+// sandbox app Service）。JavaEnvManager 需要 mvn 时调
+// tools.EnsureTool(ctx, "maven", "")。
+func NewJavaEnvManager(tools sandboxdomain.ToolRegistry) *JavaEnvManager {
+	return &JavaEnvManager{tools: tools}
 }
 
 // Kind reports the dispatch key.
@@ -104,9 +104,13 @@ func (j *JavaEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 		return nil
 	}
 	m2Dir := filepath.Join(envPath, "m2")
+	mvnBin, err := j.tools.EnsureTool(ctx, "maven", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.JavaEnvManager.InstallDeps: locate mvn: %w", err)
+	}
 
 	for _, dep := range deps {
-		cmd := exec.CommandContext(ctx, j.mvnBin,
+		cmd := exec.CommandContext(ctx, mvnBin,
 			"dependency:get",
 			"-Dartifact="+dep,
 			"-Dmaven.repo.local="+m2Dir,

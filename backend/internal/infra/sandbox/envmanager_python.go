@@ -1,11 +1,9 @@
 // envmanager_python.go — uv-backed EnvManager for Python plugin envs.
 //
 // Builds isolated venvs at <envPath>/.venv via `uv venv`, installs deps via
-// `uv pip install`. uv is itself installed by mise (registered as a
-// "python-tool" runtime in main.go — see sandbox.md §4 "Python's 二级火箭"
-// pattern); the absolute path to its binary is passed at construction so
-// PythonEnvManager stays a pure file/process orchestrator without
-// reaching into the sandbox service.
+// `uv pip install`. uv is treated as a support tool: PythonEnvManager
+// resolves it via sandboxdomain.ToolRegistry on each operation, which lazily
+// installs uv on first use (mise-managed in production; pre-seeded in tests).
 //
 // Cross-env disk sharing: uv hardlinks wheels from its global cache by
 // default. Multiple Forge / MCP / conversation envs that depend on the
@@ -14,9 +12,8 @@
 // envmanager_python.go ——基于 uv 的 Python plugin env EnvManager。
 //
 // 通过 `uv venv` 在 <envPath>/.venv 建隔离 venv，`uv pip install` 装 deps。
-// uv 本身由 mise 装（main.go 注册为 "python-tool" runtime——见 sandbox.md §4
-// "Python 二级火箭"模式）；绝对路径在构造时传入，让 PythonEnvManager 保持
-// 纯文件/进程编排，不反向触碰 sandbox service。
+// uv 当作支持工具：PythonEnvManager 每次操作经 sandboxdomain.ToolRegistry
+// 解析 uv 路径，首次使用时懒装（生产 mise 管，测试预填）。
 //
 // 跨 env 磁盘共享：uv 默认从全局缓存 hardlink wheel。多个依赖
 // `pandas==2.2.3` 的 Forge / MCP / conversation env 总共只占 ~一份 wheel 的
@@ -41,21 +38,19 @@ import (
 //
 // PythonEnvManager 满足 sandboxdomain.EnvManager 的 Python 实现。
 type PythonEnvManager struct {
-	uvBin string // absolute path to uv binary (mise-installed at boot)
+	tools sandboxdomain.ToolRegistry // resolves uv binary lazily on first use
 }
 
-// NewPythonEnvManager constructs the manager. uvBin must be an absolute
-// path to a working uv executable; the typical bootstrap order is
+// NewPythonEnvManager constructs the manager. tools must be a working
+// ToolRegistry (typically the sandbox app Service). PythonEnvManager calls
+// tools.EnsureTool(ctx, "uv", "") whenever it needs uv — first call triggers
+// install, subsequent calls hit the manifest cache.
 //
-//	mise install python@<ver>          (PythonInstaller)
-//	mise install uv@<ver>              (separate UvInstaller)
-//	uvBin = <UvInstaller>.Locate(...)
-//	NewPythonEnvManager(uvBin)
-//
-// NewPythonEnvManager 构造 manager。uvBin 必须是可工作的 uv 可执行文件
-// 绝对路径；典型 bootstrap 顺序见上方英文段。
-func NewPythonEnvManager(uvBin string) *PythonEnvManager {
-	return &PythonEnvManager{uvBin: uvBin}
+// NewPythonEnvManager 构造 manager。tools 必须是可工作的 ToolRegistry（通常
+// sandbox app Service）。PythonEnvManager 需要 uv 时调
+// tools.EnsureTool(ctx, "uv", "")——首次调用触发装，后续命中 manifest 缓存。
+func NewPythonEnvManager(tools sandboxdomain.ToolRegistry) *PythonEnvManager {
+	return &PythonEnvManager{tools: tools}
 }
 
 // Kind reports the EnvManager dispatch key — must match the
@@ -80,7 +75,11 @@ func (p *PythonEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath s
 	if err := os.MkdirAll(envPath, 0o755); err != nil {
 		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv: mkdir env: %w", err)
 	}
-	cmd := exec.CommandContext(ctx, p.uvBin, "venv", "--python", runtimePath, venvDir)
+	uvBin, err := p.tools.EnsureTool(ctx, "uv", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv: locate uv: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, uvBin, "venv", "--python", runtimePath, venvDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv %s: %w (output: %s)",
 			venvDir, sandboxdomain.ErrEnvCreateFailed, string(out))
@@ -102,9 +101,13 @@ func (p *PythonEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 	if len(deps) == 0 {
 		return nil
 	}
+	uvBin, err := p.tools.EnsureTool(ctx, "uv", "")
+	if err != nil {
+		return fmt.Errorf("sandbox.PythonEnvManager.InstallDeps: locate uv: %w", err)
+	}
 	venvPython := filepath.Join(envPath, ".venv", venvBinSubdir(), pythonExe())
 	args := append([]string{"pip", "install", "--python", venvPython}, deps...)
-	cmd := exec.CommandContext(ctx, p.uvBin, args...)
+	cmd := exec.CommandContext(ctx, uvBin, args...)
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {

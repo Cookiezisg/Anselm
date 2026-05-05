@@ -18,7 +18,7 @@ import (
 var _ sandboxdomain.EnvManager = (*PlaywrightEnvManager)(nil)
 
 func TestPlaywrightEnvManager_Kind(t *testing.T) {
-	pm := NewPlaywrightEnvManager(NewNodeEnvManager("/tmp/pnpm"), "/data/sandbox")
+	pm := NewPlaywrightEnvManager(NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"})), "/data/sandbox")
 	if got := pm.Kind(); got != "browsers" {
 		t.Errorf("Kind() = %q, want browsers", got)
 	}
@@ -32,7 +32,7 @@ func TestPlaywrightEnvManager_Kind(t *testing.T) {
 // 输出与包装的 NodeEnvManager 一致——Playwright env 即 Node env，布局必须
 // 一样。
 func TestPlaywrightEnvManager_DelegatesToNode(t *testing.T) {
-	node := NewNodeEnvManager("/tmp/pnpm")
+	node := NewNodeEnvManager(newFakeToolRegistry(map[string]string{"pnpm": "/tmp/pnpm"}))
 	pm := NewPlaywrightEnvManager(node, "/data/sandbox")
 
 	envPath := "/data/envs/mcp/playwright"

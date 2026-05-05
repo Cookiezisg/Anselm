@@ -19,14 +19,14 @@ import (
 var _ sandboxdomain.EnvManager = (*JavaEnvManager)(nil)
 
 func TestJavaEnvManager_Kind(t *testing.T) {
-	jm := NewJavaEnvManager("/tmp/mvn")
+	jm := NewJavaEnvManager(newFakeToolRegistry(map[string]string{"maven": "/tmp/mvn"}))
 	if got := jm.Kind(); got != "java" {
 		t.Errorf("Kind() = %q, want java", got)
 	}
 }
 
 func TestJavaEnvManager_CreateEnv_MakesM2AndLib(t *testing.T) {
-	jm := NewJavaEnvManager("/tmp/mvn")
+	jm := NewJavaEnvManager(newFakeToolRegistry(map[string]string{"maven": "/tmp/mvn"}))
 	envPath := filepath.Join(t.TempDir(), "envs", "conv", "cv:java")
 	if err := jm.CreateEnv(context.Background(), "/tmp/jdk", envPath); err != nil {
 		t.Fatalf("CreateEnv: %v", err)
@@ -47,7 +47,7 @@ func TestJavaEnvManager_CreateEnv_MakesM2AndLib(t *testing.T) {
 // Java env 没自己 bin 目录；EnvBin 只返 binName 让调用方经 JDK PATH
 // （runtimePath/bin）解析。
 func TestJavaEnvManager_EnvBin_ReturnsBinNameOnly(t *testing.T) {
-	jm := NewJavaEnvManager("/tmp/mvn")
+	jm := NewJavaEnvManager(newFakeToolRegistry(map[string]string{"maven": "/tmp/mvn"}))
 	got := jm.EnvBin("/data/envs/conv/cv:java", "java")
 	var want string
 	if runtime.GOOS == "windows" {
