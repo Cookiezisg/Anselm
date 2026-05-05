@@ -329,13 +329,38 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 		"go":     "1.22",
 		"ruby":   "3.3",
 		"php":    "8.3",
-		// Support tools — used by EnvManagers via ToolRegistry.
-		// 支持工具——EnvManager 通过 ToolRegistry 用。
-		"uv":       "",
-		"pnpm":     "",
-		"maven":    "",
-		"bundler":  "",
-		"composer": "",
+		// Support tools — used by EnvManagers via ToolRegistry. Versions
+		// are pinned (not "latest") to insulate from upstream surprises
+		// like the uv 0.11.9 GitHub-attestation regression. Bump deliberately.
+		//
+		// uv pin reason: 0.11.9 ships without the GitHub artifact attestation
+		// mise verifies — install fails on "expected workflow .../release.yml,
+		// found certificate: None". 0.11.4 is the last known-good. Re-test
+		// after astral-sh fixes their release pipeline.
+		//
+		// 支持工具——EnvManager 通过 ToolRegistry 用。版本均显式钉死（非
+		// "latest"）以避免上游意外（如 uv 0.11.9 的 GitHub attestation 回归）。
+		// 升级要主动评估。uv 钉 0.11.4：0.11.9 缺 mise 校验的 GitHub 工件
+		// attestation，安装会因 "expected workflow ..., found certificate:
+		// None" 失败。astral-sh 修发布管线后再升。
+		"uv":   "0.11.4",
+		"pnpm": "9.15.4",
+		"maven": "3.9.9",
+		// NB: bundler + composer NOT registered here — they're not in mise's
+		// registry (bundler ships with Ruby ≥ 2.6 stdlib; composer needs
+		// `php composer-setup.php` or static download). Ruby/PHP EnvManagers
+		// currently call EnsureTool("bundler"|"composer") which will fail
+		// — known D2-latent bug, fix is in those EnvManagers (locate `bundle`
+		// inside Ruby's install dir; install composer as static binary or
+		// via official installer script). Tracked separately, doesn't block
+		// V1 demo (Python/Node/forge are the live paths).
+		//
+		// 注：bundler + composer 不在此注册——它们不在 mise registry（bundler
+		// 随 Ruby ≥ 2.6 stdlib 自带；composer 需 `php composer-setup.php` 或
+		// 静态下载）。Ruby/PHP EnvManager 目前调 EnsureTool("bundler"|
+		// "composer") 会失败——D2 遗留 bug，修复在 EnvManager 自身（Ruby 直
+		// 接定位 bundle；composer 静态安装）。单独跟踪，不阻塞 V1 demo
+		// （Python/Node/forge 是 demo 路径）。
 	} {
 		svc.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, kind, defaultVer))
 	}

@@ -22,14 +22,13 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 )
@@ -81,8 +80,8 @@ func (p *PythonEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath s
 	}
 	cmd := exec.CommandContext(ctx, uvBin, "venv", "--python", runtimePath, venvDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv %s: %w (output: %s)",
-			venvDir, sandboxdomain.ErrEnvCreateFailed, string(out))
+		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv %s: %w: %v (uv output: %s)",
+			venvDir, sandboxdomain.ErrEnvCreateFailed, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
@@ -109,27 +108,9 @@ func (p *PythonEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 	args := append([]string{"pip", "install", "--python", venvPython}, deps...)
 	cmd := exec.CommandContext(ctx, uvBin, args...)
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("sandbox.PythonEnvManager.InstallDeps: stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("sandbox.PythonEnvManager.InstallDeps: start: %w", err)
-	}
-
-	if stream != nil {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			stream("installing-deps", scanner.Text(), -1)
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, stderrPipe)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("sandbox.PythonEnvManager.InstallDeps %v: %w", deps, sandboxdomain.ErrDepInstallFailed)
-	}
-	return nil
+	return RunWithStderrCapture(cmd, stream,
+		sandboxdomain.ErrDepInstallFailed,
+		fmt.Sprintf("sandbox.PythonEnvManager.InstallDeps %v", deps))
 }
 
 // InstallExtras is a no-op for Python — the extras concept (e.g.
@@ -148,7 +129,8 @@ func (p *PythonEnvManager) InstallExtras(ctx context.Context, runtimePath, envPa
 //
 // EnvBin 返 env 的 venv 内某 binary 绝对路径
 // （unix 上 "<envPath>/.venv/bin/python"；
-//  Windows 上 "<envPath>/.venv/Scripts/python.exe"）。
+//
+//	Windows 上 "<envPath>/.venv/Scripts/python.exe"）。
 func (p *PythonEnvManager) EnvBin(envPath, binName string) string {
 	if runtime.GOOS == "windows" && filepath.Ext(binName) == "" {
 		binName += ".exe"

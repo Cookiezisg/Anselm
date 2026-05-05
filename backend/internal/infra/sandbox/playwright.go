@@ -26,10 +26,8 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -96,25 +94,10 @@ func (p *PlaywrightInstaller) Install(ctx context.Context, version, sandboxRoot 
 	cmd := exec.CommandContext(ctx, p.playwrightCLI, "install", version)
 	cmd.Env = append(os.Environ(), "PLAYWRIGHT_BROWSERS_PATH="+browsersDir)
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return "", fmt.Errorf("sandbox.PlaywrightInstaller.Install: stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("sandbox.PlaywrightInstaller.Install: start: %w", err)
-	}
-
-	if stream != nil {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			stream("installing", scanner.Text(), -1)
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, stderrPipe)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return "", fmt.Errorf("sandbox.PlaywrightInstaller.Install %s: %w", version, sandboxdomain.ErrRuntimeInstallFailed)
+	if err := RunWithStderrCapture(cmd, stream,
+		sandboxdomain.ErrRuntimeInstallFailed,
+		fmt.Sprintf("sandbox.PlaywrightInstaller.Install %s", version)); err != nil {
+		return "", err
 	}
 	return playwrightBrowsersSubdir, nil
 }
@@ -231,25 +214,10 @@ func (p *PlaywrightEnvManager) InstallExtras(ctx context.Context, runtimePath, e
 		cmd.Env = append(cmd.Environ(), "PLAYWRIGHT_BROWSERS_PATH="+browsersDir)
 		cmd.Dir = envPath
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("sandbox.PlaywrightEnvManager.InstallExtras: stderr pipe %s: %w", channel, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("sandbox.PlaywrightEnvManager.InstallExtras: start %s: %w", channel, err)
-		}
-
-		if stream != nil {
-			scanner := bufio.NewScanner(stderrPipe)
-			for scanner.Scan() {
-				stream("installing-browser", scanner.Text(), -1)
-			}
-		} else {
-			_, _ = io.Copy(io.Discard, stderrPipe)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("sandbox.PlaywrightEnvManager.InstallExtras %s: %w", channel, sandboxdomain.ErrDepInstallFailed)
+		if err := RunWithStderrCapture(cmd, stream,
+			sandboxdomain.ErrDepInstallFailed,
+			fmt.Sprintf("sandbox.PlaywrightEnvManager.InstallExtras %s", channel)); err != nil {
+			return err
 		}
 	}
 	return nil

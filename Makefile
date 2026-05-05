@@ -92,14 +92,26 @@ test-unit:
 	@cd backend && go test -count=1 ./... -skip TestIntegration_
 
 # test-pipeline — the one e2e suite. Sources .env so Live_ tests run when
-# DEEPSEEK_API_KEY is present; forge sandbox tests run when FORGIFY_DEV_RESOURCES
-# is set. Both skip gracefully when the prerequisite is absent.
+# DEEPSEEK_API_KEY is present; forge sandbox tests run when the v2 PluginSandbox
+# bootstraps (i.e. mise binary is embedded — run `make resources` once after
+# clone). Tests skip gracefully when prerequisites are absent.
+#
+# Runs serially (-p 1): each pipeline package boots a fresh harness and lazy-
+# installs Python + uv via mise on first use. Parallel package execution
+# triggers concurrent mise installs sharing nothing, which exhausts disk /
+# trips upstream rate limits / hits race conditions in mise's plugin cache.
+# Serial cost is ~4 min total — well worth the determinism.
 #
 # test-pipeline——唯一的 e2e 套件。自动 source .env：有 DEEPSEEK_API_KEY 则跑
-# Live_ 测试，有 FORGIFY_DEV_RESOURCES 则跑 forge sandbox 测试，缺时均优雅 skip。
+# Live_ 测试；mise binary 已 embed（克隆后跑一次 `make resources`）则跑 forge
+# sandbox 测试；缺时均优雅 skip。
+#
+# 串行（-p 1）：每个 pipeline 包起新 harness，首次用时 lazy 装 Python + uv via
+# mise。并行包执行时多个 mise install 互不知情，会撞磁盘 / 触上游限流 /
+# 击中 mise plugin 缓存竞态。串行约 4 分钟跑完，换确定性。
 test-pipeline:
 	$(AUTO_DEVBOX)
-	@$(LOAD_ENV) cd backend && go test -count=1 -tags=pipeline ./test/...
+	@$(LOAD_ENV) cd backend && go test -count=1 -tags=pipeline -p 1 ./test/...
 
 # stop — kill anything bound to the dev port.
 # stop——杀占用 dev 端口的进程。

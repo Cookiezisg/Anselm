@@ -23,10 +23,8 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -134,27 +132,11 @@ func (d *DotnetInstaller) Install(ctx context.Context, version, sandboxRoot stri
 		)
 	}
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return "", fmt.Errorf("sandbox.DotnetInstaller.Install: stderr pipe: %w", err)
+	if err := RunWithStderrCapture(cmd, stream,
+		sandboxdomain.ErrRuntimeInstallFailed,
+		fmt.Sprintf("sandbox.DotnetInstaller.Install %s", version)); err != nil {
+		return "", err
 	}
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("sandbox.DotnetInstaller.Install: start: %w", err)
-	}
-
-	if stream != nil {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			stream("installing", scanner.Text(), -1)
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, stderrPipe)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return "", fmt.Errorf("sandbox.DotnetInstaller.Install %s: %w", version, sandboxdomain.ErrRuntimeInstallFailed)
-	}
-
 	return filepath.Join(dotnetInstallsSubdir, version), nil
 }
 
@@ -270,25 +252,10 @@ func (d *DotnetEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 		cmd.Env = append(os.Environ(), "DOTNET_CLI_HOME="+filepath.Join(envPath, ".dotnet"))
 		cmd.Dir = envPath
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("sandbox.DotnetEnvManager.InstallDeps: stderr pipe %s: %w", dep, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("sandbox.DotnetEnvManager.InstallDeps: start %s: %w", dep, err)
-		}
-
-		if stream != nil {
-			scanner := bufio.NewScanner(stderrPipe)
-			for scanner.Scan() {
-				stream("installing-deps", scanner.Text(), -1)
-			}
-		} else {
-			_, _ = io.Copy(io.Discard, stderrPipe)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("sandbox.DotnetEnvManager.InstallDeps %s: %w", dep, sandboxdomain.ErrDepInstallFailed)
+		if err := RunWithStderrCapture(cmd, stream,
+			sandboxdomain.ErrDepInstallFailed,
+			fmt.Sprintf("sandbox.DotnetEnvManager.InstallDeps %s", dep)); err != nil {
+			return err
 		}
 	}
 	return nil

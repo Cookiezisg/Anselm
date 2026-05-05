@@ -9,7 +9,6 @@ package harness
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
@@ -113,19 +112,18 @@ func (h *Harness) NewForge(t *testing.T, name, code string) *forgedomain.Forge {
 	return f
 }
 
-// RequireForgeResources skips the test if FORGIFY_DEV_RESOURCES is not set
-// or if the harness sandbox was not successfully bootstrapped (Python binary
-// absent). All forge-sandbox pipeline tests call this at the top.
+// RequireForgeResources skips the test when the v2 sandbox isn't ready —
+// either the mise binary wasn't embedded for the current platform (run
+// `make resources`) or Bootstrap failed for some other reason. All forge-
+// sandbox pipeline tests should call this at the top.
 //
-// RequireForgeResources 在 FORGIFY_DEV_RESOURCES 未设置或沙箱 Bootstrap 失败
-// （Python 不存在）时 skip 测试。所有 forge sandbox pipeline 测试在开头调用。
+// RequireForgeResources 在 v2 sandbox 未 ready 时 skip——要么当前平台没 embed
+// mise（跑 `make resources`），要么 Bootstrap 因其他原因失败。所有 forge
+// sandbox pipeline 测试在开头调用。
 func RequireForgeResources(t *testing.T, h *Harness) {
 	t.Helper()
-	if os.Getenv("FORGIFY_DEV_RESOURCES") == "" {
-		t.Skip("FORGIFY_DEV_RESOURCES not set; skipping (run `go run ./cmd/resources` from backend/ first)")
-	}
-	pythonPath := h.Sandbox.PythonPath()
-	if _, err := os.Stat(pythonPath); err != nil {
-		t.Skipf("sandbox Python not found at %q (Bootstrap may have failed): %v", pythonPath, err)
+	if !h.Sandbox.IsReady() {
+		err := h.Sandbox.BootstrapError()
+		t.Skipf("sandbox v2 not ready (run `make resources` to embed mise): %v", err)
 	}
 }

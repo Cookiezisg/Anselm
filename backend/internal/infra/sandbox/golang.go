@@ -28,10 +28,8 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -100,25 +98,10 @@ func (g *GoEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath str
 			"GOBIN="+gobin,
 		)
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("sandbox.GoEnvManager.InstallDeps: stderr pipe %s: %w", dep, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("sandbox.GoEnvManager.InstallDeps: start %s: %w", dep, err)
-		}
-
-		if stream != nil {
-			scanner := bufio.NewScanner(stderrPipe)
-			for scanner.Scan() {
-				stream("installing-deps", scanner.Text(), -1)
-			}
-		} else {
-			_, _ = io.Copy(io.Discard, stderrPipe)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("sandbox.GoEnvManager.InstallDeps %s: %w", dep, sandboxdomain.ErrDepInstallFailed)
+		if err := RunWithStderrCapture(cmd, stream,
+			sandboxdomain.ErrDepInstallFailed,
+			fmt.Sprintf("sandbox.GoEnvManager.InstallDeps %s", dep)); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -23,11 +23,9 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,27 +112,9 @@ func (n *NodeEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 	cmd := exec.CommandContext(ctx, pnpmBin, args...)
 	cmd.Dir = envPath
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("sandbox.NodeEnvManager.InstallDeps: stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("sandbox.NodeEnvManager.InstallDeps: start: %w", err)
-	}
-
-	if stream != nil {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			stream("installing-deps", scanner.Text(), -1)
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, stderrPipe)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("sandbox.NodeEnvManager.InstallDeps %v: %w", deps, sandboxdomain.ErrDepInstallFailed)
-	}
-	return nil
+	return RunWithStderrCapture(cmd, stream,
+		sandboxdomain.ErrDepInstallFailed,
+		fmt.Sprintf("sandbox.NodeEnvManager.InstallDeps %v", deps))
 }
 
 // InstallExtras is a no-op for Node — Node plugins declare runtime deps

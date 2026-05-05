@@ -38,6 +38,7 @@ import (
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	taskapp "github.com/sunweilin/forgify/backend/internal/app/task"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
@@ -53,6 +54,7 @@ import (
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
@@ -64,6 +66,7 @@ import (
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
+	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	taskstore "github.com/sunweilin/forgify/backend/internal/infra/store/task"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
@@ -103,7 +106,7 @@ type Harness struct {
 
 	DB      *gorm.DB
 	Bridge  eventsdomain.Bridge
-	Sandbox *sandboxinfra.Sandbox
+	Sandbox *sandboxapp.Service
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -163,6 +166,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
 		&forgedomain.ForgeExecution{},
+		&sandboxdomain.Runtime{},
+		&sandboxdomain.Env{},
 		&taskdomain.Task{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
@@ -192,30 +197,36 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	llmFactory := llminfra.NewFactory()
 
-	// Sandbox: each harness gets its own temp dir (auto-cleaned by testing).
-	// Bootstrap from FORGIFY_DEV_RESOURCES if set; otherwise sandbox stays
-	// unavailable — forge ops that need Python will return ErrSandboxUnavailable
-	// and tests that need the sandbox can t.Skip themselves.
+	// PluginSandbox v2 — same DI as cmd/server/main.go but rooted at a per-test
+	// tempdir. Bootstrap extracts the embedded mise binary; if unavailable for
+	// the host platform (e.g. CI without `make resources`), bootstrap fails →
+	// degraded mode → runtime ops return ErrSandboxUnavailable. Tests that
+	// need a working sandbox should gate themselves with sandboxapp.Service
+	// .IsReady().
 	//
-	// 沙箱：每个 harness 独立临时目录（testing 自动清理）。
-	// 设了 FORGIFY_DEV_RESOURCES 则 Bootstrap；否则保持 unavailable——需要 Python
-	// 的 forge 操作返 ErrSandboxUnavailable，依赖沙箱的测试自行 t.Skip。
-	sandbox := sandboxinfra.New(sandboxinfra.Config{
-		DataDir:       t.TempDir(),
-		DefaultPython: forgedomain.DefaultPythonVersion,
-		Logger:        log,
-	})
-	if resourceDir := os.Getenv("FORGIFY_DEV_RESOURCES"); resourceDir != "" {
-		if err := sandbox.Bootstrap(context.Background(), resourceDir); err != nil {
-			t.Logf("sandbox.Bootstrap failed: %v (forge ops requiring Python will be unavailable)", err)
-		}
+	// PluginSandbox v2 ——与 main.go 同 DI 图但根目录是 per-test tempdir。
+	// Bootstrap 解 embed mise；当前平台没有就 degraded mode；需要 sandbox 的
+	// 测试自己用 IsReady() 守卫。
+	dataDir := t.TempDir()
+	sandboxRepo := sandboxstore.New(gdb)
+	sandboxSvc := sandboxapp.New(sandboxRepo, dataDir, log)
+	if err := sandboxSvc.Bootstrap(context.Background()); err != nil {
+		t.Logf("sandbox v2 bootstrap failed: %v (degraded mode active; runtime ops will fail)", err)
 	}
+	registerSandboxStack(sandboxSvc)
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := sandboxSvc.Shutdown(shutdownCtx); err != nil {
+			t.Logf("sandbox shutdown: %v", err)
+		}
+	})
 
 	forgeLLM := &forgeLLMAdapter{picker: modelService, keys: apikeyService, factory: llmFactory}
 	bridge := memoryinfra.NewBridge(log)
 	forgeService := forgeapp.NewService(
 		forgestore.New(gdb),
-		sandbox,
+		forgeapp.NewSandboxAdapter(sandboxSvc, dataDir),
 		forgeLLM,
 		bridge,
 		log,
@@ -245,7 +256,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
 	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
-	shells := shelltool.NewShellTools(nil) // pipeline harness skips sandbox auto-route
+	shells := shelltool.NewShellTools(sandboxSvc)
 	t.Cleanup(shells.Manager.Stop)
 	tools = append(tools, shells.Tools...)
 	taskService := taskapp.NewService(taskstore.New(gdb), bridge, log)
@@ -263,6 +274,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		ChatService:         chatService,
 		EventsBridge:        bridge,
 		AskService:          askService,
+		SandboxService:      sandboxSvc,
 		Dev:                 false,
 		Tools:               tools,
 		DB:                  gdb,
@@ -279,7 +291,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		fakeLLMBaseURL: cfg.fakeLLMBaseURL,
 		DB:             gdb,
 		Bridge:         bridge,
-		Sandbox:        sandbox,
+		Sandbox:        sandboxSvc,
 		APIKey:         apikeyService,
 		Model:          modelService,
 		Conversation:   convService,
@@ -287,6 +299,51 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Chat:           chatService,
 		Tools:          tools,
 	}
+}
+
+// registerSandboxStack mirrors cmd/server/main.go::registerSandboxStack so
+// the harness wires the same v1 PluginSandbox runtime/env matrix. Mise-
+// independent installers (dotnet/static) are registered up front; mise-
+// managed ones are skipped if Bootstrap failed (degraded mode).
+//
+// registerSandboxStack 镜像 main.go 的同名 helper，让 harness 注册同一份 v1
+// PluginSandbox runtime/env 矩阵。Mise 无关的 installer（dotnet/static）先
+// 注册；mise 管理的 installer 在 Bootstrap 失败（degraded mode）时跳过。
+func registerSandboxStack(svc *sandboxapp.Service) {
+	miseBin := svc.MiseBin()
+	if miseBin == "" {
+		return
+	}
+	for kind, defaultVer := range map[string]string{
+		"python": "3.12",
+		"node":   "22",
+		"rust":   "stable",
+		"java":   "21",
+		"go":     "1.22",
+		"ruby":   "3.3",
+		"php":    "8.3",
+		// Mirrors main.go pin set. bundler + composer NOT registered (not
+		// in mise registry — see main.go comment for the details).
+		// 镜像 main.go 的 pin。bundler + composer 不注册（不在 mise registry
+		// ——详见 main.go 同段注释）。
+		"uv":    "0.11.4",
+		"pnpm":  "9.15.4",
+		"maven": "3.9.9",
+	} {
+		svc.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, kind, defaultVer))
+	}
+	svc.RegisterInstaller(sandboxinfra.NewDotnetInstaller("8.0"))
+
+	svc.RegisterEnvManager(sandboxinfra.NewPythonEnvManager(svc))
+	svc.RegisterEnvManager(sandboxinfra.NewNodeEnvManager(svc))
+	svc.RegisterEnvManager(sandboxinfra.NewRustEnvManager())
+	svc.RegisterEnvManager(sandboxinfra.NewGoEnvManager())
+	svc.RegisterEnvManager(sandboxinfra.NewJavaEnvManager(svc))
+	svc.RegisterEnvManager(sandboxinfra.NewRubyEnvManager(svc))
+	svc.RegisterEnvManager(sandboxinfra.NewPHPEnvManager(svc))
+	svc.RegisterEnvManager(sandboxinfra.NewDotnetEnvManager())
+	svc.RegisterEnvManager(sandboxinfra.NewPlaywrightEnvManager(
+		sandboxinfra.NewNodeEnvManager(svc), svc.SandboxRoot()))
 }
 
 // URL returns the test server's base URL (e.g. "http://127.0.0.1:54321").

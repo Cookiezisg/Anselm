@@ -32,10 +32,8 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,27 +96,9 @@ func (r *RustEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 	cmd := exec.CommandContext(ctx, cargoBin, args...)
 	cmd.Env = append(os.Environ(), "CARGO_HOME="+filepath.Join(envPath, ".cargo"))
 
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("sandbox.RustEnvManager.InstallDeps: stderr pipe: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("sandbox.RustEnvManager.InstallDeps: start: %w", err)
-	}
-
-	if stream != nil {
-		scanner := bufio.NewScanner(stderrPipe)
-		for scanner.Scan() {
-			stream("installing-deps", scanner.Text(), -1)
-		}
-	} else {
-		_, _ = io.Copy(io.Discard, stderrPipe)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("sandbox.RustEnvManager.InstallDeps %v: %w", deps, sandboxdomain.ErrDepInstallFailed)
-	}
-	return nil
+	return RunWithStderrCapture(cmd, stream,
+		sandboxdomain.ErrDepInstallFailed,
+		fmt.Sprintf("sandbox.RustEnvManager.InstallDeps %v", deps))
 }
 
 // InstallExtras is a no-op — Rust plugins don't have an extras concept

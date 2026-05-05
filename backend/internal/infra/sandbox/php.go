@@ -16,11 +16,9 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -110,25 +108,10 @@ func (p *PHPEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath st
 		)
 		cmd.Env = append(os.Environ(), "COMPOSER_HOME="+composerHome)
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("sandbox.PHPEnvManager.InstallDeps: stderr pipe %s: %w", dep, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("sandbox.PHPEnvManager.InstallDeps: start %s: %w", dep, err)
-		}
-
-		if stream != nil {
-			scanner := bufio.NewScanner(stderrPipe)
-			for scanner.Scan() {
-				stream("installing-deps", scanner.Text(), -1)
-			}
-		} else {
-			_, _ = io.Copy(io.Discard, stderrPipe)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("sandbox.PHPEnvManager.InstallDeps %s: %w", dep, sandboxdomain.ErrDepInstallFailed)
+		if err := RunWithStderrCapture(cmd, stream,
+			sandboxdomain.ErrDepInstallFailed,
+			fmt.Sprintf("sandbox.PHPEnvManager.InstallDeps %s", dep)); err != nil {
+			return err
 		}
 	}
 	return nil

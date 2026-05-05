@@ -19,10 +19,8 @@
 package sandbox
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,25 +102,10 @@ func (r *RubyEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 		)
 		cmd.Dir = envPath
 
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("sandbox.RubyEnvManager.InstallDeps: stderr pipe %s: %w", dep, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("sandbox.RubyEnvManager.InstallDeps: start %s: %w", dep, err)
-		}
-
-		if stream != nil {
-			scanner := bufio.NewScanner(stderrPipe)
-			for scanner.Scan() {
-				stream("installing-deps", scanner.Text(), -1)
-			}
-		} else {
-			_, _ = io.Copy(io.Discard, stderrPipe)
-		}
-
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("sandbox.RubyEnvManager.InstallDeps %s: %w", dep, sandboxdomain.ErrDepInstallFailed)
+		if err := RunWithStderrCapture(cmd, stream,
+			sandboxdomain.ErrDepInstallFailed,
+			fmt.Sprintf("sandbox.RubyEnvManager.InstallDeps %s", dep)); err != nil {
+			return err
 		}
 	}
 	return nil
