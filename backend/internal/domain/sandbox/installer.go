@@ -40,23 +40,36 @@ type RuntimeInstaller interface {
 	// 的 kind 列匹配。一个 kind 对应一个 Installer。
 	Kind() string
 
-	// Install installs the requested version into dest. stream is invoked
-	// for progress updates (downloading / extracting / etc.); pass nil to
-	// skip progress reporting. Returns ErrRuntimeInstallFailed wrapped
-	// with stderr context on failure.
+	// Install installs the requested version somewhere under sandboxRoot
+	// (the absolute path to <dataDir>/sandbox/) and returns the install
+	// directory's path *relative* to sandboxRoot — that relative path goes
+	// into Runtime.Path. The Installer chooses the layout (e.g. mise
+	// shares a single MISE_DATA_DIR across all kinds + versions, so its
+	// returned relPath is "mise-data/installs/<kind>/<version>"). stream
+	// receives progress updates (downloading / extracting / etc.); pass
+	// nil to skip. Returns ErrRuntimeInstallFailed wrapped with stderr
+	// context on failure.
 	//
-	// Install 把指定版本装到 dest。stream 在装机过程中接进度（downloading /
-	// extracting / 等）；传 nil 跳过进度上报。失败返 ErrRuntimeInstallFailed
-	// 包装 stderr 上下文。
-	Install(ctx context.Context, version string, dest string, stream ProgressFunc) error
+	// Install 把指定版本装到 sandboxRoot（<dataDir>/sandbox/ 的绝对路径）
+	// 下某个位置，返回相对 sandboxRoot 的安装目录路径——该相对路径会存进
+	// Runtime.Path。Installer 自己选 layout（如 mise 让所有 kind + version
+	// 共享单个 MISE_DATA_DIR，返 relPath 是 "mise-data/installs/<kind>/<version>"）。
+	// stream 接进度（downloading / extracting / 等），传 nil 跳过。失败返
+	// ErrRuntimeInstallFailed 包装 stderr 上下文。
+	Install(ctx context.Context, version, sandboxRoot string, stream ProgressFunc) (relPath string, err error)
 
 	// Locate returns the absolute path to the runtime's primary executable
-	// inside an installed dest directory (e.g. "<dest>/bin/python" for
-	// Python; "<dest>/bin/node" for Node).
+	// for an installed (version, sandboxRoot) pair (e.g. "<sandboxRoot>/
+	// mise-data/installs/python/3.12.5/bin/python"). Implementations
+	// typically call out to the underlying installer's lookup mechanism
+	// (mise where, etc.) so the path stays in sync with whatever the
+	// installer actually did.
 	//
-	// Locate 返回已装 dest 目录中 runtime 主可执行文件的绝对路径
-	// （如 Python 返 "<dest>/bin/python"；Node 返 "<dest>/bin/node"）。
-	Locate(version string, dest string) (binPath string, err error)
+	// Locate 返回已装 (version, sandboxRoot) runtime 主可执行文件的绝对路径
+	// （如 "<sandboxRoot>/mise-data/installs/python/3.12.5/bin/python"）。实现
+	// 通常调用底层 installer 的查找机制（mise where 等）保持与 installer
+	// 实际行为同步。
+	Locate(version, sandboxRoot string) (binPath string, err error)
 
 	// ListAvailable returns versions the user could install, for UI
 	// pickers. Optional — return (nil, nil) when enumeration is not

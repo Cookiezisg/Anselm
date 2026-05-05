@@ -328,12 +328,17 @@ type Repository interface {
 type RuntimeInstaller interface {
     Kind() string                                                          // "python" / "node" / "java" / 任何
 
-    // Install 把指定版本装到 dest 目录。stream 是进度推流（前端 SSE 用）。
-    Install(ctx context.Context, version string, dest string, stream ProgressFunc) error
+    // Install 把指定版本装到 sandboxRoot（<dataDir>/sandbox/ 的绝对路径）
+    // 下某个位置，返回相对 sandboxRoot 的安装目录路径——该相对路径会存进
+    // Runtime.Path。Installer 自己选 layout（如 mise 让所有 kind + version
+    // 共享单个 MISE_DATA_DIR，返 "mise-data/installs/<kind>/<version>"）。
+    // stream 是进度推流（前端 SSE 用）。
+    Install(ctx context.Context, version, sandboxRoot string, stream ProgressFunc) (relPath string, err error)
 
-    // Locate 返回该版本的可执行 binary 主入口路径（相对 dest）
-    // 例：python kind 返 "bin/python"；node kind 返 "bin/node"
-    Locate(version string, dest string) (binPath string, err error)
+    // Locate 返回已装 (version, sandboxRoot) runtime 主可执行文件的绝对路径
+    // （如 "<sandboxRoot>/mise-data/installs/python/3.12.5/bin/python"）。
+    // 实现通常调用底层 installer 的查找机制（mise where 等）保持同步。
+    Locate(version, sandboxRoot string) (binPath string, err error)
 
     // ListAvailable 给 UI 展示"我能装哪些版本"用（可选，返 nil 表示不支持枚举）
     ListAvailable(ctx context.Context) ([]string, error)
@@ -505,9 +510,10 @@ func (s *Service) EnsureRuntime(ctx context.Context, spec RuntimeSpec, stream Pr
         return existing, nil
     }
     
-    // 真去装
-    dest := filepath.Join(s.runtimesDir, spec.Kind, version)
-    if err := installer.Install(ctx, version, dest, stream); err != nil {
+    // 真去装。Installer 自己决定文件布局；返回的 relPath 是 install
+    // 目录相对 sandboxRoot 的相对路径，存到 Runtime.Path。
+    relPath, err := installer.Install(ctx, version, s.sandboxRoot, stream)
+    if err != nil {
         return nil, fmt.Errorf("sandboxapp.EnsureRuntime: %w", err)
     }
     
@@ -516,8 +522,8 @@ func (s *Service) EnsureRuntime(ctx context.Context, spec RuntimeSpec, stream Pr
         ID:          newRuntimeID(),
         Kind:        spec.Kind,
         Version:     version,
-        Path:        filepath.Join(spec.Kind, version),
-        SizeBytes:   computeDirSize(dest),
+        Path:        relPath,                                       // 由 installer 决定
+        SizeBytes:   computeDirSize(filepath.Join(s.sandboxRoot, relPath)),
         IsDefault:   spec.Version == "",  // 没指定版本视为 default
         InstalledAt: time.Now(),
     }
