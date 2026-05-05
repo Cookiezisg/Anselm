@@ -229,8 +229,40 @@ func (t *WebFetch) Execute(ctx context.Context, argsJSON string) (string, error)
 // baked in. Reused so we don't pay the connection-pool warmup on every
 // call.
 //
+// CheckRedirect re-runs the SSRF guard on every redirect target. Without
+// this, an attacker-controlled public URL could 302 to http://localhost:5432
+// and Go's default redirect-follower would happily fetch the loopback
+// address — guardHostname only ran on the original URL. Capped at 10
+// redirect hops (Go's silent default) to avoid unbounded chains.
+//
 // fetchClient 是进程级 http.Client，超时已内置；复用避免每次重建。
-var fetchClient = &http.Client{Timeout: fetchTimeout}
+//
+// CheckRedirect 在每次跳转目标上重跑 SSRF 守卫。不加这层，攻击者控制的
+// 公网 URL 可以 302 到 http://localhost:5432，Go 默认会跟着抓 loopback——
+// guardHostname 只在最初的 URL 上跑过一次。同时 cap 在 10 跳（Go 默认值）
+// 防无限跳转链。
+var fetchClient = &http.Client{
+	Timeout:       fetchTimeout,
+	CheckRedirect: ssrfCheckRedirect,
+}
+
+// ssrfCheckRedirect rejects any redirect target that would land on a
+// loopback / private / link-local / unspecified / multicast address.
+// Used as the http.Client.CheckRedirect for both fetchClient (WebFetch)
+// and any other tool that fetches arbitrary URLs.
+//
+// ssrfCheckRedirect 拒绝任何跳转目标落在 loopback / 私网 / link-local /
+// 未指定 / multicast 的地址。WebFetch 的 fetchClient 与未来抓任意 URL 的
+// 工具共用。
+func ssrfCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if reason := guardHostname(req.URL.Hostname()); reason != "" {
+		return fmt.Errorf("redirect blocked: %s", reason)
+	}
+	return nil
+}
 
 // fetchContent runs the two-tier fetch: Jina first, direct GET fallback.
 // Returns the raw body (capped) on success.

@@ -1,0 +1,644 @@
+# Skill — V1.2 详设计
+
+**Phase**：Phase 4 准备件（提前到位，本周交付）
+**状态**：📐 设计完成（2026-05-04）— 待实施
+**关联**：
+- [`../backend-design.md`](../backend-design.md) — 总规范
+- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（文件系统是 source）
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — skill ×3（待加）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `skill` entity-state 事件（待加）
+- 关联设计：[`subagent.md`](./subagent.md)（`context: fork` 复用 SubagentService）/ [`catalog.md`](./catalog.md)
+- 外部 spec：[Anthropic Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) / [agentskills.io](https://agentskills.io)
+
+---
+
+## 1. 一句话
+
+把"按需加载、可命名、有 tool 白名单"的 procedural knowledge bundle 抽象为 **`SKILL.md` 文件目录**。LLM 看到 catalog 里的 skill 描述（L1，~100 token）→ 调 `activate_skill` 加载完整指引（L2，<5k token）→ 跟着指引用现有 tool 取 L3 资源。**整套机制零新协议**——L2/L3 加载复用 LLM 已有的 Read/Bash tool。
+
+---
+
+## 2. 端到端推演（progressive disclosure 三层）
+
+### L1 — 启动期（metadata 注入）
+
+```
+main.go → skillapp.NewService(deps).Scan()
+  → 扫描 ~/.forgify/skills/*（**仅用户级，无项目级**）
+  → 对每个 SKILL.md：
+      - 用 yaml.v3 解析 YAML frontmatter
+      - 不读 markdown body
+      - 缓存 Skill{Name, Description, Frontmatter, BodyPath}
+  → 启 fsnotify watcher 监听 skills 父目录（增删改触发 Rescan）
+  → 暴露给 catalog（实现 CatalogSource 接口）
+  
+catalog generator 拼 system prompt 时拿这些 description，生成 1-2 行总结
+注：description 直接来自 frontmatter（author 写），不重 LLM 生成
+```
+
+### L2 — LLM 调 activate_skill 时（body 加载）
+
+```
+LLM → tool_use{name="activate_skill", args={name:"pr-review", arguments:["1234"]}}
+  → skilltool.ActivateSkill.Execute(ctx, args)
+    → skillapp.Service.Activate(ctx, name, arguments)
+        → 取 Skill 元数据
+        → os.ReadFile(BodyPath)   # 不通过 LLM 的 Read tool（系统内部加载）
+        → 字符串替换：$1, $ARGUMENTS, ${CLAUDE_SKILL_DIR}, ${CLAUDE_SESSION_ID}
+        → 写 agentstate.SetActiveSkill(skill)
+            → 后续 tool 的 CheckPermissions 看到 active skill → match allowed-tools 跳过 prompt
+        → 如 frontmatter.Context == "fork":
+            → 调 subagentapp.Spawn(type=frontmatter.Agent, prompt=substitutedBody)
+            → 返回 subagent.lastMessage（隔离模式）
+          否则:
+            → 返回 substitutedBody 作为 tool_result
+              （LLM 在下一 turn 看到这段 instructions，照着干）
+  → tool_result 给 LLM
+```
+
+### L3 — LLM 跟随 L2 指引时（资源按需）
+
+```
+LLM 看 L2 body 写"跑 ${CLAUDE_SKILL_DIR}/scripts/analyze_diff.py $file"
+  → LLM 自己用 Bash tool 跑那个脚本
+    → permission check 看 active skill = pr-review，allowed-tools 含 Bash → 跳过 prompt
+  → 脚本输出回 LLM
+  → LLM 看 L2 写"用 ${CLAUDE_SKILL_DIR}/templates/review_template.md 套结果"
+  → LLM 自己用 Read tool 读模板
+  → ...
+```
+
+**L3 不是 Skill 系统加载的**——纯靠 LLM 用现有 tool 自取。Skill 子系统只管 L1 注入 + L2 加载 + permission 预授权。
+
+---
+
+## 3. 设计原则
+
+| 原则 | 落地 |
+|---|---|
+| **Progressive disclosure** | metadata 永远在；body 按需 Read；resources LLM 自取 |
+| **Composition with Subagent** | `context: fork` 字段调 SubagentService.Spawn，**不是 Subagent 子集而是组合关系** |
+| **Allowed-tools 预授权** | 写 agentstate.ActiveSkill，后续 permission 链查询时跳过 prompt |
+| **跨厂 schema 兼容（不共享目录）** | YAML frontmatter 照抄 Anthropic spec，用户可拖拽 / git clone / 手拷其他工具的 skill 进 `~/.forgify/skills/`，但 Forgify **不扫描** Claude Code / Cursor / Cline 等外部目录（自包含原则）|
+| **不做 LLM 重写 description** | description 是 author 责任（YAML frontmatter source-of-truth），catalog 直接用 |
+| **fsnotify 实时刷新** | 用户改 SKILL.md 不必重启；监 skills/ 父目录 |
+| **仅用户级，无项目级** | 只 `~/.forgify/skills/` 一份，**无 `<project>/.forgify/skills/`**——避免 merge 逻辑复杂度，单用户场景用户级足够 |
+
+---
+
+## 4. 领域模型
+
+### Skill（`internal/domain/skill/skill.go`）
+
+```go
+type Skill struct {
+    Name        string       `json:"name"`
+    Source      string       `json:"source"`        // "user" / "plugin"（v1 仅 user，未来 plugin 系统加 plugin）
+    DirPath     string       `json:"dirPath"`       // 用于解析 ${CLAUDE_SKILL_DIR}
+    BodyPath    string       `json:"bodyPath"`      // SKILL.md 全路径
+    Description string       `json:"description"`   // 直接来自 frontmatter
+    Frontmatter Frontmatter  `json:"frontmatter"`
+    LoadedAt    time.Time    `json:"loadedAt"`
+}
+```
+
+### Frontmatter
+
+```go
+type Frontmatter struct {
+    Name                   string   `yaml:"name"`
+    Description            string   `yaml:"description"`
+    WhenToUse              string   `yaml:"when_to_use,omitempty"`
+    AllowedTools           []string `yaml:"allowed-tools,omitempty"`     // 预授权
+    DisableModelInvocation bool     `yaml:"disable-model-invocation,omitempty"`
+    UserInvocable          bool     `yaml:"user-invocable,omitempty"`     // 默认 true
+    Paths                  []string `yaml:"paths,omitempty"`              // glob，用于 auto-trigger（v1 暂不实现）
+    Context                string   `yaml:"context,omitempty"`            // "fork" or empty
+    Agent                  string   `yaml:"agent,omitempty"`              // 当 context=fork 时用哪个 subagent type
+    Arguments              []string `yaml:"arguments,omitempty"`          // 命名参数
+    ArgumentHint           string   `yaml:"argument-hint,omitempty"`
+    Model                  string   `yaml:"model,omitempty"`              // override
+    Effort                 string   `yaml:"effort,omitempty"`             // low/medium/high/...（v1 透传不消费）
+}
+```
+
+**字段策略**：
+- 全字段照 Anthropic SKILL.md spec，cross-vendor 兼容
+- v1 真消费的字段：`name`、`description`、`allowed-tools`、`disable-model-invocation`、`context`、`agent`、`arguments`
+- v1 解析但不消费：`paths`（auto-trigger）、`effort`、`when_to_use`、`model`——保留以便后续接入不破坏 schema
+
+### Sentinel 错误（3 个）
+
+```go
+var (
+    ErrSkillNotFound       = errors.New("skill: not found")
+    ErrInvalidFrontmatter  = errors.New("skill: invalid frontmatter")
+    ErrBodyTooLarge        = errors.New("skill: body exceeds size limit")
+)
+```
+
+---
+
+## 5. 文件系统 Layout（自包含）
+
+**Forgify 只扫描 `~/.forgify/skills/` 一处**，**不**读 Claude Code / Cursor / VS Code 等外部目录，**也无项目级**：
+
+```
+~/.forgify/skills/                          ← 唯一 skill 位置
+├── pr-review/
+│   ├── SKILL.md                           # 必有
+│   ├── scripts/
+│   │   ├── analyze_diff.py                # L3 资源
+│   │   └── check_security.sh
+│   └── templates/
+│       ├── review_template.md
+│       └── good_examples/
+│           ├── go_pr.md
+│           └── react_pr.md
+└── csv-clean/
+    └── SKILL.md                           # 单文件 skill 也合法
+```
+
+**为什么没项目级**：
+- 单用户本地 app，所有 skill 用户级足够
+- 项目级会引入 merge / override / 优先级语义，复杂度大于收益
+- 用户想"项目专属 skill" → 命名约定（如 `myproj-deploy`）一样工作
+
+### 用户怎么把别处的 skill 装进来
+
+全是**显式动作**（不是后台映射），全部落到 `~/.forgify/skills/`：
+
+| 方式 | 操作 |
+|---|---|
+| **拖拽**（推荐）| UI 拖拽 zone 接收文件夹 / .zip / .tar.gz / 单个 SKILL.md → 后端 `POST /api/v1/skills:import` 解压 + 校验 + 拷进 `~/.forgify/skills/<name>/` → fsnotify 自动 pick up |
+| **`git clone`** | `cd ~/.forgify/skills && git clone https://github.com/foo/skill-x.git` |
+| **手拷目录** | `cp -r ~/Downloads/pr-review ~/.forgify/skills/` |
+| **HTTP API 创建** | UI 表单 → `POST /api/v1/skills` 后端写 SKILL.md 到 `~/.forgify/skills/<name>/` |
+
+**Forgify 完全拥有副本**：用户改了原始来源（如 anthropics/skills 仓库更新）不影响 Forgify 已装版本，需要重装就再拖一次。
+
+**SKILL.md 格式**（示例）：
+
+```yaml
+---
+name: pr-review
+description: |
+  Review a GitHub PR for code quality, tests, and security.
+  Use when the user asks to "review PR" or "check this pull request".
+allowed-tools: Read Grep Bash(gh pr view *) Bash(gh pr diff *)
+arguments: [pr_number]
+context: fork
+agent: Explore
+---
+
+# Reviewing PR #$1
+
+1. Fetch PR: `gh pr view $1 --json title,body,files`
+2. For each .py changed file: `python3 ${CLAUDE_SKILL_DIR}/scripts/analyze_diff.py $file`
+3. Apply template at `${CLAUDE_SKILL_DIR}/templates/review_template.md`
+4. Output structured review.
+```
+
+### 体积保护
+
+- 单 SKILL.md 限制：32 KB（超返 `ErrBodyTooLarge`）
+- 单 frontmatter 限制：YAML parse 后 description 字段 ≤ 1536 char（per spec）
+- 总 skill 数量：v1 不限（catalog 层会处理）
+
+---
+
+## 6. fsnotify 监听（`internal/app/skill/watcher.go`）
+
+```go
+type watcher struct {
+    fsw    *fsnotify.Watcher
+    svc    *Service
+    log    *zap.Logger
+    debouncer *Debouncer  // 集中文件 burst 改动
+}
+
+func (w *watcher) Start(ctx context.Context, dir string) error  // 仅 ~/.forgify/skills/
+```
+
+**策略**：
+- 监 `~/.forgify/skills/` 一处 + 每个子目录（递归）
+- Linux fsnotify 数量上限：fail-soft + Warn 日志，过限时 fallback 到定时全扫（5min 一次）
+- Burst 改动：debounce 500ms 后做一次 Rescan
+- Rescan 后发布 `skill` SSE 事件
+
+---
+
+## 7. Service 层（`internal/app/skill/skill.go`）
+
+```go
+type Service struct {
+    skills    map[string]*skilldomain.Skill   // name → skill
+    bridge    eventsdomain.Bridge
+    log       *zap.Logger
+    subagent  SubagentService                  // 接口注入，用于 context: fork
+    llm       llmclientpkg.Resolver            // 用于 search ranking
+    mu        sync.RWMutex
+}
+
+type SubagentService interface {
+    Spawn(ctx context.Context, typeName, prompt string, opts subagentapp.SpawnOpts) (*subagentapp.SpawnResult, error)
+}
+
+func (s *Service) Scan(ctx context.Context) error
+func (s *Service) Get(ctx context.Context, name string) (*Skill, error)
+func (s *Service) List(ctx context.Context) []*Skill
+func (s *Service) Search(ctx context.Context, query string, topK int) ([]*Skill, error)
+func (s *Service) Activate(ctx context.Context, name string, arguments []string) (string, error)
+```
+
+### Activate 详细实现
+
+```go
+func (s *Service) Activate(ctx context.Context, name string, arguments []string) (string, error) {
+    skill := s.skills[name]
+    if skill == nil { return "", ErrSkillNotFound }
+    
+    // 1. 读 body
+    body, err := os.ReadFile(skill.BodyPath)
+    if err != nil { return "", fmt.Errorf("skillapp.Activate: read body: %w", err) }
+    if len(body) > 32*1024 { return "", ErrBodyTooLarge }
+    
+    // 2. 字符串替换
+    substituted := substitute(string(body), arguments, skill.DirPath)
+    
+    // 3. 设 active skill（agentstate）
+    if state := agentstatepkg.From(ctx); state != nil {
+        state.SetActiveSkill(skill)
+        defer state.ClearActiveSkillIfMatches(skill.Name)  // tool 退出时清除（仅 non-fork 情况）
+    }
+    
+    // 4. fork 模式 vs 直返
+    if skill.Frontmatter.Context == "fork" {
+        agentType := skill.Frontmatter.Agent
+        if agentType == "" { agentType = "general-purpose" }
+        result, err := s.subagent.Spawn(ctx, agentType, substituted, subagentapp.SpawnOpts{})
+        if err != nil { return "", err }
+        return result.Result, nil
+    }
+    
+    // 非 fork：返 body 作 tool_result，LLM 看到照着干
+    return substituted, nil
+}
+```
+
+### 字符串替换支持的占位符
+
+| 占位符 | 替换为 |
+|---|---|
+| `$1`, `$2`, ... `$N` | 第 N 个 argument |
+| `$ARGUMENTS` | 全部 arguments 用空格连接 |
+| `$<name>` | 命名参数（按 frontmatter.arguments 数组对应）|
+| `${CLAUDE_SKILL_DIR}` | skill 目录绝对路径 |
+| `${CLAUDE_SESSION_ID}` | conversation ID |
+| `${CLAUDE_EFFORT}` | frontmatter.effort（v1 占位符存在但默认空）|
+
+**v1 不支持**：` !`shell` ` 反引号 / fenced ` ```! ` 块（spec 有但实现复杂；后续加）。
+
+---
+
+## 8. 2 个 System Tool
+
+### 8.1 `search_skills`（`internal/app/tool/skill/search.go`）
+
+```go
+func (t *SearchSkills) Description() string {
+    return "Search across all installed skills (procedural workflows) for ones matching a task. " +
+           "Returns top 3 candidate skills with their descriptions. " +
+           "Use when you need to follow a multi-step procedure that someone has already encoded."
+}
+```
+
+**Execute**：调 `svc.Search(query, 3)` → 返 JSON 列表（含 name + description + 是否 fork）。
+
+### 8.2 `activate_skill`（`internal/app/tool/skill/activate.go`）
+
+```go
+func (t *ActivateSkill) Description() string {
+    return "Load a skill's full instructions and start following them. " +
+           "After activation, the skill's allowed tools are pre-approved (no permission prompts). " +
+           "If the skill is configured to fork, runs in an isolated subagent context."
+}
+
+func (t *ActivateSkill) Parameters() json.RawMessage {
+    return json.RawMessage(`{
+      "type":"object",
+      "properties":{
+        "name":{"type":"string","description":"Skill name"},
+        "arguments":{"type":"array","items":{"type":"string"},"description":"Positional arguments to substitute into $1, $2, etc."}
+      },
+      "required":["name"]
+    }`)
+}
+```
+
+**Execute**：调 `svc.Activate(name, arguments)` → 返 substituted body 字符串（或 fork 模式下的 subagent last message）。
+
+---
+
+## 9. Active Skill 在 agentstate 的处理
+
+### `pkg/agentstate/skill.go`
+
+```go
+type AgentState struct {
+    // 已有：SeenFiles / Cwd / SubagentTokenLog
+    activeSkill atomic.Pointer[skilldomain.Skill]   // last-write-wins，无锁
+}
+
+func (s *AgentState) SetActiveSkill(skill *skilldomain.Skill) { s.activeSkill.Store(skill) }
+func (s *AgentState) ActiveSkill() *skilldomain.Skill         { return s.activeSkill.Load() }
+func (s *AgentState) ClearActiveSkillIfMatches(name string) {
+    if cur := s.activeSkill.Load(); cur != nil && cur.Name == name {
+        s.activeSkill.CompareAndSwap(cur, nil)
+    }
+}
+
+func (s *AgentState) IsToolPreApprovedBySkill(toolName string) bool {
+    skill := s.ActiveSkill()
+    if skill == nil { return false }
+    return matchAllowedTool(skill.Frontmatter.AllowedTools, toolName)
+}
+```
+
+**为什么不用 sync.RWMutex / 不用栈**：单用户 LLM 串行调 tool（execution_group 内并行也最多 1-2 个 activate_skill 并发），原子指针足够。栈结构 / 锁结构是过度防御。
+
+### Tool permission 链改造
+
+各 Tool 的 `CheckPermissions` 第一步增加：
+
+```go
+func (t *Bash) CheckPermissions(args json.RawMessage, mode toolapp.PermissionMode) toolapp.PermissionResult {
+    if state := agentstatepkg.FromCtxLazy(); state != nil {
+        if state.IsToolPreApprovedBySkill("Bash") {
+            return toolapp.PermissionAllow
+        }
+    }
+    // 原有 logic...
+}
+```
+
+或者集中在 framework 层做（更优）：在 `app/tool/tool.go` 的 dispatch 入口统一查询，**不必每个 tool 改**。
+
+### `matchAllowedTool` pattern 解析
+
+照 SKILL.md spec：
+
+```
+"Read"             → 完全匹配 Read tool
+"Bash"             → 完全匹配 Bash tool（任意参数）
+"Bash(git *)"      → 仅当 args 解析后命令以 "git " 开头才放行
+"Bash(npm test)"   → 仅当 args 解析后命令完全是 "npm test" 才放行
+```
+
+v1 实现 wildcards `*`；进阶 regex 等以后加。
+
+### 清除时机
+
+- 非 fork 模式：activate_skill 的 `Execute` 返回时**不**清除（让后续 tool 继续受预授权）
+- 主 LLM 显式调"另一个 activate_skill" → 替换 ActiveSkill
+- 主 LLM 调 Task 进 subagent → subagent 不继承 ActiveSkill（隔离原则）
+- 对话结束 / agentstate 销毁时清除
+
+---
+
+## 9.5. 失败 / 边界 / 并发控制
+
+### `context: fork` 在已 fork 的 subagent 里再 fork（防深度传染）
+
+**问题**：主 LLM activate skill A（fork → subagent）→ subagent 的 LLM 又 activate skill B 也 fork → 违反 subagent depth=1 原则。
+
+**设计**：`Service.Activate` 检测当前 ctx 是否已在 subagent 里（`reqctxpkg.GetSubagentDepth(ctx) >= 1`）：
+- 若是 → **强制忽略 frontmatter.Context = "fork"**，inline 注入 body 当 tool_result
+- log Info "skill activated within subagent; ignoring fork directive"
+- subagent 本身就是隔离 context，再 fork 是冗余浪费
+
+### Symlink 循环防护（fsnotify 死循环）
+
+**问题**：`~/.forgify/skills/foo` 软链回 `~/.forgify/skills/` → fsnotify 递归 add watch 死循环。
+
+**设计**：watcher.Start 加 path resolution + visited set：
+```go
+func (w *watcher) addRecursive(dir string) error {
+    real, err := filepath.EvalSymlinks(dir)
+    if err != nil { return err }
+    if w.visited[real] {
+        zap.L().Warn("skill dir symlink loop detected; skipping", zap.String("dir", dir))
+        return nil
+    }
+    w.visited[real] = true
+    // ... walk children
+}
+```
+
+### 同 skill 并发 activate 竞态
+
+**问题**：LLM 同 turn 同 execution_group 调 activate_skill 两次（不同 args）→ ActiveSkill state 可能撕裂。
+
+**设计**：`agentstate.activeSkill` 用 `atomic.Pointer[Skill]`，**last-write-wins**：
+- 每次 activate 直接 `Store` 覆盖前一个
+- permission 检查 `Load` 当前指针，按其 allowed-tools 决定
+
+理由：单用户场景下并发 activate 几乎不可能（LLM 一次只想做一件事），加栈结构是过度防御。即使真撞上 race，行为是"后到的 skill 决定 permission"——不崩、不死锁，最差也只是"另一个 skill 的 tool 被 ask 了一下"。**简单胜过周全**。
+
+### `allowed-tools` 引用不存在的 tool
+
+**问题**：SKILL.md 写 `allowed-tools: NonExistentTool` → permission 链查询永远 match fail，看似"允许"实际上没生效（false positive）。
+
+**设计**：Service.Scan 时校验所有 allowed-tools 名在当前 framework tool registry 里：
+- 不存在 → 把该 skill 标记为 `frontmatter.invalid` + 不进 catalog
+- 加到 SSE 事件让前端能显示警告
+- 用户修了 SKILL.md → fsnotify rescan → 通过
+
+### Body 加载与文件改动竞态
+
+**问题**：用户编辑 SKILL.md 同时 LLM 在 activate → 读到一半的文件。
+
+**设计**：os.ReadFile 是原子 syscall（OS 层面），但用户编辑器可能用"先写 .tmp 再 rename"模式导致瞬时不存在。activate 时 `os.ReadFile` 失败 → 重试 1 次（100ms 后）→ 仍失败返 ErrSkillNotFound。fsnotify 触发后 cache 重新加载，下次 activate 拿新版。
+
+---
+
+## 10. SSE 事件
+
+```go
+type Skill struct {
+    Skills []*skilldomain.Skill `json:"skills"`
+}
+
+func (Skill) EventName() string { return "skill" }
+```
+
+**触发点**：Service.Scan 后（fsnotify 触发或手动 refresh）。
+**载荷**：全 skill 快照（不增量；前端拿全量重渲染最简单）。
+**过滤 key**：无（用户级全局事件）。
+
+---
+
+## 11. HTTP API
+
+| Method + Path | 用途 | 响应 |
+|---|---|---|
+| `GET /api/v1/skills` | 列所有 skills（含 frontmatter，**不**含 body）| `{data: [Skill...]}` |
+| `GET /api/v1/skills/{name}` | 单 skill 详情 | `{data: Skill}` |
+| `GET /api/v1/skills/{name}/body` | 拿 skill 的 SKILL.md body 内容（编辑用）| `{data: {body: "..."}}` |
+| `POST /api/v1/skills` | 创建新 skill（写 SKILL.md 到 user 目录）| `{data: Skill}` (201) |
+| `PUT /api/v1/skills/{name}` | 整体替换 skill 内容（frontmatter + body）| `{data: Skill}` (200) |
+| `DELETE /api/v1/skills/{name}` | 删除 skill 目录 | 204 |
+| `POST /api/v1/skills:import` | **拖拽导入**（multipart：folder / zip / tar / single SKILL.md）| `{data: {imported: [...], conflicts: [...]}}` |
+| `POST /api/v1/skills:refresh` | 手动 Rescan（debug 用，绕过 fsnotify）| `{data: [Skill...]}` |
+| `POST /api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）| `{data: {result: "..."}}` |
+
+### POST /api/v1/skills 创建端点
+
+**Body**：
+```json
+{
+  "name": "my-skill",
+  "frontmatter": { "description": "...", "allowedTools": [...], ... },
+  "body": "# Markdown body content..."
+}
+```
+
+**行为**：
+- 校验 name 合法（`[a-z0-9-]`，max 64 char）+ 不与现有冲突
+- 校验 frontmatter（description 非空、allowedTools 字符串数组等）
+- 创建 `~/.forgify/skills/<name>/SKILL.md`
+- 写 YAML frontmatter + markdown body
+- fsnotify 触发 Rescan + SSE
+- 返新 Skill struct (201)
+
+冲突 → 409 + `{error:{code:"SKILL_NAME_CONFLICT"}}`，前端可让用户改名或选择 PUT 覆盖。
+
+### POST /api/v1/skills:import 拖拽端点
+
+接收：
+1. **multipart `folder`**：浏览器 webkitdirectory 选目录 → 多文件上传
+2. **multipart `archive`**：单个 .zip / .tar.gz
+3. **multipart `file`**：单个 SKILL.md（自动包一层目录）
+
+行为：
+- 解析 + 找出所有 SKILL.md
+- 每个校验 frontmatter
+- 不存在 → 拷进 `~/.forgify/skills/<name>/`
+- 已存在 → 加 `conflicts` 列表，前端弹确认；query `?overwrite=true` 强制覆盖
+
+响应：
+```json
+{ "data": {
+  "imported": ["pr-review", "deploy-helper"],
+  "conflicts": ["csv-clean"],
+  "errors": [{"name":"bad-skill","reason":"missing description"}]
+}}
+```
+
+### `:invoke` 与其他端点的关系
+
+Slash command 是 UI sugar——用户在前端输入 `/pr-review 1234`：
+- 前端调 `POST /api/v1/skills/pr-review:invoke?args=1234`
+- 后端转发到 `Service.Activate` 走 chat 注入
+
+LLM 自主调用走 `activate_skill` system tool，**不**经过这个 endpoint。
+
+---
+
+## 12. 错误码
+
+| Sentinel | HTTP | Wire Code |
+|---|---|---|
+| `skilldomain.ErrSkillNotFound` | 404 | `SKILL_NOT_FOUND` |
+| `skilldomain.ErrInvalidFrontmatter` | 422 | `SKILL_INVALID_FRONTMATTER` |
+| `skilldomain.ErrBodyTooLarge` | 422 | `SKILL_BODY_TOO_LARGE` |
+| `skilldomain.ErrNameConflict` | 409 | `SKILL_NAME_CONFLICT` |
+| `skilldomain.ErrInvalidName` | 422 | `SKILL_INVALID_NAME` |
+
+---
+
+## 13. CatalogSource 实现
+
+```go
+// internal/app/skill/catalogsource.go
+type catalogSource struct{ svc *Service }
+
+func (c *catalogSource) Name() string                             { return "skill" }
+func (c *catalogSource) Granularity() catalogdomain.Granularity   { return catalogdomain.PerItem }
+func (c *catalogSource) EventTopics() []string                    { return []string{"skill"} }
+
+func (c *catalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
+    items := []catalogdomain.Item{}
+    for _, sk := range c.svc.List(ctx) {
+        items = append(items, catalogdomain.Item{
+            Source:      "skill",
+            ID:          sk.Name,
+            Name:        sk.Name,
+            Description: sk.Description,  // 直接抄 frontmatter；不重 LLM 生成
+            Category:    "",  // 无；catalog generator 自己判断要不要合并
+        })
+    }
+    return items, nil
+}
+
+func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
+    return &catalogSource{svc: s}
+}
+```
+
+**Granularity = PerItem** 但通常 catalog generator 不合并 skill——每个 skill 是 distinct workflow，合并会丢语义。
+
+---
+
+## 14. 测试覆盖（计划）
+
+| 层 | 文件 | 测试数 | 覆盖 |
+|---|---|---|---|
+| domain | `internal/domain/skill/skill_test.go` | 4 | Frontmatter YAML parse / sentinel JSON |
+| app/skill | `internal/app/skill/skill_test.go` | 18 | Scan / Search ranking / Activate (non-fork) / Activate (fork) / 字符串替换 / body 超大拒绝 / 同名 skill 后装拒绝 / fsnotify rescan |
+| pkg/agentstate | `pkg/agentstate/skill_test.go` | 6 | SetActiveSkill / IsToolPreApprovedBySkill / matchAllowedTool wildcards / clear semantics |
+| app/tool/skill | `internal/app/tool/skill/skill_test.go` | 12 | search/activate 9 方法 + Validate + happy + error 分支 |
+| pipeline | `test/skill/skill_test.go` | 4 | Activate 加载 body / fork 走 subagent / allowed-tools 跳过 prompt / fsnotify 实时刷新 |
+
+总计 ~40 测 + 4 pipeline 场景。
+
+---
+
+## 15. 与其他 domain 的关系
+
+| 关系 | 说明 |
+|---|---|
+| **chat** | 主 LLM 通过 search_skills / activate_skill 调用；ActiveSkill 影响 tool permission 链 |
+| **subagent** | `context: fork` 时调 SubagentService.Spawn；接口注入避免循环 import |
+| **catalog** | 实现 CatalogSource；description 直接抄不重生 |
+| **agentstate** | 写 ActiveSkill 字段，permission 链查询 |
+| **events** | 复用 events bridge 发 skill 全量快照 |
+| **logger** | fsnotify 失败、frontmatter parse 错误等走 Warn |
+
+### 与 Subagent 的协作（fork 路径详解）
+
+```
+LLM 调 activate_skill("pr-review", ["1234"])
+  → Skill.Service.Activate
+    → 替换 body
+    → frontmatter.Context == "fork", frontmatter.Agent == "Explore"
+    → 调 SubagentService.Spawn(type="Explore", prompt=substitutedBody, opts={})
+        → 走 subagent 完整流程：
+          - 独立 messages（system prompt = Explore 的 + 不带 ActiveSkill）
+          - 过滤 tool registry（按 Explore 的 AllowedTools；**不**继承 Skill 的 allowed-tools）
+          - subRunner 跑直到 stop
+        → 返 last message
+    → 把 last message 返给主 LLM
+```
+
+**关键**：subagent 不继承 Skill 的 allowed-tools——subagent 隔离原则**优先于** Skill 的 permission 预授权。如果你希望 fork 后的 subagent 也享受预授权，**应该在 Subagent 类型定义里把 allowed-tools 设好**，而不是寄希望于继承。
+
+---
+
+## 16. 演化方向
+
+- **`paths`-triggered auto-load**：用户编辑文件 match `paths` glob 时，自动注入 skill description hint 到下次 system prompt（"file looks like X type, consider Y skill"）
+- **Slash command 注册**：CLI/UI 的 `/skill-name args` 走专用 chat 注入路径（不通过 LLM tool call）
+- **` !`shell` ` 预执行**：spec 支持 frontmatter / body 内嵌 shell 命令预执行注入；v1 不做
+- **Skill registry 集成**：从 `anthropics/skills` repo 一键 install
+- **Plugin 形态加载**：通过 plugin manager 动态加载第三方 skill bundle，复用 CatalogSource 接口

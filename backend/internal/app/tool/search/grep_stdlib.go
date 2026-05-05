@@ -410,17 +410,30 @@ func scanFileContentLineMode(path string, re *regexp.Regexp, args grepArgs) []ma
 		return nil
 	}
 
+	// Pre-compute which lines match. Before/after-context loops skip these
+	// so a match line is never relabeled as context when it falls inside
+	// another match's context window. Mirrors scanFileContentMultiline.
+	//
+	// 预算哪些行是 match。before/after 上下文循环跳过它们，确保 match 行
+	// 落在另一处 match 的上下文窗口内时不会被错标为 context。与 scanFileContentMultiline 一致。
+	matchLines := make(map[int]bool)
+	for i, ln := range lines {
+		if re.MatchString(ln) {
+			matchLines[i] = true
+		}
+	}
+
 	emitted := make(map[int]bool)
 	var out []matchedLine
-	for i, ln := range lines {
-		if !re.MatchString(ln) {
+	for i := range lines {
+		if !matchLines[i] {
 			continue
 		}
-		// Before context.
-		// 前置上下文。
+		// Before context — skip lines that are themselves matches.
+		// 前置上下文——跳过本身就是 match 的行。
 		for off := args.Before; off > 0; off-- {
 			j := i - off
-			if j < 0 || emitted[j] {
+			if j < 0 || emitted[j] || matchLines[j] {
 				continue
 			}
 			out = append(out, matchedLine{lineNum: j + 1, text: lines[j], context: true})
@@ -429,14 +442,14 @@ func scanFileContentLineMode(path string, re *regexp.Regexp, args grepArgs) []ma
 		// The match itself.
 		// 匹配本身。
 		if !emitted[i] {
-			out = append(out, matchedLine{lineNum: i + 1, text: ln, context: false})
+			out = append(out, matchedLine{lineNum: i + 1, text: lines[i], context: false})
 			emitted[i] = true
 		}
-		// After context.
-		// 后置上下文。
+		// After context — skip lines that are themselves matches.
+		// 后置上下文——跳过本身就是 match 的行。
 		for off := 1; off <= args.After; off++ {
 			j := i + off
-			if j >= len(lines) || emitted[j] {
+			if j >= len(lines) || emitted[j] || matchLines[j] {
 				continue
 			}
 			out = append(out, matchedLine{lineNum: j + 1, text: lines[j], context: true})

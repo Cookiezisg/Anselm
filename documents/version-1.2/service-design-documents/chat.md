@@ -626,16 +626,47 @@ Keep-alive ping：每 15 秒推 `: keep-alive\n\n` 防代理断连。
 ```go
 type ChatMessage struct {
     *chatdomain.Message
+    // ── 以下三字段仅 subagent 上下文携带；主对话消息全部 omitempty ──
+    SubagentRunID        string                       `json:"subagentRunId,omitempty"`
+    ParentConversationID string                       `json:"parentConversationId,omitempty"`  // subagent 消息的主对话 ID
+    SubagentRun          *subagentdomain.SubagentRun  `json:"subagentRun,omitempty"`            // 完整 run 快照
 }
 
 func (ChatMessage) EventName() string { return "chat.message" }
 
-// MarshalJSON 委托给嵌入的 Message——wire shape 严格 = GET /api/v1/conversations/{id}/messages 单条。
+// MarshalJSON 委托给嵌入的 Message + 注入 subagent 字段（仅当存在时）。
+// 主对话消息 wire shape 严格 = GET /api/v1/conversations/{id}/messages 单条（向后兼容）。
 func (e ChatMessage) MarshalJSON() ([]byte, error) {
     if e.Message == nil { return []byte("null"), nil }
-    return json.Marshal(e.Message)
+    base, err := json.Marshal(e.Message)
+    if err != nil { return nil, err }
+    // 主对话消息直接返
+    if e.SubagentRunID == "" { return base, nil }
+    // subagent 消息：注入 3 个 subagent 字段
+    var m map[string]any
+    json.Unmarshal(base, &m)
+    m["subagentRunId"] = e.SubagentRunID
+    m["parentConversationId"] = e.ParentConversationID
+    if e.SubagentRun != nil {
+        m["subagentRun"] = e.SubagentRun
+    }
+    return json.Marshal(m)
 }
 ```
+
+**字段语义**：
+- 三字段全 omitempty → **主对话消息**（前端渲染到主对话区）
+- 三字段全携带 → **subagent 消息**（前端按 subagentRunId 分流到流式小窗，并用 subagentRun 子对象渲染 lifecycle 状态条）
+
+主对话 wire format **完全向后兼容**——已有前端代码不感知这三个字段，新前端按 `subagentRunId` truthy 检查决定分流。详见 [`./subagent.md`](./subagent.md) §10。
+
+### 8.3 一条流承载两层信息
+
+subagent 上下文的 chat.message 事件**同时承载 2 个 entity 快照**：
+1. `Message` 本体（流式生长的对话消息）
+2. `SubagentRun`（嵌套于 `subagentRun` 字段，run 级元数据：token 累计 / status / lastTool / 等）
+
+每次推都带**最新版的两者**——前端拿一个事件就把"小窗的当前文字"和"小窗的状态条"同步刷新，**不会有对齐 lag**。**不再有独立的 `subagent` SSE 事件类型**——所有 subagent 信息都在这条流里。
 
 ### 8.3 触发点（chat 层是唯一发布事实源）
 

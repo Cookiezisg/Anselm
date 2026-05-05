@@ -179,13 +179,17 @@ backend/
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
+    │   ├── subagent/               ← 📐 Phase 4 准备件（2026-05-05 设计完成）SubagentType + SubagentRun + SubagentMessage + Repository + SubRunner port
+    │   ├── mcp/                    ← 📐 Phase 4 准备件 ServerConfig + ServerStatus + ToolDef + RegistryEntry + 11 sentinel
+    │   ├── skill/                  ← 📐 Phase 4 准备件 Skill + Frontmatter + 5 sentinel
+    │   ├── catalog/                ← 📐 Phase 4 准备件 CatalogSource port + Catalog + Item + Granularity
+    │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
     │   ├── workflow/               ← ⬜ Phase 4
     │   ├── flowrun/                ← ⬜ Phase 4
     │   ├── scheduler/              ← ⬜ Phase 4
     │   ├── trigger/                ← ⬜ Phase 4
     │   ├── knowledge/ document/    ← ⬜ Phase 5
-    │   ├── intent/ mcpserver/      ← ⬜ Phase 5
-    │   └── skill/                  ← ⬜ Phase 5
+    │   └── intent/                 ← ⬜ Phase 5
     │
     ├── app/                        ← service 层（协调 domain + infra）
     │   ├── apikey/                 ← ✅ apikey.go（Service + KeyProvider + MaskKey 全合并）+ providers.go + tester.go
@@ -193,16 +197,35 @@ backend/
     │   ├── conversation/           ← ✅ conversation.go
     │   ├── chat/                   ← ✅ 6 文件：chat.go / runner.go / stream.go / tools.go / history.go / util.go
     │   ├── forge/                  ← ✅ forge.go（30 方法 Service + ParseCode）+ ast.go（Python AST 解析）
-    │   ├── tool/                   ← ✅ Tool framework：tool.go（10 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
-    │   │   ├── forge/              ← ✅ 5 个 user-forged-tool 系统工具（forge.go 工厂 + search/get/create/edit/run.go 各一文件）
-    │   │   ├── filesystem/         ← ⬜ Phase 5（Read/Write/Edit/Glob/Grep/LS）
-    │   │   ├── shell/              ← ⬜ Phase 5（Bash）
-    │   │   └── web/                ← ⬜ Phase 5（WebSearch/Fetch）
+    │   ├── tool/                   ← ✅ Tool framework：tool.go（9 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
+    │   │   ├── forge/              ← ✅ user-forged-tool 系统工具
+    │   │   ├── filesystem/         ← ✅ Read/Write/Edit/Glob/Grep
+    │   │   ├── shell/              ← ✅ Bash/BashOutput/KillShell
+    │   │   ├── web/                ← ✅ WebFetch/WebSearch
+    │   │   ├── task/               ← ✅ TaskCreate/List/Get/Update（Phase 5）
+    │   │   ├── ask/                ← ✅ AskUserQuestion（Phase 5）
+    │   │   ├── subagent/           ← 📐 Phase 4 准备件 Subagent tool（spawn 子 LLM loop 入口；改名避开 task domain 撞车）
+    │   │   ├── mcp/                ← 📐 Phase 4 准备件 search_mcp + call_mcp
+    │   │   └── skill/              ← 📐 Phase 4 准备件 search_skills + activate_skill
+    │   ├── subagent/               ← 📐 Phase 4 准备件 Service{Spawn/Cancel/Get} + 内置 3 类型
+    │   ├── mcp/                    ← 📐 Phase 4 准备件 Service + lifecycle + Registry + healthcheck
+    │   ├── skill/                  ← 📐 Phase 4 准备件 Service + frontmatter + fsnotify watcher
+    │   ├── catalog/                ← 📐 Phase 4 准备件 Service + Generator + 1s polling + atomic 单 flight + fingerprint dedup
+    │   ├── sandbox/                ← 📐 Phase 4 准备件 Service + EnsureRuntime/EnsureEnv/Spawn/SpawnLongLived/SpawnShell/Destroy/GC（统一 PluginSandbox）
     │   └── <Phase 4-5>/
     │
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
-    │   ├── store/                  ← ✅ apikey / model / conversation / chat / forge 各一份
+    │   ├── store/                  ← ✅ apikey / model / conversation / chat / forge / task；📐 加 subagent + sandbox
+    │   ├── mcp/                    ← 📐 Phase 4 准备件 stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.x）
+    │   ├── sandbox/                ← 🔄 大重构：原 forge-only 升级为统一 PluginRuntime
+    │   │   ├── sandbox.go          ← Service 实现 RuntimeInstaller/EnvManager 注册 + spawn 派发
+    │   │   ├── bootstrap/embed.go  ← go:embed mise binaries（per-platform，~10MB）
+    │   │   └── installer/          ← 各语言子包
+    │   │       ├── mise/           ← 通配 installer（python/node/rust/java/go/ruby/php/...）
+    │   │       ├── playwright/     ← Browsers
+    │   │       ├── dotnet/         ← .NET 微软官方脚本
+    │   │       └── static/         ← 静态二进制 plugin（如 GitHub MCP）
     │   ├── llm/                    ← ✅ 自有 LLM 流式客户端（替代 Eino，2026-04-27）
     │   │   ├── llm.go              ← StreamEvent / LLMMessage / Client 接口 / Generate helper
     │   │   ├── openai.go           ← OpenAI-compat SSE（DeepSeek/Qwen/Moonshot/Ollama 等）
@@ -267,6 +290,26 @@ backend/
 1. **开工前** → 填 `service-design-documents/<domain>.md` 详设计（含端到端推演 + 实现清单）
 2. **实现中** → 同步更新 `service-contract-documents/*.md` 里该 domain 的索引段
 3. **完成后** → 在 `progress-record.md` 加一行 dev log + 勾任务清单
+
+---
+
+## v1 平台支持声明
+
+**全功能支持**：
+- macOS arm64（Apple Silicon, M1/M2/M3/M4）
+- macOS amd64（Intel）—— 系统 ≥ 10.15 (Catalina)
+- Linux amd64（glibc 系：Ubuntu / Debian / Fedora / CentOS / RHEL）
+- Linux arm64（同上 + Raspberry Pi 4+, AWS Graviton）
+
+**Windows amd64（10/11）—— 限制版**：Python / Node 类 plugin 全可用（覆盖 99% 需求）；Ruby / PHP / Erlang / Elixir / Lua / Crystal / Zig 等长尾语言 plugin 在 Windows 隐藏不可装（mise 这些 plugin 用 bash 实现）。Bash tool 内部用 PowerShell 替代 sh，命令兼容性大部分一致。详 [`service-design-documents/sandbox.md`](./service-design-documents/sandbox.md) §17。
+
+**不支持**：
+- Linux musl（Alpine 等）—— mise 是 glibc binary，bootstrap fail-soft 进 degraded mode
+- 32-bit 架构（i386 / armv7）
+- FreeBSD / OpenBSD / 其他 Unix
+- macOS amd64 < 10.15 / 旧版 Windows
+
+每平台 binary 通过 `GOOS=<os> GOARCH=<arch> go build` 单独构建（mise binary 用 build tag 仅 embed 当前平台版本，每 binary ~35 MB）。
 
 ---
 

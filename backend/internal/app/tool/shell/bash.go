@@ -317,6 +317,17 @@ func (t *Bash) runForeground(ctx context.Context, command, cwd string, timeout t
 	switch {
 	case errors.Is(runCtx.Err(), context.DeadlineExceeded):
 		return formatForegroundResult(output, -1, fmt.Sprintf("command timed out after %s", timeout)), nil
+	case errors.Is(runCtx.Err(), context.Canceled):
+		// Parent ctx cancelled (user hit Cancel on the conversation, or the
+		// chat agent loop ended). exec.CommandContext sent SIGKILL, so cmd.Run
+		// returned an *exec.ExitError; without this branch we'd report it as
+		// "exec failed: signal: killed" and confuse the LLM into thinking the
+		// command itself crashed.
+		//
+		// 父 ctx 被取消（用户点了对话的 Cancel，或 chat agent 循环结束）。
+		// exec.CommandContext 已发 SIGKILL，cmd.Run 返回 *exec.ExitError；
+		// 不加这支会报 "exec failed: signal: killed"，误导 LLM 以为命令自己崩了。
+		return formatForegroundResult(output, -1, "cancelled"), nil
 	case err != nil:
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {

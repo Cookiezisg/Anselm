@@ -380,6 +380,99 @@ func TestExecute_ReportsBadURL(t *testing.T) {
 	}
 }
 
+// ── SSRF redirect guard ───────────────────────────────────────────────────────
+
+// Regression: pre-fix, fetchClient followed redirects without re-running
+// guardHostname, so a public URL that 302'd to http://127.0.0.1 would fetch
+// the loopback. We now reject every redirect whose target classifies as
+// loopback / private / link-local etc.
+//
+// 回归：修复前 fetchClient 跟随重定向不会重跑 guardHostname，公网 URL 302
+// 到 http://127.0.0.1 会去抓 loopback。修复后每次跳转都校验。
+func TestFetchClient_CheckRedirect_BlocksLoopback(t *testing.T) {
+	// Public-ish bait server that 302s to a loopback URL.
+	// 看起来"公网"的诱饵 server，302 到 loopback URL。
+	bait := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "http://127.0.0.1:1/admin")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer bait.Close()
+
+	req, err := http.NewRequest(http.MethodGet, bait.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := fetchClient.Do(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected redirect rejection, got nil err")
+	}
+	if !strings.Contains(err.Error(), "redirect blocked") {
+		t.Errorf("expected 'redirect blocked' in err, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "loopback") {
+		t.Errorf("expected 'loopback' classification in err, got: %v", err)
+	}
+}
+
+func TestFetchClient_CheckRedirect_BlocksPrivateRange(t *testing.T) {
+	bait := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "http://10.0.0.1/")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer bait.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, bait.URL, nil)
+	resp, err := fetchClient.Do(req)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "private") {
+		t.Errorf("want private-range rejection, got: %v", err)
+	}
+}
+
+func TestFetchClient_CheckRedirect_AllowsPublicTarget(t *testing.T) {
+	// A redirect to another public httptest server (also 127.0.0.1 in tests…
+	// but httptest URLs are 127.0.0.1, so we can't test "real public" without
+	// a real network. Instead verify that our guard short-circuits before
+	// allowing the redirect — the bait response itself should still come back.
+	//
+	// 跳转到另一个公网（不打真网络情况下 httptest 也是 127.0.0.1，难以测“真公网”）。
+	// 这里换个角度：验证不带 Location 头的 200 直接通过，证明守卫不会
+	// 错误拦下非重定向流量。
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("hello"))
+	}))
+	defer srv.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL, nil)
+	resp, err := fetchClient.Do(req)
+	if err != nil {
+		t.Fatalf("non-redirect request errored: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestSSRFCheckRedirect_RejectsAfterTenHops(t *testing.T) {
+	// Build 10 fake "via" requests pointing at 8.8.8.8 (allowed); the 11th
+	// hop is to a public-looking host but the count cap should fire first.
+	// 构造 10 个 via 请求，第 11 跳即便目标合法也应被 cap 拦下。
+	via := make([]*http.Request, 10)
+	for i := range via {
+		via[i], _ = http.NewRequest(http.MethodGet, "https://8.8.8.8/", nil)
+	}
+	next, _ := http.NewRequest(http.MethodGet, "https://8.8.8.8/", nil)
+	if err := ssrfCheckRedirect(next, via); err == nil || !strings.Contains(err.Error(), "10 redirects") {
+		t.Errorf("expected 10-redirect cap, got: %v", err)
+	}
+}
+
 // ── Helper utilities ──────────────────────────────────────────────────────────
 
 func TestTruncate(t *testing.T) {

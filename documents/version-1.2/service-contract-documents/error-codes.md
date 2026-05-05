@@ -181,6 +181,61 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `WORKFLOW_INVALID_DEFINITION` | 400 | `workflow.ErrInvalidDefinition` | DAG 校验失败（环 / 孤儿节点）| ⬜ |
 | `WORKFLOW_NODE_NOT_FOUND` | 404 | `workflow.ErrNodeNotFound` | | ⬜ |
 
+---
+
+### Phase 4 准备件（2026-05-05 设计完成 / 待实施）
+
+#### subagent 📐
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `SUBAGENT_TYPE_NOT_FOUND` | 404 | `subagentdomain.ErrTypeNotFound` | spawn 时 subagent_type 不在注册表 | 📐 |
+| `SUBAGENT_RECURSION` | 422 | `subagentdomain.ErrRecursionAttempt` | subagent 内尝试再 spawn（防嵌套）| 📐 |
+
+> 注：`subagentdomain.ErrMaxTurnsExceeded` / `ErrCancelled` **不上抛 handler**，由 SubagentTool.Execute 转友好字符串返 LLM。
+
+#### mcp 📐
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `MCP_SERVER_NOT_FOUND` | 404 | `mcpdomain.ErrServerNotFound` | server 名不在 mcp.json | 📐 |
+| `MCP_SERVER_NOT_CONNECTED` | 409 | `mcpdomain.ErrServerNotConnected` | 调用未 connect 的 server | 📐 |
+| `MCP_TOOL_NOT_FOUND` | 404 | `mcpdomain.ErrToolNotFound` | tool 名不在 server 的 tools/list | 📐 |
+| `MCP_TOOL_CALL_FAILED` | 502 | `mcpdomain.ErrToolCallFailed` | server 自报失败（含 isError=true）| 📐 |
+| `MCP_TOOL_CALL_TIMEOUT` | 504 | `mcpdomain.ErrToolCallTimeout` | per-call 超时（默认 30s，可 per-server override）| 📐 |
+| `MCP_REGISTRY_ENTRY_NOT_FOUND` | 404 | `mcpdomain.ErrRegistryEntryNotFound` | install 时 registry name 不存在 | 📐 |
+| `MCP_RUNTIME_MISSING` | 422 | `mcpdomain.ErrRuntimeMissing` | 系统未装 node / python | 📐 |
+| `MCP_REQUIRED_ENV_MISSING` | 422 | `mcpdomain.ErrRequiredEnvMissing` | install 时 required env 未填全 | 📐 |
+| `MCP_REQUIRED_ARGS_MISSING` | 422 | `mcpdomain.ErrRequiredArgsMissing` | install 时 required args 未填全 | 📐 |
+| `MCP_INSTALL_FAILED` | 502 | `mcpdomain.ErrInstallFailed` | npm install / uvx 安装命令失败 | 📐 |
+
+#### skill 📐
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `SKILL_NOT_FOUND` | 404 | `skilldomain.ErrSkillNotFound` | skill 名不在 ~/.forgify/skills/ | 📐 |
+| `SKILL_INVALID_FRONTMATTER` | 422 | `skilldomain.ErrInvalidFrontmatter` | YAML 解析失败 / 必填缺 / allowed-tools 引用未注册 tool | 📐 |
+| `SKILL_BODY_TOO_LARGE` | 422 | `skilldomain.ErrBodyTooLarge` | SKILL.md body > 32 KB | 📐 |
+| `SKILL_NAME_CONFLICT` | 409 | `skilldomain.ErrNameConflict` | POST /skills 创建同名 | 📐 |
+| `SKILL_INVALID_NAME` | 422 | `skilldomain.ErrInvalidName` | name 不符 `[a-z0-9-]{1,64}` | 📐 |
+
+#### catalog 📐
+
+无对外 sentinel——`ErrCoverageIncomplete` / `ErrGenerationFailed` 内部消化（重试 + mechanical fallback），不上抛 handler。`POST /catalog:refresh` 失败返通用 500 + 日志详情。
+
+#### sandbox 📐
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | `sandboxdomain.ErrRuntimeNotSupported` | 没有 installer 注册该 kind | 📐 |
+| `SANDBOX_RUNTIME_INSTALL_FAILED` | 502 | `sandboxdomain.ErrRuntimeInstallFailed` | mise install / playwright install 等失败 | 📐 |
+| `SANDBOX_ENV_NOT_FOUND` | 404 | `sandboxdomain.ErrEnvNotFound` | 通过 owner / id 查不到 | 📐 |
+| `SANDBOX_ENV_CREATE_FAILED` | 502 | `sandboxdomain.ErrEnvCreateFailed` | venv / node_modules / etc. 建失败 | 📐 |
+| `SANDBOX_DEP_INSTALL_FAILED` | 502 | `sandboxdomain.ErrDepInstallFailed` | uv pip install / npm install 失败 | 📐 |
+| `SANDBOX_SPAWN_FAILED` | 502 | `sandboxdomain.ErrSpawnFailed` | 子进程起不来 | 📐 |
+| `SANDBOX_SPAWN_TIMEOUT` | 504 | `sandboxdomain.ErrSpawnTimeout` | once-spawn 超时 | 📐 |
+| `SANDBOX_ENV_IN_USE` | 409 | `sandboxdomain.ErrEnvInUse` | Destroy 时 env 还在跑 | 📐 |
+
 #### flowrun ⬜
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
@@ -207,12 +262,9 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `DOCUMENT_NOT_FOUND` | 404 | `knowledge.ErrDocumentNotFound` | | ⬜ |
 | `EMBEDDING_FAILED` | 502 | `knowledge.ErrEmbeddingFailed` | 向量化失败 | ⬜ |
 
-#### mcp ⬜
+#### mcp — 已提前交付 ✅ 见上方"Phase 4 准备件 / mcp"
 
-| Code | HTTP | Sentinel | 场景 | 状态 |
-|---|---|---|---|---|
-| `MCP_SERVER_NOT_FOUND` | 404 | `mcp.ErrNotFound` | | ⬜ |
-| `MCP_CONNECTION_FAILED` | 502 | `mcp.ErrConnectionFailed` | 连不上 MCP server | ⬜ |
+#### skill — 已提前交付 ✅ 见上方"Phase 4 准备件 / skill"
 
 #### intent ⬜
 

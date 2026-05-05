@@ -301,6 +301,35 @@ func TestBash_Execute_Foreground_RespectsCwd(t *testing.T) {
 	}
 }
 
+// Regression: when the parent ctx is cancelled (user hits Cancel on the
+// conversation), the killed command must surface as "[cancelled]" — not the
+// confusing "[exec failed: signal: killed]" the LLM would otherwise see.
+//
+// 回归：父 ctx 取消（用户在对话里点 Cancel）时，被杀命令必须报 "[cancelled]"，
+// 不能再报 "[exec failed: signal: killed]" 让 LLM 误以为命令自己崩了。
+func TestBash_Execute_Foreground_ParentCtxCancelled_ReportsCancelled(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shell semantics")
+	}
+	tool := newTestBash()
+	state := &agentstatepkg.AgentState{}
+	parentCtx, parentCancel := context.WithCancel(reqctxpkg.WithAgentState(context.Background(), state))
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		parentCancel()
+	}()
+	out, err := tool.Execute(parentCtx, `{"command":"sleep 5"}`)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !strings.Contains(out, "cancelled") {
+		t.Errorf("expected '[cancelled]' footer, got: %q", out)
+	}
+	if strings.Contains(out, "exec failed") {
+		t.Errorf("regression: 'exec failed' should not appear on cancellation, got: %q", out)
+	}
+}
+
 // ── Background spawn ──────────────────────────────────────────────────────────
 
 func TestBash_Execute_Background_ReturnsBashID(t *testing.T) {

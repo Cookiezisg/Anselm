@@ -190,6 +190,76 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 
 ---
 
+### Phase 4 准备件（2026-05-05 提前交付）
+
+提前完成以下 4 个 domain 作为 Phase 4-5 工作流 / 智能化的基础设施。设计完成、待实施。
+
+#### subagent 📐
+详见 [`../service-design-documents/subagent.md`](../service-design-documents/subagent.md)。LLM 通过 `Subagent` system tool spawn 子 LLM loop（避开 `task` domain 撞车而改名）；独立 context、过滤后 tool registry；复用 chat runner。
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/conversations/{id}/subagent-runs` | 列对话下所有 subagent run（cost analysis）|
+| GET | `/api/v1/subagent-runs/{id}` | 单 run 详情（prompt + result）|
+| GET | `/api/v1/subagent-runs/{id}/messages` | run 内全部 messages（流式小窗回放用）|
+| GET | `/api/v1/subagent-types` | 列所有可用 subagent 类型（Explore / Plan / general-purpose）|
+
+#### mcp 📐
+详见 [`../service-design-documents/mcp.md`](../service-design-documents/mcp.md)。官方 `modelcontextprotocol/go-sdk` v1.x；stdio only；search/call 模式不 flat 注册（避 token 爆炸）；自包含原则（只读 `~/.forgify/mcp.json`）。
+
+##### Server 配置 / 生命周期
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/mcp-servers` | 列所有配置（含 status + tools + 健康字段）|
+| GET | `/api/v1/mcp-servers/{name}` | 单 server 详情 + tools |
+| PUT | `/api/v1/mcp-servers/{name}` | 增/改配置（写 mcp.json + 立即 Connect）|
+| DELETE | `/api/v1/mcp-servers/{name}` | 删配置 + disconnect（204）|
+| POST | `/api/v1/mcp-servers:import` | **拖拽导入**（multipart 上传 mcp.json 文件 / 文本 fragment）|
+| POST | `/api/v1/mcp-servers/{name}:reconnect` | 强制重启子进程（degraded / failed 恢复用）|
+| POST | `/api/v1/mcp-servers/{name}:health-check` | 主动健康检查（调 tools/list 验证）|
+
+##### Registry — 内置 Marketplace
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/mcp-registry` | 列所有可装 server entries（v1 内置 5 个：playwright / markitdown / context7 / duckduckgo-search / sqlite，Bundled=true 表 marketplace 默认推荐项；外加 hidden 的 everything 仅 pipeline test 用。装机一律 lazy via sandbox）|
+| GET | `/api/v1/mcp-registry/{name}` | 单 entry 详情（含 RequiredEnv / RequiredArgs）|
+| POST | `/api/v1/mcp-registry/{name}:install` | 安装：填 env + args → 写 mcp.json + Connect |
+
+**没有 `:enable` / `:disable`**——配置在 mcp.json 即启用，删除即禁用，无中间态。
+
+#### skill 📐
+详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md)。`SKILL.md` 跨厂兼容（Anthropic spec）；progressive disclosure 三层加载；`context: fork` 可组合到 subagent；自包含（仅 `~/.forgify/skills/`，无项目级）。
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/skills` | 列所有 skills（含 frontmatter，**不**含 body）|
+| GET | `/api/v1/skills/{name}` | 单 skill 详情 |
+| GET | `/api/v1/skills/{name}/body` | 拿 SKILL.md body 内容（编辑用）|
+| POST | `/api/v1/skills` | 创建新 skill（写 SKILL.md 到 user 目录，201）|
+| PUT | `/api/v1/skills/{name}` | 整体替换 skill 内容（200）|
+| DELETE | `/api/v1/skills/{name}` | 删除 skill 目录（204）|
+| POST | `/api/v1/skills:import` | **拖拽导入**（folder / zip / tar / 单 SKILL.md）|
+| POST | `/api/v1/skills:refresh` | 手动 Rescan（绕过 fsnotify，debug 用）|
+| POST | `/api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）|
+
+#### catalog 📐
+详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。统一能力目录（forge + skill + mcp）。LLM-gen summary + 自动跨类目路由观察。**1s polling + atomic 单 flight + fingerprint dedup**。**不发 SSE**（内部组件）。
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/catalog` | 当前 catalog cache 内容（debug / UI 显示）|
+| POST | `/api/v1/catalog:refresh` | 强制立即 refresh（绕过 1s polling 间隔）|
+
+**没有 routing-hints 端点**——路由提示由 generator LLM-gen 时直接写进 summary，用户想影响路由 → 编辑源头 forge/skill/mcp 的 description。
+
+#### chat 同步改动 📐
+
+`chat.message` SSE 事件 schema 加可选字段 `subagentRunId`：当 subagent 内部 sub-runner 推消息时带此字段，前端按是否携带分流到主对话区 / 流式小窗（详 [`../service-design-documents/subagent.md`](../service-design-documents/subagent.md) §10 / [`../service-design-documents/chat.md`](../service-design-documents/chat.md)）。**不影响主对话 wire format**（omitempty）。
+
+---
+
 ### Phase 4：工作流能力
 
 #### workflow ⬜
@@ -204,6 +274,6 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 #### knowledge ⬜
 #### document ⬜
 #### intent ⬜
-#### mcpserver ⬜
-#### skill ⬜
+#### mcpserver — 已提前交付 ✅ 见上方"Phase 4 准备件 / mcp"
+#### skill — 已提前交付 ✅ 见上方"Phase 4 准备件 / skill"
 #### chat（终极智能版）⬜

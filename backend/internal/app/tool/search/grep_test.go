@@ -326,6 +326,85 @@ func TestGrep_BeforeContextEmitted(t *testing.T) {
 	}
 }
 
+// Regression: when several lines all match and after-context overlaps the
+// next match, every match line must render with `:` (match separator), not
+// `-` (context separator). Pre-fix, only line 1 used `:` and lines 2-5 were
+// labeled as "context" because the after-context loop emitted them before
+// the match-itself loop ran.
+//
+// 回归：多行连续匹配 + after 上下文重叠到下一处匹配时，每个 match 行都必须
+// 用 `:`（匹配分隔符），而不是 `-`（上下文分隔符）。修复前只有第 1 行用 `:`，
+// 第 2-5 行被错标为 context——after-context 循环先于 match-itself 循环占了位。
+func TestGrep_AllLinesMatch_LabeledAsMatchNotContext(t *testing.T) {
+	g := newStdlibGrep()
+	dir := t.TempDir()
+	body := "MATCH\nMATCH\nMATCH\nMATCH\nMATCH\n"
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte(body), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	out := runGrep(t, g, grepArgs{
+		Pattern:    "MATCH",
+		Path:       target,
+		OutputMode: OutputModeContent,
+		ShowLines:  true,
+		After:      2,
+	})
+	// Every line is a match; every line must use `:` separator.
+	// 每行都是 match；每行都应该用 `:` 分隔符。
+	for n := 1; n <= 5; n++ {
+		want := fmt.Sprintf("%d:MATCH", n)
+		if !strings.Contains(out, want) {
+			t.Errorf("line %d should render as match (`:`), got output:\n%s", n, out)
+		}
+		bad := fmt.Sprintf("%d-MATCH", n)
+		if strings.Contains(out, bad) {
+			t.Errorf("line %d incorrectly rendered as context (`-`):\n%s", n, out)
+		}
+	}
+}
+
+// Mixed regression: matches at lines 1 and 4, before/after = 2. Line 1 + line 4
+// must both render as match (`:`); the bridging non-matching lines (2, 3, 5, 6)
+// must render as context (`-`). Pre-fix line 4 could be labeled context if
+// line 1's after-context window touched it.
+//
+// 混合回归：第 1 行和第 4 行匹配，before/after=2。第 1 行和第 4 行都必须
+// 渲染为 match（`:`）；中间的非匹配行（2/3/5/6）渲染为 context（`-`）。
+// 修复前如果第 1 行的 after-context 触及第 4 行，第 4 行可能被错标 context。
+func TestGrep_MatchInsideAnotherMatchAfterContext_StillLabeledMatch(t *testing.T) {
+	g := newStdlibGrep()
+	dir := t.TempDir()
+	body := "MATCH\na\nb\nMATCH\nc\nd\n"
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte(body), 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	out := runGrep(t, g, grepArgs{
+		Pattern:    "MATCH",
+		Path:       target,
+		OutputMode: OutputModeContent,
+		ShowLines:  true,
+		Before:     2,
+		After:      2,
+	})
+	// Match lines (1 and 4) — must use `:`.
+	// 匹配行（1 和 4）必须用 `:`。
+	for _, n := range []int{1, 4} {
+		want := fmt.Sprintf("%d:MATCH", n)
+		if !strings.Contains(out, want) {
+			t.Errorf("line %d should render as match (`:`), got output:\n%s", n, out)
+		}
+	}
+	// Context lines (2, 3, 5, 6) — must use `-`.
+	// 上下文行（2/3/5/6）必须用 `-`。
+	for _, want := range []string{"2-a", "3-b", "5-c", "6-d"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected context %q in output:\n%s", want, out)
+		}
+	}
+}
+
 func TestGrep_ContextSeparator_DashForContext_ColonForMatch(t *testing.T) {
 	g := newStdlibGrep()
 	dir := t.TempDir()

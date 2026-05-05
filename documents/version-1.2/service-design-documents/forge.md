@@ -6,10 +6,12 @@
 
 **依赖**：
 - `infra/db`（GORM + modernc.org/sqlite）
-- `infra/sandbox`（捆绑 uv + python-build-standalone，per-EnvID venv，N=3 LRU buffer；6 个方法：Sync / Run / Destroy / DestroyEnv / WriteCodeFile / PythonPath）
+- `app/sandbox`（**Phase 4 准备件升级**：原 `infra/sandbox` forge-only 重构为统一 PluginSandbox 服务，详 [`sandbox.md`](./sandbox.md)；forge service 通过 `forgesandboxport.Sandbox` 接口消费）
 - `infra/llm`（create_forge / edit_forge 内部 LLM 调用 + GenerateTestCases）
 - `pkg/reqctx`（userID 读取，agent-run IDs 读取）
 - `domain/events`（SSE 事件推送）
+
+> **Sandbox 升级提示（2026-05-05）**：原 forge-only 的 `infra/sandbox`（6 方法 Sync/Run/Destroy/DestroyEnv/WriteCodeFile/PythonPath）正在重构为统一 PluginSandbox 服务（详 [`sandbox.md`](./sandbox.md)）。forge service 自身代码改动小——`forgesandboxport.Sandbox` 接口的 6 方法保留作 adapter 层，内部委托给 `sandboxapp.Service` 的 EnsureRuntime / EnsureEnv / Spawn / Destroy 通用 API。EnvID 共享机制保留。
 
 **被依赖**：
 - `app/tool/forge/`（5 个 system tool 实现的子包，由 app/chat 组装注入 ReAct Agent；`forgetool.ForgeTools()` 工厂返回 `[]toolapp.Tool`）
@@ -447,7 +449,12 @@ type Service struct {
 func (s *Service) PublishSnapshot(ctx context.Context, convID string, f *forgedomain.Forge)
 
 // Sandbox 接口（沙箱迭代 1 从 1 个方法扩到 6 个）。
-// 实现：infra/sandbox.Sandbox（捆绑 uv + python-build-standalone）。
+// **Phase 4 准备件改造（2026-05-05）**：实现从 `infra/sandbox`（forge-only 直接实现）
+// 重构为 adapter——内部委托 `sandboxapp.Service` 的通用 PluginSandbox API
+// （详 sandbox.md）。本接口的 6 方法保留供 forge service 消费，但实现层换成
+// 调用通用 sandbox 服务，并显式构造 `Owner{Kind:"forge", ID:envID}`。
+//
+// EnvID 共享机制保留——同 (deps, pythonVersion) 的多 forge 版本共享同一份 venv。
 type Sandbox interface {
     // Sync 为 (forgeID, envID, deps, pyver) 创建/复用 venv。同步阻塞直到 ready 或失败。
     // ProgressFn 在 uv stderr 每行解析后回调，Service 据此更新 EnvSyncStage / EnvSyncDetail
@@ -1283,11 +1290,9 @@ type Sandbox struct {
 func New(cfg Config) (*Sandbox, error)
 
 // Bootstrap 解压资源 + macOS 重签 + 写 .bootstrap-hash。
-// 资源目录从 $FORGIFY_DEV_RESOURCES（dev）或 cmd/desktop embed.FS（prod）取。
-// 已 bootstrap 过（hash 一致）→ 跳过；变了 → 全部重做。
-//
-// macOS 关键步骤：解压完后 xattr -dr com.apple.provenance + codesign --force --sign -
-// 重签整个 python 目录——绕过 issue uv#16726 的内核 SIGKILL。
+// **Phase 4 准备件改造（2026-05-05）**：原 $FORGIFY_DEV_RESOURCES（dev）/ embed.FS（prod）
+// 模式由 sandbox v2 的 mise + go:embed bootstrap 取代（详 sandbox.md）。
+// 本接口保留作 forge adapter，内部委托 sandboxapp.EnsureBootstrap。
 func (s *Sandbox) Bootstrap(ctx context.Context) error
 ```
 
