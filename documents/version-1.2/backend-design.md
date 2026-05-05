@@ -63,8 +63,8 @@ Eino 框架已完全移除（`infra/eino/` 目录删除，go.mod 中 Eino 依赖
 | 能力 | 方案 |
 |---|---|
 | LLM 流式客户端 | 自有 `infra/llm`（openai.go + anthropic.go + factory.go）|
-| ReAct 循环 | `app/chat/runner.go` 自实现（agentRun）|
-| Tool 接口 | `app/tool/tool.go` 10 方法接口 + summary/destructive 标准字段注入机制（详见 CLAUDE.md §S18）|
+| ReAct 循环 | `app/loop`（V1.2 D3 抽出的通用引擎，Host 接口 + Run 函数）；chat / subagent / Skill fork / workflow LLM 节点都是调用方，不再各自一份 |
+| Tool 接口 | `app/tool/tool.go` 9 方法接口 + summary/destructive 标准字段注入机制（详见 CLAUDE.md §S18）|
 | Workflow Engine | Phase 4 自实现（不依赖 Eino compose）|
 | Cron 调度 | `robfig/cron`（Phase 4）|
 | MCP 集成 | `mark3labs/mcp-go`（Phase 5）|
@@ -179,7 +179,7 @@ backend/
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
-    │   ├── subagent/               ← 📐 Phase 4 准备件（2026-05-05 设计完成）SubagentType + SubagentRun + SubagentMessage + Repository + SubRunner port
+    │   ├── subagent/               ← 📐 Phase 4 准备件（2026-05-05 设计完成，D3 实施中）SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 service-design-documents/subagent.md §6）
     │   ├── mcp/                    ← 📐 Phase 4 准备件 ServerConfig + ServerStatus + ToolDef + RegistryEntry + 11 sentinel
     │   ├── skill/                  ← 📐 Phase 4 准备件 Skill + Frontmatter + 5 sentinel
     │   ├── catalog/                ← 📐 Phase 4 准备件 CatalogSource port + Catalog + Item + Granularity
@@ -195,7 +195,8 @@ backend/
     │   ├── apikey/                 ← ✅ apikey.go（Service + KeyProvider + MaskKey 全合并）+ providers.go + tester.go
     │   ├── model/                  ← ✅ model.go（Service + ModelPicker 合并）
     │   ├── conversation/           ← ✅ conversation.go
-    │   ├── chat/                   ← ✅ 6 文件：chat.go / runner.go / stream.go / tools.go / history.go / util.go
+    │   ├── loop/                   ← 📐 D3 抽出的通用 ReAct 引擎：loop.go（Host 接口 + Run）+ stream.go（LLM 流式装配）+ tools.go（partition by execution_group + dispatch）+ history.go（extendHistory）。chat / subagent / Skill fork / Phase 4 workflow LLM 节点都是调用方
+    │   ├── chat/                   ← ✅ 重构为 loop 调用方：chat.go / runner.go（agentRun → 构造 chatHost → loop.Run + autoTitle）/ host.go / history.go / util.go（stream/tools 已迁出到 loop 包）
     │   ├── forge/                  ← ✅ forge.go（30 方法 Service + ParseCode）+ ast.go（Python AST 解析）
     │   ├── tool/                   ← ✅ Tool framework：tool.go（9 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
     │   │   ├── forge/              ← ✅ user-forged-tool 系统工具
@@ -207,7 +208,7 @@ backend/
     │   │   ├── subagent/           ← 📐 Phase 4 准备件 Subagent tool（spawn 子 LLM loop 入口；改名避开 task domain 撞车）
     │   │   ├── mcp/                ← 📐 Phase 4 准备件 search_mcp + call_mcp
     │   │   └── skill/              ← 📐 Phase 4 准备件 search_skills + activate_skill
-    │   ├── subagent/               ← 📐 Phase 4 准备件 Service{Spawn/Cancel/Get} + 内置 3 类型
+    │   ├── subagent/               ← 📐 D3-D4 实施中 Service{Spawn/Cancel/Get/ListTypes/ListByConversation} + subagentHost（loop.Host 实现）+ 内置 3 类型注册表
     │   ├── mcp/                    ← 📐 Phase 4 准备件 Service + lifecycle + Registry + healthcheck
     │   ├── skill/                  ← 📐 Phase 4 准备件 Service + frontmatter + fsnotify watcher
     │   ├── catalog/                ← 📐 Phase 4 准备件 Service + Generator + 1s polling + atomic 单 flight + fingerprint dedup
