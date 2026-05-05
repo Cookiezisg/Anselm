@@ -38,6 +38,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
@@ -100,6 +101,8 @@ func main() {
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
 		&forgedomain.ForgeExecution{},
+		&sandboxdomain.Runtime{},
+		&sandboxdomain.Env{},
 		&taskdomain.Task{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))

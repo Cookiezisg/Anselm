@@ -280,8 +280,23 @@ func GetToolCallID(ctx) (string, bool)
 | `create_forge` | tool/forge/create.go | 3+ | LLM 生成代码 + AST dry-run + 保存 |
 | `edit_forge` | tool/forge/edit.go | 3+ | LLM 改写代码 + AST dry-run + 创建 pending（含元数据-only 路径推 forge.metadata_updated）|
 | `run_forge` | tool/forge/run.go | 3+ | 运行 forge（sandbox + 50KB 输出截断）|
+| `Read` | tool/filesystem/read.go | 5 | cat -n 行号格式读文本，2000 行默认 + offset/limit；标 SeenFiles 让 Edit/Write 通过 must-Read-first 守卫 |
+| `Write` | tool/filesystem/write.go | 5 | 原子写（CreateTemp + Rename）；覆写需 must-Read-first；保留原 mode |
+| `Edit` | tool/filesystem/edit.go | 5 | 字面量字符串替换（非 regex）；唯一性守卫 + replace_all；外部修改 size 检测 |
+| `Grep` | tool/search/grep.go | 5 | rg 优先 + stdlib bufio+regexp 兜底；3 输出模式 + multiline + head_limit |
+| `Glob` | tool/search/glob.go | 5 | doublestar 匹配 + 按 mtime 降序 + JSON(type/size/mtime)；pattern `*` 即 LS 替代（决策 D3）|
+| `WebFetch` | tool/web/fetch.go | 5 | Jina r.jina.ai → 直 GET fallback；SSRF 守卫（loopback/私网/link-local + 重定向逐跳校验）；用 web_summary 模型场景摘要 |
+| `WebSearch` | tool/web/search.go | 5 | 3 层 fallback（SearXNG 池随机洗牌 → Bing → Bing CN）；HTML visitor 解析（非 regex）|
+| `Bash` | tool/shell/bash.go | 5 | 前/后台双模式；`cd <path>` 整命令短路更新 AgentState.Cwd；前台 timeout 默认 120s 上限 600s；输出截 256 KB |
+| `BashOutput` | tool/shell/output.go | 5 | 轮询后台 shell 新增字节（环形缓冲读游标）+ 可选 regex filter + 状态尾注 |
+| `KillShell` | tool/shell/kill.go | 5 | SIGKILL 幂等；从 ProcessManager 注册表删条目 |
+| `TaskCreate` / `TaskList` / `TaskGet` / `TaskUpdate` | tool/task/{create,list,get,update}.go | 5 | 对话级 to-do（详 task.md）|
+| `AskUserQuestion` | tool/ask/ask.go | 5 | 阻塞 5 分钟等用户答案；问题坐 chat.message tool_call block；答案走 POST /answers |
 
-Phase 5 待建：Read / Write / Edit / Bash / Glob / Grep / LS。
+**Phase 5（2026-05-04）batch 设计要点**：
+- **不实现独立 LS tool**——Glob 用 `pattern: "*"` 替代，决策 D3 见 `02-tools-deep/02-search.md`
+- **Bash 故意不走 PathGuard**（`RequiresWorkspace=false`）——本地单用户场景下 Bash 是用户日常命令的代理，banned-list 没意义；详 `02-tools-deep/03-shell.md` 决策 D5
+- **filesystem/search/web/shell 工具不向 errmap 注册**——失败以友好字符串返 LLM（吃在 tool_result 里），不到 handler。task / ask 例外因为有独立 HTTP endpoint（仅 ask `POST /answers`）
 
 ---
 
@@ -292,14 +307,14 @@ Phase 5 待建：Read / Write / Edit / Bash / Glob / Grep / LS。
 ```
 app/chat/
   chat.go     ← 公开 API（Send / Cancel / ListMessages / UploadAttachment）+ Service struct + queue 管理常量
-  runner.go   ← getOrCreateQueue / runQueue / processTask / agentRun（ReAct loop）/ writeDB / stampBlocks
+  runner.go   ← getOrCreateQueue / runQueue / processTask / agentRun（ReAct loop）/ writeAndPublish / publishMessageSnapshot / emitFatalError / stampBlocks / autoTitle
   stream.go   ← streamLLM（iter.Seq 驱动）+ assembleBlocks + extractToolCalls + parseToolArgs
   tools.go    ← runTools（并行）+ runOneTool + executeTool
   history.go  ← buildHistory + extendHistory + blocksToLLM + blocksToAssistantLLM + buildUserLLMMessage + attachmentToPart
   util.go     ← ID 生成器（newMsgID / newBlockID / newAttachmentID）+ readAndEncode + truncate
 ```
 
-> 2026-04-27 重构后从 `app/chat/chat.go` 单文件拆为 5 文件；2026-04-27 后又把原 `pipeline.go` 替换为 `runner.go`（concept compaction 预留）。函数名也随之精简：`runReactLoop` → `agentRun`，`persistMsg` + `finalPersist` 合并为带 `fatal bool` 的 `writeDB`。
+> 2026-04-27 重构后从 `app/chat/chat.go` 单文件拆为 5 文件；2026-04-27 后又把原 `pipeline.go` 替换为 `runner.go`（concept compaction 预留）。Phase 6（2026-05-02）entity-state 重构：原 `writeDB(fatal)` 改名 `writeAndPublish(fatal)` 并合一了"落库 + 推 chat.message"职责；额外加 `publishMessageSnapshot`（仅推不落）和 `emitFatalError`（pre-LLM 错误 stub message）两个 helper。runner.go 是 chat.message 唯一发布事实源。
 
 ### 5.2 ReAct Loop（`agentRun`，runner.go）
 
@@ -317,116 +332,159 @@ processTask
           totalInput += iT; totalOutput += oT
 
           if stopReason == cancelled / error:
-              writeDB(allBlocks, status=cancelled|error, fatal=true) → break
+              writeAndPublish(allBlocks, status=cancelled|error, fatal=true) → break
 
           if len(toolCalls) == 0:
-              writeDB(allBlocks, status=completed, stopReason, fatal=true) → break  // 最终答案
+              writeAndPublish(allBlocks, status=completed, stopReason, fatal=true) → break  // 最终答案
 
-          rBlocks = runTools(ctx, toolCalls, convID, msgID)   // 并行
+          rBlocks = runTools(ctx, toolCalls, convID, msgID, uid, allBlocks)
+              // partitionByExecutionGroup 按 LLM 自报 group 分批；每个 tool 跑完推 chat.message
           allBlocks = append(allBlocks, rBlocks...)
-          writeDB(allBlocks, status=streaming, fatal=false)   // checkpoint，buildHistory 会跳过
+          writeAndPublish(allBlocks, status=streaming, fatal=false)   // checkpoint，buildHistory 会跳过
           history = extendHistory(history, aBlocks, rBlocks)  // 把本步的 assistant + tool result 拼回历史
           // TODO: context compaction 钩子点
 
       if !finalWritten:                                       // 步骤上限
-          writeDB(allBlocks, status=completed, stopReason=max_tokens, fatal=true)
+          writeAndPublish(allBlocks, status=completed, stopReason=max_tokens, fatal=true)
 
-      Publish(ChatDone)
+      // 终态本身就是最后一帧 chat.message（writeAndPublish 内部推快照），无 ChatDone 独立事件
       if conv.Title == "" && !conv.AutoTitled:
           go autoTitle(...)
 ```
 
 **关键设计**：
 - **allBlocks 累积**：所有步骤的 blocks 全部累积进一个 slice，最终一次性写入同一条 assistant 消息。一次用户发言对应一条完整的 DB 记录，工具调用链不丢失。
-- **中间步 streaming checkpoint**：中间步用 `writeDB(fatal=false)` 写 `status=streaming`，`buildHistory` 跳过 streaming/pending 状态的消息，避免把未完成的步骤放进历史重建。失败只 warn，最终写会覆盖。
-- **`fatal=true` 走 detached context**：终态写用 `reqctxpkg.SetUserID(context.Background(), uid)` 创建全新 context，不受取消影响，保证终态必然落库。
+- **中间步 streaming checkpoint**：中间步用 `writeAndPublish(fatal=false)` 写 `status=streaming` + 推快照，`buildHistory` 跳过 streaming/pending 状态的消息，避免把未完成的步骤放进历史重建。失败只 warn，最终写会覆盖。
+- **`fatal=true` 走 detached context**：终态写用 `reqctxpkg.SetUserID(context.Background(), uid)` 创建全新 context，不受取消影响，保证终态必然落库 + 最后一帧 chat.message 必然推达。
 
 ### 5.3 streamLLM（`stream.go`）
 
+每个流事件到达时**重建当前 Message 快照**并推 `chat.message` 一帧（Phase 6 entity-state 模型；不再有 ChatToolCallStart / ChatToken / ChatReasoningToken / ChatDone 等独立事件）。
+
 ```go
 // iter.Seq 拉式迭代：只要 for range 不 break，就一直消费
+publish := func() {
+    current := assembleBlocks(textBuf.String(), reasonBuf.String(), accums)
+    s.publishMessageSnapshot(ctx, msgID, convID, uid,
+        joinBlocks(parentBlocks, current),
+        chatdomain.StatusStreaming, "", "", "",
+        inputTokens, outputTokens)
+}
+
 for event := range client.Stream(ctx, req) {
     switch event.Type {
-    case EventToolStart:
-        bridge.Publish(ChatToolCallStart{ToolCallID: event.ToolID, ToolName: event.ToolName})
-        accum[event.ToolIndex] = newAccum(event.ToolID, event.ToolName)
-    case EventToolDelta:
-        accum[event.ToolIndex].args.WriteString(event.ArgsDelta)
-    case EventText:
-        textBuf.WriteString(event.Delta)
-        bridge.Publish(ChatToken{Delta: event.Delta})
-    case EventReasoning:
-        reasonBuf.WriteString(event.ReasoningDelta)
-        bridge.Publish(ChatReasoningToken{Delta: event.ReasoningDelta})
-    case EventFinish:
-        totalInput, totalOutput = event.InputTokens, event.OutputTokens
-    case EventError:
-        return nil, nil, StopReasonError, ...
+    case llminfra.EventText:
+        textBuf.WriteString(event.Delta);     publish()
+    case llminfra.EventReasoning:
+        reasonBuf.WriteString(event.Delta);   publish()
+    case llminfra.EventToolStart:
+        accums[event.ToolIndex] = &toolAccum{id: event.ToolID, name: event.ToolName}
+        publish()
+    case llminfra.EventToolDelta:
+        accums[event.ToolIndex].args.WriteString(event.ArgsDelta);   publish()
+    case llminfra.EventFinish:
+        if event.FinishReason == "length" { stopReason = StopReasonMaxTokens }
+        inputTokens, outputTokens = event.InputTokens, event.OutputTokens
+    case llminfra.EventError:
+        if ctx.Err() != nil { stopReason = StopReasonCancelled } else {
+            stopReason = StopReasonError; errMsg = event.Err.Error()
+        }
     }
 }
-return assembleBlocks(textBuf, reasonBuf, accum), extractToolCalls(blocks), stopReason, totalInput, totalOutput
+return assembleBlocks(...), extractToolCalls(blocks), stopReason, errMsg, inputTokens, outputTokens
 ```
 
-`assembleBlocks` 把 buffers 组装为 blocks：顺序为 reasoning block → tool_call blocks（按 index 排） → text block。`extractToolCalls` 从 blocks 抽出 tool_call 列表交给 runTools。`parseToolArgs` 拆分 LLM 输出的 arguments JSON 为 `{summary, destructive, args}`（剥两个标准注入字段后剩余的 args）。
+`assembleBlocks` 把 buffers 组装为 blocks：顺序为 reasoning → text → tool_call blocks（按 ToolIndex 排）。`extractToolCalls` 从 blocks 抽出 tool_call 列表交给 runTools。`parseToolArgs` 通过 `toolapp.StripStandardFields` 剥三个标准字段（summary / destructive / execution_group）+ JSON 损坏兜底 `args["raw"]`。
 
 ### 5.4 Tool Call 分批执行（`tools.go`）
 
-Phase 3 后优化轮：从"一律全并行"改成 **按 `IsConcurrencySafe(args)` 分批**，与 Claude Code 一致。相邻 safe 调用合并并行 batch；non-safe 调用各自独立串行 batch；safe→unsafe→safe 的 unsafe 边界强制起新 batch。
+Phase 5（2026-05-04）框架重构：从"按 `IsConcurrencySafe(args)` 反推"改成 **按 LLM 自报的 `execution_group` 字段分批**——LLM 自己给每个 tool call 标 group 号，框架按 group 升序顺序执行，同 group 并行。`IsConcurrencySafe` 方法已从 Tool 接口删除（10→9 方法），tool 不再参与并发判断。
+
+**分批语义**（`partitionByExecutionGroup`，详 CLAUDE.md §S18）：
+- 同 group 号的 calls = 并行 batch（LLM 担保它们之间无依赖、无共享可变状态）
+- 不同 group 号 = 升序串行（前 group 全跑完才进下 group）
+- 缺省 / ≤0 = 自动分配唯一 group ≥1000，每个独自串行 batch，**排在所有显式 group 之后**——fail-safe 默认（LLM 不主动声明并行就不并行）
 
 ```go
-func (s *Service) runTools(ctx, calls, convID, msgID) []chatdomain.Block {
+func (s *Service) runTools(ctx, calls, convID, msgID, uid string,
+    parentBlocks []chatdomain.Block) []chatdomain.Block {
     byName := s.toolsByName()
-    batches := partitionByConcurrencySafety(calls, byName)
-    blocks := make([]Block, len(calls))
+    batches := partitionByExecutionGroup(calls)
+    blocks := make([]chatdomain.Block, len(calls))
+
+    var mu sync.Mutex
+    publishProgress := func() { /* 拼 parentBlocks + blocks 推 chat.message 快照 */ }
+
     for _, b := range batches {
-        if b.safe && len(b.items) > 1 {
-            // 并行：相邻 safe 合批
+        if len(b.items) > 1 {
+            // 并行 batch（同 execution_group）
             var wg sync.WaitGroup
-            for _, it := range b.items {
+            for _, item := range b.items {
                 wg.Add(1)
                 go func(it indexedCall) {
                     defer wg.Done()
-                    blocks[it.idx] = s.runOneTool(ctx, byName[it.tc.Name], it.tc, convID, msgID, it.idx)
-                }(it)
+                    blk := s.runOneTool(ctx, byName[it.tc.Name], it.tc, msgID, it.idx)
+                    mu.Lock(); blocks[it.idx] = blk; mu.Unlock()
+                    publishProgress()
+                }(item)
             }
             wg.Wait()
         } else {
-            // 串行：non-safe 单跑
-            for _, it := range b.items {
-                blocks[it.idx] = s.runOneTool(ctx, byName[it.tc.Name], it.tc, convID, msgID, it.idx)
-            }
+            // 单项 batch（自动分配 group 或显式单 call group）—— 内联跑省 goroutine
+            item := b.items[0]
+            blk := s.runOneTool(ctx, byName[item.tc.Name], item.tc, msgID, item.idx)
+            mu.Lock(); blocks[item.idx] = blk; mu.Unlock()
+            publishProgress()
         }
     }
     return blocks
 }
 ```
 
-例：`[Search=safe, Get=safe, Create=unsafe, Get=safe, Run=unsafe]`
-→ `[B1: Search,Get 并行] [B2: Create 串行] [B3: Get 单跑] [B4: Run 串行]`
+**例**：LLM 同 turn 发 `[A:1, B:1, C:0, D:2, E:0]`
+→ 自动分配后 `[A:1, B:1, C:1000, D:2, E:1001]`（maxExplicit=2，autoBase=max(3, 1000)=1000）
+→ 排序 `[1, 2, 1000, 1001]`
+→ 4 个 batches: `[A, B 并行] [D 单跑] [C 单跑] [E 单跑]`
 
-`runOneTool` 在调 `executeTool` 前注入 `reqctxpkg.WithMessageID` / `WithToolCallID` 到 ctx；推 ChatToolCall SSE 时带上 `tc.Destructive`（让 UI 显示警示徽章）。`executeTool` 跑 `ValidateInput → CheckPermissions(default) → Execute` 三步钩子链：Validate 失败 / Permission Deny 直接转失败 tool_result，不进 Execute。
+`runOneTool` 在调 `executeTool` 前注入 `reqctxpkg.WithMessageID` / `WithToolCallID` 到 ctx。`executeTool` 跑 **`ValidateInput → CheckPermissions(default) → Execute`** 三步钩子链：Validate 失败 / Permission Deny 直接转失败 tool_result，不进 Execute。每个 tool 跑完通过 mutex 守护后推一次 `chat.message` 快照（parentBlocks + 当前已收集 tool_result blocks）。
 
-### 5.5 writeDB 与取消安全
+### 5.5 writeAndPublish 与取消安全
+
+`runner.go` 现有三个发布 helper（chat.message 唯一发布事实源；stream.go / tools.go 通过 closure 调它们）：
+
+| Helper | 用途 |
+|---|---|
+| `publishMessageSnapshot` | 仅推 SSE，不落库（流式中间状态） |
+| `writeAndPublish(..., fatal bool)` | 落库 + 推 SSE。fatal=true 是终态、false 是 streaming checkpoint |
+| `emitFatalError(code, message)` | 写 stub error message + 推 SSE（pre-LLM 错误如 MODEL_NOT_CONFIGURED 走这里） |
 
 ```go
-func (s *Service) writeDB(ctx, msgID, convID, uid, blocks, status, stopReason, ..., fatal bool) {
+func (s *Service) writeAndPublish(
+    ctx context.Context, msgID, convID, uid string, blocks []chatdomain.Block,
+    status, stopReason, errorCode, errorMessage string,
+    inputTokens, outputTokens int, fatal bool,
+) {
     saveCtx := ctx
     if fatal {
         // Fresh context: 已取消的流不能阻止终态写入
         saveCtx = reqctxpkg.SetUserID(context.Background(), uid)
     }
+    msg := buildMessage(msgID, convID, uid, blocks, status, stopReason, errorCode, errorMessage, ...)
     if err := s.repo.Save(saveCtx, msg); err != nil {
         if fatal {
-            log.Error("CRITICAL: final assistant message persist failed")
-            bridge.Publish(ChatError{Code: "INTERNAL_ERROR"})
+            log.Error("CRITICAL: final assistant message persist failed — message lost")
+            // 持久化失败本身覆盖为新的 error 状态，前端仍能看到
+            msg = buildMessage(msgID, convID, uid, blocks,
+                StatusError, StopReasonError, "INTERNAL_ERROR", "failed to save assistant message", ...)
         } else {
             log.Warn("streaming checkpoint persist failed, continuing")
         }
     }
+    s.bridge.Publish(ctx, convID, eventsdomain.ChatMessage{Message: msg})
 }
 ```
 
-取消流程：Cancel() → context cancelled → streamLLM break → agentRun 返回已有 blocks → writeDB(status=cancelled, fatal=true)。终态必然落库。
+取消流程：Cancel() → context cancelled → streamLLM break → agentRun 返回已有 blocks → `writeAndPublish(status=cancelled, fatal=true)`，终态必然落库 + 最后一帧 chat.message 推给前端。
 
 ---
 
@@ -749,7 +807,7 @@ subagent 上下文的 chat.message 事件**同时承载 2 个 entity 快照**：
 
 → 202 `{ "data": { "messageId": "msg_xxx" } }`（user 消息 ID，非 assistant）
 
-**错误**：404 `CONVERSATION_NOT_FOUND` / 409 `STREAM_IN_PROGRESS` / SSE 推 `chat.error`（API_KEY_PROVIDER_NOT_FOUND / MODEL_NOT_CONFIGURED）
+**错误**：404 `CONVERSATION_NOT_FOUND` / 409 `STREAM_IN_PROGRESS` / pre-LLM 失败（API_KEY_PROVIDER_NOT_FOUND / MODEL_NOT_CONFIGURED / LLM_PROVIDER_ERROR）经 `emitFatalError` 推 `chat.message`（status=error + errorCode/errorMessage）
 
 ---
 
@@ -765,7 +823,7 @@ type Service struct {
     modelPicker modeldomain.ModelPicker  // 拿 (provider, modelID)
     keyProvider apikeydomain.KeyProvider // 拿 (key, baseURL)
     llmFactory  *llminfra.Factory        // 自有 LLM 流式客户端工厂
-    tools       []agentapp.Tool          // System Tools（实现 Tool 接口；SetTools 注入）
+    tools       []toolapp.Tool           // System Tools（实现 Tool 接口；SetTools 注入）
     bridge      eventsdomain.Bridge      // 推 SSE 事件
     dataDir     string                   // 附件存储根目录
     log         *zap.Logger
@@ -784,13 +842,14 @@ HTTP 入口（同步部分）:
   5. 立刻返回 202 { messageId: userMsgID }
 
 worker goroutine（runner.go::processTask）:
-  6. modelPicker.PickForChat(ctx)            → (provider, modelID)；失败推 SSE chat.error MODEL_NOT_CONFIGURED
-  7. keyProvider.ResolveCredentials(ctx, p)  → (key, baseURL)；失败推 SSE chat.error API_KEY_PROVIDER_NOT_FOUND
-  8. llmFactory.Build(Config{...})           → Client；失败推 SSE chat.error LLM_PROVIDER_ERROR
-  9. agentRun(ctx, uid, conv, userMsgID, client, baseReq)
-       buildHistory → for-step ReAct → writeDB checkpoints → ChatDone
+  6. llmclient.Resolve(ctx, picker, keys, factory) → bundle{ModelID, Key, BaseURL, Client}
+       失败 → emitFatalError 推 chat.message stub（status=error, errorCode=
+       MODEL_NOT_CONFIGURED / API_KEY_PROVIDER_NOT_FOUND / LLM_PROVIDER_ERROR）
+  7. agentRun(ctx, uid, conv, userMsgID, msgID, client, baseReq)
+       publishMessageSnapshot(streaming, blocks=nil)  // 打开 assistant slot
+       buildHistory → for-step ReAct → writeAndPublish checkpoints + 终态
 
-  10. 触发 auto-title goroutine（conv.Title 为空且 !AutoTitled）
+  8. 触发 auto-title goroutine（conv.Title 为空且 !AutoTitled）
 ```
 
 ### 10.3 并发控制与取消
@@ -806,7 +865,7 @@ type convQueue struct {
 ```
 
 - **Send**：队列满 → 409 `STREAM_IN_PROGRESS`；否则入队后立即 202 返回
-- **Cancel**：`q.cancel()` → ctx cancelled → streamLLM break → agentRun 写 `status=cancelled` → 推 ChatDone
+- **Cancel**：`q.cancel()` → ctx cancelled → streamLLM break → agentRun 走 `writeAndPublish(status=cancelled, fatal=true)` 推最终 chat.message 快照
 
 ### 10.4 System Prompt 组装
 
@@ -839,7 +898,7 @@ type convQueue struct {
 
 ---
 
-## 11. 完整调用链（Phase 3 当前形态）
+## 11. 完整调用链（Phase 5 当前形态）
 
 ### 11.1 用户发消息
 
@@ -854,44 +913,50 @@ POST /api/v1/conversations/cv_xxx/messages  body={content, attachmentIds}
       → response 202 {messageId: userMsgID}
 
 --- worker goroutine（runner.go::processTask）---
-  → modelPicker.PickForChat(ctx)                  → ("deepseek", "deepseek-chat")
-  → keyProvider.ResolveCredentials(ctx, "deepseek") → (key, baseURL)
-  → llmFactory.Build(Config{...})                 → Client
-  → 构造 baseReq（System / Tools 注入）
-  → agentRun(ctx, uid, conv, userMsgID, client, baseReq):
+  → ctx 注入 ConversationID + AgentState（per-queue 共享）
+  → llmclient.Resolve(ctx, picker, keys, factory)  → bundle{ModelID, Key, BaseURL, Client}
+      ↳ 失败映射 ErrPickModel → MODEL_NOT_CONFIGURED
+                ErrResolveCreds → API_KEY_PROVIDER_NOT_FOUND
+                其他 → LLM_PROVIDER_ERROR
+      ↳ emitFatalError(code, msg) → writeAndPublish stub Message(status=error) + 推 chat.message
+  → 构造 baseReq（System Prompt + 20 个 system tool 注入：toolapp.ToLLMDefs(s.tools)）
+  → agentRun(ctx, uid, conv, userMsgID, msgID, client, baseReq):
+      publishMessageSnapshot(status=streaming, blocks=nil) // 打开 assistant slot
       buildHistory(ctx, convID, userMsgID)        → []LLMMessage（末尾追加当前 user）
       for step < maxSteps:
-          aBlocks, toolCalls, sr, iT, oT = streamLLM(ctx, client, req, convID, msgID)
-              EventToolStart → Publish(ChatToolCallStart)
-              EventText      → Publish(ChatToken)
-              EventReasoning → Publish(ChatReasoningToken)
+          aBlocks, toolCalls, sr, em, iT, oT = streamLLM(ctx, client, req, convID, msgID, uid, allBlocks)
+              每个 EventText/EventReasoning/EventToolStart/EventToolDelta → publish(chat.message 快照)
               EventFinish    → 累计 token usage
+              EventError     → stopReason=error|cancelled
           allBlocks += aBlocks; totalInput += iT; totalOutput += oT
-          if cancelled/error → writeDB(fatal=true) → break
-          if len(toolCalls)==0 → writeDB(completed, fatal=true) → break
-          rBlocks = runTools(ctx, toolCalls, convID, msgID)   // 并行 sync.WaitGroup
+          if cancelled/error → writeAndPublish(fatal=true, errorCode/Message) → break
+          if len(toolCalls)==0 → writeAndPublish(completed, fatal=true) → break
+          rBlocks = runTools(ctx, toolCalls, convID, msgID, uid, allBlocks)
+              // partitionByExecutionGroup 按 LLM 自报 group 分批；每个 tool 跑完推 chat.message
           allBlocks += rBlocks
-          writeDB(streaming, fatal=false)
+          writeAndPublish(streaming, fatal=false)   // streaming checkpoint 落盘 + 推快照
           history = extendHistory(history, aBlocks, rBlocks)
-      if !finalWritten → writeDB(max_tokens, fatal=true)
-  → Publish(ChatDone)
-  → if conv.Title=="" && !AutoTitled: go autoTitle(...)
+      if !finalWritten → writeAndPublish(max_tokens, fatal=true)
+  → if conv.Title=="" && !AutoTitled: go autoTitle(...)  // 终态本身就是最后一帧 chat.message
 ```
 
-### 11.2 前端收事件
+### 11.2 前端收事件（Phase 6 entity-state 模型）
 
 ```
 GET /api/v1/events?conversationId=cv_xxx
   → ChatHandler.EventsSSE
       → Bridge.Subscribe(filter={conversationId: cv_xxx})
       → 每 15s 推 ": keep-alive\n\n" 防代理断连
-      → 持续 write SSE:
-          event: chat.tool_call_start  data: {...}
-          event: chat.token            data: {...}
-          event: chat.tool_call        data: {...}
-          event: chat.tool_result      data: {...}
-          event: chat.done             data: {...}
+      → 持续 write SSE: 仅 chat.message 一种事件
+          event: chat.message  data: {...完整 Message 快照}   // slot 创建 (status=streaming, blocks=[])
+          event: chat.message  data: {...}                    // 每个 LLM token (text/reasoning block 内容生长)
+          event: chat.message  data: {...}                    // tool_call block 出现 (仅有 name)
+          event: chat.message  data: {...}                    // tool_call args 完整
+          event: chat.message  data: {...}                    // 每个 tool_result block 加入
+          event: chat.message  data: {...}                    // 终态 (status=completed/error/cancelled)
 ```
+
+旧事件 `chat.token` / `chat.reasoning_token` / `chat.tool_call_start` / `chat.tool_call` / `chat.tool_result` / `chat.done` / `chat.error` 已在 Phase 6 重构（2026-05-02）合并进 `chat.message` 单事件，全部信息携带在 Message 当前快照里。详 §8 + events-design.md。
 
 ---
 
@@ -923,7 +988,7 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 | `ATTACHMENT_PARSE_FAILED` | 422 | `chat.ErrAttachmentParseFailed` | 文件损坏或解析失败 |
 | `VISION_NOT_SUPPORTED` | 422 | `chat.ErrVisionNotSupported` | 当前 provider 不支持图片 |
 
-**401 路径**：LLM 返回 401 → `apikey.MarkInvalid` → 推 `chat.error` 事件（code: `API_KEY_INVALID`）→ Service 返回 `apikey.ErrInvalid` → errmap 翻译 → 前端 SSE 收到。
+**401 路径**：LLM 流响应中遇 401 → streamLLM 返 stopReason=error + errMsg → agentRun 走 `writeAndPublish(status=error, errorCode="LLM_STREAM_ERROR")`，前端从 chat.message 快照读 errorCode/errorMessage 即可。
 
 ---
 
@@ -942,7 +1007,7 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 | SSE 可靠性 | **keep-alive ping + 内存 Bridge fan-out** | 网络抖动断连不丢事件；桌面应用场景常见 |
 | Auto-titling | **异步 goroutine，失败静默** | 标题生成不是核心流程；用轻量模型节省费用；失败不影响用户体验 |
 | 中间步 DB checkpoint | **streaming 状态 + buildHistory 跳过** | 多步 ReAct 中间态需持久化（崩溃恢复 / SQL Tab 调试可见），但不能进 LLM 历史避免循环 |
-| 终态写 detached context | **`writeDB(fatal=true)` 用 `context.Background()`** | 用户取消时 ctx 已 cancelled，但终态消息必须落库——否则下次打开对话看不到这次回复 |
+| 终态写 detached context | **`writeAndPublish(fatal=true)` 用 `context.Background()`** | 用户取消时 ctx 已 cancelled，但终态消息必须落库——否则下次打开对话看不到这次回复 |
 
 ---
 
@@ -954,15 +1019,19 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 - [x] `infra/llm/anthropic.go` — Anthropic 原生 `/v1/messages` 客户端（content_block_start/delta/stop）
 - [x] `infra/llm/factory.go` — Factory.Build(Config) provider dispatch + resolveBaseURL
 
-### app/agent 层
-- [x] `app/agent/tool.go` — Tool 4 方法接口 + injectSummaryField + StripSummary + ToLLMDef/ToLLMDefs + 6 个 context helpers（WithConversationID/MessageID/ToolCallID + 对应 Get）
-- [x] `app/agent/system.go` — 6 个 system tool（datetime/read_file/write_file/list_dir/run_shell/run_python）
-- [x] `app/agent/web.go` — web_search（DDG lite POST 表单）+ fetch_url（Jina Reader）
-- [x] `app/agent/forge.go` — 5 个 forge tool（search/get/create/edit/run）
+### app/tool 层（framework + 7 家族子包，§S12 例外允许嵌套）
+- [x] `app/tool/tool.go` — Tool 接口（9 方法）+ PermissionMode/Result + injectStandardFields（注入 summary/destructive/execution_group）+ StripStandardFields + ToLLMDef/ToLLMDefs
+- [x] `app/tool/forge/{forge,search,get,create,edit,run}.go` — 5 个 forge system tool + 共享工厂 + streamCode helper + resolveAttachments
+- [x] `app/tool/filesystem/{filesystem,read,write,edit}.go` — Read / Write / Edit；must-Read-first 守卫走 AgentState.SeenFiles；原子写 CreateTemp+Rename；Edit 字面量替换 + replace_all
+- [x] `app/tool/search/{search,grep,grep_rg,grep_stdlib,glob}.go` — Grep（rg + stdlib 双后端）+ Glob（doublestar + mtime 降序 + JSON enrichment）
+- [x] `app/tool/web/{web,fetch,search,search_bing}.go` — WebFetch（Jina + 直 GET fallback；SSRF 守卫 + 重定向逐跳校验）+ WebSearch（SearXNG/Bing/Bing CN 三层）+ Bing HTML visitor
+- [x] `app/tool/shell/{shell,manager,bash,output,kill}.go` — Bash（前后台双模式 + cd 状态机）+ BashOutput（环形缓冲 + 读游标 + filter）+ KillShell（SIGKILL 幂等）+ ProcessManager
+- [x] `app/tool/task/{task,create,list,get,update}.go` — TaskCreate / TaskList / TaskGet / TaskUpdate；scope 走 ConversationID
+- [x] `app/tool/ask/ask.go` — AskUserQuestion；与 `app/ask` Service 配合（in-memory rendezvous）
 
 ### domain/chat 层
-- [x] `domain/chat/chat.go` — Message（精简纯元数据）+ Block 实体 + 5 种 BlockType + data 结构体 + Attachment + sentinels + Repository
-- [x] `domain/events/types.go` — ChatToolCallStart + ChatReasoningToken；ChatDone 改为 inputTokens/outputTokens int；ForgeCodeStreaming/ForgeCreated/ForgePendingCreated 加 MessageID+ToolCallID
+- [x] `domain/chat/chat.go` — Message（精简纯元数据 + errorCode/errorMessage）+ Block 实体 + 5 种 BlockType + ToolCallData（含 Summary/Destructive/ExecutionGroup 一等字段）+ ToolResultData（含 ErrorMsg/ElapsedMs）+ Attachment（Phase 5 加软删）+ sentinels + Repository
+- [x] `domain/events/types.go` — Phase 6 entity-state 模型：ChatMessage / Forge / Conversation / Task 4 个事件，每个委托 MarshalJSON 给嵌入的 entity（与 GET 响应同形）；Phase 6 之前 12 个旧事件全删
 
 ### infra/db 层
 - [x] `infra/db/schema_extras.go` — 按 table 分组的 extraGroup 结构；message_blocks 索引；tools partial UNIQUE（FTS5 当前未使用）
@@ -976,7 +1045,7 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 
 ### app/chat 层（6 文件）
 - [x] `app/chat/chat.go` — Service struct + Send / Cancel / ListMessages / UploadAttachment + queueCapacity + convQueue / queuedTask 类型
-- [x] `app/chat/runner.go` — getOrCreateQueue / runQueue / processTask / agentRun（ReAct loop，含 context compaction 钩子点）/ writeDB（fatal 模式分支）/ stampBlocks / autoTitle
+- [x] `app/chat/runner.go` — getOrCreateQueue / runQueue / processTask / agentRun（ReAct loop，含 context compaction TODO 钩子点）/ writeAndPublish（fatal 模式分支）/ publishMessageSnapshot / emitFatalError / stampBlocks / autoTitle
 - [x] `app/chat/stream.go` — streamLLM（iter.Seq）+ assembleBlocks + extractToolCalls + parseToolArgs
 - [x] `app/chat/tools.go` — runTools（sync.WaitGroup 并行）+ runOneTool（注入 msgID/toolCallID）+ executeTool
 - [x] `app/chat/history.go` — buildHistory(currentUserMsgID) + extendHistory + blocksToLLM + blocksToAssistantLLM + buildUserLLMMessage + attachmentToPart
@@ -988,4 +1057,4 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 ### 配套
 - [x] `errmap.go` — chat sentinel 映射全部覆盖
 - [x] `router/deps.go` — ChatService / EventsBridge 字段
-- [x] `main.go` — chatRepo 共享变量；llmFactory；WebTools / SystemTools / ForgeTools 装配；Migrate messages + message_blocks + chat_attachments
+- [x] `main.go` — chatRepo 共享变量；llmFactory；PathGuard；7 家族工厂装配链 ForgeTools → FilesystemTools → SearchTools → WebTools → NewShellTools（含 ProcessManager.Stop defer）→ TaskTools → AskTools → chatService.SetTools(tools)；Migrate messages + message_blocks + attachments + tasks

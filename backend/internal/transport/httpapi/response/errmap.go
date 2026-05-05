@@ -13,6 +13,7 @@ import (
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	taskdomain "github.com/sunweilin/forgify/backend/internal/domain/task"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -88,6 +89,17 @@ var errTable = map[error]errMapping{
 	taskdomain.ErrNotFound:         {http.StatusNotFound, "TASK_NOT_FOUND"},
 	taskdomain.ErrSubjectRequired:  {http.StatusBadRequest, "TASK_SUBJECT_REQUIRED"},
 	taskdomain.ErrInvalidStatus:    {http.StatusBadRequest, "TASK_INVALID_STATUS"},
+
+	// sandbox domain / sandbox domain 层
+	// 8 sentinels per sandbox.md §5; status mapping follows error-codes.md table.
+	sandboxdomain.ErrRuntimeNotSupported:  {http.StatusUnprocessableEntity, "SANDBOX_RUNTIME_NOT_SUPPORTED"},
+	sandboxdomain.ErrRuntimeInstallFailed: {http.StatusBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED"},
+	sandboxdomain.ErrEnvNotFound:          {http.StatusNotFound, "SANDBOX_ENV_NOT_FOUND"},
+	sandboxdomain.ErrEnvCreateFailed:      {http.StatusBadGateway, "SANDBOX_ENV_CREATE_FAILED"},
+	sandboxdomain.ErrDepInstallFailed:     {http.StatusBadGateway, "SANDBOX_DEP_INSTALL_FAILED"},
+	sandboxdomain.ErrSpawnFailed:          {http.StatusBadGateway, "SANDBOX_SPAWN_FAILED"},
+	sandboxdomain.ErrSpawnTimeout:         {http.StatusGatewayTimeout, "SANDBOX_SPAWN_TIMEOUT"},
+	sandboxdomain.ErrEnvInUse:             {http.StatusConflict, "SANDBOX_ENV_IN_USE"},
 
 	// ask service (AskUserQuestion answer-delivery handler) /
 	// ask service（AskUserQuestion 答案投递 handler）
