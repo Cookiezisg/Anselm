@@ -424,6 +424,76 @@ func TestTotalSizeBytes(t *testing.T) {
 	}
 }
 
+// ── Layer B leak prevention ───────────────────────────────────────────────────
+
+func TestSetAndListEnvsWithRunningPID(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+		t.Fatalf("seed runtime: %v", err)
+	}
+	if err := s.CreateEnv(ctx, mkEnv("se_a", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")); err != nil {
+		t.Fatalf("seed env a: %v", err)
+	}
+	if err := s.CreateEnv(ctx, mkEnv("se_b", sandboxdomain.OwnerKindMCP, "context7", "sr_001")); err != nil {
+		t.Fatalf("seed env b: %v", err)
+	}
+
+	// Empty manifest: no envs should be returned.
+	// 空 manifest：不该返任何 env。
+	rows, err := s.ListEnvsWithRunningPID(ctx)
+	if err != nil {
+		t.Fatalf("ListEnvsWithRunningPID empty: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("baseline: want 0 envs with PID, got %d", len(rows))
+	}
+
+	// Mark se_a as having a running process; se_b stays clean.
+	// 标 se_a 有 running 进程；se_b 保持干净。
+	if err := s.SetEnvRunningPID(ctx, "se_a", 12345); err != nil {
+		t.Fatalf("SetEnvRunningPID: %v", err)
+	}
+	rows, err = s.ListEnvsWithRunningPID(ctx)
+	if err != nil {
+		t.Fatalf("ListEnvsWithRunningPID after set: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "se_a" {
+		t.Fatalf("want only se_a, got %v", rows)
+	}
+	if rows[0].RunningPID != 12345 {
+		t.Errorf("RunningPID = %d, want 12345", rows[0].RunningPID)
+	}
+	if rows[0].RunningStartedAt.IsZero() {
+		t.Error("RunningStartedAt not set on SetEnvRunningPID")
+	}
+}
+
+func TestClearEnvRunningPID(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+		t.Fatalf("seed runtime: %v", err)
+	}
+	if err := s.CreateEnv(ctx, mkEnv("se_a", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")); err != nil {
+		t.Fatalf("seed env: %v", err)
+	}
+	if err := s.SetEnvRunningPID(ctx, "se_a", 12345); err != nil {
+		t.Fatalf("SetEnvRunningPID: %v", err)
+	}
+	if err := s.ClearEnvRunningPID(ctx, "se_a"); err != nil {
+		t.Fatalf("ClearEnvRunningPID: %v", err)
+	}
+	rows, err := s.ListEnvsWithRunningPID(ctx)
+	if err != nil {
+		t.Fatalf("ListEnvsWithRunningPID after clear: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("after clear: want 0 envs with PID, got %d", len(rows))
+	}
+}
+
 func TestListEnvsLastUsedBefore(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()

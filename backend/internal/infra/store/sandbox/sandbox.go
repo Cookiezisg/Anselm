@@ -304,3 +304,60 @@ func (s *Store) ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*san
 	}
 	return rows, nil
 }
+
+// ── Layer B leak prevention ───────────────────────────────────────────────────
+
+// SetEnvRunningPID records that a long-lived process is alive in this
+// env. Service.SpawnLongLived calls this right after Start succeeds, so
+// a subsequent crash leaves a manifest trail for boot-time scan.
+//
+// SetEnvRunningPID 记录该 env 有长生命周期进程活着。
+// Service.SpawnLongLived 在 Start 成功后立刻调，让后续 crash 留下
+// manifest 痕迹给启动扫描用。
+func (s *Store) SetEnvRunningPID(ctx context.Context, envID string, pid int) error {
+	if err := s.db.WithContext(ctx).
+		Model(&sandboxdomain.Env{}).
+		Where("id = ?", envID).
+		Updates(map[string]any{
+			"running_pid":        pid,
+			"running_started_at": time.Now(),
+		}).Error; err != nil {
+		return fmt.Errorf("sandboxstore.SetEnvRunningPID %s: %w", envID, err)
+	}
+	return nil
+}
+
+// ClearEnvRunningPID resets running_pid + running_started_at to zero
+// values. trackedHandle.Wait/Kill calls this on graceful exit so the
+// boot-time scan doesn't try to re-kill an already-dead PID.
+//
+// ClearEnvRunningPID 把 running_pid + running_started_at 重置为零值。
+// trackedHandle.Wait/Kill 优雅退出时调，让启动扫描不试图再 kill 已死 PID。
+func (s *Store) ClearEnvRunningPID(ctx context.Context, envID string) error {
+	if err := s.db.WithContext(ctx).
+		Model(&sandboxdomain.Env{}).
+		Where("id = ?", envID).
+		Updates(map[string]any{
+			"running_pid":        0,
+			"running_started_at": time.Time{},
+		}).Error; err != nil {
+		return fmt.Errorf("sandboxstore.ClearEnvRunningPID %s: %w", envID, err)
+	}
+	return nil
+}
+
+// ListEnvsWithRunningPID returns envs whose running_pid > 0 — the boot-
+// time scan iterates these to detect + kill survivors of the previous
+// run that bypassed Layer A's graceful Shutdown.
+//
+// ListEnvsWithRunningPID 返 running_pid > 0 的 env——启动扫描遍历这些
+// 检测 + 杀掉绕过层 A 优雅 Shutdown 的上次运行残留。
+func (s *Store) ListEnvsWithRunningPID(ctx context.Context) ([]*sandboxdomain.Env, error) {
+	var rows []*sandboxdomain.Env
+	if err := s.db.WithContext(ctx).
+		Where("running_pid > ?", 0).
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("sandboxstore.ListEnvsWithRunningPID: %w", err)
+	}
+	return rows, nil
+}

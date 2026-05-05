@@ -98,13 +98,36 @@ func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner,
 	}
 
 	id := s.nextHandleID.Add(1)
+	envRow, lookupErr := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
+	envID := ""
+	if lookupErr == nil {
+		envID = envRow.ID
+	}
 	tracked := &trackedHandle{
 		inner:   inner,
 		id:      id,
 		owner:   owner,
+		envID:   envID,
 		service: s,
 	}
 	s.activeHandles.Store(id, tracked)
+
+	// Layer B leak prevention: record PID in manifest so a crash before
+	// Wait/Kill leaves a trail for the next boot scan. Best-effort —
+	// failures log but don't abort the spawn (the Layer A registry above
+	// already protects graceful shutdown).
+	//
+	// 层 B leak 防御：把 PID 记 manifest，让 Wait/Kill 前 crash 给下次
+	// 启动扫描留痕迹。Best-effort——失败 log 不中止 spawn（上面的层 A
+	// 注册表已保护优雅 shutdown）。
+	if envID != "" {
+		if err := s.repo.SetEnvRunningPID(ctx, envID, inner.PID()); err != nil {
+			s.log.Warn("sandbox: track running pid failed",
+				zap.String("env_id", envID),
+				zap.Int("pid", inner.PID()),
+				zap.Error(err))
+		}
+	}
 	return tracked, nil
 }
 
@@ -266,6 +289,7 @@ type trackedHandle struct {
 	inner   sandboxdomain.LongLivedHandle
 	id      uint64
 	owner   sandboxdomain.Owner
+	envID   string // empty if envID lookup failed at SpawnLongLived time
 	service *Service
 }
 
@@ -276,13 +300,31 @@ func (t *trackedHandle) PID() int              { return t.inner.PID() }
 
 func (t *trackedHandle) Wait() error {
 	err := t.inner.Wait()
-	t.service.activeHandles.Delete(t.id)
+	t.unregister()
 	return err
 }
 
 func (t *trackedHandle) Kill() error {
 	err := t.inner.Kill()
-	t.service.activeHandles.Delete(t.id)
+	t.unregister()
 	return err
+}
+
+// unregister drops the handle from activeHandles AND clears the manifest
+// running_pid column (Layer B). Idempotent — sync.Map.Delete and
+// ClearEnvRunningPID both no-op on already-cleared state.
+//
+// unregister 把 handle 从 activeHandles 移除 + 清 manifest running_pid 列
+// （层 B）。幂等——sync.Map.Delete 和 ClearEnvRunningPID 对已清状态都 no-op。
+func (t *trackedHandle) unregister() {
+	t.service.activeHandles.Delete(t.id)
+	if t.envID == "" {
+		return
+	}
+	if err := t.service.repo.ClearEnvRunningPID(context.Background(), t.envID); err != nil {
+		t.service.log.Warn("sandbox: clear running pid failed",
+			zap.String("env_id", t.envID),
+			zap.Error(err))
+	}
 }
 

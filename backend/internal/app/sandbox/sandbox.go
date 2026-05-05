@@ -191,6 +191,14 @@ func (s *Service) Bootstrap(ctx context.Context) error {
 	s.bootstrapErr.Store(nil)
 	s.bootstrapped.Store(true)
 	s.log.Info("sandbox bootstrap ready", zap.String("mise_bin", miseBin))
+
+	// Layer B leak prevention: scan manifest for running PIDs from the
+	// previous run, kill survivors, clear stale columns. Best-effort —
+	// failures are logged inside the helper.
+	//
+	// 层 B leak 防御：扫 manifest 找上次运行的 running PID，杀残留 + 清
+	// stale 列。Best-effort——helper 内 log 失败。
+	s.RestoreOrCleanupOnBoot(ctx)
 	return nil
 }
 

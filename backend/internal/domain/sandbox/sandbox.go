@@ -147,6 +147,23 @@ type Env struct {
 	CreatedAt  time.Time `json:"createdAt"`
 	LastUsedAt time.Time `gorm:"index"                                                     json:"lastUsedAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+
+	// RunningPID > 0 means a long-lived process from this env was alive
+	// at last manifest write. Service.Bootstrap scans for these on boot
+	// and kills any survivors (Layer B leak prevention; covers app crashes
+	// that bypass Layer A's graceful Shutdown). 0 = no tracked process.
+	//
+	// RunningPID > 0 表示上次 manifest 写时该 env 有长生命周期进程活着。
+	// Service.Bootstrap 启动扫这些 + 杀残留（层 B leak 防御；防 app crash
+	// 绕过层 A 优雅 Shutdown）。0 = 无跟踪进程。
+	// Note: explicit `column:running_pid` tag — GORM's default NamingStrategy
+	// would otherwise produce "running_p_id" from the RunningPID field name
+	// (it doesn't recognize PID as an acronym).
+	//
+	// 注：显式 `column:running_pid` tag——GORM 默认 NamingStrategy 否则
+	// 会把 RunningPID 字段名转成 "running_p_id"（不识别 PID 是缩略词）。
+	RunningPID       int       `gorm:"column:running_pid;default:0;index"  json:"runningPid,omitempty"`
+	RunningStartedAt time.Time `                                            json:"runningStartedAt,omitempty"`
 }
 
 // TableName pins the SQLite table name.
@@ -277,4 +294,10 @@ type Repository interface {
 	// 聚合查询——UI 显示磁盘占用 + GC 候选筛选。
 	TotalSizeBytes(ctx context.Context) (int64, error)
 	ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*Env, error)
+
+	// Layer B leak prevention: track + scan running PIDs.
+	// 层 B leak 防御：跟踪 + 扫描 running PID。
+	SetEnvRunningPID(ctx context.Context, envID string, pid int) error
+	ClearEnvRunningPID(ctx context.Context, envID string) error
+	ListEnvsWithRunningPID(ctx context.Context) ([]*Env, error)
 }
