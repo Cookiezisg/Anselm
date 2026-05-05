@@ -467,8 +467,11 @@ sandboxService.RegisterInstaller(
     static.NewEnvManager(),
 )
 
-// 未来加 Erlang / Elixir / Lua / Zig / etc.：1 行注册搞定
-// sandboxService.RegisterInstaller(mise.NewInstaller(miseBin, "elixir", "1.16"), mise.NewEnvManager("elixir"))
+// 长尾语言（Erlang / Elixir / Lua / Zig / Deno / etc.）v1 已可用——
+// MiseInstaller 通配负责装 runtime，env 走 GenericEnvManager 兜底（mkdir
+// + 让 LLM/用户在 cwd 自己跑该语言包管理器）。仅当**给某长尾语言写专用
+// EnvManager**（深度集成，类似 Python/Node）时才需 1 行新注册。
+// sandboxService.RegisterInstaller(mise.NewInstaller(miseBin, "elixir", "1.16"), elixir.NewEnvManager())
 ```
 
 ---
@@ -1111,7 +1114,7 @@ func (s *Service) RetryBootstrap(ctx context.Context) error  // 用户点 retry
 | 内置 system tools (Read/Write/Edit/Glob/Grep/WebFetch/WebSearch/Task/Ask/TaskCreate/...) | ✅ | 路径用 \，代码已 filepath.Join |
 | MCP **Python 类**（MarkItDown / DuckDuckGo / SQLite）| ✅ | mise 装 Python 在 Windows OK |
 | MCP **Node 类**（Playwright / Context7 / everything）| ✅ | mise 装 Node 在 Windows OK |
-| MCP **Java**（v2 加） | ⚠️ 部分 | Adoptium Windows JDK 能装；mvn/gradle wrapper 路径可能有坑 |
+| MCP **Java server**（v1 暂无内置 Java 写的 server；JDK 装 + Maven local repo 隔离基础设施已 v1 ready，等社区出 Java MCP server 即可启用）| ⚠️ 部分 | Adoptium Windows JDK 能装；mvn/gradle wrapper 路径可能有坑 |
 | MCP **Ruby / PHP / Erlang / Elixir / Lua / Crystal / Zig / 长尾** | ❌ | mise 这些用 bash plugin，Windows 无 bash。RegistryEntry 标 `UnsupportedPlatforms: ["windows"]` → marketplace 在 Windows 隐藏 |
 | Bash tool | ⚠️ 改 | Windows 用 PowerShell 替代 sh；命令兼容性大部分一致；shell 差异 LLM 自适应 |
 | Forge Python venv | ✅ | uv 跨平台原生 |
