@@ -1,23 +1,28 @@
-// installer_static.go — RuntimeInstaller for plugins shipped as a single
-// pre-built static binary (e.g. GitHub MCP is a Go binary with no runtime
-// deps; some MCP servers are Rust binaries; future Forgify-internal tools
-// might ship the same way).
+// static.go — pre-built static-binary runtime support: StaticBinaryInstaller
+// (HTTP-download a single binary, optional SHA256 verification, atomic
+// write + chmod + darwin codesign) and StaticBinaryEnvManager (no
+// per-env install — the binary is the entire payload).
 //
-// Behaviour: HTTP GET the URL, write to disk under
-// <sandboxRoot>/static-binaries/<kind>/<filename>, chmod 0755, run
-// macCodesign on darwin to defang Gatekeeper. SHA256 verification is
-// optional (passed via the version string in the form
-// "sha256:<hex>@<url>"); if no checksum is supplied, install proceeds
-// unverified (caller's choice).
+// Use case: plugins that ship as one self-contained executable with no
+// language runtime dependencies (GitHub MCP being a Go static binary
+// is the canonical example; v1 doesn't pre-register any but the
+// scaffolding is here for future plugins).
 //
-// installer_static.go ——给以单个预构建静态二进制发布的 plugin 用
-// （如 GitHub MCP 是 Go binary 无 runtime 依赖；某些 MCP server 是 Rust
-// binary；未来 Forgify 内部 tool 也可能这样发）。
+// Layout per (kind, version) install:
 //
-// 行为：HTTP GET URL，写到 <sandboxRoot>/static-binaries/<kind>/<filename>，
-// chmod 0755，darwin 上跑 macCodesign 解 Gatekeeper。SHA256 校验可选
-// （通过 version 字符串以 "sha256:<hex>@<url>" 形式传）；不带 checksum
-// 则不校验进行 install（调用方选择）。
+//	<sandboxRoot>/static-binaries/<kind>/<filename>
+//
+// where <filename> is derived from the URL's path basename. The same
+// binary serves all envs of this kind (it lives outside per-env dirs);
+// per-env "binaries" don't make sense for self-contained executables.
+//
+// static.go ——预构建 static-binary runtime 支持：StaticBinaryInstaller
+// （HTTP 下单 binary、可选 SHA256 校验、原子写 + chmod + darwin codesign）
+// + StaticBinaryEnvManager（无 per-env install——binary 本身就是全部 payload）。
+//
+// 用例：发布为单个自包含可执行文件、无语言 runtime 依赖的 plugin
+// （GitHub MCP 是 Go 静态二进制，典型案例；v1 不预注册但脚手架在此供
+// 未来 plugin 用）。
 
 package sandbox
 
@@ -45,6 +50,8 @@ import (
 // staticBinariesSubdir 收所有 StaticBinaryInstaller 下载；每 kind 一个
 // 子目录让多个 static plugin 共存。
 const staticBinariesSubdir = "static-binaries"
+
+// ── StaticBinaryInstaller ────────────────────────────────────────────
 
 // StaticBinaryInstaller satisfies sandboxdomain.RuntimeInstaller for any
 // pre-built binary downloadable over HTTP. The Kind() name maps 1:1 to a
@@ -143,10 +150,10 @@ func (s *StaticBinaryInstaller) Install(ctx context.Context, version, sandboxRoo
 	}
 
 	// darwin: ad-hoc codesign so Gatekeeper doesn't SIGKILL on first exec.
-	// Same approach as bootstrap_mise.go ExtractMiseBinary.
+	// Same approach as ExtractMiseBinary in mise.go.
 	//
 	// darwin: ad-hoc codesign 让 Gatekeeper 首次 exec 不 SIGKILL。
-	// 与 bootstrap_mise.go ExtractMiseBinary 同套路。
+	// 与 mise.go 的 ExtractMiseBinary 同套路。
 	if runtime.GOOS == "darwin" {
 		if err := macCodesign(ctx, binPath, s.log); err != nil {
 			return "", fmt.Errorf("sandbox.StaticBinaryInstaller.Install: codesign: %w", err)
@@ -243,3 +250,73 @@ func httpGetBytesStatic(ctx context.Context, url string) ([]byte, error) {
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 200<<20))
 }
+
+// ── StaticBinaryEnvManager ───────────────────────────────────────────
+
+// StaticBinaryEnvManager satisfies sandboxdomain.EnvManager for plugins
+// installed via StaticBinaryInstaller. One instance per kind, paired
+// with a matching installer.
+//
+// StaticBinaryEnvManager 满足 sandboxdomain.EnvManager 给经
+// StaticBinaryInstaller 装的 plugin。每 kind 一个实例，与匹配 installer 配对。
+type StaticBinaryEnvManager struct {
+	kind        string
+	sandboxRoot string // absolute path to <dataDir>/sandbox/, needed for EnvBin lookup
+}
+
+// NewStaticBinaryEnvManager constructs a manager for the given kind.
+// sandboxRoot must match what StaticBinaryInstaller was given.
+//
+// NewStaticBinaryEnvManager 构造给定 kind 的 manager。sandboxRoot 必须匹配
+// StaticBinaryInstaller 收到的值。
+func NewStaticBinaryEnvManager(kind, sandboxRoot string) *StaticBinaryEnvManager {
+	return &StaticBinaryEnvManager{kind: kind, sandboxRoot: sandboxRoot}
+}
+
+// Kind reports the dispatch tag — must match StaticBinaryInstaller(kind).
+//
+// Kind 报告派发 tag——必须匹配 StaticBinaryInstaller(kind)。
+func (s *StaticBinaryEnvManager) Kind() string { return s.kind }
+
+// CreateEnv mkdirs the env directory and returns. Used by Spawn as cwd /
+// scratch space for the plugin to write logs / state files into.
+//
+// CreateEnv mkdir env 目录后返。Spawn 用作 cwd / scratch 给 plugin 写
+// log / state 文件。
+func (s *StaticBinaryEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath string) error {
+	if err := os.MkdirAll(envPath, 0o755); err != nil {
+		return fmt.Errorf("sandbox.StaticBinaryEnvManager.CreateEnv %s: %w (env: %w)", s.kind, err, sandboxdomain.ErrEnvCreateFailed)
+	}
+	return nil
+}
+
+// InstallDeps is a no-op — static binaries are self-contained.
+//
+// InstallDeps no-op——static 二进制自包含。
+func (s *StaticBinaryEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath string, deps []string, stream sandboxdomain.ProgressFunc) error {
+	return nil
+}
+
+// InstallExtras is a no-op for the same reason.
+//
+// InstallExtras 同理 no-op。
+func (s *StaticBinaryEnvManager) InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream sandboxdomain.ProgressFunc) error {
+	return nil
+}
+
+// EnvBin returns the absolute path to the static binary installed by the
+// paired StaticBinaryInstaller. Note this path is shared across all envs
+// of this kind (the binary itself lives outside per-env dirs); per-env
+// "binaries" don't make sense for static-binary plugins.
+//
+// EnvBin 返 StaticBinaryInstaller 装的 static 二进制绝对路径。注意该路径
+// 在该 kind 所有 env 间共享（二进制本体位于 per-env 目录之外）；static-binary
+// plugin 的 per-env "binary" 不适用。
+func (s *StaticBinaryEnvManager) EnvBin(envPath, binName string) string {
+	return filepath.Join(s.sandboxRoot, staticBinariesSubdir, s.kind, binName)
+}
+
+// EnvDir returns the env path unchanged — used as Spawn cwd.
+//
+// EnvDir 原样返 envPath——Spawn 用作 cwd。
+func (s *StaticBinaryEnvManager) EnvDir(envPath string) string { return envPath }

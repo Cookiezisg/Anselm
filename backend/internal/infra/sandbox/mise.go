@@ -1,38 +1,44 @@
-// installer_mise.go — generic RuntimeInstaller backed by jdx/mise.
+// mise.go — everything related to the mise universal version manager:
+// extracting the embedded mise binary at boot (ExtractMiseBinary) and
+// the generic RuntimeInstaller that wraps `mise install` / `mise where`
+// (MiseInstaller).
 //
-// One MiseInstaller instance per (kind, defaultVersion). Multiple kinds
-// share a single MISE_DATA_DIR rooted at <sandboxRoot>/mise-data/, so
-// mise's plugin manifest, version cache, and `mise where` lookups stay
-// consistent across all installed runtimes.
-//
-// Layout per (kind, version) install:
+// Layout the mise installer establishes per (kind, version):
 //
 //	<sandboxRoot>/mise-data/installs/<kind>/<resolved-version>/bin/<kind>
 //
-// The "resolved-version" matters when the caller passes a partial version
-// like "3.12" — mise expands it to "3.12.5" or whichever patch is current
-// at install time, and Install asks `mise where` for the actual path
-// before deriving the relPath returned to the service.
+// All MiseInstaller instances share one MISE_DATA_DIR rooted at
+// <sandboxRoot>/mise-data/, so mise's plugin manifest, version cache, and
+// `mise where` lookups stay consistent across all installed runtimes.
 //
-// installer_mise.go ——基于 jdx/mise 的通用 RuntimeInstaller。
+// "resolved-version" matters when callers pass a partial spec like
+// "3.12" — mise expands it to whichever patch is current at install
+// time, and Install asks `mise where` for the actual path before
+// deriving the relPath returned to the service.
 //
-// 每个 (kind, defaultVersion) 一个 MiseInstaller 实例。多 kind 共享单个
-// MISE_DATA_DIR（位于 <sandboxRoot>/mise-data/），让 mise 的 plugin
-// manifest / 版本缓存 / `mise where` 查询在所有装的 runtime 间保持一致。
+// mise.go ——所有跟 mise 通用版本管理器相关的代码：启动时抽取 embed mise
+// 二进制（ExtractMiseBinary）+ 包装 `mise install` / `mise where` 的通用
+// RuntimeInstaller（MiseInstaller）。
 //
-// 每 (kind, version) install 的布局：
+// mise installer 按 (kind, version) 建立的布局：
 //
 //	<sandboxRoot>/mise-data/installs/<kind>/<resolved-version>/bin/<kind>
 //
-// "resolved-version" 在调用方传部分版本（如 "3.12"）时有意义——mise 会展开
-// 到 "3.12.5" 或装机时该 minor 的最新 patch；Install 在 mise 装完后调
-// `mise where` 拿真实路径再算 relPath 返给 service。
+// 所有 MiseInstaller 实例共享单个 MISE_DATA_DIR（位于 <sandboxRoot>/mise-data/），
+// 让 mise 的 plugin manifest / 版本缓存 / `mise where` 查询在所有装的 runtime
+// 间保持一致。
+//
+// "resolved-version" 在调用方传部分约束（如 "3.12"）时有意义——mise 装机时
+// 展开到当时该 minor 的最新 patch；Install 在 mise 装完后调 `mise where` 拿
+// 真实路径再算 relPath 返给 service。
 
 package sandbox
 
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -41,8 +47,104 @@ import (
 	"runtime"
 	"strings"
 
+	"go.uber.org/zap"
+
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 )
+
+// ── Embed extraction ─────────────────────────────────────────────────────────
+
+// ExtractMiseBinary writes the embedded mise binary to <dataDir>/sandbox/bin/mise
+// (mise.exe on Windows), makes it executable, and on darwin runs ad-hoc
+// codesign. Idempotent — subsequent calls with an unchanged embed return
+// the existing path without re-writing. Returns the absolute path to the
+// extracted mise binary on success.
+//
+// ExtractMiseBinary 把 embed mise 二进制写到 <dataDir>/sandbox/bin/mise
+// （Windows 是 mise.exe），标记可执行，darwin 上 ad-hoc codesign。幂等——
+// embed 不变的后续调用直接返已有路径不重写。成功返 mise 二进制绝对路径。
+func ExtractMiseBinary(ctx context.Context, dataDir string, log *zap.Logger) (string, error) {
+	if len(miseBinary) == 0 {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: no mise binary embedded for %s/%s: %w",
+			runtime.GOOS, runtime.GOARCH, sandboxdomain.ErrRuntimeInstallFailed)
+	}
+
+	binDir := filepath.Join(dataDir, "sandbox", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: mkdir bin dir: %w", err)
+	}
+
+	binPath := filepath.Join(binDir, miseExeName())
+	hashPath := filepath.Join(dataDir, "sandbox", ".mise.hash")
+
+	sum := sha256.Sum256(miseBinary)
+	wantHash := hex.EncodeToString(sum[:])
+
+	// Idempotency: skip re-extract if both hash file matches AND binary on
+	// disk exists (handles "user wiped sandbox/bin but kept .mise.hash").
+	//
+	// 幂等：仅当 hash 文件匹配 *且* 二进制存在时才跳过（处理"用户清了
+	// sandbox/bin 但留了 .mise.hash"的情况）。
+	if existing, err := os.ReadFile(hashPath); err == nil && string(existing) == wantHash {
+		if _, statErr := os.Stat(binPath); statErr == nil {
+			log.Debug("mise already extracted (hash match)", zap.String("path", binPath))
+			return binPath, nil
+		}
+	}
+
+	// Atomic write: tmp + rename so partial writes never leave a half-built
+	// binary that subsequent runs would refuse to overwrite.
+	//
+	// 原子写：tmp + rename，半写永远不会留下后续运行拒绝覆盖的半成品。
+	tmp := binPath + ".tmp"
+	if err := os.WriteFile(tmp, miseBinary, 0o755); err != nil {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: write tmp: %w", err)
+	}
+	if err := os.Rename(tmp, binPath); err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: rename: %w", err)
+	}
+
+	// darwin: ad-hoc codesign so Gatekeeper does not SIGKILL the binary on
+	// first exec. macCodesign (codesign.go) walks recursively but accepts
+	// a single-file root just fine — the WalkDir hits exactly one entry.
+	//
+	// darwin: ad-hoc codesign 让 Gatekeeper 首次 exec 时不 SIGKILL。
+	// macCodesign（codesign.go）虽递归但接受单文件 root 也可——WalkDir
+	// 只命中一个 entry。
+	if runtime.GOOS == "darwin" {
+		if err := macCodesign(ctx, binPath, log); err != nil {
+			return "", fmt.Errorf("sandbox.ExtractMiseBinary: codesign: %w", err)
+		}
+	}
+
+	// Hash file write is best-effort — losing it on a crash just means the
+	// next boot re-extracts (cheap, idempotent at the filesystem level).
+	//
+	// hash 文件写是 best-effort——崩溃丢失只是下次启动重抽（便宜，文件层
+	// 仍幂等）。
+	if err := os.WriteFile(hashPath, []byte(wantHash), 0o644); err != nil {
+		log.Warn("mise hash file write failed (will re-extract next boot)", zap.Error(err))
+	}
+
+	log.Info("mise extracted",
+		zap.String("path", binPath),
+		zap.Int("size_bytes", len(miseBinary)),
+		zap.String("sha256", wantHash[:16]+"..."))
+	return binPath, nil
+}
+
+// miseExeName returns "mise.exe" on Windows, "mise" elsewhere.
+//
+// miseExeName Windows 上返 "mise.exe"，其他平台返 "mise"。
+func miseExeName() string {
+	if runtime.GOOS == "windows" {
+		return "mise.exe"
+	}
+	return "mise"
+}
+
+// ── Generic RuntimeInstaller ─────────────────────────────────────────────────
 
 // miseDataSubdir is the relative directory under sandboxRoot where mise
 // keeps its data (installs, plugins, cache). Shared by all MiseInstaller
@@ -100,8 +202,8 @@ func (m *MiseInstaller) Install(ctx context.Context, version, sandboxRoot string
 	cmd := exec.CommandContext(ctx, m.miseBin, "install", "-y", m.kind+"@"+version)
 	cmd.Env = append(os.Environ(),
 		"MISE_DATA_DIR="+dataDir,
-		"MISE_YES=1",       // skip interactive prompts
-		"MISE_QUIET=1",     // less chatty stdout (we parse stderr for progress)
+		"MISE_YES=1",   // skip interactive prompts
+		"MISE_QUIET=1", // less chatty stdout (we parse stderr for progress)
 	)
 
 	stderrPipe, err := cmd.StderrPipe()

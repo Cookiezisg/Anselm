@@ -1,15 +1,16 @@
-// installer_static_test.go — pure-function unit tests for
-// StaticBinaryInstaller. Real HTTP downloads belong in the D9 pipeline
-// suite; here we cover parseStaticVersion + path derivation in Locate.
+// static_test.go — pure-function unit tests for StaticBinaryInstaller +
+// StaticBinaryEnvManager. Real HTTP downloads belong in the D9 pipeline
+// suite; here we cover parseStaticVersion + path derivation.
 //
-// installer_static_test.go ——StaticBinaryInstaller pure-function 单测。
-// 真 HTTP 下载归 D9 pipeline 套；这里覆盖 parseStaticVersion + Locate 路径
-// 推导。
+// static_test.go ——StaticBinaryInstaller + StaticBinaryEnvManager 的
+// pure-function 单测。真 HTTP 下载归 D9 pipeline 套；这里覆盖
+// parseStaticVersion + 路径推导。
 
 package sandbox
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,6 +19,8 @@ import (
 
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 )
+
+// ── StaticBinaryInstaller ────────────────────────────────────────────
 
 var _ sandboxdomain.RuntimeInstaller = (*StaticBinaryInstaller)(nil)
 
@@ -135,5 +138,47 @@ func TestStaticBinaryInstaller_Locate_AcceptsShaPrefix(t *testing.T) {
 	want := filepath.Join("/data/sandbox", staticBinariesSubdir, "github-mcp", "binary")
 	if got != want {
 		t.Errorf("Locate sha256 form = %q, want %q", got, want)
+	}
+}
+
+// ── StaticBinaryEnvManager ───────────────────────────────────────────
+
+var _ sandboxdomain.EnvManager = (*StaticBinaryEnvManager)(nil)
+
+func TestStaticBinaryEnvManager_Kind(t *testing.T) {
+	sm := NewStaticBinaryEnvManager("github-mcp", "/data/sandbox")
+	if got := sm.Kind(); got != "github-mcp" {
+		t.Errorf("Kind() = %q, want github-mcp", got)
+	}
+}
+
+func TestStaticBinaryEnvManager_CreateEnv_Mkdirs(t *testing.T) {
+	sm := NewStaticBinaryEnvManager("github-mcp", "/tmp/sandbox")
+	envPath := filepath.Join(t.TempDir(), "envs", "mcp", "github")
+	if err := sm.CreateEnv(context.Background(), "/tmp/runtime", envPath); err != nil {
+		t.Fatalf("CreateEnv: %v", err)
+	}
+	if _, err := os.Stat(envPath); err != nil {
+		t.Errorf("env dir not created: %v", err)
+	}
+}
+
+func TestStaticBinaryEnvManager_EnvBin_PointsAtSharedBinary(t *testing.T) {
+	sm := NewStaticBinaryEnvManager("github-mcp", "/data/sandbox")
+	got := sm.EnvBin("/data/envs/mcp/github", "github-mcp")
+	want := filepath.Join("/data/sandbox", staticBinariesSubdir, "github-mcp", "github-mcp")
+	if got != want {
+		t.Errorf("EnvBin = %q, want %q (binary lives outside per-env dirs)", got, want)
+	}
+}
+
+func TestStaticBinaryEnvManager_NoOps(t *testing.T) {
+	sm := NewStaticBinaryEnvManager("github-mcp", "/data/sandbox")
+	ctx := context.Background()
+	if err := sm.InstallDeps(ctx, "/tmp/runtime", "/tmp/env", nil, nil); err != nil {
+		t.Errorf("InstallDeps: want nil, got %v", err)
+	}
+	if err := sm.InstallExtras(ctx, "/tmp/runtime", "/tmp/env", nil, nil); err != nil {
+		t.Errorf("InstallExtras: want nil, got %v", err)
 	}
 }

@@ -1,16 +1,11 @@
-// bootstrap_mise_test.go — D2-2 ExtractMiseBinary tests.
+// mise_test.go — tests for everything in mise.go: ExtractMiseBinary's
+// embed sanity / happy path / recovery, plus MiseInstaller's pure
+// metadata methods. Real `mise install` shellouts (network + tens of MB
+// of language runtime) belong in the D9 pipeline suite.
 //
-// Validates: (a) the per-platform go:embed actually loaded a non-trivial
-// mise binary (sanity check the build sees the binary asset); (b) the
-// happy-path extract writes the binary, persists the hash file, and is
-// idempotent on second call; (c) tampering with the on-disk binary
-// triggers re-extract on next call (hash mismatch path).
-//
-// bootstrap_mise_test.go ——D2-2 ExtractMiseBinary 测试。
-//
-// 验证：(a) per-platform go:embed 实际加载了非平凡的 mise 二进制（sanity
-// check 编译期能看到资源）；(b) happy-path 抽取写入二进制 + 持久化 hash 文件
-// + 二次调用幂等；(c) 篡改盘上二进制下一次调用触发重抽（hash 不匹配路径）。
+// mise_test.go ——mise.go 全部内容的测试：ExtractMiseBinary 的 embed sanity
+// / happy path / 恢复路径，加 MiseInstaller 的 pure metadata 方法。真
+// `mise install` shellout（网络 + 几十 MB 语言 runtime）归 D9 pipeline 套。
 
 package sandbox
 
@@ -21,7 +16,11 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
+
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 )
+
+// ── Embed extraction ─────────────────────────────────────────────────
 
 // TestEmbed_MiseBinaryIsNonTrivial guards against a silently broken
 // embed_mise_<goos>_<goarch>.go (e.g. wrong path in go:embed directive,
@@ -121,5 +120,41 @@ func TestExtractMiseBinary_RecoversAfterBinaryDeleted(t *testing.T) {
 	}
 	if _, err := os.Stat(second); err != nil {
 		t.Errorf("binary not re-extracted: %v", err)
+	}
+}
+
+// ── Generic RuntimeInstaller (pure metadata methods) ─────────────────
+
+// compile-time interface satisfaction check.
+var _ sandboxdomain.RuntimeInstaller = (*MiseInstaller)(nil)
+
+func TestMiseInstaller_Kind(t *testing.T) {
+	cases := []string{"python", "node", "rust", "go", "java", "ruby", "php"}
+	for _, kind := range cases {
+		mi := NewMiseInstaller("/tmp/mise", kind, "1.0")
+		if got := mi.Kind(); got != kind {
+			t.Errorf("Kind() = %q, want %q", got, kind)
+		}
+	}
+}
+
+func TestMiseInstaller_ResolveDefault_ReturnsConstructionVersion(t *testing.T) {
+	cases := map[string]string{
+		"3.12":   "3.12",
+		"22":     "22",
+		"3.12.5": "3.12.5",
+		"stable": "stable",
+		"":       "",
+	}
+	for input, want := range cases {
+		mi := NewMiseInstaller("/tmp/mise", "python", input)
+		got, err := mi.ResolveDefault(context.Background())
+		if err != nil {
+			t.Errorf("ResolveDefault(%q): %v", input, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("ResolveDefault(%q) = %q, want %q", input, got, want)
+		}
 	}
 }
