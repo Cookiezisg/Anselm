@@ -16,6 +16,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
 
@@ -30,20 +31,75 @@ type Event interface {
 // milestones (slot open, each LLM token, tool_call identified, args complete,
 // tool_result, final write) — never per-byte inside tool execution.
 //
+// Subagent contexts: when a subagent sub-runner publishes through this
+// event, SubagentRunID + ParentConversationID + SubagentRun are filled
+// in so the frontend can route the message into the per-run small-window
+// AND read live run state (token totals, lastTool*) from the same frame.
+// Main-chat publishes leave all three nil/zero — wire stays exactly
+// backward-compatible (all three are omitempty + the embedded Message
+// JSON is hoisted to the top level by MarshalJSON).
+//
 // ChatMessage 携带完整 Message 快照。在 message 级关键时刻触发（slot 创建 /
 // 每个 LLM token / tool_call 识别 / args 完整 / tool_result / 终态写入），
 // 不在 tool 执行内部逐字节推送。
+//
+// Subagent 上下文：subagent sub-runner 发本事件时填 SubagentRunID +
+// ParentConversationID + SubagentRun，让前端按 run 路由到流式小窗 +
+// 同帧读 run 实时状态（token 累计、lastTool*）。主对话发布全置 nil/zero
+// ——wire 完全向后兼容（三字段 omitempty + MarshalJSON 把嵌入 Message
+// 的 JSON 提升到顶层）。
 type ChatMessage struct {
 	*chatdomain.Message
+	SubagentRunID        string                       `json:"subagentRunId,omitempty"`
+	ParentConversationID string                       `json:"parentConversationId,omitempty"`
+	SubagentRun          *subagentdomain.SubagentRun  `json:"subagentRun,omitempty"`
 }
 
 func (ChatMessage) EventName() string { return "chat.message" }
 
+// MarshalJSON hoists the embedded *chatdomain.Message fields to the
+// top level (so wire shape matches GET /api/v1/messages/{id}) and merges
+// the three subagent-context fields beside them when set. Main-chat
+// callers (no subagent fields) produce the exact same bytes as
+// json.Marshal(e.Message) did before the extension.
+//
+// MarshalJSON 把嵌入的 *chatdomain.Message 字段提升到顶层（wire 形状与
+// GET /api/v1/messages/{id} 一致），并在设置时合并三个 subagent 上下文字段。
+// 主对话调用方（三字段未设）产出与扩展前 json.Marshal(e.Message) 完全相同
+// 的字节。
 func (e ChatMessage) MarshalJSON() ([]byte, error) {
 	if e.Message == nil {
 		return []byte("null"), nil
 	}
-	return json.Marshal(e.Message)
+	// Fast path: zero subagent context → emit Message unchanged so existing
+	// wire bytes match exactly (no new keys, no key reordering).
+	// 快路径：零 subagent 上下文 → Message 原样输出，wire 字节完全不变。
+	if e.SubagentRunID == "" && e.ParentConversationID == "" && e.SubagentRun == nil {
+		return json.Marshal(e.Message)
+	}
+	// Slow path: marshal Message, decode to a generic map, splice the three
+	// extras in. Cheap because subagent path runs at sub-runner cadence
+	// (much less frequent than main chat publishing).
+	// 慢路径：marshal Message → 解到 map → 插入三字段。subagent 路径以
+	// sub-runner 节奏运行（远少于主对话推送），开销可接受。
+	base, err := json.Marshal(e.Message)
+	if err != nil {
+		return nil, err
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(base, &merged); err != nil {
+		return nil, err
+	}
+	if e.SubagentRunID != "" {
+		merged["subagentRunId"] = e.SubagentRunID
+	}
+	if e.ParentConversationID != "" {
+		merged["parentConversationId"] = e.ParentConversationID
+	}
+	if e.SubagentRun != nil {
+		merged["subagentRun"] = e.SubagentRun
+	}
+	return json.Marshal(merged)
 }
 
 // Forge carries a full Forge snapshot (including .Pending). Fired on every
