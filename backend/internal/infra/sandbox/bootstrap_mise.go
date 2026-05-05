@@ -1,88 +1,144 @@
-// bootstrap_mise.go — D1-6 scaffold for the v2 PluginSandbox bootstrap.
-// Design pinned here; binaries fetched + embedded by D2 once cmd/resources
-// is rewritten to download mise per-platform.
+// bootstrap_mise.go — D2-2 mise bootstrap implementation.
 //
-// Plan (per documents/version-1.2/service-design-documents/sandbox.md §3 +
-// §17, and the 2026-05-05 conversation decisions):
+// ExtractMiseBinary writes the per-platform embedded mise binary (declared
+// in embed_mise_<goos>_<goarch>.go via go:embed) to <dataDir>/sandbox/bin/mise,
+// chmods 0755, and on darwin runs ad-hoc codesign so macOS Gatekeeper does
+// not SIGKILL the binary. Idempotent via SHA256 hash check at
+// <dataDir>/sandbox/.mise.hash — re-extraction only happens when the
+// embedded binary changes (mise version bump in cmd/resources fetch).
 //
-//   - Bundle a single mise binary per supported platform via go:embed.
-//     Layout under this package:
+// On unsupported (GOOS, GOARCH) tuples (e.g. freebsd, linux/386), the
+// fallback embed_mise_unsupported.go declares an empty miseBinary;
+// ExtractMiseBinary detects this and returns ErrRuntimeInstallFailed
+// wrapped with platform info, allowing Service.Bootstrap to flip Degraded
+// Mode instead of crashing.
 //
-//         mise/darwin-arm64/mise
-//         mise/darwin-amd64/mise
-//         mise/linux-amd64/mise
-//         mise/linux-arm64/mise
-//         mise/windows-amd64/mise.exe
+// Codesign rationale: ad-hoc `codesign --force --sign -` does not require
+// an Apple Developer ID and is enough to bypass Gatekeeper's SIGKILL on
+// quarantined binaries (issue uv#16726). Once the project obtains an Apple
+// Developer ID, the cmd/resources fetcher (or release pipeline) should
+// switch to proper notarization and this step becomes unnecessary.
 //
-//   - One *_<goos>_<goarch>.go file per platform declares
+// bootstrap_mise.go ——D2-2 mise bootstrap 实现。
 //
-//         //go:embed mise/<goos>-<goarch>/mise[.exe]
-//         var miseBinary []byte
+// ExtractMiseBinary 把 per-platform embed mise 二进制（在
+// embed_mise_<goos>_<goarch>.go 通过 go:embed 声明）写到
+// <dataDir>/sandbox/bin/mise，chmod 0755，darwin 上 ad-hoc codesign 让
+// macOS Gatekeeper 不会 SIGKILL 二进制。靠 <dataDir>/sandbox/.mise.hash
+// 的 SHA256 hash 校验幂等——仅当 embed 二进制变（cmd/resources fetch 升版）
+// 才重新抽取。
 //
-//     so only the current build's binary is linked in. Other 4 stay on
-//     disk in cmd/resources output and never bloat the binary.
+// 不支持 (GOOS, GOARCH) 时（如 freebsd、linux/386）embed_mise_unsupported.go
+// 声明空 miseBinary；ExtractMiseBinary 检测后返 ErrRuntimeInstallFailed
+// 包装平台信息，让 Service.Bootstrap 翻 Degraded Mode 而非 crash。
 //
-//   - extractMise writes miseBinary to <dataDir>/sandbox/bin/mise, sets
-//     0755, and on darwin runs ad-hoc codesign (--sign -) via the existing
-//     macCodesign helper in preflight.go to defang Gatekeeper without an
-//     Apple Developer ID. When the Developer ID arrives, swap the ad-hoc
-//     hack for proper notarization in cmd/resources or release pipeline.
-//
-//   - Bootstrap idempotency: extractMise records a hash of the embedded
-//     binary in <dataDir>/sandbox/.mise.hash; subsequent boots skip when
-//     the hash is unchanged.
-//
-//   - Failure path: if no embed exists for the current GOOS/GOARCH (e.g.
-//     freebsd, or a future platform we haven't built), extractMise must
-//     return ErrPlatformUnsupported (not yet a sentinel — see D2 task list)
-//     so the Service.Bootstrap caller can flip the Degraded Mode banner.
-//
-// D2 fills in:
-//
-//   1. cmd/resources rewrite to download mise binaries (with checksum +
-//      retries) into the package's mise/<goos>-<goarch>/ directory.
-//   2. The 5 per-platform _<goos>_<goarch>.go files with the embed directive.
-//   3. extractMise body + hash idempotency.
-//   4. Wiring into Service.Bootstrap (currently no Service exists; it lands
-//      in D2 as well).
-//
-// bootstrap_mise.go ——D1-6 v2 PluginSandbox bootstrap 的骨架文件。
-// 设计固化于此；二进制下载与 embed 留待 D2（cmd/resources 重写为按平台拉
-// mise 后填进来）。
-//
-// 方案（依 sandbox.md §3 + §17 + 2026-05-05 对话决策）：
-//
-//   - 用 go:embed 按平台单独捆 mise 二进制，目录布局见英文段。
-//   - 每平台一份 _<goos>_<goarch>.go 声明 `//go:embed ...` + miseBinary，
-//     当前 build 只链入当前平台的二进制；另 4 份留在 cmd/resources 输出
-//     目录，不污染 binary 体积。
-//   - extractMise 把 miseBinary 写到 <dataDir>/sandbox/bin/mise + 0755；
-//     darwin 上调 preflight.go 的 macCodesign（ad-hoc `--sign -`）在没有
-//     Apple Developer ID 时绕开 Gatekeeper。等 Developer ID 到位换正式
-//     notarization（cmd/resources 或 release pipeline 改）。
-//   - 幂等：extractMise 把 embedded 二进制 hash 写到
-//     <dataDir>/sandbox/.mise.hash；重启时 hash 没变跳过。
-//   - 失败路径：当前 GOOS/GOARCH 无 embed 时（如 freebsd），extractMise
-//     返 ErrPlatformUnsupported（待 D2 加 sentinel）让 Service.Bootstrap
-//     翻 Degraded Mode 横幅。
-//
-// D2 实施：
-//   1. cmd/resources 重写为 mise per-platform 下载器（checksum + 重试）。
-//   2. 5 份 per-platform _<goos>_<goarch>.go embed 文件。
-//   3. extractMise 函数体 + hash 幂等。
-//   4. 接进 Service.Bootstrap（Service 本身也在 D2 落地）。
+// Codesign 理由：ad-hoc `codesign --force --sign -` 不需 Apple Developer ID，
+// 足以绕过 Gatekeeper 对 quarantined 二进制的 SIGKILL（issue uv#16726）。
+// 等项目拿到 Apple Developer ID，cmd/resources fetcher（或 release pipeline）
+// 切换到正式 notarization，本步骤就不再需要。
 
 package sandbox
 
-// extractMisePlaceholder is a build-time anchor for D1-6 — its sole purpose
-// is to make the new bootstrap_mise.go file participate in compilation so
-// the design notes above are not silently dropped from the package.
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	"go.uber.org/zap"
+
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+)
+
+// ExtractMiseBinary writes the embedded mise binary to <dataDir>/sandbox/bin/mise
+// (mise.exe on Windows), makes it executable, and on darwin runs ad-hoc
+// codesign. Idempotent — subsequent calls with an unchanged embed return
+// the existing path without re-writing. Returns the absolute path to the
+// extracted mise binary on success.
 //
-// D2 deletes this and replaces with extractMise(dataDir string) error.
+// ExtractMiseBinary 把 embed mise 二进制写到 <dataDir>/sandbox/bin/mise
+// （Windows 是 mise.exe），标记可执行，darwin 上 ad-hoc codesign。幂等——
+// embed 不变的后续调用直接返已有路径不重写。成功返 mise 二进制绝对路径。
+func ExtractMiseBinary(ctx context.Context, dataDir string, log *zap.Logger) (string, error) {
+	if len(miseBinary) == 0 {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: no mise binary embedded for %s/%s: %w",
+			runtime.GOOS, runtime.GOARCH, sandboxdomain.ErrRuntimeInstallFailed)
+	}
+
+	binDir := filepath.Join(dataDir, "sandbox", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: mkdir bin dir: %w", err)
+	}
+
+	binPath := filepath.Join(binDir, miseExeName())
+	hashPath := filepath.Join(dataDir, "sandbox", ".mise.hash")
+
+	sum := sha256.Sum256(miseBinary)
+	wantHash := hex.EncodeToString(sum[:])
+
+	// Idempotency: skip re-extract if both hash file matches AND binary on
+	// disk exists (handles "user wiped sandbox/bin but kept .mise.hash").
+	//
+	// 幂等：仅当 hash 文件匹配 *且* 二进制存在时才跳过（处理"用户清了
+	// sandbox/bin 但留了 .mise.hash"的情况）。
+	if existing, err := os.ReadFile(hashPath); err == nil && string(existing) == wantHash {
+		if _, statErr := os.Stat(binPath); statErr == nil {
+			log.Debug("mise already extracted (hash match)", zap.String("path", binPath))
+			return binPath, nil
+		}
+	}
+
+	// Atomic write: tmp + rename so partial writes never leave a half-built
+	// binary that subsequent runs would refuse to overwrite.
+	//
+	// 原子写：tmp + rename，半写永远不会留下后续运行拒绝覆盖的半成品。
+	tmp := binPath + ".tmp"
+	if err := os.WriteFile(tmp, miseBinary, 0o755); err != nil {
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: write tmp: %w", err)
+	}
+	if err := os.Rename(tmp, binPath); err != nil {
+		_ = os.Remove(tmp)
+		return "", fmt.Errorf("sandbox.ExtractMiseBinary: rename: %w", err)
+	}
+
+	// darwin: ad-hoc codesign so Gatekeeper does not SIGKILL the binary on
+	// first exec. macCodesign (preflight.go) walks recursively but accepts
+	// a single-file root just fine — the WalkDir hits exactly one entry.
+	//
+	// darwin: ad-hoc codesign 让 Gatekeeper 首次 exec 时不 SIGKILL。
+	// macCodesign（preflight.go）虽递归但接受单文件 root 也可——WalkDir
+	// 只命中一个 entry。
+	if runtime.GOOS == "darwin" {
+		if err := macCodesign(ctx, binPath, log); err != nil {
+			return "", fmt.Errorf("sandbox.ExtractMiseBinary: codesign: %w", err)
+		}
+	}
+
+	// Hash file write is best-effort — losing it on a crash just means the
+	// next boot re-extracts (cheap, idempotent at the filesystem level).
+	//
+	// hash 文件写是 best-effort——崩溃丢失只是下次启动重抽（便宜，文件层
+	// 仍幂等）。
+	if err := os.WriteFile(hashPath, []byte(wantHash), 0o644); err != nil {
+		log.Warn("mise hash file write failed (will re-extract next boot)", zap.Error(err))
+	}
+
+	log.Info("mise extracted",
+		zap.String("path", binPath),
+		zap.Int("size_bytes", len(miseBinary)),
+		zap.String("sha256", wantHash[:16]+"..."))
+	return binPath, nil
+}
+
+// miseExeName returns "mise.exe" on Windows, "mise" elsewhere.
 //
-// extractMisePlaceholder 是 D1-6 的编译期占位符——唯一作用是让本骨架文件
-// 进入编译，避免上面的设计注释被无声丢弃。D2 删除并替换为
-// extractMise(dataDir string) error。
-//
-//lint:ignore U1000 D1-6 scaffold; D2 replaces with the real extractMise.
-func extractMisePlaceholder() {}
+// miseExeName Windows 上返 "mise.exe"，其他平台返 "mise"。
+func miseExeName() string {
+	if runtime.GOOS == "windows" {
+		return "mise.exe"
+	}
+	return "mise"
+}

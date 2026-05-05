@@ -8,14 +8,16 @@
 // per-platform binaries.
 //
 // Layout under the source tree (the per-platform sub-dirs match D2-2's
-// embed pattern; .gitignore at mise/ keeps binaries out of git):
+// embed pattern; .gitignore at mise/ keeps binaries out of git). Paths
+// below are relative to the backend module root — the command must run
+// from there (Makefile + devbox bootstrap both `cd backend` first):
 //
-//	backend/internal/infra/sandbox/mise/.gitignore
-//	backend/internal/infra/sandbox/mise/darwin-arm64/mise
-//	backend/internal/infra/sandbox/mise/darwin-amd64/mise
-//	backend/internal/infra/sandbox/mise/linux-amd64/mise
-//	backend/internal/infra/sandbox/mise/linux-arm64/mise
-//	backend/internal/infra/sandbox/mise/windows-amd64/mise.exe
+//	internal/infra/sandbox/mise/.gitignore
+//	internal/infra/sandbox/mise/darwin-arm64/mise
+//	internal/infra/sandbox/mise/darwin-amd64/mise
+//	internal/infra/sandbox/mise/linux-amd64/mise
+//	internal/infra/sandbox/mise/linux-arm64/mise
+//	internal/infra/sandbox/mise/windows-amd64/mise.exe
 //
 // Pin version via MISE_VERSION env (defaults to "latest", resolved through
 // the GitHub releases API). The fetcher trusts mise's official SHA256SUMS
@@ -80,7 +82,10 @@ type platform struct {
 
 func (p platform) key() string { return p.goos + "-" + p.goarch }
 func (p platform) outDir() string {
-	return filepath.Join("backend", "internal", "infra", "sandbox", "mise", p.key())
+	// Path relative to backend module root (Makefile + devbox bootstrap
+	// both `cd backend` before invoking us, so the cwd is backend/).
+	// 路径相对 backend module 根（Makefile + devbox bootstrap 都先 cd backend）。
+	return filepath.Join("internal", "infra", "sandbox", "mise", p.key())
 }
 func (p platform) outBin() string { return filepath.Join(p.outDir(), p.binName) }
 
@@ -263,16 +268,17 @@ func writeBinary(r io.Reader, dst string) error {
 	return os.Rename(tmp, dst)
 }
 
-// lookupSum scans a SHASUMS256.txt blob for the line whose 2nd column equals
+// lookupSum scans a SHASUMS256.txt blob for the line whose 2nd column matches
 // assetName and returns the hex digest from the 1st column. mise's format
-// is `<hex>  <name>` (two spaces).
+// is `<hex>  ./<name>` — names are prefixed with `./`, so we strip it
+// before comparing.
 //
-// lookupSum 扫 SHASUMS256.txt blob 找第 2 列等于 assetName 的行，返第 1 列的
-// hex digest。mise 格式 `<hex>  <name>`（两空格）。
+// lookupSum 扫 SHASUMS256.txt blob 找第 2 列匹配 assetName 的行，返第 1 列的
+// hex digest。mise 格式 `<hex>  ./<name>`——文件名带 `./` 前缀，比较前剥掉。
 func lookupSum(sums []byte, assetName string) (string, error) {
 	for _, line := range strings.Split(string(sums), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[1] == assetName {
+		if len(fields) >= 2 && strings.TrimPrefix(fields[1], "./") == assetName {
 			return fields[0], nil
 		}
 	}
