@@ -104,7 +104,7 @@
 - **S12 包结构** — 见 §S12 详节
 - **S13 包命名** — 见 §S13 详节
 - **S14 📌 文档同步纪律** — 见 §S14 详节（**最高优先级**）
-- **S15 ID 生成统一**：业务 ID 一律 `<prefix>_<16hex>` 格式（前缀按 domain 取，如 `aki_` apikey / `mc_` model config / `cv_` conversation / `msg_` message / `att_` attachment / `blk_` block / `f_` forge / `fv_` forge version / `tc_` test case / `frh_` forge run history / `fth_` forge test history）；8 字节从 `crypto/rand` 取，**`rand.Read` 失败必须 panic**——熵源损坏继续会生成碰撞 ID。所有 `newID()` 函数遵守此格式
+- **S15 ID 生成统一**：业务 ID 一律 `<prefix>_<16hex>` 格式（前缀按 domain 取，如 `aki_` apikey / `mc_` model config / `cv_` conversation / `msg_` message / `att_` attachment / `blk_` block / `f_` forge / `fv_` forge version / `tc_` test case / `fe_` forge execution（Phase 5 起，统一替代旧 `frh_`/`fth_` 两表）/ `b_` forge test 批跑 batch / `tk_` task / `bsh_` Bash 后台 shell 进程）；8 字节从 `crypto/rand` 取，**`rand.Read` 失败必须 panic**——熵源损坏继续会生成碰撞 ID。所有 `newID()` 函数遵守此格式（实现统一在 `pkg/idgen.New(prefix)`）
 - **S16 错误包装格式**：上抛错误用 `fmt.Errorf("<pkg>.<Method>: %w", err)`，sentinel 在最里层。例：`apikeystore.List: missing user id in context`。**禁止**裸 `errors.New` 套娃丢失原 sentinel；**禁止**自创新前缀代替 `%w` 包装。`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17 errmap 单一事实源**：每个会到达 handler 的 sentinel 必须登记到 `transport/httpapi/response/errmap.go::errTable`——**包括** `pkg/` 和 `infra/` 中跨层使用的（如 `reqctxpkg.ErrMissingUserID` / `cryptoinfra.ErrUnsupportedVersion`）。未登记的 sentinel 会触发"unmapped domain error" ERROR 日志，污染烟雾报警
 - **S18 Tool 接口规约** — 见 §S18 详节
@@ -121,7 +121,7 @@
 - **T3 外部依赖测试用环境变量门控**：调真实 LLM API / 网络等的集成测试，必须用 `os.Getenv("DEEPSEEK_API_KEY")` 等检查 + `t.Skip` 跳过，**不允许默认跑**——否则离线 / CI 必红
 - **T4 删导出符号必搜测试引用**：`deadcode` 工具默认不扫测试代码，所以"看起来死的"导出函数可能正被契约测试用。删之前 grep 一遍 `_test.go` 确认。**反之**，如果导出符号确实只用于测试，加注释说明"生产不调用，仅测试契约用"避免再被误判（例：`ListProviders` / `ListScenarios`）
 - **T5 大功能模块完工必加 pipeline 测试 + 必须幂等**：每个**大功能模块**——一个 domain 的 CRUD 闭环 / 一个跨域流程 / 一个 SSE 事件家族 / 一个新 system tool 家族——完工时必须在 `backend/test/<domain>_pipeline_test.go` 追加端到端测试，用 `harness.New(t)` 真起 in-process backend（真 Bridge / 真 LLM / 真 sandbox / 真 SQLite），HTTP 驱动 + SSE 观测对真实 wire 行为做断言。运行入口 `make test-pipeline`（自动 source `.env` + `-tags=pipeline`），单测套件不进。**幂等是硬要求**——同一个 test 任意次数重跑结果必须一致：(a) 默认 `harness.New(t)` 每次拿全新内存 SQLite，天然隔离；(b) 若 test 故意复用 harness 跑多步骤，每步开头自己用 `h.DB.Exec("DELETE FROM ... WHERE ...")` 显式清理；(c) 涉及外部状态（文件系统 / 长生效的 LLM 上下文 / 外部 API 副作用）的，test 末尾或 `t.Cleanup` 兜底回滚；(d) **任何 test 不得依赖前一次运行残留**——这条破了 CI 红一片你都查不到原因。**触发场景**：完成 Phase X / 大重构 / 新 endpoint family 后，"端到端跑通一遍"是 acceptance criteria 的一部分，不是 nice-to-have
-- **T6 Pipeline 默认 fake LLM；依赖项缺失时优雅 skip**：`backend/test/` 下的 pipeline 测试默认用 `FakeLLMServer`（不依赖外网）。**需要真实 LLM** 的测试：(a) 函数名加 `Live_` 前缀（如 `TestChat_Live_ReasoningModel_BlocksSeparate`）；(b) 开头调 `RequireDeepSeekKey(t)` gate——`DEEPSEEK_API_KEY` 未设时 skip（`make test-pipeline` source `.env`，有 key 则自动跑）。**需要真实 sandbox** 的测试：开头调 `RequireForgeResources(t, h)` gate——`FORGIFY_DEV_RESOURCES` 未设时 skip；`cd backend && go run ./cmd/resources` 下载资源后可跑。fake LLM 注入点：`harness.New(t, WithFakeLLMBaseURL(fake.URL()))` + `SeedDeepSeek(t, "fake-key")`
+- **T6 Pipeline 默认 fake LLM；依赖项缺失时优雅 skip**：`backend/test/` 下的 pipeline 测试默认用 `FakeLLMServer`（不依赖外网）。**需要真实 LLM** 的测试：(a) 函数名加 `Live_` 前缀（如 `TestChat_Live_ReasoningModel_BlocksSeparate`）；(b) 开头调 `RequireDeepSeekKey(t)` gate——`DEEPSEEK_API_KEY` 未设时 skip（`make test-pipeline` source `.env`，有 key 则自动跑）。**需要真实 sandbox v2** 的测试（D2 后）：要求 `backend/internal/infra/sandbox/mise/<goos>-<goarch>/mise` 存在；缺则 skip，跑 `make resources` 拉一份。fake LLM 注入点：`harness.New(t, WithFakeLLMBaseURL(fake.URL()))` + `SeedDeepSeek(t, "fake-key")`
 
 ---
 
@@ -507,6 +507,23 @@ func (t *SearchForge) CheckPermissions(json.RawMessage, toolapp.PermissionMode) 
 func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) { ... }
 ```
 
+## 8. 静态元数据 3 字段对照表（实战示例）
+
+> **重要**：`NeedsReadFirst` / `RequiresWorkspace` 当前是**文档性元数据**——框架不强制，靠每个 tool 在 Execute 内部自查（must-Read-first 守卫读 `AgentState.SeenFiles`，PathGuard 守卫调 `pathguard.Allow`）。新加 tool 时如果声明 true 但忘了在 Execute 内 check，元数据就是撒谎，框架不会发现——务必自查。`IsReadOnly` 当前纯文档（execution_group 接管了并发调度），仅用于人读 / 未来 scheduler 提示。
+
+| Tool | IsReadOnly | NeedsReadFirst | RequiresWorkspace | 备注 |
+|---|---|---|---|---|
+| `Read` | ✅ | ❌ | ✅ | 走 PathGuard；Read 自身是产生 SeenFiles 标记的源头，所以自己不需要 must-Read-first |
+| `Write` | ❌ | ✅ | ✅ | 覆写时强制 must-Read-first；新建文件路径无需 |
+| `Edit` | ❌ | ✅ | ✅ | 字面量替换；must-Read-first + size 失配检测外部修改 |
+| `Grep` / `Glob` | ✅ | ❌ | ✅ | 走 PathGuard；只读 |
+| `Bash` / `BashOutput` / `KillShell` | ❌（KillShell）/ ✅（BashOutput） / ❌（Bash） | ❌ | **❌** | **故意不走 PathGuard**——单用户本地场景下 Bash 是用户日常命令的代理，banned-list 没价值；`RequiresWorkspace=false` 是设计决策（详 `02-tools-deep/03-shell.md` 决策 D5，安全 trade-off）|
+| `WebFetch` / `WebSearch` | ✅ | ❌ | ❌ | 网络 tool 不碰文件系统；SSRF 守卫在 Execute 内部（不通过 RequiresWorkspace）|
+| `TaskCreate` / `TaskUpdate` | ❌ | ❌ | ❌ | 改对话级 to-do；纯 DB 操作 |
+| `TaskList` / `TaskGet` / `AskUserQuestion` | ✅ | ❌ | ❌ | 只读 / 等待答案 |
+| `create_forge` / `edit_forge` / `run_forge` | ❌ | ❌ | ❌ | mutate 用户 forge 库；走 sandbox |
+| `search_forges` / `get_forge` | ✅ | ❌ | ❌ | 只读 |
+
 简单 tool 的 5 个 boilerplate 方法每个 1 行。并行决策由 LLM 自报的 `execution_group` 完成，tool 不再做 `IsConcurrencySafe` 判断。
 
 ---
@@ -526,7 +543,7 @@ func (t *SearchForge) Execute(ctx context.Context, args string) (string, error) 
 | 命令 | 用途 | 是否 source `.env` | 范围 |
 |---|---|---|---|
 | **`make test-unit`** | **改完代码默认跑这个**——纯函数 / in-memory SQLite 套件 | ❌ 不 source | `go test -count=1 ./... -skip TestIntegration_`（明确跳过所有 `TestIntegration_*` 集成测试） |
-| **`make test-pipeline`** | 端到端套件（Phase 边界 / 大重构 / 新 endpoint family 后必跑） | ✅ source `.env` | `go test -count=1 -tags=pipeline ./test/...`；DEEPSEEK key 在则跑 Live_ 测试，否则 t.Skip；FORGIFY_DEV_RESOURCES 在则跑真 sandbox |
+| **`make test-pipeline`** | 端到端套件（Phase 边界 / 大重构 / 新 endpoint family 后必跑） | ✅ source `.env` | `go test -count=1 -tags=pipeline ./test/...`；DEEPSEEK key 在则跑 Live_ 测试，否则 t.Skip；mise embed 在则跑真 sandbox |
 | **`make test-console`** | 起 dev 服务器（不是测试，是手动验证用的入口） | ✅ source `.env` | `go run ./cmd/server --dev` + 自动开浏览器 testend 控制台 |
 
 **为何不直接 `go test ./...`**：会跑到 `TestIntegration_*` 这种调真实 LLM API 的集成测试。`go test` 不自动 load `.env`，env 缺 `DEEPSEEK_API_KEY` 时这些测试 fail——但这是 **noise，不是真 regression**。`make test-unit` 用 `-skip TestIntegration_` 一刀切掉，测试输出干净。
@@ -554,4 +571,4 @@ func requireKey(t *testing.T) string {
 - **桌面端集成方式**：Wails 当窗口外壳 + 复用 httpapi（**不走** Wails native binding，详见 `desktop-packaging-notes.md`）
 - **chat 已用 Block 模型**（messages 表是元数据，内容在 message_blocks）
 - **测试基线**：~170 单测全绿；5 个 LLM 集成测试因 `DEEPSEEK_API_KEY` 环境失效，与基线一致，不算回归
-- **`infra/sandbox` 捆绑 uv + python-build-standalone**，每个不同 deps 集合一个独立 venv（按 EnvID hash 命名共享），不是 Docker（本地单用户，过度工程）。dev 期资源走 `$FORGIFY_DEV_RESOURCES`（默认 `~/.forgify-dev-resources`），prod 走 `cmd/desktop` embed.FS。`make dev` / `test-console` / `test-pipeline` 都 `ensure-resources` 前置（缺则自动跑 `cd backend && go run ./cmd/resources`）；裸跑 `go run ./cmd/server` 时记得自己 `export FORGIFY_DEV_RESOURCES=...`，否则 AST parser 落到不存在的捆绑 python 路径会让 forge 代码生成误报 "AST parse failed"
+- **`infra/sandbox` v2 捆绑 mise**（~25 MB binary），lazy install 各语言 runtime（python/node/rust/...）+ per-plugin 隔离 env（forge / mcp / skill / conversation 4 类 owner）。SQLite 双表 manifest（sandbox_runtimes + sandbox_envs）。dev 与 prod 都走 `go:embed` 把 mise binary 编进 binary——`make resources` 把 mise 拉到 `backend/internal/infra/sandbox/mise/<goos>-<goarch>/` 给 embed 用（默认仅当前平台，加 `ALL=1` 拉全 5 平台供 release pipeline）。devbox bootstrap 自动跑 `cd backend && go run ./cmd/resources`。**v1 dev resources** (`~/.forgify-dev-resources/` 的 uv + python-build-standalone) 已废弃；forge sandbox v1 在 D2-5 切到 v2 service 前会返 `ErrSandboxUnavailable`

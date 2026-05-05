@@ -1,231 +1,315 @@
-// Command resources fetches the uv binary + python-build-standalone tarball
-// for the current platform into FORGIFY_DEV_RESOURCES (default
-// ~/.forgify-dev-resources), named so internal/infra/sandbox.Bootstrap can
-// find them:
+// Command resources downloads jdx/mise release binaries into the source
+// tree at backend/internal/infra/sandbox/mise/<goos>-<goarch>/mise[.exe],
+// where D2-2's per-platform go:embed directives pick them up at compile time.
 //
-//	uv-<platform>             ← bundled uv binary (no .tar.gz wrapper)
-//	python-<platform>.tar.gz  ← python-build-standalone install_only tarball
+// Default mode fetches just the current platform's binary (fast — what
+// developers run locally). Pass --all-platforms to fetch all 5 supported
+// platforms; this is what release builds invoke before cross-compiling
+// per-platform binaries.
 //
-// Pin versions via env vars (defaults match devbox.lock's uv@0.11 +
-// matching cpython-3.12 PBS release; bump in lockstep):
+// Layout under the source tree (the per-platform sub-dirs match D2-2's
+// embed pattern; .gitignore at mise/ keeps binaries out of git):
 //
-//	UV_VERSION       e.g. 0.11.8
-//	PBS_TAG          e.g. 20260414
-//	PYTHON_VERSION   e.g. 3.12   (matched as prefix against PBS assets)
-//	FORGIFY_DEV_RESOURCES
+//	backend/internal/infra/sandbox/mise/.gitignore
+//	backend/internal/infra/sandbox/mise/darwin-arm64/mise
+//	backend/internal/infra/sandbox/mise/darwin-amd64/mise
+//	backend/internal/infra/sandbox/mise/linux-amd64/mise
+//	backend/internal/infra/sandbox/mise/linux-arm64/mise
+//	backend/internal/infra/sandbox/mise/windows-amd64/mise.exe
 //
-// Command resources 下载当前平台的 uv 二进制 + python-build-standalone
-// tarball 到 FORGIFY_DEV_RESOURCES（默认 ~/.forgify-dev-resources），按
-// internal/infra/sandbox.Bootstrap 期望的文件名命名。版本默认与 devbox.lock
-// 的 uv@0.11 + 对应 cpython-3.12 PBS release 对齐，升级时同步改。
+// Pin version via MISE_VERSION env (defaults to "latest", resolved through
+// the GitHub releases API). The fetcher trusts mise's official SHA256SUMS
+// asset and aborts on hash mismatch.
+//
+// Note: this command replaced the v1 uv + python-build-standalone fetcher
+// (which targeted ~/.forgify-dev-resources). PluginSandbox v2 has mise
+// install python + uv lazily on first use, so the v1 dev resources
+// directory is no longer consumed. Forge sandbox v1 will return
+// ErrSandboxUnavailable until D2-5 migrates forge to the v2 service —
+// short-lived gap during the D2 sub-task chain.
+//
+// Command resources 把 jdx/mise release 二进制下到源码树
+// backend/internal/infra/sandbox/mise/<goos>-<goarch>/mise[.exe]，
+// 由 D2-2 的 per-platform go:embed 编译期取走。
+//
+// 默认拉当前平台（开发本地快），加 --all-platforms 拉全 5 平台
+// （release pipeline 跨平台编译前用）。版本 pin via MISE_VERSION env，
+// 默认 "latest" 走 GitHub releases API 解析。fetcher 校验 mise 官方
+// SHA256SUMS asset，hash 不匹配立即 abort。
+//
+// 注：本命令替换了 v1 的 uv + python-build-standalone fetcher（原向
+// ~/.forgify-dev-resources/）。PluginSandbox v2 改由 mise 在首次使用时
+// lazy install python + uv，v1 dev resources 目录不再被消费。Forge sandbox v1
+// 将返 ErrSandboxUnavailable 直到 D2-5 把 forge 迁到 v2 service——D2 子任务
+// 链中的短暂过渡期。
 package main
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 )
 
-const (
-	defaultUVVersion     = "0.11.8"
-	defaultPBSTag        = "20260414"
-	defaultPythonVersion = "3.12"
-)
-
-// platformMap entry: maps Go's (GOOS, GOARCH) to the upstream Rust-style
-// triplet used by uv + python-build-standalone release assets, and the
-// sandbox.platformKey() form ("<goos>-<goarch>") used as filename suffix.
+// platform encodes one supported (GOOS, GOARCH) tuple plus the upstream
+// asset naming mise uses (macos≠darwin, x64≠amd64) and the archive
+// extension (zip on windows, tar.gz elsewhere).
 //
-// platformMap 把 Go 的 (GOOS, GOARCH) 映射到 uv + PBS release 用的 Rust 风格
-// triplet，和 sandbox.platformKey() 的 "<goos>-<goarch>" 文件名后缀。
+// platform 编一个支持的 (GOOS, GOARCH) tuple + mise 上游 asset 命名
+// （macos≠darwin、x64≠amd64）+ 归档格式（windows .zip，其余 .tar.gz）。
 type platform struct {
-	key      string // <goos>-<goarch>, used as filename suffix
-	upstream string // Rust-style triplet for upstream releases
+	goos    string // Go GOOS — used for output sub-dir naming
+	goarch  string // Go GOARCH — used for output sub-dir naming
+	miseOS  string // mise asset OS name: "linux" / "macos" / "windows"
+	miseArc string // mise asset arch name: "x64" / "arm64"
+	archExt string // archive format: ".tar.gz" or ".zip"
+	binName string // binary name inside archive: "mise" or "mise.exe"
 }
 
-var platforms = map[string]platform{
-	"darwin/arm64": {"darwin-arm64", "aarch64-apple-darwin"},
-	"darwin/amd64": {"darwin-amd64", "x86_64-apple-darwin"},
-	"linux/amd64":  {"linux-amd64", "x86_64-unknown-linux-gnu"},
-	"linux/arm64":  {"linux-arm64", "aarch64-unknown-linux-gnu"},
+func (p platform) key() string { return p.goos + "-" + p.goarch }
+func (p platform) outDir() string {
+	return filepath.Join("backend", "internal", "infra", "sandbox", "mise", p.key())
+}
+func (p platform) outBin() string { return filepath.Join(p.outDir(), p.binName) }
+
+var supported = []platform{
+	{"darwin", "arm64", "macos", "arm64", ".tar.gz", "mise"},
+	{"darwin", "amd64", "macos", "x64", ".tar.gz", "mise"},
+	{"linux", "amd64", "linux", "x64", ".tar.gz", "mise"},
+	{"linux", "arm64", "linux", "arm64", ".tar.gz", "mise"},
+	{"windows", "amd64", "windows", "x64", ".zip", "mise.exe"},
 }
 
 func main() {
-	plat, ok := platforms[runtime.GOOS+"/"+runtime.GOARCH]
-	if !ok {
-		log.Fatalf("unsupported platform: %s/%s", runtime.GOOS, runtime.GOARCH)
+	var (
+		allPlatforms = flag.Bool("all-platforms", false, "fetch binaries for all 5 supported platforms (release pipeline)")
+		force        = flag.Bool("force", false, "redownload even when output file already exists")
+	)
+	flag.Parse()
+
+	version := os.Getenv("MISE_VERSION")
+	if version == "" {
+		fmt.Println("→ resolving latest mise release ...")
+		version = mustLatestTag("jdx/mise")
+	}
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
 	}
 
-	uvVersion := envOr("UV_VERSION", defaultUVVersion)
-	pbsTag := envOr("PBS_TAG", defaultPBSTag)
-	pyVersion := envOr("PYTHON_VERSION", defaultPythonVersion)
-	resourcesDir := envOr("FORGIFY_DEV_RESOURCES", filepath.Join(mustHome(), ".forgify-dev-resources"))
-
-	if uvVersion == "" {
-		fmt.Println("→ resolving latest uv version ...")
-		uvVersion = mustLatestTag("astral-sh/uv")
-	}
-	if pbsTag == "" {
-		fmt.Println("→ resolving latest python-build-standalone release ...")
-		pbsTag = mustLatestTag("astral-sh/python-build-standalone")
+	targets := []platform{currentPlatform()}
+	if *allPlatforms {
+		targets = supported
 	}
 
-	uvOut := filepath.Join(resourcesDir, "uv-"+plat.key)
-	pyOut := filepath.Join(resourcesDir, "python-"+plat.key+".tar.gz")
-
-	// Idempotent skip: both files already present → nothing to do.
-	// Force re-download by `rm -rf $FORGIFY_DEV_RESOURCES/` first.
-	// 幂等跳过：两个文件都在则什么都不做。强制重下先 rm。
-	if fileExists(uvOut) && fileExists(pyOut) {
-		fmt.Printf("✓ sandbox resources present at %s (%s)\n", resourcesDir, plat.key)
-		return
-	}
-	fmt.Printf("→ sandbox resources missing for %s, downloading...\n", plat.key)
-
-	if err := os.MkdirAll(resourcesDir, 0o755); err != nil {
-		log.Fatalf("mkdir %s: %v", resourcesDir, err)
-	}
-
-	fmt.Printf("→ uv %s (%s) → %s\n", uvVersion, plat.upstream, uvOut)
-	if err := fetchUV(uvVersion, plat.upstream, uvOut); err != nil {
-		log.Fatalf("uv: %v", err)
+	for _, p := range targets {
+		fmt.Printf("\n=== %s (mise %s/%s, %s) ===\n", p.key(), p.miseOS, p.miseArc, p.archExt)
+		out := p.outBin()
+		if !*force && fileExists(out) {
+			fmt.Printf("✓ already present: %s\n", out)
+			continue
+		}
+		if err := os.MkdirAll(p.outDir(), 0o755); err != nil {
+			log.Fatalf("mkdir %s: %v", p.outDir(), err)
+		}
+		if err := fetchOne(version, p); err != nil {
+			log.Fatalf("%s: %v", p.key(), err)
+		}
+		fmt.Printf("✓ wrote %s\n", out)
 	}
 
-	fmt.Printf("→ python-build-standalone %s (cpython-%s-%s)\n", pbsTag, pyVersion, plat.upstream)
-	if err := fetchPBS(pbsTag, pyVersion, plat.upstream, pyOut); err != nil {
-		log.Fatalf("python: %v", err)
+	fmt.Printf("\n✓ done. Embed layout ready under backend/internal/infra/sandbox/mise/\n")
+	if !*allPlatforms {
+		fmt.Printf("  (current platform only; pass --all-platforms for the full release set)\n")
 	}
-
-	fmt.Printf("\n✓ resources ready: %s\n", resourcesDir)
-	fmt.Printf("  uv:     %s\n", uvOut)
-	fmt.Printf("  python: %s\n\n", pyOut)
-	fmt.Printf("  Add to your shell:  export FORGIFY_DEV_RESOURCES=%s\n", resourcesDir)
 }
 
-// fetchUV downloads the uv release tarball, extracts the inner `uv` binary,
-// writes it to dst, and chmods 0755.
+// currentPlatform returns the supported entry matching runtime.GOOS/GOARCH or
+// dies if the host platform isn't in our v1 matrix.
 //
-// fetchUV 下载 uv release tarball，解出内部的 `uv` 二进制写到 dst 并 chmod 0755。
-func fetchUV(version, upstream, dst string) error {
-	url := fmt.Sprintf("https://github.com/astral-sh/uv/releases/download/%s/uv-%s.tar.gz", version, upstream)
-	resp, err := httpGet(url)
-	if err != nil {
-		return err
+// currentPlatform 返回匹配 runtime.GOOS/GOARCH 的支持项；不在 v1 矩阵则 fatal。
+func currentPlatform() platform {
+	for _, p := range supported {
+		if p.goos == runtime.GOOS && p.goarch == runtime.GOARCH {
+			return p
+		}
 	}
-	defer resp.Body.Close()
+	log.Fatalf("unsupported host platform %s/%s; mise embed only ships %d targets",
+		runtime.GOOS, runtime.GOARCH, len(supported))
+	return platform{}
+}
 
-	gz, err := gzip.NewReader(resp.Body)
+// fetchOne downloads + verifies + extracts the mise binary for one platform.
+//
+// fetchOne 下载 + 校验 + 解压一份 mise 二进制（单平台）。
+func fetchOne(version string, p platform) error {
+	assetName := fmt.Sprintf("mise-%s-%s-%s%s", version, p.miseOS, p.miseArc, p.archExt)
+	url := fmt.Sprintf("https://github.com/jdx/mise/releases/download/%s/%s", version, assetName)
+
+	fmt.Printf("→ download %s\n", url)
+	body, err := httpGetBytes(url)
+	if err != nil {
+		return fmt.Errorf("download: %w", err)
+	}
+
+	// SHA256 verification — mise publishes SHASUMS256.txt next to assets.
+	// Match the line `<hex>  <assetName>` then compare to local hash.
+	//
+	// SHA256 校验——mise 在 release 旁边发布 SHASUMS256.txt。匹配
+	// `<hex>  <assetName>` 行后比本地 hash。
+	sumsURL := fmt.Sprintf("https://github.com/jdx/mise/releases/download/%s/SHASUMS256.txt", version)
+	sums, err := httpGetBytes(sumsURL)
+	if err != nil {
+		return fmt.Errorf("download SHASUMS256.txt: %w", err)
+	}
+	want, err := lookupSum(sums, assetName)
+	if err != nil {
+		return fmt.Errorf("checksum lookup: %w", err)
+	}
+	gotSum := sha256.Sum256(body)
+	got := hex.EncodeToString(gotSum[:])
+	if got != want {
+		return fmt.Errorf("sha256 mismatch: want %s got %s", want, got)
+	}
+	fmt.Printf("✓ sha256 ok\n")
+
+	if p.archExt == ".tar.gz" {
+		return extractTarGz(body, p.binName, p.outBin())
+	}
+	return extractZip(body, p.binName, p.outBin())
+}
+
+// extractTarGz finds binName inside a tar.gz blob and writes it to dst with
+// 0755. mise's tarball layout puts the binary at "mise/bin/mise" — we
+// match by Base name to stay resilient to layout tweaks.
+//
+// extractTarGz 从 tar.gz 找到 binName 写到 dst，权限 0755。mise tarball
+// 把二进制放在 "mise/bin/mise"——按 Base 名匹配以抗布局微调。
+func extractTarGz(blob []byte, binName, dst string) error {
+	gz, err := gzip.NewReader(bytes.NewReader(blob))
 	if err != nil {
 		return fmt.Errorf("gunzip: %w", err)
 	}
 	defer gz.Close()
-
 	tr := tar.NewReader(gz)
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
-			return fmt.Errorf("uv binary not found in tarball")
+			return fmt.Errorf("%s not found in tarball", binName)
 		}
 		if err != nil {
 			return fmt.Errorf("tar next: %w", err)
 		}
-		if hdr.Typeflag != tar.TypeReg || filepath.Base(hdr.Name) != "uv" {
+		if hdr.Typeflag != tar.TypeReg || filepath.Base(hdr.Name) != binName {
 			continue
 		}
-		out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+		return writeBinary(tr, dst)
+	}
+}
+
+// extractZip finds binName inside a zip blob and writes it to dst. Used for
+// the windows-amd64 asset.
+//
+// extractZip 从 zip blob 找 binName 写到 dst。windows-amd64 asset 用。
+func extractZip(blob []byte, binName, dst string) error {
+	zr, err := zip.NewReader(bytes.NewReader(blob), int64(len(blob)))
+	if err != nil {
+		return fmt.Errorf("unzip: %w", err)
+	}
+	for _, f := range zr.File {
+		if filepath.Base(f.Name) != binName {
+			continue
+		}
+		rc, err := f.Open()
 		if err != nil {
-			return fmt.Errorf("open %s: %w", dst, err)
+			return fmt.Errorf("open zip entry: %w", err)
 		}
-		if _, err := io.Copy(out, tr); err != nil {
-			out.Close()
-			return fmt.Errorf("write %s: %w", dst, err)
-		}
-		return out.Close()
+		err = writeBinary(rc, dst)
+		rc.Close()
+		return err
 	}
+	return fmt.Errorf("%s not found in zip", binName)
 }
 
-// fetchPBS hits the GitHub Releases API for the given PBS tag, locates the
-// install_only asset matching cpython-<pyVersion>.* + upstream triplet, then
-// streams the tarball to dst.
+// writeBinary streams r into dst with 0755 permission. Uses tmp+rename for
+// atomicity so partial downloads never leave a half-written binary.
 //
-// fetchPBS 调 PBS release API 找到匹配 cpython-<pyVersion>.* + upstream triplet
-// 的 install_only asset，流式下载到 dst。
-func fetchPBS(tag, pyVersion, upstream, dst string) error {
-	apiURL := fmt.Sprintf("https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/%s", tag)
-	resp, err := httpGet(apiURL)
+// writeBinary 把 r 流到 dst，权限 0755。tmp+rename 原子写避免半成品。
+func writeBinary(r io.Reader, dst string) error {
+	tmp := dst + ".tmp"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err != nil {
-		return err
+		return fmt.Errorf("open %s: %w", tmp, err)
 	}
-	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if err != nil {
-		return fmt.Errorf("read release JSON: %w", err)
-	}
-
-	// Match the install_only asset URL — escape pyVersion's "." since it's
-	// regex-significant. Pattern mirrors the bash grep in the original script.
-	// 匹配 install_only asset URL——pyVersion 里的 "." 要转义。
-	pat := fmt.Sprintf(`https://[^"]*cpython-%s\.[^"]*-%s-install_only\.tar\.gz`,
-		regexp.QuoteMeta(pyVersion), regexp.QuoteMeta(upstream))
-	m := regexp.MustCompile(pat).Find(body)
-	if m == nil {
-		return fmt.Errorf("no asset matching cpython-%s.* + %s in release %s\n  browse https://github.com/astral-sh/python-build-standalone/releases/tag/%s",
-			pyVersion, upstream, tag, tag)
-	}
-
-	dl, err := httpGet(string(m))
-	if err != nil {
-		return err
-	}
-	defer dl.Body.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", dst, err)
-	}
-	if _, err := io.Copy(out, dl.Body); err != nil {
+	if _, err := io.Copy(out, r); err != nil {
 		out.Close()
-		return fmt.Errorf("write %s: %w", dst, err)
+		_ = os.Remove(tmp)
+		return fmt.Errorf("write %s: %w", tmp, err)
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", tmp, err)
+	}
+	return os.Rename(tmp, dst)
 }
 
-// httpGet GETs url and returns the response only on 2xx; caller closes Body.
+// lookupSum scans a SHASUMS256.txt blob for the line whose 2nd column equals
+// assetName and returns the hex digest from the 1st column. mise's format
+// is `<hex>  <name>` (two spaces).
 //
-// httpGet 发 GET，仅 2xx 返回 response；调用方负责关 Body。
-func httpGet(url string) (*http.Response, error) {
+// lookupSum 扫 SHASUMS256.txt blob 找第 2 列等于 assetName 的行，返第 1 列的
+// hex digest。mise 格式 `<hex>  <name>`（两空格）。
+func lookupSum(sums []byte, assetName string) (string, error) {
+	for _, line := range strings.Split(string(sums), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[1] == assetName {
+			return fields[0], nil
+		}
+	}
+	return "", fmt.Errorf("no entry for %s in SHASUMS256.txt", assetName)
+}
+
+// httpGetBytes GETs url and returns the full body, or an error on non-2xx /
+// network failure. Body capped at 100 MB defensive against accidental
+// content-type surprises (mise binary is ~25 MB).
+//
+// httpGetBytes 拉 url 返完整 body，非 2xx / 网络失败返错。100 MB 上限防意外
+// content-type 巨型响应（mise 二进制 ~25 MB）。
+func httpGetBytes(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("get %s: %w", url, err)
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
-		resp.Body.Close()
 		return nil, fmt.Errorf("get %s: status %s", url, resp.Status)
 	}
-	return resp, nil
+	return io.ReadAll(io.LimitReader(resp.Body, 100<<20))
 }
 
-// mustLatestTag returns the latest release tag for owner/repo or dies.
+// mustLatestTag returns the latest tag for owner/repo via GitHub API; fatal
+// on failure.
 //
-// mustLatestTag 返 owner/repo 最新 release tag，失败 fatal。
+// mustLatestTag 通过 GitHub API 返 owner/repo 最新 tag；失败 fatal。
 func mustLatestTag(repo string) string {
-	resp, err := httpGet("https://api.github.com/repos/" + repo + "/releases/latest")
+	body, err := httpGetBytes("https://api.github.com/repos/" + repo + "/releases/latest")
 	if err != nil {
 		log.Fatalf("latest tag for %s: %v", repo, err)
 	}
-	defer resp.Body.Close()
 	var v struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+	if err := json.Unmarshal(body, &v); err != nil {
 		log.Fatalf("decode latest tag for %s: %v", repo, err)
 	}
 	if v.TagName == "" {
@@ -234,31 +318,7 @@ func mustLatestTag(repo string) string {
 	return v.TagName
 }
 
-func envOr(key, fallback string) string {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v
-	}
-	// Special case: env var explicitly set to empty string means "resolve latest".
-	// Mirror the bash script's behavior.
-	// 特例：env var 显式设为空串表示"取 latest"——对齐 bash 脚本行为。
-	if v, ok := os.LookupEnv(key); ok && v == "" {
-		return ""
-	}
-	return fallback
-}
-
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func mustHome() string {
-	h, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("home dir: %v", err)
-	}
-	if strings.TrimSpace(h) == "" {
-		log.Fatalf("home dir empty")
-	}
-	return h
 }

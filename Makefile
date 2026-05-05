@@ -115,6 +115,18 @@ stop:
 
 # ── Optional helpers ─────────────────────────────────────────────────────────
 
+# resources — download mise binary into backend/internal/infra/sandbox/mise/
+# for go:embed (D2-2). Default: current platform only. Pass ALL=1 to fetch
+# all 5 supported platforms (release pipeline use). Pin version via
+# MISE_VERSION env (defaults to latest).
+#
+# resources——把 mise 二进制下到 backend/internal/infra/sandbox/mise/ 给
+# go:embed（D2-2）用。默认仅当前平台；ALL=1 拉全 5 平台（release pipeline 用）。
+# MISE_VERSION env 钉版本（默认 latest）。
+resources:
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/resources $(if $(ALL),--all-platforms,)
+
 # clear — stop dev backend + reset data dir.
 # clear——停 dev backend + 清数据目录。
 clear: stop

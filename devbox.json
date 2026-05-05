@@ -5,7 +5,6 @@
     "gnumake@latest"
   ],
   "env": {
-    "FORGIFY_DEV_RESOURCES": "$HOME/.forgify-dev-resources",
     "PATH": "$HOME/go/bin:$PATH"
   },
   "shell": {
