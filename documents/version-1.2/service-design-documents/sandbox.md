@@ -371,14 +371,48 @@ type EnvManager interface {
 }
 ```
 
-### v1 ship 的 Installer + EnvManager
+### v1 ship 的 Installer + EnvManager（全部 D2 实施，**无延后到 v2**）
 
-| Installer | Kind | 实现 |
+§S12 平铺规则：所有实现按 `installer_<name>.go` / `envmanager_<name>.go` 命名，
+直接放 `internal/infra/sandbox/` 下，不分子目录。
+
+#### Installer
+
+| Installer | Kind | 文件 |
 |---|---|---|
-| **mise-based generic** | `python` / `node` / `rust` / `java` / `go` / `ruby` / `php` / 其他长尾 | `infra/sandbox/installer/mise/` —— 一个包通配，按 kind 路由 |
-| **Playwright** | `browsers` | `infra/sandbox/installer/playwright/` —— 跑 `playwright install <browser>` |
-| **dotnet** | `dotnet` | `infra/sandbox/installer/dotnet/` —— 微软官方脚本封装 |
-| **static-binary** | `static` | `infra/sandbox/installer/static/` —— 直接下载二进制（如 GitHub MCP）|
+| **mise generic** | `python` / `node` / `rust` / `java` / `go` / `ruby` / `php` / 其他长尾 | `installer_mise.go` —— 一个 struct 通配，按 kind 路由 |
+| **Playwright** | `browsers` | `installer_playwright.go` —— 跑 `playwright install <browser>` |
+| **dotnet** | `dotnet` | `installer_dotnet.go` —— 微软官方 `dotnet-install.sh` / `.ps1` 封装 |
+| **static-binary** | `static` | `installer_static.go` —— 直接下载二进制（如 GitHub MCP）|
+
+#### EnvManager（一种语言一个，因包管理器互不兼容）
+
+| EnvManager | Kind | 文件 | 隔离机制 |
+|---|---|---|---|
+| **Python** | `python` | `envmanager_python.go` | `uv venv` + `uv pip install`（uv hardlink 全局 wheel cache） |
+| **Node** | `node` | `envmanager_node.go` | `pnpm install --prefix=<env_path>`（pnpm content-addressable global store + symlink）|
+| **Rust** | `rust` | `envmanager_rust.go` | `cargo install --root=<env_path>` + `CARGO_HOME=<env>/.cargo` |
+| **Go** | `go` | `envmanager_go.go` | `GOPATH=<env_path>/gopath` + `go install` |
+| **Java** | `java` | `envmanager_java.go` | **方案 A**：每 env 独立 Maven local repo，`MAVEN_OPTS=-Dmaven.repo.local=<env>/m2`。每 env 独立下载所有 jar，磁盘最大但隔离最干净——跟 venv 哲学一致 |
+| **Ruby** | `ruby` | `envmanager_ruby.go` | Bundler `BUNDLE_PATH=<env>/bundle` |
+| **PHP** | `php` | `envmanager_php.go` | Composer `--working-dir=<env>` |
+| **Playwright** | `browsers` | `envmanager_playwright.go` | 委托给 Node 的 pnpm 装 playwright npm 包；二进制 chromium 路径独立 |
+| **dotnet** | `dotnet` | `envmanager_dotnet.go` | `dotnet add package` + per-env `nuget.config` |
+| **Static binary** | `static` | `envmanager_static.go` | 无包管理；env 仅持二进制 + 启动脚本 |
+| **Generic fallback** | `*` | `envmanager_generic.go` | 兜底 EnvManager：仅 mkdir env 目录，让用户/LLM 在 cwd 自己跑包管理器。给 mise 长尾 600+ 语言（Erlang / Elixir / Lua / Zig / Deno / etc.）和未来 plugin 用 |
+
+#### D2-3 实施顺序（5 子任务，按消费方/复杂度分组）
+
+| 子任务 | 内容 | 主要消费方 |
+|---|---|---|
+| **D2-3a**（已完成）| MiseInstaller + PythonEnvManager | Forge / MarkItDown / DuckDuckGo MCP / Skill |
+| **D2-3b** | NodeEnvManager + PlaywrightInstaller + PlaywrightEnvManager | Playwright MCP / Context7 MCP / conv |
+| **D2-3c** | GenericEnvManager + StaticBinaryInstaller + StaticBinaryEnvManager | conv 长尾语言 + 未来纯静态二进制 plugin |
+| **D2-3d** | RustEnvManager + GoEnvManager | conv `cargo build` / `go run` |
+| **D2-3e** | JavaEnvManager + RubyEnvManager + PHPEnvManager | conv 三种传统语言（流程相似） |
+| **D2-3f** | DotnetInstaller + DotnetEnvManager | conv .NET |
+
+**Java EnvManager 决策**：选**方案 A**（每 env 独立 Maven local repo），代价是磁盘大但 demo 阶段不显著。pnpm/uv 共享缓存的优雅在 Maven 上做要重写 jar 解析，不值——v2 视用户反馈再优化。
 
 ### Mise installer 多 kind 注册示例
 
