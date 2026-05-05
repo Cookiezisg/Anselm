@@ -1,0 +1,231 @@
+// tools.go — Tool call execution within the ReAct loop.
+// Calls partition by LLM-supplied ExecutionGroup: same group = parallel batch;
+// different groups = sequential ascending. Calls without an explicit group
+// (≤ 0) get a unique auto-assigned group placed after all explicit ones, so
+// the safe default is "run alone, sequentially."
+//
+// tools.go — ReAct 循环内的工具调用执行。按 LLM 提供的 ExecutionGroup
+// 分组：同 group = 并行 batch；不同 group = 升序串行；无显式 group（≤ 0）
+// 获得自动 group 排在所有显式 group 之后——安全默认是"独自运行，串行"。
+package loop
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"sync"
+	"time"
+
+	"go.uber.org/zap"
+
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+)
+
+// runTools executes all tool calls in execution-group batches, publishing a
+// snapshot via host after each tool completes. parentBlocks are blocks
+// already accumulated this step (text + tool_calls); host snapshots prepend
+// them so subscribers always see the full message-so-far.
+//
+// runTools 按 execution-group 分批执行所有 tool 调用，每个 tool 跑完通过
+// host 推一次快照。parentBlocks 是本步骤已积累的 blocks（text + tool_calls），
+// host 快照前置它们让订阅者始终看到 message-so-far。
+func runTools(
+	ctx context.Context,
+	calls []chatdomain.ToolCallData,
+	byName map[string]toolapp.Tool,
+	host Host,
+	parentBlocks []chatdomain.Block,
+	log *zap.Logger,
+) []chatdomain.Block {
+	if len(calls) == 0 {
+		return nil
+	}
+	batches := partitionByExecutionGroup(calls)
+	blocks := make([]chatdomain.Block, len(calls))
+
+	var mu sync.Mutex
+	publishProgress := func() {
+		mu.Lock()
+		current := make([]chatdomain.Block, len(blocks))
+		copy(current, blocks)
+		mu.Unlock()
+		host.Publish(ctx, joinBlocks(parentBlocks, current),
+			chatdomain.StatusStreaming, "", "", "", 0, 0)
+	}
+
+	for _, b := range batches {
+		if len(b.items) > 1 {
+			var wg sync.WaitGroup
+			for _, item := range b.items {
+				wg.Add(1)
+				go func(it indexedCall) {
+					defer wg.Done()
+					blk := runOneTool(ctx, byName[it.tc.Name], it.tc, it.idx, log)
+					mu.Lock()
+					blocks[it.idx] = blk
+					mu.Unlock()
+					publishProgress()
+				}(item)
+			}
+			wg.Wait()
+		} else {
+			item := b.items[0]
+			blk := runOneTool(ctx, byName[item.tc.Name], item.tc, item.idx, log)
+			mu.Lock()
+			blocks[item.idx] = blk
+			mu.Unlock()
+			publishProgress()
+		}
+	}
+	return blocks
+}
+
+// runOneTool executes a single tool call: ValidateInput → CheckPermissions →
+// Execute, returning a tool_result block. Never errors — failures become
+// ok=false results so the LLM can react.
+//
+// runOneTool 执行单个 tool 调用：ValidateInput → CheckPermissions → Execute，
+// 返回 tool_result block。永不返 error——失败以 ok=false 呈现让 LLM 可响应。
+func runOneTool(
+	ctx context.Context,
+	t toolapp.Tool,
+	tc chatdomain.ToolCallData,
+	seq int,
+	log *zap.Logger,
+) chatdomain.Block {
+	argsJSON, _ := json.Marshal(tc.Arguments)
+
+	toolCtx := reqctxpkg.WithToolCallID(ctx, tc.ID)
+
+	start := time.Now()
+	output, errMsg, ok := executeTool(toolCtx, t, tc.Name, argsJSON, log)
+	elapsedMs := time.Since(start).Milliseconds()
+
+	d, _ := json.Marshal(chatdomain.ToolResultData{
+		ToolCallID: tc.ID,
+		OK:         ok,
+		Result:     output,
+		ErrorMsg:   errMsg,
+		ElapsedMs:  elapsedMs,
+	})
+	return chatdomain.Block{
+		ID:        idgenpkg.New("blk"),
+		Seq:       seq,
+		Type:      chatdomain.BlockTypeToolResult,
+		Data:      string(d),
+		CreatedAt: time.Now().UTC(),
+	}
+}
+
+// executeTool runs the pre-Execute hooks then Execute. Phase 3+ uses
+// PermissionModeDefault; Phase 4+ scheduler will pass real modes.
+//
+// executeTool 跑前置钩子再 Execute。Phase 3+ 用 PermissionModeDefault；
+// Phase 4+ scheduler 会传真实 mode。
+func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (string, string, bool) {
+	if t == nil {
+		msg := fmt.Sprintf("tool %q not found", name)
+		return msg, msg, false
+	}
+
+	if err := t.ValidateInput(argsJSON); err != nil {
+		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
+		return fmt.Sprintf("input validation failed: %s", err.Error()), err.Error(), false
+	}
+
+	switch t.CheckPermissions(argsJSON, toolapp.PermissionModeDefault) {
+	case toolapp.PermissionDeny:
+		log.Warn("tool permission denied", zap.String("tool", name))
+		return "permission denied for this call", "permission denied", false
+	case toolapp.PermissionAsk:
+		// Phase 4+ user-gating UI will treat Ask as a real suspension. Phase 3+
+		// falls through (treat as Allow) — single-user local desktop has nobody
+		// to ask in real time anyway.
+		//
+		// Phase 4+ 带审批 UI 的 scheduler 会把 Ask 当真挂起。Phase 3+ 落到 Allow
+		// ——单用户本地桌面没真实询问通道。
+	}
+
+	output, err := t.Execute(ctx, string(argsJSON))
+	if err != nil {
+		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
+		if output != "" {
+			return output, err.Error(), false
+		}
+		return err.Error(), err.Error(), false
+	}
+	return output, "", true
+}
+
+// indexedCall pairs a tool call with its original index so block ordering
+// survives parallel scheduling.
+//
+// indexedCall 把 tool 调用与原索引绑定，让 block 顺序在并行调度后还能复原。
+type indexedCall struct {
+	idx int
+	tc  chatdomain.ToolCallData
+}
+
+// executionBatch is one set of calls that runs in parallel. Distinct batches
+// run sequentially in ascending group-number order.
+//
+// executionBatch 是一组并行调用。不同 batch 之间按 group 号升序串行。
+type executionBatch struct {
+	items []indexedCall
+}
+
+// autoGroupBase keeps auto-assigned groups visibly higher than typical
+// LLM-supplied numbers in logs while preserving sort order.
+//
+// autoGroupBase 让自动 group 在日志里显著高于 LLM 典型值，同时保持排序正确。
+const autoGroupBase = 1000
+
+// partitionByExecutionGroup buckets calls by ExecutionGroup. Calls with
+// ExecutionGroup ≤ 0 get unique auto-assigned groups starting at
+// max(maxExplicit+1, autoGroupBase) so unspecified calls run alone after
+// all explicit batches.
+//
+// partitionByExecutionGroup 按 ExecutionGroup 分桶。≤ 0 的调用获得唯一
+// 自动 group，从 max(maxExplicit+1, autoGroupBase) 起，让未指定的调用独自
+// 运行且都排在显式 batch 之后。
+func partitionByExecutionGroup(calls []chatdomain.ToolCallData) []executionBatch {
+	if len(calls) == 0 {
+		return nil
+	}
+
+	maxExplicit := 0
+	for _, tc := range calls {
+		if tc.ExecutionGroup > maxExplicit {
+			maxExplicit = tc.ExecutionGroup
+		}
+	}
+	nextAuto := maxExplicit + 1
+	if nextAuto < autoGroupBase {
+		nextAuto = autoGroupBase
+	}
+
+	buckets := map[int][]indexedCall{}
+	var groupNums []int
+	for i, tc := range calls {
+		g := tc.ExecutionGroup
+		if g <= 0 {
+			g = nextAuto
+			nextAuto++
+		}
+		if _, ok := buckets[g]; !ok {
+			groupNums = append(groupNums, g)
+		}
+		buckets[g] = append(buckets[g], indexedCall{idx: i, tc: tc})
+	}
+
+	sort.Ints(groupNums)
+	out := make([]executionBatch, 0, len(groupNums))
+	for _, g := range groupNums {
+		out = append(out, executionBatch{items: buckets[g]})
+	}
+	return out
+}

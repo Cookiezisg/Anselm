@@ -1,12 +1,9 @@
-// history.go — LLM history construction from DB messages and in-loop extension.
-// buildHistory is called once per user turn (before the loop).
-// extendHistory is called after each tool-calling step (inside the loop).
-// Both paths share blocksToAssistantLLM — there is only one converter.
+// history.go — LLM history construction from DB messages. Used at the start
+// of each user turn to seed loop.Run. The blocks→LLM-wire converter is
+// shared with the in-loop extender via loop.BlocksToAssistantLLM.
 //
-// history.go — 从 DB 消息构建 LLM 历史 + 循环内扩展。
-// buildHistory 每个用户回合调用一次（循环前）。
-// extendHistory 在每个工具调用步骤后调用（循环内）。
-// 两条路径共用 blocksToAssistantLLM——只有一个转换器。
+// history.go — 从 DB 消息构建 LLM 历史，每个用户回合开头调一次给 loop.Run
+// 喂种子。blocks→LLM-wire 转换器与循环内扩展器共享 loop.BlocksToAssistantLLM。
 package chat
 
 import (
@@ -16,6 +13,7 @@ import (
 
 	"go.uber.org/zap"
 
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	chatinfra "github.com/sunweilin/forgify/backend/internal/infra/chat"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -69,25 +67,12 @@ func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID str
 	return out, nil
 }
 
-// extendHistory appends one ReAct step's contribution to the running history.
-// aBlocks are the assistant's response; rBlocks are the tool results.
-// This is the single point where in-loop history grows — same blocksToAssistantLLM
-// converter used by buildHistory for DB-loaded messages.
-//
-// extendHistory 把一个 ReAct 步骤的贡献追加到运行中的历史。
-// aBlocks 是 assistant 回复；rBlocks 是工具结果。
-// 这是循环内历史增长的唯一入口，与 buildHistory 使用相同的转换器。
-func extendHistory(history []llminfra.LLMMessage, aBlocks, rBlocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
-	msgs, err := blocksToAssistantLLM(append(aBlocks, rBlocks...))
-	if err != nil {
-		return nil, err
-	}
-	return append(history, msgs...), nil
-}
-
 // blocksToLLM converts one persisted Message to LLM wire messages.
+// Delegates assistant blocks to loop.BlocksToAssistantLLM (single source of
+// truth shared with the in-loop extender).
 //
-// blocksToLLM 把一条已持久化的 Message 转为 LLM 协议消息。
+// blocksToLLM 把一条已持久化的 Message 转为 LLM 协议消息。assistant blocks
+// 委托给 loop.BlocksToAssistantLLM（与循环内扩展器共享的事实源）。
 func (s *Service) blocksToLLM(ctx context.Context, m *chatdomain.Message) ([]llminfra.LLMMessage, error) {
 	switch m.Role {
 	case chatdomain.RoleUser:
@@ -97,65 +82,9 @@ func (s *Service) blocksToLLM(ctx context.Context, m *chatdomain.Message) ([]llm
 		}
 		return []llminfra.LLMMessage{msg}, nil
 	case chatdomain.RoleAssistant:
-		return blocksToAssistantLLM(m.Blocks)
+		return loopapp.BlocksToAssistantLLM(m.Blocks)
 	}
 	return nil, nil
-}
-
-// blocksToAssistantLLM converts an assistant turn's blocks into LLM wire
-// messages. A turn with tool calls expands to:
-//
-//	[assistant{text, reasoning, toolCalls}] + [N × role=tool messages]
-//
-// Used by both buildHistory (DB-loaded) and extendHistory (in-loop accumulation).
-//
-// blocksToAssistantLLM 把一个 assistant 回合的 blocks 转为 LLM 协议消息。
-// 含工具调用的回合展开为：
-//
-//	[assistant{text, reasoning, toolCalls}] + [N 条 role=tool 消息]
-func blocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
-	assistant := llminfra.LLMMessage{Role: llminfra.RoleAssistant}
-	var toolResults []llminfra.LLMMessage
-
-	for _, b := range blocks {
-		switch b.Type {
-		case chatdomain.BlockTypeReasoning:
-			var d chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("blocksToAssistantLLM: reasoning block %q: %w", b.ID, err)
-			}
-			assistant.ReasoningContent = d.Text
-
-		case chatdomain.BlockTypeText:
-			var d chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("blocksToAssistantLLM: text block %q: %w", b.ID, err)
-			}
-			assistant.Content = d.Text
-
-		case chatdomain.BlockTypeToolCall:
-			var d chatdomain.ToolCallData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("blocksToAssistantLLM: tool_call block %q: %w", b.ID, err)
-			}
-			// summary is not sent back to the LLM; re-marshal arguments without it.
-			// summary 不回传给 LLM；重新序列化 arguments 以排除 summary。
-			argsJSON, _ := json.Marshal(d.Arguments)
-			assistant.ToolCalls = append(assistant.ToolCalls, llminfra.LLMToolCall{
-				ID: d.ID, Name: d.Name, Arguments: string(argsJSON),
-			})
-
-		case chatdomain.BlockTypeToolResult:
-			var d chatdomain.ToolResultData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("blocksToAssistantLLM: tool_result block %q: %w", b.ID, err)
-			}
-			toolResults = append(toolResults, llminfra.LLMMessage{
-				Role: llminfra.RoleTool, Content: d.Result, ToolCallID: d.ToolCallID,
-			})
-		}
-	}
-	return append([]llminfra.LLMMessage{assistant}, toolResults...), nil
 }
 
 // buildUserLLMMessage converts a user message's blocks to a single LLM message.

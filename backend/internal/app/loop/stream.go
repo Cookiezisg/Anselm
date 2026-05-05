@@ -1,10 +1,9 @@
-// stream.go — One LLM call: consume stream events, publish ChatMessage
-// snapshots, assemble Blocks. No database writes happen here. The caller
-// (agentRun) owns persistence.
+// stream.go — One LLM call: consume stream events, publish snapshots via
+// host, assemble Blocks. No DB writes; loop.Run owns the persistence cadence.
 //
-// stream.go — 单次 LLM 调用：消费流事件、推 ChatMessage 快照、组装 Block。
-// 不写 DB——持久化由调用方 agentRun 负责。
-package chat
+// stream.go — 单次 LLM 调用：消费流事件、通过 host 推快照、组装 Block。
+// 不写 DB——loop.Run 控制持久化节奏。
+package loop
 
 import (
 	"context"
@@ -15,37 +14,27 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
 
 // toolAccum accumulates streaming fragments for one tool call.
-//
 // toolAccum 累积单个 tool call 的流式片段。
 type toolAccum struct {
 	id, name string
 	args     strings.Builder
 }
 
-// streamLLM executes one LLM call. As each stream event arrives it rebuilds
-// the in-progress Message snapshot (parentBlocks + this step's freshly
-// assembled blocks) and publishes a chat.message event. errMsg is "" on
-// success; on EventError it carries the upstream error text so the caller
-// can stamp it onto the persisted Message.
+// streamLLM executes one LLM call. parentBlocks are blocks already accumulated
+// from earlier ReAct steps — host snapshots prepend them so subscribers always
+// see the full message-so-far.
 //
-// parentBlocks are the blocks already accumulated from earlier ReAct steps —
-// per-token snapshots prepend them so subscribers always see the full
-// message-so-far.
-//
-// streamLLM 执行一次 LLM 调用。每个流事件到达时重建当前 Message 快照
-// （parentBlocks + 本步骤刚组装的 blocks），并推送 chat.message 事件。
-// errMsg 在成功时为 ""；EventError 触发时携带上游错误文本，供调用方写回 Message。
-//
-// parentBlocks 是 ReAct 之前步骤累积的 blocks——每 token 快照把它们前置，
-// 让订阅者始终看到完整 message-so-far。
-func (s *Service) streamLLM(
+// streamLLM 执行一次 LLM 调用。parentBlocks 是之前 ReAct 步骤累积的 blocks
+// ——host 快照前置它们让订阅者始终看到 message-so-far。
+func streamLLM(
 	ctx context.Context,
 	client llminfra.Client,
 	req llminfra.Request,
-	convID, msgID, uid string,
+	host Host,
 	parentBlocks []chatdomain.Block,
 ) (blocks []chatdomain.Block, toolCalls []chatdomain.ToolCallData, stopReason string, errMsg string, inputTokens, outputTokens int) {
 	var textBuf, reasonBuf strings.Builder
@@ -54,8 +43,7 @@ func (s *Service) streamLLM(
 
 	publish := func() {
 		current := assembleBlocks(textBuf.String(), reasonBuf.String(), accums)
-		s.publishMessageSnapshot(ctx, msgID, convID, uid,
-			joinBlocks(parentBlocks, current),
+		host.Publish(ctx, joinBlocks(parentBlocks, current),
 			chatdomain.StatusStreaming, "", "", "",
 			inputTokens, outputTokens)
 	}
@@ -113,12 +101,11 @@ func (s *Service) streamLLM(
 }
 
 // assembleBlocks builds the final Block slice from accumulated stream buffers.
-// Order: reasoning → text → tool_calls (by ToolIndex). Seq is stamped locally
-// here and overwritten globally by stampBlocks when written to the database.
+// Order: reasoning → text → tool_calls (by ToolIndex). Seq is local; the host
+// re-stamps global seq when persisting.
 //
-// assembleBlocks 从流缓冲组装最终的 Block 列表。
-// 顺序：reasoning → text → tool_calls（按 ToolIndex）。
-// Seq 在此打本地值，写 DB 时由 stampBlocks 覆盖为全局值。
+// assembleBlocks 从流缓冲组装最终的 Block 列表。顺序：reasoning → text →
+// tool_calls（按 ToolIndex）。Seq 是本地值，host 落库时重新打全局 seq。
 func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdomain.Block {
 	var blocks []chatdomain.Block
 	seq := 0
@@ -126,7 +113,7 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 	if reasoning != "" {
 		d, _ := json.Marshal(chatdomain.TextData{Text: reasoning})
 		blocks = append(blocks, chatdomain.Block{
-			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeReasoning,
+			ID: idgenpkg.New("blk"), Seq: seq, Type: chatdomain.BlockTypeReasoning,
 			Data: string(d), CreatedAt: time.Now().UTC(),
 		})
 		seq++
@@ -134,14 +121,12 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 	if text != "" {
 		d, _ := json.Marshal(chatdomain.TextData{Text: text})
 		blocks = append(blocks, chatdomain.Block{
-			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeText,
+			ID: idgenpkg.New("blk"), Seq: seq, Type: chatdomain.BlockTypeText,
 			Data: string(d), CreatedAt: time.Now().UTC(),
 		})
 		seq++
 	}
 
-	// Tool calls in deterministic order: by ToolIndex.
-	// Tool calls 按确定顺序：按 ToolIndex。
 	indices := make([]int, 0, len(accums))
 	for i := range accums {
 		indices = append(indices, i)
@@ -160,7 +145,7 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 		}
 		d, _ := json.Marshal(td)
 		blocks = append(blocks, chatdomain.Block{
-			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeToolCall,
+			ID: idgenpkg.New("blk"), Seq: seq, Type: chatdomain.BlockTypeToolCall,
 			Data: string(d), CreatedAt: time.Now().UTC(),
 		})
 		seq++
@@ -168,12 +153,8 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 	return blocks
 }
 
-// joinBlocks concatenates two block slices into a fresh slice (avoids
-// mutating either input). Used so streaming snapshots can include earlier
-// ReAct-step blocks without aliasing the agentRun-owned accumulator.
-//
-// joinBlocks 把两段 block 切片拼到新切片（不修改任何输入）。让流式快照能
-// 拼上前面 ReAct 步骤的 blocks，又不和 agentRun 维护的累加切片别名共享。
+// joinBlocks concatenates two block slices into a fresh slice (no aliasing).
+// joinBlocks 拼接两段 block 切片到新 slice（无别名）。
 func joinBlocks(a, b []chatdomain.Block) []chatdomain.Block {
 	out := make([]chatdomain.Block, 0, len(a)+len(b))
 	out = append(out, a...)
@@ -197,18 +178,12 @@ func extractToolCalls(blocks []chatdomain.Block) []chatdomain.ToolCallData {
 	return calls
 }
 
-// parseToolArgs extracts the three standard fields (summary / destructive /
-// execution_group) from raw JSON args and returns the remaining args as a
-// map for assembly into ToolCallData. Delegates to the canonical
-// toolapp.StripStandardFields and only adds the chat-side fallback of
-// surfacing malformed JSON as args["raw"] — that way the LLM still sees
-// what it sent and the tool's ValidateInput can reject with a retry signal.
+// parseToolArgs strips the three standard fields from raw JSON args via the
+// canonical toolapp.StripStandardFields, surfacing malformed JSON as
+// args["raw"] so the LLM can still see what it sent.
 //
-// parseToolArgs 从原始 JSON args 中提取三个标准字段（summary / destructive /
-// execution_group），把剩余字段装回 map 供 ToolCallData 使用。直接复用
-// toolapp.StripStandardFields，仅追加 chat 侧的兜底：JSON 损坏时塞
-// args["raw"]——让 LLM 至少能看到自己发了什么，工具 ValidateInput 据此报错
-// 让 LLM 重试。
+// parseToolArgs 用 toolapp.StripStandardFields 剥三个标准字段；JSON 损坏时
+// 把原文塞 args["raw"] 让 LLM 仍能看到自己发了什么。
 func parseToolArgs(raw string) (toolapp.StandardFields, map[string]any) {
 	if raw == "" {
 		return toolapp.StandardFields{}, map[string]any{}
@@ -221,10 +196,8 @@ func parseToolArgs(raw string) (toolapp.StandardFields, map[string]any) {
 	return fields, args
 }
 
-// sortInts is a tiny in-place ascending int sort (stdlib's sort.Ints adds
-// import weight for one call site).
-//
-// sortInts 是一个就地升序整数排序（用 stdlib sort.Ints 仅一处用就太重）。
+// sortInts is a tiny in-place ascending int sort.
+// sortInts 是一个就地升序整数排序。
 func sortInts(a []int) {
 	for i := 1; i < len(a); i++ {
 		for j := i; j > 0 && a[j-1] > a[j]; j-- {

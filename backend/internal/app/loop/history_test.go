@@ -1,9 +1,11 @@
-// history_test.go — unit tests for LLM message history reconstruction.
-// Tests blocksToAssistantLLM and blocksToAssistantLLM with synthetic blocks.
+// history_test.go — unit tests for BlocksToAssistantLLM. Synthetic blocks
+// exercise the converter shared by chat.buildHistory (DB-loaded historical
+// messages) and loop.extendHistory (in-loop accumulation).
 //
-// history_test.go — LLM 消息历史重建的单元测试。
-// 用合成 block 测试 blocksToAssistantLLM 和 blocksToAssistantLLM。
-package chat
+// history_test.go — BlocksToAssistantLLM 的单元测试。合成 block 演练 chat
+// .buildHistory（从 DB 加载历史）与 loop.extendHistory（循环内累积）共享
+// 的转换器。
+package loop
 
 import (
 	"encoding/json"
@@ -12,8 +14,6 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
-
-// ── helpers ───────────────────────────────────────────────────────────────────
 
 func makeBlock(id string, seq int, blockType string, data any) chatdomain.Block {
 	d, _ := json.Marshal(data)
@@ -29,17 +29,14 @@ func msgWithBlocks(blocks ...chatdomain.Block) *chatdomain.Message {
 	}
 }
 
-// ── blocksToAssistantLLM ─────────────────────────────────────────────────
-
 func TestBuildAssistant_TextOnly(t *testing.T) {
 	m := msgWithBlocks(
 		makeBlock("b1", 0, chatdomain.BlockTypeText, chatdomain.TextData{Text: "Hello world"}),
 	)
-	msgs, err := blocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM(m.Blocks)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
-
 	if len(msgs) != 1 {
 		t.Fatalf("want 1 message, got %d", len(msgs))
 	}
@@ -56,11 +53,10 @@ func TestBuildAssistant_WithReasoning(t *testing.T) {
 		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "Let me think"}),
 		makeBlock("b2", 1, chatdomain.BlockTypeText, chatdomain.TextData{Text: "Answer"}),
 	)
-	msgs, err := blocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM(m.Blocks)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
-
 	if len(msgs) != 1 {
 		t.Fatalf("want 1 assistant message, got %d", len(msgs))
 	}
@@ -82,17 +78,13 @@ func TestBuildAssistant_WithToolCall(t *testing.T) {
 			ToolCallID: "call_1", OK: true, Result: "晴，25°C",
 		}),
 	)
-	msgs, err := blocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM(m.Blocks)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
-
-	// Should produce: [assistant(tool_calls), tool(result)]
-	// 应产生：[assistant(tool_calls), tool(result)]
 	if len(msgs) != 2 {
 		t.Fatalf("want 2 messages, got %d", len(msgs))
 	}
-
 	assistant := msgs[0]
 	if assistant.Role != llminfra.RoleAssistant {
 		t.Errorf("msgs[0] role = %q", assistant.Role)
@@ -103,8 +95,6 @@ func TestBuildAssistant_WithToolCall(t *testing.T) {
 	if assistant.ToolCalls[0].Name != "get_weather" || assistant.ToolCalls[0].ID != "call_1" {
 		t.Errorf("tool call: %+v", assistant.ToolCalls[0])
 	}
-	// Summary must NOT be in the arguments sent back to the LLM.
-	// Summary 不得出现在回传给 LLM 的 arguments 中。
 	var argMap map[string]any
 	json.Unmarshal([]byte(assistant.ToolCalls[0].Arguments), &argMap)
 	if _, hasSummary := argMap["summary"]; hasSummary {
@@ -113,7 +103,6 @@ func TestBuildAssistant_WithToolCall(t *testing.T) {
 	if argMap["city"] != "Beijing" {
 		t.Errorf("city = %v", argMap["city"])
 	}
-
 	toolResult := msgs[1]
 	if toolResult.Role != llminfra.RoleTool {
 		t.Errorf("msgs[1] role = %q, want tool", toolResult.Role)
@@ -142,12 +131,10 @@ func TestBuildAssistant_MultipleToolCalls(t *testing.T) {
 			ToolCallID: "call_2", OK: true, Result: "r2",
 		}),
 	)
-	msgs, err := blocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM(m.Blocks)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
-
-	// 1 assistant + 2 tool result messages
 	if len(msgs) != 3 {
 		t.Fatalf("want 3 messages, got %d", len(msgs))
 	}
@@ -155,8 +142,6 @@ func TestBuildAssistant_MultipleToolCalls(t *testing.T) {
 		t.Errorf("want 2 tool calls, got %d", len(msgs[0].ToolCalls))
 	}
 }
-
-// ── blocksToAssistantLLM ───────────────────────────────────────────────────────
 
 func TestBlocksToLLM_RoundTrip(t *testing.T) {
 	args := map[string]any{"city": "Shanghai"}
@@ -170,13 +155,10 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 		}),
 		makeBlock("b4", 3, chatdomain.BlockTypeText, chatdomain.TextData{Text: "done"}),
 	}
-
-	msgs, err := blocksToAssistantLLM(input)
+	msgs, err := BlocksToAssistantLLM(input)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
-
-	// assistant + 1 tool result
 	if len(msgs) != 2 {
 		t.Fatalf("want 2 messages, got %d", len(msgs))
 	}
@@ -190,7 +172,6 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 	if len(a.ToolCalls) != 1 || a.ToolCalls[0].ID != "c1" {
 		t.Errorf("tool calls = %+v", a.ToolCalls)
 	}
-
 	tr := msgs[1]
 	if tr.Role != llminfra.RoleTool || tr.ToolCallID != "c1" || tr.Content != "sunny" {
 		t.Errorf("tool result = %+v", tr)
@@ -201,9 +182,9 @@ func TestBlocksToLLM_TextOnly(t *testing.T) {
 	input := []chatdomain.Block{
 		makeBlock("b1", 0, chatdomain.BlockTypeText, chatdomain.TextData{Text: "hi"}),
 	}
-	msgs, err := blocksToAssistantLLM(input)
+	msgs, err := BlocksToAssistantLLM(input)
 	if err != nil {
-		t.Fatalf("blocksToAssistantLLM: %v", err)
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
 	if len(msgs) != 1 {
 		t.Fatalf("want 1 message, got %d", len(msgs))

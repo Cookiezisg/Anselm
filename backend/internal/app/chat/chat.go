@@ -1,24 +1,24 @@
-// Package chat (app/chat) orchestrates the chat pipeline: LLM streaming,
-// attachment handling, auto-titling, and SSE event publishing.
-// It owns no SQL — persistence is delegated to infra/store/chat.
+// Package chat (app/chat) orchestrates the chat pipeline: queueing,
+// attachment handling, auto-titling, and SSE event publishing. The ReAct
+// engine itself lives in internal/app/loop — chat is one of its callers
+// (subagent / Skill fork / Phase 4 workflow LLM nodes are the others).
+// Owns no SQL — persistence is delegated to infra/store/chat.
 //
-// Concurrency model: each conversation has a convQueue with a buffered task
-// channel. A single worker goroutine drains it sequentially, so messages
-// within one conversation always execute one at a time in order.
+// Concurrency: each conversation has a convQueue with a buffered task
+// channel; one worker goroutine drains it sequentially, so messages within
+// one conversation execute one at a time in order.
 //
-// Package chat（app/chat）编排聊天管线：LLM 流式输出、附件处理、
-// 自动命名、SSE 事件推送。不含 SQL——持久化委托给 infra/store/chat。
-//
-// 并发模型：每个 conversation 拥有带缓冲任务 channel 的 convQueue。
-// 单个 worker goroutine 顺序消费队列，保证同一 conversation 的消息按序逐条执行。
+// Package chat（app/chat）编排聊天管线：队列、附件处理、自动命名、SSE 推送。
+// ReAct 引擎本身在 internal/app/loop——chat 只是它的调用方之一（subagent /
+// Skill fork / Phase 4 workflow LLM 节点是其他调用方）。不含 SQL，持久化
+// 委托给 infra/store/chat。
 //
 // Files:
 //
 //	chat.go     — public API (Send, Cancel, ListMessages, UploadAttachment)
-//	runner.go   — queue management, agentRun (ReAct loop), writeDB
-//	stream.go   — streamLLM, assembleBlocks, extractToolCalls, parseToolArgs
-//	tools.go    — runTools (parallel), executeTool
-//	history.go  — buildHistory, extendHistory, blocksToAssistantLLM
+//	runner.go   — queue, processTask → loop.Run, autoTitle, system prompt
+//	host.go     — chatHost implements loop.Host (writes chat_messages, fires chat.message)
+//	history.go  — buildHistory + buildUserLLMMessage + attachment resolve
 //	util.go     — ID generators, file helpers, truncate
 package chat
 

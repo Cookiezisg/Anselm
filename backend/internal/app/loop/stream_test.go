@@ -1,7 +1,8 @@
-// stream_test.go — unit tests for assembleBlocks and parseToolArgs.
+// stream_test.go — unit tests for assembleBlocks, parseToolArgs, and
+// extractToolCalls.
 //
-// stream_test.go — assembleBlocks 和 parseToolArgs 的单元测试。
-package chat
+// stream_test.go — assembleBlocks、parseToolArgs、extractToolCalls 的单元测试。
+package loop
 
 import (
 	"encoding/json"
@@ -11,7 +12,6 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 )
 
-// makeAccums is a test helper that builds a toolAccum map from (id, name, argsJSON) triples.
 func makeAccums(triples ...string) map[int]*toolAccum {
 	m := map[int]*toolAccum{}
 	for i := 0; i+2 < len(triples); i += 3 {
@@ -21,8 +21,6 @@ func makeAccums(triples ...string) map[int]*toolAccum {
 	}
 	return m
 }
-
-// ── assembleBlocks ────────────────────────────────────────────────────────────
 
 func TestAssemble_TextOnly(t *testing.T) {
 	blocks := assembleBlocks("Hello world", "", nil)
@@ -107,16 +105,12 @@ func TestAssemble_ParallelToolCalls(t *testing.T) {
 	var d0, d1 chatdomain.ToolCallData
 	json.Unmarshal([]byte(blocks[0].Data), &d0)
 	json.Unmarshal([]byte(blocks[1].Data), &d1)
-	// assembleBlocks iterates accums in ToolIndex order.
-	// assembleBlocks 按 ToolIndex 顺序迭代。
 	if d0.Name != "get_weather" || d1.Name != "get_time" {
 		t.Errorf("names = %q %q, want get_weather get_time", d0.Name, d1.Name)
 	}
 }
 
 func TestAssemble_FullReactStep(t *testing.T) {
-	// reasoning → text preamble → tool_call (expected stream order).
-	// reasoning → 前置文字 → tool_call（预期流顺序）。
 	accums := makeAccums("call_1", "get_weather", `{"city":"Beijing"}`)
 	blocks := assembleBlocks("Let me look that up.", "I'll check the weather first.", accums)
 	if len(blocks) != 3 {
@@ -150,11 +144,8 @@ func TestAssemble_BlockIDs(t *testing.T) {
 }
 
 func TestAssemble_SeqIncremental(t *testing.T) {
-	// seq values within one assembled call must be 0, 1, 2 in order.
-	// 单次 assembleBlocks 内 seq 值必须按顺序为 0, 1, 2。
 	accums := makeAccums("c1", "t1", `{}`)
 	blocks := assembleBlocks("answer", "thinking", accums)
-	// reasoning(0), text(1), tool_call(2)
 	for i, bl := range blocks {
 		if bl.Seq != i {
 			t.Errorf("blocks[%d].Seq = %d, want %d", i, bl.Seq, i)
@@ -168,8 +159,6 @@ func TestAssemble_CreatedAtSet(t *testing.T) {
 		t.Error("CreatedAt must be set")
 	}
 }
-
-// ── parseToolArgs ─────────────────────────────────────────────────────────────
 
 func TestParseToolArgs_WithAllStandardFields(t *testing.T) {
 	fields, args := parseToolArgs(`{"summary":"doing X","destructive":true,"execution_group":3,"key":"val"}`)
@@ -228,8 +217,6 @@ func TestParseToolArgs_MalformedJSON(t *testing.T) {
 	}
 }
 
-// ── extractToolCalls ──────────────────────────────────────────────────────────
-
 func TestExtractToolCalls_Mixed(t *testing.T) {
 	args := map[string]any{"x": 1.0}
 	d, _ := json.Marshal(chatdomain.ToolCallData{ID: "c1", Name: "t1", Arguments: args})
@@ -254,8 +241,6 @@ func TestExtractToolCalls_None(t *testing.T) {
 		t.Errorf("want 0 calls, got %d", len(calls))
 	}
 }
-
-// ── makeAccums helper ─────────────────────────────────────────────────────────
 
 func TestMakeAccums_WritesArgs(t *testing.T) {
 	accums := makeAccums("id1", "name1", `{"k":"v"}`)
