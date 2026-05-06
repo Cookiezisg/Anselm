@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // Start loads ~/.forgify/.catalog.json (cold-start optimization — chat
@@ -132,6 +133,22 @@ func (s *Service) tryRefresh(ctx context.Context) {
 // swap cache + 持久化 disk (6) lastFP 总更新无论 llm 还是 mechanical
 // ——用户活动驱动重试 §3。
 func (s *Service) Refresh(ctx context.Context) error {
+	// Catalog runs in a background goroutine so the ctx never has the
+	// HTTP middleware-stamped user ID. Single-user app: inject the
+	// local user ID once here so every downstream call (source
+	// ListItems → repo queries; LLM Generator → llmclient.Resolve →
+	// model picker) sees a usable identity. Bypass when the caller
+	// already set one (HTTP :refresh path comes through middleware).
+	//
+	// catalog 在后台 goroutine 跑，ctx 永无 HTTP middleware 注的 user
+	// ID。单人 app：本处一次性注入本地 user ID 让所有下游调用（source
+	// ListItems → repo 查询；LLM Generator → llmclient.Resolve → 模型
+	// picker）见到可用身份。调用方已设时跳过（HTTP :refresh 路径走
+	// middleware）。
+	if _, ok := reqctxpkg.GetUserID(ctx); !ok {
+		ctx = reqctxpkg.SetUserID(ctx, reqctxpkg.DefaultLocalUserID)
+	}
+
 	sources := s.snapshotSources()
 	if len(sources) == 0 {
 		return nil

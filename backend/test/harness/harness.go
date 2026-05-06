@@ -350,7 +350,18 @@ func New(t *testing.T, opts ...Option) *Harness {
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
-	if err := catalogService.Start(context.Background()); err != nil {
+	// Catalog poll runs in a goroutine; tie its lifetime to the test
+	// via a cancellable ctx so the goroutine exits at t.Cleanup time
+	// (otherwise it keeps trying to ListItems against the closed
+	// services + holds the test process open until the gc reaper
+	// times out).
+	//
+	// catalog poll 在 goroutine 跑；用可取消 ctx 绑测试生命周期，让
+	// goroutine 在 t.Cleanup 时退（否则它继续往关闭的 service ListItems
+	// + 拖住测试进程直到 gc 超时）。
+	catalogCtx, catalogCancel := context.WithCancel(context.Background())
+	t.Cleanup(catalogCancel)
+	if err := catalogService.Start(catalogCtx); err != nil {
 		t.Logf("catalog start: %v", err)
 	}
 	chatService.SetSystemPromptProvider(catalogService)
