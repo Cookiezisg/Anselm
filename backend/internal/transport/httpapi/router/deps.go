@@ -20,6 +20,7 @@ import (
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -171,4 +172,14 @@ type Deps struct {
 	// /dev/mock-llm/* 端点能通到 MockClient 单例（TE-4b）。生产 main.go
 	// 永远接；当前仅 dev mode 消费。
 	LLMFactory *llminfra.Factory
+
+	// ShellManager exposes the Bash background-process registry to the
+	// /dev/bash-processes endpoint (TE-12). Lets testend list every
+	// long-running child the LLM has spawned with run_in_background:true.
+	// Nil-tolerant: when unset DevHandler simply doesn't register the route.
+	//
+	// ShellManager 把 Bash 后台进程注册表暴露给 /dev/bash-processes 端点
+	// （TE-12）。让 testend 列每一个 LLM 用 run_in_background:true spawn
+	// 的长跑子进程。容忍 nil。
+	ShellManager *shelltool.ProcessManager
 }

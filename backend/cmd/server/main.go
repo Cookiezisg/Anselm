@@ -367,6 +367,7 @@ func main() {
 		Dev:                 *dev,
 		Tools:               tools,
 		LLMFactory:          llmFactory,
+		ShellManager:        shells.Manager,
 		DB:                  gdb,
 		LogBroadcaster:      broadcaster,
 		CollectionsDir:      *collectionsDir,

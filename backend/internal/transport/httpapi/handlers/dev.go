@@ -23,6 +23,7 @@ import (
 	"gorm.io/gorm"
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
@@ -39,6 +40,7 @@ type DevHandler struct {
 	port           int
 	tools          []toolapp.Tool
 	llmFactory     *llminfra.Factory
+	shellManager   *shelltool.ProcessManager
 	log            *zap.Logger
 }
 
@@ -52,6 +54,7 @@ func NewDevHandler(
 	port int,
 	tools []toolapp.Tool,
 	llmFactory *llminfra.Factory,
+	shellManager *shelltool.ProcessManager,
 	log *zap.Logger,
 ) *DevHandler {
 	return &DevHandler{
@@ -62,6 +65,7 @@ func NewDevHandler(
 		port:           port,
 		tools:          tools,
 		llmFactory:     llmFactory,
+		shellManager:   shellManager,
 		log:            log,
 	}
 }
@@ -80,6 +84,11 @@ func (h *DevHandler) Register(mux *http.ServeMux) {
 	// TE-9 Info tab data sources
 	mux.HandleFunc("GET /dev/info", h.Info)
 	mux.HandleFunc("GET /dev/forgify-home", h.ForgifyHome)
+	// TE-12 Bash background processes (nil-tolerant — only registered if
+	// shellManager wired; main.go always wires it).
+	if h.shellManager != nil {
+		mux.HandleFunc("GET /dev/bash-processes", h.BashProcesses)
+	}
 	// TE-4b mock LLM endpoints; nil-tolerant when --dev didn't wire
 	// the llmFactory (shouldn't happen in practice — dev mode always
 	// has it — but keeps the helper exit clean during refactor).

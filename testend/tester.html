@@ -308,6 +308,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='sandbox'}" @click="selectTab('sandbox')">Sandbox</button>
         <button class="tab-btn" :class="{active: activeRightTab==='mock-llm'}" @click="selectTab('mock-llm')">Mock LLM</button>
         <button class="tab-btn" :class="{active: activeRightTab==='wire'}" @click="selectTab('wire')">Wire</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='processes'}" @click="selectTab('processes')">Processes</button>
         <button class="tab-btn" :class="{active: activeRightTab==='info'}" @click="selectTab('info')">Info</button>
       </div>
 
@@ -1731,6 +1732,57 @@
         </div>
       </div>
 
+      <!-- ── Processes tab (TE-12) ───────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='processes'" x-data="processesTab()">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">Bash bg processes</strong>
+          <span style="font-size:10px;color:var(--text-mute)" x-text="processes.length + ' tracked'"></span>
+          <label style="font-size:10px;color:var(--text-mute);display:flex;align-items:center;gap:4px;margin-left:auto">
+            <input type="checkbox" x-model="autoRefresh" style="margin:0">
+            auto-refresh 3s
+          </label>
+          <button class="btn-small" @click="load()" :disabled="loading"
+                  x-text="loading ? 'loading…' : 'reload'"></button>
+        </div>
+
+        <div x-show="err" style="padding:6px 10px;color:var(--err);font-size:11px" x-text="err"></div>
+
+        <div x-show="processes.length === 0 && !loading"
+             style="padding:12px;font-size:11px;color:var(--text-mute);font-style:italic">
+          No background processes. They appear here when the LLM calls Bash with run_in_background:true.
+        </div>
+
+        <div style="overflow:auto;flex:1">
+          <template x-for="p in processes" :key="p.id">
+            <div style="border-bottom:1px solid var(--border);padding:8px 10px">
+              <div style="display:flex;align-items:center;gap:8px;font-family:Consolas,monospace;font-size:11px">
+                <span style="color:var(--text-mute)" x-text="p.id"></span>
+                <span :style="'font-weight:600;color:'+statusColor(p.status)" x-text="p.status"></span>
+                <span x-show="p.exitCode !== 0 && (p.status==='exited'||p.status==='killed')"
+                      style="color:var(--err)" x-text="'exit='+p.exitCode"></span>
+                <span style="color:var(--text-mute);font-size:10px"
+                      x-text="fmtElapsed(p.startedAt, p.finishedAt)"></span>
+                <span style="margin-left:auto;font-size:10px;color:var(--text-mute)"
+                      x-text="'buf '+fmtBytes(p.bufLen)+(p.dropped?' (+'+fmtBytes(p.dropped)+' dropped)':'')"></span>
+                <button class="btn-small" @click="toggle(p.id)"
+                        x-text="expanded[p.id] ? 'hide' : 'tail'"></button>
+              </div>
+              <div style="margin-top:4px;font-family:Consolas,monospace;font-size:11px;color:var(--text);word-break:break-all"
+                   x-text="p.command"></div>
+              <div x-show="p.convId" style="font-size:10px;color:var(--text-mute);margin-top:2px"
+                   x-text="'conv: '+p.convId"></div>
+              <div x-show="p.launchErr" style="font-size:10px;color:var(--err);margin-top:2px"
+                   x-text="'launch err: '+p.launchErr"></div>
+              <div style="font-size:10px;color:var(--text-mute);margin-top:2px"
+                   x-text="'started '+fmtTime(p.startedAt)+(p.finishedAt?' · finished '+fmtTime(p.finishedAt):'')"></div>
+              <pre x-show="expanded[p.id]"
+                   style="margin-top:6px;background:var(--bg2);padding:6px;font-family:Consolas,monospace;font-size:10px;white-space:pre-wrap;word-break:break-word;max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:3px"
+                   x-text="p.sample || '(empty buffer)'"></pre>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- ── Info tab (TE-9) ─────────────────────────────────────── -->
       <div class="tab-content" x-show="activeRightTab==='info'" x-data="infoTab()">
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
@@ -1820,6 +1872,7 @@
   <script src="/dev/static/js/tab-sandbox.js"></script>
   <script src="/dev/static/js/tab-mock-llm.js"></script>
   <script src="/dev/static/js/tab-wire.js"></script>
+  <script src="/dev/static/js/tab-processes.js"></script>
   <script src="/dev/static/js/tab-info.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>

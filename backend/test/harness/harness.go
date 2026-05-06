@@ -419,6 +419,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Dev:                 false,
 		Tools:               tools,
 		LLMFactory:          llmFactory,
+		ShellManager:        shells.Manager,
 		DB:                  gdb,
 		Port:                0,
 	})

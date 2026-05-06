@@ -212,6 +212,83 @@ func (m *ProcessManager) Remove(id string) {
 	delete(m.procs, id)
 }
 
+// Snapshot is a non-mutating, read-side view of one BgProcess for the
+// /dev/bash-processes inspection endpoint. Output sample is the last
+// `sampleBytes` bytes of the buffer (does NOT advance the BashOutput
+// read cursor) so testers can peek without affecting the LLM's polling.
+//
+// Snapshot 是单进程的只读快照，给 /dev/bash-processes 用。output 取尾
+// `sampleBytes` 字节（不动 BashOutput 游标）让测试者偷看不干扰 LLM。
+type Snapshot struct {
+	ID         string    `json:"id"`
+	ConvID     string    `json:"convId,omitempty"`
+	Command    string    `json:"command"`
+	Status     Status    `json:"status"`
+	ExitCode   int       `json:"exitCode"`
+	StartedAt  time.Time `json:"startedAt"`
+	FinishedAt time.Time `json:"finishedAt,omitempty"`
+	BufLen     int       `json:"bufLen"`
+	Dropped    int64     `json:"dropped"`
+	ReadCursor int       `json:"readCursor"`
+	Sample     string    `json:"sample,omitempty"`
+	LaunchErr  string    `json:"launchErr,omitempty"`
+}
+
+// snapshot returns a non-mutating view; sampleBytes truncated from tail.
+//
+// snapshot 返非破坏性视图；sampleBytes 取尾。
+func (p *BgProcess) snapshot(sampleBytes int) Snapshot {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s := Snapshot{
+		ID:         p.ID,
+		ConvID:     p.ConvID,
+		Command:    p.Command,
+		Status:     p.status,
+		ExitCode:   p.exitCode,
+		StartedAt:  p.StartedAt,
+		FinishedAt: p.finishedAt,
+		BufLen:     len(p.buf),
+		Dropped:    p.dropped,
+		ReadCursor: p.readCursor,
+	}
+	if p.launchErr != nil {
+		s.LaunchErr = p.launchErr.Error()
+	}
+	if sampleBytes > 0 && len(p.buf) > 0 {
+		start := 0
+		if len(p.buf) > sampleBytes {
+			start = len(p.buf) - sampleBytes
+		}
+		s.Sample = string(p.buf[start:])
+	}
+	return s
+}
+
+// Snapshots returns a snapshot of every tracked process, newest first.
+// sampleBytes caps the per-process tail (0 = no sample).
+//
+// Snapshots 返每个追踪进程的快照，最新优先。sampleBytes 限制 per 进程尾。
+func (m *ProcessManager) Snapshots(sampleBytes int) []Snapshot {
+	m.mu.Lock()
+	procs := make([]*BgProcess, 0, len(m.procs))
+	for _, p := range m.procs {
+		procs = append(procs, p)
+	}
+	m.mu.Unlock()
+	out := make([]Snapshot, 0, len(procs))
+	for _, p := range procs {
+		out = append(out, p.snapshot(sampleBytes))
+	}
+	// Sort newest first by StartedAt.
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j].StartedAt.After(out[j-1].StartedAt); j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out
+}
+
 // Stop kills every running child. Called from cmd/server during
 // graceful shutdown so we don't leak processes when the backend exits.
 // Best-effort: failures are swallowed — the OS will reap orphans.
