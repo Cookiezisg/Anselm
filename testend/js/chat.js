@@ -46,6 +46,19 @@ document.addEventListener('alpine:init', () => {
     _pendingMsgs: new Map(),
     _pendingShouldScroll: false,
     _rafToken: 0,
+    // _suppressFlush guards the send() critical section: while a send is
+    // in-flight the SSE handler still buffers snapshots into _pendingMsgs
+    // but we don't drain them, so the optimistic user-row (tempId) gets
+    // its real messageId stamped FIRST. Otherwise the rAF could fire
+    // between fetch-out and fetch-in, push the assistant snapshot before
+    // the user row exists, and the optimistic user push lands at the end
+    // → "AI on top, user on bottom" bug.
+    //
+    // _suppressFlush 在 send() 临界区为真：SSE 仍写 _pendingMsgs 但不
+    // 抽干，让乐观 user 行（tempId）拿到真 ID 后再处理 SSE。否则 rAF
+    // 可能在 fetch 一来一回之间 push 了 assistant，乐观 user 落到尾巴
+    // → "AI 在上 user 在下"。
+    _suppressFlush: false,
 
     // Raw-snapshot modal: clicking [📋 raw] on a message stashes the
     // wire payload here + shows the modal. JSON-stringified for display
@@ -357,25 +370,76 @@ document.addEventListener('alpine:init', () => {
       this.input = ''
       this.pendingAtts = []
 
-      const r = await fetch(`/api/v1/conversations/${convId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, attachmentIds: attIds }),
-      })
-      if (!r.ok) return
-
-      const j = await r.json()
-
-      // Optimistic user message — backend's chat.message snapshot will
-      // confirm later (id matches j.data.messageId).
-      // 乐观插入用户消息——后端 chat.message 快照（id 与 j.data.messageId 同）会确认。
+      // Build user blocks now (we have content + attsSnapshot before fetch).
+      // user blocks 提前组装——content + attsSnapshot fetch 前就有。
       const userBlocks = []
       if (content) userBlocks.push({ type: 'text', content })
       for (const a of attsSnapshot) userBlocks.push({ type: 'attachment', fileName: a.fileName, mimeType: a.mimeType, id: a.id })
-      this.messages.push({ id: j.data.messageId, role: 'user', blocks: userBlocks, status: 'completed' })
+
+      // (1) Optimistic-insert user row IMMEDIATELY with a tempId so the
+      //     order is locked: user → (assistant later). Anchor for the SSE
+      //     flush to merge against.
+      // (1) 立刻乐观插入 user（tempId）——锁定顺序：user → 后续 assistant。
+      const tempId = '__pending__' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+      this.messages.push({ id: tempId, role: 'user', blocks: userBlocks, status: 'sending' })
+      this._scrollBottom()
+
+      // (2) Suppress SSE flushes for the duration of the fetch. Any user/
+      //     assistant snapshots that arrive will sit in _pendingMsgs until
+      //     we've stamped the real messageId onto our tempId row.
+      // (2) fetch 期间冻结 rAF flush，让 SSE 入 _pendingMsgs 但暂不 apply。
+      this._suppressFlush = true
+
+      let r
+      try {
+        r = await fetch(`/api/v1/conversations/${convId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, attachmentIds: attIds }),
+        })
+      } catch (e) {
+        // Network failure — drop the optimistic row + unfreeze SSE.
+        // 网络失败——丢乐观行 + 解冻 SSE。
+        this._dropPendingRow(tempId)
+        this._suppressFlush = false
+        this._flushPending()
+        return
+      }
+
+      if (!r.ok) {
+        this._dropPendingRow(tempId)
+        this._suppressFlush = false
+        this._flushPending()
+        return
+      }
+
+      const j = await r.json()
+
+      // (3) Stamp real id onto the optimistic row WITHOUT re-pushing —
+      //     same array index, just id swap. Now SSE's user snapshot will
+      //     find this row by id and replace it (no duplicate push).
+      // (3) 把真 id 打到乐观行（不重 push，原位换 id）。SSE user snapshot
+      //     按 id 找到此行 replace 即可，不会重复 push。
+      const idx = this.messages.findIndex(m => m.id === tempId)
+      if (idx >= 0) {
+        this.messages[idx] = { ...this.messages[idx], id: j.data.messageId, status: 'completed' }
+      }
+
+      // (4) Unfreeze + flush any snapshots that piled up during fetch.
+      //     The user row is now keyed by real id, so SSE's user snapshot
+      //     replaces in-place; SSE's assistant snapshot pushes after.
+      // (4) 解冻 + 抽干积压。user 行已是真 id，user snapshot 原位 replace；
+      //     assistant snapshot push 在后。
+      this._suppressFlush = false
+      this._flushPending()
 
       this.streaming = true
       this._scrollBottom()
+    },
+
+    _dropPendingRow(tempId) {
+      const idx = this.messages.findIndex(m => m.id === tempId)
+      if (idx >= 0) this.messages.splice(idx, 1)
     },
 
     async cancel() {
@@ -418,6 +482,13 @@ document.addEventListener('alpine:init', () => {
 
     _scheduleFlush() {
       if (this._rafToken) return
+      // While send() is mid-flight, leave snapshots in _pendingMsgs
+      // un-flushed. send() will call _flushPending() itself once it has
+      // stamped the optimistic user-row with its real id. See
+      // _suppressFlush comment + send() for why.
+      // send() 进行中先不 flush，等乐观 user 行拿到真 id 后由 send() 调
+      // _flushPending() 抽干。
+      if (this._suppressFlush) return
       this._rafToken = requestAnimationFrame(() => {
         this._rafToken = 0
         this._flushPending()
