@@ -14,6 +14,7 @@ import (
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
@@ -110,6 +111,19 @@ type Deps struct {
 	// 供 LLM 运行时；这些端点是 UI 配置+观测面。fsnotify watcher（也由
 	// skillapp 持）让用户编辑 ~/.forgify/skills/ 时内存 cache 实时更新。
 	SkillService *skillapp.Service
+
+	// CatalogService backs the /api/v1/catalog + /api/v1/catalog:refresh
+	// endpoints (debug GET + UI 'Refresh now'). The Capability Catalog
+	// is mostly an internal component (its real consumer is chat's
+	// system-prompt assembly via SetSystemPromptProvider); these
+	// endpoints exist so testend / UI can inspect + force-rebuild the
+	// summary without waiting for the 1s polling tick.
+	//
+	// CatalogService 支持 /api/v1/catalog + /api/v1/catalog:refresh 端点
+	// （debug GET + UI "立即刷新"）。Catalog 多为内部组件（真正消费者是
+	// chat 经 SetSystemPromptProvider 装 system prompt）；这两个端点让
+	// testend / UI 能查看 + 强制重建 summary 不等 1s 轮询。
+	CatalogService *catalogapp.Service
 
 	// ── Dev-only fields (nil/zero when Dev=false) ─────────────────────────────
 

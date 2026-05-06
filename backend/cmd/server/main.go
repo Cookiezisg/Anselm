@@ -350,6 +350,7 @@ func main() {
 		SubagentService:     subagentService,
 		MCPService:          mcpService,
 		SkillService:        skillService,
+		CatalogService:      catalogService,
 		Dev:                 *dev,
 		Tools:               tools,
 		DB:                  gdb,

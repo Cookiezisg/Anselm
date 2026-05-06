@@ -370,6 +370,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		SubagentService:     subagentService,
 		MCPService:          mcpService,
 		SkillService:        skillService,
+		CatalogService:      catalogService,
 		Dev:                 false,
 		Tools:               tools,
 		DB:                  gdb,

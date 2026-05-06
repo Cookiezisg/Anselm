@@ -61,6 +61,9 @@ func New(deps Deps) http.Handler {
 	if deps.SkillService != nil {
 		handlershttpapi.NewSkillsHandler(deps.SkillService, deps.Log).Register(mux)
 	}
+	if deps.CatalogService != nil {
+		handlershttpapi.NewCatalogHandler(deps.CatalogService, deps.Log).Register(mux)
+	}
 	if deps.Dev {
 		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.Port, deps.Tools, deps.Log).Register(mux)
 	}
