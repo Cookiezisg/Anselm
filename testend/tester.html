@@ -260,6 +260,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='skill'}" @click="selectTab('skill')">Skill</button>
         <button class="tab-btn" :class="{active: activeRightTab==='mcp'}" @click="selectTab('mcp')">MCP</button>
         <button class="tab-btn" :class="{active: activeRightTab==='sandbox'}" @click="selectTab('sandbox')">Sandbox</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='mock-llm'}" @click="selectTab('mock-llm')">Mock LLM</button>
       </div>
 
       <!-- Config Tab -->
@@ -1461,6 +1462,67 @@
         </div>
       </div>
 
+      <!-- ── Mock LLM tab (TE-4c) ─────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='mock-llm'" x-data="mockLLMTab()">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">Mock LLM</strong>
+          <span style="font-size:10px;color:var(--text-mute)">queue: <span x-text="queueDepth"></span> · calls: <span x-text="callCount"></span></span>
+          <button class="btn-small" @click="loadQueue()">refresh</button>
+          <button class="btn-small" @click="showLastPrompt()" title="Show what chat runner most recently sent the LLM">last prompt</button>
+          <button class="btn-small" @click="clear()" :disabled="queueDepth === 0" style="color:var(--err)">clear</button>
+          <span x-show="err"
+                :style="err.startsWith('pushed') || err.startsWith('dropped') ? 'color:var(--accent)' : 'color:var(--err)'"
+                style="font-size:10px;margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis"
+                :title="err" x-text="err"></span>
+        </div>
+
+        <div style="padding:8px 10px;font-size:11px">
+          <div style="background:#fff8e1;border:1px solid #f5d76e;padding:6px 8px;border-radius:3px;margin-bottom:8px;font-size:10px;color:#6b5e00">
+            <strong>setup:</strong> in Config tab, add a 'mock' provider apikey + set chat scenario model to provider=mock. Then push scripts here + send chat messages — chat runner pulls scripts from this queue instead of calling a real LLM.
+          </div>
+
+          <div style="margin-bottom:6px">
+            <div style="font-weight:600;margin-bottom:4px">templates</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px">
+              <template x-for="t in templates" :key="t.label">
+                <button class="btn-small" @click="applyTemplate(t)" x-text="t.label"></button>
+              </template>
+            </div>
+          </div>
+
+          <div style="margin-bottom:6px">
+            <div style="font-weight:600;margin-bottom:4px">script body (JSON)</div>
+            <textarea x-model="scriptText"
+                      style="width:100%;height:240px;font-family:Consolas,monospace;font-size:10px;padding:6px;border:1px solid var(--border);border-radius:3px;line-height:1.4"></textarea>
+          </div>
+
+          <button class="btn-small" @click="push()" :disabled="pushBusy" style="padding:6px 14px">
+            <span x-text="pushBusy ? 'pushing…' : 'push to queue'"></span>
+          </button>
+
+          <div x-show="previews.length" style="margin-top:10px">
+            <div style="font-weight:600;margin-bottom:4px">queued scripts</div>
+            <template x-for="(p, i) in previews" :key="i">
+              <div style="display:flex;gap:8px;padding:3px 0;font-family:Consolas,monospace;font-size:10px">
+                <span style="min-width:30px;color:var(--text-mute)" x-text="'#' + (i+1)"></span>
+                <span x-show="p.errAfter" style="color:var(--err)" x-text="'errAfter: ' + p.errAfter"></span>
+                <span x-show="!p.errAfter" x-text="p.eventCount + ' events, first=' + (p.firstType || '—')"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <div class="raw-modal-overlay" x-show="lastPromptOpen" @click="closeLastPrompt()" @keydown.escape.window="lastPromptOpen && closeLastPrompt()" x-cloak>
+          <div class="raw-modal" @click.stop>
+            <div class="raw-modal-header">
+              <span class="raw-modal-title">last prompt sent to LLM</span>
+              <button class="btn-icon" @click="closeLastPrompt()" title="Close (Esc)">✕</button>
+            </div>
+            <pre class="raw-modal-body" x-text="JSON.stringify(lastPrompt, null, 2)"></pre>
+          </div>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1479,6 +1541,7 @@
   <script src="/dev/static/js/tab-skill.js"></script>
   <script src="/dev/static/js/tab-mcp.js"></script>
   <script src="/dev/static/js/tab-sandbox.js"></script>
+  <script src="/dev/static/js/tab-mock-llm.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>

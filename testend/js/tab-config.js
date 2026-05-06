@@ -10,7 +10,8 @@ document.addEventListener('alpine:init', () => {
     modelBusy: false,
 
     allProviders: ['openai','anthropic','google','deepseek','openrouter',
-                   'qwen','zhipu','moonshot','doubao','ollama','custom'],
+                   'qwen','zhipu','moonshot','doubao','ollama','custom',
+                   'mock'],  // dev provider for testend Mock LLM tab (TE-4a)
 
     async init() {
       await Promise.all([this._loadKeys(), this._loadModel()])
