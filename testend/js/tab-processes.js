@@ -29,10 +29,18 @@ document.addEventListener('alpine:init', () => {
 
     init() {
       this.load()
-      // Auto-poll every 3s for status transitions while user has the tab open.
-      // 自动 3s 轮询让用户看到状态变化。
+      // Auto-poll every 3s ONLY while this tab is the active right tab AND
+      // the document is visible — Alpine x-show keeps every tab's x-data
+      // mounted, so without these guards three tabs polling simultaneously
+      // burns CPU + network even when only one is on screen.
+      //
+      // 仅在本 tab 是 active 且文档可见时 3s 轮询——Alpine x-show 不卸载
+      // 其他 tab 的 x-data，没守卫的话三个 tab 一起轮询烧 CPU + 网络。
       this._poll = setInterval(() => {
-        if (this.autoRefresh) this.load()
+        if (!this.autoRefresh) return
+        if (Alpine.store('app').activeRightTab !== 'processes') return
+        if (document.hidden) return
+        this.load()
       }, 3000)
     },
 

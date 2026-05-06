@@ -33,10 +33,15 @@ document.addEventListener('alpine:init', () => {
         }],
       }, null, 2)
       await this.loadQueue()
-      // Poll queue depth every 2s — keeps tester aware of consumption
-      // without eating CPU.
-      // 每 2s 轮询队列深度——让测试感知消耗状态不爆 CPU。
-      this._poll = setInterval(() => this.loadQueue(), 2000)
+      // Poll queue depth every 2s — guarded on active tab + document
+      // visibility (Alpine x-show keeps every tab mounted; without these
+      // guards three tabs polling at once burns CPU + network).
+      // 仅在 active + 可见时每 2s 轮询——Alpine x-show 不卸载其他 tab。
+      this._poll = setInterval(() => {
+        if (Alpine.store('app').activeRightTab !== 'mock-llm') return
+        if (document.hidden) return
+        this.loadQueue()
+      }, 2000)
     },
 
     destroy() {

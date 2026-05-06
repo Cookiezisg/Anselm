@@ -14,8 +14,15 @@ document.addEventListener('alpine:init', () => {
 
     async init() {
       await this.load()
-      // Poll uptime every 5s so it ticks live without spamming.
-      this._poll = setInterval(() => this.refreshUptime(), 5000)
+      // Poll uptime every 5s — guarded on active tab + document visibility
+      // (Alpine x-show keeps every tab mounted, so unguarded polls run even
+      // when this tab is off-screen).
+      // 仅在 active + 可见时每 5s 刷 uptime——Alpine x-show 不卸载隐藏 tab。
+      this._poll = setInterval(() => {
+        if (Alpine.store('app').activeRightTab !== 'info') return
+        if (document.hidden) return
+        this.refreshUptime()
+      }, 5000)
     },
 
     destroy() {
