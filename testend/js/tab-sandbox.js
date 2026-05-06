@@ -72,12 +72,71 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    async destroyRuntime(rt) {
+      if (!confirm(`Destroy runtime ${rt.kind}@${rt.version}? Removes mise install + frees disk. Will be re-installed on next env that needs this kind.`)) return
+      this.actionBusy = rt.id
+      this.err = ''
+      try {
+        const r = await fetch(`/api/v1/sandbox/runtimes/${encodeURIComponent(rt.id)}:destroy`, { method: 'POST' })
+        if (!r.ok) {
+          this.err = `destroy runtime failed HTTP ${r.status}`
+          return
+        }
+        await this.loadAll()
+      } finally {
+        this.actionBusy = ''
+      }
+    },
+
+    async resetConvEnv(env) {
+      if (!this.conversationId) return
+      if (!confirm(`Reset env for runtime kind '${env.runtimeKind}' in this conversation? Drops the venv; next Bash call will lazily re-create.`)) return
+      this.actionBusy = env.id
+      this.err = ''
+      try {
+        const url = `/api/v1/conversations/${encodeURIComponent(this.conversationId)}/sandbox-envs/${encodeURIComponent(env.runtimeKind)}:reset`
+        const r = await fetch(url, { method: 'POST' })
+        if (!r.ok) {
+          this.err = `reset failed HTTP ${r.status}`
+          return
+        }
+        await this.loadAll()
+      } finally {
+        this.actionBusy = ''
+      }
+    },
+
+    async resetAllConvEnvs() {
+      if (!this.conversationId) return
+      if (!confirm('Reset ALL envs for this conversation? Drops every per-conv venv; next Bash call lazily re-creates the kind it needs.')) return
+      this.actionBusy = 'reset-all'
+      this.err = ''
+      try {
+        const url = `/api/v1/conversations/${encodeURIComponent(this.conversationId)}/sandbox-envs:reset-all`
+        const r = await fetch(url, { method: 'POST' })
+        if (!r.ok) {
+          this.err = `reset-all failed HTTP ${r.status}`
+          return
+        }
+        await this.loadAll()
+      } finally {
+        this.actionBusy = ''
+      }
+    },
+
     async gc() {
       if (!confirm('Run sandbox GC? Drops envs not referenced by any forge/skill/mcp.')) return
       this.actionBusy = 'gc'
       this.err = ''
       try {
-        const r = await fetch('/api/v1/sandbox:gc', { method: 'POST' })
+        // Note: sandbox global actions use /sandbox/{action} wildcard, so the URL
+        // is /sandbox/:gc (slash before colon). Other domain :action endpoints
+        // (skills:refresh / catalog:refresh / mcp-servers/<name>:reconnect / etc.)
+        // are literal-path or name:action wildcard, which DON'T need the slash.
+        // 注：sandbox 全局 action 用 /sandbox/{action} 通配，URL 是 /sandbox/:gc
+        // （: 前有 /）。其他 domain 的 :action 是字面路径或 name:action 通配，不
+        // 需要这个 slash。
+        const r = await fetch('/api/v1/sandbox/:gc', { method: 'POST' })
         if (!r.ok) {
           this.err = `gc failed HTTP ${r.status}`
           return
@@ -94,7 +153,7 @@ document.addEventListener('alpine:init', () => {
       this.actionBusy = 'bootstrap'
       this.err = ''
       try {
-        const r = await fetch('/api/v1/sandbox:retry-bootstrap', { method: 'POST' })
+        const r = await fetch('/api/v1/sandbox/:retry-bootstrap', { method: 'POST' })
         if (!r.ok) {
           this.err = `retry failed HTTP ${r.status}`
           return
