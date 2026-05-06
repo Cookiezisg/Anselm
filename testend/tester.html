@@ -258,6 +258,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='catalog'}" @click="selectTab('catalog')">Catalog</button>
         <button class="tab-btn" :class="{active: activeRightTab==='subagent'}" @click="selectTab('subagent')">Subagent</button>
         <button class="tab-btn" :class="{active: activeRightTab==='skill'}" @click="selectTab('skill')">Skill</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='mcp'}" @click="selectTab('mcp')">MCP</button>
       </div>
 
       <!-- Config Tab -->
@@ -1200,6 +1201,171 @@
         </div>
       </div>
 
+      <!-- ── MCP tab (TE-3d) ──────────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='mcp'" x-data="mcpTab()">
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">MCP</strong>
+          <button class="btn-small" @click="section='servers'"
+                  :style="section === 'servers' ? 'background:var(--accent-soft, #e6f0ff);font-weight:600' : ''">
+            Servers (<span x-text="servers.length"></span>)
+          </button>
+          <button class="btn-small" @click="section='marketplace'"
+                  :style="section === 'marketplace' ? 'background:var(--accent-soft, #e6f0ff);font-weight:600' : ''">
+            Marketplace (<span x-text="registry.length"></span>)
+          </button>
+          <button class="btn-small" @click="loadServers()" :disabled="loading" x-text="loading ? '…' : 'reload'"></button>
+          <span x-show="err"
+                :style="err.includes('failed') || err.includes('error') ? 'color:var(--err)' : 'color:var(--accent)'"
+                style="font-size:10px;margin-left:auto;max-width:60%;overflow:hidden;text-overflow:ellipsis"
+                :title="err" x-text="err"></span>
+        </div>
+
+        <!-- ── Servers section ── -->
+        <div x-show="section === 'servers'" style="font-size:11px">
+          <!-- Drop zone for mcp.json import -->
+          <div :class="dragOver ? 'drop-zone-active' : 'drop-zone'"
+               @dragover="onDragOver($event)" @dragleave="onDragLeave()" @drop="onDrop($event)"
+               style="margin:8px 10px;padding:10px;border:2px dashed var(--border);border-radius:4px;text-align:center;color:var(--text-mute)">
+            <span x-show="!importBusy && !dragOver">drag mcp.json fragment here (Claude Desktop format)</span>
+            <span x-show="dragOver" style="color:var(--accent)">drop to upload</span>
+            <span x-show="importBusy">importing…</span>
+          </div>
+
+          <div style="display:flex;gap:0;padding:0 10px">
+            <!-- Server list -->
+            <div style="width:160px;border-right:1px solid var(--border);padding-right:8px;max-height:600px;overflow:auto">
+              <div x-show="servers.length === 0" style="color:var(--text-mute);padding:8px">no servers configured</div>
+              <template x-for="srv in servers" :key="srv.name">
+                <div style="padding:4px 6px;cursor:pointer;border-radius:3px"
+                     :style="selected?.name === srv.name ? 'background:var(--accent-soft, #e6f0ff)' : ''"
+                     @click="selectServer(srv)">
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <span :style="'color:' + statusColor(srv.status) + ';font-size:10px;font-weight:600'"
+                          x-text="srv.status"></span>
+                    <span style="font-family:Consolas,monospace;flex:1" x-text="srv.name"></span>
+                  </div>
+                  <div x-show="srv.tools?.length" style="font-size:9px;color:var(--text-mute)"
+                       x-text="(srv.tools || []).length + ' tools'"></div>
+                </div>
+              </template>
+            </div>
+
+            <!-- Server detail -->
+            <div style="flex:1;padding-left:8px;max-height:600px;overflow:auto">
+              <div x-show="!selected" style="color:var(--text-mute);padding:8px">select a server</div>
+              <div x-show="selected" style="display:flex;flex-direction:column;gap:8px">
+                <div>
+                  <div style="font-weight:600;display:flex;align-items:center;gap:8px">
+                    <span x-text="selected?.name"></span>
+                    <span :style="'color:' + statusColor(selected?.status) + ';font-size:10px'" x-text="selected?.status"></span>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-mute);font-family:Consolas,monospace"
+                       x-text="selected ? (selected.command || '?') + ' ' + (selected.args || []).join(' ') : ''"></div>
+                </div>
+
+                <div style="display:flex;gap:6px">
+                  <button class="btn-small" @click="reconnect(selected)" :disabled="actionBusy === selected?.name">reconnect</button>
+                  <button class="btn-small" @click="healthCheck(selected)" :disabled="actionBusy === selected?.name">health-check</button>
+                  <button class="btn-small" @click="deleteServer(selected)" :disabled="actionBusy === selected?.name" style="color:var(--err)">delete</button>
+                </div>
+
+                <div style="display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-family:Consolas,monospace;font-size:10px">
+                  <span style="color:var(--text-mute)">connectedAt</span>
+                  <span x-text="fmtTime(selected?.connectedAt)"></span>
+                  <span style="color:var(--text-mute)">lastSuccessAt</span>
+                  <span x-text="fmtTime(selected?.lastSuccessAt)"></span>
+                  <span style="color:var(--text-mute)">consecFailures</span>
+                  <span x-text="selected?.consecutiveFailures ?? 0"></span>
+                  <span style="color:var(--text-mute)">totalCalls</span>
+                  <span x-text="selected?.totalCalls ?? 0"></span>
+                  <template x-if="selected?.lastError">
+                    <span style="color:var(--err)">lastError</span>
+                  </template>
+                  <template x-if="selected?.lastError">
+                    <span style="color:var(--err);white-space:pre-wrap" x-text="selected?.lastError"></span>
+                  </template>
+                </div>
+
+                <div x-show="selected?.tools?.length">
+                  <div style="font-weight:600;margin-bottom:4px">tools (<span x-text="selected?.tools?.length"></span>)</div>
+                  <template x-for="t in (selected?.tools || [])" :key="t.name">
+                    <details style="margin-bottom:3px">
+                      <summary style="cursor:pointer;font-family:Consolas,monospace" x-text="t.name"></summary>
+                      <div style="padding:4px 0 4px 16px;font-size:10px;color:var(--text-mute)" x-text="t.description"></div>
+                    </details>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Marketplace section ── -->
+        <div x-show="section === 'marketplace'" style="font-size:11px;padding:8px 10px">
+          <div style="display:flex;gap:0">
+            <div style="width:160px;border-right:1px solid var(--border);padding-right:8px;max-height:600px;overflow:auto">
+              <template x-for="entry in registry" :key="entry.name">
+                <div style="padding:4px 6px;cursor:pointer;border-radius:3px"
+                     :style="selectedRegEntry?.name === entry.name ? 'background:var(--accent-soft, #e6f0ff)' : ''"
+                     @click="selectRegEntry(entry)">
+                  <div style="font-family:Consolas,monospace;font-weight:600" x-text="entry.name"></div>
+                  <div style="font-size:9px;color:var(--text-mute)" x-text="entry.runtime + ' · ' + (entry.category || '')"></div>
+                </div>
+              </template>
+            </div>
+
+            <div style="flex:1;padding-left:8px;max-height:600px;overflow:auto">
+              <div x-show="!selectedRegEntry" style="color:var(--text-mute);padding:8px">select a registry entry to install</div>
+              <div x-show="selectedRegEntry" style="display:flex;flex-direction:column;gap:8px">
+                <div>
+                  <div style="font-weight:600" x-text="selectedRegEntry?.displayName || selectedRegEntry?.name"></div>
+                  <div style="font-size:10px" x-text="selectedRegEntry?.description"></div>
+                  <div style="font-size:10px;color:var(--text-mute);margin-top:4px">
+                    runtime: <span x-text="selectedRegEntry?.runtime"></span> ·
+                    license: <span x-text="selectedRegEntry?.license || '—'"></span>
+                  </div>
+                  <div x-show="selectedRegEntry?.notes"
+                       style="font-size:10px;color:var(--text-mute);margin-top:4px;font-style:italic"
+                       x-text="selectedRegEntry?.notes"></div>
+                </div>
+
+                <!-- Required env -->
+                <div x-show="selectedRegEntry?.requiredEnv?.length">
+                  <div style="font-weight:600;margin-bottom:4px">required env</div>
+                  <template x-for="r in (selectedRegEntry?.requiredEnv || [])" :key="r.name">
+                    <div style="margin-bottom:4px">
+                      <label style="font-size:10px;color:var(--text-mute);font-family:Consolas,monospace" x-text="r.name + (r.secret ? ' (secret)' : '')"></label>
+                      <input :type="r.secret ? 'password' : 'text'"
+                             x-model="installEnv[r.name]"
+                             :placeholder="r.description || r.name"
+                             style="width:100%;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:3px">
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Required args -->
+                <div x-show="selectedRegEntry?.requiredArgs?.length">
+                  <div style="font-weight:600;margin-bottom:4px">required args</div>
+                  <template x-for="r in (selectedRegEntry?.requiredArgs || [])" :key="r.name">
+                    <div style="margin-bottom:4px">
+                      <label style="font-size:10px;color:var(--text-mute);font-family:Consolas,monospace" x-text="r.name + ' (' + r.type + ')'"></label>
+                      <input type="text" x-model="installArgs[r.name]"
+                             :placeholder="r.description || r.name"
+                             style="width:100%;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:3px">
+                    </div>
+                  </template>
+                </div>
+
+                <button class="btn-small" @click="install()" :disabled="actionBusy === selectedRegEntry?.name"
+                        style="align-self:flex-start;margin-top:6px;padding:6px 14px">
+                  <span x-text="actionBusy === selectedRegEntry?.name ? 'installing…' : 'install'"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1216,6 +1382,7 @@
   <script src="/dev/static/js/tab-catalog.js"></script>
   <script src="/dev/static/js/tab-subagent.js"></script>
   <script src="/dev/static/js/tab-skill.js"></script>
+  <script src="/dev/static/js/tab-mcp.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>
