@@ -137,6 +137,29 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		return fmt.Sprintf("input validation failed: %s", err.Error()), err.Error(), false
 	}
 
+	// Skill pre-approval (skill.md §9): if an active skill on this
+	// conversation lists this tool in its allowed-tools, skip the
+	// per-tool CheckPermissions and treat as Allow. The check is
+	// centralized here so each Tool implementation doesn't repeat
+	// (per skill.md §9 line 385: "central in framework dispatch beats
+	// per-tool changes"). Bare-name patterns ('Read', 'Bash') and
+	// paren-form patterns ('Bash(git *)') are both honored — see
+	// pkg/agentstate/skill.go::matchAllowedTool.
+	//
+	// Skill 预授权（skill.md §9）：本对话有 active skill 且其 allowed-
+	// tools 列了本 tool → 跳过 per-tool CheckPermissions 当 Allow。集中
+	// 在 framework dispatch 比改每个 Tool 划算（§9 line 385）。bare-name
+	// 与 paren-form pattern 均支持——见 matchAllowedTool。
+	if state, hasState := reqctxpkg.GetAgentState(ctx); hasState {
+		if state.IsToolPreApprovedBySkill(name, argsJSON) {
+			log.Debug("tool pre-approved by active skill",
+				zap.String("tool", name))
+			// Skip CheckPermissions entirely; proceed to Execute.
+			// 整个跳过 CheckPermissions；直接 Execute。
+			return executeAfterPermission(ctx, t, name, argsJSON, log)
+		}
+	}
+
 	switch t.CheckPermissions(argsJSON, toolapp.PermissionModeDefault) {
 	case toolapp.PermissionDeny:
 		log.Warn("tool permission denied", zap.String("tool", name))
@@ -150,6 +173,16 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		// ——单用户本地桌面没真实询问通道。
 	}
 
+	return executeAfterPermission(ctx, t, name, argsJSON, log)
+}
+
+// executeAfterPermission runs t.Execute and shapes the return tuple.
+// Extracted so the skill-preapproval path and the normal CheckPermissions
+// path can share the post-permission codepath without duplication.
+//
+// executeAfterPermission 跑 t.Execute + 整形返回三元组。抽出让 skill 预
+// 授权路径与正常 CheckPermissions 路径共用 post-permission 代码不重复。
+func executeAfterPermission(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (string, string, bool) {
 	output, err := t.Execute(ctx, string(argsJSON))
 	if err != nil {
 		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
