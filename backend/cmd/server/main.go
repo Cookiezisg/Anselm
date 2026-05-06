@@ -31,6 +31,7 @@ import (
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
+	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
@@ -299,6 +300,29 @@ func main() {
 	}()
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
+	// Capability Catalog: subscribes to forge / skill / mcp via the
+	// CatalogSource port, polls every 1s with fingerprint short-circuit,
+	// regenerates the system-prompt summary via LLM (3-attempt retry +
+	// mechanical fallback) when descriptions change. The summary is
+	// what teaches the LLM "what categories of capabilities you have +
+	// when to prefer one over another". subagent NOT registered — its
+	// own tool description already enumerates subagent types
+	// (catalog.md §1).
+	//
+	// Catalog 订阅 forge / skill / mcp 经 CatalogSource 接口，每 1s
+	// 轮询 fingerprint 短路，description 变时经 LLM regen system-prompt
+	// summary（3 attempt + mechanical fallback）。summary 教 LLM "你有
+	// 哪些类目能力 + 何时优先何者"。subagent 不注册——其 tool description
+	// 已枚举 subagent 类型（catalog.md §1）。
+	catalogService := catalogapp.New(defaultCatalogCachePath(), log)
+	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
+	catalogService.RegisterSource(forgeService.AsCatalogSource())
+	catalogService.RegisterSource(skillService.AsCatalogSource())
+	catalogService.RegisterSource(mcpService.AsCatalogSource())
+	if err := catalogService.Start(context.Background()); err != nil {
+		log.Warn("catalog start failed (continuing without catalog injection)", zap.Error(err))
+	}
+
 	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
@@ -529,4 +553,21 @@ func defaultSkillsDir() string {
 		return ".forgify/skills"
 	}
 	return filepath.Join(home, ".forgify", "skills")
+}
+
+// defaultCatalogCachePath returns ~/.forgify/.catalog.json — the
+// disk cache for the Capability Catalog (catalog.md §5). Same fallback
+// shape as defaultMCPConfigPath: HOME-failure degrades to a relative
+// path that just won't have a cache on first boot (Service.Start
+// gracefully treats missing file as "first launch").
+//
+// defaultCatalogCachePath 返 ~/.forgify/.catalog.json——Capability Catalog
+// 的 disk cache（catalog.md §5）。同 defaultMCPConfigPath 退化模式：HOME
+// 失败 → 相对路径首次启动无 cache 而已（Service.Start 容忍文件缺）。
+func defaultCatalogCachePath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".forgify/.catalog.json"
+	}
+	return filepath.Join(home, ".forgify", ".catalog.json")
 }

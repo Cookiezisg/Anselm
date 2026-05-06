@@ -35,6 +35,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
+	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
@@ -118,6 +119,7 @@ type Harness struct {
 	Sandbox *sandboxapp.Service
 	MCP     *mcpapp.Service
 	Skill   *skillapp.Service
+	Catalog *catalogapp.Service
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -334,6 +336,24 @@ func New(t *testing.T, opts ...Option) *Harness {
 	}
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
+	// Capability Catalog: per-test tempdir for the cache file so we
+	// never touch real ~/.forgify/.catalog.json. Tests that exercise
+	// catalog drive it explicitly via h.Catalog.Refresh; the polling
+	// loop is started so SSE-style timing tests are realistic.
+	//
+	// Capability Catalog：per-test tempdir cache 文件，永不动真
+	// ~/.forgify/.catalog.json。需 catalog 的测试经 h.Catalog.Refresh
+	// 显式驱动；polling loop 启 让 SSE 类时序测试逼真。
+	catalogCachePath := filepath.Join(dataDir, ".catalog.json")
+	catalogService := catalogapp.New(catalogCachePath, log)
+	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
+	catalogService.RegisterSource(forgeService.AsCatalogSource())
+	catalogService.RegisterSource(skillService.AsCatalogSource())
+	catalogService.RegisterSource(mcpService.AsCatalogSource())
+	if err := catalogService.Start(context.Background()); err != nil {
+		t.Logf("catalog start: %v", err)
+	}
+
 	chatService.SetTools(tools)
 
 	handler := routerhttpapi.New(routerhttpapi.Deps{
@@ -368,6 +388,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Sandbox:        sandboxSvc,
 		MCP:            mcpService,
 		Skill:          skillService,
+		Catalog:        catalogService,
 		APIKey:         apikeyService,
 		Model:          modelService,
 		Conversation:   convService,
