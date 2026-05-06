@@ -654,3 +654,12 @@ select.cfg-input { cursor: pointer; }
 }
 .btn-small:hover:not(:disabled) { background: var(--accent-soft, #e6f0ff); }
 .btn-small:disabled { opacity: 0.5; cursor: default; }
+
+/* drop zone — used by Skill + future MCP import */
+.drop-zone, .drop-zone-active {
+  transition: background 0.15s, border-color 0.15s;
+}
+.drop-zone-active {
+  background: var(--accent-soft, #e6f0ff);
+  border-color: var(--accent, #3267d2) !important;
+}

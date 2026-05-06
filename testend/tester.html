@@ -257,6 +257,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='tools'}"  @click="selectTab('tools')">Tools</button>
         <button class="tab-btn" :class="{active: activeRightTab==='catalog'}" @click="selectTab('catalog')">Catalog</button>
         <button class="tab-btn" :class="{active: activeRightTab==='subagent'}" @click="selectTab('subagent')">Subagent</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='skill'}" @click="selectTab('skill')">Skill</button>
       </div>
 
       <!-- Config Tab -->
@@ -1116,6 +1117,89 @@
         </div>
       </div>
 
+      <!-- ── Skill tab (TE-3c) ────────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='skill'" x-data="skillTab()">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">Skills</strong>
+          <span x-show="skills.length" style="font-size:10px;color:var(--text-mute)" x-text="'(' + skills.length + ')'"></span>
+          <button class="btn-small" @click="load()" :disabled="loading" x-text="loading ? 'loading…' : 'reload'"></button>
+          <button class="btn-small" @click="refresh()" :disabled="refreshing"
+                  title="POST /api/v1/skills:refresh — force fsnotify rescan"
+                  x-text="refreshing ? 'rescanning…' : 'rescan disk'"></button>
+          <span x-show="err" :style="err.startsWith('imported:') ? 'color:var(--accent)' : 'color:var(--err)'"
+                style="font-size:10px;margin-left:auto" x-text="err"></span>
+        </div>
+
+        <!-- Drop zone for SKILL.md import -->
+        <div :class="dragOver ? 'drop-zone-active' : 'drop-zone'"
+             @dragover="onDragOver($event)" @dragleave="onDragLeave()" @drop="onDrop($event)"
+             style="margin:8px 10px;padding:14px;border:2px dashed var(--border);border-radius:4px;text-align:center;font-size:11px;color:var(--text-mute)">
+          <span x-show="!importBusy && !dragOver">drag SKILL.md file(s) here to import</span>
+          <span x-show="dragOver" style="color:var(--accent)">drop to upload</span>
+          <span x-show="importBusy">uploading…</span>
+        </div>
+
+        <div style="display:flex;gap:0;padding:0 10px;font-size:11px">
+          <!-- Left: list -->
+          <div style="width:180px;border-right:1px solid var(--border);padding-right:8px;max-height:600px;overflow:auto">
+            <div x-show="skills.length === 0 && !loading" style="color:var(--text-mute);padding:8px">no skills installed</div>
+            <template x-for="sk in skills" :key="sk.name">
+              <div style="padding:4px 6px;cursor:pointer;border-radius:3px;display:flex;align-items:center;gap:4px"
+                   :style="selected?.name === sk.name ? 'background:var(--accent-soft, #e6f0ff)' : ''"
+                   @click="select(sk)">
+                <span style="font-family:Consolas,monospace;flex:1" x-text="sk.name"></span>
+                <span x-show="sk.frontmatter?.context === 'fork'"
+                      style="font-size:9px;color:#c97600" title="fork mode (spawns subagent)">fork</span>
+                <button class="btn-icon" @click.stop="del(sk)" title="Delete skill" style="font-size:10px">✕</button>
+              </div>
+            </template>
+          </div>
+
+          <!-- Right: detail -->
+          <div style="flex:1;padding-left:8px;max-height:600px;overflow:auto">
+            <div x-show="!selected" style="color:var(--text-mute);padding:8px">select a skill to view + invoke</div>
+            <div x-show="selected" style="display:flex;flex-direction:column;gap:8px">
+              <!-- Frontmatter -->
+              <div>
+                <div style="font-weight:600;margin-bottom:4px" x-text="selected?.name"></div>
+                <div style="font-size:10px;color:var(--text-mute)" x-text="selected?.description || '(no description)'"></div>
+              </div>
+              <div style="font-family:Consolas,monospace;font-size:10px;color:var(--text-mute)">
+                <div x-show="selected?.frontmatter?.context"
+                     x-text="'context: ' + selected?.frontmatter?.context + (selected?.frontmatter?.agent ? ' (agent=' + selected?.frontmatter?.agent + ')' : '')"></div>
+                <div x-show="selected?.frontmatter?.allowedTools?.length"
+                     x-text="'allowed-tools: ' + (selected?.frontmatter?.allowedTools || []).join(', ')"></div>
+                <div x-show="selected?.frontmatter?.arguments?.length"
+                     x-text="'arguments: ' + (selected?.frontmatter?.arguments || []).join(', ')"></div>
+              </div>
+
+              <!-- Body -->
+              <div>
+                <div style="font-weight:600;margin-bottom:4px">SKILL.md body</div>
+                <pre style="background:#fafafa;padding:8px;border-radius:4px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:200px;overflow:auto"
+                     x-text="body"></pre>
+              </div>
+
+              <!-- Invoke -->
+              <div style="border-top:1px solid var(--border);padding-top:8px">
+                <div style="font-weight:600;margin-bottom:4px">manual invoke</div>
+                <div style="font-size:10px;color:var(--text-mute);margin-bottom:4px">
+                  Calls POST /skills/{name}:invoke directly. Substitutes args into $1..$N + $ARGUMENTS in the body.
+                </div>
+                <input type="text" x-model="invokeArgs" placeholder='args JSON array, e.g. ["1234"]'
+                       style="width:100%;font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;margin-bottom:4px">
+                <button class="btn-small" @click="invoke()" :disabled="invokeBusy">
+                  <span x-text="invokeBusy ? 'invoking…' : 'invoke'"></span>
+                </button>
+                <pre x-show="invokeResult"
+                     style="background:#fafafa;padding:8px;border-radius:4px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:6px"
+                     x-text="invokeResult"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1131,6 +1215,7 @@
   <script src="/dev/static/js/tab-tools.js"></script>
   <script src="/dev/static/js/tab-catalog.js"></script>
   <script src="/dev/static/js/tab-subagent.js"></script>
+  <script src="/dev/static/js/tab-skill.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>
