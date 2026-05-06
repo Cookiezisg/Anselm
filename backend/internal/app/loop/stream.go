@@ -24,6 +24,20 @@ type toolAccum struct {
 	args     strings.Builder
 }
 
+// publishMinInterval throttles streaming-snapshot publishes to ~60 fps.
+// Without this, every LLM stream event (text token / reasoning token /
+// tool-args delta) triggered a host.Publish carrying the whole message-
+// so-far. A 7000-token reasoning message could push 7000 ~10KB snapshots
+// downstream, melting the SSE consumer (browser DOM-renders 7000 times,
+// re-parsing 50+ MB of JSON). 16ms = the vsync budget; matches what the
+// front-end can actually render anyway.
+//
+// publishMinInterval 把 streaming 快照推送节流到 ~60 fps。无节流时每个
+// LLM stream event 都触发一次完整 message-so-far 推送，7000-token 的长
+// reasoning message 会推 ~7000 次 ~10KB 快照，下游 SSE 消费者（浏览器）
+// 必死。16ms = vsync 预算，匹配前端实际渲染能力。
+const publishMinInterval = 16 * time.Millisecond
+
 // streamLLM executes one LLM call. parentBlocks are blocks already accumulated
 // from earlier ReAct steps — host snapshots prepend them so subscribers always
 // see the full message-so-far.
@@ -41,31 +55,58 @@ func streamLLM(
 	accums := map[int]*toolAccum{}
 	stopReason = chatdomain.StopReasonEndTurn
 
-	publish := func() {
+	publishNow := func() {
 		current := assembleBlocks(textBuf.String(), reasonBuf.String(), accums)
 		host.Publish(ctx, joinBlocks(parentBlocks, current),
 			chatdomain.StatusStreaming, "", "", "",
 			inputTokens, outputTokens)
 	}
 
+	// Throttle bookkeeping. lastPublish=zero forces the first event to push
+	// immediately so subscribers see "streaming started" without delay;
+	// pendingPublish marks "skipped a publish, must flush before stream end."
+	//
+	// 节流簿记。lastPublish=零让首个 event 立即推（订阅者无延迟看到
+	// "streaming 启动"）；pendingPublish 标记"跳过一次推送，stream 结束前
+	// 必须 flush"。
+	var lastPublish time.Time
+	pendingPublish := false
+	publishThrottled := func() {
+		if time.Since(lastPublish) >= publishMinInterval {
+			publishNow()
+			lastPublish = time.Now()
+			pendingPublish = false
+		} else {
+			pendingPublish = true
+		}
+	}
+
 	for event := range client.Stream(ctx, req) {
 		switch event.Type {
 		case llminfra.EventText:
 			textBuf.WriteString(event.Delta)
-			publish()
+			publishThrottled()
 
 		case llminfra.EventReasoning:
 			reasonBuf.WriteString(event.Delta)
-			publish()
+			publishThrottled()
 
 		case llminfra.EventToolStart:
+			// Tool start is a low-frequency milestone (one per tool call,
+			// not per token) — push immediately so the UI can render the
+			// "running…" pill without waiting up to 16ms.
+			//
+			// tool_start 是低频里程碑（每 tool 调用一次，非每 token），
+			// 立即推，UI "running…" 无需等 16ms。
 			accums[event.ToolIndex] = &toolAccum{id: event.ToolID, name: event.ToolName}
-			publish()
+			publishNow()
+			lastPublish = time.Now()
+			pendingPublish = false
 
 		case llminfra.EventToolDelta:
 			if a := accums[event.ToolIndex]; a != nil {
 				a.args.WriteString(event.ArgsDelta)
-				publish()
+				publishThrottled()
 			}
 
 		case llminfra.EventFinish:
@@ -93,6 +134,18 @@ func streamLLM(
 
 	if ctx.Err() != nil && stopReason == chatdomain.StopReasonEndTurn {
 		stopReason = chatdomain.StopReasonCancelled
+	}
+
+	// Final flush: if the loop ended on a throttled-skipped event, push the
+	// last accumulated state so the UI sees the streaming-final state
+	// without waiting for loop.Run's WriteCheckpoint (which writes DB and
+	// can be slower than the 16ms throttle window).
+	//
+	// 终态 flush：循环结束时若最后一个 event 被节流跳过，强制推一次让 UI
+	// 看到 streaming 最终态，不等 loop.Run 的 WriteCheckpoint（写 DB 比 16ms
+	// 慢）。
+	if pendingPublish {
+		publishNow()
 	}
 
 	blocks = assembleBlocks(textBuf.String(), reasonBuf.String(), accums)

@@ -129,22 +129,41 @@
                   <div style="display:flex;flex-direction:column;gap:4px">
                     <template x-for="(item, idx) in m.items" :key="idx">
                       <div>
-                        <!-- Reasoning / thinking block -->
+                        <!-- Reasoning / thinking block — TE-16 default-collapsed
+                             so 5KB+ reasoning streams don't reflow the page on
+                             every token. Per-block expand state survives
+                             streaming updates (expanded[expandKey]). -->
                         <template x-if="item.type === 'reasoning'">
-                          <details class="thinking-block">
-                            <summary class="thinking-summary"
-                                     x-text="item.done ? 'Thought' : 'Thinking...'"></summary>
-                            <pre class="thinking-content" x-text="item.content"></pre>
-                          </details>
+                          <div class="thinking-block">
+                            <div class="thinking-summary"
+                                 @click="toggleExpand(item.expandKey)"
+                                 style="cursor:pointer;user-select:none">
+                              <span x-text="expanded[item.expandKey] ? '▾' : '▸'" style="display:inline-block;width:10px"></span>
+                              <span x-text="item.done ? '💭 reasoning' : '💭 thinking…'"></span>
+                              <span style="color:var(--text-mute);font-size:10px;margin-left:6px"
+                                    x-text="(item.content || '').length + ' chars'"></span>
+                            </div>
+                            <template x-if="expanded[item.expandKey]">
+                              <pre class="thinking-content" x-text="item.content"></pre>
+                            </template>
+                          </div>
                         </template>
                         <!-- Text segment -->
                         <template x-if="item.type === 'text' && item.content">
                           <div class="msg-bubble" x-text="item.content"></div>
                         </template>
-                        <!-- Tool step card (testend always-expanded for full visibility) -->
+                        <!-- Tool step card — TE-16 default-collapsed so large
+                             args / result blobs (e.g. get_forge returning full
+                             code, Bash dumping output) don't reflow on every
+                             streaming snapshot. Summary line carries enough info
+                             (toolName / summary / status / elapsed) for normal
+                             use; click to expand for debugging. -->
                         <template x-if="item.type === 'tool'">
-                          <details class="tool-step-card" open>
-                            <summary class="tool-step-summary">
+                          <div class="tool-step-card">
+                            <div class="tool-step-summary"
+                                 @click="toggleExpand(item.expandKey)"
+                                 style="cursor:pointer;user-select:none">
+                              <span x-text="expanded[item.expandKey] ? '▾' : '▸'" style="display:inline-block;width:10px"></span>
                               <span class="tool-step-icon"
                                     x-text="item.result === null ? '⚙' : (item.ok ? '✓' : '✗')"></span>
                               <span style="flex:1;min-width:0;overflow:hidden">
@@ -164,8 +183,8 @@
                               <span class="tool-step-status"
                                     :class="item.result === null ? 'running' : (item.ok ? 'ok' : 'err')"
                                     x-text="item.input === null ? 'starting…' : item.result === null ? 'running…' : (item.ok ? 'ok' : 'error')"></span>
-                            </summary>
-                            <template x-if="item.input !== null">
+                            </div>
+                            <template x-if="expanded[item.expandKey] && item.input !== null">
                               <div class="tool-step-body">
                                 <!-- args: always show even if {} so testers see 'no args passed' explicitly -->
                                 <div>
@@ -186,7 +205,7 @@
                                 </template>
                               </div>
                             </template>
-                          </details>
+                          </div>
                         </template>
                       </div>
                     </template>

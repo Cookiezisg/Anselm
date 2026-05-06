@@ -16,6 +16,37 @@ document.addEventListener('alpine:init', () => {
     uploading: false,
     _es: null,
 
+    // Per-block expansion state (TE-16): keyed by block.id (reasoning) or
+    // tool callId (tool steps). Default-folded keeps DOM size constant
+    // regardless of how long a reasoning / tool args / tool result is —
+    // the user opts in to render large bodies. Survives streaming updates
+    // because keys are stable across snapshots.
+    //
+    // 按 block 的展开状态（TE-16）：reasoning 用 block.id，tool 用 callId
+    // 作 key。默认折叠让 DOM 大小恒定，用户主动展开。stream 更新不会重置
+    // （key 跨 snapshot 稳定）。
+    expanded: {},
+
+    toggleExpand(key) {
+      this.expanded[key] = !this.expanded[key]
+    },
+
+    // SSE rAF batch (TE-16): coalesce burst chat.message snapshots into
+    // one DOM render per frame. Without this, even with backend throttle
+    // every event reaches Alpine reactive immediately → N renders per
+    // burst → DOM thrashing on long messages. With this, multiple events
+    // in the same frame collapse to a single Alpine update; same-id
+    // snapshots, only the latest survives (intermediate frames discarded
+    // — the user couldn't have perceived them anyway).
+    //
+    // SSE rAF 批处理（TE-16）：把同一帧内的多个 chat.message 快照合并成
+    // 一次 DOM 渲染。无此机制时即使后端节流，每个 event 仍即时触发 Alpine
+    // 反应式，长消息上 DOM 抖动严重。同 id 后到的覆盖前到的（用户看不到
+    // 中间帧）。
+    _pendingMsgs: new Map(),
+    _pendingShouldScroll: false,
+    _rafToken: 0,
+
     // Raw-snapshot modal: clicking [📋 raw] on a message stashes the
     // wire payload here + shows the modal. JSON-stringified for display
     // + lazy 'copied' flag for the clipboard-button feedback.
@@ -213,7 +244,10 @@ document.addEventListener('alpine:init', () => {
         try {
           const d = JSON.parse(b.data)
           if (b.type === 'reasoning') {
-            items.push({ type: 'reasoning', content: d.text, done: true })
+            // expandKey = block.id so per-block expand state survives streaming
+            // updates (block.id is stable across snapshots).
+            // expandKey = block.id 让按块展开状态跨流式更新存活。
+            items.push({ type: 'reasoning', content: d.text, done: true, expandKey: 'r:' + b.id })
           } else if (b.type === 'tool_call') {
             const item = {
               type: 'tool', toolCallId: d.id, toolName: d.name,
@@ -221,6 +255,7 @@ document.addEventListener('alpine:init', () => {
               executionGroup: d.executionGroup || 0,
               input: JSON.stringify(d.arguments || {}),
               result: null, ok: null, errorMsg: '', elapsedMs: 0,
+              expandKey: 't:' + d.id,
             }
             items.push(item)
             toolMap[d.id] = item
@@ -364,17 +399,13 @@ document.addEventListener('alpine:init', () => {
       es.addEventListener('chat.message', e => {
         const m = JSON.parse(e.data)
         if (!m || !m.id) return
-        const display = this._messageFromSnapshot(m)
-        const idx = this.messages.findIndex(x => x.id === m.id)
-        if (idx >= 0) {
-          this.messages[idx] = display
-        } else {
-          this.messages.push(display)
-        }
-        if (m.role === 'assistant' && m.status !== 'streaming') {
-          this.streaming = false
-        }
-        this._scrollBottom()
+        // Stash latest snapshot per message id; same id overwrites — only
+        // the freshest state ever reaches the DOM. Schedule a rAF flush
+        // if not already pending.
+        // 按 id 存最新快照（同 id 覆盖），rAF 排队后下一帧统一 apply。
+        this._pendingMsgs.set(m.id, m)
+        this._pendingShouldScroll = true
+        this._scheduleFlush()
       })
 
       es.addEventListener('conversation', e => {
@@ -385,8 +416,48 @@ document.addEventListener('alpine:init', () => {
       })
     },
 
+    _scheduleFlush() {
+      if (this._rafToken) return
+      this._rafToken = requestAnimationFrame(() => {
+        this._rafToken = 0
+        this._flushPending()
+      })
+    },
+
+    _flushPending() {
+      if (this._pendingMsgs.size === 0) return
+      for (const [id, snapshot] of this._pendingMsgs) {
+        const display = this._messageFromSnapshot(snapshot)
+        const idx = this.messages.findIndex(x => x.id === id)
+        if (idx >= 0) {
+          this.messages[idx] = display
+        } else {
+          this.messages.push(display)
+        }
+        if (snapshot.role === 'assistant' && snapshot.status !== 'streaming') {
+          this.streaming = false
+        }
+      }
+      this._pendingMsgs.clear()
+      if (this._pendingShouldScroll) {
+        this._pendingShouldScroll = false
+        this._scrollBottom()
+      }
+    },
+
     _closeSSE() {
       if (this._es) { this._es.close(); this._es = null }
+      // Cancel any pending rAF + drop unflushed snapshots — they belong to
+      // the conversation we're leaving. The next conv's loadMessages()
+      // will hydrate the canonical state.
+      // 取消 rAF + 丢未 flush 快照（属于即将离开的对话；新对话 loadMessages
+      // 会拿权威态）。
+      if (this._rafToken) {
+        cancelAnimationFrame(this._rafToken)
+        this._rafToken = 0
+      }
+      this._pendingMsgs.clear()
+      this._pendingShouldScroll = false
     },
 
     _scrollBottom() {
