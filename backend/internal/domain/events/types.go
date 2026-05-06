@@ -16,6 +16,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
@@ -156,3 +157,28 @@ func (e Todo) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(e.Todo)
 }
+
+// MCP carries a full snapshot of every configured MCP server's current
+// status (per mcp.md §9). Fired on Connect / Disconnect / Reconnect /
+// AddServer / RemoveServer / subprocess Wait detecting disconnect /
+// degraded transitions / auto-heal back to ready. Whole-snapshot model
+// (not single-server delta) because the UI replaces local state in one
+// go and snapshot count is small (~10 servers max in practice).
+//
+// JSON shape: {"servers": [ServerStatus, ...]} — flat object, NOT a
+// hoisted Servers slice, so the wire matches what callers naturally
+// expect from a "list of servers" event.
+//
+// MCP 携全配置 MCP server 的当前状态快照（mcp.md §9）。Connect /
+// Disconnect / Reconnect / AddServer / RemoveServer / 子进程 Wait 检测到
+// disconnect / degraded 转换 / 自愈回 ready 都触发。整快照（非单 server
+// 增量）——UI 一次性替换本地，server 数实践中很小（≤ 10）。
+//
+// JSON 形状：{"servers": [...]}——扁平对象，非 Servers 升顶层，让 wire
+// 与"server 列表事件"的自然预期一致。
+type MCP struct {
+	Servers []mcpdomain.ServerStatus `json:"servers"`
+}
+
+func (MCP) EventName() string { return "mcp" }
+
