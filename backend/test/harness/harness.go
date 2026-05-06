@@ -366,19 +366,27 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// 显式驱动；polling loop 启 让 SSE 类时序测试逼真。
 	catalogCachePath := filepath.Join(dataDir, ".catalog.json")
 	catalogService := catalogapp.New(catalogCachePath, log)
-	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
+	// Deliberately NOT calling SetGenerator in the test harness:
+	// production main.go wires LLMGenerator, but the FakeLLMServer's
+	// FIFO script queue is a test-only abstraction (real LLM endpoints
+	// handle concurrent requests fine). Background catalog regen
+	// competing for queued scripts caused test/chat to regress after
+	// D8. Solution: catalog uses mechanical-fallback only in pipelines
+	// — content is still populated, Coverage map still complete, just
+	// no LLM-generated 'Notes on choosing' prose. D9 + test/catalog
+	// scenarios all assert against mechanical-fallback markers and
+	// pass either way.
+	//
+	// 故意不在 harness 里 SetGenerator：生产 main.go 接 LLMGenerator，
+	// 但 FakeLLMServer 的 FIFO 脚本队列是测试基础设施才有的限制（真
+	// LLM endpoint 处理并发请求没问题）。后台 catalog regen 抢队列脚本
+	// D8 后让 test/chat 回归。方案：pipeline 里 catalog 走 mechanical-
+	// fallback——内容仍 populate、Coverage 仍全，只少 LLM 生成的"Notes
+	// on choosing" prose。D9 + test/catalog 场景全针对 mechanical 标记
+	// 断言，都通过。
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
-	// Catalog poll runs in a goroutine; tie its lifetime to the test
-	// via a cancellable ctx so the goroutine exits at t.Cleanup time
-	// (otherwise it keeps trying to ListItems against the closed
-	// services + holds the test process open until the gc reaper
-	// times out).
-	//
-	// catalog poll 在 goroutine 跑；用可取消 ctx 绑测试生命周期，让
-	// goroutine 在 t.Cleanup 时退（否则它继续往关闭的 service ListItems
-	// + 拖住测试进程直到 gc 超时）。
 	catalogCtx, catalogCancel := context.WithCancel(context.Background())
 	t.Cleanup(catalogCancel)
 	if err := catalogService.Start(catalogCtx); err != nil {
