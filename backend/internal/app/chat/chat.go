@@ -34,6 +34,7 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
@@ -88,6 +89,18 @@ type Service struct {
 	dataDir     string
 	log         *zap.Logger
 	queues      sync.Map // conversationID → *convQueue
+
+	// catalog (optional) provides the Capability Catalog summary that
+	// gets prepended to every system prompt. Nil-tolerant: when not
+	// wired (unit tests, environments without the catalog subsystem),
+	// the system prompt skips the catalog block. Set via
+	// SetSystemPromptProvider after construction (post-injection avoids
+	// a circular dep — catalog imports chat would create one).
+	//
+	// catalog（可选）提供 Capability Catalog summary，前置每个 system
+	// prompt。容忍 nil（单测、无 catalog 环境跳）。SetSystemPromptProvider
+	// 后置注入避循环依赖（catalog import chat 就会循环）。
+	catalog catalogdomain.SystemPromptProvider
 }
 
 // NewService wires Service dependencies. Panics on nil logger.
@@ -127,6 +140,20 @@ func NewService(
 // SetTools 将 system tools 注入 ReAct Agent，在任何对话启动前调用均安全。
 func (s *Service) SetTools(tools []toolapp.Tool) {
 	s.tools = tools
+}
+
+// SetSystemPromptProvider plugs the Capability Catalog (or any
+// implementation of catalogdomain.SystemPromptProvider) so its summary
+// gets prepended to every conversation's system prompt. Safe to leave
+// nil — buildSystemPrompt skips the catalog block when not wired.
+// Call after main.go constructs the catalog Service.
+//
+// SetSystemPromptProvider 接 Capability Catalog（或任何
+// catalogdomain.SystemPromptProvider 实现）让其 summary 前置每个对话
+// system prompt。留 nil 安全——buildSystemPrompt 在未接时跳。main.go 构
+// 造 catalog Service 后调。
+func (s *Service) SetSystemPromptProvider(p catalogdomain.SystemPromptProvider) {
+	s.catalog = p
 }
 
 // SendInput is the payload for Service.Send.

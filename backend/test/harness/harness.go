@@ -353,6 +353,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	if err := catalogService.Start(context.Background()); err != nil {
 		t.Logf("catalog start: %v", err)
 	}
+	chatService.SetSystemPromptProvider(catalogService)
 
 	chatService.SetTools(tools)
 

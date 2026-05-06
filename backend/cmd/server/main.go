@@ -322,6 +322,7 @@ func main() {
 	if err := catalogService.Start(context.Background()); err != nil {
 		log.Warn("catalog start failed (continuing without catalog injection)", zap.Error(err))
 	}
+	chatService.SetSystemPromptProvider(catalogService)
 
 	chatService.SetTools(tools)
 

@@ -171,6 +171,21 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conver
 		sb.WriteString("\n\n")
 		sb.WriteString(conv.SystemPrompt)
 	}
+	// Capability Catalog block (D8): teaches the LLM what categories of
+	// capabilities exist + when to prefer one over another. Skipped
+	// silently when no provider is wired (unit tests / no-LLM-key envs)
+	// or when the provider returns an empty string (boot window before
+	// the first Refresh tick completes).
+	//
+	// Capability Catalog 段（D8）：教 LLM 有哪些类目能力 + 何时优先何者。
+	// 无 provider（单测 / 无 LLM key）或返空（首 Refresh 完成前 boot 窗
+	// 口）静默跳。
+	if s.catalog != nil {
+		if catalogText := s.catalog.GetForSystemPrompt(); catalogText != "" {
+			sb.WriteString("\n\n")
+			sb.WriteString(catalogText)
+		}
+	}
 	if reqctxpkg.GetLocale(ctx) == reqctxpkg.LocaleZhCN {
 		sb.WriteString("\n\nPlease respond in Chinese (Simplified) unless the user writes in another language.")
 	}
