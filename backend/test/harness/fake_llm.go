@@ -15,8 +15,10 @@
 package harness
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -38,6 +40,16 @@ type FakeLLMServer struct {
 	dflt         *Script
 	calls        int
 	modelsStatus int // HTTP status for GET /v1/models; default 200
+
+	// lastSystemPrompt captures the OpenAI 'role:system' message text from
+	// the most recent /chat/completions request. Lets pipeline tests
+	// verify what the LLM actually receives — D9 uses this to assert the
+	// Capability Catalog summary made it into the wire system prompt.
+	//
+	// lastSystemPrompt 捕获最近一次 /chat/completions 请求里 role:system
+	// 消息文本。让 pipeline 测试验 LLM 真收到啥——D9 用此断言 Capability
+	// Catalog summary 真进了 wire system prompt。
+	lastSystemPrompt string
 }
 
 // Script describes what one streaming completion call should emit.
@@ -137,7 +149,56 @@ func (f *FakeLLMServer) CallCount() int {
 	return f.calls
 }
 
+// LastSystemPrompt returns the role:system message content from the
+// most recent /chat/completions request, or empty string when no
+// request has come through (or the last one had no system message).
+// D9 pipeline tests use this to verify what the LLM actually saw —
+// e.g. that the Capability Catalog summary is propagating from
+// Service.GetForSystemPrompt all the way onto the wire.
+//
+// LastSystemPrompt 返最近一次 /chat/completions 请求的 role:system
+// 消息内容，无请求或无 system 时返空。D9 pipeline 测试用此验 LLM 真看
+// 到的内容——例如 Capability Catalog summary 真从 GetForSystemPrompt
+// 传到 wire。
+func (f *FakeLLMServer) LastSystemPrompt() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastSystemPrompt
+}
+
 func (f *FakeLLMServer) handle(w http.ResponseWriter, r *http.Request) {
+	// Snapshot the system prompt before consuming the body — pipeline
+	// tests (D9) use LastSystemPrompt to verify what the LLM saw.
+	// Failure to parse is non-fatal (we just don't record it); the
+	// test will catch the absence by asserting empty.
+	//
+	// 在消费 body 前捕快照 system prompt——pipeline 测试（D9）经
+	// LastSystemPrompt 验 LLM 看到的内容。解析失败非致命（不记），测
+	// 试以空断言抓。
+	if r.Body != nil {
+		raw, _ := io.ReadAll(r.Body)
+		_ = r.Body.Close()
+		// Re-attach so downstream parsing in the same handler still works.
+		// 重挂让下游同 handler 解析仍工作。
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+		var req struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if json.Unmarshal(raw, &req) == nil {
+			for _, m := range req.Messages {
+				if m.Role == "system" {
+					f.mu.Lock()
+					f.lastSystemPrompt = m.Content
+					f.mu.Unlock()
+					break
+				}
+			}
+		}
+	}
+
 	f.mu.Lock()
 	var (
 		script Script

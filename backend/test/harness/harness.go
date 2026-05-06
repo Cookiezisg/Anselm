@@ -322,6 +322,16 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// Skill：per-test tempdir SkillsDir，永不动真 ~/.forgify/skills/。
 	// 需 skill 的测试自己往 h.Skill.SkillsDir() 写 + 调 h.Skill.Scan。
 	skillsDir := filepath.Join(dataDir, "skills")
+	// Pre-create the dir so the fsnotify watcher can add a root watch
+	// at Start time (otherwise it logs 'no such file or directory' and
+	// only the 5min poll backstop catches subsequent edits — too slow
+	// for D9 dynamic-update tests).
+	//
+	// 预建目录让 fsnotify watcher 在 Start 时能加根 watch（否则它 log
+	// 'no such file or directory' + 仅 5min poll 兜底——D9 动态更新测试太慢）。
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatalf("mkdir skills: %v", err)
+	}
 	skillService := skillapp.New(
 		skillsDir,
 		subagentService,
@@ -334,6 +344,16 @@ func New(t *testing.T, opts ...Option) *Harness {
 	if err := skillService.Scan(context.Background()); err != nil {
 		t.Logf("skill scan: %v", err)
 	}
+	// Skill fsnotify watcher: D9 dynamic-update tests rely on this
+	// firing in pipeline; goroutine ties to t.Cleanup ctx so it exits
+	// cleanly at test end.
+	//
+	// Skill fsnotify watcher：D9 动态更新测试依赖 pipeline 期间 fire；
+	// goroutine 绑 t.Cleanup ctx 让测试结束干净退出。
+	skillWatcher := skillapp.NewWatcher(skillService, log)
+	skillWatcherCtx, skillWatcherCancel := context.WithCancel(context.Background())
+	t.Cleanup(skillWatcherCancel)
+	go func() { _ = skillWatcher.Start(skillWatcherCtx) }()
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
 	// Capability Catalog: per-test tempdir for the cache file so we
