@@ -107,6 +107,22 @@ type Service struct {
 
 	versionMu sync.Mutex
 	version   int
+
+	// stopOnce + stopCancel + pollDone wire synchronous Stop():
+	// stopCancel signals the pollLoop goroutine, pollDone closes
+	// when the goroutine finishes its current tick + exits. Stop()
+	// blocks on pollDone so callers (test harness cleanup, prod
+	// shutdown) can be sure no further disk writes happen after
+	// Stop returns. stopOnce makes Stop() idempotent.
+	//
+	// stopOnce + stopCancel + pollDone 实现同步 Stop()：stopCancel 给
+	// pollLoop goroutine 发信号，pollDone 在 goroutine 跑完当前 tick +
+	// 退出后关闭。Stop() 在 pollDone 上阻塞，让调用方（测试 harness
+	// cleanup / 生产 shutdown）确信 Stop 返后无进一步 disk 写。
+	// stopOnce 让 Stop() 幂等。
+	stopOnce   sync.Once
+	stopCancel context.CancelFunc
+	pollDone   chan struct{}
 }
 
 // New constructs a Service rooted at cachePath (typically

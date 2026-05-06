@@ -387,11 +387,17 @@ func New(t *testing.T, opts ...Option) *Harness {
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
-	catalogCtx, catalogCancel := context.WithCancel(context.Background())
-	t.Cleanup(catalogCancel)
-	if err := catalogService.Start(catalogCtx); err != nil {
+	if err := catalogService.Start(context.Background()); err != nil {
 		t.Logf("catalog start: %v", err)
 	}
+	// catalogService.Stop blocks until the polling goroutine fully
+	// drains — without this, a tick mid-saveToDisk could race with
+	// t.TempDir's RemoveAll and fail tests with "directory not empty".
+	//
+	// catalogService.Stop 阻塞到 polling goroutine 完全 drain——没有
+	// 它的话，mid-saveToDisk 的 tick 与 t.TempDir 的 RemoveAll 竞态会
+	// 让测试以 "directory not empty" 失败。
+	t.Cleanup(catalogService.Stop)
 	chatService.SetSystemPromptProvider(catalogService)
 
 	chatService.SetTools(tools)

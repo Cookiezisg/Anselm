@@ -66,8 +66,40 @@ func (s *Service) Start(ctx context.Context) error {
 		s.lastFP.Store("")
 	}
 
-	go s.pollLoop(ctx)
+	// Wrap caller's ctx so Stop() can cancel even when caller passed
+	// context.Background. pollDone closes when the goroutine fully
+	// exits — Stop() blocks on it.
+	//
+	// 包装调用方 ctx 让 Stop() 在 caller 传 context.Background 时也能
+	// cancel。pollDone 在 goroutine 完全退后关闭——Stop() 阻塞其上。
+	pollCtx, pollCancel := context.WithCancel(ctx)
+	s.stopCancel = pollCancel
+	s.pollDone = make(chan struct{})
+	go func() {
+		defer close(s.pollDone)
+		s.pollLoop(pollCtx)
+	}()
 	return nil
+}
+
+// Stop signals the polling goroutine to exit and blocks until it has
+// fully drained (no in-flight tick still writing disk). Idempotent —
+// safe to call multiple times. Test harnesses must call Stop in a
+// t.Cleanup so the tempdir RemoveAll doesn't race with a final
+// Refresh's saveToDisk.
+//
+// Stop 给 polling goroutine 发退出信号 + 阻塞到完全 drain（无在飞 tick
+// 还在写 disk）。幂等——多次调用安全。测试 harness 必须在 t.Cleanup
+// 调 Stop，让 tempdir RemoveAll 不与最后一次 Refresh 的 saveToDisk 竞态。
+func (s *Service) Stop() {
+	s.stopOnce.Do(func() {
+		if s.stopCancel != nil {
+			s.stopCancel()
+		}
+		if s.pollDone != nil {
+			<-s.pollDone
+		}
+	})
 }
 
 // pollLoop runs Service.tryRefresh every pollInterval until ctx.Done.
