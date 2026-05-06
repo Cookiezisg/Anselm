@@ -256,6 +256,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='tests'}"  @click="selectTab('tests')">Tests</button>
         <button class="tab-btn" :class="{active: activeRightTab==='tools'}"  @click="selectTab('tools')">Tools</button>
         <button class="tab-btn" :class="{active: activeRightTab==='catalog'}" @click="selectTab('catalog')">Catalog</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='subagent'}" @click="selectTab('subagent')">Subagent</button>
       </div>
 
       <!-- Config Tab -->
@@ -1023,6 +1024,98 @@
         </div>
       </div>
 
+      <!-- ── Subagent tab (TE-3b) ─────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='subagent'" x-data="subagentTab()">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">Subagent Runs</strong>
+          <button class="btn-small" @click="loadRuns()" :disabled="loading">
+            <span x-text="loading ? 'loading…' : 'reload'"></span>
+          </button>
+          <span x-show="conversationId" style="font-size:10px;color:var(--text-mute)" x-text="'in conv: ' + conversationId"></span>
+          <span x-show="err" style="color:var(--err);font-size:10px;margin-left:auto" x-text="err"></span>
+        </div>
+
+        <div x-show="!conversationId" style="padding:16px;font-size:11px;color:var(--text-mute)">
+          Select a conversation from the sidebar — subagent runs are scoped to a conversation.
+        </div>
+
+        <div x-show="conversationId" style="padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:10px">
+          <!-- Run list -->
+          <div>
+            <div style="font-weight:600;margin-bottom:4px">runs (<span x-text="runs.length"></span>)</div>
+            <div x-show="runs.length === 0 && !loading" style="color:var(--text-mute)">no subagent runs yet — main LLM hasn't called the Subagent tool in this conversation</div>
+            <template x-for="run in runs" :key="run.id">
+              <div style="display:flex;gap:8px;align-items:center;padding:4px 6px;cursor:pointer;border-radius:3px"
+                   :style="selectedRun?.id === run.id ? 'background:var(--accent-soft, #e6f0ff)' : ''"
+                   @click="selectRun(run)">
+                <span :style="'color:' + statusColor(run.status) + ';font-weight:600;font-size:10px'"
+                      x-text="run.status"></span>
+                <span style="font-family:Consolas,monospace" x-text="run.type"></span>
+                <span style="color:var(--text-mute)" x-text="'steps=' + (run.stepsUsed ?? 0)"></span>
+                <span style="color:var(--text-mute);margin-left:auto" x-text="fmtTime(run.createdAt)"></span>
+              </div>
+            </template>
+          </div>
+
+          <!-- Selected run detail -->
+          <div x-show="selectedDetail" style="border-top:1px solid var(--border);padding-top:8px">
+            <div style="font-weight:600;margin-bottom:4px">run detail</div>
+            <div style="display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-family:Consolas,monospace;font-size:10px">
+              <span style="color:var(--text-mute)">id</span>
+              <span x-text="selectedDetail?.id"></span>
+              <span style="color:var(--text-mute)">type</span>
+              <span x-text="selectedDetail?.type"></span>
+              <span style="color:var(--text-mute)">status</span>
+              <span :style="'color:' + statusColor(selectedDetail?.status)" x-text="selectedDetail?.status"></span>
+              <span style="color:var(--text-mute)">prompt</span>
+              <span style="white-space:pre-wrap" x-text="selectedDetail?.prompt || '—'"></span>
+              <span style="color:var(--text-mute)">result</span>
+              <span style="white-space:pre-wrap" x-text="selectedDetail?.result || '—'"></span>
+              <span style="color:var(--text-mute)">tokens (in/out)</span>
+              <span x-text="fmtTokens(selectedDetail?.tokensIn) + ' / ' + fmtTokens(selectedDetail?.tokensOut)"></span>
+              <template x-if="selectedDetail?.errorMessage">
+                <span style="color:var(--err)">errorMessage</span>
+              </template>
+              <template x-if="selectedDetail?.errorMessage">
+                <span style="color:var(--err);white-space:pre-wrap" x-text="selectedDetail?.errorMessage"></span>
+              </template>
+            </div>
+          </div>
+
+          <!-- Selected run messages -->
+          <div x-show="selectedDetail" style="border-top:1px solid var(--border);padding-top:8px">
+            <div style="font-weight:600;margin-bottom:4px">messages (<span x-text="selectedMessages.length"></span>) — sub-LLM internal turn-by-turn</div>
+            <template x-for="(msg, idx) in selectedMessages" :key="msg.id || idx">
+              <details style="margin-bottom:4px;border:1px solid var(--border);border-radius:3px">
+                <summary style="cursor:pointer;padding:4px 6px;display:flex;gap:8px;align-items:center">
+                  <span style="font-weight:600;font-size:10px" x-text="msg.role"></span>
+                  <span style="color:var(--text-mute);font-size:10px" x-text="'seq=' + (msg.seq ?? idx)"></span>
+                  <span style="color:var(--text-mute);font-size:10px;margin-left:auto" x-text="fmtTime(msg.createdAt)"></span>
+                </summary>
+                <pre style="margin:0;padding:6px;background:#fafafa;font-family:Consolas,monospace;font-size:10px;white-space:pre-wrap;max-height:200px;overflow:auto"
+                     x-text="JSON.stringify(msg, null, 2)"></pre>
+              </details>
+            </template>
+          </div>
+        </div>
+
+        <!-- Subagent type catalog (always visible) -->
+        <div style="border-top:1px solid var(--border);padding:8px 10px;font-size:11px">
+          <div style="font-weight:600;margin-bottom:4px">available subagent types</div>
+          <template x-for="t in types" :key="t.name">
+            <details style="margin-bottom:4px">
+              <summary style="cursor:pointer;font-family:Consolas,monospace" x-text="t.name"></summary>
+              <div style="padding:4px 0 4px 16px;font-size:10px;color:var(--text-mute)">
+                <div x-text="t.description || '(no description)'"></div>
+                <div x-show="t.allowedTools && t.allowedTools.length" style="margin-top:4px;font-family:Consolas,monospace">
+                  allowed tools: <span x-text="(t.allowedTools || []).join(', ')"></span>
+                </div>
+              </div>
+            </details>
+          </template>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1037,6 +1130,7 @@
   <script src="/dev/static/js/tab-config.js"></script>
   <script src="/dev/static/js/tab-tools.js"></script>
   <script src="/dev/static/js/tab-catalog.js"></script>
+  <script src="/dev/static/js/tab-subagent.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>
