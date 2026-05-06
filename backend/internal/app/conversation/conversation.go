@@ -70,15 +70,39 @@ func (s *Service) List(ctx context.Context, filter convdomain.ListFilter) ([]*co
 	return s.repo.List(ctx, filter)
 }
 
+// Get fetches a single conversation by id, scoped to ctx user.
+//
+// Get 按 id 取一个对话，按 ctx 用户过滤。
+func (s *Service) Get(ctx context.Context, id string) (*convdomain.Conversation, error) {
+	return s.repo.Get(ctx, id)
+}
+
 // Rename updates the title of a conversation.
 //
 // Rename 更新对话的 title。
 func (s *Service) Rename(ctx context.Context, id, title string) (*convdomain.Conversation, error) {
+	return s.Update(ctx, id, &title, nil)
+}
+
+// Update applies a partial PATCH to the conversation. Each field is a
+// nil-means-skip pointer; pass &"" to explicitly clear. systemPrompt is the
+// per-conversation override that chat layer prepends to assistant turns
+// (Phase 5 catalog block + locale hint still get appended to whatever this
+// returns).
+//
+// Update 部分更新对话。每字段是 nil-skip 指针；传 &"" 显式清空。
+// systemPrompt 是按对话覆盖；chat 层仍会追加 catalog/locale。
+func (s *Service) Update(ctx context.Context, id string, title, systemPrompt *string) (*convdomain.Conversation, error) {
 	c, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	c.Title = strings.TrimSpace(title)
+	if title != nil {
+		c.Title = strings.TrimSpace(*title)
+	}
+	if systemPrompt != nil {
+		c.SystemPrompt = *systemPrompt
+	}
 	c.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, c); err != nil {
 		return nil, err

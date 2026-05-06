@@ -54,11 +54,43 @@
           ✓ catalog <span x-text="catalogFp"></span>
           <span x-show="catalogGenerated === 'mechanical-fallback'" style="color:var(--text-mute)">·test</span>
         </span>
+        <!-- TE-13: per-conv system prompt toggle -->
+        <button x-show="conversationId" class="btn-small"
+                @click="systemPromptOpen = !systemPromptOpen"
+                :style="systemPrompt ? 'color:var(--accent);font-size:10px;margin-left:auto' : 'font-size:10px;margin-left:auto'"
+                :title="systemPrompt ? 'Per-conversation system prompt override active' : 'Click to set a per-conversation system prompt override'">
+          <span x-show="systemPrompt">✎ sys</span>
+          <span x-show="!systemPrompt">+ sys</span>
+        </button>
         <!-- TE-6: delete current conv -->
         <button x-show="conversationId" class="btn-small"
                 @click="deleteCurrentConv()"
-                style="margin-left:auto;color:var(--err);font-size:10px"
+                style="color:var(--err);font-size:10px"
                 title="Delete this conversation + all messages">delete conv</button>
+      </div>
+
+      <!-- TE-13: per-conv system prompt editor (collapsed by default) -->
+      <div x-show="conversationId && systemPromptOpen"
+           style="border-bottom:1px solid var(--border);background:var(--bg2);padding:8px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span style="font-size:10px;color:var(--text-dim)">System prompt override (prepended to assistant turns; chat layer still appends catalog + locale)</span>
+          <span x-show="systemPromptDirty" style="font-size:9px;color:var(--accent)">• modified</span>
+          <span x-show="systemPromptJustSaved" style="font-size:9px;color:var(--green)">✓ saved</span>
+          <span style="margin-left:auto;display:flex;gap:4px">
+            <button class="btn-small" @click="revertSystemPrompt()" :disabled="!systemPromptDirty"
+                    style="font-size:10px">revert</button>
+            <button class="btn-small" @click="clearSystemPrompt()"
+                    style="font-size:10px">clear</button>
+            <button class="btn-small" @click="saveSystemPrompt()"
+                    :disabled="!systemPromptDirty || systemPromptSaving"
+                    :style="systemPromptDirty ? 'font-size:10px;background:var(--accent);color:white' : 'font-size:10px'"
+                    x-text="systemPromptSaving ? 'saving…' : 'save'"></button>
+          </span>
+        </div>
+        <textarea x-model="systemPromptDraft"
+                  rows="6"
+                  placeholder="(empty — chat uses default system prompt)"
+                  style="width:100%;font-family:Consolas,monospace;font-size:11px;padding:6px;border:1px solid var(--border);border-radius:3px;resize:vertical"></textarea>
       </div>
 
       <!-- Message list — always visible -->

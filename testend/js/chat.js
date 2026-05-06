@@ -35,6 +35,18 @@ document.addEventListener('alpine:init', () => {
     catalogFp: '',
     catalogGenerated: '',
 
+    // Per-conversation system prompt editor (TE-13). Loads on conv switch
+    // via GET /api/v1/conversations/{id}; edits saved via PATCH. Empty
+    // string disables the override (chat layer falls back to defaults).
+    //
+    // 按对话的 system prompt 编辑器（TE-13）。切换对话时 GET 加载；
+    // 编辑后 PATCH 保存。空字符串关闭覆盖（chat 层走默认）。
+    systemPrompt: '',
+    systemPromptDraft: '',
+    systemPromptOpen: false,
+    systemPromptSaving: false,
+    systemPromptSavedAt: 0,
+
     showRaw(m) {
       this.rawModal = {
         open: true,
@@ -71,12 +83,57 @@ document.addEventListener('alpine:init', () => {
         this.messages = []
         this.streaming = false
         this.pendingAtts = []
+        this.systemPrompt = ''
+        this.systemPromptDraft = ''
         if (id) {
           this.loadMessages(id).then(() => this._connectSSE(id))
+          this.loadConvMeta(id)
         }
         this.loadCatalogStatus()
       })
     },
+
+    async loadConvMeta(id) {
+      try {
+        const r = await fetch(`/api/v1/conversations/${id}`)
+        if (!r.ok) return
+        const j = await r.json()
+        this.systemPrompt = (j.data?.systemPrompt) || ''
+        this.systemPromptDraft = this.systemPrompt
+      } catch {}
+    },
+
+    async saveSystemPrompt() {
+      const id = this.conversationId
+      if (!id) return
+      this.systemPromptSaving = true
+      try {
+        const r = await fetch(`/api/v1/conversations/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ systemPrompt: this.systemPromptDraft }),
+        })
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}))
+          alert('Save failed: ' + (j.error?.message || r.status))
+          return
+        }
+        const j = await r.json()
+        this.systemPrompt = (j.data?.systemPrompt) || ''
+        this.systemPromptDraft = this.systemPrompt
+        this.systemPromptSavedAt = Date.now()
+      } catch (e) {
+        alert('Save failed: ' + e)
+      } finally {
+        this.systemPromptSaving = false
+      }
+    },
+
+    revertSystemPrompt() { this.systemPromptDraft = this.systemPrompt },
+    clearSystemPrompt() { this.systemPromptDraft = '' },
+
+    get systemPromptDirty() { return this.systemPromptDraft !== this.systemPrompt },
+    get systemPromptJustSaved() { return Date.now() - this.systemPromptSavedAt < 2000 },
 
     async loadCatalogStatus() {
       try {
