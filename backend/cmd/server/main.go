@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
@@ -31,6 +33,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	subagenttool "github.com/sunweilin/forgify/backend/internal/app/tool/subagent"
@@ -238,6 +241,34 @@ func main() {
 	)
 	tools = append(tools, subagenttool.SubagentTools(subagentService)...)
 	subagentService.SetTools(tools)
+
+	// MCP: configPath is ~/.forgify/mcp.json (Claude Desktop schema, user-
+	// level only — see mcp.md §5 自包含原则). Start() loads + parallel-
+	// Connects all configured servers with a 30s per-server handshake
+	// timeout; failures are captured per-server in ServerStatus and don't
+	// block boot. We run Start synchronously: typical boot adds < 5s if
+	// servers are configured, 0 if not (most users on first launch).
+	//
+	// MCP：configPath 是 ~/.forgify/mcp.json（Claude Desktop schema，仅用户
+	// 级——mcp.md §5 自包含原则）。Start() 加载 + 并发 Connect 全部配置 server，
+	// 每 server 30s 握手超时；失败 per-server 记到 ServerStatus 不挡 boot。
+	// 同步跑：典型有配置时启动 +< 5s，无配置时 0（多数用户首次）。
+	mcpConfigPath := defaultMCPConfigPath()
+	mcpService := mcpapp.New(
+		mcpConfigPath,
+		mcpapp.NewRegistry(),
+		sandboxSvc,
+		eventsBridge,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)
+	if err := mcpService.Start(context.Background()); err != nil {
+		log.Warn("mcp start partial failure (some servers may be unreachable)", zap.Error(err))
+	}
+	tools = append(tools, mcptool.MCPTools(mcpService)...)
+
 	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
@@ -262,6 +293,7 @@ func main() {
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
+		MCPService:          mcpService,
 		Dev:                 *dev,
 		Tools:               tools,
 		DB:                  gdb,
@@ -433,4 +465,20 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 	//
 	// GenericEnvManager：mise 可装的长尾语言无专用 EnvManager 的兜底。v1
 	// 不预注册具体 kind——main.go 按需加 NewGenericEnvManager("elixir") 等。
+}
+
+// defaultMCPConfigPath returns ~/.forgify/mcp.json — the user-level MCP
+// server configuration source per mcp.md §5 自包含原则. UserHomeDir
+// failure (rare; broken HOME env) falls back to the working directory
+// so we always have a path; the file just won't exist on first boot.
+//
+// defaultMCPConfigPath 返 ~/.forgify/mcp.json——mcp.md §5 自包含原则的
+// 用户级 MCP server 配置源。UserHomeDir 失败（罕见；HOME env 坏）退到
+// 工作目录——总有路径，首次启动文件不存在而已。
+func defaultMCPConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".forgify/mcp.json"
+	}
+	return filepath.Join(home, ".forgify", "mcp.json")
 }

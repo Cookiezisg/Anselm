@@ -14,6 +14,7 @@ import (
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
@@ -83,6 +84,18 @@ type Deps struct {
 	// message 回放、类型目录）。LLM 用 Subagent 系统工具 spawn run；这些
 	// 端点是 UI / 检查面。
 	SubagentService *subagentapp.Service
+
+	// MCPService backs the /api/v1/mcp-* + /api/v1/mcp-registry endpoints
+	// (server CRUD / import / reconnect / health-check / registry list /
+	// install). The search_mcp + call_mcp SYSTEM TOOLS are what the LLM
+	// uses to discover + invoke MCP tools at runtime; these endpoints are
+	// the UI's configuration + observability surface.
+	//
+	// MCPService 支持 /api/v1/mcp-* + /api/v1/mcp-registry 端点（server CRUD
+	// / import / reconnect / health-check / registry list / install）。
+	// search_mcp + call_mcp 系统工具供 LLM 运行时发现+调用 MCP 工具；这些
+	// 端点是 UI 的配置+观测面。
+	MCPService *mcpapp.Service
 
 	// ── Dev-only fields (nil/zero when Dev=false) ─────────────────────────────
 

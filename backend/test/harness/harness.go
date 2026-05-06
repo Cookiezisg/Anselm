@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
@@ -45,6 +47,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	subagenttool "github.com/sunweilin/forgify/backend/internal/app/tool/subagent"
@@ -281,6 +284,31 @@ func New(t *testing.T, opts ...Option) *Harness {
 	)
 	tools = append(tools, subagenttool.SubagentTools(subagentService)...)
 	subagentService.SetTools(tools)
+
+	// MCP: configPath inside the per-test tempdir so we never touch
+	// real ~/.forgify/mcp.json. Service.Start with no config = no-op
+	// (instant boot); pipeline tests that need MCP servers seed
+	// mcp.json + register fakeClient via the test seam separately.
+	//
+	// MCP：configPath 在 per-test tempdir 内，永不动真 ~/.forgify/mcp.json。
+	// 无配置时 Service.Start 是 no-op（瞬时启动）；需要 MCP server 的
+	// pipeline 测试通过 test seam 单独灌 mcp.json + 注册 fakeClient。
+	mcpConfigPath := filepath.Join(dataDir, "mcp.json")
+	mcpService := mcpapp.New(
+		mcpConfigPath,
+		mcpapp.NewRegistry(),
+		sandboxSvc,
+		bridge,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)
+	if err := mcpService.Start(context.Background()); err != nil {
+		t.Logf("mcp start: %v (continuing — pipeline tests that need it will skip)", err)
+	}
+	tools = append(tools, mcptool.MCPTools(mcpService)...)
+
 	chatService.SetTools(tools)
 
 	handler := routerhttpapi.New(routerhttpapi.Deps{
@@ -294,6 +322,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
+		MCPService:          mcpService,
 		Dev:                 false,
 		Tools:               tools,
 		DB:                  gdb,
