@@ -41,6 +41,7 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
+	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
@@ -50,6 +51,7 @@ import (
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
+	skilltool "github.com/sunweilin/forgify/backend/internal/app/tool/skill"
 	subagenttool "github.com/sunweilin/forgify/backend/internal/app/tool/subagent"
 	todotool "github.com/sunweilin/forgify/backend/internal/app/tool/todo"
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
@@ -115,6 +117,7 @@ type Harness struct {
 	Bridge  eventsdomain.Bridge
 	Sandbox *sandboxapp.Service
 	MCP     *mcpapp.Service
+	Skill   *skillapp.Service
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -310,6 +313,27 @@ func New(t *testing.T, opts ...Option) *Harness {
 	}
 	tools = append(tools, mcptool.MCPTools(mcpService)...)
 
+	// Skill: per-test tempdir SkillsDir so we never touch real
+	// ~/.forgify/skills/. Tests that need skills installed seed them
+	// into h.Skill.SkillsDir() then call h.Skill.Scan(ctx).
+	//
+	// Skill：per-test tempdir SkillsDir，永不动真 ~/.forgify/skills/。
+	// 需 skill 的测试自己往 h.Skill.SkillsDir() 写 + 调 h.Skill.Scan。
+	skillsDir := filepath.Join(dataDir, "skills")
+	skillService := skillapp.New(
+		skillsDir,
+		subagentService,
+		bridge,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)
+	if err := skillService.Scan(context.Background()); err != nil {
+		t.Logf("skill scan: %v", err)
+	}
+	tools = append(tools, skilltool.SkillTools(skillService)...)
+
 	chatService.SetTools(tools)
 
 	handler := routerhttpapi.New(routerhttpapi.Deps{
@@ -342,6 +366,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Bridge:         bridge,
 		Sandbox:        sandboxSvc,
 		MCP:            mcpService,
+		Skill:          skillService,
 		APIKey:         apikeyService,
 		Model:          modelService,
 		Conversation:   convService,

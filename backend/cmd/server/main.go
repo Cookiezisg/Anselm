@@ -28,6 +28,7 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
+	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
@@ -36,6 +37,7 @@ import (
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
+	skilltool "github.com/sunweilin/forgify/backend/internal/app/tool/skill"
 	subagenttool "github.com/sunweilin/forgify/backend/internal/app/tool/subagent"
 	todotool "github.com/sunweilin/forgify/backend/internal/app/tool/todo"
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
@@ -269,6 +271,34 @@ func main() {
 	}
 	tools = append(tools, mcptool.MCPTools(mcpService)...)
 
+	// Skill: scan ~/.forgify/skills/ for any installed Anthropic Agent
+	// Skills, build the metadata cache, then start the fsnotify watcher
+	// for live rescan on user edits. Same boot-don't-block discipline as
+	// MCP — empty skills dir is the typical first-launch case.
+	//
+	// Skill：扫 ~/.forgify/skills/ 把已装 Agent Skill 元数据缓存好，再
+	// 起 fsnotify watcher 让用户编辑时实时重扫。同 MCP 不挡 boot 纪律
+	// ——首次启动 skills 目录通常为空。
+	skillService := skillapp.New(
+		defaultSkillsDir(),
+		subagentService,
+		eventsBridge,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)
+	if err := skillService.Scan(context.Background()); err != nil {
+		log.Warn("skill scan failed (continuing with empty cache)", zap.Error(err))
+	}
+	skillWatcher := skillapp.NewWatcher(skillService, log)
+	go func() {
+		if err := skillWatcher.Start(context.Background()); err != nil {
+			log.Warn("skill watcher exited", zap.Error(err))
+		}
+	}()
+	tools = append(tools, skilltool.SkillTools(skillService)...)
+
 	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
@@ -481,4 +511,21 @@ func defaultMCPConfigPath() string {
 		return ".forgify/mcp.json"
 	}
 	return filepath.Join(home, ".forgify", "mcp.json")
+}
+
+// defaultSkillsDir returns ~/.forgify/skills/ — the only directory the
+// skill subsystem scans (skill.md §3 自包含 + 仅用户级)。Same fallback
+// shape as defaultMCPConfigPath: HOME-failure degrades to a relative
+// path that just won't have any skills on first boot (Service.Scan
+// handles missing dir gracefully).
+//
+// defaultSkillsDir 返 ~/.forgify/skills/——skill 子系统唯一扫描目录
+// （skill.md §3 自包含 + 仅用户级）。同 defaultMCPConfigPath 退化模式：
+// HOME 失败 → 相对路径首次启动无 skill 而已（Service.Scan 容忍目录缺）。
+func defaultSkillsDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ".forgify/skills"
+	}
+	return filepath.Join(home, ".forgify", "skills")
 }
