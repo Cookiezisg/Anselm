@@ -353,6 +353,7 @@ func main() {
 		CatalogService:      catalogService,
 		Dev:                 *dev,
 		Tools:               tools,
+		LLMFactory:          llmFactory,
 		DB:                  gdb,
 		LogBroadcaster:      broadcaster,
 		CollectionsDir:      *collectionsDir,

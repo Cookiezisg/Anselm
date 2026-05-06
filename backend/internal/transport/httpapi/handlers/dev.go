@@ -23,6 +23,7 @@ import (
 	"gorm.io/gorm"
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -37,6 +38,7 @@ type DevHandler struct {
 	integrationDir string
 	port           int
 	tools          []toolapp.Tool
+	llmFactory     *llminfra.Factory
 	log            *zap.Logger
 }
 
@@ -49,6 +51,7 @@ func NewDevHandler(
 	collectionsDir, integrationDir string,
 	port int,
 	tools []toolapp.Tool,
+	llmFactory *llminfra.Factory,
 	log *zap.Logger,
 ) *DevHandler {
 	return &DevHandler{
@@ -58,6 +61,7 @@ func NewDevHandler(
 		integrationDir: integrationDir,
 		port:           port,
 		tools:          tools,
+		llmFactory:     llmFactory,
 		log:            log,
 	}
 }
@@ -72,6 +76,16 @@ func (h *DevHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /dev/collections", h.ListCollections)
 	mux.HandleFunc("GET /dev/tools", h.ListTools)
 	mux.HandleFunc("POST /dev/invoke", h.InvokeTool)
+	// TE-4b mock LLM endpoints; nil-tolerant when --dev didn't wire
+	// the llmFactory (shouldn't happen in practice — dev mode always
+	// has it — but keeps the helper exit clean during refactor).
+	// TE-4b mock LLM 端点；llmFactory 没接时 nil-tolerant。
+	if h.llmFactory != nil {
+		mux.HandleFunc("POST /dev/mock-llm/scripts", h.MockLLMPushScripts)
+		mux.HandleFunc("GET /dev/mock-llm/queue", h.MockLLMQueue)
+		mux.HandleFunc("DELETE /dev/mock-llm/scripts", h.MockLLMClear)
+		mux.HandleFunc("GET /dev/mock-llm/last-prompt", h.MockLLMLastPrompt)
+	}
 	// Static files: /dev/static/style.css, /dev/static/js/app.js, etc.
 	// no-cache so browser always fetches the latest version during dev.
 	// no-cache 避免浏览器缓存旧版本文件。

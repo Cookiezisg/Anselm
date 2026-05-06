@@ -21,6 +21,7 @@ import (
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 )
 
@@ -160,4 +161,14 @@ type Deps struct {
 	// Tools 是注册到 agent 的 system tool 列表，在 dev 模式下可通过
 	// /dev/invoke 直接调用。
 	Tools []toolapp.Tool
+
+	// LLMFactory is the shared LLM client factory; passed to DevHandler
+	// so the /dev/mock-llm/* endpoints can talk to the singleton
+	// MockClient (TE-4b). Production main.go always wires it; dev
+	// mode is the only consumer right now.
+	//
+	// LLMFactory 共享 LLM client 工厂；传给 DevHandler 让
+	// /dev/mock-llm/* 端点能通到 MockClient 单例（TE-4b）。生产 main.go
+	// 永远接；当前仅 dev mode 消费。
+	LLMFactory *llminfra.Factory
 }

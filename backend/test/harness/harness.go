@@ -418,6 +418,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		CatalogService:      catalogService,
 		Dev:                 false,
 		Tools:               tools,
+		LLMFactory:          llmFactory,
 		DB:                  gdb,
 		Port:                0,
 	})
