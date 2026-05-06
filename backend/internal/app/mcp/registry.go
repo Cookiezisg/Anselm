@@ -16,6 +16,20 @@
 // the OAuth 2.1 + DCR ecosystem is currently broken across providers,
 // breaking the out-of-box experience.
 //
+// Windows compatibility audit (D11, 2026-05-06): all 6 V1 entries are
+// confirmed Windows-compatible — runtimes (node / python via uvx) ship
+// official Windows builds, transports are stdio (cross-platform), and
+// no entry depends on Unix-only features (fork, Unix sockets, /bin/sh).
+// No UnsupportedPlatforms field set on any V1 entry. Future entries
+// requiring Unix-specific behavior (e.g. AppleScript / dbus / systemd)
+// should populate UnsupportedPlatforms accordingly.
+//
+// Windows 兼容审计（D11, 2026-05-06）：6 项 V1 全部 Windows 兼容
+// ——runtime（node / uvx 的 python）有官方 Windows 包，传输 stdio 跨平
+// 台，无条目依赖 Unix-only 特性（fork / Unix sockets / /bin/sh）。无
+// V1 项设 UnsupportedPlatforms。未来要 Unix 特定行为的条目（如
+// AppleScript / dbus / systemd）应填 UnsupportedPlatforms。
+//
 // Future V2 (mcp.md §5.5 strategy-pattern note): replace
 // embedRegistryProvider with remoteRegistryProvider that fetches a JSON
 // catalog over HTTPS + 24h cache. Public Registry interface unchanged.

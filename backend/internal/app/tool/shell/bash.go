@@ -86,7 +86,7 @@ var (
 const bashDescription = `Run a shell command on the user's machine.
 
 Usage:
-- ` + "`command`" + ` is the shell command (executed via /bin/sh on Unix). Examples: "ls -la", "git status", "go test ./...".
+- ` + "`command`" + ` is the shell command. On macOS/Linux it runs via ` + "`/bin/sh -c`" + `; on Windows it runs via ` + "`cmd.exe /c`" + `. Use shell-portable syntax when possible. Examples: "ls -la" (unix) / "dir" (windows), "git status", "go test ./...".
 - ` + "`description`" + ` is a one-line note for the human reader (e.g. "List repo files").
 - ` + "`run_in_background: true`" + ` spawns the command without waiting and returns a bash_id; use BashOutput to poll for new output and KillShell to terminate.
 - ` + "`timeout`" + ` (milliseconds, foreground only) defaults to 120000 (2 min); hard max 600000 (10 min). For longer-running tasks use background mode.
@@ -535,24 +535,26 @@ func pumpReader(wg *sync.WaitGroup, proc *BgProcess, r io.Reader) {
 
 // ── Shell command builder ─────────────────────────────────────────────────────
 
-// buildShellCmd creates the *exec.Cmd to run the user's command. We use
-// `sh -c "<cmd>"` on Unix (Forgify is Wails desktop targeting macOS/Linux
-// primarily; Windows would need cmd.exe / PowerShell — out of scope).
+// buildShellCmd creates the *exec.Cmd to run the user's command.
+// Per-platform shell choice:
+//   - Unix (macOS/Linux): /bin/sh -c "<cmd>"   (POSIX-conformant)
+//   - Windows:            cmd.exe /c "<cmd>"   (Win32 builtin; always present)
 //
-// buildShellCmd 构造 *exec.Cmd。Unix 用 `sh -c "<cmd>"`（Forgify 目标
-// macOS/Linux；Windows 走 cmd.exe / PowerShell——超出本期范围）。
+// PowerShell is intentionally NOT used on Windows: cmd.exe is universally
+// available + has predictable quoting, while PowerShell execution policy
+// can block scripted invocations on locked-down corporate machines.
+// Users wanting PowerShell can prefix their command (`powershell -Command "..."`).
+//
+// buildShellCmd 构造 *exec.Cmd。per-platform shell 选择：Unix（macOS/Linux）
+// /bin/sh -c；Windows cmd.exe /c。故意不用 PowerShell——cmd.exe 永远在
+// 且引号行为可预测；PowerShell execution policy 在锁定企业机可能拦脚本式
+// 调用。要 PowerShell 的用户自己 `powershell -Command "..."` 前缀。
 func buildShellCmd(ctx context.Context, command, cwd string, extraPath []string) *exec.Cmd {
-	shell := "/bin/sh"
-	if runtime.GOOS == "windows" {
-		// Best-effort Windows support; not officially in scope.
-		// Windows 尽力支持；非本期目标。
-		shell = "cmd"
-	}
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, shell, "/c", command)
+		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
 	} else {
-		cmd = exec.CommandContext(ctx, shell, "-c", command)
+		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", command)
 	}
 	cmd.Dir = cwd
 	cmd.Env = prependPath(os.Environ(), extraPath)

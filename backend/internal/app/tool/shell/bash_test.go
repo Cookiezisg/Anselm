@@ -214,7 +214,7 @@ func TestBash_Execute_CD_RelativeResolvesAgainstCwd(t *testing.T) {
 
 func TestBash_Execute_Foreground_EchoCapturesStdout(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics — Windows out of scope")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
@@ -232,7 +232,7 @@ func TestBash_Execute_Foreground_EchoCapturesStdout(t *testing.T) {
 
 func TestBash_Execute_Foreground_NonZeroExitReportedInFooter(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
@@ -247,7 +247,7 @@ func TestBash_Execute_Foreground_NonZeroExitReportedInFooter(t *testing.T) {
 
 func TestBash_Execute_Foreground_StderrAlsoCaptured(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
@@ -262,7 +262,7 @@ func TestBash_Execute_Foreground_StderrAlsoCaptured(t *testing.T) {
 
 func TestBash_Execute_Foreground_TimeoutFiresFootnote(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
@@ -282,7 +282,7 @@ func TestBash_Execute_Foreground_TimeoutFiresFootnote(t *testing.T) {
 
 func TestBash_Execute_Foreground_RespectsCwd(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, state := ctxWithAgentState(t)
@@ -309,7 +309,7 @@ func TestBash_Execute_Foreground_RespectsCwd(t *testing.T) {
 // 不能再报 "[exec failed: signal: killed]" 让 LLM 误以为命令自己崩了。
 func TestBash_Execute_Foreground_ParentCtxCancelled_ReportsCancelled(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	state := &agentstatepkg.AgentState{}
@@ -334,7 +334,7 @@ func TestBash_Execute_Foreground_ParentCtxCancelled_ReportsCancelled(t *testing.
 
 func TestBash_Execute_Background_ReturnsBashID(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
@@ -361,7 +361,7 @@ func TestBash_Execute_Background_ReturnsBashID(t *testing.T) {
 
 func TestBash_Execute_Background_OutputCapturedForPolling(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Unix shell semantics")
+		t.Skip("uses Unix shell semantics; Windows behavior pending real Windows test environment (D10)")
 	}
 	tool := newTestBash()
 	ctx, _ := ctxWithAgentState(t)
