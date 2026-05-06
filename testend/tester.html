@@ -548,48 +548,88 @@
 
       <!-- SQL Tab -->
       <div class="tab-content" x-show="activeRightTab==='sql'" x-data="sqlTab()">
-        <div class="sql-area">
-          <textarea class="sql-editor" x-model="sql" @keydown="handleKeydown($event)"
-            placeholder="SELECT … (Ctrl+Enter to run)"></textarea>
-          <div class="sql-shortcuts">
-            <template x-for="s in shortcuts" :key="s.label">
-              <button class="sql-shortcut" @click="setSQL(s.sql)" x-text="s.label"></button>
-            </template>
+        <div class="sql-area" style="display:flex;flex-direction:row;gap:0;min-height:0">
+          <!-- Schema sidebar -->
+          <div class="sql-schema-panel">
+            <div class="sql-schema-header">
+              <input class="filter-input" type="text" x-model="schemaFilter"
+                     placeholder="filter tables…" style="flex:1;font-size:11px">
+              <button class="btn btn-ghost btn-sm" @click="loadSchema()" title="Reload schema">↻</button>
+            </div>
+            <div x-show="schemaLoading" style="padding:6px;color:var(--text-mute);font-size:10px">loading…</div>
+            <div x-show="schemaErr" style="padding:6px;color:var(--red);font-size:10px" x-text="schemaErr"></div>
+            <div class="sql-schema-list">
+              <template x-for="t in filteredSchema()" :key="t.name">
+                <div class="sql-schema-table">
+                  <div class="sql-schema-table-row">
+                    <span class="sql-schema-toggle"
+                          @click="toggleTable(t.name)"
+                          x-text="expandedTable===t.name ? '▾' : '▸'"></span>
+                    <span class="sql-schema-name" @click="selectTable(t)" x-text="t.name"
+                          :title="'Click: SELECT * FROM '+t.name+' LIMIT 20'"></span>
+                    <span class="sql-schema-rows" x-text="t.rowCount"></span>
+                  </div>
+                  <div x-show="expandedTable===t.name" class="sql-schema-cols">
+                    <template x-for="c in t.columns" :key="c.name">
+                      <div class="sql-schema-col">
+                        <span class="sql-schema-col-name"
+                              :class="{pk: c.pk}"
+                              x-text="c.name"></span>
+                        <span class="sql-schema-col-type" x-text="c.type"></span>
+                        <span class="sql-schema-col-flags"
+                              x-text="(c.pk?'PK ':'')+(c.notNull?'NN':'')"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
-          <div class="sql-run-bar">
-            <button class="btn btn-primary btn-sm" @click="run()" :disabled="loading"
-                    x-text="loading ? 'Running…' : '▶ Run'"></button>
-            <button class="btn btn-ghost btn-sm" @click="wrap = !wrap"
-                    :style="wrap ? 'color:var(--accent)' : ''"
-                    title="Toggle cell wrap">Wrap</button>
+
+          <!-- Query + result -->
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+            <textarea class="sql-editor" x-model="sql" @keydown="handleKeydown($event)"
+              placeholder="SELECT … (Ctrl+Enter to run)"></textarea>
+            <div class="sql-shortcuts">
+              <template x-for="s in shortcuts" :key="s.label">
+                <button class="sql-shortcut" @click="setSQL(s.sql)" x-text="s.label"></button>
+              </template>
+            </div>
+            <div class="sql-run-bar">
+              <button class="btn btn-primary btn-sm" @click="run()" :disabled="loading"
+                      x-text="loading ? 'Running…' : '▶ Run'"></button>
+              <button class="btn btn-ghost btn-sm" @click="wrap = !wrap"
+                      :style="wrap ? 'color:var(--accent)' : ''"
+                      title="Toggle cell wrap">Wrap</button>
+            </div>
+            <div class="sql-result">
+              <div class="sql-error" x-show="error" x-text="error"></div>
+              <template x-if="result">
+                <table class="sql-table">
+                  <thead><tr>
+                    <template x-for="col in result.columns" :key="col">
+                      <th x-text="col"></th>
+                    </template>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="(row, ri) in result.rows" :key="ri">
+                      <tr>
+                        <template x-for="(cell, ci) in row" :key="ci">
+                          <td :title="String(cell ?? '')"
+                              :style="wrap ? 'white-space:pre-wrap;word-break:break-all;max-width:400px' : ''"
+                              :class="String(cell??'').match(/^(msg_|blk_|cv_|att_|t_)/) ? 'sql-cell-id' : ''"
+                              @click="clickCell(cell)"
+                              x-text="wrap ? (cell ?? '') : fmt(cell)"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </template>
+            </div>
+            <div class="sql-rowcount" x-show="result"
+                 x-text="(result?.rows?.length ?? 0) + ' rows'"></div>
           </div>
-          <div class="sql-result">
-            <div class="sql-error" x-show="error" x-text="error"></div>
-            <template x-if="result">
-              <table class="sql-table">
-                <thead><tr>
-                  <template x-for="col in result.columns" :key="col">
-                    <th x-text="col"></th>
-                  </template>
-                </tr></thead>
-                <tbody>
-                  <template x-for="(row, ri) in result.rows" :key="ri">
-                    <tr>
-                      <template x-for="(cell, ci) in row" :key="ci">
-                        <td :title="String(cell ?? '')"
-                            :style="wrap ? 'white-space:pre-wrap;word-break:break-all;max-width:400px' : ''"
-                            :class="String(cell??'').match(/^(msg_|blk_|cv_|att_|t_)/) ? 'sql-cell-id' : ''"
-                            @click="clickCell(cell)"
-                            x-text="wrap ? (cell ?? '') : fmt(cell)"></td>
-                      </template>
-                    </tr>
-                  </template>
-                </tbody>
-              </table>
-            </template>
-          </div>
-          <div class="sql-rowcount" x-show="result"
-               x-text="(result?.rows?.length ?? 0) + ' rows'"></div>
         </div>
       </div>
 

@@ -1,4 +1,10 @@
-// tab-sql.js — read-only SQL query tab (POST /dev/sql).
+// tab-sql.js — read-only SQL query tab (POST /dev/sql) + schema browser
+// (GET /dev/schema). The schema panel lists every user table with row counts;
+// clicking a table populates a "SELECT * LIMIT 20" so testers don't have to
+// remember table names. Expanding a table reveals its columns.
+//
+// tab-sql.js — 只读 SQL 查询 tab + schema 浏览器。schema 面板列出每个
+// 用户表 + 行数；点表名自动填 "SELECT * LIMIT 20"，免背表名。展开看列。
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('sqlTab', () => ({
@@ -7,6 +13,13 @@ document.addEventListener('alpine:init', () => {
     error: null,
     loading: false,
     wrap: false,
+    schema: [],          // [{name, rowCount, columns:[{name,type,notNull,pk,default}]}]
+    schemaLoading: false,
+    schemaErr: '',
+    expandedTable: '',
+    schemaFilter: '',
+
+    init() { this.loadSchema() },
 
     shortcuts: [
       {
@@ -66,6 +79,34 @@ LIMIT 100`,
         sql: "SELECT id, forge_id, kind, ok, conversation_id, message_id, tool_call_id, created_at FROM forge_executions WHERE triggered_by='chat' ORDER BY created_at DESC LIMIT 20",
       },
     ],
+
+    async loadSchema() {
+      this.schemaLoading = true; this.schemaErr = ''
+      try {
+        const r = await fetch('/dev/schema')
+        if (!r.ok) { this.schemaErr = `HTTP ${r.status}`; return }
+        this.schema = await r.json() || []
+      } catch (e) {
+        this.schemaErr = String(e)
+      } finally {
+        this.schemaLoading = false
+      }
+    },
+
+    filteredSchema() {
+      const q = this.schemaFilter.trim().toLowerCase()
+      if (!q) return this.schema
+      return this.schema.filter(t => t.name.toLowerCase().includes(q))
+    },
+
+    selectTable(t) {
+      this.sql = `SELECT * FROM ${t.name} ORDER BY rowid DESC LIMIT 20`
+      this.run()
+    },
+
+    toggleTable(name) {
+      this.expandedTable = this.expandedTable === name ? '' : name
+    },
 
     async run() {
       if (!this.sql.trim()) return

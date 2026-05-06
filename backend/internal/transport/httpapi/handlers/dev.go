@@ -73,6 +73,7 @@ func NewDevHandler(
 func (h *DevHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /dev/logs", h.StreamLogs)
 	mux.HandleFunc("POST /dev/sql", h.QuerySQL)
+	mux.HandleFunc("GET /dev/schema", h.Schema)
 	mux.HandleFunc("GET /dev/collections", h.ListCollections)
 	mux.HandleFunc("GET /dev/tools", h.ListTools)
 	mux.HandleFunc("POST /dev/invoke", h.InvokeTool)
@@ -232,6 +233,82 @@ func (h *DevHandler) QuerySQL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeDevJSON(w, http.StatusOK, sqlResponse{Columns: cols, Rows: result})
+}
+
+// ── GET /dev/schema ───────────────────────────────────────────────────────────
+
+type schemaColumn struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	NotNull  bool   `json:"notNull"`
+	PK       bool   `json:"pk"`
+	Default  string `json:"default,omitempty"`
+}
+
+type schemaTable struct {
+	Name     string         `json:"name"`
+	RowCount int64          `json:"rowCount"`
+	Columns  []schemaColumn `json:"columns"`
+}
+
+// Schema returns every user table with column definitions + a quick row count.
+// Lets the SQL tab render a "tables in this DB" sidebar so testers don't have to
+// remember table names. Pulls from sqlite_master + PRAGMA table_info.
+//
+// Schema 返每个用户表的列定义 + 行数。让 SQL tab 渲染"本 DB 表清单"侧栏，
+// 测试者不用背表名。从 sqlite_master + PRAGMA table_info 拿。
+func (h *DevHandler) Schema(w http.ResponseWriter, r *http.Request) {
+	sqlDB, err := h.db.DB()
+	if err != nil {
+		writeDevJSON(w, http.StatusInternalServerError, sqlErrorResponse{Error: err.Error()})
+		return
+	}
+	rows, err := sqlDB.QueryContext(r.Context(),
+		`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
+	if err != nil {
+		writeDevJSON(w, http.StatusInternalServerError, sqlErrorResponse{Error: err.Error()})
+		return
+	}
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err == nil {
+			names = append(names, n)
+		}
+	}
+	rows.Close()
+
+	out := make([]schemaTable, 0, len(names))
+	for _, name := range names {
+		t := schemaTable{Name: name}
+		// Row count — best effort; ignore errors (e.g. virtual tables).
+		// 行数——尽力；忽略错误（如虚拟表）。
+		_ = sqlDB.QueryRowContext(r.Context(), fmt.Sprintf("SELECT COUNT(*) FROM %q", name)).Scan(&t.RowCount)
+		// PRAGMA table_info quoting: name interpolated, but it came from
+		// sqlite_master so it's a real table name, not user-controlled.
+		// PRAGMA table_info 名字插值；来自 sqlite_master 故非用户控制。
+		colRows, err := sqlDB.QueryContext(r.Context(), fmt.Sprintf("PRAGMA table_info(%q)", name))
+		if err == nil {
+			for colRows.Next() {
+				var (
+					cid          int
+					cname, ctype string
+					notNull, pk  int
+					dflt         any
+				)
+				if err := colRows.Scan(&cid, &cname, &ctype, &notNull, &dflt, &pk); err == nil {
+					col := schemaColumn{Name: cname, Type: ctype, NotNull: notNull == 1, PK: pk == 1}
+					if dflt != nil {
+						col.Default = fmt.Sprintf("%v", dflt)
+					}
+					t.Columns = append(t.Columns, col)
+				}
+			}
+			colRows.Close()
+		}
+		out = append(out, t)
+	}
+	writeDevJSON(w, http.StatusOK, out)
 }
 
 // ── GET /dev/collections ──────────────────────────────────────────────────────
