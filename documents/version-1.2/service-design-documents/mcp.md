@@ -1,12 +1,12 @@
 # MCP — V1.2 详设计
 
-**Phase**：Phase 4 准备件（提前到位，本周交付）
-**状态**：🔄 D5 已交付（domain types + V1 内置 6 marketplace + ~/.forgify/mcp.json I/O，2026-05-06），D6 待实施（stdio Client + Service runtime + system tools + HTTP + pipeline）
+**Phase**：Phase 4 准备件（提前到位）
+**状态**：✅ D5 + D6 全部交付（2026-05-06）：domain types + 10 sentinels + 6 内置 marketplace + ~/.forgify/mcp.json I/O + stdio Client wrapper（go-sdk v1.6）+ Service lifecycle/Search/CallTool/Health/Install + 2 system tools (search_mcp/call_mcp) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（mcp.json 是 source）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — mcp ×4（待加）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `mcp` entity-state 事件（待加）
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — mcp ×10（已接 errmap）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `mcp` entity-state 事件 ✅
 - 关联设计：[`subagent.md`](./subagent.md) / [`skill.md`](./skill.md) / [`catalog.md`](./catalog.md)
 - 外部 spec：[MCP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)
 - 依赖库：[`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk) v1.x（**官方** SDK，不用 mark3labs/mcp-go——v1 stability + Anthropic+Google 共维）
@@ -942,21 +942,20 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 
 ---
 
-## 13. 测试覆盖（计划）
+## 13. 测试覆盖 ✅
 
 | 层 | 文件 | 测试数 | 覆盖 |
 |---|---|---|---|
-| domain | `internal/domain/mcp/mcp_test.go` | 6 | ServerConfig JSON / RegistryEntry JSON / Sentinel 一致性 / Status 5 值校验 |
-| infra/mcp | `internal/infra/mcp/mcp_test.go` | 10 | stdio handshake / tools/list / call / 子进程退出 / stdout 污染检测 / per-call 30s timeout |
-| app/mcp | `internal/app/mcp/mcp_test.go` | 18 | Connect / Disconnect / Search ranking / CallTool / 多 server 并发 / 健康累计 / degraded 触发 / 自愈 / Registry install 流程 / runtime 缺失拒绝 |
-| app/tool/mcp | `internal/app/tool/mcp/mcp_test.go` | 10 | search/call 9 方法 + happy + error 分支 |
-| pipeline | `test/mcp/mcp_test.go` | 5 | fake stdio server：tools/list + search + call 闭环 / 子进程崩溃 fail 状态 / 连续失败触发 degraded / 自愈回 ready / Registry 装 `everything` server 端到端（要求 CI 有 node，否则 skip）|
+| domain | `internal/domain/mcp/mcp_test.go` + `registry_test.go` | 实测 | ServerConfig / RegistryEntry JSON / IsCallable 5 状态 / 10 sentinel 一致性 |
+| infra/mcp | `internal/infra/mcp/{client,config}_test.go` | 实测 | stdio handshake fixture / tools/list / call / 子进程退出 / Load/Save/Merge atomic+0600 |
+| app/mcp | `internal/app/mcp/{mcp,registry}_test.go` | 实测 | Connect/Disconnect/Reconnect / CallTool / 健康累计 / degraded 触发 / 自愈 / Registry install / runtime 缺失拒绝 |
+| app/tool/mcp | （tool 实测覆盖在 transport handler 集成测试 + pipeline 闭环里） | — | search/call 行为通过 HTTP + pipeline 端到端验证 |
+| transport/handlers | `internal/transport/httpapi/handlers/mcp_test.go` | 20 | 10 端点 happy + error 分支 + import multipart/JSON + conflict overwrite |
+| pipeline | `test/mcp/mcp_test.go` | 4 + 1 gated | (1) tools/list+search+call 闭环 / (2) BadCommand→failed / (3+4) 连续失败→degraded→自愈 / (5) Live_ 装 everything（双门控：sandbox.IsReady() + `FORGIFY_LIVE_MCP_INSTALL=1`）|
 
-总计 ~50 测 + 5 pipeline 场景。
+**fake MCP server**：`backend/test/mcp/fakeserver/main.go` ~70 行；3 tool（echo / fail / crash）；TestMain 一次性 build。**离线可跑**。
 
-**fake MCP server**（pipeline 默认用）：用 Go 写一个最小 stdio MCP server（~100 行），暴露 2-3 个 echo tool；放 `test/mcp/fakeserver/`。**离线可跑**。
-
-**真 server 测试**（require gate）：`TestPipeline_MCP_RegistryInstallEverything` 装公开的 `@modelcontextprotocol/server-everything`，验证 Registry 端到端；要求 CI 装 node，否则 `t.Skip`（per §T6）。
+**Live 装 everything**：`TestMCP_Live_RegistryInstallEverything` 装公开的 `@modelcontextprotocol/server-everything` 验证 Registry 端到端；双门控（per §T6 + 装 npm 包成本控制）。
 
 ---
 

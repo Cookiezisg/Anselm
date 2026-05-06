@@ -67,7 +67,7 @@ Eino 框架已完全移除（`infra/eino/` 目录删除，go.mod 中 Eino 依赖
 | Tool 接口 | `app/tool/tool.go` 9 方法接口 + summary/destructive 标准字段注入机制（详见 CLAUDE.md §S18）|
 | Workflow Engine | Phase 4 自实现（不依赖 Eino compose）|
 | Cron 调度 | `robfig/cron`（Phase 4）|
-| MCP 集成 | `mark3labs/mcp-go`（Phase 5）|
+| MCP 集成 | `modelcontextprotocol/go-sdk` v1.6（**官方** SDK，V1.2 D5+D6 已交付——提前到 Phase 4 准备件，不等到 Phase 5）|
 | Python 沙箱 | subprocess `infra/sandbox`（已有）|
 
 ---
@@ -116,7 +116,7 @@ handler.SendMessage
 **焦点实体延伸**：workflow 节点编辑时推 `workflow.node_updated` 事件；右侧面板切换到对应 workflow 展示。
 
 ### Phase 5 — 智能化
-`knowledge` + `document`（本地 sqlite-vec）+ `intent`（自实现 ReAct Agent，基于 `infra/llm`）+ `mcpserver`（`mark3labs/mcp-go`）+ `skill`（V1 浅版：打标签的工具）+ `chat` 终极版（意图识别 → 工作流推荐 → 自动建草稿）。
+`knowledge` + `document`（本地 sqlite-vec）+ `intent`（自实现 ReAct Agent，基于 `infra/llm`）+ `skill`（V1 浅版：打标签的工具）+ `chat` 终极版（意图识别 → 工作流推荐 → 自动建草稿）。**注**：mcp 已提前在 V1.2 D5+D6 交付（Phase 4 准备件，官方 `modelcontextprotocol/go-sdk` v1.6），Phase 5 不再单独列。
 
 **焦点实体延伸**：knowledge / mcp / skill 同理，消息打标后右侧面板跟随切换。
 
@@ -180,7 +180,7 @@ backend/
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
     │   ├── subagent/               ← ✅ SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 service-design-documents/subagent.md §6）
-    │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + 5 status const + RegistryEntry + 10 sentinels（D5-1+D5-2 完成 2026-05-06；runtime/Service 在 D6）
+    │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + 5 status const + RegistryEntry + 10 sentinels
     │   ├── skill/                  ← 📐 Phase 4 准备件 Skill + Frontmatter + 5 sentinel
     │   ├── catalog/                ← 📐 Phase 4 准备件 CatalogSource port + Catalog + Item + Granularity
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
@@ -206,10 +206,10 @@ backend/
     │   │   ├── todo/               ← ✅ TodoCreate/List/Get/Update（Phase 5；2026-05-05 改名 Task → Todo）
     │   │   ├── ask/                ← ✅ AskUserQuestion（Phase 5）
     │   │   ├── subagent/           ← ✅ Subagent tool（spawn 子 LLM loop 入口；改名避开 todo domain 撞车）
-    │   │   ├── mcp/                ← 📐 Phase 4 准备件 search_mcp + call_mcp
+    │   │   ├── mcp/                ← ✅ search_mcp + call_mcp（不 flat 注册 N×M tools；search 走 LLM ranking 模式 A）
     │   │   └── skill/              ← 📐 Phase 4 准备件 search_skills + activate_skill
     │   ├── subagent/               ← ✅ Service{Spawn/Cancel/Get/ListTypes/ListByConversation/ListMessages} + subagentHost（loop.Host 实现，5min total-timeout + panic recover + agentstate token log）+ 内置 3 类型注册表（Explore / Plan / general-purpose）
-    │   ├── mcp/                    ← 🔄 V1 marketplace Registry（6 内置 + Get/List/Visible+GOOS filter）已落地 2026-05-06；Service + Connect/Disconnect/Search/CallTool/Install/Health 在 D6
+    │   ├── mcp/                    ← ✅ Service{Start/Stop/Add/Remove/Reconnect/Search/CallTool/HealthCheck/InstallFromRegistry/Import} + 6 内置 marketplace Registry + 单 RWMutex 模型 + §5.6 健康追踪（连续失败≥3 → degraded → 自愈）+ §5.7 timeout precedence（ServerConfig > RegistryEntry > 30s）
     │   ├── skill/                  ← 📐 Phase 4 准备件 Service + frontmatter + fsnotify watcher
     │   ├── catalog/                ← 📐 Phase 4 准备件 Service + Generator + 1s polling + atomic 单 flight + fingerprint dedup
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Service + EnsureRuntime/EnsureEnv/Spawn/SpawnLongLived/SpawnShell/Destroy/GC（统一 PluginSandbox）
@@ -218,7 +218,7 @@ backend/
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
     │   ├── store/                  ← ✅ apikey / model / conversation / chat / forge / todo / sandbox / subagent
-    │   ├── mcp/                    ← 🔄 ~/.forgify/mcp.json Load/Save/Merge（Claude Desktop schema 兼容，0600 权限，atomic 写）已落地 2026-05-06；stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.x）在 D6
+    │   ├── mcp/                    ← ✅ ~/.forgify/mcp.json Load/Save/Merge（Claude Desktop schema 兼容，0600 权限，atomic 写）+ stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.6；stderr→zap+256KB ring；CommandTransport 处理 SIGTERM→5s→SIGKILL）
     │   ├── sandbox/                ← 🔄 大重构：原 forge-only 升级为统一 PluginRuntime
     │   │   ├── sandbox.go          ← Service 实现 RuntimeInstaller/EnvManager 注册 + spawn 派发
     │   │   ├── bootstrap/embed.go  ← go:embed mise binaries（per-platform，~10MB）
