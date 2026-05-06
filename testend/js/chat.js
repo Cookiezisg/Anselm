@@ -77,6 +77,7 @@ document.addEventListener('alpine:init', () => {
             const item = {
               type: 'tool', toolCallId: d.id, toolName: d.name,
               summary: d.summary || '', destructive: d.destructive || false,
+              executionGroup: d.executionGroup || 0,
               input: JSON.stringify(d.arguments || {}),
               result: null, ok: null, errorMsg: '', elapsedMs: 0,
             }

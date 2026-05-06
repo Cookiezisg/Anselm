@@ -91,9 +91,9 @@
                         <template x-if="item.type === 'text' && item.content">
                           <div class="msg-bubble" x-text="item.content"></div>
                         </template>
-                        <!-- Tool step card -->
+                        <!-- Tool step card (testend always-expanded for full visibility) -->
                         <template x-if="item.type === 'tool'">
-                          <details class="tool-step-card" :open="item.result === null">
+                          <details class="tool-step-card" open>
                             <summary class="tool-step-summary">
                               <span class="tool-step-icon"
                                     x-text="item.result === null ? '⚙' : (item.ok ? '✓' : '✗')"></span>
@@ -103,6 +103,13 @@
                                       style="font-family:'Consolas',monospace;font-size:10px;color:var(--text-mute);margin-left:5px"
                                       x-text="item.toolName"></span>
                                 <span x-show="item.destructive" class="destructive-badge" title="LLM marked this call as potentially destructive">⚠ destructive</span>
+                                <span x-show="item.executionGroup > 0"
+                                      style="font-size:10px;color:var(--text-mute);margin-left:5px"
+                                      :title="'LLM-supplied parallel batch hint (group ' + item.executionGroup + ')'"
+                                      x-text="'g=' + item.executionGroup"></span>
+                                <span x-show="item.elapsedMs > 0"
+                                      style="font-size:10px;color:var(--text-mute);margin-left:5px"
+                                      x-text="item.elapsedMs + 'ms'"></span>
                               </span>
                               <span class="tool-step-status"
                                     :class="item.result === null ? 'running' : (item.ok ? 'ok' : 'err')"
@@ -110,17 +117,21 @@
                             </summary>
                             <template x-if="item.input !== null">
                               <div class="tool-step-body">
-                                <!-- Skip args when empty ({}) — nothing useful to show -->
-                                <template x-if="item.input && item.input.trim() !== '{}'">
-                                  <div>
-                                    <div class="tool-step-section">args</div>
-                                    <pre class="tool-step-pre" x-text="tryFmt(item.input)"></pre>
-                                  </div>
-                                </template>
+                                <!-- args: always show even if {} so testers see 'no args passed' explicitly -->
+                                <div>
+                                  <div class="tool-step-section">args</div>
+                                  <pre class="tool-step-pre" x-text="tryFmt(item.input || '{}')"></pre>
+                                </div>
                                 <template x-if="item.result !== null">
                                   <div>
-                                    <div class="tool-step-section">result</div>
+                                    <div class="tool-step-section" x-text="item.ok ? 'result' : 'result (failed)'"></div>
                                     <pre class="tool-step-pre" x-text="tryFmt(item.result)"></pre>
+                                  </div>
+                                </template>
+                                <template x-if="item.errorMsg">
+                                  <div>
+                                    <div class="tool-step-section" style="color:var(--err)">errorMsg</div>
+                                    <pre class="tool-step-pre" style="color:var(--err)" x-text="item.errorMsg"></pre>
                                   </div>
                                 </template>
                               </div>
@@ -135,11 +146,21 @@
                 <template x-if="!m.items || !m.items.length">
                   <div class="msg-bubble" x-text="m.status === 'streaming' ? '…' : ''"></div>
                 </template>
-                <!-- Status + token info -->
-                <div style="display:flex;gap:8px;align-items:center;margin-top:2px">
+                <!-- Status + token info + stopReason + errorCode (testend = full visibility) -->
+                <div style="display:flex;gap:8px;align-items:center;margin-top:2px;flex-wrap:wrap">
                   <span class="msg-status" :class="m.status"
                         x-show="m.status !== 'completed'"
                         x-text="m.status"></span>
+                  <span x-show="m.stopReason"
+                        style="font-size:10px;color:var(--text-mute)"
+                        :title="'LLM-reported stop reason'"
+                        x-text="'stop=' + m.stopReason"></span>
+                  <span x-show="m.errorCode"
+                        style="font-size:10px;color:var(--err)"
+                        x-text="'err=' + m.errorCode"></span>
+                  <span x-show="m.errorMessage"
+                        style="font-size:10px;color:var(--err);font-family:Consolas,monospace"
+                        x-text="m.errorMessage"></span>
                   <span x-show="m.inputTokens || m.outputTokens"
                         style="font-size:10px;color:var(--text-mute)"
                         x-text="'↑' + (m.inputTokens||0) + ' ↓' + (m.outputTokens||0) + ' tokens'"></span>
