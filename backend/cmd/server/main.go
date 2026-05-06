@@ -145,6 +145,19 @@ func main() {
 
 	llmFactory := llminfra.NewFactory()
 
+	// TE-5a: in --dev mode, enable LLM call tracing so testend's Wire
+	// tab can replay every Stream() call (request + emitted events
+	// + final text + elapsed). Production unchanged — tracer stays
+	// nil so Build returns the raw provider client unwrapped.
+	//
+	// TE-5a：--dev 模式启 LLM 调用 tracing 让 testend Wire tab 能 replay
+	// 每个 Stream() 调用（请求 + 发出的 events + 最终文字 + 耗时）。生产
+	// 不动——tracer 保持 nil 让 Build 返不带包装的原 provider client。
+	if *dev {
+		llmFactory.SetTracer(llminfra.NewTraceRecorder())
+		log.Info("LLM trace recorder enabled (--dev) — testend Wire tab will replay every Stream call")
+	}
+
 	// forgeLLMClient satisfies forgeapp.LLMClient for GenerateTestCases
 	// (non-streaming JSON calls only).
 	//

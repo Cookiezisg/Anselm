@@ -214,3 +214,37 @@ func (h *DevHandler) MockLLMLastPrompt(w http.ResponseWriter, r *http.Request) {
 		"tools":    req.Tools,
 	})
 }
+
+// LLMTrace handles GET /dev/llm-trace?conversationId=xxx (TE-5a).
+// Returns the recorder's per-conversation traces (each trace = one
+// Stream() call: full Request + every StreamEvent + final text +
+// elapsed + error). Without a query param returns the list of
+// conversation IDs that have traces (lets the Wire tab populate a
+// dropdown). The recorder works for ALL providers (mock + real) when
+// enabled in --dev mode, not just mock — same wrapper.
+//
+// LLMTrace 处理 GET /dev/llm-trace?conversationId=xxx（TE-5a）。返
+// recorder 的 per-conversation traces（每条 trace = 一次 Stream() 调用:
+// 完整 Request + 每个 StreamEvent + 最终文字 + 耗时 + error）。无
+// query param 返有 trace 的对话 ID 列表（让 Wire tab 填 dropdown）。
+// recorder 在 --dev mode 下对所有 provider（mock + real）都生效，不
+// 只 mock——同 wrapper。
+func (h *DevHandler) LLMTrace(w http.ResponseWriter, r *http.Request) {
+	tracer := h.llmFactory.Tracer()
+	if tracer == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "TRACER_DISABLED",
+			"LLM trace recorder not enabled (only available in --dev)", nil)
+		return
+	}
+	convID := r.URL.Query().Get("conversationId")
+	if convID == "" {
+		responsehttpapi.Success(w, http.StatusOK, map[string]any{
+			"conversations": tracer.Conversations(),
+		})
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"conversationId": convID,
+		"traces":         tracer.TracesFor(convID),
+	})
+}

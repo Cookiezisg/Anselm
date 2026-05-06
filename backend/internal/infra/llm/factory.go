@@ -31,6 +31,7 @@ type Factory struct {
 	openai    *openAIClient
 	anthropic *anthropicClient
 	mock      *MockClient
+	tracer    *TraceRecorder // nil = no tracing; set via SetTracer in --dev
 }
 
 // NewFactory constructs a Factory ready for use.
@@ -53,27 +54,54 @@ func NewFactory() *Factory {
 // 查 last-request 用，也供想跳 dev HTTP 直接 in-process 驱动的测试用。
 func (f *Factory) Mock() *MockClient { return f.mock }
 
-// Build returns the Client and resolved BaseURL for the given Config.
+// SetTracer enables LLM call tracing. When set, every Build()-returned
+// Client is wrapped to record Stream() calls into the recorder. main.go
+// --dev path calls this once during boot. Production unchanged (tracer
+// stays nil → Build returns the raw provider client unwrapped).
 //
-// Build 返回给定 Config 对应的 Client 和解析后的 BaseURL。
+// SetTracer 启 LLM 调用跟踪。设了之后每个 Build() 返的 Client 被包装把
+// Stream() 调用记到 recorder。main.go --dev 路径 boot 时调一次。生产
+// 不动（tracer 保持 nil → Build 返不带包装的原 provider client）。
+func (f *Factory) SetTracer(r *TraceRecorder) { f.tracer = r }
+
+// Tracer returns the active recorder (or nil if not set). Used by the
+// /dev/llm-trace handler to read recorded traces.
+//
+// Tracer 返当前 recorder（未设返 nil）。/dev/llm-trace handler 用此读
+// 已记录的 trace。
+func (f *Factory) Tracer() *TraceRecorder { return f.tracer }
+
+// Build returns the Client and resolved BaseURL for the given Config.
+// When a tracer is set (via SetTracer in --dev) the returned Client
+// is wrapped in a recordingClient that captures every Stream call.
+//
+// Build 返回给定 Config 对应的 Client 和解析后的 BaseURL。tracer
+// 已设（SetTracer in --dev）时返的 Client 被 recordingClient 包，
+// 捕获每次 Stream 调用。
 func (f *Factory) Build(cfg Config) (Client, string, error) {
 	baseURL, err := resolveBaseURL(cfg)
 	if err != nil {
 		return nil, "", err
 	}
+	var client Client
 	switch cfg.Provider {
 	case "anthropic":
-		return f.anthropic, baseURL, nil
+		client = f.anthropic
 	case "mock":
-		return f.mock, baseURL, nil
+		client = f.mock
 	case "custom":
 		if cfg.APIFormat == "anthropic-compatible" {
-			return f.anthropic, baseURL, nil
+			client = f.anthropic
+		} else {
+			client = f.openai
 		}
-		return f.openai, baseURL, nil
 	default:
-		return f.openai, baseURL, nil
+		client = f.openai
 	}
+	if f.tracer != nil {
+		client = &recordingClient{inner: client, recorder: f.tracer}
+	}
+	return client, baseURL, nil
 }
 
 // resolveBaseURL returns cfg.BaseURL when set, or the provider's default.

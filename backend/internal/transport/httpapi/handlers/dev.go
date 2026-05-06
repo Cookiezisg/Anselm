@@ -85,6 +85,11 @@ func (h *DevHandler) Register(mux *http.ServeMux) {
 		mux.HandleFunc("GET /dev/mock-llm/queue", h.MockLLMQueue)
 		mux.HandleFunc("DELETE /dev/mock-llm/scripts", h.MockLLMClear)
 		mux.HandleFunc("GET /dev/mock-llm/last-prompt", h.MockLLMLastPrompt)
+		// TE-5a LLM trace endpoint — recorder is set during --dev boot
+		// (main.go calls llmFactory.SetTracer(...)). Nil-tolerant.
+		// TE-5a LLM trace 端点——recorder 在 --dev boot 时设
+		// （main.go 调 llmFactory.SetTracer）。容忍 nil。
+		mux.HandleFunc("GET /dev/llm-trace", h.LLMTrace)
 	}
 	// Static files: /dev/static/style.css, /dev/static/js/app.js, etc.
 	// no-cache so browser always fetches the latest version during dev.
