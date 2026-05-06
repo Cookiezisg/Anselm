@@ -83,6 +83,7 @@ Eino 框架已完全移除（`infra/eino/` 目录删除，go.mod 中 Eino 依赖
 | 3 | 工具锻造 | 12h | Forgify V1.0 体验 | ✅ 2026-04-26 |
 | — | Phase 3 后基础设施优化轮 | — | chat 重构 + 调研 + 驱动迁移 + 桌面端方向 | ✅ 2026-04-27 ~ 2026-05-06 |
 | — | **Phase 4 准备件**（D2-D9）| — | sandbox v2 (mise) + subagent + mcp + skill + catalog + 跨 cutting 集成测试 | ✅ 2026-05-06 |
+| — | **Windows 代码层适配**（D10-D15）| — | Bash/cmd.exe + 5-platform vet + mise.exe embed + Wails 包文档；真 Windows runtime 验证待物理机 | ✅ 2026-05-06 |
 | 4 | 工作流 | 20h | 桌面版 Coze | ⬜ |
 | 5 | 智能 + 知识库 + MCP | 15h | 完整 Agent 平台 | ⬜（mcp 已提前在 Phase 4 准备件交付）|
 | **合计** | | **~70h** | 完整愿景 | |

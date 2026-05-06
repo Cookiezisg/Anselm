@@ -489,3 +489,84 @@ v1.2 重写的 `transport/httpapi` 里很多东西跟 HTTP 绑定：
 
 ### 心法
 **"看起来更简单的方案，往往是把复杂度藏到了别处。"** 去掉 HTTP 看起来省事，藏起来的成本是：重写 middleware、失去网络调试、失去 SSE 天然支持、锁死 Wails。HTTP 那一层不是负担，是**抽象边界**——让客户端能变（浏览器/桌面/CLI/移动）、让服务器能变（本地/云/嵌入），互不影响。这个抽象在 v1.2 重写时已经付了成本，扔掉等于浪费投入。
+
+---
+
+## 十二、Windows 平台支持（D10-D15 · 2026-05-06）
+
+### 代码层就绪情况
+
+V1.2 D2-D9 期间已经做的 Windows 工作（不少是顺手做的）：
+
+| 模块 | Windows 支持 |
+|---|---|
+| `infra/sandbox/proc_windows.go` | Job Object + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 强清理 + `taskkill /T /F` per-process。这是三平台里**最强**的进程树管理（macOS / Linux 只能近似）。|
+| `infra/sandbox/embed_mise_windows_amd64.go` | `go:embed` `mise.exe`（92 MB），`miseExeName()` 返 `mise.exe`，extract 路径正确写到 `<dataDir>/sandbox/bin/mise.exe`。|
+| `cmd/resources/main.go` | 知道 windows-amd64 用 `.zip` 归档（不是 `.tar.gz`），`extractZip` 提取 `mise.exe`。|
+| 各 sandbox runtime installer（python/java/ruby/go/rust） | 每个都有 `if runtime.GOOS == "windows" + .exe 扩展名` 处理。|
+| `infra/crypto/fingerprint.go` | `runtime.GOOS` 分支 — Windows 用 `MachineGuid` 注册表项作硬件指纹源。|
+| `app/tool/shell/bash.go` | Windows 走 `cmd.exe /c`（故意不用 PowerShell——execution policy 问题）。LLM-facing description 已说明跨平台行为。|
+| `pkg/pathguard/pathguard.go` | DefaultDenyList 含 `C:/Windows/`、`AppData/Microsoft/Credentials/`、Edge/Chrome saved logins 等 Windows 路径。非绝对路径在当前 OS 静默丢弃。|
+| `cmd/server/main.go` 的 `defaultMCPConfigPath / defaultSkillsDir / defaultCatalogCachePath` | 用 `os.UserHomeDir()` → Windows 自动返 `%USERPROFILE%`，`filepath.Join` 自动用 `\`。|
+| MCP marketplace（6 entries） | D11 审计：全部 Windows 兼容（playwright/markitdown/context7/duckduckgo/sqlite/everything 都用跨平台 runtime + stdio）。|
+
+### 用户家目录
+
+Windows 上 `~/.forgify/` 实际是 `%USERPROFILE%\.forgify\`（典型 `C:\Users\<name>\.forgify\`）。Go 的 `os.UserHomeDir()` 自动处理。
+
+```
+%USERPROFILE%\.forgify\
+├── mcp.json              ← MCP server 配置（与 Claude Desktop schema 兼容）
+├── skills\               ← Skill 库（每个 skill 一个 subdir）
+└── .catalog.json         ← Capability Catalog 派生 cache
+```
+
+### Bash tool 在 Windows 上的行为
+
+LLM 调 Bash 时，命令在 **`cmd.exe /c "<command>"`** 下跑。注意：
+
+- `dir` 工作，`ls` 不工作（除非装了 git-bash 在 PATH）
+- 路径分隔符 `\\` 工作，某些场景 `/` 也工作（cmd 容忍）
+- 管道 `|`、重定向 `>`、`&&` 都工作
+- 想要 PowerShell：LLM 自己写 `powershell -Command "..."` 前缀
+
+故意不用 PowerShell 作默认 shell：**execution policy** 在锁定企业机会拦脚本式调用，cmd.exe 永远在且引号行为可预测。
+
+### Wails 打 Windows 包
+
+```bash
+# Mac 上交叉编译 Windows 安装器（NSIS）
+wails build -platform windows/amd64 -nsis
+
+# 输出：build/bin/Forgify-amd64-installer.exe
+```
+
+要 NSIS（在 mac `brew install nsis`）。代码签名（$几百/年）按 [§六](#六用户分发形态四个层次) 的"暂时拖着"策略 — 用户首次运行会有 Windows SmartScreen 警告，点"更多信息→仍要运行"绕过。
+
+### 当前缺什么
+
+代码层完成度 ~95%。剩下的 5% 都需要真 Windows 机器才能搞：
+
+- [ ] 真跑一遍 backend `forgify-server.exe` —— 验启动 + 所有 service 真 boot OK
+- [ ] mise 真在 Windows 装 node / python runtime —— 验 `mise install` 不挂
+- [ ] Bash tool 真跑 `cmd /c "echo hello"` —— 验输出捕获 / 退出码正确
+- [ ] fsnotify 真在 Windows 行为 —— 不同 file lock 语义可能影响 skill watcher
+- [ ] MCP server 真在 Windows stdio 启动 + handshake —— 测一个 `npx -y @modelcontextprotocol/server-everything`
+
+这些**留作 D10-D15 的"待真 Windows 机验"清单**。等用户搞到 Windows VM/笔记本时按这个清单走一遍即可。
+
+### 打 Windows 包前的流程
+
+```bash
+# 1. 拉 Windows mise binary（其他平台一并）
+make resources ALL=1
+
+# 2. 验代码层
+GOOS=windows go vet ./...
+GOOS=windows go build ./...
+
+# 3. 打包
+wails build -platform windows/amd64 -nsis
+
+# 4. 真 Windows 机上跑过一遍上面"缺什么"清单
+```

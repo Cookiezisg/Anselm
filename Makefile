@@ -146,4 +146,50 @@ clear: stop
 	@rm -rf .venv/
 	@echo "✓ cleared (db + attachments + stray venv)"
 
-.PHONY: help environment test-console test-unit test-pipeline stop clear
+# check-cross — cross-platform compile + vet for all 3 supported targets.
+# Catches more than `go build` alone: vet flags suspicious type conversions,
+# struct tag typos, unreachable code, ineffective assignments, etc. Run
+# this before every release tag to ensure the Windows/Linux/Darwin code
+# branches all parse cleanly even when only macOS-side dev happens.
+#
+# Doesn't actually run tests on non-host platforms (would need real
+# Windows/Linux machines for that). Code-layer audit only.
+#
+# check-cross——跨平台 compile + vet 三平台。比 `go build` 抓得多：vet
+# 标可疑类型转换、struct tag 拼错、不可达代码、无效赋值等。release tag
+# 前必跑，让 Windows/Linux/Darwin 三个码径在 mac-only 开发下也能解析干净。
+# 不真在非 host 平台跑测试（需真机）；仅代码层 audit。
+check-cross:
+	$(AUTO_DEVBOX)
+	@# CGO_ENABLED=0 for cross-targets: cgo would invoke the Mac SDK
+	@# linker against Linux/Windows headers and fail. We deliberately
+	@# use modernc.org/sqlite (pure Go) precisely so we can cross-vet
+	@# from any host without a per-target toolchain.
+	@# CGO_ENABLED=0 跨目标用：cgo 会让 Mac SDK linker 对 Linux/Windows
+	@# 头文件做错事。我们故意用 modernc.org/sqlite（纯 Go）就为了让任意
+	@# host 都能 cross-vet 不需 per-target 工具链。
+	@echo "→ darwin/amd64 vet..."
+	@cd backend && GOOS=darwin GOARCH=amd64 go vet ./...
+	@echo "→ darwin/arm64 vet..."
+	@cd backend && GOOS=darwin GOARCH=arm64 go vet ./...
+	@echo "→ linux/amd64 vet..."
+	@cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go vet ./...
+	@echo "→ linux/arm64 vet..."
+	@cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go vet ./...
+	@echo "→ windows/amd64 vet..."
+	@cd backend && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go vet ./...
+	@echo ""
+	@echo "→ darwin/amd64 build..."
+	@cd backend && GOOS=darwin GOARCH=amd64 go build ./...
+	@echo "→ darwin/arm64 build..."
+	@cd backend && GOOS=darwin GOARCH=arm64 go build ./...
+	@echo "→ linux/amd64 build..."
+	@cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./...
+	@echo "→ linux/arm64 build..."
+	@cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build ./...
+	@echo "→ windows/amd64 build..."
+	@cd backend && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
+	@echo ""
+	@echo "✓ vet + build clean across darwin/linux/windows × amd64/arm64"
+
+.PHONY: help environment test-console test-unit test-pipeline stop clear check-cross
