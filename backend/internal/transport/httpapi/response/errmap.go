@@ -15,6 +15,7 @@ import (
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
@@ -131,6 +132,13 @@ var errTable = map[error]errMapping{
 	mcpdomain.ErrRequiredEnvMissing:    {http.StatusUnprocessableEntity, "MCP_REQUIRED_ENV_MISSING"},
 	mcpdomain.ErrRequiredArgsMissing:   {http.StatusUnprocessableEntity, "MCP_REQUIRED_ARGS_MISSING"},
 	mcpdomain.ErrInstallFailed:         {http.StatusBadGateway, "MCP_INSTALL_FAILED"},
+
+	// skill domain (V1.2 D7) / skill domain
+	skilldomain.ErrSkillNotFound:      {http.StatusNotFound, "SKILL_NOT_FOUND"},
+	skilldomain.ErrInvalidFrontmatter: {http.StatusUnprocessableEntity, "SKILL_INVALID_FRONTMATTER"},
+	skilldomain.ErrBodyTooLarge:       {http.StatusUnprocessableEntity, "SKILL_BODY_TOO_LARGE"},
+	skilldomain.ErrNameConflict:       {http.StatusConflict, "SKILL_NAME_CONFLICT"},
+	skilldomain.ErrInvalidName:        {http.StatusUnprocessableEntity, "SKILL_INVALID_NAME"},
 
 	// ask service (AskUserQuestion answer-delivery handler) /
 	// ask service（AskUserQuestion 答案投递 handler）
