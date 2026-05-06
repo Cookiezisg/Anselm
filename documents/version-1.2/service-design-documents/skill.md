@@ -1,12 +1,12 @@
 # Skill — V1.2 详设计
 
-**Phase**：Phase 4 准备件（提前到位，本周交付）
-**状态**：📐 设计完成（2026-05-04）— 待实施
+**Phase**：Phase 4 准备件（提前到位）
+**状态**：✅ D7 全部交付（2026-05-06）：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + fsnotify watcher（debounce + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ 2 system tools (search_skills/activate_skill) + framework permission integration（active skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（文件系统是 source）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — skill ×3（待加）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `skill` entity-state 事件（待加）
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — skill ×5（已接 errmap）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `skill` entity-state 事件 ✅
 - 关联设计：[`subagent.md`](./subagent.md)（`context: fork` 复用 SubagentService）/ [`catalog.md`](./catalog.md)
 - 外部 spec：[Anthropic Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) / [agentskills.io](https://agentskills.io)
 
@@ -590,17 +590,19 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 
 ---
 
-## 14. 测试覆盖（计划）
+## 14. 测试覆盖 ✅
 
 | 层 | 文件 | 测试数 | 覆盖 |
 |---|---|---|---|
-| domain | `internal/domain/skill/skill_test.go` | 4 | Frontmatter YAML parse / sentinel JSON |
-| app/skill | `internal/app/skill/skill_test.go` | 18 | Scan / Search ranking / Activate (non-fork) / Activate (fork) / 字符串替换 / body 超大拒绝 / 同名 skill 后装拒绝 / fsnotify rescan |
-| pkg/agentstate | `pkg/agentstate/skill_test.go` | 6 | SetActiveSkill / IsToolPreApprovedBySkill / matchAllowedTool wildcards / clear semantics |
-| app/tool/skill | `internal/app/tool/skill/skill_test.go` | 12 | search/activate 9 方法 + Validate + happy + error 分支 |
-| pipeline | `test/skill/skill_test.go` | 4 | Activate 加载 body / fork 走 subagent / allowed-tools 跳过 prompt / fsnotify 实时刷新 |
+| domain | `internal/domain/skill/skill_test.go` | 6 | Frontmatter YAML 全 spec round-trip + 最小必填 / Skill JSON camelCase + sentinel 唯一性 / 'skill: ' 前缀审计 / 常量校验 |
+| pkg/agentstate | `internal/pkg/agentstate/skill_test.go` | 10 | NilWhenUnset / Set/Get/Clear / LastWriteWins (并发) / IsToolPreApprovedBySkill (BareName/BashAnyArgs/Wildcard table/Malformed pattern fail-closed/paren-non-Bash 退化/bad-args JSON 不 panic) / wildcardMatch edge cases |
+| app/skill | `internal/app/skill/{skill,watcher}_test.go` | 26 | Scan empty/missing dir/valid skill/bad frontmatter (3 子)/超大 body/同名重复/splitFrontmatter 6 模式/substitute 全占位+\$10-not-pre-empted/Activate non-fork & fork & nested-fork-suppression & fork-without-svc-fails-clean & missing→ErrSkillNotFound / Search ≤topK 短路 + empty / Watcher DetectsNew/DetectsEdit/DetectsDelete/SymlinkLoop guard/EmptySkillsDir-StartFails/NewWatcher-NilLogOK |
+| app/tool/skill | `internal/app/tool/skill/skill_test.go` | 12 | factory 返 2 tool / SearchSkills 9 方法（Identity/static/Validate 5 子/CheckPermissions 全模式/Execute empty + JSON list）/ ActivateSkill 9 方法（Identity/static IsReadOnly=false/Validate 5 子/Execute friendly-missing/Execute returns body）|
+| transport/handlers | `internal/transport/httpapi/handlers/skills_test.go` | 20 | List empty + after seed / Get 404 / GetBody / Create 201 + Conflict 409 + InvalidName 422 / Replace 200 + 404 / Delete 204 + 404 / Refresh 拾起 disk 写 / Import JSON 2 files + Conflict-no-overwrite + Overwrite force + Multipart + Empty rejected / Invoke non-fork returns body + 404 / NameAction unknown 400 |
+| framework integration | `internal/app/loop/tools_test.go` | 3 | NoActiveSkill 仍走 CheckPermissions / ActiveSkill 预授权绕过 (permChecks=0 计数) / NoMatch 退回 CheckPermissions |
+| pipeline | `test/skill/skill_test.go` | 3 | Activate inline E2E ($1 substitution + body 进 tool_result) / Search-then-Activate E2E (双 tool_call 配对 + result) / PreApproval Bash after Activate (D7-6 端到端验证 + 'tool pre-approved by active skill' log) |
 
-总计 ~40 测 + 4 pipeline 场景。
+总计 80 单测 + 3 pipeline 场景全绿。
 
 ---
 

@@ -42,9 +42,9 @@
 
 > **状态**：⬜ 未设计 | 🔄 struct 定义中 | ✅ 已实现（struct + 真实发布点）
 
-### entity-state 模型（Phase 6 重构 · 2026-05-02；Phase 5 加 todo · 2026-05-04，原 task 改名于 2026-05-05；Phase 4 准备件加 mcp/skill + chat.message 加 subagent 字段 · 2026-05-05）
+### entity-state 模型（Phase 6 重构 · 2026-05-02；Phase 5 加 todo · 2026-05-04，原 task 改名于 2026-05-05；Phase 4 准备件 mcp + skill 全部 ✅ · 2026-05-06）
 
-**6 个事件**（4 已实现 + 2 新设计待实施 mcp/skill）+ chat.message 在 subagent 上下文额外承载 SubagentRun 快照。订阅方按 entity ID 替换本地拷贝即可渲染。**subagent 不发独立 SSE 事件**——所有信息（消息内容 + run 元数据 + lifecycle）全合到 chat.message 一条流，subagent 上下文额外携带 `subagentRunId` + `parentConversationId` + `subagentRun` 三字段。
+**6 个事件全部 ✅** + chat.message 在 subagent 上下文额外承载 SubagentRun 快照。订阅方按 entity ID 替换本地拷贝即可渲染。**subagent 不发独立 SSE 事件**——所有信息（消息内容 + run 元数据 + lifecycle）全合到 chat.message 一条流，subagent 上下文额外携带 `subagentRunId` + `parentConversationId` + `subagentRun` 三字段。
 
 每个事件 struct 嵌入 `*<domain>.Entity` 指针 + 自定义 `MarshalJSON` → wire 形状 = `GET /api/v1/<entities>/{id}` 的响应（无 wrapper key，entity 字段直接出现在顶层）。
 
@@ -55,7 +55,7 @@
 | `conversation` | 完整 `Conversation`（含 `title`/`autoTitled`/`systemPrompt` 等）| `conversationId` | auto-title 回写、未来归档/系统 prompt 更新等 | ✅ |
 | `todo` | 完整 `Todo`（含 `id`/`conversationId`/`subject`/`description`/`activeForm`/`status`/`owner`/`blockedBy`/`metadata`/时间戳）| `conversationId` | TodoCreate / TodoUpdate / TodoDelete 任意时点；删除时最后一帧 status="deleted" 让订阅方丢本地拷贝 | ✅ |
 | `mcp` | `{servers: [ServerStatus...]}` 全 server 状态快照（含 `name`/`status`(disconnected/connecting/ready/degraded/failed)/`pid`/`connectedAt`/`lastError`/`lastErrorAt`/`lastSuccessAt`/`consecutiveFailures`/`totalCalls`/`totalFailures`/`tools[]`）| `global`（载荷 `conversationId=""` 广播——所有订阅者都看自己 backend 的 mcp 状态）| `Service.publishSnapshot` 每次状态变更后触发：Start 完成 / AddServer 后 / RemoveServer 后 / Reconnect 后 / `recordCallResult` 触发 ready→degraded（连续失败≥3）/ 触发 degraded→ready（自愈）；HealthCheck 不发（design：探针不该误触发事件，§5.6）；推全 server 快照让前端一次性替换本地拷贝 | ✅ |
-| `skill` | `{skills: [Skill...]}` 全 skill 快照（每条含 `name`/`source`/`dirPath`/`bodyPath`/`description`/`frontmatter`/`loadedAt`，**不含 body**——body 是 L2 按需加载）| `global` | fsnotify 抓到 SKILL.md 改动 + Service.Scan 完成 / 手动 `:refresh` / `:import` 后重扫 | 📐 |
+| `skill` | `{skills: [Skill...]}` 全 skill 快照（每条含 `name`/`source`/`dirPath`/`bodyPath`/`description`/`frontmatter`/`loadedAt`，**不含 body**——body 是 L2 按需加载，经 `GET /skills/{name}/body` 单独取）| `global`（载荷 `conversationId=""` 广播）| `Service.publishSnapshot` 在每次 `Scan` 完成后触发：boot 首扫、fsnotify watcher debounce 后重扫（500ms）、5min poll 兜底重扫、HTTP `:refresh`、Create/Replace/Delete/Import 写盘后强制重扫；推全快照让 UI 一次性替换本地 cache | ✅ |
 
 **配套实现细节**：
 

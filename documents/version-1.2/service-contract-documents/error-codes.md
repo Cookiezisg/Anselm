@@ -214,15 +214,17 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 
 > 注：所有 10 个 sentinel + errmap 行已在 D5-1 接线（2026-05-06）。runtime sentinels（Server* / Tool*）的实际触发点在 D6 stdio Client + Service 落地后接通；Registry-flow sentinels 同样走 D6 InstallFromRegistry 路径。
 
-#### skill 📐
+#### skill ✅
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `SKILL_NOT_FOUND` | 404 | `skilldomain.ErrSkillNotFound` | skill 名不在 ~/.forgify/skills/ | 📐 |
-| `SKILL_INVALID_FRONTMATTER` | 422 | `skilldomain.ErrInvalidFrontmatter` | YAML 解析失败 / 必填缺 / allowed-tools 引用未注册 tool | 📐 |
-| `SKILL_BODY_TOO_LARGE` | 422 | `skilldomain.ErrBodyTooLarge` | SKILL.md body > 32 KB | 📐 |
-| `SKILL_NAME_CONFLICT` | 409 | `skilldomain.ErrNameConflict` | POST /skills 创建同名 | 📐 |
-| `SKILL_INVALID_NAME` | 422 | `skilldomain.ErrInvalidName` | name 不符 `[a-z0-9-]{1,64}` | 📐 |
+| `SKILL_NOT_FOUND` | 404 | `skilldomain.ErrSkillNotFound` | skill 名不在 ~/.forgify/skills/ | ✅ |
+| `SKILL_INVALID_FRONTMATTER` | 422 | `skilldomain.ErrInvalidFrontmatter` | YAML 解析失败 / 必填缺 / fork 模式缺 agent | ✅ |
+| `SKILL_BODY_TOO_LARGE` | 422 | `skilldomain.ErrBodyTooLarge` | SKILL.md body > 32 KB | ✅ |
+| `SKILL_NAME_CONFLICT` | 409 | `skilldomain.ErrNameConflict` | POST /skills 创建同名（PUT 改 200 替换）| ✅ |
+| `SKILL_INVALID_NAME` | 422 | `skilldomain.ErrInvalidName` | name 不符 `[a-z0-9][a-z0-9-]{0,63}` | ✅ |
+
+> 注：5 个 sentinel + errmap 行 D7-1 全接（2026-05-06）。runtime 触发点全部接通（D7-3 Activate / D7-7 mutate / D7-7 Import）。allowed-tools 校验未注册 tool 设计上推迟到 V2（boot 顺序 race：skill scan 早于 tool 注册）。
 
 #### catalog 📐
 

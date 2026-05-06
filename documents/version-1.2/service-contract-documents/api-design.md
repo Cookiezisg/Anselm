@@ -229,8 +229,8 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 
 **没有 `:enable` / `:disable`**——配置在 mcp.json 即启用，删除即禁用，无中间态。
 
-#### skill 📐
-详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md)。`SKILL.md` 跨厂兼容（Anthropic spec）；progressive disclosure 三层加载；`context: fork` 可组合到 subagent；自包含（仅 `~/.forgify/skills/`，无项目级）。
+#### skill ✅
+详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md)。`SKILL.md` 跨厂兼容（Anthropic spec）；progressive disclosure 三层加载；`context: fork` 可组合到 subagent；自包含（仅 `~/.forgify/skills/`，无项目级）。**V1.2 D7（2026-05-06）全部交付**：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + fsnotify watcher（debounce 500ms + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ 2 system tools (search_skills/activate_skill) + framework permission integration（活动 skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景（Activate inline / Search→Activate / Bash 预授权端到端）。
 
 | Method | Path | 用途 |
 |---|---|---|

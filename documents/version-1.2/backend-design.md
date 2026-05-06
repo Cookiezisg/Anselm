@@ -181,7 +181,7 @@ backend/
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
     │   ├── subagent/               ← ✅ SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 service-design-documents/subagent.md §6）
     │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + 5 status const + RegistryEntry + 10 sentinels
-    │   ├── skill/                  ← 📐 Phase 4 准备件 Skill + Frontmatter + 5 sentinel
+    │   ├── skill/                  ← ✅ Skill + Frontmatter（Anthropic SKILL.md spec 全字段保留 cross-vendor）+ 5 sentinel + MaxBodyBytes/MaxDescriptionChars 常量
     │   ├── catalog/                ← 📐 Phase 4 准备件 CatalogSource port + Catalog + Item + Granularity
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
     │   ├── workflow/               ← ⬜ Phase 4
@@ -207,10 +207,10 @@ backend/
     │   │   ├── ask/                ← ✅ AskUserQuestion（Phase 5）
     │   │   ├── subagent/           ← ✅ Subagent tool（spawn 子 LLM loop 入口；改名避开 todo domain 撞车）
     │   │   ├── mcp/                ← ✅ search_mcp + call_mcp（不 flat 注册 N×M tools；search 走 LLM ranking 模式 A）
-    │   │   └── skill/              ← 📐 Phase 4 准备件 search_skills + activate_skill
+    │   │   └── skill/              ← ✅ search_skills + activate_skill（activate 写 agentstate.ActiveSkill 让 framework dispatch 短路 CheckPermissions）
     │   ├── subagent/               ← ✅ Service{Spawn/Cancel/Get/ListTypes/ListByConversation/ListMessages} + subagentHost（loop.Host 实现，5min total-timeout + panic recover + agentstate token log）+ 内置 3 类型注册表（Explore / Plan / general-purpose）
     │   ├── mcp/                    ← ✅ Service{Start/Stop/Add/Remove/Reconnect/Search/CallTool/HealthCheck/InstallFromRegistry/Import} + 6 内置 marketplace Registry + 单 RWMutex 模型 + §5.6 健康追踪（连续失败≥3 → degraded → 自愈）+ §5.7 timeout precedence（ServerConfig > RegistryEntry > 30s）
-    │   ├── skill/                  ← 📐 Phase 4 准备件 Service + frontmatter + fsnotify watcher
+    │   ├── skill/                  ← ✅ Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + atomic 写 + fsnotify watcher（debounce 500ms + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ \$1/\$ARGUMENTS/\${CLAUDE_*} 占位替换 + fork 模式派发 SubagentService（depth ≥ 1 抑制嵌套 fork）
     │   ├── catalog/                ← 📐 Phase 4 准备件 Service + Generator + 1s polling + atomic 单 flight + fingerprint dedup
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Service + EnsureRuntime/EnsureEnv/Spawn/SpawnLongLived/SpawnShell/Destroy/GC（统一 PluginSandbox）
     │   └── <Phase 4-5>/
