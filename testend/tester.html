@@ -261,6 +261,7 @@
         <button class="tab-btn" :class="{active: activeRightTab==='mcp'}" @click="selectTab('mcp')">MCP</button>
         <button class="tab-btn" :class="{active: activeRightTab==='sandbox'}" @click="selectTab('sandbox')">Sandbox</button>
         <button class="tab-btn" :class="{active: activeRightTab==='mock-llm'}" @click="selectTab('mock-llm')">Mock LLM</button>
+        <button class="tab-btn" :class="{active: activeRightTab==='wire'}" @click="selectTab('wire')">Wire</button>
       </div>
 
       <!-- Config Tab -->
@@ -1523,6 +1524,91 @@
         </div>
       </div>
 
+      <!-- ── Wire tab (TE-5b) ─────────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='wire'" x-data="wireTab()">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
+          <strong style="font-size:12px">LLM Wire</strong>
+          <button class="btn-small" @click="load()" :disabled="loading" x-text="loading ? 'loading…' : 'reload'"></button>
+          <span x-show="conversationId" style="font-size:10px;color:var(--text-mute)" x-text="'in conv: ' + conversationId"></span>
+          <span x-show="err" style="color:var(--err);font-size:10px;margin-left:auto" x-text="err"></span>
+        </div>
+
+        <div x-show="!conversationId" style="padding:16px;font-size:11px;color:var(--text-mute)">
+          Select a conversation from the sidebar — wire traces are scoped to a conversation.
+        </div>
+
+        <div x-show="conversationId && traces.length === 0 && !err && !loading"
+             style="padding:16px;font-size:11px;color:var(--text-mute)">
+          No traces for this conversation yet — send a chat message to trigger a Stream() call.
+        </div>
+
+        <div x-show="conversationId && traces.length" style="padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:6px">
+          <template x-for="(t, i) in traces" :key="i">
+            <div style="border:1px solid var(--border);border-radius:3px">
+              <div @click="toggle(i)" style="cursor:pointer;padding:6px 8px;display:flex;gap:8px;align-items:center;background:#fafafa">
+                <span x-text="expanded[i] ? '▾' : '▸'" style="color:var(--text-mute);width:12px"></span>
+                <span style="font-family:Consolas,monospace;font-size:10px;color:var(--text-mute)" x-text="fmtTime(t.timestamp)"></span>
+                <span style="font-family:Consolas,monospace;font-size:10px" x-text="t.request?.ModelID || '?'"></span>
+                <span style="font-size:10px;color:var(--text-mute)" x-text="summarize(t)"></span>
+                <span style="font-size:10px;color:var(--text-mute);margin-left:auto" x-text="t.elapsedMs + 'ms'"></span>
+                <span x-show="t.error" style="color:var(--err);font-size:10px">⚠ error</span>
+              </div>
+              <div x-show="expanded[i]" style="padding:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+                <!-- Request -->
+                <div>
+                  <div style="font-weight:600;font-size:10px;margin-bottom:2px">request</div>
+                  <div style="font-family:Consolas,monospace;font-size:10px;color:var(--text-mute);margin-bottom:4px">
+                    base=<span x-text="t.request?.BaseURL"></span> · model=<span x-text="t.request?.ModelID"></span>
+                  </div>
+                  <details>
+                    <summary style="cursor:pointer;font-size:10px;color:var(--text-mute)">system prompt (<span x-text="(t.request?.System || '').length"></span> chars)</summary>
+                    <pre style="background:#fafafa;padding:6px;border-radius:3px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0"
+                         x-text="t.request?.System || ''"></pre>
+                  </details>
+                  <details>
+                    <summary style="cursor:pointer;font-size:10px;color:var(--text-mute)">messages (<span x-text="(t.request?.Messages || []).length"></span>)</summary>
+                    <pre style="background:#fafafa;padding:6px;border-radius:3px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:300px;overflow:auto;margin:4px 0"
+                         x-text="JSON.stringify(t.request?.Messages || [], null, 2)"></pre>
+                  </details>
+                  <details>
+                    <summary style="cursor:pointer;font-size:10px;color:var(--text-mute)">tool defs (<span x-text="(t.request?.Tools || []).length"></span>)</summary>
+                    <pre style="background:#fafafa;padding:6px;border-radius:3px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:200px;overflow:auto;margin:4px 0"
+                         x-text="JSON.stringify(t.request?.Tools || [], null, 2)"></pre>
+                  </details>
+                </div>
+
+                <!-- Events -->
+                <div>
+                  <div style="font-weight:600;font-size:10px;margin-bottom:2px">events (<span x-text="(t.events || []).length"></span>)</div>
+                  <div style="font-family:Consolas,monospace;font-size:10px;background:#fafafa;padding:6px;border-radius:3px;max-height:300px;overflow:auto">
+                    <template x-for="(ev, ei) in (t.events || [])" :key="ei">
+                      <div style="padding:1px 0;display:flex;gap:6px">
+                        <span :style="'color:' + (eventTypeColor[ev.Type] || '#666') + ';min-width:80px'" x-text="ev.Type"></span>
+                        <span x-text="eventLabel(ev)" style="word-break:break-all"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- Final text -->
+                <div x-show="t.finalText">
+                  <div style="font-weight:600;font-size:10px;margin-bottom:2px">final text (concat of EventText)</div>
+                  <pre style="background:#fafafa;padding:6px;border-radius:3px;font-family:Consolas,monospace;font-size:10px;line-height:1.4;white-space:pre-wrap;max-height:200px;overflow:auto;margin:0"
+                       x-text="t.finalText"></pre>
+                </div>
+
+                <!-- Error -->
+                <div x-show="t.error">
+                  <div style="font-weight:600;font-size:10px;margin-bottom:2px;color:var(--err)">error</div>
+                  <pre style="background:#fdf3f3;padding:6px;border-radius:3px;font-family:Consolas,monospace;font-size:10px;color:var(--err);white-space:pre-wrap;margin:0"
+                       x-text="t.error"></pre>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1542,6 +1628,7 @@
   <script src="/dev/static/js/tab-mcp.js"></script>
   <script src="/dev/static/js/tab-sandbox.js"></script>
   <script src="/dev/static/js/tab-mock-llm.js"></script>
+  <script src="/dev/static/js/tab-wire.js"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>
