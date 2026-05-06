@@ -348,6 +348,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
 		MCPService:          mcpService,
+		SkillService:        skillService,
 		Dev:                 false,
 		Tools:               tools,
 		DB:                  gdb,

@@ -324,6 +324,7 @@ func main() {
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
 		MCPService:          mcpService,
+		SkillService:        skillService,
 		Dev:                 *dev,
 		Tools:               tools,
 		DB:                  gdb,

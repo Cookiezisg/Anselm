@@ -16,6 +16,7 @@ import (
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
+	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
@@ -96,6 +97,19 @@ type Deps struct {
 	// search_mcp + call_mcp 系统工具供 LLM 运行时发现+调用 MCP 工具；这些
 	// 端点是 UI 的配置+观测面。
 	MCPService *mcpapp.Service
+
+	// SkillService backs the /api/v1/skills/* endpoints (CRUD + body
+	// fetch + drag-import + manual rescan + manual invoke). The
+	// search_skills + activate_skill SYSTEM TOOLS are what the LLM uses
+	// at runtime; these endpoints are the UI configuration + observation
+	// surface. fsnotify watcher (also owned by skillapp) keeps the
+	// in-memory cache live as the user edits ~/.forgify/skills/.
+	//
+	// SkillService 支持 /api/v1/skills/* 端点（CRUD + body 取 + 拖入 +
+	// 手动重扫 + 手动 invoke）。search_skills + activate_skill 系统工具
+	// 供 LLM 运行时；这些端点是 UI 配置+观测面。fsnotify watcher（也由
+	// skillapp 持）让用户编辑 ~/.forgify/skills/ 时内存 cache 实时更新。
+	SkillService *skillapp.Service
 
 	// ── Dev-only fields (nil/zero when Dev=false) ─────────────────────────────
 
