@@ -114,6 +114,7 @@ type Harness struct {
 	DB      *gorm.DB
 	Bridge  eventsdomain.Bridge
 	Sandbox *sandboxapp.Service
+	MCP     *mcpapp.Service
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -340,6 +341,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		DB:             gdb,
 		Bridge:         bridge,
 		Sandbox:        sandboxSvc,
+		MCP:            mcpService,
 		APIKey:         apikeyService,
 		Model:          modelService,
 		Conversation:   convService,
