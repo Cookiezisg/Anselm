@@ -16,6 +16,40 @@ document.addEventListener('alpine:init', () => {
     uploading: false,
     _es: null,
 
+    // Raw-snapshot modal: clicking [📋 raw] on a message stashes the
+    // wire payload here + shows the modal. JSON-stringified for display
+    // + lazy 'copied' flag for the clipboard-button feedback.
+    //
+    // Raw-snapshot modal：点消息 [📋 raw] 把 wire 载荷存这里 + 显示 modal。
+    // JSON-stringified 给显示用 + lazy 'copied' 标志给剪贴板按钮反馈。
+    rawModal: { open: false, json: '', messageId: '', copied: false },
+
+    showRaw(m) {
+      this.rawModal = {
+        open: true,
+        json: JSON.stringify(m.raw || m, null, 2),
+        messageId: m.id,
+        copied: false,
+      }
+    },
+
+    closeRaw() { this.rawModal.open = false },
+
+    async copyRaw() {
+      try {
+        await navigator.clipboard.writeText(this.rawModal.json)
+        this.rawModal.copied = true
+        setTimeout(() => { this.rawModal.copied = false }, 1500)
+      } catch {
+        // navigator.clipboard requires HTTPS or localhost; testend is
+        // localhost so this should work, but fall back to selection
+        // if it doesn't.
+        // navigator.clipboard 要 HTTPS 或 localhost；testend localhost
+        // 应工作，失败时退回选中文本让用户手动 Cmd+C。
+        alert('Copy failed; select the JSON text + Cmd+C manually.')
+      }
+    },
+
     get conversationId() { return Alpine.store('app').conversationId },
     get title() { return Alpine.store('app').conversationTitle },
 
@@ -61,7 +95,12 @@ document.addEventListener('alpine:init', () => {
           }
         } catch {}
       }
-      return { id: m.id, role: 'user', blocks, status: m.status }
+      // Keep raw snapshot stashed so the [📋 raw] button can show the
+      // verbatim chat.message wire payload (full block data, status,
+      // tokens, error fields, timestamps — everything).
+      // 留 raw snapshot 让 [📋 raw] 按钮显示 chat.message 原始 wire 载荷
+      // （完整 block data / status / tokens / 错误字段 / 时间戳——全部）。
+      return { id: m.id, role: 'user', blocks, status: m.status, raw: m }
     },
 
     _assistantMsgFromBlocks(m) {
@@ -116,6 +155,7 @@ document.addEventListener('alpine:init', () => {
         errorMessage: m.errorMessage || '',
         inputTokens: m.inputTokens || 0,
         outputTokens: m.outputTokens || 0,
+        raw: m,  // see _userMsgFromBlocks comment
       }
     },
 

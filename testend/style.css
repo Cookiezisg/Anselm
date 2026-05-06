@@ -575,3 +575,69 @@ select.cfg-input { cursor: pointer; }
   max-height: 120px;
   overflow: auto;
 }
+
+/* ── TE-2: raw-snapshot peek button + modal ────────────────────────── */
+
+/* Tiny button next to msg-role; subtle until hover so it doesn't
+   distract from the message content. */
+.raw-peek-btn {
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-left: 6px;
+  background: transparent;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 3px;
+  color: var(--text-mute, #888);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+}
+.raw-peek-btn:hover {
+  opacity: 1;
+  background: var(--bg-hover, #f0f0f0);
+}
+
+/* Full-screen-ish modal overlay; clicking outside the inner box closes. */
+.raw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.raw-modal {
+  background: white;
+  border-radius: 6px;
+  width: min(900px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+.raw-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+.raw-modal-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+.raw-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #2a2a2a;
+  background: #fafafa;
+  border-radius: 0 0 6px 6px;
+  white-space: pre;
+}
+[x-cloak] { display: none !important; }

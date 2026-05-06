@@ -52,6 +52,10 @@
         <template x-for="m in messages" :key="m.id">
           <div class="msg" :class="m.role">
             <span class="msg-role" x-text="m.role"></span>
+            <!-- TE-2: peek at raw chat.message wire payload (testend = full visibility) -->
+            <button class="raw-peek-btn"
+                    @click="showRaw(m)"
+                    title="View raw chat.message JSON snapshot from SSE">📋 raw</button>
 
             <!-- User message: blocks (text + attachment chips) -->
             <template x-if="m.role === 'user'">
@@ -211,6 +215,30 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- TE-2: Raw chat.message JSON modal -->
+      <div class="raw-modal-overlay"
+           x-show="rawModal.open"
+           @click="closeRaw()"
+           @keydown.escape.window="rawModal.open && closeRaw()"
+           x-cloak>
+        <div class="raw-modal" @click.stop>
+          <div class="raw-modal-header">
+            <span class="raw-modal-title">
+              raw chat.message snapshot
+              <span x-show="rawModal.messageId" style="color:var(--text-mute);font-size:11px;margin-left:8px"
+                    x-text="rawModal.messageId"></span>
+            </span>
+            <div style="display:flex;gap:6px">
+              <button class="btn-icon" @click="copyRaw()"
+                      :title="rawModal.copied ? 'Copied!' : 'Copy JSON to clipboard'"
+                      x-text="rawModal.copied ? '✓' : '⧉'"></button>
+              <button class="btn-icon" @click="closeRaw()" title="Close (Esc)">✕</button>
+            </div>
+          </div>
+          <pre class="raw-modal-body" x-text="rawModal.json"></pre>
         </div>
       </div>
     </section>
