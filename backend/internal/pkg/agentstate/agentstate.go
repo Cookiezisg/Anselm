@@ -36,6 +36,18 @@ type AgentState struct {
 	// 3 个 subagent"。并发 sibling sub-run 按 RunID 隔离；mutex 串化 slice 增长。
 	subTokensMu sync.Mutex
 	subTokens   []SubagentTokenEntry
+
+	// activeSkill: pointer to the currently-active skilldomain.Skill, or
+	// nil when no skill is active. Set/cleared by app/skill.Service via
+	// SetActiveSkill / ClearActiveSkillIfMatches; read on every tool
+	// dispatch via IsToolPreApprovedBySkill (defined in skill.go to keep
+	// the skill side-channel localized). atomic.Pointer (not mutex) per
+	// skill.md §9.5.
+	//
+	// activeSkill：当前 active 的 skilldomain.Skill 指针，无则 nil。详见
+	// skill.go（与方法集中以便审计）。atomic.Pointer 而非 mutex，per
+	// skill.md §9.5。
+	activeSkill activeSkillSlot
 }
 
 // SubagentTokenEntry is one row in AgentState.SubagentTokenLog. Written
