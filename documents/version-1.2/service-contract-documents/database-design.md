@@ -64,8 +64,21 @@ GORM tag 表达不了的 SQL 都在这里：
 #### `messages` ✅（chat infra 重构后精简；Phase 5 加错误信息字段）
 chat domain 所有；主键 `msg_<16hex>`；字段：`conversation_id`（索引）/ `user_id` / `role`（**user\|assistant**，`tool` 角色已移除——tool result 变为 message_blocks 的 block）/ `status`（pending\|streaming\|completed\|error\|cancelled）/ `stop_reason` / **`error_code`**（status="error" 时填，如 `LLM_STREAM_ERROR` / `HISTORY_EXTEND_FAILED` / `MODEL_NOT_CONFIGURED` / `INTERNAL_ERROR` 等；其他 status 时为空）/ **`error_message`**（结构化错误原因人类可读文本）/ `input_tokens INT` / `output_tokens INT` / `created_at` / **`updated_at`**（GORM 自动维护）/ 软删 `deleted_at`。**内容字段已移除**：`content`、`reasoning_content`、`tool_calls`、`tool_call_id`、`attachment_ids`、`token_usage` 全部转移到 `message_blocks` 表。FTS5 已移除（原基于 `content` 列，后续按 message_blocks 重建）。
 
-#### `message_blocks` ✅（chat infra 重构新增；Phase 5 给 tool_result 加 errorMsg/elapsedMs）
+#### `message_blocks` ✅（chat infra 重构新增；Phase 5 给 tool_result 加 errorMsg/elapsedMs；**Phase 4 cutover 后删 — 取代为 message_blocks_v2 改名回**）
 chat domain 所有；主键 `blk_<16hex>`；外键 `message_id → messages.id`；字段：`seq INT`（消息内顺序）/ `type`（text\|reasoning\|tool_call\|tool_result\|attachment_ref）/ `data TEXT`（JSON，格式随 type 变化）。复合索引 `(message_id, seq)`。无软删（随 message 一起管理）。block type 的 data JSON 结构：`text/reasoning → {text}`；`tool_call → {id, name, summary, destructive, arguments}`（`destructive` 由 LLM 自报、framework 剥除参数后存入；UI 据此显示警示徽章）；`tool_result → {toolCallId, ok, result, errorMsg, elapsedMs}`（`errorMsg` 仅 ok=false 时填；`elapsedMs` 是工具 wall time）；`attachment_ref → {attachmentId, fileName, mimeType}`。
+
+#### `message_blocks_v2` ✅（事件日志协议 Phase 1 起；Phase 4 cutover 改名回 `message_blocks` 删 legacy）
+chat domain 所有；主键 `blk_<16hex>` 或 LLM 自带 `tc_<id>` (tool_call 复用)。**Phase 2+ 起所有 emit 事件 dual-write 到本表**——给 Phase 4 切到新 bridge 后的历史回放准备。新增字段对比 legacy `message_blocks`：
+- `conversation_id TEXT NOT NULL` — UNIQUE(conv_id, seq) 复合索引第 1 列；replay 查询不需 join messages
+- `parent_block_id TEXT NULL idx` — 嵌套指针；顶层 block（直挂 message）此列空
+- `seq INT64 NOT NULL` — UNIQUE 复合第 2 列；**per-conversation 全局**单调（Bridge 分配，非 per-message）
+- `attrs TEXT` — JSON（替代 legacy 的 `data` 列名；纯元数据如 `{tool: name}` / `{stage: installing}` / `{messageId: subId}`）
+- `content TEXT NOT NULL DEFAULT ''` — append-only 流式正文（DeltaBlock SQL `content || ?` 原子拼）
+- `status TEXT NOT NULL CHECK(status IN ('streaming','completed','error','cancelled'))` — 终态机
+- `error TEXT` — block_stop 时填
+- `updated_at` GORM 自动维护
+
+`type` CHECK 6 值：`text|reasoning|tool_call|tool_result|progress|message`（与 legacy 比删 attachment_ref + 加 progress + message）。索引：UNIQUE(conv_id, seq) + (message_id) + (parent_block_id)。**无软删**——历史 block 不会被改名/删除。完整设计 [`../event-log-protocol.md`](../event-log-protocol.md) §6。
 
 #### `attachments` ✅（Phase 5 重命名 chat_attachments → attachments + 加软删）
 chat domain 所有；主键 `att_<16hex>`；字段：`user_id`（索引）/ `file_name` / `mime_type` / `size_bytes` / `storage_path`（相对 dataDir，json:"-" 不对外暴露）/ `created_at` / **`updated_at`** / **`deleted_at`** GORM 软删。文件实体存 `{dataDir}/attachments/{att_id}/original.{ext}`，50MB 限制。**支持软删**——用户删附件后旧对话仍能解引用（不再硬删导致 dangling reference）。

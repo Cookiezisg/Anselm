@@ -747,3 +747,74 @@ internal/app/chat/      internal/app/subagent/
 - **并发 subagent**：当前一次只能 spawn 一个（同 group 排队）；未来允许同 ExecutionGroup 并发 spawn 多个 subagent
 - **subagent 内嵌套**：当前禁；未来如有强需求（罕见），加可配的 `MaxDepth=N`，但默认仍是 1
 - **SubagentMessage 软删归档**：当前 run 删除时 message 不级联删（保留独立审计）；后续可加"归档周期"配置定期清理超 N 天历史
+
+---
+
+## 16. 事件日志协议接入（Phase 2B，2026-05-08）
+
+完整设计 → [`../event-log-protocol.md`](../event-log-protocol.md)；本节简述 subagent 接入。
+
+### 旧（borrowed shell）vs 新（递归 emit）
+
+**旧**：`subagentHost.publishChatMessage` 把 SubagentRun 快照塞进 `eventsdomain.ChatMessage` 事件的 SubagentRunID + ParentConversationID + SubagentRun 三个 optional 字段，前端按 SubagentRunID 路由到 per-run 小窗。这是借 chat.message 壳传 subagent 数据，跨 domain 共用一个事件 type。
+
+**新**：subagent 用嵌套 `message` block + 标准 message_start/stop。**没有特殊事件类型**：
+
+```
+父 chat 主 msg (msg_main) — chatHost
+└─ tool_call block (tc_spawn_subagent) — runOneTool
+   ├─ message block (blk_msg_placeholder, attrs.messageId=msg_sub)  ← Service.Spawn 推
+   │   └─ Sub message (msg_sub, parentBlockId=blk_msg_placeholder)  ← Service.Spawn 推 message_start
+   │       ├─ block: reasoning/text/tool_call/...                  ← sub loop 经 streamLLM 推
+   │       │   └─ block: tool_result                                ← sub runOneTool 推
+   │       └─ message_stop                                          ← subagentHost.WriteFinalize 推
+   └─ tool_result block ← spawn_subagent 工具返主 LLM 的 summary（runOneTool 推）
+```
+
+### Service.Spawn 接入点
+
+`subagent.go::Spawn` 在 run row 落库后（旧逻辑）和 loop.Run 之前：
+
+```go
+em := eventlogpkg.From(parentCtx)
+subMsgID := idgenpkg.New("msg")
+msgBlockID := idgenpkg.New("blk")
+em.EmitBlockStart(parentCtx, msgBlockID, parentToolCallID, parentMsgID,
+    eventlogdomain.BlockTypeMessage,
+    map[string]any{"messageId": subMsgID, "type": typ.Name, "runId": run.ID})
+em.EmitMessageStart(parentCtx, subMsgID, "assistant", msgBlockID,
+    map[string]any{"kind": "subagent_run", "type": typ.Name, "runId": run.ID, "maxTurns": maxTurns})
+
+subCtx := reqctxpkg.WithMessageID(parentCtx, subMsgID)
+subCtx = reqctxpkg.WithParentBlockID(subCtx, "")  // 清继承的 parent 让 streamLLM 用 subMsgID 作父
+// ... loop.Run(subCtx, ...)
+
+// 返后：
+em.StopBlock(parentCtx, msgBlockID, closeStatus, nil)
+```
+
+### subagentHost 接入点
+
+```go
+type subagentHost struct {
+    // ... 旧字段 ...
+    eventLogMsgID string  // ← 新加；Service.Spawn 构造 host 时传 subMsgID
+}
+
+func (h *subagentHost) WriteFinalize(...) {
+    // ... 旧 chat.message snapshot ...
+    em := eventlogpkg.From(ctx)
+    em.StopMessage(ctx, h.eventLogMsgID, mapEventLogStatus(status),
+        stopReason, errCode, errMsg, in, out)
+}
+```
+
+### Subagent 内 LLM 流式
+
+Subagent 共享 `loop.Run` → `streamLLM`，所以 subagent 内 LLM 的 text/reasoning/tool_call **自动流式 emit** 到新 bridge——挂在 subMsgID 下，前端能在 sub message 块里实时渲染 token 流。这解决了用户痛点："tool call 中间 LLM 返回的信息也应该流式推但现在没有"。
+
+### subagent 表的命运
+
+`subagent_runs` + `subagent_messages` 两张表 Phase 4 cutover 删——届时 sub 数据全部迁到 messages + message_blocks_v2。Phase 1-3 dual-write 期间两张表照常写（subagentHost 仍调旧 store），新 emit 数据**也**进 message_blocks_v2，相当于双备份。
+
+详细 migration SQL → [`../event-log-protocol.md`](../event-log-protocol.md) §6。

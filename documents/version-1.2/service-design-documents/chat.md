@@ -1058,3 +1058,63 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 - [x] `errmap.go` — chat sentinel 映射全部覆盖
 - [x] `router/deps.go` — ChatService / EventsBridge 字段
 - [x] `main.go` — chatRepo 共享变量；llmFactory；PathGuard；7 家族工厂装配链 ForgeTools → FilesystemTools → SearchTools → WebTools → NewShellTools（含 ProcessManager.Stop defer）→ TaskTools → AskTools → chatService.SetTools(tools)；Migrate messages + message_blocks + attachments + tasks
+
+---
+
+## §X. 事件日志协议接入（Phase 1-3，2026-05-08 起）
+
+完整设计 → [`../event-log-protocol.md`](../event-log-protocol.md)；本节简述 chat 管线的接入点。
+
+**dual-write 状态**：legacy `domain/events.Bridge` + 新 `domain/eventlog.Bridge` 并存到 Phase 4 cutover。chat 现在每次 producer 事件**两个 bridge 都推**——legacy chat.message snapshot 给前端老消费者；新 5 events 给前端切到新 bridge 后用。
+
+### 接入点 Map
+
+| 位置 | legacy | 新 emit |
+|---|---|---|
+| `Service.Send`（user 消息落库后）| 经 chat.message 通过 messages list 间接 | `emitUserMessage(msg)` 一次性 burst：MessageStart → 每 block 的 BlockStart/Delta/Stop → MessageStop |
+| `runner.processTask`（assistant 槽开） | `host.Publish` 首帧 | `em.EmitMessageStart(msgID, "assistant", "", nil)` 在 ctx 加 emitter 后立刻发 |
+| `runner.emitFatalError` | `bridge.Publish(chat.message status=error)` | `em.StopMessage(msgID, error, ...)` |
+| `streamLLM` (per LLM event) | publishThrottled / publishNow → `host.Publish` snapshot | per-event：text/reasoning/tool_call block_start/delta/stop（共享给 subagent） |
+| `chatHost.WriteFinalize` | `bridge.Publish(chat.message terminal)` | `em.StopMessage(msgID, mapStatus(status), ...)` |
+| `runOneTool`（每 tool 跑完） | `host.Publish` snapshot | `em.StartBlockUnder(BlockTypeToolResult, parent=tc.ID)` + DeltaBlock(output) + StopBlock(status, err) |
+| Tool.Execute 内部 | — | ctx 已有 `WithParentBlockID(tc.ID)`；工具调 `eventlogpkg.From(ctx)` 推 progress / nested LLM 文本 |
+
+### Emitter 与 ctx 流
+
+```
+Service.Send (request ctx, has convID)
+  ├─ user msg 落库
+  ├─ emitCtx = WithConvID + With(emitter)
+  └─ s.emitUserMessage(emitCtx, userMsg)
+
+runQueue → processTask
+  ├─ agentCtx = bg ctx + uid + locale + convID + agentState + With(emitter)
+  ├─ msgID = newMsgID(); WithMessageID
+  ├─ em.EmitMessageStart(msgID, "assistant", "", nil)
+  └─ loop.Run(agentCtx, host, ...)
+       └─ streamLLM(ctx, ...) — em = From(ctx) — emit text/reasoning/tool_call delta
+       └─ runTools(ctx, ...) — runOneTool 包 WithParentBlockID(tc.ID) → tool.Execute
+                              → 返后 em.StartBlockUnder(BlockTypeToolResult, ...)
+       └─ chatHost.WriteFinalize → em.StopMessage(msgID, mapStatus(...), ...)
+```
+
+### DB dual-write
+
+`pkg/eventlog.Emitter` 持 `chatdomain.BlockV2Repository`（main.go 装 `chatstore.NewBlockV2Store(gdb)`）：
+
+| 事件 | DB 行为 |
+|---|---|
+| `EmitMessageStart` / `StopMessage` | 不双写 — messages 走 legacy chat repo（Phase 4 unify） |
+| `EmitBlockStart` / `StartBlock` / `StartBlockUnder` | `repo.Save(BlockV2{seq, conv_id, msg_id, parent_block_id, type, attrs JSON, status=streaming, content=""})` |
+| `DeltaBlock` | `repo.AppendDelta(blockID, delta)` SQL `content \|\| ?` 原子拼 |
+| `StopBlock` | `repo.FinalizeStop(blockID, status, errStr)` |
+
+**parent_block_id 列**：emit 时 ParentID == MessageID（顶层 block）→ DB 列空；否则 → DB 列 = ParentID（嵌套）。
+
+### tool_call ID 复用
+
+LLM 自带的 tool-call ID（`tc_xxx`）直接当 BlockV2 的主键 ID。stream.go 在 `EventToolStart` 时 `EmitBlockStart(event.ToolID, ...)` 传 LLM 的 ID 进去。这违反 §S15（业务 ID 用 `<prefix>_<16hex>`）但有 §S21 作例外说明——LLM 不知道我们的 ID 体系，复用可让 tool_result.toolCallId 与 BlockV2.id 直接配对。
+
+### 前端尚未切换
+
+Phase 1-3 只完成后端。前端 testend `/dev/static/` 仍订阅 `/api/v1/events`（legacy bridge）读 chat.message snapshot 渲染——所有原有 UI 行为不变。Phase 4 frontend rewrite 时切到 `/api/v1/eventlog`（CLAUDE.md §4 限制：V1.2 后端期不动前端，等 Wails 迁移）。

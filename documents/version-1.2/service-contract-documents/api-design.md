@@ -51,6 +51,7 @@ type Error = {
 | 403 | 已认证但无权限 |
 | 404 | 资源不存在 |
 | 409 | 业务冲突（如重名）|
+| 410 | 历史已淘汰（事件日志 SSE 重连超 buffer）— 客户端 refetch 全态 |
 | 422 | 参数合法但业务拒绝（如 API Key 测试失败）|
 | 500 | 内部错误（bug）|
 
@@ -77,7 +78,9 @@ type Error = {
 | Method | Path | 用途 | 状态 |
 |---|---|---|---|
 | GET | `/api/v1/health` | 存活探针（Electron 启动后读）| ✅ |
-| GET | `/api/v1/events?conversationId=xxx` | SSE 事件流（keep-alive ping + Last-Event-ID）| ✅ |
+| GET | `/api/v1/events?conversationId=xxx` | **legacy** SSE 事件流（entity-snapshot 模型；Phase 4 cutover 删）| ✅ |
+| GET | `/api/v1/eventlog?conversationId=xxx` | **新** SSE 事件流（递归事件日志协议；`Last-Event-ID` 重连；超 buffer 返 410 GoneSEQ_TOO_OLD）— 详 [`../event-log-protocol.md`](../event-log-protocol.md) | ✅ |
+| GET | `/api/v1/conversations/{id}/eventlog?from=N` | 历史回放：DB 重构 block 事件流（client 收 410 后用此 refetch；返 `{events, tailSeq, count}`）| ✅ |
 
 ---
 

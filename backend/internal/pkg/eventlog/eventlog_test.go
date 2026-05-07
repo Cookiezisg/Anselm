@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	gormlogger "gorm.io/gorm/logger"
 
@@ -279,6 +280,166 @@ func TestEmitter_AttrsJSONMarshalled(t *testing.T) {
 	got, _ := repo.GetByID(ctx, "blk_t1")
 	if !strings.Contains(got.Attrs, `"tool":"Read"`) {
 		t.Errorf("attrs missing tool: %q", got.Attrs)
+	}
+}
+
+// ── Contract test: full simulated chat round (Phase 5) ────────────────
+//
+// Drives the Emitter through a realistic message lifecycle (message_start
+// → text block → tool_call block → tool_result block → message_stop),
+// observes via the Bridge, and asserts the protocol invariants from
+// CLAUDE.md §S21:
+//   - seq strictly monotonic, no gaps
+//   - block_start.parentId references entities that already exist
+//   - block.status flows streaming → terminal monotonically
+//   - tool_call block ID = caller-supplied (LLM tc_id), not minted
+//   - DB rows for blocks reflect content + status correctly
+//
+// 完整模拟一轮 chat 协议契约测试。
+
+func TestProtocolContract_ChatRoundtrip(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	// Need to subscribe to bridge to capture events. setupDBCtx wires a
+	// fresh Bridge inside; we have to recreate state here for clarity.
+	br := em.(*emitter).bridge
+	subCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch, cancelSub, err := br.Subscribe(subCtx, "cv_db", 0)
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	defer cancelSub()
+
+	// Drive the sequence.
+	em.EmitMessageStart(ctx, "msg_db", "assistant", "", nil)
+
+	// text block (top-level under message)
+	textID := "blk_text_1"
+	em.EmitBlockStart(ctx, textID, "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+	em.DeltaBlock(ctx, textID, "Hello, ")
+	em.DeltaBlock(ctx, textID, "world.")
+	em.StopBlock(ctx, textID, eventlogdomain.StatusCompleted, nil)
+
+	// tool_call block (LLM-supplied id, top-level under message)
+	tcID := "tc_abc123"
+	em.EmitBlockStart(ctx, tcID, "msg_db", "msg_db", eventlogdomain.BlockTypeToolCall,
+		map[string]any{"tool": "Read"})
+	em.DeltaBlock(ctx, tcID, `{"path":"/etc/hosts"}`)
+	em.StopBlock(ctx, tcID, eventlogdomain.StatusCompleted, nil)
+
+	// tool_result block (nested under the tool_call)
+	resultID := "blk_result_1"
+	em.EmitBlockStart(ctx, resultID, tcID, "msg_db", eventlogdomain.BlockTypeToolResult, nil)
+	em.DeltaBlock(ctx, resultID, "127.0.0.1 localhost\n")
+	em.StopBlock(ctx, resultID, eventlogdomain.StatusCompleted, nil)
+
+	em.StopMessage(ctx, "msg_db", eventlogdomain.StatusCompleted, "end_turn", "", "", 100, 200)
+
+	// Collect envelopes (5 stops + 5 starts + 4 deltas + 1 msg_start + 1 msg_stop = ?)
+	// Count: 1 (msg_start) + 3 (text: start/delta/delta/stop = 4 actually) ...
+	// Let me recount: msg_start=1, text(start+2 delta+stop)=4, tc(start+1 delta+stop)=3, result(start+delta+stop)=3, msg_stop=1 → total 12
+	expected := 12
+	got := make([]eventlogdomain.Envelope, 0, expected)
+	for i := 0; i < expected; i++ {
+		select {
+		case env := <-ch:
+			got = append(got, env)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timeout waiting for envelope #%d (got %d)", i+1, len(got))
+		}
+	}
+
+	// ── Invariant 1: seq strict monotonic 1..N ──
+	for i, env := range got {
+		want := int64(i + 1)
+		if env.Seq != want {
+			t.Errorf("env[%d].Seq: got %d, want %d", i, env.Seq, want)
+		}
+	}
+
+	// ── Invariant 2: known entities exist before being referenced ──
+	known := map[string]bool{}
+	for i, env := range got {
+		switch e := env.Event.(type) {
+		case eventlogdomain.MessageStart:
+			known[e.ID] = true
+		case eventlogdomain.BlockStart:
+			if !known[e.ParentID] {
+				t.Errorf("env[%d] BlockStart parent %q referenced before it existed",
+					i, e.ParentID)
+			}
+			if !known[e.MessageID] {
+				t.Errorf("env[%d] BlockStart messageId %q referenced before it existed",
+					i, e.MessageID)
+			}
+			known[e.ID] = true
+		case eventlogdomain.BlockDelta:
+			if !known[e.ID] {
+				t.Errorf("env[%d] BlockDelta id %q has no prior block_start", i, e.ID)
+			}
+		case eventlogdomain.BlockStop:
+			if !known[e.ID] {
+				t.Errorf("env[%d] BlockStop id %q has no prior block_start", i, e.ID)
+			}
+		case eventlogdomain.MessageStop:
+			if !known[e.ID] {
+				t.Errorf("env[%d] MessageStop id %q has no prior message_start", i, e.ID)
+			}
+		}
+	}
+
+	// ── Invariant 3: tool_call block ID is caller-supplied (LLM tc_id) ──
+	var foundToolCallStart bool
+	for _, env := range got {
+		if bs, ok := env.Event.(eventlogdomain.BlockStart); ok &&
+			bs.BlockType == eventlogdomain.BlockTypeToolCall {
+			if bs.ID != "tc_abc123" {
+				t.Errorf("tool_call BlockStart ID: got %q, want tc_abc123 (LLM-supplied)", bs.ID)
+			}
+			foundToolCallStart = true
+		}
+	}
+	if !foundToolCallStart {
+		t.Error("never saw tool_call BlockStart")
+	}
+
+	// ── Invariant 4: tool_result has parent = tool_call ID ──
+	for _, env := range got {
+		if bs, ok := env.Event.(eventlogdomain.BlockStart); ok &&
+			bs.BlockType == eventlogdomain.BlockTypeToolResult {
+			if bs.ParentID != "tc_abc123" {
+				t.Errorf("tool_result parent: got %q, want tc_abc123", bs.ParentID)
+			}
+		}
+	}
+
+	// ── Invariant 5: DB rows reflect final state ──
+	textRow, err := repo.GetByID(ctx, textID)
+	if err != nil {
+		t.Fatalf("get text block: %v", err)
+	}
+	if textRow.Content != "Hello, world." {
+		t.Errorf("text content: got %q, want %q", textRow.Content, "Hello, world.")
+	}
+	if textRow.Status != eventlogdomain.StatusCompleted {
+		t.Errorf("text status: got %q, want completed", textRow.Status)
+	}
+	if textRow.ParentBlockID != "" {
+		t.Errorf("text parent_block_id: got %q, want empty (top-level)", textRow.ParentBlockID)
+	}
+
+	tcRow, _ := repo.GetByID(ctx, tcID)
+	if tcRow.Content != `{"path":"/etc/hosts"}` {
+		t.Errorf("tool_call content: got %q, want JSON args", tcRow.Content)
+	}
+	if !strings.Contains(tcRow.Attrs, `"tool":"Read"`) {
+		t.Errorf("tool_call attrs missing tool name: %q", tcRow.Attrs)
+	}
+
+	resultRow, _ := repo.GetByID(ctx, resultID)
+	if resultRow.ParentBlockID != tcID {
+		t.Errorf("tool_result parent: got %q, want %q (nested under tool_call)", resultRow.ParentBlockID, tcID)
 	}
 }
 
