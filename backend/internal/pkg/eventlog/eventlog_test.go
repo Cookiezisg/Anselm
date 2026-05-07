@@ -6,8 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	gormlogger "gorm.io/gorm/logger"
+
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
+	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -15,7 +20,7 @@ import (
 func setupCtx(t *testing.T) (context.Context, *eventloginfra.Bridge, Emitter) {
 	t.Helper()
 	br := eventloginfra.NewBridge(nil)
-	em := New(br, nil)
+	em := New(br, nil, nil)
 	ctx := context.Background()
 	ctx = reqctxpkg.WithConversationID(ctx, "cv_test")
 	ctx = reqctxpkg.WithMessageID(ctx, "msg_test")
@@ -127,7 +132,7 @@ func TestEmitter_StopBlockWithError(t *testing.T) {
 
 func TestEmitter_MissingConversationIDSkipsEmit(t *testing.T) {
 	br := eventloginfra.NewBridge(nil)
-	em := New(br, nil)
+	em := New(br, nil, nil)
 	ctx := context.Background() // no convID
 	id := em.StartMessage(ctx, "assistant", "", nil)
 	// We still mint the id locally (there's no way to fail gracefully
@@ -154,6 +159,130 @@ func TestMustFrom_PanicsWhenAbsent(t *testing.T) {
 	}()
 	MustFrom(context.Background())
 }
+
+// ── DB dual-write (Phase 2B) ─────────────────────────────────────────
+
+// helper: build ctx + emitter wired to a real BlockV2Store backed by
+// in-memory SQLite. Returns ctx, repo, and emitter.
+func setupDBCtx(t *testing.T) (context.Context, *chatstore.BlockV2Store, Emitter) {
+	t.Helper()
+	database, err := dbinfra.Open(dbinfra.Config{LogLevel: gormlogger.Silent})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { _ = dbinfra.Close(database) })
+	if err := dbinfra.Migrate(database, &chatdomain.BlockV2{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	repo := chatstore.NewBlockV2Store(database)
+
+	br := eventloginfra.NewBridge(nil)
+	em := New(br, repo, nil)
+	ctx := context.Background()
+	ctx = reqctxpkg.WithConversationID(ctx, "cv_db")
+	ctx = reqctxpkg.WithMessageID(ctx, "msg_db")
+	ctx = With(ctx, em)
+	return ctx, repo, em
+}
+
+func TestEmitBlockStart_DualWritesToDB(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+
+	got, err := repo.GetByID(ctx, "blk_t1")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.ConversationID != "cv_db" {
+		t.Errorf("conversationID: got %q, want cv_db", got.ConversationID)
+	}
+	if got.MessageID != "msg_db" {
+		t.Errorf("messageID: got %q, want msg_db", got.MessageID)
+	}
+	if got.ParentBlockID != "" {
+		t.Errorf("parentBlockID: got %q, want empty (top-level)", got.ParentBlockID)
+	}
+	if got.Type != eventlogdomain.BlockTypeText {
+		t.Errorf("type: got %q, want text", got.Type)
+	}
+	if got.Status != eventlogdomain.StatusStreaming {
+		t.Errorf("status: got %q, want streaming", got.Status)
+	}
+	if got.Seq != 1 {
+		t.Errorf("seq: got %d, want 1", got.Seq)
+	}
+}
+
+func TestEmitBlockStart_DualWritesNestedParent(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_parent", "msg_db", "msg_db", eventlogdomain.BlockTypeToolCall, nil)
+	em.EmitBlockStart(ctx, "blk_child", "blk_parent", "msg_db", eventlogdomain.BlockTypeProgress, nil)
+
+	child, _ := repo.GetByID(ctx, "blk_child")
+	if child.ParentBlockID != "blk_parent" {
+		t.Errorf("nested parent: got %q, want blk_parent", child.ParentBlockID)
+	}
+}
+
+func TestDeltaBlock_DualWritesAppend(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+	em.DeltaBlock(ctx, "blk_t1", "hello")
+	em.DeltaBlock(ctx, "blk_t1", " world")
+
+	got, _ := repo.GetByID(ctx, "blk_t1")
+	if got.Content != "hello world" {
+		t.Errorf("content: got %q, want %q", got.Content, "hello world")
+	}
+}
+
+func TestStopBlock_DualWritesFinalize(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+	em.DeltaBlock(ctx, "blk_t1", "all done")
+	em.StopBlock(ctx, "blk_t1", eventlogdomain.StatusCompleted, nil)
+
+	got, _ := repo.GetByID(ctx, "blk_t1")
+	if got.Status != eventlogdomain.StatusCompleted {
+		t.Errorf("status: got %q, want completed", got.Status)
+	}
+	if got.Error != "" {
+		t.Errorf("error: got %q, want empty", got.Error)
+	}
+}
+
+func TestStopBlock_DualWritesError(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+	em.StopBlock(ctx, "blk_t1", eventlogdomain.StatusError, errors.New("boom"))
+
+	got, _ := repo.GetByID(ctx, "blk_t1")
+	if got.Status != eventlogdomain.StatusError {
+		t.Errorf("status: got %q, want error", got.Status)
+	}
+	if got.Error != "boom" {
+		t.Errorf("error: got %q, want boom", got.Error)
+	}
+}
+
+func TestEmitter_AttrsJSONMarshalled(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+
+	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeToolCall,
+		map[string]any{"tool": "Read", "summary": "fetching"})
+
+	got, _ := repo.GetByID(ctx, "blk_t1")
+	if !strings.Contains(got.Attrs, `"tool":"Read"`) {
+		t.Errorf("attrs missing tool: %q", got.Attrs)
+	}
+}
+
+// ── Existing minimal-coverage tests (no DB) ──────────────────────────
 
 func TestStartBlockUnder_ExplicitParent(t *testing.T) {
 	ctx, br, em := setupCtx(t)

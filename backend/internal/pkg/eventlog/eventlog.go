@@ -21,10 +21,13 @@ package eventlog
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -120,20 +123,33 @@ type Emitter interface {
 }
 
 // New constructs an Emitter backed by bridge. log may be nil (zap.Nop).
+// repo is optional — when non-nil, every block_start / block_delta /
+// block_stop also dual-writes to the message_blocks_v2 table so the new
+// SSE bridge has a persistent backing for history replay (Phase 2B).
+// Pass nil for tests / legacy callers that don't need DB persistence.
+// Message lifecycle (message_start / message_stop) does NOT dual-write
+// — messages persist through the legacy chat repo until Phase 4 cutover.
 //
 // New 构造一个由 bridge 支撑的 Emitter。log 可为 nil（用 zap.Nop）。
-func New(bridge eventlogdomain.Bridge, log *zap.Logger) Emitter {
+// repo 可选——非 nil 时 block_start / block_delta / block_stop 同时
+// 双写到 message_blocks_v2 表，给新 SSE bridge 留持久后备供历史回放
+// （Phase 2B）。测试 / legacy 调用方不需 DB 持久化时传 nil。Message
+// 生命周期（message_start / message_stop）不双写——messages 走 legacy
+// chat repo 直至 Phase 4 cutover。
+func New(bridge eventlogdomain.Bridge, repo chatdomain.BlockV2Repository, log *zap.Logger) Emitter {
 	if log == nil {
 		log = zap.NewNop()
 	}
 	return &emitter{
 		bridge: bridge,
+		repo:   repo,
 		log:    log.Named("eventlog.emitter"),
 	}
 }
 
 type emitter struct {
 	bridge eventlogdomain.Bridge
+	repo   chatdomain.BlockV2Repository // optional dual-write target; may be nil
 	log    *zap.Logger
 }
 
@@ -147,13 +163,24 @@ func (em *emitter) requireConv(ctx context.Context, op string) (string, bool) {
 	return convID, true
 }
 
-func (em *emitter) publish(ctx context.Context, convID string, e eventlogdomain.Event) {
-	if _, err := em.bridge.Publish(ctx, convID, e); err != nil {
+// publish forwards e to the Bridge and returns the assigned seq. ok=false
+// signals a failed publish (logged); callers may still proceed (DB writes
+// keyed off blockID, not seq, are still safe — only block_start cares
+// about seq for the message_blocks_v2 row).
+//
+// publish 把 e 转给 Bridge 并返分配的 seq。ok=false 表示发布失败（已记
+// 日志）；调用方仍可继续（基于 blockID 的 DB 写入与 seq 无关——只有
+// block_start 用 seq 给 message_blocks_v2 行）。
+func (em *emitter) publish(ctx context.Context, convID string, e eventlogdomain.Event) (int64, bool) {
+	env, err := em.bridge.Publish(ctx, convID, e)
+	if err != nil {
 		em.log.Warn("emit failed",
 			zap.String("type", e.EventType()),
 			zap.String("conversationId", convID),
 			zap.Error(err))
+		return 0, false
 	}
+	return env.Seq, true
 }
 
 func (em *emitter) StartMessage(ctx context.Context, role, parentBlockID string, attrs map[string]any) string {
@@ -172,6 +199,48 @@ func (em *emitter) StartMessage(ctx context.Context, role, parentBlockID string,
 	return msgID
 }
 
+// saveBlockV2 dual-writes a block_start to message_blocks_v2. The
+// parent_block_id column is empty when the block is top-level under
+// the message (parent==messageID); otherwise it carries parentID. Attrs
+// JSON-marshalled. Best-effort: failures log + continue (Bridge already
+// shipped the SSE event; DB miss only affects history replay).
+//
+// saveBlockV2 把 block_start 双写到 message_blocks_v2。block 直挂 message
+// 顶层（parent==messageID）时 parent_block_id 列为空；否则填 parentID。
+// Attrs JSON 化。Best-effort：失败 log + 继续（Bridge 已发 SSE 事件；DB
+// 失误只影响历史回放）。
+func (em *emitter) saveBlockV2(ctx context.Context, convID, id, parentID, messageID, blockType string, attrs map[string]any, seq int64) {
+	if em.repo == nil || seq == 0 {
+		return
+	}
+	parentBlock := ""
+	if parentID != messageID {
+		parentBlock = parentID
+	}
+	attrsJSON := ""
+	if len(attrs) > 0 {
+		if b, err := json.Marshal(attrs); err == nil {
+			attrsJSON = string(b)
+		}
+	}
+	now := time.Now().UTC()
+	if err := em.repo.Save(ctx, &chatdomain.BlockV2{
+		ID:             id,
+		ConversationID: convID,
+		MessageID:      messageID,
+		ParentBlockID:  parentBlock,
+		Seq:            seq,
+		Type:           blockType,
+		Attrs:          attrsJSON,
+		Status:         eventlogdomain.StatusStreaming,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}); err != nil {
+		em.log.Warn("blockV2 dual-write failed (block_start)",
+			zap.String("blockId", id), zap.Error(err))
+	}
+}
+
 func (em *emitter) StopMessage(ctx context.Context, msgID, status, stopReason, errCode, errMsg string, inputTokens, outputTokens int) {
 	convID, ok := em.requireConv(ctx, "StopMessage")
 	if !ok {
@@ -187,6 +256,8 @@ func (em *emitter) StopMessage(ctx context.Context, msgID, status, stopReason, e
 		InputTokens:    inputTokens,
 		OutputTokens:   outputTokens,
 	})
+	// No DB dual-write for messages — they persist via legacy chat repo
+	// (Phase 4 cutover unifies). 不双写 messages — 走 legacy chat repo。
 }
 
 func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[string]any) string {
@@ -213,7 +284,7 @@ func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[s
 		return ""
 	}
 	blockID := idgenpkg.New("blk")
-	em.publish(ctx, convID, eventlogdomain.BlockStart{
+	seq, ok := em.publish(ctx, convID, eventlogdomain.BlockStart{
 		ConversationID: convID,
 		ID:             blockID,
 		ParentID:       parentID,
@@ -221,6 +292,9 @@ func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[s
 		BlockType:      blockType,
 		Attrs:          attrs,
 	})
+	if ok {
+		em.saveBlockV2(ctx, convID, blockID, parentID, msgID, blockType, attrs, seq)
+	}
 	return blockID
 }
 
@@ -235,7 +309,7 @@ func (em *emitter) StartBlockUnder(ctx context.Context, parentID, messageID, blo
 		return ""
 	}
 	blockID := idgenpkg.New("blk")
-	em.publish(ctx, convID, eventlogdomain.BlockStart{
+	seq, ok := em.publish(ctx, convID, eventlogdomain.BlockStart{
 		ConversationID: convID,
 		ID:             blockID,
 		ParentID:       parentID,
@@ -243,6 +317,9 @@ func (em *emitter) StartBlockUnder(ctx context.Context, parentID, messageID, blo
 		BlockType:      blockType,
 		Attrs:          attrs,
 	})
+	if ok {
+		em.saveBlockV2(ctx, convID, blockID, parentID, messageID, blockType, attrs, seq)
+	}
 	return blockID
 }
 
@@ -276,7 +353,7 @@ func (em *emitter) EmitBlockStart(ctx context.Context, id, parentID, messageID, 
 			zap.String("blockType", blockType))
 		return
 	}
-	em.publish(ctx, convID, eventlogdomain.BlockStart{
+	seq, ok := em.publish(ctx, convID, eventlogdomain.BlockStart{
 		ConversationID: convID,
 		ID:             id,
 		ParentID:       parentID,
@@ -284,6 +361,9 @@ func (em *emitter) EmitBlockStart(ctx context.Context, id, parentID, messageID, 
 		BlockType:      blockType,
 		Attrs:          attrs,
 	})
+	if ok {
+		em.saveBlockV2(ctx, convID, id, parentID, messageID, blockType, attrs, seq)
+	}
 }
 
 func (em *emitter) DeltaBlock(ctx context.Context, blockID, delta string) {
@@ -299,6 +379,14 @@ func (em *emitter) DeltaBlock(ctx context.Context, blockID, delta string) {
 		ID:             blockID,
 		Delta:          delta,
 	})
+	// DB dual-write: append delta to content. Best-effort.
+	// DB 双写：把 delta 追到 content。Best-effort。
+	if em.repo != nil {
+		if err := em.repo.AppendDelta(ctx, blockID, delta); err != nil {
+			em.log.Warn("blockV2 dual-write failed (delta)",
+				zap.String("blockId", blockID), zap.Error(err))
+		}
+	}
 }
 
 func (em *emitter) StopBlock(ctx context.Context, blockID, status string, err error) {
@@ -319,6 +407,14 @@ func (em *emitter) StopBlock(ctx context.Context, blockID, status string, err er
 		Status:         status,
 		Error:          errStr,
 	})
+	// DB dual-write: finalize status + error. Best-effort.
+	// DB 双写：终态化 status + error。Best-effort。
+	if em.repo != nil {
+		if e := em.repo.FinalizeStop(ctx, blockID, status, errStr); e != nil {
+			em.log.Warn("blockV2 dual-write failed (stop)",
+				zap.String("blockId", blockID), zap.Error(e))
+		}
+	}
 }
 
 // ── ctx helpers ──────────────────────────────────────────────────────

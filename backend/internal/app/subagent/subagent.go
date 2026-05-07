@@ -40,10 +40,12 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -197,6 +199,42 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		return nil, fmt.Errorf("subagentapp.Spawn persist run: %w", err)
 	}
 
+	// Event-log dual-write (Phase 2B): nest the sub-run in the parent's
+	// recursive tree. Mint a sub-msgID + a placeholder message-block (per
+	// event-log-protocol.md §2/§3 the sub message attaches via a
+	// type=message block under the parent tool_call). EmitBlockStart for
+	// the placeholder; EmitMessageStart for the sub message itself; the
+	// loop's stream.go will emit text/reasoning/tool_call blocks under
+	// sub-msgID. WriteFinalize closes the sub message; we close the
+	// placeholder block after loop.Run returns.
+	//
+	// 事件日志 dual-write（Phase 2B）：把 sub-run 嵌进父递归树。铸 sub-msgID
+	// + 占位 message-block（详 event-log-protocol.md §2/§3，sub message 经
+	// 父 tool_call 下的 type=message block 挂入）。EmitBlockStart 占位；
+	// EmitMessageStart sub 消息本身；loop 的 stream.go 在 sub-msgID 下推
+	// text/reasoning/tool_call 块。WriteFinalize 关 sub 消息；loop.Run 返
+	// 后关占位 block。
+	em := eventlogpkg.From(parentCtx)
+	subMsgID := idgenpkg.New("msg")
+	msgBlockID := ""
+	if parentToolCallID != "" && parentMsgID != "" {
+		msgBlockID = idgenpkg.New("blk")
+		em.EmitBlockStart(parentCtx, msgBlockID, parentToolCallID, parentMsgID,
+			eventlogdomain.BlockTypeMessage,
+			map[string]any{
+				"messageId": subMsgID,
+				"type":      typ.Name,
+				"runId":     run.ID,
+			})
+		em.EmitMessageStart(parentCtx, subMsgID, chatdomain.RoleAssistant, msgBlockID,
+			map[string]any{
+				"kind":     "subagent_run",
+				"type":     typ.Name,
+				"runId":    run.ID,
+				"maxTurns": maxTurns,
+			})
+	}
+
 	// Compose sub-runner ctx: RunID + bumped depth + total timeout +
 	// register cancel so external Cancel(runID) can preempt.
 	//
@@ -204,6 +242,14 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 	// Cancel(runID) 可抢占。
 	subCtx := reqctxpkg.WithSubagentRunID(parentCtx, run.ID)
 	subCtx = reqctxpkg.WithSubagentDepth(subCtx, reqctxpkg.GetSubagentDepth(parentCtx)+1)
+	subCtx = reqctxpkg.WithMessageID(subCtx, subMsgID)
+	// Reset ParentBlockID so streamLLM falls back to using sub-msgID as
+	// the parent of top-level sub blocks (instead of inheriting the parent
+	// chat's ParentBlockID, which was the spawn_subagent tool_call).
+	//
+	// 清 ParentBlockID 让 streamLLM 回退用 sub-msgID 作 sub 顶层 block 的
+	// parent（不要继承 parent chat 的 spawn_subagent tool_call ParentBlockID）。
+	subCtx = reqctxpkg.WithParentBlockID(subCtx, "")
 	subCtx, cancel := context.WithTimeout(subCtx, defaultRunTimeout)
 	defer cancel()
 
@@ -217,11 +263,12 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 	}()
 
 	host := &subagentHost{
-		svc:          s,
-		run:          run,
-		tools:        s.filterTools(typ),
-		userPrompt:   prompt,
-		systemPrompt: composeSystemPrompt(typ.SystemPrompt, reqctxpkg.GetLocale(parentCtx)),
+		svc:           s,
+		run:           run,
+		tools:         s.filterTools(typ),
+		userPrompt:    prompt,
+		systemPrompt:  composeSystemPrompt(typ.SystemPrompt, reqctxpkg.GetLocale(parentCtx)),
+		eventLogMsgID: subMsgID,
 	}
 
 	baseReq := llminfra.Request{
@@ -296,6 +343,23 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 	if err := s.repo.UpdateRun(saveCtx, run); err != nil {
 		s.log.Error("CRITICAL: subagent terminal write failed",
 			zap.String("run_id", run.ID), zap.Error(err))
+	}
+
+	// Event-log: close the placeholder message-block after the sub run
+	// terminates. The sub message_stop is emitted by subagentHost.
+	// WriteFinalize (which loop.Run already triggered above).
+	//
+	// 事件日志：sub run 终止后关占位 message-block。sub message_stop 由
+	// subagentHost.WriteFinalize 发（loop.Run 已上面触发）。
+	if msgBlockID != "" {
+		closeStatus := eventlogdomain.StatusCompleted
+		switch run.Status {
+		case subagentdomain.StatusFailed:
+			closeStatus = eventlogdomain.StatusError
+		case subagentdomain.StatusCancelled:
+			closeStatus = eventlogdomain.StatusCancelled
+		}
+		em.StopBlock(parentCtx, msgBlockID, closeStatus, nil)
 	}
 
 	// Append to the per-conversation token log (UI cost panel).

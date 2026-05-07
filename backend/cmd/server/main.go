@@ -200,7 +200,8 @@ func main() {
 	)
 
 	chatRepo := chatstore.New(gdb)
-	chatEmitter := eventlogpkg.New(eventLogBridge, log)
+	blockV2Store := chatstore.NewBlockV2Store(gdb)
+	chatEmitter := eventlogpkg.New(eventLogBridge, blockV2Store, log)
 	chatService := chatapp.NewService(
 		chatRepo,
 		convstore.New(gdb),

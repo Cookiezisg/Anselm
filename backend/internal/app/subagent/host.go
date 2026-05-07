@@ -48,9 +48,11 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -66,6 +68,18 @@ type subagentHost struct {
 	tools        []toolapp.Tool
 	userPrompt   string
 	systemPrompt string
+
+	// eventLogMsgID is the sub-message ID on the new event-log bridge
+	// (Phase 2B). Service.Spawn mints + emits MessageStart before
+	// constructing the host; WriteFinalize emits MessageStop. Empty when
+	// the parent ctx had no emitter or no parent block context (legacy
+	// callers / tests).
+	//
+	// eventLogMsgID 是新事件日志 bridge 上的 sub-message ID（Phase 2B）。
+	// Service.Spawn 构造 host 前铸 + 发 MessageStart；WriteFinalize 发
+	// MessageStop。父 ctx 无 emitter 或无父 block 上下文时为空（legacy
+	// 调用方 / 测试）。
+	eventLogMsgID string
 
 	// msgMu guards the lazily-created streaming assistant message and
 	// the run's transient lastTool* fields (which are mutated from the
@@ -175,6 +189,34 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Bl
 	h.ensureStreamingRow(saveCtx, blocks, in, out, true /*persistRefine*/, true /*fatal*/)
 	h.refreshRunFromBlocks(in, out, blocks)
 	h.publishChatMessage(ctx, h.streaming, status, stopReason, errCode, errMsg)
+
+	// Event-log dual-write: close the sub message. mapStatus translates
+	// chatdomain.Status* → eventlogdomain.Status*; missing (e.g. legacy
+	// caller didn't set eventLogMsgID) is a no-op.
+	//
+	// 事件日志 dual-write：关 sub message。mapStatus 翻译 chat → eventlog
+	// 状态；缺失（legacy 调用方未设 eventLogMsgID）即 no-op。
+	if h.eventLogMsgID != "" {
+		em := eventlogpkg.From(ctx)
+		em.StopMessage(ctx, h.eventLogMsgID, mapEventLogStatus(status),
+			stopReason, errCode, errMsg, in, out)
+	}
+}
+
+// mapEventLogStatus translates chatdomain.Status* → eventlogdomain.Status*.
+//
+// mapEventLogStatus 翻译 chatdomain.Status* → eventlogdomain.Status*。
+func mapEventLogStatus(s string) string {
+	switch s {
+	case chatdomain.StatusStreaming:
+		return eventlogdomain.StatusStreaming
+	case chatdomain.StatusError:
+		return eventlogdomain.StatusError
+	case chatdomain.StatusCancelled:
+		return eventlogdomain.StatusCancelled
+	default:
+		return eventlogdomain.StatusCompleted
+	}
 }
 
 // ensureStreamingRow is the shared body of Publish / WriteCheckpoint /
