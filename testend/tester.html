@@ -1937,6 +1937,199 @@
         </div>
       </div>
 
+      <!-- ── Notifications tab (TE-21) ───────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='notifs'" x-data="notificationsTab()">
+        <div class="panel-toolbar">
+          <strong>Notifications</strong>
+          <span class="status-text" x-text="history.length + ' total'"></span>
+          <span class="status-text" style="margin-left:auto" x-text="$store.toasts.list.length + ' active'"></span>
+        </div>
+
+        <!-- Manual test triggers -->
+        <div class="notifs-tester">
+          <span class="label">trigger test toast</span>
+          <div class="notifs-tester-btns">
+            <button class="btn btn-sm" @click="fire('success')" title="Push a success toast">success</button>
+            <button class="btn btn-sm" @click="fire('error')" title="Push an error toast">error</button>
+            <button class="btn btn-sm" @click="fire('warn')" title="Push a warn toast">warn</button>
+            <button class="btn btn-sm" @click="fire('info')" title="Push an info toast">info</button>
+            <button class="btn btn-sm" @click="fireSticky()" title="Push a sticky info (manual dismiss)">sticky</button>
+            <button class="btn btn-ghost btn-sm" @click="clearActive()" style="margin-left:auto"
+                    title="Dismiss all currently visible toasts">clear active</button>
+            <button class="btn btn-ghost btn-sm" @click="clearHistory()"
+                    title="Wipe history (active toasts unaffected)">clear history</button>
+          </div>
+        </div>
+
+        <!-- Filter row -->
+        <div class="panel-toolbar" style="border-top:1px solid var(--border-subtle)">
+          <span class="label">filter</span>
+          <button class="btn btn-sm" :class="{'btn-primary': filter==='all'}" @click="filter='all'"
+                  x-text="'all (' + countByType().all + ')'"></button>
+          <button class="btn btn-sm" :class="{'btn-primary': filter==='success'}" @click="filter='success'"
+                  x-text="'success (' + countByType().success + ')'"></button>
+          <button class="btn btn-sm" :class="{'btn-primary': filter==='error'}" @click="filter='error'"
+                  x-text="'error (' + countByType().error + ')'"></button>
+          <button class="btn btn-sm" :class="{'btn-primary': filter==='warn'}" @click="filter='warn'"
+                  x-text="'warn (' + countByType().warn + ')'"></button>
+          <button class="btn btn-sm" :class="{'btn-primary': filter==='info'}" @click="filter='info'"
+                  x-text="'info (' + countByType().info + ')'"></button>
+        </div>
+
+        <div class="notifs-list">
+          <template x-if="filteredHistory.length === 0">
+            <div class="empty-state">
+              <div class="empty-state-title">No notifications</div>
+              <div class="empty-state-hint">trigger one with the buttons above, or wait for app errors</div>
+            </div>
+          </template>
+          <template x-for="n in filteredHistory" :key="n.id">
+            <div class="notifs-row" :class="['notifs-row--' + n.type, n.active ? '' : 'notifs-row--inactive']">
+              <span class="notifs-dot"></span>
+              <span class="notifs-type" x-text="n.type"></span>
+              <span class="notifs-text" x-text="n.text"></span>
+              <span class="notifs-time" x-text="fmtElapsed(n.ts)"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Errors tab (TE-21) ──────────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='errors'" x-data="errorsTab()">
+        <div class="panel-toolbar">
+          <strong>Errors</strong>
+          <span class="status-text" x-text="entries.length + ' captured'"></span>
+          <span class="status-text" style="margin-left:auto;color:var(--success-fg)"
+                x-show="connected">● live</span>
+          <span class="status-text" style="margin-left:auto;color:var(--danger-fg)"
+                x-show="!connected">● disconnected</span>
+          <button class="btn btn-ghost btn-sm" @click="entries = []">clear</button>
+        </div>
+        <div class="panel-toolbar" style="border-top:1px solid var(--border-subtle)">
+          <span class="label">level</span>
+          <button class="btn btn-sm" :class="{'btn-primary': levelFilter==='all'}" @click="levelFilter='all'">all</button>
+          <button class="btn btn-sm" :class="{'btn-primary': levelFilter==='error'}" @click="levelFilter='error'">error only</button>
+          <button class="btn btn-sm" :class="{'btn-primary': levelFilter==='warn+'}" @click="levelFilter='warn+'">warn+</button>
+          <input class="filter-input" type="text" x-model="textFilter" placeholder="filter message…" style="margin-left:auto;max-width:160px">
+        </div>
+        <div class="errors-list">
+          <template x-if="filteredEntries.length === 0">
+            <div class="empty-state">
+              <div class="empty-state-title">No matching errors</div>
+              <div class="empty-state-hint">filter narrower or wait for the next ERROR-level log</div>
+            </div>
+          </template>
+          <template x-for="(e, i) in filteredEntries" :key="i">
+            <div class="errors-row" :class="'errors-row--' + e.level">
+              <span class="errors-time" x-text="e.ts"></span>
+              <span class="errors-level" :class="'log-level ' + e.level" x-text="e.level"></span>
+              <div class="errors-body">
+                <div class="errors-msg" x-text="e.msg"></div>
+                <div class="errors-fields" x-show="e.fields" x-text="e.fields"></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ── Backend metrics tab (TE-21) ─────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='metrics'" x-data="metricsTab()">
+        <div class="panel-toolbar">
+          <strong>Backend metrics</strong>
+          <span class="status-text" x-show="lastFetchedAt" x-text="'updated ' + fmtElapsed(lastFetchedAt)"></span>
+          <label class="status-text" style="margin-left:auto;display:flex;align-items:center;gap:4px">
+            <input type="checkbox" x-model="autoRefresh">auto 5s
+          </label>
+          <button class="btn btn-ghost btn-sm" @click="load()" :disabled="loading"
+                  x-text="loading ? 'loading…' : 'reload'"></button>
+        </div>
+
+        <div x-show="err" class="errors-row errors-row--error" x-text="err"></div>
+
+        <template x-if="!data">
+          <div class="empty-state">
+            <div class="empty-state-title" x-text="loading ? 'Loading…' : 'No data'"></div>
+            <div class="empty-state-hint">backend exposes /dev/runtime; restart with --dev if missing</div>
+          </div>
+        </template>
+
+        <div x-show="data" x-cloak class="metrics-grid">
+          <!-- Runtime -->
+          <div class="metrics-card">
+            <div class="metrics-card-title">Runtime</div>
+            <div class="metrics-row"><span>goroutines</span><span class="numeric" x-text="data?.goroutines"></span></div>
+            <div class="metrics-row"><span>cgo calls</span><span class="numeric" x-text="data?.cgoCalls"></span></div>
+            <div class="metrics-row"><span>num CPU</span><span class="numeric" x-text="data?.numCPU"></span></div>
+            <div class="metrics-row"><span>GOMAXPROCS</span><span class="numeric" x-text="data?.maxProcs"></span></div>
+            <div class="metrics-row"><span>uptime</span><span class="numeric" x-text="fmtUptime(data?.uptimeSeconds)"></span></div>
+            <div class="metrics-row"><span>go version</span><span class="metrics-value-mono" x-text="data?.goVersion"></span></div>
+          </div>
+
+          <!-- Memory -->
+          <div class="metrics-card">
+            <div class="metrics-card-title">Memory</div>
+            <div class="metrics-row"><span>heap alloc</span><span class="numeric" x-text="fmtBytes(data?.mem?.heapAlloc)"></span></div>
+            <div class="metrics-row"><span>heap sys</span><span class="numeric" x-text="fmtBytes(data?.mem?.heapSys)"></span></div>
+            <div class="metrics-row"><span>heap inuse</span><span class="numeric" x-text="fmtBytes(data?.mem?.heapInuse)"></span></div>
+            <div class="metrics-row"><span>heap idle</span><span class="numeric" x-text="fmtBytes(data?.mem?.heapIdle)"></span></div>
+            <div class="metrics-row"><span>stack inuse</span><span class="numeric" x-text="fmtBytes(data?.mem?.stackInuse)"></span></div>
+            <div class="metrics-row"><span>sys total</span><span class="numeric" x-text="fmtBytes(data?.mem?.sys)"></span></div>
+          </div>
+
+          <!-- GC -->
+          <div class="metrics-card">
+            <div class="metrics-card-title">GC</div>
+            <div class="metrics-row"><span>num GC</span><span class="numeric" x-text="data?.gc?.numGC"></span></div>
+            <div class="metrics-row"><span>num forced GC</span><span class="numeric" x-text="data?.gc?.numForcedGC"></span></div>
+            <div class="metrics-row"><span>last pause</span><span class="numeric" x-text="fmtMs((data?.gc?.lastPauseNs || 0) / 1e6)"></span></div>
+            <div class="metrics-row"><span>total pause</span><span class="numeric" x-text="fmtMs((data?.gc?.totalPauseNs || 0) / 1e6)"></span></div>
+            <div class="metrics-row"><span>cpu fraction</span><span class="numeric" x-text="((data?.gc?.cpuFraction || 0) * 100).toFixed(2) + '%'"></span></div>
+          </div>
+
+          <!-- DB -->
+          <div class="metrics-card">
+            <div class="metrics-card-title">SQLite pool</div>
+            <div class="metrics-row"><span>open</span><span class="numeric" x-text="data?.db?.openConnections"></span></div>
+            <div class="metrics-row"><span>in use</span><span class="numeric" x-text="data?.db?.inUse"></span></div>
+            <div class="metrics-row"><span>idle</span><span class="numeric" x-text="data?.db?.idle"></span></div>
+            <div class="metrics-row"><span>wait count</span><span class="numeric" x-text="data?.db?.waitCount"></span></div>
+            <div class="metrics-row"><span>wait duration</span><span class="numeric" x-text="fmtMs((data?.db?.waitDurationNs || 0) / 1e6)"></span></div>
+            <div class="metrics-row"><span>max open</span><span class="numeric" x-text="data?.db?.maxOpenConnections"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── API routes tab (TE-21) ──────────────────────────────── -->
+      <div class="tab-content" x-show="activeRightTab==='routes'" x-data="routesTab()">
+        <div class="panel-toolbar">
+          <strong>Routes</strong>
+          <span class="status-text" x-text="filteredRoutes.length + '/' + routes.length"></span>
+          <input class="filter-input" type="text" x-model="filter"
+                 placeholder="filter path or method…"
+                 style="margin-left:auto;max-width:200px">
+          <button class="btn btn-ghost btn-sm" @click="load()" :disabled="loading">↻</button>
+        </div>
+
+        <div x-show="err" class="errors-row errors-row--error" x-text="err"></div>
+
+        <template x-if="!loading && routes.length === 0">
+          <div class="empty-state">
+            <div class="empty-state-title">No routes loaded</div>
+            <div class="empty-state-hint">backend exposes /dev/routes; restart with --dev if missing</div>
+          </div>
+        </template>
+
+        <div class="routes-list">
+          <template x-for="r in filteredRoutes" :key="r.method + r.path">
+            <div class="routes-row" @click="copyCurl(r)" :title="'click to copy curl example'">
+              <span class="routes-method" :class="'routes-method--' + r.method.toLowerCase()" x-text="r.method"></span>
+              <span class="routes-path" x-text="r.path"></span>
+              <span class="routes-handler" x-text="r.handler"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+
     </aside>
   </div>
 
@@ -1979,6 +2172,10 @@
   <script src="/dev/static/js/tab-wire.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-processes.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-info.js?v=__BUILD__"></script>
+  <script src="/dev/static/js/tab-notifications.js?v=__BUILD__"></script>
+  <script src="/dev/static/js/tab-errors.js?v=__BUILD__"></script>
+  <script src="/dev/static/js/tab-metrics.js?v=__BUILD__"></script>
+  <script src="/dev/static/js/tab-routes.js?v=__BUILD__"></script>
   <script defer src="https://unpkg.com/alpinejs@3/dist/cdn.min.js"></script>
 </body>
 </html>

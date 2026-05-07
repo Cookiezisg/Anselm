@@ -2321,6 +2321,189 @@ select.cfg-input { cursor: pointer; }
 }
 .chat-new-msg-pill:hover { background: var(--accent-emphasis-hi); }
 
+/* ── Notifications tab (TE-21) ────────────────────────────────────────────── */
+
+.notifs-tester {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--canvas-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.notifs-tester-btns { display: flex; gap: var(--space-1); flex-wrap: wrap; }
+
+.notifs-list {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.notifs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 5px var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  border-left: 2px solid transparent;
+  transition: background var(--duration) var(--ease);
+}
+.notifs-row:hover { background: var(--canvas-subtle); }
+.notifs-row--inactive { opacity: 0.55; }
+.notifs-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--fg-subtle);
+}
+.notifs-row--success { border-left-color: var(--success-emphasis); }
+.notifs-row--success .notifs-dot { background: var(--success-emphasis); }
+.notifs-row--error { border-left-color: var(--danger-emphasis); }
+.notifs-row--error .notifs-dot { background: var(--danger-emphasis); }
+.notifs-row--warn { border-left-color: var(--attention-emphasis); }
+.notifs-row--warn .notifs-dot { background: var(--attention-emphasis); }
+.notifs-row--info { border-left-color: var(--accent-emphasis); }
+.notifs-row--info .notifs-dot { background: var(--accent-emphasis); }
+.notifs-type {
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 56px;
+}
+.notifs-text { flex: 1; color: var(--fg-default); word-break: break-word; }
+.notifs-time { font-size: var(--text-xs); color: var(--fg-subtle); flex-shrink: 0; }
+
+/* ── Errors tab (TE-21) ───────────────────────────────────────────────────── */
+
+.errors-list {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--canvas-subtle);
+}
+.errors-row {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  border-left: 2px solid transparent;
+  background: var(--canvas-default);
+  transition: background var(--duration) var(--ease);
+  align-items: flex-start;
+}
+.errors-row:hover { background: var(--canvas-subtle); }
+.errors-row--error { border-left-color: var(--danger-emphasis); }
+.errors-row--warn  { border-left-color: var(--attention-emphasis); }
+.errors-row--info  { border-left-color: var(--accent-emphasis); }
+.errors-row--debug { border-left-color: var(--border-default); opacity: 0.7; }
+
+.errors-time {
+  color: var(--fg-subtle);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+  font-feature-settings: "tnum" 1;
+  padding-top: 1px;
+}
+.errors-level {
+  flex-shrink: 0;
+  min-width: 44px;
+  padding-top: 1px;
+}
+.errors-body { flex: 1; min-width: 0; }
+.errors-msg { color: var(--fg-default); word-break: break-word; }
+.errors-fields {
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  color: var(--fg-muted);
+  word-break: break-all;
+}
+
+/* ── Metrics tab (TE-21) ──────────────────────────────────────────────────── */
+
+.metrics-grid {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.metrics-card {
+  background: var(--canvas-default);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-2);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  box-shadow: var(--shadow-card);
+}
+.metrics-card-title {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--fg-muted);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--border-muted);
+  padding-bottom: var(--space-1);
+}
+.metrics-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 2px 0;
+}
+.metrics-row > span:first-child { color: var(--fg-muted); }
+.metrics-row > span:last-child {
+  color: var(--fg-default);
+  font-weight: 500;
+  font-feature-settings: "tnum" 1;
+}
+.metrics-value-mono { font-family: var(--font-mono); font-size: var(--text-xs); }
+
+/* ── Routes tab (TE-21) ───────────────────────────────────────────────────── */
+
+.routes-list {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.routes-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-3);
+  border-bottom: 1px solid var(--border-muted);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+}
+.routes-row:hover { background: var(--canvas-subtle); }
+.routes-method {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-1);
+  border: 1px solid transparent;
+  min-width: 50px;
+  text-align: center;
+}
+.routes-method--get    { background: var(--accent-subtle); color: var(--accent-fg); border-color: var(--accent-muted); }
+.routes-method--post   { background: var(--success-subtle); color: var(--success-fg); border-color: var(--success-muted); }
+.routes-method--put    { background: var(--attention-subtle); color: var(--attention-fg); border-color: var(--attention-muted); }
+.routes-method--patch  { background: var(--attention-subtle); color: var(--attention-fg); border-color: var(--attention-muted); }
+.routes-method--delete { background: var(--danger-subtle); color: var(--danger-fg); border-color: var(--danger-muted); }
+.routes-path { flex: 1; color: var(--fg-default); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.routes-handler { color: var(--fg-subtle); font-size: var(--text-xs); flex-shrink: 0; }
+
 /* End — total tokens defined here are first-class.
    Add new components by composing from --canvas-* / --border-* / --fg-* /
    --accent-* / --success-* / --danger-* / --attention-* / --done-* tokens.

@@ -42,7 +42,8 @@ type DevHandler struct {
 	llmFactory     *llminfra.Factory
 	shellManager   *shelltool.ProcessManager
 	log            *zap.Logger
-	buildID        string // server-start unix timestamp; cache-busts /dev/static/* in HTML on every restart
+	buildID        string    // server-start unix timestamp; cache-busts /dev/static/* in HTML on every restart
+	startedAt      time.Time // for /dev/runtime uptime calculation (TE-21)
 }
 
 // NewDevHandler wires DevHandler dependencies.
@@ -65,6 +66,7 @@ func NewDevHandler(
 		integrationDir: integrationDir,
 		port:           port,
 		buildID:        fmt.Sprintf("%d", time.Now().Unix()),
+		startedAt:      time.Now(),
 		tools:          tools,
 		llmFactory:     llmFactory,
 		shellManager:   shellManager,
@@ -86,6 +88,9 @@ func (h *DevHandler) Register(mux *http.ServeMux) {
 	// TE-9 Info tab data sources
 	mux.HandleFunc("GET /dev/info", h.Info)
 	mux.HandleFunc("GET /dev/forgify-home", h.ForgifyHome)
+	// TE-21 Metrics + Routes tabs
+	mux.HandleFunc("GET /dev/runtime", h.Runtime)
+	mux.HandleFunc("GET /dev/routes", h.Routes)
 	// TE-12 Bash background processes (nil-tolerant — only registered if
 	// shellManager wired; main.go always wires it).
 	if h.shellManager != nil {

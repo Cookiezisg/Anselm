@@ -19,6 +19,10 @@ const TESTEND_TABS = [
   { id: 'mock-llm',  label: 'Mock LLM' },
   { id: 'wire',      label: 'Wire' },
   { id: 'processes', label: 'Processes' },
+  { id: 'errors',    label: 'Errors' },
+  { id: 'metrics',   label: 'Metrics' },
+  { id: 'routes',    label: 'Routes' },
+  { id: 'notifs',    label: 'Notifs' },
   { id: 'info',      label: 'Info' },
 ];
 
