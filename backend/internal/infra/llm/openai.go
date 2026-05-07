@@ -314,6 +314,12 @@ func emitOpenAIChunk(chunk oaiChunk, state *toolCallState, yield func(StreamEven
 // ── Request builder ───────────────────────────────────────────────────────────
 
 func buildOpenAIBody(req Request) ([]byte, error) {
+	// TE-25: enforce protocol invariants (tool_call ↔ tool_result pairing)
+	// before encoding. Orphan tool blocks would otherwise lock the entire
+	// conversation in a 400 trap. See sanitizer.go for the failure
+	// scenarios this guards against.
+	// TE-25：编码前过 sanitizer，防 orphan tool block 把对话永久锁死。
+	req.Messages = SanitizeMessages(req.Messages)
 	msgs, err := toOpenAIMsgs(req.Messages, req.System)
 	if err != nil {
 		return nil, err

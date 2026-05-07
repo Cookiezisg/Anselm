@@ -195,6 +195,13 @@ func emitAnthropicDelta(e anthropicBlockDelta, yield func(StreamEvent) bool) boo
 // ── Request builder ───────────────────────────────────────────────────────────
 
 func buildAnthropicBody(req Request) ([]byte, error) {
+	// TE-25: enforce tool_call ↔ tool_result pairing before encoding.
+	// Anthropic is even stricter than OpenAI here — a single orphan
+	// tool_use_id triggers 400 and the conversation is permanently
+	// stuck. See sanitizer.go for context.
+	// TE-25：编码前过 sanitizer，Anthropic 比 OpenAI 更严格，单个孤儿
+	// tool_use_id 即触发 400 永久锁死。
+	req.Messages = SanitizeMessages(req.Messages)
 	msgs, err := toAnthropicMsgs(req.Messages)
 	if err != nil {
 		return nil, err
@@ -260,6 +267,22 @@ func toAnthropicMsg(m LLMMessage) (anthropicMessage, error) {
 		return anthropicMessage{}, fmt.Errorf("llm/anthropic: unexpected role %q in toAnthropicMsg", m.Role)
 	}
 }
+
+// NOTE — Anthropic enforces a 5 MB per-image limit (decoded bytes); over
+// the limit returns 400 AND poisons the conversation history (every
+// subsequent message also 400s, see anthropics/claude-code#11564 /
+// #8202 / #12167). The proper fix lives in a future context-optimizer
+// layer (image resize / summary replacement at history level), not in
+// the wire client — adding a guard here would conflict with the
+// optimizer's resize/swap behavior. Per §S20 deferred WITH justification:
+// (a) structural constraint — fix belongs to a layer that doesn't yet
+// exist; (b) explanation — wire-layer guard would double-process or
+// conflict with the upcoming optimizer.
+//
+// 注：Anthropic 单图 5MB 限制；超限不仅 400 还毒化整段对话。真正修复属
+// 上下文优化层（未来做图压缩/摘要替换），wire 层加守门反而会跟优化器
+// 双处理。按 §S20 留下次 + 理由：(a) 修在尚未存在的层；(b) 提前加守门
+// 会冲突。
 
 func buildAnthropicUserMsg(m LLMMessage) anthropicMessage {
 	if len(m.Parts) == 0 {

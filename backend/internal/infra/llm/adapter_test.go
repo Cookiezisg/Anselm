@@ -204,6 +204,80 @@ func TestNonOllamaAdapters_DontTouchStream(t *testing.T) {
 	}
 }
 
+// TestDeepseekAdapter_StripsReasoningOnPlainTurn verifies the TE-25 fix:
+// plain-text assistant turn (no tool_calls) must have reasoning_content
+// stripped before round-trip, or DeepSeek 400s.
+//
+// 纯文字 assistant turn 必须剥 reasoning_content；不剥 DeepSeek 400。
+func TestDeepseekAdapter_StripsReasoningOnPlainTurn(t *testing.T) {
+	a := lookupAdapter("deepseek")
+	req := Request{
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hi"},
+			{
+				Role:             RoleAssistant,
+				Content:          "hello",
+				ReasoningContent: "let me think about how to greet",
+			},
+			{Role: RoleUser, Content: "next"},
+		},
+	}
+	a.BeforeRequest(&req)
+	if req.Messages[1].ReasoningContent != "" {
+		t.Errorf("plain assistant turn should have reasoning_content stripped; got %q",
+			req.Messages[1].ReasoningContent)
+	}
+	if req.Messages[1].Content != "hello" {
+		t.Errorf("Content should not be touched; got %q", req.Messages[1].Content)
+	}
+}
+
+// TestDeepseekAdapter_PreservesReasoningOnToolCallTurn verifies the
+// V3.2+ requirement: assistant turn with tool_calls MUST keep
+// reasoning_content, or DeepSeek 400s with "Missing reasoning_content".
+//
+// 含 tool_calls turn 必须保留 reasoning_content；不留 DeepSeek V3.2+ 400
+// "Missing reasoning_content"。
+func TestDeepseekAdapter_PreservesReasoningOnToolCallTurn(t *testing.T) {
+	a := lookupAdapter("deepseek")
+	req := Request{
+		Messages: []LLMMessage{
+			{
+				Role:             RoleAssistant,
+				ReasoningContent: "I should look this up",
+				ToolCalls:        []LLMToolCall{{ID: "c1", Name: "search"}},
+			},
+		},
+	}
+	a.BeforeRequest(&req)
+	if req.Messages[0].ReasoningContent != "I should look this up" {
+		t.Errorf("tool-call turn must preserve reasoning_content (V3.2 requirement); got %q",
+			req.Messages[0].ReasoningContent)
+	}
+}
+
+// TestDeepseekAdapter_DoesntTouchUserOrToolMessages: only assistant
+// messages have the reasoning_content field; sanity-check that other
+// roles are left alone.
+//
+// 仅 assistant 消息有 reasoning_content；其它 role 不动。
+func TestDeepseekAdapter_DoesntTouchUserOrToolMessages(t *testing.T) {
+	a := lookupAdapter("deepseek")
+	// User messages don't have reasoning_content semantically, but if
+	// somehow set it must not be cleared (it'd be the caller's bug, but
+	// we shouldn't hide it).
+	req := Request{
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hi", ReasoningContent: "should-not-be-touched"},
+			{Role: RoleTool, ToolCallID: "x", Content: "result"},
+		},
+	}
+	a.BeforeRequest(&req)
+	if req.Messages[0].ReasoningContent != "should-not-be-touched" {
+		t.Errorf("user message reasoning_content should not be modified")
+	}
+}
+
 type spyAdapter struct {
 	baseAdapter
 	before func(r *Request)

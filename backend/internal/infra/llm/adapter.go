@@ -134,6 +134,42 @@ type deepseekAdapter struct{ baseAdapter }
 func (deepseekAdapter) Name() string           { return "deepseek" }
 func (deepseekAdapter) DefaultBaseURL() string { return "https://api.deepseek.com" }
 
+// BeforeRequest enforces DeepSeek's turn-type-dependent reasoning_content
+// round-trip rule (DeepSeek thinking-mode docs + n8n#22579 + claude-code-
+// router#1041 + continuedev/continue#9245):
+//
+//   - Plain assistant turn (no tool_calls): reasoning_content MUST be
+//     stripped on next request, or DeepSeek returns 400.
+//   - Tool-call assistant turn (with tool_calls): reasoning_content MUST
+//     be preserved verbatim, or DeepSeek V3.2+ returns
+//     400 "Missing reasoning_content".
+//
+// The rule reversed in V3.2 — earlier versions wanted reasoning_content
+// always stripped. Anything that hardcodes "always preserve" or "always
+// strip" will work for one version then break on upgrade. This adapter
+// branches on turn type so it's correct across versions.
+//
+// BeforeRequest 守 DeepSeek 按 turn 类型的 reasoning_content round-trip
+// 规则：纯文字 turn 必须剥（否则 400），含 tool_calls turn 必须留（V3.2+
+// 否则 400 "Missing reasoning_content"）。规则在 V3.2 反过来过 —— 任何
+// "永远剥"或"永远留"的硬编码升级版本一夜全炸。本 adapter 按 turn 类型
+// 分支跨版本正确。
+func (deepseekAdapter) BeforeRequest(req *Request) {
+	for i := range req.Messages {
+		m := &req.Messages[i]
+		if m.Role != RoleAssistant {
+			continue
+		}
+		if len(m.ToolCalls) == 0 {
+			// Plain text turn → strip reasoning_content.
+			// 纯文字 turn → 剥 reasoning_content。
+			m.ReasoningContent = ""
+		}
+		// Tool-call turn: leave reasoning_content as-is (preserved by default).
+		// 含 tool_calls turn：保留不动。
+	}
+}
+
 type openrouterAdapter struct{ baseAdapter }
 
 func (openrouterAdapter) Name() string           { return "openrouter" }
