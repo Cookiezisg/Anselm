@@ -386,9 +386,16 @@
           <div>
             <div style="font-size:11px;color:var(--text-dim);margin-bottom:3px">Provider</div>
             <select class="filter-input" x-model="ap" style="width:100%;cursor:pointer">
-              <template x-for="p in allProviders" :key="p">
-                <option :value="p" x-text="p"></option>
-              </template>
+              <optgroup label="LLM">
+                <template x-for="p in llmProviders()" :key="p.name">
+                  <option :value="p.name" x-text="providerLabel(p)"></option>
+                </template>
+              </optgroup>
+              <optgroup label="Search">
+                <template x-for="p in searchProviders()" :key="p.name">
+                  <option :value="p.name" x-text="providerLabel(p)"></option>
+                </template>
+              </optgroup>
             </select>
           </div>
           <div>

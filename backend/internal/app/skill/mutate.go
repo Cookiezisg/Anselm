@@ -2,13 +2,11 @@
 // counterparts to scan.go's read path. All three mutations write to
 // ~/.forgify/skills/<name>/SKILL.md, then trigger a Scan + SSE event
 // (rescan ensures the in-memory cache reflects what we just wrote
-// without waiting for fsnotify; redundant in production but keeps the
-// caller's response synchronous).
+// without waiting up to 1s for the next poll tick).
 //
 // mutate.go ——Service.Create / Replace / Delete / Body。scan.go 读路径
 // 的 disk 写对应。三个变更都写到 ~/.forgify/skills/<name>/SKILL.md 后
-// 触发 Scan + SSE（重扫保证内存 cache 反映刚写入，不等 fsnotify；生产里
-// 冗余但让调用方响应同步）。
+// 触发 Scan + SSE（重扫保证内存 cache 反映刚写入，不等下一 tick 最长 1s）。
 package skill
 
 import (

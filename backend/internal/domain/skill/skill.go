@@ -18,7 +18,7 @@
 //
 //	internal/domain/skill/skill.go      — entities + 5 sentinels (this file)
 //	internal/app/skill/skill.go         — Service: Scan/Search/Activate (D7-3)
-//	internal/app/skill/watcher.go       — fsnotify rescan (D7-4)
+//	internal/app/skill/polling.go       — 1s polling rescan
 //	internal/app/tool/skill/            — search_skills + activate_skill tools (D7-5)
 //	internal/transport/httpapi/handlers/skills.go — 9 HTTP endpoints (D7-7)
 //

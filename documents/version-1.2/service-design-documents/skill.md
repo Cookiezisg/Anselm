@@ -1,7 +1,7 @@
 # Skill — V1.2 详设计
 
 **Phase**：Phase 4 准备件（提前到位）
-**状态**：✅ D7 全部交付（2026-05-06）：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + fsnotify watcher（debounce + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ 2 system tools (search_skills/activate_skill) + framework permission integration（active skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景
+**状态**：✅ D7 全部交付（2026-05-06）：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + 1s 轮询 + fingerprint 短路（替换原 fsnotify watcher，2026-05-07）+ 2 system tools (search_skills/activate_skill) + framework permission integration（active skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（文件系统是 source）
@@ -29,7 +29,7 @@ main.go → skillapp.NewService(deps).Scan()
       - 用 yaml.v3 解析 YAML frontmatter
       - 不读 markdown body
       - 缓存 Skill{Name, Description, Frontmatter, BodyPath}
-  → 启 fsnotify watcher 监听 skills 父目录（增删改触发 Rescan）
+  → 启 1s 轮询 goroutine（每秒重 Scan + fingerprint 短路；变化时触发 SSE）
   → 暴露给 catalog（实现 CatalogSource 接口）
   
 catalog generator 拼 system prompt 时拿这些 description，生成 1-2 行总结
@@ -81,7 +81,7 @@ LLM 看 L2 body 写"跑 ${CLAUDE_SKILL_DIR}/scripts/analyze_diff.py $file"
 | **Allowed-tools 预授权** | 写 agentstate.ActiveSkill，后续 permission 链查询时跳过 prompt |
 | **跨厂 schema 兼容（不共享目录）** | YAML frontmatter 照抄 Anthropic spec，用户可拖拽 / git clone / 手拷其他工具的 skill 进 `~/.forgify/skills/`，但 Forgify **不扫描** Claude Code / Cursor / Cline 等外部目录（自包含原则）|
 | **不做 LLM 重写 description** | description 是 author 责任（YAML frontmatter source-of-truth），catalog 直接用 |
-| **fsnotify 实时刷新** | 用户改 SKILL.md 不必重启；监 skills/ 父目录 |
+| **1s 轮询 + fingerprint 短路** | 用户改 SKILL.md 不必重启；与 catalog 同模子（catalog/polling.go），无 fsnotify 复杂度 |
 | **仅用户级，无项目级** | 只 `~/.forgify/skills/` 一份，**无 `<project>/.forgify/skills/`**——避免 merge 逻辑复杂度，单用户场景用户级足够 |
 
 ---
@@ -170,7 +170,7 @@ var (
 
 | 方式 | 操作 |
 |---|---|
-| **拖拽**（推荐）| UI 拖拽 zone 接收文件夹 / .zip / .tar.gz / 单个 SKILL.md → 后端 `POST /api/v1/skills:import` 解压 + 校验 + 拷进 `~/.forgify/skills/<name>/` → fsnotify 自动 pick up |
+| **拖拽**（推荐）| UI 拖拽 zone 接收文件夹 / .zip / .tar.gz / 单个 SKILL.md → 后端 `POST /api/v1/skills:import` 解压 + 校验 + 拷进 `~/.forgify/skills/<name>/` → 下次 1s 轮询 tick 自动 pick up（或 import handler 同步 Scan 立即生效）|
 | **`git clone`** | `cd ~/.forgify/skills && git clone https://github.com/foo/skill-x.git` |
 | **手拷目录** | `cp -r ~/Downloads/pr-review ~/.forgify/skills/` |
 | **HTTP API 创建** | UI 表单 → `POST /api/v1/skills` 后端写 SKILL.md 到 `~/.forgify/skills/<name>/` |
@@ -207,24 +207,23 @@ agent: Explore
 
 ---
 
-## 6. fsnotify 监听（`internal/app/skill/watcher.go`）
+## 6. 1s 轮询（`internal/app/skill/polling.go`）
 
 ```go
-type watcher struct {
-    fsw    *fsnotify.Watcher
-    svc    *Service
-    log    *zap.Logger
-    debouncer *Debouncer  // 集中文件 burst 改动
-}
+const pollInterval = 1 * time.Second
 
-func (w *watcher) Start(ctx context.Context, dir string) error  // 仅 ~/.forgify/skills/
+func (s *Service) Start(ctx context.Context) error  // 同步 Scan 一次 + 启 goroutine
+func (s *Service) Stop()                            // 取消 ctx + 阻塞等 goroutine 退
 ```
 
 **策略**：
-- 监 `~/.forgify/skills/` 一处 + 每个子目录（递归）
-- Linux fsnotify 数量上限：fail-soft + Warn 日志，过限时 fallback 到定时全扫（5min 一次）
-- Burst 改动：debounce 500ms 后做一次 Rescan
-- Rescan 后发布 `skill` SSE 事件
+- main.go 调 `Service.Start(ctx)`：同步跑一次 Scan（让 caller 返回前 cache 已 hot）+ 启 goroutine
+- goroutine 每 `pollInterval = 1s` 调一次 `Service.Scan(ctx)`
+- `Scan` 内部按排序后的 `(name + frontmatter YAML)` 算 sha256 fingerprint，与 `lastFP` 比，**相同则跳过 publishSnapshot**——防止每秒发一次冗余 SSE
+- 体积假设：本地用户级 skill 数量 ≤ ~50，每次 Scan 仅是几个 SKILL.md 的 read + YAML parse（~ms 级），CPU 几乎无开销
+- Stop 由 t.Cleanup 在测试中调；生产 main.go 不显式 Stop（goroutine 持 background ctx，进程退出时由 OS 回收，与 catalog/mcp 同模式）
+
+**为什么不 fsnotify**：原 fsnotify 实现需要递归监听子目录、symlink 循环防护、Linux fd 上限 fail-soft、debounce、5min 兜底——271 行 + 1 个三方依赖 + 4 类边界条件，只为"用户改 SKILL.md 后重 Scan"。catalog 已用 1s 轮询 fingerprint 解决同类问题（且 catalog 把 skill 注册成 source 也在每秒轮询它），平行造轮代价高于收益。2026-05-07 替换。
 
 ---
 
@@ -417,23 +416,9 @@ v1 实现 wildcards `*`；进阶 regex 等以后加。
 - log Info "skill activated within subagent; ignoring fork directive"
 - subagent 本身就是隔离 context，再 fork 是冗余浪费
 
-### Symlink 循环防护（fsnotify 死循环）
+### Symlink 循环防护
 
-**问题**：`~/.forgify/skills/foo` 软链回 `~/.forgify/skills/` → fsnotify 递归 add watch 死循环。
-
-**设计**：watcher.Start 加 path resolution + visited set：
-```go
-func (w *watcher) addRecursive(dir string) error {
-    real, err := filepath.EvalSymlinks(dir)
-    if err != nil { return err }
-    if w.visited[real] {
-        zap.L().Warn("skill dir symlink loop detected; skipping", zap.String("dir", dir))
-        return nil
-    }
-    w.visited[real] = true
-    // ... walk children
-}
-```
+**已废弃（2026-05-07）**：原 fsnotify 实现需要递归 add watch 子目录，所以才需要 EvalSymlinks + visited set 防 `~/.forgify/skills/foo → ~/.forgify/skills/` 软链死循环。1s 轮询版只 `os.ReadDir(skillsDir)` 一层（不递归 subdir），软链循环不会触发——OS 层 `os.ReadDir` 自身不跟踪软链递归。
 
 ### 同 skill 并发 activate 竞态
 
@@ -452,13 +437,13 @@ func (w *watcher) addRecursive(dir string) error {
 **设计**：Service.Scan 时校验所有 allowed-tools 名在当前 framework tool registry 里：
 - 不存在 → 把该 skill 标记为 `frontmatter.invalid` + 不进 catalog
 - 加到 SSE 事件让前端能显示警告
-- 用户修了 SKILL.md → fsnotify rescan → 通过
+- 用户修了 SKILL.md → 下次 1s 轮询 tick rescan → 通过
 
 ### Body 加载与文件改动竞态
 
 **问题**：用户编辑 SKILL.md 同时 LLM 在 activate → 读到一半的文件。
 
-**设计**：os.ReadFile 是原子 syscall（OS 层面），但用户编辑器可能用"先写 .tmp 再 rename"模式导致瞬时不存在。activate 时 `os.ReadFile` 失败 → 重试 1 次（100ms 后）→ 仍失败返 ErrSkillNotFound。fsnotify 触发后 cache 重新加载，下次 activate 拿新版。
+**设计**：os.ReadFile 是原子 syscall（OS 层面），但用户编辑器可能用"先写 .tmp 再 rename"模式导致瞬时不存在。activate 时 `os.ReadFile` 失败 → 重试 1 次（100ms 后）→ 仍失败返 ErrSkillNotFound。下次 1s 轮询 tick 重 Scan 后 cache 含新 BodyPath，再次 activate 拿新版。
 
 ---
 
@@ -472,7 +457,7 @@ type Skill struct {
 func (Skill) EventName() string { return "skill" }
 ```
 
-**触发点**：Service.Scan 后（fsnotify 触发或手动 refresh）。
+**触发点**：Service.Scan 后且 fingerprint 变化（1s 轮询 tick / mutate.go 内的同步 Scan / 手动 :refresh）。
 **载荷**：全 skill 快照（不增量；前端拿全量重渲染最简单）。
 **过滤 key**：无（用户级全局事件）。
 
@@ -489,7 +474,7 @@ func (Skill) EventName() string { return "skill" }
 | `PUT /api/v1/skills/{name}` | 整体替换 skill 内容（frontmatter + body）| `{data: Skill}` (200) |
 | `DELETE /api/v1/skills/{name}` | 删除 skill 目录 | 204 |
 | `POST /api/v1/skills:import` | **拖拽导入**（multipart：folder / zip / tar / single SKILL.md）| `{data: {imported: [...], conflicts: [...]}}` |
-| `POST /api/v1/skills:refresh` | 手动 Rescan（debug 用，绕过 fsnotify）| `{data: [Skill...]}` |
+| `POST /api/v1/skills:refresh` | 手动 Rescan（debug 用，绕过等下一 tick）| `{data: [Skill...]}` |
 | `POST /api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）| `{data: {result: "..."}}` |
 
 ### POST /api/v1/skills 创建端点
@@ -508,7 +493,7 @@ func (Skill) EventName() string { return "skill" }
 - 校验 frontmatter（description 非空、allowedTools 字符串数组等）
 - 创建 `~/.forgify/skills/<name>/SKILL.md`
 - 写 YAML frontmatter + markdown body
-- fsnotify 触发 Rescan + SSE
+- 1s 轮询触发 Rescan + SSE（fingerprint 变化时）
 - 返新 Skill struct (201)
 
 冲突 → 409 + `{error:{code:"SKILL_NAME_CONFLICT"}}`，前端可让用户改名或选择 PUT 覆盖。
@@ -596,7 +581,7 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 |---|---|---|---|
 | domain | `internal/domain/skill/skill_test.go` | 6 | Frontmatter YAML 全 spec round-trip + 最小必填 / Skill JSON camelCase + sentinel 唯一性 / 'skill: ' 前缀审计 / 常量校验 |
 | pkg/agentstate | `internal/pkg/agentstate/skill_test.go` | 10 | NilWhenUnset / Set/Get/Clear / LastWriteWins (并发) / IsToolPreApprovedBySkill (BareName/BashAnyArgs/Wildcard table/Malformed pattern fail-closed/paren-non-Bash 退化/bad-args JSON 不 panic) / wildcardMatch edge cases |
-| app/skill | `internal/app/skill/{skill,watcher}_test.go` | 26 | Scan empty/missing dir/valid skill/bad frontmatter (3 子)/超大 body/同名重复/splitFrontmatter 6 模式/substitute 全占位+\$10-not-pre-empted/Activate non-fork & fork & nested-fork-suppression & fork-without-svc-fails-clean & missing→ErrSkillNotFound / Search ≤topK 短路 + empty / Watcher DetectsNew/DetectsEdit/DetectsDelete/SymlinkLoop guard/EmptySkillsDir-StartFails/NewWatcher-NilLogOK |
+| app/skill | `internal/app/skill/{skill,polling}_test.go` | 24 | Scan empty/missing dir/valid skill/bad frontmatter (3 子)/超大 body/同名重复/splitFrontmatter 6 模式/substitute 全占位+\$10-not-pre-empted/Activate non-fork & fork & nested-fork-suppression & fork-without-svc-fails-clean & missing→ErrSkillNotFound / Search ≤topK 短路 + empty / Polling DetectsNew/DetectsEdit/DetectsDelete + Scan FingerprintShortCircuit |
 | app/tool/skill | `internal/app/tool/skill/skill_test.go` | 12 | factory 返 2 tool / SearchSkills 9 方法（Identity/static/Validate 5 子/CheckPermissions 全模式/Execute empty + JSON list）/ ActivateSkill 9 方法（Identity/static IsReadOnly=false/Validate 5 子/Execute friendly-missing/Execute returns body）|
 | transport/handlers | `internal/transport/httpapi/handlers/skills_test.go` | 20 | List empty + after seed / Get 404 / GetBody / Create 201 + Conflict 409 + InvalidName 422 / Replace 200 + 404 / Delete 204 + 404 / Refresh 拾起 disk 写 / Import JSON 2 files + Conflict-no-overwrite + Overwrite force + Multipart + Empty rejected / Invoke non-fork returns body + 404 / NameAction unknown 400 |
 | framework integration | `internal/app/loop/tools_test.go` | 3 | NoActiveSkill 仍走 CheckPermissions / ActiveSkill 预授权绕过 (permChecks=0 计数) / NoMatch 退回 CheckPermissions |
@@ -615,7 +600,7 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 | **catalog** | 实现 CatalogSource；description 直接抄不重生 |
 | **agentstate** | 写 ActiveSkill 字段，permission 链查询 |
 | **events** | 复用 events bridge 发 skill 全量快照 |
-| **logger** | fsnotify 失败、frontmatter parse 错误等走 Warn |
+| **logger** | Scan I/O 失败、frontmatter parse 错误等走 Warn |
 
 ### 与 Subagent 的协作（fork 路径详解）
 

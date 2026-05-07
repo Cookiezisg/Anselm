@@ -201,10 +201,10 @@ func (h *SkillsHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // ── Standalone :actions ──────────────────────────────────────────────
 
-// Refresh forces a full Scan (debug + UI "refresh" button — fsnotify is
-// the typical update path). Returns the resulting list.
+// Refresh forces a full Scan (debug + UI "refresh" button — the 1s
+// polling loop is the typical update path). Returns the resulting list.
 //
-// Refresh 强制全 Scan（debug + UI "refresh" 按钮——fsnotify 是常规更新
+// Refresh 强制全 Scan（debug + UI "refresh" 按钮——1s 轮询是常规更新
 // 路径）。返结果列表。
 func (h *SkillsHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Scan(r.Context()); err != nil {

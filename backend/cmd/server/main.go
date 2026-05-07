@@ -216,6 +216,28 @@ func main() {
 	// 与 02-tools-deep/03-shell.md 决策 D5。
 	pathGuard := pathguardpkg.NewDefault()
 
+	// MCP Service constructed here (before WebTools) so the
+	// WebSearch tool can route through the duckduckgo-search MCP server
+	// when installed. mcpService.Start is called later (right after the
+	// tool slice is finalized) — the SearchRouter wrapper checks server
+	// status at call time, so pre-Start invocations safely fall through
+	// to Bing CN.
+	//
+	// MCP Service 构造提前到 WebTools 之前，让 WebSearch 在 duckduckgo-search
+	// MCP server 已装时能路由过去。mcpService.Start 留在 tool 切片定稿后调
+	// ——SearchRouter 在调用时查 server 状态，pre-Start 调用安全降级到 Bing CN。
+	mcpConfigPath := defaultMCPConfigPath()
+	mcpService := mcpapp.New(
+		mcpConfigPath,
+		mcpapp.NewRegistry(),
+		sandboxSvc,
+		eventsBridge,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)
+
 	tools := forgetool.ForgeTools(
 		forgeService,
 		chatRepo,
@@ -225,7 +247,7 @@ func main() {
 	)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
-	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
+	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory, mcpapp.NewSearchRouter(mcpService), log)...)
 	shells := shelltool.NewShellTools(sandboxSvc)
 	defer shells.Manager.Stop() // graceful shutdown: kill any background children
 	tools = append(tools, shells.Tools...)
@@ -258,41 +280,28 @@ func main() {
 	tools = append(tools, subagenttool.SubagentTools(subagentService)...)
 	subagentService.SetTools(tools)
 
-	// MCP: configPath is ~/.forgify/mcp.json (Claude Desktop schema, user-
-	// level only — see mcp.md §5 自包含原则). Start() loads + parallel-
-	// Connects all configured servers with a 30s per-server handshake
-	// timeout; failures are captured per-server in ServerStatus and don't
-	// block boot. We run Start synchronously: typical boot adds < 5s if
-	// servers are configured, 0 if not (most users on first launch).
+	// MCP Start: load ~/.forgify/mcp.json + parallel-Connect all configured
+	// servers (30s per-server handshake timeout; per-server failures captured
+	// in ServerStatus, don't block boot). Service struct itself was constructed
+	// above (so WebSearch could see the SearchRouter); Start runs here once
+	// the full tool slice is being assembled.
 	//
-	// MCP：configPath 是 ~/.forgify/mcp.json（Claude Desktop schema，仅用户
-	// 级——mcp.md §5 自包含原则）。Start() 加载 + 并发 Connect 全部配置 server，
-	// 每 server 30s 握手超时；失败 per-server 记到 ServerStatus 不挡 boot。
-	// 同步跑：典型有配置时启动 +< 5s，无配置时 0（多数用户首次）。
-	mcpConfigPath := defaultMCPConfigPath()
-	mcpService := mcpapp.New(
-		mcpConfigPath,
-		mcpapp.NewRegistry(),
-		sandboxSvc,
-		eventsBridge,
-		modelService,
-		apikeyService,
-		llmFactory,
-		log,
-	)
+	// MCP Start：加载 ~/.forgify/mcp.json + 并发 Connect 所有 server（30s 握手
+	// 超时；per-server 失败记到 ServerStatus，不挡 boot）。Service struct 在
+	// 上方已构造（让 WebSearch 能见 SearchRouter）；tool 切片装配中跑 Start。
 	if err := mcpService.Start(context.Background()); err != nil {
 		log.Warn("mcp start partial failure (some servers may be unreachable)", zap.Error(err))
 	}
 	tools = append(tools, mcptool.MCPTools(mcpService)...)
 
 	// Skill: scan ~/.forgify/skills/ for any installed Anthropic Agent
-	// Skills, build the metadata cache, then start the fsnotify watcher
-	// for live rescan on user edits. Same boot-don't-block discipline as
-	// MCP — empty skills dir is the typical first-launch case.
+	// Skills + start the 1s polling loop for live rescan on user edits.
+	// Same boot-don't-block discipline as MCP — empty skills dir is the
+	// typical first-launch case.
 	//
-	// Skill：扫 ~/.forgify/skills/ 把已装 Agent Skill 元数据缓存好，再
-	// 起 fsnotify watcher 让用户编辑时实时重扫。同 MCP 不挡 boot 纪律
-	// ——首次启动 skills 目录通常为空。
+	// Skill：扫 ~/.forgify/skills/ 把已装 Agent Skill 元数据缓存好 + 启
+	// 1s 轮询让用户编辑时实时重扫。同 MCP 不挡 boot 纪律——首次启动 skills
+	// 目录通常为空。
 	skillService := skillapp.New(
 		defaultSkillsDir(),
 		subagentService,
@@ -302,15 +311,9 @@ func main() {
 		llmFactory,
 		log,
 	)
-	if err := skillService.Scan(context.Background()); err != nil {
-		log.Warn("skill scan failed (continuing with empty cache)", zap.Error(err))
+	if err := skillService.Start(context.Background()); err != nil {
+		log.Warn("skill start failed (continuing with empty cache)", zap.Error(err))
 	}
-	skillWatcher := skillapp.NewWatcher(skillService, log)
-	go func() {
-		if err := skillWatcher.Start(context.Background()); err != nil {
-			log.Warn("skill watcher exited", zap.Error(err))
-		}
-	}()
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
 	// Capability Catalog: subscribes to forge / skill / mcp via the

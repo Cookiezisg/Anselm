@@ -31,6 +31,7 @@ func New(deps Deps) http.Handler {
 	// Each handler registers its own routes.
 	// 每个 handler 注册自己的路由。
 	handlershttpapi.NewHealthHandler().Register(mux)
+	handlershttpapi.NewProvidersHandler().Register(mux)
 	if deps.APIKeyService != nil {
 		handlershttpapi.NewAPIKeyHandler(deps.APIKeyService, deps.Log).Register(mux)
 	}

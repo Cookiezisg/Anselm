@@ -106,9 +106,122 @@ func (t *HTTPTester) Test(ctx context.Context, provider, key, baseURL, apiFormat
 		// Empty APIFormat falls through to openai-compatible — the default.
 		// 空 APIFormat 落入 openai-compatible——默认值。
 		return t.testGetModels(ctx, effective, key), nil
+	case TestMethodSearchPing:
+		return t.testSearchPing(ctx, provider, effective, key), nil
 	default:
 		return nil, fmt.Errorf("apikeytester: unhandled test method %q", meta.TestMethod)
 	}
+}
+
+// testSearchPing dispatches to the matching search-API probe. Each search
+// provider has its own auth header / request shape, so the dispatch lives
+// here rather than as separate TestMethod constants — keeps providers.go
+// compact (one method covers all 4 search providers).
+//
+// testSearchPing 按 provider 名分派到匹配的搜索 API 探测。各搜索 provider
+// 有各自 auth 头 / 请求 shape，分派放此处不展成多个 TestMethod 常量——
+// 让 providers.go 紧凑（1 个方法覆盖 4 个搜索 provider）。
+func (t *HTTPTester) testSearchPing(ctx context.Context, provider, baseURL, key string) *TestResult {
+	const probeQuery = "test"
+	switch provider {
+	case "brave":
+		return t.testBravePing(ctx, baseURL, key, probeQuery)
+	case "serper":
+		return t.testSerperPing(ctx, baseURL, key, probeQuery)
+	case "tavily":
+		return t.testTavilyPing(ctx, baseURL, key, probeQuery)
+	case "bocha":
+		return t.testBochaPing(ctx, baseURL, key, probeQuery)
+	default:
+		return &TestResult{OK: false, Message: fmt.Sprintf("unknown search provider %q", provider)}
+	}
+}
+
+// testBravePing: GET {baseURL}/web/search?q=test&count=1, X-Subscription-Token header.
+//
+// testBravePing：GET {baseURL}/web/search?q=test&count=1，X-Subscription-Token 头。
+func (t *HTTPTester) testBravePing(ctx context.Context, baseURL, key, query string) *TestResult {
+	u := fmt.Sprintf("%s/web/search?q=%s&count=1", baseURL, url.QueryEscape(query))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return &TestResult{OK: false, Message: "build request: " + err.Error()}
+	}
+	req.Header.Set("X-Subscription-Token", key)
+	req.Header.Set("Accept", "application/json")
+	body, status, latency, err := t.do(req)
+	if err != nil {
+		return &TestResult{OK: false, Message: "connection failed: " + err.Error(), LatencyMs: latency}
+	}
+	if status != http.StatusOK {
+		return &TestResult{OK: false, Message: formatHTTPError(status, body), LatencyMs: latency}
+	}
+	return &TestResult{OK: true, Message: "connected (1-result probe)", LatencyMs: latency}
+}
+
+// testSerperPing: POST {baseURL}/search, X-API-KEY header, JSON body {q, num=1}.
+//
+// testSerperPing：POST {baseURL}/search，X-API-KEY 头，JSON body {q, num=1}。
+func (t *HTTPTester) testSerperPing(ctx context.Context, baseURL, key, query string) *TestResult {
+	payload := []byte(fmt.Sprintf(`{"q":%q,"num":1}`, query))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/search", bytes.NewReader(payload))
+	if err != nil {
+		return &TestResult{OK: false, Message: "build request: " + err.Error()}
+	}
+	req.Header.Set("X-API-KEY", key)
+	req.Header.Set("Content-Type", "application/json")
+	body, status, latency, err := t.do(req)
+	if err != nil {
+		return &TestResult{OK: false, Message: "connection failed: " + err.Error(), LatencyMs: latency}
+	}
+	if status != http.StatusOK {
+		return &TestResult{OK: false, Message: formatHTTPError(status, body), LatencyMs: latency}
+	}
+	return &TestResult{OK: true, Message: "connected (1-result probe)", LatencyMs: latency}
+}
+
+// testTavilyPing: POST {baseURL}/search, body { api_key, query, max_results=1 }.
+// Tavily passes the key inside the JSON body, not a header.
+//
+// testTavilyPing：POST {baseURL}/search，body { api_key, query, max_results=1 }。
+// Tavily 把 key 放 JSON body，不是头。
+func (t *HTTPTester) testTavilyPing(ctx context.Context, baseURL, key, query string) *TestResult {
+	payload := []byte(fmt.Sprintf(`{"api_key":%q,"query":%q,"max_results":1}`, key, query))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/search", bytes.NewReader(payload))
+	if err != nil {
+		return &TestResult{OK: false, Message: "build request: " + err.Error()}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	body, status, latency, err := t.do(req)
+	if err != nil {
+		return &TestResult{OK: false, Message: "connection failed: " + err.Error(), LatencyMs: latency}
+	}
+	if status != http.StatusOK {
+		return &TestResult{OK: false, Message: formatHTTPError(status, body), LatencyMs: latency}
+	}
+	return &TestResult{OK: true, Message: "connected (1-result probe)", LatencyMs: latency}
+}
+
+// testBochaPing: POST {baseURL}/web-search, Authorization Bearer header,
+// body { query, count=1 }.
+//
+// testBochaPing：POST {baseURL}/web-search，Authorization Bearer 头，
+// body { query, count=1 }。
+func (t *HTTPTester) testBochaPing(ctx context.Context, baseURL, key, query string) *TestResult {
+	payload := []byte(fmt.Sprintf(`{"query":%q,"count":1}`, query))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/web-search", bytes.NewReader(payload))
+	if err != nil {
+		return &TestResult{OK: false, Message: "build request: " + err.Error()}
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Content-Type", "application/json")
+	body, status, latency, err := t.do(req)
+	if err != nil {
+		return &TestResult{OK: false, Message: "connection failed: " + err.Error(), LatencyMs: latency}
+	}
+	if status != http.StatusOK {
+		return &TestResult{OK: false, Message: formatHTTPError(status, body), LatencyMs: latency}
+	}
+	return &TestResult{OK: true, Message: "connected (1-result probe)", LatencyMs: latency}
 }
 
 // testGetModels: GET {baseURL}/models with Bearer auth (OpenAI-compatible).

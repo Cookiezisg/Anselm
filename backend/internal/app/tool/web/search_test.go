@@ -1,11 +1,12 @@
-// search_test.go — unit tests for WebSearch + Bing HTML parser. All
-// network calls go through httptest servers and the package vars
-// (jinaEndpoint already lives in fetch.go; bingURL / bingCNURL here)
-// are swapped via test helpers. Real-internet calls are not exercised.
+// search_test.go — unit tests for WebSearch (BYOK → MCP → Bing CN routing)
+// + Bing HTML parser. All network calls go through httptest servers; the
+// package var bingCNURL is swapped via test helpers. KeyProvider and
+// MCPSearchRouter are stubbed via tiny in-test fakes. Real-internet calls
+// are not exercised.
 //
-// search_test.go — WebSearch + Bing HTML 解析器单测；所有网络调用走
-// httptest，包级 var（fetch.go 的 jinaEndpoint，本文件的 bingURL /
-// bingCNURL）由 test helper 替换；不打真实互联网。
+// search_test.go ——WebSearch（BYOK → MCP → Bing CN 路由）+ Bing HTML 解析器
+// 单测；所有网络调用走 httptest，包级 var bingCNURL 由 test helper 替换；
+// KeyProvider / MCPSearchRouter 经测试内 fake 替身。不打真实互联网。
 package web
 
 import (
@@ -15,9 +16,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
+
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 )
 
 // ── Identity / metadata / schema ──────────────────────────────────────────────
@@ -101,119 +103,123 @@ func TestSearchArgs_NormalizeCapsHardLimit(t *testing.T) {
 	}
 }
 
-// ── env override ──────────────────────────────────────────────────────────────
+// ── End-to-end via Execute (BYOK → MCP → Bing CN dispatch) ───────────────────
 
-func TestResolveSearXNGInstances_UsesEnvOverride(t *testing.T) {
-	t.Setenv("FORGIFY_SEARXNG_INSTANCES", "https://a.example,https://b.example, https://c.example ")
-	got := resolveSearXNGInstances()
-	want := []string{"https://a.example", "https://b.example", "https://c.example"}
-	if len(got) != len(want) {
-		t.Fatalf("len = %d, want %d (got %v)", len(got), len(want), got)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
-}
-
-func TestResolveSearXNGInstances_FallsBackToDefault(t *testing.T) {
-	t.Setenv("FORGIFY_SEARXNG_INSTANCES", "")
-	got := resolveSearXNGInstances()
-	if len(got) != len(defaultSearXNGInstances) {
-		t.Errorf("len = %d, want default %d", len(got), len(defaultSearXNGInstances))
-	}
-}
-
-// ── End-to-end via Execute (3-tier dispatch) ──────────────────────────────────
-
-func TestExecute_TierSearXNG_ReturnsResults(t *testing.T) {
-	srx := newSearXNGServer(t, []searchResult{
-		{Title: "Go Programming", URL: "https://go.dev", Snippet: "Build simple, secure, scalable systems."},
-		{Title: "Effective Go", URL: "https://go.dev/doc/effective_go", Snippet: "Tips for writing clear, idiomatic Go code."},
+func TestExecute_BYOKBrave_ReturnsResults(t *testing.T) {
+	srv := newBraveServer(t, []searchResult{
+		{Title: "Go", URL: "https://go.dev", Snippet: "Build simple, secure systems."},
 	})
-	defer srx.Close()
+	defer srv.Close()
 
-	tool := newTestSearchWith(t, []string{srx.URL})
-	out := runSearch(t, tool, `{"query":"golang","limit":5}`)
+	tool := newTestSearchWith(t, &fakeKeys{
+		creds: map[string]apikeydomain.Credentials{"brave": {Key: "test-key", BaseURL: srv.URL}},
+	}, nil)
+	out := runSearch(t, tool, `{"query":"golang"}`)
 
-	if out.Source != "searxng" {
-		t.Errorf("source = %q, want searxng", out.Source)
+	if out.Source != "brave" {
+		t.Errorf("source = %q, want brave", out.Source)
 	}
-	if len(out.Results) != 2 {
-		t.Errorf("results len = %d, want 2", len(out.Results))
-	}
-	if out.Truncated {
-		t.Error("truncated should be false (under limit)")
-	}
-}
-
-func TestExecute_TierBing_FiresWhenSearXNGEmpty(t *testing.T) {
-	emptySrx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	defer emptySrx.Close()
-
-	bing := newBingServer(t, sampleBingHTML)
-	defer bing.Close()
-
-	tool := newTestSearchWith(t, []string{emptySrx.URL})
-	withBingURLs(t, bing.URL, "https://unused")
-	out := runSearch(t, tool, `{"query":"go"}`)
-
-	if out.Source != "bing" {
-		t.Errorf("source = %q, want bing (SearXNG was empty)", out.Source)
-	}
-	if len(out.Results) == 0 {
-		t.Errorf("expected Bing-parsed results, got 0")
+	if len(out.Results) != 1 || out.Results[0].URL != "https://go.dev" {
+		t.Errorf("unexpected results: %+v", out.Results)
 	}
 }
 
-func TestExecute_TierBingCN_FiresWhenBingFails(t *testing.T) {
-	emptySrx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[]}`))
-	}))
-	defer emptySrx.Close()
-
-	deadBing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestExecute_BYOKBrave_FallsThroughOnError(t *testing.T) {
+	dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "down", http.StatusInternalServerError)
 	}))
-	defer deadBing.Close()
+	defer dead.Close()
 
 	bingCN := newBingServer(t, sampleBingHTML)
 	defer bingCN.Close()
 
-	tool := newTestSearchWith(t, []string{emptySrx.URL})
-	withBingURLs(t, deadBing.URL, bingCN.URL)
-	out := runSearch(t, tool, `{"query":"go"}`)
+	tool := newTestSearchWith(t, &fakeKeys{
+		creds: map[string]apikeydomain.Credentials{"brave": {Key: "k", BaseURL: dead.URL}},
+	}, nil)
+	withBingCNURL(t, bingCN.URL)
 
+	out := runSearch(t, tool, `{"query":"go"}`)
+	if out.Source != "bing_cn" {
+		t.Errorf("source = %q, want bing_cn (Brave failed → fall through)", out.Source)
+	}
+}
+
+func TestExecute_PrioritisesBraveOverSerper(t *testing.T) {
+	brave := newBraveServer(t, []searchResult{{Title: "from-brave", URL: "https://x", Snippet: "b"}})
+	defer brave.Close()
+	serper := newSerperServer(t, []searchResult{{Title: "from-serper", URL: "https://y", Snippet: "s"}})
+	defer serper.Close()
+
+	tool := newTestSearchWith(t, &fakeKeys{
+		creds: map[string]apikeydomain.Credentials{
+			"brave":  {Key: "bk", BaseURL: brave.URL},
+			"serper": {Key: "sk", BaseURL: serper.URL},
+		},
+	}, nil)
+	out := runSearch(t, tool, `{"query":"q"}`)
+	if out.Source != "brave" {
+		t.Errorf("source = %q, want brave (priority list head)", out.Source)
+	}
+	if out.Results[0].Title != "from-brave" {
+		t.Errorf("results from wrong backend: %+v", out.Results)
+	}
+}
+
+func TestExecute_MCPRoute_FiresWhenNoBYOK(t *testing.T) {
+	mcpResults := `{"results":[{"title":"DDG hit","url":"https://example.com","snippet":"via MCP"}]}`
+	tool := newTestSearchWith(t, &fakeKeys{}, &fakeMCPRouter{result: mcpResults})
+
+	out := runSearch(t, tool, `{"query":"x"}`)
+	if out.Source != "mcp" {
+		t.Errorf("source = %q, want mcp", out.Source)
+	}
+	if len(out.Results) != 1 || out.Results[0].Title != "DDG hit" {
+		t.Errorf("unexpected MCP results: %+v", out.Results)
+	}
+}
+
+func TestExecute_MCP_UnavailableSilentlyFallsThrough(t *testing.T) {
+	bingCN := newBingServer(t, sampleBingHTML)
+	defer bingCN.Close()
+	withBingCNURL(t, bingCN.URL)
+
+	tool := newTestSearchWith(t, &fakeKeys{}, &fakeMCPRouter{err: ErrMCPSearchUnavailable})
+
+	out := runSearch(t, tool, `{"query":"x"}`)
+	if out.Source != "bing_cn" {
+		t.Errorf("source = %q, want bing_cn (MCP unavailable → fall through)", out.Source)
+	}
+}
+
+func TestExecute_BingCNFallback_WhenAllElseEmpty(t *testing.T) {
+	bingCN := newBingServer(t, sampleBingHTML)
+	defer bingCN.Close()
+	withBingCNURL(t, bingCN.URL)
+
+	tool := newTestSearchWith(t, &fakeKeys{}, nil)
+	out := runSearch(t, tool, `{"query":"go"}`)
 	if out.Source != "bing_cn" {
 		t.Errorf("source = %q, want bing_cn", out.Source)
 	}
 	if len(out.Results) == 0 {
-		t.Error("expected Bing CN-parsed results")
+		t.Error("expected Bing CN parsed results")
 	}
 }
 
 func TestExecute_AllBackendsFail_FriendlyMessage(t *testing.T) {
-	deadSrx := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "down", http.StatusInternalServerError)
-	}))
-	defer deadSrx.Close()
-
-	deadBing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	deadBing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "down", http.StatusInternalServerError)
 	}))
 	defer deadBing.Close()
+	withBingCNURL(t, deadBing.URL)
 
-	tool := newTestSearchWith(t, []string{deadSrx.URL})
-	withBingURLs(t, deadBing.URL, deadBing.URL)
+	tool := newTestSearchWith(t, &fakeKeys{}, nil)
 	body, err := tool.Execute(context.Background(), `{"query":"unrecoverable"}`)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(body, "All search backends failed") {
-		t.Errorf("expected friendly all-failed message, got: %q", body)
+	if !strings.Contains(body, "No results") || !strings.Contains(body, "API Keys") {
+		t.Errorf("expected friendly message guiding key setup, got: %q", body)
 	}
 }
 
@@ -222,10 +228,12 @@ func TestExecute_AppliesLimitAndSetsTruncated(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		many = append(many, searchResult{Title: "t", URL: "https://example.com/", Snippet: "s"})
 	}
-	srx := newSearXNGServer(t, many)
-	defer srx.Close()
+	srv := newBraveServer(t, many)
+	defer srv.Close()
 
-	tool := newTestSearchWith(t, []string{srx.URL})
+	tool := newTestSearchWith(t, &fakeKeys{
+		creds: map[string]apikeydomain.Credentials{"brave": {Key: "k", BaseURL: srv.URL}},
+	}, nil)
 	out := runSearch(t, tool, `{"query":"x","limit":3}`)
 	if !out.Truncated {
 		t.Error("truncated should be true (8 > 3)")
@@ -236,14 +244,14 @@ func TestExecute_AppliesLimitAndSetsTruncated(t *testing.T) {
 }
 
 func TestExecute_HonoursContextCancellation(t *testing.T) {
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(200 * time.Millisecond)
-		_, _ = w.Write([]byte(`{"results":[]}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer slow.Close()
+	withBingCNURL(t, slow.URL)
 
-	tool := newTestSearchWith(t, []string{slow.URL})
-	withBingURLs(t, slow.URL, slow.URL)
+	tool := newTestSearchWith(t, &fakeKeys{}, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	body, err := tool.Execute(ctx, `{"query":"x"}`)
@@ -255,6 +263,48 @@ func TestExecute_HonoursContextCancellation(t *testing.T) {
 	// 取消的 ctx 下要么走 no-results 短路要么报失败；只要 return 即可。
 	if body == "" {
 		t.Error("expected some response body even on cancellation")
+	}
+}
+
+// ── MCP result parser ─────────────────────────────────────────────────────────
+
+func TestParseMCPSearchResults_KeyedShape(t *testing.T) {
+	raw := `{"results":[{"title":"A","url":"https://a","snippet":"sa"},{"name":"B","link":"https://b","content":"sb"}]}`
+	got, err := parseMCPSearchResults(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	if got[0].Title != "A" || got[0].URL != "https://a" || got[0].Snippet != "sa" {
+		t.Errorf("[0] = %+v", got[0])
+	}
+	// Field-name union: name → Title, link → URL, content → Snippet.
+	// 字段名取并集：name → Title、link → URL、content → Snippet。
+	if got[1].Title != "B" || got[1].URL != "https://b" || got[1].Snippet != "sb" {
+		t.Errorf("[1] = %+v", got[1])
+	}
+}
+
+func TestParseMCPSearchResults_BareArray(t *testing.T) {
+	raw := `[{"title":"X","url":"https://x","snippet":"sx"}]`
+	got, err := parseMCPSearchResults(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(got) != 1 || got[0].Title != "X" {
+		t.Errorf("got %+v", got)
+	}
+}
+
+func TestParseMCPSearchResults_PlainTextFallback(t *testing.T) {
+	got, err := parseMCPSearchResults("just some plain text from MCP server")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(got) != 1 || !strings.Contains(got[0].Snippet, "plain text") {
+		t.Errorf("plain-text fallback failed: %+v", got)
 	}
 }
 
@@ -301,8 +351,6 @@ func TestParseBingHTML_ExtractsResults(t *testing.T) {
 	if !strings.Contains(results[0].Snippet, "scalable systems") {
 		t.Errorf("results[0].Snippet = %q", results[0].Snippet)
 	}
-	// Whitespace collapsing: "implementations." after multi-space inner.
-	// 空白压缩验证。
 	if !strings.Contains(results[1].Snippet, "implementations.") || strings.Contains(results[1].Snippet, "  ") {
 		t.Errorf("results[1].Snippet not properly collapsed: %q", results[1].Snippet)
 	}
@@ -319,9 +367,6 @@ func TestParseBingHTML_EmptyDoc_NoResults(t *testing.T) {
 }
 
 func TestParseBingHTML_FallsBackToFirstPWhenCaptionMissing(t *testing.T) {
-	// Bing has been observed dropping the b_caption wrapper; ensure the
-	// fallback "first <p> in li" path still grabs the snippet.
-	// Bing 偶尔丢 b_caption 包装；确保 fallback "li 内首个 <p>" 仍能抓到 snippet。
 	html := `
 <html><body><li class="b_algo">
 	<h2><a href="https://x.example">Example</a></h2>
@@ -336,51 +381,108 @@ func TestParseBingHTML_FallsBackToFirstPWhenCaptionMissing(t *testing.T) {
 	}
 }
 
-// ── Test helpers ──────────────────────────────────────────────────────────────
+// ── Test helpers / fakes ──────────────────────────────────────────────────────
 
 func newTestSearch(t *testing.T) *WebSearch {
 	t.Helper()
-	return newTestSearchWith(t, defaultSearXNGInstances)
+	return newTestSearchWith(t, &fakeKeys{}, nil)
 }
 
-func newTestSearchWith(t *testing.T, instances []string) *WebSearch {
+func newTestSearchWith(t *testing.T, keys apikeydomain.KeyProvider, mcp MCPSearchRouter) *WebSearch {
 	t.Helper()
 	return &WebSearch{
 		httpClient: &http.Client{Timeout: 2 * time.Second},
-		instances:  instances,
+		keys:       keys,
+		mcpRouter:  mcp,
+		log:        nil,
 	}
 }
 
-// withBingURLs swaps bingURL / bingCNURL for the duration of the test.
+// withBingCNURL swaps bingCNURL for the duration of the test.
 //
-// withBingURLs 测试期间替换 bingURL / bingCNURL。
-func withBingURLs(t *testing.T, bing, bingCN string) {
+// withBingCNURL 测试期间替换 bingCNURL。
+func withBingCNURL(t *testing.T, u string) {
 	t.Helper()
-	prevBing, prevCN := bingURL, bingCNURL
-	bingURL, bingCNURL = bing, bingCN
-	t.Cleanup(func() { bingURL, bingCNURL = prevBing, prevCN })
+	prev := bingCNURL
+	bingCNURL = u
+	t.Cleanup(func() { bingCNURL = prev })
 }
 
-func newSearXNGServer(t *testing.T, results []searchResult) *httptest.Server {
+// fakeKeys implements apikeydomain.KeyProvider with a static map.
+//
+// fakeKeys 用静态 map 实现 apikeydomain.KeyProvider。
+type fakeKeys struct {
+	creds map[string]apikeydomain.Credentials
+}
+
+func (f *fakeKeys) ResolveCredentials(_ context.Context, provider string) (apikeydomain.Credentials, error) {
+	c, ok := f.creds[provider]
+	if !ok {
+		return apikeydomain.Credentials{}, apikeydomain.ErrNotFoundForProvider
+	}
+	return c, nil
+}
+
+func (f *fakeKeys) MarkInvalid(_ context.Context, _ string, _ string) error { return nil }
+
+// fakeMCPRouter implements MCPSearchRouter.
+//
+// fakeMCPRouter 实现 MCPSearchRouter。
+type fakeMCPRouter struct {
+	result string
+	err    error
+}
+
+func (f *fakeMCPRouter) CallSearchTool(_ context.Context, _ string, _ int) (string, error) {
+	return f.result, f.err
+}
+
+// newBraveServer returns a Brave-shaped JSON server.
+//
+// newBraveServer 返 Brave-shape JSON 服务器。
+func newBraveServer(t *testing.T, results []searchResult) *httptest.Server {
 	t.Helper()
-	var hits int32
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		atomic.AddInt32(&hits, 1)
-		// Re-shape to the SearXNG JSON form (content == snippet).
-		// 改塑成 SearXNG JSON 形（content == snippet）。
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		shaped := struct {
-			Results []struct {
-				Title   string `json:"title"`
-				URL     string `json:"url"`
-				Content string `json:"content"`
-			} `json:"results"`
+			Web struct {
+				Results []struct {
+					Title       string `json:"title"`
+					URL         string `json:"url"`
+					Description string `json:"description"`
+				} `json:"results"`
+			} `json:"web"`
 		}{}
 		for _, r := range results {
-			shaped.Results = append(shaped.Results, struct {
+			shaped.Web.Results = append(shaped.Web.Results, struct {
+				Title       string `json:"title"`
+				URL         string `json:"url"`
+				Description string `json:"description"`
+			}{Title: r.Title, URL: r.URL, Description: r.Snippet})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(shaped)
+	}))
+}
+
+// newSerperServer returns a Serper-shaped JSON server.
+//
+// newSerperServer 返 Serper-shape JSON 服务器。
+func newSerperServer(t *testing.T, results []searchResult) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		shaped := struct {
+			Organic []struct {
 				Title   string `json:"title"`
-				URL     string `json:"url"`
-				Content string `json:"content"`
-			}{Title: r.Title, URL: r.URL, Content: r.Snippet})
+				Link    string `json:"link"`
+				Snippet string `json:"snippet"`
+			} `json:"organic"`
+		}{}
+		for _, r := range results {
+			shaped.Organic = append(shaped.Organic, struct {
+				Title   string `json:"title"`
+				Link    string `json:"link"`
+				Snippet string `json:"snippet"`
+			}{Title: r.Title, Link: r.URL, Snippet: r.Snippet})
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(shaped)
@@ -389,7 +491,7 @@ func newSearXNGServer(t *testing.T, results []searchResult) *httptest.Server {
 
 func newBingServer(t *testing.T, htmlBody string) *httptest.Server {
 	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(htmlBody))
 	}))

@@ -184,7 +184,7 @@ type MCP struct {
 func (MCP) EventName() string { return "mcp" }
 
 // Skill carries the full snapshot of every loaded skill (skill.md §10).
-// Service.Scan publishes after each rescan (initial boot, fsnotify event,
+// Service.Scan publishes after each rescan (initial boot, 1s polling tick,
 // manual :refresh). Whole-list snapshot (no per-skill delta) — UI replaces
 // local cache in one go; skill counts are small in practice (≤ ~50).
 //
@@ -193,7 +193,7 @@ func (MCP) EventName() string { return "mcp" }
 // GET /skills/{name}/body when the user opens the editor).
 //
 // Skill 携每个已加载 skill 的全快照（skill.md §10）。Service.Scan 后发布
-// （首次 boot、fsnotify、手动 :refresh）。全快照（无 per-skill 增量）让
+// （首次 boot、1s 轮询 tick、手动 :refresh）。全快照（无 per-skill 增量）让
 // UI 一次性替换本地；实践 skill 数量小（≤ ~50）。
 //
 // 线形：{"skills": [...]} — body 不含（spec progressive-disclosure：L2

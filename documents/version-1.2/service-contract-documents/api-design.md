@@ -93,6 +93,7 @@ type Error = {
 | PATCH | `/api/v1/api-keys/{id}` | 更新 displayName / baseUrl |
 | DELETE | `/api/v1/api-keys/{id}` | 软删 |
 | POST | `/api/v1/api-keys/{id}:test` | 连通性测试 |
+| GET | `/api/v1/providers` | 列 ProviderMeta 注册表（`?category=llm` 或 `?category=search` 过滤）；前端用以替代客户端硬编码 provider 列表（屎山拯救计划 #4 收尾）|
 
 #### model ✅
 详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。用户给每个 scenario 选定 `(provider, modelID)`；Phase 2 仅 `scenario=chat`。

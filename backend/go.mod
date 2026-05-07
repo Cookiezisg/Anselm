@@ -6,7 +6,6 @@ require (
 	github.com/air-verse/air v1.65.1
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/dslipak/pdf v0.0.2
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/lu4p/cat v0.1.5
 	github.com/modelcontextprotocol/go-sdk v1.6.0
@@ -30,6 +29,7 @@ require (
 	github.com/bep/golibsass v1.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect

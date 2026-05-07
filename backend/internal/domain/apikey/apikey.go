@@ -1,10 +1,11 @@
-// Package apikey is the domain layer for LLM credential management:
-// APIKey entity, sentinels, and two ports — Repository (→ infra/store/apikey)
-// and KeyProvider (→ app/apikey, consumed by chat / forge / etc.).
+// Package apikey is the domain layer for credential management:
+// APIKey entity, sentinels, two ports — Repository (→ infra/store/apikey)
+// and KeyProvider (→ app/apikey, consumed by chat / forge / web search /
+// etc.) — and the SearchProviderPriority list (consumed by app/tool/web).
 //
-// Package apikey 是 LLM 凭证管理的 domain 层：APIKey 实体、sentinel，
-// 两个 port——Repository（→ infra/store/apikey）+ KeyProvider
-// （→ app/apikey，由 chat / forge 等消费）。
+// Package apikey 是凭证管理的 domain 层：APIKey 实体、sentinel、两个 port
+// （Repository → infra/store/apikey；KeyProvider → app/apikey，由 chat / forge
+// / web 搜索等消费）+ SearchProviderPriority 列表（由 app/tool/web 消费）。
 package apikey
 
 import (
@@ -150,3 +151,15 @@ type KeyProvider interface {
 	// MarkInvalid 是 401/403 的反馈通道；更新 test_status 为 error 并记原因。
 	MarkInvalid(ctx context.Context, provider string, reason string) error
 }
+
+// SearchProviderPriority is the order WebSearch (app/tool/web) tries BYOK
+// keys when multiple are configured. Domain-level so tool packages can
+// import it without crossing into app/apikey. The names must match entries
+// in app/apikey/providers.go (Category=CategorySearch); a contract test in
+// app/apikey enforces sync.
+//
+// SearchProviderPriority 是 WebSearch（app/tool/web）配多 key 时尝试的顺序。
+// 放 domain 层让 tool 包能 import 而不跨入 app/apikey。名字必须匹配
+// app/apikey/providers.go 里 Category=CategorySearch 的条目；app/apikey 契约
+// 测试强制同步。
+var SearchProviderPriority = []string{"brave", "serper", "tavily", "bocha"}

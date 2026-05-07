@@ -9,11 +9,18 @@ document.addEventListener('alpine:init', () => {
     mp: '', mid: '',
     modelBusy: false,
 
-    allProviders: ['openai','anthropic','google','deepseek','openrouter',
-                   'qwen','zhipu','moonshot','doubao','ollama','custom',
-                   'mock'],  // dev provider for testend Mock LLM tab (TE-4a)
+    // providersMeta is fetched from GET /api/v1/providers on init —
+    // single source of truth for the LLM/Search whitelist + per-provider
+    // displayName + baseUrlRequired flag. Replaces the previous
+    // hardcoded allProviders array.
+    //
+    // providersMeta 在 init 时从 GET /api/v1/providers 拉——LLM/Search 白名单 +
+    // 各 provider displayName + baseUrlRequired 标志的单一事实源。替代之前
+    // 的硬编码 allProviders。
+    providersMeta: [],
 
     async init() {
+      await this._loadProviders()
       await Promise.all([this._loadKeys(), this._loadModel()])
       this.$watch('mp', p => {
         const ms = this._modelsFor(p)
@@ -32,6 +39,11 @@ document.addEventListener('alpine:init', () => {
       return { r, j }
     },
 
+    async _loadProviders() {
+      const { j } = await this._fetch('GET', '/api/v1/providers')
+      this.providersMeta = j?.data ?? []
+    },
+
     async _loadKeys() {
       const { j } = await this._fetch('GET', '/api/v1/api-keys?limit=50')
       this.keys = j?.data ?? []
@@ -45,15 +57,52 @@ document.addEventListener('alpine:init', () => {
         this.mp = chat.provider
         this.mid = chat.modelId
       } else {
-        const ok = this.keys.find(k => k.testStatus === 'ok')
+        const ok = this.keys.find(k => k.testStatus === 'ok' && this._isLLM(k.provider))
         if (ok) { this.mp = ok.provider; this.mid = this._modelsFor(ok.provider)[0] ?? '' }
       }
     },
 
-    okProviders()       { return [...new Set(this.keys.filter(k => k.testStatus === 'ok').map(k => k.provider))] },
-    _modelsFor(p)       { return this.keys.find(k => k.provider === p && k.testStatus === 'ok')?.modelsFound ?? [] },
-    modelsForMP()       { return this._modelsFor(this.mp) },
-    needsURL()          { return this.ap === 'ollama' || this.ap === 'custom' },
+    // ── Provider lookups (driven by providersMeta) ───────────────────
+    _providerMeta(name) { return this.providersMeta.find(p => p.name === name) },
+    _isLLM(name)        { return this._providerMeta(name)?.category === 'llm' },
+    _isSearch(name)     { return this._providerMeta(name)?.category === 'search' },
+
+    // llmProviders / searchProviders feed the optgroups in the add-key
+    // dropdown. Default sort order from the backend is alphabetical.
+    //
+    // llmProviders / searchProviders 给 add-key 下拉 optgroup 用。后端默认按
+    // 字母序排。
+    llmProviders()    { return this.providersMeta.filter(p => p.category === 'llm') },
+    searchProviders() { return this.providersMeta.filter(p => p.category === 'search') },
+
+    // okProviders feeds the Chat Model picker — search providers are
+    // filtered out since they don't return models (testSearchPing only
+    // verifies connectivity).
+    //
+    // okProviders 给 Chat Model picker 用——过滤掉搜索 provider，它们不返
+    // 模型（testSearchPing 只验连通）。
+    okProviders() {
+      return [...new Set(
+        this.keys
+          .filter(k => k.testStatus === 'ok' && this._isLLM(k.provider))
+          .map(k => k.provider)
+      )]
+    },
+    _modelsFor(p)   { return this.keys.find(k => k.provider === p && k.testStatus === 'ok')?.modelsFound ?? [] },
+    modelsForMP()   { return this._modelsFor(this.mp) },
+    needsURL()      { return this._providerMeta(this.ap)?.baseUrlRequired === true },
+
+    // providerLabel renders "DisplayName (name)" for dropdown options
+    // when displayName differs meaningfully from name; otherwise just
+    // the name.
+    //
+    // providerLabel 给下拉项渲染 "DisplayName (name)"，displayName 与 name
+    // 实质不同时才用括号备注；否则只显示 name。
+    providerLabel(p) {
+      if (!p) return ''
+      if (!p.displayName || p.displayName === p.name) return p.name
+      return `${p.displayName} (${p.name})`
+    },
 
     async addKey() {
       if (!this.akey.trim()) return

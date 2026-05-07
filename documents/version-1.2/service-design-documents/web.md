@@ -13,7 +13,7 @@
 
 ## 1. 一句话
 
-LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（3 层 fallback 公网搜索，零用户配置）。两者共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebFetch 走 `web_summary` 模型场景（未配则透明 fallback 到 chat 场景）。
+LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（BYOK → MCP → Bing CN 三层路由）。两者共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebFetch 走 `web_summary` 模型场景（未配则透明 fallback 到 chat 场景）。
 
 ---
 
@@ -42,12 +42,16 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 ```
 触发源：LLM 调 WebSearch(query)
   → ValidateInput: query 非空 / limit ≥0
-  → 3 层 fallback ladder:
-      Tier 1: SearXNG 公共池（随机洗牌 + JSON 解析） — 任一实例返非空即用
-      Tier 2: Bing HTML 抓（www.bing.com） — html visitor 解析 b_algo li
-      Tier 3: Bing CN HTML 抓（cn.bing.com） — 大陆兜底
+  → 3 层路由 ladder:
+      Tier 1: BYOK — 按 apikeydomain.SearchProviderPriority 顺序遍历
+              brave / serper / tavily / bocha；ResolveCredentials 拿到 key
+              即调对应 API（search_byok.go），调挂 warn log 落下层
+      Tier 2: MCP — 检查 duckduckgo-search MCP server 已 ready；
+              路由 mcp.CallTool 调 search 工具（searchrouter.go）；
+              未配置静默降级，调挂 warn log 降级
+      Tier 3: Bing CN HTML 抓（cn.bing.com） — 国内国际通用兜底，零配置
       每后端 10 秒墙钟；任一 tier 返非空 results 即终止
-  → JSON: {query, source(searxng|bing|bing_cn), results[{title,url,snippet}], truncated}
+  → JSON: {query, source(brave|serper|tavily|bocha|mcp|bing_cn), results[{title,url,snippet}], truncated}
 ```
 
 **端到端跨 domain 依赖**：
@@ -55,8 +59,9 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 - `domain/model.ScenarioWebSummary` + `ModelPicker.PickForWebSummary`（W1 模型层支持）
 - `domain/apikey.KeyProvider`（解析 API key）
 - `infra/llm.Factory.Build`（构造 LLM client）
-- 第三方：`golang.org/x/net/html`（Bing 解析，唯一第三方依赖）
-- env: `JINA_API_KEY`（可选，提速率档）/ `FORGIFY_SEARXNG_INSTANCES`（可选 SearXNG 实例池覆盖）
+- 第三方：`golang.org/x/net/html`（Bing CN 解析，唯一第三方依赖）
+- env: `JINA_API_KEY`（可选，提速率档）
+- 跨 domain 服务：`app/mcp.SearchRouter`（main.go 注入，wraps mcp.Service.CallTool）
 - 无 DB / SSE / HTTP API
 
 ---
@@ -67,8 +72,9 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 |---|---|---|
 | WebFetch 抓取策略 | **两段：Jina r.jina.ai → 直 GET fallback** | Jina 把任意网页转干净 markdown（免费层无 key），直 GET 兜底 Jina 限流 / down |
 | WebFetch 摘要 LLM | **新增 `web_summary` scenario**，未配 fallback `chat` 场景 | 抓到的网页可能很长（1MB cap），用户可指定省钱模型（如 4o-mini）；不强制配置（透明 fallback）|
-| WebSearch BYOK 策略 | **不要 BYOK**——3 层公共后端 fallback | 单用户本地不强制配 Tavily / Bing API key；维护风险换易用性（决策 D8，详 02-tools-deep/04-web.md）|
-| WebSearch SearXNG 池 | 精选 4 实例 + 随机洗牌；env `FORGIFY_SEARXNG_INSTANCES` 覆盖 | 公共池常变；用户可指自家实例稳定运行；随机分散负载 |
+| WebSearch 路由策略 | **BYOK → MCP → Bing CN 三层** | 屎山拯救计划 #4 (2026-05-07)：原 SearXNG 公共池常挂 + Bing 国际版被墙 + HTML 抓取脆弱 → 删掉换路由架构；BYOK 走 apikey 域（4 provider：brave / serper / tavily / bocha）；MCP 复用 marketplace 里 duckduckgo-search 条目；Bing CN 兜底（国内国际都能用）|
+| 搜索 provider 列表 | brave / serper / tavily / **bocha** | bocha 是博查 API，国产搜索（国内免 VPN，海外慢）；priority 顺序写在 domain/apikey/SearchProviderPriority |
+| MCP 路由 server 名 | hardcoded "duckduckgo-search" | V1 marketplace 唯一搜索类 MCP；将来真有第二个时升级到 Capability-based discovery |
 | WebSearch Bing 解析 | **html visitor**（`x/net/html`）非 regex | Bing 偶尔加包装 div / 改属性顺序；regex 容易失效；visitor 跟随 `<li class="b_algo">` 子树更稳健 |
 | Bing snippet fallback | b_caption 缺失时取 `<li>` 内首个 `<p>` | 实测 Bing 偶尔丢 b_caption 包装 |
 | SSRF 守卫策略 | **解析所有 IP，任一禁区即拒**（DNS rebinding 防御）+ **逐跳重定向校验** | 单纯入口校验会被 302→localhost 绕过（**Tool 自检 batch 1 修的真 bug**）；现 `fetchClient.CheckRedirect = ssrfCheckRedirect` 每跳重跑 |
@@ -132,7 +138,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 - `source`：`"searxng"` / `"bing"` / `"bing_cn"` —— 让 LLM 知道走的哪 tier
 - `truncated`：`true` 表示原始结果数 > limit
 - 全部 tier 失败 → `All search backends failed. Last error: <err>`
-- 全部 tier 零结果 → `No results for "<query>" across SearXNG, Bing, and Bing CN.`
+- 全部 tier 零结果 → `No results for "<query>" across configured BYOK providers, MCP, and Bing CN. Add a search-category API key in Settings → API Keys (Brave / Serper / Tavily / Bocha) or install the duckduckgo-search MCP server for higher-quality results.`
 
 **静态元数据**：`IsReadOnly=true` / `NeedsReadFirst=false` / `RequiresWorkspace=false`
 

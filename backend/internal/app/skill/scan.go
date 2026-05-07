@@ -12,11 +12,14 @@ package skill
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -32,69 +35,109 @@ import (
 // catalog); the call only returns top-level errors (skillsDir missing,
 // I/O failure on the dir itself).
 //
-// After a successful scan, publishes the SSE 'skill' snapshot.
+// Computes a fingerprint of the loaded set and only publishes the SSE
+// 'skill' snapshot when it differs from the prior fingerprint — this
+// keeps the 1s polling loop quiet during the ~99% of ticks where nothing
+// user-visible changed.
 //
 // Scan 走 skillsDir，解析每个 SKILL.md，校验各自的 frontmatter，整体替换
 // 内存缓存。per-skill 错误 log + 跳过（一个坏 skill 不能让 catalog 静默）；
-// 仅 top-level 错误（skillsDir 缺、目录 I/O 失败）才返回。成功后发 SSE
-// 'skill' 快照。
+// 仅 top-level 错误（skillsDir 缺、目录 I/O 失败）才返回。算 fingerprint，
+// 与上次不同才发 SSE，让 1s 轮询在 ~99% 无变化的 tick 上保持安静。
 func (s *Service) Scan(ctx context.Context) error {
 	if s.skillsDir == "" {
 		return fmt.Errorf("skillapp.Scan: skillsDir is empty")
 	}
 
-	// Missing dir is benign (user just hasn't installed any skills) —
-	// reset cache to empty + return nil so downstream code (catalog,
-	// search) sees a valid empty list.
-	// 目录缺无害（用户还没装 skill）——重置 cache 为空 + 返 nil 让下游
-	// （catalog / search）看到有效空列表。
-	if _, err := os.Stat(s.skillsDir); errors.Is(err, fs.ErrNotExist) {
-		s.mu.Lock()
-		s.skills = map[string]*skilldomain.Skill{}
-		s.mu.Unlock()
-		s.publishSnapshot(ctx)
-		return nil
-	}
-
-	entries, err := os.ReadDir(s.skillsDir)
-	if err != nil {
-		return fmt.Errorf("skillapp.Scan: read skillsDir: %w", err)
-	}
-
 	loaded := map[string]*skilldomain.Skill{}
-	for _, ent := range entries {
-		if !ent.IsDir() {
-			// Top-level files are ignored — skill format is one-dir-per-skill.
-			// 顶层文件忽略——skill 格式 one-dir-per-skill。
-			continue
-		}
-		dir := filepath.Join(s.skillsDir, ent.Name())
-		sk, err := s.parseSkillDir(dir)
+
+	// Missing dir is benign (user just hasn't installed any skills) —
+	// keep loaded empty and fall through to the cache-replace + publish
+	// path so downstream (catalog, search) sees a valid empty list.
+	// 目录缺无害（用户还没装 skill）——loaded 留空走到 cache 替换 + 发布路径，
+	// 让下游（catalog / search）看到有效空列表。
+	if _, err := os.Stat(s.skillsDir); !errors.Is(err, fs.ErrNotExist) {
+		entries, err := os.ReadDir(s.skillsDir)
 		if err != nil {
-			s.log.Warn("skill skipped",
-				zap.String("dir", dir), zap.Error(err))
-			continue
+			return fmt.Errorf("skillapp.Scan: read skillsDir: %w", err)
 		}
-		if existing, dup := loaded[sk.Name]; dup {
-			// Duplicate frontmatter.name across two dirs — the first one
-			// wins (alpha order from ReadDir on most fs); log the
-			// rejected one with both paths for the user to deconflict.
-			// 两目录 frontmatter.name 重——首个胜出（多数 fs 字母序）；
-			// log 被拒条目含两路径让用户去重。
-			s.log.Warn("skill name collision; later one ignored",
-				zap.String("name", sk.Name),
-				zap.String("kept", existing.DirPath),
-				zap.String("rejected", dir))
-			continue
+		for _, ent := range entries {
+			if !ent.IsDir() {
+				// Top-level files are ignored — skill format is one-dir-per-skill.
+				// 顶层文件忽略——skill 格式 one-dir-per-skill。
+				continue
+			}
+			dir := filepath.Join(s.skillsDir, ent.Name())
+			sk, err := s.parseSkillDir(dir)
+			if err != nil {
+				s.log.Warn("skill skipped",
+					zap.String("dir", dir), zap.Error(err))
+				continue
+			}
+			if existing, dup := loaded[sk.Name]; dup {
+				// Duplicate frontmatter.name across two dirs — the first one
+				// wins (alpha order from ReadDir on most fs); log the
+				// rejected one with both paths for the user to deconflict.
+				// 两目录 frontmatter.name 重——首个胜出（多数 fs 字母序）；
+				// log 被拒条目含两路径让用户去重。
+				s.log.Warn("skill name collision; later one ignored",
+					zap.String("name", sk.Name),
+					zap.String("kept", existing.DirPath),
+					zap.String("rejected", dir))
+				continue
+			}
+			loaded[sk.Name] = sk
 		}
-		loaded[sk.Name] = sk
 	}
 
+	fp := skillsFingerprint(loaded)
 	s.mu.Lock()
 	s.skills = loaded
 	s.mu.Unlock()
-	s.publishSnapshot(ctx)
+
+	last, _ := s.lastFP.Load().(string)
+	s.lastFP.Store(fp)
+	if last != fp {
+		s.publishSnapshot(ctx)
+	}
 	return nil
+}
+
+// skillsFingerprint hashes (name + frontmatter YAML) for every loaded
+// skill in sorted name order. Frontmatter is the user-visible surface
+// (description, allowed_tools, context, agent) — body changes are
+// invisible in the SSE snapshot so we deliberately exclude them, which
+// keeps the polling loop quiet during pure body edits.
+//
+// skillsFingerprint 按 name 排序后 hash 每个 skill 的 (name + frontmatter
+// YAML)。frontmatter 是用户可见面（description / allowed_tools / context /
+// agent）——body 变化在 SSE 快照不可见，故意不入 hash，让轮询在纯 body 编辑
+// 时也保持安静。
+func skillsFingerprint(skills map[string]*skilldomain.Skill) string {
+	names := make([]string, 0, len(skills))
+	for n := range skills {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	h := sha256.New()
+	for _, n := range names {
+		fmtBytes, err := yaml.Marshal(&skills[n].Frontmatter)
+		if err != nil {
+			// yaml.Marshal of a plain struct does not fail in practice;
+			// hash the name alone so a transient marshal hiccup at most
+			// causes one redundant publish, never a panic.
+			// yaml.Marshal 普通 struct 实践不会 fail；marshal 抖动至多多发一
+			// 次冗余 publish，绝不 panic。
+			h.Write([]byte(n))
+			h.Write([]byte{0})
+			continue
+		}
+		h.Write([]byte(n))
+		h.Write([]byte{0})
+		h.Write(fmtBytes)
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // parseSkillDir reads <dir>/SKILL.md, splits frontmatter from body,

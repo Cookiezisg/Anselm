@@ -118,39 +118,18 @@ func (h *subagentHost) Tools() []toolapp.Tool {
 }
 
 // Publish emits a snapshot-only chat.message with the SubagentRun snapshot
-// embedded. Lazily creates the streaming assistant row on first call so
-// the row is present in the transcript and on disk; subsequent calls
-// refine its Blocks via UpdateMessage (best-effort — failures warn but
-// don't block the sub-runner).
+// embedded. The streaming assistant row is created lazily on first call;
+// subsequent calls only refine in-memory (no UpdateMessage — that would
+// thrash SQLite under per-token streaming).
 //
-// Publish 推送一次 snapshot-only chat.message，嵌入 SubagentRun 快照。首次
-// 调用懒建 streaming assistant 行（让 transcript + 磁盘上有该行）；后续
-// 调用经 UpdateMessage 精化 Blocks（best-effort——失败 warn 不挡 sub-runner）。
+// Publish 推送一次 snapshot-only chat.message，嵌入 SubagentRun 快照。
+// streaming assistant 行首次调用时懒建；后续仅 in-memory 精化（不 UpdateMessage
+// ——per-token 流式下会把 SQLite 写炸）。
 func (h *subagentHost) Publish(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	h.msgMu.Lock()
 	defer h.msgMu.Unlock()
-	if h.streaming == nil {
-		h.streaming = &subagentdomain.SubagentMessage{
-			ID:            idgenpkg.New("smm"),
-			SubagentRunID: h.run.ID,
-			Role:          subagentdomain.RoleAssistant,
-			Blocks:        h.cloneBlocks(blocks),
-			PromptTokens:  in,
-			CompletionTokens: out,
-			CreatedAt:     time.Now().UTC(),
-		}
-		// AppendMessage assigns Seq inside the store transaction.
-		// AppendMessage 在 store 事务内分配 Seq。
-		if err := h.svc.repo.AppendMessage(ctx, h.streaming); err != nil {
-			h.svc.log.Warn("subagent streaming message create failed",
-				zap.String("run_id", h.run.ID), zap.Error(err))
-			h.streaming = nil
-			return
-		}
-	} else {
-		h.streaming.Blocks = h.cloneBlocks(blocks)
-		h.streaming.PromptTokens = in
-		h.streaming.CompletionTokens = out
+	if !h.ensureStreamingRow(ctx, blocks, in, out, false /*persistRefine*/, false /*fatal*/) {
+		return
 	}
 	h.refreshRunFromBlocks(in, out, blocks)
 	h.publishChatMessage(ctx, h.streaming, status, stopReason, errCode, errMsg)
@@ -164,33 +143,8 @@ func (h *subagentHost) Publish(ctx context.Context, blocks []chatdomain.Block, s
 func (h *subagentHost) WriteCheckpoint(ctx context.Context, blocks []chatdomain.Block, in, out int) {
 	h.msgMu.Lock()
 	defer h.msgMu.Unlock()
-	if h.streaming == nil {
-		// No streaming row yet — Publish wasn't called for this step.
-		// Create it now so the checkpoint isn't lost.
-		// 还没 streaming 行——本步无 Publish。现在建，避免 checkpoint 丢失。
-		h.streaming = &subagentdomain.SubagentMessage{
-			ID:            idgenpkg.New("smm"),
-			SubagentRunID: h.run.ID,
-			Role:          subagentdomain.RoleAssistant,
-			Blocks:        h.cloneBlocks(blocks),
-			PromptTokens:  in,
-			CompletionTokens: out,
-			CreatedAt:     time.Now().UTC(),
-		}
-		if err := h.svc.repo.AppendMessage(ctx, h.streaming); err != nil {
-			h.svc.log.Warn("subagent checkpoint message create failed",
-				zap.String("run_id", h.run.ID), zap.Error(err))
-			h.streaming = nil
-			return
-		}
-	} else {
-		h.streaming.Blocks = h.cloneBlocks(blocks)
-		h.streaming.PromptTokens = in
-		h.streaming.CompletionTokens = out
-		if err := h.svc.repo.UpdateMessage(ctx, h.streaming); err != nil {
-			h.svc.log.Warn("subagent checkpoint persist failed",
-				zap.String("run_id", h.run.ID), zap.Error(err))
-		}
+	if !h.ensureStreamingRow(ctx, blocks, in, out, true /*persistRefine*/, false /*fatal*/) {
+		return
 	}
 	h.refreshRunFromBlocks(in, out, blocks)
 	// Token totals are visible to the parent through SubagentRun snapshot
@@ -203,10 +157,13 @@ func (h *subagentHost) WriteCheckpoint(ctx context.Context, blocks []chatdomain.
 // WriteFinalize persists the terminal message + emits its snapshot. Uses
 // a detached context for the persist so a cancelled parent doesn't lose
 // the terminal record. The publish uses the original ctx (cancellation
-// is fine for the snapshot — DB row is what matters).
+// is fine for the snapshot — DB row is what matters). The publish fires
+// even on persist failure so the UI always sees the terminal frame
+// (caller-fatal logging surfaces the lost-row incident).
 //
 // WriteFinalize 持久化终态消息 + 推快照。持久化用 detached ctx 防 parent
-// cancel 丢终态；publish 用原 ctx（snapshot 可丢，行才是关键）。
+// cancel 丢终态；publish 用原 ctx（snapshot 可丢，行才是关键）。即便持久化
+// 失败也照发 publish，让 UI 始终看到终态帧（fatal log 暴露丢行事故）。
 func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	saveCtx := context.Background()
 	if uid, err := reqctxpkg.RequireUserID(ctx); err == nil {
@@ -215,31 +172,83 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Bl
 
 	h.msgMu.Lock()
 	defer h.msgMu.Unlock()
-	if h.streaming == nil {
-		h.streaming = &subagentdomain.SubagentMessage{
-			ID:            idgenpkg.New("smm"),
-			SubagentRunID: h.run.ID,
-			Role:          subagentdomain.RoleAssistant,
-			Blocks:        h.cloneBlocks(blocks),
-			PromptTokens:  in,
-			CompletionTokens: out,
-			CreatedAt:     time.Now().UTC(),
-		}
-		if err := h.svc.repo.AppendMessage(saveCtx, h.streaming); err != nil {
-			h.svc.log.Error("CRITICAL: subagent terminal message create failed",
-				zap.String("run_id", h.run.ID), zap.Error(err))
-		}
-	} else {
-		h.streaming.Blocks = h.cloneBlocks(blocks)
-		h.streaming.PromptTokens = in
-		h.streaming.CompletionTokens = out
-		if err := h.svc.repo.UpdateMessage(saveCtx, h.streaming); err != nil {
-			h.svc.log.Error("CRITICAL: subagent terminal message persist failed",
-				zap.String("run_id", h.run.ID), zap.Error(err))
-		}
-	}
+	h.ensureStreamingRow(saveCtx, blocks, in, out, true /*persistRefine*/, true /*fatal*/)
 	h.refreshRunFromBlocks(in, out, blocks)
 	h.publishChatMessage(ctx, h.streaming, status, stopReason, errCode, errMsg)
+}
+
+// ensureStreamingRow is the shared body of Publish / WriteCheckpoint /
+// WriteFinalize: it lazily creates the streaming SubagentMessage row on
+// first call (AppendMessage) or refines its in-memory fields. When
+// persistRefine=true an existing row is also flushed via UpdateMessage
+// (Checkpoint + Finalize). When fatal=true persist failures log at Error
+// and the streaming pointer is preserved so the caller can still publish
+// a snapshot (Finalize semantics — UI must see the terminal frame).
+//
+// Returns true when the caller should proceed with publish; false when
+// non-fatal create failed and the streaming row had to be dropped (caller
+// returns early to retry on the next event).
+//
+// ensureStreamingRow 是 Publish/WriteCheckpoint/WriteFinalize 共用躯干：
+// 首次调用懒建 streaming SubagentMessage 行（AppendMessage）；之后改 in-memory
+// 字段。persistRefine=true 时已存在的行也走 UpdateMessage 落盘（Checkpoint +
+// Finalize）。fatal=true 时持久化失败 log Error + 保留 streaming 指针让调用方
+// 仍能发快照（Finalize 语义——UI 必须看到终态帧）。
+//
+// 返 true 表示调用方可继续 publish；返 false 表示非 fatal 时建行失败、streaming
+// 已置 nil，调用方早返让下次事件再试。
+func (h *subagentHost) ensureStreamingRow(ctx context.Context, blocks []chatdomain.Block, in, out int, persistRefine, fatal bool) bool {
+	if h.streaming == nil {
+		h.streaming = &subagentdomain.SubagentMessage{
+			ID:               idgenpkg.New("smm"),
+			SubagentRunID:    h.run.ID,
+			Role:             subagentdomain.RoleAssistant,
+			Blocks:           h.cloneBlocks(blocks),
+			PromptTokens:     in,
+			CompletionTokens: out,
+			CreatedAt:        time.Now().UTC(),
+		}
+		// AppendMessage assigns Seq inside the store transaction.
+		// AppendMessage 在 store 事务内分配 Seq。
+		if err := h.svc.repo.AppendMessage(ctx, h.streaming); err != nil {
+			h.logPersistErr("subagent streaming message create failed", err, fatal)
+			if !fatal {
+				// Non-fatal: drop the row so the next event retries Append.
+				// 非 fatal：扔行，下次事件重试 Append。
+				h.streaming = nil
+				return false
+			}
+			// Fatal (Finalize): keep streaming so publish carries the data.
+			// fatal（Finalize）：保留 streaming 让 publish 仍载有数据。
+		}
+		return true
+	}
+	h.streaming.Blocks = h.cloneBlocks(blocks)
+	h.streaming.PromptTokens = in
+	h.streaming.CompletionTokens = out
+	if persistRefine {
+		if err := h.svc.repo.UpdateMessage(ctx, h.streaming); err != nil {
+			h.logPersistErr("subagent message persist failed", err, fatal)
+		}
+	}
+	return true
+}
+
+// logPersistErr selects warn vs error severity for streaming-row persist
+// failures. fatal=true is reserved for terminal writes (WriteFinalize) where
+// loss is unrecoverable; warn is correct for mid-stream where the next event
+// will retry.
+//
+// logPersistErr 选 streaming 行持久化失败的 warn/error 严重度。fatal=true 仅用于
+// 终态写入（WriteFinalize），此时丢行不可恢复；中流走 warn——下次事件会重试。
+func (h *subagentHost) logPersistErr(msg string, err error, fatal bool) {
+	if fatal {
+		h.svc.log.Error("CRITICAL: "+msg,
+			zap.String("run_id", h.run.ID), zap.Error(err))
+		return
+	}
+	h.svc.log.Warn(msg,
+		zap.String("run_id", h.run.ID), zap.Error(err))
 }
 
 // ── helpers ──────────────────────────────────────────────────────────

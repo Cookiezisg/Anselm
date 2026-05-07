@@ -2,7 +2,7 @@
 
 **所属 Phase**：Phase 2（基础对话能力，第 1 个完成的 domain）
 **状态**：✅ 已实现（2026-04-24 全部 7 步完成 + 100+ 测试全绿 + curl 冒烟通过）
-**职责**：管理用户的 LLM provider API Key 凭证（存储、加密、测试连通性、按 provider 解析）
+**职责**：管理用户的 provider API Key 凭证（存储、加密、测试连通性、按 provider 解析）。包含 LLM provider（11 个生产 + 1 个 dev mock）+ **搜索 provider 4 个**（屎山拯救计划 #4 引入：brave / serper / tavily / bocha）。两类共用同一套加密 + 存储 + UI；通过 ProviderMeta.Category 字段（CategoryLLM / CategorySearch）区分
 **依赖**：
 - `domain/crypto`（加密接口）+ `infra/crypto.AESGCMEncryptor`（AES-GCM 实现，`v1:` 前缀密文）
 - `infra/db`（GORM 底层）+ `pkg/reqctx`（userID ctx 读取）
@@ -37,7 +37,8 @@
 |---|---|---|
 | apikey vs model 是否分 domain | **分离** | apikey 管凭证、model 管"哪个场景用哪个模型"策略，职责清晰 |
 | 多租户 user_id | **从 V1 就引入** | 每表带 `user_id`，Phase 2 暂时硬编码 `local-user`；未来加 auth 只需改 middleware |
-| Provider 列表 | **硬编码白名单** | 11 个；新 provider 需要代码改动（适配 base_url / 测试逻辑） |
+| Provider 列表 | **硬编码白名单** | 11 LLM 生产 + 1 LLM dev mock + 4 搜索（共 16）；新 provider 需要代码改动（适配 base_url / 测试逻辑） |
+| Category 字段 | LLM / Search 二选一 | 屎山拯救计划 #4 加：让前端"API Keys"页能分组展示；后端 WebSearch 按 SearchProviderPriority 找 BYOK 时只关心 Search 类（不会误把 LLM key 当搜索 key）|
 | base_url 校验 | **app 层（Service）** | 不在 DB 层 CHECK（scenario 白名单同理，保灵活性）|
 | Key 失效反馈 | **`test_status=error` 标记**（Phase 2）+ 未来可加事件 | 现阶段足够；chat 时流式响应可推 `chat.error` |
 | Tester 实现方式 | **hand-rolled HTTP**（`net/http`）| 探测要最便宜（不付 LLM token 费用）；要区分 401/网络/5xx 等错误；Anthropic 1-token ping / Google query-string key / Ollama 无 auth 各有特殊性，单一抽象会丢信息 |
@@ -65,9 +66,11 @@
 
 ---
 
-## 4. Provider 白名单（11 个）
+## 4. Provider 白名单（11 LLM + 1 mock + 4 搜索）
 
-代码位置：`internal/domain/apikey/providers.go`
+代码位置：`internal/app/apikey/providers.go`（ProviderMeta 表 + Category 字段）；`internal/domain/apikey/apikey.go`（SearchProviderPriority）
+
+### LLM providers（Category: CategoryLLM）
 
 | Provider | 分类 | base_url 必填 | 默认 base_url | TestMethod 枚举 |
 |---|---|---|---|---|
@@ -82,6 +85,18 @@
 | `doubao` | 国产（字节）| 否 | `https://ark.cn-beijing.volces.com/api/v3` | `TestMethodGetModels` |
 | `ollama` | 本地 | **✅ 必填** | — | `TestMethodOllamaTags` |
 | `custom` | 兜底 | **✅ 必填** | — | `TestMethodCustom`（测试时按 APIFormat 二选一）|
+| `mock` | dev | 否 | — | `TestMethodAlwaysOK`（dev-only，testend Mock LLM tab 用）|
+
+### Search providers（Category: CategorySearch）
+
+WebSearch 按 `SearchProviderPriority = [brave, serper, tavily, bocha]` 顺序遍历，第一个配了 key 且调用返非空的胜出。所有 4 个共用 `TestMethodSearchPing`，tester.go 内按 provider 名分派到各自轻量 1-result 探测。
+
+| Provider | 分类 | base_url 必填 | 默认 base_url | 认证方式 | 免费档 |
+|---|---|---|---|---|---|
+| `brave` | 国际 | 否 | `https://api.search.brave.com/res/v1` | `X-Subscription-Token` 头 | 2000 次/月 |
+| `serper` | 国际（Google 结果代理）| 否 | `https://google.serper.dev` | `X-API-KEY` 头 | 2500 次免费 |
+| `tavily` | 国际（AI agent 调优）| 否 | `https://api.tavily.com` | `api_key` 在 JSON body | 1000 次/月 |
+| `bocha` | 国产（博查）| 否 | `https://api.bochaai.com/v1` | `Authorization: Bearer` 头 | 国内免 VPN，海外慢 |
 
 ### ProviderMeta（实际代码）
 

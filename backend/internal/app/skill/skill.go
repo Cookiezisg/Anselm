@@ -1,8 +1,8 @@
 // Package skill is the service layer for Skill — Anthropic's Agent Skills
 // abstraction. Owns skill discovery (~/.forgify/skills/* scan), the
 // metadata cache, search ranking, Activate's body-load + placeholder
-// substitution, and the fork-mode dispatch into SubagentService. fsnotify
-// + the SSE 'skill' event live in watcher.go (D7-4).
+// substitution, and the fork-mode dispatch into SubagentService. The 1s
+// polling loop + SSE 'skill' event live in polling.go.
 //
 // Per skill.md design:
 //   - L1 (metadata) injected eagerly at startup via Scan
@@ -18,8 +18,8 @@
 //
 // Package skill（app/skill）是 Skill 服务层。持 skill 发现（~/.forgify/
 // skills/* 扫描）、元数据缓存、search 排序、Activate 的 body 加载 + 占位
-// 替换、fork 模式 SubagentService 派发。fsnotify + SSE 'skill' 事件在
-// watcher.go（D7-4）。
+// 替换、fork 模式 SubagentService 派发。1s 轮询 + SSE 'skill' 事件在
+// polling.go。
 //
 // 设计：L1 元数据启动时 Scan eager 注入；L2 body LLM 调 activate_skill
 // 时按需加载；L3 资源 LLM 自取（Read/Bash），允许 tool 由 framework
@@ -33,6 +33,7 @@ import (
 	"context"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 
@@ -57,12 +58,11 @@ type SubagentService interface {
 
 // Service ties the disk scan, metadata cache, search/activate dispatch,
 // and fork-mode subagent integration together. Constructed once in
-// main.go; Scan must be called before any Get/Search/Activate (typically
-// from main.go bootstrap, then again from the watcher).
+// main.go; Start kicks off the bootstrap Scan + 1s polling goroutine.
 //
 // Service 把 disk 扫、元数据缓存、search/activate 派发、fork 模式
-// subagent 集成串起来。main.go 一次构造；任何 Get/Search/Activate 前必须
-// 至少调一次 Scan（典型：main.go bootstrap 调一次，watcher 后续按需调）。
+// subagent 集成串起来。main.go 一次构造；Start 触发 bootstrap Scan + 1s
+// 轮询 goroutine。
 type Service struct {
 	skillsDir   string
 	subagent    SubagentService
@@ -74,6 +74,23 @@ type Service struct {
 
 	mu     sync.RWMutex
 	skills map[string]*skilldomain.Skill
+
+	// lastFP tracks the most recent Scan's fingerprint so the polling
+	// loop can short-circuit publishSnapshot when nothing user-visible
+	// changed (~99% of ticks). Stored as string via atomic.Value.
+	//
+	// lastFP 存最近一次 Scan 的 fingerprint，让轮询循环在用户可见内容未变
+	// 时（~99% tick）跳过 publishSnapshot。string 经 atomic.Value 存。
+	lastFP atomic.Value
+
+	// stopCancel + stopOnce + pollDone manage the polling goroutine
+	// lifecycle (set by Start, drained by Stop).
+	//
+	// stopCancel + stopOnce + pollDone 管轮询 goroutine 生命周期
+	// （Start 设置，Stop 排空）。
+	stopCancel context.CancelFunc
+	stopOnce   sync.Once
+	pollDone   chan struct{}
 }
 
 // New constructs a Service. skillsDir is typically ~/.forgify/skills/;
@@ -108,10 +125,9 @@ func New(
 }
 
 // SkillsDir returns the absolute path the Service is scanning. Exposed
-// for the watcher (which needs it to add fsnotify watches) and tests.
+// for tests + handlers that need to know the on-disk root.
 //
-// SkillsDir 返 Service 在扫描的绝对路径。供 watcher（加 fsnotify watch）
-// 与测试用。
+// SkillsDir 返 Service 在扫描的绝对路径。供测试与需知磁盘根的 handler 用。
 func (s *Service) SkillsDir() string {
 	return s.skillsDir
 }

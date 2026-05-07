@@ -270,7 +270,13 @@ func New(t *testing.T, opts ...Option) *Harness {
 	)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard)...)
-	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory)...)
+	// WebTools wired without MCP router in pipeline harness — tests that
+	// need MCP routing should construct WebSearch directly with a fake
+	// MCPSearchRouter. nil router = no MCP tier (BYOK + Bing CN only).
+	//
+	// 测试 harness 不接 MCP router——需要 MCP 路由的测试自己构造 WebSearch
+	// + fake router。nil 路由器 = 无 MCP 层（仅 BYOK + Bing CN）。
+	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory, nil, log)...)
 	shells := shelltool.NewShellTools(sandboxSvc)
 	t.Cleanup(shells.Manager.Stop)
 	tools = append(tools, shells.Tools...)
@@ -317,18 +323,14 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	// Skill: per-test tempdir SkillsDir so we never touch real
 	// ~/.forgify/skills/. Tests that need skills installed seed them
-	// into h.Skill.SkillsDir() then call h.Skill.Scan(ctx).
+	// into h.Skill.SkillsDir() then either call h.Skill.Scan(ctx) for
+	// immediate effect or rely on the 1s polling loop (D9 dynamic-update
+	// pattern).
 	//
 	// Skill：per-test tempdir SkillsDir，永不动真 ~/.forgify/skills/。
-	// 需 skill 的测试自己往 h.Skill.SkillsDir() 写 + 调 h.Skill.Scan。
+	// 需 skill 的测试自己往 h.Skill.SkillsDir() 写 + 调 h.Skill.Scan
+	// 立即生效，或靠 1s 轮询（D9 动态更新模式）。
 	skillsDir := filepath.Join(dataDir, "skills")
-	// Pre-create the dir so the fsnotify watcher can add a root watch
-	// at Start time (otherwise it logs 'no such file or directory' and
-	// only the 5min poll backstop catches subsequent edits — too slow
-	// for D9 dynamic-update tests).
-	//
-	// 预建目录让 fsnotify watcher 在 Start 时能加根 watch（否则它 log
-	// 'no such file or directory' + 仅 5min poll 兜底——D9 动态更新测试太慢）。
 	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
 		t.Fatalf("mkdir skills: %v", err)
 	}
@@ -341,19 +343,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 		llmFactory,
 		log,
 	)
-	if err := skillService.Scan(context.Background()); err != nil {
-		t.Logf("skill scan: %v", err)
+	if err := skillService.Start(context.Background()); err != nil {
+		t.Logf("skill start: %v", err)
 	}
-	// Skill fsnotify watcher: D9 dynamic-update tests rely on this
-	// firing in pipeline; goroutine ties to t.Cleanup ctx so it exits
-	// cleanly at test end.
-	//
-	// Skill fsnotify watcher：D9 动态更新测试依赖 pipeline 期间 fire；
-	// goroutine 绑 t.Cleanup ctx 让测试结束干净退出。
-	skillWatcher := skillapp.NewWatcher(skillService, log)
-	skillWatcherCtx, skillWatcherCancel := context.WithCancel(context.Background())
-	t.Cleanup(skillWatcherCancel)
-	go func() { _ = skillWatcher.Start(skillWatcherCtx) }()
+	t.Cleanup(skillService.Stop)
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
 	// Capability Catalog: per-test tempdir for the cache file so we
