@@ -54,6 +54,7 @@ import (
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	mcpinfra     "github.com/sunweilin/forgify/backend/internal/infra/mcp"
@@ -199,6 +200,7 @@ func main() {
 	)
 
 	chatRepo := chatstore.New(gdb)
+	chatEmitter := eventlogpkg.New(eventLogBridge, log)
 	chatService := chatapp.NewService(
 		chatRepo,
 		convstore.New(gdb),
@@ -206,6 +208,7 @@ func main() {
 		apikeyService,
 		llmFactory,
 		eventsBridge,
+		chatEmitter,
 		*dataDir,
 		log,
 	)

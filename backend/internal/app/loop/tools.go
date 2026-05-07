@@ -21,6 +21,8 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -90,6 +92,10 @@ func runTools(
 //
 // runOneTool 执行单个 tool 调用：ValidateInput → CheckPermissions → Execute，
 // 返回 tool_result block。永不返 error——失败以 ok=false 呈现让 LLM 可响应。
+//
+// 事件日志 dual-write：用 WithParentBlockID 包工具 Execute 的 ctx，让工具
+// 内部 emit（progress / 嵌套 LLM 文本）自动挂 tool_call block 下。Execute
+// 返回后 emit 一个直挂 tool_call 下的 tool_result block。
 func runOneTool(
 	ctx context.Context,
 	t toolapp.Tool,
@@ -99,7 +105,13 @@ func runOneTool(
 ) chatdomain.Block {
 	argsJSON, _ := json.Marshal(tc.Arguments)
 
+	// reqctx for tool internals: ToolCallID + ParentBlockID (= tool_call's
+	// block ID, which is the LLM tool-call ID per stream.go convention).
+	//
+	// 给工具内部用的 reqctx：ToolCallID + ParentBlockID（= tool_call 的
+	// block ID，按 stream.go 约定即 LLM 的 tool-call ID）。
 	toolCtx := reqctxpkg.WithToolCallID(ctx, tc.ID)
+	toolCtx = reqctxpkg.WithParentBlockID(toolCtx, tc.ID)
 
 	start := time.Now()
 	output, errMsg, ok := executeTool(toolCtx, t, tc.Name, argsJSON, log)
@@ -112,14 +124,45 @@ func runOneTool(
 		ErrorMsg:   errMsg,
 		ElapsedMs:  elapsedMs,
 	})
+
+	// Event-log emit: tool_result is a child of tool_call.
+	// 事件日志 emit：tool_result 是 tool_call 的子。
+	em := eventlogpkg.From(ctx)
+	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	resultBlockID := idgenpkg.New("blk")
+	if msgID != "" && tc.ID != "" {
+		em.EmitBlockStart(ctx, resultBlockID, tc.ID, msgID, eventlogdomain.BlockTypeToolResult, nil)
+		if output != "" {
+			em.DeltaBlock(ctx, resultBlockID, output)
+		}
+		status := eventlogdomain.StatusCompleted
+		var stopErr error
+		if !ok {
+			status = eventlogdomain.StatusError
+			if errMsg != "" {
+				stopErr = stringErr(errMsg)
+			}
+		}
+		em.StopBlock(ctx, resultBlockID, status, stopErr)
+	}
+
 	return chatdomain.Block{
-		ID:        idgenpkg.New("blk"),
+		ID:        resultBlockID,
 		Seq:       seq,
 		Type:      chatdomain.BlockTypeToolResult,
 		Data:      string(d),
 		CreatedAt: time.Now().UTC(),
 	}
 }
+
+// stringErr is a tiny error wrapper that lets us pass a string through
+// the (error)-typed StopBlock parameter without importing errors here.
+//
+// stringErr 是 string → error 的小包装，让我们能把字符串透到 StopBlock
+// 的 (error) 参数，免去本包 import errors。
+type stringErr string
+
+func (e stringErr) Error() string { return string(e) }
 
 // executeTool runs the pre-Execute hooks then Execute. Phase 3+ uses
 // PermissionModeDefault; Phase 4+ scheduler will pass real modes.

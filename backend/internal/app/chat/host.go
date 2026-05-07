@@ -14,6 +14,7 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -71,6 +72,36 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block,
 			"INTERNAL_ERROR", "failed to save assistant message to database", in, out)
 	}
 	h.svc.bridge.Publish(ctx, h.convID, eventsdomain.ChatMessage{Message: msg})
+
+	// Event-log dual-write: close the assistant message. Map chat status →
+	// eventlog status (the four enums align). All any open block_stops are
+	// already emitted by streamLLM before WriteFinalize fires.
+	//
+	// 事件日志 dual-write：关闭 assistant message。chat status → eventlog
+	// status 映射（四个枚举对齐）。streamLLM 已在 WriteFinalize 触发前关闭
+	// 所有打开的 block_stop。
+	h.svc.emitter.StopMessage(ctx, h.msgID, mapStatus(msg.Status),
+		msg.StopReason, msg.ErrorCode, msg.ErrorMessage,
+		msg.InputTokens, msg.OutputTokens)
+}
+
+// mapStatus translates chatdomain.Status* → eventlogdomain.Status*. The
+// four values align literally; this helper exists to make the dual-write
+// intent explicit at every call site.
+//
+// mapStatus 把 chatdomain.Status* → eventlogdomain.Status* 翻译。四值字面
+// 对齐；本 helper 让 dual-write 意图在每个 call site 显式。
+func mapStatus(s string) string {
+	switch s {
+	case chatdomain.StatusStreaming:
+		return eventlogdomain.StatusStreaming
+	case chatdomain.StatusError:
+		return eventlogdomain.StatusError
+	case chatdomain.StatusCancelled:
+		return eventlogdomain.StatusCancelled
+	default:
+		return eventlogdomain.StatusCompleted
+	}
 }
 
 // buildMessage constructs an assistant Message ready for persistence or

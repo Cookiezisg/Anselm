@@ -13,8 +13,11 @@ import (
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // toolAccum accumulates streaming fragments for one tool call.
@@ -44,6 +47,18 @@ const publishMinInterval = 16 * time.Millisecond
 //
 // streamLLM 执行一次 LLM 调用。parentBlocks 是之前 ReAct 步骤累积的 blocks
 // ——host 快照前置它们让订阅者始终看到 message-so-far。
+//
+// Event-log dual-write (Phase 2): also emits block_start / block_delta /
+// block_stop on the recursive-event-log Bridge alongside the legacy
+// snapshot path. text + reasoning blocks mint fresh blk_<id>; tool_call
+// blocks reuse the LLM's tool-call ID as the block ID (per design
+// event-log-protocol.md §3). On stream end / transition all open blocks
+// get closed with appropriate status.
+//
+// 事件日志 dual-write（Phase 2）：在 legacy snapshot 旁同时给递归事件日志
+// Bridge 推 block_start / block_delta / block_stop。text + reasoning 铸新
+// blk_<id>；tool_call 复用 LLM 的 tool-call ID 作 block ID（详
+// event-log-protocol.md §3）。流结束 / 切换时关闭所有 open block。
 func streamLLM(
 	ctx context.Context,
 	client llminfra.Client,
@@ -54,6 +69,30 @@ func streamLLM(
 	var textBuf, reasonBuf strings.Builder
 	accums := map[int]*toolAccum{}
 	stopReason = chatdomain.StopReasonEndTurn
+
+	// Event-log emit state. Block IDs persist across stream events so
+	// successive deltas reference the same block.
+	//
+	// 事件日志 emit 状态。Block ID 跨流事件持续，让连续 delta 引同一 block。
+	em := eventlogpkg.From(ctx)
+	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	var (
+		textBlockID, reasonBlockID string
+	)
+	toolBlockIDs := make(map[int]string)
+
+	closeText := func(status string) {
+		if textBlockID != "" {
+			em.StopBlock(ctx, textBlockID, status, nil)
+			textBlockID = ""
+		}
+	}
+	closeReason := func(status string) {
+		if reasonBlockID != "" {
+			em.StopBlock(ctx, reasonBlockID, status, nil)
+			reasonBlockID = ""
+		}
+	}
 
 	publishNow := func() {
 		current := assembleBlocks(textBuf.String(), reasonBuf.String(), accums)
@@ -84,10 +123,28 @@ func streamLLM(
 	for event := range client.Stream(ctx, req) {
 		switch event.Type {
 		case llminfra.EventText:
+			// Transition out of reasoning if it was open.
+			// 转出 reasoning（若开着）。
+			closeReason(eventlogdomain.StatusCompleted)
+			if textBlockID == "" && msgID != "" {
+				textBlockID = idgenpkg.New("blk")
+				em.EmitBlockStart(ctx, textBlockID, msgID, msgID, eventlogdomain.BlockTypeText, nil)
+			}
+			if textBlockID != "" {
+				em.DeltaBlock(ctx, textBlockID, event.Delta)
+			}
 			textBuf.WriteString(event.Delta)
 			publishThrottled()
 
 		case llminfra.EventReasoning:
+			closeText(eventlogdomain.StatusCompleted)
+			if reasonBlockID == "" && msgID != "" {
+				reasonBlockID = idgenpkg.New("blk")
+				em.EmitBlockStart(ctx, reasonBlockID, msgID, msgID, eventlogdomain.BlockTypeReasoning, nil)
+			}
+			if reasonBlockID != "" {
+				em.DeltaBlock(ctx, reasonBlockID, event.Delta)
+			}
 			reasonBuf.WriteString(event.Delta)
 			publishThrottled()
 
@@ -98,7 +155,15 @@ func streamLLM(
 			//
 			// tool_start 是低频里程碑（每 tool 调用一次，非每 token），
 			// 立即推，UI "running…" 无需等 16ms。
+			closeText(eventlogdomain.StatusCompleted)
+			closeReason(eventlogdomain.StatusCompleted)
 			accums[event.ToolIndex] = &toolAccum{id: event.ToolID, name: event.ToolName}
+			if msgID != "" && event.ToolID != "" {
+				toolBlockIDs[event.ToolIndex] = event.ToolID
+				em.EmitBlockStart(ctx, event.ToolID, msgID, msgID,
+					eventlogdomain.BlockTypeToolCall,
+					map[string]any{"tool": event.ToolName})
+			}
 			publishNow()
 			lastPublish = time.Now()
 			pendingPublish = false
@@ -106,6 +171,9 @@ func streamLLM(
 		case llminfra.EventToolDelta:
 			if a := accums[event.ToolIndex]; a != nil {
 				a.args.WriteString(event.ArgsDelta)
+				if id := toolBlockIDs[event.ToolIndex]; id != "" {
+					em.DeltaBlock(ctx, id, event.ArgsDelta)
+				}
 				publishThrottled()
 			}
 
@@ -130,6 +198,27 @@ func streamLLM(
 				}
 			}
 		}
+	}
+
+	// Close any still-open event-log blocks before returning. The status
+	// follows the stream's stopReason: cancelled → cancelled, error →
+	// error, otherwise → completed (which covers normal end_turn / tool
+	// transitions where the LLM finished delivering args).
+	//
+	// 返前关掉所有仍 open 的事件日志 block。状态跟随流 stopReason：取消 →
+	// cancelled，error → error，其他 → completed（覆盖正常 end_turn / tool
+	// 切换 LLM 完成 args 派发的情况）。
+	closeStatus := eventlogdomain.StatusCompleted
+	switch stopReason {
+	case chatdomain.StopReasonCancelled:
+		closeStatus = eventlogdomain.StatusCancelled
+	case chatdomain.StopReasonError:
+		closeStatus = eventlogdomain.StatusError
+	}
+	closeText(closeStatus)
+	closeReason(closeStatus)
+	for _, id := range toolBlockIDs {
+		em.StopBlock(ctx, id, closeStatus, nil)
 	}
 
 	if ctx.Err() != nil && stopReason == chatdomain.StopReasonEndTurn {

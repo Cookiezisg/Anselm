@@ -37,10 +37,12 @@ import (
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -86,6 +88,7 @@ type Service struct {
 	llmFactory  *llminfra.Factory
 	tools       []toolapp.Tool
 	bridge      eventsdomain.Bridge
+	emitter     eventlogpkg.Emitter // event-log Phase 2: dual-write Bridge alongside legacy bridge
 	dataDir     string
 	log         *zap.Logger
 	queues      sync.Map // conversationID → *convQueue
@@ -105,7 +108,14 @@ type Service struct {
 
 // NewService wires Service dependencies. Panics on nil logger.
 //
+// emitter is the event-log Emitter used for the dual-write protocol
+// (Phase 2). Pass a no-op emitter (or nil → falls back to no-op) when
+// the new bridge is not desired (legacy-only tests).
+//
 // NewService 装配依赖。nil logger 立刻 panic。
+//
+// emitter 是事件日志协议（Phase 2 dual-write）的 Emitter。不需要新
+// bridge 时传 no-op（或传 nil 回退到 no-op，遗留单测路径）。
 func NewService(
 	repo chatdomain.Repository,
 	convRepo convdomain.Repository,
@@ -113,6 +123,7 @@ func NewService(
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
 	bridge eventsdomain.Bridge,
+	emitter eventlogpkg.Emitter,
 	dataDir string,
 	log *zap.Logger,
 ) *Service {
@@ -122,6 +133,9 @@ func NewService(
 	if dataDir == "" {
 		dataDir = filepath.Join(os.TempDir(), "forgify")
 	}
+	if emitter == nil {
+		emitter = eventlogpkg.From(context.Background()) // no-op fallback
+	}
 	return &Service{
 		repo:        repo,
 		convRepo:    convRepo,
@@ -129,9 +143,42 @@ func NewService(
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
 		bridge:      bridge,
+		emitter:     emitter,
 		dataDir:     dataDir,
 		log:         log,
 	}
+}
+
+// emitUserMessage publishes the user message_start + each block + message_stop
+// to the new event-log bridge as a self-contained burst. User messages are
+// not streamed (saved synchronously in Send), so all five events fire at
+// once. Best-effort: any failure logs and continues — legacy bridge still
+// works for the message itself via the existing chat.message snapshot path.
+//
+// emitUserMessage 把 user message_start + 每个 block + message_stop 一次性
+// burst 推到新事件日志 bridge。user message 不是流式（Send 中同步落库），
+// 5 个事件一次性发完。Best-effort：失败 log 后继续——legacy bridge 通过
+// chat.message 快照路径仍能传 user message。
+func (s *Service) emitUserMessage(ctx context.Context, msg *chatdomain.Message) {
+	em := s.emitter
+	em.EmitMessageStart(ctx, msg.ID, msg.Role, "", nil)
+	for _, b := range msg.Blocks {
+		em.EmitBlockStart(ctx, b.ID, msg.ID, msg.ID, b.Type, nil)
+		// For text blocks, push the text as a single delta. Other types
+		// (attachment_ref) carry no streaming content — the metadata
+		// lives in attrs / DB row, not in delta text.
+		//
+		// 文本 block 把文本作为单条 delta 推。其他类型（attachment_ref）
+		// 无流式正文——元数据在 attrs / DB 行，不在 delta 文本里。
+		if b.Type == chatdomain.BlockTypeText {
+			var td chatdomain.TextData
+			if err := json.Unmarshal([]byte(b.Data), &td); err == nil && td.Text != "" {
+				em.DeltaBlock(ctx, b.ID, td.Text)
+			}
+		}
+		em.StopBlock(ctx, b.ID, eventlogdomain.StatusCompleted, nil)
+	}
+	em.StopMessage(ctx, msg.ID, eventlogdomain.StatusCompleted, "", "", "", 0, 0)
 }
 
 // SetTools injects system tools into the ReAct Agent.
@@ -240,6 +287,16 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err := s.repo.Save(ctx, userMsg); err != nil {
 		return "", err
 	}
+
+	// Event-log dual-write: emit the user message burst. Bridge needs
+	// conversationID via reqctx; ctx from the HTTP layer doesn't carry
+	// it, so we stamp here.
+	//
+	// 事件日志 dual-write：burst 推 user message。Bridge 经 reqctx 取
+	// conversationID；HTTP 层 ctx 不带，这里打。
+	emitCtx := reqctxpkg.WithConversationID(ctx, conversationID)
+	emitCtx = eventlogpkg.With(emitCtx, s.emitter)
+	s.emitUserMessage(emitCtx, userMsg)
 
 	agentCtx := reqctxpkg.SetUserID(context.Background(), uid)
 	agentCtx = reqctxpkg.SetLocale(agentCtx, reqctxpkg.GetLocale(ctx))

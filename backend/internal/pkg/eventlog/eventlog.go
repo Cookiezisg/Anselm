@@ -88,6 +88,26 @@ type Emitter interface {
 	// ctx 派生 parent 时用（例：tool framework 包装 Tool.Execute）。
 	StartBlockUnder(ctx context.Context, parentID, messageID, blockType string, attrs map[string]any) string
 
+	// EmitMessageStart publishes a message_start with caller-supplied id.
+	// Use when the message ID is already minted upstream (chat Service
+	// pre-mints msgID before launching loop.Run so the user sees the
+	// slot ID before any LLM token arrives).
+	//
+	// EmitMessageStart 用调用方提供的 id 推 message_start。msgID 上游已
+	// 铸时用（chat Service 启 loop.Run 前预铸，让用户在 LLM 第一个 token
+	// 到达前就看到 slot ID）。
+	EmitMessageStart(ctx context.Context, id, role, parentBlockID string, attrs map[string]any)
+
+	// EmitBlockStart publishes a block_start with caller-supplied id.
+	// Use when the block ID is already minted upstream (e.g. tool_call
+	// blocks reuse the LLM's tool-call ID; streamLLM mints text/reasoning
+	// block IDs at first token arrival so subsequent deltas reference them).
+	//
+	// EmitBlockStart 用调用方提供的 id 推 block_start。blockID 上游已铸
+	// 时用（例：tool_call 直接复用 LLM tool-call ID；streamLLM 在第一
+	// 个 token 到达时铸 text/reasoning block ID 让后续 delta 能引用）。
+	EmitBlockStart(ctx context.Context, id, parentID, messageID, blockType string, attrs map[string]any)
+
 	// DeltaBlock appends delta to blockID's content.
 	//
 	// DeltaBlock 给 blockID 的 content 追加 delta。
@@ -226,6 +246,46 @@ func (em *emitter) StartBlockUnder(ctx context.Context, parentID, messageID, blo
 	return blockID
 }
 
+func (em *emitter) EmitMessageStart(ctx context.Context, id, role, parentBlockID string, attrs map[string]any) {
+	convID, ok := em.requireConv(ctx, "EmitMessageStart")
+	if !ok {
+		return
+	}
+	if id == "" || role == "" {
+		em.log.Warn("emit skipped: empty id or role",
+			zap.String("op", "EmitMessageStart"))
+		return
+	}
+	em.publish(ctx, convID, eventlogdomain.MessageStart{
+		ConversationID: convID,
+		ID:             id,
+		ParentBlockID:  parentBlockID,
+		Role:           role,
+		Attrs:          attrs,
+	})
+}
+
+func (em *emitter) EmitBlockStart(ctx context.Context, id, parentID, messageID, blockType string, attrs map[string]any) {
+	convID, ok := em.requireConv(ctx, "EmitBlockStart")
+	if !ok {
+		return
+	}
+	if id == "" || parentID == "" || messageID == "" {
+		em.log.Warn("emit skipped: empty id / parent / message",
+			zap.String("op", "EmitBlockStart"),
+			zap.String("blockType", blockType))
+		return
+	}
+	em.publish(ctx, convID, eventlogdomain.BlockStart{
+		ConversationID: convID,
+		ID:             id,
+		ParentID:       parentID,
+		MessageID:      messageID,
+		BlockType:      blockType,
+		Attrs:          attrs,
+	})
+}
+
 func (em *emitter) DeltaBlock(ctx context.Context, blockID, delta string) {
 	convID, ok := em.requireConv(ctx, "DeltaBlock")
 	if !ok {
@@ -322,6 +382,9 @@ func (noopEmitter) StopMessage(context.Context, string, string, string, string, 
 func (noopEmitter) StartBlock(context.Context, string, map[string]any) string { return "" }
 func (noopEmitter) StartBlockUnder(context.Context, string, string, string, map[string]any) string {
 	return ""
+}
+func (noopEmitter) EmitMessageStart(context.Context, string, string, string, map[string]any) {}
+func (noopEmitter) EmitBlockStart(context.Context, string, string, string, string, map[string]any) {
 }
 func (noopEmitter) DeltaBlock(context.Context, string, string)        {}
 func (noopEmitter) StopBlock(context.Context, string, string, error)  {}

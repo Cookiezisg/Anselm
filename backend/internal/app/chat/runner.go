@@ -19,9 +19,11 @@ import (
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -86,6 +88,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	}()
 	agentCtx = reqctxpkg.WithConversationID(agentCtx, conversationID)
 	agentCtx = reqctxpkg.WithAgentState(agentCtx, q.agentState)
+	agentCtx = eventlogpkg.With(agentCtx, s.emitter)
 
 	// Allocate the assistant msgID up front so pre-LLM errors emit a stub
 	// assistant Message — every chat.message event must carry a real Message.
@@ -94,6 +97,14 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	// （chat.message 必须承载真实 Message）。
 	msgID := newMsgID()
 	agentCtx = reqctxpkg.WithMessageID(agentCtx, msgID)
+
+	// Event-log: open the assistant message slot on the new bridge so
+	// streamLLM-emitted block_start events have a valid parent. Top-level
+	// assistant message (parent_block_id="").
+	//
+	// 事件日志：在新 bridge 上开 assistant message 槽，让 streamLLM 推的
+	// block_start 有合法 parent。顶层 assistant message（parent_block_id=""）。
+	s.emitter.EmitMessageStart(agentCtx, msgID, chatdomain.RoleAssistant, "", nil)
 
 	bc, err := llmclientpkg.Resolve(agentCtx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
@@ -160,6 +171,11 @@ func (s *Service) emitFatalError(
 			zap.String("msg_id", msgID), zap.Error(err))
 	}
 	s.bridge.Publish(ctx, conv.ID, eventsdomain.ChatMessage{Message: msg})
+
+	// Event-log dual-write: close the assistant message with error.
+	// 事件日志 dual-write：以 error 关闭 assistant message。
+	s.emitter.StopMessage(ctx, msgID, eventlogdomain.StatusError,
+		chatdomain.StopReasonError, code, message, 0, 0)
 }
 
 // ── System prompt & helpers ───────────────────────────────────────────────────

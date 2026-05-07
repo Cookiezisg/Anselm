@@ -255,7 +255,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 		apikeyService,
 		llmFactory,
 		bridge,
-		"", // dataDir empty: tests don't write attachment files
+		nil, // emitter: no-op fallback in tests (Phase 2 dual-write inactive in legacy harness)
+		"",  // dataDir empty: tests don't write attachment files
 		log,
 	)
 
