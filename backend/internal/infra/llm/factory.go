@@ -83,6 +83,10 @@ func (f *Factory) Build(cfg Config) (Client, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
+	// Step 1: pick the underlying wire client based on protocol family.
+	// Anthropic-native vs OpenAI-compat is the only real fork.
+	// Step 1：按协议族挑底层 wire client。Anthropic-native vs OpenAI-compat
+	// 是仅有的真正分叉。
 	var client Client
 	switch cfg.Provider {
 	case "anthropic":
@@ -98,44 +102,39 @@ func (f *Factory) Build(cfg Config) (Client, string, error) {
 	default:
 		client = f.openai
 	}
+	// Step 2: wrap in adapter so per-provider hooks (BeforeRequest /
+	// AfterStreamEvent) fire for every Stream call. Most adapters are
+	// no-ops today; they're here so future provider-specific quirks
+	// (e.g. Moonshot temperature clamping) plug in without touching
+	// factory.go again.
+	// Step 2：包 adapter 让 per-provider 钩子（BeforeRequest /
+	// AfterStreamEvent）在每次 Stream 时触发。当前多数 no-op；放在这里
+	// 让未来 provider quirk（如 Moonshot 温度 clamp）插入时不用再改 factory。
+	client = &adapterWrappedClient{inner: client, adapter: lookupAdapter(cfg.Provider)}
+	// Step 3: outer recording wrapper (--dev tracing only).
+	// Step 3：外层 recording 包装（仅 --dev tracing）。
 	if f.tracer != nil {
 		client = &recordingClient{inner: client, recorder: f.tracer}
 	}
 	return client, baseURL, nil
 }
 
-// resolveBaseURL returns cfg.BaseURL when set, or the provider's default.
+// resolveBaseURL returns cfg.BaseURL when set, or the adapter's default.
+// Adapters owning provider metadata replaces the per-provider switch that
+// used to live here (see adapter.go).
 //
-// resolveBaseURL 有 cfg.BaseURL 时直接返回，否则返回 provider 默认值。
+// resolveBaseURL 有 cfg.BaseURL 时直接返回，否则按 Adapter 取默认值。
+// Adapter 持有 provider 元数据，替代原来散在这里的 switch（见 adapter.go）。
 func resolveBaseURL(cfg Config) (string, error) {
 	if cfg.BaseURL != "" {
 		return cfg.BaseURL, nil
 	}
-	switch cfg.Provider {
-	case "openai":
-		return "https://api.openai.com/v1", nil
-	case "anthropic":
-		// Anthropic client appends /v1/messages itself; base is just the host.
-		// Anthropic client 自行拼接 /v1/messages，这里只给 host。
-		return "https://api.anthropic.com", nil
-	case "ollama":
-		return "http://localhost:11434/v1", nil
-	case "deepseek":
-		return "https://api.deepseek.com/v1", nil
-	case "qwen", "tongyi":
-		return "https://dashscope.aliyuncs.com/compatible-mode/v1", nil
-	case "moonshot":
-		return "https://api.moonshot.cn/v1", nil
-	case "mock":
-		// Mock provider is in-process; BaseURL is unused by MockClient.
-		// Return an obvious sentinel so log lines + admin views surface
-		// 'this LLM is faked' without scattering 'mock' specials elsewhere.
-		// mock provider in-process；MockClient 不用 BaseURL。返显眼哨兵让
-		// log + 管理页面看到"这是假 LLM"，不必到处加 'mock' 特例。
-		return "mock://in-process", nil
-	case "custom":
-		return "", fmt.Errorf("llm: custom provider requires base_url")
-	default:
-		return "", fmt.Errorf("llm: unknown provider %q", cfg.Provider)
+	a := lookupAdapter(cfg.Provider)
+	url := a.DefaultBaseURL()
+	if url == "" {
+		// Adapter signals "no default" (custom / ollama in some configs).
+		// Adapter 报"无默认"（custom / 某些 ollama 配置）。
+		return "", fmt.Errorf("llm: %s provider requires base_url", cfg.Provider)
 	}
+	return url, nil
 }

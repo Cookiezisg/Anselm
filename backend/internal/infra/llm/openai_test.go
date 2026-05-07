@@ -6,6 +6,7 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -284,6 +285,170 @@ func TestBuildOpenAIBody_MultiModalUser(t *testing.T) {
 	}
 	if len(parts) != 2 {
 		t.Fatalf("want 2 parts, got %d", len(parts))
+	}
+}
+
+// ── TE-23: assistant message protocol-baseline robustness ───────────────────
+
+// TestBuildOpenAIBody_ReasoningOnly_PromotedToContent verifies the TE-23
+// fallback (originally TE-22, moved here from app/loop/history.go): when an
+// assistant turn has only reasoning_content with no content + no tool_calls,
+// the OpenAI wire encoder copies reasoning_content into content. Without
+// this, the next turn's history triggers HTTP 400:
+//   "Invalid assistant message: content or tool_calls must be set"
+//
+// 仅有 reasoning_content 时把它拷给 content 兜底，避免下轮 history 400。
+func TestBuildOpenAIBody_ReasoningOnly_PromotedToContent(t *testing.T) {
+	req := Request{
+		ModelID: "deepseek-chat",
+		Messages: []LLMMessage{
+			{
+				Role:             RoleAssistant,
+				Content:          "",
+				ReasoningContent: "你好！我是 Forgify",
+			},
+		},
+	}
+	body, err := buildOpenAIBody(req)
+	if err != nil {
+		t.Fatalf("buildOpenAIBody: %v", err)
+	}
+	var out oaiRequest
+	json.Unmarshal(body, &out)
+	var content string
+	if err := json.Unmarshal(out.Messages[0].Content, &content); err != nil {
+		t.Fatalf("content not a string: %v", err)
+	}
+	if content != "你好！我是 Forgify" {
+		t.Errorf("content = %q, want fallback-promoted from reasoning_content", content)
+	}
+	if out.Messages[0].ReasoningContent != "你好！我是 Forgify" {
+		t.Errorf("reasoning_content not preserved: %q", out.Messages[0].ReasoningContent)
+	}
+}
+
+// TestBuildOpenAIBody_ReasoningWithText_NoPromotion: text present →
+// no fallback, reasoning/content distinction preserved.
+func TestBuildOpenAIBody_ReasoningWithText_NoPromotion(t *testing.T) {
+	req := Request{
+		ModelID: "deepseek-chat",
+		Messages: []LLMMessage{
+			{
+				Role:             RoleAssistant,
+				Content:          "the answer is 42",
+				ReasoningContent: "thinking...",
+			},
+		},
+	}
+	body, _ := buildOpenAIBody(req)
+	var out oaiRequest
+	json.Unmarshal(body, &out)
+	var content string
+	json.Unmarshal(out.Messages[0].Content, &content)
+	if content != "the answer is 42" {
+		t.Errorf("content = %q (must NOT be promoted from reasoning when text present)", content)
+	}
+	if out.Messages[0].ReasoningContent != "thinking..." {
+		t.Errorf("reasoning_content lost")
+	}
+}
+
+// TestBuildOpenAIBody_ReasoningWithToolCall_NoPromotion: tool_calls present
+// → no fallback (reasoning + tool_calls is a valid wire shape on its own).
+func TestBuildOpenAIBody_ReasoningWithToolCall_NoPromotion(t *testing.T) {
+	req := Request{
+		ModelID: "deepseek-chat",
+		Messages: []LLMMessage{
+			{
+				Role:             RoleAssistant,
+				Content:          "",
+				ReasoningContent: "I should look this up",
+				ToolCalls: []LLMToolCall{
+					{ID: "c1", Name: "search", Arguments: `{"q":"x"}`},
+				},
+			},
+		},
+	}
+	body, _ := buildOpenAIBody(req)
+	var out oaiRequest
+	json.Unmarshal(body, &out)
+	var content string
+	json.Unmarshal(out.Messages[0].Content, &content)
+	if content != "" {
+		t.Errorf("content = %q (must remain empty; tool_calls suppress fallback)", content)
+	}
+}
+
+// TestBuildOpenAIBody_AssistantContentAlwaysEmitted: assistant with tool_calls
+// but empty content must still emit `"content": ""` (not null, not omitted).
+// Strict providers (OpenAI, Zhipu GLM) reject `content: null`; an explicit
+// empty string satisfies the "set" check.
+//
+// assistant 有 tool_calls 但 content 空时仍 emit `"content": ""`
+// （不是 null 不是 omit）。严格 provider 拒 null。
+func TestBuildOpenAIBody_AssistantContentAlwaysEmitted(t *testing.T) {
+	req := Request{
+		ModelID: "gpt-4o",
+		Messages: []LLMMessage{
+			{
+				Role:    RoleAssistant,
+				Content: "",
+				ToolCalls: []LLMToolCall{
+					{ID: "c1", Name: "x", Arguments: `{}`},
+				},
+			},
+		},
+	}
+	body, _ := buildOpenAIBody(req)
+	// Quick string scan since json.RawMessage handling is annoying for
+	// "is this field present" assertions.
+	// 用字符串扫描快速判断字段是否真的 present。
+	if !bytes.Contains(body, []byte(`"content":""`)) {
+		t.Errorf("expected `\"content\":\"\"` in body, got: %s", body)
+	}
+	if bytes.Contains(body, []byte(`"content":null`)) {
+		t.Errorf("body must NOT contain `\"content\":null`")
+	}
+}
+
+// TestParseSSE_MidStreamError_OpenRouter verifies OpenRouter's quirk:
+// once any byte streams the HTTP status locks at 200 but the actual error
+// arrives as an in-stream SSE chunk with a top-level `error` field. The
+// parser must surface this as EventError; without TE-23's chunk.Error
+// detection, the chunk parses to {Choices: nil, Error: nil} and the
+// stream silently terminates with no user-visible explanation.
+//
+// OpenRouter quirk：流开始后 HTTP 状态锁 200，错误以 SSE chunk 形式抵达
+// （顶层 error 字段）。解析器必须 surface 为 EventError；TE-23 之前流
+// 静默终止用户看不到原因。
+func TestParseSSE_MidStreamError_OpenRouter(t *testing.T) {
+	body := `data: {"choices":[{"delta":{"role":"assistant","content":"hello "}}]}
+
+data: {"error":{"message":"upstream model timeout","type":"upstream_error","code":"timeout"}}
+
+`
+	events := collectEvents(body)
+	_ = t
+	gotError := false
+	gotText := false
+	for _, ev := range events {
+		if ev.Type == EventText && ev.Delta == "hello " {
+			gotText = true
+		}
+		if ev.Type == EventError {
+			gotError = true
+			if ev.Err == nil {
+				t.Errorf("EventError.Err is nil")
+			} else if !strings.Contains(ev.Err.Error(), "upstream model timeout") {
+				t.Errorf("error doesn't contain upstream message: %v", ev.Err)
+			}
+		}
+	}
+	if !gotText {
+		t.Errorf("text delta before error should still be emitted")
+	}
+	if !gotError {
+		t.Errorf("expected EventError for in-stream error chunk; got events: %+v", events)
 	}
 }
 

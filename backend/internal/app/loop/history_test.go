@@ -197,88 +197,10 @@ func TestBlocksToLLM_TextOnly(t *testing.T) {
 	}
 }
 
-// TestBlocksToLLM_ReasoningOnly_PromotedToContent verifies the TE-22
-// fallback: when an assistant turn has only a reasoning block (DeepSeek
-// V3.x reasoning mode occasionally puts the entire reply into
-// reasoning_content with content empty), the converter copies
-// reasoning_content into content. Without this, sending the next turn's
-// history triggers HTTP 400 from the LLM provider:
-//   "Invalid assistant message: content or tool_calls must be set"
+// NOTE: 3 reasoning-fallback tests moved to infra/llm/openai_test.go in TE-23.
+// BlocksToAssistantLLM is now a pure schema converter; OpenAI-protocol
+// compliance (content non-null, reasoning_content fallback) is the wire
+// client's job and is tested where it lives.
 //
-// TestBlocksToLLM_ReasoningOnly_PromotedToContent：TE-22 兜底验证。
-// assistant 回合仅有 reasoning block 时（DeepSeek V3.x reasoning 模式偶发把
-// 整段回复放 reasoning_content，content 为空），转换器把 reasoning_content
-// 拷给 content，避免下轮发 history 时 LLM provider 400 锁死对话。
-func TestBlocksToLLM_ReasoningOnly_PromotedToContent(t *testing.T) {
-	input := []chatdomain.Block{
-		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "你好！我是 Forgify"}),
-	}
-	msgs, err := BlocksToAssistantLLM(input)
-	if err != nil {
-		t.Fatalf("BlocksToAssistantLLM: %v", err)
-	}
-	if len(msgs) != 1 {
-		t.Fatalf("want 1 message, got %d", len(msgs))
-	}
-	a := msgs[0]
-	if a.ReasoningContent != "你好！我是 Forgify" {
-		t.Errorf("reasoning_content = %q, want preserved original", a.ReasoningContent)
-	}
-	if a.Content != "你好！我是 Forgify" {
-		t.Errorf("content = %q, want fallback-promoted from reasoning_content", a.Content)
-	}
-	if len(a.ToolCalls) != 0 {
-		t.Error("should have no tool calls")
-	}
-}
-
-// TestBlocksToLLM_ReasoningWithText_NoPromotion verifies the fallback does
-// NOT trigger when content is already populated (text block present).
-// The reasoning_content / content distinction must be preserved in the
-// normal case — only reasoning-only turns get the salvage treatment.
-//
-// TestBlocksToLLM_ReasoningWithText_NoPromotion：content 已有值（有 text block）
-// 时不触发兜底，保留 reasoning_content / content 区分。
-func TestBlocksToLLM_ReasoningWithText_NoPromotion(t *testing.T) {
-	input := []chatdomain.Block{
-		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "thinking..."}),
-		makeBlock("b2", 1, chatdomain.BlockTypeText, chatdomain.TextData{Text: "the answer is 42"}),
-	}
-	msgs, err := BlocksToAssistantLLM(input)
-	if err != nil {
-		t.Fatalf("BlocksToAssistantLLM: %v", err)
-	}
-	a := msgs[0]
-	if a.ReasoningContent != "thinking..." {
-		t.Errorf("reasoning_content = %q", a.ReasoningContent)
-	}
-	if a.Content != "the answer is 42" {
-		t.Errorf("content = %q (must NOT be promoted from reasoning when text present)", a.Content)
-	}
-}
-
-// TestBlocksToLLM_ReasoningWithToolCall_NoPromotion verifies tool_calls
-// presence ALSO suppresses the fallback. Reasoning + tool call is a valid
-// LLM API request shape on its own.
-//
-// TestBlocksToLLM_ReasoningWithToolCall_NoPromotion：tool_calls 存在也抑制
-// 兜底。reasoning + tool call 本身就是合法 LLM API 请求形状。
-func TestBlocksToLLM_ReasoningWithToolCall_NoPromotion(t *testing.T) {
-	input := []chatdomain.Block{
-		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "I should look this up"}),
-		makeBlock("b2", 1, chatdomain.BlockTypeToolCall, chatdomain.ToolCallData{
-			ID: "c1", Name: "search", Arguments: map[string]any{"q": "x"},
-		}),
-	}
-	msgs, err := BlocksToAssistantLLM(input)
-	if err != nil {
-		t.Fatalf("BlocksToAssistantLLM: %v", err)
-	}
-	a := msgs[0]
-	if a.Content != "" {
-		t.Errorf("content = %q (must remain empty; tool_calls suppress fallback)", a.Content)
-	}
-	if a.ReasoningContent != "I should look this up" {
-		t.Errorf("reasoning_content = %q", a.ReasoningContent)
-	}
-}
+// 注：3 个 reasoning fallback 测试 TE-23 已搬到 infra/llm/openai_test.go。
+// 本函数现为纯 schema 转换器；OpenAI 协议合规归 wire client 测。

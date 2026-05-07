@@ -86,26 +86,16 @@ func BlocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, err
 		}
 	}
 
-	// Fallback: most LLM provider APIs (OpenAI-compat including DeepSeek)
-	// require an assistant message to carry `content` (non-empty) OR
-	// `tool_calls` (≥ 1) — `reasoning_content` alone is not accepted.
-	// DeepSeek's V3.x reasoning mode occasionally emits the user-facing
-	// reply entirely via reasoning_content with content empty. Such a
-	// message in the next turn's history triggers HTTP 400:
-	//   "Invalid assistant message: content or tool_calls must be set"
-	// To salvage the conversation, copy reasoning_content into content
-	// when it's the only payload. This loses the reasoning/content
-	// distinction in the wire request, but the alternative is an
-	// unrecoverable 400 that locks the conversation.
+	// NOTE: TE-22's "reasoning_content → content fallback" used to live here;
+	// TE-23 moved it to infra/llm/openai.go::buildOpenAIAssistantMsg where
+	// it belongs. This function is now a pure schema converter
+	// (domain blocks → LLM message fields). Wire-protocol compliance
+	// (assistant content non-null, etc.) is the wire client's job; doing
+	// it here would have wrongly polluted the Anthropic path too.
 	//
-	// 兜底：多数 LLM provider（OpenAI-compat / DeepSeek 在内）要求 assistant
-	// 必须 content（非空）或 tool_calls（≥ 1），单独 reasoning_content 会被拒。
-	// DeepSeek V3.x reasoning 模式偶发把回复全放 reasoning_content，下一轮
-	// history 触发 400。把 reasoning_content 拷给 content 救活对话——丢 wire
-	// 区分，胜于无法挽回的 400 锁死对话。
-	if assistant.Content == "" && len(assistant.ToolCalls) == 0 && assistant.ReasoningContent != "" {
-		assistant.Content = assistant.ReasoningContent
-	}
+	// 注：TE-22 的 reasoning fallback 曾在此处；TE-23 已搬到 infra/llm/openai.go
+	// 内（OpenAI 协议合规归 OpenAI client 管，Anthropic 路径不该被污染）。
+	// 本函数现为纯 schema 转换器。
 
 	return append([]llminfra.LLMMessage{assistant}, toolResults...), nil
 }

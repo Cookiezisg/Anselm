@@ -117,6 +117,24 @@ func parseOpenAISSE(ctx context.Context, body io.Reader, yield func(StreamEvent)
 // emitOpenAIChunk 把一个解析好的 SSE chunk 转换为 StreamEvent 发出。
 // consumer 发出停止信号时返回 false。
 func emitOpenAIChunk(chunk oaiChunk, toolNameSent map[int]bool, yield func(StreamEvent) bool) bool {
+	// TE-23: OpenRouter (and any OpenAI-compat provider that forwards
+	// upstream errors mid-stream) embeds errors as a top-level Error
+	// field on the chunk while HTTP status stays 200. Without this
+	// detection the stream would just terminate silently. Fire EventError
+	// so the chat layer surfaces it to the user instead of showing an
+	// empty assistant reply.
+	//
+	// TE-23：OpenRouter（以及任何在流中透传上游错误的 OpenAI-compat
+	// provider）把错误嵌入 chunk 的顶层 Error 字段，HTTP 状态保持 200。
+	// 没有这个检测流就静默终止。fire EventError 让 chat 层暴露给用户，
+	// 而不是显示空白 assistant 回复。
+	if chunk.Error != nil {
+		yield(StreamEvent{
+			Type: EventError,
+			Err:  fmt.Errorf("llm: provider returned in-stream error: %s", chunk.Error.Message),
+		})
+		return false
+	}
 	if len(chunk.Choices) == 0 {
 		// Usage-only chunk — some providers send this as the final event.
 		// 仅含 usage 的 chunk，某些 provider 在流末单独发送。
@@ -250,13 +268,56 @@ func buildOpenAIUserMsg(m LLMMessage) (oaiMessage, error) {
 	return oaiMessage{Role: "user", Content: raw}, nil
 }
 
+// buildOpenAIAssistantMsg encodes one LLMMessage (assistant role) to the
+// OpenAI wire shape. Two protocol-baseline robustness fixes (TE-23):
+//
+//  1. Reasoning-only fallback (originally TE-22, lived in app/loop/history.go,
+//     moved here): when the message has only reasoning_content with no
+//     content and no tool_calls (DeepSeek V3.x reasoning mode quirk —
+//     occasionally emits the user-facing reply entirely via
+//     reasoning_content), copy reasoning_content into content. Without this,
+//     the next turn's history trips HTTP 400:
+//       "Invalid assistant message: content or tool_calls must be set"
+//     This trades the wire-level reasoning/content distinction for keeping
+//     the conversation alive — the alternative is an unrecoverable 400
+//     that can't be cleared without manually editing the DB.
+//
+//  2. Force-emit content even when empty: if assistant has tool_calls but
+//     no text, OpenAI / GLM / strict providers reject `content: null` (the
+//     omitempty default behavior). Always emit `""` so the JSON shape is
+//     valid even when there's no text to send.
+//
+// Both fixes apply to all OpenAI-compat providers, not specific ones —
+// they live here (the OpenAI baseline client) rather than in adapter.go
+// (per-provider quirks).
+//
+// buildOpenAIAssistantMsg 把一条 assistant LLMMessage 编码到 OpenAI wire
+// 形状。TE-23 的两个协议基线 robust 修复：
+//
+//  1. reasoning-only fallback（原 TE-22 在 app/loop/history.go，搬到这里）：
+//     仅 reasoning_content + 无 content + 无 tool_calls 时（DeepSeek V3.x
+//     reasoning 模式偶发把回复全放 reasoning_content），把 reasoning_content
+//     拷给 content。否则下一轮 history 400 锁死对话。
+//
+//  2. content 即使为空也强制 emit `""`：assistant 有 tool_calls 但无文字时，
+//     OpenAI / GLM 等严格 provider 拒 `content: null`（omitempty 默认行为）。
+//     总是 emit `""` 让 JSON shape 合法。
+//
+// 两个修复对所有 OpenAI-compat provider 都适用，故住 baseline client 而非
+// adapter.go（per-provider quirk）。
 func buildOpenAIAssistantMsg(m LLMMessage) oaiMessage {
+	// TE-23 fix #1: reasoning-only fallback.
+	if m.Content == "" && len(m.ToolCalls) == 0 && m.ReasoningContent != "" {
+		m.Content = m.ReasoningContent
+	}
+
 	om := oaiMessage{
 		Role:             "assistant",
 		ReasoningContent: m.ReasoningContent,
-	}
-	if m.Content != "" {
-		om.Content = jsonString(m.Content)
+		// TE-23 fix #2: always emit content (even empty string), never let
+		// omitempty drop it. Strict providers require content || tool_calls
+		// to be set; an empty string satisfies the "set" check, null does not.
+		Content: jsonString(m.Content),
 	}
 	for _, tc := range m.ToolCalls {
 		om.ToolCalls = append(om.ToolCalls, oaiToolCall{
@@ -375,6 +436,25 @@ type oaiFuncDef struct {
 type oaiChunk struct {
 	Choices []oaiChoice `json:"choices"`
 	Usage   *oaiUsage   `json:"usage"`
+	// Error is the OpenRouter quirk: once any byte streams the HTTP status
+	// is locked at 200, but a downstream provider error arrives as an
+	// in-stream SSE chunk with this field populated and choices empty.
+	// Without this field declaration the chunk would silently parse to
+	// {Choices: nil, Usage: nil} and the stream would terminate without
+	// surfacing the error. TE-23 added this + the matching detection in
+	// emitOpenAIChunk.
+	//
+	// Error 是 OpenRouter quirk：流开始后 HTTP 状态码锁 200，下游 provider
+	// 错误以 SSE chunk 形式抵达，本字段填充而 choices 为空。无此字段则
+	// chunk 静默 parse 为空 → 流终止但用户看不到错。TE-23 加此字段 +
+	// emitOpenAIChunk 内的检测。
+	Error *oaiChunkError `json:"error,omitempty"`
+}
+
+type oaiChunkError struct {
+	Message string `json:"message"`
+	Code    any    `json:"code,omitempty"` // OpenRouter sometimes int, sometimes string
+	Type    string `json:"type,omitempty"`
 }
 
 type oaiChoice struct {
