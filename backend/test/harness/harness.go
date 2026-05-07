@@ -306,9 +306,44 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// 无配置时 Service.Start 是 no-op（瞬时启动）；需要 MCP server 的
 	// pipeline 测试通过 test seam 单独灌 mcp.json + 注册 fakeClient。
 	mcpConfigPath := filepath.Join(dataDir, "mcp.json")
+	// FakeRegistrySource for tests — populated with the `everything` MCP
+	// test server (D9 pipeline) + a sample server with required args
+	// (covers install error path). Production main.go uses
+	// mcpinfra.OfficialRegistrySource (HTTP fetch); tests stay offline.
+	//
+	// FakeRegistrySource 给测试——含 D9 pipeline 用的 `everything` MCP 测试
+	// server + 一个有必填参数的样本（覆盖 install 错误路径）。生产 main.go
+	// 用 OfficialRegistrySource（HTTP fetch）；测试不联网。
+	mcpRegistrySource := mcpinfra.NewFakeRegistrySource([]mcpdomain.RegistryEntry{
+		{
+			Name:        "io.github.modelcontextprotocol/everything",
+			DisplayName: "everything",
+			Description: "MCP protocol reference test server (used by D9 pipeline tests).",
+			Runtime:     "node",
+			Version:     "0.0.0",
+			InstallCmd: mcpdomain.InstallCmd{
+				Command: "npx",
+				Args:    []string{"-y", "@modelcontextprotocol/server-everything"},
+			},
+		},
+		{
+			Name:        "io.github.example/sqlite-test",
+			DisplayName: "sqlite-test",
+			Description: "Sample server with a required arg, for install error-path tests.",
+			Runtime:     "python",
+			Version:     "1.0.0",
+			InstallCmd: mcpdomain.InstallCmd{
+				Command: "uvx",
+				Args:    []string{"mcp-server-sqlite", "--db-path", "${dbPath}"},
+			},
+			RequiredArgs: []mcpdomain.ArgRequirement{
+				{Name: "dbPath", Description: "Path to the SQLite db file", Type: "path"},
+			},
+		},
+	})
 	mcpService := mcpapp.New(
 		mcpConfigPath,
-		mcpapp.NewRegistry(),
+		mcpRegistrySource,
 		sandboxSvc,
 		bridge,
 		modelService,
@@ -319,7 +354,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 	if err := mcpService.Start(context.Background()); err != nil {
 		t.Logf("mcp start: %v (continuing — pipeline tests that need it will skip)", err)
 	}
-	tools = append(tools, mcptool.MCPTools(mcpService)...)
+	// Pass nils for LLM deps — harness tests don't exercise marketplace LLM rerank.
+	// 传 nil LLM 依赖——harness 测试不跑 marketplace LLM 重排。
+	tools = append(tools, mcptool.MCPTools(mcpService, nil, nil, nil)...)
 
 	// Skill: per-test tempdir SkillsDir so we never touch real
 	// ~/.forgify/skills/. Tests that need skills installed seed them

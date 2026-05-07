@@ -71,9 +71,37 @@ func newMCPTestServer(t *testing.T) *mcpHandlerHarness {
 	h := &mcpHandlerHarness{
 		clients: map[string]*fakeMCPClient{},
 	}
+	// Marketplace V2 (post-2026-05-08): registry comes from a RegistrySource
+	// port. Tests seed a small fake source with two entries — one named
+	// "playwright" (kept the old name so existing test assertions still
+	// reference a known entry) and one with a required arg (kept "sqlite"
+	// for symmetry with the install-path test).
+	//
+	// Marketplace V2（2026-05-08 后）：registry 经 RegistrySource 端口。测试
+	// 注入 2 条小 fake——一条名 "playwright"（保留老名让已有断言仍指已知条目），
+	// 一条带必填 arg（保留 "sqlite" 名跟 install 路径测试对称）。
+	source := mcpinfra.NewFakeRegistrySource([]mcpdomain.RegistryEntry{
+		{
+			Name:        "playwright",
+			DisplayName: "playwright",
+			Description: "Browser automation reference entry for handler tests.",
+			Runtime:     "node",
+			InstallCmd: mcpdomain.InstallCmd{Command: "npx", Args: []string{"-y", "@playwright/mcp"}},
+		},
+		{
+			Name:        "sqlite",
+			DisplayName: "sqlite",
+			Description: "SQLite reference entry for handler tests; has required dbPath.",
+			Runtime:     "python",
+			InstallCmd: mcpdomain.InstallCmd{Command: "uvx", Args: []string{"mcp-server-sqlite", "--db-path", "${dbPath}"}},
+			RequiredArgs: []mcpdomain.ArgRequirement{
+				{Name: "dbPath", Description: "Path to the SQLite db file", Type: "path"},
+			},
+		},
+	})
 	h.svc = mcpapp.New(
 		filepath.Join(t.TempDir(), "mcp.json"),
-		mcpapp.NewRegistry(),
+		source,
 		nil, // sandbox not used by these endpoint tests (no install path)
 		nil, // bridge nil — Service guards against nil bridge
 		nil, nil, nil, // model picker / keys / factory — no Search probes here
@@ -371,22 +399,21 @@ func TestMCP_Import_Multipart(t *testing.T) {
 
 // ── Registry endpoints ───────────────────────────────────────────────
 
-func TestMCP_ListRegistry_FiltersHiddenAndPlatform(t *testing.T) {
+func TestMCP_ListRegistry_ReturnsSeededEntries(t *testing.T) {
+	// Marketplace V2 (post-2026-05-08) has no Hidden/UnsupportedPlatforms
+	// fields — entries come from the official registry as-is. This test
+	// asserts the handler returns whatever the source seeded.
+	//
+	// Marketplace V2（2026-05-08 后）无 Hidden/UnsupportedPlatforms 字段——
+	// 条目从官方 registry 原样取。本测试断言 handler 返 source 注入的全部条目。
 	h := newMCPTestServer(t)
 	resp, _ := http.Get(h.srv.URL + "/api/v1/mcp-registry")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 	got := envOf[[]mcpdomain.RegistryEntry](t, resp.Body)
-	// V1 has 5 visible (everything is Hidden=true, all 6 cross-platform).
-	// V1 有 5 个可见（everything Hidden=true，6 个全跨平台）。
-	if len(got) != 5 {
-		t.Errorf("len = %d, want 5 (Hidden=everything excluded)", len(got))
-	}
-	for _, e := range got {
-		if e.Hidden {
-			t.Errorf("Hidden entry leaked: %q", e.Name)
-		}
+	if len(got) != 2 {
+		t.Errorf("len = %d, want 2 (seeded fake source has playwright + sqlite)", len(got))
 	}
 }
 

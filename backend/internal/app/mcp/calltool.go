@@ -118,15 +118,23 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 
 	indices, err := parseRankedIndices(resp, len(all))
 	if err != nil {
-		// Ranking parse failure is non-fatal — fall back to the first
-		// topK tools (alpha order from ListTools). Better than blanking
-		// out the LLM's call.
-		// 排序解析失败非致命——退回 ListTools 的前 topK（字母序）。比空给 LLM
-		// 强。
-		s.log.Warn("mcp search rank parse failed; falling back to alpha order",
-			zap.String("query", query), zap.String("response_snippet", trimResp(resp, 200)),
+		// Ranking parse failure → return error to caller (LLM). Returning
+		// alpha-order top K like the previous implementation did was
+		// misleading — for a search query like "PDF reader" an alpha-
+		// ordered list starting with "ai-coder" is unrelated and could
+		// trick the LLM into recommending wrong tools. Better to fail
+		// loudly so LLM can retry / refine the query (consistent with
+		// the post-2026-05-08 屎山拯救计划 #4 search_mcp_marketplace pattern).
+		//
+		// 排序解析失败 → 返错给调用方（LLM）。原实现返字母序前 K 是误导
+		// ——搜 "PDF reader" 拿到字母序首位 "ai-coder" 跟 query 无关，可能
+		// 骗 LLM 推错工具。明显失败让 LLM 自重试/精化（与 2026-05-08 后
+		// 屎山拯救计划 #4 search_mcp_marketplace 模式一致）。
+		s.log.Warn("mcp search rank parse failed",
+			zap.String("query", query),
+			zap.String("response_snippet", trimResp(resp, 200)),
 			zap.Error(err))
-		return all[:min(topK, len(all))], nil
+		return nil, fmt.Errorf("mcpapp.Search: ranking failed; LLM should retry or refine query: %w", err)
 	}
 
 	out := make([]mcpdomain.ToolDef, 0, len(indices))
@@ -138,9 +146,6 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 		if len(out) >= topK {
 			break
 		}
-	}
-	if len(out) == 0 {
-		return all[:min(topK, len(all))], nil
 	}
 	return out, nil
 }
@@ -239,13 +244,12 @@ func (s *Service) recordCallResult(ctx context.Context, name string, err error) 
 
 // resolveCallTimeout walks the §5.7 precedence chain.
 //
-// resolveCallTimeout 走 §5.7 precedence 链。
+// resolveCallTimeout 走 §5.7 precedence 链。registry 端点的 lookup 不能在
+// 热路径里调（每次 CallTool 都拉远程 marketplace 不现实）——只看 ServerConfig
+// .TimeoutSec，它在 install 时已从 RegistryEntry.DefaultTimeoutSec 复制过来。
 func (s *Service) resolveCallTimeout(cfg mcpdomain.ServerConfig) time.Duration {
 	if cfg.TimeoutSec > 0 {
 		return time.Duration(cfg.TimeoutSec) * time.Second
-	}
-	if entry, ok := s.registry.Get(cfg.Name); ok && entry.DefaultTimeoutSec > 0 {
-		return time.Duration(entry.DefaultTimeoutSec) * time.Second
 	}
 	return defaultCallTimeout
 }
@@ -320,15 +324,4 @@ func trimResp(s string, n int) string {
 	return s[:n] + "..."
 }
 
-// min is a generics-free helper since this package targets pre-1.21
-// equivalents in tests; Go's `min` builtin works on 1.21+, kept for
-// readability.
-//
-// min 简单 helper（Go 1.21+ 内建有，留着可读）。
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 

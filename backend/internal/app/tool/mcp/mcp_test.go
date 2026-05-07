@@ -23,7 +23,7 @@ import (
 
 func TestSearchMCP_Identity(t *testing.T) {
 	tt := &SearchMCP{}
-	if tt.Name() != "search_mcp" {
+	if tt.Name() != "search_mcp_tools" {
 		t.Errorf("Name() = %q", tt.Name())
 	}
 	if tt.Description() == "" {
@@ -111,7 +111,7 @@ func TestSearchMCP_Execute_MalformedArgsJSON(t *testing.T) {
 
 func TestCallMCP_Identity(t *testing.T) {
 	tt := &CallMCP{}
-	if tt.Name() != "call_mcp" {
+	if tt.Name() != "call_mcp_tool" {
 		t.Errorf("Name() = %q", tt.Name())
 	}
 	if tt.IsReadOnly() {
@@ -229,15 +229,24 @@ func TestMapCallToolErrorToFriendly_EmbedsServerToolNames(t *testing.T) {
 
 // ── MCPTools factory ─────────────────────────────────────────────────
 
-func TestMCPTools_ReturnsBothInOrder(t *testing.T) {
-	tools := MCPTools(nil) // svc nil OK — we only check identity here
-	if len(tools) != 2 {
-		t.Fatalf("len = %d, want 2", len(tools))
+func TestMCPTools_ReturnsAllInOrder(t *testing.T) {
+	// Pass nils for LLM deps — TestMCPTools_ReturnsAllInOrder doesn't
+	// exercise marketplace search rerank, just identity. Marketplace
+	// search tool is omitted from the list when LLM deps are nil
+	// (consistent with harness behaviour). install + uninstall require
+	// only svc so they always show.
+	//
+	// 传 nil LLM 依赖——只查 identity，不跑 marketplace search 重排。
+	// LLM 依赖 nil 时 marketplace search 工具不入列（与 harness 一致）。
+	// install + uninstall 只需 svc 故始终在。
+	tools := MCPTools(nil, nil, nil, nil)
+	if len(tools) != 4 {
+		t.Fatalf("len = %d, want 4 (search_mcp_tools / call_mcp_tool / install_mcp_server / uninstall_mcp_server; marketplace search omitted with nil LLM deps)", len(tools))
 	}
-	if tools[0].Name() != "search_mcp" {
-		t.Errorf("tools[0] = %q, want search_mcp", tools[0].Name())
-	}
-	if tools[1].Name() != "call_mcp" {
-		t.Errorf("tools[1] = %q, want call_mcp", tools[1].Name())
+	wantNames := []string{"search_mcp_tools", "call_mcp_tool", "install_mcp_server", "uninstall_mcp_server"}
+	for i, want := range wantNames {
+		if tools[i].Name() != want {
+			t.Errorf("tools[%d] = %q, want %q", i, tools[i].Name(), want)
+		}
 	}
 }

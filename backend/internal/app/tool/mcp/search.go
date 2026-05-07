@@ -83,7 +83,7 @@ type SearchMCP struct {
 
 // Identity --------------------------------------------------------------------
 
-func (t *SearchMCP) Name() string                { return "search_mcp" }
+func (t *SearchMCP) Name() string                { return "search_mcp_tools" }
 func (t *SearchMCP) Description() string         { return searchMCPDescription }
 func (t *SearchMCP) Parameters() json.RawMessage { return searchMCPSchema }
 

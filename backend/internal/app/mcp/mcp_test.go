@@ -111,8 +111,8 @@ func newTestHarness(t *testing.T) *testHarness {
 	}
 	h.svc = New(
 		filepath.Join(t.TempDir(), "mcp.json"),
-		NewRegistry(),
-		nil, // sandbox — InstallFromRegistry tests inject as needed
+		mcpinfra.NewFakeRegistrySource(nil), // empty registry; InstallFromRegistry tests not run from this harness
+		nil,                                 // sandbox — InstallFromRegistry tests inject as needed
 		bridge,
 		nil, nil, nil, // model picker / keys / factory — Search uses LLM, not exercised here
 		zaptest.NewLogger(t),
@@ -472,22 +472,46 @@ func TestImport_ConflictWithoutOverwrite_PreservesExisting(t *testing.T) {
 
 func TestInstall_UnknownEntry(t *testing.T) {
 	h := newTestHarness(t)
-	_, err := h.svc.InstallFromRegistry(context.Background(), "no-such", nil, nil)
+	_, err := h.svc.InstallFromRegistry(context.Background(), "no-such", "", nil, nil)
 	if !errors.Is(err, mcpdomain.ErrRegistryEntryNotFound) {
 		t.Errorf("err = %v, want ErrRegistryEntryNotFound", err)
 	}
 }
 
-func TestInstall_MissingRequiredArg_SQLite(t *testing.T) {
-	// SQLite registry entry requires `dbPath` arg. Calling install
-	// without it must fail with ErrRequiredArgsMissing — not silently
-	// proceed and let the subprocess fail at runtime with a confusing
-	// error.
+func TestInstall_MissingRequiredArg(t *testing.T) {
+	// Registry entry with a required arg. Calling install without it
+	// must fail with ErrRequiredArgsMissing — not silently proceed and
+	// let the subprocess fail at runtime with a confusing error.
+	// Marketplace V2 (post-2026-05-08) drives entries via RegistrySource;
+	// this test seeds its own fake source with one entry to exercise the
+	// missing-arg path without depending on the live registry.
 	//
-	// SQLite registry 条目要 `dbPath` arg。无它装必须 ErrRequiredArgsMissing
-	// ——不能静默继续让子进程在 runtime 抛迷惑错。
-	h := newTestHarness(t)
-	_, err := h.svc.InstallFromRegistry(context.Background(), "sqlite", nil, map[string]string{})
+	// 有必填 arg 的 registry 条目。无它装必须 ErrRequiredArgsMissing——不能
+	// 静默继续让子进程在 runtime 抛迷惑错。Marketplace V2（2026-05-08 后）
+	// 经 RegistrySource 驱动条目；本测试自带 fake source 含一条来跑缺 arg
+	// 路径，不依赖在线 registry。
+	bridge := &fakeBridge{}
+	source := mcpinfra.NewFakeRegistrySource([]mcpdomain.RegistryEntry{
+		{
+			Name:        "io.github.example/sqlite-test",
+			DisplayName: "sqlite-test",
+			Description: "Sample SQLite server with required arg.",
+			Runtime:     "python",
+			InstallCmd: mcpdomain.InstallCmd{
+				Command: "uvx",
+				Args:    []string{"mcp-server-sqlite", "--db-path", "${dbPath}"},
+			},
+			RequiredArgs: []mcpdomain.ArgRequirement{
+				{Name: "dbPath", Description: "Path to the SQLite db file", Type: "path"},
+			},
+		},
+	})
+	svc := New(
+		filepath.Join(t.TempDir(), "mcp.json"),
+		source, nil, bridge, nil, nil, nil, zaptest.NewLogger(t),
+	)
+	_, err := svc.InstallFromRegistry(context.Background(),
+		"io.github.example/sqlite-test", "", nil, map[string]string{})
 	if !errors.Is(err, mcpdomain.ErrRequiredArgsMissing) {
 		t.Errorf("err = %v, want ErrRequiredArgsMissing", err)
 	}

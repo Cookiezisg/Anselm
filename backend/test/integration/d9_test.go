@@ -246,7 +246,7 @@ func TestD9_BootSmoke(t *testing.T) {
 		// subagent
 		"Subagent",
 		// mcp family
-		"search_mcp", "call_mcp",
+		"search_mcp_tools", "call_mcp_tool",
 		// skill family
 		"search_skills", "activate_skill",
 	}

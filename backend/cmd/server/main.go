@@ -55,6 +55,7 @@ import (
 	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
+	mcpinfra     "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
@@ -227,9 +228,19 @@ func main() {
 	// MCP server 已装时能路由过去。mcpService.Start 留在 tool 切片定稿后调
 	// ——SearchRouter 在调用时查 server 状态，pre-Start 调用安全降级到 Bing CN。
 	mcpConfigPath := defaultMCPConfigPath()
+	// Marketplace V2 (2026-05-08): swap the previous in-code 6-entry
+	// registry for the official MCP Registry (registry.modelcontextprotocol.io).
+	// First marketplace use blocks ~1-15s on the catalog fetch; subsequent
+	// calls hit the in-process cache. Network failure on first fetch
+	// surfaces as ErrMarketplaceUnavailable to LLM tools / HTTP handlers.
+	//
+	// Marketplace V2（2026-05-08）：把原 6 条内置 registry 换成官方 MCP
+	// Registry。首次 marketplace 调用 fetch ~1-15s；后续走进程缓存。首次
+	// fetch 网络失败给 LLM 工具 / HTTP handler 返 ErrMarketplaceUnavailable。
+	mcpRegistrySource := mcpinfra.NewOfficialRegistrySource("", nil, log)
 	mcpService := mcpapp.New(
 		mcpConfigPath,
-		mcpapp.NewRegistry(),
+		mcpRegistrySource,
 		sandboxSvc,
 		eventsBridge,
 		modelService,
@@ -292,7 +303,7 @@ func main() {
 	if err := mcpService.Start(context.Background()); err != nil {
 		log.Warn("mcp start partial failure (some servers may be unreachable)", zap.Error(err))
 	}
-	tools = append(tools, mcptool.MCPTools(mcpService)...)
+	tools = append(tools, mcptool.MCPTools(mcpService, modelService, apikeyService, llmFactory)...)
 
 	// Skill: scan ~/.forgify/skills/ for any installed Anthropic Agent
 	// Skills + start the 1s polling loop for live rescan on user edits.

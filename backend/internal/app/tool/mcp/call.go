@@ -76,7 +76,7 @@ type CallMCP struct {
 
 // Identity --------------------------------------------------------------------
 
-func (t *CallMCP) Name() string                { return "call_mcp" }
+func (t *CallMCP) Name() string                { return "call_mcp_tool" }
 func (t *CallMCP) Description() string         { return callMCPDescription }
 func (t *CallMCP) Parameters() json.RawMessage { return callMCPSchema }
 

@@ -372,7 +372,11 @@ func (h *MCPHandler) importServers(w http.ResponseWriter, r *http.Request) {
 // 返用户可见过滤后列表（去 Hidden=true；按 GOOS 应用 UnsupportedPlatforms）
 // per mcp.md §5.5。
 func (h *MCPHandler) ListRegistry(w http.ResponseWriter, r *http.Request) {
-	entries := h.svc.ListRegistry()
+	entries, err := h.svc.ListRegistry(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	responsehttpapi.Success(w, http.StatusOK, entries)
 }
 
@@ -383,7 +387,7 @@ func (h *MCPHandler) ListRegistry(w http.ResponseWriter, r *http.Request) {
 // 含 Hidden——install 流需要。
 func (h *MCPHandler) GetRegistryEntry(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	entry, err := h.svc.GetRegistryEntry(name)
+	entry, err := h.svc.GetRegistryEntry(r.Context(), name)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -428,7 +432,11 @@ func (h *MCPHandler) registryNameAction(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	st, err := h.svc.InstallFromRegistry(r.Context(), name, body.Env, body.Args)
+	// HTTP path leaves alias empty — Service derives from name's last
+	// "/" segment. UI can override via a future `?alias=` param if needed.
+	// HTTP 路径留空 alias —— Service 按 name 末段派生。UI 后续可加 `?alias=`
+	// 参数自定义。
+	st, err := h.svc.InstallFromRegistry(r.Context(), name, "", body.Env, body.Args)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

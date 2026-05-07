@@ -133,6 +133,13 @@ var errTable = map[error]errMapping{
 	mcpdomain.ErrRequiredEnvMissing:    {http.StatusUnprocessableEntity, "MCP_REQUIRED_ENV_MISSING"},
 	mcpdomain.ErrRequiredArgsMissing:   {http.StatusUnprocessableEntity, "MCP_REQUIRED_ARGS_MISSING"},
 	mcpdomain.ErrInstallFailed:         {http.StatusBadGateway, "MCP_INSTALL_FAILED"},
+	// Marketplace V2 (2026-05-08): added when official MCP Registry was wired in.
+	// Marketplace V2（2026-05-08）：接入官方 MCP Registry 时加。
+	mcpdomain.ErrMarketplaceUnavailable: {http.StatusBadGateway, "MCP_MARKETPLACE_UNAVAILABLE"},
+	mcpdomain.ErrAlreadyInstalled:       {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
+	mcpdomain.ErrAliasCollision:         {http.StatusConflict, "MCP_ALIAS_COLLISION"},
+	mcpdomain.ErrUnsupportedRuntime:     {http.StatusUnprocessableEntity, "MCP_UNSUPPORTED_RUNTIME"},
+	mcpdomain.ErrHandshakeFailed:        {http.StatusBadGateway, "MCP_HANDSHAKE_FAILED"},
 
 	// skill domain (V1.2 D7) / skill domain
 	skilldomain.ErrSkillNotFound:      {http.StatusNotFound, "SKILL_NOT_FOUND"},

@@ -35,16 +35,43 @@ package mcp
 import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-// MCPTools constructs the two MCP system tools sharing one Service.
-// Returned in declaration order so main.go's append preserves it.
+// MCPTools constructs the five MCP system tools sharing one Service.
+// Two for installed-server interaction (search_mcp_tools / call_mcp_tool),
+// three for marketplace flow (search_mcp_marketplace + install_mcp_server +
+// uninstall_mcp_server). picker / keys / factory are needed by the
+// marketplace search's LLM rerank — pass nil to skip registering it
+// (tests without LLM access).
 //
-// MCPTools 用一个 Service 构造两个 MCP 系统工具。按声明顺序返回让 main.go
-// 的 append 保留顺序。
-func MCPTools(svc *mcpapp.Service) []toolapp.Tool {
-	return []toolapp.Tool{
+// MCPTools 用一个 Service 构造 5 个 MCP 系统工具。两个走已装 server 交互
+// （search_mcp_tools / call_mcp_tool），三个走 marketplace 流程
+// （search_mcp_marketplace + install_mcp_server + uninstall_mcp_server）。
+// picker / keys / factory 给 marketplace search 的 LLM 重排用——传 nil 跳过
+// 注册（无 LLM access 的测试）。
+func MCPTools(
+	svc *mcpapp.Service,
+	picker modeldomain.ModelPicker,
+	keys apikeydomain.KeyProvider,
+	factory *llminfra.Factory,
+) []toolapp.Tool {
+	tools := []toolapp.Tool{
 		&SearchMCP{svc: svc},
 		&CallMCP{svc: svc},
 	}
+	// Marketplace search needs LLM rerank — skip if any LLM dep is nil
+	// (e.g. unit tests that build MCPTools without a configured factory).
+	// marketplace search 需 LLM 重排——任一 LLM 依赖 nil 时跳过注册（如未配
+	// factory 的单测）。
+	if picker != nil && keys != nil && factory != nil {
+		tools = append(tools, &SearchMarketplaceMCP{svc: svc, picker: picker, keys: keys, factory: factory})
+	}
+	tools = append(tools,
+		&InstallMCPServer{svc: svc},
+		&UninstallMCPServer{svc: svc},
+	)
+	return tools
 }
