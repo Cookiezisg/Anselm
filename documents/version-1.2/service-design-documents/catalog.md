@@ -408,40 +408,68 @@ ITEMS:
 
 **关键设计**：路由提示**不是用户单独写的文件**，而是 generator 看着所有 item description**自动推断生成**的"Notes on choosing"段落，就在 summary 里。用户想影响路由 → 编辑 forge/skill/mcp 各自的 description（source 是 truth），下次 regen 自动 reflect。
 
-### Coverage 校验 + 重试 2 次 + Key 轮训跑真 LLM + 输出上限
+### 单次 attempt + mechanical fallback（屎山拯救计划 #7，2026-05-08）
+
+> **历史**：原设计是 "3-attempt retry + coverage 校验 + missing-id hint 重写"。后来发现：
+> 1. 现代 LLM（DeepSeek/GPT-4o/Claude）做这种 "读列表 + 写总结" 任务**首次成功率 ~99%**，重试基本不工作
+> 2. 真失败的原因（网络挂 / key 失效）**重试 3 次也救不了**——同 client/key 同样失败
+> 3. catalog 本身有 1s 轮询，**外部已经是天然重试**（用户活动一变，下次 polling 自动再生成）
+> 4. 失败时 mechanicalFallback 已经兜底——LLM 写得糙一点 ≠ 系统挂
+>
+> 所以 **2026-05-08 删 retry loop + missing hint + coverage 校验**，回到单次设计。
 
 ```go
-const (
-    generatorMaxOutputTokens = 2000  // 硬上限，防 LLM 输出爆大
-    generatorMaxAttempts     = 3     // 初次 + 2 次重试
-)
+const generatorOutputCharCap = 10 * 1024  // 防御 cap，超之视畸形
 
-func (g *Generator) Generate(ctx context.Context, items []Item, gMap map[string]Granularity) (*Catalog, error) {
-    sourceIDs := groupBySource(items)  // map[source][]ID
+func (g *LLMGenerator) Generate(ctx context.Context, items []Item, gMap map[string]Granularity) (*Catalog, error) {
+    if len(items) == 0 {
+        return mechanicalFallback(items, gMap), nil
+    }
+    bundle, err := llmclient.Resolve(ctx, g.picker, g.keys, g.factory)
+    if err != nil { return nil, fmt.Errorf("%w: resolve LLM: %v", ErrGenerationFailed, err) }
+
+    raw, err := llm.Generate(ctx, bundle.Client, prompt)
+    if err != nil { return nil, fmt.Errorf("%w: %v", ErrGenerationFailed, err) }
+    if len(raw) > generatorOutputCharCap { return nil, fmt.Errorf("%w: output exceeded cap", ErrGenerationFailed) }
+
+    jsonStr, ok := llmparse.ExtractJSON(raw)
+    if !ok { return nil, fmt.Errorf("%w: no JSON", ErrGenerationFailed) }
     
-    for attempt := 0; attempt < generatorMaxAttempts; attempt++ {
-        prompt := buildPrompt(items, gMap, attempt)
-        // attempt > 0 时加："Previous attempt missed: [...]; you must include all of them this time"
-        
-        // ⚡ Key 轮训：每次 attempt 内部按所有 apikey 顺序试调真 LLM，首个成功的赢
-        raw, err := g.callLLMWithKeyRotation(ctx, prompt)
-        if err != nil {
-            // 全 key 都不可用 → 不再 attempt（无 key 重试也没用）
-            return nil, fmt.Errorf("catalog.Generate: no working LLM (attempt %d): %w", attempt, err)
-        }
-        if len(raw) > generatorMaxOutputTokens*5 {  // 字符数粗略上限（防 maxTokens 失效兜底）
-            continue  // 输出爆大 → 重试
-        }
-        
-        var parsed struct {
-            Summary  string              `json:"summary"`
-            Coverage map[string][]string `json:"coverage"`
-        }
-        if err := json.Unmarshal([]byte(extractJSON(raw)), &parsed); err != nil {
-            continue  // JSON 坏 → 重试
-        }
-        
-        missing := validateCoverage(sourceIDs, parsed.Coverage)
+    var parsed struct {
+        Summary  string              `json:"summary"`
+        Coverage map[string][]string `json:"coverage"`
+    }
+    if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+        return nil, fmt.Errorf("%w: parse JSON: %v", ErrGenerationFailed, err)
+    }
+    if strings.TrimSpace(parsed.Summary) == "" {
+        return nil, fmt.Errorf("%w: empty Summary", ErrGenerationFailed)
+    }
+    return &Catalog{Summary: parsed.Summary, Coverage: parsed.Coverage, GeneratedBy: "llm"}, nil
+}
+```
+
+任何错误 → ErrGenerationFailed → Service.Refresh 切 mechanicalFallback。Coverage 字段从 LLM 透传不校验（LLM 可能漏 1-2 个 item，无伤大雅）。
+
+**已删的旧代码**（屎山拯救计划 #7，保留作历史记录）：
+
+- `generatorMaxAttempts` 常量（值=3）
+- `for attempt := 0; attempt < generatorMaxAttempts; attempt++` 重试循环
+- `findMissing` / `groupSourceIDs` helpers + 它们的 6 个测试
+- `buildPrompt` 的 `missingHint []string` 入参 + "previous attempt missed: [...]" prompt 段
+- `callLLMWithKeyRotation` 多 key 轮训（V1 也根本没真接，是占位）
+- `ErrCoverageIncomplete` 触发路径（sentinel 自身保留，将来可能再用）
+
+```go
+// 已删 — 历史片段
+for attempt := 0; attempt < generatorMaxAttempts; attempt++ {
+    prompt := buildPrompt(items, gMap, missingHint)
+    raw, err := callLLMWithKeyRotation(ctx, prompt)
+    // ... missing := validateCoverage(sourceIDs, parsed.Coverage)
+    if len(missing) > 0 { missingHint = missing; continue }
+    return ..., nil
+}
+return nil, ErrCoverageIncomplete
         if len(missing) > 0 {
             g.log.Warn("catalog generation missing items",
                 zap.Strings("missing", missing), zap.Int("attempt", attempt))
@@ -454,56 +482,24 @@ func (g *Generator) Generate(ctx context.Context, items []Item, gMap map[string]
             GeneratedBy: "llm",
         }, nil
     }
-    return nil, ErrCoverageIncomplete  // 3 次都失败 → 调用方走 mechanical fallback
-}
-
-// callLLMWithKeyRotation 在所有配置的 LLM key 上**依次跑真 LLM**，
-// 单个 key 的 LLM 调用 fail（如 401 / 网络 / 模型不存在）→ 立即试下一个 key，
-// 不只是 "build client" 阶段成功就罢手。首个 LLM 调用成功的 key 赢。
-//
-// 优先 chat 场景对应的 key；它失败再遍历其他 apikey。
-func (g *Generator) callLLMWithKeyRotation(ctx context.Context, prompt string) (string, error) {
-    opts := llm.GenerateOpts{MaxTokens: generatorMaxOutputTokens}
-    
-    // 先试 chat 场景
-    if bundle, err := g.llm.ResolveForChat(ctx); err == nil {
-        if raw, err := llm.Generate(ctx, bundle.Client, prompt, opts); err == nil {
-            return raw, nil
-        } else {
-            g.log.Warn("chat-scenario LLM failed; trying other keys", zap.Error(err))
-        }
-    }
-    
-    // 遍历所有 apikey + 各自 default model 真跑 LLM
-    for _, key := range g.keys.List(ctx) {
-        client, err := g.factory.Build(llminfra.Config{Provider: key.Provider, ...})
-        if err != nil { continue }
-        if raw, err := llm.Generate(ctx, client, prompt, opts); err == nil {
-            return raw, nil
-        }
-        // 这个 key 的 LLM 失败 → 试下一个
-    }
-    return "", errors.New("all configured LLM keys failed")
-}
 ```
 
-**重试 + 轮训关系图**：
+**单次调用流图**（屎山拯救计划 #7 后）：
 
 ```
 Generate() 入口
-  ├─ attempt 0
-  │   └─ callLLMWithKeyRotation
-  │       ├─ chat-scenario key → 真跑 LLM
-  │       ├─ apikey 1 → 真跑 LLM    ← 任一成功立即返
-  │       ├─ apikey 2 → 真跑 LLM
-  │       └─ apikey N → 真跑 LLM
-  │   └─ 拿到 LLM 输出 → JSON parse / coverage 校验
-  │       ├─ 通过 → 返回，结束
-  │       └─ 不通过 → attempt+1
-  ├─ attempt 1（带 "上次漏了 X" 提示）→ 同上
-  ├─ attempt 2（最后一次）→ 同上
-  └─ 全失败 → return ErrCoverageIncomplete → 调用方 mechanical fallback
+  ├─ items 空 → mechanicalFallback 直返
+  ├─ 解 LLM bundle 失败 → ErrGenerationFailed
+  ├─ llm.Generate 调用：
+  │   ├─ 成功 + Summary 非空 → 返 Catalog{GeneratedBy:"llm"}
+  │   ├─ 输出 > 10KB → ErrGenerationFailed
+  │   ├─ JSON 解析失败 → ErrGenerationFailed
+  │   ├─ Summary 空 → ErrGenerationFailed
+  │   └─ 传输失败 → ErrGenerationFailed
+  └─ 任何 ErrGenerationFailed → 调用方 Service.Refresh 切 mechanicalFallback
 ```
+
+下次 polling tick（最长 1 秒）→ 用户活动一变 → fingerprint 变 → 自然重试。**外部已是天然重试机制**。
 
 ### Mechanical Fallback
 

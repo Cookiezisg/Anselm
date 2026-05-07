@@ -1,36 +1,29 @@
 // generator.go — LLM-driven Summary builder. Implements the Generator
 // interface that Service.Refresh consults when source items change.
-// Per catalog.md §7:
 //
-//   - 3-attempt retry: each attempt builds a prompt (with augmented
-//     "previous attempt missed: [...]" hint on retries), calls the LLM,
-//     parses JSON, validates coverage (every input item must appear in
-//     the parsed Coverage map). On failure: increment attempt + retry.
-//   - Output cap: ~10 KB defensive char limit (equivalent to ~2000
-//     tokens). Past that → treat as malformed and retry.
-//   - V1 simplification: uses llmclient.Resolve for the chat-scenario
-//     bundle. Multi-key rotation (catalog.md §7 "Key 轮训") deferred to
-//     V2 — typical solo-dev environment has 1 key, so the rotation
-//     collapses to that single key anyway.
+// Single-attempt design (post-2026-05-08 屎山拯救计划 #7): one LLM call,
+// parse + validate that the Summary is non-empty, return on success.
+// Any failure (transport / parse / empty summary / output overflow)
+// returns ErrGenerationFailed so Service.Refresh falls back to
+// mechanicalFallback. The previous "3-attempt retry + coverage
+// validation + missing-id hint augmentation" was over-engineered for
+// the actual failure modes (modern LLMs succeed first-try at this
+// task ~99%; transport-level failures don't recover via retry; the 1s
+// polling loop already provides natural retry on the next user activity).
 //
-// On total failure (3 attempts exhausted OR no LLM key available),
-// returns one of {ErrCoverageIncomplete, ErrGenerationFailed} so
-// Service.Refresh switches to mechanicalFallback. The catalog still
-// updates (mechanical Summary populated; lastFP advances) — user
-// activity (description edit) drives the next LLM retry naturally.
+// Output cap: ~10 KB defensive char limit (~2000 tokens). Past that →
+// treat as malformed and fall back to mechanical.
 //
 // generator.go ——LLM-driven Summary 构建。实现 Service.Refresh 在 source
-// items 变时查的 Generator 接口。catalog.md §7：3 次重试（重试时 prompt
-// 加 "上次漏了 X" 提示）；JSON 解析 + coverage 校验（每个输入 item 必出
-// 现在解析后 Coverage map）；输出字符上限 ~10 KB（~2000 token 等价）。
+// items 变时查的 Generator 接口。
 //
-// V1 简化：用 llmclient.Resolve 取 chat 场景 bundle。多 key 轮训
-// （§7 "Key 轮训"）推迟 V2——单人开发典型 1 个 key，轮训等价单 key。
+// 单次设计（2026-05-08 屎山拯救计划 #7 后）：调一次 LLM，解析 + 校验 Summary
+// 非空，成功就返。任何失败（传输 / 解析 / Summary 空 / 输出溢出）返
+// ErrGenerationFailed 让 Service.Refresh 退 mechanicalFallback。原 "3 次重试
+// + coverage 校验 + 漏 ID hint" 对实际失败模式过设计——现代 LLM 这种任务首试
+// ~99%；传输层失败重试无效；catalog 1s 轮询本身已是用户下次活动时的自然重试。
 //
-// 全失败时（3 次 attempt 用尽 / 无 LLM key）返
-// {ErrCoverageIncomplete, ErrGenerationFailed} 之一让 Service.Refresh
-// 切 mechanicalFallback。catalog 仍更新（mechanical Summary + lastFP 前
-// 推）——用户活动（编 description）自然驱动下次 LLM 重试。
+// 输出上限 ~10 KB（~2000 token）防御 cap。超之视畸形退 mechanical。
 package catalog
 
 import (
@@ -50,23 +43,13 @@ import (
 	llmparsepkg "github.com/sunweilin/forgify/backend/internal/pkg/llmparse"
 )
 
-const (
-	// generatorMaxAttempts is the initial attempt + 2 retries per
-	// catalog.md §7. Beyond that the LLM is treated as unable to
-	// produce a valid catalog and the caller falls back to mechanical.
-	//
-	// generatorMaxAttempts：初次 + 2 次重试（catalog.md §7）。超过即视
-	// LLM 无能力产合格 catalog，调用方退 mechanical。
-	generatorMaxAttempts = 3
-
-	// generatorOutputCharCap is the ~10 KB defensive cap. The LLM's
-	// max_tokens=2000 (per catalog.md §7) yields ~8 KB at typical
-	// English; 10 KB gives headroom. Past this we treat as malformed.
-	//
-	// generatorOutputCharCap：~10 KB 防御上限。LLM max_tokens=2000
-	// （§7）典型英文 ~8 KB；10 KB 留余。超之视畸形。
-	generatorOutputCharCap = 10 * 1024
-)
+// generatorOutputCharCap is the ~10 KB defensive cap. The LLM's
+// max_tokens=2000 yields ~8 KB at typical English; 10 KB gives headroom.
+// Past this we treat as malformed.
+//
+// generatorOutputCharCap：~10 KB 防御上限。LLM max_tokens=2000 典型英文 ~8 KB；
+// 10 KB 留余。超之视畸形。
+const generatorOutputCharCap = 10 * 1024
 
 // LLMGenerator is the production Generator. Constructed in main.go;
 // plugged into Service via SetGenerator post-construction.
@@ -97,14 +80,18 @@ func NewLLMGenerator(picker modeldomain.ModelPicker, keys apikeydomain.KeyProvid
 	}
 }
 
-// Generate runs the 3-attempt retry loop. Each attempt builds a fresh
-// prompt (with "previous miss" augmentation on retries), calls the LLM,
-// parses + validates coverage. First success wins. Total failure returns
-// ErrCoverageIncomplete or ErrGenerationFailed.
+// Generate makes one LLM call to produce the Summary. Any failure
+// (resolve / transport / parse / empty Summary / output overflow)
+// returns ErrGenerationFailed so Service.Refresh switches to
+// mechanicalFallback. Coverage from the LLM is passed through verbatim
+// without validation — historic 3-attempt retry + missing-id hint
+// augmentation removed per 屎山拯救计划 #7 (modern LLMs first-try this
+// task ~99% successfully; the 1s polling loop is the natural retry).
 //
-// Generate 跑 3 次重试。每次新建 prompt（重试时加 "上次漏了" 提示），
-// 调 LLM，解 + 校 coverage。首个成功胜。全失败返
-// ErrCoverageIncomplete 或 ErrGenerationFailed。
+// Generate 调一次 LLM 生成 Summary。任何失败（resolve / 传输 / 解析 / Summary
+// 空 / 输出溢出）返 ErrGenerationFailed 让 Service.Refresh 切 mechanicalFallback。
+// LLM 返的 Coverage 原样透传不校验——历史的 3 次重试 + 漏 ID hint 按屎山拯救
+// 计划 #7 删（现代 LLM 这种任务首试 ~99%；catalog 1s 轮询是自然重试）。
 func (g *LLMGenerator) Generate(ctx context.Context, items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) (*catalogdomain.Catalog, error) {
 	if len(items) == 0 {
 		return mechanicalFallback(items, gMap), nil
@@ -115,78 +102,53 @@ func (g *LLMGenerator) Generate(ctx context.Context, items []catalogdomain.Item,
 		return nil, fmt.Errorf("%w: resolve LLM: %v", catalogdomain.ErrGenerationFailed, err)
 	}
 
-	wantCoverage := groupSourceIDs(items)
-	var missingHint []string
+	prompt := buildPrompt(items, gMap)
 
-	for attempt := 0; attempt < generatorMaxAttempts; attempt++ {
-		prompt := buildPrompt(items, gMap, missingHint)
-
-		raw, err := llminfra.Generate(ctx, bundle.Client, llminfra.Request{
-			ModelID: bundle.ModelID,
-			Key:     bundle.Key,
-			BaseURL: bundle.BaseURL,
-			Messages: []llminfra.LLMMessage{
-				{Role: llminfra.RoleUser, Content: prompt},
-			},
-		})
-		if err != nil {
-			g.log.Warn("catalog generation LLM call failed",
-				zap.Int("attempt", attempt), zap.Error(err))
-			// Transport-level failures don't get auto-retried within
-			// Generate (the same client/key would fail the same way).
-			// Bubble up to Service.Refresh which falls back to mechanical.
-			// 传输层失败不在 Generate 内自动重试（同 client/key 会同样失
-			// 败）。冒泡到 Service.Refresh 切 mechanical。
-			return nil, fmt.Errorf("%w: %v", catalogdomain.ErrGenerationFailed, err)
-		}
-
-		if len(raw) > generatorOutputCharCap {
-			g.log.Warn("catalog generation output exceeds char cap; retrying",
-				zap.Int("attempt", attempt), zap.Int("chars", len(raw)))
-			continue
-		}
-
-		jsonStr, ok := llmparsepkg.ExtractJSON(raw)
-		if !ok {
-			g.log.Warn("catalog generation: no JSON in LLM response; retrying",
-				zap.Int("attempt", attempt),
-				zap.String("response_snippet", trimResp(raw, 200)))
-			continue
-		}
-
-		var parsed struct {
-			Summary  string              `json:"summary"`
-			Coverage map[string][]string `json:"coverage"`
-		}
-		if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
-			g.log.Warn("catalog generation: JSON parse failed; retrying",
-				zap.Int("attempt", attempt), zap.Error(err))
-			continue
-		}
-
-		if strings.TrimSpace(parsed.Summary) == "" {
-			g.log.Warn("catalog generation: empty Summary; retrying",
-				zap.Int("attempt", attempt))
-			continue
-		}
-
-		missing := findMissing(wantCoverage, parsed.Coverage)
-		if len(missing) > 0 {
-			g.log.Warn("catalog generation: coverage incomplete; retrying",
-				zap.Int("attempt", attempt),
-				zap.Strings("missing", missing))
-			missingHint = missing
-			continue
-		}
-
-		return &catalogdomain.Catalog{
-			Summary:     parsed.Summary,
-			Coverage:    parsed.Coverage,
-			GeneratedBy: "llm",
-		}, nil
+	raw, err := llminfra.Generate(ctx, bundle.Client, llminfra.Request{
+		ModelID: bundle.ModelID,
+		Key:     bundle.Key,
+		BaseURL: bundle.BaseURL,
+		Messages: []llminfra.LLMMessage{
+			{Role: llminfra.RoleUser, Content: prompt},
+		},
+	})
+	if err != nil {
+		g.log.Warn("catalog generation LLM call failed", zap.Error(err))
+		return nil, fmt.Errorf("%w: %v", catalogdomain.ErrGenerationFailed, err)
 	}
 
-	return nil, fmt.Errorf("%w: %d attempts exhausted", catalogdomain.ErrCoverageIncomplete, generatorMaxAttempts)
+	if len(raw) > generatorOutputCharCap {
+		g.log.Warn("catalog generation output exceeds char cap; falling back to mechanical",
+			zap.Int("chars", len(raw)))
+		return nil, fmt.Errorf("%w: output exceeded %d chars", catalogdomain.ErrGenerationFailed, generatorOutputCharCap)
+	}
+
+	jsonStr, ok := llmparsepkg.ExtractJSON(raw)
+	if !ok {
+		g.log.Warn("catalog generation: no JSON in LLM response; falling back to mechanical",
+			zap.String("response_snippet", trimResp(raw, 200)))
+		return nil, fmt.Errorf("%w: no JSON in response", catalogdomain.ErrGenerationFailed)
+	}
+
+	var parsed struct {
+		Summary  string              `json:"summary"`
+		Coverage map[string][]string `json:"coverage"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &parsed); err != nil {
+		g.log.Warn("catalog generation: JSON parse failed; falling back to mechanical", zap.Error(err))
+		return nil, fmt.Errorf("%w: parse JSON: %v", catalogdomain.ErrGenerationFailed, err)
+	}
+
+	if strings.TrimSpace(parsed.Summary) == "" {
+		g.log.Warn("catalog generation: empty Summary; falling back to mechanical")
+		return nil, fmt.Errorf("%w: empty Summary", catalogdomain.ErrGenerationFailed)
+	}
+
+	return &catalogdomain.Catalog{
+		Summary:     parsed.Summary,
+		Coverage:    parsed.Coverage,
+		GeneratedBy: "llm",
+	}, nil
 }
 
 // ── prompt + parsing helpers ─────────────────────────────────────────
@@ -215,19 +177,15 @@ OUTPUT JSON only (no surrounding prose, no markdown fences):
 }
 
 ITEMS:
-%s
 %s`
 
-// buildPrompt assembles the LLM request. items rendered as a numbered
-// list per source with id + name + description so the LLM has both a
-// stable handle (id) for the coverage field and human-readable text
-// for the summary. missingHint is empty on first attempt; populated on
-// retry with the IDs the previous attempt dropped.
+// buildPrompt assembles the LLM request. Items rendered as a per-source
+// list with id + name + description so the LLM has both a stable handle
+// (id) for the coverage field and human-readable text for the summary.
 //
-// buildPrompt 装 LLM 请求。items 按 source 编号 + id + name + description
+// buildPrompt 装 LLM 请求。items 按 source 列出 + id + name + description
 // ——LLM 既有稳定 handle（id）填 coverage，又有人类可读文本写 summary。
-// missingHint 首次为空；重试时填上次漏掉的 ID。
-func buildPrompt(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity, missingHint []string) string {
+func buildPrompt(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) string {
 	var itemsBlock strings.Builder
 	bySource := groupBySource(items)
 	sourceNames := make([]string, 0, len(bySource))
@@ -244,56 +202,7 @@ func buildPrompt(items []catalogdomain.Item, gMap map[string]catalogdomain.Granu
 			fmt.Fprintf(&itemsBlock, "  - id=%q name=%q description=%q\n", it.ID, it.Name, it.Description)
 		}
 	}
-
-	hint := ""
-	if len(missingHint) > 0 {
-		hint = fmt.Sprintf("\nIMPORTANT: previous attempt missed these IDs — you MUST include them in coverage this time: %s\n",
-			strings.Join(missingHint, ", "))
-	}
-
-	return fmt.Sprintf(generatorPromptTemplate, itemsBlock.String(), hint)
-}
-
-// groupSourceIDs groups input items by source with the ID set per
-// source. Used to validate the LLM's coverage map matches the input.
-//
-// groupSourceIDs 把输入 items 按 source 分 + 每 source ID 集合。校验
-// LLM 的 coverage map 是否覆盖输入。
-func groupSourceIDs(items []catalogdomain.Item) map[string]map[string]bool {
-	out := map[string]map[string]bool{}
-	for _, it := range items {
-		if out[it.Source] == nil {
-			out[it.Source] = map[string]bool{}
-		}
-		out[it.Source][it.ID] = true
-	}
-	return out
-}
-
-// findMissing returns the list of source/ID pairs from want that
-// aren't in got. Each missing entry rendered as "source/id" so the
-// retry hint can be a flat list. Empty result = full coverage.
-//
-// findMissing 返 want 里在 got 没出现的 source/ID 对。每条渲染为
-// "source/id" 让重试 hint 是平列表。空结果=全覆盖。
-func findMissing(want map[string]map[string]bool, got map[string][]string) []string {
-	gotSet := map[string]map[string]bool{}
-	for src, ids := range got {
-		gotSet[src] = map[string]bool{}
-		for _, id := range ids {
-			gotSet[src][id] = true
-		}
-	}
-	missing := []string{}
-	for src, wantIDs := range want {
-		for id := range wantIDs {
-			if !gotSet[src][id] {
-				missing = append(missing, src+"/"+id)
-			}
-		}
-	}
-	sort.Strings(missing)
-	return missing
+	return fmt.Sprintf(generatorPromptTemplate, itemsBlock.String())
 }
 
 func trimResp(s string, n int) string {

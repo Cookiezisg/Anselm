@@ -1,12 +1,15 @@
-// generator_test.go — exercises the buildPrompt / findMissing /
-// groupSourceIDs unit helpers. Full Generator.Generate is covered
-// integration-style via the pipeline tests (D8-7) since it requires
-// a real or fake LLM transport — covering it here would mean
-// re-implementing the LLM client mock.
+// generator_test.go — exercises the buildPrompt unit helper. Full
+// Generator.Generate is covered integration-style via the pipeline tests
+// (D8-7) since it requires a real or fake LLM transport.
 //
-// generator_test.go ——验 buildPrompt / findMissing / groupSourceIDs
-// 单元 helper。完整 Generator.Generate 由 pipeline 测试（D8-7）集成式
-// 覆盖，因其需真/假 LLM 传输——本文件复刻 LLM client mock 不划算。
+// Post-2026-05-08 屎山拯救计划 #7: removed tests for findMissing /
+// groupSourceIDs / missing-hint retry path — those helpers are gone.
+//
+// generator_test.go ——验 buildPrompt 单元 helper。完整 Generator.Generate
+// 由 pipeline 测试（D8-7）集成式覆盖，因其需真/假 LLM 传输。
+//
+// 2026-05-08 屎山拯救计划 #7 后：删了 findMissing / groupSourceIDs / 漏 hint
+// 重试路径的测试——这些 helper 已删。
 package catalog
 
 import (
@@ -27,7 +30,7 @@ func TestBuildPrompt_ContainsAllItems(t *testing.T) {
 		"skill": catalogdomain.PerItem,
 		"mcp":   catalogdomain.PerServer,
 	}
-	got := buildPrompt(items, gMap, nil)
+	got := buildPrompt(items, gMap)
 
 	for _, want := range []string{
 		"f_a", "alpha", "first forge",
@@ -41,99 +44,28 @@ func TestBuildPrompt_ContainsAllItems(t *testing.T) {
 	}
 }
 
-func TestBuildPrompt_NoMissingHint_OnFirstAttempt(t *testing.T) {
+func TestBuildPrompt_NoRetryHintArtifact(t *testing.T) {
+	// Single-attempt design: there is no "previous attempt missed" hint
+	// any more. This test guards against accidental reintroduction (e.g.
+	// someone adding back the missingHint param without thinking).
+	//
+	// 单次设计：不再有 "previous attempt missed" hint。本测试防意外重引
+	// （比如有人想都没想就把 missingHint 参数加回来）。
 	got := buildPrompt(
 		[]catalogdomain.Item{{Source: "forge", ID: "f", Name: "x", Description: "y"}},
 		map[string]catalogdomain.Granularity{"forge": catalogdomain.PerItem},
-		nil,
 	)
 	if strings.Contains(got, "previous attempt missed") {
-		t.Errorf("first attempt prompt should not contain retry hint:\n%s", got)
-	}
-}
-
-func TestBuildPrompt_MissingHint_OnRetry(t *testing.T) {
-	got := buildPrompt(
-		[]catalogdomain.Item{{Source: "forge", ID: "f", Name: "x", Description: "y"}},
-		map[string]catalogdomain.Granularity{"forge": catalogdomain.PerItem},
-		[]string{"forge/f_dropped", "skill/s_dropped"},
-	)
-	if !strings.Contains(got, "previous attempt missed") {
-		t.Error("retry prompt missing hint header")
-	}
-	if !strings.Contains(got, "forge/f_dropped") || !strings.Contains(got, "skill/s_dropped") {
-		t.Errorf("retry prompt missing specific dropped IDs:\n%s", got)
-	}
-}
-
-func TestGroupSourceIDs(t *testing.T) {
-	items := []catalogdomain.Item{
-		{Source: "forge", ID: "f1"},
-		{Source: "forge", ID: "f2"},
-		{Source: "skill", ID: "s1"},
-	}
-	got := groupSourceIDs(items)
-	if !got["forge"]["f1"] || !got["forge"]["f2"] {
-		t.Errorf("forge IDs missing: %v", got["forge"])
-	}
-	if !got["skill"]["s1"] {
-		t.Errorf("skill IDs missing: %v", got["skill"])
-	}
-	if len(got["mcp"]) != 0 {
-		t.Errorf("mcp source should not appear; got %v", got["mcp"])
-	}
-}
-
-func TestFindMissing_FullCoverage(t *testing.T) {
-	want := groupSourceIDs([]catalogdomain.Item{
-		{Source: "forge", ID: "f1"},
-		{Source: "skill", ID: "s1"},
-	})
-	got := map[string][]string{"forge": {"f1"}, "skill": {"s1"}}
-	if missing := findMissing(want, got); len(missing) != 0 {
-		t.Errorf("findMissing reported missing on full coverage: %v", missing)
-	}
-}
-
-func TestFindMissing_PartialCoverage(t *testing.T) {
-	want := groupSourceIDs([]catalogdomain.Item{
-		{Source: "forge", ID: "f1"},
-		{Source: "forge", ID: "f2"},
-		{Source: "skill", ID: "s1"},
-	})
-	got := map[string][]string{"forge": {"f1"}} // missing f2 + s1 entirely
-	missing := findMissing(want, got)
-	if len(missing) != 2 {
-		t.Errorf("missing = %v, want 2 entries", missing)
-	}
-	wants := map[string]bool{"forge/f2": true, "skill/s1": true}
-	for _, m := range missing {
-		if !wants[m] {
-			t.Errorf("unexpected missing entry %q", m)
-		}
-	}
-}
-
-func TestFindMissing_ExtraInGotIgnored(t *testing.T) {
-	// LLM may merge / rename items in coverage that aren't in our
-	// input — those are NOT errors (the LLM is allowed to be creative
-	// in grouping). We only check that no input item is dropped.
-	// LLM 可在 coverage 合并/改名输入没有的 item——不是错误（LLM 可在
-	// 分组上创意）。我们只验输入 item 没漏。
-	want := groupSourceIDs([]catalogdomain.Item{
-		{Source: "forge", ID: "f1"},
-	})
-	got := map[string][]string{"forge": {"f1", "f_extra"}, "extra-source": {"x"}}
-	if missing := findMissing(want, got); len(missing) != 0 {
-		t.Errorf("extras should not count as missing; got %v", missing)
+		t.Errorf("retry-hint phrasing leaked into single-attempt prompt:\n%s", got)
 	}
 }
 
 func TestNewLLMGenerator_NilLogOK(t *testing.T) {
 	// NewLLMGenerator should accept nil logger and substitute zap.Nop —
-	// matches the convention from skill.NewWatcher / mcp.NewStdioClient.
-	// NewLLMGenerator 应接 nil log + 替 zap.Nop——同 skill.NewWatcher /
-	// mcp.NewStdioClient 约定。
+	// matches the convention from mcp.NewStdioClient and the post-#1 skill
+	// service constructor.
+	//
+	// NewLLMGenerator 应接 nil log + 替 zap.Nop——与 mcp.NewStdioClient 等约定一致。
 	g := NewLLMGenerator(nil, nil, nil, nil)
 	if g == nil {
 		t.Fatal("NewLLMGenerator returned nil")
