@@ -269,7 +269,7 @@ type LongLivedHandle interface {
 type ProgressFunc func(stage, message string, percent int)
 ```
 
-### Sentinel 错误（8 个）
+### Sentinel 错误（10 个）
 
 ```go
 var (
@@ -281,8 +281,80 @@ var (
     ErrSpawnFailed          = errors.New("sandbox: spawn process failed")
     ErrSpawnTimeout         = errors.New("sandbox: spawn process timeout")
     ErrEnvInUse             = errors.New("sandbox: env in use; cannot destroy")
+    // Docker-specific (added 2026-05-08 alongside Docker runtime support).
+    // Forgify cannot install Docker for the user (system service); these
+    // surface clear platform-specific install URLs to the caller.
+    // Docker 专用（2026-05-08 与 Docker runtime 同期加）。Forgify 不替用户装
+    // Docker（系统服务）；返清晰平台对应安装链接给调用方。
+    ErrDockerNotInstalled = errors.New("sandbox: docker not installed")
+    ErrDockerDaemonDown   = errors.New("sandbox: docker daemon not responding")
 )
 ```
+
+---
+
+## 5b. Docker runtime（2026-05-08 加，准备 marketplace V2 接入官方 MCP registry 中的 oci/docker package）
+
+### 为什么 Docker 不像其他 runtime 那样能"装"
+
+| 维度 | node / python / 等 mise 管的 | docker |
+|---|---|---|
+| 装 runtime | mise 拉 binary 到 ~/.local | **不能装**——系统服务 + 要 root/admin |
+| 平台基础设施 | 跨平台一致 | Mac/Win 要 Docker Desktop（~1.2 GB GUI + 内嵌 Linux VM）；Linux 要 dockerd systemd |
+| Forgify 能干啥 | 自动装 + 缓存 + 复用 | **只能探活**（`docker version --format {{.Server.Version}}`）+ 缺时返清晰安装链接 |
+
+### DockerInstaller 行为
+
+`Install()` 不真装——跑 `docker version` 探 daemon：
+- CLI 不在 PATH → 返 `ErrDockerNotInstalled` + 平台对应安装链接（Mac/Win → Docker Desktop；Linux → Docker Engine + `usermod -aG docker $USER`）
+- CLI 在但 daemon 不响应 → 返 `ErrDockerDaemonDown` + 平台对应启动指令（Mac/Win → 启 Docker Desktop；Linux → `sudo systemctl start docker`）
+- 都 OK → 写 marker 文件到 `<sandboxRoot>/docker-marker` 记 server 版本
+
+`Locate()` 始终返 `"docker"`（系统 PATH）。`ListAvailable()` 返 nil（不枚举）。`ResolveDefault()` 返 ""（无版本概念）。
+
+### DockerEnvManager 行为
+
+- `CreateEnv(envPath)`：mkdir 一个 host 目录，将作容器 `/workspace` 的 bind 挂载源
+- `InstallDeps([image])`：`docker pull <image>`；多 deps 取首项 + warn log（一容器一 image）
+- `InstallExtras`：no-op
+- `EnvBin()`：返 `"docker"`（系统 PATH）；真正的 `docker run -i --rm -v ...` 命令由调用方经 `BuildDockerRunArgs` helper 拼
+
+### BuildDockerRunArgs（helper）
+
+`mcp` adapter（marketplace V2 加进来）从 registry 装 docker package 时，调此 helper 拼 `ServerConfig.Args`：
+
+```go
+args := BuildDockerRunArgs(envPath, image, []string{"API_KEY=xxx"}, []string{"--db-path", "/workspace/db"})
+// → ["run", "-i", "--rm", "-v", envPath+":/workspace", "-e", "API_KEY=xxx", image, "--db-path", "/workspace/db"]
+```
+
+### 安全 + 默认
+
+- **bind 挂载**：仅 envPath（per-server 隔离）；**绝不**自动挂 host home/root 目录（避免 LLM 通过 docker MCP server 偷文件）
+- **network**：默认 docker bridge（容器有外网，不能访问 host 内网）
+- **资源限制**：V1 无默认 `--memory` / `--cpus`（信任 marketplace 精选条目）
+- **容器生命周期**：`--rm` 自动清；`-i` 保持 stdin（stdio MCP transport）；进程结束 = 容器死
+- **image 缓存**：拉到 docker daemon 系统级 cache，**永不自动删**；卸 server 不删 image（可能复用）；用户想清空跑 `docker image prune`
+
+### 跨平台
+
+- Mac/Win：通过 Docker Desktop 提供的 socket，自动找
+- Linux：`/var/run/docker.sock`（用户加 docker group 才能不 sudo 跑）
+- 国内镜像加速：用户在 Docker Desktop 设置里配（Forgify 不接管）
+
+### 关键限制（**用户必须做一次性配置**）
+
+1. **必须自己装 Docker Desktop / Docker Engine**——Forgify 给清晰链接但不替装
+2. **Mac/Win 用 Docker Desktop 商业 license 注意**——>250 员工的公司付费
+
+### 与 marketplace V2 的衔接（下一轮）
+
+V2 marketplace adapter 处理"registry entry 是 docker package"时：
+1. 调 `sandbox.EnsureEnv(owner=mcp/<alias>, spec={Runtime:{Kind:"docker"}, Deps:[image_ref]})`
+2. 拿到 envPath
+3. 用 `BuildDockerRunArgs(envPath, image, env, serverArgs)` 拼 ServerConfig.Args
+4. 调 `mcp.AddServer(ServerConfig{Command:"docker", Args:<拼好的>, ...})`
+5. mcp 内部 `exec.Command("docker", args...)` 起 stdio 容器作 MCP server
 
 ---
 

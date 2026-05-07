@@ -184,7 +184,7 @@ func main() {
 		log.Warn("sandbox v2 bootstrap failed (degraded mode active; runtime ops will fail)",
 			zap.Error(err))
 	}
-	registerSandboxStack(sandboxSvc)
+	registerSandboxStack(sandboxSvc, log)
 
 	forgeService := forgeapp.NewService(
 		forgestore.New(gdb),
@@ -444,7 +444,7 @@ func (c *forgeLLMClientAdapter) Generate(ctx context.Context, prompt string) (st
 // 注册幂等。
 //
 // 提为顶层 helper 而非内联 main() 让 service 构造段易读，注册表作整段连贯。
-func registerSandboxStack(svc *sandboxapp.Service) {
+func registerSandboxStack(svc *sandboxapp.Service, log *zap.Logger) {
 	miseBin := svc.MiseBin()
 	if miseBin == "" {
 		// Bootstrap failed — nothing to register that depends on mise.
@@ -505,6 +505,16 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 	// Specialty installers.
 	// 专用 installer。
 	svc.RegisterInstaller(sandboxinfra.NewDotnetInstaller("8.0"))
+	// Docker installer doesn't actually install Docker (system service,
+	// requires root/admin) — it verifies the user-installed daemon is
+	// reachable. Failure surfaces a platform-specific install URL through
+	// the standard sandbox error chain. Always registered; only invoked
+	// when an MCP server entry uses runtime=docker.
+	//
+	// Docker installer 不真装 Docker（系统服务，要 root/admin）—— 探活用户
+	// 装的 daemon 是否可达。缺则走标准 sandbox 错误链返平台对应安装链接。
+	// 永远注册；仅 MCP server 条目 runtime=docker 时被调。
+	svc.RegisterInstaller(sandboxinfra.NewDockerInstaller(log))
 	// PlaywrightInstaller takes a CLI path; resolved per-call inside the
 	// EnvManager so we don't register it as a global RuntimeInstaller —
 	// PlaywrightEnvManager owns the install logic via its Node delegate.
@@ -524,6 +534,16 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 	svc.RegisterEnvManager(sandboxinfra.NewDotnetEnvManager())
 	svc.RegisterEnvManager(sandboxinfra.NewPlaywrightEnvManager(
 		sandboxinfra.NewNodeEnvManager(svc), svc.SandboxRoot()))
+	// Docker EnvManager: per-MCP-server image pull + workspace mount dir.
+	// Paired with DockerInstaller (kind="docker"). Container lifecycle is
+	// stdio-driven: `docker run -i --rm` ties container life to the spawned
+	// process (auto-remove on exit), so no daemon-side bookkeeping needed.
+	//
+	// Docker EnvManager：per-MCP-server image pull + workspace 挂卷目录。
+	// 与 DockerInstaller (kind="docker") 配对。容器生命周期 stdio 驱动：
+	// `docker run -i --rm` 把容器寿命绑到被 spawn 的进程（退出自动 rm），
+	// daemon 侧无需簿记。
+	svc.RegisterEnvManager(sandboxinfra.NewDockerEnvManager(log))
 	// Static binary EnvManager: one per static-binary plugin family
 	// (registered alongside its matching StaticBinaryInstaller). v1
 	// ships none — this is scaffolding for future plugins like

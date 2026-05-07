@@ -1,12 +1,10 @@
-// search_test.go — unit tests for WebSearch (BYOK → MCP → Bing CN routing)
-// + Bing HTML parser. All network calls go through httptest servers; the
-// package var bingCNURL is swapped via test helpers. KeyProvider and
+// search_test.go — unit tests for WebSearch (BYOK → MCP routing). All
+// network calls go through httptest servers. KeyProvider and
 // MCPSearchRouter are stubbed via tiny in-test fakes. Real-internet calls
 // are not exercised.
 //
-// search_test.go ——WebSearch（BYOK → MCP → Bing CN 路由）+ Bing HTML 解析器
-// 单测；所有网络调用走 httptest，包级 var bingCNURL 由 test helper 替换；
-// KeyProvider / MCPSearchRouter 经测试内 fake 替身。不打真实互联网。
+// search_test.go ——WebSearch（BYOK → MCP 路由）单测；所有网络调用走
+// httptest；KeyProvider / MCPSearchRouter 经测试内 fake 替身。不打真实互联网。
 package web
 
 import (
@@ -130,17 +128,14 @@ func TestExecute_BYOKBrave_FallsThroughOnError(t *testing.T) {
 	}))
 	defer dead.Close()
 
-	bingCN := newBingServer(t, sampleBingHTML)
-	defer bingCN.Close()
-
+	mcpResults := `{"results":[{"title":"hit","url":"https://example.com","snippet":"via MCP"}]}`
 	tool := newTestSearchWith(t, &fakeKeys{
 		creds: map[string]apikeydomain.Credentials{"brave": {Key: "k", BaseURL: dead.URL}},
-	}, nil)
-	withBingCNURL(t, bingCN.URL)
+	}, &fakeMCPRouter{result: mcpResults})
 
 	out := runSearch(t, tool, `{"query":"go"}`)
-	if out.Source != "bing_cn" {
-		t.Errorf("source = %q, want bing_cn (Brave failed → fall through)", out.Source)
+	if out.Source != "mcp" {
+		t.Errorf("source = %q, want mcp (Brave failed → fall through)", out.Source)
 	}
 }
 
@@ -178,41 +173,19 @@ func TestExecute_MCPRoute_FiresWhenNoBYOK(t *testing.T) {
 	}
 }
 
-func TestExecute_MCP_UnavailableSilentlyFallsThrough(t *testing.T) {
-	bingCN := newBingServer(t, sampleBingHTML)
-	defer bingCN.Close()
-	withBingCNURL(t, bingCN.URL)
-
+func TestExecute_MCP_UnavailableFallsThroughToFriendlyMessage(t *testing.T) {
 	tool := newTestSearchWith(t, &fakeKeys{}, &fakeMCPRouter{err: ErrMCPSearchUnavailable})
 
-	out := runSearch(t, tool, `{"query":"x"}`)
-	if out.Source != "bing_cn" {
-		t.Errorf("source = %q, want bing_cn (MCP unavailable → fall through)", out.Source)
+	body, err := tool.Execute(context.Background(), `{"query":"x"}`)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !strings.Contains(body, "No results") || !strings.Contains(body, "API Keys") || !strings.Contains(body, "duckduckgo-search") {
+		t.Errorf("expected friendly message guiding key + MCP install, got: %q", body)
 	}
 }
 
-func TestExecute_BingCNFallback_WhenAllElseEmpty(t *testing.T) {
-	bingCN := newBingServer(t, sampleBingHTML)
-	defer bingCN.Close()
-	withBingCNURL(t, bingCN.URL)
-
-	tool := newTestSearchWith(t, &fakeKeys{}, nil)
-	out := runSearch(t, tool, `{"query":"go"}`)
-	if out.Source != "bing_cn" {
-		t.Errorf("source = %q, want bing_cn", out.Source)
-	}
-	if len(out.Results) == 0 {
-		t.Error("expected Bing CN parsed results")
-	}
-}
-
-func TestExecute_AllBackendsFail_FriendlyMessage(t *testing.T) {
-	deadBing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "down", http.StatusInternalServerError)
-	}))
-	defer deadBing.Close()
-	withBingCNURL(t, deadBing.URL)
-
+func TestExecute_NoBackendsConfigured_FriendlyMessage(t *testing.T) {
 	tool := newTestSearchWith(t, &fakeKeys{}, nil)
 	body, err := tool.Execute(context.Background(), `{"query":"unrecoverable"}`)
 	if err != nil {
@@ -244,13 +217,6 @@ func TestExecute_AppliesLimitAndSetsTruncated(t *testing.T) {
 }
 
 func TestExecute_HonoursContextCancellation(t *testing.T) {
-	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		time.Sleep(200 * time.Millisecond)
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer slow.Close()
-	withBingCNURL(t, slow.URL)
-
 	tool := newTestSearchWith(t, &fakeKeys{}, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -308,79 +274,6 @@ func TestParseMCPSearchResults_PlainTextFallback(t *testing.T) {
 	}
 }
 
-// ── Bing HTML parser ──────────────────────────────────────────────────────────
-
-const sampleBingHTML = `
-<!DOCTYPE html>
-<html>
-<body>
-<ol id="b_results">
-	<li class="b_algo">
-		<h2><a href="https://go.dev">The Go Programming Language</a></h2>
-		<div class="b_caption">
-			<p>Build simple, secure, scalable systems with Go.</p>
-		</div>
-	</li>
-	<li class="b_pagination"><span>page</span></li>
-	<li class="b_algo">
-		<h2><a href="https://pkg.go.dev/net/http">net/http package - pkg.go.dev</a></h2>
-		<div class="b_caption"><p>Package http provides HTTP client and server   implementations.</p></div>
-	</li>
-	<li class="b_algo">
-		<h2></h2>
-		<div class="b_caption"><p>missing url, should be skipped</p></div>
-	</li>
-</ol>
-</body>
-</html>`
-
-func TestParseBingHTML_ExtractsResults(t *testing.T) {
-	results, err := parseBingHTML(sampleBingHTML)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	if len(results) != 2 {
-		t.Fatalf("len = %d, want 2 (third b_algo has no url)", len(results))
-	}
-	if results[0].Title != "The Go Programming Language" {
-		t.Errorf("results[0].Title = %q", results[0].Title)
-	}
-	if results[0].URL != "https://go.dev" {
-		t.Errorf("results[0].URL = %q", results[0].URL)
-	}
-	if !strings.Contains(results[0].Snippet, "scalable systems") {
-		t.Errorf("results[0].Snippet = %q", results[0].Snippet)
-	}
-	if !strings.Contains(results[1].Snippet, "implementations.") || strings.Contains(results[1].Snippet, "  ") {
-		t.Errorf("results[1].Snippet not properly collapsed: %q", results[1].Snippet)
-	}
-}
-
-func TestParseBingHTML_EmptyDoc_NoResults(t *testing.T) {
-	results, err := parseBingHTML("<html><body></body></html>")
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 results, got %d", len(results))
-	}
-}
-
-func TestParseBingHTML_FallsBackToFirstPWhenCaptionMissing(t *testing.T) {
-	html := `
-<html><body><li class="b_algo">
-	<h2><a href="https://x.example">Example</a></h2>
-	<p>direct paragraph snippet</p>
-</li></body></html>`
-	results, err := parseBingHTML(html)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
-	}
-	if len(results) != 1 || results[0].Snippet != "direct paragraph snippet" {
-		t.Errorf("fallback failed: %+v", results)
-	}
-}
-
 // ── Test helpers / fakes ──────────────────────────────────────────────────────
 
 func newTestSearch(t *testing.T) *WebSearch {
@@ -396,16 +289,6 @@ func newTestSearchWith(t *testing.T, keys apikeydomain.KeyProvider, mcp MCPSearc
 		mcpRouter:  mcp,
 		log:        nil,
 	}
-}
-
-// withBingCNURL swaps bingCNURL for the duration of the test.
-//
-// withBingCNURL 测试期间替换 bingCNURL。
-func withBingCNURL(t *testing.T, u string) {
-	t.Helper()
-	prev := bingCNURL
-	bingCNURL = u
-	t.Cleanup(func() { bingCNURL = prev })
 }
 
 // fakeKeys implements apikeydomain.KeyProvider with a static map.
@@ -486,14 +369,6 @@ func newSerperServer(t *testing.T, results []searchResult) *httptest.Server {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(shaped)
-	}))
-}
-
-func newBingServer(t *testing.T, htmlBody string) *httptest.Server {
-	t.Helper()
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(htmlBody))
 	}))
 }
 

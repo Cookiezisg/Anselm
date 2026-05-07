@@ -243,6 +243,8 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `SANDBOX_SPAWN_FAILED` | 502 | `sandboxdomain.ErrSpawnFailed` | 子进程起不来 | 📐 |
 | `SANDBOX_SPAWN_TIMEOUT` | 504 | `sandboxdomain.ErrSpawnTimeout` | once-spawn 超时 | 📐 |
 | `SANDBOX_ENV_IN_USE` | 409 | `sandboxdomain.ErrEnvInUse` | Destroy 时 env 还在跑 | 📐 |
+| `SANDBOX_DOCKER_NOT_INSTALLED` | 422 | `sandboxdomain.ErrDockerNotInstalled` | docker CLI 不在 PATH；Forgify 不替用户装 Docker（系统服务）| ✅ |
+| `SANDBOX_DOCKER_DAEMON_DOWN` | 422 | `sandboxdomain.ErrDockerDaemonDown` | docker CLI 在但 daemon 不响应（Mac/Win 没启 Docker Desktop / Linux dockerd inactive）| ✅ |
 
 #### flowrun ⬜
 

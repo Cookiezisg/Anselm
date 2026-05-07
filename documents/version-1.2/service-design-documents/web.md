@@ -13,7 +13,7 @@
 
 ## 1. 一句话
 
-LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（BYOK → MCP → Bing CN 三层路由）。两者共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebFetch 走 `web_summary` 模型场景（未配则透明 fallback 到 chat 场景）。
+LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（BYOK → MCP 两层路由）。两者共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebFetch 走 `web_summary` 模型场景（未配则透明 fallback 到 chat 场景）。
 
 ---
 
@@ -42,16 +42,16 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 ```
 触发源：LLM 调 WebSearch(query)
   → ValidateInput: query 非空 / limit ≥0
-  → 3 层路由 ladder:
+  → 2 层路由 ladder:
       Tier 1: BYOK — 按 apikeydomain.SearchProviderPriority 顺序遍历
               brave / serper / tavily / bocha；ResolveCredentials 拿到 key
               即调对应 API（search_byok.go），调挂 warn log 落下层
       Tier 2: MCP — 检查 duckduckgo-search MCP server 已 ready；
               路由 mcp.CallTool 调 search 工具（searchrouter.go）；
               未配置静默降级，调挂 warn log 降级
-      Tier 3: Bing CN HTML 抓（cn.bing.com） — 国内国际通用兜底，零配置
       每后端 10 秒墙钟；任一 tier 返非空 results 即终止
-  → JSON: {query, source(brave|serper|tavily|bocha|mcp|bing_cn), results[{title,url,snippet}], truncated}
+  → 都空时返 LLM-actionable 提示：配 BYOK key 或装 duckduckgo-search MCP
+  → JSON: {query, source(brave|serper|tavily|bocha|mcp), results[{title,url,snippet}], truncated}
 ```
 
 **端到端跨 domain 依赖**：
@@ -59,7 +59,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 - `domain/model.ScenarioWebSummary` + `ModelPicker.PickForWebSummary`（W1 模型层支持）
 - `domain/apikey.KeyProvider`（解析 API key）
 - `infra/llm.Factory.Build`（构造 LLM client）
-- 第三方：`golang.org/x/net/html`（Bing CN 解析，唯一第三方依赖）
+- 第三方：`golang.org/x/net/html`（仅 WebFetch 用；WebSearch 不再做 HTML 解析）
 - env: `JINA_API_KEY`（可选，提速率档）
 - 跨 domain 服务：`app/mcp.SearchRouter`（main.go 注入，wraps mcp.Service.CallTool）
 - 无 DB / SSE / HTTP API
@@ -72,7 +72,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 |---|---|---|
 | WebFetch 抓取策略 | **两段：Jina r.jina.ai → 直 GET fallback** | Jina 把任意网页转干净 markdown（免费层无 key），直 GET 兜底 Jina 限流 / down |
 | WebFetch 摘要 LLM | **新增 `web_summary` scenario**，未配 fallback `chat` 场景 | 抓到的网页可能很长（1MB cap），用户可指定省钱模型（如 4o-mini）；不强制配置（透明 fallback）|
-| WebSearch 路由策略 | **BYOK → MCP → Bing CN 三层** | 屎山拯救计划 #4 (2026-05-07)：原 SearXNG 公共池常挂 + Bing 国际版被墙 + HTML 抓取脆弱 → 删掉换路由架构；BYOK 走 apikey 域（4 provider：brave / serper / tavily / bocha）；MCP 复用 marketplace 里 duckduckgo-search 条目；Bing CN 兜底（国内国际都能用）|
+| WebSearch 路由策略 | **BYOK → MCP 两层**（无 HTML 抓取兜底） | 屎山拯救计划 #4 (2026-05-07)：原 SearXNG/Bing 国际/Bing CN 三层 HTML 抓取全是假兜底——2025 现代 Bing/DDG 全部 JS 渲染，curl 拿不到结果。dogfood 实测后删 Bing CN 那层（再次屎山拯救计划 #4 收尾）。两层失败时返 LLM-actionable 提示用户走 BYOK / 装 MCP |
 | 搜索 provider 列表 | brave / serper / tavily / **bocha** | bocha 是博查 API，国产搜索（国内免 VPN，海外慢）；priority 顺序写在 domain/apikey/SearchProviderPriority |
 | MCP 路由 server 名 | hardcoded "duckduckgo-search" | V1 marketplace 唯一搜索类 MCP；将来真有第二个时升级到 Capability-based discovery |
 | WebSearch Bing 解析 | **html visitor**（`x/net/html`）非 regex | Bing 偶尔加包装 div / 改属性顺序；regex 容易失效；visitor 跟随 `<li class="b_algo">` 子树更稳健 |
@@ -138,7 +138,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 - `source`：`"searxng"` / `"bing"` / `"bing_cn"` —— 让 LLM 知道走的哪 tier
 - `truncated`：`true` 表示原始结果数 > limit
 - 全部 tier 失败 → `All search backends failed. Last error: <err>`
-- 全部 tier 零结果 → `No results for "<query>" across configured BYOK providers, MCP, and Bing CN. Add a search-category API key in Settings → API Keys (Brave / Serper / Tavily / Bocha) or install the duckduckgo-search MCP server for higher-quality results.`
+- 全部 tier 零结果 → 多行 LLM-actionable 提示，分两条 bullet（配 BYOK 或装 duckduckgo-search MCP），并附"为啥不再有 Bing CN 兜底"一句解释（modern Bing JS 渲染，HTML scrape 全 0 命中）|
 
 **静态元数据**：`IsReadOnly=true` / `NeedsReadFirst=false` / `RequiresWorkspace=false`
 

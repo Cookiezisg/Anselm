@@ -1,4 +1,4 @@
-// search.go — WebSearch system tool: 3-tier routing (BYOK → MCP → Bing CN).
+// search.go — WebSearch system tool: 2-tier routing (BYOK → MCP).
 //
 // Routing priority:
 //  1. BYOK: iterate apikeydomain.SearchProviderPriority (brave, serper,
@@ -7,13 +7,15 @@
 //  2. MCP: if user installed the duckduckgo-search MCP server (V1
 //     marketplace entry), route the query through it. Connection failures
 //     fall through with warn log; "not configured" falls through silently.
-//  3. Bing CN: HTML scrape of cn.bing.com — works in mainland China without
-//     VPN and outside China too. The "no setup, no key" safety net.
 //
-// Each backend has a 10-second per-request timeout. If all 3 tiers return
-// empty / fail, the tool surfaces a clear error to the LLM.
+// When both tiers return empty / fail, the tool surfaces a clear LLM-
+// actionable hint: install duckduckgo-search via install_mcp_server tool,
+// or configure a search BYOK key. (We deliberately removed the previous
+// Bing CN HTML scrape "fallback" — modern Bing/Bing CN renders results
+// via JavaScript, so HTML scraping returns 0 hits regardless of UA. See
+// progress-record.md 屎山拯救计划 #4 follow-up.)
 //
-// search.go ——WebSearch 系统工具：3 层路由（BYOK → MCP → Bing CN）。
+// search.go ——WebSearch 系统工具：2 层路由（BYOK → MCP）。
 //
 // 路由优先级：
 //  1. BYOK：按 apikeydomain.SearchProviderPriority 顺序遍历（brave / serper /
@@ -21,10 +23,11 @@
 //     log warn 并降级。
 //  2. MCP：用户装了 duckduckgo-search MCP server（V1 marketplace 条目）就
 //     路由过去。连接失败 warn log 降级；未配置静默降级。
-//  3. Bing CN：cn.bing.com HTML 抓取——国内免 VPN + 国外也能用，"零配置零 key"
-//     安全网。
 //
-// 每后端 10s 单请求超时。3 层全空/失败时给 LLM 清楚的报错。
+// 两层都空/失败时给 LLM 一条 actionable 提示：用 install_mcp_server 装
+// duckduckgo-search，或者配 search BYOK key。（之前的 Bing CN HTML 抓取
+// "兜底" 故意删了——现代 Bing 搜索结果完全 JS 渲染，HTML 抓取无论用啥 UA
+// 都返 0 命中，是个假兜底。详见 progress-record.md 屎山拯救计划 #4 后续。）
 package web
 
 import (
@@ -32,9 +35,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -48,10 +49,10 @@ import (
 // ── Limits & defaults ─────────────────────────────────────────────────────────
 
 const (
-	// searchTimeout caps a single backend call. Three backends × 10s = 30s
+	// searchTimeout caps a single backend call. Two backends × 10s = 20s
 	// worst case which fits comfortably inside the chat tool budget.
 	//
-	// searchTimeout 限制单后端调用；3 后端 × 10s = 30s 最坏，适配 chat 工具预算。
+	// searchTimeout 限制单后端调用；2 后端 × 10s = 20s 最坏，适配 chat 工具预算。
 	searchTimeout = 10 * time.Second
 
 	// defaultSearchLimit is the result count when LLM does not specify.
@@ -64,21 +65,7 @@ const (
 	//
 	// maxSearchLimit 硬上限，防 LLM 索取上千条。
 	maxSearchLimit = 30
-
-	// browserUA is a recent Chrome UA. Bing in particular returns fewer
-	// results (or 403s) for blank/curl UAs.
-	//
-	// browserUA 是较新 Chrome UA；尤其 Bing 对空 UA 或 curl 会少返结果或 403。
-	browserUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-		"AppleWebKit/537.36 (KHTML, like Gecko) " +
-		"Chrome/126.0.0.0 Safari/537.36"
 )
-
-// bingCNURL is package var so tests can swap it for an httptest instance.
-// The real endpoint is the cn.bing.com HTML search results page.
-//
-// bingCNURL 是 var 让测试能换 httptest；线上是 cn.bing.com HTML 结果页。
-var bingCNURL = "https://cn.bing.com/search"
 
 // ── Validation sentinels ──────────────────────────────────────────────────────
 
@@ -90,15 +77,14 @@ var (
 
 // ── Description & schema ──────────────────────────────────────────────────────
 
-const searchDescription = `Web search. Routes to the first available source: configured BYOK provider (Brave / Serper / Tavily / Bocha), then duckduckgo-search MCP server (if installed), then a built-in Bing CN scrape as the no-key fallback.
+const searchDescription = `Web search. Routes to the first available source: configured BYOK provider (Brave / Serper / Tavily / Bocha), then duckduckgo-search MCP server (if installed). When neither is available the tool returns a clear hint — call list_mcp_marketplace to discover the duckduckgo-search backend, then install_mcp_server({name:"duckduckgo-search"}) to add it (~30s, no key needed).
 
 Usage:
 - ` + "`query`" + ` is the search string (treated as one phrase by the upstream engine).
 - Returns JSON: {"query","source","results":[{"title","url","snippet"}],"truncated"}.
-- ` + "`source`" + ` tells you which backend produced the results: "brave" / "serper" / "tavily" / "bocha" / "mcp" / "bing_cn".
+- ` + "`source`" + ` tells you which backend produced the results: "brave" / "serper" / "tavily" / "bocha" / "mcp".
 - ` + "`limit`" + ` caps the result count (default 10, hard max 30).
-- Each backend has a 10-second budget; the tool falls through if a backend returns no results or errors.
-- Configure a search-category API key in Settings → API Keys for higher-quality results; the no-key Bing CN fallback works in mainland China without a VPN.`
+- Each backend has a 10-second budget; the tool falls through if a backend returns no results or errors.`
 
 var searchSchema = json.RawMessage(`{
 	"type": "object",
@@ -145,7 +131,7 @@ type searchResult struct {
 
 type searchResponse struct {
 	Query     string         `json:"query"`
-	Source    string         `json:"source"` // "brave" / "serper" / "tavily" / "bocha" / "mcp" / "bing_cn"
+	Source    string         `json:"source"` // "brave" / "serper" / "tavily" / "bocha" / "mcp"
 	Results   []searchResult `json:"results"`
 	Truncated bool           `json:"truncated"`
 }
@@ -204,15 +190,15 @@ func (t *WebSearch) CheckPermissions(_ json.RawMessage, _ toolapp.PermissionMode
 
 // ── Execute ───────────────────────────────────────────────────────────────────
 
-// Execute walks the BYOK → MCP → Bing CN routing ladder. Returns the first
-// non-empty result list as JSON. Per-tier failures + zero-result responses
-// both trigger the next tier; warns are logged for "tried and failed" but
-// not for "not configured" cases (the silent BYOK miss is the normal path
-// for users who never set a key).
+// Execute walks the BYOK → MCP routing ladder. Returns the first non-empty
+// result list as JSON. Per-tier failures + zero-result responses both
+// trigger the next tier; warns are logged for "tried and failed" but not
+// for "not configured" cases (the silent BYOK miss is the normal path for
+// users who never set a key).
 //
-// Execute 走 BYOK → MCP → Bing CN 路由阶梯。第一个非空结果作 JSON 返。
-// per-tier 失败 + 零结果都触发下一层；"试了挂"走 warn log，"未配置"静默
-// （用户从没配 key 时这是正常路径）。
+// Execute 走 BYOK → MCP 路由阶梯。第一个非空结果作 JSON 返。per-tier 失败
+// + 零结果都触发下一层；"试了挂"走 warn log，"未配置"静默（用户从没配 key
+// 时这是正常路径）。
 func (t *WebSearch) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args searchArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
@@ -247,19 +233,15 @@ func (t *WebSearch) Execute(ctx context.Context, argsJSON string) (string, error
 		}
 	}
 
-	// Tier 3: Bing CN scrape.
-	if ctx.Err() == nil {
-		results, err := t.scrapeBingCN(ctx, args.Query)
-		if err != nil {
-			t.warnf("WebSearch Bing CN scrape failed", err)
-		} else if len(results) > 0 {
-			return marshalSearchResponse(args, "bing_cn", results)
-		}
-	}
-
-	return fmt.Sprintf("No results for %q across configured BYOK providers, MCP, and Bing CN. "+
-		"Add a search-category API key in Settings → API Keys (Brave / Serper / Tavily / Bocha) "+
-		"or install the duckduckgo-search MCP server for higher-quality results.", args.Query), nil
+	return fmt.Sprintf("No results for %q. No search backend is currently available.\n\n"+
+		"To enable web search, do ONE of the following:\n"+
+		"  • Configure a search-category API key in Settings → API Keys "+
+		"(Brave / Serper / Tavily — international; Bocha — China). All have free tiers.\n"+
+		"  • Install the duckduckgo-search MCP server from the marketplace "+
+		"(no API key needed; ~30s install). The user can do this from the MCP tab.\n\n"+
+		"(The previous Bing CN HTML scrape fallback was removed because Bing now "+
+		"renders results via JavaScript, making server-side HTML scraping return 0 results.)",
+		args.Query), nil
 }
 
 // tryBYOKProvider attempts one BYOK search call. Returns (results, source,
@@ -383,47 +365,6 @@ func marshalSearchResponse(args searchArgs, source string, results []searchResul
 		return "", fmt.Errorf("WebSearch.Execute: marshal: %w", err)
 	}
 	return string(body), nil
-}
-
-// ── Bing CN scrape (no-key fallback) ──────────────────────────────────────────
-
-// scrapeBingCN fetches cn.bing.com search results and parses them via the
-// shared parseBingHTML helper (search_bing.go). Bing's HTML changes
-// occasionally — best-effort; if the layout shifts the result set will
-// shrink to zero and the LLM gets the "no results" message.
-//
-// scrapeBingCN 抓 cn.bing.com 搜索结果并经 parseBingHTML（search_bing.go）解
-// 析。Bing HTML 偶有变动——尽力；layout 变化会让结果集变 0，LLM 拿到"无结果"。
-func (t *WebSearch) scrapeBingCN(ctx context.Context, query string) ([]searchResult, error) {
-	u, err := url.Parse(bingCNURL)
-	if err != nil {
-		return nil, err
-	}
-	q := u.Query()
-	q.Set("q", query)
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", browserUA)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7")
-
-	resp, err := t.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("http status %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFetchBytes))
-	if err != nil {
-		return nil, err
-	}
-	return parseBingHTML(string(body))
 }
 
 // ── Compile-time checks ───────────────────────────────────────────────────────

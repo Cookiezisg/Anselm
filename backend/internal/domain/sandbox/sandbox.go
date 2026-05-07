@@ -179,6 +179,20 @@ var (
 	ErrSpawnFailed          = errors.New("sandbox: spawn process failed")
 	ErrSpawnTimeout         = errors.New("sandbox: spawn process timeout")
 	ErrEnvInUse             = errors.New("sandbox: env in use; cannot destroy")
+	// ErrDockerNotInstalled = `docker` binary not on PATH. Forgify cannot
+	// install Docker for the user (system service, requires root/admin) —
+	// caller should surface a platform-specific install URL.
+	//
+	// ErrDockerNotInstalled = `docker` 二进制不在 PATH。Forgify 不能替用户装
+	// Docker（系统服务，要 root/admin）—— 调用方应给平台对应安装链接。
+	ErrDockerNotInstalled = errors.New("sandbox: docker not installed")
+	// ErrDockerDaemonDown = `docker` is on PATH but the daemon is not
+	// responding. Typically Docker Desktop not running on Mac/Win, or
+	// `systemctl status docker` says inactive on Linux.
+	//
+	// ErrDockerDaemonDown = `docker` 在 PATH 但 daemon 不响应。通常 Mac/Win
+	// 上 Docker Desktop 没启，或 Linux 上 `systemctl status docker` inactive。
+	ErrDockerDaemonDown = errors.New("sandbox: docker daemon not responding")
 )
 
 // Repository is the persistence contract for sandbox manifest tables
