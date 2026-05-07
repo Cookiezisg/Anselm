@@ -175,6 +175,7 @@ type ListFilter struct {
 
 var (
 	ErrMessageNotFound           = errors.New("chat: message not found")
+	ErrBlockNotFound             = errors.New("chat: block not found")
 	ErrStreamNotFound            = errors.New("chat: no active stream for conversation")
 	ErrStreamInProgress          = errors.New("chat: stream already in progress")
 	ErrProviderUnavailable       = errors.New("chat: LLM provider unavailable")

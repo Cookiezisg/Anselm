@@ -81,6 +81,23 @@ func TestGetToolCallID_MissingReturnsFalse(t *testing.T) {
 	}
 }
 
+// ── parent block ID ───────────────────────────────────────────────────────────
+
+func TestSetGetParentBlockID_RoundTrip(t *testing.T) {
+	ctx := WithParentBlockID(context.Background(), "blk_42")
+	id, ok := GetParentBlockID(ctx)
+	if !ok || id != "blk_42" {
+		t.Errorf("got %q ok=%v, want \"blk_42\" ok=true", id, ok)
+	}
+}
+
+func TestGetParentBlockID_MissingReturnsFalse(t *testing.T) {
+	id, ok := GetParentBlockID(context.Background())
+	if ok || id != "" {
+		t.Errorf("got %q ok=%v, want empty/false", id, ok)
+	}
+}
+
 // ── isolation between keys ────────────────────────────────────────────────────
 
 func TestAgentRunIDs_KeyIsolation(t *testing.T) {
@@ -96,6 +113,9 @@ func TestAgentRunIDs_KeyIsolation(t *testing.T) {
 	}
 	if _, ok := GetToolCallID(ctx); ok {
 		t.Error("conversationID leaked into toolCallID slot")
+	}
+	if _, ok := GetParentBlockID(ctx); ok {
+		t.Error("conversationID leaked into parentBlockID slot")
 	}
 }
 

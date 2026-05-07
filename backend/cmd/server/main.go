@@ -53,6 +53,7 @@ import (
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
+	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	mcpinfra     "github.com/sunweilin/forgify/backend/internal/infra/mcp"
@@ -108,7 +109,8 @@ func main() {
 		&modeldomain.ModelConfig{},
 		&convdomain.Conversation{},
 		&chatdomain.Message{},
-		&chatdomain.Block{}, // message_blocks table (chat infra refactor)
+		&chatdomain.Block{},   // message_blocks table (legacy; deleted at Phase 4 cutover)
+		&chatdomain.BlockV2{}, // message_blocks_v2 table (event-log protocol Phase 1)
 		&chatdomain.Attachment{},
 		&forgedomain.Forge{},
 		&forgedomain.ForgeVersion{},
@@ -170,6 +172,7 @@ func main() {
 		factory: llmFactory,
 	}
 	eventsBridge := memoryinfra.NewBridge(log)
+	eventLogBridge := eventloginfra.NewBridge(log)
 
 	// PluginSandbox v2 — unified runtime/env service. Bootstrap extracts
 	// the embedded mise binary; failure flips degraded mode (chat-only
@@ -372,6 +375,7 @@ func main() {
 		ForgeService:        forgeService,
 		ChatService:         chatService,
 		EventsBridge:        eventsBridge,
+		EventLogBridge:      eventLogBridge,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,

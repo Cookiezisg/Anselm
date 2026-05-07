@@ -22,6 +22,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 )
@@ -63,6 +64,16 @@ type Deps struct {
 	// EventsBridge 是进程内发布-订阅总线，由 ChatService（发布方）
 	// 和 SSE handler（订阅方）共享。
 	EventsBridge eventsdomain.Bridge
+
+	// EventLogBridge is the recursive-event-log Bridge backing the new
+	// /api/v1/eventlog SSE endpoint. Phase 1 wiring: present alongside
+	// EventsBridge but no producer publishes to it yet (Phase 2 cuts
+	// chat / subagent / tools over).
+	//
+	// EventLogBridge 是递归事件日志 Bridge，背后 /api/v1/eventlog SSE 端点。
+	// Phase 1 接线：与 EventsBridge 并存，暂无 producer 推（Phase 2 切
+	// chat / subagent / tools）。
+	EventLogBridge eventlogdomain.Bridge
 
 	// AskService routes user answers from POST /api/v1/conversations/{id}/answers
 	// back to the AskUserQuestion tool that is currently blocking on Wait.

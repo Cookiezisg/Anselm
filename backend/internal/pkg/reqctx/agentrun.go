@@ -23,6 +23,7 @@ var ErrMissingConversationID = errors.New("reqctx: missing conversation id in co
 type conversationIDKey struct{}
 type messageIDKey struct{}
 type toolCallIDKey struct{}
+type parentBlockIDKey struct{}
 
 // WithConversationID returns a copy of ctx carrying id.
 //
@@ -76,6 +77,27 @@ func WithToolCallID(ctx context.Context, id string) context.Context {
 // GetToolCallID 取 LLM tool-call ID；缺失或空时 ok=false。
 func GetToolCallID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(toolCallIDKey{}).(string)
+	return id, ok && id != ""
+}
+
+// WithParentBlockID returns a copy of ctx carrying the current emit-tree
+// parent block. Used by pkg/eventlog so nested emits (tool progress
+// inside a tool_call, subagent text inside a message-block) automatically
+// get the correct parentId field without each emitter recomputing it.
+//
+// WithParentBlockID 返回携带当前 emit 树父 block 的 ctx 拷贝。pkg/eventlog
+// 用它让嵌套 emit（tool_call 下的 progress、message-block 下的 subagent
+// 文本）自动取得正确 parentId，不需各 emitter 重算。
+func WithParentBlockID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, parentBlockIDKey{}, id)
+}
+
+// GetParentBlockID returns the current emit-tree parent block ID;
+// ok=false when absent or empty (top-level emit).
+//
+// GetParentBlockID 返回当前 emit 树父 block ID；缺失或空时 ok=false（顶层 emit）。
+func GetParentBlockID(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(parentBlockIDKey{}).(string)
 	return id, ok && id != ""
 }
 
