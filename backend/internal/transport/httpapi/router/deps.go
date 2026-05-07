@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
@@ -74,6 +75,14 @@ type Deps struct {
 	// Phase 1 接线：与 EventsBridge 并存，暂无 producer 推（Phase 2 切
 	// chat / subagent / tools）。
 	EventLogBridge eventlogdomain.Bridge
+
+	// BlockV2Repo backs the /api/v1/conversations/{id}/eventlog HTTP
+	// refetch endpoint. Optional — when nil only the SSE stream is
+	// served (no history refetch).
+	//
+	// BlockV2Repo 给 /api/v1/conversations/{id}/eventlog HTTP refetch
+	// 端点。可选——nil 时只服务 SSE 流（无历史 refetch）。
+	BlockV2Repo chatdomain.BlockV2Repository
 
 	// AskService routes user answers from POST /api/v1/conversations/{id}/answers
 	// back to the AskUserQuestion tool that is currently blocking on Wait.

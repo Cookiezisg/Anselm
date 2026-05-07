@@ -204,6 +204,91 @@ func TestBlockV2_StatusCheckEnforced(t *testing.T) {
 	}
 }
 
+func TestBlockV2_ReplayEventsAfter(t *testing.T) {
+	s := newBlockV2Store(t)
+	ctx := context.Background()
+
+	// 3 blocks: top-level text, nested progress, top-level tool_call
+	b1 := mkBlockV2("blk_text", "cv_1", "msg_1", 1)
+	b1.Type = eventlogdomain.BlockTypeText
+	b1.Content = "hello world"
+	b1.Status = eventlogdomain.StatusCompleted
+	s.Save(ctx, b1)
+
+	b2 := mkBlockV2("blk_progress", "cv_1", "msg_1", 2)
+	b2.Type = eventlogdomain.BlockTypeProgress
+	b2.ParentBlockID = "tc_x" // nested
+	b2.Content = "step 1\nstep 2"
+	b2.Attrs = `{"stage":"installing"}`
+	b2.Status = eventlogdomain.StatusCompleted
+	s.Save(ctx, b2)
+
+	b3 := mkBlockV2("blk_tc", "cv_1", "msg_1", 3)
+	b3.Type = eventlogdomain.BlockTypeToolCall
+	// Status=streaming; no content; should produce 2 envelopes (start + stop, no delta)
+	s.Save(ctx, b3)
+
+	envs, err := s.ReplayEventsAfter(ctx, "cv_1", 0)
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+
+	// Expected: b1 (start+delta+stop = 3), b2 (start+delta+stop = 3), b3 (start+stop = 2) → 8 envelopes
+	if len(envs) != 8 {
+		t.Fatalf("envelope count: got %d, want 8", len(envs))
+	}
+
+	// Verify b1 BlockStart parent fallback to messageID for top-level
+	bs1 := envs[0]
+	if bs1.Type != "block_start" {
+		t.Errorf("envs[0]: type %q, want block_start", bs1.Type)
+	}
+	if bs1.Payload["parentId"] != "msg_1" {
+		t.Errorf("envs[0] parentId: got %v, want msg_1 (top-level fallback)", bs1.Payload["parentId"])
+	}
+
+	// Verify b2 BlockStart preserves parentBlockID for nested
+	// Find b2's start: envs[3] (after b1's 3 envelopes)
+	bs2 := envs[3]
+	if bs2.Payload["id"] != "blk_progress" {
+		t.Errorf("envs[3] id: got %v, want blk_progress", bs2.Payload["id"])
+	}
+	if bs2.Payload["parentId"] != "tc_x" {
+		t.Errorf("envs[3] parentId: got %v, want tc_x (nested)", bs2.Payload["parentId"])
+	}
+
+	// Verify b3 has no delta (empty content)
+	// Find b3's start: envs[6] (after b1=3 + b2=3)
+	bs3 := envs[6]
+	if bs3.Payload["id"] != "blk_tc" {
+		t.Errorf("envs[6] id: got %v, want blk_tc", bs3.Payload["id"])
+	}
+	stop3 := envs[7]
+	if stop3.Type != "block_stop" {
+		t.Errorf("envs[7] type: got %q, want block_stop (no delta for empty content)", stop3.Type)
+	}
+}
+
+func TestBlockV2_ReplayEventsAfter_FromSeqFilters(t *testing.T) {
+	s := newBlockV2Store(t)
+	ctx := context.Background()
+	for i := 1; i <= 5; i++ {
+		b := mkBlockV2("blk_"+string(rune('0'+i)), "cv_1", "msg_1", int64(i))
+		b.Status = eventlogdomain.StatusCompleted
+		s.Save(ctx, b)
+	}
+	// Ask from seq=3 → only blocks with seq 4 and 5 (2 × 2 envelopes since no content = 2 events each)
+	envs, _ := s.ReplayEventsAfter(ctx, "cv_1", 3)
+	if len(envs) != 4 {
+		t.Errorf("envs count: got %d, want 4", len(envs))
+	}
+	for _, e := range envs {
+		if e.Seq <= 3 {
+			t.Errorf("seq %d should have been filtered", e.Seq)
+		}
+	}
+}
+
 func TestBlockV2_SaveOverwriteUpdatesContent(t *testing.T) {
 	s := newBlockV2Store(t)
 	ctx := context.Background()

@@ -19,6 +19,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -158,6 +159,84 @@ func (s *BlockV2Store) ListByMessage(ctx context.Context, messageID string) ([]*
 		return nil, fmt.Errorf("chatstore.BlockV2.ListByMessage: %w", err)
 	}
 	return rows, nil
+}
+
+// ReplayEventsAfter reconstructs the block-event stream from DB rows.
+// See chatdomain.BlockV2Repository.ReplayEventsAfter for contract.
+//
+// ReplayEventsAfter 从 DB 行重构 block 事件流。契约见
+// chatdomain.BlockV2Repository.ReplayEventsAfter。
+func (s *BlockV2Store) ReplayEventsAfter(ctx context.Context, conversationID string, fromSeq int64) ([]chatdomain.ReplayEnvelope, error) {
+	var rows []*chatdomain.BlockV2
+	err := s.db.WithContext(ctx).
+		Where("conversation_id = ? AND seq > ?", conversationID, fromSeq).
+		Order("seq ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("chatstore.BlockV2.ReplayEventsAfter: %w", err)
+	}
+
+	out := make([]chatdomain.ReplayEnvelope, 0, len(rows)*3)
+	for _, b := range rows {
+		var attrs map[string]any
+		if b.Attrs != "" {
+			_ = json.Unmarshal([]byte(b.Attrs), &attrs)
+		}
+
+		// Reconstruct ParentID for the wire: empty parent_block_id in DB
+		// means "top-level block of the message" → wire ParentID = MessageID.
+		// Non-empty → wire ParentID = parent_block_id (nested case).
+		//
+		// 从 DB 重构 wire ParentID：parent_block_id 空 = 顶层 → wire
+		// ParentID = MessageID；非空 = 嵌套 → wire ParentID = parent_block_id。
+		parentID := b.ParentBlockID
+		if parentID == "" {
+			parentID = b.MessageID
+		}
+
+		// block_start
+		out = append(out, chatdomain.ReplayEnvelope{
+			Type: "block_start",
+			Seq:  b.Seq,
+			Payload: map[string]any{
+				"conversationId": conversationID,
+				"id":             b.ID,
+				"parentId":       parentID,
+				"messageId":      b.MessageID,
+				"blockType":      b.Type,
+				"attrs":          attrs,
+			},
+		})
+
+		// block_delta (single delta carries full content)
+		if b.Content != "" {
+			out = append(out, chatdomain.ReplayEnvelope{
+				Type: "block_delta",
+				Seq:  b.Seq,
+				Payload: map[string]any{
+					"conversationId": conversationID,
+					"id":             b.ID,
+					"delta":          b.Content,
+				},
+			})
+		}
+
+		// block_stop
+		stopPayload := map[string]any{
+			"conversationId": conversationID,
+			"id":             b.ID,
+			"status":         b.Status,
+		}
+		if b.Error != "" {
+			stopPayload["error"] = b.Error
+		}
+		out = append(out, chatdomain.ReplayEnvelope{
+			Type:    "block_stop",
+			Seq:     b.Seq,
+			Payload: stopPayload,
+		})
+	}
+	return out, nil
 }
 
 // Compile-time check.

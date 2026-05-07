@@ -19,7 +19,7 @@ func newEventLogServer(t *testing.T) (*httptest.Server, *eventloginfra.Bridge) {
 	t.Helper()
 	bridge := eventloginfra.NewBridge(nil)
 	mux := http.NewServeMux()
-	NewEventLogHandler(bridge, nil).Register(mux)
+	NewEventLogHandler(bridge, nil, nil).Register(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv, bridge

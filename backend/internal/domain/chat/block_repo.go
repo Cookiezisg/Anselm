@@ -67,4 +67,43 @@ type BlockV2Repository interface {
 	// ListByMessage 返 messageID 的所有 block，按 seq ASC 排序。
 	// 渲染单条 message 的完整 block 树时用，不需要拉整个对话。
 	ListByMessage(ctx context.Context, messageID string) ([]*BlockV2, error)
+
+	// ReplayEventsAfter returns the blocks-as-events sequence for
+	// conversationID with seq > fromSeq, ordered by seq ASC. Used by the
+	// /api/v1/conversations/{id}/eventlog?from=<seq> HTTP endpoint when
+	// a client receives 410 Gone from the live SSE replay buffer and
+	// needs to refetch state from DB.
+	//
+	// Implementation note: each row produces three envelopes (block_start
+	// + block_delta carrying the full Content + block_stop), all sharing
+	// the row's seq (logical group). Message_start / message_stop are
+	// NOT emitted here — Phase 3 minimal scope; clients combine this
+	// with GET /api/v1/conversations/{id}/messages to get message
+	// metadata. Phase 5 may extend.
+	//
+	// ReplayEventsAfter 返 conversationID 中 seq > fromSeq 的 blocks-as-events
+	// 序列（seq ASC）。客户端从实时 SSE replay buffer 收到 410 Gone 时
+	// 经 /api/v1/conversations/{id}/eventlog?from=<seq> 端点 refetch DB 状态。
+	//
+	// 实现说明：每行产 3 个 envelope（block_start + block_delta 携完整
+	// Content + block_stop），共享行 seq（逻辑组）。message_start /
+	// message_stop 不在此发——Phase 3 最小范围；客户端配合
+	// GET /api/v1/conversations/{id}/messages 取 message 元数据。Phase 5 扩。
+	ReplayEventsAfter(ctx context.Context, conversationID string, fromSeq int64) ([]ReplayEnvelope, error)
+}
+
+// ReplayEnvelope is a self-describing wire shape for replayed events.
+// Mirrors eventlogdomain.Envelope but flattens type + seq into the
+// JSON body so callers reading from HTTP get a uniform shape (the live
+// SSE wire puts type/seq into headers; the HTTP refetch endpoint puts
+// them in the body).
+//
+// ReplayEnvelope 是 replayed 事件的自描述 wire 形状。镜像
+// eventlogdomain.Envelope 但把 type + seq 拍到 JSON body——HTTP refetch
+// 端点客户端拿到统一形状（live SSE wire 把 type/seq 放 header；HTTP refetch
+// 放 body）。
+type ReplayEnvelope struct {
+	Type    string         `json:"type"`
+	Seq     int64          `json:"seq"`
+	Payload map[string]any `json:"payload"`
 }

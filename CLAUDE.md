@@ -71,17 +71,23 @@
 ## HTTP API（N 系列）
 
 1. **N1 统一 envelope**：成功 `{"data": ...}`；失败 `{"error": {"code", "message", "details"}}`
-2. **N2 状态码严格语义**：200 读/更新 / 201 创建 / 204 删除 / 400 参数错 / 404 不存在 / 409 冲突 / 422 业务拒绝 / 500 内部错
+2. **N2 状态码严格语义**：200 读/更新 / 201 创建 / 204 删除 / 400 参数错 / 404 不存在 / 409 冲突 / 410 历史已淘汰 / 422 业务拒绝 / 500 内部错
 3. **N3 字段 camelCase**：API 请求/响应一律 camelCase；DB 列 snake_case，repo 层转换
 4. **N4 列表强制分页**：`?cursor=xxx&limit=50` → `{data, nextCursor, hasMore}`
 5. **N5 RESTful 严格化**：资源用名词；状态改动走 `PATCH` + 状态字段；动词用 `:action` 后缀（`POST /tools/{id}:duplicate`）
 6. **N6 PUT 幂等返 200**：upsert 类 PUT 端点（如 `PUT /model-configs/{scenario}`）无论新建或更新一律返 200——客户端不需要区分。区别 create/update 时才用 POST 返 201
+7. **N7 SSE wire format**（事件日志协议专用）：
+    - 每事件按 SSE 标准发送：`event: <type>` + `id: <seq>` + `data: <event payload JSON>` + 空行
+    - payload 不重复 `type` / `seq` 字段（已在 SSE header 行）
+    - 客户端断线重连用 `Last-Event-ID: <seq>` header；服务端从 `seq+1` 起 replay buffer 内事件
+    - 超出 buffer 返 `410 Gone` + `code=SEQ_TOO_OLD`，客户端经 `GET /api/v1/conversations/{id}/eventlog?from=<seq>` refetch 全态
+    - 详 [`event-log-protocol.md` §3](documents/version-1.2/event-log-protocol.md)
 
 ## 数据库（D 系列）
 
 7. **D1 软删除统一**：所有表用 `deleted_at DATETIME`（NULL = 未删除），废弃 `status='deleted'` 风格
 8. **D2 时间戳统一**：每表必有 `created_at` / `updated_at`，GORM 自动维护
-9. **D3 枚举 CHECK 约束**：稳定白名单（如 `role`、`content_type`）在 DB 层做 CHECK；会随 Phase 扩张的白名单（如 `scenario`）在 app 层校验
+9. **D3 枚举 CHECK 约束**：稳定白名单（如 `role`、`content_type`、`message_blocks_v2.type`、`message_blocks_v2.status`）在 DB 层做 CHECK；会随 Phase 扩张的白名单（如 `scenario`）在 app 层校验。`message_blocks_v2` 枚举值固定 6/4 种（详 §E1）
 10. **D4 外键显式声明** + `PRAGMA foreign_keys=ON` 开启约束
 11. **D5 业务唯一性用 UNIQUE 约束**：`tools.name`、`(tool_id, version)`、`(user_id, scenario)` 等
 12. **D6 schema_extras 模式**：AutoMigrate 表达不了的 SQL（partial 索引 / 触发器 / FTS5 虚拟表 / 复杂 CHECK）走 `infra/db/schema_extras.go`。每条语句必须**幂等**（`CREATE … IF NOT EXISTS`）+ 按 table 分组 + 入口先 `db.Migrator().HasTable()` 守卫
@@ -89,8 +95,16 @@
 
 ## SSE（E 系列）
 
-14. **E1 死事件清理**：每个事件必须有真实发布点 + Go struct 定义，禁止 `map[string]any`
-15. **E2 事件名 snake_case 分层**：`chat.token`、`tool.code_updated`；所有事件必带 `conversationId` 或明确上下文
+14. **E1 事件协议**：统一 5 种事件 + 6 种 block 类型枚举；新事件 / block 类型必须先改 `event-log-protocol.md` 再加 code
+    - 5 事件：`message_start` / `message_stop` / `block_start` / `block_delta` / `block_stop`
+    - 6 block 类型：`text` / `reasoning` / `tool_call` / `tool_result` / `progress` / `message`
+    - 每事件必带 `conversationId` + `seq`；block 事件必带 `parentId`
+    - **Phase 4 cutover 前**老 `domain/events/` 仍保留（chat.message / Forge / Conversation / Todo / MCP / Skill 6 类 entity-snapshot），dual-write 状态；新代码应只面向新协议
+15. **E2 事件路由 + 命名**：通过 `parentId` 字段递归路由（不靠事件名分层），事件类型固定 5 种 / block 类型固定 6 种
+    - 事件名 wire 格式：`message_start` / `block_delta` 等小写下划线，无点号前缀
+    - block 类型常量定义在 `domain/eventlog/eventlog.go::BlockType*`
+    - SSE 端点 `/api/v1/eventlog?conversationId=` (新) 与 `/api/v1/events` (老) 共存到 Phase 4
+16. **E3 不再要求 Go struct 1:1 covering**：旧 §E1 "禁止 map[string]any" 由协议层 `ValidateEvent` 替代——所有 5 events 已是封闭 struct，新增需走协议修订流程
 
 ## 代码规范（S 系列）
 
@@ -108,6 +122,13 @@
 - **S16 错误包装格式**：上抛错误用 `fmt.Errorf("<pkg>.<Method>: %w", err)`，sentinel 在最里层。例：`apikeystore.List: missing user id in context`。**禁止**裸 `errors.New` 套娃丢失原 sentinel；**禁止**自创新前缀代替 `%w` 包装。`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17 errmap 单一事实源**：每个会到达 handler 的 sentinel 必须登记到 `transport/httpapi/response/errmap.go::errTable`——**包括** `pkg/` 和 `infra/` 中跨层使用的（如 `reqctxpkg.ErrMissingUserID` / `cryptoinfra.ErrUnsupportedVersion`）。未登记的 sentinel 会触发"unmapped domain error" ERROR 日志，污染烟雾报警
 - **S18 Tool 接口规约** — 见 §S18 详节
+- **S21 事件流契约 invariants**（事件日志协议必守）：
+  - `block_start.parentId` 必须先于本事件出现过——可以是 message ID（顶层 block 路径）或更早的 block ID（嵌套）；frontend 路由按"先查 blocks Map 再查 messages Map"。任何 dangling parentId 都是 producer bug
+  - `block.status` 流转单向：`streaming` → 终态 (`completed` | `error` | `cancelled`)，不可回退。重复 stop 或 stop 后 delta 都是 producer bug
+  - `message.status` 同上 4 值流转
+  - 同 conversation 内 `seq` 严格全局单调递增（DB UNIQUE(conversation_id, seq) 强制）；frontend 按 seq 顺序消费保证 wire 顺序还原
+  - 同 block 的 deltas 按 seq 顺序 append-only——前端永不重写、永不重排
+  - tool_call block 的 ID 复用 LLM 自带的 tool-call ID（如 `tc_xxx`）——不走 §S15 prefix 约定（LLM 不知道我们的 ID 体系）；其他 block 用 `idgenpkg.New("blk")`
 - **S20 📌 禁止"留下次"无理由（最高优先级）**：发现 bug / 缺陷 / 风险时**默认必须当场修**。声明"留下次"必须**同时满足**两条：(a) **结构性硬约束**——例如必须先扩公共 struct / 必须先改未上线模块 / 必须等外部依赖 / commit 已经超大需要分包；(b) **当场清晰说明**——commit message 或 progress-record dev log 里写明"为什么不能现在修"+"修复需要的前置条件"+"用户场景下会怎么爆"。**禁止理由**：(1)"想分 commit 别堆太多"——commit 大小不是借口，宁可一个大 commit 也不漏 bug；(2)"目前没人撞到"——只要可触发就该修；(3)"我懒"——别说，去修。**审查机制**：每次说出"留下次 / TODO / 改天 / 之后修"的瞬间，必须自检 (a) + (b)，**不通过就立刻动手**。**触发场景**：风险表里出现"⏳ 待修"那一栏；任何"以后再说"措辞；任何"知道在哪知道怎么修就行"的自我安慰式收尾。
 
 - **S19 Dev log 节制**：`progress-record.md` 每条 dev log 1-2 句、~30-100 汉字，跟 Phase 0-2 早期条目同密度。保留：日期标签（`[refactor]` / `[fix]` / `[doc]` 等）/ 模块 / 关键数字（测试数 / 文件数 / 端点数）/ 一句结论。砍：实现细节、设计权衡 why/how、踩坑过程、命名漂移记录——这些归 git log / commit message / 设计文档。**Dev log 是日期索引，不是工程档案**——长篇是噪音，密度过高反而难找历史。
@@ -430,24 +451,29 @@ type Tool interface {
 
 三者由 framework 在传给 `Execute` 前剥除（`StripStandardFields` 返回 `StandardFields` struct），存进 `chatdomain.ToolCallData` 的一等字段（`Summary` / `Destructive` / `ExecutionGroup`）。**tool 实现的 Parameters() 不得包含这三个字段名**——冲突时 framework panic。
 
-## 3. 推流约定
+## 3. 推流约定（事件日志协议 / Phase 2+ 推荐）
 
-Tool 实现要推 SSE 时：直接 `bridge.Publish(ctx, convID, eventsdomain.SomeEvent{...})`。从 `pkg/reqctx` 读 `convID` / `msgID` / `toolCallID`：
+Tool 实现要推 SSE 时，**优先用 `pkg/eventlog` 的 Emitter**——从 ctx 拿，自动继承 conversationId + parentBlockId（runOneTool 已用 `WithParentBlockID(tc.ID)` 包了 ctx，工具内 emit 自动挂 tool_call 父下）：
 
 ```go
-import reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+import (
+    eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+    eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+)
 
 func (t *MyTool) Execute(ctx context.Context, args string) (string, error) {
-    convID, _ := reqctxpkg.GetConversationID(ctx)
-    msgID, _ := reqctxpkg.GetMessageID(ctx)
-    toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
-    t.bridge.Publish(ctx, convID, eventsdomain.SomeEvent{
-        ConversationID: convID, MessageID: msgID, ToolCallID: toolCallID, ...
-    })
+    em := eventlogpkg.From(ctx) // never nil — falls back to no-op
+    progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress, map[string]any{"stage": "downloading"})
+    em.DeltaBlock(ctx, progID, "234 MB / 1.2 GB\n")
+    em.DeltaBlock(ctx, progID, "612 MB / 1.2 GB\n")
+    em.StopBlock(ctx, progID, eventlogdomain.StatusCompleted, nil)
+    return "done", nil
 }
 ```
 
-**不引入 emit 抽象**——心智统一优先，所有 SSE 推流走同一形态（详见 progress-record.md Phase 3 决策）。
+**legacy `bridge.Publish(ctx, convID, eventsdomain.X{...})` 仍可用**——dual-write 期共存，新代码优先走 Emitter。
+
+**不引入更高的 emit 抽象**——心智统一优先；所有推流走 Emitter 6 方法或 Bridge 的直接 Publish，不再抽象第三层。
 
 ## 4. runTools 分批语义（按 LLM 自报的 execution_group）
 
@@ -578,6 +604,7 @@ func requireKey(t *testing.T) string {
 - **已摆脱 Eino**（2026-04-27 重构），自有 LLM 客户端 `infra/llm`（OpenAI-compat + Anthropic 原生）
 - **modernc.org/sqlite**（纯 Go），跨平台 build 一行命令；DSN 用 `_pragma=...` 语法
 - **桌面端集成方式**：Wails 当窗口外壳 + 复用 httpapi（**不走** Wails native binding，详见 `desktop-packaging-notes.md`）
-- **chat 已用 Block 模型**（messages 表是元数据，内容在 message_blocks）
+- **chat 已用 Block 模型**（messages 表是元数据，内容在 message_blocks；Phase 1+ 起 message_blocks_v2 表用于事件日志协议 dual-write，Phase 4 cutover 改名回 message_blocks 删 legacy）
+- **事件日志协议**（2026-05-08 起 Phase 1-2 已落地）：`domain/eventlog` + `infra/eventlog` + `pkg/eventlog`；新 SSE 端点 `/api/v1/eventlog`；与 legacy `domain/events` + `/api/v1/events` 共存到 Phase 4。完整设计见 [`event-log-protocol.md`](documents/version-1.2/event-log-protocol.md)
 - **测试基线**：~170 单测全绿；5 个 LLM 集成测试因 `DEEPSEEK_API_KEY` 环境失效，与基线一致，不算回归
 - **`infra/sandbox` v2 捆绑 mise**（~25 MB binary），lazy install 各语言 runtime（python/node/rust/...）+ per-plugin 隔离 env（forge / mcp / skill / conversation 4 类 owner）。SQLite 双表 manifest（sandbox_runtimes + sandbox_envs）。dev 与 prod 都走 `go:embed` 把 mise binary 编进 binary——`make resources` 把 mise 拉到 `backend/internal/infra/sandbox/mise/<goos>-<goarch>/` 给 embed 用（默认仅当前平台，加 `ALL=1` 拉全 5 平台供 release pipeline）。devbox bootstrap 自动跑 `cd backend && go run ./cmd/resources`。**v1 dev resources** (`~/.forgify-dev-resources/` 的 uv + python-build-standalone) 已废弃；forge sandbox v1 在 D2-5 切到 v2 service 前会返 `ErrSandboxUnavailable`

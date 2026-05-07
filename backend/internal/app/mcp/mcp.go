@@ -30,14 +30,12 @@ package mcp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
@@ -550,13 +548,3 @@ func (s *Service) publishSnapshot(ctx context.Context) {
 	s.bridge.Publish(ctx, "", eventsdomain.MCP{Servers: servers})
 }
 
-// errAssistImports prevents future refactor from accidentally orphaning
-// imports needed for the not-yet-written CallTool/Search/Health/Install
-// methods (next chunks of this file). Read-time noise; ignore.
-//
-// errAssistImports 防未来重构意外孤立 CallTool/Search/Health/Install
-// 所需 import（本文件后续段）。读时噪音；忽略。
-var (
-	_ = errors.Is
-	_ = gorm.ErrRecordNotFound
-)

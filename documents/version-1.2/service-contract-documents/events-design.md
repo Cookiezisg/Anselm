@@ -1,97 +1,207 @@
-# Events Design — V1.2 SSE 事件一眼索引
+# Events Design — V1.2 SSE 事件契约（递归事件日志协议）
 
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- **配套实现**：`domain/events.Bridge` 接口 + `infra/events/memory.Bridge`（已就绪，72 测试）
-- **SSE 订阅端点**：`GET /api/v1/events?conversationId=xxx`（Phase 2 chat 落地时接）
+- [`../event-log-protocol.md`](../event-log-protocol.md) — 完整协议设计文档（事件流示例 / 后端架构 / migration SQL / 风险）
+- **配套实现**：
+  - `domain/eventlog/` — Event 接口 + 5 events + 6 block types + Bridge 接口 + ValidateEvent
+  - `infra/eventlog/` — in-process Bridge（per-conv 单调 seq + 4096 replay buffer + 慢订阅者阻塞）
+  - `pkg/eventlog/` — Emitter (auto-mint ID + ctx-injected) + ctx helpers
+- **SSE 端点**：`GET /api/v1/eventlog?conversationId=xxx` (新)；`GET /api/v1/events?conversationId=xxx` (legacy 共存到 Phase 4 cutover)
+- **历史 refetch**：`GET /api/v1/conversations/{id}/eventlog?from=<seq>` (Phase 3 — 410 Gone 时的全态刷新)
 
-**定位**：**全仓所有 SSE 事件一眼索引**。每个事件的完整 struct / 触发时机 / 详细载荷，**去对应 domain 的 `service-design-documents/<domain>.md` 看**。
+**模型**：**recursive event log**（替换 entity-snapshot 模型）。
+- 5 种事件 + 6 种 block 类型 — 全部封闭枚举
+- `parentId` 字段表达任意嵌套（subagent / 并行 / 嵌套 LLM 全用同一机制）
+- 每事件带 per-conversation 单调 `seq`，支持 `Last-Event-ID` 重连
 
-**遵守标准**：E1（强类型，禁止 `map[string]any`）/ E2（snake_case 分层，必带过滤上下文）
-
----
-
-## 全局约定
-
-### 事件传输
-- 客户端通过 `GET /api/v1/events?conversationId=xxx` 订阅 SSE 流
-- 后端 `domain/events.Bridge` 接口 + `infra/events/memory.Bridge` 内存实现
-- 未来 SaaS 可换 `infra/events/redis` 实现，业务代码零改
-
-### 事件命名（E2）
-- 全部 snake_case，按 domain 加点号前缀：`chat.token`、`tool.code_updated`
-- 每个事件必带 `conversationId` 或其他过滤上下文（subscriber 的 filter key）
-- **死事件禁止**：每个事件必须有真实发布点
-
-### 事件 struct（E1）
-所有事件必须有具体 Go struct，定义在 `domain/events/types.go` 或按 domain 分文件。
-**禁止** 发布或订阅时使用 `map[string]any`。
-
-### 字段规范
-- 字段命名：`camelCase` JSON tag（前端友好）
-- 每个事件必带 `conversationId` 或其他明确过滤上下文
-
-### Bridge 行为（已实现）
-- 慢订阅者 buffer 满 → **丢弃 + warn log**，不阻塞 publisher
-- ctx 结束 → 自动 unsubscribe
-- 多次 cancel → sync.Once 保证幂等
+**遵守标准**：§E1（5 events + 6 block types 封闭枚举）/ §E2（parentId 路由，类型固定）/ §N7（SSE wire format）/ §S21（事件流 invariants）
 
 ---
 
-## 事件清单
+## 1. 事件总览
 
-> **状态**：⬜ 未设计 | 🔄 struct 定义中 | ✅ 已实现（struct + 真实发布点）
+| Event Type | 用途 | 触发频率 | DB 双写 |
+|---|---|---|---|
+| `message_start` | 开新 message（user / assistant / subagent） | 每 message 1 次 | ❌（messages 走 legacy chat repo） |
+| `message_stop` | 关 message（终态） | 每 message 1 次 | ❌ |
+| `block_start` | 开新 block | 每 block 1 次 | ✅ → `message_blocks_v2` |
+| `block_delta` | 给 block append 内容 | 每 token / chunk | ✅ → AppendDelta |
+| `block_stop` | 关 block | 每 block 1 次 | ✅ → FinalizeStop |
 
-### entity-state 模型（Phase 6 重构 · 2026-05-02；Phase 5 加 todo · 2026-05-04，原 task 改名于 2026-05-05；Phase 4 准备件 mcp + skill 全部 ✅ · 2026-05-06）
+## 2. Block 类型枚举（6 种穷举）
 
-**6 个事件全部 ✅** + chat.message 在 subagent 上下文额外承载 SubagentRun 快照。订阅方按 entity ID 替换本地拷贝即可渲染。**subagent 不发独立 SSE 事件**——所有信息（消息内容 + run 元数据 + lifecycle）全合到 chat.message 一条流，subagent 上下文额外携带 `subagentRunId` + `parentConversationId` + `subagentRun` 三字段。
-
-每个事件 struct 嵌入 `*<domain>.Entity` 指针 + 自定义 `MarshalJSON` → wire 形状 = `GET /api/v1/<entities>/{id}` 的响应（无 wrapper key，entity 字段直接出现在顶层）。
-
-| 事件名 | 载荷 = | 过滤 key | 触发点 | 状态 |
+| Block Type | 含义 | content 形态 | attrs | 子 block 允许？ |
 |---|---|---|---|---|
-| `chat.message` | 完整 `Message`（含 `blocks`/`status`/`stopReason`/`errorCode`/`errorMessage`/`inputTokens`/`outputTokens`/`updatedAt`）；subagent 上下文额外携带 **`subagentRunId`** + **`parentConversationId`** + **`subagentRun`**（完整 SubagentRun 快照含 token/status/lastTool/等，全部 omitempty 主对话消息向后兼容）| `conversationId`（主对话）/ `parentConversationId`（subagent 消息）| message slot 创建、每个 LLM token、tool_call 出现、tool_call args 完整、每个 tool result 完成、最终写、pre-LLM 失败的 stub 错误消息；Phase 5 起 AskUserQuestion 工具的提问通过此事件；V1.2 D4 起 subagent 内部 sub-runner 推消息也通过此事件——载荷加 subagent 三字段，前端按 subagentRunId 分流到主对话区 / 流式小窗，subagentRun 子对象提供 lifecycle 状态条 | ✅ |
-| `forge` | 完整 `Forge`（含 `pending` 子对象/`code`/`parameters`/`returnSchema`/`tags`/`versionCount`/`activeVersionId`/`envStatus`/`envError`/`envSyncedAt`/`envSyncStage`/`envSyncDetail`）| `conversationId` | create_forge / edit_forge 期间逐 token（draft 在内存增长）、最终 save 后定型；**沙箱迭代 1 新增**：EnvStatus 状态转换（pending→syncing→ready/failed/evicted）、每行 uv stderr 解析（envSyncStage / envSyncDetail 变化）；HTTP CRUD 暂不广播（MVP 单用户单窗口）| ✅ |
-| `conversation` | 完整 `Conversation`（含 `title`/`autoTitled`/`systemPrompt` 等）| `conversationId` | auto-title 回写、未来归档/系统 prompt 更新等 | ✅ |
-| `todo` | 完整 `Todo`（含 `id`/`conversationId`/`subject`/`description`/`activeForm`/`status`/`owner`/`blockedBy`/`metadata`/时间戳）| `conversationId` | TodoCreate / TodoUpdate / TodoDelete 任意时点；删除时最后一帧 status="deleted" 让订阅方丢本地拷贝 | ✅ |
-| `mcp` | `{servers: [ServerStatus...]}` 全 server 状态快照（含 `name`/`status`(disconnected/connecting/ready/degraded/failed)/`pid`/`connectedAt`/`lastError`/`lastErrorAt`/`lastSuccessAt`/`consecutiveFailures`/`totalCalls`/`totalFailures`/`tools[]`）| `global`（载荷 `conversationId=""` 广播——所有订阅者都看自己 backend 的 mcp 状态）| `Service.publishSnapshot` 每次状态变更后触发：Start 完成 / AddServer 后 / RemoveServer 后 / Reconnect 后 / `recordCallResult` 触发 ready→degraded（连续失败≥3）/ 触发 degraded→ready（自愈）；HealthCheck 不发（design：探针不该误触发事件，§5.6）；推全 server 快照让前端一次性替换本地拷贝 | ✅ |
-| `skill` | `{skills: [Skill...]}` 全 skill 快照（每条含 `name`/`source`/`dirPath`/`bodyPath`/`description`/`frontmatter`/`loadedAt`，**不含 body**——body 是 L2 按需加载，经 `GET /skills/{name}/body` 单独取）| `global`（载荷 `conversationId=""` 广播）| `Service.publishSnapshot` 在每次 `Scan` 完成后触发：boot 首扫、fsnotify watcher debounce 后重扫（500ms）、5min poll 兜底重扫、HTTP `:refresh`、Create/Replace/Delete/Import 写盘后强制重扫；推全快照让 UI 一次性替换本地 cache | ✅ |
+| `text` | LLM 主文本（含 tool_call 间叙述） | string，append | — | ❌ |
+| `reasoning` | LLM 思考（extended thinking） | string，append | — | ❌ |
+| `tool_call` | LLM 发起的工具调用 | args JSON 流式拼 | `{tool: string}` | ✅（progress / nested / tool_result） |
+| `tool_result` | 工具最终返回 | result string | — | ❌ |
+| `progress` | 工具进度文字（sandbox 装包 / 网络拉块） | string，append | `{stage?: string}` 自由文本 | ❌ |
+| `message` | 嵌套消息占位（subagent 等） | — | `{messageId: string, ...}` | ✅（递归到下层） |
 
-**配套实现细节**：
+新增 block 类型必须先改 [`event-log-protocol.md`](../event-log-protocol.md) + DB CHECK + 前端 renderer，同 PR。
 
-- create_forge 进入即预分配 `forgeID = forgeapp.NewForgeID()`，构建内存 stub Forge，逐 token 更新 `Forge.Code` 并发快照；末尾才走 `svc.Create(ID=forgeID)` 真正落库。失败干净丢弃 draft，无 DB 污染。
-- edit_forge 进入预分配 `pendingID = forgeapp.NewVersionID()`，构建 `draftPending` 挂在 `Forge.Pending` 上，逐 token 更新 `Pending.Code` 并发快照；末尾走 `svc.CreatePending(ID=pendingID)`。仅元数据路径不流，但仍发一次最终快照。
-- chat 层 `runner.go` 是 `chat.message` 的唯一发布事实源（`publishMessageSnapshot` / `writeAndPublish` / `emitFatalError`）；`stream.go` 与 `tools.go` 通过 closure 调它，从不自己 `bridge.Publish`。
-- pre-LLM 错误（MODEL_NOT_CONFIGURED / API_KEY_PROVIDER_NOT_FOUND / LLM_PROVIDER_ERROR）也走 stub Message 路径——`status="error"` + `errorCode/errorMessage` 填好。所有错误现都装进 `chat.message` 快照里。
+## 3. Status 枚举（4 种穷举）
 
-**已删除事件（Phase 6 之前 12 个）**：
+`streaming` → 终态 (`completed` | `error` | `cancelled`)，单向不回退。
 
-- chat 域：`chat.reasoning_token` / `chat.token` / `chat.tool_call_start` / `chat.tool_call` / `chat.tool_result` / `chat.done` / `chat.error`
-- conversation 域：`conversation.title_updated`
-- forge 域：`forge.code_streaming` / `forge.created` / `forge.pending_created` / `forge.metadata_updated`
+## 4. 完整事件 schema
 
-旧事件的所有信息都在新 entity 快照里：tokens 体现为 text/reasoning block 内容生长；tool_call_start vs tool_call vs tool_result 体现为 block 序列演化；done/error 体现为 message.status + stopReason + errorCode/errorMessage；conversation.title_updated 体现为 conversation.title + autoTitled 字段。
+```typescript
+type Envelope = { seq: int64; event: Event }
 
----
+type Event =
+  | { type: "message_start"
+      conversationId: string
+      id: string                 // msg_<16hex>
+      parentBlockId?: string     // 嵌套 message 才填（subagent 场景）
+      role: "user" | "assistant" | "system"
+      attrs?: object             // subagent: {kind:"subagent_run", type, runId, maxTurns}
+    }
+  | { type: "message_stop"
+      conversationId: string
+      id: string
+      status: "completed" | "error" | "cancelled"
+      stopReason?: string
+      errorCode?: string
+      errorMessage?: string
+      inputTokens?: int
+      outputTokens?: int
+    }
+  | { type: "block_start"
+      conversationId: string
+      id: string                 // blk_<16hex> (text/reasoning/result/progress/message)
+                                 //  或 LLM 自带 tc_<id> (tool_call 复用)
+      parentId: string           // 父 block ID 或 message ID（顶层 block 此处填 message ID）
+      messageId: string          // 顶层归属 message ID（冗余但前端方便）
+      blockType: BlockType
+      attrs?: object
+    }
+  | { type: "block_delta"
+      conversationId: string
+      id: string
+      delta: string              // append 字符串
+    }
+  | { type: "block_stop"
+      conversationId: string
+      id: string
+      status: Status
+      error?: string
+    }
+```
 
-### Phase 4：工作流能力
+## 5. SSE wire format（§N7）
 
-| 事件名 | 用途 | 过滤 key | 状态 |
-|---|---|---|---|
-| `workflow.run_started` | 工作流开始运行 | `flowrunId` | ⬜ |
-| `workflow.node_started` | 某节点开始执行 | `flowrunId` | ⬜ |
-| `workflow.node_completed` | 某节点完成 | `flowrunId` | ⬜ |
-| `workflow.run_completed` | 工作流运行完成 | `flowrunId` | ⬜ |
-| `workflow.run_failed` | 工作流运行失败 | `flowrunId` | ⬜ |
+```
+event: <type>
+id: <seq>
+data: <event JSON, 不重复 type/seq>
 
----
+```
 
-### Phase 5：智能化能力
+例：
+```
+event: block_delta
+id: 42
+data: {"conversationId":"cv_abc","id":"blk_xyz","delta":"hello"}
 
-| 事件名 | 用途 | 过滤 key | 状态 |
-|---|---|---|---|
-| `intent.identified` | 意图识别结果 | `conversationId` | ⬜ |
-| `knowledge.indexing_progress` | 知识库索引进度 | `knowledgeBaseId` | ⬜ |
-| ~~`mcp.server_connected`~~ | 已被 entity-state `mcp` 事件取代（详见上方 Phase 4 准备件）| — | ✅ |
+```
 
-**Catalog 不发 SSE**：catalog 是内部组件，对前端透明。源数据变化（forge/skill/mcp/subagent）由各自 SSE 通知 UI；catalog 是后台派生 cache，前端不需要知道它何时刷新。详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md) §13。
+**重连**：`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件，再接实时；超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端 `GET /api/v1/conversations/{id}/eventlog?from=<seq>` refetch 全态。
+
+## 6. 路由与嵌套
+
+- 客户端按 `conversationId` 订阅一条 SSE
+- 一个 conversation 内的所有事件（含主对话 + 嵌套 subagent / 嵌套 message）走**同一个 SSE 流**
+- 路由靠 `parentId` 字段递归 — 不靠事件名分层
+- 前端维护两个 Map：`state.messages: Map<id, Message>` + `state.blocks: Map<id, Block>`，每 block 用 `parent` 字段挂树
+
+## 7. 嵌套示例
+
+```
+Conversation (cv_xx)
+└─ Message (msg_main, role=assistant)
+   ├─ Block (blk_text_1, type=text)
+   ├─ Block (tc_abc, type=tool_call, attrs.tool="spawn_subagent")
+   │   ├─ Block (blk_msg_placeholder, type=message, attrs.messageId=msg_sub)
+   │   │   └─ Message (msg_sub, role=assistant, parentBlockId=blk_msg_placeholder)
+   │   │      ├─ Block (blk_text_2, type=text)
+   │   │      ├─ Block (tc_xyz, type=tool_call, attrs.tool="Read")
+   │   │      │   └─ Block (blk_result, type=tool_result)
+   │   │      └─ Block (blk_text_3, type=text)
+   │   └─ Block (blk_summary, type=tool_result)  ← spawn_subagent 返主 LLM 的 summary
+   └─ Block (blk_text_4, type=text)
+```
+
+## 8. Producer 责任分配
+
+| Producer | 推什么 |
+|---|---|
+| `app/chat/Service.Send` | user message 5 类事件 burst（user message_start → 每 block 的 BlockStart/Delta/Stop → message_stop） |
+| `app/chat/runner.processTask` | assistant message_start（顶层） |
+| `app/chat/chatHost.WriteFinalize` | assistant message_stop |
+| `app/loop/streamLLM` | 流式期间每 LLM 事件推 text/reasoning/tool_call block_start/delta/stop（共享给主对话 + subagent） |
+| `app/loop/runOneTool` | tool_result block_start/delta/stop（每 tool 结束后） + WithParentBlockID(tc.ID) 给 tool 内部 emit 自动挂父 |
+| `app/subagent/Service.Spawn` | message-block 占位（type=message） + sub message_start ；loop.Run 返后 message-block stop |
+| `app/subagent/subagentHost.WriteFinalize` | sub message_stop |
+| Tool.Execute 内部（progress / 嵌套 LLM） | 经 ctx 拿 emitter 自由 emit progress block / 嵌套 text block |
+
+## 9. DB dual-write 表
+
+`message_blocks_v2`（Phase 4 cutover 改名回 `message_blocks` 删 legacy）：
+
+| 列 | 类型 | 说明 |
+|---|---|---|
+| id | text PK | `blk_<16hex>` 或 LLM tc_<id> |
+| conversation_id | text NOT NULL UNIQUE(conv_id, seq) idx 1 | per-conv 路由 + UNIQUE |
+| message_id | text NOT NULL idx | 顶层归属 |
+| parent_block_id | text idx | 嵌套用；顶层 block 此列空 |
+| seq | int NOT NULL UNIQUE(conv_id, seq) idx 2 | per-conv 单调（Bridge 分配） |
+| type | text NOT NULL CHECK in 6 值 | block 类型 |
+| attrs | text | JSON |
+| content | text NOT NULL DEFAULT '' | append-only 累积 |
+| status | text NOT NULL CHECK in 4 值 | streaming → 终态 |
+| error | text | block_stop 时填 |
+| created_at / updated_at | datetime | GORM 自动 |
+
+**Message 不双写** — `messages` 表走 legacy chat repo 直至 Phase 4 unify。
+
+## 10. Invariants（§S21）
+
+- `block_start.parentId` 必须先于本事件出现过（dangling = producer bug）
+- `block.status` / `message.status` 单向流转 streaming → 终态
+- 同 conv `seq` 严格全局单调（DB UNIQUE 强制）
+- 同 block 的 deltas 按 seq append-only，前端不重写不重排
+- `tool_call` block ID = LLM 自带 tc_id（不走 §S15 prefix）；其他 block ID 走 idgen `blk_`
+
+## 11. Legacy events 共存（Phase 1-3 dual-write）
+
+老 `domain/events/` 6 类 entity-snapshot 事件（`chat.message` / `forge` / `conversation` / `todo` / `mcp` / `skill`）在 legacy bridge `/api/v1/events` 仍发，**不会立刻删**。Phase 4 frontend 切到新 bridge 后才能删。Producer 端：
+
+- chat 主管线：legacy chat.message **+** 新 5 events 都推
+- subagent：legacy chat.message (借 SubagentRun 壳) **+** 新 message-block + sub message_start/stop 都推
+- forge / catalog / mcp / skill / todo / conversation：仍只推 legacy（**未接入新协议**——forge 用户重写后再说，其他 Phase 3+ 接）
+
+## 12. Phase 路线（实施进度）
+
+| Phase | 范围 | 状态 |
+|---|---|---|
+| 1 | Bridge / Emitter / DB schema / SSE handler / reqctx ParentBlockID | ✅ 2026-05-08 |
+| 2A | chat 主管线 producer dual-write | ✅ 2026-05-08 |
+| 2B | subagent 递归 emit + Emitter DB dual-write | ✅ 2026-05-08 |
+| 3 | sandbox/mcp progress emit + 历史回放器 + 文档同步 | 🔄 进行中 |
+| 4 | 前端 chat.js 切到新 bridge + 删 legacy events + drop subagent_runs/messages 表 | ⬜ 等 V1.2 后端期结束（CLAUDE.md §4 限制） |
+| 5 | dogfood 验证 + 协议级集成测试 | ⬜ |
+
+## 13. 测试覆盖
+
+Phase 1-2 单测已覆盖：
+
+- `domain/eventlog/eventlog_test.go` — ValidateEvent 各事件形状
+- `infra/eventlog/bridge_test.go` (10 测) — 单调 seq / 慢订阅阻塞 / Last-Event-ID 重连 / ErrSeqTooOld
+- `pkg/eventlog/eventlog_test.go` (15 测) — Emitter 父链 / DB dual-write 6 测 (顶层/嵌套/append/finalize/error/attrs JSON)
+- `infra/store/chat/block_v2_test.go` (12 测) — BlockV2Store CRUD / CHECK / UNIQUE
+- `transport/httpapi/handlers/eventlog_test.go` (3 测) — SSE 端到端 / Last-Event-ID / 410
+
+集成端到端测试（多 producer + 真 stream）属 Phase 5 pipeline test 范围。

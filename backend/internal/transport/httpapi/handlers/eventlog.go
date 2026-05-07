@@ -39,35 +39,45 @@ import (
 
 	"go.uber.org/zap"
 
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // EventLogHandler exposes /api/v1/eventlog as an SSE stream backed by
-// the recursive-event-log Bridge.
+// the recursive-event-log Bridge plus a /api/v1/conversations/{id}/eventlog
+// HTTP endpoint that reconstructs events from DB for refetch-after-410.
 //
 // EventLogHandler 把 /api/v1/eventlog 暴露为递归事件日志 Bridge 支撑的
-// SSE 流。
+// SSE 流，加 /api/v1/conversations/{id}/eventlog HTTP 端点从 DB 重构
+// 事件给 410 后的 refetch。
 type EventLogHandler struct {
 	bridge eventlogdomain.Bridge
+	repo   chatdomain.BlockV2Repository // optional; nil disables the refetch endpoint
 	log    *zap.Logger
 }
 
-// NewEventLogHandler wires the handler dependencies.
+// NewEventLogHandler wires the handler dependencies. repo is optional —
+// pass nil to disable the HTTP refetch endpoint (only the SSE stream
+// will be served).
 //
-// NewEventLogHandler 装配 handler 依赖。
-func NewEventLogHandler(bridge eventlogdomain.Bridge, log *zap.Logger) *EventLogHandler {
+// NewEventLogHandler 装配 handler 依赖。repo 可选——传 nil 禁用 HTTP
+// refetch 端点（只提供 SSE 流）。
+func NewEventLogHandler(bridge eventlogdomain.Bridge, repo chatdomain.BlockV2Repository, log *zap.Logger) *EventLogHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &EventLogHandler{bridge: bridge, log: log.Named("eventlog.handler")}
+	return &EventLogHandler{bridge: bridge, repo: repo, log: log.Named("eventlog.handler")}
 }
 
-// Register attaches the SSE route.
+// Register attaches the SSE route + the HTTP refetch route.
 //
-// Register 挂 SSE 路由。
+// Register 挂 SSE 路由 + HTTP refetch 路由。
 func (h *EventLogHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/eventlog", h.Stream)
+	if h.repo != nil {
+		mux.HandleFunc("GET /api/v1/conversations/{id}/eventlog", h.History)
+	}
 }
 
 // Stream serves GET /api/v1/eventlog?conversationId=xxx.
@@ -123,3 +133,45 @@ func (h *EventLogHandler) Stream(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 }
+
+// History serves GET /api/v1/conversations/{id}/eventlog?from=<seq>.
+// Returns a JSON envelope of replayed block events from DB. Clients
+// that received 410 Gone from the SSE replay buffer call this to
+// refetch full state, then resubscribe with Last-Event-ID = the new
+// tail seq from this response.
+//
+// History 服务 GET /api/v1/conversations/{id}/eventlog?from=<seq>。
+// 从 DB 返 JSON 包装的回放 block 事件。客户端收到 SSE replay buffer 的
+// 410 Gone 时调用本端点 refetch 全态，然后用响应中的 tail seq 作
+// Last-Event-ID 重订阅。
+func (h *EventLogHandler) History(w http.ResponseWriter, r *http.Request) {
+	conversationID := r.PathValue("id")
+	if conversationID == "" {
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "conversationId is required", nil)
+		return
+	}
+	var fromSeq int64
+	if v := r.URL.Query().Get("from"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			fromSeq = n
+		}
+	}
+
+	envelopes, err := h.repo.ReplayEventsAfter(r.Context(), conversationID, fromSeq)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	tailSeq := fromSeq
+	if n := len(envelopes); n > 0 {
+		tailSeq = envelopes[n-1].Seq
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"events":  envelopes,
+		"tailSeq": tailSeq,
+		"count":   len(envelopes),
+	})
+}
+
+// _ marker to keep chatdomain import live when repo is nil at compile.
+var _ chatdomain.BlockV2Repository = (chatdomain.BlockV2Repository)(nil)

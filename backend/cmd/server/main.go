@@ -380,6 +380,7 @@ func main() {
 		ChatService:         chatService,
 		EventsBridge:        eventsBridge,
 		EventLogBridge:      eventLogBridge,
+		BlockV2Repo:         blockV2Store,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
