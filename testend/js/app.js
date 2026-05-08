@@ -12,7 +12,6 @@ const TESTEND_TABS = [
   { id: 'tests',     label: 'Tests' },
   { id: 'tools',     label: 'Tools' },
   { id: 'catalog',   label: 'Catalog' },
-  { id: 'subagent',  label: 'Subagent' },
   { id: 'skill',     label: 'Skill' },
   { id: 'mcp',       label: 'MCP' },
   { id: 'sandbox',   label: 'Sandbox' },
