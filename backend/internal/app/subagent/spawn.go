@@ -1,0 +1,245 @@
+// spawn.go — Service.Spawn lifecycle: resolve type / filter tools /
+// resolve LLM / mint sub-msgID + placeholder message-block / inject
+// ctx / register cancel / defer recover / loop.Run via subagentHost /
+// emit BlockStop on placeholder / record agentstate token log / map
+// loop.Result → SpawnResult.
+//
+// spawn.go ——Service.Spawn 全生命周期：解类型 / 过滤 tools / 解 LLM /
+// 铸 sub-msgID + 占位 message-block / 注 ctx / 注册 cancel / defer recover /
+// 经 subagentHost 调 loop.Run / 推占位 BlockStop / 记 agentstate token log /
+// 映 loop.Result → SpawnResult。
+package subagent
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.uber.org/zap"
+
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+)
+
+// defaultRunTimeout caps a single Spawn — defends against stuck tool
+// calls (e.g. an MCP server that never returns) holding a sub-runner
+// forever and burning tokens.
+//
+// defaultRunTimeout 限定单次 Spawn——防止 stuck tool 让 sub-runner 永挂。
+const defaultRunTimeout = 5 * time.Minute
+
+// Sub-run terminal status values returned in SpawnResult.Status. Distinct
+// from chatdomain.Status* — these reflect subagent-specific outcomes
+// (max_turns is its own bucket, separate from a generic "error").
+//
+// Sub-run 终态 status 值，返 SpawnResult.Status。与 chatdomain.Status*
+// 区分——max_turns 是独立桶，不归"通用 error"。
+const (
+	StatusCompleted = "completed"
+	StatusMaxTurns  = "max_turns"
+	StatusCancelled = "cancelled"
+	StatusFailed    = "failed"
+)
+
+// SpawnOpts overrides per-call. Empty fields fall back to the type's
+// defaults.
+//
+// SpawnOpts per-call 覆盖。空字段回落到类型默认。
+type SpawnOpts struct {
+	MaxTurns int    // 0 = use type.DefaultMaxTurns
+	Model    string // "" = type.DefaultModel ?? PickForChat
+}
+
+// SpawnResult is what Service.Spawn hands back. RunID = the sub-Message
+// ID (which doubles as the LLM-visible "subagent run id"). Result is the
+// last assistant text returned as the tool_result to the parent LLM.
+//
+// SpawnResult 是 Service.Spawn 的回执。RunID = sub-Message ID（兼作
+// LLM 可见的 "subagent run id"）。Result 是返父 LLM 作 tool_result 的
+// 最后 assistant 文本。
+type SpawnResult struct {
+	RunID     string // = sub-Message.ID (msg_<16hex>)
+	Type      string // subagent type name (researcher / reviewer / ...)
+	Status    string // StatusCompleted | StatusMaxTurns | StatusCancelled | StatusFailed
+	ErrorMsg  string // populated when Status == StatusFailed
+	Result    string // last assistant text — what the parent LLM sees as tool_result
+	TokensIn  int
+	TokensOut int
+	StepsUsed int
+}
+
+// Spawn boots one sub-run end-to-end. See file header for full
+// lifecycle. Never returns a partial SpawnResult — on any error a
+// SpawnResult with Status=StatusFailed + ErrorMsg is returned (plus
+// the error for the caller to propagate / log).
+//
+// Spawn 一站式启 sub-run。完整生命周期见文件头。从不返部分 SpawnResult
+// ——任何错误都返 Status=StatusFailed + ErrorMsg 的 SpawnResult（同时返
+// error 让调用方上抛 / log）。
+func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts SpawnOpts) (*SpawnResult, error) {
+	typ, ok := s.registry.Get(typeName)
+	if !ok {
+		return nil, fmt.Errorf("subagentapp.Spawn: %w: %q", subagentdomain.ErrTypeNotFound, typeName)
+	}
+
+	parentMsgID, _ := reqctxpkg.GetMessageID(parentCtx)
+	parentToolCallID, _ := reqctxpkg.GetToolCallID(parentCtx)
+	parentConvID, _ := reqctxpkg.GetConversationID(parentCtx)
+	uid, _ := reqctxpkg.GetUserID(parentCtx)
+
+	bundle, err := llmclientpkg.Resolve(parentCtx, s.modelPicker, s.keyProvider, s.llmFactory)
+	if err != nil {
+		return nil, fmt.Errorf("subagentapp.Spawn resolve LLM: %w", err)
+	}
+
+	maxTurns := opts.MaxTurns
+	if maxTurns <= 0 {
+		maxTurns = typ.DefaultMaxTurns
+	}
+
+	// Mint sub-msgID + placeholder message-block. Emit BlockStart +
+	// MessageStart so the parent conversation's recursive event tree
+	// includes this sub-run inline.
+	//
+	// 铸 sub-msgID + 占位 message-block。推 BlockStart + MessageStart
+	// 让父对话的递归事件树内联这个 sub-run。
+	em := eventlogpkg.From(parentCtx)
+	subMsgID := idgenpkg.New("msg")
+	msgBlockID := ""
+	if parentToolCallID != "" && parentMsgID != "" {
+		msgBlockID = idgenpkg.New("blk")
+		em.EmitBlockStart(parentCtx, msgBlockID, parentToolCallID, parentMsgID,
+			eventlogdomain.BlockTypeMessage,
+			map[string]any{
+				"messageId": subMsgID,
+				"type":      typ.Name,
+			})
+		em.EmitMessageStart(parentCtx, subMsgID, chatdomain.RoleAssistant, msgBlockID,
+			map[string]any{
+				"kind":     "subagent_run",
+				"type":     typ.Name,
+				"maxTurns": maxTurns,
+			})
+	}
+
+	// Compose sub-runner ctx: sub-msgID for emit parent linkage + RunID
+	// for tool ctx + bumped depth + total timeout + register cancel so
+	// external Cancel(runID) can preempt.
+	//
+	// 组装 sub-runner ctx：sub-msgID 给 emit 父链 + RunID 给 tool ctx +
+	// 加深度 + 加超时 + 注册 cancel 让外部 Cancel(runID) 可抢占。
+	subCtx := reqctxpkg.WithSubagentRunID(parentCtx, subMsgID)
+	subCtx = reqctxpkg.WithSubagentDepth(subCtx, reqctxpkg.GetSubagentDepth(parentCtx)+1)
+	subCtx = reqctxpkg.WithMessageID(subCtx, subMsgID)
+	subCtx = reqctxpkg.WithParentBlockID(subCtx, "") // sub blocks attach under sub-msgID
+	subCtx, cancel := context.WithTimeout(subCtx, defaultRunTimeout)
+	defer cancel()
+
+	s.activeRunsMu.Lock()
+	s.activeRuns[subMsgID] = cancel
+	s.activeRunsMu.Unlock()
+	defer func() {
+		s.activeRunsMu.Lock()
+		delete(s.activeRuns, subMsgID)
+		s.activeRunsMu.Unlock()
+	}()
+
+	host := &subagentHost{
+		svc:           s,
+		subMsgID:      subMsgID,
+		parentConvID:  parentConvID,
+		parentBlockID: msgBlockID,
+		uid:           uid,
+		typeName:      typ.Name,
+		maxTurns:      maxTurns,
+		tools:         s.filterTools(typ),
+		userPrompt:    prompt,
+		systemPrompt:  composeSystemPrompt(typ.SystemPrompt, reqctxpkg.GetLocale(parentCtx)),
+	}
+
+	baseReq := llminfra.Request{
+		ModelID: bundle.ModelID,
+		Key:     bundle.Key,
+		BaseURL: bundle.BaseURL,
+		System:  host.systemPrompt,
+	}
+
+	var (
+		result loopapp.Result
+		runErr error
+	)
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				runErr = fmt.Errorf("subagent panic: %v", r)
+				s.log.Error("subagent run panicked",
+					zap.String("sub_msg_id", subMsgID), zap.Any("panic", r))
+			}
+		}()
+		result = loopapp.Run(subCtx, host, bundle.Client, baseReq, maxTurns, s.log)
+	}()
+
+	// Map loop.Result → SpawnResult.Status. loop returns
+	// chatdomain.Status* + StopReason*; we re-map cancelled / max-tokens
+	// to subagent-specific buckets.
+	//
+	// 映射 loop.Result → SpawnResult.Status。
+	spawn := &SpawnResult{
+		RunID:     subMsgID,
+		Type:      typ.Name,
+		Result:    result.LastMessage,
+		TokensIn:  result.TokensIn,
+		TokensOut: result.TokensOut,
+		StepsUsed: result.Steps,
+	}
+	switch {
+	case runErr != nil:
+		spawn.Status = StatusFailed
+		spawn.ErrorMsg = runErr.Error()
+	case result.StopReason == chatdomain.StopReasonCancelled:
+		spawn.Status = StatusCancelled
+	case result.StopReason == chatdomain.StopReasonMaxTokens:
+		spawn.Status = StatusMaxTurns
+	case result.Status == chatdomain.StatusError:
+		spawn.Status = StatusFailed
+		spawn.ErrorMsg = result.StopReason
+	default:
+		spawn.Status = StatusCompleted
+	}
+
+	// Close placeholder message-block on the parent's eventlog.
+	// 关父对话 eventlog 上的占位 message-block。
+	if msgBlockID != "" {
+		closeStatus := eventlogdomain.StatusCompleted
+		switch spawn.Status {
+		case StatusFailed:
+			closeStatus = eventlogdomain.StatusError
+		case StatusCancelled:
+			closeStatus = eventlogdomain.StatusCancelled
+		}
+		em.StopBlock(parentCtx, msgBlockID, closeStatus, nil)
+	}
+
+	// Append to per-conversation token log (UI cost panel).
+	// 追加对话级 token log（UI 成本面板）。
+	if state, ok := reqctxpkg.GetAgentState(parentCtx); ok && state != nil {
+		state.AddSubagentTokens(subMsgID, typ.Name, spawn.TokensIn, spawn.TokensOut)
+	}
+
+	s.log.Info("subagent run terminated",
+		zap.String("sub_msg_id", subMsgID),
+		zap.String("type", typ.Name),
+		zap.String("status", spawn.Status),
+		zap.Int("tokens_in", spawn.TokensIn),
+		zap.Int("tokens_out", spawn.TokensOut),
+		zap.Int("steps", spawn.StepsUsed))
+
+	return spawn, runErr
+}

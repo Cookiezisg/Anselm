@@ -1,11 +1,26 @@
-// chat.js — center chat panel: message list, streaming, send/cancel, attachments.
-// Phase 6 entity-state SSE model: each `chat.message` event = full Message
-// snapshot. Subscribers find by id and replace; no per-token / delta logic.
+// chat.js — center chat panel: message list, streaming, send/cancel,
+// attachments. Event-log protocol (post-cleanup model):
 //
-// Block model conversion:
-//   user blocks      → [{type:'text'|'attachment', ...}]
-//   assistant blocks → items[] with reasoning/tool/text entries (tool_call +
-//                      tool_result paired by toolCallId)
+//   /api/v1/eventlog?conversationId=X    per-conv content stream
+//     5 events: message_start / message_stop / block_start / block_delta / block_stop
+//     6 block types: text / reasoning / tool_call / tool_result / progress / message
+//
+//   /api/v1/notifications                  global entity updates
+//     1 envelope: {type, id, data, conversationId?}
+//     handles type==="conversation" (autoTitle rename) here; others
+//     consumed by other tabs.
+//
+// Display data shape (preserved from prior chat.js for renderer compatibility):
+//   user message      → { id, role:'user', blocks:[{type:'text'|'attachment',...}], status, attachments }
+//   assistant message → { id, role:'assistant', items:[reasoning|tool|text], status, ...tokens }
+//
+// Block.Content is now raw text (no JSON wrapper); Block.Attrs JSON
+// carries metadata (tool name, progress stage, attachment refs). User
+// attachments live in Message.Attrs JSON, not as blocks.
+//
+// chat.js — 中央对话面板：消息列表、流式、发/取消、附件。事件日志协议
+// （清理后模型）。Block.Content 是裸文本（无 JSON 包装）；Block.Attrs
+// JSON 携元数据。用户附件在 Message.Attrs JSON，不是 block。
 
 document.addEventListener('alpine:init', () => {
   Alpine.data('chatPanel', () => ({
@@ -14,91 +29,46 @@ document.addEventListener('alpine:init', () => {
     streaming: false,
     pendingAtts: [],      // [{id, fileName, mimeType}]
     uploading: false,
-    _es: null,
+    _es: null,            // /api/v1/eventlog SSE
+    _ns: null,            // /api/v1/notifications SSE
 
-    // Per-block expansion state (TE-16): keyed by block.id (reasoning) or
-    // tool callId (tool steps). Default-folded keeps DOM size constant
-    // regardless of how long a reasoning / tool args / tool result is —
-    // the user opts in to render large bodies. Survives streaming updates
-    // because keys are stable across snapshots.
+    // Per-block expansion state — keyed by block.id (reasoning) or
+    // tool-call id (tool steps). Default-folded keeps DOM bounded
+    // regardless of how long bodies are.
     //
-    // 按 block 的展开状态（TE-16）：reasoning 用 block.id，tool 用 callId
-    // 作 key。默认折叠让 DOM 大小恒定，用户主动展开。stream 更新不会重置
-    // （key 跨 snapshot 稳定）。
+    // 按 block 展开状态——reasoning 用 block.id，tool 用 callId。默认
+    // 折叠让 DOM 有界。
     expanded: {},
 
     toggleExpand(key) {
       this.expanded[key] = !this.expanded[key]
     },
 
-    // SSE rAF batch (TE-16): coalesce burst chat.message snapshots into
-    // one DOM render per frame. Without this, even with backend throttle
-    // every event reaches Alpine reactive immediately → N renders per
-    // burst → DOM thrashing on long messages. With this, multiple events
-    // in the same frame collapse to a single Alpine update; same-id
-    // snapshots, only the latest survives (intermediate frames discarded
-    // — the user couldn't have perceived them anyway).
+    // Smart scroll: only auto-stick to bottom when the user is already
+    // there. If scrolled up, new messages bump newMsgCount + show pill.
     //
-    // SSE rAF 批处理（TE-16）：把同一帧内的多个 chat.message 快照合并成
-    // 一次 DOM 渲染。无此机制时即使后端节流，每个 event 仍即时触发 Alpine
-    // 反应式，长消息上 DOM 抖动严重。同 id 后到的覆盖前到的（用户看不到
-    // 中间帧）。
-    _pendingMsgs: new Map(),
-    _pendingShouldScroll: false,
-    _rafToken: 0,
-    // Smart scroll (TE-18): only auto-stick to bottom when the user is
-    // already there. If they've scrolled up to read history, new messages
-    // bump newMsgCount but don't yank the viewport — instead a floating
-    // pill ("↓ N new") appears at the bottom-center of the chat.
-    //
-    // 智能滚动：仅当用户已在底部时新消息自动滚底。用户已上滚阅读历史时，
-    // 新消息累加 newMsgCount + 浮 pill 提示，不抢走视口。
+    // 智能滚动：用户在底部时自动滚；上滚阅读历史时累加 newMsgCount + 浮 pill。
     _userScrolledUp: false,
     newMsgCount: 0,
-    // _suppressFlush guards the send() critical section: while a send is
-    // in-flight the SSE handler still buffers snapshots into _pendingMsgs
-    // but we don't drain them, so the optimistic user-row (tempId) gets
-    // its real messageId stamped FIRST. Otherwise the rAF could fire
-    // between fetch-out and fetch-in, push the assistant snapshot before
-    // the user row exists, and the optimistic user push lands at the end
-    // → "AI on top, user on bottom" bug.
-    //
-    // _suppressFlush 在 send() 临界区为真：SSE 仍写 _pendingMsgs 但不
-    // 抽干，让乐观 user 行（tempId）拿到真 ID 后再处理 SSE。否则 rAF
-    // 可能在 fetch 一来一回之间 push 了 assistant，乐观 user 落到尾巴
-    // → "AI 在上 user 在下"。
-    _suppressFlush: false,
 
-    // Raw-snapshot modal: clicking [📋 raw] on a message stashes the
-    // wire payload here + shows the modal. JSON-stringified for display
-    // + lazy 'copied' flag for the clipboard-button feedback.
+    // Raw-snapshot modal: clicking [📋 raw] stashes the message JSON
+    // here for inspection.
     //
-    // Raw-snapshot modal：点消息 [📋 raw] 把 wire 载荷存这里 + 显示 modal。
-    // JSON-stringified 给显示用 + lazy 'copied' 标志给剪贴板按钮反馈。
+    // Raw 模态：点 [📋 raw] 把 message JSON 存这里供检视。
     rawModal: { open: false, json: '', messageId: '', copied: false },
 
-    // Catalog injection indicator: shows a small pill in the header
-    // confirming the LLM is being told about available capabilities
-    // (catalog block in system prompt). Updates on conv switch +
-    // refreshes alongside catalog tab interactions.
-    //
-    // Catalog 注入指示器：header 小 pill 确认 LLM 收到了能力清单
-    // （system prompt 里的 catalog 块）。切换对话 + catalog tab 操作时
-    // 跟随刷新。
+    // Catalog injection indicator (small pill in header).
     catalogFp: '',
     catalogGenerated: '',
 
-    // Per-conversation system prompt editor (TE-13). Loads on conv switch
-    // via GET /api/v1/conversations/{id}; edits saved via PATCH. Empty
-    // string disables the override (chat layer falls back to defaults).
-    //
-    // 按对话的 system prompt 编辑器（TE-13）。切换对话时 GET 加载；
-    // 编辑后 PATCH 保存。空字符串关闭覆盖（chat 层走默认）。
+    // Per-conversation system prompt editor.
     systemPrompt: '',
     systemPromptDraft: '',
     systemPromptOpen: false,
     systemPromptSaving: false,
     systemPromptSavedAt: 0,
+
+    // ── Helpers: raw modal ──────────────────────────────────────────────────
 
     showRaw(m) {
       this.rawModal = {
@@ -117,11 +87,6 @@ document.addEventListener('alpine:init', () => {
         this.rawModal.copied = true
         setTimeout(() => { this.rawModal.copied = false }, 1500)
       } catch {
-        // navigator.clipboard requires HTTPS or localhost; testend is
-        // localhost so this should work, but fall back to selection
-        // if it doesn't.
-        // navigator.clipboard 要 HTTPS 或 localhost；testend localhost
-        // 应工作，失败时退回选中文本让用户手动 Cmd+C。
         toast.warn('Copy failed — select the JSON and Cmd+C manually.')
       }
     },
@@ -131,30 +96,28 @@ document.addEventListener('alpine:init', () => {
 
     init() {
       this.loadCatalogStatus()
+      this._connectNotifications()  // global notifications run for the panel's lifetime
       this.$watch('conversationId', id => {
-        this._closeSSE()
+        this._closeEventLog()
         this.messages = []
         this.streaming = false
         this.pendingAtts = []
         this.systemPrompt = ''
         this.systemPromptDraft = ''
         if (id) {
-          this.loadMessages(id).then(() => this._connectSSE(id))
+          this.loadMessages(id).then(() => this._connectEventLog(id))
           this.loadConvMeta(id)
         }
         this.loadCatalogStatus()
       })
-      // ESC closes the raw-snapshot modal. Wire here once instead of once
-      // per modal instance — single global keydown listener is cheap and
-      // matches how every other modal (toasts, confirms, etc.) on the
-      // platform handles ESC.
-      // ESC 关 raw modal。全局监听一次即可，比按 modal 实例挂监听更轻。
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && this.rawModal.open) {
           this.closeRaw();
         }
       });
     },
+
+    // ── Conversation metadata + system prompt edit ──────────────────────────
 
     async loadConvMeta(id) {
       try {
@@ -216,11 +179,9 @@ document.addEventListener('alpine:init', () => {
     async deleteCurrentConv() {
       const id = this.conversationId
       if (!id) return
-      if (!confirm('Delete the current conversation? Removes all messages from the database.')) return
+      if (!confirm('Delete the current conversation?')) return
       try {
         await fetch(`/api/v1/conversations/${id}`, { method: 'DELETE' })
-        // Sidebar polls; clear local state immediately so the UI is responsive.
-        // Sidebar 会轮询；本地立即清让 UI 响应。
         Alpine.store('app').conversationId = ''
         Alpine.store('app').conversationTitle = ''
         this.messages = []
@@ -230,7 +191,7 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    // ── loadMessages ──────────────────────────────────────────────────────────
+    // ── loadMessages: REST hydrate from /messages ───────────────────────────
 
     async loadMessages(id) {
       const r = await fetch(`/api/v1/conversations/${id}/messages?limit=200`)
@@ -240,7 +201,19 @@ document.addEventListener('alpine:init', () => {
       this.messages = raw.map(m => this._messageFromSnapshot(m))
     },
 
-    // ── snapshot → display message ────────────────────────────────────────────
+    // ── Snapshot → display message (new Block model) ────────────────────────
+    //
+    // Block.Content is raw text (no JSON wrapper). Tool name lives in
+    // Block.Attrs JSON {tool:name}. Tool args are Block.Content as JSON
+    // string. Attachments live in Message.Attrs JSON {attachments:[...]}.
+    //
+    // Block.Content 是裸文本。Tool name 在 Block.Attrs JSON。Args 是
+    // Block.Content（JSON 串）。附件在 Message.Attrs JSON。
+
+    _parseAttrs(s) {
+      if (!s) return {}
+      try { return JSON.parse(s) || {} } catch { return {} }
+    },
 
     _messageFromSnapshot(m) {
       return m.role === 'user'
@@ -251,20 +224,22 @@ document.addEventListener('alpine:init', () => {
     _userMsgFromBlocks(m) {
       const blocks = []
       for (const b of (m.blocks || [])) {
-        try {
-          const d = JSON.parse(b.data)
-          if (b.type === 'text') {
-            blocks.push({ type: 'text', content: d.text })
-          } else if (b.type === 'attachment_ref') {
-            blocks.push({ type: 'attachment', fileName: d.fileName, mimeType: d.mimeType, id: d.attachmentId })
-          }
-        } catch {}
+        if (b.type === 'text') {
+          blocks.push({ type: 'text', content: b.content || '' })
+        }
       }
-      // Keep raw snapshot stashed so the [📋 raw] button can show the
-      // verbatim chat.message wire payload (full block data, status,
-      // tokens, error fields, timestamps — everything).
-      // 留 raw snapshot 让 [📋 raw] 按钮显示 chat.message 原始 wire 载荷
-      // （完整 block data / status / tokens / 错误字段 / 时间戳——全部）。
+      // Attachments from Message.Attrs JSON.
+      // 附件来自 Message.Attrs JSON。
+      const attrs = this._parseAttrs(m.attrs)
+      const attachments = Array.isArray(attrs.attachments) ? attrs.attachments : []
+      for (const a of attachments) {
+        blocks.push({
+          type: 'attachment',
+          fileName: a.fileName || '',
+          mimeType: a.mimeType || '',
+          id: a.attachmentId,
+        })
+      }
       return { id: m.id, role: 'user', blocks, status: m.status, raw: m }
     },
 
@@ -273,49 +248,97 @@ document.addEventListener('alpine:init', () => {
       const toolMap = {}  // toolCallId → item
 
       for (const b of (m.blocks || [])) {
-        try {
-          const d = JSON.parse(b.data)
-          if (b.type === 'reasoning') {
-            // expandKey = block.id so per-block expand state survives streaming
-            // updates (block.id is stable across snapshots).
-            // expandKey = block.id 让按块展开状态跨流式更新存活。
-            items.push({ type: 'reasoning', content: d.text, done: true, expandKey: 'r:' + b.id })
-          } else if (b.type === 'tool_call') {
+        const battrs = this._parseAttrs(b.attrs)
+        switch (b.type) {
+          case 'reasoning':
+            items.push({
+              type: 'reasoning',
+              content: b.content || '',
+              done: b.status !== 'streaming',
+              expandKey: 'r:' + b.id,
+            })
+            break
+
+          case 'text':
+            if (b.content) items.push({ type: 'text', content: b.content })
+            break
+
+          case 'tool_call': {
+            // Block.ID is the LLM tool-call ID (we reuse it as block id).
+            // Tool name in Attrs.tool. Args are Content (raw JSON string).
+            // Block.ID 是 LLM tool-call ID。Tool name 在 Attrs.tool；
+            // Args 是 Content (裸 JSON)。
             const item = {
-              type: 'tool', toolCallId: d.id, toolName: d.name,
-              summary: d.summary || '', destructive: d.destructive || false,
-              executionGroup: d.executionGroup || 0,
-              input: JSON.stringify(d.arguments || {}),
+              type: 'tool',
+              toolCallId: b.id,
+              toolName: battrs.tool || '',
+              summary: '', destructive: false, executionGroup: 0,
+              input: b.content || '',
               result: null, ok: null, errorMsg: '', elapsedMs: 0,
-              expandKey: 't:' + d.id,
+              expandKey: 't:' + b.id,
             }
             items.push(item)
-            toolMap[d.id] = item
-          } else if (b.type === 'tool_result') {
-            const item = toolMap[d.toolCallId]
-            if (item) {
-              item.result = d.result
-              item.ok = d.ok
-              item.errorMsg = d.errorMsg || ''
-              item.elapsedMs = d.elapsedMs || 0
-            }
-          } else if (b.type === 'text') {
-            if (d.text) items.push({ type: 'text', content: d.text })
+            toolMap[b.id] = item
+            break
           }
-        } catch {}
-      }
 
-      // While streaming, the assistant message may end with an in-progress
-      // tool_call whose tool_result hasn't arrived yet — that's fine, keep it.
-      // Mark trailing reasoning as not-done if no text block follows it.
-      // 流式途中 assistant 消息可能以未配对的 tool_call 结尾——保留即可。
-      // 末尾 reasoning 若后面没 text block 还在生成，标 done=false。
-      let lastReasoning = null
-      for (const it of items) {
-        if (it.type === 'reasoning') lastReasoning = it
-        if (it.type === 'text') lastReasoning = null
+          case 'tool_result': {
+            // Parent block ID = the tool_call's ID = LLM tool-call ID.
+            // Pair into the existing tool item.
+            // Parent block ID = tool_call ID = LLM tool-call ID。配对到
+            // 已有 tool item。
+            const parentID = b.parentBlockId
+            const item = toolMap[parentID]
+            if (item) {
+              item.result = b.content || ''
+              item.ok = b.status !== 'error'
+              item.errorMsg = b.error || ''
+            }
+            break
+          }
+
+          case 'progress': {
+            // Progress block (sandbox install / network fetch logs etc).
+            // Parented under a tool_call — attach to that tool item if found,
+            // else render as standalone progress item.
+            //
+            // Progress block（沙箱装包 / 网络拉块日志等）。挂在 tool_call
+            // 下——挂得上就附到该 tool item，挂不上就独立显示。
+            const parentID = b.parentBlockId
+            const item = toolMap[parentID]
+            if (item) {
+              item.progress = (item.progress || '') + (b.content || '')
+            } else {
+              items.push({
+                type: 'progress',
+                stage: battrs.stage || '',
+                content: b.content || '',
+                done: b.status !== 'streaming',
+              })
+            }
+            break
+          }
+
+          case 'message': {
+            // Subagent placeholder. attrs.messageId points to the sub
+            // message; sub blocks are part of that message's own snapshot.
+            // For now render as a folded "subagent: <type>" pill — full
+            // nested rendering is Phase 4 testend polish.
+            //
+            // Subagent 占位。attrs.messageId 指向 sub message；sub blocks
+            // 是该 message 自身快照的一部分。当前折叠为 "subagent: <type>"
+            // pill——完整嵌套渲染是 Phase 4 testend polish。
+            items.push({
+              type: 'subagent',
+              subMessageId: battrs.messageId || '',
+              subType: battrs.type || 'subagent',
+              done: b.status !== 'streaming',
+              expandKey: 's:' + b.id,
+            })
+            break
+          }
+        }
       }
-      if (lastReasoning && m.status === 'streaming') lastReasoning.done = false
 
       return {
         id: m.id, role: 'assistant', items, status: m.status,
@@ -324,22 +347,18 @@ document.addEventListener('alpine:init', () => {
         errorMessage: m.errorMessage || '',
         inputTokens: m.inputTokens || 0,
         outputTokens: m.outputTokens || 0,
-        raw: m,  // see _userMsgFromBlocks comment
+        raw: m,
       }
     },
 
-    // ── Attachment upload ─────────────────────────────────────────────────────
+    // ── Attachment upload ───────────────────────────────────────────────────
 
-    pickFile() {
-      this.$refs.fileInput.click()
-    },
+    pickFile() { this.$refs.fileInput.click() },
 
     async onFileChange(e) {
       const files = e.target.files
       if (!files || files.length === 0) return
-      for (const file of files) {
-        await this.uploadAttachment(file)
-      }
+      for (const file of files) await this.uploadAttachment(file)
       e.target.value = ''
     },
 
@@ -357,11 +376,9 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    removeAtt(idx) {
-      this.pendingAtts.splice(idx, 1)
-    },
+    removeAtt(idx) { this.pendingAtts.splice(idx, 1) },
 
-    // ── send ──────────────────────────────────────────────────────────────────
+    // ── send ────────────────────────────────────────────────────────────────
 
     async send() {
       const content = this.input.trim()
@@ -381,82 +398,60 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('app').conversationId = convId
         Alpine.store('app').conversationTitle = ''
         document.dispatchEvent(new CustomEvent('conv-created'))
+        // wait for $watch to fire and connect SSE
         await new Promise(r => setTimeout(r, 100))
       }
 
       const attIds = this.pendingAtts.map(a => a.id)
       const attsSnapshot = [...this.pendingAtts]
+      const optimisticContent = content
       this.input = ''
       this.pendingAtts = []
 
-      // Build user blocks now (we have content + attsSnapshot before fetch).
-      // user blocks 提前组装——content + attsSnapshot fetch 前就有。
-      const userBlocks = []
-      if (content) userBlocks.push({ type: 'text', content })
-      for (const a of attsSnapshot) userBlocks.push({ type: 'attachment', fileName: a.fileName, mimeType: a.mimeType, id: a.id })
-
-      // (1) Optimistic-insert user row IMMEDIATELY with a tempId so the
-      //     order is locked: user → (assistant later). Anchor for the SSE
-      //     flush to merge against.
-      // (1) 立刻乐观插入 user（tempId）——锁定顺序：user → 后续 assistant。
+      // Optimistic-insert user row immediately. SSE will replace by id
+      // when the user message arrives (~50ms later).
+      //
+      // 立刻乐观插入 user 行。SSE 收到 user message（~50ms 后）按 id 替换。
       const tempId = '__pending__' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)
+      const userBlocks = []
+      if (optimisticContent) userBlocks.push({ type: 'text', content: optimisticContent })
+      for (const a of attsSnapshot) userBlocks.push({
+        type: 'attachment', fileName: a.fileName, mimeType: a.mimeType, id: a.id,
+      })
       this.messages.push({ id: tempId, role: 'user', blocks: userBlocks, status: 'sending' })
       this._scrollBottom()
-
-      // (2) Suppress SSE flushes for the duration of the fetch. Any user/
-      //     assistant snapshots that arrive will sit in _pendingMsgs until
-      //     we've stamped the real messageId onto our tempId row.
-      // (2) fetch 期间冻结 rAF flush，让 SSE 入 _pendingMsgs 但暂不 apply。
-      this._suppressFlush = true
 
       let r
       try {
         r = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, attachmentIds: attIds }),
+          body: JSON.stringify({ content: optimisticContent, attachmentIds: attIds }),
         })
       } catch (e) {
-        // Network failure — drop the optimistic row + unfreeze SSE.
-        // 网络失败——丢乐观行 + 解冻 SSE。
         this._dropPendingRow(tempId)
-        this._suppressFlush = false
-        this._flushPending()
+        toast.error('Send failed: ' + e)
         return
       }
 
       if (!r.ok) {
         this._dropPendingRow(tempId)
-        this._suppressFlush = false
-        this._flushPending()
+        toast.error('Send failed: HTTP ' + r.status)
         return
       }
 
       const j = await r.json()
-
-      // (3) Stamp real id onto the optimistic row WITHOUT re-pushing —
-      //     same array index, just id swap. Now SSE's user snapshot will
-      //     find this row by id and replace it (no duplicate push).
-      // (3) 把真 id 打到乐观行（不重 push，原位换 id）。SSE user snapshot
-      //     按 id 找到此行 replace 即可，不会重复 push。
+      // Stamp real id onto the optimistic row so SSE's user message_start
+      // (which arrives shortly with the same id) finds it and updates in place.
+      //
+      // 把真 id 打到乐观行——SSE 的 user message_start 用同 id 找到此行
+      // 原位更新。
       const idx = this.messages.findIndex(m => m.id === tempId)
       if (idx >= 0) {
         this.messages[idx] = { ...this.messages[idx], id: j.data.messageId, status: 'completed' }
       }
 
-      // (4) Unfreeze + flush any snapshots that piled up during fetch.
-      //     The user row is now keyed by real id, so SSE's user snapshot
-      //     replaces in-place; SSE's assistant snapshot pushes after.
-      // (4) 解冻 + 抽干积压。user 行已是真 id，user snapshot 原位 replace；
-      //     assistant snapshot push 在后。
-      this._suppressFlush = false
-      this._flushPending()
-
       this.streaming = true
-      // Sending a new message = user is engaged + wants to see the
-      // assistant reply. Reset any prior "scrolled up" state so the
-      // upcoming stream auto-scrolls.
-      // 发新消息 = 用户在场，想看回复——清旧 scroll-up 状态让新流自动滚。
       this.scrollBottomNow()
     },
 
@@ -471,124 +466,254 @@ document.addEventListener('alpine:init', () => {
       await fetch(`/api/v1/conversations/${id}/stream`, { method: 'DELETE' })
     },
 
-    // ── SSE (event-log protocol) ──────────────────────────────────────────────
-    //
-    // After backend cleanup, the legacy /api/v1/events + chat.message snapshot
-    // model is gone. New stack:
-    //   - /api/v1/eventlog?conversationId=X  → 5 events × 6 block types
-    //     (message_start / message_stop / block_start / block_delta / block_stop)
-    //   - /api/v1/notifications              → entity updates
-    //     ({type:"conversation",id,data:{title,...}}, {type:"todo",...})
-    //
-    // Minimum-viable handler: on every block_stop / message_stop,
-    // refetch the conversation's messages list to refresh the UI. This
-    // loses live token streaming (each token causes nothing visible)
-    // but keeps the chat usable — the next testend rewrite pass will
-    // replace this with the proper 30-line event loop + 6 block renderer.
-    //
-    // 后端清理后，legacy /api/v1/events + chat.message 快照模型已删。新栈：
-    //   - /api/v1/eventlog → 5 events × 6 block types
-    //   - /api/v1/notifications → entity updates
-    //
-    // 最小可行 handler：每次 block_stop / message_stop refetch 对话消息列表
-    // 刷 UI。失去逐 token 流式（每 token 视觉无变化）但保持可用——下轮
-    // testend 重写换正经的 30 行事件循环 + 6 block renderer。
+    // ── SSE: event-log protocol (per-conversation) ──────────────────────────
 
-    _connectSSE(id) {
-      this._closeSSE()
+    _connectEventLog(id) {
+      this._closeEventLog()
 
-      // Per-conversation event log
+      // Per-block-id index for fast lookup during deltas. Each entry is
+      // { msgId, item } where item is the message item (e.g. tool item)
+      // OR { msgId, blockId } for blocks rendered as message-level items.
+      // Maintained by the event handlers.
+      //
+      // Per-block-id 索引让 delta 查找快。条目 { msgId, item } 或
+      // { msgId, blockId }，由事件 handler 维护。
+      this._blockIndex = new Map()
+
       const es = new EventSource(`/api/v1/eventlog?conversationId=${id}`)
       this._es = es
 
-      const refetch = () => {
-        // Debounced refetch — coalesce multiple block_stop events into
-        // one fetch.
-        if (this._refetchPending) return
-        this._refetchPending = true
-        setTimeout(() => {
-          this._refetchPending = false
-          this.loadMessages(id)
-        }, 100)
+      es.addEventListener('message_start', e => this._onMessageStart(JSON.parse(e.data)))
+      es.addEventListener('message_stop',  e => this._onMessageStop(JSON.parse(e.data)))
+      es.addEventListener('block_start',   e => this._onBlockStart(JSON.parse(e.data)))
+      es.addEventListener('block_delta',   e => this._onBlockDelta(JSON.parse(e.data)))
+      es.addEventListener('block_stop',    e => this._onBlockStop(JSON.parse(e.data)))
+    },
+
+    _closeEventLog() {
+      if (this._es) { this._es.close(); this._es = null }
+      this._blockIndex = null
+    },
+
+    _findMsg(id) {
+      return this.messages.find(m => m.id === id)
+    },
+
+    _onMessageStart(ev) {
+      // ev = { conversationId, id, parentBlockId?, role, attrs }
+      // Skip if message already exists (e.g. user message we optimistically
+      // inserted, or replay).
+      // 已存在跳（乐观插入的 user 或 replay）。
+      if (this._findMsg(ev.id)) return
+      const stub = ev.role === 'user'
+        ? { id: ev.id, role: 'user', blocks: [], status: 'streaming', raw: ev }
+        : { id: ev.id, role: 'assistant', items: [], status: 'streaming',
+            stopReason: '', errorCode: '', errorMessage: '',
+            inputTokens: 0, outputTokens: 0, raw: ev }
+      this.messages.push(stub)
+      if (!this._userScrolledUp) this._scrollBottom()
+      else this.newMsgCount++
+    },
+
+    _onMessageStop(ev) {
+      // ev = { conversationId, id, status, stopReason?, errorCode?, errorMessage?, inputTokens?, outputTokens? }
+      const m = this._findMsg(ev.id)
+      if (!m) return
+      m.status = ev.status
+      m.stopReason = ev.stopReason || ''
+      m.errorCode = ev.errorCode || ''
+      m.errorMessage = ev.errorMessage || ''
+      m.inputTokens = ev.inputTokens || 0
+      m.outputTokens = ev.outputTokens || 0
+      if (m.role === 'assistant' && ev.status !== 'streaming') {
+        this.streaming = false
       }
+    },
 
-      es.addEventListener('block_stop', refetch)
-      es.addEventListener('message_stop', refetch)
+    _onBlockStart(ev) {
+      // ev = { conversationId, id, parentId, messageId, blockType, attrs }
+      const m = this._findMsg(ev.messageId)
+      if (!m) return
+      const battrs = ev.attrs || {}
 
-      // Global notifications stream — entity updates (conv rename, todo, etc.)
-      // 全局通知流——entity 更新。
+      switch (ev.blockType) {
+        case 'reasoning':
+        case 'text': {
+          if (m.role === 'user') {
+            const blk = { type: 'text', content: '', _blockId: ev.id }
+            m.blocks.push(blk)
+            this._blockIndex.set(ev.id, { msg: m, ref: blk, kind: 'user-text' })
+          } else {
+            const item = ev.blockType === 'reasoning'
+              ? { type: 'reasoning', content: '', done: false, expandKey: 'r:' + ev.id }
+              : { type: 'text', content: '' }
+            m.items.push(item)
+            this._blockIndex.set(ev.id, { msg: m, ref: item, kind: ev.blockType })
+          }
+          break
+        }
+
+        case 'tool_call': {
+          const item = {
+            type: 'tool',
+            toolCallId: ev.id,
+            toolName: battrs.tool || '',
+            summary: '', destructive: false, executionGroup: 0,
+            input: '',
+            result: null, ok: null, errorMsg: '', elapsedMs: 0,
+            expandKey: 't:' + ev.id,
+          }
+          m.items.push(item)
+          this._blockIndex.set(ev.id, { msg: m, ref: item, kind: 'tool_call' })
+          break
+        }
+
+        case 'tool_result': {
+          // Find parent tool item; create result placeholder via blockIndex.
+          // 找父 tool item；blockIndex 加一条占位等 delta。
+          const parent = this._blockIndex.get(ev.parentId)
+          this._blockIndex.set(ev.id, {
+            msg: m, ref: parent ? parent.ref : null, kind: 'tool_result',
+            buf: '',
+          })
+          break
+        }
+
+        case 'progress': {
+          // Progress block parented under a tool_call — append to the
+          // tool item's `progress` field. Untracked parent → standalone.
+          //
+          // Progress 挂 tool_call 下——追加到 tool item 的 progress 字段；
+          // 父没找到 → 独立展示。
+          const parent = this._blockIndex.get(ev.parentId)
+          if (parent && parent.kind === 'tool_call') {
+            this._blockIndex.set(ev.id, { msg: m, ref: parent.ref, kind: 'progress-attached' })
+          } else {
+            const item = {
+              type: 'progress',
+              stage: battrs.stage || '',
+              content: '',
+              done: false,
+            }
+            m.items.push(item)
+            this._blockIndex.set(ev.id, { msg: m, ref: item, kind: 'progress' })
+          }
+          break
+        }
+
+        case 'message': {
+          // Subagent placeholder.
+          const item = {
+            type: 'subagent',
+            subMessageId: battrs.messageId || '',
+            subType: battrs.type || 'subagent',
+            done: false,
+            expandKey: 's:' + ev.id,
+          }
+          m.items.push(item)
+          this._blockIndex.set(ev.id, { msg: m, ref: item, kind: 'message' })
+          break
+        }
+      }
+    },
+
+    _onBlockDelta(ev) {
+      // ev = { conversationId, id, delta }
+      const idx = this._blockIndex.get(ev.id)
+      if (!idx) return
+      switch (idx.kind) {
+        case 'user-text':
+        case 'text':
+        case 'reasoning':
+          idx.ref.content = (idx.ref.content || '') + ev.delta
+          break
+
+        case 'tool_call':
+          idx.ref.input = (idx.ref.input || '') + ev.delta
+          break
+
+        case 'tool_result': {
+          // Buffer until block_stop so we can finalize ok/error then.
+          // 缓存到 block_stop 时一并 finalize ok/error。
+          idx.buf = (idx.buf || '') + ev.delta
+          if (idx.ref) {
+            idx.ref.result = idx.buf
+          }
+          break
+        }
+
+        case 'progress-attached':
+          idx.ref.progress = (idx.ref.progress || '') + ev.delta
+          break
+
+        case 'progress':
+          idx.ref.content = (idx.ref.content || '') + ev.delta
+          break
+      }
+      if (!this._userScrolledUp) this._scrollBottom()
+    },
+
+    _onBlockStop(ev) {
+      // ev = { conversationId, id, status, error? }
+      const idx = this._blockIndex.get(ev.id)
+      if (!idx) return
+      switch (idx.kind) {
+        case 'reasoning':
+          idx.ref.done = true
+          break
+
+        case 'tool_result':
+          if (idx.ref) {
+            idx.ref.ok = ev.status !== 'error'
+            idx.ref.errorMsg = ev.error || ''
+          }
+          break
+
+        case 'progress':
+        case 'progress-attached':
+          if (idx.ref && idx.kind === 'progress') idx.ref.done = true
+          break
+
+        case 'message':
+          idx.ref.done = true
+          break
+      }
+    },
+
+    // ── SSE: notifications (global) ─────────────────────────────────────────
+
+    _connectNotifications() {
+      // Persistent SSE for the lifetime of the chat panel. Listens for
+      // entity updates: conversation rename, todo updates, future
+      // mcp/skill/system warnings.
+      //
+      // 持久 SSE。监听 entity 更新：conv 改名 / todo 更新 / 未来 mcp/skill/系统警告。
       const ns = new EventSource('/api/v1/notifications')
       this._ns = ns
       ns.addEventListener('notification', e => {
-        try {
-          const n = JSON.parse(e.data)
-          if (n.type === 'conversation' && n.id === id && n.data && n.data.title) {
-            Alpine.store('app').conversationTitle = n.data.title
-            document.dispatchEvent(new CustomEvent('conv-created'))
-          }
-          // type==="todo" → todo panel update (handled by tab-tools / tab-todo)
-        } catch (_) { /* ignore */ }
+        let n
+        try { n = JSON.parse(e.data) } catch { return }
+        if (!n || !n.type) return
+        switch (n.type) {
+          case 'conversation':
+            // autoTitle / rename — update title if it's the active conv.
+            // autoTitle / 改名——本对话则更新标题。
+            if (n.id === this.conversationId && n.data && n.data.title) {
+              Alpine.store('app').conversationTitle = n.data.title
+              document.dispatchEvent(new CustomEvent('conv-created'))
+            }
+            break
+          // type==="todo" → handled by tab-tools / tab-todo etc.
+          // 其他类型由其他 tab 处理。
+        }
       })
     },
 
-    _scheduleFlush() {
-      if (this._rafToken) return
-      // While send() is mid-flight, leave snapshots in _pendingMsgs
-      // un-flushed. send() will call _flushPending() itself once it has
-      // stamped the optimistic user-row with its real id. See
-      // _suppressFlush comment + send() for why.
-      // send() 进行中先不 flush，等乐观 user 行拿到真 id 后由 send() 调
-      // _flushPending() 抽干。
-      if (this._suppressFlush) return
-      this._rafToken = requestAnimationFrame(() => {
-        this._rafToken = 0
-        this._flushPending()
-      })
-    },
-
-    _flushPending() {
-      if (this._pendingMsgs.size === 0) return
-      for (const [id, snapshot] of this._pendingMsgs) {
-        const display = this._messageFromSnapshot(snapshot)
-        const idx = this.messages.findIndex(x => x.id === id)
-        if (idx >= 0) {
-          this.messages[idx] = display
-        } else {
-          this.messages.push(display)
-        }
-        if (snapshot.role === 'assistant' && snapshot.status !== 'streaming') {
-          this.streaming = false
-        }
-      }
-      const incoming = this._pendingMsgs.size
-      this._pendingMsgs.clear()
-      if (this._pendingShouldScroll) {
-        this._pendingShouldScroll = false
-        // Smart scroll: only stick to bottom when the user is already there.
-        // Otherwise increment the new-message counter; the floating pill
-        // shows + offers a one-click jump to bottom.
-        // 智能滚动：用户在底部时跟，否则加计数 + 浮 pill 提示。
-        if (this._userScrolledUp) {
-          this.newMsgCount += incoming
-        } else {
-          this._scrollBottom()
-        }
-      }
-    },
-
-    _closeSSE() {
-      if (this._es) { this._es.close(); this._es = null }
+    _closeNotifications() {
       if (this._ns) { this._ns.close(); this._ns = null }
-      // Cancel any pending rAF + drop unflushed snapshots from legacy path.
-      // 取消 rAF + 丢未 flush 快照（legacy path 残留）。
-      if (this._rafToken) {
-        cancelAnimationFrame(this._rafToken)
-        this._rafToken = 0
-      }
-      if (this._pendingMsgs) this._pendingMsgs.clear()
-      this._pendingShouldScroll = false
-      this._refetchPending = false
     },
+
+    // ── Scroll ──────────────────────────────────────────────────────────────
 
     _scrollBottom() {
       this.$nextTick(() => {
@@ -597,20 +722,12 @@ document.addEventListener('alpine:init', () => {
       })
     },
 
-    // Force scroll to bottom and clear the new-message pill. Used when the
-    // user explicitly clicks "↓ N new" or sends a new message.
-    // 强制滚底 + 清 pill。用户点 pill 或发新消息时调。
     scrollBottomNow() {
       this._userScrolledUp = false;
       this.newMsgCount = 0;
       this._scrollBottom();
     },
 
-    // Bound to .chat-messages @scroll. Threshold is 60px from bottom — gives
-    // some hysteresis so a click "go to bottom" doesn't immediately flip
-    // the flag back on if the layout settles 1-2px short.
-    // 监听 chat-messages 滚动事件。距离底部 60px 内算"在底部"，留余量
-    // 避免 layout 误差让 flag 反复抖动。
     onChatScroll(e) {
       const el = e.target;
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -622,6 +739,8 @@ document.addEventListener('alpine:init', () => {
         this._userScrolledUp = true;
       }
     },
+
+    // ── Format helpers ──────────────────────────────────────────────────────
 
     tryFmt(s) {
       if (s === null || s === undefined) return '…'
