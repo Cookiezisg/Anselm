@@ -34,24 +34,55 @@ document.addEventListener('alpine:init', () => {
         opts.headers['Content-Type'] = 'application/json'
         opts.body = JSON.stringify(body)
       }
-      const r = await fetch(url, opts)
-      const j = await r.json().catch(() => null)
-      return { r, j }
+      try {
+        const r = await fetch(url, opts)
+        const j = await r.json().catch(() => null)
+        return { r, j, networkErr: null }
+      } catch (e) {
+        return { r: null, j: null, networkErr: e }
+      }
+    },
+
+    // _toastFetchError surfaces a backend / network failure as a toast.
+    // ctx is a short label like "save model" so the user sees what
+    // operation failed. Honors the {data, error} envelope.
+    //
+    // _toastFetchError 把后端 / 网络失败转 toast。ctx 是简短标签如 "save model"
+    // 让用户看出哪一步炸了。遵从 {data,error} envelope。
+    _toastFetchError(ctx, res) {
+      if (res.networkErr) {
+        toast.error(ctx + ' failed: ' + res.networkErr)
+        return
+      }
+      const msg = res.j?.error?.message || ('HTTP ' + (res.r?.status ?? '?'))
+      toast.error(ctx + ' failed: ' + msg)
     },
 
     async _loadProviders() {
-      const { j } = await this._fetch('GET', '/api/v1/providers')
-      this.providersMeta = j?.data ?? []
+      const res = await this._fetch('GET', '/api/v1/providers')
+      if (!res.r || !res.r.ok) {
+        this._toastFetchError('Load providers', res)
+        return
+      }
+      this.providersMeta = res.j?.data ?? []
     },
 
     async _loadKeys() {
-      const { j } = await this._fetch('GET', '/api/v1/api-keys?limit=50')
-      this.keys = j?.data ?? []
+      const res = await this._fetch('GET', '/api/v1/api-keys?limit=50')
+      if (!res.r || !res.r.ok) {
+        this._toastFetchError('Load API keys', res)
+        return
+      }
+      this.keys = res.j?.data ?? []
     },
 
     async _loadModel() {
-      const { j } = await this._fetch('GET', '/api/v1/model-configs')
-      const chat = (j?.data ?? []).find(m => m.scenario === 'chat')
+      const res = await this._fetch('GET', '/api/v1/model-configs')
+      if (!res.r || !res.r.ok) {
+        this._toastFetchError('Load model config', res)
+        return
+      }
+      const chat = (res.j?.data ?? []).find(m => m.scenario === 'chat')
       if (chat) {
         this.modelConfig = { provider: chat.provider, modelId: chat.modelId }
         this.mp = chat.provider
@@ -108,10 +139,14 @@ document.addEventListener('alpine:init', () => {
       if (!this.akey.trim()) return
       this.addBusy = true
       try {
-        await this._fetch('POST', '/api/v1/api-keys', {
+        const res = await this._fetch('POST', '/api/v1/api-keys', {
           provider: this.ap, displayName: this.ap,
           key: this.akey, baseUrl: this.aurl, apiFormat: '',
         })
+        if (!res.r || !res.r.ok) {
+          this._toastFetchError('Add API key', res)
+          return
+        }
         this.akey = ''; this.aurl = ''; this.showAdd = false
         await this._loadKeys()
       } finally { this.addBusy = false }
@@ -126,7 +161,11 @@ document.addEventListener('alpine:init', () => {
 
     async _runTest(id) {
       try {
-        await this._fetch('POST', `/api/v1/api-keys/${id}:test`)
+        const res = await this._fetch('POST', `/api/v1/api-keys/${id}:test`)
+        if (!res.r || !res.r.ok) {
+          this._toastFetchError('Test API key', res)
+          return
+        }
         await this._loadKeys()
         const ms = this._modelsFor(this.mp)
         if (ms.length > 0 && !this.mid) this.mid = ms[0]
@@ -136,7 +175,11 @@ document.addEventListener('alpine:init', () => {
     },
 
     async delKey(id) {
-      await this._fetch('DELETE', `/api/v1/api-keys/${id}`)
+      const res = await this._fetch('DELETE', `/api/v1/api-keys/${id}`)
+      if (!res.r || !res.r.ok) {
+        this._toastFetchError('Delete API key', res)
+        return
+      }
       await this._loadKeys()
     },
 
@@ -144,8 +187,14 @@ document.addEventListener('alpine:init', () => {
       if (!this.mp || !this.mid.trim()) return
       this.modelBusy = true
       try {
-        await this._fetch('PUT', '/api/v1/model-configs/chat', { provider: this.mp, modelId: this.mid })
+        const res = await this._fetch('PUT', '/api/v1/model-configs/chat',
+          { provider: this.mp, modelId: this.mid })
+        if (!res.r || !res.r.ok) {
+          this._toastFetchError('Save chat model', res)
+          return
+        }
         await this._loadModel()
+        toast.success('Chat model saved: ' + this.mp + ' · ' + this.mid)
       } finally { this.modelBusy = false }
     },
   }))
