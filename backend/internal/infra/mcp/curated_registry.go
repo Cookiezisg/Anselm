@@ -393,14 +393,23 @@ var curatedEntries = []mcpdomain.RegistryEntry{
 
 	// ── Email / office ───────────────────────────────────────────
 	{
-		Name:        "gmail",
-		Description: "Gmail: read inbox, send mail, manage labels / drafts. Uses Google's OAuth device-code flow — first run prints a login URL.",
-		Homepage:    "https://github.com/GongRzhe/Gmail-MCP-Server",
-		Runtime:     "node",
-		InstallCmd:  mcpdomain.InstallCmd{Command: "npx", Args: []string{"-y", "@gongrzhe/server-gmail-autoauth-mcp"}},
-		Category:    "email",
-		Tier:        2,
-		Notes:       "First run: the server prints a Google device-login URL + code to stderr. Open the URL, sign in to your Gmail account, paste the code → tokens are saved locally. The package ships its own OAuth client credentials; for production-grade isolation register your own Google Cloud OAuth app.",
+		Name:        "google-workspace",
+		Description: "Full Google Workspace suite: Gmail, Drive, Calendar, Docs, Sheets, Slides, Forms, Tasks, Contacts, Chat. The most feature-complete community Workspace MCP server (no official Google one exists).",
+		Homepage:    "https://github.com/taylorwilsdon/google_workspace_mcp",
+		Runtime:     "python",
+		// --tool-tier core keeps the LLM-visible tool count manageable
+		// (~25 tools across services); switch to "extended" or "complete"
+		// for fuller coverage at the cost of longer system prompts.
+		// --tool-tier core 让 LLM 可见工具数受控（~25 个）；要全套切
+		// "extended" / "complete"，代价是 system prompt 更长。
+		InstallCmd: mcpdomain.InstallCmd{Command: "uvx", Args: []string{"workspace-mcp", "--tool-tier", "core"}},
+		RequiredEnv: []mcpdomain.EnvRequirement{
+			{Name: "GOOGLE_OAUTH_CLIENT_ID", Description: "OAuth 2.0 client ID from Google Cloud Console.", SetupURL: "https://console.cloud.google.com/apis/credentials", Secret: false},
+			{Name: "GOOGLE_OAUTH_CLIENT_SECRET", Description: "OAuth 2.0 client secret from Google Cloud Console.", SetupURL: "https://console.cloud.google.com/apis/credentials", Secret: true},
+		},
+		Category: "email",
+		Tier:     2,
+		Notes:    "Google policy forbids shipping shared OAuth client creds (Workspace tenants block unverified apps), so first-time setup needs a one-off Google Cloud Console step: (1) create a project at console.cloud.google.com, (2) enable Gmail/Drive/Calendar/Docs APIs, (3) create OAuth client of type 'Desktop app', (4) copy client ID + secret into the install env. Subsequent runs print a browser login URL on first request; tokens cached locally.",
 	},
 	{
 		Name:        "ms365",

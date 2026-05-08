@@ -147,7 +147,9 @@ func TestCurated_Search_KnownTokens(t *testing.T) {
 		{"gitlab", "gitlab"},
 		{"notion", "notion"},
 		{"figma", "figma"},
-		{"gmail", "gmail"},
+		{"gmail", "google-workspace"},
+		{"workspace", "google-workspace"},
+		{"calendar", "google-workspace"},
 		{"sentry", "sentry"},
 		{"e2b", "e2b"},
 		{"slack", "slack"},
@@ -243,8 +245,8 @@ func TestCurated_NotesPresentForGotchas(t *testing.T) {
 		"playwright":      "Chromium",
 		"chrome-devtools": "Chrome",
 		"notion":          "SHARE",
-		"gmail":           "device",
-		"ms365":           "devicelogin",
+		"google-workspace": "Cloud Console",
+		"ms365":            "devicelogin",
 	}
 	for name, want := range mustContain {
 		e, err := src.Get(context.Background(), name)

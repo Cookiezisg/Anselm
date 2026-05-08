@@ -123,14 +123,13 @@ var smokeCases = []curatedSmokeCase{
 	{name: "figma", envFrom: []string{"FIGMA_API_KEY"}},
 	{name: "e2b", envFrom: []string{"E2B_API_KEY"}},
 
-	// T2 — OAuth device-code. Curated registry has no RequiredEnv
-	// (these packages bundle shared OAuth client creds + run an
-	// interactive device-code flow on first launch). gmail is
-	// known-broken — see its entry below.
-	{
-		name:        "gmail",
-		knownBroken: "@gongrzhe/server-gmail-autoauth-mcp wants ~/.gmail-mcp/gcp-oauth.keys.json file at startup; curated entry treats it as zero-config but it's not. Replace package or document file setup before unbreaking.",
-	},
+	// T2 — OAuth. ms365 ships shared Azure AD client creds (no envFrom
+	// needed; device-code on first run). google-workspace can't —
+	// Google verification policy forces user-supplied OAuth client.
+	//
+	// T2 OAuth。ms365 ship 共享 Azure AD 凭证（无需 envFrom，首跑设备码）。
+	// google-workspace 不能——Google verification 政策强制用户自带 client。
+	{name: "google-workspace", envFrom: []string{"GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET"}},
 	{name: "ms365"},
 
 	// T3 — DB / cloud credential

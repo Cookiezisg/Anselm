@@ -223,7 +223,7 @@ Forgify 内置一份 **21 条 hand-picked 的 MCP marketplace**，由 `internal/
 |---|---|---|---|
 | **0** | 零配置，npx/uvx 起就用 | 5 (playwright, chrome-devtools, duckduckgo, context7, memory) | 直接 install |
 | **1** | 一个 API key（free / easy signup） | 11 (tavily, firecrawl, github, gitlab, sentry, linear, atlassian, notion, slack, figma, e2b) | 填 token 后 install；entry 带 `SetupURL` |
-| **2** | OAuth device-code 流（subprocess 印登录 URL 到 stderr） | 2 (gmail, ms365) | install 后 testend **自动开 stderr modal + 短轮询**抓登录 URL |
+| **2** | OAuth 流（subprocess 印登录 URL 到 stderr） | 2 (google-workspace, ms365) | install 后 testend **自动开 stderr modal + 短轮询**抓登录 URL；google-workspace 还要先去 Google Cloud Console 建 OAuth client（Google verification 政策禁止 ship 共享凭证） |
 | **3** | DB / 云 credential（DSN / connection string） | 3 (dbhub, mongodb, supabase) | 填 DSN/PAT 后 install |
 
 ### Registry 数据结构（`internal/domain/mcp/registry.go`）
@@ -266,7 +266,7 @@ type RegistryEntry struct {
 | 1 | `slack` | docs | node | Slack messaging / search |
 | 1 | `figma` | design | python | Figma 文件 / frame / asset |
 | 1 | `e2b` | sandbox | python | E2B 远程沙箱执行 |
-| 2 | `gmail` | email | python | Gmail（**OAuth 设备码** — 首跑 stderr 印登录 URL） |
+| 2 | `google-workspace` | email | python | Gmail + Drive + Calendar + Docs + Sheets + Slides + Forms + Tasks + Contacts + Chat 全套（**OAuth** — 用户须先 Cloud Console 建 client + 设两个 env） |
 | 2 | `ms365` | email | node | Microsoft 365（Outlook / Teams / OneDrive — 同 OAuth 设备码） |
 | 3 | `dbhub` | db | node | PostgreSQL / MySQL / SQLite — 一个 DSN 通吃 |
 | 3 | `mongodb` | db | node | MongoDB |
@@ -311,7 +311,7 @@ testend `/mcp-registry/{name}:install` 直接走阶段 2（UI 自己采集 env/a
 
 ### Tier 2 OAuth UX
 
-Gmail / MS365 子进程首跑时把设备码登录 URL 印到 stderr。
+google-workspace / ms365 子进程首跑把 OAuth 登录 URL 印到 stderr（ms365 是真设备码；google-workspace 是 OAuth callback URL，因为 Google 政策不让 ship 共享 client）。
 
 - testend tab-mcp.js `install()`：检测到 `tier === 2` 时，install 成功后**自动开 stderr modal** + 短轮询 6×1s（每秒重读 stderr，直到出现 `https://`）——用户立刻看到登录链接。
 - LLM 走 `install_mcp_server` 时，phase1 envelope 自带 entry.Notes（如 "first run prints device-code URL to stderr"），LLM 渲染时会提醒用户安装后看 stderr。
