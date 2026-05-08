@@ -135,7 +135,7 @@ var devRoutes = []devRoute{
 	{"POST", "/api/v1/sandbox/runtimes/{id}:destroy", "sandbox.DestroyRuntime"},
 	{"POST", "/api/v1/sandbox/{action}", "sandbox.Action (gc/retry-bootstrap)"},
 	{"POST", "/api/v1/conversations/{id}/sandbox-envs/{kind}:reset", "sandbox.ResetConvEnv"},
-	{"POST", "/api/v1/conversations/{id}/sandbox-envs", "sandbox.ResetAllConvEnvs"},
+	{"POST", "/api/v1/conversations/{id}/sandbox-envs:reset-all", "sandbox.ResetAllConvEnvs"},
 
 	// ── dev (only when --dev) — listed so the Routes tab shows the full surface
 	{"GET", "/dev/", "dev.ServeIndex (testend HTML)"},

@@ -79,7 +79,7 @@ func (h *SandboxHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/sandbox/runtimes/{idAction}", h.runtimeAction)
 	mux.HandleFunc("POST /api/v1/sandbox/{action}", h.sandboxAction)
 	mux.HandleFunc("POST /api/v1/conversations/{id}/sandbox-envs/{kindAction}", h.convEnvKindAction)
-	mux.HandleFunc("POST /api/v1/conversations/{id}/sandbox-envs", h.convEnvsAction)
+	mux.HandleFunc("POST /api/v1/conversations/{id}/sandbox-envs:reset-all", h.convEnvsAction)
 }
 
 // ── Read endpoints ────────────────────────────────────────────────────
