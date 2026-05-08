@@ -1141,13 +1141,13 @@
           <strong style="font-size:12px">Capability Catalog</strong>
           <button class="btn-small" @click="load()" :disabled="loading" x-text="loading ? 'loading…' : 'reload'"></button>
           <button class="btn-small" @click="refresh()" :disabled="refreshing"
-                  title="POST /api/v1/catalog:refresh — bypass 1s polling, force LLM regen if Generator wired"
+                  title="POST /api/v1/catalog:refresh — bypass 1s polling, regenerate now"
                   x-text="refreshing ? 'refreshing…' : 'force refresh'"></button>
           <span x-show="err" style="color:var(--err);font-size:10px;margin-left:auto" x-text="err"></span>
         </div>
 
         <div x-show="!catalog && !loading" style="padding:16px;font-size:11px;color:var(--text-mute)">
-          No catalog yet. Click <strong>force refresh</strong> to build one (or wait ≤1s for the polling tick to fire on its own — but this test environment uses mechanical-fallback only, see harness comment in catalog wiring).
+          No catalog yet. Click <strong>force refresh</strong> to build one (or wait ≤1s for the polling tick to fire on its own).
         </div>
 
         <div x-show="catalog" style="padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:10px">
@@ -1160,7 +1160,7 @@
               <span x-text="catalog?.generatedBy ?? '—'"></span>
               <span x-show="catalog?.generatedBy === 'mechanical-fallback'"
                     style="color:var(--text-mute);margin-left:6px"
-                    title="LLM-driven Generator not wired in test harness; production main.go does wire it.">(test mode)</span>
+                    title="LLM single-shot generate failed — mechanical fallback ran instead. Next polling tick or force refresh will retry the LLM.">(fallback)</span>
             </span>
             <span style="color:var(--text-mute)">generated at</span>
             <span x-text="fmtTime(catalog?.generatedAt)"></span>
