@@ -1878,17 +1878,19 @@
         </div>
       </div>
 
-      <!-- ── Notifications tab (TE-21) ───────────────────────────── -->
+      <!-- ── Notifications tab — unified SSE + toast feed (M4) ───── -->
       <div class="tab-content" x-show="activeRightTab==='notifs'" x-data="notificationsTab()">
         <div class="panel-toolbar">
           <strong>Notifications</strong>
-          <span class="status-text" x-text="history.length + ' total'"></span>
-          <span class="status-text" style="margin-left:auto" x-text="$store.toasts.list.length + ' active'"></span>
+          <span class="status-text" x-text="countSSE() + ' SSE / ' + countToast() + ' toasts'"></span>
+          <span style="margin-left:auto;font-size:10px"
+                :style="'color:' + (connState==='live' ? '#2a9d3a' : connState==='error' ? '#c93434' : '#888')"
+                x-text="connState==='live' ? '● SSE live' : connState==='error' ? '✕ SSE error' : '○ SSE closed'"></span>
         </div>
 
-        <!-- Manual test triggers -->
+        <!-- Manual test triggers (toast verification — fires through window.toast.X) -->
         <div class="notifs-tester">
-          <span class="label">trigger test toast</span>
+          <span class="label">test toast</span>
           <div class="notifs-tester-btns">
             <button class="btn btn-sm" @click="fire('success')" title="Push a success toast">success</button>
             <button class="btn btn-sm" @click="fire('error')" title="Push an error toast">error</button>
@@ -1898,39 +1900,51 @@
             <button class="btn btn-ghost btn-sm" @click="clearActive()" style="margin-left:auto"
                     title="Dismiss all currently visible toasts">clear active</button>
             <button class="btn btn-ghost btn-sm" @click="clearHistory()"
-                    title="Wipe history (active toasts unaffected)">clear history</button>
+                    title="Wipe feed (active toasts unaffected)">clear feed</button>
           </div>
         </div>
 
-        <!-- Filter row -->
-        <div class="panel-toolbar" style="border-top:1px solid var(--border-subtle)">
-          <span class="label">filter</span>
-          <button class="btn btn-sm" :class="{'btn-primary': filter==='all'}" @click="filter='all'"
-                  x-text="'all (' + countByType().all + ')'"></button>
-          <button class="btn btn-sm" :class="{'btn-primary': filter==='success'}" @click="filter='success'"
-                  x-text="'success (' + countByType().success + ')'"></button>
-          <button class="btn btn-sm" :class="{'btn-primary': filter==='error'}" @click="filter='error'"
-                  x-text="'error (' + countByType().error + ')'"></button>
-          <button class="btn btn-sm" :class="{'btn-primary': filter==='warn'}" @click="filter='warn'"
-                  x-text="'warn (' + countByType().warn + ')'"></button>
-          <button class="btn btn-sm" :class="{'btn-primary': filter==='info'}" @click="filter='info'"
-                  x-text="'info (' + countByType().info + ')'"></button>
+        <!-- Filter row: source × type chips -->
+        <div class="panel-toolbar" style="border-top:1px solid var(--border-subtle);flex-wrap:wrap;gap:4px">
+          <span class="label">source</span>
+          <button class="btn btn-sm" :class="{'btn-primary': sourceFilter==='all'}"
+                  @click="setSourceFilter('all')">all</button>
+          <button class="btn btn-sm" :class="{'btn-primary': sourceFilter==='sse'}"
+                  @click="setSourceFilter('sse')">sse</button>
+          <button class="btn btn-sm" :class="{'btn-primary': sourceFilter==='toast'}"
+                  @click="setSourceFilter('toast')">toasts</button>
+          <span class="label" style="margin-left:8px">type</span>
+          <template x-for="t in knownTypes()" :key="t">
+            <button class="btn btn-sm"
+                    :class="{'btn-primary': typeFilters.has(t)}"
+                    @click="toggleTypeFilter(t)"
+                    x-text="t"></button>
+          </template>
         </div>
 
+        <!-- Feed -->
         <div class="notifs-list">
-          <template x-if="filteredHistory.length === 0">
+          <template x-if="filteredEvents().length === 0">
             <div class="empty-state">
               <div class="empty-state-title">No notifications</div>
-              <div class="empty-state-hint">trigger one with the buttons above, or wait for app errors</div>
+              <div class="empty-state-hint">test the toast buttons above, or wait for backend events (mcp install / catalog regen / skill rescan / todo CRUD / conv rename)</div>
             </div>
           </template>
-          <template x-for="n in filteredHistory" :key="n.id">
-            <div class="notifs-row" :class="['notifs-row--' + n.type, n.active ? '' : 'notifs-row--inactive']">
-              <span class="notifs-dot"></span>
-              <span class="notifs-type" x-text="n.type"></span>
-              <span class="notifs-text" x-text="n.text"></span>
-              <span class="notifs-time" x-text="fmtElapsed(n.ts)"></span>
-            </div>
+          <template x-for="n in filteredEvents()" :key="n.id">
+            <details class="notifs-row" :class="['notifs-row--' + n.type]">
+              <summary style="display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none">
+                <span style="font-size:12px;width:14px" x-text="sourceIcon(n.source)"></span>
+                <span :style="'color:' + typeColor(n.type) + ';font-weight:600;min-width:108px;font-family:Consolas,monospace;font-size:10px'"
+                      x-text="n.type"></span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px"
+                      x-text="n.summary"></span>
+                <span x-show="n.seq" style="color:var(--text-mute);font-size:9px;font-family:Consolas,monospace"
+                      x-text="'#' + n.seq"></span>
+                <span class="notifs-time" x-text="fmtElapsed(n.ts)"></span>
+              </summary>
+              <pre style="margin:4px 0 4px 24px;padding:6px;background:var(--canvas-subtle, #fafafa);font-family:Consolas,monospace;font-size:10px;white-space:pre-wrap;max-height:300px;overflow:auto;border-radius:3px"
+                   x-text="pretty(n.data)"></pre>
+            </details>
           </template>
         </div>
       </div>
