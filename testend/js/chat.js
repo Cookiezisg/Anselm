@@ -501,15 +501,21 @@ document.addEventListener('alpine:init', () => {
 
     _onMessageStart(ev) {
       // ev = { conversationId, id, parentBlockId?, role, attrs }
-      // Skip if message already exists (e.g. user message we optimistically
-      // inserted, or replay).
-      // 已存在跳（乐观插入的 user 或 replay）。
+      //
+      // User messages are owned by send()'s optimistic insert + REST POST;
+      // the SSE stream's user message_start is purely informational. Skip
+      // it to avoid a duplicate-key row when SSE delivers before send() has
+      // stamped tempId → real id (Alpine x-for with two same-:key rows
+      // can render only the empty SSE stub, swallowing the typed text).
+      //
+      // user 消息由 send() 乐观插入 + REST POST 全管；SSE 的 user
+      // message_start 仅信息性。跳过避免 SSE 早到产生重复 key 行
+      // （Alpine x-for 见两行同 key 时可能只渲染空 stub，吞掉用户输入）。
+      if (ev.role === 'user') return
       if (this._findMsg(ev.id)) return
-      const stub = ev.role === 'user'
-        ? { id: ev.id, role: 'user', blocks: [], status: 'streaming', raw: ev }
-        : { id: ev.id, role: 'assistant', items: [], status: 'streaming',
-            stopReason: '', errorCode: '', errorMessage: '',
-            inputTokens: 0, outputTokens: 0, raw: ev }
+      const stub = { id: ev.id, role: 'assistant', items: [], status: 'streaming',
+        stopReason: '', errorCode: '', errorMessage: '',
+        inputTokens: 0, outputTokens: 0, raw: ev }
       this.messages.push(stub)
       if (!this._userScrolledUp) this._scrollBottom()
       else this.newMsgCount++
@@ -534,22 +540,22 @@ document.addEventListener('alpine:init', () => {
       // ev = { conversationId, id, parentId, messageId, blockType, attrs }
       const m = this._findMsg(ev.messageId)
       if (!m) return
+      // User message blocks are entirely owned by send()'s optimistic insert
+      // (typed text + attachments). SSE block events for user are redundant
+      // and would duplicate the bubble. Skip.
+      // user 消息的 blocks 完全由 send() 乐观插入管（输入文本 + 附件）；
+      // SSE 的 user block 事件冗余，会让气泡重复。跳过。
+      if (m.role === 'user') return
       const battrs = ev.attrs || {}
 
       switch (ev.blockType) {
         case 'reasoning':
         case 'text': {
-          if (m.role === 'user') {
-            const blk = { type: 'text', content: '', _blockId: ev.id }
-            m.blocks.push(blk)
-            this._blockIndex.set(ev.id, { msg: m, ref: blk, kind: 'user-text' })
-          } else {
-            const item = ev.blockType === 'reasoning'
-              ? { type: 'reasoning', content: '', done: false, expandKey: 'r:' + ev.id }
-              : { type: 'text', content: '' }
-            m.items.push(item)
-            this._blockIndex.set(ev.id, { msg: m, ref: item, kind: ev.blockType })
-          }
+          const item = ev.blockType === 'reasoning'
+            ? { type: 'reasoning', content: '', done: false, expandKey: 'r:' + ev.id }
+            : { type: 'text', content: '' }
+          m.items.push(item)
+          this._blockIndex.set(ev.id, { msg: m, ref: item, kind: ev.blockType })
           break
         }
 

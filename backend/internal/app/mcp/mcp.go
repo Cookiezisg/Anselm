@@ -43,6 +43,7 @@ import (
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
 // defaultCallTimeout is the §5.7 fallback when neither the per-server
@@ -90,6 +91,7 @@ type Service struct {
 	modelPicker modeldomain.ModelPicker
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
+	notif       notificationspkg.Publisher
 	log         *zap.Logger
 
 	// newClient lets unit tests inject fake Clients. Production wires
@@ -116,6 +118,7 @@ func New(
 	modelPicker modeldomain.ModelPicker,
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
+	notif notificationspkg.Publisher,
 	log *zap.Logger,
 ) *Service {
 	if log == nil {
@@ -124,6 +127,9 @@ func New(
 	if source == nil {
 		panic("mcp.New: registry source is nil")
 	}
+	if notif == nil {
+		notif = notificationspkg.New(nil, log)
+	}
 	return &Service{
 		configPath:  configPath,
 		source:      source,
@@ -131,6 +137,7 @@ func New(
 		modelPicker: modelPicker,
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
+		notif:       notif,
 		log:         log,
 		newClient:   mcpinfra.NewStdioClient,
 		configs:     map[string]mcpdomain.ServerConfig{},
@@ -198,7 +205,6 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 	wg.Wait()
 
-	s.publishSnapshot(ctx)
 	return nil
 }
 
@@ -251,14 +257,13 @@ func (s *Service) AddServer(ctx context.Context, cfg mcpdomain.ServerConfig) err
 	if err := mcpinfra.Save(s.configPath, configsCopy); err != nil {
 		return fmt.Errorf("mcpapp.AddServer: save mcp.json: %w", err)
 	}
+	s.publishStatus(ctx, cfg.Name)
 
 	cctx, cancel := context.WithTimeout(ctx, initializeTimeout)
 	defer cancel()
 	if err := s.connectOne(cctx, cfg.Name); err != nil {
-		s.publishSnapshot(ctx)
 		return fmt.Errorf("mcpapp.AddServer: connect: %w", err)
 	}
-	s.publishSnapshot(ctx)
 	return nil
 }
 
@@ -284,7 +289,8 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 	if err := mcpinfra.Save(s.configPath, configsCopy); err != nil {
 		return fmt.Errorf("mcpapp.RemoveServer: save mcp.json: %w", err)
 	}
-	s.publishSnapshot(ctx)
+	s.notif.Publish(ctx, "mcp_server", name,
+		map[string]any{"name": name, "deleted": true})
 	return nil
 }
 
@@ -312,11 +318,28 @@ func (s *Service) Reconnect(ctx context.Context, name string) error {
 	cctx, cancel := context.WithTimeout(ctx, initializeTimeout)
 	defer cancel()
 	if err := s.connectOne(cctx, name); err != nil {
-		s.publishSnapshot(ctx)
 		return fmt.Errorf("mcpapp.Reconnect: %w", err)
 	}
-	s.publishSnapshot(ctx)
 	return nil
+}
+
+// publishStatus snapshots the ServerStatus for name and pushes a
+// type=mcp_server notification. Best-effort; caller must NOT hold mu.
+//
+// publishStatus 拍 name 的 ServerStatus 快照推 type=mcp_server 通知。
+// best-effort；调用方禁持 mu。
+func (s *Service) publishStatus(ctx context.Context, name string) {
+	s.mu.RLock()
+	state, ok := s.states[name]
+	var snap mcpdomain.ServerStatus
+	if ok {
+		snap = *state
+	}
+	s.mu.RUnlock()
+	if !ok {
+		return
+	}
+	s.notif.Publish(ctx, "mcp_server", name, &snap)
 }
 
 // ── connectOne (internal) ────────────────────────────────────────────
@@ -351,6 +374,7 @@ func (s *Service) connectOne(ctx context.Context, name string) error {
 		state.LastErrorAt = &now
 		s.mu.Unlock()
 		_ = client.Close()
+		s.publishStatus(ctx, name)
 		return err
 	}
 
@@ -363,6 +387,7 @@ func (s *Service) connectOne(ctx context.Context, name string) error {
 		state.LastErrorAt = &now
 		s.mu.Unlock()
 		_ = client.Close()
+		s.publishStatus(ctx, name)
 		return err
 	}
 
@@ -375,6 +400,7 @@ func (s *Service) connectOne(ctx context.Context, name string) error {
 	state.Tools = tools
 	s.clients[name] = client
 	s.mu.Unlock()
+	s.publishStatus(ctx, name)
 	return nil
 }
 
@@ -527,14 +553,4 @@ func (s *Service) snapshotLocked() []mcpdomain.ServerStatus {
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
-
-// publishSnapshot is a no-op stub (legacy MCP entity推 was removed
-// with domain/events). MCP server status changes are observable via
-// REST refetch on tab focus; future notifications module will add
-// real-time push for "mcp_server" type when needed.
-//
-// publishSnapshot 是 no-op stub（legacy MCP entity 推随 domain/events
-// 删了）。MCP server 状态变化经 REST refetch on tab focus 观测；未来
-// 通知模块按需加 "mcp_server" type 实时推。
-func (s *Service) publishSnapshot(_ context.Context) {}
 

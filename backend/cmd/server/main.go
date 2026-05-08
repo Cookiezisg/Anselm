@@ -141,7 +141,6 @@ func main() {
 	)
 
 	modelService := modelapp.NewService(modelstore.New(gdb), log)
-	convService := convapp.NewService(convstore.New(gdb), log)
 
 	llmFactory := llminfra.NewFactory()
 
@@ -171,6 +170,7 @@ func main() {
 	eventLogBridge := eventloginfra.NewBridge(log)
 	notificationsBridge := notificationsinfra.NewBridge(log)
 	notificationsPub := notificationspkg.New(notificationsBridge, log)
+	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
 
 	// PluginSandbox v2 — unified runtime/env service. Bootstrap extracts
 	// the embedded mise binary; failure flips degraded mode (chat-only
@@ -247,6 +247,7 @@ func main() {
 		modelService,
 		apikeyService,
 		llmFactory,
+		notificationsPub,
 		log,
 	)
 
@@ -319,6 +320,7 @@ func main() {
 		modelService,
 		apikeyService,
 		llmFactory,
+		notificationsPub,
 		log,
 	)
 	if err := skillService.Start(context.Background()); err != nil {
@@ -340,7 +342,7 @@ func main() {
 	// summary（3 attempt + mechanical fallback）。summary 教 LLM "你有
 	// 哪些类目能力 + 何时优先何者"。subagent 不注册——其 tool description
 	// 已枚举 subagent 类型（catalog.md §1）。
-	catalogService := catalogapp.New(defaultCatalogCachePath(), log)
+	catalogService := catalogapp.New(defaultCatalogCachePath(), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())

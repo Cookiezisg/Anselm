@@ -17,6 +17,7 @@ import (
 
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -24,18 +25,23 @@ import (
 //
 // Service 编排对话 CRUD。
 type Service struct {
-	repo convdomain.Repository
-	log  *zap.Logger
+	repo  convdomain.Repository
+	notif notificationspkg.Publisher
+	log   *zap.Logger
 }
 
-// NewService wires Service dependencies. Panics on nil logger.
+// NewService wires Service dependencies. Panics on nil logger. notif may
+// be nil — Service falls back to a no-op publisher.
 //
-// NewService 装配依赖。nil logger 立刻 panic。
-func NewService(repo convdomain.Repository, log *zap.Logger) *Service {
+// NewService 装配依赖。nil logger panic。notif 可 nil（用 no-op 兜底）。
+func NewService(repo convdomain.Repository, notif notificationspkg.Publisher, log *zap.Logger) *Service {
 	if log == nil {
 		panic("conversation.NewService: logger is nil")
 	}
-	return &Service{repo: repo, log: log}
+	if notif == nil {
+		notif = notificationspkg.New(nil, log)
+	}
+	return &Service{repo: repo, notif: notif, log: log}
 }
 
 // Create makes a new conversation with the given title (may be empty).
@@ -60,6 +66,7 @@ func (s *Service) Create(ctx context.Context, title string) (*convdomain.Convers
 	s.log.Info("conversation created",
 		zap.String("conversation_id", c.ID),
 		zap.String("user_id", uid))
+	s.notif.Publish(ctx, "conversation", c.ID, c, c.ID)
 	return c, nil
 }
 
@@ -107,6 +114,7 @@ func (s *Service) Update(ctx context.Context, id string, title, systemPrompt *st
 	if err := s.repo.Save(ctx, c); err != nil {
 		return nil, err
 	}
+	s.notif.Publish(ctx, "conversation", c.ID, c, c.ID)
 	return c, nil
 }
 
@@ -114,7 +122,12 @@ func (s *Service) Update(ctx context.Context, id string, title, systemPrompt *st
 //
 // Delete 软删除一个对话。
 func (s *Service) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.notif.Publish(ctx, "conversation", id,
+		map[string]any{"id": id, "deleted": true}, id)
+	return nil
 }
 
 func newID() string { return idgenpkg.New("cv") }

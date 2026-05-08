@@ -67,7 +67,7 @@ func ctxAlice() context.Context {
 
 func newSvc(t *testing.T) *Service {
 	t.Helper()
-	return NewService(newFakeRepo(), zap.NewNop())
+	return NewService(newFakeRepo(), nil, zap.NewNop())
 }
 
 // --- NewService ---
@@ -78,7 +78,7 @@ func TestNewService_NilLogger_Panics(t *testing.T) {
 			t.Error("expected panic, got none")
 		}
 	}()
-	NewService(newFakeRepo(), nil)
+	NewService(newFakeRepo(), nil, nil)
 }
 
 // --- Create ---

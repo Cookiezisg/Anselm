@@ -249,6 +249,12 @@ func (s *Service) Refresh(ctx context.Context) error {
 		s.log.Warn("catalog write to disk failed; in-memory cache still updated",
 			zap.String("path", s.cachePath), zap.Error(err))
 	}
+	s.notif.Publish(ctx, "catalog", cat.Fingerprint,
+		map[string]any{
+			"fingerprint": cat.Fingerprint,
+			"version":     cat.Version,
+			"generatedAt": cat.GeneratedAt,
+		})
 	return nil
 }
 

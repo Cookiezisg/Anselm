@@ -95,24 +95,28 @@ func (s *Service) Scan(ctx context.Context) error {
 	s.skills = loaded
 	s.mu.Unlock()
 
+	// Publish notification only when the fingerprint actually changes —
+	// the 1s polling loop sits silent on the ~99% of ticks where nothing
+	// user-visible moved.
+	//
+	// 仅指纹变化时推 notification——1s 轮询 ~99% tick 无变化时保持安静。
 	last, _ := s.lastFP.Load().(string)
 	s.lastFP.Store(fp)
 	if last != fp {
-		s.publishSnapshot(ctx)
+		s.notif.Publish(ctx, "skill", "*",
+			map[string]any{"changed": true, "count": len(loaded)})
 	}
 	return nil
 }
 
 // skillsFingerprint hashes (name + frontmatter YAML) for every loaded
-// skill in sorted name order. Frontmatter is the user-visible surface
-// (description, allowed_tools, context, agent) — body changes are
-// invisible in the SSE snapshot so we deliberately exclude them, which
-// keeps the polling loop quiet during pure body edits.
+// skill in sorted name order. Frontmatter is the user-visible surface;
+// body changes are invisible in the snapshot, so we deliberately exclude
+// them — keeps polling quiet during pure body edits.
 //
-// skillsFingerprint 按 name 排序后 hash 每个 skill 的 (name + frontmatter
-// YAML)。frontmatter 是用户可见面（description / allowed_tools / context /
-// agent）——body 变化在 SSE 快照不可见，故意不入 hash，让轮询在纯 body 编辑
-// 时也保持安静。
+// skillsFingerprint 按 name 排序后 hash 每 skill 的 (name + frontmatter
+// YAML)。frontmatter 是用户可见面；body 变化在快照不可见，故意不入 hash，
+// 让纯 body 编辑也保持轮询安静。
 func skillsFingerprint(skills map[string]*skilldomain.Skill) string {
 	names := make([]string, 0, len(skills))
 	for n := range skills {
@@ -123,11 +127,6 @@ func skillsFingerprint(skills map[string]*skilldomain.Skill) string {
 	for _, n := range names {
 		fmtBytes, err := yaml.Marshal(&skills[n].Frontmatter)
 		if err != nil {
-			// yaml.Marshal of a plain struct does not fail in practice;
-			// hash the name alone so a transient marshal hiccup at most
-			// causes one redundant publish, never a panic.
-			// yaml.Marshal 普通 struct 实践不会 fail；marshal 抖动至多多发一
-			// 次冗余 publish，绝不 panic。
 			h.Write([]byte(n))
 			h.Write([]byte{0})
 			continue

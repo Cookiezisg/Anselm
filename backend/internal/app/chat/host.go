@@ -46,10 +46,13 @@ func (h *chatHost) Tools() []toolapp.Tool {
 
 func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	// Detached context: a cancelled upstream stream must not block the
-	// terminal write. Re-stamp uid so the saved row keeps ownership.
+	// terminal write OR the message_stop emit. Re-stamp uid + convID so
+	// the saved row keeps ownership and the emit can find its convID.
 	//
-	// Detached context：已取消的流不能阻止终态写入。重打 uid 让落库行保留 owner。
+	// Detached context：已取消的流不能阻止终态写入或 message_stop emit。重打
+	// uid + convID 让落库行保留 owner，且 emit 能找到 convID。
 	saveCtx := reqctxpkg.SetUserID(context.Background(), h.uid)
+	saveCtx = reqctxpkg.WithConversationID(saveCtx, h.convID)
 
 	msg := buildMessage(h.msgID, h.convID, h.uid, status, stopReason, errCode, errMsg, in, out)
 	if err := h.svc.repo.SaveMessage(saveCtx, msg); err != nil {
@@ -63,15 +66,16 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block,
 		msg.ErrorMessage = "failed to save assistant message to database"
 	}
 
-	// Event-log: close the assistant message. Map chat status →
-	// eventlog status (the four enums align). Block stops were already
-	// emitted by streamLLM before WriteFinalize fires.
+	// Event-log: close the assistant message via the detached ctx so a
+	// cancelled upstream doesn't trip Bridge.Publish's ctx.Done early-out
+	// before subscribers (the SSE stream) receive message_stop.
 	//
-	// 事件日志：关 assistant message。chat status → eventlog status 映射
-	// （四值字面对齐）。Block stops 已在 WriteFinalize 触发前由 streamLLM 发。
-	h.svc.emitter.StopMessage(ctx, h.msgID, mapEventLogStatus(msg.Status),
+	// 事件日志：关 assistant message 走 detached ctx——上游 cancel 不能让
+	// Bridge.Publish 在订阅者（SSE 流）拿到 message_stop 前触发 ctx.Done 早退。
+	h.svc.emitter.StopMessage(saveCtx, h.msgID, mapEventLogStatus(msg.Status),
 		msg.StopReason, msg.ErrorCode, msg.ErrorMessage,
 		msg.InputTokens, msg.OutputTokens)
+	_ = ctx // legacy param retained for loop.Host signature
 
 	// blocks param is unused — emit fires real-time via stream.go +
 	// runOneTool, blocks are already in message_blocks. We keep the

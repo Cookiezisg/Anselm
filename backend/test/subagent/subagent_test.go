@@ -4,38 +4,26 @@
 // Three offline scenarios using FakeLLMServer + Script queues:
 //
 //  1. Spawn_EndToEnd
-//     Parent LLM → Subagent("general-purpose", "summarize") → sub-runner
-//     emits text → parent receives sub-runner's text as tool_result →
-//     parent finishes. Asserts: SubagentRun row in DB with status=completed,
-//     SubagentMessage rows persisted, parent's final assistant message
-//     contains a tool_call(Subagent) + paired tool_result with the
-//     sub-runner's text.
+//     Parent → Subagent("general-purpose", "summarize") → sub-runner emits
+//     text → parent receives sub-runner's text as tool_result → parent
+//     finishes. Asserts: a sub-run Message row exists in `messages` with
+//     attrs.kind=subagent_run + status=completed; sub blocks persisted in
+//     `message_blocks`; parent's final assistant message contains a
+//     tool_call(Subagent) + paired tool_result.
 //
-//  2. SSE_CarriesSubagentRunSnapshot
-//     Same scenario as #1, plus subscribes to the conversation's SSE
-//     stream and asserts that at least one chat.message event during
-//     the sub-run window carries SubagentRunID + a non-nil SubagentRun
-//     snapshot (per subagent.md §10 — sub-runner publishes go through
-//     the parent conversation's bridge with subagent context fields filled).
+//  2. EventLog_CarriesSubagentRunMetadata
+//     Same scenario as #1, plus walks the SSE eventlog raw events to
+//     assert that at least one message_start during the sub-run window
+//     carries attrs.kind=subagent_run + type=general-purpose.
 //
 //  3. MaxTurns_Triggered
 //     Parent calls Subagent with max_turns=1; sub-LLM keeps emitting
-//     tool_calls (forcing > 1 ReAct step). Asserts: SubagentRun.Status
-//     = max_turns, parent's tool_result text contains the
-//     "[note: subagent hit max turns]" marker.
+//     tool_calls. Asserts the sub-run Message status=max_turns and
+//     parent's tool_result text contains the "max turns" marker.
 //
-// V1 scope: structural recursion defense (filterTools dropping the
-// SubagentTool from the sub-runner's registry) is unit-tested in
-// app/subagent and app/tool/subagent. Spawning a nested Subagent inside
-// a sub-run would degrade to "tool not found" (the layer-1 defense
-// works), which is the expected and harmless behaviour — adding a
-// pipeline test for this would only re-prove what unit tests cover.
-//
-// subagent_test.go ——Subagent 系统工具的 pipeline 测试。三个离线场景
-// （FakeLLM Script 队列）：(1) 端到端 spawn；(2) SSE 携带 SubagentRun 快照；
-// (3) max_turns 触发。结构性防递归（filterTools 剥 SubagentTool）已在
-// app/subagent + app/tool/subagent 单测覆盖；嵌套尝试会降级为 "tool not
-// found"——加 pipeline 重复证明无价值。
+// subagent_test.go ——Subagent 工具 pipeline 测试。新数据模型：sub-run 是
+// 统一 messages 表里的一行（attrs.kind=subagent_run），sub blocks 在
+// message_blocks。无独立 subagent_runs / subagent_messages 表。
 package subagent
 
 import (
@@ -45,9 +33,44 @@ import (
 	"time"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
-	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
+
+// findSubagentRuns returns the messages rows in convID flagged as
+// subagent runs (attrs.kind=subagent_run). Each row is decoded as a map
+// so tests can inspect both columns and parsed Attrs JSON fields.
+//
+// findSubagentRuns 返 convID 中标记为 subagent run（attrs.kind=
+// subagent_run）的 messages 行，每行解码为 map 让测试同时看列与 Attrs JSON。
+func findSubagentRuns(t *testing.T, h *th.Harness, convID string) []map[string]any {
+	t.Helper()
+	type row struct {
+		ID     string `gorm:"column:id"`
+		Status string `gorm:"column:status"`
+		Attrs  string `gorm:"column:attrs"`
+	}
+	var rows []row
+	if err := h.DB.Raw(
+		`SELECT id, status, attrs FROM messages
+		 WHERE conversation_id = ? AND attrs != ''
+		   AND json_extract(attrs, '$.kind') = 'subagent_run'`,
+		convID,
+	).Scan(&rows).Error; err != nil {
+		t.Fatalf("query subagent runs: %v", err)
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		var a map[string]any
+		_ = json.Unmarshal([]byte(r.Attrs), &a)
+		if a == nil {
+			a = map[string]any{}
+		}
+		a["id"] = r.ID
+		a["status"] = r.Status
+		out = append(out, a)
+	}
+	return out
+}
 
 // ── 1. Spawn end-to-end ──────────────────────────────────────────────
 
@@ -103,51 +126,48 @@ func TestSubagent_Spawn_EndToEnd(t *testing.T) {
 		t.Errorf("Subagent tool_result text doesn't echo sub-runner's message: %q", resultText)
 	}
 
-	// SubagentRun row persisted with status=completed.
-	// SubagentRun 行落库，status=completed。
-	var runs []subagentdomain.SubagentRun
-	if err := h.DB.Raw(`SELECT * FROM subagent_runs WHERE parent_conversation_id = ?`, conv.ID).Scan(&runs).Error; err != nil {
-		t.Fatalf("query subagent_runs: %v", err)
-	}
+	// Sub-run Message row persisted with status=completed.
+	// sub-run Message 行落库，status=completed。
+	runs := findSubagentRuns(t, h, conv.ID)
 	if len(runs) != 1 {
-		t.Fatalf("subagent_runs count = %d, want 1", len(runs))
+		t.Fatalf("subagent run count = %d, want 1", len(runs))
 	}
-	if runs[0].Status != subagentdomain.StatusCompleted {
-		t.Errorf("subagent run status = %q, want completed", runs[0].Status)
+	if runs[0]["status"] != "completed" {
+		t.Errorf("subagent run status = %v, want completed", runs[0]["status"])
 	}
-	if runs[0].Type != "general-purpose" {
-		t.Errorf("subagent run type = %q, want general-purpose", runs[0].Type)
-	}
-	if runs[0].StepsUsed < 1 {
-		t.Errorf("subagent run steps_used = %d, want ≥ 1", runs[0].StepsUsed)
+	if runs[0]["type"] != "general-purpose" {
+		t.Errorf("subagent run type = %v, want general-purpose", runs[0]["type"])
 	}
 
-	// SubagentMessage rows persisted (at minimum the seeded user prompt
-	// + the streaming assistant message).
-	// SubagentMessage 行落库（至少种子 user prompt + 流式 assistant 消息）。
-	var msgCount int64
-	if err := h.DB.Raw(`SELECT COUNT(*) FROM subagent_messages WHERE subagent_run_id = ?`, runs[0].ID).Scan(&msgCount).Error; err != nil {
-		t.Fatalf("count subagent_messages: %v", err)
+	// Sub-run blocks persisted in message_blocks (at least one — the
+	// final text block from the sub-runner).
+	// sub-run blocks 落库（至少一条 sub-runner 最终 text block）。
+	runID, _ := runs[0]["id"].(string)
+	var blockCount int64
+	if err := h.DB.Raw(
+		`SELECT COUNT(*) FROM message_blocks WHERE message_id = ?`, runID,
+	).Scan(&blockCount).Error; err != nil {
+		t.Fatalf("count message_blocks for sub-run: %v", err)
 	}
-	if msgCount < 2 {
-		t.Errorf("subagent_messages for run = %d, want ≥ 2 (user + assistant)", msgCount)
+	if blockCount < 1 {
+		t.Errorf("message_blocks for sub-run = %d, want ≥ 1", blockCount)
 	}
 }
 
-// ── 2. SSE carries the SubagentRun snapshot ──────────────────────────
+// ── 2. EventLog carries subagent_run metadata ────────────────────────
 
-func TestSubagent_SSE_CarriesSubagentRunSnapshot(t *testing.T) {
+func TestSubagent_EventLog_CarriesSubagentRunMetadata(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
 		"Subagent", "call_sub_2",
-		`{"subagent_type":"general-purpose","prompt":"give me a one-line description","summary":"checking SSE"}`,
+		`{"subagent_type":"general-purpose","prompt":"give me a one-line description","summary":"checking eventlog"}`,
 	))
-	fake.PushScript(th.ScriptText("A focused subagent that streams its work back through chat.message events."))
+	fake.PushScript(th.ScriptText("A focused subagent that streams its work back through the eventlog."))
 	fake.PushScript(th.ScriptText("Done."))
 
 	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
 	h.SeedDeepSeek(t, "fake-test-key")
-	conv := h.NewConversation(t, "subagent-sse")
+	conv := h.NewConversation(t, "subagent-eventlog")
 	sub := h.SubscribeSSE(t, conv.ID)
 
 	th.PostMessage(t, h, conv.ID, "Describe yourself.")
@@ -157,50 +177,37 @@ func TestSubagent_SSE_CarriesSubagentRunSnapshot(t *testing.T) {
 		t.Fatalf("parent status=%q\nraw:\n%s", final.Status, sub.FormatRawEvents())
 	}
 
-	// Walk the raw events: at least one chat.message during the run window
-	// must carry subagentRunId + a non-nil subagentRun snapshot. Decode
-	// the raw JSON to map[string]any so we read the wire field names per
-	// subagent.md §10 (subagentRunId / parentConversationId / subagentRun).
+	// Walk the raw eventlog: at least one message_start during the sub-run
+	// window must carry attrs.kind=subagent_run + type=general-purpose.
 	//
-	// 遍历 raw events：run 窗口内至少一帧 chat.message 必带 subagentRunId
-	// + 非空 subagentRun。解 JSON 到 map 以按 subagent.md §10 wire 字段名
-	// 读取（subagentRunId / parentConversationId / subagentRun）。
-	var (
-		hasSubagentMsg     bool
-		sawNonEmptyRunSnap bool
-	)
+	// 遍历 raw eventlog：sub-run 窗口内至少一条 message_start 必带
+	// attrs.kind=subagent_run + type=general-purpose。
+	var sawSubagentStart bool
 	for _, ev := range sub.RawEvents() {
-		if ev.Type != "chat.message" {
+		if ev.Source != "eventlog" || ev.Type != "message_start" {
 			continue
 		}
-		var payload map[string]any
+		var payload struct {
+			ConversationID string         `json:"conversationId"`
+			Attrs          map[string]any `json:"attrs"`
+		}
 		if err := json.Unmarshal(ev.Data, &payload); err != nil {
 			continue
 		}
-		runID, _ := payload["subagentRunId"].(string)
-		if runID == "" {
+		if payload.Attrs["kind"] != "subagent_run" {
 			continue
 		}
-		hasSubagentMsg = true
-		if snap, ok := payload["subagentRun"].(map[string]any); ok && snap["id"] != nil {
-			sawNonEmptyRunSnap = true
-			// Snapshot fields per subagent.md §10 must include type +
-			// parentConversationId — quick spot-check.
-			// §10 快照字段必含 type + parentConversationId——抽检。
-			if snap["type"] != "general-purpose" {
-				t.Errorf("subagentRun.type = %v, want general-purpose", snap["type"])
-			}
-			if snap["parentConversationId"] != conv.ID {
-				t.Errorf("subagentRun.parentConversationId = %v, want %s", snap["parentConversationId"], conv.ID)
-			}
+		sawSubagentStart = true
+		if payload.ConversationID != conv.ID {
+			t.Errorf("subagent message_start conversationId = %q, want %s", payload.ConversationID, conv.ID)
+		}
+		if payload.Attrs["type"] != "general-purpose" {
+			t.Errorf("subagent message_start attrs.type = %v, want general-purpose", payload.Attrs["type"])
 		}
 	}
-	if !hasSubagentMsg {
-		t.Errorf("no chat.message event carried subagentRunId during the run\nraw:\n%s",
+	if !sawSubagentStart {
+		t.Errorf("no message_start with attrs.kind=subagent_run during the run\nraw:\n%s",
 			sub.FormatRawEvents())
-	}
-	if !sawNonEmptyRunSnap {
-		t.Errorf("no chat.message event carried a non-nil subagentRun snapshot")
 	}
 }
 
@@ -269,16 +276,13 @@ func TestSubagent_MaxTurns_Triggered(t *testing.T) {
 		t.Errorf("tool_result text missing max-turns note: %q", resultText)
 	}
 
-	// SubagentRun row must record status=max_turns.
-	// SubagentRun 行 status 必为 max_turns。
-	var runs []subagentdomain.SubagentRun
-	if err := h.DB.Raw(`SELECT * FROM subagent_runs WHERE parent_conversation_id = ?`, conv.ID).Scan(&runs).Error; err != nil {
-		t.Fatalf("query subagent_runs: %v", err)
-	}
+	// Sub-run Message row status must be max_turns.
+	// sub-run Message 行 status 必为 max_turns。
+	runs := findSubagentRuns(t, h, conv.ID)
 	if len(runs) != 1 {
-		t.Fatalf("subagent_runs count = %d, want 1", len(runs))
+		t.Fatalf("subagent run count = %d, want 1", len(runs))
 	}
-	if runs[0].Status != subagentdomain.StatusMaxTurns {
-		t.Errorf("subagent run status = %q, want max_turns", runs[0].Status)
+	if runs[0]["status"] != "max_turns" {
+		t.Errorf("subagent run status = %v, want max_turns", runs[0]["status"])
 	}
 }

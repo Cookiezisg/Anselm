@@ -17,6 +17,7 @@ import (
 	"time"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -50,7 +51,7 @@ func TestHarness_Smoke(t *testing.T) {
 
 	var sawText bool
 	for _, b := range final.Blocks {
-		if b.Type == chatdomain.BlockTypeText {
+		if b.Type == eventlogdomain.BlockTypeText {
 			sawText = true
 			break
 		}
@@ -66,18 +67,20 @@ func TestHarness_Smoke(t *testing.T) {
 		t.Errorf("token counts not populated: in=%d out=%d", final.InputTokens, final.OutputTokens)
 	}
 
-	// Multiple chat.message snapshots must have arrived (streaming intermediate states).
-	// 必须收到多条 chat.message 快照（流式中间状态）。
-	chatRaw := 0
+	// Streaming events must have arrived: at minimum message_start +
+	// block_start + ≥1 block_delta + block_stop + message_stop = 5.
+	// 流式事件至少 5 条（message_start + block_start + ≥1 block_delta +
+	// block_stop + message_stop）。
+	eventLogCount := 0
 	for _, e := range sub.RawEvents() {
-		if e.Type == "chat.message" {
-			chatRaw++
+		if e.Source == "eventlog" {
+			eventLogCount++
 		}
 	}
-	if chatRaw < 2 {
-		t.Errorf("expected multiple chat.message snapshots (streaming), got %d", chatRaw)
+	if eventLogCount < 5 {
+		t.Errorf("expected ≥5 eventlog events, got %d", eventLogCount)
 	}
 
-	t.Logf("smoke ok: %d chat.message snapshots, blocks=%d, tokens in=%d out=%d",
-		chatRaw, len(final.Blocks), final.InputTokens, final.OutputTokens)
+	t.Logf("smoke ok: %d eventlog events, blocks=%d, tokens in=%d out=%d",
+		eventLogCount, len(final.Blocks), final.InputTokens, final.OutputTokens)
 }

@@ -40,7 +40,6 @@ import (
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // CreateForge implements the create_forge system tool.
@@ -114,11 +113,11 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("create_forge: bad args: %w", err)
 	}
-	convID, _ := reqctxpkg.GetConversationID(ctx)
-
-	// Pre-allocate forge + pending IDs so every snapshot during streaming
-	// carries the identity the persisted rows will eventually have.
-	// 预分配 forge + pending ID，让流式每帧快照与最终落库行身份一致。
+	// Pre-allocate forge + pending IDs so the create flow has stable
+	// identity end-to-end (legacy snapshot push removed; user will
+	// rewrite forge with eventlog.Emitter — see CLAUDE.md emit pattern).
+	// 预分配 forge + pending ID 让 create 流身份端到端稳定（legacy 快照
+	// 推已删；forge 重写时按 eventlog.Emitter pattern 接入）。
 	forgeID := forgeapp.NewForgeID()
 	pendingID := forgeapp.NewVersionID()
 
@@ -132,7 +131,6 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("create_forge: create draft: %w", err)
 	}
-	t.svc.PublishSnapshot(ctx, convID, draft)
 
 	// Step 2: build an in-memory pending draft and stream LLM-generated code
 	// into its Code field. Each chunk publishes a snapshot through draft.Pending.
@@ -159,7 +157,6 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 		UpdatedAt:     now,
 	}
 	draft.Pending = draftPending
-	t.svc.PublishSnapshot(ctx, convID, draft)
 
 	code, err := streamCode(ctx,
 		buildCreatePrompt(args.Name, args.Description, args.Instruction),
@@ -167,8 +164,7 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 		func(accumulated string) {
 			draftPending.Code = accumulated
 			draftPending.UpdatedAt = time.Now().UTC()
-			t.svc.PublishSnapshot(ctx, convID, draft)
-		},
+				},
 	)
 	if err != nil {
 		return "", fmt.Errorf("create_forge: generate code: %w", err)
@@ -201,21 +197,6 @@ func (t *CreateForge) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("create_forge: create pending: %w", err)
 	}
-
-	// Step 4: final snapshot reflects the persisted state (pending row's
-	// real timestamps + parsed parameters/return schema + post-sync env).
-	//
-	// Step 4：最终快照反映落库状态（pending 真实时间戳 + 已解析的
-	// parameters/return schema + sync 后 env 状态）。
-	final, err := t.svc.Get(ctx, forgeID)
-	if err != nil {
-		// reread failure shouldn't fail the whole tool — fall back to
-		// in-memory draft with attached pending for the snapshot.
-		// 重读失败不该让整个 tool 失败——fallback 到内存 draft 推快照。
-		draft.Pending = pending
-		final = draft
-	}
-	t.svc.PublishSnapshot(ctx, convID, final)
 
 	var params any
 	if err := json.Unmarshal([]byte(pending.Parameters), &params); err != nil {

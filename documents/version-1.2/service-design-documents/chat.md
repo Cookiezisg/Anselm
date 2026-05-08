@@ -665,7 +665,7 @@ chat domain 现只用 **1 个 SSE 事件 `chat.message`**——载荷 = 完整 M
 ```
 前端                                  后端
  │                                     │
- ├──GET /api/v1/events?convId=──────→  │  长连接，Bridge 订阅
+ ├──GET /api/v1/eventlog?convId=─────→  │  长连接，事件日志 Bridge 订阅
  │                                     │
  ├──POST /conversations/{id}/messages→ │  202（异步），入队
  │                                     │  ↓ worker goroutine
@@ -768,7 +768,9 @@ subagent 上下文的 chat.message 事件**同时承载 2 个 entity 快照**：
 | `POST` | `/api/v1/conversations/{id}/messages` | 发送消息，触发 Agent | 202 |
 | `DELETE` | `/api/v1/conversations/{id}/stream` | 取消正在运行的 Agent | 204 |
 | `GET` | `/api/v1/conversations/{id}/messages` | 消息历史（cursor 分页，含 blocks）| 200 |
-| `GET` | `/api/v1/events` | SSE 事件流（`?conversationId=xxx`）| 200 |
+| `GET` | `/api/v1/eventlog` | 事件日志 SSE 流（`?conversationId=xxx`）| 200 |
+| `GET` | `/api/v1/conversations/{id}/eventlog` | 历史事件重构（`?from=<seq>`）| 200 |
+| `GET` | `/api/v1/notifications` | 全局通知 SSE 流（type=conversation/todo/...）| 200 |
 
 ### 9.2 GET /conversations/{id}/messages 响应格式
 
@@ -940,20 +942,19 @@ POST /api/v1/conversations/cv_xxx/messages  body={content, attachmentIds}
   → if conv.Title=="" && !AutoTitled: go autoTitle(...)  // 终态本身就是最后一帧 chat.message
 ```
 
-### 11.2 前端收事件（Phase 6 entity-state 模型）
+### 11.2 前端收事件（事件日志协议）
 
 ```
-GET /api/v1/events?conversationId=cv_xxx
-  → ChatHandler.EventsSSE
-      → Bridge.Subscribe(filter={conversationId: cv_xxx})
+GET /api/v1/eventlog?conversationId=cv_xxx
+  → EventLogHandler.Stream
+      → Bridge.Subscribe(conversationID, fromSeq)
       → 每 15s 推 ": keep-alive\n\n" 防代理断连
-      → 持续 write SSE: 仅 chat.message 一种事件
-          event: chat.message  data: {...完整 Message 快照}   // slot 创建 (status=streaming, blocks=[])
-          event: chat.message  data: {...}                    // 每个 LLM token (text/reasoning block 内容生长)
-          event: chat.message  data: {...}                    // tool_call block 出现 (仅有 name)
-          event: chat.message  data: {...}                    // tool_call args 完整
-          event: chat.message  data: {...}                    // 每个 tool_result block 加入
-          event: chat.message  data: {...}                    // 终态 (status=completed/error/cancelled)
+      → 持续 write SSE: 5 事件 × 6 block 类型
+          event: message_start  data: {...}    // role+attrs；attrs.kind=subagent_run 时为子 run
+          event: block_start    data: {...}    // type=text/reasoning/tool_call/tool_result/progress/message
+          event: block_delta    data: {...}    // 流式正文 append-only
+          event: block_stop     data: {...}    // status=completed/error/cancelled
+          event: message_stop   data: {...}    // 含 stopReason / token 计数
 ```
 
 旧事件 `chat.token` / `chat.reasoning_token` / `chat.tool_call_start` / `chat.tool_call` / `chat.tool_result` / `chat.done` / `chat.error` 已在 Phase 6 重构（2026-05-02）合并进 `chat.message` 单事件，全部信息携带在 Message 当前快照里。详 §8 + events-design.md。
@@ -1098,23 +1099,23 @@ runQueue → processTask
        └─ chatHost.WriteFinalize → em.StopMessage(msgID, mapStatus(...), ...)
 ```
 
-### DB dual-write
+### DB 写入
 
-`pkg/eventlog.Emitter` 持 `chatdomain.BlockV2Repository`（main.go 装 `chatstore.NewBlockV2Store(gdb)`）：
+`pkg/eventlog.Emitter` 持 `chatdomain.Repository`（main.go 装 `chatstore.New(gdb)`）：
 
 | 事件 | DB 行为 |
 |---|---|
-| `EmitMessageStart` / `StopMessage` | 不双写 — messages 走 legacy chat repo（Phase 4 unify） |
-| `EmitBlockStart` / `StartBlock` / `StartBlockUnder` | `repo.Save(BlockV2{seq, conv_id, msg_id, parent_block_id, type, attrs JSON, status=streaming, content=""})` |
-| `DeltaBlock` | `repo.AppendDelta(blockID, delta)` SQL `content \|\| ?` 原子拼 |
-| `StopBlock` | `repo.FinalizeStop(blockID, status, errStr)` |
+| `EmitMessageStart` / `EmitMessageStop` | `repo.SaveMessage(...)` 在终态时落 messages 行（streaming 期 message 行不必每帧落） |
+| `EmitBlockStart` | `repo.SaveBlock(Block{seq, conv_id, msg_id, parent_block_id, type, attrs JSON, status=streaming, content=""})` |
+| `DeltaBlock` | `repo.AppendBlockContent(blockID, delta)` SQL `content \|\| ?` 原子拼 |
+| `StopBlock` | `repo.FinalizeBlock(blockID, status, errStr)` |
 
 **parent_block_id 列**：emit 时 ParentID == MessageID（顶层 block）→ DB 列空；否则 → DB 列 = ParentID（嵌套）。
 
 ### tool_call ID 复用
 
-LLM 自带的 tool-call ID（`tc_xxx`）直接当 BlockV2 的主键 ID。stream.go 在 `EventToolStart` 时 `EmitBlockStart(event.ToolID, ...)` 传 LLM 的 ID 进去。这违反 §S15（业务 ID 用 `<prefix>_<16hex>`）但有 §S21 作例外说明——LLM 不知道我们的 ID 体系，复用可让 tool_result.toolCallId 与 BlockV2.id 直接配对。
+LLM 自带的 tool-call ID（`tc_xxx`）直接当 Block 的主键 ID。stream.go 在 `EventToolStart` 时 `EmitBlockStart(event.ToolID, ...)` 传 LLM 的 ID 进去。违反 §S15 但 §S21 作例外说明——LLM 不知道我们的 ID 体系，复用让 tool_result.parent_block_id 与对应 tool_call.ID 直接配对。
 
-### 前端尚未切换
+### 前端
 
-Phase 1-3 只完成后端。前端 testend `/dev/static/` 仍订阅 `/api/v1/events`（legacy bridge）读 chat.message snapshot 渲染——所有原有 UI 行为不变。Phase 4 frontend rewrite 时切到 `/api/v1/eventlog`（CLAUDE.md §4 限制：V1.2 后端期不动前端，等 Wails 迁移）。
+Testend / chat.js 已切到事件日志协议——订 `GET /api/v1/eventlog?conversationId=X` 走 5 事件 × 6 block 类型重构，订 `GET /api/v1/notifications` 拿 conversation autoTitle / todo 等全局状态。Wails 迁移按同 wire 复用前端代码。

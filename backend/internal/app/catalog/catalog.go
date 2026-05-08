@@ -47,6 +47,7 @@ import (
 	"go.uber.org/zap"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
 // defaultPollInterval is the catalog.md §3 mandated 1-second polling
@@ -83,6 +84,7 @@ type Generator interface {
 type Service struct {
 	cachePath    string
 	pollInterval time.Duration
+	notif        notificationspkg.Publisher
 	log          *zap.Logger
 
 	// Generator is plugged in by SetGenerator after construction so the
@@ -134,13 +136,17 @@ type Service struct {
 // New 构造 Service 根 cachePath（典型 ~/.forgify/.catalog.json）。
 // pollInterval 为 0 时取默认 1s。chat.runner 查 GetForSystemPrompt 前
 // 必须先调 Start（Start 短暂阻塞加载 disk cache + 启 polling goroutine）。
-func New(cachePath string, log *zap.Logger) *Service {
+func New(cachePath string, notif notificationspkg.Publisher, log *zap.Logger) *Service {
 	if log == nil {
 		panic("catalog.New: logger is nil")
+	}
+	if notif == nil {
+		notif = notificationspkg.New(nil, log)
 	}
 	s := &Service{
 		cachePath:    cachePath,
 		pollInterval: defaultPollInterval,
+		notif:        notif,
 		log:          log,
 	}
 	s.lastFP.Store("")

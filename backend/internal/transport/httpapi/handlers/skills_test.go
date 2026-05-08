@@ -50,7 +50,7 @@ func newSkillsTestServer(t *testing.T) *skillHandlerHarness {
 	t.Helper()
 	log := zaptest.NewLogger(t)
 	dir := t.TempDir()
-	svc := skillapp.New(dir, nil, nil, nil, nil, log)
+	svc := skillapp.New(dir, nil, nil, nil, nil, nil, log)
 	hd := NewSkillsHandler(svc, log)
 	mux := http.NewServeMux()
 	hd.Register(mux)

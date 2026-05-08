@@ -167,15 +167,22 @@ func TestChatForge_CreateForge_PendingCreated(t *testing.T) {
 		t.Error("no create_forge tool_call block in final message")
 	}
 
-	// Forge must have been persisted (draft + pending version).
-	// Forge 必须已落库（draft + pending version）。
+	// Forge must have been persisted (draft + version row). The version
+	// status may be either `pending` (sync failed / awaiting review) or
+	// `accepted` (first-create auto-accept fired when sync succeeded —
+	// see forge.Service.CreatePending §11.1). Either is fine for this
+	// test — we just verify the create_forge tool actually persisted.
+	//
+	// Forge 必须已落库（draft + version 行）。version status 可能是 pending
+	// （sync 失败或待审）或 accepted（首建 + sync 成功触发 auto-accept）。
+	// 本测试两者都接受——只验 create_forge 真持久化。
 	n := th.DBCount(t, h, "forges", "name = 'chat_created_forge'")
 	if n != 1 {
 		t.Errorf("forges with name=chat_created_forge: %d, want 1", n)
 	}
 	n = th.DBCount(t, h, "forge_versions",
-		"forge_id = (SELECT id FROM forges WHERE name = 'chat_created_forge') AND status = 'pending'")
+		"forge_id = (SELECT id FROM forges WHERE name = 'chat_created_forge') AND status IN ('pending','accepted')")
 	if n != 1 {
-		t.Errorf("pending forge_versions: %d, want 1", n)
+		t.Errorf("forge_versions for chat_created_forge: %d, want 1 (pending or accepted)", n)
 	}
 }

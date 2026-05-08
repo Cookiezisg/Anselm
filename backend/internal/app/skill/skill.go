@@ -37,11 +37,12 @@ import (
 
 	"go.uber.org/zap"
 
+	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
-	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
 // SubagentService is the port skill uses to dispatch fork-mode skills
@@ -68,17 +69,18 @@ type Service struct {
 	modelPicker modeldomain.ModelPicker
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
+	notif       notificationspkg.Publisher
 	log         *zap.Logger
 
 	mu     sync.RWMutex
 	skills map[string]*skilldomain.Skill
 
-	// lastFP tracks the most recent Scan's fingerprint so the polling
-	// loop can short-circuit publishSnapshot when nothing user-visible
-	// changed (~99% of ticks). Stored as string via atomic.Value.
+	// lastFP holds the fingerprint of the most recent Scan. Lets the
+	// polling loop short-circuit notification publishes when nothing
+	// user-visible changed (~99% of ticks). string via atomic.Value.
 	//
-	// lastFP 存最近一次 Scan 的 fingerprint，让轮询循环在用户可见内容未变
-	// 时（~99% tick）跳过 publishSnapshot。string 经 atomic.Value 存。
+	// lastFP 存最近一次 Scan 的指纹；轮询时让 notification publish 在用户
+	// 可见内容未变时（~99% tick）短路。string 经 atomic.Value 存。
 	lastFP atomic.Value
 
 	// stopCancel + stopOnce + pollDone manage the polling goroutine
@@ -104,10 +106,14 @@ func New(
 	modelPicker modeldomain.ModelPicker,
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
+	notif notificationspkg.Publisher,
 	log *zap.Logger,
 ) *Service {
 	if log == nil {
 		panic("skill.New: logger is nil")
+	}
+	if notif == nil {
+		notif = notificationspkg.New(nil, log)
 	}
 	return &Service{
 		skillsDir:   skillsDir,
@@ -115,6 +121,7 @@ func New(
 		modelPicker: modelPicker,
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
+		notif:       notif,
 		log:         log,
 		skills:      map[string]*skilldomain.Skill{},
 	}
@@ -159,33 +166,3 @@ func (s *Service) List(_ context.Context) []*skilldomain.Skill {
 	return out
 }
 
-// snapshotLocked builds the SSE event payload from current skills cache.
-// Caller MUST hold s.mu.RLock.
-//
-// snapshotLocked 从当前 skills 构造 SSE 事件载荷。调用方必须持 RLock。
-func (s *Service) snapshotLocked() []*skilldomain.Skill {
-	out := make([]*skilldomain.Skill, 0, len(s.skills))
-	for _, sk := range s.skills {
-		cp := *sk
-		out = append(out, &cp)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
-}
-
-// publishSnapshot fires the 'skill' SSE event with the current full
-// snapshot. Per skill.md §10: publish whole-list snapshot (not single-
-// skill delta) so the UI can replace local state in one go.
-//
-// publishSnapshot 发 'skill' SSE 事件携全 skill 快照。§10：发整快照（非
-// 单 skill 增量）让 UI 一次性替换本地。
-func (s *Service) publishSnapshot(_ context.Context) {
-	// no-op stub: legacy `skill` entity push removed with domain/events.
-	// Future notifications module will add real-time push for "skill"
-	// type when needed (currently testend refetches /api/v1/skills on
-	// tab focus).
-	//
-	// no-op stub：legacy `skill` entity 推随 domain/events 删了。未来
-	// 通知模块按需加 "skill" type 实时推（当前 testend 在 tab focus 时
-	// refetch /api/v1/skills）。
-}

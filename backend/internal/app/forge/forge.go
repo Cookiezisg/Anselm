@@ -189,32 +189,24 @@ type Service struct {
 
 // NewService wires Service dependencies. Panics on nil logger.
 //
-// Forge no longer pushes per-token entity snapshots — the user is
-// rewriting forge to use the event-log Emitter directly (open a text
-// block under the create_forge / edit_forge tool_call and stream code
-// as deltas). PublishSnapshot is a no-op stub kept for callers that
-// haven't been updated yet.
+// Forge does NOT push events directly. Tools that wrap forge operations
+// (create_forge / edit_forge / run_forge) should emit progress / text
+// blocks via pkg/eventlog.Emitter under their tool_call block — the
+// user-driven forge rewrite will add this. See CLAUDE.md §S18 emit
+// pattern + app/mcp/install.go for a working example.
 //
 // NewService 装配 Service 依赖。nil logger panic。
 //
-// Forge 不再推 per-token entity 快照——用户重写 forge 时改用事件日志
-// Emitter 直接推（在 create_forge / edit_forge 的 tool_call 下开 text
-// block + 流式 emit code 作 delta）。PublishSnapshot 留作 no-op stub
-// 给未更新的调用方。
+// Forge Service 自身不推事件。包装 forge 操作的 tool（create_forge /
+// edit_forge / run_forge）应在 tool_call block 下经 pkg/eventlog.Emitter
+// 推 progress / text block——用户驱动的 forge 重写时加。pattern 见
+// CLAUDE.md §S18 + app/mcp/install.go 工作样板。
 func NewService(repo forgedomain.Repository, sandbox Sandbox, llm LLMClient, log *zap.Logger) *Service {
 	if log == nil {
 		panic("forgeapp.NewService: logger is nil")
 	}
 	return &Service{repo: repo, sandbox: sandbox, llm: llm, log: log}
 }
-
-// PublishSnapshot is a no-op stub. Per-token forge entity push was
-// removed when the legacy events bridge was deleted. New forge code
-// (post user-rewrite) emits via eventlog.Emitter directly.
-//
-// PublishSnapshot 是 no-op stub。Per-token forge entity 推随 legacy events
-// bridge 一起删了。新 forge 代码（用户重写后）经 eventlog.Emitter 直接推。
-func (s *Service) PublishSnapshot(_ context.Context, _ string, _ *forgedomain.Forge) {}
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -1438,49 +1430,26 @@ func (s *Service) attachActiveEnv(ctx context.Context, f *forgedomain.Forge) err
 	return nil
 }
 
-// publishForgeAfterChange re-reads the forge fresh, attaches Pending and
-// active-env computed fields, and pushes the full snapshot via
-// PublishSnapshot. Centralised because SyncEnvForVersion fires several
-// publish points (markSyncing → progress → markReady/Failed) and each
-// must surface the latest entity state.
-//
-// No-op if bridge is unset or convID is empty (HTTP-driven flow without
-// chat context).
-//
-// publishForgeAfterChange 重读 forge，attach Pending 和活跃 env 计算字段，
-// 通过 PublishSnapshot 推完整快照。集中管理——SyncEnvForVersion 有多个
-// publish 点（markSyncing → progress → markReady/Failed），每次都要反映
-// 最新 entity 状态。
-//
-// bridge 未设或 convID 空（HTTP 驱动流程无 chat 上下文）时静默 no-op。
-func (s *Service) publishForgeAfterChange(_ context.Context, _, _ string) {
-	// no-op stub: legacy Forge entity push removed with domain/events.
-	// User is rewriting forge to use eventlog.Emitter directly under
-	// each tool_call. Until then forge changes are silent on SSE.
-	//
-	// no-op stub：legacy Forge entity 推随 domain/events 删了。用户重写
-	// forge 时改用 eventlog.Emitter 在 tool_call 下直接推。在此之前 forge
-	// 变化对 SSE 静默。
-}
-
 // SyncEnvForVersion materializes the venv for the given version's EnvID
 // synchronously. Drives EnvStatus through the lifecycle (pending →
 // syncing → ready/failed), pipes uv stderr stages into EnvSyncStage /
-// EnvSyncDetail via UpdateVersionEnvProgress, and PublishSnapshots after
-// every state mutation when convID is set. On uv failure, captures the
-// full stderr into EnvError and returns ErrEnvFailed wrapping the
+// EnvSyncDetail via UpdateVersionEnvProgress. On uv failure, captures
+// the full stderr into EnvError and returns ErrEnvFailed wrapping the
 // captured stderr text — the LLM tool result includes the diagnostic.
 //
-// Caller passes convID="" for HTTP-driven syncs (no chat snapshot push).
+// convID parameter is currently unused (legacy SSE push removed); kept
+// in the signature so the user-driven forge rewrite can wire eventlog
+// Emitter progress back without refactoring all call sites.
 //
-// SyncEnvForVersion 同步物化指定版本 EnvID 对应的 venv。状态机驱动 EnvStatus
-// （pending → syncing → ready/failed），通过 UpdateVersionEnvProgress 把 uv
-// stderr stage 接到 EnvSyncStage / EnvSyncDetail，每次状态变更后
-// PublishSnapshot（convID 非空时）。uv 失败时 stderr 进 EnvError，返
-// ErrEnvFailed wrap 捕获的 stderr 文本——LLM tool result 含诊断。
+// SyncEnvForVersion 同步物化指定版本 EnvID 对应的 venv。状态机驱动
+// EnvStatus（pending → syncing → ready/failed），通过 UpdateVersionEnvProgress
+// 把 uv stderr stage 接到 EnvSyncStage / EnvSyncDetail。uv 失败时 stderr 进
+// EnvError，返 ErrEnvFailed wrap 捕获的 stderr 文本——LLM tool result 含
+// 诊断。
 //
-// HTTP 驱动 sync 调用方传 convID="" （不推 chat 快照）。
-func (s *Service) SyncEnvForVersion(ctx context.Context, convID, versionID string) error {
+// convID 参数当前未用（legacy SSE 推已删）；保签名让用户驱动的 forge 重
+// 写能接 eventlog Emitter 进度回流而不必改所有 call site。
+func (s *Service) SyncEnvForVersion(ctx context.Context, _, versionID string) error {
 	v, err := s.repo.GetVersionByID(ctx, versionID)
 	if err != nil {
 		return fmt.Errorf("forgeapp.SyncEnvForVersion: %w", err)
@@ -1498,16 +1467,13 @@ func (s *Service) SyncEnvForVersion(ctx context.Context, convID, versionID strin
 		if err := json.Unmarshal([]byte(v.Dependencies), &deps); err != nil {
 			errMsg := fmt.Sprintf("malformed dependencies JSON: %v (raw=%q)", err, v.Dependencies)
 			_ = s.repo.UpdateVersionEnvStatus(ctx, versionID, forgedomain.EnvStatusFailed, errMsg)
-			s.publishForgeAfterChange(ctx, convID, v.ForgeID)
 			return fmt.Errorf("%w: %s", forgedomain.ErrEnvFailed, errMsg)
 		}
 	}
 
-	// markSyncing.
 	if err := s.repo.UpdateVersionEnvStatus(ctx, versionID, forgedomain.EnvStatusSyncing, ""); err != nil {
 		return fmt.Errorf("forgeapp.SyncEnvForVersion: %w", err)
 	}
-	s.publishForgeAfterChange(ctx, convID, v.ForgeID)
 
 	syncErr := s.sandbox.Sync(ctx, SyncRequest{
 		ForgeID:       v.ForgeID,
@@ -1516,12 +1482,7 @@ func (s *Service) SyncEnvForVersion(ctx context.Context, convID, versionID strin
 		Dependencies:  deps,
 		PythonVersion: v.PythonVersion,
 		OnProgress: func(stage, detail string) {
-			// Best-effort progress write — drop errors so a transient DB
-			// hiccup doesn't fail the whole sync.
-			//
-			// 尽力写进度——吞错避免短暂 DB 抖动让整个 sync 失败。
 			_ = s.repo.UpdateVersionEnvProgress(ctx, versionID, stage, detail)
-			s.publishForgeAfterChange(ctx, convID, v.ForgeID)
 		},
 	})
 
@@ -1532,15 +1493,12 @@ func (s *Service) SyncEnvForVersion(ctx context.Context, convID, versionID strin
 			stderr = se.Stderr
 		}
 		_ = s.repo.UpdateVersionEnvStatus(ctx, versionID, forgedomain.EnvStatusFailed, stderr)
-		s.publishForgeAfterChange(ctx, convID, v.ForgeID)
 		return fmt.Errorf("%w: %s", forgedomain.ErrEnvFailed, stderr)
 	}
 
-	// markReady.
 	if err := s.repo.UpdateVersionEnvStatus(ctx, versionID, forgedomain.EnvStatusReady, ""); err != nil {
 		return fmt.Errorf("forgeapp.SyncEnvForVersion: %w", err)
 	}
-	s.publishForgeAfterChange(ctx, convID, v.ForgeID)
 	return nil
 }
 

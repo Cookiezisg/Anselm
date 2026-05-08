@@ -27,8 +27,10 @@ import (
 
 	"go.uber.org/zap"
 
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	llmparsepkg "github.com/sunweilin/forgify/backend/internal/pkg/llmparse"
 )
@@ -100,8 +102,19 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 
 	prompt := buildRankingPrompt(query, all, topK)
 
+	// Surface this internal LLM rerank as a progress block under the
+	// caller's tool_call (chat invokes this from search_mcp_marketplace
+	// or similar). emitter is no-op outside chat — always safe.
+	//
+	// 把内部 LLM rerank 作为 progress block 挂调用方 tool_call 下（chat
+	// 经 search_mcp_marketplace 等调）；chat 外 emitter no-op，永远安全。
+	em := eventlogpkg.From(ctx)
+	progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress,
+		map[string]any{"stage": "rerank", "tool": "search_mcp_marketplace", "candidates": len(all)})
+
 	bundle, err := llmclientpkg.Resolve(ctx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
 		return nil, fmt.Errorf("mcpapp.Search: resolve LLM: %w", err)
 	}
 	resp, err := llminfra.Generate(ctx, bundle.Client, llminfra.Request{
@@ -113,8 +126,10 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 		},
 	})
 	if err != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
 		return nil, fmt.Errorf("mcpapp.Search: llm: %w", err)
 	}
+	em.StopBlock(ctx, progID, eventlogdomain.StatusCompleted, nil)
 
 	indices, err := parseRankedIndices(resp, len(all))
 	if err != nil {
@@ -206,14 +221,13 @@ func (s *Service) HealthCheck(ctx context.Context, name string) (*mcpdomain.Heal
 // ConsecutiveFailures 达 degradedThreshold (3) 且当前 ready → degraded +
 // 发 SSE。成功：清 ConsecutiveFailures、设 LastSuccessAt；前为 degraded
 // → ready + 发 SSE（自愈）。
-func (s *Service) recordCallResult(ctx context.Context, name string, err error) {
+func (s *Service) recordCallResult(_ context.Context, name string, err error) {
 	now := time.Now().UTC()
-	publish := false
 
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	state := s.states[name]
 	if state == nil {
-		s.mu.Unlock()
 		return
 	}
 	state.TotalCalls++
@@ -224,21 +238,13 @@ func (s *Service) recordCallResult(ctx context.Context, name string, err error) 
 		state.LastErrorAt = &now
 		if state.ConsecutiveFailures >= degradedThreshold && state.Status == mcpdomain.StatusReady {
 			state.Status = mcpdomain.StatusDegraded
-			publish = true
 		}
 	} else {
-		wasDegraded := state.Status == mcpdomain.StatusDegraded
 		state.ConsecutiveFailures = 0
 		state.LastSuccessAt = &now
-		if wasDegraded {
+		if state.Status == mcpdomain.StatusDegraded {
 			state.Status = mcpdomain.StatusReady
-			publish = true
 		}
-	}
-	s.mu.Unlock()
-
-	if publish {
-		s.publishSnapshot(ctx)
 	}
 }
 

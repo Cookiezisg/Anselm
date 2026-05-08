@@ -52,7 +52,7 @@ type catalogHandlerHarness struct {
 func newCatalogTestServer(t *testing.T) *catalogHandlerHarness {
 	t.Helper()
 	log := zaptest.NewLogger(t)
-	svc := catalogapp.New(filepath.Join(t.TempDir(), ".catalog.json"), log)
+	svc := catalogapp.New(filepath.Join(t.TempDir(), ".catalog.json"), nil, log)
 	hd := NewCatalogHandler(svc, log)
 	mux := http.NewServeMux()
 	hd.Register(mux)

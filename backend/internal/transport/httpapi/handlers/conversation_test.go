@@ -29,7 +29,7 @@ func newConvTestServer(t *testing.T) *httptest.Server {
 		t.Fatalf("dbinfra.Migrate: %v", err)
 	}
 	log := zaptest.NewLogger(t)
-	svc := convapp.NewService(convstore.New(gdb), log)
+	svc := convapp.NewService(convstore.New(gdb), nil, log)
 	h := NewConversationHandler(svc, log)
 	mux := http.NewServeMux()
 	h.Register(mux)

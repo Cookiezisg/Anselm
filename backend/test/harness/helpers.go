@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -80,58 +81,67 @@ func PostForge(t *testing.T, h *Harness, name, code string, out any) int {
 func ExtractTextFromBlocks(blocks []chatdomain.Block) string {
 	var b strings.Builder
 	for _, blk := range blocks {
-		if blk.Type != chatdomain.BlockTypeText {
+		if blk.Type != eventlogdomain.BlockTypeText {
 			continue
 		}
-		var d struct {
-			Text string `json:"text"`
-		}
-		if err := json.Unmarshal([]byte(blk.Data), &d); err == nil {
-			b.WriteString(d.Text)
-		}
+		b.WriteString(blk.Content)
 	}
 	return b.String()
 }
 
 // ExtractToolCallByName finds the first tool_call block matching name and
-// returns its call ID. found is false if no such block exists.
+// returns its call ID. The block ID is the LLM-assigned tool-call ID.
 //
 // ExtractToolCallByName 找第一个匹配 name 的 tool_call block，返回 call ID。
+// block ID 即 LLM 分配的 tool-call ID。
 func ExtractToolCallByName(blocks []chatdomain.Block, name string) (id string, found bool) {
 	for _, blk := range blocks {
-		if blk.Type != chatdomain.BlockTypeToolCall {
+		if blk.Type != eventlogdomain.BlockTypeToolCall {
 			continue
 		}
-		var d map[string]any
-		if err := json.Unmarshal([]byte(blk.Data), &d); err != nil {
+		var attrs map[string]any
+		if err := json.Unmarshal([]byte(blk.Attrs), &attrs); err != nil {
 			continue
 		}
-		if n, _ := d["name"].(string); n == name {
-			if cid, _ := d["id"].(string); cid != "" {
-				return cid, true
-			}
+		if n, _ := attrs["tool"].(string); n == name {
+			return blk.ID, true
 		}
 	}
 	return "", false
 }
 
-// ExtractToolResultByCallID finds the tool_result block paired with callID.
-// Returns the decoded block data; found is false if not present.
+// ExtractToolResultByCallID finds the tool_result block paired with callID
+// (parent_block_id == callID) and returns a synthesized envelope that
+// matches what older tests expected:
 //
-// ExtractToolResultByCallID 找与 callID 配对的 tool_result block，
-// 返回解码后的 block 数据。
+//	data["ok"]       = block.Status == "completed"
+//	data["result"]   = block.Content (the raw tool output string)
+//	data["error"]    = block.Error (only when status=error)
+//
+// Tools that return a JSON object as their raw output keep their fields
+// inside data["result"]; callers can json.Unmarshal that string when they
+// need to inspect specific fields.
+//
+// ExtractToolResultByCallID 找与 callID 配对的 tool_result block
+// （parent_block_id == callID），返回合成 envelope（与老测试期望一致）。
+// 返 JSON 对象的 tool，其原始输出整字符串放在 data["result"]，需要时调用
+// 方再 json.Unmarshal。
 func ExtractToolResultByCallID(blocks []chatdomain.Block, callID string) (data map[string]any, found bool) {
 	for _, blk := range blocks {
-		if blk.Type != chatdomain.BlockTypeToolResult {
+		if blk.Type != eventlogdomain.BlockTypeToolResult {
 			continue
 		}
-		var d map[string]any
-		if err := json.Unmarshal([]byte(blk.Data), &d); err != nil {
+		if blk.ParentBlockID != callID {
 			continue
 		}
-		if id, _ := d["toolCallId"].(string); id == callID {
-			return d, true
+		out := map[string]any{
+			"ok":     blk.Status == eventlogdomain.StatusCompleted,
+			"result": blk.Content,
 		}
+		if blk.Error != "" {
+			out["error"] = blk.Error
+		}
+		return out, true
 	}
 	return nil, false
 }

@@ -105,7 +105,7 @@ func (g *stubGenerator) Generate(_ context.Context, items []catalogdomain.Item, 
 
 func newServiceForTest(t *testing.T) *Service {
 	t.Helper()
-	return New(filepath.Join(t.TempDir(), ".catalog.json"), zaptest.NewLogger(t))
+	return New(filepath.Join(t.TempDir(), ".catalog.json"), nil, zaptest.NewLogger(t))
 }
 
 // ── New / RegisterSource / Get / GetForSystemPrompt ──────────────────
@@ -433,7 +433,7 @@ func TestStart_LoadsExistingCache(t *testing.T) {
 		t.Fatalf("seed disk cache: %v", err)
 	}
 
-	s := New(path, zaptest.NewLogger(t))
+	s := New(path, nil, zaptest.NewLogger(t))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	if err := s.Start(ctx); err != nil {
@@ -460,7 +460,7 @@ func TestStart_CorruptCacheMovedToBak(t *testing.T) {
 		t.Fatalf("write corrupt cache: %v", err)
 	}
 
-	s := New(path, zaptest.NewLogger(t))
+	s := New(path, nil, zaptest.NewLogger(t))
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start should not err on corrupt cache; got %v", err)
 	}
@@ -475,7 +475,7 @@ func TestStart_CorruptCacheMovedToBak(t *testing.T) {
 func TestRefresh_PersistsToDisk(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".catalog.json")
-	s := New(path, zaptest.NewLogger(t))
+	s := New(path, nil, zaptest.NewLogger(t))
 	s.RegisterSource(&fakeSource{name: "forge", gran: catalogdomain.PerItem, items: []catalogdomain.Item{
 		{Source: "forge", ID: "f", Name: "x", Description: "y"},
 	}})

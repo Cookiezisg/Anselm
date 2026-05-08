@@ -131,14 +131,20 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 
 	// Compose sub-runner ctx: sub-msgID for emit parent linkage + RunID
 	// for tool ctx + bumped depth + total timeout + register cancel so
-	// external Cancel(runID) can preempt.
+	// external Cancel(runID) can preempt. Re-stamp the emitter explicitly
+	// (it's also inherited via the WithValue chain from parentCtx, but
+	// the explicit With makes the emit lineage robust to future ctx
+	// refactors that might break the implicit chain).
 	//
 	// 组装 sub-runner ctx：sub-msgID 给 emit 父链 + RunID 给 tool ctx +
-	// 加深度 + 加超时 + 注册 cancel 让外部 Cancel(runID) 可抢占。
+	// 加深度 + 加超时 + 注册 cancel 让外部 Cancel(runID) 可抢占。emitter
+	// 显式再挂一遍（虽经 WithValue 链从 parentCtx 隐式继承也能用，但显式
+	// 让 emit 血统对未来 ctx 重构更鲁棒）。
 	subCtx := reqctxpkg.WithSubagentRunID(parentCtx, subMsgID)
 	subCtx = reqctxpkg.WithSubagentDepth(subCtx, reqctxpkg.GetSubagentDepth(parentCtx)+1)
 	subCtx = reqctxpkg.WithMessageID(subCtx, subMsgID)
 	subCtx = reqctxpkg.WithParentBlockID(subCtx, "") // sub blocks attach under sub-msgID
+	subCtx = eventlogpkg.With(subCtx, em)
 	subCtx, cancel := context.WithTimeout(subCtx, defaultRunTimeout)
 	defer cancel()
 
@@ -212,6 +218,33 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		spawn.ErrorMsg = result.StopReason
 	default:
 		spawn.Status = StatusCompleted
+	}
+
+	// Reconcile sub-Message row's status with the subagent-bucket
+	// re-mapping (loop.Run wrote the chatdomain.Status* version via
+	// host.WriteFinalize before we re-mapped to StatusMaxTurns / Failed
+	// / Cancelled here). Use a detached ctx with uid + convID so a
+	// cancelled parent doesn't drop the reconcile.
+	//
+	// 重对齐 sub-Message 行的 status 与 subagent 桶映射（loop.Run 在我们
+	// 这里 re-map 到 MaxTurns/Failed/Cancelled 前已经经 host.WriteFinalize
+	// 写入了 chatdomain.Status* 版本）。用 detached ctx 含 uid + convID 防
+	// parent cancel 丢更新。
+	if spawn.Status != StatusCompleted {
+		reconcileCtx := reqctxpkg.SetUserID(context.Background(), uid)
+		reconcileCtx = reqctxpkg.WithConversationID(reconcileCtx, parentConvID)
+		if existing, err := s.chatRepo.GetMessage(reconcileCtx, subMsgID); err == nil && existing != nil {
+			existing.Status = spawn.Status
+			if spawn.ErrorMsg != "" {
+				existing.ErrorMessage = spawn.ErrorMsg
+			}
+			if err := s.chatRepo.SaveMessage(reconcileCtx, existing); err != nil {
+				s.log.Warn("subagent status reconcile write failed",
+					zap.String("sub_msg_id", subMsgID),
+					zap.String("status", spawn.Status),
+					zap.Error(err))
+			}
+		}
 	}
 
 	// Close placeholder message-block on the parent's eventlog.

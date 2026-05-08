@@ -38,9 +38,15 @@ type Publisher interface {
 }
 
 // New constructs a Publisher backed by bridge. log may be nil (zap.Nop).
+// bridge nil → returns a noop Publisher (so service constructors can
+// safely default-fall-back to it without dereferencing).
 //
-// New 构造由 bridge 支撑的 Publisher。log 可 nil。
+// New 构造由 bridge 支撑的 Publisher。log 可 nil。bridge 为 nil 时返
+// noop Publisher（service 构造器可安全 fallback 不会解 nil 引用）。
 func New(bridge notificationsdomain.Bridge, log *zap.Logger) Publisher {
+	if bridge == nil {
+		return noopPublisher{}
+	}
 	if log == nil {
 		log = zap.NewNop()
 	}

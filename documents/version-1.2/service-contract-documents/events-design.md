@@ -21,13 +21,13 @@
 
 ## 1. 事件总览
 
-| Event Type | 用途 | 触发频率 | DB 双写 |
+| Event Type | 用途 | 触发频率 | DB 写入 |
 |---|---|---|---|
-| `message_start` | 开新 message（user / assistant / subagent） | 每 message 1 次 | ❌（messages 走 legacy chat repo） |
-| `message_stop` | 关 message（终态） | 每 message 1 次 | ❌ |
-| `block_start` | 开新 block | 每 block 1 次 | ✅ → `message_blocks_v2` |
-| `block_delta` | 给 block append 内容 | 每 token / chunk | ✅ → AppendDelta |
-| `block_stop` | 关 block | 每 block 1 次 | ✅ → FinalizeStop |
+| `message_start` | 开新 message（user / assistant / subagent） | 每 message 1 次 | ✅ → `messages` 行（终态时 SaveMessage） |
+| `message_stop` | 关 message（终态） | 每 message 1 次 | ✅ → 同上 |
+| `block_start` | 开新 block | 每 block 1 次 | ✅ → `message_blocks` |
+| `block_delta` | 给 block append 内容 | 每 token / chunk | ✅ → AppendBlockContent |
+| `block_stop` | 关 block | 每 block 1 次 | ✅ → FinalizeBlock |
 
 ## 2. Block 类型枚举（6 种穷举）
 
@@ -147,9 +147,9 @@ Conversation (cv_xx)
 | `app/subagent/subagentHost.WriteFinalize` | sub message_stop |
 | Tool.Execute 内部（progress / 嵌套 LLM） | 经 ctx 拿 emitter 自由 emit progress block / 嵌套 text block |
 
-## 9. DB dual-write 表
+## 9. DB 写入表
 
-`message_blocks_v2`（Phase 4 cutover 改名回 `message_blocks` 删 legacy）：
+`message_blocks`（事件日志协议主表）：
 
 | 列 | 类型 | 说明 |
 |---|---|---|

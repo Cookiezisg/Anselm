@@ -45,7 +45,11 @@ var devRoutes = []devRoute{
 	{"POST", "/api/v1/conversations/{id}/messages", "chat.SendMessage"},
 	{"DELETE", "/api/v1/conversations/{id}/stream", "chat.CancelStream"},
 	{"GET", "/api/v1/conversations/{id}/messages", "chat.ListMessages"},
-	{"GET", "/api/v1/events", "chat.EventsSSE"},
+
+	// ── eventlog + notifications (SSE)
+	{"GET", "/api/v1/eventlog", "eventlog.Stream"},
+	{"GET", "/api/v1/conversations/{id}/eventlog", "eventlog.History"},
+	{"GET", "/api/v1/notifications", "notifications.Stream"},
 
 	// ── conversations
 	{"POST", "/api/v1/conversations", "conversation.Create"},
@@ -113,9 +117,11 @@ var devRoutes = []devRoute{
 	{"POST", "/api/v1/mcp-registry/{name}:install", "mcp.InstallFromRegistry"},
 
 	// ── subagent
-	{"GET", "/api/v1/conversations/{id}/subagent-runs", "subagent.ListRunsByConversation"},
-	{"GET", "/api/v1/subagent-runs/{id}", "subagent.GetRun"},
-	{"GET", "/api/v1/subagent-runs/{id}/messages", "subagent.ListMessages"},
+	// Sub-runs are unified Message rows (attrs.kind=subagent_run) since the
+	// schema unification — old /subagent-runs endpoints were retired with
+	// the dedicated tables. List subagent types only.
+	// sub-run schema 统一后是 messages 行（attrs.kind=subagent_run），
+	// 独立 /subagent-runs 端点随表删了；只剩 list types。
 	{"GET", "/api/v1/subagent-types", "subagent.ListTypes"},
 
 	// ── sandbox

@@ -47,7 +47,6 @@ import (
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // EditForge implements the edit_forge system tool.
@@ -121,8 +120,6 @@ func (t *EditForge) Execute(ctx context.Context, argsJSON string) (string, error
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("edit_forge: bad args: %w", err)
 	}
-	convID, _ := reqctxpkg.GetConversationID(ctx)
-
 	current, err := t.svc.Get(ctx, args.ForgeID)
 	if err != nil {
 		return "", fmt.Errorf("edit_forge: get forge: %w", err)
@@ -185,7 +182,6 @@ func (t *EditForge) Execute(ctx context.Context, argsJSON string) (string, error
 			UpdatedAt:     now,
 		}
 		current.Pending = draftPending
-		t.svc.PublishSnapshot(ctx, convID, current)
 
 		newCode, err := streamCode(ctx,
 			buildEditPrompt(current.Code, args.Instruction),
@@ -193,7 +189,6 @@ func (t *EditForge) Execute(ctx context.Context, argsJSON string) (string, error
 			func(accumulated string) {
 				draftPending.Code = accumulated
 				draftPending.UpdatedAt = time.Now().UTC()
-				t.svc.PublishSnapshot(ctx, convID, current)
 			},
 		)
 		if err != nil {
@@ -211,21 +206,6 @@ func (t *EditForge) Execute(ctx context.Context, argsJSON string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("edit_forge: create pending: %w", err)
 	}
-
-	// Final snapshot reflects the persisted pending (real timestamps,
-	// parsed parameters / return schema, post-sync env state).
-	//
-	// 最终快照反映落库后的 pending（真实时间戳、解析过的 parameters / return schema、sync 后 env 状态）。
-	final, err := t.svc.Get(ctx, args.ForgeID)
-	if err != nil {
-		// reread failure shouldn't fail the whole tool — fall back to the
-		// in-memory current with attached pending for the snapshot.
-		// 重读失败不该让整个 tool 失败——fallback 到内存 current + pending。
-		current.Pending = pending
-		current.UpdatedAt = time.Now().UTC()
-		final = current
-	}
-	t.svc.PublishSnapshot(ctx, convID, final)
 
 	b, _ := json.Marshal(map[string]any{
 		"forge_id":   args.ForgeID,

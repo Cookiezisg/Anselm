@@ -102,8 +102,8 @@ func newMCPTestServer(t *testing.T) *mcpHandlerHarness {
 	h.svc = mcpapp.New(
 		filepath.Join(t.TempDir(), "mcp.json"),
 		source,
-		nil,           // sandbox not used by these endpoint tests
-		nil, nil, nil, // model picker / keys / factory — no Search probes here
+		nil,                // sandbox not used by these endpoint tests
+		nil, nil, nil, nil, // model picker / keys / factory / notif — no Search probes here
 		log,
 	)
 	h.svc.SetClientFactory(func(cfg mcpdomain.ServerConfig, _ *zap.Logger) mcpinfra.Client {

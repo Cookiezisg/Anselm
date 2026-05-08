@@ -59,16 +59,17 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
+	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
@@ -76,9 +77,10 @@ import (
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
-	subagentstore "github.com/sunweilin/forgify/backend/internal/infra/store/subagent"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
@@ -114,12 +116,15 @@ type Harness struct {
 	// fakeLLMBaseURL 存这里让 SeedDeepSeek 注入到 apikey 里。
 	fakeLLMBaseURL string
 
-	DB      *gorm.DB
-	Bridge  eventsdomain.Bridge
-	Sandbox *sandboxapp.Service
-	MCP     *mcpapp.Service
-	Skill   *skillapp.Service
-	Catalog *catalogapp.Service
+	DB                  *gorm.DB
+	EventLogBridge      *eventloginfra.Bridge
+	NotificationsBridge *notificationsinfra.Bridge
+	NotificationsPub    notificationspkg.Publisher
+	ChatEmitter         eventlogpkg.Emitter
+	Sandbox             *sandboxapp.Service
+	MCP                 *mcpapp.Service
+	Skill               *skillapp.Service
+	Catalog             *catalogapp.Service
 
 	APIKey       *apikeyapp.Service
 	Model        *modelapp.Service
@@ -181,8 +186,6 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&forgedomain.ForgeExecution{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
-		&subagentdomain.SubagentRun{},
-		&subagentdomain.SubagentMessage{},
 		&tododomain.Todo{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
@@ -208,7 +211,6 @@ func New(t *testing.T, opts ...Option) *Harness {
 		log,
 	)
 	modelService := modelapp.NewService(modelstore.New(gdb), log)
-	convService := convapp.NewService(convstore.New(gdb), log)
 
 	llmFactory := llminfra.NewFactory()
 
@@ -238,25 +240,29 @@ func New(t *testing.T, opts ...Option) *Harness {
 	})
 
 	forgeLLM := &forgeLLMAdapter{picker: modelService, keys: apikeyService, factory: llmFactory}
-	bridge := memoryinfra.NewBridge(log)
+	eventLogBridge := eventloginfra.NewBridge(log)
+	notificationsBridge := notificationsinfra.NewBridge(log)
+	notificationsPub := notificationspkg.New(notificationsBridge, log)
+	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
+
 	forgeService := forgeapp.NewService(
 		forgestore.New(gdb),
 		forgeapp.NewSandboxAdapter(sandboxSvc, dataDir),
 		forgeLLM,
-		bridge,
 		log,
 	)
 
 	chatRepo := chatstore.New(gdb)
+	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
 		chatRepo,
 		convstore.New(gdb),
 		modelService,
 		apikeyService,
 		llmFactory,
-		bridge,
-		nil, // emitter: no-op fallback in tests (Phase 2 dual-write inactive in legacy harness)
-		"",  // dataDir empty: tests don't write attachment files
+		chatEmitter,
+		notificationsPub,
+		dataDir,
 		log,
 	)
 
@@ -281,15 +287,14 @@ func New(t *testing.T, opts ...Option) *Harness {
 	shells := shelltool.NewShellTools(sandboxSvc)
 	t.Cleanup(shells.Manager.Stop)
 	tools = append(tools, shells.Tools...)
-	todoService := todoapp.NewService(todostore.New(gdb), bridge, log)
+	todoService := todoapp.NewService(todostore.New(gdb), notificationsPub, log)
 	tools = append(tools, todotool.TodoTools(todoService)...)
 	askService := askapp.NewService()
 	tools = append(tools, asktool.AskTools(askService)...)
 
 	subagentService := subagentapp.New(
-		subagentstore.New(gdb),
+		chatRepo,
 		subagentapp.NewRegistry(),
-		bridge,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -346,10 +351,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 		mcpConfigPath,
 		mcpRegistrySource,
 		sandboxSvc,
-		bridge,
 		modelService,
 		apikeyService,
 		llmFactory,
+		notificationsPub,
 		log,
 	)
 	if err := mcpService.Start(context.Background()); err != nil {
@@ -375,10 +380,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 	skillService := skillapp.New(
 		skillsDir,
 		subagentService,
-		bridge,
 		modelService,
 		apikeyService,
 		llmFactory,
+		notificationsPub,
 		log,
 	)
 	if err := skillService.Start(context.Background()); err != nil {
@@ -396,7 +401,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// ~/.forgify/.catalog.json。需 catalog 的测试经 h.Catalog.Refresh
 	// 显式驱动；polling loop 启 让 SSE 类时序测试逼真。
 	catalogCachePath := filepath.Join(dataDir, ".catalog.json")
-	catalogService := catalogapp.New(catalogCachePath, log)
+	catalogService := catalogapp.New(catalogCachePath, notificationsPub, log)
 	// Deliberately NOT calling SetGenerator in the test harness:
 	// production main.go wires LLMGenerator, but the FakeLLMServer's
 	// FIFO script queue is a test-only abstraction (real LLM endpoints
@@ -440,7 +445,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 		ConversationService: convService,
 		ForgeService:        forgeService,
 		ChatService:         chatService,
-		EventsBridge:        bridge,
+		EventLogBridge:      eventLogBridge,
+		BlockV2Repo:         chatRepo,
+		NotificationsBridge: notificationsBridge,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
@@ -459,22 +466,25 @@ func New(t *testing.T, opts ...Option) *Harness {
 	t.Cleanup(srv.Close)
 
 	return &Harness{
-		t:              t,
-		server:         srv,
-		log:            log,
-		fakeLLMBaseURL: cfg.fakeLLMBaseURL,
-		DB:             gdb,
-		Bridge:         bridge,
-		Sandbox:        sandboxSvc,
-		MCP:            mcpService,
-		Skill:          skillService,
-		Catalog:        catalogService,
-		APIKey:         apikeyService,
-		Model:          modelService,
-		Conversation:   convService,
-		Forge:          forgeService,
-		Chat:           chatService,
-		Tools:          tools,
+		t:                   t,
+		server:              srv,
+		log:                 log,
+		fakeLLMBaseURL:      cfg.fakeLLMBaseURL,
+		DB:                  gdb,
+		EventLogBridge:      eventLogBridge,
+		NotificationsBridge: notificationsBridge,
+		NotificationsPub:    notificationsPub,
+		ChatEmitter:         chatEmitter,
+		Sandbox:             sandboxSvc,
+		MCP:                 mcpService,
+		Skill:               skillService,
+		Catalog:             catalogService,
+		APIKey:              apikeyService,
+		Model:               modelService,
+		Conversation:        convService,
+		Forge:               forgeService,
+		Chat:                chatService,
+		Tools:               tools,
 	}
 }
 

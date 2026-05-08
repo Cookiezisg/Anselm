@@ -45,6 +45,7 @@ import (
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
@@ -80,31 +81,24 @@ func TestChat_SimpleText_StreamingSnapshots(t *testing.T) {
 		t.Errorf("stopReason=%q, want end_turn", final.StopReason)
 	}
 
-	// Text-block content must grow monotonically across snapshots — entity-state
-	// model says each snapshot is a strict superset of the previous one.
+	// Streaming evidence — the eventlog stream must carry the full 5-event
+	// shape for the assistant message: message_start + ≥1 block_start +
+	// ≥1 block_delta + ≥1 block_stop + message_stop. Recursive event log
+	// replaces the old entity-snapshot model (no chat.message events).
 	//
-	// 跨快照 text block 内容必须单调增长——entity-state 要求每帧严格超集。
-	textLens := []int{}
+	// 流式证据——eventlog 必须为 assistant message 推完整 5 事件形：
+	// message_start + ≥1 block_start + ≥1 block_delta + ≥1 block_stop +
+	// message_stop。递归事件日志替代旧 entity-snapshot（无 chat.message）。
+	counts := map[string]int{}
 	for _, e := range sub.RawEvents() {
-		if e.Type != "chat.message" {
+		if e.Source != "eventlog" {
 			continue
 		}
-		var m chatdomain.Message
-		if err := json.Unmarshal(e.Data, &m); err != nil {
-			continue
-		}
-		if m.ID != final.ID {
-			continue
-		}
-		textLens = append(textLens, len(th.ExtractTextFromBlocks(m.Blocks)))
+		counts[e.Type]++
 	}
-	if len(textLens) < 2 {
-		t.Fatalf("expected ≥2 chat.message snapshots for assistant, got %d", len(textLens))
-	}
-	for i := 1; i < len(textLens); i++ {
-		if textLens[i] < textLens[i-1] {
-			t.Errorf("text shrank: snapshot[%d]=%d → snapshot[%d]=%d",
-				i-1, textLens[i-1], i, textLens[i])
+	for _, k := range []string{"message_start", "block_start", "block_delta", "block_stop", "message_stop"} {
+		if counts[k] < 1 {
+			t.Errorf("expected ≥1 %s event, got %d (full counts: %v)", k, counts[k], counts)
 		}
 	}
 
@@ -300,17 +294,11 @@ func TestChat_Live_ReasoningModel_BlocksSeparate(t *testing.T) {
 
 	var reasoningContent, textContent string
 	for _, b := range final.Blocks {
-		var d struct {
-			Text string `json:"text"`
-		}
-		if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-			continue
-		}
 		switch b.Type {
-		case chatdomain.BlockTypeReasoning:
-			reasoningContent += d.Text
-		case chatdomain.BlockTypeText:
-			textContent += d.Text
+		case eventlogdomain.BlockTypeReasoning:
+			reasoningContent += b.Content
+		case eventlogdomain.BlockTypeText:
+			textContent += b.Content
 		}
 	}
 	if reasoningContent == "" {
@@ -489,10 +477,10 @@ func TestChatReact_MultiStep_TwoToolRounds(t *testing.T) {
 	toolCallCount := 0
 	toolResultCount := 0
 	for _, b := range final.Blocks {
-		if b.Type == chatdomain.BlockTypeToolCall {
+		if b.Type == eventlogdomain.BlockTypeToolCall {
 			toolCallCount++
 		}
-		if b.Type == chatdomain.BlockTypeToolResult {
+		if b.Type == eventlogdomain.BlockTypeToolResult {
 			toolResultCount++
 		}
 	}
@@ -545,9 +533,9 @@ func TestChatReact_ParallelToolCalls_BothExecuted(t *testing.T) {
 	toolCalls, toolResults := 0, 0
 	for _, b := range final.Blocks {
 		switch b.Type {
-		case chatdomain.BlockTypeToolCall:
+		case eventlogdomain.BlockTypeToolCall:
 			toolCalls++
-		case chatdomain.BlockTypeToolResult:
+		case eventlogdomain.BlockTypeToolResult:
 			toolResults++
 		}
 	}
@@ -790,32 +778,37 @@ func TestChatAttachment_TextFile_UploadAndSend(t *testing.T) {
 			final.Status, sub.FormatRawEvents())
 	}
 
-	// The user message should contain an attachment_ref block.
-	// User 消息应包含 attachment_ref block。
+	// The user message should carry the attachment ref via Message.Attrs
+	// JSON ({"attachments": [...]}), not via a separate block — schema
+	// unification (2026-05) folded attachment_ref blocks into the message
+	// itself.
+	//
+	// user 消息经 Message.Attrs JSON 携附件引用（{"attachments": [...]}），
+	// 而不是独立 block——2026-05 schema 统一把 attachment_ref 折到 message
+	// 自身。
 	var msgList struct {
 		Data []struct {
-			ID     string `json:"id"`
-			Role   string `json:"role"`
-			Blocks []struct {
-				Type string `json:"type"`
-				Data string `json:"data"`
-			} `json:"blocks"`
+			ID    string `json:"id"`
+			Role  string `json:"role"`
+			Attrs string `json:"attrs"`
 		} `json:"data"`
 	}
 	h.GetJSON("/api/v1/conversations/"+conv.ID+"/messages", &msgList)
 
-	var sawAttRef bool
+	var sawAtt bool
 	for _, m := range msgList.Data {
-		if m.Role != "user" {
+		if m.Role != "user" || m.Attrs == "" {
 			continue
 		}
-		for _, b := range m.Blocks {
-			if b.Type == "attachment_ref" {
-				sawAttRef = true
-			}
+		var a map[string]any
+		if err := json.Unmarshal([]byte(m.Attrs), &a); err != nil {
+			continue
+		}
+		if atts, ok := a["attachments"].([]any); ok && len(atts) > 0 {
+			sawAtt = true
 		}
 	}
-	if !sawAttRef {
-		t.Error("user message has no attachment_ref block; attachment was not linked")
+	if !sawAtt {
+		t.Error("user message has no attachments in Message.Attrs; attachment was not linked")
 	}
 }

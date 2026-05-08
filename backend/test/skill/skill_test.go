@@ -45,7 +45,6 @@ import (
 	"time"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
-	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -276,18 +275,20 @@ Just an echo demo.`)
 	}
 
 	// Sanity: this exercise didn't accidentally spawn a subagent. Proves
-	// non-fork activate stays inline.
+	// non-fork activate stays inline. Subagent runs are messages with
+	// attrs.kind=subagent_run since the schema unification.
 	// 完整性：本场景未误 spawn subagent。证非 fork activate 走 inline。
+	// schema 统一后 subagent run 是 messages 行 attrs.kind=subagent_run。
 	var runCount int64
-	if err := h.DB.Raw(`SELECT COUNT(*) FROM subagent_runs WHERE parent_conversation_id = ?`, conv.ID).Scan(&runCount).Error; err != nil {
-		t.Fatalf("query subagent_runs: %v", err)
+	if err := h.DB.Raw(
+		`SELECT COUNT(*) FROM messages
+		 WHERE conversation_id = ? AND attrs != ''
+		   AND json_extract(attrs, '$.kind') = 'subagent_run'`,
+		conv.ID,
+	).Scan(&runCount).Error; err != nil {
+		t.Fatalf("query subagent runs: %v", err)
 	}
 	if runCount != 0 {
-		t.Errorf("subagent_runs = %d for non-fork skill activate; want 0", runCount)
+		t.Errorf("subagent runs = %d for non-fork skill activate; want 0", runCount)
 	}
-
-	// Suppress "subagentdomain unused" if we drop the subagent_runs
-	// query above in the future.
-	// 防 subagentdomain unused（未来若删 subagent_runs 查询）。
-	_ = subagentdomain.StatusCompleted
 }

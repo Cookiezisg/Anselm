@@ -16,8 +16,10 @@ import (
 
 	"go.uber.org/zap"
 
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	llmparsepkg "github.com/sunweilin/forgify/backend/internal/pkg/llmparse"
 )
@@ -42,8 +44,20 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]*skilld
 
 	prompt := buildRankingPrompt(query, all, topK)
 
+	// Surface this internal LLM rerank call as a progress block under the
+	// caller's tool_call (when search_skills is invoked from chat). The
+	// emitter is no-op when called outside a chat context (e.g. unit tests),
+	// so this is safe to always run.
+	//
+	// 把内部 LLM rerank 作为 progress block 挂在调用方 tool_call 下（chat 内
+	// 调 search_skills 时）。chat 外调用（单测）emitter 是 no-op，永远安全。
+	em := eventlogpkg.From(ctx)
+	progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress,
+		map[string]any{"stage": "rerank", "tool": "search_skills", "candidates": len(all)})
+
 	bundle, err := llmclientpkg.Resolve(ctx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
 		return nil, fmt.Errorf("skillapp.Search: resolve LLM: %w", err)
 	}
 	resp, err := llminfra.Generate(ctx, bundle.Client, llminfra.Request{
@@ -55,8 +69,10 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]*skilld
 		},
 	})
 	if err != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
 		return nil, fmt.Errorf("skillapp.Search: llm: %w", err)
 	}
+	em.StopBlock(ctx, progID, eventlogdomain.StatusCompleted, nil)
 
 	indices, err := parseRankedIndices(resp, len(all))
 	if err != nil {
