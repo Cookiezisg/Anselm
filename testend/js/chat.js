@@ -105,6 +105,12 @@ document.addEventListener('alpine:init', () => {
         this.pendingAtts = []
         this.systemPrompt = ''
         this.systemPromptDraft = ''
+        // Drop expand state from the previous conversation — block IDs
+        // never collide across convs, so leftover entries are harmless,
+        // but they accumulate forever in heavy sessions.
+        // 清上一对话的 expand state——block ID 跨 conv 不冲突，旧条目无害，
+        // 但久用累积。
+        this.expanded = {}
         if (id) {
           this.loadMessages(id).then(() => this._connectEventLog(id))
           this.loadConvMeta(id)
@@ -464,7 +470,22 @@ document.addEventListener('alpine:init', () => {
     async cancel() {
       const id = this.conversationId
       if (!id) return
-      await fetch(`/api/v1/conversations/${id}/stream`, { method: 'DELETE' })
+      try {
+        const r = await fetch(`/api/v1/conversations/${id}/stream`, { method: 'DELETE' })
+        if (r.status === 204 || r.ok) {
+          toast.info('Stream cancelled')
+        } else {
+          toast.error('Cancel failed: HTTP ' + r.status)
+        }
+      } catch (e) {
+        toast.error('Cancel failed: ' + e)
+      }
+      // Backend will emit a final message_stop with status=cancelled and
+      // _onMessageStop will flip streaming=false. This is a UX safety
+      // net for the rare case the cancel signal races / drops.
+      // 后端会推 message_stop status=cancelled，_onMessageStop 翻 streaming=
+      // false。这里是 UX 兜底，cancel 信号丢了也能解锁输入框。
+      setTimeout(() => { this.streaming = false }, 1000)
     },
 
     // ── SSE: event-log protocol (per-conversation) ──────────────────────────
@@ -489,6 +510,31 @@ document.addEventListener('alpine:init', () => {
       es.addEventListener('block_start',   e => this._onBlockStart(JSON.parse(e.data)))
       es.addEventListener('block_delta',   e => this._onBlockDelta(JSON.parse(e.data)))
       es.addEventListener('block_stop',    e => this._onBlockStop(JSON.parse(e.data)))
+
+      // Disconnect / 410 Gone fallback: EventSource auto-reconnects, but
+      // its stale Last-Event-ID can land before the server's replay
+      // buffer (4096) — backend returns 410 SEQ_TOO_OLD and we'd miss
+      // events. Debounce a few error ticks then full-refetch via REST.
+      // browsers fire onerror frequently on transient drops, so we wait
+      // 3 seconds of unbroken errors before the heavy rehydrate.
+      //
+      // 断线 / 410 Gone 兜底：EventSource 自动重连但旧 Last-Event-ID 可能落
+      // 在 server replay buffer (4096) 后——后端返 410 SEQ_TOO_OLD 我们就漏。
+      // 错误 tick 累积 3 秒后走 REST 全态 refetch。瞬时 drop 不触发。
+      let errSince = 0
+      es.onerror = () => {
+        if (!errSince) errSince = Date.now()
+        if (Date.now() - errSince < 3000) return
+        // Connection has been broken for 3s+. Re-hydrate via REST then
+        // reopen SSE.
+        // 已断 3s+，REST 重新拿全态再重开 SSE。
+        if (this.conversationId !== id) return // user already switched
+        this._closeEventLog()
+        this.loadMessages(id).then(() => {
+          if (this.conversationId === id) this._connectEventLog(id)
+        })
+      }
+      es.onopen = () => { errSince = 0 }
     },
 
     _closeEventLog() {
@@ -629,7 +675,6 @@ document.addEventListener('alpine:init', () => {
       const idx = this._blockIndex.get(ev.id)
       if (!idx) return
       switch (idx.kind) {
-        case 'user-text':
         case 'text':
         case 'reasoning':
           idx.ref.content = (idx.ref.content || '') + ev.delta
@@ -710,8 +755,17 @@ document.addEventListener('alpine:init', () => {
               document.dispatchEvent(new CustomEvent('conv-created'))
             }
             break
-          // type==="todo" → handled by tab-tools / tab-todo etc.
-          // 其他类型由其他 tab 处理。
+          case 'catalog':
+            // Catalog regenerated (skill / forge / mcp registry changes
+            // ripple here). The chat header pill renders fingerprint +
+            // generator — refresh it without waiting for a conv switch.
+            //
+            // Catalog 重新生成（skill / forge / mcp 改动会 ripple 到这）。
+            // chat 头部 pill 显示 fingerprint + generator——直接刷新，不等切对话。
+            this.loadCatalogStatus()
+            break
+          // type==="todo" / "skill" / "mcp_server" → 由 tab-notifications + 各模块自己 tab 处理，chat 头部不需要。
+          // todo / skill / mcp_server handled by tab-notifications and their own tabs; chat header doesn't need them.
         }
       })
     },
