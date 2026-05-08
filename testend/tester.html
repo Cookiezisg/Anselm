@@ -1263,6 +1263,18 @@
                      x-text="'allowed-tools: ' + (selected?.frontmatter?.allowedTools || []).join(', ')"></div>
                 <div x-show="selected?.frontmatter?.arguments?.length"
                      x-text="'arguments: ' + (selected?.frontmatter?.arguments || []).join(', ')"></div>
+                <div x-show="selected?.frontmatter?.argumentHint"
+                     x-text="'argument-hint: ' + selected?.frontmatter?.argumentHint"></div>
+                <div x-show="selected?.frontmatter?.whenToUse"
+                     x-text="'when-to-use: ' + selected?.frontmatter?.whenToUse"></div>
+                <div x-show="selected?.frontmatter?.model"
+                     x-text="'model: ' + selected?.frontmatter?.model"></div>
+                <div x-show="selected?.frontmatter?.paths?.length"
+                     x-text="'paths: ' + (selected?.frontmatter?.paths || []).join(', ')"></div>
+                <div x-show="selected?.frontmatter?.disableModelInvocation"
+                     style="color:var(--err)">disable-model-invocation: true (LLM 不会自动触发)</div>
+                <div x-show="selected?.frontmatter?.userInvocable === false"
+                     style="color:var(--text-mute)">user-invocable: false (UI 手动 invoke 无效)</div>
               </div>
 
               <!-- Body -->
@@ -1280,7 +1292,9 @@
                 </div>
                 <input type="text" x-model="invokeArgs" placeholder='args JSON array, e.g. ["1234"]'
                        style="width:100%;font-family:Consolas,monospace;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:3px;margin-bottom:4px">
-                <button class="btn-small" @click="invoke()" :disabled="invokeBusy">
+                <button class="btn-small" @click="invoke()"
+                        :disabled="invokeBusy || selected?.frontmatter?.userInvocable === false"
+                        :title="selected?.frontmatter?.userInvocable === false ? 'skill marked user-invocable: false' : ''">
                   <span x-text="invokeBusy ? 'invoking…' : 'invoke'"></span>
                 </button>
                 <pre x-show="invokeResult"
