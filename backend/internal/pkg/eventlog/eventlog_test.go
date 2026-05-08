@@ -165,17 +165,17 @@ func TestMustFrom_PanicsWhenAbsent(t *testing.T) {
 
 // helper: build ctx + emitter wired to a real BlockV2Store backed by
 // in-memory SQLite. Returns ctx, repo, and emitter.
-func setupDBCtx(t *testing.T) (context.Context, *chatstore.BlockV2Store, Emitter) {
+func setupDBCtx(t *testing.T) (context.Context, *chatstore.Store, Emitter) {
 	t.Helper()
 	database, err := dbinfra.Open(dbinfra.Config{LogLevel: gormlogger.Silent})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = dbinfra.Close(database) })
-	if err := dbinfra.Migrate(database, &chatdomain.BlockV2{}); err != nil {
+	if err := dbinfra.Migrate(database, &chatdomain.Block{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	repo := chatstore.NewBlockV2Store(database)
+	repo := chatstore.New(database)
 
 	br := eventloginfra.NewBridge(nil)
 	em := New(br, repo, nil)
@@ -191,7 +191,7 @@ func TestEmitBlockStart_DualWritesToDB(t *testing.T) {
 
 	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
 
-	got, err := repo.GetByID(ctx, "blk_t1")
+	got, err := repo.GetBlock(ctx, "blk_t1")
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestEmitBlockStart_DualWritesNestedParent(t *testing.T) {
 	em.EmitBlockStart(ctx, "blk_parent", "msg_db", "msg_db", eventlogdomain.BlockTypeToolCall, nil)
 	em.EmitBlockStart(ctx, "blk_child", "blk_parent", "msg_db", eventlogdomain.BlockTypeProgress, nil)
 
-	child, _ := repo.GetByID(ctx, "blk_child")
+	child, _ := repo.GetBlock(ctx, "blk_child")
 	if child.ParentBlockID != "blk_parent" {
 		t.Errorf("nested parent: got %q, want blk_parent", child.ParentBlockID)
 	}
@@ -234,7 +234,7 @@ func TestDeltaBlock_DualWritesAppend(t *testing.T) {
 	em.DeltaBlock(ctx, "blk_t1", "hello")
 	em.DeltaBlock(ctx, "blk_t1", " world")
 
-	got, _ := repo.GetByID(ctx, "blk_t1")
+	got, _ := repo.GetBlock(ctx, "blk_t1")
 	if got.Content != "hello world" {
 		t.Errorf("content: got %q, want %q", got.Content, "hello world")
 	}
@@ -247,7 +247,7 @@ func TestStopBlock_DualWritesFinalize(t *testing.T) {
 	em.DeltaBlock(ctx, "blk_t1", "all done")
 	em.StopBlock(ctx, "blk_t1", eventlogdomain.StatusCompleted, nil)
 
-	got, _ := repo.GetByID(ctx, "blk_t1")
+	got, _ := repo.GetBlock(ctx, "blk_t1")
 	if got.Status != eventlogdomain.StatusCompleted {
 		t.Errorf("status: got %q, want completed", got.Status)
 	}
@@ -262,7 +262,7 @@ func TestStopBlock_DualWritesError(t *testing.T) {
 	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
 	em.StopBlock(ctx, "blk_t1", eventlogdomain.StatusError, errors.New("boom"))
 
-	got, _ := repo.GetByID(ctx, "blk_t1")
+	got, _ := repo.GetBlock(ctx, "blk_t1")
 	if got.Status != eventlogdomain.StatusError {
 		t.Errorf("status: got %q, want error", got.Status)
 	}
@@ -277,7 +277,7 @@ func TestEmitter_AttrsJSONMarshalled(t *testing.T) {
 	em.EmitBlockStart(ctx, "blk_t1", "msg_db", "msg_db", eventlogdomain.BlockTypeToolCall,
 		map[string]any{"tool": "Read", "summary": "fetching"})
 
-	got, _ := repo.GetByID(ctx, "blk_t1")
+	got, _ := repo.GetBlock(ctx, "blk_t1")
 	if !strings.Contains(got.Attrs, `"tool":"Read"`) {
 		t.Errorf("attrs missing tool: %q", got.Attrs)
 	}
@@ -415,7 +415,7 @@ func TestProtocolContract_ChatRoundtrip(t *testing.T) {
 	}
 
 	// ── Invariant 5: DB rows reflect final state ──
-	textRow, err := repo.GetByID(ctx, textID)
+	textRow, err := repo.GetBlock(ctx, textID)
 	if err != nil {
 		t.Fatalf("get text block: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestProtocolContract_ChatRoundtrip(t *testing.T) {
 		t.Errorf("text parent_block_id: got %q, want empty (top-level)", textRow.ParentBlockID)
 	}
 
-	tcRow, _ := repo.GetByID(ctx, tcID)
+	tcRow, _ := repo.GetBlock(ctx, tcID)
 	if tcRow.Content != `{"path":"/etc/hosts"}` {
 		t.Errorf("tool_call content: got %q, want JSON args", tcRow.Content)
 	}
@@ -437,7 +437,7 @@ func TestProtocolContract_ChatRoundtrip(t *testing.T) {
 		t.Errorf("tool_call attrs missing tool name: %q", tcRow.Attrs)
 	}
 
-	resultRow, _ := repo.GetByID(ctx, resultID)
+	resultRow, _ := repo.GetBlock(ctx, resultID)
 	if resultRow.ParentBlockID != tcID {
 		t.Errorf("tool_result parent: got %q, want %q (nested under tool_call)", resultRow.ParentBlockID, tcID)
 	}

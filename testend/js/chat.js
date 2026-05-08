@@ -471,35 +471,63 @@ document.addEventListener('alpine:init', () => {
       await fetch(`/api/v1/conversations/${id}/stream`, { method: 'DELETE' })
     },
 
-    // ── SSE (Phase 6 entity-state model) ──────────────────────────────────────
+    // ── SSE (event-log protocol) ──────────────────────────────────────────────
     //
-    // Three event types:
-    //   chat.message  — full Message snapshot; replace by id, append if new.
-    //   conversation  — full Conversation snapshot (title updates etc.).
-    //   forge         — full Forge snapshot (consumed by tab-tools / tab-sse).
+    // After backend cleanup, the legacy /api/v1/events + chat.message snapshot
+    // model is gone. New stack:
+    //   - /api/v1/eventlog?conversationId=X  → 5 events × 6 block types
+    //     (message_start / message_stop / block_start / block_delta / block_stop)
+    //   - /api/v1/notifications              → entity updates
+    //     ({type:"conversation",id,data:{title,...}}, {type:"todo",...})
+    //
+    // Minimum-viable handler: on every block_stop / message_stop,
+    // refetch the conversation's messages list to refresh the UI. This
+    // loses live token streaming (each token causes nothing visible)
+    // but keeps the chat usable — the next testend rewrite pass will
+    // replace this with the proper 30-line event loop + 6 block renderer.
+    //
+    // 后端清理后，legacy /api/v1/events + chat.message 快照模型已删。新栈：
+    //   - /api/v1/eventlog → 5 events × 6 block types
+    //   - /api/v1/notifications → entity updates
+    //
+    // 最小可行 handler：每次 block_stop / message_stop refetch 对话消息列表
+    // 刷 UI。失去逐 token 流式（每 token 视觉无变化）但保持可用——下轮
+    // testend 重写换正经的 30 行事件循环 + 6 block renderer。
 
     _connectSSE(id) {
       this._closeSSE()
-      const es = new EventSource(`/api/v1/events?conversationId=${id}`)
+
+      // Per-conversation event log
+      const es = new EventSource(`/api/v1/eventlog?conversationId=${id}`)
       this._es = es
 
-      es.addEventListener('chat.message', e => {
-        const m = JSON.parse(e.data)
-        if (!m || !m.id) return
-        // Stash latest snapshot per message id; same id overwrites — only
-        // the freshest state ever reaches the DOM. Schedule a rAF flush
-        // if not already pending.
-        // 按 id 存最新快照（同 id 覆盖），rAF 排队后下一帧统一 apply。
-        this._pendingMsgs.set(m.id, m)
-        this._pendingShouldScroll = true
-        this._scheduleFlush()
-      })
+      const refetch = () => {
+        // Debounced refetch — coalesce multiple block_stop events into
+        // one fetch.
+        if (this._refetchPending) return
+        this._refetchPending = true
+        setTimeout(() => {
+          this._refetchPending = false
+          this.loadMessages(id)
+        }, 100)
+      }
 
-      es.addEventListener('conversation', e => {
-        const c = JSON.parse(e.data)
-        if (!c) return
-        Alpine.store('app').conversationTitle = c.title || ''
-        document.dispatchEvent(new CustomEvent('conv-created'))
+      es.addEventListener('block_stop', refetch)
+      es.addEventListener('message_stop', refetch)
+
+      // Global notifications stream — entity updates (conv rename, todo, etc.)
+      // 全局通知流——entity 更新。
+      const ns = new EventSource('/api/v1/notifications')
+      this._ns = ns
+      ns.addEventListener('notification', e => {
+        try {
+          const n = JSON.parse(e.data)
+          if (n.type === 'conversation' && n.id === id && n.data && n.data.title) {
+            Alpine.store('app').conversationTitle = n.data.title
+            document.dispatchEvent(new CustomEvent('conv-created'))
+          }
+          // type==="todo" → todo panel update (handled by tab-tools / tab-todo)
+        } catch (_) { /* ignore */ }
       })
     },
 
@@ -550,17 +578,16 @@ document.addEventListener('alpine:init', () => {
 
     _closeSSE() {
       if (this._es) { this._es.close(); this._es = null }
-      // Cancel any pending rAF + drop unflushed snapshots — they belong to
-      // the conversation we're leaving. The next conv's loadMessages()
-      // will hydrate the canonical state.
-      // 取消 rAF + 丢未 flush 快照（属于即将离开的对话；新对话 loadMessages
-      // 会拿权威态）。
+      if (this._ns) { this._ns.close(); this._ns = null }
+      // Cancel any pending rAF + drop unflushed snapshots from legacy path.
+      // 取消 rAF + 丢未 flush 快照（legacy path 残留）。
       if (this._rafToken) {
         cancelAnimationFrame(this._rafToken)
         this._rafToken = 0
       }
-      this._pendingMsgs.clear()
+      if (this._pendingMsgs) this._pendingMsgs.clear()
       this._pendingShouldScroll = false
+      this._refetchPending = false
     },
 
     _scrollBottom() {

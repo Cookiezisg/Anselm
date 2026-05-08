@@ -10,6 +10,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	notificationsdomain "github.com/sunweilin/forgify/backend/internal/domain/notifications"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
@@ -22,7 +23,6 @@ import (
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -59,13 +59,6 @@ type Deps struct {
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。
 	ChatService *chatapp.Service
 
-	// EventsBridge is the in-process pub-sub bus, shared between ChatService
-	// (publisher) and the SSE handler (subscriber).
-	//
-	// EventsBridge 是进程内发布-订阅总线，由 ChatService（发布方）
-	// 和 SSE handler（订阅方）共享。
-	EventsBridge eventsdomain.Bridge
-
 	// EventLogBridge is the recursive-event-log Bridge backing the new
 	// /api/v1/eventlog SSE endpoint. Phase 1 wiring: present alongside
 	// EventsBridge but no producer publishes to it yet (Phase 2 cuts
@@ -82,7 +75,16 @@ type Deps struct {
 	//
 	// BlockV2Repo 给 /api/v1/conversations/{id}/eventlog HTTP refetch
 	// 端点。可选——nil 时只服务 SSE 流（无历史 refetch）。
-	BlockV2Repo chatdomain.BlockV2Repository
+	BlockV2Repo chatdomain.Repository
+
+	// NotificationsBridge backs the global /api/v1/notifications SSE
+	// endpoint (entity-update stream: conversation rename, todo CRUD,
+	// future mcp/skill/system events).
+	//
+	// NotificationsBridge 支撑全局 /api/v1/notifications SSE 端点
+	// （entity-update 流：conv 改名、todo CRUD、未来 mcp/skill/系统
+	// 事件）。
+	NotificationsBridge notificationsdomain.Bridge
 
 	// AskService routes user answers from POST /api/v1/conversations/{id}/answers
 	// back to the AskUserQuestion tool that is currently blocking on Wait.

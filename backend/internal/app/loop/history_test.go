@@ -2,38 +2,65 @@
 // exercise the converter shared by chat.buildHistory (DB-loaded historical
 // messages) and loop.extendHistory (in-loop accumulation).
 //
-// history_test.go — BlocksToAssistantLLM 的单元测试。合成 block 演练 chat
-// .buildHistory（从 DB 加载历史）与 loop.extendHistory（循环内累积）共享
-// 的转换器。
+// New Block model (post event-log unification):
+//   - text/reasoning: Block.Content is the raw text (no JSON wrapper)
+//   - tool_call: Block.ID is the LLM tool-call ID; Block.Attrs JSON has
+//     {tool: name}; Block.Content is the args JSON string
+//   - tool_result: Block.ParentBlockID = LLM tool-call ID;
+//     Block.Content = result text
+//
+// history_test.go ——BlocksToAssistantLLM 的单元测试。合成 block 演练
+// chat.buildHistory（DB 加载历史）与 loop.extendHistory（循环内累积）
+// 共享的转换器。
+//
+// 新 Block 模型（事件日志统一后）：
+//   - text/reasoning：Block.Content 裸文本
+//   - tool_call：Block.ID = LLM tool-call ID；Block.Attrs JSON 含
+//     {tool: name}；Block.Content 是 args JSON
+//   - tool_result：Block.ParentBlockID = LLM tool-call ID；
+//     Block.Content = result 文本
 package loop
 
 import (
-	"encoding/json"
 	"testing"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-func makeBlock(id string, seq int, blockType string, data any) chatdomain.Block {
-	d, _ := json.Marshal(data)
-	return chatdomain.Block{ID: id, Seq: seq, Type: blockType, Data: string(d)}
+func textBlock(id, content string) chatdomain.Block {
+	return chatdomain.Block{
+		ID: id, Type: eventlogdomain.BlockTypeText, Content: content,
+		Status: eventlogdomain.StatusCompleted,
+	}
 }
 
-func msgWithBlocks(blocks ...chatdomain.Block) *chatdomain.Message {
-	return &chatdomain.Message{
-		ID:     "msg-1",
-		Role:   chatdomain.RoleAssistant,
-		Status: chatdomain.StatusCompleted,
-		Blocks: blocks,
+func reasoningBlock(id, content string) chatdomain.Block {
+	return chatdomain.Block{
+		ID: id, Type: eventlogdomain.BlockTypeReasoning, Content: content,
+		Status: eventlogdomain.StatusCompleted,
+	}
+}
+
+func toolCallBlock(id, name, argsJSON string) chatdomain.Block {
+	return chatdomain.Block{
+		ID: id, Type: eventlogdomain.BlockTypeToolCall, Content: argsJSON,
+		Attrs:  `{"tool":"` + name + `"}`,
+		Status: eventlogdomain.StatusCompleted,
+	}
+}
+
+func toolResultBlock(id, parentID, result string) chatdomain.Block {
+	return chatdomain.Block{
+		ID: id, Type: eventlogdomain.BlockTypeToolResult, Content: result,
+		ParentBlockID: parentID,
+		Status:        eventlogdomain.StatusCompleted,
 	}
 }
 
 func TestBuildAssistant_TextOnly(t *testing.T) {
-	m := msgWithBlocks(
-		makeBlock("b1", 0, chatdomain.BlockTypeText, chatdomain.TextData{Text: "Hello world"}),
-	)
-	msgs, err := BlocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{textBlock("b1", "Hello world")})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -49,11 +76,10 @@ func TestBuildAssistant_TextOnly(t *testing.T) {
 }
 
 func TestBuildAssistant_WithReasoning(t *testing.T) {
-	m := msgWithBlocks(
-		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "Let me think"}),
-		makeBlock("b2", 1, chatdomain.BlockTypeText, chatdomain.TextData{Text: "Answer"}),
-	)
-	msgs, err := BlocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+		reasoningBlock("b1", "Let me think"),
+		textBlock("b2", "Answer"),
+	})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -69,69 +95,42 @@ func TestBuildAssistant_WithReasoning(t *testing.T) {
 }
 
 func TestBuildAssistant_WithToolCall(t *testing.T) {
-	args := map[string]any{"city": "Beijing"}
-	m := msgWithBlocks(
-		makeBlock("b1", 0, chatdomain.BlockTypeToolCall, chatdomain.ToolCallData{
-			ID: "call_1", Name: "get_weather", Summary: "Checking weather", Arguments: args,
-		}),
-		makeBlock("b2", 1, chatdomain.BlockTypeToolResult, chatdomain.ToolResultData{
-			ToolCallID: "call_1", OK: true, Result: "晴，25°C",
-		}),
-	)
-	msgs, err := BlocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+		toolCallBlock("call_1", "get_weather", `{"city":"Beijing"}`),
+		toolResultBlock("blk_r1", "call_1", "晴，25°C"),
+	})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
 	if len(msgs) != 2 {
 		t.Fatalf("want 2 messages, got %d", len(msgs))
 	}
-	assistant := msgs[0]
-	if assistant.Role != llminfra.RoleAssistant {
-		t.Errorf("msgs[0] role = %q", assistant.Role)
+	a := msgs[0]
+	if a.Role != llminfra.RoleAssistant {
+		t.Errorf("msgs[0] role = %q", a.Role)
 	}
-	if len(assistant.ToolCalls) != 1 {
-		t.Fatalf("want 1 tool call, got %d", len(assistant.ToolCalls))
+	if len(a.ToolCalls) != 1 {
+		t.Fatalf("want 1 tool call, got %d", len(a.ToolCalls))
 	}
-	if assistant.ToolCalls[0].Name != "get_weather" || assistant.ToolCalls[0].ID != "call_1" {
-		t.Errorf("tool call: %+v", assistant.ToolCalls[0])
+	if a.ToolCalls[0].Name != "get_weather" || a.ToolCalls[0].ID != "call_1" {
+		t.Errorf("tool call: %+v", a.ToolCalls[0])
 	}
-	var argMap map[string]any
-	json.Unmarshal([]byte(assistant.ToolCalls[0].Arguments), &argMap)
-	if _, hasSummary := argMap["summary"]; hasSummary {
-		t.Error("summary should not be in LLM tool call arguments")
+	if a.ToolCalls[0].Arguments != `{"city":"Beijing"}` {
+		t.Errorf("args = %q", a.ToolCalls[0].Arguments)
 	}
-	if argMap["city"] != "Beijing" {
-		t.Errorf("city = %v", argMap["city"])
-	}
-	toolResult := msgs[1]
-	if toolResult.Role != llminfra.RoleTool {
-		t.Errorf("msgs[1] role = %q, want tool", toolResult.Role)
-	}
-	if toolResult.ToolCallID != "call_1" {
-		t.Errorf("tool_call_id = %q", toolResult.ToolCallID)
-	}
-	if toolResult.Content != "晴，25°C" {
-		t.Errorf("result = %q", toolResult.Content)
+	tr := msgs[1]
+	if tr.Role != llminfra.RoleTool || tr.ToolCallID != "call_1" || tr.Content != "晴，25°C" {
+		t.Errorf("tool result = %+v", tr)
 	}
 }
 
 func TestBuildAssistant_MultipleToolCalls(t *testing.T) {
-	args := map[string]any{}
-	m := msgWithBlocks(
-		makeBlock("b1", 0, chatdomain.BlockTypeToolCall, chatdomain.ToolCallData{
-			ID: "call_1", Name: "t1", Arguments: args,
-		}),
-		makeBlock("b2", 1, chatdomain.BlockTypeToolCall, chatdomain.ToolCallData{
-			ID: "call_2", Name: "t2", Arguments: args,
-		}),
-		makeBlock("b3", 2, chatdomain.BlockTypeToolResult, chatdomain.ToolResultData{
-			ToolCallID: "call_1", OK: true, Result: "r1",
-		}),
-		makeBlock("b4", 3, chatdomain.BlockTypeToolResult, chatdomain.ToolResultData{
-			ToolCallID: "call_2", OK: true, Result: "r2",
-		}),
-	)
-	msgs, err := BlocksToAssistantLLM(m.Blocks)
+	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+		toolCallBlock("call_1", "t1", `{}`),
+		toolCallBlock("call_2", "t2", `{}`),
+		toolResultBlock("r1", "call_1", "r1"),
+		toolResultBlock("r2", "call_2", "r2"),
+	})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -144,16 +143,11 @@ func TestBuildAssistant_MultipleToolCalls(t *testing.T) {
 }
 
 func TestBlocksToLLM_RoundTrip(t *testing.T) {
-	args := map[string]any{"city": "Shanghai"}
 	input := []chatdomain.Block{
-		makeBlock("b1", 0, chatdomain.BlockTypeReasoning, chatdomain.TextData{Text: "thinking"}),
-		makeBlock("b2", 1, chatdomain.BlockTypeToolCall, chatdomain.ToolCallData{
-			ID: "c1", Name: "t1", Arguments: args,
-		}),
-		makeBlock("b3", 2, chatdomain.BlockTypeToolResult, chatdomain.ToolResultData{
-			ToolCallID: "c1", OK: true, Result: "sunny",
-		}),
-		makeBlock("b4", 3, chatdomain.BlockTypeText, chatdomain.TextData{Text: "done"}),
+		reasoningBlock("b1", "thinking"),
+		toolCallBlock("c1", "t1", `{"city":"Shanghai"}`),
+		toolResultBlock("b3", "c1", "sunny"),
+		textBlock("b4", "done"),
 	}
 	msgs, err := BlocksToAssistantLLM(input)
 	if err != nil {
@@ -179,10 +173,7 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 }
 
 func TestBlocksToLLM_TextOnly(t *testing.T) {
-	input := []chatdomain.Block{
-		makeBlock("b1", 0, chatdomain.BlockTypeText, chatdomain.TextData{Text: "hi"}),
-	}
-	msgs, err := BlocksToAssistantLLM(input)
+	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{textBlock("b1", "hi")})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -192,15 +183,4 @@ func TestBlocksToLLM_TextOnly(t *testing.T) {
 	if msgs[0].Content != "hi" {
 		t.Errorf("content = %q", msgs[0].Content)
 	}
-	if len(msgs[0].ToolCalls) != 0 {
-		t.Error("should have no tool calls")
-	}
 }
-
-// NOTE: 3 reasoning-fallback tests moved to infra/llm/openai_test.go in TE-23.
-// BlocksToAssistantLLM is now a pure schema converter; OpenAI-protocol
-// compliance (content non-null, reasoning_content fallback) is the wire
-// client's job and is tested where it lives.
-//
-// 注：3 个 reasoning fallback 测试 TE-23 已搬到 infra/llm/openai_test.go。
-// 本函数现为纯 schema 转换器；OpenAI 协议合规归 wire client 测。

@@ -456,7 +456,8 @@
       </div>
 
       <!-- SSE Tab (Phase 6 entity-state model: chat.message / forge / conversation) -->
-      <div class="tab-content" x-show="activeRightTab==='sse'" x-data="sseTab()">
+      <!-- legacy SSE tab — disabled (eventlog protocol replaces /api/v1/events) -->
+      <div class="tab-content" x-show="false" x-data="{}">
         <div class="panel-toolbar">
           <!-- Source selector (left) -->
           <div style="display:flex;gap:2px">
@@ -1210,7 +1211,8 @@
       </div>
 
       <!-- ── Subagent tab (TE-3b) ─────────────────────────────────── -->
-      <div class="tab-content" x-show="activeRightTab==='subagent'" x-data="subagentTab()">
+      <!-- legacy subagent tab — disabled (sub-runs now nested in chat via message-block) -->
+      <div class="tab-content" x-show="false" x-data="{}">
         <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border)">
           <strong style="font-size:12px">Subagent Runs</strong>
           <button class="btn-small" @click="loadRuns()" :disabled="loading">
@@ -2164,14 +2166,13 @@
   <script src="/dev/static/js/app.js?v=__BUILD__"></script>
   <script src="/dev/static/js/sidebar.js?v=__BUILD__"></script>
   <script src="/dev/static/js/chat.js?v=__BUILD__"></script>
-  <script src="/dev/static/js/tab-sse.js?v=__BUILD__"></script>
+  <!-- tab-sse.js + tab-subagent.js removed: legacy /api/v1/events + /api/v1/subagent-* endpoints deleted -->
   <script src="/dev/static/js/tab-logs.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-sql.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-tests.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-config.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-tools.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-catalog.js?v=__BUILD__"></script>
-  <script src="/dev/static/js/tab-subagent.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-skill.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-mcp.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-sandbox.js?v=__BUILD__"></script>

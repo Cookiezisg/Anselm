@@ -213,6 +213,59 @@ type BlockStop struct {
 // EventType 返回 "block_stop"。
 func (BlockStop) EventType() string { return "block_stop" }
 
+// ConversationUpdated carries a conversation-level metadata change
+// (autoTitle complete / system_prompt edited / title manually changed
+// via PATCH / etc). Routed by ConversationID — open chat UI for that
+// conv automatically receives + updates its display.
+//
+// Attrs is a sparse map of changed fields (caller can put just what
+// changed; subscribers merge). Common keys: title, systemPrompt,
+// autoTitled. Carrying a sparse map (not a full snapshot) is
+// intentional: makes the event small + lets subscribers treat
+// missing keys as "unchanged".
+//
+// ConversationUpdated 携 conversation 级元数据变更（autoTitle 完成 /
+// system_prompt 编辑 / 经 PATCH 改名 / 等）。按 ConversationID 路由——
+// 该对话的 chat UI 自动收到并更新显示。
+//
+// Attrs 是变化字段的稀疏 map（调用方只放变了的；订阅方 merge）。
+// 常见键：title / systemPrompt / autoTitled。稀疏（非完整 snapshot）
+// 是故意的：让事件小 + 订阅方把缺失键当作"未变"。
+type ConversationUpdated struct {
+	ConversationID string         `json:"conversationId"`
+	Attrs          map[string]any `json:"attrs"`
+}
+
+// EventType returns "conversation_updated".
+//
+// EventType 返回 "conversation_updated"。
+func (ConversationUpdated) EventType() string { return "conversation_updated" }
+
+// TodoUpdated carries a full Todo entity snapshot (after Create /
+// Update / SoftDelete). Routed by ConversationID since todos are
+// conversation-scoped. Subscribers (todo panel inside the chat) replace
+// their local copy keyed on Todo.ID; deletion is signaled by
+// Attrs.deleted=true (soft delete shows the deleted_at field).
+//
+// Carries a full snapshot rather than a sparse delta because Todo
+// fields are short and the UI usually needs the whole row anyway.
+//
+// TodoUpdated 携完整 Todo entity 快照（Create / Update / SoftDelete 后
+// 推）。按 ConversationID 路由——todo 是对话级。订阅方（chat 内 todo
+// panel）按 Todo.ID 替换本地拷贝；删除以 Attrs.deleted=true 表示（软
+// 删走 deleted_at 字段）。
+//
+// 用完整 snapshot 而非稀疏 delta — Todo 字段短 + UI 通常要整行。
+type TodoUpdated struct {
+	ConversationID string         `json:"conversationId"`
+	Todo           map[string]any `json:"todo"`
+}
+
+// EventType returns "todo_updated".
+//
+// EventType 返回 "todo_updated"。
+func (TodoUpdated) EventType() string { return "todo_updated" }
+
 // ── Sentinels ────────────────────────────────────────────────────────
 
 // ErrSeqTooOld is returned by Bridge.Subscribe when the requested

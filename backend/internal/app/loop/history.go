@@ -3,16 +3,32 @@
 // historical history (e.g. chat.buildHistory loading from DB) reuse the same
 // converter — there's only one source of truth for blocks → LLM wire shape.
 //
+// Block model (post-event-log-protocol unification):
+//   - text/reasoning: Block.Content is the raw text (no JSON wrapper)
+//   - tool_call: Block.ID is the LLM tool-call ID (tc_xxx); Block.Attrs
+//     JSON has {tool: name}; Block.Content is the args JSON string
+//   - tool_result: Block.ParentBlockID is the parent tool_call's ID
+//     (= LLM tc_xxx); Block.Content is the result text; Block.Status
+//     "error" means tool failed and Block.Error is the message
+//
 // history.go — 循环内历史扩展。extendHistory 在每个工具调用步骤后调用。
 // BlocksToAssistantLLM 导出，让构建历史的调用方（如 chat.buildHistory 从 DB
 // 加载）复用同一个转换器——blocks → LLM wire 形状只有一个事实源。
+//
+// Block 模型（事件日志协议统一后）：
+//   - text/reasoning：Block.Content 是裸文本（无 JSON 包装）
+//   - tool_call：Block.ID 是 LLM tool-call ID（tc_xxx）；Block.Attrs JSON
+//     含 {tool: name}；Block.Content 是 args JSON 字符串
+//   - tool_result：Block.ParentBlockID 是父 tool_call 的 ID（= LLM tc_xxx）；
+//     Block.Content 是 result 文本；Block.Status "error" 表 tool 失败，
+//     Block.Error 是错误信息
 package loop
 
 import (
 	"encoding/json"
-	"fmt"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
@@ -51,52 +67,61 @@ func BlocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, err
 
 	for _, b := range blocks {
 		switch b.Type {
-		case chatdomain.BlockTypeReasoning:
-			var d chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("loop.BlocksToAssistantLLM: reasoning block %q: %w", b.ID, err)
-			}
-			assistant.ReasoningContent = d.Text
+		case eventlogdomain.BlockTypeReasoning:
+			assistant.ReasoningContent = b.Content
 
-		case chatdomain.BlockTypeText:
-			var d chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("loop.BlocksToAssistantLLM: text block %q: %w", b.ID, err)
-			}
-			assistant.Content = d.Text
+		case eventlogdomain.BlockTypeText:
+			assistant.Content = b.Content
 
-		case chatdomain.BlockTypeToolCall:
-			var d chatdomain.ToolCallData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("loop.BlocksToAssistantLLM: tool_call block %q: %w", b.ID, err)
+		case eventlogdomain.BlockTypeToolCall:
+			// Tool name lives in Block.Attrs JSON {tool: name}; args
+			// is Block.Content as raw JSON string. Block.ID is the
+			// LLM tool-call ID (we use it directly as block id).
+			//
+			// Tool name 在 Block.Attrs JSON {tool: name}；args 是
+			// Block.Content 裸 JSON 字符串。Block.ID 是 LLM tool-call ID
+			// （直接复用作 block id）。
+			toolName := ""
+			if b.Attrs != "" {
+				var attrs map[string]any
+				if json.Unmarshal([]byte(b.Attrs), &attrs) == nil {
+					if v, ok := attrs["tool"].(string); ok {
+						toolName = v
+					}
+				}
 			}
-			argsJSON, _ := json.Marshal(d.Arguments)
 			assistant.ToolCalls = append(assistant.ToolCalls, llminfra.LLMToolCall{
-				ID: d.ID, Name: d.Name, Arguments: string(argsJSON),
+				ID: b.ID, Name: toolName, Arguments: b.Content,
 			})
 
-		case chatdomain.BlockTypeToolResult:
-			var d chatdomain.ToolResultData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return nil, fmt.Errorf("loop.BlocksToAssistantLLM: tool_result block %q: %w", b.ID, err)
+		case eventlogdomain.BlockTypeToolResult:
+			// Tool-call ID = parent block ID (= LLM tc_id). Content
+			// is the result text. Status="error" / Error field
+			// signal tool failure but for LLM history we still emit
+			// a role=tool message with the result content (LLM sees
+			// the error as part of the result string).
+			//
+			// Tool-call ID = parent block ID（= LLM tc_id）。Content
+			// 是 result 文本。Status="error" / Error 字段表 tool 失败，
+			// 但给 LLM 历史仍发 role=tool 消息携 result 文本（LLM 在
+			// result 串里看到错误）。
+			content := b.Content
+			if content == "" && b.Error != "" {
+				content = b.Error
 			}
 			toolResults = append(toolResults, llminfra.LLMMessage{
-				Role: llminfra.RoleTool, Content: d.Result, ToolCallID: d.ToolCallID,
+				Role: llminfra.RoleTool, Content: content, ToolCallID: b.ParentBlockID,
 			})
 		}
 	}
 
-	// NOTE: TE-22's "reasoning_content → content fallback" used to live here;
-	// TE-23 moved it to infra/llm/openai.go::buildOpenAIAssistantMsg where
-	// it belongs. This function is now a pure schema converter
-	// (domain blocks → LLM message fields). Wire-protocol compliance
-	// (assistant content non-null, etc.) is the wire client's job; doing
-	// it here would have wrongly polluted the Anthropic path too.
+	// NOTE: TE-22's "reasoning_content → content fallback" lives in
+	// infra/llm/openai.go::buildOpenAIAssistantMsg (wire-protocol
+	// compliance is the wire client's job; doing it here would have
+	// wrongly polluted the Anthropic path too).
 	//
-	// 注：TE-22 的 reasoning fallback 曾在此处；TE-23 已搬到 infra/llm/openai.go
-	// 内（OpenAI 协议合规归 OpenAI client 管，Anthropic 路径不该被污染）。
-	// 本函数现为纯 schema 转换器。
-
+	// 注：TE-22 reasoning fallback 在 infra/llm/openai.go 内（OpenAI 协议
+	// 合规归 OpenAI client 管）。本函数纯 schema 转换器。
 	return append([]llminfra.LLMMessage{assistant}, toolResults...), nil
 }
 
@@ -109,11 +134,8 @@ func BlocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, err
 func ExtractTextContent(blocks []chatdomain.Block) string {
 	var last string
 	for _, b := range blocks {
-		if b.Type == chatdomain.BlockTypeText {
-			var d chatdomain.TextData
-			if json.Unmarshal([]byte(b.Data), &d) == nil {
-				last = d.Text
-			}
+		if b.Type == eventlogdomain.BlockTypeText {
+			last = b.Content
 		}
 	}
 	return last

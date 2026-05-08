@@ -18,49 +18,37 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-// Host is the per-run hook surface. chat implements it via chatHost (writes
-// chat_messages, fires chat.message events for the conversation); subagent
-// implements it via subagentHost (writes subagent_messages, fires
-// chat.message events with subagentRun snapshot embedded).
+// Host is the per-run hook surface. chat implements it via chatHost
+// (writes the assistant Message row at terminal); subagent implements
+// it via subagentHost (writes the sub-Message row with parent_block_id
+// + attrs). Block writes happen real-time via the eventlog Emitter
+// (pkg/eventlog) — Host is NOT involved in block persistence.
 //
-// Host 是每次 run 的钩子面。chat 通过 chatHost 实现（写 chat_messages，
-// 给对话发 chat.message 事件）；subagent 通过 subagentHost 实现（写
-// subagent_messages，发带 subagentRun 快照的 chat.message 事件）。
+// Host 是每次 run 的钩子面。chat 通过 chatHost 实现（终态时写 assistant
+// Message 行）；subagent 通过 subagentHost 实现（写 sub-Message 行含
+// parent_block_id + attrs）。Block 写实时走 eventlog Emitter
+// （pkg/eventlog）——Host 不参与 block 持久化。
 type Host interface {
 	// LoadHistory returns the LLM-wire history that seeds the first step.
+	//
 	// LoadHistory 返回种子第一步的 LLM 历史。
 	LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, error)
 
 	// Tools returns the filtered tool registry for this run. chat returns
-	// the global registry; subagent returns the type-filtered subset
-	// (Subagent itself excluded).
+	// the global registry; subagent returns the type-filtered subset.
 	//
-	// Tools 返回本次 run 的已过滤 tool 列表。chat 返全局；subagent 返按类型
-	// 过滤后的子集（Subagent 自身已排除）。
+	// Tools 返回本次 run 的已过滤 tool 列表。chat 返全局；subagent 返按
+	// 类型过滤后的子集。
 	Tools() []toolapp.Tool
 
-	// Publish emits a snapshot-only event (no DB write). Called many times
-	// per step from streamLLM (per LLM event) and runTools (per tool finish).
-	// Status is typically "streaming"; tokens are running totals.
+	// WriteFinalize persists the terminal Message row + emits message_stop
+	// to the eventlog Bridge. Hosts must use a detached context for the
+	// persist write so a cancelled upstream ctx doesn't lose the terminal
+	// record.
 	//
-	// Publish 推送一次快照事件（不落库）。streamLLM 的每个流事件 + runTools
-	// 的每个 tool 完成都会调一次。status 通常是 "streaming"；tokens 是累计值。
-	Publish(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
-
-	// WriteCheckpoint persists the in-progress message and emits a snapshot
-	// after each ReAct step's tools complete. status is always "streaming";
-	// failures should warn-and-continue (don't block the loop).
-	//
-	// WriteCheckpoint 在每个 ReAct 步骤的 tools 完成后落盘 + 推快照。status
-	// 恒为 "streaming"；失败应 warn-and-continue 不挡 loop。
-	WriteCheckpoint(ctx context.Context, blocks []chatdomain.Block, in, out int)
-
-	// WriteFinalize persists the terminal message + emits its snapshot.
-	// Hosts must use a detached context for the persist write so a cancelled
-	// upstream ctx doesn't lose the terminal record.
-	//
-	// WriteFinalize 持久化终态消息 + 推快照。host 必须用 detached context 写盘
-	// 防止上游 cancel 让终态丢失。
+	// WriteFinalize 持久化终态 Message 行 + 给 eventlog Bridge 发
+	// message_stop。host 必须用 detached context 写盘防止上游 cancel 让
+	// 终态丢失。
 	WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
 }
 
@@ -108,10 +96,6 @@ func Run(
 	baseReq.Tools = toolapp.ToLLMDefs(tools)
 	byName := toolsByName(tools)
 
-	// Initial publish — open the assistant slot in the UI.
-	// 初始发布——打开前端的 assistant 槽位。
-	host.Publish(ctx, nil, chatdomain.StatusStreaming, "", "", "", 0, 0)
-
 	var (
 		allBlocks    []chatdomain.Block
 		totalIn      int
@@ -129,7 +113,7 @@ func Run(
 
 		stepsRun = step + 1
 
-		aBlocks, toolCalls, sr, em, iT, oT := streamLLM(ctx, client, req, host, allBlocks)
+		aBlocks, toolCalls, sr, em, iT, oT := streamLLM(ctx, client, req)
 		allBlocks = append(allBlocks, aBlocks...)
 		totalIn += iT
 		totalOut += oT
@@ -155,10 +139,8 @@ func Run(
 			break
 		}
 
-		rBlocks := runTools(ctx, toolCalls, byName, host, allBlocks, log)
+		rBlocks := runTools(ctx, toolCalls, byName, log)
 		allBlocks = append(allBlocks, rBlocks...)
-
-		host.WriteCheckpoint(ctx, allBlocks, totalIn, totalOut)
 
 		history, err = extendHistory(history, aBlocks, rBlocks)
 		if err != nil {

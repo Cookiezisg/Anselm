@@ -38,7 +38,6 @@ import (
 	"go.uber.org/zap"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -88,7 +87,6 @@ type Service struct {
 	configPath  string
 	source      mcpdomain.RegistrySource
 	sandbox     SandboxInstaller
-	bridge      eventsdomain.Bridge
 	modelPicker modeldomain.ModelPicker
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
@@ -115,7 +113,6 @@ func New(
 	configPath string,
 	source mcpdomain.RegistrySource,
 	sandbox SandboxInstaller,
-	bridge eventsdomain.Bridge,
 	modelPicker modeldomain.ModelPicker,
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
@@ -131,7 +128,6 @@ func New(
 		configPath:  configPath,
 		source:      source,
 		sandbox:     sandbox,
-		bridge:      bridge,
 		modelPicker: modelPicker,
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
@@ -532,19 +528,13 @@ func (s *Service) snapshotLocked() []mcpdomain.ServerStatus {
 	return out
 }
 
-// publishSnapshot fires the 'mcp' SSE event with the current full
-// snapshot. Per mcp.md §9 we publish the whole-server snapshot (not
-// single-server delta) so the UI can replace local state in one go.
+// publishSnapshot is a no-op stub (legacy MCP entity推 was removed
+// with domain/events). MCP server status changes are observable via
+// REST refetch on tab focus; future notifications module will add
+// real-time push for "mcp_server" type when needed.
 //
-// publishSnapshot 发 'mcp' SSE 事件携全 server 快照。mcp.md §9：发整快照
-// （非单 server 增量）让 UI 一次性替换本地。
-func (s *Service) publishSnapshot(ctx context.Context) {
-	if s.bridge == nil {
-		return
-	}
-	s.mu.RLock()
-	servers := s.snapshotLocked()
-	s.mu.RUnlock()
-	s.bridge.Publish(ctx, "", eventsdomain.MCP{Servers: servers})
-}
+// publishSnapshot 是 no-op stub（legacy MCP entity 推随 domain/events
+// 删了）。MCP server 状态变化经 REST refetch on tab focus 观测；未来
+// 通知模块按需加 "mcp_server" type 实时推。
+func (s *Service) publishSnapshot(_ context.Context) {}
 

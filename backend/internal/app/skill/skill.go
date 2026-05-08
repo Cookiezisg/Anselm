@@ -38,7 +38,6 @@ import (
 	"go.uber.org/zap"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
@@ -66,7 +65,6 @@ type SubagentService interface {
 type Service struct {
 	skillsDir   string
 	subagent    SubagentService
-	bridge      eventsdomain.Bridge
 	modelPicker modeldomain.ModelPicker
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
@@ -103,7 +101,6 @@ type Service struct {
 func New(
 	skillsDir string,
 	subagent SubagentService,
-	bridge eventsdomain.Bridge,
 	modelPicker modeldomain.ModelPicker,
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
@@ -115,7 +112,6 @@ func New(
 	return &Service{
 		skillsDir:   skillsDir,
 		subagent:    subagent,
-		bridge:      bridge,
 		modelPicker: modelPicker,
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
@@ -183,12 +179,13 @@ func (s *Service) snapshotLocked() []*skilldomain.Skill {
 //
 // publishSnapshot 发 'skill' SSE 事件携全 skill 快照。§10：发整快照（非
 // 单 skill 增量）让 UI 一次性替换本地。
-func (s *Service) publishSnapshot(ctx context.Context) {
-	if s.bridge == nil {
-		return
-	}
-	s.mu.RLock()
-	skills := s.snapshotLocked()
-	s.mu.RUnlock()
-	s.bridge.Publish(ctx, "", eventsdomain.Skill{Skills: skills})
+func (s *Service) publishSnapshot(_ context.Context) {
+	// no-op stub: legacy `skill` entity push removed with domain/events.
+	// Future notifications module will add real-time push for "skill"
+	// type when needed (currently testend refetches /api/v1/skills on
+	// tab focus).
+	//
+	// no-op stub：legacy `skill` entity 推随 domain/events 删了。未来
+	// 通知模块按需加 "skill" type 实时推（当前 testend 在 tab focus 时
+	// refetch /api/v1/skills）。
 }

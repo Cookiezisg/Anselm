@@ -102,8 +102,7 @@ func newMCPTestServer(t *testing.T) *mcpHandlerHarness {
 	h.svc = mcpapp.New(
 		filepath.Join(t.TempDir(), "mcp.json"),
 		source,
-		nil, // sandbox not used by these endpoint tests (no install path)
-		nil, // bridge nil — Service guards against nil bridge
+		nil,           // sandbox not used by these endpoint tests
 		nil, nil, nil, // model picker / keys / factory — no Search probes here
 		log,
 	)

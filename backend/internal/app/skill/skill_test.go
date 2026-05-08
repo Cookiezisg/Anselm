@@ -21,7 +21,6 @@ import (
 
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
-	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -42,7 +41,7 @@ func writeSkill(t *testing.T, dir, name, frontmatter, body string) {
 
 func newServiceWithDir(t *testing.T) *Service {
 	t.Helper()
-	return New(t.TempDir(), nil, nil, nil, nil, nil, zaptest.NewLogger(t))
+	return New(t.TempDir(), nil, nil, nil, nil, zaptest.NewLogger(t))
 }
 
 // fakeSubagent records the spawn call so fork-mode tests can assert
@@ -66,7 +65,8 @@ func (f *fakeSubagent) Spawn(_ context.Context, typeName, prompt string, opts su
 		return nil, f.returnErr
 	}
 	return &subagentapp.SpawnResult{
-		Run:    &subagentdomain.SubagentRun{Type: typeName, Status: subagentdomain.StatusCompleted},
+		Type:   typeName,
+		Status: subagentapp.StatusCompleted,
 		Result: f.returns,
 	}, nil
 }
@@ -85,7 +85,7 @@ func TestScan_EmptyDir_OK(t *testing.T) {
 
 func TestScan_MissingDir_ResetsCacheToEmpty(t *testing.T) {
 	tmp := t.TempDir()
-	s := New(filepath.Join(tmp, "does-not-exist"), nil, nil, nil, nil, nil, zaptest.NewLogger(t))
+	s := New(filepath.Join(tmp, "does-not-exist"), nil, nil, nil, nil, zaptest.NewLogger(t))
 	if err := s.Scan(context.Background()); err != nil {
 		t.Fatalf("missing dir should be benign; got: %v", err)
 	}
@@ -346,7 +346,7 @@ allowed-tools:
 func TestActivate_Fork_DispatchesToSubagent(t *testing.T) {
 	fake := &fakeSubagent{returns: "subagent done"}
 	tmp := t.TempDir()
-	s := New(tmp, fake, nil, nil, nil, nil, zaptest.NewLogger(t))
+	s := New(tmp, fake, nil, nil, nil, zaptest.NewLogger(t))
 	writeSkill(t, s.skillsDir, "review",
 		`name: review
 description: review pr
@@ -382,7 +382,7 @@ func TestActivate_NestedFork_IgnoresForkDirective(t *testing.T) {
 	// 在自己上下文执行，无嵌套 spawn。
 	fake := &fakeSubagent{returns: "should not be called"}
 	tmp := t.TempDir()
-	s := New(tmp, fake, nil, nil, nil, nil, zaptest.NewLogger(t))
+	s := New(tmp, fake, nil, nil, nil, zaptest.NewLogger(t))
 	writeSkill(t, s.skillsDir, "fork-skill",
 		`name: fork-skill
 description: forks
@@ -413,7 +413,7 @@ func TestActivate_ForkWithoutSubagentService_FailsClean(t *testing.T) {
 	// 生产 main.go 永远接 subagent；测试有时不接（无关时）。该环境下
 	// fork skill 必须清晰报错而非 nil-deref。
 	tmp := t.TempDir()
-	s := New(tmp, nil, nil, nil, nil, nil, zaptest.NewLogger(t))
+	s := New(tmp, nil, nil, nil, nil, zaptest.NewLogger(t))
 	writeSkill(t, s.skillsDir, "k",
 		"name: k\ndescription: forks\ncontext: fork\nagent: Explore", "x")
 	if err := s.Scan(context.Background()); err != nil {

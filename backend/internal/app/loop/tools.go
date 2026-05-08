@@ -27,20 +27,18 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// runTools executes all tool calls in execution-group batches, publishing a
-// snapshot via host after each tool completes. parentBlocks are blocks
-// already accumulated this step (text + tool_calls); host snapshots prepend
-// them so subscribers always see the full message-so-far.
+// runTools executes all tool calls in execution-group batches. Per-tool
+// emit (tool_result block_start/delta/stop) fires real-time inside
+// runOneTool — there is no snapshot publish path. Returns the
+// in-memory tool_result block slice for in-loop history extension.
 //
-// runTools 按 execution-group 分批执行所有 tool 调用，每个 tool 跑完通过
-// host 推一次快照。parentBlocks 是本步骤已积累的 blocks（text + tool_calls），
-// host 快照前置它们让订阅者始终看到 message-so-far。
+// runTools 按 execution-group 分批执行所有 tool 调用。每个 tool 在
+// runOneTool 内部实时 emit (tool_result block_start/delta/stop)
+// ——无快照推送。返回内存 tool_result block 列表给循环内 history 扩展。
 func runTools(
 	ctx context.Context,
 	calls []chatdomain.ToolCallData,
 	byName map[string]toolapp.Tool,
-	host Host,
-	parentBlocks []chatdomain.Block,
 	log *zap.Logger,
 ) []chatdomain.Block {
 	if len(calls) == 0 {
@@ -50,15 +48,6 @@ func runTools(
 	blocks := make([]chatdomain.Block, len(calls))
 
 	var mu sync.Mutex
-	publishProgress := func() {
-		mu.Lock()
-		current := make([]chatdomain.Block, len(blocks))
-		copy(current, blocks)
-		mu.Unlock()
-		host.Publish(ctx, joinBlocks(parentBlocks, current),
-			chatdomain.StatusStreaming, "", "", "", 0, 0)
-	}
-
 	for _, b := range batches {
 		if len(b.items) > 1 {
 			var wg sync.WaitGroup
@@ -70,7 +59,6 @@ func runTools(
 					mu.Lock()
 					blocks[it.idx] = blk
 					mu.Unlock()
-					publishProgress()
 				}(item)
 			}
 			wg.Wait()
@@ -80,7 +68,6 @@ func runTools(
 			mu.Lock()
 			blocks[item.idx] = blk
 			mu.Unlock()
-			publishProgress()
 		}
 	}
 	return blocks
@@ -117,14 +104,6 @@ func runOneTool(
 	output, errMsg, ok := executeTool(toolCtx, t, tc.Name, argsJSON, log)
 	elapsedMs := time.Since(start).Milliseconds()
 
-	d, _ := json.Marshal(chatdomain.ToolResultData{
-		ToolCallID: tc.ID,
-		OK:         ok,
-		Result:     output,
-		ErrorMsg:   errMsg,
-		ElapsedMs:  elapsedMs,
-	})
-
 	// Event-log emit: tool_result is a child of tool_call.
 	// 事件日志 emit：tool_result 是 tool_call 的子。
 	em := eventlogpkg.From(ctx)
@@ -146,12 +125,28 @@ func runOneTool(
 		em.StopBlock(ctx, resultBlockID, status, stopErr)
 	}
 
+	// In-memory block for in-loop history conversion. Content = result
+	// text; ParentBlockID = tc.ID lets BlocksToAssistantLLM recover the
+	// LLM tool-call ID for the role=tool message.
+	//
+	// 内存 block 给循环内 history 转换。Content = 结果文本；
+	// ParentBlockID = tc.ID 让 BlocksToAssistantLLM 取回 LLM tool-call
+	// ID 给 role=tool 消息。
+	statusVal := eventlogdomain.StatusCompleted
+	errVal := ""
+	if !ok {
+		statusVal = eventlogdomain.StatusError
+		errVal = errMsg
+	}
+	_ = elapsedMs // legacy elapsedMs no longer carried in Block (UI gets it via DB row updated_at - created_at)
 	return chatdomain.Block{
-		ID:        resultBlockID,
-		Seq:       seq,
-		Type:      chatdomain.BlockTypeToolResult,
-		Data:      string(d),
-		CreatedAt: time.Now().UTC(),
+		ID:            resultBlockID,
+		Type:          eventlogdomain.BlockTypeToolResult,
+		Content:       output,
+		ParentBlockID: tc.ID,
+		Status:        statusVal,
+		Error:         errVal,
+		CreatedAt:     time.Now().UTC(),
 	}
 }
 

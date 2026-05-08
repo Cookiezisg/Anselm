@@ -53,7 +53,7 @@ import (
 // 事件给 410 后的 refetch。
 type EventLogHandler struct {
 	bridge eventlogdomain.Bridge
-	repo   chatdomain.BlockV2Repository // optional; nil disables the refetch endpoint
+	repo   chatdomain.Repository // optional; nil disables the refetch endpoint
 	log    *zap.Logger
 }
 
@@ -63,7 +63,7 @@ type EventLogHandler struct {
 //
 // NewEventLogHandler 装配 handler 依赖。repo 可选——传 nil 禁用 HTTP
 // refetch 端点（只提供 SSE 流）。
-func NewEventLogHandler(bridge eventlogdomain.Bridge, repo chatdomain.BlockV2Repository, log *zap.Logger) *EventLogHandler {
+func NewEventLogHandler(bridge eventlogdomain.Bridge, repo chatdomain.Repository, log *zap.Logger) *EventLogHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -174,4 +174,4 @@ func (h *EventLogHandler) History(w http.ResponseWriter, r *http.Request) {
 }
 
 // _ marker to keep chatdomain import live when repo is nil at compile.
-var _ chatdomain.BlockV2Repository = (chatdomain.BlockV2Repository)(nil)
+var _ chatdomain.Repository = (chatdomain.Repository)(nil)

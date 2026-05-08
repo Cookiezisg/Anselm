@@ -200,19 +200,16 @@ func (t *SubagentTool) Execute(ctx context.Context, argsJSON string) (string, er
 	//
 	// 友好状态注脚——LLM 拿到结果正文 + 非 completed 终态提示，自行决定
 	// 是否重起、转向或就此总结。
-	switch res.Run.Status {
-	case subagentdomain.StatusMaxTurns:
+	switch res.Status {
+	case subagentapp.StatusMaxTurns:
 		return appendNote(res.Result, "subagent hit max turns; consider re-spawning with more turns or refining the prompt"), nil
-	case subagentdomain.StatusCancelled:
+	case subagentapp.StatusCancelled:
 		return appendNote(res.Result, "subagent was cancelled"), nil
-	case subagentdomain.StatusFailed:
-		// Failed runs may still have produced partial Result text; if so
-		// surface it; if not, return a clear failure message.
-		// 失败 run 可能仍产出部分文本；有则返；无则给清晰失败消息。
+	case subagentapp.StatusFailed:
 		if strings.TrimSpace(res.Result) != "" {
-			return appendNote(res.Result, fmt.Sprintf("subagent failed: %s", res.Run.ErrorMsg)), nil
+			return appendNote(res.Result, fmt.Sprintf("subagent failed: %s", res.ErrorMsg)), nil
 		}
-		return fmt.Sprintf("Subagent %s failed: %s", res.Run.Type, res.Run.ErrorMsg), nil
+		return fmt.Sprintf("Subagent %s failed: %s", res.Type, res.ErrorMsg), nil
 	default:
 		return res.Result, nil
 	}

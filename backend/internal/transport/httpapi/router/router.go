@@ -44,11 +44,14 @@ func New(deps Deps) http.Handler {
 	if deps.ForgeService != nil {
 		handlershttpapi.NewForgeHandler(deps.ForgeService, deps.Log).Register(mux)
 	}
-	if deps.ChatService != nil && deps.EventsBridge != nil {
-		handlershttpapi.NewChatHandler(deps.ChatService, deps.EventsBridge, deps.Log).Register(mux)
+	if deps.ChatService != nil {
+		handlershttpapi.NewChatHandler(deps.ChatService, deps.Log).Register(mux)
 	}
 	if deps.EventLogBridge != nil {
 		handlershttpapi.NewEventLogHandler(deps.EventLogBridge, deps.BlockV2Repo, deps.Log).Register(mux)
+	}
+	if deps.NotificationsBridge != nil {
+		handlershttpapi.NewNotificationsHandler(deps.NotificationsBridge, deps.Log).Register(mux)
 	}
 	if deps.AskService != nil {
 		handlershttpapi.NewAnswerHandler(deps.AskService, deps.Log).Register(mux)
@@ -56,9 +59,13 @@ func New(deps Deps) http.Handler {
 	if deps.SandboxService != nil {
 		handlershttpapi.NewSandboxHandler(deps.SandboxService, deps.Log).Register(mux)
 	}
-	if deps.SubagentService != nil {
-		handlershttpapi.NewSubagentHandler(deps.SubagentService, deps.Log).Register(mux)
-	}
+	// SubagentService no longer registers HTTP routes — sub-run data lives
+	// in the unified messages/message_blocks tables and is observed via
+	// the eventlog SSE stream + standard chat message endpoints.
+	//
+	// SubagentService 不再注册 HTTP 路由——sub-run 数据在统一 messages/
+	// message_blocks 表，经 eventlog SSE 流 + 标准 chat message 端点观测。
+	_ = deps.SubagentService
 	if deps.MCPService != nil {
 		handlershttpapi.NewMCPHandler(deps.MCPService, deps.Log).Register(mux)
 	}

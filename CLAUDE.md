@@ -95,16 +95,21 @@
 
 ## SSE（E 系列）
 
-14. **E1 事件协议**：统一 5 种事件 + 6 种 block 类型枚举；新事件 / block 类型必须先改 `event-log-protocol.md` 再加 code
-    - 5 事件：`message_start` / `message_stop` / `block_start` / `block_delta` / `block_stop`
-    - 6 block 类型：`text` / `reasoning` / `tool_call` / `tool_result` / `progress` / `message`
-    - 每事件必带 `conversationId` + `seq`；block 事件必带 `parentId`
-    - **Phase 4 cutover 前**老 `domain/events/` 仍保留（chat.message / Forge / Conversation / Todo / MCP / Skill 6 类 entity-snapshot），dual-write 状态；新代码应只面向新协议
-15. **E2 事件路由 + 命名**：通过 `parentId` 字段递归路由（不靠事件名分层），事件类型固定 5 种 / block 类型固定 6 种
-    - 事件名 wire 格式：`message_start` / `block_delta` 等小写下划线，无点号前缀
-    - block 类型常量定义在 `domain/eventlog/eventlog.go::BlockType*`
-    - SSE 端点 `/api/v1/eventlog?conversationId=` (新) 与 `/api/v1/events` (老) 共存到 Phase 4
-16. **E3 不再要求 Go struct 1:1 covering**：旧 §E1 "禁止 map[string]any" 由协议层 `ValidateEvent` 替代——所有 5 events 已是封闭 struct，新增需走协议修订流程
+14. **E1 双协议**：后端只有两个 SSE 流，各自单一职责
+    - **事件日志（per conversation）** `/api/v1/eventlog?conversationId=X` —— 5 events × 6 block types，对话内流式内容
+      - 5 事件：`message_start` / `message_stop` / `block_start` / `block_delta` / `block_stop`
+      - 6 block 类型：`text` / `reasoning` / `tool_call` / `tool_result` / `progress` / `message`
+      - 每事件带 `conversationId` + `seq`；block 事件带 `parentId`
+    - **通知（global broadcast）** `/api/v1/notifications` —— 1 通用 envelope，entity 状态更新
+      - Envelope: `{type: string, id: string, data: any, conversationId?: string}`
+      - 现期 type: `conversation`（autoTitle / 元数据）/ `todo`（CRUD）
+      - 未来扩展加 type 字符串即可（mcp_server / skill / system_warning / build_done / ...）
+    - 共用 Bridge pattern：per-key seq + replay buffer + Last-Event-ID 重连
+    - 详见 [`event-log-protocol.md`](documents/version-1.2/event-log-protocol.md)
+15. **E2 协议演进规则**
+    - 事件日志：新事件类型 / block 类型必须先改 `event-log-protocol.md` 再加 code（封闭枚举）
+    - 通知：新 entity type 加字符串即可（开放词表，未来通知模块靠这个扩展）
+    - 路由：事件日志按 `parentId` 递归（不靠事件名分层）；通知广播给所有订阅者，客户端按 `type` / `conversationId` 过滤
 
 ## 代码规范（S 系列）
 
@@ -604,7 +609,8 @@ func requireKey(t *testing.T) string {
 - **已摆脱 Eino**（2026-04-27 重构），自有 LLM 客户端 `infra/llm`（OpenAI-compat + Anthropic 原生）
 - **modernc.org/sqlite**（纯 Go），跨平台 build 一行命令；DSN 用 `_pragma=...` 语法
 - **桌面端集成方式**：Wails 当窗口外壳 + 复用 httpapi（**不走** Wails native binding，详见 `desktop-packaging-notes.md`）
-- **chat 已用 Block 模型**（messages 表是元数据，内容在 message_blocks；Phase 1+ 起 message_blocks_v2 表用于事件日志协议 dual-write，Phase 4 cutover 改名回 message_blocks 删 legacy）
-- **事件日志协议**（2026-05-08 起 Phase 1-2 已落地）：`domain/eventlog` + `infra/eventlog` + `pkg/eventlog`；新 SSE 端点 `/api/v1/eventlog`；与 legacy `domain/events` + `/api/v1/events` 共存到 Phase 4。完整设计见 [`event-log-protocol.md`](documents/version-1.2/event-log-protocol.md)
+- **chat Block 模型** = 事件日志协议同 shape（messages 元数据 / message_blocks 流式内容；Block.Content 是裸文本 / Block.Attrs JSON 元数据）
+- **双 SSE 协议**：`domain/eventlog` (per-conversation 5 events × 6 block types) + `domain/notifications` (global entity updates)；分别经 `/api/v1/eventlog` / `/api/v1/notifications` 暴露。Legacy `domain/events` 已删
+- **subagent 数据**：sub-run 是统一 `messages` 行（attrs.kind=subagent_run + parent_block_id 指向占位 message-block）+ 该 message 在 `message_blocks` 的 blocks。无独立 `subagent_runs` / `subagent_messages` 表
 - **测试基线**：~170 单测全绿；5 个 LLM 集成测试因 `DEEPSEEK_API_KEY` 环境失效，与基线一致，不算回归
 - **`infra/sandbox` v2 捆绑 mise**（~25 MB binary），lazy install 各语言 runtime（python/node/rust/...）+ per-plugin 隔离 env（forge / mcp / skill / conversation 4 类 owner）。SQLite 双表 manifest（sandbox_runtimes + sandbox_envs）。dev 与 prod 都走 `go:embed` 把 mise binary 编进 binary——`make resources` 把 mise 拉到 `backend/internal/infra/sandbox/mise/<goos>-<goarch>/` 给 embed 用（默认仅当前平台，加 `ALL=1` 拉全 5 平台供 release pipeline）。devbox bootstrap 自动跑 `cd backend && go run ./cmd/resources`。**v1 dev resources** (`~/.forgify-dev-resources/` 的 uv + python-build-standalone) 已废弃；forge sandbox v1 在 D2-5 切到 v2 service 前会返 `ErrSandboxUnavailable`

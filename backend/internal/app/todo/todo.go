@@ -19,32 +19,38 @@ import (
 
 	"go.uber.org/zap"
 
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// Service orchestrates todo CRUD, scopes everything to the conversation
-// in ctx, and broadcasts entity-state SSE events through the bridge.
+// Service orchestrates todo CRUD, scopes to ctx conversation, and
+// publishes "todo" notifications on entity changes (Create / Update /
+// SoftDelete) so all open UI windows showing the parent conversation's
+// todo panel update in real time.
 //
-// Service 编排 todo CRUD、按 ctx 中的 conversation 作用域、并通过 bridge
-// 广播 entity-state SSE。
+// Service 编排 todo CRUD、按 ctx conversation 作用域、entity 变化时
+// （Create / Update / SoftDelete）发 "todo" 通知让所有打开父对话 todo
+// panel 的 UI 实时更新。
 type Service struct {
-	repo   tododomain.Repository
-	bridge eventsdomain.Bridge
-	log    *zap.Logger
+	repo          tododomain.Repository
+	notifications notificationspkg.Publisher
+	log           *zap.Logger
 }
 
-// NewService wires Service. Panics on nil logger so the missing-init bug
-// surfaces immediately rather than as a nil-deref later.
+// NewService wires Service. notifications may be nil → no-op fallback.
+// Panics on nil logger so the missing-init bug surfaces immediately.
 //
-// NewService 装配 Service。nil logger 立即 panic，让漏接错误立刻暴露。
-func NewService(repo tododomain.Repository, bridge eventsdomain.Bridge, log *zap.Logger) *Service {
+// NewService 装配 Service。notifications 可 nil → no-op。nil logger 立即 panic。
+func NewService(repo tododomain.Repository, notifications notificationspkg.Publisher, log *zap.Logger) *Service {
 	if log == nil {
 		panic("todo.NewService: logger is nil")
 	}
-	return &Service{repo: repo, bridge: bridge, log: log}
+	if notifications == nil {
+		notifications = notificationspkg.From(context.Background())
+	}
+	return &Service{repo: repo, notifications: notifications, log: log}
 }
 
 // CreateInput is the validated payload for Service.Create.
@@ -233,17 +239,14 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// publish sends a Todo event on the bridge. Bridge.Publish is best-effort
-// (slow subscribers drop events, never block) so there's nothing to
-// return — we just call and move on.
+// publish fires a "todo" notification with the entity snapshot. Routed
+// by Todo.ConversationID so all open UI windows on that conversation
+// see the update. Best-effort.
 //
-// publish 在 bridge 发 Todo 事件；Bridge.Publish 是 best-effort（慢订阅者
-// 丢事件不阻塞），无错可返，调完即走。
+// publish 发 "todo" 通知携 entity 快照。按 Todo.ConversationID 路由让
+// 该对话所有打开 UI 窗口看到更新。Best-effort。
 func (s *Service) publish(ctx context.Context, t *tododomain.Todo) {
-	if s.bridge == nil {
-		return
-	}
-	s.bridge.Publish(ctx, t.ConversationID, eventsdomain.Todo{Todo: t})
+	s.notifications.Publish(ctx, "todo", t.ID, t, t.ConversationID)
 }
 
 func newID() string { return idgenpkg.New("td") }

@@ -48,13 +48,13 @@ import (
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	memoryinfra "github.com/sunweilin/forgify/backend/internal/infra/events/memory"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
+	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	mcpinfra     "github.com/sunweilin/forgify/backend/internal/infra/mcp"
@@ -65,7 +65,6 @@ import (
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
-	subagentstore "github.com/sunweilin/forgify/backend/internal/infra/store/subagent"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
@@ -110,8 +109,7 @@ func main() {
 		&modeldomain.ModelConfig{},
 		&convdomain.Conversation{},
 		&chatdomain.Message{},
-		&chatdomain.Block{},   // message_blocks table (legacy; deleted at Phase 4 cutover)
-		&chatdomain.BlockV2{}, // message_blocks_v2 table (event-log protocol Phase 1)
+		&chatdomain.Block{}, // message_blocks table (event-log协议 unified shape)
 		&chatdomain.Attachment{},
 		&forgedomain.Forge{},
 		&forgedomain.ForgeVersion{},
@@ -119,8 +117,6 @@ func main() {
 		&forgedomain.ForgeExecution{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
-		&subagentdomain.SubagentRun{},
-		&subagentdomain.SubagentMessage{},
 		&tododomain.Todo{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
@@ -172,8 +168,9 @@ func main() {
 		keys:    apikeyService,
 		factory: llmFactory,
 	}
-	eventsBridge := memoryinfra.NewBridge(log)
 	eventLogBridge := eventloginfra.NewBridge(log)
+	notificationsBridge := notificationsinfra.NewBridge(log)
+	notificationsPub := notificationspkg.New(notificationsBridge, log)
 
 	// PluginSandbox v2 — unified runtime/env service. Bootstrap extracts
 	// the embedded mise binary; failure flips degraded mode (chat-only
@@ -195,21 +192,19 @@ func main() {
 		forgestore.New(gdb),
 		forgeapp.NewSandboxAdapter(sandboxSvc, *dataDir),
 		forgeLLM,
-		eventsBridge,
 		log,
 	)
 
 	chatRepo := chatstore.New(gdb)
-	blockV2Store := chatstore.NewBlockV2Store(gdb)
-	chatEmitter := eventlogpkg.New(eventLogBridge, blockV2Store, log)
+	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
 		chatRepo,
 		convstore.New(gdb),
 		modelService,
 		apikeyService,
 		llmFactory,
-		eventsBridge,
 		chatEmitter,
+		notificationsPub,
 		*dataDir,
 		log,
 	)
@@ -249,7 +244,6 @@ func main() {
 		mcpConfigPath,
 		mcpRegistrySource,
 		sandboxSvc,
-		eventsBridge,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -270,7 +264,7 @@ func main() {
 	defer shells.Manager.Stop() // graceful shutdown: kill any background children
 	tools = append(tools, shells.Tools...)
 
-	todoService := todoapp.NewService(todostore.New(gdb), eventsBridge, log)
+	todoService := todoapp.NewService(todostore.New(gdb), notificationsPub, log)
 	tools = append(tools, todotool.TodoTools(todoService)...)
 	askService := askapp.NewService()
 	tools = append(tools, asktool.AskTools(askService)...)
@@ -287,9 +281,8 @@ func main() {
 	// Service.filterTools 的结构性防递归会在传给 sub-runner 前剥掉 SubagentTool
 	// 自身——sub-LLM 物理看不到 "Subagent"。
 	subagentService := subagentapp.New(
-		subagentstore.New(gdb),
+		chatRepo,
 		subagentapp.NewRegistry(),
-		eventsBridge,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -323,7 +316,6 @@ func main() {
 	skillService := skillapp.New(
 		defaultSkillsDir(),
 		subagentService,
-		eventsBridge,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -378,9 +370,9 @@ func main() {
 		ConversationService: convService,
 		ForgeService:        forgeService,
 		ChatService:         chatService,
-		EventsBridge:        eventsBridge,
 		EventLogBridge:      eventLogBridge,
-		BlockV2Repo:         blockV2Store,
+		BlockV2Repo:         chatRepo,
+		NotificationsBridge: notificationsBridge,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,

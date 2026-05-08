@@ -38,11 +38,11 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -81,17 +81,17 @@ type queuedTask struct {
 //
 // Service 编排 LLM 调用、附件处理和 SSE 事件推送。
 type Service struct {
-	repo        chatdomain.Repository
-	convRepo    convdomain.Repository
-	modelPicker modeldomain.ModelPicker
-	keyProvider apikeydomain.KeyProvider
-	llmFactory  *llminfra.Factory
-	tools       []toolapp.Tool
-	bridge      eventsdomain.Bridge
-	emitter     eventlogpkg.Emitter // event-log Phase 2: dual-write Bridge alongside legacy bridge
-	dataDir     string
-	log         *zap.Logger
-	queues      sync.Map // conversationID → *convQueue
+	repo          chatdomain.Repository
+	convRepo      convdomain.Repository
+	modelPicker   modeldomain.ModelPicker
+	keyProvider   apikeydomain.KeyProvider
+	llmFactory    *llminfra.Factory
+	tools         []toolapp.Tool
+	emitter       eventlogpkg.Emitter        // event-log emit (chat / block lifecycle)
+	notifications notificationspkg.Publisher // global notifications (autoTitle / etc.)
+	dataDir       string
+	log           *zap.Logger
+	queues        sync.Map // conversationID → *convQueue
 
 	// catalog (optional) provides the Capability Catalog summary that
 	// gets prepended to every system prompt. Nil-tolerant: when not
@@ -108,22 +108,24 @@ type Service struct {
 
 // NewService wires Service dependencies. Panics on nil logger.
 //
-// emitter is the event-log Emitter used for the dual-write protocol
-// (Phase 2). Pass a no-op emitter (or nil → falls back to no-op) when
-// the new bridge is not desired (legacy-only tests).
+// emitter is the event-log Emitter for chat / block lifecycle.
+// notifications is the global notifications Publisher for entity
+// updates (autoTitle conversation rename, etc.). Either can be nil →
+// no-op fallback (used by tests that don't exercise the SSE paths).
 //
 // NewService 装配依赖。nil logger 立刻 panic。
 //
-// emitter 是事件日志协议（Phase 2 dual-write）的 Emitter。不需要新
-// bridge 时传 no-op（或传 nil 回退到 no-op，遗留单测路径）。
+// emitter 是 chat / block 生命周期的事件日志 Emitter。notifications 是
+// entity 更新（autoTitle / 等）的全局通知 Publisher。任一可 nil → no-op
+// 回退（不练 SSE 的测试用）。
 func NewService(
 	repo chatdomain.Repository,
 	convRepo convdomain.Repository,
 	modelPicker modeldomain.ModelPicker,
 	keyProvider apikeydomain.KeyProvider,
 	llmFactory *llminfra.Factory,
-	bridge eventsdomain.Bridge,
 	emitter eventlogpkg.Emitter,
+	notifications notificationspkg.Publisher,
 	dataDir string,
 	log *zap.Logger,
 ) *Service {
@@ -136,45 +138,43 @@ func NewService(
 	if emitter == nil {
 		emitter = eventlogpkg.From(context.Background()) // no-op fallback
 	}
+	if notifications == nil {
+		notifications = notificationspkg.From(context.Background()) // no-op fallback
+	}
 	return &Service{
-		repo:        repo,
-		convRepo:    convRepo,
-		modelPicker: modelPicker,
-		keyProvider: keyProvider,
-		llmFactory:  llmFactory,
-		bridge:      bridge,
-		emitter:     emitter,
-		dataDir:     dataDir,
-		log:         log,
+		repo:          repo,
+		convRepo:      convRepo,
+		modelPicker:   modelPicker,
+		keyProvider:   keyProvider,
+		llmFactory:    llmFactory,
+		emitter:       emitter,
+		notifications: notifications,
+		dataDir:       dataDir,
+		log:           log,
 	}
 }
 
-// emitUserMessage publishes the user message_start + each block + message_stop
-// to the new event-log bridge as a self-contained burst. User messages are
-// not streamed (saved synchronously in Send), so all five events fire at
-// once. Best-effort: any failure logs and continues — legacy bridge still
-// works for the message itself via the existing chat.message snapshot path.
+// emitUserMessage publishes the user message_start + each block (with
+// content delta) + message_stop to the new event-log bridge as a self-
+// contained burst. User messages are not streamed (saved synchronously
+// in Send), so all events fire at once. Block content is the raw text
+// — no JSON wrapper. Attachments live in Message.Attrs (not blocks).
 //
-// emitUserMessage 把 user message_start + 每个 block + message_stop 一次性
-// burst 推到新事件日志 bridge。user message 不是流式（Send 中同步落库），
-// 5 个事件一次性发完。Best-effort：失败 log 后继续——legacy bridge 通过
-// chat.message 快照路径仍能传 user message。
+// Best-effort: any failure logs and continues.
+//
+// emitUserMessage 把 user message_start + 每个 block（含 content delta）
+// + message_stop 一次性 burst 推。user message 不是流式（Send 中同步落库），
+// 全部事件一次性发完。Block content 是裸文本——无 JSON 包装。Attachments
+// 在 Message.Attrs（不是 blocks）。
+//
+// Best-effort：失败 log 后继续。
 func (s *Service) emitUserMessage(ctx context.Context, msg *chatdomain.Message) {
 	em := s.emitter
 	em.EmitMessageStart(ctx, msg.ID, msg.Role, "", nil)
 	for _, b := range msg.Blocks {
 		em.EmitBlockStart(ctx, b.ID, msg.ID, msg.ID, b.Type, nil)
-		// For text blocks, push the text as a single delta. Other types
-		// (attachment_ref) carry no streaming content — the metadata
-		// lives in attrs / DB row, not in delta text.
-		//
-		// 文本 block 把文本作为单条 delta 推。其他类型（attachment_ref）
-		// 无流式正文——元数据在 attrs / DB 行，不在 delta 文本里。
-		if b.Type == chatdomain.BlockTypeText {
-			var td chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &td); err == nil && td.Text != "" {
-				em.DeltaBlock(ctx, b.ID, td.Text)
-			}
+		if b.Content != "" {
+			em.DeltaBlock(ctx, b.ID, b.Content)
 		}
 		em.StopBlock(ctx, b.ID, eventlogdomain.StatusCompleted, nil)
 	}
@@ -254,12 +254,21 @@ func (s *Service) UploadAttachment(ctx context.Context, fileBytes []byte, mimeTy
 	return a, nil
 }
 
-// Send saves the user message (with attachment_ref blocks) and enqueues an
-// Agent task. Returns immediately with the user message ID (202 semantics).
-// Returns ErrStreamInProgress only when the queue is full.
+// Send saves the user message and enqueues an Agent task. Returns
+// immediately with the user message ID (202 semantics). Returns
+// ErrStreamInProgress only when the queue is full.
 //
-// Send 保存用户消息（含 attachment_ref blocks）并把 Agent 任务加入队列，立刻返回
-// 用户消息 ID（202 语义）。仅在队列已满时返回 ErrStreamInProgress。
+// User message text → single text block (emitted via emitUserMessage,
+// which dual-writes to message_blocks). Attachments → Message.Attrs
+// JSON ({"attachments": [...]}), NOT blocks. UI reads attrs for the
+// chip rendering above the message text.
+//
+// Send 保存用户消息并把 Agent 任务加入队列，立刻返回用户消息 ID
+// （202 语义）。仅在队列已满时返回 ErrStreamInProgress。
+//
+// 用户文本 → 单 text block（经 emitUserMessage 发，自动 dual-write 到
+// message_blocks）。附件 → Message.Attrs JSON ({"attachments": [...]})，
+// 非 block。UI 读 attrs 渲染文本上方的附件 chip。
 func (s *Service) Send(ctx context.Context, conversationID string, in SendInput) (string, error) {
 	conv, err := s.convRepo.Get(ctx, conversationID)
 	if err != nil {
@@ -270,9 +279,39 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		return "", fmt.Errorf("chat.Service.Send: %w", err)
 	}
 
-	blocks, err := s.buildUserBlocks(ctx, in)
-	if err != nil {
-		return "", fmt.Errorf("chat.Service.Send: build blocks: %w", err)
+	// Resolve attachments → AttachmentRef list for Message.Attrs.
+	// 解析附件 → AttachmentRef 列表填 Message.Attrs。
+	attrs := map[string]any{}
+	if len(in.AttachmentIDs) > 0 {
+		refs := make([]chatdomain.AttachmentRef, 0, len(in.AttachmentIDs))
+		for _, attID := range in.AttachmentIDs {
+			att, err := s.repo.GetAttachment(ctx, attID)
+			if err != nil {
+				return "", fmt.Errorf("chat.Service.Send: attachment %q: %w", attID, err)
+			}
+			refs = append(refs, chatdomain.AttachmentRef{
+				AttachmentID: attID, FileName: att.FileName, MimeType: att.MimeType,
+			})
+		}
+		attrs["attachments"] = refs
+	}
+	attrsJSON := ""
+	if len(attrs) > 0 {
+		if b, err := json.Marshal(attrs); err == nil {
+			attrsJSON = string(b)
+		}
+	}
+
+	// Build single text block (or empty Blocks if user sent attachments only).
+	// 建单 text block（或仅附件时 Blocks 为空）。
+	var blocks []chatdomain.Block
+	if in.Content != "" {
+		blocks = append(blocks, chatdomain.Block{
+			ID:      newBlockID(),
+			Type:    eventlogdomain.BlockTypeText,
+			Content: in.Content,
+			Status:  eventlogdomain.StatusCompleted,
+		})
 	}
 
 	msgID := newMsgID()
@@ -282,9 +321,10 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		UserID:         uid,
 		Role:           chatdomain.RoleUser,
 		Status:         chatdomain.StatusCompleted,
+		Attrs:          attrsJSON,
 		Blocks:         blocks,
 	}
-	if err := s.repo.Save(ctx, userMsg); err != nil {
+	if err := s.repo.SaveMessage(ctx, userMsg); err != nil {
 		return "", err
 	}
 
@@ -316,41 +356,6 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	return msgID, nil
 }
 
-// buildUserBlocks constructs the block slice for a user message.
-// Attachment blocks are populated with full metadata from the DB so the
-// frontend can display filenames and icons without extra API calls.
-//
-// buildUserBlocks 构建 user 消息的 block 列表。
-// 附件 block 从 DB 查询完整元数据，前端无需额外 API 调用即可展示文件名和图标。
-func (s *Service) buildUserBlocks(ctx context.Context, in SendInput) ([]chatdomain.Block, error) {
-	var blocks []chatdomain.Block
-	seq := 0
-
-	if in.Content != "" {
-		d, _ := json.Marshal(chatdomain.TextData{Text: in.Content})
-		blocks = append(blocks, chatdomain.Block{
-			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeText, Data: string(d),
-		})
-		seq++
-	}
-
-	for _, attID := range in.AttachmentIDs {
-		att, err := s.repo.GetAttachment(ctx, attID)
-		if err != nil {
-			return nil, fmt.Errorf("buildUserBlocks: attachment %q not found: %w", attID, err)
-		}
-		d, _ := json.Marshal(chatdomain.AttachmentRefData{
-			AttachmentID: attID,
-			FileName:     att.FileName,
-			MimeType:     att.MimeType,
-		})
-		blocks = append(blocks, chatdomain.Block{
-			ID: newBlockID(), Seq: seq, Type: chatdomain.BlockTypeAttachmentRef, Data: string(d),
-		})
-		seq++
-	}
-	return blocks, nil
-}
 
 // Cancel stops the currently running Agent and drains any pending tasks.
 //
@@ -381,5 +386,5 @@ func (s *Service) Cancel(_ context.Context, conversationID string) error {
 //
 // ListMessages 返回对话的分页消息列表（含 Blocks）。
 func (s *Service) ListMessages(ctx context.Context, conversationID string, filter chatdomain.ListFilter) ([]*chatdomain.Message, string, error) {
-	return s.repo.ListByConversation(ctx, conversationID, filter)
+	return s.repo.ListMessagesByConversation(ctx, conversationID, filter)
 }

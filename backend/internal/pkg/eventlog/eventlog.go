@@ -136,7 +136,7 @@ type Emitter interface {
 // （Phase 2B）。测试 / legacy 调用方不需 DB 持久化时传 nil。Message
 // 生命周期（message_start / message_stop）不双写——messages 走 legacy
 // chat repo 直至 Phase 4 cutover。
-func New(bridge eventlogdomain.Bridge, repo chatdomain.BlockV2Repository, log *zap.Logger) Emitter {
+func New(bridge eventlogdomain.Bridge, repo chatdomain.Repository, log *zap.Logger) Emitter {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -149,7 +149,7 @@ func New(bridge eventlogdomain.Bridge, repo chatdomain.BlockV2Repository, log *z
 
 type emitter struct {
 	bridge eventlogdomain.Bridge
-	repo   chatdomain.BlockV2Repository // optional dual-write target; may be nil
+	repo   chatdomain.Repository // optional dual-write target; may be nil
 	log    *zap.Logger
 }
 
@@ -199,17 +199,17 @@ func (em *emitter) StartMessage(ctx context.Context, role, parentBlockID string,
 	return msgID
 }
 
-// saveBlockV2 dual-writes a block_start to message_blocks_v2. The
+// saveBlockRow writes a block_start row to message_blocks. The
 // parent_block_id column is empty when the block is top-level under
 // the message (parent==messageID); otherwise it carries parentID. Attrs
 // JSON-marshalled. Best-effort: failures log + continue (Bridge already
 // shipped the SSE event; DB miss only affects history replay).
 //
-// saveBlockV2 把 block_start 双写到 message_blocks_v2。block 直挂 message
+// saveBlockRow 把 block_start 写到 message_blocks。block 直挂 message
 // 顶层（parent==messageID）时 parent_block_id 列为空；否则填 parentID。
 // Attrs JSON 化。Best-effort：失败 log + 继续（Bridge 已发 SSE 事件；DB
 // 失误只影响历史回放）。
-func (em *emitter) saveBlockV2(ctx context.Context, convID, id, parentID, messageID, blockType string, attrs map[string]any, seq int64) {
+func (em *emitter) saveBlockRow(ctx context.Context, convID, id, parentID, messageID, blockType string, attrs map[string]any, seq int64) {
 	if em.repo == nil || seq == 0 {
 		return
 	}
@@ -224,7 +224,7 @@ func (em *emitter) saveBlockV2(ctx context.Context, convID, id, parentID, messag
 		}
 	}
 	now := time.Now().UTC()
-	if err := em.repo.Save(ctx, &chatdomain.BlockV2{
+	if err := em.repo.SaveBlock(ctx, &chatdomain.Block{
 		ID:             id,
 		ConversationID: convID,
 		MessageID:      messageID,
@@ -293,7 +293,7 @@ func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[s
 		Attrs:          attrs,
 	})
 	if ok {
-		em.saveBlockV2(ctx, convID, blockID, parentID, msgID, blockType, attrs, seq)
+		em.saveBlockRow(ctx, convID, blockID, parentID, msgID, blockType, attrs, seq)
 	}
 	return blockID
 }
@@ -318,7 +318,7 @@ func (em *emitter) StartBlockUnder(ctx context.Context, parentID, messageID, blo
 		Attrs:          attrs,
 	})
 	if ok {
-		em.saveBlockV2(ctx, convID, blockID, parentID, messageID, blockType, attrs, seq)
+		em.saveBlockRow(ctx, convID, blockID, parentID, messageID, blockType, attrs, seq)
 	}
 	return blockID
 }
@@ -362,7 +362,7 @@ func (em *emitter) EmitBlockStart(ctx context.Context, id, parentID, messageID, 
 		Attrs:          attrs,
 	})
 	if ok {
-		em.saveBlockV2(ctx, convID, id, parentID, messageID, blockType, attrs, seq)
+		em.saveBlockRow(ctx, convID, id, parentID, messageID, blockType, attrs, seq)
 	}
 }
 

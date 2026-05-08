@@ -15,6 +15,7 @@ import (
 
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	chatinfra "github.com/sunweilin/forgify/backend/internal/infra/chat"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
@@ -34,7 +35,7 @@ const maxHistoryMessages = 200
 // currentUserMsgID 排除在主扫描外并追加到末尾，保证 LLM 以该消息作为待回复轮次，
 // 不受快速连发时 created_at 竞态的影响。
 func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID string) ([]llminfra.LLMMessage, error) {
-	rows, _, err := s.repo.ListByConversation(ctx, convID, chatdomain.ListFilter{Limit: maxHistoryMessages})
+	rows, _, err := s.repo.ListMessagesByConversation(ctx, convID, chatdomain.ListFilter{Limit: maxHistoryMessages})
 	if err != nil {
 		return nil, err
 	}
@@ -87,33 +88,46 @@ func (s *Service) blocksToLLM(ctx context.Context, m *chatdomain.Message) ([]llm
 	return nil, nil
 }
 
-// buildUserLLMMessage converts a user message's blocks to a single LLM message.
-// Text blocks become inline content; attachment blocks resolve to ContentParts
-// (image → base64, document → extracted text). Attachment failures are soft:
-// logged and skipped so the rest of the message still reaches the LLM.
+// buildUserLLMMessage converts a user message's blocks + attachments
+// (from Message.Attrs) to a single LLM message. Text blocks become
+// inline content; attachments (now stored in Attrs JSON, not blocks)
+// resolve to ContentParts (image → base64, document → extracted text).
+// Attachment failures are soft: logged and skipped.
 //
-// buildUserLLMMessage 把 user 消息的 blocks 转为单条 LLM 消息。
-// text block 变为内联 content；attachment block 解析为 ContentPart
-// （图片 → base64，文档 → 提取文本）。附件失败属于软失败：记录后跳过。
+// buildUserLLMMessage 把 user 消息的 blocks + Attachments（来自
+// Message.Attrs）转为单条 LLM 消息。text block 变为内联 content；
+// 附件（现存 Attrs JSON，非 block）解析为 ContentPart（图片 → base64，
+// 文档 → 提取文本）。附件失败属于软失败：记录后跳过。
 func (s *Service) buildUserLLMMessage(ctx context.Context, m *chatdomain.Message) (llminfra.LLMMessage, error) {
 	msg := llminfra.LLMMessage{Role: llminfra.RoleUser}
 	var parts []llminfra.ContentPart
 
+	// Text from blocks (after event-log unification, user text lives in
+	// blocks of type=text with raw Content).
+	//
+	// Text 从 blocks 取（事件日志统一后，用户文本在 type=text block 的
+	// 裸 Content）。
 	for _, b := range m.Blocks {
-		switch b.Type {
-		case chatdomain.BlockTypeText:
-			var d chatdomain.TextData
-			if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-				return llminfra.LLMMessage{}, fmt.Errorf("buildUserLLMMessage: text block %q: %w", b.ID, err)
+		if b.Type == eventlogdomain.BlockTypeText && b.Content != "" {
+			parts = append(parts, llminfra.ContentPart{Type: "text", Text: b.Content})
+		}
+	}
+
+	// Attachments from Message.Attrs JSON ({"attachments": [...]}).
+	// Attachments 从 Message.Attrs JSON 取。
+	if m.Attrs != "" {
+		var attrs struct {
+			Attachments []chatdomain.AttachmentRef `json:"attachments"`
+		}
+		if err := json.Unmarshal([]byte(m.Attrs), &attrs); err == nil {
+			for _, ref := range attrs.Attachments {
+				part, err := s.attachmentToPart(ctx, ref)
+				if err != nil {
+					s.log.Warn("skipping attachment in LLM history", zap.Error(err))
+					continue
+				}
+				parts = append(parts, *part)
 			}
-			parts = append(parts, llminfra.ContentPart{Type: "text", Text: d.Text})
-		case chatdomain.BlockTypeAttachmentRef:
-			part, err := s.attachmentToPart(ctx, b)
-			if err != nil {
-				s.log.Warn("skipping attachment in LLM history", zap.Error(err))
-				continue
-			}
-			parts = append(parts, *part)
 		}
 	}
 
@@ -125,19 +139,15 @@ func (s *Service) buildUserLLMMessage(ctx context.Context, m *chatdomain.Message
 	return msg, nil
 }
 
-// attachmentToPart resolves an attachment_ref block to a ContentPart.
+// attachmentToPart resolves an AttachmentRef to a ContentPart.
 // Images → image_url (base64 data URL); documents → inlined text part.
 //
-// attachmentToPart 把 attachment_ref block 解析为 ContentPart。
+// attachmentToPart 把 AttachmentRef 解析为 ContentPart。
 // 图片 → image_url（base64 data URL）；文档 → 内联文本。
-func (s *Service) attachmentToPart(ctx context.Context, b chatdomain.Block) (*llminfra.ContentPart, error) {
-	var d chatdomain.AttachmentRefData
-	if err := json.Unmarshal([]byte(b.Data), &d); err != nil {
-		return nil, fmt.Errorf("attachmentToPart: unmarshal block %q: %w", b.ID, err)
-	}
-	att, err := s.repo.GetAttachment(ctx, d.AttachmentID)
+func (s *Service) attachmentToPart(ctx context.Context, ref chatdomain.AttachmentRef) (*llminfra.ContentPart, error) {
+	att, err := s.repo.GetAttachment(ctx, ref.AttachmentID)
 	if err != nil {
-		return nil, fmt.Errorf("attachmentToPart: get attachment %q: %w", d.AttachmentID, err)
+		return nil, fmt.Errorf("attachmentToPart: get attachment %q: %w", ref.AttachmentID, err)
 	}
 
 	if chatinfra.IsImage(att.MimeType) {

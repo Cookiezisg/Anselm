@@ -32,7 +32,7 @@ import (
 // SKILL.md + 调 svc.Scan。
 func newTestSvc(t *testing.T) *skillapp.Service {
 	t.Helper()
-	return skillapp.New(t.TempDir(), nil, nil, nil, nil, nil, zaptest.NewLogger(t))
+	return skillapp.New(t.TempDir(), nil, nil, nil, nil, zaptest.NewLogger(t))
 }
 
 func TestSkillTools_FactoryReturnsBoth(t *testing.T) {

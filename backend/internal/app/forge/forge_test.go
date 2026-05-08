@@ -137,7 +137,7 @@ func newServiceWithFakes(t *testing.T) (*Service, *fakeSandbox, *forgestore.Stor
 	}
 	repo := forgestore.New(db)
 	sb := &fakeSandbox{}
-	svc := NewService(repo, sb, nil, nil, zap.NewNop())
+	svc := NewService(repo, sb, nil, zap.NewNop())
 	return svc, sb, repo
 }
 

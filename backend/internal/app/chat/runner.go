@@ -20,7 +20,6 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
@@ -163,17 +162,16 @@ func (s *Service) emitFatalError(
 		zap.String("code", code), zap.String("message", message))
 
 	saveCtx := reqctxpkg.SetUserID(context.Background(), uid)
-	msg := buildMessage(msgID, conv.ID, uid, nil,
+	msg := buildMessage(msgID, conv.ID, uid,
 		chatdomain.StatusError, chatdomain.StopReasonError,
 		code, message, 0, 0)
-	if err := s.repo.Save(saveCtx, msg); err != nil {
+	if err := s.repo.SaveMessage(saveCtx, msg); err != nil {
 		s.log.Error("CRITICAL: fatal-error stub message persist failed — message lost",
 			zap.String("msg_id", msgID), zap.Error(err))
 	}
-	s.bridge.Publish(ctx, conv.ID, eventsdomain.ChatMessage{Message: msg})
 
-	// Event-log dual-write: close the assistant message with error.
-	// 事件日志 dual-write：以 error 关闭 assistant message。
+	// Event-log: close the assistant message with error.
+	// 事件日志：以 error 关闭 assistant message。
 	s.emitter.StopMessage(ctx, msgID, eventlogdomain.StatusError,
 		chatdomain.StopReasonError, code, message, 0, 0)
 }
@@ -208,12 +206,13 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conver
 	return sb.String()
 }
 
-// autoTitle picks a short title via LLM and persists + publishes a
-// Conversation snapshot when successful. Best-effort: any failure aborts
-// silently.
+// autoTitle picks a short title via LLM, persists, and publishes a
+// `conversation` notification (entity snapshot) so all open UI windows
+// see the new name. Best-effort: any failure aborts silently.
 //
-// autoTitle 通过 LLM 取一个短标题，成功则持久化并推送 Conversation 快照。
-// best-effort：任何失败静默退出。
+// autoTitle 通过 LLM 取一个短标题，持久化后发 `conversation` 通知
+// （entity snapshot）让所有打开的 UI 窗口看到新名字。Best-effort：失败
+// 静默退出。
 func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, uid, assistantContent string) {
 	titleCtx := reqctxpkg.SetUserID(ctx, uid)
 	bc, err := llmclientpkg.Resolve(titleCtx, s.modelPicker, s.keyProvider, s.llmFactory)
@@ -241,7 +240,7 @@ func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, 
 		s.log.Warn("auto-title save failed", zap.Error(err))
 		return
 	}
-	s.bridge.Publish(titleCtx, conv.ID, eventsdomain.Conversation{Conversation: conv})
+	s.notifications.Publish(titleCtx, "conversation", conv.ID, conv)
 	s.log.Info("auto-title generated",
 		zap.String("conversation_id", conv.ID), zap.String("title", conv.Title))
 }

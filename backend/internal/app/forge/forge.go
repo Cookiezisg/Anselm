@@ -22,7 +22,6 @@ import (
 
 	"go.uber.org/zap"
 
-	eventsdomain "github.com/sunweilin/forgify/backend/internal/domain/events"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	llmparsepkg "github.com/sunweilin/forgify/backend/internal/pkg/llmparse"
@@ -185,43 +184,37 @@ type Service struct {
 	repo    forgedomain.Repository
 	sandbox Sandbox
 	llm     LLMClient
-	bridge  eventsdomain.Bridge // optional — nil for non-chat callers (HTTP forge handlers)
 	log     *zap.Logger
 }
 
-// NewService wires Service dependencies. bridge is optional — pass nil when
-// the service is used outside the chat agent (forge.PublishSnapshot is a
-// no-op in that case). Panics on nil logger.
+// NewService wires Service dependencies. Panics on nil logger.
 //
-// NewService 装配 Service 依赖。bridge 可选——chat agent 之外的调用方传 nil
-// 即可（PublishSnapshot 此时是 no-op）。nil logger 会 panic。
-func NewService(repo forgedomain.Repository, sandbox Sandbox, llm LLMClient, bridge eventsdomain.Bridge, log *zap.Logger) *Service {
+// Forge no longer pushes per-token entity snapshots — the user is
+// rewriting forge to use the event-log Emitter directly (open a text
+// block under the create_forge / edit_forge tool_call and stream code
+// as deltas). PublishSnapshot is a no-op stub kept for callers that
+// haven't been updated yet.
+//
+// NewService 装配 Service 依赖。nil logger panic。
+//
+// Forge 不再推 per-token entity 快照——用户重写 forge 时改用事件日志
+// Emitter 直接推（在 create_forge / edit_forge 的 tool_call 下开 text
+// block + 流式 emit code 作 delta）。PublishSnapshot 留作 no-op stub
+// 给未更新的调用方。
+func NewService(repo forgedomain.Repository, sandbox Sandbox, llm LLMClient, log *zap.Logger) *Service {
 	if log == nil {
 		panic("forgeapp.NewService: logger is nil")
 	}
-	return &Service{repo: repo, sandbox: sandbox, llm: llm, bridge: bridge, log: log}
+	return &Service{repo: repo, sandbox: sandbox, llm: llm, log: log}
 }
 
-// PublishSnapshot emits a forge entity-state event over the events bridge.
-// Centralised so create_forge / edit_forge tools (and future sandbox workers)
-// publish through one helper instead of inlining bridge.Publish at every site
-// — same pattern as chat.runner.publishMessageSnapshot for chat.message.
+// PublishSnapshot is a no-op stub. Per-token forge entity push was
+// removed when the legacy events bridge was deleted. New forge code
+// (post user-rewrite) emits via eventlog.Emitter directly.
 //
-// No-op when bridge is unset (HTTP forge handler caller) or convID is empty
-// (HTTP-driven flow with no chat conversation context).
-//
-// PublishSnapshot 把 forge entity-state 事件发到事件 bridge。集中管理，
-// 让 create_forge / edit_forge 工具（及未来的 sandbox worker）走同一 helper，
-// 不在每处内联 bridge.Publish——与 chat.runner.publishMessageSnapshot 同模式。
-//
-// bridge 未设置（HTTP forge handler 调用方）或 convID 空（无 chat 上下文的
-// HTTP 触发流程）时静默返回。
-func (s *Service) PublishSnapshot(ctx context.Context, convID string, f *forgedomain.Forge) {
-	if s.bridge == nil || convID == "" || f == nil {
-		return
-	}
-	s.bridge.Publish(ctx, convID, eventsdomain.Forge{Forge: f})
-}
+// PublishSnapshot 是 no-op stub。Per-token forge entity 推随 legacy events
+// bridge 一起删了。新 forge 代码（用户重写后）经 eventlog.Emitter 直接推。
+func (s *Service) PublishSnapshot(_ context.Context, _ string, _ *forgedomain.Forge) {}
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -1460,19 +1453,14 @@ func (s *Service) attachActiveEnv(ctx context.Context, f *forgedomain.Forge) err
 // 最新 entity 状态。
 //
 // bridge 未设或 convID 空（HTTP 驱动流程无 chat 上下文）时静默 no-op。
-func (s *Service) publishForgeAfterChange(ctx context.Context, convID, forgeID string) {
-	if s.bridge == nil || convID == "" {
-		return
-	}
-	f, err := s.repo.GetForge(ctx, forgeID)
-	if err != nil {
-		s.log.Warn("publishForgeAfterChange: get forge",
-			zap.String("forge_id", forgeID), zap.Error(err))
-		return
-	}
-	_ = s.attachPending(ctx, f)
-	_ = s.attachActiveEnv(ctx, f)
-	s.PublishSnapshot(ctx, convID, f)
+func (s *Service) publishForgeAfterChange(_ context.Context, _, _ string) {
+	// no-op stub: legacy Forge entity push removed with domain/events.
+	// User is rewriting forge to use eventlog.Emitter directly under
+	// each tool_call. Until then forge changes are silent on SSE.
+	//
+	// no-op stub：legacy Forge entity 推随 domain/events 删了。用户重写
+	// forge 时改用 eventlog.Emitter 在 tool_call 下直接推。在此之前 forge
+	// 变化对 SSE 静默。
 }
 
 // SyncEnvForVersion materializes the venv for the given version's EnvID
