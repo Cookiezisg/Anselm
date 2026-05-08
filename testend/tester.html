@@ -483,153 +483,86 @@
 
       </div>
 
-      <!-- SSE Tab (Phase 6 entity-state model: chat.message / forge / conversation) -->
-      <!-- legacy SSE tab — disabled (eventlog protocol replaces /api/v1/events) -->
-      <div class="tab-content" x-show="false" x-data="{}">
+      <!-- SSE Tab — raw two-channel viewer for /api/v1/eventlog +
+           /api/v1/notifications. Higher-level rendering lives in
+           chat.js (eventlog → bubbles) and tab-notifications.js
+           (notifications → entity feed). This tab is for protocol
+           debugging — every event renders as a one-liner with the
+           full JSON payload behind a <details> expander.
+           SSE tab —— /api/v1/eventlog + /api/v1/notifications 的 raw
+           两通道 viewer。语义渲染在 chat.js + tab-notifications.js；
+           本 tab 调试协议用，每事件一行 + <details> 展开看 JSON。 -->
+      <div class="tab-content" x-show="activeRightTab==='sse'" x-data="sseTab()">
         <div class="panel-toolbar">
-          <!-- Source selector (left) -->
+          <!-- Channel switch -->
           <div style="display:flex;gap:2px">
-            <button class="sse-view-btn" :class="{active: source==='chat'}"         @click="setSource('chat')">chat.message</button>
-            <button class="sse-view-btn" :class="{active: source==='forge'}"        @click="setSource('forge')">forge</button>
-            <button class="sse-view-btn" :class="{active: source==='conversation'}" @click="setSource('conversation')">conversation</button>
+            <button class="sse-view-btn" :class="{active: channel==='notifications'}"
+                    @click="setChannel('notifications')">notifications</button>
+            <button class="sse-view-btn" :class="{active: channel==='eventlog'}"
+                    @click="setChannel('eventlog')">eventlog</button>
           </div>
-          <!-- View toggle (right) -->
-          <div style="display:flex;gap:2px;margin-left:auto">
-            <button class="sse-view-btn" :class="{active: view==='stream'}" @click="view='stream'">Stream</button>
-            <button class="sse-view-btn" :class="{active: view==='raw'}"    @click="view='raw'">Raw</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" @click="clear()">Clear</button>
+          <!-- Eventlog conversationId input (hidden when notifications) -->
+          <input x-show="channel==='eventlog'"
+                 x-model="convId"
+                 placeholder="conversationId (cv_…)"
+                 style="font-family:Consolas,monospace;font-size:11px;padding:3px 6px;width:200px;border:1px solid var(--border);border-radius:3px"
+                 @keydown.enter="connect()">
+          <button x-show="channel==='eventlog'" class="btn-small" @click="connect()">reload</button>
+
+          <span style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:10px;color:var(--text-mute)">
+            <span x-text="visibleEvents().length + (filterTypes.size ? '/' + events.length : '') + ' / 500'"></span>
+            <span :style="'color:' + (connState==='live' ? '#2a9d3a' : connState==='error' ? '#c93434' : '#888')"
+                  x-text="connState==='live' ? '● live' : connState==='error' ? '✕ error' : '○ closed'"></span>
+            <button class="btn-small" @click="togglePause()" :title="paused ? 'Resume' : 'Pause'"
+                    x-text="paused ? '▶' : '⏸'"></button>
+            <button class="btn-small" @click="clear()">clear</button>
+          </span>
         </div>
 
-        <!-- Stream view -->
-        <div class="event-log" x-show="view==='stream'">
-
-          <!-- chat.message stream — each entry = full Message snapshot replaced by id -->
-          <template x-if="source === 'chat'">
-            <div>
-              <template x-for="(m, i) in messages" :key="m.id">
-                <div class="sse-turn">
-                  <div class="sse-turn-header">
-                    <span x-text="m.role + ' · ' + shortId(m.id) + ' · ' + m.status"></span>
-                    <span x-show="m.stopReason" style="color:var(--text-mute);font-size:10px;margin-left:6px"
-                          x-text="'stop:' + m.stopReason"></span>
-                    <span x-show="m.errorCode" class="destructive-badge" :title="m.errorMessage"
-                          x-text="m.errorCode"></span>
-                  </div>
-                  <template x-for="(b, j) in (m.blocks || [])" :key="b.id || j">
-                    <div>
-                      <template x-if="b.type === 'reasoning'">
-                        <details class="sse-thinking-block" open>
-                          <summary class="sse-thinking-summary">Thinking</summary>
-                          <pre class="sse-pre" x-text="blockText(b)"></pre>
-                        </details>
-                      </template>
-                      <template x-if="b.type === 'text'">
-                        <pre class="sse-text" x-text="blockText(b)"></pre>
-                      </template>
-                      <template x-if="b.type === 'tool_call'">
-                        <div class="sse-tool-row">
-                          <span class="sse-tool-icon">⚙</span>
-                          <span style="min-width:0;flex-shrink:0">
-                            <span class="sse-tool-name"
-                                  x-text="blockToolCall(b).summary || blockToolCall(b).name"></span>
-                            <span x-show="blockToolCall(b).destructive" class="destructive-badge"
-                                  title="LLM marked this call as potentially destructive">⚠</span>
-                          </span>
-                          <details style="flex:1;min-width:0">
-                            <summary style="cursor:pointer;color:var(--text-mute);font-size:10px">args</summary>
-                            <pre class="sse-pre" x-text="pretty(blockToolCall(b).arguments || {})"></pre>
-                          </details>
-                        </div>
-                      </template>
-                      <template x-if="b.type === 'tool_result'">
-                        <div class="sse-tool-row">
-                          <span class="sse-tool-icon"
-                                x-text="blockToolResult(b).ok ? '✓' : '✗'"></span>
-                          <span style="min-width:0;flex-shrink:0;color:var(--text-mute);font-size:10px"
-                                x-text="'result · ' + (blockToolResult(b).elapsedMs || 0) + 'ms'"></span>
-                          <details style="flex:1;min-width:0" open>
-                            <summary style="cursor:pointer;color:var(--text-mute);font-size:10px">output</summary>
-                            <pre class="sse-pre" x-text="tryFmt(blockToolResult(b).result || '')"></pre>
-                            <pre class="sse-pre" x-show="blockToolResult(b).errorMsg"
-                                 style="color:var(--err)"
-                                 x-text="blockToolResult(b).errorMsg"></pre>
-                          </details>
-                        </div>
-                      </template>
-                      <template x-if="b.type === 'attachment_ref'">
-                        <div style="font-size:11px;color:var(--text-mute)"
-                             x-text="'📎 ' + (blockToolCall(b).fileName || '')"></div>
-                      </template>
-                    </div>
-                  </template>
-                  <div x-show="m.inputTokens || m.outputTokens" class="sse-done"
-                       x-text="'▶ in:' + (m.inputTokens || 0) + ' / out:' + (m.outputTokens || 0)"></div>
-                </div>
-              </template>
-              <div x-show="messages.length === 0"
-                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for chat.message events…</div>
-            </div>
+        <!-- Type filter — multi-select chips. None selected = show all -->
+        <div style="padding:4px 10px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--canvas-subtle)">
+          <span style="font-size:10px;color:var(--text-mute);align-self:center">filter:</span>
+          <template x-for="t in knownTypes()" :key="t">
+            <button class="btn-small"
+                    :style="filterTypes.has(t) ? 'background:var(--accent-soft, #e6f0ff);font-weight:600' : ''"
+                    @click="toggleFilter(t)"
+                    x-text="t"></button>
           </template>
-
-          <!-- forge stream — each entry = full Forge snapshot, replaced by id; code grows live -->
-          <template x-if="source === 'forge'">
-            <div>
-              <template x-for="(f, i) in forges" :key="f.id">
-                <div class="sse-turn">
-                  <div class="sse-turn-header">
-                    <span x-text="(f.name || '(unnamed)') + ' · ' + shortId(f.id)"></span>
-                    <span x-show="f.versionCount" style="color:var(--text-mute);font-size:10px;margin-left:6px"
-                          x-text="'v' + f.versionCount"></span>
-                    <span x-show="f.pending" class="destructive-badge" title="Pending review">pending</span>
-                  </div>
-                  <details style="margin-bottom:4px" x-show="f.code">
-                    <summary style="cursor:pointer;font-size:10px;color:var(--text-mute)">code</summary>
-                    <pre class="sse-pre" style="max-height:200px;overflow-y:auto" x-text="f.code"></pre>
-                  </details>
-                  <details style="margin-bottom:4px" x-show="f.pending && f.pending.code">
-                    <summary style="cursor:pointer;font-size:10px;color:var(--warn)">pending.code (← live stream)</summary>
-                    <pre class="sse-pre" style="max-height:200px;overflow-y:auto"
-                         x-text="f.pending ? f.pending.code : ''"></pre>
-                  </details>
-                </div>
-              </template>
-              <div x-show="forges.length === 0"
-                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for forge events…</div>
-            </div>
-          </template>
-
-          <!-- conversation stream — each entry = full Conversation snapshot -->
-          <template x-if="source === 'conversation'">
-            <div>
-              <template x-for="(c, i) in convs" :key="c.id">
-                <div class="sse-turn">
-                  <div class="sse-turn-header">
-                    <span x-text="(c.title || '(untitled)') + ' · ' + shortId(c.id)"></span>
-                    <span x-show="c.autoTitled" style="color:var(--text-mute);font-size:10px;margin-left:6px">auto-titled</span>
-                  </div>
-                  <pre class="sse-pre" style="font-size:10px;color:var(--text-mute)"
-                       x-text="'createdAt: ' + (c.createdAt || '') + (c.systemPrompt ? '\nsystemPrompt: ' + c.systemPrompt : '')"></pre>
-                </div>
-              </template>
-              <div x-show="convs.length === 0"
-                   style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for conversation events…</div>
-            </div>
-          </template>
-
+          <span x-show="filterTypes.size" style="font-size:10px;color:var(--text-mute);align-self:center;margin-left:8px">
+            (<span x-text="filterTypes.size"></span> active)
+          </span>
         </div>
 
-        <!-- Raw view (all 3 event types interleaved) -->
-        <div class="event-log" x-show="view==='raw'">
-          <template x-for="(ev, i) in events" :key="i">
-            <div class="event-item">
-              <span class="event-name" :class="cssClass(ev.type)" x-text="ev.type"></span>
-              <span class="event-time" x-text="ev.time"></span>
-              <pre class="event-data" x-text="pretty(ev.data)"></pre>
-            </div>
+        <!-- Stream — newest at bottom, console-style. Auto-scroll to
+             bottom unless the user has scrolled up. -->
+        <div x-ref="stream" class="event-log" style="font-size:11px">
+          <template x-for="(ev, i) in visibleEvents()" :key="i">
+            <details style="border-left:2px solid var(--border-subtle);padding:2px 6px;margin-bottom:2px;background:var(--canvas-default)">
+              <summary style="cursor:pointer;display:flex;gap:8px;align-items:baseline;font-family:Consolas,monospace">
+                <span style="color:var(--text-mute);min-width:36px" x-text="'#' + ev.seq"></span>
+                <span style="color:var(--text-mute);min-width:88px" x-text="ev.time"></span>
+                <span :style="'color:' + typeColor(ev.type) + ';font-weight:600;min-width:120px'"
+                      x-text="ev.type"></span>
+                <span style="color:var(--fg-muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                      x-text="ev.summary"></span>
+              </summary>
+              <pre style="margin:4px 0 4px 36px;padding:4px;background:var(--canvas-subtle);font-family:Consolas,monospace;font-size:10px;white-space:pre-wrap;max-height:300px;overflow:auto"
+                   x-text="pretty(ev.parsed)"></pre>
+            </details>
           </template>
-          <div x-show="events.length === 0"
-               style="color:var(--text-mute);font-size:11px;padding:8px">Waiting for events…</div>
+          <div x-show="events.length === 0 && connState === 'live'"
+               style="color:var(--text-mute);font-size:11px;padding:8px">
+            Connected — waiting for events on
+            <code x-text="channel === 'eventlog' ? '/api/v1/eventlog?conversationId=' + convId : '/api/v1/notifications'"></code>
+          </div>
+          <div x-show="connState === 'closed' && channel === 'eventlog' && !convId"
+               style="color:var(--text-mute);font-size:11px;padding:8px">
+            Enter a conversationId above + press Enter (or click reload) to subscribe.
+          </div>
+          <div x-show="connState === 'error'"
+               style="color:var(--err);font-size:11px;padding:8px">
+            Connection error — check the backend is up and the conversationId exists. EventSource will keep retrying automatically.
+          </div>
         </div>
       </div>
 
@@ -2127,7 +2060,7 @@
   <script src="/dev/static/js/app.js?v=__BUILD__"></script>
   <script src="/dev/static/js/sidebar.js?v=__BUILD__"></script>
   <script src="/dev/static/js/chat.js?v=__BUILD__"></script>
-  <!-- tab-sse.js + tab-subagent.js removed: legacy /api/v1/events + /api/v1/subagent-* endpoints deleted -->
+  <script src="/dev/static/js/tab-sse.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-logs.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-sql.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-tests.js?v=__BUILD__"></script>
