@@ -85,7 +85,19 @@ document.addEventListener('alpine:init', () => {
       if (ev.ArgsDelta) pieces.push('args+=' + JSON.stringify(ev.ArgsDelta.length > 60 ? ev.ArgsDelta.slice(0, 60) + '…' : ev.ArgsDelta))
       if (ev.FinishReason) pieces.push('reason=' + ev.FinishReason)
       if (ev.InputTokens || ev.OutputTokens) pieces.push(`↑${ev.InputTokens||0} ↓${ev.OutputTokens||0}`)
-      if (ev.Err) pieces.push('err=' + JSON.stringify(ev.Err))
+      // Backend StreamEvent.Err is `error` interface with no JSON tag /
+      // MarshalJSON, so JSON-encoding yields `{}`. Skip empty objects to
+      // avoid useless "err={}" lines; trace-level t.error already shows
+      // the actual message. When backend later adds proper marshaling
+      // (string), this branch picks it up automatically.
+      //
+      // 后端 StreamEvent.Err 是 error interface 无 JSON tag，序列化得 `{}`。
+      // 跳空对象避免 "err={}" 噪音；trace-level t.error 已显真实信息。
+      // 后端将来加 MarshalJSON 输出字符串时此分支自动捕获。
+      const errStr = typeof ev.Err === 'string'
+        ? ev.Err
+        : (ev.Err && Object.keys(ev.Err).length > 0 ? JSON.stringify(ev.Err) : '')
+      if (errStr) pieces.push('err=' + errStr)
       return pieces.join(' ')
     },
   }))
