@@ -96,54 +96,64 @@ type ArgRequirement struct {
 // ── RegistrySource port ──────────────────────────────────────────────
 
 // RegistrySource is the marketplace data source — production wires
-// infra/mcp.OfficialRegistrySource (HTTP fetch + in-memory cache against
-// registry.modelcontextprotocol.io); tests wire infra/mcp.FakeRegistrySource
-// with deterministic entries. Either way returns the catalog mcp.Service
-// exposes via ListRegistry / GetRegistryEntry.
+// infra/mcp.OfficialRegistrySource (HTTP fetch against
+// registry.modelcontextprotocol.io); tests wire
+// infra/mcp.FakeRegistrySource with deterministic entries.
 //
-// RegistrySource 是 marketplace 数据源——生产接 infra/mcp.OfficialRegistrySource
-// （HTTP fetch + 进程内缓存，对 registry.modelcontextprotocol.io）；测试接
-// infra/mcp.FakeRegistrySource 给确定条目。两者都返 mcp.Service 经
-// ListRegistry / GetRegistryEntry 暴露的目录。
+// Search-only: the official registry has 5000+ entries and full listing
+// is disallowed (would force a multi-second page walk + flood any caller
+// with irrelevant data). Callers must always supply a non-empty query;
+// Get is for follow-up lookups by canonical name (e.g. install flow
+// after the LLM picked a name from a Search result).
+//
+// RegistrySource 是 marketplace 数据源——生产接 OfficialRegistrySource
+// （对 registry.modelcontextprotocol.io HTTP fetch）；测试接
+// FakeRegistrySource 给确定条目。
+//
+// 仅搜索：官方注册中心 5000+ 条目，全量列出禁止（拉一遍要好几秒，且对
+// 调用方刷无关数据）。调用方必须传非空 query；Get 用于后续按规范名
+// lookup（如 LLM 从 Search 结果选了 name 后的 install 流）。
 type RegistrySource interface {
-	// List returns all marketplace entries. The first call may block on
-	// a network fetch (~1-15s depending on registry size); subsequent
-	// calls return cached results from process memory. Returns
-	// ErrMarketplaceUnavailable when the fetch fails and no cache exists.
+	// Search returns entries matching query (server-side filter on the
+	// upstream registry). Empty query returns ErrQueryRequired — full
+	// listing is disallowed.
 	//
-	// List 返所有 marketplace 条目。首次调用可能阻塞 fetch（~1-15s 取决于
-	// registry 大小）；后续从进程内存返。fetch 失败且无缓存返
-	// ErrMarketplaceUnavailable。
-	List(ctx context.Context) ([]RegistryEntry, error)
+	// Search 按 query server-side 过滤返条目。空 query 返
+	// ErrQueryRequired——全量列出禁止。
+	Search(ctx context.Context, query string) ([]RegistryEntry, error)
 
-	// Get returns a single entry by canonical name. Uses the same cache
-	// as List. Returns ErrRegistryEntryNotFound when the name is not in
-	// the (possibly fetched) catalog.
+	// Get returns a single entry by canonical name. Implementations may
+	// hit a short-lived cache populated by recent Search results; on cache
+	// miss they may fall back to a search keyed off the name's last path
+	// segment. Returns ErrRegistryEntryNotFound when the entry isn't
+	// reachable.
 	//
-	// Get 按 canonical name 返单个条目。共享 List 的缓存。name 不在（可能已
-	// fetch 过的）目录中返 ErrRegistryEntryNotFound。
+	// Get 按规范 name 返单个条目。实现可击中由近期 Search 结果填充的短
+	// cache；miss 时可按 name 末段做 fallback search。不可达返
+	// ErrRegistryEntryNotFound。
 	Get(ctx context.Context, name string) (*RegistryEntry, error)
-
-	// Refresh forces a re-fetch, replacing any cached data. Used by
-	// manual UI refresh buttons. Failure leaves the previous cache intact.
-	//
-	// Refresh 强制重新 fetch + 替换缓存。UI 手动刷新按钮用。失败时旧缓存
-	// 保持不变。
-	Refresh(ctx context.Context) error
 }
 
 // ── Marketplace V2 sentinels ────────────────────────────────────────
 
 var (
 	// ErrMarketplaceUnavailable means the registry source could not fetch
-	// the catalog (network down, API error, etc.) AND no in-memory cache
-	// exists. UI / LLM should advise the user to check connectivity or
-	// configure a BYOK search key as fallback.
+	// the catalog (network down, API error, etc.). UI / LLM should advise
+	// the user to check connectivity or configure a BYOK search key as
+	// fallback.
 	//
 	// ErrMarketplaceUnavailable 表示 registry source 无法 fetch 目录
-	// （网络挂、API 错等）且无内存缓存。UI / LLM 应提示用户检查网络或配
-	// BYOK 搜索 key 作 fallback。
+	// （网络挂、API 错等）。UI / LLM 应提示用户检查网络或配 BYOK 搜索 key
+	// 作 fallback。
 	ErrMarketplaceUnavailable = errors.New("mcp: marketplace registry unavailable")
+
+	// ErrQueryRequired is returned by RegistrySource.Search when called
+	// with an empty query. The marketplace is too large to list in full;
+	// callers must always supply a keyword.
+	//
+	// ErrQueryRequired 由 Search 在空 query 时返。marketplace 太大无法全
+	// 列出，调用方必须传关键词。
+	ErrQueryRequired = errors.New("mcp: marketplace search requires non-empty query")
 
 	// ErrAliasCollision means the user-chosen alias for a new MCP server
 	// is already in use by another configured server. Caller should pick

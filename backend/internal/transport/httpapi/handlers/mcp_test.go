@@ -398,21 +398,29 @@ func TestMCP_Import_Multipart(t *testing.T) {
 
 // ── Registry endpoints ───────────────────────────────────────────────
 
-func TestMCP_ListRegistry_ReturnsSeededEntries(t *testing.T) {
-	// Marketplace V2 (post-2026-05-08) has no Hidden/UnsupportedPlatforms
-	// fields — entries come from the official registry as-is. This test
-	// asserts the handler returns whatever the source seeded.
-	//
-	// Marketplace V2（2026-05-08 后）无 Hidden/UnsupportedPlatforms 字段——
-	// 条目从官方 registry 原样取。本测试断言 handler 返 source 注入的全部条目。
+func TestMCP_SearchRegistry_MissingQuery_400(t *testing.T) {
+	// Marketplace V2 search-only model: no query → 400 MCP_QUERY_REQUIRED.
+	// 仅搜索模型：缺 query → 400 MCP_QUERY_REQUIRED。
 	h := newMCPTestServer(t)
 	resp, _ := http.Get(h.srv.URL + "/api/v1/mcp-registry")
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (query required)", resp.StatusCode)
+	}
+}
+
+func TestMCP_SearchRegistry_WithQuery_FiltersResults(t *testing.T) {
+	// FakeRegistrySource seeded with playwright + sqlite. ?search=play matches
+	// playwright only (substring match on name + description).
+	//
+	// FakeRegistrySource 注 playwright + sqlite。?search=play 仅匹 playwright。
+	h := newMCPTestServer(t)
+	resp, _ := http.Get(h.srv.URL + "/api/v1/mcp-registry?search=play")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 	got := envOf[[]mcpdomain.RegistryEntry](t, resp.Body)
-	if len(got) != 2 {
-		t.Errorf("len = %d, want 2 (seeded fake source has playwright + sqlite)", len(got))
+	if len(got) != 1 || got[0].Name != "playwright" {
+		t.Errorf("got = %+v, want [playwright]", got)
 	}
 }
 

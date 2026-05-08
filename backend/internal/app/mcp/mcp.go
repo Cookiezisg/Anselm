@@ -487,43 +487,32 @@ func (s *Service) ListTools(_ context.Context) []mcpdomain.ToolDef {
 
 // ── Registry source passthrough ──────────────────────────────────────
 
-// ListRegistry returns the marketplace catalog from the wired
-// RegistrySource. First call may block on a network fetch (~1-15s);
-// subsequent calls hit the source's in-memory cache. Returns
-// ErrMarketplaceUnavailable when the registry is unreachable and no
-// cache exists. Kept on Service so HTTP handler / LLM tools depend on
-// one Service interface.
+// SearchRegistry returns marketplace entries matching query via server-
+// side filter on the upstream registry. Empty query returns
+// ErrQueryRequired (full listing is disallowed — registry has 5000+
+// entries). Returns ErrMarketplaceUnavailable on network failure.
 //
-// ListRegistry 返来自接好的 RegistrySource 的 marketplace 目录。首次调用
-// 可能阻塞 fetch（~1-15s）；后续调用走 source 的进程内缓存。registry 不
-// 可达且无缓存返 ErrMarketplaceUnavailable。挂在 Service 上让 HTTP handler
-// / LLM 工具只依赖一个 Service 接口。
-func (s *Service) ListRegistry(ctx context.Context) ([]mcpdomain.RegistryEntry, error) {
-	return s.source.List(ctx)
+// SearchRegistry 经上游 ?search= 过滤返 marketplace 条目。空 query 返
+// ErrQueryRequired（全列禁止，5000+ 条目）。网络失败返
+// ErrMarketplaceUnavailable。
+func (s *Service) SearchRegistry(ctx context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
+	return s.source.Search(ctx, query)
 }
 
 // GetRegistryEntry returns one entry by canonical name (e.g.
-// "io.github.example/server"). Returns ErrRegistryEntryNotFound when the
-// name is absent from the catalog.
+// "io.github.example/server"). Hits the source's short-lived cache from
+// recent SearchRegistry calls; on miss falls back to a name-tail search.
+// Returns ErrRegistryEntryNotFound when truly absent.
 //
-// GetRegistryEntry 按 canonical name 返单个条目（如 "io.github.example/server"）。
-// 名字不在目录中返 ErrRegistryEntryNotFound。
+// GetRegistryEntry 按规范 name 返单条。先击中近期 SearchRegistry 填的短
+// cache；miss 时按 name 末段 fallback search。真不可达返
+// ErrRegistryEntryNotFound。
 func (s *Service) GetRegistryEntry(ctx context.Context, name string) (*mcpdomain.RegistryEntry, error) {
 	e, err := s.source.Get(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("mcpapp.GetRegistryEntry %s: %w", name, err)
 	}
 	return e, nil
-}
-
-// RefreshRegistry forces the source to drop its cache and re-fetch on
-// next List. Used by UI manual refresh + LLM-driven flows. Failure
-// leaves the prior cache intact.
-//
-// RefreshRegistry 强制 source 丢弃缓存 + 下次 List 重 fetch。UI 手动刷新 +
-// LLM 驱动流用。失败时旧缓存不变。
-func (s *Service) RefreshRegistry(ctx context.Context) error {
-	return s.source.Refresh(ctx)
 }
 
 // ── helpers ──────────────────────────────────────────────────────────

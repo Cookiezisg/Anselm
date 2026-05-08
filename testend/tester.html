@@ -1396,7 +1396,7 @@
           </button>
           <button class="btn-small" @click="section='marketplace'"
                   :style="section === 'marketplace' ? 'background:var(--accent-soft, #e6f0ff);font-weight:600' : ''">
-            Marketplace (<span x-text="registry.length"></span>)
+            Marketplace
           </button>
           <button class="btn-small" @click="loadServers()" :disabled="loading" x-text="loading ? '…' : 'reload'"></button>
           <span x-show="err"
@@ -1487,16 +1487,29 @@
           </div>
         </div>
 
-        <!-- ── Marketplace section ── -->
+        <!-- ── Marketplace section (search-only; 5000+ entries upstream) ── -->
         <div x-show="section === 'marketplace'" style="font-size:11px;padding:8px 10px">
+          <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+            <input type="text" x-model="searchQuery"
+                   @keydown="handleSearchKeydown($event)"
+                   placeholder="search marketplace (5000+ servers — keyword required)"
+                   class="filter-input" style="flex:1">
+            <button class="btn-small" @click="searchRegistry()" :disabled="searching">
+              <span x-show="!searching">Search</span>
+              <span x-show=" searching">Searching…</span>
+            </button>
+          </div>
           <div style="display:flex;gap:0">
             <div style="width:160px;border-right:1px solid var(--border);padding-right:8px;max-height:600px;overflow:auto">
+              <div x-show="registry.length === 0 && !searching" style="color:var(--text-mute);padding:8px;font-size:10px">
+                Type a keyword + press Enter to search.
+              </div>
               <template x-for="entry in registry" :key="entry.name">
                 <div style="padding:4px 6px;cursor:pointer;border-radius:3px"
                      :style="selectedRegEntry?.name === entry.name ? 'background:var(--accent-soft, #e6f0ff)' : ''"
                      @click="selectRegEntry(entry)">
                   <div style="font-family:Consolas,monospace;font-weight:600" x-text="entry.name"></div>
-                  <div style="font-size:9px;color:var(--text-mute)" x-text="entry.runtime + ' · ' + (entry.category || '')"></div>
+                  <div style="font-size:9px;color:var(--text-mute)" x-text="entry.runtime + ' · ' + (entry.version || '')"></div>
                 </div>
               </template>
             </div>

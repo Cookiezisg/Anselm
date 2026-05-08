@@ -112,7 +112,7 @@ var devRoutes = []devRoute{
 	{"POST", "/api/v1/mcp-servers/{name}:reconnect", "mcp.Reconnect"},
 	{"POST", "/api/v1/mcp-servers/{name}:health-check", "mcp.HealthCheck"},
 	{"POST", "/api/v1/mcp-servers:import", "mcp.ImportServers"},
-	{"GET", "/api/v1/mcp-registry", "mcp.ListRegistry"},
+	{"GET", "/api/v1/mcp-registry?search=", "mcp.SearchRegistry (query required)"},
 	{"GET", "/api/v1/mcp-registry/{name}", "mcp.GetRegistryEntry"},
 	{"POST", "/api/v1/mcp-registry/{name}:install", "mcp.InstallFromRegistry"},
 

@@ -12,12 +12,15 @@ document.addEventListener('alpine:init', () => {
     section: 'servers',         // 'servers' | 'marketplace'
     servers: [],
     selected: null,
+    // marketplace: search-only — registry has 5000+ entries, no full listing
+    // marketplace：仅搜索——5000+ 条，不全列
+    searchQuery: '',
+    searching: false,
     registry: [],
     selectedRegEntry: null,
     installEnv: {},             // map[name]string — for selected reg entry
     installArgs: {},            // map[name]string
     loading: false,
-    refreshing: false,
     importBusy: false,
     actionBusy: '',             // server name being acted on
     err: '',
@@ -34,7 +37,10 @@ document.addEventListener('alpine:init', () => {
           this.closeStderr();
         }
       });
-      await Promise.all([this.loadServers(), this.loadRegistry()])
+      // Only load installed servers up front. Marketplace fetch is gated
+      // on user search — registry has 5000+ entries, no auto-list.
+      // 仅预加载已装。Marketplace 须用户搜——5000+ 条，无 auto-list。
+      await this.loadServers()
     },
 
     async loadServers() {
@@ -55,13 +61,38 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    async loadRegistry() {
+    async searchRegistry() {
+      const q = this.searchQuery.trim()
+      if (!q) {
+        this.err = 'enter a search keyword (the marketplace has 5000+ servers; no full listing)'
+        this.registry = []
+        return
+      }
+      this.searching = true
+      this.err = ''
       try {
-        const r = await fetch('/api/v1/mcp-registry')
-        if (!r.ok) return
+        const r = await fetch('/api/v1/mcp-registry?search=' + encodeURIComponent(q))
+        if (!r.ok) {
+          const j = await r.json().catch(() => null)
+          this.err = `search failed HTTP ${r.status}` + (j?.error?.message ? ': ' + j.error.message : '')
+          this.registry = []
+          return
+        }
         const j = await r.json()
         this.registry = (j.data || []).sort((a, b) => a.name.localeCompare(b.name))
-      } catch {}
+        if (this.registry.length === 0) {
+          this.err = `no marketplace entries match "${q}"`
+        }
+      } catch (e) {
+        this.err = String(e)
+        this.registry = []
+      } finally {
+        this.searching = false
+      }
+    },
+
+    handleSearchKeydown(e) {
+      if (e.key === 'Enter') { e.preventDefault(); this.searchRegistry() }
     },
 
     selectServer(srv) {

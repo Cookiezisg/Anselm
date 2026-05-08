@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 )
@@ -46,14 +47,31 @@ func NewFakeRegistrySource(entries []mcpdomain.RegistryEntry) *FakeRegistrySourc
 	return &FakeRegistrySource{entries: cp}
 }
 
-// List returns a defensive copy of the seeded entries. Never returns
-// ErrMarketplaceUnavailable — the fake is always "reachable".
+// Search filters entries by case-insensitive substring match against name +
+// description for each whitespace-tokenized query term. All tokens must
+// match (AND semantics). Empty query returns ErrQueryRequired.
 //
-// List 返已注入 entries 的深拷贝。永不返 ErrMarketplaceUnavailable——fake
-// 永远"可达"。
-func (f *FakeRegistrySource) List(_ context.Context) ([]mcpdomain.RegistryEntry, error) {
-	out := make([]mcpdomain.RegistryEntry, len(f.entries))
-	copy(out, f.entries)
+// Search 按 name + description 做 case-insensitive 子串匹配（每个空白拆词
+// 分词后 AND 全匹）。空 query 返 ErrQueryRequired。
+func (f *FakeRegistrySource) Search(_ context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
+	tokens := strings.Fields(strings.ToLower(query))
+	if len(tokens) == 0 {
+		return nil, mcpdomain.ErrQueryRequired
+	}
+	var out []mcpdomain.RegistryEntry
+	for _, e := range f.entries {
+		hay := strings.ToLower(e.Name + " " + e.Description + " " + e.DisplayName)
+		ok := true
+		for _, t := range tokens {
+			if !strings.Contains(hay, t) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			out = append(out, e)
+		}
+	}
 	return out, nil
 }
 
@@ -69,11 +87,4 @@ func (f *FakeRegistrySource) Get(_ context.Context, name string) (*mcpdomain.Reg
 		}
 	}
 	return nil, fmt.Errorf("fake: %w: %q", mcpdomain.ErrRegistryEntryNotFound, name)
-}
-
-// Refresh is a no-op for the fake — entries are immutable post-construction.
-//
-// Refresh 对 fake 是 no-op——entries 构造后不可变。
-func (f *FakeRegistrySource) Refresh(_ context.Context) error {
-	return nil
 }

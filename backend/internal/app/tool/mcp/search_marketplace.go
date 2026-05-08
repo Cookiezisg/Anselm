@@ -104,7 +104,7 @@ func (t *SearchMarketplaceMCP) Execute(ctx context.Context, argsJSON string) (st
 		args.Limit = 20
 	}
 
-	all, err := t.svc.ListRegistry(ctx)
+	all, err := t.svc.SearchRegistry(ctx, args.Query)
 	if err != nil {
 		// Surface ErrMarketplaceUnavailable as actionable text so LLM can
 		// tell the user. Other errors bubble up too.
@@ -113,7 +113,7 @@ func (t *SearchMarketplaceMCP) Execute(ctx context.Context, argsJSON string) (st
 		if errors.Is(err, mcpdomain.ErrMarketplaceUnavailable) {
 			return fmt.Sprintf("Marketplace unavailable: %v. The official MCP registry is unreachable. The user can configure a search-category API key (Brave / Serper / Tavily / Bocha) for web search instead, or retry later.", err), nil
 		}
-		return "", fmt.Errorf("search_mcp_marketplace: list: %w", err)
+		return "", fmt.Errorf("search_mcp_marketplace: search: %w", err)
 	}
 	if len(all) == 0 {
 		out, _ := json.Marshal([]any{})

@@ -92,7 +92,7 @@ func (h *MCPHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/mcp-servers:import", h.importServers)
 
 	// Registry
-	mux.HandleFunc("GET /api/v1/mcp-registry", h.ListRegistry)
+	mux.HandleFunc("GET /api/v1/mcp-registry", h.SearchRegistry)
 	mux.HandleFunc("GET /api/v1/mcp-registry/{name}", h.GetRegistryEntry)
 	mux.HandleFunc("POST /api/v1/mcp-registry/{nameAction}", h.registryNameAction)
 }
@@ -364,15 +364,18 @@ func (h *MCPHandler) importServers(w http.ResponseWriter, r *http.Request) {
 
 // ── Registry ─────────────────────────────────────────────────────────
 
-// ListRegistry: GET /api/v1/mcp-registry → 200 [{RegistryEntry...}].
-// Returns the user-visible filtered list (Hidden=true entries excluded;
-// per-GOOS UnsupportedPlatforms applied) per mcp.md §5.5.
+// SearchRegistry: GET /api/v1/mcp-registry?search=<query> → 200
+// [{RegistryEntry...}]. Empty / missing search returns 400 — the marketplace
+// has 5000+ entries; full listing is disallowed (callers must search by
+// keyword). Server-side filter on the upstream registry; multi-word
+// queries are tokenized client-side.
 //
-// ListRegistry: GET /api/v1/mcp-registry → 200 [{RegistryEntry...}]。
-// 返用户可见过滤后列表（去 Hidden=true；按 GOOS 应用 UnsupportedPlatforms）
-// per mcp.md §5.5。
-func (h *MCPHandler) ListRegistry(w http.ResponseWriter, r *http.Request) {
-	entries, err := h.svc.ListRegistry(r.Context())
+// SearchRegistry: GET /api/v1/mcp-registry?search=<query> → 200。空 / 缺
+// search 返 400——marketplace 5000+ 条，全列禁止（必须按关键词搜）。
+// 上游 server-side 过滤；多词 query 客户端拆词。
+func (h *MCPHandler) SearchRegistry(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query().Get("search")
+	entries, err := h.svc.SearchRegistry(r.Context(), query)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
