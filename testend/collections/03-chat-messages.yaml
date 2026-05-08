@@ -164,7 +164,7 @@ steps:
 
   - name: "SSE 缺少 conversationId 参数 → 400"
     method: GET
-    path: /api/v1/events
+    path: /api/v1/eventlog
     expect:
       status: 400
 
