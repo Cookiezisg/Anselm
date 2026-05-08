@@ -1423,6 +1423,56 @@ select.cfg-input { cursor: pointer; }
   background: var(--danger-subtle);
 }
 
+/* ── AskUserQuestion in-flight prompt ──────────────────────────────────
+   Always visible inside the tool-step-card (no expand needed), since the
+   LLM is blocked waiting for a reply; user shouldn't have to click to
+   find the input. */
+.ask-prompt {
+  padding: var(--space-2);
+  border-top: 1px solid var(--accent-emphasis);
+  background: var(--accent-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ask-question {
+  font-size: var(--text-sm);
+  color: var(--fg-default);
+  white-space: pre-wrap;
+}
+.ask-options {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.ask-option-btn {
+  font-size: var(--text-xs);
+  padding: 4px 10px;
+  border: 1px solid var(--border-default);
+  background: var(--canvas-default);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+}
+.ask-option-btn:hover {
+  border-color: var(--accent-emphasis);
+  color: var(--accent-fg);
+}
+.ask-input-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+}
+.ask-input {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  resize: vertical;
+  background: var(--canvas-default);
+}
+
 .tool-step-body {
   padding: var(--space-2);
   border-top: 1px solid var(--border-subtle);

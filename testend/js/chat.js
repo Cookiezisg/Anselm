@@ -29,6 +29,7 @@ document.addEventListener('alpine:init', () => {
     streaming: false,
     pendingAtts: [],      // [{id, fileName, mimeType}]
     uploading: false,
+    askDraft: {},         // toolCallId → draft answer text (for in-flight AskUserQuestion)
     _es: null,            // /api/v1/eventlog SSE
     _ns: null,            // /api/v1/notifications SSE
 
@@ -763,6 +764,61 @@ document.addEventListener('alpine:init', () => {
 
     handleKeydown(e) {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send() }
+    },
+
+    // ── AskUserQuestion interactive prompt ──────────────────────────────────
+
+    // askQuestion / askOptions parse the tool item's input (JSON args sent
+    // by the LLM) so the template can render the question text + suggested
+    // options without re-parsing on every render.
+    //
+    // askQuestion / askOptions 解 tool item 的 input（LLM 发的 args JSON），
+    // 让模板渲染时不必反复解析。
+    askQuestion(item) {
+      try { return (JSON.parse(item.input || '{}').question) || '' } catch { return '' }
+    },
+    askOptions(item) {
+      try {
+        const opts = JSON.parse(item.input || '{}').options
+        return Array.isArray(opts) ? opts : []
+      } catch { return [] }
+    },
+
+    handleAskKeydown(e, item) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        this.submitAnswer(item, this.askDraft[item.toolCallId] || '')
+      }
+    },
+
+    // submitAnswer posts the user's answer to /answers, unblocking the
+    // AskUserQuestion tool's Wait. The SSE stream then delivers tool_result
+    // (with the same answer text) and the assistant continues.
+    //
+    // submitAnswer 把答案 POST 到 /answers 解锁 AskUserQuestion.Wait。SSE
+    // 接着推 tool_result（同答案文本），assistant 继续。
+    async submitAnswer(item, answer) {
+      const text = (answer || '').trim()
+      if (!text) return
+      const convId = this.conversationId
+      if (!convId) return
+      try {
+        const r = await fetch(`/api/v1/conversations/${convId}/answers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toolCallId: item.toolCallId, answer: text }),
+        })
+        if (!r.ok && r.status !== 204) {
+          toast.error('Send answer failed: HTTP ' + r.status)
+          return
+        }
+        // Optimistic: clear draft. Tool_result block_stop will arrive via
+        // SSE shortly and update item.result/ok normally.
+        // 乐观：清草稿。SSE 很快推 tool_result block_stop 正常更新 item.result/ok。
+        delete this.askDraft[item.toolCallId]
+      } catch (e) {
+        toast.error('Send answer failed: ' + e)
+      }
     },
   }))
 })

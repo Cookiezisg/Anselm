@@ -197,6 +197,34 @@
                                     :class="item.result === null ? 'running' : (item.ok ? 'ok' : 'err')"
                                     x-text="item.input === null ? 'starting…' : item.result === null ? 'running…' : (item.ok ? 'ok' : 'error')"></span>
                             </div>
+                            <!-- AskUserQuestion: in-flight prompt (result still null) →
+                                 always-visible question + optional click-to-pick option
+                                 buttons + free-form text box. User can click an option
+                                 OR type their own answer; either way Enter / Send POSTs
+                                 to /answers and unblocks the LLM.
+                                 AskUserQuestion 待响应（result 仍为 null）：常显问题 +
+                                 可选 click 选项按钮 + 自由文本框。两者都 POST /answers
+                                 解锁 LLM。-->
+                            <template x-if="item.toolName === 'AskUserQuestion' && item.result === null">
+                              <div class="ask-prompt">
+                                <div class="ask-question" x-text="askQuestion(item) || '(loading question…)'"></div>
+                                <div class="ask-options" x-show="askOptions(item).length > 0">
+                                  <template x-for="opt in askOptions(item)" :key="opt">
+                                    <button class="ask-option-btn" @click="submitAnswer(item, opt)" x-text="opt"></button>
+                                  </template>
+                                </div>
+                                <div class="ask-input-row">
+                                  <textarea class="ask-input"
+                                            x-model="askDraft[item.toolCallId]"
+                                            placeholder="或自己输入回答（Enter 发送，Shift+Enter 换行）"
+                                            @keydown="handleAskKeydown($event, item)"
+                                            rows="2"></textarea>
+                                  <button class="btn btn-primary btn-sm"
+                                          @click="submitAnswer(item, askDraft[item.toolCallId] || '')"
+                                          :disabled="!(askDraft[item.toolCallId] || '').trim()">Send</button>
+                                </div>
+                              </div>
+                            </template>
                             <template x-if="expanded[item.expandKey] && item.input !== null">
                               <div class="tool-step-body">
                                 <!-- args: always show even if {} so testers see 'no args passed' explicitly -->

@@ -56,13 +56,13 @@ var (
 
 // ── Description & schema ──────────────────────────────────────────────────────
 
-const askDescription = `Pause the agent loop and ask the user a question. Returns the user's answer.
+const askDescription = `Pause the agent loop and ask the user a question. Returns the user's answer as free-form text.
 
 Usage:
 - ` + "`question`" + ` is the question text shown to the user.
-- ` + "`options`" + ` (optional) is a list of suggested answers; the UI may render them as click-to-pick buttons. The user is NOT restricted to these — they may type any answer.
-- The tool blocks for up to 5 minutes; if the user does not respond in that window the result is "User did not respond within the timeout".
-- Use this when you genuinely need user input to proceed (e.g. ambiguous request, destructive action confirmation, missing data). Do NOT use it for things you can deduce from context.`
+- ` + "`options`" + ` (optional) is a list of suggested answers; the UI renders them as click-to-pick buttons alongside a free-text box. The user is NOT restricted to options — they may type anything (confirm with their own wording, decline, change parameters, ask back). You INTERPRET the resulting answer string to decide the next action.
+- The tool blocks for up to 5 minutes; if the user does not respond, the result is "User did not respond within the timeout".
+- Use this when you genuinely need user input to proceed (ambiguous request, destructive action confirmation, missing data). Do NOT use it for things you can deduce from context.`
 
 var askSchema = json.RawMessage(`{
 	"type": "object",
@@ -75,7 +75,7 @@ var askSchema = json.RawMessage(`{
 		"options": {
 			"type": "array",
 			"items": {"type": "string"},
-			"description": "Optional list of suggested answers (the UI may render them as buttons; user is NOT restricted to these)."
+			"description": "Optional list of suggested answers (the UI renders them as click-to-pick buttons; user is NOT restricted to these and may also type freely)."
 		}
 	}
 }`)
