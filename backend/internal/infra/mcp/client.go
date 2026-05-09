@@ -276,21 +276,62 @@ func (c *stdioClient) StderrTail() string {
 	return c.stderr.String()
 }
 
-// drainStderr reads stderr line-by-line, ships each line to zap, and
-// keeps the last stderrBufferMax bytes in the ring buffer for the UI
-// log panel. Long-lived goroutine — exits when the subprocess closes
-// its stderr (typically at exit).
+// drainStderr reads stderr line-by-line, ships each line to zap at a
+// content-aware level, and keeps the last stderrBufferMax bytes in the
+// ring buffer for the UI log panel. Long-lived goroutine — exits when
+// the subprocess closes its stderr (typically at exit).
 //
-// drainStderr 按行读 stderr，每行发 zap + 保留尾部 stderrBufferMax 字节
-// 给 UI 日志面板。长生命 goroutine——子进程关 stderr（通常退出）时退出。
+// MCP servers (Python / Node convention) reserve stdout for JSON-RPC
+// and emit ALL human-readable output (banners, info, warnings, errors,
+// tracebacks) on stderr. Logging every line at WARN drowns the real
+// signal — startup banners and "Installed N packages" become noise that
+// hides genuine "WARNING: BearerAuth not configured" entries. Default
+// each line to INFO and only escalate to WARN when the line itself
+// self-identifies as warning/error/exception/traceback.
+//
+// drainStderr 按行读 stderr 并按内容选 log 级别，保留尾部 stderrBufferMax
+// 字节给 UI 日志面板。长生命 goroutine——子进程关 stderr（通常退出）时退出。
+//
+// MCP server 约定（Python / Node 生态）stdout 留给 JSON-RPC，所有人类可读
+// 输出（banner / info / warning / error / traceback）都进 stderr。每行打
+// WARN 会淹没真信号——启动横幅 + "Installed N packages" 变噪音盖掉真实的
+// "WARNING: BearerAuth not configured"。默认 INFO，行自报 warn/error/
+// exception/traceback 才升级 WARN。
 func (c *stdioClient) drainStderr(r io.Reader) {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
-		c.log.Warn("stderr", zap.String("line", line))
+		if stderrIndicatesWarnOrError(line) {
+			c.log.Warn("stderr", zap.String("line", line))
+		} else {
+			c.log.Info("stderr", zap.String("line", line))
+		}
 		c.stderr.WriteLine(line)
 	}
+}
+
+// stderrIndicatesWarnOrError reports whether a line self-identifies as
+// a warning or error condition. Pattern matches Python `logging` and
+// Node common conventions plus raw "Error" / "Exception" / "Traceback"
+// markers — case-insensitive substring match (intentional: "WARNING",
+// "Warn:", "warning(s)" all hit). False positives (e.g. file paths
+// containing "error") are an acceptable trade for the simpler rule;
+// the alternative — strict prefix anchors — misses Python's
+// "WARNING:root:..." preamble that varies by config.
+//
+// stderrIndicatesWarnOrError 报告行是否自报 warn/error。覆盖 Python logging
+// 与 Node 常见约定 + 裸 "Error" / "Exception" / "Traceback" 标记——大小写
+// 无关子串匹配（"WARNING" / "Warn:" / "warning(s)" 都击中）。误报（如
+// 文件路径含 "error"）是可接受 trade-off；严格前缀锚定会漏掉 Python
+// "WARNING:root:..." 前缀（按配置变化）。
+func stderrIndicatesWarnOrError(line string) bool {
+	upper := strings.ToUpper(line)
+	return strings.Contains(upper, "WARNING") ||
+		strings.Contains(upper, "ERROR") ||
+		strings.Contains(upper, "FATAL") ||
+		strings.Contains(upper, "EXCEPTION") ||
+		strings.Contains(upper, "TRACEBACK")
 }
 
 // composeEnv merges the per-server env on top of os.Environ() so the

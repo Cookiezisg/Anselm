@@ -73,6 +73,7 @@ func Run[T any](
 	fn func(progress sandboxdomain.ProgressFunc) (T, error),
 ) (T, error) {
 	progressCb := newProgressCallback(ctx, attrs)
+	progressCb.emitStartLine(attrs)
 	out, err := fn(progressCb.cb)
 	progressCb.close(ctx, err)
 	return out, err
@@ -114,13 +115,45 @@ func (p *progressCallback) cb(stage, message string, percent int) {
 	p.em.DeltaBlock(context.Background(), p.blockID, formatProgressLine(stage, message, percent))
 }
 
+// emitStartLine pushes a synthetic "[starting] runtime/server" delta the
+// instant the block opens. Some installers (mise under MISE_QUIET=1, npm
+// without --verbose) stay nearly silent on stderr, leaving the progress
+// callback uncalled — the block would otherwise open and stop with zero
+// deltas, rendering as a blank line in the UI. This guarantees the user
+// sees that *something* started even when the underlying tool is quiet.
+//
+// emitStartLine 块刚开就推一条合成的 "[starting] runtime/server"。某些
+// installer（MISE_QUIET=1 下的 mise / 没 --verbose 的 npm）stderr 极少，
+// 进度回调可能一次都不调——块就会零 delta 起停在 UI 上空白一行。这条
+// 保证哪怕底层工具沉默用户也能看到"启动了"。
+func (p *progressCallback) emitStartLine(attrs map[string]any) {
+	if p.blockID == "" {
+		return
+	}
+	rt, _ := attrs["runtime"].(string)
+	srv, _ := attrs["server"].(string)
+	var line string
+	switch {
+	case rt != "" && srv != "":
+		line = fmt.Sprintf("[starting] %s for %s\n", rt, srv)
+	case rt != "":
+		line = fmt.Sprintf("[starting] %s runtime\n", rt)
+	default:
+		line = "[starting] sandbox install\n"
+	}
+	p.em.DeltaBlock(context.Background(), p.blockID, line)
+}
+
 func (p *progressCallback) close(ctx context.Context, err error) {
 	if p.blockID == "" {
 		return
 	}
 	status := eventlogdomain.StatusCompleted
 	if err != nil {
+		p.em.DeltaBlock(context.Background(), p.blockID, fmt.Sprintf("[error] %v\n", err))
 		status = eventlogdomain.StatusError
+	} else {
+		p.em.DeltaBlock(context.Background(), p.blockID, "[done] install complete\n")
 	}
 	p.em.StopBlock(ctx, p.blockID, status, err)
 }

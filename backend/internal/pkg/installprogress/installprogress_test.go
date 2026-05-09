@@ -109,11 +109,19 @@ func TestRun_ChatFlow_EmitsProgressBlock(t *testing.T) {
 	if em.starts[0].blockType != eventlogdomain.BlockTypeProgress {
 		t.Errorf("blockType = %q, want progress", em.starts[0].blockType)
 	}
-	if len(em.deltas) != 2 {
-		t.Errorf("expected 2 DeltaBlock calls, got %d", len(em.deltas))
+	// Expect 4 deltas: synthetic [starting] + fn's 2 progress() + synthetic [done].
+	// 4 条 delta：合成 [starting] + fn 内 2 次 progress() + 合成 [done]。
+	if len(em.deltas) != 4 {
+		t.Errorf("expected 4 DeltaBlock calls (start + 2 fn + done), got %d", len(em.deltas))
 	}
-	if !strings.Contains(em.deltas[0].delta, "[download]") || !strings.Contains(em.deltas[0].delta, "(25%)") {
-		t.Errorf("delta[0] missing expected format: %q", em.deltas[0].delta)
+	if !strings.Contains(em.deltas[0].delta, "[starting]") || !strings.Contains(em.deltas[0].delta, "python") {
+		t.Errorf("delta[0] expected synthetic [starting] python line, got %q", em.deltas[0].delta)
+	}
+	if !strings.Contains(em.deltas[1].delta, "[download]") || !strings.Contains(em.deltas[1].delta, "(25%)") {
+		t.Errorf("delta[1] missing fn-supplied download line: %q", em.deltas[1].delta)
+	}
+	if !strings.Contains(em.deltas[len(em.deltas)-1].delta, "[done]") {
+		t.Errorf("last delta expected synthetic [done] line, got %q", em.deltas[len(em.deltas)-1].delta)
 	}
 	if len(em.stops) != 1 || em.stops[0].status != eventlogdomain.StatusCompleted {
 		t.Errorf("expected 1 StopBlock with status=completed, got %+v", em.stops)

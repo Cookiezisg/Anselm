@@ -197,6 +197,13 @@
                                     :class="item.result === null ? 'running' : (item.ok ? 'ok' : 'err')"
                                     x-text="item.input === null ? 'starting…' : item.result === null ? 'running…' : (item.ok ? 'ok' : 'error')"></span>
                             </div>
+                            <!-- Folded progress preview: last non-empty line, only while
+                                 the tool is still running. Lets the user see install
+                                 progress (mise / npm / pip) without expanding. -->
+                            <div x-show="item.result === null && item.progress"
+                                 class="tool-step-progress-preview"
+                                 style="font-family:'Consolas',monospace;font-size:11px;color:var(--text-mute);padding:2px 8px 4px 28px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                                 x-text="(item.progress || '').split('\n').filter(l => l.trim()).slice(-1)[0] || ''"></div>
                             <!-- AskUserQuestion: in-flight prompt (result still null) →
                                  always-visible question + optional click-to-pick option
                                  buttons + free-form text box. User can click an option
@@ -232,6 +239,12 @@
                                   <div class="tool-step-section">args</div>
                                   <pre class="tool-step-pre" x-text="tryFmt(item.input || '{}')"></pre>
                                 </div>
+                                <template x-if="item.progress">
+                                  <div>
+                                    <div class="tool-step-section">progress</div>
+                                    <pre class="tool-step-pre" x-text="item.progress"></pre>
+                                  </div>
+                                </template>
                                 <template x-if="item.result !== null">
                                   <div>
                                     <div class="tool-step-section" x-text="item.ok ? 'result' : 'result (failed)'"></div>
