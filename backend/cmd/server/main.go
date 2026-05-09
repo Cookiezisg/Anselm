@@ -391,12 +391,26 @@ func main() {
 		Port:                actualPort,
 	})
 
+	// srvBaseCtx is the ancestor of every request's r.Context(). On Ctrl+C
+	// we cancel it BEFORE srv.Shutdown so SSE handlers (eventlog /
+	// notifications) selecting on r.Context().Done() unblock instantly —
+	// otherwise srv.Shutdown waits until the 5s timeout because stdlib
+	// doesn't cancel request contexts on Shutdown.
+	//
+	// srvBaseCtx 是所有 r.Context() 的祖先。Ctrl+C 时在 srv.Shutdown 前
+	// 先 cancel 它，让 SSE handler（eventlog/notifications）的 select
+	// 立刻解开——否则 stdlib 不会因 Shutdown 主动 cancel request ctx，
+	// 长连接 SSE 会撑满 5 秒超时。
+	srvBaseCtx, cancelBase := context.WithCancel(context.Background())
+	defer cancelBase()
+
 	srv := &http.Server{
 		Handler:     handler,
 		ReadTimeout: 15 * time.Second,
 		// WriteTimeout=0: SSE streams may run for minutes.
 		// WriteTimeout=0：SSE 流可能持续几分钟。
 		IdleTimeout: 60 * time.Second,
+		BaseContext: func(_ net.Listener) context.Context { return srvBaseCtx },
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -412,6 +426,14 @@ func main() {
 
 	<-ctx.Done()
 	log.Info("shutdown requested")
+
+	// Unblock SSE handlers first, then graceful Shutdown waits idle
+	// connections to drain. Without cancelBase() Shutdown burns the
+	// full 5s every Ctrl+C.
+	//
+	// 先解开 SSE handler，再 graceful Shutdown 等空闲连接 drain。
+	// 不 cancelBase() 的话每次 Ctrl+C 都吃满 5s 超时。
+	cancelBase()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
