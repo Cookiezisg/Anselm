@@ -92,7 +92,7 @@ func (h *MCPHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/mcp-servers:import", h.importServers)
 
 	// Registry
-	mux.HandleFunc("GET /api/v1/mcp-registry", h.SearchRegistry)
+	mux.HandleFunc("GET /api/v1/mcp-registry", h.ListRegistry)
 	mux.HandleFunc("GET /api/v1/mcp-registry/{name}", h.GetRegistryEntry)
 	mux.HandleFunc("POST /api/v1/mcp-registry/{nameAction}", h.registryNameAction)
 }
@@ -364,18 +364,14 @@ func (h *MCPHandler) importServers(w http.ResponseWriter, r *http.Request) {
 
 // ── Registry ─────────────────────────────────────────────────────────
 
-// SearchRegistry: GET /api/v1/mcp-registry?search=<query> → 200
-// [{RegistryEntry...}]. Empty / missing search returns 400 — the marketplace
-// has 5000+ entries; full listing is disallowed (callers must search by
-// keyword). Server-side filter on the upstream registry; multi-word
-// queries are tokenized client-side.
+// ListRegistry: GET /api/v1/mcp-registry → 200 [{RegistryEntry...}].
+// V3 (2026-05-09) returns the full curated catalog (~21 entries)
+// sorted tier-asc + name-asc. No query parameter — list everything.
 //
-// SearchRegistry: GET /api/v1/mcp-registry?search=<query> → 200。空 / 缺
-// search 返 400——marketplace 5000+ 条，全列禁止（必须按关键词搜）。
-// 上游 server-side 过滤；多词 query 客户端拆词。
-func (h *MCPHandler) SearchRegistry(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("search")
-	entries, err := h.svc.SearchRegistry(r.Context(), query)
+// ListRegistry: GET /api/v1/mcp-registry → 200。V3 全列 curated 目录
+// （~21 条）按 tier asc + name asc 排。无 query 参数。
+func (h *MCPHandler) ListRegistry(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.svc.ListRegistry(r.Context())
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

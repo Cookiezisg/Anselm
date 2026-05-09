@@ -12,12 +12,12 @@ document.addEventListener('alpine:init', () => {
     section: 'servers',         // 'servers' | 'marketplace'
     servers: [],
     selected: null,
-    // marketplace: search-only — 21 curated entries (Marketplace V3),
-    // no full-list endpoint by design (parity with future expansion).
-    // marketplace：仅搜索——21 条 curated（Marketplace V3），不开全量列出
-    // 端点（与未来扩展一致）。
-    searchQuery: '',
-    searching: false,
+    // Marketplace V3 (2026-05-09): full list — 21 curated entries
+    // returned by GET /api/v1/mcp-registry. Client-side substring filter
+    // replaces V2's server-side keyword search.
+    // Marketplace V3：全量返 21 条 curated。客户端过滤替代 V2 服务端搜索。
+    filterQuery: '',
+    loadingRegistry: false,
     registry: [],
     selectedRegEntry: null,
     installEnv: {},             // map[name]string — for selected reg entry
@@ -39,10 +39,13 @@ document.addEventListener('alpine:init', () => {
           this.closeStderr();
         }
       });
-      // Only load installed servers up front. Marketplace fetch is
-      // gated on user search — 21 curated entries by design, no auto-list.
-      // 仅预加载已装。Marketplace 须用户搜——21 条 curated，无 auto-list。
+      // V3: load both installed servers and the curated marketplace
+      // up-front. Marketplace is now ~21 entries — small enough to
+      // fetch eagerly so the dev sees the full list immediately.
+      // V3：服务和 marketplace 都预加载。Marketplace ~21 条体量小，eager
+      // 抓让 dev 立刻看到全列表。
       await this.loadServers()
+      await this.loadRegistry()
     },
 
     async loadServers() {
@@ -63,38 +66,37 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    async searchRegistry() {
-      const q = this.searchQuery.trim()
-      if (!q) {
-        this.err = 'enter a search keyword (21 curated entries; search-only — no full listing)'
-        this.registry = []
-        return
-      }
-      this.searching = true
+    async loadRegistry() {
+      this.loadingRegistry = true
       this.err = ''
       try {
-        const r = await fetch('/api/v1/mcp-registry?search=' + encodeURIComponent(q))
+        const r = await fetch('/api/v1/mcp-registry')
         if (!r.ok) {
           const j = await r.json().catch(() => null)
-          this.err = `search failed HTTP ${r.status}` + (j?.error?.message ? ': ' + j.error.message : '')
+          this.err = `marketplace load failed HTTP ${r.status}` + (j?.error?.message ? ': ' + j.error.message : '')
           this.registry = []
           return
         }
         const j = await r.json()
-        this.registry = (j.data || []).sort((a, b) => a.name.localeCompare(b.name))
-        if (this.registry.length === 0) {
-          this.err = `no marketplace entries match "${q}"`
-        }
+        // Backend returns tier-asc + name-asc; trust that ordering.
+        // 后端已 tier asc + name asc 排，直接用。
+        this.registry = j.data || []
       } catch (e) {
         this.err = String(e)
         this.registry = []
       } finally {
-        this.searching = false
+        this.loadingRegistry = false
       }
     },
 
-    handleSearchKeydown(e) {
-      if (e.key === 'Enter') { e.preventDefault(); this.searchRegistry() }
+    filteredRegistry() {
+      const q = (this.filterQuery || '').trim().toLowerCase()
+      if (!q) return this.registry
+      return this.registry.filter(e =>
+        (e.name || '').toLowerCase().includes(q) ||
+        (e.category || '').toLowerCase().includes(q) ||
+        (e.description || '').toLowerCase().includes(q)
+      )
     },
 
     selectServer(srv) {

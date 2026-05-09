@@ -25,7 +25,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
@@ -66,35 +65,16 @@ func NewCuratedRegistrySource() *CuratedRegistrySource {
 	return src
 }
 
-// Search returns entries whose name / description / category / notes
-// contains EVERY whitespace-separated token in query (AND match,
-// case-insensitive). Empty query returns ErrQueryRequired.
+// List returns every entry in the curated catalog, copied so callers
+// can't mutate internal state. Order matches the tier-asc + name-asc
+// sort applied at construction.
 //
-// Search 返 name / description / category / notes 上 AND 匹配每个空白拆词
-// 条目。空 query 返 ErrQueryRequired。
-func (c *CuratedRegistrySource) Search(_ context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
-	tokens := tokenizeLower(query)
-	if len(tokens) == 0 {
-		return nil, mcpdomain.ErrQueryRequired
-	}
+// List 返 curated 目录全部条目（拷贝防外部 mutate）。顺序与构造时排序一致。
+func (c *CuratedRegistrySource) List(_ context.Context) ([]mcpdomain.RegistryEntry, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	var out []mcpdomain.RegistryEntry
-	for _, e := range c.all {
-		hay := strings.ToLower(strings.Join([]string{
-			e.Name, e.Description, e.Category, e.Notes,
-		}, " "))
-		matched := true
-		for _, t := range tokens {
-			if !strings.Contains(hay, t) {
-				matched = false
-				break
-			}
-		}
-		if matched {
-			out = append(out, e)
-		}
-	}
+	out := make([]mcpdomain.RegistryEntry, len(c.all))
+	copy(out, c.all)
 	return out, nil
 }
 
@@ -111,17 +91,6 @@ func (c *CuratedRegistrySource) Get(_ context.Context, name string) (*mcpdomain.
 	}
 	cp := e
 	return &cp, nil
-}
-
-func tokenizeLower(query string) []string {
-	var out []string
-	for _, t := range strings.Fields(strings.ToLower(query)) {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			out = append(out, t)
-		}
-	}
-	return out
 }
 
 // Compile-time check.

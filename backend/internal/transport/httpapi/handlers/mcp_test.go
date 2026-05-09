@@ -399,29 +399,21 @@ func TestMCP_Import_Multipart(t *testing.T) {
 
 // ── Registry endpoints ───────────────────────────────────────────────
 
-func TestMCP_SearchRegistry_MissingQuery_400(t *testing.T) {
-	// Marketplace V2 search-only model: no query → 400 MCP_QUERY_REQUIRED.
-	// 仅搜索模型：缺 query → 400 MCP_QUERY_REQUIRED。
+func TestMCP_ListRegistry_ReturnsAllEntries(t *testing.T) {
+	// V3 (2026-05-09): GET /api/v1/mcp-registry returns the full curated
+	// catalog — no query parameter. fakeRegistrySource is seeded with
+	// playwright + sqlite, so we expect 2 entries.
+	//
+	// V3：GET /api/v1/mcp-registry 返完整 curated 目录，无 query 参数。
+	// fakeRegistrySource 注 playwright + sqlite，期 2 条。
 	h := newMCPTestServer(t)
 	resp, _ := http.Get(h.srv.URL + "/api/v1/mcp-registry")
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400 (query required)", resp.StatusCode)
-	}
-}
-
-func TestMCP_SearchRegistry_WithQuery_FiltersResults(t *testing.T) {
-	// FakeRegistrySource seeded with playwright + sqlite. ?search=play matches
-	// playwright only (substring match on name + description).
-	//
-	// FakeRegistrySource 注 playwright + sqlite。?search=play 仅匹 playwright。
-	h := newMCPTestServer(t)
-	resp, _ := http.Get(h.srv.URL + "/api/v1/mcp-registry?search=play")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 	got := envOf[[]mcpdomain.RegistryEntry](t, resp.Body)
-	if len(got) != 1 || got[0].Name != "playwright" {
-		t.Errorf("got = %+v, want [playwright]", got)
+	if len(got) != 2 {
+		t.Errorf("got %d entries, want 2 (playwright + sqlite)", len(got))
 	}
 }
 
@@ -494,16 +486,9 @@ func newFakeRegistrySource(entries ...mcpdomain.RegistryEntry) *fakeRegistrySour
 	return f
 }
 
-func (f *fakeRegistrySource) Search(_ context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
-	if query == "" {
-		return nil, mcpdomain.ErrQueryRequired
-	}
-	var out []mcpdomain.RegistryEntry
-	for _, e := range f.all {
-		if strings.Contains(strings.ToLower(e.Name+" "+e.Description), strings.ToLower(query)) {
-			out = append(out, e)
-		}
-	}
+func (f *fakeRegistrySource) List(_ context.Context) ([]mcpdomain.RegistryEntry, error) {
+	out := make([]mcpdomain.RegistryEntry, len(f.all))
+	copy(out, f.all)
 	return out, nil
 }
 

@@ -111,42 +111,36 @@ type ArgRequirement struct {
 
 // ── RegistrySource port ──────────────────────────────────────────────
 
-// RegistrySource is the marketplace data source — production wires
-// infra/mcp.OfficialRegistrySource (HTTP fetch against
-// registry.modelcontextprotocol.io); tests wire
-// infra/mcp.FakeRegistrySource with deterministic entries.
+// RegistrySource is the marketplace data source. Production wires
+// infra/mcp.CuratedRegistrySource (21 hand-picked entries); tests wire
+// the in-memory test fixture.
 //
-// Search-only: the official registry has 5000+ entries and full listing
-// is disallowed (would force a multi-second page walk + flood any caller
-// with irrelevant data). Callers must always supply a non-empty query;
-// Get is for follow-up lookups by canonical name (e.g. install flow
-// after the LLM picked a name from a Search result).
+// V3 (2026-05-09): full List replaces the V2 Search-only contract.
+// Curated catalog tops out around 21–30 entries — listing all of them
+// fits comfortably in the LLM's context, and per-call keyword search
+// (V2) was empirically too lossy (4-token AND-match found 1 of 21
+// playwright/browser/github/slack candidates).
 //
-// RegistrySource 是 marketplace 数据源——生产接 OfficialRegistrySource
-// （对 registry.modelcontextprotocol.io HTTP fetch）；测试接
-// FakeRegistrySource 给确定条目。
+// RegistrySource 是 marketplace 数据源——生产接 CuratedRegistrySource
+// （21 条精选）；测试接内存 fixture。
 //
-// 仅搜索：官方注册中心 5000+ 条目，全量列出禁止（拉一遍要好几秒，且对
-// 调用方刷无关数据）。调用方必须传非空 query；Get 用于后续按规范名
-// lookup（如 LLM 从 Search 结果选了 name 后的 install 流）。
+// V3（2026-05-09）：全量 List 取代 V2 仅 Search。curated 目录上限 ~21-30
+// 条，全列入 LLM context 完全 OK；V2 关键词 AND-match 实测召回过低
+// （playwright/browser/github/slack 4 词 21 条只命中 1）。
 type RegistrySource interface {
-	// Search returns entries matching query (server-side filter on the
-	// upstream registry). Empty query returns ErrQueryRequired — full
-	// listing is disallowed.
+	// List returns every entry in the curated catalog, sorted tier-asc
+	// then name-asc so "easiest-to-use" servers appear first. Stable
+	// ordering — callers can rely on the order being identical across
+	// calls within one process.
 	//
-	// Search 按 query server-side 过滤返条目。空 query 返
-	// ErrQueryRequired——全量列出禁止。
-	Search(ctx context.Context, query string) ([]RegistryEntry, error)
+	// List 返 curated 目录所有条目，按 tier asc + name asc 稳排让"最易上手"
+	// 排前。同进程内多次调用顺序一致。
+	List(ctx context.Context) ([]RegistryEntry, error)
 
-	// Get returns a single entry by canonical name. Implementations may
-	// hit a short-lived cache populated by recent Search results; on cache
-	// miss they may fall back to a search keyed off the name's last path
-	// segment. Returns ErrRegistryEntryNotFound when the entry isn't
-	// reachable.
+	// Get returns a single entry by canonical name. Returns
+	// ErrRegistryEntryNotFound when the name isn't in the curated list.
 	//
-	// Get 按规范 name 返单个条目。实现可击中由近期 Search 结果填充的短
-	// cache；miss 时可按 name 末段做 fallback search。不可达返
-	// ErrRegistryEntryNotFound。
+	// Get 按规范 name 返单条目；不在 curated 列表返 ErrRegistryEntryNotFound。
 	Get(ctx context.Context, name string) (*RegistryEntry, error)
 }
 
@@ -162,14 +156,6 @@ var (
 	// （网络挂、API 错等）。UI / LLM 应提示用户检查网络或配 BYOK 搜索 key
 	// 作 fallback。
 	ErrMarketplaceUnavailable = errors.New("mcp: marketplace registry unavailable")
-
-	// ErrQueryRequired is returned by RegistrySource.Search when called
-	// with an empty query. The marketplace is too large to list in full;
-	// callers must always supply a keyword.
-	//
-	// ErrQueryRequired 由 Search 在空 query 时返。marketplace 太大无法全
-	// 列出，调用方必须传关键词。
-	ErrQueryRequired = errors.New("mcp: marketplace search requires non-empty query")
 
 	// ErrAlreadyInstalled means an install attempt targeted a server alias
 	// that's already configured (mcp.json already has it). Caller should

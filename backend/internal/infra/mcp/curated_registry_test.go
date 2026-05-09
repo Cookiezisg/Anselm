@@ -115,103 +115,65 @@ func TestCurated_NewSourceWiresAllEntries(t *testing.T) {
 	}
 }
 
-// TestCurated_Search_EmptyQuery asserts ErrQueryRequired (callers must
-// always articulate intent — even though the list is small, no full dump).
+// TestCurated_List_AllEntriesReturned asserts List returns every
+// curated entry exactly once.
 //
-// TestCurated_Search_EmptyQuery 空 query 必返 ErrQueryRequired。
-func TestCurated_Search_EmptyQuery(t *testing.T) {
+// TestCurated_List_AllEntriesReturned List 返每条精确一次。
+func TestCurated_List_AllEntriesReturned(t *testing.T) {
 	src := NewCuratedRegistrySource()
-	for _, q := range []string{"", "   ", "\t\n"} {
-		_, err := src.Search(context.Background(), q)
-		if !errors.Is(err, mcpdomain.ErrQueryRequired) {
-			t.Errorf("Search(%q) err = %v, want ErrQueryRequired", q, err)
-		}
-	}
-}
-
-// TestCurated_Search_KnownTokens verifies common search keywords surface
-// the expected entries — guards against regressions where someone edits
-// a description and accidentally drops a server out of search.
-//
-// TestCurated_Search_KnownTokens 验常见关键词命中预期条目。
-func TestCurated_Search_KnownTokens(t *testing.T) {
-	src := NewCuratedRegistrySource()
-	cases := []struct {
-		query    string
-		wantName string
-	}{
-		{"playwright", "playwright"},
-		{"duckduckgo", "duckduckgo"},
-		{"chrome", "chrome-devtools"},
-		{"github", "github"},
-		{"gitlab", "gitlab"},
-		{"notion", "notion"},
-		{"figma", "figma"},
-		{"gmail", "google-workspace"},
-		{"workspace", "google-workspace"},
-		{"calendar", "google-workspace"},
-		{"sentry", "sentry"},
-		{"e2b", "e2b"},
-		{"slack", "slack"},
-		{"linear", "linear"},
-		{"firecrawl", "firecrawl"},
-		{"tavily", "tavily"},
-		{"mongo", "mongodb"},
-		{"supabase", "supabase"},
-		{"context7", "context7"},
-		{"memory", "memory"},
-		{"atlassian", "atlassian"},
-		{"jira", "atlassian"},
-		{"ms365", "ms365"},
-		{"outlook", "ms365"},
-		{"dbhub", "dbhub"},
-		{"postgres", "dbhub"},
-	}
-	for _, tc := range cases {
-		got, err := src.Search(context.Background(), tc.query)
-		if err != nil {
-			t.Errorf("Search(%q) err = %v", tc.query, err)
-			continue
-		}
-		var found bool
-		for _, e := range got {
-			if e.Name == tc.wantName {
-				found = true
-				break
-			}
-		}
-		if !found {
-			names := make([]string, 0, len(got))
-			for _, e := range got {
-				names = append(names, e.Name)
-			}
-			t.Errorf("Search(%q) did not include %q. got: %v", tc.query, tc.wantName, names)
-		}
-	}
-}
-
-// TestCurated_Search_AndSemantics verifies multi-token queries AND-match
-// (all tokens must appear).
-//
-// TestCurated_Search_AndSemantics 多词 query 是 AND 匹配。
-func TestCurated_Search_AndSemantics(t *testing.T) {
-	src := NewCuratedRegistrySource()
-	got, err := src.Search(context.Background(), "browser microsoft")
+	got, err := src.List(context.Background())
 	if err != nil {
-		t.Fatalf("Search err: %v", err)
+		t.Fatalf("List err: %v", err)
 	}
-	if len(got) == 0 {
-		t.Fatalf("Search('browser microsoft') returned empty; expected playwright")
+	if len(got) != len(curatedEntries) {
+		t.Errorf("List len = %d, want %d", len(got), len(curatedEntries))
 	}
-	var pw bool
+	seen := make(map[string]int, len(got))
 	for _, e := range got {
-		if e.Name == "playwright" {
-			pw = true
-			break
+		seen[e.Name]++
+	}
+	for _, e := range curatedEntries {
+		if seen[e.Name] != 1 {
+			t.Errorf("entry %q appeared %d times, want 1", e.Name, seen[e.Name])
 		}
 	}
-	if !pw {
-		t.Errorf("expected 'playwright' in results, got %d entries (none matched both tokens?)", len(got))
+}
+
+// TestCurated_List_SortedByTierThenName guards the documented ordering
+// contract: easiest-to-use (tier 0) first, alphabetical within tier.
+//
+// TestCurated_List_SortedByTierThenName 守住"tier asc + name asc"排序契约。
+func TestCurated_List_SortedByTierThenName(t *testing.T) {
+	src := NewCuratedRegistrySource()
+	got, _ := src.List(context.Background())
+	for i := 1; i < len(got); i++ {
+		prev, cur := got[i-1], got[i]
+		if prev.Tier > cur.Tier {
+			t.Errorf("tier order broken: %s(tier=%d) before %s(tier=%d)",
+				prev.Name, prev.Tier, cur.Name, cur.Tier)
+		}
+		if prev.Tier == cur.Tier && prev.Name > cur.Name {
+			t.Errorf("name order broken within tier %d: %s before %s",
+				prev.Tier, prev.Name, cur.Name)
+		}
+	}
+}
+
+// TestCurated_List_ReturnsCopy ensures callers can't mutate internal
+// state by editing the returned slice.
+//
+// TestCurated_List_ReturnsCopy 返切片不允许穿透 mutate 内部。
+func TestCurated_List_ReturnsCopy(t *testing.T) {
+	src := NewCuratedRegistrySource()
+	got, _ := src.List(context.Background())
+	if len(got) == 0 {
+		t.Fatal("List returned 0 entries")
+	}
+	original := got[0].Name
+	got[0].Name = "tampered"
+	got2, _ := src.List(context.Background())
+	if got2[0].Name != original {
+		t.Errorf("internal state mutated: got2[0].Name = %q, want %q", got2[0].Name, original)
 	}
 }
 

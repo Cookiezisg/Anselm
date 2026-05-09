@@ -227,7 +227,7 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 
 | Method | Path | 用途 |
 |---|---|---|
-| GET | `/api/v1/mcp-registry` | 列所有可装 server entries（v1 内置 5 个：playwright / markitdown / context7 / duckduckgo-search / sqlite，Bundled=true 表 marketplace 默认推荐项；外加 hidden 的 everything 仅 pipeline test 用。装机一律 lazy via sandbox）|
+| GET | `/api/v1/mcp-registry` | 列 curated marketplace 全部条目（V3 / 2026-05-09：~21 条精选，tier asc + name asc 稳排，无 query 参数）|
 | GET | `/api/v1/mcp-registry/{name}` | 单 entry 详情（含 RequiredEnv / RequiredArgs）|
 | POST | `/api/v1/mcp-registry/{name}:install` | 安装：填 env + args → 写 mcp.json + Connect |
 

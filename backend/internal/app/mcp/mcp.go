@@ -498,26 +498,23 @@ func (s *Service) ListTools(_ context.Context) []mcpdomain.ToolDef {
 
 // ── Registry source passthrough ──────────────────────────────────────
 
-// SearchRegistry returns marketplace entries matching query via server-
-// side filter on the upstream registry. Empty query returns
-// ErrQueryRequired (full listing is disallowed — registry has 5000+
-// entries). Returns ErrMarketplaceUnavailable on network failure.
+// ListRegistry returns every entry in the curated marketplace catalog,
+// sorted tier-asc + name-asc. V3 (2026-05-09) replaces the V2
+// search-only contract — the curated catalog is small enough (~21
+// entries) that listing all of them fits in the LLM's context, and
+// per-call AND-match search proved too lossy in practice.
 //
-// SearchRegistry 经上游 ?search= 过滤返 marketplace 条目。空 query 返
-// ErrQueryRequired（全列禁止，5000+ 条目）。网络失败返
-// ErrMarketplaceUnavailable。
-func (s *Service) SearchRegistry(ctx context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
-	return s.source.Search(ctx, query)
+// ListRegistry 返 curated marketplace 全部条目（tier asc + name asc）。
+// V3（2026-05-09）替代 V2 仅 Search——curated 目录 ~21 条全列入 LLM context
+// 完全 OK，而 V2 关键词 AND-match 实测召回过低。
+func (s *Service) ListRegistry(ctx context.Context) ([]mcpdomain.RegistryEntry, error) {
+	return s.source.List(ctx)
 }
 
-// GetRegistryEntry returns one entry by canonical name (e.g.
-// "io.github.example/server"). Hits the source's short-lived cache from
-// recent SearchRegistry calls; on miss falls back to a name-tail search.
-// Returns ErrRegistryEntryNotFound when truly absent.
+// GetRegistryEntry returns one entry by canonical short slug (e.g.
+// "playwright"). Returns ErrRegistryEntryNotFound when truly absent.
 //
-// GetRegistryEntry 按规范 name 返单条。先击中近期 SearchRegistry 填的短
-// cache；miss 时按 name 末段 fallback search。真不可达返
-// ErrRegistryEntryNotFound。
+// GetRegistryEntry 按规范短 slug 返单条；不可达返 ErrRegistryEntryNotFound。
 func (s *Service) GetRegistryEntry(ctx context.Context, name string) (*mcpdomain.RegistryEntry, error) {
 	e, err := s.source.Get(ctx, name)
 	if err != nil {

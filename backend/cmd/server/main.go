@@ -303,7 +303,7 @@ func main() {
 	if err := mcpService.Start(context.Background()); err != nil {
 		log.Warn("mcp start partial failure (some servers may be unreachable)", zap.Error(err))
 	}
-	tools = append(tools, mcptool.MCPTools(mcpService, modelService, apikeyService, llmFactory)...)
+	tools = append(tools, mcptool.MCPTools(mcpService)...)
 
 	// Skill: scan ~/.forgify/skills/ for any installed Anthropic Agent
 	// Skills + start the 1s polling loop for live rescan on user edits.

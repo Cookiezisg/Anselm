@@ -28,16 +28,14 @@ type UninstallMCPServer struct {
 	svc *mcpapp.Service
 }
 
-const uninstallMCPServerDescription = `Uninstall a previously-installed MCP server. Removes it from mcp.json and disconnects the subprocess. Pass the local alias the server was installed under (e.g. "duckduckgo-search"), NOT the registry namespace name.
-
-For Docker-runtime servers, the container is removed automatically (--rm) but the cached image stays in the docker daemon's image cache. Run ` + "`docker image prune`" + ` manually to reclaim disk space if many docker MCP images accumulate.`
+const uninstallMCPServerDescription = `Uninstall a previously-installed MCP server. Removes it from mcp.json and disconnects the subprocess. Pass the canonical short name the server was installed under (e.g. "playwright", "duckduckgo") — same name returned by list_mcp_marketplace and install_mcp_server.`
 
 var uninstallMCPServerSchema = json.RawMessage(`{
 	"type": "object",
 	"properties": {
-		"alias": {"type": "string", "description": "Local alias of the server to uninstall (e.g. 'duckduckgo-search'). NOT the registry namespace name."}
+		"name": {"type": "string", "description": "Canonical short name of the installed server (e.g. 'playwright'). Same value as install_mcp_server's name field."}
 	},
-	"required": ["alias"]
+	"required": ["name"]
 }`)
 
 func (t *UninstallMCPServer) Name() string                { return "uninstall_mcp_server" }
@@ -50,13 +48,13 @@ func (t *UninstallMCPServer) RequiresWorkspace() bool { return false }
 
 func (t *UninstallMCPServer) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		Alias string `json:"alias"`
+		Name string `json:"name"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("uninstall_mcp_server: bad args: %w", err)
 	}
-	if strings.TrimSpace(a.Alias) == "" {
-		return errors.New("uninstall_mcp_server: alias is required")
+	if strings.TrimSpace(a.Name) == "" {
+		return errors.New("uninstall_mcp_server: name is required")
 	}
 	return nil
 }
@@ -67,23 +65,23 @@ func (t *UninstallMCPServer) CheckPermissions(json.RawMessage, toolapp.Permissio
 
 func (t *UninstallMCPServer) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		Alias string `json:"alias"`
+		Name string `json:"name"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("uninstall_mcp_server: %w", err)
 	}
 
-	if err := t.svc.RemoveServer(ctx, args.Alias); err != nil {
+	if err := t.svc.RemoveServer(ctx, args.Name); err != nil {
 		if errors.Is(err, mcpdomain.ErrServerNotFound) {
 			return errorJSON("not_installed",
-				fmt.Sprintf("No installed server with alias %q. Use the MCP servers UI or check ~/.forgify/mcp.json for current aliases.", args.Alias)), nil
+				fmt.Sprintf("No installed server named %q. Check the MCP servers UI or ~/.forgify/mcp.json for installed names.", args.Name)), nil
 		}
 		return "", fmt.Errorf("uninstall_mcp_server: %w", err)
 	}
 	envelope := map[string]any{
 		"status":  "uninstalled",
-		"alias":   args.Alias,
-		"message": fmt.Sprintf("Server %q uninstalled and disconnected.", args.Alias),
+		"name":    args.Name,
+		"message": fmt.Sprintf("Server %q uninstalled and disconnected.", args.Name),
 	}
 	b, _ := json.Marshal(envelope)
 	return string(b), nil

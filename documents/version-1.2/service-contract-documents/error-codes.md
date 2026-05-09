@@ -213,12 +213,11 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `MCP_REQUIRED_ARGS_MISSING` | 422 | `mcpdomain.ErrRequiredArgsMissing` | install 时 required args 未填全 | ✅ |
 | `MCP_INSTALL_FAILED` | 502 | `mcpdomain.ErrInstallFailed` | npm install / uvx 安装命令失败 | ✅ |
 | `MCP_MARKETPLACE_UNAVAILABLE` | 502 | `mcpdomain.ErrMarketplaceUnavailable` | curated registry 不可达兜底（hardcoded 实际不会触发）| ✅ |
-| `MCP_QUERY_REQUIRED` | 400 | `mcpdomain.ErrQueryRequired` | Search 调用空 query | ✅ |
 | `MCP_ALREADY_INSTALLED` | 409 | `mcpdomain.ErrAlreadyInstalled` | install 时 server name 已存在 mcp.json（先卸再装）| ✅ |
 | `MCP_UNSUPPORTED_RUNTIME` | 422 | `mcpdomain.ErrUnsupportedRuntime` | registry 条目 runtime 非 npm/pypi（curated 列表不会触发）| ✅ |
 | `MCP_HANDSHAKE_FAILED` | 502 | `mcpdomain.ErrHandshakeFailed` | server 装好但 MCP initialize 握手失败 | ✅ |
 
-> 注：Marketplace V3（2026-05-08）curated 化，去掉 `MCP_ALIAS_COLLISION`（无 alias 概念了），新增 `MCP_QUERY_REQUIRED`（search-only）。所有 sentinel + errmap 已对齐。
+> 注：Marketplace V3（2026-05-08 curated 化 / 2026-05-09 search→list 化）。`MCP_ALIAS_COLLISION`（无 alias 概念）+ `MCP_QUERY_REQUIRED`（V3 list 不再要 query）相继移除。所有 sentinel + errmap 已对齐。
 
 #### skill ✅
 

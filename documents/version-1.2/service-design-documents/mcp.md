@@ -1,7 +1,7 @@
 # MCP — V1.2 详设计
 
 **Phase**：Phase 4 准备件（提前到位）
-**状态**：✅ Marketplace V3 — curated（2026-05-08）：domain types + 9 sentinels + **21 条 hand-picked RegistrySource**（npm + pypi only）+ ~/.forgify/mcp.json I/O + stdio Client wrapper（go-sdk v1.6）+ Service lifecycle/Search/CallTool/Health/Install + 4 system tools (search_marketplace/install_mcp_server/search_mcp/call_mcp) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控
+**状态**：✅ Marketplace V3 — curated（2026-05-08 curated 化 / 2026-05-09 search→list 化）：domain types + 8 sentinels + **21 条 hand-picked RegistrySource**（npm + pypi only）+ ~/.forgify/mcp.json I/O + stdio Client wrapper（go-sdk v1.6）+ Service lifecycle/Search/CallTool/Health/Install + 5 system tools (search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（mcp.json 是 source）
@@ -274,18 +274,18 @@ type RegistryEntry struct {
 
 实际 entries 见 `backend/internal/infra/mcp/curated_registry.go::curatedEntries`（21 个 RegistryEntry literal，包含 npm/pypi 包名、required env 描述、Notes）。
 
-### Search-only 接口（无全量列出）
+### List 接口（V3 / 2026-05-09：全量直返）
 
 ```go
 type RegistrySource interface {
-    Search(ctx context.Context, query string) ([]RegistryEntry, error) // 空 query 返 ErrQueryRequired
-    Get(ctx context.Context, name string) (*RegistryEntry, error)      // 不存在返 ErrRegistryEntryNotFound
+    List(ctx context.Context) ([]RegistryEntry, error)            // 全量，按 tier asc + name asc 稳排
+    Get(ctx context.Context, name string) (*RegistryEntry, error) // 不存在返 ErrRegistryEntryNotFound
 }
 ```
 
-**Search 实现**：把 query 按空白拆 token，每条 entry 在 `Name + Description + Category + Notes` 上做 case-insensitive **AND** substring 匹配。结果按 `(Tier asc, Name asc)` 稳排——上手最快的排前。
+**为什么 V2 search → V3 list**：实测 V2 的 4-token AND-match（`playwright` / `browser` / `github` / `slack`）在 21 条里只命中 1 条；curated 已 hand-picked 一遍，再做关键词过滤等于二次筛选高质量结果——召回掉的"明显匹配项"反让 LLM 误以为"没有"。21 条全列入 LLM context ~15-20KB token 完全 OK，比"LLM rerank 4-token search"性价比高。
 
-`/api/v1/mcp-registry?search=<q>` HTTP 端点直接走 Search；不传 q 返 422 `MCP_QUERY_REQUIRED`。**不暴露全量列出**——21 条不大，但 search-only 让 UI / LLM tool 心智一致（再加 server 也只走搜索）。
+`/api/v1/mcp-registry` HTTP 端点直接 passthrough List；testend / LLM `list_mcp_marketplace` tool 都走它。Tier 2/3 entries 由 Notes 字段警告 LLM 用前必须 ask 确认（OAuth flow / DB credential）。
 
 ### Install 流程（两阶段，LLM 触发）
 

@@ -37,16 +37,9 @@ func newTestRegistrySource(entries ...mcpdomain.RegistryEntry) *testRegistrySour
 	return t
 }
 
-func (t *testRegistrySource) Search(_ context.Context, query string) ([]mcpdomain.RegistryEntry, error) {
-	if query == "" {
-		return nil, mcpdomain.ErrQueryRequired
-	}
-	out := make([]mcpdomain.RegistryEntry, 0, len(t.all))
-	for _, e := range t.all {
-		if contains(e.Name, query) || contains(e.Description, query) {
-			out = append(out, e)
-		}
-	}
+func (t *testRegistrySource) List(_ context.Context) ([]mcpdomain.RegistryEntry, error) {
+	out := make([]mcpdomain.RegistryEntry, len(t.all))
+	copy(out, t.all)
 	return out, nil
 }
 
@@ -57,32 +50,6 @@ func (t *testRegistrySource) Get(_ context.Context, name string) (*mcpdomain.Reg
 	}
 	cp := e
 	return &cp, nil
-}
-
-func contains(haystack, needle string) bool {
-	if haystack == "" || needle == "" {
-		return false
-	}
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		match := true
-		for j := 0; j < len(needle); j++ {
-			a, b := haystack[i+j], needle[j]
-			if a >= 'A' && a <= 'Z' {
-				a += 32
-			}
-			if b >= 'A' && b <= 'Z' {
-				b += 32
-			}
-			if a != b {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }
 
 var _ mcpdomain.RegistrySource = (*testRegistrySource)(nil)

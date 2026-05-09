@@ -1424,24 +1424,24 @@
           </div>
         </div>
 
-        <!-- ── Marketplace section (search-only; 21 curated entries) ── -->
+        <!-- ── Marketplace section (V3: full curated list ~21 entries) ── -->
         <div x-show="section === 'marketplace'" style="font-size:11px;padding:8px 10px">
           <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
-            <input type="text" x-model="searchQuery"
-                   @keydown="handleSearchKeydown($event)"
-                   placeholder="search marketplace (21 curated entries — keyword required)"
+            <input type="text" x-model="filterQuery"
+                   placeholder="filter (substring match on name / category)"
                    class="filter-input" style="flex:1">
-            <button class="btn-small" @click="searchRegistry()" :disabled="searching">
-              <span x-show="!searching">Search</span>
-              <span x-show=" searching">Searching…</span>
+            <button class="btn-small" @click="loadRegistry()" :disabled="loadingRegistry">
+              <span x-show="!loadingRegistry">Reload</span>
+              <span x-show=" loadingRegistry">Loading…</span>
             </button>
+            <span style="font-size:10px;color:var(--text-mute)" x-text="filteredRegistry().length + ' / ' + registry.length"></span>
           </div>
           <div style="display:flex;gap:0">
             <div style="width:160px;border-right:1px solid var(--border);padding-right:8px;max-height:600px;overflow:auto">
-              <div x-show="registry.length === 0 && !searching" style="color:var(--text-mute);padding:8px;font-size:10px">
-                Type a keyword + press Enter to search.
+              <div x-show="registry.length === 0 && !loadingRegistry" style="color:var(--text-mute);padding:8px;font-size:10px">
+                Marketplace not loaded yet.
               </div>
-              <template x-for="entry in registry" :key="entry.name">
+              <template x-for="entry in filteredRegistry()" :key="entry.name">
                 <div style="padding:4px 6px;cursor:pointer;border-radius:3px"
                      :style="selectedRegEntry?.name === entry.name ? 'background:var(--accent-soft, #e6f0ff)' : ''"
                      @click="selectRegEntry(entry)">

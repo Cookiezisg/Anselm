@@ -230,20 +230,16 @@ func TestMapCallToolErrorToFriendly_EmbedsServerToolNames(t *testing.T) {
 // ── MCPTools factory ─────────────────────────────────────────────────
 
 func TestMCPTools_ReturnsAllInOrder(t *testing.T) {
-	// Pass nils for LLM deps — TestMCPTools_ReturnsAllInOrder doesn't
-	// exercise marketplace search rerank, just identity. Marketplace
-	// search tool is omitted from the list when LLM deps are nil
-	// (consistent with harness behaviour). install + uninstall require
-	// only svc so they always show.
+	// V3 (2026-05-09): MCPTools always returns 5 tools — list_mcp_marketplace
+	// replaced V2's LLM-rerank search and no longer needs picker/keys/factory.
 	//
-	// 传 nil LLM 依赖——只查 identity，不跑 marketplace search 重排。
-	// LLM 依赖 nil 时 marketplace search 工具不入列（与 harness 一致）。
-	// install + uninstall 只需 svc 故始终在。
-	tools := MCPTools(nil, nil, nil, nil)
-	if len(tools) != 4 {
-		t.Fatalf("len = %d, want 4 (search_mcp_tools / call_mcp_tool / install_mcp_server / uninstall_mcp_server; marketplace search omitted with nil LLM deps)", len(tools))
+	// V3：MCPTools 恒返 5 件——list_mcp_marketplace 替代 V2 LLM-rerank search 后
+	// 不再要 picker/keys/factory。
+	tools := MCPTools(nil)
+	if len(tools) != 5 {
+		t.Fatalf("len = %d, want 5 (search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server)", len(tools))
 	}
-	wantNames := []string{"search_mcp_tools", "call_mcp_tool", "install_mcp_server", "uninstall_mcp_server"}
+	wantNames := []string{"search_mcp_tools", "call_mcp_tool", "list_mcp_marketplace", "install_mcp_server", "uninstall_mcp_server"}
 	for i, want := range wantNames {
 		if tools[i].Name() != want {
 			t.Errorf("tools[%d] = %q, want %q", i, tools[i].Name(), want)

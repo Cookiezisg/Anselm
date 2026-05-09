@@ -136,7 +136,6 @@ var errTable = map[error]errMapping{
 	// Marketplace V2 (2026-05-08): added when official MCP Registry was wired in.
 	// Marketplace V2（2026-05-08）：接入官方 MCP Registry 时加。
 	mcpdomain.ErrMarketplaceUnavailable: {http.StatusBadGateway, "MCP_MARKETPLACE_UNAVAILABLE"},
-	mcpdomain.ErrQueryRequired:          {http.StatusBadRequest, "MCP_QUERY_REQUIRED"},
 	mcpdomain.ErrAlreadyInstalled:       {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
 	mcpdomain.ErrUnsupportedRuntime:     {http.StatusUnprocessableEntity, "MCP_UNSUPPORTED_RUNTIME"},
 	mcpdomain.ErrHandshakeFailed:        {http.StatusBadGateway, "MCP_HANDSHAKE_FAILED"},

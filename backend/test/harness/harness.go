@@ -403,9 +403,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 	if err := mcpService.Start(context.Background()); err != nil {
 		t.Logf("mcp start: %v (continuing — pipeline tests that need it will skip)", err)
 	}
-	// Pass nils for LLM deps — harness tests don't exercise marketplace LLM rerank.
-	// 传 nil LLM 依赖——harness 测试不跑 marketplace LLM 重排。
-	tools = append(tools, mcptool.MCPTools(mcpService, nil, nil, nil)...)
+	// V3 (2026-05-09): MCPTools no longer takes LLM deps — list_mcp_marketplace
+	// returns the curated catalog directly without LLM rerank.
+	// V3：MCPTools 不再要 LLM 依赖——list_mcp_marketplace 直返 curated。
+	tools = append(tools, mcptool.MCPTools(mcpService)...)
 
 	// Skill: per-test tempdir SkillsDir so we never touch real
 	// ~/.forgify/skills/. Tests that need skills installed seed them
