@@ -139,12 +139,22 @@ resources:
 	$(AUTO_DEVBOX)
 	@cd backend && go run ./cmd/resources $(if $(ALL),--all-platforms,)
 
-# clear — stop dev backend + reset data dir.
-# clear——停 dev backend + 清数据目录。
+# clear — stop dev backend + wipe the entire dev data dir.
+#
+# In --dev mode the backend roots its `forgify-home` (mcp.json /
+# skills/ / .catalog.json) under $(BACKEND_DATA_DIR)/.forgify, so a
+# single rm -rf wipes EVERYTHING dev: SQLite db + attachments + sandbox
+# v2 mise installs + dev-installed MCP servers + dev-scanned skills +
+# catalog cache. Real ~/.forgify/ (prod / Wails app data) is never
+# touched.
+#
+# clear——停 dev backend + 清整个 dev 数据目录。
+# dev 模式下 forgify-home 在 $(BACKEND_DATA_DIR)/.forgify 下，所以一次
+# rm -rf 把 dev 全清干净：DB + attachments + sandbox 装机 + dev 装 MCP +
+# 扫到的 skill + catalog cache。真 ~/.forgify/（prod / Wails）不动。
 clear: stop
 	@rm -rf $(BACKEND_DATA_DIR)
-	@rm -rf .venv/
-	@echo "✓ cleared (db + attachments + stray venv)"
+	@echo "✓ cleared $(BACKEND_DATA_DIR) (db + attachments + sandbox + dev forgify-home)"
 
 # check-cross — cross-platform compile + vet for all 3 supported targets.
 # Catches more than `go build` alone: vet flags suspicious type conversions,

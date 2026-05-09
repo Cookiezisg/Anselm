@@ -77,7 +77,29 @@ func main() {
 	dev := flag.Bool("dev", false, "Development mode (colored console logs + /dev/* routes)")
 	collectionsDir := flag.String("collections-dir", "../testend/collections", "Path to YAML test collections (dev mode)")
 	integrationDir := flag.String("integration-dir", "../testend", "Path to testend/ directory served at /dev/static/ (dev mode)")
+	forgifyHome := flag.String("forgify-home", "",
+		"User-level config root holding mcp.json / skills/ / .catalog.json. "+
+			"Default: <data-dir>/.forgify in --dev mode, ~/.forgify otherwise.")
 	flag.Parse()
+
+	// Resolve forgifyHome. In dev mode we root it under data-dir so
+	// `make clear` (which rm -rf's data-dir) wipes mcp.json + skills +
+	// catalog cache too — dev sessions stay isolated from the user's
+	// real ~/.forgify/ install. Prod / Wails use real ~/.forgify/.
+	//
+	// 解析 forgifyHome。dev 模式下根到 data-dir 让 `make clear`（rm -rf
+	// data-dir）连带清 mcp.json + skills + catalog cache——dev session 与
+	// 真用户 ~/.forgify/ 隔离。Prod / Wails 走真 ~/.forgify/。
+	homeRoot := *forgifyHome
+	if homeRoot == "" {
+		if *dev && *dataDir != "" {
+			homeRoot = filepath.Join(*dataDir, ".forgify")
+		} else if h, err := os.UserHomeDir(); err == nil && h != "" {
+			homeRoot = filepath.Join(h, ".forgify")
+		} else {
+			homeRoot = ".forgify" // working-dir fallback
+		}
+	}
 
 	var broadcaster *loggerinfra.LogBroadcaster
 	var logExtras []zapcore.Core
@@ -229,7 +251,7 @@ func main() {
 	// MCP Service 构造提前到 WebTools 之前，让 WebSearch 在 duckduckgo-search
 	// MCP server 已装时能路由过去。mcpService.Start 留在 tool 切片定稿后调
 	// ——SearchRouter 在调用时查 server 状态，pre-Start 调用安全降级到 Bing CN。
-	mcpConfigPath := defaultMCPConfigPath()
+	mcpConfigPath := filepath.Join(homeRoot, "mcp.json")
 	// Marketplace V3 (2026-05-08, post-curation): the upstream
 	// registry.modelcontextprotocol.io has 5000+ entries of mixed quality
 	// (mostly broken, abandoned, or API-key-required). We replaced it with
@@ -314,7 +336,7 @@ func main() {
 	// 1s 轮询让用户编辑时实时重扫。同 MCP 不挡 boot 纪律——首次启动 skills
 	// 目录通常为空。
 	skillService := skillapp.New(
-		defaultSkillsDir(),
+		filepath.Join(homeRoot, "skills"),
 		subagentService,
 		modelService,
 		apikeyService,
@@ -341,7 +363,7 @@ func main() {
 	// summary（3 attempt + mechanical fallback）。summary 教 LLM "你有
 	// 哪些类目能力 + 何时优先何者"。subagent 不注册——其 tool description
 	// 已枚举 subagent 类型（catalog.md §1）。
-	catalogService := catalogapp.New(defaultCatalogCachePath(), notificationsPub, log)
+	catalogService := catalogapp.New(filepath.Join(homeRoot, ".catalog.json"), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
@@ -388,6 +410,7 @@ func main() {
 		LogBroadcaster:      broadcaster,
 		CollectionsDir:      *collectionsDir,
 		IntegrationDir:      *integrationDir,
+		ForgifyHome:         homeRoot,
 		Port:                actualPort,
 	})
 
@@ -508,52 +531,3 @@ func registerSandboxStack(svc *sandboxapp.Service, _ *zap.Logger) {
 	svc.RegisterEnvManager(sandboxinfra.NewNodeEnvManager())
 }
 
-// defaultMCPConfigPath returns ~/.forgify/mcp.json — the user-level MCP
-// server configuration source per mcp.md §5 自包含原则. UserHomeDir
-// failure (rare; broken HOME env) falls back to the working directory
-// so we always have a path; the file just won't exist on first boot.
-//
-// defaultMCPConfigPath 返 ~/.forgify/mcp.json——mcp.md §5 自包含原则的
-// 用户级 MCP server 配置源。UserHomeDir 失败（罕见；HOME env 坏）退到
-// 工作目录——总有路径，首次启动文件不存在而已。
-func defaultMCPConfigPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ".forgify/mcp.json"
-	}
-	return filepath.Join(home, ".forgify", "mcp.json")
-}
-
-// defaultSkillsDir returns ~/.forgify/skills/ — the only directory the
-// skill subsystem scans (skill.md §3 自包含 + 仅用户级)。Same fallback
-// shape as defaultMCPConfigPath: HOME-failure degrades to a relative
-// path that just won't have any skills on first boot (Service.Scan
-// handles missing dir gracefully).
-//
-// defaultSkillsDir 返 ~/.forgify/skills/——skill 子系统唯一扫描目录
-// （skill.md §3 自包含 + 仅用户级）。同 defaultMCPConfigPath 退化模式：
-// HOME 失败 → 相对路径首次启动无 skill 而已（Service.Scan 容忍目录缺）。
-func defaultSkillsDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ".forgify/skills"
-	}
-	return filepath.Join(home, ".forgify", "skills")
-}
-
-// defaultCatalogCachePath returns ~/.forgify/.catalog.json — the
-// disk cache for the Capability Catalog (catalog.md §5). Same fallback
-// shape as defaultMCPConfigPath: HOME-failure degrades to a relative
-// path that just won't have a cache on first boot (Service.Start
-// gracefully treats missing file as "first launch").
-//
-// defaultCatalogCachePath 返 ~/.forgify/.catalog.json——Capability Catalog
-// 的 disk cache（catalog.md §5）。同 defaultMCPConfigPath 退化模式：HOME
-// 失败 → 相对路径首次启动无 cache 而已（Service.Start 容忍文件缺）。
-func defaultCatalogCachePath() string {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return ".forgify/.catalog.json"
-	}
-	return filepath.Join(home, ".forgify", ".catalog.json")
-}

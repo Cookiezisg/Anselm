@@ -173,6 +173,15 @@ type Deps struct {
 	// 以 /dev/static/ 对外提供静态文件服务。
 	IntegrationDir string
 
+	// ForgifyHome is the resolved root holding mcp.json / skills/ /
+	// .catalog.json. dev → <data-dir>/.forgify (so make clear wipes it),
+	// prod → ~/.forgify. Used by /dev/info + /dev/forgify-home.
+	//
+	// ForgifyHome 是解析后根（含 mcp.json / skills/ / .catalog.json）。
+	// dev → <data-dir>/.forgify（make clear 一并清），prod → ~/.forgify。
+	// 给 /dev/info + /dev/forgify-home 用。
+	ForgifyHome string
+
 	// Port is the actual TCP port the server is listening on.
 	// Used by the collections test runner to call back into the local backend.
 	// Port 是服务器实际监听的 TCP 端口。

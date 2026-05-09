@@ -1,6 +1,7 @@
 package response
 
 import (
+	"context"
 	stderrors "errors"
 	"net/http"
 
@@ -162,6 +163,21 @@ var errTable = map[error]errMapping{
 	reqctxpkg.ErrMissingUserID:         {http.StatusInternalServerError, "INTERNAL_ERROR"},
 	reqctxpkg.ErrMissingConversationID: {http.StatusInternalServerError, "INTERNAL_ERROR"},
 	cryptoinfra.ErrUnsupportedVersion:  {http.StatusInternalServerError, "INTERNAL_ERROR"},
+
+	// Standard library context errors. Browser hard-refresh / tab close
+	// cancels r.Context(), which propagates up through every store call
+	// and reaches handlers as ctx-canceled. These are NOT bugs — the
+	// client just left — so they must be mapped (suppress the "unmapped
+	// domain error" alarm) but the response goes nowhere either way.
+	// 499 (nginx convention) = client closed request; 504 = upstream
+	// timeout we couldn't beat. Both surfaced here as no-op responses
+	// that at least avoid log noise pretending we have an internal bug.
+	//
+	// 标准库 context 错误。浏览器 hard refresh / 关 tab 取消 r.Context()，
+	// 一路冒泡到 handler。不是 bug——客户端走了——但需要登记免触发
+	// "unmapped domain error" 警报。响应反正没人收。
+	context.Canceled:         {499, "CLIENT_CLOSED"},
+	context.DeadlineExceeded: {http.StatusGatewayTimeout, "REQUEST_TIMEOUT"},
 }
 
 // FromDomainError translates a domain error to an HTTP envelope via errTable.

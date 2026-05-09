@@ -32,21 +32,22 @@ var startTime = time.Now()
 func (h *DevHandler) Info(w http.ResponseWriter, r *http.Request) {
 	home, _ := os.UserHomeDir()
 	resp := map[string]any{
-		"version":          "v1.2-dev",
-		"startedAt":        startTime.UTC(),
-		"uptimeSeconds":    int(time.Since(startTime).Seconds()),
-		"port":             h.port,
-		"integrationDir":   h.integrationDir,
-		"collectionsDir":   h.collectionsDir,
-		"toolCount":        len(h.tools),
-		"home":             home,
-		"forgifyHome":      filepath.Join(home, ".forgify"),
-		// Conventional paths the major subsystems use — exposed so
-		// testers can verify them rather than grep code.
-		// 各子系统约定路径——让测试不用 grep 代码即可验证。
-		"mcpConfigPath":     filepath.Join(home, ".forgify", "mcp.json"),
-		"skillsDir":         filepath.Join(home, ".forgify", "skills"),
-		"catalogCachePath":  filepath.Join(home, ".forgify", ".catalog.json"),
+		"version":        "v1.2-dev",
+		"startedAt":      startTime.UTC(),
+		"uptimeSeconds":  int(time.Since(startTime).Seconds()),
+		"port":           h.port,
+		"integrationDir": h.integrationDir,
+		"collectionsDir": h.collectionsDir,
+		"toolCount":      len(h.tools),
+		"home":           home,
+		// forgifyHome is the resolved root (dev → <data-dir>/.forgify,
+		// prod → ~/.forgify). All three sub-paths derive from it.
+		// forgifyHome 是解析后根（dev → <data-dir>/.forgify，prod → ~/.forgify）。
+		// 三条子路径都派生自它。
+		"forgifyHome":      h.forgifyHome,
+		"mcpConfigPath":    filepath.Join(h.forgifyHome, "mcp.json"),
+		"skillsDir":        filepath.Join(h.forgifyHome, "skills"),
+		"catalogCachePath": filepath.Join(h.forgifyHome, ".catalog.json"),
 	}
 	responsehttpapi.Success(w, http.StatusOK, resp)
 }
@@ -72,13 +73,7 @@ type homeEntry struct {
 // 层 / 上限 ~500 条目限载荷）。含 '.' 开头隐藏文件——好东西在那
 // （.catalog.json 等）。
 func (h *DevHandler) ForgifyHome(w http.ResponseWriter, r *http.Request) {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		responsehttpapi.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR",
-			"could not resolve user home", nil)
-		return
-	}
-	root := filepath.Join(home, ".forgify")
+	root := h.forgifyHome
 	count := 0
 	tree, err := walkHomeTree(root, "", 0, 4, &count, 500)
 	if err != nil {

@@ -76,7 +76,7 @@ func New(deps Deps) http.Handler {
 		handlershttpapi.NewCatalogHandler(deps.CatalogService, deps.Log).Register(mux)
 	}
 	if deps.Dev {
-		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(mux)
+		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(mux)
 	}
 
 	// 404 fallback — must be last so specific routes take precedence.

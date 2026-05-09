@@ -165,8 +165,23 @@ func (s *Service) List(ctx context.Context, filter apikeydomain.ListFilter) ([]*
 // Test fetches the APIKey, decrypts, probes the upstream, writes the
 // outcome back, and returns the TestResult.
 //
+// Terminal-state writes use a detached context (§S9). If the browser
+// hard-refreshes or the user closes the tab while the upstream probe
+// is in flight, r.Context() gets cancelled — but the test outcome
+// must still land in DB, otherwise the row stays at its previous
+// status and the UI shows stale "ok" with no audit trail of the
+// failed probe.
+//
 // Test 取回 APIKey、解密、探测上游、写回结果、返回 TestResult。
+//
+// 终态写入用 detached ctx（§S9）。浏览器 hard refresh / 用户关 tab 时
+// r.Context() 被 cancel——但测试结果必须落库，否则 row 维持旧状态，
+// UI 显示陈旧"ok"无据可查。
 func (s *Service) Test(ctx context.Context, id string) (*TestResult, error) {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	k, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, err
@@ -175,6 +190,12 @@ func (s *Service) Test(ctx context.Context, id string) (*TestResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("apikey.Service.Test: decrypt: %w", err)
 	}
+	// detached carries the user id but not the request lifetime — used
+	// for both UpdateTestResult calls below. Probing still uses ctx so
+	// it cancels promptly on client disconnect.
+	// detached 带 user id 但不绑请求生命周期，给两次 UpdateTestResult 用；
+	// 探测仍用 ctx，客户端断开能立即 cancel 出去。
+	detached := reqctxpkg.SetUserID(context.Background(), uid)
 	result, err := s.tester.Test(ctx, k.Provider, string(plain), k.BaseURL, k.APIFormat)
 	if err != nil {
 		// Best-effort write of failed status. If this DB update itself fails
@@ -183,7 +204,7 @@ func (s *Service) Test(ctx context.Context, id string) (*TestResult, error) {
 		//
 		// 尽力把失败状态写库。本次写入再次失败时 test_status 维持原值——
 		// 必须高声记录，避免 UI 还显示 "ok" 但实际已坏却无线索可追。
-		if uerr := s.repo.UpdateTestResult(ctx, id, apikeydomain.TestStatusError, err.Error(), nil); uerr != nil {
+		if uerr := s.repo.UpdateTestResult(detached, id, apikeydomain.TestStatusError, err.Error(), nil); uerr != nil {
 			s.log.Warn("apikey.Service.Test: persist test failure status itself failed; row stays at previous status",
 				zap.String("api_key_id", id), zap.NamedError("test_err", err), zap.Error(uerr))
 		}
@@ -197,7 +218,7 @@ func (s *Service) Test(ctx context.Context, id string) (*TestResult, error) {
 		errMsg = ""
 		models = result.ModelsFound
 	}
-	if upErr := s.repo.UpdateTestResult(ctx, id, status, errMsg, models); upErr != nil {
+	if upErr := s.repo.UpdateTestResult(detached, id, status, errMsg, models); upErr != nil {
 		return nil, upErr
 	}
 	s.log.Info("apikey tested",

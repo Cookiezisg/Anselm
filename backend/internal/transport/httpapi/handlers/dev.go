@@ -37,6 +37,7 @@ type DevHandler struct {
 	broadcaster    *loggerinfra.LogBroadcaster
 	collectionsDir string
 	integrationDir string
+	forgifyHome    string // resolved home root: dev → <data-dir>/.forgify, prod → ~/.forgify
 	port           int
 	tools          []toolapp.Tool
 	llmFactory     *llminfra.Factory
@@ -52,7 +53,7 @@ type DevHandler struct {
 func NewDevHandler(
 	db *gorm.DB,
 	broadcaster *loggerinfra.LogBroadcaster,
-	collectionsDir, integrationDir string,
+	collectionsDir, integrationDir, forgifyHome string,
 	port int,
 	tools []toolapp.Tool,
 	llmFactory *llminfra.Factory,
@@ -64,6 +65,7 @@ func NewDevHandler(
 		broadcaster:    broadcaster,
 		collectionsDir: collectionsDir,
 		integrationDir: integrationDir,
+		forgifyHome:    forgifyHome,
 		port:           port,
 		buildID:        fmt.Sprintf("%d", time.Now().Unix()),
 		startedAt:      time.Now(),
