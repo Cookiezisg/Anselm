@@ -23,7 +23,8 @@
 |---|---|---|---|
 | HIGH | 1 | apikey.go:#28 (MarkInvalid §S9 violation — terminal write uses raw ctx) | **FIXED 410f664** |
 | MED | 1 | tester.go:#4 (line 112 default branch — no %w / no sentinel; will pollute "unmapped domain error" alarm) | **FIXED 410f664** (panic) |
-| LOW | 8 | apikey.go:#7 (validateCreate prefix style), #17 (Test bare-return inconsistency vs Create wrap), #24 (Test failure path bare-return); tester.go:#2, #3 (`apikeytester:` prefix vs `<pkg>.<Method>:` form), #12, #13 (silent JSON parse on connectivity probe — documented intent but no log audit) | FOUND (待 user 拍) |
+| LOW | 5 | apikey.go:#7 (validateCreate prefix style), #17 (Test bare-return inconsistency vs Create wrap), #24 (Test failure path bare-return); tester.go:#2, #3 (`apikeytester:` prefix vs `<pkg>.<Method>:` form) | **FIXED 1b96a5e** |
+| LOW (waived) | 2 | tester.go:#12, #13 (silent JSON parse on connectivity probe) | **WAIVED 2026-05-09** — soft-degrade is documented design intent for connectivity probing; logging would add noise without enabling action |
 
 ## Cross-cutting
 
