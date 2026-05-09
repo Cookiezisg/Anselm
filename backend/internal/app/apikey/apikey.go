@@ -255,15 +255,30 @@ func (s *Service) ResolveCredentials(ctx context.Context, provider string) (apik
 // MarkInvalid updates test_status to error on the selected APIKey when a
 // caller's LLM call got 401/403.
 //
-// MarkInvalid 在调用方 LLM 调用遇到 401/403 时，把选中 APIKey 的
-// test_status 更新为 error。
+// Terminal-state write uses a detached context (§S9). This is called from
+// chat / forge / skill paths that may have their request ctx cancelled
+// mid-stream (browser close, abort). If the UpdateTestResult write rode
+// the same ctx, a cancelled write would silently leave the key showing
+// green "OK" in the UI while actually being invalid — same defect class
+// as the apikey.Service.Test path fixed in d8a5161.
+//
+// MarkInvalid 在调用方 LLM 调用遇到 401/403 时把选中 APIKey 的
+// test_status 标记为 error。终态写入用 detached ctx（§S9）：调用方
+// （chat / forge / skill）的 r.Context() 可能在中途被 cancel（浏览器关、
+// 流被 abort），用同一 ctx 写就会失败，UI 仍显示绿"OK"实则失效——同
+// d8a5161 修过的 apikey.Service.Test 同构缺陷。
 func (s *Service) MarkInvalid(ctx context.Context, provider, reason string) error {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return fmt.Errorf("apikey.Service.MarkInvalid: %w", err)
+	}
 	k, err := s.repo.GetByProvider(ctx, provider)
 	if err != nil {
-		return err
+		return fmt.Errorf("apikey.Service.MarkInvalid: %w", err)
 	}
-	if err := s.repo.UpdateTestResult(ctx, k.ID, apikeydomain.TestStatusError, reason, nil); err != nil {
-		return err
+	detached := reqctxpkg.SetUserID(context.Background(), uid)
+	if err := s.repo.UpdateTestResult(detached, k.ID, apikeydomain.TestStatusError, reason, nil); err != nil {
+		return fmt.Errorf("apikey.Service.MarkInvalid: %w", err)
 	}
 	s.log.Warn("apikey marked invalid",
 		zap.String("key_id", k.ID),

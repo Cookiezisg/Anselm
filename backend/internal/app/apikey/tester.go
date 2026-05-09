@@ -109,7 +109,16 @@ func (t *HTTPTester) Test(ctx context.Context, provider, key, baseURL, apiFormat
 	case TestMethodSearchPing:
 		return t.testSearchPing(ctx, provider, effective, key), nil
 	default:
-		return nil, fmt.Errorf("apikeytester: unhandled test method %q", meta.TestMethod)
+		// Programming bug: providers.go registered a TestMethod that this
+		// dispatcher doesn't implement. This is config-time complete-set
+		// invariant, not a runtime user error — panic so dev sees the
+		// stack immediately rather than masking it as a generic 500
+		// "unmapped domain error" in production logs.
+		//
+		// 配置完备性 invariant 违反：providers.go 注册了 dispatcher 不实现
+		// 的 TestMethod。这是编程 bug 不是用户错误——panic 让 dev 立刻看到
+		// stack 而不是隐成生产日志里的 500 "unmapped domain error"。
+		panic(fmt.Sprintf("apikey.HTTPTester.Test: TestMethod %q registered for provider %q has no dispatcher branch; add it to the switch above", meta.TestMethod, provider))
 	}
 }
 
