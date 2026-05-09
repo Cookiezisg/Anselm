@@ -164,7 +164,7 @@ func (h *SandboxHandler) ListConvEnvs(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	prefix := convID + ":"
+	prefix := convID + "_"
 	scoped := make([]*sandboxdomain.Env, 0)
 	for _, e := range all {
 		if strings.HasPrefix(e.OwnerID, prefix) {
@@ -308,9 +308,13 @@ func (h *SandboxHandler) convEnvKindAction(w http.ResponseWriter, r *http.Reques
 			"unknown conv-env action: "+action, nil)
 		return
 	}
+	// "_" not ":" — see bash.go maybeAutoRoute for full reason. TL;DR:
+	// owner.ID becomes a literal dir on PATH, ":" splits the segment.
+	// "_" 不用 ":"——bash.go maybeAutoRoute 详注。owner.ID 直接当目录上
+	// PATH，含 ":" 会被 shell 切。
 	owner := sandboxdomain.Owner{
 		Kind: sandboxdomain.OwnerKindConversation,
-		ID:   convID + ":" + kind,
+		ID:   convID + "_" + kind,
 	}
 	if err := h.svc.Destroy(r.Context(), owner); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -329,7 +333,7 @@ func (h *SandboxHandler) convEnvsAction(w http.ResponseWriter, r *http.Request) 
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	prefix := convID + ":"
+	prefix := convID + "_"
 	removed := 0
 	for _, e := range all {
 		if !strings.HasPrefix(e.OwnerID, prefix) {

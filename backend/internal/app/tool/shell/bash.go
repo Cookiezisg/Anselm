@@ -254,9 +254,23 @@ func (t *Bash) maybeAutoRoute(ctx context.Context, command string) []string {
 	if !ok || convID == "" {
 		return nil
 	}
+	// owner.ID joins convID + runtimeKind with "_" (NOT ":"): owner.ID
+	// becomes a literal directory name (sandbox.go:478) that prepends
+	// to PATH at run time. PATH uses ":" as segment separator on POSIX,
+	// so any ":" inside the path makes shell split it into nonexistent
+	// sibling dirs and fall through to /usr/bin (running system Python
+	// instead of mise's). convID is fixed-length "cv_<16hex>" (19
+	// chars), runtime kinds are pure alphanumeric, so a single "_" is
+	// unambiguous despite cv_ already containing one.
+	//
+	// owner.ID 用 "_" 而非 ":" 拼 convID 与 runtimeKind：owner.ID 直接
+	// 当目录名（sandbox.go:478），目录前置到 PATH。POSIX PATH 用 ":"
+	// 分隔，路径含 ":" 会被 shell 切成不存在的兄弟目录 → 落到 /usr/bin
+	// 用系统 Python。convID 固定 "cv_<16hex>" 19 字符，runtime kind
+	// 纯字母数字——单个 "_" 即便与 cv_ 中的下划线共存也无歧义。
 	owner := sandboxdomain.Owner{
 		Kind: sandboxdomain.OwnerKindConversation,
-		ID:   convID + ":" + kind,
+		ID:   convID + "_" + kind,
 		Name: fmt.Sprintf("Conv %s scratch (%s)", convID, kind),
 	}
 	env, err := t.sandbox.EnsureEnv(ctx, owner, sandboxdomain.EnvSpec{

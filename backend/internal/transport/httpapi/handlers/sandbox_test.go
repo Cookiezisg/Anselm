@@ -245,8 +245,8 @@ func TestSandboxHandler_ListConvEnvs_FiltersByPrefix(t *testing.T) {
 	srv, repo := newSandboxTestServer(t)
 	defer srv.Close()
 	seedRuntime(t, repo, "sr_001", "python", "3.12.5")
-	seedEnv(t, repo, "se_a", sandboxdomain.OwnerKindConversation, "cv_abc:python", "sr_001")
-	seedEnv(t, repo, "se_b", sandboxdomain.OwnerKindConversation, "cv_xyz:python", "sr_001")
+	seedEnv(t, repo, "se_a", sandboxdomain.OwnerKindConversation, "cv_abc_python", "sr_001")
+	seedEnv(t, repo, "se_b", sandboxdomain.OwnerKindConversation, "cv_xyz_python", "sr_001")
 
 	status, env := do(t, srv, "GET", "/api/v1/conversations/cv_abc/sandbox-envs", nil)
 	if status != http.StatusOK {

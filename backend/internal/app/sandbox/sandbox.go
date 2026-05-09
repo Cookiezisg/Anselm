@@ -47,6 +47,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -438,6 +439,18 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	}
 	if owner.Kind == "" || owner.ID == "" {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: missing owner.Kind or owner.ID")
+	}
+	// owner.ID becomes a literal directory name (envRel below) which
+	// gets prepended to the runtime PATH at exec time. POSIX/Windows
+	// PATH separators (":" / ";"), shell metacharacters and whitespace
+	// inside the segment break path resolution silently. Reject early
+	// so callers can't accidentally regress the bash auto-route fix.
+	//
+	// owner.ID 直接当字面量目录名（下方 envRel）+ 运行期前置到 PATH。
+	// POSIX/Windows PATH 分隔符 (":"/";")、shell 元字符与空白若进路径段
+	// 会让解析悄悄断掉。早 reject 防 bash auto-route 那次修复回归。
+	if strings.ContainsAny(owner.ID, ":;= \t\n\r\x00") {
+		return nil, fmt.Errorf("sandboxapp.EnsureEnv: owner.ID contains PATH-meta or whitespace character: %q", owner.ID)
 	}
 
 	envLock := s.ownerLock(owner)

@@ -68,7 +68,7 @@ func TestPythonEnvManager_EnvBin_PreservesExplicitExtension(t *testing.T) {
 
 func TestPythonEnvManager_EnvDir_ReturnsInputUnchanged(t *testing.T) {
 	pm := NewPythonEnvManager(newFakeToolRegistry(map[string]string{"uv": "/tmp/uv"}))
-	if got := pm.EnvDir("/data/envs/conv/cv_abc:python"); got != "/data/envs/conv/cv_abc:python" {
+	if got := pm.EnvDir("/data/envs/conv/cv_abc_python"); got != "/data/envs/conv/cv_abc_python" {
 		t.Errorf("EnvDir = %q, want input unchanged", got)
 	}
 }

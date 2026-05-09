@@ -171,7 +171,7 @@ func TestStripPath(t *testing.T) {
 // ── envBinDirsForKind ────────────────────────────────────────────────
 
 func TestEnvBinDirsForKind(t *testing.T) {
-	envPath := "/data/envs/conv/cv_abc:python"
+	envPath := "/data/envs/conv/cv_abc_python"
 	cases := []struct {
 		kind     string
 		wantUnix []string
