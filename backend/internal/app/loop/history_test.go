@@ -24,6 +24,8 @@ package loop
 import (
 	"testing"
 
+	"go.uber.org/zap"
+
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -60,7 +62,7 @@ func toolResultBlock(id, parentID, result string) chatdomain.Block {
 }
 
 func TestBuildAssistant_TextOnly(t *testing.T) {
-	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{textBlock("b1", "Hello world")})
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{textBlock("b1", "Hello world")})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -76,7 +78,7 @@ func TestBuildAssistant_TextOnly(t *testing.T) {
 }
 
 func TestBuildAssistant_WithReasoning(t *testing.T) {
-	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{
 		reasoningBlock("b1", "Let me think"),
 		textBlock("b2", "Answer"),
 	})
@@ -95,7 +97,7 @@ func TestBuildAssistant_WithReasoning(t *testing.T) {
 }
 
 func TestBuildAssistant_WithToolCall(t *testing.T) {
-	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{
 		toolCallBlock("call_1", "get_weather", `{"city":"Beijing"}`),
 		toolResultBlock("blk_r1", "call_1", "晴，25°C"),
 	})
@@ -125,7 +127,7 @@ func TestBuildAssistant_WithToolCall(t *testing.T) {
 }
 
 func TestBuildAssistant_MultipleToolCalls(t *testing.T) {
-	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{
 		toolCallBlock("call_1", "t1", `{}`),
 		toolCallBlock("call_2", "t2", `{}`),
 		toolResultBlock("r1", "call_1", "r1"),
@@ -149,7 +151,7 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 		toolResultBlock("b3", "c1", "sunny"),
 		textBlock("b4", "done"),
 	}
-	msgs, err := BlocksToAssistantLLM(input)
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), input)
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}
@@ -173,7 +175,7 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 }
 
 func TestBlocksToLLM_TextOnly(t *testing.T) {
-	msgs, err := BlocksToAssistantLLM([]chatdomain.Block{textBlock("b1", "hi")})
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{textBlock("b1", "hi")})
 	if err != nil {
 		t.Fatalf("BlocksToAssistantLLM: %v", err)
 	}

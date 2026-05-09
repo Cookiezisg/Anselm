@@ -114,7 +114,19 @@ func (s *Service) InstallFromRegistry(ctx context.Context, name string, env, arg
 				return s.sandbox.EnsureEnv(ctx, owner, spec, progress)
 			})
 		if ensureErr != nil {
-			return nil, fmt.Errorf("mcpapp.InstallFromRegistry %s: %w: %v",
+			// Multi-%w wrap (Go 1.20+) preserves BOTH the mcp-level
+			// ErrInstallFailed sentinel AND the sandbox-layer sentinel
+			// chain. Callers can `errors.Is(err, sandboxdomain.ErrRuntimeNotSupported)`
+			// to discriminate "node runtime can't install on this platform"
+			// from generic "install failed". Previously %v swallowed the
+			// inner sentinel making such discrimination impossible.
+			//
+			// 双 %w 包装（Go 1.20+）同时保留 mcp 层 ErrInstallFailed
+			// sentinel 与 sandbox 层 sentinel 链。调用方可用
+			// `errors.Is(err, sandboxdomain.ErrRuntimeNotSupported)` 区分
+			// "node runtime 此平台不支持装"和泛型"装失败"。原 %v 吞了
+			// 内层 sentinel 这种区分不可能。
+			return nil, fmt.Errorf("mcpapp.InstallFromRegistry %s: %w: %w",
 				name, mcpdomain.ErrInstallFailed, ensureErr)
 		}
 	}
@@ -178,7 +190,10 @@ func (s *Service) Import(ctx context.Context, incoming map[string]mcpdomain.Serv
 		// client first so connectOne can attach a fresh one.
 		// 覆盖现有 connected server 时先扔旧 client，让 connectOne 接新的。
 		if c, ok := s.clients[name]; ok {
-			_ = c.Close()
+			if err := c.Close(); err != nil {
+				s.log.Warn("Import: overwrite-existing close failed; orphan subprocess may persist until parent exit",
+					zap.String("server", name), zap.Error(err))
+			}
 			delete(s.clients, name)
 		}
 	}

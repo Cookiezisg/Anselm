@@ -27,6 +27,8 @@ package loop
 import (
 	"encoding/json"
 
+	"go.uber.org/zap"
+
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -37,8 +39,8 @@ import (
 //
 // extendHistory 把一个 ReAct 步骤的贡献（assistant blocks + tool result blocks）
 // 追加到运行中的历史。
-func extendHistory(history []llminfra.LLMMessage, aBlocks, rBlocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
-	msgs, err := BlocksToAssistantLLM(append(aBlocks, rBlocks...))
+func extendHistory(log *zap.Logger, history []llminfra.LLMMessage, aBlocks, rBlocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
+	msgs, err := BlocksToAssistantLLM(log, append(aBlocks, rBlocks...))
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +63,7 @@ func extendHistory(history []llminfra.LLMMessage, aBlocks, rBlocks []chatdomain.
 //
 // extendHistory（循环内累积）与 chat.buildHistory（从 DB 加载历史消息）共用
 // ——转换器只有一个事实源。
-func BlocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
+func BlocksToAssistantLLM(log *zap.Logger, blocks []chatdomain.Block) ([]llminfra.LLMMessage, error) {
 	assistant := llminfra.LLMMessage{Role: llminfra.RoleAssistant}
 	var toolResults []llminfra.LLMMessage
 
@@ -84,10 +86,19 @@ func BlocksToAssistantLLM(blocks []chatdomain.Block) ([]llminfra.LLMMessage, err
 			toolName := ""
 			if b.Attrs != "" {
 				var attrs map[string]any
-				if json.Unmarshal([]byte(b.Attrs), &attrs) == nil {
-					if v, ok := attrs["tool"].(string); ok {
-						toolName = v
-					}
+				if err := json.Unmarshal([]byte(b.Attrs), &attrs); err != nil {
+					// Block.Attrs JSON shape drift — toolName stays
+					// blank, LLM gets unnamed tool_call which is an
+					// upstream-correctness issue. Log so storage-drift
+					// symptoms are debuggable.
+					//
+					// Block.Attrs JSON shape 漂移——toolName 留空，LLM
+					// 收到没名字的 tool_call 是上游正确性问题。Log 让
+					// 存储漂移症状可追。
+					log.Warn("loop.BlocksToAssistantLLM: malformed tool_call Block.Attrs; toolName blank in LLM history",
+						zap.String("block_id", b.ID), zap.Error(err))
+				} else if v, ok := attrs["tool"].(string); ok {
+					toolName = v
 				}
 			}
 			assistant.ToolCalls = append(assistant.ToolCalls, llminfra.LLMToolCall{

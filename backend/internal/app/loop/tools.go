@@ -166,6 +166,19 @@ func (e stringErr) Error() string { return string(e) }
 // Phase 4+ scheduler 会传真实 mode。
 func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (string, string, bool) {
 	if t == nil {
+		// LLM picked a tool name not in the registry — wiring bug
+		// (catalog generated stale name / tool removed but catalog
+		// not refreshed). Log loudly so operator sees the misconfig
+		// at run-time; the LLM-facing msg + DB errMsg path stays
+		// unchanged so the conversation continues with a sensible
+		// "tool not found" hint.
+		//
+		// LLM 选了不在 registry 的 tool 名——wiring bug（catalog 生成
+		// 了陈旧名字 / tool 已删但 catalog 没刷新）。高声 log 让
+		// operator 运行时看到 misconfig；LLM 看的 msg + DB errMsg 不变
+		// 让对话能带着合理的"tool not found"提示继续。
+		log.Warn("executeTool: tool not in registry — likely wiring bug or stale catalog",
+			zap.String("tool", name))
 		msg := fmt.Sprintf("tool %q not found", name)
 		return msg, msg, false
 	}

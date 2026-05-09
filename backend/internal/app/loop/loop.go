@@ -142,7 +142,7 @@ func Run(
 		rBlocks := runTools(ctx, toolCalls, byName, log)
 		allBlocks = append(allBlocks, rBlocks...)
 
-		history, err = extendHistory(history, aBlocks, rBlocks)
+		history, err = extendHistory(log, history, aBlocks, rBlocks)
 		if err != nil {
 			log.Error("extend history failed", zap.Error(err))
 			stopReason = chatdomain.StopReasonError

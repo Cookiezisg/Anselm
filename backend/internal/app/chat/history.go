@@ -83,7 +83,7 @@ func (s *Service) blocksToLLM(ctx context.Context, m *chatdomain.Message) ([]llm
 		}
 		return []llminfra.LLMMessage{msg}, nil
 	case chatdomain.RoleAssistant:
-		return loopapp.BlocksToAssistantLLM(m.Blocks)
+		return loopapp.BlocksToAssistantLLM(s.log, m.Blocks)
 	}
 	// Unknown role — log + drop. Returning nil keeps the caller's loop
 	// going; the message just doesn't land in LLM context. Without the

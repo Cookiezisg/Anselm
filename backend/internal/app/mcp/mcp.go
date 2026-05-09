@@ -253,7 +253,12 @@ func (s *Service) AddServer(ctx context.Context, cfg mcpdomain.ServerConfig) err
 
 	s.mu.Lock()
 	if existing, ok := s.clients[cfg.Name]; ok {
-		_ = existing.Close()
+		// Close orphan subprocess loudly per mcp.md §3 fail-loud intent.
+		// 关闭孤儿子进程要响——按 mcp.md §3 fail-loud 设计意图。
+		if err := existing.Close(); err != nil {
+			s.log.Warn("AddServer: replace-existing close failed; orphan subprocess may persist until parent exit",
+				zap.String("server", cfg.Name), zap.Error(err))
+		}
 		delete(s.clients, cfg.Name)
 	}
 	s.configs[cfg.Name] = cfg
@@ -289,7 +294,10 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 		return fmt.Errorf("mcpapp.RemoveServer: %w: %q", mcpdomain.ErrServerNotFound, name)
 	}
 	if c, ok := s.clients[name]; ok {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			s.log.Warn("RemoveServer: close failed; orphan subprocess may persist until parent exit",
+				zap.String("server", name), zap.Error(err))
+		}
 		delete(s.clients, name)
 	}
 	delete(s.configs, name)
@@ -316,7 +324,10 @@ func (s *Service) Reconnect(ctx context.Context, name string) error {
 		return fmt.Errorf("mcpapp.Reconnect: %w: %q", mcpdomain.ErrServerNotFound, name)
 	}
 	if c, ok := s.clients[name]; ok {
-		_ = c.Close()
+		if err := c.Close(); err != nil {
+			s.log.Warn("Reconnect: close-existing failed; orphan subprocess may persist until parent exit",
+				zap.String("server", name), zap.Error(err))
+		}
 		delete(s.clients, name)
 	}
 	if state, ok := s.states[name]; ok {
@@ -384,7 +395,10 @@ func (s *Service) connectOne(ctx context.Context, name string) error {
 		state.LastError = err.Error()
 		state.LastErrorAt = &now
 		s.mu.Unlock()
-		_ = client.Close()
+		if cerr := client.Close(); cerr != nil {
+			s.log.Warn("connectOne: close after Initialize-fail also failed; orphan subprocess",
+				zap.String("server", name), zap.Error(cerr))
+		}
 		s.publishStatus(ctx, name)
 		return err
 	}
@@ -397,7 +411,10 @@ func (s *Service) connectOne(ctx context.Context, name string) error {
 		state.LastError = err.Error()
 		state.LastErrorAt = &now
 		s.mu.Unlock()
-		_ = client.Close()
+		if cerr := client.Close(); cerr != nil {
+			s.log.Warn("connectOne: close after ListTools-fail also failed; orphan subprocess",
+				zap.String("server", name), zap.Error(cerr))
+		}
 		s.publishStatus(ctx, name)
 		return err
 	}
