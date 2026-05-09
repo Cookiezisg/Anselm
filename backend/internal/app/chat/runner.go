@@ -170,9 +170,17 @@ func (s *Service) emitFatalError(
 			zap.String("msg_id", msgID), zap.Error(err))
 	}
 
-	// Event-log: close the assistant message with error.
-	// 事件日志：以 error 关闭 assistant message。
-	s.emitter.StopMessage(ctx, msgID, eventlogdomain.StatusError,
+	// Event-log: close the assistant message with error. Use saveCtx
+	// (detached) instead of caller's ctx so a tab-close / stream-cancel
+	// race between Resolve failure and StopMessage emit doesn't leave
+	// the UI hung on a streaming bubble — same §S9 reasoning as the
+	// SaveMessage above and host.go::WriteFinalize::StopMessage.
+	//
+	// 事件日志：用 saveCtx（detached）关 assistant message——caller ctx
+	// 在 Resolve 失败到 StopMessage 之间被 cancel（关 tab / 中止流）会让
+	// UI 的流式 bubble 永远不到 stop 事件挂死。同 §S9 上面的 SaveMessage
+	// 与 host.go::WriteFinalize::StopMessage 模式。
+	s.emitter.StopMessage(saveCtx, msgID, eventlogdomain.StatusError,
 		chatdomain.StopReasonError, code, message, 0, 0)
 }
 

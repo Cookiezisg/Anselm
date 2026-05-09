@@ -249,7 +249,7 @@ func (s *Service) UploadAttachment(ctx context.Context, fileBytes []byte, mimeTy
 			s.log.Warn("failed to clean up attachment directory after save error",
 				zap.String("dir", storageDir), zap.Error(cleanErr))
 		}
-		return nil, err
+		return nil, fmt.Errorf("chat.Service.UploadAttachment: %w", err)
 	}
 	return a, nil
 }
@@ -272,7 +272,7 @@ func (s *Service) UploadAttachment(ctx context.Context, fileBytes []byte, mimeTy
 func (s *Service) Send(ctx context.Context, conversationID string, in SendInput) (string, error) {
 	conv, err := s.convRepo.Get(ctx, conversationID)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("chat.Service.Send: %w", err)
 	}
 	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
@@ -297,7 +297,20 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	}
 	attrsJSON := ""
 	if len(attrs) > 0 {
-		if b, err := json.Marshal(attrs); err == nil {
+		b, err := json.Marshal(attrs)
+		if err != nil {
+			// attachments come from the prior validate/upload stage with
+			// well-formed primitive types — Marshal failing here would
+			// mean a programmer added a non-marshalable type to attrs.
+			// Log loudly so we see it; don't fail the user's send (they'd
+			// lose their message text), just lose the attachments tag.
+			//
+			// attrs 的来源在前面验证/上传阶段都是规范基本类型——Marshal
+			// 失败意味程序员加了不可序列化类型。高声 log，但不让用户的
+			// send 失败（消息文本会丢）；只丢 attachments 标。
+			s.log.Error("chat.Service.Send: marshal attrs failed; attachments tag dropped from message",
+				zap.String("conversation_id", conv.ID), zap.Error(err))
+		} else {
 			attrsJSON = string(b)
 		}
 	}
@@ -325,7 +338,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		Blocks:         blocks,
 	}
 	if err := s.repo.SaveMessage(ctx, userMsg); err != nil {
-		return "", err
+		return "", fmt.Errorf("chat.Service.Send: %w", err)
 	}
 
 	// Event-log dual-write: emit the user message burst. Bridge needs

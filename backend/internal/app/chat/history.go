@@ -37,7 +37,7 @@ const maxHistoryMessages = 200
 func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID string) ([]llminfra.LLMMessage, error) {
 	rows, _, err := s.repo.ListMessagesByConversation(ctx, convID, chatdomain.ListFilter{Limit: maxHistoryMessages})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("chat.Service.buildHistory: %w", err)
 	}
 
 	var out []llminfra.LLMMessage
@@ -53,7 +53,7 @@ func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID str
 		}
 		msgs, err := s.blocksToLLM(ctx, m)
 		if err != nil {
-			return nil, fmt.Errorf("buildHistory: message %q: %w", m.ID, err)
+			return nil, fmt.Errorf("chat.Service.buildHistory: message %q: %w", m.ID, err)
 		}
 		out = append(out, msgs...)
 	}
@@ -61,7 +61,7 @@ func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID str
 	if currentUserMsg != nil {
 		msg, err := s.buildUserLLMMessage(ctx, currentUserMsg)
 		if err != nil {
-			return nil, fmt.Errorf("buildHistory: current user msg %q: %w", currentUserMsgID, err)
+			return nil, fmt.Errorf("chat.Service.buildHistory: current user msg %q: %w", currentUserMsgID, err)
 		}
 		out = append(out, msg)
 	}
@@ -79,12 +79,22 @@ func (s *Service) blocksToLLM(ctx context.Context, m *chatdomain.Message) ([]llm
 	case chatdomain.RoleUser:
 		msg, err := s.buildUserLLMMessage(ctx, m)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("chat.Service.blocksToLLM: %w", err)
 		}
 		return []llminfra.LLMMessage{msg}, nil
 	case chatdomain.RoleAssistant:
 		return loopapp.BlocksToAssistantLLM(m.Blocks)
 	}
+	// Unknown role — log + drop. Returning nil keeps the caller's loop
+	// going; the message just doesn't land in LLM context. Without the
+	// log this drop is invisible (DB rows where Role is a future
+	// reserved value, schema drift, etc. would silently shrink history).
+	//
+	// 未知 role——log + drop。返 nil 让调用方循环继续，消息在 LLM
+	// context 里消失。没有 log 时这种丢弃无可追（DB row Role 是未来保留
+	// 值 / schema 漂移会让历史悄悄变短）。
+	s.log.Warn("chat.Service.blocksToLLM: unknown role dropped from history",
+		zap.String("message_id", m.ID), zap.String("role", m.Role))
 	return nil, nil
 }
 
@@ -114,12 +124,21 @@ func (s *Service) buildUserLLMMessage(ctx context.Context, m *chatdomain.Message
 	}
 
 	// Attachments from Message.Attrs JSON ({"attachments": [...]}).
-	// Attachments 从 Message.Attrs JSON 取。
+	// Parse failure means DB row corruption / schema drift / writer
+	// version mismatch — log loudly so the symptom (attachments missing
+	// from LLM context but message saved fine) is debuggable.
+	//
+	// Attachments 从 Message.Attrs JSON 取。解析失败意味 DB row 损坏 /
+	// schema 漂移 / writer 版本错配——高声 log，让症状（消息正常但
+	// 附件不进 LLM 上下文）可追。
 	if m.Attrs != "" {
 		var attrs struct {
 			Attachments []chatdomain.AttachmentRef `json:"attachments"`
 		}
-		if err := json.Unmarshal([]byte(m.Attrs), &attrs); err == nil {
+		if err := json.Unmarshal([]byte(m.Attrs), &attrs); err != nil {
+			s.log.Warn("chat.Service.buildUserLLMMessage: malformed Message.Attrs JSON; attachments dropped from LLM context",
+				zap.String("message_id", m.ID), zap.Error(err))
+		} else {
 			for _, ref := range attrs.Attachments {
 				part, err := s.attachmentToPart(ctx, ref)
 				if err != nil {
@@ -147,13 +166,13 @@ func (s *Service) buildUserLLMMessage(ctx context.Context, m *chatdomain.Message
 func (s *Service) attachmentToPart(ctx context.Context, ref chatdomain.AttachmentRef) (*llminfra.ContentPart, error) {
 	att, err := s.repo.GetAttachment(ctx, ref.AttachmentID)
 	if err != nil {
-		return nil, fmt.Errorf("attachmentToPart: get attachment %q: %w", ref.AttachmentID, err)
+		return nil, fmt.Errorf("chat.Service.attachmentToPart: get attachment %q: %w", ref.AttachmentID, err)
 	}
 
 	if chatinfra.IsImage(att.MimeType) {
 		data, err := readAndEncode(att.StoragePath)
 		if err != nil {
-			return nil, fmt.Errorf("attachmentToPart: encode image %q: %w", att.ID, err)
+			return nil, fmt.Errorf("chat.Service.attachmentToPart: encode image %q: %w", att.ID, err)
 		}
 		return &llminfra.ContentPart{
 			Type:     "image_url",
@@ -163,7 +182,7 @@ func (s *Service) attachmentToPart(ctx context.Context, ref chatdomain.Attachmen
 
 	text, err := chatinfra.Extract(att.StoragePath, att.MimeType)
 	if err != nil {
-		return nil, fmt.Errorf("attachmentToPart: extract %q: %w", att.ID, err)
+		return nil, fmt.Errorf("chat.Service.attachmentToPart: extract %q: %w", att.ID, err)
 	}
 	return &llminfra.ContentPart{
 		Type: "text",

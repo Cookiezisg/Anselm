@@ -29,7 +29,7 @@ func truncate(s string, n int) string {
 func readAndEncode(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("readAndEncode: %w", err)
+		return "", fmt.Errorf("chat.readAndEncode: %w", err)
 	}
 	return encodeBase64(data), nil
 }
