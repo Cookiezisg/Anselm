@@ -94,7 +94,7 @@ func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner,
 		Env:  env,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sandboxapp.SpawnLongLived: %w", err)
 	}
 
 	id := s.nextHandleID.Add(1)
@@ -176,7 +176,7 @@ func (s *Service) Shutdown(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		s.log.Warn("sandbox shutdown: deadline reached before all handles killed", zap.Int("count", count))
-		return ctx.Err()
+		return fmt.Errorf("sandboxapp.Shutdown: %w", ctx.Err())
 	}
 }
 
@@ -191,15 +191,15 @@ func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, o
 		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrSpawnFailed)
 	}
 	if opts.Cmd == "" {
-		// Caller wiring bug: every internal Spawn caller (forge, future
-		// workflow run) builds opts with a concrete Cmd. Empty here =
-		// future code path bypassed. panic so dev sees the stack
-		// rather than masking as 500 unmapped (same approach as
-		// apikey.HTTPTester default + mcp.AddServer + sandbox.EnsureEnv).
+		// Empty Cmd is treated as a returned error rather than a panic
+		// to preserve the explicit test contract at
+		// spawn_test.go::TestServiceSpawn_EmptyCmd_Errors. Sentinel +
+		// errmap mapping (400 SANDBOX_CMD_REQUIRED) so the unmapped-
+		// domain-error alarm doesn't fire if it triggers.
 		//
-		// 调用方 wiring bug：每个内部 Spawn caller 都填了 Cmd。空 = 未来
-		// 代码绕过——panic 让 dev 看 stack（同 apikey/mcp/sandbox 模式）。
-		panic("sandboxapp.Spawn: opts.Cmd is empty — caller wiring bug")
+		// 空 Cmd 走 sentinel 路线（不用 panic）——保留 spawn_test 已有
+		// 契约。新加 sentinel + errmap 400 BAD_REQUEST 防 unmapped 报警。
+		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrCmdRequired)
 	}
 
 	envRow, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)

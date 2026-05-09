@@ -203,7 +203,7 @@ func (s *Service) Bootstrap(ctx context.Context) error {
 		captured := err
 		s.bootstrapErr.Store(&captured)
 		s.bootstrapped.Store(false)
-		return err
+		return fmt.Errorf("sandboxapp.Bootstrap: %w", err)
 	}
 	s.miseBin = miseBin
 	s.bootstrapErr.Store(nil)
@@ -265,7 +265,7 @@ func (s *Service) RegisterEnvManager(manager sandboxdomain.EnvManager) {
 func (s *Service) EnsureTool(ctx context.Context, kind, version string) (string, error) {
 	rt, err := s.EnsureRuntime(ctx, sandboxdomain.RuntimeSpec{Kind: kind, Version: version}, nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("sandboxapp.EnsureTool %s: %w", kind, err)
 	}
 	s.regMu.RLock()
 	installer, ok := s.installers[kind]
@@ -423,7 +423,7 @@ func (s *Service) EnsureRuntime(ctx context.Context, spec sandboxdomain.RuntimeS
 
 	relPath, err := installer.Install(ctx, version, s.sandboxRoot, stream)
 	if err != nil {
-		return nil, fmt.Errorf("sandboxapp.EnsureRuntime: %w", err)
+		return nil, fmt.Errorf("sandboxapp.EnsureRuntime: install %s@%s: %w", spec.Kind, version, err)
 	}
 
 	runtime := &sandboxdomain.Runtime{
@@ -504,7 +504,7 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	// 装 runtime。
 	rt, err := s.EnsureRuntime(ctx, spec.Runtime, stream)
 	if err != nil {
-		return nil, fmt.Errorf("sandboxapp.EnsureEnv: %w", err)
+		return nil, fmt.Errorf("sandboxapp.EnsureEnv: ensure runtime %s: %w", spec.Runtime.Kind, err)
 	}
 
 	s.regMu.RLock()

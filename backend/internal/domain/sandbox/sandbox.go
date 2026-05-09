@@ -189,6 +189,14 @@ var (
 	// （POSIX/Windows 分隔符、shell 元字符、空白、NUL）时返回。防 bash
 	// auto-route 回归（commit 3cdf18a 修过的 B1）+ sandbox.md §3。
 	ErrInvalidOwnerID = errors.New("sandbox: owner.ID contains PATH-meta or whitespace character")
+	// ErrCmdRequired is returned when SpawnOpts.Cmd is empty. Spawn
+	// callers should always provide a concrete Cmd; explicit sentinel
+	// instead of panic preserves the existing test contract
+	// (TestServiceSpawn_EmptyCmd_Errors).
+	//
+	// ErrCmdRequired 在 SpawnOpts.Cmd 为空时返回。Spawn 调用方应当总是给
+	// 具体 Cmd；用 sentinel 而非 panic 保留既有测试契约。
+	ErrCmdRequired = errors.New("sandbox: SpawnOpts.Cmd is required")
 	// ErrDockerNotInstalled = `docker` binary not on PATH. Forgify cannot
 	// install Docker for the user (system service, requires root/admin) —
 	// caller should surface a platform-specific install URL.
