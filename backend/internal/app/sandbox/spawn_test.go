@@ -77,7 +77,7 @@ func newServiceWithEnv(t *testing.T, kind string) (*Service, sandboxdomain.Owner
 	}
 
 	repo := sandboxstore.New(db)
-	svc := New(repo, t.TempDir(), zap.NewNop())
+	svc := New(repo, t.TempDir(), nil, zap.NewNop())
 	svc.MarkReadyForTest("/fake/mise")
 	svc.RegisterEnvManager(fakeEnvManager{kind: kind})
 

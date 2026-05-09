@@ -22,11 +22,10 @@ import (
 
 	"go.uber.org/zap"
 
-	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
-	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	installprogresspkg "github.com/sunweilin/forgify/backend/internal/pkg/installprogress"
 )
 
 // InstallFromRegistry installs a curated catalog entry: validates user-
@@ -94,41 +93,26 @@ func (s *Service) InstallFromRegistry(ctx context.Context, name string, env, arg
 			Runtime: sandboxdomain.RuntimeSpec{Kind: entry.Runtime},
 		}
 
-		// Event-log Phase 3: surface sandbox install progress as a
-		// streaming progress block. parent comes from ctx (runOneTool
-		// stamps WithParentBlockID(tc.ID) before invoking install_mcp_server),
-		// so this block hangs under the LLM's install_mcp_server tool_call.
-		// Empty progID (no emitter / no parent) silently no-ops.
+		// Sandbox install progress streams via installprogress helper:
+		// when ctx is in chat flow (runOneTool stamps WithParentBlockID
+		// before invoking install_mcp_server), a progress block hangs
+		// under the install_mcp_server tool_call; otherwise (testend
+		// REST install) the progress callback is a no-op and the
+		// sandbox_env notification carries the state instead.
 		//
-		// 事件日志 Phase 3：sandbox 装包进度作 streaming progress block 推
-		// 出。parent 来自 ctx（runOneTool 在 install_mcp_server 调用前打了
-		// WithParentBlockID(tc.ID)），所以本 block 挂 LLM 的 install_mcp_server
-		// tool_call 下。空 progID（无 emitter / 无父）静默 no-op。
-		em := eventlogpkg.From(ctx)
-		progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress,
+		// installprogress helper 推 sandbox 装包进度：chat flow ctx
+		// （runOneTool 调 install_mcp_server 前已塞 WithParentBlockID）下
+		// 进度 block 挂 install_mcp_server tool_call 下；非 chat（testend
+		// REST 装）回调 no-op，由 sandbox_env notification 承载状态。
+		_, ensureErr := installprogresspkg.Run(ctx,
 			map[string]any{
 				"stage":   "installing",
 				"runtime": entry.Runtime,
 				"server":  entry.Name,
+			},
+			func(progress sandboxdomain.ProgressFunc) (*sandboxdomain.Env, error) {
+				return s.sandbox.EnsureEnv(ctx, owner, spec, progress)
 			})
-		progress := func(stage, message string, percent int) {
-			line := message
-			if stage != "" {
-				line = "[" + stage + "] " + line
-			}
-			if percent >= 0 {
-				line = fmt.Sprintf("%s (%d%%)", line, percent)
-			}
-			em.DeltaBlock(ctx, progID, line+"\n")
-		}
-
-		_, ensureErr := s.sandbox.EnsureEnv(ctx, owner, spec, progress)
-		ensureStatus := eventlogdomain.StatusCompleted
-		if ensureErr != nil {
-			ensureStatus = eventlogdomain.StatusError
-		}
-		em.StopBlock(ctx, progID, ensureStatus, ensureErr)
-
 		if ensureErr != nil {
 			return nil, fmt.Errorf("mcpapp.InstallFromRegistry %s: %w: %v",
 				name, mcpdomain.ErrInstallFailed, ensureErr)

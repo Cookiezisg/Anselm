@@ -43,6 +43,7 @@ import (
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	installprogresspkg "github.com/sunweilin/forgify/backend/internal/pkg/installprogress"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -216,12 +217,21 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 	cwd := resolveCwd(ctx)
 
 	// Conversation auto-route: detect runtime kind, lazily create the
-	// scratch env, derive PATH-prepend dirs. Failures degrade to plain
-	// shell — we never block the LLM on sandbox unavailability.
+	// scratch env, derive PATH-prepend dirs. When the command targets
+	// a sandboxed runtime (python/node/etc) and sandbox preparation
+	// fails, surface the failure to the LLM rather than silently
+	// falling through to system shell — running on /usr/bin/python3
+	// would give the LLM stale facts (e.g. "macOS ships Python 3.9.6")
+	// and violate §S3 "errors must not be swallowed".
 	//
 	// 对话自动路由：检测 runtime kind，懒建 scratch env，派生 PATH 前置
-	// 目录。失败降级到 plain shell——绝不让 sandbox 不可用阻 LLM。
-	extraPath := t.maybeAutoRoute(ctx, cmdText)
+	// 目录。命令瞄准 sandboxed runtime（python/node 等）但 sandbox 准备
+	// 失败时把错抛给 LLM，绝不静默降到系统 shell——/usr/bin/python3 给
+	// LLM 假事实（"macOS 自带 Python 3.9.6"），违 §S3 "错误不吞"。
+	extraPath, autoRouteErr := t.maybeAutoRoute(ctx, cmdText)
+	if autoRouteErr != nil {
+		return formatAutoRouteError(autoRouteErr), nil
+	}
 
 	if args.Background {
 		return t.runBackground(ctx, cmdText, cwd, extraPath)
@@ -234,25 +244,63 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 	return t.runForeground(ctx, cmdText, cwd, extraPath, time.Duration(timeoutMS)*time.Millisecond)
 }
 
-// maybeAutoRoute returns the bin directories to prepend onto PATH when
-// the command targets a sandboxed runtime, or nil to pass through to
-// plain system shell. Quiet failure is intentional — sandbox unavailable
-// must never block a vanilla `ls` or `git status`.
+// formatAutoRouteError turns a sandbox-prep failure into a tool result
+// the LLM can read and react to. The body explains what failed + the
+// (likely actionable) reason, the footer marks exit -1 + a "[sandbox
+// auto-route failed]" note so the LLM doesn't confuse it for a
+// command-side error. The wrapper returns (string, nil) so the tool
+// framework treats this as a normal tool result with explanatory body
+// rather than retrying / hiding it as a tool-framework error.
 //
-// maybeAutoRoute 返命令瞄准 sandboxed runtime 时该前置到 PATH 的 bin 目录，
-// nil 直传 plain system shell。静默失败故意——sandbox 不可用绝不该挡普通
-// `ls` 或 `git status`。
-func (t *Bash) maybeAutoRoute(ctx context.Context, command string) []string {
-	if t.sandbox == nil || !t.sandbox.IsReady() {
-		return nil
-	}
+// formatAutoRouteError 把 sandbox 准备失败转成 LLM 可读可响应的 tool
+// result。body 说明哪步失败+原因，footer 加 "[sandbox auto-route failed]"
+// 标 exit -1 让 LLM 不混淆为命令端错误。返 (string, nil) 让框架当成
+// 普通 tool result（带解释 body）而非 tool 框架错误重试 / 隐藏。
+func formatAutoRouteError(err error) string {
+	body := "Sandbox auto-route could not prepare the runtime for this command. " +
+		"The command was NOT executed (running on the system shell would " +
+		"return misleading data — e.g. system Python 3.9.6 instead of " +
+		"the conversation's isolated 3.12 venv). Please retry, or have " +
+		"the user check the sandbox status in testend.\n\n" +
+		"Reason: " + err.Error() + "\n"
+	return formatForegroundResult(body, -1, "sandbox auto-route failed")
+}
+
+// maybeAutoRoute returns the bin directories to prepend onto PATH for
+// a sandboxed-runtime command, plus an error when sandbox preparation
+// failed for a runtime-bound command. Returning nil/nil means the
+// command isn't runtime-bound (vanilla `ls` / `git status` etc.) — pass
+// through to system shell with no PATH change. Returning extraPath/nil
+// means we successfully prepared a conversation env. Returning nil/err
+// means a runtime-bound command found sandbox unavailable; caller must
+// surface the err to the LLM rather than fall through (running system
+// /usr/bin/python3 would mislead the LLM, violating §S3).
+//
+// maybeAutoRoute 返 sandboxed-runtime 命令该前置到 PATH 的 bin 目录 +
+// runtime 命令 sandbox 准备失败时的 err。nil/nil 表示非 runtime 命令
+// （裸 `ls` / `git status`），按系统 shell 直传不改 PATH。extraPath/nil
+// 是成功准备好 conv env。nil/err 是 runtime 命令撞 sandbox 不可用——
+// 调用方必须把 err 抛给 LLM 不能 fallthrough（系统 /usr/bin/python3
+// 会给 LLM 假事实，违 §S3）。
+func (t *Bash) maybeAutoRoute(ctx context.Context, command string) ([]string, error) {
 	kind := detectRuntime(command)
 	if kind == "" {
-		return nil
+		return nil, nil // non-runtime command — system shell is fine
+	}
+	if t.sandbox == nil {
+		return nil, fmt.Errorf("sandbox service not wired (this is a server build / config issue — please report)")
+	}
+	if !t.sandbox.IsReady() {
+		bootErr := t.sandbox.BootstrapError()
+		reason := "bootstrap incomplete"
+		if bootErr != nil {
+			reason = "bootstrap failed: " + bootErr.Error()
+		}
+		return nil, fmt.Errorf("sandbox not ready (%s) — %s commands cannot run safely on the system shell", reason, kind)
 	}
 	convID, ok := reqctxpkg.GetConversationID(ctx)
 	if !ok || convID == "" {
-		return nil
+		return nil, fmt.Errorf("no conversation context — %s commands need a conversation-scoped sandbox env", kind)
 	}
 	// owner.ID joins convID + runtimeKind with "_" (NOT ":"): owner.ID
 	// becomes a literal directory name (sandbox.go:478) that prepends
@@ -273,20 +321,35 @@ func (t *Bash) maybeAutoRoute(ctx context.Context, command string) []string {
 		ID:   convID + "_" + kind,
 		Name: fmt.Sprintf("Conv %s scratch (%s)", convID, kind),
 	}
-	env, err := t.sandbox.EnsureEnv(ctx, owner, sandboxdomain.EnvSpec{
-		Runtime: sandboxdomain.RuntimeSpec{Kind: kind},
-	}, nil)
+	// Wrap EnsureEnv with installprogresspkg.Run so the install progress
+	// streams as a progress block under the in-flight Bash tool_call
+	// (parent comes from ctx — runOneTool stamps WithParentBlockID(tc.ID)
+	// before invoking each tool). When ctx isn't a chat flow (e.g. test
+	// harness without an active tool_call), the helper's callback no-ops
+	// — sandbox_env notification still fires from the sandbox service
+	// itself per the "always publish on state change" rule.
+	//
+	// 用 installprogresspkg.Run 包 EnsureEnv，让装包进度作为 progress
+	// block 流式挂在当前 Bash tool_call 父下（runOneTool 调每个 tool 前
+	// 已塞 WithParentBlockID(tc.ID)）。非 chat flow ctx（如测试 harness
+	// 无活动 tool_call）下 helper 回调 no-op——sandbox_env notification
+	// 仍由 sandbox service 按"状态变化必发"规则发。
+	env, err := installprogresspkg.Run(ctx,
+		map[string]any{
+			"stage":   "preparing-runtime",
+			"runtime": kind,
+			"owner":   owner.ID,
+		},
+		func(progress sandboxdomain.ProgressFunc) (*sandboxdomain.Env, error) {
+			return t.sandbox.EnsureEnv(ctx, owner, sandboxdomain.EnvSpec{
+				Runtime: sandboxdomain.RuntimeSpec{Kind: kind},
+			}, progress)
+		})
 	if err != nil {
-		// Don't surface to the LLM via the tool result — the LLM cares
-		// about its command running, not about sandbox internals.
-		// Plain system shell is the documented fallback.
-		//
-		// 不通过 tool result 暴露给 LLM——LLM 关心自己命令是否跑，不是
-		// sandbox 内部。plain system shell 是文档化的兜底。
-		return nil
+		return nil, fmt.Errorf("sandbox env install failed (%s for %s): %w", kind, convID, err)
 	}
 	envPath := filepath.Join(t.sandbox.SandboxRoot(), env.Path)
-	return envBinDirsForKind(envPath, kind)
+	return envBinDirsForKind(envPath, kind), nil
 }
 
 // ── cd state machine ──────────────────────────────────────────────────────────

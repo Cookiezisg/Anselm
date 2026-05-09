@@ -258,8 +258,17 @@ func New(t *testing.T, opts ...Option) *Harness {
 	} else {
 		dataDir = t.TempDir()
 	}
+	// Bridges + publisher must be live before sandbox / chat / etc. so
+	// constructors that publish on state change can wire to a real
+	// notifier instead of nil.
+	// Bridge + publisher 必须先于 sandbox / chat 等就位，让发状态变更通知
+	// 的构造函数能接真 notifier 不 nil。
+	eventLogBridge := eventloginfra.NewBridge(log)
+	notificationsBridge := notificationsinfra.NewBridge(log)
+	notificationsPub := notificationspkg.New(notificationsBridge, log)
+
 	sandboxRepo := sandboxstore.New(gdb)
-	sandboxSvc := sandboxapp.New(sandboxRepo, dataDir, log)
+	sandboxSvc := sandboxapp.New(sandboxRepo, dataDir, notificationsPub, log)
 	if err := sandboxSvc.Bootstrap(context.Background()); err != nil {
 		t.Logf("sandbox v2 bootstrap failed: %v (degraded mode active; runtime ops will fail)", err)
 	}
@@ -273,9 +282,6 @@ func New(t *testing.T, opts ...Option) *Harness {
 	})
 
 	forgeLLM := &forgeLLMAdapter{picker: modelService, keys: apikeyService, factory: llmFactory}
-	eventLogBridge := eventloginfra.NewBridge(log)
-	notificationsBridge := notificationsinfra.NewBridge(log)
-	notificationsPub := notificationspkg.New(notificationsBridge, log)
 	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
 
 	forgeService := forgeapp.NewService(

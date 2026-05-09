@@ -51,7 +51,7 @@ func newSandboxTestServer(t *testing.T) (*httptest.Server, sandboxdomain.Reposit
 	}
 	repo := sandboxstore.New(gdb)
 	log := zaptest.NewLogger(t)
-	svc := sandboxapp.New(repo, t.TempDir(), log)
+	svc := sandboxapp.New(repo, t.TempDir(), nil, log)
 	svc.MarkReadyForTest("/fake/mise")
 
 	h := NewSandboxHandler(svc, log)

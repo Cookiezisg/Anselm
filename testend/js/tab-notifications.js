@@ -43,7 +43,7 @@ document.addEventListener('alpine:init', () => {
     // Type vocabularies (for filter chip menus).
     //
     // Type 词表（filter 芯片菜单用）。
-    SSE_TYPES: ['conversation', 'todo', 'mcp_server', 'skill', 'catalog'],
+    SSE_TYPES: ['conversation', 'todo', 'mcp_server', 'skill', 'catalog', 'sandbox_env'],
     TOAST_TYPES: ['success', 'error', 'warn', 'info'],
     MAX_EVENTS: 200,
 
@@ -127,6 +127,12 @@ document.addEventListener('alpine:init', () => {
         case 'catalog':
           return 'fp=' + (d.fingerprint || n.id || '').slice(0, 8) +
             ' v' + (d.version != null ? d.version : '?')
+        case 'sandbox_env':
+          if (d.deleted) return n.id + ' · destroyed'
+          return (d.ownerKind || '?') + '/' + (d.ownerId || '?') +
+            ' · ' + (d.runtimeKind || '?') +
+            ' · ' + (d.status || '?') +
+            (d.errorMsg ? ' (' + String(d.errorMsg).slice(0, 40) + ')' : '')
         default:
           return n.id || JSON.stringify(d).slice(0, 60)
       }
@@ -183,6 +189,7 @@ document.addEventListener('alpine:init', () => {
         mcp_server: '#c97600',
         skill: '#0891b2',
         catalog: '#0891b2',
+        sandbox_env: '#2a9d3a',
         // toast
         success: '#2a9d3a',
         error: '#c93434',

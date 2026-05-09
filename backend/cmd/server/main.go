@@ -181,7 +181,7 @@ func main() {
 	// 失败翻 degraded mode（chat-only 路径保活）但不致命。Bootstrap 后注册
 	// 覆盖所有 v1 支持 runtime 的 installer + env manager。
 	sandboxRepo := sandboxstore.New(gdb)
-	sandboxSvc := sandboxapp.New(sandboxRepo, *dataDir, log)
+	sandboxSvc := sandboxapp.New(sandboxRepo, *dataDir, notificationsPub, log)
 	if err := sandboxSvc.Bootstrap(context.Background()); err != nil {
 		log.Warn("sandbox v2 bootstrap failed (degraded mode active; runtime ops will fail)",
 			zap.Error(err))

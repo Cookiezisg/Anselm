@@ -58,6 +58,7 @@ import (
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
 // Service is the sandbox application façade. Field set is fixed at
@@ -70,6 +71,17 @@ type Service struct {
 	sandboxRoot string // absolute path: <dataDir>/sandbox/
 	dataDir     string // absolute path: <dataDir>/ (parent of sandbox/)
 	log         *zap.Logger
+
+	// notif publishes sandbox_env entity-state changes (create/ready/
+	// failed/destroy) per the project's "always publish on state change"
+	// rule. Subscribers (testend Sandbox tab, Notifs feed, future UI)
+	// see env lifecycle in real time. nil-safe via notificationspkg's
+	// no-op fallback.
+	//
+	// notif 发 sandbox_env 实体状态变更（创建/ready/failed/destroy）按
+	// 项目"状态变化必发"规则。订阅方（testend Sandbox tab / Notifs feed /
+	// 未来 UI）实时看 env 生命周期。nil-safe：notificationspkg 自带 no-op。
+	notif notificationspkg.Publisher
 
 	// miseBin is set by Bootstrap on success. Empty until then.
 	// miseBin 由 Bootstrap 成功设置。之前为空。
@@ -118,11 +130,15 @@ type Service struct {
 }
 
 // New constructs a Service bound to the given repository, data directory,
-// and logger. Bootstrap must run successfully before EnsureRuntime / Spawn.
+// and logger. notif may be nil for tests; production wires the real
+// notifications publisher so testend / future UIs see env lifecycle
+// state-change events. Bootstrap must run successfully before
+// EnsureRuntime / Spawn.
 //
-// New 构造 Service 绑给定 repository、数据目录、logger。EnsureRuntime / Spawn
-// 前必须先 Bootstrap 成功。
-func New(repo sandboxdomain.Repository, dataDir string, log *zap.Logger) *Service {
+// New 构造 Service 绑给定 repository、数据目录、logger。notif 测试可 nil；
+// 生产接真 publisher 让 testend / 未来 UI 看到 env 生命周期事件。
+// EnsureRuntime / Spawn 前必须先 Bootstrap 成功。
+func New(repo sandboxdomain.Repository, dataDir string, notif notificationspkg.Publisher, log *zap.Logger) *Service {
 	if log == nil {
 		panic("sandboxapp.New: nil logger")
 	}
@@ -130,6 +146,7 @@ func New(repo sandboxdomain.Repository, dataDir string, log *zap.Logger) *Servic
 		repo:        repo,
 		dataDir:     dataDir,
 		sandboxRoot: filepath.Join(dataDir, "sandbox"),
+		notif:       notif,
 		log:         log,
 		installers:  make(map[string]sandboxdomain.RuntimeInstaller),
 		envManagers: make(map[string]sandboxdomain.EnvManager),
@@ -509,6 +526,7 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	if err := s.repo.CreateEnv(ctx, env); err != nil {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: persist row: %w", err)
 	}
+	s.publishEnv(ctx, env) // status=installing
 
 	runtimePath := filepath.Join(s.sandboxRoot, rt.Path)
 	if err := em.CreateEnv(ctx, runtimePath, envPath); err != nil {
@@ -532,6 +550,7 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	if err := s.repo.UpdateEnv(ctx, env); err != nil {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: persist ready: %w", err)
 	}
+	s.publishEnv(ctx, env) // status=ready
 	return env, nil
 }
 
@@ -567,6 +586,7 @@ func (s *Service) destroyLocked(ctx context.Context, owner sandboxdomain.Owner, 
 	if err := s.repo.DeleteEnv(ctx, env.ID); err != nil {
 		return fmt.Errorf("sandboxapp.Destroy: delete row %s: %w", env.ID, err)
 	}
+	s.publishEnvDeleted(ctx, env.ID)
 	return nil
 }
 
@@ -585,6 +605,68 @@ func (s *Service) markEnvFailed(ctx context.Context, env *sandboxdomain.Env, cau
 			zap.String("env_id", env.ID),
 			zap.Error(err))
 	}
+	s.publishEnv(ctx, env) // status=failed
+}
+
+// publishEnv emits a sandbox_env entity-state notification. Called on
+// every env state transition (created/installing → ready/failed →
+// destroyed). nil notifier (test harness) → no-op. Subscribers
+// dispatch on type=sandbox_env to refresh their UI.
+//
+// data carries the full env snapshot so subscribers don't need a
+// refetch; deleted=true sentinel for destroy events that have no
+// surviving env row to read.
+//
+// publishEnv 发 sandbox_env 实体状态变更通知。每次 env 状态转换都调
+// （创建/installing → ready/failed → 销毁）。nil notifier（测试 harness）
+// → no-op。订阅方按 type=sandbox_env 派发刷 UI。
+//
+// data 带 env 完整快照让订阅方不必 refetch；销毁事件无 env 行可读，
+// 用 deleted=true 哨兵。
+func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
+	if s.notif == nil {
+		return
+	}
+	s.notif.Publish(ctx, "sandbox_env", env.ID, map[string]any{
+		"id":           env.ID,
+		"ownerKind":    env.OwnerKind,
+		"ownerId":      env.OwnerID,
+		"ownerName":    env.OwnerName,
+		"runtimeId":    env.RuntimeID,
+		"runtimeKind":  envRuntimeKind(env, s),
+		"path":         env.Path,
+		"status":       env.Status,
+		"errorMsg":     env.ErrorMsg,
+		"sizeBytes":    env.SizeBytes,
+		"createdAt":    env.CreatedAt,
+		"lastUsedAt":   env.LastUsedAt,
+		"updatedAt":    env.UpdatedAt,
+	})
+}
+
+func (s *Service) publishEnvDeleted(ctx context.Context, envID string) {
+	if s.notif == nil {
+		return
+	}
+	s.notif.Publish(ctx, "sandbox_env", envID, map[string]any{
+		"id":      envID,
+		"deleted": true,
+	})
+}
+
+// envRuntimeKind looks up the runtime kind for env.RuntimeID via the
+// repo. Best-effort — failures (rare; only if the runtime row was
+// deleted out from under the env) yield "" rather than blocking the
+// notification publish.
+//
+// envRuntimeKind 经 repo 查 env.RuntimeID 对应 runtime kind。Best-effort
+// ——失败（罕见，仅 runtime 行被外部删时）返 "" 不阻塞通知发布。
+func envRuntimeKind(env *sandboxdomain.Env, s *Service) string {
+	rt, err := s.repo.GetRuntime(context.Background(), env.RuntimeID)
+	if err != nil || rt == nil {
+		return ""
+	}
+	return rt.Kind
 }
 
 // touchLastUsed bumps LastUsedAt on read-path env reuse. Best-effort.
