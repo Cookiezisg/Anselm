@@ -435,7 +435,7 @@ func (m *MiseInstaller) where(ctx context.Context, dataDir, version string) (str
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("mise where %s@%s: %v: %s",
+		return "", fmt.Errorf("sandbox.MiseInstaller.where %s@%s: %w: %s",
 			m.kind, version, err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
@@ -451,7 +451,7 @@ func (m *MiseInstaller) ListAvailable(ctx context.Context) ([]string, error) {
 	cmd := exec.CommandContext(ctx, m.miseBin, "ls-remote", m.kind)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("sandbox.MiseInstaller.ListAvailable %s: %v: %s",
+		return nil, fmt.Errorf("sandbox.MiseInstaller.ListAvailable %s: %w: %s",
 			m.kind, err, strings.TrimSpace(string(out)))
 	}
 	trimmed := strings.TrimSpace(string(out))

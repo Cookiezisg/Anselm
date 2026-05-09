@@ -80,7 +80,7 @@ func (p *PythonEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath s
 	}
 	cmd := exec.CommandContext(ctx, uvBin, "venv", "--python", runtimePath, venvDir)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv %s: %w: %v (uv output: %s)",
+		return fmt.Errorf("sandbox.PythonEnvManager.CreateEnv %s: %w: %w (uv output: %s)",
 			venvDir, sandboxdomain.ErrEnvCreateFailed, err, strings.TrimSpace(string(out)))
 	}
 	return nil

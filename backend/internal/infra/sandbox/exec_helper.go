@@ -69,7 +69,17 @@ func RunWithStderrCapture(cmd *exec.Cmd, stream sandboxdomain.ProgressFunc, sent
 		if snippet == "" {
 			snippet = "(no stderr)"
 		}
-		return fmt.Errorf("%s: %w: %v: %s", msgPrefix, sentinel, err, snippet)
+		// Multi-%w (Go 1.20+) preserves BOTH the install-path sentinel
+		// (e.g. ErrRuntimeInstallFailed) AND the wrapped *exec.ExitError.
+		// Callers can errors.Is() either; previously %v collapsed
+		// ExitError into a string and broke the chain. This single fix
+		// flows through mise/Node/Python install paths since they all
+		// route through here.
+		//
+		// 双 %w（Go 1.20+）同时保留 install 路径 sentinel 与
+		// *exec.ExitError；之前 %v 折损 ExitError 类型。本处一改通三条
+		// install path（mise / Node / Python 都用这条 helper）。
+		return fmt.Errorf("%s: %w: %w: %s", msgPrefix, sentinel, err, snippet)
 	}
 	return nil
 }

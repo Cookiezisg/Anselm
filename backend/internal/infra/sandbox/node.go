@@ -74,7 +74,7 @@ func (n *NodeEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath str
 		return fmt.Errorf("sandbox.NodeEnvManager.CreateEnv: marshal pkg: %w", err)
 	}
 	if err := os.WriteFile(pkgJSON, data, 0o644); err != nil {
-		return fmt.Errorf("sandbox.NodeEnvManager.CreateEnv: write pkg: %w (env: %w)", err, sandboxdomain.ErrEnvCreateFailed)
+		return fmt.Errorf("sandbox.NodeEnvManager.CreateEnv: write pkg: %w: %w", sandboxdomain.ErrEnvCreateFailed, err)
 	}
 	return nil
 }
