@@ -63,6 +63,17 @@ func RunWithStderrCapture(cmd *exec.Cmd, stream sandboxdomain.ProgressFunc, sent
 			tail = tail[len(tail)-stderrTailMax:]
 		}
 	}
+	// scanner.Err() returns the first non-EOF read error (e.g. pipe broken
+	// mid-read). Don't gate cmd.Wait on it — we still want the exit status
+	// — but the scanner failure is observable here and worth a tail-append
+	// so the eventual error message includes context.
+	//
+	// scanner.Err() 返第一个非 EOF 读错误（如读到一半管道断）。不挡
+	// cmd.Wait——仍要 exit status——但 scanner 失败可观，append 到 tail
+	// 让最终 error 信息含上下文。
+	if scanErr := scanner.Err(); scanErr != nil {
+		tail = append(tail, []byte("(stderr scan error: "+scanErr.Error()+")\n")...)
+	}
 
 	if err := cmd.Wait(); err != nil {
 		snippet := strings.TrimSpace(string(tail))

@@ -204,7 +204,7 @@ aqua.github_attestations = false
 `
 	configPath := MiseGlobalConfigPath(sandboxRoot)
 	if err := os.WriteFile(configPath, []byte(body), 0o644); err != nil {
-		return fmt.Errorf("write mise.toml: %w", err)
+		return fmt.Errorf("sandbox.writeMiseConfig: write mise.toml: %w", err)
 	}
 	log.Debug("mise config written", zap.String("path", configPath))
 	return nil

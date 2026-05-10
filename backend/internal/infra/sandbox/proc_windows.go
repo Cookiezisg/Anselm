@@ -84,7 +84,7 @@ func EnsureMasterJob() error {
 func initMasterJob() {
 	h, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
-		masterJobErr = fmt.Errorf("CreateJobObject: %w", err)
+		masterJobErr = fmt.Errorf("sandbox.initMasterJob: CreateJobObject: %w", err)
 		return
 	}
 	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
@@ -100,12 +100,12 @@ func initMasterJob() {
 	)
 	if err != nil {
 		_ = windows.CloseHandle(h)
-		masterJobErr = fmt.Errorf("SetInformationJobObject: %w", err)
+		masterJobErr = fmt.Errorf("sandbox.initMasterJob: SetInformationJobObject: %w", err)
 		return
 	}
 	if err := windows.AssignProcessToJobObject(h, windows.CurrentProcess()); err != nil {
 		_ = windows.CloseHandle(h)
-		masterJobErr = fmt.Errorf("AssignProcessToJobObject(self): %w", err)
+		masterJobErr = fmt.Errorf("sandbox.initMasterJob: AssignProcessToJobObject(self): %w", err)
 		return
 	}
 	masterJob = h
@@ -144,7 +144,7 @@ func killProcessGroup(cmd *exec.Cmd) error {
 	pid := strconv.Itoa(cmd.Process.Pid)
 	out, err := exec.Command("taskkill", "/T", "/F", "/PID", pid).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("taskkill: %w (output: %s)", err, out)
+		return fmt.Errorf("sandbox.killProcessGroup: taskkill: %w (output: %s)", err, out)
 	}
 	return nil
 }

@@ -59,7 +59,7 @@ func macCodesign(ctx context.Context, root string, log *zap.Logger) error {
 	// 清不掉每个嵌套 .dylib / .so 的 Gatekeeper 缓存。
 	cmd := exec.CommandContext(ctx, "xattr", "-dr", "com.apple.provenance", root)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("xattr -dr: %w (output: %s)", err, out)
+		return fmt.Errorf("sandbox.macCodesign: xattr -dr: %w (output: %s)", err, out)
 	}
 
 	// 2. Walk all regular executable files and ad-hoc sign each. We must
@@ -88,7 +88,7 @@ func macCodesign(ctx context.Context, root string, log *zap.Logger) error {
 		}
 		signCmd := exec.CommandContext(ctx, "codesign", "--force", "--sign", "-", path)
 		if out, signErr := signCmd.CombinedOutput(); signErr != nil {
-			return fmt.Errorf("codesign %s: %w (output: %s)", path, signErr, out)
+			return fmt.Errorf("sandbox.macCodesign %s: %w (output: %s)", path, signErr, out)
 		}
 		signed++
 		return nil
