@@ -48,7 +48,7 @@ func Resolve(
 ) (*Bundle, error) {
 	provider, modelID, err := picker.PickForChat(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPickModel, err)
+		return nil, fmt.Errorf("%w: %w", ErrPickModel, err)
 	}
 	return finishResolve(ctx, provider, modelID, keys, factory)
 }
@@ -70,7 +70,7 @@ func ResolveForWebSummary(
 		provider, modelID, err = picker.PickForChat(ctx)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPickModel, err)
+		return nil, fmt.Errorf("%w: %w", ErrPickModel, err)
 	}
 	return finishResolve(ctx, provider, modelID, keys, factory)
 }
@@ -83,7 +83,7 @@ func finishResolve(
 ) (*Bundle, error) {
 	creds, err := keys.ResolveCredentials(ctx, provider)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrResolveCreds, err)
+		return nil, fmt.Errorf("%w: %w", ErrResolveCreds, err)
 	}
 	client, baseURL, err := factory.Build(llminfra.Config{
 		Provider: provider,
@@ -92,7 +92,7 @@ func finishResolve(
 		BaseURL:  creds.BaseURL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrBuildClient, err)
+		return nil, fmt.Errorf("%w: %w", ErrBuildClient, err)
 	}
 	return &Bundle{
 		Client:   client,
