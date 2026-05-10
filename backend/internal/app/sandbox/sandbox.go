@@ -69,7 +69,6 @@ import (
 type Service struct {
 	repo        sandboxdomain.Repository
 	sandboxRoot string // absolute path: <dataDir>/sandbox/
-	dataDir     string // absolute path: <dataDir>/ (parent of sandbox/)
 	log         *zap.Logger
 
 	// notif publishes sandbox_env entity-state changes (create/ready/
@@ -144,7 +143,6 @@ func New(repo sandboxdomain.Repository, dataDir string, notif notificationspkg.P
 	}
 	return &Service{
 		repo:        repo,
-		dataDir:     dataDir,
 		sandboxRoot: filepath.Join(dataDir, "sandbox"),
 		notif:       notif,
 		log:         log,
@@ -197,7 +195,7 @@ func (s *Service) BootstrapError() error {
 // IsReady()=true。幂等——盘上 mise hash 匹配 embed 版本时重跑 no-op。
 // 失败 log 并记 bootstrapErr；Service 保活进入 degraded mode。
 func (s *Service) Bootstrap(ctx context.Context) error {
-	miseBin, err := sandboxinfra.ExtractMiseBinary(ctx, s.dataDir, s.log)
+	miseBin, err := sandboxinfra.ExtractMiseBinary(ctx, s.sandboxRoot, s.log)
 	if err != nil {
 		s.log.Warn("sandbox bootstrap failed (degraded mode active)", zap.Error(err))
 		captured := err
@@ -432,7 +430,6 @@ func (s *Service) EnsureRuntime(ctx context.Context, spec sandboxdomain.RuntimeS
 		Version:     version,
 		Path:        relPath,
 		SizeBytes:   computeDirSize(filepath.Join(s.sandboxRoot, relPath)),
-		IsDefault:   spec.Version == "",
 		InstalledAt: time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -487,7 +484,7 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	// Reuse existing env when deps match.
 	// deps 一致时复用已存在 env。
 	if existing, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID); err == nil {
-		if existing.Status == sandboxdomain.EnvStatusReady && depsEqual(existing.Deps, spec.Deps) && depsEqual(existing.Extras, spec.Extras) {
+		if existing.Status == sandboxdomain.EnvStatusReady && depsEqual(existing.Deps, spec.Deps) {
 			s.touchLastUsed(ctx, existing)
 			return existing, nil
 		}
@@ -526,7 +523,6 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 		OwnerName:  owner.Name,
 		RuntimeID:  rt.ID,
 		Deps:       spec.Deps,
-		Extras:     spec.Extras,
 		Path:       envRel,
 		Status:     sandboxdomain.EnvStatusInstalling,
 		CreatedAt:  now,
@@ -546,12 +542,6 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	if err := em.InstallDeps(ctx, runtimePath, envPath, spec.Deps, stream); err != nil {
 		s.markEnvFailed(ctx, env, err)
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv deps: %w", err)
-	}
-	if len(spec.Extras) > 0 {
-		if err := em.InstallExtras(ctx, runtimePath, envPath, spec.Extras, stream); err != nil {
-			s.markEnvFailed(ctx, env, err)
-			return nil, fmt.Errorf("sandboxapp.EnsureEnv extras: %w", err)
-		}
 	}
 
 	env.Status = sandboxdomain.EnvStatusReady
@@ -672,7 +662,7 @@ func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
 		"createdAt":    env.CreatedAt,
 		"lastUsedAt":   env.LastUsedAt,
 		"updatedAt":    env.UpdatedAt,
-	})
+	}, "")
 }
 
 func (s *Service) publishEnvDeleted(ctx context.Context, envID string) {
@@ -682,7 +672,7 @@ func (s *Service) publishEnvDeleted(ctx context.Context, envID string) {
 	s.notif.Publish(ctx, "sandbox_env", envID, map[string]any{
 		"id":      envID,
 		"deleted": true,
-	})
+	}, "")
 }
 
 // envRuntimeKind looks up the runtime kind for env.RuntimeID via the

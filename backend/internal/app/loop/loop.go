@@ -1,10 +1,11 @@
-// Package loop is the shared ReAct engine. chat / subagent / Skill fork /
-// Phase 4 workflow LLM nodes all consume it through the Host interface —
-// this is the single source of truth for stream → tool dispatch → history
-// extension → finalize. No service-specific knowledge lives here.
+// Package loop is the shared ReAct engine. chat and subagent consume it
+// through the Host interface today; future phases (Phase 4 workflow LLM
+// nodes) will join the same way. This is the single source of truth for
+// stream → tool dispatch → history extension → finalize. No service-
+// specific knowledge lives here.
 //
-// Package loop 是共享的 ReAct 引擎。chat / subagent / Skill fork /
-// Phase 4 workflow LLM 节点全部通过 Host 接口使用——是 stream → 工具调度
+// Package loop 是共享的 ReAct 引擎。chat / subagent 经 Host 接口使用，未来
+// Phase（Phase 4 workflow LLM 节点）以同样方式接入。是 stream → 工具调度
 // → 历史扩展 → 终态 这条链路的唯一事实源。本包不持有任何 service 特有知识。
 package loop
 
@@ -101,6 +102,7 @@ func Run(
 		totalIn      int
 		totalOut     int
 		stopReason   = chatdomain.StopReasonEndTurn
+		finalStatus  = chatdomain.StatusCompleted
 		errCode      string
 		errMsg       string
 		finalWritten bool
@@ -128,6 +130,7 @@ func Run(
 				errCode = "LLM_STREAM_ERROR"
 				errMsg = em
 			}
+			finalStatus = status
 			host.WriteFinalize(ctx, allBlocks, status, stopReason, errCode, errMsg, totalIn, totalOut)
 			finalWritten = true
 			break
@@ -148,6 +151,7 @@ func Run(
 			stopReason = chatdomain.StopReasonError
 			errCode = "HISTORY_EXTEND_FAILED"
 			errMsg = err.Error()
+			finalStatus = chatdomain.StatusError
 			host.WriteFinalize(ctx, allBlocks, chatdomain.StatusError, stopReason, errCode, errMsg, totalIn, totalOut)
 			finalWritten = true
 			break
@@ -163,7 +167,7 @@ func Run(
 
 	return Result{
 		Blocks:      allBlocks,
-		Status:      chatdomain.StatusCompleted,
+		Status:      finalStatus,
 		StopReason:  stopReason,
 		TokensIn:    totalIn,
 		TokensOut:   totalOut,

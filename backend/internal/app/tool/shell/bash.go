@@ -95,8 +95,9 @@ Usage:
 - Combined stdout+stderr is returned, capped at 256 KB. Exit code appears in a status footer.
 - This is a local single-user app — there is no banned-command list. Be careful with destructive commands; the user sees what you propose to run.
 
-Sandbox auto-routing (packages do not pollute the host system):
-- Commands that invoke a managed language runtime (` + "`pip`" + `, ` + "`python`" + `, ` + "`uv`" + `, ` + "`node`" + `, ` + "`npm`" + `, ` + "`npx`" + `, ` + "`pnpm`" + `, ` + "`cargo`" + `, ` + "`go`" + `, ` + "`gem`" + `, ` + "`bundle`" + `, ` + "`mvn`" + `, ` + "`gradle`" + `, ` + "`composer`" + `, ` + "`dotnet`" + `, etc.) automatically execute inside a per-conversation isolated environment. Detection covers nested forms — ` + "`bash -c \"pip install ...\"`" + `, ` + "`env VAR=val python ...`" + `, ` + "`/usr/bin/python3 ...`" + `, ` + "`cd /tmp && python ...`" + ` chains, subshells, and ` + "`which python3`" + `.
+Sandbox auto-routing (Python and Node only — other languages run on the host system):
+- Commands that invoke ` + "`python`" + `, ` + "`pip`" + `, ` + "`uv`" + `, ` + "`virtualenv`" + `, ` + "`pipenv`" + `, ` + "`poetry`" + `, ` + "`node`" + `, ` + "`npm`" + `, ` + "`npx`" + `, ` + "`yarn`" + `, or ` + "`pnpm`" + ` automatically execute inside a per-conversation isolated environment so packages do not pollute the host. Detection covers nested forms — ` + "`bash -c \"pip install ...\"`" + `, ` + "`env VAR=val python ...`" + `, ` + "`/usr/bin/python3 ...`" + `, ` + "`cd /tmp && python ...`" + ` chains, subshells, and ` + "`which python3`" + `.
+- Other languages (Rust, Go, Ruby, PHP, Java, .NET, etc.) currently run on the host system — install them yourself if needed; isolation is not provided.
 - The router cannot see through ` + "`eval \"...\"`" + `, ` + "`source ./script.sh`" + `, or commands hidden inside ` + "`$(<dynamic-string>)`" + ` substitutions — those run on the host system and pollute it. When installing packages or running scripts, write the runtime command directly (e.g. ` + "`pip install pandas`" + `, not ` + "`eval \"pip install pandas\"`" + `).`
 
 var bashSchema = json.RawMessage(`{

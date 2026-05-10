@@ -144,7 +144,7 @@ func (p *progressCallback) emitStartLine(attrs map[string]any) {
 	p.em.DeltaBlock(context.Background(), p.blockID, line)
 }
 
-func (p *progressCallback) close(ctx context.Context, err error) {
+func (p *progressCallback) close(_ context.Context, err error) {
 	if p.blockID == "" {
 		return
 	}
@@ -165,7 +165,6 @@ func (p *progressCallback) close(ctx context.Context, err error) {
 	// stop emit 之间 cancel 会让 progress block 卡 streaming，但用户看到的
 	// 是终态 delta 行。同 §S9 逻辑（line 108-114 的 DeltaBlock 决策）。
 	p.em.StopBlock(context.Background(), p.blockID, status, err)
-	_ = ctx // ctx no longer used for emit; retained in signature for future telemetry
 }
 
 // inChatFlow reports whether ctx carries both a conversationId AND a

@@ -54,15 +54,15 @@ func TestListProviders_ContainsAll(t *testing.T) {
 
 func TestIsValidProvider(t *testing.T) {
 	for _, name := range expectedProviders {
-		if !IsValidProvider(name) {
-			t.Errorf("IsValidProvider(%q) = false, want true", name)
+		if !isValidProvider(name) {
+			t.Errorf("isValidProvider(%q) = false, want true", name)
 		}
 	}
 
 	invalid := []string{"", "OpenAI", "chatgpt", "baidu", "unknown", " openai"}
 	for _, name := range invalid {
-		if IsValidProvider(name) {
-			t.Errorf("IsValidProvider(%q) = true, want false", name)
+		if isValidProvider(name) {
+			t.Errorf("isValidProvider(%q) = true, want false", name)
 		}
 	}
 }

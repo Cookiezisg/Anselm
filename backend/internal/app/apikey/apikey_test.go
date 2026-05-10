@@ -461,8 +461,8 @@ func TestMaskKey(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.in, func(t *testing.T) {
-			if got := MaskKey(c.in); got != c.want {
-				t.Errorf("MaskKey(%q) = %q, want %q", c.in, got, c.want)
+			if got := maskKey(c.in); got != c.want {
+				t.Errorf("maskKey(%q) = %q, want %q", c.in, got, c.want)
 			}
 		})
 	}
@@ -470,7 +470,7 @@ func TestMaskKey(t *testing.T) {
 
 func TestMaskKey_NeverLeaksMiddle(t *testing.T) {
 	secret := "sk-proj-MIDDLE_SECRET_PART_xyz9"
-	masked := MaskKey(secret)
+	masked := maskKey(secret)
 	if strings.Contains(masked, "MIDDLE_SECRET_PART") {
 		t.Errorf("mask leaked middle of key: %q", masked)
 	}

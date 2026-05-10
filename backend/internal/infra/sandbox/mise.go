@@ -52,28 +52,28 @@ import (
 
 // ── Embed extraction ─────────────────────────────────────────────────────────
 
-// ExtractMiseBinary writes the embedded mise binary to <dataDir>/sandbox/bin/mise
+// ExtractMiseBinary writes the embedded mise binary to <sandboxRoot>/bin/mise
 // (mise.exe on Windows), makes it executable, and on darwin runs ad-hoc
 // codesign. Idempotent — subsequent calls with an unchanged embed return
 // the existing path without re-writing. Returns the absolute path to the
 // extracted mise binary on success.
 //
-// ExtractMiseBinary 把 embed mise 二进制写到 <dataDir>/sandbox/bin/mise
+// ExtractMiseBinary 把 embed mise 二进制写到 <sandboxRoot>/bin/mise
 // （Windows 是 mise.exe），标记可执行，darwin 上 ad-hoc codesign。幂等——
 // embed 不变的后续调用直接返已有路径不重写。成功返 mise 二进制绝对路径。
-func ExtractMiseBinary(ctx context.Context, dataDir string, log *zap.Logger) (string, error) {
+func ExtractMiseBinary(ctx context.Context, sandboxRoot string, log *zap.Logger) (string, error) {
 	if len(miseBinary) == 0 {
 		return "", fmt.Errorf("sandbox.ExtractMiseBinary: no mise binary embedded for %s/%s: %w",
 			runtime.GOOS, runtime.GOARCH, sandboxdomain.ErrRuntimeInstallFailed)
 	}
 
-	binDir := filepath.Join(dataDir, "sandbox", "bin")
+	binDir := filepath.Join(sandboxRoot, "bin")
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return "", fmt.Errorf("sandbox.ExtractMiseBinary: mkdir bin dir: %w", err)
 	}
 
 	binPath := filepath.Join(binDir, miseExeName())
-	hashPath := filepath.Join(dataDir, "sandbox", ".mise.hash")
+	hashPath := filepath.Join(sandboxRoot, ".mise.hash")
 
 	sum := sha256.Sum256(miseBinary)
 	wantHash := hex.EncodeToString(sum[:])
@@ -104,12 +104,13 @@ func ExtractMiseBinary(ctx context.Context, dataDir string, log *zap.Logger) (st
 	}
 
 	// darwin: ad-hoc codesign so Gatekeeper does not SIGKILL the binary on
-	// first exec. macCodesign (codesign.go) walks recursively but accepts
-	// a single-file root just fine — the WalkDir hits exactly one entry.
+	// first exec. macCodesign (codesign.go) operates on the single binary
+	// path — V3 collapse removed the multi-file installers that needed
+	// recursion (Python tarball / Playwright).
 	//
 	// darwin: ad-hoc codesign 让 Gatekeeper 首次 exec 时不 SIGKILL。
-	// macCodesign（codesign.go）虽递归但接受单文件 root 也可——WalkDir
-	// 只命中一个 entry。
+	// macCodesign（codesign.go）操作单二进制路径——V3 collapse 删除了需要
+	// 递归的多文件 installer（Python tarball / Playwright）。
 	if runtime.GOOS == "darwin" {
 		if err := macCodesign(ctx, binPath, log); err != nil {
 			return "", fmt.Errorf("sandbox.ExtractMiseBinary: codesign: %w", err)
@@ -131,7 +132,7 @@ func ExtractMiseBinary(ctx context.Context, dataDir string, log *zap.Logger) (st
 	//
 	// 写 mise 全局 config 把所有 attestation 路径关掉。MiseInstaller.Install
 	// 把 MISE_GLOBAL_CONFIG_FILE 指过来，每次 install 都继承同一份开关。
-	if err := writeMiseConfig(filepath.Join(dataDir, "sandbox"), log); err != nil {
+	if err := writeMiseConfig(sandboxRoot, log); err != nil {
 		log.Warn("mise config write failed (attestation may not be disabled)", zap.Error(err))
 	}
 
@@ -439,26 +440,6 @@ func (m *MiseInstaller) where(ctx context.Context, dataDir, version string) (str
 			m.kind, version, err, strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
-}
-
-// ListAvailable returns the list of versions mise can install for this
-// kind. Output is the raw `mise ls-remote <kind>` text split on newlines —
-// callers (UI) typically reverse + filter to show recent releases.
-//
-// ListAvailable 返 mise 可装的版本列表。输出是 `mise ls-remote <kind>` 原始
-// 文本按行拆——调用方（UI）通常 reverse + filter 展示近期版本。
-func (m *MiseInstaller) ListAvailable(ctx context.Context) ([]string, error) {
-	cmd := exec.CommandContext(ctx, m.miseBin, "ls-remote", m.kind)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("sandbox.MiseInstaller.ListAvailable %s: %w: %s",
-			m.kind, err, strings.TrimSpace(string(out)))
-	}
-	trimmed := strings.TrimSpace(string(out))
-	if trimmed == "" {
-		return nil, nil
-	}
-	return strings.Split(trimmed, "\n"), nil
 }
 
 // ResolveDefault returns the default version baked at construction time.

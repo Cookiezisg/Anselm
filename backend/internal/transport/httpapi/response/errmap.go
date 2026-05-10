@@ -42,7 +42,6 @@ type errMapping struct {
 // 在 domain/<name>/errors.go 声明 sentinel，在本表加一行即可。
 var errTable = map[error]errMapping{
 	errorsdomain.ErrInvalidRequest: {http.StatusBadRequest, "INVALID_REQUEST"},
-	errorsdomain.ErrInternal:       {http.StatusInternalServerError, "INTERNAL_ERROR"},
 
 	// apikey domain / apikey domain 层
 	apikeydomain.ErrNotFound:            {http.StatusNotFound, "API_KEY_NOT_FOUND"},
@@ -51,8 +50,6 @@ var errTable = map[error]errMapping{
 	apikeydomain.ErrBaseURLRequired:     {http.StatusBadRequest, "BASE_URL_REQUIRED"},
 	apikeydomain.ErrAPIFormatRequired:   {http.StatusBadRequest, "API_FORMAT_REQUIRED"},
 	apikeydomain.ErrKeyRequired:         {http.StatusBadRequest, "KEY_REQUIRED"},
-	apikeydomain.ErrTestFailed:          {http.StatusUnprocessableEntity, "API_KEY_TEST_FAILED"},
-	apikeydomain.ErrInvalid:             {http.StatusUnauthorized, "API_KEY_INVALID"},
 
 	// conversation domain / conversation domain 层
 	convdomain.ErrNotFound: {http.StatusNotFound, "CONVERSATION_NOT_FOUND"},
@@ -167,10 +164,8 @@ var errTable = map[error]errMapping{
 	mcpdomain.ErrInstallFailed:         {http.StatusBadGateway, "MCP_INSTALL_FAILED"},
 	// Marketplace V2 (2026-05-08): added when official MCP Registry was wired in.
 	// Marketplace V2（2026-05-08）：接入官方 MCP Registry 时加。
-	mcpdomain.ErrMarketplaceUnavailable: {http.StatusBadGateway, "MCP_MARKETPLACE_UNAVAILABLE"},
-	mcpdomain.ErrAlreadyInstalled:       {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
-	mcpdomain.ErrUnsupportedRuntime:     {http.StatusUnprocessableEntity, "MCP_UNSUPPORTED_RUNTIME"},
-	mcpdomain.ErrHandshakeFailed:        {http.StatusBadGateway, "MCP_HANDSHAKE_FAILED"},
+	mcpdomain.ErrAlreadyInstalled:   {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
+	mcpdomain.ErrUnsupportedRuntime: {http.StatusUnprocessableEntity, "MCP_UNSUPPORTED_RUNTIME"},
 
 	// skill domain (V1.2 D7) / skill domain
 	skilldomain.ErrSkillNotFound:      {http.StatusNotFound, "SKILL_NOT_FOUND"},
@@ -182,7 +177,6 @@ var errTable = map[error]errMapping{
 	// ask service (AskUserQuestion answer-delivery handler) /
 	// ask service（AskUserQuestion 答案投递 handler）
 	askapp.ErrNoPendingQuestion: {http.StatusNotFound, "ASK_NO_PENDING_QUESTION"},
-	askapp.ErrAlreadyAnswered:   {http.StatusConflict, "ASK_ALREADY_ANSWERED"},
 	askapp.ErrTimeout:           {http.StatusGatewayTimeout, "ASK_TIMEOUT"},
 
 	// Cross-cutting: explicitly registered to suppress the "unmapped domain

@@ -34,12 +34,6 @@ type RuntimeInstaller interface {
 	// Locate 返回已装 (version, sandboxRoot) 主可执行绝对路径。
 	Locate(version, sandboxRoot string) (binPath string, err error)
 
-	// ListAvailable returns installable versions for UI pickers. Return
-	// (nil, nil) when enumeration is unsupported.
-	//
-	// ListAvailable 返可装版本列表给 UI picker；不支持枚举时返 (nil, nil)。
-	ListAvailable(ctx context.Context) ([]string, error)
-
 	// ResolveDefault returns the kind's default version (used when
 	// EnvSpec.Runtime.Version is empty).
 	//
@@ -70,13 +64,6 @@ type EnvManager interface {
 	// InstallDeps 通过 runtime 原生包管理器装 deps（uv / pnpm / cargo / ...）。
 	// 失败返 ErrDepInstallFailed（含 stderr）。
 	InstallDeps(ctx context.Context, runtimePath, envPath string, deps []string, stream ProgressFunc) error
-
-	// InstallExtras runs post-install steps (e.g. "browsers/chromium" =
-	// `playwright install chromium`). nil/empty = skip.
-	//
-	// InstallExtras 跑装后步骤（如 "browsers/chromium" = `playwright install chromium`）。
-	// nil/空跳过。
-	InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream ProgressFunc) error
 
 	// EnvBin returns the absolute path of binName inside envPath
 	// (e.g. "<envPath>/.venv/bin/python").

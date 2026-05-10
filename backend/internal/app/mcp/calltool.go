@@ -36,16 +36,15 @@ import (
 )
 
 // CallTool routes one tool/call to the named server. Computes the per-
-// call timeout from §5.7 precedence (ServerConfig.TimeoutSec >
-// RegistryEntry.DefaultTimeoutSec > 30s default), wraps the parent ctx
-// in a deadline, invokes the Client, then records success/failure into
-// ServerStatus counters and triggers degraded/recovery transitions per
-// §5.6.
+// call timeout from §5.7 precedence (ServerConfig.TimeoutSec > 30s
+// default), wraps the parent ctx in a deadline, invokes the Client,
+// then records success/failure into ServerStatus counters and triggers
+// degraded/recovery transitions per §5.6.
 //
 // CallTool 把一次 tool/call 路由到 named server。按 §5.7 precedence 算 per-
-// call 超时（ServerConfig.TimeoutSec > RegistryEntry.DefaultTimeoutSec
-// > 30s），把父 ctx 包成 deadline，调 Client，然后把成功/失败记到
-// ServerStatus counter，按 §5.6 触发 degraded/恢复转换。
+// call 超时（ServerConfig.TimeoutSec > 30s），把父 ctx 包成 deadline，调
+// Client，然后把成功/失败记到 ServerStatus counter，按 §5.6 触发
+// degraded/恢复转换。
 func (s *Service) CallTool(ctx context.Context, server, tool string, args json.RawMessage) (string, error) {
 	s.mu.RLock()
 	client, hasClient := s.clients[server]
@@ -75,7 +74,7 @@ func (s *Service) CallTool(ctx context.Context, server, tool string, args json.R
 	defer cancel()
 
 	result, err := client.CallTool(cctx, tool, args)
-	s.recordCallResult(ctx, server, err)
+	s.recordCallResult(server, err)
 	return result, err
 }
 
@@ -103,14 +102,14 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 	prompt := buildRankingPrompt(query, all, topK)
 
 	// Surface this internal LLM rerank as a progress block under the
-	// caller's tool_call (chat invokes this from search_mcp_marketplace
-	// or similar). emitter is no-op outside chat — always safe.
+	// caller's tool_call (chat invokes this from search_mcp_tools).
+	// emitter is no-op outside chat — always safe.
 	//
 	// 把内部 LLM rerank 作为 progress block 挂调用方 tool_call 下（chat
-	// 经 search_mcp_marketplace 等调）；chat 外 emitter no-op，永远安全。
+	// 经 search_mcp_tools 调）；chat 外 emitter no-op，永远安全。
 	em := eventlogpkg.From(ctx)
 	progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress,
-		map[string]any{"stage": "rerank", "tool": "search_mcp_marketplace", "candidates": len(all)})
+		map[string]any{"stage": "rerank", "tool": "search_mcp_tools", "candidates": len(all)})
 
 	bundle, err := llmclientpkg.Resolve(ctx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
@@ -133,18 +132,15 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 
 	indices, err := parseRankedIndices(resp, len(all))
 	if err != nil {
-		// Ranking parse failure → return error to caller (LLM). Returning
-		// alpha-order top K like the previous implementation did was
-		// misleading — for a search query like "PDF reader" an alpha-
-		// ordered list starting with "ai-coder" is unrelated and could
-		// trick the LLM into recommending wrong tools. Better to fail
-		// loudly so LLM can retry / refine the query (consistent with
-		// the post-2026-05-08 屎山拯救计划 #4 search_mcp_marketplace pattern).
+		// Ranking parse failure → return error to caller (LLM). Alpha-
+		// order fallback would be misleading — for "PDF reader" an
+		// alpha-ordered list starting with "ai-coder" tricks the LLM
+		// into recommending wrong tools. Fail loud so LLM retries /
+		// refines.
 		//
-		// 排序解析失败 → 返错给调用方（LLM）。原实现返字母序前 K 是误导
-		// ——搜 "PDF reader" 拿到字母序首位 "ai-coder" 跟 query 无关，可能
-		// 骗 LLM 推错工具。明显失败让 LLM 自重试/精化（与 2026-05-08 后
-		// 屎山拯救计划 #4 search_mcp_marketplace 模式一致）。
+		// 排序解析失败 → 返错给调用方（LLM）。字母序兜底是误导——搜
+		// "PDF reader" 拿到字母序首位 "ai-coder" 与 query 无关，骗 LLM 推错
+		// 工具。明显失败让 LLM 自重试/精化。
 		s.log.Warn("mcp search rank parse failed",
 			zap.String("query", query),
 			zap.String("response_snippet", trimResp(resp, 200)),
@@ -209,19 +205,20 @@ func (s *Service) HealthCheck(ctx context.Context, name string) (*mcpdomain.Heal
 // ── recordCallResult (internal) ──────────────────────────────────────
 
 // recordCallResult updates the per-server health counters after each
-// CallTool. Increments TotalCalls; on err: increments TotalFailures +
-// ConsecutiveFailures, sets LastError; if ConsecutiveFailures hits
-// degradedThreshold (3) and current status is ready, transitions to
-// degraded + publishes SSE. On success: clears ConsecutiveFailures, sets
-// LastSuccessAt; if status was degraded, transitions back to ready +
-// publishes SSE (auto-heal).
+// CallTool. Increments TotalCalls; on err: bumps TotalFailures +
+// ConsecutiveFailures, sets LastError; ≥ degradedThreshold (3) consecutive
+// while ready → degraded (in-memory only — frontend sees this on next
+// ListServers / health-check poll, no notification). On success: clears
+// ConsecutiveFailures, sets LastSuccessAt; degraded → ready auto-heal
+// (also in-memory only). Per mcp.md §5.6 通知边界.
 //
 // recordCallResult 每次 CallTool 后更新 per-server 健康 counter。增
 // TotalCalls；err：增 TotalFailures + ConsecutiveFailures、设 LastError；
-// ConsecutiveFailures 达 degradedThreshold (3) 且当前 ready → degraded +
-// 发 SSE。成功：清 ConsecutiveFailures、设 LastSuccessAt；前为 degraded
-// → ready + 发 SSE（自愈）。
-func (s *Service) recordCallResult(_ context.Context, name string, err error) {
+// 连续失败 ≥ degradedThreshold (3) 且当前 ready → degraded（仅内存——
+// 不主动推；前端下次 ListServers / health-check 轮询时看到）。成功：清
+// ConsecutiveFailures、设 LastSuccessAt；前为 degraded → ready 自愈（同样
+// 仅内存）。详 mcp.md §5.6 通知边界。
+func (s *Service) recordCallResult(name string, err error) {
 	now := time.Now().UTC()
 
 	s.mu.Lock()
@@ -248,11 +245,11 @@ func (s *Service) recordCallResult(_ context.Context, name string, err error) {
 	}
 }
 
-// resolveCallTimeout walks the §5.7 precedence chain.
+// resolveCallTimeout walks the §5.7 precedence chain: per-server
+// ServerConfig.TimeoutSec when > 0 wins; otherwise defaultCallTimeout.
 //
-// resolveCallTimeout 走 §5.7 precedence 链。registry 端点的 lookup 不能在
-// 热路径里调（每次 CallTool 都拉远程 marketplace 不现实）——只看 ServerConfig
-// .TimeoutSec，它在 install 时已从 RegistryEntry.DefaultTimeoutSec 复制过来。
+// resolveCallTimeout 走 §5.7 precedence 链：per-server
+// ServerConfig.TimeoutSec > 0 时优先；否则回 defaultCallTimeout。
 func (s *Service) resolveCallTimeout(cfg mcpdomain.ServerConfig) time.Duration {
 	if cfg.TimeoutSec > 0 {
 		return time.Duration(cfg.TimeoutSec) * time.Second

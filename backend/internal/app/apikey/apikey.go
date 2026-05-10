@@ -1,11 +1,11 @@
 // Package apikey (app layer) owns the Service (CRUD + KeyProvider), the
-// HTTP-tester wiring, and the MaskKey helper used only by this service.
+// HTTP-tester wiring, and package-private helpers (maskKey / isValidProvider).
 //
 // All three apikey packages (domain / app / store) declare `package apikey`;
 // external callers alias at import (e.g. apikeyapp "…/internal/app/apikey").
 //
-// Package apikey（app 层）负责 Service（CRUD + KeyProvider）、HTTP-tester
-// 的装配、以及 MaskKey 等只给 Service 用的工具函数。
+// Package apikey（app 层）负责 Service（CRUD + KeyProvider）、HTTP-tester 的
+// 装配、以及包内私有 helper（maskKey / isValidProvider）。
 //
 // 三个 apikey 包（domain / app / store）都声明 `package apikey`；
 // 外部调用方 import 时按角色起别名（如 apikeyapp "…/internal/app/apikey"）。
@@ -98,7 +98,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*apikeydomain.API
 		Provider:     in.Provider,
 		DisplayName:  strings.TrimSpace(in.DisplayName),
 		KeyEncrypted: string(ciphertext),
-		KeyMasked:    MaskKey(in.Key),
+		KeyMasked:    maskKey(in.Key),
 		BaseURL:      strings.TrimSpace(in.BaseURL),
 		APIFormat:    in.APIFormat,
 		TestStatus:   apikeydomain.TestStatusPending,
@@ -116,7 +116,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*apikeydomain.API
 }
 
 func validateCreate(in CreateInput) error {
-	if !IsValidProvider(in.Provider) {
+	if !isValidProvider(in.Provider) {
 		return fmt.Errorf("apikey.validateCreate: provider %q: %w", in.Provider, apikeydomain.ErrInvalidProvider)
 	}
 	if strings.TrimSpace(in.Key) == "" {
@@ -287,15 +287,15 @@ func (s *Service) MarkInvalid(ctx context.Context, provider, reason string) erro
 	return nil
 }
 
-// MaskKey converts a plaintext API key into a display-safe masked form.
+// maskKey converts a plaintext API key into a display-safe masked form.
 //
 // Rules:
 //   - length <  8  → "****"
 //   - length 8-20  → first 3 + "..." + last 4
 //   - length > 20  → first 7 + "..." + last 4
 //
-// MaskKey 把明文 API Key 转成展示安全的掩码。
-func MaskKey(key string) string {
+// maskKey 把明文 API Key 转成展示安全的掩码。
+func maskKey(key string) string {
 	n := len(key)
 	switch {
 	case n < 8:

@@ -26,7 +26,6 @@
 //
 //	subagent.go  — Service struct + New + SetTools + filterTools + composeSystemPrompt
 //	spawn.go     — SpawnOpts + SpawnResult + Spawn lifecycle + status constants
-//	queries.go   — Cancel
 //	host.go      — subagentHost (loop.Host implementation)
 //	registry.go  — SubagentType registry
 //
@@ -40,9 +39,6 @@
 package subagent
 
 import (
-	"context"
-	"sync"
-
 	"go.uber.org/zap"
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
@@ -56,11 +52,12 @@ import (
 
 // Service ties registry + chat repo (for sub-Message persistence) +
 // shared infra together. Spawn (in spawn.go) is the only mutating entry
-// point; Cancel (in queries.go) preempts an in-flight spawn.
+// point. Parent-cancel cascades naturally via ctx derivation; no
+// external cancel API is exposed.
 //
 // Service 把 registry + chat repo（sub-Message 持久化用）+ 共享 infra
-// 串起来。Spawn（spawn.go）是唯一变更入口；Cancel（queries.go）抢占
-// 进行中的 spawn。
+// 串起来。Spawn（spawn.go）是唯一变更入口。父 ctx cancel 经派生自然级联；
+// 无外部 cancel API。
 type Service struct {
 	chatRepo    chatdomain.Repository // for sub-Message writes (no subagent_runs/messages tables anymore)
 	registry    *Registry
@@ -69,9 +66,6 @@ type Service struct {
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
 	log         *zap.Logger
-
-	activeRunsMu sync.Mutex
-	activeRuns   map[string]context.CancelFunc
 }
 
 // New constructs a Service. tools may be nil at construction time; call
@@ -98,7 +92,6 @@ func New(
 		keyProvider: keyProvider,
 		llmFactory:  llmFactory,
 		log:         log,
-		activeRuns:  make(map[string]context.CancelFunc),
 	}
 }
 

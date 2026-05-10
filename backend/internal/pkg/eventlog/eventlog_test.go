@@ -29,17 +29,6 @@ func setupCtx(t *testing.T) (context.Context, *eventloginfra.Bridge, Emitter) {
 	return ctx, br, em
 }
 
-func TestEmitter_StartMessageReturnsMintedID(t *testing.T) {
-	ctx, _, em := setupCtx(t)
-	id := em.StartMessage(ctx, "assistant", "", nil)
-	if !strings.HasPrefix(id, "msg_") {
-		t.Errorf("want msg_ prefix, got %q", id)
-	}
-	if len(id) < 12 {
-		t.Errorf("id too short: %q", id)
-	}
-}
-
 func TestEmitter_StartBlockReadsParentFromCtx(t *testing.T) {
 	ctx, br, em := setupCtx(t)
 
@@ -50,7 +39,7 @@ func TestEmitter_StartBlockReadsParentFromCtx(t *testing.T) {
 	defer cancelSub()
 
 	parentBlockID := "blk_parent"
-	scoped := WithParent(ctx, parentBlockID)
+	scoped := reqctxpkg.WithParentBlockID(ctx, parentBlockID)
 	blockID := em.StartBlock(scoped, eventlogdomain.BlockTypeText, nil)
 	if blockID == "" {
 		t.Fatal("expected minted blockID, got empty")
@@ -135,30 +124,20 @@ func TestEmitter_MissingConversationIDSkipsEmit(t *testing.T) {
 	br := eventloginfra.NewBridge(nil)
 	em := New(br, nil, nil)
 	ctx := context.Background() // no convID
-	id := em.StartMessage(ctx, "assistant", "", nil)
-	// We still mint the id locally (there's no way to fail gracefully
-	// for callers expecting an ID), but the Bridge sees nothing.
-	// 仍铸本地 id（要求返 ID 的调用方无法优雅失败），但 Bridge 看不到。
-	if id != "" {
-		t.Errorf("StartMessage with no convID should return empty id, got %q", id)
-	}
+	// EmitBlockStart with no convID in ctx should silently no-op.
+	em.EmitBlockStart(ctx, "blk_t1", "msg_t1", "msg_t1", eventlogdomain.BlockTypeText, nil)
+	// (Nothing to assert positively; the test passes if Bridge isn't called.
+	// Bridge with no Subscribe doesn't expose a "calls" counter, so this
+	// is a smoke test ensuring no panic / no nil-deref.)
+	_ = br
 }
 
 func TestFrom_ReturnsNoopWhenAbsent(t *testing.T) {
 	em := From(context.Background())
 	// no panic, no emit — no-op
-	em.StartMessage(context.Background(), "user", "", nil)
 	em.DeltaBlock(context.Background(), "blk_x", "ignored")
 	em.StopBlock(context.Background(), "blk_x", eventlogdomain.StatusCompleted, nil)
-}
-
-func TestMustFrom_PanicsWhenAbsent(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected panic")
-		}
-	}()
-	MustFrom(context.Background())
+	em.StopMessage(context.Background(), "msg_x", eventlogdomain.StatusCompleted, "", "", "", 0, 0)
 }
 
 // ── DB dual-write (Phase 2B) ─────────────────────────────────────────
@@ -443,28 +422,3 @@ func TestProtocolContract_ChatRoundtrip(t *testing.T) {
 	}
 }
 
-// ── Existing minimal-coverage tests (no DB) ──────────────────────────
-
-func TestStartBlockUnder_ExplicitParent(t *testing.T) {
-	ctx, br, em := setupCtx(t)
-	subCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ch, cancelSub, _ := br.Subscribe(subCtx, "cv_test", 0)
-	defer cancelSub()
-
-	bid := em.StartBlockUnder(ctx, "blk_explicit", "msg_explicit", eventlogdomain.BlockTypeProgress, map[string]any{"stage": "x"})
-	if bid == "" {
-		t.Fatal("expected minted blockID")
-	}
-	env := <-ch
-	bs := env.Event.(eventlogdomain.BlockStart)
-	if bs.ParentID != "blk_explicit" {
-		t.Errorf("ParentID: got %q, want blk_explicit", bs.ParentID)
-	}
-	if bs.MessageID != "msg_explicit" {
-		t.Errorf("MessageID: got %q, want msg_explicit", bs.MessageID)
-	}
-	if bs.BlockType != eventlogdomain.BlockTypeProgress {
-		t.Errorf("BlockType: got %q, want progress", bs.BlockType)
-	}
-}

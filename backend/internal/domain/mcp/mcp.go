@@ -79,13 +79,12 @@ func IsCallable(status string) bool {
 // compatible schema). Name is the unique key within the file. Command +
 // Args are the subprocess invocation; Env injects per-server secrets
 // (GitHub PAT, etc.). TimeoutSec overrides the per-call default 30s
-// (mcp.md §5.7 — high-priority over RegistryEntry.DefaultTimeoutSec
-// over the global 30s fallback).
+// (mcp.md §5.7 — user config > global 30s fallback).
 //
 // ServerConfig 是 ~/.forgify/mcp.json 的一条（Claude Desktop 兼容 schema）。
 // Name 文件内唯一；Command+Args 是子进程命令；Env 注入 per-server secret
 // （GitHub PAT 等）；TimeoutSec 覆盖 per-call 默认 30s（mcp.md §5.7：
-// 用户配置 > Registry 默认 > 全局 30s 兜底）。
+// 用户配置 > 全局 30s 兜底）。
 type ServerConfig struct {
 	Name       string            `json:"name"`
 	Command    string            `json:"command"`
@@ -115,18 +114,18 @@ type ToolDef struct {
 // ── ServerStatus ─────────────────────────────────────────────────────
 
 // ServerStatus is the live runtime state of one MCP server. Persisted
-// only in-process (no DB); the SSE event family ships the whole snapshot
-// so the UI replaces local state on every change. Health-monitoring
-// counters (ConsecutiveFailures / TotalCalls / TotalFailures) drive the
-// degraded transition (mcp.md §5.6).
+// only in-process (no DB); per-server `mcp_server` notifications publish
+// each status change (lifecycle / connectOne) so the UI live-updates one
+// row at a time. Health-monitoring counters (ConsecutiveFailures /
+// TotalCalls / TotalFailures) drive the degraded transition (mcp.md §5.6).
 //
-// ServerStatus 是单个 MCP server 的实时运行态。仅进程内（无 DB）；SSE
-// 事件家族发整快照，UI 收到全量替换。健康监控计数（ConsecutiveFailures
-// / TotalCalls / TotalFailures）驱动 degraded 转换（mcp.md §5.6）。
+// ServerStatus 是单个 MCP server 的实时运行态。仅进程内（无 DB）；每次
+// 状态变化（生命周期 / connectOne）发 per-server `mcp_server` 通知，UI
+// 单行 live-update。健康监控计数（ConsecutiveFailures / TotalCalls /
+// TotalFailures）驱动 degraded 转换（mcp.md §5.6）。
 type ServerStatus struct {
 	Name                string     `json:"name"`
 	Status              string     `json:"status"`
-	PID                 int        `json:"pid,omitempty"`
 	ConnectedAt         *time.Time `json:"connectedAt,omitempty"`
 	LastError           string     `json:"lastError,omitempty"`
 	LastErrorAt         *time.Time `json:"lastErrorAt,omitempty"`

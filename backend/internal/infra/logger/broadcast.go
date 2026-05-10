@@ -36,12 +36,17 @@ type logSub struct {
 
 // LogBroadcaster implements zapcore.Core and fans encoded log entries to
 // SSE subscribers. Ring buffer holds the most recent 500 entries for
-// replay on new connections. Design mirrors infra/events/memory/bridge.go:
-// snapshot subs under RLock, send outside the lock; slow subs drop entries.
+// replay on new connections. Drop-on-slow-subscriber semantic: log lines
+// are append-only and many; losing a few in a slow consumer is preferable
+// to back-pressuring the entire app's logger. Contrast infra/eventlog +
+// infra/notifications which BLOCK on slow subscribers because their
+// events carry state that mustn't be lost.
 //
 // LogBroadcaster 实现 zapcore.Core，把编码后的日志条目扇出给 SSE 订阅者。
-// 环形缓冲区保留最近 500 条供新连接回放。设计与 events/memory/bridge.go 对称：
-// RLock 下快照订阅者，释放锁后发送；慢订阅者丢弃条目。
+// 环形缓冲区保留最近 500 条供新连接回放。慢订阅者丢失语义：log 是 append-
+// only 大量条目，慢消费者丢几条好过反向压回整个 app 的 logger。对比
+// infra/eventlog + infra/notifications——他们慢订阅者会阻塞，因事件载有
+// 不能丢的状态。
 type LogBroadcaster struct {
 	mu    sync.RWMutex
 	ring  [ringCap][]byte

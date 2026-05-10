@@ -10,7 +10,6 @@ package chat
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -75,14 +74,19 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block,
 	h.svc.emitter.StopMessage(saveCtx, h.msgID, h.mapEventLogStatus(msg.Status),
 		msg.StopReason, msg.ErrorCode, msg.ErrorMessage,
 		msg.InputTokens, msg.OutputTokens)
-	_ = ctx // legacy param retained for loop.Host signature
 
-	// blocks param is unused — emit fires real-time via stream.go +
-	// runOneTool, blocks are already in message_blocks. We keep the
-	// param to satisfy the loop.Host interface.
+	// ctx + blocks unused: this Host has uid+convID stamped on h, so the
+	// detached saveCtx above carries everything emit + persist need; the
+	// loop.Host interface ctx is required by other Hosts (subagent reads
+	// it via reqctxpkg.RequireUserID). Block writes happen real-time via
+	// stream.go + runOneTool emit, so blocks slice is already in
+	// message_blocks by the time we reach here.
 	//
-	// blocks 参数未用——emit 由 stream.go + runOneTool 实时发，blocks 已在
-	// message_blocks。保留参数满足 loop.Host 接口。
+	// ctx + blocks 未用：本 Host 把 uid+convID 钉在 h 上，detached saveCtx
+	// 已带 emit + persist 需要的全部；loop.Host 接口 ctx 是给别的 Host 用
+	// （subagent 经 reqctxpkg.RequireUserID 读）。Block 写实时走 stream.go
+	// + runOneTool emit，到这一步 blocks 已在 message_blocks。
+	_ = ctx
 	_ = blocks
 }
 
@@ -117,9 +121,11 @@ func (h *chatHost) mapEventLogStatus(s string) string {
 // buildMessage constructs an assistant Message row for persistence.
 // Blocks are NOT attached — they live in message_blocks and were
 // written real-time via emit; SaveMessage only writes the messages row.
+// UpdatedAt is set by the store on every save; not set here.
 //
 // buildMessage 构造可持久化的 assistant Message 行。Blocks 不附——它们
 // 在 message_blocks 经 emit 实时写；SaveMessage 只写 messages 行。
+// UpdatedAt 由 store 每次保存时打——这里不设。
 func buildMessage(
 	msgID, convID, uid string,
 	status, stopReason, errorCode, errorMessage string,
@@ -136,6 +142,5 @@ func buildMessage(
 		ErrorMessage:   errorMessage,
 		InputTokens:    inputTokens,
 		OutputTokens:   outputTokens,
-		UpdatedAt:      time.Now().UTC(),
 	}
 }

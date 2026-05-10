@@ -241,7 +241,7 @@ func TestHTTPTester_Custom_RoutesByAPIFormat(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		if _, err := newTester().Test(context.Background(), "custom", "k", srv.URL, apikeydomain.APIFormatOpenAICompatible); err != nil {
+		if _, err := newTester().Test(context.Background(), "custom", "k", srv.URL, "openai-compatible"); err != nil {
 			t.Fatalf("Test: %v", err)
 		}
 		if !hit {

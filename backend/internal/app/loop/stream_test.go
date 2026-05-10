@@ -131,21 +131,11 @@ func TestAssemble_Empty(t *testing.T) {
 	}
 }
 
-func TestAssemble_BlockIDs(t *testing.T) {
-	blocks := assembleBlocks("hi", "", nil)
-	for _, bl := range blocks {
-		if bl.ID == "" {
-			t.Error("block ID must not be empty")
-		}
-	}
-}
-
-func TestAssemble_CreatedAtSet(t *testing.T) {
-	blocks := assembleBlocks("hi", "", nil)
-	if blocks[0].CreatedAt.IsZero() {
-		t.Error("CreatedAt must be set")
-	}
-}
+// Note: text / reasoning block IDs are intentionally empty in
+// assembleBlocks output — BlocksToAssistantLLM never reads them. tool_call
+// blocks reuse the LLM's tool-call ID (set explicitly via accums[i].id);
+// see TestAssemble_TextOnly / TestAssemble_ReasoningOnly above for the
+// type + content assertions that *do* matter.
 
 func TestParseToolArgs_WithAllStandardFields(t *testing.T) {
 	fields, args := parseToolArgs(`{"summary":"doing X","destructive":true,"execution_group":3,"key":"val"}`)

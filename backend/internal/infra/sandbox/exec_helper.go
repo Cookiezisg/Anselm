@@ -1,16 +1,18 @@
 // exec_helper.go — RunWithStderrCapture wraps the install/dep-fetch
-// command pattern used across MiseInstaller / Node / Python / Rust / Go /
-// Java / Ruby / PHP / .NET / Playwright. It streams each stderr line to
-// an optional progress callback AND captures the last 4 KB into a ring
-// buffer, so cmd.Wait failures surface the real upstream error rather
-// than an opaque sentinel — addresses the §S3 "errors not swallowed"
-// invariant that earlier D2 work violated and cost half a debug session.
+// command pattern used across the surviving installers/managers
+// (MiseInstaller / Node / Python; older multi-installer matrix removed
+// in V3 collapse). It streams each stderr line to an optional progress
+// callback AND captures the last 4 KB into a ring buffer, so cmd.Wait
+// failures surface the real upstream error rather than an opaque
+// sentinel — addresses the §S3 "errors not swallowed" invariant that
+// earlier D2 work violated and cost half a debug session.
 //
-// exec_helper.go — RunWithStderrCapture 封装 MiseInstaller / Node /
-// Python / Rust / Go / Java / Ruby / PHP / .NET / Playwright 共用的
-// install/dep-fetch 命令模式。每行 stderr 进可选 progress 回调 + 最近
-// 4 KB 进环形缓冲；cmd.Wait 失败时把真实上游 error 暴露出来——而不是
-// 不透明 sentinel。修补 D2 时违反 §S3"错误不吞"换来的半个 debug session。
+// exec_helper.go — RunWithStderrCapture 封装现存 installer/manager
+// 共用的 install/dep-fetch 命令模式（MiseInstaller / Node / Python；
+// 老的多 installer 矩阵在 V3 collapse 删除）。每行 stderr 进可选 progress
+// 回调 + 最近 4 KB 进环形缓冲；cmd.Wait 失败时把真实上游 error 暴露出来
+// ——而不是不透明 sentinel。修补 D2 时违反 §S3"错误不吞"换来的半个
+// debug session。
 package sandbox
 
 import (

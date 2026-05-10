@@ -1,7 +1,7 @@
 // Package chat (app/chat) orchestrates the chat pipeline: queueing,
 // attachment handling, auto-titling, and SSE event publishing. The ReAct
-// engine itself lives in internal/app/loop — chat is one of its callers
-// (subagent / Skill fork / Phase 4 workflow LLM nodes are the others).
+// engine itself lives in internal/app/loop — chat and subagent are the
+// current callers; future phases (Phase 4 workflow LLM nodes) will join.
 // Owns no SQL — persistence is delegated to infra/store/chat.
 //
 // Concurrency: each conversation has a convQueue with a buffered task
@@ -9,15 +9,15 @@
 // one conversation execute one at a time in order.
 //
 // Package chat（app/chat）编排聊天管线：队列、附件处理、自动命名、SSE 推送。
-// ReAct 引擎本身在 internal/app/loop——chat 只是它的调用方之一（subagent /
-// Skill fork / Phase 4 workflow LLM 节点是其他调用方）。不含 SQL，持久化
-// 委托给 infra/store/chat。
+// ReAct 引擎本身在 internal/app/loop——chat 与 subagent 是当前调用方；未来
+// Phase（Phase 4 workflow LLM 节点）会加入。不含 SQL，持久化委托给
+// infra/store/chat。
 //
 // Files:
 //
 //	chat.go     — public API (Send, Cancel, ListMessages, UploadAttachment)
 //	runner.go   — queue, processTask → loop.Run, autoTitle, system prompt
-//	host.go     — chatHost implements loop.Host (writes chat_messages, fires chat.message)
+//	host.go     — chatHost implements loop.Host (persists Message rows + emits message_stop on the event-log bridge)
 //	history.go  — buildHistory + buildUserLLMMessage + attachment resolve
 //	util.go     — ID generators, file helpers, truncate
 package chat
@@ -139,7 +139,7 @@ func NewService(
 		emitter = eventlogpkg.From(context.Background()) // no-op fallback
 	}
 	if notifications == nil {
-		notifications = notificationspkg.From(context.Background()) // no-op fallback
+		notifications = notificationspkg.New(nil, log) // no-op fallback
 	}
 	return &Service{
 		repo:          repo,
@@ -316,14 +316,19 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	}
 
 	// Build single text block (or empty Blocks if user sent attachments only).
-	// 建单 text block（或仅附件时 Blocks 为空）。
+	// emitUserMessage hardcodes status=completed for the SSE stop emit;
+	// SaveMessage doesn't write block rows; so Status / CreatedAt fields
+	// here are unread. Keep only the fields consumed downstream.
+	//
+	// 建单 text block（或仅附件时 Blocks 为空）。emitUserMessage 写死 SSE stop
+	// 的 status=completed；SaveMessage 不写 block 行；所以这里 Status / CreatedAt
+	// 字段无人读，只留下游真正消费的字段。
 	var blocks []chatdomain.Block
 	if in.Content != "" {
 		blocks = append(blocks, chatdomain.Block{
 			ID:      newBlockID(),
 			Type:    eventlogdomain.BlockTypeText,
 			Content: in.Content,
-			Status:  eventlogdomain.StatusCompleted,
 		})
 	}
 
@@ -341,14 +346,15 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		return "", fmt.Errorf("chat.Service.Send: %w", err)
 	}
 
-	// Event-log dual-write: emit the user message burst. Bridge needs
-	// conversationID via reqctx; ctx from the HTTP layer doesn't carry
-	// it, so we stamp here.
+	// Event-log: emit the user message burst. Bridge needs conversationID
+	// via reqctx; ctx from the HTTP layer doesn't carry it, so we stamp
+	// here. (No need to also stamp the emitter — emitUserMessage uses
+	// s.emitter directly, not eventlogpkg.From(ctx).)
 	//
-	// 事件日志 dual-write：burst 推 user message。Bridge 经 reqctx 取
-	// conversationID；HTTP 层 ctx 不带，这里打。
+	// 事件日志：burst 推 user message。Bridge 经 reqctx 取 conversationID；
+	// HTTP 层 ctx 不带，这里打。（不必再塞 emitter——emitUserMessage 直接
+	// 用 s.emitter，不走 eventlogpkg.From(ctx)。）
 	emitCtx := reqctxpkg.WithConversationID(ctx, conversationID)
-	emitCtx = eventlogpkg.With(emitCtx, s.emitter)
 	s.emitUserMessage(emitCtx, userMsg)
 
 	agentCtx := reqctxpkg.SetUserID(context.Background(), uid)

@@ -14,16 +14,16 @@
 //	em.DeltaBlock(ctx, blockID, "hello")
 //	em.StopBlock(ctx, blockID, eventlogdomain.StatusCompleted, nil)
 //
-// Parent linkage flows through ctx: tool framework calls WithParent(ctx,
-// toolCallBlockID) before invoking Tool.Execute, so any StartBlock the
-// tool issues is auto-parented under that tool_call.
+// Parent linkage flows through ctx: callers stamp it with
+// reqctxpkg.WithParentBlockID before any nested emit (e.g. loop/tools.go
+// wraps Tool.Execute's ctx with the tool_call block ID so any StartBlock
+// the tool issues is auto-parented under tool_call).
 package eventlog
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -43,10 +43,10 @@ import (
 // for streaming code paths; the bridge would fail anyway).
 //
 // Parent linkage:
-//   - StartMessage uses an explicit parentBlockID arg (top-level => "")
+//   - EmitMessageStart uses an explicit parentBlockID arg (top-level => "")
 //   - StartBlock reads the current parent from reqctx.GetParentBlockID;
 //     if missing, falls back to the in-flight messageID
-//   - WithParent / WithMessage helpers narrow the scope as you descend
+//   - reqctxpkg.WithParentBlockID narrows the scope as you descend
 //
 // Emitter 是 service / tool 代码用的高层 emit API。
 //
@@ -56,18 +56,11 @@ import (
 // 太破坏；bridge 也会拒）。
 //
 // 父链：
-//   - StartMessage 用显式 parentBlockID 参数（顶层 = ""）
+//   - EmitMessageStart 用显式 parentBlockID 参数（顶层 = ""）
 //   - StartBlock 经 reqctx.GetParentBlockID 读当前 parent；缺失则回退
 //     到当前 in-flight messageID
-//   - WithParent / WithMessage helper 让父链随调用栈下降
+//   - reqctxpkg.WithParentBlockID 让父链随调用栈下降
 type Emitter interface {
-	// StartMessage opens a new message under parentBlockID (empty for
-	// top-level). Returns the freshly minted msg_<16hex> ID.
-	//
-	// StartMessage 在 parentBlockID 下开新 message（顶层传 ""）。返
-	// 新铸的 msg_<16hex> ID。
-	StartMessage(ctx context.Context, role string, parentBlockID string, attrs map[string]any) string
-
 	// StopMessage closes msgID with the given terminal status + token
 	// counts (pass 0 for unknown).
 	//
@@ -83,14 +76,6 @@ type Emitter interface {
 	// ID，或在工具 Execute 内则是 tool_call block ID）下开 blockType 类
 	// 型 block。返新铸 blk_<16hex> ID。
 	StartBlock(ctx context.Context, blockType string, attrs map[string]any) string
-
-	// StartBlockUnder opens a new block under a caller-specified parent.
-	// Used when the framework needs to override the ctx-derived parent
-	// (e.g. tool framework wraps Tool.Execute with a fresh parent).
-	//
-	// StartBlockUnder 在调用方指定的 parent 下开 block。框架需 override
-	// ctx 派生 parent 时用（例：tool framework 包装 Tool.Execute）。
-	StartBlockUnder(ctx context.Context, parentID, messageID, blockType string, attrs map[string]any) string
 
 	// EmitMessageStart publishes a message_start with caller-supplied id.
 	// Use when the message ID is already minted upstream (chat Service
@@ -125,18 +110,17 @@ type Emitter interface {
 
 // New constructs an Emitter backed by bridge. log may be nil (zap.Nop).
 // repo is optional — when non-nil, every block_start / block_delta /
-// block_stop also dual-writes to the message_blocks_v2 table so the new
-// SSE bridge has a persistent backing for history replay (Phase 2B).
-// Pass nil for tests / legacy callers that don't need DB persistence.
-// Message lifecycle (message_start / message_stop) does NOT dual-write
-// — messages persist through the legacy chat repo until Phase 4 cutover.
+// block_stop also writes to the message_blocks table so SSE history
+// replay has a persistent backing. Pass nil for tests that don't need
+// DB persistence. Message lifecycle (message_start / message_stop) is
+// NOT persisted by the Emitter — messages are persisted via the chat
+// Repository's SaveMessage path (chat/host.go).
 //
 // New 构造一个由 bridge 支撑的 Emitter。log 可为 nil（用 zap.Nop）。
 // repo 可选——非 nil 时 block_start / block_delta / block_stop 同时
-// 双写到 message_blocks_v2 表，给新 SSE bridge 留持久后备供历史回放
-// （Phase 2B）。测试 / legacy 调用方不需 DB 持久化时传 nil。Message
-// 生命周期（message_start / message_stop）不双写——messages 走 legacy
-// chat repo 直至 Phase 4 cutover。
+// 写到 message_blocks 表，让 SSE 历史回放有持久后备。测试不需 DB 持久化
+// 时传 nil。Message 生命周期（message_start / message_stop）Emitter 不
+// 持久化——messages 经 chat Repository.SaveMessage（chat/host.go）保存。
 func New(bridge eventlogdomain.Bridge, repo chatdomain.Repository, log *zap.Logger) Emitter {
 	if log == nil {
 		log = zap.NewNop()
@@ -167,7 +151,7 @@ func (em *emitter) requireConv(ctx context.Context, op string) (string, bool) {
 // publish forwards e to the Bridge and returns the assigned seq. ok=false
 // signals a failed publish; callers may still proceed (DB writes keyed
 // off blockID, not seq, are still safe — only block_start cares about
-// seq for the message_blocks_v2 row).
+// seq for the message_blocks row).
 //
 // Log level is split by err class so producer bugs surface loudly while
 // expected cancellations stay quiet:
@@ -180,7 +164,7 @@ func (em *emitter) requireConv(ctx context.Context, op string) (string, bool) {
 //
 // publish 把 e 转给 Bridge 并返分配的 seq。ok=false 表示发布失败；调用
 // 方仍可继续（基于 blockID 的 DB 写入与 seq 无关——只有 block_start 用
-// seq 给 message_blocks_v2 行）。
+// seq 给 message_blocks 行）。
 //
 // log 级别按 err 类分流让 producer bug 显著显形而预期 cancel 保持安静。
 func (em *emitter) publish(ctx context.Context, convID string, e eventlogdomain.Event) (int64, bool) {
@@ -204,43 +188,25 @@ func (em *emitter) publish(ctx context.Context, convID string, e eventlogdomain.
 	return env.Seq, true
 }
 
-func (em *emitter) StartMessage(ctx context.Context, role, parentBlockID string, attrs map[string]any) string {
-	convID, ok := em.requireConv(ctx, "StartMessage")
-	if !ok {
-		return ""
-	}
-	msgID := idgenpkg.New("msg")
-	if _, ok := em.publish(ctx, convID, eventlogdomain.MessageStart{
-		ConversationID: convID,
-		ID:             msgID,
-		ParentBlockID:  parentBlockID,
-		Role:           role,
-		Attrs:          attrs,
-	}); !ok {
-		// Publish failed — return "" so caller doesn't propagate this msgID
-		// downstream as a parentBlockID / parent target. Returning the ID
-		// would create a §S21 dangling-parentId producer bug (subsequent
-		// block_start events reference a message that was never published).
-		// 发布失败——返 "" 阻止调用方把此 msgID 当 parentBlockID / 父目标
-		// 下传。返 ID 会制造 §S21 dangling-parentId producer bug（后续
-		// block_start 引用从未发布的 message）。
-		return ""
-	}
-	return msgID
-}
-
 // saveBlockRow writes a block_start row to message_blocks. The
 // parent_block_id column is empty when the block is top-level under
 // the message (parent==messageID); otherwise it carries parentID. Attrs
 // JSON-marshalled. Best-effort: failures log + continue (Bridge already
 // shipped the SSE event; DB miss only affects history replay).
 //
+// All callers gate this behind the publish ok=false check, so seq==0
+// (the failed-publish sentinel) cannot reach here — if it ever did, the
+// UNIQUE(conversation_id, seq) constraint would fail loudly.
+//
 // saveBlockRow 把 block_start 写到 message_blocks。block 直挂 message
 // 顶层（parent==messageID）时 parent_block_id 列为空；否则填 parentID。
 // Attrs JSON 化。Best-effort：失败 log + 继续（Bridge 已发 SSE 事件；DB
 // 失误只影响历史回放）。
+//
+// 所有调用方都先按 publish 的 ok=false gate，seq==0（失败 sentinel）不可
+// 能到这里——若到了，UNIQUE(conversation_id, seq) 约束会响亮地 fail。
 func (em *emitter) saveBlockRow(ctx context.Context, convID, id, parentID, messageID, blockType string, attrs map[string]any, seq int64) {
-	if em.repo == nil || seq == 0 {
+	if em.repo == nil {
 		return
 	}
 	parentBlock := ""
@@ -300,8 +266,10 @@ func (em *emitter) StopMessage(ctx context.Context, msgID, status, stopReason, e
 		InputTokens:    inputTokens,
 		OutputTokens:   outputTokens,
 	})
-	// No DB dual-write for messages — they persist via legacy chat repo
-	// (Phase 4 cutover unifies). 不双写 messages — 走 legacy chat repo。
+	// Messages are persisted via the chat Repository's SaveMessage path
+	// (chat/host.go); the Emitter only persists blocks.
+	// Messages 经 chat Repository.SaveMessage（chat/host.go）持久化，
+	// Emitter 只持久化 blocks。
 }
 
 func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[string]any) string {
@@ -338,31 +306,6 @@ func (em *emitter) StartBlock(ctx context.Context, blockType string, attrs map[s
 	})
 	if ok {
 		em.saveBlockRow(ctx, convID, blockID, parentID, msgID, blockType, attrs, seq)
-	}
-	return blockID
-}
-
-func (em *emitter) StartBlockUnder(ctx context.Context, parentID, messageID, blockType string, attrs map[string]any) string {
-	convID, ok := em.requireConv(ctx, "StartBlockUnder")
-	if !ok {
-		return ""
-	}
-	if parentID == "" || messageID == "" {
-		em.log.Warn("emit skipped: empty parent or message",
-			zap.String("op", "StartBlockUnder"))
-		return ""
-	}
-	blockID := idgenpkg.New("blk")
-	seq, ok := em.publish(ctx, convID, eventlogdomain.BlockStart{
-		ConversationID: convID,
-		ID:             blockID,
-		ParentID:       parentID,
-		MessageID:      messageID,
-		BlockType:      blockType,
-		Attrs:          attrs,
-	})
-	if ok {
-		em.saveBlockRow(ctx, convID, blockID, parentID, messageID, blockType, attrs, seq)
 	}
 	return blockID
 }
@@ -483,10 +426,12 @@ func With(ctx context.Context, em Emitter) context.Context {
 
 // From returns the Emitter stored in ctx, or a no-op Emitter if absent.
 // Returning a no-op (vs nil) lets callers always invoke methods without
-// nil-checks; missing emitter logs a warning so wiring bugs surface.
+// nil-checks. Wiring bugs surface via the per-call requireConv warn-skip
+// log inside Emitter methods, not here.
 //
 // From 返 ctx 中的 Emitter，缺失则返 no-op。返 no-op（而非 nil）让调用方
-// 无须 nil 检查；缺失时打 warning 让接线 bug 暴露。
+// 无须 nil 检查；接线 bug 经 Emitter 方法内部 requireConv 的 warn-skip 日志
+// 暴露，不在此处打。
 func From(ctx context.Context) Emitter {
 	em, ok := ctx.Value(emitterKey{}).(Emitter)
 	if !ok || em == nil {
@@ -495,45 +440,15 @@ func From(ctx context.Context) Emitter {
 	return em
 }
 
-// MustFrom returns the Emitter stored in ctx, or panics. Use only at
-// places where missing emitter is unambiguously a wiring bug.
-//
-// MustFrom 返 ctx 中的 Emitter，缺失 panic。仅用于"缺 emitter 必然是
-// 接线 bug"的位置。
-func MustFrom(ctx context.Context) Emitter {
-	em, ok := ctx.Value(emitterKey{}).(Emitter)
-	if !ok || em == nil {
-		panic(fmt.Sprintf("eventlog.MustFrom: no emitter in ctx"))
-	}
-	return em
-}
-
-// WithParent narrows the parent for nested emits. Tool framework wraps
-// Tool.Execute with WithParent(ctx, toolCallBlockID) so any block the
-// tool starts is auto-parented under tool_call.
-//
-// WithParent 缩小嵌套 emit 的父级。Tool framework 用
-// WithParent(ctx, toolCallBlockID) 包 Tool.Execute，让工具开的任何 block
-// 自动挂 tool_call 下。
-func WithParent(ctx context.Context, blockID string) context.Context {
-	return reqctxpkg.WithParentBlockID(ctx, blockID)
-}
-
 // ── no-op fallback ───────────────────────────────────────────────────
 
 type noopEmitter struct{}
 
-func (noopEmitter) StartMessage(context.Context, string, string, map[string]any) string {
-	return ""
-}
 func (noopEmitter) StopMessage(context.Context, string, string, string, string, string, int, int) {
 }
-func (noopEmitter) StartBlock(context.Context, string, map[string]any) string { return "" }
-func (noopEmitter) StartBlockUnder(context.Context, string, string, string, map[string]any) string {
-	return ""
-}
-func (noopEmitter) EmitMessageStart(context.Context, string, string, string, map[string]any) {}
+func (noopEmitter) StartBlock(context.Context, string, map[string]any) string                 { return "" }
+func (noopEmitter) EmitMessageStart(context.Context, string, string, string, map[string]any)  {}
 func (noopEmitter) EmitBlockStart(context.Context, string, string, string, string, map[string]any) {
 }
-func (noopEmitter) DeltaBlock(context.Context, string, string)        {}
-func (noopEmitter) StopBlock(context.Context, string, string, error)  {}
+func (noopEmitter) DeltaBlock(context.Context, string, string)       {}
+func (noopEmitter) StopBlock(context.Context, string, string, error) {}

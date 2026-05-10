@@ -53,11 +53,15 @@ const (
 	TestStatusError   = "error"
 )
 
-// APIFormat values for APIKey.APIFormat (custom provider only).
+// APIFormat values for APIKey.APIFormat (custom provider only). Only
+// AnthropicCompatible is referenced — the OpenAI shape is the default
+// when APIFormat is empty (frontend dropdown / handler pass-through;
+// see app/apikey/tester.go::Test).
 //
-// APIKey.APIFormat 取值（仅 custom provider）。
+// APIKey.APIFormat 取值（仅 custom provider）。仅 AnthropicCompatible 被引用——
+// APIFormat 空时默认走 OpenAI 形状（前端 dropdown / handler 透传，详
+// app/apikey/tester.go::Test）。
 const (
-	APIFormatOpenAICompatible    = "openai-compatible"
 	APIFormatAnthropicCompatible = "anthropic-compatible"
 )
 
@@ -87,8 +91,6 @@ var (
 	ErrBaseURLRequired     = errors.New("apikey: base_url required for this provider")
 	ErrAPIFormatRequired   = errors.New("apikey: api_format required for custom provider")
 	ErrKeyRequired         = errors.New("apikey: key value is required")
-	ErrTestFailed          = errors.New("apikey: connectivity test failed")
-	ErrInvalid             = errors.New("apikey: key rejected by provider")
 )
 
 // Repository is the storage contract for APIKey. Scoped to ctx userID;

@@ -141,14 +141,14 @@ func (s *Service) Resolve(toolCallID, answer string) error {
 ```go
 var (
     ErrNoPendingQuestion = errors.New("ask: no pending question for that tool_call_id")
-    ErrAlreadyAnswered   = errors.New("ask: question already answered")  // 保留导出，当前不再产生
     ErrTimeout           = errors.New("ask: user did not respond within the timeout")
 )
 ```
 
-- `ErrNoPendingQuestion` → 404 / `ASK_NO_PENDING_QUESTION`
-- `ErrAlreadyAnswered` → 409 / `ASK_ALREADY_ANSWERED` — 保留 sentinel 用于错误码字典文档化；**当前实现 Resolve 原子摘条目后必走 ErrNoPendingQuestion**，此 sentinel 不会上抛 handler。文档化让概念可被人类阅读
+- `ErrNoPendingQuestion` → 404 / `ASK_NO_PENDING_QUESTION` — 涵盖"未注册 / 已超时 / 已答 / 拼错"四种情况；二次 Resolve 因原子摘条目也走此路径
 - `ErrTimeout` → 504 / `ASK_TIMEOUT` — 仅 Service 内部抛；当前工具 Execute 转友好字符串而非上抛 handler，因此**实际不到 handler**
+
+> 历史 `ErrAlreadyAnswered` sentinel 已删——双答场景被 `ErrNoPendingQuestion` 完全覆盖（Resolve 原子摘条目后第二次必无条目可见）。
 
 ---
 
@@ -244,10 +244,9 @@ func (h *AnswerHandler) Submit(w, r) {
 | Sentinel | HTTP | Wire Code |
 |---|---|---|
 | `askapp.ErrNoPendingQuestion` | 404 | `ASK_NO_PENDING_QUESTION` |
-| `askapp.ErrAlreadyAnswered` | 409 | `ASK_ALREADY_ANSWERED` |
 | `askapp.ErrTimeout` | 504 | `ASK_TIMEOUT` |
 
-> 后两者保留登记是为了错误码字典完整性 + 未来若改语义时不需重排映射。当前实现仅 `ASK_NO_PENDING_QUESTION` 真正会到达 handler。
+> 仅 `ASK_NO_PENDING_QUESTION` 真正会到达 handler（覆盖 4 种缺失场景）；`ASK_TIMEOUT` 保留登记仅为未来若改语义时不需重排映射。`ErrAlreadyAnswered`（历史 sentinel）已删——双答被 `ErrNoPendingQuestion` 完全覆盖。
 
 ---
 

@@ -1,11 +1,11 @@
-// envmanager_node.go — npm-backed EnvManager for Node plugin envs.
+// node.go — npm-backed EnvManager for Node plugin envs.
 //
 // Marketplace V3 ships only ~21 curated MCP servers, all stdio + npm —
 // the cross-env hardlink dedup npm offered isn't worth the extra
 // installer / global store. We use vanilla npm (bundled with node@22)
 // to install per-env into <envPath>/node_modules/.
 //
-// envmanager_node.go ——基于 npm 的 Node plugin env EnvManager。
+// node.go ——基于 npm 的 Node plugin env EnvManager。
 //
 // Marketplace V3 仅 21 条 curated MCP server、全 stdio+npm——npm 的跨 env
 // hardlink 共享对 21 条无价值，多带个 installer 不值。改用 node@22 自带的
@@ -104,17 +104,6 @@ func (n *NodeEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 		fmt.Sprintf("sandbox.NodeEnvManager.InstallDeps %v", deps))
 }
 
-// InstallExtras is a no-op for Node — Node plugins declare runtime deps
-// only. Browser binary downloads (Playwright's chromium) live in the
-// dedicated PlaywrightEnvManager which orchestrates `playwright install`
-// after the npm package itself is in node_modules.
-//
-// InstallExtras Node 上是 no-op——Node plugin 只声明 runtime deps。浏览器
-// 二进制下载（Playwright 的 chromium）在专用的 PlaywrightEnvManager 里编排，
-// 在 npm 包本身已进 node_modules 之后跑 `playwright install`。
-func (n *NodeEnvManager) InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream sandboxdomain.ProgressFunc) error {
-	return nil
-}
 
 // EnvBin returns the absolute path to a binary inside the env's
 // node_modules/.bin/ shim directory (npm/npm convention). On Windows

@@ -45,21 +45,18 @@ const defaultMaxTurns = 25
 var builtInTypes = []subagentdomain.SubagentType{
 	{
 		Name:            "Explore",
-		Description:     "Fast read-only search agent for locating code/files. Use to find files, grep symbols, answer 'where is X defined'. Tool list excludes mutation — don't use for analysis or design.",
 		SystemPrompt:    "You are Explore, a code reconnaissance agent. Your job is to locate files, definitions, and references quickly. Use Read / Glob / Grep / LS to navigate. Return a concise summary of what you found (paths, line numbers, brief snippets). Do NOT propose changes or analysis — your role is purely to locate.",
 		AllowedTools:    []string{"Read", "Glob", "Grep", "LS", "search_forges"},
 		DefaultMaxTurns: 30,
 	},
 	{
 		Name:            "Plan",
-		Description:     "Software architect agent for designing implementation plans. Use when you need to plan strategy for a task, identify critical files, weigh trade-offs.",
 		SystemPrompt:    "You are Plan, an architectural advisor. Your job is to produce a concrete implementation plan. Use Read / Glob / Grep / LS to inspect the existing code; use WebFetch / WebSearch when external context helps. Return a step-by-step plan, the critical files involved, and the main trade-offs. Do NOT modify any files — your role is strategy only.",
 		AllowedTools:    []string{"Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch"},
 		DefaultMaxTurns: 25,
 	},
 	{
 		Name:            "general-purpose",
-		Description:     "General-purpose agent for researching complex questions, searching for code, executing multi-step tasks. Use when you're not confident a single search will succeed.",
 		SystemPrompt:    "You are a general-purpose subagent. You inherit the parent agent's full tool registry minus Subagent itself, so you can read, search, edit, run shells, and more. Focus on completing the focused subtask the parent delegated to you, then return a concise summary.",
 		AllowedTools:    nil, // nil = inherit parent registry minus Subagent
 		DefaultMaxTurns: 25,
@@ -105,11 +102,13 @@ func (r *Registry) Get(name string) (subagentdomain.SubagentType, bool) {
 	return t, ok
 }
 
-// List returns all registered types in stable Name order so the LLM
-// description and any HTTP listing are deterministic across calls.
+// List returns all registered types in stable Name order. Currently
+// only consumed by contract tests (registry shape verification); kept
+// exported so future LLM-facing dynamic enumeration or admin UI can
+// reuse it without re-implementing.
 //
-// List 返所有注册类型，按 Name 字母序稳定输出，让 LLM 描述和 HTTP 列表
-// 跨调用保持确定。
+// List 返所有注册类型，按 Name 字母序稳定输出。当前仅契约测试消费
+// （注册表 shape 验证）；保留导出供未来 LLM 动态枚举或管理 UI 复用。
 func (r *Registry) List() []subagentdomain.SubagentType {
 	r.ensureIndexed()
 	out := make([]subagentdomain.SubagentType, 0, len(r.idx))

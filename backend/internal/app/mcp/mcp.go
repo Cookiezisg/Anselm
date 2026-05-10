@@ -7,7 +7,7 @@
 // maps. Read APIs (ListServers/GetServer/ListTools) take RLock; mutating
 // APIs (Add/Remove/Reconnect/CallTool result recording) take Lock.
 // Per-call timeouts derive from §5.7 precedence (ServerConfig.TimeoutSec
-// > RegistryEntry.DefaultTimeoutSec > global 30s).
+// > global defaultCallTimeout 30s).
 //
 // Per mcp.md §3 design principles: stdio only V1, no auto-restart on
 // subprocess crash (loud failure beats silent flap), self-contained
@@ -21,8 +21,8 @@
 //
 // 并发模型：单 RWMutex 守 configs/states/clients map。读 API 取 RLock；
 // 变更 API（Add/Remove/Reconnect/CallTool 结果记账）取 Lock。per-call
-// 超时按 §5.7 precedence（ServerConfig.TimeoutSec > RegistryEntry
-// .DefaultTimeoutSec > 全局 30s）。
+// 超时按 §5.7 precedence（ServerConfig.TimeoutSec > 全局
+// defaultCallTimeout 30s）。
 //
 // 遵 mcp.md §3：仅 stdio；不自动重启（loud beats silent flap）；自包含
 // （只读 ~/.forgify/mcp.json）；无 enable/disable（配置中即启用）。
@@ -46,11 +46,12 @@ import (
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
-// defaultCallTimeout is the §5.7 fallback when neither the per-server
-// ServerConfig.TimeoutSec nor RegistryEntry.DefaultTimeoutSec is set.
+// defaultCallTimeout is the §5.7 fallback when ServerConfig.TimeoutSec
+// is unset (= 0). Single global ceiling so curated entries don't need
+// to declare per-entry defaults.
 //
-// defaultCallTimeout 是 §5.7 兜底——ServerConfig.TimeoutSec 与
-// RegistryEntry.DefaultTimeoutSec 都未设时用。
+// defaultCallTimeout 是 §5.7 兜底——ServerConfig.TimeoutSec 未设（= 0）时
+// 用。单一全局上限，curated 条目无需 per-entry 默认。
 const defaultCallTimeout = 30 * time.Second
 
 // degradedThreshold is the consecutive-failure count that flips a server
@@ -199,9 +200,11 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 	s.mu.Unlock()
 
-	// Parallel-connect; collect names so the snapshot publish is one
-	// final event after all connects settle.
-	// 并发连；收集 name，所有连完后发一次最终快照。
+	// Parallel-connect every server. Each connectOne publishes its own
+	// mcp_server notification on completion. wg ensures Start returns
+	// only after every connect (success or failure) has settled.
+	// 并发 connect 每个 server。每个 connectOne 完成后自己 publish
+	// mcp_server 通知。wg 保证所有 connect（成功或失败）完成后 Start 才返。
 	var wg sync.WaitGroup
 	for name := range configs {
 		wg.Add(1)
@@ -324,7 +327,7 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 		return fmt.Errorf("mcpapp.RemoveServer: save mcp.json: %w", err)
 	}
 	s.notif.Publish(ctx, "mcp_server", name,
-		map[string]any{"name": name, "deleted": true})
+		map[string]any{"name": name, "deleted": true}, "")
 	return nil
 }
 
@@ -376,7 +379,7 @@ func (s *Service) publishStatus(ctx context.Context, name string) {
 	if !ok {
 		return
 	}
-	s.notif.Publish(ctx, "mcp_server", name, &snap)
+	s.notif.Publish(ctx, "mcp_server", name, &snap, "")
 }
 
 // ── connectOne (internal) ────────────────────────────────────────────
@@ -501,12 +504,11 @@ func (s *Service) Stderr(name string) (string, error) {
 
 // ListTools flattens every connected server's cached tools/list into one
 // stable-ordered slice (server alpha, then tool alpha). Used by Search
-// when total tool count <= topK (skip ranking) and by call_mcp's
-// catalog presentation.
+// when total tool count <= topK (skip ranking).
 //
 // ListTools 把每个 connected server 的 tools/list 缓存拍平为单个稳定排序
 // slice（server 字母序，然后 tool 字母序）。Search 在总工具数 ≤ topK 时直
-// 接全返、call_mcp 目录展示用。
+// 接全返用。
 func (s *Service) ListTools(_ context.Context) []mcpdomain.ToolDef {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -573,17 +575,3 @@ func (s *Service) cloneConfigsLocked() map[string]mcpdomain.ServerConfig {
 	}
 	return out
 }
-
-// snapshotLocked builds the SSE event payload from current states.
-// Caller MUST hold s.mu.RLock.
-//
-// snapshotLocked 从当前 states 构建 SSE 事件载荷。调用方必须持 s.mu.RLock。
-func (s *Service) snapshotLocked() []mcpdomain.ServerStatus {
-	out := make([]mcpdomain.ServerStatus, 0, len(s.states))
-	for _, st := range s.states {
-		out = append(out, *st)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
-}
-

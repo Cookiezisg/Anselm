@@ -85,7 +85,7 @@ func (s *Service) InstallFromRegistry(ctx context.Context, name string, env, arg
 	// @scope/pkg` 时 sandboxapp 装的 Node runtime 在 PATH 上，包就能 fetch+run。
 	if s.sandbox != nil && entry.Runtime != "" && entry.Runtime != "binary" {
 		owner := sandboxdomain.Owner{
-			Kind: "mcp",
+			Kind: sandboxdomain.OwnerKindMCP,
 			ID:   entry.Name,
 			Name: entry.Name,
 		}

@@ -77,26 +77,6 @@ func (s *Store) GetRuntime(ctx context.Context, id string) (*sandboxdomain.Runti
 	return &r, nil
 }
 
-// FindDefaultRuntime returns the IsDefault=true row for the given kind, or
-// gorm.ErrRecordNotFound if no default has been marked. Used by EnsureRuntime
-// to resolve an empty Version spec.
-//
-// FindDefaultRuntime 返回该 kind 的 IsDefault=true 行；没标默认时返
-// gorm.ErrRecordNotFound。EnsureRuntime 解析空 Version spec 时调。
-func (s *Store) FindDefaultRuntime(ctx context.Context, kind string) (*sandboxdomain.Runtime, error) {
-	var r sandboxdomain.Runtime
-	err := s.db.WithContext(ctx).
-		Where("kind = ? AND is_default = ?", kind, true).
-		First(&r).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, gorm.ErrRecordNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("sandboxstore.FindDefaultRuntime: %w", err)
-	}
-	return &r, nil
-}
-
 // FindRuntime looks up a Runtime by exact (kind, version) — the UNIQUE pair.
 // Returns gorm.ErrRecordNotFound if not installed.
 //
@@ -318,29 +298,23 @@ func (s *Store) SetEnvRunningPID(ctx context.Context, envID string, pid int) err
 	if err := s.db.WithContext(ctx).
 		Model(&sandboxdomain.Env{}).
 		Where("id = ?", envID).
-		Updates(map[string]any{
-			"running_pid":        pid,
-			"running_started_at": time.Now(),
-		}).Error; err != nil {
+		Update("running_pid", pid).Error; err != nil {
 		return fmt.Errorf("sandboxstore.SetEnvRunningPID %s: %w", envID, err)
 	}
 	return nil
 }
 
-// ClearEnvRunningPID resets running_pid + running_started_at to zero
-// values. trackedHandle.Wait/Kill calls this on graceful exit so the
-// boot-time scan doesn't try to re-kill an already-dead PID.
+// ClearEnvRunningPID resets running_pid to 0. trackedHandle.Wait/Kill
+// calls this on graceful exit so the boot-time scan doesn't try to
+// re-kill an already-dead PID.
 //
-// ClearEnvRunningPID 把 running_pid + running_started_at 重置为零值。
-// trackedHandle.Wait/Kill 优雅退出时调，让启动扫描不试图再 kill 已死 PID。
+// ClearEnvRunningPID 把 running_pid 重置为 0。trackedHandle.Wait/Kill
+// 优雅退出时调，让启动扫描不试图再 kill 已死 PID。
 func (s *Store) ClearEnvRunningPID(ctx context.Context, envID string) error {
 	if err := s.db.WithContext(ctx).
 		Model(&sandboxdomain.Env{}).
 		Where("id = ?", envID).
-		Updates(map[string]any{
-			"running_pid":        0,
-			"running_started_at": time.Time{},
-		}).Error; err != nil {
+		Update("running_pid", 0).Error; err != nil {
 		return fmt.Errorf("sandboxstore.ClearEnvRunningPID %s: %w", envID, err)
 	}
 	return nil

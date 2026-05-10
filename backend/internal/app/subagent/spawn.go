@@ -1,13 +1,11 @@
 // spawn.go — Service.Spawn lifecycle: resolve type / filter tools /
 // resolve LLM / mint sub-msgID + placeholder message-block / inject
-// ctx / register cancel / defer recover / loop.Run via subagentHost /
-// emit BlockStop on placeholder / record agentstate token log / map
-// loop.Result → SpawnResult.
+// ctx / defer recover / loop.Run via subagentHost / emit BlockStop on
+// placeholder / map loop.Result → SpawnResult.
 //
 // spawn.go ——Service.Spawn 全生命周期：解类型 / 过滤 tools / 解 LLM /
-// 铸 sub-msgID + 占位 message-block / 注 ctx / 注册 cancel / defer recover /
-// 经 subagentHost 调 loop.Run / 推占位 BlockStop / 记 agentstate token log /
-// 映 loop.Result → SpawnResult。
+// 铸 sub-msgID + 占位 message-block / 注 ctx / defer recover / 经
+// subagentHost 调 loop.Run / 推占位 BlockStop / 映 loop.Result → SpawnResult。
 package subagent
 
 import (
@@ -28,11 +26,14 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// defaultRunTimeout caps a single Spawn — defends against stuck tool
-// calls (e.g. an MCP server that never returns) holding a sub-runner
-// forever and burning tokens.
+// defaultRunTimeout caps a single Spawn — the sole preemption mechanism
+// for sub-runs. Defends against stuck tool calls (e.g. an MCP server
+// that never returns) holding a sub-runner forever and burning tokens.
+// Parent-ctx cancel cascades naturally via ctx derivation; no external
+// cancel API exists.
 //
-// defaultRunTimeout 限定单次 Spawn——防止 stuck tool 让 sub-runner 永挂。
+// defaultRunTimeout 限定单次 Spawn——sub-run 唯一的抢占机制。防止 stuck
+// tool 让 sub-runner 永挂。父 ctx cancel 经派生自然级联；无外部 cancel API。
 const defaultRunTimeout = 5 * time.Minute
 
 // Sub-run terminal status values returned in SpawnResult.Status. Distinct
@@ -53,8 +54,7 @@ const (
 //
 // SpawnOpts per-call 覆盖。空字段回落到类型默认。
 type SpawnOpts struct {
-	MaxTurns int    // 0 = use type.DefaultMaxTurns
-	Model    string // "" = type.DefaultModel ?? PickForChat
+	MaxTurns int // 0 = use type.DefaultMaxTurns
 }
 
 // SpawnResult is what Service.Spawn hands back. RunID = the sub-Message
@@ -129,33 +129,21 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 			})
 	}
 
-	// Compose sub-runner ctx: sub-msgID for emit parent linkage + RunID
-	// for tool ctx + bumped depth + total timeout + register cancel so
-	// external Cancel(runID) can preempt. Re-stamp the emitter explicitly
-	// (it's also inherited via the WithValue chain from parentCtx, but
-	// the explicit With makes the emit lineage robust to future ctx
-	// refactors that might break the implicit chain).
+	// Compose sub-runner ctx: sub-msgID for emit parent linkage + bumped
+	// depth + total timeout. Re-stamp the emitter explicitly (it's also
+	// inherited via the WithValue chain from parentCtx, but the explicit
+	// With makes the emit lineage robust to future ctx refactors that
+	// might break the implicit chain).
 	//
-	// 组装 sub-runner ctx：sub-msgID 给 emit 父链 + RunID 给 tool ctx +
-	// 加深度 + 加超时 + 注册 cancel 让外部 Cancel(runID) 可抢占。emitter
+	// 组装 sub-runner ctx：sub-msgID 给 emit 父链 + 加深度 + 加超时。emitter
 	// 显式再挂一遍（虽经 WithValue 链从 parentCtx 隐式继承也能用，但显式
 	// 让 emit 血统对未来 ctx 重构更鲁棒）。
-	subCtx := reqctxpkg.WithSubagentRunID(parentCtx, subMsgID)
-	subCtx = reqctxpkg.WithSubagentDepth(subCtx, reqctxpkg.GetSubagentDepth(parentCtx)+1)
+	subCtx := reqctxpkg.WithSubagentDepth(parentCtx, reqctxpkg.GetSubagentDepth(parentCtx)+1)
 	subCtx = reqctxpkg.WithMessageID(subCtx, subMsgID)
 	subCtx = reqctxpkg.WithParentBlockID(subCtx, "") // sub blocks attach under sub-msgID
 	subCtx = eventlogpkg.With(subCtx, em)
 	subCtx, cancel := context.WithTimeout(subCtx, defaultRunTimeout)
 	defer cancel()
-
-	s.activeRunsMu.Lock()
-	s.activeRuns[subMsgID] = cancel
-	s.activeRunsMu.Unlock()
-	defer func() {
-		s.activeRunsMu.Lock()
-		delete(s.activeRuns, subMsgID)
-		s.activeRunsMu.Unlock()
-	}()
 
 	host := &subagentHost{
 		svc:           s,
@@ -269,12 +257,6 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		stopCtx := reqctxpkg.SetUserID(context.Background(), uid)
 		stopCtx = reqctxpkg.WithConversationID(stopCtx, parentConvID)
 		em.StopBlock(stopCtx, msgBlockID, closeStatus, nil)
-	}
-
-	// Append to per-conversation token log (UI cost panel).
-	// 追加对话级 token log（UI 成本面板）。
-	if state, ok := reqctxpkg.GetAgentState(parentCtx); ok && state != nil {
-		state.AddSubagentTokens(subMsgID, typ.Name, spawn.TokensIn, spawn.TokensOut)
 	}
 
 	s.log.Info("subagent run terminated",

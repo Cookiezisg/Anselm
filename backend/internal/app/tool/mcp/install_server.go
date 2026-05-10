@@ -58,14 +58,14 @@ PHASE 1 (discovery): Call install_mcp_server({name: "<short-name>"}). Tool retur
 PHASE 2 (commit): Call install_mcp_server({name, confirmed: true, env?: {KEY:"value"}, arguments?: {key:"value"}}). Tool installs + connects the server. On success returns the new ServerStatus; on failure returns a structured error (already_installed / missing_required_args / install_failed / handshake_failed) with hints for recovery.
 
 Notes:
-- name is the curated catalog's short slug (e.g. "playwright", "notion", "ms365"). Pick from search_mcp_marketplace results.
+- name is the curated catalog's short slug (e.g. "playwright", "notion", "ms365"). Pick from list_mcp_marketplace results.
 - name doubles as the mcp.json key — no separate alias.
 - already_installed means this name is already a configured server; uninstall first via uninstall_mcp_server.`
 
 var installMCPServerSchema = json.RawMessage(`{
 	"type": "object",
 	"properties": {
-		"name":      {"type": "string", "description": "Curated catalog short slug (e.g. 'playwright', 'notion'). Pick from search_mcp_marketplace."},
+		"name":      {"type": "string", "description": "Curated catalog short slug (e.g. 'playwright', 'notion'). Pick from list_mcp_marketplace."},
 		"confirmed": {"type": "boolean", "description": "Set to true on the second call after user has consented. Phase-1 calls omit this."},
 		"env":       {"type": "object", "description": "Map of env-var values for required env entries. Phase 2 only."},
 		"arguments": {"type": "object", "description": "Map of arg values for required args. Phase 2 only."}
@@ -119,11 +119,7 @@ func (t *InstallMCPServer) Execute(ctx context.Context, argsJSON string) (string
 	if err != nil {
 		if errors.Is(err, mcpdomain.ErrRegistryEntryNotFound) {
 			return errorJSON("not_in_registry",
-				fmt.Sprintf("Server %q not found in marketplace. Use search_mcp_marketplace to discover available servers.", args.Name)), nil
-		}
-		if errors.Is(err, mcpdomain.ErrMarketplaceUnavailable) {
-			return errorJSON("marketplace_unavailable",
-				"Marketplace is unreachable. Suggest the user retry later or configure a search-category API key as a workaround."), nil
+				fmt.Sprintf("Server %q not found in marketplace. Use list_mcp_marketplace to discover available servers.", args.Name)), nil
 		}
 		return "", fmt.Errorf("install_mcp_server: %w", err)
 	}
@@ -152,8 +148,6 @@ func (t *InstallMCPServer) Execute(ctx context.Context, argsJSON string) (string
 			fmt.Sprintf("Missing required args: %v. Ask the user for these values, then retry with arguments={...}.", err.Error())), nil
 	case errors.Is(err, mcpdomain.ErrInstallFailed):
 		return errorJSON("install_failed", fmt.Sprintf("Install failed: %v", err)), nil
-	case errors.Is(err, mcpdomain.ErrHandshakeFailed):
-		return errorJSON("handshake_failed", fmt.Sprintf("Server installed but handshake failed: %v. The server is in mcp.json with status=failed; user can fix and reconnect via UI, or uninstall.", err)), nil
 	default:
 		return errorJSON("install_failed", err.Error()), nil
 	}

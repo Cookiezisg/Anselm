@@ -11,9 +11,10 @@
 //     (optional integer ≥ 1; same group = parallel batch). The framework
 //     strips all three before passing args to Execute and stores them as
 //     first-class fields on ToolCallData.
-//   - Sub-packages by tool family: tool/forge/ for user-forged-tool tools,
-//     plus future tool/filesystem/, tool/shell/, tool/web/, tool/tasks/,
-//     tool/ux/ (Phase 5). §S12 example position; alias `<sub><parent>` per §S13.
+//   - Sub-packages by tool family: tool/ask/, tool/filesystem/, tool/forge/,
+//     tool/mcp/, tool/search/, tool/shell/, tool/skill/, tool/subagent/,
+//     tool/todo/, tool/web/. §S12 example position; alias `<sub><parent>`
+//     per §S13.
 //
 // Package tool 定义每个 system tool 必须实现的 Tool 接口及框架层 LLM 工具调用处理设施。
 //
@@ -23,8 +24,9 @@
 //     "summary"（必填 string）、"destructive"（可选 bool 默认 false）、
 //     "execution_group"（可选 integer ≥ 1，同 group = 并行 batch）。框架在传给
 //     Execute 前剥除三者，并作为 ToolCallData 一等字段独立存储。
-//   - 按 tool 家族分子包：tool/forge/、tool/filesystem/、tool/shell/、tool/web/、
-//     tool/tasks/、tool/ux/（§S12 例外位置，§S13 别名规则 `<sub><parent>`）
+//   - 按 tool 家族分子包：tool/ask/、tool/filesystem/、tool/forge/、tool/mcp/、
+//     tool/search/、tool/shell/、tool/skill/、tool/subagent/、tool/todo/、
+//     tool/web/（§S12 例外位置，§S13 别名规则 `<sub><parent>`）
 package tool
 
 import (
@@ -159,9 +161,14 @@ type Tool interface {
 // ── LLM def conversion ────────────────────────────────────────────────────────
 
 // ToLLMDef converts a Tool to the ToolDef sent to the LLM, automatically
-// injecting "summary" and "destructive" fields into the Parameters schema.
+// injecting the three standard fields (summary / destructive /
+// execution_group) into the Parameters schema. Production callers use
+// ToLLMDefs (plural); the singular form is preserved as the unit-test
+// access point that exercises one tool at a time.
 //
-// ToLLMDef 把 Tool 转成发给 LLM 的 ToolDef，自动注入 "summary" 和 "destructive" 字段。
+// ToLLMDef 把 Tool 转成发给 LLM 的 ToolDef，自动注入三个标准字段
+// （summary / destructive / execution_group）。生产调用方用 ToLLMDefs（复数）
+// 处理切片；保留 singular 形式仅作单测对单工具的访问入口。
 func ToLLMDef(t Tool) llminfra.ToolDef {
 	return llminfra.ToolDef{
 		Name:        t.Name(),

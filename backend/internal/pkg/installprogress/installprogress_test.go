@@ -42,13 +42,9 @@ func (f *fakeEmitter) StartBlock(_ context.Context, blockType string, attrs map[
 	f.starts = append(f.starts, startCall{blockType, attrs})
 	return id
 }
-func (f *fakeEmitter) StartBlockUnder(_ context.Context, _, _, blockType string, attrs map[string]any) string {
-	return f.StartBlock(context.Background(), blockType, attrs)
-}
-func (f *fakeEmitter) StartMessage(_ context.Context, _, _ string, _ map[string]any) string                        { return "msg_fake" }
-func (f *fakeEmitter) StopMessage(_ context.Context, _, _, _, _, _ string, _, _ int)                                {}
-func (f *fakeEmitter) EmitMessageStart(_ context.Context, _, _, _ string, _ map[string]any)                         {}
-func (f *fakeEmitter) EmitBlockStart(_ context.Context, _, _, _, _ string, _ map[string]any)                        {}
+func (f *fakeEmitter) StopMessage(_ context.Context, _, _, _, _, _ string, _, _ int)         {}
+func (f *fakeEmitter) EmitMessageStart(_ context.Context, _, _, _ string, _ map[string]any)  {}
+func (f *fakeEmitter) EmitBlockStart(_ context.Context, _, _, _, _ string, _ map[string]any) {}
 func (f *fakeEmitter) DeltaBlock(_ context.Context, blockID, delta string) {
 	f.mu.Lock(); defer f.mu.Unlock()
 	f.deltas = append(f.deltas, deltaCall{blockID, delta})

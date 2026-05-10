@@ -10,7 +10,7 @@
 - **配套实现**（notifications）：
   - `domain/notifications/` — 1 通用 Event envelope + Bridge 接口 + ValidateEvent
   - `infra/notifications/` — global broadcast Bridge（per-key 单调 seq + replay buffer + Last-Event-ID 重连）
-  - `pkg/notifications/` — Publisher (ctx-injected) + With/From/MustFrom helpers
+  - `pkg/notifications/` — Publisher (constructor-injected struct field; no ctx wiring — no producer needs it)
 - **SSE 端点**：
   - `GET /api/v1/eventlog?conversationId=xxx` — per-conversation 流式内容（eventlog 协议）
   - `GET /api/v1/notifications` — global broadcast entity 状态（notifications 协议）
@@ -229,17 +229,22 @@ data: <event JSON, 不重复 type/seq>
 
 ### 11.4 Publisher API
 
-`pkg/notifications.Publisher`（ctx-injected）：
+`pkg/notifications.Publisher`（constructor-injected struct field）：
 
 ```go
 import notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 
-// Service 内部消费：
-notif := notificationspkg.From(ctx)  // 总返非 nil（缺失 → no-op fallback）
-notif.Publish(ctx, "conversation", convID, snapshot, convID)  // 第 5 参可选 conversationID
+// Service 构造期注入（cmd/server 主装配 + service 持作 struct 字段）：
+type Service struct {
+    notif notificationspkg.Publisher
+}
+
+// 内部消费：
+s.notif.Publish(ctx, "conversation", convID, snapshot, convID)
+// 第 5 参 conversationID 必填——不绑对话的实体传 ""
 ```
 
-ctx wiring 由 cmd/server 装配 + middleware 写 ctx；service 构造器经 `notificationspkg.From(context.Background())` 取默认 no-op fallback 用于测试。**failure log 不上抛**——通知是可观测性，不是业务。
+`New(bridge, log)` 是唯一构造器；bridge nil 时返 noop Publisher，service 构造器可安全 fallback `notificationspkg.New(nil, log)` 用于测试 / 未接线场景。**failure log 不上抛**——通知是可观测性，不是业务。
 
 ### 11.5 与 eventlog 协议的对比
 

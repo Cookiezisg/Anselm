@@ -46,9 +46,6 @@ func (fakeEnvManager) CreateEnv(context.Context, string, string) error          
 func (fakeEnvManager) InstallDeps(context.Context, string, string, []string, sandboxdomain.ProgressFunc) error {
 	return nil
 }
-func (fakeEnvManager) InstallExtras(context.Context, string, string, []string, sandboxdomain.ProgressFunc) error {
-	return nil
-}
 func (fakeEnvManager) EnvBin(_ string, binName string) string {
 	if p, err := exec.LookPath(binName); err == nil {
 		return p
@@ -84,7 +81,7 @@ func newServiceWithEnv(t *testing.T, kind string) (*Service, sandboxdomain.Owner
 	ctx := context.Background()
 	rt := &sandboxdomain.Runtime{
 		ID: "sr_test", Kind: kind, Version: "1.0",
-		Path: "fake/" + kind + "/1.0", IsDefault: true,
+		Path:        "fake/" + kind + "/1.0",
 		InstalledAt: time.Now(), UpdatedAt: time.Now(),
 	}
 	if err := repo.CreateRuntime(ctx, rt); err != nil {

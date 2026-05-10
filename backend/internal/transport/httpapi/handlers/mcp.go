@@ -41,7 +41,6 @@ import (
 
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -461,9 +460,3 @@ func (h *MCPHandler) registryNameAction(w http.ResponseWriter, r *http.Request) 
 	}
 	responsehttpapi.Success(w, http.StatusCreated, st)
 }
-
-// Compile-time keep-alive — silences unused-import lint when refactors
-// trim the file.
-//
-// 编译期保活——重构 trim 文件时静默 unused-import lint。
-var _ mcpinfra.MergeResult

@@ -58,7 +58,6 @@ func TestGranularity_String(t *testing.T) {
 	}{
 		{PerItem, "PerItem"},
 		{PerServer, "PerServer"},
-		{PerCollection, "PerCollection"},
 		{Granularity(99), "Unknown"},
 	}
 	for _, tc := range cases {
@@ -83,9 +82,6 @@ func TestGranularity_EnumValuesStable(t *testing.T) {
 	}
 	if PerServer != 1 {
 		t.Errorf("PerServer = %d, want 1", PerServer)
-	}
-	if PerCollection != 2 {
-		t.Errorf("PerCollection = %d, want 2", PerCollection)
 	}
 }
 

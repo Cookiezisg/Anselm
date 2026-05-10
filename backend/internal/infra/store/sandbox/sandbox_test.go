@@ -1,11 +1,11 @@
 // Package sandbox — integration tests for Store using an in-memory SQLite.
 // Covers Runtime + Env CRUD, the two UNIQUE constraints (kind/version and
-// owner_kind/owner_id), default-runtime resolution, FK reverse lookup,
-// aggregate queries, and the interface satisfaction check.
+// owner_kind/owner_id), FK reverse lookup, aggregate queries, and the
+// interface satisfaction check.
 //
 // Package sandbox — Store 集成测试（内存 SQLite）。
 // 覆盖 Runtime + Env CRUD、两个 UNIQUE 约束（kind/version 和 owner_kind/owner_id）、
-// 默认 runtime 解析、FK 反查、聚合查询、接口满足检查。
+// FK 反查、聚合查询、接口满足检查。
 package sandbox
 
 import (
@@ -40,14 +40,13 @@ func newStore(t *testing.T) *Store {
 	return New(database)
 }
 
-func mkRuntime(id, kind, version string, isDefault bool) *sandboxdomain.Runtime {
+func mkRuntime(id, kind, version string) *sandboxdomain.Runtime {
 	return &sandboxdomain.Runtime{
 		ID:          id,
 		Kind:        kind,
 		Version:     version,
 		Path:        kind + "/" + version,
 		SizeBytes:   100,
-		IsDefault:   isDefault,
 		InstalledAt: time.Now(),
 	}
 }
@@ -72,7 +71,7 @@ func mkEnv(id, ownerKind, ownerID, runtimeID string) *sandboxdomain.Env {
 func TestCreateAndGetRuntime(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	r := mkRuntime("sr_001", "python", "3.12.5", true)
+	r := mkRuntime("sr_001", "python", "3.12.5")
 	if err := s.CreateRuntime(ctx, r); err != nil {
 		t.Fatalf("CreateRuntime: %v", err)
 	}
@@ -80,7 +79,7 @@ func TestCreateAndGetRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRuntime: %v", err)
 	}
-	if got.Kind != "python" || got.Version != "3.12.5" || !got.IsDefault {
+	if got.Kind != "python" || got.Version != "3.12.5" {
 		t.Errorf("round-trip mismatch: %+v", got)
 	}
 }
@@ -96,51 +95,21 @@ func TestGetRuntime_NotFound(t *testing.T) {
 func TestCreateRuntime_UniqueKindVersion(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("first CreateRuntime: %v", err)
 	}
 	// Same (kind, version) — different ID — must violate UNIQUE.
 	// 同 (kind, version)、不同 ID——必须撞 UNIQUE。
-	err := s.CreateRuntime(ctx, mkRuntime("sr_002", "python", "3.12.5", false))
+	err := s.CreateRuntime(ctx, mkRuntime("sr_002", "python", "3.12.5"))
 	if err == nil {
 		t.Fatal("want UNIQUE violation, got nil")
-	}
-}
-
-func TestFindDefaultRuntime(t *testing.T) {
-	s := newStore(t)
-	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.11.0", false)); err != nil {
-		t.Fatalf("seed non-default: %v", err)
-	}
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_002", "python", "3.12.5", true)); err != nil {
-		t.Fatalf("seed default: %v", err)
-	}
-	got, err := s.FindDefaultRuntime(ctx, "python")
-	if err != nil {
-		t.Fatalf("FindDefaultRuntime: %v", err)
-	}
-	if got.Version != "3.12.5" {
-		t.Errorf("want default 3.12.5, got %s", got.Version)
-	}
-}
-
-func TestFindDefaultRuntime_NoneMarked(t *testing.T) {
-	s := newStore(t)
-	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", false)); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-	_, err := s.FindDefaultRuntime(ctx, "python")
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Errorf("want gorm.ErrRecordNotFound, got %v", err)
 	}
 }
 
 func TestFindRuntime_ExactMatch(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "node", "22.5.0", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "node", "22.5.0")); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	got, err := s.FindRuntime(ctx, "node", "22.5.0")
@@ -160,9 +129,9 @@ func TestListRuntimes_OrderByKindThenVersion(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
 	for i, r := range []*sandboxdomain.Runtime{
-		mkRuntime("sr_a", "python", "3.12.5", true),
-		mkRuntime("sr_b", "node", "22.5.0", true),
-		mkRuntime("sr_c", "node", "20.0.0", false),
+		mkRuntime("sr_a", "python", "3.12.5"),
+		mkRuntime("sr_b", "node", "22.5.0"),
+		mkRuntime("sr_c", "node", "20.0.0"),
 	} {
 		if err := s.CreateRuntime(ctx, r); err != nil {
 			t.Fatalf("seed[%d]: %v", i, err)
@@ -184,14 +153,14 @@ func TestListRuntimes_OrderByKindThenVersion(t *testing.T) {
 	}
 }
 
-func TestUpdateRuntime_FlipDefault(t *testing.T) {
+func TestUpdateRuntime_RefreshSize(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	r := mkRuntime("sr_001", "python", "3.12.5", false)
+	r := mkRuntime("sr_001", "python", "3.12.5")
 	if err := s.CreateRuntime(ctx, r); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	r.IsDefault = true
+	r.SizeBytes = 9999
 	if err := s.UpdateRuntime(ctx, r); err != nil {
 		t.Fatalf("UpdateRuntime: %v", err)
 	}
@@ -199,15 +168,15 @@ func TestUpdateRuntime_FlipDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-get: %v", err)
 	}
-	if !got.IsDefault {
-		t.Error("IsDefault not persisted")
+	if got.SizeBytes != 9999 {
+		t.Errorf("SizeBytes = %d, want 9999 — UpdateRuntime should persist", got.SizeBytes)
 	}
 }
 
 func TestDeleteRuntime(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	if err := s.DeleteRuntime(ctx, "sr_001"); err != nil {
@@ -224,7 +193,7 @@ func TestDeleteRuntime(t *testing.T) {
 func TestCreateAndGetEnv(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	e := mkEnv("se_001", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")
@@ -254,7 +223,7 @@ func TestGetEnv_NotFound(t *testing.T) {
 func TestCreateEnv_UniqueOwner(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	if err := s.CreateEnv(ctx, mkEnv("se_001", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")); err != nil {
@@ -271,7 +240,7 @@ func TestCreateEnv_UniqueOwner(t *testing.T) {
 func TestFindEnvByOwner(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	if err := s.CreateEnv(ctx, mkEnv("se_001", sandboxdomain.OwnerKindForge, "f_abc", "sr_001")); err != nil {
@@ -293,10 +262,10 @@ func TestFindEnvByOwner(t *testing.T) {
 func TestListEnvsByRuntime_FKReverseLookup(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_002", "node", "22.5.0", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_002", "node", "22.5.0")); err != nil {
 		t.Fatalf("seed runtime 2: %v", err)
 	}
 	for i, e := range []*sandboxdomain.Env{
@@ -327,7 +296,7 @@ func TestListEnvsByRuntime_FKReverseLookup(t *testing.T) {
 func TestListEnvsByOwnerKind_OrderedByLastUsed(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	now := time.Now()
@@ -353,7 +322,7 @@ func TestListEnvsByOwnerKind_OrderedByLastUsed(t *testing.T) {
 func TestUpdateEnv_StatusTransition(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	e := mkEnv("se_001", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")
@@ -377,7 +346,7 @@ func TestUpdateEnv_StatusTransition(t *testing.T) {
 func TestDeleteEnv(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	if err := s.CreateEnv(ctx, mkEnv("se_001", sandboxdomain.OwnerKindForge, "f_abc", "sr_001")); err != nil {
@@ -405,7 +374,7 @@ func TestTotalSizeBytes(t *testing.T) {
 		t.Errorf("empty: want 0, got %d", got)
 	}
 
-	r := mkRuntime("sr_001", "python", "3.12.5", true)
+	r := mkRuntime("sr_001", "python", "3.12.5")
 	r.SizeBytes = 1000
 	if err := s.CreateRuntime(ctx, r); err != nil {
 		t.Fatalf("seed runtime: %v", err)
@@ -430,7 +399,7 @@ func TestSetAndListEnvsWithRunningPID(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
 
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	if err := s.CreateEnv(ctx, mkEnv("se_a", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")); err != nil {
@@ -465,15 +434,12 @@ func TestSetAndListEnvsWithRunningPID(t *testing.T) {
 	if rows[0].RunningPID != 12345 {
 		t.Errorf("RunningPID = %d, want 12345", rows[0].RunningPID)
 	}
-	if rows[0].RunningStartedAt.IsZero() {
-		t.Error("RunningStartedAt not set on SetEnvRunningPID")
-	}
 }
 
 func TestClearEnvRunningPID(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	if err := s.CreateEnv(ctx, mkEnv("se_a", sandboxdomain.OwnerKindMCP, "playwright", "sr_001")); err != nil {
@@ -497,7 +463,7 @@ func TestClearEnvRunningPID(t *testing.T) {
 func TestListEnvsLastUsedBefore(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
-	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5", true)); err != nil {
+	if err := s.CreateRuntime(ctx, mkRuntime("sr_001", "python", "3.12.5")); err != nil {
 		t.Fatalf("seed runtime: %v", err)
 	}
 	now := time.Now()

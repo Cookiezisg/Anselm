@@ -15,7 +15,6 @@ package mcp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
@@ -70,13 +69,6 @@ func (t *ListMCPMarketplace) CheckPermissions(json.RawMessage, toolapp.Permissio
 func (t *ListMCPMarketplace) Execute(ctx context.Context, _ string) (string, error) {
 	all, err := t.svc.ListRegistry(ctx)
 	if err != nil {
-		// Surface ErrMarketplaceUnavailable as actionable text so the
-		// LLM can advise the user. Other errors bubble up.
-		// 把 ErrMarketplaceUnavailable 当 actionable 文本返让 LLM 告诉
-		// 用户。其他错冒泡。
-		if errors.Is(err, mcpdomain.ErrMarketplaceUnavailable) {
-			return fmt.Sprintf("Marketplace unavailable: %v. The user can configure a search-category API key (Brave / Serper / Tavily / Bocha) for web search instead, or retry later.", err), nil
-		}
 		return "", fmt.Errorf("list_mcp_marketplace: %w", err)
 	}
 	return marshalMarketplaceResults(all), nil

@@ -50,7 +50,7 @@ import (
 // cwd 默认 EnvManager.EnvDir(envPath)。Env vars 把 opts.Env 叠加到继承的
 // os.Environ()（让调用方可加 PATH / overrides 不丢 base）。
 func (s *Service) Spawn(ctx context.Context, owner sandboxdomain.Owner, opts sandboxdomain.SpawnOpts) (*sandboxdomain.ExecutionResult, error) {
-	cmd, cwd, env, err := s.prepareSpawn(ctx, owner, opts)
+	cmd, cwd, env, _, err := s.prepareSpawn(ctx, owner, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *Service) Spawn(ctx context.Context, owner sandboxdomain.Owner, opts san
 // 注册到 activeHandles 让 Service.Shutdown 在 app 退出时杀；handle 上的
 // Wait()/Kill() 自动反注册。
 func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner, opts sandboxdomain.SpawnOpts) (sandboxdomain.LongLivedHandle, error) {
-	cmd, cwd, env, err := s.prepareSpawn(ctx, owner, opts)
+	cmd, cwd, env, envID, err := s.prepareSpawn(ctx, owner, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -98,11 +98,6 @@ func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner,
 	}
 
 	id := s.nextHandleID.Add(1)
-	envRow, lookupErr := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
-	envID := ""
-	if lookupErr == nil {
-		envID = envRow.ID
-	}
 	tracked := &trackedHandle{
 		inner:   inner,
 		id:      id,
@@ -120,13 +115,11 @@ func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner,
 	// 层 B leak 防御：把 PID 记 manifest，让 Wait/Kill 前 crash 给下次
 	// 启动扫描留痕迹。Best-effort——失败 log 不中止 spawn（上面的层 A
 	// 注册表已保护优雅 shutdown）。
-	if envID != "" {
-		if err := s.repo.SetEnvRunningPID(ctx, envID, inner.PID()); err != nil {
-			s.log.Warn("sandbox: track running pid failed",
-				zap.String("env_id", envID),
-				zap.Int("pid", inner.PID()),
-				zap.Error(err))
-		}
+	if err := s.repo.SetEnvRunningPID(ctx, envID, inner.PID()); err != nil {
+		s.log.Warn("sandbox: track running pid failed",
+			zap.String("env_id", envID),
+			zap.Int("pid", inner.PID()),
+			zap.Error(err))
 	}
 	return tracked, nil
 }
@@ -181,14 +174,16 @@ func (s *Service) Shutdown(ctx context.Context) error {
 }
 
 // prepareSpawn does the shared owner/env/binary resolution for Spawn +
-// SpawnLongLived. Returns the absolute command path, cwd, and merged
-// env vars.
+// SpawnLongLived. Returns the absolute command path, cwd, merged env
+// vars, and the resolved env ID (empty string is impossible — function
+// errors out before returning if the env is missing or not ready).
 //
 // prepareSpawn 做 Spawn + SpawnLongLived 共享的 owner/env/binary 解析。
-// 返绝对命令路径、cwd、合并的 env vars。
-func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, opts sandboxdomain.SpawnOpts) (cmd, cwd string, env []string, err error) {
+// 返绝对命令路径、cwd、合并 env vars、解析后的 env ID（envID 不可能为空——
+// env 缺失或未 ready 时函数提前 err 返回）。
+func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, opts sandboxdomain.SpawnOpts) (cmd, cwd string, env []string, envID string, err error) {
 	if !s.IsReady() {
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrSpawnFailed)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrSpawnFailed)
 	}
 	if opts.Cmd == "" {
 		// Empty Cmd is treated as a returned error rather than a panic
@@ -199,33 +194,34 @@ func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, o
 		//
 		// 空 Cmd 走 sentinel 路线（不用 panic）——保留 spawn_test 已有
 		// 契约。新加 sentinel + errmap 400 BAD_REQUEST 防 unmapped 报警。
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrCmdRequired)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: %w", sandboxdomain.ErrCmdRequired)
 	}
 
 	envRow, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: lookup env %s/%s: %w", owner.Kind, owner.ID, err)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: lookup env %s/%s: %w", owner.Kind, owner.ID, err)
 	}
 	if envRow.Status != sandboxdomain.EnvStatusReady {
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: env %s status=%s: %w", envRow.ID, envRow.Status, sandboxdomain.ErrSpawnFailed)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: env %s status=%s: %w", envRow.ID, envRow.Status, sandboxdomain.ErrSpawnFailed)
 	}
 
 	rt, err := s.repo.GetRuntime(ctx, envRow.RuntimeID)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: lookup runtime %s: %w", envRow.RuntimeID, err)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: lookup runtime %s: %w", envRow.RuntimeID, err)
 	}
 
 	s.regMu.RLock()
 	em, ok := s.envManagers[rt.Kind]
 	s.regMu.RUnlock()
 	if !ok {
-		return "", "", nil, fmt.Errorf("sandboxapp.Spawn: no env manager for kind %s: %w", rt.Kind, sandboxdomain.ErrRuntimeNotSupported)
+		return "", "", nil, "", fmt.Errorf("sandboxapp.Spawn: no env manager for kind %s: %w", rt.Kind, sandboxdomain.ErrRuntimeNotSupported)
 	}
 
 	envPath := filepath.Join(s.sandboxRoot, envRow.Path)
 	cmd = resolveCmd(em, envPath, opts.Cmd)
 	cwd = em.EnvDir(envPath)
 	env = mergeEnv(opts.Env)
+	envID = envRow.ID
 
 	// Touch last_used_at on Spawn so GC sees the env as recently active.
 	// Best-effort.
@@ -237,7 +233,7 @@ func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, o
 			zap.String("env_id", envRow.ID),
 			zap.Error(updateErr))
 	}
-	return cmd, cwd, env, nil
+	return cmd, cwd, env, envID, nil
 }
 
 // resolveCmd returns the absolute command path. If cmd already looks
@@ -297,7 +293,7 @@ type trackedHandle struct {
 	inner   sandboxdomain.LongLivedHandle
 	id      uint64
 	owner   sandboxdomain.Owner
-	envID   string // empty if envID lookup failed at SpawnLongLived time
+	envID   string // resolved by prepareSpawn; never empty (env missing => prepareSpawn errs out)
 	service *Service
 }
 
@@ -326,9 +322,6 @@ func (t *trackedHandle) Kill() error {
 // （层 B）。幂等——sync.Map.Delete 和 ClearEnvRunningPID 对已清状态都 no-op。
 func (t *trackedHandle) unregister() {
 	t.service.activeHandles.Delete(t.id)
-	if t.envID == "" {
-		return
-	}
 	if err := t.service.repo.ClearEnvRunningPID(context.Background(), t.envID); err != nil {
 		t.service.log.Warn("sandbox: clear running pid failed",
 			zap.String("env_id", t.envID),

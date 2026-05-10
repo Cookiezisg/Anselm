@@ -104,7 +104,7 @@ func (s *Service) Scan(ctx context.Context) error {
 	s.lastFP.Store(fp)
 	if last != fp {
 		s.notif.Publish(ctx, "skill", "*",
-			map[string]any{"changed": true, "count": len(loaded)})
+			map[string]any{"changed": true, "count": len(loaded)}, "")
 	}
 	return nil
 }

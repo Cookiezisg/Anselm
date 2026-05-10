@@ -54,7 +54,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
 | `INVALID_REQUEST` | 400 | `derrors.ErrInvalidRequest` | JSON 坏 / 字段缺 / cursor 格式错 | ✅ |
-| `INTERNAL_ERROR` | 500 | `derrors.ErrInternal` | 兜底；未映射错误降级到此 | ✅ |
+| `INTERNAL_ERROR` | 500 | (未映射 fallback) | errmap 兜底；未匹配 sentinel 自动降级到此（不需要专门 sentinel）| ✅ |
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingUserID` | auth middleware 未跑（接线 bug）。显式登记以抑制 "unmapped" 警告 | ✅ |
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingConversationID` | chat-runner 未在 ctx 印 conversation ID（接线 bug）。todo / ask 工具依赖此 ID | ✅ |
 | `INTERNAL_ERROR` | 500 | `cryptoinfra.ErrUnsupportedVersion` | DB 中密文版本前缀（如 `v2:`）超出当前 encryptor 支持范围（升降级 / 数据损坏）| ✅ |
@@ -77,8 +77,6 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `BASE_URL_REQUIRED` | 400 | `apikey.ErrBaseURLRequired` | ollama / custom 没填 baseURL | ✅ |
 | `API_FORMAT_REQUIRED` | 400 | `apikey.ErrAPIFormatRequired` | custom 没填 apiFormat | ✅ |
 | `KEY_REQUIRED` | 400 | `apikey.ErrKeyRequired` | 创建时 key 空 | ✅ |
-| `API_KEY_TEST_FAILED` | 422 | `apikey.ErrTestFailed` | 连通性测试失败 | ✅ |
-| `API_KEY_INVALID` | 401 | `apikey.ErrInvalid` | 使用时 provider 返回 401 | ✅ |
 
 #### model ✅
 详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。
@@ -118,9 +116,10 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | 触发点 | 含义 |
 |---|---|---|
-| `MODEL_NOT_CONFIGURED` | `processTask` PickForChat 失败 | 用户尚未配置 chat scenario 模型 |
-| `API_KEY_PROVIDER_NOT_FOUND` | `processTask` ResolveCredentials 失败 | 当前 provider 无活跃 key |
-| `LLM_PROVIDER_ERROR` | `processTask` LLMFactory.Build 失败 | 上游 LLM 客户端构造失败 |
+| `MODEL_NOT_CONFIGURED` | `processTask` PickForChat 失败（`llmclient.ErrPickModel`）| 用户尚未配置 chat scenario 模型 |
+| `API_KEY_PROVIDER_NOT_FOUND` | `processTask` ResolveCredentials 失败（`llmclient.ErrResolveCreds`）| 当前 provider 无活跃 key |
+| `LLM_BUILD_FAILED` | `processTask` LLMFactory.Build 失败（`llmclient.ErrBuildClient`）| 上游 LLM 客户端构造失败（如 ollama / custom 缺 BaseURL）|
+| `LLM_PROVIDER_ERROR` | `processTask` 三段解析其他失败（fallback）| Resolve 阶段未匹配三个 sentinel 的兜底 |
 | `LLM_STREAM_ERROR` | `streamLLM` 收到 EventError（非取消）| LLM 流式响应中途出错（401 / 网络等）|
 | `HISTORY_EXTEND_FAILED` | `agentRun` extendHistory 失败 | tool result 注入历史时 JSON 序列化失败（极罕见）|
 | `INTERNAL_ERROR` | writeAndPublish 写库 fatal 失败 | 终态 message 落库失败——message 已无法持久化 |
@@ -181,8 +180,7 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `ASK_NO_PENDING_QUESTION` | 404 | `ask.ErrNoPendingQuestion` | 投递的 toolCallId 未在 Service.Wait 注册（已超时 / 已答 / 拼错）| ✅ |
-| `ASK_ALREADY_ANSWERED` | 409 | `ask.ErrAlreadyAnswered` | （保留）历史 sentinel；当前实现 Resolve 原子摘条目，二次答总走 `ASK_NO_PENDING_QUESTION` | ✅ |
+| `ASK_NO_PENDING_QUESTION` | 404 | `ask.ErrNoPendingQuestion` | 投递的 toolCallId 未在 Service.Wait 注册（已超时 / 已答 / 拼错 / 二次答均走此）| ✅ |
 | `ASK_TIMEOUT` | 504 | `ask.ErrTimeout` | （Service 内部）AskUserQuestion 工具 Wait 超过 5 分钟；当前实现工具内部转为友好字符串而非上抛，因此实际不到 handler——保留登记便于将来若改语义 | ✅ |
 
 > ASK_* 端点错误不属于任一 domain entity，归属 app/ask 服务（in-memory 会合，无持久化）。
@@ -227,12 +225,10 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `MCP_REQUIRED_ENV_MISSING` | 422 | `mcpdomain.ErrRequiredEnvMissing` | install 时 required env 未填全 | ✅ |
 | `MCP_REQUIRED_ARGS_MISSING` | 422 | `mcpdomain.ErrRequiredArgsMissing` | install 时 required args 未填全 | ✅ |
 | `MCP_INSTALL_FAILED` | 502 | `mcpdomain.ErrInstallFailed` | npm install / uvx 安装命令失败 | ✅ |
-| `MCP_MARKETPLACE_UNAVAILABLE` | 502 | `mcpdomain.ErrMarketplaceUnavailable` | curated registry 不可达兜底（hardcoded 实际不会触发）| ✅ |
 | `MCP_ALREADY_INSTALLED` | 409 | `mcpdomain.ErrAlreadyInstalled` | install 时 server name 已存在 mcp.json（先卸再装）| ✅ |
 | `MCP_UNSUPPORTED_RUNTIME` | 422 | `mcpdomain.ErrUnsupportedRuntime` | registry 条目 runtime 非 npm/pypi（curated 列表不会触发）| ✅ |
-| `MCP_HANDSHAKE_FAILED` | 502 | `mcpdomain.ErrHandshakeFailed` | server 装好但 MCP initialize 握手失败 | ✅ |
 
-> 注：Marketplace V3（2026-05-08 curated 化 / 2026-05-09 search→list 化）。`MCP_ALIAS_COLLISION`（无 alias 概念）+ `MCP_QUERY_REQUIRED`（V3 list 不再要 query）相继移除。所有 sentinel + errmap 已对齐。
+> 注：Marketplace V3（2026-05-08 curated 化 / 2026-05-09 search→list 化）。`MCP_ALIAS_COLLISION`（无 alias 概念）+ `MCP_QUERY_REQUIRED`（V3 list 不再要 query）+ `MCP_MARKETPLACE_UNAVAILABLE`（curated 同步源永不失败）+ `MCP_HANDSHAKE_FAILED`（被 `MCP_SERVER_NOT_CONNECTED` 覆盖）相继移除。所有 sentinel + errmap 已对齐。
 
 #### skill ✅
 

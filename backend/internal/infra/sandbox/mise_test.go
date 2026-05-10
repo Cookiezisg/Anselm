@@ -44,11 +44,11 @@ func TestEmbed_MiseBinaryIsNonTrivial(t *testing.T) {
 // TestExtractMiseBinary_HappyPath 把 embed 写到临时目录，再跑一次，确认
 // 二次调用走 hash 文件短路（mtime 不变证明无重写）。
 func TestExtractMiseBinary_HappyPath(t *testing.T) {
-	dataDir := t.TempDir()
+	sandboxRoot := t.TempDir()
 	log := zap.NewNop()
 	ctx := context.Background()
 
-	first, err := ExtractMiseBinary(ctx, dataDir, log)
+	first, err := ExtractMiseBinary(ctx, sandboxRoot, log)
 	if err != nil {
 		t.Fatalf("first ExtractMiseBinary: %v", err)
 	}
@@ -71,13 +71,13 @@ func TestExtractMiseBinary_HappyPath(t *testing.T) {
 		t.Errorf("extracted binary not executable: mode %v", st1.Mode())
 	}
 
-	hashFile := filepath.Join(dataDir, "sandbox", ".mise.hash")
+	hashFile := filepath.Join(sandboxRoot, ".mise.hash")
 	if _, err := os.Stat(hashFile); err != nil {
 		t.Errorf("hash file not written: %v", err)
 	}
 
 	// Second call must be a no-op (hash matches + binary present).
-	second, err := ExtractMiseBinary(ctx, dataDir, log)
+	second, err := ExtractMiseBinary(ctx, sandboxRoot, log)
 	if err != nil {
 		t.Fatalf("second ExtractMiseBinary: %v", err)
 	}
@@ -102,11 +102,11 @@ func TestExtractMiseBinary_HappyPath(t *testing.T) {
 // 消失"分支——用户清了 sandbox/bin/ 但 .mise.hash 残留，如部分 GC 或清理
 // 过程中 crash。
 func TestExtractMiseBinary_RecoversAfterBinaryDeleted(t *testing.T) {
-	dataDir := t.TempDir()
+	sandboxRoot := t.TempDir()
 	log := zap.NewNop()
 	ctx := context.Background()
 
-	first, err := ExtractMiseBinary(ctx, dataDir, log)
+	first, err := ExtractMiseBinary(ctx, sandboxRoot, log)
 	if err != nil {
 		t.Fatalf("first ExtractMiseBinary: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestExtractMiseBinary_RecoversAfterBinaryDeleted(t *testing.T) {
 		t.Fatalf("remove binary mid-test: %v", err)
 	}
 
-	second, err := ExtractMiseBinary(ctx, dataDir, log)
+	second, err := ExtractMiseBinary(ctx, sandboxRoot, log)
 	if err != nil {
 		t.Fatalf("re-extract after deletion: %v", err)
 	}

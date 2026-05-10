@@ -139,7 +139,7 @@ LLM 调 KillShell(shell_id)
 
 ### 角色
 
-Bash tool 在 `Execute` 内于 `cd` 短路之后、`runForeground` / `runBackground` 之前调 `t.maybeAutoRoute(ctx, cmdText)`。返回的 `extraPath []string` 前置到子进程 `PATH`，让 runtime 相关命令（`pip` / `python` / `npm` / `cargo` / `go` / `gem` / `mvn` / `composer` / `dotnet` 等）跑在 per-conversation sandbox env 而非 host。
+Bash tool 在 `Execute` 内于 `cd` 短路之后、`runForeground` / `runBackground` 之前调 `t.maybeAutoRoute(ctx, cmdText)`。返回的 `extraPath []string` 前置到子进程 `PATH`，让 Python / Node 命令（`python` / `pip` / `uv` / `node` / `npm` / `npx` / `yarn` / `pnpm` 等）跑在 per-conversation sandbox env 而非 host。其他语言（rust / go / ruby / php / java / dotnet）走系统 PATH——sandbox 不参与。
 
 ### 路由策略
 
@@ -149,16 +149,12 @@ Bash tool 在 `Execute` 内于 `cd` 短路之后、`runForeground` / `runBackgro
    - 自省命令递归（`which python3` → 按 argument 路由）
    - `bash -c "pip ..."` 递归进 `-c` 内层
    - 命令替换 / subshell 走 Walk 下钻
-2. **正则匹配** — 命令名匹配 8 个 `runtimeDetector` 之一：
+2. **正则匹配** — 命令名匹配 2 个 `runtimeDetector` 之一：
    - `python` → `python3?(\.\d+)?` / `pip3?` / `uv` / `virtualenv` / `pipenv` / `poetry`
    - `node` → `node` / `npm` / `npx` / `yarn` / `pnpm`
-   - `rust` → `cargo` / `rustc` / `rustup`
-   - `go` → `go`
-   - `ruby` → `ruby` / `gem` / `bundle` / `bundler` / `rake`
-   - `php` → `php` / `composer`
-   - `java` → `java` / `javac` / `mvn` / `gradle`
-   - `dotnet` → `dotnet`
 3. **AST parser 拒绝畸形 shell** → fallback 到 first-token regex（罕见）。
+
+> rust / go / ruby / php / java / dotnet detector 已删——sandbox stack 没装它们；这些命令 detect 不到 → 落系统 shell（同 `git status` 路径，由用户自己装 mise / docker 隔离）。
 
 ### 调用链
 
@@ -190,12 +186,8 @@ maybeAutoRoute(ctx, command):
 |---|---|---|
 | python | `<env>/.venv/bin`（POSIX）/ `<env>/.venv/Scripts`（Windows）| Python venv 跨平台 |
 | node | `<env>/node_modules/.bin` | npm 包安装到 local node_modules |
-| rust | `<env>/.cargo/bin` | cargo install 目标 |
-| go | `<env>/bin` | GOBIN |
-| ruby | `<env>/.bundle/bin` | bundler 隔离 |
-| php | `<env>/vendor/bin` | composer vendor |
 
-Java / dotnet 不前置目录，靠 mise 已经在 PATH 里有 `java` / `dotnet`。
+> rust / go / ruby / php / java / dotnet 不在 detect 列表 → 不进 envBinDirsForKind 路径；走系统 PATH。
 
 ### 失败语义（不静默降级）
 

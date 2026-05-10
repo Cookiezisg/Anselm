@@ -1,15 +1,19 @@
-// stream.go — One LLM call: consume stream events, publish snapshots via
-// host, assemble Blocks. No DB writes; loop.Run owns the persistence cadence.
+// stream.go — One LLM call: consume stream events, emit
+// block_start/delta/stop on the event-log Bridge, assemble in-memory
+// Blocks for in-loop history conversion. Block rows persist real-time
+// inside the Emitter (pkg/eventlog); loop.Run only writes the final
+// messages row via host.WriteFinalize.
 //
-// stream.go — 单次 LLM 调用：消费流事件、通过 host 推快照、组装 Block。
-// 不写 DB——loop.Run 控制持久化节奏。
+// stream.go — 单次 LLM 调用：消费流事件、给事件日志 Bridge 发
+// block_start/delta/stop、组装内存 Block 给循环内 history 转换。Block 行
+// 由 Emitter（pkg/eventlog）实时写；loop.Run 只经 host.WriteFinalize 写
+// 终态 messages 行。
 package loop
 
 import (
 	"context"
 	"encoding/json"
 	"strings"
-	"time"
 
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
@@ -29,21 +33,19 @@ type toolAccum struct {
 
 // streamLLM executes one LLM call. Per-event emit fires real-time
 // block_start / block_delta / block_stop on the eventlog Bridge — no
-// snapshot publish path; UI sees deltas as they arrive. Returns the
-// in-memory block list for in-loop history extension and tool calls
+// snapshot publish path; UI sees deltas as they arrive. text + reasoning
+// blocks mint fresh blk_<id>; tool_call blocks reuse the LLM's tool-call
+// ID as the block ID (per event-log-protocol.md §3). On stream end /
+// transition all open blocks get closed with appropriate status. Returns
+// the in-memory block list for in-loop history extension and tool calls
 // for runTools dispatch.
 //
-// Event-log dual-write (Phase 2): also emits block_start / block_delta /
-// block_stop on the recursive-event-log Bridge alongside the legacy
-// snapshot path. text + reasoning blocks mint fresh blk_<id>; tool_call
-// blocks reuse the LLM's tool-call ID as the block ID (per design
-// event-log-protocol.md §3). On stream end / transition all open blocks
-// get closed with appropriate status.
-//
-// 事件日志 dual-write（Phase 2）：在 legacy snapshot 旁同时给递归事件日志
-// Bridge 推 block_start / block_delta / block_stop。text + reasoning 铸新
-// blk_<id>；tool_call 复用 LLM 的 tool-call ID 作 block ID（详
-// event-log-protocol.md §3）。流结束 / 切换时关闭所有 open block。
+// streamLLM 执行单次 LLM 调用。每事件实时给事件日志 Bridge 推
+// block_start / block_delta / block_stop——无快照路径；UI 边到边看 delta。
+// text + reasoning 铸新 blk_<id>；tool_call 复用 LLM 的 tool-call ID 作
+// block ID（详 event-log-protocol.md §3）。流结束 / 切换时关闭所有 open
+// block。返内存 block 列表给循环内 history 扩展、tool calls 给 runTools
+// 派发。
 func streamLLM(
 	ctx context.Context,
 	client llminfra.Client,
@@ -188,36 +190,32 @@ func streamLLM(
 // Order: reasoning → text → tool_calls (by ToolIndex).
 //
 // These blocks are NOT persisted from here — emit (in stream loop) is
-// the sole DB write path. assembleBlocks just builds enough fields for
-// history conversion: ID + Type + Content + (tool_call: Attrs with
-// tool name + standard fields).
+// the sole DB write path. assembleBlocks fills only the fields
+// BlocksToAssistantLLM consumes: Type + Content for text/reasoning;
+// ID + Type + Content + Attrs for tool_call (ID needed because the LLM
+// tool-call ID flows through here to extendHistory).
 //
 // assembleBlocks 组装内存 Block 列表给循环内 history 转换
 // （BlocksToAssistantLLM）和 loop.Result.Blocks 返回。顺序：reasoning →
 // text → tool_calls（按 ToolIndex）。
 //
 // 这些 block 不在此处持久化——emit（在 stream 循环里）是唯一 DB 写入
-// 路径。assembleBlocks 只填够 history 转换的字段：ID + Type + Content +
-// （tool_call：Attrs 含 tool name + 标准字段）。
+// 路径。assembleBlocks 只填 BlocksToAssistantLLM 真正会读的字段：
+// text/reasoning 用 Type + Content；tool_call 用 ID + Type + Content +
+// Attrs（ID 必填——LLM tool-call ID 经此传给 extendHistory）。
 func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdomain.Block {
 	var blocks []chatdomain.Block
 
 	if reasoning != "" {
 		blocks = append(blocks, chatdomain.Block{
-			ID:        idgenpkg.New("blk"),
-			Type:      eventlogdomain.BlockTypeReasoning,
-			Content:   reasoning,
-			Status:    eventlogdomain.StatusCompleted,
-			CreatedAt: time.Now().UTC(),
+			Type:    eventlogdomain.BlockTypeReasoning,
+			Content: reasoning,
 		})
 	}
 	if text != "" {
 		blocks = append(blocks, chatdomain.Block{
-			ID:        idgenpkg.New("blk"),
-			Type:      eventlogdomain.BlockTypeText,
-			Content:   text,
-			Status:    eventlogdomain.StatusCompleted,
-			CreatedAt: time.Now().UTC(),
+			Type:    eventlogdomain.BlockTypeText,
+			Content: text,
 		})
 	}
 
@@ -236,12 +234,10 @@ func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdom
 		argsJSON, _ := json.Marshal(args)
 		attrsJSON, _ := json.Marshal(map[string]any{"tool": a.name})
 		blocks = append(blocks, chatdomain.Block{
-			ID:        a.id, // LLM tc_id reused as block id
-			Type:      eventlogdomain.BlockTypeToolCall,
-			Content:   string(argsJSON),
-			Attrs:     string(attrsJSON),
-			Status:    eventlogdomain.StatusCompleted,
-			CreatedAt: time.Now().UTC(),
+			ID:      a.id, // LLM tc_id reused as block id
+			Type:    eventlogdomain.BlockTypeToolCall,
+			Content: string(argsJSON),
+			Attrs:   string(attrsJSON),
 		})
 	}
 	return blocks

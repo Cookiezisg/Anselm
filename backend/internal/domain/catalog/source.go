@@ -12,13 +12,11 @@ import "context"
 // source's items when writing the Summary. PerItem allows free
 // grouping ("5 CSV-processing forges"); PerServer requires one mention
 // per server (MCP — different servers expose different tools so merging
-// loses information); PerCollection is reserved for future knowledge
-// sources where each collection is a distinct namespace.
+// loses information).
 //
 // Granularity 告诉 Generator 写 Summary 时合并 source items 多激进。PerItem
 // 允许自由分组（"5 个 CSV 处理 forge"）；PerServer 要求 per-server 一条
-// （MCP——不同 server 暴露不同工具，合并丢信息）；PerCollection 留未来
-// knowledge source（每集合一个独立命名空间）。
+// （MCP——不同 server 暴露不同工具，合并丢信息）。
 type Granularity int
 
 const (
@@ -35,13 +33,6 @@ const (
 	// PerServer——per-server 一条，不跨 server 合（mcp）。不同 server
 	// 暴露无关能力集。
 	PerServer
-
-	// PerCollection — one mention per collection, no merging across
-	// collections (future: knowledge bases).
-	//
-	// PerCollection——per-collection 一条，不跨 collection 合（未来：
-	// 知识库）。
-	PerCollection
 )
 
 // String renders the enum for log lines and the Generator prompt
@@ -54,8 +45,6 @@ func (g Granularity) String() string {
 		return "PerItem"
 	case PerServer:
 		return "PerServer"
-	case PerCollection:
-		return "PerCollection"
 	default:
 		return "Unknown"
 	}

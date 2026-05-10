@@ -214,9 +214,10 @@ var (
     ErrBaseURLRequired     = errors.New("apikey: base_url required for this provider")
     ErrAPIFormatRequired   = errors.New("apikey: api_format required for custom provider")
     ErrKeyRequired         = errors.New("apikey: key value is required")
-    ErrTestFailed          = errors.New("apikey: connectivity test failed")
-    ErrInvalid             = errors.New("apikey: key rejected by provider")
 )
+// Service.Test never returns ErrTestFailed — failed probes return *TestResult{OK:false}
+// instead, with the HTTP handler synthesising 422 inline. Same for MarkInvalid (returns
+// nil on success; 401/403 from upstream LLM surfaces as llminfra.ErrAuthFailed).
 ```
 
 各 sentinel → HTTP 映射见 §14 错误码 + `service-contract-documents/error-codes.md`。
@@ -690,7 +691,7 @@ CREATE INDEX idx_api_keys_deleted_at    ON api_keys(deleted_at);
 
 ---
 
-## 13. 错误码（8 个 sentinel，全已实现 ✅）
+## 13. 错误码（6 个 sentinel，全已实现 ✅）
 
 | Code | HTTP | Sentinel | 场景 |
 |---|---|---|---|
@@ -700,8 +701,8 @@ CREATE INDEX idx_api_keys_deleted_at    ON api_keys(deleted_at);
 | `BASE_URL_REQUIRED` | 400 | `apikey.ErrBaseURLRequired` | ollama / custom 没填 baseURL |
 | `API_FORMAT_REQUIRED` | 400 | `apikey.ErrAPIFormatRequired` | custom 没填 apiFormat |
 | `KEY_REQUIRED` | 400 | `apikey.ErrKeyRequired` | 创建时 key 空 |
-| `API_KEY_TEST_FAILED` | 422 | `apikey.ErrTestFailed` | （**handler 直接 synthesize，不经 errmap**）连通性失败 |
-| `API_KEY_INVALID` | 401 | `apikey.ErrInvalid` | chat 等消费方用 key 返 401 时 |
+
+> 历史 `API_KEY_TEST_FAILED` / `API_KEY_INVALID` sentinels 已删（永不返回——Service.Test 失败仍返 200 + `{ok:false}`；MarkInvalid 成功返 nil；上游 401/403 走 `llminfra.ErrAuthFailed`）。
 
 映射位置：`internal/transport/httpapi/response/errmap.go` 的 `errTable`。
 

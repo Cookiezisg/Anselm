@@ -447,7 +447,7 @@ func runOneTool(ctx context.Context, tool Tool, call ToolCallData, ...) {
     em.StopBlock(ctx, blockID, "completed", nil)
 
     // 给 tool Execute 注入子 emitter，parent = blockID
-    childCtx := eventlog.WithParent(ctx, blockID)
+    childCtx := reqctxpkg.WithParentBlockID(ctx, blockID)
 
     // Tool 执行期间所有 emit 都会自动 parentId=blockID
     result, err := tool.Execute(childCtx, call.ArgsJSON)
@@ -553,8 +553,8 @@ parentToolCallBlockID := eventlog.Parent(ctx)  // 触发 subagent 的 tool_call
 // 开 message block 占位
 msgBlockID := em.StartBlock(ctx, parentToolCallBlockID, "message", map[string]any{})
 
-// 开嵌套 message
-subMsgID := em.StartMessage(ctx, "assistant", msgBlockID, map[string]any{
+// 开嵌套 message（caller 已在上游铸 subMsgID，emit 用 EmitMessageStart）
+em.EmitMessageStart(ctx, subMsgID, "assistant", msgBlockID, map[string]any{
     "kind": "subagent_run",
     "type": typeName,
     "maxTurns": maxSteps,
@@ -564,7 +564,7 @@ subMsgID := em.StartMessage(ctx, "assistant", msgBlockID, map[string]any{
 em.UpdateBlockAttrs(ctx, msgBlockID, map[string]any{"messageId": subMsgID})
 
 // 跑 subagent 的 loop（内部用 childCtx 继承 emitter，parent = subMsgID）
-childCtx := eventlog.WithParent(ctx, subMsgID)
+childCtx := reqctxpkg.WithParentBlockID(ctx, subMsgID)
 result := loop.Run(childCtx, ...)
 
 em.StopMessage(ctx, subMsgID, statusFromResult(result), ...)

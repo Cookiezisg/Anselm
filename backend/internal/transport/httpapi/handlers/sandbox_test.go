@@ -68,7 +68,7 @@ func seedRuntime(t *testing.T, repo sandboxdomain.Repository, id, kind, version 
 	t.Helper()
 	if err := repo.CreateRuntime(t.Context(), &sandboxdomain.Runtime{
 		ID: id, Kind: kind, Version: version, Path: kind + "/" + version,
-		SizeBytes: 100, IsDefault: true,
+		SizeBytes:   100,
 		InstalledAt: time.Now(), UpdatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("seed runtime: %v", err)

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -45,8 +44,6 @@ const (
 //
 // Bridge 是线程安全的进程内 eventlog 分发器。
 type Bridge struct {
-	log *zap.Logger
-
 	mu    sync.Mutex
 	convs map[string]*convState
 }
@@ -59,13 +56,8 @@ type Bridge struct {
 type convState struct {
 	mu     sync.Mutex
 	seq    int64
-	buffer []bufferedEnvelope
+	buffer []eventlogdomain.Envelope
 	subs   []*subscription
-}
-
-type bufferedEnvelope struct {
-	env eventlogdomain.Envelope
-	at  time.Time
 }
 
 type subscription struct {
@@ -74,15 +66,17 @@ type subscription struct {
 	closed sync.Once
 }
 
-// NewBridge constructs an empty Bridge.
+// NewBridge constructs an empty Bridge. The log parameter is accepted
+// for API symmetry with notifications.NewBridge / future variants but
+// is currently unused — the bridge follows §S10's "synchronous primitive"
+// rule (don't self-log; let callers decide). We keep the parameter so a
+// future addition (e.g. slow-subscriber warnings) won't break callers.
 //
-// NewBridge 构造空 Bridge。
-func NewBridge(log *zap.Logger) *Bridge {
-	if log == nil {
-		log = zap.NewNop()
-	}
+// NewBridge 构造空 Bridge。log 参数为 API 对称（与 notifications.NewBridge
+// / 未来变体一致）保留，目前未用——bridge 按 §S10 "同步原语"原则不自打日志。
+// 未来若加慢订阅者警告等可直接用，不破坏 caller。
+func NewBridge(_ *zap.Logger) *Bridge {
 	return &Bridge{
-		log:   log.Named("eventlog.bridge"),
 		convs: make(map[string]*convState),
 	}
 }
@@ -127,7 +121,7 @@ func (b *Bridge) Publish(ctx context.Context, conversationID string, e eventlogd
 
 	// Append to replay buffer; trim oldest when full.
 	// 追加到 replay buffer；满时丢最旧。
-	state.buffer = append(state.buffer, bufferedEnvelope{env: env, at: time.Now()})
+	state.buffer = append(state.buffer, env)
 	if len(state.buffer) > replayBufferSize {
 		state.buffer = state.buffer[len(state.buffer)-replayBufferSize:]
 	}
@@ -179,17 +173,17 @@ func (b *Bridge) Subscribe(ctx context.Context, conversationID string, fromSeq i
 		//
 		// 检查 fromSeq 是否被淘汰：最旧 buffer 项 > fromSeq+1 表示
 		// fromSeq+1..oldest-1 段已丢。
-		if len(state.buffer) > 0 && state.buffer[0].env.Seq > fromSeq+1 {
+		if len(state.buffer) > 0 && state.buffer[0].Seq > fromSeq+1 {
 			state.mu.Unlock()
 			return nil, nil, eventlogdomain.ErrSeqTooOld
 		}
-		for _, be := range state.buffer {
-			if be.env.Seq > fromSeq {
+		for _, env := range state.buffer {
+			if env.Seq > fromSeq {
 				// Non-blocking push — channel cap >= replayBufferSize
 				// guarantees this fits.
 				// 非阻塞 push——channel cap >= replayBufferSize 保证装得下。
 				select {
-				case sub.ch <- be.env:
+				case sub.ch <- env:
 				default:
 					// Defensive: should be unreachable given cap.
 					// 防御：cap 保证不该到这里。

@@ -39,15 +39,11 @@ import (
 var (
 	// ErrNoPendingQuestion: Resolve was called for a tool_call ID that
 	// has no pending Wait. Typically means the question already timed
-	// out, or the tool_call ID is bogus.
+	// out, the tool_call ID is bogus, or a second Resolve raced in
+	// after the first removed the entry atomically.
 	// ErrNoPendingQuestion：Resolve 收到的 tool_call ID 无对应 pending Wait。
-	// 通常意味问题已超时，或 ID 无效。
+	// 通常意味问题已超时、ID 无效，或第二次 Resolve 在首次原子删除后竞争进入。
 	ErrNoPendingQuestion = errors.New("ask: no pending question for that tool_call_id")
-
-	// ErrAlreadyAnswered: Resolve was called twice for the same tool_call
-	// ID. The first answer is the answer of record.
-	// ErrAlreadyAnswered：同一 tool_call ID Resolve 被调两次；以首答为准。
-	ErrAlreadyAnswered = errors.New("ask: question already answered")
 
 	// ErrTimeout: Wait blocked past its deadline without an answer.
 	// ErrTimeout：Wait 阻塞超过截止时间仍无答案。
@@ -122,16 +118,8 @@ func (s *Service) Wait(ctx context.Context, toolCallID string, timeout time.Dura
 //   - ErrNoPendingQuestion if no Wait registered the ID (or it was
 //     already resolved / cleaned up)
 //
-// (We never return ErrAlreadyAnswered any more — it is now subsumed by
-// ErrNoPendingQuestion since the second caller cannot see the entry.
-// The sentinel is kept exported because errmap and tests document the
-// concept.)
-//
 // Resolve 投递答案并原子地从注册表删条目——第二次 Resolve 必拿到
 // ErrNoPendingQuestion，不再依赖 Wait defer-cleanup 的竞态。
-//
-// 不再返 ErrAlreadyAnswered（已被 ErrNoPendingQuestion 覆盖）；sentinel
-// 仍导出供 errmap / 测试文档化概念。
 func (s *Service) Resolve(toolCallID, answer string) error {
 	s.mu.Lock()
 	ch, ok := s.pending[toolCallID]

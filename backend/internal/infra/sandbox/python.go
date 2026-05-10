@@ -1,4 +1,4 @@
-// envmanager_python.go — uv-backed EnvManager for Python plugin envs.
+// python.go — uv-backed EnvManager for Python plugin envs.
 //
 // Builds isolated venvs at <envPath>/.venv via `uv venv`, installs deps via
 // `uv pip install`. uv is treated as a support tool: PythonEnvManager
@@ -9,7 +9,7 @@
 // default. Multiple Forge / MCP / conversation envs that depend on the
 // same `pandas==2.2.3` consume only ~one wheel's worth of inodes total.
 //
-// envmanager_python.go ——基于 uv 的 Python plugin env EnvManager。
+// python.go ——基于 uv 的 Python plugin env EnvManager。
 //
 // 通过 `uv venv` 在 <envPath>/.venv 建隔离 venv，`uv pip install` 装 deps。
 // uv 当作支持工具：PythonEnvManager 每次操作经 sandboxdomain.ToolRegistry
@@ -111,16 +111,6 @@ func (p *PythonEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 	return RunWithStderrCapture(cmd, stream,
 		sandboxdomain.ErrDepInstallFailed,
 		fmt.Sprintf("sandbox.PythonEnvManager.InstallDeps %v", deps))
-}
-
-// InstallExtras is a no-op for Python — the extras concept (e.g.
-// "browsers/chromium" for Playwright) lives on the Node side. Python plugins
-// declare runtime deps only.
-//
-// InstallExtras Python 上是 no-op——extras 概念（如 Playwright 的
-// "browsers/chromium"）在 Node 那侧。Python plugin 只声明 runtime deps。
-func (p *PythonEnvManager) InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream sandboxdomain.ProgressFunc) error {
-	return nil
 }
 
 // EnvBin returns the absolute path to a binary inside the env's venv

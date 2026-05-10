@@ -68,10 +68,6 @@ var (
 	ErrNotFound        = errors.New("todo: not found")
 	ErrSubjectRequired = errors.New("todo: subject is required")
 	ErrInvalidStatus   = errors.New("todo: invalid status")
-	// ErrConversationMismatch: caller tried to mutate a todo from a different
-	// conversation than ctx — defensive reject to prevent scope leak.
-	// ErrConversationMismatch：调用方改了归属另一对话的 todo——防御性拒绝防作用域泄漏。
-	ErrConversationMismatch = errors.New("todo: conversation mismatch")
 )
 
 // Repository is the storage contract for Todo. Filters by row's

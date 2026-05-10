@@ -79,7 +79,6 @@ func TestServerStatus_JSONShapeForFrontend(t *testing.T) {
 	s := ServerStatus{
 		Name:                "github",
 		Status:              StatusReady,
-		PID:                 12345,
 		ConnectedAt:         &now,
 		ConsecutiveFailures: 0,
 		TotalCalls:          42,

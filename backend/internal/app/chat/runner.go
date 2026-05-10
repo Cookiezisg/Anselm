@@ -89,11 +89,12 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	agentCtx = reqctxpkg.WithAgentState(agentCtx, q.agentState)
 	agentCtx = eventlogpkg.With(agentCtx, s.emitter)
 
-	// Allocate the assistant msgID up front so pre-LLM errors emit a stub
-	// assistant Message — every chat.message event must carry a real Message.
+	// Pre-allocate the assistant msgID so the event-log message_start
+	// (below) can be emitted with a stable ID before LLM resolution; pre-
+	// LLM errors then have a valid msgID to attach the message_stop to.
 	//
-	// 预分配 assistant msgID，让 LLM 调用前的错误也能以 stub 消息发出
-	// （chat.message 必须承载真实 Message）。
+	// 预分配 assistant msgID，让事件日志 message_start（下文）在 LLM 解析前
+	// 即可用稳定 ID 发出；LLM 前错误也有合法 msgID 挂 message_stop。
 	msgID := newMsgID()
 	agentCtx = reqctxpkg.WithMessageID(agentCtx, msgID)
 
@@ -113,6 +114,8 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 			code = "MODEL_NOT_CONFIGURED"
 		case errors.Is(err, llmclientpkg.ErrResolveCreds):
 			code = "API_KEY_PROVIDER_NOT_FOUND"
+		case errors.Is(err, llmclientpkg.ErrBuildClient):
+			code = "LLM_BUILD_FAILED"
 		}
 		s.emitFatalError(agentCtx, task.conv, task.uid, msgID, code, err.Error())
 		return
@@ -147,11 +150,13 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 }
 
 // emitFatalError persists a stub assistant message with status=error and
-// publishes its chat.message snapshot. Used for failures before the LLM
-// stream begins (model not configured, key resolution failed).
+// emits message_stop on the event-log bridge so the SSE stream's
+// streaming bubble closes. Used for failures before the LLM stream begins
+// (model not configured, key resolution failed).
 //
-// emitFatalError 落库 status=error 的 stub assistant 消息并推快照。供 LLM
-// 流开始前的失败使用（模型未配置、key 解析失败）。
+// emitFatalError 落库 status=error 的 stub assistant 消息并发 message_stop
+// 关闭 SSE 流上的 streaming bubble。供 LLM 流开始前的失败使用（模型未配置、
+// key 解析失败）。
 func (s *Service) emitFatalError(
 	ctx context.Context,
 	conv *convdomain.Conversation,
@@ -161,7 +166,20 @@ func (s *Service) emitFatalError(
 		zap.String("conversation_id", conv.ID),
 		zap.String("code", code), zap.String("message", message))
 
+	// Detached saveCtx: a cancelled upstream stream must not block the
+	// terminal write OR the message_stop emit. Re-stamp uid + convID so
+	// the saved row keeps ownership and the emit can find its convID
+	// (Emitter.StopMessage requires conversationID via reqctx; ctx may
+	// have it but saveCtx is fresh, so we put it back). Mirrors host.go
+	// ::WriteFinalize for the regular finalize path.
+	//
+	// Detached saveCtx：上游 cancel 不能挡终态写入或 message_stop emit。
+	// 重打 uid + convID——落库行保留 owner，且 emit 能从 reqctx 找到
+	// convID（Emitter.StopMessage 经 reqctx 要 conversationID；ctx 可能
+	// 有，但 saveCtx 是新建的，所以重塞）。镜像 host.go::WriteFinalize 的
+	// 正常终态路径。
 	saveCtx := reqctxpkg.SetUserID(context.Background(), uid)
+	saveCtx = reqctxpkg.WithConversationID(saveCtx, conv.ID)
 	msg := buildMessage(msgID, conv.ID, uid,
 		chatdomain.StatusError, chatdomain.StopReasonError,
 		code, message, 0, 0)
@@ -170,16 +188,6 @@ func (s *Service) emitFatalError(
 			zap.String("msg_id", msgID), zap.Error(err))
 	}
 
-	// Event-log: close the assistant message with error. Use saveCtx
-	// (detached) instead of caller's ctx so a tab-close / stream-cancel
-	// race between Resolve failure and StopMessage emit doesn't leave
-	// the UI hung on a streaming bubble — same §S9 reasoning as the
-	// SaveMessage above and host.go::WriteFinalize::StopMessage.
-	//
-	// 事件日志：用 saveCtx（detached）关 assistant message——caller ctx
-	// 在 Resolve 失败到 StopMessage 之间被 cancel（关 tab / 中止流）会让
-	// UI 的流式 bubble 永远不到 stop 事件挂死。同 §S9 上面的 SaveMessage
-	// 与 host.go::WriteFinalize::StopMessage 模式。
 	s.emitter.StopMessage(saveCtx, msgID, eventlogdomain.StatusError,
 		chatdomain.StopReasonError, code, message, 0, 0)
 }
@@ -248,7 +256,7 @@ func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, 
 		s.log.Warn("auto-title save failed", zap.Error(err))
 		return
 	}
-	s.notifications.Publish(titleCtx, "conversation", conv.ID, conv)
+	s.notifications.Publish(titleCtx, "conversation", conv.ID, conv, conv.ID)
 	s.log.Info("auto-title generated",
 		zap.String("conversation_id", conv.ID), zap.String("title", conv.Title))
 }

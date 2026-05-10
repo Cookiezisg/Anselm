@@ -18,8 +18,8 @@ package notifications
 
 import (
 	"context"
+	"fmt"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -44,17 +44,10 @@ const (
 //
 // Bridge 是线程安全的进程内通知分发器。
 type Bridge struct {
-	log *zap.Logger
-
 	mu     sync.Mutex
 	seq    int64
-	buffer []bufferedEnvelope
+	buffer []notificationsdomain.Envelope
 	subs   []*subscription
-}
-
-type bufferedEnvelope struct {
-	env notificationsdomain.Envelope
-	at  time.Time
 }
 
 type subscription struct {
@@ -63,14 +56,15 @@ type subscription struct {
 	closed sync.Once
 }
 
-// NewBridge constructs an empty Bridge.
+// NewBridge constructs an empty Bridge. The log parameter is accepted
+// for API symmetry with eventlog.NewBridge but is currently unused —
+// the bridge follows §S10's "synchronous primitive" rule (don't
+// self-log; let callers decide).
 //
-// NewBridge 构造空 Bridge。
-func NewBridge(log *zap.Logger) *Bridge {
-	if log == nil {
-		log = zap.NewNop()
-	}
-	return &Bridge{log: log.Named("notifications.bridge")}
+// NewBridge 构造空 Bridge。log 参数为 API 对称（与 eventlog.NewBridge 一致）
+// 保留，目前未用——bridge 按 §S10 "同步原语"原则不自打日志。
+func NewBridge(_ *zap.Logger) *Bridge {
+	return &Bridge{}
 }
 
 // Publish validates, assigns seq, appends to replay buffer, and fans
@@ -93,7 +87,7 @@ func (b *Bridge) Publish(ctx context.Context, e notificationsdomain.Event) (noti
 	b.seq++
 	env := notificationsdomain.Envelope{Seq: b.seq, Event: e}
 
-	b.buffer = append(b.buffer, bufferedEnvelope{env: env, at: time.Now()})
+	b.buffer = append(b.buffer, env)
 	if len(b.buffer) > replayBufferSize {
 		b.buffer = b.buffer[len(b.buffer)-replayBufferSize:]
 	}
@@ -124,17 +118,26 @@ func (b *Bridge) Subscribe(ctx context.Context, fromSeq int64) (<-chan notificat
 
 	b.mu.Lock()
 	if fromSeq > 0 && fromSeq < b.seq {
-		if len(b.buffer) > 0 && b.buffer[0].env.Seq > fromSeq+1 {
+		if len(b.buffer) > 0 && b.buffer[0].Seq > fromSeq+1 {
 			b.mu.Unlock()
 			return nil, nil, notificationsdomain.ErrSeqTooOld
 		}
-		for _, be := range b.buffer {
-			if be.env.Seq > fromSeq {
+		for _, env := range b.buffer {
+			if env.Seq > fromSeq {
+				// Non-blocking push — channel cap >= replayBufferSize
+				// guarantees this fits. Defensive default: if cap math
+				// ever drifts, surface as a distinct error (not
+				// ErrSeqTooOld which means "evicted from buffer" — wrong
+				// semantic for a buffer-overflow situation).
+				//
+				// 非阻塞 push——channel cap >= replayBufferSize 保证装得下。
+				// 防御 default：cap 计算出错时用独立错误（不是 ErrSeqTooOld，
+				// 那是"被 buffer 淘汰"——overflow 用错语义）。
 				select {
-				case sub.ch <- be.env:
+				case sub.ch <- env:
 				default:
 					b.mu.Unlock()
-					return nil, nil, notificationsdomain.ErrSeqTooOld
+					return nil, nil, fmt.Errorf("notifications: replay overflow (cap=%d)", subscriberBufferSize)
 				}
 			}
 		}

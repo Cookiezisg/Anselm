@@ -48,7 +48,7 @@ func NewService(repo tododomain.Repository, notifications notificationspkg.Publi
 		panic("todo.NewService: logger is nil")
 	}
 	if notifications == nil {
-		notifications = notificationspkg.From(context.Background())
+		notifications = notificationspkg.New(nil, log)
 	}
 	return &Service{repo: repo, notifications: notifications, log: log}
 }
@@ -114,13 +114,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*tododomain.Todo,
 	return t, nil
 }
 
-// Get returns a todo by ID, scoped to the current conversation. A todo
-// belonging to another conversation is reported as ErrNotFound rather
-// than ErrConversationMismatch — we don't want to leak existence across
-// conversations.
+// Get returns a todo by ID, scoped to the current conversation. Cross-
+// conversation lookups return ErrNotFound to avoid leaking existence
+// across conversations.
 //
-// Get 按 ID 返 todo，作用域为当前 conversation；属于另一对话的 todo 报
-// ErrNotFound 而非 ErrConversationMismatch——不跨对话泄漏存在性。
+// Get 按 ID 返 todo，作用域为当前 conversation；跨对话查询返 ErrNotFound，
+// 不泄漏存在性。
 func (s *Service) Get(ctx context.Context, id string) (*tododomain.Todo, error) {
 	convID, ok := reqctxpkg.GetConversationID(ctx)
 	if !ok || convID == "" {

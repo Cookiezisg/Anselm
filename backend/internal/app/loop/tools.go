@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -105,9 +104,7 @@ func runOneTool(
 	toolCtx := reqctxpkg.WithToolCallID(ctx, tc.ID)
 	toolCtx = reqctxpkg.WithParentBlockID(toolCtx, tc.ID)
 
-	start := time.Now()
 	output, errMsg, ok := executeTool(toolCtx, t, tc.Name, argsJSON, log)
-	elapsedMs := time.Since(start).Milliseconds()
 
 	// Event-log emit: tool_result is a child of tool_call.
 	// 事件日志 emit：tool_result 是 tool_call 的子。
@@ -130,28 +127,29 @@ func runOneTool(
 		em.StopBlock(ctx, resultBlockID, status, stopErr)
 	}
 
-	// In-memory block for in-loop history conversion. Content = result
-	// text; ParentBlockID = tc.ID lets BlocksToAssistantLLM recover the
-	// LLM tool-call ID for the role=tool message.
+	// In-memory block for in-loop history conversion. Only fields
+	// BlocksToAssistantLLM consumes for tool_result are filled: Content
+	// (result text, falls back to Error when ok=false) + ParentBlockID
+	// (= tc.ID, used to recover the LLM tool-call ID for the role=tool
+	// message). Status / CreatedAt assignments are dead — DB row's status
+	// comes from the eventlog Emitter's FinalizeStop, and history
+	// conversion ignores both fields.
 	//
-	// 内存 block 给循环内 history 转换。Content = 结果文本；
-	// ParentBlockID = tc.ID 让 BlocksToAssistantLLM 取回 LLM tool-call
-	// ID 给 role=tool 消息。
-	statusVal := eventlogdomain.StatusCompleted
+	// 内存 block 给循环内 history 转换。只填 BlocksToAssistantLLM 真读
+	// 的字段：Content（结果文本，ok=false 时回退到 Error）+ ParentBlockID
+	// （= tc.ID，让 BlocksToAssistantLLM 取回 LLM tool-call ID 给 role=tool
+	// 消息）。Status / CreatedAt 没人读——DB 行 status 由 Emitter
+	// FinalizeStop 写，history 转换两字段都忽略。
 	errVal := ""
 	if !ok {
-		statusVal = eventlogdomain.StatusError
 		errVal = errMsg
 	}
-	_ = elapsedMs // legacy elapsedMs no longer carried in Block (UI gets it via DB row updated_at - created_at)
 	return chatdomain.Block{
 		ID:            resultBlockID,
 		Type:          eventlogdomain.BlockTypeToolResult,
 		Content:       output,
 		ParentBlockID: tc.ID,
-		Status:        statusVal,
 		Error:         errVal,
-		CreatedAt:     time.Now().UTC(),
 	}
 }
 

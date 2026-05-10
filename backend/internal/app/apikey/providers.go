@@ -121,20 +121,20 @@ func GetProviderMeta(name string) (ProviderMeta, bool) {
 	return m, ok
 }
 
-// IsValidProvider reports whether the name is a supported provider.
+// isValidProvider reports whether the name is a supported provider.
 //
-// IsValidProvider 报告名字是否为支持的 provider。
-func IsValidProvider(name string) bool {
+// isValidProvider 报告名字是否为支持的 provider。
+func isValidProvider(name string) bool {
 	_, ok := providers[name]
 	return ok
 }
 
 // ListProviders returns all supported provider names (unordered).
-// Production code does not call this — it exists for the contract test
-// that asserts the registry stays in sync with documentation.
+// Consumed by the GET /api/v1/providers handler and by the contract
+// test that asserts the registry stays in sync with documentation.
 //
-// ListProviders 返回所有支持的 provider 名字（无序）。生产代码不调用——
-// 仅契约测试用以断言注册表与文档一致。
+// ListProviders 返回所有支持的 provider 名字（无序）。GET /api/v1/providers
+// handler 与"注册表 ≡ 文档"契约测试都消费它。
 func ListProviders() []string {
 	names := make([]string, 0, len(providers))
 	for name := range providers {

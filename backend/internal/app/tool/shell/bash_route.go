@@ -48,23 +48,22 @@ type runtimeDetector struct {
 
 // runtimeDetectors mirrors sandbox.md §9.5. Patterns are anchored against
 // a *bare command name* (no path, no env-var prefix, no flags) — callers
-// must normalise via stripPath / classifyCallExpr before matching. To
-// extend, add one row here + one matching MiseInstaller registration in
-// main.go's registerSandboxStack.
+// must normalise via stripPath / classifyCallExpr before matching. Limited
+// to python + node (the only two runtimes the sandbox stack actually
+// installs); other languages (rust/go/ruby/php/java/dotnet) fall through
+// to the system shell — same path as `git status`. To extend, add one row
+// here + one matching MiseInstaller registration in main.go's
+// registerSandboxStack.
 //
 // runtimeDetectors 镜像 sandbox.md §9.5。pattern 锚定在*裸命令名*（无路径、
 // 无 env var 前缀、无 flag）——调用方必须先经 stripPath / classifyCallExpr
-// 规范化再匹配。扩展：加一行 + 在 main.go registerSandboxStack 加一个匹配
+// 规范化再匹配。仅保留 python + node（sandbox stack 实装的两种 runtime）；
+// 其他语言（rust/go/ruby/php/java/dotnet）落系统 shell，跟 `git status` 同
+// 路径。扩展：加一行 + 在 main.go registerSandboxStack 加一个匹配
 // MiseInstaller。
 var runtimeDetectors = []runtimeDetector{
 	{Kind: "python", Pattern: regexp.MustCompile(`^(?:python3?(?:\.\d+)?|pip3?|uv|virtualenv|pipenv|poetry)$`)},
 	{Kind: "node", Pattern: regexp.MustCompile(`^(?:node|npm|npx|yarn|pnpm)$`)},
-	{Kind: "rust", Pattern: regexp.MustCompile(`^(?:cargo|rustc|rustup)$`)},
-	{Kind: "go", Pattern: regexp.MustCompile(`^go$`)},
-	{Kind: "ruby", Pattern: regexp.MustCompile(`^(?:ruby|gem|bundle|bundler|rake)$`)},
-	{Kind: "php", Pattern: regexp.MustCompile(`^(?:php|composer)$`)},
-	{Kind: "java", Pattern: regexp.MustCompile(`^(?:java|javac|mvn|gradle)$`)},
-	{Kind: "dotnet", Pattern: regexp.MustCompile(`^dotnet$`)},
 }
 
 // detectRuntime returns the runtime kind a shell command targets, or ""
@@ -307,13 +306,11 @@ func detectRuntimeFirstToken(command string) string {
 }
 
 // envBinDirsForKind returns the directories under envPath that should
-// prepend to PATH for the given runtime kind. Returns nil for kinds whose
-// EnvManagers don't expose bin directories (Java uses classpath; Dotnet
-// uses runtime PATH from the install dir, not from per-env scaffolding).
+// prepend to PATH for the given runtime kind. Only python + node have
+// EnvManagers; other kinds return nil.
 //
-// envBinDirsForKind 返该 kind 应前置到 PATH 的 envPath 下目录。EnvManager
-// 不暴露 bin 目录的 kind 返 nil（Java 用 classpath；Dotnet 从 install dir
-// 的 runtime PATH 而非 per-env 脚手架）。
+// envBinDirsForKind 返该 kind 应前置到 PATH 的 envPath 下目录。仅
+// python + node 有 EnvManager；其他 kind 返 nil。
 func envBinDirsForKind(envPath, kind string) []string {
 	switch kind {
 	case "python":
@@ -326,12 +323,6 @@ func envBinDirsForKind(envPath, kind string) []string {
 		return []string{filepath.Join(envPath, ".venv", sub)}
 	case "node":
 		return []string{filepath.Join(envPath, "node_modules", ".bin")}
-	case "rust", "go":
-		return []string{filepath.Join(envPath, "bin")}
-	case "ruby":
-		return []string{filepath.Join(envPath, "bundle", "bin")}
-	case "php":
-		return []string{filepath.Join(envPath, "vendor", "bin")}
 	default:
 		return nil
 	}

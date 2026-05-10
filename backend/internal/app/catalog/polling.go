@@ -255,7 +255,7 @@ func (s *Service) Refresh(ctx context.Context) error {
 			"fingerprint": cat.Fingerprint,
 			"version":     cat.Version,
 			"generatedAt": cat.GeneratedAt,
-		})
+		}, "")
 	return nil
 }
 

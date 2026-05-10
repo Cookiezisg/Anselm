@@ -163,7 +163,6 @@ CONSTRAINTS — ALL MANDATORY:
 3. Granularity rules:
    - source granularity=PerItem (forge, skill): grouping/merging allowed
    - source granularity=PerServer (mcp): one mention per server, do NOT merge
-   - source granularity=PerCollection: one mention per collection
 4. Detect overlap and write routing observations inline: If two items in different
    sources serve similar purposes (e.g., a forge that calls GitHub API + a github MCP server),
    add a "Notes on choosing" section to the summary telling the LLM which to prefer and why.

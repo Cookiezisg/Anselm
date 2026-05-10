@@ -15,9 +15,11 @@ import (
 )
 
 // OwnerKind enumerates env owner types. Stable strings — used as DB / JSON
-// values; renames require migration.
+// values; renames require migration. OwnerKindSkill is reserved for the
+// skill domain when its sandbox integration ships (no current producer).
 //
 // OwnerKind 枚举 env 所有者类型。稳定字符串——直接作 DB / JSON 值；改名需迁移。
+// OwnerKindSkill 预留给 skill domain 接 sandbox 时用（暂无生产 producer）。
 const (
 	OwnerKindForge        = "forge"
 	OwnerKindMCP          = "mcp"
@@ -29,10 +31,14 @@ const (
 //   - forge:        EnvID hash (deps-content addressed)
 //   - mcp:          server name (e.g. "playwright")
 //   - skill:        skill name
-//   - conversation: "<conv_id>:<runtime_kind>"
+//   - conversation: "<conv_id>_<runtime_kind>" (use `_`, not `:` —
+//     POSIX PATH separator would break runtime PATH resolution; the
+//     EnsureEnv validator rejects any owner.ID containing `:`)
 // Name is UI-only, not part of identity.
 //
-// Owner 标识 Env 所有者。ID 语义依 Kind（见上）。Name 仅 UI 用，不参与身份。
+// Owner 标识 Env 所有者。ID 语义依 Kind（见上；conversation 用 `_` 不用 `:`，
+// `:` 是 POSIX PATH 分隔符会破坏运行期 PATH 解析；EnsureEnv 校验器拒绝
+// owner.ID 含 `:`）。Name 仅 UI 用，不参与身份。
 type Owner struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
@@ -40,20 +46,22 @@ type Owner struct {
 }
 
 // Runtime is one installed (kind, version) on disk; UNIQUE(kind, version).
-// IsDefault marks the kind's default (resolved from empty Version spec).
+// Default version selection is owned by RuntimeInstaller.ResolveDefault
+// (a constant baked into MiseInstaller at construction); no DB column /
+// query backs it.
 // Insertion is all-or-nothing: EnsureRuntime only inserts after Install
 // succeeds — failed installs leave no row.
 //
 // Runtime 是磁盘上一份已装的 (kind, version)；UNIQUE(kind, version)。
-// IsDefault 标记该 kind 默认版本（空 Version spec 解析到这个）。
+// 默认版本选择由 RuntimeInstaller.ResolveDefault 拥有（构造时固化的常量）；
+// 无 DB 列 / query 支持。
 // all-or-nothing 插入：EnsureRuntime 仅在 Install 成功后插行——失败不留行。
 type Runtime struct {
 	ID          string    `gorm:"primaryKey;type:text"                                            json:"id"` // sr_<16hex>
-	Kind        string    `gorm:"not null;type:text;uniqueIndex:uniq_sr_kind_version,priority:1;index:idx_sr_kind_def,priority:1" json:"kind"`
+	Kind        string    `gorm:"not null;type:text;uniqueIndex:uniq_sr_kind_version,priority:1"   json:"kind"`
 	Version     string    `gorm:"not null;type:text;uniqueIndex:uniq_sr_kind_version,priority:2"   json:"version"`
 	Path        string    `gorm:"not null;type:text"                                               json:"path"`
 	SizeBytes   int64     `json:"sizeBytes"`
-	IsDefault   bool      `gorm:"index:idx_sr_kind_def,priority:2"                                 json:"isDefault"`
 	InstalledAt time.Time `json:"installedAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
@@ -83,7 +91,6 @@ type Env struct {
 	OwnerName  string    `gorm:"type:text"                                                 json:"ownerName,omitempty"`
 	RuntimeID  string    `gorm:"not null;type:text;index"                                  json:"runtimeId"`
 	Deps       []string  `gorm:"serializer:json"                                           json:"deps"`
-	Extras     []string  `gorm:"serializer:json"                                           json:"extras,omitempty"`
 	Path       string    `gorm:"not null;type:text"                                        json:"path"`
 	SizeBytes  int64     `json:"sizeBytes"`
 	Status     string    `gorm:"not null;type:text;default:ready;check:status IN ('installing','ready','failed')" json:"status"`
@@ -101,8 +108,7 @@ type Env struct {
 	// RunningPID > 0 = 上次 manifest 写时该 env 有长生命周期进程活着。
 	// Service.Bootstrap 启动扫 + 杀残留（层 B leak 防御；防 app crash 绕过优雅 Shutdown）。
 	// 显式 column:running_pid——GORM 默认会转成 "running_p_id"（不认 PID 缩写）。
-	RunningPID       int       `gorm:"column:running_pid;default:0;index" json:"runningPid,omitempty"`
-	RunningStartedAt time.Time `json:"runningStartedAt,omitempty"`
+	RunningPID int `gorm:"column:running_pid;default:0;index" json:"runningPid,omitempty"`
 }
 
 func (Env) TableName() string { return "sandbox_envs" }
@@ -118,15 +124,12 @@ type RuntimeSpec struct {
 }
 
 // EnvSpec describes an owner's env. Deps follow the runtime's native package
-// manager (pip / npm / cargo); Extras name post-install steps (e.g.
-// "browsers/chromium" for Playwright).
+// manager (pip / npm / cargo).
 //
-// EnvSpec 描述 owner 的 env。Deps 按 runtime 原生包管理器（pip / npm / cargo）；
-// Extras 是装后步骤（如 Playwright "browsers/chromium"）。
+// EnvSpec 描述 owner 的 env。Deps 按 runtime 原生包管理器（pip / npm / cargo）。
 type EnvSpec struct {
 	Runtime RuntimeSpec `json:"runtime"`
 	Deps    []string    `json:"deps,omitempty"`
-	Extras  []string    `json:"extras,omitempty"`
 }
 
 // SpawnOpts is one spawn order. LongLived=false → ExecutionResult (one-shot);
@@ -222,7 +225,6 @@ type Repository interface {
 	// Runtime CRUD
 	CreateRuntime(ctx context.Context, r *Runtime) error
 	GetRuntime(ctx context.Context, id string) (*Runtime, error)
-	FindDefaultRuntime(ctx context.Context, kind string) (*Runtime, error)
 	FindRuntime(ctx context.Context, kind, version string) (*Runtime, error)
 	ListRuntimes(ctx context.Context) ([]*Runtime, error)
 	UpdateRuntime(ctx context.Context, r *Runtime) error

@@ -25,18 +25,6 @@ type AgentState struct {
 	cwdMu sync.Mutex
 	cwd   string
 
-	// subagentTokens: append-only log of every Subagent spawn's token
-	// totals (one entry per sub-run). The conversation-detail UI / cost
-	// panel reads it to surface "this turn spent N tokens including 3
-	// subagents". Concurrent appends from sibling sub-runs are isolated
-	// by RunID; the mutex serializes the slice growth.
-	//
-	// subagentTokens：只追加日志，记录每次 Subagent spawn 的 token 累计
-	// （单 sub-run 一条）。对话详情 / 成本面板读它显示"本轮花 N tokens 含
-	// 3 个 subagent"。并发 sibling sub-run 按 RunID 隔离；mutex 串化 slice 增长。
-	subTokensMu sync.Mutex
-	subTokens   []SubagentTokenEntry
-
 	// activeSkill: pointer to the currently-active skilldomain.Skill, or
 	// nil when no skill is active. Set/cleared by app/skill.Service via
 	// SetActiveSkill / ClearActiveSkillIfMatches; read on every tool
@@ -48,46 +36,6 @@ type AgentState struct {
 	// skill.go（与方法集中以便审计）。atomic.Pointer 而非 mutex，per
 	// skill.md §9.5。
 	activeSkill activeSkillSlot
-}
-
-// SubagentTokenEntry is one row in AgentState.SubagentTokenLog. Written
-// by app/subagent.Service when a sub-run terminates (or per-step if the
-// frontend wants live cost feedback — current call site is final-write).
-//
-// SubagentTokenEntry 是 AgentState.SubagentTokenLog 的一行。app/subagent
-// .Service 在 sub-run 终态时写入（前端要实时成本反馈也可改成 per-step；
-// 当前调用点是终态写入）。
-type SubagentTokenEntry struct {
-	RunID     string `json:"runId"`
-	TypeName  string `json:"typeName"`
-	TokensIn  int    `json:"tokensIn"`
-	TokensOut int    `json:"tokensOut"`
-}
-
-// AddSubagentTokens appends one entry to the per-conversation subagent
-// token log. Sibling concurrent sub-runs in the same turn each call this
-// once on terminate; the mutex isolates the append.
-//
-// AddSubagentTokens 给对话级 subagent token 日志追加一行。同一回合的
-// sibling 并发 sub-run 各自终态时调用一次；mutex 隔离 append。
-func (s *AgentState) AddSubagentTokens(runID, typeName string, in, out int) {
-	s.subTokensMu.Lock()
-	defer s.subTokensMu.Unlock()
-	s.subTokens = append(s.subTokens, SubagentTokenEntry{
-		RunID: runID, TypeName: typeName, TokensIn: in, TokensOut: out,
-	})
-}
-
-// SubagentTokenLog returns a copy of the accumulated entries. Copy not
-// alias so callers can read without holding the mutex.
-//
-// SubagentTokenLog 返回累积条目的拷贝（非别名），调用方读时无需持锁。
-func (s *AgentState) SubagentTokenLog() []SubagentTokenEntry {
-	s.subTokensMu.Lock()
-	defer s.subTokensMu.Unlock()
-	out := make([]SubagentTokenEntry, len(s.subTokens))
-	copy(out, s.subTokens)
-	return out
 }
 
 // MarkRead records path as Read this conversation with its current size.

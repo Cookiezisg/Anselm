@@ -41,27 +41,23 @@ func TestDetectRuntime_Classification(t *testing.T) {
 		{"npx tsc", "node"},
 		{"yarn add lodash", "node"},
 		{"pnpm add react", "node"},
-		// Rust family
-		{"cargo build --release", "rust"},
-		{"rustc main.rs", "rust"},
-		// Go
-		{"go build ./...", "go"},
-		{"go test -run TestFoo", "go"},
-		// Ruby family
-		{"ruby script.rb", "ruby"},
-		{"gem install rake", "ruby"},
-		{"bundle install", "ruby"},
-		{"rake test", "ruby"},
-		// PHP
-		{"php artisan migrate", "php"},
-		{"composer require monolog/monolog", "php"},
-		// Java family
-		{"java -jar app.jar", "java"},
-		{"javac Foo.java", "java"},
-		{"mvn install", "java"},
-		{"gradle build", "java"},
-		// Dotnet
-		{"dotnet build", "dotnet"},
+
+		// ── Other languages fall through to system shell ───────────────
+		{"cargo build --release", ""},
+		{"rustc main.rs", ""},
+		{"go build ./...", ""},
+		{"go test -run TestFoo", ""},
+		{"ruby script.rb", ""},
+		{"gem install rake", ""},
+		{"bundle install", ""},
+		{"rake test", ""},
+		{"php artisan migrate", ""},
+		{"composer require monolog/monolog", ""},
+		{"java -jar app.jar", ""},
+		{"javac Foo.java", ""},
+		{"mvn install", ""},
+		{"gradle build", ""},
+		{"dotnet build", ""},
 
 		// ── cd-prefix and chain handling (AST walks every CallExpr) ─────
 		{"cd /tmp && pip install pandas", "python"},
@@ -81,7 +77,7 @@ func TestDetectRuntime_Classification(t *testing.T) {
 		{"FOO=bar pip install x", "python"},
 		{"PYTHONPATH=. python script.py", "python"},
 		{"env PYTHONPATH=. python script.py", "python"},
-		{"env -i CARGO_HOME=/tmp cargo build", "rust"},
+		{"env -i CARGO_HOME=/tmp cargo build", ""},
 		{"FOO=bar BAZ=qux node app.js", "node"},
 
 		// ── Shell wrappers recurse into -c argument (AST upgrade) ───────
@@ -97,7 +93,7 @@ func TestDetectRuntime_Classification(t *testing.T) {
 		{"which python3", "python"},
 		{"which npm", "node"},
 		{"type pip", "python"},
-		{"command -v cargo", "rust"},
+		{"command -v cargo", ""},
 		{"which ls", ""}, // not a runtime
 		{"which", ""},    // bare which, no arg
 
@@ -178,11 +174,12 @@ func TestEnvBinDirsForKind(t *testing.T) {
 	}{
 		{"python", []string{filepath.Join(envPath, ".venv", "bin")}},
 		{"node", []string{filepath.Join(envPath, "node_modules", ".bin")}},
-		{"rust", []string{filepath.Join(envPath, "bin")}},
-		{"go", []string{filepath.Join(envPath, "bin")}},
-		{"ruby", []string{filepath.Join(envPath, "bundle", "bin")}},
-		{"php", []string{filepath.Join(envPath, "vendor", "bin")}},
-		// Java / dotnet — no per-env bin dir; rely on classpath / install dir.
+		// Other kinds (rust / go / ruby / php / java / dotnet / unknown)
+		// — no per-env bin dir; sandbox stack does not install them.
+		{"rust", nil},
+		{"go", nil},
+		{"ruby", nil},
+		{"php", nil},
 		{"java", nil},
 		{"dotnet", nil},
 		// Unknown kind — nil so prepend is a no-op.

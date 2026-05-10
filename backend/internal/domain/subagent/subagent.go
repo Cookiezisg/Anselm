@@ -35,21 +35,6 @@ package subagent
 
 import "errors"
 
-// ── Roles ────────────────────────────────────────────────────────────
-//
-// Mirrored from chatdomain.Role* — keep here for stable references in
-// type system prompts that mention sub-run roles. Source of truth is
-// chatdomain.RoleUser / RoleAssistant.
-//
-// 与 chatdomain.Role* 镜像——保留供提到 sub-run 角色的 type system
-// prompt 引用。事实源在 chatdomain。
-const (
-	RoleUser      = "user"
-	RoleAssistant = "assistant"
-	RoleTool      = "tool"
-	RoleSystem    = "system"
-)
-
 // ── SubagentType (registry entry) ────────────────────────────────────
 
 // SubagentType is one entry in the in-memory registry the LLM sees as
@@ -63,10 +48,8 @@ const (
 // 但去掉 Subagent 工具本身"（general-purpose 用这条；显式类型用白名单）。
 type SubagentType struct {
 	Name            string   `json:"name"`
-	Description     string   `json:"description"`
 	SystemPrompt    string   `json:"systemPrompt"`
 	AllowedTools    []string `json:"allowedTools"`
-	DefaultModel    string   `json:"defaultModel"`
 	DefaultMaxTurns int      `json:"defaultMaxTurns"`
 }
 

@@ -42,7 +42,6 @@ type RegistryEntry struct {
 	Description string `json:"description"`        // one-line capability summary
 	Homepage    string `json:"homepage,omitempty"` // GitHub / docs URL
 	Runtime     string `json:"runtime"`            // node / python (curated list is npm + pypi only)
-	Version     string `json:"version,omitempty"`  // pinned version; empty means "latest"
 
 	InstallCmd   InstallCmd       `json:"installCmd"`
 	RequiredEnv  []EnvRequirement `json:"requiredEnv,omitempty"`
@@ -147,16 +146,6 @@ type RegistrySource interface {
 // ── Marketplace V2 sentinels ────────────────────────────────────────
 
 var (
-	// ErrMarketplaceUnavailable means the registry source could not fetch
-	// the catalog (network down, API error, etc.). UI / LLM should advise
-	// the user to check connectivity or configure a BYOK search key as
-	// fallback.
-	//
-	// ErrMarketplaceUnavailable 表示 registry source 无法 fetch 目录
-	// （网络挂、API 错等）。UI / LLM 应提示用户检查网络或配 BYOK 搜索 key
-	// 作 fallback。
-	ErrMarketplaceUnavailable = errors.New("mcp: marketplace registry unavailable")
-
 	// ErrAlreadyInstalled means an install attempt targeted a server alias
 	// that's already configured (mcp.json already has it). Caller should
 	// uninstall first or pick a different alias.
@@ -178,13 +167,4 @@ var (
 	// new install_mcp_server tool's error path.)
 	// (ErrInstallFailed 已在 mcp.go 声明——新 install_mcp_server 工具的错误
 	// 路径复用之。)
-
-	// ErrHandshakeFailed means the server installed successfully but
-	// failed the MCP initialize handshake. Caller can still retry
-	// connection later via Reconnect; the server stays in the registry
-	// with status=failed.
-	//
-	// ErrHandshakeFailed 表示 server 装成功但 MCP initialize 握手失败。
-	// 调用方可后续 Reconnect 重试；server 留在 registry 状态 failed。
-	ErrHandshakeFailed = errors.New("mcp: server installed but handshake failed")
 )
