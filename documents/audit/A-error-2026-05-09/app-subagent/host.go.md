@@ -1,0 +1,51 @@
+# Audit trace: backend/internal/app/subagent/host.go
+
+LOC: 148. `subagentHost` implements `loop.Host`. Sub-run lifecycle is: `LoadHistory` (seed = user prompt only) → `Tools` (per-spawn filtered list) → `WriteFinalize` (terminal sub-Message write + emit message_stop). The terminal write is the key §S9 surface in this file.
+
+## 9-col trace table
+
+| site# | file:line | snippet | category | classification | reasoning | severity | user_impact | suggested_fix | status |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | host.go:60-64 | `func (h *subagentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error) { return []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: h.userPrompt}}, nil }` | A.1 | OK | §S3: returns explicit `nil` error since this is a pure builder over in-memory `h.userPrompt` — no failure mode exists. The `error` return is satisfying loop.Host interface contract (chat.host.go's LoadHistory queries the DB and CAN fail; subagent's seed has no IO). The `_ context.Context` parameter is documented unused-parameter pattern, not error discard. | — | — | — | — |
+| 2 | host.go:69-71 | `func (h *subagentHost) Tools() []toolapp.Tool { return h.tools }` | A.1 | OK | Pure accessor; no error path. | — | — | — | — |
+| 3 | host.go:81-87 | `saveCtx := context.Background(); if uid, err := reqctxpkg.RequireUserID(ctx); err == nil { saveCtx = reqctxpkg.SetUserID(saveCtx, uid) } else if h.uid != "" { saveCtx = reqctxpkg.SetUserID(saveCtx, h.uid) }` | A.1/A.2 | OK | §S9 ✓: starts from `context.Background()` and explicitly stamps uid. Clever fallback chain: prefer ctx-provided uid (in case someone composed extra middleware on top), fall back to host's stashed `h.uid` from Spawn-time. **§S3 sub-issue check**: the `if ... err == nil ... else if ... else { ??? }` chain has no final else — if both ctx has no uid AND `h.uid == ""`, `saveCtx` ends up as bare `context.Background()` with NO uid stamped. Downstream chatRepo.SaveMessage will then fail with `reqctxpkg.ErrMissingUserID` (registered errmap.go:185), which the line 112-114 logger surfaces as CRITICAL. So the soft-degrade path is observable, not silent. Acceptable. | — | — | — | — |
+| 4 | host.go:95 | `attrsJSON, _ := json.Marshal(attrs)` | A.1 | EDGE | §S3: `_` discards the error. **Justification check**: `attrs` is a `map[string]any` containing only `string` and `int` values (lines 89-94: kind/type/runId/maxTurns) — `encoding/json` cannot fail on this shape (no recursive maps, no unmarshalable types like channels/funcs). This is the same pattern as searchrouter.go:#4 (audited LOW in app-mcp summary §10). §S3 §exception: "if a function provably cannot fail on its inputs, _ is OK" but **must include inline comment**. No comment present. | LOW | If a future refactor adds a non-marshalable type to `attrs` (e.g. a channel for cancellation), the marshal would silently produce empty/partial JSON, leading to the sub-Message having missing attrs — corrupting downstream queries that filter on `attrs.kind=subagent_run`. | Add inline comment: `attrsJSON, _ := json.Marshal(attrs) // _ = err — attrs is map of string/int, json.Marshal cannot fail` OR use `must.MarshalJSON` helper if/when introduced (see app-mcp summary recommendation #5). | FOUND |
+| 5 | host.go:97-115 | `msg := &chatdomain.Message{ ... Status: status, StopReason: stopReason, ... }; if err := h.svc.chatRepo.SaveMessage(saveCtx, msg); err != nil { h.svc.log.Error("CRITICAL: subagent terminal Message write failed", ...) }` | A.1/A.2 | OK | §S9 ✓: terminal Message write uses `saveCtx` (detached at site #3). §S3 ✓: write failure is logged at Error level with sub_msg_id + zap.Error context — operator audit trail for diagnosing terminal-write loss. Loss-on-cancel risk is mitigated. The CRITICAL prefix mirrors chat/host.go:59 convention. | — | — | — | — |
+| 6 | host.go:122-124 | `em := eventlogpkg.From(ctx); em.StopMessage(ctx, h.subMsgID, mapEventLogStatus(status), stopReason, errCode, errMsg, in, out)` | A.2 | VIOLATION | §S9 **violation**: `em.StopMessage(ctx, ...)` uses the ORIGINAL `ctx` (the request ctx with timeout), NOT the detached `saveCtx`. Compare chat/host.go:75: `h.svc.emitter.StopMessage(saveCtx, ...)` — the chat side uses detached for the StopMessage emit explicitly because "上游 cancel 不能让 Bridge.Publish 在订阅者（SSE 流）拿到 message_stop 前触发 ctx.Done 早退" (chat/host.go:73-74 comment). subagent's WriteFinalize is the **identical** pattern but uses cancellable ctx — this means: parent chat is cancelled mid-sub-run → subagent's loop.Run returns → WriteFinalize fires with cancelled ctx → DB write succeeds (saveCtx detached) but `em.StopMessage` Bridge.Publish hits ctx.Done early-out → frontend never receives `message_stop` for the sub-message. Frontend's per-conversation event tree shows the sub-message stuck in `streaming` status forever. Violates §S21 message.status terminal-state invariant ("status 单向 streaming → 终态，不可回退"). | MED | Frontend per-conversation event tree shows sub-message stuck in `streaming` (sub-message status never flips to terminal) when parent chat is cancelled mid-sub-run. User reloads page to recover (DB row has correct status, but live event stream lost the stop). Same severity as the analogous spawn.go:#13 BlockStop issue. | Use `saveCtx` for the StopMessage emit, mirroring chat/host.go:75: `em.StopMessage(saveCtx, h.subMsgID, mapEventLogStatus(status), stopReason, errCode, errMsg, in, out)`. The detached saveCtx already carries uid (line 84/86); add `WithConversationID` to it if Bridge.Publish needs convID for routing — chat/host.go:55 stamps both for this reason. | FOUND |
+| 7 | host.go:131 | `_ = blocks` (with documentation comment 126-130) | A.1 | OK | §S3 ✓: explicit documentation comment explaining why `blocks` parameter is unused — sub blocks were emitted in real-time during loop.Run, the `blocks` param is retained for loop.Host interface compliance but is redundant data here. This is the textbook §S3 §exception pattern ("`_ = err` 带行内注释说明为什么吞" — generalized to any unused param). | — | — | — | — |
+| 8 | host.go:137-148 | `func mapEventLogStatus(s string) string { switch s { ... default: return eventlogdomain.StatusCompleted } }` | A.1 | EDGE | §S3 sub-issue: the `default` branch silently returns `StatusCompleted` for unknown chatdomain.Status* values, with NO log. Compare chat/host.go:100-114's `mapEventLogStatus` (the analogous function on chatHost) — it logs a Warn on unknown status: `h.svc.log.Warn("chat.host.mapEventLogStatus: unknown chatdomain status; mapped to Completed", ...)`. The chat side adds the Warn explicitly to surface chatdomain status drift (new Status* added without updating this switch) — exactly the §S3 anti-pattern of "silent fallthrough" in disguise. subagent's mapEventLogStatus is the SAME pattern but lacks the Warn. | LOW | If chatdomain adds a new Status* (e.g. `StatusInterrupted`) and the switch isn't updated, sub-runs in that new state get silently mapped to Completed in the eventlog — frontend renders sub-message as completed even though the underlying status is something else. Operator has no log to spot the drift. | Mirror chat/host.go:111-113 — convert this from a free function to a method on `*subagentHost` so it has `h.svc.log` access, then add a Warn log in the default branch with `s` + `h.subMsgID` context. Single-commit alignment with chat side. | FOUND |
+
+## Sub-check (§S3 / §S9 / §S15 / §S16 / §S17)
+
+**A.1 §S3 错误吞没**:
+  - violations:
+    - site #4 (LOW — `attrsJSON, _ := json.Marshal(attrs)` lacks inline justification comment; provably can't fail on the input shape but missing the §S3-required documentation)
+    - site #8 (LOW — mapEventLogStatus default branch silently maps unknown status to Completed; analogous chat function logs Warn here)
+
+**A.2 §S9 detached ctx 终态写**:
+  - terminal-state writes identified:
+    - site #5 — sub-Message body persistence (chatRepo.SaveMessage)
+    - site #6 — eventlog message_stop emit (em.StopMessage)
+  - 各自 ctx 来源:
+    - site #5: detached `saveCtx` (built at site #3 from `context.Background()` + uid stamp) ✓ correct
+    - site #6: ORIGINAL `ctx` ✗ — should use `saveCtx`
+  - violations: **site #6 (MED)** — em.StopMessage uses cancellable ctx; if parent chat is cancelled mid-sub-run, frontend gets hung sub-message in `streaming` status (§S21 message.status invariant violation). Direct parallel to spawn.go:#13 (BlockStop) — both should be using detached ctx. The chat/host.go fix (referenced in audit brief) is the model: chat uses detached for both DB write AND emit; subagent uses detached only for DB write.
+
+**A.3 §S15 ID 生成**:
+  - ID generation calls: none (this file consumes `h.subMsgID` which was minted in spawn.go:114)
+  - violations: N/A: file generates no business IDs
+
+**A.4 §S16 错误 wrap 格式**:
+  - violations: not present (no `fmt.Errorf` in this file — only zap.Error logging)
+
+**A.5 §S17 sentinel 登记 errmap**:
+  - sentinels defined: none in this file
+  - 已登记 errmap: N/A
+  - missing: N/A: file defines no sentinels
+
+## Notes
+
+- The §S9 violation at site #6 is the **headline finding for this fork**. It's the same class of bug recently fixed in chat/host.go (referenced in the audit brief): "最近 fix 过类似 chat.host.go". chat/host.go:73-74 has the exact comment explaining WHY the StopMessage needs detached ctx ("Bridge.Publish ctx.Done early-out before subscribers receive message_stop"). subagent's WriteFinalize is the parallel function but missed this fix.
+- The fix is a 1-character ctx swap (`ctx` → `saveCtx`) at host.go:123. Recommend bundling it with spawn.go:#13 (the BlockStop issue) into a single sweep commit since both have the same root cause and same solution shape.
+- mapEventLogStatus is a free function with no logger access — site #8 fix requires either making it a method (taking `h *subagentHost` receiver to access `h.svc.log`, mirroring chat/host.go) OR threading a logger via a closure. Method conversion is simpler and matches the chat-side convention.
+- The `attrs` shape at site #4 is currently strictly `string`/`int` — adding any non-marshalable field would be the regression-trigger. Inline comment alone is the minimal fix; introducing a `must.MarshalJSON` helper is overkill for one site.

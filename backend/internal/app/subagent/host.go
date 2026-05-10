@@ -116,11 +116,18 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Bl
 
 	// emit message_stop on eventlog (block_stop for the placeholder
 	// message-block fires from Service.Spawn after loop.Run returns).
+	// Use saveCtx (detached) instead of ctx so a parent-cancel race
+	// between SaveMessage above and StopMessage emit doesn't leave the
+	// frontend with a sub-message stuck in `streaming` until reload.
+	// Same §S9 reasoning as chat/host.go::WriteFinalize::StopMessage.
 	//
 	// 给 eventlog 发 message_stop（占位 message-block 的 block_stop 由
-	// Service.Spawn 在 loop.Run 返后发）。
+	// Service.Spawn 在 loop.Run 返后发）。用 saveCtx（detached）而非
+	// ctx——父 cancel 在 SaveMessage 与 StopMessage 之间触发会让前端
+	// 的 sub-message 卡在 streaming 直到刷新。同 chat/host.go 的 §S9
+	// 逻辑。
 	em := eventlogpkg.From(ctx)
-	em.StopMessage(ctx, h.subMsgID, mapEventLogStatus(status),
+	em.StopMessage(saveCtx, h.subMsgID, h.mapEventLogStatus(status),
 		stopReason, errCode, errMsg, in, out)
 
 	// blocks param is unused — sub blocks were emitted in real-time and
@@ -132,9 +139,13 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Bl
 }
 
 // mapEventLogStatus translates chatdomain.Status* → eventlogdomain.Status*.
+// Default branch logs Warn so chatdomain status drift surfaces in operator
+// audit trail. Mirror of chat/host.go::mapEventLogStatus (commit e5b65fa).
 //
 // mapEventLogStatus 翻译 chatdomain.Status* → eventlogdomain.Status*。
-func mapEventLogStatus(s string) string {
+// default 分支 Warn log 让 chatdomain 增加新 Status* 但未更新此 switch
+// 的漂移可见。同 chat/host.go::mapEventLogStatus（commit e5b65fa）。
+func (h *subagentHost) mapEventLogStatus(s string) string {
 	switch s {
 	case chatdomain.StatusStreaming:
 		return eventlogdomain.StatusStreaming
@@ -142,7 +153,11 @@ func mapEventLogStatus(s string) string {
 		return eventlogdomain.StatusError
 	case chatdomain.StatusCancelled:
 		return eventlogdomain.StatusCancelled
+	case chatdomain.StatusCompleted, chatdomain.StatusPending:
+		return eventlogdomain.StatusCompleted
 	default:
+		h.svc.log.Warn("subagent.host.mapEventLogStatus: unknown chatdomain status; mapped to Completed",
+			zap.String("status", s), zap.String("sub_msg_id", h.subMsgID))
 		return eventlogdomain.StatusCompleted
 	}
 }

@@ -247,8 +247,17 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		}
 	}
 
-	// Close placeholder message-block on the parent's eventlog.
-	// 关父对话 eventlog 上的占位 message-block。
+	// Close placeholder message-block on the parent's eventlog. Use
+	// detached ctx (uid + convID) so a parent cancel between the sub-
+	// run finishing and this StopBlock emit doesn't leave the frontend
+	// with a dangling block_start (§S21 invariant violation). Same
+	// reasoning as the reconcileCtx above + chat/host.go::StopMessage
+	// fix from commit f272503.
+	//
+	// 关父对话 eventlog 上的占位 message-block。用 detached ctx（uid + convID）
+	// 防 parent 在 sub-run 结束到 StopBlock emit 之间 cancel——否则前端
+	// 留 dangling block_start (§S21 违规)。同上方 reconcileCtx + chat/host.go
+	// commit f272503 的逻辑。
 	if msgBlockID != "" {
 		closeStatus := eventlogdomain.StatusCompleted
 		switch spawn.Status {
@@ -257,7 +266,9 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		case StatusCancelled:
 			closeStatus = eventlogdomain.StatusCancelled
 		}
-		em.StopBlock(parentCtx, msgBlockID, closeStatus, nil)
+		stopCtx := reqctxpkg.SetUserID(context.Background(), uid)
+		stopCtx = reqctxpkg.WithConversationID(stopCtx, parentConvID)
+		em.StopBlock(stopCtx, msgBlockID, closeStatus, nil)
 	}
 
 	// Append to per-conversation token log (UI cost panel).
