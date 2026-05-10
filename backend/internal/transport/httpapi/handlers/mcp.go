@@ -33,6 +33,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -183,13 +184,20 @@ func (h *MCPHandler) PutServer(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.svc.AddServer(r.Context(), cfg); err != nil {
 		// AddServer can fail at mcp.json save (filesystem) or at Connect
-		// (subprocess spawn). Both should still surface a status row to
-		// the caller — fetch and return it alongside the warning.
-		// AddServer 可能 mcp.json 保存（文件系统）失败或 Connect（子进程 spawn）失败。
-		// 都该把状态行返给调用方——拉一下随告警一起返。
+		// (subprocess spawn). Per mcp.md §10: PUT returns 200 with
+		// ServerStatus regardless of connect succeed — caller checks the
+		// status field. Use Error (not Warn) log level so observability
+		// pipelines filtering on ERROR pick up the connect failure;
+		// 200 OK alone makes the original err disappear from anything
+		// not parsing the status row.
+		//
+		// AddServer 失败（mcp.json 保存或 Connect 失败）按 mcp.md §10
+		// 仍返 200 + status row（caller 检 status 字段）。Log 级 Error
+		// 而非 Warn——observability 过 ERROR 才能捞到此 connect 失败；
+		// 仅 200 OK 让 err 在不解 status row 的场景中消失。
 		st, gErr := h.svc.GetServer(r.Context(), name)
 		if gErr == nil && st != nil {
-			h.log.Warn("PUT mcp-server completed with connect issue",
+			h.log.Error("PUT mcp-server completed with connect issue (returned 200 + status row per mcp.md §10)",
 				zap.String("name", name), zap.Error(err))
 			responsehttpapi.Success(w, http.StatusOK, st)
 			return
@@ -289,24 +297,26 @@ func (h *MCPHandler) importServers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		// Already capped by ParseMultipartForm; an additional read with
-		// MaxBytesReader guards against weird filesystem-sourced files.
-		// 已被 ParseMultipartForm 限上限；再加 MaxBytesReader 防奇怪文件来源。
-		raw = make([]byte, 0, 4096)
-		buf := make([]byte, 4096)
-		for {
-			n, rerr := file.Read(buf)
-			if n > 0 {
-				raw = append(raw, buf[:n]...)
-				if int64(len(raw)) > importMaxBytes {
-					responsehttpapi.Error(w, http.StatusRequestEntityTooLarge, "INVALID_REQUEST",
-						"config file exceeds 1MB limit", nil)
-					return
-				}
-			}
-			if rerr != nil {
-				break
-			}
+		// Use io.ReadAll on a LimitReader so non-EOF io errors (disk
+		// fail / truncated upload) surface as 400 instead of getting
+		// silently treated as legitimate truncated JSON. importMaxBytes+1
+		// boundary catches the "exactly at limit" case via len(raw) > N.
+		// Mirror handlers-B3 skills.go::Import fix.
+		//
+		// 用 io.ReadAll on LimitReader 让 non-EOF io err（disk fail /
+		// 截断 upload）显式 400 而非被当合法截断 JSON。+1 边界让"恰好
+		// 满"也被检出。同 handlers-B3 skills.go::Import 修复。
+		var rerr error
+		raw, rerr = io.ReadAll(io.LimitReader(file, importMaxBytes+1))
+		if rerr != nil {
+			responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
+				"handlers.ImportServers: read multipart file: "+rerr.Error(), nil)
+			return
+		}
+		if int64(len(raw)) > importMaxBytes {
+			responsehttpapi.Error(w, http.StatusRequestEntityTooLarge, "INVALID_REQUEST",
+				"config file exceeds 1MB limit", nil)
+			return
 		}
 	} else {
 		// JSON body path. Cap at importMaxBytes for symmetry with
@@ -314,7 +324,7 @@ func (h *MCPHandler) importServers(w http.ResponseWriter, r *http.Request) {
 		// JSON body 路径。importMaxBytes 与 multipart 对称。
 		body := http.MaxBytesReader(w, r.Body, importMaxBytes)
 		var err error
-		raw, err = readAll(body)
+		raw, err = io.ReadAll(body)
 		if err != nil {
 			responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
 				"failed to read body: "+err.Error(), nil)
@@ -421,13 +431,23 @@ func (h *MCPHandler) registryNameAction(w http.ResponseWriter, r *http.Request) 
 		Args map[string]string `json:"args,omitempty"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, importMaxBytes)).Decode(&body); err != nil {
-		// Empty body is OK — entry might have no RequiredEnv/RequiredArgs.
-		// Treat any decode error as "no body provided".
-		// 空 body OK——entry 可能无 RequiredEnv/RequiredArgs。任何 decode 错
-		// 视作"未提供 body"。
-		if !errors.Is(err, errEmptyBody) {
-			body.Env = nil
-			body.Args = nil
+		// io.EOF = empty body (legit — entry may have no
+		// RequiredEnv/RequiredArgs). Anything else = malformed JSON or
+		// MaxBytes exceeded — surface as 400 so user fixes their input
+		// rather than seeing misleading "MCP_REQUIRED_ENV_MISSING" from
+		// InstallFromRegistry below. Previous code used a never-produced
+		// `errEmptyBody` sentinel that made `errors.Is` always-false →
+		// every decode err was silently swallowed.
+		//
+		// io.EOF = 空 body（合法——entry 可能无 RequiredEnv）；其他 =
+		// malformed JSON 或超 MaxBytes，显式 400 让用户修输入而非看
+		// InstallFromRegistry 的"MCP_REQUIRED_ENV_MISSING"误导。原代
+		// 码用从未产出的 errEmptyBody sentinel 让 errors.Is 恒 false
+		// → 全 decode err 被静默吞。
+		if !errors.Is(err, io.EOF) {
+			responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
+				"handlers.InstallFromRegistry: decode body: "+err.Error(), nil)
+			return
 		}
 	}
 
@@ -442,42 +462,8 @@ func (h *MCPHandler) registryNameAction(w http.ResponseWriter, r *http.Request) 
 	responsehttpapi.Success(w, http.StatusCreated, st)
 }
 
-// ── helpers ──────────────────────────────────────────────────────────
-
-// readAll reads the body in one shot. Wraps the standard pattern so
-// the caller stays a single line.
-//
-// readAll 一次读完 body。包标准模式让调用方保持单行。
-func readAll(r interface{ Read([]byte) (int, error) }) ([]byte, error) {
-	out := make([]byte, 0, 4096)
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			out = append(out, buf[:n]...)
-		}
-		if err != nil {
-			if err.Error() == "EOF" {
-				return out, nil
-			}
-			return out, err
-		}
-	}
-}
-
-// errEmptyBody is the sentinel returned for missing/empty bodies in
-// the install path so we can distinguish "user provided no env/args"
-// from "decode failure on bad JSON". Currently unused (the install
-// path treats any decode failure as no-body); kept so a future strict
-// mode can switch on it.
-//
-// errEmptyBody 是 install 路径中 missing/empty body 的 sentinel，让我们
-// 区分"用户没传 env/args"与"JSON 解析失败"。当前未用（install 路径把任
-// 何解析失败当无 body）；保留给将来严格模式 switch。
-var errEmptyBody = errors.New("empty body")
-
 // Compile-time keep-alive — silences unused-import lint when refactors
 // trim the file.
 //
 // 编译期保活——重构 trim 文件时静默 unused-import lint。
-var _ = mcpinfra.MergeResult{}
+var _ mcpinfra.MergeResult

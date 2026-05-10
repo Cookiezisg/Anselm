@@ -244,6 +244,13 @@ func (h *DevHandler) QuerySQL(w http.ResponseWriter, r *http.Request) {
 			ptrs[i] = &vals[i]
 		}
 		if err := rows.Scan(ptrs...); err != nil {
+			// Log + skip so dev console row count matches DB; silent
+			// continue would hide partial-result truths (operator sees
+			// "5 rows" when DB has 7, two failed Scan).
+			//
+			// Log + 跳让 dev console 行数与 DB 一致；silent continue
+			// 会藏部分结果（DB 7 行但 console 显示 5）。
+			h.log.Warn("dev: row scan failed", zap.Error(err))
 			continue
 		}
 		// Convert []byte values to string for JSON readability.
@@ -299,9 +306,11 @@ func (h *DevHandler) Schema(w http.ResponseWriter, r *http.Request) {
 	var names []string
 	for rows.Next() {
 		var n string
-		if err := rows.Scan(&n); err == nil {
-			names = append(names, n)
+		if err := rows.Scan(&n); err != nil {
+			h.log.Warn("dev: schema name scan failed", zap.Error(err))
+			continue
 		}
+		names = append(names, n)
 	}
 	rows.Close()
 
@@ -315,7 +324,9 @@ func (h *DevHandler) Schema(w http.ResponseWriter, r *http.Request) {
 		// sqlite_master so it's a real table name, not user-controlled.
 		// PRAGMA table_info 名字插值；来自 sqlite_master 故非用户控制。
 		colRows, err := sqlDB.QueryContext(r.Context(), fmt.Sprintf("PRAGMA table_info(%q)", name))
-		if err == nil {
+		if err != nil {
+			h.log.Warn("dev: PRAGMA table_info failed", zap.String("table", name), zap.Error(err))
+		} else {
 			for colRows.Next() {
 				var (
 					cid          int
@@ -323,13 +334,15 @@ func (h *DevHandler) Schema(w http.ResponseWriter, r *http.Request) {
 					notNull, pk  int
 					dflt         any
 				)
-				if err := colRows.Scan(&cid, &cname, &ctype, &notNull, &dflt, &pk); err == nil {
-					col := schemaColumn{Name: cname, Type: ctype, NotNull: notNull == 1, PK: pk == 1}
-					if dflt != nil {
-						col.Default = fmt.Sprintf("%v", dflt)
-					}
-					t.Columns = append(t.Columns, col)
+				if err := colRows.Scan(&cid, &cname, &ctype, &notNull, &dflt, &pk); err != nil {
+					h.log.Warn("dev: column scan failed", zap.String("table", name), zap.Error(err))
+					continue
 				}
+				col := schemaColumn{Name: cname, Type: ctype, NotNull: notNull == 1, PK: pk == 1}
+				if dflt != nil {
+					col.Default = fmt.Sprintf("%v", dflt)
+				}
+				t.Columns = append(t.Columns, col)
 			}
 			colRows.Close()
 		}
@@ -377,6 +390,13 @@ type ExpectConfig struct {
 func (h *DevHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
 	entries, err := os.ReadDir(h.collectionsDir)
 	if err != nil {
+		// Log + empty list. dev mode without collections dir is valid
+		// (--collections-dir not always set), but operator misconfig
+		// (wrong path / permission) should leave a breadcrumb in logs.
+		//
+		// Log + 空列表。dev 模式无 collections 目录合法（--collections-
+		// dir 未必设），但 operator 配错（路径/权限）应留 log 线索。
+		h.log.Warn("dev: read collections dir", zap.String("dir", h.collectionsDir), zap.Error(err))
 		writeDevJSON(w, http.StatusOK, []Collection{})
 		return
 	}
