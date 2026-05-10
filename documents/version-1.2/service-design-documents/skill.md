@@ -127,13 +127,26 @@ type Frontmatter struct {
 - v1 真消费的字段：`name`、`description`、`allowed-tools`、`disable-model-invocation`、`context`、`agent`、`arguments`
 - v1 解析但不消费：`paths`（auto-trigger）、`effort`、`when_to_use`、`model`——保留以便后续接入不破坏 schema
 
-### Sentinel 错误（3 个）
+### Sentinel 错误（5 个）
 
 ```go
 var (
     ErrSkillNotFound       = errors.New("skill: not found")
     ErrInvalidFrontmatter  = errors.New("skill: invalid frontmatter")
     ErrBodyTooLarge        = errors.New("skill: body exceeds size limit")
+    ErrNameConflict        = errors.New("skill: name already exists")     // Create / Import 同名时
+    ErrInvalidName         = errors.New("skill: invalid name format")     // 不合 [a-z0-9-] / 太长
+)
+```
+
+`ErrNameConflict` / `ErrInvalidName` 是 D7 加的——`POST /skills` Create + `:import` 路径需要明确"撞名"和"非法名"两类失败语义，不能糊到 `ErrInvalidFrontmatter`。
+
+### 体积常量（domain pkg 暴露）
+
+```go
+const (
+    MaxBodyBytes        = 32 * 1024  // SKILL.md body 上限（超返 ErrBodyTooLarge）
+    MaxDescriptionChars = 1536       // frontmatter description 字符上限（per Anthropic spec）
 )
 ```
 
@@ -232,23 +245,39 @@ func (s *Service) Stop()                            // 取消 ctx + 阻塞等 go
 ```go
 type Service struct {
     skills    map[string]*skilldomain.Skill   // name → skill
-    bridge    eventsdomain.Bridge
+    skillsDir string                          // ~/.forgify/skills/
+    notif     notificationspkg.Publisher      // fingerprint 变化 publish "skill" 通知
     log       *zap.Logger
-    subagent  SubagentService                  // 接口注入，用于 context: fork
-    llm       llmclientpkg.Resolver            // 用于 search ranking
+    subagent  SubagentService                 // 接口注入，用于 context: fork
+    llm       llmclientpkg.Resolver           // 用于 search ranking
+    lastFP    atomic.Value                    // string — 上次 Scan 后 fingerprint，用于短路无变化 publish
     mu        sync.RWMutex
+    stopOnce  sync.Once
+    pollDone  chan struct{}
 }
 
 type SubagentService interface {
     Spawn(ctx context.Context, typeName, prompt string, opts subagentapp.SpawnOpts) (*subagentapp.SpawnResult, error)
 }
 
+func (s *Service) Start(ctx context.Context) error                    // 同步 Scan + 启 polling goroutine
+func (s *Service) Stop()                                               // 幂等 stopOnce + 阻塞 pollDone
 func (s *Service) Scan(ctx context.Context) error
 func (s *Service) Get(ctx context.Context, name string) (*Skill, error)
 func (s *Service) List(ctx context.Context) []*Skill
 func (s *Service) Search(ctx context.Context, query string, topK int) ([]*Skill, error)
 func (s *Service) Activate(ctx context.Context, name string, arguments []string) (string, error)
+func (s *Service) Body(ctx context.Context, name string) ([]byte, error)                  // GET /skills/{name}/body
+func (s *Service) Create(ctx context.Context, name string, fm Frontmatter, body string) (*Skill, error)  // POST /skills
+func (s *Service) Replace(ctx context.Context, name string, fm Frontmatter, body string) (*Skill, error) // PUT /skills/{name}
+func (s *Service) Delete(ctx context.Context, name string) error                          // DELETE /skills/{name}
+func (s *Service) Import(ctx context.Context, payload Payload, overwrite bool) (*ImportResult, error)    // POST :import
+func (s *Service) SkillsDir() string                                  // 给 ${CLAUDE_SKILL_DIR} / Bash cwd 拼路径
 ```
+
+**通知通道**：经 `notificationspkg.Publisher` 推 `skill` 通知（详 §10），Service 自身不订阅事件流。
+
+**`lastFP` 短路**：1s 轮询每次 Scan 后算 `sha256(sort by name + frontmatter YAML)` fingerprint；与 `lastFP.Load()` 一致则跳过 publish——避免每秒一发冗余通知。
 
 ### Activate 详细实现
 
@@ -256,30 +285,41 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 func (s *Service) Activate(ctx context.Context, name string, arguments []string) (string, error) {
     skill := s.skills[name]
     if skill == nil { return "", ErrSkillNotFound }
-    
-    // 1. 读 body
-    body, err := os.ReadFile(skill.BodyPath)
+
+    // 1. 读 body（容忍编辑器 .tmp+rename 模式的瞬态 ENOENT，retry 1 次 100ms 后）
+    body, err := readBodyWithRetry(skill.BodyPath)
     if err != nil { return "", fmt.Errorf("skillapp.Activate: read body: %w", err) }
-    if len(body) > 32*1024 { return "", ErrBodyTooLarge }
-    
-    // 2. 字符串替换
-    substituted := substitute(string(body), arguments, skill.DirPath)
-    
-    // 3. 设 active skill（agentstate）
-    if state := agentstatepkg.From(ctx); state != nil {
-        state.SetActiveSkill(skill)
-        defer state.ClearActiveSkillIfMatches(skill.Name)  // tool 退出时清除（仅 non-fork 情况）
+    if len(body) > skilldomain.MaxBodyBytes { return "", ErrBodyTooLarge }
+
+    // 2. 字符串替换（含 $1..$N / $ARGUMENTS / 命名 $<name> / ${CLAUDE_SKILL_DIR} / ${CLAUDE_SESSION_ID} / ${CLAUDE_EFFORT}）
+    substituted := substituteVars(string(body), arguments, skill)
+
+    // 3. 设 active skill（agentstate） — 非 fork 路径"不"清除（让后续 tool 持续受预授权）
+    //    fork 路径不写 active skill（subagent 隔离原则；详 §15 fork 路径详解）
+    if skill.Frontmatter.Context != "fork" {
+        if state := reqctxpkg.GetAgentState(ctx); state != nil {
+            state.SetActiveSkill(skill)
+            // 注意：**不**用 defer ClearActiveSkillIfMatches——
+            // 非 fork 模式下，Activate 返回后续 tool（Bash/Read 等）才需要看 ActiveSkill 走预授权；
+            // ActiveSkill 在主 LLM 显式 activate 另一个 skill 时被替换，或对话结束时由 agentstate 销毁清空。
+        }
     }
-    
+
     // 4. fork 模式 vs 直返
     if skill.Frontmatter.Context == "fork" {
         agentType := skill.Frontmatter.Agent
         if agentType == "" { agentType = "general-purpose" }
+        // 嵌套 fork 抑制：subagent depth >= 1 时 inline 注入 body 当 tool_result（详 §9.5）
+        if reqctxpkg.GetSubagentDepth(ctx) >= 1 {
+            s.log.Info("skill activated within subagent; ignoring fork directive",
+                zap.String("skill", skill.Name))
+            return substituted, nil
+        }
         result, err := s.subagent.Spawn(ctx, agentType, substituted, subagentapp.SpawnOpts{})
         if err != nil { return "", err }
         return result.Result, nil
     }
-    
+
     // 非 fork：返 body 作 tool_result，LLM 看到照着干
     return substituted, nil
 }
@@ -447,19 +487,26 @@ v1 实现 wildcards `*`；进阶 regex 等以后加。
 
 ---
 
-## 10. SSE 事件
+## 10. Notifications
 
-```go
-type Skill struct {
-    Skills []*skilldomain.Skill `json:"skills"`
+V3 改用 `notificationspkg.Publisher` 推 `skill` 通知，**不发全 skill 快照**（前端可调 `GET /skills` 拿最新列表，避免快照刷屏）。
+
+```json
+{
+  "type": "skill",
+  "id":   "*",                 // skill 是用户级全局，没有 per-entity ID
+  "data": {
+    "changed": true,
+    "count":   12              // 当前 skill 数量
+  }
 }
-
-func (Skill) EventName() string { return "skill" }
 ```
 
-**触发点**：Service.Scan 后且 fingerprint 变化（1s 轮询 tick / mutate.go 内的同步 Scan / 手动 :refresh）。
-**载荷**：全 skill 快照（不增量；前端拿全量重渲染最简单）。
-**过滤 key**：无（用户级全局事件）。
+**触发点**：`Service.Scan` 后**且 fingerprint 变化**（1s 轮询 tick / Create / Replace / Delete / Import 内的同步 Scan / 手动 `:refresh`）。
+
+**短路**：`fingerprint == lastFP` 时**不**publish——避免每秒一发冗余通知；只有用户改了 SKILL.md 才通知前端。
+
+**Wire path**：`/api/v1/notifications` 全局通道 + 客户端按 `type=skill` 过滤。详 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) notifications 协议章。
 
 ---
 
@@ -550,7 +597,6 @@ type catalogSource struct{ svc *Service }
 
 func (c *catalogSource) Name() string                             { return "skill" }
 func (c *catalogSource) Granularity() catalogdomain.Granularity   { return catalogdomain.PerItem }
-func (c *catalogSource) EventTopics() []string                    { return []string{"skill"} }
 
 func (c *catalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
     items := []catalogdomain.Item{}
@@ -599,7 +645,7 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 | **subagent** | `context: fork` 时调 SubagentService.Spawn；接口注入避免循环 import |
 | **catalog** | 实现 CatalogSource；description 直接抄不重生 |
 | **agentstate** | 写 ActiveSkill 字段，permission 链查询 |
-| **events** | 复用 events bridge 发 skill 全量快照 |
+| **notifications** | 经 `notificationspkg.Publisher` 推 `skill` 通知（type=skill, id=`*`, data={changed,count}）；不再走 events bridge |
 | **logger** | Scan I/O 失败、frontmatter parse 错误等走 Warn |
 
 ### 与 Subagent 的协作（fork 路径详解）

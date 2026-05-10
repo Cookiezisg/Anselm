@@ -1,13 +1,13 @@
 # MCP — V1.2 详设计
 
 **Phase**：Phase 4 准备件（提前到位）
-**状态**：✅ Marketplace V3 — curated（2026-05-08 curated 化 / 2026-05-09 search→list 化）：domain types + 8 sentinels + **21 条 hand-picked RegistrySource**（npm + pypi only）+ ~/.forgify/mcp.json I/O + stdio Client wrapper（go-sdk v1.6）+ Service lifecycle/Search/CallTool/Health/Install + 5 system tools (search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控
+**状态**：✅ Marketplace V3 — curated（2026-05-08 curated 化 / 2026-05-09 search→list 化）：domain types + 14 sentinels（10 mcp.go 核心 + 4 registry.go marketplace）+ **21 条 hand-picked RegistrySource**（npm + pypi only）+ ~/.forgify/mcp.json I/O + stdio Client wrapper（go-sdk v1.6）+ Service lifecycle/Search/CallTool/Health/Install/Import/Stderr + 5 system tools (search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server) + 11 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控 + `mcp_server` per-name notification（不发全量快照）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（mcp.json 是 source）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — mcp ×10（已接 errmap）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `mcp` entity-state 事件 ✅
-- 关联设计：[`subagent.md`](./subagent.md) / [`skill.md`](./skill.md) / [`catalog.md`](./catalog.md)
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — mcp ×14（已接 errmap）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `mcp_server` per-name entity-state 通知（不再发全量快照）
+- 关联设计：[`subagent.md`](./subagent.md) / [`skill.md`](./skill.md) / [`catalog.md`](./catalog.md) / [`sandbox.md`](./sandbox.md)
 - 外部 spec：[MCP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)
 - 依赖库：[`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk) v1.x（**官方** SDK，不用 mark3labs/mcp-go——v1 stability + Anthropic+Google 共维）
 
@@ -15,7 +15,7 @@
 
 ## 1. 一句话
 
-把外部 MCP server 当成"动态 tool 来源"接进来——但**不 flat 注册**到 LLM 的 tool registry，而是暴露 **`search_mcp(query)` + `call_mcp(server, tool, args)` 两个 system tool**，让 LLM 按需召回 + 调用，避免 70+ server × 5 tool × 200 token = 70k 启动开销。
+把外部 MCP server 当成"动态 tool 来源"接进来——但**不 flat 注册**到 LLM 的 tool registry，而是暴露 **5 个 system tool**（`search_mcp_tools` / `call_mcp_tool` / `list_mcp_marketplace` / `install_mcp_server` / `uninstall_mcp_server`），让 LLM 按需 search + call + 装/卸，避免 70+ server × 5 tool × 200 token = 70k 启动开销。
 
 ---
 
@@ -32,34 +32,49 @@ main.go → mcpapp.NewService(deps)
       → tools/list RPC → 缓存 ToolDef[] 在 server 状态里
       → 失败 → 标记 server.status=failed + log Warn + 不阻塞其他 server
   → 返回 Service（含已 connect server 的状态 map）
-  → 注册 2 个 system tool：mcptool.SearchMCP(svc) + mcptool.CallMCP(svc)
+  → 注册 5 个 system tool：search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server
 ```
 
 ### 运行期 — search
 
 ```
-LLM → tool_use{name="search_mcp", args={query:"github pr"}}
-  → mcptool.SearchMCP.Execute(ctx, args)
-    → mcpapp.Service.Search(ctx, query)
+LLM → tool_use{name="search_mcp_tools", args={query:"github pr"}}
+  → mcptool.SearchMCPTools.Execute(ctx, args)
+    → mcpapp.Service.Search(ctx, query, topK)
         → 拉所有 connected server 的所有 ToolDef
         → 拼一段 prompt 让一个 ranking LLM 选 top 5（同 forge search 模式 A）
         → 返回 [{server, name, description, schema}, ...]
     → 序列化成 LLM 可读 JSON 字符串
   → tool_result 给 LLM：top 5 候选
-  → LLM 决定调哪个，下一 turn 调 call_mcp
+  → LLM 决定调哪个，下一 turn 调 call_mcp_tool
 ```
 
 ### 运行期 — call
 
 ```
-LLM → tool_use{name="call_mcp", args={server:"github", tool:"create_pr", args:{...}}}
-  → mcptool.CallMCP.Execute(ctx, args)
+LLM → tool_use{name="call_mcp_tool", args={server:"github", tool:"create_pr", args:{...}}}
+  → mcptool.CallMCPTool.Execute(ctx, args)
     → mcpapp.Service.CallTool(ctx, server, tool, args)
         → 取 server 的 client，调 tools/call RPC（JSON-RPC over stdio）
         → server 子进程返 content blocks（text/image array）
         → 序列化成 string（image 转 base64 inline 或 ref）
     → 返回给 LLM 当 tool_result
   → LLM 继续
+```
+
+### 运行期 — marketplace 装 / 卸
+
+```
+LLM → tool_use{name="list_mcp_marketplace", args={}}
+  → 直接 passthrough svc.ListRegistry() → 返 21 条 RegistryEntry JSON
+
+LLM → tool_use{name="install_mcp_server", args={name:"github"}}
+  → 阶段 1：返 phase1Envelope (needsConfirmation + requiredEnv + Notes)
+  → 用户填好 env / args 后 LLM 再调 install_mcp_server({name, env, args, confirmed:true})
+  → 阶段 2：mcpapp.InstallFromRegistry → 写 mcp.json + sandbox.EnsureEnv + Connect
+
+LLM → tool_use{name="uninstall_mcp_server", args={name:"github"}}
+  → mcpapp.RemoveServer → Disconnect + 从 mcp.json 删
 ```
 
 ### 子进程生命周期
@@ -81,7 +96,7 @@ Connect 成功 → 启 monitor goroutine：
 
 | 原则 | 落地 |
 |---|---|
-| **Search 模式不 flat** | 每个 server 不暴露 N 个 tool 给 LLM；只 search_mcp + call_mcp 两个，按需召回 |
+| **Search 模式不 flat** | 每个 server 不暴露 N 个 tool 给 LLM；只 5 个 system tool（search_mcp_tools / call_mcp_tool / list_mcp_marketplace / install_mcp_server / uninstall_mcp_server），按需召回 |
 | **stdio only（v1）** | 不实现 Streamable HTTP；本地单用户场景够用，远程未来 Phase 5+ 再说 |
 | **官方 SDK** | `modelcontextprotocol/go-sdk` v1.x，不用 mark3labs（pre-v1 + 民间）|
 | **Stdout 污染零容忍** | 首条非 valid JSON-RPC 立即 fail（防子进程 fmt.Println 污染）|
@@ -141,7 +156,9 @@ type ToolDef struct {
 | `degraded` | 子进程还在但近期 tools/call 连续失败 ≥ 3 次（仍可调，但 UI 显示警示）|
 | `failed` | 子进程退出 / 握手失败 / stdout 污染检测失败（不可调）|
 
-### Sentinel 错误
+### Sentinel 错误（14 个：10 核心 + 4 marketplace V3）
+
+`internal/domain/mcp/mcp.go`：
 
 ```go
 var (
@@ -159,7 +176,20 @@ var (
 )
 ```
 
-`ErrToolCallFailed` 用 `%w` wrap 上游错误（per §S16），保留 server 自报的失败信息。
+`internal/domain/mcp/registry.go`（marketplace V3 加，2026-05-08）：
+
+```go
+var (
+    ErrMarketplaceUnavailable = errors.New("mcp: marketplace unavailable")
+    ErrAlreadyInstalled       = errors.New("mcp: server already installed")
+    ErrUnsupportedRuntime     = errors.New("mcp: unsupported runtime")
+    ErrHandshakeFailed        = errors.New("mcp: initialize handshake failed")
+)
+```
+
+`ErrToolCallFailed` / `ErrInstallFailed` 用 `%w` wrap 上游错误（per §S16），保留 server / 包管理器自报的失败信息。
+
+`ErrAlreadyInstalled` 由 `Service.InstallFromRegistry` 收口——同名 server 已在 mcp.json 时返该 sentinel，避免重复装机。
 
 ---
 
@@ -189,7 +219,7 @@ var (
 - **无 `enabled` 字段**：在文件里 = 启动时连；要禁用某 server → 从文件删（或 UI 调 DELETE）
 
 **为什么没 `enabled` / 没项目级**：
-- search_mcp 模式不 flat 注册，token 成本可控，不需要"装而不启"
+- search_mcp_tools 模式不 flat 注册，token 成本可控，不需要"装而不启"
 - 单用户本地场景，用户级一份足够；项目级会引入 merge / override 复杂度而无明显收益
 
 ### 自包含原则（重要）
@@ -342,7 +372,9 @@ MCP layer 不实现任何装机逻辑——只 catch sandbox 返的 `ErrRuntimeM
 ### 失败累计逻辑
 
 ```go
-// 每次 CallTool 完成后
+// 每次 CallTool 完成后；仅更新内存状态，不发通知
+// （通知已在 AddServer / RemoveServer / connectOne 等"显式生命周期事件"上 publish；
+//  per-call 成功 / 失败累计若也推 notification 会刷屏）
 func (s *Service) recordCallResult(name string, err error) {
     state := s.states[name]
     state.TotalCalls++
@@ -351,23 +383,23 @@ func (s *Service) recordCallResult(name string, err error) {
         state.ConsecutiveFailures++
         state.LastError = err.Error()
         state.LastErrorAt = ptr(time.Now())
-        if state.ConsecutiveFailures >= 3 && state.Status == "ready" {
+        if state.ConsecutiveFailures >= degradedThreshold && state.Status == "ready" {
             state.Status = "degraded"
-            s.bridge.Publish(ctx, "", eventsdomain.MCP{Servers: s.snapshot()})
+            // 内部状态翻 degraded，不主动 publish——下次 ListServers / Health 端点拉时即时看到
         }
     } else {
-        wasDownGraded := state.Status == "degraded"
         state.ConsecutiveFailures = 0
         state.LastSuccessAt = ptr(time.Now())
-        if wasDownGraded {
+        if state.Status == "degraded" {
             state.Status = "ready"  // 自愈
-            s.bridge.Publish(ctx, "", eventsdomain.MCP{Servers: s.snapshot()})
         }
     }
 }
 ```
 
 **自愈**：degraded 状态下任何一次 tools/call 成功 → 自动回 ready。
+
+**通知边界**（与 §9 SSE 一致）：仅 `AddServer` / `RemoveServer` / `connectOne` / `Reconnect` 等显式生命周期事件 publish `mcp_server` 通知；per-call 失败累计触发的 ready→degraded 转换**不**主动推。前端如果需要看 degraded 自动转换，靠定期 poll `GET /mcp-servers` 或 `:health-check`。
 
 ### 主动健康检查方法
 
@@ -438,7 +470,7 @@ func (c *mcpClient) CallTool(ctx context.Context, name string, args json.RawMess
         // 通知 server 取消（best-effort，server 可忽略）
         c.sendNotification("notifications/cancelled", map[string]any{"requestId": reqID})
         return "", mcpdomain.ErrToolCallTimeout
-    case <-time.After(c.callTimeout):  // 默认 30s，可被 RegistryEntry.DefaultTimeoutSec / mcp.json override
+    case <-time.After(c.callTimeout):  // 默认 30s，可被 mcp.json 里的 ServerConfig.TimeoutSec override
         c.sendNotification("notifications/cancelled", map[string]any{"requestId": reqID})
         return "", mcpdomain.ErrToolCallTimeout
     }
@@ -447,8 +479,9 @@ func (c *mcpClient) CallTool(ctx context.Context, name string, args json.RawMess
 
 **Per-server timeout 解析顺序**（高优先级覆盖低）：
 1. **mcp.json 里 server 配置**显式 `"timeoutSec": N`（用户最终控制权）
-2. **RegistryEntry.DefaultTimeoutSec**（Registry 装的 server 自带 default）
-3. **全局默认 30s**（兜底）
+2. **全局默认 30s**（兜底，`defaultCallTimeout` 常量）
+
+> 注：早期设计想用 `RegistryEntry.DefaultTimeoutSec` 让 marketplace 入口自带 default，但 V3 砍掉了——curated 21 条都跑得快，没必要为单 entry 调 timeout。RegistryEntry 不含 timeout 字段。
 
 `ServerConfig` 加可选字段：
 ```go
@@ -484,7 +517,7 @@ func (c *mcpClient) Close() error {
 
 **问题**：两个 MCP server 都暴露 `search` tool；或 MCP tool 名字撞内置 `Read`。
 
-**设计**：MCP tool 永远走 `mcp__<server>__<name>` 命名空间，**不进全局 tool registry 平铺**——LLM 通过 `call_mcp(server, tool, args)` 间接调用，dispatch 在 mcpapp 内部按 server 路由。这就**结构性免疫**所有命名碰撞：
+**设计**：MCP tool 永远走 `mcp__<server>__<name>` 命名空间，**不进全局 tool registry 平铺**——LLM 通过 `call_mcp_tool(server, tool, args)` 间接调用，dispatch 在 mcpapp 内部按 server 路由。这就**结构性免疫**所有命名碰撞：
 - `mcp__github__search` 和 `mcp__brave__search` 各自独立路由
 - `mcp__filesystem__read` 不会撞内置 `Read`（命名空间不同）
 - 内部 catalog source 上报给 catalog 时也带前缀，避免 routing 提示混淆
@@ -497,13 +530,18 @@ func (c *mcpClient) Close() error {
 
 ```go
 type Service struct {
-    configs map[string]mcpdomain.ServerConfig   // name → config（来自 ~/.forgify/mcp.json）
-    states  map[string]*mcpdomain.ServerStatus  // name → live state
-    clients map[string]*mcpClient               // name → live client（含 subprocess handle）
-    bridge  eventsdomain.Bridge
-    log     *zap.Logger
-    llm     llmclientpkg.Resolver               // 用于 search ranking
-    mu      sync.RWMutex
+    configs       map[string]mcpdomain.ServerConfig   // name → config（来自 ~/.forgify/mcp.json）
+    states        map[string]*mcpdomain.ServerStatus  // name → live state
+    clients       map[string]*mcpClient               // name → live client（含 subprocess handle）
+    notif         notificationspkg.Publisher          // 单 server 状态变化推 `mcp_server` 通知（不发全量快照）
+    log           *zap.Logger
+    modelPicker   modelpickerport.Picker              // search ranking — model 选择
+    keyProvider   apikeydomain.KeyProvider            //   ─ apikey 提供
+    llmFactory    llmclientpkg.Factory                //   ─ build client
+    sandboxPort   sandboxdomain.PluginSandbox         // V3：装 server 时调 EnsureEnv（详 §5.5）
+    registrySrc   mcpdomain.RegistrySource            // 21 条 curated marketplace（详 §5.5）
+    clientFactory func(...) Client                    // 测试注入点（SetClientFactory）
+    mu            sync.RWMutex
 }
 
 func (s *Service) Start(ctx context.Context) error                // 读 mcp.json + 并发 Connect 全部
@@ -515,6 +553,8 @@ func (s *Service) ListServers(ctx context.Context) []ServerStatus
 func (s *Service) ListTools(ctx context.Context) []ToolDef        // 全 server 拉平
 func (s *Service) Search(ctx context.Context, query string, topK int) ([]ToolDef, error)
 func (s *Service) CallTool(ctx context.Context, server, tool string, args json.RawMessage) (string, error)  // 默认 30s 超时
+func (s *Service) Stderr(name string) (string, error)             // 拉某 server 的 stderr ring buffer（256 KB）
+func (s *Service) Import(ctx context.Context, incoming []ServerConfig, overwrite bool) (*MergeResult, error)  // 拖拽导入
 
 // 内置 Registry（详 §5.5）
 func (s *Service) ListRegistry() []RegistryEntry
@@ -523,7 +563,19 @@ func (s *Service) InstallFromRegistry(ctx context.Context, name string, env map[
 
 // 健康检查（详 §5.6）
 func (s *Service) HealthCheck(ctx context.Context, name string) (*HealthResult, error)
+
+// 测试 / web 路由
+func (s *Service) SetClientFactory(f func(...) Client)            // 测试注入 stdio Client（fake 走它）
 ```
+
+**关键时间常量**（`internal/app/mcp/mcp.go`）：
+- `defaultCallTimeout = 30 * time.Second`（tools/call 默认上限）
+- `addServerTimeout   = 3 * time.Minute`（Connect + initialize + tools/list 整轮）
+- `initializeTimeout  = 30 * time.Second`（initialize handshake 单步）
+- `degradedThreshold  = 3`（连续失败次数阈值，触发 ready → degraded）
+
+**SearchRouter port**（给 `app/tool/web/WebSearch` 用）：
+mcpapp 暴露 `SearchRouter` 接口（`internal/app/mcp/searchrouter.go`），`WebSearch` 工具按需把搜索请求路由到已装的 duckduckgo / tavily MCP server——避免 `web` 包反向依赖 mcp 具体实现。
 
 ### Search 实现（同 forge 模式 A）
 
@@ -570,79 +622,87 @@ func NewStdioClient(cmd string, args []string, env map[string]string, log *zap.L
 
 ---
 
-## 8. 2 个 System Tool
+## 8. 5 个 System Tool
 
-### 8.1 `search_mcp`（`internal/app/tool/mcp/search.go`）
+`internal/app/tool/mcp/` 子包，§S12 例外位置（按 tool 家族嵌套）；调用方按 §S13 别名 `mcptool`。
+
+### 8.1 `search_mcp_tools`（`search.go`）
+
+跨所有 connected server 搜索匹配 query 的 tool；返 top 5 候选（含 server / name / description / inputSchema）。`Execute` 主体调 `svc.Search(ctx, query, 5)` 返 JSON。
 
 ```go
-type SearchMCP struct{ svc *mcpapp.Service }
-
-func (t *SearchMCP) Name() string { return "search_mcp" }
-
-func (t *SearchMCP) Description() string {
+func (t *SearchMCPTools) Description() string {
     return "Search across all connected MCP servers for tools matching a query. " +
-           "Returns top 5 candidate tools with their schemas. " +
+           "Returns top candidate tools with their schemas. " +
            "Use when you need an external integration (GitHub, Slack, Postgres, etc.) " +
            "and want to discover what's available before calling."
 }
-
-func (t *SearchMCP) Parameters() json.RawMessage {
-    return json.RawMessage(`{
-      "type":"object",
-      "properties":{
-        "query":{"type":"string","description":"Natural language description of what tool you need"}
-      },
-      "required":["query"]
-    }`)
-}
-
-// 9 方法...
 ```
 
-`Execute` 主体调 `svc.Search` 返结果 JSON。
+### 8.2 `call_mcp_tool`（`call.go`）
 
-### 8.2 `call_mcp`（`internal/app/tool/mcp/call.go`）
+调用特定 server 的特定 tool；args 必须符合该 tool 的 inputSchema（由 `search_mcp_tools` 返）。`Execute` 调 `svc.CallTool` 返字符串结果。
 
 ```go
-func (t *CallMCP) Description() string {
+func (t *CallMCPTool) Description() string {
     return "Invoke a specific tool on a specific MCP server. " +
-           "Find candidates first via search_mcp. " +
-           "args must conform to the tool's inputSchema (returned by search_mcp)."
-}
-
-func (t *CallMCP) Parameters() json.RawMessage {
-    return json.RawMessage(`{
-      "type":"object",
-      "properties":{
-        "server":{"type":"string","description":"Server name (e.g. 'github')"},
-        "tool":{"type":"string","description":"Tool name (no mcp__ prefix)"},
-        "args":{"type":"object","description":"Tool args matching the inputSchema"}
-      },
-      "required":["server","tool","args"]
-    }`)
+           "Find candidates first via search_mcp_tools. " +
+           "args must conform to the tool's inputSchema (returned by search_mcp_tools)."
 }
 ```
 
-`Execute` 调 `svc.CallTool` 返字符串结果。
+### 8.3 `list_mcp_marketplace`（`list_marketplace.go`）
 
-**为什么不在 search 直接 call**：分两步 LLM 显式确认调用意图，**也便于 catalog 路由提示影响"调哪个"决策**——先看候选再选择，比"一键调用"更可控。
+返回 21 条 curated RegistryEntry JSON（含 tier / category / requiredEnv / Notes）；LLM 看后能跟用户讨论"装哪个"。`Execute` 直接 passthrough `svc.ListRegistry()` 返序列化结果。Tier 2/3 entry 的 `Notes` 字段警告 LLM 安装前需 ask 用户确认。
+
+### 8.4 `install_mcp_server`（`install_server.go`）
+
+两阶段流程（详 §5.5 阶段 1/2）：
+
+- **阶段 1**（`{name}`）：返 `phase1Envelope` `{needsConfirmation:true, requiredEnv, requiredArgs, notes, ...}`，LLM 渲染给用户征求 env / args
+- **阶段 2**（`{name, env, args, confirmed:true}`）：调 `mcpapp.InstallFromRegistry` → 写 mcp.json + sandbox.EnsureEnv + Connect → 返 ServerStatus
+
+集成 `pkg/installprogress` 的 Run helper：sandbox install 进度通过 ctx eventlog Emitter 推 `progress` block 到该 tool_call 父下，前端实时看到 "Installing @playwright/mcp..." / "Downloading Chromium ~150MB..." 等。
+
+### 8.5 `uninstall_mcp_server`（`uninstall_server.go`）
+
+调用 `mcpapp.RemoveServer` → Disconnect 子进程 + 从 mcp.json 删 + sandbox env 保留（`docker image prune` 类资源由用户主动清）。
+
+**为什么 search → call 分两步**：让 LLM 显式确认调用意图，**也便于 catalog 路由提示影响"调哪个"决策**——先看候选再选择，比"一键调用"更可控。
 
 ---
 
-## 9. SSE 事件
+## 9. Notifications（per-server，不发全量快照）
 
-```go
-// internal/domain/events/types.go
-type MCP struct {
-    Servers []mcpdomain.ServerStatus `json:"servers"`
+V3 改用 `notificationspkg.Publisher` 推**单 server** 状态变化，不再发全 server 快照——前端按 server name 局部更新，避免快照覆盖正在打字的别处。
+
+```json
+// 通用 envelope（详 events-design.md notifications 协议章）
+{
+  "type": "mcp_server",
+  "id":   "<server-name>",   // 如 "github" / "playwright"；不是 "*"
+  "data": {                   // ServerStatus payload
+    "name":               "github",
+    "status":             "ready",       // disconnected / connecting / ready / degraded / failed
+    "pid":                12345,
+    "connectedAt":        "2026-05-09T13:42:00Z",
+    "consecutiveFailures": 0,
+    "totalCalls":         42,
+    "totalFailures":      0,
+    "tools":              [ /* ToolDef[] */ ]
+  }
 }
-
-func (MCP) EventName() string { return "mcp" }
 ```
 
-**触发点**：`Service.Connect` / `Disconnect` / `Enable` / `Disable` / 子进程退出 monitor 检测到 disconnect 时，发布**全 server 状态快照**（不是单 server 增量——前端拿快照重渲染最简单）。
+**触发点**：
+- `AddServer` / `RemoveServer`（写 mcp.json + Connect/Disconnect 后）
+- `connectOne` 子进程握手成功 / 失败时
+- `Reconnect` 强制重启
+- 子进程退出 monitor 检测 disconnect
 
-**过滤 key**：无（全局事件，前端订阅 user-level）。
+**不触发点**：per-call 失败累计触发的 ready→degraded（详 §5.6 通知边界）；per-call 成功打回 ready。前端要看 degraded 转换靠定期 poll。
+
+**Wire path**：`/api/v1/notifications` 全局通道 + 客户端按 `type=mcp_server` 过滤；`id` 是 server name 用于增量更新。详 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) notifications 协议章。
 
 ---
 
@@ -659,6 +719,7 @@ func (MCP) EventName() string { return "mcp" }
 | `POST /api/v1/mcp-servers:import` | **拖拽导入**（multipart 上传 mcp.json 文件 / 文本 fragment）| `{data: {imported: [...], conflicts: [...]}}` |
 | `POST /api/v1/mcp-servers/{name}:reconnect` | 强制重启子进程（degraded / failed 恢复用）| `{data: ServerStatus}` |
 | `POST /api/v1/mcp-servers/{name}:health-check` | 主动健康检查（调 tools/list 验证）| `{data: HealthResult}` |
+| `GET /api/v1/mcp-servers/{name}/stderr` | 拉某 server 的 stderr ring buffer（256 KB，给 testend / Tier 2 OAuth modal 看 device-code URL）| `{data: {stderr: "..."}}` |
 
 ### Registry（marketplace 体验）
 
@@ -704,7 +765,7 @@ func (MCP) EventName() string { return "mcp" }
 
 ---
 
-## 11. 错误码
+## 11. 错误码（14 个）
 
 | Sentinel | HTTP | Wire Code |
 |---|---|---|
@@ -718,8 +779,12 @@ func (MCP) EventName() string { return "mcp" }
 | `mcpdomain.ErrRequiredEnvMissing` | 422 | `MCP_REQUIRED_ENV_MISSING` |
 | `mcpdomain.ErrRequiredArgsMissing` | 422 | `MCP_REQUIRED_ARGS_MISSING` |
 | `mcpdomain.ErrInstallFailed` | 502 | `MCP_INSTALL_FAILED` |
+| `mcpdomain.ErrMarketplaceUnavailable` | 503 | `MCP_MARKETPLACE_UNAVAILABLE` |
+| `mcpdomain.ErrAlreadyInstalled` | 409 | `MCP_ALREADY_INSTALLED` |
+| `mcpdomain.ErrUnsupportedRuntime` | 422 | `MCP_UNSUPPORTED_RUNTIME` |
+| `mcpdomain.ErrHandshakeFailed` | 502 | `MCP_HANDSHAKE_FAILED` |
 
-`ErrToolCallFailed` / `ErrInstallFailed` 用 502（外部 server / 包管理器错），消息含原始失败文本。
+`ErrToolCallFailed` / `ErrInstallFailed` / `ErrHandshakeFailed` 用 502（外部 server / 包管理器 / 握手错），消息含原始失败文本。`ErrAlreadyInstalled` 409 表达"server 名已占用"。
 
 ---
 
@@ -731,7 +796,6 @@ type catalogSource struct{ svc *Service }
 
 func (c *catalogSource) Name() string                                    { return "mcp" }
 func (c *catalogSource) Granularity() catalogdomain.Granularity          { return catalogdomain.PerServer }
-func (c *catalogSource) EventTopics() []string                          { return []string{"mcp"} }
 
 func (c *catalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
     items := []catalogdomain.Item{}
@@ -764,7 +828,7 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 | infra/mcp | `internal/infra/mcp/{client,config}_test.go` | 实测 | stdio handshake fixture / tools/list / call / 子进程退出 / Load/Save/Merge atomic+0600 |
 | app/mcp | `internal/app/mcp/{mcp,registry}_test.go` | 实测 | Connect/Disconnect/Reconnect / CallTool / 健康累计 / degraded 触发 / 自愈 / Registry install / runtime 缺失拒绝 |
 | app/tool/mcp | （tool 实测覆盖在 transport handler 集成测试 + pipeline 闭环里） | — | search/call 行为通过 HTTP + pipeline 端到端验证 |
-| transport/handlers | `internal/transport/httpapi/handlers/mcp_test.go` | 20 | 10 端点 happy + error 分支 + import multipart/JSON + conflict overwrite |
+| transport/handlers | `internal/transport/httpapi/handlers/mcp_test.go` | 20 | 11 端点 happy + error 分支 + import multipart/JSON + conflict overwrite + stderr ring buffer |
 | pipeline | `test/mcp/mcp_test.go` | 4 + 1 gated | (1) tools/list+search+call 闭环 / (2) BadCommand→failed / (3+4) 连续失败→degraded→自愈 / (5) Live_ 装 everything（双门控：sandbox.IsReady() + `FORGIFY_LIVE_MCP_INSTALL=1`）|
 
 **fake MCP server**：`backend/test/mcp/fakeserver/main.go` ~70 行；3 tool（echo / fail / crash）；TestMain 一次性 build。**离线可跑**。
@@ -777,11 +841,12 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 
 | 关系 | 说明 |
 |---|---|
-| **chat** | 主对话 LLM 通过 search_mcp / call_mcp 间接使用；mcpapp 不直接 import chat |
-| **catalog** | mcpapp 实现 CatalogSource，catalog 通过接口拉数据 |
-| **events** | 复用 events bridge，发 mcp 全局快照事件 |
-| **logger** | 子进程 stderr → zap.L().Named("mcp.<server>")，便于过滤排查 |
-| **llmclient** | Search ranking 调 llm（用 chat 场景模型，简化）|
+| **chat** | 主对话 LLM 通过 5 个 system tool 间接使用；mcpapp 不直接 import chat。`pkg/installprogress` 把 sandbox install 进度推到当前 ctx 的 eventlog Emitter（tool_call 父下的 progress block）|
+| **catalog** | mcpapp 实现 CatalogSource，catalog 1s 轮询拉数据 |
+| **notifications** | 经 `notificationspkg.Publisher` 推 `mcp_server` per-name 通知（详 §9）；不再走 events bridge |
+| **sandbox** | `Service.InstallFromRegistry` 调 `sandboxapp.EnsureEnv(owner=mcp/<name>)` 装 runtime + deps；`Service.Connect` 调 `SpawnLongLived` 拿 stdio handle |
+| **logger** | 子进程 stderr → zap.L().Named("mcp.<server>")，便于过滤排查；同时存进 256 KB ring buffer 给 `/stderr` 端点 |
+| **llmclient** | Search ranking 调 LLM（modelPicker + keyProvider + llmFactory 三件套，每次 attempt 内部 resolve）|
 
 ---
 

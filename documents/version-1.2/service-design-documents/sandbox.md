@@ -1,21 +1,23 @@
 # Sandbox — V1.2 详设计（PluginSandbox v2 统一架构）
 
 **Phase**：Phase 4 准备件（提前到位，与 mcp/skill/forge 整合）
-**状态**：📐 设计完成（2026-05-05）— 待实施
+**状态**：✅ Marketplace V3 collapse（2026-05-08）：仅 Python + Node 2 EnvManagers + 3 RuntimeInstaller（python / node / uv via mise）；原 11 EnvManager 矩阵 + Docker / Playwright / Dotnet / Static / Generic / Rust / Go / Java / Ruby / PHP installer 全部删除（无消费方）。Layer A/B leak prevention：Service.Shutdown / RestoreOrCleanupOnBoot + Env.RunningPID/RunningStartedAt manifest 追踪 spawn 子进程。`sandbox_env` per-env notification on every state transition。
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `sandbox_runtimes` + `sandbox_envs` 两表（待加）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — sandbox ×8（待加）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — install 进度通过 chat.message tool_call/tool_result 走，不新增事件
-- 关联设计：[`forge.md`](./forge.md)（现有 forge sandbox 升级为本设计的 first consumer）/ [`mcp.md`](./mcp.md)（MCP server install 走本服务）/ [`skill.md`](./skill.md)（未来 skill 带 deps 时复用）
+- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `sandbox_runtimes` + `sandbox_envs` 两表（含 running_pid / running_started_at 列）
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — sandbox ×11（已接 errmap）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `sandbox_env` per-env entity-state 通知 + install 进度通过 ctx eventlog Emitter 推 progress block 到调用方 tool_call 父下（详 §10）
+- 关联设计：[`forge.md`](./forge.md)（forge sandbox 是 first consumer）/ [`mcp.md`](./mcp.md)（MCP server install 走本服务）/ [`skill.md`](./skill.md)（未来 skill 带 deps 时复用）
 
 ---
 
 ## 1. 一句话
 
-**统一的 PluginRuntime 抽象**——给 forge / mcp / skill / **每个对话**（agent scratch）/ 未来任何 plugin 提供"安装 runtime → 建独立 env → 装 deps → spawn 子进程"的一站式服务。**Bootstrap 仅 mise + 几个 helper 脚本（~10 MB）**，所有语言运行时（Python / Node / Rust / Java / Go / Ruby / PHP / 长尾）lazy install 到 `~/.forgify/sandbox/runtimes/`，每个 plugin 实例的依赖隔离到 `~/.forgify/sandbox/envs/`。
+**统一的 PluginRuntime 抽象**——给 forge / mcp / skill / **每个对话**（agent scratch）/ 未来任何 plugin 提供"安装 runtime → 建独立 env → 装 deps → spawn 子进程"的一站式服务。**Bootstrap 仅 mise binary（~25 MB go:embed 进 binary）**，**Python + Node** runtime + uv 工具 lazy install 到 `<dataDir>/sandbox/runtimes/`，每个 plugin 实例的依赖隔离到 `<dataDir>/sandbox/envs/`。
 
-**Bash 自动路由**：LLM 通过 Bash tool 跑 `pip install pandas` / `python script.py` / `npm install` 等命令时，sandbox 检测命令意图，**自动路由到该对话的 scratch env**——LLM 完全不知道沙箱存在，但所有动作都被收口（不污染用户系统、不跨对话扩散）。详见 §9.6。
+**V3 collapse**（2026-05-08）：原 11 EnvManager 矩阵（Rust / Go / Java / Ruby / PHP / .NET / Playwright / Docker / Generic / Static）已全部删除——marketplace V3 curated 21 条只用 npm + pypi，forge/skill/conversation 也只跑 Python/Node 脚本。详 §4。
+
+**Bash 自动路由**：LLM 通过 Bash tool 跑 `pip install pandas` / `python script.py` / `npm install` 等命令时，sandbox 检测命令意图，**自动路由到该对话的 scratch env**——LLM 完全不知道沙箱存在，但所有动作都被收口（不污染用户系统、不跨对话扩散）。详见 §9.5。
 
 ---
 
@@ -25,50 +27,52 @@
 
 ```
 main.go → sandboxapp.NewService(deps).Start(ctx)
-  → 加载 ~/.forgify/sandbox/manifest.json 等价 SQLite 表（sandbox_runtimes + sandbox_envs）
-  → 检测 bootstrap 是否就位（~/.forgify/sandbox/bootstrap/mise 等）
+  → 加载 SQLite manifest 表（sandbox_runtimes + sandbox_envs）
+  → 检测 mise binary 是否在 <dataDir>/sandbox/bin/mise
       ✅ 在 → 继续
-      ❌ 缺 → 从 embed.FS 解出 bundled binary 到 bootstrap/
+      ❌ 缺 → 从 go:embed 解出当前平台 mise binary 到 <dataDir>/sandbox/bin/，chmod +x，darwin 跑 codesign
+  → 跑 RestoreOrCleanupOnBoot（Layer B 泄漏防护）：
+      → 扫所有 envs.RunningPID != 0 的行
+      → 该 PID 还活着且 cmdline 含 forgify env 路径 → 重新 attach 到 activeHandles
+      → 否则清掉 RunningPID（前次进程已死，遗留状态）
+  → 启 mise 全局配置写入（disable 所有 attestation backend）
   → 准备好接 plugin 调用
 ```
 
 **注意：启动时不预装任何 runtime 或 env**——什么都不做，等第一个 plugin 来要。
 
-### 运行期 — 用户装 Playwright MCP
+### 运行期 — 用户装 Node-类 MCP server（如 github）
 
 ```
-mcpapp.InstallFromRegistry(ctx, "playwright")
+mcpapp.InstallFromRegistry(ctx, "github")
   ↓
-sandboxapp.EnsureEnv(ctx, Owner{Kind:"mcp", ID:"playwright"}, EnvSpec{
+sandboxapp.EnsureEnv(ctx, Owner{Kind:"mcp", ID:"github"}, EnvSpec{
   Runtime: RuntimeSpec{Kind:"node", Version:""},   // "" = 用 default
-  Deps:    []string{"@playwright/mcp"},
-  Extras:  []string{"browsers/chromium"},
+  Deps:    []string{"@modelcontextprotocol/server-github"},
 })
   ↓
 Step 1: EnsureRuntime("node", "")
   → 查 sandbox_runtimes 表：node 类是否有 default 行
-  → 没有 → 跑 bootstrap/mise install node@22  → 等 ~50 MB 下载
-  → 写一行 sandbox_runtimes：kind=node, version=22.5.0, path=runtimes/node/22.5.0, isDefault=true
-  → 推 SSE 进度（"Installing Node.js 22.5.0..."）
+  → 没有 → 跑 mise install node@22  → 等 ~50 MB 下载
+  → 写一行 sandbox_runtimes：kind=node, version=22.x.y, path=mise-data/installs/node/22.x.y, isDefault=true
+  → 通过 ctx eventlog Emitter 推 progress block delta（详 §10）
   ↓
-Step 2: 创建 envs/mcp/playwright/
-  → 写 package.json with @playwright/mcp
-  → 跑 <node>/pnpm install --prefix=envs/mcp/playwright（共享 global store）
-  → 推 SSE 进度（"Installing @playwright/mcp..."）
+Step 2: 创建 envs/mcp/github/
+  → 写 package.json
+  → 跑 npm install --prefix=envs/mcp/github @modelcontextprotocol/server-github
+  → 通过 ctx eventlog Emitter 推 progress delta
   ↓
-Step 3: 处理 Extras: browsers/chromium
-  → 跑 envs/mcp/playwright/node_modules/.bin/playwright install chromium
-  → 推 SSE 进度（"Downloading Chromium browser (~150MB)..."）
-  → 若 chromium 已装（共享 PLAYWRIGHT_BROWSERS_PATH=runtimes/browsers/）跳过
+Step 3: 写一行 sandbox_envs：
+  ownerKind=mcp, ownerID=github, runtimeID=<node row id>,
+  deps=["@modelcontextprotocol/server-github"], path=mcp/github,
+  sizeBytes=..., status=ready
+  ↓ publish notification {type:"sandbox_env", id:"se_xxx", data:{status:"ready", ...}}
   ↓
-Step 4: 写一行 sandbox_envs：
-  ownerKind=mcp, ownerID=playwright, runtimeID=<node-22.5.0 row id>,
-  deps=["@playwright/mcp"], extras=["browsers/chromium"],
-  path=envs/mcp/playwright, sizeBytes=...
-  ↓
-Step 5: 返 EnvHandle 给 mcpapp.Service
-  → mcpapp 拿 EnvHandle.Spawn(...) 起 MCP server 子进程
+Step 4: 返 *Env 给 mcpapp.Service
+  → mcpapp 拿 envID 调 SpawnLongLived 起 MCP server 子进程
 ```
+
+> Python-类 server（如 sentry / figma）流程相同，把 RuntimeSpec.Kind 改 `"python"`，`uv pip install <pkg>` 替代 `npm install`。
 
 ### 运行期 — Forge 跑代码（一次性 spawn）
 
@@ -91,20 +95,26 @@ Service 查 sandbox_envs 找匹配 env（已存在）
 ### 运行期 — MCP server 长生命周期 spawn
 
 ```
-mcpapp.Connect(ctx, "playwright")
+mcpapp.Connect(ctx, "github")
   ↓
-sandboxapp.Spawn(ctx, Owner{Kind:"mcp", ID:"playwright"}, SpawnOpts{
-  Cmd: "node",
-  Args: []string{"node_modules/@playwright/mcp/dist/index.js"},
+sandboxapp.SpawnLongLived(ctx, Owner{Kind:"mcp", ID:"github"}, SpawnOpts{
+  Cmd: "npx",
+  Args: []string{"-y", "@modelcontextprotocol/server-github"},
   Env: map[string]string{
-    "PLAYWRIGHT_BROWSERS_PATH": runtimes/browsers/  // 强制本地化
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_...",
   },
-  LongLived: true,
 })
   ↓
-Service 用 envs/mcp/playwright/.runtime/node/bin/node 跑
-  → 返 LongLivedHandle{Stdin, Stdout, Stderr, Wait, Kill}
+Service 解析 npx 路径到 envs/mcp/github/.runtime/node/bin/npx
+  → 写 RunningPID + RunningStartedAt 到 sandbox_envs（Layer B leak prevention）
+  → trackedHandle 加进 activeHandles map（Layer A graceful shutdown 用）
+  → 返 LongLivedHandle{Stdin, Stdout, Stderr, Wait, Kill, PID}
   → mcpapp 用这个 handle 走 JSON-RPC over stdio
+  ↓
+进程退出（正常 / kill / crash）→ Wait goroutine 触发：
+  → 清 RunningPID = 0 + RunningStartedAt = nil
+  → 从 activeHandles 移除
+  → 错误时 publish sandbox_env 通知 status="failed"
 ```
 
 ---
@@ -182,20 +192,23 @@ func (Runtime) TableName() string { return "sandbox_runtimes" }
 
 ```go
 type Env struct {
-    ID          string         `gorm:"primaryKey;type:text" json:"id"`              // se_<16hex>
-    OwnerKind   string         `gorm:"not null;type:text;index:idx_se_owner,priority:1" json:"ownerKind"` // "forge" / "mcp" / "skill" / "conversation"
-    OwnerID     string         `gorm:"not null;type:text;index:idx_se_owner,priority:2" json:"ownerID"`   // f_xxx / "playwright" / etc.
-    OwnerName   string         `gorm:"type:text" json:"ownerName,omitempty"`        // UI display
-    RuntimeID   string         `gorm:"not null;type:text;index" json:"runtimeId"`   // FK → sandbox_runtimes.id
-    Deps        []string       `gorm:"serializer:json" json:"deps"`                 // ["pandas==2.0", "numpy"]
-    Extras      []string       `gorm:"serializer:json" json:"extras,omitempty"`     // ["browsers/chromium"]
-    Path        string         `gorm:"not null;type:text" json:"path"`              // 相对 envs/，如 "mcp/playwright"
-    SizeBytes   int64          `json:"sizeBytes"`
-    Status      string         `gorm:"not null;type:text;default:ready" json:"status"` // "installing" / "ready" / "failed"
-    ErrorMsg    string         `gorm:"type:text" json:"errorMsg,omitempty"`
-    CreatedAt   time.Time      `json:"createdAt"`
-    LastUsedAt  time.Time      `gorm:"index" json:"lastUsedAt"`                      // GC 用
-    UpdatedAt   time.Time      `json:"updatedAt"`
+    ID                string     `gorm:"primaryKey;type:text" json:"id"`              // se_<16hex>
+    OwnerKind         string     `gorm:"not null;type:text;index:idx_se_owner,priority:1" json:"ownerKind"` // "forge" / "mcp" / "skill" / "conversation"
+    OwnerID           string     `gorm:"not null;type:text;index:idx_se_owner,priority:2" json:"ownerID"`   // f_xxx / "github" / etc.（**用 `_` 不用 `:`**，详 §5）
+    OwnerName         string     `gorm:"type:text" json:"ownerName,omitempty"`        // UI display
+    RuntimeID         string     `gorm:"not null;type:text;index" json:"runtimeId"`   // FK → sandbox_runtimes.id
+    Deps              []string   `gorm:"serializer:json" json:"deps"`                 // ["pandas==2.0", "numpy"]
+    Extras            []string   `gorm:"serializer:json" json:"extras,omitempty"`     // ["browsers/chromium"]（V3 后基本不用）
+    Path              string     `gorm:"not null;type:text" json:"path"`              // 相对 envs/，如 "mcp/github"
+    SizeBytes         int64      `json:"sizeBytes"`
+    Status            string     `gorm:"not null;type:text;default:ready;check:status IN ('installing','ready','failed','destroyed')" json:"status"`
+    ErrorMsg          string     `gorm:"type:text" json:"errorMsg,omitempty"`
+    // Layer B leak prevention（详 §8 Service.RestoreOrCleanupOnBoot）
+    RunningPID        int        `gorm:"index" json:"runningPid,omitempty"`           // 当前 spawn 出去的子进程 PID；0 = 未在 spawn
+    RunningStartedAt  *time.Time `json:"runningStartedAt,omitempty"`                  // 配套时间戳，给 PID 重用检测用
+    CreatedAt         time.Time  `json:"createdAt"`
+    LastUsedAt        time.Time  `gorm:"index" json:"lastUsedAt"`                     // GC 用
+    UpdatedAt         time.Time  `json:"updatedAt"`
 }
 
 func (Env) TableName() string { return "sandbox_envs" }
@@ -205,17 +218,20 @@ func (Env) TableName() string { return "sandbox_envs" }
 复合索引 `idx_se_owner`：按 owner 查"我的 env 是哪份"。
 索引 `runtime_id`：runtime GC 时反查"还有人用吗"。
 索引 `last_used_at`：按时间 GC。
+索引 `running_pid`：boot scan 时按 `WHERE running_pid != 0` 过滤"上次还在 spawn 的 envs"。
+
+CHECK 约束：`status IN ('installing','ready','failed','destroyed')`。
 
 ### Owner / Spec / Handle 等支持类型
 
 ```go
 type Owner struct {
     Kind string  // "forge" / "mcp" / "skill" / "conversation" / 未来扩展
-    ID   string  // 唯一标识，按 Kind 不同：
+    ID   string  // 唯一标识，按 Kind 不同（**禁 `:` 等系统 PATH 元字符**，违反返 ErrInvalidOwnerID）：
                  //   forge:        EnvID（同 deps 多 forge 版本共享）
-                 //   mcp:          server 名（如 "playwright"）
+                 //   mcp:          server 名（如 "github"）
                  //   skill:        skill 名
-                 //   conversation: "<conv_id>:<runtime_kind>"，如 "cv_abc:python"
+                 //   conversation: "<conv_id>_<runtime_kind>"，如 "cv_abc_python"（**用 `_` 分隔，不用 `:`**）
     Name string  // UI display 用
 }
 
@@ -259,7 +275,7 @@ type LongLivedHandle interface {
 type ProgressFunc func(stage, message string, percent int)
 ```
 
-### Sentinel 错误（10 个）
+### Sentinel 错误（11 个，V3 后）
 
 ```go
 var (
@@ -271,80 +287,26 @@ var (
     ErrSpawnFailed          = errors.New("sandbox: spawn process failed")
     ErrSpawnTimeout         = errors.New("sandbox: spawn process timeout")
     ErrEnvInUse             = errors.New("sandbox: env in use; cannot destroy")
-    // Docker-specific (added 2026-05-08 alongside Docker runtime support).
-    // Forgify cannot install Docker for the user (system service); these
-    // surface clear platform-specific install URLs to the caller.
-    // Docker 专用（2026-05-08 与 Docker runtime 同期加）。Forgify 不替用户装
-    // Docker（系统服务）；返清晰平台对应安装链接给调用方。
-    ErrDockerNotInstalled = errors.New("sandbox: docker not installed")
-    ErrDockerDaemonDown   = errors.New("sandbox: docker daemon not responding")
+    // Owner.ID 校验（PATH-meta 字符守卫——禁 `:` 等会被系统 PATH 拼接咬到的字符）
+    ErrInvalidOwnerID       = errors.New("sandbox: invalid owner id")
+    // SpawnOpts.Cmd 必填守卫
+    ErrCmdRequired          = errors.New("sandbox: cmd required for spawn")
+    // Bootstrap 失败 → degraded mode 入口返此（详 §15.1）
+    ErrSandboxUnavailable   = errors.New("sandbox: bootstrap not ready")
 )
 ```
 
+**已删（V3 collapse）**：`ErrDockerNotInstalled` / `ErrDockerDaemonDown` 与 Docker runtime 同期移除。
+
 ---
 
-## 5b. Docker runtime（2026-05-08 加，准备 marketplace V2 接入官方 MCP registry 中的 oci/docker package）
+## 5b. Docker runtime — 已删除（V3，2026-05-08）
 
-### 为什么 Docker 不像其他 runtime 那样能"装"
-
-| 维度 | node / python / 等 mise 管的 | docker |
-|---|---|---|
-| 装 runtime | mise 拉 binary 到 ~/.local | **不能装**——系统服务 + 要 root/admin |
-| 平台基础设施 | 跨平台一致 | Mac/Win 要 Docker Desktop（~1.2 GB GUI + 内嵌 Linux VM）；Linux 要 dockerd systemd |
-| Forgify 能干啥 | 自动装 + 缓存 + 复用 | **只能探活**（`docker version --format {{.Server.Version}}`）+ 缺时返清晰安装链接 |
-
-### DockerInstaller 行为
-
-`Install()` 不真装——跑 `docker version` 探 daemon：
-- CLI 不在 PATH → 返 `ErrDockerNotInstalled` + 平台对应安装链接（Mac/Win → Docker Desktop；Linux → Docker Engine + `usermod -aG docker $USER`）
-- CLI 在但 daemon 不响应 → 返 `ErrDockerDaemonDown` + 平台对应启动指令（Mac/Win → 启 Docker Desktop；Linux → `sudo systemctl start docker`）
-- 都 OK → 写 marker 文件到 `<sandboxRoot>/docker-marker` 记 server 版本
-
-`Locate()` 始终返 `"docker"`（系统 PATH）。`ListAvailable()` 返 nil（不枚举）。`ResolveDefault()` 返 ""（无版本概念）。
-
-### DockerEnvManager 行为
-
-- `CreateEnv(envPath)`：mkdir 一个 host 目录，将作容器 `/workspace` 的 bind 挂载源
-- `InstallDeps([image])`：`docker pull <image>`；多 deps 取首项 + warn log（一容器一 image）
-- `InstallExtras`：no-op
-- `EnvBin()`：返 `"docker"`（系统 PATH）；真正的 `docker run -i --rm -v ...` 命令由调用方经 `BuildDockerRunArgs` helper 拼
-
-### BuildDockerRunArgs（helper）
-
-`mcp` adapter（marketplace V2 加进来）从 registry 装 docker package 时，调此 helper 拼 `ServerConfig.Args`：
-
-```go
-args := BuildDockerRunArgs(envPath, image, []string{"API_KEY=xxx"}, []string{"--db-path", "/workspace/db"})
-// → ["run", "-i", "--rm", "-v", envPath+":/workspace", "-e", "API_KEY=xxx", image, "--db-path", "/workspace/db"]
-```
-
-### 安全 + 默认
-
-- **bind 挂载**：仅 envPath（per-server 隔离）；**绝不**自动挂 host home/root 目录（避免 LLM 通过 docker MCP server 偷文件）
-- **network**：默认 docker bridge（容器有外网，不能访问 host 内网）
-- **资源限制**：V1 无默认 `--memory` / `--cpus`（信任 marketplace 精选条目）
-- **容器生命周期**：`--rm` 自动清；`-i` 保持 stdin（stdio MCP transport）；进程结束 = 容器死
-- **image 缓存**：拉到 docker daemon 系统级 cache，**永不自动删**；卸 server 不删 image（可能复用）；用户想清空跑 `docker image prune`
-
-### 跨平台
-
-- Mac/Win：通过 Docker Desktop 提供的 socket，自动找
-- Linux：`/var/run/docker.sock`（用户加 docker group 才能不 sudo 跑）
-- 国内镜像加速：用户在 Docker Desktop 设置里配（Forgify 不接管）
-
-### 关键限制（**用户必须做一次性配置**）
-
-1. **必须自己装 Docker Desktop / Docker Engine**——Forgify 给清晰链接但不替装
-2. **Mac/Win 用 Docker Desktop 商业 license 注意**——>250 员工的公司付费
-
-### 与 marketplace V2 的衔接（下一轮）
-
-V2 marketplace adapter 处理"registry entry 是 docker package"时：
-1. 调 `sandbox.EnsureEnv(owner=mcp/<alias>, spec={Runtime:{Kind:"docker"}, Deps:[image_ref]})`
-2. 拿到 envPath
-3. 用 `BuildDockerRunArgs(envPath, image, env, serverArgs)` 拼 ServerConfig.Args
-4. 调 `mcp.AddServer(ServerConfig{Command:"docker", Args:<拼好的>, ...})`
-5. mcp 内部 `exec.Command("docker", args...)` 起 stdio 容器作 MCP server
+> Marketplace V3 collapse 时把 Docker runtime 全部移除（DockerInstaller / DockerEnvManager / BuildDockerRunArgs helper / `ErrDockerNotInstalled` / `ErrDockerDaemonDown`）——curated 21 条全部 npm + pypi，无 docker package。
+>
+> 原设计：MCP marketplace V2 准备接 OCI/docker package 时加的探活 + bind-mount 包装。
+>
+> 未来真要加（社区 docker MCP server 多到不可忽视）再恢复，git history 还在。
 
 ---
 
@@ -358,6 +320,7 @@ type Repository interface {
     FindDefaultRuntime(ctx context.Context, kind string) (*Runtime, error)         // kind 默认那个
     FindRuntime(ctx context.Context, kind, version string) (*Runtime, error)        // 精确版本
     ListRuntimes(ctx context.Context) ([]*Runtime, error)
+    UpdateRuntime(ctx context.Context, r *Runtime) error                             // 路径 / size 更新
     DeleteRuntime(ctx context.Context, id string) error
 
     // Env CRUD
@@ -369,9 +332,14 @@ type Repository interface {
     UpdateEnv(ctx context.Context, e *Env) error
     DeleteEnv(ctx context.Context, id string) error
 
+    // Layer B leak prevention（详 §8 Service.RestoreOrCleanupOnBoot）
+    SetEnvRunningPID(ctx context.Context, envID string, pid int, startedAt time.Time) error
+    ClearEnvRunningPID(ctx context.Context, envID string) error
+    ListEnvsWithRunningPID(ctx context.Context) ([]*Env, error)                      // boot 扫描入口
+
     // 聚合查询
-    TotalSizeBytes(ctx context.Context) (int64, error)                              // UI 显示磁盘占用
-    ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*Env, error)        // GC 候选
+    TotalSizeBytes(ctx context.Context) (int64, error)                               // UI 显示磁盘占用
+    ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*Env, error)         // GC 候选
 }
 ```
 
@@ -419,10 +387,9 @@ type ToolRegistry interface {
     EnsureTool(ctx context.Context, kind, version string) (binPath string, err error)
 }
 
-// EnvManager 知道怎么在 runtime 上建包隔离环境。需要支持工具的实现
-// （Python/uv、Node/pnpm、Java/maven、Ruby/bundler、PHP/composer）构造时
-// 接 ToolRegistry，操作时按需 EnsureTool 拿路径。无支持工具的实现
-// （Rust、Go、Dotnet、Static、Generic、Playwright wrapper）构造无参数。
+// EnvManager 知道怎么在 runtime 上建包隔离环境。V3 仅 2 个实现：
+// PythonEnvManager（用 ToolRegistry 懒解析 uv 路径）+ NodeEnvManager（用 npm，
+// runtimePath 直接拿 node 解释器即可，不需要支持工具）。
 type EnvManager interface {
     Kind() string  // 同 RuntimeInstaller.Kind()
 
@@ -430,10 +397,10 @@ type EnvManager interface {
     // runtimePath 是 RuntimeInstaller.Locate 返的解释器目录
     CreateEnv(ctx context.Context, runtimePath, envPath string) error
 
-    // InstallDeps 在 env 里装 deps（uv pip install / pnpm install / cargo install / etc.，统一走包管理器原生共享机制）
+    // InstallDeps 在 env 里装 deps（uv pip install / npm install --prefix，统一走包管理器原生共享机制）
     InstallDeps(ctx context.Context, runtimePath, envPath string, deps []string, stream ProgressFunc) error
 
-    // InstallExtras 跑额外 install 步骤（如 Playwright Chromium 下载）
+    // InstallExtras 跑额外 install 步骤（V3 后基本不用——Playwright Extras 已删；接口保留供未来扩展）
     InstallExtras(ctx context.Context, runtimePath, envPath string, extras []string, stream ProgressFunc) error
 
     // EnvBin 返 env 内某 binary 的绝对路径（用于 Spawn）
@@ -445,102 +412,67 @@ type EnvManager interface {
 }
 ```
 
-### v1 ship 的 Installer + EnvManager（全部 D2 实施，**无延后到 v2**）
+### v1 ship 的 Installer + EnvManager（V3 — 仅 Python + Node）
 
 §S12 平铺规则：所有实现按 `installer_<name>.go` / `envmanager_<name>.go` 命名，
 直接放 `internal/infra/sandbox/` 下，不分子目录。
 
-#### Installer
+#### RuntimeInstaller（3 个）
 
-| Installer | Kind | 文件 |
-|---|---|---|
-| **mise generic** | `python` / `node` / `rust` / `java` / `go` / `ruby` / `php` / 其他长尾 | `installer_mise.go` —— 一个 struct 通配，按 kind 路由 |
-| **Playwright** | `browsers` | `installer_playwright.go` —— 跑 `playwright install <browser>` |
-| **dotnet** | `dotnet` | `installer_dotnet.go` —— 微软官方 `dotnet-install.sh` / `.ps1` 封装 |
-| **static-binary** | `static` | `installer_static.go` —— 直接下载二进制（如 GitHub MCP）|
+| Installer | Kind | 文件 | 备注 |
+|---|---|---|---|
+| **mise python** | `python` | `installer_mise.go`（参数化）| python-build-standalone via mise |
+| **mise node** | `node` | 同上 | nodejs.org tarball via mise |
+| **mise uv** | `uv` | 同上 | Python 二级火箭，pin 0.11.4（详 §4）|
 
-#### EnvManager（一种语言一个，因包管理器互不兼容）
+`MiseInstaller` 是单一 struct，构造时传 `kind` + `defaultVersion` 参数化注册同一类型 3 次（python / node / uv）。
+
+#### EnvManager（2 个，V3 collapse 后）
 
 | EnvManager | Kind | 文件 | 隔离机制 |
 |---|---|---|---|
 | **Python** | `python` | `envmanager_python.go` | `uv venv` + `uv pip install`（uv hardlink 全局 wheel cache） |
-| **Node** | `node` | `envmanager_node.go` | `pnpm install --prefix=<env_path>`（pnpm content-addressable global store + symlink）|
-| **Rust** | `rust` | `envmanager_rust.go` | `cargo install --root=<env_path>` + `CARGO_HOME=<env>/.cargo` |
-| **Go** | `go` | `envmanager_go.go` | `GOPATH=<env_path>/gopath` + `go install` |
-| **Java** | `java` | `envmanager_java.go` | **方案 A**：每 env 独立 Maven local repo，`MAVEN_OPTS=-Dmaven.repo.local=<env>/m2`。每 env 独立下载所有 jar，磁盘最大但隔离最干净——跟 venv 哲学一致 |
-| **Ruby** | `ruby` | `envmanager_ruby.go` | Bundler `BUNDLE_PATH=<env>/bundle` |
-| **PHP** | `php` | `envmanager_php.go` | Composer `--working-dir=<env>` |
-| **Playwright** | `browsers` | `envmanager_playwright.go` | 委托给 Node 的 pnpm 装 playwright npm 包；二进制 chromium 路径独立 |
-| **dotnet** | `dotnet` | `envmanager_dotnet.go` | `dotnet add package` + per-env `nuget.config` |
-| **Static binary** | `static` | `envmanager_static.go` | 无包管理；env 仅持二进制 + 启动脚本 |
-| **Generic fallback** | `*` | `envmanager_generic.go` | 兜底 EnvManager：仅 mkdir env 目录，让用户/LLM 在 cwd 自己跑包管理器。给 mise 长尾 600+ 语言（Erlang / Elixir / Lua / Zig / Deno / etc.）和未来 plugin 用 |
+| **Node** | `node` | `envmanager_node.go` | `npm install --prefix=<env_path>`（不用 pnpm；npm 内置够用 + 全平台稳） |
 
-#### D2-3 实施顺序（5 子任务，按消费方/复杂度分组）
+**已删（V3 collapse 2026-05-08）**：原 9 个 EnvManager（Rust / Go / Java / Ruby / PHP / .NET / Playwright / Static / Generic）+ 3 个 Installer（Playwright / Dotnet / Static）共 ~700 行无 caller 代码移除。详 §4。
 
-| 子任务 | 内容 | 主要消费方 |
-|---|---|---|
-| **D2-3a**（已完成）| MiseInstaller + PythonEnvManager | Forge / MarkItDown / DuckDuckGo MCP / Skill |
-| **D2-3b** | NodeEnvManager + PlaywrightInstaller + PlaywrightEnvManager | Playwright MCP / Context7 MCP / conv |
-| **D2-3c** | GenericEnvManager + StaticBinaryInstaller + StaticBinaryEnvManager | conv 长尾语言 + 未来纯静态二进制 plugin |
-| **D2-3d** | RustEnvManager + GoEnvManager | conv `cargo build` / `go run` |
-| **D2-3e** | JavaEnvManager + RubyEnvManager + PHPEnvManager | conv 三种传统语言（流程相似） |
-| **D2-3f** | DotnetInstaller + DotnetEnvManager | conv .NET |
-
-**Java EnvManager 决策**：选**方案 A**（每 env 独立 Maven local repo），代价是磁盘大但 demo 阶段不显著。pnpm/uv 共享缓存的优雅在 Maven 上做要重写 jar 解析，不值——v2 视用户反馈再优化。
-
-### main.go 装配示例
+### main.go 装配（实际形态，cmd/server/main.go::registerSandboxStack）
 
 ```go
-// main.go
-sandboxService := sandboxapp.New(repo, dataDir, log)
+sandboxService := sandboxapp.NewSandbox(sandboxapp.Config{
+    DataDir:  dataDir,
+    Repo:     sandboxstore.NewRepository(db),
+    Notif:    notifPublisher,        // sandbox_env per-env 通知（详 §10）
+    Log:      log,
+})
+
 if err := sandboxService.Bootstrap(ctx); err != nil {
-    log.Warn("sandbox degraded mode", zap.Error(err)) // 不致命
+    // degraded mode（详 §15.1）—— 不 fatal，banner + 后续入口返 ErrSandboxUnavailable
+    log.Error("sandbox bootstrap failed; entering degraded mode", zap.Error(err))
 }
-miseBin := sandboxService.MiseBin()
 
-// 1. RuntimeInstaller —— 7 种主流 mise 通配 + 4 种支持工具（uv/pnpm/maven/
-//    bundler/composer 也是 mise 装的 runtime）+ Playwright/Static/Dotnet 专用
+miseBin := sandboxService.MiseBin()  // <dataDir>/sandbox/bin/mise（degraded 时返空字符串）
+
+// V3 仅注册 3 RuntimeInstaller + 2 EnvManager
 sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "python", "3.12"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "node", "22"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "rust", "stable"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "java", "21"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "go", "1.22"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "ruby", "3.3"))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "php", "8.3"))
-// 支持工具（用 mise 装但不直接给 plugin 用，给 EnvManager 用）
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "uv", ""))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "pnpm", ""))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "maven", ""))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "bundler", ""))
-sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "composer", ""))
-// 专用 installer
-sandboxService.RegisterInstaller(sandboxinfra.NewPlaywrightInstaller(/* playwright cli path */))
-sandboxService.RegisterInstaller(sandboxinfra.NewDotnetInstaller("8.0"))
-sandboxService.RegisterInstaller(sandboxinfra.NewStaticBinaryInstaller("github-mcp", log))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "node",   "22"))
+sandboxService.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, "uv",     "0.11.4"))
 
-// 2. EnvManager —— 需要支持工具的传 sandboxService 作 ToolRegistry；
-//    无支持工具的（rust/go/dotnet/static/generic/playwright wrapper）直接构造
 sandboxService.RegisterEnvManager(sandboxinfra.NewPythonEnvManager(sandboxService))
 sandboxService.RegisterEnvManager(sandboxinfra.NewNodeEnvManager(sandboxService))
-sandboxService.RegisterEnvManager(sandboxinfra.NewRustEnvManager())
-sandboxService.RegisterEnvManager(sandboxinfra.NewGoEnvManager())
-sandboxService.RegisterEnvManager(sandboxinfra.NewJavaEnvManager(sandboxService))
-sandboxService.RegisterEnvManager(sandboxinfra.NewRubyEnvManager(sandboxService))
-sandboxService.RegisterEnvManager(sandboxinfra.NewPHPEnvManager(sandboxService))
-sandboxService.RegisterEnvManager(sandboxinfra.NewDotnetEnvManager())
-sandboxService.RegisterEnvManager(sandboxinfra.NewStaticBinaryEnvManager("github-mcp", sandboxService.SandboxRoot()))
-sandboxService.RegisterEnvManager(sandboxinfra.NewPlaywrightEnvManager(
-    sandboxinfra.NewNodeEnvManager(sandboxService), sandboxService.SandboxRoot()))
-// 长尾语言（Erlang / Elixir / Lua / Zig / Deno / etc.）：MiseInstaller 已通配
-// 装 runtime；env 走 GenericEnvManager 兜底（mkdir + 让 LLM/用户在 cwd 自己跑
-// 该语言包管理器）。按需注册：
-sandboxService.RegisterEnvManager(sandboxinfra.NewGenericEnvManager("elixir"))
-sandboxService.RegisterEnvManager(sandboxinfra.NewGenericEnvManager("zig"))
-// ... 仅当深度集成（写专用 EnvManager 类似 Python/Node）才用专门实现
+
+// Layer B 启动扫描（详 §8 Service.RestoreOrCleanupOnBoot）
+sandboxService.RestoreOrCleanupOnBoot(ctx)
+
+// 注入下游 service
+mcpService    := mcpapp.New(...)    // 持 sandboxapp.Service 作 PluginSandbox
+forgeService  := forgeapp.New(...)  // 同上
+chatService   := chatapp.New(...)   // Bash tool 持 sandboxapp.Service 作 ConversationSandbox
 ```
 
-**注**：构造 EnvManager 不触发任何装机——支持工具（uv/pnpm/etc.）首次
- `EnsureEnv` 调 `tools.EnsureTool(ctx, "uv", "")` 时才装。boot 极快。
+**注**：构造 EnvManager 不触发任何装机——uv 首次 `EnsureEnv` 调 `Service.EnsureTool(ctx, "uv", "")` 时才 mise install。boot 极快。
+
+未来真要加 Rust/Go/Java/etc. 时按相同模式扩 1 Installer + 1 EnvManager + main.go 多 2 行注册。
 
 ---
 
@@ -548,47 +480,76 @@ sandboxService.RegisterEnvManager(sandboxinfra.NewGenericEnvManager("zig"))
 
 ```go
 type Service struct {
-    repo         sandboxdomain.Repository
-    installers   map[string]sandboxdomain.RuntimeInstaller
-    envManagers  map[string]sandboxdomain.EnvManager
-    bootstrapDir string  // ~/.forgify/sandbox/bootstrap/
-    runtimesDir  string  // ~/.forgify/sandbox/runtimes/
-    envsDir      string  // ~/.forgify/sandbox/envs/
-    log          *zap.Logger
-    mu           sync.Mutex  // 保护 RegisterInstaller 启停 + install 锁
-    installLocks sync.Map    // map[runtimeKind]*sync.Mutex 防并发同 runtime install
+    repo          sandboxdomain.Repository
+    installers    map[string]sandboxdomain.RuntimeInstaller
+    envManagers   map[string]sandboxdomain.EnvManager
+    sandboxRoot   string                              // <dataDir>/sandbox/
+    runtimesDir   string                              // <dataDir>/sandbox/runtimes/
+    envsDir       string                              // <dataDir>/sandbox/envs/
+    miseBin       string                              // <dataDir>/sandbox/bin/mise（go:embed 解出）
+    notif         notificationspkg.Publisher          // 每次 env 状态变化 publish "sandbox_env" 通知
+    log           *zap.Logger
+    mu            sync.Mutex                          // 保护 RegisterInstaller / EnvManager 启停
+    installLocks  sync.Map                            // map[runtimeKind]*sync.Mutex 防并发同 runtime install
+    activeHandles map[handleID]*trackedHandle         // Layer A graceful shutdown：spawn 出去的长生命 handle
+    nextHandleID  atomic.Uint64
+    bootstrapped  atomic.Bool                         // false → degraded 模式（详 §15.1）
+    bootstrapErr  atomic.Pointer[error]
 }
 
-// 装配（main.go 调）。Installer 与 EnvManager 分两次注册——一种 runtime kind
-// 可有 installer 但无 EnvManager（如支持工具 uv/pnpm/maven 只给其他 EnvManager
-// 用，自己不当 plugin runtime）。
+// === 装配 ===
 func (s *Service) RegisterInstaller(i RuntimeInstaller)
 func (s *Service) RegisterEnvManager(m EnvManager)
 
-// EnsureTool 实现 sandboxdomain.ToolRegistry——给 EnvManager 懒解析支持工具
-// 路径用。内部链 EnsureRuntime + Installer.Locate。
+// === Bootstrap / 状态 ===
+func (s *Service) Bootstrap(ctx context.Context) error      // 解 mise binary + 写 mise 全局配置
+func (s *Service) IsReady() bool                             // bootstrapped.Load()
+func (s *Service) BootstrapError() error                     // bootstrapErr.Load()
+func (s *Service) RetryBootstrap(ctx context.Context) error  // UI 重试（详 §15.1）
+func (s *Service) SandboxRoot() string                       // 给装配用（Static EnvManager 等）
+func (s *Service) MiseBin() string                           // 给 MiseInstaller 用
+
+// === ToolRegistry（实现 sandboxdomain.ToolRegistry）===
+// 给 EnvManager 懒解析支持工具（Python EnvManager 调它拿 uv binary 路径）。
 func (s *Service) EnsureTool(ctx context.Context, kind, version string) (binPath string, err error)
 
-// EnsureRuntime 保证某 runtime 装好；返 Runtime 行
+// === Runtime / Env CRUD ===
 func (s *Service) EnsureRuntime(ctx context.Context, spec RuntimeSpec, stream ProgressFunc) (*Runtime, error)
-
-// EnsureEnv 为某 plugin 实例建独立 env（含装 runtime + 装 deps + 装 extras）
 func (s *Service) EnsureEnv(ctx context.Context, owner Owner, spec EnvSpec, stream ProgressFunc) (*Env, error)
+func (s *Service) GetEnv(ctx context.Context, id string) (*Env, error)              // GET /sandbox/envs/{id}
+func (s *Service) Destroy(ctx context.Context, owner Owner) error                    // plugin 卸载
+func (s *Service) DestroyEnvByID(ctx context.Context, id string) error               // POST /sandbox/envs/{id}:destroy
+func (s *Service) DeleteRuntime(ctx context.Context, id string) error                // POST /sandbox/runtimes/{id}:destroy（先 reject 若有 env 用）
 
-// Spawn 在 env 里起子进程（一次性 / 长生命周期）
-// owner 必须已 EnsureEnv 过
-func (s *Service) Spawn(ctx context.Context, owner Owner, opts SpawnOpts) (*ExecutionResult, error)
-func (s *Service) SpawnLongLived(ctx context.Context, owner Owner, opts SpawnOpts) (LongLivedHandle, error)
+// === Spawn ===
+func (s *Service) Spawn(ctx context.Context, owner Owner, opts SpawnOpts) (*ExecutionResult, error)         // 一次性，timeout 守卫
+func (s *Service) SpawnLongLived(ctx context.Context, owner Owner, opts SpawnOpts) (LongLivedHandle, error) // 长生命，写 RunningPID + activeHandles 跟踪
 
-// Destroy 删 env（plugin 卸载时调用）
-func (s *Service) Destroy(ctx context.Context, owner Owner) error
+// === Layer A leak prevention ===
+func (s *Service) Shutdown(ctx context.Context) error
+//   遍历 activeHandles → SIGTERM → 5s 超时 → SIGKILL；保证进程退出前杀干净所有 spawn 子进程
 
-// 查询 / 管理
+// === Layer B leak prevention ===
+func (s *Service) RestoreOrCleanupOnBoot(ctx context.Context)
+//   启动时扫所有 envs.RunningPID != 0 的行：
+//     - PID 还活 + cmdline 含 forgify env 路径 → 重新 attach 进 activeHandles（如 mcp server 在 reboot 之间存活）
+//     - PID 死 / cmdline 不匹配 → 清掉 RunningPID（前次进程残留状态）
+
+// === 查询 / 管理 ===
 func (s *Service) ListRuntimes(ctx context.Context) ([]*Runtime, error)
 func (s *Service) ListEnvs(ctx context.Context, ownerKind string) ([]*Env, error)
 func (s *Service) TotalDiskUsage(ctx context.Context) (int64, error)
-func (s *Service) GCEnvs(ctx context.Context, olderThan time.Duration) (int, error)  // 清理超 N 天未用
+func (s *Service) GC(ctx context.Context, olderThan time.Duration) (int, error)   // 清理超 N 天未用（v1 默认手动；HTTP `:gc` 触发）
 ```
+
+**Layer A vs Layer B leak prevention**（重要）：
+
+| 层 | 防范 | 机制 |
+|---|---|---|
+| **Layer A** — 进程内 | Forgify 退出时遗留 spawn 子进程 | `Service.Shutdown` 遍历 `activeHandles` graceful kill；main.go 在 ctx cancel 后调一次 |
+| **Layer B** — 重启之间 | Forgify 崩溃 / OS reboot 后 sandbox_envs 表里仍标 RunningPID 但进程已死 | `Env.RunningPID + RunningStartedAt` 列做 manifest；启动时 `RestoreOrCleanupOnBoot` 扫一遍按 PID + cmdline 双确认重 attach 或清空 |
+
+二者**都不是 GC**——GC 是磁盘清理；Leak prevention 是进程 / 状态一致性。
 
 ### EnsureRuntime 关键逻辑
 
@@ -666,7 +627,7 @@ func (s *Service) EnsureEnv(ctx context.Context, owner Owner, spec EnvSpec, stre
     
     // 3. 创建 env 目录
     envID := newEnvID()
-    envPath := filepath.Join(s.envsDir, owner.Kind, owner.ID)  // envs/mcp/playwright/
+    envPath := filepath.Join(s.envsDir, owner.Kind, owner.ID)  // 例: envs/mcp/github/
     
     // 4. 先写"installing"状态（让 UI 知道在装）
     env := &Env{
@@ -725,25 +686,21 @@ func (s *Service) EnsureEnv(ctx context.Context, owner Owner, spec EnvSpec, stre
 
 ### 9.2 各语言隔离机制
 
+V3 仅支持 Python + Node 两种 EnvManager（详 §4 / §7 ship list）。
+
 | 语言 | env 内文件 | spawn 时强制本地化的机制 |
 |---|---|---|
 | **Python** | `.venv/bin/python` + `.venv/lib/python3.x/site-packages/` | venv shim python 的 `sys.path` 钉死本 venv |
 | **Node** | `node_modules/<package>/` | Node `require()` resolution 算法找最近 `node_modules`（cwd 上溯）|
-| **Rust** | `target/` + `Cargo.lock` | `cargo --target-dir=<env_path>/target` |
-| **Java** | `lib/*.jar` | classpath 显式指 `<env_path>/lib/*` |
-| **Go** | `pkg/` | env var `GOPATH=<env_path>` + `GOMODCACHE=<env_path>/cache` |
-| **Ruby** | `vendor/bundle/` | env var `BUNDLE_PATH=<env_path>/vendor/bundle` |
-| **PHP** | `vendor/` | Composer 自动找 cwd 的 vendor |
-| **Browsers** | `browsers/chromium/` | env var `PLAYWRIGHT_BROWSERS_PATH=<runtimes_path>/browsers` |
+
+> 已删（V3 collapse）：Rust / Go / Java / Ruby / PHP / Browsers 行——9 个 EnvManager 已移除（详 §4 / §7）。未来恢复时按相同模式 1 行加回。
 
 ### 9.3 关键约束："永远不装到全局"
 
 - **禁止** `pip install --user`
-- **禁止** `npm install -g` / `pnpm add -g`
-- **禁止** `cargo install` 不带 `--root`
-- **禁止** `gem install` 不带 `BUNDLE_PATH`
+- **禁止** `npm install -g`
 
-所有 EnvManager 的 InstallDeps 实现**必须**走 prefix/local 模式，绝不污染全局环境。
+Python EnvManager / Node EnvManager 的 InstallDeps 实现**必须**走 prefix/local 模式（`uv pip install` 自带 venv 隔离；`npm install --prefix=<env_path>` 强制本地），绝不污染全局环境。
 
 ### 9.4 包冲突真实案例
 
@@ -759,11 +716,11 @@ envs/forge/<envid_B>/.venv/lib/python3.12/site-packages/pandas/  ← 2.0 版本
 
 跑 A 用 `envs/forge/<envid_A>/.venv/bin/python`——这个 python shim 的 sys.path 第一个就是自己 venv 的 site-packages，**根本看不到 B 的 pandas**。零冲突。
 
-**Playwright MCP** 装 `playwright-core@1.40`，**Context7 MCP** 间接依赖 `playwright-core@1.50`：
+**github MCP** 装 `@modelcontextprotocol/server-github@1.0`，**slack MCP** 间接依赖同一 npm transitive 但版本不同：
 
 ```
-envs/mcp/playwright/node_modules/playwright-core/   ← 1.40
-envs/mcp/context7/node_modules/playwright-core/     ← 1.50
+envs/mcp/github/node_modules/@modelcontextprotocol/server-github/  ← 1.0
+envs/mcp/slack/node_modules/<transitive-pkg>/                       ← 不同版本
 ```
 
 Spawn 各自时 `cwd` 是各自 env 目录，Node `require()` 只找本目录 node_modules。零冲突。
@@ -781,14 +738,15 @@ Spawn 各自时 `cwd` 是各自 env 目录，Node `require()` 只找本目录 no
 每个对话按需为每种 runtime 起一个独立 scratch env：
 
 ```
-~/.forgify/sandbox/envs/conversation/
-├── cv_abc:python/        ← cv_abc 用了 Python
-├── cv_abc:node/          ← cv_abc 也用了 Node
-├── cv_xyz:python/        ← cv_xyz 只用了 Python
-└── cv_some:rust/         ← 另一对话用了 Rust
+<dataDir>/sandbox/envs/conversation/
+├── cv_abc_python/        ← cv_abc 用了 Python
+├── cv_abc_node/          ← cv_abc 也用了 Node
+└── cv_xyz_python/        ← cv_xyz 只用了 Python
 ```
 
 `(conversation_id, runtime_kind)` 一对一，**绝不会两个对话共享**。
+
+> **owner.ID 用 `_` 分隔不用 `:`** —— `:` 是 POSIX PATH separator + Windows path drive letter delimiter，混进路径或 env var 会咬到下游；统一 `_` 安全。Service 入口校验时拒 `:`，违反返 `ErrInvalidOwnerID`。
 
 #### Bash tool 改造（自动路由）
 
@@ -804,7 +762,7 @@ func (b *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
         // Lazy create conversation env if not exists
         owner := sandboxdomain.Owner{
             Kind: "conversation",
-            ID:   fmt.Sprintf("%s:%s", convID, runtimeKind),
+            ID:   fmt.Sprintf("%s_%s", convID, runtimeKind),  // `_` 分隔，不能 `:`（详 §9.5 owner.ID 约定）
             Name: fmt.Sprintf("Conv %s scratch (%s)", convID, runtimeKind),
         }
         env, err := b.sandbox.EnsureEnv(ctx, owner, sandboxdomain.EnvSpec{
@@ -812,31 +770,42 @@ func (b *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
             Deps:    nil,  // 空 env，让 LLM 自由装
         }, progressFn)
         if err != nil { return "", err }
-        
-        // Spawn 时 PATH 加上 conversation env 的 bin 优先
-        return b.sandbox.SpawnShell(ctx, owner, cmd)
+
+        // Bash 自己拼 envBin path + PATH（.venv/bin / node_modules/.bin），调 Spawn 起子进程
+        return b.sandbox.Spawn(ctx, owner, sandboxdomain.SpawnOpts{
+            Cmd:     "/bin/sh",
+            Args:    []string{"-c", cmd},
+            Env:     bashEnvWithPATH(env),  // PATH 加上 .venv/bin / node_modules/.bin
+            Timeout: bashTimeout,
+        })
     }
-    
-    // 非 runtime 命令（git/ls/cat 等）→ 普通 shell（仅 /usr/bin /bin PATH）
+
+    // 非 runtime 命令（git/ls/cat 等）→ 普通 shell（仅 /usr/bin /bin PATH，不走 sandbox）
     return b.runShellPlain(ctx, cmd)
 }
 ```
+
+> **注**：早期文档提到 `SpawnShell` / `EnvBinDirs` 方法——实际不存在。Bash tool 自己用 `EnvManager.EnvBin(envPath, binName)` 单 binary 解析 + 自己拼 PATH，**不另设 SpawnShell 入口**。
 
 #### detectRuntime — 命令到 runtime 的映射
 
 实现走 **AST 解析**（`mvdan.cc/sh/v3/syntax`）而非 first-token regex——`shfmt` 的同一 parser，pure Go，跨平台 0 依赖。流程：parse 命令 → `syntax.Walk` 遍历每个 `CallExpr` → 对每个 call 经 `classifyCallExpr`（剥路径前缀 / 处理 wrapper / env / which）→ 匹配下面的 runtime 表，**首次命中胜**。pattern 匹配的是规范化后的*裸命令名*（无路径、无 env 前缀、无 flag）：
 
 ```go
+// V3 collapse：实际命中后 EnsureEnv 才决定能否处理。Python + Node 有 EnvManager
+// 注册，命中即建 conversation env 并真路由；rust / go / java / etc. detector 行
+// 是为"未来加 EnvManager 时少改 1 处"留的占位——命中时 EnsureEnv 返
+// ErrRuntimeNotSupported（无 EnvManager 注册），Bash 退到 plain shell 模式。
 var runtimeDetectors = []runtimeDetector{
     {Kind: "python", Pattern: regexp.MustCompile(`^(?:python3?(?:\.\d+)?|pip3?|uv|virtualenv|pipenv|poetry)$`)},
     {Kind: "node",   Pattern: regexp.MustCompile(`^(?:node|npm|npx|yarn|pnpm)$`)},
+    // 占位：以下 detector 命中后 EnsureEnv 返 ErrRuntimeNotSupported（V3 未注册 EnvManager）
     {Kind: "rust",   Pattern: regexp.MustCompile(`^(?:cargo|rustc|rustup)$`)},
     {Kind: "go",     Pattern: regexp.MustCompile(`^go$`)},
     {Kind: "ruby",   Pattern: regexp.MustCompile(`^(?:ruby|gem|bundle|bundler|rake)$`)},
     {Kind: "php",    Pattern: regexp.MustCompile(`^(?:php|composer)$`)},
     {Kind: "java",   Pattern: regexp.MustCompile(`^(?:java|javac|mvn|gradle)$`)},
     {Kind: "dotnet", Pattern: regexp.MustCompile(`^dotnet$`)},
-    // 未来加新 runtime 1 行
 }
 ```
 
@@ -866,26 +835,29 @@ var runtimeDetectors = []runtimeDetector{
 
 malformed shell（罕见）→ `detectRuntimeFirstToken` fallback：取首 token 直接匹配，至少不静默丢掉 `pip install ...` 这种简单形态。
 
-#### SpawnShell 实现
+#### Bash 端拼 PATH（替代不存在的 SpawnShell）
+
+实际架构：`Service.Spawn` 通用入口接 SpawnOpts；Bash tool 自己用 `EnvManager.EnvBin(envPath, binName)` 拿目标二进制路径 + 自己拼 PATH 加进 SpawnOpts.Env。
 
 ```go
-// SpawnShell 在 env 里跑 shell 命令，PATH 自动加 env bin 在前
-func (s *Service) SpawnShell(ctx context.Context, owner Owner, command string) (*ExecutionResult, error) {
-    env, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
-    if err != nil { return nil, err }
-    
-    em := s.envManagers[env.Runtime.Kind]
-    binDirs := em.EnvBinDirs(env.Path)  // venv/bin / node_modules/.bin / etc.
-    
-    augmentedPath := strings.Join(binDirs, ":") + ":/usr/bin:/bin"
-    
-    cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
-    cmd.Env = append(os.Environ(), "PATH="+augmentedPath)
-    cmd.Dir = s.envsDir + "/" + env.Path  // cwd 在 env 目录
-    
-    // ...spawn + capture output...
+// app/tool/shell/bash.go::bashEnvWithPATH
+func bashEnvWithPATH(env *sandboxdomain.Env) map[string]string {
+    em := pythonOrNodeEnvManager(env.RuntimeKind)
+    venvBin := em.EnvBin(env.Path, "python")    // .venv/bin/python（python kind）
+    nodeMods := filepath.Join(env.Path, "node_modules", ".bin")  // node kind
+
+    binDir := filepath.Dir(venvBin)              // .venv/bin
+    augmented := strings.Join([]string{binDir, nodeMods, "/usr/bin", "/bin"}, ":")
+
+    return map[string]string{"PATH": augmented}
 }
+
+// 然后 Bash 调 b.sandbox.Spawn(ctx, owner, SpawnOpts{
+//     Cmd: "/bin/sh", Args: []string{"-c", cmd}, Env: bashEnvWithPATH(env), ...
+// })
 ```
+
+> 早期文档的 `Service.SpawnShell` / `EnvManager.EnvBinDirs` 方法**不存在**——Service 只暴露通用 Spawn，PATH 拼装由调用方负责。
 
 #### LLM 视角的体验
 
@@ -893,7 +865,7 @@ func (s *Service) SpawnShell(ctx context.Context, owner Owner, command string) (
 LLM: "我想用 pandas 处理 CSV"
 LLM: Bash("pip install pandas")
   ↓ sandbox 检测：pip → python kind
-  ↓ EnsureEnv(owner=conversation/cv_abc:python)
+  ↓ EnsureEnv(owner=conversation/cv_abc_python)
   ↓ 第一次：lazy 装 Python 3.12 + uv + 建 venv
   ↓ uv pip install pandas
   ↓ 返："Successfully installed pandas-2.0..."
@@ -938,27 +910,57 @@ LLM: Bash("python -c 'import pandas; ...')
 | npm 包写 `~/.config/<name>` | 全局 user 目录 | 个别恶意包可能干，**正常包不会**；遇到就提 plugin 作者 |
 | `--user` / `-g` 强行污染 | 全局 site-packages | sandbox 实施时**禁用这些 flag** |
 | 端口冲突 | 端口是机器全局 | MCP 走 stdio 不监听端口；Forgify HTTP 自己一个端口；不冲突 |
-| Playwright Chromium cache | 默认 `~/.cache/ms-playwright` | spawn 时强制 `PLAYWRIGHT_BROWSERS_PATH=<runtimes>/browsers` |
 
 ---
 
-## 10. SSE 事件 — 不新增
+## 10. Notifications + Install Progress
 
-sandbox install 进度**通过调用方的 chat.message 工具结果机制推**——比如 mcp install 是 LLM 调 `mcp_install` system tool 触发，进度 stream 体现为该 tool_call block 的 stdout 累积。**sandbox 不发独立 SSE 事件**。
+### 10.1 `sandbox_env` per-env state notification
 
-ProgressFunc 由调用方传入，sandbox 只负责 invoke 它：
+每次 env 状态转换（installing → ready / failed → ready / ready → destroyed）经 `notificationspkg.Publisher` 推 `sandbox_env` 通知，前端按 envID 局部更新。**不发全量快照**。
+
+```json
+{
+  "type": "sandbox_env",
+  "id":   "se_<16hex>",         // env ID
+  "data": {                      // Env payload
+    "id":         "se_xxx",
+    "ownerKind":  "mcp",
+    "ownerID":    "github",
+    "runtimeId":  "sr_xxx",
+    "deps":       ["@modelcontextprotocol/server-github"],
+    "path":       "mcp/github",
+    "sizeBytes":  12345678,
+    "status":     "ready",       // installing / ready / failed / destroyed
+    "errorMsg":   ""
+  }
+}
+```
+
+**触发点**（详 `app/sandbox/sandbox.go::publishEnv` / `publishEnvDeleted`）：
+- `EnsureEnv` 写 `installing` 后立刻 publish
+- `EnsureEnv` 装机成功 → `ready` publish
+- `EnsureEnv` 装机失败 → `failed` publish
+- `Destroy` / `DestroyEnvByID` → `destroyed` 单条最终 publish + 行删
+
+### 10.2 Install 进度 → eventlog Emitter（不走 sandbox notification）
+
+Install 进度（`Installing Node.js 22.5.0...` / `Downloading @playwright/mcp...`）**不**经 sandbox notification——通过调用方的 ctx eventlog Emitter 推 `progress` block 到该 tool_call 父下。
+
+`pkg/installprogress/Run` helper 把 ProgressFunc 适配成 eventlog block：
 
 ```go
-// mcpapp 调 sandbox 时：
-progressFn := func(stage, message string, percent int) {
-    // 拼成 LLM-friendly 文本
-    text := fmt.Sprintf("[%s] %s (%d%%)\n", stage, message, percent)
-    // 这段会进 mcp_install tool 的 stdout，自然走 chat.message 流
-    progressBuffer.WriteString(text)
-    publishToolResultStreaming(progressBuffer.String())  // chat 层负责
-}
-sandboxService.EnsureEnv(ctx, owner, spec, progressFn)
+// mcpapp.install_mcp_server tool 调 sandbox 时：
+err := installprogresspkg.Run(ctx, "Installing MCP server", func(progressFn ProgressFunc) error {
+    return sandboxService.EnsureEnv(ctx, owner, spec, progressFn)
+})
+// helper 内部：
+//   - StartBlock(progress) 挂在 install_mcp_server tool_call 父下
+//   - progressFn 每次调用 → DeltaBlock("...stage... 45%\n")
+//   - Run 完成 → StopBlock(completed)
 ```
+
+详 §S18 推流约定（`pkg/eventlog`）+ [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) eventlog 协议。
 
 ---
 
@@ -999,7 +1001,7 @@ sandboxService.EnsureEnv(ctx, owner, spec, progressFn)
 
 ---
 
-## 12. 错误码
+## 12. 错误码（11 个，V3 后）
 
 | Sentinel | HTTP | Wire Code |
 |---|---|---|
@@ -1011,24 +1013,31 @@ sandboxService.EnsureEnv(ctx, owner, spec, progressFn)
 | `sandboxdomain.ErrSpawnFailed` | 502 | `SANDBOX_SPAWN_FAILED` |
 | `sandboxdomain.ErrSpawnTimeout` | 504 | `SANDBOX_SPAWN_TIMEOUT` |
 | `sandboxdomain.ErrEnvInUse` | 409 | `SANDBOX_ENV_IN_USE` |
+| `sandboxdomain.ErrInvalidOwnerID` | 400 | `SANDBOX_INVALID_OWNER_ID` |
+| `sandboxdomain.ErrCmdRequired` | 400 | `SANDBOX_CMD_REQUIRED` |
+| `sandboxdomain.ErrSandboxUnavailable` | 503 | `SANDBOX_UNAVAILABLE` |
+
+**已删（V3 collapse）**：`ErrDockerNotInstalled` / `ErrDockerDaemonDown` 与 Docker runtime 同期移除（详 §5b）。
 
 ---
 
-## 13. 测试覆盖（计划）
+## 13. 测试覆盖（V3 后）
 
-| 层 | 文件 | 测试数（计划）| 覆盖 |
+| 层 | 文件 | 测试数 | 覆盖 |
 |---|---|---|---|
-| domain | `internal/domain/sandbox/sandbox_test.go` | 5 | Runtime/Env JSON / Sentinel / Owner valid |
-| store | `internal/infra/store/sandbox/sandbox_test.go` | 12 | CRUD + UNIQUE 约束 + ListByOwnerKind + ListByRuntime + GC 候选查询 |
-| installer/mise | `internal/infra/sandbox/installer/mise/mise_test.go` | 10 | 多 kind 路由 / Install python / Install node / Locate / ListAvailable |
-| installer/playwright | `internal/infra/sandbox/installer/playwright/playwright_test.go` | 5 | Install chromium 流程 / 用 fake mise / progress 推送 |
-| envmanager 各语言 | 多文件 | ~22 | venv + uv pip install / pnpm install --prefix（验证 store 共享）/ 各种 Bundle/GOPATH/etc. + 跨 env hardlink/symlink 共享验证 |
-| app/sandbox | `internal/app/sandbox/sandbox_test.go` | 18 | EnsureRuntime 锁防并发 / EnsureEnv 复用 / Destroy / Spawn timeout / GC 流程 / 失败 status 转 |
-| pipeline | `test/sandbox/sandbox_test.go` | 6 | 真起 Python venv 装 markitdown / 真起 Node 装某 pnpm 包 / Spawn 真子进程 / Destroy 干净 / 多 plugin 隔离验证 / **多 conv 共装 pandas 验证 hardlink 共享生效**（du 测实际磁盘 ≈ 1×）|
+| domain | `internal/domain/sandbox/sandbox_test.go` | 5 | Runtime/Env JSON / Sentinel / Owner valid（含 `_` vs `:` 校验）|
+| store | `internal/infra/store/sandbox/sandbox_test.go` | 12 | CRUD + UNIQUE 约束 + ListByOwnerKind + ListByRuntime + GC 候选 + RunningPID set/clear/list |
+| infra/mise | `internal/infra/sandbox/mise_test.go` | 10 | 多 kind 路由（python / node / uv）/ Install / Locate / ListAvailable / 全局配置写入 |
+| infra/exec | `internal/infra/sandbox/exec_helper_test.go` + `proc_<goos>_test.go` | ~6 | RunWithStderrCapture / 跨平台 process kill |
+| envmanager | `internal/infra/sandbox/envmanager_python_test.go` + `envmanager_node_test.go` | ~10 | uv venv + uv pip install / npm install --prefix（验证 store 共享）/ EnvBin 单 binary 解析 |
+| app/sandbox | `internal/app/sandbox/sandbox_test.go` + `restore_test.go` + `spawn_test.go` | 18 | EnsureRuntime 锁防并发 / EnsureEnv 复用 / Destroy / Spawn timeout / GC / 失败 status 转 / RestoreOrCleanupOnBoot 双路径 / Shutdown graceful |
+| pipeline | `test/sandbox/sandbox_test.go` | 6 | 真起 Python venv 装 markitdown / 真起 Node 装某 npm 包 / Spawn 真子进程 / Destroy 干净 / 多 plugin 隔离 / **多 conv 共装 pandas 验证 uv hardlink 共享**（du 测实际磁盘 ≈ 1×）|
 
-总计 ~75 测 + 5 pipeline 场景。
+总计 ~67 单测 + 6 pipeline 场景。
 
-**fake mise 注入点**：installer 里 mise binary 路径可注入；测试用 mock binary 模拟 install/locate 行为，避免真下载。
+**fake mise 注入点**：infra/sandbox/mise 的 binary 路径可注入；测试用 mock binary（`backend/test/sandbox/fakemise/`）模拟 install/locate 行为，避免真下载。
+
+**已删（V3 collapse）**：installer/playwright_test.go / envmanager_{rust,go,java,ruby,php,dotnet,playwright,static,generic}_test.go 全部移除——9 个 EnvManager + 3 个 Installer 不存在了。
 
 ---
 
@@ -1041,7 +1050,8 @@ sandboxService.EnsureEnv(ctx, owner, spec, progressFn)
 | **skill** | v1 skill 不需 runtime；未来 skill 带 deps 时复用本服务 |
 | **chat / Bash tool** | **app/tool/shell/Bash 改造**：detectRuntime + 自动路由到 conversation scratch env；非 runtime 命令走普通 shell |
 | **conversation** | 软删/硬删 conversation 触发对应 scratch env 的标记可清 / 立即 Destroy（详 §9.5）|
-| **events** | install 进度通过调用方 tool_call 输出走 chat.message，不发独立 sandbox SSE |
+| **notifications** | 经 `notificationspkg.Publisher` 推 `sandbox_env` per-env 通知（详 §10.1）|
+| **eventlog** | install 进度通过 `pkg/installprogress.Run` 适配 ProgressFunc → 调用方 ctx eventlog Emitter 推 progress block（详 §10.2）|
 
 ### 反向接口防循环依赖
 
@@ -1065,18 +1075,18 @@ type PluginSandbox interface {
 ## 15. 装配（main.go 顺序）
 
 ```
-1. logger / DB / events bridge
+1. logger / DB / notifications publisher（事件日志 Bridge 也在这一层起）
 2. apikey / model / conversation / chat / forge / task / ask（已有）
-3. NEW: sandboxapp.Service.New(deps)
-4. NEW: 注册 v1 ship 的 installers + env managers（10+ kind）
-5. NEW: subagentapp / mcpapp / skillapp / catalogapp（新设计）
-   - 各自 New() 时注入 sandboxapp.Service 作 PluginSandbox 接口
-6. forge service 重构：注入 sandboxapp.Service 替代旧 infra/sandbox
-7. 注册 system tools 到 chat
-8. router / http listen
+3. sandboxapp.NewSandbox(deps) → Bootstrap（degraded fail-open）→ RegisterInstaller × 3 + RegisterEnvManager × 2 → RestoreOrCleanupOnBoot
+4. subagentapp / mcpapp / skillapp / catalogapp
+   - mcpapp / skillapp / forge service 各自 New() 时注入 sandboxapp.Service 作 PluginSandbox 接口
+5. forge service 重构：注入 sandboxapp.Service 替代旧 infra/sandbox（V1 → V2 切换；D2-5 完成）
+6. 注册 system tools 到 chat
+7. router / http listen
+8. main.go defer：ctx cancel → sandboxapp.Service.Shutdown(ctx) graceful kill activeHandles
 ```
 
-Bootstrap 阶段不阻塞——sandboxapp.Start 仅检查 bootstrap binary 是否在位（不在则从 embed.FS 解出），不预装任何 runtime。
+Bootstrap 阶段不阻塞——`sandboxapp.Bootstrap` 仅 (a) 解 mise binary 从 go:embed 到 `<dataDir>/sandbox/bin/mise`、(b) 写 mise 全局配置（disable attestation），不预装任何 runtime。失败进 degraded mode（详 §15.1）+ `IsReady()` 返 false 让下游 entry 早返 `ErrSandboxUnavailable`。
 
 ---
 
@@ -1124,7 +1134,8 @@ func (s *Service) EnsureRuntime(...) (*Runtime, error) {
 }
 
 // HTTP / SSE 暴露状态供 UI 展示
-func (s *Service) BootstrapStatus() (ok bool, err string)
+func (s *Service) IsReady() bool             // 替代旧 BootstrapStatus()——bool only
+func (s *Service) BootstrapError() error      // 失败原因（success → nil）
 func (s *Service) RetryBootstrap(ctx context.Context) error  // 用户点 retry
 ```
 
@@ -1211,15 +1222,12 @@ func (s *Service) RetryBootstrap(ctx context.Context) error  // 用户点 retry
 |---|---|---|
 | Chat / Forge / Skill / Catalog / Subagent | ✅ | 行为与 macOS/Linux 100% 一致 |
 | 内置 system tools (Read/Write/Edit/Glob/Grep/WebFetch/WebSearch/Task/Ask/TaskCreate/...) | ✅ | 路径用 \，代码已 filepath.Join |
-| MCP **Python 类**（MarkItDown / DuckDuckGo / SQLite）| ✅ | mise 装 Python 在 Windows OK |
-| MCP **Node 类**（Playwright / Context7 / everything）| ✅ | mise 装 Node 在 Windows OK |
-| MCP **Java server**（v1 暂无内置 Java 写的 server；JDK 装 + Maven local repo 隔离基础设施已 v1 ready，等社区出 Java MCP server 即可启用）| ⚠️ 部分 | Adoptium Windows JDK 能装；mvn/gradle wrapper 路径可能有坑 |
-| MCP **Ruby / PHP / Erlang / Elixir / Lua / Crystal / Zig / 长尾** | ❌ | mise 这些用 bash plugin，Windows 无 bash。RegistryEntry 标 `UnsupportedPlatforms: ["windows"]` → marketplace 在 Windows 隐藏 |
+| MCP **Python 类**（sentry / figma / e2b / etc.）| ✅ | mise 装 Python 在 Windows OK |
+| MCP **Node 类**（github / gitlab / playwright / context7 / etc.）| ✅ | mise 装 Node 在 Windows OK |
+| MCP **其他语言 server**（Java / Ruby / PHP / Rust / Go / .NET / Erlang / Elixir / etc.）| ❌ | V3 collapse 后 sandbox 仅 Python + Node EnvManager；非 Python/Node 的 MCP server 暂不支持。未来恢复时按§7 ship list 模式扩 1 EnvManager 即可 |
 | Bash tool | ⚠️ 改 | Windows 用 PowerShell 替代 sh；命令兼容性大部分一致；shell 差异 LLM 自适应 |
 | Forge Python venv | ✅ | uv 跨平台原生 |
-| Playwright Chromium | ✅ | 自动下 Windows 版 Chromium |
 | 子进程 cancel | ⚠️ 改 | Windows Job Object 替代 SIGTERM（防 grandchild orphan）|
-| fsnotify | ⚠️ 测 | ReadDirectoryChangesW 后端，行为略异；不支持网络盘 |
 
 **核心**：**Python + Node 解决 99% 用户需求**，长尾在 Windows 上 "看不见" 即可。
 

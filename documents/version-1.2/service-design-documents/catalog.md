@@ -1,12 +1,12 @@
 # Capability Catalog — V1.2 详设计
 
 **Phase**：Phase 4 准备件（提前到位）
-**状态**：✅ D8 全部交付（2026-05-06）：domain types + 2 sentinels + Service{Start/Stop/Refresh/RegisterSource/GetForSystemPrompt} + LLMGenerator（3-attempt retry + coverage 校验 + mechanical fallback）+ pollLoop 1s + atomic.Bool 单 flight + fingerprint dedup + atomic disk cache + 3 CatalogSource（forge/skill/mcp）+ chat runner SystemPromptProvider 注入 + 2 HTTP endpoints + 3 离线 pipeline 场景
+**状态**：✅ D8 全部交付（2026-05-06）：domain types + 3 sentinels + Service{Start/Stop/Refresh/RegisterSource/SetGenerator/SetPollInterval/GetForSystemPrompt/Get} + LLMGenerator（单次 attempt + mechanical fallback，屎山拯救计划 #7）+ pollLoop 1s + atomic.Bool 单 flight + fingerprint dedup + atomic disk cache + 3 CatalogSource（forge/skill/mcp）+ chat runner SystemPromptProvider 注入 + 2 HTTP endpoints + 3 离线 pipeline 场景 + `catalog` notification per cache fingerprint change
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（.catalog.json + memory）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — catalog ×2 内部消化（不进 errmap）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — **不**发 SSE（详 §13）
+- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — catalog ×3（`ErrAllSourcesFailed` 接 errmap 503；其余 2 个内部消化）
+- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `catalog` entity-state 通知（每次 cache fingerprint 变化 publish 一次）
 - 关联设计：[`forge.md`](./forge.md) / [`mcp.md`](./mcp.md) / [`skill.md`](./skill.md)（3 个 CatalogSource 实现方）
 
 ---
@@ -88,12 +88,11 @@ user msg → chat.Send → runner.buildSystemPrompt(ctx)
 | **Atomic 单 flight** | `atomic.Bool busy` 守卫——上次 tick 的 regen 还没跑完，下一 tick 直接跳过。零依赖、无锁竞争 |
 | **Fingerprint 防无效 regen** | hash(sort(source + name + description))；未变绝不调 LLM |
 | **LLM-gen + 全覆盖校验** | 自由合并允许（"3 个 CSV 工具"），但每个原始 item 必须被覆盖；不达标重试或 fallback。**Generator 自身负责生成跨类目"路由观察"**（如"调 GitHub API 用 mcp 不要写新 forge"），不另设用户配置文件 |
-| **失败隔离** | 单 source ListItems 挂 → log Warn + 用空列表代替；**全部 source 失败时**保留上次 cache，不写空 catalog |
+| **失败隔离** | 单 source ListItems 挂 → log Warn + 用空列表代替；**全部 source 失败时**保留上次 cache + 抛 `ErrAllSourcesFailed`，不写空 catalog |
 | **Generator 输出硬上限** | LLM 输出 maxTokens=2000 cap；超 cap 视为生成失败 |
-| **重试 2 次（共 3 次 attempt）** | 单次 attempt 失败（坏 JSON / 漏 item / 输出爆大）→ 重试，最多 2 次重试，3 次全败再 mechanical |
-| **Key 轮训跑真 LLM** | 每次 attempt 内部按所有 apikey 依次试**真 LLM 调用**（不只是 build client）；任一 key 真跑成功即用 |
-| **失败即 mechanical + 写 lastFP** | 3 次 attempt + 全 key 都失败 → mechanical 顶上 + lastFP 照常更新。**用户不动东西就不再耗 LLM**；改了东西 fp 自然变 → LLM 重新有机会跑——**"用户活跃度"驱动重试**，无须后台 backoff |
-| **不发 SSE** | catalog 是内部组件，对前端透明；UI 看 source 各自的 SSE 即可（详 §13）|
+| **单次 attempt + mechanical fallback**（屎山拯救计划 #7，2026-05-08）| 现代 LLM 首次成功率 ~99%，重试基本不工作；外部 1s 轮询本身就是天然重试。删掉 retry loop / coverage 校验 / missing hint。失败即 mechanical 兜底 |
+| **失败即 mechanical + 写 lastFP** | LLM attempt 失败 → mechanical 顶上 + lastFP 照常更新。**用户不动东西就不再耗 LLM**；改了东西 fp 自然变 → LLM 重新有机会跑——**"用户活跃度"驱动重试**，无须后台 backoff |
+| **每次 fingerprint 变化 publish notification** | cache 真更新后 publish `catalog` notification（type="catalog", id="*", data 含 fingerprint/version/generatedAt）；同 fingerprint 短路时不 publish。详 §10 |
 | **Cache 防损坏** | cold-start 加载 `.catalog.json` parse fail → 移到 `.bak` + 当作空 cache 走完整 build |
 
 ---
@@ -124,6 +123,8 @@ type CatalogSource interface {
     // **重要**：必须返"当前真实状态"——半成品（如 MCP 正在 connect 的 server）就该不出现在结果里
     ListItems(ctx context.Context) ([]Item, error)
 }
+
+// 注：本接口**不**含 `EventTopics() []string` 方法——catalog 完全靠 1s 轮询拉数据，不订阅事件。
 
 type Granularity int
 const (
@@ -161,16 +162,19 @@ type Catalog struct {
 
 **没有 `RoutingHints` 字段**——路由观察由 LLM generator 看着所有 item descriptions **直接写进 Summary 文本**。用户想影响路由 → 编辑源头（forge / skill / mcp 各自的 description），catalog 自动 reflect。
 
-### Sentinel 错误
+### Sentinel 错误（3 个）
 
 ```go
 var (
     ErrCoverageIncomplete = errors.New("catalog: generator output missing items")
     ErrGenerationFailed   = errors.New("catalog: LLM generation failed")
+    ErrAllSourcesFailed   = errors.New("catalog: all sources failed")
 )
 ```
 
-均不上抛 handler——catalog 内部消化（重试或 fallback）。
+`ErrCoverageIncomplete` / `ErrGenerationFailed` 均内部消化——LLM attempt 失败 → mechanicalFallback 顶上，不上抛 handler。
+
+`ErrAllSourcesFailed` 在 `Service.Refresh` 里：当全部 source `ListItems` 都报错时返此 sentinel，**保留上次 cache 不写空**。HTTP `:refresh` 端点遇此返 503（详 §10）。
 
 ---
 
@@ -210,25 +214,33 @@ var (
 ```go
 type Service struct {
     sources    []catalogdomain.CatalogSource
-    generator  *Generator
+    generator  Generator                          // interface; nil → mechanical 兜底
     cache      *atomic.Pointer[catalogdomain.Catalog]
     lastFP     atomic.Value       // string，上次 fingerprint
     busy       atomic.Bool        // 单 flight 守卫
     cachePath  string             // ~/.forgify/.catalog.json
     pollInterval time.Duration    // 默认 1s
+    notif      notificationspkg.Publisher  // 每次 cache fingerprint 变化 publish "catalog" 通知
     log        *zap.Logger
-    mu         sync.Mutex         // 仅保护 RegisterSource / 启停
+    sourcesMu  sync.RWMutex       // 保护 sources slice（RegisterSource）
+    versionMu  sync.Mutex         // 保护 version 自增
+    stopOnce   sync.Once
+    pollDone   chan struct{}
 }
 
 func (s *Service) RegisterSource(src catalogdomain.CatalogSource)
+func (s *Service) SetGenerator(g Generator)                       // 后置注入（main.go 装配序需要）
+func (s *Service) SetPollInterval(d time.Duration)                 // 测试注入
 func (s *Service) Start(ctx context.Context) error
-func (s *Service) Stop(ctx context.Context) error
-func (s *Service) Refresh(ctx context.Context) error            // 强制立即 refresh（HTTP `:refresh` 用）
-func (s *Service) GetForSystemPrompt() string                    // 热路径，从 cache 读，无 IO
-func (s *Service) Get() *catalogdomain.Catalog                   // debug / API 用
+func (s *Service) Stop()                                            // 幂等；stopOnce + 阻塞等 pollDone
+func (s *Service) Refresh(ctx context.Context) error                // 强制立即 refresh（HTTP `:refresh` 用）
+func (s *Service) GetForSystemPrompt() string                       // 热路径，从 cache 读，无 IO
+func (s *Service) Get() *catalogdomain.Catalog                      // debug / API 用
 ```
 
 **整套基础设施由 polling 自然消化**——没有 events bridge subscriber、没有 burst 合并器、没有并发互斥锁库；单 goroutine + ticker + atomic.Bool 完事。
+
+**对外通知的唯一通道是 notifications**：cache 真更新时 publish 一条 `catalog` 通知，前端按需订阅。catalog 自身不订阅任何事件流。
 
 ### Start
 
@@ -309,9 +321,9 @@ func (s *Service) Refresh(ctx context.Context) error {
         granularityMap[src.Name()] = src.Granularity()
     }
     
-    // 全部 source 都挂了 → 保留上次 cache，不写空 catalog
+    // 全部 source 都挂了 → 保留上次 cache，不写空 catalog；上抛 ErrAllSourcesFailed
     if failedCount == len(s.sources) && len(s.sources) > 0 {
-        return fmt.Errorf("catalogapp.Refresh: all %d sources failed; keeping previous cache", len(s.sources))
+        return fmt.Errorf("catalogapp.Refresh: %w (%d sources)", ErrAllSourcesFailed, len(s.sources))
     }
     
     // ⚡ fingerprint 检查 —— polling 的核心优化
@@ -339,6 +351,15 @@ func (s *Service) Refresh(ctx context.Context) error {
     s.lastFP.Store(fp)
     if err := saveToDisk(s.cachePath, catalog); err != nil {
         s.log.Warn("catalog write to disk failed", zap.Error(err))
+    }
+
+    // 推 notification（cache 真更新了才 publish；同 fp 短路那条路径不到这里）
+    if s.notif != nil {
+        s.notif.Publish(ctx, "catalog", "*", map[string]any{
+            "fingerprint": catalog.Fingerprint,
+            "version":     catalog.Version,
+            "generatedAt": catalog.GeneratedAt,
+        })
     }
     return nil
 }
@@ -568,23 +589,26 @@ type SystemPromptProvider interface {
 ### 8.3 main.go 装配
 
 ```go
-// 1. 创建 service（无须 events bridge——polling 不订阅）
-catalogService := catalogapp.NewService(llmResolver, log)
+// 1. 创建 service（注入 notifications.Publisher 用于 cache 变化通知；不订阅事件流）
+catalogService := catalogapp.NewService(notifPublisher, log)
 
-// 2. 注册 sources
+// 2. 后置注入 generator（生成器自身依赖 model picker / keys / llm factory）
+catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelPicker, keyProvider, llmFactory, log))
+
+// 3. 注册 sources
 catalogService.RegisterSource(forgeService.AsCatalogSource())
 catalogService.RegisterSource(mcpService.AsCatalogSource())
 catalogService.RegisterSource(skillService.AsCatalogSource())
 // subagent 不注册——Subagent tool 自身 description 已覆盖 subagent 类型说明
 
-// 3. 注入 chat
+// 4. 注入 chat
 chatService.SetSystemPromptProvider(catalogService)
 
-// 4. 启动（pollLoop 在自己 goroutine 起）
+// 5. 启动（pollLoop 在自己 goroutine 起）
 catalogService.Start(ctx)
 ```
 
-**source 注册顺序无要求**——polling 不依赖 events bridge，注册完启动 polling 自己会把 source 都拉一遍。
+**source 注册顺序无要求**——polling 自己会把 source 都拉一遍；注册完后启动 polling 即可。
 
 ---
 
@@ -601,14 +625,39 @@ catalogService.Start(ctx)
 
 ---
 
-## 10. 错误码
+## 10. 错误码 + Notifications
 
-| Sentinel | HTTP | Wire Code |
-|---|---|---|
-| `catalogdomain.ErrCoverageIncomplete` | (不到 handler) | — |
-| `catalogdomain.ErrGenerationFailed` | (不到 handler) | — |
+### 10.1 Sentinel → HTTP 映射
 
-均内部消化。HTTP `:refresh` 失败时返通用 500 + 日志详情。
+| Sentinel | HTTP | Wire Code | 备注 |
+|---|---|---|---|
+| `catalogdomain.ErrCoverageIncomplete` | (不到 handler) | — | LLM attempt 内部消化，触发 mechanicalFallback |
+| `catalogdomain.ErrGenerationFailed` | (不到 handler) | — | 同上，内部消化 |
+| `catalogdomain.ErrAllSourcesFailed` | 503 | `CATALOG_ALL_SOURCES_FAILED` | `Service.Refresh` 全部 source 报错时触发；HTTP `:refresh` 端点上抛 503，errmap 已登记 |
+
+`ErrCoverageIncomplete` / `ErrGenerationFailed` 永远不到 handler。`ErrAllSourcesFailed` 是 catalog 唯一直达 errmap 的 sentinel——表达"派生 cache 拉数据全失败"的对外失败语义。
+
+### 10.2 Notifications
+
+每次 `Service.Refresh` 真更新 cache（fingerprint 变化）时 publish 一条 `catalog` 通知：
+
+```json
+{
+  "type": "catalog",
+  "id":   "*",
+  "data": {
+    "fingerprint": "<sha256-hex>",
+    "version":     17,
+    "generatedAt": "2026-05-09T13:42:00Z"
+  }
+}
+```
+
+- `id="*"`：catalog 是单例，没有 per-entity ID
+- 同 fingerprint 短路时**不** publish（这是 99% 的 tick）
+- 前端接收后可调 `GET /api/v1/catalog` 拉最新内容
+
+详 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) 的 notifications 协议章。
 
 ---
 
@@ -618,7 +667,7 @@ catalogService.Start(ctx)
 |---|---|---|---|
 | domain | `internal/domain/catalog/catalog_test.go` | 5 | Catalog JSON 全 7 字段 round-trip / Granularity String() + 枚举值 pin (PerItem=0 是新 source 安全默认) / Item JSON + Category omitempty / sentinel 唯一性 + 'catalog: ' 前缀审计 |
 | app/catalog | `internal/app/catalog/catalog_test.go` | 18 | NewHasEmptyCache / RegisterSourceConcurrent (并发安全) / Refresh empty/nil-gen mech-fallback/wired-gen LLM-path/gen-error-fallback/all-sources-fail-keeps-cache/partial-failure-isolation / Fingerprint 短路 + 描述变 trigger / pollLoop FiresAtLeastOnce (20ms 间隔) / TryRefresh BusyGuard SkipsConcurrent (slowGenerator entered2=0) / Start LoadsExistingCache (Version 7 → nextVersion=8) / Start CorruptCacheMovedToBak / Refresh PersistsToDisk / Fingerprint stable shuffle + changes on description + ignores ID-only |
-| app/catalog/generator | `internal/app/catalog/generator_test.go` | 8 | buildPrompt contains all items + granularity hints / first-attempt no retry hint / retry-attempt embeds missing IDs / groupSourceIDs / findMissing full coverage + partial + extras-ignored / NewLLMGenerator nil log OK |
+| app/catalog/generator | `internal/app/catalog/generator_test.go` | 8 | buildPrompt contains all items + granularity hints / NewLLMGenerator nil log OK / 单次 attempt JSON parse 路径（屎山拯救计划 #7 后保留 8 条；retry-loop / missing-hint / coverage 校验相关测试已删） |
 | app/chat | `internal/app/chat/runner_test.go` | 5 | NilProvider skips catalog block / EmptyProviderText skips (boot window safety) / NonEmptyProvider injects 顺序 (intro → catalog → locale) / per-conv SystemPrompt 独立 / SetSystemPromptProvider 真 mutate |
 | transport/handlers | `internal/transport/httpapi/handlers/catalog_test.go` | 4 | Get empty cache → null in envelope / Refresh builds + returns Catalog (asserts mech-fallback + Coverage + Summary + Fingerprint + Version 1) / Get after Refresh 返 cached / Refresh short-circuits when fingerprint unchanged |
 | pipeline | `test/catalog/catalog_test.go` | 3 | AllSourcesCovered E2E (forge + skill 都进 Coverage + Summary + GetForSystemPrompt) / ForgeDescriptionChange triggers regen (Version + Fingerprint + Summary 都变) / NoLLMKey FallsBackToMechanical (mech-fallback + 第二次 no-op Refresh 短路防 per-tick LLM 重试) |

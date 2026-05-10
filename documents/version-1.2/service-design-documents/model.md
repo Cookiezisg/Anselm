@@ -55,7 +55,7 @@ chat 发消息时要回答"该调 OpenAI 的 gpt-4o 还是 Anthropic 的 claude-
 继承项目级约定（同 apikey）：
 
 - 表带 `user_id TEXT NOT NULL`
-- 方法首次动作：`reqctx.GetUserID(ctx)` 取值；缺失返 `fmt.Errorf("modelstore: missing user id in context")` —— 接线 bug，不是 401
+- 方法首次动作：`reqctxpkg.RequireUserID(ctx)` 取值；缺失返包装的 `reqctxpkg.ErrMissingUserID` —— 接线 bug，不是 401
 - Phase 2 ctx 注入 `"local-user"`
 
 ---
@@ -144,20 +144,22 @@ func (ModelConfig) TableName() string { return "model_configs" }
 ### 唯一约束
 
 ```
-UNIQUE(user_id, scenario) WHERE deleted_at IS NULL
+UNIQUE(user_id, scenario)   -- 当前：GORM tag 全索引（含已软删行）
 ```
 
-**注意**：GORM tag 里的 `uniqueIndex:idx_mc_user_scenario` 只产生全索引（不带 WHERE）。要做 partial UNIQUE，需要在 `infra/db/schema_extras.go` 追加 raw SQL：
+**当前实现**：GORM tag `uniqueIndex:idx_mc_user_scenario` 产生全索引（不带 WHERE）。`schema_extras.go` **没有** `model_configs` 这一组——partial UNIQUE 暂缓（详 §17）。
+
+理由：当前 Service.Upsert 只走"查现有 → 决定 insert / update"，**无 delete + recreate 同 scenario 的路径**，全索引与 partial 等价。未来若引入 soft-delete 后立刻新建同 (user_id, scenario) 的路径，需要在 `infra/db/schema_extras.go` 追加：
 
 ```sql
--- schema_extras.go 需要加
+-- 假设引入 soft-delete + recreate 路径时再加：
 DROP INDEX IF EXISTS idx_mc_user_scenario;
 CREATE UNIQUE INDEX idx_mc_user_scenario
   ON model_configs(user_id, scenario)
   WHERE deleted_at IS NULL;
 ```
 
-或者干脆**放弃软删**（model_configs 是设置类数据，审计价值低），硬删也可以。**开发时决定**（见 §18 遗留）。
+在那之前**不**预设 partial UNIQUE。
 
 ### Sentinel 错误（4 个）
 
@@ -235,9 +237,8 @@ type ModelPicker interface {
 | 类别 | 名字 | 位置 | 谁用 |
 |---|---|---|---|
 | Repository 接口 | `Repository` | `domain/model/model.go` | Service；其他 domain 不许 import |
-| Repository 实现 | `Store` | `infra/store/model/store.go`（别名 modelstore） | main.go DI |
-| Service（CRUD + ModelPicker 实现）| `Service` | `app/model/service.go`（别名 modelapp） | handler + main.go |
-| ModelPicker 实现 | 同 `Service` | `app/model/modelpicker.go` | 其他 domain（通过接口） |
+| Repository 实现 | `Store` | `infra/store/model/model.go`（别名 modelstore） | main.go DI |
+| Service（CRUD + ModelPicker 实现）| `Service` | `app/model/model.go`（别名 modelapp；S12 主文件，含 `var _ ModelPicker = (*Service)(nil)` + PickForChat/WebSummary）| handler + main.go + 其他 domain（通过接口）|
 | Scenario 工具 | `ScenarioChat`, `ScenarioWebSummary`, `IsValidScenario`, `ListScenarios` | `domain/model/model.go` | Service + handler 校验 |
 
 ---
@@ -272,12 +273,12 @@ type Repository interface {
 
 ### Store 实现细节（`infra/store/model/model.go`）
 
-- 每个方法前 `reqctx.GetUserID(ctx)` 取 uid，缺失返 wrapped 错误
-- `GetByScenario`: `WHERE user_id=? AND scenario=? AND deleted_at IS NULL`
-- `List`: `WHERE user_id=? AND deleted_at IS NULL ORDER BY scenario`
-- `Upsert`: 尝试 `WHERE user_id=? AND scenario=?` 拿现有行 → 有则更新 ID 保持 + 字段改 + `Save()`；无则 `INSERT`
-  - 并发安全靠 `UNIQUE(user_id, scenario) WHERE deleted_at IS NULL`
-  - 或者走 GORM 的 `ON CONFLICT DO UPDATE` 语法（SQLite 支持）
+- 每个方法前 `reqctxpkg.RequireUserID(ctx)` 取 uid，缺失返 wrapped 错误
+- `GetByScenario`: `WHERE user_id=? AND scenario=?`（GORM 自动按 `gorm.DeletedAt` 字段补 `deleted_at IS NULL`）
+- `List`: `WHERE user_id=? ORDER BY scenario`（同上 GORM 自动 soft-delete filter）
+- `Upsert`: **就是** `db.Save(m)`——一行。**编排逻辑（查现有 / decide insert vs update）在 app 层 Service.Upsert**（详 §8 流程），store 只做最终持久化。
+  - 并发安全靠 `UNIQUE(user_id, scenario)`
+  - 当前不走 `ON CONFLICT DO UPDATE`（Service 层显式决定 insert / update 比 GORM 隐式 upsert 更可控）
 
 ---
 
@@ -286,7 +287,7 @@ type Repository interface {
 ### Struct + 构造
 
 ```go
-// app/model/service.go
+// app/model/model.go（S12 主文件——不叫 service.go）
 
 type Service struct {
     repo modeldomain.Repository
@@ -304,7 +305,7 @@ func NewService(repo modeldomain.Repository, log *zap.Logger) *Service {
 ### Inputs
 
 ```go
-// app/model/service.go
+// app/model/model.go
 
 type UpsertInput struct {
     Provider string
@@ -321,7 +322,7 @@ type UpsertInput struct {
 func (s *Service) List(ctx context.Context) ([]*modeldomain.ModelConfig, error)
 func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (*modeldomain.ModelConfig, error)
 
-// ModelPicker 接口实现（在 modelpicker.go）
+// ModelPicker 接口实现（同文件，3 行 PickForChat / PickForWebSummary 不再单独 modelpicker.go）
 func (s *Service) PickForChat(ctx context.Context) (provider, modelID string, err error)
 func (s *Service) PickForWebSummary(ctx context.Context) (provider, modelID string, err error)
 ```
@@ -334,18 +335,19 @@ func (s *Service) PickForWebSummary(ctx context.Context) (provider, modelID stri
 2. 校验 body：
    strings.TrimSpace(in.Provider) == "" → ErrProviderRequired
    strings.TrimSpace(in.ModelID)  == "" → ErrModelIDRequired
-3. reqctx.GetUserID(ctx) → uid（缺失 = 接线 bug，上抛）
+3. reqctxpkg.RequireUserID(ctx) → uid（缺失 = 接线 bug，包装上抛）
 4. 查现有：existing, err := repo.GetByScenario(ctx, scenario)
-   err == ErrNotConfigured → 新建流程：
-     m := &ModelConfig{ID: newID(), UserID: uid, Scenario: scenario, Provider: ..., ModelID: ...}
-     repo.Upsert(ctx, m)
-   err == nil → 更新流程：
-     existing.Provider = in.Provider
-     existing.ModelID  = in.ModelID
-     existing.UpdatedAt = time.Now().UTC()
-     repo.Upsert(ctx, existing)
-5. log.Info("model config upserted", user_id, scenario, provider, model_id)
-6. 返回最新的 *ModelConfig
+   err == ErrNotConfigured → 新建分支：
+     m := &ModelConfig{ID: newID(), UserID: uid, Scenario: scenario}
+   err == nil → 更新分支：
+     m := existing
+   err 其他 → 上抛
+5. m.Provider = strings.TrimSpace(in.Provider)
+   m.ModelID  = strings.TrimSpace(in.ModelID)
+   //（GORM 自动维护 UpdatedAt）
+6. repo.Upsert(ctx, m)   //（store 内部 = db.Save(m)）
+7. log.Info("model config upserted", user_id, scenario, provider, model_id)
+8. 返回最新的 *ModelConfig
 ```
 
 ### PickForChat 流程
@@ -410,7 +412,7 @@ func newID() string {
 
 #### 10.2 `PUT /api/v1/model-configs/{scenario}` — upsert（200）
 
-**Path param**：`scenario` ∈ `{"chat"}`（Phase 2 白名单）
+**Path param**：`scenario` ∈ `{"chat", "web_summary"}`（白名单；扩展机制详 §4 演化表）
 
 **Request body**：
 ```json
@@ -463,13 +465,9 @@ CREATE TABLE model_configs (
 -- 通过 GORM tag 生成（全索引，不带 WHERE）：
 CREATE UNIQUE INDEX idx_mc_user_scenario ON model_configs(user_id, scenario);
 CREATE INDEX        idx_mc_deleted_at    ON model_configs(deleted_at);
-
--- 由 schema_extras.go 追加（partial UNIQUE）：
-DROP INDEX IF EXISTS idx_mc_user_scenario;
-CREATE UNIQUE INDEX idx_mc_user_scenario
-  ON model_configs(user_id, scenario)
-  WHERE deleted_at IS NULL;
 ```
+
+**partial UNIQUE 暂缓**：当前 Service.Upsert 模式无 delete + recreate 同 scenario 路径，全索引足够（详 §5 唯一约束 + §17 实现清单）。`schema_extras.go` 没有 `model_configs` 组。
 
 **迁移**：`cmd/server/main.go` 的 `db.Migrate(gdb, &modeldomain.ModelConfig{})` 末尾追加。
 
@@ -485,10 +483,10 @@ CREATE UNIQUE INDEX idx_mc_user_scenario
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `MODEL_NOT_CONFIGURED` | 422 | `model.ErrNotConfigured` | chat 调 `PickForChat` 时用户从未配过 | ⬜ |
-| `INVALID_SCENARIO` | 400 | `model.ErrInvalidScenario` | PUT path `scenario` 不在白名单 | ⬜ |
-| `PROVIDER_REQUIRED` | 400 | `model.ErrProviderRequired` | PUT body `provider` 空 | ⬜ |
-| `MODEL_ID_REQUIRED` | 400 | `model.ErrModelIDRequired` | PUT body `modelId` 空 | ⬜ |
+| `MODEL_NOT_CONFIGURED` | 422 | `model.ErrNotConfigured` | chat 调 `PickForChat` 时用户从未配过 | ✅ |
+| `INVALID_SCENARIO` | 400 | `model.ErrInvalidScenario` | PUT path `scenario` 不在白名单 | ✅ |
+| `PROVIDER_REQUIRED` | 400 | `model.ErrProviderRequired` | PUT body `provider` 空 | ✅ |
+| `MODEL_ID_REQUIRED` | 400 | `model.ErrModelIDRequired` | PUT body `modelId` 空 | ✅ |
 
 errmap 条目（新增）：
 ```go
@@ -543,7 +541,7 @@ func (s *Service) processTask(ctx context.Context, ...) {
 ```
 前端 GET /api/v1/model-configs
   → middleware 链（Recover / Logger / CORS / InjectLocale / InjectUserID）
-      → reqctx.SetUserID(ctx, "local-user")
+      → reqctxpkg.SetUserID(ctx, "local-user")
   → mux 匹配 "GET /api/v1/model-configs"
   → ModelConfigHandler.List
       → svc.List(ctx)
@@ -571,11 +569,12 @@ func (s *Service) processTask(ctx context.Context, ...) {
               → 400 PROVIDER_REQUIRED
           → TrimSpace(ModelID) == ""?
               → 400 MODEL_ID_REQUIRED
-          → reqctx.GetUserID → uid
+          → reqctxpkg.RequireUserID → uid
           → repo.GetByScenario(ctx, "chat")
               ErrNotConfigured → 新建分支
               nil → 更新分支
-          → repo.Upsert(ctx, m)            [infra/store/model]
+          → m.Provider / m.ModelID 赋值
+          → repo.Upsert(ctx, m)            [infra/store/model — store.Upsert = db.Save(m)]
           → log.Info("model config upserted")
       → response.Success(200, m)
 ```

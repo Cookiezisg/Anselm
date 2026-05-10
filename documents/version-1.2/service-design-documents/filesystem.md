@@ -129,7 +129,7 @@ LLM 调 Edit
 | `file_path` | string | ✅ | 必须绝对 |
 | `content` | string | ✅ | 允许空串（创建空文件）|
 
-**Schema 用 `*string`** 检测 content 字段缺失（区分"缺 key"与"空字符串"）——LLM 必须显式表达意图。
+**ValidateInput 用 `*string`** 检测 content 字段缺失（区分"缺 key"与"空字符串"）——LLM 必须显式表达意图。JSON Schema 仍声明 `content: {"type": "string"}` + `required: ["file_path", "content"]`（schema 层和 ValidateInput 层都拦缺失，双重保险）。
 
 **返回**：
 - 成功 → `File successfully written to <path>`
