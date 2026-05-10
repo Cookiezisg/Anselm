@@ -159,12 +159,12 @@ func (s *Service) parseSkillDir(dir string) (*skilldomain.Skill, error) {
 
 	yamlPart, _, err := splitFrontmatter(raw)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", skilldomain.ErrInvalidFrontmatter, err)
+		return nil, fmt.Errorf("%w: %w", skilldomain.ErrInvalidFrontmatter, err)
 	}
 
 	var fm skilldomain.Frontmatter
 	if err := yaml.Unmarshal(yamlPart, &fm); err != nil {
-		return nil, fmt.Errorf("%w: yaml: %v", skilldomain.ErrInvalidFrontmatter, err)
+		return nil, fmt.Errorf("%w: yaml: %w", skilldomain.ErrInvalidFrontmatter, err)
 	}
 	if err := validateFrontmatter(fm); err != nil {
 		return nil, err
