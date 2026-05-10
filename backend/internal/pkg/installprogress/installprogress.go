@@ -155,7 +155,17 @@ func (p *progressCallback) close(ctx context.Context, err error) {
 	} else {
 		p.em.DeltaBlock(context.Background(), p.blockID, "[done] install complete\n")
 	}
-	p.em.StopBlock(ctx, p.blockID, status, err)
+	// Use Background ctx for StopBlock to match DeltaBlock above —
+	// otherwise a caller-cancel between the last delta and the stop
+	// emit would leave the progress block stuck `streaming` forever
+	// while the user sees terminal-state delta lines. Same §S9
+	// reasoning as the DeltaBlock decision documented at line 108-114.
+	//
+	// StopBlock 也用 Background 与 DeltaBlock 对齐——caller 在最后 delta 与
+	// stop emit 之间 cancel 会让 progress block 卡 streaming，但用户看到的
+	// 是终态 delta 行。同 §S9 逻辑（line 108-114 的 DeltaBlock 决策）。
+	p.em.StopBlock(context.Background(), p.blockID, status, err)
+	_ = ctx // ctx no longer used for emit; retained in signature for future telemetry
 }
 
 // inChatFlow reports whether ctx carries both a conversationId AND a
