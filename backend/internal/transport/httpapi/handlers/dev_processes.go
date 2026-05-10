@@ -27,6 +27,11 @@ import (
 func (h *DevHandler) BashProcesses(w http.ResponseWriter, r *http.Request) {
 	sample := 2048
 	if s := r.URL.Query().Get("sample"); s != "" {
+		// Non-numeric / negative values silently fall back to default 2048
+		// — testend always sends an int, and CLAUDE.md §6 反校验剧场 says
+		// don't validate what the frontend already covers. No log, no 400.
+		// 非数 / 负数静默回落 2048 默认——testend 永远发 int，§6 反校验
+		// 剧场不重复前端已校验。无 log、无 400。
 		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
 			sample = n
 		}

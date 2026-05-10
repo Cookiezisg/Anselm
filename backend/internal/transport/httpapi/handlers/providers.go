@@ -65,6 +65,19 @@ func (h *ProvidersHandler) List(w http.ResponseWriter, r *http.Request) {
 	for _, name := range names {
 		meta, ok := apikeyapp.GetProviderMeta(name)
 		if !ok {
+			// Defensive against registry invariant violation: ListProviders
+			// and GetProviderMeta read the same package-level registry, so
+			// a name surfaced by List having no meta is impossible unless
+			// the registry is half-initialized. Silent skip is correct —
+			// no logger is injected (handler is intentionally empty struct
+			// per §S6 thin-handler), and the user-visible symptom is "one
+			// dropdown entry missing" which testend will catch.
+			//
+			// Defensive 防 registry invariant 违反：ListProviders 与
+			// GetProviderMeta 同源包级 registry，List 出的 name 没 meta
+			// 仅可能是 registry 半初始化。静默跳过——handler 故意空 struct
+			// 不注入 logger（§S6 薄 handler），用户可见症状是"下拉漏一项"
+			// testend 会发现。
 			continue
 		}
 		if wantCategory != "" && string(meta.Category) != wantCategory {
