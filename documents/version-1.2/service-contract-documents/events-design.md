@@ -1,21 +1,28 @@
-# Events Design — V1.2 SSE 事件契约（递归事件日志协议）
+# Events Design — V1.2 SSE 事件契约（双协议）
 
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../event-log-protocol.md`](../event-log-protocol.md) — 完整协议设计文档（事件流示例 / 后端架构 / migration SQL / 风险）
-- **配套实现**：
+- [`../event-log-protocol.md`](../event-log-protocol.md) — 完整 eventlog 协议设计文档（事件流示例 / 后端架构 / migration SQL / 风险）
+- **配套实现**（eventlog）：
   - `domain/eventlog/` — Event 接口 + 5 events + 6 block types + Bridge 接口 + ValidateEvent
   - `infra/eventlog/` — in-process Bridge（per-conv 单调 seq + 4096 replay buffer + 慢订阅者阻塞）
   - `pkg/eventlog/` — Emitter (auto-mint ID + ctx-injected) + ctx helpers
-- **SSE 端点**：`GET /api/v1/eventlog?conversationId=xxx` (新)；`GET /api/v1/events?conversationId=xxx` (legacy 共存到 Phase 4 cutover)
-- **历史 refetch**：`GET /api/v1/conversations/{id}/eventlog?from=<seq>` (Phase 3 — 410 Gone 时的全态刷新)
+- **配套实现**（notifications）：
+  - `domain/notifications/` — 1 通用 Event envelope + Bridge 接口 + ValidateEvent
+  - `infra/notifications/` — global broadcast Bridge（per-key 单调 seq + replay buffer + Last-Event-ID 重连）
+  - `pkg/notifications/` — Publisher (ctx-injected) + With/From/MustFrom helpers
+- **SSE 端点**：
+  - `GET /api/v1/eventlog?conversationId=xxx` — per-conversation 流式内容（eventlog 协议）
+  - `GET /api/v1/notifications` — global broadcast entity 状态（notifications 协议）
+- **历史 refetch**：`GET /api/v1/conversations/{id}/eventlog?from=<seq>` (eventlog 协议 — 410 Gone 时的全态刷新)
 
-**模型**：**recursive event log**（替换 entity-snapshot 模型）。
-- 5 种事件 + 6 种 block 类型 — 全部封闭枚举
-- `parentId` 字段表达任意嵌套（subagent / 并行 / 嵌套 LLM 全用同一机制）
-- 每事件带 per-conversation 单调 `seq`，支持 `Last-Event-ID` 重连
+**双协议（CLAUDE.md §E1）**：本契约覆盖后端唯二两个 SSE 流：
+1. **eventlog**（per-conversation）— recursive event log 协议（5 events × 6 block types），流式 chat 内容
+2. **notifications**（global broadcast）— 1 通用 envelope，entity 状态更新
 
-**遵守标准**：§E1（5 events + 6 block types 封闭枚举）/ §E2（parentId 路由，类型固定）/ §N7（SSE wire format）/ §S21（事件流 invariants）
+两者共享 Bridge pattern（per-key seq + replay buffer + Last-Event-ID 重连），但订阅域 / 路由 / 演化规则不同。§1-§10 是 eventlog 主体；§11 是 notifications 协议；§12 是测试参考。
+
+**遵守标准**：§E1（双协议；eventlog 5 events + 6 block types 封闭；notifications 开放词表）/ §E2（eventlog parentId 路由；notifications 按 type 过滤）/ §N7（SSE wire format）/ §S21（事件流 invariants）
 
 ---
 
@@ -165,7 +172,7 @@ Conversation (cv_xx)
 | error | text | block_stop 时填 |
 | created_at / updated_at | datetime | GORM 自动 |
 
-**Message 不双写** — `messages` 表走 legacy chat repo 直至 Phase 4 unify。
+**Message 不双写** — `messages` 表走 chat repo（`infra/store/chat/SaveMessage`，含 user_id / role / status / token 字段），块内容走 eventlog Emitter 写 `message_blocks`。两表 schema 统一后协作而非竞争（详 [`../service-design-documents/chat.md`](../service-design-documents/chat.md) §3）。
 
 ## 10. Invariants（§S21）
 
@@ -175,33 +182,86 @@ Conversation (cv_xx)
 - 同 block 的 deltas 按 seq append-only，前端不重写不重排
 - `tool_call` block ID = LLM 自带 tc_id（不走 §S15 prefix）；其他 block ID 走 idgen `blk_`
 
-## 11. Legacy events 共存（Phase 1-3 dual-write）
+## 11. Notifications 协议（global broadcast SSE）
 
-老 `domain/events/` 6 类 entity-snapshot 事件（`chat.message` / `forge` / `conversation` / `todo` / `mcp` / `skill`）在 legacy bridge `/api/v1/events` 仍发，**不会立刻删**。Phase 4 frontend 切到新 bridge 后才能删。Producer 端：
+与 §1-§10 的 eventlog 协议**完全独立**——共享 Bridge pattern（per-key seq + replay buffer + Last-Event-ID 重连），但 envelope shape / 演化规则 / 订阅模式不同。
 
-- chat 主管线：legacy chat.message **+** 新 5 events 都推
-- subagent：legacy chat.message (借 SubagentRun 壳) **+** 新 message-block + sub message_start/stop 都推
-- forge / catalog / mcp / skill / todo / conversation：仍只推 legacy（**未接入新协议**——forge 用户重写后再说，其他 Phase 3+ 接）
+### 11.1 envelope shape
 
-## 12. Phase 路线（实施进度）
+```typescript
+type Envelope = { seq: int64; event: Event }
 
-| Phase | 范围 | 状态 |
+type Event = {
+  type: string                  // 实体种类判别字符串（开放词表）
+  id: string                    // 实体 ID（type 内唯一）
+  data: any                     // 实体快照 JSON（前端按 type 解释）
+  conversationId?: string       // 仅 conversation-scoped 实体填（如 todo / sandbox_env）
+}
+```
+
+### 11.2 现有 entity types（6 种 live）
+
+| type | producer 位点 | 触发场景 |
 |---|---|---|
-| 1 | Bridge / Emitter / DB schema / SSE handler / reqctx ParentBlockID | ✅ 2026-05-08 |
-| 2A | chat 主管线 producer dual-write | ✅ 2026-05-08 |
-| 2B | subagent 递归 emit + Emitter DB dual-write | ✅ 2026-05-08 |
-| 3 | sandbox/mcp progress emit + 历史回放器 + 文档同步 | 🔄 进行中 |
-| 4 | 前端 chat.js 切到新 bridge + 删 legacy events + drop subagent_runs/messages 表 | ⬜ 等 V1.2 后端期结束（CLAUDE.md §4 限制） |
-| 5 | dogfood 验证 + 协议级集成测试 | ⬜ |
+| `conversation` | `app/conversation/Service.{Create,Rename,SetSystemPrompt}` 168/117/128 行；`app/chat/runner.afterStreamFinalize` 自动改名后 | 创建 / 改名 / systemPrompt 修改 / autoTitle 完成 |
+| `todo` | `app/todo/Service.{Create,Update,Delete}` 经 publish helper（todo.go:249）| 任意 todo CRUD |
+| `mcp_server` | `app/mcp/Service.{updateStatus,setTools}` 326/379 行 | server 连接状态 / tools 列表变化 |
+| `skill` | `app/skill/Service.scan` 106 行 | fsnotify 触发 rescan 后 |
+| `catalog` | `app/catalog/Service.applyRefresh` 253 行 | 1s polling 后 catalog 内容变化 |
+| `sandbox_env` | `app/sandbox/Service.publishEnvUpdate` 661/682 行 | env 状态翻转（installing→ready / ready→failed / 删除）|
 
-## 13. 测试覆盖
+新增 type 字符串即可（**开放词表**——E2 演化规则）。前端不需协议升级。
 
-Phase 1-2 单测已覆盖：
+### 11.3 HTTP 端点
 
-- `domain/eventlog/eventlog_test.go` — ValidateEvent 各事件形状
-- `infra/eventlog/bridge_test.go` (10 测) — 单调 seq / 慢订阅阻塞 / Last-Event-ID 重连 / ErrSeqTooOld
-- `pkg/eventlog/eventlog_test.go` (15 测) — Emitter 父链 / DB dual-write 6 测 (顶层/嵌套/append/finalize/error/attrs JSON)
-- `infra/store/chat/block_v2_test.go` (12 测) — BlockV2Store CRUD / CHECK / UNIQUE
-- `transport/httpapi/handlers/eventlog_test.go` (3 测) — SSE 端到端 / Last-Event-ID / 410
+`GET /api/v1/notifications` — 单 SSE 流，全订阅（无 query 参数）。客户端按 `event.type` / `event.conversationId` 客户端过滤分派渲染。
 
-集成端到端测试（多 producer + 真 stream）属 Phase 5 pipeline test 范围。
+**Wire format（同 §N7）**：
+
+```
+event: <type>
+id: <seq>
+data: <event JSON, 不重复 type/seq>
+
+```
+
+**重连**：`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件，再接实时；超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端清缓存重订（无 fromSeq）+ 经 REST refetch 关心的实体。
+
+### 11.4 Publisher API
+
+`pkg/notifications.Publisher`（ctx-injected）：
+
+```go
+import notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
+
+// Service 内部消费：
+notif := notificationspkg.From(ctx)  // 总返非 nil（缺失 → no-op fallback）
+notif.Publish(ctx, "conversation", convID, snapshot, convID)  // 第 5 参可选 conversationID
+```
+
+ctx wiring 由 cmd/server 装配 + middleware 写 ctx；service 构造器经 `notificationspkg.From(context.Background())` 取默认 no-op fallback 用于测试。**failure log 不上抛**——通知是可观测性，不是业务。
+
+### 11.5 与 eventlog 协议的对比
+
+| 维度 | eventlog | notifications |
+|---|---|---|
+| 订阅域 | per-conversation（`?conversationId=`）| global broadcast |
+| envelope | 5 封闭事件 × 6 封闭 block type | 1 通用 envelope（type 自由）|
+| 路由 | `parentId` 递归（先于事件名）| 客户端按 type / conversationId 过滤 |
+| 演化 | 加事件 / block type **必须**改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可，无协议升级 |
+| 用途 | 流式 chat 内容（含 subagent 嵌套）| entity 状态更新（CRUD / 异步进度）|
+| Bridge | per-conv seq + 4096 replay buffer | global seq + replay buffer |
+| Producer | 紧密耦合（5 类型固定 schema）| 松散耦合（Publisher 接受任意 type 字符串）|
+| Block 类型变动 | DB CHECK + 前端 renderer 同 PR | 仅前端按 type 加 renderer |
+
+## 12. 测试覆盖
+
+事件协议层单测：
+
+- `infra/eventlog/bridge_test.go` — 单调 seq / 慢订阅阻塞 / Last-Event-ID 重连 / ErrSeqTooOld
+- `pkg/eventlog/eventlog_test.go` — Emitter 父链 / DB dual-write（顶层/嵌套/append/finalize/error/attrs JSON）
+- `transport/httpapi/handlers/eventlog_test.go` — SSE 端到端 / Last-Event-ID / 410
+
+> 注：`domain/eventlog/eventlog_test.go` / `infra/store/chat/block_v2_test.go` 早期文档曾计划过，未真写——`ValidateEvent` 行为由 `infra/eventlog/bridge_test.go` 在 Publish 路径覆盖；`message_blocks` CHECK / UNIQUE 约束由 `infra/db/schema_extras.go` 自动 migrate + DB 兜底。
+
+集成端到端测试（多 producer + 真 stream）走 `backend/test/` pipeline test（§T5）。Notifications 协议层测试同样由 bridge_test 覆盖（结构一致）。

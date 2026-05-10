@@ -59,6 +59,8 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingConversationID` | chat-runner 未在 ctx 印 conversation ID（接线 bug）。todo / ask 工具依赖此 ID | ✅ |
 | `INTERNAL_ERROR` | 500 | `cryptoinfra.ErrUnsupportedVersion` | DB 中密文版本前缀（如 `v2:`）超出当前 encryptor 支持范围（升降级 / 数据损坏）| ✅ |
 | `NOT_FOUND` | 404 | (middleware 直接发，不走 errmap) | 路由未匹配 | ✅ |
+| `CLIENT_CLOSED` | 499 | `context.Canceled` (stdlib) | 客户端断开（浏览器 hard refresh / 关 tab）；登记仅为抑制 unmapped warning，响应反正没人收 | ✅ |
+| `REQUEST_TIMEOUT` | 504 | `context.DeadlineExceeded` (stdlib) | 请求超时；同样登记仅为抑制 unmapped warning | ✅ |
 
 ---
 
@@ -102,11 +104,15 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `MESSAGE_NOT_FOUND` | 404 | `chat.ErrMessageNotFound` | 消息 id 不存在 | ✅ |
 | `STREAM_NOT_FOUND` | 404 | `chat.ErrStreamNotFound` | 取消不存在的流 | ✅ |
 | `STREAM_IN_PROGRESS` | 409 | `chat.ErrStreamInProgress` | 同一对话已有流在跑 | ✅ |
-| `LLM_PROVIDER_ERROR` | 502 | `chat.ErrProviderUnavailable` | 上游 LLM 故障（非 401）| ✅ |
+| `LLM_PROVIDER_ERROR` | 502 | `chat.ErrProviderUnavailable` / `llminfra.ErrProviderError` | 上游 LLM 故障（非 401）；wire code 共用——前者 chat 路径上抛，后者 infra/llm classifyHTTPError 兜底所有非 401/429/400/404 的 5xx | ✅ |
 | `ATTACHMENT_TOO_LARGE` | 413 | `chat.ErrAttachmentTooLarge` | 附件超过 50MB | ✅ |
 | `ATTACHMENT_TYPE_UNSUPPORTED` | 415 | `chat.ErrAttachmentTypeUnsupported` | 无法处理的文件格式 | ✅ |
 | `ATTACHMENT_PARSE_FAILED` | 422 | `chat.ErrAttachmentParseFailed` | 文件损坏或解析失败 | ✅ |
 | `VISION_NOT_SUPPORTED` | 422 | `chat.ErrVisionNotSupported` | 当前 provider 不支持图片 | ✅ |
+| `LLM_AUTH_FAILED` | 401 | `llminfra.ErrAuthFailed` | LLM provider 返 401（API key 失效）；errors.Is 触发 apikey.MarkInvalid | ✅ |
+| `LLM_RATE_LIMITED` | 429 | `llminfra.ErrRateLimited` | LLM provider 返 429（速率限制）| ✅ |
+| `LLM_BAD_REQUEST` | 400 | `llminfra.ErrBadRequest` | LLM provider 返 400（请求体非法）| ✅ |
+| `LLM_MODEL_NOT_FOUND` | 404 | `llminfra.ErrModelNotFound` | 指定 modelID 在 provider 不存在 | ✅ |
 
 **Message.errorCode 字段值**（Phase 5 新增字段，仅 status="error" 时填；不走 HTTP 路径，由 SSE `chat.message` 事件携带，前端按 code 解释失败原因）：
 
@@ -140,7 +146,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `TOOL_IMPORT_CONFLICT` | 409 | `tool.ErrImportConflict` | 导入名字冲突需用户决策 | ⬜ |
 | `FORGE_ENV_NOT_READY` | 422 | `forge.ErrEnvNotReady` | ActiveVersion 的 venv 处于非-ready（syncing / evicted），需等 entity-state 翻转或调 :resync | ✅ |
 | `FORGE_NO_ACTIVE_VERSION` | 422 | `forge.ErrNoActiveVersion` | forge 还没接受过任何版本（草稿 forge 在 edit_forge 后 pending 未 accept 即 run）。TE-15 起 create_forge 自动 accept，本码主要给 edit_forge 后未 accept 的场景 | ✅ |
-| `FORGE_ENV_FAILED` | 422 | `forge.ErrEnvFailed` | Sync 失败（含 deps 解析失败 / Python 包冲突）；EnvError 含 uv stderr 全文 | ✅ |
+| `FORGE_ENV_FAILED` | 422 | `forge.ErrEnvFailed` | ActiveVersion 的 env 处于 `EnvStatusFailed`（venv 安装步本身失败 / 系统级故障，**非** deps 解析失败——后者用 `FORGE_DEPENDENCY_RESOLUTION`）；EnvError 含 uv stderr | ✅ |
 | `FORGE_SANDBOX_UNAVAILABLE` | 503 | `forge.ErrSandboxUnavailable` | 启动期 Bootstrap 失败（uv / python-build-standalone 资源缺失） | ✅ |
 | `FORGE_DEPENDENCY_RESOLUTION` | 422 | `forge.ErrDependencyResolution` | uv 无法解析依赖（包名拼错 / 版本约束冲突 / 网络错误）；EnvError 含 uv 完整 stderr | ✅ |
 
@@ -150,7 +156,16 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 ### Phase 5：System Tool 第二代（2026-05-04）
 
-> **NB：filesystem / search / web / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../service-design-documents/filesystem.md) / [`search.md`](../service-design-documents/search.md) / [`web.md`](../service-design-documents/web.md) / [`shell.md`](../service-design-documents/shell.md)。下面仅 todo / ask 因为有独立 HTTP 端点（todo SSE 推 entity 事件 / ask 走 `POST /answers`），错误才会到 handler 进 errmap。
+> **NB：filesystem / search / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../service-design-documents/filesystem.md) / [`search.md`](../service-design-documents/search.md) / [`shell.md`](../service-design-documents/shell.md)。**例外**：web 家族的 BYOK provider HTTP 状态分类 sentinel **登记**（让 `errors.Is` 触发 `apikey.MarkInvalid`，UI 自动翻 "error"）；下方 todo / ask / web 三类有独立 HTTP 端点或显式 errmap 行。
+
+#### web ✅
+BYOK web search providers（Brave / Serper / Tavily / Bocha）的 HTTP 状态分类。同 LLM provider 模式，但 sentinel 独立（provider + discrimination 逻辑不同）。`tool/web/search.go::markInvalidIfAuthErr` 用 `errors.Is` 触发 `apikey.MarkInvalid`，替代 string match。
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `WEBSEARCH_AUTH_FAILED` | 401 | `webtool.ErrAuthFailed` | provider 返 401（API key 失效）| ✅ |
+| `WEBSEARCH_RATE_LIMITED` | 429 | `webtool.ErrRateLimited` | provider 返 429（速率限制）| ✅ |
+| `WEBSEARCH_UPSTREAM_HTTP` | 502 | `webtool.ErrUpstreamHTTP` | provider 返其他 5xx | ✅ |
 
 #### todo ✅
 详见 [`../service-design-documents/todo.md`](../service-design-documents/todo.md)。
@@ -194,9 +209,9 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 |---|---|---|---|---|
 | `SUBAGENT_TYPE_NOT_FOUND` | 404 | `subagentdomain.ErrTypeNotFound` | spawn 时 subagent_type 不在注册表 | ✅ |
 | `SUBAGENT_RECURSION` | 422 | `subagentdomain.ErrRecursionAttempt` | subagent 内尝试再 spawn（防嵌套）| ✅ |
-| `SUBAGENT_RUN_NOT_FOUND` | 404 | `gorm.ErrRecordNotFound`（handler 内映射） | GET `/subagent-runs/{id}` 找不到 | ✅ |
 
 > 注：`subagentdomain.ErrMaxTurnsExceeded` / `ErrCancelled` **不上抛 handler**，由 SubagentTool.Execute 转友好字符串返 LLM。
+> 注：原 `SUBAGENT_RUN_NOT_FOUND` 行已删——schema 统一后 `/subagent-runs/{id}` 端点不存在，sub-run 数据走 `/conversations/{id}/messages`（attrs.kind=subagent_run 过滤）。
 
 #### mcp ✅
 
@@ -231,24 +246,30 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 
 > 注：5 个 sentinel + errmap 行 D7-1 全接（2026-05-06）。runtime 触发点全部接通（D7-3 Activate / D7-7 mutate / D7-7 Import）。allowed-tools 校验未注册 tool 设计上推迟到 V2（boot 顺序 race：skill scan 早于 tool 注册）。
 
-#### catalog 📐
-
-无对外 sentinel——`ErrCoverageIncomplete` / `ErrGenerationFailed` 内部消化（重试 + mechanical fallback），不上抛 handler。`POST /catalog:refresh` 失败返通用 500 + 日志详情。
-
-#### sandbox 📐
+#### catalog ✅
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | `sandboxdomain.ErrRuntimeNotSupported` | 没有 installer 注册该 kind | 📐 |
-| `SANDBOX_RUNTIME_INSTALL_FAILED` | 502 | `sandboxdomain.ErrRuntimeInstallFailed` | mise install / playwright install 等失败 | 📐 |
-| `SANDBOX_ENV_NOT_FOUND` | 404 | `sandboxdomain.ErrEnvNotFound` | 通过 owner / id 查不到 | 📐 |
-| `SANDBOX_ENV_CREATE_FAILED` | 502 | `sandboxdomain.ErrEnvCreateFailed` | venv / node_modules / etc. 建失败 | 📐 |
-| `SANDBOX_DEP_INSTALL_FAILED` | 502 | `sandboxdomain.ErrDepInstallFailed` | uv pip install / npm install 失败 | 📐 |
-| `SANDBOX_SPAWN_FAILED` | 502 | `sandboxdomain.ErrSpawnFailed` | 子进程起不来 | 📐 |
-| `SANDBOX_SPAWN_TIMEOUT` | 504 | `sandboxdomain.ErrSpawnTimeout` | once-spawn 超时 | 📐 |
-| `SANDBOX_ENV_IN_USE` | 409 | `sandboxdomain.ErrEnvInUse` | Destroy 时 env 还在跑 | 📐 |
+| `CATALOG_ALL_SOURCES_FAILED` | 503 | `catalogdomain.ErrAllSourcesFailed` | 全部 source（forge/skill/mcp）同时挂；`POST /catalog:refresh` 时上抛 | ✅ |
+
+> `ErrCoverageIncomplete` / `ErrGenerationFailed` 内部消化（3 次 retry + mechanical fallback），不上抛 handler。仅 `ErrAllSourcesFailed` 在所有 source 同时失败时透出 503。
+
+#### sandbox ✅
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | `sandboxdomain.ErrRuntimeNotSupported` | 没有 installer 注册该 kind | ✅ |
+| `SANDBOX_RUNTIME_INSTALL_FAILED` | 502 | `sandboxdomain.ErrRuntimeInstallFailed` | mise install / playwright install 等失败 | ✅ |
+| `SANDBOX_ENV_NOT_FOUND` | 404 | `sandboxdomain.ErrEnvNotFound` | 通过 owner / id 查不到 | ✅ |
+| `SANDBOX_ENV_CREATE_FAILED` | 502 | `sandboxdomain.ErrEnvCreateFailed` | venv / node_modules / etc. 建失败 | ✅ |
+| `SANDBOX_DEP_INSTALL_FAILED` | 502 | `sandboxdomain.ErrDepInstallFailed` | uv pip install / npm install 失败 | ✅ |
+| `SANDBOX_SPAWN_FAILED` | 502 | `sandboxdomain.ErrSpawnFailed` | 子进程起不来 | ✅ |
+| `SANDBOX_SPAWN_TIMEOUT` | 504 | `sandboxdomain.ErrSpawnTimeout` | once-spawn 超时 | ✅ |
+| `SANDBOX_ENV_IN_USE` | 409 | `sandboxdomain.ErrEnvInUse` | Destroy 时 env 还在跑 | ✅ |
+| `SANDBOX_INVALID_OWNER_ID` | 400 | `sandboxdomain.ErrInvalidOwnerID` | ownerID 格式不合法（D2 收紧）| ✅ |
+| `SANDBOX_CMD_REQUIRED` | 400 | `sandboxdomain.ErrCmdRequired` | spawn 命令 cmd 字段必填 | ✅ |
 | `SANDBOX_DOCKER_NOT_INSTALLED` | 422 | `sandboxdomain.ErrDockerNotInstalled` | docker CLI 不在 PATH；Forgify 不替用户装 Docker（系统服务）| ✅ |
-| `SANDBOX_DOCKER_DAEMON_DOWN` | 422 | `sandboxdomain.ErrDockerDaemonDown` | docker CLI 在但 daemon 不响应（Mac/Win 没启 Docker Desktop / Linux dockerd inactive）| ✅ |
+| `SANDBOX_DOCKER_DAEMON_DOWN` | 503 | `sandboxdomain.ErrDockerDaemonDown` | docker CLI 在但 daemon 不响应（Mac/Win 没启 Docker Desktop / Linux dockerd inactive）| ✅ |
 
 #### flowrun ⬜
 

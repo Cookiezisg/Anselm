@@ -23,7 +23,7 @@ import (
 // KeyMasked 是展示字符串如 "sk-proj...abc4"。
 type APIKey struct {
 	ID           string         `gorm:"primaryKey;type:text" json:"id"`
-	UserID       string         `gorm:"not null;index:idx_api_keys_user_id;type:text" json:"userId"`
+	UserID       string         `gorm:"not null;index:idx_api_keys_user_id;index:idx_api_keys_user_provider,priority:1;type:text" json:"userId"`
 	Provider     string         `gorm:"not null;index:idx_api_keys_user_provider,priority:2;type:text" json:"provider"`
 	DisplayName  string         `gorm:"not null;type:text;default:''" json:"displayName"`
 	KeyEncrypted string         `gorm:"not null;type:text" json:"-"`

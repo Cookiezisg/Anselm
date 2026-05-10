@@ -78,8 +78,8 @@ type Error = {
 | Method | Path | 用途 | 状态 |
 |---|---|---|---|
 | GET | `/api/v1/health` | 存活探针（Electron 启动后读）| ✅ |
-| GET | `/api/v1/events?conversationId=xxx` | **legacy** SSE 事件流（entity-snapshot 模型；Phase 4 cutover 删）| ✅ |
-| GET | `/api/v1/eventlog?conversationId=xxx` | **新** SSE 事件流（递归事件日志协议；`Last-Event-ID` 重连；超 buffer 返 410 GoneSEQ_TOO_OLD）— 详 [`../event-log-protocol.md`](../event-log-protocol.md) | ✅ |
+| GET | `/api/v1/eventlog?conversationId=xxx` | **per-conversation** SSE 事件流（递归事件日志协议；`Last-Event-ID` 重连；超 buffer 返 410 Gone SEQ_TOO_OLD）— 详 [`../event-log-protocol.md`](../event-log-protocol.md) | ✅ |
+| GET | `/api/v1/notifications` | **global broadcast** SSE entity 状态总线（单 envelope `{type,id,data,conversationId?}` 覆盖 conversation / todo / mcp_server / skill / catalog / sandbox_env；`Last-Event-ID` 重连）— 详 [`events-design.md §11`](./events-design.md) | ✅ |
 | GET | `/api/v1/conversations/{id}/eventlog?from=N` | 历史回放：DB 重构 block 事件流（client 收 410 后用此 refetch；返 `{events, tailSeq, count}`）| ✅ |
 
 ---
@@ -113,6 +113,7 @@ type Error = {
 |---|---|---|
 | POST | `/api/v1/conversations` | 创建对话（201）；title 可为空 |
 | GET | `/api/v1/conversations` | 列表（200，cursor 分页，最新优先）|
+| GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / metadata）|
 | PATCH | `/api/v1/conversations/{id}` | 改名（200）|
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
@@ -140,6 +141,7 @@ type Error = {
 | GET | `/api/v1/forges/{id}` | 详情 |
 | PATCH | `/api/v1/forges/{id}` | 更新（直接生效）|
 | DELETE | `/api/v1/forges/{id}` | 软删 |
+| POST | `/api/v1/forges/{id}:duplicate` | 复制 forge（201；复制 active 版本的 code/deps/python/parameters）|
 | POST | `/api/v1/forges/{id}:run` | 执行工具 |
 | POST | `/api/v1/forges/{id}:export` | 导出 JSON |
 | POST | `/api/v1/forges:import` | 导入 JSON |
@@ -201,12 +203,7 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 #### subagent ✅
 详见 [`../service-design-documents/subagent.md`](../service-design-documents/subagent.md)。LLM 通过 `Subagent` system tool spawn 子 LLM loop（避开 `todo` domain 撞车而改名）；独立 context、过滤后 tool registry；与 chat 都通过 `internal/app/loop` 共享 ReAct 引擎。V1 内置 3 类型（Explore / Plan / general-purpose）。**V1.2 D3-D4 完成 2026-05-06**。
 
-| Method | Path | 用途 |
-|---|---|---|
-| GET | `/api/v1/conversations/{id}/subagent-runs` | 列对话下所有 subagent run（cost analysis）|
-| GET | `/api/v1/subagent-runs/{id}` | 单 run 详情（prompt + result）|
-| GET | `/api/v1/subagent-runs/{id}/messages` | run 内全部 messages（流式小窗回放用）|
-| GET | `/api/v1/subagent-types` | 列所有可用 subagent 类型（Explore / Plan / general-purpose）|
+**无独立 HTTP 端点**——2026-05 schema 统一后 sub-run 不再有专表，sub-run 数据是 `messages` 行（`attrs.kind=subagent_run`），sub-run transcript 是该 message 在 `message_blocks` 的 blocks。前端经 `GET /api/v1/conversations/{id}/messages` 读 sub-run 状态；type registry 由 `Subagent` 系统工具进程内消费，不暴露 HTTP。
 
 #### mcp ✅
 详见 [`../service-design-documents/mcp.md`](../service-design-documents/mcp.md)。官方 `modelcontextprotocol/go-sdk` v1.6；stdio only；search/call 模式不 flat 注册（避 token 爆炸）；自包含原则（只读 `~/.forgify/mcp.json`）。**V1.2 D5+D6（2026-05-06）全部落地**：domain types + 10 sentinels + 内置 6 marketplace（Playwright/MarkItDown/Context7/DuckDuckGo/SQLite/everything）+ ~/.forgify/mcp.json Load/Save/Merge + stdio Client wrapper（stderr→zap+256KB ring / SDK CommandTransport 处理 SIGTERM→5s→SIGKILL）+ Service lifecycle/Search/CallTool/Health/Install + 2 system tools (search_mcp/call_mcp) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控。
@@ -217,6 +214,7 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 |---|---|---|
 | GET | `/api/v1/mcp-servers` | 列所有配置（含 status + tools + 健康字段）|
 | GET | `/api/v1/mcp-servers/{name}` | 单 server 详情 + tools |
+| GET | `/api/v1/mcp-servers/{name}/stderr` | 取 server stderr 256KB ring buffer（debug 用）|
 | PUT | `/api/v1/mcp-servers/{name}` | 增/改配置（写 mcp.json + 立即 Connect）|
 | DELETE | `/api/v1/mcp-servers/{name}` | 删配置 + disconnect（204）|
 | POST | `/api/v1/mcp-servers:import` | **拖拽导入**（multipart 上传 mcp.json 文件 / 文本 fragment）|
@@ -257,6 +255,34 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 | POST | `/api/v1/catalog:refresh` | 强制立即 refresh（绕过 1s polling 间隔）|
 
 **没有 routing-hints 端点**——路由提示由 generator LLM-gen 时直接写进 summary，用户想影响路由 → 编辑源头 forge/skill/mcp 的 description。
+
+#### sandbox ✅
+详见 [`../service-design-documents/sandbox.md`](../service-design-documents/sandbox.md)。统一 PluginSandbox v2（mise embed + per-plugin 隔离 env，4 类 owner：forge / mcp / skill / conversation）。Bootstrap 自启 + lazy install runtime。
+
+##### Read 端点
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/sandbox/runtimes` | 列所有已装 runtime（kind/version/path/sizeBytes/isDefault）|
+| GET | `/api/v1/sandbox/envs?ownerKind=forge\|mcp\|skill\|conversation` | 按 ownerKind 列 envs（**ownerKind 必填**，否则 400 OWNER_KIND_REQUIRED）|
+| GET | `/api/v1/sandbox/envs/{id}` | 单 env 详情 |
+| GET | `/api/v1/sandbox/disk-usage` | 全 sandbox 磁盘占用 `{totalBytes}` |
+| GET | `/api/v1/sandbox/bootstrap-status` | Bootstrap 状态 `{ok, miseBin?, error?}` |
+| GET | `/api/v1/conversations/{id}/sandbox-envs` | 列对话作用域所有 conversation-kind env |
+
+##### :action 端点（POST）
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST | `/api/v1/sandbox/envs/{id}:destroy` | 销毁单 env（rm -rf 目录 + DB 行；in-use 返 409 SANDBOX_ENV_IN_USE）|
+| POST | `/api/v1/sandbox/runtimes/{id}:destroy` | 销毁单 runtime（被任何 env 引用时拒）|
+| POST | `/api/v1/sandbox/:gc` | 触发 GC（清理孤儿 env / runtime）|
+| POST | `/api/v1/sandbox/:retry-bootstrap` | 重试 Bootstrap（mise binary 自检 + 装失败的核心 runtime）|
+| POST | `/api/v1/sandbox/runtimes:install` | 显式装 runtime（kind+version；body：`{kind, version}`）|
+| POST | `/api/v1/conversations/{id}/sandbox-envs/{kind}:reset` | 重置对话内单 kind 的 conversation env |
+| POST | `/api/v1/conversations/{id}/sandbox-envs:reset-all` | 重置对话内全部 conversation env |
+
+> 路由实现注：`POST /sandbox/{action}` 单 mux 入口分派 3 个 action（`:gc` / `:retry-bootstrap` / `runtimes:install`）；`POST /sandbox/envs/{idAction}` / `runtimes/{idAction}` 用 `strings.Cut` 拆 id 与 action。详 `handlers/sandbox.go::Register`。
 
 #### chat 同步改动 📐
 
