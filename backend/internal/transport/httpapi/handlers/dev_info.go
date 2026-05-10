@@ -7,7 +7,6 @@
 package handlers
 
 import (
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,6 +29,15 @@ var startTime = time.Now()
 //
 // Info 处理 GET /dev/info。返 boot 元数据 + 路径。
 func (h *DevHandler) Info(w http.ResponseWriter, r *http.Request) {
+	// dev-only: UserHomeDir failure → home == "" displayed verbatim in
+	// JSON response. Tester sees empty home field and self-diagnoses
+	// (typically HOME env unset in odd shell configs); other paths
+	// (forgifyHome / mcpConfigPath) come from struct fields and still
+	// work. §S3 例外: dev-only graceful, error 对调用方无意义。
+	//
+	// dev-only：UserHomeDir 失败 → home == "" 在 JSON 直显，tester 看
+	// 空 home 自查（通常 HOME env 未设）；其他路径（forgifyHome /
+	// mcpConfigPath）来自 struct 字段仍可用。§S3 例外。
 	home, _ := os.UserHomeDir()
 	resp := map[string]any{
 		"version":        "v1.2-dev",
@@ -126,6 +134,13 @@ func walkHomeTree(path, rel string, depth, maxDepth int, count *int, maxEntries 
 		relChild := filepath.Join(rel, ent.Name())
 		info, err := ent.Info()
 		if err != nil {
+			// dev-only: ent.Info() 失败典型是 permission denied / 文件
+			// 刚被删——单 entry 失败不影响整树展示。silent skip 让 walk
+			// 继续，tester 看树缺一项可自查 fs。§S3 例外: graceful skip。
+			//
+			// dev-only：ent.Info() 失败常因 permission denied / 文件刚被
+			// 删——单 entry 失败不影响整树。silent 续 walk，tester 见
+			// 树缺一项自查。§S3 例外。
 			continue
 		}
 		e := homeEntry{
@@ -136,6 +151,11 @@ func walkHomeTree(path, rel string, depth, maxDepth int, count *int, maxEntries 
 			ModTime: info.ModTime().UTC(),
 		}
 		if info.IsDir() && depth < maxDepth {
+			// dev-only: 子目录 walk 失败常因 permission denied——graceful
+			// skip 让上层树仍渲染。§S3 例外，同 ent.Info() silent skip。
+			//
+			// dev-only：子目录 walk 失败常因 permission denied——graceful
+			// skip 让上层树仍渲染。§S3 例外。
 			children, _ := walkHomeTree(full, relChild, depth+1, maxDepth, count, maxEntries)
 			e.Children = children
 			// dir size = sum of immediate children file sizes
@@ -154,8 +174,5 @@ func walkHomeTree(path, rel string, depth, maxDepth int, count *int, maxEntries 
 		}
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
-	// Suppress unused fs import on platforms where ReadDir doesn't surface fs.PathError directly.
-	// 抑制未用 fs import 在 ReadDir 不直接出 fs.PathError 的平台。
-	_ = fs.ErrNotExist
 	return out, nil
 }

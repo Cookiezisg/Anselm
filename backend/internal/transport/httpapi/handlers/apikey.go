@@ -218,7 +218,7 @@ func decodeJSON(r *http.Request, v any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		return fmt.Errorf("decode body: %w", joinInvalidRequest(err))
+		return fmt.Errorf("handlers.decodeJSON: %w", joinInvalidRequest(err))
 	}
 	return nil
 }

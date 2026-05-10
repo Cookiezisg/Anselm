@@ -53,19 +53,19 @@ func (h *ChatHandler) Register(mux *http.ServeMux) {
 // UploadAttachment：POST /api/v1/attachments → 201。
 func (h *ChatHandler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(chatdomain.MaxAttachmentBytes); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: %v", chatdomain.ErrAttachmentTooLarge, err))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("handlers.UploadAttachment: parseMultipart: %w (%v)", chatdomain.ErrAttachmentTooLarge, err))
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: missing file field", chatdomain.ErrAttachmentParseFailed))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("handlers.UploadAttachment: missing file field: %w", chatdomain.ErrAttachmentParseFailed))
 		return
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("%w: read failed", chatdomain.ErrAttachmentParseFailed))
+		responsehttpapi.FromDomainError(w, h.log, fmt.Errorf("handlers.UploadAttachment: read failed: %w (%v)", chatdomain.ErrAttachmentParseFailed, err))
 		return
 	}
 
