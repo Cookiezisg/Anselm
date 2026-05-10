@@ -130,6 +130,19 @@ var (
 	// ErrGenerationFailed wrap 底层 LLM 传输 / 解码失败（网络、JSON
 	// parse、无可用 API key）。fallback 契约同 ErrCoverageIncomplete。
 	ErrGenerationFailed = errors.New("catalog: LLM generation failed")
+
+	// ErrAllSourcesFailed is returned by Service.Refresh when every
+	// configured catalog source errored, leaving no items at all to
+	// generate from. Reachable via POST /api/v1/catalog:refresh; without
+	// a sentinel this hits "unmapped domain error" → 500. Mapped to
+	// 503 in errmap.go since this is "service degraded, no data
+	// available" (transient — retry later).
+	//
+	// ErrAllSourcesFailed Service.Refresh 在所有 source 都报错（无任何
+	// item 可生成）时返回。POST /api/v1/catalog:refresh 触达；无
+	// sentinel 触发 unmapped 警报。errmap 映射 503（服务降级，无可用
+	// 数据；可重试）。
+	ErrAllSourcesFailed = errors.New("catalog: all sources failed; previous cache retained")
 )
 
 // SystemPromptProvider is the narrow interface chat.runner consumes to

@@ -210,7 +210,8 @@ func (s *Service) Refresh(ctx context.Context) error {
 	// 全 source 挂 → 保留上次 cache。§3：不让瞬时全挂用空 catalog 覆盖
 	// 之前好的。
 	if failedCount == len(sources) {
-		return fmt.Errorf("catalog: all %d sources failed; keeping previous cache", len(sources))
+		return fmt.Errorf("catalogapp.Refresh: all %d sources failed; keeping previous cache: %w",
+			len(sources), catalogdomain.ErrAllSourcesFailed)
 	}
 
 	fp := fingerprint(items)

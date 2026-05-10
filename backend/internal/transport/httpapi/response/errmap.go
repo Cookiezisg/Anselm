@@ -9,6 +9,7 @@ import (
 
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
@@ -123,6 +124,19 @@ var errTable = map[error]errMapping{
 	// 友好 tool_result 文本，不进 error 路径 / errmap。
 	subagentdomain.ErrTypeNotFound:     {http.StatusNotFound, "SUBAGENT_TYPE_NOT_FOUND"},
 	subagentdomain.ErrRecursionAttempt: {http.StatusUnprocessableEntity, "SUBAGENT_RECURSION"},
+
+	// catalog domain / catalog domain 层
+	// Reachable via POST /api/v1/catalog:refresh. ErrCoverageIncomplete
+	// + ErrGenerationFailed are absorbed inside Service.Refresh
+	// (mechanical fallback) — they never reach handler. Only
+	// ErrAllSourcesFailed surfaces when every configured source errors
+	// simultaneously.
+	//
+	// catalog domain 层。POST /api/v1/catalog:refresh 触达。
+	// ErrCoverageIncomplete + ErrGenerationFailed 在 Service.Refresh 内
+	// 被 mechanical fallback 吞掉，不到 handler。只有 ErrAllSourcesFailed
+	// 在所有 source 同时挂时上抛。
+	catalogdomain.ErrAllSourcesFailed: {http.StatusServiceUnavailable, "CATALOG_ALL_SOURCES_FAILED"},
 
 	// mcp domain / mcp domain 层
 	// 5 runtime sentinels (Server* / Tool*) + 5 Registry-flow sentinels.
