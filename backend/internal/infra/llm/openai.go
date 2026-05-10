@@ -43,14 +43,14 @@ func (c *openAIClient) Stream(ctx context.Context, req Request) iter.Seq[StreamE
 	return func(yield func(StreamEvent) bool) {
 		body, err := buildOpenAIBody(req)
 		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: build body: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: build body: %w", err)})
 			return
 		}
 
 		httpReq, err := http.NewRequestWithContext(
 			ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(body))
 		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: new request: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: new request: %w", err)})
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
@@ -61,7 +61,7 @@ func (c *openAIClient) Stream(ctx context.Context, req Request) iter.Seq[StreamE
 			if ctx.Err() != nil {
 				return
 			}
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: do: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: do: %w", err)})
 			return
 		}
 		defer resp.Body.Close()
@@ -96,12 +96,12 @@ func (c *openAIClient) Stream(ctx context.Context, req Request) iter.Seq[StreamE
 func parseOpenAINonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 	raw, err := io.ReadAll(io.LimitReader(body, 8<<20)) // 8 MiB cap
 	if err != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: read non-streaming body: %w", err)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: read non-streaming body: %w", err)})
 		return
 	}
 	var resp oaiNonStreamResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: parse non-streaming response: %w", err)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: parse non-streaming response: %w", err)})
 		return
 	}
 	if resp.Error != nil {
@@ -109,7 +109,7 @@ func parseOpenAINonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 		return
 	}
 	if len(resp.Choices) == 0 {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: non-streaming response has no choices")})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: non-streaming response has no choices: %w", ErrProviderError)})
 		return
 	}
 	msg := resp.Choices[0].Message
@@ -170,7 +170,7 @@ func parseOpenAISSE(ctx context.Context, body io.Reader, yield func(StreamEvent)
 		}
 		var chunk oaiChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: malformed SSE chunk: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: malformed SSE chunk: %w", err)})
 			return
 		}
 		if !emitOpenAIChunk(chunk, state, yield) {
@@ -178,7 +178,7 @@ func parseOpenAISSE(ctx context.Context, body io.Reader, yield func(StreamEvent)
 		}
 	}
 	if err := scanner.Err(); err != nil && ctx.Err() == nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/openai: scan: %w", err)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: scan: %w", err)})
 	}
 }
 
@@ -373,7 +373,7 @@ func toOpenAIMsg(m LLMMessage) (oaiMessage, error) {
 			ToolCallID: m.ToolCallID,
 		}, nil
 	default:
-		return oaiMessage{}, fmt.Errorf("llm/openai: unknown role %q", m.Role)
+		return oaiMessage{}, fmt.Errorf("llm.openai: unknown role %q: %w", m.Role, ErrBadRequest)
 	}
 }
 
@@ -391,12 +391,12 @@ func buildOpenAIUserMsg(m LLMMessage) (oaiMessage, error) {
 				Type: "image_url", ImageURL: &oaiImageURL{URL: p.ImageURL},
 			})
 		default:
-			return oaiMessage{}, fmt.Errorf("llm/openai: unknown part type %q", p.Type)
+			return oaiMessage{}, fmt.Errorf("llm.openai: unknown part type %q: %w", p.Type, ErrBadRequest)
 		}
 	}
 	raw, err := json.Marshal(parts)
 	if err != nil {
-		return oaiMessage{}, fmt.Errorf("llm/openai: marshal parts: %w", err)
+		return oaiMessage{}, fmt.Errorf("llm.openai: marshal parts: %w", err)
 	}
 	return oaiMessage{Role: "user", Content: raw}, nil
 }
@@ -478,6 +478,10 @@ func toOpenAITools(defs []ToolDef) []oaiTool {
 //
 // jsonString 返回 Go 字符串的 JSON 编码（带引号的 JSON 字符串）。
 func jsonString(s string) json.RawMessage {
+	// json.Marshal of a Go string is unfailable per encoding/json invariant
+	// (no NaN/Inf/cyclic from primitive string); err discard is safe.
+	// json.Marshal Go string 不可能失败（基本类型无 NaN/Inf/cyclic），
+	// 忽略 err 安全。
 	b, _ := json.Marshal(s)
 	return b
 }

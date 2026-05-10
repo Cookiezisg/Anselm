@@ -44,14 +44,14 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request) iter.Seq[Stre
 	return func(yield func(StreamEvent) bool) {
 		body, err := buildAnthropicBody(req)
 		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: build body: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: build body: %w", err)})
 			return
 		}
 
 		httpReq, err := http.NewRequestWithContext(
 			ctx, http.MethodPost, req.BaseURL+anthropicMessagesPath, bytes.NewReader(body))
 		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: new request: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: new request: %w", err)})
 			return
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
@@ -63,7 +63,7 @@ func (c *anthropicClient) Stream(ctx context.Context, req Request) iter.Seq[Stre
 			if ctx.Err() != nil {
 				return
 			}
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: do: %w", err)})
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: do: %w", err)})
 			return
 		}
 		defer resp.Body.Close()
@@ -109,7 +109,7 @@ func parseAnthropicSSE(ctx context.Context, body io.Reader, yield func(StreamEve
 		case "message_start":
 			var e anthropicMsgStart
 			if err := json.Unmarshal([]byte(data), &e); err != nil {
-				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: parse message_start: %w", err)})
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: parse message_start: %w", err)})
 				return
 			}
 			if e.Message.Usage != nil {
@@ -119,7 +119,7 @@ func parseAnthropicSSE(ctx context.Context, body io.Reader, yield func(StreamEve
 		case "content_block_start":
 			var e anthropicBlockStart
 			if err := json.Unmarshal([]byte(data), &e); err != nil {
-				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: parse content_block_start: %w", err)})
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: parse content_block_start: %w", err)})
 				return
 			}
 			if e.ContentBlock.Type == "tool_use" {
@@ -136,7 +136,7 @@ func parseAnthropicSSE(ctx context.Context, body io.Reader, yield func(StreamEve
 		case "content_block_delta":
 			var e anthropicBlockDelta
 			if err := json.Unmarshal([]byte(data), &e); err != nil {
-				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: parse content_block_delta: %w", err)})
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: parse content_block_delta: %w", err)})
 				return
 			}
 			if !emitAnthropicDelta(e, yield) {
@@ -146,7 +146,7 @@ func parseAnthropicSSE(ctx context.Context, body io.Reader, yield func(StreamEve
 		case "message_delta":
 			var e anthropicMsgDelta
 			if err := json.Unmarshal([]byte(data), &e); err != nil {
-				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: parse message_delta: %w", err)})
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: parse message_delta: %w", err)})
 				return
 			}
 			if e.Usage != nil {
@@ -166,7 +166,7 @@ func parseAnthropicSSE(ctx context.Context, body io.Reader, yield func(StreamEve
 	}
 
 	if err := scanner.Err(); err != nil && ctx.Err() == nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm/anthropic: scan: %w", err)})
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: scan: %w", err)})
 	}
 }
 
@@ -264,7 +264,7 @@ func toAnthropicMsg(m LLMMessage) (anthropicMessage, error) {
 	case RoleAssistant:
 		return buildAnthropicAssistantMsg(m), nil
 	default:
-		return anthropicMessage{}, fmt.Errorf("llm/anthropic: unexpected role %q in toAnthropicMsg", m.Role)
+		return anthropicMessage{}, fmt.Errorf("llm.anthropic: unexpected role %q in toAnthropicMsg: %w", m.Role, ErrBadRequest)
 	}
 }
 
@@ -330,7 +330,7 @@ func buildAnthropicAssistantMsg(m LLMMessage) anthropicMessage {
 		input := json.RawMessage("{}")
 		if tc.Arguments != "" {
 			if err := json.Unmarshal([]byte(tc.Arguments), &input); err != nil {
-				slog.Warn("llm/anthropic: history tool-call arguments are malformed JSON, falling back to {}",
+				slog.Warn("llm.anthropic: history tool-call arguments are malformed JSON, falling back to {}",
 					"tool_call_id", tc.ID, "tool_name", tc.Name, "raw", tc.Arguments, "err", err)
 				input = json.RawMessage("{}")
 			}

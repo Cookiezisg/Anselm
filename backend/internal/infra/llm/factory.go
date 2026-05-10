@@ -134,7 +134,7 @@ func resolveBaseURL(cfg Config) (string, error) {
 	if url == "" {
 		// Adapter signals "no default" (custom / ollama in some configs).
 		// Adapter 报"无默认"（custom / 某些 ollama 配置）。
-		return "", fmt.Errorf("llm: %s provider requires base_url", cfg.Provider)
+		return "", fmt.Errorf("llm.factory.resolveBaseURL: %s provider requires base_url: %w", cfg.Provider, ErrBadRequest)
 	}
 	return url, nil
 }
