@@ -540,6 +540,12 @@ call_handler({ handlerName, method, args }) → { ok, output, error?, elapsedMs 
   // 缺必填 config 时返 HANDLER_CONFIG_INCOMPLETE,LLM 走 AskUserQuestion 收集后调 update_handler_config 重试
 update_handler_config({ id, partial }) → { configured: string[] }
   // 写 / 更新 partial config(后端加密合并;LLM 收用户输入后调用此工具回写)
+
+// D22 — execution log 工具(per-entity,handler_calls 表)
+search_handler_executions({ handlerId?, method?, ownerKind?, instanceId?, status?, conversationId?, flowrunId?, since?, until?, limit?, cursor? })
+  → { count, executions[], nextCursor?, aggregates }
+get_handler_execution({ id })
+  → { ...全字段..., input 截 4KB(sensitive 字段 mask), output 截 4KB, hints }
 ```
 
 ### 8.2 HTTP API(~17 端点)

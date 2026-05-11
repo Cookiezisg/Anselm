@@ -841,6 +841,22 @@ per spec 08 §4.5 + Task 2 已更新的 FlowRunNode struct。每节点 dispatch 
 
 - [ ] Step 1-3:实现 + 单测覆盖 cross-table linking
 
+### Task 16d:LLM 工具 — workflow / mcp / skill 执行日志(per-entity)
+
+**Files:**
+- Create: `backend/internal/app/tool/workflow/search_executions.go` + `get_execution.go`(workflow_executions 查 flowrun_nodes 表)
+- Create: `backend/internal/app/tool/mcp/search_executions.go` + `get_execution.go`(mcp_calls 表)
+- Create: `backend/internal/app/tool/skill/search_executions.go` + `get_execution.go`(skill_executions 表)
+
+参考 Plan 01 Task 23e。3 域 × 2 工具 = **6 个 LLM 工具**。各自 kind-specific filter:
+- workflow:`workflowId / flowrunId / nodeType`
+- mcp:`serverName / toolName`
+- skill:`skillName / forkDepth`
+
+- [ ] Step 1: 3 × 2 = 6 工具实现(每个 ~80 行,共 ~480 行)
+- [ ] Step 2: 各 factory 包加进 tools slice(workflowtool / mcptool / skilltool)
+- [ ] Step 3: 单测覆盖 + main.go 装配 + commit
+
 ---
 
 ## Phase 7:14 Production Hardening Items 验证

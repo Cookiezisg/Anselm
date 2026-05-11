@@ -231,9 +231,15 @@ delete_function({ id })
 run_function({ functionId, args, version? })
   → { ok, output, error?, elapsedMs }
   // 流式:env sync 进度 + Python stdout/stderr 行 emit progress
+
+// D22 — execution log 工具(per-entity)
+search_function_executions({ functionId?, versionId?, status?, conversationId?, flowrunId?, since?, until?, limit?, cursor? })
+  → { count, executions[], nextCursor?, aggregates }
+get_function_execution({ id })
+  → { ...全字段..., input 截 4KB, output 截 4KB, hints }
 ```
 
-详见 [`01-shared-tool-interface.md`](./01-shared-tool-interface.md) §2 / §4。
+详见 [`01-shared-tool-interface.md`](./01-shared-tool-interface.md) §2 / §4 + [`08-executions.md`](./08-executions.md) §7。
 
 ---
 

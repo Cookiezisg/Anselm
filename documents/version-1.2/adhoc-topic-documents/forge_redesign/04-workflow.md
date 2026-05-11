@@ -456,6 +456,12 @@ delete_workflow({ id })
 trigger_workflow({ workflowId, input?, wait?: boolean = true }) 
   → { runId, status, output? }
   // 流式:wait=true 时订阅 run 全程进度
+
+// D22 — execution log 工具(per-entity,flowrun_nodes 表)
+search_workflow_executions({ workflowId?, flowrunId?, nodeType?, status?, conversationId?, since?, until?, limit?, cursor? })
+  → { count, executions[], nextCursor?, aggregates }
+get_workflow_execution({ id })
+  → { ...全字段..., input 截 4KB, output 截 4KB, hints }
 ```
 
 详见 [`01-shared-tool-interface.md`](./01-shared-tool-interface.md)。

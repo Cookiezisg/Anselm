@@ -1758,6 +1758,24 @@ func (s *Service) Run(ctx context.Context, fnID string, args map[string]any) (ou
 
 - [ ] Step 1-3
 
+### Task 23e:LLM 工具 `search_function_executions` + `get_function_execution`(D22 per-entity)
+
+**Files:**
+- Create: `backend/internal/app/tool/function/search_executions.go`
+- Create: `backend/internal/app/tool/function/get_execution.go`
+- Modify: `backend/internal/app/tool/function/function.go`(factory 加 2 个工具到 FunctionTools())
+
+参考 Plan 01 Task 14 工具模板。两个工具:
+- `search_function_executions`:filter functionId / versionId / status / conversationId / flowrunId / since / until + cursor 分页;返摘要 + aggregates
+- `get_function_execution`:单 id 查;返完整 input/output 截 4KB + hints(output_empty / significantly_slower / duplicates_previous_input)
+
+`hints` 计算:同 entity p50 elapsed_ms 用滚动平均;duplicates_previous_input 用 SHA256(input) 索引(每次写时计算)。
+
+- [ ] Step 1: 写 search_executions.go + get_execution.go(~150 行)
+- [ ] Step 2: factory function.go 加 2 个工具实例
+- [ ] Step 3: 单测覆盖各 filter + hints 计算
+- [ ] Step 4: Commit + push
+
 ---
 
 ## Phase 8:Pipeline Test

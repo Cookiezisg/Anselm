@@ -179,64 +179,81 @@ GET /api/v1/flowruns/{runId}/executions         返该 run 内所有 atomic exec
 
 ---
 
-## 7. LLM 诊断工具(2 个)
+## 7. LLM 诊断工具 — 5 套 per-entity(共 10 个)
 
-`app/tool/executions/`:
+跟 D22 5 张表对应,**每域 search + get 各一**。**不走 unified dispatcher** — 每个工具在对应 `app/tool/<kind>/` 实现,跟该域其他工具同包。LLM 拿到 execution id 时已知 kind(从 search 返回),get_<kind>_execution 无需 kind 参数。
 
-### 7.1 `query_executions`
+### 7.1 通用签名模板(各域各自实例化)
 
 ```typescript
-query_executions({
-  kind?: "function" | "handler" | "mcp" | "skill" | "flowrun_node",
-  entityId?: string,              // function_id / handler_id / server_name / skill_name
-                                  // 对 kind="flowrun_node":**推荐用 flowrunId 参数过滤**(直接索引);
-                                  // entityId=workflow_id 需要 join flowruns 表,慢
+// 搜
+search_<kind>_executions({
+  // 通用 filter(所有 search 工具都有)
+  status?: "ok" | "failed" | "cancelled" | "timeout",
   conversationId?: string,
   flowrunId?: string,
-  status?: "ok" | "failed" | "cancelled" | "timeout",
-  since?: string,                 // ISO8601
+  since?: string,           // ISO8601
   until?: string,
-  limit?: number = 50,            // max 200
+  limit?: number = 50,      // max 200
   cursor?: string,
+  // kind-specific filter — 见 §7.2 每域差异
+  ...
 }) → {
-  count: number,                  // 全 match 总数
+  count: number,
   executions: [{
-    id, kind, started_at, status, elapsed_ms, entity_id,
-    input_preview,                // 截 200B 给摘要
-    output_preview,               // 截 200B
+    id, started_at, status, elapsed_ms,
+    input_preview,          // 截 200B
+    output_preview,         // 截 200B
     error_message?,
+    // kind-specific 字段(handler.method, mcp.server_name, etc.)
   }],
   nextCursor?: string,
   aggregates: {
     ok_count, failed_count, cancelled_count, timeout_count,
     avg_elapsed_ms, p95_elapsed_ms,
-    distinct_entities: number,
   }
 }
-```
 
-**调度逻辑**:
-- 指定 `kind` → 查对应单表
-- 不指定 kind + 指定 conversationId / flowrunId → UNION 5 表
-- 不指定 kind 不指定 conv/run → reject(避免全表扫)
-
-### 7.2 `get_execution`
-
-```typescript
-get_execution({ id, kind }) → {
+// 看
+get_<kind>_execution({ id }) → {
   ...all fields...,
-  input,                          // 截 4KB(超长标 input_truncated: true)
-  output,                         // 截 4KB
+  input,                    // 截 4KB(超长标 input_truncated: true)
+  output,                   // 截 4KB
   // sensitive Handler config 字段在 service 写入时已 mask
   hints: {
-    output_empty: boolean,         // output 是 null / [] / "" / {}
-    significantly_slower: boolean, // elapsed_ms > 3× entity p50
-    duplicates_previous_input: string?,  // 同 entity 上次同 input 的 execution id
+    output_empty: boolean,
+    significantly_slower: boolean,
+    duplicates_previous_input?: string,
   }
 }
 ```
 
-`hints` 是后端机械检查给 LLM 的快速 signal(详 §8 诊断 use case)。
+### 7.2 各域 kind-specific filter
+
+| 工具 | kind-specific search filter | 实施位置 |
+|---|---|---|
+| `search_function_executions` | `functionId?`, `versionId?` | `app/tool/function/` |
+| `get_function_execution` | — | `app/tool/function/` |
+| `search_handler_executions` | `handlerId?`, `method?`, `ownerKind?`, `instanceId?` | `app/tool/handler/` |
+| `get_handler_execution` | — | `app/tool/handler/` |
+| `search_workflow_executions` | `workflowId?`, `nodeType?`(flowrun_nodes 域)| `app/tool/workflow/` |
+| `get_workflow_execution` | — | `app/tool/workflow/` |
+| `search_mcp_executions` | `serverName?`, `toolName?` | `app/tool/mcp/` |
+| `get_mcp_execution` | — | `app/tool/mcp/` |
+| `search_skill_executions` | `skillName?`, `forkDepth?` | `app/tool/skill/` |
+| `get_skill_execution` | — | `app/tool/skill/` |
+
+**共 10 个 LLM 工具**(5 search + 5 get),分散到 5 个域的 tool 包,跟该域其他 LLM 工具放一起(per spec D5 — 不抽共享 helper)。
+
+### 7.3 `hints` 字段
+
+后端机械检查给 LLM 的快速 signal(详 §8 诊断 use case):
+
+| Hint | 含义 |
+|---|---|
+| `output_empty: bool` | output 是 null / [] / "" / {} |
+| `significantly_slower: bool` | elapsed_ms > 3× entity p50 |
+| `duplicates_previous_input: string?` | 同 entity 上次同 input 的 execution id(可对比) |
 
 ---
 

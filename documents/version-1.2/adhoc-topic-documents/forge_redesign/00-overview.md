@@ -131,8 +131,12 @@ Sub-agent(`general-purpose` 默认)继承父 tool registry 时,**filterTools 额
 
 **附:不引入新 SubagentType** — 之前推 4 forger types(function-forger / handler-forger / workflow-forger / decomposer)被简化掉了。改用现有 `general-purpose`(general 任务)+ `Explore`(只读 plan 角色)+ 主 agent prompt instructions 控制行为。0 行 SubagentType 注册改动,~40 行 filterTools + prompt 教学。
 
-### D22 — 执行记录:5 张 per-entity 表(共享 schema 模板)
-每类 capability(function / handler / mcp / skill / workflow 节点)每次执行落一行 execution log。**5 张表 schema 模板完全统一**(id / user_id / status / triggered_by / input / output / elapsed / 时间戳 / chat 上下文 / workflow 上下文 16 通用字段),kind-specific 字段各表自加(handler_calls 加 method;mcp_calls 加 server_name 等)。**不走 unified attrs JSON**(reviewer 心智重)— per-entity 表 self-documenting + 跨实体查通过 conversation_id / flowrun_id 索引 UNION。Production observability + LLM 自诊断必备(LLM 工具 `query_executions` / `get_execution` 看不只 status=failed,**也看 status=ok 但 output 不对**)。详见 [`08-executions.md`](./08-executions.md)。
+### D22 — 执行记录:5 张 per-entity 表(共享 schema 模板)+ 10 套 per-entity LLM 工具
+每类 capability(function / handler / mcp / skill / workflow 节点)每次执行落一行 execution log。**5 张表 schema 模板完全统一**(16 通用字段 — id / user_id / status / triggered_by / input / output / elapsed / 时间戳 / chat 上下文 / workflow 上下文),kind-specific 字段各表自加(handler_calls 加 method;mcp_calls 加 server_name 等)。**不走 unified attrs JSON**(reviewer 心智重)— per-entity 表 self-documenting + 跨实体查通过 conversation_id / flowrun_id 索引。
+
+**LLM 工具同样 per-entity**:**5 张表 × 2 工具(search + get) = 10 个**,各自在 `app/tool/<kind>/` 实现,跟该域其他工具同包(per D5 不抽共享)。trinity 3 个(function/handler/workflow)进 01 §1 matrix 第 8/9 row;平行 mcp/skill 同模式不在 matrix。
+
+Production observability + LLM 自诊断必备(看不只 status=failed,**也看 status=ok 但 output 不对**)。详见 [`08-executions.md`](./08-executions.md)。
 
 **bug fix 顺手**:FlowRun.status enum 删 `timeout` 值(V1 没 run-level 总超时;节点 timeout 致 run 终止时,run.status=failed + error_code=NODE_TIMEOUT)。FlowRunNode.status 跟通用 execution status 一致 — 含 `timeout`(节点超时是真状态)。
 

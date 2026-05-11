@@ -942,6 +942,17 @@ exec := buildCallRow(..., input, ...)
 
 - [ ] Step 1-3
 
+### Task 26e:LLM 工具 `search_handler_executions` + `get_handler_execution`(D22 per-entity)
+
+**Files:**
+- Create: `backend/internal/app/tool/handler/search_executions.go`
+- Create: `backend/internal/app/tool/handler/get_execution.go`
+- Modify: `backend/internal/app/tool/handler/handler.go`(factory)
+
+参考 Plan 01 Task 23e。Handler-specific filter:`handlerId / method / ownerKind / instanceId`。Get 工具的 input/output mask sensitive 字段(从 handler.config schema 推断哪些字段是 sensitive,替换为 `***`)。
+
+- [ ] Step 1-4
+
 ---
 
 ## Phase 8:Pipeline Tests

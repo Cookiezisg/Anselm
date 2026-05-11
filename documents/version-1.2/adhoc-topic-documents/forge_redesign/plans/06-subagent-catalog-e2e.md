@@ -316,46 +316,32 @@ cd backend && make test-pipeline
 
 ---
 
-## Phase 3.5:Execution Log LLM 诊断工具(D22)
+## Phase 3.5:Execution Log LLM 诊断 e2e(D22)
 
-### Task 4a:`query_executions` + `get_execution` LLM 工具实施
+**注**:具体 10 个 LLM 工具(5 search + 5 get)的实现分散到对应 plan:
+- function execution 工具 → Plan 01 Task 23e
+- handler execution 工具 → Plan 02 Task 26e
+- workflow / mcp / skill execution 工具 → Plan 05 Task 16d
 
-**Files:**
-- Create: `backend/internal/app/tool/executions/executions.go`(factory)
-- Create: `backend/internal/app/tool/executions/query.go`
-- Create: `backend/internal/app/tool/executions/get.go`
-- Create: `backend/internal/app/tool/executions/executions_test.go`
+本 plan **只测 e2e 端到端 LLM 诊断流**(各域工具已实现)。
 
-参考 Plan 01 Task 14 工具模板。**关键**:`query_executions` 后端 dispatch:
-- 指定 `kind` → 单表查
-- 不指定 kind 但有 `conversationId` / `flowrunId` → 5 表 UNION
-- 不指定 kind 也不指定 conv/run → return `EXECUTION_QUERY_INVALID` 400(防全表扫)
-
-`get_execution({id, kind})` — 按 kind dispatch 到对应表。
-
-input/output 截 4KB(超长标 `*_truncated: true`);hints 字段从 SQL aggregate 算(`output_empty` / `significantly_slower` / `duplicates_previous_input`)。
-
-- [ ] Step 1: 写 factory + 2 工具实现(~250 行)
-- [ ] Step 2: 单测覆盖 query 各 filter / get dispatch / hints 计算 / 错误码(EXECUTION_NOT_FOUND / KIND_INVALID / QUERY_INVALID)
-- [ ] Step 3: main.go 装 ExecutionsService(repo 共享 5 entity service 的 repo)+ 工具加进 tools slice
-- [ ] Step 4: 加 errmap 3 行 sentinels
-- [ ] Step 5: Commit + push
-
-### Task 4b:LLM 诊断 e2e 场景
+### Task 4a:LLM 诊断 e2e 场景
 
 **Files:** Add `backend/test/e2e/llm_diagnostics_test.go`
 
 模拟用户:"昨天 to-pdf function 跑出来 PDF 是空的"。
 
 驱动 LLM(fake script):
-1. query_executions({kind:"function", entityId:"fn_to_pdf", limit:20})
-2. get_execution({id:第一条 ok 但 output 异常的}) → 看 page_count=0
-3. get_execution({id:hints.duplicates_previous_input}) → 上次同 input 也是 0
+1. `search_function_executions({functionId:"fn_to_pdf", limit:20})` → 看 aggregates
+2. `get_function_execution({id:第一条 ok 但 output 异常的})` → 看 page_count=0
+3. `get_function_execution({id:hints.duplicates_previous_input})` → 上次同 input 也是 0
 4. LLM 总结:"问题在 Function 代码,建议 edit_function 检查 weasyprint"
 
 验证 LLM 拿到 hints 字段后能正确诊断 + 不依赖 status=failed。
 
-- [ ] Step 1-3
+第二场景(可选):跨域诊断 — `search_handler_executions({handlerId:"hd_pg", status:"failed", since:"2026-05-10"})` → 找最近 PG 失败 → `get_handler_execution(id)` 看错误细节 → 诊断 DSN 问题。
+
+- [ ] Step 1-3:e2e test + fake script + commit
 
 ---
 
@@ -637,7 +623,7 @@ EOF
 
 ## Acceptance criteria
 
-1. ✅ 11 task done(原 9 + Phase 3.5 加 2 task = 4a + 4b)
+1. ✅ 10 task done(原 9 + Phase 3.5 加 1 task = 4a;LLM 工具实现已分布到 Plan 01/02/05 per-entity 各域)
 2. ✅ filterTools strips workflow mutation/execution ops
 3. ✅ catalog system prompt 含 multi-agent 教学
 4. ✅ E2E test 邮件 workflow 全栈通过

@@ -21,16 +21,22 @@
 | 回滚 | `revert_function` | `revert_handler` | `revert_workflow` | ✗ |
 | 删 | `delete_function` | `delete_handler` | `delete_workflow` | ✗ |
 | **执行** | `run_function` | `call_handler` | `trigger_workflow` | **✓ progress** |
+| **搜执行** | `search_function_executions` | `search_handler_executions` | `search_workflow_executions` | ✗ |
+| **看执行** | `get_function_execution` | `get_handler_execution` | `get_workflow_execution` | ✗ |
 
-执行类工具因类目不同语义化命名(run / call / trigger),其余 6 个动词三类完全统一。
+执行类工具因类目不同语义化命名(run / call / trigger),其余 8 个动词三类完全统一。
 
-LLM 学一类工具,会用其他两类。心智负担一致。
+**9 actions × 3 kinds = 27 trinity 矩阵工具**。LLM 学一类工具,会用其他两类。心智负担一致。
 
 > **额外工具(矩阵之外)**:
 > - `update_handler_config` — Handler-specific(D16,详 [`03-handler.md`](./03-handler.md) §6.5)
-> - `query_executions` / `get_execution` — 跨切诊断(D22,详 [`08-executions.md`](./08-executions.md) §7)
+> - 平行 mcp / skill execution 工具(per-entity,跟 trinity 同模式):
+>   - `search_mcp_executions` / `get_mcp_execution`(详 [`08-executions.md`](./08-executions.md) §7)
+>   - `search_skill_executions` / `get_skill_execution`(同上)
 >
-> 总 LLM trinity 工具数 = 21 矩阵 + 1 Handler config + 2 跨切 = **24 个**。
+> 总 LLM 工具数 = 27 矩阵 + 1 Handler config + 4 mcp/skill executions = **32 个**。
+>
+> **设计哲学**:5 张 per-entity execution log 表(D22)→ **5 套 per-entity 工具(search + get 各一)**,跟表分开一致。LLM 拿到 execution id 时已知 kind(从 search 返来),get_<kind>_execution 无需 dispatcher。
 
 ---
 
@@ -131,36 +137,54 @@ trigger_workflow({
 }
 ```
 
-### 2.6 跨切诊断工具(D22)— 看 execution log
+### 2.6 Execution Log 工具(D22)— 5 套 per-entity 工具
+
+跟 D22 5 张 per-entity 表对应,**每域各自 search + get 一对工具**,共 10 个。Trinity 3 个(function/handler/workflow)在 §1 矩阵第 8/9 行;平行 mcp/skill 同模式不在矩阵。
+
+#### 统一签名模板(各域各自实例化)
 
 ```typescript
-// 多 filter 查 execution log;不指定 kind 必带 conversationId 或 flowrunId(防全表扫)
-query_executions({
-  kind?: "function" | "handler" | "mcp" | "skill" | "flowrun_node",
-  entityId?: string,
-  conversationId?: string,
-  flowrunId?: string,
+// 搜:filter + 分页 + aggregates 摘要
+search_<kind>_executions({
+  // 通用 filter
   status?: "ok" | "failed" | "cancelled" | "timeout",
-  since?: string,    // ISO8601
+  conversationId?: string,    // chat 触发追溯
+  flowrunId?: string,         // workflow 触发追溯
+  since?: string,             // ISO8601
   until?: string,
   limit?: number = 50,
   cursor?: string,
+  // kind-specific filter(下面各域列)
+  ...
 }) → {
-  count, executions[],     // 每条带 input_preview / output_preview 截 200B
+  count,
+  executions[],               // 每条含 input_preview / output_preview 截 200B
   nextCursor?,
   aggregates: { ok_count, failed_count, avg_elapsed_ms, p95_elapsed_ms, ... }
 }
 
-// 单次完整 detail
-get_execution({ id, kind }) → {
+// 看:单 id 详情
+get_<kind>_execution({ id }) → {
   ...all fields...,
-  input,    // 截 4KB
-  output,   // 截 4KB,sensitive 字段 mask 为 "***"
+  input,                      // 截 4KB
+  output,                     // 截 4KB,sensitive 字段 mask 为 "***"
   hints: { output_empty, significantly_slower, duplicates_previous_input? }
 }
 ```
 
-这俩工具**不在 21-tool 矩阵里**(它们是跨切诊断,不是 per-entity CRUD)。详 [`08-executions.md`](./08-executions.md) §7。
+#### Kind-specific filter(只列差异;签名其余跟模板一致)
+
+| 工具 | kind-specific filter |
+|---|---|
+| `search_function_executions` | `functionId?`, `versionId?` |
+| `search_handler_executions` | `handlerId?`, `method?`, `ownerKind?`, `instanceId?` |
+| `search_workflow_executions` | `workflowId?`, `nodeType?`(flowrun_nodes 域) |
+| `search_mcp_executions` | `serverName?`, `toolName?` |
+| `search_skill_executions` | `skillName?`, `forkDepth?` |
+
+每域 search/get 工具实现在对应 `app/tool/<kind>/` 目录(per spec D5 — 不在跨域共享代码里)。
+
+详细 schema 与实施细节见 [`08-executions.md`](./08-executions.md) §7。
 
 ---
 
