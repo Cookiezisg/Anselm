@@ -166,6 +166,35 @@ func applyOne(state *VersionDraft, op Op) error {
 	return nil
 }
 
+// ParseOps decodes the wire format the LLM emits into []Op. Expects a JSON
+// array of objects each with an `op` discriminator field and op-specific
+// data fields. Each Op.Raw holds the full object body — apply handlers'
+// inner unmarshal ignores the extra `op` field.
+//
+// ParseOps 把 LLM 发的线上格式解码为 []Op。期望 JSON 数组,每对象含 `op`
+// 判别字段 + 各 op 特有字段。Op.Raw 存完整 object body——apply handler
+// 内部 unmarshal 会忽略多余 `op` 字段。
+func ParseOps(raw json.RawMessage) ([]Op, error) {
+	var arr []json.RawMessage
+	if err := json.Unmarshal(raw, &arr); err != nil {
+		return nil, fmt.Errorf("ops array unmarshal: %w", err)
+	}
+	ops := make([]Op, 0, len(arr))
+	for i, r := range arr {
+		var disc struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(r, &disc); err != nil {
+			return nil, fmt.Errorf("ops[%d]: %w", i, err)
+		}
+		if disc.Op == "" {
+			return nil, fmt.Errorf("ops[%d]: missing 'op' discriminator", i)
+		}
+		ops = append(ops, Op{Type: disc.Op, Raw: r})
+	}
+	return ops, nil
+}
+
 // cloneDraft deep-copies a VersionDraft so ApplyOps can mutate without
 // affecting the caller's base. Nil input returns an empty draft.
 //
