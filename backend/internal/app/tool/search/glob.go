@@ -58,17 +58,17 @@ const (
 
 // ── Description & schema ──────────────────────────────────────────────────────
 
-const globDescription = `Fast file finder: matches glob patterns and returns JSON enriched with type / size / mtime per entry.
+const globDescription = `File finder: matches glob patterns, returns JSON with type / size / mtime per entry. Use this for path-only listings; use Grep for content search.
 
 Usage:
 - Supports any glob pattern, including ` + "`**`" + ` for recursive descent (e.g. "**/*.go", "src/**/*.tsx", "*.md").
-- Pass pattern "*" with a directory ` + "`path`" + ` to list immediate children — Glob fully replaces a separate LS tool.
-- Output is JSON: {"root", "matches": [{"path","type","size","mtime"}], "total", "truncated"}.
-- Each match's type is one of "file", "dir", or "symlink"; mtime is RFC 3339.
-- Matches are sorted by mtime descending (newest first) so recently-edited files surface at the top.
+- Pass pattern "*" with a directory ` + "`path`" + ` to list immediate children — Glob covers what a separate LS tool would.
+- Output JSON: {"root", "matches":[{"path","type","size","mtime"}], "total", "truncated"}.
+- ` + "`type`" + ` is "file", "dir", or "symlink"; ` + "`mtime`" + ` is RFC 3339.
+- Matches are sorted mtime-descending so recently-edited files surface first.
 - ` + "`path`" + ` (search root) defaults to the current working directory; must be absolute when provided.
-- ` + "`limit`" + ` caps the result count (default 100, hard max 1000); the JSON ` + "`truncated`" + ` flag tells you whether more matches exist.
-- Sensitive paths (system dirs, ~/.ssh, ~/.aws, etc.) are blocked for safety.`
+- ` + "`limit`" + ` caps results (default 100, hard max 1000); the ` + "`truncated`" + ` flag indicates more matches exist.
+- Sensitive paths are blocked.`
 
 var globSchema = json.RawMessage(`{
 	"type": "object",

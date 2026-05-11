@@ -68,10 +68,20 @@ func TestBash_Schema_IsParsableObject(t *testing.T) {
 		t.Fatalf("schema is not valid JSON: %v", err)
 	}
 	props := doc["properties"].(map[string]any)
-	for _, want := range []string{"command", "description", "run_in_background", "timeout"} {
+	for _, want := range []string{"command", "run_in_background", "timeout"} {
 		if _, ok := props[want]; !ok {
 			t.Errorf("schema missing property %q", want)
 		}
+	}
+	// `description` was removed (Phase C cleanup): the framework's
+	// standard `summary` field already covers the per-call human note,
+	// so an extra Bash-only `description` was confusing the LLM into
+	// populating both.
+	// `description` 已删（Phase C 清理）：框架标准 `summary` 字段已覆盖
+	// per-call human note，多余的 Bash-only `description` 让 LLM 混淆
+	// 两个字段都填。
+	if _, ok := props["description"]; ok {
+		t.Error("schema must NOT carry a separate `description` field; use the standard `summary` instead")
 	}
 }
 

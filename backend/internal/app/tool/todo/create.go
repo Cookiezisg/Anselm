@@ -18,16 +18,7 @@ import (
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
 
-const todoCreateDescription = `Create a new todo on the current conversation's todo list.
-
-Usage:
-- Use this when planning multi-step work the user can watch progress on.
-- ` + "`subject`" + ` is the imperative verb-first title (e.g. "Run tests", "Fix login bug").
-- ` + "`description`" + ` (optional) is a longer note for context.
-- ` + "`active_form`" + ` (optional) is the present-continuous form shown in the UI's "in_progress" spinner (e.g. "Running tests").
-- ` + "`blocked_by`" + ` (optional) is a list of todo IDs that must complete before this one can start.
-- New todos start in status "pending". Use TodoUpdate to move them to "in_progress" / "completed".
-- The returned JSON includes the assigned todo ID — keep it for follow-up TodoUpdate calls.`
+const todoCreateDescription = `Create a new todo on the current conversation's todo list. New todos start with status "pending"; move them via TodoUpdate. Returns the new todo as JSON including the assigned id (use that for follow-up TodoUpdate calls).`
 
 var todoCreateSchema = json.RawMessage(`{
 	"type": "object",
@@ -117,11 +108,13 @@ func (t *TodoCreate) Execute(ctx context.Context, argsJSON string) (string, erro
 // ── shared helpers ───────────────────────────────────────────────────────────
 
 // classifyTodoErr converts a Service error into an LLM-friendly string.
-// Sentinels become recoverable hints; anything else surfaces with a
-// generic prefix so the LLM doesn't latch onto wrapping noise.
+// Sentinels become recoverable hints; anything else falls back to a
+// generic prefix. err.Error() pass-through is fine because the framework
+// boundary (loop/tools.go) sanitizes §S16 wrap chains before LLM.
 //
-// classifyTodoErr 把 Service 错转友好字符串。Sentinel 给可恢复提示；其他
-// 走通用前缀，避免 LLM 抓到包装噪声。
+// classifyTodoErr 把 Service 错转友好字符串。sentinel 给可恢复提示；
+// 其他走通用前缀。err.Error() 透传无需手动剥前缀——framework boundary
+// （loop/tools.go）已清洗 §S16 wrap 链。
 func classifyTodoErr(err error, op string) string {
 	switch {
 	case errors.Is(err, tododomain.ErrNotFound):
@@ -131,7 +124,7 @@ func classifyTodoErr(err error, op string) string {
 	case errors.Is(err, tododomain.ErrInvalidStatus):
 		return "Invalid status. Allowed: pending, in_progress, completed, deleted."
 	}
-	return fmt.Sprintf("Todo %s failed: %v", op, err)
+	return fmt.Sprintf("Todo %s failed: %s", op, err.Error())
 }
 
 // marshalIndent emits the entity as pretty-printed JSON the LLM can

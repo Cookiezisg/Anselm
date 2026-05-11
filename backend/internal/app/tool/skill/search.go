@@ -32,23 +32,7 @@ const defaultTopK = 3
 // ErrEmptyQuery：query 缺失或全空白。
 var ErrEmptyQuery = errors.New("query is required and must be non-empty")
 
-const searchSkillsDescription = `Search the user's installed skills (procedural workflows + allowed-tools bundles) for ones relevant to a task.
-
-Returns the top K candidate skills, each with their name, description,
-and a flag indicating whether activation will spawn an isolated subagent
-(context: fork) or run inline in the current conversation.
-
-Use when:
-- the user asks for a multi-step procedure that someone may have already
-  encoded as a skill (PR review, deploy, data cleanup, ...)
-- you want to see if there's an opinionated workflow before improvising
-- you've forgotten the exact skill name
-
-Don't use when:
-- the task is a single tool call (just call that tool directly)
-- you already know the exact skill name (call activate_skill directly)
-- you've recently activated a skill in this conversation (it's still
-  active until another activate_skill replaces it)`
+const searchSkillsDescription = `Search the user's installed skills (procedural workflows + allowed-tools bundles) for ones relevant to a task. Returns the top K candidates, each with name, description, and an isFork flag indicating whether activation will spawn an isolated subagent or run inline. Pair with activate_skill once you have a candidate.`
 
 var searchSkillsSchema = json.RawMessage(`{
 	"type": "object",
@@ -141,17 +125,15 @@ func (t *SearchSkills) Execute(ctx context.Context, argsJSON string) (string, er
 	skills, err := t.svc.Search(ctx, args.Query, topK)
 	if err != nil {
 		// LLM-resolution failure is the typical case (no chat model
-		// configured). Friendly string so the LLM can suggest the user
-		// configure one — search still works (alpha order) so the
-		// failure surfaces only when ranking would have helped.
-		// LLM 解析失败是典型场景（未配 chat model）。友好字符串让 LLM
-		// 提示用户配；search 在 ≤topK 时仍工作（字母序），失败仅在排序
-		// 真有用时暴露。
-		return fmt.Sprintf("Search failed: %v. The skills catalog needs a chat model configured to rank results when there are many candidates.", err), nil
+		// configured). err.Error() is sanitized at the framework
+		// boundary; pass through verbatim.
+		// LLM 解析失败是典型场景（未配 chat model）。framework boundary
+		// 已清洗 err.Error()；原样透传。
+		return fmt.Sprintf("Search failed: %s.", err.Error()), nil
 	}
 
 	if len(skills) == 0 {
-		return "No skills installed. Have the user install one (drag a SKILL.md folder into the skills panel, or write one to ~/.forgify/skills/<name>/SKILL.md).", nil
+		return "No skills installed.", nil
 	}
 
 	out := make([]searchResult, 0, len(skills))

@@ -51,16 +51,11 @@ type InstallMCPServer struct {
 	svc *mcpapp.Service
 }
 
-const installMCPServerDescription = `Install an MCP server from Forgify's curated marketplace. Two-phase flow:
+const installMCPServerDescription = `Install an MCP server from the curated marketplace.
 
-PHASE 1 (discovery): Call install_mcp_server({name: "<short-name>"}). Tool returns {status:"needs_confirmation", suggested_question, required_env, required_args, notes}. Use ` + "`ask`" + ` to relay the question to the user, then collect any required env / args values. Always relay the entry's notes to the user — they describe first-run gotchas (chromium downloads, OAuth flows, etc).
+The tool runs in two calls. The first call (omit ` + "`confirmed`" + `) returns ` + "`{status:\"needs_confirmation\", suggested_question, required_env, required_args, notes}`" + ` — relay the question and notes to the user via the ask tool to collect any required values. The second call (` + "`confirmed: true`" + ` plus collected ` + "`env`" + ` / ` + "`arguments`" + `) performs the install and returns either a ServerStatus envelope or a structured error (codes: already_installed / missing_required_args / install_failed / handshake_failed).
 
-PHASE 2 (commit): Call install_mcp_server({name, confirmed: true, env?: {KEY:"value"}, arguments?: {key:"value"}}). Tool installs + connects the server. On success returns the new ServerStatus; on failure returns a structured error (already_installed / missing_required_args / install_failed / handshake_failed) with hints for recovery.
-
-Notes:
-- name is the curated catalog's short slug (e.g. "playwright", "notion", "ms365"). Pick from list_mcp_marketplace results.
-- name doubles as the mcp.json key — no separate alias.
-- already_installed means this name is already a configured server; uninstall first via uninstall_mcp_server.`
+` + "`name`" + ` is the curated catalog's short slug (pick from list_mcp_marketplace).`
 
 var installMCPServerSchema = json.RawMessage(`{
 	"type": "object",
@@ -142,12 +137,12 @@ func (t *InstallMCPServer) Execute(ctx context.Context, argsJSON string) (string
 			fmt.Sprintf("A server named %q is already configured. Uninstall it first via uninstall_mcp_server.", args.Name)), nil
 	case errors.Is(err, mcpdomain.ErrRequiredEnvMissing):
 		return errorJSON("missing_required_args",
-			fmt.Sprintf("Missing required env: %v. Ask the user for these values, then retry with env={...}.", err.Error())), nil
+			fmt.Sprintf("Missing required env: %s. Ask the user for these values, then retry with env={...}.", err.Error())), nil
 	case errors.Is(err, mcpdomain.ErrRequiredArgsMissing):
 		return errorJSON("missing_required_args",
-			fmt.Sprintf("Missing required args: %v. Ask the user for these values, then retry with arguments={...}.", err.Error())), nil
+			fmt.Sprintf("Missing required args: %s. Ask the user for these values, then retry with arguments={...}.", err.Error())), nil
 	case errors.Is(err, mcpdomain.ErrInstallFailed):
-		return errorJSON("install_failed", fmt.Sprintf("Install failed: %v", err)), nil
+		return errorJSON("install_failed", fmt.Sprintf("Install failed: %s", err.Error())), nil
 	default:
 		return errorJSON("install_failed", err.Error()), nil
 	}
@@ -169,7 +164,7 @@ func phase1Envelope(entry *mcpdomain.RegistryEntry) string {
 	// Build the question the LLM should ask the user.
 	// 建 LLM 该问用户的问句。
 	var qb strings.Builder
-	fmt.Fprintf(&qb, "I'd like to install the MCP server %q.\n\n%s",
+	fmt.Fprintf(&qb, "Install the MCP server %q?\n\n%s",
 		entry.Name, entry.Description)
 	if len(entry.RequiredEnv) > 0 {
 		qb.WriteString("\n\nIt needs the following environment variables:")
@@ -207,15 +202,18 @@ func phase1Envelope(entry *mcpdomain.RegistryEntry) string {
 	return string(b)
 }
 
-// successJSON renders the post-install ServerStatus response.
+// successJSON renders the post-install ServerStatus response. Envelope is
+// the single source of truth (status / name / server.Status); no human
+// "message" field — the LLM reads structured fields directly.
 //
-// successJSON 渲染装后 ServerStatus 响应。
+// successJSON 渲染装后 ServerStatus 响应。envelope 是单一事实源
+// （status / name / server.Status）；不附 human "message"——LLM 直接读
+// 结构化字段。
 func successJSON(st *mcpdomain.ServerStatus, name string) string {
 	envelope := map[string]any{
-		"status":  "installed",
-		"name":    name,
-		"server":  st,
-		"message": fmt.Sprintf("Server %q installed and connected (status=%s).", name, st.Status),
+		"status": "installed",
+		"name":   name,
+		"server": st,
 	}
 	b, _ := json.Marshal(envelope)
 	return string(b)

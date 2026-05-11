@@ -670,6 +670,23 @@ func (t *CallMCPTool) Description() string {
 
 **为什么 search → call 分两步**：让 LLM 显式确认调用意图，**也便于 catalog 路由提示影响"调哪个"决策**——先看候选再选择，比"一键调用"更可控。
 
+### 8.6 LLM-facing return shapes（Phase C 清理后约定）
+
+5 个 tool 返不同 shape 但每个 shape 在自己的语义内自洽——LLM 按 tool 选择解 JSON 或读 text：
+
+| Tool | Success | 错误（friendly path）|
+|---|---|---|
+| `search_mcp_tools` | JSON array of `ToolDef`（indented）| plain string: `Search failed: <reason>` / `No MCP tools found. ...` |
+| `call_mcp_tool` | server passthrough string | plain string: `MCP server X is not connected.` / `MCP tool X does not exist on server Y. ...` |
+| `list_mcp_marketplace` | JSON array of slim registry entries | 仅走 Go err → framework boundary 清洗后到 LLM |
+| `install_mcp_server` | JSON envelope `{status:"installed", name, server}` / `{status:"needs_confirmation", suggested_question, required_env, required_args, notes, tier}` | JSON envelope `{status:"error", error:<code>, message}` 含 code: `not_in_registry` / `already_installed` / `missing_required_args` / `install_failed` |
+| `uninstall_mcp_server` | JSON envelope `{status:"uninstalled", name}` | JSON envelope `{status:"error", error:"not_installed", message}` |
+
+**Phase C 清理纪要**：
+- 删了 install / uninstall 成功 envelope 里的 "human message"（如 `"Server X installed and connected"`）——envelope 自有 `status` / `name` / `server.Status` 字段，message 重复
+- 删了 friendly 字符串里的 UI / 文件路径泄漏（`~/.forgify/mcp.json` / "MCP servers UI" / "click 'Reconnect'"）
+- 错误的 `%v err` 改用 `%s err.Error()`——framework boundary（`loop/tools.go`）会清 §S16 wrap 链
+
 ---
 
 ## 9. Notifications（per-server，不发全量快照）

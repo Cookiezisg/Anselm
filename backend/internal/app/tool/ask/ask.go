@@ -56,13 +56,7 @@ var (
 
 // ── Description & schema ──────────────────────────────────────────────────────
 
-const askDescription = `Pause the agent loop and ask the user a question. Returns the user's answer as free-form text.
-
-Usage:
-- ` + "`question`" + ` is the question text shown to the user.
-- ` + "`options`" + ` (optional) is a list of suggested answers; the UI renders them as click-to-pick buttons alongside a free-text box. The user is NOT restricted to options — they may type anything (confirm with their own wording, decline, change parameters, ask back). You INTERPRET the resulting answer string to decide the next action.
-- The tool blocks for up to 5 minutes; if the user does not respond, the result is "User did not respond within the timeout".
-- Use this when you genuinely need user input to proceed (ambiguous request, destructive action confirmation, missing data). Do NOT use it for things you can deduce from context.`
+const askDescription = `Pause the agent loop and ask the user a question. Returns the user's answer as free-form text. ` + "`options`" + ` is a non-binding list of suggested answers — the user may type anything. The tool blocks for up to 5 minutes; if no answer arrives, the result reports a timeout.`
 
 var askSchema = json.RawMessage(`{
 	"type": "object",
@@ -75,7 +69,7 @@ var askSchema = json.RawMessage(`{
 		"options": {
 			"type": "array",
 			"items": {"type": "string"},
-			"description": "Optional list of suggested answers (the UI renders them as click-to-pick buttons; user is NOT restricted to these and may also type freely)."
+			"description": "Optional list of suggested answers. The user is not restricted to these; they may type any reply."
 		}
 	}
 }`)
@@ -152,16 +146,21 @@ func (t *AskUserQuestion) CheckPermissions(_ json.RawMessage, _ toolapp.Permissi
 func (t *AskUserQuestion) Execute(ctx context.Context, argsJSON string) (string, error) {
 	callID, _ := reqctxpkg.GetToolCallID(ctx)
 	if callID == "" {
-		return "Cannot ask the user: no tool_call_id in context (chat layer wiring bug).", nil
+		// Caller-side defect (no tool_call_id in ctx). Keep the LLM-
+		// facing text generic — the LLM cannot do anything about it,
+		// and operator sees the actual stack via the executeTool warn log.
+		// 调用方 defect（ctx 缺 tool_call_id）；LLM 无法处理，保持通用
+		// 文本，operator 可经 executeTool warn log 看到栈。
+		return "Cannot ask the user: tool runtime is not properly initialized.", nil
 	}
 	answer, err := t.svc.Wait(ctx, callID, t.timeout)
 	switch {
 	case errors.Is(err, askapp.ErrTimeout):
-		return "User did not respond within the timeout. Re-ask later if still needed.", nil
+		return "User did not respond within the timeout.", nil
 	case errors.Is(err, context.Canceled):
-		return "Question cancelled by the user (conversation interrupted).", nil
+		return "Question cancelled by the user.", nil
 	case err != nil:
-		return fmt.Sprintf("Asking the user failed: %v", err), nil
+		return fmt.Sprintf("Asking the user failed: %s", err.Error()), nil
 	}
 	return answer, nil
 }

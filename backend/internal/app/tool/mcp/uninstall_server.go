@@ -28,7 +28,7 @@ type UninstallMCPServer struct {
 	svc *mcpapp.Service
 }
 
-const uninstallMCPServerDescription = `Uninstall a previously-installed MCP server. Removes it from mcp.json and disconnects the subprocess. Pass the canonical short name the server was installed under (e.g. "playwright", "duckduckgo") — same name returned by list_mcp_marketplace and install_mcp_server.`
+const uninstallMCPServerDescription = `Uninstall a previously-installed MCP server: removes it from the MCP configuration and disconnects it. Pass the canonical short name the server was installed under (e.g. "playwright", "duckduckgo") — same name returned by list_mcp_marketplace and install_mcp_server.`
 
 var uninstallMCPServerSchema = json.RawMessage(`{
 	"type": "object",
@@ -74,14 +74,13 @@ func (t *UninstallMCPServer) Execute(ctx context.Context, argsJSON string) (stri
 	if err := t.svc.RemoveServer(ctx, args.Name); err != nil {
 		if errors.Is(err, mcpdomain.ErrServerNotFound) {
 			return errorJSON("not_installed",
-				fmt.Sprintf("No installed server named %q. Check the MCP servers UI or ~/.forgify/mcp.json for installed names.", args.Name)), nil
+				fmt.Sprintf("No installed server named %q.", args.Name)), nil
 		}
 		return "", fmt.Errorf("uninstall_mcp_server: %w", err)
 	}
 	envelope := map[string]any{
-		"status":  "uninstalled",
-		"name":    args.Name,
-		"message": fmt.Sprintf("Server %q uninstalled and disconnected.", args.Name),
+		"status": "uninstalled",
+		"name":   args.Name,
 	}
 	b, _ := json.Marshal(envelope)
 	return string(b), nil

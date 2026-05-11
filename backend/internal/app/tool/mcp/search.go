@@ -36,24 +36,7 @@ var ErrEmptyQuery = errors.New("query is required and must be non-empty")
 
 // ── Description & schema ─────────────────────────────────────────────
 
-const searchMCPDescription = `Search across all connected MCP servers for tools matching a natural-language query.
-
-Returns the top K candidate tools, each with their server name, tool
-name, description, and input schema. Use the returned schemas to build
-the args for a subsequent call_mcp invocation.
-
-Use when:
-- you need an external integration (browser, GitHub, Slack, SQL, ...)
-  and want to discover what's available
-- you've forgotten the exact tool name on an MCP server you've used
-  before
-- you want to see candidate alternatives before picking one
-
-Don't use when:
-- you already know the exact server + tool name (call call_mcp directly)
-- the task can be done with native Forgify tools (Read/Write/Edit/Bash/
-  Grep/Glob/WebFetch/WebSearch) — those are faster and don't depend on
-  user-installed MCP servers`
+const searchMCPDescription = `Search across all connected MCP servers for tools matching a natural-language query. Returns the top K candidate tools (server name, tool name, description, inputSchema) — use the inputSchema to build args for a subsequent call_mcp invocation. Prefer native tools (Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch) when they suffice; reach for MCP for external integrations (browser, GitHub, SQL, etc.).`
 
 var searchMCPSchema = json.RawMessage(`{
 	"type": "object",
@@ -136,14 +119,16 @@ func (t *SearchMCP) Execute(ctx context.Context, argsJSON string) (string, error
 
 	tools, err := t.svc.Search(ctx, args.Query, topK)
 	if err != nil {
-		// LLM-resolution failure or transient — surface as friendly
-		// string so the LLM can suggest the user configure a model.
-		// LLM 解析失败或瞬态——友好字符串让 LLM 提示用户配模型。
-		return fmt.Sprintf("Search failed: %v. Please ensure an MCP server is connected and a chat model is configured.", err), nil
+		// LLM-resolution failure or transient. err.Error() is sanitized by
+		// the framework boundary (loop/tools.go) before reaching the LLM
+		// even when this string is itself wrapped — pass through verbatim.
+		// LLM 解析失败或瞬态。framework boundary（loop/tools.go）会清洗
+		// err.Error() 的 §S16 wrap 链；此处可原样透传。
+		return fmt.Sprintf("Search failed: %s", err.Error()), nil
 	}
 
 	if len(tools) == 0 {
-		return "No MCP tools found. Ensure at least one MCP server is configured in ~/.forgify/mcp.json and connected.", nil
+		return "No MCP tools found. No MCP server is currently connected — install one via list_mcp_marketplace + install_mcp_server.", nil
 	}
 
 	body, err := json.MarshalIndent(tools, "", "  ")

@@ -32,18 +32,7 @@ var (
 
 // ── Description & schema ─────────────────────────────────────────────
 
-const callMCPDescription = `Invoke a specific tool on a specific MCP server. Returns the server's response as text.
-
-Workflow:
-1. Call search_mcp first to discover candidate tools and their schemas.
-2. Pick a tool from the search result.
-3. Call call_mcp with the matching server / tool / args. The args
-   object MUST conform to the tool's inputSchema (returned by
-   search_mcp).
-
-If the tool fails (server error, timeout, permission denied), the
-result string explains what happened so you can adjust args, pick a
-different tool, or surrender.`
+const callMCPDescription = `Invoke a specific tool on a specific MCP server. Pair with search_mcp_tools: discover the tool + its inputSchema, then call_mcp_tool with matching server / tool / args. The args object must conform to the tool's inputSchema. On failure the result string carries the reason so you can adjust args, pick a different tool, or stop.`
 
 var callMCPSchema = json.RawMessage(`{
 	"type": "object",
@@ -153,17 +142,17 @@ func (t *CallMCP) Execute(ctx context.Context, argsJSON string) (string, error) 
 func mapCallToolErrorToFriendly(server, tool string, err error) string {
 	switch {
 	case errors.Is(err, mcpdomain.ErrServerNotFound):
-		return fmt.Sprintf("MCP server %q is not configured. Use search_mcp to see available servers, or ask the user to install/configure %q first.", server, server)
+		return fmt.Sprintf("MCP server %q is not configured. Use search_mcp_tools to see available servers, or install %q via install_mcp_server.", server, server)
 	case errors.Is(err, mcpdomain.ErrServerNotConnected):
-		return fmt.Sprintf("MCP server %q is not connected (status check failed). The user may need to fix the server's configuration or click 'Reconnect' in the MCP settings panel.", server)
+		return fmt.Sprintf("MCP server %q is not connected.", server)
 	case errors.Is(err, mcpdomain.ErrToolNotFound):
-		return fmt.Sprintf("MCP tool %q does not exist on server %q. Use search_mcp to discover the correct tool name.", tool, server)
+		return fmt.Sprintf("MCP tool %q does not exist on server %q. Use search_mcp_tools to discover the correct tool name.", tool, server)
 	case errors.Is(err, mcpdomain.ErrToolCallTimeout):
-		return fmt.Sprintf("MCP call %s/%s timed out. The tool may be slow (browser automation, big query) — consider re-trying with a more specific query, or asking the user to extend the per-server timeout in mcp.json.", server, tool)
+		return fmt.Sprintf("MCP call %s/%s timed out. Try a more specific query or break the work into smaller steps.", server, tool)
 	case errors.Is(err, mcpdomain.ErrToolCallFailed):
-		return fmt.Sprintf("MCP call %s/%s failed: %v", server, tool, err)
+		return fmt.Sprintf("MCP call %s/%s failed: %s", server, tool, err.Error())
 	default:
-		return fmt.Sprintf("call_mcp %s/%s failed: %v", server, tool, err)
+		return fmt.Sprintf("call_mcp %s/%s failed: %s", server, tool, err.Error())
 	}
 }
 

@@ -49,7 +49,7 @@ LLM 调 Edit
       strings.Count + strings.ReplaceAll       → 字面量替换（信任 stdlib）
       atomic write: CreateTemp + Chmod + Rename
       state.MarkRead(path, len(new))           → 更新 SeenFiles 让链式 Edit 通过
-  → 返 "Successfully replaced N occurrence(s) in <path>."
+  → 返 "Replaced N occurrence(s) in <path>."
 ```
 
 ### Write 路径
@@ -132,7 +132,7 @@ LLM 调 Edit
 **ValidateInput 用 `*string`** 检测 content 字段缺失（区分"缺 key"与"空字符串"）——LLM 必须显式表达意图。JSON Schema 仍声明 `content: {"type": "string"}` + `required: ["file_path", "content"]`（schema 层和 ValidateInput 层都拦缺失，双重保险）。
 
 **返回**：
-- 成功 → `File successfully written to <path>`
+- 成功 → `Wrote <path>`
 - PathGuard 拒 → 标准黑名单字符串
 - 父目录不存在 → `Parent directory does not exist: <parent>. Use Bash 'mkdir -p' to create it first.`
 - 父路径不是目录 → `Parent path exists but is not a directory: <parent>`
@@ -159,8 +159,8 @@ LLM 调 Edit
 | `replace_all` | bool | | 默认 false；多匹配时必须显式 true |
 
 **返回**：
-- `Successfully replaced 1 occurrence in <path>.`
-- `Successfully replaced N occurrences in <path>.`（replace_all=true 且 N>1）
+- `Replaced 1 occurrence in <path>.`
+- `Replaced N occurrences in <path>.`（replace_all=true 且 N>1）
 - 不存在 → `File not found: <path>. Edit can only modify existing files; use Write to create new ones.`
 - 没 Read → `File must be read first before editing: <path>. Use the Read tool first.`
 - 外部修改 → `File has been modified since last read (current size N, expected M): <path>. Read it again before editing.`

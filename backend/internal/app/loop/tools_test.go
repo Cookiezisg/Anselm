@@ -12,6 +12,8 @@ package loop
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"testing"
 
 	"go.uber.org/zap/zaptest"
@@ -21,6 +23,52 @@ import (
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+func TestSanitizeToolErr_StripsSinglePrefix(t *testing.T) {
+	err := fmt.Errorf("Read.ValidateInput: %w", errors.New("file_path is required"))
+	got := sanitizeToolErr(err)
+	want := "file_path is required"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSanitizeToolErr_StripsMultiLayerChain(t *testing.T) {
+	err := fmt.Errorf("subagent.Spawn: %w",
+		fmt.Errorf("subagentapp.runReact: %w",
+			fmt.Errorf("llm.Generate: %w",
+				errors.New("deepseek api: 401 unauthorized"))))
+	got := sanitizeToolErr(err)
+	want := "deepseek api: 401 unauthorized"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestSanitizeToolErr_NilReturnsEmpty(t *testing.T) {
+	if got := sanitizeToolErr(nil); got != "" {
+		t.Errorf("got %q, want empty", got)
+	}
+}
+
+func TestSanitizeToolErr_NoPrefixUnchanged(t *testing.T) {
+	err := errors.New("permission denied")
+	if got := sanitizeToolErr(err); got != "permission denied" {
+		t.Errorf("got %q, want unchanged", got)
+	}
+}
+
+func TestSanitizeToolErr_KeepsInnermostColons(t *testing.T) {
+	// Innermost message contains colons that are NOT pkg.method prefixes;
+	// they should survive intact.
+	// 最内层消息含非 pkg.method 形式的冒号；应原样保留。
+	err := fmt.Errorf("Tool.Execute: %w", errors.New("HTTP 502: upstream unreachable"))
+	got := sanitizeToolErr(err)
+	want := "HTTP 502: upstream unreachable"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
 
 // alwaysDenyTool is a stub Tool whose CheckPermissions returns Deny so
 // the test can prove that pre-approval bypasses CheckPermissions

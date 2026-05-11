@@ -89,8 +89,8 @@ LLM 调 BashOutput(bash_id, [filter])
 ### KillShell 路径
 
 ```
-LLM 调 KillShell(shell_id)
-  → ValidateInput: shell_id 非空
+LLM 调 KillShell(bash_id)
+  → ValidateInput: bash_id 非空
   → Execute:
       proc := mgr.Get(id) → 不存在时返友好字符串（**幂等**）
       proc.Cmd.Process.Kill()  // SIGKILL；尝试杀，失败也不报错
@@ -191,20 +191,20 @@ maybeAutoRoute(ctx, command):
 
 ### 失败语义（不静默降级）
 
-`formatAutoRouteError(err)` 把 sandbox-prep 失败转成 LLM 可读的 tool_result：
+`formatAutoRouteError(err)` 把 sandbox-prep 失败转成 LLM 可读的 tool_result。错误已在 `maybeAutoRoute` 内分类（无 §S16 wrap 前缀、无 UI/版本号叙事），原样作为 body 透传：
 
 ```
-Sandbox auto-route could not prepare the runtime for this command. The
-command was NOT executed (running on the system shell would return
-misleading data — e.g. system Python 3.9.6 instead of the conversation's
-isolated 3.12 venv). Please retry, or have the user check the sandbox
-status in testend.
-
-<错误细节>
+sandbox unavailable for <kind>: <classified reason>
 
 [exit code: -1]
 [sandbox auto-route failed]
 ```
+
+classified reasons：
+- `runtime not configured`（service 未接线）
+- `bootstrap incomplete` / `bootstrap failed: <err>`（mise / runtime 未就绪）
+- `no conversation context`（ctx 无 conversationID）
+- `env install failed: <err>`（per-conv env 装包失败）
 
 返 `(string, nil)` 让框架当成普通 tool result 而非 tool 框架错误重试。
 
@@ -226,9 +226,10 @@ status in testend.
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
 | `command` | string | ✅ | shell 命令（POSIX sh）|
-| `description` | string | | 一行人类可读描述（UI / log）|
 | `run_in_background` | bool | | 默认 false；true 时立即返 bash_id 不等待 |
 | `timeout` | number | | 前台超时（毫秒）；默认 120000；硬上限 600000 |
+
+> Phase C 删除原 `description` 字段——框架标准 `summary` 字段已覆盖 per-call 描述，多余字段让 LLM 混淆两个字段都填。
 
 **返回**（前台）：合并 stdout+stderr 正文 + 空行 + 可选 [note] + `[exit code: N]` 尾注。
 
@@ -279,7 +280,7 @@ status in testend.
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `shell_id` | string | ✅ | bash_id |
+| `bash_id` | string | ✅ | Bash run_in_background:true 返回的 bash_id（与 BashOutput 同名） |
 
 **返回**：
 - 存在且 running → `Killed background shell <id>.`
@@ -288,7 +289,7 @@ status in testend.
 
 **静态元数据**：`IsReadOnly=false` / `NeedsReadFirst=false` / `RequiresWorkspace=false`
 
-**ValidateInput**：仅 shell_id 非空（无独立 sentinel）。
+**ValidateInput**：仅 bash_id 非空（无独立 sentinel）。
 
 ### 4.4 ShellTools 工厂
 

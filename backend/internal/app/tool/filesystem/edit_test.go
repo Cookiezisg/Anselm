@@ -150,7 +150,7 @@ func TestEditExecute_SingleReplace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 1 occurrence") {
+	if !strings.Contains(out, "Replaced 1 occurrence") {
 		t.Errorf("expected explicit '1 occurrence', got %q", out)
 	}
 	if got := readContent(t, path); got != "hello Forgify\n" {
@@ -171,7 +171,7 @@ func TestEditExecute_ReplaceAllMultiple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 3 occurrences") {
+	if !strings.Contains(out, "Replaced 3 occurrences") {
 		t.Errorf("expected explicit '3 occurrences', got %q", out)
 	}
 	if got := readContent(t, path); got != "Bob\nBob\nBob\n" {
@@ -193,7 +193,7 @@ func TestEditExecute_CrossLineOldString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 1 occurrence") {
+	if !strings.Contains(out, "Replaced 1 occurrence") {
 		t.Errorf("expected success, got %q", out)
 	}
 	if got := readContent(t, path); got != "MERGED\nline c\n" {
@@ -215,7 +215,7 @@ func TestEditExecute_RegexMetacharsTreatedLiterally(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced") {
+	if !strings.Contains(out, "Replaced") {
 		t.Errorf("expected literal match success, got %q", out)
 	}
 	if !strings.Contains(readContent(t, path), "return nil ") {
@@ -235,7 +235,7 @@ func TestEditExecute_DeleteByEmptyNewString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 1 occurrence") {
+	if !strings.Contains(out, "Replaced 1 occurrence") {
 		t.Errorf("got %q", out)
 	}
 	if got := readContent(t, path); got != "before after\n" {
@@ -268,7 +268,7 @@ func TestEditExecute_MarkReadUpdatedAfterEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second Edit: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 1 occurrence") {
+	if !strings.Contains(out, "Replaced 1 occurrence") {
 		t.Errorf("chained Edit failed: %q", out)
 	}
 	if !strings.Contains(readContent(t, path), "v3") {
@@ -485,7 +485,7 @@ The randomness was math/rand **[WEAK]** which is critical.
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "Successfully replaced 5 occurrences") {
+	if !strings.Contains(out, "Replaced 5 occurrences") {
 		t.Errorf("expected '5 occurrences' (not silent skip), got %q", out)
 	}
 

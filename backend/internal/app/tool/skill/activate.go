@@ -25,27 +25,7 @@ import (
 // ErrEmptyName：name 缺失或全空白。
 var ErrEmptyName = errors.New("name is required and must be non-empty")
 
-const activateSkillDescription = `Load a skill's full instructions and start following them.
-
-After activation:
-  1. The skill's allowed-tools are pre-approved for the rest of this
-     conversation (no permission prompts on Read/Bash(git *)/etc.)
-  2. The substituted body text is returned as this tool's result —
-     follow those instructions step by step.
-  3. If the skill is configured with context: fork, an isolated subagent
-     runs the body instead and you receive only the subagent's final
-     output — your conversation context isn't polluted with intermediate
-     steps.
-
-Use when:
-- search_skills returned a candidate that matches the user's request
-- you want the skill's full body / step-by-step instructions
-- the user asked to "use the X skill" or invoked /X
-
-Don't use when:
-- you only need the skill's description (search_skills already gave you
-  that — body load is wasted budget if you weren't going to follow it)
-- the task is simple and you don't actually need the workflow`
+const activateSkillDescription = `Load a skill's full instructions. The result is the substituted body text (or, when the skill declares context: fork, the final output of an isolated subagent that ran the body). Activation also pre-approves the skill's allowed-tools for the rest of this conversation.`
 
 var activateSkillSchema = json.RawMessage(`{
 	"type": "object",
@@ -138,13 +118,15 @@ func (t *ActivateSkill) Execute(ctx context.Context, argsJSON string) (string, e
 
 	switch {
 	case errors.Is(err, skilldomain.ErrSkillNotFound):
-		return fmt.Sprintf("Skill %q not found. Call search_skills first to see what's available, or check ~/.forgify/skills/ for installed skills.", args.Name), nil
+		return fmt.Sprintf("Skill %q not found. Call search_skills first to see what's available.", args.Name), nil
 	case errors.Is(err, skilldomain.ErrBodyTooLarge):
-		return fmt.Sprintf("Skill %q body exceeds the %d-byte limit. The user should shrink the SKILL.md (move long instructions into resource files referenced by ${CLAUDE_SKILL_DIR}/...).", args.Name, skilldomain.MaxBodyBytes), nil
+		return fmt.Sprintf("Skill %q body exceeds the %d-byte limit. Ask the user to split long instructions into separate resource files.", args.Name, skilldomain.MaxBodyBytes), nil
 	default:
-		// Subagent spawn failure / unexpected I/O. Pass through with
-		// the actual error so the LLM has something concrete to report.
-		// subagent spawn 失败 / 意外 I/O。透传具体 error 让 LLM 有具体可报。
+		// Subagent spawn failure / unexpected I/O. Wrap so framework
+		// sanitizer (loop/tools.go) strips internal §S16 prefix chain
+		// before the LLM sees the inner reason.
+		// subagent spawn 失败 / 意外 I/O。包装让 framework sanitizer
+		// 剥 §S16 前缀链，LLM 仅看最里层原因。
 		return "", fmt.Errorf("activate_skill: %w", err)
 	}
 }

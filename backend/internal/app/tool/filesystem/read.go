@@ -79,16 +79,13 @@ var (
 // （未实现）；写了反而误导模型。已实现部分保留 CC 的措辞。
 const readDescription = `Reads a file from the local filesystem.
 
-Assume this tool is able to read most files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error message will be returned.
-
 Usage:
-- The file_path parameter must be an absolute path, not a relative path
-- By default, it reads up to 2000 lines starting from the beginning of the file
-- When you already know which part of the file you need, only read that part using offset and limit. This can be important for larger files
-- Results are returned using cat -n format (5-digit right-padded line number, tab, content), with line numbers starting at 1
-- This tool can only read files, not directories. To list files in a directory, use the Glob tool with pattern "*"
-- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents
-- Some sensitive paths (system directories, credential locations like ~/.ssh) are blocked for safety; you will receive a denial message if you try to read one`
+- file_path must be an absolute path.
+- Reads up to 2000 lines from the start by default; use offset+limit to page through larger files.
+- Output uses cat -n format (5-digit right-padded line number, tab, content), 1-based.
+- Only reads files; for directory listing use Glob with pattern "*".
+- An empty file returns a system reminder; a missing file returns an error message.
+- Sensitive paths (system directories, credential locations) are blocked.`
 
 // readSchema is the LLM-facing JSON Schema (without the framework-injected
 // summary / destructive / execution_group fields).

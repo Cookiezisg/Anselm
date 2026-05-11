@@ -102,8 +102,8 @@ Usage:
 - ` + "`url`" + ` must be an absolute http or https URL.
 - ` + "`prompt`" + ` describes what to extract or summarise from the page (e.g. "What does this paper conclude?", "List every API endpoint mentioned").
 - The tool fetches the URL (Jina reader for clean markdown when available, direct HTTP GET fallback), caps content at 1 MB, then asks the configured summary model to answer your prompt against that content.
-- Summarisation uses the user's "web_summary" model scenario if configured; otherwise it falls back to the main "chat" scenario, so this works out of the box.
-- Private / loopback / link-local addresses are blocked for safety (no fetching localhost or RFC 1918 ranges).
+- Summarisation uses the "web_summary" model scenario if configured; otherwise falls back to the "chat" scenario.
+- Private / loopback / link-local addresses are blocked (no fetching localhost or RFC 1918 ranges).
 - Each fetch is capped at 30 seconds.`
 
 var fetchSchema = json.RawMessage(`{

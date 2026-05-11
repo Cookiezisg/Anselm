@@ -96,12 +96,12 @@ var (
 
 // ── Description & schema ──────────────────────────────────────────────────────
 
-const searchDescription = `Web search. Routes to the first available source: configured BYOK provider (Brave / Serper / Tavily / Bocha), then duckduckgo-search MCP server (if installed). When neither is available the tool returns a clear hint — call list_mcp_marketplace to discover the duckduckgo-search backend, then install_mcp_server({name:"duckduckgo-search"}) to add it (~30s, no key needed).
+const searchDescription = `Web search. Routes to the first available source: a configured BYOK provider (Brave / Serper / Tavily / Bocha), then the duckduckgo-search MCP server (if installed). When neither is available the result includes a hint about how to enable one.
 
 Usage:
 - ` + "`query`" + ` is the search string (treated as one phrase by the upstream engine).
 - Returns JSON: {"query","source","results":[{"title","url","snippet"}],"truncated"}.
-- ` + "`source`" + ` tells you which backend produced the results: "brave" / "serper" / "tavily" / "bocha" / "mcp".
+- ` + "`source`" + ` indicates which backend produced the results: "brave" / "serper" / "tavily" / "bocha" / "mcp".
 - ` + "`limit`" + ` caps the result count (default 10, hard max 30).
 - Each backend has a 10-second budget; the tool falls through if a backend returns no results or errors.`
 
@@ -254,12 +254,8 @@ func (t *WebSearch) Execute(ctx context.Context, argsJSON string) (string, error
 
 	return fmt.Sprintf("No results for %q. No search backend is currently available.\n\n"+
 		"To enable web search, do ONE of the following:\n"+
-		"  • Configure a search-category API key in Settings → API Keys "+
-		"(Brave / Serper / Tavily — international; Bocha — China). All have free tiers.\n"+
-		"  • Install the duckduckgo-search MCP server from the marketplace "+
-		"(no API key needed; ~30s install). The user can do this from the MCP tab.\n\n"+
-		"(The previous Bing CN HTML scrape fallback was removed because Bing now "+
-		"renders results via JavaScript, making server-side HTML scraping return 0 results.)",
+		"  • Configure a search-category API key (Brave / Serper / Tavily — international; Bocha — China; all have free tiers).\n"+
+		"  • Install the duckduckgo-search MCP server from the marketplace (no API key needed; ~30s install).",
 		args.Query), nil
 }
 

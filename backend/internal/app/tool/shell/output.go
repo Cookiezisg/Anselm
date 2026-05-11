@@ -34,9 +34,9 @@ const outputDescription = `Read new stdout/stderr from a background shell proces
 Usage:
 - ` + "`bash_id`" + ` is the ID returned by a Bash call with run_in_background:true.
 - Returns only output APPEARED SINCE THE LAST BashOutput call for that ID — successive polls don't repeat what you've already seen.
-- Includes a status footer: "running", "exited (code N)", "killed", or "errored: ...".
+- Includes a status footer: "running", "exited (code N)", "killed", or "errored".
 - ` + "`filter`" + ` (optional regex) keeps only matching lines from the new output. Useful for grepping a noisy log stream.
-- Returns ErrProcessNotFound if the bash_id is unknown (never started or already removed via KillShell).`
+- Returns a not-found message if the bash_id is unknown (never started or already removed via KillShell).`
 
 var outputSchema = json.RawMessage(`{
 	"type": "object",

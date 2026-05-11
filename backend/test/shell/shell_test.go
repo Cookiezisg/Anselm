@@ -141,7 +141,7 @@ func TestShell_BashOutputAndKillShellHandleUnknownID(t *testing.T) {
 	))
 	fake.PushScript(th.ScriptSingleToolCall(
 		"KillShell", "call_fake_kill",
-		`{"summary":"kill unknown","shell_id":"bsh_doesnotexist"}`,
+		`{"summary":"kill unknown","bash_id":"bsh_doesnotexist"}`,
 	))
 	fake.PushScript(th.ScriptText("Both reported unknown."))
 

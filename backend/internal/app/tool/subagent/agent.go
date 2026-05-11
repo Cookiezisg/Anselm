@@ -56,17 +56,7 @@ var (
 
 // ── Description & schema ─────────────────────────────────────────────
 
-const subagentDescription = `Spawn a specialized subagent to handle a focused subtask in isolation.
-The subagent has its own context window and a curated tool list — your
-own context is not consumed. Returns the subagent's final message as a string.
-
-Use for:
-- searching large codebases (subagent_type="Explore")
-- planning multi-step work (subagent_type="Plan")
-- any task where isolating context from your main conversation is valuable
-  (subagent_type="general-purpose")
-
-Be specific in ` + "`prompt`" + ` — the subagent does not see your conversation.`
+const subagentDescription = `Spawn a specialized subagent to handle a focused subtask in isolation. The subagent has its own context window and a curated tool list; the parent context is not consumed. Returns the subagent's final message as a string. Available subagent_type values are listed in the schema.`
 
 var subagentSchema = json.RawMessage(`{
 	"type": "object",
@@ -78,7 +68,7 @@ var subagentSchema = json.RawMessage(`{
 		},
 		"prompt": {
 			"type": "string",
-			"description": "Task description for the subagent. Be specific — the subagent does not see your conversation history."
+			"description": "Self-contained task description for the subagent. The subagent does not see your conversation history."
 		},
 		"max_turns": {
 			"type": "integer",
@@ -157,17 +147,15 @@ func (t *SubagentTool) CheckPermissions(_ json.RawMessage, _ toolapp.PermissionM
 // shape:
 //
 //   - completed → return run.Result (the last assistant message text)
-//   - max_turns → return run.Result + "\n\n[note: subagent hit max turns]"
-//   - cancelled → return run.Result + "\n\n[note: subagent was cancelled]"
-//   - failed    → return Go err (LLM sees "tool failed" instead of empty)
-//   - recursion → return ErrRecursionAttempt as Go err so the chat layer
-//                 surfaces "permission denied" tool_result text
-//   - unknown type → return ErrTypeNotFound (LLM sees clear "type not found")
+//   - max_turns → return run.Result + "[note: subagent hit max turns]"
+//   - cancelled → return run.Result + "[note: subagent was cancelled]"
+//   - failed    → return body + ErrorMsg note (or just ErrorMsg if no body)
+//   - recursion / unknown type → return Go err (sanitized at framework
+//     boundary in loop/tools.go before reaching the LLM)
 //
-// Execute 检查运行时递归守卫，解析 args，调 Service.Spawn，按终态产出
-// tool_result 形状：completed 直接返；max_turns/cancelled 加注脚；failed
-// 走 Go err；recursion 走 Go err 让 chat 层显示 permission denied；未知
-// 类型走 Go err 让 LLM 看到清晰提示。
+// Execute 检查运行时递归守卫、解析 args、调 Service.Spawn、按终态产出
+// tool_result 形状。recursion / 未知类型走 Go err；framework boundary
+// （loop/tools.go）剥 §S16 wrap 链。
 func (t *SubagentTool) Execute(ctx context.Context, argsJSON string) (string, error) {
 	if depth := reqctxpkg.GetSubagentDepth(ctx); depth >= 1 {
 		return "", fmt.Errorf("SubagentTool.Execute: %w (depth=%d)",
@@ -187,22 +175,19 @@ func (t *SubagentTool) Execute(ctx context.Context, argsJSON string) (string, er
 		MaxTurns: args.MaxTurns,
 	})
 	if err != nil {
-		// Hard errors: type not found, persist failure, LLM resolve failure.
-		// Spawn already wraps with %w so errmap can match the sentinel.
-		// Hard error：未知类型 / 持久化失败 / LLM 解析失败。Spawn 已用 %w
-		// 包好让 errmap 匹配 sentinel。
+		// Hard errors: type not found, persist failure, LLM resolve
+		// failure. Spawn wraps with %w so errors.Is upstream matches
+		// sentinels; framework sanitizer strips §S16 prefix before the
+		// LLM sees the inner reason.
+		// Hard error：未知类型 / 持久化失败 / LLM 解析失败。Spawn 用 %w
+		// 包好让上游 errors.Is 匹配 sentinel；framework sanitizer 剥
+		// §S16 前缀让 LLM 仅看里层原因。
 		return "", err
 	}
 
-	// Friendly status notes — LLM gets the result body plus a hint about
-	// non-completed terminations, so it can decide whether to re-spawn,
-	// pivot, or summarize what we have.
-	//
-	// 友好状态注脚——LLM 拿到结果正文 + 非 completed 终态提示，自行决定
-	// 是否重起、转向或就此总结。
 	switch res.Status {
 	case subagentapp.StatusMaxTurns:
-		return appendNote(res.Result, "subagent hit max turns; consider re-spawning with more turns or refining the prompt"), nil
+		return appendNote(res.Result, "subagent hit max turns"), nil
 	case subagentapp.StatusCancelled:
 		return appendNote(res.Result, "subagent was cancelled"), nil
 	case subagentapp.StatusFailed:

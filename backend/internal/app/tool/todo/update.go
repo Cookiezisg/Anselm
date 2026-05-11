@@ -19,15 +19,7 @@ import (
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
 
-const todoUpdateDescription = `Update a todo's status or other fields.
-
-Usage:
-- ` + "`todo_id`" + ` is the ID returned by TodoCreate (or seen in TodoList).
-- Provide only the fields you want to change; omitted fields stay as-is.
-- ` + "`status`" + ` transitions: pending → in_progress → completed. Use "deleted" to remove a todo; the deletion broadcasts an SSE update so any UI drops it.
-- ` + "`subject`" + ` / ` + "`description`" + ` / ` + "`active_form`" + ` / ` + "`owner`" + ` are simple replacements.
-- ` + "`blocked_by`" + ` replaces the entire dependency list (pass [] to clear).
-- Returns the updated todo as JSON.`
+const todoUpdateDescription = `Update a todo's status or other fields. Omitted fields stay as-is. ` + "`status`" + ` transitions: pending → in_progress → completed; use "deleted" to remove a todo. ` + "`blocked_by`" + ` replaces the entire dependency list (pass [] to clear). Returns the updated todo as JSON, or ` + "`{deleted, id}`" + ` for a deletion.`
 
 var todoUpdateSchema = json.RawMessage(`{
 	"type": "object",

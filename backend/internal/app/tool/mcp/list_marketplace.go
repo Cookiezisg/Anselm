@@ -29,18 +29,16 @@ type ListMCPMarketplace struct {
 	svc *mcpapp.Service
 }
 
-const listMarketplaceDescription = `List ALL servers in Forgify's curated MCP marketplace (~21 entries). Use this when an MCP capability is needed but no matching server is currently installed (search_mcp_tools returned nothing).
+const listMarketplaceDescription = `List the curated MCP marketplace catalog. Use when an MCP capability is needed but no matching server is currently installed (search_mcp_tools returned nothing).
 
-The catalog is HAND-PICKED — every entry is verified to install and run out of the box. Categories: browser (playwright, chrome-devtools), web-data (firecrawl, duckduckgo, tavily), code (context7, github, gitlab, sentry), database (dbhub, mongodb, supabase), project-mgmt (linear, jira+confluence), docs (notion, slack, figma, memory), email (gmail, ms365), sandbox (e2b).
+Returns a JSON array sorted tier-asc then name-asc. Each entry carries:
+- name: canonical id used by install_mcp_server
+- description, runtime (node/python), homepage, category
+- tier: 0=zero-config, 1=one API key, 2=OAuth device-code, 3=DB connection string
+- requiredEnv / requiredArgs (with setupURL when an external key/account is needed)
+- notes: first-run gotchas worth relaying to the user
 
-Results are sorted tier-asc then name-asc — easiest-to-use servers come first. Each entry includes:
-  - name: canonical id used by install_mcp_server
-  - description, runtime (node/python), homepage
-  - tier: 0=zero-config, 1=one API key, 2=OAuth device-code flow, 3=DB connection string
-  - requiredEnv / requiredArgs: values to supply at install (each env carries a setupURL — pass that link to the user so they can grab the key)
-  - notes: first-run gotchas (chromium downloads, Notion sharing rituals, OAuth flow expectations) — surface these to the user when proposing the install
-
-After choosing a server, call install_mcp_server({name}) to begin the install flow. The first call returns "needs_confirmation" with details so you can use the ask tool to confirm with the user before the second call (with confirmed=true) actually installs.`
+After choosing a server, call install_mcp_server({name}) to begin the install. See that tool's docs for the two-phase confirmation flow.`
 
 var listMarketplaceSchema = json.RawMessage(`{
 	"type": "object",

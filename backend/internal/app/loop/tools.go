@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"sync"
 
@@ -25,6 +26,40 @@ import (
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+// pkgMethodPrefix matches one or more "<word>.<word>: " segments at the
+// head of an error string — the §S16 wrap chain pattern. Used by
+// sanitizeToolErr to strip framework scaffolding before LLM exposure.
+//
+// pkgMethodPrefix 匹配错误串开头的一段或多段 "<word>.<word>: "（§S16 wrap
+// 格式）。供 sanitizeToolErr 在喂给 LLM 前剥框架脚手架。
+var pkgMethodPrefix = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)+:\s+`)
+
+// sanitizeToolErr strips internal "<pkg>.<Method>: " wrap-chain prefixes
+// from err so the LLM sees user-meaningful error text only. Keeps the
+// innermost message intact.
+//
+// Example:
+//
+//	"subagent.Spawn: subagentapp.runReact: llm.Generate: deepseek api: 401 unauthorized"
+//	→ "deepseek api: 401 unauthorized"
+//
+// Errors without a §S16 prefix are returned unchanged (so already-friendly
+// messages like "permission denied" or sentinel text survive intact).
+//
+// sanitizeToolErr 剥 <pkg>.<Method>: 前缀链，留最里层。让 LLM 看用户语义
+// 错误而非框架内部 wrap 链。无 §S16 前缀的错误原样返回（让已友好的消息
+// 如 "permission denied" / sentinel 文本保留）。
+func sanitizeToolErr(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	for pkgMethodPrefix.MatchString(msg) {
+		msg = pkgMethodPrefix.ReplaceAllString(msg, "")
+	}
+	return msg
+}
 
 // runTools executes all tool calls in execution-group batches. Per-tool
 // emit (tool_result block_start/delta/stop) fires real-time inside
@@ -188,7 +223,16 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 
 	if err := t.ValidateInput(argsJSON); err != nil {
 		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
-		return fmt.Sprintf("input validation failed: %s", err.Error()), err.Error(), false
+		// LLM-facing text strips §S16 <pkg>.<Method>: wrap-chain so the
+		// model sees user-meaningful "<reason>" instead of "Tool.ValidateInput:
+		// inner: ...". errMsg (DB column) keeps the full chain for operator
+		// debugging; only the LLM-exposed string is sanitized.
+		//
+		// LLM 看的文本剥 §S16 <pkg>.<Method>: wrap 链——让模型看用户语义
+		// "<原因>"，而非 "Tool.ValidateInput: inner: ..."。errMsg（DB 列）
+		// 保留完整 chain 供 operator 调试；只清洗 LLM 暴露面。
+		clean := sanitizeToolErr(err)
+		return "input validation failed: " + clean, err.Error(), false
 	}
 
 	// Skill pre-approval (skill.md §9): if an active skill on this
@@ -240,10 +284,17 @@ func executeAfterPermission(ctx context.Context, t toolapp.Tool, name string, ar
 	output, err := t.Execute(ctx, string(argsJSON))
 	if err != nil {
 		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
+		// LLM-facing output strips §S16 <pkg>.<Method>: wrap chain when
+		// Execute returned only an err (no friendly output string). errMsg
+		// (DB column) keeps the full chain. See sanitizeToolErr.
+		//
+		// Execute 仅返 err（无友好 output 字符串）时，给 LLM 的文本剥
+		// §S16 wrap 链；errMsg（DB）保留完整 chain。
+		clean := sanitizeToolErr(err)
 		if output != "" {
 			return output, err.Error(), false
 		}
-		return err.Error(), err.Error(), false
+		return clean, err.Error(), false
 	}
 	return output, "", true
 }

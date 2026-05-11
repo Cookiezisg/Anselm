@@ -104,8 +104,8 @@ func TestAskUserQuestion_Execute_NoToolCallID_FriendlyMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "no tool_call_id") {
-		t.Errorf("expected wiring-bug message, got: %q", out)
+	if !strings.Contains(out, "Cannot ask the user") {
+		t.Errorf("expected runtime-not-initialized message, got: %q", out)
 	}
 }
 

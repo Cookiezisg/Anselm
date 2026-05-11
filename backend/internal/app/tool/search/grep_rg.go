@@ -53,7 +53,16 @@ func (t *Grep) execRg(ctx context.Context, args grepArgs) (string, error) {
 			if ee.ExitCode() == 1 {
 				return noMatchesMessage(args), nil
 			}
-			return "", fmt.Errorf("Grep.execRg: %w (stderr: %s)", err, stderrSnippet(ee.Stderr))
+			// Exit 2 = real rg error (bad regex, IO). Don't leak rg's raw
+			// stderr to LLM/log — it can contain absolute scanned paths +
+			// internal version strings. Caller (grep.go::Execute) falls
+			// back to stdlib silently; the exit code in the err message
+			// is enough breadcrumb for operator debug.
+			//
+			// 退出 2 = 真实 rg 错（坏 regex、IO 等）。不向 LLM/log 漏 rg
+			// 原始 stderr——含扫描路径与版本串。caller 静默 fallback 到
+			// stdlib；err 消息含 exit code 已足够 operator debug。
+			return "", fmt.Errorf("Grep.execRg: rg exit %d", ee.ExitCode())
 		}
 		return "", fmt.Errorf("Grep.execRg: %w", err)
 	}
@@ -156,16 +165,3 @@ func capLines(text string, n int) string {
 	return text
 }
 
-// stderrSnippet trims rg stderr to a short head for error wrapping.
-// Avoids leaking multi-MB stderr into log/result strings if rg melts down.
-//
-// stderrSnippet 截短 rg 的 stderr 用于错误包装；防 rg 异常时把巨量 stderr
-// 灌进日志/结果。
-func stderrSnippet(b []byte) string {
-	const cap = 512
-	s := strings.TrimSpace(string(b))
-	if len(s) > cap {
-		return s[:cap] + "..."
-	}
-	return s
-}

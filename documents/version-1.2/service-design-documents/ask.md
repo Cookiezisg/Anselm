@@ -166,10 +166,10 @@ var (
 **返回**（成功）：用户答案字符串。
 
 **返回**（失败 — 全部友好字符串，**不**上抛 Go err）：
-- ctx 缺 toolCallID → `Cannot ask the user: no tool_call_id in context (chat layer wiring bug).`
-- 超时 → `User did not respond within the timeout. Re-ask later if still needed.`
-- ctx cancel → `Question cancelled by the user (conversation interrupted).`
-- 其他 err → `Asking the user failed: <err>`
+- ctx 缺 toolCallID → `Cannot ask the user: tool runtime is not properly initialized.`（调用方 defect；operator 经 executeTool warn log 看到原栈）
+- 超时 → `User did not respond within the timeout.`
+- ctx cancel → `Question cancelled by the user.`
+- 其他 err → `Asking the user failed: <err>`（err.Error() 经 framework boundary 清洗 §S16 wrap 前缀）
 
 **静态元数据**：`IsReadOnly=true` / `NeedsReadFirst=false` / `RequiresWorkspace=false`
 

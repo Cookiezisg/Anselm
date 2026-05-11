@@ -180,7 +180,7 @@ func TestExecute_MCP_UnavailableFallsThroughToFriendlyMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(body, "No results") || !strings.Contains(body, "API Keys") || !strings.Contains(body, "duckduckgo-search") {
+	if !strings.Contains(body, "No results") || !strings.Contains(body, "API key") || !strings.Contains(body, "duckduckgo-search") {
 		t.Errorf("expected friendly message guiding key + MCP install, got: %q", body)
 	}
 }
@@ -191,7 +191,7 @@ func TestExecute_NoBackendsConfigured_FriendlyMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(body, "No results") || !strings.Contains(body, "API Keys") {
+	if !strings.Contains(body, "No results") || !strings.Contains(body, "API key") {
 		t.Errorf("expected friendly message guiding key setup, got: %q", body)
 	}
 }

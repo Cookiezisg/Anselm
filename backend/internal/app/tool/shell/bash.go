@@ -87,18 +87,15 @@ var (
 const bashDescription = `Run a shell command on the user's machine.
 
 Usage:
-- ` + "`command`" + ` is the shell command. On macOS/Linux it runs via ` + "`/bin/sh -c`" + `; on Windows it runs via ` + "`cmd.exe /c`" + `. Use shell-portable syntax when possible. Examples: "ls -la" (unix) / "dir" (windows), "git status", "go test ./...".
-- ` + "`description`" + ` is a one-line note for the human reader (e.g. "List repo files").
-- ` + "`run_in_background: true`" + ` spawns the command without waiting and returns a bash_id; use BashOutput to poll for new output and KillShell to terminate.
-- ` + "`timeout`" + ` (milliseconds, foreground only) defaults to 120000 (2 min); hard max 600000 (10 min). For longer-running tasks use background mode.
-- The conversation has a tracked working directory: ` + "`cd <path>`" + ` as the entire command updates it; subsequent commands run there. Chained 'cd ... && ...' does not update the tracked cwd (matches normal subshell semantics).
+- ` + "`command`" + ` is the shell command. macOS/Linux: ` + "`/bin/sh -c`" + `; Windows: ` + "`cmd.exe /c`" + `. Examples: "ls -la", "git status", "go test ./...".
+- ` + "`run_in_background: true`" + ` spawns without waiting and returns a bash_id; poll with BashOutput, terminate with KillShell.
+- ` + "`timeout`" + ` (ms, foreground only) defaults to 120000; max 600000. Longer tasks should use background mode.
+- The conversation has a tracked working directory: ` + "`cd <path>`" + ` as the entire command updates it; chained ` + "`cd ... && ...`" + ` does not (matches subshell semantics).
 - Combined stdout+stderr is returned, capped at 256 KB. Exit code appears in a status footer.
-- This is a local single-user app — there is no banned-command list. Be careful with destructive commands; the user sees what you propose to run.
 
-Sandbox auto-routing (Python and Node only — other languages run on the host system):
-- Commands that invoke ` + "`python`" + `, ` + "`pip`" + `, ` + "`uv`" + `, ` + "`virtualenv`" + `, ` + "`pipenv`" + `, ` + "`poetry`" + `, ` + "`node`" + `, ` + "`npm`" + `, ` + "`npx`" + `, ` + "`yarn`" + `, or ` + "`pnpm`" + ` automatically execute inside a per-conversation isolated environment so packages do not pollute the host. Detection covers nested forms — ` + "`bash -c \"pip install ...\"`" + `, ` + "`env VAR=val python ...`" + `, ` + "`/usr/bin/python3 ...`" + `, ` + "`cd /tmp && python ...`" + ` chains, subshells, and ` + "`which python3`" + `.
-- Other languages (Rust, Go, Ruby, PHP, Java, .NET, etc.) currently run on the host system — install them yourself if needed; isolation is not provided.
-- The router cannot see through ` + "`eval \"...\"`" + `, ` + "`source ./script.sh`" + `, or commands hidden inside ` + "`$(<dynamic-string>)`" + ` substitutions — those run on the host system and pollute it. When installing packages or running scripts, write the runtime command directly (e.g. ` + "`pip install pandas`" + `, not ` + "`eval \"pip install pandas\"`" + `).`
+Sandbox auto-routing (Python and Node only):
+- Commands invoking ` + "`python`" + `, ` + "`pip`" + `, ` + "`uv`" + `, ` + "`virtualenv`" + `, ` + "`pipenv`" + `, ` + "`poetry`" + `, ` + "`node`" + `, ` + "`npm`" + `, ` + "`npx`" + `, ` + "`yarn`" + `, ` + "`pnpm`" + ` execute inside a per-conversation isolated environment. Detection covers nested forms (` + "`bash -c \"pip install ...\"`" + `, ` + "`env VAR=val python ...`" + `, path-prefixed binaries, ` + "`cd && python`" + ` chains, ` + "`which python3`" + `).
+- Other languages run on the host. The router cannot see through ` + "`eval`" + `, ` + "`source`" + `, or dynamic ` + "`$(...)`" + `; write runtime commands directly.`
 
 var bashSchema = json.RawMessage(`{
 	"type": "object",
@@ -107,10 +104,6 @@ var bashSchema = json.RawMessage(`{
 		"command": {
 			"type": "string",
 			"description": "Shell command to execute (POSIX sh)."
-		},
-		"description": {
-			"type": "string",
-			"description": "One-line human-readable description of what this command does."
 		},
 		"run_in_background": {
 			"type": "boolean",
@@ -127,10 +120,9 @@ var bashSchema = json.RawMessage(`{
 // ── Args ──────────────────────────────────────────────────────────────────────
 
 type bashArgs struct {
-	Command     string `json:"command"`
-	Description string `json:"description"`
-	Background  bool   `json:"run_in_background"`
-	Timeout     int    `json:"timeout"`
+	Command    string `json:"command"`
+	Background bool   `json:"run_in_background"`
+	Timeout    int    `json:"timeout"`
 }
 
 // ── Tool struct & 9 methods ───────────────────────────────────────────────────
@@ -246,24 +238,25 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 }
 
 // formatAutoRouteError turns a sandbox-prep failure into a tool result
-// the LLM can read and react to. The body explains what failed + the
-// (likely actionable) reason, the footer marks exit -1 + a "[sandbox
-// auto-route failed]" note so the LLM doesn't confuse it for a
-// command-side error. The wrapper returns (string, nil) so the tool
-// framework treats this as a normal tool result with explanatory body
-// rather than retrying / hiding it as a tool-framework error.
+// the LLM can read and react to. Body is short ("sandbox unavailable for
+// <runtime>: <reason>"); footer marks exit -1 + a "[sandbox auto-route
+// failed]" note so the LLM doesn't confuse it for a command-side error.
+// The wrapper returns (string, nil) so the tool framework treats this as
+// a normal tool result with explanatory body rather than retrying / hiding.
 //
-// formatAutoRouteError 把 sandbox 准备失败转成 LLM 可读可响应的 tool
-// result。body 说明哪步失败+原因，footer 加 "[sandbox auto-route failed]"
-// 标 exit -1 让 LLM 不混淆为命令端错误。返 (string, nil) 让框架当成
-// 普通 tool result（带解释 body）而非 tool 框架错误重试 / 隐藏。
+// formatAutoRouteError 把 sandbox 准备失败转成 LLM 可读 tool result。
+// body 简短："sandbox unavailable for <runtime>: <原因>"；footer 标
+// "[sandbox auto-route failed]" + exit -1，让 LLM 不混淆为命令端错误。
+// 返 (string, nil) 让框架当普通 tool result。
 func formatAutoRouteError(err error) string {
-	body := "Sandbox auto-route could not prepare the runtime for this command. " +
-		"The command was NOT executed (running on the system shell would " +
-		"return misleading data — e.g. system Python 3.9.6 instead of " +
-		"the conversation's isolated 3.12 venv). Please retry, or have " +
-		"the user check the sandbox status in testend.\n\n" +
-		"Reason: " + err.Error() + "\n"
+	// Reason text is already classified (see autoRouteFail*) and lacks
+	// §S16 wrap prefixes; pass through verbatim. Framework sanitizer
+	// (loop/tools.go) is the upstream safety net for any future
+	// accidental wrap.
+	//
+	// reason 文本已分类（见 autoRouteFail*）且无 §S16 wrap 前缀；原样
+	// 透传。framework sanitizer（loop/tools.go）是上游安全网防未来误包。
+	body := err.Error()
 	return formatForegroundResult(body, -1, "sandbox auto-route failed")
 }
 
@@ -289,19 +282,18 @@ func (t *Bash) maybeAutoRoute(ctx context.Context, command string) ([]string, er
 		return nil, nil // non-runtime command — system shell is fine
 	}
 	if t.sandbox == nil {
-		return nil, fmt.Errorf("shelltool.Bash.maybeAutoRoute: sandbox service not wired (this is a server build / config issue — please report)")
+		return nil, fmt.Errorf("sandbox unavailable for %s: runtime not configured", kind)
 	}
 	if !t.sandbox.IsReady() {
 		bootErr := t.sandbox.BootstrapError()
-		reason := "bootstrap incomplete"
 		if bootErr != nil {
-			reason = "bootstrap failed: " + bootErr.Error()
+			return nil, fmt.Errorf("sandbox unavailable for %s: bootstrap failed: %s", kind, bootErr.Error())
 		}
-		return nil, fmt.Errorf("shelltool.Bash.maybeAutoRoute: sandbox not ready (%s) — %s commands cannot run safely on the system shell", reason, kind)
+		return nil, fmt.Errorf("sandbox unavailable for %s: bootstrap incomplete", kind)
 	}
 	convID, ok := reqctxpkg.GetConversationID(ctx)
 	if !ok || convID == "" {
-		return nil, fmt.Errorf("shelltool.Bash.maybeAutoRoute: no conversation context — %s commands need a conversation-scoped sandbox env", kind)
+		return nil, fmt.Errorf("sandbox unavailable for %s: no conversation context", kind)
 	}
 	// owner.ID joins convID + runtimeKind with "_" (NOT ":"): owner.ID
 	// becomes a literal directory name (sandbox.go:478) that prepends
@@ -347,7 +339,14 @@ func (t *Bash) maybeAutoRoute(ctx context.Context, command string) ([]string, er
 			}, progress)
 		})
 	if err != nil {
-		return nil, fmt.Errorf("shelltool.Bash.maybeAutoRoute: sandbox env install failed (%s for %s): %w", kind, convID, err)
+		// Wrap inner err.Error() (not %w) so the LLM-facing reason is a
+		// flat single-layer string. The DB / log path doesn't need the
+		// sentinel chain — env-install failures aren't matched by
+		// errors.Is upstream of this site.
+		//
+		// 用 err.Error() 而非 %w——LLM 看到平铺单层；env-install 失败上游
+		// 没有 errors.Is 匹配，无需保留 sentinel 链。
+		return nil, fmt.Errorf("sandbox unavailable for %s: env install failed: %s", kind, err.Error())
 	}
 	envPath := filepath.Join(t.sandbox.SandboxRoot(), env.Path)
 	return envBinDirsForKind(envPath, kind), nil

@@ -41,23 +41,23 @@ func TestKillShell_StaticMetadata(t *testing.T) {
 	}
 }
 
-func TestKillShell_Schema_HasShellID(t *testing.T) {
+func TestKillShell_Schema_HasBashID(t *testing.T) {
 	var doc map[string]any
 	if err := json.Unmarshal(killSchema, &doc); err != nil {
 		t.Fatalf("schema not valid: %v", err)
 	}
 	props := doc["properties"].(map[string]any)
-	if _, ok := props["shell_id"]; !ok {
+	if _, ok := props["bash_id"]; !ok {
 		t.Error("schema missing shell_id")
 	}
 }
 
 // ── ValidateInput ─────────────────────────────────────────────────────────────
 
-func TestKillShell_ValidateInput_RequiresShellID(t *testing.T) {
+func TestKillShell_ValidateInput_RequiresBashID(t *testing.T) {
 	tool, _ := newTestKill()
 	err := tool.ValidateInput(json.RawMessage(`{}`))
-	if err == nil || !strings.Contains(err.Error(), "shell_id") {
+	if err == nil || !strings.Contains(err.Error(), "bash_id") {
 		t.Errorf("want shell_id error, got %v", err)
 	}
 }
@@ -66,7 +66,7 @@ func TestKillShell_ValidateInput_RequiresShellID(t *testing.T) {
 
 func TestKillShell_Execute_UnknownID_FriendlyMessage(t *testing.T) {
 	tool, _ := newTestKill()
-	out, err := tool.Execute(context.Background(), `{"shell_id":"bsh_unknown"}`)
+	out, err := tool.Execute(context.Background(), `{"bash_id":"bsh_unknown"}`)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestKillShell_Execute_KillsRunningProcess(t *testing.T) {
 	proc := &BgProcess{Command: "sleep 10", Cmd: cmd, status: StatusRunning}
 	mgr.Register(proc)
 
-	out, err := tool.Execute(context.Background(), `{"shell_id":"`+proc.ID+`"}`)
+	out, err := tool.Execute(context.Background(), `{"bash_id":"`+proc.ID+`"}`)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestKillShell_Execute_AlreadyFinishedProcess_StillRemovesEntry(t *testing.T
 	proc := &BgProcess{Command: "echo done", status: StatusExited}
 	mgr.Register(proc)
 
-	out, err := tool.Execute(context.Background(), `{"shell_id":"`+proc.ID+`"}`)
+	out, err := tool.Execute(context.Background(), `{"bash_id":"`+proc.ID+`"}`)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestKillShell_Execute_AlreadyFinishedProcess_StillRemovesEntry(t *testing.T
 
 func TestKillShell_Execute_IsIdempotent(t *testing.T) {
 	tool, _ := newTestKill()
-	args := `{"shell_id":"bsh_neverexisted"}`
+	args := `{"bash_id":"bsh_neverexisted"}`
 	out1, _ := tool.Execute(context.Background(), args)
 	out2, _ := tool.Execute(context.Background(), args)
 	if out1 != out2 {

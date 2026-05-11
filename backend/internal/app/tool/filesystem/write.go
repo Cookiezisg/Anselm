@@ -58,13 +58,12 @@ const (
 const writeDescription = `Writes a file to the local filesystem. Overwrites if the file exists.
 
 Usage:
-- The file_path parameter must be an absolute path, not a relative path
-- If the file already exists, you must Read it first in this conversation or the call will fail (must-Read-first guard prevents accidental clobbering)
-- Prefer the Edit tool for modifying existing files — Edit only sends the diff and is far less risky
-- The parent directory must already exist; this tool does NOT create directories. Use Bash mkdir -p first if needed
-- The file is written atomically (staged to a tmp file, then renamed); readers never see a half-written file
-- Some sensitive paths (system directories, credential locations like ~/.ssh, ~/.aws) are blocked for safety; you will receive a denial message if denied
-- Do NOT create documentation files (*.md, README) or files outside the user's working scope unless explicitly requested`
+- file_path must be an absolute path.
+- Existing files require a prior Read in this conversation (must-Read-first guard prevents accidental clobbering).
+- Prefer Edit for modifying existing files — Edit sends only the diff.
+- Parent directory must exist; use Bash 'mkdir -p' first if needed.
+- Writes are atomic (tmp file + rename); readers never see a half-written file.
+- Sensitive paths (system directories, credential locations) are blocked.`
 
 // writeSchema is the LLM-facing JSON Schema (without the framework-injected
 // summary / destructive / execution_group fields).
@@ -273,7 +272,7 @@ func (t *Write) Execute(ctx context.Context, argsJSON string) (string, error) {
 		state.MarkRead(cleaned, int64(len(args.Content)))
 	}
 
-	return "File successfully written to " + cleaned, nil
+	return "Wrote " + cleaned, nil
 }
 
 // ── Compile-time checks ───────────────────────────────────────────────────────

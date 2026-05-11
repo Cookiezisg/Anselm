@@ -126,7 +126,7 @@ func TestWriteExecute_NewFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success message, got %q", out)
 	}
 	if got := readContent(t, target); got != "hello\n" {
@@ -149,7 +149,7 @@ func TestWriteExecute_EmptyContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success message, got %q", out)
 	}
 	info, _ := os.Stat(target)
@@ -178,7 +178,7 @@ func TestWriteExecute_OverwriteAfterRead(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success message, got %q", out)
 	}
 	if got := readContent(t, target); got != "new" {
@@ -252,7 +252,7 @@ func TestWriteExecute_NoAgentStateAllowsNewFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success, got %q", out)
 	}
 	if readContent(t, target) != "hi" {
@@ -334,7 +334,7 @@ func TestWriteExecute_PreservesExistingFileMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success, got %q", out)
 	}
 	info, err := os.Stat(target)
@@ -356,7 +356,7 @@ func TestWriteExecute_NewFileGetsDefaultMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if !strings.Contains(out, "successfully written") {
+	if !strings.Contains(out, "Wrote ") {
 		t.Errorf("expected success, got %q", out)
 	}
 	info, _ := os.Stat(target)

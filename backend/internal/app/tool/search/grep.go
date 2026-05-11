@@ -55,18 +55,17 @@ const (
 
 // ── Description & schema (LLM-facing) ─────────────────────────────────────────
 
-const grepDescription = `A powerful content search tool, backed by ripgrep when available (fast) or a stdlib regex fallback when not.
+const grepDescription = `Regex content search across files. Returns plain-text lines (mirrors ripgrep's --no-heading format); use Glob for path-only listings.
 
 Usage:
-- ALWAYS use Grep for content search tasks. NEVER invoke ` + "`grep`" + ` or ` + "`rg`" + ` as a Bash command — Grep is optimized for safe path access.
-- Supports full regex syntax (e.g. "log.*Error", "function\s+\w+")
-- Filter files with the ` + "`glob`" + ` parameter (e.g. "*.go", "**/*.tsx") or the ` + "`type`" + ` parameter (e.g. "go", "py", "js")
-- Output modes: "content" shows matching lines (use -n for line numbers, -A/-B/-C for context), "files_with_matches" returns matching file paths only (default; cheapest), "count" returns one path:N line per matching file.
-- Pattern syntax: full RE2 (Go) / PCRE-ish (ripgrep). Literal braces need escaping: ` + "`interface\\{\\}`" + ` to find ` + "`interface{}`" + ` in Go code.
-- Multiline: by default patterns match within single lines only. For cross-line patterns like ` + "`struct \\{[\\s\\S]*?field`" + `, set ` + "`multiline: true`" + `.
-- ` + "`-i`" + ` for case-insensitive. ` + "`head_limit`" + ` caps the result list.
-- The ` + "`path`" + ` parameter (file or directory) must be absolute when provided. Defaults to current working directory.
-- Sensitive paths (system dirs, credential locations like ~/.ssh) are blocked for safety.`
+- ALWAYS use Grep for content search. NEVER invoke ` + "`grep`" + ` or ` + "`rg`" + ` via Bash — Grep enforces safe path access.
+- Full regex syntax (e.g. "log.*Error", "function\s+\w+"). Literal braces need escaping: ` + "`interface\\{\\}`" + `.
+- Filter files with ` + "`glob`" + ` (e.g. "*.go", "**/*.tsx") or ` + "`type`" + ` (e.g. "go", "py", "js").
+- Output modes: "content" (matching lines; ` + "`-n`" + ` for line numbers, ` + "`-A`" + `/` + "`-B`" + `/` + "`-C`" + ` for context), "files_with_matches" (paths only, default, cheapest), "count" (path:N per file).
+- Multiline: set ` + "`multiline: true`" + ` for patterns crossing line boundaries (e.g. ` + "`struct \\{[\\s\\S]*?field`" + `).
+- ` + "`-i`" + ` for case-insensitive; ` + "`head_limit`" + ` caps the result list.
+- ` + "`path`" + ` (file or directory) must be absolute when provided; defaults to current working directory.
+- Sensitive paths are blocked.`
 
 // grepSchema is the LLM-facing JSON Schema. Field names mirror ripgrep CLI
 // flags exactly (-A / -B / -C / -n / -i) — unusual JSON Schema style but

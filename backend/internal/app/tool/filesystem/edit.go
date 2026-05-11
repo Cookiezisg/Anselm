@@ -64,18 +64,14 @@ var (
 const editDescription = `Performs exact string replacement in an existing file.
 
 Usage:
-- The file_path parameter must be an absolute path, not a relative path
-- You must have read the file with the Read tool in this conversation before attempting to edit it
-- Matching is exact literal string (NOT regex). Whitespace, indentation, and case all matter
-- old_string must match the file contents exactly. Include enough surrounding context to make the match unique
-- The operation FAILS if old_string is not unique (appears more than once), unless replace_all: true
-- The operation FAILS if old_string is not found at all
-- old_string and new_string must differ (no-op edits are rejected)
-- The file is written atomically (staged tmp + rename); readers never see a half-written file
-- On success, the result message reports the actual number of replacements performed
-- When editing text from Read tool output, preserve exact indentation as it appears AFTER the line number prefix; never include the line-number prefix itself in old_string or new_string
-- Use replace_all: true to rename a string everywhere in the file (e.g. variable rename); only do this when you have verified all occurrences are intended replacements
-- Some sensitive paths (system directories, credential locations like ~/.ssh, ~/.aws) are blocked for safety`
+- file_path must be an absolute path.
+- The file must have been Read in this conversation first.
+- Matching is exact literal (NOT regex); whitespace, indentation, and case all matter.
+- old_string must appear exactly once unless replace_all: true. Include enough context to make it unique.
+- old_string and new_string must differ (no-op edits are rejected).
+- Writes are atomic (tmp + rename). Result reports the actual replacement count.
+- When editing text from Read output, preserve indentation AFTER the line-number prefix; never include the prefix itself.
+- Sensitive paths (system directories, credential locations) are blocked.`
 
 // editSchema is the LLM-facing JSON Schema (without the framework-injected
 // summary / destructive / execution_group fields).
@@ -328,9 +324,9 @@ func (t *Edit) Execute(ctx context.Context, argsJSON string) (string, error) {
 	state.MarkRead(cleaned, int64(len(newContent)))
 
 	if replaced == 1 {
-		return fmt.Sprintf("Successfully replaced 1 occurrence in %s.", cleaned), nil
+		return fmt.Sprintf("Replaced 1 occurrence in %s.", cleaned), nil
 	}
-	return fmt.Sprintf("Successfully replaced %d occurrences in %s.", replaced, cleaned), nil
+	return fmt.Sprintf("Replaced %d occurrences in %s.", replaced, cleaned), nil
 }
 
 // ── Compile-time checks ───────────────────────────────────────────────────────

@@ -15,13 +15,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const todoListDescription = `List every todo on the current conversation's todo list.
-
-Usage:
-- Returns a JSON array of todos, each with id / subject / status / activeForm / etc.
-- Todos are ordered by created_at ascending so you see them in the order they were added.
-- Soft-deleted todos are excluded.
-- Use this to decide which todo to work on next or to summarise progress to the user.`
+const todoListDescription = `List every active todo on the current conversation's todo list. Returns a JSON envelope ` + "`{total, todos: [...]}`" + ` with each todo's id / subject / status / activeForm and other fields. Todos are returned in creation order; deleted todos are excluded.`
 
 var todoListSchema = json.RawMessage(`{
 	"type": "object",
