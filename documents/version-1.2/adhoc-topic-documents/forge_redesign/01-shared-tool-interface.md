@@ -355,11 +355,13 @@ run_function / call_handler / trigger_workflow: 执行(各自语义,详见各文
 |---|---|
 | Function entity | `fn_<16hex>` |
 | FunctionVersion | `fnv_<16hex>` |
-| FunctionExecution | `fne_<16hex>`(若实施 `function_executions` 表) |
+| **FunctionExecution**(D22)| **`fne_<16hex>`** |
 | Handler Definition | `hd_<16hex>` |
 | HandlerVersion | `hdv_<16hex>` |
 | HandlerInstance(运行时,不持久化)| `hdi_<16hex>` |
-| HandlerCallRecord | `hcr_<16hex>`(若实施) |
+| **HandlerCall**(D22)| **`hcl_<16hex>`** |
+| **MCPCall**(D22)| **`mcl_<16hex>`** |
+| **SkillExecution**(D22)| **`ske_<16hex>`** |
 | Workflow | `wf_<16hex>` |
 | WorkflowVersion | `wfv_<16hex>` |
 | FlowRun | `fr_<16hex>` |
@@ -367,7 +369,7 @@ run_function / call_handler / trigger_workflow: 执行(各自语义,详见各文
 | Trigger 配置(若持久化)| `trg_<16hex>` |
 | Webhook secret(若有)| `whs_<16hex>` |
 
-详见各域文档的持久化章节。
+详见各域文档的持久化章节;execution log 5 表前缀详见 [`08-executions.md`](./08-executions.md) §11。
 
 ---
 

@@ -140,11 +140,7 @@ def markdown_to_pdf(text: str, title: str = "Document") -> dict:
 
 ## 5. 持久化 — 2 张本域表 + 1 张 execution log 表
 
-本域**自身**只 2 表(functions / function_versions);执行记录(`function_executions` 表)走**共享 schema 模板**,详见 [`08-executions.md`](./08-executions.md) §4.1。Service.Run 终态写入。LLM 通过 `query_executions({kind:"function", entityId:fn_xxx})` 看历史。
-
----
-
-### 持久化 — 2 张本域表(以下)
+本域**自身**只 2 表(functions / function_versions,以下 §5.1 / §5.2);执行记录(`function_executions` 表)走**共享 schema 模板**,详见 [`08-executions.md`](./08-executions.md) §4.1。Service.Run 终态写入。LLM 通过 `query_executions({kind:"function", entityId:fn_xxx})` 看历史。
 
 ### 5.1 `functions`
 

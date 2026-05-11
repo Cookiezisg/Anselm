@@ -637,7 +637,7 @@ EOF
 
 ## Acceptance criteria
 
-1. ✅ 9 task done
+1. ✅ 11 task done(原 9 + Phase 3.5 加 2 task = 4a + 4b)
 2. ✅ filterTools strips workflow mutation/execution ops
 3. ✅ catalog system prompt 含 multi-agent 教学
 4. ✅ E2E test 邮件 workflow 全栈通过

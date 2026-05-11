@@ -24,7 +24,7 @@
 
 ## 2. 共享 schema 模板(5 表通用字段)
 
-每张 execution log 表都必须有以下字段(命名 + 类型完全一致):
+每张 execution log 表都必须有以下 **16 个通用字段**(命名 + 类型完全一致;GORM `CreatedAt` 自动维护不计入):
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
@@ -44,7 +44,8 @@
 | `tool_call_id` | TEXT NULL | 同上,LLM tool_call 粒度 |
 | `flowrun_id` | TEXT NULL 索引 | workflow triggered 时填(便利 run 整体追溯) |
 | `flowrun_node_id` | TEXT NULL | 同上,workflow 内节点粒度 |
-| `created_at` | DATETIME | GORM 自动 |
+
+(+ GORM 自动:`CreatedAt`,所有表都有,概念上不算 schema 决策)
 
 **索引约定**(每表必备):
 - `(entity_id, started_at DESC)` — 单实体最近历史(主路径)

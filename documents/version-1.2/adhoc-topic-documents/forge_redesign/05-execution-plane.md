@@ -399,24 +399,16 @@ HTTP/2 + TLS 落地(D18)后,前端订阅策略**自由**:
 
 **索引**:`workflow_id, status, started_at`(组合)— 列表查询主路径
 
-### 5.2 `flowrun_nodes`
+### 5.2 `flowrun_nodes` → 详见 [`08-executions.md`](./08-executions.md) §4.5
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| id | TEXT PK | `frn_<16hex>` |
-| flowrun_id | TEXT 索引 | FK → flowruns.id |
-| node_id | TEXT | graph 内的 node id |
-| status | TEXT | `pending / running / completed / failed / skipped` |
-| input | TEXT (JSON) NULL | 节点接到的输入 |
-| output | TEXT (JSON) NULL | 节点输出 |
-| error | TEXT NULL | 错误 |
-| started_at / ended_at | DATETIME NULL | — |
-| attempts | INT default 1 | retry 次数 |
-| created_at | — | GORM |
+per D22,**`flowrun_nodes` 表迁到 5 张 per-entity execution log 表中**(共享 schema 模板,16 通用字段 + flowrun-specific:`node_id` / `node_type` / `attempts`)。本节不再重复定义。
 
-**索引**:`flowrun_id, started_at`
-
-每节点状态变化都更新 `flowrun_nodes`,run 完成时这表是完整执行轨迹(debug / replay 基础)。
+要点(详 08 §4.5):
+- ID 前缀 `frn_<16hex>`
+- status 含 `timeout`(节点级 timeout 是真状态;FlowRun 整体没 timeout 状态 — 见 §3.3)
+- 索引:`(flowrun_id, started_at)` 节点追溯主路径
+- capability 节点(function/handler/mcp/skill)dispatch 时**同时写两条**:一条到 flowrun_nodes(workflow 视角)+ 一条到对应 entity 表(详 08 §4.5 cross-table linking)
+- 非 capability 节点(condition/loop/parallel/approval/wait/variable)只写 flowrun_nodes
 
 ---
 
