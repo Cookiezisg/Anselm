@@ -51,6 +51,19 @@ var schemaExtraGroups = []extraGroup{
 				WHERE deleted_at IS NULL`,
 		},
 	},
+	{
+		// functions — partial UNIQUE index (per forge_redesign D22 / Plan 01).
+		// Same rationale as forges: soft-deleted rows must not block name reuse.
+		//
+		// functions — partial UNIQUE 索引(per forge_redesign D22 / Plan 01)。
+		// 软删行不能阻塞同名重建,跟 forges 同理。
+		table: "functions",
+		stmts: []string{
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_functions_user_name_active
+				ON functions(user_id, name)
+				WHERE deleted_at IS NULL`,
+		},
+	},
 }
 
 // applySchemaExtras runs each extraGroup whose required table already exists.
