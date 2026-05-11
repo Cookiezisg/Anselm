@@ -14,6 +14,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -86,6 +87,22 @@ var errTable = map[error]errMapping{
 	forgedomain.ErrEnvFailed:            {http.StatusUnprocessableEntity, "FORGE_ENV_FAILED"},
 	forgedomain.ErrSandboxUnavailable:   {http.StatusServiceUnavailable, "FORGE_SANDBOX_UNAVAILABLE"},
 	forgedomain.ErrDependencyResolution: {http.StatusUnprocessableEntity, "FORGE_DEPENDENCY_RESOLUTION"},
+
+	// function domain (forge_redesign trinity replacement) / function domain
+	// (forge_redesign trinity 替代)
+	functiondomain.ErrNotFound:             {http.StatusNotFound, "FUNCTION_NOT_FOUND"},
+	functiondomain.ErrDuplicateName:        {http.StatusConflict, "FUNCTION_NAME_DUPLICATE"},
+	functiondomain.ErrVersionNotFound:      {http.StatusNotFound, "FUNCTION_VERSION_NOT_FOUND"},
+	functiondomain.ErrPendingNotFound:      {http.StatusNotFound, "FUNCTION_PENDING_NOT_FOUND"},
+	functiondomain.ErrPendingConflict:      {http.StatusConflict, "FUNCTION_PENDING_CONFLICT"},
+	functiondomain.ErrRunFailed:            {http.StatusUnprocessableEntity, "FUNCTION_RUN_FAILED"},
+	functiondomain.ErrASTParseError:        {http.StatusUnprocessableEntity, "FUNCTION_AST_PARSE_FAILED"},
+	functiondomain.ErrNoActiveVersion:      {http.StatusUnprocessableEntity, "FUNCTION_NO_ACTIVE_VERSION"},
+	functiondomain.ErrEnvNotReady:          {http.StatusUnprocessableEntity, "FUNCTION_ENV_NOT_READY"},
+	functiondomain.ErrEnvFailed:            {http.StatusUnprocessableEntity, "FUNCTION_ENV_FAILED"},
+	functiondomain.ErrDependencyResolution: {http.StatusUnprocessableEntity, "FUNCTION_DEPENDENCY_RESOLUTION"},
+	functiondomain.ErrSandboxUnavailable:   {http.StatusServiceUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE"},
+	functiondomain.ErrOpInvalid:            {http.StatusBadRequest, "FUNCTION_OP_INVALID"},
 
 	// todo domain / todo domain 层
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},

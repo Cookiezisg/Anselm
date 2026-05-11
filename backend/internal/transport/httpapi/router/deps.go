@@ -15,6 +15,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
@@ -54,6 +55,14 @@ type Deps struct {
 	// ForgeService manages the user's Python forge library (CRUD, versions, sandbox execution).
 	// ForgeService 管理用户的 Python 工具库（CRUD、版本、沙箱执行）。
 	ForgeService *forgeapp.Service
+
+	// FunctionService is the trinity-domain replacement for ForgeService
+	// (forge_redesign). Coexists with ForgeService until Plan 01 Phase 7
+	// deletes the legacy forge code path.
+	//
+	// FunctionService 是 forge_redesign trinity 对 ForgeService 的替代。
+	// 与 ForgeService 并存,直到 Plan 01 Phase 7 删 legacy forge。
+	FunctionService *functionapp.Service
 
 	// ChatService implements messaging, attachment upload, and Agent streaming.
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。

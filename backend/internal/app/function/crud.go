@@ -27,6 +27,7 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -61,6 +62,36 @@ type EditInput struct {
 	Ops             []Op
 	ChangeReason    string
 	ProgressBlockID string
+}
+
+// DirectCreateInput is the HTTP-friendly shape for POST /functions (flat
+// definition instead of an ops list — easier for curl / UI / scripts than
+// constructing the ops array). Service.CreateDirect translates these into
+// the canonical ops sequence and delegates to Service.Create.
+//
+// DirectCreateInput 是 POST /functions 用的扁平定义形状(curl/UI/script 比
+// ops 数组好用)。Service.CreateDirect 转为 canonical ops 再委托 Create。
+type DirectCreateInput struct {
+	Name          string
+	Description   string
+	Code          string
+	Tags          []string
+	Parameters    []functiondomain.ParameterSpec
+	ReturnSchema  map[string]any
+	Dependencies  []string
+	PythonVersion string
+	ChangeReason  string
+}
+
+// UpdateMetaInput patches Function metadata (no version side effects). nil
+// fields are unchanged.
+//
+// UpdateMetaInput 改 Function 元数据(不改版本)。nil 字段不变。
+type UpdateMetaInput struct {
+	ID          string
+	Name        *string
+	Description *string
+	Tags        *[]string
 }
 
 // ── Reads ─────────────────────────────────────────────────────────────────────
@@ -254,6 +285,77 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 	return f, v, nil
 }
 
+// CreateDirect builds an ops list from a flat definition and delegates to
+// Create. HTTP POST /functions uses this; LLM create_function tool uses Create
+// directly with its own ops.
+//
+// CreateDirect 从扁平定义构 ops 再委托 Create。HTTP POST /functions 用;LLM
+// create_function 直接走 Create 用自己的 ops。
+func (s *Service) CreateDirect(ctx context.Context, in DirectCreateInput) (*functiondomain.Function, *functiondomain.Version, error) {
+	ops, err := buildOpsFromDirect(in)
+	if err != nil {
+		return nil, nil, fmt.Errorf("functionapp.CreateDirect: %w", err)
+	}
+	return s.Create(ctx, CreateInput{Ops: ops, ChangeReason: in.ChangeReason})
+}
+
+// buildOpsFromDirect marshals direct definition fields into a canonical ops
+// sequence: set_meta → set_code → set_parameters → set_return_schema →
+// set_dependencies → set_python_version. Empty fields are skipped (no-op);
+// only set_code is required (apply final validation enforces).
+//
+// buildOpsFromDirect 把扁平字段 marshal 为 canonical ops 序列。空字段跳;
+// 仅 set_code 必填(final 校验保证)。
+func buildOpsFromDirect(in DirectCreateInput) ([]Op, error) {
+	ops := make([]Op, 0, 6)
+	raw, err := json.Marshal(map[string]any{
+		"name":        in.Name,
+		"description": in.Description,
+		"tags":        in.Tags,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal set_meta: %w", err)
+	}
+	ops = append(ops, Op{Type: "set_meta", Raw: raw})
+
+	if in.Code != "" {
+		raw, err := json.Marshal(map[string]any{"code": in.Code})
+		if err != nil {
+			return nil, fmt.Errorf("marshal set_code: %w", err)
+		}
+		ops = append(ops, Op{Type: "set_code", Raw: raw})
+	}
+	if len(in.Parameters) > 0 {
+		raw, err := json.Marshal(map[string]any{"parameters": in.Parameters})
+		if err != nil {
+			return nil, fmt.Errorf("marshal set_parameters: %w", err)
+		}
+		ops = append(ops, Op{Type: "set_parameters", Raw: raw})
+	}
+	if in.ReturnSchema != nil {
+		raw, err := json.Marshal(map[string]any{"returnSchema": in.ReturnSchema})
+		if err != nil {
+			return nil, fmt.Errorf("marshal set_return_schema: %w", err)
+		}
+		ops = append(ops, Op{Type: "set_return_schema", Raw: raw})
+	}
+	if len(in.Dependencies) > 0 {
+		raw, err := json.Marshal(map[string]any{"deps": in.Dependencies})
+		if err != nil {
+			return nil, fmt.Errorf("marshal set_dependencies: %w", err)
+		}
+		ops = append(ops, Op{Type: "set_dependencies", Raw: raw})
+	}
+	if in.PythonVersion != "" {
+		raw, err := json.Marshal(map[string]any{"version": in.PythonVersion})
+		if err != nil {
+			return nil, fmt.Errorf("marshal set_python_version: %w", err)
+		}
+		ops = append(ops, Op{Type: "set_python_version", Raw: raw})
+	}
+	return ops, nil
+}
+
 // Edit writes a new pending version. Errors with ErrPendingConflict if another
 // pending already exists — LLM/UI must Accept or Reject before editing again.
 //
@@ -383,6 +485,110 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*fu
 	}
 	s.publish(ctx, id, "reverted", map[string]any{"version": target})
 	return target, nil
+}
+
+// UpdateMeta patches Function metadata without creating a new version. Used
+// by the PATCH /functions/{id} endpoint for direct UI edits to name /
+// description / tags. Code / parameters / dependencies changes go through
+// Edit (pending version flow).
+//
+// UpdateMeta 改 Function 元数据不创建新版本。UI PATCH 端点用,改 code/
+// parameters/deps 必须走 Edit(pending 流程)。
+func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*functiondomain.Function, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("functionapp.UpdateMeta: %w", err)
+	}
+	f, err := s.repo.GetFunction(ctx, in.ID)
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.UpdateMeta: %w", err)
+	}
+	if in.Name != nil {
+		if !validNameRe.MatchString(*in.Name) {
+			return nil, fmt.Errorf("functionapp.UpdateMeta: name %q invalid", *in.Name)
+		}
+		if *in.Name != f.Name {
+			existing, err := s.repo.GetFunctionByName(ctx, *in.Name)
+			if err != nil && !errors.Is(err, functiondomain.ErrNotFound) {
+				return nil, fmt.Errorf("functionapp.UpdateMeta: dup-check: %w", err)
+			}
+			if existing != nil && existing.ID != f.ID {
+				return nil, functiondomain.ErrDuplicateName
+			}
+		}
+		f.Name = *in.Name
+	}
+	if in.Description != nil {
+		f.Description = *in.Description
+	}
+	if in.Tags != nil {
+		f.Tags = *in.Tags
+	}
+	if err := s.repo.SaveFunction(ctx, f); err != nil {
+		return nil, fmt.Errorf("functionapp.UpdateMeta: %w", err)
+	}
+	s.publish(ctx, f.ID, "updated", map[string]any{"function": f})
+	return f, nil
+}
+
+// Resync forces re-materialization of the active version's venv (e.g. user
+// manually clearing a stuck "failed" state). Idempotent — if env is already
+// ready, returns immediately.
+//
+// Resync 强制重建活跃版本 venv(如用户手动清 stuck "failed" 态)。已 ready
+// 时立即返(幂等)。
+func (s *Service) Resync(ctx context.Context, functionID string) error {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return fmt.Errorf("functionapp.Resync: %w", err)
+	}
+	f, err := s.repo.GetFunction(ctx, functionID)
+	if err != nil {
+		return fmt.Errorf("functionapp.Resync: %w", err)
+	}
+	if f.ActiveVersionID == "" {
+		return fmt.Errorf("functionapp.Resync: %w", functiondomain.ErrNoActiveVersion)
+	}
+	s.SyncEnvForVersion(ctx, f.ActiveVersionID)
+	return nil
+}
+
+// ListVersions returns a paginated page of versions for one function.
+//
+// ListVersions 返单 function 版本的 cursor 分页。
+func (s *Service) ListVersions(ctx context.Context, functionID string, filter functiondomain.VersionListFilter) ([]*functiondomain.Version, string, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, "", fmt.Errorf("functionapp.ListVersions: %w", err)
+	}
+	return s.repo.ListVersions(ctx, functionID, filter)
+}
+
+// GetVersion fetches one version by id.
+//
+// GetVersion 按 id 取版本。
+func (s *Service) GetVersion(ctx context.Context, versionID string) (*functiondomain.Version, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("functionapp.GetVersion: %w", err)
+	}
+	return s.repo.GetVersion(ctx, versionID)
+}
+
+// GetVersionByNumber fetches one accepted version by integer number.
+//
+// GetVersionByNumber 按整数号取已 accepted 版本。
+func (s *Service) GetVersionByNumber(ctx context.Context, functionID string, versionN int) (*functiondomain.Version, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("functionapp.GetVersionByNumber: %w", err)
+	}
+	return s.repo.GetVersionByNumber(ctx, functionID, versionN)
+}
+
+// GetPending fetches the active pending version (or ErrPendingNotFound).
+//
+// GetPending 取活动 pending 版本(或 ErrPendingNotFound)。
+func (s *Service) GetPending(ctx context.Context, functionID string) (*functiondomain.Version, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("functionapp.GetPending: %w", err)
+	}
+	return s.repo.GetPending(ctx, functionID)
 }
 
 // Delete soft-deletes a function. Publishes a deletion notification — the
