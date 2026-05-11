@@ -51,6 +51,7 @@ func AutoMigrateModels() []interface{} {
 	return []interface{}{
 		&functiondomain.Function{},
 		&functiondomain.Version{},
+		&functiondomain.Execution{},
 	}
 }
 

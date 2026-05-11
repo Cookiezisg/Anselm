@@ -51,5 +51,7 @@ func FunctionTools(
 		&RevertFunction{svc: svc},
 		&DeleteFunction{svc: svc},
 		&RunFunction{svc: svc},
+		&SearchFunctionExecutions{svc: svc},
+		&GetFunctionExecution{svc: svc},
 	}
 }

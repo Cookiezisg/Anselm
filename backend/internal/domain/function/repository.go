@@ -145,6 +145,13 @@ type Repository interface {
 	//
 	// HardDeleteOldestAccepted 强制单 function accepted 版本数上限(默认 50)。
 	HardDeleteOldestAccepted(ctx context.Context, functionID string, keep int) error
+
+	// Execution-log methods (D22) — embedded so Service.repo has both core
+	// CRUD and execution history methods without a second repo field.
+	//
+	// Execution-log 方法(D22)——embed 让 Service.repo 同时拿 CRUD + history,
+	// 不开第二字段。
+	ExecutionRepository
 }
 
 // AcceptedVersionCap is the max number of accepted versions kept per

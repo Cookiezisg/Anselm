@@ -82,6 +82,7 @@ var errTable = map[error]errMapping{
 	functiondomain.ErrDependencyResolution: {http.StatusUnprocessableEntity, "FUNCTION_DEPENDENCY_RESOLUTION"},
 	functiondomain.ErrSandboxUnavailable:   {http.StatusServiceUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE"},
 	functiondomain.ErrOpInvalid:            {http.StatusBadRequest, "FUNCTION_OP_INVALID"},
+	functiondomain.ErrExecutionNotFound:    {http.StatusNotFound, "FUNCTION_EXECUTION_NOT_FOUND"},
 
 	// todo domain / todo domain 层
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},

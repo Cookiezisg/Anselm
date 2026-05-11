@@ -75,6 +75,10 @@ func (h *FunctionHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/functions/{id}/pending", h.GetPending)
 	mux.HandleFunc("POST /api/v1/functions/{id}/pending:accept", h.AcceptPending)
 	mux.HandleFunc("POST /api/v1/functions/{id}/pending:reject", h.RejectPending)
+
+	// Execution log (D22)
+	mux.HandleFunc("GET /api/v1/functions/{id}/executions", h.ListExecutions)
+	mux.HandleFunc("GET /api/v1/function-executions/{execId}", h.GetExecution)
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -309,4 +313,39 @@ func (h *FunctionHandler) RejectPending(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+// ── Execution log (D22) ───────────────────────────────────────────────────────
+
+func (h *FunctionHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
+	p, err := paginationpkg.Parse(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	q := r.URL.Query()
+	filter := functiondomain.ExecutionFilter{
+		FunctionID:     r.PathValue("id"),
+		VersionID:      q.Get("versionId"),
+		Status:         q.Get("status"),
+		ConversationID: q.Get("conversationId"),
+		FlowrunID:      q.Get("flowrunId"),
+		Cursor:         p.Cursor,
+		Limit:          p.Limit,
+	}
+	res, err := h.svc.SearchExecutions(r.Context(), filter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
+}
+
+func (h *FunctionHandler) GetExecution(w http.ResponseWriter, r *http.Request) {
+	detail, err := h.svc.GetExecutionDetail(r.Context(), r.PathValue("execId"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, detail)
 }

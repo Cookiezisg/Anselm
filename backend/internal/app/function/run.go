@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -39,20 +40,25 @@ import (
 //
 // RunInput 是 Service.RunFunction 的请求形状。
 type RunInput struct {
-	FunctionID    string
-	VersionID     string         // optional;empty = use Function.ActiveVersionID
-	Input         map[string]any // kwargs passed to the user's def
-	Timeout       time.Duration  // 0 = no per-call timeout (sandbox / ctx cancel only)
+	FunctionID  string
+	VersionID   string         // optional;empty = use Function.ActiveVersionID
+	Input       map[string]any // kwargs passed to the user's def
+	Timeout     time.Duration  // 0 = no per-call timeout (sandbox / ctx cancel only)
+	TriggeredBy string         // chat / workflow / http / test;default "http"
 }
 
 // RunFunction synchronously executes a function. Ensures env is ready first
 // (kicks off a synchronous Sync if EnvStatus != ready), then delegates to
-// Sandbox.Run. Returns the ExecutionResult unchanged.
+// Sandbox.Run. Always writes one terminal Execution row (D22) to
+// function_executions; record write uses detached ctx (§S9) so caller cancel
+// doesn't lose the log.
 //
-// RunFunction 同步执行 function。先确保 env ready(否则 in-flight Sync),
-// 再委托 Sandbox.Run,直接返 ExecutionResult。
+// RunFunction 同步执行 function。先确保 env ready,再委托 Sandbox.Run。
+// 终态(成功/失败/timeout/cancel)写一行 Execution 到 function_executions
+// (D22),用 detached ctx(§S9)防 cancel 丢日志。
 func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain.ExecutionResult, error) {
-	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("functionapp.RunFunction: %w", err)
 	}
 	f, err := s.repo.GetFunction(ctx, in.FunctionID)
@@ -84,7 +90,8 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 		defer cancel()
 	}
 
-	res, err := s.sandbox.Run(runCtx, RunRequest{
+	startedAt := time.Now().UTC()
+	res, sandboxErr := s.sandbox.Run(runCtx, RunRequest{
 		FunctionID: in.FunctionID,
 		VersionID:  versionID,
 		EnvID:      v.EnvID,
@@ -94,10 +101,88 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 		// doesn't have to equal the Python identifier.
 		Input: in.Input,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("functionapp.RunFunction: %w", err)
+	endedAt := time.Now().UTC()
+
+	s.recordExecution(ctx, uid, in, v, startedAt, endedAt, res, sandboxErr, runCtx.Err())
+
+	if sandboxErr != nil {
+		return nil, fmt.Errorf("functionapp.RunFunction: %w", sandboxErr)
 	}
 	return res, nil
+}
+
+// recordExecution writes one terminal Execution row capturing the outcome.
+// Best-effort: errors are logged but do not bubble to the caller (a failed
+// log row shouldn't surface as a function failure). Uses detached ctx so
+// caller cancel doesn't lose the write.
+//
+// recordExecution 写一行 Execution(详 D22)。best-effort——写失败仅 log;
+// 用 detached ctx 防 cancel 丢日志。
+func (s *Service) recordExecution(
+	ctx context.Context,
+	uid string,
+	in RunInput,
+	v *functiondomain.Version,
+	startedAt, endedAt time.Time,
+	res *functiondomain.ExecutionResult,
+	sandboxErr error,
+	runCtxErr error,
+) {
+	status := functiondomain.ExecutionStatusOK
+	errorMessage := ""
+	var output any
+	if sandboxErr != nil {
+		status = functiondomain.ExecutionStatusFailed
+		errorMessage = sandboxErr.Error()
+		if errors.Is(runCtxErr, context.DeadlineExceeded) {
+			status = functiondomain.ExecutionStatusTimeout
+		} else if errors.Is(runCtxErr, context.Canceled) {
+			status = functiondomain.ExecutionStatusCancelled
+		}
+	} else if res != nil {
+		if !res.OK {
+			status = functiondomain.ExecutionStatusFailed
+			errorMessage = res.ErrorMsg
+		}
+		output = res.Output
+	}
+
+	triggeredBy := in.TriggeredBy
+	if triggeredBy == "" {
+		triggeredBy = functiondomain.TriggeredByHTTP
+	}
+
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+
+	exec := &functiondomain.Execution{
+		ID:             idgenpkg.New("fne"),
+		UserID:         uid,
+		Status:         status,
+		TriggeredBy:    triggeredBy,
+		Input:          in.Input,
+		Output:         output,
+		ErrorCode:      "",
+		ErrorMessage:   errorMessage,
+		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:      startedAt,
+		EndedAt:        endedAt,
+		ConversationID: convID,
+		MessageID:      msgID,
+		ToolCallID:     toolCallID,
+		FunctionID:     in.FunctionID,
+		VersionID:      v.ID,
+		PythonVersion:  v.PythonVersion,
+	}
+
+	detached := reqctxpkg.SetUserID(context.Background(), uid)
+	if err := s.repo.SaveExecution(detached, exec); err != nil {
+		s.log.Warn("functionapp.recordExecution: SaveExecution failed (best-effort)",
+			zap.String("functionId", in.FunctionID),
+			zap.String("versionId", v.ID),
+			zap.Error(err))
+	}
 }
 
 // SyncEnvForVersion kicks off a background goroutine that materializes the
