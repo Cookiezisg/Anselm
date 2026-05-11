@@ -26,6 +26,12 @@
 
 LLM 学一类工具,会用其他两类。心智负担一致。
 
+> **额外工具(矩阵之外)**:
+> - `update_handler_config` — Handler-specific(D16,详 [`03-handler.md`](./03-handler.md) §6.5)
+> - `query_executions` / `get_execution` — 跨切诊断(D22,详 [`08-executions.md`](./08-executions.md) §7)
+>
+> 总 LLM trinity 工具数 = 21 矩阵 + 1 Handler config + 2 跨切 = **24 个**。
+
 ---
 
 ## 2. 工具 args / return 统一形态
@@ -124,6 +130,37 @@ trigger_workflow({
   output?: any  // wait=true 时附终态产物
 }
 ```
+
+### 2.6 跨切诊断工具(D22)— 看 execution log
+
+```typescript
+// 多 filter 查 execution log;不指定 kind 必带 conversationId 或 flowrunId(防全表扫)
+query_executions({
+  kind?: "function" | "handler" | "mcp" | "skill" | "flowrun_node",
+  entityId?: string,
+  conversationId?: string,
+  flowrunId?: string,
+  status?: "ok" | "failed" | "cancelled" | "timeout",
+  since?: string,    // ISO8601
+  until?: string,
+  limit?: number = 50,
+  cursor?: string,
+}) → {
+  count, executions[],     // 每条带 input_preview / output_preview 截 200B
+  nextCursor?,
+  aggregates: { ok_count, failed_count, avg_elapsed_ms, p95_elapsed_ms, ... }
+}
+
+// 单次完整 detail
+get_execution({ id, kind }) → {
+  ...all fields...,
+  input,    // 截 4KB
+  output,   // 截 4KB,sensitive 字段 mask 为 "***"
+  hints: { output_empty, significantly_slower, duplicates_previous_input? }
+}
+```
+
+这俩工具**不在 21-tool 矩阵里**(它们是跨切诊断,不是 per-entity CRUD)。详 [`08-executions.md`](./08-executions.md) §7。
 
 ---
 

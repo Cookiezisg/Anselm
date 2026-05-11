@@ -188,7 +188,9 @@ GET /api/v1/flowruns/{runId}/executions         返该 run 内所有 atomic exec
 ```typescript
 query_executions({
   kind?: "function" | "handler" | "mcp" | "skill" | "flowrun_node",
-  entityId?: string,              // function_id / handler_id / server_name / skill_name / workflow_id
+  entityId?: string,              // function_id / handler_id / server_name / skill_name
+                                  // 对 kind="flowrun_node":**推荐用 flowrunId 参数过滤**(直接索引);
+                                  // entityId=workflow_id 需要 join flowruns 表,慢
   conversationId?: string,
   flowrunId?: string,
   status?: "ok" | "failed" | "cancelled" | "timeout",

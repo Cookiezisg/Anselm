@@ -567,6 +567,8 @@ POST   /api/v1/handlers/{id}:call?conversationId=...         手动调用
                                                               (HTTP 必须传 caller-context query 参)
 GET    /api/v1/handlers/{id}/instances                       看运行实例(debug)
 DELETE /api/v1/handlers/{id}/instances/{instanceId}          手动 destroy(power-user)
+
+GET    /api/v1/handlers/{id}/calls                           call 历史(D22;详 [`08-executions.md`](./08-executions.md) §6.1)
 ```
 
 ---

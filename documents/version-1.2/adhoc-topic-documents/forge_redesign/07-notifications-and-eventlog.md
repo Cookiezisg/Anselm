@@ -8,14 +8,20 @@
 
 ---
 
-## 1. 两条管道分工
+## 1. 两条管道分工(+ 1 张持久化表系列)
 
-| 管道 | 用途 | 内容形态 |
+| 管道 / 数据 | 用途 | 内容形态 |
 |---|---|---|
 | `/api/v1/eventlog?scope=...` | **实时流式细节**(LLM 输出 / ops apply / run 进度 / 锻造过程) | 5 events × 6 block types,parentId 嵌套 |
 | `/api/v1/notifications` | **全局 entity 状态变化**(create / delete / status change 等) | 一律 `{type, id, data, conversationId?}` envelope |
+| **execution log 表系列**(D22,详 [`08-executions.md`](./08-executions.md))| **持久化的执行历史**(每次 function/handler/mcp/skill/workflow-node 调用一行)| 5 张 per-entity DB 表,共享 schema |
 
-简记:**eventlog = "正在发生的过程",notifications = "发生了什么大事"**。
+简记:
+- **eventlog = "正在发生的过程"**(实时,SSE)
+- **notifications = "发生了什么大事"**(实时,SSE)
+- **execution log = "干完了的事的账本"**(持久化,DB,debug / 审计 / LLM 诊断用)
+
+三者**独立 data plane**,互不重复。execution log 不发 notification(高频低价值),notification 不持久化(in-memory broadcast)。
 
 ---
 

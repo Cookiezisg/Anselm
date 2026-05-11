@@ -237,7 +237,7 @@ run_function({ functionId, args, version? })
 
 ---
 
-## 8. HTTP API(~12 端点)
+## 8. HTTP API(~13 端点)
 
 ```
 POST   /api/v1/functions                          创建(直接传 Definition,LLM 工具走 ops)
@@ -256,6 +256,8 @@ POST   /api/v1/functions/{id}:revert              回滚
 GET    /api/v1/functions/{id}/pending             看 pending
 POST   /api/v1/functions/{id}/pending:accept      接受
 POST   /api/v1/functions/{id}/pending:reject      拒绝
+
+GET    /api/v1/functions/{id}/executions          执行历史(D22;详 [`08-executions.md`](./08-executions.md) §6.1)
 ```
 
 ---
