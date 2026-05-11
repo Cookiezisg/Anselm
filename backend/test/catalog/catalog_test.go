@@ -69,7 +69,7 @@ func seedSkillForCatalog(t *testing.T, h *th.Harness, name, desc string) {
 func TestCatalog_AllSourcesCovered_E2E(t *testing.T) {
 	h := th.New(t)
 
-	fn := h.NewFunction(t, "csv-clean", "def csv_clean(args):\n    return args\n")
+	fn := h.NewFunction(t, "csv_clean", "def csv_clean(args):\n    return args\n")
 	seedSkillForCatalog(t, h, "deploy", "Deploy via internal CI")
 
 	if err := h.Catalog.Refresh(context.Background()); err != nil {
@@ -93,7 +93,7 @@ func TestCatalog_AllSourcesCovered_E2E(t *testing.T) {
 		t.Errorf("Coverage[skill]=%v missing 'deploy'", skillIDs)
 	}
 
-	if !strings.Contains(cat.Summary, "csv-clean") {
+	if !strings.Contains(cat.Summary, "csv_clean") {
 		t.Errorf("Summary missing function name: %q", cat.Summary)
 	}
 	if !strings.Contains(cat.Summary, "deploy") {
@@ -110,7 +110,7 @@ func TestCatalog_AllSourcesCovered_E2E(t *testing.T) {
 func TestCatalog_FunctionDescriptionChange_TriggersRegen(t *testing.T) {
 	h := th.New(t)
 
-	fn := h.NewFunction(t, "describe-me", "def describe_me(a):\n    return a\n")
+	fn := h.NewFunction(t, "describe_me", "def describe_me(a):\n    return a\n")
 
 	if err := h.Catalog.Refresh(context.Background()); err != nil {
 		t.Fatalf("Refresh #1: %v", err)

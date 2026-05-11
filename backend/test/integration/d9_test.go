@@ -68,7 +68,7 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 	// Seed one function + one skill so the catalog has real content to
 	// surface (and not a 'no capabilities' empty section).
 	// 种一 function + 一 skill 让 catalog 有真内容（非 '无 capabilities' 空段）。
-	h.NewFunction(t, "csv-clean", "def csv_clean(args):\n    return args\n")
+	h.NewFunction(t, "csv_clean", "def csv_clean(args):\n    return args\n")
 	seedSkill(t, h, "deploy", "Deploy via internal CI")
 
 	// Force an immediate catalog refresh so we don't depend on the 1s
@@ -102,7 +102,7 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 	if !strings.Contains(gotPrompt, "## Available capabilities") {
 		t.Errorf("system prompt missing catalog header.\nfull prompt:\n%s", gotPrompt)
 	}
-	if !strings.Contains(gotPrompt, "csv-clean") {
+	if !strings.Contains(gotPrompt, "csv_clean") {
 		t.Errorf("system prompt missing seeded forge name 'csv-clean'.\nfull prompt:\n%s", gotPrompt)
 	}
 	if !strings.Contains(gotPrompt, "deploy") {

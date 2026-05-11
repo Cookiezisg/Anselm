@@ -80,10 +80,10 @@ func (s *Service) ApplyOps(ctx context.Context, base *VersionDraft, ops []Op, pr
 
 	for i, op := range ops {
 		if err := applyOne(state, op); err != nil {
-			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] type=%q: %w", i, op.Type, err)
+			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] type=%q: %w: %v", i, op.Type, functiondomain.ErrOpInvalid, err)
 		}
 		if err := validateIncremental(state); err != nil {
-			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] left state invalid: %w", i, err)
+			return nil, results, fmt.Errorf("functionapp.ApplyOps: ops[%d] left state invalid: %w: %v", i, functiondomain.ErrOpInvalid, err)
 		}
 		results = append(results, OpResult{Index: i, Type: op.Type, OK: true})
 		if em != nil && progressBlockID != "" {
@@ -92,7 +92,7 @@ func (s *Service) ApplyOps(ctx context.Context, base *VersionDraft, ops []Op, pr
 		}
 	}
 	if err := validateFinal(state); err != nil {
-		return nil, results, fmt.Errorf("functionapp.ApplyOps: final validation: %w", err)
+		return nil, results, fmt.Errorf("functionapp.ApplyOps: final validation: %w: %v", functiondomain.ErrASTParseError, err)
 	}
 	return state, results, nil
 }

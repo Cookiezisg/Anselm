@@ -81,15 +81,23 @@ func isValidParamType(t string) bool {
 	return false
 }
 
-// scanPythonAST validates code contains a top-level def matching name and has
+// scanPythonAST validates code contains at least one top-level def and has
 // no Handler-client imports (D7 blacklist). V1 uses simple substring scan;
 // V1.5 switches to real `python -c 'import ast; ast.parse(...)'` in sandbox
 // for accuracy (multi-line defs / decorator stacks would fool the V1 scan).
 //
-// scanPythonAST V1 用字符串扫(简单),V1.5 切 sandbox 跑真 ast.parse(准确)。
+// Entity Name is intentionally decoupled from the Python identifier — the
+// sandbox driver extracts the def name from the code itself (extractFuncName
+// in sandbox_adapter.go), so users can pick friendly names like "my-pdf-
+// converter" while their def is `def convert_pdf(...)`. The `name` argument
+// is kept on the signature for backward compatibility but is not used.
+//
+// scanPythonAST V1 用字符串扫(至少含一个 def + 不 import handler);name 入参
+// 不再强制匹配——sandbox 自行 extractFuncName。V1.5 切 sandbox 真 ast.parse。
 func scanPythonAST(code, name string) error {
-	if !strings.Contains(code, "def "+name) {
-		return fmt.Errorf("code must define a function named %q", name)
+	_ = name
+	if !strings.Contains(code, "\ndef ") && !strings.HasPrefix(code, "def ") {
+		return fmt.Errorf("code must contain at least one top-level def")
 	}
 	for _, blacklisted := range handlerImportBlacklist {
 		if strings.Contains(code, blacklisted) {
