@@ -316,6 +316,49 @@ cd backend && make test-pipeline
 
 ---
 
+## Phase 3.5:Execution Log LLM 诊断工具(D22)
+
+### Task 4a:`query_executions` + `get_execution` LLM 工具实施
+
+**Files:**
+- Create: `backend/internal/app/tool/executions/executions.go`(factory)
+- Create: `backend/internal/app/tool/executions/query.go`
+- Create: `backend/internal/app/tool/executions/get.go`
+- Create: `backend/internal/app/tool/executions/executions_test.go`
+
+参考 Plan 01 Task 14 工具模板。**关键**:`query_executions` 后端 dispatch:
+- 指定 `kind` → 单表查
+- 不指定 kind 但有 `conversationId` / `flowrunId` → 5 表 UNION
+- 不指定 kind 也不指定 conv/run → return `EXECUTION_QUERY_INVALID` 400(防全表扫)
+
+`get_execution({id, kind})` — 按 kind dispatch 到对应表。
+
+input/output 截 4KB(超长标 `*_truncated: true`);hints 字段从 SQL aggregate 算(`output_empty` / `significantly_slower` / `duplicates_previous_input`)。
+
+- [ ] Step 1: 写 factory + 2 工具实现(~250 行)
+- [ ] Step 2: 单测覆盖 query 各 filter / get dispatch / hints 计算 / 错误码(EXECUTION_NOT_FOUND / KIND_INVALID / QUERY_INVALID)
+- [ ] Step 3: main.go 装 ExecutionsService(repo 共享 5 entity service 的 repo)+ 工具加进 tools slice
+- [ ] Step 4: 加 errmap 3 行 sentinels
+- [ ] Step 5: Commit + push
+
+### Task 4b:LLM 诊断 e2e 场景
+
+**Files:** Add `backend/test/e2e/llm_diagnostics_test.go`
+
+模拟用户:"昨天 to-pdf function 跑出来 PDF 是空的"。
+
+驱动 LLM(fake script):
+1. query_executions({kind:"function", entityId:"fn_to_pdf", limit:20})
+2. get_execution({id:第一条 ok 但 output 异常的}) → 看 page_count=0
+3. get_execution({id:hints.duplicates_previous_input}) → 上次同 input 也是 0
+4. LLM 总结:"问题在 Function 代码,建议 edit_function 检查 weasyprint"
+
+验证 LLM 拿到 hints 字段后能正确诊断 + 不依赖 status=failed。
+
+- [ ] Step 1-3
+
+---
+
 ## Phase 4:E2E Cross-Domain Pipeline Test
 
 ### Task 5:全栈 E2E test —— 邮件 workflow 的端到端故事

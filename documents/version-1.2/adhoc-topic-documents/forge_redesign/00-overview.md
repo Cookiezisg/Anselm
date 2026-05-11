@@ -131,6 +131,11 @@ Sub-agent(`general-purpose` 默认)继承父 tool registry 时,**filterTools 额
 
 **附:不引入新 SubagentType** — 之前推 4 forger types(function-forger / handler-forger / workflow-forger / decomposer)被简化掉了。改用现有 `general-purpose`(general 任务)+ `Explore`(只读 plan 角色)+ 主 agent prompt instructions 控制行为。0 行 SubagentType 注册改动,~40 行 filterTools + prompt 教学。
 
+### D22 — 执行记录:5 张 per-entity 表(共享 schema 模板)
+每类 capability(function / handler / mcp / skill / workflow 节点)每次执行落一行 execution log。**5 张表 schema 模板完全统一**(id / user_id / status / triggered_by / input / output / elapsed / 时间戳 / chat 上下文 / workflow 上下文 16 通用字段),kind-specific 字段各表自加(handler_calls 加 method;mcp_calls 加 server_name 等)。**不走 unified attrs JSON**(reviewer 心智重)— per-entity 表 self-documenting + 跨实体查通过 conversation_id / flowrun_id 索引 UNION。Production observability + LLM 自诊断必备(LLM 工具 `query_executions` / `get_execution` 看不只 status=failed,**也看 status=ok 但 output 不对**)。详见 [`08-executions.md`](./08-executions.md)。
+
+**bug fix 顺手**:FlowRun.status enum 删 `timeout` 值(V1 没 run-level 总超时;节点 timeout 致 run 终止时,run.status=failed + error_code=NODE_TIMEOUT)。FlowRunNode.status 跟通用 execution status 一致 — 含 `timeout`(节点超时是真状态)。
+
 ---
 
 ## 4. V1 范围
@@ -237,6 +242,7 @@ Sub-agent(`general-purpose` 默认)继承父 tool registry 时,**filterTools 额
 | [`05-execution-plane.md`](./05-execution-plane.md) | Scheduler + Trigger + FlowRun + 14 项生产级 V1 必做 + HTTP/2 Transport Layer |
 | [`06-subagent-forging.md`](./06-subagent-forging.md) | 多 agent 并行锻造(4 类 forger + 协作模式 + Config 引导) |
 | [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md) | 通知 type 总表 + Eventlog scope 多视图订阅策略 |
+| [`08-executions.md`](./08-executions.md) | 5 张 per-entity execution log 表(共享 schema 模板)+ LLM 诊断工具(D22)|
 
 ---
 

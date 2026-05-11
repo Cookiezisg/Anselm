@@ -1677,6 +1677,89 @@ git push origin feature/function-domain
 
 ---
 
+## Phase 7.5:Execution Log(D22 — `function_executions` 表)
+
+### Task 23a:Domain `Execution` entity + Repository extension
+
+**Files:** Modify `backend/internal/domain/function/repository.go`(加 Execution + ExecutionRepository)
+
+加 entity:
+
+```go
+type Execution struct {
+	ID               string `gorm:"primaryKey"`  // fne_<16hex>
+	UserID           string `gorm:"index"`
+	FunctionID       string `gorm:"index"`
+	VersionID        string
+	Status           string `gorm:"check:status IN ('ok','failed','cancelled','timeout')"`
+	TriggeredBy      string `gorm:"check:triggered_by IN ('chat','workflow','http','test')"`
+	Input            string // JSON
+	Output           string // JSON (NULL on non-ok)
+	ErrorCode        string
+	ErrorMessage     string
+	ElapsedMs        int
+	StartedAt        time.Time `gorm:"index:idx_fne_fn_started,priority:2"`
+	EndedAt          time.Time
+	ConversationID   string `gorm:"index"`
+	MessageID        string
+	ToolCallID       string
+	FlowrunID        string `gorm:"index"`
+	FlowrunNodeID    string
+	PythonVersion    string
+	CreatedAt        time.Time
+}
+
+// 复合索引(主路径)
+// idx_fne_fn_started:(function_id, started_at DESC) — entity 历史
+```
+
+加 Repository methods:`CreateExecution(ctx, *Execution) error` / `ListExecutions(ctx, filter ExecutionFilter) ([]*Execution, *Cursor, error)` / `GetExecution(ctx, id) (*Execution, error)` / `PruneExecutionsOlderThan(ctx, functionID string, keep int) error`(per spec 08 §5,默认 keep=200)。
+
+- [ ] Step 1-3:写 domain + 编译 + commit
+
+### Task 23b:Store 实现 + 集成测试
+
+**Files:** Modify `backend/internal/infra/store/function/function.go`
+
+加 4 个 method GORM 实现 + 3 个测试(Create + List by function_id + Prune 200 cap)。
+
+- [ ] Step 1-3
+
+### Task 23c:Service.Run 终态写 Execution
+
+**Files:** Modify `backend/internal/app/function/function.go::Service.Run`
+
+```go
+func (s *Service) Run(ctx context.Context, fnID string, args map[string]any) (out *RunResult, err error) {
+	startedAt := time.Now()
+	defer func() {
+		// 终态 detached ctx 写 execution(per §S9)
+		writeCtx := reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+		exec := buildExecutionRow(fnID, args, out, err, startedAt, time.Now())
+		if writeErr := s.repo.CreateExecution(writeCtx, exec); writeErr != nil {
+			s.log.Warn("function.Run: write execution failed", zap.Error(writeErr))
+		}
+		// 异步 prune
+		go s.repo.PruneExecutionsOlderThan(writeCtx, fnID, 200)
+	}()
+	// ... 原有 run 逻辑 ...
+}
+```
+
+`buildExecutionRow` 从 ctx 拿 conversation/flowrun 上下文 + triggered_by 推断。Sensitive Handler config 字段不存在 Function 域,正常存。
+
+- [ ] Step 1-3:实现 + 单测 + commit
+
+### Task 23d:HTTP `GET /api/v1/functions/{id}/executions`
+
+**Files:** Modify `backend/internal/transport/httpapi/handlers/function.go`
+
+加端点 + cursor 分页 + 过滤参 + 1-2 个 httptest。
+
+- [ ] Step 1-3
+
+---
+
 ## Phase 8:Pipeline Test
 
 ### Task 24:Function pipeline test

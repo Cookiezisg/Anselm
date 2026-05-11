@@ -233,11 +233,13 @@ running ← → paused(approval / wait 长延时)
 { completed | failed | cancelled | timeout }
 ```
 
-#### 终态语义
+#### 终态语义(V1:5 状态,**无 run-level timeout**)
 - `completed` — 正常 + 全部节点 OK
-- `failed` — 某节点 onError=stop 触发整 run 停
+- `failed` — 某节点 onError=stop 触发整 run 停(若是节点 timeout 致 stop,`error_code=NODE_TIMEOUT`,run.status 仍是 failed)
 - `cancelled` — 用户取消(HTTP DELETE / LLM cancel_flowrun)
-- `timeout` — V1 不做(节点级超时是临时缓解);V1.5 加 run 级超时
+- **不含 `timeout`**(V1 不做 run-level 总超时;V1.5 加时再扩 enum)
+
+节点级 timeout 是 FlowRunNode 的状态(详见 [`08-executions.md`](./08-executions.md) §4.5 — 共享 schema status 含 timeout)。**run vs node 是两层概念,enum 不需对齐**。
 
 ### 3.4 Caller-context = FlowRun
 
@@ -457,9 +459,9 @@ HTTP/2 + TLS 落地(D18)后,前端订阅策略**自由**:
 **问题**:后台 cron workflow 跑挂,用户在 chat 外不知道。
 
 **V1 答案**:
-- run 终态 `failed / cancelled / timeout` 时 publish `notifications.<type>`
-  - `flowrun_failed`(failed)
-  - `flowrun_cancelled`(cancelled)
+- run 终态 `failed / cancelled` 时 publish `notifications.flowrun`(V1 无 run-level timeout state)
+  - `flowrun.action=failed`
+  - `flowrun.action=cancelled`
 - 现有 notifications 系统直接用,前端 toast / 桌面 native notification
 
 ### 6.5 Workflow `enabled` 开关

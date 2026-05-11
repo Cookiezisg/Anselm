@@ -68,18 +68,24 @@ import (
 )
 
 const (
+	// FlowRun (workflow run 整体) status — 5 值
+	// V1 没有 run-level 总超时,**不含 timeout** 状态。节点 timeout 致 run 终止时,
+	// run.status = failed,error_code 标 NODE_TIMEOUT。
 	StatusRunning   = "running"
-	StatusPaused    = "paused"     // approval / wait 节点
+	StatusPaused    = "paused" // approval / wait 节点
 	StatusCompleted = "completed"
 	StatusFailed    = "failed"
 	StatusCancelled = "cancelled"
-	StatusTimeout   = "timeout" // V1 节点级 timeout 触发;run 总超时 V1.5
 
+	// FlowRunNode (单节点执行) status — 5 值
+	// 每节点 execution 终态 — 含 timeout(节点级超时是真状态,对应 spec 08-executions
+	// shared schema 模板的 status enum)。
 	NodeStatusPending   = "pending"
 	NodeStatusRunning   = "running"
 	NodeStatusCompleted = "completed"
 	NodeStatusFailed    = "failed"
 	NodeStatusSkipped   = "skipped"
+	NodeStatusTimeout   = "timeout"
 )
 
 type FlowRun struct {
@@ -88,7 +94,7 @@ type FlowRun struct {
 	VersionID     string `gorm:"not null"` // 锁哪个 active version
 	TriggerKind   string // cron | fsnotify | webhook | manual
 	TriggerInput  map[string]any `gorm:"serializer:json"`
-	Status        string `gorm:"not null;check:status IN ('running','paused','completed','failed','cancelled','timeout')"`
+	Status        string `gorm:"not null;check:status IN ('running','paused','completed','failed','cancelled')"`
 	StartedAt     time.Time
 	EndedAt       *time.Time
 	ElapsedMs     int
@@ -112,18 +118,33 @@ type PausedState struct {
 	PausedAt  time.Time                         `json:"pausedAt"`
 }
 
+// FlowRunNode 是 spec 08-executions §4.5 定义的 5 张 execution log 表之一。
+// 字段补齐到共享 schema 模板(详 08 §2)— 含 status / triggered_by / 
+// conv 上下文 / error_code / elapsed_ms / 等通用字段 + flowrun-specific
+// 字段 attempts / node_id / node_type。
+//
+// FlowRunNode is one of the 5 execution log tables defined in
+// spec 08-executions §4.5. Fields aligned to the shared schema template.
 type FlowRunNode struct {
-	ID         string `gorm:"primaryKey"`
-	FlowRunID  string `gorm:"index;not null"`
-	NodeID     string // graph 内的 node id
-	Status     string
-	Input      map[string]any `gorm:"serializer:json"`
-	Output     map[string]any `gorm:"serializer:json"`
-	Error      string
-	StartedAt  *time.Time
-	EndedAt    *time.Time
-	Attempts   int `gorm:"default:1"`
-	CreatedAt  time.Time
+	ID             string `gorm:"primaryKey"`  // frn_<16hex>
+	UserID         string `gorm:"index"`
+	FlowRunID      string `gorm:"index;not null"`
+	NodeID         string // graph 内的 node id(如 "filter_cond")
+	NodeType       string // function / handler / mcp / skill / llm / condition / loop / parallel / approval / wait / variable
+	Status         string `gorm:"check:status IN ('ok','failed','cancelled','timeout')"`
+	TriggeredBy    string `gorm:"check:triggered_by IN ('chat','workflow','http','test')"` // workflow 节点几乎总是 'workflow'
+	Input          string // JSON
+	Output         string // JSON (NULL on non-ok)
+	ErrorCode      string
+	ErrorMessage   string
+	ElapsedMs      int
+	StartedAt      time.Time
+	EndedAt        time.Time
+	ConversationID string `gorm:"index"`
+	MessageID      string
+	ToolCallID     string
+	Attempts       int `gorm:"default:1"` // retry 次数(per-node retry policy)
+	CreatedAt      time.Time
 }
 
 var (
@@ -781,6 +802,44 @@ workflowSvc.SetScheduler(schedulerSvc) // 加 setter
 `workflowSvc.OnActiveVersionChange(...)` listener pattern:Workflow accept pending / revert / delete 时,trigger service unregister 老 + register 新。
 
 - [ ] Step 1-3
+
+---
+
+## Phase 6.5:其他 2 张 Execution Log 表(D22 — mcp_calls + skill_executions)
+
+### Task 16a:`mcp_calls` 表 + Service.CallTool 写入
+
+**Files:**
+- Modify: `backend/internal/domain/mcp/`(加 Call entity per spec 08 §4.3)
+- Modify: `backend/internal/infra/store/mcp/`(GORM impl + 集成测试)
+- Modify: `backend/internal/app/mcp/calltool.go`(终态写 mcp_calls row)
+- Add HTTP `GET /api/v1/mcp-servers/{name}/calls`
+
+参考 Plan 01 Task 23a-d 同套路。MCP-specific 字段:`server_name` / `tool_name` / `server_version`。ID 前缀 `mcl_<16hex>`。
+
+- [ ] Step 1-3
+
+### Task 16b:`skill_executions` 表 + Service.Execute 写入
+
+**Files:**
+- Modify: `backend/internal/domain/skill/`(加 Execution entity per spec 08 §4.4)
+- Modify: `backend/internal/infra/store/skill/`(GORM impl)
+- Modify: `backend/internal/app/skill/skill.go::Execute`(终态写 skill_executions row)
+- Add HTTP `GET /api/v1/skills/{name}/executions`
+
+Skill-specific:`skill_name` / `skill_version`(SHA256)/ `fork_depth` / `substitutions` JSON。ID 前缀 `ske_<16hex>`。
+
+- [ ] Step 1-3
+
+### Task 16c:scheduler.dispatchNode 写 flowrun_nodes(共享 schema 模板)
+
+**Files:** Modify `backend/internal/app/scheduler/scheduler.go::dispatchNode`
+
+per spec 08 §4.5 + Task 2 已更新的 FlowRunNode struct。每节点 dispatch 完成写一行。
+
+**重要**:capability 节点(function/handler/mcp/skill)dispatch 时**也触发对应 entity execution 写入**(via 各 service Run/Call/Execute)— 跨表 ID 通过 `flowrun_node_id` 字段链接(详 spec 08 §4.5 重要标注)。
+
+- [ ] Step 1-3:实现 + 单测覆盖 cross-table linking
 
 ---
 

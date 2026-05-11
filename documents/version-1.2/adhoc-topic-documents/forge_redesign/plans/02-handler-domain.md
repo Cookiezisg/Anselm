@@ -902,6 +902,48 @@ convService.OnDelete(func(convID string) {
 
 ---
 
+## Phase 7.5:Call Log(D22 — `handler_calls` 表)
+
+类比 Plan 01 Phase 7.5。4 个 task:
+
+### Task 26a:Domain `Call` entity + Repository extension
+
+加 entity per spec 08 §4.2:含 method / instance_id / owner_kind / owner_id 等 handler-specific 字段。ID 前缀 `hcl_<16hex>`。
+
+- [ ] Step 1-3:写 + 编译 + commit
+
+### Task 26b:Store 实现 + 集成测试
+
+参考 Plan 01 Task 23b。新增测试覆盖:`owner_kind` 字段写入(per spec 08 §4.2 — caller-context 标记)。
+
+- [ ] Step 1-3
+
+### Task 26c:Service.Call 终态写 Call row
+
+**Files:** Modify `backend/internal/app/handler/handler.go::Service.Call`
+
+参考 Plan 01 Task 23c。关键差异:**sensitive init_args 在写入前 mask**(spec 08 §9):
+
+```go
+input := args
+if def.InitArgsSchema.HasSensitive() {
+	input = maskSensitive(args, def.InitArgsSchema)
+}
+exec := buildCallRow(..., input, ...)
+```
+
+`maskSensitive` 把 args 里出现的 sensitive arg 名替换为 `"***"`。
+
+- [ ] Step 1-3
+
+### Task 26d:HTTP `GET /api/v1/handlers/{id}/calls`
+
+参考 Plan 01 Task 23d。
+
+- [ ] Step 1-3
+
+---
+
 ## Phase 8:Pipeline Tests
 
 ### Task 27:Handler pipeline tests(3 场景)
