@@ -72,7 +72,6 @@ var devRoutes = []devRoute{
 	{"DELETE", "/api/v1/forges/{id}", "forge.Delete"},
 	{"POST", "/api/v1/forges/{id}:run", "forge.Run"},
 	{"POST", "/api/v1/forges/{id}:test", "forge.RunTests"},
-	{"POST", "/api/v1/forges/{id}:duplicate", "forge.Duplicate"},
 	{"POST", "/api/v1/forges/{id}:export", "forge.Export"},
 	{"GET", "/api/v1/forges/{id}/versions", "forge.ListVersions"},
 	{"GET", "/api/v1/forges/{id}/versions/{version}", "forge.GetVersion"},

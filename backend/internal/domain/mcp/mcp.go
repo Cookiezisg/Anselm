@@ -174,7 +174,6 @@ var (
 	ErrToolCallTimeout       = errors.New("mcp: tool call timeout")
 
 	ErrRegistryEntryNotFound = errors.New("mcp: registry entry not found")
-	ErrRuntimeMissing        = errors.New("mcp: runtime (node/python) not available")
 	ErrRequiredEnvMissing    = errors.New("mcp: required env variables not provided")
 	ErrRequiredArgsMissing   = errors.New("mcp: required args not provided")
 	ErrInstallFailed         = errors.New("mcp: install command failed")

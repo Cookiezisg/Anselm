@@ -88,7 +88,7 @@
 7. **D1 软删除统一**：所有表用 `deleted_at DATETIME`（NULL = 未删除），废弃 `status='deleted'` 风格
 8. **D2 时间戳统一**：每表必有 `created_at` / `updated_at`，GORM 自动维护
 9. **D3 枚举 CHECK 约束**：稳定白名单（如 `role`、`content_type`、`message_blocks_v2.type`、`message_blocks_v2.status`）在 DB 层做 CHECK；会随 Phase 扩张的白名单（如 `scenario`）在 app 层校验。`message_blocks_v2` 枚举值固定 6/4 种（详 §E1）
-10. **D4 外键显式声明** + `PRAGMA foreign_keys=ON` 开启约束
+10. **D4 PRAGMA `foreign_keys=ON` 开启约束**（V1.2 单用户本地暂未在 GORM tag 声明 `foreignKey`；跨表引用由 app 层 service 管 lifecycle；显式 FK 声明是 aspirational，等真撞跨层完整性 bug 时再加）
 11. **D5 业务唯一性用 UNIQUE 约束**：`tools.name`、`(tool_id, version)`、`(user_id, scenario)` 等
 12. **D6 schema_extras 模式**：AutoMigrate 表达不了的 SQL（partial 索引 / 触发器 / FTS5 虚拟表 / 复杂 CHECK）走 `infra/db/schema_extras.go`。每条语句必须**幂等**（`CREATE … IF NOT EXISTS`）+ 按 table 分组 + 入口先 `db.Migrator().HasTable()` 守卫
 13. **D7 索引归属判断**：**普通**（含复合、UNIQUE）索引一律走 GORM tag（`index:idx_x,priority:N` 或 `uniqueIndex`）；只有带 `WHERE` 子句的 partial 索引才进 schema_extras。例：`UNIQUE(user_id, name) WHERE deleted_at IS NULL` 必须 schema_extras；`(message_id, seq)` 复合索引应放 GORM tag

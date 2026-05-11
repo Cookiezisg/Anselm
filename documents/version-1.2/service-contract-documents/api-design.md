@@ -114,7 +114,7 @@ type Error = {
 | POST | `/api/v1/conversations` | 创建对话（201）；title 可为空 |
 | GET | `/api/v1/conversations` | 列表（200，cursor 分页，最新优先）|
 | GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / metadata）|
-| PATCH | `/api/v1/conversations/{id}` | 改名（200）|
+| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?}`——两个字段可任意组合改 |
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
 #### chat ✅
@@ -125,7 +125,7 @@ type Error = {
 | POST | `/api/v1/attachments` | 上传附件（multipart，50MB 限制）→ 201 返回 attachment_id |
 | POST | `/api/v1/conversations/{id}/messages` | 发送消息（202，队列化异步 Agent 运行）；body 含 `attachmentIds[]` |
 | DELETE | `/api/v1/conversations/{id}/stream` | 取消正在运行的 Agent（204）；404 STREAM_NOT_FOUND |
-| GET | `/api/v1/conversations/{id}/messages` | 消息历史（cursor 分页，ASC 时序）；每条消息含 `blocks[]`（text/reasoning/tool_call/tool_result/attachment_ref）+ `inputTokens` + `outputTokens` |
+| GET | `/api/v1/conversations/{id}/messages` | 消息历史（cursor 分页，ASC 时序）；每条消息含 `blocks[]`（**6 类型**：text/reasoning/tool_call/tool_result/progress/message）+ `attrs`（user msg 含 `attachments[]` 引用、subagent sub-message 含 `kind=subagent_run`）+ `inputTokens` + `outputTokens`。**注**：附件不是 block 类型，是 `attrs.attachments[]` 引用 `attachments` 表 |
 
 ---
 
@@ -141,7 +141,6 @@ type Error = {
 | GET | `/api/v1/forges/{id}` | 详情 |
 | PATCH | `/api/v1/forges/{id}` | 更新（直接生效）|
 | DELETE | `/api/v1/forges/{id}` | 软删 |
-| POST | `/api/v1/forges/{id}:duplicate` | 复制 forge（201；复制 active 版本的 code/deps/python/parameters）|
 | POST | `/api/v1/forges/{id}:run` | 执行工具 |
 | POST | `/api/v1/forges/{id}:export` | 导出 JSON |
 | POST | `/api/v1/forges:import` | 导入 JSON |
@@ -155,8 +154,8 @@ type Error = {
 | POST | `/api/v1/forges/{id}/test-cases` | 创建测试用例 |
 | DELETE | `/api/v1/forges/{id}/test-cases/{tcId}` | 删除测试用例 |
 | POST | `/api/v1/forges/{id}/test-cases/{tcId}:run` | 运行单个测试 |
-| POST | `/api/v1/forges/{id}:test` | 运行全部测试 |
-| POST | `/api/v1/forges/{id}:generate-test-cases` | LLM 生成测试用例（一次性返回 JSON 批量）|
+| POST | `/api/v1/forges/{id}:test` | 运行全部测试；返聚合 envelope `{total, passed, failed, results: [{tcId, passed, ...}]}` |
+| POST | `/api/v1/forges/{id}:generate-test-cases` | LLM 生成测试用例（一次性返回 JSON 批量）；接受可选 `?count=N`（1-20，默认 5）|
 | GET | `/api/v1/forges/{id}/executions` | 执行历史（统一端点，?kind=run\|test &batchId=&cursor=&limit= 过滤；替代旧的 run-history + test-history）✅ Phase 5 |
 | GET | `/api/v1/forges/{id}` | 详情（响应含 `pending` 字段，存在时为完整 ForgeVersion 对象，否则缺省）✅ Phase 5 |
 
@@ -214,8 +213,8 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 |---|---|---|
 | GET | `/api/v1/mcp-servers` | 列所有配置（含 status + tools + 健康字段）|
 | GET | `/api/v1/mcp-servers/{name}` | 单 server 详情 + tools |
-| GET | `/api/v1/mcp-servers/{name}/stderr` | 取 server stderr 256KB ring buffer（debug 用）|
-| PUT | `/api/v1/mcp-servers/{name}` | 增/改配置（写 mcp.json + 立即 Connect）|
+| GET | `/api/v1/mcp-servers/{name}/stderr` | 取 server stderr 256KB ring buffer（debug 用）；返 JSON envelope `{name, stderr, size}`（不是 raw text）|
+| PUT | `/api/v1/mcp-servers/{name}` | 增/改配置（写 mcp.json + 立即 Connect）。**注**：返 200 + ServerStatus **无论 connect 是否成功**——caller 看 status 字段判断（per mcp.md §10 设计；handler log Error 级让 observability 捞到 connect failure）|
 | DELETE | `/api/v1/mcp-servers/{name}` | 删配置 + disconnect（204）|
 | POST | `/api/v1/mcp-servers:import` | **拖拽导入**（multipart 上传 mcp.json 文件 / 文本 fragment）|
 | POST | `/api/v1/mcp-servers/{name}:reconnect` | 强制重启子进程（degraded / failed 恢复用）|
@@ -227,7 +226,7 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 |---|---|---|
 | GET | `/api/v1/mcp-registry` | 列 curated marketplace 全部条目（V3 / 2026-05-09：~21 条精选，tier asc + name asc 稳排，无 query 参数）|
 | GET | `/api/v1/mcp-registry/{name}` | 单 entry 详情（含 RequiredEnv / RequiredArgs）|
-| POST | `/api/v1/mcp-registry/{name}:install` | 安装：填 env + args → 写 mcp.json + Connect |
+| POST | `/api/v1/mcp-registry/{name}:install` | 安装：填 env + args → 写 mcp.json + Connect；返 **201** Created + 新 ServerStatus；body `{env: {...}, args: {...}}`，空 body OK（entry 可无 RequiredEnv/Args）|
 
 **没有 `:enable` / `:disable`**——配置在 mcp.json 即启用，删除即禁用，无中间态。
 
@@ -244,14 +243,14 @@ Forge System Tools 注入（search/get/create/edit/run，5 个）。SSE 见 even
 | DELETE | `/api/v1/skills/{name}` | 删除 skill 目录（204）|
 | POST | `/api/v1/skills:import` | **拖拽导入**（folder / zip / tar / 单 SKILL.md）|
 | POST | `/api/v1/skills:refresh` | 手动 Rescan（绕过 fsnotify，debug 用）|
-| POST | `/api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）|
+| POST | `/api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）；body `{arguments: string[]}`（位置参数），返 200 `{result: out}` |
 
 #### catalog ✅
 详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。统一能力目录（forge + skill + mcp）。LLM-gen summary + 自动跨类目路由观察。**1s polling + atomic.Bool 单 flight + fingerprint dedup**。**不发 SSE**（内部组件）。**V1.2 D8（2026-05-06）全部交付**：domain types + 2 sentinels + Service + LLMGenerator（3-attempt retry + coverage 校验 + mechanical fallback）+ atomic disk cache + 3 CatalogSource（forge/skill/mcp）+ chat runner SystemPromptProvider 注入 + 2 HTTP endpoints + 3 离线 pipeline 场景。
 
 | Method | Path | 用途 |
 |---|---|---|
-| GET | `/api/v1/catalog` | 当前 catalog cache 内容（debug / UI 显示）|
+| GET | `/api/v1/catalog` | 当前 catalog cache 内容（debug / UI 显示）；**未 Refresh 时返 envelope 内 `null`**——UI 需 null-guard |
 | POST | `/api/v1/catalog:refresh` | 强制立即 refresh（绕过 1s polling 间隔）|
 
 **没有 routing-hints 端点**——路由提示由 generator LLM-gen 时直接写进 summary，用户想影响路由 → 编辑源头 forge/skill/mcp 的 description。

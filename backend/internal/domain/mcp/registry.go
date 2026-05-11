@@ -154,15 +154,6 @@ var (
 	// 已有）。调用方应先卸或换个 alias。
 	ErrAlreadyInstalled = errors.New("mcp: server already installed")
 
-	// ErrUnsupportedRuntime means the registry entry's package list has no
-	// runtime Forgify can handle (e.g. only docker but Docker daemon not
-	// detected, or only an unsupported package type).
-	//
-	// ErrUnsupportedRuntime 表示 registry 条目的 package 列表无 Forgify 能
-	// 处理的 runtime（如只有 docker 但 daemon 未检测到，或只有不支持的
-	// package 类型）。
-	ErrUnsupportedRuntime = errors.New("mcp: no supported runtime for entry")
-
 	// (ErrInstallFailed already exists in mcp.go — reused here for the
 	// new install_mcp_server tool's error path.)
 	// (ErrInstallFailed 已在 mcp.go 声明——新 install_mcp_server 工具的错误

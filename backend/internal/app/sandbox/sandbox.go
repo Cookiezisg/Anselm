@@ -141,6 +141,17 @@ func New(repo sandboxdomain.Repository, dataDir string, notif notificationspkg.P
 	if log == nil {
 		panic("sandboxapp.New: nil logger")
 	}
+	// Match the constructor-bottom pattern used by conversation / todo /
+	// mcp / skill / catalog / chat services: build a real noop publisher
+	// when caller passes nil, so internal publishEnv / publishEnvDeleted
+	// don't need runtime nil-checks (#27 audit fix).
+	//
+	// 与 conversation/todo/mcp/skill/catalog/chat 构造器同模式：caller 传
+	// nil 时本地造 noop publisher，内部 publishEnv / publishEnvDeleted
+	// 无需运行时 nil 检查（#27 audit fix）。
+	if notif == nil {
+		notif = notificationspkg.New(nil, log)
+	}
 	return &Service{
 		repo:        repo,
 		sandboxRoot: filepath.Join(dataDir, "sandbox"),
@@ -645,9 +656,6 @@ func (s *Service) markEnvFailed(ctx context.Context, env *sandboxdomain.Env, cau
 // data 带 env 完整快照让订阅方不必 refetch；销毁事件无 env 行可读，
 // 用 deleted=true 哨兵。
 func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
-	if s.notif == nil {
-		return
-	}
 	s.notif.Publish(ctx, "sandbox_env", env.ID, map[string]any{
 		"id":           env.ID,
 		"ownerKind":    env.OwnerKind,
@@ -666,9 +674,6 @@ func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
 }
 
 func (s *Service) publishEnvDeleted(ctx context.Context, envID string) {
-	if s.notif == nil {
-		return
-	}
 	s.notif.Publish(ctx, "sandbox_env", envID, map[string]any{
 		"id":      envID,
 		"deleted": true,

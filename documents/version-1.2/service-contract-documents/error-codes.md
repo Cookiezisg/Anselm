@@ -53,12 +53,13 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `INVALID_REQUEST` | 400 | `derrors.ErrInvalidRequest` | JSON 坏 / 字段缺 / cursor 格式错 | ✅ |
+| `INVALID_REQUEST` | 400 | `errorsdomain.ErrInvalidRequest` | JSON 坏 / 字段缺 / cursor 格式错 | ✅ |
 | `INTERNAL_ERROR` | 500 | (未映射 fallback) | errmap 兜底；未匹配 sentinel 自动降级到此（不需要专门 sentinel）| ✅ |
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingUserID` | auth middleware 未跑（接线 bug）。显式登记以抑制 "unmapped" 警告 | ✅ |
 | `INTERNAL_ERROR` | 500 | `reqctxpkg.ErrMissingConversationID` | chat-runner 未在 ctx 印 conversation ID（接线 bug）。todo / ask 工具依赖此 ID | ✅ |
 | `INTERNAL_ERROR` | 500 | `cryptoinfra.ErrUnsupportedVersion` | DB 中密文版本前缀（如 `v2:`）超出当前 encryptor 支持范围（升降级 / 数据损坏）| ✅ |
 | `NOT_FOUND` | 404 | (middleware 直接发，不走 errmap) | 路由未匹配 | ✅ |
+| `SEQ_TOO_OLD` | 410 | (handler inline，不走 errmap) | SSE replay buffer 超时——client 经 `/api/v1/conversations/{id}/eventlog?from=<seq>` refetch（事件日志）或重订（通知）；handler `/eventlog`+`/notifications` 直写 wire | ✅ |
 | `CLIENT_CLOSED` | 499 | `context.Canceled` (stdlib) | 客户端断开（浏览器 hard refresh / 关 tab）；登记仅为抑制 unmapped warning，响应反正没人收 | ✅ |
 | `REQUEST_TIMEOUT` | 504 | `context.DeadlineExceeded` (stdlib) | 请求超时；同样登记仅为抑制 unmapped warning | ✅ |
 
@@ -71,42 +72,41 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `API_KEY_NOT_FOUND` | 404 | `apikey.ErrNotFound` | id 查不到 | ✅ |
-| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikey.ErrNotFoundForProvider` | 当前用户 该 provider 无活跃 key | ✅ |
-| `INVALID_PROVIDER` | 400 | `apikey.ErrInvalidProvider` | provider 不在 11 白名单 | ✅ |
-| `BASE_URL_REQUIRED` | 400 | `apikey.ErrBaseURLRequired` | ollama / custom 没填 baseURL | ✅ |
-| `API_FORMAT_REQUIRED` | 400 | `apikey.ErrAPIFormatRequired` | custom 没填 apiFormat | ✅ |
-| `KEY_REQUIRED` | 400 | `apikey.ErrKeyRequired` | 创建时 key 空 | ✅ |
+| `API_KEY_NOT_FOUND` | 404 | `apikeydomain.ErrNotFound` | id 查不到 | ✅ |
+| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikeydomain.ErrNotFoundForProvider` | 当前用户 该 provider 无活跃 key | ✅ |
+| `INVALID_PROVIDER` | 400 | `apikeydomain.ErrInvalidProvider` | provider 不在 11 白名单 | ✅ |
+| `BASE_URL_REQUIRED` | 400 | `apikeydomain.ErrBaseURLRequired` | ollama / custom 没填 baseURL | ✅ |
+| `API_FORMAT_REQUIRED` | 400 | `apikeydomain.ErrAPIFormatRequired` | custom 没填 apiFormat | ✅ |
+| `KEY_REQUIRED` | 400 | `apikeydomain.ErrKeyRequired` | 创建时 key 空 | ✅ |
 
 #### model ✅
 详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `MODEL_NOT_CONFIGURED` | 422 | `model.ErrNotConfigured` | chat 调 PickForChat 时用户未配过 | ✅ |
-| `INVALID_SCENARIO` | 400 | `model.ErrInvalidScenario` | PUT path 的 scenario 不在白名单 | ✅ |
-| `PROVIDER_REQUIRED` | 400 | `model.ErrProviderRequired` | PUT body provider 空 | ✅ |
-| `MODEL_ID_REQUIRED` | 400 | `model.ErrModelIDRequired` | PUT body modelId 空 | ✅ |
+| `MODEL_NOT_CONFIGURED` | 422 | `modeldomain.ErrNotConfigured` | chat 调 PickForChat 时用户未配过 | ✅ |
+| `INVALID_SCENARIO` | 400 | `modeldomain.ErrInvalidScenario` | PUT path 的 scenario 不在白名单 | ✅ |
+| `PROVIDER_REQUIRED` | 400 | `modeldomain.ErrProviderRequired` | PUT body provider 空 | ✅ |
+| `MODEL_ID_REQUIRED` | 400 | `modeldomain.ErrModelIDRequired` | PUT body modelId 空 | ✅ |
 
 #### conversation ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `CONVERSATION_NOT_FOUND` | 404 | `conversation.ErrNotFound` | id 查不到（Get/Rename/Delete）| ✅ |
+| `CONVERSATION_NOT_FOUND` | 404 | `convdomain.ErrNotFound` | id 查不到（Get/Rename/Delete）| ✅ |
 
 #### chat ✅
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `MESSAGE_NOT_FOUND` | 404 | `chat.ErrMessageNotFound` | 消息 id 不存在 | ✅ |
-| `STREAM_NOT_FOUND` | 404 | `chat.ErrStreamNotFound` | 取消不存在的流 | ✅ |
-| `STREAM_IN_PROGRESS` | 409 | `chat.ErrStreamInProgress` | 同一对话已有流在跑 | ✅ |
-| `LLM_PROVIDER_ERROR` | 502 | `chat.ErrProviderUnavailable` / `llminfra.ErrProviderError` | 上游 LLM 故障（非 401）；wire code 共用——前者 chat 路径上抛，后者 infra/llm classifyHTTPError 兜底所有非 401/429/400/404 的 5xx | ✅ |
-| `ATTACHMENT_TOO_LARGE` | 413 | `chat.ErrAttachmentTooLarge` | 附件超过 50MB | ✅ |
-| `ATTACHMENT_TYPE_UNSUPPORTED` | 415 | `chat.ErrAttachmentTypeUnsupported` | 无法处理的文件格式 | ✅ |
-| `ATTACHMENT_PARSE_FAILED` | 422 | `chat.ErrAttachmentParseFailed` | 文件损坏或解析失败 | ✅ |
-| `VISION_NOT_SUPPORTED` | 422 | `chat.ErrVisionNotSupported` | 当前 provider 不支持图片 | ✅ |
+| `MESSAGE_NOT_FOUND` | 404 | `chatdomain.ErrMessageNotFound` | 消息 id 不存在 | ✅ |
+| `STREAM_NOT_FOUND` | 404 | `chatdomain.ErrStreamNotFound` | 取消不存在的流 | ✅ |
+| `STREAM_IN_PROGRESS` | 409 | `chatdomain.ErrStreamInProgress` | 同一对话已有流在跑 | ✅ |
+| `LLM_PROVIDER_ERROR` | 502 | `llminfra.ErrProviderError` | 上游 LLM 故障——infra/llm classifyHTTPError 兜底所有非 401/429/400/404 的 5xx | ✅ |
+| `ATTACHMENT_TOO_LARGE` | 413 | `chatdomain.ErrAttachmentTooLarge` | 附件超过 50MB | ✅ |
+| `ATTACHMENT_TYPE_UNSUPPORTED` | 415 | `chatdomain.ErrAttachmentTypeUnsupported` | 无法处理的文件格式 | ✅ |
+| `ATTACHMENT_PARSE_FAILED` | 422 | `chatdomain.ErrAttachmentParseFailed` | 文件损坏或解析失败 | ✅ |
 | `LLM_AUTH_FAILED` | 401 | `llminfra.ErrAuthFailed` | LLM provider 返 401（API key 失效）；errors.Is 触发 apikey.MarkInvalid | ✅ |
 | `LLM_RATE_LIMITED` | 429 | `llminfra.ErrRateLimited` | LLM provider 返 429（速率限制）| ✅ |
 | `LLM_BAD_REQUEST` | 400 | `llminfra.ErrBadRequest` | LLM provider 返 400（请求体非法）| ✅ |
@@ -133,16 +133,16 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `TOOL_NOT_FOUND` | 404 | `tool.ErrNotFound` | id 查不到 | ✅ |
-| `TOOL_NAME_DUPLICATE` | 409 | `tool.ErrDuplicateName` | 创建/改名时撞名 | ✅ |
-| `TOOL_VERSION_NOT_FOUND` | 404 | `tool.ErrVersionNotFound` | revert/get version 版本不存在 | ✅ |
-| `TOOL_PENDING_NOT_FOUND` | 404 | `tool.ErrPendingNotFound` | accept/reject 时无 pending | ✅ |
-| `TOOL_PENDING_CONFLICT` | 409 | `tool.ErrPendingConflict` | edit_forge 时已有未处理 pending | ✅ |
-| `TOOL_TEST_CASE_NOT_FOUND` | 404 | `tool.ErrTestCaseNotFound` | 测试用例找不到 | ✅ |
-| `TOOL_RUN_FAILED` | 422 | `tool.ErrRunFailed` | sandbox 内部错误（≠ ok=false 的执行失败）| ✅ |
-| `TOOL_AST_PARSE_FAILED` | 422 | `tool.ErrASTParseError` | 代码无法被 Python AST 解析 | ✅ |
-| `TOOL_IMPORT_INVALID` | 400 | `tool.ErrImportInvalid` | 导入 JSON 格式错误 | ✅ |
-| `TOOL_IMPORT_CONFLICT` | 409 | `tool.ErrImportConflict` | 导入名字冲突需用户决策 | ⬜ |
+| `TOOL_NOT_FOUND` | 404 | `forgedomain.ErrNotFound` | id 查不到 | ✅ |
+| `TOOL_NAME_DUPLICATE` | 409 | `forgedomain.ErrDuplicateName` | 创建/改名时撞名 | ✅ |
+| `TOOL_VERSION_NOT_FOUND` | 404 | `forgedomain.ErrVersionNotFound` | revert/get version 版本不存在 | ✅ |
+| `TOOL_PENDING_NOT_FOUND` | 404 | `forgedomain.ErrPendingNotFound` | accept/reject 时无 pending | ✅ |
+| `TOOL_PENDING_CONFLICT` | 409 | `forgedomain.ErrPendingConflict` | edit_forge 时已有未处理 pending | ✅ |
+| `TOOL_TEST_CASE_NOT_FOUND` | 404 | `forgedomain.ErrTestCaseNotFound` | 测试用例找不到 | ✅ |
+| `TOOL_RUN_FAILED` | 422 | `forgedomain.ErrRunFailed` | sandbox 内部错误（≠ ok=false 的执行失败）| ✅ |
+| `TOOL_AST_PARSE_FAILED` | 422 | `forgedomain.ErrASTParseError` | 代码无法被 Python AST 解析 | ✅ |
+| `TOOL_IMPORT_INVALID` | 400 | `forgedomain.ErrImportInvalid` | 导入 JSON 格式错误 | ✅ |
+| `TOOL_IMPORT_CONFLICT` | 409 | `forgedomain.ErrImportConflict` | 导入名字冲突需用户决策 | ⬜ |
 | `FORGE_ENV_NOT_READY` | 422 | `forge.ErrEnvNotReady` | ActiveVersion 的 venv 处于非-ready（syncing / evicted），需等 entity-state 翻转或调 :resync | ✅ |
 | `FORGE_NO_ACTIVE_VERSION` | 422 | `forge.ErrNoActiveVersion` | forge 还没接受过任何版本（草稿 forge 在 edit_forge 后 pending 未 accept 即 run）。TE-15 起 create_forge 自动 accept，本码主要给 edit_forge 后未 accept 的场景 | ✅ |
 | `FORGE_ENV_FAILED` | 422 | `forge.ErrEnvFailed` | ActiveVersion 的 env 处于 `EnvStatusFailed`（venv 安装步本身失败 / 系统级故障，**非** deps 解析失败——后者用 `FORGE_DEPENDENCY_RESOLUTION`）；EnvError 含 uv stderr | ✅ |
@@ -157,23 +157,23 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 > **NB：filesystem / search / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../service-design-documents/filesystem.md) / [`search.md`](../service-design-documents/search.md) / [`shell.md`](../service-design-documents/shell.md)。**例外**：web 家族的 BYOK provider HTTP 状态分类 sentinel **登记**（让 `errors.Is` 触发 `apikey.MarkInvalid`，UI 自动翻 "error"）；下方 todo / ask / web 三类有独立 HTTP 端点或显式 errmap 行。
 
-#### web ✅
-BYOK web search providers（Brave / Serper / Tavily / Bocha）的 HTTP 状态分类。同 LLM provider 模式，但 sentinel 独立（provider + discrimination 逻辑不同）。`tool/web/search.go::markInvalidIfAuthErr` 用 `errors.Is` 触发 `apikey.MarkInvalid`，替代 string match。
+#### web 🔁（控制流 sentinel，handler 不可达）
+BYOK web search providers（Brave / Serper / Tavily / Bocha）的 HTTP 状态分类 sentinel **不进 errmap**——`tool/web/search.go::tryBYOKProvider` 内部 catch 后 fallback 到下一 provider / MCP tier，永不冒泡到 handler。仅 `errors.Is` 内部判定用（`markInvalidIfAuthErr` 触发 `apikey.MarkInvalid` 替代 string match）。
 
-| Code | HTTP | Sentinel | 场景 | 状态 |
-|---|---|---|---|---|
-| `WEBSEARCH_AUTH_FAILED` | 401 | `webtool.ErrAuthFailed` | provider 返 401（API key 失效）| ✅ |
-| `WEBSEARCH_RATE_LIMITED` | 429 | `webtool.ErrRateLimited` | provider 返 429（速率限制）| ✅ |
-| `WEBSEARCH_UPSTREAM_HTTP` | 502 | `webtool.ErrUpstreamHTTP` | provider 返其他 5xx | ✅ |
+| Sentinel | 状态 | 用途 |
+|---|---|---|
+| `webtool.ErrAuthFailed` | 🔁 | provider 401（API key 失效）→ 触发 apikey.MarkInvalid + 落到下一 provider |
+| `webtool.ErrRateLimited` | 🔁 | provider 429（速率限制）→ 落到下一 provider |
+| `webtool.ErrUpstreamHTTP` | 🔁 | provider 其他 5xx → 落到下一 provider |
 
 #### todo ✅
 详见 [`../service-design-documents/todo.md`](../service-design-documents/todo.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `TODO_NOT_FOUND` | 404 | `todo.ErrNotFound` | TodoGet/Update/Delete 时 ID 不存在；**也覆盖跨 conversation 访问场景**（防存在性泄漏，统一返 NotFound 而非 mismatch）| ✅ |
-| `TODO_SUBJECT_REQUIRED` | 400 | `todo.ErrSubjectRequired` | TodoCreate / TodoUpdate 的 subject 字段为空 | ✅ |
-| `TODO_INVALID_STATUS` | 400 | `todo.ErrInvalidStatus` | TodoUpdate status 不在 4 值白名单（pending/in_progress/completed/deleted）| ✅ |
+| `TODO_NOT_FOUND` | 404 | `tododomain.ErrNotFound` | TodoGet/Update/Delete 时 ID 不存在；**也覆盖跨 conversation 访问场景**（防存在性泄漏，统一返 NotFound 而非 mismatch）| ✅ |
+| `TODO_SUBJECT_REQUIRED` | 400 | `tododomain.ErrSubjectRequired` | TodoCreate / TodoUpdate 的 subject 字段为空 | ✅ |
+| `TODO_INVALID_STATUS` | 400 | `tododomain.ErrInvalidStatus` | TodoUpdate status 不在 4 值白名单（pending/in_progress/completed/deleted）| ✅ |
 
 #### ask ✅
 AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 错误。
@@ -221,12 +221,10 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `MCP_TOOL_CALL_FAILED` | 502 | `mcpdomain.ErrToolCallFailed` | server 自报失败（含 isError=true）| ✅ |
 | `MCP_TOOL_CALL_TIMEOUT` | 504 | `mcpdomain.ErrToolCallTimeout` | per-call 超时（默认 30s，可 per-server override）| ✅ |
 | `MCP_REGISTRY_ENTRY_NOT_FOUND` | 404 | `mcpdomain.ErrRegistryEntryNotFound` | install 时 registry name 不存在 | ✅ |
-| `MCP_RUNTIME_MISSING` | 422 | `mcpdomain.ErrRuntimeMissing` | 系统未装 node / python | ✅ |
 | `MCP_REQUIRED_ENV_MISSING` | 422 | `mcpdomain.ErrRequiredEnvMissing` | install 时 required env 未填全 | ✅ |
 | `MCP_REQUIRED_ARGS_MISSING` | 422 | `mcpdomain.ErrRequiredArgsMissing` | install 时 required args 未填全 | ✅ |
 | `MCP_INSTALL_FAILED` | 502 | `mcpdomain.ErrInstallFailed` | npm install / uvx 安装命令失败 | ✅ |
 | `MCP_ALREADY_INSTALLED` | 409 | `mcpdomain.ErrAlreadyInstalled` | install 时 server name 已存在 mcp.json（先卸再装）| ✅ |
-| `MCP_UNSUPPORTED_RUNTIME` | 422 | `mcpdomain.ErrUnsupportedRuntime` | registry 条目 runtime 非 npm/pypi（curated 列表不会触发）| ✅ |
 
 > 注：Marketplace V3（2026-05-08 curated 化 / 2026-05-09 search→list 化）。`MCP_ALIAS_COLLISION`（无 alias 概念）+ `MCP_QUERY_REQUIRED`（V3 list 不再要 query）+ `MCP_MARKETPLACE_UNAVAILABLE`（curated 同步源永不失败）+ `MCP_HANDSHAKE_FAILED`（被 `MCP_SERVER_NOT_CONNECTED` 覆盖）相继移除。所有 sentinel + errmap 已对齐。
 

@@ -117,6 +117,18 @@ data: {"conversationId":"cv_abc","id":"blk_xyz","delta":"hello"}
 
 **重连**：`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件，再接实时；超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端 `GET /api/v1/conversations/{id}/eventlog?from=<seq>` refetch 全态。
 
+**History refetch endpoint** —— `GET /api/v1/conversations/{id}/eventlog?from=<seq>` 返 JSON envelope（**不是 SSE**）：
+
+```json
+{
+  "events": [ ...event JSONs from DB replay... ],
+  "tailSeq": 1234,
+  "count": 5
+}
+```
+
+`tailSeq` 是关键——客户端拿它作下次 SSE 重订的 `Last-Event-ID` header，无缝衔接历史 + 实时。`count` 帮 UI 显示加载进度。
+
 ## 6. 路由与嵌套
 
 - 客户端按 `conversationId` 订阅一条 SSE
@@ -201,29 +213,31 @@ type Event = {
 
 ### 11.2 现有 entity types（6 种 live）
 
-| type | producer 位点 | 触发场景 |
-|---|---|---|
-| `conversation` | `app/conversation/Service.{Create,Rename,SetSystemPrompt}` 168/117/128 行；`app/chat/runner.afterStreamFinalize` 自动改名后 | 创建 / 改名 / systemPrompt 修改 / autoTitle 完成 |
-| `todo` | `app/todo/Service.{Create,Update,Delete}` 经 publish helper（todo.go:249）| 任意 todo CRUD |
-| `mcp_server` | `app/mcp/Service.{updateStatus,setTools}` 326/379 行 | server 连接状态 / tools 列表变化 |
-| `skill` | `app/skill/Service.scan` 106 行 | fsnotify 触发 rescan 后 |
-| `catalog` | `app/catalog/Service.applyRefresh` 253 行 | 1s polling 后 catalog 内容变化 |
-| `sandbox_env` | `app/sandbox/Service.publishEnvUpdate` 661/682 行 | env 状态翻转（installing→ready / ready→failed / 删除）|
+| type | producer | 触发场景 | id 字段语义 |
+|---|---|---|---|
+| `conversation` | `app/conversation/Service.{Create,Update,Delete}` + `app/chat/runner.autoTitle` | 创建 / 改 title 或 systemPrompt / 软删 / 流结束后 LLM 自动生成 title | `cv_<16hex>` 真实 ID |
+| `todo` | `app/todo/Service.publish` helper (todo.go) | 任意 todo CRUD | `td_<16hex>` 真实 ID |
+| `mcp_server` | `app/mcp/Service.{AddServer,RemoveServer,Reconnect,HealthCheck,InstallFromRegistry}` + `publishStatus` helper | server 增删改 / 重连 / 健康检查 / 状态变化 | server name（mcp.json key）|
+| `skill` | `app/skill/Service.Scan` (polling.go) 每秒一次轮询 SKILL.md 目录后变化时 | 添 / 改 / 删 SKILL.md 后 1 秒内被检出 | **`"*"` 哨兵**——"批量哨兵"表示 skill 库整体变更，client 全部重读 |
+| `catalog` | `app/catalog/Service.applyRefresh` (polling.go) | poll 后 fingerprint 变化时 | **fingerprint hex**——catalog 是单实体无 ID 体系，指纹作为版本标识 |
+| `sandbox_env` | `app/sandbox/Service.{publishEnv,publishEnvDeleted}` helpers | env 状态变（创建 / 准备好 / 失败）/ env 软删 | `se_<16hex>` 真实 ID |
 
-新增 type 字符串即可（**开放词表**——E2 演化规则）。前端不需协议升级。
+新增 type 字符串即可（**开放词表**——E2 演化规则）。前端不需协议升级。**id 字段语义**：多数实体的 id = 真实业务 ID；2 例外（skill 用 `"*"` 哨兵；catalog 用 fingerprint hex）。
 
 ### 11.3 HTTP 端点
 
-`GET /api/v1/notifications` — 单 SSE 流，全订阅（无 query 参数）。客户端按 `event.type` / `event.conversationId` 客户端过滤分派渲染。
+`GET /api/v1/notifications` — 单 SSE 流，全订阅（无 query 参数）。客户端按 `data.type` / `data.conversationId` JSON 字段过滤分派渲染。
 
-**Wire format（同 §N7）**：
+**Wire format**（**注意与 §N7 eventlog 不同**）：
 
 ```
-event: <type>
+event: notification          ← 硬码字面量"notification"，不是动态实体类型
 id: <seq>
-data: <event JSON, 不重复 type/seq>
+data: {"type":"<entityType>","id":"<id>","data":{...},"conversationId":"<convId or empty>"}
 
 ```
+
+**前端 dispatch**：所有通知 SSE event name **永远是 `"notification"`**——前端用 `es.addEventListener("notification", ...)` 单点订阅，然后按 `JSON.parse(e.data).type` 分派给不同 entity 处理器。**不要**写 `addEventListener("conversation", ...)` 之类按实体类型订阅——SSE event name 不是动态的。这是设计决策：开放词表协议（每加新 entity type 不需前端扩展 SSE 路由表）。
 
 **重连**：`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件，再接实时；超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端清缓存重订（无 fromSeq）+ 经 REST refetch 关心的实体。
 
@@ -241,7 +255,8 @@ type Service struct {
 
 // 内部消费：
 s.notif.Publish(ctx, "conversation", convID, snapshot, convID)
-// 第 5 参 conversationID 必填——不绑对话的实体传 ""
+// 第 5 参 conversationID（位置参数必传）——conversation-scoped 实体传对应 conversationID；
+// 非 scoped 实体（skill / catalog 等全局的）传空字符串 ""
 ```
 
 `New(bridge, log)` 是唯一构造器；bridge nil 时返 noop Publisher，service 构造器可安全 fallback `notificationspkg.New(nil, log)` 用于测试 / 未接线场景。**failure log 不上抛**——通知是可观测性，不是业务。
@@ -255,7 +270,7 @@ s.notif.Publish(ctx, "conversation", convID, snapshot, convID)
 | 路由 | `parentId` 递归（先于事件名）| 客户端按 type / conversationId 过滤 |
 | 演化 | 加事件 / block type **必须**改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可，无协议升级 |
 | 用途 | 流式 chat 内容（含 subagent 嵌套）| entity 状态更新（CRUD / 异步进度）|
-| Bridge | per-conv seq + 4096 replay buffer | global seq + replay buffer |
+| Bridge | per-conv seq + **4096** replay buffer | global seq + **1024** replay buffer（事件日志单对话内事件密集所以更大；通知全局广播 6 类型，1024 够用） |
 | Producer | 紧密耦合（5 类型固定 schema）| 松散耦合（Publisher 接受任意 type 字符串）|
 | Block 类型变动 | DB CHECK + 前端 renderer 同 PR | 仅前端按 type 加 renderer |
 

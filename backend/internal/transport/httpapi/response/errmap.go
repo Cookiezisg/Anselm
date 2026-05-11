@@ -21,7 +21,6 @@ import (
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
-	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -58,11 +57,9 @@ var errTable = map[error]errMapping{
 	chatdomain.ErrMessageNotFound:           {http.StatusNotFound, "MESSAGE_NOT_FOUND"},
 	chatdomain.ErrStreamNotFound:            {http.StatusNotFound, "STREAM_NOT_FOUND"},
 	chatdomain.ErrStreamInProgress:          {http.StatusConflict, "STREAM_IN_PROGRESS"},
-	chatdomain.ErrProviderUnavailable:       {http.StatusBadGateway, "LLM_PROVIDER_ERROR"},
 	chatdomain.ErrAttachmentTooLarge:        {http.StatusRequestEntityTooLarge, "ATTACHMENT_TOO_LARGE"},
 	chatdomain.ErrAttachmentTypeUnsupported: {http.StatusUnsupportedMediaType, "ATTACHMENT_TYPE_UNSUPPORTED"},
 	chatdomain.ErrAttachmentParseFailed:     {http.StatusUnprocessableEntity, "ATTACHMENT_PARSE_FAILED"},
-	chatdomain.ErrVisionNotSupported:        {http.StatusUnprocessableEntity, "VISION_NOT_SUPPORTED"},
 
 	// model domain / model domain 层
 	modeldomain.ErrNotConfigured:    {http.StatusUnprocessableEntity, "MODEL_NOT_CONFIGURED"},
@@ -158,14 +155,12 @@ var errTable = map[error]errMapping{
 	mcpdomain.ErrToolCallFailed:        {http.StatusBadGateway, "MCP_TOOL_CALL_FAILED"},
 	mcpdomain.ErrToolCallTimeout:       {http.StatusGatewayTimeout, "MCP_TOOL_CALL_TIMEOUT"},
 	mcpdomain.ErrRegistryEntryNotFound: {http.StatusNotFound, "MCP_REGISTRY_ENTRY_NOT_FOUND"},
-	mcpdomain.ErrRuntimeMissing:        {http.StatusUnprocessableEntity, "MCP_RUNTIME_MISSING"},
 	mcpdomain.ErrRequiredEnvMissing:    {http.StatusUnprocessableEntity, "MCP_REQUIRED_ENV_MISSING"},
 	mcpdomain.ErrRequiredArgsMissing:   {http.StatusUnprocessableEntity, "MCP_REQUIRED_ARGS_MISSING"},
 	mcpdomain.ErrInstallFailed:         {http.StatusBadGateway, "MCP_INSTALL_FAILED"},
 	// Marketplace V2 (2026-05-08): added when official MCP Registry was wired in.
 	// Marketplace V2（2026-05-08）：接入官方 MCP Registry 时加。
-	mcpdomain.ErrAlreadyInstalled:   {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
-	mcpdomain.ErrUnsupportedRuntime: {http.StatusUnprocessableEntity, "MCP_UNSUPPORTED_RUNTIME"},
+	mcpdomain.ErrAlreadyInstalled: {http.StatusConflict, "MCP_ALREADY_INSTALLED"},
 
 	// skill domain (V1.2 D7) / skill domain
 	skilldomain.ErrSkillNotFound:      {http.StatusNotFound, "SKILL_NOT_FOUND"},
@@ -203,18 +198,16 @@ var errTable = map[error]errMapping{
 	llminfra.ErrModelNotFound: {http.StatusNotFound, "LLM_MODEL_NOT_FOUND"},
 	llminfra.ErrProviderError: {http.StatusBadGateway, "LLM_PROVIDER_ERROR"},
 
-	// BYOK web-search providers (Brave / Serper / Tavily / Bocha) — same
-	// HTTP-status-classifier pattern as llm above, separate sentinels
-	// because providers and discrimination logic differ. Lets
-	// search.go::markInvalidIfAuthErr drive apikey.MarkInvalid via
-	// errors.Is instead of string matching.
+	// BYOK web-search providers (Brave / Serper / Tavily / Bocha) sentinels
+	// (webtool.ErrAuthFailed / ErrRateLimited / ErrUpstreamHTTP) are
+	// control-flow only — `WebSearch.Execute::tryBYOKProvider` catches
+	// them internally to fall through to the next provider / MCP tier.
+	// They never reach FromDomainError, so no errmap registration is
+	// needed (D-redo fix 2026-05-11 removed prior entries).
 	//
-	// BYOK web search provider sentinel——同 llm 模式但独立（provider 与
-	// discrimination 逻辑不同）。让 markInvalidIfAuthErr 用 errors.Is 触发
-	// apikey.MarkInvalid，替代 string match。
-	webtool.ErrAuthFailed:   {http.StatusUnauthorized, "WEBSEARCH_AUTH_FAILED"},
-	webtool.ErrRateLimited:  {http.StatusTooManyRequests, "WEBSEARCH_RATE_LIMITED"},
-	webtool.ErrUpstreamHTTP: {http.StatusBadGateway, "WEBSEARCH_UPSTREAM_HTTP"},
+	// BYOK web 搜索 provider sentinel 是控制流 sentinel——`WebSearch.Execute`
+	// 内部 catch 后落到下一 provider / MCP。永不到 FromDomainError，故
+	// 不需 errmap 注册（D-redo fix 2026-05-11 删除原条目）。
 
 	// Standard library context errors. Browser hard-refresh / tab close
 	// cancels r.Context(), which propagates up through every store call

@@ -130,10 +130,10 @@ func TestSentinels_AllDistinct(t *testing.T) {
 	all := []error{
 		ErrServerNotFound, ErrServerNotConnected, ErrToolNotFound,
 		ErrToolCallFailed, ErrToolCallTimeout,
-		ErrRegistryEntryNotFound, ErrRuntimeMissing, ErrRequiredEnvMissing,
+		ErrRegistryEntryNotFound, ErrRequiredEnvMissing,
 		ErrRequiredArgsMissing, ErrInstallFailed,
 	}
-	if want := 10; len(all) != want {
+	if want := 9; len(all) != want {
 		t.Errorf("sentinel count = %d, want %d", len(all), want)
 	}
 	seen := make(map[string]bool, len(all))

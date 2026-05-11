@@ -16,12 +16,12 @@ import (
 )
 
 // ModelConfig records the user's (provider, modelID) for one scenario.
-// At most one active row per (user_id, scenario), enforced by a partial
-// UNIQUE index in schema_extras.go.
+// GORM uniqueIndex (full UNIQUE) on (user_id, scenario); partial UNIQUE
+// deferred per service-design-documents/model.md §17.
 //
-// ModelConfig 记录用户某 scenario 下的 (provider, modelID)。
-// 每对 (user_id, scenario) 最多一条活跃行——schema_extras.go 的
-// partial UNIQUE 索引保证。
+// ModelConfig 记录用户某 scenario 下的 (provider, modelID)。GORM 全
+// UNIQUE 索引 `(user_id, scenario)`；partial UNIQUE 暂缓（详
+// service-design-documents/model.md §17）。
 type ModelConfig struct {
 	ID        string         `gorm:"primaryKey;type:text" json:"id"`
 	UserID    string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:1" json:"-"`

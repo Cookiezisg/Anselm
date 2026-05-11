@@ -229,11 +229,9 @@ var (
 	ErrBlockNotFound             = errors.New("chat: block not found")
 	ErrStreamNotFound            = errors.New("chat: no active stream for conversation")
 	ErrStreamInProgress          = errors.New("chat: stream already in progress")
-	ErrProviderUnavailable       = errors.New("chat: LLM provider unavailable")
 	ErrAttachmentTooLarge        = errors.New("chat: attachment exceeds 50 MB limit")
 	ErrAttachmentTypeUnsupported = errors.New("chat: attachment type not supported")
 	ErrAttachmentParseFailed     = errors.New("chat: attachment parse failed")
-	ErrVisionNotSupported        = errors.New("chat: provider does not support vision")
 )
 
 // Repository is the storage contract for Message / Block / Attachment.
