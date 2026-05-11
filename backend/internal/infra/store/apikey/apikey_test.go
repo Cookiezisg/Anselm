@@ -59,7 +59,7 @@ func mkKey(id, userID, provider string) *apikeydomain.APIKey {
 	}
 }
 
-func TestSave_Insert(t *testing.T) {
+func TestSave_NewRowCreated(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 

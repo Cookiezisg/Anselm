@@ -52,7 +52,7 @@ func mkConfig(id, userID, scenario, provider, modelID string) *modeldomain.Model
 
 // --- Upsert ---
 
-func TestUpsert_Insert(t *testing.T) {
+func TestUpsert_NewRowCreated(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 

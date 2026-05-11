@@ -59,7 +59,7 @@ func TestSave_InsertAndGet(t *testing.T) {
 	}
 }
 
-func TestSave_Update(t *testing.T) {
+func TestSave_ExistingRowReplaced(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 
