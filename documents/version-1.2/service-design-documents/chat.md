@@ -991,7 +991,7 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 ### Phase 5（智能化完成后）
 - 追加 `search_knowledge`（RAG）+ `mcp_call`（MCP 服务器）system tool
 - System Prompt 升级为意图引导版（"可创建工具/工作流/搜知识库，自主决策"）
-- 长对话 context compaction（`app/loop/loop.go` 已预留 TODO 钩子点）：超长时压缩历史，保留关键消息——这是 Claude Code 调研 [`claude-code-research-documents/03-context.md`](../claude-code-research-documents/03-context.md) 的吸收
+- 长对话 context compaction：超长时压缩历史，保留关键消息——这是 Claude Code 调研 [`claude-code-research-documents/03-context.md`](../claude-code-research-documents/03-context.md) 的吸收。Phase 5 实施时再在 `app/loop/` 加钩子点（当前代码无占位）
 
 ---
 

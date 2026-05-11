@@ -283,11 +283,10 @@ func (h *SandboxHandler) installRuntime(w http.ResponseWriter, r *http.Request) 
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if req.Kind == "" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "KIND_REQUIRED",
-			"kind is required", nil)
-		return
-	}
+	// Empty kind falls through — EnsureRuntime returns
+	// ErrRuntimeNotSupported via errmap → SANDBOX_RUNTIME_NOT_SUPPORTED 422.
+	// 空 kind 不预校验——下游 EnsureRuntime 返 ErrRuntimeNotSupported
+	// 经 errmap 翻 422，错误码统一。
 	rt, err := h.svc.EnsureRuntime(r.Context(),
 		sandboxdomain.RuntimeSpec{Kind: req.Kind, Version: req.Version}, nil)
 	if err != nil {

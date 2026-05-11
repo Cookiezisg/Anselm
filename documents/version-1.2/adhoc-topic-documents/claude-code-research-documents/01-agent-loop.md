@@ -239,15 +239,15 @@ function partition(toolUses: ToolUse[]): Batch[] {
 
 ## 6. 对 Forgify 的改进建议
 
-> 现有实现：`backend/internal/app/chat/runner.go` 中 `agentRun` 单层 for+`maxSteps=20`，`stream.go:64` 已留 TODO(A1) 标记 mid-stream 触发；`tools.go:29` `runTools` 一律 goroutine 全并行；无 stop hook、无 retry、无 context shaper。
+> 现有实现：`backend/internal/app/chat/runner.go` 中 `agentRun` 单层 for+`maxSteps=20`；流式 + 工具执行已迁到 `app/loop/`（`stream.go` / `tools.go`），`runTools` 用 LLM 自报 `execution_group` 分批（同 group 并行 / 不同 group 串行）；无 stop hook、无 retry、无 context shaper。
 
 | # | 改进 | 现状 | 目标（Claude Code 做法） | 实施 | 影响文件 | 优先级 |
 |---|---|---|---|---|---|---|
 | 1 | **拆 State 对象** | 5 个独立局部变量 + sr 字符串 | 单一 `State` struct + `transition reason` 诊断字段 | 在 `runner.go` 顶部声明 `type agentState struct{Messages, TotalIn, TotalOut, StopReason, AttemptedCompact bool, MaxOutTokensRetry int, Transition string}` | `chat/runner.go` | P0（重构性，便于后续所有功能） |
 | 2 | **Stop Hook 接口** | 无；LLM 一不调工具就立即 writeDB+break | 调用 `s.hooks.RunStop(ctx, state)`，返回 `block:true` 时把 reason 当 system message 注入 history、loop 再走一轮 | runner.go agentRun "无工具调用→writeDB" 分支前插入 `if shouldContinue, reason := s.runStopHooks(ctx, allBlocks); shouldContinue { history = append(history, llminfra.LLMMessage{Role:"user",Content:"<stop-hook>"+reason}); continue }`；新增 `chat/hooks.go` 定义 `type StopHook interface { Eval(ctx, state) (block bool, reason string, error) }` | `chat/runner.go:168`, 新文件 `chat/hooks.go` | P1 |
-| 3 | **mid-stream tool 执行** | TODO(A1) 已留位置 | StreamingToolExecutor：`EventToolStart(N+1)` 到达即可启动 tool N | 在 `stream.go:64` 把"args 完整即推到执行池"做掉。改返回类型为 `(blocks, toolFutures map[int]<-chan blockResult, ...)`；`agentRun` 收 future 而不是同步 `runTools` | `chat/stream.go`, `chat/runner.go` | P2（收益大但实现复杂、容易错） |
-| 4 | **isConcurrencySafe 分批** | 一律 goroutine 全并行 | Read/Grep/Glob 并行，Edit/Write/Bash 串行；相邻同性质合批 | Tool 接口加 `IsReadOnly() bool`；`runTools` 改为先 partition 再循环每个 batch（safe→`sync.WaitGroup` 全并行；unsafe→串行 for） | `agent/tool.go`, `chat/tools.go` | P0（安全性 + 一致性，写文件应该串行） |
-| 5 | **withRetry 包装** | 无；网络抖一下就 publishError → terminal | `withRetry()` 10 次，`Retry-After`、jitter、ECONNRESET 处理 | `infra/llm` 增加 `RetryClient` decorator，包住 `client.Stream`。`runner.go` 收到 `EventError` 时区分 transient 和 fatal | `infra/llm/*`, `chat/runner.go:161` | P1 |
+| 3 | **mid-stream tool 执行** | 同步：streamLLM 跑完才 runTools | StreamingToolExecutor：`EventToolStart(N+1)` 到达即可启动 tool N | 在 `app/loop/stream.go` 把"args 完整即推到执行池"做掉。改返回类型为 `(blocks, toolFutures map[int]<-chan blockResult, ...)`；`agentRun` 收 future 而不是同步 `runTools` | `app/loop/stream.go`, `app/chat/runner.go` | P2（收益大但实现复杂、容易错） |
+| 4 | **进一步分批策略** | LLM 自报 `execution_group` 已分批（同 group 并行 / 不同 group 串行） | 自动按工具语义分（Read/Grep/Glob 并行，Edit/Write/Bash 串行） | Tool 接口 `IsReadOnly()` 元数据已存在（当前文档性）；改 `app/loop/tools.go::runTools` 在 LLM 缺 group 时按 IsReadOnly 自动分组 | `app/tool/tool.go`, `app/loop/tools.go` | P2（已经有 execution_group 兜底；语义分组是优化） |
+| 5 | **withRetry 包装** | 无；网络抖一下就 publishError → terminal | `withRetry()` 10 次，`Retry-After`、jitter、ECONNRESET 处理 | `infra/llm` 增加 `RetryClient` decorator，包住 `client.Stream`。`runner.go` 收到 `EventError` 时区分 transient 和 fatal | `infra/llm/*`, `app/chat/runner.go` | P1 |
 | 6 | **token budget continuation** | 无 | 本回合 output 数<90% 且非 diminishing → 注入 nudge "继续完成" | `agentRun` 终止前判 `if oT < 0.9*budget && !diminishing { history append nudge; continue }` | `chat/runner.go` | P3（先看用户是否有这个痛点） |
 | 7 | **abort 行为更精细** | `cancel()` 立即终止 | abort 后等当前 tool batch 跑完再退、写 partial state | `agentRun` 收 `ctx.Done()` 时 `runTools` 不取消、setStopReason=Cancelled、再 break | `chat/runner.go` | P2 |
 | 8 | **不变 maxSteps 上限** | 20 步硬上限 | 改成 token+turn 软上限，靠 stop reason 自然收敛 | 删除 maxSteps，加 `softTurnLimit=50` 但只在 transition 都是 same reason 重复 N 次时停 | `chat/runner.go:114` | P3（先观察 20 是否会撞到） |

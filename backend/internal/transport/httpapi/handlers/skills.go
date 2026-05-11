@@ -157,11 +157,10 @@ func (h *SkillsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if strings.TrimSpace(req.Name) == "" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
-			"name is required", nil)
-		return
-	}
+	// Empty / whitespace name falls through — Service.Create's validateName
+	// regex `^[a-z0-9][a-z0-9-]{0,63}$` rejects it and returns ErrInvalidName
+	// → errmap → SKILL_INVALID_NAME 422. More specific error than custom 400.
+	// 空/纯空白 name 不预校验——下游 validateName regex 必拒，错误码更精准。
 	sk, err := h.svc.Create(r.Context(), req.Name, req.Frontmatter, req.Body)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

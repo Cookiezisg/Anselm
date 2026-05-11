@@ -145,11 +145,12 @@ func (h *EventLogHandler) Stream(w http.ResponseWriter, r *http.Request) {
 // 410 Gone 时调用本端点 refetch 全态，然后用响应中的 tail seq 作
 // Last-Event-ID 重订阅。
 func (h *EventLogHandler) History(w http.ResponseWriter, r *http.Request) {
+	// Go 1.22 mux {id} pattern rejects empty path segments at the router
+	// layer — an empty id can never reach this handler. Validation here
+	// would be dead code (§6 反校验剧场).
+	// Go 1.22 mux {id} 在路由层就拒空段——handler 永不会收到空 id，
+	// 此处校验属死分支（§6 反校验剧场）。
 	conversationID := r.PathValue("id")
-	if conversationID == "" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "conversationId is required", nil)
-		return
-	}
 	var fromSeq int64
 	if v := r.URL.Query().Get("from"); v != "" {
 		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
