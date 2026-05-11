@@ -231,9 +231,10 @@ func TestD9_BootSmoke(t *testing.T) {
 		gotNames[tool.Name()] = true
 	}
 	wantTools := []string{
-		// function family (forge_redesign trinity)
+		// function family (forge_redesign trinity) — 7 CRUD/exec + 2 execution log
 		"search_function", "get_function", "create_function", "edit_function",
 		"revert_function", "delete_function", "run_function",
+		"search_function_executions", "get_function_execution",
 		// filesystem family
 		"Read", "Write", "Edit", "Glob", "Grep",
 		// shell family
