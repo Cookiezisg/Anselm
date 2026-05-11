@@ -39,6 +39,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -49,6 +50,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -60,6 +62,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -75,6 +78,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
+	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
@@ -158,6 +162,7 @@ type Harness struct {
 	Model        *modelapp.Service
 	Conversation *convapp.Service
 	Forge        *forgeapp.Service
+	Function     *functionapp.Service
 	Chat         *chatapp.Service
 	Tools        []toolapp.Tool
 }
@@ -212,6 +217,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
 		&forgedomain.ForgeExecution{},
+		&functiondomain.Function{},
+		&functiondomain.Version{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -291,6 +298,13 @@ func New(t *testing.T, opts ...Option) *Harness {
 		log,
 	)
 
+	functionService := functionapp.NewService(
+		functionstore.New(gdb),
+		functionapp.NewSandboxAdapter(sandboxSvc, dataDir),
+		notificationsPub,
+		log,
+	)
+
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
@@ -314,6 +328,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools := forgetool.ForgeTools(
 		forgeService, chatRepo, modelService, apikeyService, llmFactory, log,
 	)
+	tools = append(tools, functiontool.FunctionTools(
+		functionService, modelService, apikeyService, llmFactory, log,
+	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard, log)...)
 	// WebTools wired without MCP router in pipeline harness — tests that
@@ -465,6 +482,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// on choosing" prose。D9 + test/catalog 场景全针对 mechanical 标记
 	// 断言，都通过。
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
+	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
 	if err := catalogService.Start(context.Background()); err != nil {
@@ -488,6 +506,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		ModelService:        modelService,
 		ConversationService: convService,
 		ForgeService:        forgeService,
+		FunctionService:     functionService,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
@@ -527,6 +546,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Model:               modelService,
 		Conversation:        convService,
 		Forge:               forgeService,
+		Function:            functionService,
 		Chat:                chatService,
 		Tools:               tools,
 	}

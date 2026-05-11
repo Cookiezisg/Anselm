@@ -25,6 +25,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	forgeapp "github.com/sunweilin/forgify/backend/internal/app/forge"
+	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -35,6 +36,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	forgetool "github.com/sunweilin/forgify/backend/internal/app/tool/forge"
+	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -46,6 +48,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
@@ -63,6 +66,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	forgestore "github.com/sunweilin/forgify/backend/internal/infra/store/forge"
+	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
@@ -137,6 +141,8 @@ func main() {
 		&forgedomain.ForgeVersion{},
 		&forgedomain.ForgeTestCase{},
 		&forgedomain.ForgeExecution{},
+		&functiondomain.Function{},
+		&functiondomain.Version{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -217,6 +223,18 @@ func main() {
 		log,
 	)
 
+	// Function service (forge_redesign trinity). Coexists with forgeService
+	// until Plan 01 Phase 7 deletes the legacy forge code path.
+	//
+	// Function service(forge_redesign trinity)。与 forgeService 并存,
+	// 直到 Plan 01 Phase 7 删 legacy forge。
+	functionService := functionapp.NewService(
+		functionstore.New(gdb),
+		functionapp.NewSandboxAdapter(sandboxSvc, *dataDir),
+		notificationsPub,
+		log,
+	)
+
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
@@ -280,6 +298,13 @@ func main() {
 		llmFactory,
 		log,
 	)
+	tools = append(tools, functiontool.FunctionTools(
+		functionService,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard, log)...)
 	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory, mcpapp.NewSearchRouter(mcpService), log)...)
@@ -367,6 +392,7 @@ func main() {
 	catalogService := catalogapp.New(filepath.Join(homeRoot, ".catalog.json"), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
 	catalogService.RegisterSource(forgeService.AsCatalogSource())
+	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
 	if err := catalogService.Start(context.Background()); err != nil {
@@ -393,6 +419,7 @@ func main() {
 		ModelService:        modelService,
 		ConversationService: convService,
 		ForgeService:        forgeService,
+		FunctionService:     functionService,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
