@@ -1,0 +1,87 @@
+// search.go — search_workflow system tool: case-insensitive substring
+// search over name / description / tags. V1 implementation. Workflow
+// catalog is NOT auto-injected to chat (D9 — workflows are trigger-driven,
+// LLM shouldn't fire them on a whim) so search is the LLM's discovery path.
+//
+// search.go —— search_workflow:大小写不敏感子串搜 name/description/tags。
+// workflow 不进 catalog(D9),LLM 靠本工具发现。
+
+package workflow
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"go.uber.org/zap"
+
+	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+)
+
+type SearchWorkflow struct {
+	svc *workflowapp.Service
+	log *zap.Logger
+}
+
+func (t *SearchWorkflow) Name() string { return "search_workflow" }
+
+func (t *SearchWorkflow) Description() string {
+	return "Search the user's workflow library by case-insensitive substring " +
+		"over name / description / tags. Returns up to limit (default 10) " +
+		"matches with id, name, description, tags, enabled, activeVersionId, " +
+		"and needsAttention flag."
+}
+
+func (t *SearchWorkflow) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"properties": {
+			"query": {"type": "string", "description": "Substring to search for; empty = list all"},
+			"limit": {"type": "integer", "description": "Max results (default 10)"}
+		}
+	}`)
+}
+
+func (t *SearchWorkflow) IsReadOnly() bool        { return true }
+func (t *SearchWorkflow) NeedsReadFirst() bool    { return false }
+func (t *SearchWorkflow) RequiresWorkspace() bool { return false }
+
+func (t *SearchWorkflow) ValidateInput(json.RawMessage) error { return nil }
+func (t *SearchWorkflow) CheckPermissions(json.RawMessage, toolapp.PermissionMode) toolapp.PermissionResult {
+	return toolapp.PermissionAllow
+}
+
+func (t *SearchWorkflow) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args struct {
+		Query string `json:"query"`
+		Limit int    `json:"limit"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("search_workflow: bad args: %w", err)
+	}
+	if args.Limit <= 0 {
+		args.Limit = 10
+	}
+	rows, err := t.svc.Search(ctx, args.Query)
+	if err != nil {
+		return "", fmt.Errorf("search_workflow: %w", err)
+	}
+	if len(rows) > args.Limit {
+		rows = rows[:args.Limit]
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, w := range rows {
+		out = append(out, map[string]any{
+			"id":              w.ID,
+			"name":            w.Name,
+			"description":     w.Description,
+			"tags":            w.Tags,
+			"enabled":         w.Enabled,
+			"activeVersionId": w.ActiveVersionID,
+			"needsAttention":  w.NeedsAttention,
+		})
+	}
+	b, _ := json.Marshal(out)
+	return string(b), nil
+}
