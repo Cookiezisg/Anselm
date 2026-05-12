@@ -50,15 +50,17 @@ type Service struct {
 	repo         flowrundomain.Repository
 	workflowRead WorkflowReader
 	notif        notificationspkg.Publisher
+	router       *Router
 	log          *zap.Logger
 
 	cancelsMu sync.RWMutex
 	cancels   map[string]context.CancelFunc
 
-	// Test hook for E5 — production E6 will fill this in with executeRun.
-	// Public so harness can override (e.g. fake-run that closes faster).
+	// ExecuteFn is the per-run driver. Default: executeRun (real E6 DAG
+	// state machine). Tests / harness may override to stub timing.
 	//
-	// 测试钩子;E6 用真 executeRun 实现填。harness 可 override。
+	// ExecuteFn 是 per-run 驱动;默认 executeRun(E6 真 DAG 状态机);
+	// 测试可 override。
 	ExecuteFn func(ctx context.Context, run *flowrundomain.FlowRun, graph *workflowdomain.Graph)
 }
 
@@ -83,14 +85,32 @@ func NewService(
 		repo:         repo,
 		workflowRead: workflowRead,
 		notif:        notif,
+		router:       NewRouter(),
 		log:          log.Named("schedulerapp"),
 		cancels:      make(map[string]context.CancelFunc),
 	}
-	// Default ExecuteFn = no-op (E5 stub). E6 wires the real one.
-	// 默认 ExecuteFn 是 no-op;E6 接真 executeRun。
-	s.ExecuteFn = s.executeRunStub
+	// E6: default ExecuteFn is the real DAG-driving body. Router starts
+	// empty — graphs with no nodes still complete OK;graphs with nodes
+	// of unregistered types fail with NO_DISPATCHER. E15 wires the 13
+	// real dispatchers; tests register only the types they exercise.
+	//
+	// E6:默认 ExecuteFn 走真 executeRun;Router 起空,空图照样 OK,
+	// 未注册类型的节点失败 NO_DISPATCHER。E15 接 13 个真 dispatcher,
+	// 测试只注册需要的类型。
+	s.ExecuteFn = s.executeRun
 	return s
 }
+
+// SetRouter swaps the Router. E15 main.go / harness calls this after
+// constructing the 13 production dispatchers.
+//
+// SetRouter 替 Router;E15 主装配后调,接 13 个生产 dispatcher。
+func (s *Service) SetRouter(r *Router) { s.router = r }
+
+// Router returns the current router (test helpers, observability).
+//
+// Router 返当前 router。
+func (s *Service) RouterRef() *Router { return s.router }
 
 // Sentinel errors. Wire codes registered in transport/httpapi/response/errmap.go.
 //
@@ -222,24 +242,6 @@ func (s *Service) releaseCancel(runID string) {
 	s.cancelsMu.Lock()
 	delete(s.cancels, runID)
 	s.cancelsMu.Unlock()
-}
-
-// executeRunStub is the E5 placeholder — finalizes the run as completed
-// immediately. E6 replaces ExecuteFn with the real DAG-driving body.
-// Kept as a method (not free fn) so Service can swap its own behaviour.
-//
-// executeRunStub 是 E5 占位;立刻 finalize 为 completed。E6 用真 executeRun
-// 替换 ExecuteFn。
-func (s *Service) executeRunStub(ctx context.Context, run *flowrundomain.FlowRun, _ *workflowdomain.Graph) {
-	endedAt := time.Now().UTC()
-	elapsedMs := endedAt.Sub(run.StartedAt).Milliseconds()
-	if err := s.repo.UpdateStatus(ctx, run.ID, flowrundomain.StatusCompleted,
-		map[string]any{"stub": true}, "", "", &endedAt, elapsedMs); err != nil {
-		s.log.Warn("scheduler.executeRunStub: finalize failed",
-			zap.String("runID", run.ID), zap.Error(err))
-		return
-	}
-	s.publish(ctx, run.ID, run.WorkflowID, "completed", nil)
 }
 
 // publish emits a `flowrun` entity notification (slim payload D-redo-6).
