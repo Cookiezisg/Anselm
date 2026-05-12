@@ -46,8 +46,8 @@ func FunctionTools(
 	return []toolapp.Tool{
 		&SearchFunction{svc: svc, picker: picker, keys: keys, factory: factory, log: log},
 		&GetFunction{svc: svc},
-		&CreateFunction{svc: svc},
-		&EditFunction{svc: svc},
+		&CreateFunction{svc: svc, picker: picker, keys: keys, factory: factory},
+		&EditFunction{svc: svc, picker: picker, keys: keys, factory: factory},
 		&RevertFunction{svc: svc},
 		&DeleteFunction{svc: svc},
 		&RunFunction{svc: svc},

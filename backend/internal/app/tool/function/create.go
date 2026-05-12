@@ -1,25 +1,40 @@
 // create.go — create_function system tool: applies a sequence of ops to
-// create a new Function with an auto-accepted v1. Streams one progress delta
-// per op via a progress block wrapped around the Service call.
+// create a new Function with an auto-accepted v1, runs synchronous env
+// install, and on env-fix failure enters the C2 LLM env-fix loop (up to
+// 3 attempts, main-chat-scenario model suggests revised deps). On final
+// success, AcceptPending flips the active version to the fixed pending so
+// the user sees a single "ready" function (the failed v1 stays in version
+// history). Per discussions/2026-05-12 §E.
 //
-// create.go —— create_function 系统工具:对空状态应用 ops 建新 Function 含
-// 自动 accept 的 v1。开 progress block 包住 Service 调用,每 op emit 一行。
+// create.go —— create_function 系统工具:对空状态应用 ops 建 v1 + 同步装 env;
+// env 失败时跑 C2 内部 env-fix loop(最多 3 次,主 chat LLM 建议新 deps)。
+// 最终成功时调 AcceptPending 把修好的 pending 翻为 active(失败的 v1 留版本史)。
 
 package function
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	envfixpkg "github.com/sunweilin/forgify/backend/internal/pkg/envfix"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
 type CreateFunction struct {
-	svc *functionapp.Service
+	svc     *functionapp.Service
+	picker  modeldomain.ModelPicker
+	keys    apikeydomain.KeyProvider
+	factory *llminfra.Factory
 }
 
 func (t *CreateFunction) Name() string { return "create_function" }
@@ -28,7 +43,9 @@ func (t *CreateFunction) Description() string {
 	return "Create a new function by applying a sequence of ops. The ops must include " +
 		"set_meta (name + description), set_code (Python source), set_parameters (input " +
 		"schema), and optionally set_return_schema / set_dependencies / set_python_version. " +
-		"On success the function's v1 is auto-accepted and env-sync starts in background."
+		"On success the function's v1 is auto-accepted. If the venv install fails, an internal " +
+		"env-fix loop retries up to 3 times by asking the LLM to revise the dependency list; " +
+		"the final tool result carries envStatus + attemptsUsed + attemptHistory."
 }
 
 func (t *CreateFunction) Parameters() json.RawMessage {
@@ -85,18 +102,141 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("create_function: %w", err)
 	}
 
-	// Env sync is synchronous inside Service.Create (D-redo-9). v.EnvStatus
-	// is already terminal here. C2 will wrap this with the env-fix loop;
-	// for C1 the tool just surfaces the final env state to the LLM.
+	// If the initial env install was already ready, return immediately.
+	// 初次装即 ready → 直接返。
+	if v.EnvStatus == functiondomain.EnvStatusReady {
+		return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status, v.EnvStatus, "", 1, nil, len(ops)), nil
+	}
+
+	// Env failed — enter env-fix loop. Resolve main-chat LLM bundle.
+	// env 失败 → 进 env-fix loop;解析主 chat LLM。
+	bundle, bundleErr := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
+	if bundleErr != nil {
+		// Without an LLM we cannot fix; surface the install failure as-is.
+		// 无 LLM 无法 fix,把装失败原样返。
+		em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt 1] env install failed: %s\n", truncForUI(v.EnvError)))
+		em.DeltaBlock(ctx, progID, fmt.Sprintf("env-fix loop unavailable: %v\n", bundleErr))
+		return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status, v.EnvStatus, v.EnvError, 1, nil, len(ops)), nil
+	}
+
+	result := envfixpkg.RunLoop(ctx, envfixpkg.Options{
+		Bundle: bundle,
+		InitialAttempt: envfixpkg.Attempt{
+			Number:    1,
+			Deps:      append([]string(nil), v.Dependencies...),
+			EnvStatus: v.EnvStatus,
+			EnvError:  v.EnvError,
+		},
+		MaxAttempts: envfixpkg.DefaultMaxAttempts,
+		ApplyDeps: func(ctx context.Context, newDeps []string) (string, string, error) {
+			// Each retry: ask Service.Edit to apply a new set_dependencies op on
+			// top of (initially) active or (after first retry) pending; iterate-
+			// same-pending semantics keep the row count bounded.
+			//
+			// 每次重试调 svc.Edit 加 set_dependencies op;iterate-same-pending
+			// 保证行数不爆炸。
+			depsOp, _ := json.Marshal(map[string]any{"deps": newDeps})
+			editV, err := t.svc.Edit(ctx, functionapp.EditInput{
+				ID: f.ID,
+				Ops: []functionapp.Op{{
+					Type: "set_dependencies",
+					Raw:  depsOp,
+				}},
+				ChangeReason:    fmt.Sprintf("env-fix retry: %d deps", len(newDeps)),
+				ProgressBlockID: progID,
+			})
+			if err != nil {
+				return "", "", err
+			}
+			return editV.EnvStatus, editV.EnvError, nil
+		},
+		Hooks: envfixpkg.LoopHooks{
+			OnFixing: func(ctx context.Context, attempt int) {
+				em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] AI suggesting revised deps...\n", attempt))
+			},
+			OnAttemptResult: func(ctx context.Context, a envfixpkg.Attempt) {
+				if a.EnvStatus == "ready" {
+					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env ready ✓\n", a.Number))
+				} else {
+					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env failed: %s\n", a.Number, truncForUI(a.EnvError)))
+				}
+			},
+		},
+	})
+
+	// If the loop ended with a service-level fatal (e.g. sandbox unavailable
+	// mid-loop), surface as tool error.
+	// 循环中遇 service 级致命错(如 sandbox 不可用)→ 直接抛。
+	if result.FatalErr != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, result.FatalErr)
+		return "", fmt.Errorf("create_function: %w", result.FatalErr)
+	}
+
+	// On success, flip active version to the fixed pending (v1 stays as a
+	// failed historical version). Idempotent for ready path; skipped on
+	// failed path.
+	// 成功 → AcceptPending 把修好的 pending 翻 active(失败的 v1 留版本史)。
+	if result.FinalEnvStatus == functiondomain.EnvStatusReady {
+		acceptedV, acceptErr := t.svc.AcceptPending(ctx, f.ID)
+		if acceptErr != nil && !errors.Is(acceptErr, functiondomain.ErrPendingNotFound) {
+			// AcceptPending failed; surface as env failure on the originally-
+			// created v1 row so the LLM sees a coherent state.
+			// AcceptPending 失败 → 把它当 env 失败返(LLM 看 v1 状态一致)。
+			em.DeltaBlock(ctx, progID, fmt.Sprintf("[final] AcceptPending failed: %v\n", acceptErr))
+			return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status,
+				"failed", acceptErr.Error(), result.AttemptsUsed, result.History, len(ops)), nil
+		}
+		if acceptedV != nil {
+			v = acceptedV
+		}
+	}
+
+	return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status,
+		result.FinalEnvStatus, result.FinalEnvError, result.AttemptsUsed, result.History, len(ops)), nil
+}
+
+// marshalCreateOutput is the single source of truth for the create_function
+// tool's wire shape — keeps the success path + each error fallback path
+// emitting the same JSON envelope.
+//
+// marshalCreateOutput 是 create_function 工具线协议唯一源 — 成功 + 各 fallback
+// 都走同一个 envelope。
+func marshalCreateOutput(
+	id, versionID string,
+	versionN *int,
+	status string,
+	envStatus, envError string,
+	attemptsUsed int,
+	history []envfixpkg.Attempt,
+	opsApplied int,
+) string {
 	out := map[string]any{
-		"id":         f.ID,
-		"versionId":  v.ID,
-		"version":    v.Version,
-		"status":     v.Status,
-		"envStatus":  v.EnvStatus,
-		"envError":   v.EnvError,
-		"opsApplied": len(ops),
+		"id":           id,
+		"versionId":    versionID,
+		"version":      versionN,
+		"status":       status,
+		"envStatus":    envStatus,
+		"opsApplied":   opsApplied,
+		"attemptsUsed": attemptsUsed,
+	}
+	if envError != "" {
+		out["envError"] = envError
+	}
+	if len(history) > 1 {
+		out["attemptHistory"] = history
 	}
 	b, _ := json.Marshal(out)
-	return string(b), nil
+	return string(b)
+}
+
+// truncForUI shortens a long error message for the UI delta. The DB row
+// retains the full envError; this is just to keep the progress block legible.
+//
+// truncForUI 把过长的错误截短给 UI delta 用;DB 行仍存全文。
+func truncForUI(s string) string {
+	const max = 240
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "…"
 }

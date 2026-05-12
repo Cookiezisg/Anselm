@@ -37,8 +37,8 @@ func HandlerTools(
 	return []toolapp.Tool{
 		&SearchHandler{svc: svc, picker: picker, keys: keys, factory: factory, log: log},
 		&GetHandler{svc: svc},
-		&CreateHandler{svc: svc},
-		&EditHandler{svc: svc},
+		&CreateHandler{svc: svc, picker: picker, keys: keys, factory: factory},
+		&EditHandler{svc: svc, picker: picker, keys: keys, factory: factory},
 		&RevertHandler{svc: svc},
 		&DeleteHandler{svc: svc},
 		&CallHandler{svc: svc},

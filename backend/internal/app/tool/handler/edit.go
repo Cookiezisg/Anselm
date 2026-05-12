@@ -1,4 +1,16 @@
-// edit.go — edit_handler system tool: applies ops to active version → pending.
+// edit.go — edit_handler system tool: applies method-level ops on top of the
+// current pending (or active, when no pending) version. Iterate-same-pending
+// semantics (D-redo-11) — a second edit while a pending exists rewrites the
+// same row.
+//
+// On env install failure, enters the C2 env-fix loop: up to 3 attempts where
+// the main-chat LLM revises the dependency list. Unlike create_handler the
+// tool does NOT auto-accept on success — Edit's contract is "leave a pending
+// for the user to review".
+//
+// edit.go —— edit_handler 工具:method-level ops 应用到 pending(或 active);
+// iterate-same-pending(D-redo-11)。env 装失败时跑 env-fix loop;不 auto-accept
+// (Edit 契约是留 pending 给用户)。
 
 package handler
 
@@ -9,21 +21,31 @@ import (
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	envfixpkg "github.com/sunweilin/forgify/backend/internal/pkg/envfix"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
 type EditHandler struct {
-	svc *handlerapp.Service
+	svc     *handlerapp.Service
+	picker  modeldomain.ModelPicker
+	keys    apikeydomain.KeyProvider
+	factory *llminfra.Factory
 }
 
 func (t *EditHandler) Name() string { return "edit_handler" }
 
 func (t *EditHandler) Description() string {
-	return "Edit an existing handler by applying method-level ops on top of its active " +
-		"version. Creates a new pending version (user must accept). Errors if a pending " +
-		"already exists — caller must accept / reject first. Use update_method op for " +
-		"in-place method body changes (JSON Merge Patch)."
+	return "Edit an existing handler by applying method-level ops. Creates (or iterates) " +
+		"a pending version. Pass ops=[] to force-rebuild the active version's env (D-redo-22). " +
+		"Use update_method op for in-place method body changes (JSON Merge Patch). If the venv " +
+		"install fails, an internal env-fix loop retries up to 3 times by asking the LLM to " +
+		"revise the dependency list."
 }
 
 func (t *EditHandler) Parameters() json.RawMessage {
@@ -81,7 +103,89 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("edit_handler: %w", err)
 	}
 
-	out := map[string]any{"pendingId": v.ID, "opsApplied": len(ops)}
+	if v.EnvStatus == handlerdomain.EnvStatusReady {
+		return marshalEditOutput(v.ID, v.EnvStatus, "", 1, nil, len(ops)), nil
+	}
+
+	bundle, bundleErr := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
+	if bundleErr != nil {
+		em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt 1] env install failed: %s\n", truncForUI(v.EnvError)))
+		em.DeltaBlock(ctx, progID, fmt.Sprintf("env-fix loop unavailable: %v\n", bundleErr))
+		return marshalEditOutput(v.ID, v.EnvStatus, v.EnvError, 1, nil, len(ops)), nil
+	}
+
+	result := envfixpkg.RunLoop(ctx, envfixpkg.Options{
+		Bundle: bundle,
+		InitialAttempt: envfixpkg.Attempt{
+			Number:    1,
+			Deps:      append([]string(nil), v.Dependencies...),
+			EnvStatus: v.EnvStatus,
+			EnvError:  v.EnvError,
+		},
+		MaxAttempts: envfixpkg.DefaultMaxAttempts,
+		ApplyDeps: func(ctx context.Context, newDeps []string) (string, string, error) {
+			depsOp, _ := json.Marshal(map[string]any{"deps": newDeps})
+			retryV, err := t.svc.Edit(ctx, handlerapp.EditInput{
+				ID: args.ID,
+				Ops: []handlerapp.Op{{
+					Type: "set_dependencies",
+					Raw:  depsOp,
+				}},
+				ChangeReason:    fmt.Sprintf("env-fix retry: %d deps", len(newDeps)),
+				ProgressBlockID: progID,
+			})
+			if err != nil {
+				return "", "", err
+			}
+			return retryV.EnvStatus, retryV.EnvError, nil
+		},
+		Hooks: envfixpkg.LoopHooks{
+			OnFixing: func(ctx context.Context, attempt int) {
+				em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] AI suggesting revised deps...\n", attempt))
+			},
+			OnAttemptResult: func(ctx context.Context, a envfixpkg.Attempt) {
+				if a.EnvStatus == "ready" {
+					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env ready ✓\n", a.Number))
+				} else {
+					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env failed: %s\n", a.Number, truncForUI(a.EnvError)))
+				}
+			},
+		},
+	})
+
+	if result.FatalErr != nil {
+		em.StopBlock(ctx, progID, eventlogdomain.StatusError, result.FatalErr)
+		return "", fmt.Errorf("edit_handler: %w", result.FatalErr)
+	}
+
+	return marshalEditOutput(v.ID, result.FinalEnvStatus, result.FinalEnvError,
+		result.AttemptsUsed, result.History, len(ops)), nil
+}
+
+// marshalEditOutput is the single source of truth for the edit_handler tool's
+// wire shape. Distinct from create_handler — Edit returns a pending awaiting
+// user accept.
+//
+// marshalEditOutput edit_handler 工具线协议;跟 create 不同 — 不翻 active。
+func marshalEditOutput(
+	pendingID string,
+	envStatus, envError string,
+	attemptsUsed int,
+	history []envfixpkg.Attempt,
+	opsApplied int,
+) string {
+	out := map[string]any{
+		"pendingId":    pendingID,
+		"envStatus":    envStatus,
+		"opsApplied":   opsApplied,
+		"attemptsUsed": attemptsUsed,
+	}
+	if envError != "" {
+		out["envError"] = envError
+	}
+	if len(history) > 1 {
+		out["attemptHistory"] = history
+	}
 	b, _ := json.Marshal(out)
-	return string(b), nil
+	return string(b)
 }
