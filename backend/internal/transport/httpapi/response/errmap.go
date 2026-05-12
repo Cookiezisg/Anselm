@@ -14,6 +14,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -83,6 +84,27 @@ var errTable = map[error]errMapping{
 	functiondomain.ErrSandboxUnavailable:   {http.StatusServiceUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE"},
 	functiondomain.ErrOpInvalid:            {http.StatusBadRequest, "FUNCTION_OP_INVALID"},
 	functiondomain.ErrExecutionNotFound:    {http.StatusNotFound, "FUNCTION_EXECUTION_NOT_FOUND"},
+
+	// handler domain (forge_redesign Plan 02 trinity second leg) /
+	// handler domain (Plan 02 trinity 第二条腿)
+	handlerdomain.ErrNotFound:            {http.StatusNotFound, "HANDLER_NOT_FOUND"},
+	handlerdomain.ErrDuplicateName:       {http.StatusConflict, "HANDLER_NAME_DUPLICATE"},
+	handlerdomain.ErrMethodNotFound:      {http.StatusNotFound, "HANDLER_METHOD_NOT_FOUND"},
+	handlerdomain.ErrVersionNotFound:     {http.StatusNotFound, "HANDLER_VERSION_NOT_FOUND"},
+	handlerdomain.ErrPendingNotFound:     {http.StatusNotFound, "HANDLER_PENDING_NOT_FOUND"},
+	handlerdomain.ErrPendingConflict:     {http.StatusConflict, "HANDLER_PENDING_CONFLICT"},
+	handlerdomain.ErrInstanceSpawnFailed: {http.StatusUnprocessableEntity, "HANDLER_INSTANCE_SPAWN_FAILED"},
+	handlerdomain.ErrInstanceCrashed:     {http.StatusUnprocessableEntity, "HANDLER_INSTANCE_CRASHED"},
+	handlerdomain.ErrInstanceRPCTimeout:  {http.StatusGatewayTimeout, "HANDLER_INSTANCE_RPC_TIMEOUT"},
+	handlerdomain.ErrInstanceNotFound:    {http.StatusNotFound, "HANDLER_INSTANCE_NOT_FOUND"},
+	handlerdomain.ErrNoActiveVersion:     {http.StatusUnprocessableEntity, "HANDLER_NO_ACTIVE_VERSION"},
+	handlerdomain.ErrEnvNotReady:         {http.StatusUnprocessableEntity, "HANDLER_ENV_NOT_READY"},
+	handlerdomain.ErrEnvFailed:           {http.StatusUnprocessableEntity, "HANDLER_ENV_FAILED"},
+	handlerdomain.ErrOpInvalid:           {http.StatusBadRequest, "HANDLER_OP_INVALID"},
+	handlerdomain.ErrASTParseError:       {http.StatusUnprocessableEntity, "HANDLER_AST_PARSE_FAILED"},
+	handlerdomain.ErrConfigIncomplete:    {http.StatusUnprocessableEntity, "HANDLER_CONFIG_INCOMPLETE"},
+	handlerdomain.ErrConfigInvalid:       {http.StatusBadRequest, "HANDLER_CONFIG_INVALID"},
+	handlerdomain.ErrConfigDecryptFailed: {http.StatusInternalServerError, "HANDLER_CONFIG_DECRYPT_FAILED"},
 
 	// todo domain / todo domain 层
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},

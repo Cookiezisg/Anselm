@@ -15,6 +15,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
@@ -58,6 +59,14 @@ type Deps struct {
 	// FunctionService 管理用户的 Python function 库(CRUD、版本、沙箱执行)。
 	// forge_redesign trinity 域,替代历史 ForgeService。
 	FunctionService *functionapp.Service
+
+	// HandlerService manages the user's Python handler library (CRUD,
+	// versions, sandbox-spawned long-lived instances, AES-GCM init args
+	// config). Trinity second leg.
+	//
+	// HandlerService 管理用户 Python handler 库(CRUD、版本、sandbox 起的
+	// 长跑 instance、AES-GCM init args config)。Trinity 第二条腿。
+	HandlerService *handlerapp.Service
 
 	// ChatService implements messaging, attachment upload, and Agent streaming.
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。
