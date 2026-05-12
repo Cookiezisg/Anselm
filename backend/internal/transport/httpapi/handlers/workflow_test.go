@@ -1,0 +1,316 @@
+// workflow_test.go — E2E contract tests for /api/v1/workflows/*.
+//
+// workflow_test.go — /api/v1/workflows/* 端到端契约测试。
+package handlers
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"go.uber.org/zap/zaptest"
+	gormlogger "gorm.io/gorm/logger"
+
+	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
+	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+)
+
+func newWorkflowTestServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	gdb, err := dbinfra.Open(dbinfra.Config{LogLevel: gormlogger.Silent})
+	if err != nil {
+		t.Fatalf("dbinfra.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = dbinfra.Close(gdb) })
+	if err := dbinfra.Migrate(gdb, workflowstore.AutoMigrateModels()...); err != nil {
+		t.Fatalf("dbinfra.Migrate: %v", err)
+	}
+	log := zaptest.NewLogger(t)
+	svc := workflowapp.NewService(workflowstore.New(gdb), nil, notificationspkg.New(nil, log), log)
+	h := NewWorkflowHandler(svc, log)
+	mux := http.NewServeMux()
+	h.Register(mux)
+	return httptest.NewServer(middlewarehttpapi.InjectUserID(mux))
+}
+
+// happyCreateOps returns a minimal valid ops payload: set_meta + one trigger
+// node. Validation passes (one trigger, no edges, no cycle).
+//
+// happyCreateOps 返最小可用 ops:set_meta + 一个 trigger 节点(无 edge,无 cycle)。
+func happyCreateOps(name string) []map[string]any {
+	return []map[string]any{
+		{"op": "set_meta", "name": name, "description": "test workflow"},
+		{"op": "add_node", "node": map[string]any{
+			"id":   "n1",
+			"type": "trigger",
+			"name": "manual",
+			"config": map[string]any{
+				"triggerType": "manual",
+			},
+		}},
+	}
+}
+
+func TestWorkflowHandler_Create_Success(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	status, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{
+		"ops":          happyCreateOps("hello-wf"),
+		"changeReason": "first version",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("status = %d, want 201: %+v", status, env)
+	}
+	d := dataMap(t, env)
+	wf, ok := d["workflow"].(map[string]any)
+	if !ok {
+		t.Fatalf("workflow missing: %+v", d)
+	}
+	if got := wf["name"].(string); got != "hello-wf" {
+		t.Errorf("name = %q, want hello-wf", got)
+	}
+	if id := wf["id"].(string); len(id) < 4 {
+		t.Errorf("id = %q, too short", id)
+	}
+	v, ok := d["version"].(map[string]any)
+	if !ok {
+		t.Fatalf("version missing")
+	}
+	if got := v["status"].(string); got != workflowdomain.StatusAccepted {
+		t.Errorf("version status = %q, want accepted", got)
+	}
+}
+
+func TestWorkflowHandler_Create_DuplicateName(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	body := map[string]any{"ops": happyCreateOps("dup")}
+	do(t, srv, "POST", "/api/v1/workflows", body)
+	status, env := do(t, srv, "POST", "/api/v1/workflows", body)
+	if status != http.StatusConflict {
+		t.Fatalf("status = %d, want 409: %+v", status, env)
+	}
+	if code := errorCode(t, env); code != "WORKFLOW_NAME_DUPLICATE" {
+		t.Errorf("code = %q, want WORKFLOW_NAME_DUPLICATE", code)
+	}
+}
+
+func TestWorkflowHandler_Create_NoTrigger(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	status, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{
+		"ops": []map[string]any{
+			{"op": "set_meta", "name": "no-trigger", "description": "x"},
+		},
+	})
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %+v", status, env)
+	}
+	if code := errorCode(t, env); code != "WORKFLOW_NO_TRIGGER" {
+		t.Errorf("code = %q, want WORKFLOW_NO_TRIGGER", code)
+	}
+}
+
+func TestWorkflowHandler_List_Paged(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	for _, n := range []string{"a-wf", "b-wf", "c-wf"} {
+		do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps(n)})
+	}
+	status, env := do(t, srv, "GET", "/api/v1/workflows", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	items := dataSlice(t, env)
+	if len(items) != 3 {
+		t.Errorf("len(data) = %d, want 3", len(items))
+	}
+	if _, has := env["hasMore"]; !has {
+		t.Error("paged envelope missing hasMore")
+	}
+}
+
+func TestWorkflowHandler_List_EnabledFilter(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	for _, n := range []string{"on-1", "on-2"} {
+		do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps(n)})
+	}
+	// Disable on-2.
+	_, env := do(t, srv, "GET", "/api/v1/workflows", nil)
+	for _, raw := range dataSlice(t, env) {
+		wf := raw.(map[string]any)
+		if wf["name"].(string) == "on-2" {
+			id := wf["id"].(string)
+			do(t, srv, "PATCH", "/api/v1/workflows/"+id, map[string]any{"enabled": false})
+		}
+	}
+	status, env := do(t, srv, "GET", "/api/v1/workflows?enabled=true", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	if got := len(dataSlice(t, env)); got != 1 {
+		t.Errorf("enabled-only count = %d, want 1", got)
+	}
+}
+
+func TestWorkflowHandler_Get_NotFound(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	status, env := do(t, srv, "GET", "/api/v1/workflows/wf_missing", nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404: %+v", status, env)
+	}
+	if code := errorCode(t, env); code != "WORKFLOW_NOT_FOUND" {
+		t.Errorf("code = %q, want WORKFLOW_NOT_FOUND", code)
+	}
+}
+
+func TestWorkflowHandler_UpdateMeta_Success(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("orig-name")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	newDesc := "updated description"
+	status, env := do(t, srv, "PATCH", "/api/v1/workflows/"+id, map[string]any{
+		"description": newDesc,
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %+v", status, env)
+	}
+	if got := dataMap(t, env)["description"].(string); got != newDesc {
+		t.Errorf("description = %q, want %q", got, newDesc)
+	}
+}
+
+func TestWorkflowHandler_Delete_Success(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("to-delete")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	status, _ := do(t, srv, "DELETE", "/api/v1/workflows/"+id, nil)
+	if status != http.StatusNoContent {
+		t.Fatalf("DELETE status = %d, want 204", status)
+	}
+	// Confirm soft-delete via GET.
+	status, env = do(t, srv, "GET", "/api/v1/workflows/"+id, nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("post-delete GET status = %d, want 404: %+v", status, env)
+	}
+}
+
+func TestWorkflowHandler_Versions_Listing(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("versioned")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	status, env := do(t, srv, "GET", "/api/v1/workflows/"+id+"/versions", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status = %d", status)
+	}
+	rows := dataSlice(t, env)
+	if len(rows) != 1 {
+		t.Errorf("len(versions) = %d, want 1", len(rows))
+	}
+	// Fetch by numeric version.
+	status, env = do(t, srv, "GET", "/api/v1/workflows/"+id+"/versions/1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("version detail status = %d", status)
+	}
+	v := dataMap(t, env)
+	if got := v["status"].(string); got != workflowdomain.StatusAccepted {
+		t.Errorf("version status = %q", got)
+	}
+}
+
+func TestWorkflowHandler_Pending_NotFound(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("no-pending")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	status, env := do(t, srv, "GET", "/api/v1/workflows/"+id+"/pending", nil)
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404: %+v", status, env)
+	}
+	if code := errorCode(t, env); code != "WORKFLOW_PENDING_NOT_FOUND" {
+		t.Errorf("code = %q, want WORKFLOW_PENDING_NOT_FOUND", code)
+	}
+}
+
+func TestWorkflowHandler_Revert_Success(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	// Create v1 (auto-accepted by Create).
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("reverting")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	// Revert to v1 — flips active to v1 again (no-op pointer flip, but exercises the path).
+	status, env := do(t, srv, "POST", "/api/v1/workflows/"+id+":revert", map[string]any{
+		"targetVersion": 1,
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status = %d: %+v", status, env)
+	}
+	v := dataMap(t, env)
+	if got := v["status"].(string); got != workflowdomain.StatusAccepted {
+		t.Errorf("status = %q, want accepted", got)
+	}
+}
+
+func TestWorkflowHandler_PostUnknownAction_NotFound(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("unknown-action")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	// :trigger is Plan 05 — should 404 in Plan 04. http.NotFound writes
+	// plain text rather than the JSON envelope, so call directly and only
+	// check status (do() fatals on non-JSON bodies).
+	// :trigger 在 Plan 05 — Plan 04 应 404。http.NotFound 写纯文本,直接走
+	// http.Client 只验状态码(do() 解 JSON 失败会 fatal)。
+	resp, err := srv.Client().Post(srv.URL+"/api/v1/workflows/"+id+":trigger", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown action status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestWorkflowHandler_Create_BadJSON(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	// Unknown field triggers decodeJSON DisallowUnknownFields.
+	status, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{
+		"ops":           happyCreateOps("bad"),
+		"unknown_field": "x",
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %+v", status, env)
+	}
+	if code := errorCode(t, env); code != "INVALID_REQUEST" {
+		t.Errorf("code = %q, want INVALID_REQUEST", code)
+	}
+}

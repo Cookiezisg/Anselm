@@ -16,6 +16,7 @@ import (
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
@@ -105,6 +106,22 @@ var errTable = map[error]errMapping{
 	handlerdomain.ErrConfigInvalid:       {http.StatusBadRequest, "HANDLER_CONFIG_INVALID"},
 	handlerdomain.ErrConfigDecryptFailed: {http.StatusInternalServerError, "HANDLER_CONFIG_DECRYPT_FAILED"},
 	handlerdomain.ErrCallNotFound:        {http.StatusNotFound, "HANDLER_CALL_NOT_FOUND"},
+
+	// workflow domain (forge_redesign Plan 04 trinity third leg — DAG authoring) /
+	// workflow domain (Plan 04 trinity 第三条腿 — DAG authoring)
+	// ErrPendingConflict is absent by design (iterate-same-pending per D-redo-11).
+	// Trigger / flowrun execution sentinels live in Plan 05.
+	workflowdomain.ErrNotFound:              {http.StatusNotFound, "WORKFLOW_NOT_FOUND"},
+	workflowdomain.ErrDuplicateName:         {http.StatusConflict, "WORKFLOW_NAME_DUPLICATE"},
+	workflowdomain.ErrVersionNotFound:       {http.StatusNotFound, "WORKFLOW_VERSION_NOT_FOUND"},
+	workflowdomain.ErrPendingNotFound:       {http.StatusNotFound, "WORKFLOW_PENDING_NOT_FOUND"},
+	workflowdomain.ErrNoActiveVersion:       {http.StatusUnprocessableEntity, "WORKFLOW_NO_ACTIVE_VERSION"},
+	workflowdomain.ErrDAGCycle:              {http.StatusUnprocessableEntity, "WORKFLOW_DAG_CYCLE"},
+	workflowdomain.ErrInvalidReference:      {http.StatusUnprocessableEntity, "WORKFLOW_INVALID_REFERENCE"},
+	workflowdomain.ErrNoTrigger:             {http.StatusUnprocessableEntity, "WORKFLOW_NO_TRIGGER"},
+	workflowdomain.ErrOpInvalid:             {http.StatusBadRequest, "WORKFLOW_OP_INVALID"},
+	workflowdomain.ErrCapabilityNotFound:    {http.StatusUnprocessableEntity, "WORKFLOW_CAPABILITY_NOT_FOUND"},
+	workflowdomain.ErrMCPServerNotInstalled: {http.StatusUnprocessableEntity, "WORKFLOW_MCP_SERVER_NOT_INSTALLED"},
 
 	// todo domain / todo domain 层
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},
