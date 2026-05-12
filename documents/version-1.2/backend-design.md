@@ -105,7 +105,7 @@ handler.SendMessage
       → agentRun → client.Stream(Request)       → iter.Seq[StreamEvent] → SSE
 ```
 
-### Phase 3 — 工具锻造能力(forge_redesign Plan 01/02/03/04 trinity 完成)
+### Phase 3 — 工具锻造能力 + 执行 plane(forge_redesign Plan 01/02/03/04/05 完成)
 `function` 主 domain(版本 / pending / sandbox 执行 / 执行日志 D22,12 端点)+ `handler` 二条腿(stateful Python class + caller-owns lifetime + Config + handler_calls D22,16 端点)+ `workflow` 三条腿(DAG 锻造 + 13 节点类型 + 9 op + Kahn cycle + CapabilityChecker,11 端点 — Plan 04)+ `app/tool/function/` 9 LLM 工具 + `app/tool/handler/` 10 LLM 工具 + `app/tool/workflow/` 6 LLM 工具 + chat ReAct 多步循环。Python 沙箱通过统一 PluginSandbox v2(mise embed)+ SandboxAdapter。
 
 > Phase 3 历史:(1) 2026-05-02 第一轮 `tool` → `forge` 大重命名;(2) 2026-05-11 forge_redesign Plan 01 把 forge 重设为 trinity 域 Function 部分(13 commits 直推 main,forge 代码路径整批删除);(3) 2026-05-12 Plan 02 handler trinity 第二条腿(11 commits 直推 main);(4) 2026-05-12 Plan 03 eventlog + forge 三流统一(6 commits + 2 doc commits)— env 模型重整(EnvID 每版本独立 + 同步装 + iterate-same-pending + LLM env-fix loop)、SSE 改三流 per-user(eventlog + notifications + 新 forge 流)、删 :resync 端点 + env_synced/env_failed 通知 + ErrPendingConflict;(5) 2026-05-12 **Plan 04 workflow authoring trinity 第三条腿**(9 commits W1-W9 直推 main)— DAG 锻造 + 13 节点类型 + 9 op engine + Kahn cycle 检测 + ProductionCapabilityChecker(function/handler/skill/mcp 跨域)+ Go text/template 表达式 + iterate-same-pending(无 envfix loop;无 env)+ 6 LLM tools + 11 HTTP + WorkflowReader 接口预留 Plan 05。详见 [`adhoc-topic-documents/forge_redesign/`](./adhoc-topic-documents/forge_redesign/) 系列文档 + [`discussions/2026-05-12-env-and-sse-rework.md`](./adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) 26 项 D-redo 决策。
@@ -180,6 +180,8 @@ backend/
     │   ├── function/               ← ✅ Function + Version + Execution (D22) + Repository + ExecutionRepository + 14 sentinel（forge_redesign Plan 01 替代 forge domain）
     │   ├── handler/                ← ✅ Handler + Version + Call (D22) + MethodSpec + InitArgSpec + Repository + CallRepository + 19 sentinel（forge_redesign Plan 02 trinity 第二条腿）
     │   ├── workflow/               ← ✅ Workflow + Version + Graph + NodeSpec (13 types) + EdgeSpec + VariableSpec + 9 Op + Repository + 11 sentinel（forge_redesign Plan 04 trinity 第三条腿；故意无 ErrPendingConflict — iterate-same-pending D-redo-11）
+    │   ├── flowrun/                ← ✅ FlowRun + Node + PausedState + 6 sentinel + 11 方法 Repository (Plan 05 执行 plane 记录簿)
+    │   ├── trigger/                ← ✅ 4 Kind + 3 State + Spec + State + 4 sentinel (Plan 05 listener 类型)
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
@@ -188,9 +190,7 @@ backend/
     │   ├── skill/                  ← ✅ Skill + Frontmatter（Anthropic SKILL.md spec 全字段保留 cross-vendor）+ 5 sentinel + MaxBodyBytes/MaxDescriptionChars 常量
     │   ├── catalog/                ← ✅ CatalogSource port + Catalog + Item + Granularity (PerItem/PerServer/PerCollection) + SystemPromptProvider + 2 sentinel（内部消化不进 errmap）
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
-    │   ├── flowrun/                ← ⬜ Phase 4 / Plan 05 — execution plane (per-trigger 行 + 状态 + aggregates)
-    │   ├── scheduler/              ← ⬜ Phase 4 / Plan 05 — trigger dispatcher (cron / fsnotify / HTTP webhook)
-    │   ├── trigger/                ← ⬜ Phase 4 / Plan 05 — trigger sources + bindings to workflow nodes
+    │   (flowrun/trigger/scheduler ✅ 上方;Plan 05 完成)
     │   ├── knowledge/ document/    ← ⬜ Phase 5
     │   └── intent/                 ← ⬜ Phase 5
     │
@@ -202,11 +202,13 @@ backend/
     │   ├── chat/                   ← ✅ 重构为 loop 调用方：chat.go / runner.go（agentRun → 构造 chatHost → loop.Run + autoTitle）/ host.go / history.go / util.go（stream/tools 已迁出到 loop 包）
     │   ├── function/               ← ✅ function.go (Service + Sandbox port) + apply.go (6-op engine + ParseOps) + validate.go + crud.go (CRUD + pending/accept/reject/revert) + run.go (RunFunction + SyncEnvForVersion + recordExecution) + executions.go (SearchExecutions + GetExecutionDetail + hints) + sandbox_adapter.go + sandbox_types.go + catalog_source.go
     │   ├── handler/                ← ✅ handler.go (Service + Sandbox port + ClientFactory) + apply.go (10-op method-level engine + JSON Merge Patch) + validate.go + crud.go (CRUD + pending/accept/reject/revert + UpdateMeta) + config.go (AES-GCM Load/Update/Clear + ConfigState + MaskedConfig) + rpc.go (AssembleClass + DriverScript) + registry.go (Owner / Instance / instanceRegistry caller-owns lifetime) + call.go (Service.Call per-call vs registry + recordCall D22) + calls.go (SearchCalls + GetCallDetail + hints) + sandbox_adapter.go + sandbox_types.go + catalog_source.go + GetByName (workflow CapabilityChecker 跨域)
-    │   ├── workflow/               ← ✅ workflow.go (Service + WorkflowReader 接口预留 Plan 05) + apply.go (9-op engine + RFC 7396 JSON Merge Patch + cloneGraph deep) + validate.go (Kahn cycle + CapabilityChecker + container body 递归 ≤3) + crud.go (CRUD + iterate-same-pending + 自动 accept v1 + slim notif) + expression.go (Go text/template ~140 LOC) + checker_production.go (ProductionChecker 装 function/handler/skill/mcp)
+    │   ├── workflow/               ← ✅ workflow.go (Service + WorkflowReader 接口) + apply.go (9-op engine + RFC 7396 JSON Merge Patch + cloneGraph deep) + validate.go (Kahn cycle + CapabilityChecker + container body 递归 ≤3) + crud.go (CRUD + iterate-same-pending + 自动 accept v1 + slim notif) + expression.go (Go text/template ~140 LOC) + checker_production.go (ProductionChecker 装 function/handler/skill/mcp)
+    │   ├── scheduler/              ← ✅ scheduler.go (Service + StartRun 7-gate + Cancel) + state.go (ExecutionContext + topo Kahn + driveLoop) + dispatcher.go (Dispatcher port + Router + DispatcherFunc) + 13 个 dispatch_*.go (capability:trigger/function/handler/mcp/skill/llm + control/io:http/condition/loop/parallel/approval/wait/variable) + retry.go (per-node retry + per-node Timeout + fatal sentinel 短路) + pause.go (approval pauseRun + ResumeApproval + continueRun) + rehydrate.go (RehydrateOnBoot 跨进程重启)
+    │   ├── trigger/                ← ✅ trigger.go (Service 整合 4 listener + SetScheduler post-construction + FireManual 手动入口)
     │   ├── tool/                   ← ✅ Tool framework：tool.go（9 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
     │   │   ├── function/           ← ✅ 9 LLM tools: search/get/create/edit/revert/delete/run + search_function_executions/get_function_execution (D22)
     │   │   ├── handler/            ← ✅ 10 LLM tools: search/get/create/edit/revert/delete + call_handler + update_handler_config + search_handler_calls/get_handler_call (D22)
-    │   │   ├── workflow/           ← ✅ 6 LLM tools: search/get/create/edit/revert/delete (无 envfix loop;trigger_workflow + execution log 工具在 Plan 05)
+    │   │   ├── workflow/           ← ✅ 6 + 2 = 8 LLM tools: search/get/create/edit/revert/delete (Plan 04;无 envfix loop) + search_workflow_executions/get_workflow_execution (Plan 05 E13 查 flowrun_nodes)
     │   │   ├── filesystem/         ← ✅ Read/Write/Edit/Glob/Grep
     │   │   ├── shell/              ← ✅ Bash/BashOutput/KillShell
     │   │   ├── web/                ← ✅ WebFetch/WebSearch
@@ -224,7 +226,7 @@ backend/
     │
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
-    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / handler (含 call_log) / workflow (Plan 04) / todo / sandbox
+    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / handler (含 call_log) / workflow (Plan 04) / flowrun (Plan 05;FlowRun + Node) / mcpcalls (Plan 05 D22) / skillexec (Plan 05 D22) / todo / sandbox
     │   ├── mcp/                    ← ✅ ~/.forgify/mcp.json Load/Save/Merge（Claude Desktop schema 兼容，0600 权限，atomic 写）+ stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.6；stderr→zap+256KB ring；CommandTransport 处理 SIGTERM→5s→SIGKILL）
     │   ├── sandbox/                ← ✅ 统一 PluginRuntime（mise embed + per-plugin 隔离 env,5 类 owner: function/handler/mcp/skill/conversation）
     │   ├── handler/                ← ✅ infra/handler/client.go(stdio JSON-line RPC client wrapping subprocess pipes;5 methods: Init/Call/StreamCall/Shutdown/Crashed;V1 per-instance 串行经 sync.Mutex)

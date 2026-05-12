@@ -1,5 +1,10 @@
 # Execution Plane Implementation Plan — Scheduler + Trigger + FlowRun
 
+> ✅ **COMPLETED 2026-05-13** — 17 commits E1-E17 直推 main(a273de1 / 72a5142 / 9821b45 / 97d4ee3 / 82be1f9 / 553440f / 5d9f80e / f03ef57 / 9da6b5a / dd5b7c9 / e175e9a / 6603f77 / 0afc548 / 174a9d6 / 6d73362 + E16/E17)。
+> 见 [`../../service-design-documents/{flowrun,trigger,scheduler}.md`](../../service-design-documents/) 完整成品 spec;[`progress-record.md`](../../../progress-record.md) 2026-05-13 dev log。
+>
+> 14 项 hardening item 全覆盖 — 单测(cron missed-policy / fsnotify fail-soft / webhook secret / node timeout / panic recover / paused rehydrate / retention 200/wf / cron TZ)+ 7 pipeline E2E(workflow disabled gate / serial concurrency / cancellation cleanup / trigger states observable / happy :trigger / flowrun GET + BootSmoke)。loop body subgraph + parallel branches subgraph V1 留 Plan 06(显式 sentinel)。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现 Workflow 执行那一面 — 3 个 sibling domain(scheduler / trigger / flowrun)+ **14 项生产级 V1 必做项**。**前置依赖**:Plan 01-04 已 merge。

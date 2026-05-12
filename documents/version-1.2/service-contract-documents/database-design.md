@@ -153,6 +153,35 @@ AcceptedVersionCap = 50/workflow;RejectPending 不留 rejected 行,直接 HardDe
 
 > Plan 05 territory(本 plan 不实施):`flowruns` 表(per-trigger 一行,记录 trigger source / status / aggregates)+ `flowrun_nodes` 表(per-node execution log,继承 `flowrun_id` + `flowrun_node_id` 两个通用字段穿到 function_executions / handler_calls,D22 already-wired)。
 
+### Phase 3 — execution plane trinity (forge_redesign Plan 05)
+
+#### `flowruns` ✅
+详见 [`../service-design-documents/flowrun.md`](../service-design-documents/flowrun.md) §2.1。
+主键 `fr_<16hex>`;软删;用户作用域;复合索引 `(workflow_id, status, started_at DESC)`。
+字段:`user_id` / `workflow_id` (FK) / `version_id` (锁起跑版本) / `trigger_kind` CHECK cron|fsnotify|webhook|manual / `trigger_input` JSON / `status` CHECK running|paused|completed|failed|cancelled (5 值,V1 无 run-level timeout) / `started_at` / `ended_at` / `elapsed_ms` / `output` JSON / `error_code` / `error_message` / `paused_state` JSON (approval/wait 暂停时持久化 ExecutionContext 快照)。
+**保留策略 (§6.7)**:每 workflow 默认保留最近 200 行,`HardDeleteOldest` 在 `scheduler.finalizeRun` 后异步剪。
+
+#### `flowrun_nodes` ✅
+详见 [`../service-design-documents/flowrun.md`](../service-design-documents/flowrun.md) §2.2 + [`08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md) §4.5。
+主键 `frn_<16hex>`;软删;用户作用域。
+**通用 16 字段**(spec 08 §2 模板) + **flowrun-specific 4 字段**:`flowrun_id` 索引 / `node_id` (graph 内 ID,如 "filter_cond") / `node_type` (function/handler/mcp/skill/llm/http/condition/loop/parallel/approval/wait/variable/trigger) / `attempts` (retry 次数 default 1)。
+索引 `(flowrun_id, started_at DESC)`(D22 spec 08 §2.5)。
+**Cross-table linking**(spec 08 §4.5):capability 节点 (function/handler/mcp/skill) dispatch 时**同时写两条** — 一条到 flowrun_nodes (workflow 视角) + 一条到对应 entity 表 (function_executions / handler_calls / mcp_calls / skill_executions),经 `flowrun_node_id` 字段交叉引用。
+
+#### `mcp_calls` ✅ (D22)
+详见 [`../service-design-documents/mcp.md`](../service-design-documents/mcp.md) + [`08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md) §4.3。
+主键 `mcl_<16hex>`;软删;用户作用域。每次 `Service.CallTool` 终态写一行(detached ctx §S9)。
+通用 16 + mcp 专属 3 字段:`server_name`(索引) / `tool_name` / `server_version`(V1 留空,mcpinfra Client 暴露 initialize-response 后填)。
+HTTP 端点 + LLM 工具 `search_mcp_calls` / `get_mcp_call`(D22 spec 08 §7,E13)。
+
+#### `skill_executions` ✅ (D22)
+详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md) + [`08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md) §4.4。
+主键 `ske_<16hex>`;软删;用户作用域。每次 `Service.Activate` 终态写一行(defer-wrapped from outer Activate)。
+通用 16 + skill 专属 4 字段:`skill_name`(索引) / `skill_version`(SHA256 of SKILL.md,V1 留空 hook) / `fork_depth`(0 = inline,≥1 = fork 嵌套深度,从 `reqctxpkg.GetSubagentDepth` 取) / `substitutions` JSON(\$1..\$N 替换值)。
+LLM 工具 `search_skill_executions` / `get_skill_execution`(E13)。
+
+> Plan 05 引入 4 张新表(flowruns / flowrun_nodes / mcp_calls / skill_executions);所有 D22 表共享通用 16 字段模板;capability 节点 dispatch 时跨表写两条经 `flowrun_node_id` 交叉引用。无新 schema_extras 行(D22 表索引全 GORM tag 表达得了)。
+
 ---
 
 ### Phase 5：System Tool 第二代（2026-05-04）

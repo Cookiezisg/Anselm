@@ -248,8 +248,9 @@ type SlimPayload = {
 | `function` | `app/function/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(D-redo-7 删除 `env_synced` / `env_failed` 两 action — env 终态由 LLM tool_result 携带,UI 经 GET 拉)|
 | `handler` | `app/handler/Service` 各 CRUD 端点 | 同 function 7 个 + `config_updated` / `config_cleared` | `{action, versionId?, versionNumber?}`(同 D-redo-7 删除 env action)|
 | `workflow` | `app/workflow/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(slim payload D-redo-6;无 env action,workflow 域无 sandbox)|
+| `flowrun` | `app/scheduler/Service` StartRun/finalize/pauseRun/ResumeApproval | started / paused / resumed / completed / failed / cancelled | `{action, workflowId, triggerKind?, nodeID?, decision?, elapsedMs?}`(slim;UI 经 `GET /flowruns/{id}` 拉详情 D-redo-6)|
 
-新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `flowrun` / `trigger` 等 forge_redesign 早期表上拟加但未实施的 type — flowrun 进 Plan 05,届时按 D-redo-6 瘦身规则定 data 字段。
+新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `trigger` 等 forge_redesign 早期表上拟加但未实施的 type。**Plan 05 (2026-05-13)**:加 `flowrun` entity type;scheduler.StartRun 推 `started`,driveLoop 终态推 `completed`/`failed`/`cancelled`,pauseRun 推 `paused`,ResumeApproval 推 `resumed`。
 
 ### 11.3 HTTP 端点
 

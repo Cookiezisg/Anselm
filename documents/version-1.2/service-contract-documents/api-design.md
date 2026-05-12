@@ -201,6 +201,22 @@ type Error = {
 
 > forge_redesign Plan 04(2026-05-12):Workflow 是 trinity 第三条腿 — **用户命名的有向无环图(DAG)**。锻造 vs 执行分离(D6):本端点集只管"图怎么样",不管"图怎么跑"(`:trigger` action + flowrun endpoints + execution log endpoints 在 Plan 05)。Edit 走 iterate-same-pending(D-redo-11);拒绝 `ops=[]`(workflow 无 env 要"force-rebuild")。CapabilityChecker 真接 function/handler/skill/mcp 服务,validation 期返 `WORKFLOW_CAPABILITY_NOT_FOUND` / `WORKFLOW_MCP_SERVER_NOT_INSTALLED`。
 
+#### flowrun + trigger + scheduler ✅ (forge_redesign Plan 05)
+详见 [`../service-design-documents/{flowrun,trigger,scheduler}.md`](../service-design-documents/) + redesign topic [`../adhoc-topic-documents/forge_redesign/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md)。
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST   | `/api/v1/workflows/{id}:trigger`                       | 手动触发 (转 scheduler.StartRun;disabled → 422)|
+| GET    | `/api/v1/workflows/{id}/triggers`                      | trigger 状态 §6.12 (含 cron `nextFireAt`)|
+| GET    | `/api/v1/flowruns`                                     | 列表 (?workflowId / ?status / ?triggerKind)|
+| GET    | `/api/v1/flowruns/{id}`                                | 单 FlowRun |
+| GET    | `/api/v1/flowruns/{id}/nodes`                          | per-node 执行记录分页 |
+| DELETE | `/api/v1/flowruns/{id}`                                | 取消 (scheduler.Cancel;in-flight 204 或 已终态 422)|
+| POST   | `/api/v1/flowruns/{id}/approvals/{nodeId}`             | approval 签收 (body `{decision, reason?}`)|
+| POST   | `/api/v1/webhooks/{wfId}/{path}`                       | webhook trigger 入口 (trigger.webhook listener 直接挂 ServeMux,secret 校验) |
+
+> Plan 05(2026-05-13):执行 plane 三 domain — flowrun(记录簿)/ trigger(4 种 listener:cron/fsnotify/webhook/manual)/ scheduler(编排器 + 13 dispatcher + retry/timeout/onError + pause/resume)。`:trigger` action + `/triggers` state 由 WorkflowHandler 持(共享 `:revert` 的 `{idAction}` mux dispatcher),委派 FlowRunHandler 薄 helper。webhook 端点由 trigger.webhook listener 直接挂主 ServeMux 子路径,跟主 router 共享。14 hardening item 全覆盖(详 spec §6 + scheduler.md §11)。
+
 #### chat（Phase 3 升级）✅
 Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 workflow,共 25 个 trinity tool)。SSE 见 events-design.md。无新 HTTP 端点,见 Phase 2 chat 端点。
 

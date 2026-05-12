@@ -205,7 +205,32 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 **故意不含**:`WORKFLOW_PENDING_CONFLICT` — Edit 走 iterate-same-pending(D-redo-11),pending 不冲突。
 
-> workflow trinity 用 `WORKFLOW_*` 前缀,与 function/handler 平行。11 个 sentinel 全部 ✅(Plan 04 完工)。Plan 05 引入 `WORKFLOW_TRIGGER_FAILED` / `WORKFLOW_FLOWRUN_NOT_FOUND` 等执行 plane sentinel。
+> workflow trinity 用 `WORKFLOW_*` 前缀,与 function/handler 平行。11 个 sentinel 全部 ✅(Plan 04 完工)。
+
+### Phase 3:execution plane (forge_redesign Plan 05)
+
+#### flowrun + trigger + scheduler ✅
+详见 [`../service-design-documents/{flowrun,trigger,scheduler}.md`](../service-design-documents/) + [`05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md)。
+
+| Code | HTTP | Sentinel | 场景 |
+|---|---|---|---|
+| `FLOWRUN_NOT_FOUND`                  | 404 | `flowrundomain.ErrNotFound`                | GET /flowruns/{id} 未命中 |
+| `FLOWRUN_NOT_CANCELLABLE`            | 422 | `flowrundomain.ErrNotCancellable`          | Cancel/ResumeApproval 时已无 cancel 句柄(已终态)|
+| `FLOWRUN_NOT_PAUSED`                 | 422 | `flowrundomain.ErrNotPaused`               | ResumeApproval 时 status != paused |
+| `FLOWRUN_APPROVAL_NODE_NOT_FOUND`    | 404 | `flowrundomain.ErrApprovalNodeNotFound`    | ResumeApproval 时 nodeID 不匹配 PausedState.NodeID |
+| `FLOWRUN_APPROVAL_DECISION_INVALID`  | 400 | `flowrundomain.ErrApprovalDecisionInvalid` | decision ∉ {approved, rejected} |
+| `FLOWRUN_NODE_NOT_FOUND`             | 404 | `flowrundomain.ErrNodeNotFound`            | get_workflow_execution 未命中 |
+| `TRIGGER_PATH_NOT_EXIST`             | 422 | `triggerdomain.ErrPathNotExist`            | fsnotify path 不存在(fail-soft §6.11)|
+| `TRIGGER_PATH_CONFLICT`              | 409 | `triggerdomain.ErrPathConflict`            | webhook 路径已注册 |
+| `TRIGGER_WEBHOOK_SECRET_MISMATCH`    | 401 | `triggerdomain.ErrWebhookSecretMismatch`   | webhook secret 校验失败(handler 直写 401,sentinel 仅 errors.Is 用)|
+| `TRIGGER_INVALID_CRON_EXPRESSION`    | 400 | `triggerdomain.ErrInvalidCronExpression`   | cron 表达式无效 |
+| `WORKFLOW_DISABLED`                  | 422 | `schedulerapp.ErrWorkflowDisabled`         | :trigger 在 disabled workflow §6.5 |
+| `WORKFLOW_NEEDS_ATTENTION`           | 422 | `schedulerapp.ErrWorkflowNeedsAttention`   | workflow.NeedsAttention=true 时 :trigger |
+| `FLOWRUN_CONCURRENCY_LIMIT`          | 409 | `schedulerapp.ErrConcurrencyLimit`         | serial 并发限制撞 §6.3(trigger 容忍 skip)|
+| `WORKFLOW_NOT_FOUND_FOR_TRIGGER`     | 404 | `schedulerapp.ErrWorkflowNotFound`         | :trigger 时 workflow id 查不到 |
+| `SCHEDULER_NOT_AVAILABLE`            | 503 | (handler inline,不进 errmap)              | Plan 05 service 未挂时端点返此(测试/pre-wire 场景) |
+
+> 14 sentinel ✅(Plan 05 完工,2026-05-13)。`TRIGGER_WEBHOOK_SECRET_MISMATCH` + `SCHEDULER_NOT_AVAILABLE` 是 handler-inline 错误(不经 FromDomainError),仍登 errmap 作 sentinel 引用源。
 
 ---
 
