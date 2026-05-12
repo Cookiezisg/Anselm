@@ -33,6 +33,8 @@ import (
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -55,6 +57,9 @@ import (
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
@@ -76,6 +81,9 @@ import (
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
+	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
+	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
+	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
@@ -148,6 +156,10 @@ func main() {
 		&handlerdomain.Version{},
 		&workflowdomain.Workflow{},
 		&workflowdomain.Version{},
+		&flowrundomain.FlowRun{},
+		&flowrundomain.Node{},
+		&mcpdomain.Call{},
+		&skilldomain.Execution{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -432,6 +444,61 @@ func main() {
 	workflowChecker.Skill = skillService
 	workflowChecker.MCP = mcpService
 
+	// Plan 05 execution plane wire-up — flowrun + trigger + scheduler.
+	// Order:
+	//  1. flowrun + D22 stores (mcpcalls + skillexec) construct
+	//  2. trigger Service (needs mux; webhook listener attaches sub-paths)
+	//  3. scheduler Service (needs flowrun repo + workflow reader + notif)
+	//  4. trigger.SetScheduler (breaks ctor cycle)
+	//  5. Register 13 dispatchers on scheduler Router
+	//  6. RehydrateOnBoot (re-attach cancel handles for paused runs)
+	//  7. Append D22 LLM tools (workflow / mcp / skill × search+get)
+	//
+	// Plan 05 执行 plane 装配。
+	flowrunRepo := flowrunstore.New(gdb)
+	mcpCallRepo := mcpcallstore.New(gdb)
+	skillExecRepo := skillexecstore.New(gdb)
+	mcpService.SetCallRepo(mcpCallRepo)
+	skillService.SetExecRepo(skillExecRepo)
+
+	// Build the mux up-front so trigger.webhook can register its sub-path
+	// listener on the same ServeMux the main router serves.
+	// mux 提前建,让 trigger.webhook 跟主 router 同 ServeMux。
+	httpMux := http.NewServeMux()
+	triggerService := triggerapp.New(httpMux, log)
+	schedulerService := schedulerapp.NewService(
+		flowrunRepo,
+		workflowService,
+		notificationsPub,
+		log,
+	)
+	triggerService.SetScheduler(schedulerService)
+
+	router := schedulerapp.NewRouter()
+	router.Set(workflowdomain.NodeTypeTrigger, schedulerapp.NewTriggerDispatcher())
+	router.Set(workflowdomain.NodeTypeFunction, schedulerapp.NewFunctionDispatcher(functionService))
+	router.Set(workflowdomain.NodeTypeHandler, schedulerapp.NewHandlerDispatcher(handlerService))
+	router.Set(workflowdomain.NodeTypeMCP, schedulerapp.NewMCPDispatcher(mcpService))
+	router.Set(workflowdomain.NodeTypeSkill, schedulerapp.NewSkillDispatcher(skillService))
+	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(nil)) // E15: LLMCaller adapter pending
+	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
+	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
+	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher())
+	router.Set(workflowdomain.NodeTypeParallel, schedulerapp.NewParallelDispatcher())
+	router.Set(workflowdomain.NodeTypeApproval, schedulerapp.NewApprovalDispatcher())
+	router.Set(workflowdomain.NodeTypeWait, schedulerapp.NewWaitDispatcher())
+	router.Set(workflowdomain.NodeTypeVariable, schedulerapp.NewVariableDispatcher())
+	schedulerService.SetRouter(router)
+
+	if err := schedulerService.RehydrateOnBoot(context.Background(), ""); err != nil {
+		log.Warn("scheduler rehydrate failed (paused runs may need manual resume)", zap.Error(err))
+	}
+
+	// D22 LLM tools — workflow / mcp / skill × search + get (6 tools).
+	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
+	tools = append(tools, mcptool.MCPCallLogTools(mcpCallRepo)...)
+	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
+
 	chatService.SetTools(tools)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", *port))
@@ -453,6 +520,10 @@ func main() {
 		FunctionService:     functionService,
 		HandlerService:      handlerService,
 		WorkflowService:     workflowService,
+		FlowRunRepo:         flowrunRepo,
+		SchedulerService:    schedulerService,
+		TriggerService:      triggerService,
+		Mux:                 httpMux,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,

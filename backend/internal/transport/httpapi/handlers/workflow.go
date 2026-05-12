@@ -41,8 +41,9 @@ import (
 //
 // WorkflowHandler 持 workflow HTTP 路由。
 type WorkflowHandler struct {
-	svc *workflowapp.Service
-	log *zap.Logger
+	svc     *workflowapp.Service
+	flowrun *FlowRunHandler // optional — drives :trigger action + /triggers state
+	log     *zap.Logger
 }
 
 // NewWorkflowHandler wires handler dependencies.
@@ -50,6 +51,16 @@ type WorkflowHandler struct {
 // NewWorkflowHandler 装配 handler 依赖。
 func NewWorkflowHandler(svc *workflowapp.Service, log *zap.Logger) *WorkflowHandler {
 	return &WorkflowHandler{svc: svc, log: log}
+}
+
+// AttachFlowRunHandler enables the workflow-scoped Plan 05 routes
+// (:trigger action + /triggers state). Called by the router after the
+// FlowRunHandler is constructed.
+//
+// AttachFlowRunHandler 接 Plan 05 workflow-scoped 路由(:trigger 与
+// /triggers state)。router 在 FlowRunHandler 构造后调。
+func (h *WorkflowHandler) AttachFlowRunHandler(f *FlowRunHandler) {
+	h.flowrun = f
 }
 
 // Register mounts every workflow route on mux.
@@ -62,6 +73,7 @@ func (h *WorkflowHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/workflows/{id}", h.UpdateMeta)
 	mux.HandleFunc("DELETE /api/v1/workflows/{id}", h.Delete)
 	mux.HandleFunc("POST /api/v1/workflows/{idAction}", h.postOnWorkflow)
+	mux.HandleFunc("GET /api/v1/workflows/{id}/triggers", h.GetTriggers)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/versions", h.ListVersions)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/versions/{version}", h.GetVersion)
 	mux.HandleFunc("GET /api/v1/workflows/{id}/pending", h.GetPending)
@@ -172,11 +184,12 @@ func (h *WorkflowHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnWorkflow dispatches POST /api/v1/workflows/{id}:<action>. V1 supports
-// :revert only — :trigger lives in Plan 05 (scheduler-driven, not direct).
+// postOnWorkflow dispatches POST /api/v1/workflows/{id}:<action>. Supports
+// :revert (Plan 04) + :trigger (Plan 05; delegates to attached
+// FlowRunHandler so triggerService dep stays out of WorkflowHandler).
 //
-// postOnWorkflow 派发 POST /api/v1/workflows/{id}:<action>。V1 只支持 :revert;
-// :trigger 在 Plan 05(scheduler 驱动)。
+// postOnWorkflow 派发 POST /api/v1/workflows/{id}:<action>。:revert 走 Plan
+// 04;:trigger 走 Plan 05(委派 FlowRunHandler;triggerService 依赖留 flowrun)。
 func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -186,9 +199,28 @@ func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request)
 	switch action {
 	case "revert":
 		h.Revert(w, r, id)
+	case "trigger":
+		if h.flowrun == nil {
+			responsehttpapi.Error(w, http.StatusServiceUnavailable, "SCHEDULER_NOT_AVAILABLE",
+				"Plan 05 execution plane not wired", nil)
+			return
+		}
+		h.flowrun.FireManual(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// GetTriggers returns per-trigger State for a workflow (§6.12). Delegates
+// to attached FlowRunHandler; falls back to empty list if not wired.
+//
+// GetTriggers 返某 workflow 所有 trigger 状态(§6.12);委派 FlowRunHandler。
+func (h *WorkflowHandler) GetTriggers(w http.ResponseWriter, r *http.Request) {
+	if h.flowrun == nil {
+		responsehttpapi.Success(w, http.StatusOK, []any{})
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, h.flowrun.TriggerStates(r.PathValue("id")))
 }
 
 func (h *WorkflowHandler) Revert(w http.ResponseWriter, r *http.Request, id string) {

@@ -283,18 +283,36 @@ func TestWorkflowHandler_PostUnknownAction_NotFound(t *testing.T) {
 	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("unknown-action")})
 	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
 
-	// :trigger is Plan 05 — should 404 in Plan 04. http.NotFound writes
-	// plain text rather than the JSON envelope, so call directly and only
-	// check status (do() fatals on non-JSON bodies).
-	// :trigger 在 Plan 05 — Plan 04 应 404。http.NotFound 写纯文本,直接走
-	// http.Client 只验状态码(do() 解 JSON 失败会 fatal)。
-	resp, err := srv.Client().Post(srv.URL+"/api/v1/workflows/"+id+":trigger", "application/json", nil)
+	// Unknown action (Plan 04 only recognized :revert; Plan 05 added :trigger;
+	// :bogus is genuinely unknown). http.NotFound writes plain text rather
+	// than the JSON envelope, so call directly + only check status.
+	// 未知 action — Plan 04 仅识 :revert,Plan 05 加 :trigger;:bogus 真未知。
+	resp, err := srv.Client().Post(srv.URL+"/api/v1/workflows/"+id+":bogus", "application/json", nil)
 	if err != nil {
 		t.Fatalf("POST: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("unknown action status = %d, want 404", resp.StatusCode)
+	}
+}
+
+func TestWorkflowHandler_Trigger_NoFlowRunHandlerReturns503(t *testing.T) {
+	srv := newWorkflowTestServer(t)
+	defer srv.Close()
+
+	_, env := do(t, srv, "POST", "/api/v1/workflows", map[string]any{"ops": happyCreateOps("trigger-test")})
+	id := dataMap(t, env)["workflow"].(map[string]any)["id"].(string)
+
+	// AttachFlowRunHandler was not called → :trigger returns 503.
+	// AttachFlowRunHandler 未调 → :trigger 返 503。
+	status, env := do(t, srv, "POST", "/api/v1/workflows/"+id+":trigger",
+		map[string]any{"input": map[string]any{}})
+	if status != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", status)
+	}
+	if code := errorCode(t, env); code != "SCHEDULER_NOT_AVAILABLE" {
+		t.Errorf("code = %q, want SCHEDULER_NOT_AVAILABLE", code)
 	}
 }
 

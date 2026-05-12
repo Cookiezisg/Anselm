@@ -26,7 +26,10 @@ import (
 // 让 Recover 写的 500 也能被日志记录；CORS/locale/userID 在最内层，
 // 因 preflight OPTIONS 在 CORS 层就结束，不需要它们。
 func New(deps Deps) http.Handler {
-	mux := http.NewServeMux()
+	mux := deps.Mux
+	if mux == nil {
+		mux = http.NewServeMux()
+	}
 
 	// Each handler registers its own routes.
 	// 每个 handler 注册自己的路由。
@@ -47,11 +50,24 @@ func New(deps Deps) http.Handler {
 	if deps.HandlerService != nil {
 		handlershttpapi.NewHandlerHandler(deps.HandlerService, deps.Log).Register(mux)
 	}
+	// WorkflowHandler + FlowRunHandler share workflow-scoped routes (the
+	// :trigger action lives on WorkflowHandler so it can compose with
+	// :revert in one {idAction} dispatcher;FlowRunHandler exposes the
+	// trigger Service via thin helpers).
+	// WorkflowHandler 跟 FlowRunHandler 共享 workflow-scoped 路由;:trigger
+	// 走 WorkflowHandler(跟 :revert 同 {idAction} dispatcher),FlowRunHandler
+	// 仅暴露 trigger Service 薄 helper。
+	var wfH *handlershttpapi.WorkflowHandler
 	if deps.WorkflowService != nil {
-		handlershttpapi.NewWorkflowHandler(deps.WorkflowService, deps.Log).Register(mux)
+		wfH = handlershttpapi.NewWorkflowHandler(deps.WorkflowService, deps.Log)
+		wfH.Register(mux)
 	}
 	if deps.FlowRunRepo != nil {
-		handlershttpapi.NewFlowRunHandler(deps.FlowRunRepo, deps.SchedulerService, deps.TriggerService, deps.Log).Register(mux)
+		frH := handlershttpapi.NewFlowRunHandler(deps.FlowRunRepo, deps.SchedulerService, deps.TriggerService, deps.Log)
+		frH.Register(mux)
+		if wfH != nil {
+			wfH.AttachFlowRunHandler(frH)
+		}
 	}
 	if deps.ChatService != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.Log).Register(mux)

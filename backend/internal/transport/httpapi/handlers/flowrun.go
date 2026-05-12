@@ -47,16 +47,13 @@ func NewFlowRunHandler(repo flowrundomain.Repository, scheduler *schedulerapp.Se
 	return &FlowRunHandler{repo: repo, scheduler: scheduler, trigger: trigger, log: log}
 }
 
-// Register mounts every flowrun route on mux.
+// Register mounts every flowrun route on mux. Workflow-scoped routes
+// (POST /workflows/{id}:trigger and GET /workflows/{id}/triggers) live
+// in the WorkflowHandler since they share the {idAction} mux pattern.
 //
-// Register 把所有 flowrun 路由挂 mux。
+// Register 挂 flowrun 路由。workflow-scoped :trigger + /triggers 由
+// WorkflowHandler 持(共享 {idAction} mux 模式,避 mux 冲突)。
 func (h *FlowRunHandler) Register(mux *http.ServeMux) {
-	// Workflow-scoped — must come after the workflow handler's specific
-	// routes (httpapi/router orders that, this just registers).
-	mux.HandleFunc("POST /api/v1/workflows/{idTrigger}", h.postOnWorkflowTrigger)
-	mux.HandleFunc("GET /api/v1/workflows/{id}/triggers", h.GetTriggers)
-
-	// Flowruns
 	mux.HandleFunc("GET /api/v1/flowruns", h.List)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}/nodes", h.ListNodes)
@@ -64,18 +61,14 @@ func (h *FlowRunHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeId}", h.Approve)
 }
 
-// postOnWorkflowTrigger dispatches POST /workflows/{idTrigger}. Only
-// supports `:trigger` action — anything else 404s (so it composes with
-// the workflow handler's `:revert` etc. routes which take precedence
-// via more-specific match).
+// FireManual delegates a workflow trigger to the wrapped trigger Service.
+// Exposed so WorkflowHandler can route `:trigger` action through this
+// FlowRunHandler instance (avoids duplicating the trigger Service
+// reference in two HTTP handler structs).
 //
-// postOnWorkflowTrigger 派发 POST /workflows/{idTrigger}。只支持 :trigger。
-func (h *FlowRunHandler) postOnWorkflowTrigger(w http.ResponseWriter, r *http.Request) {
-	id, action, ok := idAndAction(r, "idTrigger")
-	if !ok || action != "trigger" {
-		http.NotFound(w, r)
-		return
-	}
+// FireManual 给 WorkflowHandler 派 :trigger action 调;避免在两个 handler
+// 各持一份 triggerService 引用。
+func (h *FlowRunHandler) FireManual(w http.ResponseWriter, r *http.Request, workflowID string) {
 	var req struct {
 		Input map[string]any `json:"input"`
 	}
@@ -88,7 +81,7 @@ func (h *FlowRunHandler) postOnWorkflowTrigger(w http.ResponseWriter, r *http.Re
 			"trigger service not wired", nil)
 		return
 	}
-	runID, err := h.trigger.FireManual(r.Context(), id, req.Input)
+	runID, err := h.trigger.FireManual(r.Context(), workflowID, req.Input)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -96,16 +89,20 @@ func (h *FlowRunHandler) postOnWorkflowTrigger(w http.ResponseWriter, r *http.Re
 	responsehttpapi.Created(w, map[string]any{"runId": runID})
 }
 
-// GetTriggers returns the per-trigger State for a workflow (§6.12).
+// TriggerStates returns per-trigger States for a workflow. Exposed for
+// WorkflowHandler to route GET /workflows/{id}/triggers — see FireManual.
 //
-// GetTriggers 返某 workflow 所有 trigger 状态(§6.12)。
-func (h *FlowRunHandler) GetTriggers(w http.ResponseWriter, r *http.Request) {
+// TriggerStates 给 WorkflowHandler 派 GET /workflows/{id}/triggers 调。
+func (h *FlowRunHandler) TriggerStates(workflowID string) []any {
 	if h.trigger == nil {
-		responsehttpapi.Success(w, http.StatusOK, []any{})
-		return
+		return []any{}
 	}
-	states := h.trigger.State(r.PathValue("id"))
-	responsehttpapi.Success(w, http.StatusOK, states)
+	states := h.trigger.State(workflowID)
+	out := make([]any, len(states))
+	for i, s := range states {
+		out[i] = s
+	}
+	return out
 }
 
 // List paginates FlowRuns.

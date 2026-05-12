@@ -222,6 +222,10 @@ func TestD9_BootSmoke(t *testing.T) {
 	if h.Workflow == nil || h.Handler == nil {
 		t.Fatalf("trinity service nil: Workflow=%v Handler=%v", h.Workflow != nil, h.Handler != nil)
 	}
+	if h.Scheduler == nil || h.Trigger == nil || h.FlowRunRepo == nil {
+		t.Fatalf("Plan 05 execution-plane services nil: Scheduler=%v Trigger=%v FlowRunRepo=%v",
+			h.Scheduler != nil, h.Trigger != nil, h.FlowRunRepo != nil)
+	}
 
 	// All expected tool families registered. Each system tool has a
 	// stable Name(). We assert the set we expect contains the tools we
@@ -243,9 +247,10 @@ func TestD9_BootSmoke(t *testing.T) {
 		"revert_handler", "delete_handler", "call_handler", "update_handler_config",
 		"search_handler_calls", "get_handler_call",
 		// workflow family (forge_redesign trinity 3rd leg) — 6 CRUD authoring
-		// (trigger + execution tools live in Plan 05)
+		// + 2 D22 execution log tools (Plan 05)
 		"search_workflow", "get_workflow", "create_workflow", "edit_workflow",
 		"revert_workflow", "delete_workflow",
+		"search_workflow_executions", "get_workflow_execution",
 		// filesystem family
 		"Read", "Write", "Edit", "Glob", "Grep",
 		// shell family
@@ -258,10 +263,12 @@ func TestD9_BootSmoke(t *testing.T) {
 		"AskUserQuestion",
 		// subagent
 		"Subagent",
-		// mcp family
+		// mcp family + D22 call log
 		"search_mcp_tools", "call_mcp_tool",
-		// skill family
+		"search_mcp_calls", "get_mcp_call",
+		// skill family + D22 execution log
 		"search_skills", "activate_skill",
+		"search_skill_executions", "get_skill_execution",
 	}
 	missing := []string{}
 	for _, w := range wantTools {

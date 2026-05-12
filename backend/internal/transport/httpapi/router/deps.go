@@ -5,6 +5,8 @@
 package router
 
 import (
+	"net/http"
+
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -92,6 +94,14 @@ type Deps struct {
 	FlowRunRepo      flowrundomain.Repository
 	SchedulerService *schedulerapp.Service
 	TriggerService   *triggerapp.Service
+
+	// Mux lets the caller pre-build the http.ServeMux so external listeners
+	// (e.g. webhook Trigger) can register sub-paths on the same mux. When
+	// nil, router.New creates its own mux internally.
+	//
+	// Mux 让 caller 预建 ServeMux,外部 listener(如 webhook Trigger)能挂同
+	// 一 mux 子路径;nil 时 router.New 内部建。
+	Mux *http.ServeMux
 
 	// ChatService implements messaging, attachment upload, and Agent streaming.
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。

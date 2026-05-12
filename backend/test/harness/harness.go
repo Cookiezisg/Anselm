@@ -59,6 +59,8 @@ import (
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -69,6 +71,8 @@ import (
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
@@ -86,6 +90,9 @@ import (
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
+	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
+	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
+	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
@@ -170,6 +177,9 @@ type Harness struct {
 	Function     *functionapp.Service
 	Handler      *handlerapp.Service
 	Workflow     *workflowapp.Service
+	Scheduler    *schedulerapp.Service
+	Trigger      *triggerapp.Service
+	FlowRunRepo  flowrundomain.Repository
 	Chat         *chatapp.Service
 	Tools        []toolapp.Tool
 }
@@ -226,6 +236,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&handlerdomain.Version{},
 		&workflowdomain.Workflow{},
 		&workflowdomain.Version{},
+		&flowrundomain.FlowRun{},
+		&flowrundomain.Node{},
+		&mcpdomain.Call{},
+		&skilldomain.Execution{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -536,6 +550,41 @@ func New(t *testing.T, opts ...Option) *Harness {
 	workflowChecker.Skill = skillService
 	workflowChecker.MCP = mcpService
 
+	// Plan 05 execution plane wire-up (mirror main.go). flowrun + trigger +
+	// scheduler + D22 stores.
+	// Plan 05 执行 plane 装配(镜像 main.go)。
+	flowrunRepo := flowrunstore.New(gdb)
+	mcpCallRepo := mcpcallstore.New(gdb)
+	skillExecRepo := skillexecstore.New(gdb)
+	mcpService.SetCallRepo(mcpCallRepo)
+	skillService.SetExecRepo(skillExecRepo)
+
+	httpMux := http.NewServeMux()
+	triggerService := triggerapp.New(httpMux, log)
+	schedulerService := schedulerapp.NewService(flowrunRepo, workflowService, notificationsPub, log)
+	triggerService.SetScheduler(schedulerService)
+	t.Cleanup(triggerService.Shutdown)
+
+	router := schedulerapp.NewRouter()
+	router.Set(workflowdomain.NodeTypeTrigger, schedulerapp.NewTriggerDispatcher())
+	router.Set(workflowdomain.NodeTypeFunction, schedulerapp.NewFunctionDispatcher(functionService))
+	router.Set(workflowdomain.NodeTypeHandler, schedulerapp.NewHandlerDispatcher(handlerService))
+	router.Set(workflowdomain.NodeTypeMCP, schedulerapp.NewMCPDispatcher(mcpService))
+	router.Set(workflowdomain.NodeTypeSkill, schedulerapp.NewSkillDispatcher(skillService))
+	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(nil))
+	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
+	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
+	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher())
+	router.Set(workflowdomain.NodeTypeParallel, schedulerapp.NewParallelDispatcher())
+	router.Set(workflowdomain.NodeTypeApproval, schedulerapp.NewApprovalDispatcher())
+	router.Set(workflowdomain.NodeTypeWait, schedulerapp.NewWaitDispatcher())
+	router.Set(workflowdomain.NodeTypeVariable, schedulerapp.NewVariableDispatcher())
+	schedulerService.SetRouter(router)
+
+	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
+	tools = append(tools, mcptool.MCPCallLogTools(mcpCallRepo)...)
+	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
+
 	chatService.SetTools(tools)
 
 	handler := routerhttpapi.New(routerhttpapi.Deps{
@@ -546,6 +595,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 		FunctionService:     functionService,
 		HandlerService:      handlerService,
 		WorkflowService:     workflowService,
+		FlowRunRepo:         flowrunRepo,
+		SchedulerService:    schedulerService,
+		TriggerService:      triggerService,
+		Mux:                 httpMux,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
@@ -590,6 +643,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Function:            functionService,
 		Handler:             handlerService,
 		Workflow:            workflowService,
+		Scheduler:           schedulerService,
+		Trigger:             triggerService,
+		FlowRunRepo:         flowrunRepo,
 		Chat:                chatService,
 		Tools:               tools,
 	}
