@@ -305,11 +305,13 @@ func (s *Service) dispatchBatch(ctx context.Context, nodes []workflowdomain.Node
 			}()
 			input := buildNodeInput(node, execCtx)
 			start := time.Now().UTC()
-			out := s.router.Dispatch(ctx, DispatchInput{
-				Node:    node,
-				NodeIn:  input,
-				ExecCtx: execCtx,
-			})
+			// dispatchWithPolicies wraps router.Dispatch in retry + per-
+			// attempt timeout layers (E9). Plain router.Dispatch is also
+			// fine for tests that don't exercise those — retry MaxAttempts
+			// ≤ 1 + Timeout = 0 means policy layers are no-ops.
+			// dispatchWithPolicies 在 router.Dispatch 外套 retry + per-
+			// attempt timeout 层;tests 不触这些时 policy 层 no-op。
+			out := s.dispatchWithPolicies(ctx, node, input, execCtx)
 			results[idx] = dispatchResult{
 				Node:      node,
 				Input:     input,
@@ -369,7 +371,7 @@ func (s *Service) recordNode(ctx context.Context, run *flowrundomain.FlowRun, re
 		FlowrunID:   run.ID,
 		NodeID:      res.Node.ID,
 		NodeType:    res.Node.Type,
-		Attempts:    1 + execCtx.Attempts[res.Node.ID],
+		Attempts:    maxInt(1, execCtx.Attempts[res.Node.ID]),
 	}
 	row.TriggeredBy = "workflow" // Node executions are workflow-scoped (see 08-executions §2)
 	if res.Output.Error != nil {
@@ -413,4 +415,11 @@ func nodeOnError(n workflowdomain.NodeSpec) string {
 		return workflowdomain.OnErrorStop
 	}
 	return n.OnError
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
