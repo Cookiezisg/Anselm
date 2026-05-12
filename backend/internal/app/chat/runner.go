@@ -216,6 +216,15 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conver
 			sb.WriteString(catalogText)
 		}
 	}
+	// Multi-agent forging block (Plan 06 F2 + D21 教学):tells the main chat
+	// LLM when to spawn parallel forger sub-agents vs. forging in-place;
+	// reminds it that sub-agents can't touch workflow ops, so workflow
+	// assembly + trigger are always the main agent's responsibility.
+	//
+	// Multi-agent forging 段(F2 + D21):告主 chat LLM 何时并发 spawn forger
+	// 子 agent;sub-agent 无 workflow ops,装配 + 触发归主 agent。
+	sb.WriteString("\n\n")
+	sb.WriteString(multiAgentForgingPromptSection)
 	if reqctxpkg.GetLocale(ctx) == reqctxpkg.LocaleZhCN {
 		sb.WriteString("\n\nPlease respond in Chinese (Simplified) unless the user writes in another language.")
 	}

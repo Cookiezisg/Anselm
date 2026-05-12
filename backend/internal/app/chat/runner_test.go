@@ -38,33 +38,29 @@ func TestBuildSystemPrompt_NilProvider_SkipsCatalogBlock(t *testing.T) {
 	if !strings.Contains(got, "You are Forgify") {
 		t.Errorf("base prompt lost: %q", got)
 	}
-	// Catalog block when present always starts with '##' (the
-	// generator template + mechanical fallback both produce a markdown
-	// header). Absence proves nil-provider path skipped it.
-	// catalog 块存在时永远以 '##' 起（generator 模板+ mechanical fallback
-	// 都产 markdown 头）。无 '##' 证明 nil-provider 路径跳了。
-	if strings.Contains(got, "## Available capabilities") || strings.Contains(got, "## ") {
+	// Catalog block when present starts with '## Available capabilities'.
+	// Multi-agent forging block (Plan 06 F2) also starts with '## ' but
+	// is always present — so we look for the catalog-specific marker
+	// instead of any '## ' prefix.
+	// catalog 块存在时以 '## Available capabilities' 起;multi-agent forging
+	// 块(F2)也以 '## ' 起但永远存在,所以专门看 catalog 标记。
+	if strings.Contains(got, "## Available capabilities") {
 		t.Errorf("catalog block leaked into system prompt with nil provider:\n%s", got)
 	}
 }
 
 func TestBuildSystemPrompt_EmptyProviderText_SkipsCatalogBlock(t *testing.T) {
 	// Provider is non-nil but returns empty (boot window before first
-	// Refresh tick). buildSystemPrompt must NOT inject blank lines or
-	// a stray "\n\n" — empty text means "skip the section entirely".
-	// Provider 非 nil 但返空（首 Refresh 前 boot 窗口）。buildSystemPrompt
-	// 不该插空行或散 "\n\n"——空文本=完全跳。
+	// Refresh tick). buildSystemPrompt must NOT inject a catalog block,
+	// though the multi-agent forging block (Plan 06 F2) is always present.
+	// Provider 非 nil 返空(首 Refresh 前 boot 窗口);catalog 块该跳,但
+	// multi-agent forging 块(F2)永远在。
 	s := &Service{catalog: &fakePromptProvider{text: ""}}
 	conv := &convdomain.Conversation{}
 	got := s.buildSystemPrompt(context.Background(), conv)
 
-	// The base prompt is one paragraph; no catalog block should follow
-	// it. Look for two consecutive blank lines (the joiner pattern) —
-	// shouldn't appear when empty provider text.
-	// 基础 prompt 是一段；后面不该跟 catalog 块。两连续空行（连接符模式）
-	// 不该出现于空 provider 文本时。
-	if strings.Contains(got, "\n\nYou are") {
-		t.Errorf("blank catalog joiner leaked: %q", got)
+	if strings.Contains(got, "## Available capabilities") {
+		t.Errorf("catalog block leaked into system prompt with empty provider:\n%s", got)
 	}
 }
 
@@ -105,6 +101,46 @@ func TestBuildSystemPrompt_ConvSystemPromptStillIncluded(t *testing.T) {
 	}
 	if !strings.Contains(got, "## CAT") {
 		t.Errorf("catalog block lost: %q", got)
+	}
+}
+
+// TestBuildSystemPrompt_AlwaysIncludesMultiAgentForging — Plan 06 F2 +
+// D21 教学:multi-agent forging 块永远拼到每对话 system prompt(独立于
+// catalog provider 状态)。教主 LLM 何时并发 spawn forger 子 agent +
+// sub-agent 无 workflow ops + workflow 装配主 agent 独享。
+//
+// multi-agent forging 块永远在(独立于 catalog provider);测试覆盖关键
+// keyword。
+func TestBuildSystemPrompt_AlwaysIncludesMultiAgentForging(t *testing.T) {
+	// 3 个 catalog 配置 (nil / empty / non-empty) 全应含 multi-agent 段。
+	cases := []struct {
+		name    string
+		catalog *fakePromptProvider
+	}{
+		{"nil-catalog", nil},
+		{"empty-catalog", &fakePromptProvider{text: ""}},
+		{"populated-catalog", &fakePromptProvider{text: "## Available capabilities\n..."}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &Service{}
+			if tc.catalog != nil {
+				s.catalog = tc.catalog
+			}
+			got := s.buildSystemPrompt(context.Background(), &convdomain.Conversation{})
+			if !strings.Contains(got, "## Multi-agent forging") {
+				t.Errorf("multi-agent section missing:\n%s", got)
+			}
+			if !strings.Contains(got, "Subagent") {
+				t.Errorf("Subagent keyword missing from multi-agent section")
+			}
+			if !strings.Contains(got, "D21") {
+				t.Errorf("D21 awareness missing — sub-agent workflow ops restriction must be taught")
+			}
+			if !strings.Contains(got, "configState") {
+				t.Errorf("configState gate teaching missing")
+			}
+		})
 	}
 }
 
