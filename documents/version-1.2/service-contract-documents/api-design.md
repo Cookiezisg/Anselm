@@ -154,8 +154,33 @@ type Error = {
 
 > forge_redesign Plan 01(2026-05-11):整套 forge 代码路径在 Phase 7 删除,trinity domain function 替代。POST 走扁平 definition(curl/UI/script 友好),LLM 走 ops 增量编辑(create_function / edit_function 工具单 op emit 1 progress delta)。env sync 是 caller-owns lifetime(D3):创建/edit/accept 后 SyncEnvForVersion 后台起 goroutine,UI 经 GET /functions/{id} 看 envStatus 翻 ready/failed。D22:每次 RunFunction 终态写 1 行 function_executions(detached ctx §S9);9 LLM tools 含 search_function_executions / get_function_execution 让 LLM 自诊断。
 
+#### handler ✅ (forge_redesign Plan 02)
+详见 [`../service-design-documents/handler.md`](../service-design-documents/handler.md) §9 + redesign topic [`../adhoc-topic-documents/forge_redesign/03-handler.md`](../adhoc-topic-documents/forge_redesign/03-handler.md)。
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST   | `/api/v1/handlers`                              | 创建(扁平 definition)|
+| GET    | `/api/v1/handlers`                              | 列表(分页) |
+| GET    | `/api/v1/handlers/{id}`                         | 详情(含 pending + env + configState + liveInstances) |
+| PATCH  | `/api/v1/handlers/{id}`                         | 改 meta(name/desc/tags;不改 code 走 LLM ops 流) |
+| DELETE | `/api/v1/handlers/{id}`                         | 软删 + 级联销毁所有 owner 持有的 instance |
+| POST   | `/api/v1/handlers/{id}:call`                    | 调用 method(per-call lifetime;返 `{result}`)|
+| POST   | `/api/v1/handlers/{id}:revert`                  | 回滚到 accepted 版本号 |
+| GET    | `/api/v1/handlers/{id}/versions`                | 版本分页 |
+| GET    | `/api/v1/handlers/{id}/versions/{v}`            | 单版本 |
+| GET    | `/api/v1/handlers/{id}/pending`                 | 当前 pending |
+| POST   | `/api/v1/handlers/{id}/pending:accept`          | accept pending |
+| POST   | `/api/v1/handlers/{id}/pending:reject`          | reject pending |
+| GET    | `/api/v1/handlers/{id}/config`                  | masked config + configState |
+| POST   | `/api/v1/handlers/{id}/config`                  | merge patch 写 config |
+| DELETE | `/api/v1/handlers/{id}/config`                  | 清回 unconfigured |
+| GET    | `/api/v1/handlers/{id}/calls`                   | 调用日志列表(D22)|
+| GET    | `/api/v1/handler-calls/{callId}`                | 全局调用详情 + hints(D22)|
+
+> forge_redesign Plan 02(2026-05-12):Handler 是 trinity 第二条腿 — 有状态 Python class。**Caller-owns lifetime**(D3 + 2026-05-12 用户细化):chat = per-call(spawn-method-destroy 一气呵成),workflow/test/session = persistent via instanceRegistry。无 idle GC。**ConfigState**(D-handler):per-Definition 整个 init_args JSON 经 AES-GCM 加密存 `handlers.config_encrypted`;sensitive 字段在 GET/list/LLM 工具结果 mask。stdio JSON-line RPC client 跟 Python subprocess 沟通,自己写一份(不复用 MCP)。D22:每次 Service.Call 终态写 1 行 handler_calls。
+
 #### chat（Phase 3 升级）✅
-Function System Tools 注入（7 CRUD/exec + 2 D22 execution log,共 9 个）。SSE 见 events-design.md。无新 HTTP 端点,见 Phase 2 chat 端点。
+Function + Handler System Tools 注入(9 function + 10 handler,共 19 个)。SSE 见 events-design.md。无新 HTTP 端点,见 Phase 2 chat 端点。
 
 > Phase 3 后优化轮（2026-05-02）删除了原 Phase 3 装的 8 个通用 system tool（read_file/write_file/list_dir/run_shell/run_python/datetime/web_search/fetch_url）。新一代 system tools（Read/Write/Edit/Bash/Glob/Grep/LS）将在 Phase 5 重建。
 

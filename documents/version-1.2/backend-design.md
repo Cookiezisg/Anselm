@@ -178,6 +178,7 @@ backend/
     │   ├── conversation/           ← ✅
     │   ├── chat/                   ← ✅ Message + Block + Attachment（Block 模型，2026-04-27 重构）
     │   ├── function/               ← ✅ Function + Version + Execution (D22) + Repository + ExecutionRepository + 14 sentinel（forge_redesign Plan 01 替代 forge domain）
+    │   ├── handler/                ← ✅ Handler + Version + Call (D22) + MethodSpec + InitArgSpec + Repository + CallRepository + 19 sentinel（forge_redesign Plan 02 trinity 第二条腿）
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
@@ -200,8 +201,10 @@ backend/
     │   ├── loop/                   ← ✅ 通用 ReAct 引擎：loop.go（Host 接口 + Run）+ stream.go（LLM 流式装配）+ tools.go（partition by execution_group + dispatch）+ history.go（extendHistory）。chat / subagent / Skill fork / Phase 4 workflow LLM 节点都是调用方
     │   ├── chat/                   ← ✅ 重构为 loop 调用方：chat.go / runner.go（agentRun → 构造 chatHost → loop.Run + autoTitle）/ host.go / history.go / util.go（stream/tools 已迁出到 loop 包）
     │   ├── function/               ← ✅ function.go (Service + Sandbox port) + apply.go (6-op engine + ParseOps) + validate.go + crud.go (CRUD + pending/accept/reject/revert) + run.go (RunFunction + SyncEnvForVersion + recordExecution) + executions.go (SearchExecutions + GetExecutionDetail + hints) + sandbox_adapter.go + sandbox_types.go + catalog_source.go
+    │   ├── handler/                ← ✅ handler.go (Service + Sandbox port + ClientFactory) + apply.go (10-op method-level engine + JSON Merge Patch) + validate.go + crud.go (CRUD + pending/accept/reject/revert + UpdateMeta) + config.go (AES-GCM Load/Update/Clear + ConfigState + MaskedConfig) + rpc.go (AssembleClass + DriverScript) + registry.go (Owner / Instance / instanceRegistry caller-owns lifetime) + call.go (Service.Call per-call vs registry + recordCall D22) + calls.go (SearchCalls + GetCallDetail + hints) + sandbox_adapter.go + sandbox_types.go + catalog_source.go
     │   ├── tool/                   ← ✅ Tool framework：tool.go（9 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
     │   │   ├── function/           ← ✅ 9 LLM tools: search/get/create/edit/revert/delete/run + search_function_executions/get_function_execution (D22)
+    │   │   ├── handler/            ← ✅ 10 LLM tools: search/get/create/edit/revert/delete + call_handler + update_handler_config + search_handler_calls/get_handler_call (D22)
     │   │   ├── filesystem/         ← ✅ Read/Write/Edit/Glob/Grep
     │   │   ├── shell/              ← ✅ Bash/BashOutput/KillShell
     │   │   ├── web/                ← ✅ WebFetch/WebSearch
@@ -219,9 +222,10 @@ backend/
     │
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
-    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / todo / sandbox
+    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / handler (含 call_log) / todo / sandbox
     │   ├── mcp/                    ← ✅ ~/.forgify/mcp.json Load/Save/Merge（Claude Desktop schema 兼容，0600 权限，atomic 写）+ stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.6；stderr→zap+256KB ring；CommandTransport 处理 SIGTERM→5s→SIGKILL）
-    │   ├── sandbox/                ← ✅ 统一 PluginRuntime（mise embed + per-plugin 隔离 env,4 类 owner: function/mcp/skill/conversation）
+    │   ├── sandbox/                ← ✅ 统一 PluginRuntime（mise embed + per-plugin 隔离 env,5 类 owner: function/handler/mcp/skill/conversation）
+    │   ├── handler/                ← ✅ infra/handler/client.go(stdio JSON-line RPC client wrapping subprocess pipes;5 methods: Init/Call/StreamCall/Shutdown/Crashed;V1 per-instance 串行经 sync.Mutex)
     │   │   ├── sandbox.go          ← Service 实现 RuntimeInstaller/EnvManager 注册 + spawn 派发
     │   │   ├── bootstrap/embed.go  ← go:embed mise binaries（per-platform，~10MB）
     │   │   └── installer/          ← 各语言子包
