@@ -33,9 +33,17 @@ type Workflow struct {
 	Name            string         `gorm:"not null;type:text" json:"name"`
 	Description     string         `gorm:"type:text;default:''" json:"description"`
 	Tags            []string       `gorm:"serializer:json;type:text;default:'[]'" json:"tags"`
-	Enabled         bool           `gorm:"default:true" json:"enabled"`
-	Concurrency     string         `gorm:"type:text;default:'serial'" json:"concurrency"`
-	NeedsAttention  bool           `gorm:"default:false" json:"needsAttention"`
+	// Enabled / Concurrency / NeedsAttention are initialized in the service
+	// layer (no GORM `default:` tag — GORM would silently fill zero-value
+	// fields from the column default on Save, masking explicit
+	// Enabled=false / NeedsAttention=false writes).
+	//
+	// Enabled / Concurrency / NeedsAttention 由 service 层显式赋值,不写
+	// GORM `default:` tag(GORM 在 Save 时会用 column 默认值填零值,把显式
+	// Enabled=false / NeedsAttention=false 静默覆盖)。
+	Enabled         bool           `gorm:"not null" json:"enabled"`
+	Concurrency     string         `gorm:"type:text;not null" json:"concurrency"`
+	NeedsAttention  bool           `gorm:"not null" json:"needsAttention"`
 	AttentionReason string         `gorm:"type:text;default:''" json:"attentionReason,omitempty"`
 	ActiveVersionID string         `gorm:"type:text;default:''" json:"activeVersionId"`
 	CreatedAt       time.Time      `json:"createdAt"`

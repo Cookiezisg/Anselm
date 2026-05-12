@@ -62,6 +62,17 @@ var schemaExtraGroups = []extraGroup{
 				WHERE deleted_at IS NULL`,
 		},
 	},
+	{
+		// workflows — same partial UNIQUE pattern (Plan 04 trinity third leg).
+		//
+		// workflows — partial UNIQUE 索引(Plan 04 trinity 第三条腿)。
+		table: "workflows",
+		stmts: []string{
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_workflows_user_name_active
+				ON workflows(user_id, name)
+				WHERE deleted_at IS NULL`,
+		},
+	},
 }
 
 // applySchemaExtras runs each extraGroup whose required table already exists.
