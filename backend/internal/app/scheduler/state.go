@@ -181,92 +181,21 @@ func portMatches(fromPort, nextPort string) bool {
 	return fromPort == nextPort
 }
 
-// executeRun is the real Service.ExecuteFn (set by NewService). Drives
-// the DAG until completion / cancellation / fatal failure, writes a
-// flowrun_nodes row per dispatched node (terminal write only, per spec
-// 08-executions §3), finalizes the FlowRun status, and publishes a
-// terminal notification.
+// executeRun is the real Service.ExecuteFn (set by NewService). Builds
+// the ExecutionContext + initial ready set and delegates the main loop
+// to driveLoop (shared with ResumeApproval's continueRun).
 //
-// executeRun 是 Service.ExecuteFn 的真实实现;DAG 推进到完成/取消/失败;
-// 每节点写一行 flowrun_nodes 终态;finalize FlowRun status + 推 terminal
-// 通知。
+// executeRun 是 Service.ExecuteFn 的真实实现;建 ExecutionContext + 初始
+// ready 后委派 driveLoop(跟 ResumeApproval 的 continueRun 共享)。
 func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, graph *workflowdomain.Graph) {
 	if graph == nil || len(graph.Nodes) == 0 {
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-
 	execCtx := newExecutionContext(run, graph)
 	topo := buildTopo(graph)
 	ready := topo.initialReady()
-
-	terminalStatus := flowrundomain.StatusCompleted
-	var terminalErr string
-	var terminalErrCode string
-
-	for len(ready) > 0 {
-		select {
-		case <-ctx.Done():
-			terminalStatus = flowrundomain.StatusCancelled
-			terminalErr = ctx.Err().Error()
-			ready = nil
-			goto FINALIZE
-		default:
-		}
-
-		nodes := make([]workflowdomain.NodeSpec, 0, len(ready))
-		for _, id := range ready {
-			nodes = append(nodes, topo.byID[id])
-		}
-
-		// Dispatch in parallel.
-		results := s.dispatchBatch(ctx, nodes, execCtx)
-
-		// Process results sequentially so map mutations are safe.
-		// 串行处理结果(map 改动避免锁)。
-		nextReady := make([]string, 0)
-		for _, res := range results {
-			s.recordNode(ctx, run, res, execCtx)
-
-			if res.Output.Error != nil {
-				policy := nodeOnError(res.Node)
-				switch policy {
-				case workflowdomain.OnErrorContinue:
-					// Treat as completed with null output.
-					// 视为 completed + 空输出。
-					execCtx.Done[res.Node.ID] = true
-					nextReady = append(nextReady, topo.advance(res.Node.ID, "")...)
-				case workflowdomain.OnErrorBranch:
-					// Route to "error" port (E9 retry layer adds this).
-					// 走 "error" port(E9 retry 层补)。
-					execCtx.Done[res.Node.ID] = true
-					nextReady = append(nextReady, topo.advance(res.Node.ID, "error")...)
-				default: // OnErrorStop or empty
-					terminalStatus = flowrundomain.StatusFailed
-					terminalErrCode = "NODE_FAILED"
-					terminalErr = fmt.Sprintf("node %q: %v", res.Node.ID, res.Output.Error)
-					ready = nil
-					goto FINALIZE
-				}
-				continue
-			}
-
-			execCtx.Done[res.Node.ID] = true
-			if res.Output.Outputs != nil {
-				execCtx.Outputs[res.Node.ID] = res.Output.Outputs
-			}
-			execCtx.NextPort[res.Node.ID] = res.Output.NextPort
-			nextReady = append(nextReady, topo.advance(res.Node.ID, res.Output.NextPort)...)
-		}
-		ready = nextReady
-	}
-
-FINALIZE:
-	output := map[string]any{
-		"nodesCompleted": len(execCtx.Done),
-		"nodesTotal":     len(graph.Nodes),
-	}
-	s.finalizeRun(ctx, run, terminalStatus, output, terminalErrCode, terminalErr)
+	s.driveLoop(ctx, run, graph, execCtx, topo, ready)
 }
 
 // dispatchResult bundles one node's input + output for sequential
