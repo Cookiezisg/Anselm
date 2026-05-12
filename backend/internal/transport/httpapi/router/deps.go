@@ -26,6 +26,9 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -78,6 +81,17 @@ type Deps struct {
 	// WorkflowService 管理用户 DAG workflow 库(CRUD、版本、ops 引擎、校验)。
 	// Plan 04 / trinity 第三条腿;trigger + 执行在 Plan 05。
 	WorkflowService *workflowapp.Service
+
+	// FlowRunRepo + SchedulerService + TriggerService back the Plan 05
+	// execution plane HTTP endpoints (/flowruns, /workflows/{id}:trigger,
+	// /workflows/{id}/triggers, /flowruns/{id}/approvals/{nodeId}).
+	// All optional — handlers degrade to 503 when unwired.
+	//
+	// FlowRunRepo + SchedulerService + TriggerService 是 Plan 05 执行 plane
+	// HTTP 端点的后端;任一 nil handler 退 503。
+	FlowRunRepo      flowrundomain.Repository
+	SchedulerService *schedulerapp.Service
+	TriggerService   *triggerapp.Service
 
 	// ChatService implements messaging, attachment upload, and Agent streaming.
 	// ChatService 实现消息收发、附件上传和 Agent 流式输出。

@@ -8,14 +8,17 @@ import (
 	"go.uber.org/zap"
 
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -106,6 +109,25 @@ var errTable = map[error]errMapping{
 	handlerdomain.ErrConfigInvalid:       {http.StatusBadRequest, "HANDLER_CONFIG_INVALID"},
 	handlerdomain.ErrConfigDecryptFailed: {http.StatusInternalServerError, "HANDLER_CONFIG_DECRYPT_FAILED"},
 	handlerdomain.ErrCallNotFound:        {http.StatusNotFound, "HANDLER_CALL_NOT_FOUND"},
+
+	// flowrun + trigger + scheduler domains (Plan 05 execution plane).
+	// flowrun + trigger + scheduler domain(Plan 05 执行 plane)。
+	flowrundomain.ErrNotFound:                {http.StatusNotFound, "FLOWRUN_NOT_FOUND"},
+	flowrundomain.ErrNotCancellable:          {http.StatusUnprocessableEntity, "FLOWRUN_NOT_CANCELLABLE"},
+	flowrundomain.ErrNotPaused:               {http.StatusUnprocessableEntity, "FLOWRUN_NOT_PAUSED"},
+	flowrundomain.ErrApprovalNodeNotFound:    {http.StatusNotFound, "FLOWRUN_APPROVAL_NODE_NOT_FOUND"},
+	flowrundomain.ErrApprovalDecisionInvalid: {http.StatusBadRequest, "FLOWRUN_APPROVAL_DECISION_INVALID"},
+	flowrundomain.ErrNodeNotFound:            {http.StatusNotFound, "FLOWRUN_NODE_NOT_FOUND"},
+
+	triggerdomain.ErrPathNotExist:          {http.StatusUnprocessableEntity, "TRIGGER_PATH_NOT_EXIST"},
+	triggerdomain.ErrPathConflict:          {http.StatusConflict, "TRIGGER_PATH_CONFLICT"},
+	triggerdomain.ErrWebhookSecretMismatch: {http.StatusUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH"},
+	triggerdomain.ErrInvalidCronExpression: {http.StatusBadRequest, "TRIGGER_INVALID_CRON_EXPRESSION"},
+
+	schedulerapp.ErrWorkflowDisabled:       {http.StatusUnprocessableEntity, "WORKFLOW_DISABLED"},
+	schedulerapp.ErrWorkflowNeedsAttention: {http.StatusUnprocessableEntity, "WORKFLOW_NEEDS_ATTENTION"},
+	schedulerapp.ErrConcurrencyLimit:       {http.StatusConflict, "FLOWRUN_CONCURRENCY_LIMIT"},
+	schedulerapp.ErrWorkflowNotFound:       {http.StatusNotFound, "WORKFLOW_NOT_FOUND_FOR_TRIGGER"},
 
 	// workflow domain (forge_redesign Plan 04 trinity third leg — DAG authoring) /
 	// workflow domain (Plan 04 trinity 第三条腿 — DAG authoring)

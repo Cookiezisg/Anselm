@@ -50,6 +50,9 @@ func New(deps Deps) http.Handler {
 	if deps.WorkflowService != nil {
 		handlershttpapi.NewWorkflowHandler(deps.WorkflowService, deps.Log).Register(mux)
 	}
+	if deps.FlowRunRepo != nil {
+		handlershttpapi.NewFlowRunHandler(deps.FlowRunRepo, deps.SchedulerService, deps.TriggerService, deps.Log).Register(mux)
+	}
 	if deps.ChatService != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.Log).Register(mux)
 	}
