@@ -1,5 +1,21 @@
 # Function Domain Implementation Plan
 
+> ⚠️ **STATUS: 主体已 merge(2026-05-11,13 commits 直推 main),后部分 env 相关章节已被 redesign 取代**
+>
+> Plan 01 的核心交付(domain / app / store / 7 LLM tools / 12 HTTP / D22 执行日志 / pipeline test)全部落地;forge 域已删除。
+>
+> 但 **env 模型在 2026-05-12 大幅修订**(详见 [`../discussions/2026-05-12-env-and-sse-rework.md`](../discussions/2026-05-12-env-and-sse-rework.md) §D-E):
+> - EnvID 改 `= version_id`(原本 = sha256(deps, python))
+> - env sync **同步发生在 LLM tool 内**,删 SyncEnvForVersion / Resync 异步路径
+> - AcceptPending **纯指针翻转**(env 已在 edit 阶段装好)
+> - Edit 改 "iterate same pending",删 ErrPendingConflict
+> - create_function / edit_function 加内部 env-fix loop(主 chat LLM 改 deps,maxAttempts=3)
+> - `ops=[]` 显式语义 = 强制重建 env(D-redo-22),取代 fake set_meta hack
+> - HTTP `:resync` 端点删除
+> - Service.Create/Edit 前置 sandbox ping,失败 503 硬拒不建 entity
+>
+> 本文档保留**实施过程记录**(branching / phase / 测试驱动顺序),env 设计细节请以 `02-function.md` + 讨论文档为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace existing `forge` domain entirely with new `function` domain — Python sandbox 函数 with ops-driven streaming 锻造,7 LLM tools,~12 HTTP endpoints,sandbox v2 集成,catalog source。新 entity / table / API / LLM tool 全套,**不复用 forge 历史代码**(per spec D5)。

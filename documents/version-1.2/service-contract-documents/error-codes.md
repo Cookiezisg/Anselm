@@ -137,16 +137,17 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `FUNCTION_NAME_DUPLICATE` | 409 | `functiondomain.ErrDuplicateName` | 创建/改名时撞名(partial UNIQUE 兜底) | ✅ |
 | `FUNCTION_VERSION_NOT_FOUND` | 404 | `functiondomain.ErrVersionNotFound` | revert/get version 版本号或 id 不存在 | ✅ |
 | `FUNCTION_PENDING_NOT_FOUND` | 404 | `functiondomain.ErrPendingNotFound` | accept/reject 时无 pending | ✅ |
-| `FUNCTION_PENDING_CONFLICT` | 409 | `functiondomain.ErrPendingConflict` | edit_function 时已有未处理 pending | ✅ |
 | `FUNCTION_RUN_FAILED` | 422 | `functiondomain.ErrRunFailed` | sandbox 基础设施错误(≠ ok=false 的用户代码失败,后者经 ExecutionResult.OK=false + ErrorMsg 返) | ✅ |
 | `FUNCTION_AST_PARSE_FAILED` | 422 | `functiondomain.ErrASTParseError` | final validation 失败(无 top-level def / D7 handler-import 黑名单 / 签名一致性) | ✅ |
 | `FUNCTION_OP_INVALID` | 400 | `functiondomain.ErrOpInvalid` | 单 op apply 失败(未知 op 类型 / payload 形状错 / incremental 校验破规则) | ✅ |
 | `FUNCTION_NO_ACTIVE_VERSION` | 422 | `functiondomain.ErrNoActiveVersion` | RunFunction 时 Function.ActiveVersionID == "" (Create 自动 accept v1,该错主要给手动构造 entity 的边角 case) | ✅ |
-| `FUNCTION_ENV_NOT_READY` | 422 | `functiondomain.ErrEnvNotReady` | ActiveVersion 的 venv 处于非-ready;等 entity-state 翻转或 :resync | ✅ |
-| `FUNCTION_ENV_FAILED` | 422 | `functiondomain.ErrEnvFailed` | ActiveVersion 的 env=failed(venv 装包失败);EnvError 含 sandbox stderr | ✅ |
-| `FUNCTION_DEPENDENCY_RESOLUTION` | 422 | `functiondomain.ErrDependencyResolution` | uv 无法解析依赖(包名错 / 版本冲突 / 网络);EnvError 含完整 stderr | ✅ |
-| `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | `functiondomain.ErrSandboxUnavailable` | sandbox v2 Bootstrap 失败(mise binary 缺) | ✅ |
+| `FUNCTION_ENV_NOT_READY` | 422 | `functiondomain.ErrEnvNotReady` | ActiveVersion 的 venv 处于非-ready;LLM 走 `edit_function({id, ops:[]})` 重建(D-redo-22)| ✅ |
+| `FUNCTION_ENV_FAILED` | 422 | `functiondomain.ErrEnvFailed` | env-fix loop 跑满 maxAttempts 仍失败;EnvError 含末态摘要 + attemptHistory(D-redo-15)| ✅ |
+| `FUNCTION_DEPENDENCY_RESOLUTION` | 422 | `functiondomain.ErrDependencyResolution` | uv 无法解析依赖(包名错 / 版本冲突 / 网络);通常被 env-fix loop 吞进 ENV_FAILED | ✅ |
+| `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | `functiondomain.ErrSandboxUnavailable` | Service.Create / Edit 调 sandbox 前 ping 失败(D-redo-20:bootstrap / mise / 磁盘满 等)— 硬拒不建 entity | ✅ |
 | `FUNCTION_EXECUTION_NOT_FOUND` | 404 | `functiondomain.ErrExecutionNotFound` | get_function_execution / GET /function-executions/{id} 查不到 | ✅ |
+
+**已删除**:`FUNCTION_PENDING_CONFLICT`(409,`functiondomain.ErrPendingConflict`)— Edit 改"iterate same pending"后无冲突场景(D-redo-11)。
 
 > 历史 `TOOL_*` / `FORGE_*` wire codes 已随 forge 代码路径在 Plan 01 Phase 7 同步移除。trinity domain 统一用 `FUNCTION_*` 前缀。
 
@@ -162,14 +163,14 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `HANDLER_METHOD_NOT_FOUND`      | 404 | `handlerdomain.ErrMethodNotFound`      | update_method / delete_method 引用不存在的 method 名 | ✅ |
 | `HANDLER_VERSION_NOT_FOUND`     | 404 | `handlerdomain.ErrVersionNotFound`     | revert/get version 版本号或 id 不存在 | ✅ |
 | `HANDLER_PENDING_NOT_FOUND`     | 404 | `handlerdomain.ErrPendingNotFound`     | accept/reject 时无 pending | ✅ |
-| `HANDLER_PENDING_CONFLICT`      | 409 | `handlerdomain.ErrPendingConflict`     | edit_handler 时已有未处理 pending | ✅ |
 | `HANDLER_INSTANCE_SPAWN_FAILED` | 422 | `handlerdomain.ErrInstanceSpawnFailed` | sandbox SpawnLongLived 失败(python 装包 / driver.py 写失败 等) | ✅ |
 | `HANDLER_INSTANCE_CRASHED`      | 422 | `handlerdomain.ErrInstanceCrashed`     | 已 spawn 的 instance 异常退出(driver bug / OOM 等) | ✅ |
 | `HANDLER_INSTANCE_RPC_TIMEOUT`  | 504 | `handlerdomain.ErrInstanceRPCTimeout`  | per-method timeout 触发(caller ctx 没 cancel,但 method 内置 timeout 超) | ⬜ |
 | `HANDLER_INSTANCE_NOT_FOUND`    | 404 | `handlerdomain.ErrInstanceNotFound`    | 查指定 instance ID 不存在(observability 端点用) | ⬜ |
 | `HANDLER_NO_ACTIVE_VERSION`     | 422 | `handlerdomain.ErrNoActiveVersion`     | Service.Call 时 ActiveVersionID == "" | ✅ |
-| `HANDLER_ENV_NOT_READY`         | 422 | `handlerdomain.ErrEnvNotReady`         | active version env 非 ready(syncing / evicted)且 in-flight sync 也失败 | ✅ |
-| `HANDLER_ENV_FAILED`            | 422 | `handlerdomain.ErrEnvFailed`           | active version env=failed(venv 装包失败);EnvError 含 sandbox stderr | ✅ |
+| `HANDLER_ENV_NOT_READY`         | 422 | `handlerdomain.ErrEnvNotReady`         | active version env 非 ready(syncing / evicted)且 in-flight 重建也失败 | ✅ |
+| `HANDLER_ENV_FAILED`            | 422 | `handlerdomain.ErrEnvFailed`           | env-fix loop 跑满 maxAttempts 仍失败;EnvError 含末态摘要 + attemptHistory(D-redo-15) | ✅ |
+| `HANDLER_SANDBOX_UNAVAILABLE`   | 503 | `handlerdomain.ErrSandboxUnavailable`  | Service.Create / Edit 调 sandbox 前 ping 失败(D-redo-20)— 硬拒不建 entity | ⬜ |
 | `HANDLER_OP_INVALID`            | 400 | `handlerdomain.ErrOpInvalid`           | 单 op apply 失败(未知 op 类型 / payload 形状错 / incremental 校验破规则) | ✅ |
 | `HANDLER_AST_PARSE_FAILED`      | 422 | `handlerdomain.ErrASTParseError`       | final validation 失败(D7 handler-import 黑名单 / 整 class AST 不可解析) | ✅ |
 | `HANDLER_CONFIG_INCOMPLETE`     | 422 | `handlerdomain.ErrConfigIncomplete`    | Service.Call 时 required init_args 缺;调用方需先 update_handler_config | ✅ |
@@ -177,7 +178,9 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `HANDLER_CONFIG_DECRYPT_FAILED` | 500 | `handlerdomain.ErrConfigDecryptFailed` | AES-GCM Decrypt 失败(密钥不对 / 密文损坏);用户不可自愈,需 ClearConfig 重填 | ✅ |
 | `HANDLER_CALL_NOT_FOUND`        | 404 | `handlerdomain.ErrCallNotFound`        | get_handler_call / GET /handler-calls/{id} 查不到 | ✅ |
 
-> handler trinity 用 `HANDLER_*` 前缀,跟 function 的 `FUNCTION_*` 平行。19 个 sentinel,其中 3 个标 ⬜ 是 V1 未触发的(per-method timeout / instance-by-id GET 端点 / config-value 类型校验留 V1.5)。
+**已删除**:`HANDLER_PENDING_CONFLICT`(409,`handlerdomain.ErrPendingConflict`)— Edit 改"iterate same pending"后无冲突场景(D-redo-11)。**新增**:`HANDLER_SANDBOX_UNAVAILABLE`(503,⬜ 待实施)— 跟 function 同 sentinel,D-redo-20。
+
+> handler trinity 用 `HANDLER_*` 前缀,跟 function 的 `FUNCTION_*` 平行。19 个 sentinel,其中 4 个标 ⬜ 是 V1 未触发或后续添加的(per-method timeout / instance-by-id GET 端点 / config-value 类型校验 / sandbox ping 失败 — sandbox ping 在 2026-05-12 redesign 中要 Plan 03 commit 时落地)。
 
 ---
 

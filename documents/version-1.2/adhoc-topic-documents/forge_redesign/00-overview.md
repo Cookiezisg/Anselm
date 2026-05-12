@@ -1,10 +1,11 @@
 # Forge Redesign — Trinity Architecture
 
 **创建于**:2026-05-10
-**状态**:设计中(brainstorming → spec)
+**状态**:Plan 01 (function) + Plan 02 (handler) 已 merge;Plan 03 (eventlog/transport) 大幅修订(见下)
 **关联**:
 - 上层路线 — `documents/version-1.2/backend-design.md` Phase 4 / forge 重做
-- 现状 forge — 完全推倒重做(不复用 forge entity / table / API / LLM tool)
+- 现状 forge — 完全推倒重做(已删除 forge domain/store/app/tool/HTTP/table 全套)
+- **📌 2026-05-12 redesign**:[`discussions/2026-05-12-env-and-sse-rework.md`](./discussions/2026-05-12-env-and-sse-rework.md) — env 模型(EnvID=versionID + tool 内同步装 + env-fix loop)+ SSE 三流统一(user_id 订阅 + Wails native event 取代 TLS)。**此后所有 env / SSE 决策以该文档为事实源**;本文 §3 D 系列若有冲突,以 D-redo-* 为准
 
 ---
 

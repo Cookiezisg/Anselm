@@ -45,11 +45,13 @@ Handler 是 trinity 第二条腿 — **有状态 Python class**。一个 Handler
 
 ---
 
-## 4. Ops 集合(method-level,W,跟 workflow 节点级 ops 一致)
+## 4. Ops 集合(method-level,跟 workflow 节点级 ops 一致)
 
 10 个 op:`set_meta` / `set_imports` / `set_init` / `set_shutdown` / `set_init_args_schema` / `add_method` / `update_method` / `delete_method` / `set_dependencies` / `set_python_version`。
 
 `update_method` 用 **JSON Merge Patch(RFC 7396)** — patch 值覆盖,nil 删除键。其他都是整字段覆盖。
+
+`edit_handler` 接受 `ops=[]` 显式语义 = **强制重建当前 active version 的 env**(D-redo-22)— 不改字段,直接销 env + 重装走 fix loop;给"env 突然坏了想 fix"路径用。
 
 错误映射:per-op apply 错误 → `ErrOpInvalid`(400 HANDLER_OP_INVALID);final 校验错误 → `ErrASTParseError`(422 HANDLER_AST_PARSE_FAILED)。
 
@@ -146,11 +148,11 @@ spawnInstance(ctx, h, owner):
 
 ---
 
-## 9. HTTP API(16 端点)
+## 9. HTTP API(17 端点)
 
 | Method | Path | 用途 |
 |---|---|---|
-| POST   | `/api/v1/handlers`                              | 创建(扁平 definition)|
+| POST   | `/api/v1/handlers`                              | 创建(扁平 definition);**前置 sandbox ping**(D-redo-20)|
 | GET    | `/api/v1/handlers`                              | 列表 |
 | GET    | `/api/v1/handlers/{id}`                         | 详情(含 pending + env + configState + liveInstances)|
 | PATCH  | `/api/v1/handlers/{id}`                         | 改 meta |
@@ -160,13 +162,15 @@ spawnInstance(ctx, h, owner):
 | GET    | `/api/v1/handlers/{id}/versions`                | 版本分页 |
 | GET    | `/api/v1/handlers/{id}/versions/{v}`            | 单版本 |
 | GET    | `/api/v1/handlers/{id}/pending`                 | 当前 pending |
-| POST   | `/api/v1/handlers/{id}/pending:accept`          | accept |
-| POST   | `/api/v1/handlers/{id}/pending:reject`          | reject |
+| POST   | `/api/v1/handlers/{id}/pending:accept`          | accept(瞬时返,env 不在此装,D-redo-10)|
+| POST   | `/api/v1/handlers/{id}/pending:reject`          | reject(销 env + 删行,D-redo-12)|
 | GET    | `/api/v1/handlers/{id}/config`                  | masked config + configState |
 | POST   | `/api/v1/handlers/{id}/config`                  | merge patch update |
 | DELETE | `/api/v1/handlers/{id}/config`                  | 清回 unconfigured |
 | GET    | `/api/v1/handlers/{id}/calls`                   | 调用日志列表(D22)|
 | GET    | `/api/v1/handler-calls/{callId}`                | 全局调用详情 + hints(D22)|
+
+**已删除**:`:resync` 端点(D-redo-14)— LLM 走 `edit_handler({id, ops:[]})` 触发重装(D-redo-22)。
 
 ---
 
@@ -176,8 +180,8 @@ spawnInstance(ctx, h, owner):
 |---|---|
 | `search_handler` | LLM 排序 query → 相关 handler |
 | `get_handler` | 完整详情 + maskedConfig + configState |
-| `create_handler` | 流式 ops 创建(单 op 1 progress delta;v1 auto-accept)|
-| `edit_handler` | 流式 ops 编辑 → pending |
+| `create_handler` | 流式 ops 创建;内部 env-fix loop(maxAttempts=3,D-redo-15);env=ready 时 auto-accept v1 |
+| `edit_handler` | 流式 ops 编辑;pending 已存在则 iterate same pending(D-redo-11);`ops=[]` = 强制重建 env(D-redo-22)|
 | `revert_handler` | 回滚 active 版本 |
 | `delete_handler` | 软删 + instance 级联 |
 | `call_handler` | per-call lifetime 调 method,流式 progress |
@@ -191,7 +195,9 @@ spawnInstance(ctx, h, owner):
 
 `handler.Sandbox` port(6 方法):PythonPath / Sync / SpawnLongLived / WriteCodeFile / Destroy / DestroyEnv。具体实现 `SandboxAdapter`(`sandbox_adapter.go`)桥接 `sandboxapp.Service`。
 
-Owner.Kind = `handler`,Owner.ID = `<handlerID>_<envID>`(per-handler envID buffer)。文件布局:`<dataDir>/handlers/<hdID>/versions/<vID>/{user_handler.py,driver.py}`。
+Owner.Kind = `handler`,Owner.ID = `<versionID>`(D-redo-8 每版本独立 venv)。文件布局:`<dataDir>/handlers/<hdID>/versions/<vID>/{user_handler.py,driver.py}`。
+
+**Env 装配同步发生在 Service.Create / Edit 内**(D-redo-9);失败由 LLM tool(create_handler / edit_handler)走内部 env-fix loop(maxAttempts=3,主 chat scenario LLM 改 deps)。Service.Create / Edit 前置 sandbox ping;失败返 `ErrSandboxUnavailable`(503)硬拒(D-redo-20)。**已删** `SyncEnvForVersion` 异步入口(D-redo-14);**已删** `env_synced` / `env_failed` notification action(D-redo-7)。
 
 ---
 
@@ -203,7 +209,9 @@ Owner.Kind = `handler`,Owner.ID = `<handlerID>_<envID>`(per-handler envID buffer
 
 ## 13. 错误码
 
-详见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) §Phase 3。19 个 sentinel + HANDLER_* wire code(NOT_FOUND / NAME_DUPLICATE / METHOD_NOT_FOUND / VERSION_NOT_FOUND / PENDING_NOT_FOUND / PENDING_CONFLICT / INSTANCE_SPAWN_FAILED / INSTANCE_CRASHED / INSTANCE_RPC_TIMEOUT / INSTANCE_NOT_FOUND / NO_ACTIVE_VERSION / ENV_NOT_READY / ENV_FAILED / OP_INVALID / AST_PARSE_FAILED / CONFIG_INCOMPLETE / CONFIG_INVALID / CONFIG_DECRYPT_FAILED / CALL_NOT_FOUND)。
+详见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) §Phase 3。19 个 sentinel + HANDLER_* wire code(NOT_FOUND / NAME_DUPLICATE / METHOD_NOT_FOUND / VERSION_NOT_FOUND / PENDING_NOT_FOUND / INSTANCE_SPAWN_FAILED / INSTANCE_CRASHED / INSTANCE_RPC_TIMEOUT / INSTANCE_NOT_FOUND / NO_ACTIVE_VERSION / ENV_NOT_READY / ENV_FAILED / SANDBOX_UNAVAILABLE / OP_INVALID / AST_PARSE_FAILED / CONFIG_INCOMPLETE / CONFIG_INVALID / CONFIG_DECRYPT_FAILED / CALL_NOT_FOUND)。
+
+**已删除**:`HANDLER_PENDING_CONFLICT`(409)— Edit 改"iterate same pending"后无冲突场景(D-redo-11)。**新增**:`HANDLER_SANDBOX_UNAVAILABLE`(503)— Service.Create / Edit 前置 sandbox ping 失败(D-redo-20)。
 
 ---
 

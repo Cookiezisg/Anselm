@@ -1,5 +1,21 @@
 # Handler Domain Implementation Plan
 
+> ⚠️ **STATUS: 主体已 merge(2026-05-12,11 commits 直推 main),env 相关章节已被 redesign 取代**
+>
+> Plan 02 的核心交付(domain / app / store / stdio client / 10 LLM tools / 16 HTTP / Handler Config 加密 / D22 handler_calls / pipeline test)全部落地。
+>
+> 但 **env 模型在 2026-05-12 大幅修订**(详见 [`../discussions/2026-05-12-env-and-sse-rework.md`](../discussions/2026-05-12-env-and-sse-rework.md) §D-E),跟 function domain 同模式:
+> - EnvID 改 `= version_id`
+> - env sync **同步发生在 LLM tool 内**(create_handler / edit_handler)
+> - AcceptPending 纯指针翻转;RejectPending 销 env + 删行
+> - Edit 改 "iterate same pending",删 ErrPendingConflict
+> - 内部 env-fix loop(maxAttempts=3,主 chat LLM 改 deps)
+> - `ops=[]` 显式语义 = 强制重建 env(D-redo-22)
+> - HTTP `:resync` 删除(若有)
+> - Service.Create/Edit 前置 sandbox ping,失败 503 硬拒
+>
+> 本文档保留**实施过程记录**,env 设计细节请以 `03-handler.md` + 讨论文档为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 全新 `handler` domain — Python class + 多 method,Definition + Instance 二层(caller-owns lifetime),method-level ops (W),Handler Config (init_args 加密),stdio JSON-RPC client,catalog source。**前置依赖**:Plan 01 已 merge(Function domain 已就位)。
