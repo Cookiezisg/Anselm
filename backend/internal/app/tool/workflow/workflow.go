@@ -22,6 +22,7 @@ import (
 
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 )
 
@@ -42,5 +43,19 @@ func WorkflowTools(svc *workflowapp.Service, forge forgepkg.Publisher, log *zap.
 		&EditWorkflow{svc: svc, forge: forge},
 		&RevertWorkflow{svc: svc, forge: forge},
 		&DeleteWorkflow{svc: svc, forge: forge},
+	}
+}
+
+// WorkflowExecutionTools constructs the 2 D22 execution-log tools wired
+// with the flowrun Repository (queries flowrun_nodes). Kept separate from
+// WorkflowTools so main.go / harness can wire them at different times
+// (flowrun repo lands after Plan 05 store init).
+//
+// WorkflowExecutionTools 装配 2 个 D22 执行日志工具(查 flowrun_nodes)。
+// 跟 WorkflowTools 分开因为 flowrun repo 在 Plan 05 store 初始化之后才接。
+func WorkflowExecutionTools(repo flowrundomain.Repository) []toolapp.Tool {
+	return []toolapp.Tool{
+		&SearchWorkflowExecutions{repo: repo},
+		&GetWorkflowExecution{repo: repo},
 	}
 }

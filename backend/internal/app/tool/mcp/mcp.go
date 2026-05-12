@@ -34,6 +34,7 @@ package mcp
 import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 )
 
 // MCPTools constructs the five MCP system tools sharing one Service.
@@ -51,5 +52,16 @@ func MCPTools(svc *mcpapp.Service) []toolapp.Tool {
 		&ListMCPMarketplace{svc: svc},
 		&InstallMCPServer{svc: svc},
 		&UninstallMCPServer{svc: svc},
+	}
+}
+
+// MCPCallLogTools constructs the 2 D22 call-log tools (search/get) wired
+// with the mcp_calls Repository. E15 main.go wires the GORM-backed Store.
+//
+// MCPCallLogTools 装配 2 个 D22 调用日志工具(查 mcp_calls)。
+func MCPCallLogTools(repo mcpdomain.CallRepository) []toolapp.Tool {
+	return []toolapp.Tool{
+		&SearchMCPCalls{repo: repo},
+		&GetMCPCall{repo: repo},
 	}
 }
