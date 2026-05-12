@@ -38,6 +38,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -48,6 +49,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
+	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -59,6 +61,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -74,6 +77,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
+	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
@@ -156,6 +160,7 @@ type Harness struct {
 	Model        *modelapp.Service
 	Conversation *convapp.Service
 	Function     *functionapp.Service
+	Handler      *handlerapp.Service
 	Chat         *chatapp.Service
 	Tools        []toolapp.Tool
 }
@@ -208,6 +213,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&chatdomain.Attachment{},
 		&functiondomain.Function{},
 		&functiondomain.Version{},
+		&handlerdomain.Handler{},
+		&handlerdomain.Version{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -286,6 +293,18 @@ func New(t *testing.T, opts ...Option) *Harness {
 		log,
 	)
 
+	handlerService := handlerapp.NewService(
+		handlerstore.New(gdb),
+		handlerapp.NewSandboxAdapter(sandboxSvc, dataDir),
+		handlerapp.DefaultClientFactory,
+		encryptor,
+		notificationsPub,
+		log,
+	)
+	t.Cleanup(func() {
+		handlerService.Shutdown(context.Background())
+	})
+
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
@@ -309,6 +328,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools := functiontool.FunctionTools(
 		functionService, modelService, apikeyService, llmFactory, log,
 	)
+	tools = append(tools, handlertool.HandlerTools(
+		handlerService, modelService, apikeyService, llmFactory, log,
+	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard, log)...)
 	// WebTools wired without MCP router in pipeline harness — tests that
@@ -460,6 +482,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// on choosing" prose。D9 + test/catalog 场景全针对 mechanical 标记
 	// 断言，都通过。
 	catalogService.RegisterSource(functionService.AsCatalogSource())
+	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
 	if err := catalogService.Start(context.Background()); err != nil {
@@ -483,6 +506,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		ModelService:        modelService,
 		ConversationService: convService,
 		FunctionService:     functionService,
+		HandlerService:      handlerService,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
@@ -522,6 +546,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Model:               modelService,
 		Conversation:        convService,
 		Function:            functionService,
+		Handler:             handlerService,
 		Chat:                chatService,
 		Tools:               tools,
 	}

@@ -25,6 +25,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -35,6 +36,7 @@ import (
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
+	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -46,6 +48,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
@@ -63,6 +66,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
+	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
@@ -134,6 +138,8 @@ func main() {
 		&chatdomain.Attachment{},
 		&functiondomain.Function{},
 		&functiondomain.Version{},
+		&handlerdomain.Handler{},
+		&handlerdomain.Version{},
 		&sandboxdomain.Runtime{},
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
@@ -204,6 +210,20 @@ func main() {
 		log,
 	)
 
+	// Handler service (Plan 02 trinity second leg). Shares the same sandbox v2
+	// + encryptor as function;own store + tool factory + registry.
+	//
+	// Handler service(Plan 02 trinity 第二条腿)。复用 sandbox v2 + encryptor;
+	// 自己的 store + tool factory + registry。
+	handlerService := handlerapp.NewService(
+		handlerstore.New(gdb),
+		handlerapp.NewSandboxAdapter(sandboxSvc, *dataDir),
+		handlerapp.DefaultClientFactory,
+		encryptor,
+		notificationsPub,
+		log,
+	)
+
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
@@ -266,6 +286,13 @@ func main() {
 		llmFactory,
 		log,
 	)
+	tools = append(tools, handlertool.HandlerTools(
+		handlerService,
+		modelService,
+		apikeyService,
+		llmFactory,
+		log,
+	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard, log)...)
 	tools = append(tools, webtool.WebTools(modelService, apikeyService, llmFactory, mcpapp.NewSearchRouter(mcpService), log)...)
@@ -351,6 +378,7 @@ func main() {
 	catalogService := catalogapp.New(filepath.Join(homeRoot, ".catalog.json"), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
 	catalogService.RegisterSource(functionService.AsCatalogSource())
+	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
 	if err := catalogService.Start(context.Background()); err != nil {
@@ -377,6 +405,7 @@ func main() {
 		ModelService:        modelService,
 		ConversationService: convService,
 		FunctionService:     functionService,
+		HandlerService:      handlerService,
 		ChatService:         chatService,
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
@@ -448,6 +477,13 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error("shutdown", zap.Error(err))
 	}
+
+	// Tear down handler instance registry — any live Python subprocesses get
+	// graceful shutdown messages then Kill. Bounded by their internal 500ms
+	// per-shutdown send timeout.
+	//
+	// 关停 handler instance registry——活的 Python 子进程发 shutdown 再 Kill。
+	handlerService.Shutdown(shutdownCtx)
 }
 
 // registerSandboxStack wires the v1 PluginSandbox runtime/env matrix —
