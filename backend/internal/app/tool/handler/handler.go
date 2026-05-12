@@ -43,5 +43,7 @@ func HandlerTools(
 		&DeleteHandler{svc: svc},
 		&CallHandler{svc: svc},
 		&UpdateHandlerConfig{svc: svc},
+		&SearchHandlerCalls{svc: svc},
+		&GetHandlerCall{svc: svc},
 	}
 }

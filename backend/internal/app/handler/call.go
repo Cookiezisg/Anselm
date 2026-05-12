@@ -33,10 +33,13 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // CallInput is the request shape for Service.Call.
@@ -52,10 +55,14 @@ type CallInput struct {
 }
 
 // Call dispatches a method call on a handler instance, honoring caller-owns
-// lifetime per the user's clarified model.
+// lifetime per the user's clarified model. Always writes one terminal Call
+// row (D22) to handler_calls.
 //
-// Call 派发 handler instance 的 method 调用,按 caller-owns lifetime 处理。
+// Call 派发 handler instance 的 method 调用,按 caller-owns lifetime 处理;
+// 终态写 1 行 Call 到 handler_calls(D22)。
 func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
+	uid, _ := reqctxpkg.RequireUserID(ctx) // ok if empty — recordCall handles
+
 	// 1. Resolve handler by ID or name.
 	var h *handlerdomain.Handler
 	if in.HandlerID != "" {
@@ -78,43 +85,125 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 		return nil, fmt.Errorf("handlerapp.Call: %w", handlerdomain.ErrNoActiveVersion)
 	}
 
-	// 2. chat scope = per-call. owner.Kind=="chat" means we spawn just for
-	//    this call and destroy after. owner.Kind="" defaults to per-call
-	//    too (defensive default for HTTP debugging without explicit owner).
+	startedAt := time.Now().UTC()
+	var (
+		result     any
+		instanceID string
+		callErr    error
+	)
 	if in.Owner.Kind == "chat" || in.Owner.Kind == "" {
-		return s.callPerCall(ctx, h, in)
+		result, instanceID, callErr = s.callPerCallTracked(ctx, h, in)
+	} else {
+		result, instanceID, callErr = s.callViaRegistryTracked(ctx, h, in)
 	}
+	endedAt := time.Now().UTC()
 
-	// 3. Persistent scope (workflow/test/session) — registry.Acquire.
-	return s.callViaRegistry(ctx, h, in)
+	s.recordCall(ctx, uid, h, in, instanceID, startedAt, endedAt, result, callErr, ctx.Err())
+
+	return result, callErr
 }
 
-// callPerCall spawns a fresh instance, invokes the method, destroys.
+// callPerCallTracked spawns + calls + destroys + returns the instanceID used
+// (for call_log row).
 //
-// callPerCall 起新 instance + 调 method + 销毁。
-func (s *Service) callPerCall(ctx context.Context, h *handlerdomain.Handler, in CallInput) (any, error) {
+// callPerCallTracked spawn+call+destroy 返 instanceID(供 call_log 行)。
+func (s *Service) callPerCallTracked(ctx context.Context, h *handlerdomain.Handler, in CallInput) (any, string, error) {
 	inst, err := s.spawnInstance(ctx, h, Owner{Kind: "chat", ID: "ephemeral"})
 	if err != nil {
-		return nil, fmt.Errorf("handlerapp.Call: spawn: %w", err)
+		return nil, "", fmt.Errorf("handlerapp.Call: spawn: %w", err)
 	}
 	defer func() {
 		_ = inst.Client.Shutdown(ctx)
 		_ = inst.Kill()
 	}()
-	return s.invokeMethod(ctx, inst, in)
+	res, err := s.invokeMethod(ctx, inst, in)
+	return res, inst.ID, err
 }
 
-// callViaRegistry uses registry.Acquire — persistent owner scope.
+// callViaRegistryTracked uses registry.Acquire and returns the instanceID used.
 //
-// callViaRegistry 走 registry.Acquire——持久 owner scope。
-func (s *Service) callViaRegistry(ctx context.Context, h *handlerdomain.Handler, in CallInput) (any, error) {
+// callViaRegistryTracked 走 registry.Acquire 返 instanceID。
+func (s *Service) callViaRegistryTracked(ctx context.Context, h *handlerdomain.Handler, in CallInput) (any, string, error) {
 	inst, err := s.registry.Acquire(ctx, in.Owner, h.Name, func(ctx context.Context) (*Instance, error) {
 		return s.spawnInstance(ctx, h, in.Owner)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("handlerapp.Call: acquire: %w", err)
+		return nil, "", fmt.Errorf("handlerapp.Call: acquire: %w", err)
 	}
-	return s.invokeMethod(ctx, inst, in)
+	res, err := s.invokeMethod(ctx, inst, in)
+	return res, inst.ID, err
+}
+
+// recordCall writes a terminal Call row capturing the outcome. Best-effort
+// (a failed log write doesn't surface as a call failure). Uses detached ctx
+// (§S9) so caller cancel doesn't lose the log.
+//
+// recordCall 写一行 Call(详 D22)。best-effort + detached ctx。
+func (s *Service) recordCall(
+	ctx context.Context,
+	uid string,
+	h *handlerdomain.Handler,
+	in CallInput,
+	instanceID string,
+	startedAt, endedAt time.Time,
+	result any,
+	callErr error,
+	runCtxErr error,
+) {
+	status := handlerdomain.CallStatusOK
+	errorMessage := ""
+	if callErr != nil {
+		status = handlerdomain.CallStatusFailed
+		errorMessage = callErr.Error()
+		if errors.Is(runCtxErr, context.DeadlineExceeded) {
+			status = handlerdomain.CallStatusTimeout
+		} else if errors.Is(runCtxErr, context.Canceled) {
+			status = handlerdomain.CallStatusCancelled
+		}
+	}
+
+	triggeredBy := "http"
+	if in.Owner.Kind == "chat" {
+		triggeredBy = "chat"
+	} else if in.Owner.Kind == "workflow" || in.Owner.Kind == "flowrun" {
+		triggeredBy = "workflow"
+	} else if in.Owner.Kind == "test" {
+		triggeredBy = "test"
+	}
+
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+
+	call := &handlerdomain.Call{
+		ID:             idgenpkg.New("hcl"),
+		UserID:         uid,
+		Status:         status,
+		TriggeredBy:    triggeredBy,
+		Input:          in.Args,
+		Output:         result,
+		ErrorMessage:   errorMessage,
+		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:      startedAt,
+		EndedAt:        endedAt,
+		ConversationID: convID,
+		MessageID:      msgID,
+		ToolCallID:     toolCallID,
+		HandlerID:      h.ID,
+		VersionID:      h.ActiveVersionID,
+		Method:         in.Method,
+		InstanceID:     instanceID,
+		OwnerKind:      in.Owner.Kind,
+		OwnerID:        in.Owner.ID,
+	}
+
+	detached := reqctxpkg.SetUserID(context.Background(), uid)
+	if err := s.repo.SaveCall(detached, call); err != nil {
+		s.log.Warn("handlerapp.recordCall: SaveCall failed (best-effort)",
+			zap.String("handlerId", h.ID),
+			zap.String("method", in.Method),
+			zap.Error(err))
+	}
 }
 
 // spawnInstance is the shared spawn flow used by both paths. Spawns a fresh

@@ -123,6 +123,18 @@ func (r *fakeRepo) HardDeleteOldestAccepted(context.Context, string, int) error 
 	panic("not implemented")
 }
 
+// Call-log methods (D22) — config tests never hit these.
+func (r *fakeRepo) SaveCall(context.Context, *handlerdomain.Call) error { panic("not implemented") }
+func (r *fakeRepo) GetCallByID(context.Context, string) (*handlerdomain.Call, error) {
+	panic("not implemented")
+}
+func (r *fakeRepo) ListCalls(context.Context, handlerdomain.CallFilter) ([]*handlerdomain.Call, string, error) {
+	panic("not implemented")
+}
+func (r *fakeRepo) ComputeCallAggregates(context.Context, handlerdomain.CallFilter) (handlerdomain.CallAggregates, error) {
+	panic("not implemented")
+}
+
 // Trick: handlerdomain.Repository.UpdateVersionEnv has a *time.Time arg, not
 // *struct{}. We need to satisfy the actual interface. Switch to embedding a
 // nil Repository so unimplemented methods auto-panic. Above panics are

@@ -105,6 +105,7 @@ var errTable = map[error]errMapping{
 	handlerdomain.ErrConfigIncomplete:    {http.StatusUnprocessableEntity, "HANDLER_CONFIG_INCOMPLETE"},
 	handlerdomain.ErrConfigInvalid:       {http.StatusBadRequest, "HANDLER_CONFIG_INVALID"},
 	handlerdomain.ErrConfigDecryptFailed: {http.StatusInternalServerError, "HANDLER_CONFIG_DECRYPT_FAILED"},
+	handlerdomain.ErrCallNotFound:        {http.StatusNotFound, "HANDLER_CALL_NOT_FOUND"},
 
 	// todo domain / todo domain 层
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},

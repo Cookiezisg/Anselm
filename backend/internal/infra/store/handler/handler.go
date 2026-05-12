@@ -51,6 +51,7 @@ func AutoMigrateModels() []interface{} {
 	return []interface{}{
 		&handlerdomain.Handler{},
 		&handlerdomain.Version{},
+		&handlerdomain.Call{},
 	}
 }
 

@@ -43,6 +43,10 @@ func (h *HandlerHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/handlers/{id}/config", h.GetConfig)
 	mux.HandleFunc("POST /api/v1/handlers/{id}/config", h.UpdateConfig)
 	mux.HandleFunc("DELETE /api/v1/handlers/{id}/config", h.ClearConfig)
+
+	// Call log (D22)
+	mux.HandleFunc("GET /api/v1/handlers/{id}/calls", h.ListCalls)
+	mux.HandleFunc("GET /api/v1/handler-calls/{callId}", h.GetCall)
 }
 
 // ── CRUD ─────────────────────────────────────────────────────────────────────
@@ -330,4 +334,42 @@ func (h *HandlerHandler) ClearConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+// ── Call log (D22) ───────────────────────────────────────────────────────────
+
+func (h *HandlerHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
+	p, err := paginationpkg.Parse(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	q := r.URL.Query()
+	filter := handlerdomain.CallFilter{
+		HandlerID:      r.PathValue("id"),
+		VersionID:      q.Get("versionId"),
+		Method:         q.Get("method"),
+		InstanceID:     q.Get("instanceId"),
+		OwnerKind:      q.Get("ownerKind"),
+		Status:         q.Get("status"),
+		ConversationID: q.Get("conversationId"),
+		FlowrunID:      q.Get("flowrunId"),
+		Cursor:         p.Cursor,
+		Limit:          p.Limit,
+	}
+	res, err := h.svc.SearchCalls(r.Context(), filter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
+}
+
+func (h *HandlerHandler) GetCall(w http.ResponseWriter, r *http.Request) {
+	detail, err := h.svc.GetCallDetail(r.Context(), r.PathValue("callId"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, detail)
 }

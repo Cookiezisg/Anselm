@@ -82,4 +82,10 @@ type Repository interface {
 	//
 	// GetConfigEncrypted 返原始密文("" 表示未配置)。
 	GetConfigEncrypted(ctx context.Context, handlerID string) (string, error)
+
+	// Call-log methods (D22) — embedded so Service.repo gets all execution-log
+	// methods alongside core CRUD.
+	//
+	// Call-log 方法(D22)——embed 让 Service.repo 一并拿 execution-log。
+	CallRepository
 }
