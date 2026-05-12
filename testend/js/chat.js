@@ -1,11 +1,12 @@
 // chat.js — center chat panel: message list, streaming, send/cancel,
-// attachments. Event-log protocol (post-cleanup model):
+// attachments. Event-log protocol (post-D-redo-2 model):
 //
-//   /api/v1/eventlog?conversationId=X    per-conv content stream
+//   /api/v1/eventlog                       per-user content stream
 //     5 events: message_start / message_stop / block_start / block_delta / block_stop
 //     6 block types: text / reasoning / tool_call / tool_result / progress / message
+//     payload carries conversationId — we filter client-side via chatBus.
 //
-//   /api/v1/notifications                  global entity updates
+//   /api/v1/notifications                  per-user entity updates
 //     1 envelope: {type, id, data, conversationId?}
 //     handles type==="conversation" (autoTitle rename) here; others
 //     consumed by other tabs.
@@ -40,7 +41,7 @@ document.addEventListener('alpine:init', () => {
     pendingAtts: [],      // [{id, fileName, mimeType}]
     uploading: false,
     askDraft: {},         // toolCallId → draft answer text (for in-flight AskUserQuestion)
-    _es: null,            // /api/v1/eventlog SSE
+    _unsubChat: null,     // chatBus subscription disposer (D-redo-2 per-user stream)
     _unsubNotif: null,    // notifBus subscription disposer
 
     // Per-block expansion state — keyed by block.id (reasoning) or
@@ -532,46 +533,33 @@ document.addEventListener('alpine:init', () => {
       // Maintained by the event handlers.
       //
       // Per-block-id 索引让 delta 查找快。条目 { msgId, item } 或
-      // { msgId, blockId }，由事件 handler 维护。
+      // { msgId, blockId },由事件 handler 维护。
       this._blockIndex = new Map()
 
-      const es = new EventSource(`/api/v1/eventlog?conversationId=${id}`)
-      this._es = es
-
-      es.addEventListener('message_start', e => this._onMessageStart(JSON.parse(e.data)))
-      es.addEventListener('message_stop',  e => this._onMessageStop(JSON.parse(e.data)))
-      es.addEventListener('block_start',   e => this._onBlockStart(JSON.parse(e.data)))
-      es.addEventListener('block_delta',   e => this._onBlockDelta(JSON.parse(e.data)))
-      es.addEventListener('block_stop',    e => this._onBlockStop(JSON.parse(e.data)))
-
-      // Disconnect / 410 Gone fallback: EventSource auto-reconnects, but
-      // its stale Last-Event-ID can land before the server's replay
-      // buffer (4096) — backend returns 410 SEQ_TOO_OLD and we'd miss
-      // events. Debounce a few error ticks then full-refetch via REST.
-      // browsers fire onerror frequently on transient drops, so we wait
-      // 3 seconds of unbroken errors before the heavy rehydrate.
+      // Subscribe to the shared chatBus (D-redo-2 per-user stream) instead
+      // of opening our own EventSource per conversation. Inside the handler
+      // we client-side demux by payload.conversationId so only events for
+      // the active conversation hit our state. On conv switch, we
+      // unsubscribe + resubscribe — the underlying EventSource stays open
+      // for the page lifetime (shared with other tabs).
       //
-      // 断线 / 410 Gone 兜底：EventSource 自动重连但旧 Last-Event-ID 可能落
-      // 在 server replay buffer (4096) 后——后端返 410 SEQ_TOO_OLD 我们就漏。
-      // 错误 tick 累积 3 秒后走 REST 全态 refetch。瞬时 drop 不触发。
-      let errSince = 0
-      es.onerror = () => {
-        if (!errSince) errSince = Date.now()
-        if (Date.now() - errSince < 3000) return
-        // Connection has been broken for 3s+. Re-hydrate via REST then
-        // reopen SSE.
-        // 已断 3s+，REST 重新拿全态再重开 SSE。
-        if (this.conversationId !== id) return // user already switched
-        this._closeEventLog()
-        this.loadMessages(id).then(() => {
-          if (this.conversationId === id) this._connectEventLog(id)
-        })
-      }
-      es.onopen = () => { errSince = 0 }
+      // 订共享 chatBus(D-redo-2 per-user 流)替代为每对话新开 EventSource。
+      // handler 内按 payload.conversationId 客户端 demux,只有当前对话事件
+      // 落入状态。conv 切换 = 重新订阅;底层 EventSource 跨页面生命周期共享。
+      this._unsubChat = Alpine.store('chatBus').subscribe((type, ev, _lastId) => {
+        if (!ev || ev.conversationId !== id) return
+        switch (type) {
+          case 'message_start': this._onMessageStart(ev); break
+          case 'message_stop':  this._onMessageStop(ev); break
+          case 'block_start':   this._onBlockStart(ev); break
+          case 'block_delta':   this._onBlockDelta(ev); break
+          case 'block_stop':    this._onBlockStop(ev); break
+        }
+      })
     },
 
     _closeEventLog() {
-      if (this._es) { this._es.close(); this._es = null }
+      if (this._unsubChat) { this._unsubChat(); this._unsubChat = null }
       this._blockIndex = null
     },
 

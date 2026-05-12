@@ -1897,6 +1897,63 @@
         </div>
       </div>
 
+      <!-- ── Forge tab — live feed from /api/v1/forge SSE (C4) ───── -->
+      <div class="tab-content" x-show="activeRightTab==='forge'" x-data="forgeTab()">
+        <div class="panel-toolbar">
+          <strong>Forge</strong>
+          <span class="status-text" x-text="events.length + ' events'"></span>
+          <span style="margin-left:auto;font-size:10px"
+                :style="'color:' + (connState==='live' ? '#2a9d3a' : connState==='error' ? '#c93434' : '#888')"
+                x-text="connState==='live' ? '● SSE live' : connState==='error' ? '✕ SSE error' : '○ SSE closed'"></span>
+          <button class="btn btn-ghost btn-sm" @click="clearHistory()" style="margin-left:8px">clear</button>
+        </div>
+
+        <!-- Filter row: kind × type chips -->
+        <div class="panel-toolbar" style="border-top:1px solid var(--border-subtle);flex-wrap:wrap;gap:4px">
+          <span class="label">kind</span>
+          <button class="btn btn-sm" :class="{'btn-primary': kindFilter==='all'}"
+                  @click="setKindFilter('all')">all</button>
+          <template x-for="k in KINDS" :key="k">
+            <button class="btn btn-sm"
+                    :class="{'btn-primary': kindFilter===k}"
+                    @click="setKindFilter(k)"
+                    x-text="k"></button>
+          </template>
+          <span class="label" style="margin-left:8px">type</span>
+          <template x-for="t in EVENT_TYPES" :key="t">
+            <button class="btn btn-sm"
+                    :class="{'btn-primary': typeFilters.has(t)}"
+                    @click="toggleTypeFilter(t)"
+                    x-text="t + ' (' + countByType(t) + ')'"></button>
+          </template>
+        </div>
+
+        <!-- Feed -->
+        <div class="notifs-list">
+          <template x-if="filteredEvents().length === 0">
+            <div class="empty-state">
+              <div class="empty-state-title">No forge events</div>
+              <div class="empty-state-hint">create or edit a function / handler via the chat panel — events stream here in real time</div>
+            </div>
+          </template>
+          <template x-for="ev in filteredEvents()" :key="ev.id">
+            <details class="notifs-row">
+              <summary style="display:flex;gap:8px;align-items:baseline;cursor:pointer;list-style:none">
+                <span :style="'color:' + typeColor(ev.type) + ';font-weight:600;min-width:160px;font-family:Consolas,monospace;font-size:10px'"
+                      x-text="ev.type"></span>
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px"
+                      x-text="ev.summary"></span>
+                <span x-show="ev.seq" style="color:var(--text-mute);font-size:9px;font-family:Consolas,monospace"
+                      x-text="'#' + ev.seq"></span>
+                <span class="notifs-time" x-text="fmtElapsed(ev.ts)"></span>
+              </summary>
+              <pre style="margin:4px 0 4px 24px;padding:6px;background:var(--canvas-subtle, #fafafa);font-family:Consolas,monospace;font-size:10px;white-space:pre-wrap;max-height:300px;overflow:auto;border-radius:3px"
+                   x-text="pretty(ev.ev)"></pre>
+            </details>
+          </template>
+        </div>
+      </div>
+
       <!-- ── Errors tab (TE-21) ──────────────────────────────────── -->
       <div class="tab-content" x-show="activeRightTab==='errors'" x-data="errorsTab()">
         <div class="panel-toolbar">
@@ -2074,6 +2131,7 @@
   <script src="/dev/static/js/tab-processes.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-info.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-notifications.js?v=__BUILD__"></script>
+  <script src="/dev/static/js/tab-forge.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-errors.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-metrics.js?v=__BUILD__"></script>
   <script src="/dev/static/js/tab-routes.js?v=__BUILD__"></script>

@@ -21,6 +21,7 @@ const TESTEND_TABS = [
   { id: 'metrics',   label: 'Metrics' },
   { id: 'routes',    label: 'Routes' },
   { id: 'notifs',    label: 'Notifs' },
+  { id: 'forge',     label: 'Forge' },
   { id: 'info',      label: 'Info' },
 ];
 
@@ -76,6 +77,90 @@ document.addEventListener('alpine:init', () => {
     //
     // 订阅 fn 返 unsubscribe。一旦有 tab 订阅，bus 不再关——避免 tab 切换
     // 引发的频繁开关连接抖动。
+    subscribe(fn) {
+      this._open();
+      this.listeners.add(fn);
+      return () => { this.listeners.delete(fn); };
+    },
+  });
+
+  // chatBus — single shared EventSource for /api/v1/eventlog (recursive
+  // event-log protocol: 5 events × 6 block types). Per D-redo-2 the
+  // backend keys by user_id and pushes ALL of this user's conversations
+  // through one stream — each event payload carries conversationId for
+  // client-side demux. Listeners filter on payload.conversationId.
+  //
+  // Bus design mirrors notifBus / logBus — open once on first subscribe,
+  // stay open for page lifetime (closing on last unsubscribe risks open/
+  // close churn when chat panel toggles conversations).
+  //
+  // chatBus 单一共享 /api/v1/eventlog EventSource(递归事件日志协议)。
+  // 按 D-redo-2 后端 per-user key,此用户全部对话事件走一条流;每事件
+  // payload 带 conversationId 客户端按它 demux。订阅方按
+  // payload.conversationId 过滤。
+  Alpine.store('chatBus', {
+    _es: null,
+    listeners: new Set(),
+    connState: 'closed',
+
+    _open() {
+      if (this._es) return;
+      this._es = new EventSource('/api/v1/eventlog');
+      this.connState = 'live';
+      // The 5 event types in the recursive event-log protocol.
+      // 5 个事件类型。
+      const types = ['message_start', 'message_stop', 'block_start', 'block_delta', 'block_stop'];
+      for (const type of types) {
+        this._es.addEventListener(type, e => {
+          let ev; try { ev = JSON.parse(e.data); } catch { return; }
+          if (!ev) return;
+          for (const fn of this.listeners) {
+            try { fn(type, ev, e.lastEventId); } catch (err) { console.error('chatBus listener', err); }
+          }
+        });
+      }
+      this._es.onopen = () => { this.connState = 'live'; };
+      this._es.onerror = () => { this.connState = 'error'; };
+    },
+
+    subscribe(fn) {
+      this._open();
+      this.listeners.add(fn);
+      return () => { this.listeners.delete(fn); };
+    },
+  });
+
+  // forgeBus — single shared EventSource for /api/v1/forge (trinity
+  // forging protocol: 4 events × 3 scope.kind). Per D-redo-4 backend
+  // pushes all forge events for this user; clients filter on
+  // event.scope.kind / event.scope.id.
+  //
+  // forgeBus 单一共享 /api/v1/forge EventSource(trinity 锻造协议:
+  // 4 events × 3 scope.kind)。按 D-redo-4 后端推该用户全部 forge 事件;
+  // 客户端按 event.scope.kind / event.scope.id 过滤。
+  Alpine.store('forgeBus', {
+    _es: null,
+    listeners: new Set(),
+    connState: 'closed',
+
+    _open() {
+      if (this._es) return;
+      this._es = new EventSource('/api/v1/forge');
+      this.connState = 'live';
+      const types = ['forge_started', 'forge_op_applied', 'forge_env_attempt', 'forge_completed'];
+      for (const type of types) {
+        this._es.addEventListener(type, e => {
+          let ev; try { ev = JSON.parse(e.data); } catch { return; }
+          if (!ev) return;
+          for (const fn of this.listeners) {
+            try { fn(type, ev, e.lastEventId); } catch (err) { console.error('forgeBus listener', err); }
+          }
+        });
+      }
+      this._es.onopen = () => { this.connState = 'live'; };
+      this._es.onerror = () => { this.connState = 'error'; };
+    },
+
     subscribe(fn) {
       this._open();
       this.listeners.add(fn);
