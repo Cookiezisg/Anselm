@@ -182,8 +182,27 @@ type Error = {
 
 > forge_redesign Plan 02(2026-05-12):Handler 是 trinity 第二条腿 — 有状态 Python class。**Caller-owns lifetime**(D3 + 2026-05-12 用户细化):chat = per-call(spawn-method-destroy 一气呵成),workflow/test/session = persistent via instanceRegistry。无 idle GC。**ConfigState**(D-handler):per-Definition 整个 init_args JSON 经 AES-GCM 加密存 `handlers.config_encrypted`;sensitive 字段在 GET/list/LLM 工具结果 mask。stdio JSON-line RPC client 跟 Python subprocess 沟通,自己写一份(不复用 MCP)。D22:每次 Service.Call 终态写 1 行 handler_calls。
 
+#### workflow ✅ (forge_redesign Plan 04)
+详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §9 + redesign topic [`../adhoc-topic-documents/forge_redesign/04-workflow.md`](../adhoc-topic-documents/forge_redesign/04-workflow.md)。
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST   | `/api/v1/workflows`                              | 创建(收 `{ops, changeReason}`;ParseOps + ApplyOps + ValidateGraph + auto-accept v1)|
+| GET    | `/api/v1/workflows`                              | 列表(?enabled=true 过滤)|
+| GET    | `/api/v1/workflows/{id}`                         | 详情(含 pending + LiveRuns/LastFiredAt/NextFireAt 计算字段 — 后三个 Plan 05 territory,响应形状预留)|
+| PATCH  | `/api/v1/workflows/{id}`                         | 改 meta(name/description/tags/enabled/concurrency/needsAttention/attentionReason)|
+| DELETE | `/api/v1/workflows/{id}`                         | 软删 |
+| POST   | `/api/v1/workflows/{id}:revert`                  | 回滚到 accepted 版本号 |
+| GET    | `/api/v1/workflows/{id}/versions`                | 版本分页(?status= filter)|
+| GET    | `/api/v1/workflows/{id}/versions/{v}`            | 单版本(integer→ByNumber, wfv_*→ById)|
+| GET    | `/api/v1/workflows/{id}/pending`                 | 当前 pending(无返 404 WORKFLOW_PENDING_NOT_FOUND)|
+| POST   | `/api/v1/workflows/{id}/pending:accept`          | accept(纯指针翻转;trim 到 AcceptedVersionCap=50)|
+| POST   | `/api/v1/workflows/{id}/pending:reject`          | reject(HardDeleteVersion pending 行,D-redo-12)|
+
+> forge_redesign Plan 04(2026-05-12):Workflow 是 trinity 第三条腿 — **用户命名的有向无环图(DAG)**。锻造 vs 执行分离(D6):本端点集只管"图怎么样",不管"图怎么跑"(`:trigger` action + flowrun endpoints + execution log endpoints 在 Plan 05)。Edit 走 iterate-same-pending(D-redo-11);拒绝 `ops=[]`(workflow 无 env 要"force-rebuild")。CapabilityChecker 真接 function/handler/skill/mcp 服务,validation 期返 `WORKFLOW_CAPABILITY_NOT_FOUND` / `WORKFLOW_MCP_SERVER_NOT_INSTALLED`。
+
 #### chat（Phase 3 升级）✅
-Function + Handler System Tools 注入(9 function + 10 handler,共 19 个)。SSE 见 events-design.md。无新 HTTP 端点,见 Phase 2 chat 端点。
+Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 workflow,共 25 个 trinity tool)。SSE 见 events-design.md。无新 HTTP 端点,见 Phase 2 chat 端点。
 
 > Phase 3 后优化轮（2026-05-02）删除了原 Phase 3 装的 8 个通用 system tool（read_file/write_file/list_dir/run_shell/run_python/datetime/web_search/fetch_url）。新一代 system tools（Read/Write/Edit/Bash/Glob/Grep/LS）将在 Phase 5 重建。
 

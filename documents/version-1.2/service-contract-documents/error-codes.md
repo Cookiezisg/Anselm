@@ -184,6 +184,31 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 ---
 
+### Phase 3:trinity 第三条腿 — workflow (forge_redesign Plan 04)
+
+#### workflow ✅
+详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §13 + redesign topic [`../adhoc-topic-documents/forge_redesign/04-workflow.md`](../adhoc-topic-documents/forge_redesign/04-workflow.md)。
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `WORKFLOW_NOT_FOUND`               | 404 | `workflowdomain.ErrNotFound`              | id 查不到 | ✅ |
+| `WORKFLOW_NAME_DUPLICATE`          | 409 | `workflowdomain.ErrDuplicateName`         | 创建/改名撞名(partial UNIQUE 兜底) | ✅ |
+| `WORKFLOW_VERSION_NOT_FOUND`       | 404 | `workflowdomain.ErrVersionNotFound`       | revert/get version 版本号或 id 不存在 | ✅ |
+| `WORKFLOW_PENDING_NOT_FOUND`       | 404 | `workflowdomain.ErrPendingNotFound`       | accept/reject 时无 pending | ✅ |
+| `WORKFLOW_NO_ACTIVE_VERSION`       | 422 | `workflowdomain.ErrNoActiveVersion`       | Plan 05 scheduler 找不到 active version 触发 | ✅ |
+| `WORKFLOW_DAG_CYCLE`               | 422 | `workflowdomain.ErrDAGCycle`              | Kahn 拓扑排序检出 cycle(Edit/Create 期 strict 校验)| ✅ |
+| `WORKFLOW_INVALID_REFERENCE`       | 422 | `workflowdomain.ErrInvalidReference`      | edge 引用未知 node ID;variable expression 引用未定义 vars | ✅ |
+| `WORKFLOW_NO_TRIGGER`              | 422 | `workflowdomain.ErrNoTrigger`             | 图无 ≥1 trigger 节点 | ✅ |
+| `WORKFLOW_OP_INVALID`              | 400 | `workflowdomain.ErrOpInvalid`             | 单 op apply 失败(未知 op 类型 / payload 形状错 / Edit 收 `ops=[]` 等) | ✅ |
+| `WORKFLOW_CAPABILITY_NOT_FOUND`    | 422 | `workflowdomain.ErrCapabilityNotFound`    | function/handler/skill 节点引用,CapabilityChecker 返"不存在" | ✅ |
+| `WORKFLOW_MCP_SERVER_NOT_INSTALLED`| 422 | `workflowdomain.ErrMCPServerNotInstalled` | mcp 节点引用未装 server | ✅ |
+
+**故意不含**:`WORKFLOW_PENDING_CONFLICT` — Edit 走 iterate-same-pending(D-redo-11),pending 不冲突。
+
+> workflow trinity 用 `WORKFLOW_*` 前缀,与 function/handler 平行。11 个 sentinel 全部 ✅(Plan 04 完工)。Plan 05 引入 `WORKFLOW_TRIGGER_FAILED` / `WORKFLOW_FLOWRUN_NOT_FOUND` 等执行 plane sentinel。
+
+---
+
 ### Phase 5：System Tool 第二代（2026-05-04）
 
 > **NB：filesystem / search / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../service-design-documents/filesystem.md) / [`search.md`](../service-design-documents/search.md) / [`shell.md`](../service-design-documents/shell.md)。**例外**：web 家族的 BYOK provider HTTP 状态分类 sentinel **登记**（让 `errors.Is` 触发 `apikey.MarkInvalid`，UI 自动翻 "error"）；下方 todo / ask / web 三类有独立 HTTP 端点或显式 errmap 行。

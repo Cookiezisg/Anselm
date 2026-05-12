@@ -1,5 +1,10 @@
 # Workflow Authoring Implementation Plan
 
+> ✅ **COMPLETED 2026-05-12** — 9 commits W1-W9 直推 main(c5ccfc9 / 3cf96cc / 630d126 / c41738c / 0783a47 / 9d8892c / 1ddb96f / 2130e50 / 本 commit)。
+> 见 [`../../service-design-documents/workflow.md`](../../service-design-documents/workflow.md) 完整成品 spec;[`progress-record.md`](../../../progress-record.md) 2026-05-12 dev log。
+>
+> 故意不含 ErrPendingConflict(iterate-same-pending D-redo-11);无 envfix loop(workflow 无 env)。Plan 05 territory:trigger / flowrun / scheduler / `:trigger` action / execution log。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Workflow domain 的 **authoring 那一面**(锻造模式) — DAG 数据结构 + 13 节点类型 + ops + 校验 + LLM tools + HTTP CRUD。**不包含执行 plane**(scheduler / trigger / flowrun 在 Plan 05)。

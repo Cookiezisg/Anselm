@@ -137,6 +137,22 @@ AcceptedVersionCap = 50/handler。Env 装配跟 function 同模式 — 同步发
 复合索引:`(handler_id, created_at DESC)` 单 handler 历史;`(conversation_id, message_id)` chat 追溯;`(flowrun_id, started_at)` workflow 追溯。
 HTTP 端点:`GET /api/v1/handlers/{id}/calls` + `GET /api/v1/handler-calls/{callId}`。LLM 工具 `search_handler_calls` / `get_handler_call` 接 Service 的 `SearchCalls` / `GetCallDetail`。
 
+### Phase 3 — workflow trinity (forge_redesign Plan 04)
+
+#### `workflows` ✅
+详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §8.1。
+主键 `wf_<16hex>`;软删;用户作用域;partial UNIQUE `(user_id, name) WHERE deleted_at IS NULL`(schema_extras `idx_workflows_user_name_active`)。
+字段:`name` / `description` / `tags` JSON / `enabled`(无 GORM `default:` tag — Service 层显式赋值,防 GORM 用 column 默认值静默覆盖零值)/ `concurrency`("serial",V1.5 加 "parallel(N)")/ `needs_attention` / `attention_reason`(Plan 05 D20 listener 写)/ `active_version_id` / 时间戳。
+**计算字段**(`gorm:"-"`):`Pending *Version` / `LiveRuns int` / `LastFiredAt *time.Time` / `NextFireAt *time.Time`(后三个 Plan 05 territory,响应形状预留)。`attachComputed` 在 Get 时填 Pending。
+
+#### `workflow_versions` ✅
+详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §8.2。
+主键 `wfv_<16hex>`;`status` 约束 `IN ('pending','accepted','rejected')`(app 层 + DB level — store.UpdateVersionStatus 接受任一,Service 严格三值),pending/rejected 时 `version` 为 NULL。
+字段:`workflow_id` 索引 / `version` INT / `status` / `graph` TEXT(整图 JSON,Service 层 `attachGraph` 在 GET 时解为 `*Graph` 填 `Version.GraphParsed`)/ `change_reason` / 时间戳。
+AcceptedVersionCap = 50/workflow;RejectPending 不留 rejected 行,直接 HardDeleteVersion(D-redo-12 mirror)。
+
+> Plan 05 territory(本 plan 不实施):`flowruns` 表(per-trigger 一行,记录 trigger source / status / aggregates)+ `flowrun_nodes` 表(per-node execution log,继承 `flowrun_id` + `flowrun_node_id` 两个通用字段穿到 function_executions / handler_calls,D22 already-wired)。
+
 ---
 
 ### Phase 5：System Tool 第二代（2026-05-04）

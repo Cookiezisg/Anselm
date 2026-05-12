@@ -247,8 +247,9 @@ type SlimPayload = {
 | `sandbox_env` | `app/sandbox/Service` | env 状态变 / env 软删 | `{action}` |
 | `function` | `app/function/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(D-redo-7 删除 `env_synced` / `env_failed` 两 action — env 终态由 LLM tool_result 携带,UI 经 GET 拉)|
 | `handler` | `app/handler/Service` 各 CRUD 端点 | 同 function 7 个 + `config_updated` / `config_cleared` | `{action, versionId?, versionNumber?}`(同 D-redo-7 删除 env action)|
+| `workflow` | `app/workflow/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(slim payload D-redo-6;无 env action,workflow 域无 sandbox)|
 
-新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `flowrun` / `trigger` / `workflow` 等 forge_redesign 早期表上拟加但未实施的 type — workflow/flowrun 进 Plan 04+,届时按 D-redo-6 瘦身规则定 data 字段。
+新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `flowrun` / `trigger` 等 forge_redesign 早期表上拟加但未实施的 type — flowrun 进 Plan 05,届时按 D-redo-6 瘦身规则定 data 字段。
 
 ### 11.3 HTTP 端点
 
