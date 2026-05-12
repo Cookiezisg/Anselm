@@ -10,6 +10,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	notificationsdomain "github.com/sunweilin/forgify/backend/internal/domain/notifications"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
@@ -90,14 +91,23 @@ type Deps struct {
 	// 端点。可选——nil 时只服务 SSE 流（无历史 refetch）。
 	BlockV2Repo chatdomain.Repository
 
-	// NotificationsBridge backs the global /api/v1/notifications SSE
+	// NotificationsBridge backs the per-user /api/v1/notifications SSE
 	// endpoint (entity-update stream: conversation rename, todo CRUD,
-	// future mcp/skill/system events).
+	// trinity entity actions, future mcp/skill/system events).
 	//
-	// NotificationsBridge 支撑全局 /api/v1/notifications SSE 端点
-	// （entity-update 流：conv 改名、todo CRUD、未来 mcp/skill/系统
-	// 事件）。
+	// NotificationsBridge 支撑 per-user /api/v1/notifications SSE 端点
+	// (entity-update 流:conv 改名、todo CRUD、trinity entity action、未来
+	// mcp/skill/系统事件)。
 	NotificationsBridge notificationsdomain.Bridge
+
+	// ForgeBridge backs the per-user /api/v1/forge SSE endpoint
+	// (trinity-forging progress stream: forge_started / forge_op_applied /
+	// forge_env_attempt / forge_completed). Optional — nil disables the
+	// /api/v1/forge route.
+	//
+	// ForgeBridge 支撑 per-user /api/v1/forge SSE 端点(trinity 锻造进度流);
+	// 可选,nil 禁 /api/v1/forge 路由。
+	ForgeBridge forgedomain.Bridge
 
 	// AskService routes user answers from POST /api/v1/conversations/{id}/answers
 	// back to the AskUserQuestion tool that is currently blocking on Wait.

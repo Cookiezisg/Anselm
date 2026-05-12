@@ -21,24 +21,28 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 )
 
-// HandlerTools constructs the 8 handler system tools wired with their
-// dependencies.
+// HandlerTools constructs the 10 handler system tools wired with their
+// dependencies. forge is the C4 forge-stream Publisher; pass noop
+// (forgepkg.New(nil, log)) in tests / unwired services.
 //
-// HandlerTools 构造装配好依赖的 8 个 handler system tool。
+// HandlerTools 构造装配好依赖的 10 个 handler system tool。forge 是 C4
+// forge-stream Publisher;测试 / 未接线传 noop。
 func HandlerTools(
 	svc *handlerapp.Service,
 	picker modeldomain.ModelPicker,
 	keys apikeydomain.KeyProvider,
 	factory *llminfra.Factory,
+	forge forgepkg.Publisher,
 	log *zap.Logger,
 ) []toolapp.Tool {
 	return []toolapp.Tool{
 		&SearchHandler{svc: svc, picker: picker, keys: keys, factory: factory, log: log},
 		&GetHandler{svc: svc},
-		&CreateHandler{svc: svc, picker: picker, keys: keys, factory: factory},
-		&EditHandler{svc: svc, picker: picker, keys: keys, factory: factory},
+		&CreateHandler{svc: svc, picker: picker, keys: keys, factory: factory, forge: forge},
+		&EditHandler{svc: svc, picker: picker, keys: keys, factory: factory, forge: forge},
 		&RevertHandler{svc: svc},
 		&DeleteHandler{svc: svc},
 		&CallHandler{svc: svc},

@@ -69,6 +69,7 @@ import (
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
+	forgeinfra "github.com/sunweilin/forgify/backend/internal/infra/forge"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
@@ -82,6 +83,7 @@ import (
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
@@ -150,6 +152,8 @@ type Harness struct {
 	EventLogBridge      *eventloginfra.Bridge
 	NotificationsBridge *notificationsinfra.Bridge
 	NotificationsPub    notificationspkg.Publisher
+	ForgeBridge         *forgeinfra.Bridge
+	ForgePub            forgepkg.Publisher
 	ChatEmitter         eventlogpkg.Emitter
 	Sandbox             *sandboxapp.Service
 	MCP                 *mcpapp.Service
@@ -269,6 +273,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 	eventLogBridge := eventloginfra.NewBridge(log)
 	notificationsBridge := notificationsinfra.NewBridge(log)
 	notificationsPub := notificationspkg.New(notificationsBridge, log)
+	forgeBridge := forgeinfra.NewBridge(log)
+	forgePub := forgepkg.New(forgeBridge, log)
 
 	sandboxRepo := sandboxstore.New(gdb)
 	sandboxSvc := sandboxapp.New(sandboxRepo, dataDir, notificationsPub, log)
@@ -326,10 +332,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 	pathGuard := pathguardpkg.NewDefault()
 
 	tools := functiontool.FunctionTools(
-		functionService, modelService, apikeyService, llmFactory, log,
+		functionService, modelService, apikeyService, llmFactory, forgePub, log,
 	)
 	tools = append(tools, handlertool.HandlerTools(
-		handlerService, modelService, apikeyService, llmFactory, log,
+		handlerService, modelService, apikeyService, llmFactory, forgePub, log,
 	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
 	tools = append(tools, searchtool.SearchTools(pathGuard, log)...)
@@ -511,6 +517,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
 		NotificationsBridge: notificationsBridge,
+		ForgeBridge:         forgeBridge,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,
@@ -537,6 +544,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 		EventLogBridge:      eventLogBridge,
 		NotificationsBridge: notificationsBridge,
 		NotificationsPub:    notificationsPub,
+		ForgeBridge:         forgeBridge,
+		ForgePub:            forgePub,
 		ChatEmitter:         chatEmitter,
 		Sandbox:             sandboxSvc,
 		MCP:                 mcpService,

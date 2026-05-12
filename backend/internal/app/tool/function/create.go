@@ -22,12 +22,15 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	envfixpkg "github.com/sunweilin/forgify/backend/internal/pkg/envfix"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 type CreateFunction struct {
@@ -35,6 +38,7 @@ type CreateFunction struct {
 	picker  modeldomain.ModelPicker
 	keys    apikeydomain.KeyProvider
 	factory *llminfra.Factory
+	forge   forgepkg.Publisher
 }
 
 func (t *CreateFunction) Name() string { return "create_function" }
@@ -102,9 +106,22 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("create_function: %w", err)
 	}
 
-	// If the initial env install was already ready, return immediately.
-	// 初次装即 ready → 直接返。
+	// Now we have a Function ID — publish forge_started on the forge bus
+	// (C4 D-redo-4). The chat eventlog already saw the apply-ops deltas via
+	// ApplyOps; forge stream gets the high-level lifecycle markers.
+	// 现在有 Function ID — 在 forge bus 发 forge_started(C4 D-redo-4)。
+	// chat eventlog 已经看到 ApplyOps 的 deltas;forge 流拿高层生命周期标记。
+	scope := eventlogdomain.Scope{Kind: eventlogdomain.KindFunction, ID: f.ID}
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	t.forge.PublishStarted(ctx, scope, forgedomain.OperationCreate, convID, toolCallID)
+
+	// If the initial env install was already ready, emit attempt=1 ok +
+	// completed=ok, return immediately.
+	// 初次装即 ready → 发 attempt=1 ok + completed,直接返。
 	if v.EnvStatus == functiondomain.EnvStatusReady {
+		t.forge.PublishEnvAttempt(ctx, scope, 1, forgedomain.EnvAttemptOK, "", "", nil)
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedOK, v.ID, v.EnvStatus, 1, nil)
 		return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status, v.EnvStatus, "", 1, nil, len(ops)), nil
 	}
 
@@ -113,9 +130,12 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	bundle, bundleErr := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
 	if bundleErr != nil {
 		// Without an LLM we cannot fix; surface the install failure as-is.
-		// 无 LLM 无法 fix,把装失败原样返。
+		// Emit attempt=1 failed + completed=failed.
+		// 无 LLM 无法 fix;发 attempt=1 failed + completed=failed。
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt 1] env install failed: %s\n", truncForUI(v.EnvError)))
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("env-fix loop unavailable: %v\n", bundleErr))
+		t.forge.PublishEnvAttempt(ctx, scope, 1, forgedomain.EnvAttemptFailed, "", "", errors.New(v.EnvError))
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, v.ID, v.EnvStatus, 1, bundleErr)
 		return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status, v.EnvStatus, v.EnvError, 1, nil, len(ops)), nil
 	}
 
@@ -153,12 +173,15 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		Hooks: envfixpkg.LoopHooks{
 			OnFixing: func(ctx context.Context, attempt int) {
 				em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] AI suggesting revised deps...\n", attempt))
+				t.forge.PublishEnvAttempt(ctx, scope, attempt, forgedomain.EnvAttemptFixing, "AI suggesting deps", "", nil)
 			},
 			OnAttemptResult: func(ctx context.Context, a envfixpkg.Attempt) {
 				if a.EnvStatus == "ready" {
 					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env ready ✓\n", a.Number))
+					t.forge.PublishEnvAttempt(ctx, scope, a.Number, forgedomain.EnvAttemptOK, "", "", nil)
 				} else {
 					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env failed: %s\n", a.Number, truncForUI(a.EnvError)))
+					t.forge.PublishEnvAttempt(ctx, scope, a.Number, forgedomain.EnvAttemptFailed, "", "", errors.New(a.EnvError))
 				}
 			},
 		},
@@ -169,6 +192,7 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	// 循环中遇 service 级致命错(如 sandbox 不可用)→ 直接抛。
 	if result.FatalErr != nil {
 		em.StopBlock(ctx, progID, eventlogdomain.StatusError, result.FatalErr)
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, v.ID, v.EnvStatus, result.AttemptsUsed, result.FatalErr)
 		return "", fmt.Errorf("create_function: %w", result.FatalErr)
 	}
 
@@ -183,6 +207,7 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 			// created v1 row so the LLM sees a coherent state.
 			// AcceptPending 失败 → 把它当 env 失败返(LLM 看 v1 状态一致)。
 			em.DeltaBlock(ctx, progID, fmt.Sprintf("[final] AcceptPending failed: %v\n", acceptErr))
+			t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, v.ID, "failed", result.AttemptsUsed, acceptErr)
 			return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status,
 				"failed", acceptErr.Error(), result.AttemptsUsed, result.History, len(ops)), nil
 		}
@@ -191,6 +216,11 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		}
 	}
 
+	completedStatus := forgedomain.CompletedFailed
+	if result.FinalEnvStatus == functiondomain.EnvStatusReady {
+		completedStatus = forgedomain.CompletedOK
+	}
+	t.forge.PublishCompleted(ctx, scope, completedStatus, v.ID, result.FinalEnvStatus, result.AttemptsUsed, nil)
 	return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status,
 		result.FinalEnvStatus, result.FinalEnvError, result.AttemptsUsed, result.History, len(ops)), nil
 }

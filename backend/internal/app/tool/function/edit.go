@@ -18,18 +18,22 @@ package function
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	forgedomain "github.com/sunweilin/forgify/backend/internal/domain/forge"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	envfixpkg "github.com/sunweilin/forgify/backend/internal/pkg/envfix"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 type EditFunction struct {
@@ -37,6 +41,7 @@ type EditFunction struct {
 	picker  modeldomain.ModelPicker
 	keys    apikeydomain.KeyProvider
 	factory *llminfra.Factory
+	forge   forgepkg.Publisher
 }
 
 func (t *EditFunction) Name() string { return "edit_function" }
@@ -99,6 +104,14 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 	})
 	defer em.StopBlock(ctx, progID, eventlogdomain.StatusCompleted, nil)
 
+	// Publish forge_started on the forge bus (C4 D-redo-4). The chat
+	// eventlog progress block already provides per-op detail.
+	// 在 forge bus 发 forge_started(C4 D-redo-4)。
+	scope := eventlogdomain.Scope{Kind: eventlogdomain.KindFunction, ID: args.ID}
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	t.forge.PublishStarted(ctx, scope, forgedomain.OperationEdit, convID, toolCallID)
+
 	v, err := t.svc.Edit(ctx, functionapp.EditInput{
 		ID:              args.ID,
 		Ops:             ops,
@@ -107,10 +120,13 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 	})
 	if err != nil {
 		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, "", "", 0, err)
 		return "", fmt.Errorf("edit_function: %w", err)
 	}
 
 	if v.EnvStatus == functiondomain.EnvStatusReady {
+		t.forge.PublishEnvAttempt(ctx, scope, 1, forgedomain.EnvAttemptOK, "", "", nil)
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedOK, v.ID, v.EnvStatus, 1, nil)
 		return marshalEditOutput(v.ID, v.EnvStatus, "", 1, nil, len(ops)), nil
 	}
 
@@ -118,6 +134,8 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 	if bundleErr != nil {
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt 1] env install failed: %s\n", truncForUI(v.EnvError)))
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("env-fix loop unavailable: %v\n", bundleErr))
+		t.forge.PublishEnvAttempt(ctx, scope, 1, forgedomain.EnvAttemptFailed, "", "", errors.New(v.EnvError))
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, v.ID, v.EnvStatus, 1, bundleErr)
 		return marshalEditOutput(v.ID, v.EnvStatus, v.EnvError, 1, nil, len(ops)), nil
 	}
 
@@ -149,12 +167,15 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 		Hooks: envfixpkg.LoopHooks{
 			OnFixing: func(ctx context.Context, attempt int) {
 				em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] AI suggesting revised deps...\n", attempt))
+				t.forge.PublishEnvAttempt(ctx, scope, attempt, forgedomain.EnvAttemptFixing, "AI suggesting deps", "", nil)
 			},
 			OnAttemptResult: func(ctx context.Context, a envfixpkg.Attempt) {
 				if a.EnvStatus == "ready" {
 					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env ready ✓\n", a.Number))
+					t.forge.PublishEnvAttempt(ctx, scope, a.Number, forgedomain.EnvAttemptOK, "", "", nil)
 				} else {
 					em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt %d] env failed: %s\n", a.Number, truncForUI(a.EnvError)))
+					t.forge.PublishEnvAttempt(ctx, scope, a.Number, forgedomain.EnvAttemptFailed, "", "", errors.New(a.EnvError))
 				}
 			},
 		},
@@ -162,9 +183,15 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 
 	if result.FatalErr != nil {
 		em.StopBlock(ctx, progID, eventlogdomain.StatusError, result.FatalErr)
+		t.forge.PublishCompleted(ctx, scope, forgedomain.CompletedFailed, v.ID, v.EnvStatus, result.AttemptsUsed, result.FatalErr)
 		return "", fmt.Errorf("edit_function: %w", result.FatalErr)
 	}
 
+	completedStatus := forgedomain.CompletedFailed
+	if result.FinalEnvStatus == functiondomain.EnvStatusReady {
+		completedStatus = forgedomain.CompletedOK
+	}
+	t.forge.PublishCompleted(ctx, scope, completedStatus, v.ID, result.FinalEnvStatus, result.AttemptsUsed, nil)
 	return marshalEditOutput(v.ID, result.FinalEnvStatus, result.FinalEnvError,
 		result.AttemptsUsed, result.History, len(ops)), nil
 }

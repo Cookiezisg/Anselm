@@ -55,8 +55,10 @@ import (
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
+	forgeinfra "github.com/sunweilin/forgify/backend/internal/infra/forge"
 	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -185,6 +187,8 @@ func main() {
 	eventLogBridge := eventloginfra.NewBridge(log)
 	notificationsBridge := notificationsinfra.NewBridge(log)
 	notificationsPub := notificationspkg.New(notificationsBridge, log)
+	forgeBridge := forgeinfra.NewBridge(log)
+	forgePub := forgepkg.New(forgeBridge, log)
 	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
 
 	// PluginSandbox v2 — unified runtime/env service. Bootstrap extracts
@@ -284,6 +288,7 @@ func main() {
 		modelService,
 		apikeyService,
 		llmFactory,
+		forgePub,
 		log,
 	)
 	tools = append(tools, handlertool.HandlerTools(
@@ -291,6 +296,7 @@ func main() {
 		modelService,
 		apikeyService,
 		llmFactory,
+		forgePub,
 		log,
 	)...)
 	tools = append(tools, fstool.FilesystemTools(pathGuard)...)
@@ -410,6 +416,7 @@ func main() {
 		EventLogBridge:      eventLogBridge,
 		BlockV2Repo:         chatRepo,
 		NotificationsBridge: notificationsBridge,
+		ForgeBridge:         forgeBridge,
 		AskService:          askService,
 		SandboxService:      sandboxSvc,
 		SubagentService:     subagentService,

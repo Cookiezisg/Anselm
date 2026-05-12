@@ -56,6 +56,9 @@ func New(deps Deps) http.Handler {
 	if deps.NotificationsBridge != nil {
 		handlershttpapi.NewNotificationsHandler(deps.NotificationsBridge, deps.Log).Register(mux)
 	}
+	if deps.ForgeBridge != nil {
+		handlershttpapi.NewForgeHandler(deps.ForgeBridge, deps.Log).Register(mux)
+	}
 	if deps.AskService != nil {
 		handlershttpapi.NewAnswerHandler(deps.AskService, deps.Log).Register(mux)
 	}

@@ -29,25 +29,34 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 )
 
 // FunctionTools constructs the 7 function system tools wired with their
 // dependencies. Returns []toolapp.Tool because chat ReAct loop consumes the
 // abstract interface.
 //
-// FunctionTools 构造装配好依赖的 7 个 function system tool。
+// forge is the forge-stream Publisher (C4 D-redo-4) used by Create/Edit
+// to emit forge_started / forge_env_attempt / forge_completed. Pass a
+// noop publisher (forgepkg.New(nil, log)) in tests / unwired services
+// to disable the forge double-write.
+//
+// FunctionTools 构造装配好依赖的 7 个 function system tool。forge 是
+// forge-stream Publisher(C4 D-redo-4),Create/Edit 经它发 forge 事件。
+// 测试/未接线时传 noop publisher 关闭 forge 双写。
 func FunctionTools(
 	svc *functionapp.Service,
 	picker modeldomain.ModelPicker,
 	keys apikeydomain.KeyProvider,
 	factory *llminfra.Factory,
+	forge forgepkg.Publisher,
 	log *zap.Logger,
 ) []toolapp.Tool {
 	return []toolapp.Tool{
 		&SearchFunction{svc: svc, picker: picker, keys: keys, factory: factory, log: log},
 		&GetFunction{svc: svc},
-		&CreateFunction{svc: svc, picker: picker, keys: keys, factory: factory},
-		&EditFunction{svc: svc, picker: picker, keys: keys, factory: factory},
+		&CreateFunction{svc: svc, picker: picker, keys: keys, factory: factory, forge: forge},
+		&EditFunction{svc: svc, picker: picker, keys: keys, factory: factory, forge: forge},
 		&RevertFunction{svc: svc},
 		&DeleteFunction{svc: svc},
 		&RunFunction{svc: svc},
