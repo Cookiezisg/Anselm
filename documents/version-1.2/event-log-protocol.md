@@ -1,16 +1,16 @@
-# Event Log Protocol — Forgify SSE 龙骨重构设计文档
+# Event Log Protocol — Forgify SSE 龙骨设计文档
 
-> **状态**：📐 Draft（2026-05-08 起草）
-> **类型**：龙骨级重构（替换 entity-snapshot SSE 模型为 recursive event log）
-> **预估**：~2700 行 / 2-2.5 周 / **flag-day 切换**
-> **前置**：屎山拯救计划 #1/#3/#4/#7 已完成（skill watcher / subagent host / WebSearch / catalog generator retry）
+> **状态**:✅ 已落地 + 2026-05-12 订阅模型修订
+> **类型**:递归事件日志 SSE 协议(5 events × 6 block types)
+> **当前现实**:本文 §0-§6 关于事件 schema / block 类型 / 嵌套 / DB 持久化的设计仍然成立(已实施)。**§3-§4 中 Bridge "per-conversation" 订阅模型已改为 per-user**(D-redo-2,2026-05-12 SSE 三流统一)。订阅端不再传 `?conversationId=`,后端 Bridge 按 user_id key,payload 仍带 `conversationId`,client 按 payload 字段 demux。详 [`adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](./adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) §B。
 
-**关联文档**：
-- [`backend-design.md`](./backend-design.md) — 总体设计（本文档不替代）
-- [`service-contract-documents/events-design.md`](./service-contract-documents/events-design.md) — 重构后整篇重写
-- [`service-contract-documents/database-design.md`](./service-contract-documents/database-design.md) — message_blocks schema 改 + subagent 两表删
-- [`service-design-documents/chat.md` / `subagent.md`](./service-design-documents/) — 改章节
-- [`progress-record.md`](./progress-record.md) — phase 完成时记 dev log
+**关联文档**:
+- [`backend-design.md`](./backend-design.md) — 总体设计(本文档不替代)
+- [`service-contract-documents/events-design.md`](./service-contract-documents/events-design.md) — wire 契约 + 三协议总览 + Producer 责任表
+- [`service-contract-documents/database-design.md`](./service-contract-documents/database-design.md) — message_blocks schema
+- [`service-design-documents/chat.md` / `subagent.md`](./service-design-documents/) — domain 详设计
+- [`progress-record.md`](./progress-record.md) — dev log
+- [`adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](./adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) — 2026-05-12 三流统一修订
 
 **本文档结构**：
 1. §0 为什么做（背景 + 痛点）
@@ -246,7 +246,9 @@ data: {"conversationId":"cv_abc","seq":42,"id":"blk_xyz","delta":"hello world"}
 
 ```
 
-**Last-Event-ID 重连**：客户端断线重连时携带 `Last-Event-ID: 42` header，后端从 `seq=43` 开始重发（buffer 30 秒内事件）。超出 buffer → 提示客户端 refetch full state。
+**Last-Event-ID 重连**:客户端断线重连时携带 `Last-Event-ID: 42` header,后端从 `seq=43` 开始重发(buffer 30 秒内事件)。超出 buffer → 提示客户端 refetch full state。
+
+> **订阅模型**(2026-05-12 修订,D-redo-2):客户端不传 `?conversationId=`,后端 Bridge 按 user_id key,wire seq 在 user 内全局单调。前端按 `payload.conversationId` 把不同对话的事件分派到对应 panel。
 
 ### 完整事件流示例（兼顾并行 + subagent + install）
 
@@ -399,24 +401,25 @@ em.DeltaBlock(ctx, prog, "Pulling 600 MB / 1.2 GB\n")
 em.StopBlock(ctx, prog, "completed", nil)
 ```
 
-### Bridge 接口契约（含 §A2 关键改动）
+### Bridge 接口契约(2026-05-12 后:per-user key)
 
 ```go
 // infra/eventlog/bridge.go
 
 type Bridge interface {
-    // Publish 把事件按 conversationId 路由到订阅者
-    // 关键变化：subscriber 慢时**阻塞 publisher**，不再 drop（delta 不能丢）
-    Publish(ctx context.Context, conversationID string, event Event) error
+    // Publish 把事件按 user_id(从 ctx 抽)路由到订阅者;事件 payload 仍携带 conversationId,
+    // client 自己按 payload.conversationId demux。
+    // subscriber 慢时**阻塞 publisher**,不再 drop(delta 不能丢)。
+    Publish(ctx context.Context, event Event) error
 
-    // Subscribe 从 fromSeq 开始接收（用 Last-Event-ID 重连）
-    // 返 channel + cancel
-    Subscribe(ctx context.Context, conversationID string, fromSeq int64) (<-chan Event, func())
+    // Subscribe 按 user_id 订阅;fromSeq 给 Last-Event-ID 重连用。返 channel + cancel。
+    Subscribe(ctx context.Context, userID string, fromSeq int64) (<-chan Event, func())
 
-    // Buffer 30s 内的事件供重连用
-    // 超出 buffer 客户端必须 refetch full state
+    // Buffer 30s 内的事件供重连用;超出 buffer 客户端必须 refetch full state。
 }
 ```
+
+> 旧 `Publish(ctx, conversationID, event)` / `Subscribe(ctx, conversationID, fromSeq)` 已淘汰(D-redo-2)。Bridge 内部 key 从 `conversation_id` 改为 `user_id`,wire seq 在 user 内单调。**理由**:per-conversation 订阅在 testend 多 panel + 详情页同时活跃场景下会撞 HTTP/1.1 6-conn 限制;per-user 订一条解决,加 payload demux 心智低。
 
 **§A2 关键变化** — buffer 语义反转：
 
@@ -906,15 +909,9 @@ func ReplayConversation(ctx context.Context, db *gorm.DB, convID string, fromSeq
 
 ### CLAUDE.md 必改
 
-#### §E1 重写
+#### §E1 现状(2026-05-12 三协议)
 
-```markdown
-**E1 事件协议** —— 统一 5 种事件 + 6 种 block 类型枚举：
-- 5 事件：message_start / message_stop / block_start / block_delta / block_stop
-- 6 block 类型：text / reasoning / tool_call / tool_result / progress / message
-- 所有事件必带 conversationId + seq；block 事件必带 parentId
-- 详见 [`event-log-protocol.md`](../documents/version-1.2/event-log-protocol.md)
-```
+CLAUDE.md §E1 已实施 + 2026-05-12 修订为**三协议**(eventlog + notifications + forge),全部按 user_id 订。详细文本见 CLAUDE.md 当前 §E1。本文档不再镜像 CLAUDE.md 文本(单源原则)。
 
 #### §E2 重写
 
@@ -979,7 +976,7 @@ func ReplayConversation(ctx context.Context, db *gorm.DB, convID string, fromSeq
 | `subagent.md` | 删 SubagentRun / SubagentMessage 节，改成"subagent 是 nested message" |
 | `forge.md` | Run 推流改走 progress block（标注待 forge 重写时落地）|
 | `database-design.md` | message_blocks schema 大改 + 删 subagent 两表 |
-| `api-design.md` | `/api/v1/events?conversationId=` SSE 端点契约重写 + 加 `Last-Event-ID` 重连 |
+| `api-design.md` | `/api/v1/eventlog` SSE 端点契约(per-user 订;`Last-Event-ID` 重连)|
 | `error-codes.md` | 检查是否有借用 chat.message 的错误码需要重命名 |
 
 ### 受影响的 §S 系列规则审计

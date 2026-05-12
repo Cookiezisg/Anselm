@@ -1,28 +1,35 @@
-# Events Design — V1.2 SSE 事件契约（双协议）
+# Events Design — V1.2 SSE 事件契约(三协议)
 
-**关联**：
+**关联**:
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../event-log-protocol.md`](../event-log-protocol.md) — 完整 eventlog 协议设计文档（事件流示例 / 后端架构 / migration SQL / 风险）
-- **配套实现**（eventlog）：
+- [`../event-log-protocol.md`](../event-log-protocol.md) — 完整 eventlog 协议设计文档(事件流示例 / 后端架构 / migration SQL)
+- [`../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) §B-C — SSE 三流统一 + payload 瘦身 的事实源
+- **配套实现**(eventlog):
   - `domain/eventlog/` — Event 接口 + 5 events + 6 block types + Bridge 接口 + ValidateEvent
-  - `infra/eventlog/` — in-process Bridge（per-conv 单调 seq + 4096 replay buffer + 慢订阅者阻塞）
+  - `infra/eventlog/` — in-process Bridge(per-user 单调 seq + replay buffer + 慢订阅者阻塞)
   - `pkg/eventlog/` — Emitter (auto-mint ID + ctx-injected) + ctx helpers
-- **配套实现**（notifications）：
+- **配套实现**(notifications):
   - `domain/notifications/` — 1 通用 Event envelope + Bridge 接口 + ValidateEvent
-  - `infra/notifications/` — global broadcast Bridge（per-key 单调 seq + replay buffer + Last-Event-ID 重连）
-  - `pkg/notifications/` — Publisher (constructor-injected struct field; no ctx wiring — no producer needs it)
-- **SSE 端点**：
-  - `GET /api/v1/eventlog?conversationId=xxx` — per-conversation 流式内容（eventlog 协议）
-  - `GET /api/v1/notifications` — global broadcast entity 状态（notifications 协议）
-- **历史 refetch**：`GET /api/v1/conversations/{id}/eventlog?from=<seq>` (eventlog 协议 — 410 Gone 时的全态刷新)
+  - `infra/notifications/` — per-user Bridge(per-user 单调 seq + replay buffer + Last-Event-ID 重连)
+  - `pkg/notifications/` — Publisher(从 ctx 自动抽 user_id)
+- **配套实现**(forge):
+  - `domain/forge/` — 4 events(started / op_applied / env_attempt / completed)+ Scope struct + Bridge 接口 + ValidateEvent
+  - `infra/forge/` — per-user Bridge(同模式)
+  - `pkg/forge/` — Publisher(从 ctx 自动抽 user_id)
+- **SSE 端点**:
+  - `GET /api/v1/eventlog` — per-user 流式 chat 内容(eventlog 协议)
+  - `GET /api/v1/notifications` — per-user entity 状态变更(notifications 协议)
+  - `GET /api/v1/forge` — per-user trinity 锻造进度(forge 协议)
+- **历史 refetch**:`GET /api/v1/conversations/{id}/eventlog?from=<seq>`(eventlog 协议 — 410 Gone 时的全态刷新)
 
-**双协议（CLAUDE.md §E1）**：本契约覆盖后端唯二两个 SSE 流：
-1. **eventlog**（per-conversation）— recursive event log 协议（5 events × 6 block types），流式 chat 内容
-2. **notifications**（global broadcast）— 1 通用 envelope，entity 状态更新
+**三协议(CLAUDE.md §E1)**:本契约覆盖后端**三条** SSE 流,**永远不再加**(D-redo-5):
+1. **eventlog**(per-user;payload 带 `conversationId`,client demux)— recursive event log 协议(5 events × 6 block types),流式 chat 内容
+2. **notifications**(per-user)— 1 通用 envelope,entity 状态变更;`data` 字段瘦身只送 ID + 必要小字段,完整 entity 走 GET 拉取
+3. **forge**(per-user)— 4 events,trinity(function / handler / workflow)的 create/edit/revert/delete 流式锻造
 
-两者共享 Bridge pattern（per-key seq + replay buffer + Last-Event-ID 重连），但订阅域 / 路由 / 演化规则不同。§1-§10 是 eventlog 主体；§11 是 notifications 协议；§12 是测试参考。
+三流共享 Bridge pattern(per-user seq + replay buffer + Last-Event-ID 重连),订阅一律按 user_id key,**没有** `?conversationId=` / `?entityId=` 之类 query 参 — 客户端按 payload 自己 demux / filter。§1-§10 是 eventlog 主体;§11 是 notifications 协议;§12 是 forge 协议;§13 是测试参考。
 
-**遵守标准**：§E1（双协议；eventlog 5 events + 6 block types 封闭；notifications 开放词表）/ §E2（eventlog parentId 路由；notifications 按 type 过滤）/ §N7（SSE wire format）/ §S21（事件流 invariants）
+**遵守标准**:§E1(三协议;eventlog 5 events + 6 block types 封闭;forge 4 events 封闭;notifications 开放词表)/ §E2(eventlog parentId 路由;notifications + forge 按 payload 字段过滤)/ §N7(SSE wire format)/ §S21(事件流 invariants)
 
 ---
 
@@ -131,10 +138,12 @@ data: {"conversationId":"cv_abc","id":"blk_xyz","delta":"hello"}
 
 ## 6. 路由与嵌套
 
-- 客户端按 `conversationId` 订阅一条 SSE
-- 一个 conversation 内的所有事件（含主对话 + 嵌套 subagent / 嵌套 message）走**同一个 SSE 流**
+- 客户端**按 user_id 订一条 SSE**(无 query 参,后端从 ctx 抽 user_id)
+- 该 user 的**所有 conversation 的所有事件**(含主对话 + 嵌套 subagent / 嵌套 message)走同一个 SSE 流
+- 客户端**按 `payload.conversationId` demux** — 主对话 panel / 历史 conv 子 panel / testend 多 conv 同时活跃皆按此字段分派
 - 路由靠 `parentId` 字段递归 — 不靠事件名分层
-- 前端维护两个 Map：`state.messages: Map<id, Message>` + `state.blocks: Map<id, Block>`，每 block 用 `parent` 字段挂树
+- 前端维护两个 Map:`state.messages: Map<id, Message>` + `state.blocks: Map<id, Block>`,每 block 用 `parent` 字段挂树
+- 同 user_id 内 wire `seq` 全局单调递增(跨所有 conversation 共享一个 seq 序列;Last-Event-ID 重连按此 seq);DB `message_blocks.seq` 与 wire seq 同源,`UNIQUE(conversation_id, seq)` 仍成立(seq 在 user 内单调即在 conversation 子集内也唯一)
 
 ## 7. 嵌套示例
 
@@ -194,94 +203,230 @@ Conversation (cv_xx)
 - 同 block 的 deltas 按 seq append-only，前端不重写不重排
 - `tool_call` block ID = LLM 自带 tc_id（不走 §S15 prefix）；其他 block ID 走 idgen `blk_`
 
-## 11. Notifications 协议（global broadcast SSE）
+## 11. Notifications 协议(per-user SSE)
 
-与 §1-§10 的 eventlog 协议**完全独立**——共享 Bridge pattern（per-key seq + replay buffer + Last-Event-ID 重连），但 envelope shape / 演化规则 / 订阅模式不同。
+与 §1-§10 的 eventlog 协议独立 — 共享 Bridge pattern(per-user seq + replay buffer + Last-Event-ID 重连),envelope shape / 演化规则不同。
 
-### 11.1 envelope shape
+### 11.1 Envelope shape
 
 ```typescript
 type Envelope = { seq: int64; event: Event }
 
 type Event = {
-  type: string                  // 实体种类判别字符串（开放词表）
-  id: string                    // 实体 ID（type 内唯一）
-  data: any                     // 实体快照 JSON（前端按 type 解释）
-  conversationId?: string       // 仅 conversation-scoped 实体填（如 todo / sandbox_env）
+  type: string                  // 实体种类判别字符串(开放词表)
+  id: string                    // 实体 ID(type 内唯一)
+  data: SlimPayload             // **瘦身**:只送 ID + 必要小字段,完整 entity 走 GET 拉取(D-redo-6)
+  conversationId?: string       // 仅 conversation-scoped 实体填(如 todo)
+}
+
+type SlimPayload = {
+  action: string                // 如 "created" / "updated" / "deleted" / "version_accepted" / ...
+  // 加点小字段(per entity type 不同):
+  versionId?: string            // function/handler/workflow 版本相关 action
+  versionNumber?: int
+  envStatus?: string            // 仅 trinity 锻造期终态通知带(可省)
+  envError?: string
+  // ...
 }
 ```
 
-### 11.2 现有 entity types（6 种 live）
+**为何瘦身**(D-redo-6):
+- 旧设计 data 字段塞完整 entity(几 KB - 几十 KB),违背"通知 = 轻量状态变更"
+- 带宽 / 心智 / 一致性都更好 — UI 拿通知 → 主动 GET 详情(避免"通知里 entity 已 stale,GET 才是 source of truth"的双源问题)
+- 多 panel 并存场景下,只有"关心此 entity"的 panel 触发 GET,流量按需
 
-| type | producer | 触发场景 | id 字段语义 |
+### 11.2 现有 entity types
+
+| type | producer | 触发场景 | data 字段 |
 |---|---|---|---|
-| `conversation` | `app/conversation/Service.{Create,Update,Delete}` + `app/chat/runner.autoTitle` | 创建 / 改 title 或 systemPrompt / 软删 / 流结束后 LLM 自动生成 title | `cv_<16hex>` 真实 ID |
-| `todo` | `app/todo/Service.publish` helper (todo.go) | 任意 todo CRUD | `td_<16hex>` 真实 ID |
-| `mcp_server` | `app/mcp/Service.{AddServer,RemoveServer,Reconnect,HealthCheck,InstallFromRegistry}` + `publishStatus` helper | server 增删改 / 重连 / 健康检查 / 状态变化 | server name（mcp.json key）|
-| `skill` | `app/skill/Service.Scan` (polling.go) 每秒一次轮询 SKILL.md 目录后变化时 | 添 / 改 / 删 SKILL.md 后 1 秒内被检出 | **`"*"` 哨兵**——"批量哨兵"表示 skill 库整体变更，client 全部重读 |
-| `catalog` | `app/catalog/Service.applyRefresh` (polling.go) | poll 后 fingerprint 变化时 | **fingerprint hex**——catalog 是单实体无 ID 体系，指纹作为版本标识 |
-| `sandbox_env` | `app/sandbox/Service.{publishEnv,publishEnvDeleted}` helpers | env 状态变（创建 / 准备好 / 失败）/ env 软删 | `se_<16hex>` 真实 ID |
+| `conversation` | `app/conversation/Service` + `app/chat/runner.autoTitle` | 创建 / 改 title 或 systemPrompt / 软删 / autoTitle | `{action}`(标题等改动需 GET refetch)|
+| `todo` | `app/todo/Service` | 任意 CRUD | `{action, status?}` |
+| `mcp_server` | `app/mcp/Service` | server 增删改 / 重连 / 健康检查 | `{action, status?, error?}` |
+| `skill` | `app/skill/Service.Scan` 轮询 | 添 / 改 / 删 SKILL.md | `{action}`(client 全部重读 skill 库)|
+| `catalog` | `app/catalog/Service.applyRefresh` | poll 后 fingerprint 变化时 | `{action, fingerprint}` |
+| `sandbox_env` | `app/sandbox/Service` | env 状态变 / env 软删 | `{action}` |
+| `function` | `app/function/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(D-redo-7 删除 `env_synced` / `env_failed` 两 action — env 终态由 LLM tool_result 携带,UI 经 GET 拉)|
+| `handler` | `app/handler/Service` 各 CRUD 端点 | 同 function 7 个 + `config_updated` / `config_cleared` | `{action, versionId?, versionNumber?}`(同 D-redo-7 删除 env action)|
 
-新增 type 字符串即可（**开放词表**——E2 演化规则）。前端不需协议升级。**id 字段语义**：多数实体的 id = 真实业务 ID；2 例外（skill 用 `"*"` 哨兵；catalog 用 fingerprint hex）。
+新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `flowrun` / `trigger` / `workflow` 等 forge_redesign 早期表上拟加但未实施的 type — workflow/flowrun 进 Plan 04+,届时按 D-redo-6 瘦身规则定 data 字段。
 
 ### 11.3 HTTP 端点
 
-`GET /api/v1/notifications` — 单 SSE 流，全订阅（无 query 参数）。客户端按 `data.type` / `data.conversationId` JSON 字段过滤分派渲染。
+`GET /api/v1/notifications` — per-user SSE 流(无 query 参,后端从 ctx 抽 user_id)。客户端按 `data.type` / `data.conversationId` JSON 字段过滤分派渲染。
 
-**Wire format**（**注意与 §N7 eventlog 不同**）：
+**Wire format**:
 
 ```
-event: notification          ← 硬码字面量"notification"，不是动态实体类型
+event: notification          ← 硬码字面量"notification",不是动态实体类型
 id: <seq>
-data: {"type":"<entityType>","id":"<id>","data":{...},"conversationId":"<convId or empty>"}
+data: {"type":"<entityType>","id":"<id>","data":{"action":"...",...},"conversationId":"<convId or empty>"}
 
 ```
 
-**前端 dispatch**：所有通知 SSE event name **永远是 `"notification"`**——前端用 `es.addEventListener("notification", ...)` 单点订阅，然后按 `JSON.parse(e.data).type` 分派给不同 entity 处理器。**不要**写 `addEventListener("conversation", ...)` 之类按实体类型订阅——SSE event name 不是动态的。这是设计决策：开放词表协议（每加新 entity type 不需前端扩展 SSE 路由表）。
+**前端 dispatch**:所有通知 SSE event name **永远是 `"notification"`** — 前端 `es.addEventListener("notification", ...)` 单点订阅,然后按 `JSON.parse(e.data).type` 分派给不同 entity 处理器。**不要**写 `addEventListener("conversation", ...)` 之类按实体类型订阅 — SSE event name 不是动态的。这是设计决策:开放词表协议(每加新 entity type 不需前端扩展 SSE 路由表)。
 
-**重连**：`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件，再接实时；超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端清缓存重订（无 fromSeq）+ 经 REST refetch 关心的实体。
+**重连**:`Last-Event-ID: <seq>` header → server replay buffer 内 seq > N 的事件,再接实时;超 buffer → 410 Gone + `code=SEQ_TOO_OLD` → 客户端清缓存重订(无 fromSeq)+ 经 REST refetch 关心的实体。
 
 ### 11.4 Publisher API
 
-`pkg/notifications.Publisher`（constructor-injected struct field）：
+`pkg/notifications.Publisher` — 从 ctx 自动抽 user_id:
 
 ```go
 import notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 
-// Service 构造期注入（cmd/server 主装配 + service 持作 struct 字段）：
+// Service 构造期注入(cmd/server 主装配 + service 持作 struct 字段):
 type Service struct {
     notif notificationspkg.Publisher
 }
 
-// 内部消费：
-s.notif.Publish(ctx, "conversation", convID, snapshot, convID)
-// 第 5 参 conversationID（位置参数必传）——conversation-scoped 实体传对应 conversationID；
-// 非 scoped 实体（skill / catalog 等全局的）传空字符串 ""
+// 内部消费(传入 ctx,wrapper 从 ctx 抽 user_id):
+s.notif.Publish(ctx, "function", fnID, slimPayload, convID)
+// payload 是 SlimPayload(仅 {action, versionId?, ...} 这种轻字段),禁止塞完整 entity
+// 第 5 参 conversationID:conversation-scoped 实体传对应 ID;非 scoped 传 ""
 ```
 
-`New(bridge, log)` 是唯一构造器；bridge nil 时返 noop Publisher，service 构造器可安全 fallback `notificationspkg.New(nil, log)` 用于测试 / 未接线场景。**failure log 不上抛**——通知是可观测性，不是业务。
+`New(bridge, log)` 是唯一构造器;bridge nil 时返 noop Publisher,service 构造器可安全 fallback `notificationspkg.New(nil, log)` 用于测试 / 未接线场景。**failure log 不上抛** — 通知是可观测性,不是业务。
 
-### 11.5 与 eventlog 协议的对比
+### 11.5 与 eventlog / forge 协议的对比
 
-| 维度 | eventlog | notifications |
-|---|---|---|
-| 订阅域 | per-conversation（`?conversationId=`）| global broadcast |
-| envelope | 5 封闭事件 × 6 封闭 block type | 1 通用 envelope（type 自由）|
-| 路由 | `parentId` 递归（先于事件名）| 客户端按 type / conversationId 过滤 |
-| 演化 | 加事件 / block type **必须**改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可，无协议升级 |
-| 用途 | 流式 chat 内容（含 subagent 嵌套）| entity 状态更新（CRUD / 异步进度）|
-| Bridge | per-conv seq + **4096** replay buffer | global seq + **1024** replay buffer（事件日志单对话内事件密集所以更大；通知全局广播 6 类型，1024 够用） |
-| Producer | 紧密耦合（5 类型固定 schema）| 松散耦合（Publisher 接受任意 type 字符串）|
-| Block 类型变动 | DB CHECK + 前端 renderer 同 PR | 仅前端按 type 加 renderer |
+| 维度 | eventlog | notifications | forge |
+|---|---|---|---|
+| 订阅域 | per-user(无 query)| per-user(无 query)| per-user(无 query)|
+| envelope | 5 封闭事件 × 6 封闭 block type | 1 通用 envelope(type 自由) | 4 封闭事件 × 3 封闭 kind(function/handler/workflow)|
+| 路由 / demux | `parentId` 递归 + client 按 payload.conversationId 分派 | client 按 type / conversationId 过滤 | client 按 scope.kind / scope.id 过滤 |
+| 演化 | 加事件 / block type 必须改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可,无协议升级 | 加 kind 必须改 [`../adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md`](../adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md);加 event type 同样封闭演化 |
+| 用途 | 流式 chat 内容(含 subagent 嵌套)| entity 状态变更(CRUD action)| trinity entity 锻造流式(ops apply + env attempts)|
+| Bridge | per-user seq + replay buffer | per-user seq + replay buffer | per-user seq + replay buffer |
+| Producer | 紧密耦合(5 类型固定 schema)| 松散耦合(任意 type 字符串)| 紧密耦合(4 事件固定 schema)|
+| payload 大小 | event-level(<1KB 每事件)| 瘦身(<200B 每通知)| event-level(<2KB 每事件)|
 
-## 12. 测试覆盖
+## 12. Forge 协议(per-user SSE)
 
-事件协议层单测：
+trinity 锻造进度流(D-redo-4)。`create_function` / `edit_function` / `create_handler` / `edit_handler` / `revert_*` / `delete_*` 等 LLM tool 推流走 forge bus(+ 主对话 progress block 经 eventlog 双写,给 chat UI 实时看)。
+
+### 12.1 Envelope shape
+
+```typescript
+type Envelope = { seq: int64; event: Event }
+
+type Event = ForgeStarted | ForgeOpApplied | ForgeEnvAttempt | ForgeCompleted
+
+type Scope = {
+  kind: "function" | "handler" | "workflow"   // 封闭枚举(D-redo-23 嵌套用 Scope struct)
+  id: string                                   // fn_/hd_/wf_<16hex>
+}
+
+type Operation = "create" | "edit" | "revert" | "delete"   // 封闭枚举
+
+type ForgeStarted = {
+  type: "forge_started"
+  scope: Scope
+  operation: Operation
+  conversationId?: string       // chat-driven 锻造填;HTTP 直触发可空
+  toolCallId?: string           // LLM 锻造时填(关联 chat 的 tool_call block)
+}
+
+type ForgeOpApplied = {
+  type: "forge_op_applied"
+  scope: Scope
+  index: int                    // 第几个 op
+  op: string                    // op 类型("set_code" / "set_dependencies" / ...)
+}
+
+type ForgeEnvAttempt = {
+  type: "forge_env_attempt"
+  scope: Scope
+  attempt: int                  // 第几次(1..maxAttempts)
+  status: "installing" | "fixing" | "ok" | "failed"
+  stage?: string                // "resolving deps" / "downloading wheels" / ...(uv stderr 分段)
+  detail?: string               // 当前 stage 一行 detail
+  error?: string                // status=failed 时填
+}
+
+type ForgeCompleted = {
+  type: "forge_completed"
+  scope: Scope
+  status: "ok" | "failed" | "cancelled"
+  versionId?: string            // 成功时填
+  envStatus?: string            // 成功时填(ready / failed)
+  attemptsUsed?: int            // env-fix loop 累计 attempts
+  error?: string
+}
+```
+
+### 12.2 HTTP 端点
+
+`GET /api/v1/forge` — per-user SSE 流(无 query 参,后端从 ctx 抽 user_id)。客户端按 `payload.scope` / `payload.conversationId` 字段 demux/filter。
+
+**Wire format**:
+
+```
+event: <type>            ← forge_started / forge_op_applied / forge_env_attempt / forge_completed
+id: <seq>
+data: <event JSON, 不重复 type/seq>
+
+```
+
+例:
+```
+event: forge_env_attempt
+id: 87
+data: {"scope":{"kind":"function","id":"fn_abc"},"attempt":2,"status":"failed","error":"No matching distribution"}
+
+```
+
+**重连**:`Last-Event-ID: <seq>` → server replay → 超 buffer 返 410 Gone + `code=SEQ_TOO_OLD` → 客户端重订(无 fromSeq)。
+
+### 12.3 双写
+
+LLM tool 推流时,**每个 forge_env_attempt 同时**:
+1. **forge bus** publish `forge_env_attempt`(给 entity 详情页订)
+2. **eventlog bus** 在 chat tool_call block 下 emit `progress` block delta(给 chat panel 看)
+
+主对话 LLM context 只看到最终 tool_result(env-fix loop 是 tool 内自治),中间 attempts 是 UI 实时观测层。详 [`../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) §E。
+
+### 12.4 Publisher API
+
+`pkg/forge.Publisher` — 从 ctx 自动抽 user_id(同 notifications 模式):
+
+```go
+import forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
+
+type Service struct {
+    forge forgepkg.Publisher
+}
+
+// LLM tool 调用(create_function/edit_handler 等):
+s.forge.PublishStarted(ctx, forgepkg.Scope{Kind: "function", ID: fnID}, "create", convID, toolCallID)
+s.forge.PublishOpApplied(ctx, scope, idx, opType)
+s.forge.PublishEnvAttempt(ctx, scope, attempt, "failed", "resolving deps", "...", err)
+s.forge.PublishCompleted(ctx, scope, "ok", versionID, "ready", attemptsUsed, nil)
+```
+
+`New(bridge, log)` 是唯一构造器;bridge nil 时返 noop。
+
+### 12.5 Invariants
+
+- `scope.kind` 必须 ∈ {function, handler, workflow} — 其他值 Bridge publish panic
+- `operation` 必须 ∈ {create, edit, revert, delete}
+- 一个 entity 的一次锻造(`scope` 固定)按 wire 顺序:`forge_started` → N 个 `forge_op_applied` → 0..maxAttempts 个 `forge_env_attempt` → 1 个 `forge_completed`
+- 同 user_id 内 wire `seq` 全局单调
+- delete 操作只有 `forge_started` + `forge_completed`(无 ops / env attempts)
+
+---
+
+## 13. 测试覆盖
+
+事件协议层单测:
 
 - `infra/eventlog/bridge_test.go` — 单调 seq / 慢订阅阻塞 / Last-Event-ID 重连 / ErrSeqTooOld
-- `pkg/eventlog/eventlog_test.go` — Emitter 父链 / DB dual-write（顶层/嵌套/append/finalize/error/attrs JSON）
+- `infra/notifications/bridge_test.go` — 同模式,per-user key
+- `infra/forge/bridge_test.go` — 同模式,per-user key + Scope 校验
+- `pkg/eventlog/eventlog_test.go` — Emitter 父链 / DB dual-write(顶层/嵌套/append/finalize/error/attrs JSON)
+- `pkg/notifications/publisher_test.go` — 从 ctx 抽 user_id / 瘦身 payload 校验
+- `pkg/forge/publisher_test.go` — 4 events + Scope enum 校验
 - `transport/httpapi/handlers/eventlog_test.go` — SSE 端到端 / Last-Event-ID / 410
+- `transport/httpapi/handlers/notifications_test.go` — 同上
+- `transport/httpapi/handlers/forge_test.go` — 同上
 
-> 注：`domain/eventlog/eventlog_test.go` / `infra/store/chat/block_v2_test.go` 早期文档曾计划过，未真写——`ValidateEvent` 行为由 `infra/eventlog/bridge_test.go` 在 Publish 路径覆盖；`message_blocks` CHECK / UNIQUE 约束由 `infra/db/schema_extras.go` 自动 migrate + DB 兜底。
-
-集成端到端测试（多 producer + 真 stream）走 `backend/test/` pipeline test（§T5）。Notifications 协议层测试同样由 bridge_test 覆盖（结构一致）。
+集成端到端测试(多 producer + 真 stream)走 `backend/test/` pipeline test(§T5)。

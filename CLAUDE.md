@@ -95,21 +95,28 @@
 
 ## SSE（E 系列）
 
-14. **E1 双协议**：后端只有两个 SSE 流，各自单一职责
-    - **事件日志（per conversation）** `/api/v1/eventlog?conversationId=X` —— 5 events × 6 block types，对话内流式内容
-      - 5 事件：`message_start` / `message_stop` / `block_start` / `block_delta` / `block_stop`
-      - 6 block 类型：`text` / `reasoning` / `tool_call` / `tool_result` / `progress` / `message`
-      - 每事件带 `conversationId` + `seq`；block 事件带 `parentId`
-    - **通知（global broadcast）** `/api/v1/notifications` —— 1 通用 envelope，entity 状态更新
-      - Envelope: `{type: string, id: string, data: any, conversationId?: string}`
-      - 现期 type: `conversation`（autoTitle / 元数据）/ `todo`（CRUD）
-      - 未来扩展加 type 字符串即可（mcp_server / skill / system_warning / build_done / ...）
-    - 共用 Bridge pattern：per-key seq + replay buffer + Last-Event-ID 重连
-    - 详见 [`event-log-protocol.md`](documents/version-1.2/event-log-protocol.md)
+14. **E1 三协议**:后端只有三条 SSE 流,**全部按 user_id 订阅**(后端 Bridge 从 ctx 抽 user_id,无 query 参数),client 按 payload 字段 demux/filter
+    - **事件日志** `GET /api/v1/eventlog` —— 5 events × 6 block types,**chat 内流式内容**(per-user 订;payload 带 `conversationId`,client demux 到对应 panel)
+      - 5 事件:`message_start` / `message_stop` / `block_start` / `block_delta` / `block_stop`
+      - 6 block 类型:`text` / `reasoning` / `tool_call` / `tool_result` / `progress` / `message`
+      - 每事件带 `conversationId` + `seq`;block 事件带 `parentId`
+    - **通知** `GET /api/v1/notifications` —— 1 通用 envelope,**entity 状态变更**(per-user 订)
+      - Envelope: `{type: string, id: string, data: SlimPayload, conversationId?: string}`
+      - **data 字段瘦身**:只送 `{action, versionId?, versionNumber?, ...}` 这种轻字段,**禁止塞完整 entity** — UI 拿通知 → 主动 GET 详情
+      - 现期 type: `conversation` / `todo` / `mcp_server` / `skill` / `catalog` / `sandbox_env` / `function` / `handler`(开放词表,未来加新 type 字符串即可)
+    - **锻造流** `GET /api/v1/forge` —— 4 events × 3 kinds,**trinity entity 锻造进度**(per-user 订)
+      - 4 事件:`forge_started` / `forge_op_applied` / `forge_env_attempt` / `forge_completed`(封闭枚举)
+      - 3 kinds:`function` / `handler` / `workflow`(封闭枚举)
+      - payload 嵌套 `scope: {kind, id}` struct(复用 `domain/eventlog.Scope`),不平铺
+      - 给 trinity create / edit / revert / delete 操作 + env-fix loop 推流;LLM tool 双写(forge bus + chat eventlog progress block)
+    - 三流共用 Bridge pattern:per-user seq + replay buffer + Last-Event-ID 重连
+    - **SSE 上限三条**,**永远不再加**(D-redo-5)。所有未来需求走 forge 流 + filter 或 Wails native event(打包阶段)
+    - 详见 [`event-log-protocol.md`](documents/version-1.2/event-log-protocol.md) + [`service-contract-documents/events-design.md`](documents/version-1.2/service-contract-documents/events-design.md) + [`adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md`](documents/version-1.2/adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md)
 15. **E2 协议演进规则**
-    - 事件日志：新事件类型 / block 类型必须先改 `event-log-protocol.md` 再加 code（封闭枚举）
-    - 通知：新 entity type 加字符串即可（开放词表，未来通知模块靠这个扩展）
-    - 路由：事件日志按 `parentId` 递归（不靠事件名分层）；通知广播给所有订阅者，客户端按 `type` / `conversationId` 过滤
+    - 事件日志:新事件类型 / block 类型必须先改 `event-log-protocol.md` 再加 code(封闭枚举)
+    - 锻造流:新 event 类型 / 新 scope.kind / 新 operation 必须先改 `07-notifications-and-eventlog.md` 再加 code(封闭枚举)
+    - 通知:新 entity type 加字符串即可(开放词表);**所有 type 的 data 字段必须瘦身**(只 ID + 小字段,完整 entity 走 GET)
+    - 路由 / demux:事件日志按 `parentId` 递归 + client 按 `payload.conversationId` 分派;通知 + 锻造流广播给同 user 所有订阅者,client 按 type / scope 过滤
 
 ## 代码规范（S 系列）
 

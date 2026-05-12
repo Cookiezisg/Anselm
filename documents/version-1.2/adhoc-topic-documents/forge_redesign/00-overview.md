@@ -118,11 +118,11 @@ init_args(DSN / API key 等)由用户在 Handler 详情页填一次,**`handlers.
 ### D17 — V1 不做 test_cases(Topic 5-C)
 Function / Handler **不带 test_cases 子表 / LLM 工具家族**。LLM 锻造完跑 1-2 次 happy-path 自验,workflow 编排里也能做 condition + assert。V1.5 看用户反馈再加。
 
-### D18 — Transport Layer 默认 HTTPS + HTTP/2(本地 mkcert)
-Backend 默认走 `ListenAndServeTLS` 自动协议升 h2(Go 标准库原生支持,0 第三方依赖);TLS cert 经 mkcert bootstrap 流程自动准备(`~/.forgify/.tls/`)。**彻底解 HTTP/1.1 6-connection 限制**(项目历史 2026-05-09 testend 撞过),前端可自由订多个 SSE 不需共享 connection。dev 提供 `--http` flag 兼容旧 testend。详 [`05-execution-plane.md`](./05-execution-plane.md) Transport Layer 章节。
+### D18 — Transport Layer 保持 HTTP/1.1(TLS / HTTP/2 永久搁置)
+Backend 保持纯 HTTP(无 TLS / 无 HTTP/2);浏览器 HTTP/1.1 6-conn 限制由 **D-redo-1 + D-redo-2 三流统一**解决(只占 3 个连接,远低于 6)。mkcert / TLS cert / 证书轮换全部不需要。打包阶段如确实需要绕开 HTTP,走 **Wails native events**(V1.5 / 打包期实施)。详 [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md) §2 + [`discussions/2026-05-12-env-and-sse-rework.md`](./discussions/2026-05-12-env-and-sse-rework.md) §A。
 
-### D19 — Entity-level eventlog scope(`function:` / `handler:` / `workflow:`)
-现有 `conversation:` / `flowrun:` 之外,加 3 种 entity-level scope。让前端"Function/Handler/Workflow 详情页"能**直接订该 entity 的实时事件流**(锻造期 ops + lifecycle),不用回到 chat conv 看。LLM 锻造时**双写**(chat scope + entity scope)。详 [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md) §2 / §4。
+### D19 — SSE 三流统一按 user_id 订阅
+后端 3 条 SSE 流(eventlog / notifications / forge)**全部按 user_id key**,无 query 参数。eventlog payload 带 `conversationId` 给 client demux,forge payload 带 `scope:{kind,id}` struct(嵌套,复用 `domain/eventlog.Scope`)。**永远不再加新 SSE 流**(D-redo-5)— 所有未来"entity 详情面板想看实时事件"需求走 forge 流 + client filter 或 Wails native event。详 [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md)。
 
 ### D20 — Capability 删除级联标 workflow `needs_attention`(D12 扩展)
 删除 function / handler / skill / mcp_server 时,引用此 capability 的 workflow 自动标 `needs_attention` + 发通知。trigger 仍 register 但触发时 fail-fast(`WORKFLOW_CAPABILITY_REMOVED`),UI 列表项显示警告。用户决定:`edit_workflow` 替换 / `delete_workflow` / 配相应替代品。详 [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md) §5。
@@ -244,7 +244,7 @@ Production observability + LLM 自诊断必备(看不只 status=failed,**也看 
 | [`02-function.md`](./02-function.md) | Function domain 详设计(Python 函数 + DB + LLM 锻造) |
 | [`03-handler.md`](./03-handler.md) | Handler domain 详设计(Definition/Instance + caller-owns lifetime + Handler Config) |
 | [`04-workflow.md`](./04-workflow.md) | Workflow domain 详设计(DAG + 13 节点 + edge + 表达式) |
-| [`05-execution-plane.md`](./05-execution-plane.md) | Scheduler + Trigger + FlowRun + 14 项生产级 V1 必做 + HTTP/2 Transport Layer |
+| [`05-execution-plane.md`](./05-execution-plane.md) | Scheduler + Trigger + FlowRun + 14 项生产级 V1 必做(原 Transport Layer 章节已被 D-redo-1 取代,内容搁置)|
 | [`06-subagent-forging.md`](./06-subagent-forging.md) | 多 agent 并行锻造(4 类 forger + 协作模式 + Config 引导) |
 | [`07-notifications-and-eventlog.md`](./07-notifications-and-eventlog.md) | 通知 type 总表 + Eventlog scope 多视图订阅策略 |
 | [`08-executions.md`](./08-executions.md) | 5 张 per-entity execution log 表(共享 schema 模板)+ LLM 诊断工具(D22)|
