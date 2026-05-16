@@ -95,6 +95,24 @@ func New(deps Deps) http.Handler {
 	if deps.DocumentService != nil {
 		handlershttpapi.NewDocumentHandler(deps.DocumentService, deps.Log).Register(mux)
 	}
+	// §4.8 context-stats — needs conv + tokensummer; nil-safe degradation.
+	if deps.ConversationService != nil {
+		handlershttpapi.NewContextStatsHandler(
+			deps.ConversationService,
+			deps.CatalogService,
+			deps.MemoryService,
+			deps.DocumentService,
+			deps.ChatService,
+			deps.Log,
+		).Register(mux)
+	}
+	// §4.5 metrics: register when at least one execution-log repo is wired.
+	if deps.FunctionExecRepo != nil || deps.HandlerCallRepo != nil || deps.MCPCallRepo != nil || deps.SkillExecRepo != nil {
+		handlershttpapi.NewMetricsHandler(
+			deps.FunctionExecRepo, deps.HandlerCallRepo, deps.MCPCallRepo, deps.SkillExecRepo,
+			deps.Log,
+		).Register(mux)
+	}
 	if deps.Dev {
 		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(mux)
 	}

@@ -24,6 +24,7 @@ import (
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
+	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
 	hooksapp "github.com/sunweilin/forgify/backend/internal/app/hooks"
@@ -86,6 +87,7 @@ import (
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
+	cataloghistorystore "github.com/sunweilin/forgify/backend/internal/infra/store/cataloghistory"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
@@ -228,6 +230,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
 		&documentdomain.Document{},
+		&catalogdomain.HistoryEntry{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -436,6 +439,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	// per-test cache; no SetGenerator → mechanical-fallback only (avoids FIFO script queue contention).
 	catalogCachePath := filepath.Join(dataDir, ".catalog.json")
 	catalogService := catalogapp.New(catalogCachePath, notificationsPub, log)
+	catalogService.SetHistoryRepo(cataloghistorystore.New(gdb))
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())

@@ -76,6 +76,7 @@ const sections: NavSection[] = [
       { label: 'Live SSE', path: '/observe/live', hint: '3 streams' },
       { label: 'Notif history', path: '/observe/notifications' },
       { label: 'Catalog', path: '/observe/catalog' },
+      { label: 'Usage', path: '/observe/usage', hint: 'token / cost spend per period (§4.9)' },
       { label: 'Mock LLM', path: '/observe/mock-llm' },
     ],
   },
@@ -91,6 +92,7 @@ const sections: NavSection[] = [
       { label: 'Memory', path: '/config/memory', hint: 'cross-conv long-term facts (V1.2 §2)' },
       { label: 'Documents', path: '/config/documents', hint: 'Notion-style markdown tree (Phase 5 §14)' },
       { label: 'Permissions', path: '/config/permissions', hint: 'settings.json rules + hooks (V1.2 §3)' },
+      { label: 'LLM Health', path: '/config/llm-health', hint: 'per-provider connectivity (§4.10)' },
     ],
   },
   {

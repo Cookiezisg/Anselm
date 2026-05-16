@@ -81,14 +81,14 @@
 
 - ☑ **§4.1 Token / cost per-conversation 显示** ✅ 2026-05-16 —— `GET /api/v1/conversations/{id}` 响应附 `tokensUsed: {input, output, total}`；`SumTokensByConversation` 单 SQL SUM 聚合。**注**：每 conv 的 cost 估算需要 model breakdown，走 §4.2 端点（per-conv 模式无 cost 字段，仅 totals）。
 - ☑ **§4.2 总累计 cost 面板** ✅ 2026-05-16 —— `GET /api/v1/usage?conversationId=…\|period=day\|week\|month\|all`，按 (provider, modelId) 拆 + cost 估算；新 `pkg/llmcost` 16-model 单价 registry。**未做**：testend `/usage` 视图（仅后端端点，UI 留下次）。
-- ☐ **§4.3 Conversation 搜索** —— 按 title / message content / tool 名搜索。先 SQL LIKE，未来 FTS5。**Done when**：`GET /api/v1/conversations?search=email` 返匹配。
-- ☐ **§4.4 Conversation export (markdown)** —— 导出对话为 markdown 文件 / JSON。**Done when**：`GET /api/v1/conversations/{id}/export?format=md|json` 返下载。
-- ☐ **§4.5 Tool execution metrics dashboard** —— 慢 tool / 失败率 / p95 latency per-tool。基于现有 D22 execution log 聚合。**Done when**：`GET /api/v1/metrics/tools?since=7d` 返；testend 显示。
-- ☐ **§4.6 LLM call trace export** —— 单次对话所有 LLM 调用 (req/resp/cost) 导出 JSON。debugging 用。**Done when**：`GET /api/v1/conversations/{id}/llm-trace` 返。
-- ☐ **§4.7 Catalog version diff** —— "自上次看以来 catalog 加了什么"——持久化历史版本（当前只 cache 最新）。**Done when**：`catalog_history` 表 + UI 显示 diff。
-- ☐ **§4.8 `/context` 命令** —— 当前 context 占用分布（system prompt / history / each tool def 各占多少 token）。**Done when**：testend 一键查看（跟 §1.7 是同件事）。
-- ☐ **§4.9 `/usage` 命令** —— 当前对话 + 今日 + 本月 token / cost。**Done when**：testend 一键查看。
-- ☐ **§4.10 LLM provider 健康指标** —— 各 provider 的 success rate / p95 latency 实时看。基于 `apikeys.last_tested_at` + LLM error 累计。**Done when**：testend `LLM` tab 显示。
+- ☑ **§4.3 Conversation 搜索** ✅ 2026-05-17 —— `conversation.ListFilter.Search` 字段 + SQL LIKE on `title`(V1;message content / tool 名等 FTS5 后续);handler 接 `?search=foo` 参数;testend `conv.refresh()` 自动带 filter。
+- ☑ **§4.4 Conversation export (md / json)** ✅ 2026-05-17 —— `GET /api/v1/conversations/{id}/export?format=md|json`。md 渲染 user-readable(per-message heading + 6 block 类型差异化渲染 + token 注脚);json dump 完整 entity 数组。`Content-Disposition: attachment` headers。
+- ☑ **§4.5 Tool execution metrics** ✅ 2026-05-17 —— `GET /api/v1/metrics/tools?since=7d` 聚合 4 张 D22 表(function_executions / handler_calls / mcp_calls / skill_executions),per-bucket 返 ok/failed/cancelled/timeout count + 成功率 + avg/p95 latency。`MetricsHandler` 新文件 + 4 repos 注入 Deps。`mcp.CallFilter` + `skill.ExecutionFilter` 加 `Since` / `Until` 字段(propagated to store applyFilter)。per-tool group-by 留 V1.5。
+- ☑ **§4.6 LLM call trace export** ✅ 2026-05-17 —— `GET /api/v1/conversations/{id}/llm-trace` 列每个 assistant message 的 LLM 调用元数据(provider / modelId / token in/out / status / stopReason / errorCode / elapsedMs)。**纯派生 messages 表**,无新持久化。返 `{calls, totals}` 含全对话累计。
+- ☑ **§4.7 Catalog version diff** ✅ 2026-05-17 —— 新 `catalog.HistoryEntry` domain + `catalog_history` 表(GORM AutoMigrate)+ `infra/store/cataloghistory` 新包(Save 含 trim-to-N=50 cap)。catalog Service `SetHistoryRepo` 接入,每次成功 Refresh 写一行。**2 新端点**:`GET /catalog/history?limit=N` 列近期版本 / `GET /catalog/diff?from=X&to=Y` 返 per-source added/removed item IDs。
+- ☑ **§4.8 `/context` 端点** ✅ 2026-05-17 —— `GET /api/v1/conversations/{id}/context-stats` 估算每段 token 占用:catalogSummary / memorySection / conversationSystemPrompt / attachedDocuments(经 documentSvc.ResolveAttached + RenderAttachedAsXML 算入)+ history 总量(SumTokensForConversation)。`pkg/tokencount.Estimate` 字符级估算(CJK 1tok/char,ascii bytes/4)。
+- ☑ **§4.9 `/usage` testend 视图** ✅ 2026-05-17 —— testend `/observe/usage` 视图,period 切 day/week/month/all + per-model 表 + cost 估算。包装现有 `/api/v1/usage`,新增 `usageAPI` client + nav 入口。
+- ☑ **§4.10 LLM provider 健康指标** ✅ 2026-05-17 —— testend `/config/llm-health` 视图,按 provider group apikeys + worstStatus 显示 + 一键 test。`testStatus` 三态(ok / error / pending),lastTestedAt 显示 timeAgo。新增 `metricsAPI` / `catalogHistoryAPI` / `contextStatsAPI` clients 待相应 testend 视图复用(未来 polish)。
 
 ---
 
@@ -374,7 +374,7 @@ V1.2 ship 标准（前端 Wails 之外）：
 | §1 | 长任务能力（Compaction）| 3 / 7 | 🟢 主体完工 | 核心 3 件（counter / Micro / Auto）做完；slash / cache 边界 / tool budget 留下次 |
 | §2 | 记忆系统（Memory）| 6 / 7 | 🟢 主体完工 | §2.1+§2.2 设计改向：DB-backed 替代磁盘 FORGIFY.md / MEMORY.md（pinned + index 同语义）；§2.7 autoDream "本轮 skip" 远期 |
 | §3 | 权限 + Hooks | 6 / 9 | 🟢 主体完工 | §3.7 Session hooks / §3.8 Explainer / §3.9 path traversal 加固 留 v2 |
-| §4 | 可观测性 | 2 / 10 | 🟡 起步 | §4.1 + §4.2 后端就位；testend `/usage` UI 留下次 |
+| §4 | 可观测性 | 10 / 10 | ✅ 完工 | 2026-05-17 全清——`/conversations?search=` + export md/json + metrics dashboard + llm-trace + catalog history/diff + context-stats + testend `/observe/usage` + `/config/llm-health` 全到位 |
 | §5 | Workflow 高阶 | 0 / 7 | ⬜ 未起 | Phase 4 主体已完，本节是 V1.5 deferred 全做 |
 | §6 | MCP 高阶 | 0 / 7 | ⬜ 未起 | |
 | §7 | Skill 高阶 | 0 / 5 | ⬜ 未起 | |

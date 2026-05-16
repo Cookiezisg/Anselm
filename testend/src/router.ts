@@ -51,6 +51,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/observe/live', component: () => import('@/views/observe/LiveSSE.vue') },
   { path: '/observe/notifications', component: () => import('@/views/observe/NotificationHistory.vue') },
   { path: '/observe/catalog', component: () => import('@/views/observe/Catalog.vue') },
+  { path: '/observe/usage', component: () => import('@/views/observe/Usage.vue') },
   { path: '/observe/mock-llm', component: () => import('@/views/observe/MockLLM.vue') },
 
   /* config */
@@ -62,6 +63,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/config/memory', component: () => import('@/views/config/Memory.vue') },
   { path: '/config/documents', component: () => import('@/views/config/Documents.vue') },
   { path: '/config/permissions', component: () => import('@/views/config/Permissions.vue') },
+  { path: '/config/llm-health', component: () => import('@/views/config/LLMHealth.vue') },
 
   /* dev */
   { path: '/dev/sql', component: () => import('@/views/dev/SQL.vue') },

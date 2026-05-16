@@ -11,8 +11,11 @@ import (
 	"go.uber.org/zap"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+func historyID() string { return idgenpkg.New("ch") }
 
 // Start loads the disk cache then launches the polling goroutine.
 //
@@ -153,6 +156,26 @@ func (s *Service) Refresh(ctx context.Context) error {
 	if err := saveToDisk(s.cachePath, cat); err != nil {
 		s.log.Warn("catalog write to disk failed; in-memory cache still updated",
 			zap.String("path", s.cachePath), zap.Error(err))
+	}
+	// §4.7: persist version row for diff inspection (no-op when historyRepo nil).
+	//
+	// §4.7:持久化版本行(historyRepo nil 时跳过)。
+	if s.historyRepo != nil {
+		h := &catalogdomain.HistoryEntry{
+			ID:          historyID(),
+			Version:     cat.Version,
+			Summary:     cat.Summary,
+			Coverage:    cat.Coverage,
+			Fingerprint: cat.Fingerprint,
+			GeneratedBy: cat.GeneratedBy,
+			SourcesAt:   cat.SourcesAt,
+			GeneratedAt: cat.GeneratedAt,
+			CreatedAt:   time.Now().UTC(),
+		}
+		if err := s.historyRepo.Save(ctx, h); err != nil {
+			s.log.Warn("catalog history save failed (non-fatal)",
+				zap.Int("version", cat.Version), zap.Error(err))
+		}
 	}
 	s.notif.Publish(ctx, "catalog", cat.Fingerprint,
 		map[string]any{

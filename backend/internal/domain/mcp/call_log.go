@@ -59,6 +59,8 @@ type CallFilter struct {
 	Status         string
 	ConversationID string
 	FlowrunID      string
+	Since          *time.Time
+	Until          *time.Time
 	Cursor         string
 	Limit          int
 }

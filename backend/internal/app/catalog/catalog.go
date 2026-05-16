@@ -38,9 +38,10 @@ type Service struct {
 	sourcesMu sync.RWMutex
 	sources   []catalogdomain.CatalogSource
 
-	cache  atomic.Pointer[catalogdomain.Catalog]
-	lastFP atomic.Value // string
-	busy   atomic.Bool
+	cache       atomic.Pointer[catalogdomain.Catalog]
+	lastFP      atomic.Value // string
+	busy        atomic.Bool
+	historyRepo catalogdomain.HistoryRepository // §4.7; nil = no persistence
 
 	versionMu sync.Mutex
 	version   int
@@ -75,6 +76,20 @@ func New(cachePath string, notif notificationspkg.Publisher, log *zap.Logger) *S
 // SetGenerator 在 New 之后注入 LLM Generator。
 func (s *Service) SetGenerator(g Generator) {
 	s.generator = g
+}
+
+// SetHistoryRepo wires the §4.7 version-history persistence (nil-safe).
+//
+// SetHistoryRepo 接入 §4.7 版本历史持久化(nil 安全)。
+func (s *Service) SetHistoryRepo(r catalogdomain.HistoryRepository) {
+	s.historyRepo = r
+}
+
+// HistoryRepo exposes the wired history repo for the HTTP handler (nil-safe).
+//
+// HistoryRepo 给 HTTP handler 拿 history repo(nil 安全)。
+func (s *Service) HistoryRepo() catalogdomain.HistoryRepository {
+	return s.historyRepo
 }
 
 // SetPollInterval overrides the default 1s tick (tests only).

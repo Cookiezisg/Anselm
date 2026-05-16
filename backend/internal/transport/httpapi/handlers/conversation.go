@@ -81,6 +81,7 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 	items, next, err := h.svc.List(r.Context(), convdomain.ListFilter{
 		Cursor: p.Cursor,
 		Limit:  p.Limit,
+		Search: r.URL.Query().Get("search"),
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

@@ -56,6 +56,7 @@ import (
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
@@ -88,6 +89,7 @@ import (
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
+	cataloghistorystore "github.com/sunweilin/forgify/backend/internal/infra/store/cataloghistory"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
@@ -174,6 +176,7 @@ func main() {
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
 		&documentdomain.Document{},
+		&catalogdomain.HistoryEntry{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -355,6 +358,7 @@ func main() {
 
 	catalogService := catalogapp.New(filepath.Join(homeRoot, ".catalog.json"), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
+	catalogService.SetHistoryRepo(cataloghistorystore.New(gdb))
 	// Sources here = "things the LLM can call from chat as capabilities":
 	// function (run_function), handler (call_handler), skill (invoke), mcp
 	// (server tools). Workflows are intentionally NOT in coverage — they
@@ -412,6 +416,9 @@ func main() {
 	skillExecRepo := skillexecstore.New(gdb)
 	mcpService.SetCallRepo(mcpCallRepo)
 	skillService.SetExecRepo(skillExecRepo)
+	// §4.5 metrics dashboard reuses these execution-log repos.
+	functionExecRepo := functionstore.New(gdb)
+	handlerCallRepo := handlerstore.New(gdb)
 
 	// Build mux up-front so trigger.webhook can register sub-paths on the same ServeMux.
 	httpMux := http.NewServeMux()
@@ -492,6 +499,10 @@ func main() {
 		CatalogService:      catalogService,
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
+		FunctionExecRepo:    functionExecRepo,
+		HandlerCallRepo:     handlerCallRepo,
+		MCPCallRepo:         mcpCallRepo,
+		SkillExecRepo:       skillExecRepo,
 		SettingsService:     settingsService,
 		SettingsPath:        settingsPath,
 		PermGate:            permGate,

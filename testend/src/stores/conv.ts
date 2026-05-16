@@ -22,7 +22,7 @@ export const useConvStore = defineStore('conv', () => {
   async function refresh() {
     loading.value = true;
     try {
-      const page = await convAPI.list(200);
+      const page = await convAPI.list(200, filter.value);
       list.value = page.items.sort((a, b) =>
         (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt),
       );

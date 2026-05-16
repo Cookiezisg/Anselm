@@ -156,5 +156,11 @@ func (s *Store) applyFilter(q *gorm.DB, uid string, filter skilldomain.Execution
 	if filter.ForkDepth != nil {
 		q = q.Where("fork_depth = ?", *filter.ForkDepth)
 	}
+	if filter.Since != nil {
+		q = q.Where("started_at >= ?", *filter.Since)
+	}
+	if filter.Until != nil {
+		q = q.Where("started_at < ?", *filter.Until)
+	}
 	return q
 }

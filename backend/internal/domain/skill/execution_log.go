@@ -58,6 +58,8 @@ type ExecutionFilter struct {
 	ConversationID string
 	FlowrunID      string
 	ForkDepth      *int
+	Since          *time.Time
+	Until          *time.Time
 	Cursor         string
 	Limit          int
 }

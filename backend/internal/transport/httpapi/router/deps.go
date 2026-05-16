@@ -33,6 +33,10 @@ import (
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -79,6 +83,12 @@ type Deps struct {
 	CatalogService      *catalogapp.Service
 	MemoryService       *memoryapp.Service
 	DocumentService     *documentapp.Service
+
+	// §4.5 metrics dashboard — aggregated views over the 4 D22 execution-log tables.
+	FunctionExecRepo functiondomain.ExecutionRepository
+	HandlerCallRepo  handlerdomain.CallRepository
+	MCPCallRepo      mcpdomain.CallRepository
+	SkillExecRepo    skilldomain.ExecutionRepository
 
 	// V1.2 §3 final-sweep — permissions + hooks.
 	// SettingsService 持 settings.json snapshot；SettingsPath 给 PUT 写；

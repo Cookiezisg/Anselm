@@ -39,6 +39,7 @@ func (Conversation) TableName() string { return "conversations" }
 type ListFilter struct {
 	Cursor string
 	Limit  int
+	Search string // §4.3: optional SQL LIKE on title (V1; message-content / tool-name 走 FTS5 后续)
 }
 
 var ErrNotFound = errors.New("conversation: not found")

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -73,6 +74,9 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 		limit = 50
 	}
 	q := s.db.WithContext(ctx).Where("user_id = ?", uid)
+	if s := strings.TrimSpace(filter.Search); s != "" {
+		q = q.Where("title LIKE ?", "%"+s+"%")
+	}
 	if filter.Cursor != "" {
 		var c paginationpkg.Cursor
 		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {

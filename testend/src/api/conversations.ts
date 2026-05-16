@@ -8,7 +8,8 @@ export interface AttachedDocument {
 }
 
 export const convAPI = {
-  list: (limit = 100) => getPage<Conversation>('/api/v1/conversations', { limit }),
+  list: (limit = 100, search = '') =>
+    getPage<Conversation>('/api/v1/conversations', { limit, search }),
 
   get: (id: string) => getJSON<Conversation>(`/api/v1/conversations/${id}`),
 

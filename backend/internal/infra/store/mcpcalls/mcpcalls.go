@@ -169,5 +169,11 @@ func (s *Store) applyFilter(q *gorm.DB, uid string, filter mcpdomain.CallFilter)
 	if filter.FlowrunID != "" {
 		q = q.Where("flowrun_id = ?", filter.FlowrunID)
 	}
+	if filter.Since != nil {
+		q = q.Where("started_at >= ?", *filter.Since)
+	}
+	if filter.Until != nil {
+		q = q.Where("started_at < ?", *filter.Until)
+	}
 	return q
 }
