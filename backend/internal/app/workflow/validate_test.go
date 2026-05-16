@@ -155,16 +155,18 @@ func TestValidate_Cycle(t *testing.T) {
 //
 // 选择性放行的 fake checker。
 type fakeChecker struct {
-	functions map[string]bool
-	handlers  map[string]bool
-	skills    map[string]bool
+	functions  map[string]bool
+	handlers   map[string]bool
+	skills     map[string]bool
 	mcpServers map[string]bool
+	documents  map[string]bool
 }
 
 func (f fakeChecker) HasFunction(_ context.Context, id string) (bool, error)  { return f.functions[id], nil }
 func (f fakeChecker) HasHandler(_ context.Context, n string) (bool, error)    { return f.handlers[n], nil }
 func (f fakeChecker) HasSkill(_ context.Context, n string) (bool, error)      { return f.skills[n], nil }
 func (f fakeChecker) HasMCPServer(_ context.Context, n string) (bool, error)  { return f.mcpServers[n], nil }
+func (f fakeChecker) HasDocument(_ context.Context, id string) (bool, error)  { return f.documents[id], nil }
 
 func TestValidate_CapabilityNotFound(t *testing.T) {
 	g := &workflowdomain.Graph{

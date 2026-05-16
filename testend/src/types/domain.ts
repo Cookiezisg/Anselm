@@ -25,6 +25,8 @@ export interface Conversation {
   summary?: string;
   /** seq of the last block covered by `summary`; 0 if never compacted. */
   summaryCoversUpToSeq?: number;
+  /** Phase 5 §14.5c — doc refs prepended to every system prompt (live-resolved). */
+  attachedDocuments?: Array<{ documentId: string; includeSubtree?: boolean }>;
   createdAt: string;
   updatedAt: string;
 }

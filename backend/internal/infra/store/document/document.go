@@ -233,6 +233,13 @@ func (s *Store) CountDescendants(ctx context.Context, userID, id string) (int64,
 	return int64(len(ids) - 1), nil
 }
 
+// ListSubtreeIDs is the public BFS wrapper around the internal helper.
+//
+// ListSubtreeIDs 是内部 BFS helper 的对外封装。
+func (s *Store) ListSubtreeIDs(ctx context.Context, userID, rootID string) ([]string, error) {
+	return s.collectDescendantIDs(ctx, userID, rootID)
+}
+
 func (s *Store) MaxSiblingPosition(ctx context.Context, userID string, parentID *string) (int, error) {
 	q := s.db.WithContext(ctx).Model(&documentdomain.Document{}).Where("user_id = ?", userID)
 	if parentID == nil {

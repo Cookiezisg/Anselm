@@ -448,6 +448,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	t.Cleanup(catalogService.Stop)
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
+	chatService.SetDocumentResolver(documentService)
 
 	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
 		bundle, err := llmclientpkg.ResolveForWebSummary(ctx, modelService, apikeyService, llmFactory)
@@ -477,6 +478,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	workflowChecker.Skill = skillService
 	workflowChecker.MCP = mcpService
+	workflowChecker.Document = documentService
 
 	flowrunRepo := flowrunstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
@@ -496,7 +498,14 @@ func New(t *testing.T, opts ...Option) *Harness {
 	router.Set(workflowdomain.NodeTypeHandler, schedulerapp.NewHandlerDispatcher(handlerService))
 	router.Set(workflowdomain.NodeTypeMCP, schedulerapp.NewMCPDispatcher(mcpService))
 	router.Set(workflowdomain.NodeTypeSkill, schedulerapp.NewSkillDispatcher(skillService))
-	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(nil))
+	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(
+		schedulerapp.NewDefaultLLMCaller(modelService, apikeyService, llmFactory),
+		documentService,
+	))
+	router.Set(workflowdomain.NodeTypeAgent, schedulerapp.NewAgentDispatcher(
+		modelService, apikeyService, llmFactory,
+		documentService, func() []toolapp.Tool { return tools }, log,
+	))
 	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
 	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
 	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher())

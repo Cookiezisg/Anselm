@@ -16,6 +16,7 @@ type CapabilityChecker interface {
 	HasHandler(ctx context.Context, name string) (bool, error)
 	HasSkill(ctx context.Context, name string) (bool, error)
 	HasMCPServer(ctx context.Context, name string) (bool, error)
+	HasDocument(ctx context.Context, id string) (bool, error)
 }
 
 type nopChecker struct{}
@@ -24,6 +25,7 @@ func (nopChecker) HasFunction(context.Context, string) (bool, error)  { return t
 func (nopChecker) HasHandler(context.Context, string) (bool, error)   { return true, nil }
 func (nopChecker) HasSkill(context.Context, string) (bool, error)     { return true, nil }
 func (nopChecker) HasMCPServer(context.Context, string) (bool, error) { return true, nil }
+func (nopChecker) HasDocument(context.Context, string) (bool, error)  { return true, nil }
 
 // NopChecker returns a CapabilityChecker that approves every reference.
 //
@@ -259,8 +261,55 @@ func checkCapabilityRef(ctx context.Context, n workflowdomain.NodeSpec, checker 
 		if !ok {
 			return fmt.Errorf("%w: mcp server %q (node %q)", workflowdomain.ErrMCPServerNotInstalled, serverName, n.ID)
 		}
+	case workflowdomain.NodeTypeLLM, workflowdomain.NodeTypeAgent:
+		// Validate attachedDocuments references resolve (live-resolve subtree
+		// expansion happens at dispatch — here we only require root IDs exist).
+		//
+		// 验证 attachedDocuments 引用存在(subtree 在 dispatch 期 live 展开,
+		// 这里只校验 root id)。
+		ids, err := extractAttachedDocumentIDs(n.Config)
+		if err != nil {
+			return fmt.Errorf("%w: node %q attachedDocuments: %v", workflowdomain.ErrOpInvalid, n.ID, err)
+		}
+		for _, id := range ids {
+			ok, err := checker.HasDocument(ctx, id)
+			if err != nil {
+				return fmt.Errorf("document ref check: %w", err)
+			}
+			if !ok {
+				return fmt.Errorf("%w: document %q not found (node %q)", workflowdomain.ErrCapabilityNotFound, id, n.ID)
+			}
+		}
 	}
 	return nil
+}
+
+// extractAttachedDocumentIDs picks documentId fields out of node Config.attachedDocuments
+// without depending on documentdomain (validate runs purely in workflow domain logic).
+//
+// extractAttachedDocumentIDs 从 node Config.attachedDocuments 抽 documentId 字段;
+// 不依赖 documentdomain(validate 纯走 workflow domain 逻辑)。
+func extractAttachedDocumentIDs(cfg map[string]any) ([]string, error) {
+	raw, ok := cfg["attachedDocuments"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	slice, ok := raw.([]any)
+	if !ok {
+		// Could be a typed slice (post-validation re-walk). Try to coerce via json round-trip.
+		return nil, nil
+	}
+	out := make([]string, 0, len(slice))
+	for _, item := range slice {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := m["documentId"].(string); ok && id != "" {
+			out = append(out, id)
+		}
+	}
+	return out, nil
 }
 
 func checkVariableRefs(nodes []workflowdomain.NodeSpec, declared map[string]bool) error {

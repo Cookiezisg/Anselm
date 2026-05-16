@@ -80,6 +80,19 @@ type MoveInput struct {
 	Position *int
 }
 
+// AttachedDocument is one entry in a workflow llm/agent node's
+// AttachedDocuments list (or Conversation.AttachedDocuments).
+// IncludeSubtree=true makes the resolver expand to all live descendants
+// at dispatch time (live-resolve, not snapshot).
+//
+// AttachedDocument 是 workflow llm/agent 节点(或 Conversation)挂载列表
+// 中的一项。IncludeSubtree=true 时 resolver 在 dispatch 时展开成当前所有
+// 后裔(live-resolve,非快照)。
+type AttachedDocument struct {
+	DocumentID     string `json:"documentId"`
+	IncludeSubtree bool   `json:"includeSubtree,omitempty"`
+}
+
 // Repository is the storage contract; UserID-scoped (multi-tenant ready, V1 hard-coded local-user).
 //
 // Repository 是存储契约；按 UserID 作用域（多租户预留，V1 硬编码 local-user）。
@@ -97,4 +110,12 @@ type Repository interface {
 	CountChildren(ctx context.Context, userID, id string) (int64, error)
 	CountDescendants(ctx context.Context, userID, id string) (int64, error)
 	MaxSiblingPosition(ctx context.Context, userID string, parentID *string) (int, error)
+
+	// ListSubtreeIDs returns [rootID, ...all live descendant IDs] via BFS;
+	// empty when root id not found. Used by documentapp.ResolveAttached to
+	// live-expand `IncludeSubtree=true` attach entries.
+	//
+	// ListSubtreeIDs 经 BFS 返 [rootID, ...所有活跃后裔 ID]；root id 不存在
+	// 返空切片。给 documentapp.ResolveAttached 展开 IncludeSubtree=true 用。
+	ListSubtreeIDs(ctx context.Context, userID, rootID string) ([]string, error)
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
@@ -123,7 +124,7 @@ func (f *fakeLLMCaller) Generate(_ context.Context, scenario, prompt string, var
 }
 
 func TestLLMDispatcher_NoCaller_ReturnsError(t *testing.T) {
-	d := NewLLMDispatcher(nil)
+	d := NewLLMDispatcher(nil, nil)
 	in := mkInput(workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLLM,
 		Config: map[string]any{"prompt": "hi"}}, &flowrundomain.FlowRun{ID: "fr1"})
 
@@ -134,7 +135,7 @@ func TestLLMDispatcher_NoCaller_ReturnsError(t *testing.T) {
 }
 
 func TestLLMDispatcher_MissingPrompt(t *testing.T) {
-	d := NewLLMDispatcher(&fakeLLMCaller{})
+	d := NewLLMDispatcher(&fakeLLMCaller{}, nil)
 	in := mkInput(workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLLM,
 		Config: map[string]any{}}, &flowrundomain.FlowRun{ID: "fr1"})
 
@@ -146,7 +147,7 @@ func TestLLMDispatcher_MissingPrompt(t *testing.T) {
 
 func TestLLMDispatcher_DefaultScenarioIsChat(t *testing.T) {
 	caller := &fakeLLMCaller{resp: "hello world"}
-	d := NewLLMDispatcher(caller)
+	d := NewLLMDispatcher(caller, nil)
 	in := mkInput(workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLLM,
 		Config: map[string]any{"prompt": "say hi"}}, &flowrundomain.FlowRun{ID: "fr1"})
 
@@ -164,12 +165,83 @@ func TestLLMDispatcher_DefaultScenarioIsChat(t *testing.T) {
 
 func TestLLMDispatcher_CallerErrorPropagates(t *testing.T) {
 	bad := errors.New("upstream LLM 500")
-	d := NewLLMDispatcher(&fakeLLMCaller{err: bad})
+	d := NewLLMDispatcher(&fakeLLMCaller{err: bad}, nil)
 	in := mkInput(workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLLM,
 		Config: map[string]any{"prompt": "x"}}, &flowrundomain.FlowRun{ID: "fr1"})
 
 	out := d.Dispatch(context.Background(), in)
 	if !errors.Is(out.Error, bad) {
 		t.Errorf("expected wrapped upstream error, got %v", out.Error)
+	}
+}
+
+// fakeDocResolver returns the supplied docs verbatim regardless of inputs.
+//
+// fakeDocResolver 不管输入,返预设 docs。
+type fakeDocResolver struct {
+	docs []*documentdomain.Document
+	err  error
+}
+
+func (f *fakeDocResolver) ResolveAttached(_ context.Context, _ []documentdomain.AttachedDocument) ([]*documentdomain.Document, error) {
+	return f.docs, f.err
+}
+
+func TestLLMDispatcher_AttachedDocuments_PrependedToPrompt(t *testing.T) {
+	caller := &fakeLLMCaller{resp: "ok"}
+	resolver := &fakeDocResolver{
+		docs: []*documentdomain.Document{
+			{ID: "doc_1", Path: "/spec", Content: "# spec contentBODY"},
+		},
+	}
+	d := NewLLMDispatcher(caller, resolver)
+
+	in := mkInput(workflowdomain.NodeSpec{
+		ID:   "l",
+		Type: workflowdomain.NodeTypeLLM,
+		Config: map[string]any{
+			"prompt": "summarise",
+			"attachedDocuments": []map[string]any{
+				{"documentId": "doc_1"},
+			},
+		},
+	}, &flowrundomain.FlowRun{ID: "fr1"})
+
+	out := d.Dispatch(context.Background(), in)
+	if out.Error != nil {
+		t.Fatalf("dispatch err: %v", out.Error)
+	}
+	if !contains(caller.gotPrompt, "<documents>") {
+		t.Errorf("prompt missing docs prefix:\n%s", caller.gotPrompt)
+	}
+	if !contains(caller.gotPrompt, "spec contentBODY") {
+		t.Errorf("prompt missing doc content:\n%s", caller.gotPrompt)
+	}
+	if !contains(caller.gotPrompt, "summarise") {
+		t.Errorf("prompt missing original instruction:\n%s", caller.gotPrompt)
+	}
+}
+
+func TestLLMDispatcher_NoResolver_NoPrefix(t *testing.T) {
+	caller := &fakeLLMCaller{resp: "ok"}
+	// No resolver, but attachedDocuments set in config — should be silently skipped.
+	d := NewLLMDispatcher(caller, nil)
+	in := mkInput(workflowdomain.NodeSpec{
+		ID:   "l",
+		Type: workflowdomain.NodeTypeLLM,
+		Config: map[string]any{
+			"prompt":            "say hi",
+			"attachedDocuments": []map[string]any{{"documentId": "doc_x"}},
+		},
+	}, &flowrundomain.FlowRun{ID: "fr1"})
+	out := d.Dispatch(context.Background(), in)
+	if out.Error != nil {
+		t.Fatalf("err: %v", out.Error)
+	}
+	if contains(caller.gotPrompt, "<documents>") {
+		t.Errorf("prompt should NOT have docs prefix without resolver:\n%s", caller.gotPrompt)
+	}
+	if caller.gotPrompt != "say hi" {
+		t.Errorf("prompt should equal original input; got %q", caller.gotPrompt)
 	}
 }

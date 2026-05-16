@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
+	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
@@ -22,6 +24,7 @@ type ProductionChecker struct {
 	Handler  *handlerapp.Service
 	Skill    *skillapp.Service
 	MCP      *mcpapp.Service
+	Document *documentapp.Service
 }
 
 var _ CapabilityChecker = (*ProductionChecker)(nil)
@@ -74,6 +77,20 @@ func (c *ProductionChecker) HasMCPServer(ctx context.Context, name string) (bool
 	}
 	_, err := c.MCP.GetServer(ctx, name)
 	if errors.Is(err, mcpdomain.ErrServerNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (c *ProductionChecker) HasDocument(ctx context.Context, id string) (bool, error) {
+	if c.Document == nil {
+		return true, nil
+	}
+	_, err := c.Document.Get(ctx, id)
+	if errors.Is(err, documentdomain.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {

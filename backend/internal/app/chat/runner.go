@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -204,6 +205,16 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conver
 		if memoryText := s.memory.ForSystemPrompt(ctx); memoryText != "" {
 			sb.WriteString("\n\n")
 			sb.WriteString(memoryText)
+		}
+	}
+	if s.documents != nil && len(conv.AttachedDocuments) > 0 {
+		docs, err := s.documents.ResolveAttached(ctx, conv.AttachedDocuments)
+		if err != nil {
+			s.log.Warn("chat.buildSystemPrompt: ResolveAttached failed",
+				zap.String("conv_id", conv.ID), zap.Error(err))
+		} else if len(docs) > 0 {
+			sb.WriteString("\n\n──── Attached documents ────\n")
+			sb.WriteString(documentapp.RenderAttachedAsXML(docs))
 		}
 	}
 	sb.WriteString("\n\n")

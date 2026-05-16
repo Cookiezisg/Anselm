@@ -320,6 +320,79 @@ func (s *Service) CountDescendants(ctx context.Context, id string) (int64, error
 	return s.repo.CountDescendants(ctx, uid, id)
 }
 
+// ResolveAttached expands AttachedDocument entries into a deduped slice of
+// full Documents in declaration order. IncludeSubtree=true triggers a live
+// ListSubtreeIDs walk; otherwise just the single doc. Missing docs are
+// dropped silently — caller (chat runner / dispatcher) decides whether to
+// warn — but at least one doc must resolve when caller insists (callers
+// commonly pre-validate via the workflow validator).
+//
+// ResolveAttached 把 AttachedDocument 列表展开为去重后的完整 Document 切片
+// (保留声明顺序)。IncludeSubtree=true 触发 live ListSubtreeIDs；否则只取
+// 单篇。缺失的 doc 静默跳过——调用方(chat runner / dispatcher)决定是否
+// warn(workflow validator 通常已预校验)。
+func (s *Service) ResolveAttached(ctx context.Context, atts []documentdomain.AttachedDocument) ([]*documentdomain.Document, error) {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(atts) == 0 {
+		return nil, nil
+	}
+	seen := make(map[string]bool, len(atts))
+	var ids []string
+	for _, a := range atts {
+		if a.DocumentID == "" {
+			continue
+		}
+		if a.IncludeSubtree {
+			sub, err := s.repo.ListSubtreeIDs(ctx, uid, a.DocumentID)
+			if err != nil {
+				return nil, fmt.Errorf("documentapp.ResolveAttached: ListSubtreeIDs(%s): %w", a.DocumentID, err)
+			}
+			for _, id := range sub {
+				if !seen[id] {
+					seen[id] = true
+					ids = append(ids, id)
+				}
+			}
+		} else {
+			if !seen[a.DocumentID] {
+				seen[a.DocumentID] = true
+				ids = append(ids, a.DocumentID)
+			}
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	docs, err := s.repo.GetBatch(ctx, uid, ids)
+	if err != nil {
+		return nil, fmt.Errorf("documentapp.ResolveAttached: GetBatch: %w", err)
+	}
+	return docs, nil
+}
+
+// RenderAttachedAsXML serializes resolved docs into the <documents>…</documents>
+// segment shared by chat runner system prompt + workflow llm/agent dispatcher.
+//
+// RenderAttachedAsXML 把已 resolve 的 docs 渲染成 <documents>…</documents> 段,
+// chat runner system prompt + workflow llm/agent dispatcher 共用。
+func RenderAttachedAsXML(docs []*documentdomain.Document) string {
+	if len(docs) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("<documents>\n")
+	for _, d := range docs {
+		fmt.Fprintf(&sb, "<document path=%q id=%q>\n", d.Path, d.ID)
+		sb.WriteString(d.Content)
+		sb.WriteString("\n</document>\n")
+	}
+	sb.WriteString("</documents>\n")
+	return sb.String()
+}
+
 // cascadePathSubtree rebuilds Path for every descendant after a rename / move; rootPath is the already-updated root path.
 //
 // cascadePathSubtree 在 rename / move 后重算整子树 Path；rootPath 是已更新的根 path。

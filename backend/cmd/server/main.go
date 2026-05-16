@@ -39,6 +39,7 @@ import (
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
 	hooksapp "github.com/sunweilin/forgify/backend/internal/app/hooks"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	permgateapp "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -374,6 +375,7 @@ func main() {
 	}
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
+	chatService.SetDocumentResolver(documentService)
 
 	// V1.2 §3 final-sweep — permissions + hooks.
 	// settings.json lives at <homeRoot>/settings.json; gate reads via
@@ -403,6 +405,7 @@ func main() {
 
 	workflowChecker.Skill = skillService
 	workflowChecker.MCP = mcpService
+	workflowChecker.Document = documentService
 
 	flowrunRepo := flowrunstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
@@ -427,7 +430,14 @@ func main() {
 	router.Set(workflowdomain.NodeTypeHandler, schedulerapp.NewHandlerDispatcher(handlerService))
 	router.Set(workflowdomain.NodeTypeMCP, schedulerapp.NewMCPDispatcher(mcpService))
 	router.Set(workflowdomain.NodeTypeSkill, schedulerapp.NewSkillDispatcher(skillService))
-	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(nil)) // TODO: E15 LLMCaller adapter
+	router.Set(workflowdomain.NodeTypeLLM, schedulerapp.NewLLMDispatcher(
+		schedulerapp.NewDefaultLLMCaller(modelService, apikeyService, llmFactory),
+		documentService,
+	))
+	router.Set(workflowdomain.NodeTypeAgent, schedulerapp.NewAgentDispatcher(
+		modelService, apikeyService, llmFactory,
+		documentService, func() []toolapp.Tool { return tools }, log,
+	))
 	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
 	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
 	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher())

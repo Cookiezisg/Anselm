@@ -66,6 +66,20 @@ export const useConvStore = defineStore('conv', () => {
     }
   }
 
+  async function setAttachedDocuments(
+    id: string,
+    attachedDocuments: Array<{ documentId: string; includeSubtree?: boolean }>,
+  ) {
+    try {
+      const conv = await convAPI.setAttachedDocuments(id, attachedDocuments);
+      const i = list.value.findIndex((c) => c.id === id);
+      if (i >= 0) list.value[i] = conv;
+      ui.toast('ok', '挂载文档已更新');
+    } catch (e) {
+      ui.toast('err', `保存失败: ${(e as Error).message}`);
+    }
+  }
+
   async function remove(id: string) {
     try {
       await convAPI.remove(id);
@@ -107,7 +121,7 @@ export const useConvStore = defineStore('conv', () => {
 
   return {
     list, loading, selectedId, filter,
-    refresh, create, rename, setSystemPrompt, remove, duplicate, select,
+    refresh, create, rename, setSystemPrompt, setAttachedDocuments, remove, duplicate, select,
     touchUpdated, setTitle,
   };
 });

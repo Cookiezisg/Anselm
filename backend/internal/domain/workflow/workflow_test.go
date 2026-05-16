@@ -40,12 +40,12 @@ func TestSentinels_ErrorsIsCompatible(t *testing.T) {
 func TestNodeType_Whitelist(t *testing.T) {
 	valid := []string{
 		NodeTypeTrigger, NodeTypeFunction, NodeTypeHandler, NodeTypeMCP,
-		NodeTypeSkill, NodeTypeLLM, NodeTypeHTTP, NodeTypeCondition,
+		NodeTypeSkill, NodeTypeLLM, NodeTypeAgent, NodeTypeHTTP, NodeTypeCondition,
 		NodeTypeLoop, NodeTypeParallel, NodeTypeApproval, NodeTypeWait,
 		NodeTypeVariable,
 	}
-	if len(valid) != 13 {
-		t.Errorf("expected 13 node types per Plan 04 spec, got %d", len(valid))
+	if len(valid) != 14 {
+		t.Errorf("expected 14 node types (Plan 04 13 + §14.5b agent), got %d", len(valid))
 	}
 	for _, nt := range valid {
 		if !IsValidNodeType(nt) {
@@ -58,7 +58,7 @@ func TestNodeType_Whitelist(t *testing.T) {
 }
 
 func TestCapabilityNode_Subset(t *testing.T) {
-	caps := []string{NodeTypeFunction, NodeTypeHandler, NodeTypeMCP, NodeTypeSkill, NodeTypeLLM, NodeTypeHTTP}
+	caps := []string{NodeTypeFunction, NodeTypeHandler, NodeTypeMCP, NodeTypeSkill, NodeTypeLLM, NodeTypeAgent, NodeTypeHTTP}
 	for _, nt := range caps {
 		if !IsCapabilityNode(nt) {
 			t.Errorf("IsCapabilityNode(%q) = false, want true", nt)

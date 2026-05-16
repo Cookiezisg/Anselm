@@ -22,6 +22,7 @@ import (
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -68,8 +69,20 @@ type Service struct {
 
 	catalog     catalogdomain.SystemPromptProvider
 	memory      memorydomain.SystemPromptProvider
+	documents   DocumentResolver
 	compactor   ContextCompactor
 	interceptor *toolInterceptor
+}
+
+// DocumentResolver is the chat-side port for documentapp.Service —
+// expands Conversation.AttachedDocuments (with optional subtree) at
+// system-prompt-build time. documentapp.Service satisfies this.
+//
+// DocumentResolver 是 chat 侧端口（documentapp.Service 实现）——
+// 在每次 system prompt 构建时把 Conversation.AttachedDocuments(可含子树)
+// 即时展开。documentapp.Service 实现该接口。
+type DocumentResolver interface {
+	ResolveAttached(ctx context.Context, atts []documentdomain.AttachedDocument) ([]*documentdomain.Document, error)
 }
 
 // ContextCompactor is the chat-side port for app/contextmgr.Manager.
@@ -161,6 +174,15 @@ func (s *Service) SetMemoryProvider(p memorydomain.SystemPromptProvider) {
 // SetContextCompactor 接对话级 token 压缩器；留 nil 安全。
 func (s *Service) SetContextCompactor(c ContextCompactor) {
 	s.compactor = c
+}
+
+// SetDocumentResolver plugs documentapp.Service for Conversation.AttachedDocuments
+// expansion at system-prompt build time; nil-tolerant (no docs section emitted).
+//
+// SetDocumentResolver 接 documentapp.Service 给 AttachedDocuments 提供 live 展开；
+// 留 nil 安全（不输出 docs 段）。
+func (s *Service) SetDocumentResolver(r DocumentResolver) {
+	s.documents = r
 }
 
 // SetPermissionsAndHooks plugs the V1.2 §3 permissions gate + hook runner.

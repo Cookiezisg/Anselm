@@ -1,6 +1,12 @@
 import { deleteEmpty, getJSON, getPage, patchJSON, postJSON } from './client';
 import type { Conversation, Message } from '@/types/domain';
 
+/** Doc-attach refs persisted on Conversation (mirrors workflow llm/agent node config). */
+export interface AttachedDocument {
+  documentId: string;
+  includeSubtree?: boolean;
+}
+
 export const convAPI = {
   list: (limit = 100) => getPage<Conversation>('/api/v1/conversations', { limit }),
 
@@ -14,6 +20,9 @@ export const convAPI = {
 
   setSystemPrompt: (id: string, systemPrompt: string) =>
     patchJSON<Conversation>(`/api/v1/conversations/${id}`, { systemPrompt }),
+
+  setAttachedDocuments: (id: string, attachedDocuments: AttachedDocument[]) =>
+    patchJSON<Conversation>(`/api/v1/conversations/${id}`, { attachedDocuments }),
 
   remove: (id: string) => deleteEmpty(`/api/v1/conversations/${id}`),
 

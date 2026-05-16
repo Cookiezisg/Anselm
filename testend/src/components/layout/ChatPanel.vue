@@ -11,6 +11,7 @@ import { useChatStore } from '@/stores/chat';
 import MessageView from '@/components/chat/MessageView.vue';
 import Composer from '@/components/chat/Composer.vue';
 import SystemPromptEditor from '@/components/chat/SystemPromptEditor.vue';
+import AttachedDocsEditor from '@/components/chat/AttachedDocsEditor.vue';
 
 const conv = useConvStore();
 const chat = useChatStore();
@@ -49,6 +50,7 @@ function scrollToBottom() {
 }
 
 const showSysPrompt = ref(false);
+const showAttachedDocs = ref(false);
 </script>
 
 <template>
@@ -62,10 +64,14 @@ const showSysPrompt = ref(false);
         <button class="btn ghost sm" @click="showSysPrompt = !showSysPrompt">
           ✎ {{ selected.systemPrompt ? 'system prompt (set)' : 'system prompt' }}
         </button>
+        <button class="btn ghost sm" @click="showAttachedDocs = !showAttachedDocs">
+          📎 {{ (selected.attachedDocuments?.length ?? 0) > 0 ? `挂载文档 (${selected.attachedDocuments?.length})` : '挂载文档' }}
+        </button>
       </div>
     </header>
 
     <SystemPromptEditor v-if="showSysPrompt && selected" :conv-id="selected.id" @close="showSysPrompt = false" />
+    <AttachedDocsEditor v-if="showAttachedDocs && selected" :conv-id="selected.id" @close="showAttachedDocs = false" />
 
     <div v-if="!selected" class="chat-empty">
       <div class="empty">

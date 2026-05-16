@@ -12,10 +12,20 @@ import (
 	"go.uber.org/zap"
 
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+// UpdateInput is the conversation PATCH payload; nil fields are skipped.
+//
+// UpdateInput 是 conversation PATCH 载荷;nil 字段跳过。
+type UpdateInput struct {
+	Title             *string
+	SystemPrompt      *string
+	AttachedDocuments *[]documentdomain.AttachedDocument
+}
 
 // Service orchestrates conversation CRUD.
 //
@@ -84,22 +94,25 @@ func (s *Service) Get(ctx context.Context, id string) (*convdomain.Conversation,
 //
 // Rename 更新对话标题。
 func (s *Service) Rename(ctx context.Context, id, title string) (*convdomain.Conversation, error) {
-	return s.Update(ctx, id, &title, nil)
+	return s.Update(ctx, id, UpdateInput{Title: &title})
 }
 
-// Update applies a PATCH (nil = skip, &"" = clear).
+// Update applies a PATCH (nil = skip, &"" = clear for strings, &[] = clear for slice).
 //
-// Update 部分更新（nil 跳过、&"" 清空）。
-func (s *Service) Update(ctx context.Context, id string, title, systemPrompt *string) (*convdomain.Conversation, error) {
+// Update 部分更新(nil 跳过；&"" 清空字符串;&[] 清空切片)。
+func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*convdomain.Conversation, error) {
 	c, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if title != nil {
-		c.Title = strings.TrimSpace(*title)
+	if in.Title != nil {
+		c.Title = strings.TrimSpace(*in.Title)
 	}
-	if systemPrompt != nil {
-		c.SystemPrompt = *systemPrompt
+	if in.SystemPrompt != nil {
+		c.SystemPrompt = *in.SystemPrompt
+	}
+	if in.AttachedDocuments != nil {
+		c.AttachedDocuments = *in.AttachedDocuments
 	}
 	c.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, c); err != nil {

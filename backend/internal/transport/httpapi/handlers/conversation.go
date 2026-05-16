@@ -9,6 +9,7 @@ import (
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -52,8 +53,9 @@ type createConvRequest struct {
 //
 // updateConvRequest 用指针字段区分"未传"和"传空"。
 type updateConvRequest struct {
-	Title        *string `json:"title,omitempty"`
-	SystemPrompt *string `json:"systemPrompt,omitempty"`
+	Title             *string                              `json:"title,omitempty"`
+	SystemPrompt      *string                              `json:"systemPrompt,omitempty"`
+	AttachedDocuments *[]documentdomain.AttachedDocument   `json:"attachedDocuments,omitempty"`
 }
 
 func (h *ConversationHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -129,7 +131,11 @@ func (h *ConversationHandler) Rename(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	c, err := h.svc.Update(r.Context(), id, req.Title, req.SystemPrompt)
+	c, err := h.svc.Update(r.Context(), id, convapp.UpdateInput{
+		Title:             req.Title,
+		SystemPrompt:      req.SystemPrompt,
+		AttachedDocuments: req.AttachedDocuments,
+	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

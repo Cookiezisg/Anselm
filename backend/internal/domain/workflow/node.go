@@ -44,6 +44,7 @@ const (
 	NodeTypeMCP       = "mcp"
 	NodeTypeSkill     = "skill"
 	NodeTypeLLM       = "llm"
+	NodeTypeAgent     = "agent"
 	NodeTypeHTTP      = "http"
 	NodeTypeCondition = "condition"
 	NodeTypeLoop      = "loop"
@@ -56,7 +57,7 @@ const (
 func IsValidNodeType(t string) bool {
 	switch t {
 	case NodeTypeTrigger, NodeTypeFunction, NodeTypeHandler, NodeTypeMCP,
-		NodeTypeSkill, NodeTypeLLM, NodeTypeHTTP, NodeTypeCondition,
+		NodeTypeSkill, NodeTypeLLM, NodeTypeAgent, NodeTypeHTTP, NodeTypeCondition,
 		NodeTypeLoop, NodeTypeParallel, NodeTypeApproval, NodeTypeWait,
 		NodeTypeVariable:
 		return true
@@ -69,7 +70,7 @@ func IsValidNodeType(t string) bool {
 // IsCapabilityNode 报告 t 是否 capability 调用节点（可挂 retry/onError/timeout）。
 func IsCapabilityNode(t string) bool {
 	switch t {
-	case NodeTypeFunction, NodeTypeHandler, NodeTypeMCP, NodeTypeSkill, NodeTypeLLM, NodeTypeHTTP:
+	case NodeTypeFunction, NodeTypeHandler, NodeTypeMCP, NodeTypeSkill, NodeTypeLLM, NodeTypeAgent, NodeTypeHTTP:
 		return true
 	}
 	return false
