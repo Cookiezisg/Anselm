@@ -45,6 +45,7 @@ import (
 	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
 	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
+	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	memorytool "github.com/sunweilin/forgify/backend/internal/app/tool/memory"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -315,6 +316,7 @@ func main() {
 	tools = append(tools, memorytool.MemoryTools(memoryService)...)
 
 	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
+	tools = append(tools, documenttool.DocumentTools(documentService)...)
 
 	// SubagentTool is appended after Service construction; SetTools runs after the slice is finalized.
 	subagentService := subagentapp.New(
