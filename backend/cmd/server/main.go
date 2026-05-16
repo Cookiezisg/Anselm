@@ -23,6 +23,7 @@ import (
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
+	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
@@ -55,6 +56,7 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
@@ -81,6 +83,7 @@ import (
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
+	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
@@ -168,6 +171,7 @@ func main() {
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
+		&documentdomain.Document{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -309,6 +313,8 @@ func main() {
 
 	memoryService := memoryapp.New(memorystore.New(gdb), notificationsPub, log)
 	tools = append(tools, memorytool.MemoryTools(memoryService)...)
+
+	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
 
 	// SubagentTool is appended after Service construction; SetTools runs after the slice is finalized.
 	subagentService := subagentapp.New(
@@ -472,6 +478,7 @@ func main() {
 		SkillService:        skillService,
 		CatalogService:      catalogService,
 		MemoryService:       memoryService,
+		DocumentService:     documentService,
 		SettingsService:     settingsService,
 		SettingsPath:        settingsPath,
 		PermGate:            permGate,

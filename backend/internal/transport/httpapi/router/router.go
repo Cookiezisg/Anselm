@@ -92,6 +92,9 @@ func New(deps Deps) http.Handler {
 	if deps.MemoryService != nil {
 		handlershttpapi.NewMemoryHandler(deps.MemoryService, deps.Log).Register(mux)
 	}
+	if deps.DocumentService != nil {
+		handlershttpapi.NewDocumentHandler(deps.DocumentService, deps.Log).Register(mux)
+	}
 	if deps.Dev {
 		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(mux)
 	}

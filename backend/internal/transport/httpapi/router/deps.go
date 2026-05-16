@@ -16,6 +16,7 @@ import (
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
+	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
@@ -77,6 +78,7 @@ type Deps struct {
 	SkillService        *skillapp.Service
 	CatalogService      *catalogapp.Service
 	MemoryService       *memoryapp.Service
+	DocumentService     *documentapp.Service
 
 	// V1.2 §3 final-sweep — permissions + hooks.
 	// SettingsService 持 settings.json snapshot；SettingsPath 给 PUT 写；

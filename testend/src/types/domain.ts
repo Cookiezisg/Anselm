@@ -567,3 +567,26 @@ export interface Memory {
   createdAt: string;
   updatedAt: string;
 }
+
+/* ──────────────── Document ────────────────
+ * Notion-style tree of markdown docs (Phase 5 §14).
+ * Self-referencing parentId; flat table for V1, Notion tree UI in §14.5.
+ *
+ * Document —— Notion-style 树状 markdown 文档（Phase 5 §14）。
+ * 自引用 parentId；V1 用扁平表，Notion 树 UI 等 §14.5。
+ */
+
+export interface Document {
+  id: ID<'doc'>;
+  userId: string;
+  parentId?: string | null;
+  name: string;
+  description: string;
+  content: string;
+  tags: string[];
+  position: number;
+  path: string;
+  sizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+}

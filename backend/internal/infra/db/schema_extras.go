@@ -63,6 +63,19 @@ var schemaExtraGroups = []extraGroup{
 				ON memories(accessed_at DESC, access_count DESC)`,
 		},
 	},
+	{
+		table: "documents",
+		stmts: []string{
+			// COALESCE(parent_id, '') so two roots with the same name still collide
+			// (SQLite treats NULL != NULL in plain UNIQUE indexes).
+			//
+			// COALESCE(parent_id, '') 让根级两个同名也撞 UNIQUE
+			// (SQLite 普通 UNIQUE 视 NULL != NULL,不加这层保护根级会漏)。
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_parent_name_active
+				ON documents(user_id, COALESCE(parent_id, ''), name)
+				WHERE deleted_at IS NULL`,
+		},
+	},
 }
 
 func applySchemaExtras(db *gorm.DB) error {

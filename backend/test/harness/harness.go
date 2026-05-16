@@ -32,6 +32,7 @@ import (
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
+	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -61,6 +62,7 @@ import (
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -82,6 +84,7 @@ import (
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
+	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
@@ -152,6 +155,7 @@ type Harness struct {
 	Skill               *skillapp.Service
 	Catalog             *catalogapp.Service
 	Memory              *memoryapp.Service
+	Document            *documentapp.Service
 	ContextManager      *contextmgrapp.Manager
 	Settings            *settingsinfra.Service
 	SettingsPath        string // path to settings.json for tests to write rules
@@ -222,6 +226,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&sandboxdomain.Env{},
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
+		&documentdomain.Document{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -343,6 +348,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	memoryService := memoryapp.New(memorystore.New(gdb), notificationsPub, log)
 	tools = append(tools, memorytool.MemoryTools(memoryService)...)
+
+	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
 
 	subagentService := subagentapp.New(
 		chatRepo,
@@ -526,6 +533,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		SkillService:        skillService,
 		CatalogService:      catalogService,
 		MemoryService:       memoryService,
+		DocumentService:     documentService,
 		SettingsService:     settingsService,
 		SettingsPath:        settingsPath,
 		PermGate:            permGate,
@@ -567,6 +575,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		FlowRunRepo:         flowrunRepo,
 		Chat:                chatService,
 		Memory:              memoryService,
+		Document:            documentService,
 		ContextManager:      contextManager,
 		Settings:            settingsService,
 		SettingsPath:        settingsPath,

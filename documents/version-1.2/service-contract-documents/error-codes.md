@@ -280,6 +280,18 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `MEMORY_NAME_CONFLICT` | 409 | `memorydomain.ErrNameConflict` | POST /api/v1/memories 时 name 已存在（HTTP create 严格 — write_memory tool 用 Upsert 不报此错）| ✅ |
 | `MEMORY_INVALID_NAME` | 400 | `memorydomain.ErrInvalidName` | name 违反 `^[a-z][a-z0-9_]{0,63}$`（lowercase 起头 + lowercase/digit/underscore + ≤64 字符）| ✅ |
 
+#### document (Phase 5 §14)
+详见 [`../service-design-documents/document.md`](../service-design-documents/document.md)。
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `DOCUMENT_NOT_FOUND` | 404 | `documentdomain.ErrNotFound` | GET / PATCH / DELETE / :move 时 ID 不存在,或 GetBatch 内部翻译 | ✅ |
+| `DOCUMENT_INVALID_PARENT` | 422 | `documentdomain.ErrInvalidParent` | Move 把节点挂到自己 / 自己的后裔(成环) | ✅ |
+| `DOCUMENT_NAME_CONFLICT` | 409 | `documentdomain.ErrNameConflict` | 同 (user_id, parent_id) 下已有同名 doc(partial UNIQUE 触发,含 root 级 COALESCE 守卫) | ✅ |
+| `DOCUMENT_CONTENT_TOO_LARGE` | 413 | `documentdomain.ErrContentTooLarge` | Create / Update 时 content 超 1 MB(应拆子文档) | ✅ |
+| `DOCUMENT_INVALID_NAME` | 400 | `documentdomain.ErrInvalidName` | name 空 / 含 `/`(path 分隔符) / 超 256 字符 | ✅ |
+| `DOCUMENT_PARENT_NOT_FOUND` | 422 | `documentdomain.ErrParentNotFound` | Create / Move 时 parentId 指向不存在 / 已软删的 doc | ✅ |
+
 #### compaction（V1.2 §1 final-sweep）⏳
 
 | Code | HTTP | Sentinel | 场景 | 状态 |

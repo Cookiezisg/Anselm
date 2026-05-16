@@ -263,6 +263,22 @@ Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 wo
 
 3 个 system tool（`read_memory` / `write_memory` / `forget_memory`）无独立 HTTP 端点；write_memory 内部走 Upsert 语义（不报 NAME_CONFLICT），source 硬写为 `ai`。Pin 字段对 LLM 不可见——pinning 是用户控件（pinned 全文进每次 system prompt，只用户能决定该不该）。
 
+#### document (Phase 5 §14) ✅ §14.2
+
+Notion-style 树状文档库 CRUD + move。详见 [`../service-design-documents/document.md`](../service-design-documents/document.md)。
+
+| Method | Path | 用途 |
+|---|---|---|
+| GET | `/api/v1/documents?parentId=` | 列指定层(参数空 = root),轻字段不含 content → 200 |
+| GET | `/api/v1/documents/tree` | 整树 metadata(含 path,不含 content),侧边栏一次拉满 → 200 |
+| POST | `/api/v1/documents` | 创建(可指定 parentId);body `{name, parentId?, content?, description?, tags?}` → 201 |
+| GET | `/api/v1/documents/{id}` | 详情含 content → 200 / 404 |
+| PATCH | `/api/v1/documents/{id}` | 部分更新 name / content / description / tags(改 name 触发整子树 path 级联)→ 200 / 404 / 422 |
+| DELETE | `/api/v1/documents/{id}` | 软删整子树;返 `{id, deletedCount}`(给 testend 显示"X 个一起删") → 200 / 404 |
+| POST | `/api/v1/documents/{id}:move` | 改 parentId + position(防成环 + 整子树 path 级联);body `{parentId?, position?}` → 200 / 404 / 422 |
+
+未来 7 个 system tool(`search_documents` / `list_documents` / `read_document` / `create_document` / `edit_document` / `move_document` / `delete_document`)无独立 HTTP 端点(§14.3);workflow LLM 节点 + Conversation 挂载在 §14.5。
+
 #### compaction（V1.2 §1 final-sweep）
 
 **无新 HTTP 端点**。压缩由 `app/contextmgr.Manager` 在每轮 AI turn 完成后同步触发（chat runner 内部）。状态可通过：

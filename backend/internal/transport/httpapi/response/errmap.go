@@ -13,6 +13,7 @@ import (
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
@@ -199,6 +200,14 @@ var errTable = map[error]errMapping{
 	memorydomain.ErrNotFound:     {http.StatusNotFound, "MEMORY_NOT_FOUND"},
 	memorydomain.ErrNameConflict: {http.StatusConflict, "MEMORY_NAME_CONFLICT"},
 	memorydomain.ErrInvalidName:  {http.StatusBadRequest, "MEMORY_INVALID_NAME"},
+
+	// document (Phase 5 §14)
+	documentdomain.ErrNotFound:        {http.StatusNotFound, "DOCUMENT_NOT_FOUND"},
+	documentdomain.ErrInvalidParent:   {http.StatusUnprocessableEntity, "DOCUMENT_INVALID_PARENT"},
+	documentdomain.ErrNameConflict:    {http.StatusConflict, "DOCUMENT_NAME_CONFLICT"},
+	documentdomain.ErrContentTooLarge: {http.StatusRequestEntityTooLarge, "DOCUMENT_CONTENT_TOO_LARGE"},
+	documentdomain.ErrInvalidName:     {http.StatusBadRequest, "DOCUMENT_INVALID_NAME"},
+	documentdomain.ErrParentNotFound:  {http.StatusUnprocessableEntity, "DOCUMENT_PARENT_NOT_FOUND"},
 
 	// permissions (V1.2 §3 final-sweep)
 	permdomain.ErrInvalidSettings: {http.StatusBadRequest, "INVALID_SETTINGS"},

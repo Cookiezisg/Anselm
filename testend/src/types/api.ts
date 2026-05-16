@@ -51,4 +51,5 @@ export type IDPrefix =
   | 'fnenv' // function venv
   | 'hdenv' // handler venv
   | 'bsh' // background bash shell
-  | 'mem'; // memory (V1.2 §2 final-sweep)
+  | 'mem' // memory (V1.2 §2 final-sweep)
+  | 'doc'; // document (Phase 5 §14)

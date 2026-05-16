@@ -88,6 +88,12 @@ export async function deleteEmpty(path: string): Promise<void> {
   await request<void>('DELETE', path);
 }
 
+/** DELETE that returns a body (e.g. document soft-delete returns `{id, deletedCount}`). */
+export async function deleteJSON<T>(path: string): Promise<T> {
+  const env = await request<T>('DELETE', path);
+  return env.data as T;
+}
+
 /**
  * Cursor-paginated GET. The backend returns `{data: [], nextCursor, hasMore}`.
  *

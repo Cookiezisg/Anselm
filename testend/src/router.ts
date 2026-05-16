@@ -60,6 +60,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/config/mcp', component: () => import('@/views/config/MCPServers.vue') },
   { path: '/config/sandbox', component: () => import('@/views/config/Sandbox.vue') },
   { path: '/config/memory', component: () => import('@/views/config/Memory.vue') },
+  { path: '/config/documents', component: () => import('@/views/config/Documents.vue') },
   { path: '/config/permissions', component: () => import('@/views/config/Permissions.vue') },
 
   /* dev */

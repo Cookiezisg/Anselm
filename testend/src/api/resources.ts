@@ -6,7 +6,7 @@
  * (see backend/internal/transport/httpapi/handlers/*.go) — keep in sync.
  */
 
-import { deleteEmpty, getJSON, postJSON, postRaw, putJSON, patchJSON } from './client';
+import { deleteEmpty, deleteJSON, getJSON, postJSON, postRaw, putJSON, patchJSON } from './client';
 import type {
   APIKey,
   ModelConfig,
@@ -18,6 +18,7 @@ import type {
   Catalog,
   ToolMeta,
   Memory,
+  Document,
 } from '@/types/domain';
 
 /* ───────── providers (whitelist) ───────── */
@@ -177,6 +178,44 @@ export const memoryAPI = {
     postJSON<Memory>(`/api/v1/memories/${encodeURIComponent(name)}:pin`, {}),
   unpin: (name: string) =>
     postJSON<Memory>(`/api/v1/memories/${encodeURIComponent(name)}:unpin`, {}),
+};
+
+/* ───────── document (Notion-style tree, Phase 5 §14) ───────── */
+export interface DocumentDeleteResult {
+  id: string;
+  deletedCount: number;
+}
+
+export const documentAPI = {
+  /** List direct children of parentId (omit/empty for root level). */
+  list: (parentId?: string | null) => {
+    const qs = parentId ? `?parentId=${encodeURIComponent(parentId)}` : '';
+    return getJSON<Document[]>(`/api/v1/documents${qs}`);
+  },
+  /** Entire tree metadata (no content) for sidebar one-shot load. */
+  tree: () =>
+    getJSON<Array<Omit<Document, 'content'>>>('/api/v1/documents/tree'),
+  get: (id: string) => getJSON<Document>(`/api/v1/documents/${id}`),
+  create: (in_: {
+    name: string;
+    parentId?: string | null;
+    description?: string;
+    content?: string;
+    tags?: string[];
+  }) => postJSON<Document>('/api/v1/documents', in_),
+  update: (
+    id: string,
+    patch: {
+      name?: string;
+      description?: string;
+      content?: string;
+      tags?: string[];
+    },
+  ) => patchJSON<Document>(`/api/v1/documents/${id}`, patch),
+  remove: (id: string) =>
+    deleteJSON<DocumentDeleteResult>(`/api/v1/documents/${id}`),
+  move: (id: string, in_: { parentId?: string | null; position?: number }) =>
+    postJSON<Document>(`/api/v1/documents/${id}:move`, in_),
 };
 
 /* ───────── permissions + settings (V1.2 §3 final-sweep) ───────── */

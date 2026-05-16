@@ -32,14 +32,14 @@
 
 ## 产品愿景（Phase 2 起）
 
-Forgify 不只是"对话 + 造工具"—目标是 **Agentic Workflow Platform**：用户一句话能编排出工作流，工作流由多种节点构成，可挂知识库做 RAG，最终由调度器部署运行。
+Forgify 不只是"对话 + 造工具"—目标是 **Agentic Workflow Platform**：用户一句话能编排出工作流，工作流由多种节点构成，可挂文档库做 LLM-ranked attach（无 RAG，详 [`final-sweep.md`](./final-sweep.md) §14 2026-05-16 设计改向），最终由调度器部署运行。
 
 ### 核心能力清单
 
 1. **意图识别 / Intent Routing**：聊天时识别用户想干啥（创建工作流？改工具？更新知识库？纯问答？）
 2. **工作流引擎**：节点 + 边的 DAG，能跑、有运行历史
 3. **多种节点类型**：用户工具 / MCP 工具 / LLM 节点 / Skill / 知识库检索 / 触发器 / 审批
-4. **知识库 / RAG**：上传文档 → 切分 → 向量化 → 检索，挂在 LLM 或工作流节点上
+4. **文档库**：上传文档 → LLM-ranked 选择 → 全文 / 章节 attach，挂在 LLM 或工作流节点上（**无 RAG / 向量检索**——本地单用户文档量小 + 大 context + prompt cache 让"塞全文"反超 RAG；详 [`final-sweep.md`](./final-sweep.md) §14 2026-05-16 设计改向）
 5. **MCP 集成**：接 Anthropic 的 MCP 服务器，第三方能力即插即用
 6. **调度部署**：cron / 文件触发 / Webhook 触发
 7. **Skill 系统**：预制 + 元数据完善的能力模板（V1 浅版即可）
@@ -126,7 +126,7 @@ handler.SendMessage
 详见 [`service-design-documents/compaction.md`](./service-design-documents/compaction.md) + [`service-design-documents/memory.md`](./service-design-documents/memory.md);7 pipeline tests(4 memory + 3 compaction)全绿。
 
 ### Phase 5 — 智能化
-`knowledge` + `document`（本地 sqlite-vec）+ `intent`（自实现 ReAct Agent，基于 `infra/llm`）+ `skill`（V1 浅版：打标签的工具）+ `chat` 终极版（意图识别 → 工作流推荐 → 自动建草稿）。**注**：mcp 已提前在 V1.2 D5+D6 交付（Phase 4 准备件，官方 `modelcontextprotocol/go-sdk` v1.6），Phase 5 不再单独列。
+`document`（LLM-ranked attach，**无向量库 / 无 sqlite-vec / 无 chunking pipeline**——2026-05-16 设计改向，详 [`final-sweep.md`](./final-sweep.md) §14）+ `intent`（自实现 ReAct Agent，基于 `infra/llm`）+ `chat` 终极版（意图识别 → 工作流推荐 → 自动建草稿）。**注**：mcp + skill 已提前在 V1.2 D5-D7 交付（Phase 4 准备件，官方 `modelcontextprotocol/go-sdk` v1.6），Phase 5 不再单独列。
 
 **焦点实体延伸**：knowledge / mcp / skill 同理，消息打标后右侧面板跟随切换。
 
@@ -139,11 +139,11 @@ handler.SendMessage
               ┌──────────────┼──────────────┐
               ↓              ↓              ↓
         ┌──────────┐  ┌──────────┐  ┌──────────┐
-        │ workflow │  │   tool   │  │knowledge │  ← 中层"能力载体"
+        │ workflow │  │   tool   │  │ document │  ← 中层"能力载体"
         └────┬─────┘  └────┬─────┘  └────┬─────┘
              ↓             ↓             ↓
-        flowrun       function      document
-        scheduler     attachment    (向量库)
+        flowrun       function     子节点 tree
+        scheduler     attachment   (Notion-style)
         trigger
                                     ┌──────────┐
                                     │   mcp    │
@@ -199,7 +199,7 @@ backend/
     │   ├── catalog/                ← ✅ CatalogSource port + Catalog + Item + Granularity (PerItem/PerServer/PerCollection) + SystemPromptProvider + 2 sentinel（内部消化不进 errmap）
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
     │   (flowrun/trigger/scheduler ✅ 上方;Plan 05 完成)
-    │   ├── knowledge/ document/    ← ⬜ Phase 5
+    │   ├── document/               ← ⬜ Phase 5（LLM-ranked attach，无向量库；详 final-sweep §14 2026-05-16 设计改向）
     │   └── intent/                 ← ⬜ Phase 5
     │
     ├── app/                        ← service 层（协调 domain + infra）

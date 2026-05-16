@@ -155,7 +155,7 @@
 
 **背景**：D8 全交付（单次 attempt + mechanical fallback + 1s polling + fingerprint dedup + 3 sources forge/skill/mcp + slim notifications）。
 
-- ☐ **§9.1 Knowledge source** —— Phase 5 knowledge domain 起，加 `knowledgeapp.AsCatalogSource()`。**Done when**：knowledge 实体（§14）出来后自动接 catalog 0 行修改。
+- ☐ **§9.1 Document source** —— Phase 5 document domain 起，加 `documentapp.AsCatalogSource()`（同 §14.4，从 catalog 侧视角列在此供索引；实际工作随 §14.4 一起做）。**Done when**：document 实体（§14.1）出来后自动接 catalog，0 行修改。
 - ☐ **§9.2 Workflow source** —— workflow 实体也进 catalog（让 LLM 知道有哪些 workflow 可触发）。**Done when**：`workflowapp.AsCatalogSource()` 实现 + register。
 - ☐ **§9.3 Catalog 分页** —— 单 source 50+ items 时，generator 输出"data-processing 类: 12 items, call list_forges(category='data') for full list"，二次嵌套 progressive disclosure。**Done when**：超阈值时分组 + LLM 看到 hint 自己再查。
 - ☐ **§9.4 Per-conversation catalog** —— 用户能"这个对话只看 forge X / Y / skill Z"。**Done when**：conversation 加 `catalogFilter: {forges: [...], skills: [...]}` 字段 + 拼 system prompt 时按 filter 过滤。
@@ -215,15 +215,25 @@
 
 ## 14. Phase 5 真正没做的
 
-**背景**：愿景里 Phase 5 = knowledge / document + intent routing + chat 终极版。当前都 ⬜。
+**背景**：愿景里 Phase 5 = 文档库 + intent routing + chat 终极版。当前都 ⬜。
 
-- ☐ **§14.1 sqlite-vec compatibility spike** —— modernc.org/sqlite 加载 sqlite-vec C 扩展可能不兼容。**Done when**：30 分钟 spike 跑通；不通则评估替代方案（chromem-go / 重新接 mattn）。
-- ☐ **§14.2 Knowledge / Document domain** —— `domain/knowledge` + `domain/document`；entity + Repository + 1 sentinel。**Done when**：4 层都到位 + AutoMigrate。
-- ☐ **§14.3 Document upload + chunking pipeline** —— `POST /api/v1/documents` 上传文件 → 切分 chunk → 向量化 → 落 sqlite-vec。**Done when**：UI 拖拽上传 + 进度 SSE + 几种格式（pdf / txt / md / docx）。
-- ☐ **§14.4 `search_knowledge` system tool** —— 按 query 向量检索 + 返 top K chunks。**Done when**：tool 9 方法齐 + 测试 + catalog source（§9.1）。
-- ☐ **§14.5 Knowledge attach 到 conversation / workflow** —— "这个对话只查 X / Y 知识库"。**Done when**：Conversation / Workflow.LLM 节点加 `knowledgeIds: []` 字段；search_knowledge tool 按 conv filter。
-- ☐ **§14.6 Intent routing** —— 主 chat LLM 第一步识别用户意图（"创建工作流" vs "改工具" vs "纯问答"）→ 注入不同 system prompt sub-section。**Done when**：runner.buildSystemPrompt 加 intent 段；前 N turn 走 intent agent。
-- ☐ **§14.7 Chat 终极版 — 工作流推荐 + 自动建草稿** —— 用户描述需求 → AI 推荐用哪个 workflow / forge / skill → 自动 draft 一个 workflow → ask user 确认。**Done when**：multi-agent forging system prompt 已经在 F2 教过；加 workflow draft 自动 spawn create_workflow 工具。
+**设计改向 2026-05-16 — 弃 RAG / sqlite-vec，改 Notion-style 树状文档库 + LLM-ranked attach**：抄 forge / skill / mcp catalog 套路，不引向量检索；文档组织抄 Notion（单表自引用 + 树状嵌套 + 全 markdown）。五条理由：
+
+1. **本地单用户文档量是人类规模**（几十到几百份），向量索引过度工程。同体量 50-200 份"能力载体"在 forge / skill / mcp 三个 domain 已经用 LLM 排序跑得很好。
+2. **2026-04-26 已有先例**（progress-record 行 100）：把 tool search 从 chromem-go 向量库切到 LLM 排序，删了 `infra/vectordb/`。同一推理用在 document 上完全成立。
+3. **现代大 context + prompt cache 让"塞全文"反超 RAG**：Sonnet 4.6/4.7 = 200K，Opus 4.7 = 1M；Anthropic prompt cache 5min TTL，cache 命中省 90%。50K 文档第一轮贵，之后几乎免费。RAG 的"省 token"优势在 cache 时代缩水严重。
+4. **用户实际场景是 deterministic routing 不是 similarity search**：用户描述的是"工作流决定 attach 哪个 doc"（规则路由）+ "agent 在 catalog 看可选项自己挑"（LLM 排序），两者都不需要向量。
+5. **组织形态选 Notion-tree 而非 flat-with-sections**：用户实际心智模型是"大文档套小文档"（项目笔记 / API 文档树 / 日报树），不是"一份长 PDF 切章节"。单表自引用比独立 sections 子表语义更清晰；AI 也能用 create/move/delete 真正帮用户组织文档，不止读。
+
+**结果**：sqlite-vec 闸门取消（modernc 不再需要加载 C 扩展），Phase 5 文档库工程量从 RAG 版的"上传切片向量化"减为"树形 CRUD + LLM 排序"，跨平台编译保住一行命令。详 [`service-design-documents/document.md`](./service-design-documents/document.md)。**未来场景**：如果真撞上"全公司 wiki 几千篇" / "GitHub repo 自动索引代码 chunk"这类**真正大规模 + 跨文档模糊查询**，再加向量层；document 表加 `embedding` 列、引向量库当二进制工具是可以平滑长出来的。
+
+- ☑ **§14.1 `domain/document` 4 层 + 树状 DB schema** ✅ 2026-05-16 —— Document entity 4 层全到位（domain + store + app + AutoMigrate in main.go + harness.go）。Repository 含 ListByParent / GetBatch / Search / IsAncestor / SoftDeleteSubtree / CountChildren / CountDescendants / MaxSiblingPosition / UpdateBatch 树操作方法；Service 含 Create / Get / List / Update（rename 时 path 子树级联）/ Move（成环检测 + parent path cascade）/ Delete（递归软删）/ Search。6 sentinel（`ErrNotFound` / `ErrInvalidParent` / `ErrNameConflict` / `ErrContentTooLarge` / `ErrInvalidName` / `ErrParentNotFound`）。schema_extras partial UNIQUE `(user_id, COALESCE(parent_id, ''), name) WHERE deleted_at IS NULL`（COALESCE 让 root 级同名也撞 UNIQUE）。**测试 19 + 5 + 4 全绿**（store 19 / app 13 / domain 4）；全量 `make test-unit` 不影响其他 domain。
+- 🟡 **§14.2 HTTP API + testend Notion-style 侧边栏 UI** —— **后端 7 端点 ✅ 2026-05-16**（GET list / tree / id, POST create / `:move`, PATCH, DELETE 全到位 + 6 errmap sentinel + 13 httptest 全绿）。**testend 烟雾层 ✅ 2026-05-16**（`api/resources.ts::documentAPI` 7 方法 + `Document` 类型 + `'doc'` IDPrefix + `views/config/Documents.vue` 扁平表 with create/edit/move/delete + `/config/documents` 路由 + nav 入口；vue-tsc 干净）。**Notion 树 + Monaco 编辑器 + 拖拽 reorganize 留 §14.5**。
+- ☐ **§14.3 7 个 system tool**（让 AI 真能组织文档）—— `search_documents(query)` LLM-ranked（同 search_forge 套路），返 top N `[{id, name, description, path, childCount}]`；`list_documents(parentId?)` 列指定层（不传 = root），返 `[{id, name, description, childCount}]`；`read_document(id)` 返完整 markdown content；`create_document({name, parentId?, content?, description?})` WorkspaceWrite；`edit_document({id, content?, name?, description?})` WorkspaceWrite；`move_document({id, parentId, position?})` WorkspaceWrite；`delete_document(id)` WorkspaceWrite **destructive = true**（per §3 permissions 自动走 ask 路径）。每个 tool 接口 9 方法齐 + §S18 静态元数据登记 + permissionsgate `toolLevels` 登记。**Done when**：7 tool 单测 + 1 pipeline test 端到端（agent 自动建树 + search + read + reorganize 一气走完）。
+- ☐ **§14.4 Catalog 第 4 source — `documentapp.AsCatalogSource()`** —— Document 进 catalog 通用目录（同 forge / skill / mcp 套路）。Generator LLM 看到 documents source 后按 path 分组生成 summary（如 `- /Projects/2026/Q1-planning — Q1 工作流规划`）。超阈值（>50 docs）自动 progressive disclosure：`你有 23 篇文档在 /Notes/daily 下，调 list_documents(parentId='...') 查全列表`。**Done when**：`documentapp.AsCatalogSource()` 接 catalog Service + 3 source → 4 source；catalog 重生成在 document Create / Edit / Move / Delete 时由 notification 触发 refresh（已有 1s polling 路径，加 invalidate hook）。
+- ☐ **§14.5 Workflow LLM 节点 + Conversation 挂载**（不新增节点类型）—— `LLMNodeConfig.AttachedDocumentIds: []string`：`dispatch_llm.go` 跑前按顺序拼 `<documents>...</documents>` 段前置 LLM input；`workflow.validate.go` 加 capability check（document 必须存在）。`Conversation.AttachedDocumentIDs: []string`：chat runner.buildSystemPrompt 看到非空就 prepend `<documents>` 段（每个 doc 全文 + path 标记），跟 memory pinned 同一层 cache-friendly；testend 对话视图侧栏勾选挂载。**Done when**：workflow LLM 节点 + Conversation 两端 schema + dispatch + capability check + UI 全到；3 pipeline test（workflow 单节点 attached / chat 挂载 / 跨对话切换文档库）。
+- ☐ **§14.6 Intent routing** —— 主 chat LLM 第一步识别用户意图（"创建工作流" vs "改工具" vs "查文档" vs "纯问答"）→ 注入不同 system prompt sub-section。**Done when**：runner.buildSystemPrompt 加 intent 段；前 N turn 走 intent agent。
+- ☐ **§14.7 Chat 终极版 — 工作流推荐 + 自动建草稿** —— 用户描述需求 → AI 推荐用哪个 workflow / forge / skill / document → 自动 draft 一个 workflow → ask user 确认。**Done when**：multi-agent forging system prompt 已经在 F2 教过；加 workflow draft 自动 spawn create_workflow 工具。
 
 ---
 
@@ -305,7 +315,7 @@
 7. **§3.1 PermissionLevel** + **§3.2 Protected paths** + **§3.3 Settings allow/deny**（权限基线，2 天）
 8. **§3.4-3.6 Hooks 正式化**（2-3 天）
 9. **§10.1 Checkpoint / Undo** + **§10.2 File diff**（user trust 关键，2 天）
-10. **§14.1 sqlite-vec spike**（半天 spike）→ pass: 进 **§14.2-14.5 Knowledge / RAG**
+10. **§14.1-14.5 Document domain + tools + workflow 节点**（LLM-ranked attach 模式，无向量库 / 无 sqlite-vec / 无 chunking pipeline；2-3 天）
 
 ### Day 7+（高阶能力）
 
@@ -367,7 +377,7 @@ V1.2 ship 标准（前端 Wails 之外）：
 | §11 | Sandbox 收尾 + 修复 | 1 / 7 | 🟡 起步 | §11.2 已修；§11.1 / §11.3-7 待 |
 | §12 | HTTP / API 收尾 | 2 / 4 | 🟢 主体完工 | §12.3 + §12.4 留下次 |
 | §13 | 可靠性 / 故障恢复 | 2 / 5 | 🟢 主体完工 | retry + timeout 两件核心已完；failover / SearXNG health / BackgroundCtx 留 |
-| §14 | Phase 5 真正没做的 | 0 / 7 | ⬜ 未起 | 愿景核心；§14.1 sqlite-vec spike 是闸门 |
+| §14 | Phase 5 真正没做的 | 1.5 / 7 | 🟡 起步 | 愿景核心；§14.1 4 层完工 + §14.2 HTTP 后端 7 端点（13 httptest 全绿，testend UI 留 §14.5）；§14.3 system tools 接下来。详 [`service-design-documents/document.md`](./service-design-documents/document.md) |
 | §15 | 完美产品 UX | 0 / 16 | ⬜ 未起 | onboarding / settings pane / themes / 等等；穿插着做 |
 | §16 | 桌面 app 准备 | 0 / 7 | ⬜ 未起 | Wails 主迁移前的后端 prep |
 | §17 | Burn-in 剩余 + 杂项 | 1 / 13 | 🟡 起步 | §17.3 已审计；§17.1+§17.2 burn-in #7/#11 + §17.4-13 待 |
@@ -383,8 +393,10 @@ V1.2 ship 标准（前端 Wails 之外）：
 
 | 日期 | 范围 | 摘要 |
 |---|---|---|
+| 2026-05-16 | **§14 设计改向 #2 — Notion-style 树状** | 在 no-RAG 决策之上进一步精化 document 数据模型：从"flat doc + 可选 section 子表"改为 **Notion-style 树状嵌套**（单表自引用 + ParentID + Position + Path 冗余字段）。**理由**：(1) 用户实际心智模型是"大文档套小文档"（项目笔记 / API 文档树 / 日报树）不是"PDF 切章节"；(2) 单表自引用比独立 sections 子表语义更清晰；(3) AI 能用 create / move / delete 真正帮用户组织文档不止读。**系统工具 2 个 → 7 个**：`search_documents` / `list_documents` / `read_document` / `create_document` / `edit_document` / `move_document` / `delete_document`；后 4 个 WorkspaceWrite，`delete_document` 自动 destructive=true 走 §3 permissions ask 路径。**Workflow 接入改向**：原计划新增第 14 种 `document` 节点类型 → 改为给现有 `llm` 节点 config 加 `AttachedDocumentIds: []string`，节点数仍 13 不爆炸；`Conversation` 同样加 `AttachedDocumentIDs` 让对话能挂文档库；前者 `dispatch_llm.go` 拼 `<documents>` 段前置 input，后者 `runner.buildSystemPrompt` prepend（跟 memory pinned 同一 cache-friendly 层）。**Catalog 接入**：按 path 分组（`- /Projects/2026/Q1 — Q1 计划`），>50 docs 自动 progressive disclosure。**新建 `service-design-documents/document.md`** 详设计 doc。**同步**：final-sweep §14 5 子项重写 + §19.1 tracker + backend-design 协作图（document subtree → 子节点 tree）+ progress-record §2 dev log。**纯设计 pivot，未写代码**。|
+| 2026-05-16 | **§14 设计改向 (no-RAG)** | 弃 RAG / sqlite-vec / chunking / 向量检索 → 改 **LLM-ranked document attach** 模式（抄 forge / skill / mcp catalog 套路）。**理由**：(1) 本地单用户文档量人类规模（几十到几百），向量索引过度工程；(2) 2026-04-26 已有先例（progress-record 行 100，tool search 从 chromem-go 切到 LLM 排序）同一推理成立；(3) 大 context（Sonnet 4.6/4.7=200K，Opus 4.7=1M）+ Anthropic prompt cache（5min TTL，命中省 90%）让"塞全文"反超 RAG；(4) 用户场景是"工作流决定 attach 哪个 doc"——deterministic routing 不是 similarity search。**结果**：§14.1 sqlite-vec spike 取消（modernc 不再需要加载 C 扩展），§14.1-14.5 重设计为 `document` domain + 2 system tools（`search_documents` LLM-ranked + `read_document`）+ catalog 第 4 source + workflow `document` 节点类型，工程量减半，跨平台编译一行命令保住。**未来扩展**：真撞上"全公司 wiki 几千篇 / GitHub repo 自动索引代码 chunk"再加 `embedding` 列 + 向量库当二进制工具，平滑长出来。**同步**：final-sweep §14 全部 7 子项重写 + §18 ordering + §19.1 tracker；backend-design.md 能力清单 #4 + Phase 5 描述 + 跨 domain 协作图 + domain tree；progress-record §2 dev log。**纯设计 pivot，未写代码**。|
 | 2026-05-16 | **§3 permissions + hooks + §4.1+4.2 + §12.2 + §13.1 + §13.5 + §17.3** | V1.2 ship gate 第三栏（"AI 真的不傻"）完工。新增 4 包（`domain/permissions` + `infra/settings` + `app/tool/permissionsgate` + `app/hooks`）+ 56 tool 危险等级登记 + glob→regex 翻译器 + shell hook stdin/stdout JSON 协议 + `pathguard.AllowWrite`（读写 deny 分离）+ 5 HTTP endpoints + testend `/config/permissions` 3 tab。30+ 新单测 + 3 pipeline test 全绿。同步：`service-design-documents/permissions.md`（18 节设计 doc）+ api-design + error-codes（INVALID_SETTINGS / BLOCKED_BY_RULE）+ progress-record dev log。**附带**：Token counter（§4.1）+ Usage 端点（§4.2，按 model 拆 + cost 估算 via 新 `pkg/llmcost` 16-model registry）+ LLM withRetry（§12.2 + §13.1，仅 Generate；Stream 不重试避免 mid-stream 丢内容）+ chat worker 10 min timeout（§13.5）+ queue backpressure 现状审计（§17.3 已实现到位）。|
 | 2026-05-16 | **§1 compaction + §2 memory** | V1.2 ship gate 第一栏（"AI 真的不傻"基础）完工。新增 `domain/permissions` 仍待 §3；但 §1 + §2 两大跨对话能力一气落地：`pkg/modelmeta` + `pkg/tokencount` + `app/contextmgr.Manager`（3 路径：< Soft / Soft 降级 / Hard fullCompact）+ `conversations.summary` + `summary_covers_up_to_seq` 2 列 + `message_blocks.context_role` 1 列 + 新 block type `compaction`（eventlog 协议 6→7 种）+ `loop/history.BlocksToAssistantLLM` 按 role 投影 + chat.buildHistory 前置 `<conversation_summary>` wrapper；Memory 新 `domain/memory` + `app/memory` + 3 system tools + 7 HTTP endpoints + 3 errmap sentinel + testend `/config/memory` + `/current/compaction` 2 视图。4 + 3 = 7 pipeline tests 全绿。设计 doc：`service-design-documents/memory.md` + `compaction.md`。附带修旧债：harness Attrs migration / scheduler dotted edge / handler Python kwargs / cancel 422 接受 / chat_test seed-delete 模式。|
 | 2026-05-15 | **§11.2 ownerKind 白名单 + §12.1 limit cap（审计）** | burn-in P3 batch 顺手修：`validOwnerKinds` 5 值白名单 + 400 INVALID_OWNER_KIND。同期审计 §12.1 发现 `pkg/pagination.Parse` 早已 cap 到 200，无 handler 直读 `?limit`——实现到位（误判为遗留）。|
 
-> **下条记录待写**：根据 §18 ordering，下一站建议 §14.1 sqlite-vec spike（30 min 半成本闸门）→ §10.1 Checkpoint/Undo（~1 天 用户敢用 ship gate）→ §11 sandbox 收尾 batch。
+> **下条记录待写**：sqlite-vec 闸门 2026-05-16 设计改向后已弃，下一站建议 **§10.1 Checkpoint/Undo**（~1 天 ship gate "用户敢用"）或直接进 **§14.1 Document domain**（Phase 5 愿景核心，LLM-ranked attach 模式，2-3 天）。§11 sandbox 残留低优，穿插着做。
