@@ -613,9 +613,16 @@ func (h *Harness) URL() string { return h.server.URL }
 
 // HTTPClient returns a client for short-lived requests; SSE uses SubscribeSSE.
 //
-// HTTPClient 返回短请求 client；SSE 走 SubscribeSSE。
+// Timeout sized for slowest legitimate sync path: first-ever function POST
+// triggers mise to fetch + install Python runtime (15-25s typical, up to ~40s
+// under load / cold disk). 30s here previously caused flake when env sync
+// raced the deadline — bumped to 120s with 4x safety margin.
+//
+// HTTPClient 返回短请求 client;SSE 走 SubscribeSSE。
+// timeout 按最慢合法同步路径设:首次 function POST 触发 mise 下载装 Python
+// (典型 15-25s,负载 / 冷盘下到 ~40s)。原 30s 偶发卡 env sync 死线,改 120s。
 func (h *Harness) HTTPClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second}
+	return &http.Client{Timeout: 120 * time.Second}
 }
 
 // PostJSON POSTs body as JSON and decodes into out; fatals on non-2xx.
