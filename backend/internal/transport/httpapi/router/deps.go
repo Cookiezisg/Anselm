@@ -102,13 +102,14 @@ type Deps struct {
 	// Dev 启用 /dev/* 路由组;下列字段仅 Dev=true 时填充。
 	Dev bool
 
-	DB             *gorm.DB
-	LogBroadcaster *loggerinfra.LogBroadcaster
-	CollectionsDir string
-	IntegrationDir string
-	ForgifyHome    string
-	Port           int
-	Tools          []toolapp.Tool
-	LLMFactory     *llminfra.Factory
-	ShellManager   *shelltool.ProcessManager
+	DB               *gorm.DB
+	LogBroadcaster   *loggerinfra.LogBroadcaster
+	CollectionsDir   string
+	IntegrationDir   string
+	ForgifyHome      string
+	Port             int
+	Tools            []toolapp.Tool
+	SubagentRegistry *subagentapp.Registry // §18 prompts inventory
+	LLMFactory       *llminfra.Factory
+	ShellManager     *shelltool.ProcessManager
 }

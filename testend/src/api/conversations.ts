@@ -8,8 +8,12 @@ export interface AttachedDocument {
 }
 
 export const convAPI = {
-  list: (limit = 100, search = '') =>
-    getPage<Conversation>('/api/v1/conversations', { limit, search }),
+  list: (limit = 100, search = '', archived?: boolean) =>
+    getPage<Conversation>('/api/v1/conversations', {
+      limit,
+      search,
+      ...(archived !== undefined ? { archived: archived ? 'true' : 'false' } : {}),
+    }),
 
   get: (id: string) => getJSON<Conversation>(`/api/v1/conversations/${id}`),
 
@@ -24,6 +28,16 @@ export const convAPI = {
 
   setAttachedDocuments: (id: string, attachedDocuments: AttachedDocument[]) =>
     patchJSON<Conversation>(`/api/v1/conversations/${id}`, { attachedDocuments }),
+
+  setArchived: (id: string, archived: boolean) =>
+    patchJSON<Conversation>(`/api/v1/conversations/${id}`, { archived }),
+
+  setPinned: (id: string, pinned: boolean) =>
+    patchJSON<Conversation>(`/api/v1/conversations/${id}`, { pinned }),
+
+  /** §12.3 — pass null to clear override; {provider, modelId} to set. */
+  setModelOverride: (id: string, ref: { provider: string; modelId: string } | null) =>
+    patchJSON<Conversation>(`/api/v1/conversations/${id}`, { modelOverride: ref }),
 
   remove: (id: string) => deleteEmpty(`/api/v1/conversations/${id}`),
 
@@ -59,4 +73,14 @@ export const convAPI = {
   /** History replay for the SSE eventlog (after 410 SEQ_TOO_OLD). */
   eventlogHistory: (convId: string, from = 0) =>
     getJSON<unknown[]>(`/api/v1/conversations/${convId}/eventlog?from=${from}`),
+
+  /** §18.2 — assembled system prompt with section breakdown. */
+  systemPromptPreview: (convId: string) =>
+    getJSON<{
+      conversationId: string;
+      sections: Array<{ name: string; content: string }>;
+      assembled: string;
+      totalLength: number;
+      totalTokensEst: number;
+    }>(`/api/v1/conversations/${convId}/system-prompt-preview`),
 };

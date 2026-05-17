@@ -204,3 +204,62 @@ func TestList_CrossUserIsolation(t *testing.T) {
 		t.Errorf("Alice sees wrong rows: %+v", rows)
 	}
 }
+
+// TestList_ArchivedFilter covers the §17.12 contract: nil = active only,
+// *false = active only, *true = archived only.
+//
+// TestList_ArchivedFilter 覆盖 §17.12 契约：nil = 仅 active，*false = 仅 active，*true = 仅 archived。
+func TestList_ArchivedFilter(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxFor(userAlice)
+
+	active := mkConv("active1", userAlice, "active")
+	archived := mkConv("archived1", userAlice, "archived")
+	archived.Archived = true
+	for _, c := range []*convdomain.Conversation{active, archived} {
+		if err := s.Save(ctx, c); err != nil {
+			t.Fatalf("Save %s: %v", c.ID, err)
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+
+	t.Run("nil filter excludes archived", func(t *testing.T) {
+		rows, _, err := s.List(ctx, convdomain.ListFilter{Limit: 10})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if len(rows) != 1 || rows[0].ID != "active1" {
+			t.Errorf("nil filter returned %+v, want only active1", convIDs(rows))
+		}
+	})
+
+	t.Run("explicit false returns active only", func(t *testing.T) {
+		f := false
+		rows, _, err := s.List(ctx, convdomain.ListFilter{Limit: 10, Archived: &f})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if len(rows) != 1 || rows[0].ID != "active1" {
+			t.Errorf("archived=false returned %+v, want only active1", convIDs(rows))
+		}
+	})
+
+	t.Run("explicit true returns archived only", func(t *testing.T) {
+		tr := true
+		rows, _, err := s.List(ctx, convdomain.ListFilter{Limit: 10, Archived: &tr})
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		if len(rows) != 1 || rows[0].ID != "archived1" {
+			t.Errorf("archived=true returned %+v, want only archived1", convIDs(rows))
+		}
+	})
+}
+
+func convIDs(rows []*convdomain.Conversation) []string {
+	out := make([]string, len(rows))
+	for i, r := range rows {
+		out[i] = r.ID
+	}
+	return out
+}

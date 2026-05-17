@@ -60,6 +60,17 @@ const (
 	StatusCancelled = "cancelled"
 )
 
+// AllStatuses is the source of truth for downstream contract checks (e.g. host mapEventLogStatus exhaustiveness).
+//
+// AllStatuses 是下游契约检查的事实源（如 host mapEventLogStatus 完备性测试）。
+var AllStatuses = []string{
+	StatusPending,
+	StatusStreaming,
+	StatusCompleted,
+	StatusError,
+	StatusCancelled,
+}
+
 const (
 	StopReasonEndTurn   = "end_turn"
 	StopReasonMaxTokens = "max_tokens"

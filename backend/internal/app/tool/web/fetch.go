@@ -312,6 +312,13 @@ func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string
 	return strings.TrimSpace(out), nil
 }
 
+// SummaryPromptTemplate returns the static fetch-summary prompt skeleton for the §18 inventory endpoint.
+//
+// SummaryPromptTemplate 返 fetch-summary prompt 静态骨架（§18 inventory 用）。
+func SummaryPromptTemplate() string {
+	return buildSummaryPrompt("{sourceURL}", "{userPrompt}", "{fetchedContent}")
+}
+
 func buildSummaryPrompt(source, prompt, content string) string {
 	return fmt.Sprintf(`You are summarising web content fetched on the user's behalf.
 

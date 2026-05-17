@@ -91,19 +91,29 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Bl
 	_ = blocks
 }
 
-func (h *subagentHost) mapEventLogStatus(s string) string {
+// subagentStatusToEventLog is the pure switch; ok=false means switch missed a chatdomain.Status*.
+//
+// subagentStatusToEventLog 是纯映射；ok=false 表示 switch 漏覆盖某个 chatdomain.Status*。
+func subagentStatusToEventLog(s string) (string, bool) {
 	switch s {
 	case chatdomain.StatusStreaming:
-		return eventlogdomain.StatusStreaming
+		return eventlogdomain.StatusStreaming, true
 	case chatdomain.StatusError:
-		return eventlogdomain.StatusError
+		return eventlogdomain.StatusError, true
 	case chatdomain.StatusCancelled:
-		return eventlogdomain.StatusCancelled
+		return eventlogdomain.StatusCancelled, true
 	case chatdomain.StatusCompleted, chatdomain.StatusPending:
-		return eventlogdomain.StatusCompleted
+		return eventlogdomain.StatusCompleted, true
 	default:
+		return eventlogdomain.StatusCompleted, false
+	}
+}
+
+func (h *subagentHost) mapEventLogStatus(s string) string {
+	out, ok := subagentStatusToEventLog(s)
+	if !ok {
 		h.svc.log.Warn("subagent.host.mapEventLogStatus: unknown chatdomain status; mapped to Completed",
 			zap.String("status", s), zap.String("sub_msg_id", h.subMsgID))
-		return eventlogdomain.StatusCompleted
 	}
+	return out
 }

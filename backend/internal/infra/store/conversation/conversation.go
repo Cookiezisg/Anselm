@@ -77,6 +77,13 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 	if s := strings.TrimSpace(filter.Search); s != "" {
 		q = q.Where("title LIKE ?", "%"+s+"%")
 	}
+	// §17.12: nil filter excludes archived from default list; explicit true/false honors caller.
+	// §17.12: filter 为 nil 时默认排除已归档；显式 true/false 按调用方意图过滤。
+	if filter.Archived == nil {
+		q = q.Where("archived = ?", false)
+	} else {
+		q = q.Where("archived = ?", *filter.Archived)
+	}
 	if filter.Cursor != "" {
 		var c paginationpkg.Cursor
 		if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
@@ -85,7 +92,10 @@ func (s *Store) List(ctx context.Context, filter convdomain.ListFilter) ([]*conv
 		q = q.Where("(created_at, id) < (?, ?)", c.CreatedAt, c.ID)
 	}
 	var rows []*convdomain.Conversation
-	if err := q.Order("created_at DESC, id DESC").
+	// §15.6: pinned DESC first so favorites bubble to top; cursor still keys (created_at, id)
+	// because pinned count ≪ page limit in single-user practice (no cross-page pinned drift).
+	// §15.6: 排序加 pinned DESC，置顶项浮顶；cursor 仍仅含 (created_at, id) —— 单用户场景 pinned 数远 < limit，跨页漂移不存在。
+	if err := q.Order("pinned DESC, created_at DESC, id DESC").
 		Limit(limit + 1).
 		Find(&rows).Error; err != nil {
 		return nil, "", fmt.Errorf("convstore.List: %w", err)

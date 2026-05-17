@@ -11,8 +11,10 @@ import (
 
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -25,6 +27,11 @@ type UpdateInput struct {
 	Title             *string
 	SystemPrompt      *string
 	AttachedDocuments *[]documentdomain.AttachedDocument
+	Archived          *bool
+	Pinned            *bool
+	// ModelOverride: nil = skip, **ptr 内层 nil = clear override, 内层 non-nil = 设置。
+	// §12.3 per-conv override; validated against keys.HasKeyForProvider before save.
+	ModelOverride **modeldomain.ModelRef
 }
 
 // Service orchestrates conversation CRUD.
@@ -33,6 +40,7 @@ type UpdateInput struct {
 type Service struct {
 	repo  convdomain.Repository
 	notif notificationspkg.Publisher
+	keys  apikeydomain.KeyProvider // §12.3 optional; nil = skip override validation
 	log   *zap.Logger
 }
 
@@ -48,6 +56,11 @@ func NewService(repo convdomain.Repository, notif notificationspkg.Publisher, lo
 	}
 	return &Service{repo: repo, notif: notif, log: log}
 }
+
+// SetKeyProvider enables §12.3 ModelOverride validation; call once during DI wire-up.
+//
+// SetKeyProvider 启用 §12.3 ModelOverride 校验；装配阶段调一次。
+func (s *Service) SetKeyProvider(keys apikeydomain.KeyProvider) { s.keys = keys }
 
 // Create makes a new conversation with the given title (may be empty).
 //
@@ -114,12 +127,59 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*convd
 	if in.AttachedDocuments != nil {
 		c.AttachedDocuments = *in.AttachedDocuments
 	}
+	archivedChanged := false
+	if in.Archived != nil && c.Archived != *in.Archived {
+		c.Archived = *in.Archived
+		archivedChanged = true
+	}
+	pinnedChanged := false
+	if in.Pinned != nil && c.Pinned != *in.Pinned {
+		c.Pinned = *in.Pinned
+		pinnedChanged = true
+	}
+	overrideChanged := false
+	if in.ModelOverride != nil {
+		newRef := *in.ModelOverride
+		if newRef != nil {
+			// validate both fields + provider has api-key (§12.3 F1).
+			if strings.TrimSpace(newRef.Provider) == "" {
+				return nil, modeldomain.ErrProviderRequired
+			}
+			if strings.TrimSpace(newRef.ModelID) == "" {
+				return nil, modeldomain.ErrModelIDRequired
+			}
+			if s.keys != nil {
+				has, hkErr := s.keys.HasKeyForProvider(ctx, strings.TrimSpace(newRef.Provider))
+				if hkErr != nil {
+					return nil, fmt.Errorf("conversation.Service.Update: %w", hkErr)
+				}
+				if !has {
+					return nil, modeldomain.ErrProviderHasNoKey
+				}
+			}
+		}
+		c.ModelOverride = newRef
+		overrideChanged = true
+	}
 	c.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, c); err != nil {
 		return nil, err
 	}
+	action := "updated"
+	switch {
+	case archivedChanged && c.Archived:
+		action = "archived"
+	case archivedChanged && !c.Archived:
+		action = "unarchived"
+	case pinnedChanged && c.Pinned:
+		action = "pinned"
+	case pinnedChanged && !c.Pinned:
+		action = "unpinned"
+	case overrideChanged:
+		action = "model_override"
+	}
 	s.notif.Publish(ctx, "conversation", c.ID,
-		map[string]any{"action": "updated", "title": c.Title}, c.ID)
+		map[string]any{"action": action, "title": c.Title, "archived": c.Archived, "pinned": c.Pinned}, c.ID)
 	return c, nil
 }
 

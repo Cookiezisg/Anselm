@@ -49,4 +49,5 @@ var (
 	ErrPathConflict          = errors.New("trigger: webhook path conflict")
 	ErrWebhookSecretMismatch = errors.New("trigger: webhook secret mismatch")
 	ErrInvalidCronExpression = errors.New("trigger: invalid cron expression")
+	ErrInvalidConfig         = errors.New("trigger: invalid config")
 )

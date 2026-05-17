@@ -73,6 +73,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/dev/processes', component: () => import('@/views/dev/Processes.vue') },
   { path: '/dev/metrics', component: () => import('@/views/dev/Metrics.vue') },
   { path: '/dev/errors', component: () => import('@/views/dev/Errors.vue') },
+  { path: '/dev/prompts', component: () => import('@/views/dev/Prompts.vue') },
 
   /* catch-all */
   { path: '/:pathMatch(.*)*', redirect: '/forge/functions' },

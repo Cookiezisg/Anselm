@@ -2,15 +2,19 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"go.uber.org/zap"
 
+	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	tokencountpkg "github.com/sunweilin/forgify/backend/internal/pkg/tokencount"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -24,17 +28,32 @@ type TokenSummer interface {
 	SumTokensForConversation(ctx context.Context, convID string) (chatdomain.TokensUsed, error)
 }
 
+// SystemPromptPreviewer returns the assembled system prompt sections for a conversation (§18.2).
+//
+// SystemPromptPreviewer 返某 conversation 拼装好的 system prompt 段（§18.2）。
+type SystemPromptPreviewer interface {
+	SystemPromptSections(ctx context.Context, conv *convdomain.Conversation) []chatapp.PromptSection
+}
+
 // ConversationHandler serves the 5 /api/v1/conversations/* endpoints.
 //
 // ConversationHandler 提供 /api/v1/conversations/* 的 5 个端点。
 type ConversationHandler struct {
-	svc    *convapp.Service
-	tokens TokenSummer // optional; nil → omit tokensUsed from response
-	log    *zap.Logger
+	svc             *convapp.Service
+	tokens          TokenSummer            // optional; nil → omit tokensUsed from response
+	promptPreviewer SystemPromptPreviewer  // optional; nil → no /system-prompt-preview endpoint
+	log             *zap.Logger
 }
 
 func NewConversationHandler(svc *convapp.Service, tokens TokenSummer, log *zap.Logger) *ConversationHandler {
 	return &ConversationHandler{svc: svc, tokens: tokens, log: log}
+}
+
+// SetSystemPromptPreviewer enables the §18.2 preview endpoint; call during DI wire-up.
+//
+// SetSystemPromptPreviewer 启 §18.2 预览端点；装配阶段调一次。
+func (h *ConversationHandler) SetSystemPromptPreviewer(p SystemPromptPreviewer) {
+	h.promptPreviewer = p
 }
 
 func (h *ConversationHandler) Register(mux *http.ServeMux) {
@@ -43,6 +62,9 @@ func (h *ConversationHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/conversations/{id}", h.Get)
 	mux.HandleFunc("PATCH /api/v1/conversations/{id}", h.Rename)
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}", h.Delete)
+	if h.promptPreviewer != nil {
+		mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
+	}
 }
 
 type createConvRequest struct {
@@ -56,6 +78,29 @@ type updateConvRequest struct {
 	Title             *string                              `json:"title,omitempty"`
 	SystemPrompt      *string                              `json:"systemPrompt,omitempty"`
 	AttachedDocuments *[]documentdomain.AttachedDocument   `json:"attachedDocuments,omitempty"`
+	Archived          *bool                                `json:"archived,omitempty"`
+	Pinned            *bool                                `json:"pinned,omitempty"`
+	// ModelOverride: 缺字段 = 不变；显式 null = 清除；显式 object = 设置。需 hasModelOverride 区分缺/null。
+	ModelOverride     *modeldomain.ModelRef                `json:"modelOverride,omitempty"`
+	HasModelOverride  bool                                 `json:"-"`
+}
+
+// UnmarshalJSON detects whether `modelOverride` was present as a key
+// (vs absent), to distinguish "leave unchanged" from "explicitly clear to null".
+//
+// UnmarshalJSON 检测 `modelOverride` 是否在 JSON 中出现（区分"未传"与"显式 null 清除"）。
+func (r *updateConvRequest) UnmarshalJSON(data []byte) error {
+	type raw updateConvRequest
+	if err := json.Unmarshal(data, (*raw)(r)); err != nil {
+		return err
+	}
+	// Second pass: detect key presence on the raw map.
+	// 二次扫描：探测 raw map 上 key 是否存在。
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(data, &m); err == nil {
+		_, r.HasModelOverride = m["modelOverride"]
+	}
+	return nil
 }
 
 func (h *ConversationHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -78,10 +123,18 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	// §17.12 archived filter: nil = exclude archived (default), "true" / "false" = explicit.
+	// §17.12 archived 过滤：缺省排除已归档；显式 "true"/"false" 按值过滤。
+	var archived *bool
+	if v := r.URL.Query().Get("archived"); v != "" {
+		b := v == "true" || v == "1"
+		archived = &b
+	}
 	items, next, err := h.svc.List(r.Context(), convdomain.ListFilter{
-		Cursor: p.Cursor,
-		Limit:  p.Limit,
-		Search: r.URL.Query().Get("search"),
+		Cursor:   p.Cursor,
+		Limit:    p.Limit,
+		Search:   r.URL.Query().Get("search"),
+		Archived: archived,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -132,11 +185,19 @@ func (h *ConversationHandler) Rename(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	c, err := h.svc.Update(r.Context(), id, convapp.UpdateInput{
+	in := convapp.UpdateInput{
 		Title:             req.Title,
 		SystemPrompt:      req.SystemPrompt,
 		AttachedDocuments: req.AttachedDocuments,
-	})
+		Archived:          req.Archived,
+		Pinned:            req.Pinned,
+	}
+	// §12.3 modelOverride: present in JSON (even as null) → set pointer-to-pointer for tristate.
+	// §12.3 modelOverride：JSON 中出现（含 null）→ 用 **ptr 三态。
+	if req.HasModelOverride {
+		in.ModelOverride = &req.ModelOverride
+	}
+	c, err := h.svc.Update(r.Context(), id, in)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -150,4 +211,25 @@ func (h *ConversationHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+// SystemPromptPreview returns the assembled system prompt for one conv,
+// broken down by section so users can see exactly what's sent to the LLM (§18.2).
+//
+// SystemPromptPreview 返该 conv 拼装好的 system prompt，按段拆解（§18.2）。
+func (h *ConversationHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request) {
+	conv, err := h.svc.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sections := h.promptPreviewer.SystemPromptSections(r.Context(), conv)
+	assembled := chatapp.AssemblePromptSections(sections)
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"conversationId": conv.ID,
+		"sections":       sections,
+		"assembled":      assembled,
+		"totalLength":    len(assembled),
+		"totalTokensEst": tokencountpkg.Estimate(assembled),
+	})
 }

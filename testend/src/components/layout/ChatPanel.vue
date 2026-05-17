@@ -12,6 +12,8 @@ import MessageView from '@/components/chat/MessageView.vue';
 import Composer from '@/components/chat/Composer.vue';
 import SystemPromptEditor from '@/components/chat/SystemPromptEditor.vue';
 import AttachedDocsEditor from '@/components/chat/AttachedDocsEditor.vue';
+import ModelOverrideEditor from '@/components/chat/ModelOverrideEditor.vue';
+import SystemPromptPreview from '@/components/chat/SystemPromptPreview.vue';
 
 const conv = useConvStore();
 const chat = useChatStore();
@@ -51,6 +53,14 @@ function scrollToBottom() {
 
 const showSysPrompt = ref(false);
 const showAttachedDocs = ref(false);
+const showModelOverride = ref(false);
+const showPromptPreview = ref(false);
+
+const modelLabel = computed(() => {
+  const ov = selected.value?.modelOverride;
+  if (!ov) return '默认模型';
+  return `${ov.provider}/${ov.modelId}`;
+});
 </script>
 
 <template>
@@ -61,17 +71,32 @@ const showAttachedDocs = ref(false);
         <span class="mono dim xs">{{ selected.id }}</span>
       </div>
       <div class="chat-header-right">
+        <button
+          class="btn ghost sm"
+          :class="{ 'has-override': selected.modelOverride }"
+          @click="showModelOverride = !showModelOverride"
+          title="切换该对话使用的 LLM 模型 (§12.3)"
+        >
+          ⚙ {{ modelLabel }}
+        </button>
         <button class="btn ghost sm" @click="showSysPrompt = !showSysPrompt">
           ✎ {{ selected.systemPrompt ? 'system prompt (set)' : 'system prompt' }}
         </button>
         <button class="btn ghost sm" @click="showAttachedDocs = !showAttachedDocs">
           📎 {{ (selected.attachedDocuments?.length ?? 0) > 0 ? `挂载文档 (${selected.attachedDocuments?.length})` : '挂载文档' }}
         </button>
+        <button
+          class="btn ghost sm"
+          @click="showPromptPreview = true"
+          title="查看实际发给 LLM 的 system prompt (§18.2)"
+        >📋 prompt</button>
       </div>
     </header>
 
+    <ModelOverrideEditor v-if="showModelOverride && selected" :conv-id="selected.id" @close="showModelOverride = false" />
     <SystemPromptEditor v-if="showSysPrompt && selected" :conv-id="selected.id" @close="showSysPrompt = false" />
     <AttachedDocsEditor v-if="showAttachedDocs && selected" :conv-id="selected.id" @close="showAttachedDocs = false" />
+    <SystemPromptPreview v-if="showPromptPreview && selected" :conv-id="selected.id" @close="showPromptPreview = false" />
 
     <div v-if="!selected" class="chat-empty">
       <div class="empty">
@@ -127,6 +152,11 @@ const showAttachedDocs = ref(false);
 .chat-header-right {
   display: flex;
   gap: var(--sp-1);
+}
+
+.chat-header-right .has-override {
+  color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .chat-stream {

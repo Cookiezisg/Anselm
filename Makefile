@@ -224,4 +224,13 @@ check-cross:
 	@echo ""
 	@echo "✓ vet + build clean across darwin/linux/windows × amd64/arm64"
 
-.PHONY: help environment test-console test-console-dev build-testend test-unit test-pipeline stop clear check-cross
+# lint-prompts — §18.3 audit every LLM-facing prompt string against the rules
+# in documents/version-1.2/prompt-principles.md (length / first-person /
+# weasel words / emoji). Exit 1 on any violation.
+#
+# lint-prompts——§18.3 按 prompt-principles.md 规则扫所有 LLM-facing prompt 字符串。
+lint-prompts:
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/lintprompts
+
+.PHONY: help environment test-console test-console-dev build-testend test-unit test-pipeline stop clear check-cross lint-prompts

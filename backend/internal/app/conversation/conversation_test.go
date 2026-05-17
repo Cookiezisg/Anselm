@@ -8,9 +8,28 @@ import (
 
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+// fakeKeys implements apikeydomain.KeyProvider just enough for §12.3 override validation.
+//
+// fakeKeys 实现 apikeydomain.KeyProvider，仅覆盖 §12.3 override 校验所需方法。
+type fakeKeys struct {
+	hasFor map[string]bool
+}
+
+func (k *fakeKeys) HasKeyForProvider(_ context.Context, provider string) (bool, error) {
+	return k.hasFor[provider], nil
+}
+
+func (k *fakeKeys) ResolveCredentials(_ context.Context, _ string) (apikeydomain.Credentials, error) {
+	return apikeydomain.Credentials{}, errors.New("not implemented for this test")
+}
+
+func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error { return nil }
 
 type fakeRepo struct {
 	rows map[string]*convdomain.Conversation
@@ -170,5 +189,79 @@ func TestList_AfterCreate(t *testing.T) {
 	}
 	if len(rows) != 2 {
 		t.Errorf("got %d rows, want 2", len(rows))
+	}
+}
+
+// §12.3 ModelOverride tests.
+
+func newSvcWithKeys(t *testing.T, hasFor map[string]bool) *Service {
+	t.Helper()
+	svc := NewService(newFakeRepo(), nil, zap.NewNop())
+	svc.SetKeyProvider(&fakeKeys{hasFor: hasFor})
+	return svc
+}
+
+func TestUpdate_ModelOverride_SetSucceeds(t *testing.T) {
+	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	ctx := ctxAlice()
+	c, _ := svc.Create(ctx, "X")
+	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: "deepseek-reasoner"}
+	out, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if out.ModelOverride == nil || out.ModelOverride.Provider != "deepseek" || out.ModelOverride.ModelID != "deepseek-reasoner" {
+		t.Errorf("ModelOverride wrong: %+v", out.ModelOverride)
+	}
+}
+
+func TestUpdate_ModelOverride_NoKey_Returns422Sentinel(t *testing.T) {
+	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	ctx := ctxAlice()
+	c, _ := svc.Create(ctx, "X")
+	ref := &modeldomain.ModelRef{Provider: "anthropic", ModelID: "claude-opus-4-7"}
+	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
+	if !errors.Is(err, modeldomain.ErrProviderHasNoKey) {
+		t.Errorf("got %v, want ErrProviderHasNoKey", err)
+	}
+}
+
+func TestUpdate_ModelOverride_Clear(t *testing.T) {
+	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	ctx := ctxAlice()
+	c, _ := svc.Create(ctx, "X")
+	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: "deepseek-reasoner"}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	var nilRef *modeldomain.ModelRef
+	out, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &nilRef})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if out.ModelOverride != nil {
+		t.Errorf("ModelOverride should be cleared, got %+v", out.ModelOverride)
+	}
+}
+
+func TestUpdate_ModelOverride_MissingProvider(t *testing.T) {
+	svc := newSvcWithKeys(t, map[string]bool{})
+	ctx := ctxAlice()
+	c, _ := svc.Create(ctx, "X")
+	ref := &modeldomain.ModelRef{Provider: "", ModelID: "x"}
+	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
+	if !errors.Is(err, modeldomain.ErrProviderRequired) {
+		t.Errorf("got %v, want ErrProviderRequired", err)
+	}
+}
+
+func TestUpdate_ModelOverride_MissingModelID(t *testing.T) {
+	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	ctx := ctxAlice()
+	c, _ := svc.Create(ctx, "X")
+	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: ""}
+	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
+	if !errors.Is(err, modeldomain.ErrModelIDRequired) {
+		t.Errorf("got %v, want ErrModelIDRequired", err)
 	}
 }

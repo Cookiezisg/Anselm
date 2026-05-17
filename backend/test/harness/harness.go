@@ -281,6 +281,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	})
 
 	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
+	convService.SetKeyProvider(apikeyService) // §12.3
 
 	functionService := functionapp.NewService(
 		functionstore.New(gdb),
@@ -356,9 +357,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
 	tools = append(tools, documenttool.DocumentTools(documentService)...)
 
+	subagentRegistry := subagentapp.NewRegistry()
 	subagentService := subagentapp.New(
 		chatRepo,
-		subagentapp.NewRegistry(),
+		subagentRegistry,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -555,6 +557,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		PermGate:            permGate,
 		Dev:                 false,
 		Tools:               tools,
+		SubagentRegistry:    subagentRegistry,
 		LLMFactory:          llmFactory,
 		ShellManager:        shells.Manager,
 		DB:                  gdb,

@@ -115,9 +115,9 @@ type Error = {
 | Method | Path | 用途 |
 |---|---|---|
 | POST | `/api/v1/conversations` | 创建对话（201）；title 可为空 |
-| GET | `/api/v1/conversations` | 列表（200，cursor 分页，最新优先）|
-| GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / metadata）|
-| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?}`——两个字段可任意组合改 |
+| GET | `/api/v1/conversations` | 列表（200，cursor 分页，ORDER BY `pinned DESC, created_at DESC, id DESC`）；query `?search=` title LIKE、`?archived=true/false` 过滤归档（缺省排除已归档，§17.12）|
+| GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / archived / pinned / metadata）|
+| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?, attachedDocuments?, archived?, pinned?, modelOverride?}`——六个字段可任意组合改；归档/置顶/override 切换发 slim notif `action: archived/unarchived/pinned/unpinned/model_override`（§17.12 + §15.6 + §12.3）。modelOverride 三态：absent=不变 / `null`=清除 / `{provider, modelId}`=设置（缺 api-key → 422 PROVIDER_HAS_NO_KEY）|
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
 #### chat ✅

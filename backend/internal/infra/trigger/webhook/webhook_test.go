@@ -2,6 +2,9 @@ package webhook
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -184,6 +187,142 @@ func TestMethodMismatch_405(t *testing.T) {
 	resp, _ := http.Get(srv.URL + "/api/v1/webhooks/wf_abc/x")
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("GET status = %d, want 405", resp.StatusCode)
+	}
+	resp.Body.Close()
+}
+
+// §12.4 HMAC tests.
+
+func hmacSig(body, secret string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(body))
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+}
+
+func TestRegister_InvalidSignatureAlgo(t *testing.T) {
+	l, _, _ := newTestServer(t)
+	err := l.Register(triggerdomain.Spec{
+		WorkflowID: "wf_abc", NodeID: "trig1",
+		Config: map[string]any{"path": "x", "secret": "s", "signatureAlgo": "md5"},
+	})
+	if !errors.Is(err, triggerdomain.ErrInvalidConfig) {
+		t.Errorf("got %v, want ErrInvalidConfig", err)
+	}
+}
+
+func TestRegister_SignatureAlgoWithoutSecret(t *testing.T) {
+	l, _, _ := newTestServer(t)
+	err := l.Register(triggerdomain.Spec{
+		WorkflowID: "wf_abc", NodeID: "trig1",
+		Config: map[string]any{"path": "x", "signatureAlgo": SignatureAlgoHMACSHA256Hex},
+	})
+	if !errors.Is(err, triggerdomain.ErrInvalidConfig) {
+		t.Errorf("got %v, want ErrInvalidConfig", err)
+	}
+}
+
+func TestHMAC_DefaultHeader(t *testing.T) {
+	l, srv, fired := newTestServer(t)
+	if err := l.Register(triggerdomain.Spec{
+		WorkflowID: "wf_abc", NodeID: "trig1",
+		Config: map[string]any{
+			"path":          "github",
+			"secret":        "shh",
+			"signatureAlgo": SignatureAlgoHMACSHA256Hex,
+		},
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	bodyStr := `{"action":"push"}`
+
+	// Wrong signature → 401.
+	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/webhooks/wf_abc/github",
+		bytes.NewBufferString(bodyStr))
+	req.Header.Set("X-Hub-Signature-256", "sha256=deadbeef")
+	resp, _ := http.DefaultClient.Do(req)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("wrong-sig status = %d, want 401", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// No signature → 401.
+	req, _ = http.NewRequest("POST", srv.URL+"/api/v1/webhooks/wf_abc/github",
+		bytes.NewBufferString(bodyStr))
+	resp, _ = http.DefaultClient.Do(req)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("no-sig status = %d, want 401", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// Correct signature → 202.
+	req, _ = http.NewRequest("POST", srv.URL+"/api/v1/webhooks/wf_abc/github",
+		bytes.NewBufferString(bodyStr))
+	req.Header.Set("X-Hub-Signature-256", hmacSig(bodyStr, "shh"))
+	resp, _ = http.DefaultClient.Do(req)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("good-sig status = %d, want 202", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if fired.Load() > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if fired.Load() != 1 {
+		t.Errorf("fired count = %d, want 1", fired.Load())
+	}
+}
+
+func TestHMAC_CustomHeader(t *testing.T) {
+	l, srv, _ := newTestServer(t)
+	if err := l.Register(triggerdomain.Spec{
+		WorkflowID: "wf_abc", NodeID: "trig1",
+		Config: map[string]any{
+			"path":            "custom",
+			"secret":          "shh",
+			"signatureAlgo":   SignatureAlgoHMACSHA256Hex,
+			"signatureHeader": "X-My-Sig",
+		},
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	bodyStr := `{"a":1}`
+	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/webhooks/wf_abc/custom",
+		bytes.NewBufferString(bodyStr))
+	req.Header.Set("X-My-Sig", hmacSig(bodyStr, "shh"))
+	resp, _ := http.DefaultClient.Do(req)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("custom-header status = %d, want 202", resp.StatusCode)
+	}
+	resp.Body.Close()
+}
+
+func TestHMAC_AcceptsBareHex(t *testing.T) {
+	l, srv, _ := newTestServer(t)
+	_ = l.Register(triggerdomain.Spec{
+		WorkflowID: "wf_abc", NodeID: "trig1",
+		Config: map[string]any{
+			"path":          "barehex",
+			"secret":        "shh",
+			"signatureAlgo": SignatureAlgoHMACSHA256Hex,
+		},
+	})
+	bodyStr := `{"k":"v"}`
+	mac := hmac.New(sha256.New, []byte("shh"))
+	mac.Write([]byte(bodyStr))
+	bareHex := hex.EncodeToString(mac.Sum(nil)) // no `sha256=` prefix
+
+	req, _ := http.NewRequest("POST", srv.URL+"/api/v1/webhooks/wf_abc/barehex",
+		bytes.NewBufferString(bodyStr))
+	req.Header.Set("X-Hub-Signature-256", bareHex)
+	resp, _ := http.DefaultClient.Do(req)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Errorf("bare-hex status = %d, want 202", resp.StatusCode)
 	}
 	resp.Body.Close()
 }

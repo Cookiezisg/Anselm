@@ -96,7 +96,9 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 
 	s.emitter.EmitMessageStart(agentCtx, msgID, chatdomain.RoleAssistant, "", nil)
 
-	bc, err := llmclientpkg.Resolve(agentCtx, s.modelPicker, s.keyProvider, s.llmFactory)
+	// §12.3 per-conv override: conv.ModelOverride beats user's chat-scenario default.
+	// §12.3 对话级 override：conv.ModelOverride 优先于 user 的 chat scenario 默认。
+	bc, err := llmclientpkg.ResolveWithOverride(agentCtx, task.conv.ModelOverride, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
 		code := "LLM_PROVIDER_ERROR"
 		switch {
@@ -188,39 +190,80 @@ func (s *Service) emitFatalError(
 		chatdomain.StopReasonError, code, message, 0, 0)
 }
 
-func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conversation) string {
-	var sb strings.Builder
-	sb.WriteString("You are Forgify, an AI assistant that helps users build tools, automate workflows, and work with data.")
-	if conv.SystemPrompt != "" {
-		sb.WriteString("\n\n")
-		sb.WriteString(conv.SystemPrompt)
-	}
+// PromptSection is one named segment in the chat system prompt; sections concatenate via separator into the wire prompt.
+//
+// PromptSection 是 chat system prompt 的一段；按顺序拼接为最终 wire prompt。
+type PromptSection struct {
+	Name    string `json:"name"`    // "base" / "user_systemPrompt" / "catalog" / "memory" / "documents" / "multi_agent_forging" / "locale_hint"
+	Content string `json:"content"`
+}
+
+// SystemPromptSections returns the per-conv assembled prompt as ordered named sections (cache-friendly order: static-first, dynamic-last).
+//
+// SystemPromptSections 返按 cache-friendly 顺序（静态前 / 动态后）排好的命名段；外部预览端点直接消费。
+func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Conversation) []PromptSection {
+	out := make([]PromptSection, 0, 8)
+	out = append(out, PromptSection{Name: "base", Content: chatBasePrompt})
+	out = append(out, PromptSection{Name: "multi_agent_forging", Content: multiAgentForgingPromptSection})
+
 	if s.catalog != nil {
 		if catalogText := s.catalog.GetForSystemPrompt(); catalogText != "" {
-			sb.WriteString("\n\n")
-			sb.WriteString(catalogText)
+			out = append(out, PromptSection{Name: "catalog", Content: catalogText})
 		}
 	}
 	if s.memory != nil {
 		if memoryText := s.memory.ForSystemPrompt(ctx); memoryText != "" {
-			sb.WriteString("\n\n")
-			sb.WriteString(memoryText)
+			out = append(out, PromptSection{Name: "memory", Content: memoryText})
 		}
 	}
 	if s.documents != nil && len(conv.AttachedDocuments) > 0 {
 		docs, err := s.documents.ResolveAttached(ctx, conv.AttachedDocuments)
 		if err != nil {
-			s.log.Warn("chat.buildSystemPrompt: ResolveAttached failed",
+			s.log.Warn("chat.SystemPromptSections: ResolveAttached failed",
 				zap.String("conv_id", conv.ID), zap.Error(err))
 		} else if len(docs) > 0 {
-			sb.WriteString("\n\n──── Attached documents ────\n")
-			sb.WriteString(documentapp.RenderAttachedAsXML(docs))
+			out = append(out, PromptSection{Name: "documents", Content: documentapp.RenderAttachedAsXML(docs)})
 		}
 	}
-	sb.WriteString("\n\n")
-	sb.WriteString(multiAgentForgingPromptSection)
+	if conv.SystemPrompt != "" {
+		out = append(out, PromptSection{Name: "user_systemPrompt", Content: conv.SystemPrompt})
+	}
 	if reqctxpkg.GetLocale(ctx) == reqctxpkg.LocaleZhCN {
-		sb.WriteString("\n\nPlease respond in Chinese (Simplified) unless the user writes in another language.")
+		out = append(out, PromptSection{Name: "locale_hint",
+			Content: "Please respond in Chinese (Simplified) unless the user writes in another language."})
+	}
+	return out
+}
+
+// chatBasePrompt is the identity line prepended to every chat system prompt.
+//
+// chatBasePrompt 是每轮 chat system prompt 的身份开头。
+const chatBasePrompt = "You are Forgify, an AI assistant that helps users build tools, automate workflows, and work with data."
+
+// BasePromptText / MultiAgentForgingPromptText expose static chat prompt segments to the §18 inventory endpoint.
+//
+// BasePromptText / MultiAgentForgingPromptText 把静态段暴露给 §18 prompt 总览端点。
+func BasePromptText() string                  { return chatBasePrompt }
+func MultiAgentForgingPromptText() string     { return multiAgentForgingPromptSection }
+
+func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conversation) string {
+	return AssemblePromptSections(s.SystemPromptSections(ctx, conv))
+}
+
+// AssemblePromptSections wraps each section in <section name="..."> markers so the LLM (and the preview UI) can see boundaries.
+//
+// AssemblePromptSections 把每段用 <section name="..."> 包起来，LLM 与预览 UI 都能看到边界。
+func AssemblePromptSections(sections []PromptSection) string {
+	var sb strings.Builder
+	for i, sec := range sections {
+		if i > 0 {
+			sb.WriteString("\n\n")
+		}
+		sb.WriteString("<section name=\"")
+		sb.WriteString(sec.Name)
+		sb.WriteString("\">\n")
+		sb.WriteString(sec.Content)
+		sb.WriteString("\n</section>")
 	}
 	return sb.String()
 }

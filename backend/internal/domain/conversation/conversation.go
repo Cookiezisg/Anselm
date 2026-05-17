@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 )
 
 // Conversation is a chat thread container; Summary is the anchored-append summary from app/contextmgr.
@@ -29,6 +30,9 @@ type Conversation struct {
 	Summary              string                            `gorm:"type:text;default:''" json:"summary,omitempty"`
 	SummaryCoversUpToSeq int64                             `gorm:"not null;default:0" json:"summaryCoversUpToSeq,omitempty"`
 	AttachedDocuments    []documentdomain.AttachedDocument `gorm:"serializer:json;type:text;default:'[]'" json:"attachedDocuments,omitempty"`
+	Archived             bool                              `gorm:"not null;default:false;index" json:"archived"`
+	Pinned               bool                              `gorm:"not null;default:false" json:"pinned"`
+	ModelOverride        *modeldomain.ModelRef             `gorm:"serializer:json;type:text" json:"modelOverride,omitempty"`
 	CreatedAt            time.Time                         `json:"createdAt"`
 	UpdatedAt            time.Time                         `json:"updatedAt"`
 	DeletedAt            gorm.DeletedAt                    `gorm:"index" json:"-"`
@@ -37,9 +41,10 @@ type Conversation struct {
 func (Conversation) TableName() string { return "conversations" }
 
 type ListFilter struct {
-	Cursor string
-	Limit  int
-	Search string // §4.3: optional SQL LIKE on title (V1; message-content / tool-name 走 FTS5 后续)
+	Cursor   string
+	Limit    int
+	Search   string // §4.3: optional SQL LIKE on title (V1; message-content / tool-name 走 FTS5 后续)
+	Archived *bool  // §17.12: nil = exclude archived (default), true = archived only, false = active only
 }
 
 var ErrNotFound = errors.New("conversation: not found")

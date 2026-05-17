@@ -11,6 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// ModelRef is a stable (provider, modelID) pair reusable across domains
+// (e.g. Conversation.ModelOverride). Both fields required when non-nil.
+//
+// ModelRef 是可跨 domain 复用的 (provider, modelID) 对（如 Conversation.ModelOverride）;
+// 整体非 nil 时两字段都必填。
+type ModelRef struct {
+	Provider string `json:"provider"`
+	ModelID  string `json:"modelId"`
+}
+
 // ModelConfig records the user's (provider, modelID) for one scenario.
 //
 // ModelConfig 记录用户某 scenario 下的 (provider, modelID)。

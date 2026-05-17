@@ -4,6 +4,9 @@
 package webhook
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,6 +18,15 @@ import (
 	"go.uber.org/zap"
 
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
+)
+
+// §12.4 signature algorithms. Only hmac-sha256-hex implemented; GitHub uses this with header X-Hub-Signature-256.
+//
+// §12.4 签名算法。当前只实现 hmac-sha256-hex（GitHub `X-Hub-Signature-256` 用此算法）。
+const (
+	SignatureAlgoHMACSHA256Hex   = "hmac-sha256-hex"
+	DefaultHMACSignatureHeader   = "X-Hub-Signature-256"
+	HMACSignaturePrefix          = "sha256="
 )
 
 const MaxBodyBytes = 10 * 1024 * 1024
@@ -38,10 +50,12 @@ type Listener struct {
 }
 
 type registration struct {
-	WorkflowID string
-	NodeID     string
-	Method     string
-	Secret     string
+	WorkflowID      string
+	NodeID          string
+	Method          string
+	Secret          string
+	SignatureAlgo   string // §12.4 empty = plain X-Webhook-Secret eq-check; SignatureAlgoHMACSHA256Hex = HMAC verify.
+	SignatureHeader string // §12.4 header to read signature from; empty + algo set → DefaultHMACSignatureHeader.
 }
 
 // New constructs a Listener bound to the given mux.
@@ -65,9 +79,19 @@ func (l *Listener) Register(spec triggerdomain.Spec) error {
 	subpath, _ := spec.Config["path"].(string)
 	method, _ := spec.Config["method"].(string)
 	secret, _ := spec.Config["secret"].(string)
+	sigAlgo, _ := spec.Config["signatureAlgo"].(string)
+	sigHeader, _ := spec.Config["signatureHeader"].(string)
 
 	if subpath == "" {
 		return fmt.Errorf("triggerwebhookinfra.Register: %w: empty path", triggerdomain.ErrPathConflict)
+	}
+	if sigAlgo != "" && sigAlgo != SignatureAlgoHMACSHA256Hex {
+		return fmt.Errorf("triggerwebhookinfra.Register: %w: unsupported signatureAlgo %q (only %q)",
+			triggerdomain.ErrInvalidConfig, sigAlgo, SignatureAlgoHMACSHA256Hex)
+	}
+	if sigAlgo != "" && secret == "" {
+		return fmt.Errorf("triggerwebhookinfra.Register: %w: signatureAlgo requires secret",
+			triggerdomain.ErrInvalidConfig)
 	}
 	if method == "" {
 		method = http.MethodPost
@@ -92,11 +116,16 @@ func (l *Listener) Register(spec triggerdomain.Spec) error {
 	}
 
 	method = strings.ToUpper(method)
+	if sigAlgo != "" && sigHeader == "" {
+		sigHeader = DefaultHMACSignatureHeader
+	}
 	reg := registration{
-		WorkflowID: spec.WorkflowID,
-		NodeID:     spec.NodeID,
-		Method:     method,
-		Secret:     secret,
+		WorkflowID:      spec.WorkflowID,
+		NodeID:          spec.NodeID,
+		Method:          method,
+		Secret:          secret,
+		SignatureAlgo:   sigAlgo,
+		SignatureHeader: sigHeader,
 	}
 	if _, alreadyMounted := l.registry[full]; !alreadyMounted {
 		l.mux.HandleFunc(full, l.handleWebhook(full))
@@ -155,17 +184,6 @@ func (l *Listener) handleWebhook(fullPath string) http.HandlerFunc {
 			return
 		}
 
-		if reg.Secret != "" {
-			gotSecret := r.Header.Get("X-Webhook-Secret")
-			if gotSecret == "" {
-				gotSecret = r.URL.Query().Get("token")
-			}
-			if gotSecret != reg.Secret {
-				http.Error(w, "secret mismatch", http.StatusUnauthorized)
-				return
-			}
-		}
-
 		body, err := io.ReadAll(io.LimitReader(r.Body, MaxBodyBytes+1))
 		if err != nil {
 			http.Error(w, "read body", http.StatusBadRequest)
@@ -174,6 +192,28 @@ func (l *Listener) handleWebhook(fullPath string) http.HandlerFunc {
 		if len(body) > MaxBodyBytes {
 			http.Error(w, "body too large", http.StatusRequestEntityTooLarge)
 			return
+		}
+
+		// §12.4 auth: HMAC signature mode requires the configured signature header to match
+		// hmac_sha256(body, secret); plain mode falls back to X-Webhook-Secret / ?token=.
+		// §12.4 鉴权：HMAC 模式按 hmac_sha256(body, secret) 算签名对配置 header；明文模式按 secret 直比。
+		if reg.Secret != "" {
+			switch reg.SignatureAlgo {
+			case SignatureAlgoHMACSHA256Hex:
+				if !verifyHMACSHA256Hex(body, []byte(reg.Secret), r.Header.Get(reg.SignatureHeader)) {
+					http.Error(w, "signature mismatch", http.StatusUnauthorized)
+					return
+				}
+			default:
+				gotSecret := r.Header.Get("X-Webhook-Secret")
+				if gotSecret == "" {
+					gotSecret = r.URL.Query().Get("token")
+				}
+				if gotSecret != reg.Secret {
+					http.Error(w, "secret mismatch", http.StatusUnauthorized)
+					return
+				}
+			}
 		}
 
 		input := map[string]any{
@@ -230,4 +270,23 @@ func flattenHeaders(h http.Header) map[string]string {
 func webhookFullPath(workflowID, subpath string) string {
 	subpath = strings.TrimPrefix(subpath, "/")
 	return "/api/v1/webhooks/" + workflowID + "/" + subpath
+}
+
+// verifyHMACSHA256Hex compares the GitHub-style `sha256=<hex>` (or bare hex) signature against hmac_sha256(body, secret).
+// Constant-time compare; empty headerVal → false. Auto-strips `sha256=` prefix.
+//
+// verifyHMACSHA256Hex 常量时间对比；自动剥 `sha256=` 前缀；空 header → false。
+func verifyHMACSHA256Hex(body, secret []byte, headerVal string) bool {
+	if headerVal == "" {
+		return false
+	}
+	got := strings.TrimPrefix(headerVal, HMACSignaturePrefix)
+	gotBytes, err := hex.DecodeString(got)
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, secret)
+	mac.Write(body)
+	expected := mac.Sum(nil)
+	return hmac.Equal(gotBytes, expected)
 }

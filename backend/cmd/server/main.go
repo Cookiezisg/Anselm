@@ -215,6 +215,7 @@ func main() {
 	forgeBridge := forgeinfra.NewBridge(log)
 	forgePub := forgepkg.New(forgeBridge, log)
 	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
+	convService.SetKeyProvider(apikeyService) // §12.3 enable ModelOverride 422 validation
 
 	// PluginSandbox v2 bootstrap: extract embedded mise binary; failure flips degraded mode (non-fatal).
 	sandboxRepo := sandboxstore.New(gdb)
@@ -323,9 +324,10 @@ func main() {
 	tools = append(tools, documenttool.DocumentTools(documentService)...)
 
 	// SubagentTool is appended after Service construction; SetTools runs after the slice is finalized.
+	subagentRegistry := subagentapp.NewRegistry()
 	subagentService := subagentapp.New(
 		chatRepo,
-		subagentapp.NewRegistry(),
+		subagentRegistry,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -508,6 +510,7 @@ func main() {
 		PermGate:            permGate,
 		Dev:                 *dev,
 		Tools:               tools,
+		SubagentRegistry:    subagentRegistry,
 		LLMFactory:          llmFactory,
 		ShellManager:        shells.Manager,
 		DB:                  gdb,
@@ -550,6 +553,14 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Error("shutdown", zap.Error(err))
+	}
+
+	// §13.4: drain background polling goroutines so SIGTERM doesn't orphan them until OS reaps.
+	// §13.4: 关停 polling goroutine,避免 SIGTERM 时 OS 兜底回收。
+	catalogService.Stop()
+	skillService.Stop()
+	if err := mcpService.Stop(shutdownCtx); err != nil {
+		log.Warn("mcp stop", zap.Error(err))
 	}
 
 	handlerService.Shutdown(shutdownCtx)

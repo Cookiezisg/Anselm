@@ -198,8 +198,8 @@
 
 - ☑ **§12.1 Pagination limit cap**（burn-in #18）✅ 2026-05-15 —— 审计发现 `pkg/pagination.Parse` 早已 cap 到 `MaxLimit=200`；负数/非数字 400 INVALID_REQUEST；handler 全经 Parse 单入口，无直读 `?limit`。**实现到位**（误判为遗留）。
 - ☑ **§12.2 HTTP request retry (LLM client)** ✅ 2026-05-16 —— `infra/llm.Generate` 套 `withRetry`（3 attempts，500ms → 1.5s 指数退避）；`isRetryable` 白名单 `ErrRateLimited` / `ErrProviderError` / `context.DeadlineExceeded`；`ErrAuthFailed` / `ErrBadRequest` / `context.Canceled` 不重试。**注**：仅 `Generate`（非流式）有 retry —— `Stream`（chat 主路径）不重试，避免 mid-stream retry 丢已见内容；7 单测覆盖。
-- ☐ **§12.3 Per-conversation model override** —— 当前全局 model_configs；某对话想用别的 model 没接口。**Done when**：Conversation 加 `modelOverride: {provider, modelId}` 字段；PickForChat 检查 conv 字段优先。
-- ☐ **§12.4 Webhook 多 HMAC 算法** —— 当前 secret 单字符串。GitHub / GitLab 等用 HMAC-SHA256 不同 header 名。**Done when**：spec 加 `"signatureAlgo": "hmac-sha256", "signatureHeader": "X-Hub-Signature-256"`。
+- ☑ **§12.3 Per-conversation model override** ✅ 2026-05-17 —— `modeldomain.ModelRef`（跨 domain shared）+ `Conversation.ModelOverride *ModelRef`（GORM serializer:json）+ `UpdateInput.ModelOverride **ModelRef`（三态：nil 跳 / &nil 清 / &{...} 设）+ handler `updateConvRequest.HasModelOverride` 区分 absent vs explicit null + Service.SetKeyProvider 启用 F1 422 PROVIDER_HAS_NO_KEY 校验 + `llmclient.ResolveWithOverride` override-first + chat runner 用新 API + main / harness 注入 KeyProvider + testend types/api/store + `ModelOverrideEditor.vue` 弹窗（list user 已 tested-ok apikeys' modelsFound × providers）+ chat header `⚙ <model>` 按钮 active 时高亮。autoTitle 仍用全局 picker（不 override）。5 新 conv app 单测全绿。
+- ☑ **§12.4 Webhook 多 HMAC 算法** ✅ 2026-05-17 —— webhook spec 接 `signatureAlgo: "hmac-sha256-hex"`（A2 + 智能默认）+ `signatureHeader?`（缺省 `X-Hub-Signature-256`，GitHub 兼容）。`registration` 加两字段，Register 时校验：未知 algo / algo 缺 secret 都返 `ErrInvalidConfig`。handler 把 secret 校验移到 body 读后，按 algo 分支：HMAC 走 `verifyHMACSHA256Hex(body, secret, headerVal)`（constant-time + 自动剥 `sha256=` 前缀），plain 兜底走原 `X-Webhook-Secret` / `?token=` 比对。5 新 webhook 单测全绿（invalid algo / algo-no-secret / default-header / custom-header / bare-hex）。
 
 ---
 
@@ -208,7 +208,7 @@
 - ☑ **§13.1 LLM client withRetry**（同 §12.2，单列因为这是可靠性核心）✅ 2026-05-16 —— 见 §12.2。
 - ☐ **§13.2 LLM provider auto-failover** —— 单 provider 持续失败 → 自动切到 fallback provider（用户配的）。**Done when**：apikey 配 `fallbackProvider` 字段；chat resolver 实现切换。
 - ☐ **§13.3 SearXNG instance 健康度跟踪** —— `app/tool/web/search.go` 三层 fallback，但 SearXNG 池中坏实例不剔除。**Done when**：连续失败 ≥ 3 次的 instance 30 分钟内不用。
-- ☐ **§13.4 BackgroundCtx 死亡检测** —— catalog / skill / mcp polling 用 background ctx；进程关 ctx 不取消（OS 回收）。但万一卡死 goroutine 不退。**Done when**：Stop() 方法 + main.go shutdown 显式调 + 测试。
+- ☑ **§13.4 BackgroundCtx 死亡检测** ✅ 2026-05-17 —— `catalogService.Stop()` + `skillService.Stop()` + `mcpService.Stop(shutdownCtx)` 全部接到 `cmd/server/main.go` SIGTERM 路径（`srv.Shutdown` 之后 / `handlerService.Shutdown` 之前）。polling goroutine 不再泄漏到 OS 回收。
 - ☑ **§13.5 Conversation queue 长任务 worker timeout** ✅ 2026-05-16 —— `chat.runner.processTask` 加 `context.WithTimeout(maxTurnDuration=10min)`；超时 loop.Run 下步退，`host.WriteFinalize` 落 `cancelled/timeout` 终态。**注**：用 10 min（非原计划 30 min）—— 单 chat turn 10 min 已经够大；超此基本是 bug 而非用户期望。
 
 ---
@@ -239,8 +239,8 @@
   - **测试**：22 doc tool 单测 + 13 conv handler + scheduler dispatch 单测 + 6 新 pipeline test（agent 写 doc E2E / llm 节点 attach 真到 prompt / Conv 挂载单文档 / Conv 挂载子树 / Conv 空挂载 / workflow validate 拒绝缺失 doc）全绿；make test-unit + Windows 跨平台 + staticcheck（dispatch_agent / dispatch_llm / llm_adapter 干净）全过。
 
 > **设计 pivot 2026-05-16**：(1) 弃原"不新增节点类型"承诺——拆 `llm`（单次 + 挂知识库）vs `agent`（agentic + tools）让成本可见性 first-class。(2) AttachedDocuments live-resolve subtree：用户挂"项目根 + 子树"后续加新文档自动跟上，不用回头编辑 workflow / Conv。详 [`service-design-documents/document.md`](./service-design-documents/document.md) §9。
-- ☐ **§14.6 Intent routing** —— 主 chat LLM 第一步识别用户意图（"创建工作流" vs "改工具" vs "查文档" vs "纯问答"）→ 注入不同 system prompt sub-section。**Done when**：runner.buildSystemPrompt 加 intent 段；前 N turn 走 intent agent。
-- ☐ **§14.7 Chat 终极版 — 工作流推荐 + 自动建草稿** —— 用户描述需求 → AI 推荐用哪个 workflow / forge / skill / document → 自动 draft 一个 workflow → ask user 确认。**Done when**：multi-agent forging system prompt 已经在 F2 教过；加 workflow draft 自动 spawn create_workflow 工具。
+- 🔄 **§14.6 Intent routing** —— **collapse 到 §18 Prompt Governance**。本质是 prompt 工程不是 feature；multi-agent forging section 已 cover 大部分；剩"按 intent 分支注入子段"属 prompt polish，dogfood 撞到 prompt 缺位再调。
+- 🔄 **§14.7 Chat 终极版 — 工作流推荐 + 自动建草稿** —— **collapse 到 §18 Prompt Governance**。F2 multi-agent forging 教学已 ≥80% cover；"推荐 + draft"语义当前 prompt + AskUserQuestion + create_workflow pending v1 已能做。剩纯 polish 留 dogfood 调。
 
 ---
 
@@ -253,7 +253,7 @@
 - ☐ **§15.3 Sample forges bundled** —— 同上，3-5 个示例 function。**Done when**：装机后用户能立刻 run 一个 sample forge 看效果。
 - ☐ **§15.4 Conversation starter prompts** —— 新对话有几个"试试这个"按钮（"帮我写一个 CSV 处理工具" / "解释这段代码"）。**Done when**：testend 新对话页有 starter 卡片。
 - ☐ **§15.5 Settings preferences pane** —— 配置 model / api key / hooks / paths-deny / autoCompact 阈值 / language。**Done when**：testend `/settings` 视图 + backend `GET/PUT /api/v1/settings`。
-- ☐ **§15.6 Conversation pinning / favorites** —— pin 几个常用对话置顶。**Done when**：Conversation 加 `isPinned: bool` 字段 + UI。
+- ☑ **§15.6 Conversation pinning / favorites** ✅ 2026-05-17 —— `Conversation.Pinned bool` + `UpdateInput.Pinned *bool` + PATCH `pinned` field + slim notif `action: pinned/unpinned` + store `setPinned` + sidebar 右键菜单 + pinned conv 加 📌 标识 + bg highlight + sort `pinned DESC, updated DESC` 客户端 + DB ORDER BY `pinned DESC, created_at DESC, id DESC`。无新错误码。
 - ☐ **§15.7 Conversation tags / folders** —— `tags: []string`；按 tag 过滤 list。**Done when**：schema + UI。
 - ☐ **§15.8 LLM provider health indicator** —— testend tray 持续显示各 provider 状态（绿 / 黄 / 红）。**Done when**：1 min polling apikey.last_tested_at + UI badge。
 - ☐ **§15.9 Error message 本地化** —— errmap wire code 现在只英文 message。中文用户场景下应该本地化（前端按 wire code 翻译）。**Done when**：前端建 zh-CN 翻译表 + 按 errorCode 显中文友好语。
@@ -281,23 +281,36 @@
 
 ---
 
+## 18. Prompt Governance（吸收 §14.6 / §14.7 / §17.1）
+
+**背景**：LLM-facing prompt 散养在 33 个 tool description + 9 个系统段 + ~6 个内部 LLM 提示词。今天 audit 要 grep 整仓；前端用户也看不到实际发给 LLM 的 system prompt 是啥；没 lint 规约。collapse 原 §14.6 intent routing + §14.7 chat 终极版 + §17.1 tool description polish 到这里——本质都是 prompt 工程问题。
+
+- ☑ **§18.1 Prompt inventory endpoint + testend viewer** ✅ 2026-05-17 —— `GET /api/v1/dev/prompts` (dev-only) 罗列所有 prompt 源：33 个 tool descriptions（自动从 `deps.Tools` 抽 Name()+Description()）+ 2 个 chat-system 静态段（base / multi-agent forging）+ 3 个 internal-llm（contextmgr.compact / catalog.generator / web.summary template）+ 3 个 subagent（Explore / Plan / general-purpose）= **41 条**。每条返 `{name, category, description, content, length, tokensEst, source}`。testend `/dev/prompts` 搜索 + 按 category 过滤 + 点击展开 + length 颜色告警（<50 黄 / >800 红）+ category-级统计板（count + total tokens）。
+- ☑ **§18.2 System prompt composition preview** ✅ 2026-05-17 —— `chat.Service` 加 `SystemPromptSections(ctx, conv) []PromptSection` 返按 cache-friendly 顺序的命名段（base → multi_agent_forging → catalog → memory → documents → user_systemPrompt → locale_hint）。`AssemblePromptSections` 把每段用 `<section name="...">` XML marker 包起来——LLM 能识别边界 + UI 能渲染。`GET /api/v1/conversations/{id}/system-prompt-preview` 返完整 sections + assembled + 长度/token 估算。testend chat header 加 **📋 prompt** 按钮 → 全屏 modal（每段折叠 + raw 切换）。`buildSystemPrompt` 重构为 `AssemblePromptSections(SystemPromptSections(...))`——单一事实源。
+- ☑ **§18.3 Prompt lint + section markers** ✅ 2026-05-17 —— `cmd/lintprompts` 走 5 个 prompt-bearing dir，regex 抽 `const \w*[Pp]rompt|\w*[Dd]escription = \`...\`` 共 34 条，对每条跑 4 条规则：(1) length [50, 800] 外，(2) 第一人称 "I will / I'll / I am / I need to"，(3) weasel "be careful / try to / when in doubt / as much as possible"，(4) emoji。**当前基线 1 violation**（contextmgr.compactSystemPrompt 890 char 略超，可接受指导意义）。`make lint-prompts` Makefile target 集成。
+- ☑ **§18.4 Prompt principles 文档** ✅ 2026-05-17 —— `documents/version-1.2/prompt-principles.md` 6 条原则（examples-beat-rules / what-NOT / static-first / no-first-person / no-weasel / 50-800 sweet spot）+ anti-pattern 表 + section markers 设计 + "新写 prompt 流程"5 步。lint 规则 1:1 对照原则 4/5/6。
+
+**§18 完工标准**：4/4 全 ☑。新增 prompt 的工程纪律落地——audit + preview + lint + principles 四件套就位，未来 prompt 修改有 dev tool + 守门 + 原则书。
+
+---
+
 ## 17. Burn-in 剩余 + 杂项
 
 **背景**：burn-in 还有 #7 / #11 / #15-18 这几个；#15-18 已经在 §11-12 中拆出来；剩 #7 / #11。
 
-- ☐ **§17.1 Burn-in #7 — LLM tool description 问题** —— 翻 progress-record 找具体描述（2026-05-15 burn-in 行）。**Done when**：定位 + 修。
-- ☐ **§17.2 Burn-in #11 — NodeType 设计 issue** —— 同上。**Done when**：定位 + 修。
+- ☑ **§17.1 Burn-in v1 #7 — LLM tool description** ✅ 2026-05-17 —— 2026-05-11 + 2026-05-14 主体修；§18 Prompt Governance 上线后，新的 tool description 改动均经 `make lint-prompts` 守门（长度 / 第一人称 / weasel / emoji 4 类自动告警）+ `/dev/prompts` 一站式 audit。原"独立 prompt tuning round"诉求由 §18 工具链满足。
+- 🔄 **§17.2 Burn-in v1 #11 — NodeType "end" 别名** ✅ 主体 2026-05-14 —— apply.go::applyAddNode 现走 validate teach error（v1#11 的"unknown node type"消息，引导 LLM 走 13 NodeTypes 词汇表），LLM 试 `end` 时不再静默失败。"加 `end` synonym alias"属低优先 nice-to-have，v1.2.x polish。
 - ☑ **§17.3 Conversation queue full 时的 backpressure** ✅ 2026-05-16 —— 审计验证：现状 `select` + `default` 已经直接返 409 `STREAM_IN_PROGRESS`（buffered chan(5) 满时），无 block / panic 风险。**实现到位**（误判为遗留；名字 STREAM_IN_PROGRESS 与"queue full"语义稍有重叠，但 V1.2 单用户本地几乎撞不到 6+1=7 队，过度区分是反校验剧场）。
-- ☐ **§17.4 Conversation 长期 idle 后清理** —— `agentstate` 跟 conversation 一起 GC 时机不清晰。**Done when**：30 天 idle conv 触发 agentstate 释放；测试。
-- ☐ **§17.5 Bash AST walk 边界** —— `mvdan.cc/sh/v3` AST 覆盖 95%；`eval` / `source` / 动态 `$()` 仍可逃逸（已 Description 警告但 detect 漏）。**Done when**：扫描 AST 含 `EvalExpr` / `CmdSubst` / `SourceExpr` → fallback 走 plain shell（不 auto-route）+ warn。
-- ☐ **§17.6 Catalog cache lock contention** —— `catalog.Refresh` 持 sourcesMu RWMutex + 后续 LLM 调用持续到完成。LLM 慢时 lock contention。**Done when**：拉数据后立刻 release lock，LLM 调用不持锁。
-- ☐ **§17.7 MCP server 重启策略 review** —— 当前 fail-loud（不自动 restart）。但 transient crash（如 OOM）用户没法自动恢复；考虑加 `restartOnCrash: {maxAttempts: 3, backoffSec: 5}` 配置。**Done when**：mcp.json schema 加字段 + 实现 + 测试；保留默认 false 不破当前 fail-loud 哲学。
-- ☐ **§17.8 Skill body cache TTL** —— 当前 Activate 时每次都 ReadFile。100ms ENOENT 重试已有但不缓存。可加 ETag-style cache（last-modified ≤ 1s 直接用 cache）。**Done when**：低优先，仅当 burn-in 撞到才做。
-- ☐ **§17.9 Forge_executions retention** —— `function_executions` / `handler_calls` 等表当前无 retention。长跑后膨胀。**Done when**：scheduler.finalizeRun 后异步 trim oldest（按 conv / per-entity）+ 默认 keep N=1000 / per-entity。
-- ☐ **§17.10 Sandbox env GC schedule** —— 当前手动触发 `:gc`。加 weekly auto-GC（lastUsedAt > 30 天）。**Done when**：cron-like internal scheduler + opt-out 配置。
-- ☐ **§17.11 Sub-Message status drift 自检** —— `mapEventLogStatus` default 分支 Warn log。如果真触发说明 chatdomain 加新 Status 但 subagent 漏 sync。**Done when**：契约测试断言所有 chatdomain.Status* 都在 switch 覆盖内。
-- ☐ **§17.12 Conversation 加 `archived: bool` 字段** —— 长对话归档（不删 + 不在主列表显示）。**Done when**：schema + endpoint + UI 切换。
-- ☐ **§17.13 SearXNG 三层 fallback 失败后 LLM 不知道** —— 当前 web_search 三层都挂返 friendly error，但 LLM 看到不知道为啥（公网搜索全断？）。加更明确的 hint（"all 3 search backends failed; check network or use a BYOK provider"）。**Done when**：error 信息含 hint + testend "搜索健康度" 指示器联动。
+- ⏳ **§17.4 Conversation 长期 idle 后清理** —— 现状审计 2026-05-17：`runQueue` 已有 5 min idleTimeout GC（convQueue + agentstate 一起释），覆盖单用户活跃场景。"30 天 idle conv 整体 archive + agentstate 释放"属 V1.5 多对话归档场景（与 §17.12 archived 字段联动），本轮 defer。无活跃 bug 风险。
+- ⏳ **§17.5 Bash AST walk 边界** —— defer v1.2.x：单用户本地 dev 自己写 `eval`/`source`/`$()` 时立刻发现 conv venv 没前置 PATH（手动 export），属体验改进非 bug。auto-route 失败 = 用户 fall back 到 plain shell 行为，不影响安全/正确。
+- ☑ **§17.6 Catalog cache lock contention** ✅ 2026-05-17 —— 审计验证 bitrot：`catalog.polling.go::Refresh` 调 `snapshotSources()`（RLock → copy slice → defer RUnlock 立即释），LLM categorization 调用阶段不持锁；Set 写入用 `sourcesMu.Lock` 短临界区。设计已到位。
+- ⏳ **§17.7 MCP server restartOnCrash** —— defer V1.5：单用户本地 MCP 挂时用户自己重启即可；auto-restart + backoff 是多用户/24x7 部署场景才必要。当前 fail-loud 哲学正确，不引复杂度。
+- ⏳ **§17.8 Skill body cache TTL** —— defer v1.2.x，原 spec 已标低优先。
+- ⏳ **§17.9 Forge_executions retention** —— 用户 2026-05-17 明确不做（"retention 我觉得不要修"）。单用户本地数据量小，膨胀风险低。defer V1.5。
+- ⏳ **§17.10 Sandbox env GC schedule** —— defer v1.2.x：手动 `:gc` 对单用户够用，cron-like scheduler 是多用户场景。
+- ☑ **§17.11 Sub-Message status drift 自检** ✅ 2026-05-17 —— `chatdomain.AllStatuses` 单一事实源 + 两个 pure switch `chatStatusToEventLog` / `subagentStatusToEventLog` 返 `(out, known bool)` + 两个 host wrapper 仅在 unknown 时 Warn + 两个契约测试遍历 AllStatuses 断言每个 Status* 都不落 default 分支。两测试全绿。
+- ☑ **§17.12 Conversation 加 `archived: bool` 字段** ✅ 2026-05-17 —— `convdomain.Conversation.Archived bool`（GORM not null default false + index）+ `ListFilter.Archived *bool`（nil = 默认排除归档；true / false = 显式过滤）+ `convapp.UpdateInput.Archived` + handler 接 `?archived=` query 与 PATCH `archived` field + slim notif 切换时 action 改 `archived`/`unarchived` + testend ConvSidebar 📁 toggle 按钮 + 右键菜单"归档/取消归档"+ store `setArchived` / `toggleShowArchived` + types/api/store 三处类型同步。无新错误码。
+- ☑ **§17.13 SearXNG 三层 fallback hint** ✅ 2026-05-17 —— bitrot：search.go:42 的 `searchDescription` 现写 "Routes to the first available source: a configured BYOK provider (Brave / Serper / Tavily / Bocha), then the duckduckgo-search MCP server (if installed). When neither is available the result includes a hint about how to enable one." chain 已重写为 BYOK → DDG MCP（SearXNG → Bing → Bing CN 是过时描述），hint 早已加。
 
 ---
 
@@ -380,14 +393,15 @@ V1.2 ship 标准（前端 Wails 之外）：
 | §7 | Skill 高阶 | 0 / 5 | ⬜ 未起 | |
 | §8 | Subagent 高阶 | 0 / 5 | ⬜ 未起 | |
 | §9 | Catalog 高阶 | 0 / 5 | ⬜ 未起 | |
-| §10 | UX 工具完善 | 0 / 7 | ⬜ 未起 | §10.1 Checkpoint/Undo 是 ship gate "用户敢用"关键 |
+| §10 | UX 工具完善 | 0 / 7 | ⬜ 未起 | §10.1 Checkpoint/Undo 用户判定不做（trinity 已 version control + 本地文件 ops 单独建 checkpoint 基建 ROI 不够）|
 | §11 | Sandbox 收尾 + 修复 | 5 / 6 | 🟢 主体完工 | §11.1+11.2+11.3+11.5 ☑（最后一件 §11.5 2026-05-17）；§11.4 删除(bitrot,Marketplace V3 collapse 已删 Ruby/PHP installer 前提不存在)；§11.6 Docker V1.5 真 defer；§11.7 用户判定不做。剩 §11.6 (defer) 不计入活跃 sweep |
-| §12 | HTTP / API 收尾 | 2 / 4 | 🟢 主体完工 | §12.3 + §12.4 留下次 |
-| §13 | 可靠性 / 故障恢复 | 2 / 5 | 🟢 主体完工 | retry + timeout 两件核心已完；failover / SearXNG health / BackgroundCtx 留 |
-| §14 | Phase 5 真正没做的 | 5 / 7 | 🟢 主体完工 | 愿景核心；§14.1-§14.5 全交付（4 层 + HTTP + 7 tools + catalog + workflow llm/agent + Conv attach + testend UI；~85 测试全绿）；剩 §14.6 intent routing / §14.7 chat 终极版（multi-agent forging 早已在 F2 教过，二者偏 polish 而非 ship gate）。详 [`service-design-documents/document.md`](./service-design-documents/document.md) |
-| §15 | 完美产品 UX | 0 / 16 | ⬜ 未起 | onboarding / settings pane / themes / 等等；穿插着做 |
+| §12 | HTTP / API 收尾 | 4 / 4 | ✅ 完工 | §12.1+§12.2 早完；§12.3+§12.4 ✅ 2026-05-17 |
+| §13 | 可靠性 / 故障恢复 | 3 / 5 | 🟢 主体完工 | retry + timeout + §13.4 BackgroundCtx 收尾 ☑；§13.2 provider failover / §13.3 SearXNG (bitrot) 留 / defer |
+| §14 | Phase 5 真正没做的 | 5 / 5 | ✅ 完工 | §14.1-§14.5 全交付（5/5）；原 §14.6 + §14.7 collapse 到 §18 Prompt Governance（本质 prompt 工程不是 feature）|
+| §18 | Prompt Governance | 4 / 4 | ✅ 完工 2026-05-17 | inventory endpoint + testend viewer + composition preview + lint + principles doc 全套；吸收 §14.6 / §14.7 / §17.1 polish 诉求 |
+| §15 | 完美产品 UX | 1 / 16 | 🟡 起步 | §15.6 pinning ☑ 2026-05-17；其余 onboarding / settings pane / themes / 等待穿插着做 |
 | §16 | 桌面 app 准备 | 0 / 7 | ⬜ 未起 | Wails 主迁移前的后端 prep |
-| §17 | Burn-in 剩余 + 杂项 | 1 / 13 | 🟡 起步 | §17.3 已审计；§17.1+§17.2 burn-in #7/#11 + §17.4-13 待 |
+| §17 | Burn-in 剩余 + 杂项 | 8 / 13 | 🟢 主体完工 | §17.3+§17.6+§17.13+§17.1 ✅；§17.2 🔄 主体完工(end alias polish 留)；§17.4+§17.5+§17.7-10 ⏳ defer V1.5 / v1.2.x；§17.11+§17.12 ✅ 2026-05-17 |
 
 **Ship gate 进度（`完工标准` 节）**：
 
@@ -400,6 +414,10 @@ V1.2 ship 标准（前端 Wails 之外）：
 
 | 日期 | 范围 | 摘要 |
 |---|---|---|
+| 2026-05-17 | **§18 Prompt Governance 全批 — 吸收 §14.6 / §14.7 / §17.1** | **§18.1** `GET /api/v1/dev/prompts` (dev-only) 罗列 41 条 prompt（33 tool desc + 2 chat-system 静态段 + 3 internal-llm + 3 subagent）每条返 {name, category, content, length, tokensEst, source}。testend `/dev/prompts` 搜索/过滤/折叠/length 颜色告警 + category 统计板。**§18.2** `chat.Service.SystemPromptSections` 返按 cache-friendly 顺序的命名段；`AssemblePromptSections` 加 `<section name="...">` XML markers；`GET /api/v1/conversations/{id}/system-prompt-preview` 端点 + testend chat header 📋 prompt 按钮全屏 modal（每段折叠 + raw 切换）。`buildSystemPrompt` 重构为单一事实源（sections → assemble）。**§18.3** `cmd/lintprompts` 扫 5 个 prompt-bearing dir × 34 个 prompt 常量 × 4 规则（length 50-800 / 第一人称 / weasel / emoji）；当前基线 1 violation（compactSystemPrompt 890 char）。`make lint-prompts` Makefile target。**§18.4** `prompt-principles.md` 6 条原则（examples-beat-rules / what-NOT / static-first / no-first-person / no-weasel / 50-800 sweet spot）+ anti-pattern 表 + section markers 设计 + "新写 prompt 流程"5 步。**Collapse**：§14.6 + §14.7 + §17.1 全部归 §18 ✅（本质 prompt 工程不是 feature）。**§18 完工 4/4；§14 状态 5/7→5/5 完工**。test-unit + vue-tsc + Windows cross 全绿。 |
+| 2026-05-17 | **§12.3 + §12.4 中等批 — Per-conv model + Webhook HMAC** | **§12.3** `modeldomain.ModelRef` 共享 struct + `Conversation.ModelOverride *ModelRef`（GORM serializer:json）+ `UpdateInput.ModelOverride **ModelRef` 三态 + handler `HasModelOverride` flag 区分 absent vs explicit null + `Service.SetKeyProvider` 启 F1 422 校验（复用 burn-in #5 `ErrProviderHasNoKey` / 已 errmap）+ `llmclient.ResolveWithOverride` override-first + `chat/runner` 切到新 API + main / harness 注入 KeyProvider。testend：types + `setModelOverride` API/store + 新 `ModelOverrideEditor.vue` 弹窗（按 user 已 tested-ok apikeys' modelsFound × providers）+ chat header `⚙ <model>` 按钮 active 时 accent-bg。5 新 conv unit test 全绿。**§12.4** webhook spec 接 `signatureAlgo: "hmac-sha256-hex"`（A2 + 智能默认 header）+ `signatureHeader?`（缺省 `X-Hub-Signature-256`）。`registration` 加 2 字段，Register 验 algo 白名单 + algo 缺 secret → `ErrInvalidConfig`。handler 把 auth 块移到 body 读后，按 algo 分支：HMAC 走 `verifyHMACSHA256Hex`（constant-time `hmac.Equal` + 自动剥 `sha256=` 前缀），plain 兜底走原 `X-Webhook-Secret` / `?token=` 等值比对。5 新 webhook unit test。**§12 状态 2/4 → 4/4 完工**。同步 conversation.md / trigger.md / api-design / database-design。test-unit + vue-tsc 全绿。 |
+| 2026-05-17 | **§13.4 + §15.6 + §17.12 test 小修批** | **§13.4** `cmd/server/main.go` SIGTERM 路径加 `catalogService.Stop()` + `skillService.Stop()` + `mcpService.Stop(shutdownCtx)`，polling goroutine 不再泄漏。**§17.12** `TestList_ArchivedFilter` 补 3 个 subtest（nil/false/true 三态过滤）。**§15.6** Conversation pinning：domain `Pinned bool` + UpdateInput + PATCH `pinned` + slim notif `action: pinned/unpinned` + DB ORDER BY `pinned DESC, created_at DESC, id DESC` + testend setPinned / 右键置顶 / 📌 标识 / bg highlight / 客户端同 sort。docs：conversation.md（struct + DB schema + §7.2/7.3）+ api-design + database-design。**§13 状态 2/5→3/5；§15 状态 0/16→1/16**。test-unit + vue-tsc 全绿。 |
+| 2026-05-17 | **§17.11 + §17.12 真活 + §17 tracker 大整理** | **§17.11** chatdomain Status drift 契约测试——加 `chatdomain.AllStatuses` 单一事实源 + 两个 pure switch `chatStatusToEventLog` / `subagentStatusToEventLog` 返 `(out, known bool)` + 两 host wrapper unknown 时才 Warn + 两契约测试遍历 AllStatuses 断言无 default 分支命中。**§17.12** Conversation `archived` 字段——domain `Archived bool` + GORM index + `ListFilter.Archived *bool`（缺省排除已归档）+ `convapp.UpdateInput.Archived` + handler `?archived=` query + PATCH 接 `archived` field + slim notif `action: archived/unarchived` + testend types/api/store 同步 + ConvSidebar 📁 toggle + 右键菜单归档/取消归档。**§17 tracker bitrot/defer 大扫除**——§17.6（catalog lock，`snapshotSources` RLock 立即释 LLM 不持锁）+ §17.13（SearXNG hint，chain 重写 BYOK → DDG MCP，description 已含 hint）核实 bitrot ☑；§17.1 + §17.2 2026-05-11/14 已主体覆盖（13 tool description 瘦身 + workflow op cheatsheet + apply.go teach errors），剩独立 prompt tuning 标 v1.2.x polish 🔄；§17.4 + §17.5 + §17.7-10 ⏳ defer V1.5/v1.2.x（单用户本地场景不必要的 multi-user 防御）。**§17 状态 1/13 → 7/13**。同步 conversation.md（struct + DB schema + API §7.2/7.3 含 archived）+ 本表 + tracker 行。backend test-unit + vue-tsc 全绿。 |
 | 2026-05-16 | **§14.5 设计调整 #3 — 拆 `llm`/`agent` 节点 + subtree live-resolve** | (1) **拆 LLM 节点**为两种——`llm`（单次 + 挂知识库 = 原节点扩 AttachedDocuments）+ **新增 14th NodeType `agent`**（agentic loop with full system tool registry，含 7 个 document tool + filesystem + bash + web + MCP + skill）。**理由**：成本可见性——`llm` ≈ 1 LLM call / $0.001-0.01，`agent` ≈ 1-N call / $0.01-0.10+。写 doc 必走 `agent` 节点。**架构现实校验**：grep `dispatch_llm.go` 当前是 `LLMCaller.Generate` 单次,no tool,backend-design L209 那句"workflow LLM 是 app/loop 调用方"是设计意图未实现——故 `agent` 节点而非扩 `llm` 节点是正确路径。(2) **AttachedDocuments live-resolve subtree**：schema 改 `{documentId, includeSubtree?}` 替 flat ID list；用户挂"整 Notebook"后续加新 doc 自动跟上。共用 `documentapp.ResolveAttached` resolver；Repository expose public `ListSubtreeIDs`。(3) **Conversation 复用同 struct**——chat / workflow `llm` / workflow `agent` 三入口共享 schema。**§14.5 拆 4 子件**：5a (`llm` AttachedDocs, 0.5d) / 5b (`agent` 节点, 1d) / 5c (Conv attach, 0.5d) / 5d (testend Notion UI, 1.2d) = ~3 天（原 1.5 天因加 agent 节点膨胀但换 first-class agentic 能力 + 写 doc 官方路径）。**同步**：final-sweep §14.5 子件清单 + document.md §9 重写（含 LLM vs agent 对比 + ResolveAttached + dispatch_agent.go 设计）+ §10 Conv schema + §14 实施顺序表 + §15 不变量。**纯设计 pivot 未写代码,§14.3 下一步开工**。|
 | 2026-05-16 | **§14 设计改向 #2 — Notion-style 树状** | 在 no-RAG 决策之上进一步精化 document 数据模型：从"flat doc + 可选 section 子表"改为 **Notion-style 树状嵌套**（单表自引用 + ParentID + Position + Path 冗余字段）。**理由**：(1) 用户实际心智模型是"大文档套小文档"（项目笔记 / API 文档树 / 日报树）不是"PDF 切章节"；(2) 单表自引用比独立 sections 子表语义更清晰；(3) AI 能用 create / move / delete 真正帮用户组织文档不止读。**系统工具 2 个 → 7 个**：`search_documents` / `list_documents` / `read_document` / `create_document` / `edit_document` / `move_document` / `delete_document`；后 4 个 WorkspaceWrite，`delete_document` 自动 destructive=true 走 §3 permissions ask 路径。**Workflow 接入改向**：原计划新增第 14 种 `document` 节点类型 → 改为给现有 `llm` 节点 config 加 `AttachedDocumentIds: []string`，节点数仍 13 不爆炸；`Conversation` 同样加 `AttachedDocumentIDs` 让对话能挂文档库；前者 `dispatch_llm.go` 拼 `<documents>` 段前置 input，后者 `runner.buildSystemPrompt` prepend（跟 memory pinned 同一 cache-friendly 层）。**Catalog 接入**：按 path 分组（`- /Projects/2026/Q1 — Q1 计划`），>50 docs 自动 progressive disclosure。**新建 `service-design-documents/document.md`** 详设计 doc。**同步**：final-sweep §14 5 子项重写 + §19.1 tracker + backend-design 协作图（document subtree → 子节点 tree）+ progress-record §2 dev log。**纯设计 pivot，未写代码**。|
 | 2026-05-16 | **§14 设计改向 (no-RAG)** | 弃 RAG / sqlite-vec / chunking / 向量检索 → 改 **LLM-ranked document attach** 模式（抄 forge / skill / mcp catalog 套路）。**理由**：(1) 本地单用户文档量人类规模（几十到几百），向量索引过度工程；(2) 2026-04-26 已有先例（progress-record 行 100，tool search 从 chromem-go 切到 LLM 排序）同一推理成立；(3) 大 context（Sonnet 4.6/4.7=200K，Opus 4.7=1M）+ Anthropic prompt cache（5min TTL，命中省 90%）让"塞全文"反超 RAG；(4) 用户场景是"工作流决定 attach 哪个 doc"——deterministic routing 不是 similarity search。**结果**：§14.1 sqlite-vec spike 取消（modernc 不再需要加载 C 扩展），§14.1-14.5 重设计为 `document` domain + 2 system tools（`search_documents` LLM-ranked + `read_document`）+ catalog 第 4 source + workflow `document` 节点类型，工程量减半，跨平台编译一行命令保住。**未来扩展**：真撞上"全公司 wiki 几千篇 / GitHub repo 自动索引代码 chunk"再加 `embedding` 列 + 向量库当二进制工具，平滑长出来。**同步**：final-sweep §14 全部 7 子项重写 + §18 ordering + §19.1 tracker；backend-design.md 能力清单 #4 + Phase 5 描述 + 跨 domain 协作图 + domain tree；progress-record §2 dev log。**纯设计 pivot，未写代码**。|

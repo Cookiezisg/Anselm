@@ -52,6 +52,22 @@ func Resolve(
 	return finishResolve(ctx, provider, modelID, keys, factory)
 }
 
+// ResolveWithOverride uses the override pair when both fields set; otherwise falls back to chat-scenario picker.
+//
+// ResolveWithOverride: override 双字段齐时直接用；否则 fall back 到 chat scenario picker。
+func ResolveWithOverride(
+	ctx context.Context,
+	override *modeldomain.ModelRef,
+	picker modeldomain.ModelPicker,
+	keys apikeydomain.KeyProvider,
+	factory *llminfra.Factory,
+) (*Bundle, error) {
+	if override != nil && override.Provider != "" && override.ModelID != "" {
+		return finishResolve(ctx, override.Provider, override.ModelID, keys, factory)
+	}
+	return Resolve(ctx, picker, keys, factory)
+}
+
 // ResolveForWebSummary resolves the WebFetch summary LLM. Tries the
 // web_summary scenario first; falls back to chat when unconfigured so
 // summarisation works out of the box.

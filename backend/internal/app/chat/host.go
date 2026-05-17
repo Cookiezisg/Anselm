@@ -63,24 +63,31 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block,
 	_ = blocks
 }
 
-// mapEventLogStatus maps chatdomain.Status* → eventlogdomain.Status*; unknown → Completed + Warn.
+// chatStatusToEventLog is the pure switch; ok=false means switch missed a chatdomain.Status*.
 //
-// mapEventLogStatus 把 chatdomain.Status* 映射到 eventlogdomain.Status*；未知值兜底 Completed 并 Warn。
-func (h *chatHost) mapEventLogStatus(s string) string {
+// chatStatusToEventLog 是纯映射；ok=false 表示 switch 漏覆盖某个 chatdomain.Status*。
+func chatStatusToEventLog(s string) (string, bool) {
 	switch s {
 	case chatdomain.StatusStreaming:
-		return eventlogdomain.StatusStreaming
+		return eventlogdomain.StatusStreaming, true
 	case chatdomain.StatusError:
-		return eventlogdomain.StatusError
+		return eventlogdomain.StatusError, true
 	case chatdomain.StatusCancelled:
-		return eventlogdomain.StatusCancelled
+		return eventlogdomain.StatusCancelled, true
 	case chatdomain.StatusCompleted, chatdomain.StatusPending:
-		return eventlogdomain.StatusCompleted
+		return eventlogdomain.StatusCompleted, true
 	default:
+		return eventlogdomain.StatusCompleted, false
+	}
+}
+
+func (h *chatHost) mapEventLogStatus(s string) string {
+	out, ok := chatStatusToEventLog(s)
+	if !ok {
 		h.svc.log.Warn("chat.host.mapEventLogStatus: unknown chatdomain status; mapped to Completed",
 			zap.String("status", s), zap.String("msg_id", h.msgID))
-		return eventlogdomain.StatusCompleted
 	}
+	return out
 }
 
 // buildMessage constructs an assistant Message row for persistence (blocks live in message_blocks).

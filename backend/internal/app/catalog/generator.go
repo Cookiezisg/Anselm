@@ -119,6 +119,11 @@ func computeCoverage(items []catalogdomain.Item) map[string][]string {
 	return out
 }
 
+// GeneratorPromptTemplate exposes the catalog-generation LLM prompt to the §18 inventory endpoint.
+//
+// GeneratorPromptTemplate 把 catalog 生成 LLM 模板暴露给 §18 总览端点。
+func GeneratorPromptTemplate() string { return generatorPromptTemplate }
+
 const generatorPromptTemplate = `You are generating a "Capability Catalog" summary that will be inserted into another LLM's system prompt.
 The summary tells the other LLM what high-level capability categories are available, when to use each, and how to discover details.
 

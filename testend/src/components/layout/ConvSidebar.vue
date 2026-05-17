@@ -72,6 +72,20 @@ async function doDuplicate(id: string) {
   await conv.duplicate(id);
 }
 
+async function doToggleArchive(id: string) {
+  closeCtx();
+  const cur = conv.list.find((c) => c.id === id);
+  if (!cur) return;
+  await conv.setArchived(id, !cur.archived);
+}
+
+async function doTogglePin(id: string) {
+  closeCtx();
+  const cur = conv.list.find((c) => c.id === id);
+  if (!cur) return;
+  await conv.setPinned(id, !cur.pinned);
+}
+
 async function doDelete(id: string) {
   closeCtx();
   if (!window.confirm('确认删除该对话?')) return;
@@ -83,7 +97,13 @@ async function doDelete(id: string) {
   <aside class="convs" :class="{ rail }">
     <header class="convs-header">
       <template v-if="!rail">
-        <strong class="convs-title">Conversations</strong>
+        <strong class="convs-title">{{ conv.showArchived ? 'Archived' : 'Conversations' }}</strong>
+        <button
+          class="btn ghost icon"
+          :class="{ 'archived-on': conv.showArchived }"
+          @click="conv.toggleShowArchived()"
+          :title="conv.showArchived ? 'show active' : 'show archived'"
+        >📁</button>
         <button class="btn ghost icon" @click="showFilter = !showFilter" title="filter">⌕</button>
         <button class="btn ghost icon primary-look" @click="createNew" title="new conversation (⌘N)">＋</button>
       </template>
@@ -113,12 +133,13 @@ async function doDelete(id: string) {
         v-for="c in filtered"
         :key="c.id"
         class="conv-item"
-        :class="{ selected: c.id === conv.selectedId }"
+        :class="{ selected: c.id === conv.selectedId, pinned: c.pinned }"
         @click="conv.select(c.id)"
         @contextmenu="openCtx($event, c.id)"
         :title="`${c.title || '(untitled)'} · ${c.id}`"
       >
         <div class="conv-line">
+          <span v-if="c.pinned" class="pin-mark" title="pinned">📌</span>
           <span class="conv-title ellipsis">{{ c.title || '(untitled)' }}</span>
           <span class="conv-time">{{ timeAgo(c.updatedAt) }}</span>
         </div>
@@ -146,9 +167,15 @@ async function doDelete(id: string) {
       :style="{ left: ctxMenu.x + 'px', top: ctxMenu.y + 'px' }"
       @click.stop
     >
+      <button class="ctx-item" @click="doTogglePin(ctxMenu.id)">
+        {{ conv.list.find((c) => c.id === ctxMenu.id)?.pinned ? '取消置顶' : '置顶' }}
+      </button>
       <button class="ctx-item" @click="doRename(ctxMenu.id)">重命名</button>
       <button class="ctx-item" @click="doSysPrompt(ctxMenu.id)">system prompt…</button>
       <button class="ctx-item" @click="doDuplicate(ctxMenu.id)">复制</button>
+      <button class="ctx-item" @click="doToggleArchive(ctxMenu.id)">
+        {{ conv.list.find((c) => c.id === ctxMenu.id)?.archived ? '取消归档' : '归档' }}
+      </button>
       <div class="ctx-sep" />
       <button class="ctx-item danger" @click="doDelete(ctxMenu.id)">删除</button>
     </div>
@@ -191,6 +218,11 @@ async function doDelete(id: string) {
   color: var(--accent);
 }
 
+.archived-on {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
 .convs-filter {
   margin: var(--sp-2);
   padding: var(--sp-1) var(--sp-2);
@@ -218,6 +250,16 @@ async function doDelete(id: string) {
 .conv-item.selected {
   background: var(--bg-active);
   border-color: var(--border-2);
+}
+
+.conv-item.pinned {
+  background: color-mix(in srgb, var(--accent-bg) 50%, transparent);
+}
+
+.pin-mark {
+  font-size: 10px;
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .conv-line {

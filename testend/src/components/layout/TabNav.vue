@@ -106,6 +106,7 @@ const sections: NavSection[] = [
       { label: 'Processes', path: '/dev/processes', hint: 'Bash bg' },
       { label: 'Metrics', path: '/dev/metrics' },
       { label: 'Errors', path: '/dev/errors' },
+      { label: 'Prompts', path: '/dev/prompts', hint: 'all LLM-facing prompts (§18.1)' },
     ],
   },
 ];

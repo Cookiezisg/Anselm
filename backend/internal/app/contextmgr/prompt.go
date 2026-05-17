@@ -8,6 +8,11 @@ import (
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
 )
 
+// CompactSystemPromptText exposes the compaction LLM system prompt to the §18 inventory endpoint.
+//
+// CompactSystemPromptText 把 compaction LLM 系统提示词暴露给 §18 总览端点。
+func CompactSystemPromptText() string { return compactSystemPrompt }
+
 const compactSystemPrompt = `You are maintaining a running summary of an ongoing conversation between a user and an AI assistant.
 
 The summary preserves what the assistant must remember to keep helping the user, while we drop older raw blocks to free context window.

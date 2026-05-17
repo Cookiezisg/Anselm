@@ -31,7 +31,12 @@ func New(deps Deps) http.Handler {
 		if deps.ChatService != nil {
 			tokens = deps.ChatService
 		}
-		handlershttpapi.NewConversationHandler(deps.ConversationService, tokens, deps.Log).Register(mux)
+		convH := handlershttpapi.NewConversationHandler(deps.ConversationService, tokens, deps.Log)
+		// §18.2 system prompt preview: ChatService implements SystemPromptPreviewer; nil-safe.
+		if deps.ChatService != nil {
+			convH.SetSystemPromptPreviewer(deps.ChatService)
+		}
+		convH.Register(mux)
 	}
 	if deps.FunctionService != nil {
 		handlershttpapi.NewFunctionHandler(deps.FunctionService, deps.Log).Register(mux)
@@ -115,6 +120,8 @@ func New(deps Deps) http.Handler {
 	}
 	if deps.Dev {
 		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(mux)
+		// §18.1 prompt inventory — dev-only audit endpoint.
+		handlershttpapi.NewPromptsHandler(deps.Tools, deps.SubagentRegistry, deps.Log).Register(mux)
 	}
 
 	mux.HandleFunc("/", middlewarehttpapi.NotFound)

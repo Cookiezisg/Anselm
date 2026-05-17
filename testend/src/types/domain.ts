@@ -27,6 +27,12 @@ export interface Conversation {
   summaryCoversUpToSeq?: number;
   /** Phase 5 §14.5c — doc refs prepended to every system prompt (live-resolved). */
   attachedDocuments?: Array<{ documentId: string; includeSubtree?: boolean }>;
+  /** §17.12 — archived hides from default list; toggle via PATCH `archived`. */
+  archived?: boolean;
+  /** §15.6 — pinned bubbles to top of sidebar; toggle via PATCH `pinned`. */
+  pinned?: boolean;
+  /** §12.3 — per-conv (provider, modelId) override; null/absent = use user's chat-scenario default. */
+  modelOverride?: { provider: string; modelId: string } | null;
   createdAt: string;
   updatedAt: string;
 }
