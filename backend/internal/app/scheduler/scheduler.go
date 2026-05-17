@@ -88,10 +88,24 @@ var (
 	ErrWorkflowNotFound       = errors.New("scheduler: workflow not found")
 )
 
+// StartRunOptions tweaks one-off behaviour for a single run (dry-run, override timeout, etc).
+//
+// StartRunOptions 调整单次 run 的临时行为（dry-run、覆盖 timeout 等）。
+type StartRunOptions struct {
+	DryRun bool // skip side-effect dispatchers; return mock outputs
+}
+
 // StartRun spawns a new FlowRun for a workflow trigger; implements SchedulerStarter.
 //
 // StartRun 为 workflow trigger 启动新 FlowRun，实现 SchedulerStarter。
 func (s *Service) StartRun(ctx context.Context, workflowID, triggerKind string, triggerInput map[string]any) (string, error) {
+	return s.StartRunWithOptions(ctx, workflowID, triggerKind, triggerInput, StartRunOptions{})
+}
+
+// StartRunWithOptions is the full-arg variant; StartRun delegates.
+//
+// StartRunWithOptions 是带 options 的全参数版本；StartRun 委派。
+func (s *Service) StartRunWithOptions(ctx context.Context, workflowID, triggerKind string, triggerInput map[string]any, opts StartRunOptions) (string, error) {
 	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return "", fmt.Errorf("schedulerapp.StartRun: %w", err)
@@ -137,13 +151,21 @@ func (s *Service) StartRun(ctx context.Context, workflowID, triggerKind string, 
 		TriggerInput: triggerInput,
 		Status:       flowrundomain.StatusRunning,
 		StartedAt:    now,
+		DryRun:       opts.DryRun,
 	}
 	if err := s.repo.Create(ctx, run); err != nil {
 		return "", fmt.Errorf("schedulerapp.StartRun: Create: %w", err)
 	}
 
+	// §5.7 run-level timeout: WithTimeout when wf.TimeoutSec>0; ctx.Err == DeadlineExceeded marks RUN_TIMEOUT.
+	// §5.7 run 级 timeout：wf.TimeoutSec>0 时 WithTimeout；ctx.Err == DeadlineExceeded → RUN_TIMEOUT。
 	runCtx := reqctxpkg.SetUserID(context.Background(), uid)
-	runCtx, cancel := context.WithCancel(runCtx)
+	var cancel context.CancelFunc
+	if wf.TimeoutSec > 0 {
+		runCtx, cancel = context.WithTimeout(runCtx, time.Duration(wf.TimeoutSec)*time.Second)
+	} else {
+		runCtx, cancel = context.WithCancel(runCtx)
+	}
 	s.cancelsMu.Lock()
 	s.cancels[run.ID] = cancel
 	s.cancelsMu.Unlock()

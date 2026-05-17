@@ -161,7 +161,9 @@ func TestApprovalDispatcher_EmitsSentinel(t *testing.T) {
 }
 
 func TestLoopDispatcher_EmitsItems(t *testing.T) {
-	d := NewLoopDispatcher()
+	// nil svc OK: no body → passthrough doesn't touch the scheduler back-ref.
+	// nil svc OK：无 body 透传不调 scheduler。
+	d := NewLoopDispatcher(nil)
 	out := d.Dispatch(context.Background(), mkInput(
 		workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLoop,
 			Config: map[string]any{"items": []any{"a", "b", "c"}}},
@@ -174,14 +176,19 @@ func TestLoopDispatcher_EmitsItems(t *testing.T) {
 	}
 }
 
-func TestLoopDispatcher_BodySubgraphUnsupported(t *testing.T) {
-	d := NewLoopDispatcher()
+func TestLoopDispatcher_BodyWithoutSchedulerRefIsError(t *testing.T) {
+	// V1: body subgraph requires svc back-ref; passing nil reports a wiring bug.
+	// V1: body 子图需要 svc 回指；传 nil 报装配 bug。
+	d := NewLoopDispatcher(nil)
 	out := d.Dispatch(context.Background(), mkInput(
 		workflowdomain.NodeSpec{ID: "l", Type: workflowdomain.NodeTypeLoop,
-			Config: map[string]any{"body": []any{"step1"}}},
+			Config: map[string]any{
+				"items": []any{"a"},
+				"body":  map[string]any{"nodes": []any{map[string]any{"id": "b1", "type": "variable"}}},
+			}},
 		&flowrundomain.FlowRun{ID: "fr1"}))
-	if !errors.Is(out.Error, ErrLoopBodyNotSupported) {
-		t.Errorf("expected ErrLoopBodyNotSupported, got %v", out.Error)
+	if out.Error == nil {
+		t.Errorf("expected error when body set + nil svc, got nil")
 	}
 }
 

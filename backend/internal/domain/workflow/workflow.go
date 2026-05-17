@@ -27,6 +27,7 @@ type Workflow struct {
 	NeedsAttention  bool           `gorm:"not null" json:"needsAttention"`
 	AttentionReason string         `gorm:"type:text;default:''" json:"attentionReason,omitempty"`
 	ActiveVersionID string         `gorm:"type:text;default:''" json:"activeVersionId"`
+	TimeoutSec      int            `gorm:"not null;default:0" json:"timeoutSec"` // §5.7 run-level timeout; 0 = unlimited
 	CreatedAt       time.Time      `json:"createdAt"`
 	UpdatedAt       time.Time      `json:"updatedAt"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`

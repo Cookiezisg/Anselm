@@ -3,10 +3,11 @@
  * FlowRun detail — node-by-node timeline + paused state + cancel/approve.
  * Sourced from `/api/v1/flowruns/{id}` and `/api/v1/flowruns/{id}/nodes`.
  */
-import { onMounted, ref, watch, computed } from 'vue';
+import { onMounted, onUnmounted, ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { flowrunAPI } from '@/api/flowruns';
 import { useUIStore } from '@/stores/ui';
+import { useNotificationsStore } from '@/stores/notifications';
 import ViewHeader from '@/components/common/ViewHeader.vue';
 import SubTabBar from '@/components/common/SubTabBar.vue';
 import { timeAgo, duration, pretty, shortID, statusClass } from '@/utils/format';
@@ -15,6 +16,7 @@ import type { FlowRun, FlowRunNode } from '@/types/domain';
 const props = defineProps<{ id: string }>();
 const router = useRouter();
 const ui = useUIStore();
+const notif = useNotificationsStore();
 
 const run = ref<FlowRun | null>(null);
 const nodes = ref<FlowRunNode[]>([]);
@@ -33,6 +35,60 @@ async function refresh() {
 }
 
 watch(() => props.id, refresh, { immediate: true });
+
+// Live progress: poll every 2s while running; react to flowrun notifications.
+// 实时进度：running 状态时 2s 轮询；订 flowrun 通知响应状态变更。
+let pollTimer: number | null = null;
+
+function isTerminal() {
+  const s = run.value?.status;
+  return s === 'completed' || s === 'failed' || s === 'cancelled';
+}
+
+function startPolling() {
+  if (pollTimer !== null) return;
+  pollTimer = window.setInterval(() => {
+    if (isTerminal()) {
+      stopPolling();
+      return;
+    }
+    refresh();
+  }, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer !== null) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+watch(
+  () => run.value?.status,
+  (s) => {
+    if (!s) return;
+    if (s === 'running' || s === 'paused') startPolling();
+    else stopPolling();
+  },
+);
+
+// Notifications: react to flowrun events matching this run id; refresh immediately on signal.
+// 通知：匹配本 run 的 flowrun 事件即时 refresh。
+watch(
+  () => notif.events.length,
+  () => {
+    const latest = notif.events[0];
+    if (latest && latest.type === 'flowrun' && latest.id === props.id) {
+      refresh();
+    }
+  },
+);
+
+onMounted(() => {
+  notif.start();
+  startPolling();
+});
+onUnmounted(stopPolling);
 
 const tabs = computed(() => [
   { id: 'timeline', label: 'Timeline', badge: nodes.value.length },
@@ -67,7 +123,10 @@ async function approveNode(nodeId: string, decision: 'approved' | 'rejected') {
   <div class="view">
     <ViewHeader v-if="run" :title="`FlowRun ${shortID(run.id, 10)}`" :subtitle="`workflow ${shortID(run.workflowId, 10)} · ${run.triggerKind}`">
       <template #actions>
+        <span v-if="run.dryRun" class="pill warn" title="Dry-run: side-effect nodes returned mock outputs">👁 DRY RUN</span>
         <span class="pill" :class="statusClass(run.status)">{{ run.status }}</span>
+        <span v-if="run.errorCode === 'RUN_TIMEOUT'" class="pill err" title="Run exceeded workflow.timeoutSec">⏱ RUN_TIMEOUT</span>
+        <span v-if="run.status === 'running' || run.status === 'paused'" class="live-pulse" title="Live polling every 2s">●</span>
         <span class="mono xs dim">{{ duration(run.elapsedMs) }}</span>
         <button v-if="run.status === 'running' || run.status === 'paused'" class="btn danger sm" @click="doCancel">Cancel</button>
         <button class="btn ghost sm" @click="ui.showRaw(run.id, run)">raw</button>
@@ -154,4 +213,15 @@ async function approveNode(nodeId: string, decision: 'approved' | 'rejected') {
 .empty-row { text-align: center; color: var(--fg-3); padding: var(--sp-4) 0; font-style: italic; }
 .center { padding: var(--sp-6); text-align: center; }
 .error { background: var(--status-err-bg); color: var(--status-err); padding: var(--sp-2); border-radius: var(--radius-sm); }
+.pill.warn { background: color-mix(in srgb, var(--status-warn) 25%, transparent); color: var(--status-warn); }
+.pill.err  { background: color-mix(in srgb, var(--status-err) 25%, transparent); color: var(--status-err); }
+.live-pulse {
+  color: var(--status-ok);
+  font-size: 12px;
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
 </style>

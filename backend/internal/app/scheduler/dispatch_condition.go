@@ -35,6 +35,7 @@ func (d *ConditionDispatcher) Dispatch(_ context.Context, in DispatchInput) Disp
 		Vars:     in.ExecCtx.Variables,
 		In:       in.NodeIn,
 		NodesOut: in.ExecCtx.Outputs,
+		Loop:     in.ExecCtx.Loop,
 		Run: workflowapp.RunContext{
 			ID:        in.ExecCtx.Run.ID,
 			StartedAt: in.ExecCtx.Run.StartedAt.Format("2006-01-02T15:04:05Z07:00"),

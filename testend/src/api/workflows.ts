@@ -34,8 +34,11 @@ export const wfAPI = {
   revert: (id: string, targetVersion: number) =>
     postJSON<WorkflowVersion>(`/api/v1/workflows/${id}:revert`, { targetVersion }),
 
-  trigger: (id: string, input: Record<string, unknown> = {}) =>
-    postJSON<{ runId: string }>(`/api/v1/workflows/${id}:trigger`, { input }),
+  trigger: (id: string, input: Record<string, unknown> = {}, dryRun = false) =>
+    postJSON<{ runId: string; dryRun?: boolean }>(
+      `/api/v1/workflows/${id}:trigger${dryRun ? '?dryRun=true' : ''}`,
+      { input },
+    ),
 
   versions: (id: string, status?: string) =>
     getPage<WorkflowVersion>(`/api/v1/workflows/${id}/versions`, { status, limit: 200 }),

@@ -514,7 +514,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	))
 	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
 	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
-	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher())
+	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher(schedulerService))
 	router.Set(workflowdomain.NodeTypeParallel, schedulerapp.NewParallelDispatcher())
 	router.Set(workflowdomain.NodeTypeApproval, schedulerapp.NewApprovalDispatcher())
 	router.Set(workflowdomain.NodeTypeWait, schedulerapp.NewWaitDispatcher())

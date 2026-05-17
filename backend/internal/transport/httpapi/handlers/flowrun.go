@@ -45,6 +45,24 @@ func (h *FlowRunHandler) FireManual(w http.ResponseWriter, r *http.Request, work
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	// ?dryRun=true bypasses trigger.FireManual and starts a preview run via scheduler directly.
+	// ?dryRun=true 跳 trigger.FireManual，直接经 scheduler 起预览 run。
+	dryRun := r.URL.Query().Get("dryRun") == "true" || r.URL.Query().Get("dryRun") == "1"
+	if dryRun {
+		if h.scheduler == nil {
+			responsehttpapi.Error(w, http.StatusServiceUnavailable, "SCHEDULER_NOT_AVAILABLE",
+				"scheduler not wired", nil)
+			return
+		}
+		runID, err := h.scheduler.StartRunWithOptions(r.Context(), workflowID,
+			"manual", req.Input, schedulerapp.StartRunOptions{DryRun: true})
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Created(w, map[string]any{"runId": runID, "dryRun": true})
+		return
+	}
 	if h.trigger == nil {
 		responsehttpapi.Error(w, http.StatusServiceUnavailable, "SCHEDULER_NOT_AVAILABLE",
 			"trigger service not wired", nil)

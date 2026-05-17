@@ -60,6 +60,28 @@ BRANCHING NODES (require fromPort on outgoing edges):
 SINGLE-OUTPUT NODES (trigger / function / handler / mcp / skill / llm / http / wait / variable / parallel):
   - fromPort must be empty/omitted on their outgoing edges.
 
+LOOP BODY SUBGRAPH (§5.1) — run a sub-DAG per item:
+  Put a {nodes,edges} object under config.body. Each iteration binds {{ .loop.item }}
+  and {{ .loop.index }} for template substitution inside body nodes. Default = sequential,
+  fail-fast. Set "parallel": true + "concurrency": N for fan-out (default cap 5).
+  Set "onError": "continue" to collect failed iterations instead of stopping.
+
+  Example "for each CSV row, classify via LLM, save via function":
+    {"op":"add_node", "node":{"id":"loop1", "type":"loop", "config":{
+       "items": ["row1","row2","row3"],
+       "parallel": true, "concurrency": 3, "onError": "continue",
+       "body": {
+         "nodes": [
+           {"id":"b_classify", "type":"llm",      "config":{"prompt":"Classify {{ .loop.item }}"}},
+           {"id":"b_save",     "type":"function", "config":{"functionId":"fn_save",
+                                                            "args":{"row":"{{ .loop.item }}"}}}
+         ],
+         "edges": [{"from":"b_classify", "to":"b_save"}]
+       }
+    }}}
+  Body output: {out: [terminalNodeOutput x N], count, successes, failures: [{index,error}]}
+  Body cannot contain approval nodes (V1 limit). Nesting depth ≤ 3.
+
 The schema rejects mismatches at create time — if your edge violates these rules you'll get WORKFLOW_OP_INVALID with the specific reason.`
 }
 

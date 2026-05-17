@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
@@ -25,6 +26,16 @@ type ExecutionContext struct {
 	Failed    map[string]string
 	Attempts  map[string]int
 	NextPort  map[string]string
+
+	// §5.1 Loop body — set on iteration-scoped sub-execContexts; nil on top-level.
+	// §5.1 Loop body — 迭代级 sub-execContext 设置；顶层为 nil/空。
+	Loop             *workflowapp.LoopContext
+	ParentLoopNodeID string
+	IterationIndex   int
+
+	// DryRun — true mirrors FlowRun.DryRun; side-effect dispatchers return mock outputs.
+	// DryRun — 跟 FlowRun.DryRun 同步；有副作用的 dispatcher 返 mock outputs。
+	DryRun bool
 }
 
 func newExecutionContext(run *flowrundomain.FlowRun, graph *workflowdomain.Graph) *ExecutionContext {
@@ -44,6 +55,7 @@ func newExecutionContext(run *flowrundomain.FlowRun, graph *workflowdomain.Graph
 		Failed:    make(map[string]string),
 		Attempts:  make(map[string]int),
 		NextPort:  make(map[string]string),
+		DryRun:    run.DryRun,
 	}
 }
 
@@ -175,19 +187,21 @@ func (s *Service) recordNode(ctx context.Context, run *flowrundomain.FlowRun, re
 	}
 
 	row := &flowrundomain.Node{
-		ID:          idgenpkg.New("frn"),
-		UserID:      run.UserID,
-		Status:      status,
-		TriggeredBy: flowrundomain.TriggerKindCron,
-		Input:       res.Input,
-		Output:      res.Output.Outputs,
-		StartedAt:   res.StartedAt,
-		EndedAt:     res.EndedAt,
-		ElapsedMs:   res.EndedAt.Sub(res.StartedAt).Milliseconds(),
-		FlowrunID:   run.ID,
-		NodeID:      res.Node.ID,
-		NodeType:    res.Node.Type,
-		Attempts:    maxInt(1, execCtx.Attempts[res.Node.ID]),
+		ID:             idgenpkg.New("frn"),
+		UserID:         run.UserID,
+		Status:         status,
+		TriggeredBy:    flowrundomain.TriggerKindCron,
+		Input:          res.Input,
+		Output:         res.Output.Outputs,
+		StartedAt:      res.StartedAt,
+		EndedAt:        res.EndedAt,
+		ElapsedMs:      res.EndedAt.Sub(res.StartedAt).Milliseconds(),
+		FlowrunID:      run.ID,
+		NodeID:         res.Node.ID,
+		NodeType:       res.Node.Type,
+		Attempts:       maxInt(1, execCtx.Attempts[res.Node.ID]),
+		ParentLoopNode: execCtx.ParentLoopNodeID,
+		IterationIndex: execCtx.IterationIndex,
 	}
 	row.TriggeredBy = "workflow"
 	if res.Output.Error != nil {

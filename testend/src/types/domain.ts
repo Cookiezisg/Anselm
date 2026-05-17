@@ -314,6 +314,8 @@ export interface FlowRun {
   errorCode?: string;
   errorMessage?: string;
   pausedState?: PausedState;
+  /** §5.7 + dry-run: true = preview run, side-effect nodes returned mock outputs */
+  dryRun?: boolean;
   createdAt: string;
 }
 
@@ -345,6 +347,9 @@ export interface FlowRunNode {
   toolCallId?: string;
   flowrunNodeId?: string;
   attempts: number;
+  /** §5.1 — set on body-node iterations; references the parent loop node + 0-based index */
+  parentLoopNode?: string;
+  iterationIndex?: number;
   createdAt: string;
 }
 

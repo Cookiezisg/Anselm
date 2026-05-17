@@ -56,6 +56,7 @@ type FlowRun struct {
 	ErrorCode    string         `gorm:"type:text;default:''" json:"errorCode,omitempty"`
 	ErrorMessage string         `gorm:"type:text;default:''" json:"errorMessage,omitempty"`
 	PausedState  *PausedState   `gorm:"serializer:json;type:text" json:"pausedState,omitempty"`
+	DryRun       bool           `gorm:"not null;default:false" json:"dryRun"` // dry-run preview: skip side-effect dispatchers, return mock outputs
 
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

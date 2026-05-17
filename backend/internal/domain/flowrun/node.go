@@ -42,6 +42,11 @@ type Node struct {
 	NodeType string `gorm:"not null;type:text" json:"nodeType"`
 	Attempts int    `gorm:"not null;default:1" json:"attempts"`
 
+	// §5.1 Loop body: ParentLoopNode = enclosing loop node ID; IterationIndex = 0-based item index. Both empty/0 for top-level nodes.
+	// §5.1 Loop body: ParentLoopNode 是外层 loop 节点 ID; IterationIndex 是 0-起的项序号; 顶层节点二者均空 / 0。
+	ParentLoopNode string `gorm:"type:text;default:''" json:"parentLoopNode,omitempty"`
+	IterationIndex int    `gorm:"not null;default:0" json:"iterationIndex,omitempty"`
+
 	CreatedAt time.Time      `gorm:"index:idx_frn_flowrun,priority:2,sort:desc" json:"createdAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }

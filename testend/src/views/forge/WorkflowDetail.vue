@@ -85,13 +85,13 @@ const tabs = computed(() => [
   { id: 'trigger', label: 'Trigger' },
 ]);
 
-async function doTrigger() {
+async function doTrigger(dryRun = false) {
   triggerBusy.value = true;
   triggerErr.value = null;
   try {
     const input = JSON.parse(triggerInput.value);
-    const r = await wfAPI.trigger(props.id, input);
-    ui.toast('ok', `已触发 run ${shortID(r.runId, 8)}`);
+    const r = await wfAPI.trigger(props.id, input, dryRun);
+    ui.toast('ok', `${dryRun ? '[DRY RUN] ' : ''}已触发 run ${shortID(r.runId, 8)}`);
   } catch (e) {
     triggerErr.value = (e as Error).message;
   } finally {
@@ -201,7 +201,13 @@ async function doRevert(v: number | undefined) {
         <p class="dim small">Manually fire this workflow with a JSON input. Returns a flowrun id.</p>
         <textarea v-model="triggerInput" rows="6" class="mono" />
         <div class="row-actions">
-          <button class="btn primary" :disabled="triggerBusy" @click="doTrigger">{{ triggerBusy ? '...' : 'Trigger' }}</button>
+          <button class="btn primary" :disabled="triggerBusy" @click="doTrigger(false)">{{ triggerBusy ? '...' : 'Trigger' }}</button>
+          <button
+            class="btn ghost"
+            :disabled="triggerBusy"
+            @click="doTrigger(true)"
+            title="Preview: side-effect nodes (function/handler/mcp/skill/llm/http/approval/wait) return mock outputs"
+          >👁 Dry-run</button>
         </div>
         <div v-if="triggerErr" class="error">{{ triggerErr }}</div>
       </section>

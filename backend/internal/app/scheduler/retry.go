@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
@@ -94,7 +95,46 @@ func isFatalErr(err error) bool {
 		errors.Is(err, ErrParallelBranchNotSupported)
 }
 
+// dryRunMockOutput returns a synthetic DispatchOutput for a side-effect node;
+// approval auto-routes "approved" so the DAG continues past the gate.
+//
+// dryRunMockOutput 返副作用节点的合成 DispatchOutput；approval 自动走 "approved"
+// 让 DAG 越过审批关。
+func dryRunMockOutput(node workflowdomain.NodeSpec) DispatchOutput {
+	out := DispatchOutput{
+		Outputs: map[string]any{
+			"out":     fmt.Sprintf("[DRY RUN: %s]", node.Type),
+			"_dryRun": true,
+		},
+	}
+	if node.Type == workflowdomain.NodeTypeApproval {
+		out.NextPort = "approved"
+	}
+	return out
+}
+
+// dryRunSideEffectNodes lists NodeTypes whose dispatchers cause external side effects
+// and must be mocked in dry-run mode. Pure-logic nodes (condition / variable / loop / parallel / trigger)
+// still execute normally so the DAG flow remains observable.
+//
+// dryRunSideEffectNodes 列出有副作用的 NodeType，dry-run 模式下需 mock；
+// 纯逻辑节点（condition / variable / loop / parallel / trigger）仍正常跑，DAG 流可见。
+var dryRunSideEffectNodes = map[string]bool{
+	workflowdomain.NodeTypeFunction: true,
+	workflowdomain.NodeTypeHandler:  true,
+	workflowdomain.NodeTypeMCP:      true,
+	workflowdomain.NodeTypeSkill:    true,
+	workflowdomain.NodeTypeLLM:      true,
+	workflowdomain.NodeTypeAgent:    true,
+	workflowdomain.NodeTypeHTTP:     true,
+	workflowdomain.NodeTypeApproval: true, // mock auto-approve
+	workflowdomain.NodeTypeWait:     true, // skip sleep
+}
+
 func (s *Service) dispatchWithPolicies(ctx context.Context, node workflowdomain.NodeSpec, input map[string]any, execCtx *ExecutionContext) DispatchOutput {
+	if execCtx.DryRun && dryRunSideEffectNodes[node.Type] {
+		return dryRunMockOutput(node)
+	}
 	timeout := nodeTimeoutDuration(node)
 	return withRetry(ctx, node, execCtx, func(rctx context.Context) DispatchOutput {
 		callCtx := rctx

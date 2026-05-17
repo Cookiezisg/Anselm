@@ -218,17 +218,39 @@ func (s *Service) continueRun(ctx context.Context, run *flowrundomain.FlowRun, g
 //
 // driveLoop 是 executeRun 与 continueRun 共享的 per-ready-set 循环本体。
 func (s *Service) driveLoop(ctx context.Context, run *flowrundomain.FlowRun, graph *workflowdomain.Graph, execCtx *ExecutionContext, topo *topoState, ready []string) {
-	terminalStatus := flowrundomain.StatusCompleted
-	var terminalErr string
-	var terminalErrCode string
+	status, errCode, errMsg, paused := s.runReadyLoop(ctx, run, execCtx, topo, ready)
+	if paused {
+		return // pauseRun already wrote terminal state
+	}
+	output := map[string]any{
+		"nodesCompleted": len(execCtx.Done),
+		"nodesTotal":     len(graph.Nodes),
+	}
+	s.finalizeRun(ctx, run, status, output, errCode, errMsg)
+}
+
+// runReadyLoop is the shared ready-set evaluator; returns (status, errCode, errMsg, paused).
+// Sub-graphs (loop body, future parallel branches) reuse this without finalizeRun.
+//
+// runReadyLoop 是 ready-set 循环主体；返 (status, errCode, errMsg, paused)。
+// 子图（loop body、未来 parallel branches）复用此函数但不调 finalizeRun。
+func (s *Service) runReadyLoop(ctx context.Context, run *flowrundomain.FlowRun, execCtx *ExecutionContext, topo *topoState, ready []string) (status, errCode, errMsg string, paused bool) {
+	status = flowrundomain.StatusCompleted
 
 	for len(ready) > 0 {
 		select {
 		case <-ctx.Done():
-			terminalStatus = flowrundomain.StatusCancelled
-			terminalErr = ctx.Err().Error()
-			ready = nil
-			goto FINALIZE
+			// Distinguish run-level timeout (DeadlineExceeded) from explicit cancel (Canceled).
+			// 区分 run 级超时 (DeadlineExceeded) 与显式 cancel (Canceled)。
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				status = flowrundomain.StatusFailed
+				errCode = "RUN_TIMEOUT"
+				errMsg = ctx.Err().Error()
+			} else {
+				status = flowrundomain.StatusCancelled
+				errMsg = ctx.Err().Error()
+			}
+			return
 		default:
 		}
 
@@ -246,13 +268,14 @@ func (s *Service) driveLoop(ctx context.Context, run *flowrundomain.FlowRun, gra
 				position := make([]string, 0, len(ready))
 				position = append(position, ready...)
 				if err := s.pauseRun(ctx, run, execCtx, res.Node.ID, position); err != nil {
-					s.log.Error("driveLoop: pause failed",
+					s.log.Error("runReadyLoop: pause failed",
 						zap.String("runID", run.ID), zap.Error(err))
-					terminalStatus = flowrundomain.StatusFailed
-					terminalErrCode = "PAUSE_FAILED"
-					terminalErr = err.Error()
-					goto FINALIZE
+					status = flowrundomain.StatusFailed
+					errCode = "PAUSE_FAILED"
+					errMsg = err.Error()
+					return
 				}
+				paused = true
 				return
 			}
 			s.recordNode(ctx, run, res, execCtx)
@@ -267,11 +290,10 @@ func (s *Service) driveLoop(ctx context.Context, run *flowrundomain.FlowRun, gra
 					execCtx.Done[res.Node.ID] = true
 					nextReady = append(nextReady, topo.advance(res.Node.ID, "error")...)
 				default:
-					terminalStatus = flowrundomain.StatusFailed
-					terminalErrCode = "NODE_FAILED"
-					terminalErr = fmt.Sprintf("node %q: %v", res.Node.ID, res.Output.Error)
-					ready = nil
-					goto FINALIZE
+					status = flowrundomain.StatusFailed
+					errCode = "NODE_FAILED"
+					errMsg = fmt.Sprintf("node %q: %v", res.Node.ID, res.Output.Error)
+					return
 				}
 				continue
 			}
@@ -284,13 +306,7 @@ func (s *Service) driveLoop(ctx context.Context, run *flowrundomain.FlowRun, gra
 		}
 		ready = nextReady
 	}
-
-FINALIZE:
-	output := map[string]any{
-		"nodesCompleted": len(execCtx.Done),
-		"nodesTotal":     len(graph.Nodes),
-	}
-	s.finalizeRun(ctx, run, terminalStatus, output, terminalErrCode, terminalErr)
+	return
 }
 
 // loadFrozenGraph fetches the specific Version graph the FlowRun is pinned to.
