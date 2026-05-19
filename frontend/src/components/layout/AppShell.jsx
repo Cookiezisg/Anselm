@@ -18,6 +18,11 @@ import { PlaceholderPane } from "../../panes/PlaceholderPane.jsx";
 import { ChatPane } from "../../panes/chat/ChatPane.jsx";
 import { ForgePane } from "../../panes/forge/ForgePane.jsx";
 import { ExecutePane } from "../../panes/execute/ExecutePane.jsx";
+import { ConfigPane } from "../../panes/config/ConfigPane.jsx";
+import { SkillsPane } from "../../panes/library/SkillsPane.jsx";
+import { McpPane } from "../../panes/library/McpPane.jsx";
+import { MemoryPane } from "../../panes/library/MemoryPane.jsx";
+import { DocumentsPane } from "../../panes/library/DocumentsPane.jsx";
 import { CommandPalette } from "../overlays/CommandPalette.jsx";
 import { NotificationsDrawer } from "../overlays/NotificationsDrawer.jsx";
 import { AskUserModal } from "../overlays/AskUserModal.jsx";
@@ -32,12 +37,12 @@ function renderPaneBody(kind, onClose) {
     case "chat":      return <ChatPane onClose={onClose} />;
     case "forge":     return <ForgePane />;
     case "execute":   return <ExecutePane />;
-    case "documents": return <PlaceholderPane title="文档" phase="Phase 9" lead="LLM-ranked attach (Phase 5 backend)" />;
-    case "skills":    return <PlaceholderPane title="Skills" phase="Phase 9" lead="SKILL.md library" />;
-    case "mcp":       return <PlaceholderPane title="MCP" phase="Phase 9" lead="MCP servers + health" />;
-    case "memory":    return <PlaceholderPane title="Memory" phase="Phase 9" lead="user / feedback / project / reference" />;
+    case "documents": return <DocumentsPane />;
+    case "skills":    return <SkillsPane />;
+    case "mcp":       return <McpPane />;
+    case "memory":    return <MemoryPane />;
     case "observe":   return <PlaceholderPane title="洞察" phase="Phase 5 backend" lead="metrics dashboard" />;
-    case "config":    return <PlaceholderPane title="设置" phase="Phase 9" lead="API keys / model / sandbox / 外观 / 数据" />;
+    case "config":    return <ConfigPane />;
     default:          return null;
   }
 }
