@@ -337,3 +337,26 @@ workflow_versions    +ForgedInConversationID *string (gorm:"index;type:text")
 ```
 
 nullable text，由 LLM via `create_forge` / `edit_forge` 工具填入当前 conversation ID；HTTP 手工 create/edit 时为 NULL。**触发 relations 域 forged_entity / edited_entity 边写入的"作者签名"字段**。
+
+---
+
+## Phase 5 增量：mcp_health_history ✅（2026-05-19）
+
+V1.2 §17 — MCP server 健康探测的时序记录，前端 mcp 详情页 sparkline 数据源。
+
+```
+mcp_health_history (V1.2 §17 mcp 健康历史；append-only，无 deleted_at)
+  ├─ id              text primary key (mch_<16hex>)
+  ├─ user_id         text not null
+  ├─ server_name     text not null
+  ├─ healthy         boolean
+  ├─ latency_ms      int default 0
+  ├─ tool_count      int default 0
+  ├─ error_msg       text default ''
+  └─ checked_at      datetime not null
+  
+  索引：
+    idx_mch_user_server (user_id, server_name, checked_at DESC) — 按 server 拉时间窗
+```
+
+写入时机：`mcpapp.Service.HealthCheck` 每次调用都追加一行（best-effort，失败仅 log）。

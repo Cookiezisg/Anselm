@@ -201,8 +201,10 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 }
 
 // HealthCheck probes with tools/list; does NOT mutate ServerStatus.
+// When healthRepo is wired, also appends a HealthSnapshot row for history.
 //
 // HealthCheck 用 tools/list 探测；不修改 ServerStatus 计数。
+// healthRepo 已装配时，同时追加一条 HealthSnapshot 历史记录。
 func (s *Service) HealthCheck(ctx context.Context, name string) (*mcpdomain.HealthResult, error) {
 	s.mu.RLock()
 	client, hasClient := s.clients[name]
@@ -219,6 +221,7 @@ func (s *Service) HealthCheck(ctx context.Context, name string) (*mcpdomain.Heal
 	if !hasClient {
 		res.Healthy = false
 		res.Error = "server not connected"
+		s.recordHealthSnapshot(ctx, name, res)
 		return res, nil
 	}
 
@@ -231,11 +234,57 @@ func (s *Service) HealthCheck(ctx context.Context, name string) (*mcpdomain.Heal
 	if err != nil {
 		res.Healthy = false
 		res.Error = err.Error()
+		s.recordHealthSnapshot(ctx, name, res)
 		return res, nil
 	}
 	res.Healthy = true
 	res.ToolCount = len(tools)
+	s.recordHealthSnapshot(ctx, name, res)
 	return res, nil
+}
+
+// recordHealthSnapshot best-effort appends a HealthSnapshot row; failures
+// log-warned but don't propagate.
+//
+// recordHealthSnapshot 最大努力追加一条 HealthSnapshot；失败仅 log，不传播。
+func (s *Service) recordHealthSnapshot(ctx context.Context, serverName string, res *mcpdomain.HealthResult) {
+	if s.healthRepo == nil {
+		return
+	}
+	uid, ok := reqctxpkg.GetUserID(ctx)
+	if !ok {
+		uid = reqctxpkg.DefaultLocalUserID
+	}
+	snap := &mcpdomain.HealthSnapshot{
+		ID:         idgenpkg.New("mch"),
+		UserID:     uid,
+		ServerName: serverName,
+		Healthy:    res.Healthy,
+		LatencyMs:  res.LatencyMs,
+		ToolCount:  res.ToolCount,
+		ErrorMsg:   res.Error,
+		CheckedAt:  res.CheckedAt,
+	}
+	if err := s.healthRepo.Insert(ctx, snap); err != nil {
+		s.log.Warn("mcpapp.HealthCheck: history record failed (best-effort)",
+			zap.String("server", serverName), zap.Error(err))
+	}
+}
+
+// ListHealthHistory returns health snapshots for a server in the given window.
+// Empty list returned when historyRepo is not wired (V1 graceful degradation).
+//
+// ListHealthHistory 返服务在时间窗内的健康快照。
+// historyRepo 未装配时返空列表（V1 优雅降级）。
+func (s *Service) ListHealthHistory(ctx context.Context, name string, since time.Time) ([]*mcpdomain.HealthSnapshot, error) {
+	if s.healthRepo == nil {
+		return []*mcpdomain.HealthSnapshot{}, nil
+	}
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mcpapp.ListHealthHistory: %w", err)
+	}
+	return s.healthRepo.ListSince(ctx, uid, name, since)
 }
 
 // recordCallResult bumps per-server health counters; consecutive failures flip degraded/ready.

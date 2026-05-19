@@ -463,3 +463,20 @@ settings.json 顶层 schema：`{permissions:{defaultMode:ask\|allow\|deny\|bypas
 | `GET /api/v1/relgraph` | 洞察 tab 全图快照（`{nodes, edges}`）；conversation 实体只在有边时入图，其他实体类型含孤儿 |
 
 详 [`../service-design-documents/relation.md`](../service-design-documents/relation.md)。
+
+#### askai + capability check + mcp health ✅（2026-05-19）
+
+V1.2 §17 — 前端洞察 / 编辑器 / mcp 屏需要的最后一批端点。
+
+| Endpoint | 用途 |
+|---|---|
+| `POST /api/v1/workflows/{id}:capability-check` | 跑 ValidateGraph 返报告（OK + issues 列表），不拒绝；前端编辑器试跑前预检 |
+| `POST /api/v1/functions/{id}:iterate` | AI 改 function：起内部对话 + system prompt（含当前 code）+ 用户提示，返 conversationId；前端订阅 eventlog + forge stream 看 AI 推理 + pending 落地 |
+| `POST /api/v1/handlers/{id}:iterate` | 同上，针对 handler |
+| `POST /api/v1/workflows/{id}:iterate` | 同上，针对 workflow |
+| `POST /api/v1/documents/{id}:iterate` | 同上，针对 document |
+| `POST /api/v1/flowruns/{id}:triage` | AI 失败排查：flowrun 全状态 + workflow graph + 可选 user hint 做 system prompt，LLM 分析失败 → 可能调 edit_forge → pending 让用户 review |
+| `GET /api/v1/mcp-servers/{name}/health-history?sinceMinutes=N` | 返时间窗内的 health 快照；HealthCheck 每次调用自动写一行 |
+| `POST /api/v1/mcp-servers/{name}/tools/{toolName}:invoke` | 直接调 MCP 工具（绕 chat/LLM）；mcp 详情页"试调用"按钮用 |
+
+详 `service-design-documents/{workflow,function,handler,document,flowrun,mcp}.md`。askai 共享编排见 `app/askai/`。

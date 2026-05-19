@@ -46,7 +46,8 @@ type Service struct {
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
 	notif       notificationspkg.Publisher
-	relations   RelationSyncer // optional; nil disables relation hooks
+	relations   RelationSyncer                  // optional; nil disables relation hooks
+	healthRepo  mcpdomain.HealthHistoryRepository // optional; nil disables history recording
 	log         *zap.Logger
 
 	callRepo mcpdomain.CallRepository
@@ -63,6 +64,14 @@ type Service struct {
 //
 // SetRelationSyncer 装配后注入 relation Service。
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
+
+// SetHealthHistoryRepo installs the snapshot repo; HealthCheck calls will write
+// a row after each probe when this is set.
+//
+// SetHealthHistoryRepo 装配 snapshot 仓库；每次 HealthCheck 探测后写一行。
+func (s *Service) SetHealthHistoryRepo(repo mcpdomain.HealthHistoryRepository) {
+	s.healthRepo = repo
+}
 
 // New constructs a Service; caller must Start before CallTool/Search.
 //

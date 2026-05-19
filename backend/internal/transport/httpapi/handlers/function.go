@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
@@ -17,13 +18,19 @@ import (
 //
 // FunctionHandler 持 function HTTP 路由。
 type FunctionHandler struct {
-	svc *functionapp.Service
-	log *zap.Logger
+	svc     *functionapp.Service
+	spawner *askai.Spawner // optional; nil disables :iterate
+	log     *zap.Logger
 }
 
 func NewFunctionHandler(svc *functionapp.Service, log *zap.Logger) *FunctionHandler {
 	return &FunctionHandler{svc: svc, log: log}
 }
+
+// SetSpawner installs the askai Spawner post-construction; nil disables :iterate.
+//
+// SetSpawner 装配后注入 askai Spawner；nil 关闭 :iterate。
+func (h *FunctionHandler) SetSpawner(s *askai.Spawner) { h.spawner = s }
 
 func (h *FunctionHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/functions", h.Create)
@@ -145,9 +152,46 @@ func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request)
 		h.Revert(w, r, id)
 	case "edit":
 		h.Edit(w, r, id)
+	case "iterate":
+		h.Iterate(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// Iterate spawns an AI-driven editing conversation for this function: builds
+// a system prompt with current state + user's request, returns conversationId
+// for frontend to subscribe to eventlog + forge stream.
+//
+// Iterate 起一个 AI 编辑对话：拼当前状态 + 用户请求做 system prompt，返
+// conversationId 让前端订阅 eventlog + forge stream 看 AI 推理 + pending 落地。
+func (h *FunctionHandler) Iterate(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE",
+			"askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sysPrompt, err := askai.BuildFunctionContext(r.Context(), id, h.svc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   req.Prompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 // Edit applies ops to a function, producing or iterating a pending version.

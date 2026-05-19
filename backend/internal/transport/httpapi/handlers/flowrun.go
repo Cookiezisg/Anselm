@@ -5,8 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
@@ -16,14 +18,24 @@ import (
 //
 // FlowRunHandler 持执行 plane HTTP 路由。
 type FlowRunHandler struct {
-	repo      flowrundomain.Repository
-	scheduler *schedulerapp.Service
-	trigger   *triggerapp.Service
-	log       *zap.Logger
+	repo        flowrundomain.Repository
+	scheduler   *schedulerapp.Service
+	trigger     *triggerapp.Service
+	spawner     *askai.Spawner       // V1.2 §17 — :triage action; nil disables
+	workflowSvc *workflowapp.Service // for triage context (workflow graph lookup)
+	log         *zap.Logger
 }
 
 func NewFlowRunHandler(repo flowrundomain.Repository, scheduler *schedulerapp.Service, trigger *triggerapp.Service, log *zap.Logger) *FlowRunHandler {
 	return &FlowRunHandler{repo: repo, scheduler: scheduler, trigger: trigger, log: log}
+}
+
+// SetAskAI wires the askai Spawner + workflow service post-construction.
+//
+// SetAskAI 装配后注入 askai Spawner + workflow service。
+func (h *FlowRunHandler) SetAskAI(s *askai.Spawner, wf *workflowapp.Service) {
+	h.spawner = s
+	h.workflowSvc = wf
 }
 
 func (h *FlowRunHandler) Register(mux *http.ServeMux) {
@@ -32,6 +44,61 @@ func (h *FlowRunHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/flowruns/{id}/nodes", h.ListNodes)
 	mux.HandleFunc("DELETE /api/v1/flowruns/{id}", h.Cancel)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeId}", h.Approve)
+	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnFlowRun)
+}
+
+// postOnFlowRun dispatches POST /api/v1/flowruns/{id}:<action> (:triage).
+//
+// postOnFlowRun 派发 POST /api/v1/flowruns/{id}:<action>(:triage)。
+func (h *FlowRunHandler) postOnFlowRun(w http.ResponseWriter, r *http.Request) {
+	id, action, ok := idAndAction(r, "idAction")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	switch action {
+	case "triage":
+		h.Triage(w, r, id)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+// Triage spawns an AI-driven debugging conversation for this flowrun: builds
+// a system prompt with run state + workflow graph + (optional) user hint,
+// returns conversationId for frontend to subscribe to eventlog + forge stream.
+//
+// Triage 起 AI 调试对话：拼 run 状态 + workflow graph + 可选 user hint 做
+// system prompt，返 conversationId 让前端订阅流。
+func (h *FlowRunHandler) Triage(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE",
+			"askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt,omitempty"`
+	}
+	// Body is optional — Triage is meaningful even with no user hint.
+	_ = decodeJSON(r, &req)
+	sysPrompt, err := askai.BuildTriageContext(r.Context(), id, h.repo, h.workflowSvc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	userPrompt := req.Prompt
+	if userPrompt == "" {
+		userPrompt = "Please analyze this flowrun and tell me what went wrong and how to fix it."
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   userPrompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 // FireManual is invoked from WorkflowHandler's :trigger action dispatch.

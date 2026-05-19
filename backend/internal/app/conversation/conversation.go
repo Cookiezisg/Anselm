@@ -72,24 +72,36 @@ func (s *Service) SetKeyProvider(keys apikeydomain.KeyProvider) { s.keys = keys 
 //
 // Create 创建一个新对话，title 可为空。
 func (s *Service) Create(ctx context.Context, title string) (*convdomain.Conversation, error) {
+	return s.CreateWithSystemPrompt(ctx, title, "")
+}
+
+// CreateWithSystemPrompt makes a new conversation pre-stamped with a system
+// prompt section. Used by the ask-ai / triage spawner so the LLM sees the
+// entity context from turn 1. Title left empty → auto-title kicks in.
+//
+// CreateWithSystemPrompt 创建带 system prompt 的新对话；ask-ai / triage 用，
+// LLM 从第 1 轮起就看到 entity 上下文。Title 留空 → auto-title 自然生效。
+func (s *Service) CreateWithSystemPrompt(ctx context.Context, title, systemPrompt string) (*convdomain.Conversation, error) {
 	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("conversation.Service.Create: %w", err)
 	}
 	now := time.Now().UTC()
 	c := &convdomain.Conversation{
-		ID:        newID(),
-		UserID:    uid,
-		Title:     strings.TrimSpace(title),
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:           newID(),
+		UserID:       uid,
+		Title:        strings.TrimSpace(title),
+		SystemPrompt: systemPrompt,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	if err := s.repo.Save(ctx, c); err != nil {
 		return nil, err
 	}
 	s.log.Info("conversation created",
 		zap.String("conversation_id", c.ID),
-		zap.String("user_id", uid))
+		zap.String("user_id", uid),
+		zap.Bool("has_system_prompt", systemPrompt != ""))
 	s.notif.Publish(ctx, "conversation", c.ID,
 		map[string]any{"action": "created", "title": c.Title}, c.ID)
 	return c, nil

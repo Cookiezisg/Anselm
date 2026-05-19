@@ -5,7 +5,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -32,13 +34,83 @@ func (h *MCPHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/mcp-servers", h.ListServers)
 	mux.HandleFunc("GET /api/v1/mcp-servers/{name}", h.GetServer)
 	mux.HandleFunc("GET /api/v1/mcp-servers/{name}/stderr", h.GetServerStderr)
+	mux.HandleFunc("GET /api/v1/mcp-servers/{name}/health-history", h.GetHealthHistory)
 	mux.HandleFunc("PUT /api/v1/mcp-servers/{name}", h.PutServer)
 	mux.HandleFunc("DELETE /api/v1/mcp-servers/{name}", h.DeleteServer)
 	mux.HandleFunc("POST /api/v1/mcp-servers/{nameAction}", h.serverNameAction)
+	mux.HandleFunc("POST /api/v1/mcp-servers/{name}/tools/{toolNameAction}", h.toolNameAction)
 	mux.HandleFunc("POST /api/v1/mcp-servers:import", h.importServers)
 	mux.HandleFunc("GET /api/v1/mcp-registry", h.ListRegistry)
 	mux.HandleFunc("GET /api/v1/mcp-registry/{name}", h.GetRegistryEntry)
 	mux.HandleFunc("POST /api/v1/mcp-registry/{nameAction}", h.registryNameAction)
+}
+
+// GetHealthHistory returns recent health snapshots for a server. ?sinceMinutes=N
+// controls window (default 1440 = 24h, max 10080 = 7 days).
+//
+// GetHealthHistory 返 server 最近健康快照；?sinceMinutes=N 控时间窗
+// （默认 1440 = 24h，最大 10080 = 7 天）。
+func (h *MCPHandler) GetHealthHistory(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	sinceMin := 1440
+	if raw := r.URL.Query().Get("sinceMinutes"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			sinceMin = n
+		}
+	}
+	if sinceMin > 10080 {
+		sinceMin = 10080
+	}
+	since := time.Now().UTC().Add(-time.Duration(sinceMin) * time.Minute)
+	rows, err := h.svc.ListHealthHistory(r.Context(), name, since)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, rows)
+}
+
+// toolNameAction dispatches POST /mcp-servers/{name}/tools/{tool}:invoke.
+//
+// toolNameAction 派发 POST /mcp-servers/{name}/tools/{tool}:invoke。
+func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	toolName, action := splitAction(r.PathValue("toolNameAction"))
+	if toolName == "" {
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
+			"missing tool name in path", nil)
+		return
+	}
+	switch action {
+	case "invoke":
+		h.invokeTool(w, r, name, toolName)
+	default:
+		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST",
+			"unknown action "+action, nil)
+	}
+}
+
+// invokeTool calls an MCP tool directly (bypasses chat/LLM); used by MCP detail
+// page "试调用" button to let users smoke-test tools.
+//
+// invokeTool 直接调 MCP 工具（绕过 chat/LLM）；mcp 详情页"试调用"按钮用。
+func (h *MCPHandler) invokeTool(w http.ResponseWriter, r *http.Request, serverName, toolName string) {
+	var req struct {
+		Args json.RawMessage `json:"args"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if len(req.Args) == 0 {
+		req.Args = json.RawMessage("{}")
+	}
+	res, err := h.svc.CallTool(r.Context(), serverName, toolName, req.Args)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{"result": res})
 }
 
 func (h *MCPHandler) ListServers(w http.ResponseWriter, r *http.Request) {

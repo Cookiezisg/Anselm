@@ -39,18 +39,24 @@ func New(deps Deps) http.Handler {
 		convH.Register(mux)
 	}
 	if deps.FunctionService != nil {
-		handlershttpapi.NewFunctionHandler(deps.FunctionService, deps.Log).Register(mux)
+		fh := handlershttpapi.NewFunctionHandler(deps.FunctionService, deps.Log)
+		fh.SetSpawner(deps.AskAISpawner)
+		fh.Register(mux)
 	}
 	if deps.HandlerService != nil {
-		handlershttpapi.NewHandlerHandler(deps.HandlerService, deps.Log).Register(mux)
+		hh := handlershttpapi.NewHandlerHandler(deps.HandlerService, deps.Log)
+		hh.SetSpawner(deps.AskAISpawner)
+		hh.Register(mux)
 	}
 	var wfH *handlershttpapi.WorkflowHandler
 	if deps.WorkflowService != nil {
 		wfH = handlershttpapi.NewWorkflowHandler(deps.WorkflowService, deps.Log)
+		wfH.SetSpawner(deps.AskAISpawner)
 		wfH.Register(mux)
 	}
 	if deps.FlowRunRepo != nil {
 		frH := handlershttpapi.NewFlowRunHandler(deps.FlowRunRepo, deps.SchedulerService, deps.TriggerService, deps.Log)
+		frH.SetAskAI(deps.AskAISpawner, deps.WorkflowService)
 		frH.Register(mux)
 		if wfH != nil {
 			wfH.AttachFlowRunHandler(frH)
@@ -98,7 +104,9 @@ func New(deps Deps) http.Handler {
 		handlershttpapi.NewMemoryHandler(deps.MemoryService, deps.Log).Register(mux)
 	}
 	if deps.DocumentService != nil {
-		handlershttpapi.NewDocumentHandler(deps.DocumentService, deps.Log).Register(mux)
+		dh := handlershttpapi.NewDocumentHandler(deps.DocumentService, deps.Log)
+		dh.SetSpawner(deps.AskAISpawner)
+		dh.Register(mux)
 	}
 	if deps.RelationService != nil {
 		handlershttpapi.NewRelationHandler(deps.RelationService, deps.Log).Register(mux)

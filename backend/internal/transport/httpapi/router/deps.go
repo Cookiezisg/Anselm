@@ -21,6 +21,7 @@ import (
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
 	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	permgateapp "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
@@ -86,6 +87,7 @@ type Deps struct {
 	MemoryService       *memoryapp.Service
 	DocumentService     *documentapp.Service
 	RelationService     *relationapp.Service
+	AskAISpawner        *askai.Spawner // V1.2 §17 forge :iterate + flowrun :triage
 	UserService         *userapp.Service
 
 	// §4.5 metrics dashboard — aggregated views over the 4 D22 execution-log tables.

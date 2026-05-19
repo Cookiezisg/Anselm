@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
@@ -14,13 +15,16 @@ import (
 )
 
 type HandlerHandler struct {
-	svc *handlerapp.Service
-	log *zap.Logger
+	svc     *handlerapp.Service
+	spawner *askai.Spawner // optional; nil disables :iterate
+	log     *zap.Logger
 }
 
 func NewHandlerHandler(svc *handlerapp.Service, log *zap.Logger) *HandlerHandler {
 	return &HandlerHandler{svc: svc, log: log}
 }
+
+func (h *HandlerHandler) SetSpawner(s *askai.Spawner) { h.spawner = s }
 
 func (h *HandlerHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/handlers", h.Create)
@@ -147,9 +151,43 @@ func (h *HandlerHandler) postOnHandler(w http.ResponseWriter, r *http.Request) {
 		h.Revert(w, r, id)
 	case "edit":
 		h.Edit(w, r, id)
+	case "iterate":
+		h.Iterate(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// Iterate — see FunctionHandler.Iterate for semantics.
+//
+// Iterate —— 语义见 FunctionHandler.Iterate。
+func (h *HandlerHandler) Iterate(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE",
+			"askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sysPrompt, err := askai.BuildHandlerContext(r.Context(), id, h.svc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   req.Prompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 // Edit applies ops to a handler, producing or iterating a pending version.

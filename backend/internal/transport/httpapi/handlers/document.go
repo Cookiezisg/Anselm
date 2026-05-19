@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
@@ -14,13 +15,16 @@ import (
 //
 // DocumentHandler 持文档树的 7 个 HTTP 端点(CRUD + move)。
 type DocumentHandler struct {
-	svc *documentapp.Service
-	log *zap.Logger
+	svc     *documentapp.Service
+	spawner *askai.Spawner // optional; nil disables :iterate
+	log     *zap.Logger
 }
 
 func NewDocumentHandler(svc *documentapp.Service, log *zap.Logger) *DocumentHandler {
 	return &DocumentHandler{svc: svc, log: log}
 }
+
+func (h *DocumentHandler) SetSpawner(s *askai.Spawner) { h.spawner = s }
 
 func (h *DocumentHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/documents", h.List)
@@ -171,9 +175,43 @@ func (h *DocumentHandler) postOnDoc(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "move":
 		h.move(w, r, id)
+	case "iterate":
+		h.Iterate(w, r, id)
 	default:
 		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
 	}
+}
+
+// Iterate — see FunctionHandler.Iterate for semantics.
+//
+// Iterate —— 语义见 FunctionHandler.Iterate。
+func (h *DocumentHandler) Iterate(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE",
+			"askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sysPrompt, err := askai.BuildDocumentContext(r.Context(), id, h.svc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   req.Prompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 func (h *DocumentHandler) move(w http.ResponseWriter, r *http.Request, id string) {

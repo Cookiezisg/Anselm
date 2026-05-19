@@ -35,6 +35,7 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
+	askaiapp "github.com/sunweilin/forgify/backend/internal/app/askai"
 	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
@@ -101,6 +102,7 @@ import (
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
 	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
 	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
+	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
@@ -240,6 +242,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
 		&relationdomain.Relation{},
+		&mcpdomain.HealthSnapshot{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -489,6 +492,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 	mcpService.SetRelationSyncer(relationService)
 	skillService.SetRelationSyncer(relationService)
 
+	askaiSpawner := askaiapp.New(convService, chatService, log)
+
 	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
 		bundle, err := llmclientpkg.ResolveForWebSummary(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
@@ -521,6 +526,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	flowrunRepo := flowrunstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
+	mcpHealthRepo := mcphealthstore.New(gdb)
+	mcpService.SetHealthHistoryRepo(mcpHealthRepo)
 	skillExecRepo := skillexecstore.New(gdb)
 	mcpService.SetCallRepo(mcpCallRepo)
 	skillService.SetExecRepo(skillExecRepo)
@@ -586,6 +593,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
 		RelationService:     relationService,
+		AskAISpawner:        askaiSpawner,
 		UserService:         userService,
 		SettingsService:     settingsService,
 		SettingsPath:        settingsPath,

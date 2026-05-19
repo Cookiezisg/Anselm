@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	askai "github.com/sunweilin/forgify/backend/internal/app/askai"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
@@ -19,12 +20,15 @@ import (
 type WorkflowHandler struct {
 	svc     *workflowapp.Service
 	flowrun *FlowRunHandler
+	spawner *askai.Spawner // optional; nil disables :iterate
 	log     *zap.Logger
 }
 
 func NewWorkflowHandler(svc *workflowapp.Service, log *zap.Logger) *WorkflowHandler {
 	return &WorkflowHandler{svc: svc, log: log}
 }
+
+func (h *WorkflowHandler) SetSpawner(s *askai.Spawner) { h.spawner = s }
 
 // AttachFlowRunHandler enables :trigger action + /triggers state.
 //
@@ -164,9 +168,60 @@ func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		h.flowrun.FireManual(w, r, id)
+	case "capability-check":
+		h.CapabilityCheck(w, r, id)
+	case "iterate":
+		h.Iterate(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// Iterate — see FunctionHandler.Iterate for semantics.
+//
+// Iterate —— 语义见 FunctionHandler.Iterate。
+func (h *WorkflowHandler) Iterate(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE",
+			"askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sysPrompt, err := askai.BuildWorkflowContext(r.Context(), id, h.svc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   req.Prompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
+}
+
+// CapabilityCheck runs pre-flight validation on the workflow's active version.
+// Returns a report with ok=bool + issues list; HTTP 200 in both pass and fail
+// cases — failure mode is body content not status.
+//
+// CapabilityCheck 跑 workflow active version 预检。
+// 返 {ok, issues} 报告；通过 / 不通过都 HTTP 200，body 内容区分。
+func (h *WorkflowHandler) CapabilityCheck(w http.ResponseWriter, r *http.Request, id string) {
+	report, err := h.svc.CapabilityCheck(r.Context(), id)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, report)
 }
 
 // GetTriggers returns per-trigger State; empty list when flowrun unwired.

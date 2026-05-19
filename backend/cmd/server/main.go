@@ -28,6 +28,7 @@ import (
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
+	askaiapp "github.com/sunweilin/forgify/backend/internal/app/askai"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
@@ -104,6 +105,7 @@ import (
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
 	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
 	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
+	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	settingsinfra "github.com/sunweilin/forgify/backend/internal/infra/settings"
@@ -186,6 +188,7 @@ func main() {
 		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
 		&relationdomain.Relation{},
+		&mcpdomain.HealthSnapshot{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -470,10 +473,20 @@ func main() {
 	mcpService.SetRelationSyncer(relationService)
 	skillService.SetRelationSyncer(relationService)
 
+	// V1.2 §17 askai spawner: shared infrastructure for forge :iterate +
+	// flowrun :triage endpoints. Creates user-visible conversation, system-
+	// prompts it, sends initial user message, returns conversationId.
+	//
+	// V1.2 §17 askai spawner：forge :iterate + flowrun :triage 端点共享基础设施。
+	// 起用户可见对话、注入 system prompt、发首个用户消息、返 conversationId。
+	askaiSpawner := askaiapp.New(convService, chatService, log)
+
 	flowrunRepo := flowrunstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
+	mcpHealthRepo := mcphealthstore.New(gdb)
 	skillExecRepo := skillexecstore.New(gdb)
 	mcpService.SetCallRepo(mcpCallRepo)
+	mcpService.SetHealthHistoryRepo(mcpHealthRepo)
 	skillService.SetExecRepo(skillExecRepo)
 	// §4.5 metrics dashboard reuses these execution-log repos.
 	functionExecRepo := functionstore.New(gdb)
@@ -568,6 +581,7 @@ func main() {
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
 		RelationService:     relationService,
+		AskAISpawner:        askaiSpawner,
 		UserService:         userService,
 		FunctionExecRepo:    functionExecRepo,
 		HandlerCallRepo:     handlerCallRepo,
