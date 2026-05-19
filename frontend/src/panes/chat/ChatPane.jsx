@@ -1,0 +1,143 @@
+// ChatPane — header + scrolling thread + composer. The chat store
+// (SSE-driven) is the source of truth for the rendered tree; REST
+// history hydrates it on first mount or conv switch.
+//
+// ChatPane —— 头部 + 滚动消息流 + composer。chat store 是真实 tree；
+// 切换/初次进入时由 REST 历史 hydrate。
+
+import { useEffect, useRef } from "react";
+import { useConversation, useConversationMessages, useSendMessage, useCancelStream } from "../../api/conversations.js";
+import { useApiKeys } from "../../api/config.js";
+import { useChatStore } from "../../store/chat.js";
+import { useUIStore } from "../../store/ui.js";
+import { ChatHeader } from "./ChatHeader.jsx";
+import { MessageView } from "./MessageView.jsx";
+import { Composer } from "./Composer.jsx";
+import { NoApiKeyGate } from "./NoApiKeyGate.jsx";
+import { Icon } from "../../components/primitives/Icon.jsx";
+
+export function ChatPane({ onClose }) {
+  const activeConv = useUIStore((s) => s.activeConv);
+  const { data: conv } = useConversation(activeConv);
+  const { data: historyMessages, isLoading: histLoading } = useConversationMessages(activeConv);
+  const { data: apiKeys = [], isLoading: keysLoading } = useApiKeys();
+
+  const hydrateConv = useChatStore((s) => s.hydrateConv);
+  const ensureConv = useChatStore((s) => s.ensureConv);
+  const topMsgIds = useChatStore((s) => (activeConv ? (s.convs[activeConv]?.topMsgIds || []) : []));
+  const hasAnyMessage = useChatStore((s) => (activeConv ? (s.convs[activeConv]?.messages.size > 0) : false));
+
+  // Detect whether any message in this conv is currently streaming.
+  const isStreaming = useChatStore((s) => {
+    const conv = activeConv && s.convs[activeConv];
+    if (!conv) return false;
+    for (const m of conv.messages.values()) {
+      if (m.status === "streaming") return true;
+    }
+    return false;
+  });
+
+  const send = useSendMessage(activeConv);
+  const cancel = useCancelStream(activeConv);
+  const pushToast = useUIStore((s) => s.pushToast);
+
+  // Hydrate chat store from REST history when conv id changes / history loads.
+  useEffect(() => {
+    if (!activeConv) return;
+    ensureConv(activeConv);
+    if (historyMessages && Array.isArray(historyMessages)) {
+      hydrateConv(activeConv, historyMessages);
+    }
+  }, [activeConv, historyMessages, hydrateConv, ensureConv]);
+
+  // Auto-scroll to bottom whenever message tree changes (double-rAF so
+  // freshly mounted blocks have their layout done before measuring).
+  const streamRef = useRef(null);
+  useEffect(() => {
+    let r2 = null;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => {
+        if (streamRef.current) {
+          streamRef.current.scrollTop = streamRef.current.scrollHeight;
+        }
+      });
+    });
+    return () => { cancelAnimationFrame(r1); if (r2) cancelAnimationFrame(r2); };
+  }, [topMsgIds.length, hasAnyMessage]);
+
+  if (!keysLoading && apiKeys.length === 0) {
+    return <NoApiKeyGate />;
+  }
+
+  if (!activeConv) {
+    return <EmptyConvPlaceholder />;
+  }
+
+  const onSend = ({ content, attachments, mentions }) => {
+    const body = { content };
+    if (attachments?.length) body.attachments = attachments.map((a) => ({ fileName: a.name, sizeBytes: a.size }));
+    if (mentions?.length) body.mentions = mentions.map((m) => m.id);
+    send.mutate(body, {
+      onError: (err) => pushToast({ kind: "error", title: "发送失败", desc: err.message }),
+    });
+  };
+
+  const onCancel = () => {
+    cancel.mutate(undefined, {
+      onError: (err) => pushToast({ kind: "warn", title: "取消失败", desc: err.message }),
+    });
+  };
+
+  return (
+    <div className="chat">
+      <ChatHeader conv={conv} onClose={onClose} />
+      <div className="chat-stream" ref={streamRef}>
+        <div className="chat-stream-inner">
+          <div className="day-divider">今天 · {new Date().toLocaleDateString("zh-CN")}</div>
+          {topMsgIds.length === 0 && !histLoading && (
+            <EmptyConvHero conv={conv} />
+          )}
+          {topMsgIds.map((id) => (
+            <MessageView key={id} convId={activeConv} msgId={id} />
+          ))}
+        </div>
+      </div>
+      <Composer
+        disabled={send.isPending}
+        isStreaming={isStreaming}
+        onSend={onSend}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+function EmptyConvPlaceholder() {
+  return (
+    <div className="empty-shell">
+      <div className="empty-shell-card">
+        <div className="empty-shell-logo">
+          <Icon.MessageSquare />
+        </div>
+        <div>
+          <div className="empty-shell-title">还没选中任何对话</div>
+          <div className="empty-shell-sub">从左侧打开一个，或在 sidebar 点 <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 12, height: 12 }} /> 开启新对话。</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmptyConvHero({ conv }) {
+  return (
+    <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-muted)" }}>
+      <Icon.Sparkles className="icon" style={{ width: 18, height: 18, color: "var(--accent)" }} />
+      <div style={{ marginTop: 10, fontSize: 14, fontWeight: 500, color: "var(--fg-strong)" }}>
+        {conv?.title || "新对话"}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 12 }}>
+        告诉 Agent 你想做什么。试试 <code>/</code> 调出命令，或 <code>@</code> 引用 forge/skill。
+      </div>
+    </div>
+  );
+}

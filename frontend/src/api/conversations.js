@@ -67,3 +67,10 @@ export function useSendMessage(convId) {
       apiFetch(`/conversations/${convId}/messages`, { method: "POST", body }),
   });
 }
+
+export function useCancelStream(convId) {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch(`/conversations/${convId}/stream`, { method: "DELETE" }),
+  });
+}

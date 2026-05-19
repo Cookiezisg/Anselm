@@ -15,13 +15,14 @@ import { PaneResize } from "./PaneResize.jsx";
 import { NarrowSwitch } from "./NarrowSwitch.jsx";
 import { Dashboard } from "../../panes/dashboard/Dashboard.jsx";
 import { PlaceholderPane } from "../../panes/PlaceholderPane.jsx";
+import { ChatPane } from "../../panes/chat/ChatPane.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 import { easeOut } from "../../motion/tokens.js";
 
-function renderPaneBody(kind) {
+function renderPaneBody(kind, onClose) {
   switch (kind) {
-    case "chat":      return <PlaceholderPane title="对话" phase="Phase 5" lead="实时 SSE chat" />;
+    case "chat":      return <ChatPane onClose={onClose} />;
     case "forge":     return <PlaceholderPane title="锻造" phase="Phase 6" lead="Function / Handler / Workflow" />;
     case "execute":   return <PlaceholderPane title="执行" phase="Phase 7" lead="FlowRuns / Approvals / Triggers" />;
     case "documents": return <PlaceholderPane title="文档" phase="Phase 9" lead="LLM-ranked attach (Phase 5 backend)" />;
@@ -111,7 +112,7 @@ export function AppShell() {
                     onClose={() => closePane(kind)}
                     crumbs={[(PANE_META[kind] || { label: kind }).label]}
                   >
-                    {renderPaneBody(kind)}
+                    {renderPaneBody(kind, () => closePane(kind))}
                   </PaneFrame>
                   {isTwoPane && idx === 0 && (
                     <PaneResizeBetween key="resize-between" onDrag={onPaneDrag} />
