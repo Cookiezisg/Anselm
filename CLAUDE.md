@@ -240,3 +240,78 @@ type Tool interface {
 - **subagent 数据**：统一 `messages` 行（attrs.kind=subagent_run），无独立表
 - **sandbox v2**：捆绑 mise binary（`go:embed`）；`make resources` 拉到 `mise/<goos>-<goarch>/`；v1 已废弃
 - **测试基线**：~170 单测全绿；5 个集成测试因 env 缺 key skip，与基线一致
+
+---
+
+# 前端开发守则（进入前端阶段后生效）
+
+> 前端 PRD 全文见 [`documents/version-1.2/frontend-prd.md`](documents/version-1.2/frontend-prd.md)。
+> 本节是 PRD 的工程纪律摘要，两者不矛盾时以本节为准（本节更简洁）。
+
+## 两份权威文档
+
+| 问题类型 | 去哪里找答案 |
+|---|---|
+| 这个组件的 HTML 结构 / class 名 / CSS | `boilerplate/src/` 对应 `.jsx` 文件 + `styles.css` |
+| 数据从哪来、接哪个 API、SSE 如何处理 | PRD §5–§7、§9–§14、§17 |
+| 动效用什么参数 | PRD §3.2 |
+| 这里有 bug，是否要修 | 见下方"遇到 boilerplate bug 的处理原则" |
+
+**PRD 没有描述的视觉细节，以 boilerplate 为准。不要凭空发明。**
+
+## 写每个组件前必做
+
+1. **打开对应 boilerplate 文件**（PRD §18.5 有映射表），读清楚 HTML 结构和 class 名
+2. **确认 `styles.css` 里对应的 CSS 规则**，不靠记忆或猜测
+3. **按 PRD 替换数据层**：mock 数据 → TanStack Query hook；全局 window.Xxx → ES module import
+4. **只改 PRD §16 登记的 bug**，其余照搬
+
+## 遇到 boilerplate bug 的处理原则
+
+**先判断：这是 bug 还是风格偏好？**
+
+| 现象 | 判断 | 处理 |
+|---|---|---|
+| 元素遮挡导致内容不可见 | Bug | 修，最小干预 |
+| 拖拽 / 点击目标区域无法触达 | Bug | 修，最小干预 |
+| 宽度/高度导致 overflow 截断核心内容 | Bug | 修，最小干预 |
+| 间距稍大或稍小 | 风格 | 保留 |
+| 颜色稍浅或稍深 | 风格 | 保留 |
+| 某个交互没实现（如 onMouseEnter 注释掉了）| 缺失功能 | 按 PRD §16 的正确实现补全 |
+
+**修的方式：最小干预。** 只改导致 bug 的那一条属性，不借机重构整个组件。
+
+**修完后：** 在 PRD §16 补一行记录（即使没有预先列出）。用一句话说明现象和修法，不需要确认。
+
+## 绝对不改的 boilerplate 决策
+
+以下设计是刻意的，不要在"优化"过程中改掉：
+
+- `--t-fast/med/slow` 的 cubic-bezier 曲线值
+- 信息密度：`--row-h: 32px`（cozy），nav-item 和表格行的紧凑程度
+- 单一 accent 原则：全局只用一个 accent 色，不因"区分状态"而乱用
+- tool_call block 默认折叠（`defaultOpenTools=false`）
+- reasoning block 默认折叠
+- msg-actions 默认隐藏，hover 显示
+- conversation 列表的 status dot（streaming 脉动，approval warn 色）
+- 对话流的 day-divider
+
+## 前端代码规范
+
+- **组件文件**：每文件一个主组件，文件名 = 组件名，`PascalCase.jsx`
+- **hook 文件**：`useCamelCase.js`，只做一件事
+- **CSS class**：沿用 boilerplate 的 kebab-case 命名，不引入 BEM 或 CSS Modules
+- **不写注释**：同后端 S11——只写 why，不写 what；密度上限 1/3；无章节横幅
+- **不做防御性校验**：同后端原则六——同人写前后端，API 结构已知，不加多余 null-check 和 fallback
+- **import 顺序**：React → 第三方库 → 内部 api/store/sse → 内部 components → 同级文件
+
+## F1 前端文档同步
+
+前端代码变动时，如果涉及以下情况，必须同步更新 PRD：
+
+| 变动 | 必更新 PRD |
+|---|---|
+| 发现并修了 boilerplate bug | §16 补一行 |
+| 实际 API endpoint 与 §17 不符 | §17 修正 |
+| Phase 完成 | §15 对应项目打勾 |
+| 设计决策变更（如改了某个动效参数）| §3 或对应章节更新 |
