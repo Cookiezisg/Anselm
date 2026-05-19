@@ -64,6 +64,21 @@ export async function apiFetch(path, { method = "GET", body, headers, signal, pa
   return json;
 }
 
+// Stable empty array — every hook's `select: pickList` must return the
+// same reference when underlying data is missing, otherwise zustand /
+// React.useSyncExternalStore consumers see a "new" value every render
+// and infinite-loop. Freeze it for safety.
+//
+// 稳定空数组：每个 hook 的 select 在数据缺失时必须返回同一引用，否则
+// useSyncExternalStore 消费者每渲染都看到 "新值" → 死循环。
+export const EMPTY_ARRAY = Object.freeze([]);
+
+export function pickList(d) {
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.items)) return d.items;
+  return EMPTY_ARRAY;
+}
+
 // query key factories — centralise query keys to avoid magic strings.
 //
 // query key 工厂；集中管理，避免散落 magic string。

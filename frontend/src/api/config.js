@@ -3,13 +3,13 @@
 // 设置相关 hooks。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk } from "./client.js";
+import { apiFetch, qk, pickList } from "./client.js";
 
 export function useApiKeys() {
   return useQuery({
     queryKey: qk.apikeys(),
     queryFn: () => apiFetch("/api-keys?limit=100"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 
@@ -60,7 +60,7 @@ export function useModelConfigs() {
   return useQuery({
     queryKey: qk.modelConfigs(),
     queryFn: () => apiFetch("/model-configs"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || d || []),
+    select: pickList,
   });
 }
 

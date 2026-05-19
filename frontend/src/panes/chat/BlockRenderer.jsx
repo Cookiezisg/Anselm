@@ -10,7 +10,7 @@
 // 不连累兄弟组件。
 
 import { memo, useState } from "react";
-import { useChatStore, selectBlock, selectChildren } from "../../store/chat.js";
+import { useChatStore, selectBlock, selectChildIds } from "../../store/chat.js";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { EntityLink } from "../../components/shared/EntityLink.jsx";
 
@@ -132,7 +132,8 @@ const ReasoningBlock = memo(function ReasoningBlock({ convId, blockId, defaultOp
 // ── ToolCallBlock (collapsible) ─────────────────────────────────────
 const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen }) {
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
-  const children = useChatStore((s) => selectChildren(convId, blockId, s));
+  const childIds = useChatStore((s) => selectChildIds(convId, blockId, s));
+  const blocksMap = useChatStore((s) => s.convs[convId]?.blocks);
   const [open, setOpen] = useState(!!defaultOpen);
   if (!block) return null;
 
@@ -141,6 +142,9 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
   const isSuccess = block.status === "completed";
   const ToolIcon = toolIcon(block.attrs?.tool);
 
+  const children = blocksMap
+    ? childIds.map((id) => blocksMap.get(id)).filter(Boolean)
+    : [];
   const result = children.find((c) => c.type === "tool_result");
   const progresses = children.filter((c) => c.type === "progress");
   const nestedMsgs = children.filter((c) => c.type === "message");

@@ -4,13 +4,13 @@
 // 对话相关 hooks；发送不 invalidate，让 SSE 推回事件驱动 UI。
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk } from "./client.js";
+import { apiFetch, qk, pickList } from "./client.js";
 
 export function useConversations() {
   return useQuery({
     queryKey: qk.conversations(),
     queryFn: () => apiFetch("/conversations?limit=100"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 
@@ -26,7 +26,7 @@ export function useConversationMessages(convId) {
   return useQuery({
     queryKey: qk.messages(convId),
     queryFn: () => apiFetch(`/conversations/${convId}/messages?limit=200`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!convId,
   });
 }

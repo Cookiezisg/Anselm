@@ -39,41 +39,19 @@ export const useChatStore = create((set, get) => ({
     set((s) => ({ convs: { ...s.convs, [convId]: emptyConv() } }));
   },
 
-  // Hydrate from REST history (array of messages with nested blocks).
-  // Replaces tree contents; safe to call on conv switch / 410 recovery.
+  // Hydrate from REST history. Backend exposes blocks as a flat list per
+  // message with `parentBlockId` (omitted when parent is the message
+  // itself). We rebuild the tree: blocks whose parentBlockId targets an
+  // existing block become its children; the rest become top-level
+  // message blocks. Safe to call on conv switch / 410 recovery.
+  //
+  // REST 给扁平 block 列表 + 顶层 parentBlockId 省略；按 parentBlockId 重
+  // 建树（subagent 嵌套同理）。
   hydrateConv(convId, messages) {
     const conv = emptyConv();
-    const installBlock = (msgId, parentId, b) => {
-      const block = {
-        id: b.id,
-        messageId: msgId,
-        parentId: parentId || msgId,
-        type: b.type,
-        attrs: b.attrs || null,
-        content: b.content || "",
-        status: b.status || "completed",
-        durationMs: b.durationMs ?? null,
-        error: b.error || null,
-        children: [],
-        version: 0,
-      };
-      conv.blocks.set(b.id, block);
-      // Attach to parent's children list.
-      if (parentId && conv.blocks.has(parentId)) {
-        conv.blocks.get(parentId).children.push(b.id);
-      } else if (conv.messages.has(msgId)) {
-        conv.messages.get(msgId).blocks.push(b.id);
-      }
-      if (Array.isArray(b.children)) {
-        for (const child of b.children) installBlock(msgId, b.id, child);
-      }
-      if (b.type === "message" && b.innerMessage) {
-        installMessage(b.innerMessage, b.id);
-      }
-    };
 
     const installMessage = (m, parentBlockId) => {
-      const message = {
+      conv.messages.set(m.id, {
         id: m.id,
         role: m.role,
         status: m.status || "completed",
@@ -86,18 +64,46 @@ export const useChatStore = create((set, get) => ({
         blocks: [],
         attachments: m.attachments || [],
         attrs: m.attrs || null,
-      };
-      conv.messages.set(m.id, message);
-      if (!parentBlockId) {
-        conv.topMsgIds.push(m.id);
+      });
+      if (!parentBlockId) conv.topMsgIds.push(m.id);
+
+      for (const b of m.blocks || []) {
+        const parentId = b.parentBlockId || b.parentId || m.id;
+        conv.blocks.set(b.id, {
+          id: b.id,
+          messageId: m.id,
+          parentId,
+          type: b.type,
+          attrs: b.attrs || null,
+          content: b.content || "",
+          status: b.status || "completed",
+          durationMs: b.durationMs ?? null,
+          error: b.error || null,
+          children: [],
+          version: 0,
+        });
       }
-      if (Array.isArray(m.blocks)) {
-        for (const b of m.blocks) installBlock(m.id, parentBlockId, b);
+      // Wire children after all blocks exist so parent lookups succeed.
+      for (const b of m.blocks || []) {
+        const block = conv.blocks.get(b.id);
+        const parent = conv.blocks.get(block.parentId);
+        if (parent) {
+          parent.children.push(b.id);
+        } else if (conv.messages.has(m.id)) {
+          conv.messages.get(m.id).blocks.push(b.id);
+        }
+      }
+
+      // subagent: nested message lives off a message-type block via
+      // attrs.messageId. Recurse if backend embeds it.
+      for (const b of m.blocks || []) {
+        if (b.type === "message" && b.innerMessage) {
+          installMessage(b.innerMessage, b.id);
+        }
       }
     };
 
     for (const m of messages || []) installMessage(m, null);
-
     set((s) => ({ convs: { ...s.convs, [convId]: conv } }));
   },
 
@@ -231,19 +237,23 @@ export const useChatStore = create((set, get) => ({
   },
 }));
 
-// Select helper: array of top-level Message objects for a conv in order.
-// Component selectors should use this + per-block selectors to memo.
-export function selectTopMessages(convId, state) {
-  const conv = state.convs[convId];
-  if (!conv) return [];
-  return conv.topMsgIds.map((id) => conv.messages.get(id)).filter(Boolean);
+// Selectors MUST return stable references between snapshots —
+// useSyncExternalStore (under zustand) sees a "new" value otherwise and
+// infinite-loops. So we return IDs (which the store mutates by
+// allocating new arrays on real changes only) and let consumers map to
+// blocks via per-id selectors that already use `===` equality.
+//
+// selector 必须返稳定引用——zustand 的 useSyncExternalStore 否则会死循环。
+// 这里返 ID 数组（store 改变时才换新引用），消费者按需用 selectBlock 拿
+// 具体 block。
+const EMPTY_IDS = Object.freeze([]);
+
+export function selectTopMessageIds(convId, state) {
+  return state.convs[convId]?.topMsgIds || EMPTY_IDS;
 }
 export function selectBlock(convId, blockId, state) {
   return state.convs[convId]?.blocks.get(blockId) || null;
 }
-export function selectChildren(convId, parentId, state) {
-  const conv = state.convs[convId];
-  if (!conv) return [];
-  const parent = conv.blocks.get(parentId);
-  return parent ? parent.children.map((id) => conv.blocks.get(id)).filter(Boolean) : [];
+export function selectChildIds(convId, parentId, state) {
+  return state.convs[convId]?.blocks.get(parentId)?.children || EMPTY_IDS;
 }

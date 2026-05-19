@@ -4,14 +4,14 @@
 // FlowRun 相关 hooks。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk } from "./client.js";
+import { apiFetch, qk, pickList } from "./client.js";
 
 export function useFlowRuns(params = {}) {
   const qs = new URLSearchParams({ limit: "100", ...params }).toString();
   return useQuery({
     queryKey: [...qk.flowruns(), params],
     queryFn: () => apiFetch(`/flowruns?${qs}`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 
@@ -27,7 +27,7 @@ export function useFlowRunNodes(id) {
   return useQuery({
     queryKey: qk.flowrunNodes(id),
     queryFn: () => apiFetch(`/flowruns/${id}/nodes`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!id,
   });
 }

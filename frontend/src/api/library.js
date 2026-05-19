@@ -3,14 +3,14 @@
 // 资源库 hooks。
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk } from "./client.js";
+import { apiFetch, qk, pickList } from "./client.js";
 
 // ── Skills ───────────────────────────────────────────────────────────
 export function useSkills() {
   return useQuery({
     queryKey: qk.skills(),
     queryFn: () => apiFetch("/skills?limit=200"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useSkill(id) {
@@ -26,7 +26,7 @@ export function useMcpServers() {
   return useQuery({
     queryKey: qk.mcpServers(),
     queryFn: () => apiFetch("/mcp-servers?limit=100"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useReconnectMcp() {
@@ -50,7 +50,7 @@ export function useMemories(type) {
   return useQuery({
     queryKey: qk.memories(type),
     queryFn: () => apiFetch("/memories" + qs),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useMemory(name) {
@@ -90,7 +90,7 @@ export function useDocuments() {
   return useQuery({
     queryKey: qk.documents(),
     queryFn: () => apiFetch("/documents?limit=200"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useDocument(id) {
@@ -106,7 +106,7 @@ export function useRelations(entityId, limit = 5) {
   return useQuery({
     queryKey: qk.relations(entityId),
     queryFn: () => apiFetch(`/relations?entityId=${encodeURIComponent(entityId)}&limit=${limit}`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!entityId,
   });
 }

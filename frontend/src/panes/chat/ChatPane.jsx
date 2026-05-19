@@ -16,6 +16,11 @@ import { Composer } from "./Composer.jsx";
 import { NoApiKeyGate } from "./NoApiKeyGate.jsx";
 import { Icon } from "../../components/primitives/Icon.jsx";
 
+// Stable empty array — zustand selectors must return cached references
+// (warns "getSnapshot should be cached" + infinite loop otherwise when
+// the conv hasn't been hydrated yet).
+const EMPTY_IDS = Object.freeze([]);
+
 export function ChatPane({ onClose }) {
   const activeConv = useUIStore((s) => s.activeConv);
   const { data: conv } = useConversation(activeConv);
@@ -24,14 +29,16 @@ export function ChatPane({ onClose }) {
 
   const hydrateConv = useChatStore((s) => s.hydrateConv);
   const ensureConv = useChatStore((s) => s.ensureConv);
-  const topMsgIds = useChatStore((s) => (activeConv ? (s.convs[activeConv]?.topMsgIds || []) : []));
-  const hasAnyMessage = useChatStore((s) => (activeConv ? (s.convs[activeConv]?.messages.size > 0) : false));
+  const topMsgIds = useChatStore((s) => {
+    if (!activeConv) return EMPTY_IDS;
+    return s.convs[activeConv]?.topMsgIds || EMPTY_IDS;
+  });
 
   // Detect whether any message in this conv is currently streaming.
   const isStreaming = useChatStore((s) => {
-    const conv = activeConv && s.convs[activeConv];
-    if (!conv) return false;
-    for (const m of conv.messages.values()) {
+    const c = activeConv && s.convs[activeConv];
+    if (!c) return false;
+    for (const m of c.messages.values()) {
       if (m.status === "streaming") return true;
     }
     return false;
@@ -63,7 +70,7 @@ export function ChatPane({ onClose }) {
       });
     });
     return () => { cancelAnimationFrame(r1); if (r2) cancelAnimationFrame(r2); };
-  }, [topMsgIds.length, hasAnyMessage]);
+  }, [topMsgIds.length]);
 
   if (!keysLoading && apiKeys.length === 0) {
     return <NoApiKeyGate />;

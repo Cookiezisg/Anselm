@@ -3,14 +3,14 @@
 // trinity 锻造相关 hooks。
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk } from "./client.js";
+import { apiFetch, qk, pickList } from "./client.js";
 
 // ── Function ─────────────────────────────────────────────────────────
 export function useFunctions() {
   return useQuery({
     queryKey: qk.functions(),
     queryFn: () => apiFetch("/functions?limit=200"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useFunction(id) {
@@ -24,7 +24,7 @@ export function useFunctionVersions(id) {
   return useQuery({
     queryKey: qk.functionVersions(id),
     queryFn: () => apiFetch(`/functions/${id}/versions`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!id,
   });
 }
@@ -68,7 +68,7 @@ export function useHandlers() {
   return useQuery({
     queryKey: qk.handlers(),
     queryFn: () => apiFetch("/handlers?limit=200"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useHandler(id) {
@@ -82,7 +82,7 @@ export function useHandlerVersions(id) {
   return useQuery({
     queryKey: qk.handlerVersions(id),
     queryFn: () => apiFetch(`/handlers/${id}/versions`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!id,
   });
 }
@@ -116,7 +116,7 @@ export function useWorkflows() {
   return useQuery({
     queryKey: qk.workflows(),
     queryFn: () => apiFetch("/workflows?limit=200"),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
   });
 }
 export function useWorkflow(id) {
@@ -130,7 +130,7 @@ export function useWorkflowVersions(id) {
   return useQuery({
     queryKey: qk.workflowVersions(id),
     queryFn: () => apiFetch(`/workflows/${id}/versions`),
-    select: (d) => (Array.isArray(d) ? d : d?.items || []),
+    select: pickList,
     enabled: !!id,
   });
 }

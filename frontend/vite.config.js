@@ -26,6 +26,17 @@ export default defineConfig({
     emptyOutDir: true,
     target: "es2020",
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Group heavy vendor libraries into their own chunks for caching.
+          query: ["@tanstack/react-query"],
+          motion: ["framer-motion"],
+          floating: ["@floating-ui/react"],
+        },
+      },
+    },
   },
   esbuild: {
     jsx: "automatic",

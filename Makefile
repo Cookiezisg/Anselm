@@ -233,4 +233,39 @@ lint-prompts:
 	$(AUTO_DEVBOX)
 	@cd backend && go run ./cmd/lintprompts
 
-.PHONY: help environment test-console test-console-dev build-testend test-unit test-pipeline stop clear check-cross lint-prompts
+
+# ── Frontend / Desktop ─────────────────────────────────────────────────────
+
+# frontend-install — npm install once. Idempotent.
+frontend-install:
+	@cd frontend && npm install --silent
+
+# frontend-build — vite build into frontend/dist, then mirror to
+# backend/cmd/desktop/embed/ so the go:embed in cmd/desktop picks it up.
+frontend-build: frontend-install
+	@cd frontend && npm run build
+	@rm -rf backend/cmd/desktop/embed
+	@mkdir -p backend/cmd/desktop/embed
+	@cp -R frontend/dist/. backend/cmd/desktop/embed/
+	@echo "✓ frontend/dist → backend/cmd/desktop/embed/"
+
+# frontend-dev — run vite dev server on :5173 (assumes backend on $(PORT)).
+frontend-dev: frontend-install
+	@cd frontend && FORGIFY_BACKEND_PORT=$(PORT) npm run dev
+
+# desktop-build — full Wails desktop bundle: forgify-server binary +
+# wails build (which embeds frontend dist). End artefact is in
+# backend/cmd/desktop/build/bin/Forgify.app (macOS).
+desktop-build: frontend-build
+	@cd backend && go build -o cmd/desktop/embed-server ./cmd/server  # bundled into .app at packaging step
+	@cd backend/cmd/desktop && PATH="$$HOME/go/bin:$$PATH" wails build -clean
+	@echo "✓ desktop bundle ready at backend/cmd/desktop/build/bin/"
+
+# desktop-dev — `wails dev` mode: live frontend + bundled Wails Go reload.
+# Note: requires a running backend server (start `make test-console` in
+# another tab) — Wails serves the frontend, which then talks to that
+# server via Vite proxy.
+desktop-dev: frontend-install
+	@cd backend/cmd/desktop && PATH="$$HOME/go/bin:$$PATH" wails dev
+
+.PHONY: help environment test-console test-console-dev build-testend test-unit test-pipeline stop clear check-cross lint-prompts frontend-install frontend-build frontend-dev desktop-build desktop-dev
