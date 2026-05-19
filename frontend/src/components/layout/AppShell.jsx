@@ -17,6 +17,7 @@ import { Dashboard } from "../../panes/dashboard/Dashboard.jsx";
 import { PlaceholderPane } from "../../panes/PlaceholderPane.jsx";
 import { ChatPane } from "../../panes/chat/ChatPane.jsx";
 import { ForgePane } from "../../panes/forge/ForgePane.jsx";
+import { ExecutePane } from "../../panes/execute/ExecutePane.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 import { easeOut } from "../../motion/tokens.js";
@@ -25,7 +26,7 @@ function renderPaneBody(kind, onClose) {
   switch (kind) {
     case "chat":      return <ChatPane onClose={onClose} />;
     case "forge":     return <ForgePane />;
-    case "execute":   return <PlaceholderPane title="执行" phase="Phase 7" lead="FlowRuns / Approvals / Triggers" />;
+    case "execute":   return <ExecutePane />;
     case "documents": return <PlaceholderPane title="文档" phase="Phase 9" lead="LLM-ranked attach (Phase 5 backend)" />;
     case "skills":    return <PlaceholderPane title="Skills" phase="Phase 9" lead="SKILL.md library" />;
     case "mcp":       return <PlaceholderPane title="MCP" phase="Phase 9" lead="MCP servers + health" />;
