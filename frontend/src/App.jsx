@@ -6,6 +6,7 @@
 
 import { useEffect } from "react";
 import { AppShell } from "./components/layout/AppShell.jsx";
+import { SSEProvider } from "./sse/SSEProvider.jsx";
 import { useSettings, applyTheme } from "./store/settings.js";
 
 export default function App() {
@@ -23,5 +24,9 @@ export default function App() {
     return () => mql.removeEventListener?.("change", fn);
   }, [settings.theme]);
 
-  return <AppShell />;
+  return (
+    <SSEProvider>
+      <AppShell />
+    </SSEProvider>
+  );
 }

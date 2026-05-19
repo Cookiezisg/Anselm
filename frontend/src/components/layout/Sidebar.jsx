@@ -10,7 +10,21 @@ import { Kbd } from "../primitives/Kbd.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
 import { ChatListItem } from "./ChatListItem.jsx";
+import { useSSEHealth } from "../../sse/SSEProvider.jsx";
 import { spring, easeOut } from "../../motion/tokens.js";
+
+const SSE_DOT_COLOR = {
+  ok:      "var(--status-success)",
+  warn:    "var(--status-warn)",
+  err:     "var(--status-error)",
+  unknown: "var(--fg-faint)",
+};
+const SSE_DOT_TITLE = {
+  ok:      "三流全部在线",
+  warn:    "连接中…",
+  err:     "至少一条流断开",
+  unknown: "未知状态",
+};
 
 function NavItem({ icon: I, label, active, onClick, badge }) {
   return (
@@ -39,6 +53,7 @@ export function Sidebar() {
 
   const { data: conversations = [], isLoading } = useConversations();
   const createConv = useCreateConversation();
+  const sse = useSSEHealth();
 
   const [showArchived, setShowArchived] = useState(false);
 
@@ -177,15 +192,32 @@ export function Sidebar() {
           {!collapsed && <div className="user-name">本地</div>}
           {!collapsed && (
             <>
-              <span className="user-status" title="后端在线" />
+              <span
+                className="user-status"
+                style={{ background: SSE_DOT_COLOR[sse.overall] }}
+                title={SSE_DOT_TITLE[sse.overall] +
+                  ` · eventlog ${sse.eventlog} · notifs ${sse.notifs} · forge ${sse.forge}`}
+              />
               <div style={{ flex: 1 }} />
             </>
           )}
           <button className="icon-btn" onClick={() => setAskOpen(true)} title="待回答的 agent 问题">
             <Icon.HelpCircle />
           </button>
-          <button className="icon-btn" onClick={() => setNotifsOpen(true)} title="通知">
+          <button
+            className="icon-btn"
+            onClick={() => { setNotifsOpen(true); sse.clearUnread(); }}
+            title={"通知" + (sse.unread > 0 ? ` (${sse.unread} 未读)` : "")}
+            style={{ position: "relative" }}
+          >
             <Icon.Bell />
+            {sse.unread > 0 && (
+              <span style={{
+                position: "absolute", top: 4, right: 4,
+                width: 6, height: 6, borderRadius: "50%",
+                background: "var(--accent)",
+              }} />
+            )}
           </button>
           <button
             className="icon-btn"
