@@ -1,0 +1,100 @@
+// apiFetch — the only fetch wrapper. Resolves baseUrl from Wails bridge,
+// adds JSON headers, strips the `data` envelope (§N1), normalises errors
+// into thrown Error with `.code` / `.status` for TanStack to surface.
+//
+// apiFetch —— 唯一 fetch wrapper：从 Wails bridge 取 baseUrl，注 JSON 头，
+// 剥 §N1 envelope，统一报错带 code/status。
+
+import { apiUrl } from "../bridge/wails.js";
+
+export class ApiError extends Error {
+  constructor(message, { code = "UNKNOWN", status = 0, details } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
+export async function apiFetch(path, { method = "GET", body, headers, signal, parseJSON = true } = {}) {
+  const url = apiUrl("/api/v1" + path);
+
+  const init = {
+    method,
+    headers: {
+      Accept: "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+      ...(headers || {}),
+    },
+    signal,
+  };
+  if (body != null) {
+    init.body = typeof body === "string" ? body : JSON.stringify(body);
+  }
+
+  let res;
+  try {
+    res = await fetch(url, init);
+  } catch (err) {
+    throw new ApiError(err.message || "network error", { code: "NETWORK", status: 0 });
+  }
+
+  if (res.status === 204) return null;
+
+  if (!res.ok) {
+    let payload = null;
+    try { payload = await res.json(); } catch { /* swallow; we surface via message */ }
+    const code = payload?.error?.code || `HTTP_${res.status}`;
+    const message = payload?.error?.message || `request failed: ${res.status} ${res.statusText}`;
+    throw new ApiError(message, { code, status: res.status, details: payload?.error?.details });
+  }
+
+  if (!parseJSON) return res;
+
+  const json = await res.json();
+  // §N1 envelope: { data, nextCursor?, hasMore? }. Return the body unwrapped
+  // but preserve pagination fields when present.
+  if (json && typeof json === "object" && "data" in json) {
+    if ("nextCursor" in json || "hasMore" in json) {
+      return { items: json.data, nextCursor: json.nextCursor, hasMore: json.hasMore };
+    }
+    return json.data;
+  }
+  return json;
+}
+
+// query key factories — centralise query keys to avoid magic strings.
+//
+// query key 工厂；集中管理，避免散落 magic string。
+export const qk = {
+  health:           () => ["health"],
+  conversations:    () => ["conversations"],
+  conversation:     (id) => ["conv", id],
+  messages:         (convId) => ["conv-messages", convId],
+  apikeys:          () => ["api-keys"],
+  providers:        () => ["providers"],
+  modelConfigs:     () => ["model-configs"],
+  functions:        () => ["functions"],
+  function:         (id) => ["function", id],
+  functionVersions: (id) => ["function-versions", id],
+  handlers:         () => ["handlers"],
+  handler:          (id) => ["handler", id],
+  handlerVersions:  (id) => ["handler-versions", id],
+  handlerConfig:    (id) => ["handler-config", id],
+  workflows:        () => ["workflows"],
+  workflow:         (id) => ["workflow", id],
+  workflowVersions: (id) => ["workflow-versions", id],
+  flowruns:         () => ["flowruns"],
+  flowrun:          (id) => ["flowrun", id],
+  flowrunNodes:     (id) => ["flowrun-nodes", id],
+  skills:           () => ["skills"],
+  skill:            (id) => ["skill", id],
+  mcpServers:       () => ["mcp-servers"],
+  memories:         (type) => ["memories", type || "all"],
+  memory:           (name) => ["memory", name],
+  documents:        () => ["documents"],
+  document:         (id) => ["document", id],
+  relations:        (entityId) => ["relations", entityId],
+  notificationsSnap:() => ["notifications-snapshot"],
+};

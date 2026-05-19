@@ -1,15 +1,16 @@
-// Sidebar — left navigation rail. Static skeleton in Phase 2; real
-// conversation list lands in Phase 3 via useConversations().
+// Sidebar — left navigation rail. Real conversation list via
+// useConversations(); SSE notifications invalidate this query.
 //
-// Sidebar —— 左侧导航。Phase 2 静态骨架；Phase 3 接 useConversations() 出
-// 真实对话列表。
+// Sidebar —— 左侧导航；真实对话列表；SSE 通知触发 invalidation。
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Kbd } from "../primitives/Kbd.jsx";
 import { useUIStore } from "../../store/ui.js";
-import { spring } from "../../motion/tokens.js";
+import { useConversations, useCreateConversation } from "../../api/conversations.js";
+import { ChatListItem } from "./ChatListItem.jsx";
+import { spring, easeOut } from "../../motion/tokens.js";
 
 function NavItem({ icon: I, label, active, onClick, badge }) {
   return (
@@ -27,6 +28,8 @@ function NavItem({ icon: I, label, active, onClick, badge }) {
 export function Sidebar() {
   const openPanes = useUIStore((s) => s.openPanes);
   const togglePane = useUIStore((s) => s.togglePane);
+  const openPane = useUIStore((s) => s.openPane);
+  const setActiveConv = useUIStore((s) => s.setActiveConv);
   const collapsed = useUIStore((s) => s.collapsed);
   const setCmdkOpen = useUIStore((s) => s.setCmdkOpen);
   const setNotifsOpen = useUIStore((s) => s.setNotifsOpen);
@@ -34,7 +37,28 @@ export function Sidebar() {
   const setSettingsPopOpen = useUIStore((s) => s.setSettingsPopOpen);
   const settingsPopOpen = useUIStore((s) => s.settingsPopOpen);
 
+  const { data: conversations = [], isLoading } = useConversations();
+  const createConv = useCreateConversation();
+
+  const [showArchived, setShowArchived] = useState(false);
+
+  const pinned = conversations.filter((c) => c.pinned && !c.archived);
+  const recent = conversations.filter((c) => !c.pinned && !c.archived);
+  const archived = conversations.filter((c) => c.archived);
+
   const isOpen = (k) => openPanes.includes(k);
+
+  const onNewConv = async () => {
+    try {
+      const created = await createConv.mutateAsync({});
+      if (created?.id) {
+        setActiveConv(created.id);
+        if (!openPanes.includes("chat")) openPane("chat");
+      }
+    } catch (err) {
+      console.error("create conv failed", err);
+    }
+  };
 
   return (
     <motion.aside
@@ -80,16 +104,70 @@ export function Sidebar() {
       </div>
 
       <div className="nav-section nav-conv-section" style={{ overflowY: "auto", flex: 1, paddingBottom: 12 }}>
+        {!collapsed && pinned.length > 0 && (
+          <div className="nav-section-title"><span>置顶</span></div>
+        )}
+        <AnimatePresence initial={false}>
+          {!collapsed && pinned.map((c) => (
+            <motion.div key={c.id} layout
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={easeOut}>
+              <ChatListItem conv={c} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
         {!collapsed && (
-          <div className="nav-section-title">
+          <div className="nav-section-title" style={{ marginTop: pinned.length ? 6 : 0 }}>
             <span>最近对话</span>
-            <button className="add-btn" title="新对话"><Icon.Plus /></button>
+            <button className="add-btn" title="新对话" onClick={onNewConv}>
+              <Icon.Plus />
+            </button>
           </div>
         )}
-        {!collapsed && (
-          <div style={{ padding: "16px 10px", fontSize: 11, color: "var(--fg-faint)", textAlign: "center" }}>
-            （Phase 3 接真实数据）
+        <AnimatePresence initial={false}>
+          {!collapsed && recent.map((c) => (
+            <motion.div key={c.id} layout
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={easeOut}>
+              <ChatListItem conv={c} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {!collapsed && !isLoading && recent.length === 0 && pinned.length === 0 && (
+          <div style={{ padding: "12px 10px", fontSize: 11, color: "var(--fg-faint)", textAlign: "center" }}>
+            还没有对话 — 点 <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 11, height: 11 }} /> 开启第一段对话
           </div>
+        )}
+
+        {!collapsed && archived.length > 0 && (
+          <>
+            <button
+              className="nav-section-title nav-section-toggle"
+              onClick={() => setShowArchived((s) => !s)}
+              style={{ marginTop: 10 }}
+            >
+              <span>归档 · {archived.length}</span>
+              <Icon.ChevronRight
+                className="chev"
+                style={{
+                  width: 11, height: 11,
+                  transform: showArchived ? "rotate(90deg)" : "none",
+                  transition: "transform 120ms",
+                }}
+              />
+            </button>
+            <AnimatePresence initial={false}>
+              {showArchived && archived.map((c) => (
+                <motion.div key={c.id} layout
+                  initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                  transition={easeOut}>
+                  <ChatListItem conv={c} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </>
         )}
       </div>
 
