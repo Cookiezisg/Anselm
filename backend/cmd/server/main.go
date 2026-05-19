@@ -64,6 +64,9 @@ import (
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
+	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
@@ -182,6 +185,7 @@ func main() {
 		&documentdomain.Document{},
 		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
+		&relationdomain.Relation{},
 	); err != nil {
 		log.Error("migrate db", zap.Error(err))
 		os.Exit(1)
@@ -441,6 +445,31 @@ func main() {
 	workflowChecker.MCP = mcpService
 	workflowChecker.Document = documentService
 
+	// Relation domain — live-derived cross-entity edge graph. Wire AFTER all source
+	// domain services are constructed (so we can pass readers), THEN call each
+	// source's SetRelationSyncer to inject the cycle-broken hook port.
+	//
+	// Relation domain —— live-derived 跨实体关系图。所有 source 服务装配完后再装
+	// (可传 reader)；然后逐个 SetRelationSyncer 反注入避循环依赖。
+	relationService := relationapp.NewService(relationapp.Config{
+		Repo:               relationstore.New(gdb),
+		FunctionReader:     functionService,
+		HandlerReader:      handlerService,
+		WorkflowReader:     workflowService,
+		DocumentReader:     documentService,
+		SkillReader:        skillService,
+		McpReader:          mcpService,
+		ConversationReader: convService,
+		Log:                log,
+	})
+	workflowService.SetRelationSyncer(relationService)
+	functionService.SetRelationSyncer(relationService)
+	handlerService.SetRelationSyncer(relationService)
+	documentService.SetRelationSyncer(relationService)
+	convService.SetRelationSyncer(relationService)
+	mcpService.SetRelationSyncer(relationService)
+	skillService.SetRelationSyncer(relationService)
+
 	flowrunRepo := flowrunstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
 	skillExecRepo := skillexecstore.New(gdb)
@@ -538,6 +567,7 @@ func main() {
 		CatalogService:      catalogService,
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
+		RelationService:     relationService,
 		UserService:         userService,
 		FunctionExecRepo:    functionExecRepo,
 		HandlerCallRepo:     handlerCallRepo,

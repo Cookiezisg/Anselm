@@ -74,8 +74,14 @@ type Service struct {
 	encryptor  cryptodomain.Encryptor
 	registry   *instanceRegistry
 	notif      notificationspkg.Publisher
+	relations  RelationSyncer // optional; nil disables relation hooks
 	log        *zap.Logger
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // NewService wires Service; panics on nil log/notif/encryptor.
 //

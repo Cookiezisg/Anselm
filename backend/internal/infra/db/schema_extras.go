@@ -76,6 +76,21 @@ var schemaExtraGroups = []extraGroup{
 				WHERE deleted_at IS NULL`,
 		},
 	},
+	{
+		table: "relations",
+		stmts: []string{
+			// Self-loop forbidden — GORM tag can't express tuple comparison cross-field;
+			// trigger is the SQLite-compatible way to enforce.
+			//
+			// 禁止自环——GORM tag 无法表达跨字段 tuple 比较；SQLite 兼容做法走 trigger。
+			`CREATE TRIGGER IF NOT EXISTS trg_relations_no_self_loop
+				BEFORE INSERT ON relations
+				WHEN NEW.from_kind = NEW.to_kind AND NEW.from_id = NEW.to_id
+			BEGIN
+				SELECT RAISE(ABORT, 'relations: self-loop forbidden');
+			END`,
+		},
+	},
 }
 
 func applySchemaExtras(db *gorm.DB) error {

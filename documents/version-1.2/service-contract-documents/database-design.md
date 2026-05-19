@@ -298,3 +298,42 @@ sandbox_runtimes ─── sandbox_envs (Phase 4 准备件，2026-05-05；
   owner_kind 含 "function"/"mcp"/"skill"/"conversation"；
   v1 全 owner 默认手动 GC（uv/pnpm 共享让多 conv 磁盘 ≈ 1×）)
 ```
+
+---
+
+## Phase 5 增量：relations ✅（2026-05-19）
+
+跨实体边的 live-derived 存储。**单表 + 5 索引 + 1 trigger**。
+
+```
+relations (V1.2 §16 跨实体关系图；硬删，无 deleted_at)
+  ├─ id              text primary key (rel_<16hex>)
+  ├─ user_id         text not null
+  ├─ from_kind       text not null  (workflow/function/handler/document/conversation/skill/mcp)
+  ├─ from_id         text not null
+  ├─ to_kind         text not null
+  ├─ to_id           text not null
+  ├─ kind            text not null  (8 种闭合枚举，CHECK 约束)
+  ├─ attrs           text not null default '{}'  (JSON: nodeIds list / pinnedVersionId / count 等)
+  ├─ created_at      datetime
+  └─ updated_at      datetime
+  
+  索引：
+    uq_rel           UNIQUE (user_id, from_kind, from_id, to_kind, to_id, kind)
+    idx_rel_fwd      (user_id, from_kind, from_id)          —— "我引用了谁"
+    idx_rel_rev      (user_id, to_kind, to_id)              —— "谁引用了我"
+    idx_rel_user_kind (user_id, kind)                       —— 按边类型扫
+  
+  trigger（schema_extras）：
+    trg_relations_no_self_loop  —— BEFORE INSERT 拒绝 from=to 的自环
+```
+
+**Trinity version 表 schema 变更**（3 张表各加 1 列）：
+
+```
+function_versions    +ForgedInConversationID *string (gorm:"index;type:text")
+handler_versions     +ForgedInConversationID *string (gorm:"index;type:text")
+workflow_versions    +ForgedInConversationID *string (gorm:"index;type:text")
+```
+
+nullable text，由 LLM via `create_forge` / `edit_forge` 工具填入当前 conversation ID；HTTP 手工 create/edit 时为 NULL。**触发 relations 域 forged_entity / edited_entity 边写入的"作者签名"字段**。

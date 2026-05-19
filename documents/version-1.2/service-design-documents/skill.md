@@ -675,3 +675,15 @@ LLM 调 activate_skill("pr-review", ["1234"])
 - **` !`shell` ` 预执行**：spec 支持 frontmatter / body 内嵌 shell 命令预执行注入；v1 不做
 - **Skill registry 集成**：从 `anthropics/skills` repo 一键 install
 - **Plugin 形态加载**：通过 plugin manager 动态加载第三方 skill bundle，复用 CatalogSource 接口
+
+---
+
+## Relations Integration（2026-05-19）
+
+skill 在 relgraph 中作为节点（含孤儿）；name 是主键，不参与 wikilink。
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.Delete` | `PurgeEntity("skill", name)` 级联清边 |
+
+skill 不直接写出向边；它通过 `workflow_uses_skill` 入向边被引用。reader 实现 `ListAllMeta` 给 relgraph 拉 label（skill name + description）。详 [`./relation.md`](./relation.md) §9.3。

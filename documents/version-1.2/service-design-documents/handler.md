@@ -241,3 +241,18 @@ Owner.Kind = `handler`,Owner.ID = `<handlerID>_<envID>`(envID = Version 行的 `
 
 - 2026-05-12 forge_redesign Plan 02 完成:domain + store + stdio client + Service(ops engine + registry + config crypto + class assembly + crud + Sandbox adapter + Call)+ 10 LLM tools + 16 HTTP endpoints + main/harness 装配 + D22 handler_calls + pipeline test。11 commits 直推 main。
 - 关键决策(forge_redesign 04-discussion 2026-05-12):lifetime 完全 caller-driven,**没有 idle 计时器**;chat = per-call,workflow/test/session = persistent via registry。stdio JSON-line client 独立写不复用 MCP(协议不同)。Handler→Handler 调用不强制禁止(结构上自然防住)。
+
+---
+
+## Relations Integration（2026-05-19）
+
+镜像 function 的集成方式——每个 handler 在 relgraph 中 1 个节点：
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.Create` | `SyncIncoming(handler, id, [conversation_forged_entity], ...)` 写 v1 forged 边 |
+| `Service.AcceptPending` | `SyncIncoming(handler, id, [conversation_edited_entity], ...)` 重写 edited 边 |
+| `Service.Revert` | 同上（active 翻回老版本，edited 重指向那个版本的 editor） |
+| `Service.Delete` | `PurgeEntity("handler", id)` 级联清边 |
+
+handler_versions 表加 `ForgedInConversationID *string` 列；Create / Edit 中从 ctx 自动填。详 [`./relation.md`](./relation.md) §7。

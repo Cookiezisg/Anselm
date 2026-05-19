@@ -19,10 +19,16 @@ import (
 )
 
 type Service struct {
-	repo  documentdomain.Repository
-	notif notificationspkg.Publisher
-	log   *zap.Logger
+	repo      documentdomain.Repository
+	notif     notificationspkg.Publisher
+	relations RelationSyncer // optional; nil disables relation hooks
+	log       *zap.Logger
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 func New(repo documentdomain.Repository, notif notificationspkg.Publisher, log *zap.Logger) *Service {
 	if log == nil {
@@ -97,6 +103,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*documentdomain.D
 	s.log.Info("document created",
 		zap.String("doc_id", d.ID),
 		zap.String("path", d.Path))
+	// Relation hook: parse body wikilinks → write document_links_entity edges.
+	s.syncRelationsForDocumentBody(ctx, d.ID, d.Content)
 	return d, nil
 }
 
@@ -206,6 +214,10 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*docum
 		}
 	}
 	s.publish(ctx, d.ID, "updated", d.ParentID, d.Path)
+	// Relation hook: only re-parse if body was actually touched.
+	if in.Content != nil {
+		s.syncRelationsForDocumentBody(ctx, d.ID, d.Content)
+	}
 	return d, nil
 }
 
@@ -297,6 +309,8 @@ func (s *Service) Delete(ctx context.Context, id string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	// Collect descendant IDs BEFORE soft-delete (after delete, they're filtered out).
+	subtreeIDs, _ := s.repo.ListSubtreeIDs(ctx, uid, id)
 	n, err := s.repo.SoftDeleteSubtree(ctx, uid, id)
 	if err != nil {
 		return 0, fmt.Errorf("documentapp.Delete: %w", err)
@@ -306,6 +320,8 @@ func (s *Service) Delete(ctx context.Context, id string) (int64, error) {
 		zap.String("doc_id", d.ID),
 		zap.String("path", d.Path),
 		zap.Int64("deletedCount", n))
+	// Relation hook: cascade-purge all edges involving any deleted doc.
+	s.purgeRelationsForDocuments(ctx, subtreeIDs)
 	return n, nil
 }
 

@@ -38,11 +38,17 @@ type UpdateInput struct {
 //
 // Service 编排对话 CRUD。
 type Service struct {
-	repo  convdomain.Repository
-	notif notificationspkg.Publisher
-	keys  apikeydomain.KeyProvider // §12.3 optional; nil = skip override validation
-	log   *zap.Logger
+	repo      convdomain.Repository
+	notif     notificationspkg.Publisher
+	keys      apikeydomain.KeyProvider // §12.3 optional; nil = skip override validation
+	relations RelationSyncer           // optional; nil disables relation hooks
+	log       *zap.Logger
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // NewService wires dependencies; panics on nil logger; nil notif → no-op.
 //
@@ -192,6 +198,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	s.notif.Publish(ctx, "conversation", id,
 		map[string]any{"action": "deleted"}, id)
+	s.purgeRelations(ctx, id)
 	return nil
 }
 

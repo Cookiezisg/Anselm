@@ -22,6 +22,7 @@ import (
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	subagentdomain "github.com/sunweilin/forgify/backend/internal/domain/subagent"
@@ -48,6 +49,12 @@ type errMapping struct {
 // errTable 是 domain → HTTP 翻译的唯一事实源。
 var errTable = map[error]errMapping{
 	errorsdomain.ErrInvalidRequest: {http.StatusBadRequest, "INVALID_REQUEST"},
+
+	// relation (V1.2 §16 cross-entity edge graph)
+	relationdomain.ErrInvalidEntityRef: {http.StatusBadRequest, "INVALID_ENTITY_REF"},
+	relationdomain.ErrInvalidKind:      {http.StatusBadRequest, "INVALID_RELATION_KIND"},
+	relationdomain.ErrDepthOutOfRange:  {http.StatusBadRequest, "DEPTH_OUT_OF_RANGE"},
+	relationdomain.ErrIncompleteFilter: {http.StatusBadRequest, "INCOMPLETE_FILTER"},
 
 	// apikey
 	apikeydomain.ErrNotFound:            {http.StatusNotFound, "API_KEY_NOT_FOUND"},

@@ -16,10 +16,11 @@ import (
 //
 // Service 编排 workflow domain。
 type Service struct {
-	repo    workflowdomain.Repository
-	checker CapabilityChecker
-	notif   notificationspkg.Publisher
-	log     *zap.Logger
+	repo      workflowdomain.Repository
+	checker   CapabilityChecker
+	notif     notificationspkg.Publisher
+	relations RelationSyncer // optional; nil disables relation hooks
+	log       *zap.Logger
 }
 
 // NewService wires Service; panics on nil log/notif; nil checker uses NopChecker.
@@ -46,6 +47,15 @@ func NewService(
 		notif:   notif,
 		log:     log.Named("workflowapp"),
 	}
+}
+
+// SetRelationSyncer installs the relation Service post-construction (avoids DI cycle
+// since relation Service consumes workflow reader too). Nil to disable.
+//
+// SetRelationSyncer 装配后注入 relation Service（避开 DI 循环——relation 也消费 workflow reader）。
+// 传 nil 等于禁用。
+func (s *Service) SetRelationSyncer(r RelationSyncer) {
+	s.relations = r
 }
 
 // WorkflowReader is the read-only contract Plan 05 consumes for active versions and enabled lists.

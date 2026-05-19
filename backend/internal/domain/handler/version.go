@@ -52,6 +52,10 @@ type Version struct {
 	EnvSyncDetail string     `gorm:"type:text;default:''" json:"envSyncDetail"`
 
 	ChangeReason string    `gorm:"type:text;default:''" json:"changeReason"`
+	// ForgedInConversationID — see function/version.go for semantics.
+	//
+	// ForgedInConversationID —— 语义见 function/version.go。
+	ForgedInConversationID *string `gorm:"index;type:text" json:"forgedInConversationId,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }

@@ -13,6 +13,10 @@ type Version struct {
 	Graph        string    `gorm:"type:text;not null;default:'{}'" json:"-"`
 	GraphParsed  *Graph    `gorm:"-" json:"graph,omitempty"`
 	ChangeReason string    `gorm:"type:text;default:''" json:"changeReason,omitempty"`
+	// ForgedInConversationID — see function/version.go for semantics.
+	//
+	// ForgedInConversationID —— 语义见 function/version.go。
+	ForgedInConversationID *string `gorm:"index;type:text" json:"forgedInConversationId,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 }

@@ -22,6 +22,7 @@ import (
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
+	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	permgateapp "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
@@ -84,6 +85,7 @@ type Deps struct {
 	CatalogService      *catalogapp.Service
 	MemoryService       *memoryapp.Service
 	DocumentService     *documentapp.Service
+	RelationService     *relationapp.Service
 	UserService         *userapp.Service
 
 	// §4.5 metrics dashboard — aggregated views over the 4 D22 execution-log tables.

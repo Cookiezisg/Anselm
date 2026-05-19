@@ -214,6 +214,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		v.ForgedInConversationID = &convID
+	}
 
 	if err := s.repo.SaveFunction(ctx, f); err != nil {
 		return nil, nil, fmt.Errorf("functionapp.Create: SaveFunction: %w", err)
@@ -228,6 +231,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 		s.log.Warn("functionapp.Create: env sync failed",
 			zap.String("functionId", fnID), zap.String("versionId", versionID), zap.Error(err))
 	}
+
+	// Relation hooks: forged edge (from origin conv) + initial edited sync (suppressed on Create).
+	s.syncRelationsAfterCreate(ctx, fnID, v.ForgedInConversationID)
+	s.syncRelationsAfterActiveVersionChange(ctx, fnID)
 
 	return f, v, nil
 }
@@ -386,6 +393,10 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 		pending.EnvSyncDetail = ""
 		pending.ChangeReason = in.ChangeReason
 		pending.UpdatedAt = now
+		// Latest editor: update if conv changed (different ctx vs original pending creator).
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			pending.ForgedInConversationID = &convID
+		}
 		v = pending
 	} else {
 		versionID := idgenpkg.New("fnv")
@@ -403,6 +414,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 			ChangeReason:  in.ChangeReason,
 			CreatedAt:     now,
 			UpdatedAt:     now,
+		}
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			v.ForgedInConversationID = &convID
 		}
 	}
 	if err := s.repo.SaveVersion(ctx, v); err != nil {
@@ -458,6 +472,9 @@ func (s *Service) AcceptPending(ctx context.Context, id string) (*functiondomain
 	pending.Status = functiondomain.StatusAccepted
 	pending.Version = &nextN
 	s.publish(ctx, id, "version_accepted", map[string]any{"versionId": pending.ID, "versionNumber": nextN})
+
+	// Relation hook: ActiveVersionID flipped to new accepted; recompute edited edge.
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return pending, nil
 }
 
@@ -502,6 +519,9 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*fu
 		revertedNum = *target.Version
 	}
 	s.publish(ctx, id, "reverted", map[string]any{"versionId": target.ID, "versionNumber": revertedNum})
+
+	// Relation hook: ActiveVersionID flipped backward; recompute edited edge.
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return target, nil
 }
 
@@ -595,6 +615,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("functionapp.Delete: %w", err)
 	}
 	s.publish(ctx, id, "deleted", nil)
+	s.purgeRelations(ctx, id)
 	return nil
 }
 

@@ -445,3 +445,16 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
 | `INTENT_AMBIGUOUS` | 422 | `intent.ErrAmbiguous` | 意图无法明确识别 | ⬜（待定）|
+
+---
+
+### Phase 5 增量：relation ✅（2026-05-19）
+
+| Code | HTTP | Sentinel | 场景 | 状态 |
+|---|---|---|---|---|
+| `INVALID_ENTITY_REF` | 400 | `relation.ErrInvalidEntityRef` | from/to kind 或 id 缺失 / 不在 7 种实体类型枚举 | ✅ |
+| `INVALID_RELATION_KIND` | 400 | `relation.ErrInvalidKind` | kind 不在 8 种闭合枚举 | ✅ |
+| `DEPTH_OUT_OF_RANGE` | 400 | `relation.ErrDepthOutOfRange` | neighborhood depth < 1 或 > 3 | ✅ |
+| `INCOMPLETE_FILTER` | 400 | `relation.ErrIncompleteFilter` | List 给了 fromKind 没给 fromId（或反之） | ✅ |
+
+无 NotFound 端点——过滤无结果返空 data + hasMore=false，不是 404。

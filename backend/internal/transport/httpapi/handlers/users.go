@@ -30,7 +30,12 @@ func (h *UsersHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/users/{id}", h.Get)
 	mux.HandleFunc("PATCH /api/v1/users/{id}", h.Update)
 	mux.HandleFunc("DELETE /api/v1/users/{id}", h.Delete)
-	mux.HandleFunc("POST /api/v1/users/{id}:activate", h.Activate)
+	// Go 1.22+ ServeMux disallows `{var}:action` literal — segment must end at `}`.
+	// Use `{idAction}` catch + parse pattern (consistent with document.go / function.go).
+	//
+	// Go 1.22+ ServeMux 禁止 `{var}:action` 字面量——分段必须以 `}` 结束。
+	// 用 `{idAction}` 捕获 + 解析的 pattern（与 document.go / function.go 一致）。
+	mux.HandleFunc("POST /api/v1/users/{idAction}", h.postOnUser)
 }
 
 type createUserRequest struct {
@@ -109,11 +114,27 @@ func (h *UsersHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// Activate marks a user as most-recently-used; client uses this when switching profiles.
+// postOnUser dispatches `:action` suffix routes (currently just :activate).
 //
-// Activate 标用户为最近使用；切换 profile 时客户端调。
-func (h *UsersHandler) Activate(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
+// postOnUser 分派 `:action` 后缀路由（目前仅 :activate）。
+func (h *UsersHandler) postOnUser(w http.ResponseWriter, r *http.Request) {
+	id, action, ok := idAndAction(r, "idAction")
+	if !ok {
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
+		return
+	}
+	switch action {
+	case "activate":
+		h.activate(w, r, id)
+	default:
+		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
+	}
+}
+
+// activate marks a user as most-recently-used; client uses this when switching profiles.
+//
+// activate 标用户为最近使用；切换 profile 时客户端调。
+func (h *UsersHandler) activate(w http.ResponseWriter, r *http.Request, id string) {
 	if err := h.svc.TouchLastUsed(r.Context(), id); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

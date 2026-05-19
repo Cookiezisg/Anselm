@@ -246,6 +246,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
+	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		v.ForgedInConversationID = &convID
+	}
 
 	if err := s.repo.SaveHandler(ctx, h); err != nil {
 		return nil, nil, fmt.Errorf("handlerapp.Create: SaveHandler: %w", err)
@@ -260,6 +263,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 		s.log.Warn("handlerapp.Create: env sync failed",
 			zap.String("handlerId", hdID), zap.String("versionId", versionID), zap.Error(err))
 	}
+
+	s.syncRelationsAfterCreate(ctx, hdID, v.ForgedInConversationID)
+	s.syncRelationsAfterActiveVersionChange(ctx, hdID)
 
 	return h, v, nil
 }
@@ -421,6 +427,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		pending.EnvSyncDetail = ""
 		pending.ChangeReason = in.ChangeReason
 		pending.UpdatedAt = now
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			pending.ForgedInConversationID = &convID
+		}
 		v = pending
 	} else {
 		versionID := idgenpkg.New("hdv")
@@ -440,6 +449,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 			ChangeReason:   in.ChangeReason,
 			CreatedAt:      now,
 			UpdatedAt:      now,
+		}
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			v.ForgedInConversationID = &convID
 		}
 	}
 	if err := s.repo.SaveVersion(ctx, v); err != nil {
@@ -496,6 +508,7 @@ func (s *Service) AcceptPending(ctx context.Context, id string) (*handlerdomain.
 	pending.Status = handlerdomain.StatusAccepted
 	pending.Version = &nextN
 	s.publishHandlerEvent(ctx, id, "version_accepted", map[string]any{"versionId": pending.ID, "versionNumber": nextN})
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return pending, nil
 }
 
@@ -540,6 +553,7 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ha
 		revertedNum = *target.Version
 	}
 	s.publishHandlerEvent(ctx, id, "reverted", map[string]any{"versionId": target.ID, "versionNumber": revertedNum})
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return target, nil
 }
 
@@ -602,6 +616,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		}
 	}
 	s.publishHandlerEvent(ctx, id, "deleted", nil)
+	s.purgeRelations(ctx, id)
 	return nil
 }
 

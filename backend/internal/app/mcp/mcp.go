@@ -46,6 +46,7 @@ type Service struct {
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
 	notif       notificationspkg.Publisher
+	relations   RelationSyncer // optional; nil disables relation hooks
 	log         *zap.Logger
 
 	callRepo mcpdomain.CallRepository
@@ -57,6 +58,11 @@ type Service struct {
 	states  map[string]*mcpdomain.ServerStatus
 	clients map[string]mcpinfra.Client
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // New constructs a Service; caller must Start before CallTool/Search.
 //
@@ -232,6 +238,7 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 	}
 	s.notif.Publish(ctx, "mcp_server", name,
 		map[string]any{"name": name, "deleted": true}, "")
+	s.purgeRelations(ctx, name)
 	return nil
 }
 

@@ -38,6 +38,14 @@ type Version struct {
 	EnvSyncStage  string          `gorm:"type:text;default:''" json:"envSyncStage"`
 	EnvSyncDetail string          `gorm:"type:text;default:''" json:"envSyncDetail"`
 	ChangeReason  string          `gorm:"type:text;default:''" json:"changeReason"`
+	// ForgedInConversationID records which conversation (if any) produced this version
+	// via the create_forge / edit_forge LLM tool. NULL when created via manual HTTP
+	// (UI editor / API client). Used by relation domain to derive forged/edited edges.
+	//
+	// ForgedInConversationID 记录哪一个对话（若有）通过 create_forge / edit_forge
+	// LLM 工具产生本 version。NULL 表示由 HTTP 手工创建（UI 编辑器 / API 客户端）。
+	// 由 relation domain 派生 forged/edited 边时使用。
+	ForgedInConversationID *string         `gorm:"index;type:text" json:"forgedInConversationId,omitempty"`
 	CreatedAt     time.Time       `json:"createdAt"`
 	UpdatedAt     time.Time       `json:"updatedAt"`
 }

@@ -100,6 +100,9 @@ func New(deps Deps) http.Handler {
 	if deps.DocumentService != nil {
 		handlershttpapi.NewDocumentHandler(deps.DocumentService, deps.Log).Register(mux)
 	}
+	if deps.RelationService != nil {
+		handlershttpapi.NewRelationHandler(deps.RelationService, deps.Log).Register(mux)
+	}
 	if deps.UserService != nil {
 		handlershttpapi.NewUsersHandler(deps.UserService, deps.Log).Register(mux)
 	}

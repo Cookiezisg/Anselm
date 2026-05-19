@@ -873,3 +873,15 @@ func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 - **远程注册表自动发现**：扫 `registry.modelcontextprotocol.io` 帮用户装 server（当前手编 mcp.json）
 - **Resources / Prompts 支持**：v1 只用 Tools；spec 还有 Resources（数据源）和 Prompts（模板）primitive，几乎没人用，按需再加
 - **Sampling 协议**：spec 允许 server 主动调 LLM；v1 不支持，几乎没 server 用
+
+---
+
+## Relations Integration（2026-05-19）
+
+mcp_server 在 relgraph 中作为节点（含孤儿）；name 是主键，不参与 wikilink。
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.RemoveServer` | `PurgeEntity("mcp", name)` 级联清边 |
+
+mcp 不直接写出向边；它通过 `workflow_uses_mcp` 入向边被引用。reader 实现 `ListAllMeta` 给 relgraph 拉 label（mcp name + status）。详 [`./relation.md`](./relation.md) §9.3。

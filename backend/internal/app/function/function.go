@@ -51,11 +51,17 @@ type Sandbox interface {
 //
 // Service 编排 function domain。
 type Service struct {
-	repo    functiondomain.Repository
-	sandbox Sandbox
-	notif   notificationspkg.Publisher
-	log     *zap.Logger
+	repo      functiondomain.Repository
+	sandbox   Sandbox
+	notif     notificationspkg.Publisher
+	relations RelationSyncer // optional; nil disables relation hooks
+	log       *zap.Logger
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // NewService wires Service dependencies; panics on nil logger or notif.
 //

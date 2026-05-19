@@ -114,6 +114,7 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 	if err := s.Scan(ctx); err != nil {
 		return fmt.Errorf("skillapp.Delete %s: rescan: %w", name, err)
 	}
+	s.purgeRelations(ctx, name)
 	return nil
 }
 

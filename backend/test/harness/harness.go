@@ -35,6 +35,8 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
+	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
+	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
@@ -68,6 +70,7 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
@@ -162,6 +165,7 @@ type Harness struct {
 	Catalog             *catalogapp.Service
 	Memory              *memoryapp.Service
 	Document            *documentapp.Service
+	Relation            *relationapp.Service
 	ContextManager      *contextmgrapp.Manager
 	Settings            *settingsinfra.Service
 	SettingsPath        string // path to settings.json for tests to write rules
@@ -235,6 +239,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&documentdomain.Document{},
 		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
+		&relationdomain.Relation{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -464,6 +469,26 @@ func New(t *testing.T, opts ...Option) *Harness {
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)
 
+	// Relation domain wiring (mirrors cmd/server/main.go pattern).
+	relationService := relationapp.NewService(relationapp.Config{
+		Repo:               relationstore.New(gdb),
+		FunctionReader:     functionService,
+		HandlerReader:      handlerService,
+		WorkflowReader:     workflowService,
+		DocumentReader:     documentService,
+		SkillReader:        skillService,
+		McpReader:          mcpService,
+		ConversationReader: convService,
+		Log:                log,
+	})
+	workflowService.SetRelationSyncer(relationService)
+	functionService.SetRelationSyncer(relationService)
+	handlerService.SetRelationSyncer(relationService)
+	documentService.SetRelationSyncer(relationService)
+	convService.SetRelationSyncer(relationService)
+	mcpService.SetRelationSyncer(relationService)
+	skillService.SetRelationSyncer(relationService)
+
 	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
 		bundle, err := llmclientpkg.ResolveForWebSummary(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
@@ -560,6 +585,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		CatalogService:      catalogService,
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
+		RelationService:     relationService,
 		UserService:         userService,
 		SettingsService:     settingsService,
 		SettingsPath:        settingsPath,
@@ -604,6 +630,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Chat:                chatService,
 		Memory:              memoryService,
 		Document:            documentService,
+		Relation:            relationService,
 		ContextManager:      contextManager,
 		Settings:            settingsService,
 		SettingsPath:        settingsPath,

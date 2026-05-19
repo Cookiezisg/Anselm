@@ -294,6 +294,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
+	// Tag the originating conversation if one is present in ctx (set by create_forge tool).
+	// Manual HTTP create leaves ForgedInConversationID = nil.
+	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		v.ForgedInConversationID = &convID
+	}
 	if err := s.repo.SaveWorkflow(ctx, w); err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: SaveWorkflow: %w", err)
 	}
@@ -302,6 +307,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 	}
 	s.attachGraph(v)
 	s.publish(ctx, wfID, "created", map[string]any{"versionId": v.ID, "versionNumber": versionN})
+
+	// Relation hooks: forged edge (from origin conv) + outgoing uses_* + edited (suppressed on Create).
+	s.syncRelationsAfterCreate(ctx, wfID, v.ForgedInConversationID)
+	s.syncRelationsAfterActiveVersionChange(ctx, wfID)
 	return w, v, nil
 }
 
@@ -360,6 +369,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 		pending.Graph = string(graphJSON)
 		pending.ChangeReason = in.ChangeReason
 		pending.UpdatedAt = now
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			pending.ForgedInConversationID = &convID
+		}
 		v = pending
 	} else {
 		v = &workflowdomain.Version{
@@ -370,6 +382,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 			ChangeReason: in.ChangeReason,
 			CreatedAt:    now,
 			UpdatedAt:    now,
+		}
+		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+			v.ForgedInConversationID = &convID
 		}
 	}
 	if err := s.repo.SaveVersion(ctx, v); err != nil {
@@ -410,6 +425,9 @@ func (s *Service) AcceptPending(ctx context.Context, id string) (*workflowdomain
 	pending.Status = workflowdomain.StatusAccepted
 	pending.Version = &nextN
 	s.publish(ctx, id, "version_accepted", map[string]any{"versionId": pending.ID, "versionNumber": nextN})
+
+	// Relation hooks: active_version_id flipped, recompute outgoing + edited
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return pending, nil
 }
 
@@ -447,6 +465,9 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*wo
 	}
 	s.attachGraph(target)
 	s.publish(ctx, id, "reverted", map[string]any{"versionId": target.ID, "versionNumber": targetVersion})
+
+	// Relation hooks: active_version_id flipped backward, recompute outgoing + edited
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return target, nil
 }
 
@@ -512,6 +533,8 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("workflowapp.Delete: %w", err)
 	}
 	s.publish(ctx, id, "deleted", nil)
+	// Relation hook: cascade purge all edges involving this workflow.
+	s.purgeRelations(ctx, id)
 	return nil
 }
 

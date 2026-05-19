@@ -334,3 +334,25 @@ Plan 05 的 trigger / flowrun 域消费 `WorkflowReader`,不依赖完整 Service
 
 - 2026-05-12 forge_redesign Plan 04 完成:domain + store + ops engine + validate(Kahn cycle / capability check / container recursive ≤3)+ expression(Go text/template ~140 LOC)+ Service(CRUD + iterate-same-pending + slim notifications + forge double-write)+ 6 LLM tools + 11 HTTP endpoints + ProductionChecker + main/harness 装配 + 3 pipeline test。9 commits 直推 main。
 - Plan 05 接口预留(`WorkflowReader`)、`NeedsAttention` schema 已就位;触发器 / scheduler / flowrun 在 Plan 05 引入。
+
+---
+
+## Relations Integration（2026-05-19）
+
+workflow 既是关系图节点也是**最多出向边**的实体（出 5 种 `workflow_uses_*` 边到 function/handler/mcp/skill/document）。
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.Create` | `SyncIncoming(workflow, id, [forged], ...)` 写 v1 forged 边 + `SyncOutgoing(workflow, id, [5种 uses], computeWorkflowOutgoingEdges(v1.GraphParsed))` 从 graph nodes 抽出所有引用 |
+| `Service.AcceptPending` | 翻 ActiveVersionID 后同 Create 的两段；outgoing 从新 active version 重算 |
+| `Service.Revert` | 同 AcceptPending（active 翻向老版本，outgoing 从老 graph 重算） |
+| `Service.Delete` | `PurgeEntity("workflow", id)` 级联清边 |
+
+**`computeWorkflowOutgoingEdges` 抽 5 种引用**（见 `app/workflow/relations.go`）：
+- function 节点 → `workflow_uses_function`，attrs 含 `nodeIds`（list）+ optional `pinnedVersionId`
+- handler 节点 → `workflow_uses_handler`，attrs 同上
+- mcp 节点 → `workflow_uses_mcp`，attrs 含 `serverName`
+- skill 节点 → `workflow_uses_skill`，attrs 含 `skillName`
+- llm / agent 节点 `attached_documents` 列表 → `workflow_uses_document`，attrs 含 `includeSubtree`
+
+workflow_versions 表加 `ForgedInConversationID *string` 列。详 [`./relation.md`](./relation.md) §7、§4.2 attrs 表。

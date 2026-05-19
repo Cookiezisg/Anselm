@@ -404,3 +404,17 @@ conversation 不依赖 apikey / model，后两者也不依赖 conversation。
 ### 验收 ✅
 - [x] 全仓 `go test -count=1 -race ./...` 零失败
 - [x] `go build ./...` 通过
+
+---
+
+## Relations Integration（2026-05-19）
+
+conversation 在 relgraph 中**仅当有边相关时**才作为节点出现（避免 chat 历史污染图，per spec §9.3）。
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.Delete` | `PurgeEntity("conversation", id)` 级联删该 conv 所有出/入边（forged_entity / edited_entity / document_links_entity 入边等） |
+
+conversation 不直接写出向边；它的"作者权"通过 trinity 域 `forged_in_conversation_id` 字段被动派生（详 function.md / handler.md / workflow.md Relations Integration 节）。conversation reader 实现 `GetMetaBatch` 给 relgraph 拉 label/sub（label = Title → Summary[:30] → "(未命名对话)"）。
+
+详 [`./relation.md`](./relation.md) §6.3 + §9.3。

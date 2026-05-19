@@ -451,3 +451,15 @@ settings.json 顶层 schema：`{permissions:{defaultMode:ask\|allow\|deny\|bypas
 #### mcpserver — 已提前交付 ✅ 见上方"Phase 4 准备件 / mcp"
 #### skill — 已提前交付 ✅ 见上方"Phase 4 准备件 / skill"
 #### chat（终极智能版）⬜
+
+#### relation ✅（2026-05-19）
+
+跨实体关系图（relgraph 数据底座）。**只读**——无 POST/PATCH/DELETE 端点；边由 source domain hook 隐式维护。
+
+| Endpoint | 用途 |
+|---|---|
+| `GET /api/v1/relations?fromKind&fromId&toKind&toId&kind&cursor&limit` | 按任意组合过滤的分页查询。limit 默认 200，最大 500 |
+| `GET /api/v1/relations/neighborhood?kind&id&depth=1-3` | 中心实体 N 跳邻域 BFS；返所有边 |
+| `GET /api/v1/relgraph` | 洞察 tab 全图快照（`{nodes, edges}`）；conversation 实体只在有边时入图，其他实体类型含孤儿 |
+
+详 [`../service-design-documents/relation.md`](../service-design-documents/relation.md)。

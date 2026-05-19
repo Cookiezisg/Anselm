@@ -196,3 +196,20 @@ env_status 状态机:`pending → syncing → ready / failed`(evicted 由 sandbo
 
 - 2026-05-11 forge_redesign Plan 01 完成:domain + store + app + tools + HTTP + main/harness 装配 + 删除 forge + D22 执行日志 + pipeline test。13 commits 直推 main。
 - 历史 forge domain(2025-Q4 至 2026-05-10)的所有特性都迁移到 function:版本/pending/sandbox 执行/catalog。删除的特性:测试用例(forge_test_cases)、import/export、generate-test-cases LLM 工具(Plan 03 workflow 引入 batch 调用更通用)。
+
+---
+
+## Relations Integration（2026-05-19）
+
+每个 function 在 relgraph 中是 1 个节点；触发 relation 域 hook 的 4 个 Service 方法：
+
+| 方法 | 触发的 relation 操作 |
+|---|---|
+| `Service.Create` | `SyncIncoming(function, id, [conversation_forged_entity], ...)` 写 v1 forged 边（若 ctx 带 conversation ID）；同时 `SyncIncoming(function, id, [conversation_edited_entity], nil)` 显式 suppress |
+| `Service.AcceptPending` | 翻 ActiveVersionID 后 `SyncIncoming(function, id, [conversation_edited_entity], ...)` 重写 edited 边；editor==origin（v1 作者）时 suppress |
+| `Service.Revert` | 同 AcceptPending（active 翻回老版本，edited 重指向那个版本的 editor） |
+| `Service.Delete` | `PurgeEntity("function", id)` —— 级联删该 function 所有出/入边 |
+
+**`forged_in_conversation_id` 字段**（schema 加列 in 2026-05-19）：function_versions 表加 nullable text 列；`Create` / `Edit` 中通过 `reqctxpkg.GetConversationID(ctx)` 读取并填入；HTTP 手工创建 / 编辑时为 NULL（不写 conv-related 边）。LLM 通过 create_forge / edit_forge 工具触发时，chat ctx 已带 conversation ID。
+
+详 [`./relation.md`](./relation.md) §7。

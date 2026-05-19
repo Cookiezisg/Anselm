@@ -36,6 +36,7 @@ type Service struct {
 	keyProvider apikeydomain.KeyProvider
 	llmFactory  *llminfra.Factory
 	notif       notificationspkg.Publisher
+	relations   RelationSyncer // optional; nil disables relation hooks
 	log         *zap.Logger
 
 	execRepo skilldomain.ExecutionRepository
@@ -49,6 +50,11 @@ type Service struct {
 	stopOnce   sync.Once
 	pollDone   chan struct{}
 }
+
+// SetRelationSyncer installs the relation Service post-construction.
+//
+// SetRelationSyncer 装配后注入 relation Service。
+func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // New constructs a Service rooted at skillsDir.
 //
