@@ -194,10 +194,11 @@ backend/
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
     │   ├── subagent/               ← ✅ SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 service-design-documents/subagent.md §6）
-    │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + 5 status const + RegistryEntry + 10 sentinels
+    │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + HealthSnapshot + HealthHistoryRepository + 5 status const + RegistryEntry + 10 sentinels
     │   ├── skill/                  ← ✅ Skill + Frontmatter（Anthropic SKILL.md spec 全字段保留 cross-vendor）+ 5 sentinel + MaxBodyBytes/MaxDescriptionChars 常量
     │   ├── catalog/                ← ✅ CatalogSource port + Catalog + Item + Granularity (PerItem/PerServer/PerCollection) + SystemPromptProvider + 2 sentinel（内部消化不进 errmap）
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Runtime + Env + Owner + RuntimeInstaller / EnvManager port + 8 sentinel（统一 PluginSandbox）
+    │   ├── relation/               ← ✅ Relation + 8 EdgeKind const + Service/Repository interfaces + EntityMeta + GraphNode + Snapshot + SyncEdge + Filter + 5 sentinels（V1.2 §16 跨实体边图）
     │   (flowrun/trigger/scheduler ✅ 上方;Plan 05 完成)
     │   ├── document/               ← ⬜ Phase 5（LLM-ranked attach，无向量库；详 final-sweep §14 2026-05-16 设计改向）
     │   └── intent/                 ← ⬜ Phase 5
@@ -226,15 +227,17 @@ backend/
     │   │   ├── mcp/                ← ✅ search_mcp + call_mcp（不 flat 注册 N×M tools；search 走 LLM ranking 模式 A）
     │   │   └── skill/              ← ✅ search_skills + activate_skill（activate 写 agentstate.ActiveSkill 让 framework dispatch 短路 CheckPermissions）
     │   ├── subagent/               ← ✅ Service{Spawn/Cancel/Get/ListTypes/ListByConversation/ListMessages} + subagentHost（loop.Host 实现，5min total-timeout + panic recover + agentstate token log）+ 内置 3 类型注册表（Explore / Plan / general-purpose）
-    │   ├── mcp/                    ← ✅ Service{Start/Stop/Add/Remove/Reconnect/Search/CallTool/HealthCheck/InstallFromRegistry/Import} + 6 内置 marketplace Registry + 单 RWMutex 模型 + §5.6 健康追踪（连续失败≥3 → degraded → 自愈）+ §5.7 timeout precedence（ServerConfig > RegistryEntry > 30s）
+    │   ├── mcp/                    ← ✅ Service{Start/Stop/Add/Remove/Reconnect/Search/CallTool/HealthCheck/ListHealthHistory/InstallFromRegistry/Import} + 6 内置 marketplace Registry + 单 RWMutex 模型 + §5.6 健康追踪（连续失败≥3 → degraded → 自愈）+ §5.7 HealthSnapshot 历史写入（healthRepo 装配后 HealthCheck auto-record）
     │   ├── skill/                  ← ✅ Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + atomic 写 + fsnotify watcher（debounce 500ms + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ \$1/\$ARGUMENTS/\${CLAUDE_*} 占位替换 + fork 模式派发 SubagentService（depth ≥ 1 抑制嵌套 fork）
     │   ├── catalog/                ← ✅ Service{Start/Stop/Refresh/RegisterSource/GetForSystemPrompt/Get} + LLMGenerator{Generate 3-attempt retry + coverage 校验 + mechanical fallback}+ pollLoop 1s + atomic.Bool 单 flight + fingerprint dedup（hash sort source+name+description）+ ~/.forgify/.catalog.json 原子读写 + chat.runner SystemPromptProvider 注入 + 3 source（function/skill/mcp via AsCatalogSource）
+    │   ├── relation/               ← ✅ Service{SyncOutgoing/SyncIncoming/PurgeEntity/List/Neighborhood/GetRelgraph} + diffSync core（Insert ON CONFLICT DO NOTHING + DeleteByIDs）+ 7 reader ports（function/handler/workflow/document/conversation/mcp/skill）+ BFS Neighborhood + GetRelgraph（full graph join）
+    │   ├── askai/                  ← ✅ Spawner{Spawn} + BuildFunctionContext/BuildHandlerContext/BuildWorkflowContext/BuildDocumentContext/BuildTriageContext（5 context builders）；被 :iterate / :triage action handlers 调用；返 conversationId
     │   ├── sandbox/                ← 📐 Phase 4 准备件 Service + EnsureRuntime/EnsureEnv/Spawn/SpawnLongLived/SpawnShell/Destroy/GC（统一 PluginSandbox）
     │   └── <Phase 4-5>/
     │
     ├── infra/                      ← 技术实现
     │   ├── db/                     ← ✅ db.go（modernc.org/sqlite）+ migrate.go + schema_extras.go
-    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / handler (含 call_log) / workflow (Plan 04) / flowrun (Plan 05;FlowRun + Node) / mcpcalls (Plan 05 D22) / skillexec (Plan 05 D22) / todo / sandbox
+    │   ├── store/                  ← ✅ apikey / model / conversation / chat / function (含 execution_log) / handler (含 call_log) / workflow (Plan 04) / flowrun (Plan 05;FlowRun + Node) / mcpcalls (Plan 05 D22) / skillexec (Plan 05 D22) / todo / sandbox / relation (ON CONFLICT DO NOTHING batch insert + cursor List + PurgeEntity) / mcphealth (Insert + ListSince)
     │   ├── mcp/                    ← ✅ ~/.forgify/mcp.json Load/Save/Merge（Claude Desktop schema 兼容，0600 权限，atomic 写）+ stdio Client wrapper（基于 modelcontextprotocol/go-sdk v1.6；stderr→zap+256KB ring；CommandTransport 处理 SIGTERM→5s→SIGKILL）
     │   ├── sandbox/                ← ✅ 统一 PluginRuntime（mise embed + per-plugin 隔离 env,5 类 owner: function/handler/mcp/skill/conversation）
     │   ├── handler/                ← ✅ infra/handler/client.go(stdio JSON-line RPC client wrapping subprocess pipes;5 methods: Init/Call/StreamCall/Shutdown/Crashed;V1 per-instance 串行经 sync.Mutex)
@@ -259,7 +262,8 @@ backend/
     ├── pkg/                        ← 跨层共享纯工具（无业务、无 infra 依赖）
     │   ├── reqctx/                 ← ✅ reqctx.go（user 身份）+ locale.go + agentrun.go（convID/msgID/toolCallID）
     │   ├── pagination/             ← ✅ cursor.go（Parse + EncodeCursor + DecodeCursor + Cursor 共享类型）
-    │   ├── idgen/                  ← ✅ idgen.go（New(prefix string) string；§S15 标准 ID 形状唯一实现）
+    │   ├── idgen/                  ← ✅ idgen.go（New(prefix string) string；§S15 标准 ID 形状唯一实现）+ prefix.go（KindByPrefix map，wikilink 解析用）
+    │   ├── wikilink/               ← ✅ wikilink.go（Parse `[[<prefix>_<16hex>]]` → EntityRef{Kind, ID}；5 已知前缀 fn/hd/wf/doc/cv）
     │   ├── llmparse/               ← ✅ extractjson.go（ExtractJSON + IsLikelyJSON；LLM 响应 markdown fence + 外层括号兜底）
     │   └── llmclient/              ← ✅ llmclient.go（Resolve picker→keys→factory 三段舞；ErrPickModel/ErrResolveCreds/ErrBuildClient sentinel）
     │

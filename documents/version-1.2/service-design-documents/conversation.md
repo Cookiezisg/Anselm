@@ -144,10 +144,13 @@ func NewService(repo convdomain.Repository, log *zap.Logger) *Service {
 
 ```go
 func (s *Service) Create(ctx context.Context, title string) (*Conversation, error)
+func (s *Service) CreateWithSystemPrompt(ctx context.Context, title, systemPrompt string) (*Conversation, error)
 func (s *Service) List(ctx context.Context, filter ListFilter) ([]*Conversation, string, error)
 func (s *Service) Rename(ctx context.Context, id, title string) (*Conversation, error)
 func (s *Service) Delete(ctx context.Context, id string) error
 ```
+
+`CreateWithSystemPrompt` 是 `Create` 的变体：额外写 `system_prompt` 字段（直接存入 DB），用于 `app/askai` 包创建 AI 辅助对话（`:iterate` / `:triage`）时预设上下文。调用方从不通过公开 HTTP API，仅 askai.Spawner 内部使用。
 
 ### Create 流程
 

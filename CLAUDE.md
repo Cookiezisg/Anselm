@@ -74,7 +74,7 @@
 2. **N2 状态码严格语义**：200 读/更新 / 201 创建 / 204 删除 / 400 参数错 / 404 不存在 / 409 冲突 / 410 历史已淘汰 / 422 业务拒绝 / 500 内部错
 3. **N3 字段 camelCase**：API 请求/响应一律 camelCase；DB 列 snake_case，repo 层转换
 4. **N4 列表强制分页**：`?cursor=xxx&limit=50` → `{data, nextCursor, hasMore}`
-5. **N5 RESTful 严格化**：资源用名词；状态改动走 `PATCH` + 状态字段；动词用 `:action` 后缀（`POST /tools/{id}:duplicate`）
+5. **N5 RESTful 严格化**：资源用名词；状态改动走 `PATCH` + 状态字段；动词用 `:action` 后缀（`POST /tools/{id}:duplicate`）。**`:iterate`**（AI 编辑对话）和 **`:triage`**（AI 调试对话）是标准 action 名，分别挂在 function/handler/workflow/document 和 flowrun 上，统一返 `{conversationId}`（201）
 6. **N6 PUT 幂等返 200**：upsert 类 PUT 端点（如 `PUT /model-configs/{scenario}`）无论新建或更新一律返 200——客户端不需要区分。区别 create/update 时才用 POST 返 201
 7. **N7 SSE wire format**（事件日志协议专用）：
     - 每事件按 SSE 标准发送：`event: <type>` + `id: <seq>` + `data: <event payload JSON>` + 空行
@@ -303,11 +303,11 @@ app/tool/
 
 | 目录 | 后缀 | 示例 |
 |---|---|---|
-| `internal/app/<name>/` | `app` | `apikeyapp`, `chatapp`, `convapp` |
-| `internal/domain/<name>/` | `domain` | `apikeydomain`, `chatdomain`, `errorsdomain` |
+| `internal/app/<name>/` | `app` | `apikeyapp`, `chatapp`, `convapp`, `relationapp`, `askaiapp` |
+| `internal/domain/<name>/` | `domain` | `apikeydomain`, `chatdomain`, `errorsdomain`, `relationdomain` |
 | `internal/infra/<name>/`（非 store）| `infra` | `llminfra`, `dbinfra`, `loggerinfra`, `cryptoinfra`, `memoryinfra`, `sandboxinfra`, `chatinfra` |
-| `internal/infra/store/<name>/` | `store` | `apikeystore`, `chatstore`, `convstore` |
-| `internal/pkg/<name>/` | `pkg` | `reqctxpkg`, `paginationpkg` |
+| `internal/infra/store/<name>/` | `store` | `apikeystore`, `chatstore`, `convstore`, `relationstore`, `mcphealthstore` |
+| `internal/pkg/<name>/` | `pkg` | `reqctxpkg`, `paginationpkg`, `wikilinkpkg` |
 | `internal/transport/httpapi/<name>/` | `httpapi` | `responsehttpapi`, `middlewarehttpapi`, `handlershttpapi`, `routerhttpapi` |
 | `internal/app/tool/<sub>/`（嵌套子包，§S12 例外位置）| `tool`（用 `<sub>tool` 形式）| `forgetool`, `fstool`, `shelltool`, `webtool` |
 

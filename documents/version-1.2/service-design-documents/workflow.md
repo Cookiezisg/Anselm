@@ -206,7 +206,7 @@ AcceptedVersionCap=50/workflow,超限 HardDeleteOldestAccepted(同 function/hand
 
 ---
 
-## 9. HTTP API(11 端点)
+## 9. HTTP API(13 端点)
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -216,6 +216,8 @@ AcceptedVersionCap=50/workflow,超限 HardDeleteOldestAccepted(同 function/hand
 | PATCH  | `/api/v1/workflows/{id}`                         | 改 meta(name/description/tags/enabled/concurrency/needs_attention/attention_reason)|
 | DELETE | `/api/v1/workflows/{id}`                         | 软删 |
 | POST   | `/api/v1/workflows/{id}:revert`                  | 回滚到 accepted 版本号 |
+| POST   | `/api/v1/workflows/{id}:iterate`                 | 起 AI 编辑对话（askai.Spawner）；返 `{conversationId}` |
+| POST   | `/api/v1/workflows/{id}:capability-check`        | 预检 active version（ValidateGraph）；返 `{ok, issues}` |
 | GET    | `/api/v1/workflows/{id}/versions`                | 版本分页(`?status=`)|
 | GET    | `/api/v1/workflows/{id}/versions/{v}`            | 单版本(int → ByNumber, wfv_* → ById)|
 | GET    | `/api/v1/workflows/{id}/pending`                 | 当前 pending |
@@ -223,6 +225,33 @@ AcceptedVersionCap=50/workflow,超限 HardDeleteOldestAccepted(同 function/hand
 | POST   | `/api/v1/workflows/{id}/pending:reject`          | reject(hard-delete pending 行,D-redo-12)|
 
 **Plan 05 领域**(本 plan 不实现):`:trigger` action / flowrun list / flowrun detail / cancel — 这些是执行 plane 的 HTTP 面。
+
+### :iterate — AI 编辑对话
+
+`POST /api/v1/workflows/{id}:iterate` body `{"userRequest": "..."}` → `askai.Spawner.Spawn(BuildWorkflowContext + userRequest)` → 返 `{data: {conversationId}}` (201)。
+
+spawner 为 nil 时返 503 `FEATURE_UNAVAILABLE`。响应后前端跳转到该 conversationId 的对话界面，AI 持有 workflow 完整状态 + LLM 编辑工具。
+
+### :capability-check — 能力预检
+
+`POST /api/v1/workflows/{id}:capability-check`（无 body）→ `workflowapp.Service.CapabilityCheck(ctx, id)` → 返 `{data: {ok: bool, issues: [...]}}` (200)。
+
+永远 200（即使 `ok=false`）；错误分两种：
+- `ErrNotFound` / `ErrNoActiveVersion` → 正常 4xx
+- graph 引用残缺（function/handler/mcp/skill 找不到）→ 200 + `ok=false, issues=[...]`
+
+```go
+type CapabilityReport struct {
+    OK     bool              `json:"ok"`
+    Issues []CapabilityIssue `json:"issues"`
+}
+type CapabilityIssue struct {
+    NodeID string `json:"nodeId"`
+    Kind   string `json:"kind"`    // "function" | "handler" | "mcp" | "skill"
+    Ref    string `json:"ref"`     // id or name that wasn't found
+    Reason string `json:"reason"`
+}
+```
 
 Create 用 `json.RawMessage` 接 ops 而非 `[]workflowapp.Op` — 顶层 envelope 走 `DisallowUnknownFields`,而每 op 内部 raw body 由 ParseOps 不强制全字段已知(per-op handler 自取字段)。
 

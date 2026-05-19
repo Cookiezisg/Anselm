@@ -89,7 +89,7 @@ running ←→ paused (approval/wait 长延时)
 
 ---
 
-## 5. HTTP API (5 端点 + 1 webhook 子树)
+## 5. HTTP API (5 端点 + 1 action + 1 webhook 子树)
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -98,9 +98,16 @@ running ←→ paused (approval/wait 长延时)
 | GET    | `/api/v1/flowruns/{id}/nodes` | per-node 执行记录 |
 | DELETE | `/api/v1/flowruns/{id}` | 取消 (scheduler.Cancel) |
 | POST   | `/api/v1/flowruns/{id}/approvals/{nodeId}` | approval 签收 (body: `{decision, reason?}`) |
+| POST   | `/api/v1/flowruns/{id}:triage` | 起 AI 调试对话（askai.Spawner）；返 `{conversationId}` |
 | POST   | `/api/v1/webhooks/{wfId}/{path}` | webhook trigger 入口 (由 trigger.webhook listener 直接挂 ServeMux) |
 
 `POST /api/v1/workflows/{id}:trigger` 手动触发 + `GET /api/v1/workflows/{id}/triggers` trigger 状态由 **WorkflowHandler** 持 (共享 `:revert` 的 `{idAction}` mux dispatcher,避 mux 冲突),委派 FlowRunHandler.FireManual / TriggerStates 薄 helper。
+
+### :triage — AI 调试对话
+
+`POST /api/v1/flowruns/{id}:triage` body `{"userHint": "..."}` (可选) → `askai.BuildTriageContext(ctx, id, repo, workflowSvc)` 拼 flowrun 状态 + workflow graph + node 失败详情 + user hint 做 system prompt → `askai.Spawner.Spawn(...)` → 返 `{data: {conversationId}}` (201)。
+
+spawner 为 nil 时返 503 `FEATURE_UNAVAILABLE`。用于 failed/paused run 的 AI 辅助排查——前端弹出 AI 对话，AI 持有完整现场信息。
 
 ---
 
