@@ -32,7 +32,8 @@ help:
 	@echo "  Daily:   make dev       run the desktop app (backend + frontend, browser opens)"
 	@echo "           make stop      kill anything we started"
 	@echo "           make test      run unit tests"
-	@echo "           make clean     wipe local dev data"
+	@echo "           make clean     wipe local dev data ($(BACKEND_DATA_DIR))"
+	@echo "           make reset     factory reset — dev + prod data + build + node_modules"
 	@echo ""
 	@echo "  Ship:    make build     package the macOS .app bundle"
 	@echo "           make verify    cross-platform build + lint (release gate)"
@@ -132,6 +133,38 @@ clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ cleared $(BACKEND_DATA_DIR)"
 
+# reset — factory reset. Wipes EVERYTHING the app may have written:
+# dev data + prod ~/.forgify (real DB, skills, mcp.json, memory, docs,
+# sandbox installs) + frontend build artifacts + node_modules.
+# Asks for explicit "yes" because ~/.forgify holds your real user data.
+# After reset, run `make setup` to reinstall deps before `make dev`.
+#
+# reset —— 出厂重置。dev 数据 + ~/.forgify 真实用户数据 + 前端构建产物 +
+# node_modules 一并清掉。要求显式输入 "yes"。完事后跑 `make setup` 再 `make dev`。
+reset: stop
+	@echo "WILL WIPE:"
+	@echo "  $(BACKEND_DATA_DIR)/                   dev runtime (db / attachments / sandbox)"
+	@echo "  $$HOME/.forgify/                       prod user data (db / skills / mcp / memory / docs)"
+	@echo "  frontend/dist/                          vite build output"
+	@echo "  frontend/node_modules/                  npm deps (reinstall via 'make setup')"
+	@echo "  frontend/wailsjs/                       auto-generated Wails bindings"
+	@echo "  backend/cmd/desktop/embed/              embedded frontend (build copies it back)"
+	@echo "  backend/cmd/desktop/build/              wails build output (.app bundles)"
+	@echo ""
+	@printf "type 'yes' to confirm: "; \
+	 read ans; \
+	 if [ "$$ans" != "yes" ]; then echo "✗ aborted, nothing changed"; exit 1; fi; \
+	 rm -rf $(BACKEND_DATA_DIR); \
+	 rm -rf $$HOME/.forgify; \
+	 rm -rf frontend/dist; \
+	 rm -rf frontend/node_modules; \
+	 rm -rf frontend/wailsjs; \
+	 find backend/cmd/desktop/embed -mindepth 1 ! -name .gitignore ! -name .gitkeep -delete 2>/dev/null || true; \
+	 rm -rf backend/cmd/desktop/build; \
+	 rm -f backend/desktop backend/forgify-server backend/forgify-desktop; \
+	 echo ""; \
+	 echo "✓ reset done. run 'make setup' before next 'make dev'."
+
 # ──────────────────────────────────────────────────────────────────
 # Ship
 # ──────────────────────────────────────────────────────────────────
@@ -215,4 +248,4 @@ mise:
 	$(AUTO_DEVBOX)
 	@cd backend && go run ./cmd/resources $(if $(ALL),--all-platforms,)
 
-.PHONY: help setup dev stop test clean build verify e2e testend mise
+.PHONY: help setup dev stop test clean reset build verify e2e testend mise
