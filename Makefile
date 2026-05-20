@@ -1,5 +1,23 @@
-# Forgify — make commands. Every daily command is `make <single-word>`.
-# 每条日常命令都是 `make 单词`。
+# ──────────────────────────────────────────────────────────────────
+# Forgify — make commands cheat sheet
+# ──────────────────────────────────────────────────────────────────
+#
+#   Once    setup     install all dependencies (Go tools + npm)
+#
+#   Daily   dev       run desktop app (backend + frontend, browser opens)
+#           stop      kill anything we started
+#           test      run unit tests
+#           clean     wipe local dev data (/tmp/forgify-dev)
+#           reset     factory reset — dev + prod data + build + node_modules
+#
+#   Ship    build     package the macOS .app bundle
+#           verify    cross-platform build + lint (release gate)
+#           e2e       end-to-end pipeline tests (needs .env keys)
+#
+#   Misc    testend   legacy testend debug console (pre-frontend era)
+#           mise      download mise binaries (one-time, for sandbox)
+#
+# ──────────────────────────────────────────────────────────────────
 
 BACKEND_DATA_DIR ?= /tmp/forgify-dev
 BACKEND_PORT     ?= 8742
