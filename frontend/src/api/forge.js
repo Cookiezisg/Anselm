@@ -215,6 +215,23 @@ export function useRunWorkflow() {
       apiFetch(`/workflows/${id}:trigger`, { method: "POST", body: { input: input || {} } }),
   });
 }
+// Apply edit ops (creates/iterates pending version). Used by WorkflowEditor
+// autosave: diff vs original → ops array → POST :edit.
+// 把 ops 应用到当前 workflow，产/迭代 pending；编辑器 autosave 用。
+export function useEditWorkflow(id) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ops, changeReason }) =>
+      apiFetch(`/workflows/${id}:edit`, {
+        method: "POST",
+        body: { ops, changeReason: changeReason || "manual edit" },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.workflow(id) });
+      qc.invalidateQueries({ queryKey: qk.workflowVersions(id) });
+    },
+  });
+}
 // Capability check: POST /workflows/{id}:capability-check.
 export function useCapabilityCheck() {
   return useMutation({

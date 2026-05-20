@@ -109,6 +109,7 @@ export function Sidebar() {
         <NavItem icon={Icon.Hammer}        label="锻造"  active={isOpen("forge")}     onClick={() => togglePane("forge")} />
         <NavItem icon={Icon.Play}          label="执行"  active={isOpen("execute")}   onClick={() => togglePane("execute")} />
         <NavItem icon={Icon.FileText}      label="文档"  active={isOpen("documents")} onClick={() => togglePane("documents")} />
+        <NavItem icon={Icon.GitBranch}     label="洞察"  active={isOpen("observe")}   onClick={() => togglePane("observe")} />
       </div>
 
       <div className="nav-section">

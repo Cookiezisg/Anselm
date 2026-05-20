@@ -23,6 +23,7 @@ import { SkillsPane } from "../../panes/library/SkillsPane.jsx";
 import { McpPane } from "../../panes/library/McpPane.jsx";
 import { MemoryPane } from "../../panes/library/MemoryPane.jsx";
 import { DocumentsPane } from "../../panes/library/DocumentsPane.jsx";
+import { ObservePane } from "../../panes/observe/ObservePane.jsx";
 import { CommandPalette } from "../overlays/CommandPalette.jsx";
 import { NotificationsDrawer } from "../overlays/NotificationsDrawer.jsx";
 import { AskUserModal } from "../overlays/AskUserModal.jsx";
@@ -41,7 +42,7 @@ function renderPaneBody(kind, onClose) {
     case "skills":    return <SkillsPane />;
     case "mcp":       return <McpPane />;
     case "memory":    return <MemoryPane />;
-    case "observe":   return <PlaceholderPane title="洞察" phase="Phase 5 backend" lead="metrics dashboard" />;
+    case "observe":   return <ObservePane />;
     case "config":    return <ConfigPane />;
     default:          return null;
   }

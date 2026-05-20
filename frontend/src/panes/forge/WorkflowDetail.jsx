@@ -13,6 +13,7 @@ import { VersionRail } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
+import { WorkflowEditor } from "./WorkflowEditor.jsx";
 import { useWorkflow, useWorkflowVersions, useAcceptWorkflow, useRejectWorkflow } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
@@ -85,7 +86,9 @@ export function WorkflowDetail({ forge, onBack }) {
 
       <div className="vr-shell">
         <div className="vr-main" style={{ padding: 0, position: "relative" }}>
-          <DagCanvas version={selectedV} />
+          {effectiveSelected === currentV?.id
+            ? <WorkflowEditor workflowId={wf.id} version={selectedV} />
+            : <DagCanvas version={selectedV} />}
         </div>
         <VersionRail
           versions={versions}
