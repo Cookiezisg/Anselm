@@ -85,8 +85,14 @@ export function ForgeList({ onOpen }) {
           <div className="page-subtitle">Function / Handler / Workflow</div>
         </div>
         <div className="page-actions">
-          <Button size="sm"><Icon.Inbox /> 导入</Button>
-          <Button size="sm" variant="accent"><Icon.Plus /> 新建</Button>
+          <Button size="sm" onClick={() => pushToast({
+            kind: "info",
+            title: "新建走对话",
+            desc: "在对话里告诉 AI 你想要什么工具，AI 会生成 pending 版本供你 Accept",
+            duration: 6000,
+          })}>
+            <Icon.Plus /> 新建
+          </Button>
         </div>
       </div>
 

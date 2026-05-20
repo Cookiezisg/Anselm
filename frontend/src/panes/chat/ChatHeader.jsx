@@ -17,14 +17,10 @@ export function ChatHeader({ conv, onClose }) {
         </div>
       </div>
       <div className="chat-header-actions">
-        <div className="model-tag" title="切换模型">
+        <div className="model-tag" title={"当前模型: " + (conv.model || "default")}>
           <span className="provider">{(conv.model || "AI").slice(0, 2).toUpperCase()}</span>
           <span>{conv.model || "default"}</span>
-          <Icon.ChevronDown style={{ width: 10, height: 10, color: "var(--fg-faint)" }} />
         </div>
-        <button className="icon-btn" title="附加 Skill / Memory"><Icon.Layers /></button>
-        <button className="icon-btn" title="对话历史搜索"><Icon.Search /></button>
-        <button className="icon-btn" title="对话设置"><Icon.Settings /></button>
         {onClose && (
           <button className="icon-btn" title="关闭" onClick={onClose}>
             <Icon.X />

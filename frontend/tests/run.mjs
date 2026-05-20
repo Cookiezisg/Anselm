@@ -37,6 +37,9 @@ import viewports    from "./specs/27-viewports.mjs";
 import users        from "./specs/28-users.mjs";
 import onboarding   from "./specs/29-onboarding.mjs";
 import convActions  from "./specs/30-conv-actions.mjs";
+import runDrawer    from "./specs/31-run-drawer.mjs";
+import observe      from "./specs/32-observe.mjs";
+import documents    from "./specs/33-documents.mjs";
 
 const all = [
   ...boot, ...panes, ...keyboard, ...overlays,
@@ -47,6 +50,7 @@ const all = [
   ...errorStates, ...rapid, ...localStore,
   ...multiStream, ...sse, ...blocksLive,
   ...a11y, ...viewports, ...users, ...onboarding, ...convActions,
+  ...runDrawer, ...observe, ...documents,
 ];
 
 console.log(`running ${all.length} cases against ${process.env.FRONTEND_URL || "http://localhost:5173"}`);
