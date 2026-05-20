@@ -32,10 +32,12 @@ export function useFlowRunNodes(id) {
   });
 }
 
+// Backend: cancel = DELETE /flowruns/{id} (not POST :cancel).
+// 后端 cancel 走 DELETE，不是 :cancel。
 export function useCancelFlowRun() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => apiFetch(`/flowruns/${id}:cancel`, { method: "POST" }),
+    mutationFn: (id) => apiFetch(`/flowruns/${id}`, { method: "DELETE" }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: qk.flowruns() });
       qc.invalidateQueries({ queryKey: qk.flowrun(id) });
@@ -43,11 +45,17 @@ export function useCancelFlowRun() {
   });
 }
 
+// Backend: POST /flowruns/{id}/approvals/{nodeId} with {decision, reason}.
+// decision: "approve" / "reject".
+// 后端是 /approvals/{nodeId}（不是 /nodes/{nodeId}:approve），body 带 decision。
 export function useApproveNode() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ runId, nodeId }) =>
-      apiFetch(`/flowruns/${runId}/nodes/${nodeId}:approve`, { method: "POST" }),
+    mutationFn: ({ runId, nodeId, decision = "approve", reason = "" }) =>
+      apiFetch(`/flowruns/${runId}/approvals/${nodeId}`, {
+        method: "POST",
+        body: { decision, reason },
+      }),
     onSuccess: (_, { runId }) => {
       qc.invalidateQueries({ queryKey: qk.flowruns() });
       qc.invalidateQueries({ queryKey: qk.flowrun(runId) });
@@ -59,8 +67,11 @@ export function useApproveNode() {
 export function useRejectNode() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ runId, nodeId }) =>
-      apiFetch(`/flowruns/${runId}/nodes/${nodeId}:reject`, { method: "POST" }),
+    mutationFn: ({ runId, nodeId, reason = "" }) =>
+      apiFetch(`/flowruns/${runId}/approvals/${nodeId}`, {
+        method: "POST",
+        body: { decision: "reject", reason },
+      }),
     onSuccess: (_, { runId }) => {
       qc.invalidateQueries({ queryKey: qk.flowruns() });
       qc.invalidateQueries({ queryKey: qk.flowrun(runId) });

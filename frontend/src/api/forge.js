@@ -28,10 +28,25 @@ export function useFunctionVersions(id) {
     enabled: !!id,
   });
 }
+// Backend routes pending accept/reject under /{kind}s/{id}/pending:accept
+// (not the {idAction} dispatch). Revert lives on the {idAction} switch.
+//
+// 后端 accept/reject 走 /{kind}s/{id}/pending:accept，与 :revert 路径不同。
 export function useAcceptFunction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => apiFetch(`/functions/${id}:accept`, { method: "POST" }),
+    mutationFn: (id) => apiFetch(`/functions/${id}/pending:accept`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: qk.functions() });
+      qc.invalidateQueries({ queryKey: qk.function(id) });
+      qc.invalidateQueries({ queryKey: qk.functionVersions(id) });
+    },
+  });
+}
+export function useRejectFunction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => apiFetch(`/functions/${id}/pending:reject`, { method: "POST" }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: qk.functions() });
       qc.invalidateQueries({ queryKey: qk.function(id) });
@@ -96,7 +111,18 @@ export function useHandlerConfig(id) {
 export function useAcceptHandler() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => apiFetch(`/handlers/${id}:accept`, { method: "POST" }),
+    mutationFn: (id) => apiFetch(`/handlers/${id}/pending:accept`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: qk.handlers() });
+      qc.invalidateQueries({ queryKey: qk.handler(id) });
+      qc.invalidateQueries({ queryKey: qk.handlerVersions(id) });
+    },
+  });
+}
+export function useRejectHandler() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => apiFetch(`/handlers/${id}/pending:reject`, { method: "POST" }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: qk.handlers() });
       qc.invalidateQueries({ queryKey: qk.handler(id) });
@@ -108,6 +134,13 @@ export function useCallHandler() {
   return useMutation({
     mutationFn: ({ id, method, args }) =>
       apiFetch(`/handlers/${id}:call`, { method: "POST", body: { method, args } }),
+  });
+}
+export function useDeleteHandler() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => apiFetch(`/handlers/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.handlers() }),
   });
 }
 
@@ -137,12 +170,30 @@ export function useWorkflowVersions(id) {
 export function useAcceptWorkflow() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => apiFetch(`/workflows/${id}:accept`, { method: "POST" }),
+    mutationFn: (id) => apiFetch(`/workflows/${id}/pending:accept`, { method: "POST" }),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: qk.workflows() });
       qc.invalidateQueries({ queryKey: qk.workflow(id) });
       qc.invalidateQueries({ queryKey: qk.workflowVersions(id) });
     },
+  });
+}
+export function useRejectWorkflow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => apiFetch(`/workflows/${id}/pending:reject`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: qk.workflows() });
+      qc.invalidateQueries({ queryKey: qk.workflow(id) });
+      qc.invalidateQueries({ queryKey: qk.workflowVersions(id) });
+    },
+  });
+}
+export function useDeleteWorkflow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => apiFetch(`/workflows/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.workflows() }),
   });
 }
 export function useUpdateWorkflow(id) {
@@ -154,6 +205,21 @@ export function useUpdateWorkflow(id) {
       qc.invalidateQueries({ queryKey: qk.workflow(id) });
       qc.invalidateQueries({ queryKey: qk.workflowVersions(id) });
     },
+  });
+}
+// Manual workflow trigger (= scheduler StartRun with kind=manual).
+// Backend: POST /workflows/{id}:trigger or :run (idAction switch).
+export function useRunWorkflow() {
+  return useMutation({
+    mutationFn: ({ id, input }) =>
+      apiFetch(`/workflows/${id}:trigger`, { method: "POST", body: { input: input || {} } }),
+  });
+}
+// Capability check: POST /workflows/{id}:capability-check.
+export function useCapabilityCheck() {
+  return useMutation({
+    mutationFn: (id) =>
+      apiFetch(`/workflows/${id}:capability-check`, { method: "POST" }),
   });
 }
 

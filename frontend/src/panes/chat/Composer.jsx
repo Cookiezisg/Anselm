@@ -1,32 +1,22 @@
-// Composer — message input. textarea auto-grows up to 200px. Slash menu
-// activates when "/" leads the input; @-mention menu activates when the
-// last token begins with @. Drag-drop attaches files. Enter sends,
-// Shift+Enter inserts newline, Esc cancels a streaming run.
+// Composer — message input. textarea auto-grows up to 200px.
+// @-mention menu activates when the last token begins with @ — searches
+// across functions / handlers / workflows / skills / documents.
+// Drag-drop attaches files. Enter sends, Shift+Enter inserts newline,
+// Esc cancels a streaming run.
 //
-// Composer —— 文本输入；/ 触发命令菜单；@ 触发实体引用菜单；
-// 拖拽附件；Enter 发送 / Shift+Enter 换行 / Esc 取消流式。
+// Composer —— 文本输入；只支持 @ 引用实体；拖拽附件；
+// Enter 发送 / Shift+Enter 换行 / Esc 取消流式。
+// 不做 / slash 菜单（用户明确不要）。
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
 import { useSkills, useDocuments } from "../../api/library.js";
 
-const SLASH_ITEMS = [
-  { kw: "skill",   label: "/skill",   desc: "提示 agent 使用某个 Skill", icon: "Sparkles" },
-  { kw: "forge",   label: "/forge",   desc: "把某个 Function/Handler/Workflow 作为上下文", icon: "Hammer" },
-  { kw: "file",    label: "/file",    desc: "附加文件",                  icon: "Paperclip" },
-  { kw: "run",     label: "/run",     desc: "运行一个 workflow",         icon: "Play" },
-  { kw: "doc",     label: "/doc",     desc: "引用一篇文档",              icon: "FileText" },
-  { kw: "memory",  label: "/memory",  desc: "写一条 memory",             icon: "Brain" },
-  { kw: "clear",   label: "/clear",   desc: "清空当前对话(保留 ID)",     icon: "Trash" },
-  { kw: "compact", label: "/compact", desc: "压缩历史",                  icon: "Layers" },
-];
-
 export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   const [text, setText] = useState("");
   const [attached, setAttached] = useState([]);
   const [mentions, setMentions] = useState([]);
-  const [slash, setSlash] = useState(null);
   const [atMenu, setAtMenu] = useState(null);
   const [dragging, setDragging] = useState(false);
   const ta = useRef(null);
@@ -51,7 +41,6 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
     setText("");
     setAttached([]);
     setMentions([]);
-    setSlash(null);
     setAtMenu(null);
   };
 
@@ -60,36 +49,22 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
     ...handlers.map((h) => ({ id: h.id, label: h.name + " · handler", icon: "Server" })),
     ...workflows.map((w) => ({ id: w.id, label: w.name + " · workflow", icon: "Workflow" })),
     ...skills.map((s) => ({ id: s.id || s.name, label: (s.name || s.id) + " · skill", icon: "Sparkles" })),
-    ...documents.map((d) => ({ id: d.id, label: (d.title || d.id) + " · doc", icon: "FileText" })),
+    ...documents.map((d) => ({ id: d.id, label: (d.name || d.title || d.id) + " · doc", icon: "FileText" })),
   ];
 
   const onChange = (e) => {
     const v = e.target.value;
     setText(v);
-    if (v.startsWith("/") && !v.includes(" ")) {
-      const q = v.slice(1).toLowerCase();
-      const items = SLASH_ITEMS.filter((it) => it.kw.startsWith(q));
-      setSlash({ items, idx: 0 });
-    } else {
-      setSlash(null);
-    }
     const m = v.match(/(?:^|\s)@([^\s]*)$/);
     if (m) {
       const q = m[1].toLowerCase();
-      const items = mentionPool()
-        .filter((it) => it.label.toLowerCase().includes(q))
-        .slice(0, 8);
+      const items = mentionPool().filter((it) => it.label.toLowerCase().includes(q)).slice(0, 8);
       setAtMenu({ items, idx: 0, q });
     } else {
       setAtMenu(null);
     }
   };
 
-  const pickSlash = (it) => {
-    setText(it.label + " ");
-    setSlash(null);
-    ta.current?.focus();
-  };
   const pickMention = (it) => {
     setMentions((ms) => (ms.find((x) => x.id === it.id) ? ms : [...ms, it]));
     setText((t) => t.replace(/(?:^|\s)@[^\s]*$/, (m) => (m.startsWith(" ") ? " " : "")));
@@ -98,12 +73,6 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   };
 
   const onKey = (e) => {
-    if (slash?.items.length) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setSlash((s) => ({ ...s, idx: Math.min(s.idx + 1, s.items.length - 1) })); return; }
-      if (e.key === "ArrowUp")   { e.preventDefault(); setSlash((s) => ({ ...s, idx: Math.max(s.idx - 1, 0) })); return; }
-      if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pickSlash(slash.items[slash.idx]); return; }
-      if (e.key === "Escape") { setSlash(null); return; }
-    }
     if (atMenu?.items.length) {
       if (e.key === "ArrowDown") { e.preventDefault(); setAtMenu((s) => ({ ...s, idx: Math.min(s.idx + 1, s.items.length - 1) })); return; }
       if (e.key === "ArrowUp")   { e.preventDefault(); setAtMenu((s) => ({ ...s, idx: Math.max(s.idx - 1, 0) })); return; }
@@ -120,7 +89,6 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
     const files = Array.from(e.dataTransfer?.files || []);
     if (files.length) onPickFiles(files);
   };
-
   const onPickFiles = (files) => {
     setAttached((a) => [...a, ...files.map((f) => ({ name: f.name, size: f.size, file: f }))]);
   };
@@ -160,18 +128,15 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          {slash?.items.length > 0 && (
-            <SlashPopover items={slash.items} idx={slash.idx} onPick={pickSlash} title="命令" />
-          )}
           {atMenu?.items.length > 0 && (
-            <SlashPopover items={atMenu.items} idx={atMenu.idx} onPick={pickMention} title="引用" />
+            <MentionPopover items={atMenu.items} idx={atMenu.idx} onPick={pickMention} title="引用" />
           )}
           {dragging && <div className="drop-indicator">松手附加文件</div>}
 
           <textarea
             ref={ta}
             className="composer-textarea"
-            placeholder={isStreaming ? "Agent 正在执行… (Esc 停止)" : "描述你想做的事，或向 AI 提问。试试 / 或 @"}
+            placeholder={isStreaming ? "Agent 正在执行… (Esc 停止)" : "描述你想做的事，或向 AI 提问。试试 @ 引用 Function / Skill / 文档"}
             value={text}
             onChange={onChange}
             onKeyDown={onKey}
@@ -199,11 +164,6 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
               <Icon.At />
             </button>
             <div className="composer-spacer" />
-            <div className="composer-mode" title="切换 agent 模式">
-              <Icon.Cpu style={{ width: 12, height: 12 }} />
-              <span>Agent · max 20 steps</span>
-              <Icon.ChevronDown style={{ width: 10, height: 10 }} />
-            </div>
             {isStreaming ? (
               <button className="send-btn is-stop" onClick={onCancel} title="停止 (Esc)">
                 <Icon.Square />
@@ -225,7 +185,7 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   );
 }
 
-function SlashPopover({ items, idx, onPick, title }) {
+function MentionPopover({ items, idx, onPick, title }) {
   return (
     <div className="slash-pop">
       <div className="slash-pop-title">{title}</div>
@@ -236,12 +196,10 @@ function SlashPopover({ items, idx, onPick, title }) {
             key={i}
             className={"slash-pop-row" + (i === idx ? " is-active" : "")}
             onClick={() => onPick(it)}
-            onMouseEnter={() => {/* could update idx; left as-is */}}
           >
             <div className="slash-pop-icon"><I /></div>
             <div className="slash-pop-label">
               <span>{it.label}</span>
-              <span className="slash-pop-desc">{it.desc || it.sub || ""}</span>
             </div>
             {i === idx && <Icon.CornerDownLeft style={{ width: 11, height: 11, color: "var(--fg-faint)" }} />}
           </div>

@@ -60,11 +60,19 @@ export function useMemory(name) {
     enabled: !!name,
   });
 }
+// Backend: PATCH /memories/{name} (not PUT).
 export function useUpdateMemory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, body }) =>
-      apiFetch(`/memories/${encodeURIComponent(name)}`, { method: "PUT", body }),
+      apiFetch(`/memories/${encodeURIComponent(name)}`, { method: "PATCH", body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
+  });
+}
+export function useCreateMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body) => apiFetch("/memories", { method: "POST", body }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
   });
 }
@@ -76,11 +84,14 @@ export function useDeleteMemory() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
   });
 }
+// Pin/unpin via PATCH with pinned bool. Backend Update accepts the field.
 export function usePinMemory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, pinned }) =>
-      apiFetch(`/memories/${encodeURIComponent(name)}:pin`, { method: "PATCH", body: { pinned } }),
+      apiFetch(`/memories/${encodeURIComponent(name)}`, {
+        method: "PATCH", body: { pinned },
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
   });
 }

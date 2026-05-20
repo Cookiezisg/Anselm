@@ -46,14 +46,15 @@ export const MessageView = memo(function MessageView({ convId, msgId }) {
         )}
         <div style={{ flex: 1 }} />
         <div className="msg-actions">
-          <button className="msg-action" title="复制"
-                  onClick={() => navigator.clipboard?.writeText(extractText(convId, message)).catch(() => {})}>
+          {/* Only "Copy" is wired today; backend has no :fork / :regenerate
+              / :edit endpoints yet, so we don't surface dead buttons. */}
+          <button
+            className="msg-action"
+            title="复制全文"
+            onClick={() => navigator.clipboard?.writeText(extractText(convId, message)).catch(() => {})}
+          >
             <Icon.Copy />
           </button>
-          {!isUser && <button className="msg-action" title="重新生成"><Icon.Refresh /></button>}
-          {isUser && <button className="msg-action" title="编辑并重发"><Icon.Wrench /></button>}
-          <button className="msg-action" title="从这里分叉新对话"><Icon.GitBranch /></button>
-          <button className="msg-action" title="更多"><Icon.MoreHorizontal /></button>
         </div>
       </div>
       <div className="msg-body">
