@@ -11,7 +11,9 @@ import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { VersionRail } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
-import { useWorkflow, useWorkflowVersions, useAcceptWorkflow } from "../../api/forge.js";
+import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
+import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
+import { useWorkflow, useWorkflowVersions, useAcceptWorkflow, useRejectWorkflow } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
 
@@ -23,6 +25,7 @@ export function WorkflowDetail({ forge, onBack }) {
   const { data: versions = [] } = useWorkflowVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
   const accept = useAcceptWorkflow();
+  const reject = useRejectWorkflow();
   const progress = useForgeProgress((s) => s.active[`workflow:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
@@ -30,6 +33,7 @@ export function WorkflowDetail({ forge, onBack }) {
   const deployedV = versions.find((v) => v.state === "deployed");
 
   const [selectedId, setSelectedId] = useState(null);
+  const [runOpen, setRunOpen] = useState(false);
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
 
@@ -52,14 +56,23 @@ export function WorkflowDetail({ forge, onBack }) {
           </div>
         </div>
         <div className="page-actions">
-          <Button size="sm"><Icon.Eye /> Capability check</Button>
-          <Button size="sm"><Icon.Play /> 试跑</Button>
+          <CapabilityCheckPanel workflowId={wf.id} />
+          <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 触发</Button>
           {pendingV && (
-            <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
-              onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-            })}>
-              <Icon.Check /> Accept
-            </Button>
+            <>
+              <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
+                onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
+                onError: (e) => pushToast({ kind: "error", title: "Revert 失败", desc: e.message }),
+              })}>
+                <Icon.X /> Revert
+              </Button>
+              <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
+                onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
+                onError: (e) => pushToast({ kind: "error", title: "Accept 失败", desc: e.message }),
+              })}>
+                <Icon.Check /> Accept
+              </Button>
+            </>
           )}
           <AskAiTrigger
             kind="workflow"
@@ -83,10 +96,11 @@ export function WorkflowDetail({ forge, onBack }) {
           selectedId={effectiveSelected}
           onSelect={setSelectedId}
           onAccept={() => accept.mutate(forge.id)}
-          onRevert={() => {}}
+          onRevert={() => reject.mutate(forge.id)}
           onDeploy={() => pushToast({ kind: "success", title: "Deploy 已请求" })}
         />
       </div>
+      <RunDrawer open={runOpen} onClose={() => setRunOpen(false)} kind="workflow" entity={wf} />
     </div>
   );
 }

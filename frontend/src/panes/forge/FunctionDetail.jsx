@@ -12,6 +12,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
+import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { useFunction, useFunctionVersions, useAcceptFunction, useRevertFunction } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
@@ -28,6 +29,7 @@ export function FunctionDetail({ forge, onBack }) {
   const pendingV = versions.find((v) => v.state === "pending");
 
   const [selectedId, setSelectedId] = useState(null);
+  const [runOpen, setRunOpen] = useState(false);
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
   const isViewingCurrent = selectedV?.id === currentV?.id;
@@ -81,7 +83,7 @@ export function FunctionDetail({ forge, onBack }) {
             </>
           ) : (
             <>
-              <Button size="sm"><Icon.Play /> 试跑</Button>
+              <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 试跑</Button>
               <AskAiTrigger
                 kind="function"
                 entityId={fn.id}
@@ -110,6 +112,7 @@ export function FunctionDetail({ forge, onBack }) {
           onRevert={onRevert}
         />
       </div>
+      <RunDrawer open={runOpen} onClose={() => setRunOpen(false)} kind="function" entity={fn} />
     </div>
   );
 }

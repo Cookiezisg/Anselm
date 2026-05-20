@@ -11,8 +11,9 @@ import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
+import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import {
-  useHandler, useHandlerVersions, useHandlerConfig, useAcceptHandler,
+  useHandler, useHandlerVersions, useHandlerConfig, useAcceptHandler, useRejectHandler,
 } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
@@ -22,12 +23,15 @@ export function HandlerDetail({ forge, onBack }) {
   const { data: versions = [] } = useHandlerVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
   const accept = useAcceptHandler();
+  const reject = useRejectHandler();
   const progress = useForgeProgress((s) => s.active[`handler:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
   const pendingV = versions.find((v) => v.state === "pending");
 
   const [selectedId, setSelectedId] = useState(null);
+  const [runOpen, setRunOpen] = useState(false);
+  const currentMethods = currentV?.methods || [];
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
   const isViewingCurrent = selectedV?.id === currentV?.id;
@@ -55,13 +59,24 @@ export function HandlerDetail({ forge, onBack }) {
           </div>
         </div>
         <div className="page-actions">
-          {pendingV
-            ? <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
+          {pendingV ? (
+            <>
+              <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
+                onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
+                onError: (e) => pushToast({ kind: "error", title: "Revert 失败", desc: e.message }),
+              })}>
+                <Icon.X /> Revert
+              </Button>
+              <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
                 onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
+                onError: (e) => pushToast({ kind: "error", title: "Accept 失败", desc: e.message }),
               })}>
                 <Icon.Check /> Accept
               </Button>
-            : <Button size="sm"><Icon.Play /> 试调用</Button>}
+            </>
+          ) : (
+            <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 试调用</Button>
+          )}
           <AskAiTrigger
             kind="handler"
             entityId={hd.id}
@@ -84,9 +99,15 @@ export function HandlerDetail({ forge, onBack }) {
           selectedId={effectiveSelected}
           onSelect={setSelectedId}
           onAccept={() => accept.mutate(forge.id)}
-          onRevert={() => {}}
+          onRevert={() => reject.mutate(forge.id)}
         />
       </div>
+      <RunDrawer
+        open={runOpen}
+        onClose={() => setRunOpen(false)}
+        kind="handler"
+        entity={{ ...hd, methods: currentMethods }}
+      />
     </div>
   );
 }

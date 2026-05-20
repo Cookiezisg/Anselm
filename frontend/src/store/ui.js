@@ -13,6 +13,8 @@ export const useUIStore = create((set, get) => ({
   baseUrl: null,
   openPanes: ["chat"],
   activeConv: null,
+  activeFlowRun: null,
+  activeDocument: null,
   leftPct: 50,
   collapsed: false,
   narrow: false,
@@ -31,6 +33,8 @@ export const useUIStore = create((set, get) => ({
   setBaseUrl: (url) => set({ baseUrl: url }),
 
   setActiveConv: (id) => set({ activeConv: id }),
+  setActiveFlowRun: (id) => set({ activeFlowRun: id }),
+  setActiveDocument: (id) => set({ activeDocument: id }),
 
   togglePane: (k) =>
     set((s) => {

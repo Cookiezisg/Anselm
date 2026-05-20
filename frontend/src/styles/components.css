@@ -1422,6 +1422,129 @@
 .notif .time { font-size: 10px; color: var(--fg-faint); font-family: var(--font-mono); margin-top: 4px; }
 
 /* ============================================================================
+   Motion-driven drawer (RunDrawer + future right-side modals)
+   ============================================================================ */
+.overlay-scrim {
+  position: fixed; inset: 0; z-index: 89;
+  background: var(--bg-overlay);
+}
+.drawer-right {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 90;
+  width: 460px; max-width: 92vw;
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column;
+}
+.drawer-body {
+  flex: 1; padding: 16px 18px;
+  overflow-y: auto;
+}
+.drawer-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-soft);
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-elev);
+}
+.drawer-label {
+  display: block;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--fg-muted);
+  margin-bottom: 6px;
+}
+.run-drawer-input {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 10px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--fg-strong);
+  resize: vertical;
+  outline: none;
+  min-height: 160px;
+}
+.run-drawer-input:focus { border-color: var(--accent); }
+.run-drawer-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--status-error);
+  background: oklch(from var(--status-error) l c h / 0.08);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+}
+.run-drawer-result {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--bg-base);
+}
+
+/* ============================================================================
+   ApprovalBanner — flowrun waiting_approval
+   ============================================================================ */
+.approval-banner {
+  margin: 14px 24px 0;
+  padding: 12px 14px;
+  background: oklch(from var(--status-warn) l c h / 0.08);
+  border: 1px solid oklch(from var(--status-warn) l c h / 0.25);
+  border-radius: var(--radius-md);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.approval-banner-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px;
+}
+.approval-banner-list { display: flex; flex-direction: column; gap: 8px; }
+.approval-row {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+.approval-row.is-approved { background: oklch(from var(--status-success) l c h / 0.06); }
+.approval-row.is-rejected { background: oklch(from var(--status-error) l c h / 0.06); }
+.approval-row-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 12px;
+}
+
+/* ============================================================================
+   CapabilityCheckPanel
+   ============================================================================ */
+.cap-panel {
+  position: absolute;
+  top: 56px; right: 24px;
+  width: 460px; max-width: 92vw;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 30;
+  overflow: hidden;
+}
+.cap-panel-head {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.cap-panel-body {
+  padding: 8px 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.cap-list { display: flex; flex-direction: column; }
+.cap-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.cap-row:last-child { border-bottom: none; }
+.cap-row.is-missing { background: oklch(from var(--status-error) l c h / 0.04); }
+
+/* ============================================================================
    Cards / lists (Forge, Resources)
    ============================================================================ */
 

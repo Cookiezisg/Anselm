@@ -35,3 +35,24 @@ export const scaleIn = {
   exit: { opacity: 0, scale: 0.98 },
   transition: easeOut,
 };
+
+export const slideRight = {
+  initial: { x: "100%" },
+  animate: { x: 0 },
+  exit: { x: "100%" },
+  transition: { type: "spring", stiffness: 320, damping: 32 },
+};
+
+export const slideLeft = {
+  initial: { x: "-100%" },
+  animate: { x: 0 },
+  exit: { x: "-100%" },
+  transition: { type: "spring", stiffness: 320, damping: 32 },
+};
+
+export const scrim = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.18 },
+};

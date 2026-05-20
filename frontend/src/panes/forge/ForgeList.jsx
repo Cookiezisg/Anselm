@@ -11,8 +11,13 @@ import { KindChip } from "../../components/shared/KindChip.jsx";
 import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
-import { useFunctions, useHandlers, useWorkflows, useDeleteFunction } from "../../api/forge.js";
+import {
+  useFunctions, useHandlers, useWorkflows,
+  useDeleteFunction, useDeleteHandler, useDeleteWorkflow,
+} from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
+import { useUIStore } from "../../store/ui.js";
+import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 
 const TABS = [
   { key: "all",       label: "全部" },
@@ -31,6 +36,10 @@ export function ForgeList({ onOpen }) {
   const { data: workflows = [] } = useWorkflows();
   const activeForge = useForgeProgress((s) => s.active);
   const deleteFn = useDeleteFunction();
+  const deleteHd = useDeleteHandler();
+  const deleteWf = useDeleteWorkflow();
+  const pushToast = useUIStore((s) => s.pushToast);
+  const [runTarget, setRunTarget] = useState(null);
 
   const rows = useMemo(() => {
     const fns = functions.map((x) => ({ ...x, kind: "function" }));
@@ -114,7 +123,17 @@ export function ForgeList({ onOpen }) {
           <span className="batch-bar-count">已选 {selected.size} 项</span>
           <Button size="xs" variant="ghost" onClick={clearSel}>取消选择</Button>
           <div className="batch-bar-buttons">
-            <Button size="xs" variant="danger">
+            <Button size="xs" variant="danger" onClick={() => {
+              const picked = filtered.filter((f) => selected.has(f.id));
+              if (!confirm(`确认删除 ${picked.length} 个 forge? 不可撤销`)) return;
+              picked.forEach((f) => {
+                const m = f.kind === "function" ? deleteFn
+                       : f.kind === "handler"  ? deleteHd
+                       :                          deleteWf;
+                m.mutate(f.id);
+              });
+              clearSel();
+            }}>
               <Icon.Trash /> 删除
             </Button>
           </div>
@@ -190,11 +209,20 @@ export function ForgeList({ onOpen }) {
                     <td className="col-tight">
                       <ActionMenu
                         items={[
-                          { label: f.kind === "handler" ? "试调用" : "试跑", icon: Icon.Play, onClick: () => onOpen(f) },
-                          { label: "查看版本历史", icon: Icon.GitBranch, onClick: () => onOpen(f) },
+                          { label: f.kind === "handler" ? "试调用" : f.kind === "workflow" ? "触发" : "试跑",
+                            icon: Icon.Play,
+                            onClick: () => setRunTarget(f) },
+                          { label: "查看详情", icon: Icon.GitBranch, onClick: () => onOpen(f) },
                           "divider",
                           { label: "删除", icon: Icon.Trash, danger: true, onClick: () => {
-                            if (f.kind === "function") deleteFn.mutate(f.id);
+                            if (!confirm(`确认删除 ${f.kind} "${f.name}"? 此操作不可撤销`)) return;
+                            const m = f.kind === "function" ? deleteFn
+                                   : f.kind === "handler"  ? deleteHd
+                                   :                          deleteWf;
+                            m.mutate(f.id, {
+                              onSuccess: () => pushToast({ kind: "success", title: "已删除", desc: f.name }),
+                              onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+                            });
                           }},
                         ]}
                       />
@@ -206,6 +234,12 @@ export function ForgeList({ onOpen }) {
           </table>
         )}
       </div>
+      <RunDrawer
+        open={!!runTarget}
+        onClose={() => setRunTarget(null)}
+        kind={runTarget?.kind}
+        entity={runTarget || {}}
+      />
     </div>
   );
 }

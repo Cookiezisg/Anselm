@@ -11,6 +11,7 @@ import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
+import { ApprovalBanner } from "./ApprovalBanner.jsx";
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
   useRejectNode, useTriageFlowRun,
@@ -113,6 +114,8 @@ export function FlowRunDetail({ runId, onBack }) {
           <Button size="sm"><Icon.Refresh /> 重跑</Button>
         </div>
       </div>
+
+      <ApprovalBanner runId={runId} nodes={nodes} />
 
       <div className="fr-shell">
         <FlowRunDag nodes={nodes} selected={selected?.id} onSelect={setSelectedNodeId} />
