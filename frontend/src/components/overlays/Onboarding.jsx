@@ -42,7 +42,7 @@ const PROVIDER_HINTS = {
 
 const STEPS = [
   { key: "intro",    title: "欢迎",      desc: "了解一下" },
-  { key: "account",  title: "创建账号",  desc: "本地账号，仅在你这台机器" },
+  { key: "account",  title: "工作空间",  desc: "隔离对话 / 文档 / 锻造产物" },
   { key: "look",     title: "外观",      desc: "主题色 · 后续可改" },
   { key: "provider", title: "API Key",   desc: "至少配一个（可跳过）" },
   { key: "done",     title: "就绪",      desc: "进入应用" },
@@ -161,7 +161,7 @@ export function Onboarding({ onFinish }) {
               <div className="onb-mark">F</div>
               <div>
                 <div className="onb-brand-name">Forgify</div>
-                <div className="onb-brand-sub">v1.2 · 本地优先</div>
+                <div className="onb-brand-sub">v1.2</div>
               </div>
             </div>
             <div className="onb-steps">
@@ -179,7 +179,7 @@ export function Onboarding({ onFinish }) {
               ))}
             </div>
             <div className="onb-rail-footer">
-              数据存在 <code>~/.forgify/</code>。不上传任何服务器，不需要登录。
+              数据存在 <code>~/.forgify/</code>。
             </div>
           </aside>
 
@@ -262,7 +262,7 @@ function IntroStep() {
         <Bullet icon={Icon.Hammer} title="锻造工具"
                 desc="让 AI 给你写新的 Function / Handler / Workflow，加版本管理，可回滚" />
         <Bullet icon={Icon.Server} title="本地优先"
-                desc="数据全部在 ~/.forgify/，不上传任何云端，不需要账号登录" />
+                desc="数据全部在 ~/.forgify/，不上传任何云端，不需要登录" />
       </div>
     </>
   );
@@ -273,23 +273,23 @@ function AccountStep({ name, setName, accent }) {
   return (
     <>
       <div className="onb-head">
-        <div className="onb-title">创建本地账号</div>
-        <div className="onb-sub">不是注册账号 —— 只是给这台机器上的多个 profile 起个名。后续可以加更多。</div>
+        <div className="onb-title">创建本地工作空间</div>
+        <div className="onb-sub">用来隔离对话、文档、锻造产物，互不打扰。可随时新增、切换。</div>
       </div>
       <div className="onb-avatar-row">
         <div className="onb-avatar" style={{ background: color }}>
           {name.trim().slice(0, 1).toUpperCase() || "?"}
         </div>
         <div className="onb-field" style={{ flex: 1 }}>
-          <div className="onb-label">你的名字</div>
+          <div className="onb-label">工作空间名称</div>
           <input
             className="onb-input onb-input-lg"
-            placeholder="例如 sun"
+            placeholder="例如 personal / work / side-project"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
-          <div className="onb-hint">用作账号 username + 显示名</div>
+          <div className="onb-hint">显示在 sidebar 底部，切换时仅切这个工作空间的数据</div>
         </div>
       </div>
     </>
@@ -367,7 +367,7 @@ function DoneStep({ name, accent, provider, hasKey }) {
         你的本地 Forgify 配好了。点 "进入应用" 开始第一段对话。
       </div>
       <div className="onb-done-grid">
-        <DoneCard label="账号" value={name} />
+        <DoneCard label="工作空间" value={name} />
         <DoneCard label="主题色" value={accent} />
         <DoneCard label="LLM" value={hasKey ? provider : "稍后配"} />
       </div>

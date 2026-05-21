@@ -53,7 +53,7 @@ export function WorkflowDetail({ forge, onBack }) {
           <div className="page-title" style={{ fontFamily: "var(--font-mono)" }}>{wf.name}</div>
           <div className="page-subtitle" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             <span>{wf.desc || wf.description || ""}</span>
-            <EntityRelMeta entityId={wf.id} />
+            <EntityRelMeta entityId={wf.id} kind="workflow" />
           </div>
         </div>
         <div className="page-actions">

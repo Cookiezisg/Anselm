@@ -3,14 +3,17 @@
 // reflects the connection state.
 //
 // useEventLog —— /api/v1/eventlog 单例订阅；5 个事件分发到 chat store；
-// sidebar 状态点反映连接状态。
+// sidebar 状态点反映连接状态。activeUserId 变化时 tear-down 旧 EventSource
+// 重连——否则 Onboarding 切到新账号后还在收旧 user 的事件，新发消息不渲染。
 
 import { useEffect, useState } from "react";
 import { createSSE } from "./shared.js";
 import { useChatStore } from "../store/chat.js";
+import { useSettings } from "../store/settings.js";
 
 export function useEventLog() {
   const [status, setStatus] = useState("connecting");
+  const activeUserId = useSettings((s) => s.activeUserId);
 
   useEffect(() => {
     const ch = useChatStore.getState();
@@ -37,7 +40,7 @@ export function useEventLog() {
       onStatus: setStatus,
     });
     return () => ctrl.close();
-  }, []);
+  }, [activeUserId]);
 
   return status;
 }

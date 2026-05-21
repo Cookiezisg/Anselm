@@ -3,12 +3,13 @@
 //
 // 根组件 —— 首次启动 Onboarding；theme dataset 同步；挂 SSE；渲染 AppShell。
 
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "./components/layout/AppShell.jsx";
 import { Onboarding } from "./components/overlays/Onboarding.jsx";
 import { SSEProvider } from "./sse/SSEProvider.jsx";
 import { useSettings, applyTheme } from "./store/settings.js";
+import { useChatStore } from "./store/chat.js";
 import { apiFetch, qk, pickList } from "./api/client.js";
 
 // Honor `?onboarding=1` query param for tests / manual reruns of the
@@ -23,11 +24,27 @@ function urlForceOnboarding() {
 
 export default function App() {
   const settings = useSettings();
+  const qc = useQueryClient();
+  const prevUid = useRef(settings.activeUserId);
   const [forceShowOnboarding, setForceShowOnboarding] = useState(urlForceOnboarding);
 
   useEffect(() => {
     applyTheme(settings);
   }, [settings.theme, settings.accent, settings.density, settings.lang]);
+
+  // Account switch / first-account-set: drop the old user's chat tree and
+  // invalidate every REST cache so the next render fetches fresh data
+  // under the new X-Forgify-User-ID. SSE hooks reconnect on the same
+  // activeUserId dep; this complements them on the REST side.
+  //
+  // 切账号 / 首次绑 user：清 chat store + 失效所有 query 缓存。SSE hook
+  // 同时按 activeUserId 重连。
+  useEffect(() => {
+    if (prevUid.current === settings.activeUserId) return;
+    prevUid.current = settings.activeUserId;
+    useChatStore.getState().resetAll();
+    qc.invalidateQueries();
+  }, [settings.activeUserId, qc]);
 
   useEffect(() => {
     if (settings.theme !== "system") return;

@@ -55,7 +55,7 @@ export function HandlerDetail({ forge, onBack }) {
           </div>
           <div className="page-subtitle" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             <span>{hd.desc || hd.description || ""}</span>
-            <EntityRelMeta entityId={hd.id} />
+            <EntityRelMeta entityId={hd.id} kind="handler" />
           </div>
         </div>
         <div className="page-actions">

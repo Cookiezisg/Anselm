@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createSSE } from "./shared.js";
 import { useUIStore } from "../store/ui.js";
+import { useSettings } from "../store/settings.js";
 import { qk } from "../api/client.js";
 
 // type -> list of query keys to invalidate when this entity changes.
@@ -33,6 +34,7 @@ export function useNotifications() {
   const [status, setStatus] = useState("connecting");
   const [unread, setUnread] = useState(0);
   const setPendingAsk = useUIStore((s) => s.setPendingAsk);
+  const activeUserId = useSettings((s) => s.activeUserId);
 
   useEffect(() => {
     const ctrl = createSSE({
@@ -63,7 +65,7 @@ export function useNotifications() {
       onStatus: setStatus,
     });
     return () => ctrl.close();
-  }, [qc, setPendingAsk]);
+  }, [qc, setPendingAsk, activeUserId]);
 
   return { status, unread, clearUnread: () => setUnread(0) };
 }

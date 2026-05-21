@@ -13,7 +13,7 @@ export function ChatHeader({ conv, onClose }) {
         <div className="chat-title-text">{conv.title || "(无标题)"}</div>
         <div style={{ fontSize: 11, color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: 4 }}>
           <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-faint)" }}>{conv.id}</code>
-          <EntityRelMeta entityId={conv.id} />
+          <EntityRelMeta entityId={conv.id} kind="conversation" />
         </div>
       </div>
       <div className="chat-header-actions">

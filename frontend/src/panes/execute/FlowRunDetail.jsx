@@ -97,7 +97,7 @@ export function FlowRunDetail({ runId, onBack }) {
             <span style={{ color: "var(--status-success)" }}> · {okCount} ok</span>
             {failCount > 0 && <span style={{ color: "var(--status-error)" }}> · {failCount} fail</span>}
             {skipCount > 0 && <span style={{ color: "var(--fg-faint)" }}> · {skipCount} skip</span>}
-            <EntityRelMeta entityId={fr.id} />
+            <EntityRelMeta entityId={fr.id} kind="flowrun" />
           </div>
         </div>
         <div className="page-actions">

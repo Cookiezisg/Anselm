@@ -39,6 +39,10 @@ export const useChatStore = create((set, get) => ({
     set((s) => ({ convs: { ...s.convs, [convId]: emptyConv() } }));
   },
 
+  resetAll() {
+    set({ convs: {} });
+  },
+
   // Hydrate from REST history. Backend exposes blocks as a flat list per
   // message with `parentBlockId` (omitted when parent is the message
   // itself). We rebuild the tree: blocks whose parentBlockId targets an

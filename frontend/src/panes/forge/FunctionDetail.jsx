@@ -68,7 +68,7 @@ export function FunctionDetail({ forge, onBack }) {
           </div>
           <div className="page-subtitle" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             <span>{fn.desc || fn.description || ""}</span>
-            <EntityRelMeta entityId={fn.id} />
+            <EntityRelMeta entityId={fn.id} kind="function" />
           </div>
         </div>
         <div className="page-actions">

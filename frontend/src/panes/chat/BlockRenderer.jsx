@@ -13,6 +13,7 @@ import { memo, useState } from "react";
 import { useChatStore, selectBlock, selectChildIds } from "../../store/chat.js";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { EntityLink } from "../../components/shared/EntityLink.jsx";
+import { MarkdownView } from "../../components/shared/MarkdownView.jsx";
 
 function fmtDuration(ms) {
   if (ms == null) return "";
@@ -97,12 +98,15 @@ function renderTextLines(text) {
 }
 
 // ── TextBlock ────────────────────────────────────────────────────────
+// Renders Markdown so AI replies actually look like Markdown (headings,
+// bullets, code blocks, bold/italic, links). Stream-safe — partial
+// markdown re-parses on each delta.
 const TextBlock = memo(function TextBlock({ convId, blockId }) {
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   if (!block) return null;
   return (
     <div className="blk-text">
-      {renderTextLines(block.content)}
+      <MarkdownView source={block.content} />
       {block.status === "streaming" && <span className="streaming-caret" />}
     </div>
   );
@@ -206,16 +210,24 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
             </pre>
           </div>
 
-          {progresses.map((p) => (
-            <div key={p.id} className="blk-progress">
-              <div className="blk-progress-head">
-                <span className="spinner" />
-                <span>Progress</span>
-                {p.attrs?.stage && <span className="stage">· {p.attrs.stage}</span>}
+          {progresses.map((p) => {
+            const pStreaming = p.status === "streaming";
+            const pError     = p.status === "error";
+            return (
+              <div key={p.id} className={"blk-progress" + (pStreaming ? " is-streaming" : pError ? " is-error" : " is-done")}>
+                <div className="blk-progress-head">
+                  {pStreaming
+                    ? <span className="spinner" />
+                    : pError
+                      ? <Icon.AlertCircle style={{ width: 12, height: 12, color: "var(--status-error)" }} />
+                      : <Icon.Check style={{ width: 12, height: 12, color: "var(--status-success)" }} />}
+                  <span>Progress</span>
+                  {p.attrs?.stage && <span className="stage">· {p.attrs.stage}</span>}
+                </div>
+                <div className="blk-progress-line">{p.content}</div>
               </div>
-              <div className="blk-progress-line">{p.content}</div>
-            </div>
-          ))}
+            );
+          })}
 
           {nestedMsgs.map((m) => (
             <SubagentBlock key={m.id} convId={convId} blockId={m.id} />

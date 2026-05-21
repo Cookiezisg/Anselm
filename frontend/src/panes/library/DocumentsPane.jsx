@@ -1,17 +1,16 @@
-// DocumentsPane — Notion-style: tree sidebar + markdown page.
+// DocumentsPane — Notion-style tree + WYSIWYG markdown editor.
 //
-//   - Left: useDocumentTree() flat metadata → hierarchical render with
-//     folder open/close, click leaf to load, hover for ActionMenu (rename
-//     / delete / new child)
-//   - Right: title (contentEditable PATCH on blur), meta line with
-//     EntityRelMeta + AskAi, editor (textarea with autosave 1.5s debounce),
-//     preview toggle
-//   - Inside editor: typing `/` at line start opens slash command panel
-//     (h1/h2/h3, list, code, quote, table); typing `@` opens doc picker
-//     that inserts [[doc-name]] markdown wikilink
+//   - Left: useDocumentTree() flat metadata → recursive tree. Click +
+//     creates an "未命名" doc inline (no modal / prompt) and opens it
+//     with the title focused.
+//   - Right: title <input> (inline rename, blur saves) + Tiptap editor
+//     (DocEditor) that round-trips markdown. Type `/` for command panel,
+//     `@` for doc reference picker. Markdown shortcuts (#, ##, -, > …)
+//     auto-format as you type. No dual-column preview — what you see IS
+//     the rendered doc.
 //
-// DocumentsPane —— Notion 风格：左边树 + 右边 markdown 页。新建 / 重命名 /
-// 删除 / 移动全走真后端；slash 面板 + @ 引用都嵌在 textarea 内。
+// DocumentsPane —— Notion 风格树 + 所见即所得编辑器。新建/重命名都内联，
+// 不弹 prompt。
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
@@ -20,17 +19,21 @@ import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
+import { DocEditor } from "./DocEditor.jsx";
 import {
   useDocumentTree, useDocument,
-  useCreateDocument, useUpdateDocument, useDeleteDocument, useMoveDocument,
+  useCreateDocument, useUpdateDocument, useDeleteDocument,
 } from "../../api/library.js";
 import { useUIStore } from "../../store/ui.js";
+
+const UNTITLED = "未命名";
 
 export function DocumentsPane() {
   const treeQ = useDocumentTree();
   const setActiveDocument = useUIStore((s) => s.setActiveDocument);
   const activeDoc = useUIStore((s) => s.activeDocument);
   const [openSet, setOpenSet] = useState(new Set());
+  const [pendingFocusTitle, setPendingFocusTitle] = useState(null);
 
   const flat = treeQ.data || [];
   const rooted = useMemo(() => buildTree(flat), [flat]);
@@ -39,28 +42,34 @@ export function DocumentsPane() {
   const pushToast = useUIStore((s) => s.pushToast);
 
   const onCreateRoot = async () => {
-    const name = prompt("新页面名称？", "未命名");
-    if (!name) return;
     try {
-      const res = await createDoc.mutateAsync({ name, parentId: null });
+      const res = await createDoc.mutateAsync({ name: UNTITLED, parentId: null });
       setActiveDocument(res.id);
+      setPendingFocusTitle(res.id);
     } catch (e) { pushToast({ kind: "error", title: "创建失败", desc: e.message }); }
   };
 
+  const [treeOpen, setTreeOpen] = useState(false);
+
   return (
-    <div className="doc-shell">
+    <div className={"doc-shell" + (treeOpen ? " is-tree-open" : "")}>
       <DocSidebar
         tree={rooted}
         openSet={openSet}
         setOpenSet={setOpenSet}
         selectedId={activeDoc}
-        onSelect={setActiveDocument}
-        onCreateRoot={onCreateRoot}
+        onSelect={(id) => { setActiveDocument(id); setTreeOpen(false); }}
+        onCreateRoot={async () => { await onCreateRoot(); setTreeOpen(false); }}
+        onChildCreated={(id) => { setActiveDocument(id); setPendingFocusTitle(id); setTreeOpen(false); }}
         isLoading={treeQ.isLoading}
       />
+      <button className="pane-side-toggle" title="切换文档树" onClick={() => setTreeOpen((o) => !o)}>
+        <Icon.Menu />
+      </button>
       <div className="doc-main">
         {activeDoc
-          ? <DocPage docId={activeDoc} />
+          ? <DocPage docId={activeDoc} focusTitle={pendingFocusTitle === activeDoc}
+                     onTitleFocused={() => setPendingFocusTitle(null)} />
           : <DocEmpty onCreate={onCreateRoot} />}
       </div>
     </div>
@@ -80,7 +89,7 @@ function DocEmpty({ onCreate }) {
   );
 }
 
-// ── Tree helpers ─────────────────────────────────────────────────────────
+// ── Tree helpers ─────────────────────────────────────────────────────
 function buildTree(flat) {
   const byId = new Map(flat.map((d) => [d.id, { ...d, children: [] }]));
   const roots = [];
@@ -97,7 +106,7 @@ function buildTree(flat) {
   return roots;
 }
 
-function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, isLoading }) {
+function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading }) {
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     if (!q.trim()) return tree;
@@ -135,6 +144,7 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
             key={n.id} node={n} depth={0}
             openSet={openSet} setOpenSet={setOpenSet}
             selectedId={selectedId} onSelect={onSelect}
+            onChildCreated={onChildCreated}
           />
         ))}
       </div>
@@ -142,14 +152,12 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
   );
 }
 
-function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect }) {
+function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, onChildCreated }) {
   const hasChildren = node.children?.length > 0;
   const isOpen = openSet.has(node.id);
   const create = useCreateDocument();
-  const update = useUpdateDocument(node.id);
   const del = useDeleteDocument();
   const pushToast = useUIStore((s) => s.pushToast);
-  const setActiveDocument = useUIStore((s) => s.setActiveDocument);
 
   const toggle = () => {
     setOpenSet((s) => {
@@ -165,20 +173,11 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect })
   };
 
   const onNewChild = async () => {
-    const name = prompt("子页面名称？", "未命名");
-    if (!name) return;
     try {
-      const res = await create.mutateAsync({ name, parentId: node.id });
+      const res = await create.mutateAsync({ name: UNTITLED, parentId: node.id });
       setOpenSet((s) => { const n = new Set(s); n.add(node.id); return n; });
-      setActiveDocument(res.id);
+      onChildCreated?.(res.id);
     } catch (e) { pushToast({ kind: "error", title: "新建失败", desc: e.message }); }
-  };
-  const onRename = async () => {
-    const name = prompt("新名称", node.name);
-    if (!name || name === node.name) return;
-    update.mutate({ name }, {
-      onError: (e) => pushToast({ kind: "error", title: "重命名失败", desc: e.message }),
-    });
   };
   const onDelete = () => {
     if (!confirm(`删除 "${node.name}"? 包含子页面也会一起删`)) return;
@@ -195,7 +194,6 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect })
           className={"doc-tree-item" + (selectedId === node.id ? " is-selected" : "")}
           style={{ paddingLeft: 8 + depth * 14 }}
           onClick={onClick}
-          onDoubleClick={onRename}
         >
           {hasChildren ? (
             <Icon.ChevronRight className="chev" style={{ transform: isOpen ? "rotate(90deg)" : "none" }} />
@@ -203,7 +201,7 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect })
           <span className="doc-icon">
             {hasChildren ? <Icon.Folder /> : <Icon.FileText />}
           </span>
-          <span className="doc-label">{node.name}</span>
+          <span className="doc-label">{node.name || UNTITLED}</span>
         </button>
         <ActionMenu
           placement="bottom-end"
@@ -214,7 +212,6 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect })
           )}
           items={[
             { label: "新建子页面", icon: Icon.Plus, onClick: onNewChild },
-            { label: "重命名", icon: Icon.Edit, onClick: onRename },
             "divider",
             { label: "删除", icon: Icon.Trash, danger: true, onClick: onDelete },
           ]}
@@ -225,26 +222,28 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect })
           key={c.id} node={c} depth={depth + 1}
           openSet={openSet} setOpenSet={setOpenSet}
           selectedId={selectedId} onSelect={onSelect}
+          onChildCreated={onChildCreated}
         />
       ))}
     </>
   );
 }
 
-// ── DocPage ──────────────────────────────────────────────────────────────
-function DocPage({ docId }) {
+// ── DocPage — title input + Tiptap body ──────────────────────────────
+function DocPage({ docId, focusTitle, onTitleFocused }) {
   const { data: doc, isLoading } = useDocument(docId);
   const update = useUpdateDocument(docId);
+  const treeQ = useDocumentTree();
   const pushToast = useUIStore((s) => s.pushToast);
 
   const [draftName, setDraftName] = useState("");
   const [draftBody, setDraftBody] = useState("");
-  const [showPreview, setShowPreview] = useState(true);
   const [dirty, setDirty] = useState(false);
   const saveTimer = useRef(null);
-  const taRef = useRef(null);
+  const titleRef = useRef(null);
+  const editorRef = useRef(null);
 
-  // Sync local draft when doc loads / changes.
+  // Sync local draft when doc loads / switches.
   useEffect(() => {
     if (!doc) return;
     setDraftName(doc.name || "");
@@ -252,13 +251,24 @@ function DocPage({ docId }) {
     setDirty(false);
   }, [doc?.id]);
 
-  // Debounced save on body change.
+  // Auto-focus title when a freshly-created doc opens (so user types
+  // straight into the title — Notion behaviour).
+  useEffect(() => {
+    if (focusTitle && titleRef.current) {
+      titleRef.current.focus();
+      titleRef.current.select();
+      onTitleFocused?.();
+    }
+  }, [focusTitle, doc?.id, onTitleFocused]);
+
+  // Debounced save on body / title change.
   useEffect(() => {
     if (!doc || !dirty) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       const patch = {};
-      if (draftName !== doc.name) patch.name = draftName;
+      const trimmedName = draftName.trim();
+      if (trimmedName && trimmedName !== doc.name) patch.name = trimmedName;
       if (draftBody !== doc.content) patch.content = draftBody;
       if (!Object.keys(patch).length) { setDirty(false); return; }
       update.mutate(patch, {
@@ -280,10 +290,14 @@ function DocPage({ docId }) {
       <div className="doc-page-head">
         <div className="doc-page-icon"><Icon.FileText /></div>
         <input
+          ref={titleRef}
           className="doc-page-title-input"
           value={draftName}
           onChange={(e) => { setDraftName(e.target.value); setDirty(true); }}
-          placeholder="无标题"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); editorRef.current?.focus(); }
+          }}
+          placeholder={UNTITLED}
         />
         <span className={"wf-saved is-" + status}>
           {status === "saving" && <><span className="spinner" /> 保存中…</>}
@@ -294,15 +308,12 @@ function DocPage({ docId }) {
 
       <div className="doc-page-meta">
         <span><Icon.Clock /> 编辑 <RelTime ts={doc.updatedAt} /></span>
-        <EntityRelMeta entityId={doc.id} />
+        <EntityRelMeta entityId={doc.id} kind="document" />
         <div style={{ flex: 1 }} />
-        <Button size="xs" variant="ghost" onClick={() => setShowPreview((p) => !p)}>
-          {showPreview ? <><Icon.EyeOff /> 隐藏预览</> : <><Icon.Eye /> 预览</>}
-        </Button>
         <AskAiTrigger
           kind="document"
           entityId={doc.id}
-          context={`文档 · ${doc.name}`}
+          context={`文档 · ${doc.name || UNTITLED}`}
           suggestions={[
             "把这一节扩写到 500 字",
             "把表格转成 bullet list",
@@ -312,247 +323,14 @@ function DocPage({ docId }) {
         />
       </div>
 
-      <div className={"doc-page-body" + (showPreview ? " has-preview" : "")}>
+      <div className="doc-page-body">
         <DocEditor
-          ref={taRef}
-          value={draftBody}
-          onChange={(v) => { setDraftBody(v); setDirty(true); }}
-          allDocs={undefined}
+          ref={editorRef}
+          initialMarkdown={doc.content || ""}
+          onChange={(md) => { setDraftBody(md); setDirty(true); }}
+          documentsLookup={() => treeQ.data || []}
         />
-        {showPreview && (
-          <div className="doc-preview md-body">
-            {draftBody.trim() === ""
-              ? <p style={{ color: "var(--fg-faint)" }}>空文档</p>
-              : <MD source={draftBody} />}
-          </div>
-        )}
       </div>
     </div>
   );
-}
-
-// ── Editor textarea with `/` slash menu + `@` doc reference picker ──────
-import { forwardRef } from "react";
-const DocEditor = forwardRef(function DocEditor({ value, onChange }, ref) {
-  const taRef = useRef(null);
-  const setRef = (el) => { taRef.current = el; if (ref) { if (typeof ref === "function") ref(el); else ref.current = el; } };
-  const [menu, setMenu] = useState(null); // {kind: "slash"|"mention", x, y, query}
-  const treeQ = useDocumentTree();
-  const allDocs = treeQ.data || [];
-
-  const onInput = (e) => {
-    const v = e.target.value;
-    onChange(v);
-    const pos = e.target.selectionStart;
-    const before = v.slice(0, pos);
-    const slashMatch = /(?:^|\n)\/([\w-]*)$/.exec(before);
-    const atMatch = /(?:^|[\s])@([\w-]*)$/.exec(before);
-    if (slashMatch) {
-      const rect = caretRect(e.target);
-      setMenu({ kind: "slash", x: rect.left, y: rect.top + 18, query: slashMatch[1] });
-      return;
-    }
-    if (atMatch) {
-      const rect = caretRect(e.target);
-      setMenu({ kind: "mention", x: rect.left, y: rect.top + 18, query: atMatch[1] });
-      return;
-    }
-    setMenu(null);
-  };
-
-  const insertAtCursor = (insert, eat = 0) => {
-    const ta = taRef.current;
-    if (!ta) return;
-    const pos = ta.selectionStart;
-    const before = value.slice(0, pos - eat);
-    const after  = value.slice(pos);
-    const next = before + insert + after;
-    onChange(next);
-    setMenu(null);
-    requestAnimationFrame(() => {
-      ta.focus();
-      const caret = (before + insert).length;
-      ta.setSelectionRange(caret, caret);
-    });
-  };
-
-  return (
-    <div style={{ position: "relative", flex: 1, display: "flex" }}>
-      <textarea
-        ref={setRef}
-        className="doc-editor"
-        value={value}
-        onChange={onInput}
-        onKeyDown={(e) => { if (e.key === "Escape") setMenu(null); }}
-        placeholder="开始写……  /  打开命令面板  ·  @  引用其他文档"
-        spellCheck={false}
-      />
-      {menu?.kind === "slash" && (
-        <SlashMenu
-          x={menu.x} y={menu.y} query={menu.query}
-          onPick={(snippet) => insertAtCursor(snippet, menu.query.length + 1)}
-          onClose={() => setMenu(null)}
-        />
-      )}
-      {menu?.kind === "mention" && (
-        <MentionMenu
-          x={menu.x} y={menu.y} query={menu.query} docs={allDocs}
-          onPick={(d) => insertAtCursor(`[[${d.name}]]`, menu.query.length + 1)}
-          onClose={() => setMenu(null)}
-        />
-      )}
-    </div>
-  );
-});
-
-function caretRect(ta) {
-  const r = ta.getBoundingClientRect();
-  // Approximate caret position using textarea's scroll + per-line height.
-  // Good enough for /panel placement (it floats below cursor line).
-  const lineHeight = 22;
-  const text = ta.value.slice(0, ta.selectionStart);
-  const lines = text.split("\n");
-  const top = r.top + (lines.length - 1) * lineHeight - ta.scrollTop + 2;
-  const lastLine = lines[lines.length - 1];
-  const charW = 7.2;
-  const left = r.left + Math.min(lastLine.length * charW, r.width - 280);
-  return { left, top };
-}
-
-const SLASH_ITEMS = [
-  { key: "h1",     label: "Heading 1",   insert: "# ",       desc: "大标题" },
-  { key: "h2",     label: "Heading 2",   insert: "## ",      desc: "次级标题" },
-  { key: "h3",     label: "Heading 3",   insert: "### ",     desc: "小标题" },
-  { key: "list",   label: "Bullet list", insert: "- ",       desc: "无序列表" },
-  { key: "num",    label: "Number list", insert: "1. ",      desc: "有序列表" },
-  { key: "todo",   label: "Todo",        insert: "- [ ] ",   desc: "待办" },
-  { key: "quote",  label: "Quote",       insert: "> ",       desc: "引用" },
-  { key: "code",   label: "Code block",  insert: "```\n\n```", desc: "围栏代码块" },
-  { key: "hr",     label: "Divider",     insert: "\n---\n",  desc: "分割线" },
-  { key: "table",  label: "Table",       insert: "| col1 | col2 |\n| --- | --- |\n| a | b |\n", desc: "表格" },
-];
-
-function SlashMenu({ x, y, query, onPick, onClose }) {
-  const list = SLASH_ITEMS.filter((it) => it.label.toLowerCase().includes(query.toLowerCase()));
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div className="doc-floating-menu" style={{ left: x, top: y }}>
-      <div className="doc-floating-menu-head">命令 · /{query}</div>
-      {list.length === 0 && <div className="doc-floating-menu-empty">没有匹配</div>}
-      {list.map((it) => (
-        <button key={it.key} onClick={() => onPick(it.insert)}>
-          <span style={{ flex: 1 }}>{it.label}</span>
-          <span style={{ color: "var(--fg-faint)", fontSize: 11 }}>{it.desc}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function MentionMenu({ x, y, query, docs, onPick, onClose }) {
-  const list = docs
-    .filter((d) => d.name.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 8);
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return (
-    <div className="doc-floating-menu" style={{ left: x, top: y }}>
-      <div className="doc-floating-menu-head">引用文档 · @{query}</div>
-      {list.length === 0 && <div className="doc-floating-menu-empty">没有匹配</div>}
-      {list.map((d) => (
-        <button key={d.id} onClick={() => onPick(d)}>
-          <Icon.FileText style={{ width: 12, height: 12 }} />
-          <span style={{ flex: 1 }}>{d.name}</span>
-          <span className="cell-mono" style={{ color: "var(--fg-faint)", fontSize: 11 }}>{d.id}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── Lightweight markdown renderer (h1/h2/h3, list, blockquote, code,
-//   table, paragraph, [[wikilink]] inline) ───────────────────────────────
-export function MD({ source }) {
-  const lines = source.split("\n");
-  const blocks = [];
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (/^#{1,3}\s/.test(line)) {
-      const m = line.match(/^(#{1,3})\s(.*)/);
-      const lvl = m[1].length;
-      blocks.push({ type: "h", lvl, text: m[2], i });
-      i++;
-    } else if (line.startsWith(">")) {
-      blocks.push({ type: "quote", text: line.replace(/^>\s?/, ""), i });
-      i++;
-    } else if (line.startsWith("```")) {
-      const code = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith("```")) { code.push(lines[i]); i++; }
-      i++;
-      blocks.push({ type: "code", text: code.join("\n"), i });
-    } else if (/^[-*]\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[-*]\s/.test(lines[i])) { items.push(lines[i].slice(2)); i++; }
-      blocks.push({ type: "ul", items, i });
-    } else if (line.startsWith("|")) {
-      const rows = [];
-      while (i < lines.length && lines[i].startsWith("|")) { rows.push(lines[i]); i++; }
-      const headers = rows[0].split("|").slice(1, -1).map((s) => s.trim());
-      const data = rows.slice(2).map((r) => r.split("|").slice(1, -1).map((s) => s.trim()));
-      blocks.push({ type: "table", headers, data, i });
-    } else if (line.trim() === "") {
-      i++;
-    } else {
-      blocks.push({ type: "p", text: line, i });
-      i++;
-    }
-  }
-  return (
-    <>
-      {blocks.map((b) => {
-        if (b.type === "h") return <Heading key={b.i} lvl={b.lvl}>{inline(b.text)}</Heading>;
-        if (b.type === "quote") return <blockquote key={b.i}>{inline(b.text)}</blockquote>;
-        if (b.type === "code") return <pre key={b.i} className="code-block">{b.text}</pre>;
-        if (b.type === "ul") return <ul key={b.i}>{b.items.map((t, j) => <li key={j}>{inline(t)}</li>)}</ul>;
-        if (b.type === "table") return (
-          <table key={b.i} className="md-table">
-            <thead><tr>{b.headers.map((h, j) => <th key={j}>{h}</th>)}</tr></thead>
-            <tbody>{b.data.map((row, r) => <tr key={r}>{row.map((c, k) => <td key={k}>{inline(c)}</td>)}</tr>)}</tbody>
-          </table>
-        );
-        return <p key={b.i}>{inline(b.text)}</p>;
-      })}
-    </>
-  );
-}
-
-function Heading({ lvl, children }) {
-  const Tag = `h${lvl}`;
-  return <Tag>{children}</Tag>;
-}
-
-// inline formatting: **bold**, `code`, [[wikilink]]
-function inline(s) {
-  const parts = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[\[[^\]]+\]\])/g;
-  let last = 0; let m; let key = 0;
-  while ((m = re.exec(s))) {
-    if (m.index > last) parts.push(s.slice(last, m.index));
-    const t = m[0];
-    if (t.startsWith("**")) parts.push(<strong key={key++}>{t.slice(2, -2)}</strong>);
-    else if (t.startsWith("`")) parts.push(<code key={key++}>{t.slice(1, -1)}</code>);
-    else parts.push(<a key={key++} className="entity-link" style={{ cursor: "default" }}>{t.slice(2, -2)}</a>);
-    last = m.index + t.length;
-  }
-  if (last < s.length) parts.push(s.slice(last));
-  return parts;
 }
