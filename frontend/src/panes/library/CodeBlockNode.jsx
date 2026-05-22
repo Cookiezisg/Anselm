@@ -36,15 +36,18 @@ const LABEL = {
 function label(id) { return id === "" ? "Auto" : (LABEL[id] || id); }
 
 export function CodeBlockNode({ node, updateAttributes }) {
+  // wrapper is intentionally bare (no .code-block / no .hljs) — those go
+  // on the inner <pre> so it's the single styled surface. wrapper only
+  // exists to anchor the absolute-positioned toolbar.
   return (
-    <NodeViewWrapper className="code-block hljs cb-node">
+    <NodeViewWrapper className="cb-node">
       <div className="cb-toolbar" contentEditable={false}>
         <LangPicker
           current={node.attrs.language || ""}
           onChange={(id) => updateAttributes({ language: id === "" ? null : id })}
         />
       </div>
-      <pre><NodeViewContent as="code" /></pre>
+      <pre className="code-block hljs"><NodeViewContent as="code" /></pre>
     </NodeViewWrapper>
   );
 }
