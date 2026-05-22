@@ -86,18 +86,39 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*documentdomain.D
 		ID:          newID(),
 		UserID:      uid,
 		ParentID:    in.ParentID,
-		Name:        name,
 		Description: strings.TrimSpace(in.Description),
 		Content:     in.Content,
 		Tags:        tags,
 		Position:    maxPos + 1,
-		Path:        parentPath + "/" + name,
 		SizeBytes:   int64(len(in.Content)),
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := s.repo.Insert(ctx, d); err != nil {
-		return nil, fmt.Errorf("documentapp.Create: %w", err)
+	// Auto-uniquify name on collision: POST should never fail just because
+	// the name already exists under this parent — Notion-style. Rename
+	// (PATCH) keeps the strict error because the user explicitly picked
+	// that name. Retry cap stops runaway loops if something pathological
+	// is happening (DB locked, etc.) — at 100 untitled docs the user has
+	// other problems to solve.
+	//
+	// 重名自动加后缀（"foo" → "foo 2" → "foo 3" ...）；rename 保留 error。
+	const nameConflictRetryCap = 100
+	attempted := name
+	var insertErr error
+	for retry := 1; retry <= nameConflictRetryCap; retry++ {
+		d.Name = attempted
+		d.Path = parentPath + "/" + attempted
+		insertErr = s.repo.Insert(ctx, d)
+		if insertErr == nil {
+			break
+		}
+		if !errors.Is(insertErr, documentdomain.ErrNameConflict) {
+			return nil, fmt.Errorf("documentapp.Create: %w", insertErr)
+		}
+		attempted = fmt.Sprintf("%s %d", name, retry+1)
+	}
+	if insertErr != nil {
+		return nil, fmt.Errorf("documentapp.Create: %w", insertErr)
 	}
 	s.publish(ctx, d.ID, "created", d.ParentID, d.Path)
 	s.log.Info("document created",

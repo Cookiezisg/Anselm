@@ -85,7 +85,12 @@ func TestCreateDocument_Child(t *testing.T) {
 	}
 }
 
-func TestCreateDocument_DuplicateName_GracefulMessage(t *testing.T) {
+// Service auto-suffixes on name collision now; the tool returns success
+// + an "auto-renamed" hint so the LLM knows the actual name diverged
+// from the requested name.
+//
+// service 重名自动加后缀，tool 返成功 + auto-renamed 提示。
+func TestCreateDocument_DuplicateName_AutoSuffix(t *testing.T) {
 	svc := newService(t)
 	tl := &CreateDocument{svc: svc}
 	_, _ = execTool(t, tl, `{"name": "X"}`)
@@ -93,8 +98,11 @@ func TestCreateDocument_DuplicateName_GracefulMessage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("duplicate should be friendly, not error: %v", err)
 	}
-	if !strings.Contains(out, "already exists") {
-		t.Errorf("expected friendly conflict message; got: %s", out)
+	if !strings.Contains(out, `"X 2"`) {
+		t.Errorf("expected auto-suffixed name X 2; got: %s", out)
+	}
+	if !strings.Contains(out, "auto-renamed") {
+		t.Errorf("expected auto-renamed hint; got: %s", out)
 	}
 }
 

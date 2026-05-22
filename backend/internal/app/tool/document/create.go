@@ -107,8 +107,6 @@ func (t *CreateDocument) Execute(ctx context.Context, argsJSON string) (string, 
 		switch {
 		case errors.Is(err, documentdomain.ErrParentNotFound):
 			return fmt.Sprintf("Parent doc %q not found. Confirm with list_documents or search_documents.", *a.ParentID), nil
-		case errors.Is(err, documentdomain.ErrNameConflict):
-			return fmt.Sprintf("A document named %q already exists under that parent. Pick another name or edit the existing doc.", a.Name), nil
 		case errors.Is(err, documentdomain.ErrContentTooLarge):
 			return "Content exceeds 1 MB. Split into smaller child docs.", nil
 		case errors.Is(err, documentdomain.ErrInvalidName):
@@ -116,6 +114,11 @@ func (t *CreateDocument) Execute(ctx context.Context, argsJSON string) (string, 
 		default:
 			return "", err
 		}
+	}
+	// Service auto-suffixes on name collision ("X" → "X 2"). Tell the LLM
+	// when that happened so it can reason about the actual name.
+	if a.Name != "" && d.Name != a.Name {
+		return fmt.Sprintf("Created document %q (id=%s, path=%s). Note: requested name %q was taken; auto-renamed.", d.Name, d.ID, d.Path, a.Name), nil
 	}
 	return fmt.Sprintf("Created document %q (id=%s, path=%s).", d.Name, d.ID, d.Path), nil
 }

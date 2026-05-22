@@ -96,14 +96,34 @@ func TestDocHandler_Create_InvalidName_400(t *testing.T) {
 	}
 }
 
-func TestDocHandler_Create_DuplicateName_409(t *testing.T) {
+// POST with a colliding name no longer 409s — service auto-suffixes the
+// new doc ("Notes" → "Notes 2"). Notion-style. Renames (PATCH) still
+// 409 — see TestDocHandler_Update_*.
+//
+// POST 重名不再 409，自动加后缀；PATCH rename 重名仍 409。
+func TestDocHandler_Create_DuplicateName_AutoSuffix(t *testing.T) {
 	srv := newDocTestServer(t)
 	defer srv.Close()
-	do(t, srv, "POST", "/api/v1/documents", map[string]any{"name": "Notes"})
-	status, env := do(t, srv, "POST", "/api/v1/documents", map[string]any{"name": "Notes"})
-	if status != http.StatusConflict {
-		t.Errorf("status = %d, want 409: %+v", status, env)
+	_, first := do(t, srv, "POST", "/api/v1/documents", map[string]any{"name": "Notes"})
+	if got := envName(first); got != "Notes" {
+		t.Errorf("first name = %q, want %q", got, "Notes")
 	}
+	status, second := do(t, srv, "POST", "/api/v1/documents", map[string]any{"name": "Notes"})
+	if status != http.StatusCreated {
+		t.Errorf("second status = %d, want 201: %+v", status, second)
+	}
+	if got := envName(second); got != "Notes 2" {
+		t.Errorf("second name = %q, want %q", got, "Notes 2")
+	}
+}
+
+func envName(env map[string]any) string {
+	if data, ok := env["data"].(map[string]any); ok {
+		if name, _ := data["name"].(string); name != "" {
+			return name
+		}
+	}
+	return ""
 }
 
 func TestDocHandler_Create_ContentTooLarge_413(t *testing.T) {

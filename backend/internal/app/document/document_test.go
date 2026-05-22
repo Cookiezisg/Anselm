@@ -105,15 +105,34 @@ func TestService_Create_ContentTooLarge(t *testing.T) {
 	}
 }
 
-func TestService_Create_NameConflict(t *testing.T) {
+// Create on a colliding name no longer errors — it auto-suffixes
+// ("Notes" → "Notes 2" → "Notes 3" ...). Notion-style. Rename collisions
+// still error (covered in TestService_Update_Rename_NameConflict).
+//
+// Create 重名不再报错，自动加后缀；rename 重名仍报错。
+func TestService_Create_NameConflict_AutoSuffix(t *testing.T) {
 	s := newService(t)
 	ctx := userCtx()
-	if _, err := s.Create(ctx, CreateInput{Name: "Notes"}); err != nil {
+	first, err := s.Create(ctx, CreateInput{Name: "Notes"})
+	if err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	_, err := s.Create(ctx, CreateInput{Name: "Notes"})
-	if !errors.Is(err, documentdomain.ErrNameConflict) {
-		t.Errorf("got %v, want ErrNameConflict", err)
+	if first.Name != "Notes" {
+		t.Errorf("first.Name = %q, want %q", first.Name, "Notes")
+	}
+	second, err := s.Create(ctx, CreateInput{Name: "Notes"})
+	if err != nil {
+		t.Fatalf("second: %v", err)
+	}
+	if second.Name != "Notes 2" {
+		t.Errorf("second.Name = %q, want %q", second.Name, "Notes 2")
+	}
+	third, err := s.Create(ctx, CreateInput{Name: "Notes"})
+	if err != nil {
+		t.Fatalf("third: %v", err)
+	}
+	if third.Name != "Notes 3" {
+		t.Errorf("third.Name = %q, want %q", third.Name, "Notes 3")
 	}
 }
 
