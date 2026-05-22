@@ -890,9 +890,31 @@
 }
 
 /* Tiptap CodeBlockNode — editable code block with Notion-style inline
-   language picker. Trigger is plain text + chevron (no border, no bg),
-   reveals on hover/focus-within. Popover matches .action-menu chrome. */
-.cb-node { position: relative; }
+   language picker.
+   The NodeView wraps the <pre> in a div so we can mount the toolbar;
+   that makes 2 nestable layers (.cb-node wrapper + inner <pre>). Both
+   would otherwise pick up code-block chrome (bg + padding + radius)
+   and you'd see the wrapper's bg leak around the inner <pre>. Solution:
+   wrapper IS the visible code block; inner <pre> is bare. */
+.cb-node {
+  position: relative;
+  background: var(--bg-elev-2);
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-x: auto;
+}
+.doc-editor-rich .ProseMirror .cb-node > pre {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  margin: 0;
+  font: inherit;
+  overflow: visible;
+}
+.cb-node > pre > code { background: transparent; padding: 0; font: inherit; color: inherit; }
 .cb-toolbar {
   position: absolute;
   top: 6px; right: 8px;
