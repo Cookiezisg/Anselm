@@ -115,8 +115,7 @@ dev:
 	    echo ""; \
 	    echo "→ stopping..."; \
 	    lsof -ti :$(BACKEND_PORT) 2>/dev/null | xargs kill 2>/dev/null || true; \
-	    lsof -ti :$(FRONTEND_PORT) 2>/dev/null | xargs kill 2>/dev/null || true; \
-	    exit 0' INT TERM EXIT; \
+	    lsof -ti :$(FRONTEND_PORT) 2>/dev/null | xargs kill 2>/dev/null || true' EXIT; \
 	 ( $(LOAD_ENV) cd backend && go run ./cmd/server --dev --port $(BACKEND_PORT) --data-dir $(BACKEND_DATA_DIR) ) & \
 	 while ! curl -sf http://localhost:$(BACKEND_PORT)/api/v1/health >/dev/null 2>&1; do sleep 0.3; done; \
 	 echo ""; \

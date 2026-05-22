@@ -809,6 +809,7 @@
 .blk-tool-section-label .actions button:hover { background: var(--bg-hover); color: var(--fg-strong); }
 
 .code-block {
+  position: relative;
   background: var(--bg-paper);
   border: 1px solid var(--border-soft);
   border-radius: 6px;
@@ -822,6 +823,65 @@
 }
 .code-block.is-output { color: oklch(from var(--status-success) calc(l - 0.10) c h); }
 [data-theme="dark"] .code-block.is-output { color: oklch(from var(--status-success) l c h); }
+
+/* Language label badge — top-right inside the code block */
+.code-block-lang {
+  position: absolute;
+  top: 6px; right: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+/* ============================================================================
+   Syntax highlighting — github-light + github-dark approximated via .hljs-*
+   classes that lowlight emits. Single source of truth: shared by chat
+   MarkdownView (HighlightedCode) + Tiptap editor (CodeBlockLowlight).
+   ============================================================================ */
+.hljs { color: #24292e; background: transparent; }
+.hljs-comment, .hljs-quote { color: #6a737d; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-meta .hljs-keyword { color: #d73a49; }
+.hljs-title, .hljs-section, .hljs-title.function_ { color: #6f42c1; }
+.hljs-name, .hljs-tag .hljs-name, .hljs-selector-id, .hljs-selector-class { color: #22863a; }
+.hljs-attr, .hljs-attribute, .hljs-template-variable, .hljs-property { color: #005cc5; }
+.hljs-string, .hljs-meta .hljs-string, .hljs-regexp { color: #032f62; }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color: #005cc5; }
+.hljs-built_in, .hljs-builtin-name, .hljs-variable.language_ { color: #e36209; }
+.hljs-type, .hljs-class .hljs-title { color: #6f42c1; }
+.hljs-meta { color: #6a737d; }
+.hljs-deletion { color: #b31d28; background-color: #ffeef0; }
+.hljs-addition { color: #22863a; background-color: #f0fff4; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong   { font-weight: bold; }
+
+[data-theme="dark"] .hljs { color: #c9d1d9; }
+[data-theme="dark"] .hljs-comment, [data-theme="dark"] .hljs-quote { color: #8b949e; }
+[data-theme="dark"] .hljs-keyword, [data-theme="dark"] .hljs-selector-tag,
+[data-theme="dark"] .hljs-doctag,
+[data-theme="dark"] .hljs-meta .hljs-keyword { color: #ff7b72; }
+[data-theme="dark"] .hljs-title, [data-theme="dark"] .hljs-section,
+[data-theme="dark"] .hljs-title.function_ { color: #d2a8ff; }
+[data-theme="dark"] .hljs-name, [data-theme="dark"] .hljs-tag .hljs-name,
+[data-theme="dark"] .hljs-selector-id, [data-theme="dark"] .hljs-selector-class { color: #7ee787; }
+[data-theme="dark"] .hljs-attr, [data-theme="dark"] .hljs-attribute,
+[data-theme="dark"] .hljs-template-variable, [data-theme="dark"] .hljs-property { color: #79c0ff; }
+[data-theme="dark"] .hljs-string, [data-theme="dark"] .hljs-meta .hljs-string,
+[data-theme="dark"] .hljs-regexp { color: #a5d6ff; }
+[data-theme="dark"] .hljs-number, [data-theme="dark"] .hljs-literal,
+[data-theme="dark"] .hljs-symbol, [data-theme="dark"] .hljs-bullet { color: #79c0ff; }
+[data-theme="dark"] .hljs-built_in, [data-theme="dark"] .hljs-builtin-name,
+[data-theme="dark"] .hljs-variable.language_ { color: #ffa657; }
+[data-theme="dark"] .hljs-type, [data-theme="dark"] .hljs-class .hljs-title { color: #d2a8ff; }
+[data-theme="dark"] .hljs-meta { color: #8b949e; }
+[data-theme="dark"] .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+[data-theme="dark"] .hljs-addition { color: #aff5b4; background-color: #033a16; }
 
 /* ── Block: progress (live stream inside tool) ───────────────────── */
 .blk-progress {
@@ -2608,7 +2668,11 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
 .md-body h3 { font-size: 18px; font-weight: 600; color: var(--fg-strong); margin-top: 0.8em; }
 .md-body p { margin: 0; }
 .md-body strong { color: var(--fg-strong); font-weight: 600; }
-.md-body code:not(.code-block, .codeview *) {
+/* Inline `code` only — exclude .code-block AND anything inside a <pre>
+   (highlighted block contains <code><span class="hljs-keyword">…</span>
+   which would otherwise inherit the inline-code red and paint everything
+   the same flat colour). */
+.md-body code:not(.code-block, .codeview *, pre *) {
   background: rgba(135, 131, 120, 0.15);
   padding: 1px 5px;
   border-radius: 3px;
@@ -2616,7 +2680,10 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
   font-size: 0.9em;
   color: #eb5757;
 }
-[data-theme="dark"] .md-body code:not(.code-block, .codeview *) { background: rgba(255,255,255,0.10); color: #ff7e7e; }
+[data-theme="dark"] .md-body code:not(.code-block, .codeview *, pre *) {
+  background: rgba(255, 255, 255, 0.10);
+  color: #ff7e7e;
+}
 .md-body blockquote {
   margin: 0; padding: 6px 14px;
   border-left: 3px solid var(--fg-strong);

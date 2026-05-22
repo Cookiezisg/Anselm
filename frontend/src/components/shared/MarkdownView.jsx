@@ -9,6 +9,7 @@
 // 文档预览用。第三方库太大 + 全部我们用不到的安全功能，不值得拉。
 
 import { useMemo } from "react";
+import { HighlightedCode } from "./HighlightedCode.jsx";
 
 export function MarkdownView({ source }) {
   const blocks = useMemo(() => parse(source || ""), [source]);
@@ -104,7 +105,12 @@ function renderBlock(b, key) {
   switch (b.type) {
     case "h":     return renderHeading(b.lvl, inline(b.text), key);
     case "hr":    return <hr key={key} />;
-    case "code":  return <pre key={key} className="code-block" data-lang={b.lang || ""}><code>{b.text}</code></pre>;
+    case "code":  return (
+      <pre key={key} className="code-block hljs" data-lang={b.lang || ""}>
+        {b.lang && <span className="code-block-lang">{b.lang}</span>}
+        <HighlightedCode source={b.text} lang={b.lang} />
+      </pre>
+    );
     case "quote": return <blockquote key={key}>{inline(b.text)}</blockquote>;
     case "ul":    return <ul key={key}>{b.items.map((it, j) => renderListItem(it, j))}</ul>;
     case "ol":    return <ol key={key}>{b.items.map((it, j) => renderListItem(it, j))}</ol>;

@@ -16,7 +16,9 @@ import { useEditor, EditorContent, ReactRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Mention from "@tiptap/extension-mention";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Markdown } from "tiptap-markdown";
+import { lowlight } from "../../components/shared/lowlightInstance.js";
 import { Extension } from "@tiptap/core";
 import Suggestion from "@tiptap/suggestion";
 import tippy from "tippy.js";
@@ -172,8 +174,13 @@ export const DocEditor = forwardRef(function DocEditor({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        codeBlock: { HTMLAttributes: { class: "code-block" } },
+        codeBlock: false, // replaced by CodeBlockLowlight below
         heading: { levels: [1, 2, 3] },
+      }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: null,
+        HTMLAttributes: { class: "code-block hljs" },
       }),
       Placeholder.configure({ placeholder, emptyEditorClass: "is-empty" }),
       Markdown.configure({ html: false, tightLists: true, transformPastedText: true, breaks: true }),
