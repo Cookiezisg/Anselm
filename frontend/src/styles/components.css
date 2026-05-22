@@ -692,7 +692,6 @@
 .md-body pre.code-block,
 .doc-editor-rich .ProseMirror pre {
   background: var(--bg-elev-2);
-  border: 1px solid var(--border-soft);
   padding: 14px 16px;
   border-radius: 8px;
   font-family: var(--font-mono);
@@ -861,7 +860,6 @@
 .code-block {
   position: relative;
   background: var(--bg-paper);
-  border: 1px solid var(--border-soft);
   border-radius: 6px;
   padding: 10px 12px;
   font-family: var(--font-mono);
