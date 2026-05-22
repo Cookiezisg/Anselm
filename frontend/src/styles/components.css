@@ -635,28 +635,59 @@
   line-height: 1.65;
   color: var(--fg-body);
 }
-/* Unified prose recipe — shared by chat .blk-text + MarkdownView .md-body
-   + Tiptap editor .doc-editor-rich .ProseMirror. Heading sizes, list
-   indents, paragraph margins all live here so the 3 surfaces stay
-   visually identical. Surface-specific tweaks (e.g. user-message serif)
-   override below. */
+/* ────────────────────────────────────────────────────────────────────
+   Unified prose recipe — shared by chat .blk-text + MarkdownView
+   .md-body + Tiptap editor .doc-editor-rich .ProseMirror. Single
+   source of truth for vertical rhythm + typography of prose elements.
+
+   Vertical rhythm strategy (Notion-ish):
+     1. Reset margin-top + margin-bottom on every direct child
+        (longhand, NOT shorthand 'margin: 0' — shorthand has equal
+        specificity to the > * + * spacing rule but loses to the
+        cascade order in unexpected ways; longhand keeps things
+        explicit).
+     2. > * + * { margin-top: 0.7em }  — default gap between any two
+        adjacent siblings (paragraphs, code blocks, lists, ...).
+        Symmetric: gap-above-code = gap-below-code = 0.7em.
+     3. Headings (when not first child) get bigger margin-top so
+        sections feel grouped.
+
+   The Tiptap CodeBlockNode renders inside a ReactNodeViewRenderer
+   wrapper (.react-renderer.node-codeBlock) which sits as the direct
+   ProseMirror child — same selectors apply to it as to <p> / <h>.
+   ──────────────────────────────────────────────────────────────────── */
+
+.blk-text > *,
+.md-body > *,
+.doc-editor-rich .ProseMirror > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
 .blk-text > * + *,
 .md-body > * + *,
 .doc-editor-rich .ProseMirror > * + * { margin-top: 0.7em; }
 
+/* Headings get extra space above when not the first child */
+.blk-text > * + h1, .md-body > * + h1, .doc-editor-rich .ProseMirror > * + h1,
+.blk-text > * + h2, .md-body > * + h2, .doc-editor-rich .ProseMirror > * + h2 {
+  margin-top: 1.5em;
+}
+.blk-text > * + h3, .md-body > * + h3, .doc-editor-rich .ProseMirror > * + h3 {
+  margin-top: 1.2em;
+}
+
 .blk-text h1, .md-body h1, .doc-editor-rich .ProseMirror h1 {
   font-size: 28px; font-weight: 700; line-height: 1.25;
-  color: var(--fg-strong); margin-top: 1em; letter-spacing: -0.015em;
+  color: var(--fg-strong); letter-spacing: -0.015em;
 }
 .blk-text h2, .md-body h2, .doc-editor-rich .ProseMirror h2 {
   font-size: 22px; font-weight: 600; line-height: 1.3;
-  color: var(--fg-strong); margin-top: 1em; letter-spacing: -0.01em;
+  color: var(--fg-strong); letter-spacing: -0.01em;
 }
 .blk-text h3, .md-body h3, .doc-editor-rich .ProseMirror h3 {
   font-size: 18px; font-weight: 600; line-height: 1.35;
-  color: var(--fg-strong); margin-top: 0.8em;
+  color: var(--fg-strong);
 }
-.blk-text p, .md-body p, .doc-editor-rich .ProseMirror p { margin: 0; }
 .blk-text strong, .md-body strong, .doc-editor-rich .ProseMirror strong {
   color: var(--fg-strong); font-weight: 600;
 }
@@ -666,10 +697,14 @@
 .blk-text ul, .blk-text ol,
 .md-body ul, .md-body ol,
 .doc-editor-rich .ProseMirror ul, .doc-editor-rich .ProseMirror ol {
-  padding-left: 24px; margin: 0;
+  padding-left: 24px;
 }
-.blk-text li, .md-body li, .doc-editor-rich .ProseMirror li { margin: 0.2em 0; }
-.doc-editor-rich .ProseMirror li > p { margin: 0; }
+.blk-text li, .md-body li, .doc-editor-rich .ProseMirror li {
+  margin: 0.2em 0;
+}
+.blk-text li > p, .md-body li > p, .doc-editor-rich .ProseMirror li > p {
+  margin: 0;
+}
 /* Inline code — classic neutral gray (GitHub-ish), NOT Notion-style red.
    Background slightly tinted from surrounding text; foreground inherits
    so it stays legible across themes / accents. */
