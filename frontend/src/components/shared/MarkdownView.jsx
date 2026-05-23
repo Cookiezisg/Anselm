@@ -89,9 +89,21 @@ function parse(src) {
       continue;
     }
 
-    // Paragraph (consume consecutive non-special lines)
+    // Paragraph (consume consecutive non-special lines).
+    // CRITICAL: always consume the current line first to guarantee
+    // forward progress. The earlier version started buf empty AND
+    // the while-loop exclusion regex matches `|`-prefixed lines —
+    // so a streaming-mid table whose header arrived but separator
+    // hadn't yet would push an empty paragraph without advancing i
+    // → infinite loop → tab freeze. Treat the orphan `|` line as
+    // plain text; once the separator streams in, the next parse
+    // pass identifies it as a table.
+    //
+    // CRITICAL —— 必须先消费当前行，否则流式中的孤立 `|` 行（表格头到了
+    // 但分隔符没到）会让段落分支死循环卡死整个页面。
     if (line.trim() === "") { i++; continue; }
-    const buf = [];
+    const buf = [line];
+    i++;
     while (i < lines.length && lines[i].trim() !== ""
       && !/^(#{1,6}\s|>\s?|---+\s*$|```|\s*[-*]\s+|\s*\d+\.\s+|\s*\|)/.test(lines[i])) {
       buf.push(lines[i]); i++;
