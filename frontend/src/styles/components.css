@@ -3880,7 +3880,7 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
 .rg-shell {
   display: grid;
   grid-template-columns: 1fr 320px;
-  flex: 1;
+  height: 100%;
   min-height: 0;
   background: var(--bg-paper);
 }
@@ -3913,30 +3913,6 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
 .rg-container { cursor: default; }
 .rg-container.is-panning { cursor: grabbing; }
 .rg-container.is-panning .rg-svg { cursor: grabbing; }
-
-.rg-toolbar {
-  position: absolute;
-  top: 12px; right: 12px;
-  display: flex; gap: 2px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
-  padding: 4px;
-  box-shadow: var(--shadow-sm);
-  z-index: 5;
-}
-.rg-toolbar-sep {
-  width: 1px;
-  background: var(--border-soft);
-  margin: 4px 4px;
-}
-.rg-zoom-pct {
-  display: inline-flex; align-items: center;
-  padding: 0 8px;
-  font-size: 11px; font-family: var(--font-mono);
-  color: var(--fg-muted);
-  min-width: 44px; justify-content: center;
-}
 
 .rg-canvas-host { flex: 1; min-height: 0; overflow: hidden; background: var(--bg-paper);
   background-image: radial-gradient(circle at 0.5px 0.5px, var(--border) 1px, transparent 0);

@@ -1434,6 +1434,8 @@ ToastTray（position: fixed bottom right）
 | `.doc-backlinks / .vr-rail / .wf-inspector` 固定 width 缺 max-width 兜底 | 主区缩窄时浮层/侧栏溢出 viewport | 统一加 `max-width:100%; min-width:0`。已修。 |
 | `.cfg-input { flex:1 }` 在非 flex 容器里无效，全靠每处 inline `width:100%` 救 | ConfigPane / MemoryPane / RunDrawer 共 8 处都得手写 inline | 基类加 `width:100%; min-width:0`（保留 flex:1 兼容 flex 容器），清掉 8 处 inline。已修。 |
 | `DocTreeNode` 行交互不像 Notion：图标和 chevron 两列并排、`…` 按钮永久可见、整行点击同时 select+toggle | 视觉冗余 + 行为耦合（无法只展开不进页） | 重写为 Notion 三区结构 `[dtr-toggle] [dtr-label] [dtr-actions]`：所有节点统一 FileText 图标（删 Folder 区分）；图标↔chevron 同位 swap（CSS `:hover` + `data-has-children`，零 JS state）；展开态用 `data-open` 让 ▼ 永久 sticky（一眼可辨）；`+`/`…` hover-only；click 严格拆分（toggle / select / new child / more menu 四个独立动作）。叶子节点 hover 时图标不变。已修。|
+| `.rg-toolbar` CSS 被两段定义（filter toolbar + zoom toolbar），第二段把唯一的 toolbar 强行变 `position: absolute` 跑到 viewport 顶 | jsx 里根本没渲染 zoom toolbar 组件（`.rg-toolbar-sep` / `.rg-zoom-pct` 都是 dead code），第二段 CSS 还是覆盖了 filter toolbar | 删第二段 CSS（含 `.rg-toolbar-sep` `.rg-zoom-pct`）。已修。|
+| `.rg-shell` 用 `flex: 1` 但父容器是 `display: block`，flex:1 失效，rg-shell 只 500px 撑不满 769px parent | ObservePane 下半区空白，canvas 只占上半 | `.rg-shell` 改 `height: 100%`。已修。|
 
 ---
 
