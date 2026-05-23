@@ -21,7 +21,11 @@ export function MarkdownView({ source, streaming = false }) {
 }
 
 // ── Block-level parsing ──────────────────────────────────────────────
-function parse(src) {
+// Exported for direct unit testing — never call from production code,
+// use <MarkdownView /> instead. Tests need access to verify the
+// streaming-safe parser (partial table / unclosed fence / etc).
+export function parse(src) {
+  if (!src) return [];
   const lines = src.split("\n");
   const out = [];
   let i = 0;
@@ -157,7 +161,7 @@ function renderListItem(it, key) {
 // ── Inline-level: **bold**, *italic*, `code`, [link](url), [[wikilink]] ──
 const INLINE_RE = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]]+\]\]|https?:\/\/\S+)/g;
 
-function inline(s) {
+export function inline(s) {
   if (!s) return null;
   const out = [];
   let last = 0; let key = 0; let m;

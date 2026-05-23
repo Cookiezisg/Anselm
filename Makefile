@@ -139,11 +139,17 @@ stop:
 	done; \
 	[ $$FOUND = 1 ] && echo "✓ stopped" || echo "✓ nothing running"
 
-# test — unit suite (no external deps; in-memory SQLite).
-# test —— 单测；纯函数 + in-memory SQLite，不需要外部依赖。
-test:
+# test — unit suite. Runs backend Go tests + frontend vitest.
+# test —— 后端 Go + 前端 vitest 一把跑全。
+test: test-backend test-frontend
+
+test-backend:
 	$(AUTO_DEVBOX)
 	@cd backend && go test -count=1 ./... -skip TestIntegration_
+
+test-frontend:
+	@cd frontend && [ -d node_modules ] || npm install --silent
+	@cd frontend && npm run test --silent
 
 # clean — stop everything + wipe the entire dev data dir.
 # In --dev mode the backend roots forgify-home under $(BACKEND_DATA_DIR)/.forgify

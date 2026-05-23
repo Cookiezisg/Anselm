@@ -1,0 +1,71 @@
+// AskAiTrigger — opens popover, calls iterate, jumps to chat with
+// returned conversationId.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createElement } from "react";
+import { setupFetchSpy } from "../../api/_testHarness.js";
+import { useUIStore } from "../../store/ui.js";
+import { AskAiTrigger } from "./AskAiTrigger.jsx";
+
+function wrap({ children }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return createElement(QueryClientProvider, { client }, children);
+}
+
+let calls;
+beforeEach(async () => {
+  calls = setupFetchSpy();
+  useUIStore.setState({ openPanes: ["forge"], activeConv: null });
+  const bridge = await import("../../bridge/wails.js");
+  await bridge.initBaseUrl();
+});
+
+describe("AskAiTrigger", () => {
+  it("triggerButton_visible_byDefaultPopoverClosed", () => {
+    render(<AskAiTrigger kind="function" entityId="fn_1" />, { wrapper: wrap });
+    expect(screen.getByText(/AI · 迭代/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/告诉 AI/)).toBeNull();
+  });
+
+  it("clickTrigger_opensPopoverWithTextarea", async () => {
+    render(<AskAiTrigger kind="function" entityId="fn_1" />, { wrapper: wrap });
+    await userEvent.click(screen.getByText(/AI · 迭代/));
+    expect(screen.getByPlaceholderText(/告诉 AI/)).toBeInTheDocument();
+  });
+
+  it("suggestionChips_clickSubmitsThatSuggestion", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true, status: 200,
+      json: async () => ({ data: { conversationId: "cv_iter" } }),
+    });
+    render(<AskAiTrigger kind="function" entityId="fn_1" suggestions={["add docstring"]} />, { wrapper: wrap });
+    await userEvent.click(screen.getByText(/AI · 迭代/));
+    await userEvent.click(screen.getByText("add docstring"));
+    await waitFor(() => expect(useUIStore.getState().activeConv).toBe("cv_iter"));
+  });
+
+  it("submitOnEnter_buildsCorrectRequest", async () => {
+    render(<AskAiTrigger kind="workflow" entityId="wf_1" />, { wrapper: wrap });
+    await userEvent.click(screen.getByText(/AI · 迭代/));
+    const ta = screen.getByPlaceholderText(/告诉 AI/);
+    await userEvent.type(ta, "rename it{enter}");
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0].url).toBe("/api/v1/workflows/wf_1:iterate");
+    expect(JSON.parse(calls[0].body)).toEqual({ prompt: "rename it" });
+  });
+
+  it("emptyResponse_pushesWarningToast", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true, status: 200, json: async () => ({ data: {} }),
+    });
+    render(<AskAiTrigger kind="function" entityId="fn_1" />, { wrapper: wrap });
+    await userEvent.click(screen.getByText(/AI · 迭代/));
+    const ta = screen.getByPlaceholderText(/告诉 AI/);
+    await userEvent.type(ta, "x{enter}");
+    await waitFor(() => expect(useUIStore.getState().toasts.length).toBeGreaterThan(0));
+    expect(useUIStore.getState().toasts[0].kind).toBe("warn");
+  });
+});

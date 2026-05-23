@@ -1,0 +1,96 @@
+// useEntityName — prefix-based dispatch to the right list query.
+// We mock the api hooks so test data is deterministic without HTTP.
+
+import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+
+vi.mock("../api/forge.js", () => ({
+  useFunctions:    () => ({ data: [{ id: "fn_1", name: "func one" }, { id: "fn_2", name: "func two" }] }),
+  useHandlers:     () => ({ data: [{ id: "hd_1", name: "handler one" }] }),
+  useWorkflows:    () => ({ data: [{ id: "wf_1", name: "workflow one" }] }),
+}));
+vi.mock("../api/library.js", () => ({
+  useDocuments:    () => ({ data: [{ id: "doc_1", name: "doc one", title: "fallback title" }, { id: "doc_2", title: "title only" }] }),
+  useSkills:       () => ({ data: [{ id: "sk_1", name: "skill one" }] }),
+  useMcpServers:   () => ({ data: [{ id: "mcp_1", name: "mcp one" }] }),
+}));
+vi.mock("../api/conversations.js", () => ({
+  useConversations: () => ({ data: [{ id: "cv_1", title: "conv one" }] }),
+}));
+vi.mock("../api/flowruns.js", () => ({
+  useFlowRuns:      () => ({ data: [{ id: "fr_1", workflow: "wf one" }, { id: "fr_2", workflowId: "wf_2" }] }),
+}));
+
+import { useEntityName } from "./useEntityName.js";
+
+describe("useEntityName", () => {
+  it("useEntityName_nullId_returnsNull", () => {
+    const { result } = renderHook(() => useEntityName(null));
+    expect(result.current).toBeNull();
+  });
+
+  it("useEntityName_emptyString_returnsNull", () => {
+    const { result } = renderHook(() => useEntityName(""));
+    expect(result.current).toBeNull();
+  });
+
+  it("useEntityName_functionPrefix_resolvesName", () => {
+    const { result } = renderHook(() => useEntityName("fn_1"));
+    expect(result.current).toBe("func one");
+  });
+
+  it("useEntityName_handlerPrefix_resolvesName", () => {
+    const { result } = renderHook(() => useEntityName("hd_1"));
+    expect(result.current).toBe("handler one");
+  });
+
+  it("useEntityName_workflowPrefix_resolvesName", () => {
+    const { result } = renderHook(() => useEntityName("wf_1"));
+    expect(result.current).toBe("workflow one");
+  });
+
+  it("useEntityName_docPrefix_preferName", () => {
+    const { result } = renderHook(() => useEntityName("doc_1"));
+    expect(result.current).toBe("doc one");
+  });
+
+  it("useEntityName_docPrefix_fallbackToTitleWhenNameMissing", () => {
+    const { result } = renderHook(() => useEntityName("doc_2"));
+    expect(result.current).toBe("title only");
+  });
+
+  it("useEntityName_skillPrefix_resolves", () => {
+    const { result } = renderHook(() => useEntityName("sk_1"));
+    expect(result.current).toBe("skill one");
+  });
+
+  it("useEntityName_mcpPrefix_resolves", () => {
+    const { result } = renderHook(() => useEntityName("mcp_1"));
+    expect(result.current).toBe("mcp one");
+  });
+
+  it("useEntityName_convPrefix_resolves", () => {
+    const { result } = renderHook(() => useEntityName("cv_1"));
+    expect(result.current).toBe("conv one");
+  });
+
+  it("useEntityName_flowrunPrefix_prefersWorkflowOverWorkflowId", () => {
+    const { result } = renderHook(() => useEntityName("fr_1"));
+    expect(result.current).toBe("wf one");
+  });
+
+  it("useEntityName_flowrunPrefix_fallbackToWorkflowId", () => {
+    const { result } = renderHook(() => useEntityName("fr_2"));
+    expect(result.current).toBe("wf_2");
+  });
+
+  it("useEntityName_unknownId_returnsNull", () => {
+    const { result } = renderHook(() => useEntityName("fn_does_not_exist"));
+    expect(result.current).toBeNull();
+  });
+
+  it("useEntityName_unknownPrefix_returnsNull", () => {
+    const { result } = renderHook(() => useEntityName("zzz_999"));
+    expect(result.current).toBeNull();
+  });
+});
