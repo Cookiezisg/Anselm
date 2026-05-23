@@ -1436,6 +1436,7 @@ ToastTray（position: fixed bottom right）
 | `DocTreeNode` 行交互不像 Notion：图标和 chevron 两列并排、`…` 按钮永久可见、整行点击同时 select+toggle | 视觉冗余 + 行为耦合（无法只展开不进页） | 重写为 Notion 三区结构 `[dtr-toggle] [dtr-label] [dtr-actions]`：所有节点统一 FileText 图标（删 Folder 区分）；图标↔chevron 同位 swap（CSS `:hover` + `data-has-children`，零 JS state）；展开态用 `data-open` 让 ▼ 永久 sticky（一眼可辨）；`+`/`…` hover-only；click 严格拆分（toggle / select / new child / more menu 四个独立动作）。叶子节点 hover 时图标不变。已修。|
 | `.rg-toolbar` CSS 被两段定义（filter toolbar + zoom toolbar），第二段把唯一的 toolbar 强行变 `position: absolute` 跑到 viewport 顶 | jsx 里根本没渲染 zoom toolbar 组件（`.rg-toolbar-sep` / `.rg-zoom-pct` 都是 dead code），第二段 CSS 还是覆盖了 filter toolbar | 删第二段 CSS（含 `.rg-toolbar-sep` `.rg-zoom-pct`）。已修。|
 | `.rg-shell` 用 `flex: 1` 但父容器是 `display: block`，flex:1 失效，rg-shell 只 500px 撑不满 769px parent | ObservePane 下半区空白，canvas 只占上半 | `.rg-shell` 改 `height: 100%`。已修。|
+| 全前端 11 个 sub-pane 滥用固定列：导航类不能收起、详情类没选节点也永久占 300-360px | 半屏使用挤；wf-inspector / rg-detail / fr-inspector empty state 长期浪费宽度 | 7 项改造：(1) 3 个导航 sub-pane（doc-sidebar / hd-methods / wf-palette）加 useCollapsible + 浮按钮（hover-only + vertical center），状态 persist localStorage；(2) vr-rail 折叠态 44→32px；(3) wf-inspector / rg-detail 改成 FloatingInspector popover（点节点弹、Esc / 点外面 / X 关）；(4) fr-inspector 改成 BottomSheet。新建 `hooks/useCollapsible.js` + `components/shared/{PaneCollapseToggle, FloatingInspector, BottomSheet}.jsx`。两端同步。|
 
 ---
 

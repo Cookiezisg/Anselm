@@ -5,12 +5,13 @@
 // FlowRunDetail —— 头部 + DAG + 节点 inspector + Gantt；triage / diff
 // 面板 inline 折叠。
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
+import { BottomSheet } from "../../components/shared/BottomSheet.jsx";
 import { ApprovalBanner } from "./ApprovalBanner.jsx";
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
@@ -54,6 +55,7 @@ export function FlowRunDetail({ runId, onBack }) {
   const openPane = useUIStore((s) => s.openPane);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const shellRef = useRef(null);
 
   if (!fr) return <div className="empty" style={{ padding: 48 }}><div className="sub">加载 flowrun…</div></div>;
 
@@ -117,9 +119,17 @@ export function FlowRunDetail({ runId, onBack }) {
 
       <ApprovalBanner runId={runId} nodes={nodes} />
 
-      <div className="fr-shell">
+      <div className="fr-shell" ref={shellRef}>
         <FlowRunDag nodes={nodes} selected={selected?.id} onSelect={setSelectedNodeId} />
-        <NodeInspector node={selected} fr={fr} />
+        <BottomSheet
+          open={!!selected}
+          onClose={() => setSelectedNodeId(null)}
+          title={selected ? (selected.label || selected.id) : ""}
+          height={340}
+          anchorRef={shellRef}
+        >
+          {selected && <NodeInspectorBody node={selected} fr={fr} />}
+        </BottomSheet>
       </div>
       <GanttTimeline nodes={nodes} />
     </div>
@@ -187,30 +197,14 @@ function FlowRunDag({ nodes, selected, onSelect }) {
   );
 }
 
-function NodeInspector({ node, fr }) {
-  if (!node) {
-    return (
-      <div className="fr-inspector">
-        <div className="empty" style={{ padding: "32px 16px" }}>
-          <Icon.Filter className="icon" />
-          <div className="title">点节点查看细节</div>
-          <div className="sub">input · output · log · 重试</div>
-        </div>
-      </div>
-    );
-  }
+function NodeInspectorBody({ node, fr }) {
   return (
-    <div className="fr-inspector">
-      <div className="fr-inspector-head">
-        <div className="fr-inspector-title">
-          {nodeStatusIcon(node.status)}
-          <span>{node.label || node.id}</span>
-        </div>
-        <div className="fr-inspector-meta">
-          {node.kind && <span className="kind-chip fn">{node.kind}</span>}
-          {node.durationMs != null && <span className="cell-mono">{fmtDuration(node.durationMs)}</span>}
-        </div>
-        {node.error && <div className="fr-inspector-error">{node.error}</div>}
+    <div className="fr-inspector-content">
+      <div className="fr-inspector-meta-row">
+        {nodeStatusIcon(node.status)}
+        {node.kind && <span className="kind-chip fn">{node.kind}</span>}
+        {node.durationMs != null && <span className="cell-mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>{fmtDuration(node.durationMs)}</span>}
+        {node.error && <span className="fr-inspector-error">{node.error}</span>}
       </div>
       <div className="fr-inspector-body">
         {node.input != null && (

@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
+import { FloatingInspector } from "./FloatingInspector.jsx";
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
 import { useDocuments, useSkills, useMcpServers } from "../../api/library.js";
 import { useConversations } from "../../api/conversations.js";
@@ -314,17 +315,8 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
   const openPane = useUIStore((s) => s.openPane);
   const setActiveDocument = useUIStore((s) => s.setActiveDocument);
 
-  if (!node) {
-    return (
-      <div className="rg-detail">
-        <div className="empty" style={{ padding: "32px 16px" }}>
-          <Icon.GitBranch className="icon" />
-          <div className="title">点节点查看</div>
-          <div className="sub">出/入引用</div>
-        </div>
-      </div>
-    );
-  }
+  // Rendered inside a FloatingInspector — drop our own outer container.
+  // FloatingInspector head already shows kind label; we keep icon+name+id+open here.
   const Ic = Icon[KIND_ICON[node.kind]] || Icon.Code;
   const { incoming, outgoing } = adjacency(node.id, allEdges, allNodes);
 
@@ -339,13 +331,12 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
   };
 
   return (
-    <div className="rg-detail">
+    <>
       <div className="rg-detail-head">
         <div className="rg-detail-icon" style={{ background: KIND_COLOR[node.kind] }}>
           <Ic style={{ width: 14, height: 14, color: "white" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="rg-detail-kind">{KIND_LABEL[node.kind]}</div>
           <div className="rg-detail-name">{node.label}</div>
           <div className="rg-detail-id cell-mono">{node.id}</div>
         </div>
@@ -359,7 +350,7 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
           <div style={{ fontSize: 12, color: "var(--fg-faint)" }}>暂无引用关系</div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 function AdjacencySection({ label, list, onSelect }) {
@@ -415,9 +406,10 @@ export function RelGraph() {
   }, [allNodes, allEdges, kindFilter]);
 
   const selectedNode = filtered.nodes.find((n) => n.id === selected);
+  const shellRef = useRef(null);
 
   return (
-    <div className="rg-shell">
+    <div className="rg-shell" ref={shellRef}>
       <div className="rg-main">
         <div className="rg-toolbar">
           <span style={{ fontSize: 11, color: "var(--fg-faint)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -455,7 +447,17 @@ export function RelGraph() {
           )}
         </RGAutoSize>
       </div>
-      <NodeDetail node={selectedNode} allNodes={allNodes} allEdges={allEdges} onSelect={setSelected} />
+      <FloatingInspector
+        open={!!selectedNode}
+        onClose={() => setSelected(null)}
+        title={selectedNode ? (KIND_LABEL[selectedNode.kind] || selectedNode.kind) : ""}
+        width={320}
+        anchorRef={shellRef}
+      >
+        {selectedNode && (
+          <NodeDetail node={selectedNode} allNodes={allNodes} allEdges={allEdges} onSelect={setSelected} />
+        )}
+      </FloatingInspector>
     </div>
   );
 }

@@ -2381,7 +2381,8 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
   overflow-y: auto;
   display: flex; flex-direction: column;
 }
-.doc-sidebar-head { padding: 10px 10px 6px 10px; }
+.doc-sidebar-head { padding: 10px 10px 6px 10px; display: flex; align-items: center; gap: 4px; }
+.doc-sidebar-head .search-input { flex: 1; }
 .doc-search { height: 28px; }
 .doc-search input { font-size: var(--fs-12); }
 .doc-tree { padding: 4px; flex: 1; }
@@ -2727,7 +2728,7 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
   overflow-y: auto;
   transition: width 200ms cubic-bezier(.2, .8, .2, 1);
 }
-.vr-rail.is-collapsed { width: 44px; }
+.vr-rail.is-collapsed { width: 32px; }
 
 .vr-rail-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -4436,3 +4437,88 @@ tr.is-selected { background: var(--accent-soft) !important; }
 .settings-pop-account-row svg { width: 12px; height: 12px; color: var(--accent); margin-left: auto; }
 .settings-pop-account-add { display: flex; gap: 4px; padding: 6px 4px 0 4px; }
 .settings-pop-account-add .cfg-input { flex: 1; height: 24px; font-size: 12px; }
+
+/* ============================================================================
+   Collapse / Floating sub-panes — shared primitives
+   ============================================================================ */
+
+.pane-collapse-host { position: relative; }
+.pane-toggle {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px; height: 36px;
+  display: grid; place-items: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  color: var(--fg-muted);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms cubic-bezier(.2,.8,.2,1), background var(--t-fast), color var(--t-fast);
+  z-index: 4;
+  cursor: pointer;
+}
+.pane-toggle .icon { width: 12px; height: 12px; }
+.pane-toggle:hover { background: var(--bg-hover); color: var(--fg-strong); }
+.pane-collapse-host:hover > .pane-toggle,
+.pane-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.floating-inspector {
+  position: absolute;
+  top: 12px; right: 12px;
+  max-height: calc(100% - 24px);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  z-index: 6;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: floating-in 180ms cubic-bezier(.2,.8,.2,1);
+}
+.floating-inspector-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.floating-inspector-title {
+  font-size: 10px; font-weight: 600;
+  color: var(--fg-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.floating-inspector-body { flex: 1; min-height: 0; overflow-y: auto; }
+@keyframes floating-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bottom-sheet {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+  z-index: 7;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: sheet-up 240ms cubic-bezier(.2,.8,.2,1);
+}
+.bottom-sheet-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 10px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.bottom-sheet-title { font-size: 12px; font-weight: 600; color: var(--fg-strong); }
+.bottom-sheet-body { flex: 1; min-height: 0; overflow: auto; }
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}

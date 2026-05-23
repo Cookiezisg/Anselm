@@ -11,12 +11,14 @@ import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
+import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import {
   useHandler, useHandlerVersions, useHandlerConfig, useAcceptHandler, useRejectHandler,
 } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
+import { useCollapsible } from "../../hooks/useCollapsible.js";
 
 export function HandlerDetail({ forge, onBack }) {
   const { data: hd = forge } = useHandler(forge.id);
@@ -115,6 +117,7 @@ export function HandlerDetail({ forge, onBack }) {
 function HandlerFullView({ v, hd }) {
   const [tab, setTab] = useState("class");
   const { data: config } = useHandlerConfig(hd.id);
+  const [methodsOpen, toggleMethods] = useCollapsible("handler-methods", true);
 
   if (!v) return null;
   const methods = v.methods || [];
@@ -132,26 +135,32 @@ function HandlerFullView({ v, hd }) {
       </div>
 
       {tab === "class" && (
-        <div className="hd-class">
-          <aside className="hd-methods">
-            <div className="hd-class-name">
-              <Icon.Boxes style={{ width: 14, height: 14, marginRight: 6 }} />
-              class
-            </div>
-            {methods.length === 0 && (
-              <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>该版本没有方法</div>
-            )}
-            {methods.map((m) => (
-              <button
-                key={m.name}
-                className={"hd-method" + (method?.name === m.name ? " is-active" : "")}
-                onClick={() => setSelectedMethod(m)}
-              >
-                <span style={{ color: "var(--fg-faint)", fontFamily: "var(--font-mono)", fontSize: 10 }}>fn</span>
-                <span className="cell-mono">{m.name}</span>
-              </button>
-            ))}
-          </aside>
+        <div className={"hd-class pane-collapse-host" + (methodsOpen ? "" : " is-methods-collapsed")}>
+          {methodsOpen && (
+            <aside className="hd-methods">
+              <div className="hd-class-name">
+                <Icon.Boxes style={{ width: 14, height: 14, marginRight: 6 }} />
+                class
+                <button className="icon-btn" title="收起方法列表" onClick={toggleMethods} style={{ marginLeft: "auto" }}>
+                  <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
+                </button>
+              </div>
+              {methods.length === 0 && (
+                <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>该版本没有方法</div>
+              )}
+              {methods.map((m) => (
+                <button
+                  key={m.name}
+                  className={"hd-method" + (method?.name === m.name ? " is-active" : "")}
+                  onClick={() => setSelectedMethod(m)}
+                >
+                  <span style={{ color: "var(--fg-faint)", fontFamily: "var(--font-mono)", fontSize: 10 }}>fn</span>
+                  <span className="cell-mono">{m.name}</span>
+                </button>
+              ))}
+            </aside>
+          )}
+          {!methodsOpen && <PaneCollapseToggle onClick={toggleMethods} title="展开方法列表" />}
           <main className="hd-method-detail">
             {method && (
               <>

@@ -19,12 +19,14 @@ import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
+import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
 import { DocEditor } from "./DocEditor.jsx";
 import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
 } from "../../api/library.js";
 import { useUIStore } from "../../store/ui.js";
+import { useCollapsible } from "../../hooks/useCollapsible.js";
 
 const UNTITLED = "未命名";
 
@@ -50,22 +52,31 @@ export function DocumentsPane() {
   };
 
   const [treeOpen, setTreeOpen] = useState(false);
+  const [sidebarOpen, toggleSidebar] = useCollapsible("documents-sidebar", true);
+
+  const shellClass = "doc-shell pane-collapse-host"
+    + (treeOpen ? " is-tree-open" : "")
+    + (sidebarOpen ? "" : " is-sidebar-collapsed");
 
   return (
-    <div className={"doc-shell" + (treeOpen ? " is-tree-open" : "")}>
-      <DocSidebar
-        tree={rooted}
-        openSet={openSet}
-        setOpenSet={setOpenSet}
-        selectedId={activeDoc}
-        onSelect={(id) => { setActiveDocument(id); setTreeOpen(false); }}
-        onCreateRoot={async () => { await onCreateRoot(); setTreeOpen(false); }}
-        onChildCreated={(id) => { setActiveDocument(id); setPendingFocusTitle(id); setTreeOpen(false); }}
-        isLoading={treeQ.isLoading}
-      />
+    <div className={shellClass}>
+      {sidebarOpen && (
+        <DocSidebar
+          tree={rooted}
+          openSet={openSet}
+          setOpenSet={setOpenSet}
+          selectedId={activeDoc}
+          onSelect={(id) => { setActiveDocument(id); setTreeOpen(false); }}
+          onCreateRoot={async () => { await onCreateRoot(); setTreeOpen(false); }}
+          onChildCreated={(id) => { setActiveDocument(id); setPendingFocusTitle(id); setTreeOpen(false); }}
+          isLoading={treeQ.isLoading}
+          onCollapse={toggleSidebar}
+        />
+      )}
       <button className="pane-side-toggle" title="切换文档树" onClick={() => setTreeOpen((o) => !o)}>
         <Icon.Menu />
       </button>
+      {!sidebarOpen && <PaneCollapseToggle onClick={toggleSidebar} title="展开文档树" />}
       <div className="doc-main">
         {activeDoc
           ? <DocPage docId={activeDoc} focusTitle={pendingFocusTitle === activeDoc}
@@ -106,7 +117,7 @@ function buildTree(flat) {
   return roots;
 }
 
-function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading }) {
+function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading, onCollapse }) {
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     if (!q.trim()) return tree;
@@ -131,6 +142,11 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
         <button className="icon-btn" title="新建顶级页面" onClick={onCreateRoot}>
           <Icon.Plus />
         </button>
+        {onCollapse && (
+          <button className="icon-btn" title="收起侧栏" onClick={onCollapse}>
+            <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
       </div>
       <div className="doc-tree">
         {isLoading && <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>加载中…</div>}

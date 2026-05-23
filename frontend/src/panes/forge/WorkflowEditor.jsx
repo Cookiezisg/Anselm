@@ -14,8 +14,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
+import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
+import { FloatingInspector } from "../../components/shared/FloatingInspector.jsx";
 import { useEditWorkflow } from "../../api/forge.js";
 import { useUIStore } from "../../store/ui.js";
+import { useCollapsible } from "../../hooks/useCollapsible.js";
 
 const NODE_W = 184;
 const NODE_H = 76;
@@ -171,15 +174,22 @@ function autoLayout(nodes, edges, direction = "vertical") {
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────
-function Palette({ onAdd }) {
+function Palette({ onAdd, onCollapse }) {
   const [q, setQ] = useState("");
   const list = NODE_KINDS.filter((k) =>
     (k.label + k.desc).toLowerCase().includes(q.toLowerCase()));
   return (
     <aside className="wf-palette">
-      <div className="search-input" style={{ maxWidth: "none" }}>
-        <Icon.Search className="icon" />
-        <input placeholder="拖入节点…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="wf-palette-head">
+        <div className="search-input" style={{ maxWidth: "none" }}>
+          <Icon.Search className="icon" />
+          <input placeholder="拖入节点…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        {onCollapse && (
+          <button className="icon-btn" title="收起节点抽屉" onClick={onCollapse}>
+            <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
+          </button>
+        )}
       </div>
       <div className="wf-palette-label">节点 · {list.length}</div>
       <div className="wf-palette-list">
@@ -235,19 +245,9 @@ function CanvasNode({ node, selected, onMouseDown, onHandleMouseDown, connecting
   );
 }
 
-// ── Inspector ────────────────────────────────────────────────────────────
-function Inspector({ node, onChange, onDelete }) {
-  if (!node) {
-    return (
-      <aside className="wf-inspector">
-        <div className="empty" style={{ padding: 18 }}>
-          <Icon.Filter className="icon" />
-          <div className="title">点节点配置</div>
-          <div className="sub">label · config · 重试</div>
-        </div>
-      </aside>
-    );
-  }
+// ── Inspector body ───────────────────────────────────────────────────────
+// Rendered inside a FloatingInspector — no own container/header.
+function InspectorBody({ node, onChange, onDelete }) {
   const [text, setText] = useState(JSON.stringify(node.config || {}, null, 2));
   useEffect(() => setText(JSON.stringify(node.config || {}, null, 2)), [node.id]);
 
@@ -261,14 +261,7 @@ function Inspector({ node, onChange, onDelete }) {
   };
 
   return (
-    <aside className="wf-inspector">
-      <div className="wf-inspector-head">
-        <div className="wf-inspector-title">
-          {iconFor(node.kind)} <span>{node.kind}</span>
-        </div>
-        <button className="icon-btn" onClick={onDelete} title="删除节点"><Icon.Trash /></button>
-      </div>
-      <div className="wf-inspector-body">
+    <div className="wf-inspector-form">
         <label className="drawer-label">ID</label>
         <input
           className="cfg-input" readOnly value={node.id}
@@ -320,8 +313,13 @@ function Inspector({ node, onChange, onDelete }) {
           onBlur={commitJson}
           spellCheck={false}
         />
-      </div>
-    </aside>
+
+        <div style={{ marginTop: 14, borderTop: "1px solid var(--border-soft)", paddingTop: 12 }}>
+          <Button size="xs" variant="danger" onClick={onDelete}>
+            <Icon.Trash /> 删除节点
+          </Button>
+        </div>
+    </div>
   );
 }
 
@@ -531,10 +529,15 @@ export function WorkflowEditor({ workflowId, version }) {
     : dirty        ? "dirty"
     : savedAt      ? "saved"
                    : "clean";
+  const [paletteOpen, togglePalette] = useCollapsible("workflow-palette", true);
+
+  const editorClass = "wf-editor pane-collapse-host"
+    + (paletteOpen ? "" : " is-palette-collapsed");
 
   return (
-    <div className="wf-editor">
-      <Palette onAdd={onPaletteAdd} />
+    <div className={editorClass}>
+      {paletteOpen && <Palette onAdd={onPaletteAdd} onCollapse={togglePalette} />}
+      {!paletteOpen && <PaneCollapseToggle onClick={togglePalette} title="展开节点抽屉" />}
       <div
         ref={canvasRef}
         className={"wf-canvas" + (panning ? " is-panning" : "")}
@@ -598,7 +601,17 @@ export function WorkflowEditor({ workflowId, version }) {
           {status === "clean"  && <><span className="dot" /> 已保存</>}
         </div>
       </div>
-      <Inspector node={selectedNode} onChange={onNodePatch} onDelete={onNodeDelete} />
+      <FloatingInspector
+        open={!!selectedNode}
+        onClose={() => setSelected(null)}
+        title={selectedNode ? selectedNode.kind : ""}
+        width={340}
+        anchorRef={canvasRef}
+      >
+        {selectedNode && (
+          <InspectorBody node={selectedNode} onChange={onNodePatch} onDelete={onNodeDelete} />
+        )}
+      </FloatingInspector>
     </div>
   );
 }
