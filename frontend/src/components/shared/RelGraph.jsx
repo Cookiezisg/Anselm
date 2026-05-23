@@ -34,6 +34,19 @@ const KIND_LABEL = {
   mcp: "MCP", memory: "Memory", conversation: "对话", document: "文档", flowrun: "FlowRun",
 };
 
+// 8 closed relation kinds (see backend domain/relation/relation.go). Short
+// 2-char human labels — direction implied by the → / ← section header.
+const REL_LABEL = {
+  workflow_uses_function:     "节点",
+  workflow_uses_handler:      "节点",
+  workflow_uses_mcp:          "挂载",
+  workflow_uses_skill:        "挂载",
+  workflow_uses_document:     "引用",
+  conversation_forged_entity: "锻造",
+  conversation_edited_entity: "修改",
+  document_links_entity:      "链接",
+};
+
 // ── Build node list from query results ───────────────────────────────────
 function useEntityDirectory() {
   const fnQ = useFunctions();
@@ -359,7 +372,7 @@ function AdjacencySection({ label, list, onSelect }) {
           <span className="rg-adj-dot" style={{ background: KIND_COLOR[x.node.kind] }} />
           <span className="rg-adj-kind">{KIND_LABEL[x.node.kind]}</span>
           <span className="rg-adj-name">{x.node.label}</span>
-          <span className="rg-adj-rel">{x.edge.kind || ""}</span>
+          {x.edge.kind && <span className="rg-adj-rel">{REL_LABEL[x.edge.kind] || x.edge.kind}</span>}
         </button>
       ))}
     </div>
