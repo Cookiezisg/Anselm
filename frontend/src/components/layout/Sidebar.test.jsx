@@ -1,50 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "./Sidebar.jsx";
 import { useUIStore } from "../../store/ui.js";
 
 vi.mock("../../api/conversations.js", () => ({
-  useConversations: () => ({ data: [] }),
-  useCreateConversation: () => ({
-    mutateAsync: vi.fn().mockResolvedValue({ id: "cv_new" }),
-  }),
+  useConversations:        () => ({ data: [] }),
+  useCreateConversation:   () => ({ mutateAsync: vi.fn().mockResolvedValue({ id: "cv_new" }) }),
+  useUpdateConversation:   () => ({ mutate: vi.fn() }),
+  useDeleteConversation:   () => ({ mutate: vi.fn() }),
 }));
-
 vi.mock("../../sse/SSEProvider.jsx", () => ({
-  useSSEHealth: () => ({
-    overall: "ok",
-    eventlog: "ok",
-    notifs: "ok",
-    forge: "ok",
-    unread: 0,
-    clearUnread: vi.fn(),
-  }),
-}));
-
-vi.mock("../../hooks/useDisplayName.js", () => ({
-  useDisplayName: () => ["Weilin"],
-}));
-
-vi.mock("./ChatListItem.jsx", () => ({
-  ChatListItem: ({ conv }) => <div data-testid={`chat-item-${conv.id}`}>{conv.title}</div>,
-}));
-
-vi.mock("./SidebarSection.jsx", () => ({
-  SidebarSection: ({ label, children, expanded, onToggle }) => (
-    <div data-testid={`section-${label}`}>
-      <button onClick={onToggle} data-testid={`toggle-${label}`}>
-        {label}
-      </button>
-      {expanded && <div data-testid={`content-${label}`}>{children}</div>}
-    </div>
-  ),
+  useSSEHealth: () => ({ overall: "ok", eventlog: "ok", notifs: "ok", forge: "ok", unread: 0, clearUnread: vi.fn() }),
 }));
 
 function renderSidebar() {
-  const qc = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <Sidebar />
@@ -55,18 +26,13 @@ function renderSidebar() {
 beforeEach(() => {
   localStorage.clear();
   useUIStore.setState({
-    openPanes: [],
-    collapsed: false,
-    toolsExpanded: true,
-    recentExpanded: true,
-    cmdkOpen: false,
-    notifsOpen: false,
-    settingsPopOpen: false,
+    openPanes: [], collapsed: false, toolsExpanded: true, recentExpanded: true,
+    cmdkOpen: false, notifsOpen: false, settingsPopOpen: false,
   });
 });
 
 describe("Sidebar", () => {
-  it("renders Forgify logo", () => {
+  it("renders Forgify logo + name when expanded", () => {
     renderSidebar();
     expect(screen.getByText("Forgify")).toBeInTheDocument();
   });
@@ -78,58 +44,53 @@ describe("Sidebar", () => {
     }
   });
 
-  it("primary 新对话 button calls create-conv and sets active", async () => {
+  it("primary 新对话 button calls create-conv and switches to chat pane", async () => {
     renderSidebar();
-    const newConvBtn = screen.getByText("新对话");
-    fireEvent.click(newConvBtn);
-    // Wait for mutateAsync to resolve
-    await new Promise((r) => setTimeout(r, 10));
+    await act(async () => {
+      fireEvent.click(screen.getByText("新对话"));
+    });
+    expect(useUIStore.getState().openPanes).toContain("chat");
     expect(useUIStore.getState().activeConv).toBe("cv_new");
   });
 
-  it("toggle button collapses sidebar and persists state", () => {
+  it("toggle collapses sidebar (state + localStorage)", () => {
     renderSidebar();
-    const toggleBtn = screen.getByLabelText("toggle sidebar");
-    fireEvent.click(toggleBtn);
+    fireEvent.click(screen.getByLabelText(/toggle sidebar/i));
     expect(useUIStore.getState().collapsed).toBe(true);
+    expect(localStorage.getItem("sidebar.collapsed")).toBe("1");
   });
 
-  it("hides Forgify name in collapsed mode", () => {
+  it("hides Forgify name + recent section in collapsed mode", () => {
     useUIStore.setState({ collapsed: true });
     renderSidebar();
     expect(screen.queryByText("Forgify")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "最近" })).not.toBeInTheDocument();
   });
 
-  it("collapses tools section on toggle", () => {
+  it("collapses tools section on click and persists state", () => {
     renderSidebar();
-    const toolsToggle = screen.getByTestId("toggle-工具");
-    fireEvent.click(toolsToggle);
+    fireEvent.click(screen.getByRole("button", { name: "工具" }));
     expect(useUIStore.getState().toolsExpanded).toBe(false);
+    expect(localStorage.getItem("sidebar.toolsExpanded")).toBe("0");
+    expect(screen.queryByText("洞察")).not.toBeInTheDocument();
   });
 
-  it("footer avatar click opens notifications", () => {
+  it("footer avatar click opens NotificationsDrawer", () => {
     renderSidebar();
-    const avatarBtn = screen.getByText("W");
-    fireEvent.click(avatarBtn);
+    const slot = screen.getByTitle(/通知/i);
+    fireEvent.click(slot);
     expect(useUIStore.getState().notifsOpen).toBe(true);
   });
 
-  it("settings button opens settings popover", () => {
+  it("footer gear opens settings popover", () => {
     renderSidebar();
-    const settingsBtn = screen.getByLabelText("settings");
-    fireEvent.click(settingsBtn);
+    fireEvent.click(screen.getByLabelText("settings"));
     expect(useUIStore.getState().settingsPopOpen).toBe(true);
   });
 
   it("shows initial from displayName in avatar", () => {
+    localStorage.setItem("forgify.user.displayName", "Weilin");
     renderSidebar();
     expect(screen.getByText("W")).toBeInTheDocument();
-  });
-
-  it("chat pane toggle updates openPanes state", () => {
-    renderSidebar();
-    const chatBtn = screen.getByText("对话");
-    fireEvent.click(chatBtn);
-    expect(useUIStore.getState().openPanes).toContain("chat");
   });
 });
