@@ -5134,3 +5134,14 @@ tr.is-selected { background: var(--accent-soft) !important; }
 }
 .notif-tab.is-active { background: var(--bg-active); color: var(--fg-strong); font-weight: 500; }
 .notif-tab:hover     { background: var(--bg-hover); color: var(--fg-strong); }
+
+/* Settings row — display name input in AccountSection */
+.settings-row { display: flex; align-items: center; gap: 12px; padding: 0 6px; }
+.settings-label { font-size: 12px; color: var(--fg-muted); width: 50px; flex-shrink: 0; }
+.settings-input {
+  flex: 1; height: 28px; padding: 0 8px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 13px; color: var(--fg-strong);
+  font-family: var(--font-sans);
+}
+.settings-input:focus { outline: 2px solid var(--accent-ring); border-color: var(--accent); }

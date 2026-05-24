@@ -12,6 +12,7 @@ import { Icon } from "../primitives/Icon.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useSettings } from "../../store/settings.js";
 import { useUsers, useCreateUser } from "../../api/users.js";
+import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { scaleIn } from "../../motion/tokens.js";
 
 const THEMES = [["system", "系统"], ["light", "明"], ["dark", "暗"]];
@@ -139,6 +140,7 @@ function AccountSection({ settings, onClose, pushToast }) {
   const { data: users = [] } = useUsers();
   const createUser = useCreateUser();
   const qc = useQueryClient();
+  const [displayName, setDisplayName] = useDisplayName();
   const [mode, setMode] = useState("view");
   const [name, setName] = useState("");
 
@@ -187,6 +189,19 @@ function AccountSection({ settings, onClose, pushToast }) {
           切换
         </button>
       </div>
+      {mode === "view" && (
+        <div className="settings-row">
+          <label className="settings-label" htmlFor="settings-display-name">显示名</label>
+          <input
+            id="settings-display-name"
+            className="settings-input"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value.slice(0, 24).trim())}
+            placeholder="Weilin"
+            autoComplete="off"
+          />
+        </div>
+      )}
       {mode === "switch" && (
         <div className="settings-pop-account-list">
           {users.map((u) => (
