@@ -65,16 +65,20 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 				zap.String("nodeID", nodeID))
 			return
 		}
-		// §multi-user: resolve workflow owner from the registered Spec so the run
-		// executes under the right user ctx. Pre-multi-user code path used
-		// DefaultLocalUserID; that's now a defensive fallback only.
-		// §multi-user: 从注册时的 Spec 拿 workflow owner，确保 run 在正确 user ctx 跑。
-		// 老的单用户路径用 DefaultLocalUserID，现在仅作兜底。
-		uid := reqctxpkg.DefaultLocalUserID
-		if ok && spec.UserID != "" {
-			uid = spec.UserID
+		// §multi-user: workflow owner comes from the registered Spec. No
+		// fallback — every Spec is registered with an explicit UserID.
+		// Missing = wiring bug: log + drop the trigger; running under a
+		// magic default would silently attribute the run to the wrong user.
+		//
+		// §multi-user: workflow owner 来自注册的 Spec,没有兜底。
+		// 缺 UserID = 接线 bug,记日志后丢弃这次触发。
+		if !ok || spec.UserID == "" {
+			s.log.Error("trigger fired but workflow spec has no owner — drop",
+				zap.String("workflowID", workflowID),
+				zap.String("nodeID", nodeID))
+			return
 		}
-		ctx := reqctxpkg.SetUserID(context.Background(), uid)
+		ctx := reqctxpkg.SetUserID(context.Background(), spec.UserID)
 		kind := kindForNode(s, workflowID, nodeID)
 		runID, err := sched.StartRun(ctx, workflowID, kind, input)
 		if err != nil {

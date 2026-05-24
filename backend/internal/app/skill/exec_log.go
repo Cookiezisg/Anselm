@@ -24,9 +24,17 @@ func (s *Service) recordExecution(ctx context.Context, name string, arguments []
 		return
 	}
 
-	uid, _ := reqctxpkg.RequireUserID(ctx)
-	if uid == "" {
-		uid = reqctxpkg.DefaultLocalUserID
+	// Skill exec log requires a real user; this code path is always reached
+	// from a request-scoped ctx. Missing user = upstream wiring bug; drop
+	// the log rather than attribute it to a magic default.
+	//
+	// skill 执行日志需要真实 user;调用栈一定带 user ctx,缺失视为上游接线 bug,
+	// 直接丢日志而不假冒默认 user。
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		s.log.Warn("skill exec log dropped: no user in ctx",
+			zap.String("skill", name))
+		return
 	}
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)

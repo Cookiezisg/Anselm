@@ -64,9 +64,16 @@ func (s *Service) recordCallLog(ctx context.Context, server, tool string, state 
 	if repo == nil {
 		return
 	}
-	uid, _ := reqctxpkg.RequireUserID(ctx)
-	if uid == "" {
-		uid = reqctxpkg.DefaultLocalUserID
+	// MCP tool call log requires real user (always reached from a
+	// user-scoped request). Missing → drop the log; don't attribute to
+	// a magic default.
+	//
+	// MCP 调用日志需要真实 user;缺失就丢,不假冒默认。
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		s.log.Warn("mcp call log dropped: no user in ctx",
+			zap.String("server", server), zap.String("tool", tool))
+		return
 	}
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
@@ -251,9 +258,15 @@ func (s *Service) recordHealthSnapshot(ctx context.Context, serverName string, r
 	if s.healthRepo == nil {
 		return
 	}
+	// Health snapshot needs real user (per-user health history). Missing →
+	// drop; don't attribute fake data to a default user.
+	//
+	// 健康快照需要真实 user(逐 user 历史);缺失就不写。
 	uid, ok := reqctxpkg.GetUserID(ctx)
 	if !ok {
-		uid = reqctxpkg.DefaultLocalUserID
+		s.log.Warn("mcp health snapshot dropped: no user in ctx",
+			zap.String("server", serverName))
+		return
 	}
 	snap := &mcpdomain.HealthSnapshot{
 		ID:         idgenpkg.New("mch"),
