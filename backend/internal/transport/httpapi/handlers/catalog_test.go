@@ -12,8 +12,16 @@ import (
 
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
+
+// userCtx is shorthand for a ctx that satisfies Refresh's required-user check.
+//
+// userCtx:让 Refresh 的 required-ctx 检查通过的简写。
+func userCtx() context.Context {
+	return reqctxpkg.SetUserID(context.Background(), "test-user")
+}
 
 type stubCatalogSource struct {
 	name  string
@@ -107,7 +115,7 @@ func TestCatalog_GetAfterRefresh_ReturnsCachedSnapshot(t *testing.T) {
 			{Source: "skill", ID: "deploy", Name: "deploy", Description: "deploy steps"},
 		},
 	})
-	if err := h.svc.Refresh(context.Background()); err != nil {
+	if err := h.svc.Refresh(userCtx()); err != nil {
 		t.Fatalf("seed Refresh: %v", err)
 	}
 
