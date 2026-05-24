@@ -16,6 +16,7 @@ import {
   RefreshCw, StopCircle, ArrowUp, ArrowRight, CornerDownLeft, Pin, Filter,
   MoreHorizontal, Menu, Inbox, Terminal, HelpCircle, Pause, Activity, Server,
   Box, Boxes, Package, ListChecks, Edit, Sun, Moon, Archive,
+  SquarePen, BarChart3, Plug, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 
 const wrap = (Comp) => (props) => (
@@ -91,4 +92,9 @@ export const Icon = {
   Sun: wrap(Sun),
   Moon: wrap(Moon),
   Archive: wrap(Archive),
+  SquarePen: wrap(SquarePen),
+  BarChart3: wrap(BarChart3),
+  Plug: wrap(Plug),
+  PanelLeftClose: wrap(PanelLeftClose),
+  PanelLeftOpen: wrap(PanelLeftOpen),
 };
