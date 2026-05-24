@@ -36,11 +36,44 @@ const SimpleFunctionCode = `def hello(name: str) -> str:
     return f"Hello, {name}!"
 `
 
-// LocalCtx returns a context stamped with DefaultLocalUserID.
+// SeedTestUserID is the fixture user id used by SeedCtx for pipeline tests.
 //
-// LocalCtx 返回打了 DefaultLocalUserID 的 ctx。
+// SeedTestUserID:pipeline 测试的固定 fixture user id。
+const SeedTestUserID = "test-user"
+
+// SeedCtx ensures a fixture user (id="test-user") exists in DB and returns
+// a ctx stamped with that id. Replaces the old LocalCtx() which relied on
+// the now-deleted DefaultLocalUserID seed.
+//
+// SeedCtx:保证 fixture user("test-user")存在,返回带 user 的 ctx。
+// 替代旧的 LocalCtx(依赖已删除的 DefaultLocalUserID seed)。
+func (h *Harness) SeedCtx(t *testing.T) context.Context {
+	t.Helper()
+	if _, err := h.User.EnsureExists(context.Background(), SeedTestUserID, "test"); err != nil {
+		t.Fatalf("seed test user: %v", err)
+	}
+	return reqctxpkg.SetUserID(context.Background(), SeedTestUserID)
+}
+
+// LocalCtxAs seeds a user with the given id and returns a ctx stamped with it.
+// For tests that need a fixture id different from SeedTestUserID.
+//
+// LocalCtxAs:用指定 id 建用户并返 ctx,给需要自定义 id 的测试用。
+func (h *Harness) LocalCtxAs(t *testing.T, id string) context.Context {
+	t.Helper()
+	if _, err := h.User.EnsureExists(context.Background(), id, id); err != nil {
+		t.Fatalf("seed user %s: %v", id, err)
+	}
+	return reqctxpkg.SetUserID(context.Background(), id)
+}
+
+// LocalCtx is the legacy name retained for internal seed.go helpers; new
+// tests should call SeedCtx(t) directly. Asserts on t being available via
+// the harness — fatal if not, since DB-seed without t can't recover.
+//
+// LocalCtx:保留兼容老 helper;新测试用 SeedCtx(t)。
 func (h *Harness) LocalCtx() context.Context {
-	return reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+	return h.SeedCtx(h.t)
 }
 
 // SeedDeepSeek inserts a DeepSeek API key + chat scenario; empty apiKey falls back to env.

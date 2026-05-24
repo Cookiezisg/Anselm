@@ -96,6 +96,40 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*userdomain.User,
 	return u, nil
 }
 
+// EnsureExists creates a user with the given id+username if no row with
+// that id already exists; idempotent. Used by test harnesses to seed an
+// explicit-id fixture without going through the random-id Create path.
+// Not for production use — real users get random IDs from Create.
+//
+// EnsureExists:测试 harness 用,按指定 id+username 建用户(已存在则 no-op)。
+// 生产代码用 Create 走随机 id。
+func (s *Service) EnsureExists(ctx context.Context, id, username string) (*userdomain.User, error) {
+	if id == "" {
+		return nil, userdomain.ErrUsernameRequired // reuse — id required
+	}
+	if existing, err := s.repo.Get(ctx, id); err == nil && existing != nil {
+		return existing, nil
+	}
+	uname := strings.ToLower(strings.TrimSpace(username))
+	if uname == "" {
+		uname = id
+	}
+	now := time.Now().UTC()
+	u := &userdomain.User{
+		ID:          id,
+		Username:    uname,
+		DisplayName: uname,
+		AvatarColor: "#888888",
+		Language:    userdomain.LanguageZhCN,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := s.repo.Save(ctx, u); err != nil {
+		return nil, fmt.Errorf("user.EnsureExists: save: %w", err)
+	}
+	return u, nil
+}
+
 // EnsureDefault creates the migration "default" user pinned to ID="local-user" when users table is empty.
 // Called at boot to make existing single-user data discoverable as a profile.
 //

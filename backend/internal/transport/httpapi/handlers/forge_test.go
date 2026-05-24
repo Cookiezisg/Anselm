@@ -26,7 +26,10 @@ func newForgeServer(t *testing.T) (*httptest.Server, *forgeinfra.Bridge) {
 }
 
 func forgePublishCtx() context.Context {
-	return reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+	// Must match the user id stamped by middlewarehttpapi.InjectUserID.
+	//
+	// 须与 InjectUserID 测试中间件塞入的 user id 一致。
+	return reqctxpkg.SetUserID(context.Background(), "test-user")
 }
 
 func TestForge_StreamDeliversAllEventTypes(t *testing.T) {

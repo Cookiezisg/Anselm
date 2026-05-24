@@ -38,7 +38,7 @@ func TestDocument_JSONRoundTrip(t *testing.T) {
 	parent := "doc_parent"
 	d := Document{
 		ID:          "doc_abc123",
-		UserID:      "local-user",
+		UserID:      "test-user",
 		ParentID:    &parent,
 		Name:        "API spec",
 		Description: "Service API contract",
@@ -54,7 +54,7 @@ func TestDocument_JSONRoundTrip(t *testing.T) {
 	}
 	mustContain := []string{
 		`"id":"doc_abc123"`,
-		`"userId":"local-user"`,
+		`"userId":"test-user"`,
 		`"parentId":"doc_parent"`,
 		`"name":"API spec"`,
 		`"description":"Service API contract"`,
@@ -85,7 +85,7 @@ func TestDocument_JSONRoundTrip(t *testing.T) {
 func TestDocument_JSONRoundTrip_RootHasNullParent(t *testing.T) {
 	d := Document{
 		ID:     "doc_root",
-		UserID: "local-user",
+		UserID: "test-user",
 		Name:   "Project Alpha",
 		Path:   "/Project Alpha",
 	}

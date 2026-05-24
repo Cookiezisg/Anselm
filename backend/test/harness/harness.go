@@ -184,6 +184,7 @@ type Harness struct {
 	Trigger      *triggerapp.Service
 	FlowRunRepo  flowrundomain.Repository
 	Chat         *chatapp.Service
+	User         *userapp.Service
 	Tools        []toolapp.Tool
 }
 
@@ -636,6 +637,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Trigger:             triggerService,
 		FlowRunRepo:         flowrunRepo,
 		Chat:                chatService,
+		User:                userService,
 		Memory:              memoryService,
 		Document:            documentService,
 		Relation:            relationService,

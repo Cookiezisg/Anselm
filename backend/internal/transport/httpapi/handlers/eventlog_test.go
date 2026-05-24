@@ -26,7 +26,12 @@ func newEventLogServer(t *testing.T) (*httptest.Server, *eventloginfra.Bridge) {
 }
 
 func publishCtx() context.Context {
-	return reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+	// Must match the user id stamped by middlewarehttpapi.InjectUserID (the
+	// test-only middleware used in newEventLogServer). See Phase E
+	// middleware refactor.
+	//
+	// 须与 InjectUserID 测试中间件塞入的 user id 一致。
+	return reqctxpkg.SetUserID(context.Background(), "test-user")
 }
 
 func TestEventLog_StreamDeliversLiveEvents(t *testing.T) {
