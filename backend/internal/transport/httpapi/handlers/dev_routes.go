@@ -17,9 +17,11 @@ type devRoute struct {
 //
 // devRoutes 镜像本包所有 mux.HandleFunc 注册的手维护清单。
 var devRoutes = []devRoute{
-	// health + providers (always wired)
+	// health + providers + scenarios (always wired; providers/scenarios
+	// exempt from RequireUser so onboarding can render before user exists)
 	{"GET", "/api/v1/health", "health.Get"},
 	{"GET", "/api/v1/providers", "providers.List"},
+	{"GET", "/api/v1/scenarios", "scenarios.List"},
 
 	// apikey
 	{"POST", "/api/v1/api-keys", "apikey.Create"},

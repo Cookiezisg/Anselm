@@ -19,6 +19,7 @@ func New(deps Deps) http.Handler {
 
 	handlershttpapi.NewHealthHandler().Register(mux)
 	handlershttpapi.NewProvidersHandler().Register(mux)
+	handlershttpapi.NewScenariosHandler().Register(mux)
 	if deps.APIKeyService != nil {
 		handlershttpapi.NewAPIKeyHandler(deps.APIKeyService, deps.Log).Register(mux)
 	}
@@ -147,9 +148,13 @@ func New(deps Deps) http.Handler {
 // requireUserExempt wraps RequireUser around all /api/v1/* routes EXCEPT:
 //   - /api/v1/users (onboarding must call POST /users before any user exists)
 //   - /api/v1/health (liveness probe)
+//   - /api/v1/providers + /api/v1/scenarios (static metadata; onboarding's
+//     provider grid + Config Model tab need them readable pre-user)
 //   - non-/api/v1/* paths (let mux handle NotFound / static assets / etc.)
 //
-// requireUserExempt:/api/v1/users 与 /api/v1/health 不走 RequireUser;
+// requireUserExempt:/api/v1/users、/health、/providers、/scenarios 不走
+// RequireUser;前两者 onboarding 创号用,后两者是静态白名单,onboarding
+// 还没建 user 时也得能拉到 provider/scenario 列表。
 // 非 /api/v1/* 路径(如 NotFound)也放过,让 mux 处理。
 func requireUserExempt(next http.Handler) http.Handler {
 	guarded := middlewarehttpapi.RequireUser(next)
@@ -157,7 +162,9 @@ func requireUserExempt(next http.Handler) http.Handler {
 		p := r.URL.Path
 		if !strings.HasPrefix(p, "/api/v1/") ||
 			strings.HasPrefix(p, "/api/v1/users") ||
-			p == "/api/v1/health" {
+			p == "/api/v1/health" ||
+			p == "/api/v1/providers" ||
+			p == "/api/v1/scenarios" {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -160,6 +160,36 @@ func TestRouter_Health_ExemptFromRequireUser(t *testing.T) {
 	}
 }
 
+func TestRouter_Providers_ExemptFromRequireUser(t *testing.T) {
+	// /api/v1/providers must work pre-onboarding — Onboarding's ProviderStep
+	// renders the provider grid before any user exists.
+	called := false
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	h := applyChain(testHandler, newTestDeps())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/api/v1/providers", nil))
+
+	if !called {
+		t.Error("/api/v1/providers should bypass RequireUser")
+	}
+}
+
+func TestRouter_Scenarios_ExemptFromRequireUser(t *testing.T) {
+	// /api/v1/scenarios mirrors /providers — static whitelist consumed by
+	// ConfigPane Model tab; must render before a user is signed in.
+	called := false
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	h := applyChain(testHandler, newTestDeps())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/api/v1/scenarios", nil))
+
+	if !called {
+		t.Error("/api/v1/scenarios should bypass RequireUser")
+	}
+}
+
 func TestRouter_LocaleInjectedIntoHandlerContext(t *testing.T) {
 	var gotLocale reqctxpkg.Locale
 	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {

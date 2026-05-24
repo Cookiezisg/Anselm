@@ -116,6 +116,7 @@ type Error = {
 |---|---|---|
 | GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）|
 | PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置（200，无论创建或更新）|
+| GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata；onboarding 前可读，不需 user header）|
 
 #### conversation ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。

@@ -386,7 +386,7 @@ func newID() string {
 - 中间件链：同 apikey
 - 响应走 envelope（N1）
 
-### 端点清单（2 个）
+### 端点清单（3 个）
 
 #### 10.1 `GET /api/v1/model-configs` — 列表（200）
 
@@ -432,7 +432,28 @@ func newID() string {
 
 **注意**：无 201（upsert 语义，既可创建也可覆盖，统一 200）。
 
-### Handler 设计（`transport/httpapi/handlers/model.go`）
+#### 10.3 `GET /api/v1/scenarios` — 白名单（200）
+
+**用途**：暴露 `modeldomain.ListScenarios()` 给前端，让 ConfigPane Model tab 始终展示后端所知的全部 scenario（无论用户是否配过）。屎山拯救计划：之前前端硬编码 `["chat", "auto_title", "web_summary", "intent", "compaction"]` 与后端实际白名单不一致，配 `auto_title` 等会回 400 `INVALID_SCENARIO`；引入此端点后前端从这里取真实白名单。
+
+**Request**：无 body，无 query。
+
+**Response 200**：
+
+```json
+{
+  "data": [
+    { "name": "chat" },
+    { "name": "web_summary" }
+  ]
+}
+```
+
+**特殊**：本端点**不**走 `RequireUser` middleware（与 `/api/v1/providers` 同列）—— 静态 metadata，onboarding 创号前也得可读。`router.requireUserExempt` 路径白名单已加。Phase 4+ 加 `workflow_llm` / `embedding` 等 const 时，本端点自动跟进，前端零改。
+
+### Handler 设计
+
+**ModelConfigHandler**（`transport/httpapi/handlers/model.go`）：
 
 ```go
 type ModelConfigHandler struct {
@@ -445,6 +466,18 @@ func (h *ModelConfigHandler) Register(mux *http.ServeMux) {
     mux.HandleFunc("PUT /api/v1/model-configs/{scenario}", h.Upsert)
 }
 ```
+
+**ScenariosHandler**（`transport/httpapi/handlers/scenarios.go`）—— 无依赖、无 service 注入，直接读 `modeldomain.ListScenarios()`：
+
+```go
+type ScenariosHandler struct{}
+
+func (h *ScenariosHandler) Register(mux *http.ServeMux) {
+    mux.HandleFunc("GET /api/v1/scenarios", h.List)
+}
+```
+
+注册在 `router.New` 的 health/providers 后面（永远 wire 进去，不依赖任何 service）。
 
 ---
 
@@ -628,6 +661,9 @@ model domain 不涉及明文凭证，安全面比 apikey 小。唯一关注：
 ### transport 层 ✅
 - [x] `internal/transport/httpapi/handlers/model.go` — ModelConfigHandler + GET + PUT + Register
 - [x] `internal/transport/httpapi/handlers/model_test.go` — 7 个 E2E 契约测试（真 SQLite + Service + InjectUserID）
+- [x] `internal/transport/httpapi/handlers/scenarios.go` — ScenariosHandler + GET /api/v1/scenarios（无 service 依赖，直接读 `ListScenarios()`）
+- [x] `internal/transport/httpapi/handlers/scenarios_test.go` — 2 个 handler 单测（白名单对齐 + 含 chat）
+- [x] `internal/transport/httpapi/router/router.go` — `requireUserExempt` 白名单加入 `/api/v1/providers` 和 `/api/v1/scenarios`（修了 onboarding 前 401 拿不到 provider 的隐藏 bug）；router_test 加 2 个 exempt 守护用例
 
 ### 配套基础设施 ✅
 - [x] `internal/transport/httpapi/response/errmap.go` — 4 条 model sentinel 映射
