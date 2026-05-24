@@ -94,7 +94,7 @@
 - **S12** 包结构 — 见 §S12
 - **S13** 包命名 — 见 §S13
 - **S14** 📌 文档同步纪律 — 见 §S14（**最高优先级**）
-- **S15** ID 格式：`<prefix>_<16hex>`（`crypto/rand` 8 字节，失败 panic）。前缀：`aki_` apikey / `mc_` model-config / `cv_` conv / `msg_` message / `att_` attachment / `blk_` block / `f_` forge / `fv_` forge-version / `tc_` test-case / `fe_` forge-exec / `b_` batch / `td_` todo / `bsh_` bash-shell / `sar_` subagent-run / `smm_` subagent-msg / `fnenv_` fn-venv / `hdenv_` hd-venv / `rel_` relation / `mch_` mcp-health / `fr_` flowrun / `frn_` flowrun-node
+- **S15** ID 格式：`<prefix>_<16hex>`（`crypto/rand` 8 字节，失败 panic）。前缀：`u_` user / `aki_` apikey / `mc_` model-config / `cv_` conv / `msg_` message / `att_` attachment / `blk_` block / `f_` forge / `fv_` forge-version / `tc_` test-case / `fe_` forge-exec / `b_` batch / `td_` todo / `bsh_` bash-shell / `sar_` subagent-run / `smm_` subagent-msg / `fnenv_` fn-venv / `hdenv_` hd-venv / `rel_` relation / `mch_` mcp-health / `fr_` flowrun / `frn_` flowrun-node
 - **S16** 错误包装：`fmt.Errorf("<pkg>.<Method>: %w", err)`；`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17** 每个到达 handler 的 sentinel 必须登记到 `errmap.go::errTable`
 - **S18** Tool 接口规约 — 见 §S18
