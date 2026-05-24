@@ -1,34 +1,62 @@
 // Shared SSE connection factory. EventSource ships its own auto-reconnect
-// and automatically replays the last `id:` value via the Last-Event-ID
-// header — which is exactly what the backend's /eventlog, /notifications,
-// and /forge handlers honour. We don't manually close on transient
-// errors; we only close if the caller does (component unmount).
+// and replays the last `id:` value via Last-Event-ID — matches backend
+// /eventlog, /notifications, /forge handlers.
 //
-// Multi-user: EventSource cannot send custom headers, so we append
-// ?userID=<id> to the URL (backend auth middleware reads it as
-// fallback for SSE clients — see backend/internal/transport/httpapi/
-// middleware/auth.go).
+// State machine (mirrors spec §4.5):
+//   - activeUserId null → no connection (would 401 instantly; pointless)
+//   - activeUserId set  → connect with ?userID=<id> (EventSource can't
+//     send custom headers, so the SSE auth path reads the query)
+//   - connection drops permanently while the captured uid still matches
+//     the current activeUserId → self-heal: clear activeUserId so App.jsx
+//     re-renders into onboarding / picker
+//   - activeUserId changes mid-stream → the calling hook (useEventLog
+//     etc.) keys its useEffect on activeUserId and rebuilds via close
+//     + new createSSE
 //
-// 共享 SSE 连接工厂；多账号靠 ?userID= 兜底（EventSource 不能自定义 header）。
+// 共享 SSE 工厂；activeUserId 为空时不建连接；连接被永久关闭且 captured
+// uid 还等于当前 activeUserId 时清掉它触发 self-heal。账号切换由 hook 的
+// useEffect 重建。
 
 import { apiUrl } from "../bridge/wails.js";
 import { useSettings } from "../store/settings.js";
 
+const NOOP_CONTROLLER = { close: () => {} };
+
 export function createSSE({ path, eventHandlers, onStatus }) {
-  const base = apiUrl("/api/v1" + path);
   const uid = useSettings.getState().activeUserId;
-  const url = uid ? `${base}${base.includes("?") ? "&" : "?"}userID=${encodeURIComponent(uid)}` : base;
+
+  // Idle state: no user, no connection.
+  if (!uid) {
+    if (onStatus) onStatus("disconnected");
+    return NOOP_CONTROLLER;
+  }
+
+  const base = apiUrl("/api/v1" + path);
+  const url = `${base}${base.includes("?") ? "&" : "?"}userID=${encodeURIComponent(uid)}`;
 
   const es = new EventSource(url);
 
-  if (onStatus) {
-    onStatus("connecting");
-    es.addEventListener("open", () => onStatus("connected"));
-    es.addEventListener("error", () => {
-      // readyState 0 = CONNECTING (about to retry), 2 = CLOSED (terminal).
-      onStatus(es.readyState === EventSource.CLOSED ? "disconnected" : "connecting");
-    });
-  }
+  if (onStatus) onStatus("connecting");
+  es.addEventListener("open", () => onStatus?.("connected"));
+  es.addEventListener("error", () => {
+    // readyState 0 = CONNECTING (about to retry), 2 = CLOSED (terminal).
+    if (es.readyState !== EventSource.CLOSED) {
+      onStatus?.("connecting");
+      return;
+    }
+    onStatus?.("disconnected");
+    // Self-heal: connection closed permanently. If our captured uid still
+    // equals the current store value, the backend rejected (likely 401 on
+    // a stale id) → clear so App.jsx flips into onboarding. If the store
+    // already moved on (account switch / REST 401 cleared first), do
+    // nothing — the hook's useEffect will rebuild.
+    //
+    // 自愈：连接被永久关闭。captured uid 仍 = store 当前值时清掉。
+    const current = useSettings.getState().activeUserId;
+    if (current === uid) {
+      try { useSettings.getState().set({ activeUserId: null }); } catch { /* store unavailable in tests */ }
+    }
+  });
 
   for (const [evt, handler] of Object.entries(eventHandlers)) {
     es.addEventListener(evt, (e) => {

@@ -19,7 +19,7 @@ beforeEach(async () => {
   MockEventSource.reset();
   globalThis.EventSource = MockEventSource;
   useChatStore.setState({ convs: {}, hydratedConvs: new Set() });
-  useSettings.setState({ activeUserId: null });
+  useSettings.setState({ activeUserId: "u_test" });
   const bridge = await import("../bridge/wails.js");
   await bridge.initBaseUrl();
 });
@@ -33,7 +33,7 @@ describe("useEventLog", () => {
     const { result } = renderHook(() => useEventLog(), { wrapper: wrap });
     await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
     const es = MockEventSource.instances[0];
-    expect(es.url).toBe("/api/v1/eventlog");
+    expect(es.url).toBe("/api/v1/eventlog?userID=u_test");
   });
 
   it("messageStart_event_routesToChatStore", async () => {

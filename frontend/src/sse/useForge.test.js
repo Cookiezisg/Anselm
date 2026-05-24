@@ -18,7 +18,7 @@ function makeWrapper() {
 beforeEach(async () => {
   MockEventSource.reset();
   globalThis.EventSource = MockEventSource;
-  useSettings.setState({ activeUserId: null });
+  useSettings.setState({ activeUserId: "u_test" });
   useForgeProgress.setState({ active: {} });
   const bridge = await import("../bridge/wails.js");
   await bridge.initBaseUrl();
