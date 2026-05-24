@@ -93,21 +93,70 @@ func TestRouter_CORSHeaderPresentOnHealthRequest(t *testing.T) {
 	}
 }
 
-func TestRouter_UserIDInjectedIntoHandlerContext(t *testing.T) {
-	var gotID string
-	var gotOK bool
-	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-		gotID, gotOK = reqctxpkg.GetUserID(r.Context())
+func TestRouter_NoHeader_NonExemptPath_Returns401(t *testing.T) {
+	// With UserService nil and no X-Forgify-User-ID header, /api/v1/* must
+	// 401 (UNAUTH_NO_USER) — no silent fallback.
+	called := false
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
 	})
-
 	h := applyChain(testHandler, newTestDeps())
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/anything", nil))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/conversations", nil))
 
-	if !gotOK {
-		t.Fatalf("GetUserID ok: got false — InjectUserID not wired")
+	if called {
+		t.Error("inner handler should NOT run when no user identified")
 	}
-	if gotID != reqctxpkg.DefaultLocalUserID {
-		t.Errorf("userID: got %q, want %q", gotID, reqctxpkg.DefaultLocalUserID)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "UNAUTH_NO_USER") {
+		t.Errorf("missing UNAUTH_NO_USER code; got %s", rec.Body.String())
+	}
+}
+
+func TestRouter_HeaderPresent_StampsCtx(t *testing.T) {
+	// With UserService nil, IdentifyUser accepts the header verbatim
+	// (no validation). RequireUser then sees a user in ctx and passes through.
+	var gotID string
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		gotID, _ = reqctxpkg.GetUserID(r.Context())
+	})
+	h := applyChain(testHandler, newTestDeps())
+	req := httptest.NewRequest("GET", "/api/v1/conversations", nil)
+	req.Header.Set("X-Forgify-User-ID", "u_real")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+
+	if gotID != "u_real" {
+		t.Errorf("userID = %q, want u_real", gotID)
+	}
+}
+
+func TestRouter_UsersCRUD_ExemptFromRequireUser(t *testing.T) {
+	// /api/v1/users must work pre-onboarding — onboarding calls POST /users
+	// before any user exists.
+	called := false
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	h := applyChain(testHandler, newTestDeps())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/api/v1/users", nil))
+
+	if !called {
+		t.Error("/api/v1/users should bypass RequireUser even without a user header")
+	}
+}
+
+func TestRouter_Health_ExemptFromRequireUser(t *testing.T) {
+	called := false
+	testHandler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		called = true
+	})
+	h := applyChain(testHandler, newTestDeps())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/api/v1/health", nil))
+
+	if !called {
+		t.Error("/api/v1/health should bypass RequireUser")
 	}
 }
 

@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"strings"
 
 	handlershttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
 	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
@@ -143,14 +144,45 @@ func New(deps Deps) http.Handler {
 	return applyChain(mux, deps)
 }
 
+// requireUserExempt wraps RequireUser around all /api/v1/* routes EXCEPT:
+//   - /api/v1/users (onboarding must call POST /users before any user exists)
+//   - /api/v1/health (liveness probe)
+//   - non-/api/v1/* paths (let mux handle NotFound / static assets / etc.)
+//
+// requireUserExempt:/api/v1/users 与 /api/v1/health 不走 RequireUser;
+// 非 /api/v1/* 路径(如 NotFound)也放过,让 mux 处理。
+func requireUserExempt(next http.Handler) http.Handler {
+	guarded := middlewarehttpapi.RequireUser(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		if !strings.HasPrefix(p, "/api/v1/") ||
+			strings.HasPrefix(p, "/api/v1/users") ||
+			p == "/api/v1/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		guarded.ServeHTTP(w, r)
+	})
+}
+
 func applyChain(h http.Handler, deps Deps) http.Handler {
-	// Multi-user middleware reads X-Forgify-User-ID; if UserService nil (early boot / tests), falls back to legacy default.
-	// 多用户中间件读 X-Forgify-User-ID;UserService nil（早期 boot / 测试）走 legacy 默认。
+	// IdentifyUser stamps ctx with X-Forgify-User-ID (validated) or leaves
+	// ctx empty; RequireUser 401s if no user in ctx. /users CRUD and
+	// /health are exempt — they must work pre-onboarding.
+	//
+	// Explicit nil-interface assignment dodges the typed-nil gotcha: a
+	// nil *userapp.Service stuffed into a UserResolver interface compares
+	// != nil, so we'd skip the "no resolver" branch and panic in .Get.
+	//
+	// IdentifyUser 校验 header 后入 ctx;RequireUser 强制非空(401);
+	// /users 与 /health 例外,onboarding 前必须可达。显式 nil 接口
+	// 赋值避开 Go typed-nil 坑。
+	var resolver middlewarehttpapi.UserResolver
 	if deps.UserService != nil {
-		h = middlewarehttpapi.InjectUserIDWith(deps.UserService)(h)
-	} else {
-		h = middlewarehttpapi.InjectUserID(h)
+		resolver = deps.UserService
 	}
+	h = requireUserExempt(h)
+	h = middlewarehttpapi.IdentifyUser(resolver)(h)
 	h = middlewarehttpapi.InjectLocale(h)
 	h = middlewarehttpapi.CORS(middlewarehttpapi.DefaultCORSConfig())(h)
 	h = middlewarehttpapi.RequestLogger(deps.Log)(h)
