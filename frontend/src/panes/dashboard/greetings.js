@@ -1,4 +1,4 @@
-// GREETINGS — 360-line rotating pool for the welcome page.
+// GREETINGS — 380-entry rotating pool for the welcome page.
 // Tag taxonomy:
 //   A confident "Your X"   B forge/anvil theme   C build/ship/make
 //   D what/where/how       E continuation        F short imperatives
@@ -7,7 +7,7 @@
 //   K AI self-reference    L aphorisms           M name-bearing ({name})
 //   N self-mentioning Forgify   O misc
 //
-// GREETINGS —— 360 条欢迎页问候语池,15 大类。含 {name} 的句子在
+// GREETINGS —— 380 条欢迎页问候语池,15 大类。含 {name} 的句子在
 // useGreeting 里按 displayName 是否可用过滤。
 
 export const GREETINGS = [
