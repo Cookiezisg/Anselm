@@ -10,6 +10,7 @@ import { Onboarding } from "./components/overlays/Onboarding.jsx";
 import { SSEProvider } from "./sse/SSEProvider.jsx";
 import { useSettings, applyTheme } from "./store/settings.js";
 import { useChatStore } from "./store/chat.js";
+import { useUIStore } from "./store/ui.js";
 import { apiFetch, qk, pickList } from "./api/client.js";
 
 // Honor `?onboarding=1` query param for tests / manual reruns of the
@@ -32,17 +33,22 @@ export default function App() {
     applyTheme(settings);
   }, [settings.theme, settings.accent, settings.density, settings.lang]);
 
-  // Account switch / first-account-set: drop the old user's chat tree and
-  // invalidate every REST cache so the next render fetches fresh data
-  // under the new X-Forgify-User-ID. SSE hooks reconnect on the same
-  // activeUserId dep; this complements them on the REST side.
+  // Account switch / first-account-set: drop the old user's chat tree,
+  // invalidate every REST cache, AND clear any cross-user pane state
+  // (activeConv / focusEntity) that would otherwise point at a stale
+  // entity that doesn't belong to the new user — backend would return
+  // CONVERSATION_NOT_FOUND on send, surfaced as "发送失败" toast.
   //
-  // 切账号 / 首次绑 user：清 chat store + 失效所有 query 缓存。SSE hook
-  // 同时按 activeUserId 重连。
+  // 切账号:清 chat store + 失效所有 query 缓存 + 清掉 cross-user 残留的
+  // activeConv / focusEntity(否则 backend 找不到那条 conv → 发送失败)。
   useEffect(() => {
     if (prevUid.current === settings.activeUserId) return;
     prevUid.current = settings.activeUserId;
     useChatStore.getState().resetAll();
+    const ui = useUIStore.getState();
+    ui.setActiveConv?.(null);
+    if (ui.setActiveFlowRun) ui.setActiveFlowRun(null);
+    if (ui.setActiveDocument) ui.setActiveDocument(null);
     qc.invalidateQueries();
   }, [settings.activeUserId, qc]);
 

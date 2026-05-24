@@ -6,10 +6,12 @@
 // 切换/初次进入时由 REST 历史 hydrate。
 
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useConversation, useConversationMessages, useSendMessage, useCancelStream } from "../../api/conversations.js";
 import { useApiKeys, useModelConfigs } from "../../api/config.js";
 import { useChatStore } from "../../store/chat.js";
 import { useUIStore } from "../../store/ui.js";
+import { qk } from "../../api/client.js";
 import { ChatHeader } from "./ChatHeader.jsx";
 import { MessageView } from "./MessageView.jsx";
 import { Composer } from "./Composer.jsx";
@@ -24,8 +26,23 @@ const EMPTY_IDS = Object.freeze([]);
 
 export function ChatPane({ onClose }) {
   const activeConv = useUIStore((s) => s.activeConv);
-  const { data: conv } = useConversation(activeConv);
+  const setActiveConv = useUIStore((s) => s.setActiveConv);
+  const qc = useQueryClient();
+  const { data: conv, error: convError } = useConversation(activeConv);
   const { data: historyMessages, isLoading: histLoading } = useConversationMessages(activeConv);
+
+  // Self-heal upfront: if backend says this conv doesn't exist for the
+  // current user (stale activeConv after delete or cross-user residue),
+  // bounce to the picker before the user even tries to send.
+  //
+  // 上来就自愈:GET 对话本身就 404,直接弹回 picker,避免用户先打半天字
+  // 再被发送失败。
+  useEffect(() => {
+    if (convError?.code === "CONVERSATION_NOT_FOUND") {
+      setActiveConv(null);
+      qc.invalidateQueries({ queryKey: qk.conversations() });
+    }
+  }, [convError, setActiveConv, qc]);
   const { data: apiKeys = [], isLoading: keysLoading } = useApiKeys();
   const { data: modelConfigs = [], isLoading: cfgLoading } = useModelConfigs();
 
@@ -98,7 +115,22 @@ export function ChatPane({ onClose }) {
     if (attachments?.length) body.attachments = attachments.map((a) => ({ fileName: a.name, sizeBytes: a.size }));
     if (mentions?.length) body.mentions = mentions.map((m) => m.id);
     send.mutate(body, {
-      onError: (err) => pushToast({ kind: "error", title: "发送失败", desc: err.message }),
+      onError: (err) => {
+        // Stale conv: backend says this conversation doesn't exist (deleted,
+        // or belongs to a different user after account switch). Self-heal:
+        // clear activeConv + refetch conversation list so the user sees the
+        // real state instead of a stuck "send fails" loop.
+        //
+        // activeConv 已失效(被删 / 切户后跨用户残留)。自愈:清掉 +
+        // 重拉对话列表。
+        if (err?.code === "CONVERSATION_NOT_FOUND") {
+          setActiveConv(null);
+          qc.invalidateQueries({ queryKey: qk.conversations() });
+          pushToast({ kind: "warn", title: "这个对话不在了", desc: "已切回对话列表,挑一个或新开一段。" });
+          return;
+        }
+        pushToast({ kind: "error", title: "发送失败", desc: err.message });
+      },
     });
   };
 
