@@ -1479,6 +1479,7 @@ ToastTray（position: fixed bottom right）
 | Dashboard 重 KPI + 双 section 违 DESIGN.md "克制" | 4 卡 + 2 section 让欢迎页"满",白色优先与大留白原则失守 | Dashboard 改成 Gemini-style:居中大问候 + pill 输入框(Enter 直接发首条消息建新对话)+ 可选智能上下文条;KPI 全删,继续对话列表挪入 sidebar "最近"段。已修(2026-05-25)。 |
 | Sidebar 头像区 "本地" / "SSE" 字样无意义 | 单用户本地 app 无需 SSE 文案;"本地" 不是用户名 | footer 改成头像(首字母,取 displayName)+ 真实名字 + 通知红 dot(Help+Bell 合并)+ hover ⚙ 设置;displayName 走 localStorage(`forgify.user.displayName`),Settings 可改。已修(2026-05-25)。 |
 | Sidebar nav 锻造 一词不传神 | 名字偏向"工序",不如"工坊"指向"地点+人" | UI label `锻造` → `工坊`(PaneFrame PANE_META + Sidebar + CommandPalette + StatusBadge + ForgeList 等共 ~14 处);内部代码 / API / DB / contract / pane key 全保留 `forge`。已修(2026-05-25)。 |
+| NotificationsDrawer 标题 "通知" 在加待办 tab 后语义不准 | 抽屉变成 Help/Ask + Bell 通知合集,叫"通知"以偏概全 | 标题改 "收件箱";内部 tab 仍是 "待办" / "通知";Sidebar 头像 hover title 沿用"通知"。已修(2026-05-25)。 |
 
 ---
 

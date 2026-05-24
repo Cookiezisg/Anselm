@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Dashboard } from "./Dashboard.jsx";
 import { useUIStore } from "../../store/ui.js";
+import { apiFetch } from "../../api/client.js";
 
 const createMutateAsync = vi.fn().mockResolvedValue({ id: "cv_n" });
 
@@ -12,6 +13,9 @@ vi.mock("../../api/flowruns.js", () => ({
 vi.mock("../../api/conversations.js", () => ({
   useConversations:       () => ({ data: [] }),
   useCreateConversation:  () => ({ mutateAsync: createMutateAsync }),
+}));
+vi.mock("../../api/client.js", () => ({
+  apiFetch: vi.fn().mockResolvedValue({}),
 }));
 
 function renderDash() {
@@ -27,10 +31,7 @@ beforeEach(() => {
   localStorage.clear();
   useUIStore.setState({ openPanes: [], activeConv: null });
   createMutateAsync.mockClear();
-  global.fetch = vi.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({}),
-  });
+  apiFetch.mockClear();
 });
 
 describe("Dashboard", () => {
@@ -55,12 +56,9 @@ describe("Dashboard", () => {
       await Promise.resolve(); await Promise.resolve();
     });
     expect(createMutateAsync).toHaveBeenCalled();
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/conversations/cv_n/messages"),
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ text: "hello forge" }),
-      })
+    expect(apiFetch).toHaveBeenCalledWith(
+      "/conversations/cv_n/messages",
+      expect.objectContaining({ method: "POST", body: { text: "hello forge" } })
     );
     expect(useUIStore.getState().openPanes).toContain("chat");
     expect(useUIStore.getState().activeConv).toBe("cv_n");

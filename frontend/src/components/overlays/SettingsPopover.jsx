@@ -196,7 +196,8 @@ function AccountSection({ settings, onClose, pushToast }) {
             id="settings-display-name"
             className="settings-input"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value.slice(0, 24).trim())}
+            onChange={(e) => setDisplayName(e.target.value.slice(0, 24))}
+            onBlur={(e) => setDisplayName(e.target.value.trim())}
             placeholder="Weilin"
             autoComplete="off"
           />

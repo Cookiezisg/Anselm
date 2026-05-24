@@ -10,6 +10,7 @@ import { RelTime } from "../../components/shared/RelTime.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
+import { apiFetch } from "../../api/client.js";
 import { WelcomeInput } from "./WelcomeInput.jsx";
 import { useGreeting } from "./useGreeting.js";
 import { useContextStrip } from "./useContextStrip.js";
@@ -51,21 +52,6 @@ function ContextStrip({ strip, onJump }) {
   return null;
 }
 
-async function sendMessageDirect(convId, text) {
-  // useSendMessage ties convId at hook-call time; we don't have the new id
-  // until mid-onSubmit, so POST directly. ChatPane will re-fetch
-  // ["conversation", convId, "messages"] when it mounts.
-  const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error?.message || res.statusText);
-  }
-}
-
 export function Dashboard() {
   const openPane      = useUIStore((s) => s.openPane);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
@@ -89,7 +75,7 @@ export function Dashboard() {
       if (created?.id) {
         setActiveConv(created.id);
         openPane("chat");
-        await sendMessageDirect(created.id, text);
+        await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { text } });
       }
     } finally {
       setSubmitting(false);
