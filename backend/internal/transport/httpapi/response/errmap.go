@@ -48,7 +48,8 @@ type errMapping struct {
 //
 // errTable 是 domain → HTTP 翻译的唯一事实源。
 var errTable = map[error]errMapping{
-	errorsdomain.ErrInvalidRequest: {http.StatusBadRequest, "INVALID_REQUEST"},
+	errorsdomain.ErrInvalidRequest:      {http.StatusBadRequest, "INVALID_REQUEST"},
+	errorsdomain.ErrUnauthorizedNoUser:  {http.StatusUnauthorized, "UNAUTH_NO_USER"},
 
 	// relation (V1.2 §16 cross-entity edge graph)
 	relationdomain.ErrInvalidEntityRef: {http.StatusBadRequest, "INVALID_ENTITY_REF"},
