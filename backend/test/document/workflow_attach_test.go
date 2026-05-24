@@ -11,7 +11,6 @@ import (
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -31,7 +30,7 @@ func TestWorkflow_AgentNode_CreatesDoc_E2E(t *testing.T) {
 	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
 	h.SeedDeepSeek(t, "fake-test-key")
 
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
 			{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"agent_writes_doc","description":"agent creates a doc"}`)},
@@ -96,7 +95,7 @@ func TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E(t *testing.T) {
 	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
 	h.SeedDeepSeek(t, "fake-test-key")
 
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 	doc, err := h.Document.Create(ctx, documentapp.CreateInput{
 		Name:        "Refspec",
 		Description: "API ref",
@@ -169,7 +168,7 @@ func TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E(t *testing.T) {
 // 抓未存在的 doc 引用。
 func TestWorkflow_LLM_AttachedDocMissing_ValidationRejects(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 
 	_, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{

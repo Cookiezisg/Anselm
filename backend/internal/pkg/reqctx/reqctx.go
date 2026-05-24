@@ -18,11 +18,6 @@ import (
 // 视为接线 bug（500），而非鉴权失败（401）。
 var ErrMissingUserID = errors.New("reqctx: missing user id in context")
 
-// DefaultLocalUserID is the hardcoded user ID for Phase 2 single-user mode.
-//
-// DefaultLocalUserID 是 Phase 2 单用户模式的硬编码 ID。
-const DefaultLocalUserID = "local-user"
-
 type userIDKey struct{}
 
 // SetUserID returns a copy of ctx carrying id.

@@ -8,13 +8,12 @@ import (
 
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
 func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
@@ -80,7 +79,7 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 
 func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
@@ -125,7 +124,7 @@ func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 
 func TestApproval_WrongNodeID_Returns404(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(reqctxpkg.DefaultLocalUserID)
+	ctx := th.LocalCtxAs(t, "test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{

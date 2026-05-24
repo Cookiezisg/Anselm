@@ -204,20 +204,22 @@ func main() {
 		log.Error("build encryptor", zap.Error(err))
 		os.Exit(1)
 	}
-	// §multi-user: user service first; EnsureDefault migrates pre-existing "local-user" data into a Profile entity.
-	// §multi-user: user service 优先；EnsureDefault 把老 "local-user" 数据迁成一个 Profile entity。
 	userService := userapp.NewService(userstore.New(gdb), log)
-	if _, err := userService.EnsureDefault(context.Background()); err != nil {
-		log.Error("user EnsureDefault failed", zap.Error(err))
-		os.Exit(1)
-	}
-	// Migrate legacy single-user paths into users/local-user/ subdir.
-	// 迁老的单用户路径到 users/local-user/ 子目录。
-	if err := userpathpkg.MigrateLegacy(homeRoot, reqctxpkg.DefaultLocalUserID,
+	// Legacy on-disk paths: pre-multi-user installs stored mcp.json / skills
+	// / .catalog.json / settings.json under users/local-user/. We keep
+	// reading from / writing to that directory for backward compatibility
+	// with existing installs. The literal "local-user" is now ONLY a stable
+	// directory name — no auth semantics. Fresh installs use the same path
+	// (catalog cache, mcp + skill services not yet per-user; deferred).
+	//
+	// 历史磁盘路径:老的单用户数据放在 users/local-user/;保留以兼容现有
+	// 安装。"local-user" 现在仅是稳定目录名,不再有 auth 语义。
+	const legacyDefaultUserDir = "local-user"
+	if err := userpathpkg.MigrateLegacy(homeRoot, legacyDefaultUserDir,
 		"mcp.json", "skills", ".catalog.json", "settings.json"); err != nil {
 		log.Warn("legacy path migration", zap.Error(err))
 	}
-	defaultUserHome, err := userpathpkg.UserHome(homeRoot, reqctxpkg.DefaultLocalUserID)
+	defaultUserHome, err := userpathpkg.UserHome(homeRoot, legacyDefaultUserDir)
 	if err != nil {
 		log.Error("user home init", zap.Error(err))
 		os.Exit(1)
@@ -372,8 +374,14 @@ func main() {
 	tools = append(tools, subagenttool.SubagentTools(subagentService)...)
 	subagentService.SetTools(tools)
 
-	// §S9 detached ctx: inject DefaultLocalUserID so boot publishStatus can write.
-	mcpBootCtx := reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+	// §S9 detached ctx: boot publishStatus needs a user id in ctx. mcp +
+	// skill aren't per-user yet — they share the legacyDefaultUserDir on
+	// disk, so use that same string as the ctx user id. When mcp/skill
+	// move to true per-user storage, replace with iterate-users pattern.
+	//
+	// §S9 detached ctx:启动时 publishStatus 需要 user id;mcp+skill 还
+	// 没真正 per-user,沿用 legacyDefaultUserDir 作为 ctx user id。
+	mcpBootCtx := reqctxpkg.SetUserID(context.Background(), legacyDefaultUserDir)
 	if err := mcpService.Start(mcpBootCtx); err != nil {
 		log.Warn("mcp start partial failure (some servers may be unreachable)", zap.Error(err))
 	}
@@ -388,7 +396,7 @@ func main() {
 		notificationsPub,
 		log,
 	)
-	skillBootCtx := reqctxpkg.SetUserID(context.Background(), reqctxpkg.DefaultLocalUserID)
+	skillBootCtx := reqctxpkg.SetUserID(context.Background(), legacyDefaultUserDir)
 	if err := skillService.Start(skillBootCtx); err != nil {
 		log.Warn("skill start failed (continuing with empty cache)", zap.Error(err))
 	}

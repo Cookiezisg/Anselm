@@ -130,37 +130,6 @@ func (s *Service) EnsureExists(ctx context.Context, id, username string) (*userd
 	return u, nil
 }
 
-// EnsureDefault creates the migration "default" user pinned to ID="local-user" when users table is empty.
-// Called at boot to make existing single-user data discoverable as a profile.
-//
-// EnsureDefault 在 users 表空时创建迁移用 "default" user（ID 固定 "local-user"）。
-// 启动时调，让老的单用户数据作为一个 profile 浮现。
-func (s *Service) EnsureDefault(ctx context.Context) (*userdomain.User, error) {
-	n, err := s.repo.Count(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("user.EnsureDefault: count: %w", err)
-	}
-	if n > 0 {
-		return nil, nil
-	}
-	now := time.Now().UTC()
-	u := &userdomain.User{
-		ID:          "local-user", // matches reqctxpkg.DefaultLocalUserID; existing rows already use this user_id
-		Username:    userdomain.DefaultUsername,
-		DisplayName: "Default",
-		AvatarColor: "#4f46e5",
-		Language:    userdomain.LanguageZhCN,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	if err := s.repo.Save(ctx, u); err != nil {
-		return nil, fmt.Errorf("user.EnsureDefault: save: %w", err)
-	}
-	s.log.Info("default user created (data migration)",
-		zap.String("user_id", u.ID))
-	return u, nil
-}
-
 // Get returns one user by id.
 //
 // Get 按 id 取 user。

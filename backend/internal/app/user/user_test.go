@@ -26,35 +26,6 @@ func newTestSvc(t *testing.T) *Service {
 	return NewService(userstore.New(db), zap.NewNop())
 }
 
-func TestEnsureDefault_CreatesOnEmpty(t *testing.T) {
-	svc := newTestSvc(t)
-	u, err := svc.EnsureDefault(context.Background())
-	if err != nil {
-		t.Fatalf("EnsureDefault: %v", err)
-	}
-	if u == nil {
-		t.Fatal("expected new default user, got nil")
-	}
-	if u.ID != "local-user" {
-		t.Errorf("ID = %q, want local-user", u.ID)
-	}
-	if u.Username != "default" {
-		t.Errorf("Username = %q, want default", u.Username)
-	}
-}
-
-func TestEnsureDefault_NoopWhenNonEmpty(t *testing.T) {
-	svc := newTestSvc(t)
-	_, _ = svc.EnsureDefault(context.Background())
-	out, err := svc.EnsureDefault(context.Background())
-	if err != nil {
-		t.Fatalf("EnsureDefault second call: %v", err)
-	}
-	if out != nil {
-		t.Errorf("second call should return nil, got %+v", out)
-	}
-}
-
 func TestCreate_UsernameValidation(t *testing.T) {
 	svc := newTestSvc(t)
 	cases := []struct {

@@ -57,8 +57,3 @@ func TestSetUserID_CopiesContext(t *testing.T) {
 	}
 }
 
-func TestDefaultLocalUserID_IsNotEmpty(t *testing.T) {
-	if DefaultLocalUserID == "" {
-		t.Error("DefaultLocalUserID should never be empty")
-	}
-}

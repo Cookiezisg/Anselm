@@ -361,9 +361,10 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools = append(tools, shells.Tools...)
 	todoService := todoapp.NewService(todostore.New(gdb), notificationsPub, log)
 	userService := userapp.NewService(userstore.New(gdb), log)
-	if _, err := userService.EnsureDefault(context.Background()); err != nil {
-		t.Fatalf("user EnsureDefault: %v", err)
-	}
+	// Pipeline tests seed their own users via h.SeedCtx(t) / h.LocalCtxAs(t, id);
+	// no boot-time seed needed now that EnsureDefault is deleted.
+	//
+	// pipeline 测试用 h.SeedCtx(t) 自助 seed,不再需要启动期种子。
 	tools = append(tools, todotool.TodoTools(todoService)...)
 	askService := askapp.NewService()
 	tools = append(tools, asktool.AskTools(askService)...)
