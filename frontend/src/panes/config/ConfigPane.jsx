@@ -9,7 +9,7 @@ import { Badge } from "../../components/primitives/Badge.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import {
   useApiKeys, useProviders, useCreateApiKey, useDeleteApiKey, useTestApiKey,
-  useModelConfigs, useUpsertModelConfig,
+  useScenarios, useModelConfigs, useUpsertModelConfig,
 } from "../../api/config.js";
 import { useSettings } from "../../store/settings.js";
 import { useUIStore } from "../../store/ui.js";
@@ -229,11 +229,21 @@ function AddKeyDrawer({ onClose }) {
 function ModelsTab() {
   const { data: configs = [] } = useModelConfigs();
   const { data: keys = [] } = useApiKeys();
+  const { data: whitelist = [] } = useScenarios();
   const upsert = useUpsertModelConfig();
   const pushToast = useUIStore((s) => s.pushToast);
   const [editing, setEditing] = useState(null);
 
-  const scenarios = configs.length > 0 ? configs.map((c) => c.scenario) : ["chat", "auto_title", "web_summary", "intent", "compaction"];
+  // Union of backend whitelist + already-configured scenarios. Whitelist
+  // alone misses anything once-configured but later removed from backend;
+  // configs alone makes unconfigured scenarios vanish (the bug users hit).
+  //
+  // 后端白名单 ∪ 已配置 scenario。少了白名单 → 已配的未来被后端下架就看不见;
+  // 少了 configs → 未配 scenario 看不见(就是用户看到 "配完只剩 chat" 那个 bug)。
+  const scenarios = Array.from(new Set([
+    ...whitelist.map((s) => s.name),
+    ...configs.map((c) => c.scenario),
+  ]));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

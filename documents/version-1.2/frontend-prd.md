@@ -1103,9 +1103,13 @@ ConfigPane
 
 ### 12.3 Model tab
 
-**数据：** `useModelConfigs()` → `GET /api/v1/model-configs`
+**数据：** `useScenarios()` → `GET /api/v1/scenarios`（后端白名单）+ `useModelConfigs()` → `GET /api/v1/model-configs`（用户已配）
 
-每个 scenario 一张卡片：显示 provider + modelId，"切换"按钮 → inline 编辑（选 provider → 填 modelId）→ `PUT /model-configs/{scenario}`。
+每个 scenario（取 `Array.from(new Set([...whitelist, ...configs.scenario]))` 的并集）一张卡片：已配的显 `provider · modelId` + "切换"；未配的显「未配置」灰字 + "配置"。
+
+inline 编辑：drawer 选 provider（从用户 keys 列表）→ 填 modelId（如 keys 测试拿到了 `modelsFound`，下方显示前 10 个可点击 chip 一键填充）→ `PUT /model-configs/{scenario}`。
+
+**Why scenarios 端点：** 原本前端硬编码 `["chat", "auto_title", "web_summary", "intent", "compaction"]` 跟后端 `["chat", "web_summary"]` 不一致；点不存在的 scenario 后端会回 400 INVALID_SCENARIO，体验诡异。改从后端拉权威白名单，Phase 4/5 后端加 const，前端零改自动跟上。
 
 ### 12.4 Sandbox tab
 
@@ -1439,6 +1443,11 @@ ToastTray（position: fixed bottom right）
 | `.rg-toolbar` CSS 被两段定义（filter toolbar + zoom toolbar），第二段把唯一的 toolbar 强行变 `position: absolute` 跑到 viewport 顶 | jsx 里根本没渲染 zoom toolbar 组件（`.rg-toolbar-sep` / `.rg-zoom-pct` 都是 dead code），第二段 CSS 还是覆盖了 filter toolbar | 删第二段 CSS（含 `.rg-toolbar-sep` `.rg-zoom-pct`）。已修。|
 | `.rg-shell` 用 `flex: 1` 但父容器是 `display: block`，flex:1 失效，rg-shell 只 500px 撑不满 769px parent | ObservePane 下半区空白，canvas 只占上半 | `.rg-shell` 改 `height: 100%`。已修。|
 | 全前端 11 个 sub-pane 滥用固定列：导航类不能收起、详情类没选节点也永久占 300-360px | 半屏使用挤；wf-inspector / rg-detail / fr-inspector empty state 长期浪费宽度 | 7 项改造：(1) 3 个导航 sub-pane（doc-sidebar / hd-methods / wf-palette）加 useCollapsible + 浮按钮（hover-only + vertical center），状态 persist localStorage；(2) vr-rail 折叠态 44→32px；(3) wf-inspector / rg-detail 改成 FloatingInspector popover（点节点弹、Esc / 点外面 / X 关）；(4) fr-inspector 改成 BottomSheet。新建 `hooks/useCollapsible.js` + `components/shared/{PaneCollapseToggle, FloatingInspector, BottomSheet}.jsx`。两端同步。|
+| Onboarding ProviderStep 偏离 boilerplate 设计：boilerplate 是「先选 provider 才看到 key 框」+「ollama 选中显示本地提示无 key 框」+「显式 skip 按钮」，前端实现把 key 框做成常驻 + 自动默认选第一个 provider + canAdvance 始终 true（≈ 静默 skip） | 用户感知 "API Key 没指定哪一家"（其实有默认值但脱节）；ollama 用户被要求填 key；走完 onboarding 数据写得对但心智模型断了 | 回归 boilerplate 设计：(1) 删 useEffect 自动选；(2) key 框 conditional 渲染（provider 已选 + 非 ollama 才出现），label 写 "{provider} 的 API Key"；(3) ollama 选中显示本地无 key 提示，canAdvance 不要求 key；(4) `canAdvance` 严格：必须选 provider + (ollama 或 key 非空)；(5) 显式 `跳过 · 稍后` 按钮（onSkip）。已修。|
+| Onboarding finish() 用 `pickDefaultModel(provider)` 硬编码模型名，`deepseek-v4-flash` 等是错的（DeepSeek 实际是 `deepseek-chat`），落地后第一句话上游 LLM 返 model-not-found | 用户以为没配好，反复回 Config 改 model | `finish()` 改 `await testKey.mutateAsync(k.id)` 拿 `modelsFound[0]` 写 model-config；只在 Anthropic（其 tester 不返 models）等情况用兜底表 `PROVIDER_DEFAULT_MODEL`（仅 anthropic→claude-sonnet-4-6）。test 失败不写 model-config，由新加的 `NoModelGate` 在 ChatPane 兜底引导。已修。|
+| Onboarding ProviderStep `providers.slice(0, 8)` 把 12 个 LLM provider 截断，openai/openrouter/qwen/zhipu 看不见；同时把 `mock`(dev)、`custom`(需 baseUrl/apiFormat) 当正常 provider 显示 | 主流 provider 在 onboarding 阶段缺席；mock/custom 占位无用 | 删 slice(0, 8)；filter 加 `name !== "mock" && name !== "custom"`；保留 `.onb-content` 已有的 `overflow-y:auto`，列表多时区域内滚动。已修。|
+| ConfigPane ModelsTab `configs.length > 0 ? configs.map(c=>c.scenario) : ["chat","auto_title","web_summary","intent","compaction"]` —— 已配后其它 scenario 消失；硬编码 5 个有 3 个后端不支持（点了回 400 INVALID_SCENARIO） | 用户体验为"配完一个其它都消失了"；点 auto_title 等会失败 | 后端新 `GET /api/v1/scenarios` 端点（exempt 自 RequireUser）；前端 `useScenarios()` hook；ModelsTab 改 `Array.from(new Set([...whitelist, ...configs.map(c=>c.scenario)]))` 取并集。已修。|
+| ChatPane 只检查 `apiKeys.length === 0`；有 key 但 chat 未配模型时（onboarding test 失败或用户手动加 key 没配 model）会让第一句话发出去后才报 422 MODEL_NOT_CONFIGURED | 用户体验到错误 toast 而不是友好引导 | 新加 `NoModelGate.jsx` 镜像 NoApiKeyGate；ChatPane 在 keys check 后再查 `modelConfigs.some(c=>c.scenario==="chat")`，没有就显示 gate 引导去 Config Model tab。已修。|
 
 ---
 
@@ -1468,6 +1477,7 @@ GET    /providers                           → useProviders
 # Model Configs
 GET    /model-configs                       → useModelConfigs
 PUT    /model-configs/{scenario}            → useUpsertModelConfig
+GET    /scenarios                           → useScenarios (后端白名单,exempt 自 RequireUser)
 
 # Functions
 GET    /functions                           → useFunctions

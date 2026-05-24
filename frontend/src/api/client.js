@@ -113,6 +113,7 @@ export const qk = {
   messages:         (convId) => ["conv-messages", convId],
   apikeys:          () => ["api-keys"],
   providers:        () => ["providers"],
+  scenarios:        () => ["scenarios"],
   modelConfigs:     () => ["model-configs"],
   functions:        () => ["functions"],
   function:         (id) => ["function", id],

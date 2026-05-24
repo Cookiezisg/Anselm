@@ -1,4 +1,4 @@
-// Config-related hooks — api-keys / providers / model-configs.
+// Config-related hooks — api-keys / providers / scenarios / model-configs.
 //
 // 设置相关 hooks。
 
@@ -17,6 +17,21 @@ export function useProviders() {
   return useQuery({
     queryKey: qk.providers(),
     queryFn: () => apiFetch("/providers"),
+  });
+}
+
+// useScenarios — backend's authoritative scenario whitelist. Replaces the
+// old hardcoded fallback in ModelsTab that drifted from backend (3 of 5
+// scenarios silently 400'd as INVALID_SCENARIO).
+//
+// 后端 scenario 白名单权威源;ModelsTab 旧硬编码 5 项里 3 项后端不支持,
+// 改从这里取。
+export function useScenarios() {
+  return useQuery({
+    queryKey: qk.scenarios(),
+    queryFn: () => apiFetch("/scenarios"),
+    select: pickList,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

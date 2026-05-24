@@ -12,7 +12,7 @@
 // Onboarding —— 5 步首次启动向导；进 Forgify 真后端写 user / api-key；
 // 完成后 settings.onboarded=true 永不再现。
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "../primitives/Icon.jsx";
@@ -68,10 +68,13 @@ export function Onboarding({ onFinish }) {
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
 
-  const llmProviders = providers.filter((p) => p.category === "llm");
-  useEffect(() => {
-    if (!provider && llmProviders.length > 0) setProvider(llmProviders[0].name);
-  }, [provider, llmProviders]);
+  // mock = dev-only fake LLM; custom = catch-all (needs baseUrl + apiFormat
+  // that don't fit onboarding's lightweight form). Keep them off the grid.
+  //
+  // mock 是 dev 假 LLM,custom 要 baseUrl+apiFormat 不适合 onboarding 轻量表单。
+  const llmProviders = providers.filter(
+    (p) => p.category === "llm" && p.name !== "mock" && p.name !== "custom",
+  );
 
   // Live preview of accent on the wizard itself.
   useEffect(() => {
@@ -83,9 +86,26 @@ export function Onboarding({ onFinish }) {
       case "intro":    return true;
       case "account":  return name.trim().length > 0;
       case "look":     return true;
-      case "provider": return true; // skippable
+      case "provider":
+        // Provider must be picked. ollama is local + needs no key. Other
+        // providers need both provider + apiKey. Skip is via explicit button,
+        // not silent advance.
+        if (!provider) return false;
+        if (provider === "ollama") return true;
+        return apiKey.trim().length > 0;
       case "done":     return true;
     }
+  };
+
+  // skipProvider — explicit "no key right now" path. Clears state and jumps
+  // to the done step without trying to write a key. Settings is updated in
+  // finish() like the normal path.
+  //
+  // skipProvider —— 显式 "稍后配" 路径;清状态跳到 done。
+  const skipProvider = () => {
+    setProvider("");
+    setApiKey("");
+    setStep((s) => Math.min(STEPS.length - 1, s + 1));
   };
 
   const finish = async () => {
@@ -103,15 +123,35 @@ export function Onboarding({ onFinish }) {
       }
       settings.set({ activeUserId: user.id, accent, onboarded: true });
 
-      // 2. If a key was provided, write it then test + set chat scenario.
-      if (apiKey && provider) {
-        // After settings.activeUserId is set, apiFetch sends X-Forgify-User-ID,
-        // so the key + model-config land under THIS user.
+      // 2. Key path: create → test → write model-config from real modelsFound.
+      //    Anthropic's tester intentionally doesn't list models — fall back
+      //    to a curated default ONLY when modelsFound is empty. If the test
+      //    itself fails (401 / network / etc.), don't write model-config
+      //    and let NoModelGate guide the user later.
+      //
+      //    For ollama: key is empty by design; treat the same way (test pings
+      //    /api/tags, returns models if local server is up).
+      //
+      // key 路径:create → test → 拿 modelsFound[0] 写 model-config。
+      // Anthropic 不返 models,留 fallback;test 失败干脆不写,后面 NoModelGate
+      // 接力。ollama 无 key 但 test 走 /api/tags,逻辑同上。
+      const hasKeyish = (apiKey || provider === "ollama") && provider;
+      if (hasKeyish) {
         const k = await createKey.mutateAsync({
-          provider, key: apiKey, displayName: `${provider} (onboarding)`,
+          provider,
+          key: apiKey || "ollama-no-key",
+          displayName: `${provider} (onboarding)`,
         });
-        testKey.mutate(k.id);
-        await setModel.mutateAsync({ scenario: "chat", provider, modelId: pickDefaultModel(provider) });
+        try {
+          const testResult = await testKey.mutateAsync(k.id);
+          const modelId = (testResult?.modelsFound?.[0]) || PROVIDER_DEFAULT_MODEL[provider];
+          if (modelId) {
+            await setModel.mutateAsync({ scenario: "chat", provider, modelId });
+          }
+        } catch (testErr) {
+          // Test 失败保留 key,但不写 model-config;NoModelGate 会引导。
+          pushToast({ kind: "warn", title: "Key 已存但验证未通过", desc: testErr.message });
+        }
       }
 
       qc.invalidateQueries();
@@ -193,6 +233,7 @@ export function Onboarding({ onFinish }) {
                   providers={llmProviders}
                   provider={provider} setProvider={setProvider}
                   apiKey={apiKey} setApiKey={setApiKey}
+                  onSkip={skipProvider}
                 />
               )}
               {STEPS[step].key === "done" && (
@@ -230,19 +271,20 @@ export function Onboarding({ onFinish }) {
   );
 }
 
-function pickDefaultModel(provider) {
-  switch (provider) {
-    case "deepseek":  return "deepseek-v4-flash";
-    case "anthropic": return "claude-sonnet-4-6";
-    case "openai":    return "gpt-4o-mini";
-    case "qwen":      return "qwen-plus";
-    case "moonshot":  return "moonshot-v1-32k";
-    case "zhipu":     return "glm-4";
-    case "ollama":    return "llama3.2";
-    case "google":    return "gemini-1.5-pro";
-    default:          return provider;
-  }
-}
+// PROVIDER_DEFAULT_MODEL — fallback model IDs used ONLY when the apikey
+// connectivity test couldn't return modelsFound (e.g., Anthropic's ping
+// doesn't list models). For everyone else, finish() prefers modelsFound[0].
+//
+// Values must be real model IDs — wrong defaults cause silent "configured
+// but won't run" states (the bug we just fixed: "deepseek-v4-flash" wasn't
+// real). When in doubt, omit the provider here; chat will fall through to
+// NoModelGate and the user picks manually.
+//
+// 仅当 apikey test 没返 modelsFound 时使用的兜底 modelID;其它情况优先
+// modelsFound[0]。值必须真实可用 —— 错的会让 "看似配好但跑不起来"。
+const PROVIDER_DEFAULT_MODEL = {
+  anthropic: "claude-sonnet-4-6",
+};
 
 // ── Steps ──────────────────────────────────────────────────────────
 
@@ -318,15 +360,18 @@ function LookStep({ accent, setAccent }) {
   );
 }
 
-function ProviderStep({ providers, provider, setProvider, apiKey, setApiKey }) {
+function ProviderStep({ providers, provider, setProvider, apiKey, setApiKey, onSkip }) {
+  const selectedMeta = providers.find((p) => p.name === provider);
+  const isOllama = provider === "ollama";
+
   return (
     <>
       <div className="onb-head">
         <div className="onb-title">配一个 LLM</div>
-        <div className="onb-sub">至少配一个 API Key，对话才能跑。也可以跳过，之后在设置里加。</div>
+        <div className="onb-sub">先挑 provider，再填它的 key。可以稍后再配。</div>
       </div>
       <div className="onb-provider-grid">
-        {providers.slice(0, 8).map((p) => {
+        {providers.map((p) => {
           const hint = PROVIDER_HINTS[p.name] || { abbr: p.name.slice(0, 2).toUpperCase(), color: "#37352f" };
           return (
             <button
@@ -337,22 +382,49 @@ function ProviderStep({ providers, provider, setProvider, apiKey, setApiKey }) {
               <span className="onb-pchip" style={{ background: hint.color }}>{hint.abbr}</span>
               <span style={{ display: "flex", flexDirection: "column", textAlign: "left", minWidth: 0 }}>
                 <span className="onb-pname">{p.displayName || p.name}</span>
-                <span className="onb-pdesc">{p.defaultBaseUrl}</span>
+                <span className="onb-pdesc">{p.defaultBaseUrl || (p.name === "ollama" ? "本地 · 无需 key" : "")}</span>
               </span>
             </button>
           );
         })}
       </div>
-      <div className="onb-field" style={{ marginTop: 16 }}>
-        <div className="onb-label">API Key（可粘贴；留空跳过）</div>
-        <input
-          className="onb-input"
-          type="password"
-          placeholder="sk-…"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-        <div className="onb-hint">key 经 AES-GCM 加密落地 ~/.forgify/，不上传</div>
+
+      {provider && !isOllama && (
+        <div className="onb-field" style={{ marginTop: 16 }}>
+          <div className="onb-label">
+            {selectedMeta?.displayName || provider} 的 API Key
+          </div>
+          <input
+            className="onb-input"
+            type="password"
+            placeholder="sk-…"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            autoFocus
+          />
+          <div className="onb-hint">key 经 AES-GCM 加密落地 ~/.forgify/，不上传</div>
+        </div>
+      )}
+
+      {isOllama && (
+        <div style={{
+          marginTop: 16, padding: 14, borderRadius: 6,
+          background: "var(--accent-soft)", fontSize: 12,
+          color: "var(--fg-muted)", lineHeight: 1.55,
+        }}>
+          Ollama 是本地推理，无需 API key。确保 <code style={{ fontFamily: "var(--font-mono)" }}>ollama serve</code> 已启动。
+        </div>
+      )}
+
+      <div style={{ marginTop: 18 }}>
+        <button
+          className="btn btn-ghost"
+          style={{ padding: "6px 10px", fontSize: 12 }}
+          onClick={onSkip}
+          type="button"
+        >
+          跳过 · 稍后在设置里添加 →
+        </button>
       </div>
     </>
   );

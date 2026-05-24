@@ -7,13 +7,14 @@
 
 import { useEffect, useRef } from "react";
 import { useConversation, useConversationMessages, useSendMessage, useCancelStream } from "../../api/conversations.js";
-import { useApiKeys } from "../../api/config.js";
+import { useApiKeys, useModelConfigs } from "../../api/config.js";
 import { useChatStore } from "../../store/chat.js";
 import { useUIStore } from "../../store/ui.js";
 import { ChatHeader } from "./ChatHeader.jsx";
 import { MessageView } from "./MessageView.jsx";
 import { Composer } from "./Composer.jsx";
 import { NoApiKeyGate } from "./NoApiKeyGate.jsx";
+import { NoModelGate } from "./NoModelGate.jsx";
 import { Icon } from "../../components/primitives/Icon.jsx";
 
 // Stable empty array — zustand selectors must return cached references
@@ -26,6 +27,7 @@ export function ChatPane({ onClose }) {
   const { data: conv } = useConversation(activeConv);
   const { data: historyMessages, isLoading: histLoading } = useConversationMessages(activeConv);
   const { data: apiKeys = [], isLoading: keysLoading } = useApiKeys();
+  const { data: modelConfigs = [], isLoading: cfgLoading } = useModelConfigs();
 
   const hydrateConv = useChatStore((s) => s.hydrateConv);
   const ensureConv = useChatStore((s) => s.ensureConv);
@@ -74,6 +76,17 @@ export function ChatPane({ onClose }) {
 
   if (!keysLoading && apiKeys.length === 0) {
     return <NoApiKeyGate />;
+  }
+
+  // chat scenario gate: keys exist but no model picked for chat. Onboarding's
+  // testKey may have failed (no model-config written) or user skipped key
+  // step and later added one via Config without configuring a model.
+  //
+  // chat scenario gate:有 key 但没配 chat 模型 —— onboarding 的 testKey 失败
+  // (没写 model-config),或用户跳过 onboarding 后单独加 key 没配模型。
+  const hasChatModel = modelConfigs.some((c) => c.scenario === "chat");
+  if (!cfgLoading && !hasChatModel) {
+    return <NoModelGate />;
   }
 
   if (!activeConv) {

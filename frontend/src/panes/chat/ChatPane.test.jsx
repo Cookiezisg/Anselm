@@ -18,6 +18,12 @@ vi.mock("../../api/conversations.js", () => ({
 
 vi.mock("../../api/config.js", () => ({
   useApiKeys: () => ({ data: [{ id: "aki_1" }], isLoading: false }),
+  // Default: chat scenario configured so NoModelGate doesn't swallow the
+  // existing ChatPane tests. Tests that exercise the gate can override.
+  useModelConfigs: () => ({
+    data: [{ scenario: "chat", provider: "openai", modelId: "gpt-4o" }],
+    isLoading: false,
+  }),
 }));
 
 vi.mock("./ChatHeader.jsx", () => ({
