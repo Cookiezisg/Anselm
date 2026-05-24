@@ -81,7 +81,7 @@ export function ForgeList({ onOpen }) {
     <div className="page">
       <div className="page-header">
         <div className="page-header-text">
-          <div className="page-title"><Icon.Hammer /> 锻造</div>
+          <div className="page-title"><Icon.Hammer /> 工坊</div>
           <div className="page-subtitle">Function / Handler / Workflow</div>
         </div>
         <div className="page-actions">
@@ -150,7 +150,7 @@ export function ForgeList({ onOpen }) {
         {filtered.length === 0 ? (
           <div className="empty" style={{ padding: 48 }}>
             <Icon.Hammer className="icon" />
-            <div className="title">还没有{tab === "all" ? "" : " " + tab + " "}锻造产物</div>
+            <div className="title">还没有{tab === "all" ? "" : " " + tab + " "}工坊产物</div>
             <div className="sub">去对话里说一句：「帮我做一个 X」</div>
           </div>
         ) : (
@@ -206,7 +206,7 @@ export function ForgeList({ onOpen }) {
                     </td>
                     <td onClick={() => onOpen(f)}>
                       {inProgress
-                        ? <span className="badge streaming"><span className="dot" />锻造中</span>
+                        ? <span className="badge streaming"><span className="dot" />工坊中</span>
                         : <StatusBadge status={f.status || "ready"} />}
                     </td>
                     <td onClick={() => onOpen(f)}>

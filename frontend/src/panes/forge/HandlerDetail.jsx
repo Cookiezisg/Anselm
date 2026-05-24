@@ -48,7 +48,7 @@ export function HandlerDetail({ forge, onBack }) {
             <KindChip kind="handler" />
             <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>{forge.id}</span>
             {progress && progress.status === "running" && (
-              <span className="badge streaming"><span className="dot" />锻造中</span>
+              <span className="badge streaming"><span className="dot" />工坊中</span>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

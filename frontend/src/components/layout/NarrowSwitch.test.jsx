@@ -28,12 +28,12 @@ describe("NarrowSwitch", () => {
   it("rendersOneButtonPerOpenPane", () => {
     render(<NarrowSwitch />);
     expect(screen.getByText("对话")).toBeInTheDocument();
-    expect(screen.getByText("锻造")).toBeInTheDocument();
+    expect(screen.getByText("工坊")).toBeInTheDocument();
   });
 
   it("clickButton_updatesActiveNarrowPane", async () => {
     render(<NarrowSwitch />);
-    await userEvent.click(screen.getByText("锻造"));
+    await userEvent.click(screen.getByText("工坊"));
     expect(useUIStore.getState().activeNarrowPane).toBe("forge");
   });
 

@@ -77,7 +77,7 @@ describe("CommandPalette", () => {
 
   it("clickItem_runsActionAndCloses", async () => {
     render(<CommandPalette />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("打开锻造"));
+    await userEvent.click(screen.getByText("打开工坊"));
     expect(useUIStore.getState().openPanes).toContain("forge");
     expect(useUIStore.getState().cmdkOpen).toBe(false);
   });

@@ -59,7 +59,7 @@ export function FunctionDetail({ forge, onBack }) {
             <KindChip kind="function" />
             <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>{forge.id}</span>
             {forgeProgress && forgeProgress.status === "running" && (
-              <span className="badge streaming"><span className="dot" />锻造中</span>
+              <span className="badge streaming"><span className="dot" />工坊中</span>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

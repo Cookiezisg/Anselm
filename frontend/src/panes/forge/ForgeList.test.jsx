@@ -92,7 +92,7 @@ describe("ForgeList", () => {
   it("emptyAfterFilter_showsEmptyStateMessage", async () => {
     render(<ForgeList onOpen={() => {}} />);
     await userEvent.type(screen.getByPlaceholderText(/搜索 forge/), "nonexistent-zzz");
-    expect(screen.getByText(/还没有.*锻造产物/)).toBeInTheDocument();
+    expect(screen.getByText(/还没有.*工坊产物/)).toBeInTheDocument();
   });
 
   it("rowsSorted_byUpdatedAtDesc", () => {
@@ -133,6 +133,6 @@ describe("ForgeList", () => {
     useHandlers.mockReturnValue({ data: [] });
     useWorkflows.mockReturnValue({ data: [] });
     render(<ForgeList onOpen={() => {}} />);
-    expect(screen.getByText(/还没有.*锻造产物/)).toBeInTheDocument();
+    expect(screen.getByText(/还没有.*工坊产物/)).toBeInTheDocument();
   });
 });

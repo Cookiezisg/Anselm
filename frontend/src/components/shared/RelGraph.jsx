@@ -43,7 +43,7 @@ const REL_LABEL = {
   workflow_uses_mcp:          "挂载",
   workflow_uses_skill:        "挂载",
   workflow_uses_document:     "引用",
-  conversation_forged_entity: "锻造",
+  conversation_forged_entity: "工坊",
   conversation_edited_entity: "修改",
   document_links_entity:      "链接",
 };

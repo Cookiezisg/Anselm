@@ -106,7 +106,7 @@ export function Sidebar() {
       <div className="nav-section">
         <div style={{ height: 4 }} />
         <NavItem icon={Icon.MessageSquare} label="对话"  active={isOpen("chat")}      onClick={() => togglePane("chat")} />
-        <NavItem icon={Icon.Hammer}        label="锻造"  active={isOpen("forge")}     onClick={() => togglePane("forge")} />
+        <NavItem icon={Icon.Hammer}        label="工坊"  active={isOpen("forge")}     onClick={() => togglePane("forge")} />
         <NavItem icon={Icon.Play}          label="执行"  active={isOpen("execute")}   onClick={() => togglePane("execute")} />
         <NavItem icon={Icon.FileText}      label="文档"  active={isOpen("documents")} onClick={() => togglePane("documents")} />
         <NavItem icon={Icon.GitBranch}     label="洞察"  active={isOpen("observe")}   onClick={() => togglePane("observe")} />

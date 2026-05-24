@@ -13,7 +13,7 @@ export function StatusBadge({ status }) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         <Badge kind={kind}>{status}</Badge>
-        <span className="forge-ai-mark" title="由 AI 锻造产生">
+        <span className="forge-ai-mark" title="由 AI 工坊产生">
           <Icon.Sparkles />
           <span>AI</span>
         </span>

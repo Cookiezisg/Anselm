@@ -8,7 +8,7 @@ import { Icon } from "../primitives/Icon.jsx";
 
 export const PANE_META = {
   chat:      { icon: "MessageSquare", label: "对话" },
-  forge:     { icon: "Hammer",        label: "锻造" },
+  forge:     { icon: "Hammer",        label: "工坊" },
   execute:   { icon: "Play",          label: "执行" },
   documents: { icon: "FileText",      label: "文档" },
   skills:    { icon: "Sparkles",      label: "Skills" },

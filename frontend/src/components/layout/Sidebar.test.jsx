@@ -45,7 +45,7 @@ describe("Sidebar", () => {
   it("rendersAllNavButtons", () => {
     render(<Sidebar />, { wrapper: wrap });
     expect(screen.getByText("对话")).toBeInTheDocument();
-    expect(screen.getByText("锻造")).toBeInTheDocument();
+    expect(screen.getByText("工坊")).toBeInTheDocument();
     expect(screen.getByText("执行")).toBeInTheDocument();
     expect(screen.getByText("文档")).toBeInTheDocument();
     expect(screen.getByText("洞察")).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("Sidebar", () => {
 
   it("clickForge_togglesForgePane", async () => {
     render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("锻造"));
+    await userEvent.click(screen.getByText("工坊"));
     expect(useUIStore.getState().openPanes).toContain("forge");
   });
 

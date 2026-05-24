@@ -19,7 +19,7 @@ describe("PaneFrame", () => {
       <PaneFrame kind="forge" onClose={() => {}}>body</PaneFrame>
     );
     expect(container.querySelector(".pane-bar")).toBeTruthy();
-    expect(screen.getByText("锻造")).toBeInTheDocument();
+    expect(screen.getByText("工坊")).toBeInTheDocument();
   });
 
   it("crumbsArrayWithMultiple_rendersChevronSeparators", () => {

@@ -16,7 +16,7 @@ import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
 const NAV_ITEMS = [
   { group: "导航", icon: Icon.MessageSquare, label: "对话",   desc: "",   target: "chat" },
-  { group: "导航", icon: Icon.Hammer,        label: "锻造",   desc: "function / handler / workflow", target: "forge" },
+  { group: "导航", icon: Icon.Hammer,        label: "工坊",   desc: "function / handler / workflow", target: "forge" },
   { group: "导航", icon: Icon.Play,          label: "执行",   desc: "flowrun · trigger", target: "execute" },
   { group: "导航", icon: Icon.FileText,      label: "文档",   desc: "", target: "documents" },
   { group: "导航", icon: Icon.Sparkles,      label: "Skills", desc: "",  target: "skills" },
