@@ -600,28 +600,45 @@ export function useSendMessage(convId) {
 
 **结构：**
 ```
-.sidebar
-├── sidebar-header
-│   ├── workspace-pill（显示当前 profile 名）
-│   └── cmdk-trigger（⌘K 触发命令板）
-├── nav-section（主导航）
-│   ├── SideNavItem "对话"（chat）
-│   ├── SideNavItem "锻造"（forge）
-│   ├── SideNavItem "执行"（execute）
-│   ├── SideNavItem "文档"（documents）
-│   └── SideNavItem "洞察"（observe — Phase 5，暂显示 disabled 状态）
-├── nav-section "资源库"
-│   ├── SideNavItem "Skills"
-│   ├── SideNavItem "MCP"
-│   └── SideNavItem "Memory"
-├── nav-conv-section（flex-1，可滚动）
-│   ├── "置顶" 分组
-│   ├── 对话列表（ChatListItem × N）
-│   └── "归档" 折叠分组（Framer Motion AnimatePresence 控制展开/折叠）
-└── sidebar-footer
-    ├── AgentBusyStrip（agent 在后台跑时显示）
-    └── user-pill（头像 + 名字 + SSE 状态点 + Bell/Ask/Settings 图标）
+.sidebar (260px expanded / 64px collapsed, Framer Motion spring)
+├── sb-head
+│   ├── sb-logo-slot (hover → panel-toggle morph, no extra row)
+│   │   ├── ic-logo (anvil + spark SVG)
+│   │   └── ic-toggle (PanelLeftClose / PanelLeftOpen)
+│   └── sb-logo-name (expanded only: "Forgify")
+├── NavItem: 新对话 (SquarePen, is-primary highlighted pill)
+├── NavItem: 搜索 或 跳转 (Search) → setCmdkOpen
+├── ── gap ──
+├── NavItem: 对话 (MessageSquare) ─┐
+├── NavItem: 工坊 (Hammer)         │ 4 workbenches (flat)
+├── NavItem: 执行 (Play)            │
+├── NavItem: 文档 (FileText)       ─┘
+├── SidebarSection "工具" (collapsible, hover-▾, syncs both states)
+│   ├── NavItem: 洞察 (BarChart3)
+│   ├── NavItem: Skills (Sparkles)
+│   ├── NavItem: MCP (Plug)
+│   └── NavItem: Memory (Brain)
+├── sb-recent-wrap (expanded only)
+│   └── SidebarSection "最近" (collapsible)
+│       └── ChatListItem* (pinned first then recent)
+├── sb-foot-spacer (flex:1)
+└── sb-foot
+    ├── sb-avatar-slot (button)
+    │   ├── sb-avatar (initial from displayName)
+    │   ├── sb-badge-dot (Help + Bell 合并未读)
+    │   └── sb-sse-dot (err / warn only)
+    ├── sb-user (expanded only, displayName)
+    └── sb-gear-btn (hover-revealed, → SettingsPopover)
 ```
+
+**Sidebar collapse (Framer Motion spring stiffness 280, damping 28):**
+- Width animates 260 ↔ 64
+- Top logo slot hover-morphs to PanelLeftClose (expanded) / PanelLeftOpen (collapsed) — no separate toggle row
+- All nav item y-positions preserved (parallel translate; only labels fade out)
+- "工具" section title degrades to 18px short line in collapsed mode; hover still shows ▾
+- "工具" + "最近" expand state persisted to localStorage (`sidebar.toolsExpanded`, `sidebar.recentExpanded`)
+- "最近" section + chat list hidden in collapsed mode (chats have no icons)
+- Footer collapses to vertical stack (gear above avatar)
 
 **数据：** `useConversations()` 提供列表，notifications SSE 驱动 invalidate。
 
@@ -632,19 +649,7 @@ export function useSendMessage(convId) {
 
 **SideNavItem active 状态：** pane 打开时高亮（`openPanes.includes(kind)`）。
 
-**Framer Motion sidebar collapse：**
-```jsx
-<motion.aside
-  animate={{ width: collapsed ? 48 : 248 }}
-  transition={spring}
-  className="sidebar"
->
-```
-折叠时只显示图标，文字 fade out。
-
-**AgentBusyStrip：** 当 `chat.convStates` 里有任何 conversation 有正在 streaming 的 message，且 chat pane 没打开时，显示底部 strip，点击打开 chat pane。
-
-**SSE 状态点（user-pill 右侧的小圆点）：** 三流 hook 的 status 综合成一个颜色：全 connected → green，任一 connecting → yellow，任一 disconnected/error → red。
+**SSE 状态点（sb-sse-dot）：** 三流 hook 的 status 综合，仅 error / warn 时显示（不占位常驻显示绿点）。
 
 ### 8.3 全局键盘快捷键
 
@@ -1410,6 +1415,28 @@ ToastTray（position: fixed bottom right）
 - [ ] `wails build` 验证产出 .app / .exe
 - [ ] 验证：打包后的桌面 app 功能完整
 
+### Phase 12 · Welcome + Sidebar Gemini-style 重做 ✅（2026-05-25）
+
+- [x] Icon.jsx 加 5 个 lucide icon (SquarePen / BarChart3 / Plug / PanelLeftClose / PanelLeftOpen)
+- [x] useDisplayName hook + localStorage 持久化(in-module 事件总线同步)
+- [x] greetings.js 380 句问候语池 + tag 分类
+- [x] useGreeting hook(时间感 / 续接偏置 + {name} 替换)
+- [x] useContextStrip hook(P1 waiting > P2 failed > P3 running > P4 recent)
+- [x] ui.js 加 toolsExpanded / recentExpanded / collapsed localStorage persist
+- [x] SidebarSection 可折叠组件
+- [x] PaneFrame + 全前端 锻造 → 工坊 UI label rename
+- [x] Sidebar.jsx 重写(Gemini-style logo morph 收起 / 工具段折叠 / 头像 badge footer)
+- [x] Sidebar.test.jsx 9 个测试覆盖 collapse / 工具段 / footer / 新对话
+- [x] components.css sidebar 段样式重写
+- [x] NotificationsDrawer 加待办 tab(Help/Ask + Bell 合一)
+- [x] SettingsPopover 加显示名输入
+- [x] WelcomeInput pill 输入框组件
+- [x] Dashboard.jsx 重写(Gemini-empty 居中布局)
+- [x] components.css dashboard 段样式重写
+- [x] PRD §8 / §16 / §15 同步
+- [x] DESIGN.md §10 问候语调性
+- [x] progress-record dev log
+
 ---
 
 ## §16 已知 Boilerplate Bug / 差异
@@ -1448,6 +1475,10 @@ ToastTray（position: fixed bottom right）
 | Onboarding ProviderStep `providers.slice(0, 8)` 把 12 个 LLM provider 截断，openai/openrouter/qwen/zhipu 看不见；同时把 `mock`(dev)、`custom`(需 baseUrl/apiFormat) 当正常 provider 显示 | 主流 provider 在 onboarding 阶段缺席；mock/custom 占位无用 | 删 slice(0, 8)；filter 加 `name !== "mock" && name !== "custom"`；保留 `.onb-content` 已有的 `overflow-y:auto`，列表多时区域内滚动。已修。|
 | ConfigPane ModelsTab `configs.length > 0 ? configs.map(c=>c.scenario) : ["chat","auto_title","web_summary","intent","compaction"]` —— 已配后其它 scenario 消失；硬编码 5 个有 3 个后端不支持（点了回 400 INVALID_SCENARIO） | 用户体验为"配完一个其它都消失了"；点 auto_title 等会失败 | 后端新 `GET /api/v1/scenarios` 端点（exempt 自 RequireUser）；前端 `useScenarios()` hook；ModelsTab 改 `Array.from(new Set([...whitelist, ...configs.map(c=>c.scenario)]))` 取并集。已修。|
 | ChatPane 只检查 `apiKeys.length === 0`；有 key 但 chat 未配模型时（onboarding test 失败或用户手动加 key 没配 model）会让第一句话发出去后才报 422 MODEL_NOT_CONFIGURED | 用户体验到错误 toast 而不是友好引导 | 新加 `NoModelGate.jsx` 镜像 NoApiKeyGate；ChatPane 在 keys check 后再查 `modelConfigs.some(c=>c.scenario==="chat")`，没有就显示 gate 引导去 Config Model tab。已修。|
+| Sidebar icon 视觉重量不齐 + 行内未对齐(Hammer 14px stroke 1.7 视觉过粗,其他偏细) | 影响所有 nav 行视觉一致性,且 .nav-item .icon 没把 SVG 居中槽 | 重写 Sidebar 用 24×24 居中槽 + Lucide outline 18px stroke 2;icon 改通过 size/strokeWidth prop override 走 wrap()。已修(2026-05-25)。 |
+| Dashboard 重 KPI + 双 section 违 DESIGN.md "克制" | 4 卡 + 2 section 让欢迎页"满",白色优先与大留白原则失守 | Dashboard 改成 Gemini-style:居中大问候 + pill 输入框(Enter 直接发首条消息建新对话)+ 可选智能上下文条;KPI 全删,继续对话列表挪入 sidebar "最近"段。已修(2026-05-25)。 |
+| Sidebar 头像区 "本地" / "SSE" 字样无意义 | 单用户本地 app 无需 SSE 文案;"本地" 不是用户名 | footer 改成头像(首字母,取 displayName)+ 真实名字 + 通知红 dot(Help+Bell 合并)+ hover ⚙ 设置;displayName 走 localStorage(`forgify.user.displayName`),Settings 可改。已修(2026-05-25)。 |
+| Sidebar nav 锻造 一词不传神 | 名字偏向"工序",不如"工坊"指向"地点+人" | UI label `锻造` → `工坊`(PaneFrame PANE_META + Sidebar + CommandPalette + StatusBadge + ForgeList 等共 ~14 处);内部代码 / API / DB / contract / pane key 全保留 `forge`。已修(2026-05-25)。 |
 
 ---
 
