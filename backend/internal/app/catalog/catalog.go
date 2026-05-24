@@ -12,8 +12,18 @@ import (
 	"go.uber.org/zap"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
+
+// UserLister is the minimal users.Service port catalog needs for the
+// per-user polling fan-out. Zero users → polling tick is a silent no-op.
+//
+// UserLister:catalog 做 per-user 轮询所需 users.Service 最小端口。
+// 0 user → polling tick 静默 no-op。
+type UserLister interface {
+	List(ctx context.Context) ([]*userdomain.User, error)
+}
 
 const defaultPollInterval = 1 * time.Second
 
@@ -42,6 +52,7 @@ type Service struct {
 	lastFP      atomic.Value // string
 	busy        atomic.Bool
 	historyRepo catalogdomain.HistoryRepository // §4.7; nil = no persistence
+	userList    UserLister                      // §user-identity; nil = no fan-out (HTTP Refresh still works)
 
 	versionMu sync.Mutex
 	version   int
@@ -83,6 +94,15 @@ func (s *Service) SetGenerator(g Generator) {
 // SetHistoryRepo 接入 §4.7 版本历史持久化(nil 安全)。
 func (s *Service) SetHistoryRepo(r catalogdomain.HistoryRepository) {
 	s.historyRepo = r
+}
+
+// SetUserLister injects the users.Service port used by the polling loop's
+// per-user fan-out. nil → polling skips silently (only HTTP :refresh works,
+// using the request's userID).
+//
+// SetUserLister 注入 polling 用的 users.Service 端口;nil → polling 静默跳过。
+func (s *Service) SetUserLister(u UserLister) {
+	s.userList = u
 }
 
 // HistoryRepo exposes the wired history repo for the HTTP handler (nil-safe).

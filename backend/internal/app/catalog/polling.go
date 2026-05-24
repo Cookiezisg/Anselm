@@ -85,19 +85,39 @@ func (s *Service) tryRefresh(ctx context.Context) {
 		return
 	}
 	defer s.busy.Store(false)
+	s.RefreshAll(ctx)
+}
 
-	if err := s.Refresh(ctx); err != nil {
-		s.log.Warn("catalog refresh skipped/failed; keeping previous cache",
-			zap.Error(err))
+// RefreshAll fans out Refresh over every user. The polling loop calls this.
+// Zero users (fresh install) → silent no-op. nil userList → no-op.
+//
+// RefreshAll 给每个 user 跑一次 Refresh;0 user 或 nil userList 静默 no-op。
+func (s *Service) RefreshAll(ctx context.Context) {
+	if s.userList == nil {
+		return
+	}
+	users, err := s.userList.List(context.Background())
+	if err != nil {
+		s.log.Warn("catalog: list users failed; skipping tick", zap.Error(err))
+		return
+	}
+	for _, u := range users {
+		uctx := reqctxpkg.SetUserID(context.Background(), u.ID)
+		if err := s.Refresh(uctx); err != nil {
+			s.log.Warn("catalog refresh failed for user",
+				zap.String("user_id", u.ID), zap.Error(err))
+		}
 	}
 }
 
-// Refresh is the regen entry point used by both the polling loop and HTTP refresh.
+// Refresh is the regen entry point used by both the polling fan-out and the
+// per-request HTTP refresh handler. Caller MUST supply a ctx with userID
+// (reqctxpkg.SetUserID); no fallback.
 //
-// Refresh 是重新生成的入口，polling 和 HTTP :refresh 共用。
+// Refresh 是重新生成入口:polling 和 HTTP :refresh 共用;调用方必须传带 userID 的 ctx。
 func (s *Service) Refresh(ctx context.Context) error {
 	if _, ok := reqctxpkg.GetUserID(ctx); !ok {
-		ctx = reqctxpkg.SetUserID(ctx, reqctxpkg.DefaultLocalUserID)
+		return fmt.Errorf("catalog.Refresh: %w", reqctxpkg.ErrMissingUserID)
 	}
 
 	sources := s.snapshotSources()

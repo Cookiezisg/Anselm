@@ -15,7 +15,25 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
+
+// ctxWithUser stamps a test user id so Refresh's required-ctx check passes.
+//
+// ctxWithUser:塞 test 用户 id,过 Refresh 的 required-ctx 检查。
+func ctxWithUser() context.Context {
+	return reqctxpkg.SetUserID(context.Background(), "test-user")
+}
+
+// fakeUserLister is a one-user stub for polling fan-out tests.
+//
+// fakeUserLister:polling fan-out 测试用的单用户 stub。
+type fakeUserLister struct{}
+
+func (fakeUserLister) List(_ context.Context) ([]*userdomain.User, error) {
+	return []*userdomain.User{{ID: "test-user"}}, nil
+}
 
 type fakeSource struct {
 	mu        sync.Mutex
@@ -110,7 +128,7 @@ func TestService_RegisterSourceConcurrent(t *testing.T) {
 
 func TestRefresh_NoSources_NoOp(t *testing.T) {
 	s := newServiceForTest(t)
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
 	if got := s.Get(); got != nil {
@@ -124,7 +142,7 @@ func TestRefresh_NilGenerator_UsesMechanicalFallback(t *testing.T) {
 		{Source: "forge", ID: "f_a", Name: "csv-clean", Description: "Strip BOMs"},
 	}}
 	s.RegisterSource(src)
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
 	cat := s.Get()
@@ -152,7 +170,7 @@ func TestRefresh_GeneratorWired_UsesGenerator(t *testing.T) {
 	s.RegisterSource(&fakeSource{name: "forge", gran: catalogdomain.PerItem, items: []catalogdomain.Item{
 		{Source: "forge", ID: "f_a", Name: "csv-clean", Description: "Strip BOMs"},
 	}})
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
 	cat := s.Get()
@@ -174,7 +192,7 @@ func TestRefresh_GeneratorErrors_FallsBackToMechanical(t *testing.T) {
 	s.RegisterSource(&fakeSource{name: "skill", gran: catalogdomain.PerItem, items: []catalogdomain.Item{
 		{Source: "skill", ID: "deploy", Name: "deploy", Description: "Deploy via CI"},
 	}})
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
 	cat := s.Get()
@@ -192,7 +210,7 @@ func TestRefresh_AllSourcesFail_KeepsCache(t *testing.T) {
 		{Source: "forge", ID: "f_a", Name: "csv-clean", Description: "Strip BOMs"},
 	}}
 	s.RegisterSource(src)
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("first Refresh: %v", err)
 	}
 	prev := s.Get()
@@ -201,7 +219,7 @@ func TestRefresh_AllSourcesFail_KeepsCache(t *testing.T) {
 	}
 
 	src.setErr(errors.New("transient"))
-	err := s.Refresh(context.Background())
+	err := s.Refresh(ctxWithUser())
 	if err == nil {
 		t.Fatal("all-sources-failed Refresh should err")
 	}
@@ -221,7 +239,7 @@ func TestRefresh_PartialFailure_OtherSourcesContinue(t *testing.T) {
 	}}
 	s.RegisterSource(bad)
 	s.RegisterSource(good)
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("partial-failure Refresh should not err; got %v", err)
 	}
 	cat := s.Get()
@@ -247,10 +265,10 @@ func TestRefresh_FingerprintShortCircuits_SecondCall(t *testing.T) {
 		{Source: "forge", ID: "f", Name: "x", Description: "y"},
 	}})
 
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh #1: %v", err)
 	}
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh #2: %v", err)
 	}
 	if gen.called != 1 {
@@ -267,9 +285,9 @@ func TestRefresh_DescriptionChange_TriggersRegen(t *testing.T) {
 	}}
 	s.RegisterSource(src)
 
-	_ = s.Refresh(context.Background())
+	_ = s.Refresh(ctxWithUser())
 	src.setItems([]catalogdomain.Item{{Source: "forge", ID: "f", Name: "x", Description: "v2"}})
-	_ = s.Refresh(context.Background())
+	_ = s.Refresh(ctxWithUser())
 
 	if gen.called != 2 {
 		t.Errorf("generator.called = %d, want 2 (description change should bust fingerprint)", gen.called)
@@ -278,6 +296,7 @@ func TestRefresh_DescriptionChange_TriggersRegen(t *testing.T) {
 
 func TestPollLoop_FiresAtLeastOnce(t *testing.T) {
 	s := newServiceForTest(t)
+	s.SetUserLister(fakeUserLister{})
 	s.SetPollInterval(20 * time.Millisecond)
 	src := &fakeSource{name: "forge", gran: catalogdomain.PerItem, items: []catalogdomain.Item{
 		{Source: "forge", ID: "f", Name: "x", Description: "y"},
@@ -307,6 +326,7 @@ func TestPollLoop_FiresAtLeastOnce(t *testing.T) {
 
 func TestTryRefresh_BusyGuard_SkipsConcurrent(t *testing.T) {
 	s := newServiceForTest(t)
+	s.SetUserLister(fakeUserLister{})
 	release := make(chan struct{})
 	gen := &slowGenerator{release: release, summary: "## llm", entered: make(chan struct{})}
 	s.SetGenerator(gen)
@@ -418,7 +438,7 @@ func TestRefresh_PersistsToDisk(t *testing.T) {
 	s.RegisterSource(&fakeSource{name: "forge", gran: catalogdomain.PerItem, items: []catalogdomain.Item{
 		{Source: "forge", ID: "f", Name: "x", Description: "y"},
 	}})
-	if err := s.Refresh(context.Background()); err != nil {
+	if err := s.Refresh(ctxWithUser()); err != nil {
 		t.Fatalf("Refresh: %v", err)
 	}
 	raw, err := os.ReadFile(path)

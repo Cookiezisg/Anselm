@@ -397,6 +397,7 @@ func main() {
 	catalogService := catalogapp.New(filepath.Join(defaultUserHome, ".catalog.json"), notificationsPub, log)
 	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
 	catalogService.SetHistoryRepo(cataloghistorystore.New(gdb))
+	catalogService.SetUserLister(userService)
 	// Sources here = "things the LLM can call from chat as capabilities":
 	// function (run_function), handler (call_handler), skill (invoke), mcp
 	// (server tools). Workflows are intentionally NOT in coverage — they
