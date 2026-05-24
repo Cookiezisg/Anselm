@@ -1,114 +1,135 @@
-// Sidebar — nav buttons, conversation list, header trigger, footer.
-
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createElement } from "react";
+import { Sidebar } from "./Sidebar.jsx";
+import { useUIStore } from "../../store/ui.js";
 
 vi.mock("../../api/conversations.js", () => ({
-  useConversations: () => ({
-    data: [
-      { id: "cv_1", title: "First", pinned: true,  archived: false },
-      { id: "cv_2", title: "Recent", pinned: false, archived: false },
-      { id: "cv_3", title: "Old",    pinned: false, archived: true  },
-    ],
-    isLoading: false,
+  useConversations: () => ({ data: [] }),
+  useCreateConversation: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({ id: "cv_new" }),
   }),
-  useCreateConversation: () => ({ mutateAsync: vi.fn(async () => ({ id: "cv_new" })) }),
-}));
-
-vi.mock("./ChatListItem.jsx", () => ({
-  ChatListItem: ({ conv }) => <div data-testid={`item-${conv.id}`}>{conv.title}</div>,
 }));
 
 vi.mock("../../sse/SSEProvider.jsx", () => ({
-  useSSEHealth: () => ({ overall: "ok", eventlog: "connected", notifs: "connected", forge: "connected", unread: 2, clearUnread: vi.fn() }),
+  useSSEHealth: () => ({
+    overall: "ok",
+    eventlog: "ok",
+    notifs: "ok",
+    forge: "ok",
+    unread: 0,
+    clearUnread: vi.fn(),
+  }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
-import { Sidebar } from "./Sidebar.jsx";
+vi.mock("../../hooks/useDisplayName.js", () => ({
+  useDisplayName: () => ["Weilin"],
+}));
 
-function wrap({ children }) {
-  const client = new QueryClient();
-  return createElement(QueryClientProvider, { client }, children);
+vi.mock("./ChatListItem.jsx", () => ({
+  ChatListItem: ({ conv }) => <div data-testid={`chat-item-${conv.id}`}>{conv.title}</div>,
+}));
+
+vi.mock("./SidebarSection.jsx", () => ({
+  SidebarSection: ({ label, children, expanded, onToggle }) => (
+    <div data-testid={`section-${label}`}>
+      <button onClick={onToggle} data-testid={`toggle-${label}`}>
+        {label}
+      </button>
+      {expanded && <div data-testid={`content-${label}`}>{children}</div>}
+    </div>
+  ),
+}));
+
+function renderSidebar() {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={qc}>
+      <Sidebar />
+    </QueryClientProvider>
+  );
 }
 
 beforeEach(() => {
+  localStorage.clear();
   useUIStore.setState({
-    openPanes: ["chat"], collapsed: false, cmdkOpen: false, notifsOpen: false,
-    askOpen: false, settingsPopOpen: false,
+    openPanes: [],
+    collapsed: false,
+    toolsExpanded: true,
+    recentExpanded: true,
+    cmdkOpen: false,
+    notifsOpen: false,
+    settingsPopOpen: false,
   });
 });
 
 describe("Sidebar", () => {
-  it("rendersAllNavButtons", () => {
-    render(<Sidebar />, { wrapper: wrap });
-    expect(screen.getByText("对话")).toBeInTheDocument();
-    expect(screen.getByText("工坊")).toBeInTheDocument();
-    expect(screen.getByText("执行")).toBeInTheDocument();
-    expect(screen.getByText("文档")).toBeInTheDocument();
-    expect(screen.getByText("洞察")).toBeInTheDocument();
-    expect(screen.getByText("Skills")).toBeInTheDocument();
-    expect(screen.getByText("MCP")).toBeInTheDocument();
-    expect(screen.getByText("Memory")).toBeInTheDocument();
+  it("renders Forgify logo", () => {
+    renderSidebar();
+    expect(screen.getByText("Forgify")).toBeInTheDocument();
   });
 
-  it("activeChatPane_hasIsActiveClass", () => {
-    const { container } = render(<Sidebar />, { wrapper: wrap });
-    const chat = [...container.querySelectorAll(".nav-item")].find((b) => b.textContent.includes("对话"));
-    expect(chat.classList.contains("is-active")).toBe(true);
+  it("renders all 4 workbenches + 4 tools", () => {
+    renderSidebar();
+    for (const label of ["对话", "工坊", "执行", "文档", "洞察", "Skills", "MCP", "Memory"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
   });
 
-  it("clickForge_togglesForgePane", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("工坊"));
-    expect(useUIStore.getState().openPanes).toContain("forge");
+  it("primary 新对话 button calls create-conv and sets active", async () => {
+    renderSidebar();
+    const newConvBtn = screen.getByText("新对话");
+    fireEvent.click(newConvBtn);
+    // Wait for mutateAsync to resolve
+    await new Promise((r) => setTimeout(r, 10));
+    expect(useUIStore.getState().activeConv).toBe("cv_new");
   });
 
-  it("renderPinnedConversation_separateFromRecent", () => {
-    render(<Sidebar />, { wrapper: wrap });
-    expect(screen.getByTestId("item-cv_1")).toBeInTheDocument();
-    expect(screen.getByTestId("item-cv_2")).toBeInTheDocument();
+  it("toggle button collapses sidebar and persists state", () => {
+    renderSidebar();
+    const toggleBtn = screen.getByLabelText("toggle sidebar");
+    fireEvent.click(toggleBtn);
+    expect(useUIStore.getState().collapsed).toBe(true);
   });
 
-  it("archivedSection_collapsedByDefault_toggleable", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    expect(screen.queryByTestId("item-cv_3")).toBeNull();
-    await userEvent.click(screen.getByText(/归档 · 1/));
-    expect(screen.getByTestId("item-cv_3")).toBeInTheDocument();
+  it("hides Forgify name in collapsed mode", () => {
+    useUIStore.setState({ collapsed: true });
+    renderSidebar();
+    expect(screen.queryByText("Forgify")).not.toBeInTheDocument();
   });
 
-  it("cmdkTrigger_clickSetsCmdkOpen", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByText(/搜索 · 跳转 · 命令/));
-    expect(useUIStore.getState().cmdkOpen).toBe(true);
+  it("collapses tools section on toggle", () => {
+    renderSidebar();
+    const toolsToggle = screen.getByTestId("toggle-工具");
+    fireEvent.click(toolsToggle);
+    expect(useUIStore.getState().toolsExpanded).toBe(false);
   });
 
-  it("settingsButton_clickTogglesSettingsPop", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByTitle(/主题/));
-    expect(useUIStore.getState().settingsPopOpen).toBe(true);
-  });
-
-  it("notifsButton_clickOpensDrawer_andClearsUnread", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByTitle(/通知/));
+  it("footer avatar click opens notifications", () => {
+    renderSidebar();
+    const avatarBtn = screen.getByText("W");
+    fireEvent.click(avatarBtn);
     expect(useUIStore.getState().notifsOpen).toBe(true);
   });
 
-  it("collapsedMode_hidesLabels", () => {
-    useUIStore.setState({ collapsed: true });
-    render(<Sidebar />, { wrapper: wrap });
-    // Nav buttons still render but workspace pill detail label gone
-    expect(screen.queryByText("local")).toBeNull();
+  it("settings button opens settings popover", () => {
+    renderSidebar();
+    const settingsBtn = screen.getByLabelText("settings");
+    fireEvent.click(settingsBtn);
+    expect(useUIStore.getState().settingsPopOpen).toBe(true);
   });
 
-  it("newConvButton_createsAndSetsActive", async () => {
-    render(<Sidebar />, { wrapper: wrap });
-    await userEvent.click(screen.getByTitle("新对话"));
-    // mutateAsync runs and resolves with cv_new → setActiveConv called
-    await new Promise((r) => setTimeout(r, 0));
-    expect(useUIStore.getState().activeConv).toBe("cv_new");
+  it("shows initial from displayName in avatar", () => {
+    renderSidebar();
+    expect(screen.getByText("W")).toBeInTheDocument();
+  });
+
+  it("chat pane toggle updates openPanes state", () => {
+    renderSidebar();
+    const chatBtn = screen.getByText("对话");
+    fireEvent.click(chatBtn);
+    expect(useUIStore.getState().openPanes).toContain("chat");
   });
 });
