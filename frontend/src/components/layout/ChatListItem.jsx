@@ -99,10 +99,10 @@ function ConvMenu({ conv }) {
       )}
       items={[
         { label: conv.pinned ? t("conv.unpin") : t("conv.pin"), icon: Icon.Pin, onClick: togglePin },
-        { label: t("conv.rename"), icon: Icon.Edit, onClick: rename },
+        { label: t("common:rename"), icon: Icon.Edit, onClick: rename },
         { label: conv.archived ? t("conv.unarchive") : t("conv.archive"), icon: Icon.Folder, onClick: toggleArchive },
         "divider",
-        { label: t("conv.delete"), icon: Icon.Trash, danger: true, onClick: onDelete },
+        { label: t("common:delete"), icon: Icon.Trash, danger: true, onClick: onDelete },
       ]}
     />
   );

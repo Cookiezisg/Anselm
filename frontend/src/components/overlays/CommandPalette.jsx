@@ -191,7 +191,7 @@ export function CommandPalette() {
               ))}
             </div>
             <div className="cmdk-footer">
-              <div className="hint"><Kbd>↑</Kbd><Kbd>↓</Kbd> <Kbd>↵</Kbd> <Kbd>esc</Kbd> {t("cmdk.footer")}</div>
+              <div className="hint"><Kbd>↑</Kbd><Kbd>↓</Kbd> {t("cmdk.footerNav")} · <Kbd>↵</Kbd> {t("cmdk.footerOpen")} · <Kbd>esc</Kbd> {t("cmdk.footerClose")}</div>
               <div className="hint">{t("cmdk.footerLocal")}</div>
             </div>
           </motion.div>

@@ -50,7 +50,7 @@ export function PaneFrame({ kind, onClose, crumbs, children }) {
         </div>
         <div className="pane-actions">
           <button className="icon-btn" title={t("paneBar.more")}><Icon.MoreHorizontal /></button>
-          <button className="icon-btn" title={t("paneBar.close")} onClick={onClose}><Icon.X /></button>
+          <button className="icon-btn" title={t("common:close")} onClick={onClose}><Icon.X /></button>
         </div>
       </div>
       <div className="pane-body">{children}</div>

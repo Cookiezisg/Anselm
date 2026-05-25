@@ -4,7 +4,6 @@
     "noAccount": "无账号",
     "switchOrNew": "切换 / 新建",
     "newWorkspace": "新工作空间",
-    "addBtn": "添加",
     "switchedTo": "已切到 {{id}}",
     "addFail": "添加失败"
   },
@@ -25,7 +24,6 @@
     "usageBackup": "仅备用",
     "retest": "重新验证",
     "test": "验证",
-    "deleteBtn": "删除",
     "promoteSuccess": "对话默认 → {{provider}}",
     "retestSuccess": "API Key 已验证",
     "retestFail": "验证未通过",
@@ -82,7 +80,6 @@
     "usageBackup": "仅备用",
     "retest": "重新验证",
     "test": "验证",
-    "deleteBtn": "删除",
     "setDefaultSuccess": "搜索默认 → {{provider}}",
     "unsetDefaultSuccess": "已改为仅备用",
     "retestSuccess": "API Key 已验证",

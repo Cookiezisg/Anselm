@@ -13,7 +13,7 @@
     "welcome": ["Welcome", "About Forgify"],
     "workspace": ["Workspace", "Name it"],
     "appearance": ["Appearance", "Theme & language"],
-    "model": ["Model", "API key & model"],
+    "model": ["Model", "API Key & model"],
     "search": ["Search", "Optional"],
     "done": ["Done", "Get started"]
   },
@@ -51,16 +51,16 @@
   "model": {
     "kicker": "Step 4 · Model",
     "title": "Configure a model",
-    "sub": "Pick a provider, enter an API key, verify, then choose a model. You can also do this later in Settings.",
+    "sub": "Pick a provider, enter an API Key, verify, then choose a model. You can also do this later in Settings.",
     "providerLabel": "Model provider",
     "scrollNote": "Scroll for all providers",
-    "keyLabel": "{{provider}} API key",
+    "keyLabel": "{{provider}} API Key",
     "keyPlaceholder": "sk-…",
     "verify": "Verify & list models",
     "verifying": "Verifying…",
     "verified": "Verified",
     "modelLabel": "Model",
-    "verifyFail": "Verification failed — check the API key.",
+    "verifyFail": "Verification failed — check the API Key.",
     "availHint": "Available: {{list}} (switch in dropdown)"
   },
   "search": {
@@ -69,7 +69,7 @@
     "title": "Web search",
     "sub": "Configure a search provider and the agent can browse the web. Optional — add it later in Settings.",
     "providerLabel": "Search provider",
-    "keyLabel": "{{provider}} API key",
+    "keyLabel": "{{provider}} API Key",
     "keyPlaceholder": "Enter a key, or skip this step"
   },
   "done": {
@@ -84,7 +84,7 @@
     "none": "Later"
   },
   "toast": {
-    "keyVerified": "API key verified",
+    "keyVerified": "API Key verified",
     "keyFail": "Key saved, but verification failed",
     "opFail": "Operation failed",
     "welcome": "Welcome to Forgify"

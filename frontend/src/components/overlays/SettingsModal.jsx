@@ -160,7 +160,7 @@ function AccountRegion() {
                 onKeyDown={(e) => { if (e.key === "Enter") addAccount(); }}
               />
               <button className="btn btn-xs btn-accent" onClick={addAccount}>
-                <Icon.Plus /> {t("account.addBtn")}
+                <Icon.Plus /> {t("common:add")}
               </button>
             </div>
           </div>

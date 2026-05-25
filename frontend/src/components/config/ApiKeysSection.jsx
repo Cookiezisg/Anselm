@@ -193,7 +193,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle })
               {verified ? t("apiKeys.retest") : t("apiKeys.test")}
             </button>
             <button className="set-link is-danger" onClick={remove} disabled={deleteKey.isPending}>
-              {t("apiKeys.deleteBtn")}
+              {t("common:delete")}
             </button>
           </div>
         </div>

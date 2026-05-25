@@ -26,10 +26,8 @@
     "moreActions": "对话操作",
     "pin": "置顶",
     "unpin": "取消置顶",
-    "rename": "重命名",
     "archive": "归档",
     "unarchive": "取消归档",
-    "delete": "删除",
     "renamePrompt": "新名字",
     "archiveSuccess": "已归档",
     "unarchiveSuccess": "已取消归档",
@@ -47,15 +45,16 @@
     "observe": "洞察"
   },
   "paneBar": {
-    "more": "更多",
-    "close": "关闭"
+    "more": "更多"
   },
   "cmdk": {
     "navGroup": "导航",
     "convGroup": "对话",
     "placeholder": "找点什么",
     "noResults": "没有匹配。",
-    "footer": "选 · 打开 · 关",
+    "footerNav": "选",
+    "footerOpen": "打开",
+    "footerClose": "关",
     "footerLocal": "Forgify · 本地",
     "unnamed": "(未命名)",
     "settings": "设置"

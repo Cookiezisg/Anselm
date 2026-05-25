@@ -4,7 +4,6 @@
     "noAccount": "No account",
     "switchOrNew": "Switch / New",
     "newWorkspace": "New workspace",
-    "addBtn": "Add",
     "switchedTo": "Switched to {{id}}",
     "addFail": "Failed to add"
   },
@@ -14,7 +13,7 @@
   },
   "apiKeys": {
     "subWithDefault": "{{count}} key(s) · Chat default: {{provider}}",
-    "subEmpty": "Manage LLM API keys",
+    "subEmpty": "Manage LLM API Keys",
     "subNotSet": "Not set",
     "emptyList": "No LLM keys yet",
     "chatDefault": "Chat default",
@@ -25,7 +24,6 @@
     "usageBackup": "Backup only",
     "retest": "Re-verify",
     "test": "Verify",
-    "deleteBtn": "Delete",
     "promoteSuccess": "Chat default → {{provider}}",
     "retestSuccess": "API Key verified",
     "retestFail": "Verification failed",
@@ -41,7 +39,7 @@
       "verifyingLabel": "Verifying…",
       "verifiedLabel": "Verified",
       "verifySuccess": "API Key verified",
-      "verifyFail": "Verification failed — check the API key.",
+      "verifyFail": "Verification failed — check the API Key.",
       "saveFail": "Save failed"
     }
   },
@@ -82,7 +80,6 @@
     "usageBackup": "Backup only",
     "retest": "Re-verify",
     "test": "Verify",
-    "deleteBtn": "Delete",
     "setDefaultSuccess": "Search default → {{provider}}",
     "unsetDefaultSuccess": "Switched to backup only",
     "retestSuccess": "API Key verified",
@@ -99,7 +96,7 @@
       "verifyingLabel": "Verifying…",
       "verifiedLabel": "Verified",
       "verifySuccess": "API Key verified",
-      "verifyFail": "Verification failed — check the API key.",
+      "verifyFail": "Verification failed — check the API Key.",
       "placeholder": "Enter API Key…",
       "saveFail": "Save failed"
     }

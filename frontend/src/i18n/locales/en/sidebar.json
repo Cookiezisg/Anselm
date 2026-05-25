@@ -26,10 +26,8 @@
     "moreActions": "Conversation actions",
     "pin": "Pin",
     "unpin": "Unpin",
-    "rename": "Rename",
     "archive": "Archive",
     "unarchive": "Unarchive",
-    "delete": "Delete",
     "renamePrompt": "New name",
     "archiveSuccess": "Archived",
     "unarchiveSuccess": "Unarchived",
@@ -47,15 +45,16 @@
     "observe": "Insights"
   },
   "paneBar": {
-    "more": "More",
-    "close": "Close"
+    "more": "More"
   },
   "cmdk": {
     "navGroup": "Navigation",
     "convGroup": "Conversations",
     "placeholder": "Search or jump to…",
     "noResults": "No results.",
-    "footer": "navigate · open · close",
+    "footerNav": "navigate",
+    "footerOpen": "open",
+    "footerClose": "close",
     "footerLocal": "Forgify · Local",
     "unnamed": "(Unnamed)",
     "settings": "Settings"

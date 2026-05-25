@@ -186,7 +186,7 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
               {verified ? t("search.retest") : t("search.test")}
             </button>
             <button className="set-link is-danger" onClick={remove} disabled={deleteKey.isPending}>
-              {t("search.deleteBtn")}
+              {t("common:delete")}
             </button>
           </div>
         </div>
