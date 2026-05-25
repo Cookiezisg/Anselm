@@ -6,6 +6,7 @@
 // AskUserModal —— 后端 AskUserQuestion 工具触发；提交走 :resolve 端点。
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
@@ -14,6 +15,7 @@ import { apiFetch } from "../../api/client.js";
 import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
 export function AskUserModal() {
+  const { t } = useTranslation("conv");
   const pending = useUIStore((s) => s.pendingAsk);
   const askOpen = useUIStore((s) => s.askOpen);
   const setAskOpen = useUIStore((s) => s.setAskOpen);
@@ -56,16 +58,16 @@ export function AskUserModal() {
               <div className="ask-head">
                 <div className="icon-wrap"><Icon.HelpCircle /></div>
                 <div className="meta">
-                  <div className="label">这里很安静</div>
-                  <div className="title">agent 现在没在等你</div>
+                  <div className="label">{t("ask.emptyLabel")}</div>
+                  <div className="title">{t("ask.emptyTitle")}</div>
                 </div>
-                <button className="icon-btn" onClick={() => setAskOpen(false)} style={{ marginLeft: "auto" }} title="关闭">
+                <button className="icon-btn" onClick={() => setAskOpen(false)} style={{ marginLeft: "auto" }} title={t("ask.closeTitle")}>
                   <Icon.X />
                 </button>
               </div>
               <div className="ask-body">
                 <div className="ask-question">
-                  如果 agent 干活时需要你拿主意,会在这里弹出。
+                  {t("ask.emptyBody")}
                 </div>
               </div>
             </motion.div>
@@ -83,10 +85,10 @@ export function AskUserModal() {
       await apiFetch(`/conversations/${pending.conversationId}/pending-questions/${pending.toolCallId}:resolve`, {
         method: "POST", body: { answer: selected },
       });
-      pushToast({ kind: "success", title: "已回答" });
+      pushToast({ kind: "success", title: t("ask.submitSuccess") });
       close();
     } catch (err) {
-      pushToast({ kind: "error", title: "提交失败", desc: err.message });
+      pushToast({ kind: "error", title: t("ask.submitFail"), desc: err.message });
     } finally {
       setSubmitting(false);
     }
@@ -100,8 +102,8 @@ export function AskUserModal() {
             <div className="ask-head">
               <div className="icon-wrap"><Icon.HelpCircle /></div>
               <div className="meta">
-                <div className="label">agent 在等你拿主意</div>
-                <div className="title">{pending.question || "需要你确认一下"}</div>
+                <div className="label">{t("ask.waitingLabel")}</div>
+                <div className="title">{pending.question || t("ask.defaultQuestion")}</div>
               </div>
               <button className="icon-btn" onClick={close} style={{ marginLeft: "auto" }}>
                 <Icon.X />
@@ -112,7 +114,7 @@ export function AskUserModal() {
               <div className="ask-options">
                 {options.length === 0 && (
                   <div style={{ padding: 16, color: "var(--fg-faint)", fontSize: 12 }}>
-                    （没给选项 — 等 agent 把选项推过来）
+                    {t("ask.noOptionsHint")}
                   </div>
                 )}
                 {options.map((o, i) => (
@@ -129,11 +131,11 @@ export function AskUserModal() {
               </div>
             </div>
             <div className="ask-footer">
-              <div className="hint">数字键选 · <Icon.CornerDownLeft style={{ width: 11, height: 11 }} /> 确认 · esc 稍后</div>
+              <div className="hint">{t("ask.footerHint")} <Icon.CornerDownLeft style={{ width: 11, height: 11 }} /></div>
               <div className="actions">
-                <Button size="sm" variant="ghost" onClick={close}>稍后</Button>
+                <Button size="sm" variant="ghost" onClick={close}>{t("ask.laterBtn")}</Button>
                 <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={submit}>
-                  <Icon.Check /> 提交
+                  <Icon.Check /> {t("ask.submitBtn")}
                 </Button>
               </div>
             </div>

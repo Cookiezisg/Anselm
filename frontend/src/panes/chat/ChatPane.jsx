@@ -6,6 +6,7 @@
 // 切换/初次进入时由 REST 历史 hydrate。
 
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConversation, useConversationMessages, useSendMessage, useCancelStream } from "../../api/conversations.js";
 import { useApiKeys, useModelConfigs } from "../../api/config.js";
@@ -25,6 +26,7 @@ import { Icon } from "../../components/primitives/Icon.jsx";
 const EMPTY_IDS = Object.freeze([]);
 
 export function ChatPane({ onClose }) {
+  const { t } = useTranslation("conv");
   const activeConv = useUIStore((s) => s.activeConv);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
   const qc = useQueryClient();
@@ -126,17 +128,17 @@ export function ChatPane({ onClose }) {
         if (err?.code === "CONVERSATION_NOT_FOUND") {
           setActiveConv(null);
           qc.invalidateQueries({ queryKey: qk.conversations() });
-          pushToast({ kind: "warn", title: "这个对话不在了", desc: "已切回对话列表,挑一个或新开一段。" });
+          pushToast({ kind: "warn", title: t("toast.convGoneTitle"), desc: t("toast.convGoneDesc") });
           return;
         }
-        pushToast({ kind: "error", title: "发送失败", desc: err.message });
+        pushToast({ kind: "error", title: t("toast.sendFailTitle"), desc: err.message });
       },
     });
   };
 
   const onCancel = () => {
     cancel.mutate(undefined, {
-      onError: (err) => pushToast({ kind: "warn", title: "取消失败", desc: err.message }),
+      onError: (err) => pushToast({ kind: "warn", title: t("toast.cancelFailTitle"), desc: err.message }),
     });
   };
 
@@ -145,7 +147,7 @@ export function ChatPane({ onClose }) {
       <ChatHeader conv={conv} onClose={onClose} />
       <div className="chat-stream" ref={streamRef}>
         <div className="chat-stream-inner">
-          <div className="day-divider">今天 · {new Date().toLocaleDateString("zh-CN")}</div>
+          <div className="day-divider">{t("dayDivider")} · {new Date().toLocaleDateString("zh-CN")}</div>
           {topMsgIds.length === 0 && !histLoading && (
             <EmptyConvHero conv={conv} />
           )}
@@ -165,6 +167,7 @@ export function ChatPane({ onClose }) {
 }
 
 function EmptyConvPlaceholder() {
+  const { t } = useTranslation("conv");
   return (
     <div className="empty-shell">
       <div className="empty-shell-card">
@@ -172,8 +175,8 @@ function EmptyConvPlaceholder() {
           <Icon.MessageSquare />
         </div>
         <div>
-          <div className="empty-shell-title">还没选中对话</div>
-          <div className="empty-shell-sub">从左边挑一个,或点 <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 12, height: 12 }} /> 开一段新的。</div>
+          <div className="empty-shell-title">{t("emptyConv.noConvTitle")}</div>
+          <div className="empty-shell-sub">{t("emptyConv.noConvSub")} <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 12, height: 12 }} /></div>
         </div>
       </div>
     </div>
@@ -181,14 +184,15 @@ function EmptyConvPlaceholder() {
 }
 
 function EmptyConvHero({ conv }) {
+  const { t } = useTranslation("conv");
   return (
     <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-muted)" }}>
       <Icon.Sparkles className="icon" style={{ width: 18, height: 18, color: "var(--accent)" }} />
       <div style={{ marginTop: 10, fontSize: 14, fontWeight: 500, color: "var(--fg-strong)" }}>
-        {conv?.title || "新对话"}
+        {conv?.title || t("emptyConv.newConvTitle")}
       </div>
       <div style={{ marginTop: 6, fontSize: 12 }}>
-        说说你想干啥。<code>@</code> 引用 function、handler、workflow、skill、文档。
+        {t("emptyConv.newConvSub")}
       </div>
     </div>
   );

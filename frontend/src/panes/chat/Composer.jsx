@@ -9,11 +9,13 @@
 // 不做 / slash 菜单（用户明确不要）。
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
 import { useDocuments } from "../../api/library.js";
 
 export function Composer({ disabled, isStreaming, onSend, onCancel }) {
+  const { t } = useTranslation("conv");
   const [text, setText] = useState("");
   const [attached, setAttached] = useState([]);
   const [mentions, setMentions] = useState([]);
@@ -127,14 +129,14 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
           onDrop={onDrop}
         >
           {atMenu?.items.length > 0 && (
-            <MentionPopover items={atMenu.items} idx={atMenu.idx} onPick={pickMention} title="引用" />
+            <MentionPopover items={atMenu.items} idx={atMenu.idx} onPick={pickMention} title={t("composer.mentionPopoverTitle")} />
           )}
-          {dragging && <div className="drop-indicator">松手附加文件</div>}
+          {dragging && <div className="drop-indicator">{t("composer.dropIndicator")}</div>}
 
           <textarea
             ref={ta}
             className="composer-textarea"
-            placeholder={isStreaming ? "agent 在干活,Esc 可停" : "告诉我"}
+            placeholder={isStreaming ? t("composer.placeholderStreaming") : t("composer.placeholderIdle")}
             value={text}
             onChange={onChange}
             onKeyDown={onKey}
@@ -151,26 +153,26 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
           />
 
           <div className="composer-toolbar">
-            <button className="composer-tool" title="附加文件" onClick={() => fileInput.current?.click()}>
+            <button className="composer-tool" title={t("composer.attachFile")} onClick={() => fileInput.current?.click()}>
               <Icon.Paperclip />
             </button>
             <button
               className="composer-tool"
-              title="@ 引用实体"
+              title={t("composer.mentionEntity")}
               onClick={() => { setText((t) => (t.endsWith(" ") || !t ? t : t + " ") + "@"); ta.current?.focus(); }}
             >
               <Icon.At />
             </button>
             <div className="composer-spacer" />
             {isStreaming ? (
-              <button className="send-btn is-stop" onClick={onCancel} title="停止 (Esc)">
+              <button className="send-btn is-stop" onClick={onCancel} title={t("composer.stopStreaming")}>
                 <Icon.Square />
               </button>
             ) : (
               <button
                 className={"send-btn" + (!text.trim() ? " is-disabled" : "")}
                 onClick={send}
-                title="发送 (Enter)"
+                title={t("composer.send")}
                 disabled={!text.trim() || disabled}
               >
                 <Icon.ArrowUp />

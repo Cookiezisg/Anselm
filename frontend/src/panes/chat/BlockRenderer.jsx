@@ -10,6 +10,7 @@
 // 不连累兄弟组件。
 
 import { memo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore, selectBlock, selectChildIds } from "../../store/chat.js";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { EntityLink } from "../../components/shared/EntityLink.jsx";
@@ -116,6 +117,7 @@ const TextBlock = memo(function TextBlock({ convId, blockId }) {
 
 // ── ReasoningBlock (collapsible) ────────────────────────────────────
 const ReasoningBlock = memo(function ReasoningBlock({ convId, blockId, defaultOpen }) {
+  const { t } = useTranslation("conv");
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const [open, setOpen] = useState(!!defaultOpen);
   if (!block) return null;
@@ -124,7 +126,7 @@ const ReasoningBlock = memo(function ReasoningBlock({ convId, blockId, defaultOp
       <button className="blk-reasoning-head" onClick={() => setOpen((o) => !o)}>
         <Icon.ChevronRight />
         <Icon.Brain style={{ width: 12, height: 12 }} />
-        <span>已思考 {fmtDuration(block.durationMs)}</span>
+        <span>{t("block.reasoningLabel", { duration: fmtDuration(block.durationMs) })}</span>
         {block.status === "streaming" && (
           <span className="dot-pulse"><span /><span /><span /></span>
         )}
@@ -145,6 +147,7 @@ const ReasoningBlock = memo(function ReasoningBlock({ convId, blockId, defaultOp
 //
 // CRITICAL：禁止订阅整张 blocksMap；只能各 child 自订 selectBlock。
 const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen }) {
+  const { t } = useTranslation("conv");
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const childIds = useChatStore((s) => selectChildIds(convId, blockId, s));
   const [open, setOpen] = useState(!!defaultOpen);
@@ -188,8 +191,8 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
           )}
         </div>
         <div className="blk-tool-aside">
-          {isStreaming && <span className="badge streaming"><span className="dot" />运行中</span>}
-          {isError && <span className="badge error"><span className="dot" />失败</span>}
+          {isStreaming && <span className="badge streaming"><span className="dot" />{t("block.toolRunning")}</span>}
+          {isError && <span className="badge error"><span className="dot" />{t("block.toolFailed")}</span>}
           {isSuccess && block.durationMs != null && (
             <span className="blk-tool-timing">{fmtDuration(block.durationMs)}</span>
           )}
@@ -201,9 +204,9 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
         <div className="blk-tool-body">
           <div className="blk-tool-section">
             <div className="blk-tool-section-label">
-              <span>参数</span>
+              <span>{t("block.toolParamsLabel")}</span>
               <div className="actions">
-                <button onClick={copyArgs}>复制</button>
+                <button onClick={copyArgs}>{t("block.toolCopyArgs")}</button>
               </div>
             </div>
             <pre className="code-block">
@@ -238,6 +241,7 @@ const ToolChildBlock = memo(function ToolChildBlock({ convId, blockId }) {
 
 // ── ProgressBlock ───────────────────────────────────────────────────
 const ProgressBlock = memo(function ProgressBlock({ convId, blockId }) {
+  const { t } = useTranslation("conv");
   const p = useChatStore((s) => selectBlock(convId, blockId, s));
   if (!p) return null;
   const pStreaming = p.status === "streaming";
@@ -250,7 +254,7 @@ const ProgressBlock = memo(function ProgressBlock({ convId, blockId }) {
           : pError
             ? <Icon.AlertCircle style={{ width: 12, height: 12, color: "var(--status-error)" }} />
             : <Icon.Check style={{ width: 12, height: 12, color: "var(--status-success)" }} />}
-        <span>进度</span>
+        <span>{t("block.progressLabel")}</span>
         {p.attrs?.stage && <span className="stage">· {p.attrs.stage}</span>}
       </div>
       <div className="blk-progress-line">{p.content}</div>
@@ -260,6 +264,7 @@ const ProgressBlock = memo(function ProgressBlock({ convId, blockId }) {
 
 // ── ToolResultBlock ────────────────────────────────────────────────
 const ToolResultBlock = memo(function ToolResultBlock({ convId, blockId }) {
+  const { t } = useTranslation("conv");
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   if (!block) return null;
   const isErr = block.status === "error";
@@ -268,7 +273,7 @@ const ToolResultBlock = memo(function ToolResultBlock({ convId, blockId }) {
       <div className={"tool-result" + (isErr ? " is-error" : "")}>
         <div className="tool-result-head">
           <span className="status-dot" />
-          <span>{isErr ? "结果 · 出错" : "结果"}</span>
+          <span>{isErr ? t("block.resultError") : t("block.resultLabel")}</span>
         </div>
         <div className="tool-result-content">{block.content}</div>
       </div>
@@ -278,6 +283,7 @@ const ToolResultBlock = memo(function ToolResultBlock({ convId, blockId }) {
 
 // ── SubagentBlock (nested message via message-type block) ───────────
 const SubagentBlock = memo(function SubagentBlock({ convId, blockId, depth = 0 }) {
+  const { t } = useTranslation("conv");
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const messages = useChatStore((s) => s.convs[convId]?.messages);
   const [open, setOpen] = useState(false);
@@ -293,7 +299,7 @@ const SubagentBlock = memo(function SubagentBlock({ convId, blockId, depth = 0 }
         <div className="blk-subagent-icon"><Icon.Bot /></div>
         <div className="blk-subagent-meta">
           <div className="blk-subagent-title">
-            子 agent
+            {t("block.subagentTitle")}
             {a.agentType && (
               <>
                 {" · "}
@@ -303,7 +309,7 @@ const SubagentBlock = memo(function SubagentBlock({ convId, blockId, depth = 0 }
             {a.title && <span style={{ marginLeft: 8, color: "var(--fg-muted)", fontWeight: 400 }}>{a.title}</span>}
           </div>
           <div className="blk-subagent-sub">
-            {inner?.blocks?.length || 0} 步
+            {t("block.subagentSteps", { count: inner?.blocks?.length || 0 })}
             {block.durationMs != null && <> · {fmtDuration(block.durationMs)}</>}
           </div>
         </div>
@@ -320,6 +326,7 @@ const SubagentBlock = memo(function SubagentBlock({ convId, blockId, depth = 0 }
 
 // ── CompactionBlock ────────────────────────────────────────────────
 const CompactionBlock = memo(function CompactionBlock({ convId, blockId }) {
+  const { t } = useTranslation("conv");
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const [open, setOpen] = useState(false);
   if (!block) return null;
@@ -328,10 +335,10 @@ const CompactionBlock = memo(function CompactionBlock({ convId, blockId }) {
     <div className="blk-compaction">
       <div className="blk-compaction-head" onClick={() => setOpen((o) => !o)}>
         <Icon.Archive style={{ width: 12, height: 12 }} />
-        <span>对话已压缩</span>
+        <span>{t("block.compactionLabel")}</span>
         <span className="blk-compaction-sub">
-          {a.blocksArchived != null && <>涵盖 {a.blocksArchived} 个 block · </>}
-          {a.generatedBy && <>由 {a.generatedBy} 生成</>}
+          {a.blocksArchived != null && t("block.compactionBlocks", { count: a.blocksArchived })}
+          {a.generatedBy && t("block.compactionBy", { name: a.generatedBy })}
         </span>
         <Icon.ChevronRight className="blk-tool-chevron" style={{ marginLeft: "auto", transform: open ? "rotate(90deg)" : "" }} />
       </div>
