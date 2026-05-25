@@ -392,14 +392,13 @@ settings.json 顶层 schema：`{permissions:{defaultMode:ask\|allow\|deny\|bypas
 | POST | `/api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）；body `{arguments: string[]}`（位置参数），返 200 `{result: out}` |
 
 #### catalog ✅
-详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。统一能力目录（function + skill + mcp）。LLM-gen summary + 自动跨类目路由观察。**1s polling + atomic.Bool 单 flight + fingerprint dedup**。**不发 SSE**（内部组件）。**V1.2 D8（2026-05-06）全部交付**：domain types + 2 sentinels + Service + LLMGenerator（3-attempt retry + coverage 校验 + mechanical fallback）+ atomic disk cache + 3 CatalogSource（function/skill/mcp）+ chat runner SystemPromptProvider 注入 + 2 HTTP endpoints + 3 离线 pipeline 场景。
+详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。统一能力目录（function + handler + skill + mcp）。**懒生成 + mechanical**：开聊时按需现查四源拼结构化清单注入 system prompt，无轮询 / 无 LLM / 无缓存 / 无磁盘。**不发 SSE**（内部组件）。**2026-05-25 重构**：移除 1s 轮询 / LLM Generator / 磁盘 cache / version history；document 移出 catalog（走 @-mention，独立功能）。
 
 | Method | Path | 用途 |
 |---|---|---|
-| GET | `/api/v1/catalog` | 当前 catalog cache 内容（debug / UI 显示）；**未 Refresh 时返 envelope 内 `null`**——UI 需 null-guard |
-| POST | `/api/v1/catalog:refresh` | 强制立即 refresh（绕过 1s polling 间隔）|
+| GET | `/api/v1/catalog` | 按需现查并返当前用户能力清单（summary + coverage，巡检用）；全源失败 503 `CATALOG_ALL_SOURCES_FAILED` |
 
-**没有 routing-hints 端点**——路由提示由 generator LLM-gen 时直接写进 summary，用户想影响路由 → 编辑源头 function/skill/mcp 的 description。
+（移除 `POST /catalog:refresh` / `GET /catalog/history` / `GET /catalog/diff`——懒生成下 refresh 等价 get，无版本故无 history/diff。）
 
 #### sandbox ✅
 详见 [`../service-design-documents/sandbox.md`](../service-design-documents/sandbox.md)。统一 PluginSandbox v2（mise embed + per-plugin 隔离 env，4 类 owner：function / mcp / skill / conversation）。Bootstrap 自启 + lazy install runtime。

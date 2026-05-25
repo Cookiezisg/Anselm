@@ -387,7 +387,7 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `CATALOG_ALL_SOURCES_FAILED` | 503 | `catalogdomain.ErrAllSourcesFailed` | 全部 source（function/skill/mcp）同时挂；`POST /catalog:refresh` 时上抛 | ✅ |
+| `CATALOG_ALL_SOURCES_FAILED` | 503 | `catalogdomain.ErrAllSourcesFailed` | `GET /catalog` 现查时全部 source（function/handler/skill/mcp）同时挂 | ✅ |
 
 > `ErrCoverageIncomplete` / `ErrGenerationFailed` 内部消化（3 次 retry + mechanical fallback），不上抛 handler。仅 `ErrAllSourcesFailed` 在所有 source 同时失败时透出 503。
 

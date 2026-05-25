@@ -236,7 +236,7 @@ Notion-style 树状文档表;主键 `doc_<16hex>`;**自引用** `parent_id` (nil
 
 - **mcp 配置**：`~/.forgify/mcp.json` 文件 source of truth（Claude Desktop schema 兼容）；server runtime 状态在内存。详见 [`../service-design-documents/mcp.md`](../service-design-documents/mcp.md) §5。
 - **skill 文件**：`~/.forgify/skills/<name>/SKILL.md` 文件系统 source of truth；fsnotify 维护内存 cache。详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md) §5。
-- **catalog**：`~/.forgify/.catalog.json` 派生 cache（删了能重建）；进程内 cache 热路径。详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md) §5。
+- **catalog**：纯派生，不落盘、不缓存——开聊时按需现查 function/handler/skill/mcp 四源 mechanical 拼装。详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。
 
 ---
 

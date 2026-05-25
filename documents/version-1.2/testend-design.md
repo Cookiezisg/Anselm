@@ -11,7 +11,7 @@ V2 是 Vue 3 + Vite + TypeScript + Pinia + vue-router(hash) 的多 view SPA, 取
 **布局**:**4 列固定栏 + 顶栏**(用户指定)
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ TopBar: build · port · catalog · 3 SSE pills (EL/NF/FG) · ⌘K · expand │
+│ TopBar: build · port · git · 3 SSE pills (EL/NF/FG) · ⌘K · expand    │
 ├──────────────┬─────────────────────┬──────────────┬─────────────────────┤
 │ Col1 conv    │ Col2 chat panel     │ Col3 tab nav │ Col4 tab content    │
 │ list         │ ─────────────       │ 6 sections × │ <RouterView />      │

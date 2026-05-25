@@ -246,7 +246,6 @@ type SlimPayload = {
 | `todo` | `app/todo/Service` | 任意 CRUD | `{action, status?}` |
 | `mcp_server` | `app/mcp/Service` | server 增删改 / 重连 / 健康检查 | `{action, status?, error?}` |
 | `skill` | `app/skill/Service.Scan` 轮询 | 添 / 改 / 删 SKILL.md | `{action}`(client 全部重读 skill 库)|
-| `catalog` | `app/catalog/Service.applyRefresh` | poll 后 fingerprint 变化时 | `{action, fingerprint}` |
 | `sandbox_env` | `app/sandbox/Service` | env 状态变 / env 软删 | `{action}` |
 | `function` | `app/function/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(D-redo-7 删除 `env_synced` / `env_failed` 两 action — env 终态由 LLM tool_result 携带,UI 经 GET 拉)|
 | `handler` | `app/handler/Service` 各 CRUD 端点 | 同 function 7 个 + `config_updated` / `config_cleared` | `{action, versionId?, versionNumber?}`(同 D-redo-7 删除 env action)|
