@@ -207,7 +207,7 @@ func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Con
 	out = append(out, PromptSection{Name: "multi_agent_forging", Content: multiAgentForgingPromptSection})
 
 	if s.catalog != nil {
-		if catalogText := s.catalog.GetForSystemPrompt(); catalogText != "" {
+		if catalogText := s.catalog.GetForSystemPrompt(ctx); catalogText != "" {
 			out = append(out, PromptSection{Name: "catalog", Content: catalogText})
 		}
 	}

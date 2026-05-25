@@ -86,7 +86,7 @@ func (h *ContextStatsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// Static sections — sources of the system prompt.
 	// 静态段:system prompt 来源各段。
 	if h.catalog != nil {
-		addSection("catalogSummary", h.catalog.GetForSystemPrompt())
+		addSection("catalogSummary", h.catalog.GetForSystemPrompt(r.Context()))
 	}
 	if h.memory != nil {
 		addSection("memorySection", h.memory.ForSystemPrompt(r.Context()))

@@ -24,7 +24,6 @@ import (
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
-	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
 	hooksapp "github.com/sunweilin/forgify/backend/internal/app/hooks"
@@ -93,7 +92,6 @@ import (
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
-	cataloghistorystore "github.com/sunweilin/forgify/backend/internal/infra/store/cataloghistory"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
@@ -240,7 +238,6 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
 		&documentdomain.Document{},
-		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
 		&relationdomain.Relation{},
 		&mcpdomain.HealthSnapshot{},
@@ -456,20 +453,12 @@ func New(t *testing.T, opts ...Option) *Harness {
 	t.Cleanup(skillService.Stop)
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
-	// per-test cache; no SetGenerator → mechanical-fallback only (avoids FIFO script queue contention).
-	catalogCachePath := filepath.Join(dataDir, ".catalog.json")
-	catalogService := catalogapp.New(catalogCachePath, notificationsPub, log)
-	catalogService.SetHistoryRepo(cataloghistorystore.New(gdb))
+	// mechanical-only, on-demand catalog (no background poll / no LLM / no disk).
+	catalogService := catalogapp.New(log)
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
-	catalogService.RegisterSource(documentService.AsCatalogSource())
-	if err := catalogService.Start(context.Background()); err != nil {
-		t.Logf("catalog start: %v", err)
-	}
-	// Stop must drain before t.TempDir RemoveAll to avoid "directory not empty" race.
-	t.Cleanup(catalogService.Stop)
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)

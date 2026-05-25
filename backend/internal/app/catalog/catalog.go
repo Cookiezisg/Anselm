@@ -1,129 +1,52 @@
 // Package catalog is the service layer for the Capability Catalog.
 //
-// Package catalog 提供 Capability Catalog 的 service 层。
+// Package catalog 提供 Capability Catalog 的 service 层：按需现查 + mechanical 拼装。
 package catalog
 
 import (
 	"context"
+	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
 
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
-	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
-	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// UserLister is the minimal users.Service port catalog needs for the
-// per-user polling fan-out. Zero users → polling tick is a silent no-op.
+// Generator is the optional summary builder seam; nil (the default) → mechanical.
+// Kept as a port for a future size-gated compression/retrieval strategy; not wired today.
 //
-// UserLister:catalog 做 per-user 轮询所需 users.Service 最小端口。
-// 0 user → polling tick 静默 no-op。
-type UserLister interface {
-	List(ctx context.Context) ([]*userdomain.User, error)
-}
-
-const defaultPollInterval = 1 * time.Second
-
-// Generator is the LLM-driven Summary builder; nil falls back to mechanical.
-//
-// Generator 是 LLM Summary 构建器；nil 时 fallback 到 mechanical。
+// Generator 是可选的 summary 构建缝；nil（默认）→ mechanical。
+// 留作将来按规模触发的压缩/检索策略，本次不接。
 type Generator interface {
 	Generate(ctx context.Context, items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) (*catalogdomain.Catalog, error)
 }
 
-// Service ties sources, polling, cache, disk persistence, and Generator together.
+// Service builds the capability catalog on demand from registered sources.
 //
-// Service 串联 source、轮询、内存与磁盘 cache、以及 Generator。
+// Service 按需从已注册 source 构建能力清单；无后台、无缓存、无磁盘。
 type Service struct {
-	cachePath    string
-	pollInterval time.Duration
-	notif        notificationspkg.Publisher
-	log          *zap.Logger
-
-	generator Generator
+	log *zap.Logger
 
 	sourcesMu sync.RWMutex
 	sources   []catalogdomain.CatalogSource
-
-	cache       atomic.Pointer[catalogdomain.Catalog]
-	lastFP      atomic.Value // string
-	busy        atomic.Bool
-	historyRepo catalogdomain.HistoryRepository // §4.7; nil = no persistence
-	userList    UserLister                      // §user-identity; nil = no fan-out (HTTP Refresh still works)
-
-	versionMu sync.Mutex
-	version   int
-
-	stopOnce   sync.Once
-	stopCancel context.CancelFunc
-	pollDone   chan struct{}
 }
 
-// New constructs a Service rooted at cachePath; Start must run before queries.
+// New constructs a Service. Register sources, then call Get / GetForSystemPrompt.
 //
-// New 以 cachePath 为根构造 Service；查询前必须先 Start。
-func New(cachePath string, notif notificationspkg.Publisher, log *zap.Logger) *Service {
+// New 构造 Service；注册 source 后即可 Get / GetForSystemPrompt。
+func New(log *zap.Logger) *Service {
 	if log == nil {
 		panic("catalog.New: logger is nil")
 	}
-	if notif == nil {
-		notif = notificationspkg.New(nil, log)
-	}
-	s := &Service{
-		cachePath:    cachePath,
-		pollInterval: defaultPollInterval,
-		notif:        notif,
-		log:          log,
-	}
-	s.lastFP.Store("")
-	return s
+	return &Service{log: log}
 }
 
-// SetGenerator injects the LLM Generator post-construction.
+// RegisterSource adds a source; safe at any time.
 //
-// SetGenerator 在 New 之后注入 LLM Generator。
-func (s *Service) SetGenerator(g Generator) {
-	s.generator = g
-}
-
-// SetHistoryRepo wires the §4.7 version-history persistence (nil-safe).
-//
-// SetHistoryRepo 接入 §4.7 版本历史持久化(nil 安全)。
-func (s *Service) SetHistoryRepo(r catalogdomain.HistoryRepository) {
-	s.historyRepo = r
-}
-
-// SetUserLister injects the users.Service port used by the polling loop's
-// per-user fan-out. nil → polling skips silently (only HTTP :refresh works,
-// using the request's userID).
-//
-// SetUserLister 注入 polling 用的 users.Service 端口;nil → polling 静默跳过。
-func (s *Service) SetUserLister(u UserLister) {
-	s.userList = u
-}
-
-// HistoryRepo exposes the wired history repo for the HTTP handler (nil-safe).
-//
-// HistoryRepo 给 HTTP handler 拿 history repo(nil 安全)。
-func (s *Service) HistoryRepo() catalogdomain.HistoryRepository {
-	return s.historyRepo
-}
-
-// SetPollInterval overrides the default 1s tick (tests only).
-//
-// SetPollInterval 覆盖默认 1s tick（仅测试用）。
-func (s *Service) SetPollInterval(d time.Duration) {
-	if d > 0 {
-		s.pollInterval = d
-	}
-}
-
-// RegisterSource adds a source to the polling rotation; safe at any time.
-//
-// RegisterSource 把 source 加入轮询，任意时点调用都安全。
+// RegisterSource 加 source，任意时点安全。
 func (s *Service) RegisterSource(src catalogdomain.CatalogSource) {
 	s.sourcesMu.Lock()
 	defer s.sourcesMu.Unlock()
@@ -138,27 +61,57 @@ func (s *Service) snapshotSources() []catalogdomain.CatalogSource {
 	return out
 }
 
-// Get returns the cached Catalog or nil before first Refresh; read-only.
+// build collects items from all sources (scoped to the ctx user) and assembles
+// the mechanical capability list. Caller MUST supply a ctx with userID.
+// All sources failing → ErrAllSourcesFailed; partial failure → use what succeeded.
 //
-// Get 返回缓存 Catalog（首次 Refresh 前为 nil），调用方视为只读。
-func (s *Service) Get() *catalogdomain.Catalog {
-	return s.cache.Load()
+// build 现查所有 source（按 ctx 用户）拼 mechanical 清单；ctx 必须带 userID。
+// 全失败 → ErrAllSourcesFailed；部分失败 → 用成功的拼。
+func (s *Service) build(ctx context.Context) (*catalogdomain.Catalog, error) {
+	if _, ok := reqctxpkg.GetUserID(ctx); !ok {
+		return nil, fmt.Errorf("catalog.build: %w", reqctxpkg.ErrMissingUserID)
+	}
+	sources := s.snapshotSources()
+
+	items := []catalogdomain.Item{}
+	gMap := map[string]catalogdomain.Granularity{}
+	failed := 0
+	for _, src := range sources {
+		srcItems, err := src.ListItems(ctx)
+		if err != nil {
+			s.log.Warn("catalog source ListItems failed; substituting empty",
+				zap.String("source", src.Name()), zap.Error(err))
+			failed++
+			continue
+		}
+		items = append(items, srcItems...)
+		gMap[src.Name()] = src.Granularity()
+	}
+	if len(sources) > 0 && failed == len(sources) {
+		return nil, fmt.Errorf("catalogapp.build: all %d sources failed: %w",
+			len(sources), catalogdomain.ErrAllSourcesFailed)
+	}
+
+	cat := assemble(items, gMap)
+	cat.GeneratedAt = time.Now().UTC()
+	return cat, nil
 }
 
-// GetForSystemPrompt returns the cached Summary text or "" before first build.
+// Get builds the current catalog on demand (HTTP inspection).
 //
-// GetForSystemPrompt 返回缓存 Summary 文本，构建前为空串。
-func (s *Service) GetForSystemPrompt() string {
-	cat := s.cache.Load()
-	if cat == nil {
+// Get 按需构建当前 catalog（HTTP 巡检）。
+func (s *Service) Get(ctx context.Context) (*catalogdomain.Catalog, error) {
+	return s.build(ctx)
+}
+
+// GetForSystemPrompt builds the capability list for chat injection; "" on any failure.
+//
+// GetForSystemPrompt 为 chat 注入构建能力清单；任何失败返 ""（聊天照常）。
+func (s *Service) GetForSystemPrompt(ctx context.Context) string {
+	cat, err := s.build(ctx)
+	if err != nil {
+		s.log.Warn("catalog build failed; omitting capability section", zap.Error(err))
 		return ""
 	}
 	return cat.Summary
-}
-
-func (s *Service) nextVersion() int {
-	s.versionMu.Lock()
-	defer s.versionMu.Unlock()
-	s.version++
-	return s.version
 }

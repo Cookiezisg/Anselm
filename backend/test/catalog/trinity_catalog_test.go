@@ -3,7 +3,6 @@
 package catalog
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -17,8 +16,7 @@ import (
 // createHandlerForCatalog 经 CreateDirect 建最小 handler，只为元数据。
 func createHandlerForCatalog(t *testing.T, h *th.Harness, name, desc string, schema []handlerdomain.InitArgSpec) *handlerdomain.Handler {
 	t.Helper()
-	ctx := th.LocalCtxAs("local-user")
-	hd, _, err := h.Handler.CreateDirect(ctx, handlerapp.DirectCreateInput{
+	hd, _, err := h.Handler.CreateDirect(h.LocalCtx(), handlerapp.DirectCreateInput{
 		Name:           name,
 		Description:    desc,
 		InitArgsSchema: schema,
@@ -43,12 +41,9 @@ func TestCatalog_IncludesFunctionAndHandlerItems(t *testing.T) {
 			Name: "dsn", Type: "string", Required: true, Sensitive: true,
 		}})
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("Catalog.Refresh: %v", err)
-	}
-	cat := h.Catalog.Get()
-	if cat == nil {
-		t.Fatal("Catalog nil after Refresh")
+	cat, err := h.Catalog.Get(h.LocalCtx())
+	if err != nil {
+		t.Fatalf("Catalog.Get: %v", err)
 	}
 
 	functionIDs := cat.Coverage["function"]
@@ -75,12 +70,9 @@ func TestCatalog_HandlerWithoutConfigSurfaces(t *testing.T) {
 			Name: "dsn", Type: "string", Required: true, Sensitive: true,
 		}})
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("Refresh: %v", err)
-	}
-	cat := h.Catalog.Get()
-	if cat == nil {
-		t.Fatal("nil catalog")
+	cat, err := h.Catalog.Get(h.LocalCtx())
+	if err != nil {
+		t.Fatalf("Catalog.Get: %v", err)
 	}
 	if !contains(cat.Coverage["handler"], hd.ID) {
 		t.Errorf("handler %q missing from coverage", hd.ID)

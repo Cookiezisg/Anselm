@@ -28,10 +28,6 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 	h.NewFunction(t, "csv_clean", "def csv_clean(args):\n    return args\n")
 	seedSkill(t, h, "deploy", "Deploy via internal CI")
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("Catalog.Refresh: %v", err)
-	}
-
 	conv := h.NewConversation(t, "d9-catalog-reaches-llm")
 	sub := h.SubscribeSSE(t, conv.ID)
 	th.PostMessage(t, h, conv.ID, "What can you do?")
@@ -64,12 +60,9 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 func TestD9_DynamicSkillUpdate(t *testing.T) {
 	h := th.New(t)
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("initial Refresh: %v", err)
-	}
-	initial := h.Catalog.Get()
-	if initial == nil {
-		t.Fatal("Catalog nil after initial Refresh")
+	initial, err := h.Catalog.Get(h.LocalCtx())
+	if err != nil {
+		t.Fatalf("initial Get: %v", err)
 	}
 	if strings.Contains(initial.Summary, "dropped-skill") {
 		t.Fatalf("initial Summary already contains the test skill — leftover from prior test?\n%s", initial.Summary)
@@ -104,15 +97,12 @@ func TestD9_DynamicSkillUpdate(t *testing.T) {
 		t.Fatalf("skill watcher did not pick up dropped SKILL.md within 5s")
 	}
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("post-drop Refresh: %v", err)
-	}
-	updated := h.Catalog.Get()
-	if updated.Fingerprint == initial.Fingerprint {
-		t.Errorf("Fingerprint unchanged after skill drop; chain didn't propagate")
+	updated, err := h.Catalog.Get(h.LocalCtx())
+	if err != nil {
+		t.Fatalf("post-drop Get: %v", err)
 	}
 	if !strings.Contains(updated.Summary, "dropped-skill") {
-		t.Errorf("Summary missing dropped-skill after fsnotify → catalog regen chain:\n%s", updated.Summary)
+		t.Errorf("Summary missing dropped-skill; lazy build did not reflect live skill:\n%s", updated.Summary)
 	}
 }
 
@@ -170,12 +160,8 @@ func TestD9_BootSmoke(t *testing.T) {
 		t.Errorf("expected tool families missing from registry: %v\ngot: %v", missing, gotNames)
 	}
 
-	if err := h.Catalog.Refresh(context.Background()); err != nil {
-		t.Fatalf("Catalog.Refresh: %v", err)
-	}
-	cat := h.Catalog.Get()
-	if cat == nil {
-		t.Errorf("Catalog.Get returned nil after Refresh")
+	if _, err := h.Catalog.Get(h.LocalCtx()); err != nil {
+		t.Errorf("Catalog.Get: %v", err)
 	}
 	// Empty Summary is fine when no functions/handlers/skills/mcps are
 	// registered — mechanical fallback intentionally outputs "" for an

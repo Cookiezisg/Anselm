@@ -10,12 +10,9 @@ import (
 func TestCatalog_JSONRoundTrip(t *testing.T) {
 	in := Catalog{
 		Summary:     "## Available capabilities\n- 5 forges...",
-		Coverage:    map[string][]string{"forge": {"f_a", "f_b"}, "mcp": {"github"}},
-		Fingerprint: "abc123",
+		Coverage:    map[string][]string{"function": {"f_a", "f_b"}, "mcp": {"github"}},
 		GeneratedAt: time.Date(2026, 5, 6, 13, 42, 0, 0, time.UTC),
-		Version:     17,
-		SourcesAt:   map[string]time.Time{"forge": time.Date(2026, 5, 6, 13, 42, 0, 0, time.UTC)},
-		GeneratedBy: "llm",
+		GeneratedBy: "mechanical",
 	}
 	b, err := json.Marshal(in)
 	if err != nil {
@@ -23,8 +20,7 @@ func TestCatalog_JSONRoundTrip(t *testing.T) {
 	}
 	wire := string(b)
 	for _, want := range []string{
-		`"summary":`, `"coverage":`, `"fingerprint":`,
-		`"generatedAt":`, `"version":`, `"sourcesAt":`, `"generatedBy":`,
+		`"summary":`, `"coverage":`, `"generatedAt":`, `"generatedBy":`,
 	} {
 		if !strings.Contains(wire, want) {
 			t.Errorf("wire missing field %s\nwire: %s", want, wire)
@@ -35,10 +31,10 @@ func TestCatalog_JSONRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(b, &out); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	if out.Version != 17 || out.GeneratedBy != "llm" {
+	if out.GeneratedBy != "mechanical" {
 		t.Errorf("round-trip lost data: %+v", out)
 	}
-	if len(out.Coverage["forge"]) != 2 || out.Coverage["mcp"][0] != "github" {
+	if len(out.Coverage["function"]) != 2 || out.Coverage["mcp"][0] != "github" {
 		t.Errorf("Coverage round-trip mangled: %v", out.Coverage)
 	}
 }
@@ -72,7 +68,7 @@ func TestGranularity_EnumValuesStable(t *testing.T) {
 
 func TestItem_JSONRoundTrip(t *testing.T) {
 	in := Item{
-		Source:      "forge",
+		Source:      "function",
 		ID:          "f_abc",
 		Name:        "csv-clean",
 		Description: "Strip BOMs",
@@ -94,16 +90,11 @@ func TestItem_JSONRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSentinels_Distinct(t *testing.T) {
-	if ErrCoverageIncomplete == nil || ErrGenerationFailed == nil {
+func TestErrAllSourcesFailed_Defined(t *testing.T) {
+	if ErrAllSourcesFailed == nil {
 		t.Fatal("nil sentinel")
 	}
-	if ErrCoverageIncomplete == ErrGenerationFailed {
-		t.Errorf("sentinels collapsed; errors.Is at Service.Refresh switch-arm would be ambiguous")
-	}
-	for _, e := range []error{ErrCoverageIncomplete, ErrGenerationFailed} {
-		if !strings.HasPrefix(e.Error(), "catalog: ") {
-			t.Errorf("sentinel %q lacks 'catalog: ' prefix", e.Error())
-		}
+	if !strings.HasPrefix(ErrAllSourcesFailed.Error(), "catalog: ") {
+		t.Errorf("sentinel %q lacks 'catalog: ' prefix", ErrAllSourcesFailed.Error())
 	}
 }

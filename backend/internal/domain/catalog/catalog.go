@@ -4,43 +4,29 @@
 package catalog
 
 import (
+	"context"
 	"errors"
 	"time"
 )
 
-// Catalog is the derived view that gets injected into chat system prompts.
+// Catalog is the derived view injected into chat system prompts; built on demand, never cached.
 //
-// Catalog 是注入 chat system prompt 的派生视图，由 app/catalog.Service 构建。
+// Catalog 是注入 chat system prompt 的派生视图，按需构建、不缓存。
 type Catalog struct {
-	Summary     string               `json:"summary"`
-	Coverage    map[string][]string  `json:"coverage"`
-	Fingerprint string               `json:"fingerprint"`
-	GeneratedAt time.Time            `json:"generatedAt"`
-	Version     int                  `json:"version"`
-	SourcesAt   map[string]time.Time `json:"sourcesAt"`
-	GeneratedBy string               `json:"generatedBy"`
+	Summary     string              `json:"summary"`
+	Coverage    map[string][]string `json:"coverage"`
+	GeneratedAt time.Time           `json:"generatedAt"`
+	GeneratedBy string              `json:"generatedBy"` // 恒为 "mechanical"
 }
 
-var (
-	// ErrCoverageIncomplete signals the LLM output dropped source items; caller switches to mechanical fallback.
-	//
-	// ErrCoverageIncomplete：LLM 输出漏 item；调用方切 mechanicalFallback。
-	ErrCoverageIncomplete = errors.New("catalog: generator output missing items")
-
-	// ErrGenerationFailed wraps LLM transport / decode failures; same fallback contract.
-	//
-	// ErrGenerationFailed 包底层 LLM 传输 / 解码失败；fallback 契约同上。
-	ErrGenerationFailed = errors.New("catalog: LLM generation failed")
-
-	// ErrAllSourcesFailed is returned when every source errored; mapped to 503 in errmap.
-	//
-	// ErrAllSourcesFailed 所有 source 报错时返回；errmap 映射 503。
-	ErrAllSourcesFailed = errors.New("catalog: all sources failed; previous cache retained")
-)
+// ErrAllSourcesFailed is returned when every registered source errored; mapped to 503 in errmap.
+//
+// ErrAllSourcesFailed 所有 source 报错时返回；errmap 映射 503。
+var ErrAllSourcesFailed = errors.New("catalog: all sources failed")
 
 // SystemPromptProvider is the narrow interface chat.runner consumes to fetch the catalog text.
 //
 // SystemPromptProvider 是 chat.runner 取 catalog 文本的窄接口。
 type SystemPromptProvider interface {
-	GetForSystemPrompt() string
+	GetForSystemPrompt(ctx context.Context) string
 }

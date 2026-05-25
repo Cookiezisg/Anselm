@@ -58,7 +58,6 @@ import (
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
@@ -96,7 +95,6 @@ import (
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
-	cataloghistorystore "github.com/sunweilin/forgify/backend/internal/infra/store/cataloghistory"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
@@ -185,7 +183,6 @@ func main() {
 		&tododomain.Todo{},
 		&memorydomain.Memory{},
 		&documentdomain.Document{},
-		&catalogdomain.HistoryEntry{},
 		&userdomain.User{},
 		&relationdomain.Relation{},
 		&mcpdomain.HealthSnapshot{},
@@ -402,28 +399,18 @@ func main() {
 	}
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
-	catalogService := catalogapp.New(filepath.Join(defaultUserHome, ".catalog.json"), notificationsPub, log)
-	catalogService.SetGenerator(catalogapp.NewLLMGenerator(modelService, apikeyService, llmFactory, log))
-	catalogService.SetHistoryRepo(cataloghistorystore.New(gdb))
-	catalogService.SetUserLister(userService)
-	// Sources here = "things the LLM can call from chat as capabilities":
-	// function (run_function), handler (call_handler), skill (invoke), mcp
-	// (server tools). Workflows are intentionally NOT in coverage — they
-	// are user-triggered (trigger_workflow fires a job; not a capability
-	// the LLM picks based on intent matching).
+	catalogService := catalogapp.New(log)
+	// Sources = "things the LLM can call from chat as capabilities":
+	// function / handler / skill / mcp. Documents are intentionally excluded —
+	// they enter context via @-mention (separate feature), not the catalog.
+	// Workflows are excluded too (user-triggered, not intent-matched).
 	//
-	// 此处 sources = LLM 从 chat 可调用的能力:function (run_function) /
-	// handler (call_handler) / skill (invoke) / mcp (server tools)。
-	// workflow 故意不在 coverage——它是用户触发(trigger_workflow 启动 job,
-	// 不是 LLM 按意图匹配挑用的能力)。
+	// sources = LLM 从 chat 可调用的能力:function / handler / skill / mcp。
+	// 文档故意排除——走 @ 引用进上下文(独立功能),不进 catalog。
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
-	catalogService.RegisterSource(documentService.AsCatalogSource())
-	if err := catalogService.Start(context.Background()); err != nil {
-		log.Warn("catalog start failed (continuing without catalog injection)", zap.Error(err))
-	}
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)
@@ -649,7 +636,6 @@ func main() {
 
 	// §13.4: drain background polling goroutines so SIGTERM doesn't orphan them until OS reaps.
 	// §13.4: 关停 polling goroutine,避免 SIGTERM 时 OS 兜底回收。
-	catalogService.Stop()
 	skillService.Stop()
 	if err := mcpService.Stop(shutdownCtx); err != nil {
 		log.Warn("mcp stop", zap.Error(err))

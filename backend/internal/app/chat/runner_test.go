@@ -12,7 +12,7 @@ type fakePromptProvider struct {
 	text string
 }
 
-func (f *fakePromptProvider) GetForSystemPrompt() string { return f.text }
+func (f *fakePromptProvider) GetForSystemPrompt(_ context.Context) string { return f.text }
 
 func TestBuildSystemPrompt_NilProvider_SkipsCatalogBlock(t *testing.T) {
 	s := &Service{}
@@ -110,7 +110,7 @@ func TestSetSystemPromptProvider_AfterConstruction(t *testing.T) {
 	if s.catalog == nil {
 		t.Fatal("catalog still nil after setter")
 	}
-	if got := s.catalog.GetForSystemPrompt(); got != "## hello" {
+	if got := s.catalog.GetForSystemPrompt(context.Background()); got != "## hello" {
 		t.Errorf("setter wired wrong provider; got %q", got)
 	}
 }

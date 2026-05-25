@@ -6,7 +6,6 @@ import (
 
 	"go.uber.org/zap"
 
-	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
@@ -75,10 +74,6 @@ func (h *PromptsHandler) List(w http.ResponseWriter, _ *http.Request) {
 		"Compaction summary LLM system prompt (V1.2 §1)",
 		contextmgrapp.CompactSystemPromptText(),
 		"backend/internal/app/contextmgr/prompt.go::compactSystemPrompt"))
-	entries = append(entries, mkEntry("catalog.generator", "internal-llm",
-		"Catalog summary generator LLM prompt template",
-		catalogapp.GeneratorPromptTemplate(),
-		"backend/internal/app/catalog/generator.go::generatorPromptTemplate"))
 	entries = append(entries, mkEntry("web.summary", "internal-llm",
 		"WebFetch summarisation prompt (template with placeholders)",
 		webtool.SummaryPromptTemplate(),

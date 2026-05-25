@@ -8,10 +8,10 @@ import (
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 )
 
-// mechanicalFallback enumerates items per-source into a Markdown summary.
+// assemble enumerates items per-source into a Markdown capability list.
 //
-// mechanicalFallback 按 source 分组生成 Markdown summary，覆盖全部 item。
-func mechanicalFallback(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) *catalogdomain.Catalog {
+// assemble 按 source 把 item 拼成 Markdown 能力清单。
+func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) *catalogdomain.Catalog {
 	bySource := groupBySource(items)
 	sourceNames := make([]string, 0, len(bySource))
 	for name := range bySource {
@@ -52,7 +52,7 @@ func mechanicalFallback(items []catalogdomain.Item, gMap map[string]catalogdomai
 	return &catalogdomain.Catalog{
 		Summary:     b.String(),
 		Coverage:    coverage,
-		GeneratedBy: "mechanical-fallback",
+		GeneratedBy: "mechanical",
 	}
 }
 

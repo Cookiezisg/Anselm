@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,16 +11,8 @@ import (
 
 	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
-
-// userCtx is shorthand for a ctx that satisfies Refresh's required-user check.
-//
-// userCtx:让 Refresh 的 required-ctx 检查通过的简写。
-func userCtx() context.Context {
-	return reqctxpkg.SetUserID(context.Background(), "test-user")
-}
 
 type stubCatalogSource struct {
 	name  string
@@ -29,8 +20,8 @@ type stubCatalogSource struct {
 	items []catalogdomain.Item
 }
 
-func (s *stubCatalogSource) Name() string                            { return s.name }
-func (s *stubCatalogSource) Granularity() catalogdomain.Granularity  { return s.gran }
+func (s *stubCatalogSource) Name() string                           { return s.name }
+func (s *stubCatalogSource) Granularity() catalogdomain.Granularity { return s.gran }
 func (s *stubCatalogSource) ListItems(_ context.Context) ([]catalogdomain.Item, error) {
 	return append([]catalogdomain.Item(nil), s.items...), nil
 }
@@ -43,7 +34,7 @@ type catalogHandlerHarness struct {
 func newCatalogTestServer(t *testing.T) *catalogHandlerHarness {
 	t.Helper()
 	log := zaptest.NewLogger(t)
-	svc := catalogapp.New(filepath.Join(t.TempDir(), ".catalog.json"), nil, log)
+	svc := catalogapp.New(log)
 	hd := NewCatalogHandler(svc, log)
 	mux := http.NewServeMux()
 	hd.Register(mux)
@@ -52,7 +43,7 @@ func newCatalogTestServer(t *testing.T) *catalogHandlerHarness {
 	return &catalogHandlerHarness{srv: srv, svc: svc}
 }
 
-func TestCatalog_Get_NoCacheReturnsNullData(t *testing.T) {
+func TestCatalog_Get_EmptyLibrary_ReturnsEmptyCatalog(t *testing.T) {
 	h := newCatalogTestServer(t)
 	resp, err := http.Get(h.srv.URL + "/api/v1/catalog")
 	if err != nil {
@@ -62,12 +53,18 @@ func TestCatalog_Get_NoCacheReturnsNullData(t *testing.T) {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 	got := envOf[*catalogdomain.Catalog](t, resp.Body)
-	if got != nil {
-		t.Errorf("expected null data on empty cache; got %+v", got)
+	if got == nil {
+		t.Fatal("expected a Catalog object, got null")
+	}
+	if got.GeneratedBy != "mechanical" {
+		t.Errorf("GeneratedBy = %q, want mechanical", got.GeneratedBy)
+	}
+	if got.Summary != "" {
+		t.Errorf("empty library Summary = %q, want empty", got.Summary)
 	}
 }
 
-func TestCatalog_Refresh_BuildsAndReturnsCatalog(t *testing.T) {
+func TestCatalog_Get_BuildsFromSources(t *testing.T) {
 	h := newCatalogTestServer(t)
 	h.svc.RegisterSource(&stubCatalogSource{
 		name: "forge",
@@ -78,78 +75,24 @@ func TestCatalog_Refresh_BuildsAndReturnsCatalog(t *testing.T) {
 		},
 	})
 
-	resp, err := http.Post(h.srv.URL+"/api/v1/catalog:refresh", "application/json", nil)
+	resp, err := http.Get(h.srv.URL + "/api/v1/catalog")
 	if err != nil {
-		t.Fatalf("POST: %v", err)
+		t.Fatalf("GET: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 	got := envOf[*catalogdomain.Catalog](t, resp.Body)
 	if got == nil {
-		t.Fatal("Refresh returned nil Catalog")
+		t.Fatal("GET returned nil Catalog")
 	}
-	if got.GeneratedBy != "mechanical-fallback" {
-		t.Errorf("GeneratedBy = %q, want mechanical-fallback (no Generator wired)", got.GeneratedBy)
+	if got.GeneratedBy != "mechanical" {
+		t.Errorf("GeneratedBy = %q, want mechanical", got.GeneratedBy)
 	}
 	if len(got.Coverage["forge"]) != 2 {
 		t.Errorf("Coverage[forge] = %v, want 2 items", got.Coverage["forge"])
 	}
 	if !strings.Contains(got.Summary, "csv-clean") || !strings.Contains(got.Summary, "csv-merge") {
 		t.Errorf("Summary missing item names: %q", got.Summary)
-	}
-	if got.Fingerprint == "" {
-		t.Errorf("Fingerprint empty after Refresh")
-	}
-	if got.Version != 1 {
-		t.Errorf("Version = %d, want 1 on first Refresh", got.Version)
-	}
-}
-
-func TestCatalog_GetAfterRefresh_ReturnsCachedSnapshot(t *testing.T) {
-	h := newCatalogTestServer(t)
-	h.svc.RegisterSource(&stubCatalogSource{
-		name: "skill",
-		gran: catalogdomain.PerItem,
-		items: []catalogdomain.Item{
-			{Source: "skill", ID: "deploy", Name: "deploy", Description: "deploy steps"},
-		},
-	})
-	if err := h.svc.Refresh(userCtx()); err != nil {
-		t.Fatalf("seed Refresh: %v", err)
-	}
-
-	resp, _ := http.Get(h.srv.URL + "/api/v1/catalog")
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d", resp.StatusCode)
-	}
-	got := envOf[*catalogdomain.Catalog](t, resp.Body)
-	if got == nil || !strings.Contains(got.Summary, "deploy") {
-		t.Errorf("GET after Refresh did not return cached snapshot; got %+v", got)
-	}
-}
-
-func TestCatalog_Refresh_ShortCircuitsWhenFingerprintUnchanged(t *testing.T) {
-	h := newCatalogTestServer(t)
-	h.svc.RegisterSource(&stubCatalogSource{
-		name: "forge",
-		gran: catalogdomain.PerItem,
-		items: []catalogdomain.Item{
-			{Source: "forge", ID: "f", Name: "x", Description: "y"},
-		},
-	})
-	first, _ := http.Post(h.srv.URL+"/api/v1/catalog:refresh", "application/json", nil)
-	got1 := envOf[*catalogdomain.Catalog](t, first.Body)
-	second, _ := http.Post(h.srv.URL+"/api/v1/catalog:refresh", "application/json", nil)
-	got2 := envOf[*catalogdomain.Catalog](t, second.Body)
-
-	if got1.Version != 1 {
-		t.Errorf("Version after Refresh #1 = %d, want 1", got1.Version)
-	}
-	if got2.Version != 1 {
-		t.Errorf("Version after Refresh #2 = %d, want 1 (fingerprint short-circuit)", got2.Version)
-	}
-	if got1.Fingerprint != got2.Fingerprint {
-		t.Errorf("Fingerprint changed across no-op Refreshes: %q vs %q", got1.Fingerprint, got2.Fingerprint)
 	}
 }
