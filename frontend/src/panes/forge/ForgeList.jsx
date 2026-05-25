@@ -5,6 +5,7 @@
 // ForgeList —— trinity 三域合并表；tabs 按类型过滤；行点击进 detail。
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { KindChip } from "../../components/shared/KindChip.jsx";
@@ -19,17 +20,18 @@ import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 
-const TABS = [
-  { key: "all",       label: "全部" },
-  { key: "function",  label: "Functions" },
-  { key: "handler",   label: "Handlers" },
-  { key: "workflow",  label: "Workflows" },
-];
-
 export function ForgeList({ onOpen }) {
+  const { t } = useTranslation(["forge", "common"]);
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState(new Set());
+
+  const TABS = [
+    { key: "all",       label: t("list.tabs.all") },
+    { key: "function",  label: "Functions" },
+    { key: "handler",   label: "Handlers" },
+    { key: "workflow",  label: "Workflows" },
+  ];
 
   const { data: functions = [] } = useFunctions();
   const { data: handlers = [] } = useHandlers();
@@ -81,17 +83,17 @@ export function ForgeList({ onOpen }) {
     <div className="page">
       <div className="page-header">
         <div className="page-header-text">
-          <div className="page-title"><Icon.Hammer /> 工坊</div>
+          <div className="page-title"><Icon.Hammer /> {t("list.title")}</div>
           <div className="page-subtitle">Function / Handler / Workflow</div>
         </div>
         <div className="page-actions">
           <Button size="sm" onClick={() => pushToast({
             kind: "info",
-            title: "在对话里造",
-            desc: "去对话里告诉 agent 你要什么。agent 会生成 pending 版本,你 accept 即可。",
+            title: t("list.toast.newTitle"),
+            desc: t("list.toast.newDesc"),
             duration: 6000,
           })}>
-            <Icon.Plus /> 新建
+            <Icon.Plus /> {t("list.newBtn")}
           </Button>
         </div>
       </div>
@@ -113,25 +115,25 @@ export function ForgeList({ onOpen }) {
         <div className="search-input">
           <Icon.Search className="icon" />
           <input
-            placeholder="搜索 forge 名称 / 描述…"
+            placeholder={t("list.searchPlaceholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: "var(--fg-faint)", fontFamily: "var(--font-mono)" }}>
-          {filtered.length} 条 · 按"最近更新"
+          {t("list.countInfo", { count: filtered.length })}
         </span>
       </div>
 
       {selected.size > 0 && (
         <div className="batch-bar">
-          <span className="batch-bar-count">已选 {selected.size} 项</span>
-          <Button size="xs" variant="ghost" onClick={clearSel}>取消选择</Button>
+          <span className="batch-bar-count">{t("list.batch.selected", { count: selected.size })}</span>
+          <Button size="xs" variant="ghost" onClick={clearSel}>{t("list.batch.clearSel")}</Button>
           <div className="batch-bar-buttons">
             <Button size="xs" variant="danger" onClick={() => {
               const picked = filtered.filter((f) => selected.has(f.id));
-              if (!confirm(`删除选中的 ${picked.length} 个?这一步不可撤销。`)) return;
+              if (!confirm(t("list.batch.deleteConfirm", { count: picked.length }))) return;
               picked.forEach((f) => {
                 const m = f.kind === "function" ? deleteFn
                        : f.kind === "handler"  ? deleteHd
@@ -140,7 +142,7 @@ export function ForgeList({ onOpen }) {
               });
               clearSel();
             }}>
-              <Icon.Trash /> 删除
+              <Icon.Trash /> {t("common:delete")}
             </Button>
           </div>
         </div>
@@ -150,8 +152,8 @@ export function ForgeList({ onOpen }) {
         {filtered.length === 0 ? (
           <div className="empty" style={{ padding: 48 }}>
             <Icon.Hammer className="icon" />
-            <div className="title">还没有{tab === "all" ? "" : " " + tab + " "}工坊产物</div>
-            <div className="sub">去对话里说一句：「帮我做一个 X」</div>
+            <div className="title">{t("list.empty.title", { kindPart: tab === "all" ? "" : " " + tab + " " })}</div>
+            <div className="sub">{t("list.empty.sub")}</div>
           </div>
         ) : (
           <table className="t">
@@ -163,11 +165,11 @@ export function ForgeList({ onOpen }) {
                     {selected.size === filtered.length && filtered.length > 0 && <Icon.Check />}
                   </span>
                 </th>
-                <th>名称</th>
-                <th>类型</th>
-                <th>版本</th>
-                <th>状态</th>
-                <th>最近更新</th>
+                <th>{t("list.table.name")}</th>
+                <th>{t("list.table.kind")}</th>
+                <th>{t("list.table.version")}</th>
+                <th>{t("list.table.status")}</th>
+                <th>{t("list.table.updatedAt")}</th>
                 <th />
               </tr>
             </thead>
@@ -206,7 +208,7 @@ export function ForgeList({ onOpen }) {
                     </td>
                     <td onClick={() => onOpen(f)}>
                       {inProgress
-                        ? <span className="badge streaming"><span className="dot" />工坊中</span>
+                        ? <span className="badge streaming"><span className="dot" />{t("list.forging")}</span>
                         : <StatusBadge status={f.status || "ready"} />}
                     </td>
                     <td onClick={() => onOpen(f)}>
@@ -215,19 +217,19 @@ export function ForgeList({ onOpen }) {
                     <td className="col-tight">
                       <ActionMenu
                         items={[
-                          { label: f.kind === "handler" ? "试调用" : f.kind === "workflow" ? "触发" : "试跑",
+                          { label: f.kind === "handler" ? t("list.actionMenu.testCall") : f.kind === "workflow" ? t("list.actionMenu.trigger") : t("list.actionMenu.testRun"),
                             icon: Icon.Play,
                             onClick: () => setRunTarget(f) },
-                          { label: "查看详情", icon: Icon.GitBranch, onClick: () => onOpen(f) },
+                          { label: t("list.actionMenu.viewDetail"), icon: Icon.GitBranch, onClick: () => onOpen(f) },
                           "divider",
-                          { label: "删除", icon: Icon.Trash, danger: true, onClick: () => {
-                            if (!confirm(`删除 ${f.kind} "${f.name}"?这一步不可撤销。`)) return;
+                          { label: t("common:delete"), icon: Icon.Trash, danger: true, onClick: () => {
+                            if (!confirm(t("list.deleteConfirm", { kind: f.kind, name: f.name }))) return;
                             const m = f.kind === "function" ? deleteFn
                                    : f.kind === "handler"  ? deleteHd
                                    :                          deleteWf;
                             m.mutate(f.id, {
-                              onSuccess: () => pushToast({ kind: "success", title: "已删除", desc: f.name }),
-                              onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+                              onSuccess: () => pushToast({ kind: "success", title: t("list.toast.deleteSuccess"), desc: f.name }),
+                              onError: (e) => pushToast({ kind: "error", title: t("list.toast.deleteFail"), desc: e.message }),
                             });
                           }},
                         ]}

@@ -6,6 +6,7 @@
 // 渲染结果（每项 capability + 是否 ready）。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
@@ -13,6 +14,7 @@ import { useCapabilityCheck } from "../../api/forge.js";
 import { useUIStore } from "../../store/ui.js";
 
 export function CapabilityCheckPanel({ workflowId }) {
+  const { t } = useTranslation("forge");
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState(null);
   const check = useCapabilityCheck();
@@ -24,14 +26,14 @@ export function CapabilityCheckPanel({ workflowId }) {
       const r = await check.mutateAsync(workflowId);
       setResult(r);
     } catch (e) {
-      pushToast({ kind: "error", title: "Capability check 失败", desc: e.message });
+      pushToast({ kind: "error", title: t("capability.checkFail"), desc: e.message });
     }
   };
 
   return (
     <>
       <Button size="sm" onClick={run} disabled={check.isPending}>
-        {check.isPending ? <><span className="spinner" /> 检查中…</> : <><Icon.Eye /> Capability check</>}
+        {check.isPending ? <><span className="spinner" /> {t("capability.checking")}</> : <><Icon.Eye /> {t("capability.checkBtn")}</>}
       </Button>
       <AnimatePresence>
         {open && (
@@ -44,14 +46,14 @@ export function CapabilityCheckPanel({ workflowId }) {
             <div className="cap-panel-head">
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon.Eye />
-                <strong>能力检查</strong>
-                {result?.allReady && <span className="badge success">全部就绪</span>}
-                {result && !result.allReady && <span className="badge warn">{(result.missing || []).length} 项缺失</span>}
+                <strong>{t("capability.panelTitle")}</strong>
+                {result?.allReady && <span className="badge success">{t("capability.allReady")}</span>}
+                {result && !result.allReady && <span className="badge warn">{t("capability.missingCount", { count: (result.missing || []).length })}</span>}
               </div>
               <button className="icon-btn" onClick={() => setOpen(false)}><Icon.X /></button>
             </div>
             <div className="cap-panel-body">
-              {!result && check.isPending && <div className="empty"><div className="sub">运行 capability check…</div></div>}
+              {!result && check.isPending && <div className="empty"><div className="sub">{t("capability.loading")}</div></div>}
               {result && (
                 <CapabilityResult result={result} />
               )}
@@ -64,11 +66,12 @@ export function CapabilityCheckPanel({ workflowId }) {
 }
 
 function CapabilityResult({ result }) {
+  const { t } = useTranslation("forge");
   const items = result.items || result.capabilities || [];
   if (items.length === 0) {
     return (
       <div className="empty" style={{ padding: 12 }}>
-        <div className="sub">该工作流不需要外部能力</div>
+        <div className="sub">{t("capability.noCapabilitiesNeeded")}</div>
       </div>
     );
   }

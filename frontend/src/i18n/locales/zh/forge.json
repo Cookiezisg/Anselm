@@ -1,0 +1,153 @@
+{
+  "list": {
+    "title": "工坊",
+    "newBtn": "新建",
+    "tabs": {
+      "all": "全部"
+    },
+    "searchPlaceholder": "搜索 forge 名称 / 描述…",
+    "countInfo": "{{count}} 条 · 按最近更新",
+    "batch": {
+      "selected": "已选 {{count}} 项",
+      "clearSel": "取消选择",
+      "deleteConfirm": "删除选中的 {{count}} 个?这一步不可撤销。"
+    },
+    "empty": {
+      "title": "还没有{{kindPart}}工坊产物",
+      "sub": "去对话里说一句：「帮我做一个 X」"
+    },
+    "table": {
+      "name": "名称",
+      "kind": "类型",
+      "version": "版本",
+      "status": "状态",
+      "updatedAt": "最近更新"
+    },
+    "actionMenu": {
+      "testRun": "试跑",
+      "testCall": "试调用",
+      "trigger": "触发",
+      "viewDetail": "查看详情"
+    },
+    "toast": {
+      "newTitle": "在对话里造",
+      "newDesc": "去对话里告诉 agent 你要什么。agent 会生成 pending 版本,你 accept 即可。",
+      "deleteSuccess": "已删除",
+      "deleteFail": "删除失败"
+    },
+    "forging": "工坊中",
+    "deleteConfirm": "删除 {{kind}} \"{{name}}\"?这一步不可撤销。"
+  },
+  "detail": {
+    "forging": "工坊中",
+    "acceptFail": "Accept 失败",
+    "revertFail": "Revert 失败",
+    "saveFail": "保存失败",
+    "deployRequested": "Deploy 已请求"
+  },
+  "function": {
+    "runBtn": "试跑",
+    "noVersion": "没有可显示的版本",
+    "noCode": "该版本没有代码",
+    "noVersionForDiff": "缺少版本数据无法对比",
+    "identical": "两个版本内容完全一致",
+    "changes": "{{count}} 处变更",
+    "fieldLabel": {
+      "description": "说明",
+      "inputs": "输入",
+      "outputs": "输出",
+      "runtime": "运行环境",
+      "code": "代码",
+      "contract": "契约",
+      "empty": "(空)"
+    }
+  },
+  "handler": {
+    "runBtn": "试调用",
+    "noMethods": "该版本没有方法",
+    "collapseMethodList": "收起方法列表",
+    "expandMethodList": "展开方法列表",
+    "noConfig": "还没有配置项",
+    "noVersionForDiff": "缺少版本",
+    "methodChanges": "{{count}} 处方法变更",
+    "methodsIdentical": "方法层面一致",
+    "changeKind": {
+      "added": "新增",
+      "removed": "删除",
+      "changed": "修改"
+    },
+    "tabs": {
+      "calls": "Call 历史",
+      "callsPlaceholder": "通过 handler 调用后这里会有记录（KPI + 表格 Phase 11 接入）"
+    },
+    "config": {
+      "encrypted": "Encrypted with AES-GCM · 仅本地存储"
+    }
+  },
+  "workflow": {
+    "triggerBtn": "触发",
+    "noGraph": "该版本没有 graph 数据",
+    "canvas": {
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "reset": "复位"
+    }
+  },
+  "editor": {
+    "palette": {
+      "placeholder": "拖入节点…",
+      "label": "节点 · {{count}}",
+      "collapse": "收起节点抽屉",
+      "expand": "展开节点抽屉"
+    },
+    "canvas": {
+      "autoLayoutVertical": "自动垂直排列",
+      "autoLayoutHorizontal": "自动水平排列",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "fitToContent": "适配画面",
+      "reset": "复位"
+    },
+    "saveStatus": {
+      "saving": "保存中…",
+      "dirty": "未保存（2s 后自动）",
+      "saved": "已保存 · Accept 后生效",
+      "clean": "已保存"
+    },
+    "inspector": {
+      "labelPlaceholder": "节点显示名",
+      "notesLabel": "备注",
+      "notesPlaceholder": "可选 — 在节点下面显示",
+      "timeoutLabel": "超时 (秒) · onError",
+      "onErrorDefault": "默认（fail）",
+      "configLabel": "Config (JSON)",
+      "deleteNode": "删除节点"
+    },
+    "nodeKinds": {
+      "trigger": "Cron / Webhook / Manual",
+      "function": "纯函数 · 沙箱执行",
+      "handler": "Stateful 类调用",
+      "mcp": "调 MCP server",
+      "skill": "SKILL.md 模板",
+      "llm": "纯 LLM 节点",
+      "agent": "Sub-agent 调用",
+      "http": "外部 API",
+      "condition": "分支判断",
+      "loop": "迭代",
+      "parallel": "并行 fan-out",
+      "approval": "等待人工",
+      "wait": "定时延迟",
+      "variable": "读写变量"
+    }
+  },
+  "capability": {
+    "checkBtn": "Capability check",
+    "checking": "检查中…",
+    "panelTitle": "能力检查",
+    "allReady": "全部就绪",
+    "missingCount": "{{count}} 项缺失",
+    "loading": "运行 capability check…",
+    "noCapabilitiesNeeded": "该工作流不需要外部能力",
+    "checkFail": "Capability check 失败"
+  }
+}

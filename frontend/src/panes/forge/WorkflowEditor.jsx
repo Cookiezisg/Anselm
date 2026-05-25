@@ -12,6 +12,7 @@
 // Accept 才落到 active。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Select } from "../../components/primitives/Select.jsx";
@@ -176,26 +177,30 @@ function autoLayout(nodes, edges, direction = "vertical") {
 
 // ── Palette ──────────────────────────────────────────────────────────────
 function Palette({ onAdd, onCollapse }) {
+  const { t } = useTranslation("forge");
   const [q, setQ] = useState("");
-  const list = NODE_KINDS.filter((k) =>
-    (k.label + k.desc).toLowerCase().includes(q.toLowerCase()));
+  const list = NODE_KINDS.filter((k) => {
+    const desc = t("editor.nodeKinds." + k.kind, { defaultValue: k.desc });
+    return (k.label + desc).toLowerCase().includes(q.toLowerCase());
+  });
   return (
     <aside className="wf-palette">
       <div className="wf-palette-head">
         <div className="search-input" style={{ maxWidth: "none" }}>
           <Icon.Search className="icon" />
-          <input placeholder="拖入节点…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder={t("editor.palette.placeholder")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
         {onCollapse && (
-          <button className="icon-btn" title="收起节点抽屉" onClick={onCollapse}>
+          <button className="icon-btn" title={t("editor.palette.collapse")} onClick={onCollapse}>
             <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
           </button>
         )}
       </div>
-      <div className="wf-palette-label">节点 · {list.length}</div>
+      <div className="wf-palette-label">{t("editor.palette.label", { count: list.length })}</div>
       <div className="wf-palette-list">
         {list.map((k) => {
           const Ic = Icon[k.icon] || Icon.Code;
+          const desc = t("editor.nodeKinds." + k.kind, { defaultValue: k.desc });
           return (
             <button
               key={k.kind}
@@ -203,12 +208,12 @@ function Palette({ onAdd, onCollapse }) {
               draggable
               onDragStart={(e) => e.dataTransfer.setData("kind", k.kind)}
               onClick={() => onAdd(k.kind)}
-              title={k.desc}
+              title={desc}
             >
               <div className="wf-palette-icon"><Ic /></div>
               <div>
                 <div className="wf-palette-name">{k.label}</div>
-                <div className="wf-palette-desc">{k.desc}</div>
+                <div className="wf-palette-desc">{desc}</div>
               </div>
             </button>
           );
@@ -249,6 +254,7 @@ function CanvasNode({ node, selected, onMouseDown, onHandleMouseDown, connecting
 // ── Inspector body ───────────────────────────────────────────────────────
 // Rendered inside a FloatingInspector — no own container/header.
 function InspectorBody({ node, onChange, onDelete }) {
+  const { t } = useTranslation(["forge", "common"]);
   const [text, setText] = useState(JSON.stringify(node.config || {}, null, 2));
   useEffect(() => setText(JSON.stringify(node.config || {}, null, 2)), [node.id]);
 
@@ -274,18 +280,18 @@ function InspectorBody({ node, onChange, onDelete }) {
           className="cfg-input"
           value={node.label || ""}
           onChange={(e) => onChange({ label: e.target.value })}
-          placeholder="节点显示名"
+          placeholder={t("editor.inspector.labelPlaceholder")}
         />
 
-        <label className="drawer-label" style={{ marginTop: 10 }}>备注</label>
+        <label className="drawer-label" style={{ marginTop: 10 }}>{t("editor.inspector.notesLabel")}</label>
         <input
           className="cfg-input"
           value={node.notes || ""}
           onChange={(e) => onChange({ notes: e.target.value })}
-          placeholder="可选 — 在节点下面显示"
+          placeholder={t("editor.inspector.notesPlaceholder")}
         />
 
-        <label className="drawer-label" style={{ marginTop: 10 }}>超时 (秒) · onError</label>
+        <label className="drawer-label" style={{ marginTop: 10 }}>{t("editor.inspector.timeoutLabel")}</label>
         <div style={{ display: "flex", gap: 6 }}>
           <input
             type="number" min={0}
@@ -299,7 +305,7 @@ function InspectorBody({ node, onChange, onDelete }) {
               value={node.onError || ""}
               onChange={(v) => onChange({ onError: v })}
               options={[
-                { value: "", label: "默认（fail）" },
+                { value: "", label: t("editor.inspector.onErrorDefault") },
                 { value: "fail", label: "fail" },
                 { value: "skip", label: "skip" },
                 { value: "continue", label: "continue" },
@@ -308,7 +314,7 @@ function InspectorBody({ node, onChange, onDelete }) {
           </div>
         </div>
 
-        <label className="drawer-label" style={{ marginTop: 10 }}>Config (JSON)</label>
+        <label className="drawer-label" style={{ marginTop: 10 }}>{t("editor.inspector.configLabel")}</label>
         <textarea
           className="run-drawer-input"
           rows={10}
@@ -320,7 +326,7 @@ function InspectorBody({ node, onChange, onDelete }) {
 
         <div style={{ marginTop: 14, borderTop: "1px solid var(--border-soft)", paddingTop: 12 }}>
           <Button size="xs" variant="danger" onClick={onDelete}>
-            <Icon.Trash /> 删除节点
+            <Icon.Trash /> {t("editor.inspector.deleteNode")}
           </Button>
         </div>
     </div>
@@ -329,6 +335,7 @@ function InspectorBody({ node, onChange, onDelete }) {
 
 // ── Main editor ──────────────────────────────────────────────────────────
 export function WorkflowEditor({ workflowId, version }) {
+  const { t } = useTranslation("forge");
   const original = useMemo(() => parseGraph(version), [version?.id]);
   const [nodes, setNodes] = useState(original.nodes);
   const [edges, setEdges] = useState(original.edges);
@@ -373,7 +380,7 @@ export function WorkflowEditor({ workflowId, version }) {
         { ops, changeReason: "editor autosave" },
         {
           onSuccess: () => { setDirty(false); setSavedAt(new Date()); },
-          onError: (e) => pushToast({ kind: "error", title: "保存失败", desc: e.message }),
+          onError: (e) => pushToast({ kind: "error", title: t("detail.saveFail"), desc: e.message }),
         }
       );
     }, 2000);
@@ -541,7 +548,7 @@ export function WorkflowEditor({ workflowId, version }) {
   return (
     <div className={editorClass}>
       {paletteOpen && <Palette onAdd={onPaletteAdd} onCollapse={togglePalette} />}
-      {!paletteOpen && <PaneCollapseToggle onClick={togglePalette} title="展开节点抽屉" />}
+      {!paletteOpen && <PaneCollapseToggle onClick={togglePalette} title={t("editor.palette.expand")} />}
       <div
         ref={canvasRef}
         className={"wf-canvas" + (panning ? " is-panning" : "")}
@@ -583,26 +590,26 @@ export function WorkflowEditor({ workflowId, version }) {
           ))}
         </div>
         <div className="wf-canvas-toolbar">
-          <button className="icon-btn" title="自动垂直排列" onClick={() => doAutoLayout("vertical")}>
+          <button className="icon-btn" title={t("editor.canvas.autoLayoutVertical")} onClick={() => doAutoLayout("vertical")}>
             <Icon.Layers style={{ transform: "rotate(90deg)" }} />
           </button>
-          <button className="icon-btn" title="自动水平排列" onClick={() => doAutoLayout("horizontal")}>
+          <button className="icon-btn" title={t("editor.canvas.autoLayoutHorizontal")} onClick={() => doAutoLayout("horizontal")}>
             <Icon.Layers />
           </button>
           <div className="wf-toolbar-sep" />
-          <button className="icon-btn" title="放大" onClick={() => zoomBy(1.2)}><Icon.Plus /></button>
-          <button className="icon-btn" title="缩小" onClick={() => zoomBy(1/1.2)}>
+          <button className="icon-btn" title={t("editor.canvas.zoomIn")} onClick={() => zoomBy(1.2)}><Icon.Plus /></button>
+          <button className="icon-btn" title={t("editor.canvas.zoomOut")} onClick={() => zoomBy(1/1.2)}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M5 12h14"/></svg>
           </button>
-          <button className="icon-btn" title="适配画面" onClick={fitToContent}><Icon.Filter /></button>
-          <button className="icon-btn" title="复位" onClick={resetView}><Icon.Refresh /></button>
+          <button className="icon-btn" title={t("editor.canvas.fitToContent")} onClick={fitToContent}><Icon.Filter /></button>
+          <button className="icon-btn" title={t("editor.canvas.reset")} onClick={resetView}><Icon.Refresh /></button>
           <div className="wf-zoom">{Math.round(transform.scale * 100)}%</div>
         </div>
         <div className={"wf-saved wf-saved-overlay is-" + status}>
-          {status === "saving" && <><span className="spinner" /> 保存中…</>}
-          {status === "dirty"  && <><span className="dot" /> 未保存（2s 后自动）</>}
-          {status === "saved"  && <><span className="dot" /> 已保存 · Accept 后生效</>}
-          {status === "clean"  && <><span className="dot" /> 已保存</>}
+          {status === "saving" && <><span className="spinner" /> {t("editor.saveStatus.saving")}</>}
+          {status === "dirty"  && <><span className="dot" /> {t("editor.saveStatus.dirty")}</>}
+          {status === "saved"  && <><span className="dot" /> {t("editor.saveStatus.saved")}</>}
+          {status === "clean"  && <><span className="dot" /> {t("editor.saveStatus.clean")}</>}
         </div>
       </div>
       <FloatingInspector

@@ -4,6 +4,7 @@
 // HandlerDetail —— Class / Config / Calls 多标签 + diff + VersionRail。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { KindChip } from "../../components/shared/KindChip.jsx";
@@ -21,6 +22,7 @@ import { useUIStore } from "../../store/ui.js";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
 
 export function HandlerDetail({ forge, onBack }) {
+  const { t } = useTranslation(["forge", "common"]);
   const { data: hd = forge } = useHandler(forge.id);
   const { data: versions = [] } = useHandlerVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
@@ -43,12 +45,12 @@ export function HandlerDetail({ forge, onBack }) {
       <div className="page-header" style={{ paddingTop: 18 }}>
         <div className="page-header-text" style={{ gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--fg-muted)" }}>
-            <Button size="xs" variant="ghost" onClick={onBack}>← 返回</Button>
+            <Button size="xs" variant="ghost" onClick={onBack}>← {t("common:back")}</Button>
             <span>·</span>
             <KindChip kind="handler" />
             <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>{forge.id}</span>
             {progress && progress.status === "running" && (
-              <span className="badge streaming"><span className="dot" />工坊中</span>
+              <span className="badge streaming"><span className="dot" />{t("detail.forging")}</span>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -65,19 +67,19 @@ export function HandlerDetail({ forge, onBack }) {
             <>
               <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
                 onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-                onError: (e) => pushToast({ kind: "error", title: "Revert 失败", desc: e.message }),
+                onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
               })}>
                 <Icon.X /> Revert
               </Button>
               <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
                 onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-                onError: (e) => pushToast({ kind: "error", title: "Accept 失败", desc: e.message }),
+                onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
               })}>
                 <Icon.Check /> Accept
               </Button>
             </>
           ) : (
-            <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 试调用</Button>
+            <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> {t("handler.runBtn")}</Button>
           )}
           <AskAiTrigger
             kind="handler"
@@ -115,6 +117,7 @@ export function HandlerDetail({ forge, onBack }) {
 }
 
 function HandlerFullView({ v, hd }) {
+  const { t } = useTranslation("forge");
   const [tab, setTab] = useState("class");
   const { data: config } = useHandlerConfig(hd.id);
   const [methodsOpen, toggleMethods] = useCollapsible("handler-methods", true);
@@ -127,7 +130,7 @@ function HandlerFullView({ v, hd }) {
   return (
     <>
       <div className="page-tabs">
-        {[["class", "Class"], ["config", "Config"], ["calls", "Call 历史"]].map(([k, l]) => (
+        {[["class", "Class"], ["config", "Config"], ["calls", t("handler.tabs.calls")]].map(([k, l]) => (
           <button key={k} className={"page-tab" + (tab === k ? " is-active" : "")} onClick={() => setTab(k)}>
             {l}
           </button>
@@ -141,12 +144,12 @@ function HandlerFullView({ v, hd }) {
               <div className="hd-class-name">
                 <Icon.Boxes style={{ width: 14, height: 14, marginRight: 6 }} />
                 class
-                <button className="icon-btn" title="收起方法列表" onClick={toggleMethods} style={{ marginLeft: "auto" }}>
+                <button className="icon-btn" title={t("handler.collapseMethodList")} onClick={toggleMethods} style={{ marginLeft: "auto" }}>
                   <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
                 </button>
               </div>
               {methods.length === 0 && (
-                <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>该版本没有方法</div>
+                <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>{t("handler.noMethods")}</div>
               )}
               {methods.map((m) => (
                 <button
@@ -160,7 +163,7 @@ function HandlerFullView({ v, hd }) {
               ))}
             </aside>
           )}
-          {!methodsOpen && <PaneCollapseToggle onClick={toggleMethods} title="展开方法列表" />}
+          {!methodsOpen && <PaneCollapseToggle onClick={toggleMethods} title={t("handler.expandMethodList")} />}
           <main className="hd-method-detail">
             {method && (
               <>
@@ -180,7 +183,7 @@ function HandlerFullView({ v, hd }) {
       {tab === "config" && (
         <div style={{ padding: "20px 32px", display: "flex", flexDirection: "column", gap: 12, maxWidth: 600 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--fg-muted)" }}>
-            <Icon.KeyRound style={{ width: 13, height: 13 }} /> Encrypted with AES-GCM · 仅本地存储
+            <Icon.KeyRound style={{ width: 13, height: 13 }} /> {t("handler.config.encrypted")}
           </div>
           {config && Object.keys(config).length > 0
             ? Object.entries(config).map(([k, val]) => (
@@ -195,7 +198,7 @@ function HandlerFullView({ v, hd }) {
                   </div>
                 </div>
               ))
-            : <div className="empty" style={{ padding: 18 }}><div className="sub">还没有配置项</div></div>}
+            : <div className="empty" style={{ padding: 18 }}><div className="sub">{t("handler.noConfig")}</div></div>}
         </div>
       )}
 
@@ -203,8 +206,8 @@ function HandlerFullView({ v, hd }) {
         <div style={{ padding: "16px 32px" }}>
           <div className="empty" style={{ padding: 18 }}>
             <Icon.ListChecks className="icon" />
-            <div className="title">Call 历史</div>
-            <div className="sub">通过 handler 调用后这里会有记录（KPI + 表格 Phase 11 接入）</div>
+            <div className="title">{t("handler.tabs.calls")}</div>
+            <div className="sub">{t("handler.tabs.callsPlaceholder")}</div>
           </div>
         </div>
       )}
@@ -213,7 +216,8 @@ function HandlerFullView({ v, hd }) {
 }
 
 function HandlerDiffView({ currentV, otherV, pendingV }) {
-  if (!currentV || !otherV) return <div className="empty"><div className="sub">缺少版本</div></div>;
+  const { t } = useTranslation("forge");
+  if (!currentV || !otherV) return <div className="empty"><div className="sub">{t("handler.noVersionForDiff")}</div></div>;
   const isPending = otherV.id === pendingV?.id;
   const curMethods = new Map((currentV.methods || []).map((m) => [m.name, m]));
   const othMethods = new Map((otherV.methods || []).map((m) => [m.name, m]));
@@ -232,15 +236,15 @@ function HandlerDiffView({ currentV, otherV, pendingV }) {
       <h3 className="section-label" style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
         Diff · {currentV.label || "current"} ⇆ {otherV.label || otherV.id}
         {isPending && <span className="vr-badge vr-pending"><Icon.Sparkles /> pending</span>}
-        <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>· {changes.length} 处方法变更</span>
+        <span style={{ color: "var(--fg-faint)", fontWeight: 400 }}>· {t("handler.methodChanges", { count: changes.length })}</span>
       </h3>
-      {changes.length === 0 && <div style={{ padding: 24, color: "var(--fg-faint)", textAlign: "center" }}>方法层面一致</div>}
+      {changes.length === 0 && <div style={{ padding: 24, color: "var(--fg-faint)", textAlign: "center" }}>{t("handler.methodsIdentical")}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {changes.map((c, i) => (
           <div key={i} className={"hd-method-diff hd-method-diff-" + c.kind}>
             <div className="hd-method-diff-head-btn" style={{ cursor: "default" }}>
               <span className={"vr-badge vr-cmp-" + c.kind}>
-                {c.kind === "added" ? "新增" : c.kind === "removed" ? "删除" : "修改"}
+                {c.kind === "added" ? t("handler.changeKind.added") : c.kind === "removed" ? t("handler.changeKind.removed") : t("handler.changeKind.changed")}
               </span>
               <code style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>{c.name}</code>
             </div>

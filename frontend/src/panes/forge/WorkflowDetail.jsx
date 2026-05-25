@@ -4,6 +4,7 @@
 // WorkflowDetail —— 只读 DAG 画布 + VersionRail；编辑画布 Phase 11 落地。
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { KindChip } from "../../components/shared/KindChip.jsx";
@@ -22,6 +23,7 @@ const NODE_W = 184;
 const NODE_H = 76;
 
 export function WorkflowDetail({ forge, onBack }) {
+  const { t } = useTranslation(["forge", "common"]);
   const { data: wf = forge } = useWorkflow(forge.id);
   const { data: versions = [] } = useWorkflowVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
@@ -43,11 +45,11 @@ export function WorkflowDetail({ forge, onBack }) {
       <div className="page-header" style={{ paddingTop: 18 }}>
         <div className="page-header-text" style={{ gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--fg-muted)" }}>
-            <Button size="xs" variant="ghost" onClick={onBack}>← 返回</Button>
+            <Button size="xs" variant="ghost" onClick={onBack}>← {t("common:back")}</Button>
             <KindChip kind="workflow" />
             <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>{forge.id}</span>
             {progress && progress.status === "running" && (
-              <span className="badge streaming"><span className="dot" />工坊中</span>
+              <span className="badge streaming"><span className="dot" />{t("detail.forging")}</span>
             )}
           </div>
           <div className="page-title" style={{ fontFamily: "var(--font-mono)" }}>{wf.name}</div>
@@ -58,18 +60,18 @@ export function WorkflowDetail({ forge, onBack }) {
         </div>
         <div className="page-actions">
           <CapabilityCheckPanel workflowId={wf.id} />
-          <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 触发</Button>
+          <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> {t("workflow.triggerBtn")}</Button>
           {pendingV && (
             <>
               <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
                 onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-                onError: (e) => pushToast({ kind: "error", title: "Revert 失败", desc: e.message }),
+                onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
               })}>
                 <Icon.X /> Revert
               </Button>
               <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
                 onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-                onError: (e) => pushToast({ kind: "error", title: "Accept 失败", desc: e.message }),
+                onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
               })}>
                 <Icon.Check /> Accept
               </Button>
@@ -100,7 +102,7 @@ export function WorkflowDetail({ forge, onBack }) {
           onSelect={setSelectedId}
           onAccept={() => accept.mutate(forge.id)}
           onRevert={() => reject.mutate(forge.id)}
-          onDeploy={() => pushToast({ kind: "success", title: "Deploy 已请求" })}
+          onDeploy={() => pushToast({ kind: "success", title: t("detail.deployRequested") })}
         />
       </div>
       <RunDrawer open={runOpen} onClose={() => setRunOpen(false)} kind="workflow" entity={wf} />
@@ -111,13 +113,14 @@ export function WorkflowDetail({ forge, onBack }) {
 // DagCanvas — auto-layout nodes from a version's graph + render cubic
 // bezier edges. Pan via mouse drag, zoom via wheel. Read-only.
 function DagCanvas({ version }) {
+  const { t } = useTranslation("forge");
   const graph = useMemo(() => normaliseGraph(version), [version]);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [panning, setPanning] = useState(false);
   const panStart = useState({ current: null })[0];
 
   if (!graph) {
-    return <div className="empty" style={{ padding: 40 }}><div className="sub">该版本没有 graph 数据</div></div>;
+    return <div className="empty" style={{ padding: 40 }}><div className="sub">{t("workflow.noGraph")}</div></div>;
   }
 
   const { nodes, edges } = graph;
@@ -185,11 +188,11 @@ function DagCanvas({ version }) {
         ))}
       </div>
       <div className="wf-canvas-toolbar">
-        <button className="icon-btn" title="放大" onClick={() => setTransform((t) => ({ ...t, scale: Math.min(2.5, t.scale * 1.2) }))}><Icon.Plus /></button>
-        <button className="icon-btn" title="缩小" onClick={() => setTransform((t) => ({ ...t, scale: Math.max(0.25, t.scale / 1.2) }))}>
+        <button className="icon-btn" title={t("workflow.canvas.zoomIn")} onClick={() => setTransform((t) => ({ ...t, scale: Math.min(2.5, t.scale * 1.2) }))}><Icon.Plus /></button>
+        <button className="icon-btn" title={t("workflow.canvas.zoomOut")} onClick={() => setTransform((t) => ({ ...t, scale: Math.max(0.25, t.scale / 1.2) }))}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><path d="M5 12h14"/></svg>
         </button>
-        <button className="icon-btn" title="复位" onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}><Icon.Refresh /></button>
+        <button className="icon-btn" title={t("workflow.canvas.reset")} onClick={() => setTransform({ x: 0, y: 0, scale: 1 })}><Icon.Refresh /></button>
         <div className="wf-zoom">{Math.round(transform.scale * 100)}%</div>
       </div>
     </div>

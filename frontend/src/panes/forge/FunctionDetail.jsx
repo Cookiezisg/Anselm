@@ -5,6 +5,7 @@
 // FunctionDetail —— 当前版本完整视图 + 其他版本分屏 diff + 右侧 VersionRail。
 
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { KindChip } from "../../components/shared/KindChip.jsx";
@@ -18,6 +19,7 @@ import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
 
 export function FunctionDetail({ forge, onBack }) {
+  const { t } = useTranslation(["forge", "common"]);
   const { data: fn = forge } = useFunction(forge.id);
   const { data: versions = [] } = useFunctionVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
@@ -37,13 +39,13 @@ export function FunctionDetail({ forge, onBack }) {
   const onAccept = () => {
     accept.mutate(forge.id, {
       onSuccess: () => pushToast({ kind: "success", title: "Accepted", desc: fn.name }),
-      onError: (e) => pushToast({ kind: "error", title: "Accept 失败", desc: e.message }),
+      onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
     });
   };
   const onRevert = () => {
     revert.mutate(forge.id, {
       onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending", desc: fn.name }),
-      onError: (e) => pushToast({ kind: "error", title: "Revert 失败", desc: e.message }),
+      onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
     });
   };
 
@@ -53,13 +55,13 @@ export function FunctionDetail({ forge, onBack }) {
         <div className="page-header-text" style={{ gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "var(--fg-muted)" }}>
             <Button size="xs" variant="ghost" onClick={onBack}>
-              <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} /> 返回
+              <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} /> {t("common:back")}
             </Button>
             <span>·</span>
             <KindChip kind="function" />
             <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>{forge.id}</span>
             {forgeProgress && forgeProgress.status === "running" && (
-              <span className="badge streaming"><span className="dot" />工坊中</span>
+              <span className="badge streaming"><span className="dot" />{t("detail.forging")}</span>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -83,7 +85,7 @@ export function FunctionDetail({ forge, onBack }) {
             </>
           ) : (
             <>
-              <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> 试跑</Button>
+              <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> {t("function.runBtn")}</Button>
               <AskAiTrigger
                 kind="function"
                 entityId={fn.id}
@@ -127,7 +129,8 @@ function FieldRow({ label, value }) {
 }
 
 function FunctionFullView({ v, fn }) {
-  if (!v) return <div className="empty" style={{ padding: 32 }}><div className="sub">没有可显示的版本</div></div>;
+  const { t } = useTranslation("forge");
+  if (!v) return <div className="empty" style={{ padding: 32 }}><div className="sub">{t("function.noVersion")}</div></div>;
   return (
     <div className="fn-view">
       <h3 className="section-label" style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
@@ -135,36 +138,37 @@ function FunctionFullView({ v, fn }) {
         {v.state === "current" && <span className="vr-badge vr-current">current</span>}
         {v.state === "pending" && <span className="vr-badge vr-pending"><Icon.Sparkles /> pending</span>}
       </h3>
-      <FieldRow label="说明" value={
+      <FieldRow label={t("function.fieldLabel.description")} value={
         <div style={{ lineHeight: 1.6 }}>
-          {v.description || fn.description || <span style={{ color: "var(--fg-faint)" }}>无说明</span>}
+          {v.description || fn.description || <span style={{ color: "var(--fg-faint)" }}>—</span>}
         </div>
       } />
       {(v.schema?.inputs || v.inputs) && (
-        <FieldRow label="输入" value={
+        <FieldRow label={t("function.fieldLabel.inputs")} value={
           <code style={{ fontFamily: "var(--font-mono)" }}>{v.schema?.inputs || JSON.stringify(v.inputs)}</code>
         } />
       )}
       {(v.schema?.outputs || v.outputs) && (
-        <FieldRow label="输出" value={
+        <FieldRow label={t("function.fieldLabel.outputs")} value={
           <code style={{ fontFamily: "var(--font-mono)" }}>{v.schema?.outputs || JSON.stringify(v.outputs)}</code>
         } />
       )}
       {(v.runtime || v.sandbox) && (
-        <FieldRow label="运行环境" value={
+        <FieldRow label={t("function.fieldLabel.runtime")} value={
           <code style={{ fontFamily: "var(--font-mono)" }}>{v.runtime || v.sandbox}</code>
         } />
       )}
 
-      <h4 className="section-label" style={{ marginTop: 20 }}>代码</h4>
+      <h4 className="section-label" style={{ marginTop: 20 }}>{t("function.fieldLabel.code")}</h4>
       {v.code
         ? <CodeView src={v.code} />
-        : <div className="empty" style={{ padding: 18 }}><div className="sub">该版本没有代码</div></div>}
+        : <div className="empty" style={{ padding: 18 }}><div className="sub">{t("function.noCode")}</div></div>}
     </div>
   );
 }
 
 function FunctionDiffView({ currentV, otherV, pendingV }) {
+  const { t } = useTranslation("forge");
   const isPending = otherV?.id === pendingV?.id;
   const descChanged = (currentV?.description || "") !== (otherV?.description || "");
   const inA = currentV?.schema?.inputs, inB = otherV?.schema?.inputs;
@@ -176,7 +180,7 @@ function FunctionDiffView({ currentV, otherV, pendingV }) {
   const total = [descChanged, inputsChanged, outputsChanged, codeChanged].filter(Boolean).length;
 
   if (!otherV || !currentV) {
-    return <div className="empty" style={{ padding: 32 }}><div className="sub">缺少版本数据无法对比</div></div>;
+    return <div className="empty" style={{ padding: 32 }}><div className="sub">{t("function.noVersionForDiff")}</div></div>;
   }
 
   return (
@@ -185,44 +189,44 @@ function FunctionDiffView({ currentV, otherV, pendingV }) {
         Diff · {currentV.label || "current"} ⇆ {otherV.label || otherV.id}
         {isPending && <span className="vr-badge vr-pending"><Icon.Sparkles /> pending</span>}
         <span style={{ color: "var(--fg-faint)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
-          · {total} 处变更
+          · {t("function.changes", { count: total })}
         </span>
       </h3>
 
       {total === 0 && (
-        <div style={{ padding: 24, color: "var(--fg-faint)", textAlign: "center" }}>两个版本内容完全一致</div>
+        <div style={{ padding: 24, color: "var(--fg-faint)", textAlign: "center" }}>{t("function.identical")}</div>
       )}
 
       {descChanged && (
-        <DiffSection label="说明" leftLabel={currentV.label} rightLabel={otherV.label}>
+        <DiffSection label={t("function.fieldLabel.description")} leftLabel={currentV.label} rightLabel={otherV.label}>
           <div className="fn-diff-2col">
             <div className="fn-diff-side">
-              <div className="fn-diff-prose">{currentV.description || <span style={{ color: "var(--fg-faint)" }}>(空)</span>}</div>
+              <div className="fn-diff-prose">{currentV.description || <span style={{ color: "var(--fg-faint)" }}>{t("function.fieldLabel.empty")}</span>}</div>
             </div>
             <div className="fn-diff-side">
-              <div className="fn-diff-prose">{otherV.description || <span style={{ color: "var(--fg-faint)" }}>(空)</span>}</div>
+              <div className="fn-diff-prose">{otherV.description || <span style={{ color: "var(--fg-faint)" }}>{t("function.fieldLabel.empty")}</span>}</div>
             </div>
           </div>
         </DiffSection>
       )}
 
       {(inputsChanged || outputsChanged) && (
-        <DiffSection label="契约">
+        <DiffSection label={t("function.fieldLabel.contract")}>
           <div className="fn-diff-2col">
             <div className="fn-diff-side">
-              <div className="fn-diff-kv"><span className="k">输入</span><code>{inA}</code></div>
-              <div className="fn-diff-kv"><span className="k">输出</span><code>{outA}</code></div>
+              <div className="fn-diff-kv"><span className="k">{t("function.fieldLabel.inputs")}</span><code>{inA}</code></div>
+              <div className="fn-diff-kv"><span className="k">{t("function.fieldLabel.outputs")}</span><code>{outA}</code></div>
             </div>
             <div className="fn-diff-side">
-              <div className="fn-diff-kv"><span className="k">输入</span><code className={inputsChanged ? "is-diff" : ""}>{inB}</code></div>
-              <div className="fn-diff-kv"><span className="k">输出</span><code className={outputsChanged ? "is-diff" : ""}>{outB}</code></div>
+              <div className="fn-diff-kv"><span className="k">{t("function.fieldLabel.inputs")}</span><code className={inputsChanged ? "is-diff" : ""}>{inB}</code></div>
+              <div className="fn-diff-kv"><span className="k">{t("function.fieldLabel.outputs")}</span><code className={outputsChanged ? "is-diff" : ""}>{outB}</code></div>
             </div>
           </div>
         </DiffSection>
       )}
 
       {codeChanged && (
-        <DiffSection label="代码">
+        <DiffSection label={t("function.fieldLabel.code")}>
           <SplitDiff
             leftLabel={currentV.label + " · current"}
             rightLabel={otherV.label + (isPending ? " · pending" : "")}
