@@ -16,6 +16,11 @@
       "title": "还没有{{kindPart}}工坊产物",
       "sub": "去对话里说一句：「帮我做一个 X」"
     },
+    "kindNames": {
+      "function": "函数",
+      "handler": "处理器",
+      "workflow": "工作流"
+    },
     "table": {
       "name": "名称",
       "kind": "类型",
@@ -47,6 +52,7 @@
   },
   "function": {
     "runBtn": "试跑",
+    "aiSuggestions": ["把超时改成 60 秒", "失败重试 3 次", "加单元测试"],
     "noVersion": "没有可显示的版本",
     "noCode": "该版本没有代码",
     "noVersionForDiff": "缺少版本数据无法对比",
@@ -64,6 +70,7 @@
   },
   "handler": {
     "runBtn": "试调用",
+    "aiSuggestions": ["给方法加批量写", "把同步改成异步"],
     "noMethods": "该版本没有方法",
     "collapseMethodList": "收起方法列表",
     "expandMethodList": "展开方法列表",
@@ -78,14 +85,15 @@
     },
     "tabs": {
       "calls": "Call 历史",
-      "callsPlaceholder": "通过 handler 调用后这里会有记录（KPI + 表格 Phase 11 接入）"
+      "callsPlaceholder": "调用记录会显示在这里"
     },
     "config": {
-      "encrypted": "Encrypted with AES-GCM · 仅本地存储"
+      "encrypted": "AES-GCM 加密 · 仅本地存储"
     }
   },
   "workflow": {
     "triggerBtn": "触发",
+    "aiSuggestions": ["在写入前加重试", "改成每天早上 8 点触发"],
     "noGraph": "该版本没有 graph 数据",
     "canvas": {
       "zoomIn": "放大",

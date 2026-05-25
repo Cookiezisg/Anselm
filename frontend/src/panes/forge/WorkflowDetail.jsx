@@ -81,7 +81,7 @@ export function WorkflowDetail({ forge, onBack }) {
             kind="workflow"
             entityId={wf.id}
             context={`Workflow · ${wf.name}`}
-            suggestions={["在写入前加重试", "改成每天早上 8 点触发"]}
+            suggestions={t("workflow.aiSuggestions", { returnObjects: true })}
           />
         </div>
       </div>

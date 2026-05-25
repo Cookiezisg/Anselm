@@ -90,7 +90,7 @@ export function FunctionDetail({ forge, onBack }) {
                 kind="function"
                 entityId={fn.id}
                 context={`Function · ${fn.name}`}
-                suggestions={["把超时改成 60 秒", "失败重试 3 次", "加单元测试"]}
+                suggestions={t("function.aiSuggestions", { returnObjects: true })}
               />
             </>
           )}

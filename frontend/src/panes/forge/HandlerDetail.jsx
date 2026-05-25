@@ -85,7 +85,7 @@ export function HandlerDetail({ forge, onBack }) {
             kind="handler"
             entityId={hd.id}
             context={`Handler · ${hd.name}`}
-            suggestions={["给方法加批量写", "把同步改成异步"]}
+            suggestions={t("handler.aiSuggestions", { returnObjects: true })}
           />
         </div>
       </div>

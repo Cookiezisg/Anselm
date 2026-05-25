@@ -152,7 +152,7 @@ export function ForgeList({ onOpen }) {
         {filtered.length === 0 ? (
           <div className="empty" style={{ padding: 48 }}>
             <Icon.Hammer className="icon" />
-            <div className="title">{t("list.empty.title", { kindPart: tab === "all" ? "" : " " + tab + " " })}</div>
+            <div className="title">{t("list.empty.title", { kindPart: tab === "all" ? "" : t("list.kindNames." + tab) + " " })}</div>
             <div className="sub">{t("list.empty.sub")}</div>
           </div>
         ) : (

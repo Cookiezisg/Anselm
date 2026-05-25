@@ -6,15 +6,20 @@
       "all": "All"
     },
     "searchPlaceholder": "Search by name or description…",
-    "countInfo": "{{count}} item(s) · by last updated",
+    "countInfo": "{{count}} item(s) · by last update",
     "batch": {
       "selected": "{{count}} selected",
       "clearSel": "Clear selection",
       "deleteConfirm": "Delete {{count}} selected item(s)? This cannot be undone."
     },
     "empty": {
-      "title": "No{{kindPart}} forge artifact yet",
+      "title": "No {{kindPart}}artifacts yet",
       "sub": "Go to a conversation and say: \"Build me an X\""
+    },
+    "kindNames": {
+      "function": "function",
+      "handler": "handler",
+      "workflow": "workflow"
     },
     "table": {
       "name": "Name",
@@ -47,6 +52,7 @@
   },
   "function": {
     "runBtn": "Test run",
+    "aiSuggestions": ["Set timeout to 60s", "Retry 3 times on failure", "Add unit tests"],
     "noVersion": "No version to display",
     "noCode": "This version has no code",
     "noVersionForDiff": "Missing version data, cannot diff",
@@ -64,6 +70,7 @@
   },
   "handler": {
     "runBtn": "Test call",
+    "aiSuggestions": ["Add batch write to the method", "Switch from sync to async"],
     "noMethods": "This version has no methods",
     "collapseMethodList": "Collapse method list",
     "expandMethodList": "Expand method list",
@@ -78,7 +85,7 @@
     },
     "tabs": {
       "calls": "Call history",
-      "callsPlaceholder": "Calls will be recorded here after invocation (KPI + table Phase 11)"
+      "callsPlaceholder": "Calls will appear here after invocation"
     },
     "config": {
       "encrypted": "Encrypted with AES-GCM · local only"
@@ -86,6 +93,7 @@
   },
   "workflow": {
     "triggerBtn": "Trigger",
+    "aiSuggestions": ["Add a retry before the write", "Trigger daily at 8 AM"],
     "noGraph": "This version has no graph data",
     "canvas": {
       "zoomIn": "Zoom in",
