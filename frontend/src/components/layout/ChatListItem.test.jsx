@@ -36,21 +36,19 @@ describe("ChatListItem", () => {
     expect(screen.getByText("(无标题)")).toBeInTheDocument();
   });
 
-  it("idleStatus_dotHasNoStreamingModifier", () => {
+  it("idleStatus_rendersNoDot", () => {
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi", status: "idle" }} />);
-    const dot = container.querySelector(".dot");
-    expect(dot.className).not.toContain("is-streaming");
+    expect(container.querySelector(".cv-dot")).toBeNull();
   });
 
-  it("streamingStatus_dotGetsStreamingModifier_andRowToo", () => {
+  it("streamingStatus_rendersStreamingDot", () => {
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi", status: "streaming" }} />);
-    expect(container.querySelector(".dot.is-streaming")).toBeTruthy();
-    expect(container.querySelector(".nav-item.is-streaming")).toBeTruthy();
+    expect(container.querySelector(".cv-dot.is-streaming")).toBeTruthy();
   });
 
-  it("approvalStatus_rendersWarnExclamationBadge", () => {
-    render(<ChatListItem conv={{ id: "cv_a", title: "Hi", status: "approval" }} />);
-    expect(screen.getByText("!")).toBeInTheDocument();
+  it("approvalStatus_rendersApprovalDot", () => {
+    const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi", status: "approval" }} />);
+    expect(container.querySelector(".cv-dot.is-approval")).toBeTruthy();
   });
 
   it("clickRow_setsActiveConv_andOpensChatPane", async () => {
@@ -71,14 +69,13 @@ describe("ChatListItem", () => {
   it("activeConvAndChatOpen_rendersIsActiveClass", () => {
     useUIStore.setState({ openPanes: ["chat"], activeConv: "cv_a" });
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
-    expect(container.querySelector(".nav-item-wrap.is-active")).toBeTruthy();
-    expect(container.querySelector(".nav-item.is-active")).toBeTruthy();
+    expect(container.querySelector(".cv.is-active")).toBeTruthy();
   });
 
   it("activeConvButChatClosed_skipsIsActive", () => {
     useUIStore.setState({ openPanes: ["forge"], activeConv: "cv_a" });
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
-    expect(container.querySelector(".nav-item-wrap.is-active")).toBeNull();
+    expect(container.querySelector(".cv.is-active")).toBeNull();
   });
 
   it("menuPinAction_callsUpdateWithPinnedToggled", async () => {

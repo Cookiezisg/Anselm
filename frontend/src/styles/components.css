@@ -4068,62 +4068,46 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
 }
-.nav-item-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
+/* "最近" conversation rows — pill matches .sb-item (999px / 6px margin /
+   shared hover+active bg). idle = flush title; streaming/approval show a dot. */
+.cv {
+  display: flex; align-items: center;
+  height: 34px; margin: 0 6px; padding: 0 6px 0 14px;
+  border-radius: var(--radius-pill);
+  gap: 8px;
+  transition: background var(--t-fast);
 }
-.nav-item-wrap .nav-item {
-  flex: 1;
-  min-width: 0;
-}
-.conv-more {
-  position: relative;
-  flex-shrink: 0;
-  margin-right: 4px;
-  display: inline-flex;
-  align-items: center;
-}
-.conv-more .rel-more-btn {
-  opacity: 0;
-  background: transparent;
-  margin: 0;
-}
-.nav-item-wrap:hover .conv-more .rel-more-btn { opacity: 1; }
-.nav-item-wrap.is-active .conv-more .rel-more-btn { opacity: 0.6; }
-.conv-more-menu {
-  z-index: 1000;
-  min-width: 140px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: var(--shadow-popover);
-  padding: 4px;
-  display: flex; flex-direction: column;
-}
-.conv-more-menu button {
+.cv:hover { background: var(--bg-hover); }
+.cv.is-active { background: var(--bg-active); }
+.cv-open {
+  flex: 1; min-width: 0; height: 100%;
   display: flex; align-items: center; gap: 8px;
-  padding: 5px 10px;
-  background: transparent; border: 0;
-  font-size: 12px;
-  color: var(--fg-body);
-  cursor: pointer;
-  border-radius: 4px;
+  background: transparent; border: 0; padding: 0; cursor: pointer;
   text-align: left;
 }
-.conv-more-menu button:hover { background: var(--bg-hover); color: var(--fg-strong); }
-.conv-more-menu button.is-danger { color: var(--status-error); }
-.conv-more-menu button.is-danger:hover { background: color-mix(in srgb, var(--status-error) 10%, transparent); }
-.conv-more-menu .icon { width: 12px; height: 12px; }
-
-.nav-item-wrap .rel-more-btn {
-  position: absolute;
-  right: 4px;
-  opacity: 0;
-  background: var(--bg-sidebar);
+.cv-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.cv-dot.is-streaming { background: var(--accent); animation: pulse-dot 2s var(--ease) infinite; }
+.cv-dot.is-approval  { background: var(--status-warn); }
+.cv-title {
+  flex: 1; min-width: 0;
+  font-size: 13px; color: var(--fg-body);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.nav-item-wrap:hover .rel-more-btn { opacity: 1; }
-.nav-item-wrap.is-active .rel-more-btn { opacity: 0.6; background: transparent; }
+.cv.is-active .cv-title { color: var(--fg-strong); font-weight: 500; }
+.cv-title.untitled { color: var(--fg-faint); }
+.cv-more {
+  width: 22px; height: 22px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-pill);
+  background: transparent; border: 0; cursor: pointer;
+  color: var(--fg-faint);
+  opacity: 0; transition: opacity var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+.cv:hover .cv-more { opacity: 1; }
+.cv-more:hover { background: var(--bg-active); color: var(--fg-strong); }
+.cv-more:focus-visible { opacity: 1; }
+.cv-more .icon { width: 13px; height: 13px; }
+
 .rel-more-btn .icon { width: 11px; height: 11px; }
 
 /* ============================================================================

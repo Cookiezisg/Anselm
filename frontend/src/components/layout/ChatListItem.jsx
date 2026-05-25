@@ -1,10 +1,10 @@
-// ChatListItem — one row in the sidebar conversation list.
-// status dot reflects conversation state (streaming pulses, approval =
-// warn color), title is left-aligned and truncates. Hover shows ActionMenu.
+// ChatListItem — one row in the sidebar "最近" list. Pill matches .sb-item
+// (999px radius / 6px margin / shared hover+active bg). Status dot appears
+// ONLY when streaming (accent pulse) or awaiting approval (warn); idle rows
+// are flush text. Hover reveals the ⋯ menu (pin / rename / archive / delete).
 //
-// ChatListItem —— sidebar 对话项；hover 显示 ActionMenu，每个动作都接
-// 真后端（pin/archive 经 PATCH，rename 经 PATCH+prompt，delete 经 DELETE
-// + 确认）。
+// ChatListItem —— "最近"列表行;药丸与导航项一致。idle 标题齐平无点,
+// streaming/待批准 才显状态点;hover 浮出 ⋯ 操作菜单。
 
 import { useUIStore } from "../../store/ui.js";
 import { Icon } from "../primitives/Icon.jsx";
@@ -22,29 +22,22 @@ export function ChatListItem({ conv }) {
   const isActive = openPanes.includes("chat") && activeConv === conv.id;
 
   return (
-    <div className={"nav-item-wrap" + (isActive ? " is-active" : "")}>
+    <div className={"cv" + (isActive ? " is-active" : "")}>
       <button
-        className={"nav-item" + (isActive ? " is-active" : "") + (isStreaming ? " is-streaming" : "")}
+        type="button"
+        className="cv-open"
         title={conv.title || "(无标题)"}
         onClick={() => {
           setActiveConv(conv.id);
           if (!openPanes.includes("chat")) openPane("chat");
         }}
       >
-        <span
-          className={"dot" + (isStreaming ? " is-streaming" : "")}
-          style={isApproval ? { background: "var(--status-warn)" } : undefined}
-        />
-        <span className="label">{conv.title || "(无标题)"}</span>
-        {isApproval && (
-          <span
-            className="badge"
-            style={{
-              background: "color-mix(in srgb, var(--status-warn) 16%, transparent)",
-              color: "var(--status-warn)",
-            }}
-          >!</span>
+        {(isStreaming || isApproval) && (
+          <span className={"cv-dot" + (isStreaming ? " is-streaming" : " is-approval")} />
         )}
+        <span className={"cv-title" + (conv.title ? "" : " untitled")}>
+          {conv.title || "(无标题)"}
+        </span>
       </button>
       <ConvMenu conv={conv} />
     </div>
@@ -97,7 +90,7 @@ function ConvMenu({ conv }) {
     <ActionMenu
       placement="bottom-end"
       renderTrigger={({ ref, ...rest }) => (
-        <button ref={ref} className="rel-more-btn" title="对话操作" {...rest}>
+        <button ref={ref} className="cv-more" title="对话操作" {...rest}>
           <Icon.MoreHorizontal />
         </button>
       )}
