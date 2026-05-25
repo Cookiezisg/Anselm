@@ -1,11 +1,12 @@
 package tool
 
 // Toolset partitions system tools into always-present resident tools and lazily-loaded groups.
-// In T7 chat.Service.host.Tools() returns the full flattened set — the split enables T8 to
-// gate lazy groups behind activate_tools without breaking existing behavior.
+// chat host.Tools(ctx) returns resident + the lazy groups the conversation activated via
+// activate_tools; All() (full flattened set) is reserved for the §18 inventory handlers.
 //
 // Toolset 把系统工具分成常驻 resident 和按需加载的 lazy 组。
-// T7 里 host.Tools() 返全集——拆分使 T8 可以用 activate_tools 按需加载 lazy 组。
+// chat host.Tools(ctx) 返 resident + 本对话经 activate_tools 激活的 lazy 组；
+// All()（全集展平）留给 §18 总览 handler。
 type Toolset struct {
 	// Resident tools are always present in every LLM turn.
 	Resident []Tool

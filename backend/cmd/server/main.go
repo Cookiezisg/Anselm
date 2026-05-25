@@ -548,10 +548,11 @@ func main() {
 	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
 
 	// Partition into Resident + Lazy groups; activate_tools is injected as RESIDENT.
-	// T8 will switch host.Tools() to return only the activated subset; today All() = full set.
+	// host.Tools(ctx) returns resident + activated lazy groups (on-demand); tools is
+	// re-flattened to the full set here only for §18 inventory handlers (Deps.Tools).
 	//
-	// 分拆为 Resident + Lazy 组；activate_tools 注入为 RESIDENT。
-	// T8 将把 host.Tools() 改成只返已激活子集；目前 All() = 全集。
+	// 分拆为 Resident + Lazy 组；activate_tools 注入为 RESIDENT。host.Tools(ctx) 返
+	// resident + 已激活 lazy 组（按需）；这里把 tools 重新展平成全集仅供 §18 总览 handler。
 	ts := buildToolset(tools)
 	ts.Resident = append(ts.Resident, toolsettool.NewActivateTools(ts))
 	chatService.SetToolset(ts)

@@ -39,10 +39,10 @@ func (h *subagentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, er
 	}, nil
 }
 
-// Tools returns the per-spawn filtered tool list.
+// Tools ignores ctx: each Spawn gets a fixed pre-filtered list (no lazy groups / activate_tools).
 //
-// Tools 返回 per-spawn 过滤后的 tool 列表。
-func (h *subagentHost) Tools() []toolapp.Tool {
+// Tools 忽略 ctx：每次 Spawn 用固定预过滤列表（无 lazy 组 / activate_tools）。
+func (h *subagentHost) Tools(_ context.Context) []toolapp.Tool {
 	return h.tools
 }
 

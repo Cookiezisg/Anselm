@@ -561,10 +561,11 @@ func New(t *testing.T, opts ...Option) *Harness {
 	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
 
 	// Mirrors cmd/server/main.go: partition tools, inject activate_tools as RESIDENT.
-	// SetToolset sets s.tools = ts.All() so the full set is unchanged until T8.
+	// host.Tools(ctx) returns resident + activated lazy groups (on-demand); tools is
+	// re-flattened to the full set here only for §18 inventory handlers (Deps.Tools).
 	//
-	// 镜像 main.go：拆分工具，activate_tools 注入为 RESIDENT。
-	// SetToolset 设 s.tools = ts.All()，全集不变直到 T8。
+	// 镜像 main.go：拆分工具，activate_tools 注入为 RESIDENT。host.Tools(ctx) 返
+	// resident + 已激活 lazy 组（按需）；这里把 tools 重新展平成全集仅供 §18 总览 handler。
 	ts := buildHarnessToolset(tools)
 	ts.Resident = append(ts.Resident, toolsettool.NewActivateTools(ts))
 	chatService.SetToolset(ts)

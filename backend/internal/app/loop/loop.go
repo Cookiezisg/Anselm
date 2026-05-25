@@ -31,7 +31,11 @@ const maxConsecutiveAllFailTurns = 3
 // Host 是每次 run 的钩子面；block 持久化走 eventlog Emitter，不经 Host。
 type Host interface {
 	LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, error)
-	Tools() []toolapp.Tool
+	// Tools is recomputed every step: on-demand hosts widen the set as the
+	// LLM activates lazy groups (activate_tools), so ctx carries that state.
+	//
+	// Tools 每步重算：按需 host 随 LLM activate_tools 扩张工具集，ctx 携带该状态。
+	Tools(ctx context.Context) []toolapp.Tool
 	WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
 }
 
@@ -45,9 +49,11 @@ type Result struct {
 	LastMessage string
 }
 
-// Run executes the ReAct loop, composing baseReq.Messages from host.LoadHistory and Tools from host.Tools.
+// Run executes the ReAct loop, composing baseReq.Messages from host.LoadHistory; Tools are
+// recomputed per step from host.Tools(ctx) so activate_tools widens the set for later steps.
 //
-// Run 执行 ReAct 循环；baseReq.Messages 取自 host.LoadHistory，Tools 取自 host.Tools。
+// Run 执行 ReAct 循环；baseReq.Messages 取自 host.LoadHistory；Tools 每步从 host.Tools(ctx)
+// 重算，使 activate_tools 能为后续步骤扩张工具集。
 func Run(
 	ctx context.Context,
 	host Host,
@@ -68,26 +74,32 @@ func Run(
 		return Result{Status: chatdomain.StatusError, StopReason: chatdomain.StopReasonError}
 	}
 
-	tools := host.Tools()
-	baseReq.Tools = toolapp.ToLLMDefs(tools)
-	byName := toolsByName(tools)
-
 	var (
-		allBlocks      []chatdomain.Block
-		totalIn        int
-		totalOut       int
-		stopReason     = chatdomain.StopReasonEndTurn
-		finalStatus    = chatdomain.StatusCompleted
-		errCode        string
-		errMsg         string
-		finalWritten   bool
-		stepsRun       int
-		consecAllFail  int
+		allBlocks     []chatdomain.Block
+		totalIn       int
+		totalOut      int
+		stopReason    = chatdomain.StopReasonEndTurn
+		finalStatus   = chatdomain.StatusCompleted
+		errCode       string
+		errMsg        string
+		finalWritten  bool
+		stepsRun      int
+		consecAllFail int
 	)
 
 	for step := range maxSteps {
 		req := baseReq
 		req.Messages = history
+
+		// Recompute per step: a prior activate_tools may have widened the set.
+		// byName MUST match this step's offered tools so dispatch can't resolve
+		// a tool the LLM wasn't shown this turn.
+		//
+		// 每步重算：上一步的 activate_tools 可能已扩张工具集。byName 必须与本步
+		// offer 的集合一致，避免调度到本回合未展示给 LLM 的工具。
+		tools := host.Tools(ctx)
+		req.Tools = toolapp.ToLLMDefs(tools)
+		byName := toolsByName(tools)
 
 		stepsRun = step + 1
 

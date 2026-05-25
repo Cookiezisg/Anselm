@@ -172,7 +172,11 @@ func (h *agentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error
 	}, nil
 }
 
-func (h *agentHost) Tools() []toolapp.Tool {
+// Tools ignores ctx: workflow agent dispatch uses a fixed pre-filtered slice
+// (no lazy groups / activate_tools).
+//
+// Tools 忽略 ctx：workflow agent dispatch 用固定预过滤切片（无 lazy 组 / activate_tools）。
+func (h *agentHost) Tools(_ context.Context) []toolapp.Tool {
 	return h.tools
 }
 
@@ -220,4 +224,3 @@ func filterToolsByWhitelist(all []toolapp.Tool, whitelist []string) []toolapp.To
 	}
 	return out
 }
-

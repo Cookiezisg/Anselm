@@ -61,7 +61,6 @@ type Service struct {
 	modelPicker   modeldomain.ModelPicker
 	keyProvider   apikeydomain.KeyProvider
 	llmFactory    *llminfra.Factory
-	tools         []toolapp.Tool
 	toolset       toolapp.Toolset
 	emitter       eventlogpkg.Emitter
 	notifications notificationspkg.Publisher
@@ -151,21 +150,13 @@ func (s *Service) emitUserMessage(ctx context.Context, msg *chatdomain.Message) 
 	em.StopMessage(ctx, msg.ID, eventlogdomain.StatusCompleted, "", "", "", 0, 0)
 }
 
-// SetTools injects system tools into the ReAct Agent.
+// SetToolset stores the partitioned toolset. host.Tools(ctx) returns Resident plus
+// the lazy groups the conversation activated via activate_tools — on-demand loading.
 //
-// SetTools 注入 system tools 到 ReAct Agent。
-func (s *Service) SetTools(tools []toolapp.Tool) {
-	s.tools = tools
-}
-
-// SetToolset stores the partitioned toolset; host.Tools() returns the full set (Resident + all Lazy)
-// so behavior is unchanged until T8 gates lazy groups behind activate_tools.
-//
-// SetToolset 存储拆分后的 toolset；host.Tools() 返全集（Resident + 全部 Lazy），
-// 行为不变，直到 T8 用 activate_tools 按需加载 Lazy 组。
+// SetToolset 存储拆分后的 toolset。host.Tools(ctx) 返 Resident 加上本对话经
+// activate_tools 激活的 lazy 组——按需加载。
 func (s *Service) SetToolset(ts toolapp.Toolset) {
 	s.toolset = ts
-	s.tools = ts.All()
 }
 
 // SetSystemPromptProvider plugs the Capability Catalog; nil-tolerant.

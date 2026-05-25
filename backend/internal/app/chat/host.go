@@ -35,8 +35,21 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 	return h.svc.buildHistory(ctx, h.convID, h.userMsgID)
 }
 
-func (h *chatHost) Tools() []toolapp.Tool {
-	return h.svc.tools
+// Tools returns the resident set plus every lazy group the conversation has
+// activated via activate_tools (read from the ctx AgentState). Absent
+// AgentState → resident only.
+//
+// Tools 返回常驻集，加上本对话经 activate_tools 激活的每个 lazy 组
+// （从 ctx AgentState 读）。无 AgentState 时只返常驻集。
+func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
+	ts := h.svc.toolset
+	out := append([]toolapp.Tool{}, ts.Resident...)
+	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
+		for _, cat := range state.ActivatedGroups() {
+			out = append(out, ts.Lazy[cat]...)
+		}
+	}
+	return out
 }
 
 func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {

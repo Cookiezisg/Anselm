@@ -311,8 +311,9 @@ app/chat/
 ```
 loop.Run（伪码，详见 app/loop/loop.go）:
   history = host.LoadHistory(ctx)               // chat: buildHistory(convID, userMsgID)
-  baseReq.Tools = ToLLMDefs(host.Tools())
   for step < maxSteps:
+      tools = host.Tools(ctx)                    // 每步重算：activate_tools 可能已扩张集合
+      req.Tools = ToLLMDefs(tools); byName = toolsByName(tools)
       aBlocks, toolCalls, sr, errMsg, in, out = streamLLM(ctx, client, req with history)
           // streamLLM 实时 emit 每个 LLM event：
           //   text/reasoning EventText/EventReasoning →
@@ -825,7 +826,7 @@ type Service struct {
     modelPicker   modeldomain.ModelPicker    // 拿 (provider, modelID)
     keyProvider   apikeydomain.KeyProvider   // 拿 (key, baseURL)
     llmFactory    *llminfra.Factory          // 自有 LLM 流式客户端工厂
-    tools         []toolapp.Tool             // System Tools（实现 Tool 接口；SetTools 注入）
+    toolset       toolapp.Toolset            // Resident + Lazy 组（SetToolset 注入）；host.Tools(ctx) 按激活组返
     emitter       eventlogpkg.Emitter        // event-log emit (chat / block 生命周期)
     notifications notificationspkg.Publisher // global notifications (autoTitle 等 entity 更新)
     dataDir       string                     // 附件存储根目录
@@ -841,7 +842,7 @@ ctor `NewService(repo, convRepo, modelPicker, keyProvider, llmFactory, emitter, 
 - `dataDir==""` 兜底 `filepath.Join(os.TempDir(), "forgify")`
 
 后置注入：
-- `SetTools(tools []toolapp.Tool)` — 全局 tool 列表建好后注入（与 subagent.NewService 同模式）
+- `SetToolset(ts toolapp.Toolset)` — 全局 tool 列表建好后拆分注入（Resident + Lazy 组）；`host.Tools(ctx)` 返 Resident + ctx 上 `ActivatedGroups()` 对应的 Lazy 组（activate_tools 按需加载）
 - `SetSystemPromptProvider(p catalogdomain.SystemPromptProvider)` — Capability Catalog（避免 catalog import chat 的循环依赖）
 
 ### 10.2 Send 流程
@@ -864,7 +865,7 @@ worker goroutine（runner.go::processTask）:
           ErrPickModel → MODEL_NOT_CONFIGURED
           ErrResolveCreds → API_KEY_PROVIDER_NOT_FOUND
           其他 → LLM_PROVIDER_ERROR）
- 11. baseReq{ModelID, Key, BaseURL, System}（loop.Run 内填 baseReq.Tools = host.Tools()）
+ 11. baseReq{ModelID, Key, BaseURL, System}（loop.Run 内每步填 req.Tools = ToLLMDefs(host.Tools(ctx))）
  12. chatHost{svc, convID, uid, msgID, userMsgID}
  13. loop.Run(agentCtx, host, bc.Client, baseReq, maxSteps=20, log) → loop.Result
 
@@ -1079,7 +1080,7 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 - [x] `app/loop/history.go` — extendHistory + BlocksToAssistantLLM（与 chat.buildHistory 共用）
 
 ### app/chat 层（5 文件）
-- [x] `app/chat/chat.go` — Service struct + NewService + Send / Cancel / ListMessages / UploadAttachment + SetTools + SetSystemPromptProvider + emitUserMessage + queueCapacity + convQueue（含 agentState）/ queuedTask 类型
+- [x] `app/chat/chat.go` — Service struct + NewService + Send / Cancel / ListMessages / UploadAttachment + SetToolset（持 Resident + Lazy 组）+ SetSystemPromptProvider + emitUserMessage + queueCapacity + convQueue（含 agentState）/ queuedTask 类型
 - [x] `app/chat/runner.go` — getOrCreateQueue / runQueue（5 分钟空闲 GC）/ processTask（→ loop.Run）/ emitFatalError / buildSystemPrompt（含 Capability Catalog 段）/ autoTitle（→ notifications.Publish）+ maxSteps 常量
 - [x] `app/chat/host.go` — chatHost 实现 loop.Host：LoadHistory / Tools / WriteFinalize（detached saveCtx + SaveMessage + StopMessage）+ buildMessage + mapEventLogStatus（Warn fallback for unknown status）
 - [x] `app/chat/history.go` — buildHistory(currentUserMsgID) + buildUserLLMMessage（读 Attrs.attachments）+ attachmentToPart
@@ -1093,4 +1094,4 @@ chat domain 在 Phase 4-5 主要通过 **追加 system tools** + **升级 system
 ### 配套
 - [x] `errmap.go` — chat sentinel 映射（含 `MESSAGE_NOT_FOUND` / `STREAM_NOT_FOUND` / `STREAM_IN_PROGRESS` / `LLM_PROVIDER_ERROR` / 4 attachment / `VISION_NOT_SUPPORTED`）
 - [x] `router/deps.go` — ChatService / EventlogBridge / NotificationsBridge 字段
-- [x] `main.go` — chatRepo 共享变量；llmFactory；PathGuard；7 家族工厂装配链 ForgeTools → FilesystemTools → SearchTools → WebTools → NewShellTools（含 ProcessManager.Stop defer）→ TaskTools → AskTools → SubagentTools → chatService.SetTools(tools)；Migrate messages + message_blocks + attachments + tasks
+- [x] `main.go` — chatRepo 共享变量；llmFactory；PathGuard；7 家族工厂装配链 ForgeTools → FilesystemTools → SearchTools → WebTools → NewShellTools（含 ProcessManager.Stop defer）→ TaskTools → AskTools → SubagentTools → buildToolset(tools) + 注入 activate_tools(RESIDENT) → chatService.SetToolset(ts)；Migrate messages + message_blocks + attachments + tasks
