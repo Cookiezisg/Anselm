@@ -174,7 +174,7 @@ export function Sidebar() {
           title="设置"
           aria-label="settings"
         >
-          <Icon.Settings size={16} strokeWidth={2} />
+          <Icon.Settings size={18} strokeWidth={2} />
         </button>
       </div>
     </motion.aside>

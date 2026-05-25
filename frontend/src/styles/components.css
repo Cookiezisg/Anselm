@@ -233,22 +233,22 @@
 .sb-foot-spacer { flex: 1; }
 .sb-foot {
   display: flex; align-items: center;
-  height: 48px; padding: 0 14px 0 18px;
+  height: 48px; padding: 0 14px 0 20px;
   border-top: 1px solid var(--border-soft);
   margin-top: 6px;
   gap: 12px;
 }
 .sb-avatar-slot {
   position: relative;
-  width: 28px; height: 28px;
+  width: 24px; height: 24px;
   background: transparent; border: 0; padding: 0; cursor: pointer;
   flex-shrink: 0;
 }
 .sb-avatar {
   display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   background: linear-gradient(135deg, #FCD9B4, #F5A06A);
-  color: #FFFFFF; font-size: 12px; font-weight: 500;
+  color: #FFFFFF; font-size: 11px; font-weight: 500;
 }
 .sb-badge-dot {
   position: absolute; top: -1px; right: -1px;
@@ -289,11 +289,18 @@
   flex-direction: column-reverse;
   align-items: center;
   height: auto;
-  padding: 8px 0 10px;
-  gap: 6px;
+  padding: 8px 0 12px;
+  gap: 2px;
 }
 .sidebar.is-collapsed .sb-user { display: none; }
-.sidebar.is-collapsed .sb-gear-btn { transition: opacity var(--t-med); }
+/* Collapsed gear reads as a standard rail item: 40×38 pill, 18px icon,
+   transparent by default (no grey ring until you hover IT), gentle fade-in
+   on footer hover. */
+.sidebar.is-collapsed .sb-gear-btn {
+  width: 40px; height: 38px;
+  border-radius: var(--radius-pill);
+  transition: opacity var(--t-med), background var(--t-fast), color var(--t-fast);
+}
 
 /* ── Main panel ───────────────────────────────────────────────────── */
 .main {
