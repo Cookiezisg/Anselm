@@ -257,7 +257,7 @@ Create 用 `json.RawMessage` 接 ops 而非 `[]workflowapp.Op` — 顶层 envelo
 
 ---
 
-## 10. LLM 工具(6 个)
+## 10. LLM 工具(6 锻造 + 3 执行 plane = 9)
 
 | 工具 | 用途 |
 |---|---|
@@ -268,7 +268,7 @@ Create 用 `json.RawMessage` 接 ops 而非 `[]workflowapp.Op` — 顶层 envelo
 | `revert_workflow` | 翻 active 版本指针 + forge 双写 |
 | `delete_workflow` | 软删 + forge 双写 |
 
-Plan 05 工具(本 plan 不实现):`trigger_workflow` / `search_workflow_executions` / `get_workflow_execution` — 跟 D22 execution log 一起在执行 plane 引入。
+执行 plane 工具(**已交付**):`trigger_workflow`(启动一次运行,`dryRun` 支持 — `WorkflowTriggerTool` 接 scheduler.StartRunWithOptions)/ `search_workflow_executions` / `get_workflow_execution`(查 flowrun_nodes — `WorkflowExecutionTools` 接 flowrun repo)。这 3 个在 scheduler 构造后注册,**不进 subagent 工具集**(D21 — 只编排者触发)。
 
 ---
 

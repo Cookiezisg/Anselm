@@ -217,7 +217,7 @@ backend/
     │   ├── tool/                   ← ✅ Tool framework：tool.go（9 方法接口 + 标准字段注入 + ToLLMDef）；嵌套子包按 tool 家族（§S12 例外）
     │   │   ├── function/           ← ✅ 9 LLM tools: search/get/create/edit/revert/delete/run + search_function_executions/get_function_execution (D22)
     │   │   ├── handler/            ← ✅ 10 LLM tools: search/get/create/edit/revert/delete + call_handler + update_handler_config + search_handler_calls/get_handler_call (D22)
-    │   │   ├── workflow/           ← ✅ 6 + 2 = 8 LLM tools: search/get/create/edit/revert/delete (Plan 04;无 envfix loop) + search_workflow_executions/get_workflow_execution (Plan 05 E13 查 flowrun_nodes)
+    │   │   ├── workflow/           ← ✅ 6 + 2 + 1 = 9 LLM tools: search/get/create/edit/revert/delete (Plan 04) + search_workflow_executions/get_workflow_execution (Plan 05) + trigger_workflow (dryRun;接 scheduler;2026-05-26)
     │   │   ├── filesystem/         ← ✅ Read/Write/Edit/Glob/Grep
     │   │   ├── shell/              ← ✅ Bash/BashOutput/KillShell
     │   │   ├── web/                ← ✅ WebFetch/WebSearch

@@ -60,7 +60,7 @@ v1 auto-accept(对齐 forge 的 TE-15):**仅当 env=ready 时** auto-accept;env=
 | `set_code` | `code` | Python 源码 |
 | `set_parameters` | `parameters: []ParameterSpec` | 输入 schema(LLM 自报) |
 | `set_return_schema` | `returnSchema: object` | 输出 schema |
-| `set_dependencies` | `deps: []string`(PEP 508)| 依赖列表 |
+| `set_dependencies` | `dependencies: []string`(PEP 508)| 依赖列表 |
 | `set_python_version` | `version`(PEP 440)| Python 版本约束 |
 
 LLM 发 `[{op:"set_meta",name:"...",...}, {op:"set_code",code:"..."}, ...]`,`functionapp.ParseOps` 解码为 `[]Op{Type, Raw}`(Raw 是不透明 body,各 op handler 自取字段)。
