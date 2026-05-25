@@ -10,7 +10,6 @@ import { Icon } from "../primitives/Icon.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useSettings } from "../../store/settings.js";
 import { useUsers, useCreateUser } from "../../api/users.js";
-import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { scaleIn } from "../../motion/tokens.js";
 import { ApiKeysSection } from "../config/ApiKeysSection.jsx";
 import { SearchSection } from "../config/SearchSection.jsx";
@@ -88,12 +87,8 @@ function AccountRegion() {
   const qc = useQueryClient();
   const settings = useSettings();
   const pushToast = useUIStore((s) => s.pushToast);
-  const [displayName, setDisplayName] = useDisplayName();
-  const [draft, setDraft] = useState(displayName);
   const [mode, setMode] = useState("view");
   const [name, setName] = useState("");
-
-  useEffect(() => { setDraft(displayName); }, [displayName]);
 
   const active = users.find((u) => u.id === settings.activeUserId) || users[0];
 
