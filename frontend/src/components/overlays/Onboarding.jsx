@@ -55,6 +55,7 @@ export function Onboarding({ onFinish }) {
   const [createdKeyText, setCreatedKeyText] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
   const [models, setModels] = useState([]);
   const [modelId, setModelId] = useState("");
   // search
@@ -90,16 +91,18 @@ export function Onboarding({ onFinish }) {
     if (createdKeyId) deleteKey.mutate(createdKeyId);
     setProvider(n);
     setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
-    setVerified(false); setModels([]); setModelId("");
+    setVerified(false); setModels([]); setModelId(""); setVerifyError("");
   };
 
   const onKeyChange = (v) => {
     setApiKey(v);
+    setVerifyError("");
     if (verified) { setVerified(false); setModels([]); setModelId(""); }
   };
 
   const verify = () => run(async () => {
     setVerifying(true);
+    setVerifyError("");
     try {
       let keyId = createdKeyId;
       if (keyId && createdKeyText !== apiKey) {
@@ -119,9 +122,9 @@ export function Onboarding({ onFinish }) {
       setModelId(opts[0] || "");
       setVerified(true);
       pushToast({ kind: "success", title: t.toast.keyVerified });
-    } catch (err) {
+    } catch {
       setVerified(false);
-      pushToast({ kind: "warn", title: t.toast.keyFail, desc: err.message });
+      setVerifyError(t.model.verifyFail);
     } finally {
       setVerifying(false);
     }
@@ -213,8 +216,8 @@ export function Onboarding({ onFinish }) {
               <Model
                 t={t} providers={llm} provider={provider} pickProvider={pickProvider}
                 apiKey={apiKey} onKeyChange={onKeyChange} verify={verify}
-                verifying={verifying} verified={verified} models={models}
-                modelId={modelId} setModelId={setModelId}
+                verifying={verifying} verified={verified} verifyError={verifyError}
+                models={models} modelId={modelId} setModelId={setModelId}
               />
             )}
             {stepKey === "search" && (
@@ -353,7 +356,7 @@ function ProviderGrid({ providers, hints, selected, onPick, tall }) {
   );
 }
 
-function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, models, modelId, setModelId }) {
+function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, verifyError, models, modelId, setModelId }) {
   const isOllama = provider === "ollama";
   const display = providers.find((p) => p.name === provider)?.displayName || provider;
   return (
@@ -369,7 +372,7 @@ function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, veri
           <div className="onb-twofield">
             <div className="onb-keyfield" style={{ flex: 1.3 }}>
               <div className="onb-klabel">{isOllama ? display : t.model.keyLabel(display)}</div>
-              <div className="onb-kinput">
+              <div className={"onb-kinput" + (verifyError ? " is-error" : "")}>
                 <Icon.KeyRound />
                 {isOllama
                   ? <input value="localhost:11434" readOnly style={{ color: "var(--fg-faint)" }} />
@@ -392,7 +395,7 @@ function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, veri
               </div>
             )}
           </div>
-          {isOllama && <div className="onb-banner"><Icon.Server /><span>{t.model.ollamaHint}</span></div>}
+          {verifyError && <div className="onb-verify-err"><Icon.AlertCircle /> {verifyError}</div>}
           {verified && models.length > 0 && <div className="onb-khint">{t.model.availHint(models)}</div>}
         </>
       )}

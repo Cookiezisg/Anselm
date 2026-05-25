@@ -4787,7 +4787,6 @@ tr.is-selected { background: var(--accent-soft) !important; }
 
 .onb-journey { margin-top: 26px; display: flex; flex-direction: column; position: relative; z-index: 1; }
 .onb-jstep { display: flex; gap: 11px; padding: 7px 9px; border-radius: var(--radius-md); position: relative; }
-.onb-jstep.is-active { background: var(--bg-paper); box-shadow: var(--shadow-sm); }
 .onb-jdot {
   flex: none; width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -4797,7 +4796,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
 .onb-jstep.is-done .onb-jdot { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
 .onb-jstep.is-active .onb-jdot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
 .onb-jdot svg { width: 11px; height: 11px; stroke: var(--accent-fg); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.onb-jline { position: absolute; left: 19.5px; top: 29px; width: 1.5px; height: 14px; background: var(--border-strong); }
+.onb-jline { position: absolute; left: 19.5px; top: 28px; bottom: -24px; width: 1.5px; background: var(--border-strong); }
 .onb-jstep.is-done .onb-jline { background: var(--accent); }
 .onb-jtext { padding-top: 2px; min-width: 0; }
 .onb-jtitle { font-size: var(--fs-13); font-weight: 550; color: var(--fg-muted); }
@@ -4843,7 +4842,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
 
 /* provider grid (model + search) */
 .onb-gridwrap { margin-top: 18px; position: relative; }
-.onb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 150px; overflow-y: auto; padding-right: 8px; }
+.onb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 212px; overflow-y: auto; padding-right: 8px; }
 .onb-grid.is-tall { max-height: none; }
 .onb-grid::-webkit-scrollbar { width: 8px; }
 .onb-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 2px solid var(--bg-paper); }
@@ -4863,6 +4862,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
 .onb-klabel { font-size: var(--fs-12); font-weight: 550; color: var(--fg-muted); margin-bottom: 6px; }
 .onb-kinput { display: flex; align-items: center; gap: 8px; border: 1px solid var(--accent); border-radius: var(--radius-md); padding: 0 12px; height: 40px; box-shadow: 0 0 0 3px var(--accent-soft); background: var(--bg-input); }
 .onb-kinput.is-plain { border-color: var(--border-strong); box-shadow: none; }
+.onb-kinput.is-error { border-color: var(--status-error); box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-error) 12%, transparent); }
 .onb-kinput svg { width: 14px; height: 14px; stroke: var(--fg-faint); fill: none; stroke-width: 1.7; flex: none; }
 .onb-kinput input { flex: 1; border: none; outline: none; background: transparent; font-size: var(--fs-13); font-family: var(--font-sans); color: var(--fg-strong); min-width: 0; }
 .onb-verify-btn { background: none; border: none; color: var(--accent); font-family: var(--font-sans); font-size: var(--fs-12); font-weight: 600; cursor: pointer; white-space: nowrap; padding: 0; }
@@ -4871,8 +4871,8 @@ tr.is-selected { background: var(--accent-soft) !important; }
 .onb-verified svg { width: 12px; height: 12px; stroke: var(--status-success); fill: none; stroke-width: 2.5; }
 .onb-mselect { width: 100%; height: 40px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); padding: 0 12px; background: var(--bg-input); color: var(--fg-strong); font-size: var(--fs-13); font-family: var(--font-mono); cursor: pointer; outline: none; }
 .onb-khint { font-size: var(--fs-11); color: var(--fg-faint); margin-top: 7px; }
-.onb-banner { margin-top: 16px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 13px; font-size: var(--fs-12); color: var(--fg-muted); line-height: 1.5; display: flex; gap: 9px; }
-.onb-banner svg { width: 16px; height: 16px; stroke: var(--accent); fill: none; stroke-width: 1.7; flex: none; margin-top: 1px; }
+.onb-verify-err { display: flex; align-items: center; gap: 5px; font-size: var(--fs-11); color: var(--status-error); margin-top: 8px; }
+.onb-verify-err svg { width: 13px; height: 13px; stroke: var(--status-error); fill: none; stroke-width: 2; flex: none; }
 
 /* done */
 .onb-donemark { width: 54px; height: 54px; border-radius: 50%; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }

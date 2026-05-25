@@ -81,6 +81,14 @@ try {
   const verifyBtnN = await page.getByRole("button", { name: /验证/ }).count();
   log(`    picked DeepSeek → keyInput=${keyInputN} verifyBtn=${verifyBtnN}`);
   await shot("4-model");
+  // verify-failure inline feedback (bad key → real :test 401)
+  await page.locator(".onb-kinput input").first().fill("sk-bad-key-xxxxxxxx");
+  await page.getByRole("button", { name: /验证/ }).click();
+  await page.waitForTimeout(3000);
+  const errShown = await page.locator(".onb-verify-err").count();
+  const errBorder = await page.locator(".onb-kinput.is-error").count();
+  log(`    bad-key verify → verifyErr=${errShown} errBorder=${errBorder}`);
+  await shot("4b-model-verifyfail");
 
   await clickBtn(/继续/); // skip verify (model optional)
   // STEP 5 — search

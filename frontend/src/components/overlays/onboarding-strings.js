@@ -87,7 +87,7 @@ export const STRINGS = {
       keyPlaceholder: "sk-…",
       verify: "验证并获取模型", verifying: "验证中…", verified: "已验证",
       modelLabel: "模型",
-      ollamaHint: "Ollama 为本地推理,无需 API Key。请确保 ollama serve 已启动。",
+      verifyFail: "验证未通过 —— 请检查 API Key 是否正确",
       availHint: (list) => `可用模型:${list.join(" · ")}(下拉切换)`,
     },
     search: {
@@ -162,7 +162,7 @@ export const STRINGS = {
       keyPlaceholder: "sk-…",
       verify: "Verify & list models", verifying: "Verifying…", verified: "Verified",
       modelLabel: "Model",
-      ollamaHint: "Ollama runs locally — no API key needed. Make sure `ollama serve` is running.",
+      verifyFail: "Verification failed — check the API key.",
       availHint: (list) => `Available: ${list.join(" · ")} (switch in dropdown)`,
     },
     search: {
