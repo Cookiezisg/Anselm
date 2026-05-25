@@ -23,13 +23,15 @@ func createWorkflowForCatalog(t *testing.T, h *th.Harness, name, desc string) st
 		"description": desc,
 	})
 	rawNode, _ := json.Marshal(map[string]any{
-		"id":   "n1",
-		"type": "trigger",
-		"data": map[string]any{"kind": "manual"},
+		"node": map[string]any{
+			"id":     "n1",
+			"type":   "trigger",
+			"config": map[string]any{"kind": "manual"},
+		},
 	})
 	ops := []workflowapp.Op{
 		{Type: "set_meta", Raw: rawMeta},
-		{Type: "upsert_node", Raw: rawNode},
+		{Type: "add_node", Raw: rawNode},
 	}
 	w, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{Ops: ops})
 	if err != nil {
