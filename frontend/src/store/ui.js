@@ -28,8 +28,9 @@ export const useUIStore = create((set, get) => ({
   activeDocument: null,
   leftPct: 50,
   collapsed:      readBool("sidebar.collapsed",      false),
-  toolsExpanded:  readBool("sidebar.toolsExpanded",  true),
-  recentExpanded: readBool("sidebar.recentExpanded", true),
+  toolsExpanded:    readBool("sidebar.toolsExpanded",    true),
+  recentExpanded:   readBool("sidebar.recentExpanded",   true),
+  archivedExpanded: readBool("sidebar.archivedExpanded", false),
   narrow: false,
   activeNarrowPane: null,
   focusEntity: {},
@@ -117,6 +118,12 @@ export const useUIStore = create((set, get) => ({
     const next = typeof b === "function" ? b(get().recentExpanded) : !!b;
     writeBool("sidebar.recentExpanded", next);
     set({ recentExpanded: next });
+  },
+
+  setArchivedExpanded: (b) => {
+    const next = typeof b === "function" ? b(get().archivedExpanded) : !!b;
+    writeBool("sidebar.archivedExpanded", next);
+    set({ archivedExpanded: next });
   },
 
   setNarrow: (b) => set({ narrow: !!b }),

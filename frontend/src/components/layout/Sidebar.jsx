@@ -55,6 +55,8 @@ export function Sidebar() {
   const setToolsExpanded   = useUIStore((s) => s.setToolsExpanded);
   const recentExpanded = useUIStore((s) => s.recentExpanded);
   const setRecentExpanded  = useUIStore((s) => s.setRecentExpanded);
+  const archivedExpanded   = useUIStore((s) => s.archivedExpanded);
+  const setArchivedExpanded = useUIStore((s) => s.setArchivedExpanded);
   const setCmdkOpen        = useUIStore((s) => s.setCmdkOpen);
   const setNotifsOpen      = useUIStore((s) => s.setNotifsOpen);
   const setSettingsPopOpen = useUIStore((s) => s.setSettingsPopOpen);
@@ -66,6 +68,7 @@ export function Sidebar() {
 
   const pinned   = conversations.filter((c) => c.pinned   && !c.archived);
   const recent   = conversations.filter((c) => !c.pinned  && !c.archived);
+  const archived = conversations.filter((c) => c.archived);
 
   const isOpen = (k) => openPanes.includes(k);
 
@@ -151,6 +154,11 @@ export function Sidebar() {
               <div className="sb-empty">还没有对话</div>
             )}
           </SidebarSection>
+          {archived.length > 0 && (
+            <SidebarSection label={`归档 · ${archived.length}`} expanded={archivedExpanded} onToggle={() => setArchivedExpanded(!archivedExpanded)}>
+              {archived.map((c) => <ChatListItem key={c.id} conv={c} />)}
+            </SidebarSection>
+          )}
         </div>
       )}
 
