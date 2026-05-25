@@ -13,6 +13,7 @@
 // 不弹 prompt。
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
@@ -28,9 +29,8 @@ import {
 import { useUIStore } from "../../store/ui.js";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
 
-const UNTITLED = "未命名";
-
 export function DocumentsPane() {
+  const { t } = useTranslation(["library", "common"]);
   const treeQ = useDocumentTree();
   const setActiveDocument = useUIStore((s) => s.setActiveDocument);
   const activeDoc = useUIStore((s) => s.activeDocument);
@@ -45,10 +45,10 @@ export function DocumentsPane() {
 
   const onCreateRoot = async () => {
     try {
-      const res = await createDoc.mutateAsync({ name: UNTITLED, parentId: null });
+      const res = await createDoc.mutateAsync({ name: t("documents.untitled"), parentId: null });
       setActiveDocument(res.id);
       setPendingFocusTitle(res.id);
-    } catch (e) { pushToast({ kind: "error", title: "创建失败", desc: e.message }); }
+    } catch (e) { pushToast({ kind: "error", title: t("documents.createFail"), desc: e.message }); }
   };
 
   const [sidebarOpen, toggleSidebar] = useCollapsible("documents-sidebar", true);
@@ -71,7 +71,7 @@ export function DocumentsPane() {
           onCollapse={toggleSidebar}
         />
       )}
-      {!sidebarOpen && <PaneCollapseToggle onClick={toggleSidebar} title="展开文档树" />}
+      {!sidebarOpen && <PaneCollapseToggle onClick={toggleSidebar} title={t("documents.expandSidebar")} />}
       <div className="doc-main">
         {activeDoc
           ? <DocPage docId={activeDoc} focusTitle={pendingFocusTitle === activeDoc}
@@ -83,13 +83,14 @@ export function DocumentsPane() {
 }
 
 function DocEmpty({ onCreate }) {
+  const { t } = useTranslation("library");
   return (
     <div className="empty" style={{ flex: 1 }}>
       <Icon.FileText className="icon" />
-      <div className="title">还没有打开的文档</div>
-      <div className="sub">左侧选一篇 · 或</div>
+      <div className="title">{t("documents.emptyTitle")}</div>
+      <div className="sub">{t("documents.emptySub")}</div>
       <Button size="sm" variant="accent" onClick={onCreate} style={{ marginTop: 12 }}>
-        <Icon.Plus /> 新建第一篇
+        <Icon.Plus /> {t("documents.emptyCreate")}
       </Button>
     </div>
   );
@@ -113,6 +114,7 @@ function buildTree(flat) {
 }
 
 function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading, onCollapse }) {
+  const { t } = useTranslation(["library", "common"]);
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     if (!q.trim()) return tree;
@@ -132,22 +134,22 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
       <div className="doc-sidebar-head">
         <div className="search-input doc-search">
           <Icon.Search className="icon" />
-          <input placeholder="搜索文档…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input placeholder={t("documents.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <button className="icon-btn" title="新建顶级页面" onClick={onCreateRoot}>
+        <button className="icon-btn" title={t("documents.newRootTitle")} onClick={onCreateRoot}>
           <Icon.Plus />
         </button>
         {onCollapse && (
-          <button className="icon-btn" title="收起侧栏" onClick={onCollapse}>
+          <button className="icon-btn" title={t("documents.collapseSidebar")} onClick={onCollapse}>
             <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
           </button>
         )}
       </div>
       <div className="doc-tree">
-        {isLoading && <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>加载中…</div>}
+        {isLoading && <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>{t("common:loading")}</div>}
         {!isLoading && filtered.length === 0 && (
           <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>
-            还没有文档 · 点 <Icon.Plus style={{ display: "inline", width: 11, height: 11, verticalAlign: "-2px" }} /> 新建
+            {t("documents.noDocsEmpty")} <Icon.Plus style={{ display: "inline", width: 11, height: 11, verticalAlign: "-2px" }} /> {t("documents.newDocsHint")}
           </div>
         )}
         {filtered.map((n) => (
@@ -164,6 +166,7 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
 }
 
 function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, onChildCreated }) {
+  const { t } = useTranslation(["library", "common"]);
   const hasChildren = node.children?.length > 0;
   const isOpen = openSet.has(node.id);
   const create = useCreateDocument();
@@ -180,16 +183,16 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
 
   const onNewChild = async () => {
     try {
-      const res = await create.mutateAsync({ name: UNTITLED, parentId: node.id });
+      const res = await create.mutateAsync({ name: t("documents.untitled"), parentId: node.id });
       setOpenSet((s) => { const n = new Set(s); n.add(node.id); return n; });
       onChildCreated?.(res.id);
-    } catch (e) { pushToast({ kind: "error", title: "新建失败", desc: e.message }); }
+    } catch (e) { pushToast({ kind: "error", title: t("documents.createChildFail"), desc: e.message }); }
   };
   const onDelete = () => {
-    if (!confirm(`删除 "${node.name}"? 包含子页面也会一起删`)) return;
+    if (!confirm(t("documents.deleteConfirm", { name: node.name }))) return;
     del.mutate(node.id, {
-      onSuccess: () => pushToast({ kind: "success", title: "已删除" }),
-      onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+      onSuccess: () => pushToast({ kind: "success", title: t("documents.deleteSuccess") }),
+      onError: (e) => pushToast({ kind: "error", title: t("documents.deleteFail"), desc: e.message }),
     });
   };
 
@@ -206,27 +209,27 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
           data-has-children={hasChildren || undefined}
           data-open={isOpen || undefined}
           onClick={hasChildren ? toggle : () => onSelect(node.id)}
-          title={hasChildren ? (isOpen ? "折叠" : "展开") : undefined}
+          title={hasChildren ? (isOpen ? t("documents.collapseTitle") : t("documents.expandTitle")) : undefined}
         >
           <Icon.FileText className="dtr-icon" />
           <Icon.ChevronRight className={"dtr-chev" + (isOpen ? " is-open" : "")} />
         </button>
         <button className="dtr-label" onClick={() => onSelect(node.id)}>
-          {node.name || UNTITLED}
+          {node.name || t("documents.untitled")}
         </button>
         <div className="dtr-actions">
           <ActionMenu
             placement="bottom-end"
             renderTrigger={({ ref, ...rest }) => (
-              <button ref={ref} className="dtr-act-btn" title="操作" {...rest}>
+              <button ref={ref} className="dtr-act-btn" title={t("documents.actionsTitle")} {...rest}>
                 <Icon.MoreHorizontal />
               </button>
             )}
             items={[
-              { label: "删除", icon: Icon.Trash, danger: true, onClick: onDelete },
+              { label: t("common:delete"), icon: Icon.Trash, danger: true, onClick: onDelete },
             ]}
           />
-          <button className="dtr-act-btn" title="新建子页面" onClick={onNewChild}>
+          <button className="dtr-act-btn" title={t("documents.newChildTitle")} onClick={onNewChild}>
             <Icon.Plus />
           </button>
         </div>
@@ -245,6 +248,7 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
 
 // ── DocPage — title input + Tiptap body ──────────────────────────────
 function DocPage({ docId, focusTitle, onTitleFocused }) {
+  const { t } = useTranslation(["library", "common"]);
   const { data: doc, isLoading } = useDocument(docId);
   const update = useUpdateDocument(docId);
   const treeQ = useDocumentTree();
@@ -287,14 +291,14 @@ function DocPage({ docId, focusTitle, onTitleFocused }) {
       if (!Object.keys(patch).length) { setDirty(false); return; }
       update.mutate(patch, {
         onSuccess: () => setDirty(false),
-        onError: (e) => pushToast({ kind: "error", title: "保存失败", desc: e.message }),
+        onError: (e) => pushToast({ kind: "error", title: t("documents.saveFail"), desc: e.message }),
       });
     }, 1500);
     return () => clearTimeout(saveTimer.current);
   }, [draftName, draftBody, dirty]);
 
   if (isLoading || !doc) {
-    return <div className="empty" style={{ padding: 48 }}><div className="sub">加载中…</div></div>;
+    return <div className="empty" style={{ padding: 48 }}><div className="sub">{t("common:loading")}</div></div>;
   }
 
   const status = update.isPending ? "saving" : dirty ? "dirty" : "clean";
@@ -311,28 +315,28 @@ function DocPage({ docId, focusTitle, onTitleFocused }) {
           onKeyDown={(e) => {
             if (e.key === "Enter") { e.preventDefault(); editorRef.current?.focus(); }
           }}
-          placeholder={UNTITLED}
+          placeholder={t("documents.untitled")}
         />
         <span className={"wf-saved is-" + status}>
-          {status === "saving" && <><span className="spinner" /> 保存中…</>}
-          {status === "dirty" && <><span className="dot" /> 未保存</>}
-          {status === "clean" && <><span className="dot" /> 已保存</>}
+          {status === "saving" && <><span className="spinner" /> {t("documents.statusSaving")}</>}
+          {status === "dirty" && <><span className="dot" /> {t("documents.statusDirty")}</>}
+          {status === "clean" && <><span className="dot" /> {t("documents.statusClean")}</>}
         </span>
       </div>
 
       <div className="doc-page-meta">
-        <span><Icon.Clock /> 编辑 <RelTime ts={doc.updatedAt} /></span>
+        <span><Icon.Clock /> {t("documents.editedLabel")} <RelTime ts={doc.updatedAt} /></span>
         <EntityRelMeta entityId={doc.id} kind="document" />
         <div style={{ flex: 1 }} />
         <AskAiTrigger
           kind="document"
           entityId={doc.id}
-          context={`文档 · ${doc.name || UNTITLED}`}
+          context={t("documents.askAiContext", { name: doc.name || t("documents.untitled") })}
           suggestions={[
-            "把这一节扩写到 500 字",
-            "把表格转成 bullet list",
-            "翻译成英文",
-            "提炼 200 字摘要",
+            t("documents.aiSuggestExpand"),
+            t("documents.aiSuggestTable"),
+            t("documents.aiSuggestTranslate"),
+            t("documents.aiSuggestSummarize"),
           ]}
         />
       </div>

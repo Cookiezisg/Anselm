@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import {
   useFloating, autoUpdate, offset, flip, shift,
@@ -53,6 +54,7 @@ export function CodeBlockNode({ node, updateAttributes }) {
 }
 
 function LangPicker({ current, onChange }) {
+  const { t } = useTranslation("library");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [idx, setIdx] = useState(0);
@@ -88,7 +90,7 @@ function LangPicker({ current, onChange }) {
         ref={refs.setReference}
         {...getReferenceProps()}
         className={"cb-lang-btn" + (open ? " is-open" : "")}
-        title="选择代码语言"
+        title={t("codeBlock.langPickerTitle")}
       >
         <span>{label(current)}</span>
         <Icon.ChevronDown style={{ width: 10, height: 10 }} />
@@ -106,7 +108,7 @@ function LangPicker({ current, onChange }) {
               <input
                 autoFocus
                 className="cb-lang-search"
-                placeholder="搜索语言…"
+                placeholder={t("codeBlock.langSearchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -117,7 +119,7 @@ function LangPicker({ current, onChange }) {
               />
             </div>
             <div className="cb-lang-list">
-              {filtered.length === 0 && <div className="cb-lang-empty">没有匹配</div>}
+              {filtered.length === 0 && <div className="cb-lang-empty">{t("codeBlock.langEmpty")}</div>}
               {filtered.map((id, i) => (
                 <button
                   key={id || "auto"}

@@ -12,6 +12,7 @@
 // 做双向转换。
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditor, EditorContent, ReactRenderer, ReactNodeViewRenderer } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -36,17 +37,19 @@ import "tippy.js/dist/tippy.css";
 import { Icon } from "../../components/primitives/Icon.jsx";
 
 // ── Slash command vocabulary ─────────────────────────────────────────
-const SLASH_ITEMS = [
-  { key: "h1",    title: "标题 1",      desc: "大段落起头",   icon: "Hash",      run: (chain) => chain.toggleHeading({ level: 1 }) },
-  { key: "h2",    title: "标题 2",      desc: "次级标题",     icon: "Hash",      run: (chain) => chain.toggleHeading({ level: 2 }) },
-  { key: "h3",    title: "标题 3",      desc: "小节标题",     icon: "Hash",      run: (chain) => chain.toggleHeading({ level: 3 }) },
-  { key: "ul",    title: "无序列表",    desc: "项目要点",     icon: "List",      run: (chain) => chain.toggleBulletList() },
-  { key: "ol",    title: "有序列表",    desc: "编号步骤",     icon: "ListChecks",run: (chain) => chain.toggleOrderedList() },
-  { key: "todo",  title: "待办列表",    desc: "可勾选",       icon: "Check",     run: (chain) => chain.toggleTaskList?.() },
-  { key: "quote", title: "引用块",      desc: "强调短语",     icon: "Quote",     run: (chain) => chain.toggleBlockquote() },
-  { key: "code",  title: "代码块",      desc: "等宽 + 围栏",  icon: "Code",      run: (chain) => chain.toggleCodeBlock() },
-  { key: "hr",    title: "分割线",      desc: "切换章节",     icon: "Minus",     run: (chain) => chain.setHorizontalRule() },
-];
+function makeSlashItems(t) {
+  return [
+    { key: "h1",    title: t("editor.h1Title"),    desc: t("editor.h1Desc"),    icon: "Hash",       run: (chain) => chain.toggleHeading({ level: 1 }) },
+    { key: "h2",    title: t("editor.h2Title"),    desc: t("editor.h2Desc"),    icon: "Hash",       run: (chain) => chain.toggleHeading({ level: 2 }) },
+    { key: "h3",    title: t("editor.h3Title"),    desc: t("editor.h3Desc"),    icon: "Hash",       run: (chain) => chain.toggleHeading({ level: 3 }) },
+    { key: "ul",    title: t("editor.ulTitle"),    desc: t("editor.ulDesc"),    icon: "List",       run: (chain) => chain.toggleBulletList() },
+    { key: "ol",    title: t("editor.olTitle"),    desc: t("editor.olDesc"),    icon: "ListChecks", run: (chain) => chain.toggleOrderedList() },
+    { key: "todo",  title: t("editor.todoTitle"),  desc: t("editor.todoDesc"),  icon: "Check",      run: (chain) => chain.toggleTaskList?.() },
+    { key: "quote", title: t("editor.quoteTitle"), desc: t("editor.quoteDesc"), icon: "Quote",      run: (chain) => chain.toggleBlockquote() },
+    { key: "code",  title: t("editor.codeTitle"),  desc: t("editor.codeDesc"),  icon: "Code",       run: (chain) => chain.toggleCodeBlock() },
+    { key: "hr",    title: t("editor.hrTitle"),    desc: t("editor.hrDesc"),    icon: "Minus",      run: (chain) => chain.setHorizontalRule() },
+  ];
+}
 
 function iconOf(name) {
   return Icon[name] || Icon.Hash || Icon.Hammer;
@@ -57,6 +60,7 @@ import { useState as useReactState, useEffect as useReactEffect, useImperativeHa
 
 const SuggestionList = fwd(function SuggestionList({ items, command, kind }, ref) {
   const [idx, setIdx] = useReactState(0);
+  const { t } = useTranslation("library");
   useReactEffect(() => setIdx(0), [items]);
   useReactIH(ref, () => ({
     onKeyDown({ event }) {
@@ -70,12 +74,12 @@ const SuggestionList = fwd(function SuggestionList({ items, command, kind }, ref
 
   if (!items.length) {
     return <div className="doc-floating-menu" style={{ position: "relative", inset: "auto" }}>
-      <div className="doc-floating-menu-empty">没有匹配</div>
+      <div className="doc-floating-menu-empty">{t("editor.slashEmpty")}</div>
     </div>;
   }
   return (
     <div className="doc-floating-menu" style={{ position: "relative", inset: "auto" }}>
-      <div className="doc-floating-menu-head">{kind === "slash" ? "命令" : "引用文档"}</div>
+      <div className="doc-floating-menu-head">{kind === "slash" ? t("editor.slashHeadSlash") : t("editor.slashHeadMention")}</div>
       {items.map((it, i) => {
         const I = kind === "slash" ? iconOf(it.icon) : Icon.FileText;
         return (
@@ -124,6 +128,11 @@ function makeRender() {
   };
 }
 
+// Module-level ref updated by DocEditor with the current translated items.
+// Allows the Extension (instantiated once) to always filter against the
+// latest locale without being recreated.
+const slashItemsRef = { current: [] };
+
 // ── Slash command extension (custom Extension wrapping Suggestion) ───
 const SlashCommand = Extension.create({
   name: "slashCommand",
@@ -140,7 +149,7 @@ const SlashCommand = Extension.create({
         },
         items: ({ query }) => {
           const q = query.toLowerCase();
-          return SLASH_ITEMS.filter((it) =>
+          return slashItemsRef.current.filter((it) =>
             it.title.toLowerCase().includes(q) || it.desc.toLowerCase().includes(q)
           ).slice(0, 9);
         },
@@ -171,10 +180,14 @@ const SlashCommand = Extension.create({
 // ── DocEditor component ──────────────────────────────────────────────
 export const DocEditor = forwardRef(function DocEditor({
   initialMarkdown,
-  placeholder = "Type / 唤起命令，@ 引用其他文档",
+  placeholder,
   onChange,
   documentsLookup,    // () => [{id, name}, ...] for @ mention suggestions
 }, ref) {
+  const { t } = useTranslation("library");
+  const resolvedPlaceholder = placeholder ?? t("editor.placeholder");
+  slashItemsRef.current = makeSlashItems(t);
+
   const cbRef = useRef(onChange);
   cbRef.current = onChange;
   const docsRef = useRef(documentsLookup);
@@ -191,7 +204,7 @@ export const DocEditor = forwardRef(function DocEditor({
         defaultLanguage: null,
         HTMLAttributes: { class: "code-block hljs" },
       }),
-      Placeholder.configure({ placeholder, emptyEditorClass: "is-empty" }),
+      Placeholder.configure({ placeholder: resolvedPlaceholder, emptyEditorClass: "is-empty" }),
       Markdown.configure({ html: false, tightLists: true, transformPastedText: true, breaks: true }),
       SlashCommand,
       Mention.configure({

@@ -4,6 +4,7 @@
 // MemoryPane —— 4 类型 tab + pin/edit/delete + 编辑 Drawer。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
@@ -11,7 +12,7 @@ import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "../
 import { useUIStore } from "../../store/ui.js";
 
 const TABS = [
-  ["all", "全部"],
+  ["all", null],
   ["user", "user"],
   ["feedback", "feedback"],
   ["project", "project"],
@@ -19,6 +20,7 @@ const TABS = [
 ];
 
 export function MemoryPane() {
+  const { t } = useTranslation(["library", "common"]);
   const [tab, setTab] = useState("all");
   const { data: memories = [], isLoading } = useMemories(tab === "all" ? undefined : tab);
   const [editing, setEditing] = useState(null);
@@ -31,13 +33,13 @@ export function MemoryPane() {
       <div className="page-header">
         <div className="page-header-text">
           <div className="page-title"><Icon.Brain /> Memory</div>
-          <div className="page-subtitle">跨对话长期事实库</div>
+          <div className="page-subtitle">{t("memory.subtitle")}</div>
         </div>
         <div className="page-actions">
           <Button size="sm" variant="accent"
             onClick={() => setEditing({ name: "", description: "", body: "", memType: "user", source: "user" })}
           >
-            <Icon.Plus /> 新建
+            <Icon.Plus /> {t("memory.newBtn")}
           </Button>
         </div>
       </div>
@@ -45,18 +47,18 @@ export function MemoryPane() {
       <div className="page-tabs">
         {TABS.map(([k, l]) => (
           <button key={k} className={"page-tab" + (tab === k ? " is-active" : "")} onClick={() => setTab(k)}>
-            {l}
+            {l ?? t("memory.tabAll")}
           </button>
         ))}
       </div>
 
       <div className="page-body" style={{ padding: 24 }}>
-        {isLoading ? <div className="empty"><div className="sub">加载中…</div></div>
+        {isLoading ? <div className="empty"><div className="sub">{t("common:loading")}</div></div>
           : memories.length === 0 ? (
             <div className="empty">
               <Icon.Brain className="icon" />
-              <div className="title">{tab === "all" ? "Memory 库还是空的" : `没有 ${tab} 类型的 memory`}</div>
-              <div className="sub">在对话里告诉 AI："记住这件事" 即可写入</div>
+              <div className="title">{tab === "all" ? t("memory.emptyAll") : t("memory.emptyTyped", { type: tab })}</div>
+              <div className="sub">{t("memory.emptySub")}</div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -71,14 +73,14 @@ export function MemoryPane() {
                   <button className="icon-btn" onClick={(e) => {
                     e.stopPropagation();
                     pin.mutate({ name: m.name, pinned: !m.pinned }, {
-                      onSuccess: () => pushToast({ kind: "success", title: m.pinned ? "已取消 pin" : "已 pin" }),
+                      onSuccess: () => pushToast({ kind: "success", title: m.pinned ? t("memory.unpinSuccess") : t("memory.pinSuccess") }),
                     });
                   }}>
                     <Icon.Pin />
                   </button>
                   <button className="icon-btn" onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`确认删除 ${m.name}?`)) del.mutate(m.name);
+                    if (confirm(t("memory.deleteConfirm", { name: m.name }))) del.mutate(m.name);
                   }}>
                     <Icon.Trash />
                   </button>
@@ -94,6 +96,7 @@ export function MemoryPane() {
 }
 
 function MemoryDrawer({ memory, onClose }) {
+  const { t } = useTranslation(["library", "common"]);
   const [body, setBody] = useState(memory.body || "");
   const [description, setDescription] = useState(memory.description || "");
   const update = useUpdateMemory();
@@ -106,8 +109,8 @@ function MemoryDrawer({ memory, onClose }) {
       name: name || "untitled-" + Date.now(),
       body: { description, body, memType: memory.memType, source: memory.source || "user" },
     }, {
-      onSuccess: () => { pushToast({ kind: "success", title: "已保存" }); onClose(); },
-      onError: (e) => pushToast({ kind: "error", title: "保存失败", desc: e.message }),
+      onSuccess: () => { pushToast({ kind: "success", title: t("memory.saveSuccess") }); onClose(); },
+      onError: (e) => pushToast({ kind: "error", title: t("memory.saveFail"), desc: e.message }),
     });
   };
 
@@ -116,7 +119,7 @@ function MemoryDrawer({ memory, onClose }) {
       <div className="drawer-scrim" onClick={onClose} />
       <div className="drawer" style={{ width: 560 }}>
         <div className="drawer-head">
-          <div className="drawer-title">{isNew ? "新建 Memory" : memory.name}</div>
+          <div className="drawer-title">{isNew ? t("memory.drawerNew") : memory.name}</div>
           <button className="icon-btn" onClick={onClose}><Icon.X /></button>
         </div>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -140,8 +143,8 @@ function MemoryDrawer({ memory, onClose }) {
             />
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 8 }}>
-            <Button size="sm" variant="ghost" onClick={onClose}>取消</Button>
-            <Button size="sm" variant="accent" onClick={submit}>保存</Button>
+            <Button size="sm" variant="ghost" onClick={onClose}>{t("common:cancel")}</Button>
+            <Button size="sm" variant="accent" onClick={submit}>{t("common:save")}</Button>
           </div>
         </div>
       </div>
