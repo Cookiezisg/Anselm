@@ -308,6 +308,7 @@ type Tool interface {
 - **不写注释**：同后端 S11——只写 why，不写 what；密度上限 1/3；无章节横幅
 - **不做防御性校验**：同后端原则六——同人写前后端，API 结构已知，不加多余 null-check 和 fallback
 - **import 顺序**：React → 第三方库 → 内部 api/store/sse → 内部 components → 同级文件
+- **i18n（全量中英双语）**：面向用户文案走 react-i18next —— `useTranslation("<ns>")` + `t("key")`，字典 `frontend/src/i18n/locales/{zh,en}/<ns>.json`（结构化 key、按模块拆 ns）；通用动词用 `t("common:xxx")`；**不硬编码中文/英文 UI 串**（含 badge/label/tooltip/placeholder）；`toLocaleString` 等按 `i18n.language` 取 locale；文案夹 JSX 元素用 `<Trans>`；`settings.lang` 驱动切换。详见 `docs/superpowers/specs/2026-05-26-frontend-i18n-design.md`
 
 ## F1 前端文档同步
 
