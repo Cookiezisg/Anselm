@@ -141,8 +141,13 @@ function AccountSection({ settings, onClose, pushToast }) {
   const createUser = useCreateUser();
   const qc = useQueryClient();
   const [displayName, setDisplayName] = useDisplayName();
+  const [draft, setDraft] = useState(displayName);
   const [mode, setMode] = useState("view");
   const [name, setName] = useState("");
+
+  // Local draft for smooth typing; commit to the backend User on blur
+  // (setDisplayName PATCHes). Re-sync when the name changes externally.
+  useEffect(() => { setDraft(displayName); }, [displayName]);
 
   // Resolve active user: settings.activeUserId wins; fallback to first.
   const active = users.find((u) => u.id === settings.activeUserId) || users[0];
@@ -195,9 +200,9 @@ function AccountSection({ settings, onClose, pushToast }) {
           <input
             id="settings-display-name"
             className="settings-input"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value.slice(0, 24))}
-            onBlur={(e) => setDisplayName(e.target.value.trim())}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value.slice(0, 24))}
+            onBlur={() => setDisplayName(draft)}
             placeholder="Weilin"
             autoComplete="off"
           />

@@ -1,36 +1,32 @@
-// useDisplayName — local-only user display name kept in localStorage.
-// Multiple instances stay in sync via a tiny in-module event bus.
+// useDisplayName — the active user's display name, read from the backend User
+// entity (set during onboarding via createUser, editable in Settings). NOT a
+// separate localStorage field: that duplicated the name in a disconnected
+// place and showed "?" even for properly-onboarded users. Falls back to
+// username, then "".
 //
-// useDisplayName —— 本地单用户的显示名,走 localStorage;多个实例
-// 通过模块内事件总线同步,避免不同组件读到不同值。
+// useDisplayName —— 当前激活 user 的显示名,来自后端 User 实体(onboarding
+// createUser 写入,设置里可改),不再用孤立的 localStorage 字段(那会让
+// 走完引导的用户也显示 "?")。取不到 displayName 退到 username,再退到 ""。
 
-import { useEffect, useState } from "react";
-
-const KEY = "forgify.user.displayName";
-const listeners = new Set();
-
-function read() {
-  try { return localStorage.getItem(KEY) || ""; }
-  catch { return ""; }
-}
-
-function write(value) {
-  try {
-    localStorage.setItem(KEY, value || "");
-    listeners.forEach((fn) => fn(value || ""));
-  } catch {
-    // ignore quota / SSR
-  }
-}
+import { useSettings } from "../store/settings.js";
+import { useUsers, useUpdateUser } from "../api/users.js";
 
 export function useDisplayName() {
-  const [value, setValue] = useState(read);
+  const activeUserId = useSettings((s) => s.activeUserId);
+  const { data: users = [] } = useUsers();
+  const update = useUpdateUser();
 
-  useEffect(() => {
-    const fn = (v) => setValue(v);
-    listeners.add(fn);
-    return () => listeners.delete(fn);
-  }, []);
+  const user = users.find((u) => u.id === activeUserId) || null;
+  const value = user?.displayName || user?.username || "";
 
-  return [value, write];
+  // Persist to the backend User; useUpdateUser invalidates /users so the
+  // footer / greeting refresh. No-op when empty or unchanged.
+  const setValue = (next) => {
+    const trimmed = (next || "").trim();
+    if (activeUserId && trimmed && trimmed !== value) {
+      update.mutate({ id: activeUserId, patch: { displayName: trimmed } });
+    }
+  };
+
+  return [value, setValue];
 }

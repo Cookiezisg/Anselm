@@ -13,6 +13,11 @@ vi.mock("../../api/conversations.js", () => ({
 vi.mock("../../sse/SSEProvider.jsx", () => ({
   useSSEHealth: () => ({ overall: "ok", eventlog: "ok", notifs: "ok", forge: "ok", unread: 0, clearUnread: vi.fn() }),
 }));
+// useDisplayName now derives from the backend active user (useUsers + settings);
+// mock it here so the Sidebar unit test doesn't need a real users query.
+vi.mock("../../hooks/useDisplayName.js", () => ({
+  useDisplayName: () => ["Weilin", vi.fn()],
+}));
 
 function renderSidebar() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -89,7 +94,6 @@ describe("Sidebar", () => {
   });
 
   it("shows initial from displayName in avatar", () => {
-    localStorage.setItem("forgify.user.displayName", "Weilin");
     renderSidebar();
     expect(screen.getByText("W")).toBeInTheDocument();
   });

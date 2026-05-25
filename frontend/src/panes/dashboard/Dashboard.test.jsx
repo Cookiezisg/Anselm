@@ -17,6 +17,9 @@ vi.mock("../../api/conversations.js", () => ({
 vi.mock("../../api/client.js", () => ({
   apiFetch: vi.fn().mockResolvedValue({}),
 }));
+vi.mock("../../hooks/useDisplayName.js", () => ({
+  useDisplayName: () => ["", vi.fn()],
+}));
 
 function renderDash() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

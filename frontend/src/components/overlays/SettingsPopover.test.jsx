@@ -12,6 +12,7 @@ vi.mock("../../api/users.js", () => ({
     { id: "u_b", username: "bob" },
   ] }),
   useCreateUser: () => ({ mutateAsync: vi.fn(async ({ username }) => ({ id: "u_new", username })) }),
+  useUpdateUser: () => ({ mutate: vi.fn() }),
 }));
 
 import { useUIStore } from "../../store/ui.js";
