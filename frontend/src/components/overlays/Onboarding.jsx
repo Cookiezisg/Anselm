@@ -1,469 +1,451 @@
-// Onboarding — 5-step first-run wizard.
-//   0 Welcome — what Forgify is.
-//   1 Account — create the first local profile (username + avatar color).
-//   2 Look    — pick accent.
-//   3 API Key — pick provider + key (skippable).
-//   4 Done    — recap + 进入应用.
+// Onboarding — toB 6-step first-run wizard (split stage + journey).
+//   1 Welcome    — what Forgify is.
+//   2 Workspace  — create the first local user (POST /users), sets activeUserId.
+//   3 Appearance — accent + language + theme; all write straight to settings (live).
+//   4 Model      — provider + key → verify (:test) → pick model → POST /model-configs.
+//   5 Search     — optional search provider + key (POST /api-keys, category=search).
+//   6 Done       — recap + enter.
 //
-// Persists into ~/.forgify/ via real REST: POST /users → creates profile,
-// POST /api-keys → stores key. Frontend marks settings.onboarded=true on
-// finish so this never re-appears.
+// Workspace creates the user EARLY so steps 4/5 can write user-scoped keys;
+// App's onboarding latch keeps this mounted afterwards. finish() flips
+// settings.onboarded.
 //
-// Onboarding —— 5 步首次启动向导；进 Forgify 真后端写 user / api-key；
-// 完成后 settings.onboarded=true 永不再现。
+// 6 步 toB 首启向导。workspace 步即建 user(后续步才能写 user 作用域的 key);
+// App 的 latch 保证建 user 后不被卸载。finish 置 onboarded。
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
-import { useSettings, applyTheme } from "../../store/settings.js";
+import { useSettings } from "../../store/settings.js";
 import { useUIStore } from "../../store/ui.js";
-import { useCreateUser, useUsers } from "../../api/users.js";
-import { useProviders, useCreateApiKey, useTestApiKey, useUpsertModelConfig } from "../../api/config.js";
+import { useCreateUser } from "../../api/users.js";
+import { useProviders, useCreateApiKey, useTestApiKey, useUpsertModelConfig, useDeleteApiKey } from "../../api/config.js";
+import { STRINGS, ACCENTS, LLM_HINTS, SEARCH_HINTS, PROVIDER_DEFAULT_MODEL } from "./onboarding-strings.js";
 
-const ACCENTS = [
-  ["claude", "#d97757", "Claude 橙"],
-  ["blue",   "#2383e2", "Notion 蓝"],
-  ["ink",    "#37352f", "墨"],
-  ["green",  "#0f7b6c", "森林绿"],
-  ["purple", "#6940a5", "紫"],
-];
-const PROVIDER_HINTS = {
-  deepseek:  { abbr: "DS", color: "#4D6BFE" },
-  anthropic: { abbr: "AN", color: "#D97757" },
-  openai:    { abbr: "OA", color: "#10A37F" },
-  qwen:      { abbr: "QW", color: "#615CED" },
-  moonshot:  { abbr: "MS", color: "#37352F" },
-  zhipu:     { abbr: "ZP", color: "#3870E0" },
-  ollama:    { abbr: "OL", color: "#37352F" },
-  google:    { abbr: "GO", color: "#4285F4" },
-};
-
-const STEPS = [
-  { key: "intro",    title: "你好",      desc: "看一眼" },
-  { key: "account",  title: "工作空间",  desc: "起个名字" },
-  { key: "look",     title: "外观",      desc: "挑个色调" },
-  { key: "provider", title: "钥匙",      desc: "可以稍后" },
-  { key: "done",     title: "就位",      desc: "开始" },
-];
+const STEP_KEYS = ["welcome", "workspace", "appearance", "model", "search", "done"];
+const ANVIL = (
+  <svg viewBox="0 0 24 24"><path d="M12 2v3" /><path d="M5 5l2 2" /><path d="M19 5l-2 2" /><path d="M4 12h4l2-3l4 6l2-3h4" /><path d="M5 17h14" /><path d="M7 21l1-4" /><path d="M17 21l-1-4" /></svg>
+);
 
 export function Onboarding({ onFinish }) {
   const settings = useSettings();
   const qc = useQueryClient();
   const pushToast = useUIStore((s) => s.pushToast);
-  const { data: existingUsers = [] } = useUsers();
+  const t = STRINGS[settings.lang] || STRINGS.zh;
+
   const createUser = useCreateUser();
   const { data: providers = [] } = useProviders();
   const createKey = useCreateApiKey();
   const testKey = useTestApiKey();
-  const setModel = useUpsertModelConfig();
+  const deleteKey = useDeleteApiKey();
+  const upsertModel = useUpsertModelConfig();
 
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
 
-  // State the user collects via the wizard:
+  // workspace
   const [name, setName] = useState("");
-  const [accent, setAccent] = useState(settings.accent);
+  const [createdUserId, setCreatedUserId] = useState(null);
+  // model
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [createdKeyId, setCreatedKeyId] = useState(null);
+  const [createdKeyText, setCreatedKeyText] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [models, setModels] = useState([]);
+  const [modelId, setModelId] = useState("");
+  // search
+  const [searchProvider, setSearchProvider] = useState("");
+  const [searchKey, setSearchKey] = useState("");
 
-  // mock = dev-only fake LLM; custom = catch-all (needs baseUrl + apiFormat
-  // that don't fit onboarding's lightweight form). Keep them off the grid.
-  //
-  // mock 是 dev 假 LLM,custom 要 baseUrl+apiFormat 不适合 onboarding 轻量表单。
-  const llmProviders = providers.filter(
-    (p) => p.category === "llm" && p.name !== "mock" && p.name !== "custom",
-  );
+  const llm = providers.filter((p) => p.category === "llm" && p.name !== "mock" && p.name !== "custom");
+  const search = providers.filter((p) => p.category === "search");
+  const stepKey = STEP_KEYS[step];
+  const providerDisplay = (n) => providers.find((p) => p.name === n)?.displayName || n;
 
-  // Live preview of accent on the wizard itself.
-  useEffect(() => {
-    applyTheme({ ...settings, accent });
-  }, [accent]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const canAdvance = () => {
-    switch (STEPS[step].key) {
-      case "intro":    return true;
-      case "account":  return name.trim().length > 0;
-      case "look":     return true;
-      case "provider":
-        // Provider must be picked. ollama is local + needs no key. Other
-        // providers need both provider + apiKey. Skip is via explicit button,
-        // not silent advance.
-        if (!provider) return false;
-        if (provider === "ollama") return true;
-        return apiKey.trim().length > 0;
-      case "done":     return true;
-    }
-  };
-
-  // skipProvider — explicit "no key right now" path. Clears state and jumps
-  // to the done step without trying to write a key. Settings is updated in
-  // finish() like the normal path.
-  //
-  // skipProvider —— 显式 "稍后配" 路径;清状态跳到 done。
-  const skipProvider = () => {
-    setProvider("");
-    setApiKey("");
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
-  };
-
-  const finish = async () => {
+  const run = async (fn) => {
     setBusy(true);
+    try { await fn(); }
+    catch (err) { pushToast({ kind: "error", title: t.toast.opFail, desc: err.message }); }
+    finally { setBusy(false); }
+  };
+
+  const ensureUser = async () => {
+    if (createdUserId) return;
+    const user = await createUser.mutateAsync({
+      username: name.trim().toLowerCase().replace(/\s+/g, "-"),
+      displayName: name.trim(),
+      avatarColor: ACCENTS.find(([k]) => k === settings.accent)?.[1] || "#d97757",
+    });
+    setCreatedUserId(user.id);
+    settings.set({ activeUserId: user.id });
+  };
+
+  // Switching provider drops key/model state; best-effort delete the orphaned
+  // key created for the previous provider.
+  const pickProvider = (n) => {
+    if (createdKeyId) deleteKey.mutate(createdKeyId);
+    setProvider(n);
+    setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
+    setVerified(false); setModels([]); setModelId("");
+  };
+
+  const onKeyChange = (v) => {
+    setApiKey(v);
+    if (verified) { setVerified(false); setModels([]); setModelId(""); }
+  };
+
+  const verify = () => run(async () => {
+    setVerifying(true);
     try {
-      // 1. Create the local user profile (idempotent: skip if "name" matches an existing username).
-      const existing = existingUsers.find((u) => u.username === name.trim().toLowerCase());
-      let user = existing;
-      if (!user) {
-        user = await createUser.mutateAsync({
-          username: name.trim().toLowerCase().replace(/\s+/g, "-"),
-          displayName: name.trim(),
-          avatarColor: ACCENTS.find(([k]) => k === accent)?.[1] || "#4f46e5",
-        });
+      let keyId = createdKeyId;
+      if (keyId && createdKeyText !== apiKey) {
+        deleteKey.mutate(keyId);
+        keyId = null; setCreatedKeyId(null);
       }
-      settings.set({ activeUserId: user.id, accent, onboarded: true });
-
-      // 2. Key path: create → test → write model-config from real modelsFound.
-      //    Anthropic's tester intentionally doesn't list models — fall back
-      //    to a curated default ONLY when modelsFound is empty. If the test
-      //    itself fails (401 / network / etc.), don't write model-config
-      //    and let NoModelGate guide the user later.
-      //
-      //    For ollama: key is empty by design; treat the same way (test pings
-      //    /api/tags, returns models if local server is up).
-      //
-      // key 路径:create → test → 拿 modelsFound[0] 写 model-config。
-      // Anthropic 不返 models,留 fallback;test 失败干脆不写,后面 NoModelGate
-      // 接力。ollama 无 key 但 test 走 /api/tags,逻辑同上。
-      const hasKeyish = (apiKey || provider === "ollama") && provider;
-      if (hasKeyish) {
+      if (!keyId) {
         const k = await createKey.mutateAsync({
-          provider,
-          key: apiKey || "ollama-no-key",
-          displayName: `${provider} (onboarding)`,
+          provider, key: apiKey || "ollama-no-key", displayName: `${provider} (onboarding)`,
         });
-        try {
-          const testResult = await testKey.mutateAsync(k.id);
-          const modelId = (testResult?.modelsFound?.[0]) || PROVIDER_DEFAULT_MODEL[provider];
-          if (modelId) {
-            await setModel.mutateAsync({ scenario: "chat", provider, modelId });
-          }
-        } catch (testErr) {
-          // Test 失败保留 key,但不写 model-config;NoModelGate 会引导。
-          pushToast({ kind: "warn", title: "Key 已存但验证未通过", desc: testErr.message });
-        }
+        keyId = k.id; setCreatedKeyId(k.id); setCreatedKeyText(apiKey);
       }
-
-      qc.invalidateQueries();
-      pushToast({ kind: "success", title: "欢迎使用 Forgify", desc: name.trim() });
-      onFinish?.();
+      const res = await testKey.mutateAsync(keyId);
+      const found = res?.modelsFound || [];
+      const opts = found.length ? found : (PROVIDER_DEFAULT_MODEL[provider] ? [PROVIDER_DEFAULT_MODEL[provider]] : []);
+      setModels(opts);
+      setModelId(opts[0] || "");
+      setVerified(true);
+      pushToast({ kind: "success", title: t.toast.keyVerified });
     } catch (err) {
-      pushToast({ kind: "error", title: "初始化失败", desc: err.message });
+      setVerified(false);
+      pushToast({ kind: "warn", title: t.toast.keyFail, desc: err.message });
     } finally {
-      setBusy(false);
+      setVerifying(false);
+    }
+  });
+
+  const finish = () => {
+    settings.set({ onboarded: true });
+    qc.invalidateQueries();
+    pushToast({ kind: "success", title: t.toast.welcome, desc: name.trim() });
+    onFinish?.();
+  };
+
+  const advance = () => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1));
+  const back = () => setStep((s) => Math.max(0, s - 1));
+
+  const handleNext = () => {
+    switch (stepKey) {
+      case "workspace": return run(async () => { await ensureUser(); advance(); });
+      case "model": return run(async () => {
+        if (verified && modelId) await upsertModel.mutateAsync({ scenario: "chat", provider, modelId });
+        advance();
+      });
+      case "search": return run(async () => {
+        if (searchProvider && searchKey.trim()) {
+          await createKey.mutateAsync({ provider: searchProvider, key: searchKey.trim(), displayName: `${searchProvider} (onboarding)` });
+        }
+        advance();
+      });
+      case "done": return finish();
+      default: return advance();
     }
   };
 
-  const next = () => {
-    if (step < STEPS.length - 1) setStep((s) => s + 1);
-    else finish();
-  };
-  const prev = () => setStep((s) => Math.max(0, s - 1));
+  const canNext = () => (stepKey === "workspace" ? name.trim().length > 0 : true);
 
-  // Keyboard: Enter advances, Esc nothing (user must complete or use button).
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Enter" && !e.shiftKey && canAdvance() && !busy) {
-        if (document.activeElement?.tagName === "INPUT") {
-          // Enter on input also advances; default form behavior.
-        }
-        next();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [step, busy, name, accent, provider, apiKey]); // eslint-disable-line
+  // journey desc shows captured values once a step is behind us.
+  const jdesc = (key, fallback) => {
+    if (key === "workspace" && createdUserId) return name.trim();
+    if (key === "appearance" && step > 2) return `${settings.accent} · ${settings.lang === "zh" ? "中文" : "EN"}`;
+    if (key === "model" && step > 3) return verified ? providerDisplay(provider) : t.done.none;
+    if (key === "search" && step > 4) return searchProvider ? providerDisplay(searchProvider) : t.done.none;
+    return fallback;
+  };
 
   return (
     <AnimatePresence>
-      <motion.div
-        className="onb-stage-overlay"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      >
+      <motion.div className="onb-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <motion.div
-          className="onb-stage"
+          className="onb-card"
           initial={{ opacity: 0, scale: 0.97, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
         >
-          <aside className="onb-rail">
+          <aside className="onb-stage">
             <div className="onb-brand">
-              <div className="onb-mark">F</div>
+              <div className="onb-mark">{ANVIL}</div>
               <div>
                 <div className="onb-brand-name">Forgify</div>
-                <div className="onb-brand-sub">v1.2</div>
+                <div className="onb-brand-sub">{t.brandSub}</div>
               </div>
             </div>
-            <div className="onb-steps">
-              {STEPS.map((s, i) => (
-                <div
-                  key={s.key}
-                  className={"onb-step" + (i === step ? " is-active" : "") + (i < step ? " is-done" : "")}
-                >
-                  <div className="onb-step-num">{i < step ? <Icon.Check /> : i + 1}</div>
-                  <div className="onb-step-text">
-                    <div className="onb-step-title">{s.title}</div>
-                    <div className="onb-step-desc">{s.desc}</div>
+            <div className="onb-journey">
+              {STEP_KEYS.map((key, i) => {
+                const [jt, jd] = t.journey[key];
+                const cls = "onb-jstep" + (i === step ? " is-active" : "") + (i < step ? " is-done" : "");
+                return (
+                  <div key={key} className={cls}>
+                    {i < STEP_KEYS.length - 1 && <div className="onb-jline" />}
+                    <div className="onb-jdot">{i < step ? <Icon.Check /> : i + 1}</div>
+                    <div className="onb-jtext">
+                      <div className="onb-jtitle">{jt}</div>
+                      <div className="onb-jdesc">{jdesc(key, jd)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-            <div className="onb-rail-footer">
-              数据存在 <code>~/.forgify/</code>。
+            <div className="onb-foot">
+              <Icon.KeyRound />
+              <span>{t.footer1} <code>~/.forgify/</code><br />{t.footer2}</span>
             </div>
           </aside>
 
-          <div className="onb-pane">
-            <div className="onb-content">
-              {STEPS[step].key === "intro" && <IntroStep />}
-              {STEPS[step].key === "account" && <AccountStep name={name} setName={setName} accent={accent} />}
-              {STEPS[step].key === "look" && <LookStep accent={accent} setAccent={setAccent} />}
-              {STEPS[step].key === "provider" && (
-                <ProviderStep
-                  providers={llmProviders}
-                  provider={provider} setProvider={setProvider}
-                  apiKey={apiKey} setApiKey={setApiKey}
-                  onSkip={skipProvider}
-                />
-              )}
-              {STEPS[step].key === "done" && (
-                <DoneStep name={name} accent={accent} provider={provider} hasKey={!!apiKey} />
-              )}
-            </div>
+          <section className={"onb-pane" + (stepKey === "done" ? " is-centered" : "")}>
+            {stepKey === "welcome" && <Welcome t={t} />}
+            {stepKey === "workspace" && <Workspace t={t} name={name} setName={setName} accent={settings.accent} />}
+            {stepKey === "appearance" && <Appearance t={t} settings={settings} />}
+            {stepKey === "model" && (
+              <Model
+                t={t} providers={llm} provider={provider} pickProvider={pickProvider}
+                apiKey={apiKey} onKeyChange={onKeyChange} verify={verify}
+                verifying={verifying} verified={verified} models={models}
+                modelId={modelId} setModelId={setModelId}
+              />
+            )}
+            {stepKey === "search" && (
+              <Search
+                t={t} providers={search} provider={searchProvider} setProvider={setSearchProvider}
+                apiKey={searchKey} setApiKey={setSearchKey}
+              />
+            )}
+            {stepKey === "done" && (
+              <Done t={t} name={name} accent={settings.accent} provider={verified ? providerDisplay(provider) : null} search={searchProvider ? providerDisplay(searchProvider) : null} />
+            )}
 
             <div className="onb-actions">
-              <div className="onb-progress">
-                步骤 {step + 1} / {STEPS.length}
-                <div className="onb-progress-bar">
-                  <div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+              {stepKey !== "done" && (
+                <div className="onb-progress">
+                  <div className="onb-progress-label">{t.stepWord} {step + 1} / {STEP_KEYS.length}</div>
+                  <div className="onb-progress-track">
+                    <div className="onb-progress-fill" style={{ width: `${((step + 1) / STEP_KEYS.length) * 100}%` }} />
+                  </div>
                 </div>
-              </div>
-              {step > 0 && (
-                <Button variant="ghost" size="sm" onClick={prev} disabled={busy}>
-                  ← 上一步
-                </Button>
               )}
-              <Button
-                variant="accent"
-                size="sm"
-                onClick={next}
-                disabled={!canAdvance() || busy}
-                loading={busy}
-              >
-                {step === STEPS.length - 1 ? "开始" : step === 0 ? "开始" : "继续"}
+              {stepKey === "search" ? (
+                <Button variant="ghost" size="sm" onClick={advance} disabled={busy}>{t.skip}</Button>
+              ) : step > 0 && stepKey !== "done" ? (
+                <Button variant="ghost" size="sm" onClick={back} disabled={busy}>← {t.back}</Button>
+              ) : null}
+              <Button variant="accent" size="sm" onClick={handleNext} disabled={!canNext() || busy} loading={busy}>
+                {stepKey === "done" ? t.enter : stepKey === "welcome" ? t.start : t.next}
                 <Icon.ArrowRight />
               </Button>
             </div>
-          </div>
+          </section>
         </motion.div>
       </motion.div>
     </AnimatePresence>
   );
 }
 
-// PROVIDER_DEFAULT_MODEL — fallback model IDs used ONLY when the apikey
-// connectivity test couldn't return modelsFound (e.g., Anthropic's ping
-// doesn't list models). For everyone else, finish() prefers modelsFound[0].
-//
-// Values must be real model IDs — wrong defaults cause silent "configured
-// but won't run" states (the bug we just fixed: "deepseek-v4-flash" wasn't
-// real). When in doubt, omit the provider here; chat will fall through to
-// NoModelGate and the user picks manually.
-//
-// 仅当 apikey test 没返 modelsFound 时使用的兜底 modelID;其它情况优先
-// modelsFound[0]。值必须真实可用 —— 错的会让 "看似配好但跑不起来"。
-const PROVIDER_DEFAULT_MODEL = {
-  anthropic: "claude-sonnet-4-6",
-};
-
-// ── Steps ──────────────────────────────────────────────────────────
-
-function IntroStep() {
+function Welcome({ t }) {
+  const icons = [Icon.MessageSquare, Icon.Wrench, Icon.Server];
   return (
     <>
-      <div className="onb-head">
-        <div className="onb-title">你好</div>
-        <div className="onb-sub">
-          这是 Forgify。一个住在你电脑上的 agent。
-          你说一句话,它做事;事情沉淀成你能反复用的工具。
-        </div>
-      </div>
-      <div className="onb-bullet-list">
-        <Bullet icon={Icon.MessageSquare} title="先对话"
-                desc="说你想做什么。agent 自己挑工具、写代码、跑工作流。" />
-        <Bullet icon={Icon.Hammer} title="再沉淀"
-                desc="agent 帮你造 Function / Handler / Workflow,带版本,可回滚。" />
-        <Bullet icon={Icon.Server} title="都在本地"
-                desc="数据放在 ~/.forgify/,不上传,不需要登录。" />
-      </div>
-    </>
-  );
-}
-
-function AccountStep({ name, setName, accent }) {
-  const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#4f46e5";
-  return (
-    <>
-      <div className="onb-head">
-        <div className="onb-title">起个名字</div>
-        <div className="onb-sub">工作空间的名字。后续可以再加、再切换。</div>
-      </div>
-      <div className="onb-avatar-row">
-        <div className="onb-avatar" style={{ background: color }}>
-          {name.trim().slice(0, 1).toUpperCase() || "?"}
-        </div>
-        <div className="onb-field" style={{ flex: 1 }}>
-          <div className="onb-label">名字</div>
-          <input
-            className="onb-input onb-input-lg"
-            placeholder="例如 私人 / 工作 / 写作"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-          />
-          <div className="onb-hint">显示在 sidebar 底部。切换时只切这一个空间的数据。</div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function LookStep({ accent, setAccent }) {
-  return (
-    <>
-      <div className="onb-head">
-        <div className="onb-title">挑个色调</div>
-        <div className="onb-sub">点睛色。后续在设置里可改。</div>
-      </div>
-      <div className="onb-swatches">
-        {ACCENTS.map(([k, c, label]) => (
-          <button
-            key={k}
-            className={"onb-swatch" + (accent === k ? " is-active" : "")}
-            style={{ background: c }}
-            onClick={() => setAccent(k)}
-            title={label}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ProviderStep({ providers, provider, setProvider, apiKey, setApiKey, onSkip }) {
-  const selectedMeta = providers.find((p) => p.name === provider);
-  const isOllama = provider === "ollama";
-
-  return (
-    <>
-      <div className="onb-head">
-        <div className="onb-title">配一把钥匙</div>
-        <div className="onb-sub">给一个 LLM 厂商,填它的 API key。也可以稍后再配。</div>
-      </div>
-      <div className="onb-provider-grid">
-        {providers.map((p) => {
-          const hint = PROVIDER_HINTS[p.name] || { abbr: p.name.slice(0, 2).toUpperCase(), color: "#37352f" };
+      <div className="onb-kicker">{t.welcome.kicker}</div>
+      <div className="onb-title">{t.welcome.title}</div>
+      <div className="onb-sub">{t.welcome.sub}</div>
+      <div className="onb-features">
+        {t.welcome.features.map(([title, desc], i) => {
+          const I = icons[i];
           return (
-            <button
-              key={p.name}
-              className={"onb-provider" + (provider === p.name ? " is-active" : "")}
-              onClick={() => setProvider(p.name)}
-            >
-              <span className="onb-pchip" style={{ background: hint.color }}>{hint.abbr}</span>
-              <span style={{ display: "flex", flexDirection: "column", textAlign: "left", minWidth: 0 }}>
+            <div className="onb-feature" key={i}>
+              <div className="onb-fic"><I /></div>
+              <div><div className="onb-ftitle">{title}</div><div className="onb-fdesc">{desc}</div></div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function Workspace({ t, name, setName, accent }) {
+  const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#d97757";
+  return (
+    <>
+      <div className="onb-kicker">{t.workspace.kicker}</div>
+      <div className="onb-title">{t.workspace.title}</div>
+      <div className="onb-sub">{t.workspace.sub}</div>
+      <div className="onb-ws">
+        <div className="onb-avatar" style={{ background: color }}>{name.trim().slice(0, 1).toUpperCase() || "W"}</div>
+        <div className="onb-field">
+          <div className="onb-label">{t.workspace.label}</div>
+          <input className="onb-input" placeholder={t.workspace.placeholder} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <div className="onb-hint">{t.workspace.hint}</div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Appearance({ t, settings }) {
+  return (
+    <>
+      <div className="onb-kicker">{t.appearance.kicker}</div>
+      <div className="onb-title">{t.appearance.title}</div>
+      <div className="onb-sub">{t.appearance.sub}</div>
+
+      <div className="onb-fg">
+        <div className="onb-label">{t.appearance.accent}</div>
+        <div className="onb-swatches">
+          {ACCENTS.map(([k, c]) => (
+            <button key={k} className={"onb-swatch" + (settings.accent === k ? " is-active" : "")} style={{ background: c }} onClick={() => settings.set({ accent: k })} />
+          ))}
+        </div>
+      </div>
+
+      <div className="onb-fg">
+        <div className="onb-label">{t.appearance.language} <span className="onb-auto">{t.auto}</span></div>
+        <div className="onb-seg">
+          {[["zh", "中文"], ["en", "English"]].map(([k, label]) => (
+            <button key={k} className={"onb-seg-opt" + (settings.lang === k ? " is-active" : "")} onClick={() => settings.set({ lang: k })}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="onb-fg">
+        <div className="onb-label">{t.appearance.theme} <span className="onb-auto">{t.auto}</span></div>
+        <div className="onb-seg">
+          {[["light", t.appearance.themeOpts.light], ["dark", t.appearance.themeOpts.dark], ["system", t.appearance.themeOpts.system]].map(([k, label]) => (
+            <button key={k} className={"onb-seg-opt" + (settings.theme === k ? " is-active" : "")} onClick={() => settings.set({ theme: k })}>{label}</button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ProviderGrid({ providers, hints, selected, onPick, tall }) {
+  return (
+    <div className="onb-gridwrap">
+      <div className={"onb-grid" + (tall ? " is-tall" : "")}>
+        {providers.map((p) => {
+          const h = hints[p.name] || { abbr: p.name.slice(0, 2).toUpperCase(), color: "#6b6459" };
+          return (
+            <button key={p.name} className={"onb-prov" + (selected === p.name ? " is-active" : "")} onClick={() => onPick(p.name)}>
+              <span className="onb-pchip" style={{ background: h.color }}>{h.abbr}</span>
+              <span style={{ minWidth: 0 }}>
                 <span className="onb-pname">{p.displayName || p.name}</span>
-                <span className="onb-pdesc">{p.defaultBaseUrl || (p.name === "ollama" ? "本地 · 无需 key" : "")}</span>
+                <span className="onb-pdesc" style={{ display: "block" }}>{p.defaultBaseUrl?.replace(/^https?:\/\//, "") || ""}</span>
               </span>
             </button>
           );
         })}
       </div>
+      {!tall && <div className="onb-grid-fade" />}
+    </div>
+  );
+}
 
-      {provider && !isOllama && (
-        <div className="onb-field" style={{ marginTop: 16 }}>
-          <div className="onb-label">
-            {selectedMeta?.displayName || provider} 的 API Key
+function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, models, modelId, setModelId }) {
+  const isOllama = provider === "ollama";
+  const display = providers.find((p) => p.name === provider)?.displayName || provider;
+  return (
+    <>
+      <div className="onb-kicker">{t.model.kicker}</div>
+      <div className="onb-title">{t.model.title}</div>
+      <div className="onb-sub">{t.model.sub}</div>
+      <ProviderGrid providers={providers} hints={LLM_HINTS} selected={provider} onPick={pickProvider} />
+      <div className="onb-scrollnote">{t.model.scrollNote}</div>
+
+      {provider && (
+        <>
+          <div className="onb-twofield">
+            <div className="onb-keyfield" style={{ flex: 1.3 }}>
+              <div className="onb-klabel">{isOllama ? display : t.model.keyLabel(display)}</div>
+              <div className="onb-kinput">
+                <Icon.KeyRound />
+                {isOllama
+                  ? <input value="localhost:11434" readOnly style={{ color: "var(--fg-faint)" }} />
+                  : <input type="password" placeholder={t.model.keyPlaceholder} value={apiKey} onChange={(e) => onKeyChange(e.target.value)} autoFocus />}
+                {verified ? (
+                  <span className="onb-verified"><Icon.Check /> {t.model.verified}</span>
+                ) : (
+                  <button className="onb-verify-btn" onClick={verify} disabled={verifying || (!isOllama && !apiKey.trim())}>
+                    {verifying ? t.model.verifying : t.model.verify}
+                  </button>
+                )}
+              </div>
+            </div>
+            {verified && models.length > 0 && (
+              <div className="onb-keyfield" style={{ flex: 1 }}>
+                <div className="onb-klabel">{t.model.modelLabel}</div>
+                <select className="onb-mselect" value={modelId} onChange={(e) => setModelId(e.target.value)}>
+                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            )}
           </div>
-          <input
-            className="onb-input"
-            type="password"
-            placeholder="sk-…"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            autoFocus
-          />
-          <div className="onb-hint">key 经 AES-GCM 加密放在 ~/.forgify/,不上传。</div>
+          {isOllama && <div className="onb-banner"><Icon.Server /><span>{t.model.ollamaHint}</span></div>}
+          {verified && models.length > 0 && <div className="onb-khint">{t.model.availHint(models)}</div>}
+        </>
+      )}
+    </>
+  );
+}
+
+function Search({ t, providers, provider, setProvider, apiKey, setApiKey }) {
+  const display = providers.find((p) => p.name === provider)?.displayName || provider;
+  return (
+    <>
+      <div className="onb-kicker">{t.search.kicker} <span style={{ color: "var(--fg-faint)", fontWeight: 500, textTransform: "none", letterSpacing: 0 }}>{t.search.optional}</span></div>
+      <div className="onb-title">{t.search.title}</div>
+      <div className="onb-sub">{t.search.sub}</div>
+      <div className="onb-fg">
+        <div className="onb-label">{t.search.providerLabel}</div>
+        <ProviderGrid providers={providers} hints={SEARCH_HINTS} selected={provider} onPick={setProvider} tall />
+      </div>
+      {provider && (
+        <div className="onb-keyfield">
+          <div className="onb-klabel">{t.search.keyLabel(display)}</div>
+          <div className="onb-kinput is-plain">
+            <Icon.KeyRound />
+            <input type="password" placeholder={t.search.keyPlaceholder} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoFocus />
+          </div>
         </div>
       )}
+    </>
+  );
+}
 
-      {isOllama && (
-        <div style={{
-          marginTop: 16, padding: 14, borderRadius: 6,
-          background: "var(--accent-soft)", fontSize: 12,
-          color: "var(--fg-muted)", lineHeight: 1.55,
-        }}>
-          Ollama 是本地推理,不需要 API key。确保 <code style={{ fontFamily: "var(--font-mono)" }}>ollama serve</code> 已启动。
-        </div>
-      )}
-
-      <div style={{ marginTop: 18 }}>
-        <button
-          className="btn btn-ghost"
-          style={{ padding: "6px 10px", fontSize: 12 }}
-          onClick={onSkip}
-          type="button"
-        >
-          稍后再配 →
-        </button>
+function Done({ t, name, accent, provider, search }) {
+  const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#d97757";
+  return (
+    <>
+      <div className="onb-donemark"><Icon.Check /></div>
+      <div className="onb-title">{t.done.title}</div>
+      <div className="onb-sub">{t.done.sub}</div>
+      <div className="onb-recap">
+        <Recap label={t.done.recap.workspace} value={name} />
+        <Recap label={t.done.recap.accent}><span className="onb-recap-dot" style={{ background: color }} /></Recap>
+        <Recap label={t.done.recap.model} value={provider} muted={!provider} fallback={t.done.none} />
+        <Recap label={t.done.recap.search} value={search} muted={!search} fallback={t.done.none} />
       </div>
     </>
   );
 }
 
-function DoneStep({ name, accent, provider, hasKey }) {
+function Recap({ label, value, children, muted, fallback }) {
   return (
-    <div style={{ textAlign: "center", paddingTop: 16 }}>
-      <div className="onb-done-mark"><Icon.Check /></div>
-      <div className="onb-title">好了</div>
-      <div className="onb-sub" style={{ marginTop: 8 }}>
-        点"开始",和 agent 说第一句话。
-      </div>
-      <div className="onb-done-grid">
-        <DoneCard label="工作空间" value={name} />
-        <DoneCard label="色调" value={accent} />
-        <DoneCard label="LLM" value={hasKey ? provider : "稍后再配"} />
-      </div>
-    </div>
-  );
-}
-
-function DoneCard({ label, value }) {
-  return (
-    <div className="onb-done-card">
-      <div className="onb-done-card-label">{label}</div>
-      <div className="onb-done-card-value">{value}</div>
-    </div>
-  );
-}
-
-function Bullet({ icon: I, title, desc }) {
-  return (
-    <div className="onb-bullet">
-      <I className="icon" />
-      <div>
-        <div className="onb-bullet-title">{title}</div>
-        <div className="onb-bullet-desc">{desc}</div>
-      </div>
+    <div className="onb-recap-card">
+      <div className="onb-recap-label">{label}</div>
+      <div className={"onb-recap-value" + (muted ? " is-muted" : "")}>{children || value || fallback}</div>
     </div>
   );
 }
