@@ -4,12 +4,14 @@
 // useContextStrip —— 欢迎页底下自适应一行;按 P1>P2>P3>P4 优先级取最重要的;
 // 都没就返 null,整行隐藏。
 
+import { useTranslation } from "react-i18next";
 import { useFlowRuns } from "../../api/flowruns.js";
 import { useConversations } from "../../api/conversations.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function useContextStrip() {
+  const { t } = useTranslation("dashboard");
   const { data: flowruns = [] } = useFlowRuns();
   const { data: convs = [] } = useConversations();
 
@@ -44,7 +46,7 @@ export function useContextStrip() {
   if (recent.length > 0) {
     return {
       kind: "recent",
-      payload: { convId: recent[0].id, convTitle: recent[0].title || "(无标题)", updatedAt: recent[0].updatedAt },
+      payload: { convId: recent[0].id, convTitle: recent[0].title || t("contextStrip.untitled"), updatedAt: recent[0].updatedAt },
     };
   }
 

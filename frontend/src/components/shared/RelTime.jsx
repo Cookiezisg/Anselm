@@ -1,28 +1,13 @@
-// RelTime — Chinese relative time with absolute time in title. Re-renders
-// every 30s so "刚刚" → "1 分钟前" updates without page reload.
+// RelTime — bilingual relative time with absolute time in title. Re-renders
+// every 30s so "just now" → "1m ago" updates without page reload.
 //
-// RelTime —— 中文相对时间；title 属性给绝对时间；每 30s 重渲染一次。
+// RelTime —— 双语相对时间；title 属性给绝对时间；每 30s 重渲染一次。
 
 import { useEffect, useState } from "react";
-
-function format(d) {
-  const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 5) return "刚刚";
-  if (diff < 60) return Math.floor(diff) + " 秒前";
-  if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
-  if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
-  if (diff < 86400 * 30) return Math.floor(diff / 86400) + " 天前";
-  return d.toLocaleDateString("zh-CN", { month: "short", day: "numeric" });
-}
-
-function absolute(d) {
-  return d.toLocaleString("zh-CN", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-}
+import { useTranslation } from "react-i18next";
 
 export function RelTime({ ts, prefix = "" }) {
+  const { t, i18n } = useTranslation("misc");
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 30_000);
@@ -32,6 +17,25 @@ export function RelTime({ ts, prefix = "" }) {
   if (!ts) return null;
   const d = typeof ts === "string" || typeof ts === "number" ? new Date(ts) : ts;
   if (isNaN(d.getTime())) return null;
+
+  const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
+
+  function format(date) {
+    const diff = (Date.now() - date.getTime()) / 1000;
+    if (diff < 5) return t("relTime.justNow");
+    if (diff < 60) return t("relTime.secondsAgo", { n: Math.floor(diff) });
+    if (diff < 3600) return t("relTime.minutesAgo", { n: Math.floor(diff / 60) });
+    if (diff < 86400) return t("relTime.hoursAgo", { n: Math.floor(diff / 3600) });
+    if (diff < 86400 * 30) return t("relTime.daysAgo", { n: Math.floor(diff / 86400) });
+    return date.toLocaleDateString(locale, { month: "short", day: "numeric" });
+  }
+
+  function absolute(date) {
+    return date.toLocaleString(locale, {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+  }
 
   return <time title={absolute(d)}>{prefix}{format(d)}</time>;
 }

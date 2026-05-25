@@ -4,9 +4,11 @@
 //
 // 后续 Phase 才落地的 pane 临时占位；page 外观完整，不阻塞 shell 验证。
 
+import { useTranslation } from "react-i18next";
 import { Icon } from "../components/primitives/Icon.jsx";
 
 export function PlaceholderPane({ title, phase, lead }) {
+  const { t } = useTranslation("misc");
   return (
     <div className="page">
       <div className="page-header">
@@ -18,8 +20,8 @@ export function PlaceholderPane({ title, phase, lead }) {
       <div className="page-body" style={{ padding: 32 }}>
         <div className="empty">
           <Icon.Hammer className="icon" />
-          <div className="title">{phase} 实现中</div>
-          <div className="sub">Phase 2 仅 shell 验证；真实功能见 PRD §15。</div>
+          <div className="title">{t("placeholderPane.implementing", { phase })}</div>
+          <div className="sub">{t("placeholderPane.subtitle")}</div>
         </div>
       </div>
     </div>

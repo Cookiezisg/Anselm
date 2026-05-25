@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { FloatingInspector } from "./FloatingInspector.jsx";
@@ -30,22 +31,23 @@ const KIND_ICON = {
   mcp: "Server", memory: "Brain", conversation: "MessageSquare", document: "FileText",
   flowrun: "Play",
 };
-const KIND_LABEL = {
+const KIND_LABEL_BASE = {
   function: "Function", handler: "Handler", workflow: "Workflow", skill: "Skill",
-  mcp: "MCP", memory: "Memory", conversation: "对话", document: "文档", flowrun: "FlowRun",
+  mcp: "MCP", memory: "Memory", flowrun: "FlowRun",
 };
 
 // 8 closed relation kinds (see backend domain/relation/relation.go). Short
-// 2-char human labels — direction implied by the → / ← section header.
-const REL_LABEL = {
-  workflow_uses_function:     "节点",
-  workflow_uses_handler:      "节点",
-  workflow_uses_mcp:          "挂载",
-  workflow_uses_skill:        "挂载",
-  workflow_uses_document:     "引用",
-  conversation_forged_entity: "工坊",
-  conversation_edited_entity: "修改",
-  document_links_entity:      "链接",
+// human labels — direction implied by the → / ← section header.
+// These keys map to misc.relGraph.relLabels.* for i18n.
+const REL_LABEL_KEYS = {
+  workflow_uses_function:     "workflow_uses_function",
+  workflow_uses_handler:      "workflow_uses_handler",
+  workflow_uses_mcp:          "workflow_uses_mcp",
+  workflow_uses_skill:        "workflow_uses_skill",
+  workflow_uses_document:     "workflow_uses_document",
+  conversation_forged_entity: "conversation_forged_entity",
+  conversation_edited_entity: "conversation_edited_entity",
+  document_links_entity:      "document_links_entity",
 };
 
 // ── Build node list from query results ───────────────────────────────────
@@ -310,6 +312,7 @@ function adjacency(entityId, allEdges, allNodes) {
 }
 
 function NodeDetail({ node, allNodes, allEdges, onSelect }) {
+  const { t } = useTranslation("misc");
   const openEntity = useUIStore((s) => s.openEntity);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
   const openPane = useUIStore((s) => s.openPane);
@@ -340,32 +343,40 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
           <div className="rg-detail-name">{node.label}</div>
           <div className="rg-detail-id cell-mono">{node.id}</div>
         </div>
-        <Button size="xs" onClick={openTarget}><Icon.ArrowRight /> 打开</Button>
+        <Button size="xs" onClick={openTarget}><Icon.ArrowRight /> {t("relGraph.open")}</Button>
       </div>
       <div className="rg-detail-body">
         {node.sub && <div className="rg-detail-sub">{node.sub}</div>}
-        <AdjacencySection label={"→ 引用 / 使用 (" + outgoing.length + ")"} list={outgoing} onSelect={onSelect} />
-        <AdjacencySection label={"← 被引用 (" + incoming.length + ")"} list={incoming} onSelect={onSelect} />
+        <AdjacencySection label={t("relGraph.outgoing", { count: outgoing.length })} list={outgoing} onSelect={onSelect} t={t} />
+        <AdjacencySection label={t("relGraph.incoming", { count: incoming.length })} list={incoming} onSelect={onSelect} t={t} />
         {outgoing.length === 0 && incoming.length === 0 && (
-          <div style={{ fontSize: 12, color: "var(--fg-faint)" }}>暂无引用关系</div>
+          <div style={{ fontSize: 12, color: "var(--fg-faint)" }}>{t("relGraph.noRelations")}</div>
         )}
       </div>
     </>
   );
 }
-function AdjacencySection({ label, list, onSelect }) {
+function AdjacencySection({ label, list, onSelect, t }) {
   if (list.length === 0) return null;
   return (
     <div className="rg-section">
       <div className="rg-section-label">{label}</div>
-      {list.map((x, i) => (
-        <button key={i} className="rg-adj-row" onClick={() => onSelect(x.node.id)}>
-          <span className="rg-adj-dot" style={{ background: KIND_COLOR[x.node.kind] }} />
-          <span className="rg-adj-kind">{KIND_LABEL[x.node.kind]}</span>
-          <span className="rg-adj-name">{x.node.label}</span>
-          {x.edge.kind && <span className="rg-adj-rel">{REL_LABEL[x.edge.kind] || x.edge.kind}</span>}
-        </button>
-      ))}
+      {list.map((x, i) => {
+        const kindLabel = KIND_LABEL_BASE[x.node.kind]
+          || t("relGraph.kinds." + x.node.kind, { defaultValue: x.node.kind });
+        const relKey = REL_LABEL_KEYS[x.edge.kind];
+        const relLabel = relKey
+          ? t("relGraph.relLabels." + relKey, { defaultValue: x.edge.kind })
+          : x.edge.kind;
+        return (
+          <button key={i} className="rg-adj-row" onClick={() => onSelect(x.node.id)}>
+            <span className="rg-adj-dot" style={{ background: KIND_COLOR[x.node.kind] }} />
+            <span className="rg-adj-kind">{kindLabel}</span>
+            <span className="rg-adj-name">{x.node.label}</span>
+            {x.edge.kind && <span className="rg-adj-rel">{relLabel}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -390,6 +401,7 @@ function RGAutoSize({ children }) {
 
 // ── Full graph view ──────────────────────────────────────────────────────
 export function RelGraph() {
+  const { t } = useTranslation("misc");
   const allNodes = useEntityDirectory();
   const { data: rawRel = [] } = useAllRelations();
   const allEdges = useMemo(() => normEdges(rawRel), [rawRel]);
@@ -408,14 +420,18 @@ export function RelGraph() {
   const selectedNode = filtered.nodes.find((n) => n.id === selected);
   const shellRef = useRef(null);
 
+  const allKinds = [...Object.keys(KIND_LABEL_BASE), "conversation", "document"];
+
+  const kindLabel = (k) => KIND_LABEL_BASE[k] || t("relGraph.kinds." + k, { defaultValue: k });
+
   return (
     <div className="rg-shell" ref={shellRef}>
       <div className="rg-main">
         <div className="rg-toolbar">
           <span style={{ fontSize: 11, color: "var(--fg-faint)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            过滤
+            {t("relGraph.filter")}
           </span>
-          {Object.keys(KIND_LABEL).filter((k) => k !== "flowrun").map((k) => {
+          {allKinds.filter((k) => k !== "flowrun").map((k) => {
             const active = kindFilter.size === 0 || kindFilter.has(k);
             return (
               <button key={k}
@@ -429,14 +445,14 @@ export function RelGraph() {
                 })}
                 style={{ "--kc": KIND_COLOR[k] }}>
                 <span className="rg-kind-dot" />
-                {KIND_LABEL[k]}
+                {kindLabel(k)}
               </button>
             );
           })}
-          <Button size="xs" variant="ghost" onClick={() => setKindFilter(new Set())}>全部</Button>
+          <Button size="xs" variant="ghost" onClick={() => setKindFilter(new Set())}>{t("relGraph.all")}</Button>
           <div style={{ flex: 1 }} />
           <span style={{ fontSize: 11, color: "var(--fg-faint)", fontFamily: "var(--font-mono)" }}>
-            {filtered.nodes.length} 节点 · {filtered.edges.length} 边
+            {t("relGraph.nodeCount", { nodes: filtered.nodes.length, edges: filtered.edges.length })}
           </span>
         </div>
         <RGAutoSize>
@@ -450,7 +466,7 @@ export function RelGraph() {
       <FloatingInspector
         open={!!selectedNode}
         onClose={() => setSelected(null)}
-        title={selectedNode ? (KIND_LABEL[selectedNode.kind] || selectedNode.kind) : ""}
+        title={selectedNode ? kindLabel(selectedNode.kind) : ""}
         width={320}
         anchorRef={shellRef}
       >
@@ -464,6 +480,7 @@ export function RelGraph() {
 
 // ── Mini popover focused on a single entity ──────────────────────────────
 export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
+  const { t } = useTranslation("misc");
   const allNodes = useEntityDirectory();
   const { data: nb } = useNeighborhood({ kind: kind || guessKind(entityId), id: entityId, depth: 2 });
   const nodes = useMemo(() => {
@@ -485,13 +502,13 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
       <div className="rg-popover" onClick={(e) => e.stopPropagation()}>
         <div className="rg-popover-head">
           <Icon.GitBranch style={{ width: 14, height: 14, color: "var(--accent)" }} />
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-strong)" }}>引用关系</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--fg-strong)" }}>{t("relGraph.refTitle")}</div>
           <span className="cell-mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
-            焦点 · {entityId}
+            {t("relGraph.focusLabel")} · {entityId}
           </span>
           <div style={{ flex: 1 }} />
           <Button size="xs" variant="ghost" onClick={() => { onClose(); useUIStore.getState().openPane("observe"); }}>
-            完整图谱 →
+            {t("relGraph.fullGraph")}
           </Button>
           <button className="icon-btn" onClick={onClose}><Icon.X /></button>
         </div>
@@ -511,6 +528,7 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
 
 // ── "..." trigger that opens RelGraphPopover ─────────────────────────────
 export function RelMore({ entityId, kind, label }) {
+  const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
   const [paneEl, setPaneEl] = useState(null);
   const btnRef = useRef(null);
@@ -524,7 +542,7 @@ export function RelMore({ entityId, kind, label }) {
 
   return (
     <>
-      <button ref={btnRef} className="rel-more-btn" onClick={onClick} title={label || "查看引用关系"}>
+      <button ref={btnRef} className="rel-more-btn" onClick={onClick} title={label || t("entityRelMeta.viewRefs")}>
         <Icon.MoreHorizontal />
       </button>
       {open && <RelGraphPopover entityId={entityId} kind={kind} paneEl={paneEl} onClose={() => setOpen(false)} />}

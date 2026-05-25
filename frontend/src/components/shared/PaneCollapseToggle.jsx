@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 
 // PaneCollapseToggle — hover-only floating button used to expand a
@@ -8,13 +9,14 @@ import { Icon } from "../primitives/Icon.jsx";
 // 贴边缘垂直居中，鼠标进入触发区才浮现。
 
 export function PaneCollapseToggle({ side = "left", onClick, title }) {
+  const { t } = useTranslation("misc");
   return (
     <button
       type="button"
       className={"pane-toggle pane-toggle-" + side}
       onClick={onClick}
-      title={title || "展开"}
-      aria-label={title || "展开侧栏"}
+      title={title || t("paneCollapse.expand")}
+      aria-label={title || t("paneCollapse.expandAria")}
     >
       <Icon.ChevronRight />
     </button>

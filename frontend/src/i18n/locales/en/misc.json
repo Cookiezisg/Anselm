@@ -1,0 +1,86 @@
+{
+  "relTime": {
+    "justNow": "just now",
+    "secondsAgo": "{{n}}s ago",
+    "minutesAgo": "{{n}}m ago",
+    "hoursAgo": "{{n}}h ago",
+    "daysAgo": "{{n}}d ago"
+  },
+  "actionMenu": {
+    "more": "More"
+  },
+  "askAi": {
+    "btnLabel": "AI · Iterate",
+    "btnTitle": "Ask AI to iterate on this entity",
+    "defaultContext": "Iterate on this entity",
+    "closeTitle": "Close",
+    "placeholder": "Tell AI what to change… (Enter to submit, Shift+Enter for newline)",
+    "iterateEmptyTitle": "Iterate returned empty",
+    "iterateEmptyDesc": "Could not navigate to conversation",
+    "iterateFailedTitle": "Iterate failed"
+  },
+  "bottomSheet": {
+    "closeTitle": "Close",
+    "closeAria": "Close"
+  },
+  "floatingInspector": {
+    "closeTitle": "Close",
+    "closeAria": "Close"
+  },
+  "paneCollapse": {
+    "expand": "Expand",
+    "expandAria": "Expand sidebar"
+  },
+  "relGraph": {
+    "filter": "Filter",
+    "all": "All",
+    "nodeCount": "{{nodes}} nodes · {{edges}} edges",
+    "open": "Open",
+    "noRelations": "No relations",
+    "outgoing": "→ References / uses ({{count}})",
+    "incoming": "← Referenced by ({{count}})",
+    "refTitle": "Relations",
+    "focusLabel": "Focus",
+    "fullGraph": "Full graph →",
+    "kinds": {
+      "conversation": "Conversation",
+      "document": "Document"
+    },
+    "relLabels": {
+      "workflow_uses_function": "node",
+      "workflow_uses_handler": "node",
+      "workflow_uses_mcp": "mount",
+      "workflow_uses_skill": "mount",
+      "workflow_uses_document": "ref",
+      "conversation_forged_entity": "forged",
+      "conversation_edited_entity": "edited",
+      "document_links_entity": "link"
+    }
+  },
+  "entityRelMeta": {
+    "relatedWith": "· related to",
+    "related": "",
+    "viewRefs": "View relations"
+  },
+  "versionRail": {
+    "collapseTitle": "Collapse",
+    "expandTitle": "Expand",
+    "versionCount": "Versions · {{count}}",
+    "pendingBanner": "1 pending change",
+    "viewDiff": "View diff",
+    "noSummary": "(no description)",
+    "deployBar": "Live: {{deployedId}} · Editing: {{currentId}}",
+    "deploy": "Deploy"
+  },
+  "statusBadge": {
+    "aiGenerated": "AI-generated"
+  },
+  "observePane": {
+    "title": "Insights",
+    "subtitle": "Relations between entities."
+  },
+  "placeholderPane": {
+    "implementing": "{{phase}} in progress",
+    "subtitle": "Phase 2 shell only; full implementation in PRD §15."
+  }
+}

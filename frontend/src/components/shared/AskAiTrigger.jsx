@@ -10,6 +10,7 @@
 // :iterate 返 conversationId → 跳 chat。
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { useIterateForge } from "../../api/forge.js";
@@ -17,6 +18,7 @@ import { useUIStore } from "../../store/ui.js";
 import { slideUp } from "../../motion/tokens.js";
 
 export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
+  const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const ta = useRef(null);
@@ -47,10 +49,10 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
         setActiveConv(cid);
         openPane("chat");
       } else {
-        pushToast({ kind: "warn", title: "iterate 返回为空", desc: "无法跳转到对话" });
+        pushToast({ kind: "warn", title: t("askAi.iterateEmptyTitle"), desc: t("askAi.iterateEmptyDesc") });
       }
     } catch (err) {
-      pushToast({ kind: "error", title: "iterate 失败", desc: err.message });
+      pushToast({ kind: "error", title: t("askAi.iterateFailedTitle"), desc: err.message });
     }
   };
 
@@ -59,9 +61,9 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
       <button
         className="btn btn-sm ask-ai-btn"
         onClick={() => setOpen((o) => !o)}
-        title="让 AI 迭代这个实体"
+        title={t("askAi.btnTitle")}
       >
-        <Icon.Sparkles /> AI · 迭代
+        <Icon.Sparkles /> {t("askAi.btnLabel")}
       </button>
 
       <AnimatePresence>
@@ -74,16 +76,16 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
             <div className="ask-ai-pop-head">
               <div className="ask-ai-pop-context">
                 <Icon.Sparkles style={{ width: 12, height: 12, color: "var(--accent)" }} />
-                <span>{context || "迭代这个实体"}</span>
+                <span>{context || t("askAi.defaultContext")}</span>
               </div>
-              <button className="icon-btn" onClick={() => setOpen(false)} title="关闭">
+              <button className="icon-btn" onClick={() => setOpen(false)} title={t("askAi.closeTitle")}>
                 <Icon.X />
               </button>
             </div>
             <textarea
               ref={ta}
               className="ask-ai-pop-input"
-              placeholder="告诉 AI 你想改什么……（Enter 提交，Shift+Enter 换行）"
+              placeholder={t("askAi.placeholder")}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {

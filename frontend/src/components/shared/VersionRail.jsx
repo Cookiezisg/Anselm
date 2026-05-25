@@ -6,6 +6,7 @@
 // VersionRail —— trinity 三种详情共用的右侧版本栏；pending 显著高亮。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 
 export function VersionRail({
@@ -15,15 +16,16 @@ export function VersionRail({
   onAccept, onRevert, onRollback, onDeploy,
   showDeploy,
 }) {
+  const { t } = useTranslation("misc");
   const [collapsed, setCollapsed] = useState(false);
   const pending = versions.find((v) => v.id === pendingId);
 
   return (
     <aside className={"vr-rail" + (collapsed ? " is-collapsed" : "")}>
       <div className="vr-rail-head">
-        <button className="vr-collapse" onClick={() => setCollapsed((c) => !c)} title={collapsed ? "展开" : "收起"}>
+        <button className="vr-collapse" onClick={() => setCollapsed((c) => !c)} title={collapsed ? t("versionRail.expandTitle") : t("versionRail.collapseTitle")}>
           <Icon.GitBranch />
-          {!collapsed && <span>版本 · {versions.length}</span>}
+          {!collapsed && <span>{t("versionRail.versionCount", { count: versions.length })}</span>}
         </button>
       </div>
 
@@ -31,12 +33,12 @@ export function VersionRail({
         <div className="vr-pending-banner">
           <div className="vr-pending-head">
             <Icon.Sparkles style={{ width: 12, height: 12, color: "var(--status-warn)" }} />
-            <span>有 1 个 pending 待处理</span>
+            <span>{t("versionRail.pendingBanner")}</span>
           </div>
-          <div className="vr-pending-summary">{pending.summary || pending.description || "(无说明)"}</div>
+          <div className="vr-pending-summary">{pending.summary || pending.description || t("versionRail.noSummary")}</div>
           <div className="vr-pending-actions">
             <button className="btn btn-xs btn-danger" onClick={onRevert}>Revert</button>
-            <button className="btn btn-xs" onClick={() => onSelect?.(pendingId)}>查看 diff</button>
+            <button className="btn btn-xs" onClick={() => onSelect?.(pendingId)}>{t("versionRail.viewDiff")}</button>
             <button className="btn btn-xs btn-accent" onClick={onAccept}>Accept</button>
           </div>
         </div>
@@ -85,10 +87,10 @@ export function VersionRail({
       {!collapsed && showDeploy && deployedId && deployedId !== currentId && (
         <div className="vr-deploy-bar">
           <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>
-            生产中：{deployedId} · 当前编辑：{currentId}
+            {t("versionRail.deployBar", { deployedId, currentId })}
           </div>
           <button className="btn btn-xs btn-accent" onClick={onDeploy}>
-            <Icon.Play /> 部署
+            <Icon.Play /> {t("versionRail.deploy")}
           </button>
         </div>
       )}
@@ -97,6 +99,8 @@ export function VersionRail({
 }
 
 function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }) {
+  const { t, i18n } = useTranslation("misc");
+  const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
   const dotColor = isPending ? "var(--status-warn)"
     : isCurrent ? "var(--status-success)"
     : isDeployed ? "var(--accent)"
@@ -115,14 +119,14 @@ function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }
           {isDeployed && <span className="vr-badge vr-deployed">deployed</span>}
         </div>
         <div className="vr-summary">
-          {v.summary || v.description || <span style={{ color: "var(--fg-faint)" }}>无说明</span>}
+          {v.summary || v.description || <span style={{ color: "var(--fg-faint)" }}>{t("versionRail.noSummary")}</span>}
         </div>
         <div className="vr-foot">
           <span className="vr-author">{v.author || "you"}</span>
           {(v.at || v.createdAt) && (
             <>
               <span className="vr-sep">·</span>
-              <span className="vr-time">{v.at || new Date(v.createdAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              <span className="vr-time">{v.at || new Date(v.createdAt).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
             </>
           )}
         </div>

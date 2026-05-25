@@ -1,0 +1,86 @@
+{
+  "relTime": {
+    "justNow": "刚刚",
+    "secondsAgo": "{{n}} 秒前",
+    "minutesAgo": "{{n}} 分钟前",
+    "hoursAgo": "{{n}} 小时前",
+    "daysAgo": "{{n}} 天前"
+  },
+  "actionMenu": {
+    "more": "更多"
+  },
+  "askAi": {
+    "btnLabel": "AI · 迭代",
+    "btnTitle": "让 AI 迭代这个实体",
+    "defaultContext": "迭代这个实体",
+    "closeTitle": "关闭",
+    "placeholder": "告诉 AI 你想改什么……（Enter 提交，Shift+Enter 换行）",
+    "iterateEmptyTitle": "iterate 返回为空",
+    "iterateEmptyDesc": "无法跳转到对话",
+    "iterateFailedTitle": "iterate 失败"
+  },
+  "bottomSheet": {
+    "closeTitle": "关闭",
+    "closeAria": "关闭"
+  },
+  "floatingInspector": {
+    "closeTitle": "关闭",
+    "closeAria": "关闭"
+  },
+  "paneCollapse": {
+    "expand": "展开",
+    "expandAria": "展开侧栏"
+  },
+  "relGraph": {
+    "filter": "过滤",
+    "all": "全部",
+    "nodeCount": "{{nodes}} 节点 · {{edges}} 边",
+    "open": "打开",
+    "noRelations": "暂无引用关系",
+    "outgoing": "→ 引用 / 使用 ({{count}})",
+    "incoming": "← 被引用 ({{count}})",
+    "refTitle": "引用关系",
+    "focusLabel": "焦点",
+    "fullGraph": "完整图谱 →",
+    "kinds": {
+      "conversation": "对话",
+      "document": "文档"
+    },
+    "relLabels": {
+      "workflow_uses_function": "节点",
+      "workflow_uses_handler": "节点",
+      "workflow_uses_mcp": "挂载",
+      "workflow_uses_skill": "挂载",
+      "workflow_uses_document": "引用",
+      "conversation_forged_entity": "工坊",
+      "conversation_edited_entity": "修改",
+      "document_links_entity": "链接"
+    }
+  },
+  "entityRelMeta": {
+    "relatedWith": "· 与",
+    "related": "相关",
+    "viewRefs": "查看引用关系"
+  },
+  "versionRail": {
+    "collapseTitle": "收起",
+    "expandTitle": "展开",
+    "versionCount": "版本 · {{count}}",
+    "pendingBanner": "有 1 个 pending 待处理",
+    "viewDiff": "查看 diff",
+    "noSummary": "(无说明)",
+    "deployBar": "生产中：{{deployedId}} · 当前编辑：{{currentId}}",
+    "deploy": "部署"
+  },
+  "statusBadge": {
+    "aiGenerated": "由 AI 工坊产生"
+  },
+  "observePane": {
+    "title": "洞察",
+    "subtitle": "实体之间的引用关系。"
+  },
+  "placeholderPane": {
+    "implementing": "{{phase}} 实现中",
+    "subtitle": "Phase 2 仅 shell 验证；真实功能见 PRD §15。"
+  }
+}

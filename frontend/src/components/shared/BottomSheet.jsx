@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 
 // BottomSheet — full-width panel sliding up from the bottom of an
@@ -13,6 +14,7 @@ import { Icon } from "../primitives/Icon.jsx";
 export function BottomSheet({
   open, onClose, title, children, height = 340, anchorRef,
 }) {
+  const { t } = useTranslation("misc");
   const sheetRef = useRef(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function BottomSheet({
     >
       <div className="bottom-sheet-head">
         <span className="bottom-sheet-title">{title}</span>
-        <button className="icon-btn" onClick={onClose} title="关闭" aria-label="关闭">
+        <button className="icon-btn" onClick={onClose} title={t("bottomSheet.closeTitle")} aria-label={t("bottomSheet.closeAria")}>
           <Icon.X />
         </button>
       </div>

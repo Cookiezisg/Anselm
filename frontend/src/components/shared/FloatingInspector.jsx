@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 
 // FloatingInspector — non-modal popover anchored to a pane corner.
@@ -22,6 +23,7 @@ export function FloatingInspector({
   open, onClose, title, children,
   side = "right", width = 340, anchorRef,
 }) {
+  const { t } = useTranslation("misc");
   const popRef = useRef(null);
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function FloatingInspector({
     >
       <div className="floating-inspector-head">
         <span className="floating-inspector-title">{title}</span>
-        <button className="icon-btn" onClick={onClose} title="关闭" aria-label="关闭">
+        <button className="icon-btn" onClick={onClose} title={t("floatingInspector.closeTitle")} aria-label={t("floatingInspector.closeAria")}>
           <Icon.X />
         </button>
       </div>

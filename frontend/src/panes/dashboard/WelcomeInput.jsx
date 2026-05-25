@@ -5,9 +5,11 @@
 // 不触发;parent 拿到 text 后串行新建对话 + 发首条消息。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 
 export function WelcomeInput({ onSubmit, isSubmitting = false }) {
+  const { t } = useTranslation("dashboard");
   const [text, setText] = useState("");
 
   const submit = () => {
@@ -29,7 +31,7 @@ export function WelcomeInput({ onSubmit, isSubmitting = false }) {
       <span className="wel-input-icon"><Icon.Plus size={18} strokeWidth={2} /></span>
       <textarea
         className="wel-input-area"
-        placeholder="Ask Forgify… or forge something"
+        placeholder={t("input.placeholder")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}

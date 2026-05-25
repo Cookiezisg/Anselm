@@ -9,6 +9,7 @@
 // Escape 关闭。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useDismiss, useClick, useInteractions, useRole, FloatingPortal,
@@ -16,6 +17,7 @@ import {
 import { Icon } from "../primitives/Icon.jsx";
 
 export function ActionMenu({ items, renderTrigger, placement = "bottom-end" }) {
+  const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
@@ -37,7 +39,7 @@ export function ActionMenu({ items, renderTrigger, placement = "bottom-end" }) {
     <button
       ref={refs.setReference}
       className="icon-btn"
-      title="更多"
+      title={t("actionMenu.more")}
       {...getReferenceProps()}
     >
       <Icon.MoreHorizontal />

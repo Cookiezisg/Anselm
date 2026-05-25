@@ -6,6 +6,7 @@
 // Enter 串行新建 conv + 发首条消息 + 切到 chat pane。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
@@ -16,12 +17,14 @@ import { useGreeting } from "./useGreeting.js";
 import { useContextStrip } from "./useContextStrip.js";
 
 function ContextStrip({ strip, onJump }) {
+  const { t } = useTranslation("dashboard");
   if (!strip) return null;
   if (strip.kind === "waiting") {
     return (
       <div className="wel-strip">
         <span className="wel-strip-dot" style={{ background: "var(--status-warn)" }} />
-        <span><strong>{strip.payload.count} 个流程等你确认</strong> · <button className="wel-strip-link" onClick={() => onJump("execute")}>{strip.payload.flowName}</button></span>
+        <span dangerouslySetInnerHTML={{ __html: t("contextStrip.waiting", { count: strip.payload.count }) }} />{" · "}
+        <button className="wel-strip-link" onClick={() => onJump("execute")}>{strip.payload.flowName}</button>
       </div>
     );
   }
@@ -29,7 +32,8 @@ function ContextStrip({ strip, onJump }) {
     return (
       <div className="wel-strip">
         <span className="wel-strip-dot" style={{ background: "var(--status-error)" }} />
-        <span><strong>{strip.payload.count} 个流程卡住了</strong> · <button className="wel-strip-link" onClick={() => onJump("execute")}>查看</button></span>
+        <span dangerouslySetInnerHTML={{ __html: t("contextStrip.failed", { count: strip.payload.count }) }} />{" · "}
+        <button className="wel-strip-link" onClick={() => onJump("execute")}>{t("contextStrip.failedLink")}</button>
       </div>
     );
   }
@@ -37,7 +41,8 @@ function ContextStrip({ strip, onJump }) {
     return (
       <div className="wel-strip">
         <span className="wel-strip-dot" style={{ background: "var(--status-info)" }} />
-        <span><strong>{strip.payload.count} 个流程在跑</strong> · 最近一次 <RelTime ts={strip.payload.latestStartedAt} /> 启动</span>
+        <span dangerouslySetInnerHTML={{ __html: t("contextStrip.running", { count: strip.payload.count }) }} />{" · "}
+        {t("contextStrip.runningLinkPrefix")} <RelTime ts={strip.payload.latestStartedAt} />{" "}{t("contextStrip.runningLinkSuffix")}
       </div>
     );
   }
@@ -45,7 +50,7 @@ function ContextStrip({ strip, onJump }) {
     return (
       <div className="wel-strip">
         <span className="wel-strip-dot" style={{ background: "var(--fg-faint)" }} />
-        <span>继续 · <button className="wel-strip-link" onClick={() => onJump("chat", strip.payload.convId)}>{strip.payload.convTitle}</button> · <RelTime ts={strip.payload.updatedAt} /></span>
+        <span>{t("contextStrip.recent")} · <button className="wel-strip-link" onClick={() => onJump("chat", strip.payload.convId)}>{strip.payload.convTitle}</button> · <RelTime ts={strip.payload.updatedAt} /></span>
       </div>
     );
   }
@@ -67,6 +72,7 @@ export function Dashboard() {
   const greeting = useGreeting({ hasRecentConv, displayName });
   const strip = useContextStrip();
 
+  const { t } = useTranslation("dashboard");
   const [submitting, setSubmitting] = useState(false);
 
   const onSubmit = async (text) => {
@@ -79,7 +85,7 @@ export function Dashboard() {
         await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { content: text } });
       }
     } catch (err) {
-      pushToast({ kind: "error", title: "发送失败", desc: err.message });
+      pushToast({ kind: "error", title: t("sendFailed"), desc: err.message });
     } finally {
       setSubmitting(false);
     }
