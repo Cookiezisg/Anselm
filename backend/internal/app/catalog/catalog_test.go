@@ -25,6 +25,7 @@ type fakeSource struct {
 
 func (f *fakeSource) Name() string                           { return f.name }
 func (f *fakeSource) Granularity() catalogdomain.Granularity { return f.gran }
+func (f *fakeSource) InvokeTool() string                     { return "fake_tool" }
 func (f *fakeSource) ListItems(_ context.Context) ([]catalogdomain.Item, error) {
 	if f.listErr != nil {
 		return nil, f.listErr

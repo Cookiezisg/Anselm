@@ -41,6 +41,13 @@ type CatalogSource interface {
 	Name() string
 	Granularity() Granularity
 
+	// InvokeTool is the tool-call name the LLM must emit to use items from this source.
+	// The menu renderer formats each entry as "- name [InvokeTool()]: desc" so the
+	// LLM knows exactly which tool to call.
+	//
+	// InvokeTool 返 LLM 调用该 source 条目时须发出的 tool-call 名；menu 渲染用。
+	InvokeTool() string
+
 	// ListItems returns current truth; errors substitute an empty list for this tick.
 	//
 	// ListItems 返当前真实状态；出错时本 tick 该 source 用空列表替代。

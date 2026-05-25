@@ -22,6 +22,7 @@ type stubCatalogSource struct {
 
 func (s *stubCatalogSource) Name() string                           { return s.name }
 func (s *stubCatalogSource) Granularity() catalogdomain.Granularity { return s.gran }
+func (s *stubCatalogSource) InvokeTool() string                     { return "stub_tool" }
 func (s *stubCatalogSource) ListItems(_ context.Context) ([]catalogdomain.Item, error) {
 	return append([]catalogdomain.Item(nil), s.items...), nil
 }

@@ -20,6 +20,7 @@ type functionCatalogSource struct {
 
 func (c *functionCatalogSource) Name() string                           { return "function" }
 func (c *functionCatalogSource) Granularity() catalogdomain.Granularity { return catalogdomain.PerItem }
+func (c *functionCatalogSource) InvokeTool() string                     { return "run_function" }
 
 func (c *functionCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
 	fns, err := c.svc.ListAll(ctx)

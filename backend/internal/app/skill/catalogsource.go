@@ -19,6 +19,7 @@ type skillCatalogSource struct {
 
 func (c *skillCatalogSource) Name() string                           { return "skill" }
 func (c *skillCatalogSource) Granularity() catalogdomain.Granularity { return catalogdomain.PerItem }
+func (c *skillCatalogSource) InvokeTool() string                     { return "activate_skill" }
 
 func (c *skillCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
 	skills := c.svc.List(ctx)

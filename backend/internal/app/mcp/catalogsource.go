@@ -24,6 +24,7 @@ type mcpCatalogSource struct {
 
 func (c *mcpCatalogSource) Name() string                           { return "mcp" }
 func (c *mcpCatalogSource) Granularity() catalogdomain.Granularity { return catalogdomain.PerServer }
+func (c *mcpCatalogSource) InvokeTool() string                     { return "call_mcp_tool" }
 
 func (c *mcpCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
 	servers := c.svc.ListServers(ctx)

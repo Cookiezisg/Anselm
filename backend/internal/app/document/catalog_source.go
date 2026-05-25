@@ -20,6 +20,7 @@ type documentCatalogSource struct {
 
 func (c *documentCatalogSource) Name() string                           { return "document" }
 func (c *documentCatalogSource) Granularity() catalogdomain.Granularity { return catalogdomain.PerItem }
+func (c *documentCatalogSource) InvokeTool() string                     { return "read_document" }
 
 // ListItems flattens every live doc into a catalog Item; Name = Path so the
 // LLM sees tree position at a glance, Category = top-level folder so the

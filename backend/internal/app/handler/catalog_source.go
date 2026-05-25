@@ -22,6 +22,7 @@ type handlerCatalogSource struct {
 
 func (c *handlerCatalogSource) Name() string                           { return "handler" }
 func (c *handlerCatalogSource) Granularity() catalogdomain.Granularity { return catalogdomain.PerItem }
+func (c *handlerCatalogSource) InvokeTool() string                     { return "call_handler" }
 
 func (c *handlerCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
 	hs, err := c.svc.ListAll(ctx)
