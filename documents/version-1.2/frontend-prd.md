@@ -628,7 +628,7 @@ export function useSendMessage(convId) {
     │   ├── sb-badge-dot (Help + Bell 合并未读)
     │   └── sb-sse-dot (err / warn only)
     ├── sb-user (expanded only, displayName)
-    └── sb-gear-btn (hover-revealed, → SettingsPopover)
+    └── sb-gear-btn (hover-revealed, → SettingsModal)
 ```
 
 **Sidebar collapse (Framer Motion spring stiffness 280, damping 28):**
@@ -823,7 +823,7 @@ BlockList({ blocks, depth=0, defaultOpenTools=false })
 
 ### 9.6 NoApiKeyGate
 
-当 `useApiKeys()` 返回空列表时，chat 区域显示引导卡片，提示去 Config pane 添加 API Key。
+当 `useApiKeys()` 返回空列表时，chat 区域显示引导卡片（NoApiKeyGate），点击打开 SettingsModal（齿轮 → API Keys）添加 key。
 
 ### 9.7 EntityRelMeta
 
@@ -1076,62 +1076,36 @@ FlowRunDetail
 
 ---
 
-## §12 Config Pane
+## §12 Settings Modal
 
-### 12.1 布局
+> 2026-05-26 重做。齿轮(sidebar footer)→ 居中 modal `SettingsModal.jsx`,**取代旧 ConfigPane 5-tab + SettingsPopover 快捷面板两套(均已删)** —— 一处事实源。**单开手风琴**:同一时刻最多一个 section 展开;section 内 key 行也单开。Esc / 点遮罩关闭。
 
+### 12.1 结构
 ```
-ConfigPane
-├── page-header（标题 "设置"）
-├── page-tabs（API Keys / Model / Sandbox / 外观 / 数据）
-└── page-body
-```
-
-### 12.2 API Keys tab
-
-**数据：** `useApiKeys()` → `GET /api/v1/api-keys`
-
-**表格：** Provider / 名称 / 掩码 Key / 状态（verified badge）/ 最近使用 / 删除/查看
-
-**添加 Key 流程：**
-```
-"+ 添加 Provider" 按钮
-→ Drawer（Framer Motion slide-in from right）
-  ├── Provider 选择器（从 GET /providers 获取列表，带分类）
-  ├── 名称输入
-  ├── Key 输入（password type）
-  ├── Base URL（可选，用于自定义端点）
-  └── "测试并保存"按钮
-      → POST /api-keys → 成功 → invalidate → 关闭 drawer
-      → POST /api-keys/{id}:test（自动）→ 显示结果
+SettingsModal（居中 overlay + --bg-overlay scrim）
+├── 账号区（常驻，不折叠）：头像 + 名 + "切换/新建"（吸收原 SettingsPopover 账号区）
+├── API Keys section（key 为中心）
+├── 网络搜索 section（可选）
+├── 外观 section
+└── 系统 section（只读）
 ```
 
-### 12.3 Model tab
+### 12.2 API Keys（key 为中心）
+`useApiKeys()` 过滤 LLM 类(cross-ref `useProviders().category`)。每个 key 一行:厂商色块 + 名 + 掩码 + 已选模型 + `对话默认` 徽章 + 验证徽章;点开详情(模型下拉 + 用途 `对话默认/仅备用` + 重新验证/删除),**section 内行单开**。
+**对话默认 ↔ model-config**:一个 key 是对话默认 IFF `model-config(chat).provider === key.provider`(不是 api-key 的 isDefault flag);点"对话默认"晋升 → `PUT /model-configs/chat {provider, modelId}`(chat 只有一条,隐式替换旧默认)。
+**新增**:底部「+ API Key」加号 → 就地展开**引导页式双列 provider 网格**(已存 key 的打 ✓)+ Key + 验证(`POST /api-keys` → `:test` → modelsFound,镜像引导页 verify + 孤儿清理)+ 选模型 → 保存。复用共享组件(§12.6)。
 
-**数据：** `useScenarios()` → `GET /api/v1/scenarios`（后端白名单）+ `useModelConfigs()` → `GET /api/v1/model-configs`（用户已配）
+### 12.3 网络搜索（可选）
+同 key 模式,**无模型**。`搜索默认` = 后端 `api-key.isDefault`(per-category 单选);切换发 `PATCH /api-keys/{id} {isDefault}`(后端清同类其它);WebSearch 解析优先用默认搜索商,无默认退回固定优先级。provider:bocha/brave/serper/tavily。
 
-每个 scenario（取 `Array.from(new Set([...whitelist, ...configs.scenario]))` 的并集）一张卡片：已配的显 `provider · modelId` + "切换"；未配的显「未配置」灰字 + "配置"。
+### 12.4 外观
+主题 / 主题色 / 密度 / 语言 / 推理 —— 分段控件(`onb-seg`)+ 色块,实时写 `settings` store(经 App effect `applyTheme` 实时生效)。
 
-inline 编辑：drawer 选 provider（从用户 keys 列表）→ 填 modelId（如 keys 测试拿到了 `modelsFound`，下方显示前 10 个可点击 chip 一键填充）→ `PUT /model-configs/{scenario}`。
+### 12.5 系统（只读）
+数据目录 `~/.forgify/` · 沙箱运行时 `mise` 内置 · 版本(原 Sandbox + 数据 两 tab 折进此节)。
 
-**Why scenarios 端点：** 原本前端硬编码 `["chat", "auto_title", "web_summary", "intent", "compaction"]` 跟后端 `["chat", "web_summary"]` 不一致；点不存在的 scenario 后端会回 400 INVALID_SCENARIO，体验诡异。改从后端拉权威白名单，Phase 4/5 后端加 const，前端零改自动跟上。
-
-### 12.4 Sandbox tab
-
-**数据：** `useSandboxStatus()` → `GET /api/v1/sandbox/status`（如有）
-
-显示 mise 版本、安装的 runtime（python/node/...）及版本。
-
-### 12.5 外观 tab
-
-theme / accent / density / lang 选择器，实时预览，写 `settings store` → localStorage。
-
-与 SettingsPopover（sidebar footer 的快捷设置）共用同一套 controls。
-
-### 12.6 数据 tab
-
-**数据目录位置**：`~/.forgify/`（显示路径 + 打开文件夹按钮 → Wails binding `runtime.BrowserOpenURL`）
-**存储大小**：占位，Phase 2 实现
+### 12.6 共享 config 组件
+引导页的 provider 网格 / Key 验证 / 模型下拉抽成 `components/config/{ProviderGrid,KeyVerifyField,ModelSelect}.jsx`,**引导页 + 设置共用**(DRY)。
 
 ---
 
@@ -1481,6 +1455,7 @@ ToastTray（position: fixed bottom right）
 | Sidebar nav 锻造 一词不传神 | 名字偏向"工序",不如"工坊"指向"地点+人" | UI label `锻造` → `工坊`(PaneFrame PANE_META + Sidebar + CommandPalette + StatusBadge + ForgeList 等共 ~14 处);内部代码 / API / DB / contract / pane key 全保留 `forge`。已修(2026-05-25)。 |
 | NotificationsDrawer 标题 "通知" 在加待办 tab 后语义不准 | 抽屉变成 Help/Ask + Bell 通知合集,叫"通知"以偏概全 | 标题改 "收件箱";内部 tab 仍是 "待办" / "通知";Sidebar 头像 hover title 沿用"通知"。已修(2026-05-25)。 |
 | 引导期 401 日志洪水 + 引导整体不干净:脏 `activeUserId`(指向已删 user)越过 App.jsx 旧 `resolvingUser` 闸门(只挡 null)→ AppShell 带脏 id 挂载 → user-scoped 列表查询(无 enabled)+ SSE 全 401 → 自愈清 id → invalidateQueries 级联 → 再 401 刷屏;且旧引导 5 步、文案幼稚、模型静默取 modelsFound[0]、无搜索配置、语言不读设备 | 清库/换机后引导期控制台被刷爆;模型配错不自知;非中文用户首屏即中文 | 立**就绪状态机** `store/boot.js::computeBootState`(ready 要求 `activeUserId∈users`)+ App.jsx onboarding latch;user-scoped 列表查询全加 `enabled:!!activeUserId`(纵深防御);引导重写为 toB 6 步(split 舞台,见 §19);模型步显式**选模型**;可选搜索步;语言/明暗自动识别(`detectLang`/`prefers-color-scheme`)+ 主题色实时(5 色可选,tokens.css 各映射真实色)。已修(2026-05-25)。|
+| 设置过度 tab 化(ConfigPane 5 tab,Sandbox/数据 各只一张只读卡)+ popover↔ConfigPane 外观重复 + 加 key 是 `<select>` 表单(项目不允许) | 5 tab 名不副实;两处维护同一组外观;加 key UI 糙 | 收敛成一个**居中 modal `SettingsModal`**(齿轮触发,单开手风琴),删 ConfigPane + SettingsPopover 两套;**API Keys 改 key 为中心**(每 key 挂 模型/对话默认,对话默认=`model-config.chat`,非 api-key flag);加 key 就地展开**引导页式双列 provider 网格**;网络搜索 `搜索默认` 走后端 `api-key.isDefault`(per-category 单选)+ WebSearch 优先;provider 网格/Key 验证/模型下拉抽 `components/config/` 共享(引导页+设置共用)。详见 §12。已修(2026-05-26)。|
 
 ---
 
@@ -1502,7 +1477,7 @@ GET    /conversations/{id}/eventlog?from=N  → (410 重连时调用)
 # API Keys
 GET    /api-keys                            → useApiKeys
 POST   /api-keys                            → useCreateApiKey
-PATCH  /api-keys/{id}                       → useUpdateApiKey
+PATCH  /api-keys/{id}                       → useUpdateApiKey  (body 可含 isDefault:搜索默认 per-category 单选)
 DELETE /api-keys/{id}                       → useDeleteApiKey
 POST   /api-keys/{id}:test                  → useTestApiKey
 GET    /providers                           → useProviders
