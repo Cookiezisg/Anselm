@@ -20,14 +20,7 @@ var (
 )
 
 
-const outputDescription = `Read new stdout/stderr from a background shell process started by Bash.
-
-Usage:
-- ` + "`bash_id`" + ` is the ID returned by a Bash call with run_in_background:true.
-- Returns only output APPEARED SINCE THE LAST BashOutput call for that ID — successive polls don't repeat what you've already seen.
-- Includes a status footer: "running", "exited (code N)", "killed", or "errored".
-- ` + "`filter`" + ` (optional regex) keeps only matching lines from the new output. Useful for grepping a noisy log stream.
-- Returns a not-found message if the bash_id is unknown (never started or already removed via KillShell).`
+const outputDescription = `Read new stdout/stderr from a background Bash shell (bash_id). Returns only output since the last poll, plus a status footer.`
 
 var outputSchema = json.RawMessage(`{
 	"type": "object",

@@ -42,18 +42,7 @@ var (
 )
 
 
-const bashDescription = `Run a shell command on the user's machine.
-
-Usage:
-- ` + "`command`" + ` is the shell command. macOS/Linux: ` + "`/bin/sh -c`" + `; Windows: ` + "`cmd.exe /c`" + `. Examples: "ls -la", "git status", "go test ./...".
-- ` + "`run_in_background: true`" + ` spawns without waiting and returns a bash_id; poll with BashOutput, terminate with KillShell.
-- ` + "`timeout`" + ` (ms, foreground only) defaults to 120000; max 600000. Longer tasks should use background mode.
-- The conversation has a tracked working directory: ` + "`cd <path>`" + ` as the entire command updates it; chained ` + "`cd ... && ...`" + ` does not (matches subshell semantics).
-- Combined stdout+stderr is returned, capped at 256 KB. Exit code appears in a status footer.
-
-Sandbox auto-routing (Python and Node only):
-- Commands invoking ` + "`python`" + `, ` + "`pip`" + `, ` + "`uv`" + `, ` + "`virtualenv`" + `, ` + "`pipenv`" + `, ` + "`poetry`" + `, ` + "`node`" + `, ` + "`npm`" + `, ` + "`npx`" + `, ` + "`yarn`" + `, ` + "`pnpm`" + ` execute inside a per-conversation isolated environment. Detection covers nested forms (` + "`bash -c \"pip install ...\"`" + `, ` + "`env VAR=val python ...`" + `, path-prefixed binaries, ` + "`cd && python`" + ` chains, ` + "`which python3`" + `).
-- Other languages run on the host. The router cannot see through ` + "`eval`" + `, ` + "`source`" + `, or dynamic ` + "`$(...)`" + `; write runtime commands directly.`
+const bashDescription = `Run a shell command (POSIX sh; cmd.exe /c on Windows). cwd persists when the whole command is ` + "`cd <path>`" + `. Output is combined stdout+stderr, capped 256KB, with an exit-code footer. Python/Node commands auto-route to a per-conversation sandbox.`
 
 var bashSchema = json.RawMessage(`{
 	"type": "object",

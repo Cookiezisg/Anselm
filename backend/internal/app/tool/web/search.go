@@ -39,14 +39,7 @@ var (
 )
 
 
-const searchDescription = `Web search. Routes to the first available source: a configured BYOK provider (Brave / Serper / Tavily / Bocha), then the duckduckgo-search MCP server (if installed). When neither is available the result includes a hint about how to enable one.
-
-Usage:
-- ` + "`query`" + ` is the search string (treated as one phrase by the upstream engine).
-- Returns JSON: {"query","source","results":[{"title","url","snippet"}],"truncated"}.
-- ` + "`source`" + ` indicates which backend produced the results: "brave" / "serper" / "tavily" / "bocha" / "mcp".
-- ` + "`limit`" + ` caps the result count (default 10, hard max 30).
-- Each backend has a 10-second budget; the tool falls through if a backend returns no results or errors.`
+const searchDescription = `Web search via the first available backend (BYOK Brave/Serper/Tavily/Bocha, else duckduckgo MCP). Returns JSON {query,source,results:[{title,url,snippet}],truncated}.`
 
 var searchSchema = json.RawMessage(`{
 	"type": "object",

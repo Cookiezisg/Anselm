@@ -12,7 +12,7 @@ import (
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
 
-const todoCreateDescription = `Create a new todo on the current conversation's todo list. New todos start with status "pending"; move them via TodoUpdate. Returns the new todo as JSON including the assigned id (use that for follow-up TodoUpdate calls).`
+const todoCreateDescription = `Add a todo (status "pending") to the current conversation's list. Returns the todo as JSON with its id for later TodoUpdate.`
 
 var todoCreateSchema = json.RawMessage(`{
 	"type": "object",

@@ -36,17 +36,7 @@ const (
 )
 
 
-const grepDescription = `Regex content search across files. Returns plain-text lines (mirrors ripgrep's --no-heading format); use Glob for path-only listings.
-
-Usage:
-- ALWAYS use Grep for content search. NEVER invoke ` + "`grep`" + ` or ` + "`rg`" + ` via Bash — Grep enforces safe path access.
-- Full regex syntax (e.g. "log.*Error", "function\s+\w+"). Literal braces need escaping: ` + "`interface\\{\\}`" + `.
-- Filter files with ` + "`glob`" + ` (e.g. "*.go", "**/*.tsx") or ` + "`type`" + ` (e.g. "go", "py", "js").
-- Output modes: "content" (matching lines; ` + "`-n`" + ` for line numbers, ` + "`-A`" + `/` + "`-B`" + `/` + "`-C`" + ` for context), "files_with_matches" (paths only, default, cheapest), "count" (path:N per file).
-- Multiline: set ` + "`multiline: true`" + ` for patterns crossing line boundaries (e.g. ` + "`struct \\{[\\s\\S]*?field`" + `).
-- ` + "`-i`" + ` for case-insensitive; ` + "`head_limit`" + ` caps the result list.
-- ` + "`path`" + ` (file or directory) must be absolute when provided; defaults to current working directory.
-- Sensitive paths are blocked.`
+const grepDescription = `Regex content search across files (ripgrep). Never call grep/rg via Bash. Filter by glob or type; output_mode files_with_matches (default) | content | count.`
 
 var grepSchema = json.RawMessage(`{
 	"type": "object",

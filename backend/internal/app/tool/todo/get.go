@@ -11,7 +11,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const todoGetDescription = `Fetch one todo by ID from the current conversation's todo list. Returns the todo as JSON, or a not-found message if the ID does not belong to this conversation.`
+const todoGetDescription = `Fetch one todo by id from the current conversation. Returns it as JSON, or a not-found message.`
 
 var todoGetSchema = json.RawMessage(`{
 	"type": "object",
@@ -19,7 +19,7 @@ var todoGetSchema = json.RawMessage(`{
 	"properties": {
 		"todo_id": {
 			"type": "string",
-			"description": "ID of the todo to fetch (e.g. td_abc123…)."
+			"description": "ID of the todo to fetch."
 		}
 	}
 }`)

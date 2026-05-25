@@ -12,7 +12,7 @@ import (
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 )
 
-const todoUpdateDescription = `Update a todo's status or other fields. Omitted fields stay as-is. ` + "`status`" + ` transitions: pending → in_progress → completed; use "deleted" to remove a todo. ` + "`blocked_by`" + ` replaces the entire dependency list (pass [] to clear). Returns the updated todo as JSON, or ` + "`{deleted, id}`" + ` for a deletion.`
+const todoUpdateDescription = `Update fields of a todo; omitted fields stay. Status flow pending→in_progress→completed; "deleted" removes it. blocked_by replaces the whole list ([] clears). Returns the todo as JSON, or {deleted, id}.`
 
 var todoUpdateSchema = json.RawMessage(`{
 	"type": "object",

@@ -24,17 +24,7 @@ const (
 )
 
 
-const globDescription = `File finder: matches glob patterns, returns JSON with type / size / mtime per entry. Use this for path-only listings; use Grep for content search.
-
-Usage:
-- Supports any glob pattern, including ` + "`**`" + ` for recursive descent (e.g. "**/*.go", "src/**/*.tsx", "*.md").
-- Pass pattern "*" with a directory ` + "`path`" + ` to list immediate children — Glob covers what a separate LS tool would.
-- Output JSON: {"root", "matches":[{"path","type","size","mtime"}], "total", "truncated"}.
-- ` + "`type`" + ` is "file", "dir", or "symlink"; ` + "`mtime`" + ` is RFC 3339.
-- Matches are sorted mtime-descending so recently-edited files surface first.
-- ` + "`path`" + ` (search root) defaults to the current working directory; must be absolute when provided.
-- ` + "`limit`" + ` caps results (default 100, hard max 1000); the ` + "`truncated`" + ` flag indicates more matches exist.
-- Sensitive paths are blocked.`
+const globDescription = `Find files by glob pattern (supports ** recursion), sorted by mtime desc; returns JSON {root,matches:[{path,type,size,mtime}],total,truncated}. Use Grep for content.`
 
 var globSchema = json.RawMessage(`{
 	"type": "object",

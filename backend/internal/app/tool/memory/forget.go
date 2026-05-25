@@ -12,7 +12,7 @@ import (
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 )
 
-const forgetMemoryDescription = `Delete a memory entry by name. Use when a memory is outdated (the underlying fact changed), incorrect (you got it wrong earlier), or the user explicitly asks you to forget something. Once deleted, the memory is no longer visible in the system prompt index.`
+const forgetMemoryDescription = `Delete a memory by name — when it's outdated, wrong, or the user asks to forget it.`
 
 var forgetMemorySchema = json.RawMessage(`{
 	"type": "object",

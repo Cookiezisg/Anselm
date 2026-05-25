@@ -47,15 +47,7 @@ var (
 	ErrNegativeLimit = errors.New("limit must be non-negative")
 )
 
-const readDescription = `Reads a file from the local filesystem.
-
-Usage:
-- file_path must be an absolute path.
-- Reads up to 2000 lines from the start by default; use offset+limit to page through larger files.
-- Output uses cat -n format (5-digit right-padded line number, tab, content), 1-based.
-- Only reads files; for directory listing use Glob with pattern "*".
-- An empty file returns a system reminder; a missing file returns an error message.
-- Sensitive paths (system directories, credential locations) are blocked.`
+const readDescription = `Read a file. Absolute path; cat -n output (line-num TAB content). Defaults to first 2000 lines; use offset+limit to page. For directory listing use Glob "*".`
 
 var readSchema = json.RawMessage(`{
 	"type": "object",

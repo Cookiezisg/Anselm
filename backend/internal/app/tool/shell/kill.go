@@ -10,12 +10,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const killDescription = `Terminate a background shell process started by Bash.
-
-Usage:
-- ` + "`bash_id`" + ` is the ID returned by a Bash call with run_in_background:true.
-- Sends SIGKILL on Unix; the process is removed from the registry whether or not it was still running.
-- Idempotent: killing an already-finished or unknown ID returns a clear message instead of failing.`
+const killDescription = `Terminate a background Bash shell (bash_id). Idempotent.`
 
 var killSchema = json.RawMessage(`{
 	"type": "object",

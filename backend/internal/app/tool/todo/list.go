@@ -9,7 +9,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const todoListDescription = `List every active todo on the current conversation's todo list. Returns a JSON envelope ` + "`{total, todos: [...]}`" + ` with each todo's id / subject / status / activeForm and other fields. Todos are returned in creation order; deleted todos are excluded.`
+const todoListDescription = `List active todos of the current conversation, in creation order. Returns {total, todos:[...]}.`
 
 var todoListSchema = json.RawMessage(`{
 	"type": "object",

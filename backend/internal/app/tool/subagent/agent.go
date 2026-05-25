@@ -30,7 +30,7 @@ var (
 )
 
 
-const subagentDescription = `Spawn a specialized subagent to handle a focused subtask in isolation. The subagent has its own context window and a curated tool list; the parent context is not consumed. Returns the subagent's final message as a string. Available subagent_type values are listed in the schema.`
+const subagentDescription = `Run a focused subtask in an isolated subagent (own context + curated tools; parent context untouched). Returns its final message. Types in schema.`
 
 var subagentSchema = json.RawMessage(`{
 	"type": "object",
@@ -38,7 +38,8 @@ var subagentSchema = json.RawMessage(`{
 	"properties": {
 		"subagent_type": {
 			"type": "string",
-			"description": "Which subagent to spawn. Available: Explore, Plan, general-purpose."
+			"enum": ["Explore", "Plan", "general-purpose"],
+			"description": "Which subagent to spawn."
 		},
 		"prompt": {
 			"type": "string",

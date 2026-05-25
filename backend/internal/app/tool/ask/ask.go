@@ -28,15 +28,7 @@ var (
 	ErrEmptyQuestion = errors.New("question is required and must be non-empty")
 )
 
-const askDescription = `Pause the agent loop and ask the user a question. Returns the user's answer as free-form text.
-
-WHEN TO USE:
-- Use when you genuinely need user input that you can't infer.
-- For open-ended questions (e.g. "what's your account name?"), leave ` + "`options`" + ` empty — the UI shows a free-form input.
-- For structured choice (e.g. "which DB are you using?"), provide ` + "`options`" + ` as quick-pick buttons. Users may still type a free-form answer instead.
-- If the user "skips" (clicks the skip button on the frontend), you'll get the literal string "(user skipped)" back — treat it as "user wants you to continue with reasonable defaults".
-
-The tool blocks until the user responds (no practical timeout — backend uses 7 days as a zombie guard, not a UX deadline).`
+const askDescription = `Pause and ask the user a question; returns their free-form answer (or "(user skipped)" — proceed with sensible defaults). Give options as quick-picks for a choice, omit for open-ended; the user can always type instead. Blocks until they reply.`
 
 var askSchema = json.RawMessage(`{
 	"type": "object",

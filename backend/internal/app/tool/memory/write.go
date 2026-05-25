@@ -12,15 +12,7 @@ import (
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 )
 
-const writeMemoryDescription = `Save a fact to long-term memory that persists across conversations. Use when you learn something worth remembering: user preferences, their role/expertise, current project state, or external references.
-
-Memory types:
-- user: about the user themselves (role, expertise, long-term facts)
-- feedback: their preferences or corrections (e.g. "don't use emojis")
-- project: what they're currently working on
-- reference: pointers to external systems (e.g. "bugs go to Linear FORGE project")
-
-Calling write_memory with an existing name updates that entry; otherwise a new one is created. The system records that you (the AI) authored it; the user can review, pin, edit, or delete it in their UI.`
+const writeMemoryDescription = `Save a durable fact across conversations (user trait, preference/correction, current project, or external reference). Reusing an existing name updates it; recorded as AI-authored, user-editable.`
 
 var writeMemorySchema = json.RawMessage(`{
 	"type": "object",

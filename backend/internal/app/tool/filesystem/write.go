@@ -17,15 +17,7 @@ import (
 
 const defaultFileMode os.FileMode = 0o644
 
-const writeDescription = `Writes a file to the local filesystem. Overwrites if the file exists.
-
-Usage:
-- file_path must be an absolute path.
-- Existing files require a prior Read in this conversation (must-Read-first guard prevents accidental clobbering).
-- Prefer Edit for modifying existing files — Edit sends only the diff.
-- Parent directory must exist; use Bash 'mkdir -p' first if needed.
-- Writes are atomic (tmp file + rename); readers never see a half-written file.
-- Sensitive paths (system directories, credential locations) are blocked.`
+const writeDescription = `Write a file, overwriting if it exists (atomic). Absolute path; parent dir must exist. Overwrite needs a prior Read this conversation. Prefer Edit for changes.`
 
 var writeSchema = json.RawMessage(`{
 	"type": "object",

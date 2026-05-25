@@ -12,7 +12,7 @@ import (
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 )
 
-const readMemoryDescription = `Retrieve a specific memory entry by name. Memories are persistent facts about the user, their preferences, current projects, or external references. Check the memory index in your system prompt to discover available memory names; call read_memory only when an indexed entry is directly relevant to the user's current request.`
+const readMemoryDescription = `Read a memory entry (persistent fact about the user/preferences/projects/references) by name. Names come from the memory index in your system prompt; call only when an indexed entry is relevant.`
 
 var readMemorySchema = json.RawMessage(`{
 	"type": "object",

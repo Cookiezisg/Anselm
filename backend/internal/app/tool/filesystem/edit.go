@@ -27,17 +27,7 @@ var (
 	ErrEditNoOp = errors.New("old_string and new_string must be different")
 )
 
-const editDescription = `Performs exact string replacement in an existing file.
-
-Usage:
-- file_path must be an absolute path.
-- The file must have been Read in this conversation first.
-- Matching is exact literal (NOT regex); whitespace, indentation, and case all matter.
-- old_string must appear exactly once unless replace_all: true. Include enough context to make it unique.
-- old_string and new_string must differ (no-op edits are rejected).
-- Writes are atomic (tmp + rename). Result reports the actual replacement count.
-- When editing text from Read output, preserve indentation AFTER the line-number prefix; never include the prefix itself.
-- Sensitive paths (system directories, credential locations) are blocked.`
+const editDescription = `Exact literal string replace in a file (not regex; whitespace/case matter). Read the file first. old_string must be unique unless replace_all; strip Read's line-num prefix.`
 
 var editSchema = json.RawMessage(`{
 	"type": "object",
