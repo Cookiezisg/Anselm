@@ -1,6 +1,6 @@
 // Composer — message input. textarea auto-grows up to 200px.
 // @-mention menu activates when the last token begins with @ — searches
-// across functions / handlers / workflows / skills / documents.
+// across functions / handlers / workflows / documents.
 // Drag-drop attaches files. Enter sends, Shift+Enter inserts newline,
 // Esc cancels a streaming run.
 //
@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
-import { useSkills, useDocuments } from "../../api/library.js";
+import { useDocuments } from "../../api/library.js";
 
 export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   const [text, setText] = useState("");
@@ -25,7 +25,6 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   const { data: functions = [] } = useFunctions();
   const { data: handlers = [] } = useHandlers();
   const { data: workflows = [] } = useWorkflows();
-  const { data: skills = [] } = useSkills();
   const { data: documents = [] } = useDocuments();
 
   useEffect(() => {
@@ -45,11 +44,10 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   };
 
   const mentionPool = () => [
-    ...functions.map((f) => ({ id: f.id, label: f.name + " · function", icon: "Code" })),
-    ...handlers.map((h) => ({ id: h.id, label: h.name + " · handler", icon: "Server" })),
-    ...workflows.map((w) => ({ id: w.id, label: w.name + " · workflow", icon: "Workflow" })),
-    ...skills.map((s) => ({ id: s.id || s.name, label: (s.name || s.id) + " · skill", icon: "Sparkles" })),
-    ...documents.map((d) => ({ id: d.id, label: (d.name || d.title || d.id) + " · doc", icon: "FileText" })),
+    ...functions.map((f) => ({ type: "function", id: f.id, label: f.name + " · function", icon: "Code" })),
+    ...handlers.map((h) => ({ type: "handler", id: h.id, label: h.name + " · handler", icon: "Server" })),
+    ...workflows.map((w) => ({ type: "workflow", id: w.id, label: w.name + " · workflow", icon: "Workflow" })),
+    ...documents.map((d) => ({ type: "document", id: d.id, label: (d.name || d.title || d.id) + " · doc", icon: "FileText" })),
   ];
 
   const onChange = (e) => {

@@ -113,7 +113,7 @@ export function ChatPane({ onClose }) {
   const onSend = ({ content, attachments, mentions }) => {
     const body = { content };
     if (attachments?.length) body.attachments = attachments.map((a) => ({ fileName: a.name, sizeBytes: a.size }));
-    if (mentions?.length) body.mentions = mentions.map((m) => m.id);
+    if (mentions?.length) body.mentions = mentions.map((m) => ({ type: m.type, id: m.id }));
     send.mutate(body, {
       onError: (err) => {
         // Stale conv: backend says this conversation doesn't exist (deleted,
