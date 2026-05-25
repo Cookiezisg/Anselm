@@ -154,7 +154,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*apike
 		if *in.IsDefault {
 			cat := providerCategory(k.Provider)
 			if err := s.repo.ClearDefaultForCategory(ctx, providersInCategory(cat)); err != nil {
-				return nil, fmt.Errorf("apikey.Update: %w", err)
+				return nil, fmt.Errorf("apikey.Service.Update: %w", err)
 			}
 		}
 		k.IsDefault = *in.IsDefault
@@ -301,6 +301,7 @@ func providerCategory(name string) ProviderCategory {
 	if meta, ok := GetProviderMeta(name); ok {
 		return meta.Category
 	}
+	// Unreachable: Create whitelists providers via isValidProvider, so unknown names never reach here.
 	return CategoryLLM
 }
 

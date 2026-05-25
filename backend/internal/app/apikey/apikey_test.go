@@ -514,6 +514,31 @@ func TestUpdate_SetDefault_ClearsSiblings(t *testing.T) {
 	}
 }
 
+func TestUpdate_SetDefault_DoesNotClearOtherCategory(t *testing.T) {
+	svc, repo := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-cross-category-test")
+
+	search, _ := svc.Create(ctx, CreateInput{Provider: "brave", Key: "brave-key-123456789"})
+	llm, _ := svc.Create(ctx, CreateInput{Provider: "openai", Key: "sk-openai-123456789"})
+
+	// Seed both as default directly in the repo (simulating them having been marked previously).
+	repo.items[search.ID].IsDefault = true
+	repo.items[llm.ID].IsDefault = true
+
+	// Update the search key — this should clear other search-category defaults,
+	// but must NOT touch the LLM-category key.
+	trueVal := true
+	_, err := svc.Update(ctx, search.ID, UpdateInput{IsDefault: &trueVal})
+	if err != nil {
+		t.Fatalf("Update brave IsDefault=true: %v", err)
+	}
+
+	// LLM key must still be default — cross-category isolation.
+	if !repo.items[llm.ID].IsDefault {
+		t.Error("openai.IsDefault should still be true; setting search default must not clear LLM category")
+	}
+}
+
 func TestDefaultProvider_ReturnsMarked(t *testing.T) {
 	svc, repo := newTestService(t, &fakeTester{})
 	ctx := ctxFor("u-default-provider-test")
