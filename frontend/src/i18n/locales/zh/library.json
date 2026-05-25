@@ -6,8 +6,7 @@
     "searchPlaceholder": "搜索文档…",
     "newRootTitle": "新建顶级页面",
     "collapseSidebar": "收起侧栏",
-    "noDocsEmpty": "还没有文档 · 点",
-    "newDocsHint": "新建",
+    "noDocs": "还没有文档,点 <0/> 新建",
     "collapseTitle": "折叠",
     "expandTitle": "展开",
     "actionsTitle": "操作",
@@ -52,7 +51,7 @@
     "codeTitle": "代码块",
     "codeDesc": "等宽 + 围栏",
     "hrTitle": "分割线",
-    "hrDesc": "切换章节"
+    "hrDesc": "段落分隔"
   },
   "codeBlock": {
     "langPickerTitle": "选择代码语言",
@@ -67,6 +66,7 @@
     "toolStats": "{{tools}} 个 tool · {{calls}} calls · {{failures}} fail",
     "consecutiveFailures": "连续失败 {{count}}",
     "reconnect": "重连",
+    "connected": "连接于",
     "reconnectSuccess": "重连请求已发出",
     "remove": "移除",
     "removeConfirm": "确认移除 {{name}}?",

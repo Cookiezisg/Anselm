@@ -64,7 +64,7 @@ export function McpPane() {
                     </div>
                     {s.connectedAt && (
                       <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 6 }}>
-                        connected <RelTime ts={s.connectedAt} />
+                        {t("mcp.connected")} <RelTime ts={s.connectedAt} />
                       </div>
                     )}
                     <div className="card-foot">

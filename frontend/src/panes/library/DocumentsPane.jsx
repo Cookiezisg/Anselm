@@ -13,7 +13,7 @@
 // 不弹 prompt。
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
@@ -149,7 +149,7 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
         {isLoading && <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>{t("common:loading")}</div>}
         {!isLoading && filtered.length === 0 && (
           <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>
-            {t("documents.noDocsEmpty")} <Icon.Plus style={{ display: "inline", width: 11, height: 11, verticalAlign: "-2px" }} /> {t("documents.newDocsHint")}
+            <Trans i18nKey="documents.noDocs" ns="library"><Icon.Plus style={{ display: "inline", width: 11, height: 11, verticalAlign: "-2px" }} /></Trans>
           </div>
         )}
         {filtered.map((n) => (

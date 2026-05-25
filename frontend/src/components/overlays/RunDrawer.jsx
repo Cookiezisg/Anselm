@@ -160,7 +160,7 @@ export function RunDrawer({ open, onClose, kind, entity }) {
                 {t("runDrawer.footerHint")}
               </span>
               <div style={{ flex: 1 }} />
-              <Button size="sm" variant="ghost" onClick={onClose}>{t("common:cancel", "取消")}</Button>
+              <Button size="sm" variant="ghost" onClick={onClose}>{t("common:cancel")}</Button>
               <Button size="sm" variant="accent" onClick={submit} disabled={busy}>
                 {busy ? <><span className="spinner" /> {t("runDrawer.submittingBtn")}</> : <><Icon.Play /> {t("runDrawer.submitBtn")}</>}
               </Button>

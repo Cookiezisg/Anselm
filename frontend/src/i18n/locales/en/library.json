@@ -6,8 +6,7 @@
     "searchPlaceholder": "Search documents…",
     "newRootTitle": "New top-level page",
     "collapseSidebar": "Collapse sidebar",
-    "noDocsEmpty": "No documents yet · click",
-    "newDocsHint": "to create one",
+    "noDocs": "No documents yet — click <0/> to create one",
     "collapseTitle": "Collapse",
     "expandTitle": "Expand",
     "actionsTitle": "Actions",
@@ -48,11 +47,11 @@
     "todoTitle": "To-do list",
     "todoDesc": "Checkable items",
     "quoteTitle": "Blockquote",
-    "quoteDesc": "Highlight a phrase",
+    "quoteDesc": "Quoted callout",
     "codeTitle": "Code block",
     "codeDesc": "Monospace + fenced",
     "hrTitle": "Divider",
-    "hrDesc": "Section break"
+    "hrDesc": "Paragraph separator"
   },
   "codeBlock": {
     "langPickerTitle": "Select code language",
@@ -67,6 +66,7 @@
     "toolStats": "{{tools}} tool(s) · {{calls}} calls · {{failures}} fail(s)",
     "consecutiveFailures": "{{count}} consecutive failure(s)",
     "reconnect": "Reconnect",
+    "connected": "Connected",
     "reconnectSuccess": "Reconnect request sent",
     "remove": "Remove",
     "removeConfirm": "Remove {{name}}?",
