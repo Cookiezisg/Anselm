@@ -1,19 +1,17 @@
 <script setup lang="ts">
 /**
- * TopBar — sticky title strip with build + port + catalog snapshot + expand toggle.
+ * TopBar — sticky title strip with build + port + SSE pills + expand toggle.
  */
 import { onMounted, ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { devAPI } from '@/api/dev';
 import { useUIStore } from '@/stores/ui';
-import { useCatalogStore } from '@/stores/catalog';
 import { status as sseStatus } from '@/api/sse';
 import UserSwitcher from '@/components/users/UserSwitcher.vue';
 
 const { t } = useI18n();
 
 const ui = useUIStore();
-const catalog = useCatalogStore();
 
 const info = ref<{ port?: number; buildSHA?: string; goVersion?: string; gitCommit?: string }>({});
 
@@ -39,8 +37,6 @@ const sse = computed(() => {
   };
 });
 
-const catalogFp = computed(() => catalog.current?.fingerprint?.slice(0, 8) ?? '—');
-const catalogBy = computed(() => catalog.current?.generatedBy ?? '');
 </script>
 
 <template>
@@ -54,10 +50,6 @@ const catalogBy = computed(() => catalog.current?.generatedBy ?? '');
       <span class="meta-item mono">{{ t('topbar.port') }}:{{ info.port ?? '?' }}</span>
       <span v-if="info.gitCommit" class="meta-item mono" :title="info.gitCommit">
         git:{{ info.gitCommit.slice(0, 7) }}
-      </span>
-      <span class="meta-item mono" :title="`catalog ${catalogBy} ${catalog.current?.generatedAt ?? ''}`">
-        cat:{{ catalogFp }}
-        <span v-if="catalogBy === 'mechanical-fallback'" class="catalog-fallback">·mech</span>
       </span>
     </div>
 
@@ -135,11 +127,6 @@ const catalogBy = computed(() => catalog.current?.generatedBy ?? '');
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   background: var(--bg-2);
-}
-
-.catalog-fallback {
-  color: var(--status-warn);
-  margin-left: 2px;
 }
 
 .spacer {

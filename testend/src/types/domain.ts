@@ -529,14 +529,10 @@ export interface PendingAsk {
 /* ──────────────── Catalog ──────────────── */
 
 export interface Catalog {
-  fingerprint: string;
-  version: number;
   summary: string;
   coverage: Record<string, string[]>;
-  generatedBy: 'llm' | 'mechanical-fallback';
+  generatedBy: 'mechanical';
   generatedAt: string;
-  /** Per-source last-scan timestamps. Keys: function / handler / workflow / mcp / skill. */
-  sourcesAt?: Record<string, string>;
 }
 
 /* ──────────────── Tool registry ──────────────── */

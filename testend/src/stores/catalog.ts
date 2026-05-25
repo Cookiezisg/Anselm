@@ -25,17 +25,5 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
-  async function forceRebuild() {
-    loading.value = true;
-    error.value = null;
-    try {
-      current.value = await catalogAPI.refresh();
-    } catch (e) {
-      error.value = (e as Error).message;
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  return { current, loading, error, refresh, forceRebuild };
+  return { current, loading, error, refresh };
 });

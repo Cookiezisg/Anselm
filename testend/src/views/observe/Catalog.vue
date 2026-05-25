@@ -1,10 +1,9 @@
 <script setup lang="ts">
 /**
  * Catalog — the live "Available capabilities" summary the main agent reads
- * to know what it can call. Refresh triggers a rebuild (forces source
- * re-scan); the bg poll keeps it up-to-date as the trinity catalog evolves.
+ * to know what it can call. Built on demand each request (no cache / no poll).
  */
-import { onMounted, ref } from 'vue';
+import { onMounted } from 'vue';
 import { useCatalogStore } from '@/stores/catalog';
 import { useUIStore } from '@/stores/ui';
 import ViewHeader from '@/components/common/ViewHeader.vue';
@@ -12,43 +11,24 @@ import { timestamp, pretty } from '@/utils/format';
 
 const cat = useCatalogStore();
 const ui = useUIStore();
-const refreshing = ref(false);
 
-async function force() {
-  refreshing.value = true;
-  try {
-    await cat.forceRebuild();
-    ui.toast('ok', 'catalog 已重建');
-  } catch (e) {
-    ui.toast('err', (e as Error).message);
-  } finally {
-    refreshing.value = false;
-  }
-}
-
-async function pull() {
-  await cat.refresh();
-}
-
-onMounted(pull);
+onMounted(() => cat.refresh());
 </script>
 
 <template>
   <div class="view">
     <ViewHeader
       title="Catalog"
-      :subtitle="cat.current ? `v${cat.current.version} · generated ${timestamp(cat.current.generatedAt)}` : 'no catalog yet'"
+      :subtitle="cat.current ? `generated ${timestamp(cat.current.generatedAt)}` : 'no catalog yet'"
     >
       <template #actions>
-        <button class="btn ghost sm" @click="pull">pull</button>
-        <button class="btn primary sm" :disabled="refreshing" @click="force">{{ refreshing ? '...' : 'force rebuild' }}</button>
+        <button class="btn ghost sm" @click="cat.refresh">pull</button>
       </template>
     </ViewHeader>
     <div class="scroll">
       <section v-if="cat.current" class="section">
         <div class="meta-row">
-          <span class="pill info">v{{ cat.current.version }}</span>
-          <span class="dim small">fingerprint {{ cat.current.fingerprint.slice(0, 12) }}…</span>
+          <span class="pill info">{{ cat.current.generatedBy }}</span>
           <button class="btn ghost sm" @click="ui.showRaw('catalog', cat.current)">raw</button>
         </div>
 
@@ -57,9 +37,6 @@ onMounted(pull);
 
         <h4>coverage</h4>
         <pre class="code-block mono">{{ pretty(cat.current.coverage) }}</pre>
-
-        <h4>source timestamps</h4>
-        <pre class="code-block mono">{{ pretty(cat.current.sourcesAt) }}</pre>
       </section>
       <div v-else class="dim center">No catalog loaded yet. Click "pull".</div>
     </div>

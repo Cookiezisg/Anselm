@@ -142,7 +142,6 @@ export const sandboxAPI = {
 /* ───────── catalog ───────── */
 export const catalogAPI = {
   get: () => getJSON<Catalog | null>('/api/v1/catalog'),
-  refresh: () => postJSON<Catalog>('/api/v1/catalog:refresh'),
 };
 
 /* ───────── memory (cross-conv long-term facts) ───────── */

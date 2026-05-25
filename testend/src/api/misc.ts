@@ -79,32 +79,6 @@ export const metricsAPI = {
     getJSON<MetricsResponse>(`/api/v1/metrics/tools?since=${since}`),
 };
 
-/* ───────── catalog history (§4.7) ───────── */
-export interface CatalogHistoryEntry {
-  id: string;
-  version: number;
-  fingerprint: string;
-  generatedBy: string;
-  generatedAt: string;
-  summary: string;
-  coverage: Record<string, string[]>;
-}
-export interface CatalogDiff {
-  from: number;
-  to: number;
-  fromFp: string;
-  toFp: string;
-  added: Record<string, string[]>;
-  removed: Record<string, string[]>;
-}
-
-export const catalogHistoryAPI = {
-  list: (limit = 50) =>
-    getJSON<CatalogHistoryEntry[]>(`/api/v1/catalog/history?limit=${limit}`),
-  diff: (from: number, to: number) =>
-    getJSON<CatalogDiff>(`/api/v1/catalog/diff?from=${from}&to=${to}`),
-};
-
 /* ───────── context stats (§4.8) ───────── */
 export interface ContextSection {
   section: string;
