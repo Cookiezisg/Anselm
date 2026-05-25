@@ -21,11 +21,11 @@ Function or Handler"), CONSIDER spawning subagents in parallel:
 
 3. Wait for all subagents to return.
 
-4. CHECK CONFIG GATE: get_handler / get_function for each new entity,
+4. CHECK CONFIG GATE (handlers only): get_handler for each new handler,
    check configState. If unconfigured / partially_configured → use
    AskUserQuestion to collect missing init_args, then call
-   update_handler_config to persist. Only proceed when all references
-   show configState="ready".
+   update_handler_config to persist. Only proceed when all handler
+   references show configState="ready". (Functions need no config.)
 
 5. YOU YOURSELF assemble the workflow — call create_workflow + apply ops
    directly. Sub-agents have NO workflow ops by design (D21); they can't

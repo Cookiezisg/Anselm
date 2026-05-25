@@ -38,7 +38,7 @@ var callMCPSchema = json.RawMessage(`{
 		},
 		"tool": {
 			"type": "string",
-			"description": "Tool name as returned by search_mcp (no 'mcp__' prefix)."
+			"description": "Tool name as returned by search_mcp_tools (no 'mcp__' prefix)."
 		},
 		"args": {
 			"type": "object",

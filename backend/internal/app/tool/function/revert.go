@@ -17,7 +17,7 @@ func (t *RevertFunction) Name() string { return "revert_function" }
 
 func (t *RevertFunction) Description() string {
 	return "Revert a function's active version back to a previously-accepted version " +
-		"number. Use list_function or get_function to see version history first."
+		"number. Use get_function to see version history first."
 }
 
 func (t *RevertFunction) Parameters() json.RawMessage {

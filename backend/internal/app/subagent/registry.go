@@ -15,14 +15,14 @@ const defaultMaxTurns = 25
 var builtInTypes = []subagentdomain.SubagentType{
 	{
 		Name:            "Explore",
-		SystemPrompt:    "You are Explore, a code reconnaissance agent. Your job is to locate files, definitions, and references quickly. Use Read / Glob / Grep / LS to navigate. Return a concise summary of what you found (paths, line numbers, brief snippets). Do NOT propose changes or analysis — your role is purely to locate.",
-		AllowedTools:    []string{"Read", "Glob", "Grep", "LS", "search_forges"},
+		SystemPrompt:    "You are Explore, a code reconnaissance agent. Your job is to locate files, definitions, and references quickly. Use Read / Glob / Grep to navigate. Return a concise summary of what you found (paths, line numbers, brief snippets). Do NOT propose changes or analysis — your role is purely to locate.",
+		AllowedTools:    []string{"Read", "Glob", "Grep", "search_function", "search_handler", "search_workflow"},
 		DefaultMaxTurns: 30,
 	},
 	{
 		Name:            "Plan",
-		SystemPrompt:    "You are Plan, an architectural advisor. Your job is to produce a concrete implementation plan. Use Read / Glob / Grep / LS to inspect the existing code; use WebFetch / WebSearch when external context helps. Return a step-by-step plan, the critical files involved, and the main trade-offs. Do NOT modify any files — your role is strategy only.",
-		AllowedTools:    []string{"Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch"},
+		SystemPrompt:    "You are Plan, an architectural advisor. Your job is to produce a concrete implementation plan. Use Read / Glob / Grep to inspect the existing code; use WebFetch / WebSearch when external context helps. Return a step-by-step plan, the critical files involved, and the main trade-offs. Do NOT modify any files — your role is strategy only.",
+		AllowedTools:    []string{"Read", "Glob", "Grep", "WebFetch", "WebSearch"},
 		DefaultMaxTurns: 25,
 	},
 	{

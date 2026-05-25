@@ -48,9 +48,9 @@ func BuildFunctionContext(ctx context.Context, id string, svc *functionapp.Servi
 	}
 
 	sb.WriteString("=== Task ===\n")
-	sb.WriteString("Read the user's request below. Briefly explain your plan, then call `edit_forge` ")
-	sb.WriteString(fmt.Sprintf("with functionId=%q + ops to produce a pending version. Do NOT call create_* tools; ", id))
-	sb.WriteString("do NOT modify other forges. After edit_forge succeeds, summarize what changed for the user.\n")
+	sb.WriteString("Read the user's request below. Briefly explain your plan, then call `edit_function` ")
+	sb.WriteString(fmt.Sprintf("with id=%q + ops to produce a pending version. Do NOT call create_* tools; ", id))
+	sb.WriteString("do NOT modify other forges. After edit_function succeeds, summarize what changed for the user.\n")
 	return sb.String(), nil
 }
 
@@ -96,8 +96,8 @@ func BuildHandlerContext(ctx context.Context, id string, svc *handlerapp.Service
 	}
 
 	sb.WriteString("=== Task ===\n")
-	sb.WriteString("Read the user's request. Plan briefly, then call `edit_forge` with ")
-	sb.WriteString(fmt.Sprintf("handlerId=%q + ops to produce a pending version. ", id))
+	sb.WriteString("Read the user's request. Plan briefly, then call `edit_handler` with ")
+	sb.WriteString(fmt.Sprintf("id=%q + ops to produce a pending version. ", id))
 	sb.WriteString("Do NOT call create_* tools; do NOT modify other handlers.\n")
 	return sb.String(), nil
 }
@@ -137,8 +137,8 @@ func BuildWorkflowContext(ctx context.Context, id string, svc *workflowapp.Servi
 		sb.WriteString("\n")
 	}
 	sb.WriteString("=== Task ===\n")
-	sb.WriteString("Read the user's request. Plan briefly, then call `edit_forge` with ")
-	sb.WriteString(fmt.Sprintf("workflowId=%q + ops (add_node / update_node / delete_node / add_edge / delete_edge / set_meta) ", id))
+	sb.WriteString("Read the user's request. Plan briefly, then call `edit_workflow` with ")
+	sb.WriteString(fmt.Sprintf("id=%q + ops (add_node / update_node / delete_node / add_edge / delete_edge / set_meta) ", id))
 	sb.WriteString("to produce a pending version. Do NOT call create_* tools; do NOT modify other workflows.\n")
 	return sb.String(), nil
 }

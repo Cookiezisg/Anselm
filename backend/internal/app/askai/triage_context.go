@@ -96,7 +96,7 @@ func BuildTriageContext(
 	sb.WriteString("2. If you need more context (function code, handler implementation, recent successful runs),\n")
 	sb.WriteString("   use the read/search tools available to you.\n")
 	sb.WriteString("3. Explain the root cause in plain language for the user.\n")
-	sb.WriteString("4. If you can propose a fix, call `edit_forge` (function/handler/workflow) or `edit_document`\n")
+	sb.WriteString("4. If you can propose a fix, call `edit_function` / `edit_handler` / `edit_workflow` (by type) or `edit_document`\n")
 	sb.WriteString("   to produce a pending version. The user will review and accept the diff.\n")
 	sb.WriteString("5. Do NOT auto-rerun the workflow — user will manually retry after accepting your fix.\n")
 	sb.WriteString("6. Do NOT create new entities — only modify existing ones.\n")
