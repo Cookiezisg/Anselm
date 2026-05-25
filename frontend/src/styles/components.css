@@ -108,33 +108,34 @@
   padding: 0 12px 0 20px;
   margin-bottom: 12px;
 }
-.sb-logo-slot {
-  width: 24px; height: 24px;
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-  background: transparent; border: 0; padding: 0; cursor: pointer;
-  color: var(--accent);
-}
-.sb-logo-slot .ic-logo,
-.sb-logo-slot .ic-toggle {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  transition: opacity var(--t-fast);
-}
-.sb-logo-slot .ic-toggle { opacity: 0; color: var(--fg-strong); }
-.sb-logo-slot:hover .ic-logo   { opacity: 0; }
-.sb-logo-slot:hover .ic-toggle { opacity: 1; }
 .sb-logo-name {
   font-size: 15px; font-weight: 500; letter-spacing: -0.01em;
   color: var(--fg-strong); margin-left: 14px;
 }
-/* Static brand mark (expanded). Same 24px footprint as .sb-logo-slot so the
-   logo column stays at center 32px in both states. */
+/* Brand mark — the SAME element in both states (24px, center 32px), so the
+   logo never shifts a sub-pixel between expanded and collapsed. */
 .sb-logo-mark {
   width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;
   color: var(--accent); flex-shrink: 0;
+  transition: opacity var(--t-fast);
 }
+/* Collapsed: zero-box button wrapping the same .sb-logo-mark. Hover overlays
+   the expand icon in place (no element swap, no movement). */
+.sb-logo-btn {
+  position: relative;
+  width: 24px; height: 24px; flex-shrink: 0;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.sb-logo-toggle {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg-strong);
+  opacity: 0; transition: opacity var(--t-fast);
+}
+.sb-logo-btn:hover .sb-logo-mark   { opacity: 0; }
+.sb-logo-btn:hover .sb-logo-toggle { opacity: 1; }
 /* Always-visible collapse button (expanded only), pushed to the header's
    right edge — the discoverable affordance Gemini shows. */
 .sb-collapse-btn {
@@ -273,8 +274,11 @@
 .sb-foot:hover .sb-gear-btn { opacity: 1; }
 .sb-gear-btn:hover { background: var(--bg-hover); color: var(--fg-strong); }
 
-/* Collapsed footer: stack vertically, gear above avatar */
+/* Collapsed footer: fixed 64px width (= rail width) so contents center on the
+   32px column REGARDLESS of the aside's animating width — without this the
+   avatar centers in the mid-animation width and slides in from the right. */
 .sidebar.is-collapsed .sb-foot {
+  width: 64px;
   flex-direction: column-reverse;
   height: auto;
   padding: 8px 0 0;

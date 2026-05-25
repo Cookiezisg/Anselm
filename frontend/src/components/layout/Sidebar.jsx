@@ -95,17 +95,18 @@ export function Sidebar() {
     >
       <div className="sb-head">
         {collapsed ? (
-          // Collapsed rail has no room for a separate button — the logo itself
-          // is the expand toggle (hover morphs logo → PanelLeftOpen).
+          // Collapsed: the brand mark IS the expand toggle. Same .sb-logo-mark
+          // element + position as expanded (zero drift); hover overlays the
+          // PanelLeftOpen icon in place without moving anything.
           <button
             type="button"
-            className="sb-logo-slot"
+            className="sb-logo-btn"
             onClick={() => setCollapsed(false)}
             title="展开 ⌘B"
             aria-label="toggle sidebar"
           >
-            <span className="ic-logo"><ForgifyLogo /></span>
-            <span className="ic-toggle"><Icon.PanelLeftOpen size={20} strokeWidth={2} /></span>
+            <span className="sb-logo-mark"><ForgifyLogo /></span>
+            <span className="sb-logo-toggle"><Icon.PanelLeftOpen size={20} strokeWidth={2} /></span>
           </button>
         ) : (
           <>
