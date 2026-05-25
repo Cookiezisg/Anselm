@@ -4952,12 +4952,11 @@ tr.is-selected { background: var(--accent-soft) !important; }
   position: fixed; inset: 0;
   background: var(--bg-overlay);
   z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
 }
 
 .set-modal {
-  position: fixed;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
   width: 600px; max-width: calc(100vw - 32px);
   max-height: 88vh;
   background: var(--bg-paper);

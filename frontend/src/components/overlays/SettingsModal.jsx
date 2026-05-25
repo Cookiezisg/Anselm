@@ -33,21 +33,21 @@ export function SettingsModal() {
   return (
     <AnimatePresence>
       {open && (
-        <>
-          <motion.div
-            className="set-scrim"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={() => setOpen(false)}
-          />
+        <motion.div
+          className="set-scrim"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={() => setOpen(false)}
+        >
           <motion.div
             className="set-modal"
             {...scaleIn}
             role="dialog"
             aria-modal="true"
             aria-label="设置"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="set-head">
               <span className="set-head-title">设置</span>
@@ -75,7 +75,7 @@ export function SettingsModal() {
               />
             </div>
           </motion.div>
-        </>
+        </motion.div>
       )}
     </AnimatePresence>
   );
@@ -151,7 +151,7 @@ function AccountRegion() {
             <div className="set-acct-add">
               <input
                 className="set-acct-add-input"
-                placeholder="新名字"
+                placeholder="新工作空间"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addAccount(); }}
