@@ -4,7 +4,7 @@ export function KeyVerifyField({ label, value, onChange, onVerify, verifying, ve
   return (
     <>
       <div className="onb-klabel">{label}</div>
-      <div className={"onb-kinput" + (error ? " is-error" : "") + (readOnly ? " is-plain" : "")}>
+      <div className={"onb-kinput" + (error ? " is-error" : "")}>
         <Icon.KeyRound />
         {readOnly
           ? <input value={value} readOnly style={{ color: "var(--fg-faint)" }} />
