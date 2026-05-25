@@ -813,13 +813,13 @@ BlockList({ blocks, depth=0, defaultOpenTools=false })
 - 有文字：可点击（accent 色）
 - streaming：stop 按钮（方块图标）
 
-**mentionPool：** 调 `useForgeList()` + `useSkills()` + `useDocuments()`，过滤后提供 @mention 候选。
+**mentionPool：** 调 `useFunctions()` / `useHandlers()` / `useWorkflows()` + `useDocuments()`（**去 skill** —— skill 有 activate_skill 自驱），过滤后提供 @mention 候选；每项带 `{type,id}`，发送 `body.mentions=[{type,id}]`（后端按 type 解析实体内容快照进消息，详见 service-design-documents/mention.md）。
 
 **改进vs boilerplate：**
 1. 文件 attach 用真实的 `input[type=file]`（boilerplate 只是模拟）
 2. `isStreaming` 状态从 `chat store` 读取（当前 conv 是否有 streaming message），不是外部 prop
 3. @mention 搜索 debounce 300ms
-4. AtMentionPopover 支持 type label（"· function"、"· skill"）
+4. AtMentionPopover 支持 type label（"· function"、"· workflow"、"· doc"）
 
 ### 9.6 NoApiKeyGate
 

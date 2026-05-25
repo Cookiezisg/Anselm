@@ -135,7 +135,7 @@ type Error = {
 | Method | Path | 用途 |
 |---|---|---|
 | POST | `/api/v1/attachments` | 上传附件（multipart，50MB 限制）→ 201 返回 attachment_id |
-| POST | `/api/v1/conversations/{id}/messages` | 发送消息（202，队列化异步 Agent 运行）；body 含 `attachmentIds[]` |
+| POST | `/api/v1/conversations/{id}/messages` | 发送消息（202，队列化异步 Agent 运行）；body 含 `attachmentIds[]` + `mentions[]`（`{type,id}`，@ 引用实体内容快照进消息，type ∈ document/function/handler/workflow；详见 service-design-documents/mention.md）|
 | DELETE | `/api/v1/conversations/{id}/stream` | 取消正在运行的 Agent（204）；404 STREAM_NOT_FOUND |
 | GET | `/api/v1/conversations/{id}/messages` | 消息历史（cursor 分页，ASC 时序）；每条消息含 `blocks[]`（**6 类型**：text/reasoning/tool_call/tool_result/progress/message）+ `attrs`（user msg 含 `attachments[]` 引用、subagent sub-message 含 `kind=subagent_run`）+ `inputTokens` + `outputTokens`。**注**：附件不是 block 类型，是 `attrs.attachments[]` 引用 `attachments` 表 |
 

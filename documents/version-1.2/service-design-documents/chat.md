@@ -297,7 +297,8 @@ app/chat/
   chat.go      ← 公开 API（Send / Cancel / ListMessages / UploadAttachment）+ Service struct + queue 类型 + emitUserMessage
   runner.go    ← getOrCreateQueue / runQueue / processTask（→ loop.Run）/ emitFatalError / buildSystemPrompt / autoTitle
   host.go      ← chatHost 实现 loop.Host：LoadHistory / Tools / WriteFinalize（终态写库 + emit message_stop）+ buildMessage + mapEventLogStatus
-  history.go   ← buildHistory（从 DB 加载） + buildUserLLMMessage + attachmentToPart
+  history.go   ← buildHistory（从 DB 加载） + buildUserLLMMessage（含 @-mention 块渲染）+ attachmentToPart
+  mention.go   ← renderMentionsXML（@ 引用 → <mention> 块；Send 解析存 Attrs["mentions"]，详见 mention.md）
   util.go      ← ID 生成器（newMsgID / newBlockID / newAttachmentID）+ readAndEncode + truncate
 ```
 
