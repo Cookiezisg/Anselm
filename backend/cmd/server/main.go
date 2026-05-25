@@ -541,6 +541,7 @@ func main() {
 	}
 
 	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
+	tools = append(tools, workflowtool.WorkflowTriggerTool(schedulerService)...)
 	tools = append(tools, mcptool.MCPCallLogTools(mcpCallRepo)...)
 	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
 

@@ -35,3 +35,13 @@ func WorkflowExecutionTools(repo flowrundomain.Repository) []toolapp.Tool {
 		&GetWorkflowExecution{repo: repo},
 	}
 }
+
+// WorkflowTriggerTool constructs trigger_workflow wired to the scheduler. Registered
+// after scheduler construction (mirrors WorkflowExecutionTools) so it lands only in the
+// orchestrator's toolset, not subagents' (D21 — only the orchestrator triggers runs).
+//
+// WorkflowTriggerTool 装配 trigger_workflow（接 scheduler）。在 scheduler 构造后注册
+// （仿 WorkflowExecutionTools）——只进编排者工具集、不进子代理（D21）。
+func WorkflowTriggerTool(sched WorkflowStarter) []toolapp.Tool {
+	return []toolapp.Tool{&TriggerWorkflow{sched: sched}}
+}
