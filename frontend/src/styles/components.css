@@ -277,18 +277,23 @@
 .sb-foot:hover .sb-gear-btn { opacity: 1; }
 .sb-gear-btn:hover { background: var(--bg-hover); color: var(--fg-strong); }
 
-/* Collapsed footer: keep the SAME 48px row height as expanded and just center
-   the avatar in the fixed 64px rail — so the avatar lands at the exact same
-   (x:32, y:center-of-48) point in both states. The previous column-reverse +
-   height:auto let the hover-only gear (still occupying layout at opacity:0)
-   inflate the footer to ~66px and shove the avatar ~10px down on collapse. */
+/* Collapsed footer: avatar anchored 24px above the footer bottom — the SAME
+   absolute spot as the expanded 48px-centered avatar (both footers are
+   bottom-pinned by the flex spacer), so the avatar never moves on toggle.
+   The gear stacks above it (column-reverse, in-flow so the hover zone is
+   continuous + the gear is reachable) and gently fades in on hover; its
+   reserved space grows the footer UPWARD (absorbed by the spacer), never
+   pushing the avatar down. */
 .sidebar.is-collapsed .sb-foot {
   width: 64px;
-  justify-content: center;
-  padding: 0;
+  flex-direction: column-reverse;
+  align-items: center;
+  height: auto;
+  padding: 8px 0 10px;
+  gap: 6px;
 }
 .sidebar.is-collapsed .sb-user { display: none; }
-.sidebar.is-collapsed .sb-gear-btn { display: none; }
+.sidebar.is-collapsed .sb-gear-btn { transition: opacity var(--t-med); }
 
 /* ── Main panel ───────────────────────────────────────────────────── */
 .main {
