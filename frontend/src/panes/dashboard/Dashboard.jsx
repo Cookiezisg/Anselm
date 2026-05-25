@@ -55,6 +55,7 @@ function ContextStrip({ strip, onJump }) {
 export function Dashboard() {
   const openPane      = useUIStore((s) => s.openPane);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
+  const pushToast     = useUIStore((s) => s.pushToast);
 
   const { data: conversations = [] } = useConversations();
   const [displayName] = useDisplayName();
@@ -77,6 +78,8 @@ export function Dashboard() {
         openPane("chat");
         await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { text } });
       }
+    } catch (err) {
+      pushToast({ kind: "error", title: "发送失败", desc: err.message });
     } finally {
       setSubmitting(false);
     }

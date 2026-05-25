@@ -6,7 +6,7 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-columns: var(--sidebar-w, 248px) 1fr;
+  grid-template-columns: var(--sidebar-w, 260px) 1fr;
   grid-template-areas: "sidebar main";
   background: var(--bg-window);
 }
@@ -90,6 +90,7 @@
    ============================================================================ */
 
 .sidebar {
+  grid-area: sidebar;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -104,7 +105,7 @@
   display: flex;
   align-items: center;
   height: 40px;
-  padding: 0 12px 0 14px;
+  padding: 0 12px 0 20px;
   margin-bottom: 12px;
 }
 .sb-logo-slot {
@@ -131,7 +132,7 @@
 /* Nav items */
 .sb-item {
   display: flex; align-items: center;
-  height: 38px; padding: 0 14px; margin: 0 8px;
+  height: 38px; padding: 0 14px; margin: 0 6px;
   border-radius: var(--radius-pill);
   background: transparent; border: 0; cursor: pointer;
   color: var(--fg-strong);
@@ -140,8 +141,7 @@
   text-align: left;
 }
 .sb-item:hover               { background: var(--bg-hover); }
-.sb-item.is-primary          { background: var(--bg-elev-2); font-weight: 500; }
-.sb-item.is-primary:hover    { background: var(--bg-active); }
+.sb-item.is-primary          { font-weight: 500; }
 .sb-item.is-active           { background: var(--bg-active); font-weight: 500; }
 .sb-item .ic-slot {
   width: 24px; height: 24px;
@@ -211,7 +211,7 @@
 .sb-foot-spacer { flex: 1; }
 .sb-foot {
   display: flex; align-items: center;
-  height: 48px; padding: 0 14px;
+  height: 48px; padding: 0 14px 0 18px;
   border-top: 1px solid var(--border-soft);
   margin-top: 6px;
   gap: 12px;
@@ -3835,6 +3835,7 @@ tr.is-selected .action-menu-wrap .rel-more-btn { opacity: 0.6; }
    ============================================================================ */
 
 .wel {
+  flex: 1 1 0; min-width: 0;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   gap: 36px;
@@ -4622,7 +4623,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
    Sidebar collapse mode
    ============================================================================ */
 
-.app.is-collapsed { grid-template-columns: 56px 1fr; }
+.app.is-collapsed { grid-template-columns: 64px 1fr; }
 
 /* ============================================================================
    Pane resize handle

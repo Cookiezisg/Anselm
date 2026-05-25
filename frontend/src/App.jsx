@@ -74,11 +74,15 @@ export default function App() {
   const users = usersQ.data || [];
 
   // Self-heal: if activeUserId points at a user that no longer exists, clear
-  // it. Then auto-select when exactly one user remains — single-user installs
-  // should not be forced into a picker after a localStorage wipe.
+  // it. Then auto-select the first user whenever any exist — local-first is
+  // single-user, so a null/stale id (e.g. DB rebuilt, localStorage wiped, or
+  // 401 UNAUTH_NO_USER cleared the id) must resolve to SOME real user, not
+  // dead-end. Without `>= 1`, a 2+ user DB with no active id rendered the
+  // shell with no valid identity → every user-scoped call 401'd.
   //
-  // 自愈：activeUserId 指向已删除的 user 就清掉；只剩 1 个用户时直接选上，
-  // 避免单用户 install 在 localStorage 被清后还要走 picker。
+  // 自愈：activeUserId 指向已删除 user 就清掉；只要 DB 有用户就选第一个。
+  // 本地单用户，空/失效 id 必须落到某个真实 user(否则多用户+空 id 时
+  // shell 带着无效身份渲染 → 所有 user 作用域请求 401)。
   useEffect(() => {
     if (usersQ.isLoading || usersQ.isError) return;
     const activeId = settings.activeUserId;
@@ -86,7 +90,7 @@ export default function App() {
       settings.set({ activeUserId: null });
       return;
     }
-    if (!activeId && users.length === 1) {
+    if (!activeId && users.length >= 1) {
       settings.set({ activeUserId: users[0].id });
     }
   }, [usersQ.isLoading, usersQ.isError, users, settings.activeUserId]);
@@ -98,12 +102,26 @@ export default function App() {
   const isFreshInstall = !usersQ.isLoading && users.length === 0;
   const showOnboarding = forceShowOnboarding || isFreshInstall;
 
+  // Hold the shell until a user is resolved: while /users loads, or for the
+  // one render between "users arrived" and the self-heal effect setting
+  // activeUserId. Rendering AppShell with a null id makes child hooks fire
+  // user-scoped requests that 401 (and flash "发送失败"-style toasts).
+  //
+  // 在拿到有效 user 前不渲染 shell:/users 加载中,或"用户已到达但自愈
+  // effect 还没设 activeUserId"的那一拍。否则子 hook 带空 id 发请求 401。
+  const resolvingUser =
+    !showOnboarding && (usersQ.isLoading || (users.length >= 1 && !settings.activeUserId));
+
   if (showOnboarding) {
     return (
       <SSEProvider>
         <Onboarding onFinish={() => setForceShowOnboarding(false)} />
       </SSEProvider>
     );
+  }
+
+  if (resolvingUser) {
+    return <SSEProvider><div className="app-booting" /></SSEProvider>;
   }
 
   return (
