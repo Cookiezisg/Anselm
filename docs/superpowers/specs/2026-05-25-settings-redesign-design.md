@@ -1,6 +1,6 @@
 # 设置重做 — 设计
 
-> Date: 2026-05-25 · Status: 待用户审 · Scope: 前端设置 UI 重做(去 tab、key 为中心、引导页式新增、统一为一个居中 modal)。后端基本无改动(仅可能一个小的"搜索默认"补充,见 §11)。
+> Date: 2026-05-25 · Status: 已审定 · Scope: 前端设置 UI 重做(去 tab、key 为中心、引导页式新增、统一为一个居中 modal)+ 一处最小后端改动(搜索"默认"激活,见 §11)。
 
 ---
 
@@ -103,7 +103,11 @@ modal 自上而下:
 
 - **对话模型**:`GET/PUT /model-configs/{scenario}`(scenario=`chat`)+ `/api-keys`(create/`:test`/delete)+ `/providers`(category=llm)—— 全已存在。模型当前只做 `chat`;`web_summary` 留后续(未配时后端自动 fallback 到 chat,见 model app `PickForWebSummary`)。
 - **搜索**:`/api-keys`(category=search,provider ∈ bocha/brave/serper/tavily)+ `/providers`(category=search)—— 已存在。
-- **"搜索默认"选择**:当前后端 WebSearch 是"有哪个 search key 就用哪个"(无显式 active-search 选择)。所以 `搜索默认/仅备用` 若要真生效于"多个搜索 key 选一个",需要一个**小的后端补充**(active-search-provider 设置)。**本次范围**:先做搜索 key 的增删管理 + UI 上的 `搜索默认` 标记;active 选择若后端暂不支持,标记为视觉/占位,真正生效作为小跟进(writing-plans 时确认)。
+- **"搜索默认"选择(本次含最小后端改动)**:当前 WebSearch 按固定顺序"有哪个 search key 就用哪个"(`app/tool/web/search.go::tryBYOKProvider` 循环,无显式 active)。本次加最小机制让 `搜索默认` 真生效:
+  - **api-key 加 `IsDefault bool`**(默认 false;语义 per-category,只对 search 类用);幂等迁移走 `schema_extras.go`。
+  - **`PATCH /api-keys/{id}` 支持 `isDefault`** —— 设某 search key 为默认时,app 层把同 category 的其它 key 取消默认(单选)。
+  - **WebSearch 解析优先用标了默认的 search provider**(没标默认则退回现有固定顺序兜底)。
+  - 改动面小且封闭:apikey domain(+字段)/ store(+迁移)/ app(set-default 单选逻辑)/ handler(PATCH 接 isDefault)各一处 + WebSearch 解析一处。`apikey.md` / `database-design.md` / `api-design.md` 同步。
 
 ## 12. 触发 + 旧代码移除
 
@@ -115,7 +119,6 @@ modal 自上而下:
 
 - `web_summary` 模型单独配置(后续;现在 fallback 到 chat)。
 - 同一 provider 多把 key(现状一 provider 一 key 足够)。
-- 多搜索 key 的真·active 选择(若需后端改动则跟进,见 §11)。
 - 后端模型 scenario 扩展。
 
 ## 14. 测试
@@ -131,8 +134,8 @@ modal 自上而下:
 - `DESIGN.md`:若"居中 modal + 手风琴 + pill/段控"成为新约定 → §11/§12 补。
 - `progress-record.md`:dev log。
 
-## 16. 待你拍板(spec review gate)
+## 16. 拍板结果(已确认 2026-05-25)
 
-1. **删 `SettingsPopover`、齿轮直接开 modal**(一处事实源)—— 同意?还是想保留快捷 popover(快速切主题)?
-2. **抽共享组件**(ProviderGrid / KeyVerifyField / ModelSelect)给引导页 + 设置共用 —— 同意这个 DRY 落点?
-3. **搜索"默认"选择**:active-search 后端暂无,本次先做"key 增删 + 标记",真 active 选择按需小跟进 —— 可接受?
+1. ✅ **删 `SettingsPopover`,齿轮直接开 modal** —— 一处事实源,不保留快捷 popover。
+2. ✅ **抽共享组件**(ProviderGrid / KeyVerifyField / ModelSelect)给引导页 + 设置共用。
+3. ✅ **搜索"默认"真生效** —— 含 §11 的最小后端改动(api-key `IsDefault` + PATCH + WebSearch 优先)。
