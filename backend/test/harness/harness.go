@@ -459,6 +459,8 @@ func New(t *testing.T, opts ...Option) *Harness {
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
+	catalogService.RegisterSource(workflowService.AsCatalogSource())
+	catalogService.RegisterSource(documentService.AsCatalogSource())
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)

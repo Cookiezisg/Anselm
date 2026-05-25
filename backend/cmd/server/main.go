@@ -400,17 +400,18 @@ func main() {
 	tools = append(tools, skilltool.SkillTools(skillService)...)
 
 	catalogService := catalogapp.New(log)
-	// Sources = "things the LLM can call from chat as capabilities":
-	// function / handler / skill / mcp. Documents are intentionally excluded —
-	// they enter context via @-mention (separate feature), not the catalog.
-	// Workflows are excluded too (user-triggered, not intent-matched).
+	// Sources = all LLM-callable capabilities: function / handler / skill / mcp /
+	// workflow / document. The menu renderer shows each group's invoke tool so the
+	// LLM knows exactly which tool-call to emit.
 	//
-	// sources = LLM 从 chat 可调用的能力:function / handler / skill / mcp。
-	// 文档故意排除——走 @ 引用进上下文(独立功能),不进 catalog。
+	// sources = 全部 LLM 可调能力：function / handler / skill / mcp / workflow / document。
+	// menu 渲染带 invokeTool，让 LLM 确知发哪个 tool-call。
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
 	catalogService.RegisterSource(skillService.AsCatalogSource())
 	catalogService.RegisterSource(mcpService.AsCatalogSource())
+	catalogService.RegisterSource(workflowService.AsCatalogSource())
+	catalogService.RegisterSource(documentService.AsCatalogSource())
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)

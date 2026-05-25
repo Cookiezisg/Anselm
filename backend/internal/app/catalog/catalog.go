@@ -75,6 +75,7 @@ func (s *Service) build(ctx context.Context) (*catalogdomain.Catalog, error) {
 
 	items := []catalogdomain.Item{}
 	gMap := map[string]catalogdomain.Granularity{}
+	invokeMap := map[string]string{}
 	failed := 0
 	for _, src := range sources {
 		srcItems, err := src.ListItems(ctx)
@@ -86,13 +87,14 @@ func (s *Service) build(ctx context.Context) (*catalogdomain.Catalog, error) {
 		}
 		items = append(items, srcItems...)
 		gMap[src.Name()] = src.Granularity()
+		invokeMap[src.Name()] = src.InvokeTool()
 	}
 	if len(sources) > 0 && failed == len(sources) {
 		return nil, fmt.Errorf("catalogapp.build: all %d sources failed: %w",
 			len(sources), catalogdomain.ErrAllSourcesFailed)
 	}
 
-	cat := assemble(items, gMap)
+	cat := assemble(items, gMap, invokeMap)
 	cat.GeneratedAt = time.Now().UTC()
 	return cat, nil
 }

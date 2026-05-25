@@ -8,10 +8,14 @@ import (
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 )
 
-// assemble enumerates items per-source into a Markdown capability list.
+const descMaxRunes = 48
+
+// assemble enumerates items per-source into a Markdown capability "menu": each
+// group header names the invoke tool so the LLM knows exactly what to call.
 //
-// assemble 按 source 把 item 拼成 Markdown 能力清单。
-func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity) *catalogdomain.Catalog {
+// assemble 按 source 把 item 拼成 Markdown 能力菜单；
+// header 带 invokeTool 让 LLM 知道该发哪个 tool-call。
+func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granularity, invokeMap map[string]string) *catalogdomain.Catalog {
 	bySource := groupBySource(items)
 	sourceNames := make([]string, 0, len(bySource))
 	for name := range bySource {
@@ -33,10 +37,11 @@ func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granular
 			sort.Slice(srcItems, func(i, j int) bool { return srcItems[i].Name < srcItems[j].Name })
 
 			gran := gMap[name]
-			fmt.Fprintf(&b, "\n### %s (%d, %s)\n", name, len(srcItems), gran.String())
+			invoke := invokeMap[name]
+			fmt.Fprintf(&b, "\n### %s [%s] (%d, %s)\n", name, invoke, len(srcItems), gran.String())
 			ids := make([]string, 0, len(srcItems))
 			for _, it := range srcItems {
-				desc := it.Description
+				desc := truncate(it.Description, descMaxRunes)
 				if desc == "" {
 					desc = "(no description)"
 				}
@@ -54,6 +59,17 @@ func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granular
 		Coverage:    coverage,
 		GeneratedBy: "mechanical",
 	}
+}
+
+// truncate cuts s to max runes and appends "…" if cut; rune-safe.
+//
+// truncate 按 rune 截断 s 到 max 个并追加"…"；多字节安全。
+func truncate(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "…"
 }
 
 func groupBySource(items []catalogdomain.Item) map[string][]catalogdomain.Item {
