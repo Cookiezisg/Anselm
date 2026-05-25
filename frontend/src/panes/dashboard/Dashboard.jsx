@@ -76,7 +76,7 @@ export function Dashboard() {
       if (created?.id) {
         setActiveConv(created.id);
         openPane("chat");
-        await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { text } });
+        await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { content: text } });
       }
     } catch (err) {
       pushToast({ kind: "error", title: "发送失败", desc: err.message });

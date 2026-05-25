@@ -58,7 +58,7 @@ describe("Dashboard", () => {
     expect(createMutateAsync).toHaveBeenCalled();
     expect(apiFetch).toHaveBeenCalledWith(
       "/conversations/cv_n/messages",
-      expect.objectContaining({ method: "POST", body: { text: "hello forge" } })
+      expect.objectContaining({ method: "POST", body: { content: "hello forge" } })
     );
     expect(useUIStore.getState().openPanes).toContain("chat");
     expect(useUIStore.getState().activeConv).toBe("cv_n");
