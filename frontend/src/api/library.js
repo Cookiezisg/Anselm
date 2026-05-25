@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, qk, pickList } from "./client.js";
+import { useSettings } from "../store/settings.js";
 
 // ── Skills ───────────────────────────────────────────────────────────
 export function useSkills() {
@@ -106,10 +107,12 @@ export function useDocumentTree() {
   });
 }
 export function useDocuments() {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.documents(),
     queryFn: () => apiFetch("/documents?limit=200"),
     select: pickList,
+    enabled: !!uid,
   });
 }
 export function useDocument(id) {

@@ -10,6 +10,9 @@ beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../bridge/wails.js");
   await bridge.initBaseUrl();
+  // Snapshot query is gated on activeUserId; set one so it fires.
+  const { useSettings } = await import("../store/settings.js");
+  useSettings.getState().set({ activeUserId: "u_test" });
 });
 
 describe("useNotificationsSnapshot", () => {

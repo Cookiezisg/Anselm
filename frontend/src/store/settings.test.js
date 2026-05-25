@@ -1,6 +1,7 @@
 // store/settings — persistence round-trip + theme/accent resolution.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { detectLang } from "./boot.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -21,7 +22,7 @@ describe("useSettings", () => {
     expect(s.theme).toBe("system");
     expect(s.accent).toBe("claude");
     expect(s.density).toBe("cozy");
-    expect(s.lang).toBe("zh");
+    expect(s.lang).toBe(detectLang()); // first-run default = device language
     expect(s.activeUserId).toBeNull();
     expect(s.onboarded).toBe(false);
   });
@@ -41,7 +42,7 @@ describe("useSettings", () => {
     useSettings.getState().reset();
     const s = useSettings.getState();
     expect(s.theme).toBe("system");
-    expect(s.lang).toBe("zh");
+    expect(s.lang).toBe(detectLang());
     expect(s.onboarded).toBe(false);
   });
 

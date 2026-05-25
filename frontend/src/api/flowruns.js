@@ -5,13 +5,16 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, qk, pickList } from "./client.js";
+import { useSettings } from "../store/settings.js";
 
 export function useFlowRuns(params = {}) {
+  const uid = useSettings((s) => s.activeUserId);
   const qs = new URLSearchParams({ limit: "100", ...params }).toString();
   return useQuery({
     queryKey: [...qk.flowruns(), params],
     queryFn: () => apiFetch(`/flowruns?${qs}`),
     select: pickList,
+    enabled: !!uid,
   });
 }
 

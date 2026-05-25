@@ -4,13 +4,16 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, qk, pickList } from "./client.js";
+import { useSettings } from "../store/settings.js";
 
 // ── Function ─────────────────────────────────────────────────────────
 export function useFunctions() {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.functions(),
     queryFn: () => apiFetch("/functions?limit=200"),
     select: pickList,
+    enabled: !!uid,
   });
 }
 export function useFunction(id) {
@@ -80,10 +83,12 @@ export function useDeleteFunction() {
 
 // ── Handler ──────────────────────────────────────────────────────────
 export function useHandlers() {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.handlers(),
     queryFn: () => apiFetch("/handlers?limit=200"),
     select: pickList,
+    enabled: !!uid,
   });
 }
 export function useHandler(id) {
@@ -146,10 +151,12 @@ export function useDeleteHandler() {
 
 // ── Workflow ─────────────────────────────────────────────────────────
 export function useWorkflows() {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.workflows(),
     queryFn: () => apiFetch("/workflows?limit=200"),
     select: pickList,
+    enabled: !!uid,
   });
 }
 export function useWorkflow(id) {

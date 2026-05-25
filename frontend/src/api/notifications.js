@@ -5,11 +5,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch, qk, pickList } from "./client.js";
+import { useSettings } from "../store/settings.js";
 
 export function useNotificationsSnapshot(limit = 50) {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.notificationsSnap(),
     queryFn: () => apiFetch(`/notifications?limit=${limit}`, { headers: { Accept: "application/json" } }),
     select: pickList,
+    enabled: !!uid,
   });
 }

@@ -5,12 +5,15 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, qk, pickList } from "./client.js";
+import { useSettings } from "../store/settings.js";
 
 export function useConversations() {
+  const uid = useSettings((s) => s.activeUserId);
   return useQuery({
     queryKey: qk.conversations(),
     queryFn: () => apiFetch("/conversations?limit=100"),
     select: pickList,
+    enabled: !!uid,
   });
 }
 
