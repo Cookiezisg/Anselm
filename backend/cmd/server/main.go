@@ -414,6 +414,10 @@ func main() {
 	chatService.SetSystemPromptProvider(catalogService)
 	chatService.SetMemoryProvider(memoryService)
 	chatService.SetDocumentResolver(documentService)
+	chatService.RegisterMentionResolver(documentService.AsMentionResolver())
+	chatService.RegisterMentionResolver(functionService.AsMentionResolver())
+	chatService.RegisterMentionResolver(handlerService.AsMentionResolver())
+	chatService.RegisterMentionResolver(workflowService.AsMentionResolver())
 
 	// V1.2 §3 final-sweep — permissions + hooks.
 	// settings.json lives at <homeRoot>/settings.json; gate reads via

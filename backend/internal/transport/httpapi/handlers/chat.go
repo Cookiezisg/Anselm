@@ -13,6 +13,7 @@ import (
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -70,8 +71,9 @@ func (h *ChatHandler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
 }
 
 type sendMessageRequest struct {
-	Content       string   `json:"content"`
-	AttachmentIDs []string `json:"attachmentIds"`
+	Content       string                       `json:"content"`
+	AttachmentIDs []string                     `json:"attachmentIds"`
+	Mentions      []mentiondomain.MentionInput `json:"mentions"`
 }
 
 func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +86,7 @@ func (h *ChatHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	msgID, err := h.svc.Send(r.Context(), id, chatapp.SendInput{
 		Content:       req.Content,
 		AttachmentIDs: req.AttachmentIDs,
+		Mentions:      req.Mentions,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
