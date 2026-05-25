@@ -11,7 +11,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/test-setup.js"],
+    setupFiles: ["./src/test-shim-storage.js", "./src/test-setup.js"],
     include: ["src/**/*.{test,spec}.{js,jsx}"],
     exclude: ["tests/**", "node_modules/**", "dist/**"],
     coverage: {

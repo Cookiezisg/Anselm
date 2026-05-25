@@ -4,8 +4,11 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
+import i18n from "./i18n/index.js";
 
 afterEach(() => cleanup());
+
+i18n.changeLanguage("zh"); // resources eager 已在内存,同步生效;t() 立即返回中文
 
 // jsdom ships localStorage but vitest's module isolation occasionally
 // races with zustand-persist hydration. Force a deterministic in-memory

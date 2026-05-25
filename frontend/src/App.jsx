@@ -9,6 +9,7 @@ import { AppShell } from "./components/layout/AppShell.jsx";
 import { Onboarding } from "./components/overlays/Onboarding.jsx";
 import { SSEProvider } from "./sse/SSEProvider.jsx";
 import { useSettings, applyTheme } from "./store/settings.js";
+import i18n from "./i18n";
 import { computeBootState } from "./store/boot.js";
 import { useChatStore } from "./store/chat.js";
 import { useUIStore } from "./store/ui.js";
@@ -31,6 +32,10 @@ export default function App() {
   useEffect(() => {
     applyTheme(settings);
   }, [settings.theme, settings.accent, settings.density, settings.lang]);
+
+  useEffect(() => {
+    i18n.changeLanguage(settings.lang);
+  }, [settings.lang]);
 
   // Account switch / first-account-set: drop old user's chat tree, invalidate
   // every REST cache, clear cross-user pane state (stale activeConv would 404
