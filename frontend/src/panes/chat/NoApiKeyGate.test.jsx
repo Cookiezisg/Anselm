@@ -1,4 +1,4 @@
-// NoApiKeyGate — first-run empty state, click → open config pane.
+// NoApiKeyGate — first-run empty state, click → open settings modal.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -7,7 +7,7 @@ import { useUIStore } from "../../store/ui.js";
 import { NoApiKeyGate } from "./NoApiKeyGate.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ openPanes: ["chat"], activeNarrowPane: null });
+  useUIStore.setState({ openPanes: ["chat"], activeNarrowPane: null, settingsOpen: false });
 });
 
 describe("NoApiKeyGate", () => {
@@ -17,10 +17,10 @@ describe("NoApiKeyGate", () => {
     expect(screen.getByRole("button", { name: /去配置/ })).toBeInTheDocument();
   });
 
-  it("clickConfigButton_opensConfigPane", async () => {
+  it("clickConfigButton_opensSettingsModal", async () => {
     render(<NoApiKeyGate />);
     await userEvent.click(screen.getByRole("button", { name: /去配置/ }));
-    expect(useUIStore.getState().openPanes).toContain("config");
+    expect(useUIStore.getState().settingsOpen).toBe(true);
   });
 
   it("noSecondaryButton_onlyOneActionButton", () => {

@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { group: "导航", icon: Icon.Sparkles,      label: "Skills", desc: "",  target: "skills" },
   { group: "导航", icon: Icon.Server,        label: "MCP",    desc: "", target: "mcp" },
   { group: "导航", icon: Icon.Brain,         label: "Memory", desc: "", target: "memory" },
-  { group: "导航", icon: Icon.Settings,      label: "设置",   desc: "", target: "config" },
+  { group: "导航", icon: Icon.Settings,      label: "设置",   desc: "", overlay: "settings" },
 ];
 
 export function CommandPalette() {
@@ -31,6 +31,7 @@ export function CommandPalette() {
   const openPane = useUIStore((s) => s.openPane);
   const openEntity = useUIStore((s) => s.openEntity);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
 
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -44,7 +45,10 @@ export function CommandPalette() {
   const items = useMemo(() => {
     const a = [];
     for (const nav of NAV_ITEMS) {
-      a.push({ ...nav, action: () => openPane(nav.target) });
+      const action = nav.overlay === "settings"
+        ? () => setSettingsOpen(true)
+        : () => openPane(nav.target);
+      a.push({ ...nav, action });
     }
     for (const c of conversations.slice(0, 6)) {
       a.push({
@@ -92,7 +96,7 @@ export function CommandPalette() {
       });
     }
     return a;
-  }, [conversations, functions, handlers, workflows, flowruns, openPane, openEntity, setActiveConv]);
+  }, [conversations, functions, handlers, workflows, flowruns, openPane, openEntity, setActiveConv, setSettingsOpen]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();

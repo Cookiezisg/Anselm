@@ -15,7 +15,6 @@ export const PANE_META = {
   mcp:       { icon: "Server",        label: "MCP" },
   memory:    { icon: "Brain",         label: "Memory" },
   observe:   { icon: "Activity",      label: "洞察" },
-  config:    { icon: "Settings",      label: "设置" },
 };
 
 export function PaneFrame({ kind, onClose, crumbs, children }) {

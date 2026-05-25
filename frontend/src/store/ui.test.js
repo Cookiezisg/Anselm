@@ -10,7 +10,7 @@ function reset() {
     activeFlowRun: null, activeDocument: null, leftPct: 50,
     collapsed: false, narrow: false, activeNarrowPane: null,
     focusEntity: {}, cmdkOpen: false, notifsOpen: false,
-    askOpen: false, settingsPopOpen: false, pendingAsk: null,
+    askOpen: false, settingsOpen: false, pendingAsk: null,
     toasts: [],
   });
 }
@@ -134,10 +134,10 @@ describe("layout knobs", () => {
   });
 
   it("overlay flags toggle independently", () => {
-    const { setCmdkOpen, setNotifsOpen, setAskOpen, setSettingsPopOpen } = useUIStore.getState();
-    setCmdkOpen(true); setNotifsOpen(true); setAskOpen(true); setSettingsPopOpen(true);
+    const { setCmdkOpen, setNotifsOpen, setAskOpen, setSettingsOpen } = useUIStore.getState();
+    setCmdkOpen(true); setNotifsOpen(true); setAskOpen(true); setSettingsOpen(true);
     const s = useUIStore.getState();
-    expect(s.cmdkOpen && s.notifsOpen && s.askOpen && s.settingsPopOpen).toBe(true);
+    expect(s.cmdkOpen && s.notifsOpen && s.askOpen && s.settingsOpen).toBe(true);
   });
 });
 

@@ -10,7 +10,7 @@ import { Button } from "../../components/primitives/Button.jsx";
 import { useUIStore } from "../../store/ui.js";
 
 export function NoModelGate() {
-  const openPane = useUIStore((s) => s.openPane);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   return (
     <div className="empty-shell">
       <div className="empty-shell-card">
@@ -24,7 +24,7 @@ export function NoModelGate() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button size="sm" variant="accent" onClick={() => openPane("config")}>
+          <Button size="sm" variant="accent" onClick={() => setSettingsOpen(true)}>
             <Icon.ArrowRight /> 去挑一个
           </Button>
         </div>

@@ -32,7 +32,7 @@ beforeEach(() => {
   localStorage.clear();
   useUIStore.setState({
     openPanes: [], collapsed: false, toolsExpanded: true, recentExpanded: true,
-    cmdkOpen: false, notifsOpen: false, settingsPopOpen: false,
+    cmdkOpen: false, notifsOpen: false, settingsOpen: false,
   });
 });
 
@@ -87,10 +87,10 @@ describe("Sidebar", () => {
     expect(useUIStore.getState().notifsOpen).toBe(true);
   });
 
-  it("footer gear opens settings popover", () => {
+  it("footer gear opens settings modal", () => {
     renderSidebar();
     fireEvent.click(screen.getByLabelText("settings"));
-    expect(useUIStore.getState().settingsPopOpen).toBe(true);
+    expect(useUIStore.getState().settingsOpen).toBe(true);
   });
 
   it("shows initial from displayName in avatar", () => {

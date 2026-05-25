@@ -2,7 +2,7 @@
 //   ⌘K  toggle command palette
 //   ⌘B  toggle sidebar
 //   ⌘1-9 jump to nth conversation (Phase 3 wires real list)
-//   Esc  close active overlay (priority: cmdk > settings pop > ask > notifs)
+//   Esc  close active overlay (priority: cmdk > ask > notifs)
 //
 // 输入框内的 Esc 不触发全局：检测 INPUT/TEXTAREA tag 跳过。
 
@@ -29,7 +29,6 @@ export function useKeyboardShortcuts() {
       }
       if (e.key === "Escape" && !inField) {
         if (s.cmdkOpen) { s.setCmdkOpen(false); return; }
-        if (s.settingsPopOpen) { s.setSettingsPopOpen(false); return; }
         if (s.askOpen) { s.setAskOpen(false); return; }
         if (s.notifsOpen) { s.setNotifsOpen(false); return; }
       }

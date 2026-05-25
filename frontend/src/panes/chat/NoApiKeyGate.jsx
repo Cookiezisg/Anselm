@@ -1,14 +1,14 @@
 // NoApiKeyGate — first-run friendly empty state shown when no API key
-// is configured. Click leads into Config pane.
+// is configured. Click opens the settings modal.
 //
-// NoApiKeyGate —— 没有任何 API key 时显示的首次运行引导；点击进 Config pane。
+// NoApiKeyGate —— 没有任何 API key 时显示的首次运行引导；点击打开设置浮层。
 
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { useUIStore } from "../../store/ui.js";
 
 export function NoApiKeyGate() {
-  const openPane = useUIStore((s) => s.openPane);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   return (
     <div className="empty-shell">
       <div className="empty-shell-card">
@@ -22,7 +22,7 @@ export function NoApiKeyGate() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button size="sm" variant="accent" onClick={() => openPane("config")}>
+          <Button size="sm" variant="accent" onClick={() => setSettingsOpen(true)}>
             <Icon.Plus /> 去配置
           </Button>
         </div>

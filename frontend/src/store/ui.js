@@ -39,7 +39,6 @@ export const useUIStore = create((set, get) => ({
   cmdkOpen: false,
   notifsOpen: false,
   askOpen: false,
-  settingsPopOpen: false,
   settingsOpen: false,
   pendingAsk: null,
 
@@ -134,7 +133,6 @@ export const useUIStore = create((set, get) => ({
   setCmdkOpen: (b) => set({ cmdkOpen: !!b }),
   setNotifsOpen: (b) => set({ notifsOpen: !!b }),
   setAskOpen: (b) => set({ askOpen: !!b }),
-  setSettingsPopOpen: (b) => set({ settingsPopOpen: !!b }),
   setSettingsOpen: (b) => set({ settingsOpen: !!b }),
   setPendingAsk: (v) => set({ pendingAsk: v }),
 

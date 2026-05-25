@@ -59,7 +59,7 @@ export function Sidebar() {
   const setArchivedExpanded = useUIStore((s) => s.setArchivedExpanded);
   const setCmdkOpen        = useUIStore((s) => s.setCmdkOpen);
   const setNotifsOpen      = useUIStore((s) => s.setNotifsOpen);
-  const setSettingsPopOpen = useUIStore((s) => s.setSettingsPopOpen);
+  const setSettingsOpen    = useUIStore((s) => s.setSettingsOpen);
 
   const { data: conversations = [] } = useConversations();
   const createConv = useCreateConversation();
@@ -178,7 +178,7 @@ export function Sidebar() {
         <button
           type="button"
           className="sb-gear-btn"
-          onClick={() => setSettingsPopOpen(true)}
+          onClick={() => setSettingsOpen(true)}
           title="设置"
           aria-label="settings"
         >

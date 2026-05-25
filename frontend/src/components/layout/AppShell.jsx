@@ -18,7 +18,6 @@ import { PlaceholderPane } from "../../panes/PlaceholderPane.jsx";
 import { ChatPane } from "../../panes/chat/ChatPane.jsx";
 import { ForgePane } from "../../panes/forge/ForgePane.jsx";
 import { ExecutePane } from "../../panes/execute/ExecutePane.jsx";
-import { ConfigPane } from "../../panes/config/ConfigPane.jsx";
 import { SkillsPane } from "../../panes/library/SkillsPane.jsx";
 import { McpPane } from "../../panes/library/McpPane.jsx";
 import { MemoryPane } from "../../panes/library/MemoryPane.jsx";
@@ -28,7 +27,6 @@ import { CommandPalette } from "../overlays/CommandPalette.jsx";
 import { NotificationsDrawer } from "../overlays/NotificationsDrawer.jsx";
 import { AskUserModal } from "../overlays/AskUserModal.jsx";
 import { ToastTray } from "../overlays/ToastTray.jsx";
-import { SettingsPopover } from "../overlays/SettingsPopover.jsx";
 import { SettingsModal } from "../overlays/SettingsModal.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
@@ -44,7 +42,6 @@ function renderPaneBody(kind, onClose) {
     case "mcp":       return <McpPane />;
     case "memory":    return <MemoryPane />;
     case "observe":   return <ObservePane />;
-    case "config":    return <ConfigPane />;
     default:          return null;
   }
 }
@@ -160,7 +157,6 @@ export function AppShell() {
       <CommandPalette />
       <NotificationsDrawer />
       <AskUserModal />
-      <SettingsPopover />
       <SettingsModal />
       <ToastTray />
     </div>

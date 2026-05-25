@@ -8,7 +8,7 @@ import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 
 beforeEach(() => {
   useUIStore.setState({
-    cmdkOpen: false, settingsPopOpen: false, askOpen: false, notifsOpen: false,
+    cmdkOpen: false, askOpen: false, notifsOpen: false,
     collapsed: false,
   });
 });
@@ -36,18 +36,14 @@ describe("useKeyboardShortcuts", () => {
 
   it("escape_priorityCmdkFirst", () => {
     renderHook(() => useKeyboardShortcuts());
-    useUIStore.setState({ cmdkOpen: true, settingsPopOpen: true });
+    useUIStore.setState({ cmdkOpen: true, askOpen: true });
     fireEvent.keyDown(window, { key: "Escape" });
     expect(useUIStore.getState().cmdkOpen).toBe(false);
-    expect(useUIStore.getState().settingsPopOpen).toBe(true); // not yet
+    expect(useUIStore.getState().askOpen).toBe(true); // not yet
   });
 
-  it("escape_thenSettingsThenAskThenNotifs", () => {
+  it("escape_thenAskThenNotifs", () => {
     renderHook(() => useKeyboardShortcuts());
-    useUIStore.setState({ settingsPopOpen: true });
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(useUIStore.getState().settingsPopOpen).toBe(false);
-
     useUIStore.setState({ askOpen: true });
     fireEvent.keyDown(window, { key: "Escape" });
     expect(useUIStore.getState().askOpen).toBe(false);
