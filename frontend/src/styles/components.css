@@ -4787,6 +4787,9 @@ tr.is-selected { background: var(--accent-soft) !important; }
 
 .onb-journey { margin-top: 26px; display: flex; flex-direction: column; position: relative; z-index: 1; }
 .onb-jstep { display: flex; gap: 11px; padding: 7px 9px; border-radius: var(--radius-md); position: relative; }
+/* active row: translucent wash — lifts the step but lets the connector line show through (an opaque card would occlude it) */
+.onb-jstep.is-active { background: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .onb-jstep.is-active { background: rgba(255, 255, 255, 0.06); }
 .onb-jdot {
   flex: none; width: 22px; height: 22px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
