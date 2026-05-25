@@ -141,25 +141,34 @@
   --gap-1: 10px; --gap-2: 14px; --gap-3: 22px; --gap-4: 34px;
 }
 
-/* ── Accent variants — DESIGN.md 锁死单一 accent;所有变体指向同一蓝 ─ */
+/* ── Accent variants — DESIGN.md 每个 accent 映射到真实色;用户在引导/设置里选,全局只渲染所选这一个 ─ */
+[data-accent="claude"] { --accent: #d97757; }
+[data-accent="blue"]   { --accent: #2383e2; }
+[data-accent="ink"]    { --accent: #37352f; }
+[data-accent="green"]  { --accent: #0f7b6c; }
+[data-accent="purple"] { --accent: #6940a5; }
 [data-accent="claude"],
 [data-accent="blue"],
 [data-accent="ink"],
 [data-accent="green"],
 [data-accent="purple"] {
-  --accent:      #378ADD;
-  --accent-soft: rgba(55, 138, 221, 0.10);
-  --accent-ring: rgba(55, 138, 221, 0.18);
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 18%, transparent);
   --accent-fg:   #FFFFFF;
 }
+/* Dark: lighten so the accent reads on a near-black surface. */
+[data-theme="dark"][data-accent="claude"] { --accent: #e08968; }
+[data-theme="dark"][data-accent="blue"]   { --accent: #5DA3E8; }
+[data-theme="dark"][data-accent="ink"]    { --accent: #c9c3b8; }
+[data-theme="dark"][data-accent="green"]  { --accent: #34b39c; }
+[data-theme="dark"][data-accent="purple"] { --accent: #9b72cf; }
 [data-theme="dark"][data-accent="claude"],
 [data-theme="dark"][data-accent="blue"],
 [data-theme="dark"][data-accent="ink"],
 [data-theme="dark"][data-accent="green"],
 [data-theme="dark"][data-accent="purple"] {
-  --accent:      #5DA3E8;
-  --accent-soft: rgba(93, 163, 232, 0.14);
-  --accent-ring: rgba(93, 163, 232, 0.24);
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 26%, transparent);
   --accent-fg:   #0F0F0F;
 }
 

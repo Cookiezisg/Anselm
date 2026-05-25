@@ -31,8 +31,8 @@ async function clickBtn(re) {
 }
 
 try {
-  await page.goto(`${FE}/?onboarding=1`, { waitUntil: "networkidle", timeout: 15000 });
-  await page.waitForTimeout(800);
+  await page.goto(`${FE}/?onboarding=1`, { waitUntil: "domcontentloaded", timeout: 15000 });
+  await page.waitForTimeout(1200);
 
   // STEP 1 — welcome (zh expected from locale detection)
   const cardN = await page.locator(".onb-card").count();
@@ -43,7 +43,7 @@ try {
   await clickBtn(/开始/);
   // STEP 2 — workspace
   log(`[2] workspace title="${await text(".onb-pane .onb-title")}"`);
-  await page.locator(".onb-input").first().fill("weilin");
+  await page.locator(".onb-input").first().fill("probe-" + Date.now().toString(36));
   await shot("2-workspace");
   await clickBtn(/继续/); // creates user
   await page.waitForTimeout(700);
@@ -51,10 +51,13 @@ try {
   // STEP 3 — appearance + live accent / lang / dark
   log(`[3] appearance title="${await text(".onb-pane .onb-title")}"`);
   await shot("3a-appearance");
-  await page.locator(".onb-swatch").nth(1).click(); // blue
+  await page.locator(".onb-swatch").nth(0).click(); // claude (orange) — proves live recolor
   await page.waitForTimeout(200);
-  const accentAttr = await page.evaluate(() => document.documentElement.dataset.accent);
-  log(`    accent after swatch[1] → dataset.accent=${accentAttr}`);
+  const accentVal = await page.evaluate(() => ({
+    attr: document.documentElement.dataset.accent,
+    color: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+  }));
+  log(`    accent after claude swatch → dataset.accent=${accentVal.attr} --accent=${accentVal.color}`);
   await page.getByText("English", { exact: true }).click();
   await page.waitForTimeout(200);
   log(`    after English → title="${await text(".onb-pane .onb-title")}" lang=${await page.evaluate(() => document.documentElement.dataset.lang)}`);
