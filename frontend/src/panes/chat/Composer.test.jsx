@@ -19,7 +19,7 @@ describe("Composer", () => {
   it("typing_thenEnter_callsOnSend", async () => {
     const onSend = vi.fn();
     render(<Composer onSend={onSend} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     await userEvent.type(ta, "hello{enter}");
     expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ content: "hello" }));
   });
@@ -27,7 +27,7 @@ describe("Composer", () => {
   it("shiftEnter_insertsNewline_doesNotSend", async () => {
     const onSend = vi.fn();
     render(<Composer onSend={onSend} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     await userEvent.type(ta, "line1{Shift>}{enter}{/Shift}line2");
     expect(onSend).not.toHaveBeenCalled();
     expect(ta.value).toBe("line1\nline2");
@@ -42,7 +42,7 @@ describe("Composer", () => {
   it("disabled_doesNotSendOnEnter", async () => {
     const onSend = vi.fn();
     render(<Composer disabled onSend={onSend} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     expect(ta.disabled).toBe(true);
   });
 
@@ -65,7 +65,7 @@ describe("Composer", () => {
 
   it("atTrigger_opensMentionPopover_listsEntities", async () => {
     render(<Composer onSend={() => {}} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     await userEvent.type(ta, "@");
     expect(screen.getByText(/addNumbers/)).toBeInTheDocument(); // function
     expect(screen.getByText(/Notes/)).toBeInTheDocument();      // document
@@ -75,7 +75,7 @@ describe("Composer", () => {
   it("mentionPick_addsToMentionList_andClearsAtToken", async () => {
     const onSend = vi.fn();
     render(<Composer onSend={onSend} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     await userEvent.type(ta, "@");
     await userEvent.click(screen.getByText(/addNumbers/));
     expect(ta.value).toBe(""); // @-token erased
@@ -87,11 +87,11 @@ describe("Composer", () => {
 
   it("mentionArrowDownThenEnter_picksByKeyboard", async () => {
     render(<Composer onSend={() => {}} />);
-    const ta = screen.getByPlaceholderText(/告诉我/);
+    const ta = screen.getByPlaceholderText(/说说你想做什么/);
     await userEvent.type(ta, "@");
     await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     // a mention should be attached → mentions section visible (3rd item)
-    expect(screen.queryByPlaceholderText(/告诉我/).value).toBe("");
+    expect(screen.queryByPlaceholderText(/说说你想做什么/).value).toBe("");
   });
 
   it("attachButton_opensFilePicker", async () => {

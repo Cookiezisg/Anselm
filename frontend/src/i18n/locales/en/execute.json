@@ -143,7 +143,7 @@
     "resultLabel": "Result",
     "footerHint": "Esc to close · Cmd+Enter to submit",
     "submitBtn": "Submit",
-    "submittingBtn": "Running",
+    "submittingBtn": "Running…",
     "toast": {
       "triggerSuccess": "Triggered",
       "triggerDefaultDesc": "Flow run created"

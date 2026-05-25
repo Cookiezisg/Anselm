@@ -17,7 +17,7 @@
     "modelTitle": "当前模型: {{model}}"
   },
   "composer": {
-    "placeholderIdle": "告诉我",
+    "placeholderIdle": "说说你想做什么",
     "placeholderStreaming": "agent 在干活,Esc 可停",
     "attachFile": "附加文件",
     "mentionEntity": "@ 引用实体",

@@ -143,7 +143,7 @@
     "resultLabel": "结果",
     "footerHint": "Esc 关闭 · Cmd+Enter 提交",
     "submitBtn": "提交",
-    "submittingBtn": "在跑",
+    "submittingBtn": "在跑…",
     "toast": {
       "triggerSuccess": "已触发",
       "triggerDefaultDesc": "flowrun 创建"

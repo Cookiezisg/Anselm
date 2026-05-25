@@ -17,7 +17,7 @@
     "modelTitle": "Current model: {{model}}"
   },
   "composer": {
-    "placeholderIdle": "Tell me",
+    "placeholderIdle": "Tell me what you need",
     "placeholderStreaming": "Agent is working, Esc to stop",
     "attachFile": "Attach file",
     "mentionEntity": "Mention entity",
@@ -35,7 +35,7 @@
   "error": {
     "insufficientBalance": "Insufficient balance at the LLM provider. Top up your account or switch to a different provider in settings.",
     "invalidApiKey": "API Key is invalid or expired. Re-enter it in settings.",
-    "rateLimit": "Too many requests. Wait a few seconds and try again, or switch providers.",
+    "rateLimit": "Too many requests. Wait a few seconds and try again, or switch to a different provider.",
     "modelNotFound": "This model ID does not exist at the provider. Switch to a valid model in settings.",
     "contextLength": "Context is too long. Start a new conversation or let the agent compact it.",
     "notConfigured": "Model or API Key is not configured. Check your settings.",

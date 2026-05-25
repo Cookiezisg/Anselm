@@ -6,7 +6,7 @@
       "all": "All"
     },
     "searchPlaceholder": "Search by name or description…",
-    "countInfo": "{{count}} item(s) · by last update",
+    "countInfo": "{{count}} item(s) · by last updated",
     "batch": {
       "selected": "{{count}} selected",
       "clearSel": "Clear selection",

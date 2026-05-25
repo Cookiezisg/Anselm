@@ -63,7 +63,7 @@
     "addServer": "Add server",
     "emptyTitle": "No MCP servers yet",
     "emptySub": "Install from marketplace or configure ~/.forgify/mcp.json",
-    "toolStats": "{{tools}} tool(s) · {{calls}} calls · {{failures}} fail(s)",
+    "toolStats": "{{tools}} tool(s) · {{calls}} calls · {{failures}} failure(s)",
     "consecutiveFailures": "{{count}} consecutive failure(s)",
     "reconnect": "Reconnect",
     "connected": "Connected",
