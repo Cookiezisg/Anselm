@@ -55,6 +55,12 @@ if (typeof window !== "undefined") {
     window.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
     window.cancelAnimationFrame = (id) => clearTimeout(id);
   }
+
+  // jsdom doesn't implement scrollIntoView; Select uses it to keep the
+  // highlighted option visible.
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => {};
+  }
 }
 
 // MockEventSource — replaces global EventSource. Each instance is

@@ -1,8 +1,15 @@
+import { Select } from "../primitives/Select.jsx";
+
 export function ModelSelect({ models, value, onChange, disabled }) {
   return (
-    <select className="onb-mselect" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
-      {disabled && !models.length && <option>验证后可选</option>}
-      {models.map((m) => <option key={m} value={m}>{m}</option>)}
-    </select>
+    <Select
+      options={models}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      mono
+      placeholder="验证后可选"
+      ariaLabel="模型"
+    />
   );
 }

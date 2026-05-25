@@ -127,8 +127,8 @@ describe("Onboarding", () => {
     await userEvent.click(btn(/验证/));
     await waitFor(() => expect(mockTestKey).toHaveBeenCalled());
     // Model dropdown appears, defaulting to modelsFound[0].
-    const select = await screen.findByRole("combobox");
-    expect(select.value).toBe("deepseek-chat");
+    const select = await screen.findByLabelText("模型");
+    expect(select).toHaveTextContent("deepseek-chat");
     await userEvent.click(btn(/继续/)); // model → search, writes model-config
     await waitFor(() => expect(mockUpsertModel).toHaveBeenCalled());
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({

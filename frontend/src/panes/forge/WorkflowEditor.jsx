@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
+import { Select } from "../../components/primitives/Select.jsx";
 import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
 import { FloatingInspector } from "../../components/shared/FloatingInspector.jsx";
 import { useEditWorkflow } from "../../api/forge.js";
@@ -292,16 +293,19 @@ function InspectorBody({ node, onChange, onDelete }) {
             value={node.timeout || 0}
             onChange={(e) => onChange({ timeout: parseInt(e.target.value) || 0 })}
           />
-          <select
-            className="cfg-input" style={{ flex: 1 }}
-            value={node.onError || ""}
-            onChange={(e) => onChange({ onError: e.target.value })}
-          >
-            <option value="">默认（fail）</option>
-            <option value="fail">fail</option>
-            <option value="skip">skip</option>
-            <option value="continue">continue</option>
-          </select>
+          <div style={{ flex: 1 }}>
+            <Select
+              ariaLabel="onError"
+              value={node.onError || ""}
+              onChange={(v) => onChange({ onError: v })}
+              options={[
+                { value: "", label: "默认（fail）" },
+                { value: "fail", label: "fail" },
+                { value: "skip", label: "skip" },
+                { value: "continue", label: "continue" },
+              ]}
+            />
+          </div>
         </div>
 
         <label className="drawer-label" style={{ marginTop: 10 }}>Config (JSON)</label>

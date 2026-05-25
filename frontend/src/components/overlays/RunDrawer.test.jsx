@@ -47,13 +47,15 @@ describe("RunDrawer", () => {
     expect(screen.getByText("触发 workflow")).toBeInTheDocument();
   });
 
-  it("handlerKind_methodSelector_showsAvailableMethods", () => {
+  it("handlerKind_methodSelector_showsAvailableMethods", async () => {
     render(
       <RunDrawer open kind="handler" entity={{ id: "hd_1", methods: [{ name: "do" }, { name: "undo" }] }} onClose={() => {}} />,
       { wrapper: wrap }
     );
-    expect(screen.getByText("do")).toBeInTheDocument();
-    expect(screen.getByText("undo")).toBeInTheDocument();
+    // Trigger shows the first method; the rest appear once the popover opens.
+    expect(screen.getByLabelText("方法")).toHaveTextContent("do");
+    await userEvent.click(screen.getByLabelText("方法"));
+    expect(screen.getByRole("option", { name: "undo" })).toBeInTheDocument();
   });
 
   it("invalidJSON_showsParseError", async () => {

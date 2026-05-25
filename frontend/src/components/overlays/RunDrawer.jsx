@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
+import { Select } from "../primitives/Select.jsx";
 import { useRunFunction, useCallHandler, useRunWorkflow } from "../../api/forge.js";
 import { useUIStore } from "../../store/ui.js";
 import { slideRight, scrim } from "../../motion/tokens.js";
@@ -118,19 +119,16 @@ export function RunDrawer({ open, onClose, kind, entity }) {
                       <div className="sub">当前版本没有方法</div>
                     </div>
                   ) : (
-                    <select
-                      className="cfg-input"
-                      style={{ fontFamily: "var(--font-mono)" }}
+                    <Select
+                      mono
+                      ariaLabel="方法"
                       value={method}
-                      onChange={(e) => setMethod(e.target.value)}
-                      aria-label="方法"
-                    >
-                      {methods.map((m) => (
-                        <option key={m.name} value={m.name}>
-                          {m.name}{m.sig || m.signature ? " " + (m.sig || m.signature) : ""}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setMethod}
+                      options={methods.map((m) => ({
+                        value: m.name,
+                        label: m.name + (m.sig || m.signature ? " " + (m.sig || m.signature) : ""),
+                      }))}
+                    />
                   )}
                 </div>
               )}

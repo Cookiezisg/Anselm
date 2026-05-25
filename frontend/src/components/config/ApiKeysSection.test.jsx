@@ -100,7 +100,7 @@ describe("ApiKeysSection", () => {
     renderOpen();
     await userEvent.click(screen.getByText("DeepSeek"));
     expect(screen.getByText("用途")).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    expect(screen.getByLabelText("模型")).toBeInTheDocument();
   });
 
   it("rowClick_singleOpenWithinSection", async () => {
@@ -140,7 +140,8 @@ describe("ApiKeysSection", () => {
   it("changeModelOnDefaultKey_upsertsChatModelConfig", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("DeepSeek"));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "deepseek-reasoner" } });
+    await userEvent.click(screen.getByLabelText("模型"));
+    await userEvent.click(screen.getByRole("option", { name: "deepseek-reasoner" }));
     expect(mockUpsertModel).toHaveBeenCalledWith(
       { scenario: "chat", provider: "deepseek", modelId: "deepseek-reasoner" },
     );
@@ -176,8 +177,8 @@ describe("ApiKeysSection", () => {
     await userEvent.click(verifyBtn());
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
     await waitFor(() => expect(mockTestKey).toHaveBeenCalled());
-    const select = await screen.findByRole("combobox");
-    expect(select.value).toBe("deepseek-chat");
+    const select = await screen.findByLabelText("模型");
+    expect(select).toHaveTextContent("deepseek-chat");
     expect(screen.getByRole("button", { name: "保存" }).disabled).toBe(false);
   });
 
@@ -189,7 +190,7 @@ describe("ApiKeysSection", () => {
     await userEvent.click(screen.getByText("DeepSeek"));
     fireEvent.change(screen.getByPlaceholderText("sk-…"), { target: { value: "sk-test123" } });
     await userEvent.click(verifyBtn());
-    await screen.findByRole("combobox");
+    await screen.findByLabelText("模型");
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(mockUpsertModel).toHaveBeenCalled());
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({ scenario: "chat", provider: "deepseek", modelId: "deepseek-chat" });
@@ -204,7 +205,7 @@ describe("ApiKeysSection", () => {
     fireEvent.change(screen.getByPlaceholderText("sk-…"), { target: { value: "sk-test123" } });
     mockTestKey.mockResolvedValue({ ok: true, modelsFound: ["claude-sonnet-4-6"] });
     await userEvent.click(verifyBtn());
-    await screen.findByRole("combobox");
+    await screen.findByLabelText("模型");
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
     expect(mockUpsertModel).not.toHaveBeenCalled();
@@ -221,7 +222,7 @@ describe("ApiKeysSection", () => {
     await userEvent.click(verifyBtn());
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText(/验证未通过/)).toBeInTheDocument());
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("模型")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" }).disabled).toBe(true);
   });
 
