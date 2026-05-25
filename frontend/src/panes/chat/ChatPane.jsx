@@ -6,7 +6,7 @@
 // 切换/初次进入时由 REST 历史 hydrate。
 
 import { useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConversation, useConversationMessages, useSendMessage, useCancelStream } from "../../api/conversations.js";
 import { useApiKeys, useModelConfigs } from "../../api/config.js";
@@ -26,7 +26,7 @@ import { Icon } from "../../components/primitives/Icon.jsx";
 const EMPTY_IDS = Object.freeze([]);
 
 export function ChatPane({ onClose }) {
-  const { t } = useTranslation("conv");
+  const { t, i18n } = useTranslation("conv");
   const activeConv = useUIStore((s) => s.activeConv);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
   const qc = useQueryClient();
@@ -147,7 +147,7 @@ export function ChatPane({ onClose }) {
       <ChatHeader conv={conv} onClose={onClose} />
       <div className="chat-stream" ref={streamRef}>
         <div className="chat-stream-inner">
-          <div className="day-divider">{t("dayDivider")} · {new Date().toLocaleDateString("zh-CN")}</div>
+          <div className="day-divider">{t("dayDivider")} · {new Date().toLocaleDateString(i18n.language === "zh" ? "zh-CN" : "en-US", { month: "long", day: "numeric", weekday: "short" })}</div>
           {topMsgIds.length === 0 && !histLoading && (
             <EmptyConvHero conv={conv} />
           )}
@@ -176,7 +176,11 @@ function EmptyConvPlaceholder() {
         </div>
         <div>
           <div className="empty-shell-title">{t("emptyConv.noConvTitle")}</div>
-          <div className="empty-shell-sub">{t("emptyConv.noConvSub")} <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 12, height: 12 }} /></div>
+          <div className="empty-shell-sub">
+            <Trans i18nKey="emptyConv.noConvSub" ns="conv">
+              <Icon.Plus style={{ display: "inline", verticalAlign: "-2px", width: 12, height: 12 }} />
+            </Trans>
+          </div>
         </div>
       </div>
     </div>
@@ -192,7 +196,9 @@ function EmptyConvHero({ conv }) {
         {conv?.title || t("emptyConv.newConvTitle")}
       </div>
       <div style={{ marginTop: 6, fontSize: 12 }}>
-        {t("emptyConv.newConvSub")}
+        <Trans i18nKey="emptyConv.newConvSub" ns="conv">
+          <code>@</code>
+        </Trans>
       </div>
     </div>
   );

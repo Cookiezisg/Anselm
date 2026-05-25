@@ -6,7 +6,7 @@
 // AskUserModal —— 后端 AskUserQuestion 工具触发；提交走 :resolve 端点。
 
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
@@ -15,7 +15,7 @@ import { apiFetch } from "../../api/client.js";
 import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
 export function AskUserModal() {
-  const { t } = useTranslation("conv");
+  const { t } = useTranslation(["conv", "common"]);
   const pending = useUIStore((s) => s.pendingAsk);
   const askOpen = useUIStore((s) => s.askOpen);
   const setAskOpen = useUIStore((s) => s.setAskOpen);
@@ -61,7 +61,7 @@ export function AskUserModal() {
                   <div className="label">{t("ask.emptyLabel")}</div>
                   <div className="title">{t("ask.emptyTitle")}</div>
                 </div>
-                <button className="icon-btn" onClick={() => setAskOpen(false)} style={{ marginLeft: "auto" }} title={t("ask.closeTitle")}>
+                <button className="icon-btn" onClick={() => setAskOpen(false)} style={{ marginLeft: "auto" }} title={t("common:close")}>
                   <Icon.X />
                 </button>
               </div>
@@ -131,7 +131,11 @@ export function AskUserModal() {
               </div>
             </div>
             <div className="ask-footer">
-              <div className="hint">{t("ask.footerHint")} <Icon.CornerDownLeft style={{ width: 11, height: 11 }} /></div>
+              <div className="hint">
+                <Trans i18nKey="ask.footerHint" ns="conv">
+                  <Icon.CornerDownLeft style={{ width: 11, height: 11 }} />
+                </Trans>
+              </div>
               <div className="actions">
                 <Button size="sm" variant="ghost" onClick={close}>{t("ask.laterBtn")}</Button>
                 <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={submit}>

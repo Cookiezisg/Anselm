@@ -147,7 +147,7 @@ const ReasoningBlock = memo(function ReasoningBlock({ convId, blockId, defaultOp
 //
 // CRITICAL：禁止订阅整张 blocksMap；只能各 child 自订 selectBlock。
 const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen }) {
-  const { t } = useTranslation("conv");
+  const { t } = useTranslation(["conv", "common"]);
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const childIds = useChatStore((s) => selectChildIds(convId, blockId, s));
   const [open, setOpen] = useState(!!defaultOpen);
@@ -206,7 +206,7 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
             <div className="blk-tool-section-label">
               <span>{t("block.toolParamsLabel")}</span>
               <div className="actions">
-                <button onClick={copyArgs}>{t("block.toolCopyArgs")}</button>
+                <button onClick={copyArgs}>{t("common:copy")}</button>
               </div>
             </div>
             <pre className="code-block">
@@ -338,6 +338,7 @@ const CompactionBlock = memo(function CompactionBlock({ convId, blockId }) {
         <span>{t("block.compactionLabel")}</span>
         <span className="blk-compaction-sub">
           {a.blocksArchived != null && t("block.compactionBlocks", { count: a.blocksArchived })}
+          {a.blocksArchived != null && a.generatedBy && " · "}
           {a.generatedBy && t("block.compactionBy", { name: a.generatedBy })}
         </span>
         <Icon.ChevronRight className="blk-tool-chevron" style={{ marginLeft: "auto", transform: open ? "rotate(90deg)" : "" }} />

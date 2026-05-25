@@ -7,7 +7,7 @@ import { Icon } from "../../components/primitives/Icon.jsx";
 import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 
 export function ChatHeader({ conv, onClose }) {
-  const { t } = useTranslation("conv");
+  const { t } = useTranslation(["conv", "common"]);
   if (!conv) return null;
   return (
     <div className="chat-header">
@@ -24,7 +24,7 @@ export function ChatHeader({ conv, onClose }) {
           <span>{conv.model || "default"}</span>
         </div>
         {onClose && (
-          <button className="icon-btn" title={t("header.close")} onClick={onClose}>
+          <button className="icon-btn" title={t("common:close")} onClick={onClose}>
             <Icon.X />
           </button>
         )}

@@ -2,9 +2,9 @@
   "dayDivider": "今天",
   "emptyConv": {
     "noConvTitle": "还没选中对话",
-    "noConvSub": "从左边挑一个,或点 + 开一段新的。",
+    "noConvSub": "从左边挑一个,或点 <0/> 开一段新的。",
     "newConvTitle": "新对话",
-    "newConvSub": "说说你想干啥。@ 引用 function、handler、workflow、skill、文档。"
+    "newConvSub": "说说你想干啥。<0>@</0> 引用 function、handler、workflow、skill、文档。"
   },
   "toast": {
     "convGoneTitle": "这个对话不在了",
@@ -14,8 +14,7 @@
   },
   "header": {
     "noTitle": "(无标题)",
-    "modelTitle": "当前模型: {{model}}",
-    "close": "关闭"
+    "modelTitle": "当前模型: {{model}}"
   },
   "composer": {
     "placeholderIdle": "告诉我",
@@ -57,14 +56,13 @@
     "toolRunning": "运行中",
     "toolFailed": "失败",
     "toolParamsLabel": "参数",
-    "toolCopyArgs": "复制",
     "progressLabel": "进度",
     "resultLabel": "结果",
     "resultError": "结果 · 出错",
     "subagentTitle": "子 agent",
     "subagentSteps": "{{count}} 步",
     "compactionLabel": "对话已压缩",
-    "compactionBlocks": "涵盖 {{count}} 个 block · ",
+    "compactionBlocks": "涵盖 {{count}} 个 block(s)",
     "compactionBy": "由 {{name}} 生成"
   },
   "noApiKey": {
@@ -81,11 +79,10 @@
     "emptyLabel": "这里很安静",
     "emptyTitle": "agent 现在没在等你",
     "emptyBody": "如果 agent 干活时需要你拿主意,会在这里弹出。",
-    "closeTitle": "关闭",
     "waitingLabel": "agent 在等你拿主意",
     "defaultQuestion": "需要你确认一下",
     "noOptionsHint": "（没给选项 — 等 agent 把选项推过来）",
-    "footerHint": "数字键选 · 确认 · esc 稍后",
+    "footerHint": "数字键选 · <0/> 确认 · esc 稍后",
     "laterBtn": "稍后",
     "submitBtn": "提交",
     "submitSuccess": "已回答",
