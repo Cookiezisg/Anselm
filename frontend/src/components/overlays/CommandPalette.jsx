@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Kbd } from "../primitives/Kbd.jsx";
 import { useUIStore } from "../../store/ui.js";
@@ -14,18 +15,19 @@ import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
 import { useFlowRuns } from "../../api/flowruns.js";
 import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
-const NAV_ITEMS = [
-  { group: "导航", icon: Icon.MessageSquare, label: "对话",   desc: "",   target: "chat" },
-  { group: "导航", icon: Icon.Hammer,        label: "工坊",   desc: "function / handler / workflow", target: "forge" },
-  { group: "导航", icon: Icon.Play,          label: "执行",   desc: "flowrun · trigger", target: "execute" },
-  { group: "导航", icon: Icon.FileText,      label: "文档",   desc: "", target: "documents" },
-  { group: "导航", icon: Icon.Sparkles,      label: "Skills", desc: "",  target: "skills" },
-  { group: "导航", icon: Icon.Server,        label: "MCP",    desc: "", target: "mcp" },
-  { group: "导航", icon: Icon.Brain,         label: "Memory", desc: "", target: "memory" },
-  { group: "导航", icon: Icon.Settings,      label: "设置",   desc: "", overlay: "settings" },
+const NAV_ITEMS_DEF = [
+  { icon: Icon.MessageSquare, labelKey: "nav.chat",      desc: "",                              target: "chat" },
+  { icon: Icon.Hammer,        labelKey: "nav.forge",     desc: "function / handler / workflow", target: "forge" },
+  { icon: Icon.Play,          labelKey: "nav.execute",   desc: "flowrun · trigger",             target: "execute" },
+  { icon: Icon.FileText,      labelKey: "nav.documents", desc: "",                              target: "documents" },
+  { icon: Icon.Sparkles,      label: "Skills",           desc: "",                              target: "skills" },
+  { icon: Icon.Server,        label: "MCP",              desc: "",                              target: "mcp" },
+  { icon: Icon.Brain,         label: "Memory",           desc: "",                              target: "memory" },
+  { icon: Icon.Settings,      labelKey: "cmdk.settings", desc: "",                              overlay: "settings" },
 ];
 
 export function CommandPalette() {
+  const { t } = useTranslation("sidebar");
   const open = useUIStore((s) => s.cmdkOpen);
   const setOpen = useUIStore((s) => s.setCmdkOpen);
   const openPane = useUIStore((s) => s.openPane);
@@ -43,18 +45,20 @@ export function CommandPalette() {
   const { data: flowruns = [] } = useFlowRuns();
 
   const items = useMemo(() => {
+    const navGroup = t("cmdk.navGroup");
     const a = [];
-    for (const nav of NAV_ITEMS) {
+    for (const nav of NAV_ITEMS_DEF) {
+      const label = nav.labelKey ? t(nav.labelKey) : nav.label;
       const action = nav.overlay === "settings"
         ? () => setSettingsOpen(true)
         : () => openPane(nav.target);
-      a.push({ ...nav, action });
+      a.push({ ...nav, group: navGroup, label, action });
     }
     for (const c of conversations.slice(0, 6)) {
       a.push({
-        group: "对话",
+        group: t("cmdk.convGroup"),
         icon: Icon.MessageSquare,
-        label: c.title || "(未命名)",
+        label: c.title || t("cmdk.unnamed"),
         desc: c.id,
         action: () => { setActiveConv(c.id); openPane("chat"); },
       });
@@ -96,7 +100,7 @@ export function CommandPalette() {
       });
     }
     return a;
-  }, [conversations, functions, handlers, workflows, flowruns, openPane, openEntity, setActiveConv, setSettingsOpen]);
+  }, [conversations, functions, handlers, workflows, flowruns, openPane, openEntity, setActiveConv, setSettingsOpen, t]);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -146,7 +150,7 @@ export function CommandPalette() {
               <input
                 className="cmdk-input"
                 autoFocus
-                placeholder="找点什么"
+                placeholder={t("cmdk.placeholder")}
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setActive(0); }}
               />
@@ -155,7 +159,7 @@ export function CommandPalette() {
             <div className="cmdk-list">
               {groups.length === 0 && (
                 <div style={{ padding: "32px 16px", textAlign: "center", color: "var(--fg-faint)", fontSize: 13 }}>
-                  没有匹配。
+                  {t("cmdk.noResults")}
                 </div>
               )}
               {groups.map(([gname, gitems]) => (
@@ -187,8 +191,8 @@ export function CommandPalette() {
               ))}
             </div>
             <div className="cmdk-footer">
-              <div className="hint"><Kbd>↑</Kbd><Kbd>↓</Kbd> 选 · <Kbd>↵</Kbd> 打开 · <Kbd>esc</Kbd> 关</div>
-              <div className="hint">Forgify · 本地</div>
+              <div className="hint"><Kbd>↑</Kbd><Kbd>↓</Kbd> <Kbd>↵</Kbd> <Kbd>esc</Kbd> {t("cmdk.footer")}</div>
+              <div className="hint">{t("cmdk.footerLocal")}</div>
             </div>
           </motion.div>
         </motion.div>

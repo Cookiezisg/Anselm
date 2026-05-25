@@ -7,6 +7,7 @@
 // 上的标记;升级某 key 即 upsert chat 行(隐式顶掉旧默认)。
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { useUIStore } from "../../store/ui.js";
@@ -20,6 +21,7 @@ import { KeyVerifyField } from "./KeyVerifyField.jsx";
 import { ModelSelect } from "./ModelSelect.jsx";
 
 export function ApiKeysSection({ open, onToggle }) {
+  const { t } = useTranslation("settings");
   const { data: providers = [] } = useProviders();
   const { data: allKeys = [] } = useApiKeys();
   const { data: modelConfigs = [] } = useModelConfigs();
@@ -33,8 +35,8 @@ export function ApiKeysSection({ open, onToggle }) {
 
   const providerDisplay = (n) => providers.find((p) => p.name === n)?.displayName || n;
   const sub = keys.length
-    ? `${keys.length} 个 · 对话默认 ${chatConfig ? providerDisplay(chatConfig.provider) : "未设"}`
-    : "管理 LLM 服务密钥";
+    ? t("apiKeys.subWithDefault", { count: keys.length, provider: chatConfig ? providerDisplay(chatConfig.provider) : t("apiKeys.subNotSet") })
+    : t("apiKeys.subEmpty");
 
   return (
     <div className="set-sec">
@@ -61,6 +63,7 @@ export function ApiKeysSection({ open, onToggle }) {
 }
 
 function KeyList({ keys, providers, chatConfig, providerDisplay }) {
+  const { t } = useTranslation("settings");
   const [openKey, setOpenKey] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -69,7 +72,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }) {
   return (
     <>
       {keys.length === 0 && !adding && (
-        <div className="set-sec-empty">还没有 LLM 密钥</div>
+        <div className="set-sec-empty">{t("apiKeys.emptyList")}</div>
       )}
       <div className="set-klist">
         {keys.map((key) => (
@@ -103,6 +106,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }) {
 }
 
 function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }) {
+  const { t } = useTranslation("settings");
   const pushToast = useUIStore((s) => s.pushToast);
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();
@@ -127,24 +131,24 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle })
     if (!canPromote) return;
     upsertModel.mutate(
       { scenario: "chat", provider: apiKey.provider, modelId: modelValue || models[0] },
-      { onSuccess: () => pushToast({ kind: "success", title: `对话默认 → ${displayName}` }) },
+      { onSuccess: () => pushToast({ kind: "success", title: t("apiKeys.promoteSuccess", { provider: displayName }) }) },
     );
   };
 
   const retest = () => testKey.mutate(apiKey.id, {
     onSuccess: (res) => pushToast(
       res?.ok
-        ? { kind: "success", title: "API Key 已验证" }
-        : { kind: "error", title: "验证未通过" },
+        ? { kind: "success", title: t("apiKeys.retestSuccess") }
+        : { kind: "error", title: t("apiKeys.retestFail") },
     ),
-    onError: (e) => pushToast({ kind: "error", title: "验证失败", desc: e.message }),
+    onError: (e) => pushToast({ kind: "error", title: t("apiKeys.retestError"), desc: e.message }),
   });
 
   const remove = () => {
-    if (!window.confirm(`删除 ${displayName} 的 API Key?`)) return;
+    if (!window.confirm(t("apiKeys.deleteConfirm", { provider: displayName }))) return;
     deleteKey.mutate(apiKey.id, {
-      onSuccess: () => pushToast({ kind: "success", title: "已删除" }),
-      onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+      onSuccess: () => pushToast({ kind: "success", title: t("apiKeys.deleteSuccess") }),
+      onError: (e) => pushToast({ kind: "error", title: t("apiKeys.deleteFail"), desc: e.message }),
     });
   };
 
@@ -157,39 +161,39 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle })
           <div className="set-pk">{apiKey.keyMasked}</div>
         </div>
         {isDefault && chatConfig?.modelId && <span className="set-mtag">{chatConfig.modelId}</span>}
-        {isDefault && <span className="set-badge is-default">对话默认</span>}
-        {verified && <span className="set-badge is-ok">已验证</span>}
+        {isDefault && <span className="set-badge is-default">{t("apiKeys.chatDefault")}</span>}
+        {verified && <span className="set-badge is-ok">{t("apiKeys.verified")}</span>}
         <Icon.ChevronRight className="set-kchev icon" />
       </div>
       {open && (
         <div className="set-kdetail">
           {models.length > 0 && (
             <div className="set-drow">
-              <div className="set-dk">模型</div>
+              <div className="set-dk">{t("apiKeys.model")}</div>
               <ModelSelect models={models} value={modelValue} onChange={onModelChange} />
             </div>
           )}
           <div className="set-drow">
-            <div className="set-dk">用途</div>
+            <div className="set-dk">{t("apiKeys.usage")}</div>
             <div className="set-seg">
               <button
                 className={"set-seg-opt" + (isDefault ? " is-on" : "")}
                 onClick={promote}
                 disabled={!isDefault && !canPromote}
               >
-                对话默认
+                {t("apiKeys.usageChatDefault")}
               </button>
               <button className={"set-seg-opt" + (isDefault ? "" : " is-on")} disabled={isDefault}>
-                仅备用
+                {t("apiKeys.usageBackup")}
               </button>
             </div>
           </div>
           <div className="set-dact">
             <button className="set-link" onClick={retest} disabled={testKey.isPending}>
-              {verified ? "重新验证" : "验证"}
+              {verified ? t("apiKeys.retest") : t("apiKeys.test")}
             </button>
             <button className="set-link is-danger" onClick={remove} disabled={deleteKey.isPending}>
-              删除
+              {t("apiKeys.deleteBtn")}
             </button>
           </div>
         </div>
@@ -203,6 +207,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle })
 //
 // AddPanel —— 内联引导页验证流;切换厂商/取消时尽力删除已创建的孤儿 key。
 function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDone }) {
+  const { t } = useTranslation("settings");
   const pushToast = useUIStore((s) => s.pushToast);
   const createKey = useCreateApiKey();
   const testKey = useTestApiKey();
@@ -257,10 +262,10 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
       setModels(opts);
       setModelId(opts[0] || "");
       setVerified(true);
-      pushToast({ kind: "success", title: "API Key 已验证" });
+      pushToast({ kind: "success", title: t("apiKeys.addPanel.verifySuccess") });
     } catch {
       setVerified(false);
-      setVerifyError("验证未通过 —— 请检查 API Key 是否正确");
+      setVerifyError(t("apiKeys.addPanel.verifyFail"));
     } finally {
       setVerifying(false);
     }
@@ -286,7 +291,7 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
       reset();
       onDone();
     } catch (e) {
-      pushToast({ kind: "error", title: "保存失败", desc: e.message });
+      pushToast({ kind: "error", title: t("apiKeys.addPanel.saveFail"), desc: e.message });
     } finally {
       setSaving(false);
     }
@@ -295,7 +300,7 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
   return (
     <div className="set-addpanel">
       <div className="set-ap-head">
-        <div className="set-ap-t">添加 API Key</div>
+        <div className="set-ap-t">{t("apiKeys.addPanel.title")}</div>
         <button className="set-ap-x" onClick={cancel}><Icon.X /></button>
       </div>
       <div className="set-ap-body">
@@ -306,7 +311,7 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
           selected={provider}
           onPick={pickProvider}
         />
-        <div className="set-ap-scrollnote">可滚动查看全部厂商 · 右上角 ✓ = 已存 Key</div>
+        <div className="set-ap-scrollnote">{t("apiKeys.addPanel.scrollNote")}</div>
 
         {provider && (
           <div className="set-ap-fields">
@@ -319,16 +324,16 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
                 verifying={verifying}
                 verified={verified}
                 error={verifyError}
-                verifyLabel="验证并获取模型"
-                verifyingLabel="验证中…"
-                verifiedLabel="已验证"
+                verifyLabel={t("apiKeys.addPanel.verifyLabel")}
+                verifyingLabel={t("apiKeys.addPanel.verifyingLabel")}
+                verifiedLabel={t("apiKeys.addPanel.verifiedLabel")}
                 placeholder="sk-…"
                 readOnly={isOllama}
               />
             </div>
             {verified && models.length > 0 && (
               <div className="set-ap-field">
-                <div className="onb-klabel">模型</div>
+                <div className="onb-klabel">{t("apiKeys.addPanel.modelLabel")}</div>
                 <ModelSelect models={models} value={modelId} onChange={setModelId} />
               </div>
             )}
@@ -336,9 +341,9 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
         )}
 
         <div className="set-ap-actions">
-          <Button variant="ghost" size="sm" onClick={cancel} disabled={saving}>取消</Button>
+          <Button variant="ghost" size="sm" onClick={cancel} disabled={saving}>{t("common:cancel")}</Button>
           <Button variant="accent" size="sm" onClick={save} disabled={!verified || saving} loading={saving}>
-            保存
+            {t("common:save")}
           </Button>
         </div>
       </div>

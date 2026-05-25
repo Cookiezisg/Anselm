@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Sidebar } from "./Sidebar.jsx";
 import { PaneFrame, PANE_META } from "./PaneFrame.jsx";
 import { PaneResize } from "./PaneResize.jsx";
@@ -47,6 +48,7 @@ function renderPaneBody(kind, onClose) {
 }
 
 export function AppShell() {
+  const { t } = useTranslation("sidebar");
   const openPanes = useUIStore((s) => s.openPanes);
   const narrow = useUIStore((s) => s.narrow);
   const setNarrow = useUIStore((s) => s.setNarrow);
@@ -138,7 +140,7 @@ export function AppShell() {
                   <PaneFrame
                     kind={kind}
                     onClose={() => closePane(kind)}
-                    crumbs={[(PANE_META[kind] || { label: kind }).label]}
+                    crumbs={[(() => { const m = PANE_META[kind]; return m ? (m.labelKey ? t(m.labelKey) : (m.label || kind)) : kind; })()]}
                   >
                     {renderPaneBody(kind, () => closePane(kind))}
                   </PaneFrame>

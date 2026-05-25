@@ -9,6 +9,7 @@
 // 是 Help+Bell 合并未读,hover 整行浮出 ⚙ 入设置。
 
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
@@ -45,6 +46,7 @@ function NavItem({ icon: I, label, active, primary, onClick, collapsed }) {
 }
 
 export function Sidebar() {
+  const { t } = useTranslation("sidebar");
   const openPanes      = useUIStore((s) => s.openPanes);
   const togglePane     = useUIStore((s) => s.togglePane);
   const openPane       = useUIStore((s) => s.openPane);
@@ -105,7 +107,7 @@ export function Sidebar() {
             type="button"
             className="sb-logo-btn"
             onClick={() => setCollapsed(false)}
-            title="展开 ⌘B"
+            title={t("toggle.expand")}
             aria-label="toggle sidebar"
           >
             <span className="sb-logo-mark"><ForgifyLogo /></span>
@@ -119,7 +121,7 @@ export function Sidebar() {
               type="button"
               className="sb-collapse-btn"
               onClick={() => setCollapsed(true)}
-              title="收起 ⌘B"
+              title={t("toggle.collapse")}
               aria-label="toggle sidebar"
             >
               <Icon.PanelLeftClose size={18} strokeWidth={2} />
@@ -128,34 +130,34 @@ export function Sidebar() {
         )}
       </div>
 
-      <NavItem icon={Icon.SquarePen} label="新对话"  primary onClick={onNewConv} collapsed={collapsed} />
-      <NavItem icon={Icon.Search}    label="搜索 或 跳转" onClick={() => setCmdkOpen(true)} collapsed={collapsed} />
+      <NavItem icon={Icon.SquarePen} label={t("nav.newChat")}      primary onClick={onNewConv} collapsed={collapsed} />
+      <NavItem icon={Icon.Search}    label={t("nav.searchOrJump")} onClick={() => setCmdkOpen(true)} collapsed={collapsed} />
 
       <div style={{ height: 8 }} />
 
-      <NavItem icon={Icon.MessageSquare} label="对话" active={isOpen("chat")}      onClick={() => togglePane("chat")}      collapsed={collapsed} />
-      <NavItem icon={Icon.Hammer}        label="工坊" active={isOpen("forge")}     onClick={() => togglePane("forge")}     collapsed={collapsed} />
-      <NavItem icon={Icon.Play}          label="执行" active={isOpen("execute")}   onClick={() => togglePane("execute")}   collapsed={collapsed} />
-      <NavItem icon={Icon.FileText}      label="文档" active={isOpen("documents")} onClick={() => togglePane("documents")} collapsed={collapsed} />
+      <NavItem icon={Icon.MessageSquare} label={t("nav.chat")}      active={isOpen("chat")}      onClick={() => togglePane("chat")}      collapsed={collapsed} />
+      <NavItem icon={Icon.Hammer}        label={t("nav.forge")}     active={isOpen("forge")}     onClick={() => togglePane("forge")}     collapsed={collapsed} />
+      <NavItem icon={Icon.Play}          label={t("nav.execute")}   active={isOpen("execute")}   onClick={() => togglePane("execute")}   collapsed={collapsed} />
+      <NavItem icon={Icon.FileText}      label={t("nav.documents")} active={isOpen("documents")} onClick={() => togglePane("documents")} collapsed={collapsed} />
 
-      <SidebarSection label="工具" expanded={toolsExpanded} onToggle={() => setToolsExpanded(!toolsExpanded)} collapsedSidebar={collapsed}>
-        <NavItem icon={Icon.BarChart3} label="洞察"  active={isOpen("observe")} onClick={() => togglePane("observe")} collapsed={collapsed} />
-        <NavItem icon={Icon.Sparkles}  label="Skills" active={isOpen("skills")} onClick={() => togglePane("skills")}  collapsed={collapsed} />
-        <NavItem icon={Icon.Plug}      label="MCP"    active={isOpen("mcp")}    onClick={() => togglePane("mcp")}     collapsed={collapsed} />
-        <NavItem icon={Icon.Brain}     label="Memory" active={isOpen("memory")} onClick={() => togglePane("memory")}  collapsed={collapsed} />
+      <SidebarSection label={t("nav.tools")} expanded={toolsExpanded} onToggle={() => setToolsExpanded(!toolsExpanded)} collapsedSidebar={collapsed}>
+        <NavItem icon={Icon.BarChart3} label={t("nav.insights")} active={isOpen("observe")} onClick={() => togglePane("observe")} collapsed={collapsed} />
+        <NavItem icon={Icon.Sparkles}  label="Skills"             active={isOpen("skills")} onClick={() => togglePane("skills")}  collapsed={collapsed} />
+        <NavItem icon={Icon.Plug}      label="MCP"                active={isOpen("mcp")}    onClick={() => togglePane("mcp")}     collapsed={collapsed} />
+        <NavItem icon={Icon.Brain}     label="Memory"             active={isOpen("memory")} onClick={() => togglePane("memory")}  collapsed={collapsed} />
       </SidebarSection>
 
       {!collapsed && (
         <div className="sb-recent-wrap">
-          <SidebarSection label="最近" expanded={recentExpanded} onToggle={() => setRecentExpanded(!recentExpanded)}>
+          <SidebarSection label={t("nav.recent")} expanded={recentExpanded} onToggle={() => setRecentExpanded(!recentExpanded)}>
             {pinned.map((c) => <ChatListItem key={c.id} conv={c} />)}
             {recent.map((c) => <ChatListItem key={c.id} conv={c} />)}
             {pinned.length === 0 && recent.length === 0 && (
-              <div className="sb-empty">还没有对话</div>
+              <div className="sb-empty">{t("empty")}</div>
             )}
           </SidebarSection>
           {archived.length > 0 && (
-            <SidebarSection label={`归档 · ${archived.length}`} expanded={archivedExpanded} onToggle={() => setArchivedExpanded(!archivedExpanded)}>
+            <SidebarSection label={t("nav.archived", { count: archived.length })} expanded={archivedExpanded} onToggle={() => setArchivedExpanded(!archivedExpanded)}>
               {archived.map((c) => <ChatListItem key={c.id} conv={c} />)}
             </SidebarSection>
           )}
@@ -168,7 +170,7 @@ export function Sidebar() {
           type="button"
           className="sb-avatar-slot"
           onClick={() => { setNotifsOpen(true); sse.clearUnread?.(); }}
-          title={unread > 0 ? `${unread} 条未读` : "通知"}
+          title={unread > 0 ? t("footer.unreadNotifications", { count: unread }) : t("footer.notifications")}
         >
           <span className="sb-avatar">{initial}</span>
           {unread > 0 && <span className="sb-badge-dot" />}
@@ -179,7 +181,7 @@ export function Sidebar() {
           type="button"
           className="sb-gear-btn"
           onClick={() => setSettingsOpen(true)}
-          title="设置"
+          title={t("footer.settings")}
           aria-label="settings"
         >
           <Icon.Settings size={18} strokeWidth={2} />

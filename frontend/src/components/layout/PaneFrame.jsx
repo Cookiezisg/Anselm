@@ -4,22 +4,26 @@
 // PaneFrame —— 非 chat pane 的统一外壳：薄顶栏 + 面包屑 + 关闭。
 // chat 有自己的 header，不走 pane-bar。
 
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 
 export const PANE_META = {
-  chat:      { icon: "MessageSquare", label: "对话" },
-  forge:     { icon: "Hammer",        label: "工坊" },
-  execute:   { icon: "Play",          label: "执行" },
-  documents: { icon: "FileText",      label: "文档" },
+  chat:      { icon: "MessageSquare", labelKey: "pane.chat" },
+  forge:     { icon: "Hammer",        labelKey: "pane.forge" },
+  execute:   { icon: "Play",          labelKey: "pane.execute" },
+  documents: { icon: "FileText",      labelKey: "pane.documents" },
   skills:    { icon: "Sparkles",      label: "Skills" },
   mcp:       { icon: "Server",        label: "MCP" },
   memory:    { icon: "Brain",         label: "Memory" },
-  observe:   { icon: "Activity",      label: "洞察" },
+  observe:   { icon: "Activity",      labelKey: "pane.observe" },
 };
 
 export function PaneFrame({ kind, onClose, crumbs, children }) {
+  const { t } = useTranslation("sidebar");
   const meta = PANE_META[kind] || { icon: "Square", label: kind };
   const I = Icon[meta.icon] || Icon.MoreHorizontal;
+
+  const metaLabel = meta.labelKey ? t(meta.labelKey) : (meta.label || kind);
 
   if (kind === "chat") {
     return (
@@ -29,7 +33,7 @@ export function PaneFrame({ kind, onClose, crumbs, children }) {
     );
   }
 
-  const cs = crumbs && crumbs.length > 0 ? crumbs : [meta.label];
+  const cs = crumbs && crumbs.length > 0 ? crumbs : [metaLabel];
 
   return (
     <div className="pane" data-kind={kind}>
@@ -45,8 +49,8 @@ export function PaneFrame({ kind, onClose, crumbs, children }) {
           ))}
         </div>
         <div className="pane-actions">
-          <button className="icon-btn" title="更多"><Icon.MoreHorizontal /></button>
-          <button className="icon-btn" title="关闭" onClick={onClose}><Icon.X /></button>
+          <button className="icon-btn" title={t("paneBar.more")}><Icon.MoreHorizontal /></button>
+          <button className="icon-btn" title={t("paneBar.close")} onClick={onClose}><Icon.X /></button>
         </div>
       </div>
       <div className="pane-body">{children}</div>

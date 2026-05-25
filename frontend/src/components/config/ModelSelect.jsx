@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { Select } from "../primitives/Select.jsx";
 
 export function ModelSelect({ models, value, onChange, disabled }) {
+  const { t } = useTranslation("settings");
   return (
     <Select
       options={models}
@@ -8,8 +10,8 @@ export function ModelSelect({ models, value, onChange, disabled }) {
       onChange={onChange}
       disabled={disabled}
       mono
-      placeholder="验证后可选"
-      ariaLabel="模型"
+      placeholder={t("model.placeholder")}
+      ariaLabel={t("model.ariaLabel")}
     />
   );
 }

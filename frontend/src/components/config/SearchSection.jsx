@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { useUIStore } from "../../store/ui.js";
@@ -20,6 +21,7 @@ import { ProviderGrid } from "./ProviderGrid.jsx";
 import { KeyVerifyField } from "./KeyVerifyField.jsx";
 
 export function SearchSection({ open, onToggle }) {
+  const { t } = useTranslation("settings");
   const { data: providers = [] } = useProviders();
   const { data: allKeys = [] } = useApiKeys();
 
@@ -31,10 +33,10 @@ export function SearchSection({ open, onToggle }) {
   const providerDisplay = (n) => providers.find((p) => p.name === n)?.displayName || n;
 
   const sub = defaultKey
-    ? `${providerDisplay(defaultKey.provider)} · 搜索默认`
+    ? t("search.subWithDefault", { provider: providerDisplay(defaultKey.provider) })
     : keys.length > 0
-    ? `${keys.length} 个搜索服务 · 未设默认`
-    : "未配置";
+    ? t("search.subNoDefault", { count: keys.length })
+    : t("search.subEmpty");
 
   return (
     <div className="set-sec">
@@ -42,8 +44,8 @@ export function SearchSection({ open, onToggle }) {
         <Icon.Search className="set-sec-ic icon" />
         <div className="set-sec-tt">
           <div className="set-sec-t1">
-            网络搜索
-            <span className="set-sec-opt-tag">可选</span>
+            {t("search.title")}
+            <span className="set-sec-opt-tag">{t("search.optional")}</span>
           </div>
           <div className="set-sec-t2">{sub}</div>
         </div>
@@ -64,6 +66,7 @@ export function SearchSection({ open, onToggle }) {
 }
 
 function KeyList({ keys, providers, defaultKey, providerDisplay }) {
+  const { t } = useTranslation("settings");
   const [openKey, setOpenKey] = useState(null);
   const [adding, setAdding] = useState(false);
 
@@ -72,7 +75,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }) {
   return (
     <>
       {keys.length === 0 && !adding && (
-        <div className="set-sec-empty">还没有搜索密钥</div>
+        <div className="set-sec-empty">{t("search.emptyList")}</div>
       )}
       <div className="set-klist">
         {keys.map((key) => (
@@ -97,7 +100,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }) {
         />
       ) : (
         <button className="set-addbtn" onClick={() => setAdding(true)}>
-          <Icon.Plus /> 搜索服务
+          <Icon.Plus /> {t("search.addSearchService")}
         </button>
       )}
     </>
@@ -105,6 +108,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }) {
 }
 
 function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
+  const { t } = useTranslation("settings");
   const pushToast = useUIStore((s) => s.pushToast);
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();
@@ -116,31 +120,31 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
   const setDefault = () => {
     updateKey.mutate(
       { isDefault: true },
-      { onSuccess: () => pushToast({ kind: "success", title: `搜索默认 → ${displayName}` }) },
+      { onSuccess: () => pushToast({ kind: "success", title: t("search.setDefaultSuccess", { provider: displayName }) }) },
     );
   };
 
   const unsetDefault = () => {
     updateKey.mutate(
       { isDefault: false },
-      { onSuccess: () => pushToast({ kind: "success", title: "已改为仅备用" }) },
+      { onSuccess: () => pushToast({ kind: "success", title: t("search.unsetDefaultSuccess") }) },
     );
   };
 
   const retest = () => testKey.mutate(apiKey.id, {
     onSuccess: (res) => pushToast(
       res?.ok
-        ? { kind: "success", title: "API Key 已验证" }
-        : { kind: "error", title: "验证未通过" },
+        ? { kind: "success", title: t("search.retestSuccess") }
+        : { kind: "error", title: t("search.retestFail") },
     ),
-    onError: (e) => pushToast({ kind: "error", title: "验证失败", desc: e.message }),
+    onError: (e) => pushToast({ kind: "error", title: t("search.retestError"), desc: e.message }),
   });
 
   const remove = () => {
-    if (!window.confirm(`删除 ${displayName} 的 API Key?`)) return;
+    if (!window.confirm(t("search.deleteConfirm", { provider: displayName }))) return;
     deleteKey.mutate(apiKey.id, {
-      onSuccess: () => pushToast({ kind: "success", title: "已删除" }),
-      onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+      onSuccess: () => pushToast({ kind: "success", title: t("search.deleteSuccess") }),
+      onError: (e) => pushToast({ kind: "error", title: t("search.deleteFail"), desc: e.message }),
     });
   };
 
@@ -152,37 +156,37 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
           <div className="set-pn">{apiKey.displayName || displayName}</div>
           <div className="set-pk">{apiKey.keyMasked}</div>
         </div>
-        {isDefault && <span className="set-badge is-default">搜索默认</span>}
-        {verified && <span className="set-badge is-ok">已验证</span>}
+        {isDefault && <span className="set-badge is-default">{t("search.searchDefault")}</span>}
+        {verified && <span className="set-badge is-ok">{t("search.verified")}</span>}
         <Icon.ChevronRight className="set-kchev icon" />
       </div>
       {open && (
         <div className="set-kdetail">
           <div className="set-drow">
-            <div className="set-dk">用途</div>
+            <div className="set-dk">{t("search.usage")}</div>
             <div className="set-seg">
               <button
                 className={"set-seg-opt" + (isDefault ? " is-on" : "")}
                 onClick={setDefault}
                 disabled={isDefault}
               >
-                搜索默认
+                {t("search.usageDefault")}
               </button>
               <button
                 className={"set-seg-opt" + (!isDefault ? " is-on" : "")}
                 onClick={unsetDefault}
                 disabled={!isDefault}
               >
-                仅备用
+                {t("search.usageBackup")}
               </button>
             </div>
           </div>
           <div className="set-dact">
             <button className="set-link" onClick={retest} disabled={testKey.isPending}>
-              {verified ? "重新验证" : "验证"}
+              {verified ? t("search.retest") : t("search.test")}
             </button>
             <button className="set-link is-danger" onClick={remove} disabled={deleteKey.isPending}>
-              删除
+              {t("search.deleteBtn")}
             </button>
           </div>
         </div>
@@ -197,6 +201,7 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
 //
 // 内联验证流;无模型选择。首个搜索 key 保存时尽力设为搜索默认。
 function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, onDone }) {
+  const { t } = useTranslation("settings");
   const pushToast = useUIStore((s) => s.pushToast);
   const qc = useQueryClient();
   const createKey = useCreateApiKey();
@@ -244,10 +249,10 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
       }
       await testKey.mutateAsync(keyId);
       setVerified(true);
-      pushToast({ kind: "success", title: "API Key 已验证" });
+      pushToast({ kind: "success", title: t("search.addPanel.verifySuccess") });
     } catch {
       setVerified(false);
-      setVerifyError("验证未通过 —— 请检查 API Key 是否正确");
+      setVerifyError(t("search.addPanel.verifyFail"));
     } finally {
       setVerifying(false);
     }
@@ -282,7 +287,7 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
       reset();
       onDone();
     } catch (e) {
-      pushToast({ kind: "error", title: "保存失败", desc: e.message });
+      pushToast({ kind: "error", title: t("search.addPanel.saveFail"), desc: e.message });
     } finally {
       setSaving(false);
     }
@@ -291,7 +296,7 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
   return (
     <div className="set-addpanel">
       <div className="set-ap-head">
-        <div className="set-ap-t">添加搜索服务</div>
+        <div className="set-ap-t">{t("search.addPanel.title")}</div>
         <button className="set-ap-x" onClick={cancel}><Icon.X /></button>
       </div>
       <div className="set-ap-body">
@@ -302,7 +307,7 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
           selected={provider}
           onPick={pickProvider}
         />
-        <div className="set-ap-scrollnote">可滚动查看全部服务商 · 右上角 ✓ = 已存 Key</div>
+        <div className="set-ap-scrollnote">{t("search.addPanel.scrollNote")}</div>
 
         {provider && (
           <div className="set-ap-fields">
@@ -315,19 +320,19 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
                 verifying={verifying}
                 verified={verified}
                 error={verifyError}
-                verifyLabel="验证"
-                verifyingLabel="验证中…"
-                verifiedLabel="已验证"
-                placeholder="填入 API Key…"
+                verifyLabel={t("search.addPanel.verifyLabel")}
+                verifyingLabel={t("search.addPanel.verifyingLabel")}
+                verifiedLabel={t("search.addPanel.verifiedLabel")}
+                placeholder={t("search.addPanel.placeholder")}
               />
             </div>
           </div>
         )}
 
         <div className="set-ap-actions">
-          <Button variant="ghost" size="sm" onClick={cancel} disabled={saving}>取消</Button>
+          <Button variant="ghost" size="sm" onClick={cancel} disabled={saving}>{t("common:cancel")}</Button>
           <Button variant="accent" size="sm" onClick={save} disabled={!verified || saving} loading={saving}>
-            保存
+            {t("common:save")}
           </Button>
         </div>
       </div>

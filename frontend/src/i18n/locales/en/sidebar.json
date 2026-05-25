@@ -1,0 +1,63 @@
+{
+  "nav": {
+    "newChat": "New chat",
+    "searchOrJump": "Search or jump",
+    "chat": "Conversations",
+    "forge": "Forge",
+    "execute": "Execute",
+    "documents": "Documents",
+    "insights": "Insights",
+    "tools": "Tools",
+    "recent": "Recent",
+    "archived": "Archived · {{count}}"
+  },
+  "toggle": {
+    "expand": "Expand ⌘B",
+    "collapse": "Collapse ⌘B"
+  },
+  "footer": {
+    "notifications": "Notifications",
+    "unreadNotifications": "{{count}} unread",
+    "settings": "Settings"
+  },
+  "empty": "No conversations yet",
+  "conv": {
+    "untitled": "(Untitled)",
+    "moreActions": "Conversation actions",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "rename": "Rename",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "delete": "Delete",
+    "renamePrompt": "New name",
+    "archiveSuccess": "Archived",
+    "unarchiveSuccess": "Unarchived",
+    "opFail": "Operation failed",
+    "renameFail": "Rename failed",
+    "deleteConfirm": "Delete \"{{title}}\"? This cannot be undone.",
+    "deleteSuccess": "Deleted",
+    "deleteFail": "Delete failed"
+  },
+  "pane": {
+    "chat": "Conversations",
+    "forge": "Forge",
+    "execute": "Execute",
+    "documents": "Documents",
+    "observe": "Insights"
+  },
+  "paneBar": {
+    "more": "More",
+    "close": "Close"
+  },
+  "cmdk": {
+    "navGroup": "Navigation",
+    "convGroup": "Conversations",
+    "placeholder": "Search or jump to…",
+    "noResults": "No results.",
+    "footer": "navigate · open · close",
+    "footerLocal": "Forgify · Local",
+    "unnamed": "(Unnamed)",
+    "settings": "Settings"
+  }
+}

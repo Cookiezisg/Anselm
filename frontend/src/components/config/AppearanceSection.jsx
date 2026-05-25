@@ -1,16 +1,18 @@
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { useSettings } from "../../store/settings.js";
 import { ACCENTS } from "../overlays/onboarding-strings.js";
 
 export function AppearanceSection({ open, onToggle }) {
+  const { t } = useTranslation("settings");
   const settings = useSettings();
   return (
     <div className="set-sec">
       <button className="set-sec-h" onClick={onToggle}>
         <Icon.Brush className="set-sec-ic icon" />
         <div className="set-sec-tt">
-          <div className="set-sec-t1">外观</div>
-          <div className="set-sec-t2">主题 · 主题色 · 密度 · 语言</div>
+          <div className="set-sec-t1">{t("appearance.title")}</div>
+          <div className="set-sec-t2">{t("appearance.subtitle")}</div>
         </div>
         <Icon.ChevronRight
           className={"set-sec-chev icon" + (open ? " is-open" : "")}
@@ -19,21 +21,21 @@ export function AppearanceSection({ open, onToggle }) {
       {open && (
         <div className="set-sec-p">
           <div className="set-look-row">
-            <div className="set-look-k">主题</div>
+            <div className="set-look-k">{t("appearance.theme")}</div>
             <div className="onb-seg">
-              {[["light", "浅色"], ["dark", "深色"], ["system", "跟随系统"]].map(([v, label]) => (
+              {["light", "dark", "system"].map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.theme === v ? " is-active" : "")}
                   onClick={() => settings.set({ theme: v })}
                 >
-                  {label}
+                  {t(`appearance.themeOpts.${v}`)}
                 </button>
               ))}
             </div>
           </div>
           <div className="set-look-row">
-            <div className="set-look-k">主题色</div>
+            <div className="set-look-k">{t("appearance.accent")}</div>
             <div className="onb-swatches">
               {ACCENTS.map(([k, c]) => (
                 <button
@@ -46,21 +48,21 @@ export function AppearanceSection({ open, onToggle }) {
             </div>
           </div>
           <div className="set-look-row">
-            <div className="set-look-k">密度</div>
+            <div className="set-look-k">{t("appearance.density")}</div>
             <div className="onb-seg">
-              {[["compact", "紧凑"], ["cozy", "适中"], ["comfortable", "舒展"]].map(([v, label]) => (
+              {["compact", "cozy", "comfortable"].map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.density === v ? " is-active" : "")}
                   onClick={() => settings.set({ density: v })}
                 >
-                  {label}
+                  {t(`appearance.densityOpts.${v}`)}
                 </button>
               ))}
             </div>
           </div>
           <div className="set-look-row">
-            <div className="set-look-k">语言</div>
+            <div className="set-look-k">{t("appearance.language")}</div>
             <div className="onb-seg">
               {[["zh", "中文"], ["en", "English"]].map(([v, label]) => (
                 <button
@@ -74,15 +76,15 @@ export function AppearanceSection({ open, onToggle }) {
             </div>
           </div>
           <div className="set-look-row">
-            <div className="set-look-k">推理过程</div>
+            <div className="set-look-k">{t("appearance.reasoning")}</div>
             <div className="onb-seg">
-              {[["collapsed", "默认折叠"], ["expanded", "默认展开"]].map(([v, label]) => (
+              {["collapsed", "expanded"].map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.reasoningDefault === v ? " is-active" : "")}
                   onClick={() => settings.set({ reasoningDefault: v })}
                 >
-                  {label}
+                  {t(`appearance.reasoningOpts.${v}`)}
                 </button>
               ))}
             </div>

@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useSettings } from "../../store/settings.js";
@@ -17,6 +18,7 @@ import { AppearanceSection } from "../config/AppearanceSection.jsx";
 import { SystemSection } from "../config/SystemSection.jsx";
 
 export function SettingsModal() {
+  const { t } = useTranslation("settings");
   const open = useUIStore((s) => s.settingsOpen);
   const setOpen = useUIStore((s) => s.setSettingsOpen);
   const [openSection, setOpenSection] = useState("keys");
@@ -46,11 +48,11 @@ export function SettingsModal() {
             {...scaleIn}
             role="dialog"
             aria-modal="true"
-            aria-label="设置"
+            aria-label={t("modal.ariaLabel")}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="set-head">
-              <span className="set-head-title">设置</span>
+              <span className="set-head-title">{t("modal.title")}</span>
               <button className="set-x" onClick={() => setOpen(false)}>
                 <Icon.X />
               </button>
@@ -82,6 +84,7 @@ export function SettingsModal() {
 }
 
 function AccountRegion() {
+  const { t } = useTranslation("settings");
   const { data: users = [] } = useUsers();
   const createUser = useCreateUser();
   const qc = useQueryClient();
@@ -96,7 +99,7 @@ function AccountRegion() {
     settings.set({ activeUserId: id });
     setMode("view");
     qc.invalidateQueries();
-    pushToast({ kind: "success", title: "已切到 " + id });
+    pushToast({ kind: "success", title: t("account.switchedTo", { id }) });
   };
 
   const addAccount = async () => {
@@ -107,7 +110,7 @@ function AccountRegion() {
       switchTo(created.id);
       setName("");
     } catch (e) {
-      pushToast({ kind: "error", title: "添加失败", desc: e.message });
+      pushToast({ kind: "error", title: t("account.addFail"), desc: e.message });
     }
   };
 
@@ -126,9 +129,9 @@ function AccountRegion() {
         {mode === "view" ? (
           <>
             <div className="set-acct-name">
-              {active?.displayName || active?.username || "无账号"}
+              {active?.displayName || active?.username || t("account.noAccount")}
             </div>
-            <div className="set-acct-sub">本地工作空间 · 共 {users.length} 个</div>
+            <div className="set-acct-sub">{t("account.localWorkspaceCount", { count: users.length })}</div>
           </>
         ) : (
           <div className="set-acct-list">
@@ -151,13 +154,13 @@ function AccountRegion() {
             <div className="set-acct-add">
               <input
                 className="set-acct-add-input"
-                placeholder="新工作空间"
+                placeholder={t("account.newWorkspace")}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addAccount(); }}
               />
               <button className="btn btn-xs btn-accent" onClick={addAccount}>
-                <Icon.Plus /> 添加
+                <Icon.Plus /> {t("account.addBtn")}
               </button>
             </div>
           </div>
@@ -167,7 +170,7 @@ function AccountRegion() {
         className="set-pill-btn"
         onClick={() => setMode((m) => (m === "switch" ? "view" : "switch"))}
       >
-        切换 / 新建
+        {t("account.switchOrNew")}
       </button>
     </div>
   );

@@ -1,0 +1,121 @@
+{
+  "account": {
+    "localWorkspaceCount": "本地工作空间 · 共 {{count}} 个",
+    "noAccount": "无账号",
+    "switchOrNew": "切换 / 新建",
+    "newWorkspace": "新工作空间",
+    "addBtn": "添加",
+    "switchedTo": "已切到 {{id}}",
+    "addFail": "添加失败"
+  },
+  "modal": {
+    "title": "设置",
+    "ariaLabel": "设置"
+  },
+  "apiKeys": {
+    "subWithDefault": "{{count}} 个 · 对话默认 {{provider}}",
+    "subEmpty": "管理 LLM 服务密钥",
+    "subNotSet": "未设",
+    "emptyList": "还没有 LLM 密钥",
+    "chatDefault": "对话默认",
+    "verified": "已验证",
+    "model": "模型",
+    "usage": "用途",
+    "usageChatDefault": "对话默认",
+    "usageBackup": "仅备用",
+    "retest": "重新验证",
+    "test": "验证",
+    "deleteBtn": "删除",
+    "promoteSuccess": "对话默认 → {{provider}}",
+    "retestSuccess": "API Key 已验证",
+    "retestFail": "验证未通过",
+    "retestError": "验证失败",
+    "deleteConfirm": "删除 {{provider}} 的 API Key?",
+    "deleteSuccess": "已删除",
+    "deleteFail": "删除失败",
+    "addPanel": {
+      "title": "添加 API Key",
+      "scrollNote": "可滚动查看全部厂商 · 右上角 ✓ = 已存 Key",
+      "modelLabel": "模型",
+      "verifyLabel": "验证并获取模型",
+      "verifyingLabel": "验证中…",
+      "verifiedLabel": "已验证",
+      "verifySuccess": "API Key 已验证",
+      "verifyFail": "验证未通过 —— 请检查 API Key 是否正确",
+      "saveFail": "保存失败"
+    }
+  },
+  "appearance": {
+    "title": "外观",
+    "subtitle": "主题 · 主题色 · 密度 · 语言",
+    "theme": "主题",
+    "accent": "主题色",
+    "density": "密度",
+    "language": "语言",
+    "reasoning": "推理过程",
+    "themeOpts": {
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    },
+    "densityOpts": {
+      "compact": "紧凑",
+      "cozy": "适中",
+      "comfortable": "舒展"
+    },
+    "reasoningOpts": {
+      "collapsed": "默认折叠",
+      "expanded": "默认展开"
+    }
+  },
+  "search": {
+    "title": "网络搜索",
+    "optional": "可选",
+    "subWithDefault": "{{provider}} · 搜索默认",
+    "subNoDefault": "{{count}} 个搜索服务 · 未设默认",
+    "subEmpty": "未配置",
+    "emptyList": "还没有搜索密钥",
+    "searchDefault": "搜索默认",
+    "verified": "已验证",
+    "usage": "用途",
+    "usageDefault": "搜索默认",
+    "usageBackup": "仅备用",
+    "retest": "重新验证",
+    "test": "验证",
+    "deleteBtn": "删除",
+    "setDefaultSuccess": "搜索默认 → {{provider}}",
+    "unsetDefaultSuccess": "已改为仅备用",
+    "retestSuccess": "API Key 已验证",
+    "retestFail": "验证未通过",
+    "retestError": "验证失败",
+    "deleteConfirm": "删除 {{provider}} 的 API Key?",
+    "deleteSuccess": "已删除",
+    "deleteFail": "删除失败",
+    "addSearchService": "搜索服务",
+    "addPanel": {
+      "title": "添加搜索服务",
+      "scrollNote": "可滚动查看全部服务商 · 右上角 ✓ = 已存 Key",
+      "verifyLabel": "验证",
+      "verifyingLabel": "验证中…",
+      "verifiedLabel": "已验证",
+      "verifySuccess": "API Key 已验证",
+      "verifyFail": "验证未通过 —— 请检查 API Key 是否正确",
+      "placeholder": "填入 API Key…",
+      "saveFail": "保存失败"
+    }
+  },
+  "system": {
+    "title": "系统",
+    "subtitle": "本地存储 · 内置运行时",
+    "dataDir": "数据目录",
+    "dataDirHint": "本地 · 不上传 · 无需登录",
+    "sandbox": "沙箱运行时",
+    "sandboxBadge": "内置",
+    "sandboxHint": "python / node 按需安装",
+    "version": "版本"
+  },
+  "model": {
+    "placeholder": "验证后可选",
+    "ariaLabel": "模型"
+  }
+}

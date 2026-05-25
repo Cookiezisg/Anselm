@@ -6,12 +6,14 @@
 // ChatListItem —— "最近"列表行;药丸与导航项一致。idle 标题齐平无点,
 // streaming/待批准 才显状态点;hover 浮出 ⋯ 操作菜单。
 
+import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../store/ui.js";
 import { Icon } from "../primitives/Icon.jsx";
 import { ActionMenu } from "../shared/ActionMenu.jsx";
 import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
 
 export function ChatListItem({ conv }) {
+  const { t } = useTranslation("sidebar");
   const activeConv = useUIStore((s) => s.activeConv);
   const setActiveConv = useUIStore((s) => s.setActiveConv);
   const openPane = useUIStore((s) => s.openPane);
@@ -26,7 +28,7 @@ export function ChatListItem({ conv }) {
       <button
         type="button"
         className="cv-open"
-        title={conv.title || "(无标题)"}
+        title={conv.title || t("conv.untitled")}
         onClick={() => {
           setActiveConv(conv.id);
           if (!openPanes.includes("chat")) openPane("chat");
@@ -36,7 +38,7 @@ export function ChatListItem({ conv }) {
           <span className={"cv-dot" + (isStreaming ? " is-streaming" : " is-approval")} />
         )}
         <span className={"cv-title" + (conv.title ? "" : " untitled")}>
-          {conv.title || "(无标题)"}
+          {conv.title || t("conv.untitled")}
         </span>
       </button>
       <ConvMenu conv={conv} />
@@ -45,6 +47,7 @@ export function ChatListItem({ conv }) {
 }
 
 function ConvMenu({ conv }) {
+  const { t } = useTranslation("sidebar");
   const update = useUpdateConversation(conv.id);
   const del = useDeleteConversation();
   const pushToast = useUIStore((s) => s.pushToast);
@@ -54,7 +57,7 @@ function ConvMenu({ conv }) {
   const togglePin = () => {
     update.mutate(
       { pinned: !conv.pinned },
-      { onError: (e) => pushToast({ kind: "error", title: "操作失败", desc: e.message }) }
+      { onError: (e) => pushToast({ kind: "error", title: t("conv.opFail"), desc: e.message }) }
     );
   };
   const toggleArchive = () => {
@@ -62,27 +65,27 @@ function ConvMenu({ conv }) {
       { archived: !conv.archived },
       {
         onSuccess: () =>
-          pushToast({ kind: "success", title: conv.archived ? "已取消归档" : "已归档" }),
-        onError: (e) => pushToast({ kind: "error", title: "操作失败", desc: e.message }),
+          pushToast({ kind: "success", title: conv.archived ? t("conv.unarchiveSuccess") : t("conv.archiveSuccess") }),
+        onError: (e) => pushToast({ kind: "error", title: t("conv.opFail"), desc: e.message }),
       }
     );
   };
   const rename = () => {
-    const next = prompt("新名字", conv.title || "");
+    const next = prompt(t("conv.renamePrompt"), conv.title || "");
     if (!next || next === conv.title) return;
     update.mutate(
       { title: next },
-      { onError: (e) => pushToast({ kind: "error", title: "重命名失败", desc: e.message }) }
+      { onError: (e) => pushToast({ kind: "error", title: t("conv.renameFail"), desc: e.message }) }
     );
   };
   const onDelete = () => {
-    if (!confirm(`删除 "${conv.title || conv.id}"?这一步不可撤销。`)) return;
+    if (!confirm(t("conv.deleteConfirm", { title: conv.title || conv.id }))) return;
     del.mutate(conv.id, {
       onSuccess: () => {
         if (activeConv === conv.id) setActiveConv(null);
-        pushToast({ kind: "success", title: "已删除" });
+        pushToast({ kind: "success", title: t("conv.deleteSuccess") });
       },
-      onError: (e) => pushToast({ kind: "error", title: "删除失败", desc: e.message }),
+      onError: (e) => pushToast({ kind: "error", title: t("conv.deleteFail"), desc: e.message }),
     });
   };
 
@@ -90,16 +93,16 @@ function ConvMenu({ conv }) {
     <ActionMenu
       placement="bottom-end"
       renderTrigger={({ ref, ...rest }) => (
-        <button ref={ref} className="cv-more" title="对话操作" {...rest}>
+        <button ref={ref} className="cv-more" title={t("conv.moreActions")} {...rest}>
           <Icon.MoreHorizontal />
         </button>
       )}
       items={[
-        { label: conv.pinned ? "取消置顶" : "置顶", icon: Icon.Pin, onClick: togglePin },
-        { label: "重命名", icon: Icon.Edit, onClick: rename },
-        { label: conv.archived ? "取消归档" : "归档", icon: Icon.Folder, onClick: toggleArchive },
+        { label: conv.pinned ? t("conv.unpin") : t("conv.pin"), icon: Icon.Pin, onClick: togglePin },
+        { label: t("conv.rename"), icon: Icon.Edit, onClick: rename },
+        { label: conv.archived ? t("conv.unarchive") : t("conv.archive"), icon: Icon.Folder, onClick: toggleArchive },
         "divider",
-        { label: "删除", icon: Icon.Trash, danger: true, onClick: onDelete },
+        { label: t("conv.delete"), icon: Icon.Trash, danger: true, onClick: onDelete },
       ]}
     />
   );

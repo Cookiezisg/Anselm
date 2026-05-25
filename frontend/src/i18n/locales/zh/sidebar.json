@@ -1,0 +1,63 @@
+{
+  "nav": {
+    "newChat": "新对话",
+    "searchOrJump": "搜索 或 跳转",
+    "chat": "对话",
+    "forge": "工坊",
+    "execute": "执行",
+    "documents": "文档",
+    "insights": "洞察",
+    "tools": "工具",
+    "recent": "最近",
+    "archived": "归档 · {{count}}"
+  },
+  "toggle": {
+    "expand": "展开 ⌘B",
+    "collapse": "收起 ⌘B"
+  },
+  "footer": {
+    "notifications": "通知",
+    "unreadNotifications": "{{count}} 条未读",
+    "settings": "设置"
+  },
+  "empty": "还没有对话",
+  "conv": {
+    "untitled": "(无标题)",
+    "moreActions": "对话操作",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "rename": "重命名",
+    "archive": "归档",
+    "unarchive": "取消归档",
+    "delete": "删除",
+    "renamePrompt": "新名字",
+    "archiveSuccess": "已归档",
+    "unarchiveSuccess": "已取消归档",
+    "opFail": "操作失败",
+    "renameFail": "重命名失败",
+    "deleteConfirm": "删除 \"{{title}}\"?这一步不可撤销。",
+    "deleteSuccess": "已删除",
+    "deleteFail": "删除失败"
+  },
+  "pane": {
+    "chat": "对话",
+    "forge": "工坊",
+    "execute": "执行",
+    "documents": "文档",
+    "observe": "洞察"
+  },
+  "paneBar": {
+    "more": "更多",
+    "close": "关闭"
+  },
+  "cmdk": {
+    "navGroup": "导航",
+    "convGroup": "对话",
+    "placeholder": "找点什么",
+    "noResults": "没有匹配。",
+    "footer": "选 · 打开 · 关",
+    "footerLocal": "Forgify · 本地",
+    "unnamed": "(未命名)",
+    "settings": "设置"
+  }
+}
