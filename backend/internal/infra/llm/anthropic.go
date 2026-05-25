@@ -190,7 +190,20 @@ func buildAnthropicBody(req Request) ([]byte, error) {
 		Stream:    true,
 	}
 	if req.System != "" {
-		body.System = req.System
+		// Send system as a block array so cache_control can be attached.
+		// Anthropic accepts system as string OR []text-block; block form is required for caching.
+		//
+		// 用 block 数组形式发送 system，以便附加 cache_control。
+		sysBlock := anthropicSystemBlock{
+			Type:         "text",
+			Text:         req.System,
+			CacheControl: &cacheControl{Type: "ephemeral"},
+		}
+		raw, err := json.Marshal([]anthropicSystemBlock{sysBlock})
+		if err != nil {
+			return nil, fmt.Errorf("llm.anthropic: marshal system block: %w", err)
+		}
+		body.System = raw
 	}
 	if len(req.Tools) > 0 {
 		body.Tools = toAnthropicTools(req.Tools)
@@ -306,6 +319,11 @@ func toAnthropicTools(defs []ToolDef) []anthropicTool {
 			InputSchema: d.Parameters,
 		}
 	}
+	// Marking the last tool caches the entire tools block (stable prefix).
+	// Anthropic caches all content up to and including this breakpoint.
+	//
+	// 在最后一个工具上打断点，Anthropic 会缓存到此处的所有内容（含 tools 整块）。
+	out[len(out)-1].CacheControl = &cacheControl{Type: "ephemeral"}
 	return out
 }
 
@@ -333,7 +351,7 @@ func extractBase64Data(dataURL string) string {
 type anthropicRequest struct {
 	Model     string             `json:"model"`
 	MaxTokens int                `json:"max_tokens"`
-	System    string             `json:"system,omitempty"`
+	System    json.RawMessage    `json:"system,omitempty"`
 	Messages  []anthropicMessage `json:"messages"`
 	Tools     []anthropicTool    `json:"tools,omitempty"`
 	Stream    bool               `json:"stream"`
@@ -362,10 +380,26 @@ type anthropicImageSource struct {
 	Data      string `json:"data"`
 }
 
+type cacheControl struct {
+	Type string `json:"type"`
+}
+
 type anthropicTool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	InputSchema json.RawMessage `json:"input_schema"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	InputSchema  json.RawMessage `json:"input_schema"`
+	CacheControl *cacheControl   `json:"cache_control,omitempty"`
+}
+
+// anthropicSystemBlock is one element of Anthropic's block-form system array.
+// Sending system as blocks (vs plain string) lets us attach cache_control.
+//
+// anthropicSystemBlock 是 Anthropic block 形式 system 数组的一个元素。
+// 用 block 形式（而非纯字符串）可以附加 cache_control。
+type anthropicSystemBlock struct {
+	Type         string        `json:"type"`
+	Text         string        `json:"text"`
+	CacheControl *cacheControl `json:"cache_control,omitempty"`
 }
 
 type anthropicMsgStart struct {

@@ -149,15 +149,25 @@ func TestBuildAnthropicBody_SystemField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildAnthropicBody: %v", err)
 	}
-	var out anthropicRequest
-	if err := json.Unmarshal(body, &out); err != nil {
-		t.Fatalf("unmarshal: %v", err)
+	// system is now serialized as a block array (required for cache_control support).
+	// system 现在序列化为 block 数组（cache_control 支持的要求）。
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
 	}
-	if out.System != "You are helpful." {
-		t.Errorf("system = %q, want 'You are helpful.'", out.System)
+	var blocks []anthropicSystemBlock
+	if err := json.Unmarshal(raw["system"], &blocks); err != nil {
+		t.Fatalf("system is not a block array: %v", err)
+	}
+	if len(blocks) != 1 || blocks[0].Text != "You are helpful." {
+		t.Errorf("system block = %+v, want text='You are helpful.'", blocks)
 	}
 	// System is NOT a message — messages should only have the user turn.
 	// system 不是 message——messages 只应有 user 回合。
+	var out anthropicRequest
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatalf("unmarshal request: %v", err)
+	}
 	if len(out.Messages) != 1 || out.Messages[0].Role != "user" {
 		t.Errorf("messages = %+v", out.Messages)
 	}
@@ -226,6 +236,150 @@ func TestBuildAnthropicBody_ToolDefinition(t *testing.T) {
 	// Anthropic 用 "input_schema" 而非 "parameters"。
 	if string(out.Tools[0].InputSchema) == "" {
 		t.Error("input_schema should not be empty")
+	}
+}
+
+// TestBuildAnthropicBody_CacheControlLastTool verifies that when tools are provided,
+// the last tool in the array carries cache_control.type == "ephemeral".
+//
+// 验证有 tools 时最后一个工具携带 cache_control.type == "ephemeral"。
+func TestBuildAnthropicBody_CacheControlLastTool(t *testing.T) {
+	req := Request{
+		ModelID:  "claude-3-5-sonnet-20241022",
+		System:   "You are helpful.",
+		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
+		Tools: []ToolDef{
+			{Name: "tool_a", Description: "First", Parameters: json.RawMessage(`{"type":"object"}`)},
+			{Name: "tool_b", Description: "Last", Parameters: json.RawMessage(`{"type":"object"}`)},
+		},
+	}
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		t.Fatalf("buildAnthropicBody: %v", err)
+	}
+
+	// Unmarshal raw to inspect cache_control on tools.
+	// 用 raw map 检查 tools 数组的 cache_control。
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+
+	var tools []map[string]json.RawMessage
+	if err := json.Unmarshal(raw["tools"], &tools); err != nil {
+		t.Fatalf("unmarshal tools: %v", err)
+	}
+	if len(tools) != 2 {
+		t.Fatalf("want 2 tools, got %d", len(tools))
+	}
+
+	// First tool must NOT have cache_control.
+	// 第一个工具不得有 cache_control。
+	if _, ok := tools[0]["cache_control"]; ok {
+		t.Error("first tool should not have cache_control")
+	}
+
+	// Last tool must have cache_control.type == "ephemeral".
+	// 最后一个工具必须有 cache_control.type == "ephemeral"。
+	ccRaw, ok := tools[1]["cache_control"]
+	if !ok {
+		t.Fatal("last tool missing cache_control")
+	}
+	var cc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(ccRaw, &cc); err != nil {
+		t.Fatalf("unmarshal cache_control: %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("last tool cache_control.type = %q, want ephemeral", cc.Type)
+	}
+}
+
+// TestBuildAnthropicBody_CacheControlSystem verifies that a non-empty system
+// is serialized as a block array with cache_control.type == "ephemeral".
+//
+// 验证非空 system 被序列化为带 cache_control 的 block 数组。
+func TestBuildAnthropicBody_CacheControlSystem(t *testing.T) {
+	req := Request{
+		ModelID:  "claude-3-5-sonnet-20241022",
+		System:   "You are helpful.",
+		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
+		Tools: []ToolDef{
+			{Name: "tool_a", Description: "First", Parameters: json.RawMessage(`{"type":"object"}`)},
+		},
+	}
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		t.Fatalf("buildAnthropicBody: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+
+	// system must now be an array of blocks, not a plain string.
+	// system 必须是 block 数组，而非纯字符串。
+	var blocks []map[string]json.RawMessage
+	if err := json.Unmarshal(raw["system"], &blocks); err != nil {
+		t.Fatalf("system is not an array of blocks: %v — raw: %s", err, raw["system"])
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("want 1 system block, got %d", len(blocks))
+	}
+
+	var blockType string
+	if err := json.Unmarshal(blocks[0]["type"], &blockType); err != nil || blockType != "text" {
+		t.Errorf("system block type = %q, want text", blockType)
+	}
+
+	var blockText string
+	if err := json.Unmarshal(blocks[0]["text"], &blockText); err != nil || blockText != "You are helpful." {
+		t.Errorf("system block text = %q, want 'You are helpful.'", blockText)
+	}
+
+	ccRaw, ok := blocks[0]["cache_control"]
+	if !ok {
+		t.Fatal("system block missing cache_control")
+	}
+	var cc struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(ccRaw, &cc); err != nil {
+		t.Fatalf("unmarshal cache_control: %v", err)
+	}
+	if cc.Type != "ephemeral" {
+		t.Errorf("system block cache_control.type = %q, want ephemeral", cc.Type)
+	}
+}
+
+// TestBuildAnthropicBody_NoCache_EmptyToolsAndSystem verifies no cache_control
+// is added when both tools and system are empty.
+//
+// 验证 tools 和 system 都为空时不添加 cache_control。
+func TestBuildAnthropicBody_NoCache_EmptyToolsAndSystem(t *testing.T) {
+	req := Request{
+		ModelID:  "claude-3-5-sonnet-20241022",
+		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
+	}
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		t.Fatalf("buildAnthropicBody: %v", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+
+	// tools key must be absent (omitempty).
+	if _, ok := raw["tools"]; ok {
+		t.Error("tools should be absent when empty")
+	}
+	// system key must be absent (omitempty).
+	if _, ok := raw["system"]; ok {
+		t.Error("system should be absent when empty")
 	}
 }
 
