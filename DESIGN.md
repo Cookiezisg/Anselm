@@ -197,3 +197,102 @@ button:active { transform: scale(0.98); }
 - 添加前 grep 池子防重复:`grep -F "Your phrase" frontend/src/panes/dashboard/greetings.js`
 - 加 tag 至少一个;含 `{name}` 必带 M tag
 - ≤ 50 字符。超过容易在 input 框上方溢出。
+
+---
+
+## 十一、组件与交互约定(Component & Interaction)
+
+§1–10 是"长什么样",这节是"怎么动 / 怎么搭"。以下规则都是 welcome + sidebar
+改造里用 bug 换来的,违反任何一条都会被一眼看出来。
+
+**1. 图标列对齐(rail icon column)**
+可折叠导航栏里,所有图标(logo / nav / 工具 / 头像 / 齿轮)的中心都落在**同一条
+竖线**上 —— 取收起态轨道的中心(64px 轨道 → x:32),**展开和收起两态都在这条线**。
+结果:折叠只是纯水平收窄,图标一根都不动。
+
+**2. 收起 / 展开 = 零位移(铁规)**
+折叠动画只允许改宽度 + label 淡出。任何图标 / 头像**不得有横向或纵向位移**。要点:
+- 图标用**固定左偏移**,不依赖动画过程中的容器宽度;
+- 两态**行高必须相同**(收起态 nav 项也要 38px;高 2px × N 行 = 肉眼可见的纵向膨胀);
+- 需要居中时,在**固定宽度**里居中(如 footer 固定 64px),**不要**在 Framer 正在
+  动画的宽度里 `align-items:center`(否则随宽度收窄从右滑入);
+- **同一个元素在两态复用**;别 expanded 用元素 A、collapsed 用元素 B(absolute vs
+  flow 居中会有亚像素漂移)。
+
+**3. 浮层 = 定位与动画分两层(关键)**
+任何用 Floating UI(或类似)定位 + 带入场动画的浮层(菜单 / popover / tooltip),
+**定位 transform 与动画 transform 绝不能在同一个元素上** —— 会互相覆盖,表现为
+"先在左上角闪一下再跳到正确位置"。做法:外层只承载定位(`floatingStyles`),
+内层承载入场动画(opacity + 自相对的 transform)。
+
+**4. 列表项 / 菜单项复用药丸语言**
+侧栏对话项、ActionMenu 项等,统一用导航项的药丸语言:999px 圆角、相同左右 margin、
+`--bg-hover` / `--bg-active` 的 hover/active 底色。次级列表字号可小一档(13 vs 14)。
+
+**5. 主操作 hover-only**
+"新对话"这类主项**不要常驻底色**(看着像被点击 / 卡住),只 hover 变色 + 字重 500
+即可。
+
+**6. 弹窗样式统一(ActionMenu / popover)**
+纯白底 `--bg-paper`、圆角 12、item 圆角 8、13px 字、16px 图标、padding 8·12、
+分隔线两侧留白。**全局一套**,别每处各写。
+
+**7. 状态点克制**
+列表项默认不挂状态点;只有 streaming(accent 脉动)/ 待批准(warn)才显,idle 标题
+齐平左对齐。
+
+**8. 折叠按钮要可见**
+展开态收起按钮要**常驻可见**(Gemini 那样右上角一个方块),别藏成 hover 才 morph 的
+小 logo —— 用户找不到 = 等于没有。收起态窄轨放不下时,才让 logo 兼任(hover 变
+展开图标)。
+
+**9. 数据单一来源**
+显示字段(用户名等)从**权威源**读(后端激活 User),不要复制进孤立的 localStorage
+字段 —— 会和真源脱节(走完引导仍显示 "?")。
+
+**10. CSS 收敛**
+一个组件一套样式,**不留打架的重复定义**(如 `.action-menu button` 靠 specificity
+盖住 `.action-menu-item`)。改样式前先 `grep` 有没有重复块,顺手删死代码。
+
+> 交互自检:折叠/展开来回点几次,图标 / 头像有没有动一个像素?浮层点开有没有闪?
+> 主项是不是只 hover 才变色?—— 全过再说做完。
+
+---
+
+## 十二、协作工作流 · Superpowers
+
+这套 UI 是用 superpowers skills 做出来的。以后做**大块 UI / 改造 / 多步任务**照走;
+小修小补可跳过仪式,但"先想清楚、先定根因、每步可验证"始终成立。
+
+**1. 想清楚再动手 — `superpowers:brainstorming`**
+"做个功能 / 改造 UI"先 brainstorm:探意图 → 一次问一个问题 → 提 2-3 方案 → 给设计 →
+写 spec。**没对齐不写代码。**
+
+**2. 视觉决策用 Visual Companion(默认动作)**
+涉及布局 / 样式 / 取舍,用视觉伴侣在浏览器画 **2-3 版 HTML mockup**,让用户**点着选**,
+定了再实现。"先 super power 脑洞个 html 给我看看" = 标准开场。**别凭空发明,别直接
+改代码让用户在真 app 里猜。**
+
+**3. spec → plan → 执行**
+- spec 落 `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`;
+- `superpowers:writing-plans` 拆成**逐任务、TDD、含确切文件 + 代码**的计划,落
+  `docs/superpowers/plans/`;
+- `superpowers:subagent-driven-development` 每任务派**全新 subagent** 实现 + **两段
+  review**(先 spec 合规、再代码质量)+ 最后整体 review。机械任务用便宜模型,
+  重写 / 判断用强模型。
+- (这些 spec/plan 是过程产物,合并后可像 user-identity-cleanup 那样 drop 掉。)
+
+**4. 改 bug — `superpowers:systematic-debugging`(Iron Law)**
+任何 bug **先定位根因再修**:没找到根因不准提修法。这轮所有 bug 都是先算清楚
+(像素坐标、grid 与 motion 宽度冲突、transform 抢占、字段脱节),对比原始 commit /
+读 git 历史 / 查后端,**再一刀修干净** —— 绝不猜、不打补丁遮症状。修法要"干净"
+(收敛重复、零位移、像素精确)。
+
+**5. 每步可验证 + 频繁提交**
+每个改动:`cd frontend && npm run build` + `npm test` 全绿 → commit → push。
+本仓库 trunk / feature 分支每 commit 即推、**无 AI 署名**。声称"修好了"前要有证据
+(测试 / 构建绿,或让用户肉眼验);视觉改动尤其要用户在浏览器确认。
+
+**6. 节奏**
+用户报问题 → 定根因(必要时读 git / curl 后端 / 算坐标)→ 视觉的先 mockup、逻辑的
+直接修 → 验证 → commit+push → 让用户检查。一次一个清晰闭环。
