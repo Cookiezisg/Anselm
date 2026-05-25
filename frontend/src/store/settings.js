@@ -7,12 +7,13 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { detectLang } from "./boot.js";
 
 const DEFAULTS = {
   theme: "system",       // "system" | "light" | "dark"
   accent: "claude",      // "claude" | "blue" | "ink" | "green" | "purple"
   density: "cozy",       // "compact" | "cozy" | "comfortable"
-  lang: "zh",            // "zh" | "en"
+  lang: detectLang(),    // first-run: device language (zh*/en); persisted after
   reasoningDefault: "collapsed", // "collapsed" | "expanded"
   leftPct: 50,           // saved pane split
   activeUserId: null,    // local profile id; null → backend default local-user
