@@ -24,7 +24,7 @@
 ## 改代码前必做
 
 1. 读对应 `service-design-documents/<domain>.md`
-2. 改完跑 `cd backend && go build ./... && make test-unit && staticcheck ./...`
+2. 改完跑 `make test-backend`（单测）+ `cd backend && go build ./... && staticcheck ./...`（编译 + 静态）
 3. 同步联动文档（§S14）
 
 ---
@@ -224,9 +224,13 @@ type Tool interface {
 
 | 命令 | 用途 |
 |---|---|
-| `make test-unit` | **默认跑这个**：in-memory SQLite，skip `TestIntegration_*` |
-| `make test-pipeline` | 端到端：source `.env`，`-tags=pipeline ./test/...` |
-| `make test-console` | 起 dev 服务器 + testend 控制台 |
+| `make test-backend` | **默认跑这个**：后端单测，in-memory SQLite，skip `TestIntegration_*`（= `cd backend && go test ./... -skip TestIntegration_`）|
+| `make test` | 后端 + 前端单测（test-backend + test-frontend）|
+| `make e2e` | 端到端 pipeline：source `.env`，`-tags=pipeline -p 1 ./test/...`（缺 key 优雅 skip）|
+| `make verify` | 发布门禁：vet × 5 平台 + build × 5 + lintprompts |
+| `make testend` | 起 testend 调试控制台（pre-frontend 时代遗留）|
+
+> `make` 在仓库**根**跑（不在 `backend/`）。`staticcheck ./...` 在 `backend/` 内直接跑（非 make 目标）。
 
 ---
 

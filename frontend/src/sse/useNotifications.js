@@ -23,7 +23,6 @@ const TYPE_TO_INVALIDATIONS = {
   mcp_server:   () => [qk.mcpServers()],
   skill:        () => [qk.skills()],
   memory:       () => [["memories"]],
-  catalog:      () => [],
   todo:         () => [],
   sandbox_env:  () => [],
   compaction:   (id) => [qk.conversation(id)],

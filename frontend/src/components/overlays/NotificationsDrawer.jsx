@@ -39,7 +39,6 @@ const TYPE_TO_ICON = {
   memory: Icon.Brain,
   todo: Icon.ListChecks,
   ask: Icon.HelpCircle,
-  catalog: Icon.Folder,
   sandbox_env: Icon.Boxes,
   compaction: Icon.Archive,
 };
