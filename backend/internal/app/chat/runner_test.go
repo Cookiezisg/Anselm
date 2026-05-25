@@ -2,9 +2,11 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 )
 
@@ -147,5 +149,150 @@ func TestSystemPromptSections_ToolConventionsSection(t *testing.T) {
 				}
 				return names
 			}())
+	}
+}
+
+// stubTool satisfies toolapp.Tool minimally for toolset construction in tests.
+type stubTool struct{ name string }
+
+func (st *stubTool) Name() string            { return st.name }
+func (st *stubTool) Description() string     { return "" }
+func (st *stubTool) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{},"required":[]}`)
+}
+func (st *stubTool) IsReadOnly() bool                                                             { return false }
+func (st *stubTool) NeedsReadFirst() bool                                                         { return false }
+func (st *stubTool) RequiresWorkspace() bool                                                      { return false }
+func (st *stubTool) ValidateInput(_ json.RawMessage) error                                        { return nil }
+func (st *stubTool) CheckPermissions(_ json.RawMessage, _ toolapp.PermissionMode) toolapp.PermissionResult {
+	return toolapp.PermissionAllow
+}
+func (st *stubTool) Execute(_ context.Context, _ string) (string, error) { return "", nil }
+
+func TestSystemPromptSections_CapabilitiesSection_WithLazyGroupsAndCatalog(t *testing.T) {
+	ts := toolapp.Toolset{
+		Lazy: map[string][]toolapp.Tool{
+			"function": {&stubTool{name: "create_function"}},
+			"handler":  {&stubTool{name: "create_handler"}},
+		},
+	}
+	catalog := &fakePromptProvider{text: "## Available capabilities\n- 3 forges in your library\n"}
+	s := &Service{catalog: catalog}
+	s.SetToolset(ts)
+
+	conv := &convdomain.Conversation{}
+	sections := s.SystemPromptSections(context.Background(), conv)
+
+	var cap *PromptSection
+	for i := range sections {
+		if sections[i].Name == "capabilities" {
+			cap = &sections[i]
+			break
+		}
+	}
+	if cap == nil {
+		t.Fatal("capabilities section missing from SystemPromptSections")
+	}
+	if !strings.Contains(cap.Content, "activate_tools") {
+		t.Errorf("capabilities content missing 'activate_tools' lead-in: %q", cap.Content)
+	}
+	if !strings.Contains(cap.Content, "function") {
+		t.Errorf("capabilities content missing 'function' group line: %q", cap.Content)
+	}
+	if !strings.Contains(cap.Content, "handler") {
+		t.Errorf("capabilities content missing 'handler' group line: %q", cap.Content)
+	}
+	// Asset menu (b) should appear under ## Your library
+	if !strings.Contains(cap.Content, "## Your library") {
+		t.Errorf("capabilities content missing '## Your library' header: %q", cap.Content)
+	}
+	if !strings.Contains(cap.Content, "3 forges") {
+		t.Errorf("capabilities content missing catalog body '3 forges': %q", cap.Content)
+	}
+	// No old "catalog" section should appear
+	for _, sec := range sections {
+		if sec.Name == "catalog" {
+			t.Errorf("old 'catalog' section must not appear alongside 'capabilities'")
+		}
+	}
+}
+
+func TestSystemPromptSections_CapabilitiesSection_EmptyLazyNilCatalog(t *testing.T) {
+	// Both empty → no capabilities section at all.
+	s := &Service{}
+	conv := &convdomain.Conversation{}
+	sections := s.SystemPromptSections(context.Background(), conv)
+
+	for _, sec := range sections {
+		if sec.Name == "capabilities" {
+			t.Errorf("capabilities section should be absent when toolset.Lazy empty and catalog nil; got sections: %v",
+				func() []string {
+					names := make([]string, len(sections))
+					for i, ss := range sections {
+						names[i] = ss.Name
+					}
+					return names
+				}())
+		}
+	}
+}
+
+func TestSystemPromptSections_CapabilitiesSection_OnlyLazyNoLabel(t *testing.T) {
+	// Lazy with an unknown category still renders with the raw category name.
+	ts := toolapp.Toolset{
+		Lazy: map[string][]toolapp.Tool{
+			"workflow": {&stubTool{name: "run_workflow"}},
+		},
+	}
+	s := &Service{}
+	s.SetToolset(ts)
+
+	conv := &convdomain.Conversation{}
+	sections := s.SystemPromptSections(context.Background(), conv)
+
+	var cap *PromptSection
+	for i := range sections {
+		if sections[i].Name == "capabilities" {
+			cap = &sections[i]
+			break
+		}
+	}
+	if cap == nil {
+		t.Fatal("capabilities section missing when lazy non-empty but catalog nil")
+	}
+	if !strings.Contains(cap.Content, "workflow") {
+		t.Errorf("capabilities content missing 'workflow': %q", cap.Content)
+	}
+	// No ## Your library when catalog is nil
+	if strings.Contains(cap.Content, "## Your library") {
+		t.Errorf("'## Your library' should be absent with nil catalog: %q", cap.Content)
+	}
+}
+
+func TestSystemPromptSections_CapabilitiesSection_OnlyCatalogNoLazy(t *testing.T) {
+	// Only catalog text (no lazy groups) → capabilities section exists but no tool-group index.
+	catalog := &fakePromptProvider{text: "## Available capabilities\n- 2 forges\n"}
+	s := &Service{catalog: catalog}
+	conv := &convdomain.Conversation{}
+	sections := s.SystemPromptSections(context.Background(), conv)
+
+	var cap *PromptSection
+	for i := range sections {
+		if sections[i].Name == "capabilities" {
+			cap = &sections[i]
+			break
+		}
+	}
+	if cap == nil {
+		t.Fatal("capabilities section missing when only catalog is non-empty")
+	}
+	if strings.Contains(cap.Content, "activate_tools") {
+		t.Errorf("tool-group index lead-in must be absent when lazy empty: %q", cap.Content)
+	}
+	if !strings.Contains(cap.Content, "## Your library") {
+		t.Errorf("'## Your library' header missing: %q", cap.Content)
+	}
+	if !strings.Contains(cap.Content, "2 forges") {
+		t.Errorf("catalog body missing: %q", cap.Content)
 	}
 }

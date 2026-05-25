@@ -3,6 +3,8 @@ package chat
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -194,7 +196,7 @@ func (s *Service) emitFatalError(
 //
 // PromptSection 是 chat system prompt 的一段；按顺序拼接为最终 wire prompt。
 type PromptSection struct {
-	Name    string `json:"name"`    // "base" / "user_systemPrompt" / "catalog" / "memory" / "documents" / "multi_agent_forging" / "locale_hint"
+	Name    string `json:"name"`    // "base" / "tool_conventions" / "multi_agent_forging" / "capabilities" / "memory" / "documents" / "user_systemPrompt" / "locale_hint"
 	Content string `json:"content"`
 }
 
@@ -207,10 +209,8 @@ func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Con
 	out = append(out, PromptSection{Name: "tool_conventions", Content: toolConventionsSection})
 	out = append(out, PromptSection{Name: "multi_agent_forging", Content: multiAgentForgingPromptSection})
 
-	if s.catalog != nil {
-		if catalogText := s.catalog.GetForSystemPrompt(ctx); catalogText != "" {
-			out = append(out, PromptSection{Name: "catalog", Content: catalogText})
-		}
+	if capContent := s.buildCapabilitiesSection(ctx); capContent != "" {
+		out = append(out, PromptSection{Name: "capabilities", Content: capContent})
 	}
 	if s.memory != nil {
 		if memoryText := s.memory.ForSystemPrompt(ctx); memoryText != "" {
@@ -256,6 +256,62 @@ const toolConventionsSection = `Every tool call accepts three standard fields:
 func BasePromptText() string              { return chatBasePrompt }
 func MultiAgentForgingPromptText() string { return multiAgentForgingPromptSection }
 func ToolConventionsText() string         { return toolConventionsSection }
+
+// categoryLabels maps the known lazy category names to their human-readable descriptions for the capabilities index.
+//
+// categoryLabels 把已知的 lazy 分类名映射成给 LLM 看的人类可读说明。
+var categoryLabels = map[string]string{
+	"function": "create/edit/delete/inspect functions",
+	"handler":  "create/edit/delete/inspect handlers",
+	"workflow": "create/edit/delete/trigger workflows",
+	"mcp":      "install/call external MCP servers",
+	"document": "manage documents",
+	"skill":    "skill execution history",
+}
+
+// buildCapabilitiesSection assembles (a) sorted tool-group index from Lazy + (b) catalog asset menu.
+// Returns "" when both are empty so the caller can skip the section entirely.
+//
+// buildCapabilitiesSection 拼 (a) Lazy 的有序 tool-group 索引 + (b) catalog 资产菜单。
+// 两者均空时返 ""，调用方跳过该段。
+func (s *Service) buildCapabilitiesSection(ctx context.Context) string {
+	var sb strings.Builder
+
+	// (a) Tool-group index — only when Lazy is non-empty.
+	if len(s.toolset.Lazy) > 0 {
+		categories := make([]string, 0, len(s.toolset.Lazy))
+		for cat := range s.toolset.Lazy {
+			categories = append(categories, cat)
+		}
+		sort.Strings(categories)
+
+		sb.WriteString("Common tools are loaded. To act on a category, call activate_tools(category):\n")
+		for _, cat := range categories {
+			label, ok := categoryLabels[cat]
+			if !ok {
+				label = cat
+			}
+			n := len(s.toolset.Lazy[cat])
+			sb.WriteString(fmt.Sprintf("- %s — %s (%d)\n", cat, label, n))
+		}
+		sb.WriteString("Prefer loaded tools; activate a category only when you need it.")
+	}
+
+	// (b) Asset menu — only when catalog returns non-empty text.
+	catalogText := ""
+	if s.catalog != nil {
+		catalogText = s.catalog.GetForSystemPrompt(ctx)
+	}
+	if catalogText != "" {
+		if sb.Len() > 0 {
+			sb.WriteString("\n\n")
+		}
+		sb.WriteString("## Your library\n")
+		sb.WriteString(catalogText)
+	}
+
+	return sb.String()
+}
 
 func (s *Service) buildSystemPrompt(ctx context.Context, conv *convdomain.Conversation) string {
 	return AssemblePromptSections(s.SystemPromptSections(ctx, conv))
