@@ -33,8 +33,8 @@ vi.mock("../../api/users.js", () => ({
   useUpdateUser: () => ({ mutate: vi.fn() }),
 }));
 
-// ApiKeysSection (default-open) is now a real component; stub its config hooks
-// so it renders deterministically without network.
+// ApiKeysSection and SearchSection are real components; stub their config hooks
+// so they render deterministically without network.
 vi.mock("../../api/config.js", () => ({
   useProviders: () => ({ data: [] }),
   useApiKeys: () => ({ data: [] }),
@@ -43,6 +43,7 @@ vi.mock("../../api/config.js", () => ({
   useTestApiKey: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useDeleteApiKey: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useUpsertModelConfig: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useUpdateApiKey: (_id) => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 import { useUIStore } from "../../store/ui.js";
@@ -88,27 +89,25 @@ describe("SettingsModal", () => {
     const { container } = render(<SettingsModal />, { wrapper: wrap });
     // Keys section is open by default — its (real) body renders the add button.
     expect(container.querySelector(".set-addbtn")).toBeInTheDocument();
-    // The 3 stub sections are closed, so no placeholder bodies are visible.
-    expect(screen.queryAllByText("即将实现").length).toBe(0);
   });
 
   it("clickSearchHeader_opensSearch_closesKeys", async () => {
     const { container } = render(<SettingsModal />, { wrapper: wrap });
 
-    // Initially keys is open — its body (add button) is present, no stub body.
+    // Initially keys is open — its body (add button) is present.
     expect(container.querySelector(".set-addbtn")).toBeInTheDocument();
-    expect(screen.queryAllByText("即将实现").length).toBe(0);
 
     await userEvent.click(screen.getByText("网络搜索"));
 
-    // Now search is open (one stub body) and keys is closed (add button gone).
-    expect(screen.getAllByText("即将实现").length).toBe(1);
-    expect(container.querySelector(".set-addbtn")).toBeNull();
+    // Now search is open (real SearchSection: empty state + its own add button).
+    expect(screen.getByText("还没有搜索密钥")).toBeInTheDocument();
+    // Both sections are now real: search add button is visible.
+    expect(container.querySelector(".set-addbtn")).toBeInTheDocument();
 
-    // Reopening keys closes search → add button back, no stub body.
+    // Reopening keys closes search — keys body (add button) remains.
     await userEvent.click(screen.getByText("API Keys"));
     expect(container.querySelector(".set-addbtn")).toBeInTheDocument();
-    expect(screen.queryAllByText("即将实现").length).toBe(0);
+    expect(screen.queryByText("还没有搜索密钥")).not.toBeInTheDocument();
   });
 
   it("closeButton_closesModal", async () => {
