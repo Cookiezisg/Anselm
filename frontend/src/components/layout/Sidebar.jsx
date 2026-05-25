@@ -140,7 +140,7 @@ export function Sidebar() {
         </div>
       )}
 
-      <div className="sb-foot-spacer" />
+      {collapsed && <div className="sb-foot-spacer" />}
       <div className="sb-foot">
         <button
           type="button"
