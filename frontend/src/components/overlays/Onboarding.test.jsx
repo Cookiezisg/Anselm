@@ -62,72 +62,92 @@ beforeEach(() => {
   mockSetModel.mockReset().mockResolvedValue({});
 });
 
+// Helper: click the primary advance/finish button (always labeled "开始" or "继续").
+// Using role+name avoids matching the step sidebar desc text "开始" in the done-step entry.
+const clickStart = (screen) => userEvent.click(screen.getByRole("button", { name: /开始/ }));
+const clickNext  = (screen) => userEvent.click(screen.getByRole("button", { name: /继续/ }));
+
+// Query the main content pane only, avoiding the sidebar step-desc duplicates.
+const pane = () => document.querySelector(".onb-pane");
+const inPane = (text) => within(pane()).getByText(text);
+
 describe("Onboarding", () => {
   it("intro_renderedFirst_clickStartAdvancesToAccount", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    expect(screen.getByText("欢迎使用 Forgify")).toBeInTheDocument();
-    await userEvent.click(screen.getByText("开始"));
-    expect(screen.getByText("创建本地工作空间")).toBeInTheDocument();
+    // Intro step renders the "你好" heading inside .onb-title (pane only).
+    expect(inPane("你好")).toBeInTheDocument();
+    await clickStart(screen);
+    // Account step heading (pane only).
+    expect(inPane("起个名字")).toBeInTheDocument();
   });
 
   it("account_emptyName_advanceButtonDisabled", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    const cont = screen.getByText("继续").closest("button");
+    await clickStart(screen);
+    const cont = screen.getByRole("button", { name: /继续/ });
     expect(cont.disabled).toBe(true);
   });
 
   it("account_filledName_canAdvance", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    const cont = screen.getByText("继续").closest("button");
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    const cont = screen.getByRole("button", { name: /继续/ });
     expect(cont.disabled).toBe(false);
   });
 
   it("look_swatchClick_updatesAccentPreview", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    expect(screen.getByText("选个主题色")).toBeInTheDocument();
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    // Look step heading (pane only — sidebar also has "挑个色调" in step desc).
+    expect(inPane("挑个色调")).toBeInTheDocument();
+    // Clicking a swatch other than the default (claude) updates active state.
+    // Re-query after click because React re-renders the list on state change.
+    expect(document.querySelectorAll(".onb-swatch").length).toBe(5);
+    await userEvent.click(document.querySelectorAll(".onb-swatch")[1]); // "Notion 蓝"
+    expect(document.querySelectorAll(".onb-swatch")[1].classList.contains("is-active")).toBe(true);
   });
 
   it("provider_canSkip_proceedToDoneWithoutKey", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
-    expect(screen.getByText("配一个 LLM")).toBeInTheDocument();
-    // No provider chosen → "继续" is disabled. Use explicit skip button.
-    const cont = screen.getByText("继续").closest("button");
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
+    // Provider step heading.
+    expect(screen.getByText("配一把钥匙")).toBeInTheDocument();
+    // No provider chosen → primary advance button is disabled.
+    const cont = screen.getByRole("button", { name: /继续/ });
     expect(cont.disabled).toBe(true);
-    await userEvent.click(screen.getByRole("button", { name: /跳过/ }));
-    expect(screen.getAllByText("就绪").length).toBeGreaterThanOrEqual(1);
+    // Explicit skip lands on done step.
+    await userEvent.click(screen.getByRole("button", { name: /稍后再配/ }));
+    expect(screen.getByText("好了")).toBeInTheDocument();
   });
 
   it("provider_clickedNoKey_cannotAdvance", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
     await userEvent.click(screen.getByText("DeepSeek"));
     // Provider picked, key empty → still disabled.
-    expect(screen.getByText("继续").closest("button").disabled).toBe(true);
+    expect(screen.getByRole("button", { name: /继续/ }).disabled).toBe(true);
   });
 
   it("done_clickFinish_callsCreateUserAndInvokesOnFinish", async () => {
     const onFinish = vi.fn();
     render(<Onboarding onFinish={onFinish} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
     // provider step: no key, use skip button to reach done.
-    await userEvent.click(screen.getByRole("button", { name: /跳过/ }));
-    await userEvent.click(screen.getByRole("button", { name: /进入应用/ }));
+    await userEvent.click(screen.getByRole("button", { name: /稍后再配/ }));
+    // On done step the primary button is labeled "开始" again.
+    await clickStart(screen);
     await waitFor(() => expect(mockCreateUser).toHaveBeenCalled());
     expect(mockCreateUser.mock.calls[0][0].displayName).toBe("alice");
     await waitFor(() => expect(onFinish).toHaveBeenCalled());
@@ -136,17 +156,18 @@ describe("Onboarding", () => {
   it("withApiKey_creates BothUserAndKey_andSetsModelFromModelsFound", async () => {
     const onFinish = vi.fn();
     render(<Onboarding onFinish={onFinish} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
     // Pick provider first — key input is now conditional on selection.
     await userEvent.click(screen.getByText("DeepSeek"));
     const keyInput = screen.getByPlaceholderText(/sk-/);
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.change(keyInput, { target: { value: "sk-test123" } });
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByRole("button", { name: /进入应用/ }));
+    await clickNext(screen);
+    // On done step the primary button is labeled "开始".
+    await clickStart(screen);
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
     expect(mockCreateKey.mock.calls[0][0].key).toBe("sk-test123");
     await waitFor(() => expect(mockSetModel).toHaveBeenCalled());
@@ -162,15 +183,15 @@ describe("Onboarding", () => {
     mockTestKey.mockReset().mockRejectedValue(new Error("HTTP 401"));
     const onFinish = vi.fn();
     render(<Onboarding onFinish={onFinish} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
     await userEvent.click(screen.getByText("DeepSeek"));
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.change(screen.getByPlaceholderText(/sk-/), { target: { value: "sk-bad" } });
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByRole("button", { name: /进入应用/ }));
+    await clickNext(screen);
+    await clickStart(screen);
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
     await waitFor(() => expect(onFinish).toHaveBeenCalled());
     // Key written; model-config NOT written when test fails.
@@ -179,20 +200,21 @@ describe("Onboarding", () => {
 
   it("prevButton_goesBackOneStep", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    expect(screen.getByText("创建本地工作空间")).toBeInTheDocument();
+    await clickStart(screen);
+    expect(inPane("起个名字")).toBeInTheDocument();
     await userEvent.click(screen.getByText(/上一步/));
-    expect(screen.getByText("欢迎使用 Forgify")).toBeInTheDocument();
+    // Back on intro step (pane only).
+    expect(inPane("你好")).toBeInTheDocument();
   });
 
   it("finishMarksOnboardedTrue", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
-    await userEvent.click(screen.getByText("开始"));
-    await userEvent.type(screen.getByPlaceholderText(/personal/), "alice");
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByText("继续"));
-    await userEvent.click(screen.getByRole("button", { name: /跳过/ }));
-    await userEvent.click(screen.getByRole("button", { name: /进入应用/ }));
+    await clickStart(screen);
+    await userEvent.type(screen.getByPlaceholderText(/私人/), "alice");
+    await clickNext(screen);
+    await clickNext(screen);
+    await userEvent.click(screen.getByRole("button", { name: /稍后再配/ }));
+    await clickStart(screen);
     await waitFor(() => expect(useSettings.getState().onboarded).toBe(true));
   });
 });
