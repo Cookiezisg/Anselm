@@ -17,21 +17,14 @@ import (
 // ErrEmptyName：name 缺失或全空白。
 var ErrEmptyName = errors.New("name is required and must be non-empty")
 
-const activateSkillDescription = `Load a skill's full instructions. The result is the substituted body text (or, when the skill declares context: fork, the final output of an isolated subagent that ran the body). Activation also pre-approves the skill's allowed-tools for the rest of this conversation.`
+const activateSkillDescription = `Load a skill's full instructions (from search_skills). Returns the substituted body, or — for context:fork skills — the output of an isolated subagent that ran it. Also pre-approves the skill's allowed-tools for this conversation.`
 
 var activateSkillSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["name"],
 	"properties": {
-		"name": {
-			"type": "string",
-			"description": "Skill name (from search_skills result, or known by convention like 'pr-review')."
-		},
-		"arguments": {
-			"type": "array",
-			"items": {"type": "string"},
-			"description": "Positional arguments substituted into $1, $2, ..., $ARGUMENTS, and named placeholders matching the skill's frontmatter.arguments declaration."
-		}
+		"name":      {"type": "string", "description": "Skill name from search_skills."},
+		"arguments": {"type": "array", "items": {"type": "string"}, "description": "Positional args substituted into $1, $2, … and named placeholders."}
 	}
 }`)
 

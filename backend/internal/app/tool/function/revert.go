@@ -16,8 +16,7 @@ type RevertFunction struct {
 func (t *RevertFunction) Name() string { return "revert_function" }
 
 func (t *RevertFunction) Description() string {
-	return "Revert a function's active version back to a previously-accepted version " +
-		"number. Use get_function to see version history first."
+	return "Restore a function's active version to an earlier accepted version number (see get_function for history)."
 }
 
 func (t *RevertFunction) Parameters() json.RawMessage {

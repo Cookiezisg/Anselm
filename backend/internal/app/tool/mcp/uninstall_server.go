@@ -19,12 +19,12 @@ type UninstallMCPServer struct {
 	svc *mcpapp.Service
 }
 
-const uninstallMCPServerDescription = `Uninstall a previously-installed MCP server: removes it from the MCP configuration and disconnects it. Pass the canonical short name the server was installed under (e.g. "playwright", "duckduckgo") — same name returned by list_mcp_marketplace and install_mcp_server.`
+const uninstallMCPServerDescription = `Remove an installed MCP server from config and disconnect it. Use the short name it was installed under (from list_mcp_marketplace / install_mcp_server).`
 
 var uninstallMCPServerSchema = json.RawMessage(`{
 	"type": "object",
 	"properties": {
-		"name": {"type": "string", "description": "Canonical short name of the installed server (e.g. 'playwright'). Same value as install_mcp_server's name field."}
+		"name": {"type": "string"}
 	},
 	"required": ["name"]
 }`)

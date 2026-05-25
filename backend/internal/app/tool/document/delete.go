@@ -12,20 +12,13 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 )
 
-const deleteDocumentDescription = `Soft-delete a document AND all its descendants recursively. This is reversible only via the user's UI (or DB restore) — you cannot undo a delete from inside another tool call.
-
-Set destructive=true on this call (it's a delete) so the user gets a confirmation prompt under permissions mode = ask.
-
-Returns the deleted-count including descendants.`
+const deleteDocumentDescription = `Soft-delete a document and all descendants recursively; set destructive=true. Returns the deleted count.`
 
 var deleteDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {
-			"type": "string",
-			"description": "Document ID to soft-delete (descendants also deleted recursively)."
-		}
+		"id": {"type": "string"}
 	}
 }`)
 

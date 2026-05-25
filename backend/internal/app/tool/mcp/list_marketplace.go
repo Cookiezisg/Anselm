@@ -17,16 +17,7 @@ type ListMCPMarketplace struct {
 	svc *mcpapp.Service
 }
 
-const listMarketplaceDescription = `List the curated MCP marketplace catalog. Use when an MCP capability is needed but no matching server is currently installed (search_mcp_tools returned nothing).
-
-Returns a JSON array sorted tier-asc then name-asc. Each entry carries:
-- name: canonical id used by install_mcp_server
-- description, runtime (node/python), homepage, category
-- tier: 0=zero-config, 1=one API key, 2=OAuth device-code, 3=DB connection string
-- requiredEnv / requiredArgs (with setupURL when an external key/account is needed)
-- notes: first-run gotchas worth relaying to the user
-
-After choosing a server, call install_mcp_server({name}) to begin the install. See that tool's docs for the two-phase confirmation flow.`
+const listMarketplaceDescription = `List the curated MCP marketplace when a capability is needed but no installed server matches (search_mcp_tools came up empty). Returns entries (name, description, runtime, category, tier 0–3, requiredEnv/requiredArgs, notes) sorted by tier then name. Then call install_mcp_server with the chosen name.`
 
 var listMarketplaceSchema = json.RawMessage(`{
 	"type": "object",

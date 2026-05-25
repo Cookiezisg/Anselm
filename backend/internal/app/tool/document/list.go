@@ -10,17 +10,12 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const listDocumentsDescription = `List documents one level deep under parentId (or at the root when parentId is null/omitted). Returns name + description + path for each direct child. Use this to walk the document tree progressively (Notion-style sidebar navigation).
-
-For full-tree overview see the catalog summary in your system prompt; for keyword search use search_documents.`
+const listDocumentsDescription = `List direct children one level under parentId (null/omit=root): name, description, path each. Walk the tree progressively; use search_documents for keyword search.`
 
 var listDocumentsSchema = json.RawMessage(`{
 	"type": "object",
 	"properties": {
-		"parentId": {
-			"type": ["string", "null"],
-			"description": "Parent document ID; null or omit for root-level docs."
-		}
+		"parentId": {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."}
 	}
 }`)
 

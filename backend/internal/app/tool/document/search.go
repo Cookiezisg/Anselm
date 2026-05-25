@@ -11,31 +11,16 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
-const searchDocumentsDescription = `Search the user's document library by keyword (matches name + description + tags via SQL LIKE). Returns up to ` + searchDocumentsDefaultLimitDesc + ` matches with their tree path and a one-line description, so you can pick which one(s) to read in full.
-
-Use this when:
-- You don't know which doc holds the info you need
-- The catalog index is large (>50 docs) and progressive disclosure is needed
-
-Prefer list_documents(parentId=...) when you know which folder to look in.`
+const searchDocumentsDescription = `Search documents by keyword over name/description/tags. Returns path + description per match so you can pick which to read. Prefer list_documents when you know the folder.`
 
 const searchDocumentsDefaultLimit = 10
-const searchDocumentsDefaultLimitDesc = "10"
 
 var searchDocumentsSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["query"],
 	"properties": {
-		"query": {
-			"type": "string",
-			"description": "Search keyword. Matches doc name / description / tags via SQL LIKE."
-		},
-		"limit": {
-			"type": "integer",
-			"default": 10,
-			"maximum": 50,
-			"description": "Max results to return (default 10, max 50)."
-		}
+		"query": {"type": "string"},
+		"limit": {"type": "integer", "default": 10, "maximum": 50}
 	}
 }`)
 

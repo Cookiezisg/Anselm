@@ -16,8 +16,7 @@ type GetMCPCall struct {
 func (t *GetMCPCall) Name() string { return "get_mcp_call" }
 
 func (t *GetMCPCall) Description() string {
-	return "Fetch one MCP tool call by id (mcl_xxx). Returns full input + output JSON " +
-		"(no truncation), error details, server + tool name, timing."
+	return "Fetch one MCP call by id (from search_mcp_calls) with full untruncated input/output, error, server/tool, timing."
 }
 
 func (t *GetMCPCall) Parameters() json.RawMessage {

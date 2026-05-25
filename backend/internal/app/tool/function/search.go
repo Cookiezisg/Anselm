@@ -31,9 +31,7 @@ type SearchFunction struct {
 func (t *SearchFunction) Name() string { return "search_function" }
 
 func (t *SearchFunction) Description() string {
-	return "Search the user's function library for relevant functions given a query. " +
-		"Returns up to limit functions ranked by relevance. " +
-		"Use get_function to inspect the full code of a candidate before running it."
+	return "Find functions in the user's library by query, ranked by relevance; get_function to inspect code before running."
 }
 
 func (t *SearchFunction) Parameters() json.RawMessage {

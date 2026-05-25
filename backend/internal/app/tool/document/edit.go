@@ -12,37 +12,17 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 )
 
-const editDocumentDescription = `Update fields of an existing document. PARTIAL — only supplied fields are written; omitted fields keep their current values. Renaming triggers a path-cascade for all descendants automatically.
-
-To replace content, pass the new content in full (no diff / no patch semantics). Tags is also a full-list replace if supplied.
-
-If you want to MOVE a doc (change its parent), use move_document instead.`
+const editDocumentDescription = `Update a document's fields; only supplied fields change. content and tags are full replacements (no diff/patch). Renaming cascades the path to all descendants. To change parent, use move_document.`
 
 var editDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {
-			"type": "string",
-			"description": "Document ID to edit."
-		},
-		"name": {
-			"type": "string",
-			"description": "New title (renaming cascades path for all descendants)."
-		},
-		"description": {
-			"type": "string",
-			"description": "New one-line summary."
-		},
-		"content": {
-			"type": "string",
-			"description": "New full markdown body. Whole-doc replace; no diff/patch semantics."
-		},
-		"tags": {
-			"type": "array",
-			"items": { "type": "string" },
-			"description": "New tag list (full replace)."
-		}
+		"id":          {"type": "string"},
+		"name":        {"type": "string", "description": "Renaming cascades path to all descendants."},
+		"description": {"type": "string"},
+		"content":     {"type": "string", "description": "Full replacement; no diff/patch semantics."},
+		"tags":        {"type": "array", "items": {"type": "string"}, "description": "Full replacement."}
 	}
 }`)
 

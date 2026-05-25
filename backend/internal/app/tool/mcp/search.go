@@ -19,22 +19,14 @@ const defaultTopK = 5
 var ErrEmptyQuery = errors.New("query is required and must be non-empty")
 
 
-const searchMCPDescription = `Search across all connected MCP servers for tools matching a natural-language query. Returns the top K candidate tools (server name, tool name, description, inputSchema) — use the inputSchema to build args for a subsequent call_mcp_tool invocation. Prefer native tools (Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch) when they suffice; reach for MCP for external integrations (browser, GitHub, SQL, etc.).`
+const searchMCPDescription = `Find tools on connected MCP servers by natural-language query; returns candidates with their inputSchema for a follow-up call_mcp_tool. Prefer native tools (Read/Write/Edit/Bash/Grep/Glob/WebFetch/WebSearch); use MCP for external integrations (browser, GitHub, SQL).`
 
 var searchMCPSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["query"],
 	"properties": {
-		"query": {
-			"type": "string",
-			"description": "Natural-language description of what tool you need (e.g. 'open URL in browser', 'search GitHub PRs', 'query SQLite')."
-		},
-		"top_k": {
-			"type": "integer",
-			"minimum": 1,
-			"maximum": 20,
-			"description": "How many candidate tools to return. Default 5; max 20."
-		}
+		"query": {"type": "string"},
+		"top_k": {"type": "integer", "minimum": 1, "maximum": 20, "description": "Default 5."}
 	}
 }`)
 

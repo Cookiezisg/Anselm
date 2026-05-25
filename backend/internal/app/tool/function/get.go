@@ -16,16 +16,14 @@ type GetFunction struct {
 func (t *GetFunction) Name() string { return "get_function" }
 
 func (t *GetFunction) Description() string {
-	return "Get the full details of a specific function including code, parameters, " +
-		"dependencies, and pending version (if any). Use this to verify a candidate " +
-		"function before running it or before editing."
+	return "Full function details: code, parameters, dependencies, and any pending version. Use before running or editing."
 }
 
 func (t *GetFunction) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"id": {"type": "string", "description": "The function ID (fn_xxx) to retrieve"}
+			"id": {"type": "string"}
 		},
 		"required": ["id"]
 	}`)

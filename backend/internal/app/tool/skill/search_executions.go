@@ -17,8 +17,7 @@ type SearchSkillExecutions struct {
 func (t *SearchSkillExecutions) Name() string { return "search_skill_executions" }
 
 func (t *SearchSkillExecutions) Description() string {
-	return "Search Skill activation history (skill_executions table). Filter by skillName / " +
-		"status / conversationId / flowrunId / forkDepth. Returns previews + aggregates."
+	return "Search skill activation history. Returns previews plus aggregates. Filterable by skill, status, conversation, flowrun, or fork depth."
 }
 
 func (t *SearchSkillExecutions) Parameters() json.RawMessage {

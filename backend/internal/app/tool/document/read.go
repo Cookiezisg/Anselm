@@ -12,18 +12,13 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 )
 
-const readDocumentDescription = `Load a document's full markdown content by ID. Returns the doc's path, description, tags, and the entire body. Use this once you've picked which doc(s) to read via search_documents or list_documents.
-
-If the doc is large you'll get the whole thing — the user has capped each doc at 1 MB so this is bounded.`
+const readDocumentDescription = `Load a document's full markdown body plus path, description, and tags. Use after picking a doc via search_documents/list_documents.`
 
 var readDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {
-			"type": "string",
-			"description": "Document ID (doc_<16hex>) from search / list results."
-		}
+		"id": {"type": "string"}
 	}
 }`)
 

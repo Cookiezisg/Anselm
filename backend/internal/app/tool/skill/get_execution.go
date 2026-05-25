@@ -16,8 +16,7 @@ type GetSkillExecution struct {
 func (t *GetSkillExecution) Name() string { return "get_skill_execution" }
 
 func (t *GetSkillExecution) Description() string {
-	return "Fetch one Skill activation by id (ske_xxx). Returns full output text, " +
-		"substitutions used, fork depth, timing."
+	return "Fetch one skill activation by id (from search_skill_executions) with full output, substitutions, fork depth, timing."
 }
 
 func (t *GetSkillExecution) Parameters() json.RawMessage {

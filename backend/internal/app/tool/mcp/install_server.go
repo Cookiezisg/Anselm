@@ -19,19 +19,15 @@ type InstallMCPServer struct {
 	svc *mcpapp.Service
 }
 
-const installMCPServerDescription = `Install an MCP server from the curated marketplace.
-
-The tool runs in two calls. The first call (omit ` + "`confirmed`" + `) returns ` + "`{status:\"needs_confirmation\", suggested_question, required_env, required_args, notes}`" + ` — relay the question and notes to the user via the ask tool to collect any required values. The second call (` + "`confirmed: true`" + ` plus collected ` + "`env`" + ` / ` + "`arguments`" + `) performs the install and returns either a ServerStatus envelope or a structured error (codes: already_installed / missing_required_args / install_failed / handshake_failed).
-
-` + "`name`" + ` is the curated catalog's short slug (pick from list_mcp_marketplace).`
+const installMCPServerDescription = `Install an MCP server from the curated marketplace (name = a list_mcp_marketplace slug). Two-step: call without 'confirmed' to get a needs_confirmation envelope (suggested_question, required_env, required_args) — relay it via the ask tool to collect values; then call again with confirmed:true plus env/arguments to install.`
 
 var installMCPServerSchema = json.RawMessage(`{
 	"type": "object",
 	"properties": {
-		"name":      {"type": "string", "description": "Curated catalog short slug (e.g. 'playwright', 'notion'). Pick from list_mcp_marketplace."},
-		"confirmed": {"type": "boolean", "description": "Set to true on the second call after user has consented. Phase-1 calls omit this."},
-		"env":       {"type": "object", "description": "Map of env-var values for required env entries. Phase 2 only."},
-		"arguments": {"type": "object", "description": "Map of arg values for required args. Phase 2 only."}
+		"name":      {"type": "string", "description": "Marketplace slug (from list_mcp_marketplace)."},
+		"confirmed": {"type": "boolean", "description": "Omit on first call; true on second."},
+		"env":       {"type": "object", "description": "Env-var values (phase 2)."},
+		"arguments": {"type": "object", "description": "Arg values (phase 2)."}
 	},
 	"required": ["name"]
 }`)

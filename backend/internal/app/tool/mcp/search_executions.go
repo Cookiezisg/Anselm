@@ -18,9 +18,7 @@ type SearchMCPCalls struct {
 func (t *SearchMCPCalls) Name() string { return "search_mcp_calls" }
 
 func (t *SearchMCPCalls) Description() string {
-	return "Search MCP tool call history. Filter by serverName / toolName / status / " +
-		"conversationId / flowrunId. Returns previews (200-byte input/output snippets) + " +
-		"aggregates (ok/failed/cancelled/timeout counts + avg/p95 elapsed_ms)."
+	return "Search MCP call history. Returns previews (200-byte input/output snippets) plus aggregates (status counts, avg/p95 elapsed). Filterable by server, tool, status, conversation, or flowrun."
 }
 
 func (t *SearchMCPCalls) Parameters() json.RawMessage {

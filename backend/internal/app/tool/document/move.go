@@ -12,27 +12,15 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 )
 
-const moveDocumentDescription = `Reparent (and optionally reorder) a document within the tree. Pass parentId = null to move to root level. position is the sibling index (0 = first); omit to append at the end.
-
-Path is recomputed automatically and cascaded to all descendants. Self-parenting and cycles (moving a doc under one of its descendants) are rejected.`
+const moveDocumentDescription = `Reparent a document; parentId=null moves to root. position is the sibling index (0=first), omit to append. Path cascades to descendants. Cycles and self-parenting are rejected.`
 
 var moveDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {
-			"type": "string",
-			"description": "Document ID to move."
-		},
-		"parentId": {
-			"type": ["string", "null"],
-			"description": "New parent ID; null = move to root."
-		},
-		"position": {
-			"type": "integer",
-			"minimum": 0,
-			"description": "Sibling position (0 = first). Omit to append at end."
-		}
+		"id":       {"type": "string"},
+		"parentId": {"type": ["string", "null"], "description": "New parent ID; null = root."},
+		"position": {"type": "integer", "minimum": 0, "description": "Sibling index (0=first); omit to append."}
 	}
 }`)
 

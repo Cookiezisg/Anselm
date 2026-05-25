@@ -16,16 +16,14 @@ type GetFunctionExecution struct {
 func (t *GetFunctionExecution) Name() string { return "get_function_execution" }
 
 func (t *GetFunctionExecution) Description() string {
-	return "Get full details of one function execution by id, including complete input + " +
-		"output (truncated at 4KB) and machine-computed hints (outputEmpty, " +
-		"significantlySlower) for fast diagnosis."
+	return "Full detail of one execution: input + output (4KB cap) plus diagnostic hints (outputEmpty, significantlySlower)."
 }
 
 func (t *GetFunctionExecution) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"id": {"type": "string", "description": "Execution id (fne_xxx)"}
+			"id": {"type": "string"}
 		},
 		"required": ["id"]
 	}`)

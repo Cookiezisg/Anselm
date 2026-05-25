@@ -18,20 +18,16 @@ type RunFunction struct {
 func (t *RunFunction) Name() string { return "run_function" }
 
 func (t *RunFunction) Description() string {
-	return "Execute a function with given arguments. Returns the result object containing " +
-		"ok / output / errorMsg / elapsedMs. If the function's env is not yet ready, " +
-		"sync stage progress streams as deltas under a progress block. Cancellation is " +
-		"caller-driven (no per-call timeout knob): if the user cancels the chat turn the " +
-		"sandbox process tree is killed via ctx propagation."
+	return "Run a function with kwargs; returns {ok, output, errorMsg, elapsedMs}."
 }
 
 func (t *RunFunction) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"functionId": {"type": "string", "description": "Function ID (fn_xxx)"},
-			"version":    {"type": "string", "description": "Optional version ID (fnv_xxx); omit for active"},
-			"args":       {"type": "object", "description": "Kwargs passed to the user's def"}
+			"functionId": {"type": "string"},
+			"version":    {"type": "string", "description": "Omit for active version"},
+			"args":       {"type": "object", "description": "Kwargs passed to the function"}
 		},
 		"required": ["functionId", "args"]
 	}`)

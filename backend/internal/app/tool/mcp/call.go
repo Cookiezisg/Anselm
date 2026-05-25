@@ -26,25 +26,15 @@ var (
 )
 
 
-const callMCPDescription = `Invoke a specific tool on a specific MCP server. Pair with search_mcp_tools: discover the tool + its inputSchema, then call_mcp_tool with matching server / tool / args. The args object must conform to the tool's inputSchema. On failure the result string carries the reason so you can adjust args, pick a different tool, or stop.`
+const callMCPDescription = `Invoke a tool on a connected MCP server. Discover server/tool/inputSchema via search_mcp_tools first; args must match that inputSchema. Failures return the reason as text so you can adjust args or pick another tool.`
 
 var callMCPSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["server", "tool", "args"],
 	"properties": {
-		"server": {
-			"type": "string",
-			"description": "MCP server name (e.g. 'github', 'playwright', 'sqlite')."
-		},
-		"tool": {
-			"type": "string",
-			"description": "Tool name as returned by search_mcp_tools (no 'mcp__' prefix)."
-		},
-		"args": {
-			"type": "object",
-			"description": "Arguments matching the tool's inputSchema. Use {} when the tool takes no arguments.",
-			"additionalProperties": true
-		}
+		"server": {"type": "string"},
+		"tool":   {"type": "string", "description": "No 'mcp__' prefix; use name from search_mcp_tools."},
+		"args":   {"type": "object", "additionalProperties": true}
 	}
 }`)
 

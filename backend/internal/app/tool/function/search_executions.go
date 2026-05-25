@@ -18,11 +18,8 @@ type SearchFunctionExecutions struct {
 func (t *SearchFunctionExecutions) Name() string { return "search_function_executions" }
 
 func (t *SearchFunctionExecutions) Description() string {
-	return "Search the function execution log. Filter by functionId / versionId / status " +
-		"(ok|failed|cancelled|timeout) / conversationId / flowrunId / since-until ISO8601. " +
-		"Returns previews (200-byte input/output snippets) + aggregates (ok/failed/cancelled/" +
-		"timeout counts + avg/p95 elapsed_ms). Use get_function_execution to drill into a single " +
-		"row by id when you need the full input + output."
+	return "Search the execution log; filters: functionId, versionId, status, conversationId, flowrunId, since/until (ISO8601). " +
+		"Returns 200-byte previews + status/latency aggregates. get_function_execution for one full row."
 }
 
 func (t *SearchFunctionExecutions) Parameters() json.RawMessage {

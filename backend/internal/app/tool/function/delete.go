@@ -16,8 +16,7 @@ type DeleteFunction struct {
 func (t *DeleteFunction) Name() string { return "delete_function" }
 
 func (t *DeleteFunction) Description() string {
-	return "Soft-delete a function. Any workflows referencing it will be marked " +
-		"needs_attention until the user remediates."
+	return "Soft-delete a function; referencing workflows become needs_attention."
 }
 
 func (t *DeleteFunction) Parameters() json.RawMessage {

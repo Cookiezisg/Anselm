@@ -32,11 +32,8 @@ type EditFunction struct {
 func (t *EditFunction) Name() string { return "edit_function" }
 
 func (t *EditFunction) Description() string {
-	return "Edit an existing function by applying a sequence of ops. Creates (or iterates) " +
-		"a pending version. Pass ops=[] to force-rebuild the active version's env (D-redo-22). " +
-		"If the venv install fails, an internal env-fix loop retries up to 3 times by asking " +
-		"the LLM to revise the dependency list. The tool returns the pending version's " +
-		"terminal state — the user reviews and accepts/rejects."
+	return "Apply ops to a function as a pending version for user accept/reject. " +
+		"ops=[] force-rebuilds the active env. Failed venv installs auto-retry deps (≤3)."
 }
 
 func (t *EditFunction) Parameters() json.RawMessage {

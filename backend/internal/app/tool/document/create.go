@@ -12,41 +12,17 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 )
 
-const createDocumentDescription = `Create a new document in the user's library. Pass parentId to nest under an existing doc (Notion-style); omit or pass null to put it at the root level.
-
-When you create a doc:
-- name: shown in the tree sidebar (avoid slashes; trim whitespace)
-- description: one-line summary, surfaced in the catalog so other agents / your future self can find it
-- content: full markdown body (≤1 MB; if larger, split into child docs)
-- tags: optional, for filtering
-
-Names must be unique among siblings of the same parent (case-sensitive).`
+const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body (split into child docs if >1MB). Name must be unique among siblings (auto-suffixed on collision).`
 
 var createDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["name"],
 	"properties": {
-		"name": {
-			"type": "string",
-			"description": "Document title; non-empty, no slashes, ≤256 chars."
-		},
-		"parentId": {
-			"type": ["string", "null"],
-			"description": "Parent doc ID; null or omit = root level."
-		},
-		"description": {
-			"type": "string",
-			"description": "One-line summary for the catalog (≤200 chars recommended)."
-		},
-		"content": {
-			"type": "string",
-			"description": "Full markdown body. Defaults to empty if omitted."
-		},
-		"tags": {
-			"type": "array",
-			"items": { "type": "string" },
-			"description": "Optional tags for grouping / filtering."
-		}
+		"name":        {"type": "string", "description": "Document title; no slashes, ≤256 chars."},
+		"parentId":    {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."},
+		"description": {"type": "string", "description": "One-line catalog summary."},
+		"content":     {"type": "string", "description": "Full markdown body."},
+		"tags":        {"type": "array", "items": {"type": "string"}}
 	}
 }`)
 

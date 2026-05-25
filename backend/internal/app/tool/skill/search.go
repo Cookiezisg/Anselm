@@ -18,22 +18,14 @@ const defaultTopK = 3
 // ErrEmptyQuery：query 缺失或全空白。
 var ErrEmptyQuery = errors.New("query is required and must be non-empty")
 
-const searchSkillsDescription = `Search the user's installed skills (procedural workflows + allowed-tools bundles) for ones relevant to a task. Returns the top K candidates, each with name, description, and an isFork flag indicating whether activation will spawn an isolated subagent or run inline. Pair with activate_skill once you have a candidate.`
+const searchSkillsDescription = `Search the user's installed skills (procedural workflows + allowed-tools bundles) relevant to a task; returns candidates with name, description, and an isFork flag (fork = runs in an isolated subagent). Then call activate_skill.`
 
 var searchSkillsSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["query"],
 	"properties": {
-		"query": {
-			"type": "string",
-			"description": "Natural-language description of the task or workflow you need (e.g. 'review a pull request', 'deploy to staging', 'clean up CSV')."
-		},
-		"top_k": {
-			"type": "integer",
-			"minimum": 1,
-			"maximum": 10,
-			"description": "How many candidate skills to return. Default 3; max 10."
-		}
+		"query": {"type": "string"},
+		"top_k": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Default 3."}
 	}
 }`)
 

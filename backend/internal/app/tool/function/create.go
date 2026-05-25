@@ -32,12 +32,9 @@ type CreateFunction struct {
 func (t *CreateFunction) Name() string { return "create_function" }
 
 func (t *CreateFunction) Description() string {
-	return "Create a new function by applying a sequence of ops. The ops must include " +
-		"set_meta (name + description), set_code (Python source), set_parameters (input " +
-		"schema), and optionally set_return_schema / set_dependencies / set_python_version. " +
-		"On success the function's v1 is auto-accepted. If the venv install fails, an internal " +
-		"env-fix loop retries up to 3 times by asking the LLM to revise the dependency list; " +
-		"the final tool result carries envStatus + attemptsUsed + attemptHistory."
+	return "Build a new function from ops: set_meta, set_code, set_parameters required; " +
+		"set_return_schema/set_dependencies/set_python_version optional. " +
+		"v1 auto-accepts; failed venv installs auto-retry deps (≤3)."
 }
 
 func (t *CreateFunction) Parameters() json.RawMessage {
