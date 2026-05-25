@@ -135,11 +135,96 @@ type promptHit struct {
 	content string
 }
 
+// ── Ghost tool-reference guard ─────────────────────────────────────────────
+// Prompts / AllowedTools must not reference a tool name that no tool registers
+// (the edit_forge / search_forges / call_mcp class the 2026-05-26 audit found).
+// realToolNames is the source of truth — scanned from Name() returns under
+// internal/app/tool, so it self-updates as tools come and go.
+
+var nameReturnRe = regexp.MustCompile(`Name\(\) string\s*\{\s*return "([a-zA-Z_][a-zA-Z0-9_]*)"`)
+
+func realToolNames(toolDir string) map[string]bool {
+	out := map[string]bool{}
+	_ = filepath.Walk(toolDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		for _, m := range nameReturnRe.FindAllStringSubmatch(string(data), -1) {
+			out[m[1]] = true
+		}
+		return nil
+	})
+	return out
+}
+
+// nonToolTokens are tool-shaped tokens that legitimately appear backticked in
+// prompts but are NOT tools (params, concepts). Seeded from a real run; extend
+// only when a genuine non-tool token trips the guard.
+var nonToolTokens = map[string]bool{
+	"head_limit": true, // Grep param
+	"bash_id":    true, // Bash/BashOutput/KillShell param
+	"blocked_by": true, // TodoUpdate param
+}
+
+var (
+	backtickRefRe  = regexp.MustCompile("`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`")
+	allowedSliceRe = regexp.MustCompile(`AllowedTools:\s*\[\]string\{([^}]*)\}`)
+	quotedIdentRe  = regexp.MustCompile(`"([A-Za-z][A-Za-z0-9_]*)"`)
+)
+
+// findGhostToolRefs returns tool-shaped tokens referenced in content (backtick
+// prose refs + AllowedTools entries) that are neither real tools nor allowlisted.
+func findGhostToolRefs(content string, real, allow map[string]bool) []string {
+	var out []string
+	seen := map[string]bool{}
+	flag := func(tok string) {
+		if real[tok] || allow[tok] || seen[tok] {
+			return
+		}
+		seen[tok] = true
+		out = append(out, tok)
+	}
+	for _, m := range backtickRefRe.FindAllStringSubmatch(content, -1) {
+		flag(m[1])
+	}
+	for _, sl := range allowedSliceRe.FindAllStringSubmatch(content, -1) {
+		for _, q := range quotedIdentRe.FindAllStringSubmatch(sl[1], -1) {
+			flag(q[1])
+		}
+	}
+	return out
+}
+
+func scanGhostTools(roots []string, real, allow map[string]bool) int {
+	violations := 0
+	for _, root := range roots {
+		_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+			for _, g := range findGhostToolRefs(string(data), real, allow) {
+				fmt.Printf("%s  [ghost-tool]  references %q — not a registered tool\n", path, g)
+				violations++
+			}
+			return nil
+		})
+	}
+	return violations
+}
+
 func main() {
 	// Run from backend/ working dir (matches `make lint-prompts`).
 	// 在 backend/ cwd 运行（make lint-prompts 即此）。
 	roots := []string{"internal/app/tool", "internal/app/chat", "internal/app/catalog",
-		"internal/app/contextmgr", "internal/app/subagent"}
+		"internal/app/contextmgr", "internal/app/subagent", "internal/app/askai"}
 	totalHits := 0
 	totalViolations := 0
 	for _, root := range roots {
@@ -154,6 +239,10 @@ func main() {
 			}
 		}
 	}
+	// Ghost tool-reference guard — prompts must not name unregistered tools.
+	real := realToolNames("internal/app/tool")
+	totalViolations += scanGhostTools(roots, real, nonToolTokens)
+
 	fmt.Printf("\nScanned %d prompts; %d violations.\n", totalHits, totalViolations)
 	if totalViolations > 0 {
 		os.Exit(1)
