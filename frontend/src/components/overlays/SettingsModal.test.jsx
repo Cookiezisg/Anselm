@@ -27,10 +27,19 @@ vi.mock("../../api/users.js", () => ({
       { id: "u_b", username: "bob",   displayName: "Bob" },
     ],
   }),
-  useCreateUser: () => ({
-    mutateAsync: vi.fn(async ({ username }) => ({ id: "u_new", username })),
-  }),
   useUpdateUser: () => ({ mutate: vi.fn() }),
+}));
+
+const mockSwitchTo = vi.fn();
+const mockAddAccount = vi.fn();
+vi.mock("../../features/settings/index.js", () => ({
+  useAccountManager: () => ({
+    name: "",
+    setName: vi.fn(),
+    switchTo: mockSwitchTo,
+    addAccount: mockAddAccount,
+    isAdding: false,
+  }),
 }));
 
 // ApiKeysSection and SearchSection are real components; stub their config hooks

@@ -5,17 +5,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { useUIStore } from "../../store/ui.js";
 import { useSettings } from "../../store/settings.js";
-import { useUsers, useCreateUser } from "../../api/users.js";
+import { useUsers } from "../../api/users.js";
 import { scaleIn } from "../../motion/tokens.js";
 import { ApiKeysSection } from "../config/ApiKeysSection.jsx";
 import { SearchSection } from "../config/SearchSection.jsx";
 import { AppearanceSection } from "../config/AppearanceSection.jsx";
 import { SystemSection } from "../config/SystemSection.jsx";
+import { useAccountManager } from "../../features/settings/index.js";
 
 export function SettingsModal() {
   const { t } = useTranslation("settings");
@@ -86,32 +86,16 @@ export function SettingsModal() {
 function AccountRegion() {
   const { t } = useTranslation("settings");
   const { data: users = [] } = useUsers();
-  const createUser = useCreateUser();
-  const qc = useQueryClient();
   const settings = useSettings();
-  const pushToast = useUIStore((s) => s.pushToast);
   const [mode, setMode] = useState("view");
-  const [name, setName] = useState("");
+
+  const { name, setName, switchTo: switchToAccount, addAccount } = useAccountManager();
 
   const active = users.find((u) => u.id === settings.activeUserId) || users[0];
 
   const switchTo = (id) => {
-    settings.set({ activeUserId: id });
+    switchToAccount(id);
     setMode("view");
-    qc.invalidateQueries();
-    pushToast({ kind: "success", title: t("account.switchedTo", { id }) });
-  };
-
-  const addAccount = async () => {
-    const username = name.trim();
-    if (!username) return;
-    try {
-      const created = await createUser.mutateAsync({ username });
-      switchTo(created.id);
-      setName("");
-    } catch (e) {
-      pushToast({ kind: "error", title: t("account.addFail"), desc: e.message });
-    }
   };
 
   const initials = (active?.displayName || active?.username || "?")
