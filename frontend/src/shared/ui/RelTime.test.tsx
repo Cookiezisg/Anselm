@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { RelTime } from "./RelTime.jsx";
+import { RelTime } from "./RelTime.tsx";
 
 const NOW = new Date("2026-05-24T12:00:00Z");
 

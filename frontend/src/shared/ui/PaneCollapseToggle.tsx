@@ -1,3 +1,4 @@
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "./Icon.tsx";
 
@@ -8,7 +9,13 @@ import { Icon } from "./Icon.tsx";
 // PaneCollapseToggle —— 折叠子面板的 hover-only 浮按钮；
 // 贴边缘垂直居中，鼠标进入触发区才浮现。
 
-export function PaneCollapseToggle({ side = "left", onClick, title }) {
+interface PaneCollapseToggleProps {
+  side?: "left" | "right";
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+  title?: string;
+}
+
+export function PaneCollapseToggle({ side = "left", onClick, title }: PaneCollapseToggleProps) {
   const { t } = useTranslation("misc");
   return (
     <button

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "./Icon.tsx";
 
@@ -11,9 +11,18 @@ import { Icon } from "./Icon.tsx";
 //
 // Same anchorRef contract as FloatingInspector for click-outside.
 
+interface BottomSheetProps {
+  open: boolean;
+  onClose?: () => void;
+  title?: React.ReactNode;
+  children?: React.ReactNode;
+  height?: number;
+  anchorRef?: React.RefObject<Element>;
+}
+
 export function BottomSheet({
   open, onClose, title, children, height = 340, anchorRef,
-}) {
+}: BottomSheetProps) {
   const { t } = useTranslation("misc");
   const sheetRef = useRef(null);
 

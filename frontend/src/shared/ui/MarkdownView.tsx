@@ -9,9 +9,14 @@
 // 文档预览用。第三方库太大 + 全部我们用不到的安全功能，不值得拉。
 
 import { useMemo } from "react";
-import { HighlightedCode } from "./HighlightedCode.jsx";
+import { HighlightedCode } from "./HighlightedCode.tsx";
 
-export function MarkdownView({ source, streaming = false }) {
+interface MarkdownViewProps {
+  source?: string;
+  streaming?: boolean;
+}
+
+export function MarkdownView({ source, streaming = false }: MarkdownViewProps) {
   const blocks = useMemo(() => parse(source || ""), [source]);
   return (
     <div className="md-body">
@@ -141,8 +146,8 @@ function renderBlock(b, key, streaming) {
   }
 }
 
-function renderHeading(lvl, children, key) {
-  const Tag = `h${Math.min(6, Math.max(1, lvl))}`;
+function renderHeading(lvl: number, children: unknown, key: number) {
+  const Tag = `h${Math.min(6, Math.max(1, lvl))}` as any;
   return <Tag key={key}>{children}</Tag>;
 }
 

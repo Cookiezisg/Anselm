@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MarkdownView, parse, inline } from "./MarkdownView.jsx";
+import { MarkdownView, parse, inline } from "./MarkdownView.tsx";
 
 const runWithTimeout = (fn, ms = 200) => {
   // jsdom + vitest: a true hang would lock vitest. Use a deadline

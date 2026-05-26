@@ -16,13 +16,19 @@
 import { createElement, memo, useMemo } from "react";
 import { lowlight } from "../lib/highlight";
 
+interface HighlightedCodeProps {
+  source?: string;
+  lang?: string;
+  streaming?: boolean;
+}
+
 // memo: stable code blocks (any block whose source/lang/streaming
 // triple is unchanged across MarkdownView re-renders) skip rendering
 // entirely. Without this, every streaming delta to ANY part of the
 // message would re-create JSX for every code block in it.
 //
 // memo —— 防止同一 message 里非流式的代码块跟着 delta 重渲染。
-export const HighlightedCode = memo(function HighlightedCode({ source, lang, streaming = false }) {
+export const HighlightedCode = memo(function HighlightedCode({ source, lang, streaming = false }: HighlightedCodeProps) {
   const tree = useMemo(() => {
     if (!source) return null;
     try {
@@ -42,14 +48,14 @@ export const HighlightedCode = memo(function HighlightedCode({ source, lang, str
 
 // hast → React. lowlight returns hast nodes — element / text.
 // className arrives as an array on properties; join into space-string.
-function hastToReact(node, key) {
+function hastToReact(node: any, key: any): any {
   if (node.type === "text") return node.value;
   if (node.type !== "element") return null;
   const { tagName, properties = {}, children = [] } = node;
   const className = Array.isArray(properties.className)
     ? properties.className.join(" ")
     : properties.className;
-  const props = { key };
+  const props: Record<string, unknown> = { key };
   if (className) props.className = className;
-  return createElement(tagName, props, ...children.map((c, i) => hastToReact(c, i)));
+  return createElement(tagName, props, ...children.map((c: any, i: any) => hastToReact(c, i)));
 }

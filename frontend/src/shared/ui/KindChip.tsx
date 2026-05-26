@@ -3,7 +3,11 @@
 //
 // boilerplate's CSS already defines .kind-chip.fn/.hd/.wf/.sk/.mcp.
 
-const META = {
+interface KindChipProps {
+  kind: string;
+}
+
+const META: Record<string, { cls: string; label: string }> = {
   function: { cls: "fn", label: "Function" },
   handler:  { cls: "hd", label: "Handler" },
   workflow: { cls: "wf", label: "Workflow" },
@@ -11,7 +15,7 @@ const META = {
   mcp:      { cls: "mcp", label: "MCP" },
 };
 
-export function KindChip({ kind }) {
+export function KindChip({ kind }: KindChipProps) {
   const m = META[kind] || { cls: "fn", label: kind };
   return <span className={`kind-chip ${m.cls}`}>{m.label}</span>;
 }

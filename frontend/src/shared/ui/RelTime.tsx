@@ -6,7 +6,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-export function RelTime({ ts, prefix = "" }) {
+interface RelTimeProps {
+  ts?: string | number | Date;
+  prefix?: string;
+}
+
+export function RelTime({ ts, prefix = "" }: RelTimeProps) {
   const { t, i18n } = useTranslation("misc");
   const [, tick] = useState(0);
   useEffect(() => {

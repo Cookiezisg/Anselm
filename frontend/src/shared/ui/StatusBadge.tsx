@@ -5,7 +5,11 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "./Icon.tsx";
 import { Badge } from "./Badge.tsx";
 
-export function StatusBadge({ status }) {
+interface StatusBadgeProps {
+  status: string;
+}
+
+export function StatusBadge({ status }: StatusBadgeProps) {
   const { t } = useTranslation("misc");
   if (status === "ready") return <Badge kind="success">{t("statusBadge.ready")}</Badge>;
   if (status === "failed") return <Badge kind="error">{t("statusBadge.failed")}</Badge>;

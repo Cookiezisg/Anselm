@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "./Icon.tsx";
 
@@ -19,10 +19,20 @@ import { Icon } from "./Icon.tsx";
 //               click-outside fires only for clicks inside that container,
 //               so toolbar / sidebar clicks in other panes don't dismiss.
 
+interface FloatingInspectorProps {
+  open: boolean;
+  onClose?: () => void;
+  title?: React.ReactNode;
+  children?: React.ReactNode;
+  side?: "right" | "bottom-right";
+  width?: number;
+  anchorRef?: React.RefObject<Element>;
+}
+
 export function FloatingInspector({
   open, onClose, title, children,
   side = "right", width = 340, anchorRef,
-}) {
+}: FloatingInspectorProps) {
   const { t } = useTranslation("misc");
   const popRef = useRef(null);
 

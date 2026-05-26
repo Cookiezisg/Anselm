@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { StatusBadge } from "./StatusBadge.jsx";
+import { StatusBadge } from "./StatusBadge.tsx";
 
 describe("StatusBadge", () => {
   it("statusReady_rendersSuccessBadge", () => {

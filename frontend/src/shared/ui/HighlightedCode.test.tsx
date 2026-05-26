@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { HighlightedCode } from "./HighlightedCode.jsx";
+import { HighlightedCode } from "./HighlightedCode.tsx";
 import { lowlight } from "../lib/highlight/index.js";
 
 describe("HighlightedCode", () => {
