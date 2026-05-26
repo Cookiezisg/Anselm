@@ -7,8 +7,8 @@
 // 重连——否则 Onboarding 切到新账号后还在收旧 user 的事件，新发消息不渲染。
 
 import { useEffect, useState } from "react";
-import { createSSE } from "./shared.js";
-import { useChatStore } from "../store/chat.js";
+import { createSSE } from "@shared/api/sse";
+import { useChatStore } from "@entities/conversation";
 import { useSessionStore } from "@entities/session";
 
 export function useEventLog() {

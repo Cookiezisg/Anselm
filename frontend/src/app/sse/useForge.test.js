@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
-import { MockEventSource } from "../test-setup.js";
+import { MockEventSource } from "../../test-setup.js";
 import { useSessionStore } from "@entities/session";
 import { setUserIdProvider } from "@shared/api/authProvider";
 import { useForge, useForgeProgress } from "./useForge.js";
@@ -22,7 +22,7 @@ beforeEach(async () => {
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
   useForgeProgress.setState({ active: {} });
-  const bridge = await import("../bridge/wails.js");
+  const bridge = await import("../../bridge/wails.js");
   await bridge.initBaseUrl();
 });
 

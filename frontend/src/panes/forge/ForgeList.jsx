@@ -16,7 +16,7 @@ import {
   useFunctions, useHandlers, useWorkflows,
   useDeleteFunction, useDeleteHandler, useDeleteWorkflow,
 } from "../../api/forge.js";
-import { useForgeProgress } from "../../sse/useForge.js";
+import { useForgeProgress } from "@app/sse/useForge.js";
 import { useToastStore } from "@shared/ui/toastStore";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { useForgeBatchDelete } from "@features/forge-review";

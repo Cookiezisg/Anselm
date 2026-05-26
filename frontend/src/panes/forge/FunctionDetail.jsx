@@ -15,7 +15,7 @@ import { VersionRail, SplitDiff, CodeView } from "../../components/shared/Versio
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { useFunction, useFunctionVersions } from "../../api/forge.js";
-import { useForgeProgress } from "../../sse/useForge.js";
+import { useForgeProgress } from "@app/sse/useForge.js";
 import { useForgeReview } from "@features/forge-review";
 
 export function FunctionDetail({ forge, onBack }) {

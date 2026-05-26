@@ -13,7 +13,7 @@ import { Button } from "../primitives/Button.jsx";
 import { RelTime } from "../shared/RelTime.jsx";
 import { usePaneStore, useOverlayStore } from "@app/model";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useSSEHealth } from "../../sse/SSEProvider.jsx";
+import { useSSEHealth } from "@app/sse/SSEProvider.jsx";
 import { useNotificationsSnapshot } from "../../api/notifications.js";
 import { apiFetch } from "../../api/client.js";
 

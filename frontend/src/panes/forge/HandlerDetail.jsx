@@ -17,7 +17,7 @@ import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import {
   useHandler, useHandlerVersions, useHandlerConfig,
 } from "../../api/forge.js";
-import { useForgeProgress } from "../../sse/useForge.js";
+import { useForgeProgress } from "@app/sse/useForge.js";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
 import { useForgeReview } from "@features/forge-review";
 

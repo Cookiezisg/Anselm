@@ -8,10 +8,10 @@
 
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createSSE } from "./shared.js";
+import { createSSE } from "@shared/api/sse";
 import { useOverlayStore } from "@app/model";
 import { useSessionStore } from "@entities/session";
-import { qk } from "../api/client.js";
+import { qk } from "@/api/client.js";
 
 // type -> list of query keys to invalidate when this entity changes.
 const TYPE_TO_INVALIDATIONS = {

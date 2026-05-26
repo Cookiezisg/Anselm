@@ -8,9 +8,9 @@
 import { useEffect, useState } from "react";
 import { create } from "zustand";
 import { useQueryClient } from "@tanstack/react-query";
-import { createSSE } from "./shared.js";
+import { createSSE } from "@shared/api/sse";
 import { useSessionStore } from "@entities/session";
-import { qk } from "../api/client.js";
+import { qk } from "@/api/client.js";
 
 export const useForgeProgress = create((set, get) => ({
   // Map<scopeKey, ForgeProgress>

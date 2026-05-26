@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
-import { useSSEHealth } from "../../sse/SSEProvider.jsx";
+import { useSSEHealth } from "@app/sse/SSEProvider.jsx";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { ChatListItem } from "./ChatListItem.jsx";
 import { SidebarSection } from "./SidebarSection.jsx";
