@@ -11,22 +11,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { useUIStore } from "../../store/ui.js";
-import { apiFetch } from "../../api/client.js";
+import { useAskUserAnswer } from "@features/ask-user";
 import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
 export function AskUserModal() {
   const { t } = useTranslation(["conv", "common"]);
-  const pending = useUIStore((s) => s.pendingAsk);
-  const askOpen = useUIStore((s) => s.askOpen);
   const setAskOpen = useUIStore((s) => s.setAskOpen);
-  const setPendingAsk = useUIStore((s) => s.setPendingAsk);
-  const pushToast = useUIStore((s) => s.pushToast);
-
-  // open when pending arrives; manually-opened via setAskOpen too
-  const isOpen = askOpen || !!pending;
+  const { pending, askOpen, isOpen, submitting, close, submit } = useAskUserAnswer();
 
   const [selected, setSelected] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { setSelected(null); }, [pending?.id]);
 
@@ -42,11 +35,6 @@ export function AskUserModal() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, pending]);
-
-  const close = () => {
-    setAskOpen(false);
-    setPendingAsk(null);
-  };
 
   if (!pending) {
     // No pending question — show "no questions" empty state if manually opened
@@ -78,21 +66,6 @@ export function AskUserModal() {
   }
 
   const options = pending.options || [];
-  const submit = async () => {
-    if (!selected) return;
-    setSubmitting(true);
-    try {
-      await apiFetch(`/conversations/${pending.conversationId}/pending-questions/${pending.toolCallId}:resolve`, {
-        method: "POST", body: { answer: selected },
-      });
-      pushToast({ kind: "success", title: t("ask.submitSuccess") });
-      close();
-    } catch (err) {
-      pushToast({ kind: "error", title: t("ask.submitFail"), desc: err.message });
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <AnimatePresence>
@@ -138,7 +111,7 @@ export function AskUserModal() {
               </div>
               <div className="actions">
                 <Button size="sm" variant="ghost" onClick={close}>{t("ask.laterBtn")}</Button>
-                <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={submit}>
+                <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={() => submit(selected)}>
                   <Icon.Check /> {t("ask.submitBtn")}
                 </Button>
               </div>
