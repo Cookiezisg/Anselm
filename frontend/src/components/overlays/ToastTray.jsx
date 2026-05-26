@@ -6,12 +6,12 @@
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 
 export function ToastTray() {
   const { t } = useTranslation("toast");
-  const toasts = useUIStore((s) => s.toasts);
-  const dismiss = useUIStore((s) => s.dismissToast);
+  const toasts = useToastStore((s) => s.toasts);
+  const dismiss = useToastStore((s) => s.dismissToast);
 
   return (
     <div className="toast-tray">

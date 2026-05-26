@@ -15,7 +15,7 @@ vi.mock("../../components/shared/RelTime.jsx", () => ({
 }));
 
 import { useMcpServers, useReconnectMcp, useRemoveMcp } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { McpPane } from "./McpPane.jsx";
 
 const SERVERS = [
@@ -32,7 +32,7 @@ beforeEach(() => {
   useMcpServers.mockReturnValue({ data: SERVERS, isLoading: false });
   useReconnectMcp.mockReturnValue({ mutate: reconnectMutate });
   useRemoveMcp.mockReturnValue({ mutate: removeMutate });
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe("McpPane", () => {
@@ -80,7 +80,7 @@ describe("McpPane", () => {
     const buttons = screen.getAllByText(/重连/);
     await userEvent.click(buttons[0]);
     expect(reconnectMutate).toHaveBeenCalledWith("github", expect.any(Object));
-    expect(useUIStore.getState().toasts[0]?.title).toBe("重连请求已发出");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("重连请求已发出");
   });
 
   it("clickRemove_confirmed_callsMutateWithServerName", async () => {
@@ -89,7 +89,7 @@ describe("McpPane", () => {
     const buttons = screen.getAllByText(/移除/);
     await userEvent.click(buttons[0]);
     expect(removeMutate).toHaveBeenCalledWith("github", expect.any(Object));
-    expect(useUIStore.getState().toasts[0]?.title).toBe("已移除");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("已移除");
     confirmSpy.mockRestore();
   });
 

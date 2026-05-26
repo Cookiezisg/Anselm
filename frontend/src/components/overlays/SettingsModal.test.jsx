@@ -56,6 +56,7 @@ vi.mock("../../api/config.js", () => ({
 }));
 
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useSettings } from "../../store/settings.js";
 import { SettingsModal } from "./SettingsModal.jsx";
 
@@ -65,7 +66,8 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({ settingsOpen: true, toasts: [] });
+  useUIStore.setState({ settingsOpen: true });
+  useToastStore.setState({ toasts: [] });
   useSettings.setState({ activeUserId: "u_a" });
 });
 

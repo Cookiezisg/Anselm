@@ -12,7 +12,7 @@ vi.mock("../../api/library.js", () => ({
 }));
 
 import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { MemoryPane } from "./MemoryPane.jsx";
 
 const MEMORIES = [
@@ -31,7 +31,7 @@ beforeEach(() => {
   useUpdateMemory.mockReturnValue({ mutate: updateMutate });
   useDeleteMemory.mockReturnValue({ mutate: delMutate });
   usePinMemory.mockReturnValue({ mutate: pinMutate });
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe("MemoryPane", () => {
@@ -82,7 +82,7 @@ describe("MemoryPane", () => {
       { name: "auto-push", pinned: false },
       expect.any(Object),
     );
-    expect(useUIStore.getState().toasts[0]?.title).toBe("已取消 pin");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("已取消 pin");
   });
 
   it("deleteClick_confirmed_callsDelete", async () => {
@@ -127,6 +127,6 @@ describe("MemoryPane", () => {
       expect.objectContaining({ name: "auto-push", body: expect.any(Object) }),
       expect.any(Object),
     );
-    expect(useUIStore.getState().toasts[0]?.title).toBe("已保存");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("已保存");
   });
 });

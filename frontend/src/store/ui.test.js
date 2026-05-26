@@ -3,6 +3,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useUIStore } from "./ui.js";
+import { useToastStore } from "../shared/ui/toastStore.ts";
 
 function reset() {
   useUIStore.setState({
@@ -11,8 +12,8 @@ function reset() {
     collapsed: false, narrow: false, activeNarrowPane: null,
     focusEntity: {}, cmdkOpen: false, notifsOpen: false,
     askOpen: false, settingsOpen: false, pendingAsk: null,
-    toasts: [],
   });
+  useToastStore.setState({ toasts: [] });
 }
 
 beforeEach(() => reset());
@@ -147,29 +148,29 @@ describe("toasts", () => {
     const id1 = useUIStore.getState().pushToast({ kind: "info", title: "a", duration: 0 });
     const id2 = useUIStore.getState().pushToast({ kind: "info", title: "b", duration: 0 });
     expect(id1).not.toBe(id2);
-    expect(useUIStore.getState().toasts).toHaveLength(2);
+    expect(useToastStore.getState().toasts).toHaveLength(2);
   });
 
   it("pushToast_autoDismissesAfterDuration", () => {
     vi.useFakeTimers();
     useUIStore.getState().pushToast({ kind: "info", title: "x", duration: 1000 });
-    expect(useUIStore.getState().toasts).toHaveLength(1);
+    expect(useToastStore.getState().toasts).toHaveLength(1);
     vi.advanceTimersByTime(1500);
-    expect(useUIStore.getState().toasts).toHaveLength(0);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
     vi.useRealTimers();
   });
 
   it("dismissToast_removesById", () => {
     const id = useUIStore.getState().pushToast({ kind: "info", title: "x", duration: 0 });
     useUIStore.getState().dismissToast(id);
-    expect(useUIStore.getState().toasts).toHaveLength(0);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 
   it("pushToast_durationZero_neverAutoDismisses", () => {
     vi.useFakeTimers();
     useUIStore.getState().pushToast({ kind: "warn", title: "x", duration: 0 });
     vi.advanceTimersByTime(60_000);
-    expect(useUIStore.getState().toasts).toHaveLength(1);
+    expect(useToastStore.getState().toasts).toHaveLength(1);
     vi.useRealTimers();
   });
 });

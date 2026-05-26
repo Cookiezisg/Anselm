@@ -66,7 +66,7 @@ vi.mock("@entities/model-config", () => ({
   useUpsertModelConfig: () => ({ mutateAsync: mockUpsertModel }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useSettings } from "../../store/settings.js";
 import { Onboarding } from "./Onboarding.jsx";
 
@@ -76,7 +76,7 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useSettings.setState({ theme: "system", accent: "claude", density: "cozy", lang: "zh", activeUserId: null, onboarded: false });
   mockCreateUser.mockReset().mockResolvedValue({ id: "u_new", username: "alice" });
   mockCreateKey.mockReset().mockResolvedValue({ id: "aki_1" });

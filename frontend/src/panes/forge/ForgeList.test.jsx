@@ -29,11 +29,11 @@ vi.mock("../../components/overlays/RunDrawer.jsx", () => ({
 }));
 
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ForgeList } from "./ForgeList.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useFunctions.mockReturnValue({
     data: [
       { id: "fn_1", name: "addNumbers", desc: "adds",   updatedAt: "2026-05-23T10:00:00Z", status: "ready" },
@@ -128,7 +128,7 @@ describe("ForgeList", () => {
   it("newButton_pushesInfoToast_explainingChatFlow", async () => {
     render(<ForgeList onOpen={() => {}} />);
     await userEvent.click(screen.getByText("新建"));
-    const t = useUIStore.getState().toasts[0];
+    const t = useToastStore.getState().toasts[0];
     expect(t.kind).toBe("info");
     expect(t.title).toBe("在对话里造");
   });

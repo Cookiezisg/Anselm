@@ -36,7 +36,7 @@ import {
   useFunction, useFunctionVersions,
 } from "../../api/forge.js";
 import { useForgeReview } from "@features/forge-review";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { FunctionDetail } from "./FunctionDetail.jsx";
 
 const FN = { id: "fn_1", name: "addNumbers", desc: "adds", status: "ready" };
@@ -58,7 +58,7 @@ const VERSIONS_WITH_PENDING = [
 ];
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useFunction.mockReturnValue({ data: FN });
   useFunctionVersions.mockReturnValue({ data: VERSIONS_READY });
   useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn(), revert: vi.fn() });

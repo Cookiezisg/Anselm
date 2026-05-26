@@ -40,7 +40,7 @@ vi.mock("../../api/config.js", () => ({
   useUpdateApiKey: (_id) => ({ mutate: mockUpdateKey, isPending: false }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { SearchSection } from "./SearchSection.jsx";
 
 function wrap({ children }) {
@@ -55,7 +55,7 @@ const addBtn = () => document.querySelector(".set-addbtn");
 const verifyBtn = () => screen.getByRole("button", { name: /验证/ });
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   mockCreateKey.mockReset().mockResolvedValue({ id: "aki_new" });
   mockTestKey.mockReset().mockResolvedValue({ ok: true });
   mockDeleteKey.mockReset().mockResolvedValue({});

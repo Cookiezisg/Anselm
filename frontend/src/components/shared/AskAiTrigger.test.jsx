@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { setupFetchSpy } from "../../api/_testHarness.js";
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { AskAiTrigger } from "./AskAiTrigger.jsx";
 
 function wrap({ children }) {
@@ -65,7 +66,7 @@ describe("AskAiTrigger", () => {
     await userEvent.click(screen.getByText(/AI · 迭代/));
     const ta = screen.getByPlaceholderText(/告诉 AI/);
     await userEvent.type(ta, "x{enter}");
-    await waitFor(() => expect(useUIStore.getState().toasts.length).toBeGreaterThan(0));
-    expect(useUIStore.getState().toasts[0].kind).toBe("warn");
+    await waitFor(() => expect(useToastStore.getState().toasts.length).toBeGreaterThan(0));
+    expect(useToastStore.getState().toasts[0].kind).toBe("warn");
   });
 });

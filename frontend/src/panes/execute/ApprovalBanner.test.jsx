@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { setupFetchSpy } from "../../api/_testHarness.js";
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ApprovalBanner } from "./ApprovalBanner.jsx";
 
 function wrap({ children }) {
@@ -20,7 +21,7 @@ function wrap({ children }) {
 let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   const bridge = await import("../../bridge/wails.js");
   await bridge.initBaseUrl();
 });
@@ -146,8 +147,8 @@ describe("ApprovalBanner", () => {
     await userEvent.click(screen.getByText("批准"));
     await waitFor(() => expect(screen.getByText("已批准")).toBeInTheDocument());
     expect(screen.queryByText("批准")).toBeNull();
-    expect(useUIStore.getState().toasts.length).toBeGreaterThan(0);
-    expect(useUIStore.getState().toasts[0].kind).toBe("success");
+    expect(useToastStore.getState().toasts.length).toBeGreaterThan(0);
+    expect(useToastStore.getState().toasts[0].kind).toBe("success");
   });
 
   it("successReject_showsRejectedState_andWarnToast", async () => {
@@ -160,7 +161,7 @@ describe("ApprovalBanner", () => {
     );
     await userEvent.click(screen.getByText("拒绝"));
     await waitFor(() => expect(screen.getByText("已拒绝")).toBeInTheDocument());
-    expect(useUIStore.getState().toasts[0].kind).toBe("warn");
+    expect(useToastStore.getState().toasts[0].kind).toBe("warn");
   });
 
   it("nodeWithoutLabel_fallsBackToId", () => {

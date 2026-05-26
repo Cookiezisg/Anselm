@@ -36,6 +36,7 @@ import {
   useCreateDocument, useUpdateDocument, useDeleteDocument,
 } from "../../api/library.js";
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { DocumentsPane } from "./DocumentsPane.jsx";
 
 const TREE = [
@@ -55,7 +56,8 @@ beforeEach(() => {
   useCreateDocument.mockReturnValue({ mutateAsync: createMutateAsync });
   useUpdateDocument.mockReturnValue({ mutate: updateMutate, isPending: false });
   useDeleteDocument.mockReturnValue({ mutate: delMutate });
-  useUIStore.setState({ activeDocument: null, toasts: [] });
+  useUIStore.setState({ activeDocument: null });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe("DocumentsPane", () => {

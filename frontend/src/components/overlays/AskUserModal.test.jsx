@@ -5,12 +5,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupFetchSpy } from "../../api/_testHarness.js";
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { AskUserModal } from "./AskUserModal.jsx";
 
 let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
-  useUIStore.setState({ pendingAsk: null, askOpen: false, toasts: [] });
+  useUIStore.setState({ pendingAsk: null, askOpen: false });
+  useToastStore.setState({ toasts: [] });
   const bridge = await import("../../bridge/wails.js");
   await bridge.initBaseUrl();
 });

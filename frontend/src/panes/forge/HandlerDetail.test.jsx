@@ -37,7 +37,7 @@ import {
   useHandler, useHandlerVersions, useHandlerConfig,
 } from "../../api/forge.js";
 import { useForgeReview } from "@features/forge-review";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { HandlerDetail } from "./HandlerDetail.jsx";
 
 const HD = { id: "hd_1", name: "SlackHandler", desc: "slack ops", status: "ready" };
@@ -62,7 +62,7 @@ const VERSIONS_PENDING = [
 ];
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useHandler.mockReturnValue({ data: HD });
   useHandlerVersions.mockReturnValue({ data: VERSIONS_READY });
   useHandlerConfig.mockReturnValue({ data: {} });

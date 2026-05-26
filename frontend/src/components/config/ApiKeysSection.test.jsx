@@ -31,7 +31,7 @@ vi.mock("../../api/config.js", () => ({
   useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ApiKeysSection } from "./ApiKeysSection.jsx";
 
 function wrap({ children }) {
@@ -48,7 +48,7 @@ const addBtn = () => document.querySelector(".set-addbtn");
 const verifyBtn = () => screen.getByRole("button", { name: /验证/ });
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   mockCreateKey.mockReset().mockResolvedValue({ id: "aki_new" });
   mockTestKey.mockReset().mockResolvedValue({ ok: true, modelsFound: ["deepseek-chat", "deepseek-reasoner"] });
   mockDeleteKey.mockReset().mockResolvedValue({});

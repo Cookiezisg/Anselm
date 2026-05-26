@@ -6,6 +6,7 @@
 // 实体、overlay 开关。zustand 管 —— 会话级状态，驱动 shell。
 
 import { create } from "zustand";
+import { useToastStore } from "../shared/ui/toastStore.ts";
 
 const MAX_PANES = 2;
 
@@ -41,8 +42,6 @@ export const useUIStore = create((set, get) => ({
   askOpen: false,
   settingsOpen: false,
   pendingAsk: null,
-
-  toasts: [],
 
   setBaseUrl: (url) => set({ baseUrl: url }),
 
@@ -136,16 +135,6 @@ export const useUIStore = create((set, get) => ({
   setSettingsOpen: (b) => set({ settingsOpen: !!b }),
   setPendingAsk: (v) => set({ pendingAsk: v }),
 
-  pushToast: (t) => {
-    const id = Math.random().toString(36).slice(2, 9);
-    const toast = { id, ...t };
-    set((s) => ({ toasts: [...s.toasts, toast] }));
-    if (t.duration !== 0) {
-      setTimeout(() => {
-        set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) }));
-      }, t.duration || 5000);
-    }
-    return id;
-  },
-  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) })),
+  pushToast: (t) => useToastStore.getState().pushToast(t),
+  dismissToast: (id) => useToastStore.getState().dismissToast(id),
 }));

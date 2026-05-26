@@ -47,6 +47,7 @@ vi.mock("./Composer.jsx", () => ({
 }));
 
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useChatStore } from "../../store/chat.js";
 import { ChatPane } from "./ChatPane.jsx";
 
@@ -56,7 +57,8 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({ activeConv: "cv_x", toasts: [] });
+  useUIStore.setState({ activeConv: "cv_x" });
+  useToastStore.setState({ toasts: [] });
   useChatStore.setState({ convs: {}, hydratedConvs: new Set() });
   mockSend.mockReset();
   mockCancel.mockReset();

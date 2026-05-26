@@ -11,11 +11,11 @@ vi.mock("../../api/forge.js", () => ({
 }));
 
 import { useCapabilityCheck } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useCapabilityCheck.mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({ allReady: true, items: [] }),
     isPending: false,
@@ -83,8 +83,8 @@ describe("CapabilityCheckPanel", () => {
     });
     render(<CapabilityCheckPanel workflowId="wf_1" />);
     await userEvent.click(screen.getByText("Capability check"));
-    await waitFor(() => expect(useUIStore.getState().toasts.length).toBeGreaterThan(0));
-    expect(useUIStore.getState().toasts[0].kind).toBe("error");
+    await waitFor(() => expect(useToastStore.getState().toasts.length).toBeGreaterThan(0));
+    expect(useToastStore.getState().toasts[0].kind).toBe("error");
   });
 
   it("closeButton_collapsesPanel", async () => {

@@ -11,6 +11,7 @@ vi.mock("../../api/conversations.js", () => ({
 
 import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
 import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ChatListItem } from "./ChatListItem.jsx";
 
 let updateMutate, delMutate;
@@ -20,9 +21,8 @@ beforeEach(() => {
   delMutate    = vi.fn((_id, opts) => opts?.onSuccess?.());
   useUpdateConversation.mockReturnValue({ mutate: updateMutate });
   useDeleteConversation.mockReturnValue({ mutate: delMutate });
-  useUIStore.setState({
-    activeConv: null, openPanes: [], toasts: [],
-  });
+  useUIStore.setState({ activeConv: null, openPanes: [] });
+  useToastStore.setState({ toasts: [] });
 });
 
 describe("ChatListItem", () => {
@@ -97,7 +97,7 @@ describe("ChatListItem", () => {
     await userEvent.click(screen.getByText("归档"));
     expect(updateMutate).toHaveBeenCalledWith({ archived: true }, expect.any(Object));
     updateMutate.mock.calls[0][1].onSuccess?.();
-    expect(useUIStore.getState().toasts[0]?.title).toBe("已归档");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("已归档");
   });
 
   it("menuRename_promptCancel_skipsUpdate", async () => {
@@ -126,7 +126,7 @@ describe("ChatListItem", () => {
     await userEvent.click(screen.getByText("删除"));
     expect(delMutate).toHaveBeenCalledWith("cv_a", expect.any(Object));
     expect(useUIStore.getState().activeConv).toBeNull();
-    expect(useUIStore.getState().toasts[0]?.title).toBe("已删除");
+    expect(useToastStore.getState().toasts[0]?.title).toBe("已删除");
     confirmSpy.mockRestore();
   });
 

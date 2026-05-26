@@ -12,7 +12,7 @@ vi.mock("../../api/flowruns.js", () => ({
 }));
 
 import { useFlowRuns } from "../../api/flowruns.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ExecuteOverview } from "./ExecuteOverview.jsx";
 
 const SAMPLE = [
@@ -39,7 +39,7 @@ const SAMPLE = [
 ];
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useFlowRuns.mockReturnValue({ data: SAMPLE, isLoading: false });
 });
 

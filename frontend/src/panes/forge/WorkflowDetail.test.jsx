@@ -52,7 +52,7 @@ import {
   useCapabilityCheck, useEditWorkflow,
 } from "../../api/forge.js";
 import { useForgeReview } from "@features/forge-review";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { WorkflowDetail } from "./WorkflowDetail.jsx";
 
 const WF = { id: "wf_1", name: "Backup", desc: "nightly backup", status: "ready" };
@@ -79,7 +79,7 @@ const VERSIONS_WITH_PENDING = [
 ];
 
 beforeEach(() => {
-  useUIStore.setState({ toasts: [] });
+  useToastStore.setState({ toasts: [] });
   useWorkflow.mockReturnValue({ data: WF });
   useWorkflowVersions.mockReturnValue({ data: VERSIONS_READY });
   useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn() });
