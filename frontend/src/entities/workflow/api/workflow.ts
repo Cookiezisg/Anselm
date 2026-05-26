@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/workflow";
 import type {
   Workflow,
   WorkflowVersion,
@@ -10,12 +9,10 @@ import type {
 } from "../model/types";
 
 export function useWorkflows() {
-  const uid = useSessionStore((s) => s.currentUserId);
   return useQuery<Workflow[]>({
     queryKey: qk.workflows(),
     queryFn: () => apiFetch("/workflows?limit=200"),
     select: pickList<Workflow>,
-    enabled: !!uid,
   });
 }
 

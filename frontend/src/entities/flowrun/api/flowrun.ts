@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/flowrun";
 import type {
   FlowRun,
   FlowRunNode,
@@ -10,14 +9,12 @@ import type {
 } from "../model/types";
 
 export function useFlowRuns(params: FlowRunsParams = {}) {
-  const uid = useSessionStore((s) => s.currentUserId);
   const merged = { limit: "100", ...params } as Record<string, string>;
   const qs = new URLSearchParams(merged).toString();
   return useQuery<FlowRun[]>({
     queryKey: [...qk.flowruns(), params],
     queryFn: () => apiFetch(`/flowruns?${qs}`),
     select: pickList<FlowRun>,
-    enabled: !!uid,
   });
 }
 

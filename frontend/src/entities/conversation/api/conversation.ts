@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/conversation";
 import type {
   Conversation,
   Message,
@@ -10,12 +9,10 @@ import type {
 } from "../model/types";
 
 export function useConversations() {
-  const uid = useSessionStore((s) => s.currentUserId);
   return useQuery<Conversation[]>({
     queryKey: qk.conversations(),
     queryFn: () => apiFetch("/conversations?limit=100"),
     select: pickList<Conversation>,
-    enabled: !!uid,
   });
 }
 

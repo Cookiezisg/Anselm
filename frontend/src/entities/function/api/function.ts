@@ -1,15 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/function";
 import type { FunctionEntity, FunctionVersion, RunFunctionVars, RunFunctionResult } from "../model/types";
 
 export function useFunctions() {
-  const uid = useSessionStore((s) => s.currentUserId);
   return useQuery<FunctionEntity[]>({
     queryKey: qk.functions(),
     queryFn: () => apiFetch("/functions?limit=200"),
     select: pickList<FunctionEntity>,
-    enabled: !!uid,
   });
 }
 

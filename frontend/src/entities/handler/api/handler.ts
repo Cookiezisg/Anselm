@@ -1,15 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/handler";
 import type { Handler, HandlerVersion, HandlerConfig, CallHandlerVars, CallHandlerResult } from "../model/types";
 
 export function useHandlers() {
-  const uid = useSessionStore((s) => s.currentUserId);
   return useQuery<Handler[]>({
     queryKey: qk.handlers(),
     queryFn: () => apiFetch("/handlers?limit=200"),
     select: pickList<Handler>,
-    enabled: !!uid,
   });
 }
 

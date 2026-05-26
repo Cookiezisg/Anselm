@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
-import { useSessionStore } from "../../session/@x/document";
 import type {
   Document,
   DocTreeNode,
@@ -17,12 +16,10 @@ export function useDocumentTree() {
 }
 
 export function useDocuments() {
-  const uid = useSessionStore((s) => s.currentUserId);
   return useQuery<Document[]>({
     queryKey: qk.documents(),
     queryFn: () => apiFetch("/documents?limit=200"),
     select: pickList<Document>,
-    enabled: !!uid,
   });
 }
 
