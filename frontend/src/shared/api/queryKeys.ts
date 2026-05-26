@@ -1,0 +1,38 @@
+// qk — query key factories. Centralise all TanStack Query keys to avoid
+// scattered magic strings and enable targeted invalidation.
+//
+// query key 工厂；集中管理所有 TanStack Query key，避免散落 magic string。
+
+export const qk = {
+  health:             () => ["health"] as const,
+  users:              () => ["users"] as const,
+  conversations:      () => ["conversations"] as const,
+  conversation:       (id: string) => ["conv", id] as const,
+  messages:           (convId: string) => ["conv-messages", convId] as const,
+  apikeys:            () => ["api-keys"] as const,
+  providers:          () => ["providers"] as const,
+  scenarios:          () => ["scenarios"] as const,
+  modelConfigs:       () => ["model-configs"] as const,
+  functions:          () => ["functions"] as const,
+  function:           (id: string) => ["function", id] as const,
+  functionVersions:   (id: string) => ["function-versions", id] as const,
+  handlers:           () => ["handlers"] as const,
+  handler:            (id: string) => ["handler", id] as const,
+  handlerVersions:    (id: string) => ["handler-versions", id] as const,
+  handlerConfig:      (id: string) => ["handler-config", id] as const,
+  workflows:          () => ["workflows"] as const,
+  workflow:           (id: string) => ["workflow", id] as const,
+  workflowVersions:   (id: string) => ["workflow-versions", id] as const,
+  flowruns:           () => ["flowruns"] as const,
+  flowrun:            (id: string) => ["flowrun", id] as const,
+  flowrunNodes:       (id: string) => ["flowrun-nodes", id] as const,
+  skills:             () => ["skills"] as const,
+  skill:              (id: string) => ["skill", id] as const,
+  mcpServers:         () => ["mcp-servers"] as const,
+  memories:           (type?: string) => ["memories", type || "all"] as const,
+  memory:             (name: string) => ["memory", name] as const,
+  documents:          () => ["documents"] as const,
+  document:           (id: string) => ["document", id] as const,
+  relations:          (entityId: string) => ["relations", entityId] as const,
+  notificationsSnap:  () => ["notifications-snapshot"] as const,
+} as const;
