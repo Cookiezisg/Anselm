@@ -11,7 +11,7 @@ import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { useToastStore } from "@shared/ui/toastStore";
 import { useConversations, useCreateConversation } from "@entities/conversation";
 import { useDisplayName } from "@entities/user";
-import { apiFetch } from "@shared/api/httpClient";
+import { apiFetch } from "@shared/api";
 import { WelcomeInput } from "./ui/WelcomeInput.jsx";
 import { useGreeting } from "./lib/useGreeting.js";
 import { useContextStrip } from "./lib/useContextStrip.js";

@@ -13,7 +13,7 @@ import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/VersionRail.jsx";
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.jsx";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.jsx";
-import { RunDrawer } from "@entities/flowrun/ui/RunDrawer.jsx";
+import { RunDrawer } from "@entities/flowrun";
 import { useHandler, useHandlerVersions, useHandlerConfig } from "@entities/handler";
 import { useForgeProgress } from "@shared/model";
 import { useCollapsible } from "@shared/lib/useCollapsible";

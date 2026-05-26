@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 
-vi.mock("@entities/session", () => ({ useSessionStore: vi.fn() }));
+vi.mock("@entities/session/@x/user", () => ({ useSessionStore: vi.fn() }));
 vi.mock("@entities/user", () => ({ useUsers: vi.fn(), useUpdateUser: vi.fn() }));
 
-import { useSessionStore } from "@entities/session";
+import { useSessionStore } from "@entities/session/@x/user";
 import { useUsers, useUpdateUser } from "@entities/user";
 import { useDisplayName } from "./useDisplayName.js";
 

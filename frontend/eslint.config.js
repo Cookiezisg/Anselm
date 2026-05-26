@@ -14,27 +14,17 @@ export default tseslint.config(
     plugins: { "react-hooks": reactHooks, boundaries },
     settings: {
       "boundaries/elements": [
-        // 阶段1已定型的 FSD shared 层(正式 element)
-        { type: "shared", pattern: "src/shared/**" },
-        // 阶段2:entities 层;capture slice 名供后续 @x cross-import 规则用
+        // FSD 正式 6 层(阶段4b 全部落地)
+        { type: "shared",   pattern: "src/shared/**" },
         { type: "entities", pattern: "src/entities/*", capture: ["slice"] },
-        // 阶段3:features 层(用例层);capture slice 名
         { type: "features", pattern: "src/features/*", capture: ["slice"] },
-        // app 层:FSD 最顶层,可 import 全部下层;无 disallow
-        { type: "app", pattern: "src/app/**" },
-        // 迁移期临时 element:现有扁平目录;bridge 已迁至 shared,从此排除
-        // App.jsx/main.jsx/AppShell/shell/lib 已迁 app/,hooks 中 useKeyboardShortcuts 已迁 app/lib
-        { type: "shared-tmp", pattern: "src/{api,sse,store,hooks,motion,i18n,components/primitives}/**" },
-        // widgets 层:阶段4b 已正式迁入,暂不加 boundaries 规则(阶段5收口)
-        { type: "widgets", pattern: "src/widgets/**" },
-        // pages 层:阶段4b.3 迁入;不得依赖 app 层(状态由 AppShell 经 props 传入)
-        { type: "pages", pattern: "src/pages/*", capture: ["slice"] },
-        { type: "feature-tmp", pattern: "src/{panes,components/{overlays,config}}/**" }
+        { type: "widgets",  pattern: "src/widgets/**" },
+        { type: "pages",    pattern: "src/pages/*",    capture: ["slice"] },
+        { type: "app",      pattern: "src/app/**" },
       ]
     },
     rules: {
-      // Downgrade all react-hooks recommended rules to "warn" for migration baseline.
-      // Phase 0 goal: quantity the violations, not block the build.
+      // Downgrade react-hooks recommended rules to "warn" for migration baseline.
       ...Object.fromEntries(
         Object.entries(reactHooks.configs.recommended.rules).map(([k, v]) => [
           k,
@@ -44,27 +34,23 @@ export default tseslint.config(
       "boundaries/dependencies": ["error", {
         default: "allow",
         rules: [
-          // shared 层强制:不得依赖任何上层应用代码(error 级)
-          { from: { type: "shared" }, disallow: { to: { type: ["shared-tmp", "feature-tmp"] } }, message: "shared 不能依赖上层或未迁移应用代码" },
-          // 迁移期:旧扁平层 shared-tmp 不得依赖上层(warn)
-          { from: { type: "shared-tmp" }, disallow: { to: { type: ["feature-tmp"] } }, message: "shared 不能依赖上层" },
-          // entities 层(warn 级,阶段2):只允许 import shared;禁止 import 上层及迁移期临时层
-          // 收口 task 升级为 error + 豁免 settings gate
-          { from: { type: "entities" }, disallow: { to: { type: ["feature-tmp", "shared-tmp"] } }, message: "entities 不能依赖上层或迁移期临时层" },
-          // features 层(阶段3 error 级):只允许 import entities + shared;
-          // 禁止依赖上层(app/pages/widgets)及同层其他 feature(避免横向耦合)。
-          // feature→store(shared-tmp)债务通过 inline disable 豁免。
-          { from: { type: "features" }, disallow: { to: { type: ["feature-tmp", "shared-tmp"] } }, message: "features 不能依赖上层或迁移期临时层" },
-          // widgets 层(阶段4b):不得依赖 app 层(导航走 shared/lib/navigation DIP)
-          { from: { type: "widgets" }, disallow: { to: { type: ["app"] } }, message: "widgets 不能依赖 app(导航改用 navigate from shared/lib/navigation)" },
-          // pages 层(阶段4b.3):不得依赖 app 层(状态由 AppShell props 传入)
-          { from: { type: "pages" }, disallow: { to: { type: ["app"] } }, message: "pages 不能依赖 app(状态由 AppShell 经 props 传入)" }
+          // shared 层强制:不得依赖任何上层代码
+          { from: { type: "shared" }, disallow: { to: { type: ["entities", "features", "widgets", "pages", "app"] } }, message: "shared 不能依赖上层" },
+          // entities 层:只允许 import shared;禁止上层及同层跨 slice
+          // (跨 slice 通过 @x barrel 协议豁免,eslint-boundaries 无法感知 @x;
+          //  结构违规由 steiger 负责;eslint 只守住更粗粒度的单向规则)
+          { from: { type: "entities" }, disallow: { to: { type: ["features", "widgets", "pages", "app"] } }, message: "entities 不能依赖上层" },
+          // features 层:只允许 import shared + entities;禁止上层及同层
+          { from: { type: "features" }, disallow: { to: { type: ["widgets", "pages", "app"] } }, message: "features 不能依赖 widgets/pages/app" },
+          // widgets 层:不得依赖 pages + app(导航走 shared/lib/navigation DIP)
+          { from: { type: "widgets" }, disallow: { to: { type: ["pages", "app"] } }, message: "widgets 不能依赖 pages/app" },
+          // pages 层:不得依赖 app(状态由 AppShell 经 props 传入)
+          { from: { type: "pages" }, disallow: { to: { type: ["app"] } }, message: "pages 不能依赖 app" },
         ]
       }],
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
-      // Downgrade js/ts recommended rules that would cause exit 1 during migration baseline.
       "no-undef": "warn",
       "no-empty": "warn",
       "@typescript-eslint/no-require-imports": "warn"

@@ -14,9 +14,7 @@ import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useSettingsStore } from "@entities/settings";
 import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "./onboarding-strings.js";
-import { ProviderGrid } from "@features/settings/ui/ProviderGrid.jsx";
-import { KeyVerifyField } from "@features/settings/ui/KeyVerifyField.jsx";
-import { ModelSelect } from "@features/settings/ui/ModelSelect.jsx";
+import { ProviderGrid, KeyVerifyField, ModelSelect } from "@features/settings";
 import { useOnboardingFlow } from "@features/onboarding";
 
 const STEP_KEYS = ["welcome", "workspace", "appearance", "model", "search", "done"];

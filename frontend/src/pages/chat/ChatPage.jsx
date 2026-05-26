@@ -12,7 +12,7 @@ import { useConversation, useConversationMessages } from "@entities/conversation
 import { useApiKeys } from "@entities/apikey";
 import { useModelConfigs } from "@entities/model-config";
 import { useChatStore } from "@entities/conversation";
-import { qk } from "@shared/api/queryKeys";
+import { qk } from "@shared/api";
 import { useSendMessageFlow } from "../../features/send-message/index.ts";
 import { ChatHeader } from "./ui/ChatHeader.jsx";
 import { MessageView } from "./ui/MessageView.jsx";

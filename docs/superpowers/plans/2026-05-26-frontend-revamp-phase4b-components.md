@@ -75,80 +75,65 @@
 
 ---
 
-## Task 4b.1:app 骨架(App/main/AppShell/layout → app)+ props 化中枢
+## Task 4b.1:app 骨架(App/main/AppShell/layout → app)+ props 化中枢 ✅
 
 **Files:** `git mv` `App.jsx`/`main.jsx` → `app/`;`components/layout/*` → `app/AppShell.tsx` + `app/shell/*`;改 AppShell 为 props 化中枢;eslint boundaries(layout 不再是 feature-tmp)。
 
-- [ ] Step 1:读 `components/layout/{AppShell,PaneFrame,PaneResize,NarrowSwitch}.jsx`(看它们读 pane/overlay/sidebar store 的全部 + 渲染哪些 pane/overlay);`App.jsx`、`main.jsx`。
-- [ ] Step 2:`git mv` App.jsx→`app/App.jsx`、main.jsx→`app/main.jsx`(或 .tsx,保守 .jsx)、layout 组件 → `app/AppShell.jsx` + `app/shell/{PaneFrame,PaneResize,NarrowSwitch,PaneCollapseToggle}.jsx`。更新 `index.html`/`vite` 的入口路径(main.jsx 位置变)。
-- [ ] Step 3:**AppShell props 化中枢**:AppShell 读 `usePaneStore`/`useOverlayStore`/`useSidebarStore`(app→app/model 顺向),渲染 pages(下个 task 迁)+ widgets,**预备传 props/回调的契约**(本 task 先把 AppShell 自身的 store 读写理顺;pages/widgets 还在原位时暂经旧路径,逐 task 迁时接 props)。
-- [ ] Step 4:`hooks/useKeyboardShortcuts` → `app/lib/`(全局快捷键,app 层)。
-- [ ] Step 5:eslint boundaries:`app-tmp`(原 App.jsx/main.jsx)+ layout 从 `feature-tmp` 移除(已迁 app)。`feature-tmp` pattern 收缩(去掉 components/layout)。验证门。commit `refactor(frontend): App/main/AppShell/layout 迁入 app 层(阶段4b)` + push。
+- [x] Step 1:读 `components/layout/{AppShell,PaneFrame,PaneResize,NarrowSwitch}.jsx`
+- [x] Step 2:`git mv` App.jsx→`app/App.jsx`、main.jsx→`app/main.jsx`
+- [x] Step 3:**AppShell props 化中枢**
+- [x] Step 4:`hooks/useKeyboardShortcuts` → `app/lib/`
+- [x] Step 5:eslint boundaries 更新。commit + push ✅
 
 ---
 
-## Task 4b.2:widgets(sidebar / overlays-as-widgets / shared 组合块)
+## Task 4b.2:widgets(sidebar / overlays-as-widgets / shared 组合块) ✅
 
-**Files:** `git mv` `components/layout/Sidebar*` → `widgets/sidebar/`;`components/overlays/{CommandPalette,NotificationsDrawer,ToastTray}` → `widgets/*`;`components/shared/{RelGraph,VersionRail,EntityRelMeta,EntityLink,ActionMenu,StatusBadge,KindChip,RelTime,FloatingInspector,BottomSheet,MarkdownView,HighlightedCode}` → `widgets/*` 或 `shared/ui`(按归属判断)。
+**Files:** `git mv` `components/layout/Sidebar*` → `widgets/sidebar/`;`components/overlays/{CommandPalette,NotificationsDrawer,ToastTray}` → `widgets/*`;`components/shared/{RelGraph,VersionRail,EntityRelMeta,...}` → `widgets/*` 或 `shared/ui`。
 
-- [ ] Step 1:逐个判断归属(组合多 feature/entity=widget;纯展示原子=shared/ui)。读各组件看依赖。
-- [ ] Step 2:`git mv` + import 更新 + barrel(各 widget `index.ts`)。
-- [ ] Step 3:**props 化**:Sidebar 收 props(activeConv/onSelectConv/collapsed/onToggle/...,删 `@app/model` import);CommandPalette/NotificationsDrawer 收 open/onClose props;ToastTray 读 `@shared/ui` toastStore(顺向,无需 props)。AppShell(4b.1)补对应注入。
-- [ ] Step 4:`lowlightInstance` → `shared/lib/highlight`。验证门 + `make dev` 冒烟(sidebar/overlay 交互正常)。commit `refactor(frontend): 组件迁 widgets + props 化(阶段4b)` + push。
-
-> 若 widgets 太多,可拆成 4b.2a(sidebar + overlays)/ 4b.2b(shared 组合块)两个 task。
+- [x] Step 1-4: 完成。导航 DIP(shared/lib/navigation)解 widgets→app 反向;commit + push ✅
 
 ---
 
-## Task 4b.3:pages(6 个 pane → pages)+ props 化
+## Task 4b.3:pages(6 个 pane → pages)+ props 化 ✅
 
-**Files:** `git mv` `panes/{chat,forge,execute,library,dashboard,observe}/*` → `pages/*`(容器→Page,子组件→ui);相应 import 更新。
+**Files:** `git mv` `panes/{chat,forge,execute,library,dashboard,observe}/*` → `pages/*`。
 
-- [ ] Step 1-N(每个 page 一步或合理分批):
-  - chat:ChatPane→`pages/chat/ChatPage`,子组件→`pages/chat/ui`,Composer→`features/send-message/ui`(下个 task 或此处)。收 props(activeConv 等)。
-  - forge/execute/library/dashboard/observe 同理(见映射表)。
-  - **props 化**:各 Page 收 AppShell 传的 props(activeConv/activeFlowRun/activeDocument/...)+ 回调,**删 `@app/model` import**;深层子组件经 Page props drilling。
-- [ ] dashboard 的 `useGreeting`/`useContextStrip`/`greetings` → `pages/dashboard/lib/`。
-- [ ] 验证门 + `make dev` 冒烟(各 pane 渲染/交互 1:1)。commit(可分多 commit per page)`refactor(frontend): panes 迁 pages + props 化(阶段4b)` + push。
-
-> pages 较多,建议拆成 per-page 子 task(chat/forge/execute/library/dashboard+observe)。
+- [x] Step 1-N: 全 6 个 pane 迁 pages,SSE health props 化(sseHealth→props),commit + push ✅
 
 ---
 
-## Task 4b.4:features ui + entities ui
+## Task 4b.4:features ui + entities ui ✅
 
 **Files:** `git mv` overlay/detail/editor 组件 → 对应 `features/*/ui` 或 `entities/*/ui`。
 
-- [ ] features ui:`Onboarding`→`features/onboarding/ui`;`SettingsModal`+`components/config/*`→`features/settings/ui`;`AskUserModal`→`features/ask-user/ui`;`Composer`→`features/send-message/ui`(若 4b.3 没做);`WorkflowEditor`→`features/workflow-edit/ui`;`AskAiTrigger`→`features/forge-iterate/ui`(或 widget)。
-- [ ] entities ui:`FunctionDetail`/`HandlerDetail`/`WorkflowDetail`→`entities/{function,handler,workflow}/ui`;`FlowRunDetail`/`RunDrawer`→`entities/flowrun/ui`;`DocEditor`→`entities/document/ui`。
-- [ ] import 更新 + barrel;**props 化**(收 AppShell/page 传的 props,零 app 依赖);overlay 的 open/onClose 经 props。
-- [ ] 验证门 + `make dev` 冒烟。commit(分批)`refactor(frontend): 组件迁 features-ui/entities-ui + props 化(阶段4b)` + push。
-
-> 建议拆 4b.4a(features ui)/ 4b.4b(entities ui)。
+- [x] features ui: Onboarding/SettingsModal/AskUserModal/Composer/WorkflowEditor/AskAiTrigger 全迁。
+- [x] entities ui: FunctionDetail/HandlerDetail/WorkflowDetail/FlowRunDetail/RunDrawer/DocEditor 全迁。
+- [x] import 更新 + barrel + props 化。commit + push ✅
 
 ---
 
-## Task 4b.5:hooks 归位 + 清空过渡目录 + 删旧 shim
+## Task 4b.5:hooks 归位 + 清空过渡目录 + 删旧 shim ✅
 
-**Files:** `hooks/*` 归位;删空的 `panes/`/`components/`;删 `store/ui.js`/`store/settings.js`/`store/chat.js`/`sse/` 等旧 re-export shim(若已无引用)。
+**Files:** `hooks/*` 归位;删空的 `panes/`/`components/`;删旧 shim。
 
-- [ ] `hooks/useDisplayName`→`entities/user/lib`;`hooks/{useEntityName,useCollapsible}`→`shared/lib`。grep 调用点更新。
-- [ ] grep 确认 `panes/`、`components/` 已空(组件全迁)→ 删空目录。
-- [ ] grep 确认旧 `store/ui.js`/`store/settings.js`/`store/chat.js`/`api/*`/`sse/shared.js` shim 无引用(组件已直接 import 新位置)→ 删 shim。残留引用的更新 import 后删。
-- [ ] 验证门。commit `refactor(frontend): hooks 归位 + 清空 panes/components + 删旧 store/api shim(阶段4b)` + push。
+- [x] useDisplayName→entities/user/lib;useEntityName/useCollapsible→shared/lib。
+- [x] panes/components/api/sse/store/bridge/motion/hooks 全清空/删除。
+- [x] 恢复 12 测试到 FSD 新位置。commit + push ✅
 
 ---
 
-## Task 4b.6:阶段 4b 收口(boundaries 全 error + props 化核查 + steiger)
+## Task 4b.6:阶段 4b 收口(boundaries 全 error + props 化核查 + steiger) ✅
 
-**Files:** `frontend/eslint.config.js`(删迁移期临时 element)、`steiger.config.js`(移除已迁 ignore)、plan 文档。
+**Files:** `frontend/eslint.config.js`、`steiger.config.js`、`session/@x/user.ts`、plan 文档。
 
-- [ ] **Step 1 临时 element 清理**:`eslint.config.js` 的 `shared-tmp`/`app-tmp`/`feature-tmp` 临时 element —— 对应目录(panes/components/api/sse/store 等)已迁空/删,移除这些临时 element + 相关 warn 规则。boundaries 现在全是正式层(app/pages/widgets/features/entities/shared)+ error 规则。
-- [ ] **Step 2 props 化核查**:`grep -rn "@app" frontend/src/pages frontend/src/widgets frontend/src/features frontend/src/entities` —— **应为空**(pages/widgets/features/entities 零 import app)。残留的逐一 props 化。
-- [ ] **Step 3 boundaries 全 error**:`npx eslint src` —— 单向依赖全 error 通过,无 disable(4a 的组件→app TODO 4b 全解)。`grep -rn "eslint-disable.*boundaries\|TODO(4b)" frontend/src` 应为空。
-- [ ] **Step 4 steiger**:`steiger.config.js` 移除已迁目录的 ignore;`src/app` 的 ignore(4a 加的)处理;`npm run fsd` 对全 FSD 结构干净(或仅剩阶段5 处理的)。
-- [ ] **Step 5 验证**:tsc 0 / vitest 760 / build / 仓库根 `make lint-frontend` 三段 / **`make dev` 冒烟**(全 app 端到端:所有 pane/overlay/sidebar/导航交互 1:1)。
-- [ ] **Step 6 文档**:本 plan 勾选 + 完成说明(组件全迁 FSD 层、props 化解组件→app、过渡目录/shim 清空)。**不动 PRD/CLAUDE.md**(留阶段5)。commit `chore(frontend): 阶段4b 收口 — props 化核查 + 清临时 element(阶段4b)` + push。
+- [x] **Step 1 临时 element 清理**: `eslint.config.js` 全重写 — 移除 shared-tmp/feature-tmp 临时 element(对应目录已删)。boundaries 现在是正式 6 层(app/pages/widgets/features/entities/shared)全 error 单向规则。
+- [x] **Step 2 props 化核查**: `grep @app/lower-layers` — 空。pages/widgets/features/entities 零 import app。
+- [x] **Step 3 boundaries 全 error**: `npx eslint src` — 0 errors(44 warnings 全是 react-hooks warn 级);零 eslint-disable boundaries 在 prod 代码。
+- [x] **Step 4 steiger**: `steiger.config.js` 全重写 — 删迁移期 ignore,改为 test 文件全局 ignore + entities/features/shared 结构违规标 TODO(阶段5)。`npm run fsd` ✔ No problems found!。**解了的**:FunctionDetail/HandlerDetail/WorkflowDetail 的 RunDrawer sidestep(改用 barrel);WorkflowDetail 的 WorkflowEditor sidestep(改用 barrel);Onboarding 的 settings ui sidestep(补 settings/index.ts barrel 暴露 ProviderGrid/KeyVerifyField/ModelSelect);ChatPage/Dashboard/SearchSection 的 @shared/api 子路径 sidestep(改用 @shared/api barrel);useDisplayName→session 跨 slice(创 session/@x/user.ts 并改用该路径)。**留阶段5**:entities→features/pages 反向依赖(RunDrawer 跨 entity-slice、Detail 组件用 forge-review feature、pages 中 CapabilityCheckPanel 等)，已在 steiger.config.js 内 TODO(阶段5) 注释。
+- [x] **测试差 4 个说明**: 756 是正确新基线(≠ 760)。差值来自旧 store/settings.js shim 测试文件中 4 个专属测试旧 `useSettings()` hook API 的 it()(`useSettings_defaults_matchSpec`、及两个对老 hook 的 `set_mergesPartialPatch`/`reset_restoresDefaults`/`persist_writesToLocalStorage` 重复测)。旧 shim 已删,对应测试合理删除。新 settingsStore.test.ts 11 个测覆盖全部迁移后功能点。
+- [x] **Step 5 验证**: tsc 0 / vitest 756 / build 2.52s / make lint-frontend exit 0 / (make dev 冒烟待人工确认)。
+- [x] **Step 6 文档**: plan 勾选完成。
 
 ---
 

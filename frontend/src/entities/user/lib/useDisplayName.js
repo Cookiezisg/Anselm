@@ -8,7 +8,7 @@
 // createUser 写入,设置里可改),不再用孤立的 localStorage 字段(那会让
 // 走完引导的用户也显示 "?")。取不到 displayName 退到 username,再退到 ""。
 
-import { useSessionStore } from "@entities/session";
+import { useSessionStore } from "@entities/session/@x/user";
 import { useUsers, useUpdateUser } from "@entities/user";
 
 export function useDisplayName() {
