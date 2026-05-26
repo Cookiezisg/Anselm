@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useSendMessage, useCancelStream } from "@entities/conversation";
 import { qk } from "@shared/api";
 // TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
+// eslint-disable-next-line boundaries/dependencies
 import { useUIStore } from "../../../store/ui.js";
 
 import type { SendMessageBody } from "@entities/conversation";
