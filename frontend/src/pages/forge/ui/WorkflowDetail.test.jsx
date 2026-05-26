@@ -26,7 +26,7 @@ vi.mock("@/widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 
-vi.mock("@entities/flowrun/ui/RunDrawer.jsx", () => ({
+vi.mock("./RunDrawer.jsx", () => ({
   RunDrawer: ({ open, entity }) =>
     open ? <div data-testid="run-drawer">drawer-{entity?.id}</div> : null,
 }));
@@ -35,7 +35,7 @@ vi.mock("@/widgets/ask-ai-trigger/AskAiTrigger.jsx", () => ({
   AskAiTrigger: ({ entityId }) => <div data-testid="ask-ai">ask-{entityId}</div>,
 }));
 
-vi.mock("@/pages/forge/ui/CapabilityCheckPanel.jsx", () => ({
+vi.mock("./CapabilityCheckPanel.jsx", () => ({
   CapabilityCheckPanel: ({ workflowId }) => (
     <div data-testid="cap-panel">cap-{workflowId}</div>
   ),

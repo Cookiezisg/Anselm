@@ -17,4 +17,3 @@ export type {
   RunFunctionVars,
   RunFunctionResult,
 } from "./model/types";
-export { FunctionDetail } from "./ui/FunctionDetail.jsx";

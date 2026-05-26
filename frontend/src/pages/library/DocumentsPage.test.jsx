@@ -11,6 +11,9 @@ vi.mock("@entities/document", () => ({
   useCreateDocument: vi.fn(),
   useUpdateDocument: vi.fn(),
   useDeleteDocument: vi.fn(),
+}));
+
+vi.mock("./ui/DocEditor.jsx", () => ({
   DocEditor: ({ initialMarkdown }) => (
     <div data-testid="editor-stub">{initialMarkdown}</div>
   ),

@@ -17,7 +17,7 @@ import { useHandlers, useDeleteHandler } from "@entities/handler";
 import { useWorkflows, useDeleteWorkflow } from "@entities/workflow";
 import { useForgeProgress } from "@shared/model";
 import { useToastStore } from "@shared/ui/toastStore";
-import { RunDrawer } from "@entities/flowrun";
+import { RunDrawer } from "./RunDrawer.jsx";
 import { useForgeBatchDelete } from "@features/forge-review";
 
 export function ForgeList({ onOpen, onOpenExecute }) {

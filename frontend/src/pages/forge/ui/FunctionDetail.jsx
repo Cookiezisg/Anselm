@@ -13,7 +13,7 @@ import { StatusBadge } from "@shared/ui/StatusBadge.jsx";
 import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/VersionRail.jsx";
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.jsx";
-import { RunDrawer } from "@entities/flowrun";
+import { RunDrawer } from "./RunDrawer.jsx";
 import { useFunction, useFunctionVersions } from "@entities/function";
 import { useForgeProgress } from "@shared/model";
 import { useForgeReview } from "@features/forge-review";

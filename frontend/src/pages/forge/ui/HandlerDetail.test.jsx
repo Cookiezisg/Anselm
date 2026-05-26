@@ -24,7 +24,7 @@ vi.mock("@/widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 
-vi.mock("@entities/flowrun/ui/RunDrawer.jsx", () => ({
+vi.mock("./RunDrawer.jsx", () => ({
   RunDrawer: ({ open, entity }) =>
     open ? <div data-testid="run-drawer">drawer-{entity?.id}</div> : null,
 }));

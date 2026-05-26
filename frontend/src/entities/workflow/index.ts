@@ -24,4 +24,3 @@ export type {
   Graph,
   VersionStatus,
 } from "./model/types";
-export { WorkflowDetail } from "./ui/WorkflowDetail.jsx";

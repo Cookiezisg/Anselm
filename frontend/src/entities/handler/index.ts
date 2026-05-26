@@ -21,4 +21,3 @@ export type {
   CallHandlerVars,
   CallHandlerResult,
 } from "./model/types";
-export { HandlerDetail } from "./ui/HandlerDetail.jsx";

@@ -23,6 +23,17 @@ vi.mock("./ui/ForgeList.jsx", () => ({
 
 vi.mock("@entities/function", () => ({
   useFunction: vi.fn(),
+}));
+
+vi.mock("@entities/handler", () => ({
+  useHandler: vi.fn(),
+}));
+
+vi.mock("@entities/workflow", () => ({
+  useWorkflow: vi.fn(),
+}));
+
+vi.mock("./ui/FunctionDetail.jsx", () => ({
   FunctionDetail: ({ forge, onBack }) => (
     <div data-testid="fn-detail">
       fn-{forge.id}-{forge.name}
@@ -31,8 +42,7 @@ vi.mock("@entities/function", () => ({
   ),
 }));
 
-vi.mock("@entities/handler", () => ({
-  useHandler: vi.fn(),
+vi.mock("./ui/HandlerDetail.jsx", () => ({
   HandlerDetail: ({ forge, onBack }) => (
     <div data-testid="hd-detail">
       hd-{forge.id}
@@ -41,8 +51,7 @@ vi.mock("@entities/handler", () => ({
   ),
 }));
 
-vi.mock("@entities/workflow", () => ({
-  useWorkflow: vi.fn(),
+vi.mock("./ui/WorkflowDetail.jsx", () => ({
   WorkflowDetail: ({ forge, onBack }) => (
     <div data-testid="wf-detail">
       wf-{forge.id}

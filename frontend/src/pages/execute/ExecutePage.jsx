@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useFlowRun } from "@entities/flowrun";
 import { ExecuteOverview } from "./ui/ExecuteOverview.jsx";
-import { FlowRunDetail } from "@entities/flowrun";
+import { FlowRunDetail } from "./ui/FlowRunDetail.jsx";
 import { slideUp, fadeIn } from "@shared/lib/motion";
 
 export function ExecutePage({ focusEntity, onConsumeFocusEntity, onOpenChat }) {

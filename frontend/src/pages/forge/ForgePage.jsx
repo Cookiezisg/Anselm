@@ -10,9 +10,9 @@ import { useFunction } from "@entities/function";
 import { useHandler } from "@entities/handler";
 import { useWorkflow } from "@entities/workflow";
 import { ForgeList } from "./ui/ForgeList.jsx";
-import { FunctionDetail } from "@entities/function";
-import { HandlerDetail } from "@entities/handler";
-import { WorkflowDetail } from "@entities/workflow";
+import { FunctionDetail } from "./ui/FunctionDetail.jsx";
+import { HandlerDetail } from "./ui/HandlerDetail.jsx";
+import { WorkflowDetail } from "./ui/WorkflowDetail.jsx";
 import { slideUp, fadeIn } from "@shared/lib/motion";
 
 export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }) {

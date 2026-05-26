@@ -13,13 +13,16 @@ vi.mock("./ui/ExecuteOverview.jsx", () => ({
 }));
 
 vi.mock("@entities/flowrun", () => ({
+  useFlowRun: vi.fn(),
+}));
+
+vi.mock("./ui/FlowRunDetail.jsx", () => ({
   FlowRunDetail: ({ runId, onBack }) => (
     <div data-testid="detail">
       <span>detail-{runId}</span>
       <button onClick={onBack}>back</button>
     </div>
   ),
-  useFlowRun: vi.fn(),
 }));
 
 import userEvent from "@testing-library/user-event";

@@ -27,7 +27,9 @@ vi.mock("@shared/model", () => ({
   useForgeProgress: (selector) => selector({ active: {} }),
 }));
 
-vi.mock("@entities/flowrun", () => ({
+vi.mock("@entities/flowrun", () => ({}));
+
+vi.mock("./RunDrawer.jsx", () => ({
   RunDrawer: ({ open, kind, entity }) =>
     open ? <div data-testid="run-drawer">drawer-{kind}-{entity?.id}</div> : null,
 }));
