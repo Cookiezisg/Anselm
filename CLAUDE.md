@@ -20,6 +20,11 @@
 | 各 domain 详设计 | `documents/version-1.2/service-design-documents/<domain>.md` |
 | 契约索引（API / DB / Error / Events） | `documents/version-1.2/service-contract-documents/` |
 | 桌面端 / 调试控制台 | `documents/version-1.2/desktop-packaging-notes.md` / `testend-design.md` |
+| 前端 PRD（产品需求 / UI 细节） | `documents/version-1.2/frontend-prd.md` |
+| 前端 FSD 层契约索引 | `documents/version-1.2/frontend-contract-documents/fsd-layers.md` |
+| 前端 entity TS 类型 ↔ 端点映射 | `documents/version-1.2/frontend-contract-documents/entity-types.md` |
+| 前端横切机制（DIP / SSE / errorMap） | `documents/version-1.2/frontend-contract-documents/cross-cutting.md` |
+| 前端各 slice 详设计 | `documents/version-1.2/frontend-design-documents/<slice>.md` |
 
 ## 改代码前必做
 
@@ -155,7 +160,7 @@
 
 # §S14 📌 文档同步纪律（最高优先级）
 
-**文档落后于代码 = bug。**
+**文档落后于代码 = bug。后端遵守本节；前端遵守 §F1（同等级别）。**
 
 ## 触发表
 
@@ -259,25 +264,121 @@ type Tool interface {
 # 前端开发守则（前端阶段 — 现已生效）
 
 > 前端 PRD 全文见 [`documents/version-1.2/frontend-prd.md`](documents/version-1.2/frontend-prd.md)。
-> 本节是 PRD 的工程纪律摘要，两者不矛盾时以本节为准（本节更简洁）。
+> FSD 层契约索引见 [`documents/version-1.2/frontend-contract-documents/fsd-layers.md`](documents/version-1.2/frontend-contract-documents/fsd-layers.md)。
+> 本节是工程纪律唯一事实源，与 PRD 不矛盾时以本节为准（本节更简洁）。
 
-## 两份权威文档
+## 权威文档地图
 
 | 问题类型 | 去哪里找答案 |
 |---|---|
-| 这个组件的 HTML 结构 / class 名 / CSS | `boilerplate/src/` 对应 `.jsx` 文件 + `styles.css` |
+| 层定义 / slice 清单 / 依赖规则 | `frontend-contract-documents/fsd-layers.md` |
+| 12 entity TS 类型 ↔ 后端端点 | `frontend-contract-documents/entity-types.md` |
+| DIP / errorMap / SSE / queryKeys | `frontend-contract-documents/cross-cutting.md` |
+| 各 slice 详细设计 | `frontend-design-documents/<slice>.md` |
 | 数据从哪来、接哪个 API、SSE 如何处理 | PRD §5–§7、§9–§14、§17 |
 | 动效用什么参数 | PRD §3.2 |
-| 这里有 bug，是否要修 | 见下方"遇到 boilerplate bug 的处理原则" |
+| 视觉细节（class 名 / CSS） | `boilerplate/src/` 对应 `.jsx` 文件 + `styles.css` |
 
-**PRD 没有描述的视觉细节，以 boilerplate 为准。不要凭空发明。**
+---
 
-## 写每个组件前必做
+## §FSD FSD 6 层宪法（完整 Feature-Sliced Design）
 
-1. **打开对应 boilerplate 文件**（PRD §18.5 有映射表），读清楚 HTML 结构和 class 名
-2. **确认 `styles.css` 里对应的 CSS 规则**，不靠记忆或猜测
-3. **按 PRD 替换数据层**：mock 数据 → TanStack Query hook；全局 window.Xxx → ES module import
-4. **只改 PRD §16 登记的 bug**，其余照搬
+### 层定义
+
+依赖**严格单向自上而下**（上层 import 下层；下层永不知上层；同层 slice 默认不互引）。
+
+| FSD 层 | 职责 | 后端对位 | 可 import |
+|---|---|---|---|
+| **`app`** | 应用组装：入口、providers、全局 store、SSE 单例、identity boot、主题 | `transport` 组装 + `main.go` wire | 全部下层 |
+| **`pages`** | 完整屏幕（一个 pane = 一个 page）；零业务，只读 hook → 渲染 → 调 mutation | HTTP handler（路由式入口） | widgets / features / entities / shared |
+| **`widgets`** | 自包含组合 UI 块（组合多个 feature / entity） | 无直接对位（组合层） | features / entities / shared |
+| **`features`** | 用户用例 / 交互（带业务价值）；用例 hook 在 `model/` | `app/service`（用例层） | entities / shared |
+| **`entities`** | 单个业务实体（数据访问 + 模型 + 展示卡）；fetch 只调 `shared/api` | `domain`（实体层） | shared（+ `@x` 跨 slice） |
+| **`shared`** | 零业务：传输底座、UI kit、工具函数 | `infra` + `pkg` | 仅自身 |
+
+**后端对位精确性**：
+- `pages` 对应后端 handler（只解参数 → 调用 → 渲染），零业务
+- `features/model/` hook = 后端 `app/service`（用例编排）
+- `entities/api/` hook = 后端 `infra/store`（薄数据访问）
+- `shared/api/httpClient` = 后端 transport 的底层（唯一发 fetch 的地方）
+- `entities/<x>/index.ts` barrel = 后端 domain port（只暴露公开契约）
+
+### 依赖规则
+
+```
+app → pages → widgets → features → entities → shared
+```
+
+- 反向依赖（下层引上层）= 违规，`steiger` + `eslint-plugin-boundaries` 报错
+- 越级 import（如 features 直接引 app）= 违规
+- 深引 slice 内部文件（绕过 `index.ts`）= 违规；只准 `import { Foo } from "@/entities/conversation"`
+
+### Slice Public API（index.ts barrel）
+
+每个 slice **必须有 `index.ts`**，外部只准 import 该文件，不准深引内部路径。= 后端 port"不暴露 entity 内部"。
+
+```
+entities/conversation/
+  ├── api/           (useConversations / useSendMessage)
+  ├── model/         (chatStore / types.ts)
+  ├── ui/            (ConversationCard)
+  └── index.ts       ← 唯一对外出口
+```
+
+### DIP 注入模式（解 shared → 上层反向依赖）
+
+`shared` 不可依赖上层（FSD 铁律）。横切关注点用控制反转——结构与后端 `domain` 定 port / `main.go` wire 同构：
+
+| 横切关注点 | 注册点（shared 侧） | 注入方（app 侧） | 说明 |
+|---|---|---|---|
+| **userId 注入 header** | `shared/api/authProvider.ts::setUserIdProvider(fn)` | `app/model/useSessionBootstrap.ts` | httpClient 调注入 fn，不知 session 存在 |
+| **401 → 信号** | `shared/api/authProvider.ts::setOnAuthFailure(fn)` | `app/model/useSessionBootstrap.ts` | 注入的 fn → `session.resolve()`，无循环 |
+
+**身份**：建模为 `entities/session`（业务概念，非 shared）；`currentUserId / status` 唯一真相，唯一 writer。
+
+**toast**：`shared/ui/toastStore.ts`（无业务原语）；feature 抛 `ApiError(code)` → app 全局 `onError` → `errorMap`（shared）→ toast。feature hook 决定文案，组件不碰 toast。
+
+**偏好**：`entities/settings/model/settingsStore.ts`（单例配置实体；下层组件顺向 import；app 驱动 i18n/theme 应用）。
+
+**导航**：feature 返回意图对象，page 执行导航（`paneStore` 在 `app/model`，pages 从 props 拿，不直接 import app store）。
+
+### 横切归属表
+
+| 关注点 | 规范归属 | 读者（顺向） |
+|---|---|---|
+| 身份（userId / status） | `entities/session/model` | features / widgets / pages / app |
+| userId 注入 shared | DIP：shared 注册点 + app 注入 | httpClient / sse（不知上层） |
+| toast 队列 | `shared/ui/toastStore.ts` | widgets/toaster + app onError |
+| 用户偏好（theme/accent/density/lang/reasoningDefault） | `entities/settings/model` | 下层组件（顺向）；app 驱动应用 |
+| UI 编排（openPanes / activeConv / overlays / sidebar） | `app/model/`（paneStore 等） | 只 AppShell 读；pages 收 props |
+| SSE 实时消息树 | `entities/conversation/model/chatStore.ts` | 按 block id 细粒度订阅 |
+| SSE 连接单例 | `app/sse/SSEProvider.tsx` | 永不开第四条（对位 E1） |
+| invalidate 映射 | `shared/api/queryKeys.ts`（单一失效集） | SSE / mutation 都查它 |
+| enabled gate | app/page 级 boot gate（session.status=ready 才挂载 AppShell） | entity hook 纯数据，不含 gate |
+
+---
+
+## 改代码前必做（前端版）
+
+1. **读对应 `frontend-design-documents/<slice>.md`**（PRD §18.5 有映射）
+2. **确认 `fsd-layers.md`、`entity-types.md`、`cross-cutting.md`** 中对应条目
+3. **视觉细节参照 boilerplate**（`boilerplate/src/` + `styles.css`），不靠记忆
+4. **改完跑 Verification 三段**（见下方）
+5. **同步文档**（§F1）
+
+---
+
+## Verification（前端门禁）
+
+```bash
+make lint-frontend          # eslint + tsc --noEmit + steiger（FSD 结构）
+make test-frontend           # vitest
+wails dev                    # 冒烟：窗口起得来 + 能连后端
+```
+
+`make lint-frontend` 与后端 `staticcheck` 同等地位；违规 push 不过去。
+
+---
 
 ## 遇到 boilerplate bug 的处理原则
 
@@ -309,23 +410,46 @@ type Tool interface {
 - conversation 列表的 status dot（streaming 脉动，approval warn 色）
 - 对话流的 day-divider
 
+---
+
 ## 前端代码规范
 
-- **组件文件**：每文件一个主组件，文件名 = 组件名，`PascalCase.jsx`
-- **hook 文件**：`useCamelCase.js`，只做一件事
+- **组件文件**：每文件一个主组件，文件名 = 组件名，`PascalCase.tsx`
+- **hook 文件**：`useCamelCase.ts`，只做一件事
 - **CSS class**：沿用 boilerplate 的 kebab-case 命名，不引入 BEM 或 CSS Modules
+- **组件内铁律（= 后端 S6）**：`onClick` / `onSubmit` 里不准有业务决策；组件只调一个 feature hook 拿意图级 API
 - **不写注释**：同后端 S11——只写 why，不写 what；密度上限 1/3；无章节横幅
 - **不做防御性校验**：同后端原则六——同人写前后端，API 结构已知，不加多余 null-check 和 fallback
-- **import 顺序**：React → 第三方库 → 内部 api/store/sse → 内部 components → 同级文件
+- **import 顺序**：React → 第三方库 → `@/shared` → `@/entities` → `@/features` → `@/widgets` → `@/pages` → 同级文件
+- **TS strict**：`tsconfig.json` `strict: true`；新文件 `.tsx/.ts`；entity 类型集中在 `entities/<x>/model/types.ts`
 - **i18n（全量中英双语）**：面向用户文案走 react-i18next —— `useTranslation("<ns>")` + `t("key")`，字典 `frontend/src/i18n/locales/{zh,en}/<ns>.json`（结构化 key、按模块拆 ns）；通用动词用 `t("common:xxx")`；**不硬编码中文/英文 UI 串**（含 badge/label/tooltip/placeholder）；`toLocaleString` 等按 `i18n.language` 取 locale；文案夹 JSX 元素用 `<Trans>`；`settings.lang` 驱动切换。详见 `docs/superpowers/specs/2026-05-26-frontend-i18n-design.md`
 
-## F1 前端文档同步
+---
 
-前端代码变动时，如果涉及以下情况，必须同步更新 PRD：
+## §F1 📌 前端文档同步纪律（最高优先级）
 
-| 变动 | 必更新 PRD |
+**文档落后于代码 = bug。** 本纪律覆盖前端，与后端 §S14 同等级别。
+
+### 触发表
+
+| 前端代码变动 | 必改文档 |
 |---|---|
-| 发现并修了 boilerplate bug | §16 补一行 |
-| 实际 API endpoint 与 §17 不符 | §17 修正 |
-| Phase 完成 | §15 对应项目打勾 |
-| 设计决策变更（如改了某个动效参数）| §3 或对应章节更新 |
+| 新 slice / entity / feature / widget / page | `frontend-design-documents/<slice>.md` + `fsd-layers.md`（slice 清单行）+ `progress-record.md` |
+| 新 entity TS 类型 / 字段变 | `frontend-contract-documents/entity-types.md` + `progress-record.md` |
+| DIP / errorMap / SSE / queryKeys 接口变 | `frontend-contract-documents/cross-cutting.md` + `progress-record.md` |
+| FSD 层边界变 / 依赖规则变 | `frontend-contract-documents/fsd-layers.md` + `CLAUDE.md §FSD` + `progress-record.md` |
+| 新 API endpoint / path 变 | `frontend-prd.md §17` + `entity-types.md` + `progress-record.md` |
+| 发现并修了 boilerplate bug | `frontend-prd.md §16` 补一行 + `progress-record.md` |
+| Phase 完成 | `frontend-prd.md §15` 对应项打勾 + `progress-record.md` |
+| 设计决策变更 | `frontend-prd.md §3` 或对应章节 + `progress-record.md` |
+| 所有改动（兜底） | `progress-record.md` dev log（格式同后端：1-2 句 ~30-100 汉字） |
+
+### 子任务完成 checklist（前端版）
+
+- [ ] `frontend-design-documents/<slice>.md` 实现清单勾 ✅
+- [ ] 新 entity 类型 → `entity-types.md` 对应行更新
+- [ ] 横切变动 → `cross-cutting.md` 对应行更新
+- [ ] `progress-record.md` 加 dev log
+- [ ] 新规范/决策变动 → 加到本文件 + 对应 contract 文档
+
+发现文档与代码不符 → **立刻停下修文档**，记 `[doc-fix]` dev log。

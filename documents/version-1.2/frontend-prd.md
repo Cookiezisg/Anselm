@@ -18,8 +18,9 @@
 
 ```
 运行时：    Wails v2（macOS .app / Windows .exe）
-语言：      Go 1.25（后端）+ React 18 JSX（前端）
+语言：      Go 1.25（后端）+ React 18 TypeScript（前端，strict: true）
 构建：      Vite 6（前端）+ wails build（打包）
+架构：      完整 Feature-Sliced Design 6 层（app/pages/widgets/features/entities/shared）
 数据层：    TanStack Query v5（REST 缓存）+ Zustand v5（UI 状态）
 动效：      Framer Motion v12（进出/layout/spring）+ 现有 CSS 变量（微交互）
 SSE：       3 个自定义 hook（不用第三方库）
@@ -27,85 +28,57 @@ SSE：       3 个自定义 hook（不用第三方库）
 样式：      迁移 boilerplate styles.css（保留所有 CSS 变量，不引入 Tailwind）
 图标：      Lucide React（对应 boilerplate 的 Icon 对象）
 i18n：      react-i18next（结构化 key + locales/{zh,en}/<ns>.json，settings.lang 驱动；全量中英双语）
+边界强制：  steiger（FSD 层级）+ eslint-plugin-boundaries（import 规则）+ tsc --noEmit
 ```
 
 **Wails 版本：v2（不用 v3，v3 还在 alpha）**
 
-**不引入：** TypeScript、Tailwind、Redux、React Router（无 URL 路由需要）
+**不引入：** Tailwind、Redux、React Router（无 URL 路由需要）
+
+> **架构权威**：FSD 层契约见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md)；
+> DIP / SSE / errorMap 见 [`frontend-contract-documents/cross-cutting.md`](./frontend-contract-documents/cross-cutting.md)。
+> 本 PRD 保留产品需求 / UI 细节 / Phase 进度，架构细节以 contract 文档为准。
 
 ---
 
 ## §2 目录结构
 
+**完整 FSD 6 层**。层定义 + 依赖规则 + slice 清单的权威见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md)。
+
 ```
-frontend/
-├── index.html
-├── vite.config.js
-├── package.json
-├── src/
-│   ├── main.jsx                  ← 挂载 App + QueryClient + 初始化 baseUrl
-│   ├── App.jsx                   ← 根组件（shell + overlay 组装）
-│   │
-│   ├── bridge/
-│   │   └── wails.js              ← GetBackendPort() wrapper + baseUrl 全局
-│   │
-│   ├── api/
-│   │   ├── client.js             ← fetch wrapper（注入 baseUrl + headers）
-│   │   ├── conversations.js      ← conversation 相关 query/mutation hooks
-│   │   ├── forge.js              ← function/handler/workflow query/mutation hooks
-│   │   ├── flowruns.js           ← flowrun query hooks
-│   │   ├── config.js             ← apikey / model-configs query hooks
-│   │   ├── library.js            ← skill / mcp / memory / document hooks
-│   │   └── notifications.js      ← notifications REST snapshot hook
-│   │
-│   ├── sse/
-│   │   ├── useEventLog.js        ← eventlog SSE hook（主流 chat 内容）
-│   │   ├── useNotifications.js   ← notifications SSE hook（entity 状态变更）
-│   │   └── useForge.js           ← forge SSE hook（trinity 锻造进度）
-│   │
-│   ├── store/
-│   │   ├── ui.js                 ← Zustand：panes/activeConv/selection/baseUrl
-│   │   ├── settings.js           ← Zustand：theme/accent/density/lang（持久化 localStorage）
-│   │   └── chat.js               ← Zustand：SSE 构建的实时 message/block 树
-│   │
-│   ├── components/
-│   │   ├── primitives/           ← 原子组件（Button/Badge/Spinner/Icon/Kbd 等）
-│   │   ├── layout/               ← Sidebar / Pane / PaneResize / AppShell
-│   │   ├── overlays/             ← CommandPalette / NotificationsDrawer / AskUserModal / Toast
-│   │   └── shared/               ← 跨 pane 共用（EntityLink / RelTime / KindChip / StatusBadge / ActionMenu / VersionRail 等）
-│   │
-│   ├── panes/
-│   │   ├── chat/
-│   │   │   ├── ChatPane.jsx      ← 整个 chat pane
-│   │   │   ├── ChatHeader.jsx
-│   │   │   ├── MessageView.jsx
-│   │   │   ├── BlockRenderer.jsx ← 7 种 block 递归渲染
-│   │   │   └── Composer.jsx
-│   │   ├── forge/
-│   │   │   ├── ForgePane.jsx     ← list ↔ detail 路由
-│   │   │   ├── ForgeList.jsx
-│   │   │   ├── FunctionDetail.jsx
-│   │   │   ├── HandlerDetail.jsx
-│   │   │   └── WorkflowDetail.jsx（含 canvas + diff）
-│   │   ├── execute/
-│   │   │   ├── ExecutePane.jsx
-│   │   │   ├── FlowRunList.jsx
-│   │   │   └── FlowRunDetail.jsx（含 DAG + Gantt）
-│   │   ├── config/
-│   │   │   └── ConfigPane.jsx
-│   │   ├── library/
-│   │   │   ├── SkillsPane.jsx
-│   │   │   ├── McpPane.jsx
-│   │   │   ├── MemoryPane.jsx
-│   │   │   └── DocumentsPane.jsx
-│   │   └── dashboard/
-│   │       └── Dashboard.jsx
-│   │
-│   └── styles/
-│       ├── tokens.css            ← 从 boilerplate styles.css 提取的变量（不改内容）
-│       ├── base.css              ← reset + body + 滚动条
-│       ├── components.css        ← 共用组件样式（btn/badge/table/card 等）
-│       └── panes.css             ← 每个 pane 的布局样式
+frontend/src/
+├── main.tsx                          ← 入口（挂载 App + QueryClient）
+├── app/                              ← 第 6 层：组装
+│   ├── App.tsx                       ← 根（boot = session.status；瘦）
+│   ├── AppShell.tsx                  ← composition root：读 app/model → 渲染 pages 传 props
+│   ├── providers/                    ← QueryProvider（全局 onError→errorMap→toast）/ SSEProvider / I18nProvider
+│   ├── model/
+│   │   ├── useSessionBootstrap.ts    ← 启动 resolve + 注入 DIP（userId provider / onAuthFailure）
+│   │   ├── paneStore.ts              ← openPanes / activeConv / activeFlowRun / leftPct / focusEntity
+│   │   ├── overlayStore.ts           ← cmdk / notifs / ask / settings open + pendingAsk
+│   │   └── sidebarStore.ts           ← collapsed / tools / recent / archived
+│   ├── sse/                          ← SSEProvider + 3 hook（分发到 entity store）
+│   └── index.ts
+├── pages/                            ← 第 5 层：完整屏幕（一个 pane = 一个 page）
+│   ├── chat/ forge/ execute/ library/ dashboard/ observe/
+├── widgets/                          ← 第 4 层：自包含组合 UI 块
+│   ├── sidebar/ command-palette/ notifications-drawer/ entity-graph/
+│   ├── version-rail/ ask-ai-trigger/ entity-rel-meta/
+├── features/                         ← 第 3 层：用户用例（带业务价值）
+│   ├── send-message/ forge-iterate/ forge-review/ workflow-edit/
+│   ├── onboarding/ settings/ ask-user/ entity-link/
+├── entities/                         ← 第 2 层：单个业务实体
+│   ├── session/       { api/ model/(sessionStore + resolve) index.ts }  ← 身份唯一真相
+│   ├── settings/      { model/(settingsStore 偏好) index.ts }           ← 单例配置实体
+│   ├── conversation/  { api/ model/(chatStore+types) ui/ index.ts }
+│   ├── function/ handler/ workflow/ flowrun/ document/ skill/
+│   ├── mcp/ memory/ apikey/ relation/ user/
+└── shared/                           ← 第 1 层：零业务基础设施
+    ├── api/       httpClient.ts  authProvider.ts(DIP 注册点)  queryKeys.ts  sse.ts  errorMap.ts
+    ├── bridge/    wails.ts
+    ├── ui/        Button Badge Icon Kbd Spinner Select + toastStore.ts + index.ts
+    ├── lib/       motion.ts i18n/
+    └── config/
 
 cmd/desktop/
 ├── main.go                       ← Wails 入口（启 HTTP server + 开窗口）
@@ -251,20 +224,18 @@ bootstrap()
 
 ## §5 状态架构
 
-### 5.1 Zustand — `store/ui.js`
+> 状态分层权威见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md) §横切归属表。本节保留 store 的字段规格。
 
-```js
+### 5.1 Zustand — `app/model/paneStore.ts`（原 `store/ui.js`）
+
+```ts
 {
-  baseUrl: null,           // string | null，bootstrap 后设置
-  openPanes: ["chat"],     // string[]，最多 2 个
-  activeConv: null,        // string | null，当前对话 ID
-  leftPct: 50,             // number，双 pane 左侧宽度百分比
-  collapsed: false,        // boolean，sidebar 折叠
-  narrow: false,           // boolean，主区域 < 1000px 时自动折叠为单 pane
-  activeNarrowPane: null,  // narrow 模式下当前可见的 pane
-  focusEntity: {},         // { [pane]: entityId }，各 pane 待 focus 的实体
+  openPanes: string[],      // 最多 2 个 pane
+  activeConv: string | null,
+  leftPct: number,          // 双 pane 左侧宽度百分比
+  focusEntity: Record<string, string>,  // { [pane]: entityId }
   // actions
-  togglePane, closePane, openPane, openEntity, setActiveConv, setBaseUrl
+  togglePane, closePane, openPane, openEntity, setActiveConv
 }
 ```
 
@@ -273,22 +244,24 @@ bootstrap()
 - 超出时踢掉 index 0（最早打开的）
 - narrow 模式下两个 pane 只显示 `activeNarrowPane` 指向的那个
 
-### 5.2 Zustand — `store/settings.js`
+**注**：baseUrl 已从 paneStore 移除——`shared/bridge/wails.ts` 直接持有，不再放 store。
 
-```js
+### 5.2 Zustand — `entities/settings/model/settingsStore.ts`（原 `store/settings.js`）
+
+```ts
 {
-  theme: "system",         // "system" | "light" | "dark"
-  accent: "claude",        // "claude" | "blue" | "ink" | "green" | "purple"
-  density: "cozy",         // "compact" | "cozy" | "comfortable"
-  lang: "zh",              // "zh" | "en"
+  theme: "system" | "light" | "dark",
+  accent: "claude" | "blue" | "ink" | "green" | "purple",
+  density: "compact" | "cozy" | "comfortable",
+  lang: "zh" | "en",
   reasoningDefault: "collapsed",  // reasoning block 默认折叠
-  // 从 localStorage 读写（zustand persist）
+  // zustand persist → localStorage
 }
 ```
 
-settings 变化时立即写 `document.documentElement.dataset.*` 并同步 localStorage。
+settings 变化时立即写 `document.documentElement.dataset.*`（由 app 层驱动，store 本身不直接操作 DOM）。
 
-### 5.3 Zustand — `store/chat.js`
+### 5.3 Zustand — `entities/conversation/model/chatStore.ts`（原 `store/chat.js`）
 
 SSE eventlog 事件推进来，chat store 负责组装 message 树。
 
@@ -1461,6 +1434,8 @@ ToastTray（position: fixed bottom right）
 ---
 
 ## §17 API Endpoint 映射（前端视角）
+
+> **TS 类型权威**：每个 endpoint 的请求/响应 TS 接口见 [`frontend-contract-documents/entity-types.md`](./frontend-contract-documents/entity-types.md)。本节只列 endpoint 路径 ↔ hook 名映射。
 
 前端实际使用的 API endpoints（Phase 0-4 已实现的）：
 
