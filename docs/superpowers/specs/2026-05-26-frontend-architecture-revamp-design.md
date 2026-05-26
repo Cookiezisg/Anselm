@@ -33,6 +33,7 @@
 | **D3** | **不叠加 Clean Architecture 的 DIP/repository/use-case 对象** | FSD 的 `entities/api`(数据访问)+ `features/model`(用例)已分离关注点;DIP 的"业务核心脱离框架"价值在单 Wails app 不成立(不会换 React);避免 Java 味样板。未来真有多端需求再议 |
 | **D4** | **身份层 = identity store**(phase 状态机 + fresh-only resolve + 401 只发信号),并入 `app` 层 | 单一真相 + 唯一 writer,根治 5 处自愈竞态;作为新架构第一个应用实例,把触发 bug 连根带走 |
 | **D5** | **增量迁移,非大爆炸** | ~100 文件,有全覆盖 vitest 兜底;allowJs 让 .jsx/.tsx 共存,逐 slice 搬+定型,每步可验证/commit |
+| **D6** | **最规范优先,横切关注点用依赖倒置 / 状态下沉 / 意图返回解反向依赖**(2026-05-26 升级,推翻 §8 的 app/model) | 用户定调:全程最规范、零务实妥协,后续所有决策按此。身份建模为 `entities/session`;`httpClient` 注入 userId 用 **DIP 注册点**(= 后端 domain 定 port、main.go wire);toast 走 `shared/ui` 队列 + app 全局 onError + errorMap;enabled gate 上移到 app/page boot gate;导航由 feature 返回意图、page 执行。零反向依赖。D3 拒绝的是"为脱离框架而堆 repository/use-case 对象",此处注入是 FSD 层级铁律(shared 不依赖上层)的内在必然,不冲突。详见 §8 |
 
 ---
 
@@ -110,9 +111,11 @@ export function useSendMessageFlow(convId: string) {
 | 状态 | 工具 | 归层 |
 |---|---|---|
 | 服务端缓存(列表/详情/版本) | TanStack Query | `entities/<x>/api/` |
-| 客户端会话(shell:openPanes/activeConv/toasts/overlays) | zustand | `app/model/uiStore`(拆掉 43 成员 God Store,按关注点分:paneStore / selectionStore / toastStore / overlayStore,或合理归并) |
-| 持久化偏好(theme/lang/...) | zustand+persist | `app/model/settingsStore` |
-| **SSE 实时消息树**(特例) | zustand 投影 | `entities/conversation/model/chatStore` —— **rAF 合并 + tree 重建算法原样保留**,只换家。组件按 block id 细粒度订阅。不进 TanStack(流式 append 不是请求-响应) |
+| **身份**(currentUserId/status) | zustand+persist | `entities/session/model`(§8;唯一真相 + 唯一 writer) |
+| **用户偏好**(theme/accent/density/lang/reasoningDefault) | zustand+persist | `entities/settings/model`(单例配置实体;下层组件直接读;app 驱动 i18n/theme 应用) |
+| **toast 队列** | zustand | `shared/ui`(无业务通知原语;widgets/toaster 渲染 + app 全局 onError 写,均下层可读) |
+| 应用 UI 编排(openPanes/activeConv/overlays/sidebar) | zustand | `app/model`(paneStore/overlayStore/sidebarStore;**只 AppShell 读,pages 收 props**,不下放避免反向) |
+| **SSE 实时消息树**(特例) | zustand 投影 | `entities/conversation/model/chatStore` —— **rAF 合并 + tree 重建算法原样保留**,组件按 block id 细粒度订阅 |
 | 局部 UI(展开/草稿/hover) | `useState` | 组件自身 |
 
 `sse/useForge` 里逸出的第 5 个 store(`useForgeProgress`)→ 收进 `entities/`(forge 相关)或 `app/sse`。
@@ -132,29 +135,43 @@ export function useSendMessageFlow(convId: string) {
 
 ---
 
-## 8. 身份层详设计(identity store — 首个应用实例)
+## 8. 身份层详设计(entities/session + 依赖倒置注入 —— 最规范 FSD)
 
-### 8.1 形态
-`app/model/identityStore.ts`(zustand)是**身份的唯一真相源 + 唯一 writer**。持有:
-- `userId: string | null`(persist 到 localStorage)。
-- `phase: 'loading' | 'onboarding' | 'ready'`(派生 + 显式)。
+> **决策升级(2026-05-26,见 D6):** 原 §8 把 identityStore 放 `app/model` 在 FSD 下不成立(`httpClient`(shared)+ entity gate 反向依赖 app)。改为**最规范形态**:身份建模为 `entities/session` 业务实体,横切注入用依赖倒置(与后端 clean arch 同构)。后续所有阶段按此规范。
 
-### 8.2 唯一解析函数 `resolve()`
-- 输入:persisted `userId` + **刚 fetch 的 fresh `/users`**(强制 refetch,不靠缓存)。
-- 逻辑:`/users` 空 → `onboarding`;`userId` 在 fresh users → `ready`;`userId` 不在(或 null)→ users 非空则选 `users[0]` 并 ready,否则 `onboarding`。**永远基于 fresh,所以 userId 不可能 stale。**
-- 时机:app 启动(在任何 user-scoped 请求之前)+ 401/SSE 断信号。
+### 8.1 身份 = `entities/session`
+`entities/session/model/sessionStore.ts`(zustand)是身份唯一真相源 + 唯一 writer:
+- `currentUserId: string | null`(persist localStorage)
+- `status: 'loading' | 'onboarding' | 'ready'`
 
-### 8.3 401 只发信号,不各自 set
-任何 user-scoped REST/SSE 401 → 调 `identityStore.signalAuthFailure()` → 触发一次 `resolve()`(refetch fresh `/users` → 基于真实结果定 phase)。**没有"清了又从 stale 喂回"的循环**。
+身份是业务概念(谁登录着)→ 归 **entities 层**(不是 shared,不是 app)。下层 shared 不可见;上层 features/widgets/pages/app 直接 import 合法(顺向)。
 
-### 8.4 删除的散落自愈
-- `App.jsx` 的两个 self-heal/account-switch effect → 合进 identity store + 一个 `useIdentityBootstrap()` hook(app 启动调 resolve)。
-- `client.js` 的 401 清除 → 改为 `signalAuthFailure()`。
-- `sse/shared.js` 的 SSE self-heal → 改为 `signalAuthFailure()`。
-- `store/boot.js` 的 valid 判定 → 删除,boot 直接 = `identityStore.phase`。
+### 8.2 `resolve()`(entities/session/model)+ app 触发
+- `resolve()`:基于**刚 fetch 的 fresh `/users`**(`entities/session/api` 调,或 @x `entities/user`)定 status:`/users` 空 → onboarding;`currentUserId` 在 fresh → ready;不在(或 null)→ users 非空则选 `users[0]` 并 ready,否则 onboarding。**永远基于 fresh,userId 不可能 stale。**
+- 触发:`app/model/useSessionBootstrap`(启动 + 401 信号)调 resolve。app→entities 顺向。
 
-### 8.5 门控
-所有 user-scoped query/SSE 的 `enabled` = `phase === 'ready'`。`loading`/`onboarding` 期间一个 user-scoped 请求都不发。
+### 8.3 横切注入:依赖倒置(= 后端 port / wire,解 shared→上层反向)
+shared 不依赖上层(铁律)。横切用控制反转:
+- **userId 注入 header**:`shared/api/httpClient` 暴露 `setUserIdProvider(fn)` 注册点;`app/model/useSessionBootstrap` 启动时注入 `() => sessionStore.getState().currentUserId`。httpClient 调注入 fn 取 userId,**完全不知 session 存在**。= 后端 domain 定 port、`main.go` wire 实现。
+- **401 → 信号**:httpClient/sse 的 401 调注入的 `onAuthFailure()`(app 注入 → 触发 `resolve()`)。不各自清 store,**没有"清了又从 stale 喂回"的循环**。
+
+### 8.4 删除的 5 处散落自愈 → 收敛
+- `App.jsx` 两个 self-heal/account-switch effect → `entities/session.resolve()`(`app/model/useSessionBootstrap` 调)。
+- `httpClient` 401 清除 + `sse` 401 自愈 → 注入的 `onAuthFailure()` → resolve。
+- `store/boot.js` valid 判定 → **删除**,boot 直接 = `session.status`。
+
+### 8.5 enabled gate:上移到 app/page boot gate(entity 纯净)
+最规范:entity api hook **纯数据访问,不含 user gate**(去掉阶段2 的 `enabled: !!uid`)。"ready 才查"由 **app/page 级 boot gate** 保证:`session.status !== 'ready'` 时 app 渲染 loading/onboarding、**不挂载 AppShell/pages → user-scoped query 根本不发**(组件未挂载)。gate 不再散在每个 entity hook。
+
+### 8.6 其余横切的规范层归属(零反向依赖)
+| 关注点 | 规范归属 | 谁读 | 反向解法 |
+|---|---|---|---|
+| 身份(userId/status) | `entities/session/model` | feature/widget/page/app(顺向) | 下层不读 |
+| userId/lang 注入 shared | shared 注册点 + app 注入 | httpClient/i18n 调注入 fn | **DIP** |
+| toast 队列 | `shared/ui`(通知原语,无业务) | widgets/toaster + app onError(下层,顺向) | toast 无业务,shared 合理 |
+| toast 触发 | feature 抛 `ApiError(code)` → app 全局 onError → `errorMap`(shared) → toast | — | feature 不直接 push |
+| 用户偏好(theme/accent/density/lang/reasoningDefault) | `entities/settings`(单例配置实体) | 下层组件 import(顺向);app 驱动 i18n/theme 应用 | i18n/applyTheme 不读 store,由 app 驱动 |
+| 导航 / pane / overlay / sidebar UI 编排 | `app/model`(paneStore 等) | **只** AppShell(app)读;pages 收 props | feature 返回意图;pages 不 import app store,从 props 拿 |
 
 ---
 
@@ -187,13 +204,14 @@ export function useSendMessageFlow(convId: string) {
 frontend/src/
 ├── main.tsx                          # 入口
 ├── app/                              # ── 第 6 层:组装 ──
-│   ├── App.tsx                       # 根(boot=identity.phase,瘦身)
-│   ├── providers/                    # QueryProvider / SSEProvider / I18nProvider
+│   ├── App.tsx                       # 根(boot=session.status,瘦身)
+│   ├── AppShell.tsx                  # composition root:读 app/model 编排状态 → 渲染 pages 传 props
+│   ├── providers/                    # QueryProvider(全局 onError→errorMap→toast)/ SSEProvider / I18nProvider
 │   ├── model/
-│   │   ├── identityStore.ts          # 身份唯一真相(§8)
-│   │   ├── useIdentityBootstrap.ts   # 启动 resolve
-│   │   ├── uiStore.ts                # 拆自 God Store(panes/selection/overlays/toasts)
-│   │   └── settingsStore.ts          # 持久化偏好
+│   │   ├── useSessionBootstrap.ts    # 启动 resolve + 注入 userId provider/onAuthFailure 到 shared/api(§8.3)
+│   │   ├── paneStore.ts              # openPanes/activeConv/activeFlowRun/activeDocument/leftPct/focusEntity
+│   │   ├── overlayStore.ts           # cmdk/notifs/ask/settings open + pendingAsk
+│   │   └── sidebarStore.ts           # collapsed/tools/recent/archived expanded
 │   ├── sse/                          # SSEProvider + 3 hook(分发到 entity store)
 │   └── index.ts
 ├── pages/                            # ── 第 5 层:屏幕(= pane) ──
@@ -205,13 +223,15 @@ frontend/src/
 │   ├── send-message/ forge-iterate/ forge-review/ workflow-edit/
 │   ├── onboarding/ settings/ ask-user/ entity-link/         (各 ui/ model/ index.ts)
 ├── entities/                         # ── 第 2 层:实体 ──
+│   ├── session/       { api/ model/(sessionStore + resolve) index.ts }  # 身份(§8),唯一真相
+│   ├── settings/      { model/(settingsStore 偏好) index.ts }           # 单例配置实体
 │   ├── conversation/  { api/ model/(chatStore+types) ui/ index.ts }
 │   ├── function/ handler/ workflow/ flowrun/ document/ skill/
 │   ├── mcp/ memory/ apikey/ relation/ user/                 (各 api/ model/types ui/ index.ts)
 └── shared/                           # ── 第 1 层:基础设施 ──
-    ├── api/       httpClient.ts queryKeys.ts sse.ts envelope.ts errorMap.ts
+    ├── api/       httpClient.ts(+ setUserIdProvider/onAuthFailure 注册点,§8.3) queryKeys.ts sse.ts errorMap.ts
     ├── bridge/    wails.ts
-    ├── ui/        Button Badge Icon Kbd Spinner Select + index.ts
+    ├── ui/        Button Badge Icon Kbd Spinner Select + toastStore.ts + index.ts
     ├── lib/       motion.ts i18n/
     └── config/    (eslint/steiger 配置可放仓库根)
 ```
