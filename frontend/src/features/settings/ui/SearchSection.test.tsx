@@ -53,7 +53,7 @@ function wrap({ children }: { children: any }) {
 const renderOpen = (props = {}) =>
   render(<SearchSection open onToggle={() => {}} {...props} />, { wrapper: wrap });
 
-const addBtn = () => document.querySelector(".set-addbtn");
+const addBtn = () => document.querySelector(".set-addbtn") as Element;
 const verifyBtn = () => screen.getByRole("button", { name: /验证/ });
 
 beforeEach(() => {
@@ -88,8 +88,8 @@ describe("SearchSection", () => {
     const badges = screen.getAllByText("搜索默认");
     // One badge in the collapsed row for the isDefault key; Brave has none.
     expect(badges).toHaveLength(1);
-    const row = badges[0].closest(".set-kitem");
-    expect(row.querySelector(".set-pn").textContent).toBe("博查 Bocha");
+    const row = badges[0].closest(".set-kitem")!;
+    expect(row.querySelector(".set-pn")!.textContent).toBe("博查 Bocha");
     expect(row.classList.contains("is-default")).toBe(true);
   });
 

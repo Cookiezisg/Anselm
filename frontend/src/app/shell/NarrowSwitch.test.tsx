@@ -41,6 +41,6 @@ describe("NarrowSwitch", () => {
     const { container } = render(<NarrowSwitch />);
     const btns = container.querySelectorAll(".narrow-switch-btn");
     const active = [...btns].find((b) => b.classList.contains("is-active"));
-    expect(active.textContent).toBe("对话");
+    expect(active!.textContent).toBe("对话");
   });
 });

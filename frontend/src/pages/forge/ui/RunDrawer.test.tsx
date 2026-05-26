@@ -62,9 +62,9 @@ describe("RunDrawer", () => {
       <RunDrawer open kind="function" entity={{ id: "fn_1" }} onClose={() => {}} />,
       { wrapper: wrap }
     );
-    const ta = document.querySelector(".run-drawer-input");
+    const ta = document.querySelector(".run-drawer-input")!;
     await userEvent.clear(ta);
-    await userEvent.type(ta, "not json");
+    await userEvent.type(ta,"not json");
     await userEvent.click(screen.getByText("提交"));
     expect(screen.getByText(/JSON 不对/)).toBeInTheDocument();
   });
@@ -74,9 +74,9 @@ describe("RunDrawer", () => {
       <RunDrawer open kind="function" entity={{ id: "fn_1" }} onClose={() => {}} />,
       { wrapper: wrap }
     );
-    const ta = document.querySelector(".run-drawer-input");
+    const ta = document.querySelector(".run-drawer-input")!;
     await userEvent.clear(ta);
-    await userEvent.type(ta, '{{"x":1}');
+    await userEvent.type(ta,'{{"x":1}');
     await userEvent.click(screen.getByText("提交"));
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     expect(calls[0].url).toBe("/api/v1/functions/fn_1:run");

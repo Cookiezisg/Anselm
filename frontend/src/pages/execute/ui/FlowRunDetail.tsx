@@ -58,8 +58,8 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
   const triage = useTriageFlowRun();
   const pushToast = useToastStore((s) => s.pushToast);
 
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const shellRef = useRef(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   if (!fr) return <div className="empty" style={{ padding: 48 }}><div className="sub">{t("detail.loading")}</div></div>;
 

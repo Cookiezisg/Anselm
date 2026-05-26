@@ -35,7 +35,7 @@ export function HandlerDetail({ forge, onBack }: HandlerDetailProps) {
   const currentV = versions.find((v) => v.state === "current") || versions[0];
   const pendingV = versions.find((v) => v.state === "pending");
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [runOpen, setRunOpen] = useState(false);
   const currentMethods = currentV?.methods || [];
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;

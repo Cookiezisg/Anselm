@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
-import { useCapabilityCheck } from "@entities/workflow";
+import { useCapabilityCheck, CapabilityCheckResult } from "@entities/workflow";
 import { useToastStore } from "@shared/ui/toastStore";
 
 interface CapabilityCheckPanelProps {
@@ -20,7 +20,7 @@ interface CapabilityCheckPanelProps {
 export function CapabilityCheckPanel({ workflowId }: CapabilityCheckPanelProps) {
   const { t } = useTranslation("forge");
   const [open, setOpen] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<CapabilityCheckResult | null>(null);
   const check = useCapabilityCheck();
   const pushToast = useToastStore((s) => s.pushToast);
 
@@ -51,8 +51,8 @@ export function CapabilityCheckPanel({ workflowId }: CapabilityCheckPanelProps) 
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon.Eye />
                 <strong>{t("capability.panelTitle")}</strong>
-                {result?.allReady && <span className="badge success">{t("capability.allReady")}</span>}
-                {result && !result.allReady && <span className="badge warn">{t("capability.missingCount", { count: (result.missing || []).length })}</span>}
+                {result?.ok && <span className="badge success">{t("capability.allReady")}</span>}
+                {result && !result.ok && <span className="badge warn">{t("capability.missingCount", { count: (result.issues || []).length })}</span>}
               </div>
               <button className="icon-btn" onClick={() => setOpen(false)}><Icon.X /></button>
             </div>

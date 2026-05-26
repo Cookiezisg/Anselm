@@ -22,7 +22,7 @@ function getPersistedLang() {
 }
 
 i18n.use(initReactI18next).init({
-  resources,
+  resources: resources as any,
   lng: getPersistedLang(),
   fallbackLng: "zh",
   defaultNS: "common",

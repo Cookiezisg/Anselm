@@ -88,7 +88,7 @@ describe("SkillsPage", () => {
     await userEvent.click(screen.getByText("code-review"));
     expect(container.querySelector(".drawer")).toBeTruthy();
     const closeBtn = container.querySelector(".drawer .icon-btn");
-    await userEvent.click(closeBtn);
+    await userEvent.click(closeBtn!);
     expect(container.querySelector(".drawer")).toBeNull();
   });
 

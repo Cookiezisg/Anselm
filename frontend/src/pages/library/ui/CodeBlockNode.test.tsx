@@ -60,7 +60,7 @@ describe("CodeBlockNode", () => {
     renderNode();
     await userEvent.click(screen.getByTitle("选择代码语言"));
     const search = document.querySelector(".cb-lang-search");
-    await userEvent.type(search, "java");
+    await userEvent.type(search!, "java");
     const rows = document.querySelectorAll(".cb-lang-row");
     const texts = Array.from(rows).map((r) => r.textContent);
     expect(texts.some((t) => t.includes("JavaScript"))).toBe(true);
@@ -70,7 +70,7 @@ describe("CodeBlockNode", () => {
   it("searchNoMatch_showsEmptyHint", async () => {
     renderNode();
     await userEvent.click(screen.getByTitle("选择代码语言"));
-    await userEvent.type(document.querySelector(".cb-lang-search"), "zzzz");
+    await userEvent.type(document.querySelector(".cb-lang-search")!, "zzzz");
     expect(screen.getByText("没有匹配")).toBeInTheDocument();
   });
 
@@ -79,7 +79,7 @@ describe("CodeBlockNode", () => {
     await userEvent.click(screen.getByTitle("选择代码语言"));
     const rows = document.querySelectorAll(".cb-lang-row");
     const goRow = Array.from(rows).find((r) => r.textContent.includes("Go"));
-    await userEvent.click(goRow);
+    await userEvent.click(goRow!);
     expect(updateAttributes).toHaveBeenCalledWith({ language: "go" });
   });
 
@@ -96,14 +96,14 @@ describe("CodeBlockNode", () => {
     await userEvent.click(screen.getByTitle("选择代码语言"));
     const rows = document.querySelectorAll(".cb-lang-row");
     const pyRow = Array.from(rows).find((r) => r.textContent.includes("Python"));
-    expect(pyRow.querySelector("svg")).toBeTruthy();
+    expect(pyRow!.querySelector("svg")).toBeTruthy();
   });
 
   it("enterAfterSearch_picksHighlightedRow", async () => {
     const { updateAttributes } = renderNode();
     await userEvent.click(screen.getByTitle("选择代码语言"));
     const search = document.querySelector(".cb-lang-search");
-    await userEvent.type(search, "py");
+    await userEvent.type(search!, "py");
     await userEvent.keyboard("{Enter}");
     expect(updateAttributes).toHaveBeenCalled();
     const arg = updateAttributes.mock.calls[0][0];

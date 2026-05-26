@@ -19,7 +19,7 @@ const mockUseCapabilityCheck = useCapabilityCheck as any;
 beforeEach(() => {
   useToastStore.setState({ toasts: [] });
   mockUseCapabilityCheck.mockReturnValue({
-    mutateAsync: vi.fn().mockResolvedValue({ allReady: true, items: [] }),
+    mutateAsync: vi.fn().mockResolvedValue({ ok: true, issues: [], items: [] }),
     isPending: false,
   });
 });
@@ -41,8 +41,8 @@ describe("CapabilityCheckPanel", () => {
   it("missingItems_listedWithMissingBadge", async () => {
     mockUseCapabilityCheck.mockReturnValue({
       mutateAsync: vi.fn().mockResolvedValue({
-        allReady: false,
-        missing: ["api_key"],
+        ok: false,
+        issues: ["api_key"],
         items: [
           { kind: "apikey", name: "OpenAI", ready: false, reason: "not configured" },
           { kind: "function", name: "fetcher", ready: true },
@@ -60,7 +60,7 @@ describe("CapabilityCheckPanel", () => {
 
   it("emptyItems_showsNoCapabilitiesNeeded", async () => {
     mockUseCapabilityCheck.mockReturnValue({
-      mutateAsync: vi.fn().mockResolvedValue({ allReady: true, items: [] }),
+      mutateAsync: vi.fn().mockResolvedValue({ ok: true, issues: [], items: [] }),
       isPending: false,
     });
     render(<CapabilityCheckPanel workflowId="wf_1" />);
@@ -75,7 +75,7 @@ describe("CapabilityCheckPanel", () => {
     });
     render(<CapabilityCheckPanel workflowId="wf_1" />);
     expect(screen.getByText(/检查中/)).toBeInTheDocument();
-    expect(screen.getByText(/检查中/).closest("button").disabled).toBe(true);
+    expect((screen.getByText(/检查中/).closest("button") as HTMLButtonElement)!.disabled).toBe(true);
   });
 
   it("checkError_pushesErrorToast", async () => {
@@ -93,7 +93,7 @@ describe("CapabilityCheckPanel", () => {
     render(<CapabilityCheckPanel workflowId="wf_1" />);
     await userEvent.click(screen.getByText("Capability check"));
     await waitFor(() => expect(screen.getByText("能力检查")).toBeInTheDocument());
-    const closeBtn = screen.getByText("能力检查").closest(".cap-panel-head").querySelector(".icon-btn");
+    const closeBtn = screen.getByText("能力检查").closest(".cap-panel-head")!.querySelector(".icon-btn")!;
     await userEvent.click(closeBtn);
     await waitFor(() => expect(screen.queryByText("能力检查")).toBeNull());
   });
@@ -101,7 +101,8 @@ describe("CapabilityCheckPanel", () => {
   it("capabilitiesKeyAlias_alsoRenders", async () => {
     mockUseCapabilityCheck.mockReturnValue({
       mutateAsync: vi.fn().mockResolvedValue({
-        allReady: true,
+        ok: true,
+        issues: [],
         capabilities: [{ type: "mcp", id: "github", ready: true }],
       }),
       isPending: false,

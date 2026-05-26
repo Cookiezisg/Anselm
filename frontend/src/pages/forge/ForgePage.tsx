@@ -22,7 +22,7 @@ interface ForgePageProps {
 }
 
 export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }: ForgePageProps) {
-  const [open, setOpen] = useState(null);
+  const [open, setOpen] = useState<any>(null);
   const focusId = focusEntity?.forge;
 
   // Probe each detail endpoint when focusId is set; whichever returns

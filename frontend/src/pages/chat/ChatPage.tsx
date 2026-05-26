@@ -89,7 +89,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
 
   // Auto-scroll to bottom whenever message tree changes (double-rAF so
   // freshly mounted blocks have their layout done before measuring).
-  const streamRef = useRef(null);
+  const streamRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let r2: number | null = null;
     const r1 = requestAnimationFrame(() => {
@@ -103,7 +103,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
   }, [topMsgIds.length]);
 
   if (!keysLoading && apiKeys.length === 0) {
-    return <NoApiKeyGate onOpenSettings={onOpenSettings} />;
+    return <NoApiKeyGate onOpenSettings={onOpenSettings ?? (() => {})} />;
   }
 
   // chat scenario gate: keys exist but no model picked for chat. Onboarding's
@@ -114,7 +114,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
   // (没写 model-config),或用户跳过 onboarding 后单独加 key 没配模型。
   const hasChatModel = modelConfigs.some((c) => c.scenario === "chat");
   if (!cfgLoading && !hasChatModel) {
-    return <NoModelGate onOpenSettings={onOpenSettings} />;
+    return <NoModelGate onOpenSettings={onOpenSettings ?? (() => {})} />;
   }
 
   if (!activeConv) {

@@ -276,7 +276,7 @@ function Search({ t, providers, provider, setProvider, apiKey, setApiKey }: { t:
   );
 }
 
-function Done({ t, name, accent, provider, search }: { t: any; name: string; accent: string; provider: string; search: any }) {
+function Done({ t, name, accent, provider, search }: { t: any; name: string; accent: string; provider: string | null; search: any }) {
   const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#d97757";
   return (
     <>

@@ -40,9 +40,9 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
 
   const [body, setBody] = useState("{\n  \n}");
   const [method, setMethod] = useState("");
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const ta = useRef(null);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ta = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -83,7 +83,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
       }
       setResult(res);
     } catch (e) {
-      setError(e.message || String(e));
+      setError((e as any)?.message || String(e));
     }
   };
 
@@ -92,7 +92,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
     ? (entity?.methods || entity?.currentVersion?.methods || [])
     : [];
 
-  const title = t(`runDrawer.title.${kind}`, kind);
+  const title = (t as any)(`runDrawer.title.${kind}`, kind);
 
   return (
     <AnimatePresence>

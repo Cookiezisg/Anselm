@@ -24,7 +24,7 @@ export function BottomSheet({
   open, onClose, title, children, height = 340, anchorRef,
 }: BottomSheetProps) {
   const { t } = useTranslation("misc");
-  const sheetRef = useRef(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;

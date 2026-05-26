@@ -34,7 +34,7 @@ describe("ObservePage", () => {
 
   it("graphHost_setsMinHeightZero_soFlexCanShrink", () => {
     const { container } = render(<ObservePage />);
-    const host = container.querySelector("[data-testid='rel-graph-stub']").parentElement;
-    expect(host.style.minHeight).toBe("0px");
+    const host = container.querySelector("[data-testid='rel-graph-stub']")!.parentElement;
+    expect(host!.style.minHeight).toBe("0px");
   });
 });

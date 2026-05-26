@@ -121,7 +121,7 @@ describe("BlockList — 7 block types", () => {
     // body hidden by default
     expect(container.querySelector(".blk-compaction-body")).toBeNull();
     const { default: userEvent } = await import("@testing-library/user-event");
-    await userEvent.click(container.querySelector(".blk-compaction-head"));
+    await userEvent.click(container.querySelector(".blk-compaction-head")!);
     expect(container.querySelector(".blk-compaction-body")).toBeTruthy();
   });
 
@@ -154,7 +154,7 @@ describe("BlockList — 7 block types", () => {
 
     const { container } = render(<BlockList convId={CV} blockIds={["b_sub"]} />);
     const { default: userEvent } = await import("@testing-library/user-event");
-    await userEvent.click(container.querySelector(".blk-subagent-head"));
+    await userEvent.click(container.querySelector(".blk-subagent-head")!);
     expect(container.querySelector(".blk-subagent-body")).toBeTruthy();
     expect(container.textContent).toContain("inner content");
   });
@@ -182,7 +182,7 @@ describe("ToolCallBlock fan-out regression", () => {
     );
 
     // Snapshot of the tool block subtree
-    const toolHeader = container.querySelector(".blk-tool-head");
+    const toolHeader = container.querySelector(".blk-tool-head")!;
     const initialToolText = toolHeader.outerHTML;
 
     // Fire many deltas on the UNRELATED streaming text block
@@ -192,7 +192,7 @@ describe("ToolCallBlock fan-out regression", () => {
     await nextFrame();
 
     // Tool block's DOM must be byte-identical → memo + selector stability worked
-    const afterToolText = container.querySelector(".blk-tool-head").outerHTML;
+    const afterToolText = container.querySelector(".blk-tool-head")!.outerHTML;
     expect(afterToolText).toBe(initialToolText);
   });
 

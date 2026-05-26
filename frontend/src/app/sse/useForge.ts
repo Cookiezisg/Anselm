@@ -43,7 +43,7 @@ export function useForge() {
           const key = scopeKey(e.scope);
           const cur = useForgeProgress.getState().active[key];
           if (!cur) return;
-          store.put(key, { ...cur, ops: [...cur.ops, { index: e.index, op: e.op }] });
+          store.put(key, { ...cur, ops: [...(cur.ops ?? []), { index: e.index, op: e.op }] });
         },
         forge_env_attempt: (e: any) => {
           const key = scopeKey(e.scope);
@@ -52,7 +52,7 @@ export function useForge() {
           store.put(key, {
             ...cur,
             envAttempts: [
-              ...cur.envAttempts,
+              ...(cur.envAttempts ?? []),
               { attempt: e.attempt, status: e.status, stage: e.stage, detail: e.detail, error: e.error },
             ],
           });

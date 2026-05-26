@@ -175,7 +175,7 @@ describe("Onboarding", () => {
     fireEvent.change(screen.getByPlaceholderText(/key/), { target: { value: "bocha-key" } });
     await userEvent.click(btn(/继续/));
     await waitFor(() => expect(mockCreateKey).toHaveBeenCalled());
-    expect(mockCreateKey.mock.calls.at(-1)[0]).toMatchObject({ provider: "bocha", key: "bocha-key" });
+    expect(mockCreateKey.mock.calls.at(-1)![0]).toMatchObject({ provider: "bocha", key: "bocha-key" });
   });
 
   it("done_enter_setsStatusReadyAndCallsOnFinish", async () => {

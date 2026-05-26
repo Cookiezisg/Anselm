@@ -14,7 +14,7 @@ describe("PaneResize", () => {
   it("mouseDownThenMove_callsOnDragWithClientX", () => {
     const onDrag = vi.fn();
     const { container } = render(<PaneResize onDrag={onDrag} />);
-    const handle = container.querySelector(".pane-resize");
+    const handle = container.querySelector(".pane-resize")!;
     fireEvent.mouseDown(handle);
     fireEvent.mouseMove(window, { clientX: 500 });
     expect(onDrag).toHaveBeenCalledWith(500);
@@ -23,7 +23,7 @@ describe("PaneResize", () => {
   it("mouseUp_stopsDragging", () => {
     const onDrag = vi.fn();
     const { container } = render(<PaneResize onDrag={onDrag} />);
-    const handle = container.querySelector(".pane-resize");
+    const handle = container.querySelector(".pane-resize")!;
     fireEvent.mouseDown(handle);
     fireEvent.mouseUp(window);
     // Subsequent move should NOT call onDrag
@@ -33,7 +33,7 @@ describe("PaneResize", () => {
 
   it("draggingClass_appliedDuringDrag", () => {
     const { container } = render(<PaneResize onDrag={() => {}} />);
-    const handle = container.querySelector(".pane-resize");
+    const handle = container.querySelector(".pane-resize")!;
     fireEvent.mouseDown(handle);
     expect(handle.classList.contains("is-dragging")).toBe(true);
     fireEvent.mouseUp(window);

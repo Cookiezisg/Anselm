@@ -108,7 +108,7 @@ describe("DocumentsPage", () => {
   it("headerPlusButton_createsRootDocument", async () => {
     render(<DocumentsPage activeDoc={null} onSetActiveDocument={vi.fn()} />);
     const headBtn = document.querySelector(".doc-sidebar-head .icon-btn[title='新建顶级页面']");
-    await userEvent.click(headBtn);
+    await userEvent.click(headBtn!);
     expect(createMutateAsync).toHaveBeenCalledWith({ name: "未命名", parentId: null });
   });
 
@@ -164,7 +164,7 @@ describe("DocumentsPage", () => {
     });
     render(<DocumentsPage activeDoc="doc_root1" onSetActiveDocument={vi.fn()} />);
     const titleInput = document.querySelector(".doc-page-title-input");
-    fireEvent.change(titleInput, { target: { value: "Roadmap v2" } });
+    fireEvent.change(titleInput!, { target: { value: "Roadmap v2" } });
     expect(screen.getByText("未保存")).toBeInTheDocument();
   });
 });

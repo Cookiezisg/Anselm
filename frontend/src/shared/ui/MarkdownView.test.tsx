@@ -158,40 +158,40 @@ describe("inline — inline-level", () => {
 
   it("inline_boldStarStar_wrapsInStrong", () => {
     const out = inline("see **this**");
-    const strong = out.find((x) => x && x.type === "strong");
+    const strong = out!.find((x) => x && x.type === "strong");
     expect(strong).toBeTruthy();
     expect(strong.props.children).toBe("this");
   });
 
   it("inline_italicSingleStar_wrapsInEm", () => {
     const out = inline("see *this*");
-    const em = out.find((x) => x && x.type === "em");
+    const em = out!.find((x) => x && x.type === "em");
     expect(em).toBeTruthy();
     expect(em.props.children).toBe("this");
   });
 
   it("inline_inlineCode_wrapsInCode", () => {
     const out = inline("use `foo()`");
-    const code = out.find((x) => x && x.type === "code");
+    const code = out!.find((x) => x && x.type === "code");
     expect(code.props.children).toBe("foo()");
   });
 
   it("inline_markdownLink_rendersAnchor", () => {
     const out = inline("[google](https://google.com)");
-    const a = out.find((x) => x && x.type === "a");
+    const a = out!.find((x) => x && x.type === "a");
     expect(a.props.href).toBe("https://google.com");
     expect(a.props.children).toBe("google");
   });
 
   it("inline_bareUrl_rendersAnchor", () => {
     const out = inline("visit https://example.com here");
-    const a = out.find((x) => x && x.type === "a");
+    const a = out!.find((x) => x && x.type === "a");
     expect(a.props.href).toBe("https://example.com");
   });
 
   it("inline_wikilink_rendersEntityAnchor", () => {
     const out = inline("see [[my-doc]]");
-    const a = out.find((x) => x && x.type === "a");
+    const a = out!.find((x) => x && x.type === "a");
     expect(a.props.className).toBe("entity-link");
     expect(a.props.children).toBe("my-doc");
   });
@@ -199,7 +199,7 @@ describe("inline — inline-level", () => {
   it("inline_multipleMixed_orderPreserved", () => {
     const out = inline("**bold** then `code` then *em*");
     // Find the structural tokens in order
-    const types = out.filter((x) => x && x.type).map((x) => x.type);
+    const types = out!.filter((x) => x && x.type).map((x) => x.type);
     expect(types).toEqual(["strong", "code", "em"]);
   });
 
@@ -207,7 +207,7 @@ describe("inline — inline-level", () => {
     // Calling twice with the same content must yield identical structure.
     const a = inline("**x**");
     const b = inline("**x**");
-    expect(a.length).toBe(b.length);
+    expect(a!.length).toBe(b!.length);
   });
 });
 

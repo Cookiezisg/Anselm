@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface RelTimeProps {
-  ts?: string | number | Date;
+  ts?: string | number | Date | null;
   prefix?: string;
 }
 

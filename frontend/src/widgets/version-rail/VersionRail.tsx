@@ -52,7 +52,7 @@ export function VersionRail({
           <div className="vr-pending-summary">{pending.summary || pending.description || t("versionRail.noSummary")}</div>
           <div className="vr-pending-actions">
             <button className="btn btn-xs btn-danger" onClick={onRevert}>{t("versionRail.revert")}</button>
-            <button className="btn btn-xs" onClick={() => onSelect?.(pendingId)}>{t("versionRail.viewDiff")}</button>
+            <button className="btn btn-xs" onClick={() => pendingId && onSelect?.(pendingId)}>{t("versionRail.viewDiff")}</button>
             <button className="btn btn-xs btn-accent" onClick={onAccept}>{t("versionRail.accept")}</button>
           </div>
         </div>

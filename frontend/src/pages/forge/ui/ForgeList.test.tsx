@@ -79,9 +79,9 @@ describe("ForgeList", () => {
     const fnTab = tabs.find((b) => b.textContent.startsWith("Functions"));
     const hdTab = tabs.find((b) => b.textContent.startsWith("Handlers"));
     const wfTab = tabs.find((b) => b.textContent.startsWith("Workflows"));
-    expect(fnTab.textContent).toContain("2");
-    expect(hdTab.textContent).toContain("1");
-    expect(wfTab.textContent).toContain("1");
+    expect(fnTab!.textContent).toContain("2");
+    expect(hdTab!.textContent).toContain("1");
+    expect(wfTab!.textContent).toContain("1");
   });
 
   it("clickFunctionsTab_hidesHandlerAndWorkflowRows", async () => {

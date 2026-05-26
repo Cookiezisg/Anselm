@@ -9,7 +9,7 @@ import { useEventLog } from "./useEventLog";
 import { useNotifications } from "./useNotifications";
 import { useForge } from "./useForge";
 
-const Ctx = createContext(null);
+const Ctx = createContext<{ eventlog: string; notifs: string; forge: string; unread: number; clearUnread: () => void; overall: string } | null>(null);
 
 export function SSEProvider({ children }: { children: React.ReactNode }) {
   const eventlog = useEventLog();

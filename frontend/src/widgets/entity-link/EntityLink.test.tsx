@@ -44,8 +44,8 @@ describe("EntityLink", () => {
   it("title_includesIdEvenWhenNameResolved", () => {
     mockUseEntityName.mockReturnValue("My Function");
     const { container } = render(<EntityLink id="fn_abc" />);
-    expect(container.querySelector("button").title).toContain("fn_abc");
-    expect(container.querySelector("button").title).toContain("My Function");
+    expect(container.querySelector("button")!.title).toContain("fn_abc");
+    expect(container.querySelector("button")!.title).toContain("My Function");
   });
 
   it("convPrefix_clickActivatesChatPaneAndConv", async () => {

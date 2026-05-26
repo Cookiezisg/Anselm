@@ -18,7 +18,7 @@ import { useAccountManager } from "@features/settings";
 
 export function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation("settings");
-  const [openSection, setOpenSection] = useState("keys");
+  const [openSection, setOpenSection] = useState<string | null>("keys");
 
   const toggle = (key: string) => setOpenSection((p) => (p === key ? null : key));
 

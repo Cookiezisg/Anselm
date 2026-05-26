@@ -47,7 +47,7 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
   const deleteWf = useDeleteWorkflow();
   const pushToast = useToastStore((s) => s.pushToast);
   const { batchDelete } = useForgeBatchDelete();
-  const [runTarget, setRunTarget] = useState(null);
+  const [runTarget, setRunTarget] = useState<any>(null);
 
   const rows: any[] = useMemo(() => {
     const fns = (functions as any[]).map((x) => ({ ...x, kind: "function" }));

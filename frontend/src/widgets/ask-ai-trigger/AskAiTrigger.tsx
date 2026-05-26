@@ -28,7 +28,7 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }: AskA
   const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const ta = useRef(null);
+  const ta = useRef<HTMLTextAreaElement>(null);
 
   const { submit: iterateSubmit } = useForgeIterate();
 

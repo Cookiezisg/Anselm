@@ -34,7 +34,7 @@ export function FloatingInspector({
   side = "right", width = 340, anchorRef,
 }: FloatingInspectorProps) {
   const { t } = useTranslation("misc");
-  const popRef = useRef(null);
+  const popRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;

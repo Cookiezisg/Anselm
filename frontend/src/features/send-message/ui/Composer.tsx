@@ -19,12 +19,12 @@ import { useDocuments } from "@entities/document";
 export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled?: any; isStreaming?: any; onSend?: any; onCancel?: any }) {
   const { t } = useTranslation("conv");
   const [text, setText] = useState("");
-  const [attached, setAttached] = useState([]);
-  const [mentions, setMentions] = useState([]);
-  const [atMenu, setAtMenu] = useState(null);
+  const [attached, setAttached] = useState<{ name: string; size: number; file: File }[]>([]);
+  const [mentions, setMentions] = useState<any[]>([]);
+  const [atMenu, setAtMenu] = useState<{ items: any[]; idx: number; q: string } | null>(null);
   const [dragging, setDragging] = useState(false);
-  const ta = useRef(null);
-  const fileInput = useRef(null);
+  const ta = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const { data: functions = [] } = useFunctions();
   const { data: handlers = [] } = useHandlers();
@@ -130,7 +130,7 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
         >
-          {atMenu?.items.length > 0 && (
+          {atMenu && atMenu.items.length > 0 && (
             <MentionPopover items={atMenu.items} idx={atMenu.idx} onPick={pickMention} title={t("composer.mentionPopoverTitle")} />
           )}
           {dragging && <div className="drop-indicator">{t("composer.dropIndicator")}</div>}

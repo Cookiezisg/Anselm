@@ -69,6 +69,6 @@ describe("RelTime", () => {
   it("absoluteTimeInTitleAttribute", () => {
     const ts = new Date(NOW.getTime() - 2000);
     const { container } = render(<RelTime ts={ts} />);
-    expect(container.querySelector("time").title).toMatch(/2026/);
+    expect(container.querySelector("time")!.title).toMatch(/2026/);
   });
 });

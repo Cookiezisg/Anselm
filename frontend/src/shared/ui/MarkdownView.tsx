@@ -29,7 +29,7 @@ export function MarkdownView({ source, streaming = false }: MarkdownViewProps) {
 // Exported for direct unit testing — never call from production code,
 // use <MarkdownView /> instead. Tests need access to verify the
 // streaming-safe parser (partial table / unclosed fence / etc).
-export function parse(src: string) {
+export function parse(src: string | null | undefined) {
   if (!src) return [];
   const lines = src.split("\n");
   const out = [];
@@ -166,7 +166,7 @@ function renderListItem(it: any, key: number) {
 // ── Inline-level: **bold**, *italic*, `code`, [link](url), [[wikilink]] ──
 const INLINE_RE = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]]+\]\([^)\s]+\)|\[\[[^\]]+\]\]|https?:\/\/\S+)/g;
 
-export function inline(s: string): any[] | null {
+export function inline(s: string | null): any[] | null {
   if (!s) return null;
   const out: any[] = [];
   let last = 0; let key = 0; let m;

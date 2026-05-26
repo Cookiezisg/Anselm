@@ -122,14 +122,14 @@ describe("SettingsModal", () => {
     const onClose = vi.fn();
     const { container } = render(<SettingsModal open onClose={onClose} />, { wrapper: wrap });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    await userEvent.click(container.querySelector(".set-x"));
+    await userEvent.click(container.querySelector(".set-x")!);
     expect(onClose).toHaveBeenCalled();
   });
 
   it("backdropClick_callsOnClose", async () => {
     const onClose = vi.fn();
     const { container } = render(<SettingsModal open onClose={onClose} />, { wrapper: wrap });
-    await userEvent.click(container.querySelector(".set-scrim"));
+    await userEvent.click(container.querySelector(".set-scrim")!);
     expect(onClose).toHaveBeenCalled();
   });
 

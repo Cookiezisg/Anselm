@@ -55,7 +55,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
       const label = nav.labelKey ? t(nav.labelKey) : nav.label;
       const action = nav.overlay === "settings"
         ? () => onOpenSettings()
-        : () => onOpenPane(nav.target);
+        : () => onOpenPane(nav.target ?? "");
       a.push({ ...nav, group: navGroup, label, action });
     }
     for (const c of conversations.slice(0, 6)) {

@@ -284,14 +284,14 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
   const original = useMemo(() => parseGraph(version), [version?.id]);
   const [nodes, setNodes] = useState(original.nodes);
   const [edges, setEdges] = useState(original.edges);
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [dragNodeId, setDragNodeId] = useState(null);
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [connecting, setConnecting] = useState(null);
+  const [connecting, setConnecting] = useState<{ id: string; handle: string; x: number; y: number } | null>(null);
   const [panning, setPanning] = useState(false);
-  const canvasRef = useRef(null);
-  const panStart = useRef(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
   const { markDirty: markDirtyBase, dirty, savedAt, isSaving } = useWorkflowEdit(workflowId, original);
 
@@ -305,7 +305,7 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])) as Record<string, WFNode>, [nodes]);
 
   const clientToCanvas = useCallback((cx: number, cy: number) => {
-    const r = canvasRef.current.getBoundingClientRect();
+    const r = canvasRef.current!.getBoundingClientRect();
     return { x: (cx - r.left - transform.x) / transform.scale, y: (cy - r.top - transform.y) / transform.scale };
   }, [transform]);
 
@@ -338,16 +338,16 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
       } else if (connecting) {
         setConnecting((c: any) => c && { ...c, x: e.clientX, y: e.clientY });
       } else if (panning) {
-        const dx = e.clientX - panStart.current.x;
-        const dy = e.clientY - panStart.current.y;
-        setTransform((t) => ({ ...t, x: panStart.current.tx + dx, y: panStart.current.ty + dy }));
+        const dx = e.clientX - panStart.current!.x;
+        const dy = e.clientY - panStart.current!.y;
+        setTransform((t) => ({ ...t, x: panStart.current!.tx + dx, y: panStart.current!.ty + dy }));
       }
     };
     const onUp = (e: MouseEvent) => {
       if (connecting) {
         const t = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-handle][data-id]") as HTMLElement | null;
         if (t) {
-          const toId = t.dataset.id;
+          const toId = t.dataset.id as string;
           const toHandle = t.dataset.handle;
           if (toId !== connecting.id) {
             setEdges((es) => es.find((x: WFEdge) => x.from === connecting.id && x.to === toId)
@@ -409,7 +409,7 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
 
   const resetView = () => setTransform({ x: 0, y: 0, scale: 1 });
   const zoomBy = (factor: number) => {
-    const r = canvasRef.current.getBoundingClientRect();
+    const r = canvasRef.current!.getBoundingClientRect();
     const mx = r.width / 2, my = r.height / 2;
     setTransform((t) => {
       const scale = Math.max(0.25, Math.min(2.5, t.scale * factor));
@@ -423,7 +423,7 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
     const minY = Math.min(...nodes.map((n: WFNode) => n.y));
     const maxX = Math.max(...nodes.map((n: WFNode) => n.x + NODE_W));
     const maxY = Math.max(...nodes.map((n: WFNode) => n.y + NODE_H));
-    const r = canvasRef.current.getBoundingClientRect();
+    const r = canvasRef.current!.getBoundingClientRect();
     const pad = 60;
     const sx = (r.width - pad * 2) / Math.max(1, maxX - minX);
     const sy = (r.height - pad * 2) / Math.max(1, maxY - minY);

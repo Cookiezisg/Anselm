@@ -62,7 +62,7 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
 
 function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: any[]; providers: any[]; chatConfig: any; providerDisplay: (n: string) => string }) {
   const { t } = useTranslation("settings");
-  const [openKey, setOpenKey] = useState(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   const toggleKey = (id: string) => setOpenKey((p: any) => (p === id ? null : id));
@@ -214,12 +214,12 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
 
   const [provider, setProvider] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [createdKeyId, setCreatedKeyId] = useState(null);
+  const [createdKeyId, setCreatedKeyId] = useState<string | null>(null);
   const [createdKeyText, setCreatedKeyText] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifyError, setVerifyError] = useState("");
-  const [models, setModels] = useState([]);
+  const [models, setModels] = useState<string[]>([]);
   const [modelId, setModelId] = useState("");
   const [saving, setSaving] = useState(false);
 

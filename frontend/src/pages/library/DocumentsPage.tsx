@@ -39,7 +39,7 @@ export function DocumentsPage({ activeDoc, onSetActiveDocument }: DocumentsPageP
   const treeQ = useDocumentTree();
   const setActiveDocument = onSetActiveDocument;
   const [openSet, setOpenSet] = useState(new Set());
-  const [pendingFocusTitle, setPendingFocusTitle] = useState(null);
+  const [pendingFocusTitle, setPendingFocusTitle] = useState<string | null>(null);
 
   const flat = treeQ.data || [];
   const rooted = useMemo(() => buildTree(flat), [flat]);
@@ -261,9 +261,9 @@ function DocPage({ docId, focusTitle, onTitleFocused }: { docId: string; focusTi
   const [draftName, setDraftName] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [dirty, setDirty] = useState(false);
-  const saveTimer = useRef(null);
-  const titleRef = useRef(null);
-  const editorRef = useRef(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<any>(null);
 
   // Sync local draft when doc loads / switches.
   useEffect(() => {
@@ -298,7 +298,7 @@ function DocPage({ docId, focusTitle, onTitleFocused }: { docId: string; focusTi
         onError: (e) => pushToast({ kind: "error", title: t("documents.saveFail"), desc: e.message }),
       });
     }, 1500);
-    return () => clearTimeout(saveTimer.current);
+    return () => clearTimeout(saveTimer.current ?? undefined);
   }, [draftName, draftBody, dirty]);
 
   if (isLoading || !doc) {

@@ -36,7 +36,7 @@ export function ToastTray() {
               {toast.desc && <div className="toast-desc">{toast.desc}</div>}
             </div>
             {toast.undo && (
-              <button className="btn btn-xs btn-ghost" onClick={() => { toast.undo(); dismiss(toast.id); }}>
+              <button className="btn btn-xs btn-ghost" onClick={() => { toast.undo?.(); dismiss(toast.id); }}>
                 <Icon.Refresh /> {t("notifications.undoLabel")}
               </button>
             )}

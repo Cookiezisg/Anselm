@@ -21,7 +21,7 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
 
   const { submitting, submit } = useAskUserAnswer({ pending, onClose });
 
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => { setSelected(null); }, [pending?.id]);
 
@@ -113,7 +113,7 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
               </div>
               <div className="actions">
                 <Button size="sm" variant="ghost" onClick={onClose}>{t("ask.laterBtn")}</Button>
-                <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={() => submit(selected)}>
+                <Button size="sm" variant="accent" disabled={!selected || submitting} loading={submitting} onClick={() => submit(selected!)}>
                   <Icon.Check /> {t("ask.submitBtn")}
                 </Button>
               </div>

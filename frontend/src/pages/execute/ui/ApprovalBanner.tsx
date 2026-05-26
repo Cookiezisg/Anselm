@@ -16,7 +16,7 @@ import { slideDown } from "@shared/lib/motion";
 
 interface ApprovalBannerProps {
   runId: string;
-  nodes: any[];
+  nodes?: any[];
 }
 
 export function ApprovalBanner({ runId, nodes }: ApprovalBannerProps) {
@@ -49,7 +49,7 @@ function ApprovalRow({ runId, node }: { runId: string; node: any }) {
   const pushToast = useToastStore((s) => s.pushToast);
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reason, setReason] = useState("");
-  const [decided, setDecided] = useState(null);
+  const [decided, setDecided] = useState<string | null>(null);
 
   const onApprove = () => {
     approve.mutate(
@@ -75,7 +75,7 @@ function ApprovalRow({ runId, node }: { runId: string; node: any }) {
       <div className={"approval-row is-" + decided}>
         <Icon.Check style={{ width: 12, height: 12 }} />
         <span className="cell-mono">{node.label || node.id}</span>
-        <span style={{ color: "var(--fg-muted)" }}>{t(`approval.row.decided.${decided}`)}</span>
+        <span style={{ color: "var(--fg-muted)" }}>{t(`approval.row.decided.${decided}` as any)}</span>
         {reason && <span style={{ color: "var(--fg-faint)", fontSize: 11 }}>· {reason}</span>}
       </div>
     );

@@ -47,7 +47,7 @@ const renderOpen = (props = {}) =>
 
 // The add trigger and the section header both contain "API Key(s)"; target the
 // dashed add button by its class.
-const addBtn = () => document.querySelector(".set-addbtn");
+const addBtn = () => document.querySelector(".set-addbtn") as Element;
 const verifyBtn = () => screen.getByRole("button", { name: /验证/ });
 
 beforeEach(() => {
@@ -81,8 +81,8 @@ describe("ApiKeysSection", () => {
     const badges = screen.getAllByText("对话默认");
     // One in the collapsed row (badge); detail is collapsed so the seg label is absent.
     expect(badges).toHaveLength(1);
-    const row = badges[0].closest(".set-kitem");
-    expect(row.querySelector(".set-pn").textContent).toBe("DeepSeek");
+    const row = badges[0].closest(".set-kitem")!;
+    expect(row.querySelector(".set-pn")!.textContent).toBe("DeepSeek");
     expect(row.classList.contains("is-default")).toBe(true);
   });
 

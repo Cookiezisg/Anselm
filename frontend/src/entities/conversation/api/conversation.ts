@@ -16,17 +16,17 @@ export function useConversations() {
   });
 }
 
-export function useConversation(id: string) {
+export function useConversation(id: string | null) {
   return useQuery<Conversation>({
-    queryKey: qk.conversation(id),
+    queryKey: qk.conversation(id ?? ""),
     queryFn: () => apiFetch(`/conversations/${id}`),
     enabled: !!id,
   });
 }
 
-export function useConversationMessages(convId: string) {
+export function useConversationMessages(convId: string | null) {
   return useQuery<Message[]>({
-    queryKey: qk.messages(convId),
+    queryKey: qk.messages(convId ?? ""),
     queryFn: () => apiFetch(`/conversations/${convId}/messages?limit=200`),
     select: pickList<Message>,
     enabled: !!convId,

@@ -46,7 +46,7 @@ describe("Dashboard", () => {
     renderDash();
     const greet = document.querySelector(".wel-greet");
     expect(greet).toBeTruthy();
-    expect(greet.textContent.trim().length).toBeGreaterThan(0);
+    expect(greet!.textContent!.trim().length).toBeGreaterThan(0);
   });
 
   it("renders the input with correct placeholder", () => {

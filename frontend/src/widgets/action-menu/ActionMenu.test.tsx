@@ -31,7 +31,7 @@ describe("ActionMenu", () => {
     render(<ActionMenu items={[{ label: "A", onClick: () => {} }, "divider", { label: "B", onClick: () => {} }]} />);
     await userEvent.click(screen.getByTitle("更多"));
     const { container } = render(<ActionMenu items={[{ label: "A", onClick: () => {} }, "divider"]} />);
-    await userEvent.click(container.querySelector("[title='更多']"));
+    await userEvent.click(container.querySelector("[title='更多']")!);
     expect(document.body.querySelector(".action-menu-divider")).toBeTruthy();
   });
 

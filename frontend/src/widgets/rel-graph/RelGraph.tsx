@@ -59,7 +59,7 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
   const panRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [hover, setHover] = useState(null);
+  const [hover, setHover] = useState<string | null>(null);
   const [, rerender] = useState(0);
 
   const degree = useMemo(() => {
@@ -132,7 +132,7 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
   }, [nodes, edges, width, height]);
 
   const clientToCanvas = (cx: number, cy: number) => {
-    const r = containerRef.current.getBoundingClientRect();
+    const r = containerRef.current!.getBoundingClientRect();
     return { x: (cx - r.left - transform.x) / transform.scale, y: (cy - r.top - transform.y) / transform.scale };
   };
 
@@ -247,7 +247,7 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
         {(hover || focusId) && (() => {
           const id = hover || focusId;
           const n = nodes.find((x) => x.id === id);
-          const p = positions.current[id];
+          const p = id ? positions.current[id] : null;
           if (!n || !p) return null;
           const text = n.label.length > 28 ? n.label.slice(0, 28) + "…" : n.label;
           return (
@@ -347,12 +347,12 @@ function AdjacencySection({ label, list, onSelect, t }: { label: string; list: a
 
 // ── Auto-size host ───────────────────────────────────────────────────────
 function RGAutoSize({ children }: { children: (w: number, h: number) => React.ReactNode }) {
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 600, h: 500 });
   useEffect(() => {
     if (!ref.current) return;
     const update = () => {
-      const r = ref.current.getBoundingClientRect();
+      const r = ref.current!.getBoundingClientRect();
       setSize({ w: Math.max(300, r.width), h: Math.max(300, r.height) });
     };
     update();
@@ -368,7 +368,7 @@ export function RelGraph() {
   const { t } = useTranslation("misc");
   const { nodes: allNodes, edges: allEdges } = useEntityDirectory();
 
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState(new Set());
 
   const filtered = useMemo(() => {
@@ -380,7 +380,7 @@ export function RelGraph() {
   }, [allNodes, allEdges, kindFilter]);
 
   const selectedNode = filtered.nodes.find((n) => n.id === selected);
-  const shellRef = useRef(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   const allKinds = [...Object.keys(KIND_LABEL_BASE), "conversation", "document"];
 
@@ -493,12 +493,12 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }: { entityId:
 export function RelMore({ entityId, kind, label }: { entityId: string; kind?: string; label?: string }) {
   const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
-  const [paneEl, setPaneEl] = useState(null);
-  const btnRef = useRef(null);
+  const [paneEl, setPaneEl] = useState<Element | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   const onClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const pane = (btnRef.current as HTMLElement).closest(".pane");
+    const pane = btnRef.current?.closest(".pane");
     setPaneEl(pane || null);
     setOpen(true);
   };

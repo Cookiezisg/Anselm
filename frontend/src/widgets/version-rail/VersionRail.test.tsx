@@ -52,7 +52,7 @@ describe("VersionRail", () => {
 
   it("collapseToggle_switchesToCollapsedDots", async () => {
     const { container } = render(<VersionRail versions={VERSIONS} />);
-    await userEvent.click(container.querySelector(".vr-collapse"));
+    await userEvent.click(container.querySelector(".vr-collapse")!);
     expect(container.querySelector(".vr-collapsed-list")).toBeTruthy();
     expect(container.querySelectorAll(".vr-collapsed-dot")).toHaveLength(3);
   });
@@ -105,7 +105,7 @@ describe("CodeView", () => {
 
   it("stringLiteral_keepsContentEvenWithKeywordsInside", () => {
     const { container } = render(<CodeView src={'x = "def for in"'} />);
-    expect(container.querySelector(".tok-str").textContent).toBe('"def for in"');
+    expect(container.querySelector(".tok-str")!.textContent).toBe('"def for in"');
     // No keyword styling INSIDE the string
     const kws = container.querySelectorAll(".tok-kw");
     expect(kws).toHaveLength(0);

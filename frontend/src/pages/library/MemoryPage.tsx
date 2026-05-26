@@ -23,7 +23,7 @@ export function MemoryPage() {
   const { t } = useTranslation(["library", "common"]);
   const [tab, setTab] = useState("all");
   const { data: memories = [], isLoading } = useMemories(tab === "all" ? undefined : tab);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState<any>(null);
   const del = useDeleteMemory();
   const pin = usePinMemory();
   const pushToast = useToastStore((s) => s.pushToast);
@@ -46,7 +46,7 @@ export function MemoryPage() {
 
       <div className="page-tabs">
         {TABS.map(([k, l]) => (
-          <button key={k} className={"page-tab" + (tab === k ? " is-active" : "")} onClick={() => setTab(k)}>
+          <button key={k ?? ""} className={"page-tab" + (tab === k ? " is-active" : "")} onClick={() => setTab(k ?? "")}>
             {l ?? t("memory.tabAll")}
           </button>
         ))}

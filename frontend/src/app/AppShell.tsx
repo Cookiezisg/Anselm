@@ -94,7 +94,7 @@ export function AppShell() {
 
   const sseHealth = useSSEHealth();
 
-  const mainRef = useRef(null);
+  const mainRef = useRef<HTMLElement>(null);
 
   useKeyboardShortcuts();
 

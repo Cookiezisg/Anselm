@@ -120,7 +120,7 @@ describe("ExecuteOverview", () => {
   it("approvalsTab_showsCardWithWaitingRun", async () => {
     const { container } = render(<ExecuteOverview onOpen={() => {}} />);
     const approvalsTab = container.querySelector(".page-tabs .page-tab:nth-of-type(2)");
-    await userEvent.click(approvalsTab);
+    await userEvent.click(approvalsTab!);
     expect(screen.getByText("ApprovalFlow")).toBeInTheDocument();
     expect(screen.getByText("批准并继续")).toBeInTheDocument();
   });
@@ -132,14 +132,14 @@ describe("ExecuteOverview", () => {
     });
     const { container } = render(<ExecuteOverview onOpen={() => {}} />);
     const approvalsTab = container.querySelector(".page-tabs .page-tab:nth-of-type(2)");
-    await userEvent.click(approvalsTab);
+    await userEvent.click(approvalsTab!);
     expect(screen.getByText("没有待批准的任务")).toBeInTheDocument();
   });
 
   it("triggersTab_listsAllSupportedTriggerKinds", async () => {
     const { container } = render(<ExecuteOverview onOpen={() => {}} />);
     const triggersTab = container.querySelector(".page-tabs .page-tab:nth-of-type(3)");
-    await userEvent.click(triggersTab);
+    await userEvent.click(triggersTab!);
     expect(screen.getByText("Cron 定时")).toBeInTheDocument();
     expect(screen.getByText("文件触发")).toBeInTheDocument();
     expect(screen.getByText("Webhook")).toBeInTheDocument();

@@ -42,7 +42,7 @@ export function WorkflowDetail({ forge, onBack, onOpenExecute }: WorkflowDetailP
   const pendingV = versions.find((v) => v.state === "pending");
   const deployedV = versions.find((v) => v.state === "deployed");
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [runOpen, setRunOpen] = useState(false);
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
@@ -118,7 +118,7 @@ function DagCanvas({ version }: { version: any }) {
   const graph = useMemo(() => normaliseGraph(version), [version]);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [panning, setPanning] = useState(false);
-  const panStart = useState({ current: null })[0];
+  const panStart = useState<{ current: { x: number; y: number; tx: number; ty: number } | null }>({ current: null })[0];
 
   if (!graph) {
     return <div className="empty" style={{ padding: 40 }}><div className="sub">{t("workflow.noGraph")}</div></div>;
