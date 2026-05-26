@@ -45,6 +45,27 @@ vi.mock("../../api/config.js", () => ({
   useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey }),
 }));
 
+// Mock entity hooks used by useOnboardingFlow.
+vi.mock("@entities/user", () => ({
+  useCreateUser: () => ({ mutateAsync: mockCreateUser }),
+}));
+
+vi.mock("@entities/apikey", () => ({
+  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
+  useTestApiKey: () => ({ mutateAsync: mockTestKey }),
+  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey }),
+}));
+
+vi.mock("@entities/model-config", () => ({
+  useProviders: () => ({ data: [
+    { name: "deepseek", category: "llm", displayName: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com" },
+    { name: "ollama", category: "llm", displayName: "Ollama (local)", defaultBaseUrl: "" },
+    { name: "bocha", category: "search", displayName: "博查 Bocha", defaultBaseUrl: "https://api.bochaai.com/v1" },
+    { name: "brave", category: "search", displayName: "Brave Search", defaultBaseUrl: "https://api.search.brave.com" },
+  ] }),
+  useUpsertModelConfig: () => ({ mutateAsync: mockUpsertModel }),
+}));
+
 import { useUIStore } from "../../store/ui.js";
 import { useSettings } from "../../store/settings.js";
 import { Onboarding } from "./Onboarding.jsx";

@@ -6,28 +6,18 @@
 //   5 Search     — optional search provider + key (POST /api-keys, category=search).
 //   6 Done       — recap + enter.
 //
-// Workspace creates the user EARLY so steps 4/5 can write user-scoped keys;
-// App's onboarding latch keeps this mounted afterwards. finish() flips
-// settings.onboarded.
-//
-// 6 步 toB 首启向导。workspace 步即建 user(后续步才能写 user 作用域的 key);
-// App 的 latch 保证建 user 后不被卸载。finish 置 onboarded。
+// 6 步 toB 首启向导。业务编排已迁入 useOnboardingFlow;本组件只负责渲染。
 
-import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "@shared/lib/i18n/index.js";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { useSettings } from "../../store/settings.js";
-import { useUIStore } from "../../store/ui.js";
-import { useCreateUser } from "../../api/users.js";
-import { useProviders, useCreateApiKey, useTestApiKey, useUpsertModelConfig, useDeleteApiKey } from "../../api/config.js";
-import { ACCENTS, LLM_HINTS, SEARCH_HINTS, PROVIDER_DEFAULT_MODEL } from "./onboarding-strings.js";
+import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "./onboarding-strings.js";
 import { ProviderGrid } from "../config/ProviderGrid.jsx";
 import { KeyVerifyField } from "../config/KeyVerifyField.jsx";
 import { ModelSelect } from "../config/ModelSelect.jsx";
+import { useOnboardingFlow } from "../../features/onboarding/index.ts";
 
 const STEP_KEYS = ["welcome", "workspace", "appearance", "model", "search", "done"];
 const ANVIL = (
@@ -36,146 +26,24 @@ const ANVIL = (
 
 export function Onboarding({ onFinish }) {
   const settings = useSettings();
-  const qc = useQueryClient();
-  const pushToast = useUIStore((s) => s.pushToast);
   const { t } = useTranslation("onboarding");
 
-  // Sync settings.lang → i18n when changed inside the wizard (before App mounts).
-  useEffect(() => { i18n.changeLanguage(settings.lang); }, [settings.lang]);
-
-  const createUser = useCreateUser();
-  const { data: providers = [] } = useProviders();
-  const createKey = useCreateApiKey();
-  const testKey = useTestApiKey();
-  const deleteKey = useDeleteApiKey();
-  const upsertModel = useUpsertModelConfig();
-
-  const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState(false);
-
-  // workspace
-  const [name, setName] = useState("");
-  const [createdUserId, setCreatedUserId] = useState(null);
-  // model
-  const [provider, setProvider] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [createdKeyId, setCreatedKeyId] = useState(null);
-  const [createdKeyText, setCreatedKeyText] = useState("");
-  const [verifying, setVerifying] = useState(false);
-  const [verified, setVerified] = useState(false);
-  const [verifyError, setVerifyError] = useState("");
-  const [models, setModels] = useState([]);
-  const [modelId, setModelId] = useState("");
-  // search
-  const [searchProvider, setSearchProvider] = useState("");
-  const [searchKey, setSearchKey] = useState("");
-
-  const llm = providers.filter((p) => p.category === "llm" && p.name !== "mock" && p.name !== "custom");
-  const search = providers.filter((p) => p.category === "search");
-  const stepKey = STEP_KEYS[step];
-  const providerDisplay = (n) => providers.find((p) => p.name === n)?.displayName || n;
-
-  const run = async (fn) => {
-    setBusy(true);
-    try { await fn(); }
-    catch (err) { pushToast({ kind: "error", title: t("toast.opFail"), desc: err.message }); }
-    finally { setBusy(false); }
-  };
-
-  const ensureUser = async () => {
-    if (createdUserId) return;
-    const user = await createUser.mutateAsync({
-      username: name.trim().toLowerCase().replace(/\s+/g, "-"),
-      displayName: name.trim(),
-      avatarColor: ACCENTS.find(([k]) => k === settings.accent)?.[1] || "#d97757",
-    });
-    setCreatedUserId(user.id);
-    settings.set({ activeUserId: user.id });
-  };
-
-  // Switching provider drops key/model state; best-effort delete the orphaned
-  // key created for the previous provider.
-  const pickProvider = (n) => {
-    if (createdKeyId) deleteKey.mutate(createdKeyId);
-    setProvider(n);
-    setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
-    setVerified(false); setModels([]); setModelId(""); setVerifyError("");
-  };
-
-  const onKeyChange = (v) => {
-    setApiKey(v);
-    setVerifyError("");
-    if (verified) { setVerified(false); setModels([]); setModelId(""); }
-  };
-
-  const verify = () => run(async () => {
-    setVerifying(true);
-    setVerifyError("");
-    try {
-      let keyId = createdKeyId;
-      if (keyId && createdKeyText !== apiKey) {
-        deleteKey.mutate(keyId);
-        keyId = null; setCreatedKeyId(null);
-      }
-      if (!keyId) {
-        const k = await createKey.mutateAsync({
-          provider, key: apiKey || "ollama-no-key", displayName: `${provider} (onboarding)`,
-        });
-        keyId = k.id; setCreatedKeyId(k.id); setCreatedKeyText(apiKey);
-      }
-      const res = await testKey.mutateAsync(keyId);
-      const found = res?.modelsFound || [];
-      const opts = found.length ? found : (PROVIDER_DEFAULT_MODEL[provider] ? [PROVIDER_DEFAULT_MODEL[provider]] : []);
-      setModels(opts);
-      setModelId(opts[0] || "");
-      setVerified(true);
-      pushToast({ kind: "success", title: t("toast.keyVerified") });
-    } catch {
-      setVerified(false);
-      setVerifyError(t("model.verifyFail"));
-    } finally {
-      setVerifying(false);
-    }
-  });
-
-  const finish = () => {
-    settings.set({ onboarded: true });
-    qc.invalidateQueries();
-    pushToast({ kind: "success", title: t("toast.welcome"), desc: name.trim() });
-    onFinish?.();
-  };
-
-  const advance = () => setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1));
-  const back = () => setStep((s) => Math.max(0, s - 1));
-
-  const handleNext = () => {
-    switch (stepKey) {
-      case "workspace": return run(async () => { await ensureUser(); advance(); });
-      case "model": return run(async () => {
-        if (verified && modelId) await upsertModel.mutateAsync({ scenario: "chat", provider, modelId });
-        advance();
-      });
-      case "search": return run(async () => {
-        if (searchProvider && searchKey.trim()) {
-          await createKey.mutateAsync({ provider: searchProvider, key: searchKey.trim(), displayName: `${searchProvider} (onboarding)` });
-        }
-        advance();
-      });
-      case "done": return finish();
-      default: return advance();
-    }
-  };
-
-  const canNext = () => (stepKey === "workspace" ? name.trim().length > 0 : true);
-
-  // journey desc shows captured values once a step is behind us.
-  const jdesc = (key, fallback) => {
-    if (key === "workspace" && createdUserId) return name.trim();
-    if (key === "appearance" && step > 2) return `${settings.accent} · ${settings.lang === "zh" ? "中文" : "EN"}`;
-    if (key === "model" && step > 3) return verified ? providerDisplay(provider) : t("done.none");
-    if (key === "search" && step > 4) return searchProvider ? providerDisplay(searchProvider) : t("done.none");
-    return fallback;
-  };
+  const {
+    step, stepKey, busy,
+    next, back, canNext,
+    advance,
+    name, setName,
+    provider, pickProvider,
+    apiKey, onKeyChange,
+    verify, verifying, verified, verifyError,
+    models, modelId, setModelId,
+    llmProviders,
+    searchProvider, setSearchProvider,
+    searchKey, setSearchKey,
+    searchProviders,
+    providerDisplay,
+    jdesc,
+  } = useOnboardingFlow();
 
   return (
     <AnimatePresence>
@@ -222,7 +90,7 @@ export function Onboarding({ onFinish }) {
             {stepKey === "appearance" && <Appearance t={t} settings={settings} />}
             {stepKey === "model" && (
               <Model
-                t={t} providers={llm} provider={provider} pickProvider={pickProvider}
+                t={t} providers={llmProviders} provider={provider} pickProvider={pickProvider}
                 apiKey={apiKey} onKeyChange={onKeyChange} verify={verify}
                 verifying={verifying} verified={verified} verifyError={verifyError}
                 models={models} modelId={modelId} setModelId={setModelId}
@@ -230,7 +98,7 @@ export function Onboarding({ onFinish }) {
             )}
             {stepKey === "search" && (
               <Search
-                t={t} providers={search} provider={searchProvider} setProvider={setSearchProvider}
+                t={t} providers={searchProviders} provider={searchProvider} setProvider={setSearchProvider}
                 apiKey={searchKey} setApiKey={setSearchKey}
               />
             )}
@@ -252,7 +120,7 @@ export function Onboarding({ onFinish }) {
               ) : step > 0 && stepKey !== "done" ? (
                 <Button variant="ghost" size="sm" onClick={back} disabled={busy}>← {t("back")}</Button>
               ) : null}
-              <Button variant="accent" size="sm" onClick={handleNext} disabled={!canNext() || busy} loading={busy}>
+              <Button variant="accent" size="sm" onClick={() => next(onFinish)} disabled={!canNext() || busy} loading={busy}>
                 {stepKey === "done" ? t("enter") : stepKey === "welcome" ? t("start") : t("next")}
                 <Icon.ArrowRight />
               </Button>
