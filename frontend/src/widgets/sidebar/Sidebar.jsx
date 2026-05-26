@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
+// eslint-disable-next-line boundaries/dependencies -- TODO 4b.3: useSSEHealth 迁 shared/sse 后移除
 import { useSSEHealth } from "../../app/sse/SSEProvider.jsx";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { ChatListItem } from "./ChatListItem.jsx";

@@ -6,7 +6,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { usePaneStore } from "../../app/model/index.ts";
+import { navigate } from "@shared/lib/navigation";
 import { useEntityName } from "../../hooks/useEntityName.js";
 
 const PREFIX_META = {
@@ -38,12 +38,10 @@ export function EntityLink({ id }) {
 
   const onClick = (e) => {
     e.stopPropagation();
-    const { openEntity, setActiveConv, openPane } = usePaneStore.getState();
     if (prefix === "cv") {
-      setActiveConv(id);
-      openPane("chat");
+      navigate.openConv(id);
     } else {
-      openEntity(meta.pane, id);
+      navigate.openEntity(meta.pane, id);
     }
   };
 

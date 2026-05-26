@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { setupFetchSpy } from "../../api/_testHarness.js";
 import { usePaneStore } from "@app/model";
+import { setNavigator } from "@shared/lib/navigation";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { AskAiTrigger } from "./AskAiTrigger.jsx";
 
@@ -20,6 +21,12 @@ let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
   usePaneStore.setState({ openPanes: ["forge"], activeConv: null });
+  setNavigator({
+    openConv: (id) => { usePaneStore.getState().setActiveConv(id); usePaneStore.getState().openPane("chat"); },
+    openEntity: (pane, id) => usePaneStore.getState().openEntity(pane, id),
+    openPane: (pane) => usePaneStore.getState().openPane(pane),
+    setActiveDocument: (id) => { usePaneStore.getState().setActiveDocument(id); usePaneStore.getState().openPane("documents"); },
+  });
   const bridge = await import("../../bridge/wails.js");
   await bridge.initBaseUrl();
 });

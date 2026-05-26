@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useForgeIterate } from "@features/forge-iterate";
-import { usePaneStore } from "../../app/model/index.ts";
+import { navigate } from "@shared/lib/navigation";
 import { slideUp } from "../../motion/tokens.js";
 
 export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
@@ -41,9 +41,7 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
     setText("");
     const cid = await iterateSubmit(kind, entityId, prompt);
     if (cid) {
-      const { setActiveConv, openPane } = usePaneStore.getState();
-      setActiveConv(cid);
-      openPane("chat");
+      navigate.openConv(cid);
     }
   };
 

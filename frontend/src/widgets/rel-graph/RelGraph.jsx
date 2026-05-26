@@ -16,7 +16,7 @@ import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { FloatingInspector } from "../../shared/ui/FloatingInspector.jsx";
 import { useNeighborhood } from "../../api/relations.js";
-import { usePaneStore } from "../../app/model/index.ts";
+import { navigate } from "@shared/lib/navigation";
 import { useEntityDirectory, normEdges, guessKind } from "@features/entity-link";
 
 const KIND_COLOR = {
@@ -286,14 +286,13 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
   const { incoming, outgoing } = adjacency(node.id, allEdges, allNodes);
 
   const openTarget = () => {
-    const { openEntity, setActiveConv, openPane, setActiveDocument } = usePaneStore.getState();
-    if (node.kind === "conversation") { setActiveConv(node.id); openPane("chat"); return; }
-    if (node.kind === "document") { setActiveDocument(node.id); openPane("documents"); return; }
-    if (node.kind === "skill")    { openEntity("skills", node.id); return; }
-    if (node.kind === "mcp")      { openEntity("mcp", node.id); return; }
-    if (node.kind === "memory")   { openEntity("memory", node.id); return; }
-    if (node.kind === "flowrun")  { openEntity("execute", node.id); return; }
-    openEntity("forge", node.id);
+    if (node.kind === "conversation") { navigate.openConv(node.id); return; }
+    if (node.kind === "document") { navigate.setActiveDocument(node.id); return; }
+    if (node.kind === "skill")    { navigate.openEntity("skills", node.id); return; }
+    if (node.kind === "mcp")      { navigate.openEntity("mcp", node.id); return; }
+    if (node.kind === "memory")   { navigate.openEntity("memory", node.id); return; }
+    if (node.kind === "flowrun")  { navigate.openEntity("execute", node.id); return; }
+    navigate.openEntity("forge", node.id);
   };
 
   return (
@@ -467,7 +466,7 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
             {t("relGraph.focusLabel")} · {entityId}
           </span>
           <div style={{ flex: 1 }} />
-          <Button size="xs" variant="ghost" onClick={() => { onClose(); usePaneStore.getState().openPane("observe"); }}>
+          <Button size="xs" variant="ghost" onClick={() => { onClose(); navigate.openPane("observe"); }}>
             {t("relGraph.fullGraph")}
           </Button>
           <button className="icon-btn" onClick={onClose}><Icon.X /></button>

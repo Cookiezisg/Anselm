@@ -52,7 +52,9 @@ export default tseslint.config(
           // features 层(阶段3 error 级):只允许 import entities + shared;
           // 禁止依赖上层(app/pages/widgets)及同层其他 feature(避免横向耦合)。
           // feature→store(shared-tmp)债务通过 inline disable 豁免。
-          { from: { type: "features" }, disallow: { to: { type: ["feature-tmp", "shared-tmp"] } }, message: "features 不能依赖上层或迁移期临时层" }
+          { from: { type: "features" }, disallow: { to: { type: ["feature-tmp", "shared-tmp"] } }, message: "features 不能依赖上层或迁移期临时层" },
+          // widgets 层(阶段4b):不得依赖 app 层(导航走 shared/lib/navigation DIP)
+          { from: { type: "widgets" }, disallow: { to: { type: ["app"] } }, message: "widgets 不能依赖 app(导航改用 navigate from shared/lib/navigation)" }
         ]
       }],
       "no-unused-vars": "off",

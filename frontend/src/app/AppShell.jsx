@@ -29,6 +29,7 @@ import { ObservePane } from "@/panes/observe/ObservePane.jsx";
 import { AskUserModal } from "@/components/overlays/AskUserModal.jsx";
 import { SettingsModal } from "@/components/overlays/SettingsModal.jsx";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
+import { setNavigator } from "@shared/lib/navigation";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts.js";
 import { easeOut } from "@/motion/tokens.js";
 
@@ -84,6 +85,21 @@ export function AppShell() {
   const mainRef = useRef(null);
 
   useKeyboardShortcuts();
+
+  useEffect(() => {
+    setNavigator({
+      openConv: (id) => {
+        usePaneStore.getState().setActiveConv(id);
+        usePaneStore.getState().openPane("chat");
+      },
+      openEntity: (pane, id) => usePaneStore.getState().openEntity(pane, id),
+      openPane: (pane) => usePaneStore.getState().openPane(pane),
+      setActiveDocument: (id) => {
+        usePaneStore.getState().setActiveDocument(id);
+        usePaneStore.getState().openPane("documents");
+      },
+    });
+  }, []);
 
   useEffect(() => {
     if (!mainRef.current) return;

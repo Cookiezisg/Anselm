@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { usePaneStore } from "@app/model";
+import { setNavigator } from "@shared/lib/navigation";
 
 vi.mock("../../hooks/useEntityName.js", () => ({
   useEntityName: vi.fn(() => null),
@@ -16,6 +17,12 @@ beforeEach(() => {
   usePaneStore.setState({
     openPanes: ["chat"], activeConv: null, activeNarrowPane: null,
     focusEntity: {},
+  });
+  setNavigator({
+    openConv: (id) => { usePaneStore.getState().setActiveConv(id); usePaneStore.getState().openPane("chat"); },
+    openEntity: (pane, id) => usePaneStore.getState().openEntity(pane, id),
+    openPane: (pane) => usePaneStore.getState().openPane(pane),
+    setActiveDocument: (id) => { usePaneStore.getState().setActiveDocument(id); usePaneStore.getState().openPane("documents"); },
   });
   useEntityName.mockReturnValue(null);
 });
