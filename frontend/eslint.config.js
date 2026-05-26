@@ -28,7 +28,12 @@ export default tseslint.config(
           Array.isArray(v) ? ["warn", ...v.slice(1)] : "warn",
         ])
       ),
-      "boundaries/element-types": ["warn", { default: "allow", rules: [{ from: "shared-tmp", disallow: ["feature-tmp", "app-tmp"], message: "shared 不能依赖上层" }] }],
+      "boundaries/dependencies": ["warn", {
+        default: "allow",
+        rules: [
+          { from: { type: "shared-tmp" }, disallow: { to: { type: ["feature-tmp", "app-tmp"] } }, message: "shared 不能依赖上层" }
+        ]
+      }],
       "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
