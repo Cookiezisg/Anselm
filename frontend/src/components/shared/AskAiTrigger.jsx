@@ -13,8 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
-import { useIterateForge } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useForgeIterate } from "@features/forge-iterate";
 import { slideUp } from "../../motion/tokens.js";
 
 export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
@@ -23,10 +22,7 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
   const [text, setText] = useState("");
   const ta = useRef(null);
 
-  const iterate = useIterateForge();
-  const pushToast = useUIStore((s) => s.pushToast);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
+  const { submit: iterateSubmit } = useForgeIterate();
 
   useEffect(() => {
     if (open) setTimeout(() => ta.current?.focus(), 50);
@@ -39,21 +35,10 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const submit = async (prompt) => {
+  const submit = (prompt) => {
     setOpen(false);
     setText("");
-    try {
-      const res = await iterate.mutateAsync({ kind, id: entityId, prompt });
-      const cid = res?.conversationId || res?.id;
-      if (cid) {
-        setActiveConv(cid);
-        openPane("chat");
-      } else {
-        pushToast({ kind: "warn", title: t("askAi.iterateEmptyTitle"), desc: t("askAi.iterateEmptyDesc") });
-      }
-    } catch (err) {
-      pushToast({ kind: "error", title: t("askAi.iterateFailedTitle"), desc: err.message });
-    }
+    iterateSubmit(kind, entityId, prompt);
   };
 
   return (

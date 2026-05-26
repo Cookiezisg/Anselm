@@ -2,11 +2,6 @@
 //
 // trinity 锻造相关 hooks。
 
-// TODO(阶段3): useIterateForge(跨实体用例)→ features/forge-iterate/model
-
-import { useMutation } from "@tanstack/react-query";
-import { apiFetch } from "./client.js";
-
 // Function hooks — implementation lives in @entities/function (FSD 阶段2迁移).
 export {
   useFunctions,
@@ -45,10 +40,5 @@ export {
   useCapabilityCheck,
 } from "@entities/workflow";
 
-// ── AskAI iterate (for FunctionDetail / HandlerDetail / WorkflowDetail) ──
-export function useIterateForge() {
-  return useMutation({
-    mutationFn: ({ kind, id, prompt }) =>
-      apiFetch(`/${kind}s/${id}:iterate`, { method: "POST", body: { prompt } }),
-  });
-}
+// useIterateForge — implementation lives in @features/forge-iterate (FSD 阶段3迁移).
+export { useIterateForge } from "@features/forge-iterate";
