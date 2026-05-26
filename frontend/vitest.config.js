@@ -13,7 +13,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-shim-storage.js", "./src/test-setup.js"],
-    include: ["src/**/*.{test,spec}.{js,jsx}"],
+    include: ["src/**/*.{test,spec}.{js,jsx,ts,tsx}"],
     exclude: ["tests/**", "node_modules/**", "dist/**"],
     coverage: {
       provider: "v8",

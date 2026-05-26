@@ -153,7 +153,7 @@ test-frontend:
 
 lint-frontend:
 	@cd frontend && [ -d node_modules ] || npm install --silent
-	@cd frontend && npm run typecheck && npm run lint
+	@cd frontend && npm run typecheck && npm run lint && npm run fsd
 
 # clean — stop everything + wipe the entire dev data dir.
 # In --dev mode the backend roots forgify-home under $(BACKEND_DATA_DIR)/.forgify
