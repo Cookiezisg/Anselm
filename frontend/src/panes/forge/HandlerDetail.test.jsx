@@ -16,7 +16,7 @@ vi.mock("@features/forge-review", () => ({
   useForgeBatchDelete: vi.fn(),
 }));
 
-vi.mock("../../sse/useForge.js", () => ({
+vi.mock("@shared/model", () => ({
   useForgeProgress: (selector) => selector({ active: {} }),
 }));
 

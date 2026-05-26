@@ -29,6 +29,7 @@ import { ObservePage } from "@/pages/observe/ui/ObservePage.jsx";
 import { AskUserModal } from "@/components/overlays/AskUserModal.jsx";
 import { SettingsModal } from "@/components/overlays/SettingsModal.jsx";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
+import { useSSEHealth } from "@app/sse/SSEProvider.jsx";
 import { setNavigator } from "@shared/lib/navigation";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts.js";
 import { easeOut } from "@/motion/tokens.js";
@@ -87,6 +88,8 @@ export function AppShell() {
   const setSettingsOpen = useOverlayStore((s) => s.setSettingsOpen);
   const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
   const openEntity = usePaneStore((s) => s.openEntity);
+
+  const sseHealth = useSSEHealth();
 
   const mainRef = useRef(null);
 
@@ -159,6 +162,7 @@ export function AppShell() {
         toolsExpanded={toolsExpanded}
         recentExpanded={recentExpanded}
         archivedExpanded={archivedExpanded}
+        sseHealth={sseHealth}
         onTogglePane={togglePane}
         onOpenPane={openPane}
         onSetActiveConv={setActiveConv}
@@ -240,6 +244,8 @@ export function AppShell() {
         onSetActiveConv={setActiveConv}
         pendingAsk={pendingAsk}
         onSetPendingAsk={setPendingAsk}
+        unread={sseHealth.unread}
+        clearUnread={sseHealth.clearUnread}
       />
       <AskUserModal />
       <SettingsModal />

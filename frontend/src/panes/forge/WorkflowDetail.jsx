@@ -16,7 +16,7 @@ import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { CapabilityCheckPanel } from "../../pages/forge/ui/CapabilityCheckPanel.jsx";
 import { WorkflowEditor } from "./WorkflowEditor.jsx";
 import { useWorkflow, useWorkflowVersions } from "../../api/forge.js";
-import { useForgeProgress } from "@app/sse/useForge.js";
+import { useForgeProgress } from "@shared/model";
 import { useToastStore } from "@shared/ui/toastStore";
 import { useForgeReview } from "@features/forge-review";
 

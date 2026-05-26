@@ -12,8 +12,6 @@ import { Badge } from "../../components/primitives/Badge.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { useToastStore } from "@shared/ui/toastStore";
-// eslint-disable-next-line boundaries/dependencies -- TODO 4b.3: useSSEHealth 迁 shared/sse 后移除
-import { useSSEHealth } from "../../app/sse/SSEProvider.jsx";
 import { useNotificationsSnapshot } from "../../api/notifications.js";
 import { apiFetch } from "../../api/client.js";
 
@@ -158,11 +156,10 @@ function NotifsTab({ snapshot, onClick }) {
   );
 }
 
-export function NotificationsDrawer({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, pendingAsk, onSetPendingAsk }) {
+export function NotificationsDrawer({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, pendingAsk, onSetPendingAsk, unread = 0, clearUnread = () => {} }) {
   const { t } = useTranslation("misc");
   const pushToast = useToastStore((s) => s.pushToast);
 
-  const { unread, clearUnread } = useSSEHealth();
   const { data: snapshot = [] } = useNotificationsSnapshot(50);
 
   const [tab, setTab] = useState(pendingAsk ? "todo" : "notifs");

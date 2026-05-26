@@ -1,32 +1,18 @@
 // useForge — subscribes to /api/v1/forge. 4 events: started / op_applied
-// / env_attempt / completed. Populates a zustand store keyed by
-// "{kind}:{id}" so detail views and forge list can render live progress.
+// / env_attempt / completed. Writes into useForgeProgress (shared/model)
+// so detail views and forge list can read it without reversing FSD layers.
 //
-// useForge —— /api/v1/forge 4 个事件，按 scope key 写入 store；
-// 详情页与列表行的进度由此驱动。
+// useForge —— /api/v1/forge 4 个事件；写入 shared/model/forgeProgress；
+// 详情页与列表行顺向读 shared，不反向依赖 app/sse。
 
 import { useEffect, useState } from "react";
-import { create } from "zustand";
 import { useQueryClient } from "@tanstack/react-query";
 import { createSSE } from "@shared/api/sse";
 import { useSessionStore } from "@entities/session";
 import { qk } from "@/api/client.js";
+import { useForgeProgress } from "@shared/model";
 
-export const useForgeProgress = create((set, get) => ({
-  // Map<scopeKey, ForgeProgress>
-  active: {},
-
-  put(scopeKey, value) {
-    set((s) => ({ active: { ...s.active, [scopeKey]: value } }));
-  },
-  clear(scopeKey) {
-    set((s) => {
-      const next = { ...s.active };
-      delete next[scopeKey];
-      return { active: next };
-    });
-  },
-}));
+export { useForgeProgress };
 
 const scopeKey = (scope) => `${scope?.kind}:${scope?.id}`;
 

@@ -14,10 +14,6 @@ vi.mock("../../api/notifications.js", () => ({
   }),
 }));
 
-vi.mock("../../app/sse/SSEProvider.jsx", () => ({
-  useSSEHealth: () => ({ unread: 3, clearUnread: vi.fn() }),
-}));
-
 import { usePaneStore, useOverlayStore } from "@app/model";
 import { NotificationsDrawer } from "./NotificationsDrawer.jsx";
 
@@ -32,6 +28,8 @@ function makeProps(overrides = {}) {
     onSetActiveConv: pane.setActiveConv,
     pendingAsk: overlay.pendingAsk,
     onSetPendingAsk: overlay.setPendingAsk,
+    unread: 3,
+    clearUnread: vi.fn(),
     ...overrides,
   };
 }

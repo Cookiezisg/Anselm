@@ -10,9 +10,6 @@ vi.mock("../../api/conversations.js", () => ({
   useUpdateConversation:   () => ({ mutate: vi.fn() }),
   useDeleteConversation:   () => ({ mutate: vi.fn() }),
 }));
-vi.mock("../../app/sse/SSEProvider.jsx", () => ({
-  useSSEHealth: () => ({ overall: "ok", eventlog: "ok", notifs: "ok", forge: "ok", unread: 0, clearUnread: vi.fn() }),
-}));
 // useDisplayName now derives from the backend active user (useUsers + settings);
 // mock it here so the Sidebar unit test doesn't need a real users query.
 vi.mock("../../hooks/useDisplayName.js", () => ({
@@ -44,6 +41,7 @@ function SidebarConnected(extraProps) {
       onTogglePane={togglePane} onOpenPane={openPane} onSetActiveConv={setActiveConv}
       onSetCollapsed={setCollapsed} onSetToolsExpanded={setToolsExpanded}
       onSetRecentExpanded={setRecentExpanded} onSetArchivedExpanded={setArchivedExpanded}
+      sseHealth={{ overall: "ok", eventlog: "ok", notifs: "ok", forge: "ok", unread: 0, clearUnread: vi.fn() }}
       onOpenCmdk={() => setCmdkOpen(true)} onOpenNotifs={() => setNotifsOpen(true)}
       onOpenSettings={() => setSettingsOpen(true)}
       {...extraProps}

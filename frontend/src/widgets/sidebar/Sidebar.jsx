@@ -12,8 +12,6 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
-// eslint-disable-next-line boundaries/dependencies -- TODO 4b.3: useSSEHealth 迁 shared/sse 后移除
-import { useSSEHealth } from "../../app/sse/SSEProvider.jsx";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { ChatListItem } from "./ChatListItem.jsx";
 import { SidebarSection } from "./SidebarSection.jsx";
@@ -52,6 +50,7 @@ export function Sidebar({
   toolsExpanded,
   recentExpanded,
   archivedExpanded,
+  sseHealth,
   onTogglePane,
   onOpenPane,
   onSetActiveConv,
@@ -67,7 +66,7 @@ export function Sidebar({
 
   const { data: conversations = [] } = useConversations();
   const createConv = useCreateConversation();
-  const sse = useSSEHealth();
+  const sse = sseHealth ?? { overall: "unknown", unread: 0, clearUnread: () => {} };
   const [displayName] = useDisplayName();
 
   const pinned   = conversations.filter((c) => c.pinned   && !c.archived);
