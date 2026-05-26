@@ -14,7 +14,7 @@ vi.mock("../../api/flowruns.js", () => ({
   useTriageFlowRun: vi.fn(),
 }));
 
-vi.mock("../../components/shared/EntityRelMeta.jsx", () => ({
+vi.mock("../../widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 

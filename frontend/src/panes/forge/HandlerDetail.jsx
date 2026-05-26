@@ -7,12 +7,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
-import { KindChip } from "../../components/shared/KindChip.jsx";
-import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
-import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
-import { VersionRail, SplitDiff, CodeView } from "../../components/shared/VersionRail.jsx";
-import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
-import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
+import { KindChip } from "../../shared/ui/KindChip.jsx";
+import { StatusBadge } from "../../shared/ui/StatusBadge.jsx";
+import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.jsx";
+import { VersionRail, SplitDiff, CodeView } from "../../widgets/version-rail/VersionRail.jsx";
+import { AskAiTrigger } from "../../widgets/ask-ai-trigger/AskAiTrigger.jsx";
+import { PaneCollapseToggle } from "../../shared/ui/PaneCollapseToggle.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import {
   useHandler, useHandlerVersions, useHandlerConfig,

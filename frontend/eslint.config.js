@@ -25,7 +25,9 @@ export default tseslint.config(
         // 迁移期临时 element:现有扁平目录;bridge 已迁至 shared,从此排除
         // App.jsx/main.jsx/AppShell/shell/lib 已迁 app/,hooks 中 useKeyboardShortcuts 已迁 app/lib
         { type: "shared-tmp", pattern: "src/{api,sse,store,hooks,motion,i18n,components/primitives}/**" },
-        { type: "feature-tmp", pattern: "src/{panes,components/{overlays,config,shared,layout}}/**" }
+        // widgets 层:阶段4b 已正式迁入,暂不加 boundaries 规则(阶段5收口)
+        { type: "widgets", pattern: "src/widgets/**" },
+        { type: "feature-tmp", pattern: "src/{panes,components/{overlays,config}}/**" }
       ]
     },
     rules: {

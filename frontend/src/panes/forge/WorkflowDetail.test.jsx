@@ -22,7 +22,7 @@ vi.mock("../../sse/useForge.js", () => ({
   useForgeProgress: (selector) => selector({ active: {} }),
 }));
 
-vi.mock("../../components/shared/EntityRelMeta.jsx", () => ({
+vi.mock("../../widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 
@@ -31,7 +31,7 @@ vi.mock("../../components/overlays/RunDrawer.jsx", () => ({
     open ? <div data-testid="run-drawer">drawer-{entity?.id}</div> : null,
 }));
 
-vi.mock("../../components/shared/AskAiTrigger.jsx", () => ({
+vi.mock("../../widgets/ask-ai-trigger/AskAiTrigger.jsx", () => ({
   AskAiTrigger: ({ entityId }) => <div data-testid="ask-ai">ask-{entityId}</div>,
 }));
 

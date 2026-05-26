@@ -18,7 +18,7 @@ import {
   useDismiss, useInteractions, useClick, useRole, FloatingPortal,
 } from "@floating-ui/react";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { lowlight } from "../../components/shared/lowlightInstance.js";
+import { lowlight } from "../../shared/lib/highlight/index.js";
 
 // Friendly labels for languages registered via `common`. Anything not in
 // here falls through to the raw id (already readable: python / go / yaml).

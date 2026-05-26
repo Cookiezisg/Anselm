@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RelTime } from "../../components/shared/RelTime.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { usePaneStore } from "@app/model";
 import { useToastStore } from "@shared/ui/toastStore";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";

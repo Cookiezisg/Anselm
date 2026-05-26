@@ -5,7 +5,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { RelGraph } from "../../components/shared/RelGraph.jsx";
+import { RelGraph } from "../../widgets/rel-graph/RelGraph.jsx";
 
 export function ObservePane() {
   const { t } = useTranslation("misc");

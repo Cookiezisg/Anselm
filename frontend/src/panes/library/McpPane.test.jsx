@@ -10,7 +10,7 @@ vi.mock("../../api/library.js", () => ({
   useRemoveMcp: vi.fn(),
 }));
 
-vi.mock("../../components/shared/RelTime.jsx", () => ({
+vi.mock("../../shared/ui/RelTime.jsx", () => ({
   RelTime: ({ ts }) => <span data-testid="reltime">{ts}</span>,
 }));
 

@@ -19,7 +19,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Mention from "@tiptap/extension-mention";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Markdown } from "tiptap-markdown";
-import { lowlight } from "../../components/shared/lowlightInstance.js";
+import { lowlight } from "../../shared/lib/highlight/index.js";
 import { CodeBlockNode } from "./CodeBlockNode.jsx";
 
 // Extend CodeBlockLowlight to render its node via our React component

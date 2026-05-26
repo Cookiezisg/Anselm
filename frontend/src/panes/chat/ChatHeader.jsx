@@ -4,7 +4,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
+import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.jsx";
 
 export function ChatHeader({ conv, onClose }) {
   const { t } = useTranslation(["conv", "common"]);

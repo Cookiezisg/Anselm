@@ -16,11 +16,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
-import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
-import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
-import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
-import { RelTime } from "../../components/shared/RelTime.jsx";
-import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
+import { ActionMenu } from "../../widgets/action-menu/ActionMenu.jsx";
+import { AskAiTrigger } from "../../widgets/ask-ai-trigger/AskAiTrigger.jsx";
+import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
+import { PaneCollapseToggle } from "../../shared/ui/PaneCollapseToggle.jsx";
 import { DocEditor } from "./DocEditor.jsx";
 import {
   useDocumentTree, useDocument,

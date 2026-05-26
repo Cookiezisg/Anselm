@@ -7,7 +7,7 @@ import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../store/chat.js";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { RelTime } from "../../components/shared/RelTime.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
 import { BlockList } from "./BlockRenderer.jsx";
 

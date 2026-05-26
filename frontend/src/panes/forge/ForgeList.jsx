@@ -8,10 +8,10 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
-import { KindChip } from "../../components/shared/KindChip.jsx";
-import { StatusBadge } from "../../components/shared/StatusBadge.jsx";
-import { RelTime } from "../../components/shared/RelTime.jsx";
-import { ActionMenu } from "../../components/shared/ActionMenu.jsx";
+import { KindChip } from "../../shared/ui/KindChip.jsx";
+import { StatusBadge } from "../../shared/ui/StatusBadge.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
+import { ActionMenu } from "../../widgets/action-menu/ActionMenu.jsx";
 import {
   useFunctions, useHandlers, useWorkflows,
   useDeleteFunction, useDeleteHandler, useDeleteWorkflow,

@@ -44,4 +44,11 @@ export default [
     files: ["src/features/**"],
     rules: { "fsd/insignificant-slice": "off" },
   },
+  {
+    // widgets 阶段4b:每个 widget slice 是独立组件,文件直接平铺在 slice 根目录
+    // (无 ui/model 子段);steiger no-segmentless-slices 会触发;
+    // 阶段5整体迁移后重新评估是否引入分段。
+    files: ["src/widgets/**"],
+    rules: { "fsd/no-segmentless-slices": "off" },
+  },
 ];

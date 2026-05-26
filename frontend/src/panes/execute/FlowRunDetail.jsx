@@ -10,9 +10,9 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
-import { RelTime } from "../../components/shared/RelTime.jsx";
-import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
-import { BottomSheet } from "../../components/shared/BottomSheet.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
+import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.jsx";
+import { BottomSheet } from "../../shared/ui/BottomSheet.jsx";
 import { ApprovalBanner } from "./ApprovalBanner.jsx";
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,

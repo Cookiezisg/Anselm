@@ -12,7 +12,7 @@ vi.mock("@tiptap/react", () => ({
   NodeViewContent: ({ as: As = "code" }) => <As data-testid="nv-content" />,
 }));
 
-vi.mock("../../components/shared/lowlightInstance.js", () => ({
+vi.mock("../../shared/lib/highlight/index.js", () => ({
   lowlight: {
     listLanguages: () => ["python", "javascript", "typescript", "go", "bash"],
   },

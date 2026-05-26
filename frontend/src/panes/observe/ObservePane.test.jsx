@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-vi.mock("../../components/shared/RelGraph.jsx", () => ({
+vi.mock("../../widgets/rel-graph/RelGraph.jsx", () => ({
   RelGraph: () => <div data-testid="rel-graph-stub" />,
 }));
 

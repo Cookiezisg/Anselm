@@ -10,7 +10,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Sidebar } from "@/components/layout/Sidebar.jsx";
+import { Sidebar } from "@/widgets/sidebar/Sidebar.jsx";
+import { CommandPalette } from "@/widgets/command-palette/CommandPalette.jsx";
+import { NotificationsDrawer } from "@/widgets/notifications-drawer/NotificationsDrawer.jsx";
+import { ToastTray } from "@/widgets/toaster/ToastTray.jsx";
 import { PaneFrame, PANE_META } from "./shell/PaneFrame.jsx";
 import { PaneResize } from "./shell/PaneResize.jsx";
 import { NarrowSwitch } from "./shell/NarrowSwitch.jsx";
@@ -23,12 +26,9 @@ import { McpPane } from "@/panes/library/McpPane.jsx";
 import { MemoryPane } from "@/panes/library/MemoryPane.jsx";
 import { DocumentsPane } from "@/panes/library/DocumentsPane.jsx";
 import { ObservePane } from "@/panes/observe/ObservePane.jsx";
-import { CommandPalette } from "@/components/overlays/CommandPalette.jsx";
-import { NotificationsDrawer } from "@/components/overlays/NotificationsDrawer.jsx";
 import { AskUserModal } from "@/components/overlays/AskUserModal.jsx";
-import { ToastTray } from "@/components/overlays/ToastTray.jsx";
 import { SettingsModal } from "@/components/overlays/SettingsModal.jsx";
-import { usePaneStore, useSidebarStore } from "@app/model";
+import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts.js";
 import { easeOut } from "@/motion/tokens.js";
 
@@ -48,7 +48,6 @@ function renderPaneBody(kind, onClose) {
 
 export function AppShell() {
   const { t } = useTranslation("sidebar");
-  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
   const openPanes = usePaneStore((s) => s.openPanes);
   const narrow = usePaneStore((s) => s.narrow);
   const setNarrow = usePaneStore((s) => s.setNarrow);
@@ -58,6 +57,29 @@ export function AppShell() {
   const activeNarrowPane = usePaneStore((s) => s.activeNarrowPane);
   const closePane = usePaneStore((s) => s.closePane);
   const setActiveNarrowPane = usePaneStore((s) => s.setActiveNarrowPane);
+
+  // Sidebar state
+  const activeConv = usePaneStore((s) => s.activeConv);
+  const togglePane = usePaneStore((s) => s.togglePane);
+  const openPane = usePaneStore((s) => s.openPane);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const toolsExpanded = useSidebarStore((s) => s.toolsExpanded);
+  const recentExpanded = useSidebarStore((s) => s.recentExpanded);
+  const archivedExpanded = useSidebarStore((s) => s.archivedExpanded);
+  const setCollapsed = useSidebarStore((s) => s.setCollapsed);
+  const setToolsExpanded = useSidebarStore((s) => s.setToolsExpanded);
+  const setRecentExpanded = useSidebarStore((s) => s.setRecentExpanded);
+  const setArchivedExpanded = useSidebarStore((s) => s.setArchivedExpanded);
+
+  // Overlay state
+  const cmdkOpen = useOverlayStore((s) => s.cmdkOpen);
+  const notifsOpen = useOverlayStore((s) => s.notifsOpen);
+  const pendingAsk = useOverlayStore((s) => s.pendingAsk);
+  const setCmdkOpen = useOverlayStore((s) => s.setCmdkOpen);
+  const setNotifsOpen = useOverlayStore((s) => s.setNotifsOpen);
+  const setSettingsOpen = useOverlayStore((s) => s.setSettingsOpen);
+  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
+  const openEntity = usePaneStore((s) => s.openEntity);
 
   const mainRef = useRef(null);
 
@@ -101,7 +123,24 @@ export function AppShell() {
 
   return (
     <div className={"app" + (collapsed ? " is-collapsed" : "") + (narrow ? " is-narrow" : "")}>
-      <Sidebar />
+      <Sidebar
+        openPanes={openPanes}
+        activeConv={activeConv}
+        collapsed={collapsed}
+        toolsExpanded={toolsExpanded}
+        recentExpanded={recentExpanded}
+        archivedExpanded={archivedExpanded}
+        onTogglePane={togglePane}
+        onOpenPane={openPane}
+        onSetActiveConv={setActiveConv}
+        onSetCollapsed={setCollapsed}
+        onSetToolsExpanded={setToolsExpanded}
+        onSetRecentExpanded={setRecentExpanded}
+        onSetArchivedExpanded={setArchivedExpanded}
+        onOpenCmdk={() => setCmdkOpen(true)}
+        onOpenNotifs={() => setNotifsOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
 
       <main className="main" ref={mainRef}>
         {openPanes.length === 0 ? (
@@ -156,8 +195,23 @@ export function AppShell() {
 
       <NarrowSwitch />
 
-      <CommandPalette />
-      <NotificationsDrawer />
+      <CommandPalette
+        open={cmdkOpen}
+        onClose={() => setCmdkOpen(false)}
+        onOpenPane={openPane}
+        onOpenEntity={openEntity}
+        onSetActiveConv={setActiveConv}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+      <NotificationsDrawer
+        open={notifsOpen}
+        onClose={() => setNotifsOpen(false)}
+        onOpenPane={openPane}
+        onOpenEntity={openEntity}
+        onSetActiveConv={setActiveConv}
+        pendingAsk={pendingAsk}
+        onSetPendingAsk={setPendingAsk}
+      />
       <AskUserModal />
       <SettingsModal />
       <ToastTray />

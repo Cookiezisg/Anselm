@@ -19,15 +19,15 @@ vi.mock("./DocEditor.jsx", () => ({
   ),
 }));
 
-vi.mock("../../components/shared/AskAiTrigger.jsx", () => ({
+vi.mock("../../widgets/ask-ai-trigger/AskAiTrigger.jsx", () => ({
   AskAiTrigger: () => <div data-testid="ask-ai-trigger" />,
 }));
 
-vi.mock("../../components/shared/EntityRelMeta.jsx", () => ({
+vi.mock("../../widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 
-vi.mock("../../components/shared/RelTime.jsx", () => ({
+vi.mock("../../shared/ui/RelTime.jsx", () => ({
   RelTime: ({ ts }) => <span>{ts}</span>,
 }));
 

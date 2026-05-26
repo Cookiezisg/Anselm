@@ -16,8 +16,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Select } from "../../components/primitives/Select.jsx";
-import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
-import { FloatingInspector } from "../../components/shared/FloatingInspector.jsx";
+import { PaneCollapseToggle } from "../../shared/ui/PaneCollapseToggle.jsx";
+import { FloatingInspector } from "../../shared/ui/FloatingInspector.jsx";
 import { useWorkflowEdit } from "../../features/workflow-edit/index.ts";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
 

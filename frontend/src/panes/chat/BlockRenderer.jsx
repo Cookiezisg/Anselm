@@ -13,8 +13,8 @@ import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, selectBlock, selectChildIds } from "../../store/chat.js";
 import { Icon } from "../../components/primitives/Icon.jsx";
-import { EntityLink } from "../../components/shared/EntityLink.jsx";
-import { MarkdownView } from "../../components/shared/MarkdownView.jsx";
+import { EntityLink } from "../../widgets/entity-link/EntityLink.jsx";
+import { MarkdownView } from "../../shared/ui/MarkdownView.jsx";
 
 function fmtDuration(ms) {
   if (ms == null) return "";

@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
-import { RelTime } from "../../components/shared/RelTime.jsx";
+import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { useFlowRuns, useApproveNode, useRejectNode } from "../../api/flowruns.js";
 import { useToastStore } from "@shared/ui/toastStore";
 
