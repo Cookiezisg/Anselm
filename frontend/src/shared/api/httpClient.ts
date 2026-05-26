@@ -6,9 +6,19 @@
 // 剥 §N1 envelope，统一报错带 code/status。
 
 import { apiUrl } from "../../bridge/wails.js";
-// TODO(阶段4): settings 下沉 shared 或由 app 注入 lang 后移除此豁免
+// TODO(阶段4a.5): app 注入 session provider 后删此豁免
 // eslint-disable-next-line boundaries/dependencies
 import { useSettings } from "../../store/settings.js";
+import { getUserId, notifyAuthFailure, setUserIdProvider } from "./authProvider.js";
+
+// Default provider: reads legacy settings.activeUserId until app/session
+// takes over at stage 4a.5. Injected once at module load so behaviour is
+// identical to the old inline read.
+//
+// 默认 provider：阶段4a.5 之前读旧 settings.activeUserId，保持现状行为不变。
+setUserIdProvider(() => useSettings.getState().activeUserId);
+
+export { setUserIdProvider, setOnAuthFailure } from "./authProvider.js";
 
 export class ApiError extends Error {
   code: string;
@@ -40,15 +50,14 @@ export interface ApiFetchOpts {
   parseJSON?: boolean;
 }
 
-// activeUserHeader — reads settings.activeUserId and returns the
+// activeUserHeader — reads the injected provider and returns the
 // X-Forgify-User-ID header pair. Returns {} when null; backend will then
 // reject user-scoped routes with 401 / UNAUTH_NO_USER, triggering
 // self-heal below.
 //
-// 读 settings.activeUserId 注 X-Forgify-User-ID；为空时用户路由会被
-// 后端 401 拒，触发下方 self-heal。
+// 读注入 provider 取 userId 注头；为空时后端 401，触发下方 self-heal。
 function activeUserHeader(): Record<string, string> {
-  const id = useSettings.getState().activeUserId;
+  const id = getUserId();
   return id ? { "X-Forgify-User-ID": id } : {};
 }
 
@@ -92,7 +101,9 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiFetchOpts = {
     // 自愈：activeUserId 失效；清掉后 App.jsx 的 effect 会切回 onboarding
     // 或 auto-select。仍 throw 让调用方知道这次请求失败。
     if (res.status === 401 && code === "UNAUTH_NO_USER") {
+      // 阶段4a.6 删旧 settings 自愈，届时只保留 notifyAuthFailure()。
       try { useSettings.getState().set({ activeUserId: null }); } catch { /* store unavailable in tests */ }
+      notifyAuthFailure();
     }
     throw new ApiError(message, { code, status: res.status, details: payload?.error?.details });
   }

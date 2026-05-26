@@ -18,9 +18,18 @@
 // useEffect 重建。
 
 import { apiUrl } from "../../bridge/wails.js";
-// TODO(阶段4): settings 下沉 shared 或由 app 注入 lang 后移除此豁免
+// TODO(阶段4a.5): app 注入 session provider 后删此豁免
 // eslint-disable-next-line boundaries/dependencies
 import { useSettings } from "../../store/settings.js";
+import { getUserId, notifyAuthFailure, setUserIdProvider } from "./authProvider.js";
+
+// Default provider: reads legacy settings.activeUserId. Mirrors the same
+// call in httpClient.ts — whichever module loads first installs the default;
+// the second call is a no-op in effect (same fn reference would differ, but
+// both read the same source so either wins).
+//
+// 默认 provider 镜像 httpClient.ts，sse 可独立加载时仍有正确默认值。
+setUserIdProvider(() => useSettings.getState().activeUserId);
 
 export type SSEEventMeta = { seq: number; raw: string };
 
@@ -39,7 +48,7 @@ export interface SSEController {
 const NOOP_CONTROLLER: SSEController = { close: () => {} };
 
 export function createSSE({ path, eventHandlers, onStatus }: CreateSSEOpts): SSEController {
-  const uid = useSettings.getState().activeUserId;
+  const uid = getUserId();
 
   // Idle state: no user, no connection.
   if (!uid) {
@@ -68,9 +77,11 @@ export function createSSE({ path, eventHandlers, onStatus }: CreateSSEOpts): SSE
     // nothing — the hook's useEffect will rebuild.
     //
     // 自愈：连接被永久关闭。captured uid 仍 = store 当前值时清掉。
+    // 阶段4a.6 删旧 settings 自愈，届时只保留 notifyAuthFailure()。
     const current = useSettings.getState().activeUserId;
     if (current === uid) {
       try { useSettings.getState().set({ activeUserId: null }); } catch { /* store unavailable in tests */ }
+      notifyAuthFailure();
     }
   });
 
