@@ -9,10 +9,11 @@ import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { Badge } from "@shared/ui/Badge";
 import { RelTime } from "../../../shared/ui/RelTime.tsx";
+import type { FlowRun, FlowRunStatus } from "@entities/flowrun";
 import { useFlowRuns, useApproveNode, useRejectNode } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
-const STATUS_KIND = {
+const STATUS_KIND: Record<string, string> = {
   running: "streaming",
   completed: "success",
   failed: "error",
@@ -21,17 +22,28 @@ const STATUS_KIND = {
   cancelled: "muted",
 };
 
-function FlowStatusBadge({ status }: { status: any }) {
+// Runtime flowrun shape — FlowRun plus server-aliased display fields.
+// Status is widened to include "waiting_approval" used in the legacy API.
+interface FlowRunRow extends Omit<FlowRun, "status"> {
+  status: FlowRunStatus | "waiting_approval";
+  workflow?: string;
+  trigger?: string;
+  nodes?: { done: number; total: number };
+  pausedNodeId?: string;
+  durationMs?: number;
+}
+
+function FlowStatusBadge({ status }: { status: FlowRunStatus | string }) {
   const { t } = useTranslation("execute");
-  const k = (STATUS_KIND as Record<string, string>)[status] || "muted";
+  const k = (STATUS_KIND[status] ?? "muted") as "success" | "error" | "warn" | "info" | "streaming" | "muted";
   const label = t(`status.${
     status === "waiting_approval" ? "waitingApproval" : status
   }`, status);
-  return <Badge kind={k as any}>{label as any}</Badge>;
+  return <Badge kind={k}>{label}</Badge>;
 }
 
 interface ExecuteOverviewProps {
-  onOpen: (fr: { id: string; [key: string]: unknown }) => void;
+  onOpen: (fr: FlowRunRow) => void;
 }
 
 export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
@@ -40,7 +52,7 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { data: flowrunsRaw = [], isLoading } = useFlowRuns();
-  const flowruns = flowrunsRaw as any[];
+  const flowruns = flowrunsRaw as FlowRunRow[];
 
   const filtered = useMemo(() => {
     return flowruns.filter((f) => {
@@ -129,7 +141,7 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
   );
 }
 
-function KpiStrip({ total, running, waiting, failed, success, onOpen }: any) {
+function KpiStrip({ total, running, waiting, failed, success }: { total: number; running: number; waiting: number; failed: number; success: number; onOpen?: () => void }) {
   const { t } = useTranslation("execute");
   const rate = total === 0 ? 0 : Math.round((success / total) * 100);
   return (
@@ -142,7 +154,7 @@ function KpiStrip({ total, running, waiting, failed, success, onOpen }: any) {
   );
 }
 
-function Kpi({ label, value, sub, active, warn, error }: any) {
+function Kpi({ label, value, sub, active, warn, error }: { label: string; value: number; sub?: string; active?: boolean; warn?: boolean; error?: boolean }) {
   const cls = ["kpi", active && "is-active", warn && "is-warn", error && "is-error"].filter(Boolean).join(" ");
   return (
     <div className={cls}>
@@ -153,7 +165,7 @@ function Kpi({ label, value, sub, active, warn, error }: any) {
   );
 }
 
-function ProgressMini({ done, total, status }: { done: any; total: any; status: any }) {
+function ProgressMini({ done, total, status }: { done: number; total: number; status: string }) {
   const t = total || 1;
   const pct = Math.round((done / t) * 100);
   const color = status === "failed" ? "var(--status-error)"
@@ -170,14 +182,14 @@ function ProgressMini({ done, total, status }: { done: any; total: any; status: 
   );
 }
 
-function fmtDuration(ms: any) {
+function fmtDuration(ms: number | null | undefined): string {
   if (ms == null) return "—";
   if (ms < 1000) return ms + "ms";
   if (ms < 60_000) return (ms / 1000).toFixed(1) + "s";
   return Math.round(ms / 1000) + "s";
 }
 
-function FlowRunsTable({ runs, loading, onOpen }: { runs: any[]; loading: boolean; onOpen: (fr: any) => void }) {
+function FlowRunsTable({ runs, loading, onOpen }: { runs: FlowRunRow[]; loading: boolean; onOpen: (fr: FlowRunRow) => void }) {
   const { t } = useTranslation("execute");
   if (loading) return <div className="empty" style={{ padding: 32 }}><div className="sub">{t("overview.runs.loading")}</div></div>;
   if (runs.length === 0) {
@@ -203,7 +215,7 @@ function FlowRunsTable({ runs, loading, onOpen }: { runs: any[]; loading: boolea
         </tr>
       </thead>
       <tbody>
-        {runs.map((fr: any) => (
+        {runs.map((fr) => (
           <tr key={fr.id} onClick={() => onOpen(fr)}>
             <td style={{ paddingLeft: 32 }}>
               <div>
@@ -226,7 +238,7 @@ function FlowRunsTable({ runs, loading, onOpen }: { runs: any[]; loading: boolea
   );
 }
 
-function ApprovalsQueue({ runs }: { runs: any[] }) {
+function ApprovalsQueue({ runs }: { runs: FlowRunRow[] }) {
   const { t } = useTranslation("execute");
   const pushToast = useToastStore((s) => s.pushToast);
   const approve = useApproveNode();
@@ -243,7 +255,7 @@ function ApprovalsQueue({ runs }: { runs: any[] }) {
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 8 }}>
-      {runs.map((fr: any) => (
+      {runs.map((fr) => (
         <div
           key={fr.id}
           className="card"

@@ -21,7 +21,7 @@ import { FloatingInspector } from "@shared/ui/FloatingInspector.tsx";
 import { useWorkflowEdit } from "@features/workflow-edit";
 import { useCollapsible } from "@shared/lib/useCollapsible";
 
-type WFNode = { id: string; kind: string; label: string; x: number; y: number; config: any; notes: string; onError?: string; timeout?: number; retry?: any; sub?: string };
+type WFNode = { id: string; kind: string; label: string; x: number; y: number; config: Record<string, unknown>; notes: string; onError?: string; timeout?: number; retry?: Record<string, unknown>; sub?: string };
 type WFEdge = { id: string; from: string; to: string; fromHandle?: string; toHandle?: string; fromPort?: string; toPort?: string };
 type HandleKey = "top" | "right" | "bottom" | "left";
 
@@ -64,7 +64,7 @@ function edgePathBetween(a: WFNode, b: WFNode, fromH: string = "bottom", toH: st
 }
 
 function iconFor(kind: string) {
-  const MAP: Record<string, React.ComponentType<any>> = {
+  const MAP: Record<string, React.ComponentType<Record<string, unknown>>> = {
     trigger: Icon.Zap, function: Icon.Code, handler: Icon.Server, mcp: Icon.Server,
     skill: Icon.Sparkles, llm: Icon.Brain, agent: Icon.Bot, http: Icon.Globe,
     condition: Icon.GitBranch, loop: Icon.Refresh, parallel: Icon.Layers,
@@ -140,7 +140,7 @@ function Palette({ onAdd, onCollapse }: { onAdd: (kind: string) => void; onColla
       <div className="wf-palette-label">{t("editor.palette.label", { count: list.length })}</div>
       <div className="wf-palette-list">
         {list.map((k) => {
-          const Ic = (Icon as Record<string, React.ComponentType<any>>)[k.icon] || Icon.Code;
+          const Ic = (Icon as Record<string, React.ComponentType<Record<string, unknown>>>)[k.icon] || Icon.Code;
           const desc = t("editor.nodeKinds." + k.kind, { defaultValue: k.desc });
           return (
             <button
@@ -191,7 +191,7 @@ function CanvasNode({ node, selected, onMouseDown, onHandleMouseDown, connecting
         <div className={"wf-node-icon kind-" + node.kind}>{iconFor(node.kind)}</div>
         <div className="wf-node-title">{node.label || node.id}</div>
       </div>
-      <div className="wf-node-sub">{node.sub || node.config?.ref || node.notes || ""}</div>
+      <div className="wf-node-sub">{node.sub || (node.config?.ref as string | undefined) || node.notes || ""}</div>
     </div>
   );
 }
@@ -279,7 +279,8 @@ function InspectorBody({ node, onChange, onDelete }: { node: WFNode; onChange: (
 }
 
 // ── Main editor ──────────────────────────────────────────────────────────
-export function WorkflowEditor({ workflowId, version }: { workflowId: string; version: any }) {
+// Version input accepts any server shape — graph may be JSON string or object.
+export function WorkflowEditor({ workflowId, version }: { workflowId: string; version: Record<string, unknown> | null | undefined }) {
   const { t } = useTranslation("forge");
   const original = useMemo(() => parseGraph(version), [version?.id]);
   const [nodes, setNodes] = useState(original.nodes);
@@ -336,7 +337,7 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
         setNodes((ns) => ns.map((n) =>
           n.id === dragNodeId ? { ...n, x: c.x - dragOffset.x, y: c.y - dragOffset.y } : n));
       } else if (connecting) {
-        setConnecting((c: any) => c && { ...c, x: e.clientX, y: e.clientY });
+        setConnecting((c) => c && { ...c, x: e.clientX, y: e.clientY });
       } else if (panning) {
         const dx = e.clientX - panStart.current!.x;
         const dy = e.clientY - panStart.current!.y;
@@ -466,15 +467,16 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
     : dirty   ? "dirty"
     : savedAt ? "saved"
               : "clean";
-  const [paletteOpen, togglePalette] = useCollapsible("workflow-palette", true);
+  const [paletteOpen, togglePaletteRaw] = useCollapsible("workflow-palette", true);
+  const togglePalette = togglePaletteRaw as () => void;
 
   const editorClass = "wf-editor pane-collapse-host"
     + (paletteOpen ? "" : " is-palette-collapsed");
 
   return (
     <div className={editorClass}>
-      {paletteOpen && <Palette onAdd={onPaletteAdd} onCollapse={togglePalette as any} />}
-      {!paletteOpen && <PaneCollapseToggle onClick={togglePalette as any} title={t("editor.palette.expand")} />}
+      {paletteOpen && <Palette onAdd={onPaletteAdd} onCollapse={togglePalette} />}
+      {!paletteOpen && <PaneCollapseToggle onClick={togglePalette} title={t("editor.palette.expand")} />}
       <div
         ref={canvasRef}
         className={"wf-canvas" + (panning ? " is-panning" : "")}
@@ -554,40 +556,42 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
 }
 
 // ── normaliseGraph — pull {nodes, edges} from version.graph in canvas shape ─
-function parseGraph(version: any): { nodes: WFNode[]; edges: WFEdge[] } {
-  if (!version) return { nodes: [], edges: [] };
-  const g = version.graph || version;
-  const inNodes = g.nodes || [];
-  const inEdges = g.edges || [];
+type RawGraphItem = Record<string, unknown>;
 
-  let nodes: WFNode[] = inNodes.map((n: any) => ({
-    id: n.id,
-    kind: n.type || n.kind || "function",
-    label: n.label || n.id,
-    notes: n.notes || "",
-    config: n.config || {},
-    onError: n.onError || "",
-    timeout: n.timeout || 0,
-    retry: n.retry,
-    x: n.position?.x ?? n.x ?? 0,
-    y: n.position?.y ?? n.y ?? 0,
+function parseGraph(version: Record<string, unknown> | null | undefined): { nodes: WFNode[]; edges: WFEdge[] } {
+  if (!version) return { nodes: [], edges: [] };
+  const raw = version.graph;
+  const g = (raw
+    ? (typeof raw === "string" ? JSON.parse(raw) : raw)
+    : version) as { nodes?: RawGraphItem[]; edges?: RawGraphItem[] };
+  const inNodes: RawGraphItem[] = g.nodes || [];
+  const inEdges: RawGraphItem[] = g.edges || [];
+
+  let nodes: WFNode[] = inNodes.map((n) => ({
+    id: String(n.id ?? ""),
+    kind: String(n.type ?? n.kind ?? "function"),
+    label: String(n.label ?? n.id ?? ""),
+    notes: String(n.notes ?? ""),
+    config: (n.config as Record<string, unknown>) || {},
+    onError: String(n.onError ?? ""),
+    timeout: Number(n.timeout) || 0,
+    retry: (n.retry as Record<string, unknown> | undefined),
+    x: Number((n.position as Record<string, unknown>)?.x ?? n.x ?? 0),
+    y: Number((n.position as Record<string, unknown>)?.y ?? n.y ?? 0),
   }));
 
   // Auto-layout if positions missing.
+  const rawEdges = inEdges.map((e) => ({
+    id: String(e.id ?? ""), from: String(e.from ?? e.fromId ?? ""), to: String(e.to ?? e.toId ?? ""),
+    fromPort: e.fromPort as string | undefined, toPort: e.toPort as string | undefined,
+    fromHandle: "bottom", toHandle: "top",
+  })) as WFEdge[];
   if (nodes.length && nodes.every((n) => !n.x && !n.y)) {
-    const { positions, defaultHandles } = autoLayout(nodes, inEdges, "vertical");
+    const { positions, defaultHandles } = autoLayout(nodes, rawEdges, "vertical");
     nodes = nodes.map((n) => positions[n.id] ? { ...n, ...positions[n.id] } : n);
-    const edges: WFEdge[] = inEdges.map((e: any) => ({
-      id: e.id, from: e.from || e.fromId, to: e.to || e.toId,
-      fromPort: e.fromPort, toPort: e.toPort,
-      fromHandle: defaultHandles.from, toHandle: defaultHandles.to,
-    }));
+    const edges: WFEdge[] = rawEdges.map((e) => ({ ...e, fromHandle: defaultHandles.from, toHandle: defaultHandles.to }));
     return { nodes, edges };
   }
-  const edges: WFEdge[] = inEdges.map((e: any) => ({
-    id: e.id, from: e.from || e.fromId, to: e.to || e.toId,
-    fromPort: e.fromPort, toPort: e.toPort,
-    fromHandle: "bottom", toHandle: "top",
-  }));
+  const edges: WFEdge[] = rawEdges;
   return { nodes, edges };
 }

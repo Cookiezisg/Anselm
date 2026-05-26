@@ -14,13 +14,14 @@ import { RelTime } from "@shared/ui/RelTime.tsx";
 import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.tsx";
 import { BottomSheet } from "@shared/ui/BottomSheet.tsx";
 import { ApprovalBanner } from "./ApprovalBanner.tsx";
+import type { FlowRun, FlowRunNode, FlowRunStatus, FlowRunNodeStatus } from "@entities/flowrun";
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
   useRejectNode, useTriageFlowRun,
 } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
-const STATUS_KIND = {
+const STATUS_KIND: Record<string, string> = {
   running: "streaming",
   completed: "success",
   failed: "error",
@@ -29,13 +30,36 @@ const STATUS_KIND = {
   cancelled: "muted",
 };
 
-function StatusBadge({ status }: { status: any }) {
-  const { t } = useTranslation("execute");
-  const label = t(`status.${status === "waiting_approval" ? "waitingApproval" : status}`, status);
-  return <Badge kind={(STATUS_KIND as Record<string, string>)[status] as any || "muted"}>{label as any}</Badge>;
+// Runtime node shape — FlowRunNode plus display-only fields computed/aliased by the API.
+// Status is widened to include legacy variant values ("ok", "fail", "skip", "completed").
+interface NodeRuntime extends Omit<FlowRunNode, "status"> {
+  status: FlowRunNodeStatus | "ok" | "completed" | "fail" | "skip" | "waiting" | "wait";
+  x?: number;
+  y?: number;
+  kind?: string;
+  label?: string;
+  durationMs?: number;
+  startedMs?: number;
+  dependsOn?: string[];
+  parents?: string[];
+  log?: Array<{ time?: string; level?: string; msg?: string }>;
+  error?: string;
 }
 
-function fmtDuration(ms: any) {
+// Runtime flowrun shape — FlowRun plus server-aliased fields.
+interface FlowRunRuntime extends FlowRun {
+  workflow?: string;
+  trigger?: string;
+}
+
+function StatusBadge({ status }: { status: FlowRunStatus | string }) {
+  const { t } = useTranslation("execute");
+  const label = t(`status.${status === "waiting_approval" ? "waitingApproval" : status}`, status);
+  const kind = (STATUS_KIND[status] ?? "muted") as "success" | "error" | "warn" | "info" | "streaming" | "muted";
+  return <Badge kind={kind}>{label}</Badge>;
+}
+
+function fmtDuration(ms: number | null | undefined): string {
   if (ms == null) return "—";
   if (ms < 1000) return ms + "ms";
   if (ms < 60_000) return (ms / 1000).toFixed(1) + "s";
@@ -63,24 +87,23 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
 
   if (!fr) return <div className="empty" style={{ padding: 48 }}><div className="sub">{t("detail.loading")}</div></div>;
 
-  const frAny = fr as any;
-  const nodesAny = nodes as any[];
+  const frAny = fr as FlowRunRuntime;
+  const nodesAny = nodes as NodeRuntime[];
   const okCount   = nodesAny.filter((n) => n.status === "ok"      || n.status === "completed").length;
   const failCount = nodesAny.filter((n) => n.status === "fail"    || n.status === "failed").length;
   const skipCount = nodesAny.filter((n) => n.status === "skip"    || n.status === "pending").length;
-  const failedNode = nodesAny.find((n) => n.status === "fail"     || n.status === "failed");
   const selected = nodesAny.find((n) => n.id === selectedNodeId) || nodesAny[0];
 
   const onTriage = async () => {
     try {
       const res = await triage.mutateAsync(runId);
-      const cid = (res as any)?.conversationId;
+      const cid = (res as Record<string, unknown> | null)?.conversationId as string | undefined;
       if (cid) {
         onOpenChat?.(cid);
         pushToast({ kind: "success", title: t("detail.toast.triageSuccess") });
       }
     } catch (e) {
-      pushToast({ kind: "error", title: t("detail.toast.triageFail"), desc: (e as any)?.message });
+      pushToast({ kind: "error", title: t("detail.toast.triageFail"), desc: e instanceof Error ? e.message : undefined });
     }
   };
 
@@ -133,15 +156,15 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
           height={340}
           anchorRef={shellRef}
         >
-          {selected && <NodeInspectorBody node={selected} fr={fr} />}
+          {selected && <NodeInspectorBody node={selected} fr={frAny} />}
         </BottomSheet>
       </div>
-      <GanttTimeline nodes={nodes} />
+      <GanttTimeline nodes={nodesAny} />
     </div>
   );
 }
 
-function nodeStatusIcon(status: any) {
+function nodeStatusIcon(status: string | undefined) {
   if (status === "ok" || status === "completed") return <Icon.Check style={{ width: 12, height: 12, color: "var(--status-success)" }} />;
   if (status === "fail" || status === "failed") return <Icon.X style={{ width: 12, height: 12, color: "var(--status-error)" }} />;
   if (status === "running") return <span className="spinner" style={{ width: 12, height: 12, borderColor: "color-mix(in srgb, var(--accent) 30%, transparent)", borderTopColor: "var(--accent)" }} />;
@@ -149,19 +172,19 @@ function nodeStatusIcon(status: any) {
   return <span style={{ width: 8, height: 8, borderRadius: "50%", border: "1.5px dashed var(--fg-faint)" }} />;
 }
 
-function FlowRunDag({ nodes, selected, onSelect }: { nodes: any[]; selected: any; onSelect: (id: string) => void }) {
+function FlowRunDag({ nodes, selected, onSelect }: { nodes: NodeRuntime[]; selected: string | undefined; onSelect: (id: string) => void }) {
   const { t } = useTranslation("execute");
   if (!nodes || nodes.length === 0) {
     return <div className="empty" style={{ padding: 32, flex: 1 }}><div className="sub">{t("detail.dag.empty")}</div></div>;
   }
   // Lay out nodes by their layer (if absent, simple stack).
-  const positioned = nodes.map((n: any, i: number) => ({
+  const positioned = nodes.map((n, i) => ({
     ...n,
     x: typeof n.x === "number" ? n.x : 220 * (i % 4),
     y: typeof n.y === "number" ? n.y : 100 * Math.floor(i / 4),
   }));
-  const byId: Record<string, any> = Object.fromEntries(positioned.map((n: any) => [n.id, n]));
-  const edges = nodes.flatMap((n: any) => (n.dependsOn || n.parents || []).map((from: any) => ({ from, to: n.id })));
+  const byId: Record<string, typeof positioned[number]> = Object.fromEntries(positioned.map((n) => [n.id, n]));
+  const edges = nodes.flatMap((n) => (n.dependsOn || n.parents || []).map((from: string) => ({ from, to: n.id })));
 
   return (
     <div className="fr-dag">
@@ -171,7 +194,7 @@ function FlowRunDag({ nodes, selected, onSelect }: { nodes: any[]; selected: any
             <path d="M0 0 L10 5 L0 10 z" fill="var(--border-strong)" />
           </marker>
         </defs>
-        {edges.map((e: any, i: number) => {
+        {edges.map((e, i) => {
           const a = byId[e.from], b = byId[e.to];
           if (!a || !b) return null;
           const sx = a.x + 92, sy = a.y + 60;
@@ -181,7 +204,7 @@ function FlowRunDag({ nodes, selected, onSelect }: { nodes: any[]; selected: any
           return <path key={i} d={d} fill="none" stroke="var(--border-strong)" strokeWidth="1.4" markerEnd="url(#fr-arr)" />;
         })}
       </svg>
-      {positioned.map((n: any) => (
+      {positioned.map((n) => (
         <div
           key={n.id}
           className={"fr-dag-node fr-status-" + (n.status || "pending") + (selected === n.id ? " is-selected" : "")}
@@ -203,7 +226,7 @@ function FlowRunDag({ nodes, selected, onSelect }: { nodes: any[]; selected: any
   );
 }
 
-function NodeInspectorBody({ node, fr }: { node: any; fr: any }) {
+function NodeInspectorBody({ node, fr }: { node: NodeRuntime; fr: FlowRunRuntime }) {
   const { t } = useTranslation("execute");
   return (
     <div className="fr-inspector-content">
@@ -230,7 +253,7 @@ function NodeInspectorBody({ node, fr }: { node: any; fr: any }) {
           <div className="fr-section">
             <div className="fr-section-label">Log</div>
             <div className="fr-log">
-              {node.log.map((l: any, i: number) => (
+              {node.log.map((l, i) => (
                 <div key={i} className={"fr-log-row level-" + (l.level || "info")}>
                   <span className="fr-log-time">{l.time}</span>
                   <span className="fr-log-level">{l.level || "info"}</span>
@@ -250,11 +273,11 @@ function NodeInspectorBody({ node, fr }: { node: any; fr: any }) {
   );
 }
 
-function prettyJSON(v: any) {
+function prettyJSON(v: unknown): string {
   try { return JSON.stringify(v, null, 2); } catch { return String(v); }
 }
 
-function GanttTimeline({ nodes }: { nodes: any[] }) {
+function GanttTimeline({ nodes }: { nodes: NodeRuntime[] }) {
   const { t } = useTranslation("execute");
   if (!nodes || nodes.length === 0) return null;
   const total = Math.max(...nodes.map((n) => (n.startedMs ?? 0) + (n.durationMs ?? 0)), 1);
@@ -267,7 +290,7 @@ function GanttTimeline({ nodes }: { nodes: any[] }) {
         </span>
       </div>
       <div className="fr-gantt-body">
-        {nodes.map((n: any) => {
+        {nodes.map((n) => {
           const start = n.startedMs ?? 0;
           const dur = n.durationMs ?? 0;
           const left = (start / total * 100).toFixed(1) + "%";

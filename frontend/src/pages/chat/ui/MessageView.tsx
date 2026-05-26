@@ -5,6 +5,7 @@
 
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
+import type { ChatMessage, ChatBlock } from "@entities/conversation";
 import { useChatStore } from "@entities/conversation";
 import { Icon } from "@shared/ui/Icon";
 import { RelTime } from "../../../shared/ui/RelTime.tsx";
@@ -71,17 +72,20 @@ export const MessageView = memo(function MessageView({ convId, msgId }: { convId
         )}
         {message.attachments?.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-            {message.attachments.map((a: any) => (
-              <div className="attached-pill" key={a.id || a.fileName}>
+            {message.attachments.map((a, i) => {
+              const att = a as typeof a & { sizeBytes?: number };
+              return (
+              <div className="attached-pill" key={a.attachmentId || a.fileName || i}>
                 {(a.mimeType || "").startsWith("image/")
                   ? <Icon.Image className="file-icon" />
                   : <Icon.File className="file-icon" />}
                 <span>{a.fileName}</span>
-                {typeof a.sizeBytes === "number" && (
-                  <span className="file-meta">{Math.round(a.sizeBytes / 1024)}kb</span>
+                {typeof att.sizeBytes === "number" && (
+                  <span className="file-meta">{Math.round(att.sizeBytes / 1024)}kb</span>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -89,14 +93,14 @@ export const MessageView = memo(function MessageView({ convId, msgId }: { convId
   );
 });
 
-function extractText(convId: string, message: any) {
+function extractText(convId: string, message: ChatMessage) {
   const store = useChatStore.getState();
   const blocks = store.convs[convId]?.blocks;
   if (!blocks) return "";
   return message.blocks
-    .map((bid: any) => blocks.get(bid))
-    .filter((b: any) => b && b.type === "text")
-    .map((b: any) => b.content)
+    .map((bid: string) => blocks.get(bid))
+    .filter((b): b is ChatBlock => !!b && b.type === "text")
+    .map((b) => b.content)
     .join("\n\n");
 }
 
@@ -104,7 +108,7 @@ function extractText(convId: string, message: any) {
 // Returns { hintKey, kindKey } where keys map to conv.error.* translations.
 //
 // 常见 provider 报错 → 翻译 key。
-function friendlyError(code: any, message: any) {
+function friendlyError(code: string | null | undefined, message: string | null | undefined) {
   const m = (message || "").toLowerCase();
   if (m.includes("insufficient balance") || m.includes("insufficient_quota")) {
     return { hintKey: "error.insufficientBalance", kindKey: "error.kindBalance" };
@@ -130,7 +134,7 @@ function friendlyError(code: any, message: any) {
   return null;
 }
 
-function ErrorCard({ code, message, provider, model }: { code: any; message: any; provider: any; model: any }) {
+function ErrorCard({ code, message, provider, model }: { code?: string | null; message?: string | null; provider?: string | null; model?: string | null }) {
   const { t } = useTranslation("conv");
   const friendly = friendlyError(code, message);
   return (

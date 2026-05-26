@@ -12,7 +12,7 @@
 // DocumentsPage —— Notion 风格树 + 所见即所得编辑器。activeDoc/onSetActiveDocument
 // 由 AppShell 经 props 传入，pages 层零 app 依赖。
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
@@ -22,6 +22,8 @@ import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.tsx";
 import { RelTime } from "../../shared/ui/RelTime.tsx";
 import { PaneCollapseToggle } from "../../shared/ui/PaneCollapseToggle.tsx";
 import { DocEditor } from "./ui/DocEditor.tsx";
+import type { DocEditorHandle } from "./ui/DocEditor.tsx";
+import type { DocTreeNode, UpdateDocumentPatch } from "@entities/document";
 import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
@@ -29,16 +31,21 @@ import {
 import { useToastStore } from "@shared/ui/toastStore";
 import { useCollapsible } from "@shared/lib/useCollapsible";
 
+// TreeNode extends DocTreeNode with children for the recursive sidebar.
+interface TreeNode extends DocTreeNode {
+  children: TreeNode[];
+}
+
 interface DocumentsPageProps {
-  activeDoc?: any;
-  onSetActiveDocument: (doc: any) => void;
+  activeDoc?: string | null;
+  onSetActiveDocument: (id: string | null) => void;
 }
 
 export function DocumentsPage({ activeDoc, onSetActiveDocument }: DocumentsPageProps) {
   const { t } = useTranslation(["library", "common"]);
   const treeQ = useDocumentTree();
   const setActiveDocument = onSetActiveDocument;
-  const [openSet, setOpenSet] = useState(new Set());
+  const [openSet, setOpenSet] = useState(new Set<string>());
   const [pendingFocusTitle, setPendingFocusTitle] = useState<string | null>(null);
 
   const flat = treeQ.data || [];
@@ -52,10 +59,11 @@ export function DocumentsPage({ activeDoc, onSetActiveDocument }: DocumentsPageP
       const res = await createDoc.mutateAsync({ name: t("documents.untitled"), parentId: null });
       setActiveDocument(res.id);
       setPendingFocusTitle(res.id);
-    } catch (e) { pushToast({ kind: "error", title: t("documents.createFail"), desc: (e as any)?.message }); }
+    } catch (e) { pushToast({ kind: "error", title: t("documents.createFail"), desc: e instanceof Error ? e.message : undefined }); }
   };
 
-  const [sidebarOpen, toggleSidebar] = useCollapsible("documents-sidebar", true);
+  const [sidebarOpen, toggleSidebarRaw] = useCollapsible("documents-sidebar", true);
+  const toggleSidebar = toggleSidebarRaw as () => void;
 
   const shellClass = "doc-shell pane-collapse-host"
     + (sidebarOpen ? "" : " is-sidebar-collapsed");
@@ -75,7 +83,7 @@ export function DocumentsPage({ activeDoc, onSetActiveDocument }: DocumentsPageP
           onCollapse={toggleSidebar}
         />
       )}
-      {!sidebarOpen && <PaneCollapseToggle onClick={toggleSidebar as any} title={t("documents.expandSidebar")} />}
+      {!sidebarOpen && <PaneCollapseToggle onClick={toggleSidebar} title={t("documents.expandSidebar")} />}
       <div className="doc-main">
         {activeDoc
           ? <DocPage docId={activeDoc} focusTitle={pendingFocusTitle === activeDoc}
@@ -101,15 +109,15 @@ function DocEmpty({ onCreate }: { onCreate: () => void }) {
 }
 
 // ── Tree helpers ─────────────────────────────────────────────────────
-function buildTree(flat: any[]) {
-  const byId = new Map<string, any>(flat.map((d) => [d.id, { ...d, children: [] }]));
-  const roots: any[] = [];
+function buildTree(flat: DocTreeNode[]): TreeNode[] {
+  const byId = new Map<string, TreeNode>(flat.map((d) => [d.id, { ...d, children: [] }]));
+  const roots: TreeNode[] = [];
   for (const d of byId.values()) {
     if (d.parentId && byId.has(d.parentId)) byId.get(d.parentId)!.children.push(d);
     else roots.push(d);
   }
-  const sortRec = (n: any) => {
-    n.children.sort((a: any, b: any) => (a.position - b.position) || a.name.localeCompare(b.name));
+  const sortRec = (n: TreeNode) => {
+    n.children.sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name));
     n.children.forEach(sortRec);
   };
   roots.sort((a, b) => (a.position - b.position) || a.name.localeCompare(b.name));
@@ -117,19 +125,19 @@ function buildTree(flat: any[]) {
   return roots;
 }
 
-function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading, onCollapse }: { tree: any[]; openSet: any; setOpenSet: any; selectedId: any; onSelect: (id: string) => void; onCreateRoot: () => void; onChildCreated: (id: string) => void; isLoading: boolean; onCollapse: any }) {
+function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateRoot, onChildCreated, isLoading, onCollapse }: { tree: TreeNode[]; openSet: Set<string>; setOpenSet: React.Dispatch<React.SetStateAction<Set<string>>>; selectedId: string | null | undefined; onSelect: (id: string | null) => void; onCreateRoot: () => void; onChildCreated: (id: string) => void; isLoading: boolean; onCollapse: () => void }) {
   const { t } = useTranslation(["library", "common"]);
   const [q, setQ] = useState("");
   const filtered = useMemo(() => {
     if (!q.trim()) return tree;
     const ql = q.toLowerCase();
-    const walk = (nodes: any[]): any[] => nodes
-      .map((n: any): any => {
-        const kids: any[] = n.children?.length ? walk(n.children) : [];
+    const walk = (nodes: TreeNode[]): TreeNode[] => nodes
+      .map((n): TreeNode | null => {
+        const kids: TreeNode[] = n.children?.length ? walk(n.children) : [];
         if (n.name.toLowerCase().includes(ql) || kids.length) return { ...n, children: kids };
         return null;
       })
-      .filter(Boolean);
+      .filter((n): n is TreeNode => n !== null);
     return walk(tree);
   }, [tree, q]);
 
@@ -156,7 +164,7 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
             <Trans i18nKey="documents.noDocs" ns="library"><Icon.Plus style={{ display: "inline", width: 11, height: 11, verticalAlign: "-2px" }} /></Trans>
           </div>
         )}
-        {filtered.map((n: any) => (
+        {filtered.map((n) => (
           <DocTreeNode
             key={n.id} node={n} depth={0}
             openSet={openSet} setOpenSet={setOpenSet}
@@ -169,7 +177,7 @@ function DocSidebar({ tree, openSet, setOpenSet, selectedId, onSelect, onCreateR
   );
 }
 
-function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, onChildCreated }: { node: any; depth: number; openSet: any; setOpenSet: any; selectedId: any; onSelect: (id: string) => void; onChildCreated: (id: string) => void }) {
+function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, onChildCreated }: { node: TreeNode; depth: number; openSet: Set<string>; setOpenSet: React.Dispatch<React.SetStateAction<Set<string>>>; selectedId: string | null | undefined; onSelect: (id: string | null) => void; onChildCreated: (id: string) => void }) {
   const { t } = useTranslation(["library", "common"]);
   const hasChildren = node.children?.length > 0;
   const isOpen = openSet.has(node.id);
@@ -178,7 +186,7 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
   const pushToast = useToastStore((s) => s.pushToast);
 
   const toggle = () => {
-    setOpenSet((s: any) => {
+    setOpenSet((s) => {
       const next = new Set(s);
       if (next.has(node.id)) next.delete(node.id); else next.add(node.id);
       return next;
@@ -188,9 +196,9 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
   const onNewChild = async () => {
     try {
       const res = await create.mutateAsync({ name: t("documents.untitled"), parentId: node.id });
-      setOpenSet((s: any) => { const n = new Set(s); n.add(node.id); return n; });
+      setOpenSet((s) => { const n = new Set(s); n.add(node.id); return n; });
       onChildCreated?.(res.id);
-    } catch (e) { pushToast({ kind: "error", title: t("documents.createChildFail"), desc: (e as any)?.message }); }
+    } catch (e) { pushToast({ kind: "error", title: t("documents.createChildFail"), desc: e instanceof Error ? e.message : undefined }); }
   };
   const onDelete = () => {
     if (!confirm(t("documents.deleteConfirm", { name: node.name }))) return;
@@ -238,7 +246,7 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
           </button>
         </div>
       </div>
-      {isOpen && node.children.map((c: any) => (
+      {isOpen && node.children.map((c) => (
         <DocTreeNode
           key={c.id} node={c} depth={depth + 1}
           openSet={openSet} setOpenSet={setOpenSet}
@@ -263,7 +271,7 @@ function DocPage({ docId, focusTitle, onTitleFocused }: { docId: string; focusTi
   const [dirty, setDirty] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<DocEditorHandle | null>(null);
 
   // Sync local draft when doc loads / switches.
   useEffect(() => {
@@ -288,7 +296,7 @@ function DocPage({ docId, focusTitle, onTitleFocused }: { docId: string; focusTi
     if (!doc || !dirty) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const patch: Record<string, any> = {};
+      const patch: UpdateDocumentPatch = {};
       const trimmedName = draftName.trim();
       if (trimmedName && trimmedName !== doc.name) patch.name = trimmedName;
       if (draftBody !== doc.content) patch.content = draftBody;
