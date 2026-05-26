@@ -1,17 +1,11 @@
-// Library hooks — skills / mcp servers / memory / documents.
+// Library hooks — skills / mcp servers / memory / documents / relations.
 //
 // 资源库 hooks。
 
-import { useQuery } from "@tanstack/react-query";
-import { apiFetch, qk, pickList } from "./client.js";
-
-// ── Skills ───────────────────────────────────────────────────────────
 export { useSkills, useSkill } from "@entities/skill";
 
-// ── MCP ──────────────────────────────────────────────────────────────
 export { useMcpServers, useReconnectMcp, useRemoveMcp } from "@entities/mcp";
 
-// ── Memory ───────────────────────────────────────────────────────────
 export {
   useMemories,
   useMemory,
@@ -21,7 +15,6 @@ export {
   usePinMemory,
 } from "@entities/memory";
 
-// ── Documents ────────────────────────────────────────────────────────
 export {
   useDocumentTree,
   useDocuments,
@@ -32,12 +25,4 @@ export {
   useMoveDocument,
 } from "@entities/document";
 
-// ── Relations (EntityRelMeta) ────────────────────────────────────────
-export function useRelations(entityId, limit = 5) {
-  return useQuery({
-    queryKey: qk.relations(entityId),
-    queryFn: () => apiFetch(`/relations?entityId=${encodeURIComponent(entityId)}&limit=${limit}`),
-    select: pickList,
-    enabled: !!entityId,
-  });
-}
+export { useRelations } from "@entities/relation";
