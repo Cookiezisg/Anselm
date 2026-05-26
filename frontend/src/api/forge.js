@@ -18,73 +18,17 @@ export {
   useDeleteFunction,
 } from "@entities/function";
 
-// ── Handler ──────────────────────────────────────────────────────────
-export function useHandlers() {
-  const uid = useSettings((s) => s.activeUserId);
-  return useQuery({
-    queryKey: qk.handlers(),
-    queryFn: () => apiFetch("/handlers?limit=200"),
-    select: pickList,
-    enabled: !!uid,
-  });
-}
-export function useHandler(id) {
-  return useQuery({
-    queryKey: qk.handler(id),
-    queryFn: () => apiFetch(`/handlers/${id}`),
-    enabled: !!id,
-  });
-}
-export function useHandlerVersions(id) {
-  return useQuery({
-    queryKey: qk.handlerVersions(id),
-    queryFn: () => apiFetch(`/handlers/${id}/versions`),
-    select: pickList,
-    enabled: !!id,
-  });
-}
-export function useHandlerConfig(id) {
-  return useQuery({
-    queryKey: qk.handlerConfig(id),
-    queryFn: () => apiFetch(`/handlers/${id}/config`),
-    enabled: !!id,
-  });
-}
-export function useAcceptHandler() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => apiFetch(`/handlers/${id}/pending:accept`, { method: "POST" }),
-    onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: qk.handlers() });
-      qc.invalidateQueries({ queryKey: qk.handler(id) });
-      qc.invalidateQueries({ queryKey: qk.handlerVersions(id) });
-    },
-  });
-}
-export function useRejectHandler() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => apiFetch(`/handlers/${id}/pending:reject`, { method: "POST" }),
-    onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: qk.handlers() });
-      qc.invalidateQueries({ queryKey: qk.handler(id) });
-      qc.invalidateQueries({ queryKey: qk.handlerVersions(id) });
-    },
-  });
-}
-export function useCallHandler() {
-  return useMutation({
-    mutationFn: ({ id, method, args }) =>
-      apiFetch(`/handlers/${id}:call`, { method: "POST", body: { method, args } }),
-  });
-}
-export function useDeleteHandler() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => apiFetch(`/handlers/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.handlers() }),
-  });
-}
+// Handler hooks — implementation lives in @entities/handler (FSD 阶段2迁移).
+export {
+  useHandlers,
+  useHandler,
+  useHandlerVersions,
+  useHandlerConfig,
+  useAcceptHandler,
+  useRejectHandler,
+  useCallHandler,
+  useDeleteHandler,
+} from "@entities/handler";
 
 // ── Workflow ─────────────────────────────────────────────────────────
 export function useWorkflows() {
