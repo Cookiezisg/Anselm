@@ -8,6 +8,7 @@
 // panel-toggle 切换收起;"工具" / "最近" 段可折叠。footer 头像角红 dot
 // 是 Help+Bell 合并未读,hover 整行浮出 ⚙ 入设置。
 
+import React from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
@@ -30,7 +31,7 @@ function ForgifyLogo({ size = 22 }) {
   );
 }
 
-function NavItem({ icon: I, label, active, primary, onClick, collapsed }: { icon: any; label: string; active?: boolean; primary?: boolean; onClick?: () => void; collapsed?: boolean }) {
+function NavItem({ icon: I, label, active, primary, onClick, collapsed }: { icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>; label: string; active?: boolean; primary?: boolean; onClick?: () => void; collapsed?: boolean }) {
   const cls =
     "sb-item" +
     (active  ? " is-active"  : "") +
@@ -50,7 +51,7 @@ interface SidebarProps {
   toolsExpanded: boolean;
   recentExpanded: boolean;
   archivedExpanded: boolean;
-  sseHealth?: any;
+  sseHealth?: { overall: string; eventlog: string; notifs: string; forge: string; unread: number; clearUnread: () => void };
   onTogglePane: (pane: string) => void;
   onOpenPane: (pane: string) => void;
   onSetActiveConv: (id: string | null) => void;

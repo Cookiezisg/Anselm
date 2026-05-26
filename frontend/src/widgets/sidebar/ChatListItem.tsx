@@ -10,10 +10,12 @@ import { useTranslation } from "react-i18next";
 import { useToastStore } from "@shared/ui/toastStore";
 import { Icon } from "@shared/ui/Icon";
 import { ActionMenu } from "../action-menu/ActionMenu.tsx";
-import { useUpdateConversation, useDeleteConversation } from "@entities/conversation";
+import { useUpdateConversation, useDeleteConversation, type Conversation } from "@entities/conversation";
+
+type ConvRow = Conversation & { status?: string };
 
 interface ChatListItemProps {
-  conv: any;
+  conv: ConvRow;
   openPanes: string[];
   activeConv: string | null;
   onSetActiveConv: (id: string | null) => void;
@@ -50,7 +52,7 @@ export function ChatListItem({ conv, openPanes, activeConv, onSetActiveConv, onO
   );
 }
 
-function ConvMenu({ conv, activeConv, onSetActiveConv }: { conv: any; activeConv: any; onSetActiveConv: (id: string | null) => void }) {
+function ConvMenu({ conv, activeConv, onSetActiveConv }: { conv: ConvRow; activeConv: string | null; onSetActiveConv: (id: string | null) => void }) {
   const { t } = useTranslation("sidebar");
   const update = useUpdateConversation(conv.id);
   const del = useDeleteConversation();

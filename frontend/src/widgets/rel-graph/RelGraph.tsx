@@ -15,9 +15,10 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { FloatingInspector } from "../../shared/ui/FloatingInspector.tsx";
-import { useNeighborhood } from "@entities/relation";
+import { useNeighborhood, type Neighborhood } from "@entities/relation";
+import type { TFunction } from "i18next";
 import { navigate } from "@shared/lib/navigation";
-import { useEntityDirectory, normEdges, guessKind } from "@features/entity-link";
+import { useEntityDirectory, normEdges, guessKind, type EntityNode, type EntityEdge } from "@features/entity-link";
 
 const KIND_COLOR: Record<string, string> = {
   function: "#2383E2", handler: "#0F7B6C", workflow: "#D97757",
@@ -50,13 +51,13 @@ const REL_LABEL_KEYS: Record<string, string> = {
 
 // ── Force-directed canvas ────────────────────────────────────────────────
 function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height }: {
-  nodes: any[]; edges: any[]; focusId?: string; selected: string | null;
+  nodes: EntityNode[]; edges: EntityEdge[]; focusId?: string; selected: string | null;
   onSelect: (id: string) => void; width: number; height: number;
 }) {
   const positions = useRef<Record<string, { x: number; y: number }>>({});
   const velocities = useRef<Record<string, { vx: number; vy: number }>>({});
-  const dragRef = useRef<any>(null);
-  const panRef = useRef<any>(null);
+  const dragRef = useRef<{ id: string; dx: number; dy: number; lastDx?: number; lastDy?: number } | null>(null);
+  const panRef = useRef<{ sx: number; sy: number; tx: number; ty: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [hover, setHover] = useState<string | null>(null);
@@ -153,17 +154,18 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
           p.x = nx; p.y = ny;
         }
       } else if (panRef.current) {
+        const pan = panRef.current;
         setTransform((t) => ({
           ...t,
-          x: panRef.current.tx + (e.clientX - panRef.current.sx),
-          y: panRef.current.ty + (e.clientY - panRef.current.sy),
+          x: pan.tx + (e.clientX - pan.sx),
+          y: pan.ty + (e.clientY - pan.sy),
         }));
       }
     };
     const onUp = () => {
       if (dragRef.current) {
         const v = velocities.current[dragRef.current.id];
-        if (v && dragRef.current.lastDx != null) {
+        if (v && dragRef.current.lastDx != null && dragRef.current.lastDy != null) {
           v.vx = dragRef.current.lastDx * 2; v.vy = dragRef.current.lastDy * 2;
         }
         dragRef.current = null;
@@ -178,7 +180,7 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
     };
   }, [transform]);
 
-  const onNodeMouseDown = (e: React.MouseEvent, n: any) => {
+  const onNodeMouseDown = (e: React.MouseEvent, n: EntityNode) => {
     e.stopPropagation();
     const c = clientToCanvas(e.clientX, e.clientY);
     const p = positions.current[n.id];
@@ -265,27 +267,30 @@ function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height 
 }
 
 // ── Detail panel ─────────────────────────────────────────────────────────
-function adjacency(entityId: string, allEdges: any[], allNodes: any[]) {
-  const incoming: any[] = [], outgoing: any[] = [];
-  allEdges.forEach((e: any) => {
+interface AdjEntry { edge: EntityEdge; node: EntityNode }
+
+function adjacency(entityId: string, allEdges: EntityEdge[], allNodes: EntityNode[]) {
+  const incoming: AdjEntry[] = [], outgoing: AdjEntry[] = [];
+  allEdges.forEach((e) => {
     if (e.from === entityId) {
-      const t = allNodes.find((n: any) => n.id === e.to);
+      const t = allNodes.find((n) => n.id === e.to);
       if (t) outgoing.push({ edge: e, node: t });
     }
     if (e.to === entityId) {
-      const s = allNodes.find((n: any) => n.id === e.from);
+      const s = allNodes.find((n) => n.id === e.from);
       if (s) incoming.push({ edge: e, node: s });
     }
   });
   return { incoming, outgoing };
 }
 
-function NodeDetail({ node, allNodes, allEdges, onSelect }: { node: any; allNodes: any[]; allEdges: any[]; onSelect: (id: string) => void }) {
+function NodeDetail({ node, allNodes, allEdges, onSelect }: { node: EntityNode | undefined; allNodes: EntityNode[]; allEdges: EntityEdge[]; onSelect: (id: string) => void }) {
   const { t } = useTranslation("misc");
+  if (!node) return null;
 
   // Rendered inside a FloatingInspector — drop our own outer container.
   // FloatingInspector head already shows kind label; we keep icon+name+id+open here.
-  const Ic = (Icon as Record<string, React.ComponentType<any>>)[KIND_ICON[node.kind]] || Icon.Code;
+  const Ic = (Icon as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[KIND_ICON[node.kind]] || Icon.Code;
   const { incoming, outgoing } = adjacency(node.id, allEdges, allNodes);
 
   const openTarget = () => {
@@ -321,7 +326,7 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }: { node: any; allNode
     </>
   );
 }
-function AdjacencySection({ label, list, onSelect, t }: { label: string; list: any[]; onSelect: (id: string) => void; t: any }) {
+function AdjacencySection({ label, list, onSelect, t }: { label: string; list: AdjEntry[]; onSelect: (id: string) => void; t: TFunction<"misc"> }) {
   if (list.length === 0) return null;
   return (
     <div className="rg-section">
@@ -445,12 +450,15 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }: { entityId:
   const { t } = useTranslation("misc");
   const { nodes: allNodes } = useEntityDirectory();
   const { data: nb } = useNeighborhood({ kind: kind || guessKind(entityId), id: entityId, depth: 2 });
-  const nbAny = nb as any;
   const nodes = useMemo(() => {
-    const ids = new Set([entityId, ...(nbAny?.nodes || []).map((n: any) => n.id || n.entityId)]);
+    const nbTyped = nb as Neighborhood | undefined;
+    const ids = new Set([entityId, ...(nbTyped?.nodes || []).map((n) => n.id)]);
     return allNodes.filter((n) => ids.has(n.id));
   }, [allNodes, nb, entityId]);
-  const edges = useMemo(() => normEdges(nbAny?.edges || nbAny?.relations || []), [nb]);
+  const edges = useMemo(() => {
+    const nbTyped = nb as Neighborhood | undefined;
+    return normEdges(nbTyped?.edges || []);
+  }, [nb]);
   const [selected, setSelected] = useState(entityId);
   const selectedNode = nodes.find((n) => n.id === selected);
 

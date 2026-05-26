@@ -59,7 +59,7 @@ describe("parse — block-level", () => {
   it("parse_codeFence_unclosedAtEOF_captureRest", () => {
     const r = parse("```js\nconst x = 1\nconst y = 2");
     expect(r[0]).toMatchObject({ type: "code", lang: "js" });
-    expect(r[0].text).toContain("const x");
+    expect((r[0] as { type: "code"; lang: string; text: string }).text).toContain("const x");
   });
 
   it("parse_blockquote_consecutiveLinesMerge", () => {
@@ -88,7 +88,7 @@ describe("parse — block-level", () => {
 
   it("parse_todoList_extractsDoneFlag", () => {
     const r = parse("- [ ] open\n- [x] done\n- [X] also done");
-    expect(r[0].items).toEqual([
+    expect((r[0] as { type: "ul" | "ol"; items: unknown[] }).items).toEqual([
       { done: false, text: "open" },
       { done: true, text: "done" },
       { done: true, text: "also done" },
@@ -129,7 +129,7 @@ describe("parse — block-level", () => {
 
   it("parse_unicodeText_preservedByteForByte", () => {
     const r = parse("中文 🚀 内容");
-    expect(r[0].text).toBe("中文 🚀 内容");
+    expect((r[0] as { type: "p"; text: string }).text).toBe("中文 🚀 内容");
   });
 
   it("parse_veryLongInput_completesUnderBudget", () => {
@@ -157,49 +157,56 @@ describe("inline — inline-level", () => {
   });
 
   it("inline_boldStarStar_wrapsInStrong", () => {
-    const out = inline("see **this**");
-    const strong = out!.find((x) => x && x.type === "strong");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("see **this**") as El[];
+    const strong = out.find((x) => x?.type === "strong");
     expect(strong).toBeTruthy();
-    expect(strong.props.children).toBe("this");
+    expect(strong!.props.children).toBe("this");
   });
 
   it("inline_italicSingleStar_wrapsInEm", () => {
-    const out = inline("see *this*");
-    const em = out!.find((x) => x && x.type === "em");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("see *this*") as El[];
+    const em = out.find((x) => x?.type === "em");
     expect(em).toBeTruthy();
-    expect(em.props.children).toBe("this");
+    expect(em!.props.children).toBe("this");
   });
 
   it("inline_inlineCode_wrapsInCode", () => {
-    const out = inline("use `foo()`");
-    const code = out!.find((x) => x && x.type === "code");
-    expect(code.props.children).toBe("foo()");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("use `foo()`") as El[];
+    const code = out.find((x) => x?.type === "code");
+    expect(code!.props.children).toBe("foo()");
   });
 
   it("inline_markdownLink_rendersAnchor", () => {
-    const out = inline("[google](https://google.com)");
-    const a = out!.find((x) => x && x.type === "a");
-    expect(a.props.href).toBe("https://google.com");
-    expect(a.props.children).toBe("google");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("[google](https://google.com)") as El[];
+    const a = out.find((x) => x?.type === "a");
+    expect(a!.props.href).toBe("https://google.com");
+    expect(a!.props.children).toBe("google");
   });
 
   it("inline_bareUrl_rendersAnchor", () => {
-    const out = inline("visit https://example.com here");
-    const a = out!.find((x) => x && x.type === "a");
-    expect(a.props.href).toBe("https://example.com");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("visit https://example.com here") as El[];
+    const a = out.find((x) => x?.type === "a");
+    expect(a!.props.href).toBe("https://example.com");
   });
 
   it("inline_wikilink_rendersEntityAnchor", () => {
-    const out = inline("see [[my-doc]]");
-    const a = out!.find((x) => x && x.type === "a");
-    expect(a.props.className).toBe("entity-link");
-    expect(a.props.children).toBe("my-doc");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("see [[my-doc]]") as El[];
+    const a = out.find((x) => x?.type === "a");
+    expect(a!.props.className).toBe("entity-link");
+    expect(a!.props.children).toBe("my-doc");
   });
 
   it("inline_multipleMixed_orderPreserved", () => {
-    const out = inline("**bold** then `code` then *em*");
+    type El = { type: string; props: Record<string, unknown> };
+    const out = inline("**bold** then `code` then *em*") as El[];
     // Find the structural tokens in order
-    const types = out!.filter((x) => x && x.type).map((x) => x.type);
+    const types = out.filter((x) => x?.type).map((x) => x.type);
     expect(types).toEqual(["strong", "code", "em"]);
   });
 

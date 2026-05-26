@@ -10,11 +10,12 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Kbd } from "@shared/ui/Kbd";
 import { useConversations } from "@entities/conversation";
-import { useFunctions } from "@entities/function";
-import { useHandlers } from "@entities/handler";
-import { useWorkflows } from "@entities/workflow";
-import { useFlowRuns } from "@entities/flowrun";
+import { useFunctions, type FunctionEntity } from "@entities/function";
+import { useHandlers, type Handler } from "@entities/handler";
+import { useWorkflows, type Workflow } from "@entities/workflow";
+import { useFlowRuns, type FlowRun } from "@entities/flowrun";
 import { scaleIn, fadeIn } from "@shared/lib/motion";
+import type { MotionProps } from "framer-motion";
 
 const NAV_ITEMS_DEF = [
   { icon: Icon.MessageSquare, labelKey: "nav.chat",      desc: "",                              target: "chat" },
@@ -26,6 +27,18 @@ const NAV_ITEMS_DEF = [
   { icon: Icon.Brain,         label: "Memory",           desc: "",                              target: "memory" },
   { icon: Icon.Settings,      labelKey: "cmdk.settings", desc: "",                              overlay: "settings" },
 ];
+
+interface CmdItem {
+  group: string;
+  icon: React.ComponentType<{ className?: string; size?: number; strokeWidth?: number }>;
+  label: string;
+  desc?: string;
+  action?: () => void;
+  shortcut?: string;
+  target?: string;
+  overlay?: string;
+  labelKey?: string;
+}
 
 interface CommandPaletteProps {
   open: boolean;
@@ -50,9 +63,9 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
 
   const items = useMemo(() => {
     const navGroup = t("cmdk.navGroup");
-    const a = [];
+    const a: CmdItem[] = [];
     for (const nav of NAV_ITEMS_DEF) {
-      const label = nav.labelKey ? t(nav.labelKey) : nav.label;
+      const label = nav.labelKey ? t(nav.labelKey) : (nav.label ?? "");
       const action = nav.overlay === "settings"
         ? () => onOpenSettings()
         : () => onOpenPane(nav.target ?? "");
@@ -67,38 +80,38 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
         action: () => { onSetActiveConv(c.id); onOpenPane("chat"); },
       });
     }
-    for (const f of (functions as any[]).slice(0, 5)) {
+    for (const f of (functions as FunctionEntity[]).slice(0, 5)) {
       a.push({
         group: "Function",
         icon: Icon.Code,
         label: f.name,
-        desc: f.desc || f.description || f.id,
+        desc: f.description || f.id,
         action: () => onOpenEntity("forge", f.id),
       });
     }
-    for (const h of (handlers as any[]).slice(0, 5)) {
+    for (const h of (handlers as Handler[]).slice(0, 5)) {
       a.push({
         group: "Handler",
         icon: Icon.Server,
         label: h.name,
-        desc: h.desc || h.description || h.id,
+        desc: h.description || h.id,
         action: () => onOpenEntity("forge", h.id),
       });
     }
-    for (const w of (workflows as any[]).slice(0, 5)) {
+    for (const w of (workflows as Workflow[]).slice(0, 5)) {
       a.push({
         group: "Workflow",
         icon: Icon.Workflow,
         label: w.name,
-        desc: w.desc || w.description || w.id,
+        desc: w.description || w.id,
         action: () => onOpenEntity("forge", w.id),
       });
     }
-    for (const f of (flowruns as any[]).slice(0, 5)) {
+    for (const f of (flowruns as FlowRun[]).slice(0, 5)) {
       a.push({
         group: "FlowRun",
         icon: Icon.Play,
-        label: f.workflow || f.workflowId,
+        label: f.workflowId,
         desc: f.id,
         action: () => onOpenEntity("execute", f.id),
       });
@@ -147,8 +160,8 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="overlay" {...(fadeIn as any)} onClick={() => onClose()}>
-          <motion.div className="cmdk" {...(scaleIn as any)} onClick={(e) => e.stopPropagation()}>
+        <motion.div className="overlay" {...(fadeIn as MotionProps)} onClick={() => onClose()}>
+          <motion.div className="cmdk" {...(scaleIn as MotionProps)} onClick={(e) => e.stopPropagation()}>
             <div className="cmdk-input-wrap">
               <Icon.Search className="icon" />
               <input
@@ -169,7 +182,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
               {groups.map(([gname, gitems]) => (
                 <div key={gname}>
                   <div className="cmdk-group-label">{gname}</div>
-                  {gitems.map((it: any) => {
+                  {(gitems as CmdItem[]).map((it) => {
                     const idx = cursor++;
                     const IconC = it.icon || Icon.ChevronRight;
                     return (

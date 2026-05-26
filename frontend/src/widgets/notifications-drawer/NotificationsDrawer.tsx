@@ -11,9 +11,22 @@ import { Icon } from "@shared/ui/Icon";
 import { Badge } from "@shared/ui/Badge";
 import { Button } from "@shared/ui/Button";
 import { RelTime } from "../../shared/ui/RelTime.tsx";
-import { useToastStore } from "@shared/ui/toastStore";
+import { useToastStore, type Toast } from "@shared/ui/toastStore";
 import { useNotificationsSnapshot } from "./useNotificationsSnapshot";
 import { apiFetch } from "@shared/api/httpClient";
+import type { PendingAsk } from "@app/model";
+
+type AskOption = NonNullable<PendingAsk["options"]>[number];
+
+interface NotifSnapshot {
+  seq?: number | string;
+  type?: string;
+  id?: string;
+  conversationId?: string;
+  createdAt?: string;
+  at?: string;
+  data?: { action?: string; toolCallId?: string; [key: string]: unknown };
+}
 
 const TYPE_TO_PANE = {
   conversation: "chat",
@@ -43,9 +56,9 @@ const TYPE_TO_ICON = {
   compaction: Icon.Archive,
 };
 
-function TodoTab({ pendingAsk, setPendingAsk, pushToast }: { pendingAsk: any; setPendingAsk: (v: any) => void; pushToast: (t: any) => void }) {
+function TodoTab({ pendingAsk, setPendingAsk, pushToast }: { pendingAsk: PendingAsk | null | undefined; setPendingAsk: (v: PendingAsk | null) => void; pushToast: (t: Omit<Toast, "id">) => void }) {
   const { t } = useTranslation("misc");
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   if (!pendingAsk) {
@@ -69,7 +82,7 @@ function TodoTab({ pendingAsk, setPendingAsk, pushToast }: { pendingAsk: any; se
       pushToast({ kind: "success", title: t("toast:notifications.answerSubmitted") });
       setPendingAsk(null);
     } catch (err) {
-      pushToast({ kind: "error", title: t("toast:notifications.submitFailed"), desc: (err as any)?.message });
+      pushToast({ kind: "error", title: t("toast:notifications.submitFailed"), desc: err instanceof Error ? err.message : String(err) });
     } finally {
       setSubmitting(false);
     }
@@ -92,11 +105,11 @@ function TodoTab({ pendingAsk, setPendingAsk, pushToast }: { pendingAsk: any; se
               {t("notificationsDrawer.askNoOptions")}
             </div>
           )}
-          {options.map((o: any, i: number) => (
+          {options.map((o: AskOption, i: number) => (
             <div
               key={o.id || i}
-              className={"ask-option" + (selected === (o.id || o.value) ? " is-selected" : "")}
-              onClick={() => setSelected(o.id || o.value)}
+              className={"ask-option" + (selected !== null && selected === (o.id || o.value) ? " is-selected" : "")}
+              onClick={() => setSelected(o.id || o.value || null)}
             >
               <div className="key">{i + 1}</div>
               <div className="text">{o.text || o.label}<span className="sub">{o.sub || ""}</span></div>
@@ -117,7 +130,7 @@ function TodoTab({ pendingAsk, setPendingAsk, pushToast }: { pendingAsk: any; se
   );
 }
 
-function NotifsTab({ snapshot, onClick }: { snapshot: any[]; onClick: (n: any) => void }) {
+function NotifsTab({ snapshot, onClick }: { snapshot: NotifSnapshot[]; onClick: (n: NotifSnapshot) => void }) {
   const { t } = useTranslation("misc");
   if (snapshot.length === 0) {
     return (
@@ -128,8 +141,8 @@ function NotifsTab({ snapshot, onClick }: { snapshot: any[]; onClick: (n: any) =
   }
   return (
     <>
-      {snapshot.map((n: any) => {
-        const I = (TYPE_TO_ICON as Record<string, React.ComponentType<any>>)[n.type] || Icon.Bell;
+      {snapshot.map((n: NotifSnapshot) => {
+        const I = (TYPE_TO_ICON as Record<string, React.ComponentType<{ className?: string }>>)[n.type ?? ""] || Icon.Bell;
         return (
           <div key={n.seq} className="notif" onClick={() => onClick(n)}>
             <div className="icon-wrap"><I /></div>
@@ -162,8 +175,8 @@ interface NotificationsDrawerProps {
   onOpenPane: (pane: string) => void;
   onOpenEntity: (pane: string, id: string) => void;
   onSetActiveConv: (id: string | null) => void;
-  pendingAsk?: any;
-  onSetPendingAsk: (ask: any) => void;
+  pendingAsk?: PendingAsk | null;
+  onSetPendingAsk: (ask: PendingAsk | null) => void;
   unread?: number;
   clearUnread?: () => void;
 }
@@ -172,12 +185,13 @@ export function NotificationsDrawer({ open, onClose, onOpenPane, onOpenEntity, o
   const { t } = useTranslation("misc");
   const pushToast = useToastStore((s) => s.pushToast);
 
-  const { data: snapshot = [] } = useNotificationsSnapshot(50);
+  const { data: snapshotRaw = [] } = useNotificationsSnapshot(50);
+  const snapshot = snapshotRaw as NotifSnapshot[];
 
   const [tab, setTab] = useState(pendingAsk ? "todo" : "notifs");
 
-  const handleNotifClick = (n: any) => {
-    const pane = (TYPE_TO_PANE as Record<string, string>)[n.type];
+  const handleNotifClick = (n: NotifSnapshot) => {
+    const pane = (TYPE_TO_PANE as Record<string, string>)[n.type ?? ""];
     if (!pane) return;
     if (n.type === "conversation" && n.id) {
       onSetActiveConv(n.id);

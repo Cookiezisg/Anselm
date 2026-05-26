@@ -38,7 +38,7 @@ export function EntityLink({ id }: EntityLinkProps) {
 
   const prefix = id.split("_")[0];
   const meta = (PREFIX_META as Record<string, { pane: string; icon: string }>)[prefix] || { pane: "forge", icon: "Hammer" };
-  const Ic = (Icon as Record<string, React.ComponentType<any>>)[meta.icon] || Icon.Hammer;
+  const Ic = (Icon as Record<string, React.ComponentType<{ className?: string }>>)[meta.icon] || Icon.Hammer;
   const kindLabel = t(`entityKinds.${prefix}`, { defaultValue: prefix });
 
   const onClick = (e: React.MouseEvent) => {

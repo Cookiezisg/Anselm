@@ -9,8 +9,23 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 
+interface VersionItem {
+  id: string;
+  version?: number;
+  status?: string;
+  changeReason?: string;
+  forgedInConversationId?: string;
+  createdAt?: string;
+  label?: string;
+  versionLabel?: string;
+  summary?: string;
+  description?: string;
+  author?: string;
+  at?: string;
+}
+
 interface VersionRailProps {
-  versions: any[];
+  versions: VersionItem[];
   currentId?: string;
   pendingId?: string;
   deployedId?: string;
@@ -112,7 +127,7 @@ export function VersionRail({
   );
 }
 
-function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }: { v: any; isCurrent: boolean; isPending: boolean; isDeployed: boolean; isSelected: boolean; onClick: () => void }) {
+function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }: { v: VersionItem; isCurrent: boolean; isPending: boolean; isDeployed: boolean; isSelected: boolean; onClick: () => void }) {
   const { t, i18n } = useTranslation("misc");
   const locale = i18n.language === "zh" ? "zh-CN" : "en-US";
   const dotColor = isPending ? "var(--status-warn)"
@@ -140,7 +155,7 @@ function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }
           {(v.at || v.createdAt) && (
             <>
               <span className="vr-sep">·</span>
-              <span className="vr-time">{v.at || new Date(v.createdAt).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              <span className="vr-time">{v.at || (v.createdAt ? new Date(v.createdAt).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "")}</span>
             </>
           )}
         </div>

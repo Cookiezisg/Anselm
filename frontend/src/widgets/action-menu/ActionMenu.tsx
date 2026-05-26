@@ -19,7 +19,7 @@ import { Icon } from "@shared/ui/Icon";
 
 interface ActionMenuItem {
   label: string;
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<{ className?: string; size?: number }>;
   danger?: boolean;
   shortcut?: string;
   onClick?: () => void;
@@ -27,7 +27,8 @@ interface ActionMenuItem {
 
 interface ActionMenuProps {
   items: (ActionMenuItem | "divider")[];
-  renderTrigger?: (props: any) => React.ReactNode;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- floating-ui ref callback is untyped at the HTMLElement level
+  renderTrigger?: (props: React.HTMLAttributes<HTMLElement> & { ref?: any }) => React.ReactNode;
   placement?: Placement;
 }
 

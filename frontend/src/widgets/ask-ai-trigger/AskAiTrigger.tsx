@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type MotionProps } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { useForgeIterate } from "@features/forge-iterate";
 import { navigate } from "@shared/lib/navigation";
@@ -66,7 +66,7 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }: AskA
         {open && (
           <motion.div
             className="ask-ai-pop"
-            {...(slideUp as any)}
+            {...(slideUp as MotionProps)}
             transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <div className="ask-ai-pop-head">
