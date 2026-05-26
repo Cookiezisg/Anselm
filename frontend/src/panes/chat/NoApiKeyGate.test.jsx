@@ -3,11 +3,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useOverlayStore } from "@app/model";
 import { NoApiKeyGate } from "./NoApiKeyGate.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ openPanes: ["chat"], activeNarrowPane: null, settingsOpen: false });
+  usePaneStore.setState({ openPanes: ["chat"], activeNarrowPane: null });
+  useOverlayStore.setState({ settingsOpen: false });
 });
 
 describe("NoApiKeyGate", () => {
@@ -20,7 +21,7 @@ describe("NoApiKeyGate", () => {
   it("clickConfigButton_opensSettingsModal", async () => {
     render(<NoApiKeyGate />);
     await userEvent.click(screen.getByRole("button", { name: /去配置/ }));
-    expect(useUIStore.getState().settingsOpen).toBe(true);
+    expect(useOverlayStore.getState().settingsOpen).toBe(true);
   });
 
   it("noSecondaryButton_onlyOneActionButton", () => {

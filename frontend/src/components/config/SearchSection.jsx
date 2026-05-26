@@ -10,7 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 import {
   useApiKeys, useProviders, useCreateApiKey,
   useTestApiKey, useDeleteApiKey, useUpdateApiKey,
@@ -109,7 +109,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }) {
 
 function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
   const { t } = useTranslation("settings");
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();
   const updateKey = useUpdateApiKey(apiKey.id);
@@ -202,7 +202,7 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }) {
 // 内联验证流;无模型选择。首个搜索 key 保存时尽力设为搜索默认。
 function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, onDone }) {
   const { t } = useTranslation("settings");
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const qc = useQueryClient();
   const createKey = useCreateApiKey();
   const testKey = useTestApiKey();

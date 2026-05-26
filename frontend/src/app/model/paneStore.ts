@@ -1,46 +1,47 @@
-// Legacy shim — kept for store/ui.test.js and any action-only callers.
-// Reactive reads have migrated to @app/model/{paneStore,overlayStore,sidebarStore}.
-// baseUrl was a dead field and has been removed (§15 dead-code cleanup).
+// Pane layout state — open panes list, active conv/flowrun/document,
+// split percentage, narrow mode, focus-entity queue.
 //
-// 遗留 shim：store/ui.test.js + 仅调用 action 的调用方继续用此处。
-// reactive 读已迁到 @app/model/{paneStore,overlayStore,sidebarStore}。
+// Pane 布局状态：打开的 pane 列表、当前活跃资源、分屏比例、窄屏模式、
+// 一次性聚焦队列。Cross-user 清理（activeConv/Run/Doc）由 4a.6 接 session 触发。
 
 import { create } from "zustand";
-import { useToastStore } from "../shared/ui/toastStore.ts";
 
 const MAX_PANES = 2;
 
-function readBool(key, fallback) {
-  try {
-    const v = localStorage.getItem(key);
-    if (v === null) return fallback;
-    return v === "1";
-  } catch { return fallback; }
-}
-function writeBool(key, value) {
-  try { localStorage.setItem(key, value ? "1" : "0"); } catch {}
+export interface PaneState {
+  openPanes: string[];
+  activeConv: string | null;
+  activeFlowRun: string | null;
+  activeDocument: string | null;
+  leftPct: number;
+  narrow: boolean;
+  activeNarrowPane: string | null;
+  focusEntity: Record<string, string>;
+
+  setActiveConv(id: string | null): void;
+  setActiveFlowRun(id: string | null): void;
+  setActiveDocument(id: string | null): void;
+
+  togglePane(k: string): void;
+  openPane(k: string): void;
+  closePane(k: string): void;
+  openEntity(pane: string, id: string): void;
+  consumeFocusEntity(pane: string): string | null;
+
+  setLeftPct(n: number): void;
+  setNarrow(b: unknown): void;
+  setActiveNarrowPane(k: string | null): void;
 }
 
-export const useUIStore = create((set, get) => ({
+export const usePaneStore = create<PaneState>()((set, get) => ({
   openPanes: ["chat"],
   activeConv: null,
   activeFlowRun: null,
   activeDocument: null,
   leftPct: 50,
-  collapsed:      readBool("sidebar.collapsed",      false),
-  toolsExpanded:    readBool("sidebar.toolsExpanded",    true),
-  recentExpanded:   readBool("sidebar.recentExpanded",   true),
-  archivedExpanded: readBool("sidebar.archivedExpanded", false),
   narrow: false,
   activeNarrowPane: null,
   focusEntity: {},
-
-  // overlays
-  cmdkOpen: false,
-  notifsOpen: false,
-  askOpen: false,
-  settingsOpen: false,
-  pendingAsk: null,
 
   setActiveConv: (id) => set({ activeConv: id }),
   setActiveFlowRun: (id) => set({ activeFlowRun: id }),
@@ -97,41 +98,6 @@ export const useUIStore = create((set, get) => ({
   },
 
   setLeftPct: (n) => set({ leftPct: Math.max(20, Math.min(80, n)) }),
-
-  setCollapsed: (b) => {
-    const next = typeof b === "function" ? b(get().collapsed) : !!b;
-    writeBool("sidebar.collapsed", next);
-    set({ collapsed: next });
-  },
-
-  setToolsExpanded: (b) => {
-    const next = typeof b === "function" ? b(get().toolsExpanded) : !!b;
-    writeBool("sidebar.toolsExpanded", next);
-    set({ toolsExpanded: next });
-  },
-
-  setRecentExpanded: (b) => {
-    const next = typeof b === "function" ? b(get().recentExpanded) : !!b;
-    writeBool("sidebar.recentExpanded", next);
-    set({ recentExpanded: next });
-  },
-
-  setArchivedExpanded: (b) => {
-    const next = typeof b === "function" ? b(get().archivedExpanded) : !!b;
-    writeBool("sidebar.archivedExpanded", next);
-    set({ archivedExpanded: next });
-  },
-
   setNarrow: (b) => set({ narrow: !!b }),
-
   setActiveNarrowPane: (k) => set({ activeNarrowPane: k }),
-
-  setCmdkOpen: (b) => set({ cmdkOpen: !!b }),
-  setNotifsOpen: (b) => set({ notifsOpen: !!b }),
-  setAskOpen: (b) => set({ askOpen: !!b }),
-  setSettingsOpen: (b) => set({ settingsOpen: !!b }),
-  setPendingAsk: (v) => set({ pendingAsk: v }),
-
-  pushToast: (t) => useToastStore.getState().pushToast(t),
-  dismissToast: (id) => useToastStore.getState().dismissToast(id),
 }));

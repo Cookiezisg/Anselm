@@ -46,7 +46,7 @@ vi.mock("./Composer.jsx", () => ({
   ),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useChatStore } from "../../store/chat.js";
 import { ChatPane } from "./ChatPane.jsx";
@@ -57,7 +57,7 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({ activeConv: "cv_x" });
+  usePaneStore.setState({ activeConv: "cv_x" });
   useToastStore.setState({ toasts: [] });
   useChatStore.setState({ convs: {}, hydratedConvs: new Set() });
   mockSend.mockReset();
@@ -66,7 +66,7 @@ beforeEach(() => {
 
 describe("ChatPane", () => {
   it("noActiveConv_rendersPlaceholder", () => {
-    useUIStore.setState({ activeConv: null });
+    usePaneStore.setState({ activeConv: null });
     render(<ChatPane />, { wrapper: wrap });
     expect(screen.getByText(/还没选中对话/)).toBeInTheDocument();
   });

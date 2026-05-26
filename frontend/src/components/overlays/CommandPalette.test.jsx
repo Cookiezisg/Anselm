@@ -18,7 +18,7 @@ vi.mock("../../api/flowruns.js", () => ({
   useFlowRuns: () => ({ data: [{ id: "fr_1", workflow: "Run X" }] }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useOverlayStore } from "@app/model";
 import { CommandPalette } from "./CommandPalette.jsx";
 
 function wrap({ children }) {
@@ -27,15 +27,13 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({
-    cmdkOpen: true, openPanes: [], activeConv: null, activeNarrowPane: null,
-    focusEntity: {},
-  });
+  useOverlayStore.setState({ cmdkOpen: true });
+  usePaneStore.setState({ openPanes: [], activeConv: null, activeNarrowPane: null, focusEntity: {} });
 });
 
 describe("CommandPalette", () => {
   it("closedState_rendersNothing", () => {
-    useUIStore.setState({ cmdkOpen: false });
+    useOverlayStore.setState({ cmdkOpen: false });
     const { container } = render(<CommandPalette />, { wrapper: wrap });
     expect(container.querySelector(".cmdk")).toBeNull();
   });
@@ -65,20 +63,20 @@ describe("CommandPalette", () => {
   it("escapeKey_closesPalette", async () => {
     render(<CommandPalette />, { wrapper: wrap });
     await userEvent.keyboard("{Escape}");
-    expect(useUIStore.getState().cmdkOpen).toBe(false);
+    expect(useOverlayStore.getState().cmdkOpen).toBe(false);
   });
 
   it("enterKey_runsActiveItemAction_andCloses", async () => {
     render(<CommandPalette />, { wrapper: wrap });
     await userEvent.keyboard("{Enter}");
-    expect(useUIStore.getState().cmdkOpen).toBe(false);
-    expect(useUIStore.getState().openPanes).toContain("chat");
+    expect(useOverlayStore.getState().cmdkOpen).toBe(false);
+    expect(usePaneStore.getState().openPanes).toContain("chat");
   });
 
   it("clickItem_runsActionAndCloses", async () => {
     render(<CommandPalette />, { wrapper: wrap });
     await userEvent.click(screen.getByText("工坊"));
-    expect(useUIStore.getState().openPanes).toContain("forge");
-    expect(useUIStore.getState().cmdkOpen).toBe(false);
+    expect(usePaneStore.getState().openPanes).toContain("forge");
+    expect(useOverlayStore.getState().cmdkOpen).toBe(false);
   });
 });

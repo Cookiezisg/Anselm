@@ -10,13 +10,14 @@ import { Trans, useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useAskUserAnswer } from "@features/ask-user";
 import { scaleIn, fadeIn } from "../../motion/tokens.js";
 
 export function AskUserModal() {
   const { t } = useTranslation(["conv", "common"]);
-  const setAskOpen = useUIStore((s) => s.setAskOpen);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const setAskOpen = useOverlayStore((s) => s.setAskOpen);
   const { pending, askOpen, isOpen, submitting, close, submit } = useAskUserAnswer();
 
   const [selected, setSelected] = useState(null);

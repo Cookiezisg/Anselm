@@ -10,7 +10,7 @@ vi.mock("../../api/conversations.js", () => ({
 }));
 
 import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ChatListItem } from "./ChatListItem.jsx";
 
@@ -21,7 +21,7 @@ beforeEach(() => {
   delMutate    = vi.fn((_id, opts) => opts?.onSuccess?.());
   useUpdateConversation.mockReturnValue({ mutate: updateMutate });
   useDeleteConversation.mockReturnValue({ mutate: delMutate });
-  useUIStore.setState({ activeConv: null, openPanes: [] });
+  usePaneStore.setState({ activeConv: null, openPanes: [] });
   useToastStore.setState({ toasts: [] });
 });
 
@@ -54,26 +54,26 @@ describe("ChatListItem", () => {
   it("clickRow_setsActiveConv_andOpensChatPane", async () => {
     render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
     await userEvent.click(screen.getByText("Hi"));
-    expect(useUIStore.getState().activeConv).toBe("cv_a");
-    expect(useUIStore.getState().openPanes).toContain("chat");
+    expect(usePaneStore.getState().activeConv).toBe("cv_a");
+    expect(usePaneStore.getState().openPanes).toContain("chat");
   });
 
   it("clickRow_whenChatPaneAlreadyOpen_doesNotPushDuplicate", async () => {
-    useUIStore.setState({ openPanes: ["chat"], activeConv: "cv_other" });
+    usePaneStore.setState({ openPanes: ["chat"], activeConv: "cv_other" });
     render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
     await userEvent.click(screen.getByText("Hi"));
-    expect(useUIStore.getState().openPanes.filter((p) => p === "chat").length).toBe(1);
-    expect(useUIStore.getState().activeConv).toBe("cv_a");
+    expect(usePaneStore.getState().openPanes.filter((p) => p === "chat").length).toBe(1);
+    expect(usePaneStore.getState().activeConv).toBe("cv_a");
   });
 
   it("activeConvAndChatOpen_rendersIsActiveClass", () => {
-    useUIStore.setState({ openPanes: ["chat"], activeConv: "cv_a" });
+    usePaneStore.setState({ openPanes: ["chat"], activeConv: "cv_a" });
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
     expect(container.querySelector(".cv.is-active")).toBeTruthy();
   });
 
   it("activeConvButChatClosed_skipsIsActive", () => {
-    useUIStore.setState({ openPanes: ["forge"], activeConv: "cv_a" });
+    usePaneStore.setState({ openPanes: ["forge"], activeConv: "cv_a" });
     const { container } = render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
     expect(container.querySelector(".cv.is-active")).toBeNull();
   });
@@ -119,13 +119,13 @@ describe("ChatListItem", () => {
   });
 
   it("menuDelete_confirmed_callsDelete_clearsActiveConvIfSelf_pushesToast", async () => {
-    useUIStore.setState({ activeConv: "cv_a", openPanes: ["chat"] });
+    usePaneStore.setState({ activeConv: "cv_a", openPanes: ["chat"] });
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<ChatListItem conv={{ id: "cv_a", title: "Hi" }} />);
     await userEvent.click(screen.getByTitle("对话操作"));
     await userEvent.click(screen.getByText("删除"));
     expect(delMutate).toHaveBeenCalledWith("cv_a", expect.any(Object));
-    expect(useUIStore.getState().activeConv).toBeNull();
+    expect(usePaneStore.getState().activeConv).toBeNull();
     expect(useToastStore.getState().toasts[0]?.title).toBe("已删除");
     confirmSpy.mockRestore();
   });

@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createSSE } from "./shared.js";
-import { useUIStore } from "../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useSettings } from "../store/settings.js";
 import { qk } from "../api/client.js";
 
@@ -32,7 +32,8 @@ export function useNotifications() {
   const qc = useQueryClient();
   const [status, setStatus] = useState("connecting");
   const [unread, setUnread] = useState(0);
-  const setPendingAsk = useUIStore((s) => s.setPendingAsk);
+  // TODO(4b): pages props 化后移除 shared-tmp→app 过渡引用
+  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
   const activeUserId = useSettings((s) => s.activeUserId);
 
   useEffect(() => {

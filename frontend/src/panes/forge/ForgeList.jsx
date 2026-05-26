@@ -17,7 +17,7 @@ import {
   useDeleteFunction, useDeleteHandler, useDeleteWorkflow,
 } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { useForgeBatchDelete } from "@features/forge-review";
 
@@ -41,7 +41,7 @@ export function ForgeList({ onOpen }) {
   const deleteFn = useDeleteFunction();
   const deleteHd = useDeleteHandler();
   const deleteWf = useDeleteWorkflow();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const { batchDelete } = useForgeBatchDelete();
   const [runTarget, setRunTarget] = useState(null);
 

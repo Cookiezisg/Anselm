@@ -10,7 +10,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 import {
   useApiKeys, useProviders, useModelConfigs, useCreateApiKey,
   useTestApiKey, useDeleteApiKey, useUpsertModelConfig,
@@ -107,7 +107,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }) {
 
 function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }) {
   const { t } = useTranslation("settings");
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();
   const upsertModel = useUpsertModelConfig();
@@ -208,7 +208,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle })
 // AddPanel —— 内联引导页验证流;切换厂商/取消时尽力删除已创建的孤儿 key。
 function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDone }) {
   const { t } = useTranslation("settings");
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const createKey = useCreateApiKey();
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();

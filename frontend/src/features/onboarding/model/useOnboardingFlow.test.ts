@@ -34,9 +34,8 @@ vi.mock("@entities/model-config", () => ({
   useUpsertModelConfig: () => ({ mutateAsync: mockUpsertModel }),
 }));
 
-// eslint-disable-next-line boundaries/dependencies
-vi.mock("../../../store/ui.js", () => ({
-  useUIStore: (sel: (s: { pushToast: typeof mockPushToast }) => unknown) =>
+vi.mock("@shared/ui/toastStore", () => ({
+  useToastStore: (sel: (s: { pushToast: typeof mockPushToast }) => unknown) =>
     sel({ pushToast: mockPushToast }),
 }));
 

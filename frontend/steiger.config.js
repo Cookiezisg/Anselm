@@ -21,6 +21,8 @@ export default [
       "src/panes/**",
       "src/App.jsx",
       "src/main.jsx",
+      // app 层阶段4a骨架;组件未迁入 pages,insignificant-slice 会触发;阶段5移除
+      "src/app/**",
     ],
   },
   {

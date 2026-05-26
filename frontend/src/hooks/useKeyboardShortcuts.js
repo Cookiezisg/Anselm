@@ -7,7 +7,8 @@
 // 输入框内的 Esc 不触发全局：检测 INPUT/TEXTAREA tag 跳过。
 
 import { useEffect } from "react";
-import { useUIStore } from "../store/ui.js";
+// TODO(4b): pages props 化后移除 shared-tmp→app 过渡引用
+import { useOverlayStore, useSidebarStore } from "@app/model";
 
 export function useKeyboardShortcuts() {
   useEffect(() => {
@@ -15,22 +16,23 @@ export function useKeyboardShortcuts() {
       const tag = e.target?.tagName;
       const inField = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
 
-      const s = useUIStore.getState();
+      const overlay = useOverlayStore.getState();
+      const sidebar = useSidebarStore.getState();
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        s.setCmdkOpen(!s.cmdkOpen);
+        overlay.setCmdkOpen(!overlay.cmdkOpen);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
         e.preventDefault();
-        s.setCollapsed(!s.collapsed);
+        sidebar.setCollapsed(!sidebar.collapsed);
         return;
       }
       if (e.key === "Escape" && !inField) {
-        if (s.cmdkOpen) { s.setCmdkOpen(false); return; }
-        if (s.askOpen) { s.setAskOpen(false); return; }
-        if (s.notifsOpen) { s.setNotifsOpen(false); return; }
+        if (overlay.cmdkOpen) { overlay.setCmdkOpen(false); return; }
+        if (overlay.askOpen) { overlay.setAskOpen(false); return; }
+        if (overlay.notifsOpen) { overlay.setNotifsOpen(false); return; }
       }
     };
     window.addEventListener("keydown", onKey);

@@ -55,7 +55,7 @@ vi.mock("../../api/config.js", () => ({
   useUpdateApiKey: (_id) => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useSettings } from "../../store/settings.js";
 import { SettingsModal } from "./SettingsModal.jsx";
@@ -66,14 +66,14 @@ function wrap({ children }) {
 }
 
 beforeEach(() => {
-  useUIStore.setState({ settingsOpen: true });
+  useOverlayStore.setState({ settingsOpen: true });
   useToastStore.setState({ toasts: [] });
   useSettings.setState({ activeUserId: "u_a" });
 });
 
 describe("SettingsModal", () => {
   it("closed_rendersNothing", () => {
-    useUIStore.setState({ settingsOpen: false });
+    useOverlayStore.setState({ settingsOpen: false });
     const { container } = render(<SettingsModal />, { wrapper: wrap });
     expect(container.querySelector(".set-modal")).toBeNull();
   });
@@ -125,13 +125,13 @@ describe("SettingsModal", () => {
     const { container } = render(<SettingsModal />, { wrapper: wrap });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await userEvent.click(container.querySelector(".set-x"));
-    expect(useUIStore.getState().settingsOpen).toBe(false);
+    expect(useOverlayStore.getState().settingsOpen).toBe(false);
   });
 
   it("backdropClick_closesModal", async () => {
     const { container } = render(<SettingsModal />, { wrapper: wrap });
     await userEvent.click(container.querySelector(".set-scrim"));
-    expect(useUIStore.getState().settingsOpen).toBe(false);
+    expect(useOverlayStore.getState().settingsOpen).toBe(false);
   });
 
   it("switchButton_showsUserList", async () => {

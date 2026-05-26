@@ -16,7 +16,7 @@ import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { FloatingInspector } from "./FloatingInspector.jsx";
 import { useNeighborhood } from "../../api/relations.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useEntityDirectory, normEdges, guessKind } from "@features/entity-link";
 
 const KIND_COLOR = {
@@ -279,10 +279,11 @@ function adjacency(entityId, allEdges, allNodes) {
 
 function NodeDetail({ node, allNodes, allEdges, onSelect }) {
   const { t } = useTranslation("misc");
-  const openEntity = useUIStore((s) => s.openEntity);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
-  const setActiveDocument = useUIStore((s) => s.setActiveDocument);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openEntity = usePaneStore((s) => s.openEntity);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
+  const setActiveDocument = usePaneStore((s) => s.setActiveDocument);
 
   // Rendered inside a FloatingInspector — drop our own outer container.
   // FloatingInspector head already shows kind label; we keep icon+name+id+open here.
@@ -470,7 +471,7 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
             {t("relGraph.focusLabel")} · {entityId}
           </span>
           <div style={{ flex: 1 }} />
-          <Button size="xs" variant="ghost" onClick={() => { onClose(); useUIStore.getState().openPane("observe"); }}>
+          <Button size="xs" variant="ghost" onClick={() => { onClose(); usePaneStore.getState().openPane("observe"); }}>
             {t("relGraph.fullGraph")}
           </Button>
           <button className="icon-btn" onClick={onClose}><Icon.X /></button>

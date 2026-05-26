@@ -11,7 +11,7 @@
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
 import { useSSEHealth } from "../../sse/SSEProvider.jsx";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
@@ -47,21 +47,22 @@ function NavItem({ icon: I, label, active, primary, onClick, collapsed }) {
 
 export function Sidebar() {
   const { t } = useTranslation("sidebar");
-  const openPanes      = useUIStore((s) => s.openPanes);
-  const togglePane     = useUIStore((s) => s.togglePane);
-  const openPane       = useUIStore((s) => s.openPane);
-  const setActiveConv  = useUIStore((s) => s.setActiveConv);
-  const collapsed      = useUIStore((s) => s.collapsed);
-  const setCollapsed   = useUIStore((s) => s.setCollapsed);
-  const toolsExpanded  = useUIStore((s) => s.toolsExpanded);
-  const setToolsExpanded   = useUIStore((s) => s.setToolsExpanded);
-  const recentExpanded = useUIStore((s) => s.recentExpanded);
-  const setRecentExpanded  = useUIStore((s) => s.setRecentExpanded);
-  const archivedExpanded   = useUIStore((s) => s.archivedExpanded);
-  const setArchivedExpanded = useUIStore((s) => s.setArchivedExpanded);
-  const setCmdkOpen        = useUIStore((s) => s.setCmdkOpen);
-  const setNotifsOpen      = useUIStore((s) => s.setNotifsOpen);
-  const setSettingsOpen    = useUIStore((s) => s.setSettingsOpen);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openPanes      = usePaneStore((s) => s.openPanes);
+  const togglePane     = usePaneStore((s) => s.togglePane);
+  const openPane       = usePaneStore((s) => s.openPane);
+  const setActiveConv  = usePaneStore((s) => s.setActiveConv);
+  const collapsed      = useSidebarStore((s) => s.collapsed);
+  const setCollapsed   = useSidebarStore((s) => s.setCollapsed);
+  const toolsExpanded  = useSidebarStore((s) => s.toolsExpanded);
+  const setToolsExpanded   = useSidebarStore((s) => s.setToolsExpanded);
+  const recentExpanded = useSidebarStore((s) => s.recentExpanded);
+  const setRecentExpanded  = useSidebarStore((s) => s.setRecentExpanded);
+  const archivedExpanded   = useSidebarStore((s) => s.archivedExpanded);
+  const setArchivedExpanded = useSidebarStore((s) => s.setArchivedExpanded);
+  const setCmdkOpen        = useOverlayStore((s) => s.setCmdkOpen);
+  const setNotifsOpen      = useOverlayStore((s) => s.setNotifsOpen);
+  const setSettingsOpen    = useOverlayStore((s) => s.setSettingsOpen);
 
   const { data: conversations = [] } = useConversations();
   const createConv = useCreateConversation();

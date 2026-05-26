@@ -8,11 +8,12 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useOverlayStore } from "@app/model";
 
 export function NoModelGate() {
   const { t } = useTranslation("conv");
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const setSettingsOpen = useOverlayStore((s) => s.setSettingsOpen);
   return (
     <div className="empty-shell">
       <div className="empty-shell-card">

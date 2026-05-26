@@ -26,7 +26,7 @@ import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useTriageFlowRun,
   useApproveNode, useRejectNode,
 } from "../../api/flowruns.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { FlowRunDetail } from "./FlowRunDetail.jsx";
 
@@ -42,7 +42,7 @@ const NODES = [
 ];
 
 beforeEach(() => {
-  useUIStore.setState({ activeConv: null, openPanes: [], activeNarrowPane: null });
+  usePaneStore.setState({ activeConv: null, openPanes: [], activeNarrowPane: null });
   useToastStore.setState({ toasts: [] });
   useFlowRun.mockReturnValue({ data: BASE_RUN });
   useFlowRunNodes.mockReturnValue({ data: NODES });
@@ -116,8 +116,8 @@ describe("FlowRunDetail", () => {
     useFlowRun.mockReturnValue({ data: { ...BASE_RUN, status: "failed" } });
     render(<FlowRunDetail runId="fr_xy" onBack={() => {}} />);
     await userEvent.click(screen.getByText("AI 排查"));
-    await waitFor(() => expect(useUIStore.getState().activeConv).toBe("cv_triage_new"));
-    expect(useUIStore.getState().openPanes).toContain("chat");
+    await waitFor(() => expect(usePaneStore.getState().activeConv).toBe("cv_triage_new"));
+    expect(usePaneStore.getState().openPanes).toContain("chat");
     expect(useToastStore.getState().toasts[0].kind).toBe("success");
   });
 

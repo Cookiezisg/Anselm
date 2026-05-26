@@ -7,9 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditWorkflow } from "@entities/workflow";
 import type { WorkflowEditOp } from "@entities/workflow";
-// TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
-// eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 // ── Canvas-shape node/edge types (local to the editor canvas) ────────────
 
@@ -130,7 +128,7 @@ export function diffToOps(orig: CanvasGraph, next: CanvasGraph): WorkflowEditOp[
 export function useWorkflowEdit(workflowId: string, original: CanvasGraph) {
   const { t } = useTranslation("forge");
   const edit = useEditWorkflow(workflowId);
-  const pushToast = useUIStore((s: any) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);

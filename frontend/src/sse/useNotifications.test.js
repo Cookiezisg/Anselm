@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { MockEventSource } from "../test-setup.js";
 import { useSettings } from "../store/settings.js";
-import { useUIStore } from "../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useNotifications } from "./useNotifications.js";
 
 function makeWrapper() {
@@ -20,7 +20,7 @@ beforeEach(async () => {
   MockEventSource.reset();
   globalThis.EventSource = MockEventSource;
   useSettings.setState({ activeUserId: "u_test" });
-  useUIStore.setState({ pendingAsk: null });
+  useOverlayStore.setState({ pendingAsk: null });
   const bridge = await import("../bridge/wails.js");
   await bridge.initBaseUrl();
 });
@@ -56,7 +56,7 @@ describe("useNotifications", () => {
       type: "ask", id: "ask_1", conversationId: "cv_1",
       data: { question: "ok?", action: "pending" },
     }));
-    expect(useUIStore.getState().pendingAsk).toMatchObject({ id: "ask_1", question: "ok?" });
+    expect(useOverlayStore.getState().pendingAsk).toMatchObject({ id: "ask_1", question: "ok?" });
   });
 
   it("askEvent_resolvedAction_clearsPendingAsk", async () => {
@@ -64,9 +64,9 @@ describe("useNotifications", () => {
     renderHook(() => useNotifications(), { wrapper: wrap });
     await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
     const es = MockEventSource.instances[0];
-    useUIStore.setState({ pendingAsk: { id: "x" } });
+    useOverlayStore.setState({ pendingAsk: { id: "x" } });
     act(() => es.emit("notification", { type: "ask", id: "ask_2", data: { action: "resolved" } }));
-    expect(useUIStore.getState().pendingAsk).toBeNull();
+    expect(useOverlayStore.getState().pendingAsk).toBeNull();
   });
 
   it("unknownType_noop_noInvalidationsNoUnreadDoubleCount", async () => {

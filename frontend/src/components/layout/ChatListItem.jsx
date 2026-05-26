@@ -7,17 +7,19 @@
 // streaming/待批准 才显状态点;hover 浮出 ⋯ 操作菜单。
 
 import { useTranslation } from "react-i18next";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 import { Icon } from "../primitives/Icon.jsx";
 import { ActionMenu } from "../shared/ActionMenu.jsx";
 import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
 
 export function ChatListItem({ conv }) {
   const { t } = useTranslation("sidebar");
-  const activeConv = useUIStore((s) => s.activeConv);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
-  const openPanes = useUIStore((s) => s.openPanes);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const activeConv = usePaneStore((s) => s.activeConv);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
+  const openPanes = usePaneStore((s) => s.openPanes);
 
   const isStreaming = conv.status === "streaming";
   const isApproval = conv.status === "approval";
@@ -50,9 +52,9 @@ function ConvMenu({ conv }) {
   const { t } = useTranslation("sidebar");
   const update = useUpdateConversation(conv.id);
   const del = useDeleteConversation();
-  const pushToast = useUIStore((s) => s.pushToast);
-  const activeConv = useUIStore((s) => s.activeConv);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
+  const pushToast = useToastStore((s) => s.pushToast);
+  const activeConv = usePaneStore((s) => s.activeConv);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
 
   const togglePin = () => {
     update.mutate(

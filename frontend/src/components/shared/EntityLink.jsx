@@ -6,7 +6,7 @@
 
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useEntityName } from "../../hooks/useEntityName.js";
 
 const PREFIX_META = {
@@ -29,9 +29,10 @@ const PREFIX_META = {
 
 export function EntityLink({ id }) {
   const { t } = useTranslation("misc");
-  const openEntity = useUIStore((s) => s.openEntity);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openEntity = usePaneStore((s) => s.openEntity);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
   const name = useEntityName(id);
 
   const prefix = id.split("_")[0];

@@ -5,14 +5,15 @@
 
 import { useTranslation } from "react-i18next";
 import { PANE_META } from "./PaneFrame.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 
 export function NarrowSwitch() {
   const { t } = useTranslation("sidebar");
-  const openPanes = useUIStore((s) => s.openPanes);
-  const narrow = useUIStore((s) => s.narrow);
-  const activeNarrowPane = useUIStore((s) => s.activeNarrowPane);
-  const setActiveNarrowPane = useUIStore((s) => s.setActiveNarrowPane);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openPanes = usePaneStore((s) => s.openPanes);
+  const narrow = usePaneStore((s) => s.narrow);
+  const activeNarrowPane = usePaneStore((s) => s.activeNarrowPane);
+  const setActiveNarrowPane = usePaneStore((s) => s.setActiveNarrowPane);
 
   if (!narrow || openPanes.length < 2) return null;
 

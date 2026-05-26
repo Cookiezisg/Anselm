@@ -8,7 +8,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RelTime } from "../../components/shared/RelTime.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 import { useConversations, useCreateConversation } from "../../api/conversations.js";
 import { useDisplayName } from "../../hooks/useDisplayName.js";
 import { apiFetch } from "../../api/client.js";
@@ -58,9 +59,10 @@ function ContextStrip({ strip, onJump }) {
 }
 
 export function Dashboard() {
-  const openPane      = useUIStore((s) => s.openPane);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const pushToast     = useUIStore((s) => s.pushToast);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openPane      = usePaneStore((s) => s.openPane);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const pushToast     = useToastStore((s) => s.pushToast);
 
   const { data: conversations = [] } = useConversations();
   const [displayName] = useDisplayName();

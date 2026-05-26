@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setupFetchSpy } from "../../api/_testHarness.js";
-import { useUIStore } from "../../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { AskUserModal } from "./AskUserModal.jsx";
 
 let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
-  useUIStore.setState({ pendingAsk: null, askOpen: false });
+  useOverlayStore.setState({ pendingAsk: null, askOpen: false });
   useToastStore.setState({ toasts: [] });
   const bridge = await import("../../bridge/wails.js");
   await bridge.initBaseUrl();
@@ -24,13 +24,13 @@ describe("AskUserModal", () => {
   });
 
   it("askOpenWithoutPending_showsEmptyState", () => {
-    useUIStore.setState({ askOpen: true });
+    useOverlayStore.setState({ askOpen: true });
     render(<AskUserModal />);
     expect(screen.getByText("agent 现在没在等你")).toBeInTheDocument();
   });
 
   it("pendingAsk_rendersQuestionAndOptions", () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: {
         id: "ask_1", conversationId: "cv_x", toolCallId: "tc_x",
         question: "选哪一个?",
@@ -44,7 +44,7 @@ describe("AskUserModal", () => {
   });
 
   it("clickOption_selectsIt_visualHighlight", async () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: {
         id: "ask_2", conversationId: "cv_x", toolCallId: "tc_x",
         question: "?", options: [{ id: "a", text: "A" }],
@@ -56,7 +56,7 @@ describe("AskUserModal", () => {
   });
 
   it("submitButton_disabled_untilOptionSelected", () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: {
         id: "ask_3", conversationId: "cv_x", toolCallId: "tc_x",
         question: "?", options: [{ id: "a", text: "A" }],
@@ -68,7 +68,7 @@ describe("AskUserModal", () => {
   });
 
   it("submit_postsToResolveEndpoint", async () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: {
         id: "ask_4", conversationId: "cv_p", toolCallId: "tc_x",
         question: "?", options: [{ id: "ok", text: "OK" }],
@@ -83,16 +83,16 @@ describe("AskUserModal", () => {
   });
 
   it("escapeKey_closesModal", async () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: { id: "ask_5", conversationId: "cv_x", toolCallId: "tc_x", question: "?", options: [] },
     });
     render(<AskUserModal />);
     await userEvent.keyboard("{Escape}");
-    expect(useUIStore.getState().pendingAsk).toBeNull();
+    expect(useOverlayStore.getState().pendingAsk).toBeNull();
   });
 
   it("numericKey_selectsOptionByIndex", async () => {
-    useUIStore.setState({
+    useOverlayStore.setState({
       pendingAsk: {
         id: "ask_6", conversationId: "cv_x", toolCallId: "tc_x", question: "?",
         options: [{ id: "first", text: "First" }, { id: "second", text: "Second" }],

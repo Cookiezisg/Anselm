@@ -11,14 +11,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { useCapabilityCheck } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 export function CapabilityCheckPanel({ workflowId }) {
   const { t } = useTranslation("forge");
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState(null);
   const check = useCapabilityCheck();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const run = async () => {
     setOpen(true);

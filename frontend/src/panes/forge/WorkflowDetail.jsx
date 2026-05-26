@@ -17,7 +17,7 @@ import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
 import { WorkflowEditor } from "./WorkflowEditor.jsx";
 import { useWorkflow, useWorkflowVersions } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 import { useForgeReview } from "@features/forge-review";
 
 const NODE_W = 184;
@@ -27,7 +27,7 @@ export function WorkflowDetail({ forge, onBack }) {
   const { t } = useTranslation(["forge", "common"]);
   const { data: wf = forge } = useWorkflow(forge.id);
   const { data: versions = [] } = useWorkflowVersions(forge.id);
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const { accept: onAccept, reject: onReject } = useForgeReview("workflow", forge.id);
   const progress = useForgeProgress((s) => s.active[`workflow:${forge.id}`]);
 

@@ -26,14 +26,16 @@ import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
 } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
 
 export function DocumentsPane() {
   const { t } = useTranslation(["library", "common"]);
   const treeQ = useDocumentTree();
-  const setActiveDocument = useUIStore((s) => s.setActiveDocument);
-  const activeDoc = useUIStore((s) => s.activeDocument);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const setActiveDocument = usePaneStore((s) => s.setActiveDocument);
+  const activeDoc = usePaneStore((s) => s.activeDocument);
   const [openSet, setOpenSet] = useState(new Set());
   const [pendingFocusTitle, setPendingFocusTitle] = useState(null);
 
@@ -41,7 +43,7 @@ export function DocumentsPane() {
   const rooted = useMemo(() => buildTree(flat), [flat]);
 
   const createDoc = useCreateDocument();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const onCreateRoot = async () => {
     try {
@@ -171,7 +173,7 @@ function DocTreeNode({ node, depth, openSet, setOpenSet, selectedId, onSelect, o
   const isOpen = openSet.has(node.id);
   const create = useCreateDocument();
   const del = useDeleteDocument();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const toggle = () => {
     setOpenSet((s) => {
@@ -252,7 +254,7 @@ function DocPage({ docId, focusTitle, onTitleFocused }) {
   const { data: doc, isLoading } = useDocument(docId);
   const update = useUpdateDocument(docId);
   const treeQ = useDocumentTree();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const [draftName, setDraftName] = useState("");
   const [draftBody, setDraftBody] = useState("");

@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
 import { Kbd } from "../primitives/Kbd.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useOverlayStore } from "@app/model";
 import { useConversations } from "../../api/conversations.js";
 import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
 import { useFlowRuns } from "../../api/flowruns.js";
@@ -28,12 +28,13 @@ const NAV_ITEMS_DEF = [
 
 export function CommandPalette() {
   const { t } = useTranslation("sidebar");
-  const open = useUIStore((s) => s.cmdkOpen);
-  const setOpen = useUIStore((s) => s.setCmdkOpen);
-  const openPane = useUIStore((s) => s.openPane);
-  const openEntity = useUIStore((s) => s.openEntity);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const open = useOverlayStore((s) => s.cmdkOpen);
+  const setOpen = useOverlayStore((s) => s.setCmdkOpen);
+  const openPane = usePaneStore((s) => s.openPane);
+  const openEntity = usePaneStore((s) => s.openEntity);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const setSettingsOpen = useOverlayStore((s) => s.setSettingsOpen);
 
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);

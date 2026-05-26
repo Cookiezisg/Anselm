@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { useApproveNode, useRejectNode } from "../../api/flowruns.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 import { slideDown } from "../../motion/tokens.js";
 
 export function ApprovalBanner({ runId, nodes }) {
@@ -41,7 +41,7 @@ function ApprovalRow({ runId, node }) {
   const { t } = useTranslation("execute");
   const approve = useApproveNode();
   const reject = useRejectNode();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [decided, setDecided] = useState(null);

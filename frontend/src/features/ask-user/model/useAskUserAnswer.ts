@@ -6,17 +6,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "@shared/api";
-// TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
+// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
 // eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { useOverlayStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 
 export function useAskUserAnswer() {
   const { t } = useTranslation("conv");
-  const pending = useUIStore((s: { pendingAsk: { id: string; conversationId: string; toolCallId: string; question?: string; context?: string; options?: Array<{ id?: string; value?: string; text?: string; label?: string; sub?: string }> } | null }) => s.pendingAsk);
-  const askOpen = useUIStore((s: { askOpen: boolean }) => s.askOpen);
-  const setAskOpen = useUIStore((s: { setAskOpen: (b: boolean) => void }) => s.setAskOpen);
-  const setPendingAsk = useUIStore((s: { setPendingAsk: (v: null) => void }) => s.setPendingAsk);
-  const pushToast = useUIStore((s: { pushToast: (toast: { kind: string; title: string; desc?: string }) => void }) => s.pushToast);
+  const pending = useOverlayStore((s) => s.pendingAsk);
+  const askOpen = useOverlayStore((s) => s.askOpen);
+  const setAskOpen = useOverlayStore((s) => s.setAskOpen);
+  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const [submitting, setSubmitting] = useState(false);
 

@@ -18,9 +18,7 @@ import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "../../../components/overlays/on
 // eslint-disable-next-line boundaries/dependencies
 import { useSettings } from "../../../store/settings.js";
 import { useSettingsStore } from "@entities/settings";
-// TODO(阶段4): ui store 拆进 app/model 后修正 import
-// eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 const STEP_KEYS = ["welcome", "workspace", "appearance", "model", "search", "done"] as const;
 type StepKey = typeof STEP_KEYS[number];
@@ -78,7 +76,7 @@ export function useOnboardingFlow(): OnboardingFlowState {
   const session = useSettings();
   const prefs = useSettingsStore();
   const qc = useQueryClient();
-  const pushToast = useUIStore((s: { pushToast: (toast: { kind: string; title: string; desc?: string }) => void }) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   // Sync prefs.lang → i18n when changed inside the wizard (before App mounts).
   useEffect(() => { i18n.changeLanguage(prefs.lang); }, [prefs.lang]);

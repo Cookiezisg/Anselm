@@ -27,11 +27,11 @@ vi.mock("../../api/flowruns.js", () => ({
 
 import userEvent from "@testing-library/user-event";
 import { useFlowRun } from "../../api/flowruns.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { ExecutePane } from "./ExecutePane.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ focusEntity: {} });
+  usePaneStore.setState({ focusEntity: {} });
   useFlowRun.mockReturnValue({ data: null });
 });
 
@@ -58,16 +58,16 @@ describe("ExecutePane", () => {
   });
 
   it("focusEntityExecute_setBeforeMount_probesAndOpensDetail", async () => {
-    useUIStore.setState({ focusEntity: { execute: "fr_focus" } });
+    usePaneStore.setState({ focusEntity: { execute: "fr_focus" } });
     useFlowRun.mockReturnValue({ data: { id: "fr_focus" } });
     render(<ExecutePane />);
     await waitFor(() => expect(screen.getByText("detail-fr_focus")).toBeInTheDocument());
     // focus should be consumed
-    expect(useUIStore.getState().focusEntity.execute).toBeUndefined();
+    expect(usePaneStore.getState().focusEntity.execute).toBeUndefined();
   });
 
   it("focusEntityExecute_probeNotResolved_staysOnOverview", () => {
-    useUIStore.setState({ focusEntity: { execute: "fr_missing" } });
+    usePaneStore.setState({ focusEntity: { execute: "fr_missing" } });
     useFlowRun.mockReturnValue({ data: null });
     render(<ExecutePane />);
     expect(screen.getByTestId("overview")).toBeInTheDocument();

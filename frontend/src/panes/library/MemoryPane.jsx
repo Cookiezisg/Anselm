@@ -9,7 +9,7 @@ import { Icon } from "../../components/primitives/Icon.jsx";
 import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
 import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 const TABS = [
   ["all", null],
@@ -26,7 +26,7 @@ export function MemoryPane() {
   const [editing, setEditing] = useState(null);
   const del = useDeleteMemory();
   const pin = usePinMemory();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   return (
     <div className="page">
@@ -100,7 +100,7 @@ function MemoryDrawer({ memory, onClose }) {
   const [body, setBody] = useState(memory.body || "");
   const [description, setDescription] = useState(memory.description || "");
   const update = useUpdateMemory();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const isNew = !memory.name;
   const [name, setName] = useState(memory.name || "");
 

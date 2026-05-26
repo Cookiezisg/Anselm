@@ -29,7 +29,7 @@ import { NotificationsDrawer } from "../overlays/NotificationsDrawer.jsx";
 import { AskUserModal } from "../overlays/AskUserModal.jsx";
 import { ToastTray } from "../overlays/ToastTray.jsx";
 import { SettingsModal } from "../overlays/SettingsModal.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useSidebarStore } from "@app/model";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 import { easeOut } from "../../motion/tokens.js";
 
@@ -49,15 +49,16 @@ function renderPaneBody(kind, onClose) {
 
 export function AppShell() {
   const { t } = useTranslation("sidebar");
-  const openPanes = useUIStore((s) => s.openPanes);
-  const narrow = useUIStore((s) => s.narrow);
-  const setNarrow = useUIStore((s) => s.setNarrow);
-  const leftPct = useUIStore((s) => s.leftPct);
-  const setLeftPct = useUIStore((s) => s.setLeftPct);
-  const collapsed = useUIStore((s) => s.collapsed);
-  const activeNarrowPane = useUIStore((s) => s.activeNarrowPane);
-  const closePane = useUIStore((s) => s.closePane);
-  const setActiveNarrowPane = useUIStore((s) => s.setActiveNarrowPane);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const openPanes = usePaneStore((s) => s.openPanes);
+  const narrow = usePaneStore((s) => s.narrow);
+  const setNarrow = usePaneStore((s) => s.setNarrow);
+  const leftPct = usePaneStore((s) => s.leftPct);
+  const setLeftPct = usePaneStore((s) => s.setLeftPct);
+  const collapsed = useSidebarStore((s) => s.collapsed);
+  const activeNarrowPane = usePaneStore((s) => s.activeNarrowPane);
+  const closePane = usePaneStore((s) => s.closePane);
+  const setActiveNarrowPane = usePaneStore((s) => s.setActiveNarrowPane);
 
   const mainRef = useRef(null);
 

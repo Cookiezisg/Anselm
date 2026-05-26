@@ -11,7 +11,8 @@ import { Icon } from "../primitives/Icon.jsx";
 import { Badge } from "../primitives/Badge.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { RelTime } from "../shared/RelTime.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useOverlayStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 import { useSSEHealth } from "../../sse/SSEProvider.jsx";
 import { useNotificationsSnapshot } from "../../api/notifications.js";
 import { apiFetch } from "../../api/client.js";
@@ -159,14 +160,15 @@ function NotifsTab({ snapshot, onClick }) {
 
 export function NotificationsDrawer() {
   const { t } = useTranslation("misc");
-  const open = useUIStore((s) => s.notifsOpen);
-  const setOpen = useUIStore((s) => s.setNotifsOpen);
-  const openPane = useUIStore((s) => s.openPane);
-  const openEntity = useUIStore((s) => s.openEntity);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const pendingAsk = useUIStore((s) => s.pendingAsk);
-  const setPendingAsk = useUIStore((s) => s.setPendingAsk);
-  const pushToast = useUIStore((s) => s.pushToast);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const open = useOverlayStore((s) => s.notifsOpen);
+  const setOpen = useOverlayStore((s) => s.setNotifsOpen);
+  const openPane = usePaneStore((s) => s.openPane);
+  const openEntity = usePaneStore((s) => s.openEntity);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const pendingAsk = useOverlayStore((s) => s.pendingAsk);
+  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const { unread, clearUnread } = useSSEHealth();
   const { data: snapshot = [] } = useNotificationsSnapshot(50);

@@ -35,7 +35,7 @@ import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
 } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { DocumentsPane } from "./DocumentsPane.jsx";
 
@@ -56,7 +56,7 @@ beforeEach(() => {
   useCreateDocument.mockReturnValue({ mutateAsync: createMutateAsync });
   useUpdateDocument.mockReturnValue({ mutate: updateMutate, isPending: false });
   useDeleteDocument.mockReturnValue({ mutate: delMutate });
-  useUIStore.setState({ activeDocument: null });
+  usePaneStore.setState({ activeDocument: null });
   useToastStore.setState({ toasts: [] });
 });
 
@@ -97,7 +97,7 @@ describe("DocumentsPane", () => {
     render(<DocumentsPane />);
     await userEvent.click(screen.getByText("新建第一篇"));
     expect(createMutateAsync).toHaveBeenCalledWith({ name: "未命名", parentId: null });
-    expect(useUIStore.getState().activeDocument).toBe("doc_new");
+    expect(usePaneStore.getState().activeDocument).toBe("doc_new");
   });
 
   it("headerPlusButton_createsRootDocument", async () => {
@@ -110,7 +110,7 @@ describe("DocumentsPane", () => {
   it("treeRowClick_setsActiveDocument", async () => {
     render(<DocumentsPane />);
     await userEvent.click(screen.getByText("Roadmap"));
-    expect(useUIStore.getState().activeDocument).toBe("doc_root1");
+    expect(usePaneStore.getState().activeDocument).toBe("doc_root1");
   });
 
   it("inlinePlusButton_createsChildWithParentId", async () => {
@@ -141,7 +141,7 @@ describe("DocumentsPane", () => {
   });
 
   it("activeDocLoaded_rendersTitleInput_andEditor", () => {
-    useUIStore.setState({ activeDocument: "doc_root1" });
+    usePaneStore.setState({ activeDocument: "doc_root1" });
     useDocument.mockReturnValue({
       data: { id: "doc_root1", name: "Roadmap", content: "## Hi", updatedAt: "2026-05-24T00:00:00Z" },
       isLoading: false,
@@ -153,7 +153,7 @@ describe("DocumentsPane", () => {
   });
 
   it("titleEdit_marksDirty_showsUnsavedIndicator", () => {
-    useUIStore.setState({ activeDocument: "doc_root1" });
+    usePaneStore.setState({ activeDocument: "doc_root1" });
     useDocument.mockReturnValue({
       data: { id: "doc_root1", name: "Roadmap", content: "", updatedAt: "2026-05-24T00:00:00Z" },
       isLoading: false,

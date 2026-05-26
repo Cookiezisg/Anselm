@@ -18,7 +18,8 @@ import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
   useRejectNode, useTriageFlowRun,
 } from "../../api/flowruns.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 
 const STATUS_KIND = {
   running: "streaming",
@@ -50,9 +51,10 @@ export function FlowRunDetail({ runId, onBack }) {
   const { data: nodes = [] } = useFlowRunNodes(runId);
   const cancel = useCancelFlowRun();
   const triage = useTriageFlowRun();
-  const pushToast = useUIStore((s) => s.pushToast);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const pushToast = useToastStore((s) => s.pushToast);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const shellRef = useRef(null);

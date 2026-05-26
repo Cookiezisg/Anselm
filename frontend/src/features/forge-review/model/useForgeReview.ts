@@ -18,9 +18,9 @@ import {
   useAcceptWorkflow,
   useRejectWorkflow,
 } from "@entities/workflow";
-// TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
+// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
 // eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 type ForgeKind = "function" | "handler" | "workflow";
 
@@ -41,7 +41,7 @@ export function useForgeReview(
   name?: string,
 ): ReviewActions {
   const { t } = useTranslation("forge");
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const acceptFn = useAcceptFunction();
   const rejectFn = useRejectFunction();

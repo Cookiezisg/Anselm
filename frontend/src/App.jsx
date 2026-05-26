@@ -13,7 +13,7 @@ import { useSettingsStore, applyTheme } from "@entities/settings";
 import i18n from "@shared/lib/i18n";
 import { computeBootState } from "./store/boot.js";
 import { useChatStore } from "./store/chat.js";
-import { useUIStore } from "./store/ui.js";
+import { usePaneStore } from "@app/model";
 import { apiFetch, qk, pickList } from "./api/client.js";
 
 // Honor `?onboarding=1` for tests / manual reruns. Production never sets it.
@@ -48,10 +48,10 @@ export default function App() {
     if (prevUid.current === session.activeUserId) return;
     prevUid.current = session.activeUserId;
     useChatStore.getState().resetAll();
-    const ui = useUIStore.getState();
-    ui.setActiveConv?.(null);
-    if (ui.setActiveFlowRun) ui.setActiveFlowRun(null);
-    if (ui.setActiveDocument) ui.setActiveDocument(null);
+    const pane = usePaneStore.getState();
+    pane.setActiveConv(null);
+    pane.setActiveFlowRun(null);
+    pane.setActiveDocument(null);
     qc.invalidateQueries();
   }, [session.activeUserId, qc]);
 

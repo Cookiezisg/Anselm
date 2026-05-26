@@ -6,9 +6,10 @@
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { apiFetch } from "@shared/api";
-// TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
+// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
 // eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 
 interface IterateParams {
   kind: string;
@@ -30,9 +31,9 @@ export function useIterateForge() {
 export function useForgeIterate() {
   const { t } = useTranslation("misc");
   const iterate = useIterateForge();
-  const pushToast = useUIStore((s) => s.pushToast);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
+  const pushToast = useToastStore((s) => s.pushToast);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
 
   const submit = async (kind: string, id: string, prompt: string) => {
     try {

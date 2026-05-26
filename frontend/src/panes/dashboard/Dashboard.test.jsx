@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Dashboard } from "./Dashboard.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { apiFetch } from "../../api/client.js";
 
 const createMutateAsync = vi.fn().mockResolvedValue({ id: "cv_n" });
@@ -32,7 +32,7 @@ function renderDash() {
 
 beforeEach(() => {
   localStorage.clear();
-  useUIStore.setState({ openPanes: [], activeConv: null });
+  usePaneStore.setState({ openPanes: [], activeConv: null });
   createMutateAsync.mockClear();
   apiFetch.mockClear();
 });
@@ -63,8 +63,8 @@ describe("Dashboard", () => {
       "/conversations/cv_n/messages",
       expect.objectContaining({ method: "POST", body: { content: "hello forge" } })
     );
-    expect(useUIStore.getState().openPanes).toContain("chat");
-    expect(useUIStore.getState().activeConv).toBe("cv_n");
+    expect(usePaneStore.getState().openPanes).toContain("chat");
+    expect(usePaneStore.getState().activeConv).toBe("cv_n");
   });
 
   it("hides the context strip when there's nothing of interest", () => {

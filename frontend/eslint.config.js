@@ -20,6 +20,8 @@ export default tseslint.config(
         { type: "entities", pattern: "src/entities/*", capture: ["slice"] },
         // 阶段3:features 层(用例层);capture slice 名
         { type: "features", pattern: "src/features/*", capture: ["slice"] },
+        // app 层:FSD 最顶层,可 import 全部下层;无 disallow
+        { type: "app", pattern: "src/app/**" },
         // 迁移期临时 element:现有扁平目录;bridge 已迁至 shared,从此排除
         { type: "shared-tmp", pattern: "src/{api,sse,store,hooks,motion,i18n,components/primitives}/**" },
         { type: "app-tmp",    pattern: "src/{App.jsx,main.jsx}" },

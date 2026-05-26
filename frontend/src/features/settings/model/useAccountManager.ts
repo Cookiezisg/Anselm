@@ -11,9 +11,7 @@ import { useCreateUser } from "@entities/user";
 // TODO(阶段4): settings store 拆进 app/model 后修正 import
 // eslint-disable-next-line boundaries/dependencies
 import { useSettings } from "../../../store/settings.js";
-// TODO(阶段4): ui store 拆进 app/model 后修正 import
-// eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 export interface AccountManagerState {
   name: string;
@@ -27,7 +25,7 @@ export function useAccountManager(): AccountManagerState {
   const { t } = useTranslation("settings");
   const qc = useQueryClient();
   const settings = useSettings();
-  const pushToast = useUIStore((s: { pushToast: (toast: { kind: string; title: string; desc?: string }) => void }) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
   const createUser = useCreateUser();
 
   const [name, setName] = useState("");

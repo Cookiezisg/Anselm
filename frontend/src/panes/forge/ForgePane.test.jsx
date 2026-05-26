@@ -55,11 +55,11 @@ vi.mock("../../api/forge.js", () => ({
 }));
 
 import { useFunction, useHandler, useWorkflow } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { ForgePane } from "./ForgePane.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({ focusEntity: {} });
+  usePaneStore.setState({ focusEntity: {} });
   useFunction.mockReturnValue({ data: null });
   useHandler.mockReturnValue({ data: null });
   useWorkflow.mockReturnValue({ data: null });
@@ -100,29 +100,29 @@ describe("ForgePane", () => {
   });
 
   it("focusEntityForge_functionProbeWins_opensFunctionDetail", async () => {
-    useUIStore.setState({ focusEntity: { forge: "fn_focus" } });
+    usePaneStore.setState({ focusEntity: { forge: "fn_focus" } });
     useFunction.mockReturnValue({ data: { id: "fn_focus", name: "F" } });
     render(<ForgePane />);
     await waitFor(() => expect(screen.getByTestId("fn-detail")).toBeInTheDocument());
-    expect(useUIStore.getState().focusEntity.forge).toBeUndefined();
+    expect(usePaneStore.getState().focusEntity.forge).toBeUndefined();
   });
 
   it("focusEntityForge_handlerProbeWins_opensHandlerDetail", async () => {
-    useUIStore.setState({ focusEntity: { forge: "hd_focus" } });
+    usePaneStore.setState({ focusEntity: { forge: "hd_focus" } });
     useHandler.mockReturnValue({ data: { id: "hd_focus", name: "H" } });
     render(<ForgePane />);
     await waitFor(() => expect(screen.getByTestId("hd-detail")).toBeInTheDocument());
   });
 
   it("focusEntityForge_workflowProbeWins_opensWorkflowDetail", async () => {
-    useUIStore.setState({ focusEntity: { forge: "wf_focus" } });
+    usePaneStore.setState({ focusEntity: { forge: "wf_focus" } });
     useWorkflow.mockReturnValue({ data: { id: "wf_focus", name: "W" } });
     render(<ForgePane />);
     await waitFor(() => expect(screen.getByTestId("wf-detail")).toBeInTheDocument());
   });
 
   it("focusEntityForge_noProbeReturns_staysOnList", () => {
-    useUIStore.setState({ focusEntity: { forge: "fn_ghost" } });
+    usePaneStore.setState({ focusEntity: { forge: "fn_ghost" } });
     render(<ForgePane />);
     expect(screen.getByTestId("list")).toBeInTheDocument();
     expect(screen.queryByTestId("fn-detail")).toBeNull();

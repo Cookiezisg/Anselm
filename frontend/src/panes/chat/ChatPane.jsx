@@ -11,7 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useConversation, useConversationMessages } from "../../api/conversations.js";
 import { useApiKeys, useModelConfigs } from "../../api/config.js";
 import { useChatStore } from "../../store/chat.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { qk } from "../../api/client.js";
 import { useSendMessageFlow } from "../../features/send-message/index.ts";
 import { ChatHeader } from "./ChatHeader.jsx";
@@ -28,8 +28,9 @@ const EMPTY_IDS = Object.freeze([]);
 
 export function ChatPane({ onClose }) {
   const { t, i18n } = useTranslation("conv");
-  const activeConv = useUIStore((s) => s.activeConv);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const activeConv = usePaneStore((s) => s.activeConv);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
   const qc = useQueryClient();
   const { data: conv, error: convError } = useConversation(activeConv);
   const { data: historyMessages, isLoading: histLoading } = useConversationMessages(activeConv);

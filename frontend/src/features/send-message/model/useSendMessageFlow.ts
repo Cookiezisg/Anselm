@@ -8,9 +8,10 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSendMessage, useCancelStream } from "@entities/conversation";
 import { qk } from "@shared/api";
-// TODO(阶段4): ui store 拆进 app/model 后,将此 import 替换为正式 FSD 路径。
+// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
 // eslint-disable-next-line boundaries/dependencies
-import { useUIStore } from "../../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 
 import type { SendMessageBody } from "@entities/conversation";
 
@@ -28,8 +29,8 @@ interface SendPayload {
 export function useSendMessageFlow(convId: string | null) {
   const { t } = useTranslation("conv");
   const qc = useQueryClient();
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const pushToast = useUIStore((s) => s.pushToast);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   const send = useSendMessage(convId as string);
   const cancel = useCancelStream(convId as string);

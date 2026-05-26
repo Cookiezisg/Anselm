@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useFunction, useHandler, useWorkflow } from "../../api/forge.js";
 import { ForgeList } from "./ForgeList.jsx";
 import { FunctionDetail } from "./FunctionDetail.jsx";
@@ -15,8 +15,9 @@ import { easeOut, slideUp, fadeIn } from "../../motion/tokens.js";
 
 export function ForgePane() {
   const [open, setOpen] = useState(null);
-  const consumeFocusEntity = useUIStore((s) => s.consumeFocusEntity);
-  const focusId = useUIStore((s) => s.focusEntity.forge);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const consumeFocusEntity = usePaneStore((s) => s.consumeFocusEntity);
+  const focusId = usePaneStore((s) => s.focusEntity.forge);
 
   // Probe each detail endpoint when focusId is set; whichever returns
   // first determines the kind. (Backend has separate /functions /handlers

@@ -11,7 +11,8 @@ import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
 import { Select } from "../primitives/Select.jsx";
 import { useRunFunction, useCallHandler, useRunWorkflow } from "../../api/forge.js";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
+import { useToastStore } from "@shared/ui/toastStore";
 import { slideRight, scrim } from "../../motion/tokens.js";
 
 function safeParse(text) {
@@ -26,9 +27,10 @@ export function RunDrawer({ open, onClose, kind, entity }) {
   const run = useRunFunction();
   const call = useCallHandler();
   const trig = useRunWorkflow();
-  const pushToast = useUIStore((s) => s.pushToast);
-  const setActiveConv = useUIStore((s) => s.setActiveConv);
-  const openPane = useUIStore((s) => s.openPane);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const pushToast = useToastStore((s) => s.pushToast);
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
 
   const [body, setBody] = useState("{\n  \n}");
   const [method, setMethod] = useState("");
@@ -71,7 +73,7 @@ export function RunDrawer({ open, onClose, kind, entity }) {
         pushToast({ kind: "success", title: t("runDrawer.toast.triggerSuccess"), desc: runId || t("runDrawer.toast.triggerDefaultDesc") });
         if (runId) {
           openPane("execute");
-          useUIStore.getState().setActiveFlowRun?.(runId);
+          usePaneStore.getState().setActiveFlowRun(runId);
         }
       }
       setResult(res);

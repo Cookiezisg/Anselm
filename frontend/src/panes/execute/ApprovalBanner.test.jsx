@@ -7,7 +7,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { setupFetchSpy } from "../../api/_testHarness.js";
-import { useUIStore } from "../../store/ui.js";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ApprovalBanner } from "./ApprovalBanner.jsx";
 

@@ -18,19 +18,17 @@ vi.mock("../../sse/SSEProvider.jsx", () => ({
   useSSEHealth: () => ({ unread: 3, clearUnread: vi.fn() }),
 }));
 
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore, useOverlayStore } from "@app/model";
 import { NotificationsDrawer } from "./NotificationsDrawer.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({
-    notifsOpen: true, openPanes: [], activeConv: null,
-    activeNarrowPane: null, focusEntity: {},
-  });
+  useOverlayStore.setState({ notifsOpen: true });
+  usePaneStore.setState({ openPanes: [], activeConv: null, activeNarrowPane: null, focusEntity: {} });
 });
 
 describe("NotificationsDrawer", () => {
   it("closed_rendersNothing", () => {
-    useUIStore.setState({ notifsOpen: false });
+    useOverlayStore.setState({ notifsOpen: false });
     const { container } = render(<NotificationsDrawer />);
     expect(container.querySelector(".drawer")).toBeNull();
   });
@@ -45,20 +43,20 @@ describe("NotificationsDrawer", () => {
   it("conversationItemClick_setsActiveConvAndOpensChat", async () => {
     render(<NotificationsDrawer />);
     await userEvent.click(screen.getByText("cv_x"));
-    expect(useUIStore.getState().activeConv).toBe("cv_x");
-    expect(useUIStore.getState().openPanes).toContain("chat");
+    expect(usePaneStore.getState().activeConv).toBe("cv_x");
+    expect(usePaneStore.getState().openPanes).toContain("chat");
   });
 
   it("functionItemClick_opensForgePaneWithFocus", async () => {
     render(<NotificationsDrawer />);
     await userEvent.click(screen.getByText("fn_y"));
-    expect(useUIStore.getState().focusEntity.forge).toBe("fn_y");
+    expect(usePaneStore.getState().focusEntity.forge).toBe("fn_y");
   });
 
   it("flowrunItemClick_opensExecutePaneWithFocus", async () => {
     render(<NotificationsDrawer />);
     await userEvent.click(screen.getByText("fr_z"));
-    expect(useUIStore.getState().focusEntity.execute).toBe("fr_z");
+    expect(usePaneStore.getState().focusEntity.execute).toBe("fr_z");
   });
 
   it("closeButton_closesDrawer_andClearsUnread", async () => {
@@ -66,7 +64,7 @@ describe("NotificationsDrawer", () => {
     const { container } = render(<NotificationsDrawer />);
     const closeBtns = container.querySelectorAll(".icon-btn");
     await userEvent.click(closeBtns[closeBtns.length - 1]);
-    expect(useUIStore.getState().notifsOpen).toBe(false);
+    expect(useOverlayStore.getState().notifsOpen).toBe(false);
   });
 
   it("clearAllButton_clickableInHeader", async () => {

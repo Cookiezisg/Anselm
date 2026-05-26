@@ -5,7 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { useFlowRun } from "../../api/flowruns.js";
 import { ExecuteOverview } from "./ExecuteOverview.jsx";
 import { FlowRunDetail } from "./FlowRunDetail.jsx";
@@ -13,8 +13,9 @@ import { slideUp, fadeIn } from "../../motion/tokens.js";
 
 export function ExecutePane() {
   const [openRunId, setOpenRunId] = useState(null);
-  const consumeFocusEntity = useUIStore((s) => s.consumeFocusEntity);
-  const focusId = useUIStore((s) => s.focusEntity.execute);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const consumeFocusEntity = usePaneStore((s) => s.consumeFocusEntity);
+  const focusId = usePaneStore((s) => s.focusEntity.execute);
 
   // Probe and consume incoming focusId
   const { data: probe } = useFlowRun(focusId && !openRunId ? focusId : null);

@@ -3,24 +3,24 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useUIStore } from "../../store/ui.js";
+import { usePaneStore } from "@app/model";
 import { NarrowSwitch } from "./NarrowSwitch.jsx";
 
 beforeEach(() => {
-  useUIStore.setState({
+  usePaneStore.setState({
     openPanes: ["chat", "forge"], narrow: true, activeNarrowPane: "chat",
   });
 });
 
 describe("NarrowSwitch", () => {
   it("notNarrow_rendersNothing", () => {
-    useUIStore.setState({ narrow: false });
+    usePaneStore.setState({ narrow: false });
     const { container } = render(<NarrowSwitch />);
     expect(container.firstChild).toBeNull();
   });
 
   it("oneOpenPane_rendersNothing", () => {
-    useUIStore.setState({ openPanes: ["chat"], narrow: true });
+    usePaneStore.setState({ openPanes: ["chat"], narrow: true });
     const { container } = render(<NarrowSwitch />);
     expect(container.firstChild).toBeNull();
   });
@@ -34,7 +34,7 @@ describe("NarrowSwitch", () => {
   it("clickButton_updatesActiveNarrowPane", async () => {
     render(<NarrowSwitch />);
     await userEvent.click(screen.getByText("工坊"));
-    expect(useUIStore.getState().activeNarrowPane).toBe("forge");
+    expect(usePaneStore.getState().activeNarrowPane).toBe("forge");
   });
 
   it("activeButton_hasIsActiveClass", () => {

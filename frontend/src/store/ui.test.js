@@ -7,7 +7,7 @@ import { useToastStore } from "../shared/ui/toastStore.ts";
 
 function reset() {
   useUIStore.setState({
-    baseUrl: null, openPanes: ["chat"], activeConv: null,
+    openPanes: ["chat"], activeConv: null,
     activeFlowRun: null, activeDocument: null, leftPct: 50,
     collapsed: false, narrow: false, activeNarrowPane: null,
     focusEntity: {}, cmdkOpen: false, notifsOpen: false,

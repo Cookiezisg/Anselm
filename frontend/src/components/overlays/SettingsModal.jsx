@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
-import { useUIStore } from "../../store/ui.js";
+import { useOverlayStore } from "@app/model";
 import { useSettings } from "../../store/settings.js";
 import { useUsers } from "../../api/users.js";
 import { scaleIn } from "../../motion/tokens.js";
@@ -19,8 +19,9 @@ import { useAccountManager } from "../../features/settings/index.js";
 
 export function SettingsModal() {
   const { t } = useTranslation("settings");
-  const open = useUIStore((s) => s.settingsOpen);
-  const setOpen = useUIStore((s) => s.setSettingsOpen);
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const open = useOverlayStore((s) => s.settingsOpen);
+  const setOpen = useOverlayStore((s) => s.setSettingsOpen);
   const [openSection, setOpenSection] = useState("keys");
 
   const toggle = (key) => setOpenSection((p) => (p === key ? null : key));

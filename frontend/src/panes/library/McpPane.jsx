@@ -9,7 +9,7 @@ import { Button } from "../../components/primitives/Button.jsx";
 import { Badge } from "../../components/primitives/Badge.jsx";
 import { RelTime } from "../../components/shared/RelTime.jsx";
 import { useMcpServers, useReconnectMcp, useRemoveMcp } from "../../api/library.js";
-import { useUIStore } from "../../store/ui.js";
+import { useToastStore } from "@shared/ui/toastStore";
 
 const STATUS_KIND = { ready: "success", connecting: "info", degraded: "warn", failed: "error", stopped: "muted" };
 
@@ -18,7 +18,7 @@ export function McpPane() {
   const { data: servers = [], isLoading } = useMcpServers();
   const reconnect = useReconnectMcp();
   const remove = useRemoveMcp();
-  const pushToast = useUIStore((s) => s.pushToast);
+  const pushToast = useToastStore((s) => s.pushToast);
 
   return (
     <div className="page">
