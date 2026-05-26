@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 // Wails dev mode reads frontend:dev:serverUrl from wails.json and proxies
 // requests through itself. For standalone `npm run dev` (browser testing),
@@ -10,7 +11,7 @@ import react from "@vitejs/plugin-react";
 const BACKEND_DEV_PORT = Number(process.env.FORGIFY_BACKEND_PORT) || 7788;
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
   server: {
     port: 5173,
     strictPort: true,

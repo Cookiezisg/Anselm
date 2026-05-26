@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "fsd": "steiger src"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
@@ -35,15 +38,28 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@feature-sliced/steiger-plugin": "^0.5.8",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.3.4",
     "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^9.39.4",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",
+    "steiger": "^0.5.12",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.0",
     "vite": "^6.0.5",
+    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.7"
   }
 }
