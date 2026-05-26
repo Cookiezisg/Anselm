@@ -24,3 +24,17 @@ export type {
   UpdateConversationPatch,
   SendMessageBody,
 } from "./model/types";
+
+export {
+  useChatStore,
+  selectTopMessageIds,
+  selectBlock,
+  selectChildIds,
+} from "./model/chatStore";
+
+export type {
+  ChatBlock,
+  ChatMessage,
+  ChatConvState,
+  ChatState,
+} from "./model/chatStore";
