@@ -15,7 +15,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "../../i18n/index.js";
+import i18n from "@shared/lib/i18n/index.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { Icon } from "../primitives/Icon.jsx";

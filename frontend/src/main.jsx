@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { initBaseUrl } from "./bridge/wails";
-import "./i18n";
+import "@shared/lib/i18n";
 import App from "./App.jsx";
 import "./styles/tokens.css";
 import "./styles/base.css";

@@ -9,7 +9,7 @@ import { AppShell } from "./components/layout/AppShell.jsx";
 import { Onboarding } from "./components/overlays/Onboarding.jsx";
 import { SSEProvider } from "./sse/SSEProvider.jsx";
 import { useSettings, applyTheme } from "./store/settings.js";
-import i18n from "./i18n";
+import i18n from "@shared/lib/i18n";
 import { computeBootState } from "./store/boot.js";
 import { useChatStore } from "./store/chat.js";
 import { useUIStore } from "./store/ui.js";
