@@ -1,1 +1,1 @@
-export { AskAiTrigger } from "./AskAiTrigger.jsx";
+export { AskAiTrigger } from "./AskAiTrigger.tsx";

@@ -9,11 +9,17 @@
 // 时整条不渲染。
 
 import { useTranslation } from "react-i18next";
-import { EntityLink } from "../entity-link/EntityLink.jsx";
-import { RelMore } from "../rel-graph/RelGraph.jsx";
+import { EntityLink } from "../entity-link/EntityLink.tsx";
+import { RelMore } from "../rel-graph/RelGraph.tsx";
 import { useEntityNeighborhood } from "@features/entity-link";
 
-export function EntityRelMeta({ entityId, kind, limit = 3 }) {
+interface EntityRelMetaProps {
+  entityId?: string;
+  kind?: string;
+  limit?: number;
+}
+
+export function EntityRelMeta({ entityId, kind, limit = 3 }: EntityRelMetaProps) {
   const { t } = useTranslation("misc");
   const { neighbours, guessedKind } = useEntityNeighborhood(entityId, kind, limit);
 

@@ -9,13 +9,27 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 
+interface VersionRailProps {
+  versions: any[];
+  currentId?: string;
+  pendingId?: string;
+  deployedId?: string;
+  selectedId?: string;
+  onSelect?: (id: string) => void;
+  onAccept?: () => void;
+  onRevert?: () => void;
+  onRollback?: () => void;
+  onDeploy?: () => void;
+  showDeploy?: boolean;
+}
+
 export function VersionRail({
   versions,
   currentId, pendingId, deployedId,
   selectedId, onSelect,
   onAccept, onRevert, onRollback, onDeploy,
   showDeploy,
-}) {
+}: VersionRailProps) {
   const { t } = useTranslation("misc");
   const [collapsed, setCollapsed] = useState(false);
   const pending = versions.find((v) => v.id === pendingId);
@@ -138,7 +152,7 @@ function VersionRow({ v, isCurrent, isPending, isDeployed, isSelected, onClick }
 // SplitDiff — line-level LCS diff, side-by-side render.
 //
 // SplitDiff —— LCS 行级 diff，左右并排渲染。
-export function SplitDiff({ leftLabel, rightLabel, leftSrc, rightSrc }) {
+export function SplitDiff({ leftLabel, rightLabel, leftSrc, rightSrc }: { leftLabel?: string; rightLabel?: string; leftSrc?: string; rightSrc?: string }) {
   const rows = computeSplitDiff(leftSrc || "", rightSrc || "");
   const adds = rows.filter((r) => r.op === "add").length;
   const dels = rows.filter((r) => r.op === "del").length;
@@ -265,7 +279,7 @@ function tokenisePython(line) {
   return out;
 }
 
-export function CodeView({ src, lang = "python" }) {
+export function CodeView({ src, lang = "python" }: { src?: string; lang?: string }) {
   const lines = (src || "").split("\n");
   return (
     <pre className="codeview">

@@ -1,1 +1,1 @@
-export { VersionRail, SplitDiff, CodeView } from "./VersionRail.jsx";
+export { VersionRail, SplitDiff, CodeView } from "./VersionRail.tsx";

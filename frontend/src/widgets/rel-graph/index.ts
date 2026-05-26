@@ -1,1 +1,1 @@
-export { RelGraph, RelGraphPopover, RelMore } from "./RelGraph.jsx";
+export { RelGraph, RelGraphPopover, RelMore } from "./RelGraph.tsx";

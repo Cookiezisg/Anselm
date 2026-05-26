@@ -1,1 +1,1 @@
-export { NotificationsDrawer } from "./NotificationsDrawer.jsx";
+export { NotificationsDrawer } from "./NotificationsDrawer.tsx";

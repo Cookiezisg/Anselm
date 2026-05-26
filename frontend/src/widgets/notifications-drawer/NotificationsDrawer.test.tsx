@@ -15,7 +15,7 @@ vi.mock("./useNotificationsSnapshot.js", () => ({
 }));
 
 import { usePaneStore, useOverlayStore } from "@app/model";
-import { NotificationsDrawer } from "./NotificationsDrawer.jsx";
+import { NotificationsDrawer } from "./NotificationsDrawer.tsx";
 
 function makeProps(overrides = {}) {
   const pane = usePaneStore.getState();

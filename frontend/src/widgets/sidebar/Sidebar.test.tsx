@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Sidebar } from "./Sidebar.jsx";
+import { Sidebar } from "./Sidebar.tsx";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 
 vi.mock("@entities/conversation", () => ({
@@ -13,11 +13,11 @@ vi.mock("@entities/conversation", () => ({
 // useDisplayName now derives from the backend active user (useUsers + settings);
 // mock it here so the Sidebar unit test doesn't need a real users query.
 vi.mock("@entities/user", async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal() as Record<string, unknown>;
   return { ...actual, useDisplayName: () => ["Weilin", vi.fn()] };
 });
 
-function SidebarConnected(extraProps) {
+function SidebarConnected(extraProps: Record<string, any> = {}) {
   const openPanes = usePaneStore((s) => s.openPanes);
   const activeConv = usePaneStore((s) => s.activeConv);
   const togglePane = usePaneStore((s) => s.togglePane);
@@ -50,7 +50,7 @@ function SidebarConnected(extraProps) {
   );
 }
 
-function renderSidebar(extraProps = {}) {
+function renderSidebar(extraProps: Record<string, any> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>

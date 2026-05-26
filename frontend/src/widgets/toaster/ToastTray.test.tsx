@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
-import { ToastTray } from "./ToastTray.jsx";
+import { ToastTray } from "./ToastTray.tsx";
 
 beforeEach(() => {
   useToastStore.setState({ toasts: [] });

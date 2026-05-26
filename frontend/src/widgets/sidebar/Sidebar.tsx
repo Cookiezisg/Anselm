@@ -13,8 +13,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { useConversations, useCreateConversation } from "@entities/conversation";
 import { useDisplayName } from "@entities/user";
-import { ChatListItem } from "./ChatListItem.jsx";
-import { SidebarSection } from "./SidebarSection.jsx";
+import { ChatListItem } from "./ChatListItem.tsx";
+import { SidebarSection } from "./SidebarSection.tsx";
 
 const SPRING = { type: "spring", stiffness: 280, damping: 28 };
 
@@ -30,7 +30,7 @@ function ForgifyLogo({ size = 22 }) {
   );
 }
 
-function NavItem({ icon: I, label, active, primary, onClick, collapsed }) {
+function NavItem({ icon: I, label, active, primary, onClick, collapsed }: { icon: any; label: string; active?: boolean; primary?: boolean; onClick?: () => void; collapsed?: boolean }) {
   const cls =
     "sb-item" +
     (active  ? " is-active"  : "") +
@@ -41,6 +41,26 @@ function NavItem({ icon: I, label, active, primary, onClick, collapsed }) {
       {!collapsed && <span className="label">{label}</span>}
     </button>
   );
+}
+
+interface SidebarProps {
+  openPanes: string[];
+  activeConv: string | null;
+  collapsed: boolean;
+  toolsExpanded: boolean;
+  recentExpanded: boolean;
+  archivedExpanded: boolean;
+  sseHealth?: any;
+  onTogglePane: (pane: string) => void;
+  onOpenPane: (pane: string) => void;
+  onSetActiveConv: (id: string | null) => void;
+  onSetCollapsed: (v: boolean) => void;
+  onSetToolsExpanded: (v: boolean) => void;
+  onSetRecentExpanded: (v: boolean) => void;
+  onSetArchivedExpanded: (v: boolean) => void;
+  onOpenCmdk: () => void;
+  onOpenNotifs: () => void;
+  onOpenSettings: () => void;
 }
 
 export function Sidebar({
@@ -61,13 +81,13 @@ export function Sidebar({
   onOpenCmdk,
   onOpenNotifs,
   onOpenSettings,
-}) {
+}: SidebarProps) {
   const { t } = useTranslation("sidebar");
 
   const { data: conversations = [] } = useConversations();
   const createConv = useCreateConversation();
   const sse = sseHealth ?? { overall: "unknown", unread: 0, clearUnread: () => {} };
-  const [displayName] = useDisplayName();
+  const [displayName] = useDisplayName() as [string, any];
 
   const pinned   = conversations.filter((c) => c.pinned   && !c.archived);
   const recent   = conversations.filter((c) => !c.pinned  && !c.archived);

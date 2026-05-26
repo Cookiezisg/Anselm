@@ -4,7 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { VersionRail, SplitDiff, CodeView } from "./VersionRail.jsx";
+import { VersionRail, SplitDiff, CodeView } from "./VersionRail.tsx";
 
 const VERSIONS = [
   { id: "fv_1", label: "v1", summary: "first version", author: "user", createdAt: "2026-01-01T00:00:00Z" },

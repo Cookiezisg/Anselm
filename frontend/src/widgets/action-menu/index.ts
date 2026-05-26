@@ -1,1 +1,1 @@
-export { ActionMenu } from "./ActionMenu.jsx";
+export { ActionMenu } from "./ActionMenu.tsx";

@@ -27,7 +27,11 @@ const PREFIX_META = {
   doc: { pane: "documents", icon: "FileText"      },
 };
 
-export function EntityLink({ id }) {
+interface EntityLinkProps {
+  id: string;
+}
+
+export function EntityLink({ id }: EntityLinkProps) {
   const { t } = useTranslation("misc");
   const name = useEntityName(id);
 

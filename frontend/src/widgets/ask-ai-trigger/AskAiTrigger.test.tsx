@@ -10,7 +10,7 @@ import { setupFetchSpy } from "@shared/lib/testHarness";
 import { usePaneStore } from "@app/model";
 import { setNavigator } from "@shared/lib/navigation";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
-import { AskAiTrigger } from "./AskAiTrigger.jsx";
+import { AskAiTrigger } from "./AskAiTrigger.tsx";
 
 function wrap({ children }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });

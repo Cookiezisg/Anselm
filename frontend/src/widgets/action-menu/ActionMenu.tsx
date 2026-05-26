@@ -8,15 +8,30 @@
 // ActionMenu —— 用 floating-ui 自动定位 + portal 的下拉菜单；外部点击 /
 // Escape 关闭。
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useFloating, autoUpdate, offset, flip, shift,
   useDismiss, useClick, useInteractions, useRole, FloatingPortal,
+  type Placement,
 } from "@floating-ui/react";
 import { Icon } from "@shared/ui/Icon";
 
-export function ActionMenu({ items, renderTrigger, placement = "bottom-end" }) {
+interface ActionMenuItem {
+  label: string;
+  icon?: React.ComponentType<any>;
+  danger?: boolean;
+  shortcut?: string;
+  onClick?: () => void;
+}
+
+interface ActionMenuProps {
+  items: (ActionMenuItem | "divider")[];
+  renderTrigger?: (props: any) => React.ReactNode;
+  placement?: Placement;
+}
+
+export function ActionMenu({ items, renderTrigger, placement = "bottom-end" }: ActionMenuProps) {
   const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
 

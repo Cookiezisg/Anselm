@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Badge } from "@shared/ui/Badge";
 import { Button } from "@shared/ui/Button";
-import { RelTime } from "../../shared/ui/RelTime.jsx";
+import { RelTime } from "../../shared/ui/RelTime.tsx";
 import { useToastStore } from "@shared/ui/toastStore";
 import { useNotificationsSnapshot } from "./useNotificationsSnapshot";
 import { apiFetch } from "@shared/api/httpClient";
@@ -156,7 +156,19 @@ function NotifsTab({ snapshot, onClick }) {
   );
 }
 
-export function NotificationsDrawer({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, pendingAsk, onSetPendingAsk, unread = 0, clearUnread = () => {} }) {
+interface NotificationsDrawerProps {
+  open: boolean;
+  onClose: () => void;
+  onOpenPane: (pane: string) => void;
+  onOpenEntity: (pane: string, id: string) => void;
+  onSetActiveConv: (id: string | null) => void;
+  pendingAsk?: any;
+  onSetPendingAsk: (ask: any) => void;
+  unread?: number;
+  clearUnread?: () => void;
+}
+
+export function NotificationsDrawer({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, pendingAsk, onSetPendingAsk, unread = 0, clearUnread = () => {} }: NotificationsDrawerProps) {
   const { t } = useTranslation("misc");
   const pushToast = useToastStore((s) => s.pushToast);
 

@@ -9,10 +9,18 @@
 import { useTranslation } from "react-i18next";
 import { useToastStore } from "@shared/ui/toastStore";
 import { Icon } from "@shared/ui/Icon";
-import { ActionMenu } from "../action-menu/ActionMenu.jsx";
+import { ActionMenu } from "../action-menu/ActionMenu.tsx";
 import { useUpdateConversation, useDeleteConversation } from "@entities/conversation";
 
-export function ChatListItem({ conv, openPanes, activeConv, onSetActiveConv, onOpenPane }) {
+interface ChatListItemProps {
+  conv: any;
+  openPanes: string[];
+  activeConv: string | null;
+  onSetActiveConv: (id: string | null) => void;
+  onOpenPane: (pane: string) => void;
+}
+
+export function ChatListItem({ conv, openPanes, activeConv, onSetActiveConv, onOpenPane }: ChatListItemProps) {
   const { t } = useTranslation("sidebar");
 
   const isStreaming = conv.status === "streaming";

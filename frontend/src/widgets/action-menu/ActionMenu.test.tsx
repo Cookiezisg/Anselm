@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ActionMenu } from "./ActionMenu.jsx";
+import { ActionMenu } from "./ActionMenu.tsx";
 import { Icon } from "@shared/ui/Icon";
 
 describe("ActionMenu", () => {

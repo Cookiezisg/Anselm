@@ -1,1 +1,1 @@
-export { ToastTray } from "./ToastTray.jsx";
+export { ToastTray } from "./ToastTray.tsx";

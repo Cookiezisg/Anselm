@@ -1,1 +1,1 @@
-export { EntityRelMeta } from "./EntityRelMeta.jsx";
+export { EntityRelMeta } from "./EntityRelMeta.tsx";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { SidebarSection } from "./SidebarSection.jsx";
+import { SidebarSection } from "./SidebarSection.tsx";
 
 describe("SidebarSection", () => {
   it("renders label and child when expanded", () => {

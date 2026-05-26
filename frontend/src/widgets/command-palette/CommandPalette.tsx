@@ -4,7 +4,7 @@
 //
 // CommandPalette —— ⌘K 调起的命令板；箭头键导航 / Enter 选 / Esc 关。
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
@@ -27,7 +27,16 @@ const NAV_ITEMS_DEF = [
   { icon: Icon.Settings,      labelKey: "cmdk.settings", desc: "",                              overlay: "settings" },
 ];
 
-export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, onOpenSettings }) {
+interface CommandPaletteProps {
+  open: boolean;
+  onClose: () => void;
+  onOpenPane: (pane: string) => void;
+  onOpenEntity: (pane: string, id: string) => void;
+  onSetActiveConv: (id: string | null) => void;
+  onOpenSettings: () => void;
+}
+
+export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetActiveConv, onOpenSettings }: CommandPaletteProps) {
   const { t } = useTranslation("sidebar");
 
   const [q, setQ] = useState("");
@@ -58,7 +67,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
         action: () => { onSetActiveConv(c.id); onOpenPane("chat"); },
       });
     }
-    for (const f of functions.slice(0, 5)) {
+    for (const f of (functions as any[]).slice(0, 5)) {
       a.push({
         group: "Function",
         icon: Icon.Code,
@@ -67,7 +76,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
         action: () => onOpenEntity("forge", f.id),
       });
     }
-    for (const h of handlers.slice(0, 5)) {
+    for (const h of (handlers as any[]).slice(0, 5)) {
       a.push({
         group: "Handler",
         icon: Icon.Server,
@@ -76,7 +85,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
         action: () => onOpenEntity("forge", h.id),
       });
     }
-    for (const w of workflows.slice(0, 5)) {
+    for (const w of (workflows as any[]).slice(0, 5)) {
       a.push({
         group: "Workflow",
         icon: Icon.Workflow,
@@ -85,7 +94,7 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
         action: () => onOpenEntity("forge", w.id),
       });
     }
-    for (const f of flowruns.slice(0, 5)) {
+    for (const f of (flowruns as any[]).slice(0, 5)) {
       a.push({
         group: "FlowRun",
         icon: Icon.Play,
@@ -138,8 +147,8 @@ export function CommandPalette({ open, onClose, onOpenPane, onOpenEntity, onSetA
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="overlay" {...fadeIn} onClick={() => onClose()}>
-          <motion.div className="cmdk" {...scaleIn} onClick={(e) => e.stopPropagation()}>
+        <motion.div className="overlay" {...(fadeIn as any)} onClick={() => onClose()}>
+          <motion.div className="cmdk" {...(scaleIn as any)} onClick={(e) => e.stopPropagation()}>
             <div className="cmdk-input-wrap">
               <Icon.Search className="icon" />
               <input

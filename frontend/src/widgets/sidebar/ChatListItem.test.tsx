@@ -12,15 +12,18 @@ vi.mock("@entities/conversation", () => ({
 import { useUpdateConversation, useDeleteConversation } from "@entities/conversation";
 import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
-import { ChatListItem } from "./ChatListItem.jsx";
+import { ChatListItem } from "./ChatListItem.tsx";
 
-let updateMutate, delMutate;
+const mockUseUpdateConversation = useUpdateConversation as any;
+const mockUseDeleteConversation = useDeleteConversation as any;
+
+let updateMutate: any, delMutate: any;
 
 beforeEach(() => {
   updateMutate = vi.fn();
-  delMutate    = vi.fn((_id, opts) => opts?.onSuccess?.());
-  useUpdateConversation.mockReturnValue({ mutate: updateMutate });
-  useDeleteConversation.mockReturnValue({ mutate: delMutate });
+  delMutate    = vi.fn((_id: any, opts: any) => opts?.onSuccess?.());
+  mockUseUpdateConversation.mockReturnValue({ mutate: updateMutate });
+  mockUseDeleteConversation.mockReturnValue({ mutate: delMutate });
   usePaneStore.setState({ activeConv: null, openPanes: [] });
   useToastStore.setState({ toasts: [] });
 });

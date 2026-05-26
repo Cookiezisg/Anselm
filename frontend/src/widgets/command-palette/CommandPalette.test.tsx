@@ -23,7 +23,7 @@ vi.mock("@entities/flowrun", () => ({
 }));
 
 import { usePaneStore, useOverlayStore } from "@app/model";
-import { CommandPalette } from "./CommandPalette.jsx";
+import { CommandPalette } from "./CommandPalette.tsx";
 
 function makeProps(overrides = {}) {
   const pane = usePaneStore.getState();

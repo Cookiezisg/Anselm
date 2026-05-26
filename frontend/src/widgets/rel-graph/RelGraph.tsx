@@ -9,12 +9,12 @@
 //   - 拖节点、滚轮缩放、画布平移
 //   - 右侧 detail 面板列出入/出引用，点开跳转
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
-import { FloatingInspector } from "../../shared/ui/FloatingInspector.jsx";
+import { FloatingInspector } from "../../shared/ui/FloatingInspector.tsx";
 import { useNeighborhood } from "@entities/relation";
 import { navigate } from "@shared/lib/navigation";
 import { useEntityDirectory, normEdges, guessKind } from "@features/entity-link";
@@ -49,7 +49,10 @@ const REL_LABEL_KEYS = {
 };
 
 // ── Force-directed canvas ────────────────────────────────────────────────
-function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height }) {
+function GraphCanvas({ nodes, edges, focusId, selected, onSelect, width, height }: {
+  nodes: any[]; edges: any[]; focusId?: string; selected: string | null;
+  onSelect: (id: string) => void; width: number; height: number;
+}) {
   const positions = useRef({});
   const velocities = useRef({});
   const dragRef = useRef(null);
@@ -277,7 +280,7 @@ function adjacency(entityId, allEdges, allNodes) {
   return { incoming, outgoing };
 }
 
-function NodeDetail({ node, allNodes, allEdges, onSelect }) {
+function NodeDetail({ node, allNodes, allEdges, onSelect }: { node: any; allNodes: any[]; allEdges: any[]; onSelect: (id: string) => void }) {
   const { t } = useTranslation("misc");
 
   // Rendered inside a FloatingInspector — drop our own outer container.
@@ -318,7 +321,7 @@ function NodeDetail({ node, allNodes, allEdges, onSelect }) {
     </>
   );
 }
-function AdjacencySection({ label, list, onSelect, t }) {
+function AdjacencySection({ label, list, onSelect, t }: { label: string; list: any[]; onSelect: (id: string) => void; t: any }) {
   if (list.length === 0) return null;
   return (
     <div className="rg-section">
@@ -343,7 +346,7 @@ function AdjacencySection({ label, list, onSelect, t }) {
 }
 
 // ── Auto-size host ───────────────────────────────────────────────────────
-function RGAutoSize({ children }) {
+function RGAutoSize({ children }: { children: (w: number, h: number) => React.ReactNode }) {
   const ref = useRef(null);
   const [size, setSize] = useState({ w: 600, h: 500 });
   useEffect(() => {
@@ -402,7 +405,7 @@ export function RelGraph() {
                   else n.add(k);
                   return n;
                 })}
-                style={{ "--kc": KIND_COLOR[k] }}>
+                style={{ "--kc": KIND_COLOR[k] } as React.CSSProperties}>
                 <span className="rg-kind-dot" />
                 {kindLabel(k)}
               </button>
@@ -438,15 +441,16 @@ export function RelGraph() {
 }
 
 // ── Mini popover focused on a single entity ──────────────────────────────
-export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
+export function RelGraphPopover({ entityId, kind, onClose, paneEl }: { entityId: string; kind?: string; onClose: () => void; paneEl?: Element | null }) {
   const { t } = useTranslation("misc");
   const { nodes: allNodes } = useEntityDirectory();
   const { data: nb } = useNeighborhood({ kind: kind || guessKind(entityId), id: entityId, depth: 2 });
+  const nbAny = nb as any;
   const nodes = useMemo(() => {
-    const ids = new Set([entityId, ...(nb?.nodes || []).map((n) => n.id || n.entityId)]);
+    const ids = new Set([entityId, ...(nbAny?.nodes || []).map((n: any) => n.id || n.entityId)]);
     return allNodes.filter((n) => ids.has(n.id));
   }, [allNodes, nb, entityId]);
-  const edges = useMemo(() => normEdges(nb?.edges || nb?.relations || []), [nb]);
+  const edges = useMemo(() => normEdges(nbAny?.edges || nbAny?.relations || []), [nb]);
   const [selected, setSelected] = useState(entityId);
   const selectedNode = nodes.find((n) => n.id === selected);
 
@@ -486,7 +490,7 @@ export function RelGraphPopover({ entityId, kind, onClose, paneEl }) {
 }
 
 // ── "..." trigger that opens RelGraphPopover ─────────────────────────────
-export function RelMore({ entityId, kind, label }) {
+export function RelMore({ entityId, kind, label }: { entityId: string; kind?: string; label?: string }) {
   const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
   const [paneEl, setPaneEl] = useState(null);

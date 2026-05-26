@@ -17,7 +17,14 @@ import { useForgeIterate } from "@features/forge-iterate";
 import { navigate } from "@shared/lib/navigation";
 import { slideUp } from "@shared/lib/motion";
 
-export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
+interface AskAiTriggerProps {
+  kind: string;
+  entityId: string;
+  context?: string;
+  suggestions?: string[];
+}
+
+export function AskAiTrigger({ kind, entityId, context, suggestions = [] }: AskAiTriggerProps) {
   const { t } = useTranslation("misc");
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
@@ -59,7 +66,7 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
         {open && (
           <motion.div
             className="ask-ai-pop"
-            {...slideUp}
+            {...(slideUp as any)}
             transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <div className="ask-ai-pop-head">

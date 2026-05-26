@@ -1,1 +1,1 @@
-export { EntityLink } from "./EntityLink.jsx";
+export { EntityLink } from "./EntityLink.tsx";

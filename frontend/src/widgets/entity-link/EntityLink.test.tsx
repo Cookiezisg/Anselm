@@ -11,7 +11,9 @@ vi.mock("./useEntityName", () => ({
 }));
 
 import { useEntityName } from "./useEntityName";
-import { EntityLink } from "./EntityLink.jsx";
+import { EntityLink } from "./EntityLink.tsx";
+
+const mockUseEntityName = useEntityName as any;
 
 beforeEach(() => {
   usePaneStore.setState({
@@ -24,7 +26,7 @@ beforeEach(() => {
     openPane: (pane) => usePaneStore.getState().openPane(pane),
     setActiveDocument: (id) => { usePaneStore.getState().setActiveDocument(id); usePaneStore.getState().openPane("documents"); },
   });
-  useEntityName.mockReturnValue(null);
+  mockUseEntityName.mockReturnValue(null);
 });
 
 describe("EntityLink", () => {
@@ -34,13 +36,13 @@ describe("EntityLink", () => {
   });
 
   it("resolvedName_displaysHumanName", () => {
-    useEntityName.mockReturnValue("My Function");
+    mockUseEntityName.mockReturnValue("My Function");
     render(<EntityLink id="fn_abc" />);
     expect(screen.getByText("My Function")).toBeInTheDocument();
   });
 
   it("title_includesIdEvenWhenNameResolved", () => {
-    useEntityName.mockReturnValue("My Function");
+    mockUseEntityName.mockReturnValue("My Function");
     const { container } = render(<EntityLink id="fn_abc" />);
     expect(container.querySelector("button").title).toContain("fn_abc");
     expect(container.querySelector("button").title).toContain("My Function");
