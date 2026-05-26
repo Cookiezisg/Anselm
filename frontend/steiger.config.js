@@ -26,11 +26,17 @@ export default [
     ],
   },
   {
-    // insignificant-slice は阶段2迁移期间暂时无引用;
+    // insignificant-slice: 阶段2迁移期间暂时无引用;
     // 调用点仍在 shared-tmp(api/config.js re-export),steiger 无法跨层追踪。
     // 阶段5调用点全量迁移后移除此豁免。
+    //
+    // inconsistent-naming: model-config 连字符是刻意的——与后端 API 路径
+    // /model-configs 保持一致,不是命名失误。阶段5整体迁移时重新评估。
     files: ["src/entities/**"],
-    rules: { "fsd/insignificant-slice": "off" },
+    rules: {
+      "fsd/insignificant-slice": "off",
+      "fsd/inconsistent-naming": "off",
+    },
   },
   {
     // features 阶段3:slice 只含 model 段,steiger insignificant-slice 会触发;

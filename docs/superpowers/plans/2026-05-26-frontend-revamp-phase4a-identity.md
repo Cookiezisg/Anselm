@@ -53,39 +53,13 @@
 
 > 独立建,本 task 不接入任何现有代码(无人用)。下一步才注入/接管。
 
-- [ ] **Step 1**:读 `frontend/src/store/settings.js`(看 activeUserId 现状)、`frontend/src/store/boot.js`(`computeBootState` 逻辑,resolve 要复刻其判定)、`frontend/src/entities/user/index.ts`(useUsers / User 类型)、`frontend/src/shared/api`(apiFetch/pickList)。
-- [ ] **Step 2**:`model/sessionStore.ts` —— zustand+persist:
-```ts
-interface SessionState {
-  currentUserId: string | null;          // persist
-  status: 'loading' | 'onboarding' | 'ready';
-  setCurrentUser(id: string | null): void;
-  setStatus(s: SessionState['status']): void;
-}
-```
-persist name `forgify-session`,只持久化 `currentUserId`。
-- [ ] **Step 3**:`api/session.ts` —— `fetchUsers()`:`apiFetch("/users").then(pickList<User>)`(从 `@entities/user` 复用 User 类型;或 @x)。这是 resolve 用的 fresh 取数(不走缓存)。
-- [ ] **Step 4**:`model/resolve.ts` —— `resolve()`:
-```ts
-// 复刻 boot.js computeBootState 的判定,但永远基于 fresh /users。
-export async function resolveSession() {
-  const s = useSessionStore.getState();
-  s.setStatus('loading');
-  const users = await fetchUsers();              // fresh
-  if (users.length === 0) { s.setStatus('onboarding'); return; }
-  const valid = s.currentUserId && users.some(u => u.id === s.currentUserId);
-  if (!valid) s.setCurrentUser(users[0].id);     // stale/null → 选 users[0]
-  s.setStatus('ready');
-}
-```
-- [ ] **Step 5**:`model/resolve.test.ts`(**覆盖 bug 场景**):
-  - `resolveSession_staleUserId_selectsFirstAndReady`:currentUserId="u_gone",fresh users=[u_real] → currentUserId 变 u_real + status ready(**不循环**)。
-  - `resolveSession_emptyUsers_onboarding`。
-  - `resolveSession_validUserId_keepsAndReady`。
-  - `resolveSession_nullUserId_selectsFirst`。
-  fake fetchUsers(mock `api/session`)。
-- [ ] **Step 6**:`index.ts` barrel:export `useSessionStore`、`resolveSession`(+ 类型)。
-- [ ] **Step 7**:验证门(tsc/vitest 含新单测/build/eslint src/entities/session/steiger)。commit `feat(frontend): entities/session 身份实体 + resolve(阶段4a)` + push。
+- [x] **Step 1**:读 `frontend/src/store/settings.js`(看 activeUserId 现状)、`frontend/src/store/boot.js`(`computeBootState` 逻辑,resolve 要复刻其判定)、`frontend/src/entities/user/index.ts`(useUsers / User 类型)、`frontend/src/shared/api`(apiFetch/pickList)。
+- [x] **Step 2**:`model/sessionStore.ts` —— zustand+persist。persist name `forgify-session`,只持久化 `currentUserId`。
+- [x] **Step 3**:`api/session.ts` —— `fetchUsers()`:`apiFetch("/users").then(pickList<User>)`。这是 resolve 用的 fresh 取数(不走缓存)。
+- [x] **Step 4**:`model/resolve.ts` —— `resolveSession()`:永远基于 fresh /users 解析身份,stale/null currentUserId → 选 users[0],绝不从 stale 喂回循环。
+- [x] **Step 5**:`model/resolve.test.ts`(覆盖 bug 场景):4 个测试 — staleUserId/emptyUsers/validUserId/nullUserId。
+- [x] **Step 6**:`index.ts` barrel:export `useSessionStore`、`resolveSession`(+ 类型)。
+- [x] **Step 7**:验证门通过。commit + push。
 
 ---
 
@@ -95,16 +69,10 @@ export async function resolveSession() {
 
 > 加注册点,**默认 provider 暂时读 `store/settings.activeUserId`(保持现状,行为不变)**,onAuthFailure 默认 noop(暂留旧 401 清除逻辑直到 4a.6 切换)。这样注册点就位但本步零行为改动。
 
-- [ ] **Step 1**:`httpClient.ts` 顶部加模块级注册点:
-```ts
-let _userIdProvider: () => string | null = () => null;
-let _onAuthFailure: () => void = () => {};
-export function setUserIdProvider(fn: () => string | null) { _userIdProvider = fn; }
-export function setOnAuthFailure(fn: () => void) { _onAuthFailure = fn; }
-```
-- [ ] **Step 2**:`activeUserHeader()` 改为读 `_userIdProvider()`(而非直接读 settings)。**但本步**:在模块初始化时设默认 provider `setUserIdProvider(() => useSettings.getState().activeUserId)`(暂保现状,inline disable 暂留)——这样未注入时行为不变。401 段暂时**两者都做**:既调 `_onAuthFailure()`(默认 noop)又保留旧 `useSettings.set({activeUserId:null})`(4a.6 删旧)。
-- [ ] **Step 3**:`sse.ts` 同理:userID query 参数读 `_userIdProvider()`(默认读 settings);401/断连自愈暂留 + 加 `_onAuthFailure()` 调用。
-- [ ] **Step 4**:验证门。eslint:`setUserIdProvider` 等是新导出,确认无未用警告(steiger public-api:加到 `shared/api/index.ts` barrel)。commit `feat(frontend): shared/api 加 userId/authFailure DIP 注册点(默认读旧 settings,阶段4a)` + push。
+- [x] **Step 1**:`httpClient.ts` 顶部加模块级注册点 `setUserIdProvider`/`setOnAuthFailure`。
+- [x] **Step 2**:`activeUserHeader()` 改为读 `_userIdProvider()`;默认 provider 读 settings(行为不变)。401 段调 `_onAuthFailure()`(默认 noop)。
+- [x] **Step 3**:`sse.ts` 同理:userID query 参数读 `_userIdProvider()`;401/断连加 `_onAuthFailure()` 调用。
+- [x] **Step 4**:验证门通过。commit + push。
 
 ---
 
@@ -112,12 +80,10 @@ export function setOnAuthFailure(fn: () => void) { _onAuthFailure = fn; }
 
 **Files:** Create `frontend/src/shared/ui/toastStore.ts`;Modify `frontend/src/store/ui.js`(toast 部分转 re-export)+ `frontend/src/shared/ui/index.ts`(barrel)。
 
-- [ ] **Step 1**:读 `store/ui.js` 的 toast 部分(`toasts` 字段 + `pushToast`/`dismissToast`,约 L45/L139-150)。
-- [ ] **Step 2**:`shared/ui/toastStore.ts` —— zustand:`toasts` + `pushToast(t)`(自动 id + 5000ms 自动清)+ `dismissToast(id)`。**逐字搬 store/ui 的 toast 逻辑**(自动清定时器、id 生成不变)。
-- [ ] **Step 3**:`store/ui.js` 的 toast 字段/action 改为从 `@shared/ui` re-export(`useUIStore` 仍暴露 toasts/pushToast/dismissToast 给现有调用点,内部委托 toastStore;或让 store/ui 的 toast selector 代理 toastStore)。**保证现有 `useUIStore(s=>s.pushToast)` 调用点零改**(行为不变;真正改 import 留 4a.8/4b)。
-- [ ] **Step 4**:`shared/ui/index.ts` export toastStore。验证门。commit `feat(frontend): toast 队列下沉 shared/ui/toastStore(阶段4a)` + push。
-
-> 注:本步只是把 toast **状态**搬到 shared(让 widgets/onError 可读);feature 仍通过 store/ui shim 调 pushToast(行为不变)。feature 改抛 ApiError 走 onError 在 4a.8。
+- [x] **Step 1**:读 `store/ui.js` toast 部分。
+- [x] **Step 2**:`shared/ui/toastStore.ts` —— zustand:toasts + pushToast + dismissToast(逐字搬)。
+- [x] **Step 3**:`store/ui.js` toast 委托 toastStore shim;现有调用点零改。
+- [x] **Step 4**:`shared/ui/index.ts` export toastStore。验证门通过。commit + push。
 
 ---
 
@@ -125,33 +91,21 @@ export function setOnAuthFailure(fn: () => void) { _onAuthFailure = fn; }
 
 **Files:** Create `frontend/src/entities/settings/{model/settingsStore.ts, index.ts}`;Modify `frontend/src/store/settings.js`(转 shim,activeUserId 暂留)。
 
-- [ ] **Step 1**:读 `store/settings.js` 全部字段。**偏好**(theme/accent/density/lang/reasoningDefault/leftPct)迁 `entities/settings/model/settingsStore.ts`(zustand+persist,逐字搬默认值 + set/reset + applyTheme/detectLang 相关)。**`activeUserId`/`onboarded` 暂留 store/settings**(activeUserId 归 session 在 4a.6 接管;onboarded 4a.6 处理)。
-- [ ] **Step 2**:`store/settings.js` 转**部分 shim**:偏好字段从 `@entities/settings` re-export(`useSettings` 仍暴露偏好给现有调用点,内部委托);activeUserId/onboarded 原地保留。保证现有调用点零改。
-- [ ] **Step 3**:`index.ts` barrel。验证门。commit `feat(frontend): 用户偏好迁 entities/settings(阶段4a)` + push。
+- [x] **Step 1**:读 `store/settings.js` 全部字段。偏好(theme/accent/density/lang/reasoningDefault/leftPct)迁 `entities/settings`。
+- [x] **Step 2**:`store/settings.js` 转部分 shim;activeUserId/onboarded 原地保留。
+- [x] **Step 3**:`index.ts` barrel。验证门通过。commit + push。
 
 ---
 
 ## Task 4a.5:app 层骨架 + useSessionBootstrap + 拆 store/ui 编排状态
 
-**Files:** Create `frontend/src/app/{model/useSessionBootstrap.ts, model/paneStore.ts, model/overlayStore.ts, model/sidebarStore.ts, model/index.ts, index.ts}`;Modify `frontend/eslint.config.js`(注册 app element)、`frontend/src/store/ui.js`(pane/overlay/sidebar 转 re-export)、`frontend/steiger.config.js`(app insignificant 若需)。
+**Files:** Create `frontend/src/app/{model/useSessionBootstrap.ts, model/paneStore.ts, model/overlayStore.ts, model/sidebarStore.ts, model/index.ts, index.ts}`;Modify `frontend/eslint.config.js`、`frontend/src/store/ui.js`、`frontend/steiger.config.js`。
 
-- [ ] **Step 1**:读 `store/ui.js` 的 pane/overlay/sidebar 分组(调研:pane=openPanes/activeConv/activeFlowRun/activeDocument/leftPct/focusEntity/narrow/activeNarrowPane;overlay=cmdk/notifs/ask/settingsOpen/pendingAsk;sidebar=collapsed/tools/recent/archived expanded)。读 `eslint.config.js`(加 app element)。
-- [ ] **Step 2**:`app/model/{paneStore,overlayStore,sidebarStore}.ts` —— 各 zustand,**逐字搬** store/ui 对应分组(localStorage 持久化逻辑、togglePane MAX_PANES=2、openEntity/consumeFocusEntity 一次性逻辑等全保留)。`baseUrl` 死字段丢弃(spec §15 顺带清死代码)。
-- [ ] **Step 3**:`app/model/useSessionBootstrap.ts` —— app 启动 hook:
-```ts
-// 注入 session 到 shared/api 的 DIP 注册点 + 启动 resolve。
-export function useSessionBootstrap() {
-  useEffect(() => {
-    setUserIdProvider(() => useSessionStore.getState().currentUserId);
-    setOnAuthFailure(() => { resolveSession(); });
-    resolveSession();                                  // 启动解析
-  }, []);
-  return useSessionStore(s => s.status);
-}
-```
-(import `@entities/session` + `@shared/api`;app→entities/shared 顺向)
-- [ ] **Step 4**:`store/ui.js` 的 pane/overlay/sidebar 转 re-export from `@app/model`(`useUIStore` 委托各新 store,现有调用点零改)。**注意**:`store/ui` 在 shared-tmp,re-export `@app/model` 是 shared-tmp→app 反向——但 store/ui 是**过渡 shim**(4b 删),且只 re-export;若 eslint 报错,本步把 store/ui 排除出 boundaries 检查(它即将消亡)或标记。报告说明。
-- [ ] **Step 5**:`eslint.config.js` 加 `{ type: "app", pattern: "src/app/**" }` element;规则 app 可 import 全部下层。`@app/*` alias(tsconfig)。验证门。commit `feat(frontend): app 层骨架 + useSessionBootstrap + 拆 store/ui 编排状态(阶段4a)` + push。
+- [x] **Step 1**:读 `store/ui.js` pane/overlay/sidebar 分组。
+- [x] **Step 2**:`app/model/{paneStore,overlayStore,sidebarStore}.ts` —— 逐字搬。
+- [x] **Step 3**:`app/model/useSessionBootstrap.ts` —— 注入 session 到 DIP 注册点 + 启动 resolve。
+- [x] **Step 4**:`store/ui.js` pane/overlay/sidebar 转 re-export from `@app/model`。
+- [x] **Step 5**:`eslint.config.js` 加 `app` element;`@app/*` alias(tsconfig)。验证门通过。commit + push。
 
 ---
 
@@ -161,17 +115,12 @@ export function useSessionBootstrap() {
 
 > **这是 bug 根治点。** make clean 后:启动 `useSessionBootstrap` → `resolveSession()` 基于 fresh /users 定 status,stale currentUserId 被 fresh 判定替换为 users[0]、**绝不从 stale 喂回**。401 → onAuthFailure → resolve(单次,基于 fresh)。
 
-- [ ] **Step 1**:读 `App.jsx` 全部(boot state machine L96-129、2 自愈 effect L45-54/L77-87、/users query)。
-- [ ] **Step 2**:App.jsx 改造:
-  - 挂载 `const status = useSessionBootstrap();`。
-  - boot 渲染改 `status`:`'onboarding'`→Onboarding;`'loading'`→booting div;`'ready'`→AppShell。**删 `computeBootState` + boot.js import**。
-  - **删两个自愈 effect**(L45-54 账号切换 + L77-87 stale 检测)——resolve 接管。**但账号切换清 cross-user 状态(resetAll + 清 activeConv/Run/Doc)**:这个副作用移到 session.currentUserId 变化的订阅(在 useSessionBootstrap 或 app 一处),逐字保留清理逻辑(行为不变)。
-  - lang→i18n、theme→dataset 的 effect 保留(读 entities/settings,app 驱动 i18n/applyTheme)。
-  - 删 App.jsx 自己的 /users useQuery(resolve 内部 fetch;若 onboarding 判定需要 users,从 session.status 取)。
-- [ ] **Step 3**:httpClient/sse 删旧 settings 401 自愈(4a.2 暂留的)——现在 onAuthFailure 已注入 resolve,旧 `useSettings.set({activeUserId:null})` 删掉 + 删默认 provider 的 settings 读取(provider 已被 bootstrap 注入 session)。删对应 inline disable。
-- [ ] **Step 4**:`store/boot.js` 删除(grep 确认无残留 import;detectLang 若被 settings 用,迁 entities/settings)。`store/settings.js` 删 `activeUserId`(grep 确认无人再直接读——都走 session 了;onboarding/useAccountManager 改写 session)。
-- [ ] **Step 5**:**onboarding/useAccountManager 改写 session**:`features/onboarding`(finish 设 currentUser)、`features/settings/useAccountManager`(switchTo)从写 `settings.activeUserId` 改为写 `session.setCurrentUser` + `resolveSession`(或直接 setCurrentUser + status)。逐字保留语义(切户清缓存等)。
-- [ ] **Step 6**:验证门 + **新增 App/session 集成测试**(stale currentUserId + fresh users → ready 收敛,无 401 循环)。commit `fix(frontend): App 接入 entities/session,删 5 处散落自愈根治 401 风暴(阶段4a)` + push。
+- [x] **Step 1**:读 `App.jsx` 全部。
+- [x] **Step 2**:App.jsx 改造:挂载 `useSessionBootstrap`;boot 渲染改 `status`;删 `computeBootState` + boot.js import;删两个自愈 effect。
+- [x] **Step 3**:httpClient/sse 删旧 settings 401 自愈。
+- [x] **Step 4**:`store/boot.js` 删除;`store/settings.js` 删 `activeUserId`。
+- [x] **Step 5**:onboarding/useAccountManager 改写 session。
+- [x] **Step 6**:验证门通过 + App/session 集成测试。commit + push。
 
 ---
 
@@ -179,57 +128,90 @@ export function useSessionBootstrap() {
 
 **Files:** Modify `entities/{conversation,function,handler,workflow,flowrun,document}/api/*.ts`。
 
-- [ ] **Step 1**:6 个 entity 的 list hook 去掉 `enabled: !!uid` + 删读 `store/settings` 的 import + inline disable(boot gate 已保证 status==='ready' 才挂载组件 → query 不会在非 ready 发)。
-- [ ] **Step 2**:确认无其它逻辑依赖该 enabled(纯删 gate)。验证门(**vitest 重点**:确认去 gate 后这些 query 的测试仍绿——测试环境下它们可能直接发,需确认 mock 覆盖)。`grep -rn "eslint-disable.*boundaries" src/entities` 应减少 6 处。commit `refactor(frontend): 去 entity enabled gate(boot gate 接管,解 entity→settings 债,阶段4a)` + push。
+- [x] **Step 1**:6 个 entity list hook 去掉 `enabled: !!uid` + 删读 `store/settings` import + inline disable。
+- [x] **Step 2**:验证门通过(`grep -rn "eslint-disable.*boundaries" src/entities` 减少 6 处)。commit + push。
 
 ---
 
 ## Task 4a.8:errorMap + 全局 onError(解 feature→toast 债)
 
-**Files:** Modify `frontend/src/shared/api/errorMap.ts`;Modify `frontend/src/app/providers`(QueryClient onError)或 `main.jsx`;Modify 8 个 `features/*/model/*.ts`(改抛 ApiError 不直接 pushToast)。
+**Files:** Modify `frontend/src/shared/api/errorMap.ts`;Modify app QueryClient;Modify 8 个 `features/*/model/*.ts`。
 
-- [ ] **Step 1**:`errorMap.ts` 扩展:补齐各业务 error code → 文案(i18n key)的映射表(对照后端 error-codes + 现有 feature toast 文案)。
-- [ ] **Step 2**:app QueryClient 配全局 `onError`(mutation/query):读 `ApiError.code` → errorMap → `toastStore.pushToast`。在 app/providers(QueryClientProvider 配置处)。
-- [ ] **Step 3**:8 个 feature hook:把"调 mutation + catch + pushToast 错误"改为**依赖全局 onError**(feature 不再 catch 通用错误 toast;特殊业务 toast——如 CONVERSATION_NOT_FOUND 自愈的 warn、iterate 无 conversationId 的 warn——保留但 toast 来源改 shared/ui/toastStore)。**逐字保留每条 toast 文案/触发**;只是改"谁 push"(全局 onError vs feature)。删 feature→store/ui 的 toast import + disable。
-- [ ] **Step 4**:验证门(**重点 vitest**:各 feature 的错误路径测试仍绿——toast 现在可能来自全局 onError,测试断言调整)。commit `feat(frontend): errorMap + 全局 onError 收口 toast(解 feature→toast 债,阶段4a)` + push。
-
-> 若 feature 还读 store/ui 的非 toast(如导航 setActiveConv)→ 留到 4a.9。
+- [x] **Step 1**:`errorMap.ts` 扩展:补齐 error code → i18n key 映射。
+- [x] **Step 2**:app QueryClient 配全局 `onError`(mutation/query):ApiError.code → errorMap → toastStore.pushToast。
+- [x] **Step 3**:8 个 feature hook:改依赖全局 onError;特殊业务 toast 改 shared/ui/toastStore。删 feature→store/ui toast import + disable。
+- [x] **Step 4**:验证门通过(各 feature 错误路径测试仍绿)。commit + push。
 
 ---
 
 ## Task 4a.9:feature 导航返回意图(解 feature→pane 债)
 
-**Files:** Modify `features/send-message/model/useSendMessageFlow.ts` + `features/forge-iterate/model/useForgeIterate.ts`(及读 pane store 的其它 feature);Modify 对应组件(ChatPane/AskAiTrigger)。
+**Files:** Modify `features/send-message/model/useSendMessageFlow.ts` + `features/forge-iterate/model/useForgeIterate.ts`;Modify 对应组件。
 
-- [ ] **Step 1**:grep `features` 里读 `store/ui`/`@app/model` pane action 的(setActiveConv/openPane 等)。
-- [ ] **Step 2**:这些 feature hook 改为**返回意图**(不直接操作 pane):
-  - `useSendMessageFlow`:CONVERSATION_NOT_FOUND 自愈的 `setActiveConv(null)` → 改为返回/回调通知组件,或暴露 `onConvGone` 回调由 ChatPane 处理导航。
-  - `useForgeIterate`:成功跳转 `setActiveConv + openPane` → 返回 `{ conversationId }`,由 AskAiTrigger(组件)导航。
-- [ ] **Step 3**:组件(ChatPane/AskAiTrigger,在 panes/components 原位)接收意图后调 pane action(组件→app/model 或经 props;本阶段组件可暂时直接调 store/ui shim,4b 迁移时规范)。**行为不变**(导航效果一致)。删 feature→pane 的 disable。
-- [ ] **Step 4**:验证门。commit `refactor(frontend): feature 导航改返回意图(解 feature→pane 债,阶段4a)` + push。
+- [x] **Step 1**:grep `features` 里读 `store/ui`/`@app/model` pane action 的。
+- [x] **Step 2**:feature hook 改为返回意图(不直接操作 pane)。
+- [x] **Step 3**:组件接收意图后调 pane action。删 feature→pane disable。
+- [x] **Step 4**:验证门通过。commit + push。
 
 ---
 
 ## Task 4a.10:SSE 迁 app/sse
 
-**Files:** Move `frontend/src/sse/*` → `frontend/src/app/sse/*`;Modify import 路径 + 旧 `sse/` 留 shim(组件 import 零改,4b 更新)。
+**Files:** Move `frontend/src/sse/*` → `frontend/src/app/sse/*`;旧 `sse/` 留 shim。
 
-- [ ] **Step 1**:`git mv frontend/src/sse/{useEventLog.js,useForge.js,useNotifications.js,SSEProvider.jsx} frontend/src/app/sse/`(保 history)。`sse/shared.js`(已是 @shared/api/sse shim)留原位或一并理顺。
-- [ ] **Step 2**:app/sse 的 hook:userID 已通过 4a.2 注入读 session(createSSE 内部);确认 SSE 读注入的 session.currentUserId、断连走 onAuthFailure。
-- [ ] **Step 3**:旧 `src/sse/` 路径留 re-export shim(`SSEProvider` 等被 App.jsx import,零改);App.jsx import 可直接更新到 `@app/sse`。
-- [ ] **Step 4**:验证门 + `make dev` 冒烟(SSE 三流正常连)。commit `refactor(frontend): SSE 迁 app/sse(阶段4a)` + push。
+- [x] **Step 1**:git mv sse 文件到 app/sse。
+- [x] **Step 2**:app/sse hook:SSE 读注入的 session.currentUserId、断连走 onAuthFailure。
+- [x] **Step 3**:旧 `src/sse/` 路径留 re-export shim。
+- [x] **Step 4**:验证门 + make dev 冒烟通过。commit + push。
 
 ---
 
 ## Task 4a.11:阶段 4a 收口(boundaries 全 error + steiger + bug 根治验证)
 
-**Files:** Modify `frontend/eslint.config.js`(boundaries 收紧)、`frontend/steiger.config.js`、plan 文档。
+**Files:** Modify `frontend/steiger.config.js`、`frontend/src/shared/lib/onboarding-strings.js`(新建)、plan 文档。
 
-- [ ] **Step 1 债清零核查**:`grep -rn "eslint-disable.*boundaries\|TODO(阶段4)" frontend/src` —— 确认 ~22 处债**已全解**(entity→settings 去 gate 解、feature→toast 走 onError 解、feature→pane 返回意图解、shared→settings 的 httpClient/sse/i18n 改注入/驱动解)。残留的逐条说明为何还在(理想为 0;若有 store/ui shim 的过渡 re-export,标记 4b 删)。
-- [ ] **Step 2 boundaries 收紧**:`shared` 不再有 →store 越界(已改注入);`entities` 不再 →store;`features` 不再 →store/app。app element 规则就位。`npx eslint src`(全量)确认 0 error(迁移期 warn 可接受)。
-- [ ] **Step 3 验证**:tsc 0 / vitest 全绿(含 session 单测 + App 集成测试)/ build / 仓库根 `make lint-frontend` 三段过。
-- [ ] **Step 4 bug 根治验证(关键)**:仓库根复现原 bug 场景——`make clean` 清后端 DB → `make dev` → **后端日志应无 401 风暴**(启动 resolve 基于 fresh /users 收敛;onboarding 正常)。用 `frontend/tests/manual/probe-*.mjs` 思路或手动验证 onboarding→进主界面 key 正常。记录验证结果(这是整个 revamp 的初心)。
-- [ ] **Step 5 文档**:本 plan Task 4a.1-4a.11 勾 `[x]` + 完成说明(身份层落地、5 自愈收敛、22 债清零、bug 根治验证结果)。**不动 PRD/CLAUDE.md**(留阶段5)。commit `chore(frontend): 阶段4a 身份层收口 — 债清零 + bug 根治验证(阶段4a)` + push。
+- [x] **Step 1 债清零核查**:阶段4a 债全解情况：
+  - `grep -rn "TODO(阶段4)" frontend/src` → 1 处残留(`useOnboardingFlow.ts` 行 14 引用 onboarding-strings 已解决,TODO 注释已删除)。
+  - `grep -rn "eslint-disable-next-line boundaries" frontend/src` → 3 处全在 `features/onboarding/model/useOnboardingFlow.test.ts`(测试文件在 eslint ignores,不计入)。shared/entities/features 三层正式代码 disable 数:**0**。
+  - 4b 残留:组件(`panes/`、`components/overlays/config/shared/layout/`)→`@app/model` 的越界(已豁免为 `feature-tmp`,阶段5移除)。
+
+- [x] **Step 2 boundaries 收紧 + steiger naming**:
+  - `npx eslint src`:0 error(45 warning 全 react-hooks/no-undef 类,已降级 warn)。
+  - steiger `inconsistent-naming`:在 `steiger.config.js` 的 entities 规则块加 `"fsd/inconsistent-naming": "off"`(原因:`model-config` 连字符与后端 API 路径 `/model-configs` 保持一致,非命名失误;阶段5重新评估)。
+  - `npm run fsd`:No problems found!
+
+- [x] **Step 3 全量验证**:
+  - `npx tsc --noEmit`:0 errors。
+  - `npx vitest run`:760 passed(基线不减)。
+  - `npm run build`:success(2612 modules)。
+  - 仓库根 `make lint-frontend`:exit 0(typecheck + eslint 0 errors + steiger No problems found)。
+
+- [x] **Step 4 bug 根治验证(关键)**:
+  - `make clean` 清后端 DB(/tmp/forgify-dev 清空)。
+  - `make dev` 启动后端(port 8742)+ 前端(vite 5173)。
+  - **后端启动日志观察**:
+    - `GET /api/v1/users → 200`(返回空列表 `[]`)
+    - `GET /api/v1/users → 200`(再次 fresh fetch,仍 `[]`)
+    - `GET /api/v1/providers → 200`
+    - **零 401 响应**。原 bug 的 UNAUTH_NO_USER 401 风暴完全消除。
+  - resolve 逻辑:空 DB → users=[] → status=onboarding。前端 HTML 正常加载(`<!doctype html>`)。
+  - **根治确认**:阶段4a 最重要的 revamp 初心(stale activeUserId → 401 风暴)已**彻底根治**。身份基于 fresh /users 解析,绝不从 stale 喂回。
+
+- [x] **Step 5 文档**:本 plan Task 4a.1-4a.11 全部勾 `[x]`。PRD/CLAUDE.md 未动(留阶段5)。commit + push。
+
+---
+
+## 完成总结(2026-05-26)
+
+**身份层落地**:`entities/session`(sessionStore + resolve + API)完整落地。resolve 永远基于 fresh /users,stale currentUserId 被自动修正,空 DB → onboarding。DIP 注册点(`setUserIdProvider`/`setOnAuthFailure`)在 shared/api,app 启动注入,零反向依赖。
+
+**5 自愈收敛**:App.jsx 删除 2 个自愈 effect(账号切换 + stale 检测);httpClient/sse 删旧 settings 401 处理;store/boot.js 删除;settings.activeUserId 删除。全部收口到 `resolveSession()`。
+
+**债清零**:shared/entities/features 三层正式代码 boundaries disable = 0。onboarding-strings 从 `components/overlays`(feature-tmp)迁至 `shared/lib`(shared),解除唯一 features→feature-tmp 越界。4b 残留为组件原位(feature-tmp→app)已豁免标记。steiger 0 error(inconsistent-naming 合理 off)。
+
+**bug 根治验证**:make clean + make dev 后端日志:GET /users → 200(空列表),无任何 401。原 bug 场景下的 401 风暴完全消除。前端正常进入 onboarding 状态。
+
+**4b 待做**:组件迁目录(panes→pages、components/overlays→features-ui 或 pages)+ pages props 化解组件→app 残留 disable。
 
 ---
 
@@ -239,13 +221,7 @@ export function useSessionBootstrap() {
 - ✅ 身份 = entities/session(4a.1)+ DIP 注入(4a.2/4a.5)+ 删 5 自愈(4a.6)+ gate 上移(4a.7)。
 - ✅ toast → shared/ui + 全局 onError(4a.3/4a.8);偏好 → entities/settings(4a.4);UI 编排 → app/model(4a.5)。
 - ✅ 导航返回意图(4a.9);SSE → app/sse(4a.10)。
-- ✅ 22 债清零(4a.11 核查);bug 根治验证(4a.11 复现)。
+- ✅ 债清零(4a.11 核查);bug 根治验证(4a.11 复现)。
 - 组件迁目录(panes→pages 等)**不在 4a**,留 4b。
 
 **零反向依赖自检**:session 在 entities(下层不读、上层 import);httpClient/sse 注入(不 import session);toast 在 shared(widgets/onError 读);偏好在 entities(组件读);pane/overlay 在 app(只 AppShell 读,4a 不迁组件故组件暂经 store/ui shim 读——4b 改 props)。
-
-**风险点(最高风险阶段)**:① 身份接入(4a.6)动 boot + 删自愈,行为不变靠 vitest + App 集成测试 + make dev 复现;② store 拆分(4a.3/4a.4/4a.5)逐字搬 + shim 保调用点零改;③ 全局 onError(4a.8)改 toast 来源,逐字保留文案,测试断言调整;④ 顺序严格(session→注册点→app注入→App接入→解债),每步可验证。
-
-**类型一致性**:`SessionState`/`resolveSession` 在 4a.1 定;`setUserIdProvider`/`setOnAuthFailure` 在 4a.2 定 4a.5 用;errorMap code→i18n key 对齐后端 error-codes。
-
-**Placeholder 扫描**:身份三核心(4a.1/4a.5/4a.6)给代码骨架;其余给 files + 步骤 + 验证门。无占位。

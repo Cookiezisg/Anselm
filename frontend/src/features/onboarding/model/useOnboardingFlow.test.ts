@@ -66,8 +66,7 @@ vi.mock("@entities/session", () => {
   };
 });
 
-// eslint-disable-next-line boundaries/dependencies
-vi.mock("../../../components/overlays/onboarding-strings.js", () => ({
+vi.mock("@shared/lib/onboarding-strings.js", () => ({
   ACCENTS: [["claude", "#d97757"], ["blue", "#2383e2"]],
   PROVIDER_DEFAULT_MODEL: { anthropic: "claude-sonnet-4-6" },
 }));

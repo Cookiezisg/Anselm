@@ -11,9 +11,7 @@ import i18n from "@shared/lib/i18n/index.js";
 import { useCreateUser } from "@entities/user";
 import { useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
 import { useProviders, useUpsertModelConfig } from "@entities/model-config";
-// TODO(阶段4): onboarding-strings 迁入 shared/config 后修正 import
-// eslint-disable-next-line boundaries/dependencies
-import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "../../../components/overlays/onboarding-strings.js";
+import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings.js";
 import { useSessionStore } from "@entities/session";
 import { useSettingsStore } from "@entities/settings";
 import { useToastStore } from "@shared/ui/toastStore";
