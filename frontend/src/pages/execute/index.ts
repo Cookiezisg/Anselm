@@ -1,1 +1,1 @@
-export { ExecutePage } from "./ExecutePage.jsx";
+export { ExecutePage } from "./ExecutePage.tsx";

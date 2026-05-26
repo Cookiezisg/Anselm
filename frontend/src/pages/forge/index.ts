@@ -1,1 +1,1 @@
-export { ForgePage } from "./ForgePage.jsx";
+export { ForgePage } from "./ForgePage.tsx";

@@ -1,1 +1,1 @@
-export { ObservePage } from "./ui/ObservePage.jsx";
+export { ObservePage } from "./ui/ObservePage.tsx";

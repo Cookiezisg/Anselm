@@ -1,0 +1,64 @@
+// ForgePage — owns its own list ↔ detail router. focusEntity from ui
+// store can pre-open a specific entity (used by EntityLink + cmdk).
+//
+// ForgePage —— 自管 list ↔ detail；focusEntity/onConsumeFocusEntity 由
+// AppShell 经 props 传入，pages 层零 app 依赖。
+
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useFunction } from "@entities/function";
+import { useHandler } from "@entities/handler";
+import { useWorkflow } from "@entities/workflow";
+import { ForgeList } from "./ui/ForgeList.tsx";
+import { FunctionDetail } from "./ui/FunctionDetail.tsx";
+import { HandlerDetail } from "./ui/HandlerDetail.tsx";
+import { WorkflowDetail } from "./ui/WorkflowDetail.tsx";
+import { slideUp, fadeIn } from "@shared/lib/motion";
+
+interface ForgePageProps {
+  focusEntity?: any;
+  onConsumeFocusEntity: (...args: any[]) => void;
+  onOpenExecute?: (id: string) => void;
+}
+
+export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }: ForgePageProps) {
+  const [open, setOpen] = useState(null);
+  const focusId = focusEntity?.forge;
+
+  // Probe each detail endpoint when focusId is set; whichever returns
+  // first determines the kind. (Backend has separate /functions /handlers
+  // /workflows endpoints, no unified /forges lookup.)
+  const probeFn = useFunction(focusId && !open ? focusId : null);
+  const probeHd = useHandler(focusId && !open ? focusId : null);
+  const probeWf = useWorkflow(focusId && !open ? focusId : null);
+
+  useEffect(() => {
+    if (!focusId || open) return;
+    let entity = null, kind = null;
+    if (probeFn.data) { entity = probeFn.data; kind = "function"; }
+    else if (probeHd.data) { entity = probeHd.data; kind = "handler"; }
+    else if (probeWf.data) { entity = probeWf.data; kind = "workflow"; }
+    if (entity) {
+      setOpen({ ...entity, kind });
+      onConsumeFocusEntity("forge");
+    }
+  }, [focusId, open, probeFn.data, probeHd.data, probeWf.data, onConsumeFocusEntity]);
+
+  const close = () => setOpen(null);
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {open ? (
+        <motion.div key={`detail-${open.kind}-${open.id}`} {...(slideUp as any)} style={{ height: "100%" }}>
+          {open.kind === "function" && <FunctionDetail forge={open} onBack={close} />}
+          {open.kind === "handler"  && <HandlerDetail forge={open} onBack={close} />}
+          {open.kind === "workflow" && <WorkflowDetail forge={open} onBack={close} onOpenExecute={onOpenExecute} />}
+        </motion.div>
+      ) : (
+        <motion.div key="list" {...(fadeIn as any)} style={{ height: "100%" }}>
+          <ForgeList onOpen={setOpen} onOpenExecute={onOpenExecute} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

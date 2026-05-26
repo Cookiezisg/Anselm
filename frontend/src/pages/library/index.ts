@@ -1,4 +1,4 @@
-export { DocumentsPage } from "./DocumentsPage.jsx";
-export { SkillsPage } from "./SkillsPage.jsx";
-export { McpPage } from "./McpPage.jsx";
-export { MemoryPage } from "./MemoryPage.jsx";
+export { DocumentsPage } from "./DocumentsPage.tsx";
+export { SkillsPage } from "./SkillsPage.tsx";
+export { McpPage } from "./McpPage.tsx";
+export { MemoryPage } from "./MemoryPage.tsx";
