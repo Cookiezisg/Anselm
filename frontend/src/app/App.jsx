@@ -5,14 +5,14 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "./components/layout/AppShell.jsx";
-import { Onboarding } from "./components/overlays/Onboarding.jsx";
+import { AppShell } from "./AppShell.jsx";
+import { Onboarding } from "@/components/overlays/Onboarding.jsx";
 import { SSEProvider } from "@app/sse/SSEProvider.jsx";
 import { useSettingsStore, applyTheme } from "@entities/settings";
 import { useSessionStore } from "@entities/session";
 import { useSessionBootstrap } from "@app/model";
 import i18n from "@shared/lib/i18n";
-import { useChatStore } from "./store/chat.js";
+import { useChatStore } from "@/store/chat.js";
 import { usePaneStore } from "@app/model";
 
 export default function App() {

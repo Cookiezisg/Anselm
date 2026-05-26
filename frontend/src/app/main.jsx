@@ -2,17 +2,17 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
 
-import { initBaseUrl } from "./bridge/wails";
+import { initBaseUrl } from "@shared/bridge/wails";
 import i18n from "@shared/lib/i18n/index.js";
 import "@shared/lib/i18n";
 import { ApiError } from "@shared/api/httpClient";
 import { errorKey, kindForCode } from "@shared/api/errorMap";
 import { useToastStore } from "@shared/ui/toastStore";
 import App from "./App.jsx";
-import "./styles/tokens.css";
-import "./styles/base.css";
-import "./styles/components.css";
-import "./styles/panes.css";
+import "@/styles/tokens.css";
+import "@/styles/base.css";
+import "@/styles/components.css";
+import "@/styles/panes.css";
 
 function handleQueryError(error, mutation) {
   // suppressGlobal — mutation opted out (e.g. cancel stream uses warn via feature).

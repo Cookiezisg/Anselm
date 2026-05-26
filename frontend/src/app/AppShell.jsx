@@ -10,28 +10,27 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Sidebar } from "./Sidebar.jsx";
-import { PaneFrame, PANE_META } from "./PaneFrame.jsx";
-import { PaneResize } from "./PaneResize.jsx";
-import { NarrowSwitch } from "./NarrowSwitch.jsx";
-import { Dashboard } from "../../panes/dashboard/Dashboard.jsx";
-import { PlaceholderPane } from "../../panes/PlaceholderPane.jsx";
-import { ChatPane } from "../../panes/chat/ChatPane.jsx";
-import { ForgePane } from "../../panes/forge/ForgePane.jsx";
-import { ExecutePane } from "../../panes/execute/ExecutePane.jsx";
-import { SkillsPane } from "../../panes/library/SkillsPane.jsx";
-import { McpPane } from "../../panes/library/McpPane.jsx";
-import { MemoryPane } from "../../panes/library/MemoryPane.jsx";
-import { DocumentsPane } from "../../panes/library/DocumentsPane.jsx";
-import { ObservePane } from "../../panes/observe/ObservePane.jsx";
-import { CommandPalette } from "../overlays/CommandPalette.jsx";
-import { NotificationsDrawer } from "../overlays/NotificationsDrawer.jsx";
-import { AskUserModal } from "../overlays/AskUserModal.jsx";
-import { ToastTray } from "../overlays/ToastTray.jsx";
-import { SettingsModal } from "../overlays/SettingsModal.jsx";
+import { Sidebar } from "@/components/layout/Sidebar.jsx";
+import { PaneFrame, PANE_META } from "./shell/PaneFrame.jsx";
+import { PaneResize } from "./shell/PaneResize.jsx";
+import { NarrowSwitch } from "./shell/NarrowSwitch.jsx";
+import { Dashboard } from "@/panes/dashboard/Dashboard.jsx";
+import { ChatPane } from "@/panes/chat/ChatPane.jsx";
+import { ForgePane } from "@/panes/forge/ForgePane.jsx";
+import { ExecutePane } from "@/panes/execute/ExecutePane.jsx";
+import { SkillsPane } from "@/panes/library/SkillsPane.jsx";
+import { McpPane } from "@/panes/library/McpPane.jsx";
+import { MemoryPane } from "@/panes/library/MemoryPane.jsx";
+import { DocumentsPane } from "@/panes/library/DocumentsPane.jsx";
+import { ObservePane } from "@/panes/observe/ObservePane.jsx";
+import { CommandPalette } from "@/components/overlays/CommandPalette.jsx";
+import { NotificationsDrawer } from "@/components/overlays/NotificationsDrawer.jsx";
+import { AskUserModal } from "@/components/overlays/AskUserModal.jsx";
+import { ToastTray } from "@/components/overlays/ToastTray.jsx";
+import { SettingsModal } from "@/components/overlays/SettingsModal.jsx";
 import { usePaneStore, useSidebarStore } from "@app/model";
-import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
-import { easeOut } from "../../motion/tokens.js";
+import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts.js";
+import { easeOut } from "@/motion/tokens.js";
 
 function renderPaneBody(kind, onClose) {
   switch (kind) {

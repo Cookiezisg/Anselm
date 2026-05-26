@@ -5,7 +5,7 @@
 // chat 有自己的 header，不走 pane-bar。
 
 import { useTranslation } from "react-i18next";
-import { Icon } from "../primitives/Icon.jsx";
+import { Icon } from "@/components/primitives/Icon.jsx";
 
 export const PANE_META = {
   chat:      { icon: "MessageSquare", labelKey: "pane.chat" },
