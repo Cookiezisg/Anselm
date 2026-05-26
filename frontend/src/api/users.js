@@ -5,38 +5,5 @@
 //
 // 本地 profile CRUD；切换 user = 改 settings.activeUserId + 全量 invalidate。
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, qk, pickList } from "./client.js";
-
-export function useUsers() {
-  return useQuery({
-    queryKey: qk.users(),
-    queryFn: () => apiFetch("/users"),
-    select: pickList,
-  });
-}
-
-export function useCreateUser() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body) => apiFetch("/users", { method: "POST", body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users() }),
-  });
-}
-
-export function useUpdateUser() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, patch }) =>
-      apiFetch(`/users/${id}`, { method: "PATCH", body: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users() }),
-  });
-}
-
-export function useDeleteUser() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => apiFetch(`/users/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.users() }),
-  });
-}
+// user hooks 已迁移至 entities/user (FSD 阶段2);此处转 re-export 保持调用点零改。
+export { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@entities/user";
