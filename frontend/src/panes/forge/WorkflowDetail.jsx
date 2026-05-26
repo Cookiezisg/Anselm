@@ -15,9 +15,10 @@ import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
 import { WorkflowEditor } from "./WorkflowEditor.jsx";
-import { useWorkflow, useWorkflowVersions, useAcceptWorkflow, useRejectWorkflow } from "../../api/forge.js";
+import { useWorkflow, useWorkflowVersions } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
+import { useForgeReview } from "@features/forge-review";
 
 const NODE_W = 184;
 const NODE_H = 76;
@@ -27,8 +28,7 @@ export function WorkflowDetail({ forge, onBack }) {
   const { data: wf = forge } = useWorkflow(forge.id);
   const { data: versions = [] } = useWorkflowVersions(forge.id);
   const pushToast = useUIStore((s) => s.pushToast);
-  const accept = useAcceptWorkflow();
-  const reject = useRejectWorkflow();
+  const { accept: onAccept, reject: onReject } = useForgeReview("workflow", forge.id);
   const progress = useForgeProgress((s) => s.active[`workflow:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
@@ -63,16 +63,10 @@ export function WorkflowDetail({ forge, onBack }) {
           <Button size="sm" onClick={() => setRunOpen(true)}><Icon.Play /> {t("workflow.triggerBtn")}</Button>
           {pendingV && (
             <>
-              <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
-                onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-                onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
-              })}>
+              <Button size="sm" variant="danger" onClick={onReject}>
                 <Icon.X /> {t("detail.revert")}
               </Button>
-              <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
-                onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-                onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
-              })}>
+              <Button size="sm" variant="accent" onClick={onAccept}>
                 <Icon.Check /> {t("detail.accept")}
               </Button>
             </>
@@ -100,8 +94,8 @@ export function WorkflowDetail({ forge, onBack }) {
           showDeploy
           selectedId={effectiveSelected}
           onSelect={setSelectedId}
-          onAccept={() => accept.mutate(forge.id)}
-          onRevert={() => reject.mutate(forge.id)}
+          onAccept={onAccept}
+          onRevert={onReject}
           onDeploy={() => pushToast({ kind: "success", title: t("detail.deployRequested") })}
         />
       </div>

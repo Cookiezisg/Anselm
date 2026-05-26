@@ -8,8 +8,11 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../../api/forge.js", () => ({
   useFunction: vi.fn(),
   useFunctionVersions: vi.fn(),
-  useAcceptFunction: vi.fn(),
-  useRevertFunction: vi.fn(),
+}));
+
+vi.mock("@features/forge-review", () => ({
+  useForgeReview: vi.fn(),
+  useForgeBatchDelete: vi.fn(),
 }));
 
 vi.mock("../../sse/useForge.js", () => ({
@@ -30,8 +33,9 @@ vi.mock("../../components/shared/AskAiTrigger.jsx", () => ({
 }));
 
 import {
-  useFunction, useFunctionVersions, useAcceptFunction, useRevertFunction,
+  useFunction, useFunctionVersions,
 } from "../../api/forge.js";
+import { useForgeReview } from "@features/forge-review";
 import { useUIStore } from "../../store/ui.js";
 import { FunctionDetail } from "./FunctionDetail.jsx";
 
@@ -57,8 +61,7 @@ beforeEach(() => {
   useUIStore.setState({ toasts: [] });
   useFunction.mockReturnValue({ data: FN });
   useFunctionVersions.mockReturnValue({ data: VERSIONS_READY });
-  useAcceptFunction.mockReturnValue({ mutate: vi.fn() });
-  useRevertFunction.mockReturnValue({ mutate: vi.fn() });
+  useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn(), revert: vi.fn() });
 });
 
 describe("FunctionDetail", () => {
@@ -91,26 +94,24 @@ describe("FunctionDetail", () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  it("acceptClick_callsMutationWithId_andToastsOnSuccess", async () => {
+  it("acceptClick_callsAcceptAction", async () => {
     useFunctionVersions.mockReturnValue({ data: VERSIONS_WITH_PENDING });
-    const mutate = vi.fn((id, opts) => opts?.onSuccess && opts.onSuccess());
-    useAcceptFunction.mockReturnValue({ mutate });
+    const accept = vi.fn();
+    useForgeReview.mockReturnValue({ accept, reject: vi.fn(), revert: vi.fn() });
     render(<FunctionDetail forge={FN} onBack={() => {}} />);
     const headerAccept = screen.getAllByText("接受")[0];
     await userEvent.click(headerAccept);
-    expect(mutate).toHaveBeenCalledWith("fn_1", expect.any(Object));
-    await waitFor(() => expect(useUIStore.getState().toasts[0]?.kind).toBe("success"));
+    expect(accept).toHaveBeenCalled();
   });
 
-  it("revertClick_callsMutationWithId_andWarnToast", async () => {
+  it("revertClick_callsRevertAction", async () => {
     useFunctionVersions.mockReturnValue({ data: VERSIONS_WITH_PENDING });
-    const mutate = vi.fn((id, opts) => opts?.onSuccess && opts.onSuccess());
-    useRevertFunction.mockReturnValue({ mutate });
+    const revert = vi.fn();
+    useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn(), revert });
     render(<FunctionDetail forge={FN} onBack={() => {}} />);
     const headerRevert = screen.getAllByText("还原")[0];
     await userEvent.click(headerRevert);
-    expect(mutate).toHaveBeenCalledWith("fn_1", expect.any(Object));
-    await waitFor(() => expect(useUIStore.getState().toasts[0]?.kind).toBe("warn"));
+    expect(revert).toHaveBeenCalled();
   });
 
   it("runButton_opensRunDrawerWithFunction", async () => {

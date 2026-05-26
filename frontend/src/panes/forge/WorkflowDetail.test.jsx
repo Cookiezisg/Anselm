@@ -9,10 +9,13 @@ import userEvent from "@testing-library/user-event";
 vi.mock("../../api/forge.js", () => ({
   useWorkflow: vi.fn(),
   useWorkflowVersions: vi.fn(),
-  useAcceptWorkflow: vi.fn(),
-  useRejectWorkflow: vi.fn(),
   useCapabilityCheck: vi.fn(),
   useEditWorkflow: vi.fn(),
+}));
+
+vi.mock("@features/forge-review", () => ({
+  useForgeReview: vi.fn(),
+  useForgeBatchDelete: vi.fn(),
 }));
 
 vi.mock("../../sse/useForge.js", () => ({
@@ -45,9 +48,10 @@ vi.mock("./WorkflowEditor.jsx", () => ({
 }));
 
 import {
-  useWorkflow, useWorkflowVersions, useAcceptWorkflow, useRejectWorkflow,
+  useWorkflow, useWorkflowVersions,
   useCapabilityCheck, useEditWorkflow,
 } from "../../api/forge.js";
+import { useForgeReview } from "@features/forge-review";
 import { useUIStore } from "../../store/ui.js";
 import { WorkflowDetail } from "./WorkflowDetail.jsx";
 
@@ -78,8 +82,7 @@ beforeEach(() => {
   useUIStore.setState({ toasts: [] });
   useWorkflow.mockReturnValue({ data: WF });
   useWorkflowVersions.mockReturnValue({ data: VERSIONS_READY });
-  useAcceptWorkflow.mockReturnValue({ mutate: vi.fn() });
-  useRejectWorkflow.mockReturnValue({ mutate: vi.fn() });
+  useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn() });
   useCapabilityCheck.mockReturnValue({ mutateAsync: vi.fn(), isPending: false });
   useEditWorkflow.mockReturnValue({ mutate: vi.fn() });
 });
@@ -132,26 +135,24 @@ describe("WorkflowDetail", () => {
     await waitFor(() => expect(screen.getByTestId("run-drawer")).toBeInTheDocument());
   });
 
-  it("acceptClick_callsAcceptMutationWithId_andToastsSuccess", async () => {
+  it("acceptClick_callsAcceptAction", async () => {
     useWorkflowVersions.mockReturnValue({ data: VERSIONS_WITH_PENDING });
-    const mutate = vi.fn((id, opts) => opts?.onSuccess && opts.onSuccess());
-    useAcceptWorkflow.mockReturnValue({ mutate });
+    const accept = vi.fn();
+    useForgeReview.mockReturnValue({ accept, reject: vi.fn() });
     render(<WorkflowDetail forge={WF} onBack={() => {}} />);
     const headerAccept = screen.getAllByText("接受")[0];
     await userEvent.click(headerAccept);
-    expect(mutate).toHaveBeenCalledWith("wf_1", expect.any(Object));
-    await waitFor(() => expect(useUIStore.getState().toasts[0]?.kind).toBe("success"));
+    expect(accept).toHaveBeenCalled();
   });
 
-  it("revertClick_callsRejectMutationWithId_andToastsWarn", async () => {
+  it("rejectClick_callsRejectAction", async () => {
     useWorkflowVersions.mockReturnValue({ data: VERSIONS_WITH_PENDING });
-    const mutate = vi.fn((id, opts) => opts?.onSuccess && opts.onSuccess());
-    useRejectWorkflow.mockReturnValue({ mutate });
+    const reject = vi.fn();
+    useForgeReview.mockReturnValue({ accept: vi.fn(), reject });
     render(<WorkflowDetail forge={WF} onBack={() => {}} />);
     const headerRevert = screen.getAllByText("还原")[0];
     await userEvent.click(headerRevert);
-    expect(mutate).toHaveBeenCalledWith("wf_1", expect.any(Object));
-    await waitFor(() => expect(useUIStore.getState().toasts[0]?.kind).toBe("warn"));
+    expect(reject).toHaveBeenCalled();
   });
 
   it("readonlyCanvas_zoomToolbar_present", () => {

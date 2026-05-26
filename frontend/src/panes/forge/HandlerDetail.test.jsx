@@ -9,8 +9,11 @@ vi.mock("../../api/forge.js", () => ({
   useHandler: vi.fn(),
   useHandlerVersions: vi.fn(),
   useHandlerConfig: vi.fn(),
-  useAcceptHandler: vi.fn(),
-  useRejectHandler: vi.fn(),
+}));
+
+vi.mock("@features/forge-review", () => ({
+  useForgeReview: vi.fn(),
+  useForgeBatchDelete: vi.fn(),
 }));
 
 vi.mock("../../sse/useForge.js", () => ({
@@ -31,8 +34,9 @@ vi.mock("../../components/shared/AskAiTrigger.jsx", () => ({
 }));
 
 import {
-  useHandler, useHandlerVersions, useHandlerConfig, useAcceptHandler, useRejectHandler,
+  useHandler, useHandlerVersions, useHandlerConfig,
 } from "../../api/forge.js";
+import { useForgeReview } from "@features/forge-review";
 import { useUIStore } from "../../store/ui.js";
 import { HandlerDetail } from "./HandlerDetail.jsx";
 
@@ -62,8 +66,7 @@ beforeEach(() => {
   useHandler.mockReturnValue({ data: HD });
   useHandlerVersions.mockReturnValue({ data: VERSIONS_READY });
   useHandlerConfig.mockReturnValue({ data: {} });
-  useAcceptHandler.mockReturnValue({ mutate: vi.fn() });
-  useRejectHandler.mockReturnValue({ mutate: vi.fn() });
+  useForgeReview.mockReturnValue({ accept: vi.fn(), reject: vi.fn() });
 });
 
 describe("HandlerDetail", () => {
@@ -138,6 +141,26 @@ describe("HandlerDetail", () => {
     render(<HandlerDetail forge={HD} onBack={() => {}} />);
     await userEvent.click(screen.getByText("试调用"));
     await waitFor(() => expect(screen.getByTestId("run-drawer")).toBeInTheDocument());
+  });
+
+  it("acceptClick_callsAcceptAction", async () => {
+    useHandlerVersions.mockReturnValue({ data: VERSIONS_PENDING });
+    const accept = vi.fn();
+    useForgeReview.mockReturnValue({ accept, reject: vi.fn() });
+    render(<HandlerDetail forge={HD} onBack={() => {}} />);
+    const headerAccept = screen.getAllByText("接受")[0];
+    await userEvent.click(headerAccept);
+    expect(accept).toHaveBeenCalled();
+  });
+
+  it("rejectClick_callsRejectAction", async () => {
+    useHandlerVersions.mockReturnValue({ data: VERSIONS_PENDING });
+    const reject = vi.fn();
+    useForgeReview.mockReturnValue({ accept: vi.fn(), reject });
+    render(<HandlerDetail forge={HD} onBack={() => {}} />);
+    const headerRevert = screen.getAllByText("还原")[0];
+    await userEvent.click(headerRevert);
+    expect(reject).toHaveBeenCalled();
   });
 
   it("pendingDiff_methodSignatureChange_listedAsModified", () => {

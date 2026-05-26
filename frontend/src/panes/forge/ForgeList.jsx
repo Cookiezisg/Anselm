@@ -19,6 +19,7 @@ import {
 import { useForgeProgress } from "../../sse/useForge.js";
 import { useUIStore } from "../../store/ui.js";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
+import { useForgeBatchDelete } from "@features/forge-review";
 
 export function ForgeList({ onOpen }) {
   const { t } = useTranslation(["forge", "common"]);
@@ -41,6 +42,7 @@ export function ForgeList({ onOpen }) {
   const deleteHd = useDeleteHandler();
   const deleteWf = useDeleteWorkflow();
   const pushToast = useUIStore((s) => s.pushToast);
+  const { batchDelete } = useForgeBatchDelete();
   const [runTarget, setRunTarget] = useState(null);
 
   const rows = useMemo(() => {
@@ -133,14 +135,7 @@ export function ForgeList({ onOpen }) {
           <div className="batch-bar-buttons">
             <Button size="xs" variant="danger" onClick={() => {
               const picked = filtered.filter((f) => selected.has(f.id));
-              if (!confirm(t("list.batch.deleteConfirm", { count: picked.length }))) return;
-              picked.forEach((f) => {
-                const m = f.kind === "function" ? deleteFn
-                       : f.kind === "handler"  ? deleteHd
-                       :                          deleteWf;
-                m.mutate(f.id);
-              });
-              clearSel();
+              batchDelete(picked, clearSel);
             }}>
               <Icon.Trash /> {t("common:delete")}
             </Button>

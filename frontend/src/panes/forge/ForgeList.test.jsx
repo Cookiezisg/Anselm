@@ -14,6 +14,11 @@ vi.mock("../../api/forge.js", () => ({
   useDeleteWorkflow: () => ({ mutate: vi.fn() }),
 }));
 
+vi.mock("@features/forge-review", () => ({
+  useForgeReview: vi.fn(),
+  useForgeBatchDelete: () => ({ batchDelete: vi.fn() }),
+}));
+
 vi.mock("../../sse/useForge.js", () => ({
   useForgeProgress: (selector) => selector({ active: {} }),
 }));

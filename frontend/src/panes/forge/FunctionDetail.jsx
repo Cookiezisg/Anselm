@@ -14,17 +14,15 @@ import { EntityRelMeta } from "../../components/shared/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "../../components/shared/VersionRail.jsx";
 import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
-import { useFunction, useFunctionVersions, useAcceptFunction, useRevertFunction } from "../../api/forge.js";
+import { useFunction, useFunctionVersions } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
-import { useUIStore } from "../../store/ui.js";
+import { useForgeReview } from "@features/forge-review";
 
 export function FunctionDetail({ forge, onBack }) {
   const { t } = useTranslation(["forge", "common"]);
   const { data: fn = forge } = useFunction(forge.id);
   const { data: versions = [] } = useFunctionVersions(forge.id);
-  const pushToast = useUIStore((s) => s.pushToast);
-  const accept = useAcceptFunction();
-  const revert = useRevertFunction();
+  const { accept: onAccept, revert: onRevert } = useForgeReview("function", forge.id, fn.name);
   const forgeProgress = useForgeProgress((s) => s.active[`function:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
@@ -35,19 +33,6 @@ export function FunctionDetail({ forge, onBack }) {
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
   const isViewingCurrent = selectedV?.id === currentV?.id;
-
-  const onAccept = () => {
-    accept.mutate(forge.id, {
-      onSuccess: () => pushToast({ kind: "success", title: "Accepted", desc: fn.name }),
-      onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
-    });
-  };
-  const onRevert = () => {
-    revert.mutate(forge.id, {
-      onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending", desc: fn.name }),
-      onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
-    });
-  };
 
   return (
     <div className="page">

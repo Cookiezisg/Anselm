@@ -15,19 +15,17 @@ import { AskAiTrigger } from "../../components/shared/AskAiTrigger.jsx";
 import { PaneCollapseToggle } from "../../components/shared/PaneCollapseToggle.jsx";
 import { RunDrawer } from "../../components/overlays/RunDrawer.jsx";
 import {
-  useHandler, useHandlerVersions, useHandlerConfig, useAcceptHandler, useRejectHandler,
+  useHandler, useHandlerVersions, useHandlerConfig,
 } from "../../api/forge.js";
 import { useForgeProgress } from "../../sse/useForge.js";
-import { useUIStore } from "../../store/ui.js";
 import { useCollapsible } from "../../hooks/useCollapsible.js";
+import { useForgeReview } from "@features/forge-review";
 
 export function HandlerDetail({ forge, onBack }) {
   const { t } = useTranslation(["forge", "common"]);
   const { data: hd = forge } = useHandler(forge.id);
   const { data: versions = [] } = useHandlerVersions(forge.id);
-  const pushToast = useUIStore((s) => s.pushToast);
-  const accept = useAcceptHandler();
-  const reject = useRejectHandler();
+  const { accept: onAccept, reject: onReject } = useForgeReview("handler", forge.id);
   const progress = useForgeProgress((s) => s.active[`handler:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
@@ -65,16 +63,10 @@ export function HandlerDetail({ forge, onBack }) {
         <div className="page-actions">
           {pendingV ? (
             <>
-              <Button size="sm" variant="danger" onClick={() => reject.mutate(forge.id, {
-                onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-                onError: (e) => pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
-              })}>
+              <Button size="sm" variant="danger" onClick={onReject}>
                 <Icon.X /> {t("detail.revert")}
               </Button>
-              <Button size="sm" variant="accent" onClick={() => accept.mutate(forge.id, {
-                onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-                onError: (e) => pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
-              })}>
+              <Button size="sm" variant="accent" onClick={onAccept}>
                 <Icon.Check /> {t("detail.accept")}
               </Button>
             </>
@@ -102,8 +94,8 @@ export function HandlerDetail({ forge, onBack }) {
           pendingId={pendingV?.id}
           selectedId={effectiveSelected}
           onSelect={setSelectedId}
-          onAccept={() => accept.mutate(forge.id)}
-          onRevert={() => reject.mutate(forge.id)}
+          onAccept={onAccept}
+          onRevert={onReject}
         />
       </div>
       <RunDrawer
