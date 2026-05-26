@@ -43,10 +43,17 @@ export function useForgeIterate() {
         setActiveConv(cid);
         openPane("chat");
       } else {
+        // Not an API error — server returned success but no conversationId.
+        // This is a business-logic warn that global onError cannot detect.
+        //
+        // 非 ApiError 的业务 warn：服务返回成功但无 conversationId，全局不感知此情况。
         pushToast({ kind: "warn", title: t("askAi.iterateEmptyTitle"), desc: t("askAi.iterateEmptyDesc") });
       }
-    } catch (err) {
-      pushToast({ kind: "error", title: t("askAi.iterateFailedTitle"), desc: (err as Error).message });
+    } catch {
+      // Iterate API errors: handled by global MutationCache onError via errorMap.
+      // No toast here to avoid double-toast.
+      //
+      // iterate 请求错误由全局 onError 处理，此处不重复 toast。
     }
   };
 

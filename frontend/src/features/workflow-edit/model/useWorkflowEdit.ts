@@ -4,10 +4,8 @@
 // 封装 WorkflowEditor 的 diff + 2s 防抖 autosave 编排；算法逐字保留。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useEditWorkflow } from "@entities/workflow";
 import type { WorkflowEditOp } from "@entities/workflow";
-import { useToastStore } from "@shared/ui/toastStore";
 
 // ── Canvas-shape node/edge types (local to the editor canvas) ────────────
 
@@ -126,9 +124,7 @@ export function diffToOps(orig: CanvasGraph, next: CanvasGraph): WorkflowEditOp[
 // ── Hook ─────────────────────────────────────────────────────────────────
 
 export function useWorkflowEdit(workflowId: string, original: CanvasGraph) {
-  const { t } = useTranslation("forge");
   const edit = useEditWorkflow(workflowId);
-  const pushToast = useToastStore((s) => s.pushToast);
 
   const [dirty, setDirty] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -152,13 +148,12 @@ export function useWorkflowEdit(workflowId: string, original: CanvasGraph) {
           { ops, changeReason: "editor autosave" },
           {
             onSuccess: () => { setDirty(false); setSavedAt(new Date()); },
-            onError: (e: Error) =>
-              pushToast({ kind: "error", title: t("detail.saveFail"), desc: e.message }),
+            // Save errors handled by global MutationCache onError via errorMap.
           },
         );
       }, 2000);
     },
-    [original, edit, pushToast, t],
+    [original, edit],
   );
 
   return {

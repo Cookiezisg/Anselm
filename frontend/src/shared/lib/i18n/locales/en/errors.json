@@ -1,0 +1,20 @@
+{
+  "fallback": "Operation failed, please try again",
+  "UNAUTH_NO_USER": "No user found, please re-select account",
+  "CONVERSATION_NOT_FOUND": "Conversation not found",
+  "NETWORK": "Network error, please check your connection",
+  "STREAM_IN_PROGRESS": "This conversation already has a message generating",
+  "LLM_PROVIDER_ERROR": "LLM provider returned an error, please try again",
+  "LLM_AUTH_FAILED": "API Key is invalid or expired, please update it in settings",
+  "LLM_RATE_LIMITED": "Too many requests, please wait and try again",
+  "LLM_BAD_REQUEST": "Request format error, please check settings",
+  "LLM_MODEL_NOT_FOUND": "Model ID does not exist at provider, please check settings",
+  "MODEL_NOT_CONFIGURED": "Model not configured, please set one up in settings",
+  "API_KEY_NOT_FOUND": "API Key not found",
+  "API_KEY_PROVIDER_NOT_FOUND": "No active API Key for this provider",
+  "FUNCTION_NOT_FOUND": "Function not found or deleted",
+  "FUNCTION_RUN_FAILED": "Function run failed",
+  "HANDLER_NOT_FOUND": "Handler not found or deleted",
+  "WORKFLOW_NOT_FOUND": "Workflow not found or deleted",
+  "INTERNAL_ERROR": "Internal error, please try again"
+}

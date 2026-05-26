@@ -40,8 +40,8 @@ export function useAccountManager(): AccountManagerState {
       const created = await createUser.mutateAsync({ username });
       switchTo(created.id);
       setName("");
-    } catch (e) {
-      pushToast({ kind: "error", title: t("account.addFail"), desc: (e as Error).message });
+    } catch {
+      // Add-account errors handled by global MutationCache onError via errorMap.
     }
   };
 

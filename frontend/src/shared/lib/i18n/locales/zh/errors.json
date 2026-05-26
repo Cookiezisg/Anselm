@@ -1,0 +1,20 @@
+{
+  "fallback": "操作失败，请稍后重试",
+  "UNAUTH_NO_USER": "未找到用户，请重新选择账号",
+  "CONVERSATION_NOT_FOUND": "这个对话不在了",
+  "NETWORK": "网络错误，请检查连接",
+  "STREAM_IN_PROGRESS": "当前对话已有一条消息在生成中",
+  "LLM_PROVIDER_ERROR": "LLM 服务报错，请稍后重试",
+  "LLM_AUTH_FAILED": "API Key 无效或已过期，请在设置里重新填写",
+  "LLM_RATE_LIMITED": "请求频率过高，请稍后重试",
+  "LLM_BAD_REQUEST": "请求格式有误，请检查设置",
+  "LLM_MODEL_NOT_FOUND": "模型 ID 在服务商处不存在，请检查设置",
+  "MODEL_NOT_CONFIGURED": "尚未配置模型，请在设置里配一个",
+  "API_KEY_NOT_FOUND": "API Key 不存在",
+  "API_KEY_PROVIDER_NOT_FOUND": "该服务商没有可用的 API Key",
+  "FUNCTION_NOT_FOUND": "函数不存在或已删除",
+  "FUNCTION_RUN_FAILED": "函数运行失败",
+  "HANDLER_NOT_FOUND": "处理器不存在或已删除",
+  "WORKFLOW_NOT_FOUND": "工作流不存在或已删除",
+  "INTERNAL_ERROR": "内部错误，请稍后重试"
+}

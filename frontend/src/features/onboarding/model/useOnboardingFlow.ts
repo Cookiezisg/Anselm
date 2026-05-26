@@ -112,10 +112,14 @@ export function useOnboardingFlow(): OnboardingFlowState {
   const stepKey = STEP_KEYS[step] as StepKey;
   const providerDisplay = (n: string) => (providers as Array<{ name: string; displayName: string }>).find((p) => p.name === n)?.displayName || n;
 
+  // run() catches to clear busy state; error toasts come from global MutationCache
+  // onError via errorMap. Local catch only for non-mutation throws (rare).
+  //
+  // run() 只清 busy；mutation 错误 toast 由全局 onError 处理。
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     try { await fn(); }
-    catch (err: unknown) { pushToast({ kind: "error", title: t("toast.opFail"), desc: (err as Error).message }); }
+    catch { /* global onError handles mutation errors; busy cleared in finally */ }
     finally { setBusy(false); }
   };
 

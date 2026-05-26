@@ -56,20 +56,17 @@ export function useForgeReview(
       accept: () =>
         acceptFn.mutate(id, {
           onSuccess: () => pushToast({ kind: "success", title: "Accepted", desc: name }),
-          onError: (e: Error) =>
-            pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
+          // Error handled by global MutationCache onError (errorMap).
         }),
       reject: () =>
         rejectFn.mutate(id, {
           onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending", desc: name }),
-          onError: (e: Error) =>
-            pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
+          // Error handled by global MutationCache onError (errorMap).
         }),
       revert: () =>
         revertFn.mutate(id, {
           onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending", desc: name }),
-          onError: (e: Error) =>
-            pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
+          // Error handled by global MutationCache onError (errorMap).
         }),
     };
   }
@@ -79,14 +76,12 @@ export function useForgeReview(
       accept: () =>
         acceptHd.mutate(id, {
           onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-          onError: (e: Error) =>
-            pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
+          // Error handled by global MutationCache onError (errorMap).
         }),
       reject: () =>
         rejectHd.mutate(id, {
           onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-          onError: (e: Error) =>
-            pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
+          // Error handled by global MutationCache onError (errorMap).
         }),
     };
   }
@@ -95,14 +90,12 @@ export function useForgeReview(
     accept: () =>
       acceptWf.mutate(id, {
         onSuccess: () => pushToast({ kind: "success", title: "Accepted" }),
-        onError: (e: Error) =>
-          pushToast({ kind: "error", title: t("detail.acceptFail"), desc: e.message }),
+        // Error handled by global MutationCache onError (errorMap).
       }),
     reject: () =>
       rejectWf.mutate(id, {
         onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
-        onError: (e: Error) =>
-          pushToast({ kind: "error", title: t("detail.revertFail"), desc: e.message }),
+        // Error handled by global MutationCache onError (errorMap).
       }),
   };
 }

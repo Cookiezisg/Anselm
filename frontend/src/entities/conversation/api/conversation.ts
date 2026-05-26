@@ -73,9 +73,14 @@ export function useSendMessage(convId: string) {
   });
 }
 
+// meta.suppressGlobal=true — cancel errors surface as warn via the feature
+// hook's own onError; the global MutationCache handler skips this mutation.
+//
+// cancel 错误由 feature 以 warn 种类显示；全局 onError 通过 meta 标记跳过。
 export function useCancelStream(convId: string) {
   return useMutation<null, Error, void>({
     mutationFn: () =>
       apiFetch(`/conversations/${convId}/stream`, { method: "DELETE" }),
+    meta: { suppressGlobal: true },
   });
 }

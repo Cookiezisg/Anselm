@@ -44,21 +44,27 @@ export function useSendMessageFlow(convId: string | null) {
         // Stale conv: backend says this conversation doesn't exist (deleted,
         // or belongs to a different user after account switch). Self-heal:
         // clear activeConv + refetch conversation list so the user sees the
-        // real state instead of a stuck "send fails" loop.
+        // real state instead of a stuck "send fails" loop. Toast is emitted
+        // by the global onError via CONVERSATION_NOT_FOUND in errorMap.
         //
-        // activeConv 已失效(被删 / 切户后跨用户残留)。自愈:清掉 +
-        // 重拉对话列表。
+        // activeConv 已失效。自愈：清掉 + 重拉对话列表。
+        // Toast 由全局 onError 通过 errorMap CONVERSATION_NOT_FOUND 发出。
         if (err?.code === "CONVERSATION_NOT_FOUND") {
           setActiveConv(null);
           qc.invalidateQueries({ queryKey: qk.conversations() });
-          pushToast({ kind: "warn", title: t("toast.convGoneTitle"), desc: t("toast.convGoneDesc") });
-          return;
         }
-        pushToast({ kind: "error", title: t("toast.sendFailTitle"), desc: err.message });
+        // Generic send errors: handled by global MutationCache onError.
+        // No toast here to avoid double-toast.
+        //
+        // 通用发送错误由全局 onError 处理，此处不重复 toast。
       },
     });
   };
 
+  // Cancel errors surface as warn kind — useCancelStream has meta.suppressGlobal=true
+  // so global onError skips it; this feature callback handles it exclusively.
+  //
+  // 取消失败以 warn 种类显示；cancel mutation 标记了 suppressGlobal，此处独占处理。
   const cancelStream = () => {
     cancel.mutate(undefined, {
       onError: (err: Error) => pushToast({ kind: "warn", title: t("toast.cancelFailTitle"), desc: err.message }),

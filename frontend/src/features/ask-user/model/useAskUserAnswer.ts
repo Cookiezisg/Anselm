@@ -38,6 +38,10 @@ export function useAskUserAnswer() {
       pushToast({ kind: "success", title: t("ask.submitSuccess") });
       close();
     } catch (err) {
+      // apiFetch is called directly (no useMutation), so global MutationCache
+      // onError does not fire. Feature handles this error toast itself.
+      //
+      // 直接调 apiFetch 不经 useMutation，全局 onError 不触发，此处保留 toast。
       pushToast({ kind: "error", title: t("ask.submitFail"), desc: (err as Error).message });
     } finally {
       setSubmitting(false);
