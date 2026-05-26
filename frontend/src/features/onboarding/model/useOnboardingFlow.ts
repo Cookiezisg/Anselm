@@ -14,9 +14,10 @@ import { useProviders, useUpsertModelConfig } from "@entities/model-config";
 // TODO(阶段4): onboarding-strings 迁入 shared/config 后修正 import
 // eslint-disable-next-line boundaries/dependencies
 import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "../../../components/overlays/onboarding-strings.js";
-// TODO(阶段4): settings store 拆进 app/model 后修正 import
+// TODO(阶段4): session store 迁 entities/session 后移除豁免
 // eslint-disable-next-line boundaries/dependencies
 import { useSettings } from "../../../store/settings.js";
+import { useSettingsStore } from "@entities/settings";
 // TODO(阶段4): ui store 拆进 app/model 后修正 import
 // eslint-disable-next-line boundaries/dependencies
 import { useUIStore } from "../../../store/ui.js";
@@ -74,12 +75,13 @@ export interface OnboardingFlowState {
 
 export function useOnboardingFlow(): OnboardingFlowState {
   const { t } = useTranslation("onboarding");
-  const settings = useSettings();
+  const session = useSettings();
+  const prefs = useSettingsStore();
   const qc = useQueryClient();
   const pushToast = useUIStore((s: { pushToast: (toast: { kind: string; title: string; desc?: string }) => void }) => s.pushToast);
 
-  // Sync settings.lang → i18n when changed inside the wizard (before App mounts).
-  useEffect(() => { i18n.changeLanguage(settings.lang); }, [settings.lang]);
+  // Sync prefs.lang → i18n when changed inside the wizard (before App mounts).
+  useEffect(() => { i18n.changeLanguage(prefs.lang); }, [prefs.lang]);
 
   const createUser = useCreateUser();
   const { data: providers = [] } = useProviders();
@@ -127,10 +129,10 @@ export function useOnboardingFlow(): OnboardingFlowState {
     const user = await createUser.mutateAsync({
       username: name.trim().toLowerCase().replace(/\s+/g, "-"),
       displayName: name.trim(),
-      avatarColor: ACCENTS.find(([k]: [string, string]) => k === settings.accent)?.[1] || "#d97757",
+      avatarColor: ACCENTS.find(([k]: [string, string]) => k === prefs.accent)?.[1] || "#d97757",
     });
     setCreatedUserId(user.id);
-    settings.set({ activeUserId: user.id });
+    session.set({ activeUserId: user.id });
   };
 
   // Switching provider drops key/model state; best-effort delete the orphaned
@@ -179,7 +181,7 @@ export function useOnboardingFlow(): OnboardingFlowState {
   });
 
   const finish = (onFinish?: () => void) => {
-    settings.set({ onboarded: true });
+    session.set({ onboarded: true });
     qc.invalidateQueries();
     pushToast({ kind: "success", title: t("toast.welcome"), desc: name.trim() });
     onFinish?.();
@@ -212,7 +214,7 @@ export function useOnboardingFlow(): OnboardingFlowState {
   // journey desc shows captured values once a step is behind us.
   const jdesc = (key: string, fallback: string) => {
     if (key === "workspace" && createdUserId) return name.trim();
-    if (key === "appearance" && step > 2) return `${settings.accent} · ${settings.lang === "zh" ? "中文" : "EN"}`;
+    if (key === "appearance" && step > 2) return `${prefs.accent} · ${prefs.lang === "zh" ? "中文" : "EN"}`;
     if (key === "model" && step > 3) return verified ? providerDisplay(provider) : t("done.none");
     if (key === "search" && step > 4) return searchProvider ? providerDisplay(searchProvider) : t("done.none");
     return fallback;

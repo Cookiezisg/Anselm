@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { Button } from "../primitives/Button.jsx";
-import { useSettings } from "../../store/settings.js";
+import { useSettingsStore } from "@entities/settings";
 import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "./onboarding-strings.js";
 import { ProviderGrid } from "../config/ProviderGrid.jsx";
 import { KeyVerifyField } from "../config/KeyVerifyField.jsx";
@@ -25,7 +25,7 @@ const ANVIL = (
 );
 
 export function Onboarding({ onFinish }) {
-  const settings = useSettings();
+  const settings = useSettingsStore();
   const { t } = useTranslation("onboarding");
 
   const {

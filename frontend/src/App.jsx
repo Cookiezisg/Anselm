@@ -8,7 +8,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "./components/layout/AppShell.jsx";
 import { Onboarding } from "./components/overlays/Onboarding.jsx";
 import { SSEProvider } from "./sse/SSEProvider.jsx";
-import { useSettings, applyTheme } from "./store/settings.js";
+import { useSettings } from "./store/settings.js";
+import { useSettingsStore, applyTheme } from "@entities/settings";
 import i18n from "@shared/lib/i18n";
 import { computeBootState } from "./store/boot.js";
 import { useChatStore } from "./store/chat.js";
@@ -23,19 +24,20 @@ function urlForceOnboarding() {
 }
 
 export default function App() {
-  const settings = useSettings();
+  const session = useSettings();
+  const prefs = useSettingsStore();
   const qc = useQueryClient();
-  const prevUid = useRef(settings.activeUserId);
+  const prevUid = useRef(session.activeUserId);
   const [forceOnboarding, setForceOnboarding] = useState(urlForceOnboarding);
   const [onboardingActive, setOnboardingActive] = useState(false);
 
   useEffect(() => {
-    applyTheme(settings);
-  }, [settings.theme, settings.accent, settings.density, settings.lang]);
+    applyTheme(prefs);
+  }, [prefs.theme, prefs.accent, prefs.density, prefs.lang]);
 
   useEffect(() => {
-    i18n.changeLanguage(settings.lang);
-  }, [settings.lang]);
+    i18n.changeLanguage(prefs.lang);
+  }, [prefs.lang]);
 
   // Account switch / first-account-set: drop old user's chat tree, invalidate
   // every REST cache, clear cross-user pane state (stale activeConv would 404
@@ -43,23 +45,23 @@ export default function App() {
   //
   // 切账号:清 chat store + 失效所有 query + 清 cross-user 残留 pane 状态。
   useEffect(() => {
-    if (prevUid.current === settings.activeUserId) return;
-    prevUid.current = settings.activeUserId;
+    if (prevUid.current === session.activeUserId) return;
+    prevUid.current = session.activeUserId;
     useChatStore.getState().resetAll();
     const ui = useUIStore.getState();
     ui.setActiveConv?.(null);
     if (ui.setActiveFlowRun) ui.setActiveFlowRun(null);
     if (ui.setActiveDocument) ui.setActiveDocument(null);
     qc.invalidateQueries();
-  }, [settings.activeUserId, qc]);
+  }, [session.activeUserId, qc]);
 
   useEffect(() => {
-    if (settings.theme !== "system") return;
+    if (prefs.theme !== "system") return;
     const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const fn = () => applyTheme(settings);
+    const fn = () => applyTheme(prefs);
     mql.addEventListener?.("change", fn);
     return () => mql.removeEventListener?.("change", fn);
-  }, [settings.theme]);
+  }, [prefs.theme]);
 
   // /users drives fresh-install detection AND activeUserId self-heal.
   const usersQ = useQuery({
@@ -76,15 +78,15 @@ export default function App() {
   // 自愈:脏 id 清掉;无 id 且有 user 选第一个。收敛前 boot state 不放行 AppShell。
   useEffect(() => {
     if (usersQ.isLoading || usersQ.isError) return;
-    const activeId = settings.activeUserId;
+    const activeId = session.activeUserId;
     if (activeId && !users.find((u) => u.id === activeId)) {
-      settings.set({ activeUserId: null });
+      session.set({ activeUserId: null });
       return;
     }
     if (!activeId && users.length >= 1) {
-      settings.set({ activeUserId: users[0].id });
+      session.set({ activeUserId: users[0].id });
     }
-  }, [usersQ.isLoading, usersQ.isError, users, settings.activeUserId]);
+  }, [usersQ.isLoading, usersQ.isError, users, session.activeUserId]);
 
   // Latch: once there's a reason to onboard (fresh install or ?onboarding=1),
   // stay in onboarding until the wizard calls onFinish — even though creating
@@ -104,7 +106,7 @@ export default function App() {
     usersLoading: usersQ.isLoading,
     usersError: usersQ.isError,
     users,
-    activeUserId: settings.activeUserId,
+    activeUserId: session.activeUserId,
   });
 
   const finishOnboarding = () => {

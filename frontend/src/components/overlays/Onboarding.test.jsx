@@ -68,6 +68,7 @@ vi.mock("@entities/model-config", () => ({
 
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { useSettings } from "../../store/settings.js";
+import { useSettingsStore } from "../../entities/settings/model/settingsStore.ts";
 import { Onboarding } from "./Onboarding.jsx";
 
 function wrap({ children }) {
@@ -77,7 +78,8 @@ function wrap({ children }) {
 
 beforeEach(() => {
   useToastStore.setState({ toasts: [] });
-  useSettings.setState({ theme: "system", accent: "claude", density: "cozy", lang: "zh", activeUserId: null, onboarded: false });
+  useSettingsStore.setState({ theme: "system", accent: "claude", density: "cozy", lang: "zh", reasoningDefault: "collapsed" });
+  useSettings.setState({ activeUserId: null, onboarded: false });
   mockCreateUser.mockReset().mockResolvedValue({ id: "u_new", username: "alice" });
   mockCreateKey.mockReset().mockResolvedValue({ id: "aki_1" });
   mockTestKey.mockReset().mockResolvedValue({ ok: true, modelsFound: ["deepseek-chat", "deepseek-reasoner"] });
@@ -125,7 +127,7 @@ describe("Onboarding", () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
     await toAppearance();
     await userEvent.click(screen.getByText("English"));
-    expect(useSettings.getState().lang).toBe("en");
+    expect(useSettingsStore.getState().lang).toBe("en");
     // Wizard copy flips live to English.
     expect(inPane("Appearance & language")).toBeInTheDocument();
   });
@@ -136,7 +138,7 @@ describe("Onboarding", () => {
     const swatches = document.querySelectorAll(".onb-swatch");
     expect(swatches.length).toBe(5);
     await userEvent.click(swatches[1]); // blue
-    expect(useSettings.getState().accent).toBe("blue");
+    expect(useSettingsStore.getState().accent).toBe("blue");
   });
 
   it("model_verify_populatesModelsAndContinueWritesConfigFromSelection", async () => {

@@ -1,14 +1,14 @@
-// AppearanceSection — segmented controls write live to settings; swatch clicks
-// change accent.
+// AppearanceSection — segmented controls write live to settingsStore; swatch
+// clicks change accent.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useSettings } from "../../store/settings.js";
+import { useSettingsStore } from "../../entities/settings/model/settingsStore.ts";
 import { AppearanceSection } from "./AppearanceSection.jsx";
 
 beforeEach(() => {
-  useSettings.setState({
+  useSettingsStore.setState({
     theme: "system",
     accent: "claude",
     density: "cozy",
@@ -23,7 +23,7 @@ describe("AppearanceSection", () => {
   it("themeSegment_darkClick_writesThemeDark", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("深色"));
-    expect(useSettings.getState().theme).toBe("dark");
+    expect(useSettingsStore.getState().theme).toBe("dark");
   });
 
   it("themeSegment_systemActive_byDefault", () => {
@@ -37,7 +37,7 @@ describe("AppearanceSection", () => {
     const swatches = document.querySelectorAll(".onb-swatch");
     // Second swatch is "blue" (#2383e2)
     await userEvent.click(swatches[1]);
-    expect(useSettings.getState().accent).toBe("blue");
+    expect(useSettingsStore.getState().accent).toBe("blue");
   });
 
   it("accentSwatch_activeSwatch_hasIsActiveClass", () => {
@@ -51,19 +51,19 @@ describe("AppearanceSection", () => {
   it("densitySegment_compactClick_writesDensityCompact", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("紧凑"));
-    expect(useSettings.getState().density).toBe("compact");
+    expect(useSettingsStore.getState().density).toBe("compact");
   });
 
   it("langSegment_englishClick_writesLangEn", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("English"));
-    expect(useSettings.getState().lang).toBe("en");
+    expect(useSettingsStore.getState().lang).toBe("en");
   });
 
   it("reasoningSegment_expandedClick_writesReasoningExpanded", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("默认展开"));
-    expect(useSettings.getState().reasoningDefault).toBe("expanded");
+    expect(useSettingsStore.getState().reasoningDefault).toBe("expanded");
   });
 
   it("closed_rendersNoRows", () => {

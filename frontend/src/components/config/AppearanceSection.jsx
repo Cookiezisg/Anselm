@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "../primitives/Icon.jsx";
-import { useSettings } from "../../store/settings.js";
+import { useSettingsStore } from "@entities/settings";
 import { ACCENTS } from "../overlays/onboarding-strings.js";
 
 export function AppearanceSection({ open, onToggle }) {
   const { t } = useTranslation("settings");
-  const settings = useSettings();
+  const settings = useSettingsStore();
   return (
     <div className="set-sec">
       <button className="set-sec-h" onClick={onToggle}>
