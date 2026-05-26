@@ -4,7 +4,7 @@
 //
 // FunctionDetail —— 当前版本完整视图 + 其他版本分屏 diff + 右侧 VersionRail。
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
@@ -14,21 +14,55 @@ import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.tsx";
 import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/VersionRail.tsx";
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.tsx";
 import { RunDrawer } from "./RunDrawer.tsx";
+import type { FunctionEntity, FunctionVersion } from "@entities/function";
 import { useFunction, useFunctionVersions } from "@entities/function";
 import { useForgeProgress } from "@shared/model";
 import { useForgeReview } from "@features/forge-review";
 
+interface ForgeEntity {
+  id: string;
+  [key: string]: unknown;
+}
+
+// Runtime shape of a version item returned from the versions API.
+// Extends FunctionVersion with UI-computed fields and legacy/shape variants.
+interface VersionShape extends Omit<Partial<FunctionVersion>, "id"> {
+  id: string;
+  state?: string;
+  label?: string;
+  versionLabel?: string;
+  // Legacy/boilerplate extra fields accessed by FunctionFullView
+  schema?: { inputs?: string; outputs?: string };
+  inputs?: string;
+  outputs?: string;
+  runtime?: string;
+  sandbox?: string;
+  description?: string;
+}
+
+// Runtime shape of the fn entity (may be a partial ForgeEntity before full load).
+// Adds status + desc which come through on the API response but aren't in FunctionEntity.
+interface FnRuntime {
+  id: string;
+  name?: string;
+  description?: string;
+  desc?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
 interface FunctionDetailProps {
-  forge: any;
+  forge: ForgeEntity;
   onBack: () => void;
 }
 
 export function FunctionDetail({ forge, onBack }: FunctionDetailProps) {
   const { t } = useTranslation(["forge", "common"]);
-  const { data: fn = forge } = useFunction(forge.id);
+  const { data: fnData = forge } = useFunction(forge.id);
+  const fn = fnData as FnRuntime;
   const { data: versionsRaw = [] } = useFunctionVersions(forge.id);
-  const versions = versionsRaw as any[];
-  const { accept: onAccept, revert: onRevert } = useForgeReview("function", forge.id, fn.name);
+  const versions = versionsRaw as VersionShape[];
+  const { accept: onAccept, revert: onRevert } = useForgeReview("function", forge.id, fn.name as string | undefined);
   const forgeProgress = useForgeProgress((s) => s.active[`function:${forge.id}`]);
 
   const currentV = versions.find((v) => v.state === "current") || versions[0];
@@ -81,7 +115,7 @@ export function FunctionDetail({ forge, onBack }: FunctionDetailProps) {
                 kind="function"
                 entityId={fn.id}
                 context={`Function · ${fn.name}`}
-                suggestions={t("function.aiSuggestions", { returnObjects: true }) as any}
+                suggestions={t("function.aiSuggestions", { returnObjects: true }) as string[]}
               />
             </>
           )}
@@ -110,7 +144,7 @@ export function FunctionDetail({ forge, onBack }: FunctionDetailProps) {
   );
 }
 
-function FieldRow({ label, value }: { label: any; value: any }) {
+function FieldRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
     <div className="fn-field-row">
       <div className="fn-field-label">{label}</div>
@@ -119,7 +153,7 @@ function FieldRow({ label, value }: { label: any; value: any }) {
   );
 }
 
-function FunctionFullView({ v, fn }: { v: any; fn: any }) {
+function FunctionFullView({ v, fn }: { v: VersionShape | undefined; fn: FnRuntime }) {
   const { t } = useTranslation("forge");
   if (!v) return <div className="empty" style={{ padding: 32 }}><div className="sub">{t("function.noVersion")}</div></div>;
   return (
@@ -158,7 +192,7 @@ function FunctionFullView({ v, fn }: { v: any; fn: any }) {
   );
 }
 
-function FunctionDiffView({ currentV, otherV, pendingV }: { currentV: any; otherV: any; pendingV: any }) {
+function FunctionDiffView({ currentV, otherV, pendingV }: { currentV: VersionShape | undefined; otherV: VersionShape | undefined; pendingV: VersionShape | undefined }) {
   const { t } = useTranslation("forge");
   const isPending = otherV?.id === pendingV?.id;
   const descChanged = (currentV?.description || "") !== (otherV?.description || "");
@@ -230,7 +264,7 @@ function FunctionDiffView({ currentV, otherV, pendingV }: { currentV: any; other
   );
 }
 
-function DiffSection({ label, children, leftLabel, rightLabel }: any) {
+function DiffSection({ label, children }: { label: React.ReactNode; children?: React.ReactNode; leftLabel?: string; rightLabel?: string }) {
   return (
     <div className="fn-diff-section">
       <div className="fn-diff-section-label">{label}</div>

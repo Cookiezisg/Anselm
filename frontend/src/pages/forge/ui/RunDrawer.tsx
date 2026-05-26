@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { Select } from "@shared/ui/Select";
+import type { MotionProps } from "framer-motion";
 import { useRunFunction } from "@entities/function";
 import { useCallHandler } from "@entities/handler";
 import { useRunWorkflow } from "@entities/workflow";
@@ -20,14 +21,14 @@ function safeParse(text: string) {
   const t = text.trim();
   if (!t) return [{}, null];
   try { return [JSON.parse(t), null]; }
-  catch (e) { return [null, (e as any)?.message]; }
+  catch (e) { return [null, e instanceof Error ? e.message : String(e)]; }
 }
 
 interface RunDrawerProps {
   open: boolean;
   onClose: () => void;
   kind?: string;
-  entity: any;
+  entity: { id?: string; name?: string; methods?: Array<{ name: string; sig?: string; signature?: string }>; currentVersion?: { methods?: Array<{ name: string; sig?: string; signature?: string }> } };
   onOpenExecute?: (id: string) => void;
 }
 
@@ -40,7 +41,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
 
   const [body, setBody] = useState("{\n  \n}");
   const [method, setMethod] = useState("");
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
 
@@ -69,13 +70,13 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
     try {
       let res;
       if (kind === "function") {
-        res = await run.mutateAsync({ id: entity.id, inputs: parsed });
+        res = await run.mutateAsync({ id: entity.id ?? "", inputs: parsed });
       } else if (kind === "handler") {
         if (!method) { setError(t("runDrawer.noMethod")); return; }
-        res = await call.mutateAsync({ id: entity.id, method, args: parsed });
+        res = await call.mutateAsync({ id: entity.id ?? "", method, args: parsed });
       } else if (kind === "workflow") {
-        res = await trig.mutateAsync({ id: entity.id, input: parsed });
-        const runId = (res as any)?.flowRunId || (res as any)?.id || (res as any)?.runId;
+        res = await trig.mutateAsync({ id: entity.id ?? "", input: parsed });
+        const runId = ((res as Record<string, unknown>)?.flowRunId || (res as Record<string, unknown>)?.id || (res as Record<string, unknown>)?.runId) as string | undefined;
         pushToast({ kind: "success", title: t("runDrawer.toast.triggerSuccess"), desc: runId || t("runDrawer.toast.triggerDefaultDesc") });
         if (runId) {
           onOpenExecute?.(runId);
@@ -83,7 +84,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
       }
       setResult(res);
     } catch (e) {
-      setError((e as any)?.message || String(e));
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -92,16 +93,17 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
     ? (entity?.methods || entity?.currentVersion?.methods || [])
     : [];
 
-  const title = (t as any)(`runDrawer.title.${kind}`, kind);
+  // Dynamic key is safe here — all runDrawer.title.{kind} keys exist in ns.
+  const title = String(t(`runDrawer.title.${kind}` as never, kind as string));
 
   return (
     <AnimatePresence>
       {open && (
         <>
-          <motion.div className="overlay-scrim" {...(scrim as any)} onClick={onClose} />
+          <motion.div className="overlay-scrim" {...(scrim as MotionProps)} onClick={onClose} />
           <motion.aside
             className="drawer drawer-right run-drawer"
-            {...(slideRight as any)}
+            {...(slideRight as MotionProps)}
             onClick={(e) => e.stopPropagation()}
           >
             <header className="drawer-head">
@@ -130,7 +132,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
                       ariaLabel={t("runDrawer.methodAriaLabel")}
                       value={method}
                       onChange={setMethod}
-                      options={methods.map((m: any) => ({
+                      options={methods.map((m) => ({
                         value: m.name,
                         label: m.name + (m.sig || m.signature ? " " + (m.sig || m.signature) : ""),
                       }))}

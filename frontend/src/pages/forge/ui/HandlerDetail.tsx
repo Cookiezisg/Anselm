@@ -3,7 +3,7 @@
 //
 // HandlerDetail —— Class / Config / Calls 多标签 + diff + VersionRail。
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
@@ -14,21 +14,50 @@ import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/Version
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.tsx";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.tsx";
 import { RunDrawer } from "./RunDrawer.tsx";
+import type { Handler, HandlerVersion, MethodSpec as MethodSpecBase } from "@entities/handler";
 import { useHandler, useHandlerVersions, useHandlerConfig } from "@entities/handler";
 import { useForgeProgress } from "@shared/model";
 import { useCollapsible } from "@shared/lib/useCollapsible";
 import { useForgeReview } from "@features/forge-review";
 
+interface ForgeEntity {
+  id: string;
+  [key: string]: unknown;
+}
+
+interface HandlerVersionShape extends Omit<Partial<HandlerVersion>, "id"> {
+  id: string;
+  state?: string;
+  label?: string;
+}
+
+// Runtime method shape — MethodSpec plus boilerplate legacy variant fields.
+interface MethodSpec extends MethodSpecBase {
+  sig?: string;
+  signature?: string;
+  desc?: string;
+}
+
+interface HdRuntime {
+  id: string;
+  name?: string;
+  description?: string;
+  desc?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
 interface HandlerDetailProps {
-  forge: any;
+  forge: ForgeEntity;
   onBack: () => void;
 }
 
 export function HandlerDetail({ forge, onBack }: HandlerDetailProps) {
   const { t } = useTranslation(["forge", "common"]);
-  const { data: hd = forge } = useHandler(forge.id);
+  const { data: hdData = forge } = useHandler(forge.id);
+  const hd = hdData as HdRuntime;
   const { data: versionsRaw = [] } = useHandlerVersions(forge.id);
-  const versions = versionsRaw as any[];
+  const versions = versionsRaw as HandlerVersionShape[];
   const { accept: onAccept, reject: onReject } = useForgeReview("handler", forge.id);
   const progress = useForgeProgress((s) => s.active[`handler:${forge.id}`]);
 
@@ -81,7 +110,7 @@ export function HandlerDetail({ forge, onBack }: HandlerDetailProps) {
             kind="handler"
             entityId={hd.id}
             context={`Handler · ${hd.name}`}
-            suggestions={t("handler.aiSuggestions", { returnObjects: true }) as any}
+            suggestions={t("handler.aiSuggestions", { returnObjects: true }) as string[]}
           />
         </div>
       </div>
@@ -112,16 +141,17 @@ export function HandlerDetail({ forge, onBack }: HandlerDetailProps) {
   );
 }
 
-function HandlerFullView({ v, hd }: { v: any; hd: any }) {
+function HandlerFullView({ v, hd }: { v: HandlerVersionShape | undefined; hd: HdRuntime }) {
   const { t } = useTranslation("forge");
   const [tab, setTab] = useState("class");
   const { data: config } = useHandlerConfig(hd.id);
-  const [methodsOpen, toggleMethods] = useCollapsible("handler-methods", true);
+  const [methodsOpen, toggleMethodsRaw] = useCollapsible("handler-methods", true);
+  const toggleMethods = toggleMethodsRaw as () => void;
 
   if (!v) return null;
-  const methods = v.methods || [];
-  const [selectedMethod, setSelectedMethod] = useState(methods[0]);
-  const method = methods.find((m: any) => m.name === selectedMethod?.name) || methods[0];
+  const methods = (v.methods || []) as MethodSpec[];
+  const [selectedMethod, setSelectedMethod] = useState<MethodSpec | undefined>(methods[0]);
+  const method = methods.find((m) => m.name === selectedMethod?.name) || methods[0];
 
   return (
     <>
@@ -140,14 +170,14 @@ function HandlerFullView({ v, hd }: { v: any; hd: any }) {
               <div className="hd-class-name">
                 <Icon.Boxes style={{ width: 14, height: 14, marginRight: 6 }} />
                 class
-                <button className="icon-btn" title={t("handler.collapseMethodList")} onClick={toggleMethods as any} style={{ marginLeft: "auto" }}>
+                <button className="icon-btn" title={t("handler.collapseMethodList")} onClick={toggleMethods} style={{ marginLeft: "auto" }}>
                   <Icon.ChevronRight style={{ transform: "rotate(180deg)" }} />
                 </button>
               </div>
               {methods.length === 0 && (
                 <div style={{ padding: 16, fontSize: 12, color: "var(--fg-faint)" }}>{t("handler.noMethods")}</div>
               )}
-              {methods.map((m: any) => (
+              {methods.map((m) => (
                 <button
                   key={m.name}
                   className={"hd-method" + (method?.name === m.name ? " is-active" : "")}
@@ -159,7 +189,7 @@ function HandlerFullView({ v, hd }: { v: any; hd: any }) {
               ))}
             </aside>
           )}
-          {!methodsOpen && <PaneCollapseToggle onClick={toggleMethods as any} title={t("handler.expandMethodList")} />}
+          {!methodsOpen && <PaneCollapseToggle onClick={toggleMethods} title={t("handler.expandMethodList")} />}
           <main className="hd-method-detail">
             {method && (
               <>
@@ -211,12 +241,12 @@ function HandlerFullView({ v, hd }: { v: any; hd: any }) {
   );
 }
 
-function HandlerDiffView({ currentV, otherV, pendingV }: { currentV: any; otherV: any; pendingV: any }) {
+function HandlerDiffView({ currentV, otherV, pendingV }: { currentV: HandlerVersionShape | undefined; otherV: HandlerVersionShape | undefined; pendingV: HandlerVersionShape | undefined }) {
   const { t } = useTranslation("forge");
   if (!currentV || !otherV) return <div className="empty"><div className="sub">{t("handler.noVersionForDiff")}</div></div>;
   const isPending = otherV.id === pendingV?.id;
-  const curMethods = new Map<string, any>((currentV.methods || []).map((m: any) => [m.name, m]));
-  const othMethods = new Map<string, any>((otherV.methods || []).map((m: any) => [m.name, m]));
+  const curMethods = new Map<string, MethodSpec>(((currentV.methods || []) as MethodSpec[]).map((m) => [m.name, m]));
+  const othMethods = new Map<string, MethodSpec>(((otherV.methods || []) as MethodSpec[]).map((m) => [m.name, m]));
   const allNames = [...new Set([...curMethods.keys(), ...othMethods.keys()])];
   const changes = allNames.map((name) => {
     const a = curMethods.get(name);
@@ -240,11 +270,11 @@ function HandlerDiffView({ currentV, otherV, pendingV }: { currentV: any; otherV
           <div key={i} className={"hd-method-diff hd-method-diff-" + c.kind}>
             <div className="hd-method-diff-head-btn" style={{ cursor: "default" }}>
               <span className={"vr-badge vr-cmp-" + c.kind}>
-                {c.kind === "added" ? t("handler.changeKind.added") as any : c.kind === "removed" ? t("handler.changeKind.removed") as any : t("handler.changeKind.changed") as any}
+                {c.kind === "added" ? t("handler.changeKind.added") : c.kind === "removed" ? t("handler.changeKind.removed") : t("handler.changeKind.changed")}
               </span>
               <code style={{ fontFamily: "var(--font-mono)", color: "var(--accent)" }}>{c.name}</code>
             </div>
-            {c.kind === "changed" && c.a.body && c.b.body && c.a.body !== c.b.body && (
+            {c.kind === "changed" && c.a?.body && c.b?.body && c.a.body !== c.b.body && (
               <div className="hd-method-body-pane">
                 <SplitDiff leftLabel="current" rightLabel={isPending ? "pending" : "other"} leftSrc={c.a.body} rightSrc={c.b.body} />
               </div>
