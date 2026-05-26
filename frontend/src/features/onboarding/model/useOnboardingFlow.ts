@@ -7,11 +7,11 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import i18n from "@shared/lib/i18n/index.js";
+import i18n from "@shared/lib/i18n";
 import { useCreateUser } from "@entities/user";
 import { useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
 import { useProviders, useUpsertModelConfig } from "@entities/model-config";
-import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings.js";
+import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings";
 import { useSessionStore } from "@entities/session";
 import { useSettingsStore } from "@entities/settings";
 import { useToastStore } from "@shared/ui/toastStore";

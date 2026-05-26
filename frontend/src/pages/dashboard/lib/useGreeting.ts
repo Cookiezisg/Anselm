@@ -5,7 +5,7 @@
 // 子集；有最近对话时 50% 偏置续接类；displayName 空时只抽 name-free 子集。
 
 import { useMemo } from "react";
-import { GREETINGS } from "./greetings.js";
+import { GREETINGS } from "./greetings";
 
 function pickFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];

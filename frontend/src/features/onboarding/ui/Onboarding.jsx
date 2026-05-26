@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useSettingsStore } from "@entities/settings";
-import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "./onboarding-strings.js";
+import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "@shared/lib/onboarding-strings";
 import { ProviderGrid, KeyVerifyField, ModelSelect } from "@features/settings";
 import { useOnboardingFlow } from "@features/onboarding";
 

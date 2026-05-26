@@ -5,9 +5,9 @@
 // SSEProvider —— 单例挂载 3 个 SSE hook，合成状态点给 sidebar 用。
 
 import { createContext, useContext, useMemo } from "react";
-import { useEventLog } from "./useEventLog.js";
-import { useNotifications } from "./useNotifications.js";
-import { useForge } from "./useForge.js";
+import { useEventLog } from "./useEventLog";
+import { useNotifications } from "./useNotifications";
+import { useForge } from "./useForge";
 
 const Ctx = createContext(null);
 

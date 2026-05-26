@@ -15,12 +15,16 @@ import { useMcpServers } from "@entities/mcp";
 import { useConversations } from "@entities/conversation";
 import { useFlowRuns } from "@entities/flowrun";
 
-function pickName(list, id, getName) {
-  const hit = (list || []).find((x) => x.id === id);
-  return hit ? getName(hit) : null;
+function pickName<T>(
+  list: T[] | undefined,
+  id: string,
+  getName: (item: T) => string | undefined
+): string | null {
+  const hit = (list || []).find((x: any) => x.id === id);
+  return hit ? (getName(hit) ?? null) : null;
 }
 
-export function useEntityName(id) {
+export function useEntityName(id: string | null | undefined): string | null {
   const prefix = (id || "").split("_")[0];
 
   const fnQ = useFunctions();
@@ -35,14 +39,14 @@ export function useEntityName(id) {
   if (!id) return null;
 
   switch (prefix) {
-    case "f": case "fn":   return pickName(fnQ.data, id, (x) => x.name);
-    case "h": case "hd":   return pickName(hdQ.data, id, (x) => x.name);
-    case "w": case "wf":   return pickName(wfQ.data, id, (x) => x.name);
-    case "d": case "doc":  return pickName(dcQ.data, id, (x) => x.name || x.title);
-    case "s": case "sk":   return pickName(skQ.data, id, (x) => x.name);
-    case "mcp": case "m":  return pickName(mcQ.data, id, (x) => x.name);
-    case "cv":             return pickName(cvQ.data, id, (x) => x.title);
-    case "fr":             return pickName(frQ.data, id, (x) => x.workflow || x.workflowId);
+    case "f": case "fn":   return pickName(fnQ.data, id, (x: any) => x.name);
+    case "h": case "hd":   return pickName(hdQ.data, id, (x: any) => x.name);
+    case "w": case "wf":   return pickName(wfQ.data, id, (x: any) => x.name);
+    case "d": case "doc":  return pickName(dcQ.data, id, (x: any) => x.name || x.title);
+    case "s": case "sk":   return pickName(skQ.data, id, (x: any) => x.name);
+    case "mcp": case "m":  return pickName(mcQ.data, id, (x: any) => x.name);
+    case "cv":             return pickName(cvQ.data, id, (x: any) => x.title);
+    case "fr":             return pickName(frQ.data, id, (x: any) => x.workflow || x.workflowId);
     default:               return null;
   }
 }

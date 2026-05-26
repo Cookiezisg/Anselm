@@ -27,7 +27,7 @@ export function useForge() {
     const ctrl = createSSE({
       path: "/forge",
       eventHandlers: {
-        forge_started: (e) => {
+        forge_started: (e: any) => {
           const key = scopeKey(e.scope);
           store.put(key, {
             scope: e.scope,
@@ -39,13 +39,13 @@ export function useForge() {
             status: "running",
           });
         },
-        forge_op_applied: (e) => {
+        forge_op_applied: (e: any) => {
           const key = scopeKey(e.scope);
           const cur = useForgeProgress.getState().active[key];
           if (!cur) return;
           store.put(key, { ...cur, ops: [...cur.ops, { index: e.index, op: e.op }] });
         },
-        forge_env_attempt: (e) => {
+        forge_env_attempt: (e: any) => {
           const key = scopeKey(e.scope);
           const cur = useForgeProgress.getState().active[key];
           if (!cur) return;
@@ -57,7 +57,7 @@ export function useForge() {
             ],
           });
         },
-        forge_completed: (e) => {
+        forge_completed: (e: any) => {
           const key = scopeKey(e.scope);
           const cur = useForgeProgress.getState().active[key];
           store.put(key, {

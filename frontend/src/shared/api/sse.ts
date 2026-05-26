@@ -16,7 +16,7 @@
 // uid 还等于当前 provider 值时触发 notifyAuthFailure → resolveSession。
 
 import { apiUrl } from "../bridge/wails";
-import { getUserId, notifyAuthFailure } from "./authProvider.js";
+import { getUserId, notifyAuthFailure } from "./authProvider";
 
 export type SSEEventMeta = { seq: number; raw: string };
 

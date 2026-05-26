@@ -13,7 +13,7 @@ import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
 import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
 import { useProviders, useModelConfigs, useUpsertModelConfig } from "@entities/model-config";
-import { LLM_HINTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings.js";
+import { LLM_HINTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings";
 import { ProviderGrid } from "./ProviderGrid.jsx";
 import { KeyVerifyField } from "./KeyVerifyField.jsx";
 import { ModelSelect } from "./ModelSelect.jsx";

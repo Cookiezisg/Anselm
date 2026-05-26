@@ -14,7 +14,7 @@
 // 才跑一次 autodetect。autodetect 是真正的 CPU 炸弹。
 
 import { createElement, memo, useMemo } from "react";
-import { lowlight } from "../lib/highlight/index.js";
+import { lowlight } from "../lib/highlight";
 
 // memo: stable code blocks (any block whose source/lang/streaming
 // triple is unchanged across MarkdownView re-renders) skip rendering

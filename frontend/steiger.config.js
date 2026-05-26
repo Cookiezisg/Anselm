@@ -1,5 +1,5 @@
 // Steiger FSD linter config — 阶段5 收口:entities→features/pages 反向依赖已全部
-// 上移至 pages/ui；steiger 真零违规。
+// 上移至 pages/ui；shared→entities 反向(useEntityName)已上移至 widgets；steiger 真零违规。
 
 import fsd from "@feature-sliced/steiger-plugin";
 
@@ -43,13 +43,5 @@ export default [
     // steiger no-segmentless-slices 会触发。
     files: ["src/widgets/**"],
     rules: { "fsd/no-segmentless-slices": "off" },
-  },
-  {
-    // shared 层 useEntityName.js 依赖 entities(解析实体名称)；纯 display
-    // helper，上移 entities 或 widgets 是后续工作。
-    files: ["src/shared/**"],
-    rules: {
-      "fsd/forbidden-imports": "off",
-    },
   },
 ];

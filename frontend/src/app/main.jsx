@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from "@tanstack/react-query";
 
 import { initBaseUrl } from "@shared/bridge/wails";
-import i18n from "@shared/lib/i18n/index.js";
+import i18n from "@shared/lib/i18n";
 import "@shared/lib/i18n";
 import { ApiError } from "@shared/api/httpClient";
 import { errorKey, kindForCode } from "@shared/api/errorMap";

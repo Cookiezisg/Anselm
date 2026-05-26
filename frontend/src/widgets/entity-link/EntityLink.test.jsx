@@ -6,11 +6,11 @@ import userEvent from "@testing-library/user-event";
 import { usePaneStore } from "@app/model";
 import { setNavigator } from "@shared/lib/navigation";
 
-vi.mock("@shared/lib/useEntityName", () => ({
+vi.mock("./useEntityName", () => ({
   useEntityName: vi.fn(() => null),
 }));
 
-import { useEntityName } from "@shared/lib/useEntityName";
+import { useEntityName } from "./useEntityName";
 import { EntityLink } from "./EntityLink.jsx";
 
 beforeEach(() => {

@@ -12,7 +12,7 @@ import { Badge } from "@shared/ui/Badge";
 import { Button } from "@shared/ui/Button";
 import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useNotificationsSnapshot } from "./useNotificationsSnapshot.js";
+import { useNotificationsSnapshot } from "./useNotificationsSnapshot";
 import { apiFetch } from "@shared/api/httpClient";
 
 const TYPE_TO_PANE = {

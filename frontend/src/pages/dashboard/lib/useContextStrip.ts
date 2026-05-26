@@ -15,11 +15,11 @@ export function useContextStrip() {
   const { data: flowruns = [] } = useFlowRuns();
   const { data: convs = [] } = useConversations();
 
-  const waiting = flowruns.filter((f) => f.status === "waiting_approval");
+  const waiting = flowruns.filter((f) => (f.status as string) === "waiting_approval");
   if (waiting.length > 0) {
     return {
       kind: "waiting",
-      payload: { count: waiting.length, flowName: waiting[0].workflow || waiting[0].workflowId, flowRunId: waiting[0].id },
+      payload: { count: waiting.length, flowName: (waiting[0] as any).workflow || waiting[0].workflowId, flowRunId: waiting[0].id },
     };
   }
 
@@ -42,7 +42,7 @@ export function useContextStrip() {
   const now = Date.now();
   const recent = convs
     .filter((c) => c.updatedAt && now - new Date(c.updatedAt).getTime() < DAY_MS)
-    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   if (recent.length > 0) {
     return {
       kind: "recent",

@@ -7,7 +7,6 @@
 // 输入框内的 Esc 不触发全局：检测 INPUT/TEXTAREA tag 跳过。
 
 import { useEffect } from "react";
-// TODO(4b): pages props 化后移除 shared-tmp→app 过渡引用
 import { useOverlayStore, useSidebarStore } from "@app/model";
 
 export function useKeyboardShortcuts() {

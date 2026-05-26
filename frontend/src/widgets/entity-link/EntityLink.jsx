@@ -7,7 +7,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { navigate } from "@shared/lib/navigation";
-import { useEntityName } from "@shared/lib/useEntityName";
+import { useEntityName } from "./useEntityName";
 
 const PREFIX_META = {
   f:   { pane: "forge",     icon: "Code"          },

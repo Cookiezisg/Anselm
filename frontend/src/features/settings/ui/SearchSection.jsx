@@ -14,7 +14,7 @@ import { useToastStore } from "@shared/ui/toastStore";
 import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, useUpdateApiKey } from "@entities/apikey";
 import { useProviders } from "@entities/model-config";
 import { apiFetch, qk } from "@shared/api";
-import { SEARCH_HINTS } from "@shared/lib/onboarding-strings.js";
+import { SEARCH_HINTS } from "@shared/lib/onboarding-strings";
 import { ProviderGrid } from "./ProviderGrid.jsx";
 import { KeyVerifyField } from "./KeyVerifyField.jsx";
 

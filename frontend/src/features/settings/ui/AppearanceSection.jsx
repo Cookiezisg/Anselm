@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { useSettingsStore } from "@entities/settings";
-import { ACCENTS } from "@shared/lib/onboarding-strings.js";
+import { ACCENTS } from "@shared/lib/onboarding-strings";
 
 export function AppearanceSection({ open, onToggle }) {
   const { t } = useTranslation("settings");

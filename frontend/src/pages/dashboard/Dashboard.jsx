@@ -13,8 +13,8 @@ import { useConversations, useCreateConversation } from "@entities/conversation"
 import { useDisplayName } from "@entities/user";
 import { apiFetch } from "@shared/api";
 import { WelcomeInput } from "./ui/WelcomeInput.jsx";
-import { useGreeting } from "./lib/useGreeting.js";
-import { useContextStrip } from "./lib/useContextStrip.js";
+import { useGreeting } from "./lib/useGreeting";
+import { useContextStrip } from "./lib/useContextStrip";
 
 function ContextStrip({ strip, onJump }) {
   const { t } = useTranslation("dashboard");

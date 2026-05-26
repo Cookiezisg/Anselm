@@ -29,7 +29,7 @@ vi.mock("@entities/flowrun", () => ({
   useFlowRuns:      () => ({ data: [{ id: "fr_1", workflow: "wf one" }, { id: "fr_2", workflowId: "wf_2" }] }),
 }));
 
-import { useEntityName } from "./useEntityName.js";
+import { useEntityName } from "./useEntityName";
 
 describe("useEntityName", () => {
   it("useEntityName_nullId_returnsNull", () => {

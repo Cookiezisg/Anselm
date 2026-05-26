@@ -6,9 +6,9 @@
 // 剥 §N1 envelope，统一报错带 code/status。
 
 import { apiUrl } from "../bridge/wails";
-import { getUserId, notifyAuthFailure } from "./authProvider.js";
+import { getUserId, notifyAuthFailure } from "./authProvider";
 
-export { setUserIdProvider, setOnAuthFailure } from "./authProvider.js";
+export { setUserIdProvider, setOnAuthFailure } from "./authProvider";
 
 export class ApiError extends Error {
   code: string;
