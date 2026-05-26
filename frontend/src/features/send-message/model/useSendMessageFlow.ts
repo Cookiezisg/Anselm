@@ -8,9 +8,6 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSendMessage, useCancelStream } from "@entities/conversation";
 import { qk } from "@shared/api";
-// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
-// eslint-disable-next-line boundaries/dependencies
-import { usePaneStore } from "@app/model";
 import { useToastStore } from "@shared/ui/toastStore";
 
 import type { SendMessageBody } from "@entities/conversation";
@@ -26,10 +23,17 @@ interface SendPayload {
   mentions?: Array<{ type: string; id: string }>;
 }
 
-export function useSendMessageFlow(convId: string | null) {
+interface SendMessageFlowOptions {
+  // Called when backend says this conversation no longer exists. The
+  // component (ChatPane) owns pane state and performs self-heal navigation.
+  //
+  // 后端返回 CONVERSATION_NOT_FOUND 时通知组件，组件持有 pane store 做自愈导航。
+  onConvGone?: () => void;
+}
+
+export function useSendMessageFlow(convId: string | null, { onConvGone }: SendMessageFlowOptions = {}) {
   const { t } = useTranslation("conv");
   const qc = useQueryClient();
-  const setActiveConv = usePaneStore((s) => s.setActiveConv);
   const pushToast = useToastStore((s) => s.pushToast);
 
   const send = useSendMessage(convId as string);
@@ -42,16 +46,15 @@ export function useSendMessageFlow(convId: string | null) {
     send.mutate(body as SendMessageBody, {
       onError: (err: Error & { code?: string }) => {
         // Stale conv: backend says this conversation doesn't exist (deleted,
-        // or belongs to a different user after account switch). Self-heal:
-        // clear activeConv + refetch conversation list so the user sees the
-        // real state instead of a stuck "send fails" loop. Toast is emitted
-        // by the global onError via CONVERSATION_NOT_FOUND in errorMap.
+        // or belongs to a different user after account switch). Feature fires
+        // the onConvGone intent; ChatPane owns pane store and performs self-heal.
+        // Toast is emitted by the global onError via CONVERSATION_NOT_FOUND in errorMap.
         //
-        // activeConv 已失效。自愈：清掉 + 重拉对话列表。
+        // activeConv 已失效。feature 发出 onConvGone 意图；ChatPane 持有 pane store 做自愈。
         // Toast 由全局 onError 通过 errorMap CONVERSATION_NOT_FOUND 发出。
         if (err?.code === "CONVERSATION_NOT_FOUND") {
-          setActiveConv(null);
           qc.invalidateQueries({ queryKey: qk.conversations() });
+          onConvGone?.();
         }
         // Generic send errors: handled by global MutationCache onError.
         // No toast here to avoid double-toast.

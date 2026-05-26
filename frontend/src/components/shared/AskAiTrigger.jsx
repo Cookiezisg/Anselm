@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "../primitives/Icon.jsx";
 import { useForgeIterate } from "@features/forge-iterate";
+import { usePaneStore } from "@app/model";
 import { slideUp } from "../../motion/tokens.js";
 
 export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
@@ -23,6 +24,9 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
   const ta = useRef(null);
 
   const { submit: iterateSubmit } = useForgeIterate();
+  // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const setActiveConv = usePaneStore((s) => s.setActiveConv);
+  const openPane = usePaneStore((s) => s.openPane);
 
   useEffect(() => {
     if (open) setTimeout(() => ta.current?.focus(), 50);
@@ -35,10 +39,14 @@ export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const submit = (prompt) => {
+  const submit = async (prompt) => {
     setOpen(false);
     setText("");
-    iterateSubmit(kind, entityId, prompt);
+    const cid = await iterateSubmit(kind, entityId, prompt);
+    if (cid) {
+      setActiveConv(cid);
+      openPane("chat");
+    }
   };
 
   return (

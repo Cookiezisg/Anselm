@@ -17,8 +17,19 @@ import { scaleIn, fadeIn } from "../../motion/tokens.js";
 export function AskUserModal() {
   const { t } = useTranslation(["conv", "common"]);
   // TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
+  const pending = useOverlayStore((s) => s.pendingAsk);
+  const askOpen = useOverlayStore((s) => s.askOpen);
   const setAskOpen = useOverlayStore((s) => s.setAskOpen);
-  const { pending, askOpen, isOpen, submitting, close, submit } = useAskUserAnswer();
+  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
+
+  const close = () => {
+    setAskOpen(false);
+    setPendingAsk(null);
+  };
+
+  const isOpen = askOpen || !!pending;
+
+  const { submitting, submit } = useAskUserAnswer({ pending, onClose: close });
 
   const [selected, setSelected] = useState(null);
 

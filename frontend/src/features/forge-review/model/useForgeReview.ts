@@ -18,8 +18,6 @@ import {
   useAcceptWorkflow,
   useRejectWorkflow,
 } from "@entities/workflow";
-// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
-// eslint-disable-next-line boundaries/dependencies
 import { useToastStore } from "@shared/ui/toastStore";
 
 type ForgeKind = "function" | "handler" | "workflow";

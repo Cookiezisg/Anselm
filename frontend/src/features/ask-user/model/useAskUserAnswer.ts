@@ -6,27 +6,31 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { apiFetch } from "@shared/api";
-// TODO(4b): pages props 化后移除 feature-tmp→app 过渡反向引用
-// eslint-disable-next-line boundaries/dependencies
-import { useOverlayStore } from "@app/model";
 import { useToastStore } from "@shared/ui/toastStore";
 
-export function useAskUserAnswer() {
+interface PendingAsk {
+  id: string;
+  conversationId: string;
+  toolCallId: string;
+  question?: string;
+  context?: string;
+  options?: Array<{ id?: string; value?: string; text?: string; label?: string; sub?: string }>;
+}
+
+interface UseAskUserAnswerOptions {
+  // The component (AskUserModal) reads overlay store and passes these down;
+  // feature owns only the submit logic, not navigation/overlay state.
+  //
+  // 组件读 overlay store 后传入；feature 只持有提交逻辑，不感知 overlay 状态。
+  pending: PendingAsk | null;
+  onClose: () => void;
+}
+
+export function useAskUserAnswer({ pending, onClose }: UseAskUserAnswerOptions) {
   const { t } = useTranslation("conv");
-  const pending = useOverlayStore((s) => s.pendingAsk);
-  const askOpen = useOverlayStore((s) => s.askOpen);
-  const setAskOpen = useOverlayStore((s) => s.setAskOpen);
-  const setPendingAsk = useOverlayStore((s) => s.setPendingAsk);
   const pushToast = useToastStore((s) => s.pushToast);
 
   const [submitting, setSubmitting] = useState(false);
-
-  const isOpen = askOpen || !!pending;
-
-  const close = () => {
-    setAskOpen(false);
-    setPendingAsk(null);
-  };
 
   const submit = async (answer: string) => {
     if (!answer) return;
@@ -36,7 +40,7 @@ export function useAskUserAnswer() {
         method: "POST", body: { answer },
       });
       pushToast({ kind: "success", title: t("ask.submitSuccess") });
-      close();
+      onClose();
     } catch (err) {
       // apiFetch is called directly (no useMutation), so global MutationCache
       // onError does not fire. Feature handles this error toast itself.
@@ -49,11 +53,7 @@ export function useAskUserAnswer() {
   };
 
   return {
-    pending,
-    askOpen,
-    isOpen,
     submitting,
-    close,
     submit,
   };
 }

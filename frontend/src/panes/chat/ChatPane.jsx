@@ -67,7 +67,12 @@ export function ChatPane({ onClose }) {
     return false;
   });
 
-  const { submit, cancelStream, isPending } = useSendMessageFlow(activeConv);
+  const { submit, cancelStream, isPending } = useSendMessageFlow(activeConv, {
+    onConvGone: () => {
+      setActiveConv(null);
+      qc.invalidateQueries({ queryKey: qk.conversations() });
+    },
+  });
 
   // Hydrate chat store from REST history when conv id changes / history loads.
   useEffect(() => {
