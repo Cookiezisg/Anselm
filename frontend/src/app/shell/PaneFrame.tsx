@@ -18,7 +18,7 @@ export const PANE_META = {
   observe:   { icon: "Activity",      labelKey: "pane.observe" },
 };
 
-export function PaneFrame({ kind, onClose, crumbs, children }) {
+export function PaneFrame({ kind, onClose, crumbs, children }: { kind: any; onClose: any; crumbs?: any; children?: any }) {
   const { t } = useTranslation("sidebar");
   const meta = PANE_META[kind] || { icon: "Square", label: kind };
   const I = Icon[meta.icon] || Icon.MoreHorizontal;

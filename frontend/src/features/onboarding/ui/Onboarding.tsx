@@ -22,7 +22,7 @@ const ANVIL = (
   <svg viewBox="0 0 24 24"><path d="M12 2v3" /><path d="M5 5l2 2" /><path d="M19 5l-2 2" /><path d="M4 12h4l2-3l4 6l2-3h4" /><path d="M5 17h14" /><path d="M7 21l1-4" /><path d="M17 21l-1-4" /></svg>
 );
 
-export function Onboarding({ onFinish }) {
+export function Onboarding({ onFinish }: { onFinish?: any }) {
   const settings = useSettingsStore();
   const { t } = useTranslation("onboarding");
 

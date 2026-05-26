@@ -5,9 +5,9 @@
 
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { AppShell } from "./AppShell.jsx";
+import { AppShell } from "./AppShell.tsx";
 import { Onboarding } from "@features/onboarding";
-import { SSEProvider } from "@app/sse/SSEProvider.jsx";
+import { SSEProvider } from "@app/sse/SSEProvider.tsx";
 import { useSettingsStore, applyTheme } from "@entities/settings";
 import { useSessionStore } from "@entities/session";
 import { useSessionBootstrap } from "@app/model";

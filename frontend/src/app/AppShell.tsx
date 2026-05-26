@@ -10,26 +10,26 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Sidebar } from "@/widgets/sidebar/Sidebar.jsx";
-import { CommandPalette } from "@/widgets/command-palette/CommandPalette.jsx";
-import { NotificationsDrawer } from "@/widgets/notifications-drawer/NotificationsDrawer.jsx";
-import { ToastTray } from "@/widgets/toaster/ToastTray.jsx";
-import { PaneFrame, PANE_META } from "./shell/PaneFrame.jsx";
-import { PaneResize } from "./shell/PaneResize.jsx";
-import { NarrowSwitch } from "./shell/NarrowSwitch.jsx";
-import { Dashboard } from "@/pages/dashboard/Dashboard.jsx";
-import { ChatPage } from "@/pages/chat/ChatPage.jsx";
-import { ForgePage } from "@/pages/forge/ForgePage.jsx";
-import { ExecutePage } from "@/pages/execute/ExecutePage.jsx";
-import { SkillsPage } from "@/pages/library/SkillsPage.jsx";
-import { McpPage } from "@/pages/library/McpPage.jsx";
-import { MemoryPage } from "@/pages/library/MemoryPage.jsx";
-import { DocumentsPage } from "@/pages/library/DocumentsPage.jsx";
-import { ObservePage } from "@/pages/observe/ui/ObservePage.jsx";
+import { Sidebar } from "@/widgets/sidebar/Sidebar.tsx";
+import { CommandPalette } from "@/widgets/command-palette/CommandPalette.tsx";
+import { NotificationsDrawer } from "@/widgets/notifications-drawer/NotificationsDrawer.tsx";
+import { ToastTray } from "@/widgets/toaster/ToastTray.tsx";
+import { PaneFrame, PANE_META } from "./shell/PaneFrame.tsx";
+import { PaneResize } from "./shell/PaneResize.tsx";
+import { NarrowSwitch } from "./shell/NarrowSwitch.tsx";
+import { Dashboard } from "@/pages/dashboard/Dashboard.tsx";
+import { ChatPage } from "@/pages/chat/ChatPage.tsx";
+import { ForgePage } from "@/pages/forge/ForgePage.tsx";
+import { ExecutePage } from "@/pages/execute/ExecutePage.tsx";
+import { SkillsPage } from "@/pages/library/SkillsPage.tsx";
+import { McpPage } from "@/pages/library/McpPage.tsx";
+import { MemoryPage } from "@/pages/library/MemoryPage.tsx";
+import { DocumentsPage } from "@/pages/library/DocumentsPage.tsx";
+import { ObservePage } from "@/pages/observe/ui/ObservePage.tsx";
 import { AskUserModal } from "@features/ask-user";
 import { SettingsModal } from "@features/settings";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
-import { useSSEHealth } from "@app/sse/SSEProvider.jsx";
+import { useSSEHealth } from "@app/sse/SSEProvider.tsx";
 import { setNavigator } from "@shared/lib/navigation";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 import { easeOut } from "@shared/lib/motion";
@@ -219,7 +219,7 @@ export function AppShell() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={easeOut}
                   className={"pane-wrap" + (idx === 1 ? " is-secondary" : "")}
-                  style={style}
+                  style={style as any}
                 >
                   <PaneFrame
                     kind={kind}

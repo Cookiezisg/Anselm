@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MockEventSource } from "../../test-setup.js";
 import { useSessionStore } from "@entities/session";
 import { setUserIdProvider } from "@shared/api/authProvider";
-import { SSEProvider, useSSEHealth } from "./SSEProvider.jsx";
+import { SSEProvider, useSSEHealth } from "./SSEProvider.tsx";
 
 function wrap(children) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -19,7 +19,7 @@ function wrap(children) {
 
 beforeEach(async () => {
   MockEventSource.reset();
-  globalThis.EventSource = MockEventSource;
+  globalThis.EventSource = MockEventSource as any;
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
   const bridge = await import("@shared/bridge/wails");

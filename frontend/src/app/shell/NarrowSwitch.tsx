@@ -4,7 +4,7 @@
 // NarrowSwitch —— narrow=true 且开 2 个 pane 时显示的底部 tab 条。
 
 import { useTranslation } from "react-i18next";
-import { PANE_META } from "./PaneFrame.jsx";
+import { PANE_META } from "./PaneFrame.tsx";
 import { usePaneStore } from "@app/model";
 
 export function NarrowSwitch() {

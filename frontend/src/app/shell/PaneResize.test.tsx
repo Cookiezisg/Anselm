@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { fireEvent } from "@testing-library/dom";
-import { PaneResize } from "./PaneResize.jsx";
+import { PaneResize } from "./PaneResize.tsx";
 
 describe("PaneResize", () => {
   it("rendersWithSeparatorRole", () => {

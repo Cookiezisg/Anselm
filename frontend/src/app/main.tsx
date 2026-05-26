@@ -8,7 +8,7 @@ import "@shared/lib/i18n";
 import { ApiError } from "@shared/api/httpClient";
 import { errorKey, kindForCode } from "@shared/api/errorMap";
 import { useToastStore } from "@shared/ui/toastStore";
-import App from "./App.jsx";
+import App from "./App.tsx";
 import "@/styles/tokens.css";
 import "@/styles/base.css";
 import "@/styles/components.css";
