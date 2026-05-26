@@ -122,7 +122,7 @@ interface RestMessage {
   id: string;
   role: MessageRole;
   status?: MessageStatus;
-  createdAt?: string;
+  createdAt: string;
   stopReason?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;
@@ -297,7 +297,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         id: m.id,
         role: m.role,
         status: m.status || "completed",
-        createdAt: m.createdAt || new Date().toISOString(),
+        createdAt: m.createdAt,
         stopReason: m.stopReason || null,
         errorCode: m.errorCode || null,
         errorMessage: m.errorMessage || null,

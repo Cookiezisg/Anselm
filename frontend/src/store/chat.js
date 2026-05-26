@@ -6,4 +6,4 @@ export {
   selectTopMessageIds,
   selectBlock,
   selectChildIds,
-} from "@entities/conversation/model/chatStore";
+} from "@entities/conversation";
