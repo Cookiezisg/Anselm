@@ -16,6 +16,8 @@ export default tseslint.config(
       "boundaries/elements": [
         // 阶段1已定型的 FSD shared 层(正式 element)
         { type: "shared", pattern: "src/shared/**" },
+        // 阶段2:entities 层;capture slice 名供后续 @x cross-import 规则用
+        { type: "entities", pattern: "src/entities/*", capture: ["slice"] },
         // 迁移期临时 element:现有扁平目录;bridge 已迁至 shared,从此排除
         { type: "shared-tmp", pattern: "src/{api,sse,store,hooks,motion,i18n,components/primitives}/**" },
         { type: "app-tmp",    pattern: "src/{App.jsx,main.jsx}" },
@@ -37,7 +39,10 @@ export default tseslint.config(
           // shared 层强制:不得依赖任何上层应用代码(error 级)
           { from: { type: "shared" }, disallow: { to: { type: ["shared-tmp", "feature-tmp", "app-tmp"] } }, message: "shared 不能依赖上层或未迁移应用代码" },
           // 迁移期:旧扁平层 shared-tmp 不得依赖上层(warn)
-          { from: { type: "shared-tmp" }, disallow: { to: { type: ["feature-tmp", "app-tmp"] } }, message: "shared 不能依赖上层" }
+          { from: { type: "shared-tmp" }, disallow: { to: { type: ["feature-tmp", "app-tmp"] } }, message: "shared 不能依赖上层" },
+          // entities 层(warn 级,阶段2):只允许 import shared;禁止 import 上层及迁移期临时层
+          // 收口 task 升级为 error + 豁免 settings gate
+          { from: { type: "entities" }, disallow: { to: { type: ["app-tmp", "feature-tmp", "shared-tmp"] } }, message: "entities 不能依赖上层或迁移期临时层" }
         ]
       }],
       "no-unused-vars": "off",

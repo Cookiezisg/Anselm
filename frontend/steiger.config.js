@@ -23,4 +23,11 @@ export default [
       "src/main.jsx",
     ],
   },
+  {
+    // insignificant-slice は阶段2迁移期间暂时无引用;
+    // 调用点仍在 shared-tmp(api/config.js re-export),steiger 无法跨层追踪。
+    // 阶段5调用点全量迁移后移除此豁免。
+    files: ["src/entities/**"],
+    rules: { "fsd/insignificant-slice": "off" },
+  },
 ];
