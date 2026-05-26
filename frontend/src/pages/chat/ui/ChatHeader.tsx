@@ -5,9 +5,12 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { EntityRelMeta } from "../../../widgets/entity-rel-meta/EntityRelMeta.tsx";
+import type { Conversation } from "@entities/conversation";
+
+type ConvRow = Partial<Conversation> & { id: string; model?: string };
 
 interface ChatHeaderProps {
-  conv: any;
+  conv: ConvRow | null | undefined;
   onClose?: () => void;
 }
 

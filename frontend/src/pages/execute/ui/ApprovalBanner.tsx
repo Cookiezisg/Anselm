@@ -10,13 +10,16 @@ import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
-import { useApproveNode, useRejectNode } from "@entities/flowrun";
+import { useApproveNode, useRejectNode, type FlowRunNode } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 import { slideDown } from "@shared/lib/motion";
+import type { MotionProps } from "framer-motion";
+
+type ApprovalNode = Omit<Partial<FlowRunNode>, "status"> & { id: string; status: string; label?: string; kind?: string };
 
 interface ApprovalBannerProps {
   runId: string;
-  nodes?: any[];
+  nodes?: ApprovalNode[];
 }
 
 export function ApprovalBanner({ runId, nodes }: ApprovalBannerProps) {
@@ -27,7 +30,7 @@ export function ApprovalBanner({ runId, nodes }: ApprovalBannerProps) {
   if (pending.length === 0) return null;
 
   return (
-    <motion.div className="approval-banner" {...(slideDown as any)}>
+    <motion.div className="approval-banner" {...(slideDown as MotionProps)}>
       <div className="approval-banner-head">
         <Icon.Pause style={{ width: 14, height: 14, color: "var(--status-warn)" }} />
         <strong>{t("approval.banner.title")}</strong>
@@ -42,7 +45,7 @@ export function ApprovalBanner({ runId, nodes }: ApprovalBannerProps) {
   );
 }
 
-function ApprovalRow({ runId, node }: { runId: string; node: any }) {
+function ApprovalRow({ runId, node }: { runId: string; node: ApprovalNode }) {
   const { t } = useTranslation("execute");
   const approve = useApproveNode();
   const reject = useRejectNode();
@@ -75,7 +78,7 @@ function ApprovalRow({ runId, node }: { runId: string; node: any }) {
       <div className={"approval-row is-" + decided}>
         <Icon.Check style={{ width: 12, height: 12 }} />
         <span className="cell-mono">{node.label || node.id}</span>
-        <span style={{ color: "var(--fg-muted)" }}>{t(`approval.row.decided.${decided}` as any)}</span>
+        <span style={{ color: "var(--fg-muted)" }}>{t(`approval.row.decided.${decided}` as Parameters<typeof t>[0])}</span>
         {reason && <span style={{ color: "var(--fg-faint)", fontSize: 11 }}>· {reason}</span>}
       </div>
     );

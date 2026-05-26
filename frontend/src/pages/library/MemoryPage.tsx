@@ -8,7 +8,9 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { Badge } from "@shared/ui/Badge";
-import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "@entities/memory";
+import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory, type Memory } from "@entities/memory";
+
+type MemoryRow = Memory & { memType?: string; body?: string };
 import { useToastStore } from "@shared/ui/toastStore";
 
 const TABS = [
@@ -23,7 +25,7 @@ export function MemoryPage() {
   const { t } = useTranslation(["library", "common"]);
   const [tab, setTab] = useState("all");
   const { data: memories = [], isLoading } = useMemories(tab === "all" ? undefined : tab);
-  const [editing, setEditing] = useState<any>(null);
+  const [editing, setEditing] = useState<MemoryRow | null>(null);
   const del = useDeleteMemory();
   const pin = usePinMemory();
   const pushToast = useToastStore((s) => s.pushToast);
@@ -37,7 +39,7 @@ export function MemoryPage() {
         </div>
         <div className="page-actions">
           <Button size="sm" variant="accent"
-            onClick={() => setEditing({ name: "", description: "", body: "", memType: "user", source: "user" })}
+            onClick={() => setEditing({ id: "", name: "", type: "user", description: "", content: "", pinned: false, source: "user", createdAt: "", updatedAt: "", accessCount: 0 })}
           >
             <Icon.Plus /> {t("memory.newBtn")}
           </Button>
@@ -69,7 +71,7 @@ export function MemoryPage() {
                     <div className="card-title" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>{m.name}</div>
                     <div className="card-desc" style={{ marginTop: 4 }}>{m.description}</div>
                   </div>
-                  <Badge kind="muted">{(m as any).memType}</Badge>
+                  <Badge kind="muted">{(m as MemoryRow).memType || m.type}</Badge>
                   <button className="icon-btn" onClick={(e) => {
                     e.stopPropagation();
                     pin.mutate({ name: m.name, pinned: !m.pinned }, {
@@ -95,7 +97,7 @@ export function MemoryPage() {
   );
 }
 
-function MemoryDrawer({ memory, onClose }: { memory: any; onClose: () => void }) {
+function MemoryDrawer({ memory, onClose }: { memory: MemoryRow; onClose: () => void }) {
   const { t } = useTranslation(["library", "common"]);
   const [body, setBody] = useState(memory.body || "");
   const [description, setDescription] = useState(memory.description || "");
@@ -107,8 +109,8 @@ function MemoryDrawer({ memory, onClose }: { memory: any; onClose: () => void })
   const submit = () => {
     update.mutate({
       name: name || "untitled-" + Date.now(),
-      body: { description, body, memType: (memory as any).memType, source: (memory as any).source || "user" },
-    } as any, {
+      body: { description, content: body },
+    }, {
       onSuccess: () => { pushToast({ kind: "success", title: t("memory.saveSuccess") }); onClose(); },
       onError: (e) => pushToast({ kind: "error", title: t("memory.saveFail"), desc: e.message }),
     });

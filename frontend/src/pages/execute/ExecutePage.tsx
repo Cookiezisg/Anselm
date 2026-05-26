@@ -10,19 +10,20 @@ import { useFlowRun } from "@entities/flowrun";
 import { ExecuteOverview } from "./ui/ExecuteOverview.tsx";
 import { FlowRunDetail } from "./ui/FlowRunDetail.tsx";
 import { slideUp, fadeIn } from "@shared/lib/motion";
+import type { MotionProps } from "framer-motion";
 
 interface ExecutePageProps {
-  focusEntity?: any;
-  onConsumeFocusEntity: (...args: any[]) => void;
+  focusEntity?: { execute?: string; [key: string]: unknown };
+  onConsumeFocusEntity: (pane: string) => unknown;
   onOpenChat?: (convId: string) => void;
 }
 
 export function ExecutePage({ focusEntity, onConsumeFocusEntity, onOpenChat }: ExecutePageProps) {
-  const [openRunId, setOpenRunId] = useState(null);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
   const focusId = focusEntity?.execute;
 
   // Probe and consume incoming focusId
-  const { data: probe } = useFlowRun(focusId && !openRunId ? focusId : null);
+  const { data: probe } = useFlowRun(focusId && !openRunId ? focusId : "");
   useEffect(() => {
     if (focusId && !openRunId && probe) {
       setOpenRunId(focusId);
@@ -33,12 +34,12 @@ export function ExecutePage({ focusEntity, onConsumeFocusEntity, onOpenChat }: E
   return (
     <AnimatePresence mode="wait" initial={false}>
       {openRunId ? (
-        <motion.div key={`run-${openRunId}`} {...(slideUp as any)} style={{ height: "100%" }}>
+        <motion.div key={`run-${openRunId}`} {...(slideUp as MotionProps)} style={{ height: "100%" }}>
           <FlowRunDetail runId={openRunId} onBack={() => setOpenRunId(null)} onOpenChat={onOpenChat} />
         </motion.div>
       ) : (
-        <motion.div key="list" {...(fadeIn as any)} style={{ height: "100%" }}>
-          <ExecuteOverview onOpen={(fr: any) => setOpenRunId(fr.id)} />
+        <motion.div key="list" {...(fadeIn as MotionProps)} style={{ height: "100%" }}>
+          <ExecuteOverview onOpen={(fr) => setOpenRunId(fr.id)} />
         </motion.div>
       )}
     </AnimatePresence>

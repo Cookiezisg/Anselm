@@ -31,7 +31,7 @@ function FlowStatusBadge({ status }: { status: any }) {
 }
 
 interface ExecuteOverviewProps {
-  onOpen: (id: string) => void;
+  onOpen: (fr: { id: string; [key: string]: unknown }) => void;
 }
 
 export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {

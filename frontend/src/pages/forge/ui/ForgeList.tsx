@@ -12,16 +12,24 @@ import { KindChip } from "../../../shared/ui/KindChip.tsx";
 import { StatusBadge } from "../../../shared/ui/StatusBadge.tsx";
 import { RelTime } from "../../../shared/ui/RelTime.tsx";
 import { ActionMenu } from "../../../widgets/action-menu/ActionMenu.tsx";
-import { useFunctions, useDeleteFunction } from "@entities/function";
-import { useHandlers, useDeleteHandler } from "@entities/handler";
-import { useWorkflows, useDeleteWorkflow } from "@entities/workflow";
+import { useFunctions, useDeleteFunction, type FunctionEntity } from "@entities/function";
+import { useHandlers, useDeleteHandler, type Handler } from "@entities/handler";
+import { useWorkflows, useDeleteWorkflow, type Workflow } from "@entities/workflow";
 import { useForgeProgress } from "@shared/model";
 import { useToastStore } from "@shared/ui/toastStore";
 import { RunDrawer } from "./RunDrawer.tsx";
 import { useForgeBatchDelete } from "@features/forge-review";
 
+type ForgeRow = (FunctionEntity | Handler | Workflow) & {
+  kind: "function" | "handler" | "workflow";
+  desc?: string;
+  versionLabel?: string;
+  version?: string | number;
+  status?: string;
+};
+
 interface ForgeListProps {
-  onOpen: (entity: any) => void;
+  onOpen: (entity: ForgeRow) => void;
   onOpenExecute?: (id: string) => void;
 }
 
@@ -47,12 +55,12 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
   const deleteWf = useDeleteWorkflow();
   const pushToast = useToastStore((s) => s.pushToast);
   const { batchDelete } = useForgeBatchDelete();
-  const [runTarget, setRunTarget] = useState<any>(null);
+  const [runTarget, setRunTarget] = useState<ForgeRow | null>(null);
 
-  const rows: any[] = useMemo(() => {
-    const fns = (functions as any[]).map((x) => ({ ...x, kind: "function" }));
-    const hds = (handlers as any[]).map((x) => ({ ...x, kind: "handler" }));
-    const wfs = (workflows as any[]).map((x) => ({ ...x, kind: "workflow" }));
+  const rows: ForgeRow[] = useMemo(() => {
+    const fns = (functions as FunctionEntity[]).map((x) => ({ ...x, kind: "function" as const }));
+    const hds = (handlers as Handler[]).map((x) => ({ ...x, kind: "handler" as const }));
+    const wfs = (workflows as Workflow[]).map((x) => ({ ...x, kind: "workflow" as const }));
     const all = [...fns, ...hds, ...wfs];
     return all.sort((a, b) => {
       const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
