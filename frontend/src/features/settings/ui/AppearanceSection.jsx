@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { useSettingsStore } from "@entities/settings";
 import { ACCENTS } from "@shared/lib/onboarding-strings.js";
 

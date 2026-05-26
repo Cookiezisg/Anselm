@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render } from "@testing-library/react";
-import { useChatStore } from "../../../store/chat.js";
+import { useChatStore } from "@entities/conversation";
 import { BlockList } from "./BlockRenderer.jsx";
 
 const CV = "cv_render_test";

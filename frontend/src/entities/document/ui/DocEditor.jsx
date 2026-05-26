@@ -34,7 +34,7 @@ import Suggestion from "@tiptap/suggestion";
 import tippy from "tippy.js";
 import "tippy.js/dist/tippy.css";
 
-import { Icon } from "@/components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 // ── Slash command vocabulary ─────────────────────────────────────────
 function makeSlashItems(t) {

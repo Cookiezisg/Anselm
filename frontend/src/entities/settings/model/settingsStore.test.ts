@@ -1,13 +1,8 @@
-// store/settings — session-state defaults and persistence.
-// activeUserId has migrated to entities/session.
-// Preference fields (theme/accent/density/lang/reasoningDefault) are in
-// entities/settings/model/settingsStore.test.ts; helpers (resolveTheme,
-// applyTheme) are tested there as well.
+// settingsStore — preference store defaults, persistence, resolveTheme,
+// applyTheme, detectLang. Migrated from store/settings.test.js (阶段4b).
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mirrors the private detectLang() in entities/settings; used to assert
-// default lang in this environment.
 function detectLang() {
   if (typeof navigator === "undefined") return "zh";
   const l = (navigator.language || "").toLowerCase();
@@ -26,43 +21,9 @@ afterEach(() => {
   delete document.documentElement.dataset.lang;
 });
 
-describe("useSettings (session store)", () => {
-  it("useSettings_defaults_matchSpec", async () => {
-    const { useSettings } = await import("./settings.js");
-    const s = useSettings.getState();
-    expect(s.onboarded).toBe(false);
-    expect(s.leftPct).toBe(50);
-  });
-
-  it("set_mergesPartialPatch", async () => {
-    const { useSettings } = await import("./settings.js");
-    useSettings.getState().set({ onboarded: true });
-    const s = useSettings.getState();
-    expect(s.onboarded).toBe(true);
-    expect(s.leftPct).toBe(50);
-  });
-
-  it("reset_restoresDefaults", async () => {
-    const { useSettings } = await import("./settings.js");
-    useSettings.getState().set({ onboarded: true, leftPct: 70 });
-    useSettings.getState().reset();
-    const s = useSettings.getState();
-    expect(s.onboarded).toBe(false);
-    expect(s.leftPct).toBe(50);
-  });
-
-  it("persist_writesToLocalStorage", async () => {
-    const { useSettings } = await import("./settings.js");
-    useSettings.getState().set({ onboarded: true });
-    const stored = localStorage.getItem("forgify-ui");
-    expect(stored).toBeTruthy();
-    expect(JSON.parse(stored).state.onboarded).toBe(true);
-  });
-});
-
 describe("useSettingsStore (preference store)", () => {
   it("defaults_matchSpec", async () => {
-    const { useSettingsStore } = await import("../entities/settings/model/settingsStore.ts");
+    const { useSettingsStore } = await import("./settingsStore");
     const s = useSettingsStore.getState();
     expect(s.theme).toBe("system");
     expect(s.accent).toBe("claude");
@@ -72,7 +33,7 @@ describe("useSettingsStore (preference store)", () => {
   });
 
   it("set_mergesPartialPatch", async () => {
-    const { useSettingsStore } = await import("../entities/settings/model/settingsStore.ts");
+    const { useSettingsStore } = await import("./settingsStore");
     useSettingsStore.getState().set({ theme: "dark", accent: "blue" });
     const s = useSettingsStore.getState();
     expect(s.theme).toBe("dark");
@@ -81,7 +42,7 @@ describe("useSettingsStore (preference store)", () => {
   });
 
   it("reset_restoresDefaults", async () => {
-    const { useSettingsStore } = await import("../entities/settings/model/settingsStore.ts");
+    const { useSettingsStore } = await import("./settingsStore");
     useSettingsStore.getState().set({ theme: "dark", lang: "en" });
     useSettingsStore.getState().reset();
     const s = useSettingsStore.getState();
@@ -90,24 +51,24 @@ describe("useSettingsStore (preference store)", () => {
   });
 
   it("persist_writesToLocalStorage", async () => {
-    const { useSettingsStore } = await import("../entities/settings/model/settingsStore.ts");
+    const { useSettingsStore } = await import("./settingsStore");
     useSettingsStore.getState().set({ accent: "green" });
     const stored = localStorage.getItem("forgify-settings");
     expect(stored).toBeTruthy();
-    expect(JSON.parse(stored).state.accent).toBe("green");
+    expect(JSON.parse(stored!).state.accent).toBe("green");
   });
 });
 
 describe("resolveTheme", () => {
   it("resolveTheme_lightOrDark_passesThrough", async () => {
-    const { resolveTheme } = await import("../entities/settings/model/settingsStore.ts");
+    const { resolveTheme } = await import("./settingsStore");
     expect(resolveTheme("light")).toBe("light");
     expect(resolveTheme("dark")).toBe("dark");
   });
 
   it("resolveTheme_system_collapsesViaMediaQuery", async () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true });
-    const { resolveTheme } = await import("../entities/settings/model/settingsStore.ts");
+    const { resolveTheme } = await import("./settingsStore");
     expect(resolveTheme("system")).toBe("dark");
     window.matchMedia = vi.fn().mockReturnValue({ matches: false });
     expect(resolveTheme("system")).toBe("light");
@@ -132,7 +93,7 @@ describe("detectLang (device language detection)", () => {
 
 describe("applyTheme", () => {
   it("applyTheme_writesDatasetAttrs", async () => {
-    const { applyTheme } = await import("../entities/settings/model/settingsStore.ts");
+    const { applyTheme } = await import("./settingsStore");
     applyTheme({ theme: "dark", accent: "blue", density: "compact", lang: "en" });
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.dataset.accent).toBe("blue");
@@ -142,7 +103,7 @@ describe("applyTheme", () => {
 
   it("applyTheme_systemTheme_resolvesBeforeWriting", async () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true });
-    const { applyTheme } = await import("../entities/settings/model/settingsStore.ts");
+    const { applyTheme } = await import("./settingsStore");
     applyTheme({ theme: "system", accent: "blue", density: "cozy", lang: "zh" });
     expect(document.documentElement.dataset.theme).toBe("dark");
   });

@@ -6,12 +6,14 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useFunction, useHandler, useWorkflow } from "../../api/forge.js";
+import { useFunction } from "@entities/function";
+import { useHandler } from "@entities/handler";
+import { useWorkflow } from "@entities/workflow";
 import { ForgeList } from "./ui/ForgeList.jsx";
 import { FunctionDetail } from "@entities/function";
 import { HandlerDetail } from "@entities/handler";
 import { WorkflowDetail } from "@entities/workflow";
-import { slideUp, fadeIn } from "../../motion/tokens.js";
+import { slideUp, fadeIn } from "@shared/lib/motion";
 
 export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }) {
   const [open, setOpen] = useState(null);

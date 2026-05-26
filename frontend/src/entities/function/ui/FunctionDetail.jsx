@@ -6,15 +6,15 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { KindChip } from "@shared/ui/KindChip.jsx";
 import { StatusBadge } from "@shared/ui/StatusBadge.jsx";
 import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.jsx";
 import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/VersionRail.jsx";
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.jsx";
 import { RunDrawer } from "@entities/flowrun/ui/RunDrawer.jsx";
-import { useFunction, useFunctionVersions } from "@/api/forge.js";
+import { useFunction, useFunctionVersions } from "@entities/function";
 import { useForgeProgress } from "@shared/model";
 import { useForgeReview } from "@features/forge-review";
 

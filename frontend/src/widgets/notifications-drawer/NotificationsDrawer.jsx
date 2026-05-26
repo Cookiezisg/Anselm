@@ -7,13 +7,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { Badge } from "../../components/primitives/Badge.jsx";
-import { Button } from "../../components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Badge } from "@shared/ui/Badge";
+import { Button } from "@shared/ui/Button";
 import { RelTime } from "../../shared/ui/RelTime.jsx";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useNotificationsSnapshot } from "../../api/notifications.js";
-import { apiFetch } from "../../api/client.js";
+import { useNotificationsSnapshot } from "./useNotificationsSnapshot.js";
+import { apiFetch } from "@shared/api/httpClient";
 
 const TYPE_TO_PANE = {
   conversation: "chat",

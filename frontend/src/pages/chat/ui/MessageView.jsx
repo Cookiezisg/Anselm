@@ -5,10 +5,10 @@
 
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore } from "../../../store/chat.js";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { useChatStore } from "@entities/conversation";
+import { Icon } from "@shared/ui/Icon";
 import { RelTime } from "../../../shared/ui/RelTime.jsx";
-import { Badge } from "../../../components/primitives/Badge.jsx";
+import { Badge } from "@shared/ui/Badge";
 import { BlockList } from "./BlockRenderer.jsx";
 
 export const MessageView = memo(function MessageView({ convId, msgId }) {

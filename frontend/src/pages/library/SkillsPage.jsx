@@ -5,9 +5,9 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { Button } from "../../components/primitives/Button.jsx";
-import { useSkills } from "../../api/library.js";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { useSkills } from "@entities/skill";
 
 export function SkillsPage() {
   const { t } = useTranslation(["library", "common"]);

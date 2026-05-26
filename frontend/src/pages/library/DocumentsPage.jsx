@@ -14,8 +14,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { Button } from "../../components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { ActionMenu } from "../../widgets/action-menu/ActionMenu.jsx";
 import { AskAiTrigger } from "../../widgets/ask-ai-trigger/AskAiTrigger.jsx";
 import { EntityRelMeta } from "../../widgets/entity-rel-meta/EntityRelMeta.jsx";
@@ -25,9 +25,9 @@ import { DocEditor } from "@entities/document";
 import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
-} from "../../api/library.js";
+} from "@entities/document";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useCollapsible } from "../../hooks/useCollapsible.js";
+import { useCollapsible } from "@shared/lib/useCollapsible";
 
 export function DocumentsPage({ activeDoc, onSetActiveDocument }) {
   const { t } = useTranslation(["library", "common"]);

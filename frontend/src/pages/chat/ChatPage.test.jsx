@@ -9,10 +9,14 @@ import { createElement } from "react";
 const mockSend = vi.fn();
 const mockCancel = vi.fn();
 
-vi.mock("@/api/conversations.js", () => ({
-  useConversation: () => ({ data: { id: "cv_x", title: "Test Conv" } }),
-  useConversationMessages: () => ({ data: [], isLoading: false }),
-}));
+vi.mock("@entities/conversation", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useConversation: () => ({ data: { id: "cv_x", title: "Test Conv" } }),
+    useConversationMessages: () => ({ data: [], isLoading: false }),
+  };
+});
 
 vi.mock("@features/send-message", () => ({
   useSendMessageFlow: () => ({ submit: mockSend, cancelStream: mockCancel, isPending: false }),
@@ -25,8 +29,10 @@ vi.mock("@features/send-message", () => ({
   ),
 }));
 
-vi.mock("@/api/config.js", () => ({
+vi.mock("@entities/apikey", () => ({
   useApiKeys: () => ({ data: [{ id: "aki_1" }], isLoading: false }),
+}));
+vi.mock("@entities/model-config", () => ({
   // Default: chat scenario configured so NoModelGate doesn't swallow the
   // existing ChatPage tests. Tests that exercise the gate can override.
   useModelConfigs: () => ({
@@ -44,7 +50,7 @@ vi.mock("./ui/MessageView.jsx", () => ({
 }));
 
 import { useToastStore } from "@shared/ui/toastStore";
-import { useChatStore } from "@/store/chat.js";
+import { useChatStore } from "@entities/conversation";
 import { ChatPage } from "./ChatPage.jsx";
 
 function wrap({ children }) {

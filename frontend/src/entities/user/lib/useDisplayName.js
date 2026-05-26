@@ -9,7 +9,7 @@
 // 走完引导的用户也显示 "?")。取不到 displayName 退到 username,再退到 ""。
 
 import { useSessionStore } from "@entities/session";
-import { useUsers, useUpdateUser } from "../api/users.js";
+import { useUsers, useUpdateUser } from "@entities/user";
 
 export function useDisplayName() {
   const activeUserId = useSessionStore((s) => s.currentUserId);

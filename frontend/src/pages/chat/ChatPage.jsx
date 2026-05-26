@@ -8,17 +8,18 @@
 import { useEffect, useRef } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useConversation, useConversationMessages } from "../../api/conversations.js";
-import { useApiKeys, useModelConfigs } from "../../api/config.js";
-import { useChatStore } from "../../store/chat.js";
-import { qk } from "../../api/client.js";
+import { useConversation, useConversationMessages } from "@entities/conversation";
+import { useApiKeys } from "@entities/apikey";
+import { useModelConfigs } from "@entities/model-config";
+import { useChatStore } from "@entities/conversation";
+import { qk } from "@shared/api/queryKeys";
 import { useSendMessageFlow } from "../../features/send-message/index.ts";
 import { ChatHeader } from "./ui/ChatHeader.jsx";
 import { MessageView } from "./ui/MessageView.jsx";
 import { Composer } from "@features/send-message";
 import { NoApiKeyGate } from "./ui/NoApiKeyGate.jsx";
 import { NoModelGate } from "./ui/NoModelGate.jsx";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 // Stable empty array — zustand selectors must return cached references
 // (warns "getSnapshot should be cached" + infinite loop otherwise when

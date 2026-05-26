@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useContextStrip } from "./useContextStrip.js";
 
-vi.mock("../../../api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRuns: vi.fn(),
 }));
-vi.mock("../../../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useConversations: vi.fn(),
 }));
 
-import { useFlowRuns } from "../../../api/flowruns.js";
-import { useConversations } from "../../../api/conversations.js";
+import { useFlowRuns } from "@entities/flowrun";
+import { useConversations } from "@entities/conversation";
 
 beforeEach(() => {
   vi.useFakeTimers();

@@ -2,23 +2,24 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Dashboard } from "./Dashboard.jsx";
-import { apiFetch } from "../../api/client.js";
+import { apiFetch } from "@shared/api/httpClient";
 
 const createMutateAsync = vi.fn().mockResolvedValue({ id: "cv_n" });
 
-vi.mock("../../api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRuns: () => ({ data: [] }),
 }));
-vi.mock("../../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useConversations:       () => ({ data: [] }),
   useCreateConversation:  () => ({ mutateAsync: createMutateAsync }),
 }));
-vi.mock("../../api/client.js", () => ({
+vi.mock("@shared/api/httpClient", () => ({
   apiFetch: vi.fn().mockResolvedValue({}),
 }));
-vi.mock("../../hooks/useDisplayName.js", () => ({
-  useDisplayName: () => ["", vi.fn()],
-}));
+vi.mock("@entities/user", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, useDisplayName: () => ["", vi.fn()] };
+});
 
 const mockOpenPane = vi.fn();
 const mockSetActiveConv = vi.fn();

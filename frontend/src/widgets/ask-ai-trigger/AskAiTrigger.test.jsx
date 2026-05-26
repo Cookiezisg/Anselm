@@ -6,7 +6,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
-import { setupFetchSpy } from "../../api/_testHarness.js";
+import { setupFetchSpy } from "@shared/lib/testHarness";
 import { usePaneStore } from "@app/model";
 import { setNavigator } from "@shared/lib/navigation";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
@@ -27,7 +27,7 @@ beforeEach(async () => {
     openPane: (pane) => usePaneStore.getState().openPane(pane),
     setActiveDocument: (id) => { usePaneStore.getState().setActiveDocument(id); usePaneStore.getState().openPane("documents"); },
   });
-  const bridge = await import("../../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

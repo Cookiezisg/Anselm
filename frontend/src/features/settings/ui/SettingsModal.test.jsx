@@ -21,7 +21,7 @@ vi.mock("framer-motion", async () => {
   };
 });
 
-vi.mock("@/api/users.js", () => ({
+vi.mock("@entities/user", () => ({
   useUsers: () => ({
     data: [
       { id: "u_a", username: "alice", displayName: "Alice" },
@@ -29,6 +29,7 @@ vi.mock("@/api/users.js", () => ({
     ],
   }),
   useUpdateUser: () => ({ mutate: vi.fn() }),
+  useDisplayName: () => ["Alice", vi.fn()],
 }));
 
 const mockSwitchTo = vi.fn();
@@ -45,15 +46,18 @@ vi.mock("@features/settings", () => ({
 
 // ApiKeysSection and SearchSection are real components; stub their config hooks
 // so they render deterministically without network.
-vi.mock("@/api/config.js", () => ({
-  useProviders: () => ({ data: [] }),
+vi.mock("@entities/apikey", () => ({
   useApiKeys: () => ({ data: [] }),
-  useModelConfigs: () => ({ data: [] }),
   useCreateApiKey: () => ({ mutateAsync: vi.fn() }),
   useTestApiKey: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useDeleteApiKey: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  useUpsertModelConfig: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useUpdateApiKey: (_id) => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@entities/model-config", () => ({
+  useProviders: () => ({ data: [] }),
+  useModelConfigs: () => ({ data: [] }),
+  useUpsertModelConfig: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
 
 import { useToastStore } from "@shared/ui/toastStore";

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../api/library.js", () => ({
+vi.mock("@entities/mcp", () => ({
   useMcpServers: vi.fn(),
   useReconnectMcp: vi.fn(),
   useRemoveMcp: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock("../../shared/ui/RelTime.jsx", () => ({
   RelTime: ({ ts }) => <span data-testid="reltime">{ts}</span>,
 }));
 
-import { useMcpServers, useReconnectMcp, useRemoveMcp } from "../../api/library.js";
+import { useMcpServers, useReconnectMcp, useRemoveMcp } from "@entities/mcp";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { McpPage } from "./McpPage.jsx";
 

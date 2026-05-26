@@ -5,7 +5,7 @@
 
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 
 export function ToastTray() {

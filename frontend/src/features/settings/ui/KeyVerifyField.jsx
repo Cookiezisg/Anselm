@@ -1,4 +1,4 @@
-import { Icon } from "@/components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 export function KeyVerifyField({ label, value, onChange, onVerify, verifying, verified, error, verifyLabel, verifyingLabel, verifiedLabel, placeholder, readOnly }) {
   return (

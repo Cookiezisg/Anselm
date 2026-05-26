@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../api/notifications.js", () => ({
+vi.mock("./useNotificationsSnapshot.js", () => ({
   useNotificationsSnapshot: () => ({
     data: [
       { seq: 1, type: "conversation", id: "cv_x", createdAt: "2026-05-24T12:00:00Z" },

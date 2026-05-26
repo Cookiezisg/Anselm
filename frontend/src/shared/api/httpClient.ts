@@ -5,7 +5,7 @@
 // apiFetch —— 唯一 fetch wrapper：从 Wails bridge 取 baseUrl，注 JSON 头，
 // 剥 §N1 envelope，统一报错带 code/status。
 
-import { apiUrl } from "../../bridge/wails.js";
+import { apiUrl } from "../bridge/wails";
 import { getUserId, notifyAuthFailure } from "./authProvider.js";
 
 export { setUserIdProvider, setOnAuthFailure } from "./authProvider.js";

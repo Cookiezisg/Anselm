@@ -3,7 +3,7 @@
 // ChatHeader —— 标题 + 模型 + 副控件。
 
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { EntityRelMeta } from "../../../widgets/entity-rel-meta/EntityRelMeta.jsx";
 
 export function ChatHeader({ conv, onClose }) {

@@ -5,8 +5,8 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { KindChip } from "@shared/ui/KindChip.jsx";
 import { StatusBadge } from "@shared/ui/StatusBadge.jsx";
 import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.jsx";
@@ -14,11 +14,9 @@ import { VersionRail, SplitDiff, CodeView } from "@/widgets/version-rail/Version
 import { AskAiTrigger } from "@/widgets/ask-ai-trigger/AskAiTrigger.jsx";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.jsx";
 import { RunDrawer } from "@entities/flowrun/ui/RunDrawer.jsx";
-import {
-  useHandler, useHandlerVersions, useHandlerConfig,
-} from "@/api/forge.js";
+import { useHandler, useHandlerVersions, useHandlerConfig } from "@entities/handler";
 import { useForgeProgress } from "@shared/model";
-import { useCollapsible } from "@/hooks/useCollapsible.js";
+import { useCollapsible } from "@shared/lib/useCollapsible";
 import { useForgeReview } from "@features/forge-review";
 
 export function HandlerDetail({ forge, onBack }) {

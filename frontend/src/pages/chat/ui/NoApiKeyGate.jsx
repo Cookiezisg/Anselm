@@ -5,8 +5,8 @@
 // ChatPage 从 AppShell 向下传入，pages 层零 app 依赖。
 
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
-import { Button } from "../../../components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 
 export function NoApiKeyGate({ onOpenSettings }) {
   const { t } = useTranslation("conv");

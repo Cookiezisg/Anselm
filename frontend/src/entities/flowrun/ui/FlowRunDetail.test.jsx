@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRun: vi.fn(),
   useFlowRunNodes: vi.fn(),
   useCancelFlowRun: vi.fn(),
@@ -18,14 +18,14 @@ vi.mock("@/widgets/entity-rel-meta/EntityRelMeta.jsx", () => ({
   EntityRelMeta: () => null,
 }));
 
-vi.mock("@/api/relations.js", () => ({
+vi.mock("@entities/relation", () => ({
   useNeighborhood: () => ({ data: [] }),
 }));
 
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useTriageFlowRun,
   useApproveNode, useRejectNode,
-} from "@/api/flowruns.js";
+} from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 import { FlowRunDetail } from "./FlowRunDetail.jsx";
 

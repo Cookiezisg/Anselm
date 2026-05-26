@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "./Sidebar.jsx";
 import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 
-vi.mock("../../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useConversations:        () => ({ data: [] }),
   useCreateConversation:   () => ({ mutateAsync: vi.fn().mockResolvedValue({ id: "cv_new" }) }),
   useUpdateConversation:   () => ({ mutate: vi.fn() }),
@@ -12,9 +12,10 @@ vi.mock("../../api/conversations.js", () => ({
 }));
 // useDisplayName now derives from the backend active user (useUsers + settings);
 // mock it here so the Sidebar unit test doesn't need a real users query.
-vi.mock("../../hooks/useDisplayName.js", () => ({
-  useDisplayName: () => ["Weilin", vi.fn()],
-}));
+vi.mock("@entities/user", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, useDisplayName: () => ["Weilin", vi.fn()] };
+});
 
 function SidebarConnected(extraProps) {
   const openPanes = usePaneStore((s) => s.openPanes);

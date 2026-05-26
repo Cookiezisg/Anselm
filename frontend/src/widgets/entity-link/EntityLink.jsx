@@ -5,9 +5,9 @@
 // EntityLink —— 实体 ID 可点击 chip；按前缀路由到对应 pane。
 
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { navigate } from "@shared/lib/navigation";
-import { useEntityName } from "../../hooks/useEntityName.js";
+import { useEntityName } from "@shared/lib/useEntityName";
 
 const PREFIX_META = {
   f:   { pane: "forge",     icon: "Code"          },

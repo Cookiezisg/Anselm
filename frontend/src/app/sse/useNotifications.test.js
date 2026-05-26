@@ -23,7 +23,7 @@ beforeEach(async () => {
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
   useOverlayStore.setState({ pendingAsk: null });
-  const bridge = await import("../../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

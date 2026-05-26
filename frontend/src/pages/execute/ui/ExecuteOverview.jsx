@@ -5,11 +5,11 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
-import { Button } from "../../../components/primitives/Button.jsx";
-import { Badge } from "../../../components/primitives/Badge.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { Badge } from "@shared/ui/Badge";
 import { RelTime } from "../../../shared/ui/RelTime.jsx";
-import { useFlowRuns, useApproveNode, useRejectNode } from "../../../api/flowruns.js";
+import { useFlowRuns, useApproveNode, useRejectNode } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
 const STATUS_KIND = {

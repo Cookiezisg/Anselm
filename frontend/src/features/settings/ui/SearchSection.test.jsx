@@ -15,14 +15,22 @@ const mockDeleteKey = vi.fn();
 const mockUpdateKey = vi.fn();
 
 // apiFetch is used directly in AddPanel's save for best-effort isDefault PATCH.
-vi.mock("@/api/client.js", async (importOriginal) => {
+vi.mock("@shared/api/httpClient", async (importOriginal) => {
   const actual = await importOriginal();
   return { ...actual, apiFetch: vi.fn().mockResolvedValue({}) };
 });
 
 let apiKeys = [];
 
-vi.mock("@/api/config.js", () => ({
+vi.mock("@entities/apikey", () => ({
+  useApiKeys: () => ({ data: apiKeys }),
+  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
+  useTestApiKey: () => ({ mutate: mockTestKey, mutateAsync: mockTestKey, isPending: false }),
+  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey, isPending: false }),
+  useUpdateApiKey: (_id) => ({ mutate: mockUpdateKey, isPending: false }),
+}));
+
+vi.mock("@entities/model-config", () => ({
   useProviders: () => ({
     data: [
       { name: "deepseek", category: "llm", displayName: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com" },
@@ -32,12 +40,6 @@ vi.mock("@/api/config.js", () => ({
       { name: "tavily", category: "search", displayName: "Tavily", defaultBaseUrl: "https://api.tavily.com" },
     ],
   }),
-  useApiKeys: () => ({ data: apiKeys }),
-  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
-  useTestApiKey: () => ({ mutate: mockTestKey, mutateAsync: mockTestKey, isPending: false }),
-  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey, isPending: false }),
-  // useUpdateApiKey is called per-key with an id; return a consistent mutation object.
-  useUpdateApiKey: (_id) => ({ mutate: mockUpdateKey, isPending: false }),
 }));
 
 import { useToastStore } from "@shared/ui/toastStore";

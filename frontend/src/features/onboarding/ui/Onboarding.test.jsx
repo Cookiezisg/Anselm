@@ -28,23 +28,6 @@ const mockTestKey = vi.fn();
 const mockUpsertModel = vi.fn();
 const mockDeleteKey = vi.fn();
 
-vi.mock("@/api/users.js", () => ({
-  useCreateUser: () => ({ mutateAsync: mockCreateUser }),
-}));
-
-vi.mock("@/api/config.js", () => ({
-  useProviders: () => ({ data: [
-    { name: "deepseek", category: "llm", displayName: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com" },
-    { name: "ollama", category: "llm", displayName: "Ollama (local)", defaultBaseUrl: "" },
-    { name: "bocha", category: "search", displayName: "博查 Bocha", defaultBaseUrl: "https://api.bochaai.com/v1" },
-    { name: "brave", category: "search", displayName: "Brave Search", defaultBaseUrl: "https://api.search.brave.com" },
-  ] }),
-  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
-  useTestApiKey: () => ({ mutateAsync: mockTestKey }),
-  useUpsertModelConfig: () => ({ mutateAsync: mockUpsertModel }),
-  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey }),
-}));
-
 // Mock entity hooks used by useOnboardingFlow.
 vi.mock("@entities/user", () => ({
   useCreateUser: () => ({ mutateAsync: mockCreateUser }),
@@ -67,7 +50,6 @@ vi.mock("@entities/model-config", () => ({
 }));
 
 import { useToastStore } from "@shared/ui/toastStore";
-import { useSettings } from "@/store/settings.js";
 import { useSettingsStore } from "@entities/settings/model/settingsStore";
 import { useSessionStore } from "@entities/session";
 import { Onboarding } from "./Onboarding.jsx";
@@ -80,7 +62,6 @@ function wrap({ children }) {
 beforeEach(() => {
   useToastStore.setState({ toasts: [] });
   useSettingsStore.setState({ theme: "system", accent: "claude", density: "cozy", lang: "zh", reasoningDefault: "collapsed" });
-  useSettings.setState({ onboarded: false });
   useSessionStore.setState({ currentUserId: null, status: "loading" });
   mockCreateUser.mockReset().mockResolvedValue({ id: "u_new", username: "alice" });
   mockCreateKey.mockReset().mockResolvedValue({ id: "aki_1" });

@@ -13,13 +13,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
-import { Select } from "@/components/primitives/Select.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { Select } from "@shared/ui/Select";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.jsx";
 import { FloatingInspector } from "@shared/ui/FloatingInspector.jsx";
 import { useWorkflowEdit } from "@features/workflow-edit";
-import { useCollapsible } from "@/hooks/useCollapsible.js";
+import { useCollapsible } from "@shared/lib/useCollapsible";
 
 const NODE_W = 184;
 const NODE_H = 76;

@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 export function WelcomeInput({ onSubmit, isSubmitting = false }) {
   const { t } = useTranslation("dashboard");

@@ -16,18 +16,21 @@ const mockUpsertModel = vi.fn();
 let apiKeys = [];
 let modelConfigs = [];
 
-vi.mock("@/api/config.js", () => ({
+vi.mock("@entities/apikey", () => ({
+  useApiKeys: () => ({ data: apiKeys }),
+  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
+  useTestApiKey: () => ({ mutate: mockTestKey, mutateAsync: mockTestKey, isPending: false }),
+  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey, isPending: false }),
+}));
+
+vi.mock("@entities/model-config", () => ({
   useProviders: () => ({ data: [
     { name: "deepseek", category: "llm", displayName: "DeepSeek", defaultBaseUrl: "https://api.deepseek.com" },
     { name: "anthropic", category: "llm", displayName: "Anthropic", defaultBaseUrl: "https://api.anthropic.com" },
     { name: "ollama", category: "llm", displayName: "Ollama (local)", defaultBaseUrl: "" },
     { name: "bocha", category: "search", displayName: "博查 Bocha", defaultBaseUrl: "https://api.bochaai.com/v1" },
   ] }),
-  useApiKeys: () => ({ data: apiKeys }),
   useModelConfigs: () => ({ data: modelConfigs }),
-  useCreateApiKey: () => ({ mutateAsync: mockCreateKey }),
-  useTestApiKey: () => ({ mutate: mockTestKey, mutateAsync: mockTestKey, isPending: false }),
-  useDeleteApiKey: () => ({ mutate: mockDeleteKey, mutateAsync: mockDeleteKey, isPending: false }),
   useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
 }));
 

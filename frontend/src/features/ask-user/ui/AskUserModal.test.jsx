@@ -4,7 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { setupFetchSpy } from "@/api/_testHarness.js";
+import { setupFetchSpy } from "@shared/lib/testHarness";
 import { useToastStore } from "@shared/ui/toastStore";
 import { AskUserModal } from "./AskUserModal.jsx";
 
@@ -12,7 +12,7 @@ let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
   useToastStore.setState({ toasts: [] });
-  const bridge = await import("@/bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

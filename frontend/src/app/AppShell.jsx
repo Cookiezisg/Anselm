@@ -32,7 +32,7 @@ import { usePaneStore, useSidebarStore, useOverlayStore } from "@app/model";
 import { useSSEHealth } from "@app/sse/SSEProvider.jsx";
 import { setNavigator } from "@shared/lib/navigation";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts.js";
-import { easeOut } from "@/motion/tokens.js";
+import { easeOut } from "@shared/lib/motion";
 
 function renderPaneBody(kind, onClose, pageProps) {
   switch (kind) {

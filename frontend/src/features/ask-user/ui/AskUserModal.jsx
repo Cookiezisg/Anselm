@@ -9,10 +9,10 @@
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { useAskUserAnswer } from "@features/ask-user";
-import { scaleIn, fadeIn } from "@/motion/tokens.js";
+import { scaleIn, fadeIn } from "@shared/lib/motion";
 
 export function AskUserModal({ pending, askOpen, onClose }) {
   const { t } = useTranslation(["conv", "common"]);

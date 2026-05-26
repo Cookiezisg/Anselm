@@ -4,7 +4,7 @@
 // ObservePage —— 全图谱 page（RelGraph 力导向 + filter + node detail）。
 
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { RelGraph } from "../../../widgets/rel-graph/RelGraph.jsx";
 
 export function ObservePage() {

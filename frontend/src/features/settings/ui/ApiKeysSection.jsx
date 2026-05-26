@@ -8,13 +8,11 @@
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
-import {
-  useApiKeys, useProviders, useModelConfigs, useCreateApiKey,
-  useTestApiKey, useDeleteApiKey, useUpsertModelConfig,
-} from "@/api/config.js";
+import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
+import { useProviders, useModelConfigs, useUpsertModelConfig } from "@entities/model-config";
 import { LLM_HINTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings.js";
 import { ProviderGrid } from "./ProviderGrid.jsx";
 import { KeyVerifyField } from "./KeyVerifyField.jsx";

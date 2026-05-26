@@ -17,7 +17,7 @@ import {
   useFloating, autoUpdate, offset, flip, shift,
   useDismiss, useInteractions, useClick, useRole, FloatingPortal,
 } from "@floating-ui/react";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { lowlight } from "../../../shared/lib/highlight/index.js";
 
 // Friendly labels for languages registered via `common`. Anything not in

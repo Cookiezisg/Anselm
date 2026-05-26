@@ -12,7 +12,7 @@ import { useSettingsStore, applyTheme } from "@entities/settings";
 import { useSessionStore } from "@entities/session";
 import { useSessionBootstrap } from "@app/model";
 import i18n from "@shared/lib/i18n";
-import { useChatStore } from "@/store/chat.js";
+import { useChatStore } from "@entities/conversation";
 import { usePaneStore } from "@app/model";
 
 export default function App() {

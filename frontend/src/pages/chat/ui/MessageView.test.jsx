@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { useChatStore } from "../../../store/chat.js";
+import { useChatStore } from "@entities/conversation";
 
 vi.mock("./BlockRenderer.jsx", () => ({
   BlockList: ({ blockIds }) => <div data-testid="blocklist">{(blockIds || []).join(",")}</div>,

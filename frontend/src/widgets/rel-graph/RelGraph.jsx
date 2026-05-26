@@ -12,10 +12,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { Button } from "../../components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { FloatingInspector } from "../../shared/ui/FloatingInspector.jsx";
-import { useNeighborhood } from "../../api/relations.js";
+import { useNeighborhood } from "@entities/relation";
 import { navigate } from "@shared/lib/navigation";
 import { useEntityDirectory, normEdges, guessKind } from "@features/entity-link";
 

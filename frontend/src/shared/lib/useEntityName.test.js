@@ -1,23 +1,31 @@
 // useEntityName — prefix-based dispatch to the right list query.
-// We mock the api hooks so test data is deterministic without HTTP.
+// We mock the entity hooks so test data is deterministic without HTTP.
 
 import { describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
-vi.mock("../api/forge.js", () => ({
+vi.mock("@entities/function", () => ({
   useFunctions:    () => ({ data: [{ id: "fn_1", name: "func one" }, { id: "fn_2", name: "func two" }] }),
+}));
+vi.mock("@entities/handler", () => ({
   useHandlers:     () => ({ data: [{ id: "hd_1", name: "handler one" }] }),
+}));
+vi.mock("@entities/workflow", () => ({
   useWorkflows:    () => ({ data: [{ id: "wf_1", name: "workflow one" }] }),
 }));
-vi.mock("../api/library.js", () => ({
+vi.mock("@entities/document", () => ({
   useDocuments:    () => ({ data: [{ id: "doc_1", name: "doc one", title: "fallback title" }, { id: "doc_2", title: "title only" }] }),
+}));
+vi.mock("@entities/skill", () => ({
   useSkills:       () => ({ data: [{ id: "sk_1", name: "skill one" }] }),
+}));
+vi.mock("@entities/mcp", () => ({
   useMcpServers:   () => ({ data: [{ id: "mcp_1", name: "mcp one" }] }),
 }));
-vi.mock("../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useConversations: () => ({ data: [{ id: "cv_1", title: "conv one" }] }),
 }));
-vi.mock("../api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRuns:      () => ({ data: [{ id: "fr_1", workflow: "wf one" }, { id: "fr_2", workflowId: "wf_2" }] }),
 }));
 

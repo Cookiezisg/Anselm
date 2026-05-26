@@ -14,7 +14,7 @@ import {
   useFloating, autoUpdate, offset, flip, shift,
   useDismiss, useClick, useInteractions, useRole, FloatingPortal,
 } from "@floating-ui/react";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 export function ActionMenu({ items, renderTrigger, placement = "bottom-end" }) {
   const { t } = useTranslation("misc");

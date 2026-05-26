@@ -10,9 +10,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { useFunctions, useHandlers, useWorkflows } from "@/api/forge.js";
-import { useDocuments } from "@/api/library.js";
+import { Icon } from "@shared/ui/Icon";
+import { useFunctions } from "@entities/function";
+import { useHandlers } from "@entities/handler";
+import { useWorkflows } from "@entities/workflow";
+import { useDocuments } from "@entities/document";
 
 export function Composer({ disabled, isStreaming, onSend, onCancel }) {
   const { t } = useTranslation("conv");

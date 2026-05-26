@@ -6,10 +6,14 @@
 // useEntityName —— 把实体 ID 翻成显示名；按 prefix 路由到对应 list query
 // 拿名字，没拿到就 fallback 回 ID（少了不会断）。
 
-import { useFunctions, useHandlers, useWorkflows } from "../api/forge.js";
-import { useDocuments, useSkills, useMcpServers } from "../api/library.js";
-import { useConversations } from "../api/conversations.js";
-import { useFlowRuns } from "../api/flowruns.js";
+import { useFunctions } from "@entities/function";
+import { useHandlers } from "@entities/handler";
+import { useWorkflows } from "@entities/workflow";
+import { useDocuments } from "@entities/document";
+import { useSkills } from "@entities/skill";
+import { useMcpServers } from "@entities/mcp";
+import { useConversations } from "@entities/conversation";
+import { useFlowRuns } from "@entities/flowrun";
 
 function pickName(list, id, getName) {
   const hit = (list || []).find((x) => x.id === id);

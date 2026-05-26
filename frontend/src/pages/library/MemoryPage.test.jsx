@@ -4,14 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../api/library.js", () => ({
+vi.mock("@entities/memory", () => ({
   useMemories: vi.fn(),
   useUpdateMemory: vi.fn(),
   useDeleteMemory: vi.fn(),
   usePinMemory: vi.fn(),
 }));
 
-import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "../../api/library.js";
+import { useMemories, useUpdateMemory, useDeleteMemory, usePinMemory } from "@entities/memory";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { MemoryPage } from "./MemoryPage.jsx";
 

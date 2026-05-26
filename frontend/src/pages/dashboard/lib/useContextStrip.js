@@ -5,8 +5,8 @@
 // 都没就返 null,整行隐藏。
 
 import { useTranslation } from "react-i18next";
-import { useFlowRuns } from "../../../api/flowruns.js";
-import { useConversations } from "../../../api/conversations.js";
+import { useFlowRuns } from "@entities/flowrun";
+import { useConversations } from "@entities/conversation";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

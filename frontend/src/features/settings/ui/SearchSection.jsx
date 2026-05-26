@@ -8,14 +8,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
-import {
-  useApiKeys, useProviders, useCreateApiKey,
-  useTestApiKey, useDeleteApiKey, useUpdateApiKey,
-} from "@/api/config.js";
-import { apiFetch, qk } from "@/api/client.js";
+import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, useUpdateApiKey } from "@entities/apikey";
+import { useProviders } from "@entities/model-config";
+import { apiFetch } from "@shared/api/httpClient";
+import { qk } from "@shared/api/queryKeys";
 import { SEARCH_HINTS } from "@shared/lib/onboarding-strings.js";
 import { ProviderGrid } from "./ProviderGrid.jsx";
 import { KeyVerifyField } from "./KeyVerifyField.jsx";

@@ -8,9 +8,9 @@
 
 import { useTranslation } from "react-i18next";
 import { useToastStore } from "@shared/ui/toastStore";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { ActionMenu } from "../action-menu/ActionMenu.jsx";
-import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
+import { useUpdateConversation, useDeleteConversation } from "@entities/conversation";
 
 export function ChatListItem({ conv, openPanes, activeConv, onSetActiveConv, onOpenPane }) {
   const { t } = useTranslation("sidebar");

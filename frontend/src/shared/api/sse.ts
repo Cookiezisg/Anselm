@@ -15,7 +15,7 @@
 // 共享 SSE 工厂；currentUserId 为空时不建连接；连接被永久关闭且 captured
 // uid 还等于当前 provider 值时触发 notifyAuthFailure → resolveSession。
 
-import { apiUrl } from "../../bridge/wails.js";
+import { apiUrl } from "../bridge/wails";
 import { getUserId, notifyAuthFailure } from "./authProvider.js";
 
 export type SSEEventMeta = { seq: number; raw: string };

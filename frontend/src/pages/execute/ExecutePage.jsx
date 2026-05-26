@@ -6,10 +6,10 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useFlowRun } from "../../api/flowruns.js";
+import { useFlowRun } from "@entities/flowrun";
 import { ExecuteOverview } from "./ui/ExecuteOverview.jsx";
 import { FlowRunDetail } from "@entities/flowrun";
-import { slideUp, fadeIn } from "../../motion/tokens.js";
+import { slideUp, fadeIn } from "@shared/lib/motion";
 
 export function ExecutePage({ focusEntity, onConsumeFocusEntity, onOpenChat }) {
   const [openRunId, setOpenRunId] = useState(null);

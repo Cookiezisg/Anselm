@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Button } from "./Button.jsx";
+import { Button } from "@shared/ui/Button";
 
 describe("Button", () => {
   it("variantPrimary_addsBtnPrimary", () => {

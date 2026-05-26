@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useUpdateConversation: vi.fn(),
   useDeleteConversation: vi.fn(),
 }));
 
-import { useUpdateConversation, useDeleteConversation } from "../../api/conversations.js";
+import { useUpdateConversation, useDeleteConversation } from "@entities/conversation";
 import { usePaneStore } from "@app/model";
 import { useToastStore } from "../../shared/ui/toastStore.ts";
 import { ChatListItem } from "./ChatListItem.jsx";

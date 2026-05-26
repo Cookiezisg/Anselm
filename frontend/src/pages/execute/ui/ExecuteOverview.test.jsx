@@ -5,13 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../../api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRuns: vi.fn(),
   useApproveNode: () => ({ mutate: vi.fn(), isPending: false }),
   useRejectNode: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-import { useFlowRuns } from "../../../api/flowruns.js";
+import { useFlowRuns } from "@entities/flowrun";
 import { useToastStore } from "../../../shared/ui/toastStore.ts";
 import { ExecuteOverview } from "./ExecuteOverview.jsx";
 

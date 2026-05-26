@@ -7,9 +7,9 @@
 
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
-import { Badge } from "@/components/primitives/Badge.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { Badge } from "@shared/ui/Badge";
 import { RelTime } from "@shared/ui/RelTime.jsx";
 import { EntityRelMeta } from "@/widgets/entity-rel-meta/EntityRelMeta.jsx";
 import { BottomSheet } from "@shared/ui/BottomSheet.jsx";
@@ -17,7 +17,7 @@ import { ApprovalBanner } from "@/pages/execute/ui/ApprovalBanner.jsx";
 import {
   useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
   useRejectNode, useTriageFlowRun,
-} from "@/api/flowruns.js";
+} from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
 const STATUS_KIND = {

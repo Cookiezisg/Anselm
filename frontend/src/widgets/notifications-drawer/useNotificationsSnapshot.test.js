@@ -1,16 +1,15 @@
-// api/notifications — REST snapshot endpoint shape.
+// useNotificationsSnapshot — REST snapshot endpoint shape.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderQuery } from "./_testHarness.js";
-import { useNotificationsSnapshot } from "./notifications.js";
+import { setupFetchSpy, renderQuery } from "@shared/lib/testHarness";
+import { useNotificationsSnapshot } from "./useNotificationsSnapshot.js";
 
 let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
-  const bridge = await import("../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
-  // Snapshot query is gated on currentUserId; set one so it fires.
   const { useSessionStore } = await import("@entities/session");
   useSessionStore.setState({ currentUserId: "u_test" });
 });

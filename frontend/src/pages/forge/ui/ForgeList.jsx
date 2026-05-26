@@ -6,16 +6,15 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../../components/primitives/Icon.jsx";
-import { Button } from "../../../components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { KindChip } from "../../../shared/ui/KindChip.jsx";
 import { StatusBadge } from "../../../shared/ui/StatusBadge.jsx";
 import { RelTime } from "../../../shared/ui/RelTime.jsx";
 import { ActionMenu } from "../../../widgets/action-menu/ActionMenu.jsx";
-import {
-  useFunctions, useHandlers, useWorkflows,
-  useDeleteFunction, useDeleteHandler, useDeleteWorkflow,
-} from "../../../api/forge.js";
+import { useFunctions, useDeleteFunction } from "@entities/function";
+import { useHandlers, useDeleteHandler } from "@entities/handler";
+import { useWorkflows, useDeleteWorkflow } from "@entities/workflow";
 import { useForgeProgress } from "@shared/model";
 import { useToastStore } from "@shared/ui/toastStore";
 import { RunDrawer } from "@entities/flowrun";

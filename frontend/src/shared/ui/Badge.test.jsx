@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { Badge } from "./Badge.jsx";
+import { Badge } from "@shared/ui/Badge";
 
 describe("Badge", () => {
   it("withKind_addsKindClass", () => {

@@ -10,8 +10,8 @@
 
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
 import { useSettingsStore } from "@entities/settings";
 import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "./onboarding-strings.js";
 import { ProviderGrid } from "@features/settings/ui/ProviderGrid.jsx";

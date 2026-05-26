@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../api/library.js", () => ({
+vi.mock("@entities/skill", () => ({
   useSkills: vi.fn(),
 }));
 
-import { useSkills } from "../../api/library.js";
+import { useSkills } from "@entities/skill";
 import { SkillsPage } from "./SkillsPage.jsx";
 
 const SKILLS = [

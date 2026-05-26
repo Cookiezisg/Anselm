@@ -6,7 +6,7 @@ import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { MockEventSource } from "../../test-setup.js";
-import { useChatStore } from "../../store/chat.js";
+import { useChatStore } from "@entities/conversation";
 import { useSessionStore } from "@entities/session";
 import { setUserIdProvider } from "@shared/api/authProvider";
 import { useEventLog } from "./useEventLog.js";
@@ -22,7 +22,7 @@ beforeEach(async () => {
   useChatStore.setState({ convs: {}, hydratedConvs: new Set() });
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
-  const bridge = await import("../../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

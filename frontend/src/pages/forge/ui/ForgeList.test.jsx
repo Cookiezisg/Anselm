@@ -5,12 +5,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/forge.js", () => ({
+vi.mock("@entities/function", () => ({
   useFunctions: vi.fn(),
-  useHandlers: vi.fn(),
-  useWorkflows: vi.fn(),
   useDeleteFunction: () => ({ mutate: vi.fn() }),
+}));
+vi.mock("@entities/handler", () => ({
+  useHandlers: vi.fn(),
   useDeleteHandler: () => ({ mutate: vi.fn() }),
+}));
+vi.mock("@entities/workflow", () => ({
+  useWorkflows: vi.fn(),
   useDeleteWorkflow: () => ({ mutate: vi.fn() }),
 }));
 
@@ -28,7 +32,9 @@ vi.mock("@entities/flowrun", () => ({
     open ? <div data-testid="run-drawer">drawer-{kind}-{entity?.id}</div> : null,
 }));
 
-import { useFunctions, useHandlers, useWorkflows } from "@/api/forge.js";
+import { useFunctions } from "@entities/function";
+import { useHandlers } from "@entities/handler";
+import { useWorkflows } from "@entities/workflow";
 import { useToastStore } from "@shared/ui/toastStore";
 import { ForgeList } from "./ForgeList.jsx";
 

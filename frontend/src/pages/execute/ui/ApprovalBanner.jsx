@@ -8,11 +8,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "../../../components/primitives/Icon.jsx";
-import { Button } from "../../../components/primitives/Button.jsx";
-import { useApproveNode, useRejectNode } from "../../../api/flowruns.js";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { useApproveNode, useRejectNode } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
-import { slideDown } from "../../../motion/tokens.js";
+import { slideDown } from "@shared/lib/motion";
 
 export function ApprovalBanner({ runId, nodes }) {
   const { t } = useTranslation("execute");

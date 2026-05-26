@@ -5,7 +5,7 @@
 // SidebarSection —— 可折叠分组标题;hover 才显示 ▾;sidebar 收起态下
 // label 降级成 18px 短横线,chev 行为不变。
 
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 export function SidebarSection({ label, expanded, onToggle, collapsedSidebar = false, children }) {
   const cls = "sb-section" + (collapsedSidebar ? " is-collapsed-sb" : "") + (expanded ? " is-expanded" : "");

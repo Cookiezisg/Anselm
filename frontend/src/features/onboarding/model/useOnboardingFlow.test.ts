@@ -39,18 +39,6 @@ vi.mock("@shared/ui/toastStore", () => ({
     sel({ pushToast: mockPushToast }),
 }));
 
-// eslint-disable-next-line boundaries/dependencies
-vi.mock("../../../store/settings.js", () => {
-  let state = { onboarded: false };
-  return {
-    useSettings: () => ({
-      ...state,
-      set: (patch: Partial<typeof state>) => { state = { ...state, ...patch }; },
-    }),
-    __resetState: () => { state = { onboarded: false }; },
-  };
-});
-
 vi.mock("@entities/session", () => {
   const store = {
     currentUserId: null as string | null,

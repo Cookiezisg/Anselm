@@ -12,10 +12,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "../../components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { useForgeIterate } from "@features/forge-iterate";
 import { navigate } from "@shared/lib/navigation";
-import { slideUp } from "../../motion/tokens.js";
+import { slideUp } from "@shared/lib/motion";
 
 export function AskAiTrigger({ kind, entityId, context, suggestions = [] }) {
   const { t } = useTranslation("misc");

@@ -4,12 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/forge.js", () => ({
+vi.mock("@entities/function", () => ({
   useFunctions: () => ({ data: [{ id: "fn_1", name: "addNumbers" }] }),
-  useHandlers:  () => ({ data: [{ id: "hd_1", name: "Adder" }] }),
+}));
+vi.mock("@entities/handler", () => ({
+  useHandlers: () => ({ data: [{ id: "hd_1", name: "Adder" }] }),
+}));
+vi.mock("@entities/workflow", () => ({
   useWorkflows: () => ({ data: [{ id: "wf_1", name: "Flow" }] }),
 }));
-vi.mock("@/api/library.js", () => ({
+vi.mock("@entities/document", () => ({
   useDocuments: () => ({ data: [{ id: "doc_1", name: "Notes" }] }),
 }));
 

@@ -5,15 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/library.js", () => ({
+vi.mock("@entities/document", () => ({
   useDocumentTree: vi.fn(),
   useDocument: vi.fn(),
   useCreateDocument: vi.fn(),
   useUpdateDocument: vi.fn(),
   useDeleteDocument: vi.fn(),
-}));
-
-vi.mock("@entities/document", () => ({
   DocEditor: ({ initialMarkdown }) => (
     <div data-testid="editor-stub">{initialMarkdown}</div>
   ),
@@ -34,7 +31,7 @@ vi.mock("@shared/ui/RelTime.jsx", () => ({
 import {
   useDocumentTree, useDocument,
   useCreateDocument, useUpdateDocument, useDeleteDocument,
-} from "@/api/library.js";
+} from "@entities/document";
 import { useToastStore } from "@shared/ui/toastStore";
 import { DocumentsPage } from "./DocumentsPage.jsx";
 

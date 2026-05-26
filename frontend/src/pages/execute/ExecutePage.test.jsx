@@ -19,14 +19,11 @@ vi.mock("@entities/flowrun", () => ({
       <button onClick={onBack}>back</button>
     </div>
   ),
-}));
-
-vi.mock("@/api/flowruns.js", () => ({
   useFlowRun: vi.fn(),
 }));
 
 import userEvent from "@testing-library/user-event";
-import { useFlowRun } from "@/api/flowruns.js";
+import { useFlowRun } from "@entities/flowrun";
 import { ExecutePage } from "./ExecutePage.jsx";
 
 const mockConsumeFocusEntity = vi.fn();

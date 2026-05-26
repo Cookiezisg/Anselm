@@ -8,9 +8,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "../../../components/primitives/Icon.jsx";
-import { Button } from "../../../components/primitives/Button.jsx";
-import { useCapabilityCheck } from "../../../api/forge.js";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { useCapabilityCheck } from "@entities/workflow";
 import { useToastStore } from "@shared/ui/toastStore";
 
 export function CapabilityCheckPanel({ workflowId }) {

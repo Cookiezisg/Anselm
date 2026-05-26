@@ -7,12 +7,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
-import { Icon } from "@/components/primitives/Icon.jsx";
-import { Button } from "@/components/primitives/Button.jsx";
-import { Select } from "@/components/primitives/Select.jsx";
-import { useRunFunction, useCallHandler, useRunWorkflow } from "@/api/forge.js";
+import { Icon } from "@shared/ui/Icon";
+import { Button } from "@shared/ui/Button";
+import { Select } from "@shared/ui/Select";
+import { useRunFunction } from "@entities/function";
+import { useCallHandler } from "@entities/handler";
+import { useRunWorkflow } from "@entities/workflow";
 import { useToastStore } from "@shared/ui/toastStore";
-import { slideRight, scrim } from "@/motion/tokens.js";
+import { slideRight, scrim } from "@shared/lib/motion";
 
 function safeParse(text) {
   const t = text.trim();

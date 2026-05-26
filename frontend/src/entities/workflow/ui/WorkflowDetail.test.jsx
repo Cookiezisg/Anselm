@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/forge.js", () => ({
+vi.mock("@entities/workflow", () => ({
   useWorkflow: vi.fn(),
   useWorkflowVersions: vi.fn(),
   useCapabilityCheck: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock("@features/workflow-edit/ui/WorkflowEditor.jsx", () => ({
 import {
   useWorkflow, useWorkflowVersions,
   useCapabilityCheck, useEditWorkflow,
-} from "@/api/forge.js";
+} from "@entities/workflow";
 import { useForgeReview } from "@features/forge-review";
 import { useToastStore } from "@shared/ui/toastStore";
 import { WorkflowDetail } from "./WorkflowDetail.jsx";

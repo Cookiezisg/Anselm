@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Select } from "@/components/primitives/Select.jsx";
+import { Select } from "@shared/ui/Select";
 
 export function ModelSelect({ models, value, onChange, disabled }) {
   const { t } = useTranslation("settings");

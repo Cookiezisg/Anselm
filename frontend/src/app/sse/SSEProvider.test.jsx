@@ -22,7 +22,7 @@ beforeEach(async () => {
   globalThis.EventSource = MockEventSource;
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
-  const bridge = await import("../../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

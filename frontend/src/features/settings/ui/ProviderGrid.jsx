@@ -1,4 +1,4 @@
-import { Icon } from "@/components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 
 export function ProviderGrid({ providers, hints, selected, onPick, configured = [], tall = false }) {
   return (

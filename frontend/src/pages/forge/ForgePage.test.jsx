@@ -22,6 +22,7 @@ vi.mock("./ui/ForgeList.jsx", () => ({
 }));
 
 vi.mock("@entities/function", () => ({
+  useFunction: vi.fn(),
   FunctionDetail: ({ forge, onBack }) => (
     <div data-testid="fn-detail">
       fn-{forge.id}-{forge.name}
@@ -31,6 +32,7 @@ vi.mock("@entities/function", () => ({
 }));
 
 vi.mock("@entities/handler", () => ({
+  useHandler: vi.fn(),
   HandlerDetail: ({ forge, onBack }) => (
     <div data-testid="hd-detail">
       hd-{forge.id}
@@ -40,6 +42,7 @@ vi.mock("@entities/handler", () => ({
 }));
 
 vi.mock("@entities/workflow", () => ({
+  useWorkflow: vi.fn(),
   WorkflowDetail: ({ forge, onBack }) => (
     <div data-testid="wf-detail">
       wf-{forge.id}
@@ -48,13 +51,9 @@ vi.mock("@entities/workflow", () => ({
   ),
 }));
 
-vi.mock("@/api/forge.js", () => ({
-  useFunction: vi.fn(),
-  useHandler: vi.fn(),
-  useWorkflow: vi.fn(),
-}));
-
-import { useFunction, useHandler, useWorkflow } from "@/api/forge.js";
+import { useFunction } from "@entities/function";
+import { useHandler } from "@entities/handler";
+import { useWorkflow } from "@entities/workflow";
 import { ForgePage } from "./ForgePage.jsx";
 
 const mockConsumeFocusEntity = vi.fn();

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/api/forge.js", () => ({
+vi.mock("@entities/handler", () => ({
   useHandler: vi.fn(),
   useHandlerVersions: vi.fn(),
   useHandlerConfig: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("@/widgets/ask-ai-trigger/AskAiTrigger.jsx", () => ({
 
 import {
   useHandler, useHandlerVersions, useHandlerConfig,
-} from "@/api/forge.js";
+} from "@entities/handler";
 import { useForgeReview } from "@features/forge-review";
 import { useToastStore } from "@shared/ui/toastStore";
 import { HandlerDetail } from "./HandlerDetail.jsx";

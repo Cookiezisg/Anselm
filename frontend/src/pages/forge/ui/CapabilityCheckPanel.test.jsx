@@ -6,11 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("../../../api/forge.js", () => ({
+vi.mock("@entities/workflow", () => ({
   useCapabilityCheck: vi.fn(),
 }));
 
-import { useCapabilityCheck } from "../../../api/forge.js";
+import { useCapabilityCheck } from "@entities/workflow";
 import { useToastStore } from "../../../shared/ui/toastStore.ts";
 import { CapabilityCheckPanel } from "./CapabilityCheckPanel.jsx";
 

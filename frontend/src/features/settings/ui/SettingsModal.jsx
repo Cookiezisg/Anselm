@@ -6,10 +6,10 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Icon } from "@/components/primitives/Icon.jsx";
+import { Icon } from "@shared/ui/Icon";
 import { useSessionStore } from "@entities/session";
-import { useUsers } from "@/api/users.js";
-import { scaleIn } from "@/motion/tokens.js";
+import { useUsers } from "@entities/user";
+import { scaleIn } from "@shared/lib/motion";
 import { ApiKeysSection } from "./ApiKeysSection.jsx";
 import { SearchSection } from "./SearchSection.jsx";
 import { AppearanceSection } from "./AppearanceSection.jsx";

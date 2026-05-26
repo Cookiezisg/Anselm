@@ -11,8 +11,8 @@
 
 import { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useChatStore, selectBlock, selectChildIds } from "../../../store/chat.js";
-import { Icon } from "../../../components/primitives/Icon.jsx";
+import { useChatStore, selectBlock, selectChildIds } from "@entities/conversation";
+import { Icon } from "@shared/ui/Icon";
 import { EntityLink } from "../../../widgets/entity-link/EntityLink.jsx";
 import { MarkdownView } from "../../../shared/ui/MarkdownView.jsx";
 

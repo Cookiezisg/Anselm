@@ -10,9 +10,9 @@
 
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { useConversations, useCreateConversation } from "../../api/conversations.js";
-import { useDisplayName } from "../../hooks/useDisplayName.js";
+import { Icon } from "@shared/ui/Icon";
+import { useConversations, useCreateConversation } from "@entities/conversation";
+import { useDisplayName } from "@entities/user";
 import { ChatListItem } from "./ChatListItem.jsx";
 import { SidebarSection } from "./SidebarSection.jsx";
 

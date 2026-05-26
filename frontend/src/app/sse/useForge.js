@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createSSE } from "@shared/api/sse";
 import { useSessionStore } from "@entities/session";
-import { qk } from "@/api/client.js";
+import { qk } from "@shared/api/queryKeys";
 import { useForgeProgress } from "@shared/model";
 
 export { useForgeProgress };

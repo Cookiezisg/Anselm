@@ -6,7 +6,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
-import { setupFetchSpy } from "../../../api/_testHarness.js";
+import { setupFetchSpy } from "@shared/lib/testHarness";
 import { useToastStore } from "../../../shared/ui/toastStore.ts";
 import { ApprovalBanner } from "./ApprovalBanner.jsx";
 
@@ -21,7 +21,7 @@ let calls;
 beforeEach(async () => {
   calls = setupFetchSpy();
   useToastStore.setState({ toasts: [] });
-  const bridge = await import("../../../bridge/wails.js");
+  const bridge = await import("@shared/bridge/wails");
   await bridge.initBaseUrl();
 });
 

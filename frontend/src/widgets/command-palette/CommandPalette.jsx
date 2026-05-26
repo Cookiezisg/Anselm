@@ -7,12 +7,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
-import { Icon } from "../../components/primitives/Icon.jsx";
-import { Kbd } from "../../components/primitives/Kbd.jsx";
-import { useConversations } from "../../api/conversations.js";
-import { useFunctions, useHandlers, useWorkflows } from "../../api/forge.js";
-import { useFlowRuns } from "../../api/flowruns.js";
-import { scaleIn, fadeIn } from "../../motion/tokens.js";
+import { Icon } from "@shared/ui/Icon";
+import { Kbd } from "@shared/ui/Kbd";
+import { useConversations } from "@entities/conversation";
+import { useFunctions } from "@entities/function";
+import { useHandlers } from "@entities/handler";
+import { useWorkflows } from "@entities/workflow";
+import { useFlowRuns } from "@entities/flowrun";
+import { scaleIn, fadeIn } from "@shared/lib/motion";
 
 const NAV_ITEMS_DEF = [
   { icon: Icon.MessageSquare, labelKey: "nav.chat",      desc: "",                              target: "chat" },

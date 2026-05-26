@@ -6,15 +6,19 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 
-vi.mock("../../api/conversations.js", () => ({
+vi.mock("@entities/conversation", () => ({
   useConversations: () => ({ data: [{ id: "cv_1", title: "My Chat" }] }),
 }));
-vi.mock("../../api/forge.js", () => ({
+vi.mock("@entities/function", () => ({
   useFunctions: () => ({ data: [{ id: "fn_1", name: "addNumbers", desc: "adds" }] }),
+}));
+vi.mock("@entities/handler", () => ({
   useHandlers: () => ({ data: [{ id: "hd_1", name: "MyHandler" }] }),
+}));
+vi.mock("@entities/workflow", () => ({
   useWorkflows: () => ({ data: [{ id: "wf_1", name: "MyWorkflow" }] }),
 }));
-vi.mock("../../api/flowruns.js", () => ({
+vi.mock("@entities/flowrun", () => ({
   useFlowRuns: () => ({ data: [{ id: "fr_1", workflow: "Run X" }] }),
 }));
 
