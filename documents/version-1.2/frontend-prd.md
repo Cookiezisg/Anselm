@@ -1,7 +1,7 @@
 # Forgify 前端 PRD — V1.0
 
-> **双轨参考。** 本文档定义架构、数据流、动效规格、与 boilerplate 的差异；`boilerplate/` 目录定义视觉细节（CSS、class 名、布局像素）。两者缺一不可——PRD 说"做什么"，boilerplate 说"长什么样"。
-> 实现顺序严格按 §15 的 Phase 列表，每个 Phase 完成后打勾。
+> **⚠️ boilerplate 原型已退役（2026-05-27）。** 本文档多处写"参照 boilerplate / 以 boilerplate 为准 / 改进 vs boilerplate"——`boilerplate/` 目录已删除，**视觉事实源现为已实现的 `frontend/src`（组件 + `src/styles/`）**。下文所有 boilerplate 提及均为前端实现完成前的历史实现上下文，按"实现即事实源"理解，不要再去找该目录。
+> 本文档定义架构、数据流、动效规格；实现顺序严格按 §15 的 Phase 列表，每个 Phase 完成后打勾。
 
 ---
 
@@ -10,7 +10,7 @@
 - **先读后写。** 每个 Phase 开始前重读对应章节，不靠记忆。
 - **改动即同步。** 设计变更先改本文档，再改代码。
 - **§15 是进度表。** 不要跳 Phase，不要并行多个 Phase。
-- **视觉细节以 boilerplate 为准。** PRD 没有逐一描述 CSS rule；凡是 PRD 没有明确说"改"的地方，一律参照 boilerplate 的样子还原，不凭空发明。详见 §18。
+- **视觉细节以已实现的 `frontend/src` 为准。** PRD 没有逐一描述 CSS rule；boilerplate 原型已退役（见顶部横幅），视觉事实源是已落地的组件 + `src/styles/`。
 
 ---
 

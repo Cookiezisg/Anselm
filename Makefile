@@ -7,7 +7,7 @@
 #   Daily   dev       run desktop app (backend + frontend, browser opens)
 #           stop      kill anything we started
 #           test      run unit tests
-#           clean     wipe local dev data (/tmp/forgify-dev)
+#           clean     wipe dev data + build artifacts (binaries/dist/coverage)
 #           reset     factory reset — dev + prod data + build + node_modules
 #
 #   Ship    build     package the macOS .app bundle
@@ -53,7 +53,7 @@ help:
 	@echo "  Daily:   make dev       run the desktop app (backend + frontend, browser opens)"
 	@echo "           make stop      kill anything we started"
 	@echo "           make test      run unit tests"
-	@echo "           make clean     wipe local dev data ($(BACKEND_DATA_DIR))"
+	@echo "           make clean     wipe dev data + build artifacts (binaries/dist/coverage)"
 	@echo "           make reset     factory reset — dev + prod data + build + node_modules"
 	@echo ""
 	@echo "  Ship:    make build     package the macOS .app bundle"
@@ -155,15 +155,23 @@ lint-frontend:
 	@cd frontend && [ -d node_modules ] || npm install --silent
 	@cd frontend && npm run typecheck && npm run lint && npm run fsd
 
-# clean — stop everything + wipe the entire dev data dir.
+# clean — stop everything + wipe dev data + regenerable build artifacts.
 # In --dev mode the backend roots forgify-home under $(BACKEND_DATA_DIR)/.forgify
 # so one rm wipes: SQLite + attachments + sandbox + MCP + skills + catalog cache.
+# Build artifacts below are stray `go build` binaries + frontend/testend dist +
+# coverage — all regenerable by a rebuild, fast to recover. node_modules and the
+# embedded mise/ runtimes are NOT touched here (slow to re-fetch — that's `reset`).
 # Real ~/.forgify/ (prod / Wails app data) is never touched.
 #
-# clean —— 停服务 + 清整个 dev 目录；不动 ~/.forgify/。
+# clean —— 停服务 + 清 dev 数据 + 可再生构建产物（散落二进制 / dist / coverage）。
+# 不碰 node_modules 和内嵌 mise/（重装慢，归 reset）；不动 ~/.forgify/。
 clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
-	@echo "✓ cleared $(BACKEND_DATA_DIR)"
+	@rm -f backend/server backend/lintprompts backend/fakeserver \
+	       backend/desktop backend/forgify-server backend/forgify-desktop \
+	       backend/fetch-mise.exe backend/cmd/desktop/Forgify
+	@rm -rf backend/sandbox frontend/dist frontend/coverage testend/dist
+	@echo "✓ cleared $(BACKEND_DATA_DIR) + 散落二进制 + dist/coverage"
 
 # reset — factory reset. Wipes EVERYTHING the app may have written:
 # dev data + prod ~/.forgify (real DB, skills, mcp.json, memory, docs,

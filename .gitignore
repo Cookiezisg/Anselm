@@ -235,6 +235,8 @@ backend/cmd/desktop/Forgify
 # （Makefile 全用 go run，这俩从不被消费；曾误 commit）
 backend/server
 backend/lintprompts
+backend/fakeserver
+backend/fetch-mise.exe
 
 # Test artifacts
 .env

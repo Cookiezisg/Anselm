@@ -277,7 +277,7 @@ type Tool interface {
 | 各 slice 详细设计 | `frontend-design-documents/<slice>.md` |
 | 数据从哪来、接哪个 API、SSE 如何处理 | PRD §5–§7、§9–§14、§17 |
 | 动效用什么参数 | PRD §3.2 |
-| 视觉细节（class 名 / CSS） | `boilerplate/src/` 对应 `.jsx` 文件 + `styles.css` |
+| 视觉细节（class 名 / CSS） | 已实现的 `frontend/src`（组件 + `src/styles/`）—— 实现即视觉事实源 |
 
 ---
 
@@ -362,7 +362,7 @@ entities/conversation/
 
 1. **读对应 `frontend-design-documents/<slice>.md`**（PRD §18.5 有映射）
 2. **确认 `fsd-layers.md`、`entity-types.md`、`cross-cutting.md`** 中对应条目
-3. **视觉细节参照 boilerplate**（`boilerplate/src/` + `styles.css`），不靠记忆
+3. **视觉细节参照已实现的 `frontend/src`**（组件 + `src/styles/`），不靠记忆（boilerplate 原型已退役 2026-05-27）
 4. **改完跑 Verification 三段**（见下方）
 5. **同步文档**（§F1）
 
@@ -380,7 +380,7 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 
 ---
 
-## 遇到 boilerplate bug 的处理原则
+## 遇到 UI bug 的处理原则
 
 **先判断：这是 bug 还是风格偏好？**
 
@@ -391,15 +391,14 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 | 宽度/高度导致 overflow 截断核心内容 | Bug | 修，最小干预 |
 | 间距稍大或稍小 | 风格 | 保留 |
 | 颜色稍浅或稍深 | 风格 | 保留 |
-| 某个交互没实现（如 onMouseEnter 注释掉了）| 缺失功能 | 按 PRD §16 的正确实现补全 |
 
 **修的方式：最完整修改。** 彻底搞清问题的机理，不只是表面现象。
 
-**修完后：** 在 PRD §16 补一行记录（即使没有预先列出）。用一句话说明现象和修法，不需要确认。
+**修完后：** 在 `progress-record.md` 记一行 `[bug-fix]` dev log。用一句话说明现象和修法，不需要确认。
 
-## 绝对不改的 boilerplate 决策
+## 已定型的视觉决策（勿在"优化"中改掉）
 
-以下设计是刻意的，不要在"优化"过程中改掉：
+以下设计是刻意的、已落地在 `frontend/src`，不要在"优化"过程中改掉：
 
 - `--t-fast/med/slow` 的 cubic-bezier 曲线值
 - 信息密度：`--row-h: 32px`（cozy），nav-item 和表格行的紧凑程度
@@ -416,7 +415,7 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 
 - **组件文件**：每文件一个主组件，文件名 = 组件名，`PascalCase.tsx`
 - **hook 文件**：`useCamelCase.ts`，只做一件事
-- **CSS class**：沿用 boilerplate 的 kebab-case 命名，不引入 BEM 或 CSS Modules
+- **CSS class**：沿用现有 `frontend/src/styles` 的 kebab-case 命名，不引入 BEM 或 CSS Modules
 - **组件内铁律（= 后端 S6）**：`onClick` / `onSubmit` 里不准有业务决策；组件只调一个 feature hook 拿意图级 API
 - **不写注释**：同后端 S11——只写 why，不写 what；密度上限 1/3；无章节横幅
 - **不做防御性校验**：同后端原则六——同人写前后端，API 结构已知，不加多余 null-check 和 fallback
@@ -439,7 +438,7 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 | DIP / errorMap / SSE / queryKeys 接口变 | `frontend-contract-documents/cross-cutting.md` + `progress-record.md` |
 | FSD 层边界变 / 依赖规则变 | `frontend-contract-documents/fsd-layers.md` + `CLAUDE.md §FSD` + `progress-record.md` |
 | 新 API endpoint / path 变 | `frontend-prd.md §17` + `entity-types.md` + `progress-record.md` |
-| 发现并修了 boilerplate bug | `frontend-prd.md §16` 补一行 + `progress-record.md` |
+| 发现并修了 UI bug | `progress-record.md` dev log（`[bug-fix]`）|
 | Phase 完成 | `frontend-prd.md §15` 对应项打勾 + `progress-record.md` |
 | 设计决策变更 | `frontend-prd.md §3` 或对应章节 + `progress-record.md` |
 | 所有改动（兜底） | `progress-record.md` dev log（格式同后端：1-2 句 ~30-100 汉字） |
