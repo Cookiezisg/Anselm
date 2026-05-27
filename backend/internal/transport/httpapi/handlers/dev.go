@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
@@ -51,7 +50,6 @@ type DevHandler struct {
 	integrationDir string
 	forgifyHome    string
 	port           int
-	tools          []toolapp.Tool
 	llmFactory     *llminfra.Factory
 	shellManager   *shelltool.ProcessManager
 	log            *zap.Logger
@@ -65,7 +63,6 @@ func NewDevHandler(
 	broadcaster *loggerinfra.LogBroadcaster,
 	integrationDir, forgifyHome string,
 	port int,
-	tools []toolapp.Tool,
 	llmFactory *llminfra.Factory,
 	shellManager *shelltool.ProcessManager,
 	log *zap.Logger,
@@ -82,7 +79,6 @@ func NewDevHandler(
 		port:           port,
 		buildID:        fmt.Sprintf("%d", time.Now().Unix()),
 		startedAt:      time.Now(),
-		tools:          tools,
 		llmFactory:     llmFactory,
 		shellManager:   shellManager,
 		log:            log,
@@ -94,8 +90,6 @@ func (h *DevHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /dev/logs", h.StreamLogs)
 	mux.HandleFunc("POST /dev/sql", h.QuerySQL)
 	mux.HandleFunc("GET /dev/schema", h.Schema)
-	mux.HandleFunc("GET /dev/tools", h.ListTools)
-	mux.HandleFunc("POST /dev/invoke", h.InvokeTool)
 	mux.HandleFunc("GET /dev/info", h.Info)
 	mux.HandleFunc("GET /dev/forgify-home", h.ForgifyHome)
 	mux.HandleFunc("GET /dev/runtime", h.Runtime)
@@ -320,75 +314,6 @@ func (h *DevHandler) Schema(w http.ResponseWriter, r *http.Request) {
 		out = append(out, t)
 	}
 	writeDevJSON(w, http.StatusOK, out)
-}
-
-type devToolSummary struct {
-	Name string `json:"name"`
-	Desc string `json:"desc"`
-}
-
-// ListTools returns name + description for every registered system tool.
-//
-// ListTools 返每个注册 system tool 的名称和描述。
-func (h *DevHandler) ListTools(w http.ResponseWriter, r *http.Request) {
-	out := make([]devToolSummary, 0, len(h.tools))
-	for _, t := range h.tools {
-		out = append(out, devToolSummary{Name: t.Name(), Desc: t.Description()})
-	}
-	writeDevJSON(w, http.StatusOK, out)
-}
-
-type invokeRequest struct {
-	Tool string `json:"tool"`
-	Args string `json:"args"`
-}
-
-type invokeResponse struct {
-	Output    string `json:"output"`
-	OK        bool   `json:"ok"`
-	ElapsedMs int64  `json:"elapsedMs"`
-	Error     string `json:"error,omitempty"`
-}
-
-// InvokeTool directly runs a named tool with caller-supplied JSON args.
-//
-// InvokeTool 直接用调用方 JSON 参数运行指定 tool。
-func (h *DevHandler) InvokeTool(w http.ResponseWriter, r *http.Request) {
-	var req invokeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeDevJSON(w, http.StatusBadRequest, invokeResponse{Error: "invalid JSON"})
-		return
-	}
-	if req.Tool == "" {
-		writeDevJSON(w, http.StatusBadRequest, invokeResponse{Error: "tool is required"})
-		return
-	}
-	if req.Args == "" {
-		req.Args = "{}"
-	}
-
-	ctx := r.Context()
-	var target toolapp.Tool
-	for _, t := range h.tools {
-		if t.Name() == req.Tool {
-			target = t
-			break
-		}
-	}
-	if target == nil {
-		writeDevJSON(w, http.StatusNotFound, invokeResponse{Error: "tool not found: " + req.Tool})
-		return
-	}
-
-	start := time.Now()
-	output, err := target.Execute(ctx, req.Args)
-	elapsed := time.Since(start).Milliseconds()
-
-	if err != nil {
-		writeDevJSON(w, http.StatusOK, invokeResponse{Output: output, OK: false, ElapsedMs: elapsed, Error: err.Error()})
-		return
-	}
-	writeDevJSON(w, http.StatusOK, invokeResponse{Output: output, OK: true, ElapsedMs: elapsed})
 }
 
 func writeDevJSON(w http.ResponseWriter, status int, v any) {
