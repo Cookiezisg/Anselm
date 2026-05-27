@@ -231,6 +231,11 @@ backend/forgify-desktop
 backend/forgify-server
 backend/cmd/desktop/Forgify
 
+# 'go build ./cmd/server' / './cmd/lintprompts' 在 backend/ 留下的二进制
+# （Makefile 全用 go run，这俩从不被消费；曾误 commit）
+backend/server
+backend/lintprompts
+
 # Test artifacts
 .env
 /tmp/forgify-tests/
