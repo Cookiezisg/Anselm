@@ -4,6 +4,14 @@
 // 44 路由占位;P3 逐 section 替换为真 view。
 import { createHashRouter, Navigate } from "react-router-dom";
 import { App } from "./App";
+import { SQL } from "@/views/dev/SQL";
+import { Info } from "@/views/dev/Info";
+import { Routes as DevRoutes } from "@/views/dev/Routes";
+import { BackendLogs } from "@/views/dev/BackendLogs";
+import { Processes } from "@/views/dev/Processes";
+import { Metrics } from "@/views/dev/Metrics";
+import { Errors } from "@/views/dev/Errors";
+import { Prompts } from "@/views/dev/Prompts";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="empty">TODO: {name}</div>;
@@ -63,14 +71,14 @@ export const router = createHashRouter([
       { path: "config/profile",        element: <Placeholder name="config/Profile" /> },
 
       // dev/ (8)
-      { path: "dev/sql",               element: <Placeholder name="dev/SQL" /> },
-      { path: "dev/info",              element: <Placeholder name="dev/Info" /> },
-      { path: "dev/routes",            element: <Placeholder name="dev/Routes" /> },
-      { path: "dev/logs",              element: <Placeholder name="dev/BackendLogs" /> },
-      { path: "dev/processes",         element: <Placeholder name="dev/Processes" /> },
-      { path: "dev/metrics",           element: <Placeholder name="dev/Metrics" /> },
-      { path: "dev/errors",            element: <Placeholder name="dev/Errors" /> },
-      { path: "dev/prompts",           element: <Placeholder name="dev/Prompts" /> },
+      { path: "dev/sql",               element: <SQL /> },
+      { path: "dev/info",              element: <Info /> },
+      { path: "dev/routes",            element: <DevRoutes /> },
+      { path: "dev/logs",              element: <BackendLogs /> },
+      { path: "dev/processes",         element: <Processes /> },
+      { path: "dev/metrics",           element: <Metrics /> },
+      { path: "dev/errors",            element: <Errors /> },
+      { path: "dev/prompts",           element: <Prompts /> },
 
       // catch-all
       { path: "*", element: <Navigate to="/forge/functions" replace /> },
