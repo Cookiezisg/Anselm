@@ -2,8 +2,9 @@
 // Caller is responsible for calling t(errorText(code)) with the "errors" namespace.
 //
 // 错误码 → i18n key 映射表；调用方负责用 t(errorText(code)) 翻译成用户文案。
+import { ERROR_CODES, type ErrorCode } from "./errorCodes";
 
-const CODE_TO_KEY: Record<string, string> = {
+const CODE_TO_KEY: Record<ErrorCode, string> = {
   // Auth
   UNAUTH_NO_USER: "errors:UNAUTH_NO_USER",
 
@@ -42,7 +43,7 @@ const FALLBACK_KEY = "errors:fallback";
 //
 // 返回对应 code 的 i18n key；调用方用 t() 翻译。
 export function errorKey(code: string): string {
-  return CODE_TO_KEY[code] ?? FALLBACK_KEY;
+  return CODE_TO_KEY[code as ErrorCode] ?? FALLBACK_KEY;
 }
 
 // kindForCode — CONVERSATION_NOT_FOUND warrants a warn (not error) to match
@@ -50,6 +51,12 @@ export function errorKey(code: string): string {
 //
 // CONVERSATION_NOT_FOUND 用 warn 种类（与原自愈 UX 一致）；其余默认 error。
 export function kindForCode(code: string): "error" | "warn" {
-  if (code === "CONVERSATION_NOT_FOUND") return "warn";
+  if (code === ERROR_CODES.CONVERSATION_NOT_FOUND) return "warn";
   return "error";
 }
+
+// Re-export for backward compat (any external import that grabbed
+// ERROR_CODES from errorMap.ts still works).
+//
+// 兼容 re-export；外部若从 errorMap 拿 ERROR_CODES 不破。
+export { ERROR_CODES, type ErrorCode };
