@@ -77,6 +77,7 @@ func (h *Harness) SubscribeSSE(t *testing.T, conversationID string) *SSESub {
 		t.Fatalf("build eventlog SSE request: %v", err)
 	}
 	elReq.Header.Set("Accept", "text/event-stream")
+	elReq.Header.Set("X-Forgify-User-ID", SeedTestUserID)
 	noTimeoutClient := &http.Client{}
 	elResp, err := noTimeoutClient.Do(elReq)
 	if err != nil {
@@ -101,6 +102,7 @@ func (h *Harness) SubscribeSSE(t *testing.T, conversationID string) *SSESub {
 		t.Fatalf("build notifications SSE request: %v", err)
 	}
 	nfReq.Header.Set("Accept", "text/event-stream")
+	nfReq.Header.Set("X-Forgify-User-ID", SeedTestUserID)
 	nfResp, err := noTimeoutClient.Do(nfReq)
 	if err != nil {
 		_ = elResp.Body.Close()

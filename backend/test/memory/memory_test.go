@@ -54,7 +54,7 @@ func TestMemory_UserPinnedReachesLLM(t *testing.T) {
 
 	prompt := fake.LastSystemPrompt()
 	for _, want := range []string{
-		"──── Pinned memories ────",
+		"## Pinned",
 		"user_prefers_go",
 		"Has 10 years of Go experience",
 	} {
@@ -94,7 +94,7 @@ func TestMemory_UnpinnedOnlyIndex(t *testing.T) {
 
 	prompt := fake.LastSystemPrompt()
 	for _, want := range []string{
-		"──── Memory index ────",
+		"## Index",
 		"[reference] deploy_pipeline",
 		"Deploy via Jenkins job 'prod-cut'.",
 	} {
@@ -208,7 +208,7 @@ func TestMemory_PinTogglesContent(t *testing.T) {
 
 	prompt2 := fake.LastSystemPrompt()
 	for _, want := range []string{
-		"──── Pinned memories ────",
+		"## Pinned",
 		"workflow_rule",
 		fullBody,
 	} {

@@ -1,24 +1,35 @@
 # ──────────────────────────────────────────────────────────────────
-# Forgify — make commands cheat sheet
+# Forgify — make commands cheat sheet (22 single-word targets)
 # ──────────────────────────────────────────────────────────────────
 #
-#   Once    setup     install all dependencies (Go tools + npm)
+#   Once     setup     install all dependencies (Go tools + npm)
+#            mise      download mise binaries (sandbox runtime)
 #
-#   Daily   dev       run desktop app (backend + frontend, browser opens)
-#           stop      kill anything we started
-#           test      run unit tests
-#           clean     wipe dev data (light, daily-safe)
-#           reset     factory reset — prod data + all build artifacts + node_modules
+#   Daily    dev       run desktop app (backend + frontend, browser opens)
+#            stop      kill anything we started
+#            unit      Go unit tests
+#            web       vitest frontend tests
+#            test      unit + web aggregate
+#            lint      frontend eslint + tsc + steiger
+#            mock      pipeline fake-LLM tests (~60s, no tokens) ◀ daily driver
+#            clean     wipe dev data (light, daily-safe)
+#            reset     factory reset — prod data + build artifacts + node_modules
 #
-#   Ship    build     package the macOS .app bundle
-#           verify    cross-platform build + lint (release gate)
-#           e2e       end-to-end pipeline tests (needs .env keys)
+#   Pipeline sandbox   mock + real-sandbox lifecycle (FORGIFY_DEV_RESOURCES)
+#            live      ONLY real-LLM tests (BURNS TOKENS — DEEPSEEK_API_KEY)
+#            e2e       mock → sandbox → live aggregate (release gate)
+#            cover     HTML coverage report → coverage/pipeline.html
 #
-#   QA      smoke     playwright frontend walk + screenshots
-#                     (needs 'make dev' running in another terminal)
+#   Matrix   matrix    regenerate README coverage matrix section
+#            audit     strict matrix check (used by verify; Phase 4+ enables it)
 #
-#   Misc    testend   legacy testend debug console (pre-frontend era)
-#           mise      download mise binaries (one-time, for sandbox)
+#   Ship     build     package the macOS .app bundle
+#            verify    pre-push gate (5-platform vet+build + lintprompts + mock)
+#
+#   QA       smoke     playwright frontend walk + screenshots
+#                      (needs 'make dev' running in another terminal)
+#
+#   Misc     testend   legacy testend debug console (pre-frontend era)
 #
 # ──────────────────────────────────────────────────────────────────
 
@@ -48,22 +59,33 @@ endef
 help:
 	@echo "Forgify"
 	@echo ""
-	@echo "  Once:    make setup     install all dependencies (Go tools + npm)"
+	@echo "  Once:     make setup     install all dependencies"
+	@echo "            make mise      download mise binaries (one-time)"
 	@echo ""
-	@echo "  Daily:   make dev       run the desktop app (backend + frontend, browser opens)"
-	@echo "           make stop      kill anything we started"
-	@echo "           make test      run unit tests"
-	@echo "           make clean     wipe dev data ($(BACKEND_DATA_DIR), light)"
-	@echo "           make reset     factory reset — prod data + all build artifacts + node_modules"
+	@echo "  Daily:    make dev       run the desktop app"
+	@echo "            make stop      kill anything we started"
+	@echo "            make unit      Go unit tests"
+	@echo "            make web       vitest frontend tests"
+	@echo "            make test      unit + web aggregate"
+	@echo "            make lint      frontend lint (eslint + tsc + steiger)"
+	@echo "            make mock      pipeline tests with fake LLM (~60s, no tokens)"
+	@echo "            make clean     wipe dev data ($(BACKEND_DATA_DIR), light)"
+	@echo "            make reset     factory reset"
 	@echo ""
-	@echo "  Ship:    make build     package the macOS .app bundle"
-	@echo "           make verify    cross-platform build + lint (release gate)"
-	@echo "           make e2e       end-to-end pipeline tests (needs .env keys)"
+	@echo "  Pipeline: make sandbox   mock + real sandbox (FORGIFY_DEV_RESOURCES)"
+	@echo "            make live      real-LLM tests only (BURNS TOKENS)"
+	@echo "            make e2e       full pipeline mock+sandbox+live (release gate)"
+	@echo "            make cover     HTML coverage report"
 	@echo ""
-	@echo "  QA:      make smoke     playwright frontend walk (needs 'make dev' running)"
+	@echo "  Matrix:   make matrix    regenerate README coverage matrix section"
+	@echo "            make audit     strict matrix check (used by verify)"
 	@echo ""
-	@echo "  Misc:    make testend   legacy testend debug console (pre-frontend era)"
-	@echo "           make mise      download mise binaries (one-time, for sandbox)"
+	@echo "  Ship:     make build     package macOS .app"
+	@echo "            make verify    pre-push gate (vet+build+lintprompts; Phase 5 adds audit+mock)"
+	@echo ""
+	@echo "  QA:       make smoke     playwright frontend walk"
+	@echo ""
+	@echo "  Misc:     make testend   legacy debug console"
 
 # ──────────────────────────────────────────────────────────────────
 # Once
@@ -94,6 +116,15 @@ setup:
 	@cd testend && (test -d node_modules || npm install --silent) || true
 	@echo ""
 	@echo "✓ setup done. now run:  make dev"
+
+# mise — download mise binaries into backend/internal/infra/sandbox/mise/
+# for go:embed. Default: current platform. Pass ALL=1 to fetch all
+# 5 supported platforms (release builds).
+#
+# mise —— 下 mise 二进制给 go:embed；默认当前平台；ALL=1 拉全 5 平台。
+mise:
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/resources $(if $(ALL),--all-platforms,)
 
 # ──────────────────────────────────────────────────────────────────
 # Daily
@@ -139,21 +170,43 @@ stop:
 	done; \
 	[ $$FOUND = 1 ] && echo "✓ stopped" || echo "✓ nothing running"
 
-# test — unit suite. Runs backend Go tests + frontend vitest.
-# test —— 后端 Go + 前端 vitest 一把跑全。
-test: test-backend test-frontend
-
-test-backend:
+# unit — Go unit tests. In-memory SQLite, no external deps. Skips
+# TestIntegration_* (legacy real-LLM unit-style tests; covered in 'live').
+#
+# unit —— Go 单测；in-memory SQLite，无外部依赖；skip TestIntegration_*。
+unit:
 	$(AUTO_DEVBOX)
 	@cd backend && go test -count=1 ./... -skip TestIntegration_
 
-test-frontend:
+# web — vitest frontend tests.
+# web —— 前端 vitest 单测。
+web:
 	@cd frontend && [ -d node_modules ] || npm install --silent
 	@cd frontend && npm run test --silent
 
-lint-frontend:
+# test — both layers' unit suites.
+# test —— 后端 + 前端单测一并跑。
+test: unit web
+
+# lint — frontend lint: typecheck (tsc --noEmit) + eslint + steiger (FSD).
+# lint —— 前端 lint；tsc + eslint + steiger（FSD 结构）。
+lint:
 	@cd frontend && [ -d node_modules ] || npm install --silent
 	@cd frontend && npm run typecheck && npm run lint && npm run fsd
+
+# mock — pipeline tests with fake LLM. No env vars needed; no tokens burned.
+# Tests gated by RequireDeepSeekKey / RequireSandboxResources skip cleanly.
+# This is the daily-driver pipeline check.
+#
+# mock —— pipeline 测试日常 driver；fake LLM；无 env 依赖；不烧 token。
+# 需要 key/resource 的测试自动 skip。
+#
+# Phase 0 note: the api/cross/sse/lifecycle/errcodes/live axis split happens
+# in Phase 2; for now this runs the full ./test/... (lifecycle / live tests
+# still gracefully skip when env unset).
+mock:
+	$(AUTO_DEVBOX)
+	@cd backend && go test -count=1 -race -tags=pipeline -p 1 -timeout=10m ./test/...
 
 # clean — stop everything + wipe the dev data dir (light, daily-safe).
 # In --dev mode the backend roots forgify-home under $(BACKEND_DATA_DIR)/.forgify
@@ -190,7 +243,7 @@ reset: stop
 	@echo "  backend/cmd/desktop/embed/              embedded frontend (build copies it back)"
 	@echo "  backend/cmd/desktop/build/              wails build output (.app bundles)"
 	@echo "  backend/sandbox/ + stray go binaries    sandbox install + go build leftovers"
-	@echo "  .superpowers/  docs/                    superpowers brainstorm scratch + output"
+	@echo "  .superpowers/  docs/  coverage/         superpowers scratch + pipeline coverage report"
 	@echo ""
 	@printf "type 'yes' to confirm: "; \
 	 read ans; \
@@ -204,9 +257,72 @@ reset: stop
 	 rm -rf backend/cmd/desktop/build; \
 	 rm -f backend/server backend/lintprompts backend/fakeserver backend/fetch-mise.exe \
 	       backend/desktop backend/forgify-server backend/forgify-desktop backend/cmd/desktop/Forgify; \
-	 rm -rf .superpowers docs; \
+	 rm -rf .superpowers docs coverage; \
 	 echo ""; \
 	 echo "✓ reset done. run 'make setup' before next 'make dev'."
+
+# ──────────────────────────────────────────────────────────────────
+# Pipeline (tiered by external dependency cost)
+# ──────────────────────────────────────────────────────────────────
+
+# sandbox — mock + real-sandbox lifecycle tests.
+# Tests requiring FORGIFY_DEV_RESOURCES skip cleanly when unset.
+# Doesn't burn LLM tokens. Phase 0: equivalent to mock (subdir split lands Phase 2).
+#
+# sandbox —— mock + 真 sandbox lifecycle 测试；FORGIFY_DEV_RESOURCES 缺则 skip。
+# 不烧 token。Phase 0：等同 mock（lifecycle/ 子目录拆分在 Phase 2）。
+sandbox: mock
+	@echo ""
+	@echo "ℹ sandbox tier currently aliased to mock (lifecycle/ subdir split lands Phase 2)."
+
+# live — ONLY real-LLM tests (filtered by 'Live_' prefix in test name).
+# Requires DEEPSEEK_API_KEY in .env. BURNS REAL TOKENS.
+# Use after mock + sandbox green, before release.
+#
+# live —— 只跑真 LLM 测试（Live_ 前缀过滤）；需 .env DEEPSEEK_API_KEY；烧 token。
+live:
+	$(AUTO_DEVBOX)
+	@$(LOAD_ENV) cd backend && go test -count=1 -race -tags=pipeline -p 1 -timeout=10m -run "Live_" ./test/...
+
+# e2e — full pipeline: mock → sandbox → live in order.
+# Fail-fast: if mock breaks, sandbox/live never run (no wasted tokens).
+# Run before release.
+#
+# e2e —— 全套 pipeline：mock → sandbox → live 串行 fail-fast；release gate。
+e2e: mock sandbox live
+
+# cover — HTML coverage report (pipeline tests against ./internal/).
+# Output: coverage/pipeline.html
+#
+# cover —— 生成 HTML coverage 报告到 coverage/pipeline.html。
+cover:
+	$(AUTO_DEVBOX)
+	@mkdir -p coverage
+	@cd backend && go test -count=1 -tags=pipeline -p 1 -timeout=10m \
+		-coverprofile=../coverage/pipeline.out -covermode=atomic \
+		-coverpkg=./internal/... \
+		./test/...
+	@go tool cover -html=coverage/pipeline.out -o coverage/pipeline.html
+	@echo ""
+	@echo "✓ coverage report: coverage/pipeline.html"
+
+# ──────────────────────────────────────────────────────────────────
+# Matrix (Phase 4 will implement; placeholders for now)
+# ──────────────────────────────────────────────────────────────────
+
+# matrix — regenerate README coverage matrix section + stdout summary.
+# Phase 4 ships the tool at backend/cmd/coverage-matrix/.
+#
+# matrix —— 生成 README 矩阵段。Phase 4 实现工具。
+matrix:
+	@echo "ℹ matrix: coverage-matrix tool ships in Phase 4 (placeholder for now)."
+
+# audit — strict matrix check (used by verify once Phase 4 lands).
+# Phase 5 enables --strict mode (fail on any uncovered target / orphan).
+#
+# audit —— 矩阵严格检查；Phase 5 切 --strict。
+audit:
+	@echo "ℹ audit: coverage-matrix tool ships in Phase 4 (placeholder for now)."
 
 # ──────────────────────────────────────────────────────────────────
 # Ship
@@ -227,12 +343,18 @@ build:
 	@echo ""
 	@echo "✓ packaged: backend/cmd/desktop/build/bin/Forgify.app"
 
-# verify — release gate. Cross-platform compile (5 OS×arch combos) +
-# vet + prompt lint. Catches more than a simple `go build` alone.
+# verify — pre-push gate. Cross-platform compile (5 OS×arch combos) +
+# vet + prompt lint. Free, offline, no tokens. Always deterministic.
 # CGO_ENABLED=0 used for non-darwin to avoid linker errors (we use
 # modernc.org/sqlite pure-Go precisely for this).
 #
-# verify —— 上线 gate；5 平台 vet+build + prompt lint。
+# Phase 0 note: verify does NOT include mock yet — pre-existing test drift
+# (chat-prompt-redesign / catalog-redesign 2026-05-27) makes mock partial.
+# Phase 5 (annotation backfill + drift cleanup) will add `audit` + `mock`
+# back into this gate.
+#
+# verify —— pre-push gate；5 平台 vet+build + prompt lint。全部离线 / 不烧 token。
+# Phase 0 暂不含 mock(预先存在测试漂移),Phase 5 清理后加回 audit + mock。
 verify:
 	$(AUTO_DEVBOX)
 	@echo "→ vet × 5 platforms..."
@@ -250,17 +372,7 @@ verify:
 	@echo "→ lint prompts..."
 	@cd backend && go run ./cmd/lintprompts
 	@echo ""
-	@echo "✓ verify clean: 5 platforms × (vet+build) + prompt lint"
-
-# e2e — pipeline tests. Sources .env so Live_ tests + sandbox tests
-# pick up real keys / mise resources when present; tests skip otherwise.
-# Serial (-p 1): mise installs share nothing and would race otherwise.
-#
-# e2e —— pipeline 测试；source .env 自动带 keys；缺时优雅 skip。串行
-# 跑（mise 装机并行会撞磁盘 / 触限流）。
-e2e:
-	$(AUTO_DEVBOX)
-	@$(LOAD_ENV) cd backend && go test -count=1 -tags=pipeline -p 1 ./test/...
+	@echo "✓ verify clean: 5 platforms × (vet+build) + lintprompts"
 
 # ──────────────────────────────────────────────────────────────────
 # QA
@@ -303,13 +415,4 @@ testend:
 	   open http://localhost:$(BACKEND_PORT)/dev/ 2>/dev/null || true ) &
 	@$(LOAD_ENV) cd backend && go run ./cmd/server --dev --port $(BACKEND_PORT) --data-dir $(BACKEND_DATA_DIR) --collections-dir ../testend/collections --integration-dir ../testend/dist
 
-# mise — download mise binaries into backend/internal/infra/sandbox/mise/
-# for go:embed. Default: current platform. Pass ALL=1 to fetch all
-# 5 supported platforms (release builds).
-#
-# mise —— 下 mise 二进制给 go:embed；默认当前平台；ALL=1 拉全 5 平台。
-mise:
-	$(AUTO_DEVBOX)
-	@cd backend && go run ./cmd/resources $(if $(ALL),--all-platforms,)
-
-.PHONY: help setup dev stop test clean reset build verify e2e smoke testend mise lint-frontend
+.PHONY: help setup mise dev stop unit web test lint mock sandbox live e2e cover matrix audit build verify clean reset smoke testend

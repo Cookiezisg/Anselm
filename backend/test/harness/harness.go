@@ -614,6 +614,18 @@ func New(t *testing.T, opts ...Option) *Harness {
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 
+	// Auto-seed the canonical "test-user" so HTTP requests (which carry
+	// X-Forgify-User-ID: test-user via requestJSON / DoRequest) clear the
+	// IdentifyUser+RequireUser middleware pair. Tests calling LocalCtxAs(id)
+	// for a different user still work — that method seeds its own user.
+	//
+	// 自动 seed 经典 "test-user",让 HTTP 请求(经 requestJSON / DoRequest 默认带
+	// X-Forgify-User-ID: test-user)能通过 IdentifyUser+RequireUser 中间件。
+	// 测试用 LocalCtxAs(id) 指定其他 user 时,该方法自己 seed。
+	if _, err := userService.EnsureExists(context.Background(), SeedTestUserID, "test"); err != nil {
+		t.Fatalf("auto-seed test user: %v", err)
+	}
+
 	return &Harness{
 		t:                   t,
 		server:              srv,
@@ -840,6 +852,12 @@ func (h *Harness) requestJSON(method, path string, body, out any) *http.Response
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	// Auto-inject the canonical test user header so IdentifyUser middleware
+	// stamps ctx; harness.New() seeded this user at boot.
+	//
+	// 自动注 test user header,让 IdentifyUser middleware 在 ctx 打 user id;
+	// harness.New() 启动时已 seed 此 user。
+	req.Header.Set("X-Forgify-User-ID", SeedTestUserID)
 	resp, err := h.HTTPClient().Do(req)
 	if err != nil {
 		h.t.Fatalf("%s %s: %v", method, path, err)

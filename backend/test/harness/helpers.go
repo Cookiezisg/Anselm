@@ -137,6 +137,10 @@ func DoRequest(t *testing.T, h *Harness, method, path string, body, out any) int
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	// Auto-inject test user header — harness.New() pre-seeds this user.
+	//
+	// 自动注 test user header——harness.New() 已 pre-seed 此 user。
+	req.Header.Set("X-Forgify-User-ID", SeedTestUserID)
 	resp, err := h.HTTPClient().Do(req)
 	if err != nil {
 		t.Fatalf("DoRequest: %s %s: %v", method, path, err)
@@ -176,6 +180,7 @@ func UploadFile(t *testing.T, h *Harness, filename, mimeType string, data []byte
 		t.Fatalf("UploadFile: build request: %v", err)
 	}
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("X-Forgify-User-ID", SeedTestUserID)
 
 	resp, err := h.HTTPClient().Do(req)
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 // mustCreateWorkflow 建一个仅含 trigger 节点的 workflow，返 id。
 func mustCreateWorkflow(t *testing.T, h *th.Harness, name string) string {
 	t.Helper()
-	ctx := th.LocalCtxAs(t, "test-user")
+	ctx := th.CtxAs("test-user")
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
 			{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"` + name + `","description":"e2e"}`)},
@@ -87,7 +87,7 @@ func TestFlowRun_HTTP_GetAfterTrigger(t *testing.T) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		run, err := h.FlowRunRepo.Get(th.LocalCtxAs(t, "test-user"), trigResp.Data.RunID)
+		run, err := h.FlowRunRepo.Get(th.CtxAs("test-user"), trigResp.Data.RunID)
 		if err == nil && run.Status == flowrundomain.StatusCompleted {
 			break
 		}
@@ -152,7 +152,7 @@ func TestFlowRun_HTTP_SerialConcurrencyLimit(t *testing.T) {
 	h := th.New(t)
 
 	// wait node holds ~500ms so the second :trigger hits concurrency check.
-	ctx := th.LocalCtxAs(t, "test-user")
+	ctx := th.CtxAs("test-user")
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
 			{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"serial_test","description":"e2e"}`)},

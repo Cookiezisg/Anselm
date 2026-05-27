@@ -13,7 +13,7 @@ import (
 
 func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(t, "test-user")
+	ctx := th.CtxAs("test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
@@ -79,7 +79,7 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 
 func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(t, "test-user")
+	ctx := th.CtxAs("test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{
@@ -124,7 +124,7 @@ func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 
 func TestApproval_WrongNodeID_Returns404(t *testing.T) {
 	h := th.New(t)
-	ctx := th.LocalCtxAs(t, "test-user")
+	ctx := th.CtxAs("test-user")
 
 	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
 		Ops: []workflowapp.Op{

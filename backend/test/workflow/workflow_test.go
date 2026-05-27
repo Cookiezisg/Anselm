@@ -12,7 +12,6 @@ import (
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -135,7 +134,7 @@ func TestWorkflow_HTTP_VersionsAndPending(t *testing.T) {
 	editOpsBadRef := []workflowapp.Op{
 		{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"fn1","type":"function","name":"step1","config":{"functionId":"nonexistent"}}}`)},
 	}
-	_, err := h.Workflow.Edit(th.LocalCtxAs(reqctxpkg.DefaultLocalUserID), workflowapp.EditInput{
+	_, err := h.Workflow.Edit(th.CtxAs(th.DefaultUserID), workflowapp.EditInput{
 		ID:           wfID,
 		Ops:          editOpsBadRef,
 		ChangeReason: "v2 broken (bad ref)",
@@ -150,7 +149,7 @@ func TestWorkflow_HTTP_VersionsAndPending(t *testing.T) {
 	validEdit := []workflowapp.Op{
 		{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"vw","description":"v2 valid"}`)},
 	}
-	if _, err := h.Workflow.Edit(th.LocalCtxAs(reqctxpkg.DefaultLocalUserID), workflowapp.EditInput{
+	if _, err := h.Workflow.Edit(th.CtxAs(th.DefaultUserID), workflowapp.EditInput{
 		ID:           wfID,
 		Ops:          validEdit,
 		ChangeReason: "v2 valid",
