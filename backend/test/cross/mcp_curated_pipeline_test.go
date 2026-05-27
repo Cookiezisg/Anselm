@@ -1,6 +1,6 @@
 //go:build pipeline
 
-package mcp
+package cross
 
 import (
 	"context"

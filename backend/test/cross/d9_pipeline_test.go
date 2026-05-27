@@ -3,7 +3,7 @@
 // Package integration runs D9 cross-cutting integration smoke tests.
 //
 // Package integration 跑 D9 跨切集成烟雾测试。
-package integration
+package cross
 
 import (
 	"context"

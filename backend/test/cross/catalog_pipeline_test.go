@@ -3,7 +3,7 @@
 // Package catalog runs pipeline tests for the Capability Catalog.
 //
 // Package catalog 跑 Capability Catalog pipeline 测试。
-package catalog
+package cross
 
 import (
 	"context"

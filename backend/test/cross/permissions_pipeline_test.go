@@ -13,7 +13,7 @@
 //
 // permissions_test.go ——V1.2 §3 final-sweep pipeline 测试：permissions
 // gate + Pre/PostToolUse hook 接到 runOneTool。
-package permissions_test
+package cross
 
 import (
 	"os"

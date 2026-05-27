@@ -1,6 +1,6 @@
 //go:build pipeline
 
-package scheduler_test
+package cross
 
 import (
 	"context"

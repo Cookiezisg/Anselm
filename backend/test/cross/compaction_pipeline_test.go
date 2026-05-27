@@ -3,7 +3,7 @@
 // Package compaction_test runs pipeline tests for app/contextmgr post-turn compaction.
 //
 // Package compaction_test 跑 app/contextmgr 收尾压缩 pipeline 测试。
-package compaction_test
+package cross
 
 import (
 	"strings"

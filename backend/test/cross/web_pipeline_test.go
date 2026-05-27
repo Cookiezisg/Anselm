@@ -3,7 +3,7 @@
 // Package web_test runs pipeline tests for web system tools (WebFetch/WebSearch).
 //
 // Package web_test 跑 web 系统工具（WebFetch/WebSearch）pipeline 测试。
-package web_test
+package cross
 
 import (
 	"fmt"

@@ -3,7 +3,7 @@
 // Package uxtodo_test runs pipeline tests for the U batch (todo + Ask families).
 //
 // Package uxtodo_test 跑 U batch（todo + Ask）pipeline 测试。
-package uxtodo_test
+package cross
 
 import (
 	"net/http"

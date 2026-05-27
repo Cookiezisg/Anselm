@@ -3,7 +3,7 @@
 // Package cross sweeps sentinel error codes to verify HTTP status + envelope mappings.
 //
 // Package cross 扫 sentinel 错误码验证 HTTP 状态 + envelope 映射。
-package cross
+package errcodes
 
 import (
 	"net/http"

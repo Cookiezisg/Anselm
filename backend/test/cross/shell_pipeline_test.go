@@ -3,7 +3,7 @@
 // Package shell_test runs pipeline tests for shell system tools (Bash/BashOutput/KillShell).
 //
 // Package shell_test 跑 shell 系统工具（Bash/BashOutput/KillShell）pipeline 测试。
-package shell_test
+package cross
 
 import (
 	"fmt"

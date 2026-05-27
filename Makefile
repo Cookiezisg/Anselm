@@ -311,18 +311,22 @@ cover:
 # ──────────────────────────────────────────────────────────────────
 
 # matrix — regenerate README coverage matrix section + stdout summary.
-# Phase 4 ships the tool at backend/cmd/coverage-matrix/.
+# Tool: backend/cmd/coverage-matrix/. Scans handlers + errmap + SSE truth +
+# seams.yaml; reconciles with `// covers:` annotations on pipeline tests.
 #
-# matrix —— 生成 README 矩阵段。Phase 4 实现工具。
+# matrix —— 生成 README 矩阵段。工具:backend/cmd/coverage-matrix。
 matrix:
-	@echo "ℹ matrix: coverage-matrix tool ships in Phase 4 (placeholder for now)."
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/coverage-matrix --update
 
-# audit — strict matrix check (used by verify once Phase 4 lands).
-# Phase 5 enables --strict mode (fail on any uncovered target / orphan).
+# audit — strict matrix check. Phase 4: warn-only (annotations not yet
+# backfilled). Phase 5 elevates to --strict (fail on uncovered/orphan/unannotated).
 #
-# audit —— 矩阵严格检查；Phase 5 切 --strict。
+# audit —— 矩阵严格检查。Phase 4 warn-only,Phase 5 切 --strict。
 audit:
-	@echo "ℹ audit: coverage-matrix tool ships in Phase 4 (placeholder for now)."
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/coverage-matrix --check || \
+		echo "ℹ matrix has uncovered targets (Phase 4 warn-only; Phase 5 strict)."
 
 # ──────────────────────────────────────────────────────────────────
 # Ship

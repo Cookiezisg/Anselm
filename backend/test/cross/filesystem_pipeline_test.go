@@ -3,7 +3,7 @@
 // Package filesystem_test runs pipeline tests for file-ops tools (Read/Write/Edit).
 //
 // Package filesystem_test 跑 file-ops 工具（Read/Write/Edit）pipeline 测试。
-package filesystem_test
+package cross
 
 import (
 	"encoding/json"

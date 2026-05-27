@@ -1,6 +1,6 @@
 //go:build pipeline
 
-package document_test
+package cross
 
 import (
 	"context"

@@ -3,7 +3,7 @@
 // Package search_test runs pipeline tests for search system tools (Grep/Glob).
 //
 // Package search_test 跑 search 系统工具（Grep/Glob）pipeline 测试。
-package search_test
+package cross
 
 import (
 	"encoding/json"

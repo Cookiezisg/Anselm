@@ -3,7 +3,7 @@
 // Package subagent runs pipeline tests for the Subagent system tool.
 //
 // Package subagent 跑 Subagent 系统工具 pipeline 测试。
-package subagent
+package cross
 
 import (
 	"encoding/json"

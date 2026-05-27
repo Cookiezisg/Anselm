@@ -1,6 +1,6 @@
 //go:build pipeline
 
-package catalog
+package cross
 
 import (
 	"encoding/json"
