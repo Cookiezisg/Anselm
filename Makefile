@@ -7,8 +7,8 @@
 #   Daily   dev       run desktop app (backend + frontend, browser opens)
 #           stop      kill anything we started
 #           test      run unit tests
-#           clean     wipe dev data + build artifacts (binaries/dist/coverage)
-#           reset     factory reset — dev + prod data + build + node_modules
+#           clean     wipe dev data (light, daily-safe)
+#           reset     factory reset — prod data + all build artifacts + node_modules
 #
 #   Ship    build     package the macOS .app bundle
 #           verify    cross-platform build + lint (release gate)
@@ -53,8 +53,8 @@ help:
 	@echo "  Daily:   make dev       run the desktop app (backend + frontend, browser opens)"
 	@echo "           make stop      kill anything we started"
 	@echo "           make test      run unit tests"
-	@echo "           make clean     wipe dev data + build artifacts (binaries/dist/coverage)"
-	@echo "           make reset     factory reset — dev + prod data + build + node_modules"
+	@echo "           make clean     wipe dev data ($(BACKEND_DATA_DIR), light)"
+	@echo "           make reset     factory reset — prod data + all build artifacts + node_modules"
 	@echo ""
 	@echo "  Ship:    make build     package the macOS .app bundle"
 	@echo "           make verify    cross-platform build + lint (release gate)"
@@ -155,53 +155,56 @@ lint-frontend:
 	@cd frontend && [ -d node_modules ] || npm install --silent
 	@cd frontend && npm run typecheck && npm run lint && npm run fsd
 
-# clean — stop everything + wipe dev data + regenerable build artifacts.
+# clean — stop everything + wipe the dev data dir (light, daily-safe).
 # In --dev mode the backend roots forgify-home under $(BACKEND_DATA_DIR)/.forgify
 # so one rm wipes: SQLite + attachments + sandbox + MCP + skills + catalog cache.
-# Build artifacts below are stray `go build` binaries + frontend/testend dist +
-# coverage — all regenerable by a rebuild, fast to recover. node_modules and the
-# embedded mise/ runtimes are NOT touched here (slow to re-fetch — that's `reset`).
-# Real ~/.forgify/ (prod / Wails app data) is never touched.
+# Build artifacts (stray binaries / dist / coverage / node_modules / mise) and
+# superpowers scratch (.superpowers / docs) are NOT touched here — they belong to
+# `reset`. Real ~/.forgify/ (prod / Wails app data) is never touched.
 #
-# clean —— 停服务 + 清 dev 数据 + 可再生构建产物（散落二进制 / dist / coverage）。
-# 不碰 node_modules 和内嵌 mise/（重装慢，归 reset）；不动 ~/.forgify/。
+# clean —— 停服务 + 清 dev 数据目录（轻量，日常安全）。
+# 构建产物 / node_modules / mise / superpowers 散件（.superpowers / docs）都归 reset，
+# 这里不碰；也不动 ~/.forgify/。
 clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
-	@rm -f backend/server backend/lintprompts backend/fakeserver \
-	       backend/desktop backend/forgify-server backend/forgify-desktop \
-	       backend/fetch-mise.exe backend/cmd/desktop/Forgify
-	@rm -rf backend/sandbox frontend/dist frontend/coverage testend/dist
-	@echo "✓ cleared $(BACKEND_DATA_DIR) + 散落二进制 + dist/coverage"
+	@echo "✓ cleared $(BACKEND_DATA_DIR)"
 
-# reset — factory reset. Wipes EVERYTHING the app may have written:
+# reset — factory reset. Wipes EVERYTHING regenerable or app-written:
 # dev data + prod ~/.forgify (real DB, skills, mcp.json, memory, docs,
-# sandbox installs) + frontend build artifacts + node_modules.
+# sandbox installs) + all build artifacts (stray binaries / dist / coverage /
+# sandbox) + every node_modules + superpowers scratch (.superpowers / docs).
 # Asks for explicit "yes" because ~/.forgify holds your real user data.
 # After reset, run `make setup` to reinstall deps before `make dev`.
 #
-# reset —— 出厂重置。dev 数据 + ~/.forgify 真实用户数据 + 前端构建产物 +
-# node_modules 一并清掉。要求显式输入 "yes"。完事后跑 `make setup` 再 `make dev`。
+# reset —— 出厂重置。dev 数据 + ~/.forgify 真实用户数据 + 全部构建产物（散落二进制 /
+# dist / coverage / sandbox）+ 所有 node_modules + superpowers 散件（.superpowers / docs）
+# 一并清掉。要求显式输入 "yes"。完事后跑 `make setup` 再 `make dev`。
 reset: stop
 	@echo "WILL WIPE:"
 	@echo "  $(BACKEND_DATA_DIR)/                   dev runtime (db / attachments / sandbox)"
 	@echo "  $$HOME/.forgify/                       prod user data (db / skills / mcp / memory / docs)"
-	@echo "  frontend/dist/                          vite build output"
-	@echo "  frontend/node_modules/                  npm deps (reinstall via 'make setup')"
+	@echo "  frontend/{dist,coverage}/               vite build + test coverage"
+	@echo "  {frontend,testend,/}node_modules/       npm deps (reinstall via 'make setup')"
+	@echo "  testend/dist/                           testend build output"
 	@echo "  frontend/wailsjs/                       auto-generated Wails bindings"
 	@echo "  backend/cmd/desktop/embed/              embedded frontend (build copies it back)"
 	@echo "  backend/cmd/desktop/build/              wails build output (.app bundles)"
+	@echo "  backend/sandbox/ + stray go binaries    sandbox install + go build leftovers"
+	@echo "  .superpowers/  docs/                    superpowers brainstorm scratch + output"
 	@echo ""
 	@printf "type 'yes' to confirm: "; \
 	 read ans; \
 	 if [ "$$ans" != "yes" ]; then echo "✗ aborted, nothing changed"; exit 1; fi; \
 	 rm -rf $(BACKEND_DATA_DIR); \
 	 rm -rf $$HOME/.forgify; \
-	 rm -rf frontend/dist; \
-	 rm -rf frontend/node_modules; \
-	 rm -rf frontend/wailsjs; \
+	 rm -rf frontend/dist frontend/coverage frontend/node_modules frontend/wailsjs; \
+	 rm -rf testend/dist testend/node_modules node_modules; \
+	 rm -rf backend/sandbox; \
 	 find backend/cmd/desktop/embed -mindepth 1 ! -name .gitignore ! -name .gitkeep -delete 2>/dev/null || true; \
 	 rm -rf backend/cmd/desktop/build; \
-	 rm -f backend/desktop backend/forgify-server backend/forgify-desktop; \
+	 rm -f backend/server backend/lintprompts backend/fakeserver backend/fetch-mise.exe \
+	       backend/desktop backend/forgify-server backend/forgify-desktop backend/cmd/desktop/Forgify; \
+	 rm -rf .superpowers docs; \
 	 echo ""; \
 	 echo "✓ reset done. run 'make setup' before next 'make dev'."
 
