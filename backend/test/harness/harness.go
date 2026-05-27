@@ -6,11 +6,8 @@
 package harness
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -784,109 +781,11 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 	svc.RegisterEnvManager(sandboxinfra.NewNodeEnvManager())
 }
 
-// URL returns the test server's base URL.
+// HTTP entry points (URL / HTTPClient / Post / Get / Patch / Delete /
+// DoRequest / UploadFile) live in http.go.
+// Live-mode env gates (RequireDeepSeekKey / RequireSandboxResources) live
+// in live_gate.go. DB helpers live in db.go. Block / SSE / errcode
+// assertions live in assertions.go.
 //
-// URL 返回 test server base URL。
-func (h *Harness) URL() string { return h.server.URL }
-
-// HTTPClient returns a client for short-lived requests; SSE uses SubscribeSSE.
-//
-// Timeout sized for slowest legitimate sync path: first-ever function POST
-// triggers mise to fetch + install Python runtime (15-25s typical, up to ~40s
-// under load / cold disk). 30s here previously caused flake when env sync
-// raced the deadline — bumped to 120s with 4x safety margin.
-//
-// HTTPClient 返回短请求 client;SSE 走 SubscribeSSE。
-// timeout 按最慢合法同步路径设:首次 function POST 触发 mise 下载装 Python
-// (典型 15-25s,负载 / 冷盘下到 ~40s)。原 30s 偶发卡 env sync 死线,改 120s。
-func (h *Harness) HTTPClient() *http.Client {
-	return &http.Client{Timeout: 120 * time.Second}
-}
-
-// PostJSON POSTs body as JSON and decodes into out; fatals on non-2xx.
-//
-// PostJSON POST JSON 解到 out，非 2xx 直接 fatal。
-func (h *Harness) PostJSON(path string, body, out any) *http.Response {
-	h.t.Helper()
-	return h.requestJSON("POST", path, body, out)
-}
-
-// GetJSON GETs path and decodes into out.
-//
-// GetJSON GET path 解到 out。
-func (h *Harness) GetJSON(path string, out any) *http.Response {
-	h.t.Helper()
-	return h.requestJSON("GET", path, nil, out)
-}
-
-// PatchJSON PATCHes body to path and decodes into out.
-//
-// PatchJSON PATCH body 到 path 解到 out。
-func (h *Harness) PatchJSON(path string, body, out any) *http.Response {
-	h.t.Helper()
-	return h.requestJSON("PATCH", path, body, out)
-}
-
-// Delete DELETEs path; fatals on non-2xx.
-//
-// Delete DELETE path，非 2xx 直接 fatal。
-func (h *Harness) Delete(path string) *http.Response {
-	h.t.Helper()
-	return h.requestJSON("DELETE", path, nil, nil)
-}
-
-func (h *Harness) requestJSON(method, path string, body, out any) *http.Response {
-	h.t.Helper()
-	var rdr io.Reader
-	if body != nil {
-		buf, err := json.Marshal(body)
-		if err != nil {
-			h.t.Fatalf("marshal %s %s body: %v", method, path, err)
-		}
-		rdr = bytes.NewReader(buf)
-	}
-	req, err := http.NewRequest(method, h.server.URL+path, rdr)
-	if err != nil {
-		h.t.Fatalf("build %s %s: %v", method, path, err)
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	// Auto-inject the canonical test user header so IdentifyUser middleware
-	// stamps ctx; harness.New() seeded this user at boot.
-	//
-	// 自动注 test user header,让 IdentifyUser middleware 在 ctx 打 user id;
-	// harness.New() 启动时已 seed 此 user。
-	req.Header.Set("X-Forgify-User-ID", SeedTestUserID)
-	resp, err := h.HTTPClient().Do(req)
-	if err != nil {
-		h.t.Fatalf("%s %s: %v", method, path, err)
-	}
-	if resp.StatusCode >= 300 {
-		raw, _ := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		h.t.Fatalf("%s %s: status %d: %s", method, path, resp.StatusCode, raw)
-	}
-	if out != nil {
-		defer resp.Body.Close()
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-			h.t.Fatalf("%s %s: decode response: %v", method, path, err)
-		}
-	} else {
-		_ = resp.Body.Close()
-	}
-	return resp
-}
-
-// RequireDeepSeekKey returns DEEPSEEK_API_KEY from env or skips the test.
-//
-// RequireDeepSeekKey 返回 env 中的 DEEPSEEK_API_KEY，缺则 skip。
-func RequireDeepSeekKey(t *testing.T) string {
-	t.Helper()
-	key := os.Getenv("DEEPSEEK_API_KEY")
-	if key == "" {
-		t.Skip("DEEPSEEK_API_KEY not set; skipping (run via `make test-pipeline` to load .env)")
-	}
-	return key
-}
+// HTTP 入口、live 模式 env gate、DB helper、断言 helper 均已搬至同包对应文件。
 
