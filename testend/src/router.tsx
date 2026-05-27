@@ -12,6 +12,15 @@ import { Processes } from "@/views/dev/Processes";
 import { Metrics } from "@/views/dev/Metrics";
 import { Errors } from "@/views/dev/Errors";
 import { Prompts } from "@/views/dev/Prompts";
+import { EventlogRaw } from "@/views/current/EventlogRaw";
+import { WireTrace } from "@/views/current/WireTrace";
+import { Notifications as CurrentNotifications } from "@/views/current/Notifications";
+import { SubAgents } from "@/views/current/SubAgents";
+import { ToolCalls } from "@/views/current/ToolCalls";
+import { Todos } from "@/views/current/Todos";
+import { AsksPending } from "@/views/current/AsksPending";
+import { Attachments } from "@/views/current/Attachments";
+import { Compaction } from "@/views/current/Compaction";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="empty">TODO: {name}</div>;
@@ -25,15 +34,15 @@ export const router = createHashRouter([
       { index: true, element: <Navigate to="/forge/functions" replace /> },
 
       // current/ (9)
-      { path: "current/wire",          element: <Placeholder name="current/WireTrace" /> },
-      { path: "current/eventlog",      element: <Placeholder name="current/EventlogRaw" /> },
-      { path: "current/notifications", element: <Placeholder name="current/Notifications" /> },
-      { path: "current/subagents",     element: <Placeholder name="current/SubAgents" /> },
-      { path: "current/tools",         element: <Placeholder name="current/ToolCalls" /> },
-      { path: "current/todos",         element: <Placeholder name="current/Todos" /> },
-      { path: "current/asks",          element: <Placeholder name="current/AsksPending" /> },
-      { path: "current/attachments",   element: <Placeholder name="current/Attachments" /> },
-      { path: "current/compaction",    element: <Placeholder name="current/Compaction" /> },
+      { path: "current/wire",          element: <WireTrace /> },
+      { path: "current/eventlog",      element: <EventlogRaw /> },
+      { path: "current/notifications", element: <CurrentNotifications /> },
+      { path: "current/subagents",     element: <SubAgents /> },
+      { path: "current/tools",         element: <ToolCalls /> },
+      { path: "current/todos",         element: <Todos /> },
+      { path: "current/asks",          element: <AsksPending /> },
+      { path: "current/attachments",   element: <Attachments /> },
+      { path: "current/compaction",    element: <Compaction /> },
 
       // forge/ (7 — TestCollections deleted)
       { path: "forge/functions",       element: <Placeholder name="forge/Functions" /> },
