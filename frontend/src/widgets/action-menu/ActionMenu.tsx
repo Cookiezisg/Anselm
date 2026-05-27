@@ -27,7 +27,8 @@ interface ActionMenuItem {
 
 interface ActionMenuProps {
   items: (ActionMenuItem | "divider")[];
-  renderTrigger?: (props: React.HTMLAttributes<HTMLElement> & { ref?: any }) => React.ReactNode; // floating-ui ref callback is untyped
+  // floating-ui setReference ref is (Element|null)=>void; callers spread to <button>; no tighter union compiles cleanly.
+  renderTrigger?: (props: React.HTMLAttributes<HTMLElement> & { ref?: any }) => React.ReactNode;
   placement?: Placement;
 }
 

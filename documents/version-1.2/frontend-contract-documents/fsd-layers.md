@@ -158,4 +158,4 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 
 ### TypeScript strict
 
-`frontend/tsconfig.json` 开启 `"strict": true`；所有 `model/types.ts` 类型需 no-any（`@typescript-eslint/no-explicit-any` 在迁移阶段为 `off`，目标是最终全关）。
+`frontend/tsconfig.json` 开启 `"strict": true`；`tsc --noEmit` 零错误。`@typescript-eslint/no-explicit-any` 保持 `off`——剩余 ~31 处 `any` 全部在 Tiptap / floating-ui 第三方边界（`DocEditor.tsx`、`CodeBlockNode.tsx`、`ActionMenu.tsx`），上游未导出所需类型，带内联注释说明，无业务逃逸。
