@@ -299,6 +299,37 @@ func TestListIndex_EmptyReturnsEmptyString(t *testing.T) {
 	}
 }
 
+func TestForSystemPrompt_MarkdownHeadersNotBanner(t *testing.T) {
+	s := newService(t)
+	ctx := context.Background()
+	_, _ = s.Upsert(ctx, UpsertInput{
+		Name: "pinme", Type: memorydomain.TypeUser, Description: "pin desc", Content: "pinned body",
+		Source: memorydomain.SourceUser,
+	})
+	_, _ = s.Pin(ctx, "pinme")
+	_, _ = s.Upsert(ctx, UpsertInput{
+		Name: "idxme", Type: memorydomain.TypeFeedback, Description: "idx desc", Content: "c",
+		Source: memorydomain.SourceUser,
+	})
+
+	out := s.ForSystemPrompt(ctx)
+	if strings.Contains(out, "────") {
+		t.Errorf("banner idiom must be gone; got:\n%s", out)
+	}
+	if !strings.Contains(out, "## Pinned") {
+		t.Errorf("pinned section must use markdown '## Pinned'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "## Index") {
+		t.Errorf("index section must use markdown '## Index'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "### pinme") {
+		t.Errorf("pinned entry must be H3 '### pinme'; got:\n%s", out)
+	}
+	if !strings.Contains(out, "read_memory(name)") {
+		t.Errorf("index header should fold in the read_memory hint; got:\n%s", out)
+	}
+}
+
 func TestDelete_NotFound(t *testing.T) {
 	s := newService(t)
 	err := s.Delete(context.Background(), "nope")

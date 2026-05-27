@@ -8,7 +8,7 @@
 import { useEffect, useRef } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
-import { useConversation, useConversationMessages } from "@entities/conversation";
+import { useConversation, useConversationMessages, type Conversation } from "@entities/conversation";
 import { useApiKeys } from "@entities/apikey";
 import { useModelConfigs } from "@entities/model-config";
 import { useChatStore } from "@entities/conversation";
@@ -46,7 +46,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
   // 上来就自愈:GET 对话本身就 404,直接弹回 picker,避免用户先打半天字
   // 再被发送失败。
   useEffect(() => {
-    if ((convError as any)?.code === "CONVERSATION_NOT_FOUND") {
+    if ((convError as { code?: string } | null)?.code === "CONVERSATION_NOT_FOUND") {
       onSetActiveConv(null);
       qc.invalidateQueries({ queryKey: qk.conversations() });
     }
@@ -83,7 +83,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
     if (!activeConv) return;
     ensureConv(activeConv);
     if (historyMessages && Array.isArray(historyMessages)) {
-      hydrateConv(activeConv, historyMessages as any);
+      hydrateConv(activeConv, historyMessages as unknown as Parameters<typeof hydrateConv>[1]);
     }
   }, [activeConv, historyMessages, hydrateConv, ensureConv]);
 
@@ -121,7 +121,7 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
     return <EmptyConvPlaceholder />;
   }
 
-  const onSend = (payload: any) => submit(payload);
+  const onSend = (payload: Parameters<typeof submit>[0]) => submit(payload);
   const onCancel = () => cancelStream();
 
   return (
@@ -169,7 +169,7 @@ function EmptyConvPlaceholder() {
   );
 }
 
-function EmptyConvHero({ conv }: { conv: any }) {
+function EmptyConvHero({ conv }: { conv: Conversation | null | undefined }) {
   const { t } = useTranslation("conv");
   return (
     <div style={{ padding: "48px 0", textAlign: "center", color: "var(--fg-muted)" }}>

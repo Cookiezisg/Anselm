@@ -16,7 +16,9 @@ import { WelcomeInput } from "./ui/WelcomeInput.tsx";
 import { useGreeting } from "./lib/useGreeting";
 import { useContextStrip } from "./lib/useContextStrip";
 
-function ContextStrip({ strip, onJump }: { strip: any; onJump: (pane: string, convId?: string) => void }) {
+type ContextStripData = ReturnType<typeof useContextStrip>;
+
+function ContextStrip({ strip, onJump }: { strip: ContextStripData; onJump: (pane: string, convId?: string) => void }) {
   const { t } = useTranslation("dashboard");
   if (!strip) return null;
   if (strip.kind === "waiting") {
@@ -66,7 +68,7 @@ export function Dashboard({ onOpenPane, onSetActiveConv }: DashboardProps) {
   const pushToast = useToastStore((s) => s.pushToast);
 
   const { data: conversations = [] } = useConversations();
-  const [displayName] = useDisplayName() as [string, any];
+  const [displayName] = useDisplayName() as [string, (v: string) => void];
   const create = useCreateConversation();
 
   const hasRecentConv = conversations.some(
@@ -88,7 +90,7 @@ export function Dashboard({ onOpenPane, onSetActiveConv }: DashboardProps) {
         await apiFetch(`/conversations/${created.id}/messages`, { method: "POST", body: { content: text } });
       }
     } catch (err) {
-      pushToast({ kind: "error", title: t("sendFailed"), desc: (err as any)?.message });
+      pushToast({ kind: "error", title: t("sendFailed"), desc: err instanceof Error ? err.message : String(err) });
     } finally {
       setSubmitting(false);
     }

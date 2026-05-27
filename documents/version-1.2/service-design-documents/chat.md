@@ -894,14 +894,14 @@ type convQueue struct {
 每次调用 Agent 前，`SystemPromptSections(ctx, conv)`（`runner.go`）按 cache-friendly 顺序（静态前 / 动态后）返回以下命名段：
 
 ```
-base            — 身份（代码写死，静态可缓存）
-tool_conventions — 三个标准注入字段讲一次（static，可缓存）
+identity        — 身份一句话（代码写死，静态可缓存）
+how_to_work     — 操作原则 7 条（复用优先/先验证/先核查/审慎/提问/精炼/并行；静态可缓存）
+tools           — 工具模型 + 三个标准注入字段讲一次（静态可缓存）
 capabilities    — 工具组索引 + catalog 资产菜单（半动态；catalog.GetForSystemPrompt 拼）
-multi_agent_forging — Subagent 策略（static，可缓存）
 memory          — 长期记忆（动态）
 documents       — @-mention 文档注入（动态）
-user_systemPrompt — conversation.system_prompt（可选，动态）
-locale_hint     — 语言指令（动态，仅 zh-CN）
+user_system_prompt — conversation.system_prompt（可选，动态）
+environment     — date + 回复语言（动态；替代原 locale_hint）
 ```
 
 `capabilities` 段由 `buildCapabilitiesSection` 拼装：

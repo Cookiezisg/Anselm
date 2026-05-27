@@ -30,7 +30,7 @@ var (
 )
 
 
-const subagentDescription = `Run a focused subtask in an isolated subagent (own context + curated tools; parent context untouched). Returns its final message. Types in schema.`
+const subagentDescription = `Run a focused subtask in an isolated subagent — its own context window and a curated toolset, so your context stays clean. Use it for independent research/exploration, or to fan out several independent subtasks in parallel (e.g. forging several modules at once). Returns the subagent's final message. Set subagent_type in the schema (Explore / Plan / general-purpose).`
 
 var subagentSchema = json.RawMessage(`{
 	"type": "object",

@@ -8,11 +8,14 @@
 //
 // 6 步 toB 首启向导。业务编排已迁入 useOnboardingFlow;本组件只负责渲染。
 
+import React from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useSettingsStore } from "@entities/settings";
+import type { SettingsState } from "@entities/settings";
 import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "@shared/lib/onboarding-strings";
 import { ProviderGrid, KeyVerifyField, ModelSelect } from "@features/settings";
 import { useOnboardingFlow } from "@features/onboarding";
@@ -22,7 +25,9 @@ const ANVIL = (
   <svg viewBox="0 0 24 24"><path d="M12 2v3" /><path d="M5 5l2 2" /><path d="M19 5l-2 2" /><path d="M4 12h4l2-3l4 6l2-3h4" /><path d="M5 17h14" /><path d="M7 21l1-4" /><path d="M17 21l-1-4" /></svg>
 );
 
-export function Onboarding({ onFinish }: { onFinish?: any }) {
+type Provider = { name: string; displayName: string; category: string; defaultBaseUrl: string };
+
+export function Onboarding({ onFinish }: { onFinish?: () => void }) {
   const settings = useSettingsStore();
   const { t } = useTranslation("onboarding");
 
@@ -62,7 +67,7 @@ export function Onboarding({ onFinish }: { onFinish?: any }) {
             </div>
             <div className="onb-journey">
               {STEP_KEYS.map((key, i) => {
-                const [jt, jd] = t(`journey.${key}`, { returnObjects: true }) as any[];
+                const [jt, jd] = t(`journey.${key}`, { returnObjects: true }) as [string, string];
                 const cls = "onb-jstep" + (i === step ? " is-active" : "") + (i < step ? " is-done" : "");
                 return (
                   <div key={key} className={cls}>
@@ -130,7 +135,7 @@ export function Onboarding({ onFinish }: { onFinish?: any }) {
   );
 }
 
-function Welcome({ t }: { t: (key: string, opts?: any) => any }) {
+function Welcome({ t }: { t: TFunction<"onboarding"> }) {
   const icons = [Icon.MessageSquare, Icon.Wrench, Icon.Server];
   return (
     <>
@@ -152,7 +157,7 @@ function Welcome({ t }: { t: (key: string, opts?: any) => any }) {
   );
 }
 
-function Workspace({ t, name, setName, accent }: { t: any; name: string; setName: (v: string) => void; accent: string }) {
+function Workspace({ t, name, setName, accent }: { t: TFunction<"onboarding">; name: string; setName: (v: string) => void; accent: string }) {
   const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#d97757";
   return (
     <>
@@ -171,7 +176,7 @@ function Workspace({ t, name, setName, accent }: { t: any; name: string; setName
   );
 }
 
-function Appearance({ t, settings }: { t: any; settings: any }) {
+function Appearance({ t, settings }: { t: TFunction<"onboarding">; settings: SettingsState }) {
   return (
     <>
       <div className="onb-kicker">{t("appearance.kicker")}</div>
@@ -181,7 +186,7 @@ function Appearance({ t, settings }: { t: any; settings: any }) {
       <div className="onb-fg">
         <div className="onb-label">{t("appearance.accent")}</div>
         <div className="onb-swatches">
-          {ACCENTS.map(([k, c]) => (
+          {(ACCENTS as [SettingsState["accent"], string][]).map(([k, c]) => (
             <button key={k} className={"onb-swatch" + (settings.accent === k ? " is-active" : "")} style={{ background: c }} onClick={() => settings.set({ accent: k })} />
           ))}
         </div>
@@ -190,7 +195,7 @@ function Appearance({ t, settings }: { t: any; settings: any }) {
       <div className="onb-fg">
         <div className="onb-label">{t("appearance.language")} <span className="onb-auto">{t("auto")}</span></div>
         <div className="onb-seg">
-          {[["zh", "中文"], ["en", "English"]].map(([k, label]) => (
+          {([["zh", "中文"], ["en", "English"]] as [SettingsState["lang"], string][]).map(([k, label]) => (
             <button key={k} className={"onb-seg-opt" + (settings.lang === k ? " is-active" : "")} onClick={() => settings.set({ lang: k })}>{label}</button>
           ))}
         </div>
@@ -199,7 +204,7 @@ function Appearance({ t, settings }: { t: any; settings: any }) {
       <div className="onb-fg">
         <div className="onb-label">{t("appearance.theme")} <span className="onb-auto">{t("auto")}</span></div>
         <div className="onb-seg">
-          {[["light", t("appearance.themeOpts.light")], ["dark", t("appearance.themeOpts.dark")], ["system", t("appearance.themeOpts.system")]].map(([k, label]) => (
+          {([["light", t("appearance.themeOpts.light")], ["dark", t("appearance.themeOpts.dark")], ["system", t("appearance.themeOpts.system")]] as [SettingsState["theme"], string][]).map(([k, label]) => (
             <button key={k} className={"onb-seg-opt" + (settings.theme === k ? " is-active" : "")} onClick={() => settings.set({ theme: k })}>{label}</button>
           ))}
         </div>
@@ -208,7 +213,7 @@ function Appearance({ t, settings }: { t: any; settings: any }) {
   );
 }
 
-function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, verifyError, models, modelId, setModelId }: { t: any; providers: any[]; provider: string; pickProvider: (p: string) => void; apiKey: string; onKeyChange: (v: string) => void; verify: () => void; verifying: boolean; verified: boolean; verifyError: string; models: string[]; modelId: string; setModelId: (v: string) => void }) {
+function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, verifyError, models, modelId, setModelId }: { t: TFunction<"onboarding">; providers: Provider[]; provider: string; pickProvider: (p: string) => void; apiKey: string; onKeyChange: (v: string) => void; verify: () => void; verifying: boolean; verified: boolean; verifyError: string; models: string[]; modelId: string; setModelId: (v: string) => void }) {
   const isOllama = provider === "ollama";
   const display = providers.find((p) => p.name === provider)?.displayName || provider;
   return (
@@ -252,7 +257,7 @@ function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, veri
   );
 }
 
-function Search({ t, providers, provider, setProvider, apiKey, setApiKey }: { t: any; providers: any[]; provider: string; setProvider: (p: string) => void; apiKey: string; setApiKey: (v: string) => void }) {
+function Search({ t, providers, provider, setProvider, apiKey, setApiKey }: { t: TFunction<"onboarding">; providers: Provider[]; provider: string; setProvider: (p: string) => void; apiKey: string; setApiKey: (v: string) => void }) {
   const display = providers.find((p) => p.name === provider)?.displayName || provider;
   return (
     <>
@@ -276,7 +281,7 @@ function Search({ t, providers, provider, setProvider, apiKey, setApiKey }: { t:
   );
 }
 
-function Done({ t, name, accent, provider, search }: { t: any; name: string; accent: string; provider: string | null; search: any }) {
+function Done({ t, name, accent, provider, search }: { t: TFunction<"onboarding">; name: string; accent: string; provider: string | null; search: string | null }) {
   const color = ACCENTS.find(([k]) => k === accent)?.[1] || "#d97757";
   return (
     <>
@@ -293,7 +298,7 @@ function Done({ t, name, accent, provider, search }: { t: any; name: string; acc
   );
 }
 
-function Recap({ label, value, children, muted, fallback }: { label?: any; value?: any; children?: any; muted?: any; fallback?: any }) {
+function Recap({ label, value, children, muted, fallback }: { label?: React.ReactNode; value?: string | null; children?: React.ReactNode; muted?: boolean; fallback?: string }) {
   return (
     <div className="onb-recap-card">
       <div className="onb-recap-label">{label}</div>

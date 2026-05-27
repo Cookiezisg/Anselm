@@ -16,7 +16,7 @@ import { Icon } from "@shared/ui/Icon";
 import { EntityLink } from "../../../widgets/entity-link/EntityLink.tsx";
 import { MarkdownView } from "../../../shared/ui/MarkdownView.tsx";
 
-function fmtDuration(ms: any) {
+function fmtDuration(ms: number | null | undefined) {
   if (ms == null) return "";
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
@@ -43,7 +43,7 @@ const TOOL_ICON = {
   Subagent: Icon.Bot,
   AskUserQuestion: Icon.HelpCircle,
 };
-function toolIcon(name: string) { return (TOOL_ICON as Record<string, React.ComponentType<any>>)[name] || Icon.Wrench; }
+function toolIcon(name: string) { return (TOOL_ICON as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[name] || Icon.Wrench; }
 
 // ── inline renderer for text content ─────────────────────────────────
 const ENTITY_RE = /\b(?:fn|hd|wf|sk|mcp|mem|cv|fr|doc)_[a-z0-9]{2,32}\b/g;
@@ -152,12 +152,13 @@ const ToolCallBlock = memo(function ToolCallBlock({ convId, blockId, defaultOpen
   const childIds = useChatStore((s) => selectChildIds(convId, blockId, s));
   const [open, setOpen] = useState(!!defaultOpen);
   if (!block) return null;
-  const blockAttrs = block.attrs as any;
+  interface ToolAttrs { tool?: string; summary?: string; executionGroup?: number; [k: string]: unknown }
+  const blockAttrs = (block.attrs || {}) as ToolAttrs;
 
   const isStreaming = block.status === "streaming";
   const isError = block.status === "error";
   const isSuccess = block.status === "completed";
-  const ToolIcon = toolIcon(blockAttrs?.tool);
+  const ToolIcon = toolIcon(blockAttrs.tool || "");
 
   const cls = [
     "blk-tool",
@@ -256,7 +257,7 @@ const ProgressBlock = memo(function ProgressBlock({ convId, blockId }: { convId:
             ? <Icon.AlertCircle style={{ width: 12, height: 12, color: "var(--status-error)" }} />
             : <Icon.Check style={{ width: 12, height: 12, color: "var(--status-success)" }} />}
         <span>{t("block.progressLabel")}</span>
-        {(p.attrs as any)?.stage && <span className="stage">· {(p.attrs as any).stage}</span>}
+        {(p.attrs as { stage?: string })?.stage && <span className="stage">· {(p.attrs as { stage?: string }).stage}</span>}
       </div>
       <div className="blk-progress-line">{p.content}</div>
     </div>
@@ -290,8 +291,9 @@ const SubagentBlock = memo(function SubagentBlock({ convId, blockId, depth = 0 }
   const [open, setOpen] = useState(false);
   if (!block) return null;
 
-  const blockAttrs = block.attrs as any;
-  const innerMsgId = blockAttrs?.messageId;
+  interface SubagentAttrs { messageId?: string; agentType?: string; title?: string; [k: string]: unknown }
+  const blockAttrs = (block.attrs || {}) as SubagentAttrs;
+  const innerMsgId = blockAttrs.messageId;
   const inner = innerMsgId && messages ? messages.get(innerMsgId as string) : null;
   const a = blockAttrs || {};
 
@@ -332,7 +334,8 @@ const CompactionBlock = memo(function CompactionBlock({ convId, blockId }: { con
   const block = useChatStore((s) => selectBlock(convId, blockId, s));
   const [open, setOpen] = useState(false);
   if (!block) return null;
-  const a = (block.attrs as any) || {};
+  interface CompactionAttrs { blocksArchived?: number; generatedBy?: string; [k: string]: unknown }
+  const a = (block.attrs || {}) as CompactionAttrs;
   return (
     <div className="blk-compaction">
       <div className="blk-compaction-head" onClick={() => setOpen((o) => !o)}>

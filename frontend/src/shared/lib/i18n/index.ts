@@ -3,6 +3,7 @@
 // 直接读 localStorage 避免 shared→entities 的 FSD 违规。
 
 import i18n from "i18next";
+import type { Resource } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { resources } from "./resources";
 
@@ -22,7 +23,7 @@ function getPersistedLang() {
 }
 
 i18n.use(initReactI18next).init({
-  resources: resources as any,
+  resources: resources as Resource,
   lng: getPersistedLang(),
   fallbackLng: "zh",
   defaultNS: "common",

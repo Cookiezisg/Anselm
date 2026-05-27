@@ -19,6 +19,14 @@ func TestAssemble_GroupHeaderContainsInvokeTool(t *testing.T) {
 	if !strings.Contains(cat.Summary, "### function [run_function]") {
 		t.Errorf("header missing invoke tool; got:\n%s", cat.Summary)
 	}
+	// Single H2 lives in runner ("## Your library"); catalog emits only H3 children.
+	if strings.Contains(cat.Summary, "## Available capabilities") {
+		t.Errorf("catalog must not emit its own H2; got:\n%s", cat.Summary)
+	}
+	// Internal granularity vocabulary must not leak into the LLM-facing header.
+	if strings.Contains(cat.Summary, "PerItem") || strings.Contains(cat.Summary, "PerServer") {
+		t.Errorf("granularity leaked into header; got:\n%s", cat.Summary)
+	}
 }
 
 func TestAssemble_LongDescriptionTruncated(t *testing.T) {

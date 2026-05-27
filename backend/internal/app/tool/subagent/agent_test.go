@@ -26,6 +26,16 @@ func TestSubagentTool_Identity(t *testing.T) {
 	}
 }
 
+func TestSubagentTool_Description_TeachesCorrectParamName(t *testing.T) {
+	desc := (&SubagentTool{}).Description()
+	if !strings.Contains(desc, "subagent_type") {
+		t.Errorf("Description must name the real param 'subagent_type'; got: %q", desc)
+	}
+	if strings.Contains(desc, "type=") {
+		t.Errorf("Description must not teach the old buggy 'type=' arg; got: %q", desc)
+	}
+}
+
 func TestSubagentTool_StaticMetadata(t *testing.T) {
 	tt := &SubagentTool{}
 	if tt.IsReadOnly() {

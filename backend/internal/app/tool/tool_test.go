@@ -340,7 +340,7 @@ func TestInjectStandardFields_DescriptionsAreSlim(t *testing.T) {
 		}
 		json.Unmarshal(props[f], &field)
 		if len(field.Description) > 120 {
-			t.Errorf("%s description too long (%d chars); long guidance must live in tool_conventions, not per-tool schema", f, len(field.Description))
+			t.Errorf("%s description too long (%d chars); long guidance must live in the tools section, not per-tool schema", f, len(field.Description))
 		}
 	}
 }

@@ -88,9 +88,9 @@ func (s *Service) ForSystemPrompt(ctx context.Context) string {
 	if err != nil {
 		s.log.Warn("memoryapp.ForSystemPrompt: ListPinned failed", zap.Error(err))
 	} else if len(pinned) > 0 {
-		sb.WriteString("──── Pinned memories ────\n")
+		sb.WriteString("## Pinned\n")
 		for _, m := range pinned {
-			fmt.Fprintf(&sb, "\n## %s (type=%s)\n%s\n", m.Name, m.Type, m.Content)
+			fmt.Fprintf(&sb, "\n### %s (type=%s)\n%s\n", m.Name, m.Type, m.Content)
 		}
 	}
 	idx, err := s.ListIndex(ctx, MaxIndexLines)
@@ -100,10 +100,8 @@ func (s *Service) ForSystemPrompt(ctx context.Context) string {
 		if sb.Len() > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString("──── Memory index ────\n")
+		sb.WriteString("## Index (read_memory(name) to load)\n")
 		sb.WriteString(idx)
-		sb.WriteString("\nUse read_memory(name) to load a specific entry when relevant.\n")
-		sb.WriteString("Use write_memory(...) when you learn something worth keeping across conversations.\n")
 	}
 	return sb.String()
 }

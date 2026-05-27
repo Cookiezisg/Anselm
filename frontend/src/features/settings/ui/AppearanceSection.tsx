@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
-import { useSettingsStore } from "@entities/settings";
+import { useSettingsStore, type SettingsState } from "@entities/settings";
 import { ACCENTS } from "@shared/lib/onboarding-strings";
 
 export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
@@ -23,11 +23,11 @@ export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle:
           <div className="set-look-row">
             <div className="set-look-k">{t("appearance.theme")}</div>
             <div className="onb-seg">
-              {["light", "dark", "system"].map((v) => (
+              {(["light", "dark", "system"] as SettingsState["theme"][]).map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.theme === v ? " is-active" : "")}
-                  onClick={() => (settings as any).set({ theme: v })}
+                  onClick={() => settings.set({ theme: v })}
                 >
                   {t(`appearance.themeOpts.${v}`)}
                 </button>
@@ -37,12 +37,12 @@ export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle:
           <div className="set-look-row">
             <div className="set-look-k">{t("appearance.accent")}</div>
             <div className="onb-swatches">
-              {ACCENTS.map(([k, c]) => (
+              {(ACCENTS as [SettingsState["accent"], string][]).map(([k, c]) => (
                 <button
                   key={k}
                   className={"onb-swatch" + (settings.accent === k ? " is-active" : "")}
                   style={{ background: c }}
-                  onClick={() => (settings as any).set({ accent: k })}
+                  onClick={() => settings.set({ accent: k })}
                 />
               ))}
             </div>
@@ -50,11 +50,11 @@ export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle:
           <div className="set-look-row">
             <div className="set-look-k">{t("appearance.density")}</div>
             <div className="onb-seg">
-              {["compact", "cozy", "comfortable"].map((v) => (
+              {(["compact", "cozy", "comfortable"] as SettingsState["density"][]).map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.density === v ? " is-active" : "")}
-                  onClick={() => (settings as any).set({ density: v })}
+                  onClick={() => settings.set({ density: v })}
                 >
                   {t(`appearance.densityOpts.${v}`)}
                 </button>
@@ -64,11 +64,11 @@ export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle:
           <div className="set-look-row">
             <div className="set-look-k">{t("appearance.language")}</div>
             <div className="onb-seg">
-              {[["zh", "中文"], ["en", "English"]].map(([v, label]) => (
+              {([["zh", "中文"], ["en", "English"]] as [SettingsState["lang"], string][]).map(([v, label]) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.lang === v ? " is-active" : "")}
-                  onClick={() => (settings as any).set({ lang: v })}
+                  onClick={() => settings.set({ lang: v })}
                 >
                   {label}
                 </button>
@@ -78,11 +78,11 @@ export function AppearanceSection({ open, onToggle }: { open: boolean; onToggle:
           <div className="set-look-row">
             <div className="set-look-k">{t("appearance.reasoning")}</div>
             <div className="onb-seg">
-              {["collapsed", "expanded"].map((v) => (
+              {(["collapsed", "expanded"] as SettingsState["reasoningDefault"][]).map((v) => (
                 <button
                   key={v}
                   className={"onb-seg-opt" + (settings.reasoningDefault === v ? " is-active" : "")}
-                  onClick={() => (settings as any).set({ reasoningDefault: v })}
+                  onClick={() => settings.set({ reasoningDefault: v })}
                 >
                   {t(`appearance.reasoningOpts.${v}`)}
                 </button>

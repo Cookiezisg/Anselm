@@ -4,7 +4,7 @@
 // SettingsModal —— 居中浮层；账号区常驻；4 个 accordion 区段互斥单展。
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type MotionProps } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { useSessionStore } from "@entities/session";
@@ -42,7 +42,7 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
         >
           <motion.div
             className="set-modal"
-            {...(scaleIn as any)}
+            {...(scaleIn as MotionProps)}
             role="dialog"
             aria-modal="true"
             aria-label={t("modal.ariaLabel")}

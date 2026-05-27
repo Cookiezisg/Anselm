@@ -13,7 +13,7 @@
 // HighlightedCode —— 流式中只信显式 lang；没 lang 就保持纯文本；写完
 // 才跑一次 autodetect。autodetect 是真正的 CPU 炸弹。
 
-import { createElement, memo, useMemo } from "react";
+import React, { createElement, memo, useMemo } from "react";
 import { lowlight } from "../lib/highlight";
 
 interface HighlightedCodeProps {
@@ -48,14 +48,21 @@ export const HighlightedCode = memo(function HighlightedCode({ source, lang, str
 
 // hast → React. lowlight returns hast nodes — element / text.
 // className arrives as an array on properties; join into space-string.
-function hastToReact(node: any, key: any): any {
-  if (node.type === "text") return node.value;
+// lowlight has no bundled d.ts we can import here; type the minimal shape we need.
+//
+// lowlight 没有我们能直接用的内嵌 d.ts，手工声明所需最小形状。
+interface HastText  { type: "text"; value: string }
+interface HastElement { type: "element"; tagName: string; properties?: { className?: string | string[] }; children: HastNode[] }
+type HastNode = HastText | HastElement | { type: string };
+
+function hastToReact(node: HastNode, key: number): React.ReactNode {
+  if (node.type === "text") return (node as HastText).value;
   if (node.type !== "element") return null;
-  const { tagName, properties = {}, children = [] } = node;
+  const { tagName, properties = {}, children = [] } = node as HastElement;
   const className = Array.isArray(properties.className)
     ? properties.className.join(" ")
     : properties.className;
   const props: Record<string, unknown> = { key };
   if (className) props.className = className;
-  return createElement(tagName, props, ...children.map((c: any, i: any) => hastToReact(c, i)));
+  return createElement(tagName, props, ...children.map((c, i) => hastToReact(c, i)));
 }

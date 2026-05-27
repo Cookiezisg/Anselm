@@ -30,7 +30,7 @@ export function CapabilityCheckPanel({ workflowId }: CapabilityCheckPanelProps) 
       const r = await check.mutateAsync(workflowId);
       setResult(r);
     } catch (e) {
-      pushToast({ kind: "error", title: t("capability.checkFail"), desc: (e as any)?.message });
+      pushToast({ kind: "error", title: t("capability.checkFail"), desc: e instanceof Error ? e.message : String(e) });
     }
   };
 
@@ -69,9 +69,22 @@ export function CapabilityCheckPanel({ workflowId }: CapabilityCheckPanelProps) 
   );
 }
 
-function CapabilityResult({ result }: { result: any }) {
+interface CapItem {
+  ready?: boolean;
+  satisfied?: boolean;
+  missing?: boolean;
+  kind?: string;
+  type?: string;
+  name?: string;
+  id?: string;
+  label?: string;
+  reason?: string;
+}
+
+function CapabilityResult({ result }: { result: CapabilityCheckResult | Record<string, unknown> }) {
   const { t } = useTranslation("forge");
-  const items = result.items || result.capabilities || [];
+  const r = result as Record<string, unknown>;
+  const items: CapItem[] = (r.items as CapItem[]) || (r.capabilities as CapItem[]) || (r.issues as CapItem[]) || [];
   if (items.length === 0) {
     return (
       <div className="empty" style={{ padding: 12 }}>
@@ -81,7 +94,7 @@ function CapabilityResult({ result }: { result: any }) {
   }
   return (
     <div className="cap-list">
-      {items.map((it: any, i: number) => {
+      {items.map((it, i: number) => {
         const ok = it.ready ?? it.satisfied ?? (!it.missing);
         return (
           <div key={i} className={"cap-row" + (ok ? " is-ok" : " is-missing")}>

@@ -59,14 +59,18 @@ func (h *PromptsHandler) List(w http.ResponseWriter, _ *http.Request) {
 
 	// Chat-facing static sections.
 	// chat 端静态段。
-	entries = append(entries, mkEntry("chat.base", "chat-system",
-		"Identity line prepended to every chat system prompt",
-		chatapp.BasePromptText(),
-		"backend/internal/app/chat/runner.go::chatBasePrompt"))
-	entries = append(entries, mkEntry("chat.multi_agent_forging", "chat-system",
-		"Multi-agent forging teaching block (always appended)",
-		chatapp.MultiAgentForgingPromptText(),
-		"backend/internal/app/chat/multi_agent_prompt.go"))
+	entries = append(entries, mkEntry("chat.identity", "chat-system",
+		"Identity line opening every chat system prompt",
+		chatapp.IdentityText(),
+		"backend/internal/app/chat/runner.go::identitySection"))
+	entries = append(entries, mkEntry("chat.how_to_work", "chat-system",
+		"Operating principles (reuse / verify / care / ask / concise / parallel)",
+		chatapp.HowToWorkText(),
+		"backend/internal/app/chat/runner.go::howToWorkSection"))
+	entries = append(entries, mkEntry("chat.tools", "chat-system",
+		"Tool model + the three standard fields (summary / destructive / execution_group)",
+		chatapp.ToolsText(),
+		"backend/internal/app/chat/runner.go::toolsSection"))
 
 	// Internal LLM prompts.
 	// 内部 LLM 用提示词。

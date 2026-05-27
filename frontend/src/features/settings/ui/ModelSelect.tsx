@@ -1,7 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { Select } from "@shared/ui/Select";
 
-export function ModelSelect({ models, value, onChange, disabled }: { models: any; value: any; onChange: any; disabled?: any }) {
+export function ModelSelect({ models, value, onChange, disabled }: {
+  models: string[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
   const { t } = useTranslation("settings");
   return (
     <Select

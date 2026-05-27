@@ -37,7 +37,8 @@ export function useForgeIterate() {
   const submit = async (kind: string, id: string, prompt: string): Promise<string | null> => {
     try {
       const res = await iterate.mutateAsync({ kind, id, prompt });
-      const cid = (res as any)?.conversationId || (res as any)?.id;
+      const resObj = res as Record<string, unknown>;
+      const cid = (resObj?.conversationId || resObj?.id) as string | undefined;
       if (!cid) {
         // Not an API error — server returned success but no conversationId.
         // This is a business-logic warn that global onError cannot detect.

@@ -196,7 +196,7 @@ func (s *Service) emitFatalError(
 //
 // PromptSection 是 chat system prompt 的一段；按顺序拼接为最终 wire prompt。
 type PromptSection struct {
-	Name    string `json:"name"`    // "base" / "tool_conventions" / "multi_agent_forging" / "capabilities" / "memory" / "documents" / "user_systemPrompt" / "locale_hint"
+	Name    string `json:"name"`    // "identity" / "how_to_work" / "tools" / "capabilities" / "memory" / "documents" / "user_system_prompt" / "environment"
 	Content string `json:"content"`
 }
 
@@ -205,9 +205,9 @@ type PromptSection struct {
 // SystemPromptSections 返按 cache-friendly 顺序（静态前 / 动态后）排好的命名段；外部预览端点直接消费。
 func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Conversation) []PromptSection {
 	out := make([]PromptSection, 0, 9)
-	out = append(out, PromptSection{Name: "base", Content: chatBasePrompt})
-	out = append(out, PromptSection{Name: "tool_conventions", Content: toolConventionsSection})
-	out = append(out, PromptSection{Name: "multi_agent_forging", Content: multiAgentForgingPromptSection})
+	out = append(out, PromptSection{Name: "identity", Content: identitySection})
+	out = append(out, PromptSection{Name: "how_to_work", Content: howToWorkSection})
+	out = append(out, PromptSection{Name: "tools", Content: toolsSection})
 
 	if capContent := s.buildCapabilitiesSection(ctx); capContent != "" {
 		out = append(out, PromptSection{Name: "capabilities", Content: capContent})
@@ -227,35 +227,44 @@ func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Con
 		}
 	}
 	if conv.SystemPrompt != "" {
-		out = append(out, PromptSection{Name: "user_systemPrompt", Content: conv.SystemPrompt})
+		out = append(out, PromptSection{Name: "user_system_prompt", Content: conv.SystemPrompt})
 	}
+	lang := "English"
 	if reqctxpkg.GetLocale(ctx) == reqctxpkg.LocaleZhCN {
-		out = append(out, PromptSection{Name: "locale_hint",
-			Content: "Please respond in Chinese (Simplified) unless the user writes in another language."})
+		lang = "Chinese"
 	}
+	out = append(out, PromptSection{Name: "environment",
+		Content: fmt.Sprintf("%s · reply language: %s", time.Now().Format("2006-01-02"), lang)})
 	return out
 }
 
-// chatBasePrompt is the identity line prepended to every chat system prompt.
+// identitySection + howToWorkSection open every chat system prompt: who you are, then how to work.
 //
-// chatBasePrompt 是每轮 chat system prompt 的身份开头。
-const chatBasePrompt = "You are Forgify, an AI assistant that helps users build tools, automate workflows, and work with data."
+// identitySection + howToWorkSection 是每轮 chat system prompt 的身份 + 工作原则开头。
+const identitySection = "You are Forgify. You turn the user's needs into reusable capabilities — Functions (logic), Handlers (stateful services), Workflows (DAGs over them) — and run them."
 
-// toolConventionsSection teaches the LLM the three standard tool fields once here
-// instead of duplicating the explanation across every tool schema.
-//
-// toolConventionsSection 把三个标准注入字段的说明集中在此，避免在 64 个 tool schema 里重复。
-const toolConventionsSection = `Every tool call accepts three standard fields:
-- summary (required): one sentence on what you're doing and why.
-- destructive (optional): true if the call may be irreversible (delete, force-push, writes to external state); the user sees a warning.
-- execution_group (optional, int): calls sharing a group run in parallel; different groups run in ascending order. Group only calls with no interdependence and no shared state. Omit when unsure.`
+const howToWorkSection = `- Reuse first: search_* the user's library and extend an existing Function/Handler/Workflow before forging a new one. Build the smallest fit — Function for logic, Handler when it needs state, Workflow to orchestrate ≥2 steps.
+- Verify before claiming: run what you forge (run_function / call_handler / trigger_workflow dryRun); report the real result, with the actual error on failure — never claim untested success.
+- Inspect before changing (get_* / read_document); if reality contradicts what the user described, surface the mismatch instead of plowing ahead.
+- Before an irreversible or outward action — deleting a forge, running a Handler that writes external state, force-reverting, an external MCP write — set destructive=true and confirm when a wrong move is costly.
+- Ask (AskUserQuestion) when the request is ambiguous or config is missing; don't guess, and don't interrogate over safe defaults.
+- Be concise: lead with the result, skip the play-by-play, match the user's language.
+- Run independent subtasks in parallel — same execution_group, or fan out with Subagent; keep coupled or side-effecting work sequential.`
 
-// BasePromptText / MultiAgentForgingPromptText / ToolConventionsText expose static chat prompt segments to the §18 inventory endpoint.
+// toolsSection states the tool model + the three standard fields once, instead of repeating across every tool schema.
 //
-// BasePromptText / MultiAgentForgingPromptText / ToolConventionsText 把静态段暴露给 §18 prompt 总览端点。
-func BasePromptText() string              { return chatBasePrompt }
-func MultiAgentForgingPromptText() string { return multiAgentForgingPromptSection }
-func ToolConventionsText() string         { return toolConventionsSection }
+// toolsSection 统一讲工具模型 + 三个标准字段,避免在每个 tool schema 里重复。
+const toolsSection = `Common tools are always loaded; pull the rest on demand with activate_tools(category):
+function / handler / workflow — create · edit · delete · revert · run/call/trigger · inspect; document (manage docs) · mcp (external servers) · skill (execution logs).
+Three standard fields on every call: summary (one line: what + why), destructive (true if irreversible), execution_group (int; same group runs in parallel, groups run in order).
+Prefer Read/Edit/Grep/Glob over Bash cat/sed/grep. Search before you act; call by a real id, never a guess.`
+
+// IdentityText / HowToWorkText / ToolsText expose static chat prompt segments to the §18 inventory endpoint.
+//
+// IdentityText / HowToWorkText / ToolsText 把静态段暴露给 §18 prompt 总览端点。
+func IdentityText() string  { return identitySection }
+func HowToWorkText() string { return howToWorkSection }
+func ToolsText() string     { return toolsSection }
 
 // categoryLabels maps the known lazy category names to their human-readable descriptions for the capabilities index.
 //
@@ -266,7 +275,7 @@ var categoryLabels = map[string]string{
 	"workflow": "create/edit/delete/trigger workflows",
 	"mcp":      "install/call external MCP servers",
 	"document": "manage documents",
-	"skill":    "skill execution history",
+	"skill":    "skill execution logs",
 }
 
 // buildCapabilitiesSection assembles (a) sorted tool-group index from Lazy + (b) catalog asset menu.

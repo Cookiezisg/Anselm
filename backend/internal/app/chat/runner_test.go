@@ -70,38 +70,6 @@ func TestBuildSystemPrompt_ConvSystemPromptStillIncluded(t *testing.T) {
 	}
 }
 
-func TestBuildSystemPrompt_AlwaysIncludesMultiAgentForging(t *testing.T) {
-	cases := []struct {
-		name    string
-		catalog *fakePromptProvider
-	}{
-		{"nil-catalog", nil},
-		{"empty-catalog", &fakePromptProvider{text: ""}},
-		{"populated-catalog", &fakePromptProvider{text: "## Available capabilities\n..."}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			s := &Service{}
-			if tc.catalog != nil {
-				s.catalog = tc.catalog
-			}
-			got := s.buildSystemPrompt(context.Background(), &convdomain.Conversation{})
-			if !strings.Contains(got, "## Multi-agent forging") {
-				t.Errorf("multi-agent section missing:\n%s", got)
-			}
-			if !strings.Contains(got, "Subagent") {
-				t.Errorf("Subagent keyword missing from multi-agent section")
-			}
-			if !strings.Contains(got, "D21") {
-				t.Errorf("D21 awareness missing — sub-agent workflow ops restriction must be taught")
-			}
-			if !strings.Contains(got, "configState") {
-				t.Errorf("configState gate teaching missing")
-			}
-		})
-	}
-}
-
 func TestSetSystemPromptProvider_AfterConstruction(t *testing.T) {
 	s := &Service{}
 	if s.catalog != nil {
@@ -117,38 +85,45 @@ func TestSetSystemPromptProvider_AfterConstruction(t *testing.T) {
 	}
 }
 
-func TestSystemPromptSections_ToolConventionsSection(t *testing.T) {
+func TestSystemPromptSections_RewrittenSections(t *testing.T) {
 	s := &Service{}
 	conv := &convdomain.Conversation{}
 	sections := s.SystemPromptSections(context.Background(), conv)
 
-	var found *PromptSection
-	for i := range sections {
-		if sections[i].Name == "tool_conventions" {
-			found = &sections[i]
-			break
+	got := map[string]string{}
+	order := make([]string, 0, len(sections))
+	for _, sec := range sections {
+		got[sec.Name] = sec.Content
+		order = append(order, sec.Name)
+		if sec.Name != strings.ToLower(sec.Name) {
+			t.Errorf("section name not snake_case: %q", sec.Name)
 		}
 	}
-	if found == nil {
-		t.Fatal("tool_conventions section missing from SystemPromptSections")
+
+	for _, want := range []string{"identity", "how_to_work", "tools", "environment"} {
+		if _, ok := got[want]; !ok {
+			t.Errorf("missing section %q; order: %v", want, order)
+		}
 	}
-	if !strings.Contains(found.Content, "execution_group") {
-		t.Errorf("tool_conventions content missing 'execution_group': %q", found.Content)
-	}
-	if !strings.Contains(found.Content, "destructive") {
-		t.Errorf("tool_conventions content missing 'destructive': %q", found.Content)
+	for _, gone := range []string{"base", "tool_conventions", "multi_agent_forging", "locale_hint", "user_systemPrompt"} {
+		if _, ok := got[gone]; ok {
+			t.Errorf("retired section %q still present; order: %v", gone, order)
+		}
 	}
 
-	// Must appear immediately after "base" (index 1).
-	if len(sections) < 2 || sections[1].Name != "tool_conventions" {
-		t.Errorf("tool_conventions not at index 1 (after base); order: %v",
-			func() []string {
-				names := make([]string, len(sections))
-				for i, s := range sections {
-					names[i] = s.Name
-				}
-				return names
-			}())
+	// Static head is identity → how_to_work → tools (cache-friendly, deterministic).
+	if len(order) < 3 || order[0] != "identity" || order[1] != "how_to_work" || order[2] != "tools" {
+		t.Errorf("static head order wrong; want identity/how_to_work/tools, got: %v", order)
+	}
+
+	if !strings.Contains(got["tools"], "execution_group") || !strings.Contains(got["tools"], "destructive") {
+		t.Errorf("tools section dropped standard-field teaching: %q", got["tools"])
+	}
+	if !strings.Contains(got["identity"], "You are Forgify") {
+		t.Errorf("identity section lost brand line: %q", got["identity"])
+	}
+	if !strings.Contains(got["environment"], "reply language") {
+		t.Errorf("environment section missing reply-language: %q", got["environment"])
 	}
 }
 

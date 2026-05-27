@@ -11,8 +11,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
-import { useProviders, useModelConfigs, useUpsertModelConfig } from "@entities/model-config";
+import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, type ApiKey } from "@entities/apikey";
+import { useProviders, useModelConfigs, useUpsertModelConfig, type Provider, type ModelConfig } from "@entities/model-config";
 import { LLM_HINTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings";
 import { ProviderGrid } from "./ProviderGrid.tsx";
 import { KeyVerifyField } from "./KeyVerifyField.tsx";
@@ -31,7 +31,7 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
   const keys = allKeys.filter((k) => llmNames.has(k.provider));
   const chatConfig = modelConfigs.find((m) => m.scenario === "chat");
 
-  const providerDisplay = (n: string) => providers.find((p: any) => p.name === n)?.displayName || n;
+  const providerDisplay = (n: string) => providers.find((p) => p.name === n)?.displayName || n;
   const sub = keys.length
     ? t("apiKeys.subWithDefault", { count: keys.length, provider: chatConfig ? providerDisplay(chatConfig.provider) : t("apiKeys.subNotSet") })
     : t("apiKeys.subEmpty");
@@ -60,12 +60,12 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
   );
 }
 
-function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: any[]; providers: any[]; chatConfig: any; providerDisplay: (n: string) => string }) {
+function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: ApiKey[]; providers: Provider[]; chatConfig: ModelConfig | undefined; providerDisplay: (n: string) => string }) {
   const { t } = useTranslation("settings");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const toggleKey = (id: string) => setOpenKey((p: any) => (p === id ? null : id));
+  const toggleKey = (id: string) => setOpenKey((p) => (p === id ? null : id));
 
   return (
     <>
@@ -73,7 +73,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: any[]
         <div className="set-sec-empty">{t("apiKeys.emptyList")}</div>
       )}
       <div className="set-klist">
-        {keys.map((key: any) => (
+        {keys.map((key) => (
           <KeyItem
             key={key.id}
             apiKey={key}
@@ -103,7 +103,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: any[]
   );
 }
 
-function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }: { apiKey: any; isDefault: boolean; chatConfig: any; displayName: string; open: boolean; onToggle: () => void }) {
+function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }: { apiKey: ApiKey; isDefault: boolean; chatConfig: ModelConfig | undefined; displayName: string; open: boolean; onToggle: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const testKey = useTestApiKey();
@@ -204,7 +204,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }:
 // Switching provider or cancelling best-effort deletes the orphan created key.
 //
 // AddPanel —— 内联引导页验证流;切换厂商/取消时尽力删除已创建的孤儿 key。
-function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDone }: { providers: any[]; configured: string[]; hasChatDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
+function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDone }: { providers: Provider[]; configured: string[]; hasChatDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const createKey = useCreateApiKey();
@@ -290,7 +290,7 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
       reset();
       onDone();
     } catch (e) {
-      pushToast({ kind: "error", title: t("apiKeys.addPanel.saveFail"), desc: (e as any)?.message });
+      pushToast({ kind: "error", title: t("apiKeys.addPanel.saveFail"), desc: e instanceof Error ? e.message : String(e) });
     } finally {
       setSaving(false);
     }

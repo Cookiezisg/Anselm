@@ -30,15 +30,12 @@ func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granular
 	// when the user has not forged anything yet).
 	// 空库:跳整段(用户还没锻造时避免 header 下空白怪态)。
 	if len(items) > 0 {
-		b.WriteString("## Available capabilities\n")
-
 		for _, name := range sourceNames {
 			srcItems := bySource[name]
 			sort.Slice(srcItems, func(i, j int) bool { return srcItems[i].Name < srcItems[j].Name })
 
-			gran := gMap[name]
 			invoke := invokeMap[name]
-			fmt.Fprintf(&b, "\n### %s [%s] (%d, %s)\n", name, invoke, len(srcItems), gran.String())
+			fmt.Fprintf(&b, "\n### %s [%s]\n", name, invoke)
 			ids := make([]string, 0, len(srcItems))
 			for _, it := range srcItems {
 				desc := truncate(it.Description, descMaxRunes)

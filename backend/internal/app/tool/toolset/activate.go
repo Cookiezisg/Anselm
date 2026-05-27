@@ -62,7 +62,7 @@ func (t *ActivateTools) RequiresWorkspace() bool     { return false }
 func (t *ActivateTools) Parameters() json.RawMessage { return activateToolsSchema }
 
 func (t *ActivateTools) Description() string {
-	return "Activate a tool group for on-demand use. Call this once per category before using any tool from that group. Categories: function, handler, workflow, mcp, document, skill."
+	return "Load a lazy tool group so its tools become available next turn. Pick the category from the capabilities list."
 }
 
 func (t *ActivateTools) ValidateInput(args json.RawMessage) error {

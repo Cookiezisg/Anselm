@@ -7,13 +7,15 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
-import { useSkills } from "@entities/skill";
+import { useSkills, type Skill } from "@entities/skill";
+
+type SkillRow = Skill & { id?: string; activated?: boolean; tags?: string[]; body?: string };
 
 export function SkillsPage() {
   const { t } = useTranslation(["library", "common"]);
   const { data: skills = [], isLoading } = useSkills();
   const [q, setQ] = useState("");
-  const [openSkill, setOpenSkill] = useState(null);
+  const [openSkill, setOpenSkill] = useState<SkillRow | null>(null);
 
   const filtered = useMemo(() => {
     if (!q) return skills;
@@ -57,27 +59,24 @@ export function SkillsPage() {
             </div>
           ) : (
             <div className="card-grid">
-              {filtered.map((s) => {
-              const sa = s as any;
-              return (
-                <div key={sa.id || sa.name} className="card" onClick={() => setOpenSkill(sa)}>
+              {(filtered as SkillRow[]).map((s) => (
+                <div key={s.id || s.name} className="card" onClick={() => setOpenSkill(s)}>
                   <div className="card-head">
-                    <div className="card-title">{sa.name}</div>
-                    {sa.activated && <span className="badge success"><span className="dot" />{t("skills.activatedBadge")}</span>}
+                    <div className="card-title">{s.name}</div>
+                    {s.activated && <span className="badge success"><span className="dot" />{t("skills.activatedBadge")}</span>}
                   </div>
                   <div className="card-desc" style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {sa.description}
+                    {s.description}
                   </div>
-                  {sa.tags?.length > 0 && (
+                  {s.tags && s.tags.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 8 }}>
-                      {sa.tags.slice(0, 5).map((tag: string) => (
+                      {s.tags.slice(0, 5).map((tag: string) => (
                         <span key={tag} className="badge muted">{tag}</span>
                       ))}
                     </div>
                   )}
                 </div>
-              );
-            })}
+              ))}
             </div>
           )}
       </div>
@@ -87,7 +86,7 @@ export function SkillsPage() {
   );
 }
 
-function SkillDrawer({ skill, onClose }: { skill: any; onClose: () => void }) {
+function SkillDrawer({ skill, onClose }: { skill: SkillRow; onClose: () => void }) {
   return (
     <div className="drawer-wrap is-open">
       <div className="drawer-scrim" onClick={onClose} />

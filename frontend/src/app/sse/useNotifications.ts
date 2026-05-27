@@ -39,14 +39,14 @@ export function useNotifications() {
     const ctrl = createSSE({
       path: "/notifications",
       eventHandlers: {
-        notification: (payload: any) => {
+        notification: (payload: unknown) => {
           if (!payload) return;
-          const { type, id, data, conversationId } = payload;
+          const { type, id = "", data, conversationId = "" } = payload as { type: string; id?: string; data?: Record<string, unknown>; conversationId?: string };
 
           if (type === "ask") {
             const action = data?.action;
             if (!action || action === "pending") {
-              setPendingAsk({ id, conversationId, ...data });
+              setPendingAsk({ id, conversationId, toolCallId: (data?.toolCallId as string) ?? "", ...data });
             } else if (action === "resolved") {
               setPendingAsk(null);
             }

@@ -16,12 +16,20 @@ import { useHandlers } from "@entities/handler";
 import { useWorkflows } from "@entities/workflow";
 import { useDocuments } from "@entities/document";
 
-export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled?: any; isStreaming?: any; onSend?: any; onCancel?: any }) {
+type MentionItem = { type: string; id: string; label: string; icon: string };
+type AttachedFile = { name: string; size: number; file: File };
+
+export function Composer({ disabled, isStreaming, onSend, onCancel }: {
+  disabled?: boolean;
+  isStreaming?: boolean;
+  onSend?: (payload: { content: string; attachments: AttachedFile[]; mentions: MentionItem[] }) => void;
+  onCancel?: () => void;
+}) {
   const { t } = useTranslation("conv");
   const [text, setText] = useState("");
   const [attached, setAttached] = useState<{ name: string; size: number; file: File }[]>([]);
-  const [mentions, setMentions] = useState<any[]>([]);
-  const [atMenu, setAtMenu] = useState<{ items: any[]; idx: number; q: string } | null>(null);
+  const [mentions, setMentions] = useState<MentionItem[]>([]);
+  const [atMenu, setAtMenu] = useState<{ items: MentionItem[]; idx: number; q: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -51,7 +59,7 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
     ...functions.map((f) => ({ type: "function", id: f.id, label: f.name + " · function", icon: "Code" })),
     ...handlers.map((h) => ({ type: "handler", id: h.id, label: h.name + " · handler", icon: "Server" })),
     ...workflows.map((w) => ({ type: "workflow", id: w.id, label: w.name + " · workflow", icon: "Workflow" })),
-    ...documents.map((d) => { const da = d as any; return { type: "document", id: da.id, label: (da.name || da.title || da.id) + " · doc", icon: "FileText" }; }),
+    ...documents.map((d) => ({ type: "document", id: d.id, label: (d.name || d.id) + " · doc", icon: "FileText" })),
   ];
 
   const onChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -67,7 +75,7 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
     }
   };
 
-  const pickMention = (it: any) => {
+  const pickMention = (it: MentionItem) => {
     setMentions((ms) => (ms.find((x) => x.id === it.id) ? ms : [...ms, it]));
     setText((t) => t.replace(/(?:^|\s)@[^\s]*$/, (m) => (m.startsWith(" ") ? " " : "")));
     setAtMenu(null);
@@ -76,8 +84,8 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (atMenu?.items.length) {
-      if (e.key === "ArrowDown") { e.preventDefault(); setAtMenu((s: any) => ({ ...s, idx: Math.min(s.idx + 1, s.items.length - 1) })); return; }
-      if (e.key === "ArrowUp")   { e.preventDefault(); setAtMenu((s: any) => ({ ...s, idx: Math.max(s.idx - 1, 0) })); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); setAtMenu((s) => s ? { ...s, idx: Math.min(s.idx + 1, s.items.length - 1) } : s); return; }
+      if (e.key === "ArrowUp")   { e.preventDefault(); setAtMenu((s) => s ? { ...s, idx: Math.max(s.idx - 1, 0) } : s); return; }
       if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); pickMention(atMenu.items[atMenu.idx]); return; }
       if (e.key === "Escape") { setAtMenu(null); return; }
     }
@@ -100,8 +108,8 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
       <div className="composer-inner">
         {(attached.length > 0 || mentions.length > 0) && (
           <div className="attached-strip">
-            {mentions.map((m: any) => {
-              const Mi = (Icon as Record<string, React.ComponentType<any>>)[m.icon] || Icon.At;
+            {mentions.map((m) => {
+              const Mi = (Icon as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[m.icon] || Icon.At;
               return (
                 <div key={m.id} className="attached-pill is-mention">
                   <Mi className="file-icon" style={{ color: "var(--accent)" }} />
@@ -112,7 +120,7 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
                 </div>
               );
             })}
-            {attached.map((a: any, i: number) => (
+            {attached.map((a, i: number) => (
               <div className="attached-pill" key={"a" + i}>
                 <Icon.File className="file-icon" />
                 <span>{a.name}</span>
@@ -187,12 +195,12 @@ export function Composer({ disabled, isStreaming, onSend, onCancel }: { disabled
   );
 }
 
-function MentionPopover({ items, idx, onPick, title }: { items: any[]; idx: number; onPick: (it: any) => void; title: string }) {
+function MentionPopover({ items, idx, onPick, title }: { items: MentionItem[]; idx: number; onPick: (it: MentionItem) => void; title: string }) {
   return (
     <div className="slash-pop">
       <div className="slash-pop-title">{title}</div>
-      {items.map((it: any, i: number) => {
-        const I = (Icon as Record<string, React.ComponentType<any>>)[it.icon] || Icon.Hammer;
+      {items.map((it, i: number) => {
+        const I = (Icon as Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>>)[it.icon] || Icon.Hammer;
         return (
           <div
             key={i}

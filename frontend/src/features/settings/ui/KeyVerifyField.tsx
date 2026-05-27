@@ -1,6 +1,20 @@
+import React from "react";
 import { Icon } from "@shared/ui/Icon";
 
-export function KeyVerifyField({ label, value, onChange, onVerify, verifying, verified, error, verifyLabel, verifyingLabel, verifiedLabel, placeholder, readOnly }: { label?: any; value?: any; onChange?: any; onVerify?: any; verifying?: any; verified?: any; error?: any; verifyLabel?: any; verifyingLabel?: any; verifiedLabel?: any; placeholder?: any; readOnly?: any }) {
+export function KeyVerifyField({ label, value, onChange, onVerify, verifying, verified, error, verifyLabel, verifyingLabel, verifiedLabel, placeholder, readOnly }: {
+  label?: React.ReactNode;
+  value?: string;
+  onChange?: (v: string) => void;
+  onVerify?: () => void;
+  verifying?: boolean;
+  verified?: boolean;
+  error?: string;
+  verifyLabel?: string;
+  verifyingLabel?: string;
+  verifiedLabel?: string;
+  placeholder?: string;
+  readOnly?: boolean;
+}) {
   return (
     <>
       <div className="onb-klabel">{label}</div>
@@ -8,7 +22,7 @@ export function KeyVerifyField({ label, value, onChange, onVerify, verifying, ve
         <Icon.KeyRound />
         {readOnly
           ? <input value={value} readOnly style={{ color: "var(--fg-faint)" }} />
-          : <input type="password" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} autoFocus />}
+          : <input type="password" placeholder={placeholder} value={value} onChange={(e) => onChange?.(e.target.value)} autoFocus />}
         {verified ? (
           <span className="onb-verified"><Icon.Check /> {verifiedLabel}</span>
         ) : (

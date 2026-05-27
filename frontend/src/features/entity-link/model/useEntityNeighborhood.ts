@@ -1,4 +1,4 @@
-import { useNeighborhood } from "@entities/relation";
+import { useNeighborhood, type Relation } from "@entities/relation";
 
 // Best-effort id prefix → entity kind mapping (closed backend enum).
 export function guessKind(id: string | undefined): string {
@@ -34,7 +34,7 @@ export function useEntityNeighborhood(
 
   const neighbours: string[] = [];
   const seen = new Set([entityId]);
-  for (const r of (rels as any[]) || []) {
+  for (const r of (rels as Relation[]) || []) {
     const otherId = r.fromId === entityId ? r.toId : r.fromId;
     if (!otherId || seen.has(otherId)) continue;
     seen.add(otherId);

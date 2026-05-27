@@ -77,8 +77,11 @@ func TestBuild_MechanicalListsAllSources(t *testing.T) {
 	if cat.GeneratedBy != "mechanical" {
 		t.Errorf("GeneratedBy = %q, want mechanical", cat.GeneratedBy)
 	}
-	if !strings.Contains(cat.Summary, "## Available capabilities") {
-		t.Errorf("Summary missing header: %q", cat.Summary)
+	if !strings.Contains(cat.Summary, "### function [") {
+		t.Errorf("Summary missing function group header: %q", cat.Summary)
+	}
+	if strings.Contains(cat.Summary, "## Available capabilities") {
+		t.Errorf("catalog must not emit its own H2 (runner owns '## Your library'): %q", cat.Summary)
 	}
 	if !strings.Contains(cat.Summary, "csv-clean") || !strings.Contains(cat.Summary, "deploy") {
 		t.Errorf("Summary missing an item name: %q", cat.Summary)

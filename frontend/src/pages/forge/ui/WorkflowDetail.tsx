@@ -127,7 +127,7 @@ export function WorkflowDetail({ forge, onBack, onOpenExecute }: WorkflowDetailP
       <div className="vr-shell">
         <div className="vr-main" style={{ padding: 0, position: "relative" }}>
           {effectiveSelected === currentV?.id
-            ? <WorkflowEditor workflowId={wf.id} version={selectedV} />
+            ? <WorkflowEditor workflowId={wf.id} version={selectedV as unknown as Record<string, unknown> | undefined} />
             : <DagCanvas version={selectedV} />}
         </div>
         <VersionRail

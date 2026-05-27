@@ -7,7 +7,7 @@
 // main 宽 < 1000px → narrow 模式只显示一个 pane + 底部 tab 切换。
 // pane 进出动画走 Framer Motion。
 
-import { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { Sidebar } from "@/widgets/sidebar/Sidebar.tsx";
@@ -34,7 +34,14 @@ import { setNavigator } from "@shared/lib/navigation";
 import { useKeyboardShortcuts } from "./lib/useKeyboardShortcuts";
 import { easeOut } from "@shared/lib/motion";
 
-function renderPaneBody(kind: string, onClose: () => void, pageProps: Record<string, any>) {
+type PageProps = {
+  chat: { activeConv: string | null; onSetActiveConv: (id: string | null) => void; onOpenSettings: () => void };
+  forge: { focusEntity: Record<string, string>; onConsumeFocusEntity: (pane: string) => unknown; onOpenExecute: (id: string) => void };
+  execute: { focusEntity: Record<string, string>; onConsumeFocusEntity: (pane: string) => unknown; onOpenChat: (id: string) => void };
+  documents: { activeDoc: string | null; onSetActiveDocument: (id: string | null) => void };
+};
+
+function renderPaneBody(kind: string, onClose: () => void, pageProps: PageProps) {
   switch (kind) {
     case "chat":      return <ChatPage onClose={onClose} {...pageProps.chat} />;
     case "forge":     return <ForgePage {...pageProps.forge} />;
@@ -203,8 +210,8 @@ export function AppShell() {
               //
               // position:relative 必须；否则 PaneResizeBetween 的 absolute
               // 找不到祖先，挂到 viewport（贴右下、高度 0、拖不动）。
-              const baseStyle = { display: "flex", flexDirection: "column", position: "relative" };
-              const style = isTwoPane
+              const baseStyle: React.CSSProperties = { display: "flex", flexDirection: "column", position: "relative" };
+              const style: React.CSSProperties = isTwoPane
                 ? idx === 0
                   ? { ...baseStyle, flex: `0 0 calc(${leftPct}% - 2px)` }
                   : { ...baseStyle, flex: "1 1 auto" }
@@ -219,12 +226,12 @@ export function AppShell() {
                   exit={{ opacity: 0, scale: 0.96 }}
                   transition={easeOut}
                   className={"pane-wrap" + (idx === 1 ? " is-secondary" : "")}
-                  style={style as any}
+                  style={style}
                 >
                   <PaneFrame
                     kind={kind}
                     onClose={() => closePane(kind)}
-                    crumbs={[(() => { const m = PANE_META[kind as keyof typeof PANE_META] as any; return m ? (m.labelKey ? t(m.labelKey) : (m.label || kind)) : kind; })()]}
+                    crumbs={[(() => { const m = (PANE_META as Record<string, { labelKey?: string; label?: string }>)[kind]; return m ? (m.labelKey ? t(m.labelKey) : (m.label || kind)) : kind; })()]}
                   >
                     {renderPaneBody(kind, () => closePane(kind), pageProps)}
                   </PaneFrame>

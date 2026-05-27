@@ -18,20 +18,32 @@ export function useEventLog() {
   useEffect(() => {
     const ch = useChatStore.getState();
 
+    type EventPayload = Record<string, unknown> & { conversationId?: string };
     const handlers = {
-      message_start: (e: any) => {
-        if (!e?.conversationId) return;
-        ch.ensureConv(e.conversationId);
-        ch.onMessageStart(e.conversationId, e);
+      message_start: (e: unknown) => {
+        const ev = e as EventPayload;
+        if (!ev?.conversationId) return;
+        ch.ensureConv(ev.conversationId);
+        ch.onMessageStart(ev.conversationId, ev as Parameters<typeof ch.onMessageStart>[1]);
       },
-      message_stop: (e: any) => e?.conversationId && ch.onMessageStop(e.conversationId, e),
-      block_start:  (e: any) => {
-        if (!e?.conversationId) return;
-        ch.ensureConv(e.conversationId);
-        ch.onBlockStart(e.conversationId, e);
+      message_stop: (e: unknown) => {
+        const ev = e as EventPayload;
+        if (ev?.conversationId) ch.onMessageStop(ev.conversationId, ev as Parameters<typeof ch.onMessageStop>[1]);
       },
-      block_delta:  (e: any) => e?.conversationId && ch.onBlockDelta(e.conversationId, e),
-      block_stop:   (e: any) => e?.conversationId && ch.onBlockStop(e.conversationId, e),
+      block_start: (e: unknown) => {
+        const ev = e as EventPayload;
+        if (!ev?.conversationId) return;
+        ch.ensureConv(ev.conversationId);
+        ch.onBlockStart(ev.conversationId, ev as Parameters<typeof ch.onBlockStart>[1]);
+      },
+      block_delta: (e: unknown) => {
+        const ev = e as EventPayload;
+        if (ev?.conversationId) ch.onBlockDelta(ev.conversationId, ev as Parameters<typeof ch.onBlockDelta>[1]);
+      },
+      block_stop: (e: unknown) => {
+        const ev = e as EventPayload;
+        if (ev?.conversationId) ch.onBlockStop(ev.conversationId, ev as Parameters<typeof ch.onBlockStop>[1]);
+      },
     };
 
     const ctrl = createSSE({

@@ -102,8 +102,8 @@ func injectStandardFields(params json.RawMessage) json.RawMessage {
 	}
 
 	props["summary"] = json.RawMessage(`{"type":"string","description":"One sentence: what you're doing and why."}`)
-	props["destructive"] = json.RawMessage(`{"type":"boolean","default":false,"description":"true if this call may be irreversible; see tool_conventions."}`)
-	props["execution_group"] = json.RawMessage(`{"type":"integer","minimum":1,"description":"Parallel-batch id; see tool_conventions."}`)
+	props["destructive"] = json.RawMessage(`{"type":"boolean","default":false,"description":"true if this call may be irreversible; see the tools section."}`)
+	props["execution_group"] = json.RawMessage(`{"type":"integer","minimum":1,"description":"Parallel-batch id; see the tools section."}`)
 
 	propsRaw, err := json.Marshal(props)
 	if err != nil {

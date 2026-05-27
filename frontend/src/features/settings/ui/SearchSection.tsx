@@ -11,8 +11,8 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
-import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, useUpdateApiKey } from "@entities/apikey";
-import { useProviders } from "@entities/model-config";
+import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, useUpdateApiKey, type ApiKey } from "@entities/apikey";
+import { useProviders, type Provider } from "@entities/model-config";
 import { apiFetch, qk } from "@shared/api";
 import { SEARCH_HINTS } from "@shared/lib/onboarding-strings";
 import { ProviderGrid } from "./ProviderGrid.tsx";
@@ -28,7 +28,7 @@ export function SearchSection({ open, onToggle }: { open: boolean; onToggle: () 
   const keys = allKeys.filter((k) => searchNames.has(k.provider));
   const defaultKey = keys.find((k) => k.isDefault);
 
-  const providerDisplay = (n: string) => providers.find((p: any) => p.name === n)?.displayName || n;
+  const providerDisplay = (n: string) => providers.find((p) => p.name === n)?.displayName || n;
 
   const sub = defaultKey
     ? t("search.subWithDefault", { provider: providerDisplay(defaultKey.provider) })
@@ -63,12 +63,12 @@ export function SearchSection({ open, onToggle }: { open: boolean; onToggle: () 
   );
 }
 
-function KeyList({ keys, providers, defaultKey, providerDisplay }: { keys: any[]; providers: any[]; defaultKey: any; providerDisplay: (n: string) => string }) {
+function KeyList({ keys, providers, defaultKey, providerDisplay }: { keys: ApiKey[]; providers: Provider[]; defaultKey: ApiKey | undefined; providerDisplay: (n: string) => string }) {
   const { t } = useTranslation("settings");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const toggleKey = (id: string) => setOpenKey((p: any) => (p === id ? null : id));
+  const toggleKey = (id: string) => setOpenKey((p) => (p === id ? null : id));
 
   return (
     <>
@@ -76,7 +76,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }: { keys: any[]
         <div className="set-sec-empty">{t("search.emptyList")}</div>
       )}
       <div className="set-klist">
-        {keys.map((key: any) => (
+        {keys.map((key) => (
           <KeyItem
             key={key.id}
             apiKey={key}
@@ -105,7 +105,7 @@ function KeyList({ keys, providers, defaultKey, providerDisplay }: { keys: any[]
   );
 }
 
-function KeyItem({ apiKey, isDefault, displayName, open, onToggle }: { apiKey: any; isDefault: boolean; displayName: string; open: boolean; onToggle: () => void }) {
+function KeyItem({ apiKey, isDefault, displayName, open, onToggle }: { apiKey: ApiKey; isDefault: boolean; displayName: string; open: boolean; onToggle: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const testKey = useTestApiKey();
@@ -198,7 +198,7 @@ function KeyItem({ apiKey, isDefault, displayName, open, onToggle }: { apiKey: a
 // is auto-promoted to isDefault on save (best-effort via direct PATCH).
 //
 // 内联验证流;无模型选择。首个搜索 key 保存时尽力设为搜索默认。
-function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, onDone }: { providers: any[]; configured: string[]; hasSearchDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
+function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, onDone }: { providers: Provider[]; configured: string[]; hasSearchDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const qc = useQueryClient();
@@ -285,7 +285,7 @@ function AddPanel({ providers, configured, hasSearchDefault, providerDisplay, on
       reset();
       onDone();
     } catch (e) {
-      pushToast({ kind: "error", title: t("search.addPanel.saveFail"), desc: (e as any)?.message });
+      pushToast({ kind: "error", title: t("search.addPanel.saveFail"), desc: e instanceof Error ? e.message : String(e) });
     } finally {
       setSaving(false);
     }

@@ -19,7 +19,7 @@ export function useContextStrip() {
   if (waiting.length > 0) {
     return {
       kind: "waiting",
-      payload: { count: waiting.length, flowName: (waiting[0] as any).workflow || waiting[0].workflowId, flowRunId: waiting[0].id },
+      payload: { count: waiting.length, flowName: (waiting[0] as { workflow?: string; workflowId: string }).workflow || waiting[0].workflowId, flowRunId: waiting[0].id },
     };
   }
 

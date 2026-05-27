@@ -14,7 +14,7 @@ import { useForgeProgress } from "@shared/model";
 
 export { useForgeProgress };
 
-const scopeKey = (scope: any) => `${scope?.kind}:${scope?.id}`;
+const scopeKey = (scope: { kind?: string; id?: string } | undefined) => `${scope?.kind}:${scope?.id}`;
 
 export function useForge() {
   const qc = useQueryClient();
@@ -27,52 +27,56 @@ export function useForge() {
     const ctrl = createSSE({
       path: "/forge",
       eventHandlers: {
-        forge_started: (e: any) => {
-          const key = scopeKey(e.scope);
+        forge_started: (e: unknown) => {
+          const ev = e as { scope?: { kind: string; id: string }; operation?: string; conversationId?: string; toolCallId?: string };
+          const key = scopeKey(ev.scope);
           store.put(key, {
-            scope: e.scope,
-            operation: e.operation,
-            conversationId: e.conversationId,
-            toolCallId: e.toolCallId,
+            scope: ev.scope,
+            operation: ev.operation,
+            conversationId: ev.conversationId,
+            toolCallId: ev.toolCallId,
             ops: [],
             envAttempts: [],
             status: "running",
           });
         },
-        forge_op_applied: (e: any) => {
-          const key = scopeKey(e.scope);
+        forge_op_applied: (e: unknown) => {
+          const ev = e as { scope?: { kind: string; id: string }; index: number; op: unknown };
+          const key = scopeKey(ev.scope);
           const cur = useForgeProgress.getState().active[key];
           if (!cur) return;
-          store.put(key, { ...cur, ops: [...(cur.ops ?? []), { index: e.index, op: e.op }] });
+          store.put(key, { ...cur, ops: [...(cur.ops ?? []), { index: ev.index, op: ev.op }] });
         },
-        forge_env_attempt: (e: any) => {
-          const key = scopeKey(e.scope);
+        forge_env_attempt: (e: unknown) => {
+          const ev = e as { scope?: { kind: string; id: string }; attempt: number; status: string; stage?: string; detail?: string; error?: string };
+          const key = scopeKey(ev.scope);
           const cur = useForgeProgress.getState().active[key];
           if (!cur) return;
           store.put(key, {
             ...cur,
             envAttempts: [
               ...(cur.envAttempts ?? []),
-              { attempt: e.attempt, status: e.status, stage: e.stage, detail: e.detail, error: e.error },
+              { attempt: ev.attempt, status: ev.status, stage: ev.stage, detail: ev.detail, error: ev.error },
             ],
           });
         },
-        forge_completed: (e: any) => {
-          const key = scopeKey(e.scope);
+        forge_completed: (e: unknown) => {
+          const ev = e as { scope?: { kind: string; id: string }; status: string; versionId?: string; envStatus?: string; attemptsUsed?: number; error?: string };
+          const key = scopeKey(ev.scope);
           const cur = useForgeProgress.getState().active[key];
           store.put(key, {
-            ...(cur || { scope: e.scope }),
-            status: e.status,
-            versionId: e.versionId,
-            envStatus: e.envStatus,
-            attemptsUsed: e.attemptsUsed,
-            error: e.error,
+            ...(cur || { scope: ev.scope }),
+            status: ev.status,
+            versionId: ev.versionId,
+            envStatus: ev.envStatus,
+            attemptsUsed: ev.attemptsUsed,
+            error: ev.error,
             finishedAt: Date.now(),
           });
           // refresh entity caches once forging finishes
-          if (e.scope?.kind && e.scope?.id) {
-            const kind = e.scope.kind;
-            const id = e.scope.id;
+          if (ev.scope?.kind && ev.scope?.id) {
+            const kind = ev.scope.kind;
+            const id = ev.scope.id;
             if (kind === "function") {
               qc.invalidateQueries({ queryKey: qk.functions() });
               qc.invalidateQueries({ queryKey: qk.function(id) });
