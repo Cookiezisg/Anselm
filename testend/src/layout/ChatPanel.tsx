@@ -3,30 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJSON, postJSON } from "@/api/devClient";
 import { qk } from "@/hooks/queryKeys";
 import { useConvStore } from "@/stores/conv";
-import { useChatStore, type BlockNode } from "@/stores/chat";
+import { useChatStore } from "@/stores/chat";
 import { subscribe } from "@/api/sse";
 import type { Message } from "@frontend/entities/conversation/model/types";
-
-function StatusBadge({ status }: { status: string }) {
-  const kind =
-    status === "completed" || status === "ok" ? "success" :
-    status === "streaming" || status === "running" ? "streaming" :
-    status === "error" || status === "cancelled" ? "error" : "";
-  return <span className={`pill ${kind}`}>{status}</span>;
-}
-
-// P2.B placeholder block renderer — replaced by @/ui/BlockView in P2.C.
-function BlockPlaceholder({ block }: { block: BlockNode }) {
-  return (
-    <div style={{ borderLeft: "2px solid var(--border-soft)", paddingLeft: 8, margin: "4px 0", fontSize: 12 }}>
-      <div className="muted mono" style={{ fontSize: 10 }}>
-        {block.type} <StatusBadge status={block.status} />
-      </div>
-      <div style={{ whiteSpace: "pre-wrap" }}>{block.content.slice(0, 240)}</div>
-      {block.children?.map((c) => <BlockPlaceholder key={c.id} block={c} />)}
-    </div>
-  );
-}
+import { BlockView, StatusBadge } from "@/ui";
 
 export function ChatPanel() {
   const { activeId } = useConvStore();
@@ -91,7 +71,7 @@ export function ChatPanel() {
               {m.inputTokens != null && <span>in {m.inputTokens}</span>}
               {m.outputTokens != null && <span>out {m.outputTokens}</span>}
             </div>
-            {m.blocks?.map((b) => <BlockPlaceholder key={b.id} block={b} />)}
+            {m.blocks?.map((b) => <BlockView key={b.id} block={b} />)}
           </div>
         ))}
       </div>

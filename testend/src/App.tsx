@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { useUIStore } from "@/stores/ui";
+import { CommandPalette, RawJsonModal, ToastTray } from "@/ui";
 import { useUsersStore } from "@/stores/users";
 import { useNotificationsStore } from "@/stores/notifications";
 import { useForgeStore } from "@/stores/forge";
@@ -75,7 +76,9 @@ export function App() {
         )}
       </div>
       {showPicker && <UserPicker />}
-      {/* CommandPalette + RawJsonModal + ToastTray land in P2.C */}
+      <CommandPalette />
+      <RawJsonModal />
+      <ToastTray />
     </div>
   );
 }
