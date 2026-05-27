@@ -4,23 +4,23 @@
 
 > Generated 2026-05-27 by `make matrix`. Run `make audit` to verify.
 
-## 1. HTTP endpoints (0 / 140 covered, 0%)
+## 1. HTTP endpoints (42 / 140 covered, 30%)
 
-### api-keys domain (0/5 ❌)
-
-| Method | Path | Test |
-|---|---|---|
-| **GET** | **/api/v1/api-keys** | **❌ uncovered** |
-| **POST** | **/api/v1/api-keys** | **❌ uncovered** |
-| **POST** | **/api/v1/api-keys/{idAction}** | **❌ uncovered** |
-| **DELETE** | **/api/v1/api-keys/{id}** | **❌ uncovered** |
-| **PATCH** | **/api/v1/api-keys/{id}** | **❌ uncovered** |
-
-### attachments domain (0/1 ❌)
+### api-keys domain (5/5 ✅)
 
 | Method | Path | Test |
 |---|---|---|
-| **POST** | **/api/v1/attachments** | **❌ uncovered** |
+| GET | /api/v1/api-keys | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_CRUD_Roundtrip; backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_CursorPagination_ExhaustPages |
+| POST | /api/v1/api-keys | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_CRUD_Roundtrip; backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_Create_InvalidProvider_Returns400; …(+3) |
+| POST | /api/v1/api-keys/{idAction} | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_Test_FakeServer_Success_Returns200; backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_Test_FakeServer_Auth401_Returns422 |
+| DELETE | /api/v1/api-keys/{id} | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_CRUD_Roundtrip |
+| PATCH | /api/v1/api-keys/{id} | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_CRUD_Roundtrip |
+
+### attachments domain (1/1 ✅)
+
+| Method | Path | Test |
+|---|---|---|
+| POST | /api/v1/attachments | backend/test/api/chat/chat_pipeline_test.go::TestChatAttachment_TextFile_UploadAndSend |
 
 ### catalog domain (0/1 ❌)
 
@@ -28,26 +28,26 @@
 |---|---|---|
 | **GET** | **/api/v1/catalog** | **❌ uncovered** |
 
-### conversations domain (0/17 ❌)
+### conversations domain (7/17 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
-| **GET** | **/api/v1/conversations** | **❌ uncovered** |
-| **POST** | **/api/v1/conversations** | **❌ uncovered** |
-| **DELETE** | **/api/v1/conversations/{id}** | **❌ uncovered** |
+| GET | /api/v1/conversations | backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_CRUD_Roundtrip; backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_SoftDelete_HidesFromList; …(+1) |
+| POST | /api/v1/conversations | backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_CRUD_Roundtrip; backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_SoftDelete_HidesFromList; …(+1) |
+| DELETE | /api/v1/conversations/{id} | backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_CRUD_Roundtrip; backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_SoftDelete_HidesFromList; …(+1) |
 | **GET** | **/api/v1/conversations/{id}** | **❌ uncovered** |
-| **PATCH** | **/api/v1/conversations/{id}** | **❌ uncovered** |
+| PATCH | /api/v1/conversations/{id} | backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_CRUD_Roundtrip |
 | **POST** | **/api/v1/conversations/{id}/answers** | **❌ uncovered** |
 | **GET** | **/api/v1/conversations/{id}/context-stats** | **❌ uncovered** |
 | **GET** | **/api/v1/conversations/{id}/eventlog** | **❌ uncovered** |
 | **GET** | **/api/v1/conversations/{id}/export** | **❌ uncovered** |
 | **GET** | **/api/v1/conversations/{id}/llm-trace** | **❌ uncovered** |
-| **GET** | **/api/v1/conversations/{id}/messages** | **❌ uncovered** |
-| **POST** | **/api/v1/conversations/{id}/messages** | **❌ uncovered** |
+| GET | /api/v1/conversations/{id}/messages | backend/test/api/chat/chat_pipeline_test.go::TestChatReact_HistoryRebuild_OrderCorrect; backend/test/api/chat/chat_pipeline_test.go::TestChatAttachment_TextFile_UploadAndSend |
+| POST | /api/v1/conversations/{id}/messages | backend/test/api/chat/chat_pipeline_test.go::TestChat_SimpleText_StreamingSnapshots; backend/test/api/chat/chat_pipeline_test.go::TestChat_MissingModelConfig_ErrorCodePersisted; …(+25) |
 | **GET** | **/api/v1/conversations/{id}/sandbox-envs** | **❌ uncovered** |
 | **POST** | **/api/v1/conversations/{id}/sandbox-envs/{kindAction}** | **❌ uncovered** |
 | **POST** | **/api/v1/conversations/{id}/sandbox-envs:reset-all** | **❌ uncovered** |
-| **DELETE** | **/api/v1/conversations/{id}/stream** | **❌ uncovered** |
+| DELETE | /api/v1/conversations/{id}/stream | backend/test/api/chat/chat_pipeline_test.go::TestChat_CancelMidStream_StatusCancelled; backend/test/api/chat/chat_pipeline_test.go::TestChat_CancelDuringSecondLLMCall_StatusCancelled |
 | **GET** | **/api/v1/conversations/{id}/system-prompt-preview** | **❌ uncovered** |
 
 ### dev domain (0/1 ❌)
@@ -68,11 +68,11 @@
 | **GET** | **/api/v1/documents/{id}** | **❌ uncovered** |
 | **PATCH** | **/api/v1/documents/{id}** | **❌ uncovered** |
 
-### eventlog domain (0/1 ❌)
+### eventlog domain (1/1 ✅)
 
 | Method | Path | Test |
 |---|---|---|
-| **GET** | **/api/v1/eventlog** | **❌ uncovered** |
+| GET | /api/v1/eventlog | backend/test/api/chat/chat_pipeline_test.go::TestChat_SimpleText_StreamingSnapshots; backend/test/api/chat/chat_pipeline_test.go::TestChat_MissingModelConfig_ErrorCodePersisted; …(+24) |
 
 ### flowruns domain (0/6 ❌)
 
@@ -97,17 +97,17 @@
 |---|---|---|
 | **GET** | **/api/v1/function-executions/{execId}** | **❌ uncovered** |
 
-### functions domain (0/12 ❌)
+### functions domain (7/12 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
-| **GET** | **/api/v1/functions** | **❌ uncovered** |
-| **POST** | **/api/v1/functions** | **❌ uncovered** |
-| **POST** | **/api/v1/functions/{idAction}** | **❌ uncovered** |
-| **DELETE** | **/api/v1/functions/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/functions/{id}** | **❌ uncovered** |
-| **PATCH** | **/api/v1/functions/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/functions/{id}/executions** | **❌ uncovered** |
+| GET | /api/v1/functions | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_ListPaginated |
+| POST | /api/v1/functions | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; …(+2) |
+| POST | /api/v1/functions/{idAction} | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_RunAndExecutionLog |
+| DELETE | /api/v1/functions/{id} | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle |
+| GET | /api/v1/functions/{id} | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; …(+1) |
+| PATCH | /api/v1/functions/{id} | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle |
+| GET | /api/v1/functions/{id}/executions | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_RunAndExecutionLog |
 | **GET** | **/api/v1/functions/{id}/pending** | **❌ uncovered** |
 | **POST** | **/api/v1/functions/{id}/pending:accept** | **❌ uncovered** |
 | **POST** | **/api/v1/functions/{id}/pending:reject** | **❌ uncovered** |
@@ -120,20 +120,20 @@
 |---|---|---|
 | **GET** | **/api/v1/handler-calls/{callId}** | **❌ uncovered** |
 
-### handlers domain (0/15 ❌)
+### handlers domain (9/15 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
 | **GET** | **/api/v1/handlers** | **❌ uncovered** |
-| **POST** | **/api/v1/handlers** | **❌ uncovered** |
-| **POST** | **/api/v1/handlers/{idAction}** | **❌ uncovered** |
-| **DELETE** | **/api/v1/handlers/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/handlers/{id}** | **❌ uncovered** |
-| **PATCH** | **/api/v1/handlers/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/handlers/{id}/calls** | **❌ uncovered** |
-| **DELETE** | **/api/v1/handlers/{id}/config** | **❌ uncovered** |
-| **GET** | **/api/v1/handlers/{id}/config** | **❌ uncovered** |
-| **POST** | **/api/v1/handlers/{id}/config** | **❌ uncovered** |
+| POST | /api/v1/handlers | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle; backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle; …(+2) |
+| POST | /api/v1/handlers/{idAction} | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CallAndCallLog |
+| DELETE | /api/v1/handlers/{id} | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle |
+| GET | /api/v1/handlers/{id} | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle; backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle; …(+1) |
+| PATCH | /api/v1/handlers/{id} | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle |
+| GET | /api/v1/handlers/{id}/calls | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CallAndCallLog |
+| DELETE | /api/v1/handlers/{id}/config | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_ConfigRoundTrip |
+| GET | /api/v1/handlers/{id}/config | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_ConfigRoundTrip |
+| POST | /api/v1/handlers/{id}/config | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_ConfigRoundTrip; backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CallAndCallLog |
 | **GET** | **/api/v1/handlers/{id}/pending** | **❌ uncovered** |
 | **POST** | **/api/v1/handlers/{id}/pending:accept** | **❌ uncovered** |
 | **POST** | **/api/v1/handlers/{id}/pending:reject** | **❌ uncovered** |
@@ -168,13 +168,13 @@
 | **POST** | **/api/v1/mcp-servers/{name}/tools/{toolNameAction}** | **❌ uncovered** |
 | **POST** | **/api/v1/mcp-servers:import** | **❌ uncovered** |
 
-### memories domain (0/6 ❌)
+### memories domain (2/6 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
 | **GET** | **/api/v1/memories** | **❌ uncovered** |
-| **POST** | **/api/v1/memories** | **❌ uncovered** |
-| **POST** | **/api/v1/memories/{nameAction}** | **❌ uncovered** |
+| POST | /api/v1/memories | backend/test/api/memory/memory_pipeline_test.go::TestMemory_UserPinnedReachesLLM; backend/test/api/memory/memory_pipeline_test.go::TestMemory_UnpinnedOnlyIndex; …(+1) |
+| POST | /api/v1/memories/{nameAction} | backend/test/api/memory/memory_pipeline_test.go::TestMemory_PinTogglesContent |
 | **DELETE** | **/api/v1/memories/{name}** | **❌ uncovered** |
 | **GET** | **/api/v1/memories/{name}** | **❌ uncovered** |
 | **PATCH** | **/api/v1/memories/{name}** | **❌ uncovered** |
@@ -185,19 +185,19 @@
 |---|---|---|
 | **GET** | **/api/v1/metrics/tools** | **❌ uncovered** |
 
-### model-configs domain (0/3 ❌)
+### model-configs domain (2/3 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
-| **GET** | **/api/v1/model-configs** | **❌ uncovered** |
+| GET | /api/v1/model-configs | backend/test/api/model/model_pipeline_test.go::TestModel_UpsertAndList_Roundtrip |
 | **GET** | **/api/v1/model-configs/{scenario}** | **❌ uncovered** |
-| **PUT** | **/api/v1/model-configs/{scenario}** | **❌ uncovered** |
+| PUT | /api/v1/model-configs/{scenario} | backend/test/api/model/model_pipeline_test.go::TestModel_UpsertAndList_Roundtrip; backend/test/api/model/model_pipeline_test.go::TestModel_Upsert_Idempotent_IDUnchanged; …(+2) |
 
-### notifications domain (0/1 ❌)
+### notifications domain (1/1 ✅)
 
 | Method | Path | Test |
 |---|---|---|
-| **GET** | **/api/v1/notifications** | **❌ uncovered** |
+| GET | /api/v1/notifications | backend/test/api/chat/chat_pipeline_test.go::TestChatAutoTitle_EmptyTitle_TitleGenerated; backend/test/api/chat/chat_pipeline_test.go::TestChatAutoTitle_ExplicitTitle_NotRegenerated |
 
 ### permissions domain (0/2 ❌)
 
@@ -284,44 +284,44 @@
 | **GET** | **/api/v1/users/{id}** | **❌ uncovered** |
 | **PATCH** | **/api/v1/users/{id}** | **❌ uncovered** |
 
-### workflows domain (0/12 ❌)
+### workflows domain (7/12 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
 | **GET** | **/api/v1/workflows** | **❌ uncovered** |
-| **POST** | **/api/v1/workflows** | **❌ uncovered** |
+| POST | /api/v1/workflows | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle; backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle; …(+1) |
 | **POST** | **/api/v1/workflows/{idAction}** | **❌ uncovered** |
-| **DELETE** | **/api/v1/workflows/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/workflows/{id}** | **❌ uncovered** |
-| **PATCH** | **/api/v1/workflows/{id}** | **❌ uncovered** |
-| **GET** | **/api/v1/workflows/{id}/pending** | **❌ uncovered** |
-| **POST** | **/api/v1/workflows/{id}/pending:accept** | **❌ uncovered** |
+| DELETE | /api/v1/workflows/{id} | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle |
+| GET | /api/v1/workflows/{id} | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle; backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle |
+| PATCH | /api/v1/workflows/{id} | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle |
+| GET | /api/v1/workflows/{id}/pending | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_VersionsAndPending |
+| POST | /api/v1/workflows/{id}/pending:accept | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_VersionsAndPending |
 | **POST** | **/api/v1/workflows/{id}/pending:reject** | **❌ uncovered** |
 | **GET** | **/api/v1/workflows/{id}/triggers** | **❌ uncovered** |
-| **GET** | **/api/v1/workflows/{id}/versions** | **❌ uncovered** |
+| GET | /api/v1/workflows/{id}/versions | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_VersionsAndPending |
 | **GET** | **/api/v1/workflows/{id}/versions/{version}** | **❌ uncovered** |
 
 
-## 2. Error codes (0 / 151 covered, 0%)
+## 2. Error codes (23 / 151 covered, 15%)
 
 | Code | HTTP | Test |
 |---|---|---|
-| **API_FORMAT_REQUIRED** | 400 | **❌ uncovered** |
+| API_FORMAT_REQUIRED | 400 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **API_KEY_NAME_CONFLICT** | 409 | **❌ uncovered** |
-| **API_KEY_NOT_FOUND** | 404 | **❌ uncovered** |
-| **API_KEY_PROVIDER_NOT_FOUND** | 404 | **❌ uncovered** |
+| API_KEY_NOT_FOUND | 404 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
+| API_KEY_PROVIDER_NOT_FOUND | 404 | backend/test/api/chat/chat_pipeline_test.go::TestChat_MissingAPIKey_ErrorCodePersisted |
 | **ASK_NO_PENDING_QUESTION** | 404 | **❌ uncovered** |
 | **ASK_TIMEOUT** | 0 | **❌ uncovered** |
 | **ATTACHMENT_NOT_FOUND** | 404 | **❌ uncovered** |
 | **ATTACHMENT_PARSE_FAILED** | 422 | **❌ uncovered** |
 | **ATTACHMENT_TOO_LARGE** | 413 | **❌ uncovered** |
 | **ATTACHMENT_TYPE_UNSUPPORTED** | 415 | **❌ uncovered** |
-| **BASE_URL_REQUIRED** | 400 | **❌ uncovered** |
+| BASE_URL_REQUIRED | 400 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **BLOCKED_BY_RULE** | 422 | **❌ uncovered** |
 | **CANNOT_DELETE_LAST_USER** | 422 | **❌ uncovered** |
 | **CATALOG_ALL_SOURCES_FAILED** | 503 | **❌ uncovered** |
 | **CLIENT_CLOSED** | 0 | **❌ uncovered** |
-| **CONVERSATION_NOT_FOUND** | 404 | **❌ uncovered** |
+| CONVERSATION_NOT_FOUND | 404 | backend/test/api/conversation/conversation_pipeline_test.go::TestConversation_Delete_NotFound_Returns404; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **DEPTH_OUT_OF_RANGE** | 400 | **❌ uncovered** |
 | **DOCUMENT_CONTENT_TOO_LARGE** | 413 | **❌ uncovered** |
 | **DOCUMENT_INVALID_NAME** | 400 | **❌ uncovered** |
@@ -342,11 +342,11 @@
 | **FUNCTION_ENV_FAILED** | 422 | **❌ uncovered** |
 | **FUNCTION_ENV_NOT_READY** | 422 | **❌ uncovered** |
 | **FUNCTION_EXECUTION_NOT_FOUND** | 404 | **❌ uncovered** |
-| **FUNCTION_NAME_DUPLICATE** | 409 | **❌ uncovered** |
-| **FUNCTION_NOT_FOUND** | 404 | **❌ uncovered** |
+| FUNCTION_NAME_DUPLICATE | 409 | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_FunctionDomain |
+| FUNCTION_NOT_FOUND | 404 | backend/test/api/function/function_pipeline_test.go::TestFunction_HTTP_CRUDLifecycle; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_FunctionDomain |
 | **FUNCTION_NO_ACTIVE_VERSION** | 422 | **❌ uncovered** |
 | **FUNCTION_OP_INVALID** | 400 | **❌ uncovered** |
-| **FUNCTION_PENDING_NOT_FOUND** | 404 | **❌ uncovered** |
+| FUNCTION_PENDING_NOT_FOUND | 404 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_FunctionDomain |
 | **FUNCTION_RUN_FAILED** | 422 | **❌ uncovered** |
 | **FUNCTION_SANDBOX_UNAVAILABLE** | 503 | **❌ uncovered** |
 | **FUNCTION_VERSION_NOT_FOUND** | 404 | **❌ uncovered** |
@@ -356,17 +356,17 @@
 | **HANDLER_CONFIG_DECRYPT_FAILED** | 500 | **❌ uncovered** |
 | **HANDLER_CONFIG_INCOMPLETE** | 422 | **❌ uncovered** |
 | **HANDLER_CONFIG_INVALID** | 400 | **❌ uncovered** |
-| **HANDLER_ENV_FAILED** | 422 | **❌ uncovered** |
+| HANDLER_ENV_FAILED | 422 | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CallAndCallLog |
 | **HANDLER_ENV_NOT_READY** | 422 | **❌ uncovered** |
 | **HANDLER_INIT_FAILED** | 422 | **❌ uncovered** |
 | **HANDLER_INSTANCE_CRASHED** | 422 | **❌ uncovered** |
 | **HANDLER_INSTANCE_CRASHED_INFRA** | 422 | **❌ uncovered** |
 | **HANDLER_INSTANCE_NOT_FOUND** | 404 | **❌ uncovered** |
 | **HANDLER_INSTANCE_RPC_TIMEOUT** | 0 | **❌ uncovered** |
-| **HANDLER_INSTANCE_SPAWN_FAILED** | 422 | **❌ uncovered** |
+| HANDLER_INSTANCE_SPAWN_FAILED | 422 | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CallAndCallLog |
 | **HANDLER_METHOD_NOT_FOUND** | 404 | **❌ uncovered** |
-| **HANDLER_NAME_DUPLICATE** | 409 | **❌ uncovered** |
-| **HANDLER_NOT_FOUND** | 404 | **❌ uncovered** |
+| HANDLER_NAME_DUPLICATE | 409 | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle |
+| HANDLER_NOT_FOUND | 404 | backend/test/api/handler/handler_pipeline_test.go::TestHandler_HTTP_CRUDLifecycle |
 | **HANDLER_NO_ACTIVE_VERSION** | 422 | **❌ uncovered** |
 | **HANDLER_OP_INVALID** | 400 | **❌ uncovered** |
 | **HANDLER_PENDING_NOT_FOUND** | 404 | **❌ uncovered** |
@@ -379,12 +379,12 @@
 | **INTERNAL_ERROR** | 500 | **❌ uncovered** |
 | **INTERNAL_ERROR** | 500 | **❌ uncovered** |
 | **INVALID_ENTITY_REF** | 400 | **❌ uncovered** |
-| **INVALID_PROVIDER** | 400 | **❌ uncovered** |
+| INVALID_PROVIDER | 400 | backend/test/api/apikey/apikey_pipeline_test.go::TestAPIKey_Create_InvalidProvider_Returns400; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **INVALID_RELATION_KIND** | 400 | **❌ uncovered** |
-| **INVALID_REQUEST** | 400 | **❌ uncovered** |
-| **INVALID_SCENARIO** | 400 | **❌ uncovered** |
+| INVALID_REQUEST | 400 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
+| INVALID_SCENARIO | 400 | backend/test/api/model/model_pipeline_test.go::TestModel_Upsert_InvalidScenario_Returns400; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **INVALID_SETTINGS** | 400 | **❌ uncovered** |
-| **KEY_REQUIRED** | 400 | **❌ uncovered** |
+| KEY_REQUIRED | 400 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **LANGUAGE_INVALID** | 400 | **❌ uncovered** |
 | **LLM_AUTH_FAILED** | 401 | **❌ uncovered** |
 | **LLM_BAD_REQUEST** | 400 | **❌ uncovered** |
@@ -405,10 +405,10 @@
 | **MEMORY_NAME_CONFLICT** | 409 | **❌ uncovered** |
 | **MEMORY_NOT_FOUND** | 404 | **❌ uncovered** |
 | **MESSAGE_NOT_FOUND** | 404 | **❌ uncovered** |
-| **MODEL_ID_REQUIRED** | 400 | **❌ uncovered** |
-| **MODEL_NOT_CONFIGURED** | 422 | **❌ uncovered** |
+| MODEL_ID_REQUIRED | 400 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
+| MODEL_NOT_CONFIGURED | 422 | backend/test/api/chat/chat_pipeline_test.go::TestChat_MissingModelConfig_ErrorCodePersisted |
 | **PROVIDER_HAS_NO_KEY** | 422 | **❌ uncovered** |
-| **PROVIDER_REQUIRED** | 400 | **❌ uncovered** |
+| PROVIDER_REQUIRED | 400 | backend/test/api/model/model_pipeline_test.go::TestModel_Upsert_MissingProvider_Returns400; backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **REQUEST_TIMEOUT** | 0 | **❌ uncovered** |
 | **SANDBOX_CMD_REQUIRED** | 400 | **❌ uncovered** |
 | **SANDBOX_DEP_INSTALL_FAILED** | 502 | **❌ uncovered** |
@@ -427,8 +427,8 @@
 | **SKILL_INVALID_NAME** | 422 | **❌ uncovered** |
 | **SKILL_NAME_CONFLICT** | 409 | **❌ uncovered** |
 | **SKILL_NOT_FOUND** | 404 | **❌ uncovered** |
-| **STREAM_IN_PROGRESS** | 409 | **❌ uncovered** |
-| **STREAM_NOT_FOUND** | 404 | **❌ uncovered** |
+| STREAM_IN_PROGRESS | 409 | backend/test/api/chat/chat_pipeline_test.go::TestChatQueue_Full_Returns409 |
+| STREAM_NOT_FOUND | 404 | backend/test/errcodes/sweep_pipeline_test.go::TestErrCodes_Sweep |
 | **SUBAGENT_RECURSION** | 422 | **❌ uncovered** |
 | **SUBAGENT_TYPE_NOT_FOUND** | 404 | **❌ uncovered** |
 | **TODO_INVALID_STATUS** | 400 | **❌ uncovered** |
@@ -448,9 +448,9 @@
 | **WORKFLOW_DISABLED** | 422 | **❌ uncovered** |
 | **WORKFLOW_INVALID_REFERENCE** | 422 | **❌ uncovered** |
 | **WORKFLOW_MCP_SERVER_NOT_INSTALLED** | 422 | **❌ uncovered** |
-| **WORKFLOW_NAME_DUPLICATE** | 409 | **❌ uncovered** |
+| WORKFLOW_NAME_DUPLICATE | 409 | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle |
 | **WORKFLOW_NEEDS_ATTENTION** | 422 | **❌ uncovered** |
-| **WORKFLOW_NOT_FOUND** | 404 | **❌ uncovered** |
+| WORKFLOW_NOT_FOUND | 404 | backend/test/api/workflow/workflow_pipeline_test.go::TestWorkflow_HTTP_CRUDLifecycle |
 | **WORKFLOW_NOT_FOUND_FOR_TRIGGER** | 404 | **❌ uncovered** |
 | **WORKFLOW_NO_ACTIVE_VERSION** | 422 | **❌ uncovered** |
 | **WORKFLOW_NO_TRIGGER** | 422 | **❌ uncovered** |
@@ -524,7 +524,7 @@
 | **notification** | ask | **❌ uncovered** |
 
 
-## 4. Cross-domain seams (0 / 79 covered, 0%)
+## 4. Cross-domain seams (14 / 79 covered, 18%)
 
 | Seam ID | Description | Test |
 |---|---|---|
@@ -556,36 +556,36 @@
 | **chat_trinity:trigger_workflow** | chat 调 trigger_workflow tool(dryRun 接 scheduler) | **❌ uncovered** |
 | **chat_trinity:search_workflow_executions** | chat 调 search_workflow_executions tool | **❌ uncovered** |
 | **chat_trinity:get_workflow_execution** | chat 调 get_workflow_execution tool | **❌ uncovered** |
-| **workflow_scheduler:trigger_full_dag** | workflow trigger → 完整 DAG 拓扑执行 → flowrun status=completed | **❌ uncovered** |
-| **workflow_scheduler:approval_pause_resume** | approval node → pause → 人审批 → resume → completed | **❌ uncovered** |
+| workflow_scheduler:trigger_full_dag | workflow trigger → 完整 DAG 拓扑执行 → flowrun status=completed | backend/test/cross/scheduler_pipeline_test.go::TestWorkflow_HTTP_TriggerCreatesFlowRun; backend/test/cross/scheduler_pipeline_test.go::TestFlowRun_HTTP_GetAfterTrigger; …(+2) |
+| workflow_scheduler:approval_pause_resume | approval node → pause → 人审批 → resume → completed | backend/test/cross/approval_pipeline_test.go::TestApproval_PauseResumeComplete_E2E; backend/test/cross/approval_pipeline_test.go::TestApproval_InvalidDecision_Returns400; …(+1) |
 | **workflow_scheduler:loop_iterates_body** | loop node 反复执行 body 子图 | **❌ uncovered** |
 | **workflow_scheduler:parallel_branches** | parallel node 各分支并行执行 | **❌ uncovered** |
-| **workflow_scheduler:cancel_run** | DELETE /flowruns/{id} → 节点状态 cancelled | **❌ uncovered** |
+| workflow_scheduler:cancel_run | DELETE /flowruns/{id} → 节点状态 cancelled | backend/test/cross/scheduler_pipeline_test.go::TestFlowRun_HTTP_CancelPropagates |
 | **workflow_scheduler:variable_expression** | variable node 表达式求值 + Go template | **❌ uncovered** |
 | **workflow_scheduler:retry_up_to_max** | 失败 node 按配置重试上限 | **❌ uncovered** |
 | **workflow_scheduler:timeout_status** | node 超时 → 状态 timeout | **❌ uncovered** |
 | **workflow_scheduler:rehydrate_on_boot** | 启动期把 DB 中 paused flowrun 重新挂回 scheduler | **❌ uncovered** |
-| **mention_document:single_doc_snapshot** | 单 doc @mention → 快照入 message attrs | **❌ uncovered** |
-| **mention_document:nonexistent_rejected** | 不存在 doc 引用 → 请求拒绝 | **❌ uncovered** |
+| mention_document:single_doc_snapshot | 单 doc @mention → 快照入 message attrs | backend/test/cross/workflow_attach_pipeline_test.go::TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E |
+| mention_document:nonexistent_rejected | 不存在 doc 引用 → 请求拒绝 | backend/test/cross/workflow_attach_pipeline_test.go::TestWorkflow_LLM_AttachedDocMissing_ValidationRejects |
 | **mention_document:trinity_entity_snapshot** | @mention function/handler/workflow → 快照其当前状态 | **❌ uncovered** |
 | **mention_document:multi_doc_all_snapshotted** | 多个 doc @mention 都被快照 | **❌ uncovered** |
-| **catalog_consistency:function_registers** | function 创建 → 出现在 catalog.Get | **❌ uncovered** |
-| **catalog_consistency:handler_registers** | handler 创建 → 出现在 catalog.Get | **❌ uncovered** |
-| **catalog_consistency:skill_registers** | skill scan 后 → 出现在 catalog.Get | **❌ uncovered** |
+| catalog_consistency:function_registers | function 创建 → 出现在 catalog.Get | backend/test/cross/catalog_pipeline_test.go::TestCatalog_AllSourcesCovered_E2E; backend/test/cross/catalog_pipeline_test.go::TestCatalog_FunctionDescriptionChange_ReflectedOnRebuild; …(+3) |
+| catalog_consistency:handler_registers | handler 创建 → 出现在 catalog.Get | backend/test/cross/trinity_catalog_pipeline_test.go::TestCatalog_IncludesFunctionAndHandlerItems; backend/test/cross/trinity_catalog_pipeline_test.go::TestCatalog_HandlerWithoutConfigSurfaces |
+| catalog_consistency:skill_registers | skill scan 后 → 出现在 catalog.Get | backend/test/cross/catalog_pipeline_test.go::TestCatalog_AllSourcesCovered_E2E; backend/test/cross/d9_pipeline_test.go::TestD9_CatalogReachesLLM; …(+1) |
 | **catalog_consistency:mcp_registers** | mcp server add 后 → 出现在 catalog.Get | **❌ uncovered** |
 | **catalog_consistency:deleted_removed** | 删除 entity → 从 catalog 移除 | **❌ uncovered** |
 | **subagent:explore_terminates** | Explore subagent 跑完终止 + 返 final text | **❌ uncovered** |
 | **subagent:plan_terminates** | Plan subagent 跑完终止 | **❌ uncovered** |
-| **subagent:general_purpose_terminates** | general-purpose subagent 跑完终止 | **❌ uncovered** |
+| subagent:general_purpose_terminates | general-purpose subagent 跑完终止 | backend/test/cross/subagent_pipeline_test.go::TestSubagent_Spawn_EndToEnd; backend/test/cross/subagent_pipeline_test.go::TestSubagent_EventLog_CarriesSubagentRunMetadata |
 | **subagent:nested_spawn_suppressed** | subagent 内 spawn subagent(depth>=1)→ 抑制 | **❌ uncovered** |
 | **subagent:timeout_5min_cap** | subagent 5min total-timeout 触发 | **❌ uncovered** |
-| **isolation:cannot_list_other_user** | user2 List 看不到 user1 的资源 | **❌ uncovered** |
-| **isolation:cannot_get_other_conv** | user2 GET user1 conv → 404 | **❌ uncovered** |
+| isolation:cannot_list_other_user | user2 List 看不到 user1 的资源 | backend/test/cross/isolation_pipeline_test.go::TestIsolation_Conversation_User2ListSeesOnlyOwnData; backend/test/cross/isolation_pipeline_test.go::TestIsolation_APIKey_User2ListSeesOnlyOwnData |
+| isolation:cannot_get_other_conv | user2 GET user1 conv → 404 | backend/test/cross/isolation_pipeline_test.go::TestIsolation_Conversation_User2CannotDeleteUser1Conv |
 | **isolation:cannot_delete_other_apikey** | user2 DELETE user1 apikey → 404 | **❌ uncovered** |
 | **isolation:cannot_approve_other_flowrun** | user2 approve user1 flowrun node → 404 | **❌ uncovered** |
 | **isolation:sql_injection_sanitized** | query param SQL injection 被 sanitize | **❌ uncovered** |
-| **compaction_memory:soft_downgrades_old** | token 软上限触发 → 老 tool_result 降到 warm/cold | **❌ uncovered** |
-| **compaction_memory:hard_summary_archives** | token 硬上限触发 → 生成 anchored-merge 摘要并 archive | **❌ uncovered** |
+| compaction_memory:soft_downgrades_old | token 软上限触发 → 老 tool_result 降到 warm/cold | backend/test/cross/compaction_pipeline_test.go::TestCompaction_NoOpBelowThreshold; backend/test/cross/compaction_pipeline_test.go::TestCompaction_DemoteOnly |
+| compaction_memory:hard_summary_archives | token 硬上限触发 → 生成 anchored-merge 摘要并 archive | backend/test/cross/compaction_pipeline_test.go::TestCompaction_FullCompactSummaryReachesNextTurn |
 | **memory:pinned_in_system_prompt** | pinned memory 全文进 system prompt | **❌ uncovered** |
 | **memory:read_tool_returns** | read_memory tool 返 memory 内容 | **❌ uncovered** |
 | **memory:forget_tombstone** | forget_memory tool 后 list 不可见 | **❌ uncovered** |
@@ -604,7 +604,7 @@
 | **relation:document_links_edge** | document 内引用 entity → 插 document_links_entity 边 | **❌ uncovered** |
 | **relation:delete_purges** | 删 entity → 清相关边 | **❌ uncovered** |
 | **tool_framework:permission_plan_mode** | plan_mode 下 destructive tool 调用被拒 | **❌ uncovered** |
-| **tool_framework:needs_read_first** | NeedsReadFirst 保护:未先 Read 直接 Write 被拒 | **❌ uncovered** |
+| tool_framework:needs_read_first | NeedsReadFirst 保护:未先 Read 直接 Write 被拒 | backend/test/cross/filesystem_pipeline_test.go::TestFileOps_WriteWithoutReadDenied |
 | **tool_framework:standard_fields_strip** | summary/destructive/execution_group 标准字段在 Execute 前剥除 | **❌ uncovered** |
 | **tool_framework:execution_group_serial** | 不同 execution_group 按升序串行;同 group 并行 | **❌ uncovered** |
 
@@ -636,11 +636,13 @@
 ## Summary
 
 - **Total targets**: 438
-- **Covered**: 0 (0%)
-- **Uncovered**: 438
-- **Tests without `// covers:` annotation**: 117
+- **Covered**: 79 (18%)
+- **Uncovered**: 359
+- **Tests without `// covers:` annotation**: 42
 
 <!-- COVERAGE-MATRIX:END -->
+
+
 
 
 

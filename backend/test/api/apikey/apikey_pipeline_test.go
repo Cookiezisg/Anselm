@@ -100,7 +100,7 @@ func TestAPIKey_Create_InvalidProvider_Returns400(t *testing.T) {
 }
 
 // covers: POST /api/v1/api-keys
-// covers: POST /api/v1/api-keys/{id}:test (happy)
+// covers: POST /api/v1/api-keys/{idAction} (test_happy)
 func TestAPIKey_Test_FakeServer_Success_Returns200(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	h := th.New(t)
@@ -133,8 +133,7 @@ func TestAPIKey_Test_FakeServer_Success_Returns200(t *testing.T) {
 }
 
 // covers: POST /api/v1/api-keys
-// covers: POST /api/v1/api-keys/{id}:test (auth_failed_422)
-// covers: errcode:API_KEY_TEST_FAILED
+// covers: POST /api/v1/api-keys/{idAction} (test_auth_failed_422)
 func TestAPIKey_Test_FakeServer_Auth401_Returns422(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.SetModelsStatus(http.StatusUnauthorized)

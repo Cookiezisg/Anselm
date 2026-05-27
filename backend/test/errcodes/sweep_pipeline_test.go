@@ -13,7 +13,6 @@ import (
 )
 
 // covers: errcode:INVALID_REQUEST
-// covers: errcode:NOT_FOUND
 // covers: errcode:API_KEY_NOT_FOUND
 // covers: errcode:INVALID_PROVIDER
 // covers: errcode:BASE_URL_REQUIRED

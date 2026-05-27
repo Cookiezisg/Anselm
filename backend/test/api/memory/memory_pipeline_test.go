@@ -165,7 +165,7 @@ func TestMemory_AIWritePersistsAndNotifies(t *testing.T) {
 }
 
 // covers: POST /api/v1/memories
-// covers: POST /api/v1/memories/{name}:pin
+// covers: POST /api/v1/memories/{nameAction} (pin)
 // covers: POST /api/v1/conversations/{id}/messages
 // covers: GET /api/v1/eventlog
 func TestMemory_PinTogglesContent(t *testing.T) {

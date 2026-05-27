@@ -203,7 +203,7 @@ func TestHandler_LLM_SearchEmpty(t *testing.T) {
 // covers: POST /api/v1/handlers
 // covers: POST /api/v1/handlers/{id}/config
 // covers: GET /api/v1/handlers/{id}
-// covers: POST /api/v1/handlers/{id}:call (happy)
+// covers: POST /api/v1/handlers/{idAction} (call_happy)
 // covers: GET /api/v1/handlers/{id}/calls
 // covers: errcode:HANDLER_ENV_FAILED
 // covers: errcode:HANDLER_INSTANCE_SPAWN_FAILED

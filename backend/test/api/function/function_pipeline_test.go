@@ -141,7 +141,7 @@ func TestFunction_LLM_SearchEmpty(t *testing.T) {
 
 // covers: POST /api/v1/functions
 // covers: GET /api/v1/functions/{id}
-// covers: POST /api/v1/functions/{id}:run (happy)
+// covers: POST /api/v1/functions/{idAction} (run_happy)
 // covers: GET /api/v1/functions/{id}/executions
 func TestFunction_HTTP_RunAndExecutionLog(t *testing.T) {
 	h := th.New(t)

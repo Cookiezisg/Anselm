@@ -348,17 +348,15 @@ build:
 	@echo "✓ packaged: backend/cmd/desktop/build/bin/Forgify.app"
 
 # verify — pre-push gate. Cross-platform compile (5 OS×arch combos) +
-# vet + prompt lint. Free, offline, no tokens. Always deterministic.
-# CGO_ENABLED=0 used for non-darwin to avoid linker errors (we use
-# modernc.org/sqlite pure-Go precisely for this).
+# vet + prompt lint + matrix audit + pipeline mock tests. Free, offline,
+# no tokens. CGO_ENABLED=0 used for non-darwin to avoid linker errors.
 #
-# Phase 0 note: verify does NOT include mock yet — pre-existing test drift
-# (chat-prompt-redesign / catalog-redesign 2026-05-27) makes mock partial.
-# Phase 5 (annotation backfill + drift cleanup) will add `audit` + `mock`
-# back into this gate.
+# Phase 5 outcome: mock is fully green (4 pre-existing drift fixed); audit
+# runs in warn-only mode (--strict elevation deferred; ~80% of truth still
+# uncovered, awaiting Phase 5+ annotation backfill).
 #
-# verify —— pre-push gate；5 平台 vet+build + prompt lint。全部离线 / 不烧 token。
-# Phase 0 暂不含 mock(预先存在测试漂移),Phase 5 清理后加回 audit + mock。
+# verify —— pre-push gate;5 平台 vet+build + prompt lint + matrix audit + mock。
+# 离线 / 不烧 token。Phase 5 起 mock 全绿;audit 仍 warn-only。
 verify:
 	$(AUTO_DEVBOX)
 	@echo "→ vet × 5 platforms..."
@@ -375,8 +373,12 @@ verify:
 	@cd backend && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build ./...
 	@echo "→ lint prompts..."
 	@cd backend && go run ./cmd/lintprompts
+	@echo "→ matrix audit (warn-only)..."
+	@cd backend && go run ./cmd/coverage-matrix --check 2>&1 || true
+	@echo "→ pipeline mock (fake LLM, ~60s)..."
+	@cd backend && go test -count=1 -race -tags=pipeline -p 1 -timeout=10m ./test/...
 	@echo ""
-	@echo "✓ verify clean: 5 platforms × (vet+build) + lintprompts"
+	@echo "✓ verify clean: 5 platforms × (vet+build) + lintprompts + audit + mock"
 
 # ──────────────────────────────────────────────────────────────────
 # QA
