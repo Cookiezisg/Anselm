@@ -3,22 +3,16 @@
 package harness
 
 import (
-	"context"
 	"testing"
-
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// LocalCtxAs returns a context stamped with the given userID.
+// Phase 3 collapsed this file: the LocalCtxAs free-function alias was removed
+// (use CtxAs in ctx.go), so only the action helpers remain. They could move
+// to a dedicated actions.go later; for now they stay here as "test-side
+// imperative shortcuts that wrap an HTTP call + decode + assert".
 //
-// Deprecated (Phase 1): superseded by CtxAs in ctx.go; same behavior, kept as
-// alias until Phase 3 deletes this file's remaining functions.
-//
-// LocalCtxAs 返回打了指定 userID 的 ctx。
-// Deprecated(Phase 1):同义于 ctx.go 的 CtxAs;保留至 Phase 3 删本文件。
-func LocalCtxAs(userID string) context.Context {
-	return reqctxpkg.SetUserID(context.Background(), userID)
-}
+// Phase 3 收尾:LocalCtxAs alias 已删(用 ctx.go::CtxAs);仅留动作 helper。
+// 后续可考虑搬去 actions.go,此处保留作"包了 HTTP 调用 + 解码 + 断言的命令式快捷"。
 
 // PostMessage POSTs a user message and returns its allocated ID; fatals on empty.
 //
