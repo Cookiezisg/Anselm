@@ -31,6 +31,13 @@ import { Documents } from "@/views/config/Documents";
 import { Permissions } from "@/views/config/Permissions";
 import { LLMHealth } from "@/views/config/LLMHealth";
 import { Profile } from "@/views/config/Profile";
+import { Functions } from "@/views/forge/Functions";
+import { FunctionDetail } from "@/views/forge/FunctionDetail";
+import { Handlers } from "@/views/forge/Handlers";
+import { HandlerDetail } from "@/views/forge/HandlerDetail";
+import { Workflows } from "@/views/forge/Workflows";
+import { WorkflowDetail } from "@/views/forge/WorkflowDetail";
+import { ToolsRegistry } from "@/views/forge/ToolsRegistry";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="empty">TODO: {name}</div>;
@@ -55,13 +62,13 @@ export const router = createHashRouter([
       { path: "current/compaction",    element: <Compaction /> },
 
       // forge/ (7 — TestCollections deleted)
-      { path: "forge/functions",       element: <Placeholder name="forge/Functions" /> },
-      { path: "forge/functions/:id",   element: <Placeholder name="forge/FunctionDetail" /> },
-      { path: "forge/handlers",        element: <Placeholder name="forge/Handlers" /> },
-      { path: "forge/handlers/:id",    element: <Placeholder name="forge/HandlerDetail" /> },
-      { path: "forge/workflows",       element: <Placeholder name="forge/Workflows" /> },
-      { path: "forge/workflows/:id",   element: <Placeholder name="forge/WorkflowDetail" /> },
-      { path: "forge/tools",           element: <Placeholder name="forge/ToolsRegistry" /> },
+      { path: "forge/functions",       element: <Functions /> },
+      { path: "forge/functions/:id",   element: <FunctionDetail /> },
+      { path: "forge/handlers",        element: <Handlers /> },
+      { path: "forge/handlers/:id",    element: <HandlerDetail /> },
+      { path: "forge/workflows",       element: <Workflows /> },
+      { path: "forge/workflows/:id",   element: <WorkflowDetail /> },
+      { path: "forge/tools",           element: <ToolsRegistry /> },
 
       // execute/ (5)
       { path: "execute/triggers",      element: <Placeholder name="execute/Triggers" /> },
