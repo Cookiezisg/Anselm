@@ -156,8 +156,16 @@ export function useWorkflowEdit(workflowId: string, original: CanvasGraph) {
     [original, edit],
   );
 
+  // Called when the version changes externally so the dirty indicator
+  // doesn't persist after the canvas is reset to the new version's graph.
+  const resetDirty = useCallback(() => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setDirty(false);
+  }, []);
+
   return {
     markDirty,
+    resetDirty,
     dirty,
     savedAt,
     isSaving: edit.isPending,

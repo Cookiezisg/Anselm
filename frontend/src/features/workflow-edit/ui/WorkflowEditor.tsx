@@ -294,14 +294,15 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
   const canvasRef = useRef<HTMLDivElement>(null);
   const panStart = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
 
-  const { markDirty: markDirtyBase, dirty, savedAt, isSaving } = useWorkflowEdit(workflowId, original);
+  const { markDirty: markDirtyBase, resetDirty, dirty, savedAt, isSaving } = useWorkflowEdit(workflowId, original);
 
-  // Reset when version changes externally.
+  // Reset canvas state and dirty flag when version changes externally.
   useEffect(() => {
     setNodes(original.nodes);
     setEdges(original.edges);
     setSelected(null);
-  }, [version?.id]);
+    resetDirty();
+  }, [version?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])) as Record<string, WFNode>, [nodes]);
 

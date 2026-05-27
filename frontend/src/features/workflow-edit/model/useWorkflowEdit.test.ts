@@ -1,14 +1,23 @@
 // Unit tests for the pure diff helpers in useWorkflowEdit.
 // Covers diffToOps three-way (add/update/delete) + nodeToSpec/edgeToSpec mapping.
+// Also covers useWorkflowEdit hook: resetDirty behaviour on version change.
 //
-// 覆盖 diffToOps 三向 diff（add/update/delete）和属性映射函数。
+// 覆盖 diffToOps 三向 diff（add/update/delete）+ 属性映射 + hook resetDirty 行为。
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+vi.mock("@entities/workflow", () => ({
+  useEditWorkflow: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+import React, { createElement } from "react";
 import {
   diffToOps,
   nodeToSpec,
   edgeToSpec,
   edgeKey,
+  useWorkflowEdit,
   type CanvasNode,
   type CanvasEdge,
   type CanvasGraph,
@@ -293,5 +302,48 @@ describe("edgeKey", () => {
     const e1 = makeEdge("n1", "n2", { fromPort: "a" });
     const e2 = makeEdge("n1", "n2", { fromPort: "b" });
     expect(edgeKey(e1)).not.toBe(edgeKey(e2));
+  });
+});
+
+// ── useWorkflowEdit hook — resetDirty ─────────────────────────────────────
+
+function makeWrapper() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapper = ({ children }: { children: React.ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children);
+  return { wrapper };
+}
+
+describe("useWorkflowEdit — resetDirty", () => {
+  it("resetDirty_clearsTheDirtyFlag", () => {
+    const { wrapper } = makeWrapper();
+    const orig = emptyGraph();
+    const { result } = renderHook(() => useWorkflowEdit("wf_1", orig), { wrapper });
+
+    act(() => { result.current.markDirty({ nodes: [makeNode("n1")], edges: [] }); });
+    expect(result.current.dirty).toBe(true);
+
+    act(() => { result.current.resetDirty(); });
+    expect(result.current.dirty).toBe(false);
+  });
+
+  it("resetDirty_cancelsInFlightSaveTimer", () => {
+    vi.useFakeTimers();
+    const { wrapper } = makeWrapper();
+    const orig = emptyGraph();
+    const { result } = renderHook(() => useWorkflowEdit("wf_1", orig), { wrapper });
+
+    act(() => { result.current.markDirty({ nodes: [makeNode("n1")], edges: [] }); });
+    expect(result.current.dirty).toBe(true);
+
+    // Reset before the 2s timer fires.
+    act(() => { result.current.resetDirty(); });
+    expect(result.current.dirty).toBe(false);
+
+    // Advance past the debounce delay — should not flip dirty back.
+    act(() => { vi.advanceTimersByTime(3000); });
+    expect(result.current.dirty).toBe(false);
+
+    vi.useRealTimers();
   });
 });
