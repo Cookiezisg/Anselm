@@ -128,20 +128,13 @@ func (h *DevHandler) Routes(w http.ResponseWriter, r *http.Request) {
 	writeDevJSON(w, http.StatusOK, routes)
 }
 
-// ServeIndex serves the testend HTML entry; tries index.html then tester.html.
+// ServeIndex serves the testend HTML entry (index.html).
 //
-// ServeIndex 提供 testend 入口 HTML;先 index.html 再 tester.html。
+// ServeIndex 提供 testend 入口 HTML。
 func (h *DevHandler) ServeIndex(w http.ResponseWriter, r *http.Request) {
-	var data []byte
-	var err error
-	for _, name := range []string{"index.html", "tester.html"} {
-		data, err = os.ReadFile(filepath.Join(h.integrationDir, name))
-		if err == nil {
-			break
-		}
-	}
+	data, err := os.ReadFile(filepath.Join(h.integrationDir, "index.html"))
 	if err != nil {
-		http.Error(w, "testend not built — run `make build-testend`", http.StatusNotFound)
+		http.Error(w, "testend/dist/index.html not found; run `make build-testend`", http.StatusNotFound)
 		return
 	}
 	body := strings.ReplaceAll(string(data), "__BUILD__", h.buildID)
