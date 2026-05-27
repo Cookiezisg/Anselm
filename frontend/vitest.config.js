@@ -1,6 +1,6 @@
-// Vitest config — co-located `*.test.js` / `*.test.jsx` next to
-// source. Coverage is opt-in via `npm run test:coverage`. setupFiles
-// stubs the browser APIs we touch but jsdom doesn't ship.
+// Vitest config — co-located `*.test.{ts,tsx,js,jsx}` next to source.
+// Coverage is opt-in via `npm run test:coverage`. setupFiles stubs the
+// browser APIs we touch but jsdom doesn't ship.
 
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
@@ -18,38 +18,36 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "lcov"],
-      include: ["src/**/*.{js,jsx}"],
+      include: ["src/**/*.{js,jsx,ts,tsx}"],
       // Skip list — each excluded file has a documented reason:
+      //   test infra — setup shims + query/fetch harnesses
       //   constants / tokens — no logic to test
       //   icon barrels — lucide-react re-exports
-      //   composition shells — App, AppShell, main: covered by Playwright e2e
-      //   placeholder — Dashboard / PlaceholderPane: no logic
-      //   heavy editors — DocEditor (Tiptap), WorkflowEditor (canvas DAG),
-      //     RelGraph (force layout): full integration via Playwright instead
-      //   ConfigPane — large form aggregate; per-field already tested via
-      //     SettingsPopover/Onboarding; full e2e covers integration
-      //   trivial helpers — PaneCollapseToggle, useCollapsible: 1-line wrappers
-      //   DataViewerInspector — debug-only modal, internal
-      //   _testHarness — vitest helpers
+      //   composition shells — App, main: covered by Playwright e2e
+      //   trivial wrappers — PaneCollapseToggle/BottomSheet/FloatingInspector/useCollapsible
+      //   heavy editors — DocEditor (Tiptap), CodeBlockNode, WorkflowEditor
+      //     (canvas DAG), RelGraph (force layout): full integration via Playwright
       exclude: [
+        "src/**/*.{test,spec}.{js,jsx,ts,tsx}",
         "src/test-setup.js",
-        "src/test-setup.test.js",
-        "src/**/*.{test,spec}.{js,jsx}",
-        "src/shared/lib/testHarness.js",
-        "src/app/main.jsx",
-        "src/app/App.jsx",
+        "src/test-setup.d.ts",
+        "src/test-shim-storage.js",
+        "src/shared/lib/testHarness.ts",
+        "src/shared/api/_testHarness.ts",
+        "src/app/main.tsx",
+        "src/app/App.tsx",
         "src/shared/lib/motion.ts",
         "src/shared/ui/Icon.tsx",
         "src/shared/ui/Spinner.tsx",
         "src/shared/ui/Kbd.tsx",
-        "src/shared/ui/PaneCollapseToggle.jsx",
-        "src/shared/ui/BottomSheet.jsx",
-        "src/shared/ui/FloatingInspector.jsx",
-        "src/shared/lib/useCollapsible.js",
-        "src/entities/document/ui/DocEditor.jsx",
-        "src/pages/library/ui/CodeBlockNode.jsx",
-        "src/features/workflow-edit/ui/WorkflowEditor.jsx",
-        "src/widgets/rel-graph/RelGraph.jsx",
+        "src/shared/ui/PaneCollapseToggle.tsx",
+        "src/shared/ui/BottomSheet.tsx",
+        "src/shared/ui/FloatingInspector.tsx",
+        "src/shared/lib/useCollapsible.ts",
+        "src/pages/library/ui/DocEditor.tsx",
+        "src/pages/library/ui/CodeBlockNode.tsx",
+        "src/features/workflow-edit/ui/WorkflowEditor.tsx",
+        "src/widgets/rel-graph/RelGraph.tsx",
       ],
       // Thresholds: v8 counts every arrow inside JSX as a separate
       // function, so even comprehensively-tested components like
