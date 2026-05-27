@@ -1,30 +1,34 @@
 {
   "name": "forgify-testend",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "Forgify dev control panel — comprehensive debugging UI for the V1.2 backend",
+  "description": "Forgify dev control panel V3 — React rewrite sharing entity types with frontend",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "tsc -b && vite build",
     "build:nocheck": "vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit",
-    "format": "prettier --write src/"
+    "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "cytoscape": "^3.30.0",
-    "pinia": "^2.2.6",
-    "vue": "^3.5.13",
-    "vue-i18n": "^10.0.8",
-    "vue-router": "^4.4.5"
+    "@monaco-editor/react": "^4.6.0",
+    "@tanstack/react-query": "^5.62.0",
+    "lucide-react": "^0.468.0",
+    "monaco-editor": "^0.52.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "reactflow": "^11.11.0",
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "@types/cytoscape": "^3.21.7",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "vue-tsc": "^2.1.10"
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.29",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.5",
+    "vite-tsconfig-paths": "^6.1.1"
   }
 }
