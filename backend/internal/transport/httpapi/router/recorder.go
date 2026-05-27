@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	handlershttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
 )
 
 // Route is one recorded registration.
@@ -76,11 +78,40 @@ func parsePattern(p string) (method, path string) {
 	return "ANY", p
 }
 
+// RecorderAdapter wraps *Recorder to implement handlershttpapi.RouteSource.
+// Converts []Route → []handlershttpapi.RouteEntry so DevHandler can call Routes().
+//
+// RecorderAdapter 将 *Recorder 转为 handlershttpapi.RouteSource,
+// 让 DevHandler 无需知道 router 内部类型。
+type RecorderAdapter struct {
+	rec *Recorder
+}
+
+// NewRecorderAdapter wraps rec as a handlershttpapi.RouteSource.
+//
+// NewRecorderAdapter 包装 rec 为 RouteSource。
+func NewRecorderAdapter(rec *Recorder) *RecorderAdapter {
+	return &RecorderAdapter{rec: rec}
+}
+
+// Routes converts []Route to []handlershttpapi.RouteEntry and returns them.
+//
+// Routes 将 []Route 转为 []RouteEntry 返回。
+func (a *RecorderAdapter) Routes() []handlershttpapi.RouteEntry {
+	raw := a.rec.List()
+	out := make([]handlershttpapi.RouteEntry, len(raw))
+	for i, r := range raw {
+		out[i] = handlershttpapi.RouteEntry{Method: r.Method, Path: r.Path}
+	}
+	return out
+}
+
+// Compile-time guard: *RecorderAdapter satisfies handlershttpapi.RouteSource.
+var _ handlershttpapi.RouteSource = (*RecorderAdapter)(nil)
+
 // Compile-time guard: *Recorder satisfies the handlers.Registrar shape.
-// Anonymous interface avoids importing handlers/ from router/ (cycle prevention).
 //
 // 编译期断言:*Recorder 满足 handlers.Registrar 的结构形状。
-// 用匿名接口避免 router 引 handlers 产生循环依赖。
 var _ interface {
 	HandleFunc(string, func(http.ResponseWriter, *http.Request))
 	Handle(string, http.Handler)

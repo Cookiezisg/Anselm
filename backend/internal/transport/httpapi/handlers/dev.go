@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,6 +24,22 @@ import (
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
+
+// RouteEntry is one registered route (method + path), returned by /dev/routes.
+//
+// RouteEntry 是一条注册路由记录,由 /dev/routes 返回。
+type RouteEntry struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
+// RouteSource is satisfied by an adapter in the router package; kept as
+// interface here to avoid the handlers → router import cycle.
+//
+// RouteSource 由 router 包内适配器实现;此处用接口避免 handlers→router 循环依赖。
+type RouteSource interface {
+	Routes() []RouteEntry
+}
 
 // DevHandler serves all /dev/* endpoints.
 //
@@ -40,6 +57,7 @@ type DevHandler struct {
 	log            *zap.Logger
 	buildID        string
 	startedAt      time.Time
+	recorder       RouteSource
 }
 
 func NewDevHandler(
@@ -51,6 +69,7 @@ func NewDevHandler(
 	llmFactory *llminfra.Factory,
 	shellManager *shelltool.ProcessManager,
 	log *zap.Logger,
+	recorder RouteSource,
 ) *DevHandler {
 	return &DevHandler{
 		db:             db,
@@ -65,6 +84,7 @@ func NewDevHandler(
 		llmFactory:     llmFactory,
 		shellManager:   shellManager,
 		log:            log,
+		recorder:       recorder,
 	}
 }
 
@@ -97,6 +117,25 @@ func (h *DevHandler) Register(mux Registrar) {
 	}
 	mux.Handle("/dev/static/", noCache(http.StripPrefix("/dev/static/", http.FileServer(http.Dir(h.integrationDir)))))
 	mux.HandleFunc("/dev/", h.ServeIndex)
+}
+
+// Routes returns the live list of registered routes from the RouteSource.
+// Replaces the legacy hand-maintained slice (dev_routes.go), which drifted twice.
+//
+// Routes 从 RouteSource 取实时注册路由,根治手维护清单 drift。
+func (h *DevHandler) Routes(w http.ResponseWriter, r *http.Request) {
+	if h.recorder == nil {
+		writeDevJSON(w, http.StatusInternalServerError, map[string]string{"error": "recorder not wired"})
+		return
+	}
+	routes := h.recorder.Routes()
+	sort.Slice(routes, func(i, j int) bool {
+		if routes[i].Method != routes[j].Method {
+			return routes[i].Method < routes[j].Method
+		}
+		return routes[i].Path < routes[j].Path
+	})
+	writeDevJSON(w, http.StatusOK, routes)
 }
 
 // ServeIndex serves the testend HTML entry; tries index.html then tester.html.

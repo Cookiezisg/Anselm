@@ -18,7 +18,6 @@ func New(deps Deps) http.Handler {
 	}
 
 	rec := NewRecorder(mux)
-	deps.Recorder = rec
 
 	handlershttpapi.NewHealthHandler().Register(rec)
 	handlershttpapi.NewProvidersHandler().Register(rec)
@@ -138,7 +137,7 @@ func New(deps Deps) http.Handler {
 		).Register(rec)
 	}
 	if deps.Dev {
-		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log).Register(rec)
+		handlershttpapi.NewDevHandler(deps.DB, deps.LogBroadcaster, deps.CollectionsDir, deps.IntegrationDir, deps.ForgifyHome, deps.Port, deps.Tools, deps.LLMFactory, deps.ShellManager, deps.Log, NewRecorderAdapter(rec)).Register(rec)
 		// §18.1 prompt inventory — dev-only audit endpoint.
 		handlershttpapi.NewPromptsHandler(deps.Tools, deps.SubagentRegistry, deps.Log).Register(rec)
 	}
