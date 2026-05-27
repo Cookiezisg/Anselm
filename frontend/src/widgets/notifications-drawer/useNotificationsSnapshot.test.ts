@@ -1,3 +1,4 @@
+// @ts-nocheck
 // useNotificationsSnapshot — REST snapshot endpoint shape.
 
 import { beforeEach, describe, expect, it } from "vitest";

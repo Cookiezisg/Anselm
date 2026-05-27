@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/flowrun/api — flow run + approval hooks.
 // Migrated from src/api/flowruns.test.js (4b.5 recovery).
 

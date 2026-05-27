@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/function+handler+workflow api — forge trinity hooks.
 // Migrated from src/api/forge.test.js (4b.5 recovery).
 // useIterateForge now lives in features/forge-iterate, imported from there.

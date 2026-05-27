@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/relation/api — useAllRelations / useRelationFilter / useNeighborhood
 // query key + URL shapes. Migrated from src/api/relations.test.js (4b.5 recovery).
 

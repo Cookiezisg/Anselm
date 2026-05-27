@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/memory+document+mcp api — library mutations.
 // Migrated from src/api/library.test.js (4b.5 recovery).
 

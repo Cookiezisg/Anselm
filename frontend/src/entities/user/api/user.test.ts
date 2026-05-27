@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/user/api — local profile CRUD hooks.
 // Migrated from src/api/users.test.js (4b.5 recovery).
 

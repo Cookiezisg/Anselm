@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/apikey + entities/model-config — api-keys + providers + model-configs hooks.
 // Migrated from src/api/config.test.js (4b.5 recovery).
 

@@ -14,7 +14,7 @@ import { RelTime } from "../../shared/ui/RelTime.tsx";
 import { useToastStore, type Toast } from "@shared/ui/toastStore";
 import { useNotificationsSnapshot } from "./useNotificationsSnapshot";
 import { apiFetch } from "@shared/api/httpClient";
-import type { PendingAsk } from "@app/model";
+import type { PendingAsk } from "@shared/api";
 
 type AskOption = NonNullable<PendingAsk["options"]>[number];
 

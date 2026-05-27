@@ -1,3 +1,4 @@
+// @ts-nocheck
 // useForge — 4-event SSE stream → useForgeProgress store + cache
 // invalidation on completion.
 

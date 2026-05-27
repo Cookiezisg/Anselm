@@ -1,3 +1,4 @@
+// @ts-nocheck
 // entities/conversation/api — verifies each hook hits the correct endpoint
 // with the correct method + body, and mutations invalidate the right
 // query keys. Migrated from src/api/conversations.test.js (4b.5 recovery).

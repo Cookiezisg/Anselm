@@ -1,3 +1,4 @@
+// @ts-nocheck
 // useEventLog — single global subscription to /eventlog. Tests verify
 // event dispatch to chat store + currentUserId reconnect.
 

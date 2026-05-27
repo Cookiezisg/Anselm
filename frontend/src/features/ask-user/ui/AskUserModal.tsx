@@ -8,13 +8,14 @@
 
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type MotionProps } from "framer-motion";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useAskUserAnswer } from "@features/ask-user";
 import { scaleIn, fadeIn } from "@shared/lib/motion";
+import type { PendingAsk } from "@shared/api";
 
-export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askOpen: boolean; onClose: () => void }) {
+export function AskUserModal({ pending, askOpen, onClose }: { pending: PendingAsk | null; askOpen: boolean; onClose: () => void }) {
   const { t } = useTranslation(["conv", "common"]);
 
   const isOpen = askOpen || !!pending;
@@ -31,7 +32,7 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
       if (e.key === "Escape") { onClose(); return; }
       const n = parseInt(e.key, 10);
       if (n >= 1 && n <= 9 && pending?.options?.[n - 1]) {
-        setSelected(pending.options[n - 1].id || pending.options[n - 1].value);
+        setSelected(pending.options[n - 1].id || pending.options[n - 1].value || null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -43,8 +44,8 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
     return (
       <AnimatePresence>
         {askOpen && (
-          <motion.div className="overlay" {...(fadeIn as any)} onClick={onClose}>
-            <motion.div className="ask-card" {...(scaleIn as any)} onClick={(e) => e.stopPropagation()}>
+          <motion.div className="overlay" {...(fadeIn as MotionProps)} onClick={onClose}>
+            <motion.div className="ask-card" {...(scaleIn as MotionProps)} onClick={(e) => e.stopPropagation()}>
               <div className="ask-head">
                 <div className="icon-wrap"><Icon.HelpCircle /></div>
                 <div className="meta">
@@ -72,8 +73,8 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div className="overlay" {...(fadeIn as any)} onClick={onClose}>
-          <motion.div className="ask-card" {...(scaleIn as any)} onClick={(e) => e.stopPropagation()}>
+        <motion.div className="overlay" {...(fadeIn as MotionProps)} onClick={onClose}>
+          <motion.div className="ask-card" {...(scaleIn as MotionProps)} onClick={(e) => e.stopPropagation()}>
             <div className="ask-head">
               <div className="icon-wrap"><Icon.HelpCircle /></div>
               <div className="meta">
@@ -92,11 +93,11 @@ export function AskUserModal({ pending, askOpen, onClose }: { pending: any; askO
                     {t("ask.noOptionsHint")}
                   </div>
                 )}
-                {options.map((o: any, i: number) => (
+                {options.map((o, i: number) => (
                   <div
                     key={o.id || i}
                     className={"ask-option" + (selected === (o.id || o.value) ? " is-selected" : "")}
-                    onClick={() => setSelected(o.id || o.value)}
+                    onClick={() => setSelected(o.id || o.value || null)}
                   >
                     <div className="key">{i + 1}</div>
                     <div className="text">{o.text || o.label}<span className="sub">{o.sub || ""}</span></div>

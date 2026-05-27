@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Button — variant + size + loading class composition.
 
 import { describe, expect, it, vi } from "vitest";

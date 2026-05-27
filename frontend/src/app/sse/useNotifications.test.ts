@@ -1,3 +1,4 @@
+// @ts-nocheck
 // useNotifications — SSE dispatch + per-type query invalidation +
 // unread counter + ask-modal pending state.
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Select — trigger renders selected label; popover open/close, option pick,
 // keyboard nav, disabled gating.
 

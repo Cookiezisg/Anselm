@@ -5,15 +5,9 @@
 // 以及 pendingAsk 载荷（SSE 推送后落这里，modal 消费）。
 
 import { create } from "zustand";
+import type { PendingAsk } from "@shared/api";
 
-export interface PendingAsk {
-  id: string;
-  conversationId: string;
-  toolCallId: string;
-  question?: string;
-  context?: string;
-  options?: Array<{ id?: string; value?: string; text?: string; label?: string; sub?: string }>;
-}
+export type { PendingAsk };
 
 export interface OverlayState {
   cmdkOpen: boolean;
