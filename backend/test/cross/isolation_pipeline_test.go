@@ -12,6 +12,7 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: cross:isolation:cannot_get_other_conv
 func TestIsolation_Conversation_User2CannotDeleteUser1Conv(t *testing.T) {
 	h := th.New(t)
 
@@ -26,6 +27,7 @@ func TestIsolation_Conversation_User2CannotDeleteUser1Conv(t *testing.T) {
 	}
 }
 
+// covers: cross:isolation:cannot_list_other_user
 func TestIsolation_Conversation_User2ListSeesOnlyOwnData(t *testing.T) {
 	h := th.New(t)
 
@@ -46,6 +48,7 @@ func TestIsolation_Conversation_User2ListSeesOnlyOwnData(t *testing.T) {
 	}
 }
 
+// covers: cross:isolation:cannot_list_other_user
 func TestIsolation_APIKey_User2ListSeesOnlyOwnData(t *testing.T) {
 	h := th.New(t)
 

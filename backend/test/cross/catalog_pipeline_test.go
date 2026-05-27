@@ -34,6 +34,8 @@ func seedSkillForCatalog(t *testing.T, h *th.Harness, name, desc string) {
 	}
 }
 
+// covers: cross:catalog_consistency:function_registers
+// covers: cross:catalog_consistency:skill_registers
 func TestCatalog_AllSourcesCovered_E2E(t *testing.T) {
 	h := th.New(t)
 
@@ -69,6 +71,7 @@ func TestCatalog_AllSourcesCovered_E2E(t *testing.T) {
 	}
 }
 
+// covers: cross:catalog_consistency:function_registers
 func TestCatalog_FunctionDescriptionChange_ReflectedOnRebuild(t *testing.T) {
 	h := th.New(t)
 
@@ -99,6 +102,7 @@ func TestCatalog_FunctionDescriptionChange_ReflectedOnRebuild(t *testing.T) {
 	}
 }
 
+// covers: cross:catalog_consistency:function_registers
 func TestCatalog_AlwaysMechanical(t *testing.T) {
 	h := th.New(t)
 	h.NewFunction(t, "alpha", "def alpha(a):\n    return a\n")

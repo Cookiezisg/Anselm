@@ -30,6 +30,7 @@ func mustCreateWorkflow(t *testing.T, h *th.Harness, name string) string {
 	return wf.ID
 }
 
+// covers: cross:workflow_scheduler:trigger_full_dag
 func TestWorkflow_HTTP_TriggerCreatesFlowRun(t *testing.T) {
 	h := th.New(t)
 	wfID := mustCreateWorkflow(t, h, "trig_happy")
@@ -71,6 +72,7 @@ func TestWorkflow_HTTP_TriggerDisabledReturns422(t *testing.T) {
 	}
 }
 
+// covers: cross:workflow_scheduler:trigger_full_dag
 func TestFlowRun_HTTP_GetAfterTrigger(t *testing.T) {
 	h := th.New(t)
 	wfID := mustCreateWorkflow(t, h, "fr_get")
@@ -112,6 +114,7 @@ func TestFlowRun_HTTP_GetAfterTrigger(t *testing.T) {
 	}
 }
 
+// covers: cross:workflow_scheduler:cancel_run
 func TestFlowRun_HTTP_CancelPropagates(t *testing.T) {
 	h := th.New(t)
 	wfID := mustCreateWorkflow(t, h, "fr_cancel")

@@ -14,6 +14,14 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: POST /api/v1/handlers (happy)
+// covers: GET /api/v1/handlers/{id}
+// covers: POST /api/v1/handlers (duplicate_409)
+// covers: PATCH /api/v1/handlers/{id}
+// covers: DELETE /api/v1/handlers/{id}
+// covers: GET /api/v1/handlers/{id} (not_found_404)
+// covers: errcode:HANDLER_NAME_DUPLICATE
+// covers: errcode:HANDLER_NOT_FOUND
 func TestHandler_HTTP_CRUDLifecycle(t *testing.T) {
 	h := th.New(t)
 
@@ -87,6 +95,10 @@ func TestHandler_HTTP_CRUDLifecycle(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/handlers
+// covers: GET /api/v1/handlers/{id}/config
+// covers: POST /api/v1/handlers/{id}/config
+// covers: DELETE /api/v1/handlers/{id}/config
 func TestHandler_HTTP_ConfigRoundTrip(t *testing.T) {
 	h := th.New(t)
 
@@ -162,6 +174,8 @@ func TestHandler_HTTP_ConfigRoundTrip(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestHandler_LLM_SearchEmpty(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -186,6 +200,13 @@ func TestHandler_LLM_SearchEmpty(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/handlers
+// covers: POST /api/v1/handlers/{id}/config
+// covers: GET /api/v1/handlers/{id}
+// covers: POST /api/v1/handlers/{id}:call (happy)
+// covers: GET /api/v1/handlers/{id}/calls
+// covers: errcode:HANDLER_ENV_FAILED
+// covers: errcode:HANDLER_INSTANCE_SPAWN_FAILED
 func TestHandler_HTTP_CallAndCallLog(t *testing.T) {
 	h := th.New(t)
 	th.RequireFunctionResources(t, h)

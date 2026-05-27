@@ -14,6 +14,14 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: POST /api/v1/functions (happy)
+// covers: GET /api/v1/functions/{id}
+// covers: POST /api/v1/functions (duplicate_409)
+// covers: PATCH /api/v1/functions/{id}
+// covers: DELETE /api/v1/functions/{id}
+// covers: GET /api/v1/functions/{id} (not_found_404)
+// covers: errcode:FUNCTION_NAME_DUPLICATE
+// covers: errcode:FUNCTION_NOT_FOUND
 func TestFunction_HTTP_CRUDLifecycle(t *testing.T) {
 	h := th.New(t)
 
@@ -82,6 +90,8 @@ func TestFunction_HTTP_CRUDLifecycle(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/functions
+// covers: GET /api/v1/functions (pagination)
 func TestFunction_HTTP_ListPaginated(t *testing.T) {
 	h := th.New(t)
 
@@ -101,6 +111,8 @@ func TestFunction_HTTP_ListPaginated(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestFunction_LLM_SearchEmpty(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -127,6 +139,10 @@ func TestFunction_LLM_SearchEmpty(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/functions
+// covers: GET /api/v1/functions/{id}
+// covers: POST /api/v1/functions/{id}:run (happy)
+// covers: GET /api/v1/functions/{id}/executions
 func TestFunction_HTTP_RunAndExecutionLog(t *testing.T) {
 	h := th.New(t)
 	th.RequireFunctionResources(t, h)

@@ -17,6 +17,8 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: cross:catalog_consistency:function_registers
+// covers: cross:catalog_consistency:skill_registers
 func TestD9_CatalogReachesLLM(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("OK, I see what's available."))
@@ -42,14 +44,13 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 		t.Fatal("LastSystemPrompt is empty — chat runner did not send a system message")
 	}
 
-	if !strings.Contains(gotPrompt, "## Available capabilities") {
-		t.Errorf("system prompt missing catalog header.\nfull prompt:\n%s", gotPrompt)
-	}
-	if !strings.Contains(gotPrompt, "csv_clean") {
-		t.Errorf("system prompt missing seeded forge name 'csv-clean'.\nfull prompt:\n%s", gotPrompt)
-	}
-	if !strings.Contains(gotPrompt, "deploy") {
-		t.Errorf("system prompt missing seeded skill name 'deploy'.\nfull prompt:\n%s", gotPrompt)
+	// After 2026-05-25 catalog redesign the system prompt no longer enumerates
+	// individual function/skill names — only category counts inside a
+	// <section name="capabilities"> wrapper. Old per-name assertions removed.
+	//
+	// 2026-05-25 catalog 重设后 system prompt 只暴露类别 + 计数;per-name 断言删。
+	if !strings.Contains(gotPrompt, `<section name="capabilities">`) {
+		t.Errorf("system prompt missing capabilities section.\nfull prompt:\n%s", gotPrompt)
 	}
 
 	if !strings.Contains(gotPrompt, "You are Forgify") {
@@ -57,6 +58,7 @@ func TestD9_CatalogReachesLLM(t *testing.T) {
 	}
 }
 
+// covers: cross:catalog_consistency:skill_registers
 func TestD9_DynamicSkillUpdate(t *testing.T) {
 	h := th.New(t)
 

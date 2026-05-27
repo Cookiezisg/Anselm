@@ -17,6 +17,9 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: POST /api/v1/memories
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestMemory_UserPinnedReachesLLM(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("Acknowledged."))
@@ -64,6 +67,9 @@ func TestMemory_UserPinnedReachesLLM(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/memories
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestMemory_UnpinnedOnlyIndex(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("OK."))
@@ -107,6 +113,8 @@ func TestMemory_UnpinnedOnlyIndex(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestMemory_AIWritePersistsAndNotifies(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -156,6 +164,10 @@ func TestMemory_AIWritePersistsAndNotifies(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/memories
+// covers: POST /api/v1/memories/{name}:pin
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestMemory_PinTogglesContent(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("First reply."))

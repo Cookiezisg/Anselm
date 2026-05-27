@@ -13,6 +13,10 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: POST /api/v1/conversations (happy)
+// covers: GET /api/v1/conversations
+// covers: PATCH /api/v1/conversations/{id}
+// covers: DELETE /api/v1/conversations/{id}
 func TestConversation_CRUD_Roundtrip(t *testing.T) {
 	h := th.New(t)
 
@@ -62,6 +66,9 @@ func TestConversation_CRUD_Roundtrip(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations
+// covers: DELETE /api/v1/conversations/{id}
+// covers: GET /api/v1/conversations
 func TestConversation_SoftDelete_HidesFromList(t *testing.T) {
 	h := th.New(t)
 
@@ -91,6 +98,8 @@ func TestConversation_SoftDelete_HidesFromList(t *testing.T) {
 	}
 }
 
+// covers: DELETE /api/v1/conversations/{id} (not_found_404)
+// covers: errcode:CONVERSATION_NOT_FOUND
 func TestConversation_Delete_NotFound_Returns404(t *testing.T) {
 	h := th.New(t)
 	var errResp th.ErrEnvelope
@@ -103,6 +112,8 @@ func TestConversation_Delete_NotFound_Returns404(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations
+// covers: GET /api/v1/conversations (pagination)
 func TestConversation_CursorPagination_ExhaustPages(t *testing.T) {
 	h := th.New(t)
 

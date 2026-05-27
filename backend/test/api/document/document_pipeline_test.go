@@ -6,14 +6,12 @@
 package document_test
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -22,8 +20,20 @@ import (
 //
 // TestDocument_AgentCreatesViaToolCall —— fake LLM 发 create_document tool_call,
 // agent loop 跑该工具,doc 真落库。
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestDocument_AgentCreatesViaToolCall(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
+	// After capability-disclosure refactor, document tools are lazy: the agent
+	// must call activate_tools(category="document") first before create_document
+	// becomes available. We model the production flow with 3 sequential scripts.
+	//
+	// 能力披露重构后,document tool 是 lazy:agent 必须先调
+	// activate_tools(category="document") 才能用 create_document。3 步脚本模拟。
+	fake.PushScript(th.ScriptSingleToolCall(
+		"activate_tools", "tc_activate_doc",
+		`{"summary":"activating document tools","category":"document"}`,
+	))
 	fake.PushScript(th.ScriptSingleToolCall(
 		"create_document", "tc_create_1",
 		`{"summary":"creating root doc","name":"Project Alpha","description":"the main project"}`,
@@ -42,7 +52,7 @@ func TestDocument_AgentCreatesViaToolCall(t *testing.T) {
 		t.Fatalf("status=%q errMsg=%q\nraw:\n%s", final.Status, final.ErrorMessage, sub.FormatRawEvents())
 	}
 
-	ctx := reqctxpkg.SetUserID(context.Background(), "local-user")
+	ctx := th.CtxAs(th.DefaultUserID)
 	docs, err := h.Document.ListAll(ctx)
 	if err != nil {
 		t.Fatalf("ListAll: %v", err)
@@ -67,13 +77,15 @@ func TestDocument_AgentCreatesViaToolCall(t *testing.T) {
 //
 // TestDocument_AgentReadsAndEdits —— 先用 service 种一篇 doc,
 // agent 经 read_document 读 + edit_document 改,验证 DB 更新。
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestDocument_AgentReadsAndEdits(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 
 	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
 	h.SeedDeepSeek(t, "fake-test-key")
 
-	ctx := reqctxpkg.SetUserID(context.Background(), "local-user")
+	ctx := th.CtxAs(th.DefaultUserID)
 	seeded, err := h.Document.Create(ctx, documentapp.CreateInput{
 		Name:        "API Spec",
 		Description: "REST contract",
@@ -83,6 +95,13 @@ func TestDocument_AgentReadsAndEdits(t *testing.T) {
 		t.Fatalf("seed doc: %v", err)
 	}
 
+	// Turn 0: activate document tools (lazy category — capability disclosure).
+	//
+	// Turn 0: 激活 document 工具(lazy 类别 — 能力披露重构后)。
+	fake.PushScript(th.ScriptSingleToolCall(
+		"activate_tools", "tc_activate_doc",
+		`{"summary":"activating document tools","category":"document"}`,
+	))
 	// Turn 1: read the doc
 	fake.PushScript(th.ScriptSingleToolCall(
 		"read_document", "tc_read_1",

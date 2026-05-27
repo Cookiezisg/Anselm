@@ -19,6 +19,7 @@ import (
 //
 // TestWorkflow_AgentNode_CreatesDoc_E2E —— fake LLM 让 `agent` 节点调
 // create_document;run 完成后验证 doc 真落库。
+// covers: cross:workflow_scheduler:trigger_full_dag
 func TestWorkflow_AgentNode_CreatesDoc_E2E(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -88,6 +89,8 @@ func TestWorkflow_AgentNode_CreatesDoc_E2E(t *testing.T) {
 //
 // TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E —— `llm` 节点挂 doc,
 // 验证 fake LLM 收到的 prompt 含 doc 内容。
+// covers: cross:mention_document:single_doc_snapshot
+// covers: cross:workflow_scheduler:trigger_full_dag
 func TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("ok-acknowledged-llm-node"))
@@ -166,6 +169,7 @@ func TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E(t *testing.T) {
 //
 // TestWorkflow_LLM_AttachedDocMissing_ValidationRejects —— validate 期
 // 抓未存在的 doc 引用。
+// covers: cross:mention_document:nonexistent_rejected
 func TestWorkflow_LLM_AttachedDocMissing_ValidationRejects(t *testing.T) {
 	h := th.New(t)
 	ctx := th.CtxAs("test-user")

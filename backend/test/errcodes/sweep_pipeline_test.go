@@ -12,6 +12,18 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: errcode:INVALID_REQUEST
+// covers: errcode:NOT_FOUND
+// covers: errcode:API_KEY_NOT_FOUND
+// covers: errcode:INVALID_PROVIDER
+// covers: errcode:BASE_URL_REQUIRED
+// covers: errcode:KEY_REQUIRED
+// covers: errcode:API_FORMAT_REQUIRED
+// covers: errcode:INVALID_SCENARIO
+// covers: errcode:PROVIDER_REQUIRED
+// covers: errcode:MODEL_ID_REQUIRED
+// covers: errcode:CONVERSATION_NOT_FOUND
+// covers: errcode:STREAM_NOT_FOUND
 func TestErrCodes_Sweep(t *testing.T) {
 	h := th.New(t)
 
@@ -128,6 +140,9 @@ func TestErrCodes_Sweep(t *testing.T) {
 	}
 }
 
+// covers: errcode:FUNCTION_NAME_DUPLICATE
+// covers: errcode:FUNCTION_NOT_FOUND
+// covers: errcode:FUNCTION_PENDING_NOT_FOUND
 func TestErrCodes_FunctionDomain(t *testing.T) {
 	h := th.New(t)
 

@@ -48,6 +48,7 @@ func findSubagentRuns(t *testing.T, h *th.Harness, convID string) []map[string]a
 	return out
 }
 
+// covers: cross:subagent:general_purpose_terminates
 func TestSubagent_Spawn_EndToEnd(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -109,6 +110,7 @@ func TestSubagent_Spawn_EndToEnd(t *testing.T) {
 	}
 }
 
+// covers: cross:subagent:general_purpose_terminates
 func TestSubagent_EventLog_CarriesSubagentRunMetadata(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(

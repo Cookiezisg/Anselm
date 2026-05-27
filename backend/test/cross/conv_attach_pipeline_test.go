@@ -54,7 +54,7 @@ func TestDocument_ConversationAttach_SingleDoc(t *testing.T) {
 
 	prompt := fake.LastSystemPrompt()
 	for _, want := range []string{
-		"──── Attached documents ────",
+		"<documents>",
 		`<document path="/API spec"`,
 		"GET /widgets",
 	} {

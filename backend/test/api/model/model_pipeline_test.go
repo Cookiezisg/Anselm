@@ -23,6 +23,8 @@ func putModelConfig(t *testing.T, h *th.Harness, scenario, provider, modelID str
 	}, out)
 }
 
+// covers: PUT /api/v1/model-configs/{scenario}
+// covers: GET /api/v1/model-configs
 func TestModel_UpsertAndList_Roundtrip(t *testing.T) {
 	h := th.New(t)
 	// model.Upsert now requires a matching api-key (green-save / red-runtime
@@ -70,6 +72,7 @@ func TestModel_UpsertAndList_Roundtrip(t *testing.T) {
 	}
 }
 
+// covers: PUT /api/v1/model-configs/{scenario}
 func TestModel_Upsert_Idempotent_IDUnchanged(t *testing.T) {
 	h := th.New(t)
 	h.SeedDeepSeek(t, "test-key")
@@ -93,6 +96,8 @@ func TestModel_Upsert_Idempotent_IDUnchanged(t *testing.T) {
 	}
 }
 
+// covers: PUT /api/v1/model-configs/{scenario} (invalid_scenario_400)
+// covers: errcode:INVALID_SCENARIO
 func TestModel_Upsert_InvalidScenario_Returns400(t *testing.T) {
 	h := th.New(t)
 	var errResp th.ErrEnvelope
@@ -104,6 +109,8 @@ func TestModel_Upsert_InvalidScenario_Returns400(t *testing.T) {
 	}
 }
 
+// covers: PUT /api/v1/model-configs/{scenario} (missing_provider_400)
+// covers: errcode:PROVIDER_REQUIRED
 func TestModel_Upsert_MissingProvider_Returns400(t *testing.T) {
 	h := th.New(t)
 	var errResp th.ErrEnvelope

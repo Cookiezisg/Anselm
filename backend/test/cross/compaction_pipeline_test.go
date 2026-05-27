@@ -16,6 +16,7 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: cross:compaction_memory:soft_downgrades_old
 func TestCompaction_NoOpBelowThreshold(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("hello"))
@@ -47,6 +48,7 @@ func TestCompaction_NoOpBelowThreshold(t *testing.T) {
 	}
 }
 
+// covers: cross:compaction_memory:soft_downgrades_old
 func TestCompaction_DemoteOnly(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	for i := 0; i < 4; i++ {
@@ -100,6 +102,7 @@ func TestCompaction_DemoteOnly(t *testing.T) {
 	}
 }
 
+// covers: cross:compaction_memory:hard_summary_archives
 func TestCompaction_FullCompactSummaryReachesNextTurn(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("first reply."))

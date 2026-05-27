@@ -32,6 +32,14 @@ func happyOps(name string) []map[string]any {
 	}
 }
 
+// covers: POST /api/v1/workflows
+// covers: POST /api/v1/workflows (duplicate_409)
+// covers: GET /api/v1/workflows/{id}
+// covers: GET /api/v1/workflows/{id} (not_found_404)
+// covers: PATCH /api/v1/workflows/{id}
+// covers: DELETE /api/v1/workflows/{id}
+// covers: errcode:WORKFLOW_NAME_DUPLICATE
+// covers: errcode:WORKFLOW_NOT_FOUND
 func TestWorkflow_HTTP_CRUDLifecycle(t *testing.T) {
 	h := th.New(t)
 
@@ -114,6 +122,10 @@ func TestWorkflow_HTTP_CRUDLifecycle(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/workflows
+// covers: GET /api/v1/workflows/{id}/pending
+// covers: POST /api/v1/workflows/{id}/pending:accept
+// covers: GET /api/v1/workflows/{id}/versions
 func TestWorkflow_HTTP_VersionsAndPending(t *testing.T) {
 	h := th.New(t)
 
@@ -199,6 +211,8 @@ func TestWorkflow_HTTP_VersionsAndPending(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestWorkflow_LLM_SearchEmpty(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(

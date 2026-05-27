@@ -11,6 +11,7 @@ import (
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
+// covers: cross:workflow_scheduler:approval_pause_resume
 func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	h := th.New(t)
 	ctx := th.CtxAs("test-user")
@@ -77,6 +78,7 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	t.Fatalf("run did not complete after approval within 2s")
 }
 
+// covers: cross:workflow_scheduler:approval_pause_resume
 func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 	h := th.New(t)
 	ctx := th.CtxAs("test-user")
@@ -122,6 +124,7 @@ func TestApproval_InvalidDecision_Returns400(t *testing.T) {
 	}
 }
 
+// covers: cross:workflow_scheduler:approval_pause_resume
 func TestApproval_WrongNodeID_Returns404(t *testing.T) {
 	h := th.New(t)
 	ctx := th.CtxAs("test-user")

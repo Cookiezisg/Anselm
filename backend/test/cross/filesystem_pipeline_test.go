@@ -89,6 +89,7 @@ func TestFileOps_ReadEditClosedLoop(t *testing.T) {
 	}
 }
 
+// covers: cross:tool_framework:needs_read_first
 func TestFileOps_WriteWithoutReadDenied(t *testing.T) {
 	dir := t.TempDir()
 	target := filepath.Join(dir, "exists.txt")

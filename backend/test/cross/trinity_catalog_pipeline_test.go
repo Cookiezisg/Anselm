@@ -32,6 +32,8 @@ func createHandlerForCatalog(t *testing.T, h *th.Harness, name, desc string, sch
 	return hd
 }
 
+// covers: cross:catalog_consistency:function_registers
+// covers: cross:catalog_consistency:handler_registers
 func TestCatalog_IncludesFunctionAndHandlerItems(t *testing.T) {
 	h := th.New(t)
 
@@ -62,6 +64,7 @@ func TestCatalog_IncludesFunctionAndHandlerItems(t *testing.T) {
 	}
 }
 
+// covers: cross:catalog_consistency:handler_registers
 func TestCatalog_HandlerWithoutConfigSurfaces(t *testing.T) {
 	h := th.New(t)
 

@@ -36,6 +36,8 @@ func seedSkill(t *testing.T, h *th.Harness, name, frontmatter, body string) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestSkill_Activate_Inline_E2E(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -86,6 +88,8 @@ Step 1: gh pr view $1`)
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestSkill_Search_Then_Activate_E2E(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -153,6 +157,8 @@ make deploy-$1`)
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestSkill_PreApproval_BashAfterActivate(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(

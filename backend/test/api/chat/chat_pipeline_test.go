@@ -28,6 +28,8 @@ func isTerminal(status string) bool {
 		status == chatdomain.StatusCancelled
 }
 
+// covers: POST /api/v1/conversations/{id}/messages (happy)
+// covers: GET /api/v1/eventlog
 func TestChat_SimpleText_StreamingSnapshots(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushDefault(th.ScriptText("Rivers form through erosion and deposition over long periods of time."))
@@ -74,6 +76,9 @@ func TestChat_SimpleText_StreamingSnapshots(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
+// covers: errcode:MODEL_NOT_CONFIGURED
 func TestChat_MissingModelConfig_ErrorCodePersisted(t *testing.T) {
 	h := th.New(t)
 	conv := h.NewConversation(t, "no-config")
@@ -113,6 +118,8 @@ func TestChat_MissingModelConfig_ErrorCodePersisted(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChat_ToolCall_SearchFunction(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -148,6 +155,9 @@ func TestChat_ToolCall_SearchFunction(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: DELETE /api/v1/conversations/{id}/stream
+// covers: GET /api/v1/eventlog
 func TestChat_CancelMidStream_StatusCancelled(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushDefault(th.ScriptSlowText(
@@ -187,6 +197,8 @@ func TestChat_CancelMidStream_StatusCancelled(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChat_Live_ReasoningModel_BlocksSeparate(t *testing.T) {
 	key := th.RequireDeepSeekKey(t)
 	h := th.New(t)
@@ -231,6 +243,9 @@ func TestChat_Live_ReasoningModel_BlocksSeparate(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
+// covers: errcode:API_KEY_PROVIDER_NOT_FOUND
 func TestChat_MissingAPIKey_ErrorCodePersisted(t *testing.T) {
 	h := th.New(t)
 
@@ -278,6 +293,8 @@ func TestChat_MissingAPIKey_ErrorCodePersisted(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChat_LLMStreamError_StatusError(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushDefault(th.ScriptHTTPError(401))
@@ -301,6 +318,9 @@ func TestChat_LLMStreamError_StatusError(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: DELETE /api/v1/conversations/{id}/stream
+// covers: GET /api/v1/eventlog
 func TestChat_CancelDuringSecondLLMCall_StatusCancelled(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -335,6 +355,8 @@ func TestChat_CancelDuringSecondLLMCall_StatusCancelled(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChatReact_MultiStep_TwoToolRounds(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptSingleToolCall(
@@ -387,6 +409,8 @@ func TestChatReact_MultiStep_TwoToolRounds(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChatReact_ParallelToolCalls_BothExecuted(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptParallelToolCalls([]th.ToolCallSpec{
@@ -436,6 +460,9 @@ func TestChatReact_ParallelToolCalls_BothExecuted(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChatReact_HistoryRebuild_OrderCorrect(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("First reply"))
@@ -482,6 +509,9 @@ func TestChatReact_HistoryRebuild_OrderCorrect(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
+// covers: GET /api/v1/notifications
 func TestChatAutoTitle_EmptyTitle_TitleGenerated(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("Rivers form through erosion and deposition."))
@@ -510,6 +540,9 @@ func TestChatAutoTitle_EmptyTitle_TitleGenerated(t *testing.T) {
 	t.Logf("auto-title generated: %q", titled.Title)
 }
 
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
+// covers: GET /api/v1/notifications
 func TestChatAutoTitle_ExplicitTitle_NotRegenerated(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushScript(th.ScriptText("That is a great question."))
@@ -531,6 +564,8 @@ func TestChatAutoTitle_ExplicitTitle_NotRegenerated(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/conversations/{id}/messages (queue_full_409)
+// covers: errcode:STREAM_IN_PROGRESS
 func TestChatQueue_Full_Returns409(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	// 800ms initial delay so the worker stays busy long enough to fill the 5-slot queue.
@@ -567,6 +602,10 @@ func TestChatQueue_Full_Returns409(t *testing.T) {
 	}
 }
 
+// covers: POST /api/v1/attachments
+// covers: POST /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/conversations/{id}/messages
+// covers: GET /api/v1/eventlog
 func TestChatAttachment_TextFile_UploadAndSend(t *testing.T) {
 	fake := th.NewFakeLLMServer(t)
 	fake.PushDefault(th.ScriptText("I have noted the content of your file."))
