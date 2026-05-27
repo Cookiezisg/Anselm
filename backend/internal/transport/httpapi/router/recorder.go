@@ -15,8 +15,8 @@ import (
 //
 // Route 是一次注册记录。
 type Route struct {
-	Method string // "GET" / "POST" / ... / "ANY" (no-method pattern)
-	Path   string // "/api/v1/health"
+	Method string
+	Path   string
 }
 
 // Recorder wraps a mux and intercepts HandleFunc to record entries.
@@ -28,6 +28,9 @@ type Recorder struct {
 	routes []Route
 }
 
+// NewRecorder wraps mux so registrations are recorded in addition to forwarded.
+//
+// NewRecorder 包装 mux,注册同时写入记录。
 func NewRecorder(mux *http.ServeMux) *Recorder {
 	return &Recorder{mux: mux, routes: make([]Route, 0, 64)}
 }

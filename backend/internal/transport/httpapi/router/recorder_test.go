@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -13,14 +14,25 @@ func TestRecorder_RecordsHandleFunc(t *testing.T) {
 	rec.HandleFunc("/api/v1/forge", func(w http.ResponseWriter, r *http.Request) {}) // no method = ANY
 
 	routes := rec.List()
-	if len(routes) != 3 {
-		t.Fatalf("want 3 routes, got %d", len(routes))
+	want := []Route{
+		{Method: "GET", Path: "/api/v1/health"},
+		{Method: "POST", Path: "/api/v1/conversations"},
+		{Method: "ANY", Path: "/api/v1/forge"},
 	}
-	if routes[0].Method != "GET" || routes[0].Path != "/api/v1/health" {
-		t.Errorf("route 0: want GET /api/v1/health, got %s %s", routes[0].Method, routes[0].Path)
+	if len(routes) != len(want) {
+		t.Fatalf("want %d routes, got %d", len(want), len(routes))
 	}
-	if routes[2].Method != "ANY" || routes[2].Path != "/api/v1/forge" {
-		t.Errorf("route 2: want ANY /api/v1/forge, got %s %s", routes[2].Method, routes[2].Path)
+	for _, w := range want {
+		found := false
+		for _, r := range routes {
+			if r.Method == w.Method && r.Path == w.Path {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected route %s %s not found in %+v", w.Method, w.Path, routes)
+		}
 	}
 }
 
@@ -33,19 +45,29 @@ func TestRecorder_PassthroughToMux(t *testing.T) {
 	})
 
 	req, _ := http.NewRequest("GET", "/ping", nil)
-	mux.ServeHTTP(&noopResponseWriter{}, req)
+	mux.ServeHTTP(httptest.NewRecorder(), req)
 	if !called {
 		t.Error("handler not called through underlying mux")
 	}
 }
 
-type noopResponseWriter struct{ h http.Header }
-
-func (n *noopResponseWriter) Header() http.Header {
-	if n.h == nil {
-		n.h = http.Header{}
+func TestRecorder_HandleAlsoRecords(t *testing.T) {
+	mux := http.NewServeMux()
+	rec := NewRecorder(mux)
+	rec.Handle("DELETE /api/v1/things/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	routes := rec.List()
+	if len(routes) != 1 || routes[0].Method != "DELETE" || routes[0].Path != "/api/v1/things/{id}" {
+		t.Errorf("want [DELETE /api/v1/things/{id}], got %+v", routes)
 	}
-	return n.h
 }
-func (n *noopResponseWriter) Write(b []byte) (int, error) { return len(b), nil }
-func (n *noopResponseWriter) WriteHeader(int)             {}
+
+func TestRecorder_ListReturnsSnapshot(t *testing.T) {
+	mux := http.NewServeMux()
+	rec := NewRecorder(mux)
+	rec.HandleFunc("GET /one", func(w http.ResponseWriter, r *http.Request) {})
+	snap := rec.List()
+	rec.HandleFunc("GET /two", func(w http.ResponseWriter, r *http.Request) {})
+	if len(snap) != 1 {
+		t.Errorf("snapshot should still be 1 after a later registration, got %d", len(snap))
+	}
+}
