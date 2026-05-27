@@ -125,12 +125,13 @@ useWorkflowEdit(workflowId, original: CanvasGraph)
 ### 意图 API
 
 ```ts
-const { markDirty, dirty, savedAt, isSaving } = useWorkflowEdit(workflowId, original);
+const { markDirty, resetDirty, dirty, savedAt, isSaving } = useWorkflowEdit(workflowId, original);
 ```
 
 | 成员 | 类型 | 说明 |
 |---|---|---|
 | `markDirty` | `(graph: CanvasGraph) => void` | 画布任何变更调用；触发防抖 autosave |
+| `resetDirty` | `() => void` | 版本切换时调用：取消在途 timer、清 dirty flag，防止版本 N 的脏态持续到版本 N+1 |
 | `dirty` | `boolean` | 有未保存变更 |
 | `savedAt` | `Date \| null` | 最近一次成功保存时间 |
 | `isSaving` | `boolean` | autosave mutation 进行中 |
@@ -165,6 +166,7 @@ WorkflowEditor 画布事件（节点移动/添加/删除、边添加/删除）
 | ops 为空时不发请求 | diffToOps 结果长度 0 → early return，避免无意义 API 调用 |
 | 卸载清理 | `useEffect` cleanup → `clearTimeout`，防止卸载后 mutate |
 | orig 稳定性 | `original` 作为 `useCallback` dep；WorkflowEditor 需保证 prop 引用稳定 |
+| 版本切换脏态 | WorkflowEditor 版本变更 effect 调 `resetDirty()`，防止旧版本脏态渗入新版本 |
 
 ---
 

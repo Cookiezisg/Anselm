@@ -66,12 +66,21 @@ export const useSessionStore = create<SessionState>()(
 ## 4. resolveSession（`model/resolve.ts`）
 
 ```ts
+let inflight: Promise<void> | null = null;
+
 export async function resolveSession(): Promise<void> {
+  if (inflight) return inflight;
+  inflight = _resolve().finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function _resolve(): Promise<void> {
   const s = useSessionStore.getState();
   s.setStatus("loading");
   const users = await fetchUsers();   // 直接 apiFetch，不经 TanStack 缓存
 
   if (users.length === 0) {
+    s.setCurrentUser(null);  // 清 stale userId，防止 SSE 以旧 id 尝试连接
     s.setStatus("onboarding");
     return;
   }
@@ -83,7 +92,9 @@ export async function resolveSession(): Promise<void> {
 ```
 
 关键设计：
+- **模块级 in-flight 去重**：StrictMode 双调、多路 SSE 断连同时触发时复用同一 Promise，只发一次 `/users` 请求
 - `fetchUsers` 直接调 `apiFetch`（绕过 TanStack 缓存）——确保 resolve 基于最新 /users 数据，不受 stale 快照影响
+- **onboarding 分支清空 userId**：`setCurrentUser(null)` 防止空用户列表时 stale userId 仍触发 SSE 连接
 - stale/null `currentUserId` 自动 fallback 到 `users[0]`（单用户场景无感切换）
 - 不循环重试——失败抛到 App 层处理
 

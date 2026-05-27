@@ -90,7 +90,7 @@ useEntityDirectory():
   return { nodes, edges }
 ```
 
-注意：skill 和 mcp 以 `name` 作 id（无数字 id，与后端 S15 一致）。
+注意：skill 和 mcp 以 `name` 作 id（无数字 id，与后端 S15 一致；后端 `Relation` struct 使用 `fromId`/`toId`/`kind` 字段，代码中 `r.fromId`/`r.toId` 即为此契约，已审计确认正确）。
 
 ### normEdges（纯函数）
 
