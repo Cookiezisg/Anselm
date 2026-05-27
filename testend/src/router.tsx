@@ -43,6 +43,11 @@ import { FlowRuns } from "@/views/execute/FlowRuns";
 import { FlowRunDetail } from "@/views/execute/FlowRunDetail";
 import { ApprovalsQueue } from "@/views/execute/ApprovalsQueue";
 import { Executions } from "@/views/execute/Executions";
+import { LiveSSE } from "@/views/observe/LiveSSE";
+import { NotificationHistory } from "@/views/observe/NotificationHistory";
+import { Catalog } from "@/views/observe/Catalog";
+import { Usage } from "@/views/observe/Usage";
+import { MockLLM } from "@/views/observe/MockLLM";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="empty">TODO: {name}</div>;
@@ -83,11 +88,11 @@ export const router = createHashRouter([
       { path: "execute/executions",    element: <Executions /> },
 
       // observe/ (5)
-      { path: "observe/live",          element: <Placeholder name="observe/LiveSSE" /> },
-      { path: "observe/notifications", element: <Placeholder name="observe/NotificationHistory" /> },
-      { path: "observe/catalog",       element: <Placeholder name="observe/Catalog" /> },
-      { path: "observe/usage",         element: <Placeholder name="observe/Usage" /> },
-      { path: "observe/mock-llm",      element: <Placeholder name="observe/MockLLM" /> },
+      { path: "observe/live",          element: <LiveSSE /> },
+      { path: "observe/notifications", element: <NotificationHistory /> },
+      { path: "observe/catalog",       element: <Catalog /> },
+      { path: "observe/usage",         element: <Usage /> },
+      { path: "observe/mock-llm",      element: <MockLLM /> },
 
       // config/ (10)
       { path: "config/apikeys",        element: <ApiKeys /> },
