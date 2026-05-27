@@ -38,6 +38,11 @@ import { HandlerDetail } from "@/views/forge/HandlerDetail";
 import { Workflows } from "@/views/forge/Workflows";
 import { WorkflowDetail } from "@/views/forge/WorkflowDetail";
 import { ToolsRegistry } from "@/views/forge/ToolsRegistry";
+import { Triggers } from "@/views/execute/Triggers";
+import { FlowRuns } from "@/views/execute/FlowRuns";
+import { FlowRunDetail } from "@/views/execute/FlowRunDetail";
+import { ApprovalsQueue } from "@/views/execute/ApprovalsQueue";
+import { Executions } from "@/views/execute/Executions";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="empty">TODO: {name}</div>;
@@ -71,11 +76,11 @@ export const router = createHashRouter([
       { path: "forge/tools",           element: <ToolsRegistry /> },
 
       // execute/ (5)
-      { path: "execute/triggers",      element: <Placeholder name="execute/Triggers" /> },
-      { path: "execute/flowruns",      element: <Placeholder name="execute/FlowRuns" /> },
-      { path: "execute/flowruns/:id",  element: <Placeholder name="execute/FlowRunDetail" /> },
-      { path: "execute/approvals",     element: <Placeholder name="execute/ApprovalsQueue" /> },
-      { path: "execute/executions",    element: <Placeholder name="execute/Executions" /> },
+      { path: "execute/triggers",      element: <Triggers /> },
+      { path: "execute/flowruns",      element: <FlowRuns /> },
+      { path: "execute/flowruns/:id",  element: <FlowRunDetail /> },
+      { path: "execute/approvals",     element: <ApprovalsQueue /> },
+      { path: "execute/executions",    element: <Executions /> },
 
       // observe/ (5)
       { path: "observe/live",          element: <Placeholder name="observe/LiveSSE" /> },
