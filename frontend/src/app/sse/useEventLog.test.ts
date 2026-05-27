@@ -1,7 +1,7 @@
-// @ts-nocheck
 // useEventLog — single global subscription to /eventlog. Tests verify
 // event dispatch to chat store + currentUserId reconnect.
 
+import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,14 +12,14 @@ import { useSessionStore } from "@entities/session";
 import { setUserIdProvider } from "@shared/api/authProvider";
 import { useEventLog } from "./useEventLog.js";
 
-const wrap = ({ children }) => {
+const wrap = ({ children }: { children: React.ReactNode }) => {
   const c = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return createElement(QueryClientProvider, { client: c }, children);
 };
 
 beforeEach(async () => {
   MockEventSource.reset();
-  globalThis.EventSource = MockEventSource;
+  globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
   useChatStore.setState({ convs: {}, hydratedConvs: new Set() });
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
@@ -75,6 +75,6 @@ describe("useEventLog", () => {
     es.emit("block_delta", { conversationId: CV, id: "blk_1", delta: "hi" });
     // rAF batched; wait
     await new Promise((r) => setTimeout(r, 25));
-    expect(useChatStore.getState().convs[CV].blocks.get("blk_1").content).toBe("hi");
+    expect(useChatStore.getState().convs[CV].blocks.get("blk_1")!.content).toBe("hi");
   });
 });

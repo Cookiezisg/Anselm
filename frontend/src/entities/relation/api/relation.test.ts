@@ -1,13 +1,13 @@
-// @ts-nocheck
 // entities/relation/api — useAllRelations / useRelationFilter / useNeighborhood
 // query key + URL shapes. Migrated from src/api/relations.test.js (4b.5 recovery).
 
+import React from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderQuery } from "../../../shared/api/_testHarness.js";
+import { setupFetchSpy, renderQuery, type FetchCall } from "../../../shared/api/_testHarness";
 import { useAllRelations, useRelationFilter, useNeighborhood } from "./relation.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../../../shared/bridge/wails.js");
@@ -41,7 +41,8 @@ describe("useNeighborhood", () => {
     const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
     const { createElement } = await import("react");
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrap = ({ children }) => createElement(QueryClientProvider, { client }, children);
+    const wrap = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children);
     renderHook(() => useNeighborhood({ kind: "", id: "" }), { wrapper: wrap });
     await new Promise((r) => setTimeout(r, 30));
     expect(calls.length).toBe(0);

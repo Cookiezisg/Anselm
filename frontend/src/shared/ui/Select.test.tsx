@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Select — trigger renders selected label; popover open/close, option pick,
 // keyboard nav, disabled gating.
 
@@ -76,7 +75,7 @@ describe("Select", () => {
 
   it("disabled_showsNoPopoverOnClick", async () => {
     render(<Select value="alpha" onChange={() => {}} options={opts} disabled />);
-    const trigger = screen.getByRole("button");
+    const trigger = screen.getByRole<HTMLButtonElement>("button");
     expect(trigger.disabled).toBe(true);
     await userEvent.click(trigger);
     expect(screen.queryByRole("listbox")).toBeNull();

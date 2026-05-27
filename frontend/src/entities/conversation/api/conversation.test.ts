@@ -1,17 +1,16 @@
-// @ts-nocheck
 // entities/conversation/api — verifies each hook hits the correct endpoint
 // with the correct method + body, and mutations invalidate the right
 // query keys. Migrated from src/api/conversations.test.js (4b.5 recovery).
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderMutation } from "../../../shared/api/_testHarness.js";
+import { setupFetchSpy, renderMutation, type FetchCall } from "../../../shared/api/_testHarness";
 import {
   useCreateConversation, useUpdateConversation, useDeleteConversation,
   useSendMessage, useCancelStream,
 } from "./conversation.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../../../shared/bridge/wails.js");

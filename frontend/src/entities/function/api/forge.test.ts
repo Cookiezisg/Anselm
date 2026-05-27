@@ -1,11 +1,10 @@
-// @ts-nocheck
 // entities/function+handler+workflow api — forge trinity hooks.
 // Migrated from src/api/forge.test.js (4b.5 recovery).
 // useIterateForge now lives in features/forge-iterate, imported from there.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderMutation } from "../../../shared/api/_testHarness.js";
+import { setupFetchSpy, renderMutation, type FetchCall } from "../../../shared/api/_testHarness";
 import {
   useAcceptFunction, useRejectFunction, useRevertFunction,
   useRunFunction, useDeleteFunction,
@@ -20,7 +19,7 @@ import {
 } from "../../workflow/api/workflow.js";
 import { useIterateForge } from "../../../features/forge-iterate/index.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../../../shared/bridge/wails.js");
@@ -74,10 +73,10 @@ describe("handler mutations", () => {
 
   it("useCallHandler_postsMethodAndArgs", async () => {
     const { result } = await renderMutation(useCallHandler);
-    result.current.mutate({ id: "hd_1", method: "do", args: [1, 2] });
+    result.current.mutate({ id: "hd_1", method: "do", args: { a: 1, b: 2 } });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(calls[0].url).toBe("/api/v1/handlers/hd_1:call");
-    expect(JSON.parse(calls[0].body)).toEqual({ method: "do", args: [1, 2] });
+    expect(JSON.parse(calls[0].body)).toEqual({ method: "do", args: { a: 1, b: 2 } });
   });
 
   it("useDeleteHandler_deletesById", async () => {
@@ -113,10 +112,10 @@ describe("workflow mutations", () => {
 
   it("useEditWorkflow_postsOpsWithDefaultReason", async () => {
     const { result } = await renderMutation(() => useEditWorkflow("wf_1"));
-    result.current.mutate({ ops: [{ type: "add" }] });
+    result.current.mutate({ ops: [{ op: "add_node", type: "function" }] });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(calls[0]).toMatchObject({ url: "/api/v1/workflows/wf_1:edit" });
-    expect(JSON.parse(calls[0].body)).toEqual({ ops: [{ type: "add" }], changeReason: "manual edit" });
+    expect(JSON.parse(calls[0].body)).toEqual({ ops: [{ op: "add_node", type: "function" }], changeReason: "manual edit" });
   });
 
   it("useCapabilityCheck_postsToActionSuffix", async () => {

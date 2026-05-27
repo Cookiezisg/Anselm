@@ -1,7 +1,7 @@
-// @ts-nocheck
 // useForge — 4-event SSE stream → useForgeProgress store + cache
 // invalidation on completion.
 
+import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -13,13 +13,14 @@ import { useForge, useForgeProgress } from "./useForge.js";
 
 function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const wrap = ({ children }) => createElement(QueryClientProvider, { client }, children);
+  const wrap = ({ children }: { children: React.ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children);
   return { client, wrap };
 }
 
 beforeEach(async () => {
   MockEventSource.reset();
-  globalThis.EventSource = MockEventSource;
+  globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
   useForgeProgress.setState({ active: {} });

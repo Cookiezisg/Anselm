@@ -1,15 +1,14 @@
-// @ts-nocheck
 // entities/flowrun/api — flow run + approval hooks.
 // Migrated from src/api/flowruns.test.js (4b.5 recovery).
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderMutation } from "../../../shared/api/_testHarness.js";
+import { setupFetchSpy, renderMutation, type FetchCall } from "../../../shared/api/_testHarness";
 import {
   useCancelFlowRun, useApproveNode, useRejectNode, useTriageFlowRun,
 } from "./flowrun.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../../../shared/bridge/wails.js");

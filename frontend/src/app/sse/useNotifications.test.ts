@@ -1,7 +1,7 @@
-// @ts-nocheck
 // useNotifications — SSE dispatch + per-type query invalidation +
 // unread counter + ask-modal pending state.
 
+import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,13 +14,14 @@ import { useNotifications } from "./useNotifications.js";
 
 function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const wrap = ({ children }) => createElement(QueryClientProvider, { client }, children);
+  const wrap = ({ children }: { children: React.ReactNode }) =>
+    createElement(QueryClientProvider, { client }, children);
   return { client, wrap };
 }
 
 beforeEach(async () => {
   MockEventSource.reset();
-  globalThis.EventSource = MockEventSource;
+  globalThis.EventSource = MockEventSource as unknown as typeof EventSource;
   setUserIdProvider(() => useSessionStore.getState().currentUserId);
   useSessionStore.setState({ currentUserId: "u_test" });
   useOverlayStore.setState({ pendingAsk: null });
@@ -67,7 +68,7 @@ describe("useNotifications", () => {
     renderHook(() => useNotifications(), { wrapper: wrap });
     await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
     const es = MockEventSource.instances[0];
-    useOverlayStore.setState({ pendingAsk: { id: "x" } });
+    useOverlayStore.setState({ pendingAsk: { id: "x" } as import("@app/model").PendingAsk });
     act(() => es.emit("notification", { type: "ask", id: "ask_2", data: { action: "resolved" } }));
     expect(useOverlayStore.getState().pendingAsk).toBeNull();
   });

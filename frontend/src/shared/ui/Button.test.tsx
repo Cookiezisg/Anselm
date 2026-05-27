@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Button — variant + size + loading class composition.
 
 import { describe, expect, it, vi } from "vitest";
@@ -29,15 +28,15 @@ describe("Button", () => {
 
   it("loading_addsIsLoadingClass_disablesButton_showsSpinner", () => {
     const { container } = render(<Button loading>x</Button>);
-    const btn = container.querySelector(".btn");
-    expect(btn.classList.contains("is-loading")).toBe(true);
-    expect(btn.disabled).toBe(true);
+    const btn = container.querySelector<HTMLButtonElement>(".btn");
+    expect(btn!.classList.contains("is-loading")).toBe(true);
+    expect(btn!.disabled).toBe(true);
     expect(container.querySelector(".spinner")).toBeTruthy();
   });
 
   it("disabledProp_disablesButton", () => {
     const { container } = render(<Button disabled>x</Button>);
-    expect(container.querySelector("button").disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>("button")!.disabled).toBe(true);
   });
 
   it("click_callsOnClick", async () => {

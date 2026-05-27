@@ -1,13 +1,12 @@
-// @ts-nocheck
 // entities/user/api — local profile CRUD hooks.
 // Migrated from src/api/users.test.js (4b.5 recovery).
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderMutation } from "../../../shared/api/_testHarness.js";
+import { setupFetchSpy, renderMutation, type FetchCall } from "../../../shared/api/_testHarness";
 import { useCreateUser, useUpdateUser, useDeleteUser } from "./user.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("../../../shared/bridge/wails.js");
@@ -35,10 +34,10 @@ describe("useCreateUser", () => {
 describe("useUpdateUser", () => {
   it("patchesUserById_withDestructuredArg", async () => {
     const { result } = await renderMutation(useUpdateUser);
-    result.current.mutate({ id: "u_1", patch: { username: "bob" } });
+    result.current.mutate({ id: "u_1", patch: { displayName: "bob" } });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(calls[0]).toMatchObject({ url: "/api/v1/users/u_1", method: "PATCH" });
-    expect(JSON.parse(calls[0].body)).toEqual({ username: "bob" });
+    expect(JSON.parse(calls[0].body)).toEqual({ displayName: "bob" });
   });
 });
 

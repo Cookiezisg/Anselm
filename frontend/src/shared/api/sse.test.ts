@@ -33,7 +33,7 @@ describe("createSSE", () => {
     useSessionStore.setState({ currentUserId: "u_test_123" });
     const { createSSE } = await import("./sse");
     createSSE({ path: "/eventlog", eventHandlers: {} });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     expect(es.url).toContain("userID=u_test_123");
     useSessionStore.setState({ currentUserId: null });
   });
@@ -43,7 +43,7 @@ describe("createSSE", () => {
     useSessionStore.setState({ currentUserId: "u_q" });
     const { createSSE } = await import("./sse");
     createSSE({ path: "/eventlog?a=1", eventHandlers: {} });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     expect(es.url).toBe("/api/v1/eventlog?a=1&userID=u_q");
     useSessionStore.setState({ currentUserId: null });
   });
@@ -54,7 +54,7 @@ describe("createSSE", () => {
     const { createSSE } = await import("./sse");
     const onDelta = vi.fn();
     createSSE({ path: "/eventlog", eventHandlers: { block_delta: onDelta } });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     es.emit("block_delta", { id: "blk_1", delta: "hi" }, "42");
     expect(onDelta).toHaveBeenCalledWith({ id: "blk_1", delta: "hi" }, { seq: 42, raw: '{"id":"blk_1","delta":"hi"}' });
     useSessionStore.setState({ currentUserId: null });
@@ -66,7 +66,7 @@ describe("createSSE", () => {
     const { createSSE } = await import("./sse");
     const handler = vi.fn();
     createSSE({ path: "/eventlog", eventHandlers: { x: handler } });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     es.emit("x", "not-json{");
     expect(handler.mock.calls[0][0]).toBeNull();
     useSessionStore.setState({ currentUserId: null });
@@ -81,7 +81,7 @@ describe("createSSE", () => {
       path: "/eventlog",
       eventHandlers: { bad: () => { throw new Error("boom"); } },
     });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     expect(() => es.emit("bad", {})).not.toThrow();
     expect(errSpy).toHaveBeenCalled();
     useSessionStore.setState({ currentUserId: null });
@@ -92,7 +92,7 @@ describe("createSSE", () => {
     useSessionStore.setState({ currentUserId: "u_close" });
     const { createSSE } = await import("./sse");
     const ctrl = createSSE({ path: "/eventlog", eventHandlers: {} });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     ctrl.close();
     expect(es.readyState).toBe(MockEventSource.CLOSED);
     useSessionStore.setState({ currentUserId: null });
@@ -106,7 +106,7 @@ describe("createSSE", () => {
     useSessionStore.setState({ currentUserId: "u_heal" });
     const { createSSE } = await import("./sse");
     createSSE({ path: "/eventlog", eventHandlers: {} });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     es.readyState = MockEventSource.CLOSED;
     es.emit("error", null);
     expect(mockAuthFailure).toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe("createSSE", () => {
     useSessionStore.setState({ currentUserId: "u_old" });
     const { createSSE } = await import("./sse");
     createSSE({ path: "/eventlog", eventHandlers: {} });
-    const es = MockEventSource.instances.at(-1);
+    const es = MockEventSource.instances.at(-1)!;
     useSessionStore.setState({ currentUserId: "u_new" });
     es.readyState = MockEventSource.CLOSED;
     es.emit("error", null);

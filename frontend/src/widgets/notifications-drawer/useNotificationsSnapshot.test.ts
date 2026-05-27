@@ -1,12 +1,11 @@
-// @ts-nocheck
 // useNotificationsSnapshot — REST snapshot endpoint shape.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
-import { setupFetchSpy, renderQuery } from "@shared/lib/testHarness";
+import { setupFetchSpy, renderQuery, type FetchCall } from "@shared/lib/testHarness";
 import { useNotificationsSnapshot } from "./useNotificationsSnapshot.js";
 
-let calls;
+let calls: FetchCall[];
 beforeEach(async () => {
   calls = setupFetchSpy();
   const bridge = await import("@shared/bridge/wails");
