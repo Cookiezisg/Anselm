@@ -133,19 +133,22 @@ ValidateGraph 在 Service.Create / Edit 时强制以上规则,违反返 `ErrOpIn
 
 ---
 
-## 5. 9 个 Ops
+## 5. 10 个 Ops
 
 ```
 set_meta / add_node / update_node / delete_node /
 add_edge / update_edge / delete_edge /
-set_variable / unset_variable
+set_variable / unset_variable /
+set_node_model_override
 ```
 
 `update_node` / `update_edge` 用 **JSON Merge Patch(RFC 7396)** — patch 值覆盖、nil 删除键。其他都是整字段覆盖或简单 add/delete。
 
+`set_node_model_override` 设置 / 清除 `NodeSpec.ModelOverride`(§12.3 per-node 模型选择,与 conv override 同形状):payload 是 `{"nodeId":"...", "modelOverride":{"apiKeyId":"...", "modelId":"..."}}`,字段缺失或为 null = clear。F1 校验:`apiKeyId` 与 `modelId` 都必填,否则 `ErrInvalidNodeModelOverride`(400 `INVALID_NODE_MODEL_OVERRIDE`);若 Service 装了 `keyProvider`(通过 `SetKeyProvider(apikeyService)`),则按 id 校验存在 + 跨用户 → `apikey.ErrNotFound`(404 `API_KEY_NOT_FOUND`)。注:F1 sentinel 不被外层 `ErrOpInvalid` 吞掉,errmap 命中正确 HTTP 码。
+
 LLM 发 `[{op:"set_meta",name:"...",...}, {op:"add_node",node:{...}}, ...]`,`workflowapp.ParseOps` 解码为 `[]Op{Type, Raw}`(Raw 是不透明 body,各 op handler 自取字段)。
 
-错误映射:per-op apply 错误 → `ErrOpInvalid`(400 WORKFLOW_OP_INVALID);final 校验错误 → 对应 sentinel(`ErrDAGCycle` / `ErrNoTrigger` / `ErrCapabilityNotFound` / 等)。
+错误映射:per-op apply 错误 → `ErrOpInvalid`(400 WORKFLOW_OP_INVALID);final 校验错误 → 对应 sentinel(`ErrDAGCycle` / `ErrNoTrigger` / `ErrCapabilityNotFound` / 等)。例外:`set_node_model_override` 的 F1 sentinel(`ErrInvalidNodeModelOverride` / `apikey.ErrNotFound`)bubble up 不再被 `ErrOpInvalid` 包装。
 
 ---
 

@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
@@ -16,11 +17,12 @@ import (
 //
 // Service 编排 workflow domain。
 type Service struct {
-	repo      workflowdomain.Repository
-	checker   CapabilityChecker
-	notif     notificationspkg.Publisher
-	relations RelationSyncer // optional; nil disables relation hooks
-	log       *zap.Logger
+	repo        workflowdomain.Repository
+	checker     CapabilityChecker
+	notif       notificationspkg.Publisher
+	relations   RelationSyncer                // optional; nil disables relation hooks
+	keyProvider apikeydomain.KeyProvider      // optional; nil skips F1 node-override validation
+	log         *zap.Logger
 }
 
 // NewService wires Service; panics on nil log/notif; nil checker uses NopChecker.
@@ -56,6 +58,15 @@ func NewService(
 // 传 nil 等于禁用。
 func (s *Service) SetRelationSyncer(r RelationSyncer) {
 	s.relations = r
+}
+
+// SetKeyProvider enables F1 validation on node modelOverride; call once at DI wire-up.
+// Nil keyProvider tolerated (skips cross-user existence check).
+//
+// SetKeyProvider 启用节点 modelOverride F1 校验;装配阶段调一次。
+// nil 兜底跳过跨用户存在性校验。
+func (s *Service) SetKeyProvider(kp apikeydomain.KeyProvider) {
+	s.keyProvider = kp
 }
 
 // WorkflowReader is the read-only contract Plan 05 consumes for active versions and enabled lists.

@@ -156,8 +156,9 @@ var errTable = map[error]errMapping{
 	workflowdomain.ErrInvalidReference:      {http.StatusUnprocessableEntity, "WORKFLOW_INVALID_REFERENCE"},
 	workflowdomain.ErrNoTrigger:             {http.StatusUnprocessableEntity, "WORKFLOW_NO_TRIGGER"},
 	workflowdomain.ErrOpInvalid:             {http.StatusBadRequest, "WORKFLOW_OP_INVALID"},
-	workflowdomain.ErrCapabilityNotFound:    {http.StatusUnprocessableEntity, "WORKFLOW_CAPABILITY_NOT_FOUND"},
-	workflowdomain.ErrMCPServerNotInstalled: {http.StatusUnprocessableEntity, "WORKFLOW_MCP_SERVER_NOT_INSTALLED"},
+	workflowdomain.ErrCapabilityNotFound:        {http.StatusUnprocessableEntity, "WORKFLOW_CAPABILITY_NOT_FOUND"},
+	workflowdomain.ErrMCPServerNotInstalled:     {http.StatusUnprocessableEntity, "WORKFLOW_MCP_SERVER_NOT_INSTALLED"},
+	workflowdomain.ErrInvalidNodeModelOverride:  {http.StatusBadRequest, "INVALID_NODE_MODEL_OVERRIDE"},
 
 	// todo
 	tododomain.ErrNotFound:        {http.StatusNotFound, "TODO_NOT_FOUND"},

@@ -226,10 +226,11 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `WORKFLOW_OP_INVALID`              | 400 | `workflowdomain.ErrOpInvalid`             | 单 op apply 失败(未知 op 类型 / payload 形状错 / Edit 收 `ops=[]` / **legacy `<node>.<port>` 字符串语法** / **edge.fromPort 在分叉节点上缺失** / **edge.fromPort 在单输出节点上非空** / **fromPort 不在合法 port 集合中** 等) | ✅ |
 | `WORKFLOW_CAPABILITY_NOT_FOUND`    | 422 | `workflowdomain.ErrCapabilityNotFound`    | function/handler/skill 节点引用,CapabilityChecker 返"不存在" | ✅ |
 | `WORKFLOW_MCP_SERVER_NOT_INSTALLED`| 422 | `workflowdomain.ErrMCPServerNotInstalled` | mcp 节点引用未装 server | ✅ |
+| `INVALID_NODE_MODEL_OVERRIDE`      | 400 | `workflowdomain.ErrInvalidNodeModelOverride` | `set_node_model_override` op 收到 `modelOverride` 缺 `apiKeyId` 或 `modelId` | ✅ |
 
 **故意不含**:`WORKFLOW_PENDING_CONFLICT` — Edit 走 iterate-same-pending(D-redo-11),pending 不冲突。
 
-> workflow trinity 用 `WORKFLOW_*` 前缀,与 function/handler 平行。11 个 sentinel 全部 ✅(Plan 04 完工)。
+> workflow trinity 用 `WORKFLOW_*` 前缀,与 function/handler 平行。12 个 sentinel 全部 ✅(Plan 04 完工 + Task 9 node override)。注:`INVALID_NODE_MODEL_OVERRIDE` 与 conv `MODEL_OVERRIDE_*` 同形状语义,共享 V1.2 §12.3 验证模式。
 
 ### Phase 3:execution plane (forge_redesign Plan 05)
 

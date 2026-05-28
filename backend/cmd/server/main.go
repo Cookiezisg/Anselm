@@ -303,6 +303,7 @@ func main() {
 		notificationsPub,
 		log,
 	)
+	workflowService.SetKeyProvider(apikeyService) // enable F1 validation on node modelOverride
 
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)

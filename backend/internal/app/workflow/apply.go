@@ -3,9 +3,13 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 )
@@ -46,14 +50,26 @@ func ParseOps(raw json.RawMessage) ([]Op, error) {
 }
 
 // ApplyOps applies ops to a base graph (nil = from scratch) and returns the final graph.
+// keyProvider is optional; non-nil enables F1 validation on set_node_model_override
+// (cross-user / unknown api_key surfaces apikey.ErrNotFound for 404 mapping).
 //
 // ApplyOps 把 ops 应用到 base 图（nil = 从零建）并返最终图。
-func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progressBlockID string) (*workflowdomain.Graph, error) {
+// keyProvider 可空;非空开启 set_node_model_override 的 F1 校验
+// (跨用户 / 未知 api_key 直接走 apikey.ErrNotFound → 404)。
+func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progressBlockID string, keyProvider apikeydomain.KeyProvider) (*workflowdomain.Graph, error) {
 	g := cloneGraph(base)
 	em := eventlogpkg.From(ctx)
 
 	for i, op := range ops {
-		if err := applyOne(g, op); err != nil {
+		if err := applyOne(ctx, g, op, keyProvider); err != nil {
+			// Preserve cross-domain sentinels (F1 routes to their own HTTP code
+			// in errmap; otherwise they'd be flattened to WORKFLOW_OP_INVALID).
+			//
+			// 保留跨 domain sentinel（F1 走自己的 errmap，否则被 WORKFLOW_OP_INVALID 吞掉）。
+			if errors.Is(err, apikeydomain.ErrNotFound) ||
+				errors.Is(err, workflowdomain.ErrInvalidNodeModelOverride) {
+				return nil, fmt.Errorf("op[%d] %s: %w", i, op.Type, err)
+			}
 			return nil, fmt.Errorf("op[%d] %s: %w: %v", i, op.Type, workflowdomain.ErrOpInvalid, err)
 		}
 		if progressBlockID != "" {
@@ -65,7 +81,7 @@ func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progres
 	return g, nil
 }
 
-func applyOne(g *workflowdomain.Graph, op Op) error {
+func applyOne(ctx context.Context, g *workflowdomain.Graph, op Op, keyProvider apikeydomain.KeyProvider) error {
 	switch op.Type {
 	case workflowdomain.OpSetMeta:
 		return applySetMeta(g, op.Raw)
@@ -85,6 +101,8 @@ func applyOne(g *workflowdomain.Graph, op Op) error {
 		return applySetVariable(g, op.Raw)
 	case workflowdomain.OpUnsetVariable:
 		return applyUnsetVariable(g, op.Raw)
+	case workflowdomain.OpSetNodeModelOverride:
+		return applySetNodeModelOverride(ctx, g, op.Raw, keyProvider)
 	default:
 		return fmt.Errorf("unknown op type %q", op.Type)
 	}
@@ -299,6 +317,62 @@ func applyUnsetVariable(g *workflowdomain.Graph, raw json.RawMessage) error {
 		return fmt.Errorf("unset_variable: variable %q not declared", p.Name)
 	}
 	g.Variables = kept
+	return nil
+}
+
+// applySetNodeModelOverride sets or clears NodeSpec.ModelOverride.
+// Omitting modelOverride (or sending null) clears; setting requires both
+// apiKeyId and modelId. F1: apiKeyId must reference a user-owned key when
+// keyProvider is wired (cross-user lookups → apikey.ErrNotFound for 404).
+//
+// applySetNodeModelOverride 设置或清除节点 ModelOverride。
+// 不传 modelOverride（或传 null）= 清空;设置则 apiKeyId 与 modelId 都必填。
+// F1：keyProvider 已装时 apiKeyId 必须属当前 user（跨用户 → apikey.ErrNotFound → 404）。
+func applySetNodeModelOverride(ctx context.Context, g *workflowdomain.Graph, raw json.RawMessage, keyProvider apikeydomain.KeyProvider) error {
+	var p struct {
+		NodeID        string          `json:"nodeId"`
+		ModelOverride json.RawMessage `json:"modelOverride"`
+	}
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return fmt.Errorf("set_node_model_override unmarshal: %w", err)
+	}
+	if p.NodeID == "" {
+		return fmt.Errorf("set_node_model_override: empty nodeId")
+	}
+	idx := findNode(g, p.NodeID)
+	if idx < 0 {
+		return fmt.Errorf("set_node_model_override: node %q not found", p.NodeID)
+	}
+
+	// Omitted field or explicit null both clear the override.
+	if len(p.ModelOverride) == 0 || string(p.ModelOverride) == "null" {
+		g.Nodes[idx].ModelOverride = nil
+		return nil
+	}
+
+	var ref modeldomain.ModelRef
+	if err := json.Unmarshal(p.ModelOverride, &ref); err != nil {
+		return fmt.Errorf("%w: modelOverride must be object: %v", workflowdomain.ErrInvalidNodeModelOverride, err)
+	}
+	apiKeyID := strings.TrimSpace(ref.APIKeyID)
+	modelID := strings.TrimSpace(ref.ModelID)
+	if apiKeyID == "" || modelID == "" {
+		return fmt.Errorf("%w: apiKeyId=%q modelId=%q", workflowdomain.ErrInvalidNodeModelOverride, apiKeyID, modelID)
+	}
+
+	// F1: apiKeyId must reference an existing api_key owned by current user.
+	//
+	// F1 校验:apiKeyId 必须存在且属当前 user。
+	if keyProvider != nil {
+		if _, err := keyProvider.ResolveCredentialsByID(ctx, apiKeyID); err != nil {
+			return fmt.Errorf("set_node_model_override: %w", err)
+		}
+	}
+
+	g.Nodes[idx].ModelOverride = &modeldomain.ModelRef{
+		APIKeyID: apiKeyID,
+		ModelID:  modelID,
+	}
 	return nil
 }
 

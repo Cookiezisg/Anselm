@@ -241,7 +241,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
 
-	graph, err := ApplyOps(ctx, nil, in.Ops, in.ProgressBlockID)
+	graph, err := ApplyOps(ctx, nil, in.Ops, in.ProgressBlockID, s.keyProvider)
 	if err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
@@ -351,7 +351,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 		base = active.GraphParsed
 	}
 
-	draft, err := ApplyOps(ctx, base, in.Ops, in.ProgressBlockID)
+	draft, err := ApplyOps(ctx, base, in.Ops, in.ProgressBlockID, s.keyProvider)
 	if err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
 	}

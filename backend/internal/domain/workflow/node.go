@@ -157,13 +157,14 @@ func IsValidVariableType(t string) bool {
 }
 
 const (
-	OpSetMeta       = "set_meta"
-	OpAddNode       = "add_node"
-	OpUpdateNode    = "update_node"
-	OpDeleteNode    = "delete_node"
-	OpAddEdge       = "add_edge"
-	OpUpdateEdge    = "update_edge"
-	OpDeleteEdge    = "delete_edge"
-	OpSetVariable   = "set_variable"
-	OpUnsetVariable = "unset_variable"
+	OpSetMeta              = "set_meta"
+	OpAddNode              = "add_node"
+	OpUpdateNode           = "update_node"
+	OpDeleteNode           = "delete_node"
+	OpAddEdge              = "add_edge"
+	OpUpdateEdge           = "update_edge"
+	OpDeleteEdge           = "delete_edge"
+	OpSetVariable          = "set_variable"
+	OpUnsetVariable        = "unset_variable"
+	OpSetNodeModelOverride = "set_node_model_override"
 )
