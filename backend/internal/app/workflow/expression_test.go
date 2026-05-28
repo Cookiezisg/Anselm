@@ -5,24 +5,6 @@ import (
 	"testing"
 )
 
-func mustCompile(t *testing.T, s string) (compiled, source string) {
-	t.Helper()
-	tmpl, err := Compile(s)
-	if err != nil {
-		t.Fatalf("Compile(%q): %v", s, err)
-	}
-	out, err := Execute(tmpl, EvalContext{
-		Vars:     map[string]any{},
-		In:       map[string]any{},
-		NodesOut: map[string]map[string]any{},
-		Env:      map[string]string{},
-	}, s)
-	if err != nil {
-		t.Fatalf("Execute(%q): %v", s, err)
-	}
-	return out, s
-}
-
 func TestCompile_PureLiteralIsNoTemplate(t *testing.T) {
 	tmpl, err := Compile("just text no braces")
 	if err != nil {

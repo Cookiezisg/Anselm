@@ -38,9 +38,8 @@ func (k *fakeKeys) ResolveCredentials(_ context.Context, _ string) (apikeydomain
 	return apikeydomain.Credentials{}, nil
 }
 
-func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error           { return nil }
-func (k *fakeKeys) HasKeyForProvider(_ context.Context, _ string) (bool, error) { return true, nil }
-func (k *fakeKeys) DefaultSearchProvider(_ context.Context) string             { return "" }
+func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error { return nil }
+func (k *fakeKeys) DefaultSearchProvider(_ context.Context) string   { return "" }
 
 type fakeRepo struct {
 	rows map[string]*convdomain.Conversation

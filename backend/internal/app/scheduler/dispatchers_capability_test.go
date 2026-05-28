@@ -301,9 +301,8 @@ func (fakeKeyProvider) ResolveCredentialsByID(_ context.Context, _ string) (apik
 func (fakeKeyProvider) ResolveCredentials(_ context.Context, _ string) (apikeydomain.Credentials, error) {
 	return apikeydomain.Credentials{}, apikeydomain.ErrNotFoundForProvider
 }
-func (fakeKeyProvider) HasKeyForProvider(_ context.Context, _ string) (bool, error) { return false, nil }
-func (fakeKeyProvider) MarkInvalid(_ context.Context, _ string, _ string) error     { return nil }
-func (fakeKeyProvider) DefaultSearchProvider(_ context.Context) string              { return "" }
+func (fakeKeyProvider) MarkInvalid(_ context.Context, _ string, _ string) error { return nil }
+func (fakeKeyProvider) DefaultSearchProvider(_ context.Context) string          { return "" }
 
 func TestAgentDispatcher_PassesNodeOverrideToResolver(t *testing.T) {
 	picker := &fakeAgentPicker{}

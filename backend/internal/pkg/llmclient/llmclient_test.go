@@ -50,9 +50,6 @@ func (k *fakeKeys) ResolveCredentialsByID(ctx context.Context, apiKeyID string) 
 func (k *fakeKeys) ResolveCredentials(ctx context.Context, provider string) (apikeydomain.Credentials, error) {
 	return apikeydomain.Credentials{}, apikeydomain.ErrNotFoundForProvider
 }
-func (k *fakeKeys) HasKeyForProvider(ctx context.Context, provider string) (bool, error) {
-	return false, nil
-}
 func (k *fakeKeys) MarkInvalid(ctx context.Context, provider string, reason string) error {
 	return nil
 }

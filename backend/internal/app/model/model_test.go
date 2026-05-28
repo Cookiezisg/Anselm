@@ -34,9 +34,8 @@ func (f *fakeKeys) ResolveCredentialsByID(_ context.Context, id string) (apikeyd
 	}
 	return c, nil
 }
-func (f *fakeKeys) MarkInvalid(context.Context, string, string) error    { return nil }
-func (f *fakeKeys) HasKeyForProvider(context.Context, string) (bool, error) { return true, nil }
-func (f *fakeKeys) DefaultSearchProvider(context.Context) string         { return "" }
+func (f *fakeKeys) MarkInvalid(context.Context, string, string) error { return nil }
+func (f *fakeKeys) DefaultSearchProvider(context.Context) string      { return "" }
 
 type fakeRepo struct {
 	rows      map[string]*modeldomain.ModelConfig // keyed by ID

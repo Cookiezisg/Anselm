@@ -298,11 +298,7 @@ func (f *fakeKeys) ResolveCredentialsByID(_ context.Context, _ string) (apikeydo
 }
 
 func (f *fakeKeys) MarkInvalid(_ context.Context, _ string, _ string) error { return nil }
-func (f *fakeKeys) HasKeyForProvider(_ context.Context, provider string) (bool, error) {
-	_, ok := f.creds[provider]
-	return ok, nil
-}
-func (f *fakeKeys) DefaultSearchProvider(_ context.Context) string { return "" }
+func (f *fakeKeys) DefaultSearchProvider(_ context.Context) string          { return "" }
 
 // fakeMCPRouter implements MCPSearchRouter.
 //

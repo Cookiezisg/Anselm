@@ -5,9 +5,9 @@ import (
 	"errors"
 )
 
-// ErrMissingConversationID is returned by RequireConversationID.
+// ErrMissingConversationID signals an absent/empty conversation id in ctx; wrapped by app-layer guards.
 //
-// ErrMissingConversationID 由 RequireConversationID 返回。
+// ErrMissingConversationID 表示 ctx 中缺失 / 空 conversation id，由 app 层包装。
 var ErrMissingConversationID = errors.New("reqctx: missing conversation id in context")
 
 type conversationIDKey struct{}
@@ -28,16 +28,6 @@ func WithConversationID(ctx context.Context, id string) context.Context {
 func GetConversationID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(conversationIDKey{}).(string)
 	return id, ok && id != ""
-}
-
-// RequireConversationID returns the ID or ErrMissingConversationID.
-//
-// RequireConversationID 返回 ID 或 ErrMissingConversationID。
-func RequireConversationID(ctx context.Context) (string, error) {
-	if id, ok := GetConversationID(ctx); ok {
-		return id, nil
-	}
-	return "", ErrMissingConversationID
 }
 
 // WithMessageID returns a copy of ctx carrying the in-flight assistant message ID.

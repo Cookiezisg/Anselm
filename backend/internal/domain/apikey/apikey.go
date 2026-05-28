@@ -114,7 +114,6 @@ type KeyProvider interface {
 	ResolveCredentialsByID(ctx context.Context, apiKeyID string) (Credentials, error)
 
 	MarkInvalid(ctx context.Context, provider string, reason string) error
-	HasKeyForProvider(ctx context.Context, provider string) (bool, error)
 
 	// DefaultSearchProvider returns the provider name of the user's is_default search key,
 	// or "" if none is marked. Used by WebSearch to put the preferred provider first.

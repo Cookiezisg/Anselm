@@ -78,11 +78,3 @@ func InjectUserID(next http.Handler) http.Handler {
 	})
 }
 
-// InjectUserIDWith is a deprecated alias kept for legacy callers. The
-// resolver argument is ignored — behaves identically to InjectUserID.
-// New code should use IdentifyUser + RequireUser instead.
-//
-// InjectUserIDWith:legacy 兼容别名;resolver 被忽略,行为同 InjectUserID。
-func InjectUserIDWith(_ UserResolver) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler { return InjectUserID(next) }
-}

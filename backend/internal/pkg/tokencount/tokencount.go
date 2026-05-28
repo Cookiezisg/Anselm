@@ -27,13 +27,6 @@ func Estimate(s string) int {
 	return out
 }
 
-// EstimateBytes is the []byte form of Estimate.
-//
-// EstimateBytes 是 Estimate 的 []byte 版本。
-func EstimateBytes(b []byte) int {
-	return Estimate(bytesToString(b))
-}
-
 // Calibrate returns the (actual / estimated) ratio clamped to [0.5, 3.0].
 //
 // Calibrate 返 (actual / estimated) 比例，clamp 到 [0.5, 3.0]。
@@ -79,6 +72,3 @@ func isCJK(r rune) bool {
 	return false
 }
 
-func bytesToString(b []byte) string {
-	return string(b)
-}

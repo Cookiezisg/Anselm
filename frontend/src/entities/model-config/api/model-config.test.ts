@@ -1,12 +1,11 @@
-// entities/model-config api — all hooks: useProviders, useScenarios,
-// useModelConfigs, useUpsertModelConfig.
+// entities/model-config api — all hooks: useProviders, useModelConfigs,
+// useUpsertModelConfig.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { waitFor } from "@testing-library/react";
 import { setupFetchSpy, renderQuery, renderMutation, type FetchCall } from "../../../shared/api/_testHarness";
 import {
   useProviders,
-  useScenarios,
   useModelConfigs,
   useUpsertModelConfig,
 } from "./model-config.js";
@@ -22,12 +21,6 @@ describe("model-config query hooks", () => {
   it("useProviders_fetchesProvidersList", async () => {
     const { result } = await renderQuery(useProviders);
     expect(calls[0].url).toContain("/providers");
-    expect(result.current.isSuccess).toBe(true);
-  });
-
-  it("useScenarios_fetchesScenariosList", async () => {
-    const { result } = await renderQuery(useScenarios);
-    expect(calls[0].url).toContain("/scenarios");
     expect(result.current.isSuccess).toBe(true);
   });
 

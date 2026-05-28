@@ -11,7 +11,6 @@ export const qk = {
   messages:           (convId: string) => ["conv-messages", convId] as const,
   apikeys:            () => ["api-keys"] as const,
   providers:          () => ["providers"] as const,
-  scenarios:          () => ["scenarios"] as const,
   modelConfigs:       () => ["model-configs"] as const,
   functions:          () => ["functions"] as const,
   function:           (id: string) => ["function", id] as const,

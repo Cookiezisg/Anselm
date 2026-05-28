@@ -33,9 +33,8 @@ func (f *fakeKeys) ResolveCredentialsByID(_ context.Context, id string) (apikeyd
 	}
 	return c, nil
 }
-func (f *fakeKeys) MarkInvalid(context.Context, string, string) error       { return nil }
-func (f *fakeKeys) HasKeyForProvider(context.Context, string) (bool, error) { return true, nil }
-func (f *fakeKeys) DefaultSearchProvider(context.Context) string            { return "" }
+func (f *fakeKeys) MarkInvalid(context.Context, string, string) error { return nil }
+func (f *fakeKeys) DefaultSearchProvider(context.Context) string      { return "" }
 
 func newFakeKeys() *fakeKeys {
 	return &fakeKeys{byID: map[string]apikeydomain.Credentials{

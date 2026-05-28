@@ -5,7 +5,6 @@ package apikey
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -193,20 +192,6 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*apike
 		return nil, err
 	}
 	return k, nil
-}
-
-// HasKeyForProvider reports whether any active key exists for provider under the ctx user.
-//
-// HasKeyForProvider 报告当前用户在 provider 下是否有活跃 key（用于 model upsert 早校验）。
-func (s *Service) HasKeyForProvider(ctx context.Context, provider string) (bool, error) {
-	_, err := s.repo.GetByProvider(ctx, provider)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, apikeydomain.ErrNotFoundForProvider) {
-		return false, nil
-	}
-	return false, fmt.Errorf("apikey.Service.HasKeyForProvider: %w", err)
 }
 
 // Delete refuses if any registered scanner reports this key is referenced (F1).

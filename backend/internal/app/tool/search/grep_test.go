@@ -599,23 +599,3 @@ func TestGrep_Schema_IsParsableObject(t *testing.T) {
 	}
 }
 
-// Stable fixture-print helper — handy when a failure dumps debug info.
-//
-// Stable fixture-print helper —— 失败时方便打调试信息。
-func dumpListing(root string) string {
-	var sb strings.Builder
-	_ = filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		fmt.Fprintf(&sb, "  %s\n", p)
-		return nil
-	})
-	return sb.String()
-}
-
-// Compile-time keep-alive to silence "unused" if dumpListing is not used
-// by any current test (kept for future debugging).
-//
-// 编译时保活，让未引用的 dumpListing 不报 unused（留给未来调试）。
-var _ = dumpListing

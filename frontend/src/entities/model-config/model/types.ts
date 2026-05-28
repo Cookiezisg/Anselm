@@ -30,13 +30,6 @@ export interface Provider {
   baseUrlRequired: boolean;
 }
 
-// ScenarioEntry — entry from GET /api/v1/scenarios (backend authoritative).
-//
-// GET /api/v1/scenarios 返回的后端权威 scenario 白名单条目。
-export interface ScenarioEntry {
-  name: Scenario;
-}
-
 export interface UpsertModelConfigBody {
   apiKeyId: string;
   modelId: string;
