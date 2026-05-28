@@ -12,29 +12,31 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// fakeKeys is a minimal KeyProvider for model unit tests; reports true for
-// any provider in `available`, false otherwise.
+// fakeKeys is a minimal KeyProvider for model unit tests; byID drives
+// ResolveCredentialsByID (unknown id => ErrNotFound, satisfying Upsert F1).
 //
-// fakeKeys 是 model 单测用的最小 KeyProvider 桩；available 中的 provider
-// 报有 key,其他报没 key。
+// fakeKeys 是 model 单测用的最小 KeyProvider 桩；byID 驱动 ResolveCredentialsByID
+// (未知 id 返 ErrNotFound,Upsert F1 校验依赖此行为)。
 type fakeKeys struct {
-	available map[string]bool
+	byID map[string]apikeydomain.Credentials
 }
 
 func (f *fakeKeys) ResolveCredentials(context.Context, string) (apikeydomain.Credentials, error) {
 	return apikeydomain.Credentials{}, nil
 }
-func (f *fakeKeys) ResolveCredentialsByID(context.Context, string) (apikeydomain.Credentials, error) {
-	return apikeydomain.Credentials{}, nil
-}
-func (f *fakeKeys) MarkInvalid(context.Context, string, string) error { return nil }
-func (f *fakeKeys) HasKeyForProvider(_ context.Context, provider string) (bool, error) {
-	if f.available == nil {
-		return true, nil
+func (f *fakeKeys) ResolveCredentialsByID(_ context.Context, id string) (apikeydomain.Credentials, error) {
+	if f.byID == nil {
+		return apikeydomain.Credentials{}, apikeydomain.ErrNotFound
 	}
-	return f.available[provider], nil
+	c, ok := f.byID[id]
+	if !ok {
+		return apikeydomain.Credentials{}, apikeydomain.ErrNotFound
+	}
+	return c, nil
 }
-func (f *fakeKeys) DefaultSearchProvider(context.Context) string { return "" }
+func (f *fakeKeys) MarkInvalid(context.Context, string, string) error    { return nil }
+func (f *fakeKeys) HasKeyForProvider(context.Context, string) (bool, error) { return true, nil }
+func (f *fakeKeys) DefaultSearchProvider(context.Context) string         { return "" }
 
 type fakeRepo struct {
 	rows      map[string]*modeldomain.ModelConfig // keyed by ID
@@ -79,7 +81,10 @@ func (r *fakeRepo) Upsert(_ context.Context, m *modeldomain.ModelConfig) error {
 
 func newSvc(t *testing.T, repo modeldomain.Repository) *Service {
 	t.Helper()
-	return NewService(repo, &fakeKeys{}, zap.NewNop())
+	keys := &fakeKeys{byID: map[string]apikeydomain.Credentials{
+		"aki_test": {Provider: "anthropic", Key: "sk-test", BaseURL: ""},
+	}}
+	return NewService(repo, keys, zap.NewNop())
 }
 
 func ctxAlice() context.Context {
@@ -97,23 +102,23 @@ func TestNewService_NilLogger_Panics(t *testing.T) {
 
 func TestUpsert_InvalidScenario(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	_, err := svc.Upsert(ctxAlice(), "nonexistent", UpsertInput{Provider: "openai", ModelID: "gpt-4o"})
+	_, err := svc.Upsert(ctxAlice(), "nonexistent", UpsertInput{APIKeyID: "aki_test", ModelID: "gpt-4o"})
 	if !errors.Is(err, modeldomain.ErrInvalidScenario) {
 		t.Errorf("got %v, want ErrInvalidScenario", err)
 	}
 }
 
-func TestUpsert_ProviderRequired(t *testing.T) {
+func TestUpsert_APIKeyIDRequired(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	_, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "  ", ModelID: "gpt-4o"})
-	if !errors.Is(err, modeldomain.ErrProviderRequired) {
-		t.Errorf("got %v, want ErrProviderRequired", err)
+	_, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "  ", ModelID: "gpt-4o"})
+	if !errors.Is(err, modeldomain.ErrAPIKeyIDRequired) {
+		t.Errorf("got %v, want ErrAPIKeyIDRequired", err)
 	}
 }
 
 func TestUpsert_ModelIDRequired(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	_, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "openai", ModelID: ""})
+	_, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "aki_test", ModelID: ""})
 	if !errors.Is(err, modeldomain.ErrModelIDRequired) {
 		t.Errorf("got %v, want ErrModelIDRequired", err)
 	}
@@ -121,11 +126,11 @@ func TestUpsert_ModelIDRequired(t *testing.T) {
 
 func TestUpsert_NewScenario_CreatesRow(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "openai", ModelID: "gpt-4o"})
+	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "aki_test", ModelID: "gpt-4o"})
 	if err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
-	if got.Provider != "openai" || got.ModelID != "gpt-4o" {
+	if got.APIKeyID != "aki_test" || got.ModelID != "gpt-4o" {
 		t.Errorf("wrong fields: %+v", got)
 	}
 	if got.ID == "" {
@@ -136,31 +141,31 @@ func TestUpsert_NewScenario_CreatesRow(t *testing.T) {
 func TestUpsert_ExistingScenario_PreservesID(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
 
-	first, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "openai", ModelID: "gpt-4o"})
+	first, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "aki_test", ModelID: "gpt-4o"})
 	if err != nil {
 		t.Fatalf("first Upsert: %v", err)
 	}
 
-	second, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "anthropic", ModelID: "claude-3-5-sonnet-latest"})
+	second, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "aki_test", ModelID: "claude-3-5-sonnet-latest"})
 	if err != nil {
 		t.Fatalf("second Upsert: %v", err)
 	}
 	if second.ID != first.ID {
 		t.Errorf("ID changed: first=%q second=%q", first.ID, second.ID)
 	}
-	if second.Provider != "anthropic" {
-		t.Errorf("Provider not updated: got %q", second.Provider)
+	if second.ModelID != "claude-3-5-sonnet-latest" {
+		t.Errorf("ModelID not updated: got %q", second.ModelID)
 	}
 }
 
 func TestUpsert_TrimsWhitespace(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "  openai  ", ModelID: " gpt-4o "})
+	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "  aki_test  ", ModelID: " gpt-4o "})
 	if err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
-	if got.Provider != "openai" || got.ModelID != "gpt-4o" {
-		t.Errorf("whitespace not trimmed: provider=%q modelID=%q", got.Provider, got.ModelID)
+	if got.APIKeyID != "aki_test" || got.ModelID != "gpt-4o" {
+		t.Errorf("whitespace not trimmed: apiKeyID=%q modelID=%q", got.APIKeyID, got.ModelID)
 	}
 }
 
@@ -177,7 +182,7 @@ func TestList_Empty(t *testing.T) {
 
 func TestList_AfterUpsert(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	if _, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "openai", ModelID: "gpt-4o"}); err != nil {
+	if _, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{APIKeyID: "aki_test", ModelID: "gpt-4o"}); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
 	rows, err := svc.List(ctxAlice())
@@ -189,24 +194,63 @@ func TestList_AfterUpsert(t *testing.T) {
 	}
 }
 
-func TestPickForChat_NotConfigured(t *testing.T) {
+func TestService_PickForDialogue(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	_, _, err := svc.PickForChat(ctxAlice())
-	if !errors.Is(err, modeldomain.ErrNotConfigured) {
-		t.Errorf("got %v, want ErrNotConfigured", err)
+	ctx := ctxAlice()
+	if _, _, err := svc.PickForDialogue(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+		t.Fatalf("unconfigured PickForDialogue: want ErrNotConfigured, got %v", err)
+	}
+	if _, err := svc.Upsert(ctx, modeldomain.ScenarioDialogue, UpsertInput{
+		APIKeyID: "aki_test", ModelID: "claude-sonnet-4-5",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	id, m, err := svc.PickForDialogue(ctx)
+	if err != nil || id != "aki_test" || m != "claude-sonnet-4-5" {
+		t.Fatalf("PickForDialogue=(%q,%q,%v), want (aki_test, claude-sonnet-4-5, nil)", id, m, err)
 	}
 }
 
-func TestPickForChat_ReturnsConfigured(t *testing.T) {
+func TestService_PickForUtility(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
-	if _, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioChat, UpsertInput{Provider: "anthropic", ModelID: "claude-3-5-sonnet-latest"}); err != nil {
-		t.Fatalf("Upsert: %v", err)
+	ctx := ctxAlice()
+	if _, _, err := svc.PickForUtility(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+		t.Fatal("want ErrNotConfigured")
 	}
-	provider, modelID, err := svc.PickForChat(ctxAlice())
-	if err != nil {
-		t.Fatalf("PickForChat: %v", err)
+	if _, err := svc.Upsert(ctx, modeldomain.ScenarioUtility, UpsertInput{
+		APIKeyID: "aki_test", ModelID: "claude-haiku-4-5",
+	}); err != nil {
+		t.Fatal(err)
 	}
-	if provider != "anthropic" || modelID != "claude-3-5-sonnet-latest" {
-		t.Errorf("got (%q, %q), want (anthropic, claude-3-5-sonnet-latest)", provider, modelID)
+	id, m, _ := svc.PickForUtility(ctx)
+	if id != "aki_test" || m != "claude-haiku-4-5" {
+		t.Fatalf("PickForUtility=(%q,%q), want (aki_test, claude-haiku-4-5)", id, m)
+	}
+}
+
+func TestService_PickForAgent(t *testing.T) {
+	svc := newSvc(t, newFakeRepo())
+	ctx := ctxAlice()
+	if _, _, err := svc.PickForAgent(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+		t.Fatal("want ErrNotConfigured")
+	}
+	if _, err := svc.Upsert(ctx, modeldomain.ScenarioAgent, UpsertInput{
+		APIKeyID: "aki_test", ModelID: "deepseek-chat",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	id, m, _ := svc.PickForAgent(ctx)
+	if id != "aki_test" || m != "deepseek-chat" {
+		t.Fatalf("PickForAgent=(%q,%q), want (aki_test, deepseek-chat)", id, m)
+	}
+}
+
+func TestService_Upsert_UnknownAPIKeyID_Returns404(t *testing.T) {
+	svc := newSvc(t, newFakeRepo())
+	_, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{
+		APIKeyID: "aki_nonexistent", ModelID: "claude-sonnet-4-5",
+	})
+	if !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 }

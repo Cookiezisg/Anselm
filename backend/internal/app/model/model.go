@@ -19,7 +19,7 @@ import (
 
 // Service orchestrates model-config CRUD and implements modeldomain.ModelPicker.
 //
-// Service 编排模型配置 CRUD，并实现 modeldomain.ModelPicker。
+// Service 编排模型配置 CRUD,并实现 modeldomain.ModelPicker。
 type Service struct {
 	repo modeldomain.Repository
 	keys apikeydomain.KeyProvider
@@ -27,11 +27,11 @@ type Service struct {
 }
 
 // NewService wires Service dependencies; panics on nil logger.
-// keys is the cross-domain port used to verify a provider has at least one
-// api-key before Upsert accepts the config (avoids green-save / red-runtime UX).
+// keys is the cross-domain port used by Upsert F1 to verify the referenced
+// api_key exists and belongs to the current user (avoids dangling refs).
 //
-// NewService 装配依赖；nil logger 直接 panic。keys 是跨 domain 端口，
-// Upsert 时校验 provider 已有 api-key（防止"绿保存红运行时"反模式）。
+// NewService 装配依赖；nil logger 直接 panic。keys 是跨 domain 端口,
+// Upsert F1 校验引用的 api_key 存在且归属当前 user(防悬垂引用)。
 func NewService(repo modeldomain.Repository, keys apikeydomain.KeyProvider, log *zap.Logger) *Service {
 	if log == nil {
 		panic("model.NewService: logger is nil")
@@ -43,7 +43,7 @@ func NewService(repo modeldomain.Repository, keys apikeydomain.KeyProvider, log 
 //
 // UpsertInput 是 Service.Upsert 的已校验载荷。
 type UpsertInput struct {
-	Provider string
+	APIKeyID string
 	ModelID  string
 }
 
@@ -75,8 +75,8 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	if !modeldomain.IsValidScenario(scenario) {
 		return nil, modeldomain.ErrInvalidScenario
 	}
-	if strings.TrimSpace(in.Provider) == "" {
-		return nil, modeldomain.ErrProviderRequired
+	if strings.TrimSpace(in.APIKeyID) == "" {
+		return nil, modeldomain.ErrAPIKeyIDRequired
 	}
 	if strings.TrimSpace(in.ModelID) == "" {
 		return nil, modeldomain.ErrModelIDRequired
@@ -85,13 +85,12 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	if err != nil {
 		return nil, fmt.Errorf("model.Service.Upsert: %w", err)
 	}
+	// F1: api_key must exist and belong to current user.
+	//
+	// F1 校验:api_key 必须存在且属当前 user。
 	if s.keys != nil {
-		has, hkErr := s.keys.HasKeyForProvider(ctx, strings.TrimSpace(in.Provider))
-		if hkErr != nil {
-			return nil, fmt.Errorf("model.Service.Upsert: %w", hkErr)
-		}
-		if !has {
-			return nil, modeldomain.ErrProviderHasNoKey
+		if _, err := s.keys.ResolveCredentialsByID(ctx, strings.TrimSpace(in.APIKeyID)); err != nil {
+			return nil, fmt.Errorf("model.Service.Upsert: %w", err)
 		}
 	}
 	m, err := s.repo.GetByScenario(ctx, scenario)
@@ -105,7 +104,7 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 			Scenario: scenario,
 		}
 	}
-	m.Provider = strings.TrimSpace(in.Provider)
+	m.APIKeyID = strings.TrimSpace(in.APIKeyID)
 	m.ModelID = strings.TrimSpace(in.ModelID)
 	if err := s.repo.Upsert(ctx, m); err != nil {
 		return nil, err
@@ -113,31 +112,42 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	s.log.Info("model config upserted",
 		zap.String("user_id", uid),
 		zap.String("scenario", scenario),
-		zap.String("provider", m.Provider),
+		zap.String("api_key_id", m.APIKeyID),
 		zap.String("model_id", m.ModelID))
 	return m, nil
 }
 
-// PickForChat returns the (provider, modelID) for the chat scenario.
+// PickForDialogue returns the (apiKeyID, modelID) for the dialogue scenario.
 //
-// PickForChat 返回 chat scenario 的 (provider, modelID)，未配置返 ErrNotConfigured。
-func (s *Service) PickForChat(ctx context.Context) (provider, modelID string, err error) {
-	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioChat)
+// PickForDialogue 返回 dialogue scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForDialogue(ctx context.Context) (apiKeyID, modelID string, err error) {
+	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioDialogue)
 	if err != nil {
 		return "", "", err
 	}
-	return m.Provider, m.ModelID, nil
+	return m.APIKeyID, m.ModelID, nil
 }
 
-// PickForWebSummary returns the (provider, modelID) for WebFetch summarisation.
+// PickForUtility returns the (apiKeyID, modelID) for the utility scenario.
 //
-// PickForWebSummary 返回 WebFetch 摘要的 (provider, modelID)，未配置时调用方应 fallback。
-func (s *Service) PickForWebSummary(ctx context.Context) (provider, modelID string, err error) {
-	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioWebSummary)
+// PickForUtility 返回 utility scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForUtility(ctx context.Context) (apiKeyID, modelID string, err error) {
+	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioUtility)
 	if err != nil {
 		return "", "", err
 	}
-	return m.Provider, m.ModelID, nil
+	return m.APIKeyID, m.ModelID, nil
+}
+
+// PickForAgent returns the (apiKeyID, modelID) for the agent scenario.
+//
+// PickForAgent 返回 agent scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForAgent(ctx context.Context) (apiKeyID, modelID string, err error) {
+	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioAgent)
+	if err != nil {
+		return "", "", err
+	}
+	return m.APIKeyID, m.ModelID, nil
 }
 
 func newID() string { return idgenpkg.New("mc") }
