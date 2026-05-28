@@ -192,8 +192,14 @@ export function useOnboardingFlow(): OnboardingFlowState {
     switch (stepKey) {
       case "workspace": return run(async () => { await ensureUser(); advance(); });
       case "model": return run(async () => {
+        // Onboarding seeds all 3 scenarios with the chosen model. User can
+        // refine later in settings.
+        //
+        // Onboarding 把用户选的模型一次性写到 3 个 scenario;后续设置里再分别调。
         if (verified && modelId && createdKeyId) {
-          await upsertModel.mutateAsync({ scenario: "dialogue", apiKeyId: createdKeyId, modelId });
+          for (const scenario of ["dialogue", "utility", "agent"] as const) {
+            await upsertModel.mutateAsync({ scenario, apiKeyId: createdKeyId, modelId });
+          }
         }
         advance();
       });

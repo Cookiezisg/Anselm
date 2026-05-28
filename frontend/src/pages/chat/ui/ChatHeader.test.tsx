@@ -1,4 +1,4 @@
-// ChatHeader — title + id + model tag + close button.
+// ChatHeader — title + id + per-conv model override button + close.
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -6,6 +6,12 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("../../../widgets/entity-rel-meta/EntityRelMeta.tsx", () => ({
   EntityRelMeta: (): null => null,
+}));
+
+vi.mock("@features/conversation-model-override", () => ({
+  ModelOverrideEditor: ({ conversationId }: { conversationId: string }) => (
+    <div data-testid="moe-mock">override-editor:{conversationId}</div>
+  ),
 }));
 
 import { ChatHeader } from "./ChatHeader.tsx";
@@ -27,15 +33,31 @@ describe("ChatHeader", () => {
     expect(screen.getByText("(无标题)")).toBeInTheDocument();
   });
 
-  it("modelDefault_whenMissing", () => {
+  it("noOverride_showsDefaultLabel_buttonMuted", () => {
     render(<ChatHeader conv={{ id: "cv_a" }} />);
-    expect(screen.getByText("default")).toBeInTheDocument();
+    const btn = screen.getByTitle("为此对话设置专用模型");
+    expect(btn).toHaveTextContent("默认");
+    expect(btn.classList.contains("is-active")).toBe(false);
   });
 
-  it("modelPresent_shownAsTagAndPrefix", () => {
-    render(<ChatHeader conv={{ id: "cv_a", model: "gpt-4o" }} />);
-    expect(screen.getByText("gpt-4o")).toBeInTheDocument();
-    expect(screen.getByText("GP")).toBeInTheDocument(); // 2-char provider chip
+  it("overridePresent_showsModelId_buttonActive", () => {
+    render(<ChatHeader conv={{
+      id: "cv_a",
+      modelOverride: { apiKeyId: "aki_1", modelId: "claude-opus-4-7" },
+    }} />);
+    const btn = screen.getByTitle("为此对话设置专用模型");
+    expect(btn).toHaveTextContent("claude-opus-4-7");
+    expect(btn.classList.contains("is-active")).toBe(true);
+  });
+
+  it("clickModelBtn_opensEditor_secondClickCloses", async () => {
+    render(<ChatHeader conv={{ id: "cv_a" }} />);
+    const btn = screen.getByTitle("为此对话设置专用模型");
+    expect(screen.queryByTestId("moe-mock")).toBeNull();
+    await userEvent.click(btn);
+    expect(screen.getByTestId("moe-mock")).toBeInTheDocument();
+    await userEvent.click(btn);
+    expect(screen.queryByTestId("moe-mock")).toBeNull();
   });
 
   it("onClose_clickFiresCallback", async () => {

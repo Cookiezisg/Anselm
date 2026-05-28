@@ -114,5 +114,21 @@
   "model": {
     "placeholder": "验证后可选",
     "ariaLabel": "模型"
+  },
+  "modelDefaults": {
+    "title": "模型默认",
+    "subtitle": "各场景独立配置",
+    "scenarios": {
+      "dialogue": "主对话",
+      "utility": "辅助任务",
+      "agent": "Agent"
+    },
+    "description": {
+      "dialogue": "对话窗口使用的模型。可在对话里临时切换。",
+      "utility": "起标题、压缩、检索排序等辅助调用。",
+      "agent": "工作流中 agent 与 llm 节点使用。可在节点上覆盖。"
+    },
+    "noKeys": "尚未配 API Key",
+    "selectModel": "选择模型"
   }
 }

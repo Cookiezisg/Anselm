@@ -114,5 +114,21 @@
   "model": {
     "placeholder": "Available after verify",
     "ariaLabel": "Model"
+  },
+  "modelDefaults": {
+    "title": "Model defaults",
+    "subtitle": "Each scenario configured independently",
+    "scenarios": {
+      "dialogue": "Dialogue",
+      "utility": "Utility",
+      "agent": "Agent"
+    },
+    "description": {
+      "dialogue": "Model used in the chat window. Switchable per conversation.",
+      "utility": "Title generation, compaction, search ranking — auxiliary calls.",
+      "agent": "Used by agent / llm nodes in workflows. Per-node override available."
+    },
+    "noKeys": "No API keys configured",
+    "selectModel": "Select model"
   }
 }

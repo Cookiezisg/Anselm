@@ -87,5 +87,11 @@
     "submitBtn": "Submit",
     "submitSuccess": "Answered",
     "submitFail": "Submit failed"
+  },
+  "modelOverride": {
+    "title": "Choose a model for this conversation",
+    "clear": "Clear",
+    "useDefault": "Default",
+    "tooltip": "Set a dedicated model for this conversation"
   }
 }

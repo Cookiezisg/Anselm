@@ -124,7 +124,7 @@ describe("Onboarding", () => {
     expect(useSettingsStore.getState().accent).toBe("blue");
   });
 
-  it("model_verify_populatesModelsAndContinueWritesConfigFromSelection", async () => {
+  it("model_verify_populatesModelsAndContinueWritesAllThreeScenarios", async () => {
     render(<Onboarding onFinish={() => {}} />, { wrapper: wrap });
     await toAppearance();
     await userEvent.click(btn(/继续/)); // appearance → model
@@ -135,10 +135,16 @@ describe("Onboarding", () => {
     // Model dropdown appears, defaulting to modelsFound[0].
     const select = await screen.findByLabelText("模型");
     expect(select).toHaveTextContent("deepseek-chat");
-    await userEvent.click(btn(/继续/)); // model → search, writes model-config
-    await waitFor(() => expect(mockUpsertModel).toHaveBeenCalled());
+    await userEvent.click(btn(/继续/)); // model → search, writes 3 model-config rows
+    await waitFor(() => expect(mockUpsertModel).toHaveBeenCalledTimes(3));
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({
       scenario: "dialogue", apiKeyId: "aki_1", modelId: "deepseek-chat",
+    });
+    expect(mockUpsertModel.mock.calls[1][0]).toMatchObject({
+      scenario: "utility", apiKeyId: "aki_1", modelId: "deepseek-chat",
+    });
+    expect(mockUpsertModel.mock.calls[2][0]).toMatchObject({
+      scenario: "agent", apiKeyId: "aki_1", modelId: "deepseek-chat",
     });
   });
 

@@ -80,9 +80,10 @@ describe("SettingsModal", () => {
     expect(container.querySelector(".set-modal")).toBeNull();
   });
 
-  it("open_showsAllFourSectionHeaders", () => {
+  it("open_showsAllFiveSectionHeaders", () => {
     render(<SettingsModal open onClose={() => {}} />, { wrapper: wrap });
     expect(screen.getByText("API Keys")).toBeInTheDocument();
+    expect(screen.getByText("模型默认")).toBeInTheDocument();
     expect(screen.getByText("网络搜索")).toBeInTheDocument();
     expect(screen.getByText("外观")).toBeInTheDocument();
     expect(screen.getByText("系统")).toBeInTheDocument();

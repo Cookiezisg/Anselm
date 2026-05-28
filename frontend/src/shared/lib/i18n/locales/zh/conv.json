@@ -87,5 +87,11 @@
     "submitBtn": "提交",
     "submitSuccess": "已回答",
     "submitFail": "提交失败"
+  },
+  "modelOverride": {
+    "title": "选择此对话使用的模型",
+    "clear": "清除",
+    "useDefault": "默认",
+    "tooltip": "为此对话设置专用模型"
   }
 }

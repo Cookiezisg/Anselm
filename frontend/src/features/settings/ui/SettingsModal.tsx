@@ -11,6 +11,7 @@ import { useSessionStore } from "@entities/session";
 import { useUsers } from "@entities/user";
 import { scaleIn } from "@shared/lib/motion";
 import { ApiKeysSection } from "./ApiKeysSection.tsx";
+import { ModelDefaultsSection } from "./ModelDefaultsSection.tsx";
 import { SearchSection } from "./SearchSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
 import { SystemSection } from "./SystemSection.tsx";
@@ -59,6 +60,10 @@ export function SettingsModal({ open, onClose }: { open: boolean; onClose: () =>
               <ApiKeysSection
                 open={openSection === "keys"}
                 onToggle={() => toggle("keys")}
+              />
+              <ModelDefaultsSection
+                open={openSection === "models"}
+                onToggle={() => toggle("models")}
               />
               <SearchSection
                 open={openSection === "search"}
