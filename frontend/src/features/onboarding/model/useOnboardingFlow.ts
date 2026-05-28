@@ -192,7 +192,9 @@ export function useOnboardingFlow(): OnboardingFlowState {
     switch (stepKey) {
       case "workspace": return run(async () => { await ensureUser(); advance(); });
       case "model": return run(async () => {
-        if (verified && modelId) await upsertModel.mutateAsync({ scenario: "chat", provider, modelId });
+        if (verified && modelId && createdKeyId) {
+          await upsertModel.mutateAsync({ scenario: "dialogue", apiKeyId: createdKeyId, modelId });
+        }
         advance();
       });
       case "search": return run(async () => {

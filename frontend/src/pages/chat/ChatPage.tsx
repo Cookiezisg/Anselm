@@ -106,14 +106,16 @@ export function ChatPage({ activeConv, onSetActiveConv, onClose, onOpenSettings 
     return <NoApiKeyGate onOpenSettings={onOpenSettings ?? (() => {})} />;
   }
 
-  // chat scenario gate: keys exist but no model picked for chat. Onboarding's
-  // testKey may have failed (no model-config written) or user skipped key
-  // step and later added one via Config without configuring a model.
+  // dialogue scenario gate: keys exist but no model picked for dialogue.
+  // Onboarding's testKey may have failed (no model-config written) or user
+  // skipped key step and later added one via Config without configuring a
+  // model.
   //
-  // chat scenario gate:有 key 但没配 chat 模型 —— onboarding 的 testKey 失败
-  // (没写 model-config),或用户跳过 onboarding 后单独加 key 没配模型。
-  const hasChatModel = modelConfigs.some((c) => c.scenario === "chat");
-  if (!cfgLoading && !hasChatModel) {
+  // dialogue scenario gate:有 key 但没配 dialogue 模型 —— onboarding 的
+  // testKey 失败(没写 model-config),或用户跳过 onboarding 后单独加 key
+  // 没配模型。
+  const hasDialogueModel = modelConfigs.some((c) => c.scenario === "dialogue");
+  if (!cfgLoading && !hasDialogueModel) {
     return <NoModelGate onOpenSettings={onOpenSettings ?? (() => {})} />;
   }
 

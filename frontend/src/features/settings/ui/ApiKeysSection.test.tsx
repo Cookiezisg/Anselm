@@ -1,6 +1,6 @@
 // ApiKeysSection — key-centric LLM key management. Tests: list renders when
-// open, 对话默认 badge tracks model-config.chat, add-flow reveals grid →
-// KeyVerifyField → ModelSelect on verify success.
+// open, 对话默认 badge tracks model-config.dialogue.apiKeyId === key.id,
+// add-flow reveals grid → KeyVerifyField → ModelSelect on verify success.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
@@ -60,7 +60,7 @@ beforeEach(() => {
     { id: "aki_ds", provider: "deepseek", displayName: "DeepSeek", keyMasked: "sk-ds...3f2a", testStatus: "ok", modelsFound: ["deepseek-chat", "deepseek-reasoner"] },
     { id: "aki_an", provider: "anthropic", displayName: "Anthropic", keyMasked: "sk-an...9c1d", testStatus: "pending", modelsFound: ["claude-sonnet-4-6", "claude-opus-4-7"] },
   ];
-  modelConfigs = [{ scenario: "chat", provider: "deepseek", modelId: "deepseek-chat" }];
+  modelConfigs = [{ scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-chat" }];
 });
 
 describe("ApiKeysSection", () => {
@@ -115,7 +115,7 @@ describe("ApiKeysSection", () => {
     expect(screen.getAllByText("用途")).toHaveLength(1);
   });
 
-  it("promoteNonDefaultKey_upsertsChatModelConfigWithKeysModel", async () => {
+  it("promoteNonDefaultKey_upsertsDialogueModelConfigWithKeysModel", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("Anthropic"));
     // Anthropic detail: 用途 seg → click 对话默认 promotes it with its first model.
@@ -123,7 +123,7 @@ describe("ApiKeysSection", () => {
     await userEvent.click(seg);
     expect(mockUpsertModel).toHaveBeenCalled();
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({
-      scenario: "chat", provider: "anthropic", modelId: "claude-sonnet-4-6",
+      scenario: "dialogue", apiKeyId: "aki_an", modelId: "claude-sonnet-4-6",
     });
   });
 
@@ -140,13 +140,13 @@ describe("ApiKeysSection", () => {
     expect(mockUpsertModel).not.toHaveBeenCalled();
   });
 
-  it("changeModelOnDefaultKey_upsertsChatModelConfig", async () => {
+  it("changeModelOnDefaultKey_upsertsDialogueModelConfig", async () => {
     renderOpen();
     await userEvent.click(screen.getByText("DeepSeek"));
     await userEvent.click(screen.getByLabelText("模型"));
     await userEvent.click(screen.getByRole("option", { name: "deepseek-reasoner" }));
     expect(mockUpsertModel).toHaveBeenCalledWith(
-      { scenario: "chat", provider: "deepseek", modelId: "deepseek-reasoner" },
+      { scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-reasoner" },
     );
   });
 
@@ -185,7 +185,7 @@ describe("ApiKeysSection", () => {
     expect((screen.getByRole("button", { name: "保存" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("addFirstKey_saveUpsertsChatConfigWhenNoDefaultExists", async () => {
+  it("addFirstKey_saveUpsertsDialogueConfigWhenNoDefaultExists", async () => {
     apiKeys = [];
     modelConfigs = [];
     renderOpen();
@@ -196,11 +196,11 @@ describe("ApiKeysSection", () => {
     await screen.findByLabelText("模型");
     await userEvent.click(screen.getByRole("button", { name: "保存" }));
     await waitFor(() => expect(mockUpsertModel).toHaveBeenCalled());
-    expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({ scenario: "chat", provider: "deepseek", modelId: "deepseek-chat" });
+    expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({ scenario: "dialogue", apiKeyId: "aki_new", modelId: "deepseek-chat" });
   });
 
-  it("addKey_saveSkipsUpsertWhenChatDefaultAlreadyExists", async () => {
-    // DeepSeek is the chat default; add Anthropic (not yet a key) → no upsert.
+  it("addKey_saveSkipsUpsertWhenDialogueDefaultAlreadyExists", async () => {
+    // DeepSeek is the dialogue default; add Anthropic (not yet a key) → no upsert.
     apiKeys = [{ id: "aki_ds", provider: "deepseek", displayName: "DeepSeek", keyMasked: "sk-ds...3f2a", testStatus: "ok", modelsFound: ["deepseek-chat"] }];
     renderOpen();
     await userEvent.click(addBtn());

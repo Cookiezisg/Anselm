@@ -10,8 +10,12 @@ export interface AttachedDocument {
   includeSubtree: boolean;
 }
 
+// ModelRef — stable (apiKeyId, modelId) pair reusable across domains.
+// provider is implicit via the api_key referenced by apiKeyId.
+//
+// 跨 domain (apiKeyId, modelId) 对(conv 和 node override 复用);provider 由 api_key 隐含。
 export interface ModelRef {
-  provider: string;
+  apiKeyId: string;
   modelId: string;
 }
 

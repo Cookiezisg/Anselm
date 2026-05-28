@@ -138,7 +138,7 @@ describe("Onboarding", () => {
     await userEvent.click(btn(/继续/)); // model → search, writes model-config
     await waitFor(() => expect(mockUpsertModel).toHaveBeenCalled());
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({
-      scenario: "chat", provider: "deepseek", modelId: "deepseek-chat",
+      scenario: "dialogue", apiKeyId: "aki_1", modelId: "deepseek-chat",
     });
   });
 

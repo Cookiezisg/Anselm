@@ -1,10 +1,11 @@
 // ApiKeysSection — key-centric LLM key management inside SettingsModal.
-// 对话默认 (chat default) is a model-config row, NOT a key flag: a key is the
-// default iff model-config.chat.provider === key.provider. Promoting a key
-// upserts that one chat row (which implicitly replaces the prior default).
+// 对话默认 (dialogue default) is a model-config row, NOT a key flag: a key
+// is the default iff model-config.dialogue.apiKeyId === key.id. Promoting a
+// key upserts that one dialogue row (which implicitly replaces the prior
+// default).
 //
-// 按 key 组织的 LLM 密钥管理。对话默认 = model-config 的 chat 行,不是 key
-// 上的标记;升级某 key 即 upsert chat 行(隐式顶掉旧默认)。
+// 按 key 组织的 LLM 密钥管理。对话默认 = model-config 的 dialogue 行,不是
+// key 上的标记;升级某 key 即 upsert dialogue 行(隐式顶掉旧默认)。
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -29,11 +30,12 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
   );
   const llmNames = new Set(llmProviders.map((p) => p.name));
   const keys = allKeys.filter((k) => llmNames.has(k.provider));
-  const chatConfig = modelConfigs.find((m) => m.scenario === "chat");
+  const dialogueConfig = modelConfigs.find((m) => m.scenario === "dialogue");
+  const defaultKey = dialogueConfig ? keys.find((k) => k.id === dialogueConfig.apiKeyId) : undefined;
 
   const providerDisplay = (n: string) => providers.find((p) => p.name === n)?.displayName || n;
   const sub = keys.length
-    ? t("apiKeys.subWithDefault", { count: keys.length, provider: chatConfig ? providerDisplay(chatConfig.provider) : t("apiKeys.subNotSet") })
+    ? t("apiKeys.subWithDefault", { count: keys.length, provider: defaultKey ? providerDisplay(defaultKey.provider) : t("apiKeys.subNotSet") })
     : t("apiKeys.subEmpty");
 
   return (
@@ -51,7 +53,7 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
           <KeyList
             keys={keys}
             providers={llmProviders}
-            chatConfig={chatConfig}
+            dialogueConfig={dialogueConfig}
             providerDisplay={providerDisplay}
           />
         </div>
@@ -60,7 +62,7 @@ export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: ()
   );
 }
 
-function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: ApiKey[]; providers: Provider[]; chatConfig: ModelConfig | undefined; providerDisplay: (n: string) => string }) {
+function KeyList({ keys, providers, dialogueConfig, providerDisplay }: { keys: ApiKey[]; providers: Provider[]; dialogueConfig: ModelConfig | undefined; providerDisplay: (n: string) => string }) {
   const { t } = useTranslation("settings");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -77,8 +79,8 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: ApiKe
           <KeyItem
             key={key.id}
             apiKey={key}
-            isDefault={chatConfig?.provider === key.provider}
-            chatConfig={chatConfig}
+            isDefault={dialogueConfig?.apiKeyId === key.id}
+            dialogueConfig={dialogueConfig}
             displayName={providerDisplay(key.provider)}
             open={openKey === key.id}
             onToggle={() => toggleKey(key.id)}
@@ -90,7 +92,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: ApiKe
         <AddPanel
           providers={providers}
           configured={keys.map((k) => k.provider)}
-          hasChatDefault={!!chatConfig}
+          hasDialogueDefault={!!dialogueConfig}
           providerDisplay={providerDisplay}
           onDone={() => setAdding(false)}
         />
@@ -103,7 +105,7 @@ function KeyList({ keys, providers, chatConfig, providerDisplay }: { keys: ApiKe
   );
 }
 
-function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }: { apiKey: ApiKey; isDefault: boolean; chatConfig: ModelConfig | undefined; displayName: string; open: boolean; onToggle: () => void }) {
+function KeyItem({ apiKey, isDefault, dialogueConfig, displayName, open, onToggle }: { apiKey: ApiKey; isDefault: boolean; dialogueConfig: ModelConfig | undefined; displayName: string; open: boolean; onToggle: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const testKey = useTestApiKey();
@@ -115,10 +117,10 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }:
   const verified = apiKey.testStatus === "ok";
   const hint = (LLM_HINTS as Record<string, { abbr: string; color: string }>)[apiKey.provider] || { abbr: apiKey.provider.slice(0, 2).toUpperCase(), color: "#6b6459" };
 
-  const modelValue = isDefault ? chatConfig?.modelId || "" : localModel;
+  const modelValue = isDefault ? dialogueConfig?.modelId || "" : localModel;
   const onModelChange = (v: string) => {
     if (isDefault) {
-      upsertModel.mutate({ scenario: "chat", provider: apiKey.provider, modelId: v });
+      upsertModel.mutate({ scenario: "dialogue", apiKeyId: apiKey.id, modelId: v });
     } else {
       setLocalModel(v);
     }
@@ -128,7 +130,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }:
   const promote = () => {
     if (!canPromote) return;
     upsertModel.mutate(
-      { scenario: "chat", provider: apiKey.provider, modelId: modelValue || models[0] },
+      { scenario: "dialogue", apiKeyId: apiKey.id, modelId: modelValue || models[0] },
       { onSuccess: () => pushToast({ kind: "success", title: t("apiKeys.promoteSuccess", { provider: displayName }) }) },
     );
   };
@@ -158,7 +160,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }:
           <div className="set-pn">{apiKey.displayName || displayName}</div>
           <div className="set-pk">{apiKey.keyMasked}</div>
         </div>
-        {isDefault && chatConfig?.modelId && <span className="set-mtag">{chatConfig.modelId}</span>}
+        {isDefault && dialogueConfig?.modelId && <span className="set-mtag">{dialogueConfig.modelId}</span>}
         {isDefault && <span className="set-badge is-default">{t("apiKeys.chatDefault")}</span>}
         {verified && <span className="set-badge is-ok">{t("apiKeys.verified")}</span>}
         <Icon.ChevronRight className="set-kchev icon" />
@@ -204,7 +206,7 @@ function KeyItem({ apiKey, isDefault, chatConfig, displayName, open, onToggle }:
 // Switching provider or cancelling best-effort deletes the orphan created key.
 //
 // AddPanel —— 内联引导页验证流;切换厂商/取消时尽力删除已创建的孤儿 key。
-function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDone }: { providers: Provider[]; configured: string[]; hasChatDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
+function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, onDone }: { providers: Provider[]; configured: string[]; hasDialogueDefault: boolean; providerDisplay: (n: string) => string; onDone: () => void }) {
   const { t } = useTranslation("settings");
   const pushToast = useToastStore((s) => s.pushToast);
   const createKey = useCreateApiKey();
@@ -284,8 +286,8 @@ function AddPanel({ providers, configured, hasChatDefault, providerDisplay, onDo
   const save = async () => {
     setSaving(true);
     try {
-      if (modelId && !hasChatDefault) {
-        await upsertModel.mutateAsync({ scenario: "chat", provider, modelId });
+      if (modelId && !hasDialogueDefault && createdKeyId) {
+        await upsertModel.mutateAsync({ scenario: "dialogue", apiKeyId: createdKeyId, modelId });
       }
       reset();
       onDone();

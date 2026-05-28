@@ -3,10 +3,16 @@
 //
 // 对齐后端 domain/model ModelConfig struct 的 json tag 字段名(camelCase)。
 
+// Scenario is the closed 3-set whitelist of LLM-using scenarios. provider is
+// implicit via the api_key referenced by apiKeyId.
+//
+// 关闭 3-set scenario 白名单;provider 由 apiKeyId 引用的 api_key 隐含。
+export type Scenario = "dialogue" | "utility" | "agent";
+
 export interface ModelConfig {
   id: string;
-  scenario: string;
-  provider: string;
+  scenario: Scenario;
+  apiKeyId: string;
   modelId: string;
   createdAt: string;
   updatedAt: string;
@@ -24,14 +30,14 @@ export interface Provider {
   baseUrlRequired: boolean;
 }
 
-// Scenario entry from GET /api/v1/scenarios — backend authoritative whitelist.
+// ScenarioEntry — entry from GET /api/v1/scenarios (backend authoritative).
 //
 // GET /api/v1/scenarios 返回的后端权威 scenario 白名单条目。
-export interface Scenario {
-  name: string;
+export interface ScenarioEntry {
+  name: Scenario;
 }
 
 export interface UpsertModelConfigBody {
-  provider: string;
+  apiKeyId: string;
   modelId: string;
 }

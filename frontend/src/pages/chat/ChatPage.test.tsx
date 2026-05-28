@@ -33,10 +33,10 @@ vi.mock("@entities/apikey", () => ({
   useApiKeys: () => ({ data: [{ id: "aki_1" }], isLoading: false }),
 }));
 vi.mock("@entities/model-config", () => ({
-  // Default: chat scenario configured so NoModelGate doesn't swallow the
+  // Default: dialogue scenario configured so NoModelGate doesn't swallow the
   // existing ChatPage tests. Tests that exercise the gate can override.
   useModelConfigs: () => ({
-    data: [{ scenario: "chat", provider: "openai", modelId: "gpt-4o" }],
+    data: [{ scenario: "dialogue", apiKeyId: "aki_1", modelId: "gpt-4o" }],
     isLoading: false,
   }),
 }));

@@ -51,15 +51,15 @@ describe("api-key mutations", () => {
 describe("useUpsertModelConfig", () => {
   it("putsToScenarioPath_excludesScenarioFromBody", async () => {
     const { result } = await renderMutation(useUpsertModelConfig);
-    result.current.mutate({ scenario: "chat-default", provider: "openai", modelId: "gpt-4" });
+    result.current.mutate({ scenario: "dialogue", apiKeyId: "aki_x", modelId: "gpt-4" });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(calls[0]).toMatchObject({
-      url: "/api/v1/model-configs/chat-default",
+      url: "/api/v1/model-configs/dialogue",
       method: "PUT",
     });
     const body = JSON.parse(calls[0].body);
     expect(body.scenario).toBeUndefined();
-    expect(body.provider).toBe("openai");
+    expect(body.apiKeyId).toBe("aki_x");
     expect(body.modelId).toBe("gpt-4");
   });
 });

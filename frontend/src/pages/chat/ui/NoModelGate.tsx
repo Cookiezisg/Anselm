@@ -1,7 +1,7 @@
 // NoModelGate — shown when API keys exist but no model is configured for
-// the chat scenario. onOpenSettings injected by ChatPage from AppShell.
+// the dialogue scenario. onOpenSettings injected by ChatPage from AppShell.
 //
-// NoModelGate —— 有 key 但 chat scenario 未配模型时显示；onOpenSettings
+// NoModelGate —— 有 key 但 dialogue scenario 未配模型时显示；onOpenSettings
 // 从 AppShell 经 ChatPage 传入，pages 层零 app 依赖。
 
 import { useTranslation } from "react-i18next";

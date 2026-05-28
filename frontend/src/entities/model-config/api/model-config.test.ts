@@ -41,8 +41,8 @@ describe("model-config query hooks", () => {
 describe("useUpsertModelConfig mutation", () => {
   it("putsToCorrectScenarioEndpoint", async () => {
     const { result } = await renderMutation(useUpsertModelConfig);
-    result.current.mutate({ scenario: "chat", provider: "deepseek", modelId: "deepseek-chat" });
+    result.current.mutate({ scenario: "dialogue", apiKeyId: "aki_x", modelId: "deepseek-chat" });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(calls[0]).toMatchObject({ url: "/api/v1/model-configs/chat", method: "PUT" });
+    expect(calls[0]).toMatchObject({ url: "/api/v1/model-configs/dialogue", method: "PUT" });
   });
 });
