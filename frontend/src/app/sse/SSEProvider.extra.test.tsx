@@ -25,7 +25,7 @@ import { useForge } from "./useForge";
 function makeWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) =>
-    createElement(QueryClientProvider, { client }, createElement(SSEProvider, {}, children));
+    createElement(QueryClientProvider, { client }, createElement(SSEProvider, { children }));
 }
 
 afterEach(() => vi.restoreAllMocks());

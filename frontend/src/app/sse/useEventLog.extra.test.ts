@@ -1,7 +1,7 @@
 // useEventLog — missing convId branches for message_stop and block_delta/block_stop.
 
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
