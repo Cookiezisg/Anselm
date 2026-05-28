@@ -76,10 +76,12 @@ func (h *Harness) LocalCtx() context.Context {
 	return h.SeedCtx(h.t)
 }
 
-// SeedDeepSeek inserts a DeepSeek API key + chat scenario; empty apiKey falls back to env.
+// SeedDeepSeek inserts a DeepSeek API key + 3 model_configs and returns the
+// seeded api_key id; empty apiKey arg falls back to env.
 //
-// SeedDeepSeek 插入 DeepSeek API key + chat scenario，apiKey 空时走 env。
-func (h *Harness) SeedDeepSeek(t *testing.T, apiKey string) {
+// SeedDeepSeek 插入 DeepSeek API key + 3 个 model_config,返 api_key id;
+// apiKey 空时走 env。
+func (h *Harness) SeedDeepSeek(t *testing.T, apiKey string) string {
 	t.Helper()
 	if apiKey == "" {
 		apiKey = RequireDeepSeekKey(t)
@@ -108,6 +110,7 @@ func (h *Harness) SeedDeepSeek(t *testing.T, apiKey string) {
 			t.Fatalf("seed model config %s: %v", scenario, err)
 		}
 	}
+	return key.ID
 }
 
 // NewConversation creates a fresh conversation via the service; returns entity with ID.

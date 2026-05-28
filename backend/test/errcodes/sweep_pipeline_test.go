@@ -19,7 +19,7 @@ import (
 // covers: errcode:KEY_REQUIRED
 // covers: errcode:API_FORMAT_REQUIRED
 // covers: errcode:INVALID_SCENARIO
-// covers: errcode:PROVIDER_REQUIRED
+// covers: errcode:API_KEY_ID_REQUIRED
 // covers: errcode:MODEL_ID_REQUIRED
 // covers: errcode:CONVERSATION_NOT_FOUND
 // covers: errcode:STREAM_NOT_FOUND
@@ -27,7 +27,9 @@ func TestErrCodes_Sweep(t *testing.T) {
 	h := th.New(t)
 
 	var convResp struct {
-		Data struct{ ID string `json:"id"` } `json:"data"`
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
 	}
 	h.PostJSON("/api/v1/conversations", map[string]any{"title": "errcode-conv"}, &convResp)
 	convID := convResp.Data.ID
@@ -91,21 +93,21 @@ func TestErrCodes_Sweep(t *testing.T) {
 		{
 			"INVALID_SCENARIO",
 			"PUT", "/api/v1/model-configs/not-a-real-scenario",
-			map[string]any{"provider": "deepseek", "modelId": "x"},
+			map[string]any{"apiKeyId": "aki_irrelevant000000", "modelId": "x"},
 			http.StatusBadRequest, "INVALID_SCENARIO",
 		},
 
 		{
-			"PROVIDER_REQUIRED",
-			"PUT", "/api/v1/model-configs/chat",
-			map[string]any{"provider": "", "modelId": "deepseek-chat"},
-			http.StatusBadRequest, "PROVIDER_REQUIRED",
+			"API_KEY_ID_REQUIRED",
+			"PUT", "/api/v1/model-configs/dialogue",
+			map[string]any{"apiKeyId": "", "modelId": "deepseek-chat"},
+			http.StatusBadRequest, "API_KEY_ID_REQUIRED",
 		},
 
 		{
 			"MODEL_ID_REQUIRED",
-			"PUT", "/api/v1/model-configs/chat",
-			map[string]any{"provider": "deepseek", "modelId": ""},
+			"PUT", "/api/v1/model-configs/dialogue",
+			map[string]any{"apiKeyId": "aki_irrelevant000000", "modelId": ""},
 			http.StatusBadRequest, "MODEL_ID_REQUIRED",
 		},
 
@@ -121,7 +123,6 @@ func TestErrCodes_Sweep(t *testing.T) {
 			"DELETE", "/api/v1/conversations/" + convID + "/stream",
 			nil, http.StatusNotFound, "STREAM_NOT_FOUND",
 		},
-
 	}
 
 	for _, tc := range cases {
@@ -172,7 +173,9 @@ func TestErrCodes_FunctionDomain(t *testing.T) {
 	t.Run("FUNCTION_PENDING_NOT_FOUND_on_accept", func(t *testing.T) {
 		var createResp struct {
 			Data struct {
-				Function struct{ ID string `json:"id"` } `json:"function"`
+				Function struct {
+					ID string `json:"id"`
+				} `json:"function"`
 			} `json:"data"`
 		}
 		th.PostFunction(t, h, "errcodes_fn_b", th.SimpleFunctionCode, &createResp)
@@ -188,4 +191,69 @@ func TestErrCodes_FunctionDomain(t *testing.T) {
 			t.Errorf("error.code=%q, want FUNCTION_PENDING_NOT_FOUND", errResp.Error.Code)
 		}
 	})
+}
+
+// covers: errcode:API_KEY_IN_USE
+//
+// SeedDeepSeek already binds the api_key to 3 model_configs, so DELETE via
+// the service is refused (422) — exercises the RefScanner RESTRICT path
+// wired in main.go and mirrored in harness.New (Task 0b §0).
+//
+// SeedDeepSeek 已把 api_key 绑到 3 个 model_config,DELETE 触发 RefScanner
+// RESTRICT 路径 → 422。
+func TestErrcodes_APIKeyInUse(t *testing.T) {
+	h := th.New(t)
+	apiKeyID := h.SeedDeepSeek(t, "test-key")
+
+	var errResp th.ErrEnvelope
+	status := th.DoRequest(t, h, "DELETE", "/api/v1/api-keys/"+apiKeyID, nil, &errResp)
+	if status != http.StatusUnprocessableEntity {
+		t.Fatalf("status=%d, want 422; body=%+v", status, errResp)
+	}
+	if errResp.Error.Code != "API_KEY_IN_USE" {
+		t.Fatalf("error.code=%q, want API_KEY_IN_USE", errResp.Error.Code)
+	}
+}
+
+// covers: errcode:INVALID_NODE_MODEL_OVERRIDE
+//
+// Exercises the workflow F1 validator via POST /api/v1/workflows with a
+// set_node_model_override op missing apiKeyId. The unit-level coverage
+// lives in app/workflow/apply_test.go (Task 9); this sweep case asserts
+// the HTTP envelope + status code wiring.
+//
+// 通过 POST /api/v1/workflows 触发 workflow F1 校验;set_node_model_override
+// 缺 apiKeyId → 400 INVALID_NODE_MODEL_OVERRIDE。
+func TestErrcodes_InvalidNodeModelOverride(t *testing.T) {
+	h := th.New(t)
+
+	var errResp th.ErrEnvelope
+	status := th.DoRequest(t, h, "POST", "/api/v1/workflows", map[string]any{
+		"ops": []map[string]any{
+			{"op": "set_meta", "name": "bad-override-wf", "description": "errcode test"},
+			{"op": "add_node", "node": map[string]any{
+				"id":     "trig",
+				"type":   "trigger",
+				"name":   "manual",
+				"config": map[string]any{"triggerType": "manual"},
+			}},
+			{"op": "add_node", "node": map[string]any{
+				"id":     "agent_node",
+				"type":   "agent",
+				"name":   "agent",
+				"config": map[string]any{"scenario": "agent"},
+			}},
+			{
+				"op":            "set_node_model_override",
+				"nodeId":        "agent_node",
+				"modelOverride": map[string]any{"modelId": "deepseek-chat"},
+			},
+		},
+	}, &errResp)
+	if status != http.StatusBadRequest {
+		t.Fatalf("status=%d, want 400; body=%+v", status, errResp)
+	}
+	if errResp.Error.Code != "INVALID_NODE_MODEL_OVERRIDE" {
+		t.Fatalf("error.code=%q, want INVALID_NODE_MODEL_OVERRIDE", errResp.Error.Code)
+	}
 }

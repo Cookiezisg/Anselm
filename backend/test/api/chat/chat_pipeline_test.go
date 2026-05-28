@@ -11,7 +11,6 @@ import (
 	"time"
 
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
@@ -202,10 +201,10 @@ func TestChat_CancelMidStream_StatusCancelled(t *testing.T) {
 func TestChat_Live_ReasoningModel_BlocksSeparate(t *testing.T) {
 	key := th.RequireDeepSeekKey(t)
 	h := th.New(t)
-	h.SeedDeepSeek(t, key)
+	apiKeyID := h.SeedDeepSeek(t, key)
 
-	if _, err := h.Model.Upsert(h.LocalCtx(), modeldomain.ScenarioChat, modelapp.UpsertInput{
-		Provider: th.ProviderDeepSeek,
+	if _, err := h.Model.Upsert(h.LocalCtx(), modeldomain.ScenarioDialogue, modelapp.UpsertInput{
+		APIKeyID: apiKeyID,
 		ModelID:  "deepseek-reasoner",
 	}); err != nil {
 		t.Fatalf("override to deepseek-reasoner: %v", err)
@@ -252,18 +251,16 @@ func TestChat_MissingAPIKey_ErrorCodePersisted(t *testing.T) {
 	// Model.Upsert now requires a matching api-key to exist (green-save /
 	// red-runtime guard), so we seed then delete to simulate the
 	// "config drifted out from under the chat flow" path that
-	// API_KEY_PROVIDER_NOT_FOUND is meant to catch.
+	// API_KEY_PROVIDER_NOT_FOUND is meant to catch. Direct DB delete
+	// bypasses the service-level RefScanner that would refuse the delete
+	// because model_configs still reference the key (covered separately
+	// by TestErrcodes_APIKeyInUse in the errcodes sweep).
 	// Model.Upsert 现在要求有匹配 api-key（防绿保存红运行时），所以先
 	// 种再删，模拟 API_KEY_PROVIDER_NOT_FOUND 想抓的"config 已飘走"路径。
-	h.SeedDeepSeek(t, "test-key-soon-to-be-deleted")
-	keys, _, err := h.APIKey.List(h.LocalCtx(), apikeydomain.ListFilter{Limit: 10})
-	if err != nil {
-		t.Fatalf("list apikeys: %v", err)
-	}
-	for _, k := range keys {
-		if err := h.APIKey.Delete(h.LocalCtx(), k.ID); err != nil {
-			t.Fatalf("delete apikey: %v", err)
-		}
+	// 直接 DB 删绕过服务层 RefScanner——RESTRICT 路径由 errcodes sweep 覆盖。
+	apiKeyID := h.SeedDeepSeek(t, "test-key-soon-to-be-deleted")
+	if err := h.DB.Exec("DELETE FROM api_keys WHERE id = ?", apiKeyID).Error; err != nil {
+		t.Fatalf("direct delete apikey: %v", err)
 	}
 
 	conv := h.NewConversation(t, "no-key")

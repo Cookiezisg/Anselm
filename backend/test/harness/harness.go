@@ -252,13 +252,32 @@ func New(t *testing.T, opts ...Option) *Harness {
 		t.Fatalf("build encryptor: %v", err)
 	}
 
+	// Store handles pulled out so apikey RefScanner setters can reach the same
+	// instances used by the *Service constructors (mirrors main.go wiring).
+	//
+	// 抽出 store 句柄供 apikey RefScanner setter 复用,与 main.go 装配一致。
+	modelStoreInst := modelstore.New(gdb)
+	convStoreInst := convstore.New(gdb)
+	workflowStoreInst := workflowstore.New(gdb)
+
 	apikeyService := apikeyapp.NewService(
 		apikeystore.New(gdb),
 		encryptor,
 		apikeyapp.NewHTTPTester(nil),
 		log,
 	)
-	modelService := modelapp.NewService(modelstore.New(gdb), apikeyService, log)
+	// Wire ref scanners so apikey.Service.Delete enforces RESTRICT against
+	// model_configs / conv overrides / workflow node overrides (mirrors
+	// main.go); pipeline tests that need to delete a referenced key bypass
+	// via direct DB Exec.
+	//
+	// 装配 RefScanner 让 apikey.Service.Delete 强制 RESTRICT (镜像 main.go);
+	// 需删除被引用 key 的 pipeline 测试通过直接 DB Exec 绕过。
+	apikeyService.SetModelConfigRefScanner(modelStoreInst)
+	apikeyService.SetConvOverrideRefScanner(convStoreInst)
+	apikeyService.SetNodeOverrideRefScanner(workflowStoreInst)
+
+	modelService := modelapp.NewService(modelStoreInst, apikeyService, log)
 
 	llmFactory := llminfra.NewFactory()
 
@@ -289,7 +308,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		}
 	})
 
-	convService := convapp.NewService(convstore.New(gdb), notificationsPub, log)
+	convService := convapp.NewService(convStoreInst, notificationsPub, log)
 	convService.SetKeyProvider(apikeyService) // §12.3
 
 	functionService := functionapp.NewService(
@@ -317,17 +336,18 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Handler:  handlerService,
 	}
 	workflowService := workflowapp.NewService(
-		workflowstore.New(gdb),
+		workflowStoreInst,
 		workflowChecker,
 		notificationsPub,
 		log,
 	)
+	workflowService.SetKeyProvider(apikeyService) // enable F1 validation on node modelOverride
 
 	chatRepo := chatstore.New(gdb)
 	chatEmitter := eventlogpkg.New(eventLogBridge, chatRepo, log)
 	chatService := chatapp.NewService(
 		chatRepo,
-		convstore.New(gdb),
+		convStoreInst,
 		modelService,
 		apikeyService,
 		llmFactory,
@@ -494,7 +514,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, nil
 	}
 	contextManager := contextmgrapp.New(
-		chatRepo, convstore.New(gdb), chatEmitter, notificationsPub, cheapLLMResolver, log)
+		chatRepo, convStoreInst, chatEmitter, notificationsPub, cheapLLMResolver, log)
 	chatService.SetContextCompactor(contextManager)
 
 	// V1.2 §3 final-sweep — permissions + hooks. Test harness points at
