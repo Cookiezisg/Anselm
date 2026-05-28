@@ -46,9 +46,10 @@ export interface CanvasGraph {
 }
 
 // 与后端 WorkflowEditOp 一一对应（entities/workflow 导出）
+// update_node 走 RFC 7396 JSON Merge Patch：{nodeId, patch}（不是整 NodeSpec）。
 type WorkflowEditOp =
   | { op: "add_node";    node: NodeSpec }
-  | { op: "update_node"; node: NodeSpec }
+  | { op: "update_node"; nodeId: string; patch: Partial<NodeSpec> }
   | { op: "delete_node"; id: string }
   | { op: "add_edge";    edge: EdgeSpec }
   | { op: "delete_edge"; id: string };
@@ -174,7 +175,8 @@ WorkflowEditor 画布事件（节点移动/添加/删除、边添加/删除）
 
 ```ts
 export { diffToOps }    // 三向 diff，纯函数
-export { nodeToSpec }   // CanvasNode → 后端 NodeSpec
+export { nodeToSpec }   // CanvasNode → 后端 NodeSpec（用于 add_node）
+export { nodeToPatch }  // CanvasNode → update_node patch（不含 id / modelOverride）
 export { edgeToSpec }   // CanvasEdge → 后端 EdgeSpec
 export { edgeKey }      // 边的稳定标识符
 ```

@@ -93,8 +93,14 @@ describe("diffToOps — update", () => {
     const next: CanvasGraph = { nodes: [makeNode("n1", { config: { a: 2 } })], edges: [] };
     const ops = diffToOps(orig, next);
     expect(ops).toHaveLength(1);
-    expect(ops[0].op).toBe("update_node");
-    expect((ops[0].node as any).id).toBe("n1");
+    expect(ops[0]).toMatchObject({
+      op: "update_node",
+      nodeId: "n1",
+      patch: expect.objectContaining({ config: { a: 2 } }),
+    });
+    expect(ops[0]).not.toHaveProperty("node");
+    expect((ops[0].patch as any)).not.toHaveProperty("id");
+    expect((ops[0].patch as any)).not.toHaveProperty("modelOverride");
   });
 
   it("emits update_node when notes changes", () => {

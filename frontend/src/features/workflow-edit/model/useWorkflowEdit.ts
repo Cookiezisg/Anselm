@@ -64,6 +64,26 @@ export function nodeToSpec(n: CanvasNode) {
   };
 }
 
+// nodeToPatch — wire shape for update_node: full post-edit content as the
+// merge-patch body. modelOverride is excluded (carried by the dedicated
+// set_node_model_override op so the backend can validate apiKeyId ownership);
+// id is excluded because nodeId carries it.
+//
+// nodeToPatch —— update_node 的 patch 体，发送编辑后全字段;
+// modelOverride 不进 patch(由专属 op 携带,后端校验 apiKeyId 归属);
+// id 不进 patch(nodeId 已携带)。
+export function nodeToPatch(n: CanvasNode) {
+  return {
+    type: n.kind,
+    position: { x: Math.round(n.x), y: Math.round(n.y) },
+    config: n.config || {},
+    notes: n.notes || "",
+    onError: n.onError || "",
+    timeout: n.timeout || 0,
+    ...(n.retry ? { retry: n.retry } : {}),
+  };
+}
+
 // modelOverrideEq — true when two ModelRef|null|undefined values are
 // semantically equal (treating null and undefined as "no override").
 //
@@ -118,7 +138,7 @@ export function diffToOps(orig: CanvasGraph, next: CanvasGraph): WorkflowEditOp[
     if (!o) {
       ops.push({ op: "add_node", node: nodeToSpec(n) });
     } else if (nodeChanged(o, n)) {
-      ops.push({ op: "update_node", node: nodeToSpec(n) });
+      ops.push({ op: "update_node", nodeId: n.id, patch: nodeToPatch(n) });
     }
     // modelOverride flip on existing node → dedicated op.
     if (o && !modelOverrideEq(o.modelOverride, n.modelOverride)) {
