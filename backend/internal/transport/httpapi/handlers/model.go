@@ -28,7 +28,7 @@ func (h *ModelConfigHandler) Register(mux Registrar) {
 }
 
 type upsertModelRequest struct {
-	Provider string `json:"provider"`
+	APIKeyID string `json:"apiKeyId"`
 	ModelID  string `json:"modelId"`
 }
 
@@ -59,7 +59,7 @@ func (h *ModelConfigHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m, err := h.svc.Upsert(r.Context(), scenario, modelapp.UpsertInput{
-		Provider: req.Provider,
+		APIKeyID: req.APIKeyID,
 		ModelID:  req.ModelID,
 	})
 	if err != nil {

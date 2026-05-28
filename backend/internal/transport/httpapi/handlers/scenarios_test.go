@@ -40,7 +40,7 @@ func TestScenariosHandler_List_MatchesWhitelist(t *testing.T) {
 	}
 }
 
-func TestScenariosHandler_List_ContainsChat(t *testing.T) {
+func TestScenariosHandler_List_ContainsDialogue(t *testing.T) {
 	h := NewScenariosHandler()
 	mux := http.NewServeMux()
 	h.Register(mux)
@@ -58,12 +58,12 @@ func TestScenariosHandler_List_ContainsChat(t *testing.T) {
 
 	found := false
 	for _, s := range env.Data {
-		if s.Name == modeldomain.ScenarioChat {
+		if s.Name == modeldomain.ScenarioDialogue {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("scenarios response missing %q", modeldomain.ScenarioChat)
+		t.Errorf("scenarios response missing %q", modeldomain.ScenarioDialogue)
 	}
 }

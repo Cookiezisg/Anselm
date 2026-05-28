@@ -82,9 +82,8 @@ var errTable = map[error]errMapping{
 	// model
 	modeldomain.ErrNotConfigured:    {http.StatusUnprocessableEntity, "MODEL_NOT_CONFIGURED"},
 	modeldomain.ErrInvalidScenario:  {http.StatusBadRequest, "INVALID_SCENARIO"},
-	modeldomain.ErrProviderRequired: {http.StatusBadRequest, "PROVIDER_REQUIRED"},
+	modeldomain.ErrAPIKeyIDRequired: {http.StatusBadRequest, "API_KEY_ID_REQUIRED"},
 	modeldomain.ErrModelIDRequired:  {http.StatusBadRequest, "MODEL_ID_REQUIRED"},
-	modeldomain.ErrProviderHasNoKey: {http.StatusUnprocessableEntity, "PROVIDER_HAS_NO_KEY"},
 
 	// function
 	functiondomain.ErrNotFound:             {http.StatusNotFound, "FUNCTION_NOT_FOUND"},

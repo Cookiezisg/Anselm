@@ -34,12 +34,12 @@ func ctxFor(userID string) context.Context {
 	return reqctxpkg.SetUserID(context.Background(), userID)
 }
 
-func mkConfig(id, userID, scenario, provider, modelID string) *modeldomain.ModelConfig {
+func mkConfig(id, userID, scenario, apiKeyID, modelID string) *modeldomain.ModelConfig {
 	return &modeldomain.ModelConfig{
 		ID:       id,
 		UserID:   userID,
 		Scenario: scenario,
-		Provider: provider,
+		APIKeyID: apiKeyID,
 		ModelID:  modelID,
 	}
 }
@@ -48,17 +48,17 @@ func TestUpsert_NewRowCreated(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 
-	m := mkConfig("mc1", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	m := mkConfig("mc1", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctx, m); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
 
-	got, err := s.GetByScenario(ctx, modeldomain.ScenarioChat)
+	got, err := s.GetByScenario(ctx, modeldomain.ScenarioDialogue)
 	if err != nil {
 		t.Fatalf("GetByScenario: %v", err)
 	}
-	if got.Provider != "openai" || got.ModelID != "gpt-4o" {
-		t.Errorf("got %+v, want openai/gpt-4o", got)
+	if got.APIKeyID != "aki_openai" || got.ModelID != "gpt-4o" {
+		t.Errorf("got %+v, want aki_openai/gpt-4o", got)
 	}
 }
 
@@ -66,25 +66,25 @@ func TestUpsert_UpdatePreservesID(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 
-	m := mkConfig("mc1", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	m := mkConfig("mc1", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctx, m); err != nil {
 		t.Fatalf("first Upsert: %v", err)
 	}
 
-	m.Provider = "anthropic"
+	m.APIKeyID = "aki_anthropic"
 	m.ModelID = "claude-3-5-sonnet-latest"
 	if err := s.Upsert(ctx, m); err != nil {
 		t.Fatalf("second Upsert: %v", err)
 	}
 
-	got, err := s.GetByScenario(ctx, modeldomain.ScenarioChat)
+	got, err := s.GetByScenario(ctx, modeldomain.ScenarioDialogue)
 	if err != nil {
 		t.Fatalf("GetByScenario: %v", err)
 	}
 	if got.ID != "mc1" {
 		t.Errorf("ID changed: got %q, want %q", got.ID, "mc1")
 	}
-	if got.Provider != "anthropic" || got.ModelID != "claude-3-5-sonnet-latest" {
+	if got.APIKeyID != "aki_anthropic" || got.ModelID != "claude-3-5-sonnet-latest" {
 		t.Errorf("fields not updated: got %+v", got)
 	}
 }
@@ -93,12 +93,12 @@ func TestUpsert_UniqueConstraintBlocksDuplicate(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 
-	m1 := mkConfig("mc1", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	m1 := mkConfig("mc1", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctx, m1); err != nil {
 		t.Fatalf("first Upsert: %v", err)
 	}
 
-	m2 := mkConfig("mc2", userAlice, modeldomain.ScenarioChat, "anthropic", "claude-3-5-sonnet-latest")
+	m2 := mkConfig("mc2", userAlice, modeldomain.ScenarioDialogue, "aki_anthropic", "claude-3-5-sonnet-latest")
 	if err := s.Upsert(ctx, m2); err == nil {
 		t.Error("second Upsert with same (user, scenario) different ID: got nil, want unique constraint error")
 	}
@@ -106,7 +106,7 @@ func TestUpsert_UniqueConstraintBlocksDuplicate(t *testing.T) {
 
 func TestGetByScenario_NotFound(t *testing.T) {
 	s := newStore(t)
-	_, err := s.GetByScenario(ctxFor(userAlice), modeldomain.ScenarioChat)
+	_, err := s.GetByScenario(ctxFor(userAlice), modeldomain.ScenarioDialogue)
 	if !errors.Is(err, modeldomain.ErrNotConfigured) {
 		t.Errorf("got %v, want ErrNotConfigured", err)
 	}
@@ -115,12 +115,12 @@ func TestGetByScenario_NotFound(t *testing.T) {
 func TestGetByScenario_CrossUserIsolation(t *testing.T) {
 	s := newStore(t)
 
-	m := mkConfig("mc1", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	m := mkConfig("mc1", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctxFor(userAlice), m); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
 
-	_, err := s.GetByScenario(ctxFor(userBob), modeldomain.ScenarioChat)
+	_, err := s.GetByScenario(ctxFor(userBob), modeldomain.ScenarioDialogue)
 	if !errors.Is(err, modeldomain.ErrNotConfigured) {
 		t.Errorf("Bob sees Alice's config: got %v, want ErrNotConfigured", err)
 	}
@@ -128,7 +128,7 @@ func TestGetByScenario_CrossUserIsolation(t *testing.T) {
 
 func TestGetByScenario_MissingUserID(t *testing.T) {
 	s := newStore(t)
-	_, err := s.GetByScenario(context.Background(), modeldomain.ScenarioChat)
+	_, err := s.GetByScenario(context.Background(), modeldomain.ScenarioDialogue)
 	if err == nil {
 		t.Fatal("got nil, want wiring error")
 	}
@@ -155,7 +155,7 @@ func TestList_ReturnsActiveRows(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
 
-	m := mkConfig("mc1", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	m := mkConfig("mc1", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctx, m); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
@@ -175,11 +175,11 @@ func TestList_ReturnsActiveRows(t *testing.T) {
 func TestList_CrossUserIsolation(t *testing.T) {
 	s := newStore(t)
 
-	ma := mkConfig("mc-a", userAlice, modeldomain.ScenarioChat, "openai", "gpt-4o")
+	ma := mkConfig("mc-a", userAlice, modeldomain.ScenarioDialogue, "aki_openai", "gpt-4o")
 	if err := s.Upsert(ctxFor(userAlice), ma); err != nil {
 		t.Fatalf("Upsert Alice: %v", err)
 	}
-	mb := mkConfig("mc-b", userBob, modeldomain.ScenarioChat, "anthropic", "claude-3-5-sonnet-latest")
+	mb := mkConfig("mc-b", userBob, modeldomain.ScenarioDialogue, "aki_anthropic", "claude-3-5-sonnet-latest")
 	if err := s.Upsert(ctxFor(userBob), mb); err != nil {
 		t.Fatalf("Upsert Bob: %v", err)
 	}
