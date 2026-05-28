@@ -49,8 +49,12 @@ const (
 //
 // Credentials 是返给 LLM 调用方的凭证包；Key 为明文，禁日志 / 禁持久化。
 type Credentials struct {
-	Key     string
-	BaseURL string
+	// Provider lets ByID callers re-derive display/transport hints from a key id.
+	//
+	// Provider 让按 id 解析的调用方仍能拿到 provider 名（供 llmclient.Bundle 派生用）。
+	Provider string
+	Key      string
+	BaseURL  string
 }
 
 type ListFilter struct {
@@ -67,6 +71,10 @@ var (
 	ErrAPIFormatRequired   = errors.New("apikey: api_format required for custom provider")
 	ErrKeyRequired         = errors.New("apikey: key value is required")
 	ErrDisplayNameConflict = errors.New("apikey: display name already in use")
+	// ErrInUse: model_config / conv override / node override still reference this key.
+	//
+	// ErrInUse:被 model_config / conv override / node override 引用，不能删。
+	ErrInUse = errors.New("apikey: in use by model_configs or model overrides")
 )
 
 // Repository is the storage contract for APIKey, scoped by ctx userID.
@@ -99,6 +107,12 @@ type Repository interface {
 // KeyProvider 是跨 domain 端口，消费方拿可用凭证而不接触 Repository。
 type KeyProvider interface {
 	ResolveCredentials(ctx context.Context, provider string) (Credentials, error)
+
+	// ResolveCredentialsByID resolves by api_key id; cross-user lookups surface ErrNotFound.
+	//
+	// ResolveCredentialsByID 按 id 解析 credentials；跨用户走 ErrNotFound（隔离）。
+	ResolveCredentialsByID(ctx context.Context, apiKeyID string) (Credentials, error)
+
 	MarkInvalid(ctx context.Context, provider string, reason string) error
 	HasKeyForProvider(ctx context.Context, provider string) (bool, error)
 

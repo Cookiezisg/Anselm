@@ -24,6 +24,9 @@ type fakeKeys struct {
 func (f *fakeKeys) ResolveCredentials(context.Context, string) (apikeydomain.Credentials, error) {
 	return apikeydomain.Credentials{}, nil
 }
+func (f *fakeKeys) ResolveCredentialsByID(context.Context, string) (apikeydomain.Credentials, error) {
+	return apikeydomain.Credentials{}, nil
+}
 func (f *fakeKeys) MarkInvalid(context.Context, string, string) error { return nil }
 func (f *fakeKeys) HasKeyForProvider(_ context.Context, provider string) (bool, error) {
 	if f.available == nil {

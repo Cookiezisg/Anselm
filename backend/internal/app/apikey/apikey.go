@@ -18,6 +18,14 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
+// RefScanner probes whether some entity still references a given api_key id.
+// Delete consults each registered scanner; any "true" surfaces apikeydomain.ErrInUse.
+//
+// RefScanner 检测某 api_key 是否被外部引用；Delete 命中任一即返 ErrInUse。
+type RefScanner interface {
+	AnyReferencesApiKey(ctx context.Context, apiKeyID string) (bool, error)
+}
+
 // Service orchestrates apikey CRUD + connectivity testing; owns the encryption boundary.
 //
 // Service 编排 apikey CRUD 与连通性测试，持有加密边界。
@@ -26,7 +34,28 @@ type Service struct {
 	encryptor cryptodomain.Encryptor
 	tester    ConnectivityTester
 	log       *zap.Logger
+
+	// nil-tolerant: Delete skips a scanner if its setter was never called.
+	modelConfigScan  RefScanner
+	convOverrideScan RefScanner
+	nodeOverrideScan RefScanner
 }
+
+// SetModelConfigRefScanner registers the scanner for model_configs.api_key_id refs.
+// Wire-up: called once during DI; nil scanner = no check.
+//
+// SetModelConfigRefScanner 注入 model_config 引用扫描器；装配阶段调一次。
+func (s *Service) SetModelConfigRefScanner(rs RefScanner) { s.modelConfigScan = rs }
+
+// SetConvOverrideRefScanner registers the scanner for conversation.model_override refs.
+//
+// SetConvOverrideRefScanner 注入 conv override 引用扫描器；装配阶段调一次。
+func (s *Service) SetConvOverrideRefScanner(rs RefScanner) { s.convOverrideScan = rs }
+
+// SetNodeOverrideRefScanner registers the scanner for flowrun node.model_override refs.
+//
+// SetNodeOverrideRefScanner 注入 node override 引用扫描器；装配阶段调一次。
+func (s *Service) SetNodeOverrideRefScanner(rs RefScanner) { s.nodeOverrideScan = rs }
 
 // NewService wires Service dependencies; panics on nil logger.
 //
@@ -180,7 +209,39 @@ func (s *Service) HasKeyForProvider(ctx context.Context, provider string) (bool,
 	return false, fmt.Errorf("apikey.Service.HasKeyForProvider: %w", err)
 }
 
+// Delete refuses if any registered scanner reports this key is referenced (F1).
+// Each scanner is nil-tolerant — wire-up order doesn't matter; missing scanners skip.
+//
+// Delete 检测三处引用（model_config / conv override / node override），命中即 ErrInUse；
+// 未注入的 scanner 跳过（nil-tolerant），便于装配顺序无关。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	if s.modelConfigScan != nil {
+		used, err := s.modelConfigScan.AnyReferencesApiKey(ctx, id)
+		if err != nil {
+			return fmt.Errorf("apikey.Service.Delete model_config scan: %w", err)
+		}
+		if used {
+			return apikeydomain.ErrInUse
+		}
+	}
+	if s.convOverrideScan != nil {
+		used, err := s.convOverrideScan.AnyReferencesApiKey(ctx, id)
+		if err != nil {
+			return fmt.Errorf("apikey.Service.Delete conv scan: %w", err)
+		}
+		if used {
+			return apikeydomain.ErrInUse
+		}
+	}
+	if s.nodeOverrideScan != nil {
+		used, err := s.nodeOverrideScan.AnyReferencesApiKey(ctx, id)
+		if err != nil {
+			return fmt.Errorf("apikey.Service.Delete node scan: %w", err)
+		}
+		if used {
+			return apikeydomain.ErrInUse
+		}
+	}
 	return s.repo.Delete(ctx, id)
 }
 
@@ -254,7 +315,30 @@ func (s *Service) ResolveCredentials(ctx context.Context, provider string) (apik
 			baseURL = meta.DefaultBaseURL
 		}
 	}
-	return apikeydomain.Credentials{Key: string(plain), BaseURL: baseURL}, nil
+	return apikeydomain.Credentials{Provider: provider, Key: string(plain), BaseURL: baseURL}, nil
+}
+
+// ResolveCredentialsByID resolves by api_key id; repo's Get is ctx user_id scoped,
+// so cross-user lookups naturally surface ErrNotFound (isolation by store layer).
+//
+// ResolveCredentialsByID 按 id 解析 credentials；repo.Get 已按 ctx user_id 过滤，
+// 跨用户查询走 ErrNotFound（store 层天然隔离）。
+func (s *Service) ResolveCredentialsByID(ctx context.Context, apiKeyID string) (apikeydomain.Credentials, error) {
+	k, err := s.repo.Get(ctx, apiKeyID)
+	if err != nil {
+		return apikeydomain.Credentials{}, fmt.Errorf("apikey.Service.ResolveCredentialsByID: %w", err)
+	}
+	plain, err := s.encryptor.Decrypt(ctx, []byte(k.KeyEncrypted))
+	if err != nil {
+		return apikeydomain.Credentials{}, fmt.Errorf("apikey.Service.ResolveCredentialsByID: decrypt: %w", err)
+	}
+	baseURL := k.BaseURL
+	if baseURL == "" {
+		if meta, ok := GetProviderMeta(k.Provider); ok {
+			baseURL = meta.DefaultBaseURL
+		}
+	}
+	return apikeydomain.Credentials{Provider: k.Provider, Key: string(plain), BaseURL: baseURL}, nil
 }
 
 // MarkInvalid flips test_status to error on 401/403 via detached ctx (§S9).

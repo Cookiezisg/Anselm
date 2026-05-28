@@ -29,6 +29,10 @@ func (k *fakeKeys) ResolveCredentials(_ context.Context, _ string) (apikeydomain
 	return apikeydomain.Credentials{}, errors.New("not implemented for this test")
 }
 
+func (k *fakeKeys) ResolveCredentialsByID(_ context.Context, _ string) (apikeydomain.Credentials, error) {
+	return apikeydomain.Credentials{}, errors.New("not implemented for this test")
+}
+
 func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error { return nil }
 func (k *fakeKeys) DefaultSearchProvider(_ context.Context) string  { return "" }
 

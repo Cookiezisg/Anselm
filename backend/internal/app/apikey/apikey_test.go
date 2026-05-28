@@ -539,6 +539,101 @@ func TestUpdate_SetDefault_DoesNotClearOtherCategory(t *testing.T) {
 	}
 }
 
+type stubRefScanner struct {
+	has bool
+	err error
+}
+
+func (s stubRefScanner) AnyReferencesApiKey(_ context.Context, _ string) (bool, error) {
+	return s.has, s.err
+}
+
+func TestService_ResolveCredentialsByID_Happy(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-alice")
+	created, err := svc.Create(ctx, CreateInput{
+		Provider:    "anthropic",
+		Key:         "sk-fake",
+		DisplayName: "personal",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	creds, err := svc.ResolveCredentialsByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ResolveCredentialsByID: %v", err)
+	}
+	if creds.Provider != "anthropic" {
+		t.Errorf("Provider = %q, want anthropic", creds.Provider)
+	}
+	if creds.Key != "sk-fake" {
+		t.Errorf("Key = %q, want sk-fake", creds.Key)
+	}
+}
+
+func TestService_ResolveCredentialsByID_NotFound(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	_, err := svc.ResolveCredentialsByID(ctxFor("u-alice"), "aki_nonexistent")
+	if !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("want ErrNotFound, got %v", err)
+	}
+}
+
+func TestService_ResolveCredentialsByID_CrossUserBlocked(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	aliceKey, err := svc.Create(ctxFor("u-alice"), CreateInput{
+		Provider: "anthropic",
+		Key:      "sk-fake",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	_, err = svc.ResolveCredentialsByID(ctxFor("u-bob"), aliceKey.ID)
+	if !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("cross-user: want ErrNotFound, got %v", err)
+	}
+}
+
+func TestService_Delete_RefusesWhenReferencedByModelConfig(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-alice")
+	k, err := svc.Create(ctx, CreateInput{Provider: "openai", Key: "sk-x"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	svc.SetModelConfigRefScanner(stubRefScanner{has: true})
+	if err := svc.Delete(ctx, k.ID); !errors.Is(err, apikeydomain.ErrInUse) {
+		t.Fatalf("want ErrInUse, got %v", err)
+	}
+}
+
+func TestService_Delete_RefusesWhenReferencedByConvOverride(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-alice")
+	k, err := svc.Create(ctx, CreateInput{Provider: "openai", Key: "sk-x"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	svc.SetConvOverrideRefScanner(stubRefScanner{has: true})
+	if err := svc.Delete(ctx, k.ID); !errors.Is(err, apikeydomain.ErrInUse) {
+		t.Fatalf("want ErrInUse, got %v", err)
+	}
+}
+
+func TestService_Delete_RefusesWhenReferencedByNodeOverride(t *testing.T) {
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-alice")
+	k, err := svc.Create(ctx, CreateInput{Provider: "openai", Key: "sk-x"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	svc.SetNodeOverrideRefScanner(stubRefScanner{has: true})
+	if err := svc.Delete(ctx, k.ID); !errors.Is(err, apikeydomain.ErrInUse) {
+		t.Fatalf("want ErrInUse, got %v", err)
+	}
+}
+
 func TestDefaultProvider_ReturnsMarked(t *testing.T) {
 	svc, repo := newTestService(t, &fakeTester{})
 	ctx := ctxFor("u-default-provider-test")
