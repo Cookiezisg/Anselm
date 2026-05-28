@@ -65,6 +65,7 @@ var errTable = map[error]errMapping{
 	apikeydomain.ErrAPIFormatRequired:   {http.StatusBadRequest, "API_FORMAT_REQUIRED"},
 	apikeydomain.ErrKeyRequired:         {http.StatusBadRequest, "KEY_REQUIRED"},
 	apikeydomain.ErrDisplayNameConflict: {http.StatusConflict, "API_KEY_NAME_CONFLICT"},
+	apikeydomain.ErrInUse:               {http.StatusUnprocessableEntity, "API_KEY_IN_USE"},
 
 	// conversation
 	convdomain.ErrNotFound: {http.StatusNotFound, "CONVERSATION_NOT_FOUND"},
