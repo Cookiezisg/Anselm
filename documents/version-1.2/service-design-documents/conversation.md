@@ -86,7 +86,7 @@ func (Conversation) TableName() string { return "conversations" }
 | `AttachedDocuments` | Phase 5 §14.5c 挂载文档库；GORM serializer:json，跟 workflow llm/agent 节点共享 struct |
 | `Archived` | §17.12 归档标志；默认 false；列表默认排除 archived，UI toggle 展示 |
 | `Pinned` | §15.6 置顶标志；默认 false；List ORDER BY 内 `pinned DESC` 优先，testend sidebar 客户端同 sort |
-| `ModelOverride` | §12.3 对话级 (provider, modelId) override；nil = 用全局 chat scenario；`llmclient.ResolveWithOverride` 走 override-first。Update 时校验 provider 有 api-key 否则 422 PROVIDER_HAS_NO_KEY |
+| `ModelOverride` | §12.3 对话级 (apiKeyId, modelId) override；nil = 用全局 dialogue scenario；`llmclient.ResolveDialogueWithOverride` 走 override-first。Update F1 校验 `keys.ResolveCredentialsByID(ctx, override.APIKeyID)` 存在 + 跨用户隔离，否则 404 API_KEY_NOT_FOUND；缺 `apiKeyId`/`modelId` 任一 → 400 API_KEY_ID_REQUIRED / MODEL_ID_REQUIRED。**override 自动传播到 subagent**：chat runner 在 agentCtx 上 stash 此 override，`SubagentTool.Execute` 读出来作 parentModelOverride 传给 `subagent.Spawn`——subagent 跑同一 (apiKeyId, modelId) |
 | `DeletedAt` | 软删，GORM 内置 |
 
 ### 错误 sentinel
@@ -226,14 +226,14 @@ func newID() string  // "cv_" + 16 hex（8 字节 crypto/rand）
   "attachedDocuments": [{"documentId": "doc_xxx", "includeSubtree": true}],
   "archived": true,
   "pinned": true,
-  "modelOverride": {"provider": "deepseek", "modelId": "deepseek-reasoner"}
+  "modelOverride": {"apiKeyId": "aki_xxx", "modelId": "deepseek-reasoner"}
 }
 ```
 
-**Response 200**：更新后的 Conversation。`updatedAt` 推进。归档/置顶切换发 slim notification `{action: archived|unarchived|pinned|unpinned|model_override, title, archived, pinned}`（§17.12 + §15.6 + §12.3）。
+**Response 200**：更新后的 Conversation。`updatedAt` 推进。归档/置顶/override 切换发 slim notification `{action: archived|unarchived|pinned|unpinned|model_override, title, archived, pinned}`（§17.12 + §15.6 + §12.3）。
 
-**422 `PROVIDER_HAS_NO_KEY`**：`modelOverride.provider` 没配 api-key（§12.3 F1，跟 model-config PUT 行为对齐）。
-**400 `PROVIDER_REQUIRED`** / **`MODEL_ID_REQUIRED`**：modelOverride 字段缺失。
+**404 `API_KEY_NOT_FOUND`**：`modelOverride.apiKeyId` 不存在 / 不属当前 user（F1 走 `keys.ResolveCredentialsByID`）。
+**400 `API_KEY_ID_REQUIRED`** / **`MODEL_ID_REQUIRED`**：modelOverride 字段缺失。
 
 **404 `CONVERSATION_NOT_FOUND`**：id 不存在。
 

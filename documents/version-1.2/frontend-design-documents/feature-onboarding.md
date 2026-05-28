@@ -20,7 +20,7 @@
 | ensureUser | workspace 步骤确认时：幂等创建用户 → 写 sessionStore.currentUserId |
 | API Key 创建 / 替换 | 输入 key → createKey（幂等，key 变则先 delete 旧 key 再创建新 key）|
 | Key 验证 | testKey → 取 modelsFound 列表；验证失败写 verifyError |
-| Model 配置 | 验证成功 + 用户选模型 → upsertModelConfig(scenario=chat) |
+| Model 配置 | 验证成功 + 用户选模型 → **顺序写 3 行 model_configs**：dialogue / utility / agent 各一次 PUT（2026-05-28 model selection redesign）；3 行都引用同一 apiKeyId + 同一 modelId（用户后续在 Settings 调整）|
 | Search key 配置 | 可选步骤：createKey(searchProvider) |
 | finish | setStatus("ready") + invalidateAll + success toast + 调 onFinish 意图 |
 | 语言同步 | `prefs.lang` 变化 → `i18n.changeLanguage`（向导内切语言先于 App mount）|
@@ -65,7 +65,11 @@ verify():
 ```
 next(onFinish?):
   "workspace" → run(ensureUser → advance)
-  "model"     → run(if verified && modelId: upsertModelConfig → advance)
+  "model"     → run(if verified && modelId:
+                       upsertModelConfig("dialogue", {apiKeyId, modelId}) ;
+                       upsertModelConfig("utility",  {apiKeyId, modelId}) ;
+                       upsertModelConfig("agent",    {apiKeyId, modelId}) ;
+                       3 个全部 200 才 → advance)
   "search"    → run(if searchProvider && searchKey: createKey → advance)
   "done"      → finish(onFinish)
   default     → advance()  (welcome / appearance)
@@ -155,7 +159,11 @@ App 检测 sessionStore.status === "onboarding"
   → 成功：setVerified + models list
 
 用户选模型 → next()（model step）
-  → PUT /model-configs (upsertModelConfig, scenario=chat)
+  → 顺序 3 次 PUT /model-configs/{scenario}  body={apiKeyId, modelId}
+       scenario=dialogue → 200
+       scenario=utility  → 200
+       scenario=agent    → 200
+     任一失败 → abort，不 advance；用户重试
 
 用户（可选）输 searchKey → next()（search step）
   → POST /api-keys (createKey, searchProvider)

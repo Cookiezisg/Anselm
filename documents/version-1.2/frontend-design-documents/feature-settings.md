@@ -126,6 +126,8 @@ const { name, setName, switchTo, addAccount, isAdding } = useAccountManager();
 | `frontend/src/features/settings/ui/SettingsModal.test.tsx` | 单测 |
 | `frontend/src/features/settings/ui/ApiKeysSection.tsx` | API Keys 管理区（直消费 entities/apikey）|
 | `frontend/src/features/settings/ui/ApiKeysSection.test.tsx` | 单测 |
+| `frontend/src/features/settings/ui/ModelDefaultsSection.tsx` | **2026-05-28 model selection redesign**：3 行卡片（dialogue/utility/agent）；每行独立 PUT `/model-configs/{scenario}` body `{apiKeyId, modelId}`；候选 = `useApiKeys().filter(testStatus==="ok")` 平铺成 `{apiKeyId, modelId}` 项并按 apiKeyId 分组 |
+| `frontend/src/features/settings/ui/KeyModelPicker.tsx` | 按 apiKeyId 分组的下拉选择器；ModelDefaultsSection + ConvModelOverride + WorkflowEditor InspectorBody 共享|
 | `frontend/src/features/settings/ui/AppearanceSection.tsx` | 外观设置（直消费 entities/settings）|
 | `frontend/src/features/settings/ui/AppearanceSection.test.tsx` | 单测 |
 | `frontend/src/features/settings/ui/SearchSection.tsx` | 搜索 key 设置（直消费 entities/apikey）|

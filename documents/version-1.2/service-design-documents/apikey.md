@@ -205,7 +205,7 @@ const (
 )
 ```
 
-### Sentinel 错误（**8 个**，实际代码）
+### Sentinel 错误（**8 个**，2026-05-28 model selection redesign 加 `ErrInUse`）
 
 ```go
 // domain/apikey/apikey.go
@@ -216,6 +216,12 @@ var (
     ErrBaseURLRequired     = errors.New("apikey: base_url required for this provider")
     ErrAPIFormatRequired   = errors.New("apikey: api_format required for custom provider")
     ErrKeyRequired         = errors.New("apikey: key value is required")
+    ErrDisplayNameConflict = errors.New("apikey: display name already in use")
+
+    // ErrInUse: model_config / conv override / node override still reference this key.
+    // 删 api_key 时被 model_configs / conversations.model_override / workflow_versions.graph
+    // 节点 modelOverride 引用 → 拒删（RESTRICT）→ 422 API_KEY_IN_USE。
+    ErrInUse = errors.New("apikey: in use by model_configs or model overrides")
 )
 // Service.Test never returns ErrTestFailed — failed probes return *TestResult{OK:false}
 // instead, with the HTTP handler synthesising 422 inline. Same for MarkInvalid (returns
@@ -247,26 +253,37 @@ POST   /api/v1/api-keys/{id}:test    连通性测试（200 或 422）
 
 响应**绝不**含解密后的明文 key（`json:"-"` 守护）。
 
-### 6.3 `KeyProvider` 接口（跨 domain 唯一入口）
+### 6.3 `KeyProvider` 接口（跨 domain 唯一入口；2026-05-28 redesign 加 `ResolveCredentialsByID` + `Credentials.Provider`）
 
 ```go
 // domain/apikey/apikey.go
 
 type KeyProvider interface {
     ResolveCredentials(ctx context.Context, provider string) (Credentials, error)
+
+    // ResolveCredentialsByID resolves by api_key id; cross-user lookups surface ErrNotFound.
+    // 用于 model_configs.api_key_id / conv.ModelOverride.APIKeyID /
+    // workflow NodeSpec.ModelOverride.APIKeyID 的 runtime 解析 + F1 校验。
+    ResolveCredentialsByID(ctx context.Context, apiKeyID string) (Credentials, error)
+
     MarkInvalid(ctx context.Context, provider string, reason string) error
+
+    // Deprecated 但保留：测试便利 + 个别老 callsite。新代码用 ResolveCredentialsByID。
     HasKeyForProvider(ctx context.Context, provider string) (bool, error)
-    // DefaultSearchProvider returns the is_default search provider name, or "" if none.
+
     DefaultSearchProvider(ctx context.Context) string
 }
 
 type Credentials struct {
-    Key     string // 明文；调用方禁止 log、禁止传跨请求 goroutine
-    BaseURL string // 已合并 provider 默认
+    // Provider lets ByID callers re-derive display/transport hints from a key id.
+    // 让按 id 解析的调用方仍能拿到 provider 名（供 llmclient.Bundle.Provider 派生用）。
+    Provider string
+    Key      string // 明文；调用方禁止 log、禁止传跨请求 goroutine
+    BaseURL  string // 已合并 provider 默认
 }
 ```
 
-实现：`app/apikey.Service`（`internal/app/apikey/apikey.go:80` 处有 `var _ apikeydomain.KeyProvider = (*Service)(nil)` 编译期守护，`ResolveCredentials` / `MarkInvalid` 同文件）。
+实现：`app/apikey.Service`（`var _ apikeydomain.KeyProvider = (*Service)(nil)` 编译期守护；`ResolveCredentials` / `ResolveCredentialsByID` / `MarkInvalid` 同文件）。`ResolveCredentialsByID` 内部：`repo.Get(ctx, apiKeyID)` → 跨用户不命中走 `ErrNotFound`（与 same-user 不存在同一码）→ Decrypt → 拼 BaseURL → 返 Credentials{Provider, Key, BaseURL}。
 
 ### 6.4 对内类型速查
 
@@ -350,6 +367,18 @@ type Service struct {
     encryptor cryptodomain.Encryptor  // domain/crypto 接口
     tester    ConnectivityTester      // apikeyapp 内部接口
     log       *zap.Logger
+
+    // 2026-05-28 redesign：RefScanner ports for Delete RESTRICT
+    modelConfigScan  RefScanner
+    convOverrideScan RefScanner
+    nodeOverrideScan RefScanner
+}
+
+// RefScanner probes whether some entity still references a given api_key id.
+// 3 个 store 各实现一个：model_configs.api_key_id / conversations.model_override JSON /
+// workflow_versions.graph 节点 modelOverride JSON。
+type RefScanner interface {
+    AnyReferencesApiKey(ctx context.Context, apiKeyID string) (bool, error)
 }
 
 func NewService(repo apikeydomain.Repository, enc cryptodomain.Encryptor, tester ConnectivityTester, log *zap.Logger) *Service {
@@ -358,9 +387,16 @@ func NewService(repo apikeydomain.Repository, enc cryptodomain.Encryptor, tester
     }
     return &Service{repo: repo, encryptor: enc, tester: tester, log: log}
 }
+
+// 装配阶段后置注入；main.go 在 3 个 store 构造完后调一遍。
+func (s *Service) SetModelConfigRefScanner(rs RefScanner)  { s.modelConfigScan = rs }
+func (s *Service) SetConvOverrideRefScanner(rs RefScanner) { s.convOverrideScan = rs }
+func (s *Service) SetNodeOverrideRefScanner(rs RefScanner) { s.nodeOverrideScan = rs }
 ```
 
 **nil logger 立刻 panic** —— 接线 bug 不应在生产 log 处才炸，有 `TestNewService_NilLogger_Panics` 守护单测。
+
+**`Delete` 走 RESTRICT（2026-05-28 redesign）**：删 key 前先调 3 个 RefScanner 任一非空（即跨 store 串行扫；扫到引用立刻短路）→ 返 `ErrInUse`（422 `API_KEY_IN_USE`），由用户先去 model_configs / conv override / node override 改完引用再删。3 个 scanner 缺一不查（测试便利）；生产 main.go 必装配。详 spec [`docs/superpowers/specs/2026-05-28-model-selection-redesign-design.md`](../../../docs/superpowers/specs/2026-05-28-model-selection-redesign-design.md) §8。
 
 ### Inputs
 
@@ -383,19 +419,20 @@ type UpdateInput struct {
 }
 ```
 
-### 方法签名（6 个公开 + 2 个 KeyProvider 实现，全在 `app/apikey/apikey.go`）
+### 方法签名（6 个公开 + 3 个 KeyProvider 实现，全在 `app/apikey/apikey.go`）
 
 ```go
 func (s *Service) Create(ctx, in CreateInput)           (*apikeydomain.APIKey, error)
 func (s *Service) Update(ctx, id string, in UpdateInput) (*apikeydomain.APIKey, error)
-func (s *Service) Delete(ctx, id string)                 error
+func (s *Service) Delete(ctx, id string)                 error  // 2026-05-28: 走 RefScanner RESTRICT
 func (s *Service) Get(ctx, id string)                   (*apikeydomain.APIKey, error)
 func (s *Service) List(ctx, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error)
 func (s *Service) Test(ctx, id string)                  (*TestResult, error)
 
 // KeyProvider 接口实现（同文件）
-func (s *Service) ResolveCredentials(ctx, provider string) (apikeydomain.Credentials, error)
-func (s *Service) MarkInvalid(ctx, provider, reason string) error
+func (s *Service) ResolveCredentials(ctx, provider string)       (apikeydomain.Credentials, error)
+func (s *Service) ResolveCredentialsByID(ctx, apiKeyID string)   (apikeydomain.Credentials, error)  // 2026-05-28: 按 id 解析
+func (s *Service) MarkInvalid(ctx, provider, reason string)      error
 ```
 
 ### Create 流程
@@ -709,12 +746,14 @@ CREATE INDEX idx_api_keys_deleted_at    ON api_keys(deleted_at);
 
 ---
 
-## 13. 错误码（6 个 sentinel，全已实现 ✅）
+## 13. 错误码（8 个 sentinel，全已实现 ✅；2026-05-28 model selection redesign 加 `API_KEY_IN_USE`）
 
 | Code | HTTP | Sentinel | 场景 |
 |---|---|---|---|
-| `API_KEY_NOT_FOUND` | 404 | `apikey.ErrNotFound` | Get/Delete/Update/Test id 不存在 |
-| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikey.ErrNotFoundForProvider` | `ResolveCredentials(ctx, provider)` 当前用户无活跃 key |
+| `API_KEY_NOT_FOUND` | 404 | `apikey.ErrNotFound` | Get/Delete/Update/Test id 不存在；**`ResolveCredentialsByID` 跨用户隔离也走此码**（model_config Upsert F1 / conv override F1 / node override F1 / runtime 解析共用）|
+| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikey.ErrNotFoundForProvider` | `ResolveCredentials(ctx, provider)` 当前用户无活跃 key（pre-redesign 老路径仍在用）|
+| `API_KEY_IN_USE` | 422 | `apikey.ErrInUse` | DELETE /api-keys/{id} 时还被 model_configs / conv.modelOverride / node.modelOverride 引用 → RESTRICT |
+| `API_KEY_NAME_CONFLICT` | 409 | `apikey.ErrDisplayNameConflict` | 同用户下 displayName 重复 |
 | `INVALID_PROVIDER` | 400 | `apikey.ErrInvalidProvider` | 创建时 provider 不在 11 白名单 |
 | `BASE_URL_REQUIRED` | 400 | `apikey.ErrBaseURLRequired` | ollama / custom 没填 baseURL |
 | `API_FORMAT_REQUIRED` | 400 | `apikey.ErrAPIFormatRequired` | custom 没填 apiFormat |
@@ -728,42 +767,40 @@ CREATE INDEX idx_api_keys_deleted_at    ON api_keys(deleted_at);
 
 ## 14. 消费方如何用（跨 domain 示例）
 
-### chat domain 调 LLM 时
+### chat domain 调 LLM 时（2026-05-28 redesign 后通过 `pkg/llmclient` 三件套）
 
 ```go
-// internal/app/chat/chat.go
-type Service struct {
-    modelPicker modeldomain.ModelPicker          // 只见接口
-    keyProvider apikeydomain.KeyProvider         // 只见接口
-    llmFactory  *llminfra.Factory                // 自有 LLM 流式客户端工厂
+// internal/app/chat/runner.go
+import llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+
+func (s *Service) processTask(ctx context.Context, conv *convdomain.Conversation, ...) {
+    // 1. 三件套一站式解析（dialogue scenario + 接 conv override）
+    bundle, err := llmclientpkg.ResolveDialogueWithOverride(
+        ctx, conv.ModelOverride,
+        s.modelPicker, s.keyProvider, s.llmFactory,
+    )
+    if err != nil {
+        // 失败映射 ErrPickModel → MODEL_NOT_CONFIGURED
+        //         ErrResolveCreds → API_KEY_NOT_FOUND（按 id 解析 + 跨用户隔离）
+        //         其他 → LLM_PROVIDER_ERROR
+    }
+    // bundle.{Client, APIKeyID, Provider(派生), ModelID, Key, BaseURL}
+
+    // 2. ReAct loop 消费 bundle.Client
     // ...
-}
 
-func (s *Service) processTask(...) {
-    // 1. model 决定 (provider, modelID)
-    provider, modelID, err := s.modelPicker.PickForChat(ctx)
-    if err != nil { /* MODEL_NOT_CONFIGURED → SSE chat.error */ }
-
-    // 2. apikey 拿凭证
-    creds, err := s.keyProvider.ResolveCredentials(ctx, provider)
-    if err != nil { /* API_KEY_PROVIDER_NOT_FOUND → SSE chat.error */ }
-
-    // 3. 构造 Client + 调 LLM 流
-    client, _, err := s.llmFactory.Build(llminfra.Config{
-        Provider: provider, ModelID: modelID,
-        Key: creds.Key, BaseURL: creds.BaseURL,
-    })
-    // ... ReAct loop 消费 client.Stream(ctx, req)
-
-    // 4. 401 → 回报失效
+    // 3. 401 → 回报失效（仍走 provider 维度 —— MarkInvalid 沿用老路径）
     if isAuthError(streamErr) {
-        _ = s.keyProvider.MarkInvalid(ctx, provider, streamErr.Error())
-        // → SSE chat.error LLM_PROVIDER_ERROR
+        _ = s.keyProvider.MarkInvalid(ctx, bundle.Provider, streamErr.Error())
     }
 }
 ```
 
-**关键约定**：chat 只 import `apikeydomain`（**domain 层接口**），**不** import `apikeyapp`。main.go 把 `*apikeyapp.Service` 作为 `apikeydomain.KeyProvider` 接口传进 chat 的构造函数。chat 看不到 Service struct 也看不到 Repository。
+**关键约定**：chat 只 import `apikeydomain`（**domain 层接口**）+ `llmclientpkg` 解析函数，**不** import `apikeyapp`。main.go 把 `*apikeyapp.Service` 作为 `apikeydomain.KeyProvider` 接口传进 chat 的构造函数。chat 看不到 Service struct 也看不到 Repository。
+
+**utility / agent scenario callsites**（工具内部 + workflow 节点）走同一三件套：
+- `llmclientpkg.ResolveUtility(ctx, picker, keys, factory)` —— autoTitle / compaction / WebFetch summary / search rerank / env-fix 共 11 处
+- `llmclientpkg.ResolveAgentWithOverride(ctx, node.ModelOverride, picker, keys, factory)` —— scheduler dispatch_agent / dispatch_llm
 
 ---
 

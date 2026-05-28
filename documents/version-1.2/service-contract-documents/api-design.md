@@ -105,18 +105,18 @@ type Error = {
 | POST | `/api/v1/api-keys` | 创建 |
 | GET | `/api/v1/api-keys` | 列表（分页 + `?provider=` 过滤）|
 | PATCH | `/api/v1/api-keys/{id}` | 更新 displayName / baseUrl / key（旋转）/ isDefault（单选默认，同 category 其他 key 自动取消）|
-| DELETE | `/api/v1/api-keys/{id}` | 软删 |
+| DELETE | `/api/v1/api-keys/{id}` | 软删；**2026-05-28 redesign：被 model_configs / conv.modelOverride / node.modelOverride 引用时拒删，返 422 `API_KEY_IN_USE`** |
 | POST | `/api/v1/api-keys/{id}:test` | 连通性测试 |
 | GET | `/api/v1/providers` | 列 ProviderMeta 注册表（`?category=llm` 或 `?category=search` 过滤）；前端用以替代客户端硬编码 provider 列表（屎山拯救计划 #4 收尾）|
 
 #### model ✅
-详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。用户给每个 scenario 选定 `(provider, modelID)`；Phase 2 仅 `scenario=chat`。
+详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。用户给每个 scenario 选定 `(apiKeyId, modelID)`（provider 由 apiKey 隐含）；2026-05-28 redesign 后 3 个 scenario：`dialogue` / `utility` / `agent`。
 
 | Method | Path | 用途 |
 |---|---|---|
-| GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）|
-| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置（200，无论创建或更新）|
-| GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata；onboarding 前可读，不需 user header）|
+| GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）；row shape 含 `apiKeyId`（2026-05-28 redesign：原 `provider` 字段已删）|
+| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）|
+| GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata，3 项 `dialogue` / `utility` / `agent`；onboarding 前可读，不需 user header）|
 
 #### conversation ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。
@@ -126,7 +126,7 @@ type Error = {
 | POST | `/api/v1/conversations` | 创建对话（201）；title 可为空 |
 | GET | `/api/v1/conversations` | 列表（200，cursor 分页，ORDER BY `pinned DESC, created_at DESC, id DESC`）；query `?search=` title LIKE、`?archived=true/false` 过滤归档（缺省排除已归档，§17.12）|
 | GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / archived / pinned / metadata）|
-| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?, attachedDocuments?, archived?, pinned?, modelOverride?}`——六个字段可任意组合改；归档/置顶/override 切换发 slim notif `action: archived/unarchived/pinned/unpinned/model_override`（§17.12 + §15.6 + §12.3）。modelOverride 三态：absent=不变 / `null`=清除 / `{provider, modelId}`=设置（缺 api-key → 422 PROVIDER_HAS_NO_KEY）|
+| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?, attachedDocuments?, archived?, pinned?, modelOverride?}`——六个字段可任意组合改；归档/置顶/override 切换发 slim notif `action: archived/unarchived/pinned/unpinned/model_override`（§17.12 + §15.6 + §12.3）。**modelOverride 形状（2026-05-28 redesign）**：三态 absent=不变 / `null`=清除 / `{apiKeyId, modelId}`=设置；F1 校验 apiKeyId 存在 + 跨用户隔离 → 404 `API_KEY_NOT_FOUND`；缺字段 → 400 `API_KEY_ID_REQUIRED` / `MODEL_ID_REQUIRED`。conv override 自动经 ctx 传播到 subagent spawn（subagent 跑同一 (apiKeyId, modelId)）|
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
 #### chat ✅
@@ -200,6 +200,7 @@ type Error = {
 | PATCH  | `/api/v1/workflows/{id}`                         | 改 meta(name/description/tags/enabled/concurrency/needsAttention/attentionReason)|
 | DELETE | `/api/v1/workflows/{id}`                         | 软删 |
 | POST   | `/api/v1/workflows/{id}:revert`                  | 回滚到 accepted 版本号 |
+| POST   | `/api/v1/workflows/{id}:edit`                    | 应用 ops 产/迭代 pending 版本(`{ops, changeReason}`);ParseOps + ApplyOps + ValidateGraph;**ops 支持 `set_node_model_override` (2026-05-28 redesign,详下)**;iterate-same-pending(D-redo-11);拒 `ops=[]` |
 | GET    | `/api/v1/workflows/{id}/versions`                | 版本分页(?status= filter)|
 | GET    | `/api/v1/workflows/{id}/versions/{v}`            | 单版本(integer→ByNumber, wfv_*→ById)|
 | GET    | `/api/v1/workflows/{id}/pending`                 | 当前 pending(无返 404 WORKFLOW_PENDING_NOT_FOUND)|
@@ -207,6 +208,8 @@ type Error = {
 | POST   | `/api/v1/workflows/{id}/pending:reject`          | reject(HardDeleteVersion pending 行,D-redo-12)|
 
 > forge_redesign Plan 04(2026-05-12):Workflow 是 trinity 第三条腿 — **用户命名的有向无环图(DAG)**。锻造 vs 执行分离(D6):本端点集只管"图怎么样",不管"图怎么跑"(`:trigger` action + flowrun endpoints + execution log endpoints 在 Plan 05)。Edit 走 iterate-same-pending(D-redo-11);拒绝 `ops=[]`(workflow 无 env 要"force-rebuild")。CapabilityChecker 真接 function/handler/skill/mcp 服务,validation 期返 `WORKFLOW_CAPABILITY_NOT_FOUND` / `WORKFLOW_MCP_SERVER_NOT_INSTALLED`。
+
+> **2026-05-28 model selection redesign**:`:edit` ops 联合新增第 10 个 `set_node_model_override` op,payload `{nodeId, modelOverride:{apiKeyId, modelId}?}`(modelOverride 字段缺失或 null = 清除)。F1 校验:任一 `apiKeyId`/`modelId` 缺失 → 400 `INVALID_NODE_MODEL_OVERRIDE`;`apiKeyId` 不存在 / 跨用户 → 404 `API_KEY_NOT_FOUND`。详 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §5。
 
 #### flowrun + trigger + scheduler ✅ (forge_redesign Plan 05)
 详见 [`../service-design-documents/{flowrun,trigger,scheduler}.md`](../service-design-documents/) + redesign topic [`../adhoc-topic-documents/forge_redesign/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md)。

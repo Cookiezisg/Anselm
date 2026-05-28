@@ -1059,15 +1059,19 @@ FlowRunDetail
 SettingsModal（居中 overlay + --bg-overlay scrim）
 ├── 账号区（常驻，不折叠）：头像 + 名 + "切换/新建"（吸收原 SettingsPopover 账号区）
 ├── API Keys section（key 为中心）
+├── 模型默认 section（2026-05-28 model selection redesign：3 行卡片 dialogue/utility/agent）
 ├── 网络搜索 section（可选）
 ├── 外观 section
 └── 系统 section（只读）
 ```
 
+**模型默认 section（`ModelDefaultsSection`）**：3 个对称选择器 dialogue/utility/agent；每个独立 PUT `/model-configs/{scenario}` body `{apiKeyId, modelId}`；候选 = `useApiKeys().filter(testStatus==="ok").flatMap(k => k.modelsFound.map(m => ({apiKeyId: k.id, modelId: m})))`，下拉按 apiKeyId 分组（group header 显示 displayName + provider chip + keyMasked）。改谁动谁，无传播无 fallback；spec 详见 [`docs/superpowers/specs/2026-05-28-model-selection-redesign-design.md`](../../docs/superpowers/specs/2026-05-28-model-selection-redesign-design.md) §4。
+
 ### 12.2 API Keys（key 为中心）
-`useApiKeys()` 过滤 LLM 类(cross-ref `useProviders().category`)。每个 key 一行:厂商色块 + 名 + 掩码 + 已选模型 + `对话默认` 徽章 + 验证徽章;点开详情(模型下拉 + 用途 `对话默认/仅备用` + 重新验证/删除),**section 内行单开**。
-**对话默认 ↔ model-config**:一个 key 是对话默认 IFF `model-config(chat).provider === key.provider`(不是 api-key 的 isDefault flag);点"对话默认"晋升 → `PUT /model-configs/chat {provider, modelId}`(chat 只有一条,隐式替换旧默认)。
+`useApiKeys()` 过滤 LLM 类(cross-ref `useProviders().category`)。每个 key 一行:厂商色块 + 名 + 掩码 + 已选模型 + 验证徽章;点开详情(模型下拉 + 重新验证/删除),**section 内行单开**。
+**"对话默认"标记移入 ModelDefaultsSection**(2026-05-28 redesign):2026-05-28 model selection redesign 后,scenario 默认配置(dialogue/utility/agent)由独立的"模型默认"section 管理(§12.1 中第 3 个 section);API Keys section 不再显示"对话默认"徽章——避免与 3 scenario 心智混淆。
 **新增**:底部「+ API Key」加号 → 就地展开**引导页式双列 provider 网格**(已存 key 的打 ✓)+ Key + 验证(`POST /api-keys` → `:test` → modelsFound,镜像引导页 verify + 孤儿清理)+ 选模型 → 保存。复用共享组件(§12.6)。
+**删 api_key**:被任一 model_configs / conv override / node override 引用 → 后端返 422 `API_KEY_IN_USE`;UI 提示用户先去对应位置改完引用。
 
 ### 12.3 网络搜索（可选）
 同 key 模式,**无模型**。`搜索默认` = 后端 `api-key.isDefault`(per-category 单选);切换发 `PATCH /api-keys/{id} {isDefault}`(后端清同类其它);WebSearch 解析优先用默认搜索商,无默认退回固定优先级。provider:bocha/brave/serper/tavily。
@@ -1460,10 +1464,10 @@ DELETE /api-keys/{id}                       → useDeleteApiKey
 POST   /api-keys/{id}:test                  → useTestApiKey
 GET    /providers                           → useProviders
 
-# Model Configs
-GET    /model-configs                       → useModelConfigs
-PUT    /model-configs/{scenario}            → useUpsertModelConfig
-GET    /scenarios                           → useScenarios (后端白名单,exempt 自 RequireUser)
+# Model Configs (2026-05-28 model selection redesign: 3 scenarios + apiKeyId body)
+GET    /model-configs                       → useModelConfigs              (rows: {scenario, apiKeyId, modelId})
+PUT    /model-configs/{scenario}            → useUpsertModelConfig         (body: {apiKeyId, modelId})
+GET    /scenarios                           → useScenarios                 (3 项: dialogue/utility/agent;exempt 自 RequireUser)
 
 # Functions
 GET    /functions                           → useFunctions

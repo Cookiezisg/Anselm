@@ -29,7 +29,7 @@
 
 ```ts
 interface AttachedDocument { documentId: string; includeSubtree: boolean }
-interface ModelRef { provider: string; modelId: string }
+interface ModelRef { apiKeyId: string; modelId: string }   // 2026-05-28 model selection redesign
 
 interface Conversation {
   id: string;           // cv_<16hex>
@@ -54,6 +54,8 @@ interface UpdateConversationPatch {
   modelOverride?: ModelRef | null;
 }
 ```
+
+**`ModelRef` 共享类型**（2026-05-28 model selection redesign）：原 `{provider, modelId}` → `{apiKeyId, modelId}`；同形状在 conv.modelOverride + workflow NodeSpec.modelOverride 共用；前端通过 `entities/conversation/@x/workflow.ts` 把 `ModelRef` 跨 slice 暴露给 `entities/workflow`（FSD `@x` 模式）。`PATCH /api/v1/conversations/{id}` body `modelOverride` 三态：absent=不变 / null=清除 / object=设置；F1 校验失败返 404 `API_KEY_NOT_FOUND`（apiKeyId 不存在 / 跨用户）。
 
 ### 消息 / 块
 
@@ -192,11 +194,25 @@ export function selectChildIds(convId, parentId, state): string[]
 
 ---
 
+## 5.4 ChatHeader + ConvModelOverride feature（2026-05-28 model selection redesign）
+
+ChatHeader 加一个 ⚙ 按钮显示当前 effective modelId（来自 `conv.modelOverride.modelId` 或 dialogue 档默认）；点击展开 `ConvModelOverride` 弹窗 / 抽屉：
+
+- 复用 `features/settings/ui/KeyModelPicker`（按 apiKeyId 分组的下拉），与 ModelDefaultsSection / WorkflowEditor InspectorBody 共享
+- 三态 PATCH：选某 (apiKeyId, modelId) → `useUpdateConversation({ modelOverride: {apiKeyId, modelId} })`；点"清除" → `useUpdateConversation({ modelOverride: null })`；不动 → 不发请求
+- 错误反馈：F1 失败 404 → toast 提示用户该 key 不存在；前端回滚 optimistic 更新
+
+**override 自动传播到 subagent**（后端机制）：用户在 ChatHeader 选了 Opus，主对话 + 同对话内 LLM 触发的 subagent（Explore / Plan / general-purpose）都用 Opus。前端无需 UI——后端 chat runner 把 `conv.ModelOverride` stash 进 agentCtx，SubagentTool 读出来透传给 `subagent.Spawn`。
+
+---
+
 ## 6. 实现清单
 
 | 文件 | 说明 |
 |---|---|
-| `frontend/src/entities/conversation/model/types.ts` | Conversation / Message / Block / 请求体类型定义 |
+| `frontend/src/entities/conversation/model/types.ts` | Conversation / Message / Block / ModelRef / 请求体类型定义 |
 | `frontend/src/entities/conversation/model/chatStore.ts` | useChatStore + hydrateConv + SSE handlers + rAF batcher + selectors |
 | `frontend/src/entities/conversation/api/conversation.ts` | 8 个 TanStack Query / Mutation hooks |
+| `frontend/src/entities/conversation/@x/workflow.ts` | FSD 跨 slice 出口：暴露 ModelRef 给 entities/workflow |
 | `frontend/src/entities/conversation/index.ts` | public API（类型 + hooks + store exports） |
+| `frontend/src/features/conversation-model-override/` | ConvModelOverride feature（ChatHeader ⚙ → 弹窗 / 抽屉 → PATCH）|

@@ -67,7 +67,7 @@ text / reasoning / tool_call 不主动降级
   ↓
 3. 构造 prompt：previous summary + new blocks → anchored merge
   ↓
-4. cheap LLM call（DeepSeek-V4-Flash / 用户配的 ScenarioWebSummary 模型）
+4. cheap LLM call（utility scenario：autoTitle / search rerank 等共享一档；典型配 Haiku / 4o-mini / DeepSeek 小快省档）
    返回 newSummary
   ↓
 5. 一个事务里：
@@ -214,7 +214,7 @@ app/contextmgr/
 type Manager struct {
     repo     chatdomain.Repository
     convRepo convdomain.Repository
-    cheapLLM llmclientpkg.Resolver  // 用 model.ScenarioWebSummary
+    cheapLLM llmclientpkg.Resolver  // 装配阶段注入：闭包包 ResolveUtility(picker, keys, factory)（utility scenario）
     em       eventlogpkg.Emitter    // 推 compaction block 用
     memory   memoryapp.Service      // 逃生通道（§10）
     log      *zap.Logger
@@ -326,7 +326,7 @@ func (m *Manager) fullCompact(ctx context.Context, convID string) error {
     prompt := buildCompactPrompt(conv.Summary, candidates)
     
     // 5. cheap LLM call
-    bundle, err := m.cheapLLM.ResolveForCompaction(ctx)
+    bundle, err := m.cheapLLM.Resolve(ctx)  // 闭包内部 = llmclientpkg.ResolveUtility(ctx, picker, keys, factory)
     if err != nil {
         m.em.StopBlock(ctx, blockID, "error", err)
         return err

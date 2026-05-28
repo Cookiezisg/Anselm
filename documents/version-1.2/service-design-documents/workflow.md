@@ -78,6 +78,14 @@ type Graph struct {
     Edges       []EdgeSpec     `json:"edges"`
 }
 
+type NodeSpec struct {
+    NodeID        string                 `json:"nodeId"`
+    Type          string                 `json:"type"`
+    Config        map[string]any         `json:"config,omitempty"`
+    Position      *Position              `json:"position,omitempty"`
+    ModelOverride *modeldomain.ModelRef  `json:"modelOverride,omitempty"`  // 2026-05-28 model selection redesign;仅 agent/llm 节点生效;{apiKeyId, modelId}
+}
+
 type EdgeSpec struct {
     ID       string `json:"id"`                  // 系统生成 edge_N
     From     string `json:"from"`                // 纯 node ID
@@ -86,6 +94,8 @@ type EdgeSpec struct {
     ToPort   string `json:"toPort,omitempty"`    // 预留 V1.5,V1 单输入,留空
 }
 ```
+
+**`NodeSpec.ModelOverride` 字段**（2026-05-28 model selection redesign）：仅对 `agent` / `llm` 节点生效；其他 11 种节点类型若设了 modelOverride，validate 阶段 warn log 不报错（容错优于硬抓）。F1 校验在 `set_node_model_override` op + `validate.go` 双层走：apiKeyId 与 modelId 都必填 → `ErrInvalidNodeModelOverride`（400）；apiKeyId 不存在 / 跨用户 → `apikey.ErrNotFound`（404）。dispatcher（`dispatch_agent.go` / `dispatch_llm.go`）走 `llmclient.ResolveAgentWithOverride(ctx, node.ModelOverride, picker, keys, factory)` — override-first，否则 fallback `PickForAgent`。
 
 整图作为 JSON 整存 `workflow_versions.graph` TEXT 列;Service 层 `attachGraph` 在 GET 时解为 `*Graph` 填到 `Version.GraphParsed`(`gorm:"-"`)。
 

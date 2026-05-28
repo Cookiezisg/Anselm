@@ -6,14 +6,14 @@
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../../../CLAUDE.md`](../../../CLAUDE.md) §S18 — Tool 接口规约
 - [`./chat.md`](./chat.md) §4.4 — 系统工具完整目录
-- [`./model.md`](./model.md) — `web_summary` scenario 定义
+- [`./model.md`](./model.md) — `utility` scenario 定义（WebFetch 摘要走此 scenario）
 - 实现包：`backend/internal/app/tool/web/`
 
 ---
 
 ## 1. 一句话
 
-LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（BYOK → MCP 两层路由）。WebFetch 共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebSearch 由用户提供搜索 API key（brave / serper / tavily / bocha）或装 duckduckgo-search MCP server——**无 HTML 抓取兜底**（屎山拯救计划 #4 全删）。WebFetch 走 `web_summary` 模型场景（未配则透明 fallback 到 chat 场景）。
+LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **WebSearch**（BYOK → MCP 两层路由）。WebFetch 共享 SSRF 守卫（拒 loopback / 私网 / link-local + **逐跳重定向校验**）+ 30 秒墙钟。WebSearch 由用户提供搜索 API key（brave / serper / tavily / bocha）或装 duckduckgo-search MCP server——**无 HTML 抓取兜底**（屎山拯救计划 #4 全删）。WebFetch 摘要走 **utility scenario**（2026-05-28 model selection redesign 后；原 `web_summary` scenario + chat fallback 双删）。
 
 ---
 
@@ -32,7 +32,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
         // fetchClient 带 CheckRedirect = ssrfCheckRedirect → 每跳重新校验
       content 截到 1 MiB
       summarise(ctx, url, prompt, content):
-        llmclient.ResolveForWebSummary → bundle (web_summary 场景，不通则 chat fallback)
+        llmclient.ResolveUtility → bundle (utility scenario，2026-05-28 redesign 后)
         Generate(prompt + 内容片段)
       → tool_result：摘要文本
 ```
@@ -61,8 +61,8 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 ```
 
 **端到端跨 domain 依赖**：
-- `pkg/llmclient.ResolveForWebSummary`（仅 WebFetch）：解析 `web_summary` model scenario，未配则 fallback `PickForChat`
-- `domain/model.ScenarioWebSummary` + `ModelPicker.PickForWebSummary`（W1 模型层支持）
+- `pkg/llmclient.ResolveUtility`（仅 WebFetch）：解析 utility model scenario，缺配置 → 422 `MODEL_NOT_CONFIGURED`（onboarding 应已写 3 行，正常路径不会触发）
+- `domain/model.ScenarioUtility` + `ModelPicker.PickForUtility`（共享 utility scenario，11 个 callsite 之一）
 - `domain/apikey.KeyProvider`（解析 LLM 摘要 key + WebSearch 的 BYOK key + MarkInvalid 联动）
 - `domain/apikey.SearchProviderPriority`（WebSearch BYOK 顺序：brave / serper / tavily / bocha）
 - `infra/llm.Factory.Build`（构造 LLM client）
@@ -79,7 +79,7 @@ LLM 上网两件套：**WebFetch**（抓 URL → LLM 摘要 → 返答案）+ **
 | 决策 | 选择 | 理由 |
 |---|---|---|
 | WebFetch 抓取策略 | **两段：Jina r.jina.ai → 直 GET fallback** | Jina 把任意网页转干净 markdown（免费层无 key），直 GET 兜底 Jina 限流 / down |
-| WebFetch 摘要 LLM | **新增 `web_summary` scenario**，未配 fallback `chat` 场景 | 抓到的网页可能很长（1MB cap），用户可指定省钱模型（如 4o-mini）；不强制配置（透明 fallback）|
+| WebFetch 摘要 LLM | 走 **utility scenario**（2026-05-28 redesign 后；与 autoTitle / compaction / search rerank / env-fix 共享一档）| 工具内部 LLM 活儿统一 utility 档；用户在 Settings 里配 utility 模型即可控成本（Haiku / 4o-mini 等）；onboarding 已写 3 行 → utility 一定有配置，无 fallback 需求 |
 | **WebSearch 路由策略** | **BYOK → MCP 两层**，**无 HTML 抓取兜底** | 屎山拯救计划 #4 (2026-05-07)：原 SearXNG / Bing 国际 / Bing CN 三层 HTML 抓取全是假兜底——2025 现代 Bing/DDG 全部 JS 渲染，curl 拿不到结果。dogfood 实测后**全部删除**，替换为 BYOK→MCP 两层路由。两层失败时返 LLM-actionable 提示用户配 BYOK key 或装 duckduckgo-search MCP |
 | 搜索 provider 列表 | brave / serper / tavily / **bocha** | bocha 是博查 API，国产搜索（国内免 VPN，海外慢）；priority 顺序写在 `apikeydomain.SearchProviderPriority` |
 | MCP 路由 server 名 | hardcoded "duckduckgo-search" | V1 marketplace 唯一搜索类 MCP；将来真有第二个时升级到 Capability-based discovery |
@@ -245,22 +245,18 @@ func ssrfCheckRedirect(req *http.Request, via []*http.Request) error {
 
 **为啥重要**：`http.Client` 默认跟随 302/301 不做任何安全校验。修复前公网 URL → 302 → `http://localhost` 能绕过入口的 `guardHostname`。Tool 自检 batch 1 加 CheckRedirect 后每跳重跑（详 fetch_test.go 4 个回归测试）。
 
-### 5.3 摘要 LLM 解析（`llmclient.ResolveForWebSummary`）
+### 5.3 摘要 LLM 解析（`llmclient.ResolveUtility`，2026-05-28 redesign 后）
 
 ```go
 // pkg/llmclient/llmclient.go
-func ResolveForWebSummary(ctx, picker, keys, factory) (Bundle, error) {
-    // 优先 web_summary scenario
-    bundle, err := resolveScenario(ctx, picker.PickForWebSummary, keys, factory)
-    if err == nil { return bundle, nil }
-    if !errors.Is(err, model.ErrNotConfigured) { return bundle, err }
-
-    // 透明 fallback 到 chat 场景
-    return Resolve(ctx, picker, keys, factory)
+func ResolveUtility(ctx, picker, keys, factory) (*Bundle, error) {
+    apiKeyID, modelID, err := picker.PickForUtility(ctx)
+    if err != nil { return nil, err }   // ErrNotConfigured → 422 MODEL_NOT_CONFIGURED
+    return finishResolve(ctx, apiKeyID, modelID, keys, factory)
 }
 ```
 
-**为啥透明 fallback**：用户首次用 WebFetch 时大概率没专门配 web_summary。报错会破坏 UX。fallback 让"开箱即用"成立；用户**之后**配 web_summary（更便宜的 4o-mini）就自动切。
+**无 fallback 链**：2026-05-28 redesign 把 utility 提到独立默认配置（onboarding 时 3 行 PUT 已写齐 dialogue/utility/agent）；任一 scenario 缺行 = onboarding 没完成 = 422 引导用户去 Settings 配。原 `ResolveForWebSummary` 的"web_summary 找不到就 fallback chat" 双删——产品未上线无升级路径，严格 422 更清楚。
 
 ### 5.4 BYOK provider 路由（`search_byok.go`）
 
@@ -336,7 +332,7 @@ func (t *WebSearch) markInvalidIfAuthErr(ctx, provider string, err error) {
 | **CheckRedirect 逐跳** | 防 302→localhost 绕过（**batch 1 修的真 bug**）| 跳数硬上限 10 |
 | **byte cap 1 MiB** | 防摘要 LLM token 爆炸 + 内存 OOM | 大文章长尾被截断（LLM 看到部分内容也能摘要）|
 | **30 秒 fetchTimeout** | 防慢服务器把 ReAct 循环卡分钟 | 真大文件下载会被砍 |
-| **web_summary fallback** | 用户没配也能用 | 用 chat 模型摘要可能贵——可以日志提示用户配 web_summary 节省 |
+| **utility scenario 严格 422** | 用户 onboarding 完成后 utility 必有配置；无配置 = onboarding 异常 = 友好 422 引导（pre-2026-05-28 redesign 是 web_summary → chat 透明 fallback；删 fallback 后行为更可预测）|
 | **WebSearch BYOK→MCP** | 零 HTML scrape，零 placeholder fallback——失败时直接告知用户配 BYOK 或装 MCP | 用户首次用 WebSearch 时大概率没 key + 没装 MCP，会看到 actionable 提示而非"假装搜索 0 结果"；这是有意决策（屎山拯救计划 #4） |
 | **WebSearch BYOK 401/403 → MarkInvalid** | 用户立刻看到 search key 失效；不需自己排查 | 联动走 detached ctx 终态写（上游 cancel 不能让 invalid 标记丢失）|
 | **JINA_API_KEY 是 env 不是 BYOK config** | 不强制；用户想升速率档自己设 | 没设走免费层（够用）|
@@ -357,10 +353,10 @@ func (t *WebSearch) markInvalidIfAuthErr(ctx, provider string, err error) {
 
 | 关系 | 说明 |
 |---|---|
-| **model** | WebFetch 依赖 `web_summary` scenario；W1 加 `domain/model.ScenarioWebSummary` 常量 + `ModelPicker.PickForWebSummary` 接口方法 |
-| **apikey** | WebFetch 通过 `KeyProvider.ResolveCredentials` 拿摘要 LLM 凭据；WebSearch 通过 `apikeydomain.SearchProviderPriority` + `ResolveCredentials` 拿 BYOK key + `MarkInvalid` 联动 401/403 失效 |
+| **model** | WebFetch 走 `ScenarioUtility` —— 2026-05-28 redesign 后与 autoTitle / compaction / search rerank / env-fix 共享 utility 档；`ModelPicker.PickForUtility` 是入口 |
+| **apikey** | WebFetch 通过 `KeyProvider.ResolveCredentialsByID`（llmclient.finishResolve 调用）拿摘要 LLM 凭据；WebSearch 通过 `apikeydomain.SearchProviderPriority` + `ResolveCredentials` 拿 BYOK key + `MarkInvalid` 联动 401/403 失效 |
 | **infra/llm** | WebFetch 用 `llminfra.Factory.Build` 构造摘要 client，`Generate` helper 跑非流式调用 |
-| **pkg/llmclient** | 新增 `ResolveForWebSummary(ctx, picker, keys, factory)` 三段舞 + 透明 fallback chat |
+| **pkg/llmclient** | `ResolveUtility(ctx, picker, keys, factory)` —— 严格走 picker.PickForUtility，无 fallback |
 | **app/mcp** | WebSearch 通过 `MCPSearchRouter` 端口（web 包持端口）调 MCP search server；main.go 用 `mcpapp.Service` 适配实现该端口 |
 | **chat** | 通过 ReAct loop 调度；WebFetch / WebSearch 都 IsReadOnly=true，可同 execution_group 并行 |
 | **events / SSE** | 无 — 结果通过 chat.message tool_result block 推流 |

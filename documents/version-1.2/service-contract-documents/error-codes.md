@@ -86,22 +86,28 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `API_KEY_NOT_FOUND` | 404 | `apikeydomain.ErrNotFound` | id 查不到 | ✅ |
-| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikeydomain.ErrNotFoundForProvider` | 当前用户 该 provider 无活跃 key | ✅ |
+| `API_KEY_NOT_FOUND` | 404 | `apikeydomain.ErrNotFound` | id 查不到；**含 `ResolveCredentialsByID` 跨用户隔离场景**（model_config Upsert F1 / conv override F1 / node override F1 / runtime 解析共用，2026-05-28 redesign）| ✅ |
+| `API_KEY_PROVIDER_NOT_FOUND` | 404 | `apikeydomain.ErrNotFoundForProvider` | 当前用户 该 provider 无活跃 key（pre-redesign 老路径仍在用：`ResolveCredentials(provider)`）| ✅ |
+| `API_KEY_IN_USE` | 422 | `apikeydomain.ErrInUse` | DELETE /api-keys/{id} 时还被 model_configs / conv.modelOverride / node.modelOverride 引用 → RESTRICT（2026-05-28 redesign 新增）| ✅ |
 | `INVALID_PROVIDER` | 400 | `apikeydomain.ErrInvalidProvider` | provider 不在 11 白名单 | ✅ |
 | `BASE_URL_REQUIRED` | 400 | `apikeydomain.ErrBaseURLRequired` | ollama / custom 没填 baseURL | ✅ |
 | `API_FORMAT_REQUIRED` | 400 | `apikeydomain.ErrAPIFormatRequired` | custom 没填 apiFormat | ✅ |
 | `KEY_REQUIRED` | 400 | `apikeydomain.ErrKeyRequired` | 创建时 key 空 | ✅ |
+| `API_KEY_NAME_CONFLICT` | 409 | `apikeydomain.ErrDisplayNameConflict` | 同用户下 displayName 重复 | ✅ |
 
-#### model ✅
+#### model ✅（2026-05-28 model selection redesign 后）
 详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
-| `MODEL_NOT_CONFIGURED` | 422 | `modeldomain.ErrNotConfigured` | chat 调 PickForChat 时用户未配过 | ✅ |
-| `INVALID_SCENARIO` | 400 | `modeldomain.ErrInvalidScenario` | PUT path 的 scenario 不在白名单 | ✅ |
-| `PROVIDER_REQUIRED` | 400 | `modeldomain.ErrProviderRequired` | PUT body provider 空 | ✅ |
-| `MODEL_ID_REQUIRED` | 400 | `modeldomain.ErrModelIDRequired` | PUT body modelId 空 | ✅ |
+| `MODEL_NOT_CONFIGURED` | 422 | `modeldomain.ErrNotConfigured` | 调 `PickForDialogue/Utility/Agent` 时用户未配过该 scenario；errmsg 含 scenario 名 | ✅ |
+| `INVALID_SCENARIO` | 400 | `modeldomain.ErrInvalidScenario` | PUT path 的 scenario 不在 3 白名单（dialogue/utility/agent）| ✅ |
+| `API_KEY_ID_REQUIRED` | 400 | `modeldomain.ErrAPIKeyIDRequired` | PUT body `apiKeyId` 空（2026-05-28 redesign：原 provider-required sentinel 重命名）| ✅ |
+| `MODEL_ID_REQUIRED` | 400 | `modeldomain.ErrModelIDRequired` | PUT body `modelId` 空 | ✅ |
+
+**已删 model errcode（2026-05-28 redesign）**：
+- 老 `PROVIDER…REQUIRED` (400) — 重命名为 `API_KEY_ID_REQUIRED`
+- 老 `PROVIDER…HAS…NO…KEY` (422) — Upsert F1 改成按 id 校验（走 `apikeydomain.ErrNotFound` → 404 `API_KEY_NOT_FOUND`），不再按 provider 校验
 
 #### conversation ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。
@@ -123,8 +129,8 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `ATTACHMENT_PARSE_FAILED` | 422 | `chatdomain.ErrAttachmentParseFailed` | 文件损坏或解析失败 | ✅ |
 | `ATTACHMENT_NOT_FOUND` | 404 | `chatdomain.ErrAttachmentNotFound` | 附件 ID 不存在或不属于当前 user | ✅ |
 | `EMPTY_CONTENT` | 400 | `chatdomain.ErrEmptyContent` | 消息 content 为空/空白且无附件——拒绝以避免触发无意义的 ~25k token LLM 调用 | ✅ |
-| `API_KEY_NAME_CONFLICT` | 409 | `apikeydomain.ErrDisplayNameConflict` | 同用户下 displayName 重复（partial UNIQUE 只对非空 name 生效）| ✅ |
-| `PROVIDER_HAS_NO_KEY` | 422 | `modeldomain.ErrProviderHasNoKey` | PUT model-config 时 provider 没有 api-key — 防绿保存红运行时 | ✅ |
+| `API_KEY_NAME_CONFLICT` | 409 | `apikeydomain.ErrDisplayNameConflict` | 同用户下 displayName 重复（partial UNIQUE 只对非空 name 生效；apikey 域，列在此为兼容）| ✅ |
+| (老 provider-has-no-key) | — | — | **已删（2026-05-28 redesign）**：PUT /model-configs/{scenario} 改成按 `apiKeyId` 校验，未知 id 走 404 `API_KEY_NOT_FOUND` | ✗ |
 | `TOOL_ERROR_STORM` | — | (status code stored on Message.errorCode) | chat runner 连 3 轮 tool 调用全员失败熔断；避免 LLM 越钻越深 | ✅ |
 | `LLM_AUTH_FAILED` | 401 | `llminfra.ErrAuthFailed` | LLM provider 返 401（API key 失效）；errors.Is 触发 apikey.MarkInvalid | ✅ |
 | `LLM_RATE_LIMITED` | 429 | `llminfra.ErrRateLimited` | LLM provider 返 429（速率限制）| ✅ |
@@ -135,8 +141,8 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 | Code | 触发点 | 含义 |
 |---|---|---|
-| `MODEL_NOT_CONFIGURED` | `processTask` PickForChat 失败（`llmclient.ErrPickModel`）| 用户尚未配置 chat scenario 模型 |
-| `API_KEY_PROVIDER_NOT_FOUND` | `processTask` ResolveCredentials 失败（`llmclient.ErrResolveCreds`）| 当前 provider 无活跃 key |
+| `MODEL_NOT_CONFIGURED` | `processTask` PickForDialogue 失败（`llmclient.ErrPickModel`）| 用户尚未配置 dialogue scenario 模型 |
+| `API_KEY_NOT_FOUND` | `processTask` ResolveCredentialsByID 失败（`llmclient.ErrResolveCreds`）| conv.modelOverride.apiKeyId 或 dialogue 档默认 apiKeyId 不存在 / 跨用户（2026-05-28 redesign 替代 `API_KEY_PROVIDER_NOT_FOUND`）|
 | `LLM_BUILD_FAILED` | `processTask` LLMFactory.Build 失败（`llmclient.ErrBuildClient`）| 上游 LLM 客户端构造失败（如 ollama / custom 缺 BaseURL）|
 | `LLM_PROVIDER_ERROR` | `processTask` 三段解析其他失败（fallback）| Resolve 阶段未匹配三个 sentinel 的兜底 |
 | `LLM_STREAM_ERROR` | `streamLLM` 收到 EventError（非取消）| LLM 流式响应中途出错（401 / 网络等）|

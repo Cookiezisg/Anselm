@@ -36,9 +36,11 @@
 
 | 主类型 | 关键字段 | 对应端点 |
 |---|---|---|
-| `Conversation` | `id / title / autoTitled / systemPrompt? / summary? / attachedDocuments? / archived / pinned / modelOverride?` | `GET /api/v1/conversations` / `GET /api/v1/conversations/{id}` |
+| `Conversation` | `id / title / autoTitled / systemPrompt? / summary? / attachedDocuments? / archived / pinned / modelOverride?(ModelRef \| null)` | `GET /api/v1/conversations` / `GET /api/v1/conversations/{id}` |
 | `CreateConversationBody` | `title?` | `POST /api/v1/conversations` |
 | `UpdateConversationPatch` | `title? / systemPrompt? / attachedDocuments? / archived? / pinned? / modelOverride?` | `PATCH /api/v1/conversations/{id}` |
+
+`ModelRef = { apiKeyId: string; modelId: string }`（2026-05-28 model selection redesign：原 `{provider, modelId}` 形状已删，前端 / 后端 / DB 全栈同步切到 `apiKeyId`）。
 | `Message` | `id / conversationId / role / status / parentBlockId / blocks / attachments / inputTokens? / outputTokens? / modelId?` | `GET /api/v1/conversations/{id}/messages` |
 | `SendMessageBody` | `content / attachmentIds?` | `POST /api/v1/conversations/{id}/messages:send` |
 | `Block` | `id / messageId / parentId / type(BlockType) / attrs / content / status(BlockStatus) / durationMs / children` | SSE 增量（非独立 REST 端点）|
@@ -160,10 +162,15 @@
 
 | 主类型 | 关键字段 | 对应端点 |
 |---|---|---|
-| `ModelConfig` | `id / scenario / provider / modelId` | `GET /api/v1/model-configs` |
+| `ModelConfig` | `id / scenario / apiKeyId / modelId` | `GET /api/v1/model-configs` |
 | `Provider` | `name / displayName / category / defaultBaseUrl? / baseUrlRequired` | `GET /api/v1/providers`（静态白名单）|
 | `Scenario` | `name` | `GET /api/v1/scenarios`（后端权威白名单）|
-| `UpsertModelConfigBody` | `provider / modelId` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
+| `UpsertModelConfigBody` | `apiKeyId / modelId` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
+
+**2026-05-28 model selection redesign**：
+- `ModelConfig.provider` → `ModelConfig.apiKeyId`（后端 DB 列 `provider` → `api_key_id`）
+- `Scenario` 联合改为封闭 union：`"dialogue" | "utility" | "agent"`（原 `"chat" | "web_summary"` 双删）
+- `UpsertModelConfigBody.provider` → `UpsertModelConfigBody.apiKeyId`
 
 ---
 
