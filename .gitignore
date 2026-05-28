@@ -29,8 +29,9 @@ $RECYCLE.BIN/
 # 编辑器 & IDE
 # ============================================================
 
-# VS Code
-.vscode/
+# VS Code — pattern uses .vscode/* not .vscode/ so the ! unignore lines
+# below actually take effect (git: 父目录被排除则文件无法 unignore)。
+.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
