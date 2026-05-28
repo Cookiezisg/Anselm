@@ -129,6 +129,10 @@
       "agent": "Used by agent / llm nodes in workflows. Per-node override available."
     },
     "noKeys": "No API keys configured",
-    "selectModel": "Select model"
+    "selectModel": "Select model",
+    "notSet": "Not set",
+    "keyLabel": "API Key",
+    "modelLabel": "Model",
+    "providerSub": "{{count}} key(s)"
   }
 }

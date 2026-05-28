@@ -5120,6 +5120,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--bg-paper);
+  flex-shrink: 0;
 }
 .set-sec-h {
   display: flex; align-items: center; gap: 12px;
@@ -5174,17 +5175,51 @@ tr.is-selected { background: var(--accent-soft) !important; }
 .set-sys-mono { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--fg-strong); }
 .set-sys-hint { font-size: var(--fs-11); color: var(--fg-faint); margin-left: 6px; }
 
-/* Model defaults rows — 3 scenario cards (dialogue/utility/agent) */
-.set-mrow {
-  display: flex; align-items: center; gap: 14px;
-  padding: 11px 2px;
+/* Model defaults — 3 expandable scenario cards (dialogue/utility/agent).
+ * Collapsed head shows provider chip + model tag; expanded body reuses the
+ * onboarding model step (.onb-grid + .onb-twofield) so the picker feels the
+ * same as configuring a key in the first place.
+ */
+.set-mc-list { display: flex; flex-direction: column; gap: 8px; }
+.set-mc {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-paper);
+  transition: border-color var(--t-fast);
 }
-.set-mrow + .set-mrow { border-top: 1px solid var(--border-soft); }
-.set-mrow-text { flex: 1; min-width: 0; }
-.set-mrow-name { font-size: var(--fs-13); font-weight: 500; color: var(--fg-strong); }
-.set-mrow-desc { font-size: var(--fs-12); color: var(--fg-muted); margin-top: 2px; line-height: 1.45; }
-.set-mrow-picker { flex: none; width: 240px; }
-.set-mrow-picker .sel { width: 100%; }
+.set-mc.is-open { border-color: var(--border-strong); }
+.set-mc-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 12px;
+  cursor: pointer; user-select: none;
+  transition: background var(--t-fast);
+}
+.set-mc-head:hover { background: var(--bg-hover); }
+.set-mc-text { flex: 1; min-width: 0; }
+.set-mc-name { font-size: var(--fs-13); font-weight: 500; color: var(--fg-strong); }
+.set-mc-desc { font-size: var(--fs-12); color: var(--fg-muted); margin-top: 2px; line-height: 1.45; }
+.set-mc-summary { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.set-mc-notset { font-size: var(--fs-12); color: var(--fg-faint); }
+.set-mc-chev {
+  width: 15px; height: 15px;
+  color: var(--fg-faint); flex: none;
+  transition: transform var(--t-fast);
+}
+.set-mc-chev.is-open { transform: rotate(90deg); }
+.set-mc-body {
+  padding: 6px 14px 14px;
+  border-top: 1px dashed var(--border);
+  background: var(--bg-elev);
+}
+.set-mc-body .onb-grid {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+  margin-top: 10px;
+}
+.set-mc-body .onb-twofield { margin-top: 14px; }
+.set-mc-body .onb-keyfield { margin-top: 0; }
 
 /* Key list — key-centric API-key management */
 .set-klist { display: flex; flex-direction: column; gap: 8px; }

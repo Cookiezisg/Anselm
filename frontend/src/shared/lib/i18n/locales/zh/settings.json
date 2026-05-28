@@ -129,6 +129,10 @@
       "agent": "工作流中 agent 与 llm 节点使用。可在节点上覆盖。"
     },
     "noKeys": "尚未配 API Key",
-    "selectModel": "选择模型"
+    "selectModel": "选择模型",
+    "notSet": "未配置",
+    "keyLabel": "API Key",
+    "modelLabel": "模型",
+    "providerSub": "{{count}} 个 key"
   }
 }
