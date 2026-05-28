@@ -3,6 +3,8 @@
 //
 // 对齐后端 domain/workflow json tag 字段名（camelCase）。
 
+import type { ModelRef } from "@entities/conversation/@x/workflow";
+
 export type VersionStatus = "pending" | "accepted" | "rejected";
 
 export interface VariableSpec {
@@ -20,11 +22,16 @@ export interface EdgeSpec {
   toPort?: string;
 }
 
+// NodeSpec — modelOverride applies to agent / llm nodes only; nil falls back
+// to the agent scenario default at dispatch time.
+//
+// modelOverride 仅对 agent / llm 节点生效;nil → dispatch 时走 agent 默认。
 export interface NodeSpec {
   id: string;
   type: string;
   label?: string;
   config?: Record<string, unknown>;
+  modelOverride?: ModelRef | null;
 }
 
 export interface Graph {

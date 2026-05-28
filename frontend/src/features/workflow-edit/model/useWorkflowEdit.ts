@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEditWorkflow } from "@entities/workflow";
 import type { WorkflowEditOp } from "@entities/workflow";
+import type { ModelRef } from "@entities/conversation";
 
 // ── Canvas-shape node/edge types (local to the editor canvas) ────────────
 
@@ -18,6 +19,7 @@ export interface CanvasNode {
   onError?: string;
   timeout?: number;
   retry?: unknown;
+  modelOverride?: ModelRef | null;
   x: number;
   y: number;
   sub?: string;
@@ -58,7 +60,18 @@ export function nodeToSpec(n: CanvasNode) {
     onError: n.onError || "",
     timeout: n.timeout || 0,
     ...(n.retry ? { retry: n.retry } : {}),
+    ...(n.modelOverride ? { modelOverride: n.modelOverride } : {}),
   };
+}
+
+// modelOverrideEq — true when two ModelRef|null|undefined values are
+// semantically equal (treating null and undefined as "no override").
+//
+// modelOverrideEq —— 比较两个 ModelRef,null/undefined 语义相同(无 override)。
+function modelOverrideEq(a?: ModelRef | null, b?: ModelRef | null): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.apiKeyId === b.apiKeyId && a.modelId === b.modelId;
 }
 
 export function edgeToSpec(e: CanvasEdge) {
@@ -90,8 +103,11 @@ function nodeChanged(a: CanvasNode & { type?: string; position?: { x: number; y:
 
 // Three-way diff: compare orig vs next canvas graph, produce backend Op[].
 // Verbatim from WorkflowEditor.diffToOps — adds/updates/deletes nodes and edges.
+// Plus a dedicated set_node_model_override op when an existing node's
+// modelOverride flipped (backend op shape differs from update_node patch).
 //
-// 三向 diff：orig vs next → add/update/delete ops 逐字保留。
+// 三向 diff：orig vs next → add/update/delete ops 逐字保留;
+// 现存节点 modelOverride 变化 → 专属 op,让后端校验 apiKeyId 归属。
 export function diffToOps(orig: CanvasGraph, next: CanvasGraph): WorkflowEditOp[] {
   const ops: WorkflowEditOp[] = [];
   const oN = new Map((orig.nodes || []).map((n) => [n.id, n]));
@@ -103,6 +119,14 @@ export function diffToOps(orig: CanvasGraph, next: CanvasGraph): WorkflowEditOp[
       ops.push({ op: "add_node", node: nodeToSpec(n) });
     } else if (nodeChanged(o, n)) {
       ops.push({ op: "update_node", node: nodeToSpec(n) });
+    }
+    // modelOverride flip on existing node → dedicated op.
+    if (o && !modelOverrideEq(o.modelOverride, n.modelOverride)) {
+      ops.push({
+        op: "set_node_model_override",
+        nodeId: n.id,
+        modelOverride: n.modelOverride ?? null,
+      });
     }
   }
   // Removes

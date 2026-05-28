@@ -1,0 +1,7 @@
+{
+  "nodeModelOverride": {
+    "label": "Agent model",
+    "hint": "Override the model for this node; leave empty to use the Agent default.",
+    "useDefault": "Use default"
+  }
+}

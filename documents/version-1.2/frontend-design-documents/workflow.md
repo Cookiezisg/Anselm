@@ -31,7 +31,10 @@ type VersionStatus = "pending" | "accepted" | "rejected";
 
 interface VariableSpec { name; type?; description?; default? }
 interface EdgeSpec { id; from; fromPort?; to; toPort? }
-interface NodeSpec { id; type; label?; config? }
+interface NodeSpec {
+  id; type; label?; config?;
+  modelOverride?: ModelRef | null;  // 仅 agent / llm 节点;nil → agent scenario 默认
+}
 interface Graph {
   name; description?; tags?; variables?: VariableSpec[];
   nodes: NodeSpec[]; edges: EdgeSpec[];
@@ -110,6 +113,10 @@ WorkflowEditor 检测图变更
 
 | 文件 | 说明 |
 |---|---|
-| `frontend/src/entities/workflow/model/types.ts` | Workflow / WorkflowVersion / Graph / Edit* 类型 |
+| `frontend/src/entities/workflow/model/types.ts` | Workflow / WorkflowVersion / Graph / Edit* 类型(含 NodeSpec.modelOverride) |
 | `frontend/src/entities/workflow/api/workflow.ts` | 10 个 hooks |
 | `frontend/src/entities/workflow/index.ts` | public API |
+| `frontend/src/entities/conversation/@x/workflow.ts` | FSD 跨 slice 出口:暴露 ModelRef 给 entities/workflow |
+| `frontend/src/features/workflow-edit/model/useWorkflowEdit.ts` | diff 引擎含 modelOverride round-trip + set_node_model_override op |
+| `frontend/src/features/workflow-edit/ui/WorkflowEditor.tsx` | InspectorBody 为 agent/llm 节点渲染 KeyModelPicker |
+| `frontend/src/shared/lib/i18n/locales/{zh,en}/workflow.json` | nodeModelOverride 文案 |

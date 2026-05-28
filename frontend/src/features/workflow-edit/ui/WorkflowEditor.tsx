@@ -19,9 +19,11 @@ import { Select } from "@shared/ui/Select";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.tsx";
 import { FloatingInspector } from "@shared/ui/FloatingInspector.tsx";
 import { useWorkflowEdit } from "@features/workflow-edit";
+import { KeyModelPicker } from "@features/settings";
+import type { ModelRef } from "@entities/conversation";
 import { useCollapsible } from "@shared/lib/useCollapsible";
 
-type WFNode = { id: string; kind: string; label: string; x: number; y: number; config: Record<string, unknown>; notes: string; onError?: string; timeout?: number; retry?: Record<string, unknown>; sub?: string };
+type WFNode = { id: string; kind: string; label: string; x: number; y: number; config: Record<string, unknown>; notes: string; onError?: string; timeout?: number; retry?: Record<string, unknown>; modelOverride?: ModelRef | null; sub?: string };
 type WFEdge = { id: string; from: string; to: string; fromHandle?: string; toHandle?: string; fromPort?: string; toPort?: string };
 type HandleKey = "top" | "right" | "bottom" | "left";
 
@@ -199,7 +201,7 @@ function CanvasNode({ node, selected, onMouseDown, onHandleMouseDown, connecting
 // ── Inspector body ───────────────────────────────────────────────────────
 // Rendered inside a FloatingInspector — no own container/header.
 function InspectorBody({ node, onChange, onDelete }: { node: WFNode; onChange: (patch: Partial<WFNode>) => void; onDelete: () => void }) {
-  const { t } = useTranslation(["forge", "common"]);
+  const { t } = useTranslation(["forge", "workflow", "common"]);
   const [text, setText] = useState(JSON.stringify(node.config || {}, null, 2));
   useEffect(() => setText(JSON.stringify(node.config || {}, null, 2)), [node.id]);
 
@@ -211,6 +213,8 @@ function InspectorBody({ node, onChange, onDelete }: { node: WFNode; onChange: (
       // ignore — user typing
     }
   };
+
+  const supportsModelOverride = node.kind === "agent" || node.kind === "llm";
 
   return (
     <div className="wf-inspector-form">
@@ -258,6 +262,31 @@ function InspectorBody({ node, onChange, onDelete }: { node: WFNode; onChange: (
             />
           </div>
         </div>
+
+        {supportsModelOverride && (
+          <div className="node-section">
+            <label className="node-section-label">
+              {t("workflow:nodeModelOverride.label")}
+            </label>
+            <KeyModelPicker
+              value={node.modelOverride ?? null}
+              onChange={(v) => onChange({ modelOverride: v })}
+            />
+            {node.modelOverride && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => onChange({ modelOverride: null })}
+                style={{ marginTop: 6 }}
+              >
+                {t("workflow:nodeModelOverride.useDefault")}
+              </Button>
+            )}
+            <p className="node-section-hint">
+              {t("workflow:nodeModelOverride.hint")}
+            </p>
+          </div>
+        )}
 
         <label className="drawer-label" style={{ marginTop: 10 }}>{t("editor.inspector.configLabel")}</label>
         <textarea
@@ -577,6 +606,7 @@ function parseGraph(version: Record<string, unknown> | null | undefined): { node
     onError: String(n.onError ?? ""),
     timeout: Number(n.timeout) || 0,
     retry: (n.retry as Record<string, unknown> | undefined),
+    modelOverride: (n.modelOverride as ModelRef | null | undefined) ?? null,
     x: Number((n.position as Record<string, unknown>)?.x ?? n.x ?? 0),
     y: Number((n.position as Record<string, unknown>)?.y ?? n.y ?? 0),
   }));

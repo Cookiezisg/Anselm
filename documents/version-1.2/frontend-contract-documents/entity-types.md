@@ -220,9 +220,12 @@
 |---|---|---|
 | `Workflow` | `id / userId / name / description / tags / enabled / concurrency / needsAttention / activeVersionId / liveRuns? / lastFiredAt?` | `GET /api/v1/workflows` / `GET /api/v1/workflows/{id}` |
 | `WorkflowVersion` | `id / workflowId / status / graph(JSON) / graphParsed? / changeReason / forgedInConversationId?` | `GET /api/v1/workflows/{id}/versions` |
+| `NodeSpec` | `id / type / label? / config? / modelOverride?(ModelRef \| null)` | 嵌套于 `Graph.nodes` |
 | `EditWorkflowVars` | `ops(WorkflowEditOp[]) / changeReason?` | `POST /api/v1/workflows/{id}:edit` |
 | `RunWorkflowVars` | `id / input?` | `POST /api/v1/workflows/{id}:run` |
 | `CapabilityCheckResult` | `ok / issues(CapabilityIssue[])` | `POST /api/v1/workflows/{id}:check-capabilities` |
+
+`NodeSpec.modelOverride` 仅对 `agent` / `llm` 节点生效;其他节点类型后端忽略。`ModelRef` 经 `entities/conversation/@x/workflow.ts` 跨 slice 暴露(FSD `@x` 模式)。编辑器变更通过 `set_node_model_override` op 提交,后端 `applySetNodeModelOverride` F1 校验 apiKeyId 归属。
 
 ---
 
