@@ -30,7 +30,7 @@ type UpdateInput struct {
 	Archived          *bool
 	Pinned            *bool
 	// ModelOverride: nil = skip, **ptr 内层 nil = clear override, 内层 non-nil = 设置。
-	// §12.3 per-conv override; validated against keys.HasKeyForProvider before save.
+	// §12.3 per-conv override; F1 validated via keys.ResolveCredentialsByID before save.
 	ModelOverride **modeldomain.ModelRef
 }
 
@@ -159,20 +159,18 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*convd
 	if in.ModelOverride != nil {
 		newRef := *in.ModelOverride
 		if newRef != nil {
-			// validate both fields + provider has api-key (§12.3 F1).
-			if strings.TrimSpace(newRef.Provider) == "" {
-				return nil, modeldomain.ErrProviderRequired
+			// F1: validate apiKeyId non-empty + references existing user-owned key.
+			//
+			// F1: apiKeyId 必须非空 + 必须存在且属当前 user。
+			if strings.TrimSpace(newRef.APIKeyID) == "" {
+				return nil, modeldomain.ErrAPIKeyIDRequired
 			}
 			if strings.TrimSpace(newRef.ModelID) == "" {
 				return nil, modeldomain.ErrModelIDRequired
 			}
 			if s.keys != nil {
-				has, hkErr := s.keys.HasKeyForProvider(ctx, strings.TrimSpace(newRef.Provider))
-				if hkErr != nil {
-					return nil, fmt.Errorf("conversation.Service.Update: %w", hkErr)
-				}
-				if !has {
-					return nil, modeldomain.ErrProviderHasNoKey
+				if _, err := s.keys.ResolveCredentialsByID(ctx, strings.TrimSpace(newRef.APIKeyID)); err != nil {
+					return nil, fmt.Errorf("conversation.Service.Update: %w", err)
 				}
 			}
 		}

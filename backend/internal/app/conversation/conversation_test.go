@@ -14,27 +14,33 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// fakeKeys implements apikeydomain.KeyProvider just enough for §12.3 override validation.
+// fakeKeys is a minimal KeyProvider stub; byID drives ResolveCredentialsByID
+// so §12.3 F1 ModelOverride validation can match real existence checks.
 //
-// fakeKeys 实现 apikeydomain.KeyProvider，仅覆盖 §12.3 override 校验所需方法。
+// fakeKeys 是最小 KeyProvider 桩；byID 驱动 ResolveCredentialsByID,
+// §12.3 F1 ModelOverride 校验依此匹配真实"key 是否存在"语义。
 type fakeKeys struct {
-	hasFor map[string]bool
+	byID map[string]apikeydomain.Credentials
 }
 
-func (k *fakeKeys) HasKeyForProvider(_ context.Context, provider string) (bool, error) {
-	return k.hasFor[provider], nil
+func (k *fakeKeys) ResolveCredentialsByID(_ context.Context, id string) (apikeydomain.Credentials, error) {
+	if k.byID == nil {
+		return apikeydomain.Credentials{}, apikeydomain.ErrNotFound
+	}
+	c, ok := k.byID[id]
+	if !ok {
+		return apikeydomain.Credentials{}, apikeydomain.ErrNotFound
+	}
+	return c, nil
 }
 
 func (k *fakeKeys) ResolveCredentials(_ context.Context, _ string) (apikeydomain.Credentials, error) {
-	return apikeydomain.Credentials{}, errors.New("not implemented for this test")
+	return apikeydomain.Credentials{}, nil
 }
 
-func (k *fakeKeys) ResolveCredentialsByID(_ context.Context, _ string) (apikeydomain.Credentials, error) {
-	return apikeydomain.Credentials{}, errors.New("not implemented for this test")
-}
-
-func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error { return nil }
-func (k *fakeKeys) DefaultSearchProvider(_ context.Context) string  { return "" }
+func (k *fakeKeys) MarkInvalid(_ context.Context, _, _ string) error           { return nil }
+func (k *fakeKeys) HasKeyForProvider(_ context.Context, _ string) (bool, error) { return true, nil }
+func (k *fakeKeys) DefaultSearchProvider(_ context.Context) string             { return "" }
 
 type fakeRepo struct {
 	rows map[string]*convdomain.Conversation
@@ -199,43 +205,49 @@ func TestList_AfterCreate(t *testing.T) {
 
 // §12.3 ModelOverride tests.
 
-func newSvcWithKeys(t *testing.T, hasFor map[string]bool) *Service {
+func newSvcWithKeys(t *testing.T, byID map[string]apikeydomain.Credentials) *Service {
 	t.Helper()
 	svc := NewService(newFakeRepo(), nil, zap.NewNop())
-	svc.SetKeyProvider(&fakeKeys{hasFor: hasFor})
+	svc.SetKeyProvider(&fakeKeys{byID: byID})
 	return svc
 }
 
+func validKeys() map[string]apikeydomain.Credentials {
+	return map[string]apikeydomain.Credentials{
+		"aki_test": {Provider: "deepseek", Key: "sk-test", BaseURL: ""},
+	}
+}
+
 func TestUpdate_ModelOverride_SetSucceeds(t *testing.T) {
-	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	svc := newSvcWithKeys(t, validKeys())
 	ctx := ctxAlice()
 	c, _ := svc.Create(ctx, "X")
-	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: "deepseek-reasoner"}
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_test", ModelID: "deepseek-reasoner"}
 	out, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
-	if out.ModelOverride == nil || out.ModelOverride.Provider != "deepseek" || out.ModelOverride.ModelID != "deepseek-reasoner" {
+	if out.ModelOverride == nil || out.ModelOverride.APIKeyID != "aki_test" || out.ModelOverride.ModelID != "deepseek-reasoner" {
 		t.Errorf("ModelOverride wrong: %+v", out.ModelOverride)
 	}
 }
 
-func TestUpdate_ModelOverride_NoKey_Returns422Sentinel(t *testing.T) {
-	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+func TestUpdate_ModelOverride_NoKey_Returns404Sentinel(t *testing.T) {
+	svc := newSvcWithKeys(t, validKeys())
 	ctx := ctxAlice()
 	c, _ := svc.Create(ctx, "X")
-	ref := &modeldomain.ModelRef{Provider: "anthropic", ModelID: "claude-opus-4-7"}
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_missing", ModelID: "claude-opus-4-7"}
 	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
-	if !errors.Is(err, modeldomain.ErrProviderHasNoKey) {
-		t.Errorf("got %v, want ErrProviderHasNoKey", err)
+	if !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Errorf("got %v, want apikeydomain.ErrNotFound", err)
 	}
 }
 
 func TestUpdate_ModelOverride_Clear(t *testing.T) {
-	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	svc := newSvcWithKeys(t, validKeys())
 	ctx := ctxAlice()
 	c, _ := svc.Create(ctx, "X")
-	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: "deepseek-reasoner"}
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_test", ModelID: "deepseek-reasoner"}
 	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -249,22 +261,22 @@ func TestUpdate_ModelOverride_Clear(t *testing.T) {
 	}
 }
 
-func TestUpdate_ModelOverride_MissingProvider(t *testing.T) {
-	svc := newSvcWithKeys(t, map[string]bool{})
+func TestUpdate_ModelOverride_MissingAPIKeyID(t *testing.T) {
+	svc := newSvcWithKeys(t, validKeys())
 	ctx := ctxAlice()
 	c, _ := svc.Create(ctx, "X")
-	ref := &modeldomain.ModelRef{Provider: "", ModelID: "x"}
+	ref := &modeldomain.ModelRef{APIKeyID: "", ModelID: "x"}
 	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
-	if !errors.Is(err, modeldomain.ErrProviderRequired) {
-		t.Errorf("got %v, want ErrProviderRequired", err)
+	if !errors.Is(err, modeldomain.ErrAPIKeyIDRequired) {
+		t.Errorf("got %v, want ErrAPIKeyIDRequired", err)
 	}
 }
 
 func TestUpdate_ModelOverride_MissingModelID(t *testing.T) {
-	svc := newSvcWithKeys(t, map[string]bool{"deepseek": true})
+	svc := newSvcWithKeys(t, validKeys())
 	ctx := ctxAlice()
 	c, _ := svc.Create(ctx, "X")
-	ref := &modeldomain.ModelRef{Provider: "deepseek", ModelID: ""}
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_test", ModelID: ""}
 	_, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &ref})
 	if !errors.Is(err, modeldomain.ErrModelIDRequired) {
 		t.Errorf("got %v, want ErrModelIDRequired", err)
