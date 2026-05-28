@@ -13,12 +13,12 @@ import (
 
 // ModelRef is a stable (apiKeyId, modelId) pair reusable across domains
 // (Conversation.ModelOverride, NodeSpec.ModelOverride). Provider is implicit
-// via the api_key referenced by ApiKeyID.
+// via the api_key referenced by APIKeyID.
 //
 // ModelRef 是可跨 domain 复用的 (apiKeyId, modelId) 对(conv 和 node 的 override 复用)。
-// Provider 由 ApiKeyID 引用的 api_key 隐含。
+// Provider 由 APIKeyID 引用的 api_key 隐含。
 type ModelRef struct {
-	ApiKeyID string `json:"apiKeyId"`
+	APIKeyID string `json:"apiKeyId"`
 	ModelID  string `json:"modelId"`
 }
 
@@ -29,7 +29,7 @@ type ModelConfig struct {
 	ID        string         `gorm:"primaryKey;type:text" json:"id"`
 	UserID    string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:1" json:"-"`
 	Scenario  string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:2" json:"scenario"`
-	ApiKeyID  string         `gorm:"not null;type:text;column:api_key_id" json:"apiKeyId"`
+	APIKeyID  string         `gorm:"not null;type:text;column:api_key_id" json:"apiKeyId"`
 	ModelID   string         `gorm:"not null;type:text;column:model_id" json:"modelId"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
@@ -66,7 +66,7 @@ func ListScenarios() []string {
 var (
 	ErrNotConfigured    = errors.New("model: not configured for scenario")
 	ErrInvalidScenario  = errors.New("model: invalid scenario")
-	ErrApiKeyIDRequired = errors.New("model: api_key_id is required")
+	ErrAPIKeyIDRequired = errors.New("model: api_key_id is required")
 	ErrModelIDRequired  = errors.New("model: model id is required")
 )
 
