@@ -61,18 +61,6 @@ func IsValidKind(k string) bool {
 	return false
 }
 
-// ListKinds returns every recognised kind; backs contract tests (not used by production).
-//
-// ListKinds 返所有合法 kind，支撑契约测试，生产不调。
-func ListKinds() []string {
-	return []string{
-		KindConversationForgedEntity, KindConversationEditedEntity,
-		KindWorkflowUsesFunction, KindWorkflowUsesHandler,
-		KindWorkflowUsesMCP, KindWorkflowUsesSkill, KindWorkflowUsesDocument,
-		KindDocumentLinksEntity,
-	}
-}
-
 // Entity kind constants for from_kind / to_kind fields.
 //
 // from_kind / to_kind 的实体类型常量。

@@ -453,14 +453,6 @@ func (s *Service) publishEnvDeleted(ctx context.Context, envID string) {
 		map[string]any{"action": "deleted"}, "")
 }
 
-func envRuntimeKind(env *sandboxdomain.Env, s *Service) string {
-	rt, err := s.repo.GetRuntime(context.Background(), env.RuntimeID)
-	if err != nil || rt == nil {
-		return ""
-	}
-	return rt.Kind
-}
-
 func (s *Service) touchLastUsed(ctx context.Context, env *sandboxdomain.Env) {
 	env.LastUsedAt = time.Now()
 	if err := s.repo.UpdateEnv(ctx, env); err != nil {

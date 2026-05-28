@@ -28,13 +28,6 @@ func New(db *gorm.DB) *Store { return &Store{db: db} }
 
 var _ skilldomain.ExecutionRepository = (*Store)(nil)
 
-// AutoMigrateModels returns the GORM models to register.
-//
-// AutoMigrateModels 返 AutoMigrate 用的 model。
-func AutoMigrateModels() []interface{} {
-	return []interface{}{&skilldomain.Execution{}}
-}
-
 func (s *Store) SaveExecution(ctx context.Context, e *skilldomain.Execution) error {
 	if err := s.db.WithContext(ctx).Create(e).Error; err != nil {
 		return fmt.Errorf("skillexecstore.SaveExecution: %w", err)

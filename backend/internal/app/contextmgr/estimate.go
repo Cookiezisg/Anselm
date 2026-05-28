@@ -1,8 +1,6 @@
 package contextmgr
 
 import (
-	"strings"
-
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
@@ -75,30 +73,3 @@ func (m *Manager) calibrationFor(convID string) float64 {
 	return 1.0
 }
 
-// MessageRoleFromBlock maps an event-log block to its LLM history role.
-//
-// MessageRoleFromBlock 把事件日志 block 映射到 LLM history 的 role。
-func MessageRoleFromBlock(b *chatdomain.Block) string {
-	if b == nil {
-		return ""
-	}
-	if b.Type == eventlogdomain.BlockTypeToolResult {
-		return "tool"
-	}
-	return "assistant"
-}
-
-// projectedTokensSnapshot exposes per-role token counts for diagnostics.
-//
-// projectedTokensSnapshot 暴露按 role 的 token 切分供诊断用。
-func (m *Manager) projectedTokensSnapshot(blocks []*chatdomain.Block) map[string]int {
-	out := map[string]int{}
-	for _, b := range blocks {
-		role := strings.ToLower(b.ContextRole)
-		if role == "" {
-			role = ContextRoleHot
-		}
-		out[role] += m.projectedTokens(b)
-	}
-	return out
-}
