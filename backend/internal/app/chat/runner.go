@@ -98,9 +98,13 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 
 	s.emitter.EmitMessageStart(agentCtx, msgID, chatdomain.RoleAssistant, "", nil)
 
-	// §12.3 per-conv override: conv.ModelOverride beats user's chat-scenario default.
-	// §12.3 对话级 override：conv.ModelOverride 优先于 user 的 chat scenario 默认。
-	bc, err := llmclientpkg.ResolveWithOverride(agentCtx, task.conv.ModelOverride, s.modelPicker, s.keyProvider, s.llmFactory)
+	// §12.3 per-conv override: conv.ModelOverride beats user's dialogue-scenario default.
+	// Also stash on ctx so nested subagent spawns inherit the same effective override.
+	//
+	// §12.3 对话级 override：conv.ModelOverride 优先于 dialogue scenario 默认;
+	// 顺便塞进 ctx 让嵌套 subagent 承袭同一 override。
+	agentCtx = reqctxpkg.WithModelOverride(agentCtx, task.conv.ModelOverride)
+	bc, err := llmclientpkg.ResolveDialogueWithOverride(agentCtx, task.conv.ModelOverride, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
 		code := "LLM_PROVIDER_ERROR"
 		switch {
@@ -349,7 +353,7 @@ func AssemblePromptSections(sections []PromptSection) string {
 // autoTitle 经 LLM 生成短标题、持久化、发 conversation 通知（失败静默）。
 func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, uid, assistantContent string) {
 	titleCtx := reqctxpkg.SetUserID(ctx, uid)
-	bc, err := llmclientpkg.Resolve(titleCtx, s.modelPicker, s.keyProvider, s.llmFactory)
+	bc, err := llmclientpkg.ResolveUtility(titleCtx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
 		return
 	}
