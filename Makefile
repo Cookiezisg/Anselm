@@ -256,7 +256,8 @@ reset: stop
 	 find backend/cmd/desktop/embed -mindepth 1 ! -name .gitignore ! -name .gitkeep -delete 2>/dev/null || true; \
 	 rm -rf backend/cmd/desktop/build; \
 	 rm -f backend/server backend/lintprompts backend/fakeserver backend/fetch-mise.exe \
-	       backend/desktop backend/forgify-server backend/forgify-desktop backend/cmd/desktop/Forgify; \
+	       backend/desktop backend/forgify-server backend/forgify-desktop backend/cmd/desktop/Forgify \
+	       backend/coverage-matrix; \
 	 rm -rf .superpowers docs coverage; \
 	 echo ""; \
 	 echo "✓ reset done. run 'make setup' before next 'make dev'."
