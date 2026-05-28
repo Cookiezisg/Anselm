@@ -1,10 +1,14 @@
 package workflow
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
+
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 )
 
 func TestSentinels_Unique(t *testing.T) {
@@ -12,9 +16,10 @@ func TestSentinels_Unique(t *testing.T) {
 		ErrNotFound, ErrDuplicateName, ErrVersionNotFound, ErrPendingNotFound,
 		ErrNoActiveVersion, ErrDAGCycle, ErrInvalidReference, ErrNoTrigger,
 		ErrOpInvalid, ErrCapabilityNotFound, ErrMCPServerNotInstalled,
+		ErrInvalidNodeModelOverride,
 	}
-	if len(all) != 11 {
-		t.Errorf("expected 11 sentinels per Plan 04 spec, got %d", len(all))
+	if len(all) != 12 {
+		t.Errorf("expected 12 sentinels (Plan 04 11 + per-node modelOverride), got %d", len(all))
 	}
 	seen := map[string]bool{}
 	for _, e := range all {
@@ -91,5 +96,51 @@ func TestVariableType_Whitelist(t *testing.T) {
 	}
 	if IsValidVariableType("date") {
 		t.Errorf("unknown variable type should be invalid")
+	}
+}
+
+func TestNodeSpec_ModelOverrideMarshalsAsJSON(t *testing.T) {
+	ns := NodeSpec{
+		ID:   "node_1",
+		Type: NodeTypeAgent,
+		ModelOverride: &modeldomain.ModelRef{
+			APIKeyID: "aki_test",
+			ModelID:  "claude-haiku-4-5",
+		},
+	}
+	raw, err := json.Marshal(ns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	mo, ok := got["modelOverride"].(map[string]any)
+	if !ok {
+		t.Fatalf("modelOverride missing or wrong shape: %v", got["modelOverride"])
+	}
+	if mo["apiKeyId"] != "aki_test" || mo["modelId"] != "claude-haiku-4-5" {
+		t.Fatalf("modelOverride wrong content: %v", mo)
+	}
+}
+
+func TestNodeSpec_NilModelOverrideOmitted(t *testing.T) {
+	ns := NodeSpec{ID: "node_1", Type: NodeTypeAgent}
+	raw, err := json.Marshal(ns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte("modelOverride")) {
+		t.Fatalf("nil modelOverride should be omitted, got: %s", raw)
+	}
+}
+
+func TestErrInvalidNodeModelOverride_Sentinel(t *testing.T) {
+	if ErrInvalidNodeModelOverride == nil {
+		t.Fatal("sentinel not defined")
+	}
+	if !strings.HasPrefix(ErrInvalidNodeModelOverride.Error(), "workflow: ") {
+		t.Fatalf("sentinel message must start with 'workflow: ', got %q", ErrInvalidNodeModelOverride.Error())
 	}
 }

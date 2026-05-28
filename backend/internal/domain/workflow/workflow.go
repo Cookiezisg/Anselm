@@ -60,4 +60,10 @@ var (
 	ErrOpInvalid             = errors.New("workflow: op invalid")
 	ErrCapabilityNotFound    = errors.New("workflow: capability not found")
 	ErrMCPServerNotInstalled = errors.New("workflow: MCP server not installed")
+
+	// ErrInvalidNodeModelOverride is returned when a node's modelOverride is set
+	// but apiKeyId or modelId is missing.
+	//
+	// ErrInvalidNodeModelOverride：节点 modelOverride 缺 apiKeyId 或 modelId 时返。
+	ErrInvalidNodeModelOverride = errors.New("workflow: invalid node modelOverride (apiKeyId and modelId both required)")
 )

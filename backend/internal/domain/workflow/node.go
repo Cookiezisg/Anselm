@@ -1,5 +1,9 @@
 package workflow
 
+import (
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+)
+
 // NodeSpec is one graph node; retry/onError/timeout only meaningful for capability nodes.
 //
 // NodeSpec 是图中一个节点；retry/onError/timeout 仅对 capability 节点有意义。
@@ -12,6 +16,13 @@ type NodeSpec struct {
 	OnError  string         `json:"onError,omitempty"`
 	Timeout  int            `json:"timeout,omitempty"`
 	Notes    string         `json:"notes,omitempty"`
+
+	// ModelOverride applies to agent/llm node types only; other types ignore.
+	// Nil = inherit the agent scenario default at dispatch time.
+	//
+	// ModelOverride 仅对 agent / llm 类型节点生效；其他节点类型忽略。
+	// nil = dispatch 时走 agent scenario 默认。
+	ModelOverride *modeldomain.ModelRef `json:"modelOverride,omitempty"`
 }
 
 type Position struct {
