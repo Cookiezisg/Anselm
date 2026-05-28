@@ -85,7 +85,7 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		`[{"id":"fn_xxx","score":0.95},...]`+
 		"\nRespond with valid JSON only.", args.Limit)
 
-	bc, err := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
+	bc, err := llmclientpkg.ResolveUtility(ctx, t.picker, t.keys, t.factory)
 	if err != nil {
 		return "", fmt.Errorf("search_function: %w", err)
 	}

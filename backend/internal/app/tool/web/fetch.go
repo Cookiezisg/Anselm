@@ -283,11 +283,11 @@ func classifyIP(ip net.IP) string {
 }
 
 
-// summarise resolves the web_summary LLM (chat fallback) and asks it to answer prompt against content.
+// summarise resolves the utility LLM bundle and asks it to answer prompt against content.
 //
-// summarise 解析 web_summary LLM（chat 兜底），让它按 prompt 回答 content。
+// summarise 解析 utility LLM bundle，让它按 prompt 回答 content。
 func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string) (string, error) {
-	bundle, err := llmclientpkg.ResolveForWebSummary(ctx, t.picker, t.keys, t.factory)
+	bundle, err := llmclientpkg.ResolveUtility(ctx, t.picker, t.keys, t.factory)
 	if err != nil {
 		return "", err
 	}

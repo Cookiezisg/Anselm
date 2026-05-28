@@ -487,7 +487,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	askaiSpawner := askaiapp.New(convService, chatService, log)
 
 	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
-		bundle, err := llmclientpkg.ResolveForWebSummary(ctx, modelService, apikeyService, llmFactory)
+		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
 			return nil, "", "", "", err
 		}

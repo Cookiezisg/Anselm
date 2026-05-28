@@ -37,7 +37,7 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]*skilld
 	progID := em.StartBlock(ctx, eventlogdomain.BlockTypeProgress,
 		map[string]any{"stage": "rerank", "tool": "search_skills", "candidates": len(all)})
 
-	bundle, err := llmclientpkg.Resolve(ctx, s.modelPicker, s.keyProvider, s.llmFactory)
+	bundle, err := llmclientpkg.ResolveUtility(ctx, s.modelPicker, s.keyProvider, s.llmFactory)
 	if err != nil {
 		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)
 		return nil, fmt.Errorf("skillapp.Search: resolve LLM: %w", err)

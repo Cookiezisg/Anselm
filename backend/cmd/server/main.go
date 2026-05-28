@@ -436,7 +436,7 @@ func main() {
 	settingsPath := filepath.Join(homeRoot, "settings.json")
 
 	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
-		bundle, err := llmclientpkg.ResolveForWebSummary(ctx, modelService, apikeyService, llmFactory)
+		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
 			return nil, "", "", "", err
 		}

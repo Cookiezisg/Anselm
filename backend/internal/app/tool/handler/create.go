@@ -129,7 +129,7 @@ func (t *CreateHandler) Execute(ctx context.Context, argsJSON string) (string, e
 		return marshalCreateOutput(h.ID, v.ID, v.Version, v.Status, v.EnvStatus, "", 1, nil, len(ops)), nil
 	}
 
-	bundle, bundleErr := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
+	bundle, bundleErr := llmclientpkg.ResolveUtility(ctx, t.picker, t.keys, t.factory)
 	if bundleErr != nil {
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("[Attempt 1] env install failed: %s\n", truncForUI(v.EnvError)))
 		em.DeltaBlock(ctx, progID, fmt.Sprintf("env-fix loop unavailable: %v\n", bundleErr))

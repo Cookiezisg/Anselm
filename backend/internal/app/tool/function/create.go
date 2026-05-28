@@ -111,9 +111,9 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		return marshalCreateOutput(f.ID, v.ID, v.Version, v.Status, v.EnvStatus, "", 1, nil, len(ops)), nil
 	}
 
-	// Env failed — enter env-fix loop. Resolve main-chat LLM bundle.
-	// env 失败 → 进 env-fix loop;解析主 chat LLM。
-	bundle, bundleErr := llmclientpkg.Resolve(ctx, t.picker, t.keys, t.factory)
+	// Env failed — enter env-fix loop. Resolve utility LLM bundle.
+	// env 失败 → 进 env-fix loop;解析 utility LLM bundle。
+	bundle, bundleErr := llmclientpkg.ResolveUtility(ctx, t.picker, t.keys, t.factory)
 	if bundleErr != nil {
 		// Without an LLM we cannot fix; surface the install failure as-is.
 		// Emit attempt=1 failed + completed=failed.
