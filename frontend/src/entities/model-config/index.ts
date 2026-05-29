@@ -17,3 +17,4 @@ export type {
   CapabilityOverrideBody,
 } from "./model/types";
 export { capabilityFor } from "./model/capability";
+export { ThinkingControl } from "./ui/ThinkingControl";

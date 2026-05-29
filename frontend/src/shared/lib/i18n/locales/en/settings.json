@@ -133,6 +133,14 @@
     "notSet": "Not set",
     "keyLabel": "API Key",
     "modelLabel": "Model",
-    "providerSub": "{{count}} key(s)"
+    "providerSub": "{{count}} key(s)",
+    "thinking": {
+      "label": "Thinking",
+      "auto": "Auto",
+      "on": "On",
+      "off": "Off",
+      "effortLabel": "Thinking effort",
+      "budgetLabel": "Thinking budget (tokens)"
+    }
   }
 }

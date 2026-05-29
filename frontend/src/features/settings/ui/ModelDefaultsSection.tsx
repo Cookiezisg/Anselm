@@ -13,7 +13,18 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Select } from "@shared/ui/Select";
 import { useApiKeys, type ApiKey } from "@entities/apikey";
-import { useModelConfigs, useProviders, useUpsertModelConfig, type ModelConfig, type Scenario } from "@entities/model-config";
+import {
+  useModelConfigs,
+  useModelCapabilities,
+  useProviders,
+  useUpsertModelConfig,
+  capabilityFor,
+  ThinkingControl,
+  type ModelCapability,
+  type ModelConfig,
+  type Scenario,
+  type ThinkingSpec,
+} from "@entities/model-config";
 import { LLM_HINTS } from "@shared/lib/onboarding-strings";
 
 const SCENARIOS: Scenario[] = ["dialogue", "utility", "agent"];
@@ -28,6 +39,7 @@ export function ModelDefaultsSection({ open, onToggle }: Props) {
   const { data: configs = [] } = useModelConfigs();
   const { data: keys = [] } = useApiKeys();
   const { data: providers = [] } = useProviders();
+  const { data: caps = [] } = useModelCapabilities();
   const upsert = useUpsertModelConfig();
   const [expandedSc, setExpandedSc] = useState<Scenario | null>("dialogue");
 
@@ -77,11 +89,17 @@ export function ModelDefaultsSection({ open, onToggle }: Props) {
                   verifiedKeys={verifiedKeys}
                   configuredProviders={configuredProviders}
                   providerDisplay={providerDisplay}
+                  caps={caps}
                   isOpen={expandedSc === sc}
                   onToggle={() => setExpandedSc(expandedSc === sc ? null : sc)}
                   onChange={(apiKeyId, modelId) =>
                     upsert.mutate({ scenario: sc, apiKeyId, modelId })
                   }
+                  onThinkingChange={(thinking) => {
+                    const cfg = cfgFor(sc);
+                    if (!cfg) return;
+                    upsert.mutate({ scenario: sc, apiKeyId: cfg.apiKeyId, modelId: cfg.modelId, thinking });
+                  }}
                 />
               ))}
             </div>
@@ -98,20 +116,25 @@ interface ScenarioCardProps {
   verifiedKeys: ApiKey[];
   configuredProviders: string[];
   providerDisplay: (name: string) => string;
+  caps: ModelCapability[];
   isOpen: boolean;
   onToggle: () => void;
   onChange: (apiKeyId: string, modelId: string) => void;
+  onThinkingChange: (thinking: ThinkingSpec | undefined) => void;
 }
 
 function ScenarioCard({
   scenario, config, verifiedKeys, configuredProviders, providerDisplay,
-  isOpen, onToggle, onChange,
+  caps, isOpen, onToggle, onChange, onThinkingChange,
 }: ScenarioCardProps) {
   const { t } = useTranslation("settings");
   const currentKey = config ? verifiedKeys.find((k) => k.id === config.apiKeyId) : undefined;
   const currentProvider = currentKey?.provider || "";
   const summaryHint = (LLM_HINTS as Record<string, { abbr: string; color: string }>)[currentProvider];
+  const capability = config ? capabilityFor(caps, currentProvider, config.modelId) : undefined;
 
+  // Model/key/provider cascade resets thinking — a budget or effort valid for
+  // one model is meaningless for another, so we omit thinking on cascade picks.
   const pickProvider = (provider: string) => {
     const firstKey = verifiedKeys.find((k) => k.provider === provider);
     if (!firstKey) return;
@@ -147,6 +170,11 @@ function ScenarioCard({
             <>
               <span className="set-pchip" style={{ background: summaryHint.color }}>{summaryHint.abbr}</span>
               <span className="set-mtag">{config.modelId}</span>
+              {config.thinking?.mode && config.thinking.mode !== "auto" && (
+                <span className="set-badge" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                  {t(`modelDefaults.thinking.${config.thinking.mode}`)}
+                </span>
+              )}
             </>
           ) : (
             <span className="set-mc-notset">{t("modelDefaults.notSet")}</span>
@@ -182,30 +210,37 @@ function ScenarioCard({
           </div>
 
           {currentKey && config && (
-            <div className="onb-twofield">
-              <div className="onb-keyfield" style={{ flex: 1.3 }}>
-                <div className="onb-klabel">{t("modelDefaults.keyLabel")}</div>
-                <Select
-                  options={keysForProvider.map((k) => ({
-                    value: k.id,
-                    label: `${k.displayName || providerDisplay(k.provider)}  ·  ${k.keyMasked}`,
-                  }))}
-                  value={config.apiKeyId}
-                  onChange={pickKey}
-                  ariaLabel={t("modelDefaults.keyLabel")}
-                />
+            <>
+              <div className="onb-twofield">
+                <div className="onb-keyfield" style={{ flex: 1.3 }}>
+                  <div className="onb-klabel">{t("modelDefaults.keyLabel")}</div>
+                  <Select
+                    options={keysForProvider.map((k) => ({
+                      value: k.id,
+                      label: `${k.displayName || providerDisplay(k.provider)}  ·  ${k.keyMasked}`,
+                    }))}
+                    value={config.apiKeyId}
+                    onChange={pickKey}
+                    ariaLabel={t("modelDefaults.keyLabel")}
+                  />
+                </div>
+                <div className="onb-keyfield" style={{ flex: 1 }}>
+                  <div className="onb-klabel">{t("modelDefaults.modelLabel")}</div>
+                  <Select
+                    options={currentKey.modelsFound}
+                    value={config.modelId}
+                    onChange={pickModel}
+                    mono
+                    ariaLabel={t("modelDefaults.modelLabel")}
+                  />
+                </div>
               </div>
-              <div className="onb-keyfield" style={{ flex: 1 }}>
-                <div className="onb-klabel">{t("modelDefaults.modelLabel")}</div>
-                <Select
-                  options={currentKey.modelsFound}
-                  value={config.modelId}
-                  onChange={pickModel}
-                  mono
-                  ariaLabel={t("modelDefaults.modelLabel")}
-                />
-              </div>
-            </div>
+              <ThinkingControl
+                capability={capability}
+                value={config.thinking}
+                onChange={onThinkingChange}
+              />
+            </>
           )}
         </div>
       )}

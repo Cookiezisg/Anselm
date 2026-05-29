@@ -1,5 +1,5 @@
 // ModelDefaultsSection — 3 expandable scenario cards; provider grid +
-// (key, model) cascade picker per card.
+// (key, model) cascade picker per card. Includes ThinkingControl integration.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -10,12 +10,18 @@ const mockUpsertModel = vi.fn();
 let apiKeys: any[] = [];
 let modelConfigs: any[] = [];
 let providers: any[] = [];
+let modelCapabilities: any[] = [];
 
-vi.mock("@entities/model-config", () => ({
-  useModelConfigs: () => ({ data: modelConfigs }),
-  useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
-  useProviders: () => ({ data: providers }),
-}));
+vi.mock("@entities/model-config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@entities/model-config")>();
+  return {
+    ...actual,
+    useModelConfigs: () => ({ data: modelConfigs }),
+    useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
+    useProviders: () => ({ data: providers }),
+    useModelCapabilities: () => ({ data: modelCapabilities }),
+  };
+});
 
 vi.mock("@entities/apikey", () => ({
   useApiKeys: () => ({ data: apiKeys }),
@@ -51,6 +57,7 @@ beforeEach(() => {
   apiKeys = [];
   modelConfigs = [];
   providers = [];
+  modelCapabilities = [];
 });
 
 describe("ModelDefaultsSection", () => {
@@ -121,5 +128,69 @@ describe("ModelDefaultsSection", () => {
     expect(mockUpsertModel).toHaveBeenCalledWith({
       scenario: "dialogue", apiKeyId: "aki_oa", modelId: "gpt-4o-mini",
     });
+  });
+
+  it("effortCapability_rendersThinkingControl", () => {
+    seedStandardKeys();
+    modelCapabilities = [{
+      provider: "deepseek", modelId: "deepseek-v4-flash",
+      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
+      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
+    }];
+    render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
+    // The expanded dialogue card should show the thinking effort label.
+    expect(screen.getByText("思考强度")).toBeInTheDocument();
+  });
+
+  it("effortCapability_changingThinking_callsUpsertWithThinking", () => {
+    seedStandardKeys();
+    modelCapabilities = [{
+      provider: "deepseek", modelId: "deepseek-v4-flash",
+      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
+      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
+    }];
+    render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
+    // Open the Select for thinking effort.
+    const trigger = screen.getByRole("button", { name: "思考强度" });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText("high"));
+    expect(mockUpsertModel).toHaveBeenCalledWith({
+      scenario: "dialogue",
+      apiKeyId: "aki_ds",
+      modelId: "deepseek-v4-flash",
+      thinking: { mode: "on", effort: "high" },
+    });
+  });
+
+  it("changingModel_callsUpsertWithoutThinking", () => {
+    // When model is switched via cascade the upsert must omit thinking so
+    // any previous budget/effort setting does not pollute the new model.
+    apiKeys = [{
+      id: "aki_ds", provider: "deepseek", displayName: "DS", keyMasked: "sk-...1",
+      testStatus: "ok", modelsFound: ["deepseek-v4-flash", "deepseek-v4-pro"],
+    }];
+    providers = [{ name: "deepseek", displayName: "DeepSeek", category: "llm" }];
+    modelConfigs = [{
+      scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash",
+      thinking: { mode: "on", effort: "high" },
+    }];
+    modelCapabilities = [{
+      provider: "deepseek", modelId: "deepseek-v4-flash",
+      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
+      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
+    }];
+    render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
+    // Open model Select and pick the other model.
+    const modelTrigger = screen.getByRole("button", { name: "模型" });
+    fireEvent.click(modelTrigger);
+    fireEvent.click(screen.getByText("deepseek-v4-pro"));
+    // Must NOT include thinking.
+    expect(mockUpsertModel).toHaveBeenCalledWith({
+      scenario: "dialogue",
+      apiKeyId: "aki_ds",
+      modelId: "deepseek-v4-pro",
+    });
+    const call = mockUpsertModel.mock.calls[0][0];
+    expect(call).not.toHaveProperty("thinking");
   });
 });

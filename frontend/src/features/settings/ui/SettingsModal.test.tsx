@@ -54,11 +54,16 @@ vi.mock("@entities/apikey", () => ({
   useUpdateApiKey: (_id: any) => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@entities/model-config", () => ({
-  useProviders: () => ({ data: [] as any[] }),
-  useModelConfigs: () => ({ data: [] as any[] }),
-  useUpsertModelConfig: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-}));
+vi.mock("@entities/model-config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@entities/model-config")>();
+  return {
+    ...actual,
+    useProviders: () => ({ data: [] as any[] }),
+    useModelConfigs: () => ({ data: [] as any[] }),
+    useUpsertModelConfig: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+    useModelCapabilities: () => ({ data: [] as any[] }),
+  };
+});
 
 import { useToastStore } from "@shared/ui/toastStore";
 import { useSessionStore } from "@entities/session";

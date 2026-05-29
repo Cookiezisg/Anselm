@@ -133,6 +133,14 @@
     "notSet": "未配置",
     "keyLabel": "API Key",
     "modelLabel": "模型",
-    "providerSub": "{{count}} 个 key"
+    "providerSub": "{{count}} 个 key",
+    "thinking": {
+      "label": "思考",
+      "auto": "自动",
+      "on": "开",
+      "off": "关",
+      "effortLabel": "思考强度",
+      "budgetLabel": "思考预算 (tokens)"
+    }
   }
 }

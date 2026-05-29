@@ -5220,6 +5220,7 @@ tr.is-selected { background: var(--accent-soft) !important; }
 }
 .set-mc-body .onb-twofield { margin-top: 14px; }
 .set-mc-body .onb-keyfield { margin-top: 0; }
+.set-mc-think { margin-top: 14px; }
 
 /* Key list — key-centric API-key management */
 .set-klist { display: flex; flex-direction: column; gap: 8px; }
