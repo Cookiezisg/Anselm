@@ -5,9 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
@@ -18,8 +15,12 @@ import (
 
 func TestResolveCapabilities_NoOverride_ReturnsStatic(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	svc := apikeyapp.NewCapabilityService(store)
@@ -29,15 +30,25 @@ func TestResolveCapabilities_NoOverride_ReturnsStatic(t *testing.T) {
 	cap := svc.ResolveCapabilities(ctx, "deepseek", "deepseek-v4")
 
 	// Static rule for deepseek-v4: ContextWindow=1_000_000, MaxOutput=384_000, Thinking=ShapeEffort
-	assert.Equal(t, 1_000_000, cap.ContextWindow)
-	assert.Equal(t, 384_000, cap.MaxOutput)
-	assert.Equal(t, modelcapspkg.ShapeEffort, cap.Thinking)
+	if cap.ContextWindow != 1_000_000 {
+		t.Errorf("ContextWindow: got %d, want %d", cap.ContextWindow, 1_000_000)
+	}
+	if cap.MaxOutput != 384_000 {
+		t.Errorf("MaxOutput: got %d, want %d", cap.MaxOutput, 384_000)
+	}
+	if cap.Thinking != modelcapspkg.ShapeEffort {
+		t.Errorf("Thinking: got %v, want %v", cap.Thinking, modelcapspkg.ShapeEffort)
+	}
 }
 
 func TestResolveCapabilities_WithOverride_MergesCorrectly(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	svc := apikeyapp.NewCapabilityService(store)
@@ -56,22 +67,34 @@ func TestResolveCapabilities_WithOverride_MergesCorrectly(t *testing.T) {
 		ThinkingShape: &shape,
 		UpdatedAt:     time.Now().UTC(),
 	}
-	require.NoError(t, store.Upsert(ctx, o))
+	if err := store.Upsert(ctx, o); err != nil {
+		t.Fatalf("upsert override: %v", err)
+	}
 
 	cap := svc.ResolveCapabilities(ctx, "deepseek", "deepseek-v4")
 
 	// ContextWindow should come from override (256000, not static 1_000_000)
-	assert.Equal(t, 256000, cap.ContextWindow)
+	if cap.ContextWindow != 256000 {
+		t.Errorf("ContextWindow: got %d, want %d", cap.ContextWindow, 256000)
+	}
 	// MaxOutput from static (not overridden)
-	assert.Equal(t, 384_000, cap.MaxOutput)
+	if cap.MaxOutput != 384_000 {
+		t.Errorf("MaxOutput: got %d, want %d", cap.MaxOutput, 384_000)
+	}
 	// Thinking from override (effort = ShapeEffort)
-	assert.Equal(t, modelcapspkg.ShapeEffort, cap.Thinking)
+	if cap.Thinking != modelcapspkg.ShapeEffort {
+		t.Errorf("Thinking: got %v, want %v", cap.Thinking, modelcapspkg.ShapeEffort)
+	}
 }
 
 func TestResolveCapabilities_NoUser_ReturnsStatic(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	svc := apikeyapp.NewCapabilityService(store)
@@ -79,14 +102,22 @@ func TestResolveCapabilities_NoUser_ReturnsStatic(t *testing.T) {
 	// No user in context → best-effort fallback to static
 	cap := svc.ResolveCapabilities(context.Background(), "anthropic", "claude-opus-4-7")
 
-	assert.Equal(t, 1_000_000, cap.ContextWindow)
-	assert.Equal(t, modelcapspkg.ShapeEffort, cap.Thinking)
+	if cap.ContextWindow != 1_000_000 {
+		t.Errorf("ContextWindow: got %d, want %d", cap.ContextWindow, 1_000_000)
+	}
+	if cap.Thinking != modelcapspkg.ShapeEffort {
+		t.Errorf("Thinking: got %v, want %v", cap.Thinking, modelcapspkg.ShapeEffort)
+	}
 }
 
 func TestSetAndClearOverride(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	svc := apikeyapp.NewCapabilityService(store)
@@ -101,29 +132,46 @@ func TestSetAndClearOverride(t *testing.T) {
 		ContextWindow: &win,
 		ThinkingShape: &shape,
 	}
-	require.NoError(t, svc.SetOverride(ctx, "anthropic", "claude-opus-4", o))
+	if err := svc.SetOverride(ctx, "anthropic", "claude-opus-4", o); err != nil {
+		t.Fatalf("SetOverride: %v", err)
+	}
 
 	// Verify it resolves with override
 	cap := svc.ResolveCapabilities(ctx, "anthropic", "claude-opus-4")
-	assert.Equal(t, 200000, cap.ContextWindow)
-	assert.Equal(t, modelcapspkg.ShapeBudget, cap.Thinking)
+	if cap.ContextWindow != 200000 {
+		t.Errorf("ContextWindow: got %d, want %d", cap.ContextWindow, 200000)
+	}
+	if cap.Thinking != modelcapspkg.ShapeBudget {
+		t.Errorf("Thinking: got %v, want %v", cap.Thinking, modelcapspkg.ShapeBudget)
+	}
 
 	// List overrides
 	list, err := svc.ListOverrides(ctx)
-	require.NoError(t, err)
-	assert.Len(t, list, 1)
+	if err != nil {
+		t.Fatalf("ListOverrides: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("len(list): got %d, want 1", len(list))
+	}
 
 	// Clear override
-	require.NoError(t, svc.ClearOverride(ctx, "anthropic", "claude-opus-4"))
+	if err := svc.ClearOverride(ctx, "anthropic", "claude-opus-4"); err != nil {
+		t.Fatalf("ClearOverride: %v", err)
+	}
 
 	// Should return static now
 	cap2 := svc.ResolveCapabilities(ctx, "anthropic", "claude-opus-4")
-	// Static cap for claude-opus-4 from the catalog: 200_000 window, ShapeBudget — override deleted
-	// (Static for claude-opus-4 family is actually ShapeBudget/200_000; clearing override
-	// means back to static — both happen to match here, but the key test is that it doesn't error)
-	assert.Equal(t, modelcapspkg.ShapeBudget, cap2.Thinking)
+	// Static cap for claude-opus-4 family is ShapeBudget/200_000; clearing override
+	// means back to static — both happen to match here, but the key test is no error.
+	if cap2.Thinking != modelcapspkg.ShapeBudget {
+		t.Errorf("Thinking after clear: got %v, want %v", cap2.Thinking, modelcapspkg.ShapeBudget)
+	}
 
 	list2, err := svc.ListOverrides(ctx)
-	require.NoError(t, err)
-	assert.Empty(t, list2)
+	if err != nil {
+		t.Fatalf("ListOverrides after clear: %v", err)
+	}
+	if len(list2) != 0 {
+		t.Errorf("len(list2): got %d, want 0", len(list2))
+	}
 }

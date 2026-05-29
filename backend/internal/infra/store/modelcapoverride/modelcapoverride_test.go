@@ -8,9 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	modelcapoverridestore "github.com/sunweilin/forgify/backend/internal/infra/store/modelcapoverride"
@@ -19,8 +16,12 @@ import (
 
 func TestStore_UpsertGetListDelete(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	ctx := reqctxpkg.SetUserID(context.Background(), "u_test01")
@@ -41,20 +42,44 @@ func TestStore_UpsertGetListDelete(t *testing.T) {
 	}
 
 	// Upsert → Get
-	require.NoError(t, store.Upsert(ctx, o))
+	if err := store.Upsert(ctx, o); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
 
 	got, err := store.Get(ctx, "u_test01", "deepseek", "deepseek-v4")
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	assert.Equal(t, "mco_test0000000001", got.ID)
-	assert.Equal(t, "deepseek", got.Provider)
-	assert.Equal(t, "deepseek-v4", got.ModelID)
-	require.NotNil(t, got.ThinkingShape)
-	assert.Equal(t, "effort", *got.ThinkingShape)
-	require.NotNil(t, got.ContextWindow)
-	assert.Equal(t, 256000, *got.ContextWindow)
-	require.NotNil(t, got.MaxOutput)
-	assert.Equal(t, 16384, *got.MaxOutput)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got == nil {
+		t.Fatal("got: want non-nil")
+	}
+	if got.ID != "mco_test0000000001" {
+		t.Errorf("ID: got %q, want %q", got.ID, "mco_test0000000001")
+	}
+	if got.Provider != "deepseek" {
+		t.Errorf("Provider: got %q, want %q", got.Provider, "deepseek")
+	}
+	if got.ModelID != "deepseek-v4" {
+		t.Errorf("ModelID: got %q, want %q", got.ModelID, "deepseek-v4")
+	}
+	if got.ThinkingShape == nil {
+		t.Fatal("ThinkingShape: want non-nil")
+	}
+	if *got.ThinkingShape != "effort" {
+		t.Errorf("ThinkingShape: got %q, want %q", *got.ThinkingShape, "effort")
+	}
+	if got.ContextWindow == nil {
+		t.Fatal("ContextWindow: want non-nil")
+	}
+	if *got.ContextWindow != 256000 {
+		t.Errorf("ContextWindow: got %d, want %d", *got.ContextWindow, 256000)
+	}
+	if got.MaxOutput == nil {
+		t.Fatal("MaxOutput: want non-nil")
+	}
+	if *got.MaxOutput != 16384 {
+		t.Errorf("MaxOutput: got %d, want %d", *got.MaxOutput, 16384)
+	}
 
 	// Upsert again (update) — change ContextWindow
 	win2 := 512000
@@ -68,45 +93,79 @@ func TestStore_UpsertGetListDelete(t *testing.T) {
 		MaxOutput:     &maxOut,
 		UpdatedAt:     time.Now().UTC(),
 	}
-	require.NoError(t, store.Upsert(ctx, o2))
+	if err := store.Upsert(ctx, o2); err != nil {
+		t.Fatalf("upsert2: %v", err)
+	}
 
 	got2, err := store.Get(ctx, "u_test01", "deepseek", "deepseek-v4")
-	require.NoError(t, err)
-	require.NotNil(t, got2.ContextWindow)
-	assert.Equal(t, 512000, *got2.ContextWindow)
+	if err != nil {
+		t.Fatalf("get2: %v", err)
+	}
+	if got2.ContextWindow == nil {
+		t.Fatal("ContextWindow2: want non-nil")
+	}
+	if *got2.ContextWindow != 512000 {
+		t.Errorf("ContextWindow2: got %d, want %d", *got2.ContextWindow, 512000)
+	}
 
 	// List
 	list, err := store.List(ctx, "u_test01")
-	require.NoError(t, err)
-	assert.Len(t, list, 1)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("list len: got %d, want 1", len(list))
+	}
 
 	// User-scoped isolation: other user sees nothing
 	ctx2 := reqctxpkg.SetUserID(context.Background(), "u_test02")
 	got3, err := store.Get(ctx2, "u_test02", "deepseek", "deepseek-v4")
-	require.NoError(t, err)
-	assert.Nil(t, got3)
+	if err != nil {
+		t.Fatalf("get ctx2: %v", err)
+	}
+	if got3 != nil {
+		t.Errorf("got3: want nil for different user, got %+v", got3)
+	}
 
 	list2, err := store.List(ctx2, "u_test02")
-	require.NoError(t, err)
-	assert.Empty(t, list2)
+	if err != nil {
+		t.Fatalf("list ctx2: %v", err)
+	}
+	if len(list2) != 0 {
+		t.Errorf("list2 len: got %d, want 0", len(list2))
+	}
 
 	// Delete
-	require.NoError(t, store.Delete(ctx, "u_test01", "deepseek", "deepseek-v4"))
+	if err := store.Delete(ctx, "u_test01", "deepseek", "deepseek-v4"); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
 
 	got4, err := store.Get(ctx, "u_test01", "deepseek", "deepseek-v4")
-	require.NoError(t, err)
-	assert.Nil(t, got4)
+	if err != nil {
+		t.Fatalf("get after delete: %v", err)
+	}
+	if got4 != nil {
+		t.Errorf("got4: want nil after delete, got %+v", got4)
+	}
 
 	// Get on missing returns nil, nil (not error)
 	got5, err := store.Get(ctx, "u_test01", "anthropic", "claude-opus-4")
-	require.NoError(t, err)
-	assert.Nil(t, got5)
+	if err != nil {
+		t.Fatalf("get missing: %v", err)
+	}
+	if got5 != nil {
+		t.Errorf("got5: want nil for missing entry, got %+v", got5)
+	}
 }
 
 func TestStore_Upsert_MultipleOverrides(t *testing.T) {
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
-	require.NoError(t, err)
-	require.NoError(t, gdb.AutoMigrate(&modeldomain.ModelCapOverride{}))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := gdb.AutoMigrate(&modeldomain.ModelCapOverride{}); err != nil {
+		t.Fatalf("automigrate: %v", err)
+	}
 
 	store := modelcapoverridestore.New(gdb)
 	ctx := reqctxpkg.SetUserID(context.Background(), "u_multi")
@@ -127,10 +186,16 @@ func TestStore_Upsert_MultipleOverrides(t *testing.T) {
 			ContextWindow: &win,
 			UpdatedAt:     time.Now().UTC(),
 		}
-		require.NoError(t, store.Upsert(ctx, o))
+		if err := store.Upsert(ctx, o); err != nil {
+			t.Fatalf("upsert %s/%s: %v", e.provider, e.modelID, err)
+		}
 	}
 
 	list, err := store.List(ctx, "u_multi")
-	require.NoError(t, err)
-	assert.Len(t, list, 3)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 3 {
+		t.Errorf("list len: got %d, want 3", len(list))
+	}
 }
