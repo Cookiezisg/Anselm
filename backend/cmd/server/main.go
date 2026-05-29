@@ -98,6 +98,7 @@ import (
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
+	modelcapoverridestore "github.com/sunweilin/forgify/backend/internal/infra/store/modelcapoverride"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	userstore "github.com/sunweilin/forgify/backend/internal/infra/store/user"
@@ -162,6 +163,7 @@ func main() {
 	if err := dbinfra.Migrate(gdb,
 		&apikeydomain.APIKey{},
 		&modeldomain.ModelConfig{},
+		&modeldomain.ModelCapOverride{},
 		&convdomain.Conversation{},
 		&chatdomain.Message{},
 		&chatdomain.Block{},
@@ -248,6 +250,9 @@ func main() {
 	apikeyService.SetModelConfigRefScanner(modelStore)
 	apikeyService.SetConvOverrideRefScanner(convStore)
 	apikeyService.SetNodeOverrideRefScanner(workflowStore)
+
+	capabilityService := apikeyapp.NewCapabilityService(modelcapoverridestore.New(gdb))
+	_ = capabilityService // P4 will wire this to HTTP handlers; suppress unused-var until then
 
 	modelService := modelapp.NewService(modelStore, apikeyService, log)
 

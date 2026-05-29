@@ -101,7 +101,7 @@
 - **S12** 包结构 — 见 §S12
 - **S13** 包命名 — 见 §S13
 - **S14** 📌 文档同步纪律 — 见 §S14（**最高优先级**）
-- **S15** ID 格式：`<prefix>_<16hex>`（`crypto/rand` 8 字节，失败 panic）。前缀（trinity 后实测全集，按域分组）：`u_` user / `aki_` apikey / `mc_` model-config；`cv_` conv / `msg_` message / `blk_` block / `att_` attachment；`fn_` function / `fnv_` function-version / `fne_` function-exec / `fnenv_` fn-venv；`hd_` handler / `hdv_` handler-version / `hcl_` handler-call / `hdi_` handler-instance / `hdenv_` hd-venv；`wf_` workflow / `wfv_` workflow-version；`fr_` flowrun / `frn_` flowrun-node；`mcl_` mcp-call / `mch_` mcp-health / `ske_` skill-exec；`doc_` document / `mem_` memory / `rel_` relation / `td_` todo；`sr_` sandbox-runtime / `se_` sandbox-env / `bsh_` bash-shell。（skill / mcp 实体以 name 作主键、无实体前缀；`ske_`/`mcl_` 是其执行/调用子记录 ID）
+- **S15** ID 格式：`<prefix>_<16hex>`（`crypto/rand` 8 字节，失败 panic）。前缀（trinity 后实测全集，按域分组）：`u_` user / `aki_` apikey / `mc_` model-config / `mco_` model-cap-override；`cv_` conv / `msg_` message / `blk_` block / `att_` attachment；`fn_` function / `fnv_` function-version / `fne_` function-exec / `fnenv_` fn-venv；`hd_` handler / `hdv_` handler-version / `hcl_` handler-call / `hdi_` handler-instance / `hdenv_` hd-venv；`wf_` workflow / `wfv_` workflow-version；`fr_` flowrun / `frn_` flowrun-node；`mcl_` mcp-call / `mch_` mcp-health / `ske_` skill-exec；`doc_` document / `mem_` memory / `rel_` relation / `td_` todo；`sr_` sandbox-runtime / `se_` sandbox-env / `bsh_` bash-shell。（skill / mcp 实体以 name 作主键、无实体前缀；`ske_`/`mcl_` 是其执行/调用子记录 ID）
 - **S16** 错误包装：`fmt.Errorf("<pkg>.<Method>: %w", err)`；`errors.Is` 必须能从最外层 unwrap 到 sentinel
 - **S17** 每个到达 handler 的 sentinel 必须登记到 `errmap.go::errTable`
 - **S18** Tool 接口规约 — 见 §S18
