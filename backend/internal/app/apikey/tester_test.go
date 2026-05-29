@@ -361,3 +361,24 @@ func TestHTTPTester_ProviderDefaultBaseURL_UsedWhenUserEmpty(t *testing.T) {
 		t.Fatalf("OK=true on 1ms timeout, want false")
 	}
 }
+
+func TestHTTPTester_Google_ProbePathIsRootModels_WhenBaseHasOpenAISuffix(t *testing.T) {
+	// When base_url is the OpenAI-compat form (.../v1beta/openai), the connectivity
+	// probe must strip that suffix and hit .../v1beta/models — not .../v1beta/openai/v1beta/models.
+	// base_url 含 /v1beta/openai 时，连通性探针必须去掉该后缀再拼 /v1beta/models。
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"models":[]}`))
+	}))
+	defer srv.Close()
+
+	baseWithSuffix := srv.URL + "/v1beta/openai"
+	_, err := newTester().Test(context.Background(), "google", "gk", baseWithSuffix, "")
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if gotPath != "/v1beta/models" {
+		t.Errorf("probe path = %q, want /v1beta/models (must strip /v1beta/openai before appending)", gotPath)
+	}
+}

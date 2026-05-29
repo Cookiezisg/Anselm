@@ -224,7 +224,10 @@ func (t *HTTPTester) testAnthropicPing(ctx context.Context, baseURL, key string)
 }
 
 func (t *HTTPTester) testGoogleListModels(ctx context.Context, baseURL, key string) *TestResult {
-	u := fmt.Sprintf("%s/v1beta/models?key=%s", baseURL, url.QueryEscape(key))
+	// Strip the OpenAI-compat suffix so the probe always hits the root models endpoint.
+	// /v1beta/openai 是 chat 端点前缀，但 models-list 在根路径 /v1beta/models。
+	root := strings.TrimSuffix(baseURL, "/v1beta/openai")
+	u := fmt.Sprintf("%s/v1beta/models?key=%s", root, url.QueryEscape(key))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return &TestResult{OK: false, Message: "build request: " + err.Error()}

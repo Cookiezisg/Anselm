@@ -2,6 +2,7 @@ package apikey
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
@@ -140,5 +141,18 @@ func TestGetProviderMeta_Unknown(t *testing.T) {
 	_, ok := GetProviderMeta("nonexistent")
 	if ok {
 		t.Errorf("GetProviderMeta(\"nonexistent\") = true, want false")
+	}
+}
+
+func TestGetProviderMeta_Google_DefaultBaseURL_HasOpenAICompat(t *testing.T) {
+	// Google's OpenAI-compat surface lives at /v1beta/openai — the stored default
+	// must carry the full path so ResolveCredentials backfills the right value.
+	// Google 的 OpenAI-compat 端点是 /v1beta/openai，默认值必须含完整路径。
+	m, ok := GetProviderMeta("google")
+	if !ok {
+		t.Fatal("GetProviderMeta(\"google\") not found")
+	}
+	if !strings.HasSuffix(m.DefaultBaseURL, "/v1beta/openai") {
+		t.Errorf("DefaultBaseURL = %q, want suffix /v1beta/openai (chat endpoint path)", m.DefaultBaseURL)
 	}
 }
