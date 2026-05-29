@@ -469,6 +469,7 @@ func main() {
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStore, chatEmitter, notificationsPub, cheapLLMResolver, log)
+	contextManager.SetCapabilityResolver(capabilityService.ResolveCapabilities)
 	chatService.SetContextCompactor(contextManager)
 
 	workflowChecker.Skill = skillService

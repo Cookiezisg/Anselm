@@ -67,6 +67,9 @@ type Service struct {
 	dataDir       string
 	log           *zap.Logger
 	queues        sync.Map
+	wg            sync.WaitGroup
+	shutdown      chan struct{}
+	shutdownOnce  sync.Once
 
 	catalog          catalogdomain.SystemPromptProvider
 	memory           memorydomain.SystemPromptProvider
@@ -88,10 +91,12 @@ type DocumentResolver interface {
 }
 
 // ContextCompactor is the chat-side port for app/contextmgr.Manager.
+// provider and modelID identify the active model so the real context window is used.
 //
 // ContextCompactor 是 app/contextmgr.Manager 的 chat 侧端口。
+// provider/modelID 标识活跃模型，供真实窗口计算使用。
 type ContextCompactor interface {
-	MaybeCompact(ctx context.Context, convID string) error
+	MaybeCompact(ctx context.Context, convID, provider, modelID string) error
 	Calibrate(convID string, actualInputTokens, ourEstimate int)
 }
 
@@ -131,6 +136,7 @@ func NewService(
 		notifications: notifications,
 		dataDir:       dataDir,
 		log:           log,
+		shutdown:      make(chan struct{}),
 	}
 }
 
@@ -361,6 +367,17 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		zap.String("user_message_id", msgID),
 		zap.Int("queue_depth", len(q.ch)))
 	return msgID, nil
+}
+
+// Wait signals all queue goroutines to stop after finishing their current task,
+// then blocks until all tracked goroutines (queues + autoTitle) have exited.
+// Call in test teardown or graceful shutdown before closing the DB.
+//
+// Wait 通知所有 queue goroutine 完成当前 task 后退出，然后阻塞直到全部完成。
+// 测试 teardown 或优雅关闭前调用，确保 DB 关闭前无残留 goroutine。
+func (s *Service) Wait() {
+	s.shutdownOnce.Do(func() { close(s.shutdown) })
+	s.wg.Wait()
 }
 
 // Cancel stops the running Agent and drains pending tasks.

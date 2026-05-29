@@ -1,20 +1,33 @@
 package contextmgr
 
 import (
+	"context"
+
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
-	"github.com/sunweilin/forgify/backend/internal/pkg/modelmeta"
+	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
 	"github.com/sunweilin/forgify/backend/internal/pkg/tokencount"
 )
 
-// estimate computes (usable, used) for the conv; used = summary + projected blocks × calibration.
+// conservativeDefault is the fallback cap when no resolver is wired; matches modelcaps.fallback.
 //
-// estimate 算 (usable, used)；used = summary + 按 role 投影的 block × 校准。
-func (m *Manager) estimate(conv *convdomain.Conversation, blocks []*chatdomain.Block) (usable, used int) {
-	// conversation row lacks provider/model; conservative fallback corrected by Calibrate next turn.
-	meta := modelmeta.Lookup("", "")
-	usable = meta.UsableInput()
+// conservativeDefault 是未注入 resolver 时的兜底 cap，值与 modelcaps.fallback 对齐。
+var conservativeDefault = modelcapspkg.Cap{ContextWindow: 32_768, MaxOutput: 8_192}
+
+// estimate computes (usable, used) for the conv using the injected capability resolver.
+// provider/modelID come from the chat runner's resolved bundle so the real window is used.
+//
+// estimate 用注入的 capability resolver 算 (usable, used)；provider/modelID 来自 runner
+// 解析的 bundle，确保使用真实窗口而不是硬编码兜底。
+func (m *Manager) estimate(ctx context.Context, conv *convdomain.Conversation, blocks []*chatdomain.Block, provider, modelID string) (usable, used int) {
+	var cap modelcapspkg.Cap
+	if m.capFor != nil {
+		cap = m.capFor(ctx, provider, modelID)
+	} else {
+		cap = conservativeDefault
+	}
+	usable = cap.UsableInput()
 
 	used = tokencount.Estimate(conv.Summary)
 	for _, b := range blocks {

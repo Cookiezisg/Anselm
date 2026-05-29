@@ -33,7 +33,11 @@ func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
 	if loaded {
 		return actual.(*convQueue)
 	}
-	go s.runQueue(conversationID, q)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.runQueue(conversationID, q)
+	}()
 	return q
 }
 
@@ -56,6 +60,8 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 			s.processTask(conversationID, q, task)
 			timer.Reset(idleTimeout)
 		case <-timer.C:
+			return
+		case <-s.shutdown:
 			return
 		}
 	}
@@ -154,14 +160,18 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	if s.compactor != nil {
 		compactCtx := reqctxpkg.SetUserID(context.Background(), task.uid)
 		compactCtx = reqctxpkg.WithConversationID(compactCtx, task.conv.ID)
-		if err := s.compactor.MaybeCompact(compactCtx, task.conv.ID); err != nil {
+		if err := s.compactor.MaybeCompact(compactCtx, task.conv.ID, bc.Provider, bc.ModelID); err != nil {
 			s.log.Warn("contextmgr.MaybeCompact failed (non-fatal)",
 				zap.String("conv", task.conv.ID), zap.Error(err))
 		}
 	}
 
 	if task.conv.Title == "" && !task.conv.AutoTitled {
-		go s.autoTitle(context.Background(), task.conv, task.uid, result.LastMessage)
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.autoTitle(context.Background(), task.conv, task.uid, result.LastMessage)
+		}()
 	}
 }
 

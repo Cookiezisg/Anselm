@@ -14,6 +14,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
@@ -52,6 +53,12 @@ func DefaultThresholds() Thresholds {
 	}
 }
 
+// CapabilityResolver returns the effective model capability for (provider, modelID).
+// Used by estimate to read the real context window instead of a static fallback.
+//
+// CapabilityResolver 返回 (provider, modelID) 的有效模型能力，用于 estimate 读真实窗口。
+type CapabilityResolver func(ctx context.Context, provider, modelID string) modelcapspkg.Cap
+
 // Manager orchestrates demotion + compaction; MaybeCompact is the only entry point.
 //
 // Manager 编排降级 + 压缩；MaybeCompact 是唯一入口。
@@ -61,6 +68,7 @@ type Manager struct {
 	emitter    eventlogpkg.Emitter
 	notif      notificationspkg.Publisher
 	resolveLLM LLMResolver
+	capFor     CapabilityResolver
 	log        *zap.Logger
 	thr        Thresholds
 
@@ -102,10 +110,16 @@ func New(
 // SetThresholds 覆盖默认值；首次 MaybeCompact 前安全。
 func (m *Manager) SetThresholds(t Thresholds) { m.thr = t }
 
-// MaybeCompact runs the demote-or-compact dispatch once; auto-trigger path swallows errors.
+// SetCapabilityResolver injects the per-(provider,model) window resolver; nil disables window-aware sizing.
 //
-// MaybeCompact 跑一次降级/压缩派发；auto-trigger 路径吞错。
-func (m *Manager) MaybeCompact(ctx context.Context, convID string) error {
+// SetCapabilityResolver 注入 per-(provider,model) 窗口解析器；nil 时退回保守默认。
+func (m *Manager) SetCapabilityResolver(r CapabilityResolver) { m.capFor = r }
+
+// MaybeCompact runs the demote-or-compact dispatch once; auto-trigger path swallows errors.
+// provider and modelID identify the model in use so the correct context window is applied.
+//
+// MaybeCompact 跑一次降级/压缩派发；auto-trigger 路径吞错。provider/modelID 用于读取真实窗口。
+func (m *Manager) MaybeCompact(ctx context.Context, convID, provider, modelID string) error {
 	if convID == "" {
 		return nil
 	}
@@ -119,13 +133,15 @@ func (m *Manager) MaybeCompact(ctx context.Context, convID string) error {
 		m.log.Warn("MaybeCompact: list blocks failed", zap.String("conv", convID), zap.Error(err))
 		return nil
 	}
-	usable, used := m.estimate(conv, blocks)
+	usable, used := m.estimate(ctx, conv, blocks, provider, modelID)
 	if usable <= 0 {
 		return nil
 	}
 	ratio := float64(used) / float64(usable)
 	m.log.Debug("MaybeCompact ratio",
 		zap.String("conv", convID),
+		zap.String("provider", provider),
+		zap.String("model", modelID),
 		zap.Int("used", used),
 		zap.Int("usable", usable),
 		zap.Float64("ratio", ratio))
@@ -145,7 +161,7 @@ func (m *Manager) MaybeCompact(ctx context.Context, convID string) error {
 	// Re-estimate after demotion since cold blocks barely count.
 	if demoted > 0 {
 		blocks, _ = m.chatRepo.ListBlocksByConversation(ctx, convID)
-		_, used = m.estimate(conv, blocks)
+		_, used = m.estimate(ctx, conv, blocks, provider, modelID)
 		ratio = float64(used) / float64(usable)
 	}
 
@@ -169,7 +185,7 @@ func (m *Manager) MaybeCompact(ctx context.Context, convID string) error {
 // ForceCompact runs fullCompact regardless of thresholds; surfaces ErrCompactFailed on failure.
 //
 // ForceCompact 无视阈值强跑 fullCompact；失败返 ErrCompactFailed。
-func (m *Manager) ForceCompact(ctx context.Context, convID string) error {
+func (m *Manager) ForceCompact(ctx context.Context, convID, provider, modelID string) error {
 	if m.resolveLLM == nil {
 		return ErrCompactFailed
 	}
@@ -181,7 +197,7 @@ func (m *Manager) ForceCompact(ctx context.Context, convID string) error {
 	if err != nil {
 		return err
 	}
-	usable, used := m.estimate(conv, blocks)
+	usable, used := m.estimate(ctx, conv, blocks, provider, modelID)
 	if err := m.fullCompact(ctx, conv, blocks, used, usable); err != nil {
 		return ErrCompactFailed
 	}
