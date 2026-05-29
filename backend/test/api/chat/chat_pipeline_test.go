@@ -324,9 +324,14 @@ func TestChat_CancelDuringSecondLLMCall_StatusCancelled(t *testing.T) {
 		"search_function", "call_cancel_test",
 		`{"query":"anything","summary":"searching forges"}`,
 	))
+	// Wide per-chunk delay so the cancel reliably lands mid-stream before the
+	// 2nd call finalizes — a 40ms window flaked under -race + full-suite load.
+	//
+	// 大 chunk 间隔保证 cancel 在第二次调用 finalize 前落到流中途；40ms 在 -race
+	// + 全量并发下偶发 race（流已完成 → status=completed）。
 	fake.PushScript(th.ScriptSlowText(
 		"search found nothing relevant but here is a long answer about rivers",
-		40*time.Millisecond,
+		200*time.Millisecond,
 	))
 
 	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
