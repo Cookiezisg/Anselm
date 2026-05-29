@@ -51,6 +51,11 @@ func BlocksToAssistantLLM(log *zap.Logger, blocks []chatdomain.Block) ([]llminfr
 		switch b.Type {
 		case eventlogdomain.BlockTypeReasoning:
 			assistant.ReasoningContent = b.Content
+			if b.Attrs != nil {
+				if sig, ok := b.Attrs["signature"].(string); ok {
+					assistant.ReasoningSignature = sig
+				}
+			}
 
 		case eventlogdomain.BlockTypeText:
 			assistant.Content = b.Content

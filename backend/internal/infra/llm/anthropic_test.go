@@ -383,6 +383,178 @@ func TestBuildAnthropicBody_NoCache_EmptyToolsAndSystem(t *testing.T) {
 	}
 }
 
+// TestAnthropicParseSSE_SignatureDelta verifies that a signature_delta event is
+// captured as an EventReasoning with a non-empty Signature and an empty Delta.
+//
+// TestAnthropicParseSSE_SignatureDelta 验证 signature_delta 事件被捕获为
+// Signature 非空、Delta 为空的 EventReasoning。
+func TestAnthropicParseSSE_SignatureDelta(t *testing.T) {
+	sse := `event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me think..."}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"sig_abc123"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}
+`
+	events := collectAnthropicEvents(sse)
+
+	reasoning := filterType(events, EventReasoning)
+	if len(reasoning) != 2 {
+		t.Fatalf("want 2 EventReasoning (content + signature), got %d", len(reasoning))
+	}
+	if reasoning[0].Delta != "Let me think..." || reasoning[0].Signature != "" {
+		t.Errorf("first reasoning event: Delta=%q Signature=%q, want Delta='Let me think...' Signature=''",
+			reasoning[0].Delta, reasoning[0].Signature)
+	}
+	if reasoning[1].Delta != "" || reasoning[1].Signature != "sig_abc123" {
+		t.Errorf("signature event: Delta=%q Signature=%q, want Delta='' Signature='sig_abc123'",
+			reasoning[1].Delta, reasoning[1].Signature)
+	}
+}
+
+// TestBuildAnthropicBody_ThinkingBlockWithSignature verifies that when an assistant
+// message carries both ReasoningContent and ReasoningSignature, buildAnthropicBody
+// emits a thinking block with both "thinking" and "signature" fields.
+//
+// TestBuildAnthropicBody_ThinkingBlockWithSignature 验证 assistant 消息同时携带
+// ReasoningContent + ReasoningSignature 时，body 中 thinking block 含 "signature" 字段。
+func TestBuildAnthropicBody_ThinkingBlockWithSignature(t *testing.T) {
+	req := Request{
+		ModelID: "claude-opus-4-5",
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hello"},
+			{
+				Role:               RoleAssistant,
+				ReasoningContent:   "my thinking",
+				ReasoningSignature: "opaque-sig-xyz",
+				Content:            "my answer",
+			},
+			{Role: RoleUser, Content: "next turn"},
+		},
+	}
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		t.Fatalf("buildAnthropicBody: %v", err)
+	}
+	var out anthropicRequest
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+
+	// Find the assistant message.
+	var assistantMsg *anthropicMessage
+	for i := range out.Messages {
+		if out.Messages[i].Role == "assistant" {
+			assistantMsg = &out.Messages[i]
+			break
+		}
+	}
+	if assistantMsg == nil {
+		t.Fatal("no assistant message found")
+	}
+
+	var thinkingBlock *anthropicContent
+	for i := range assistantMsg.Content {
+		if assistantMsg.Content[i].Type == "thinking" {
+			thinkingBlock = &assistantMsg.Content[i]
+			break
+		}
+	}
+	if thinkingBlock == nil {
+		t.Fatal("no thinking block in assistant message")
+	}
+	if thinkingBlock.Thinking != "my thinking" {
+		t.Errorf("thinking = %q, want 'my thinking'", thinkingBlock.Thinking)
+	}
+	if thinkingBlock.Signature != "opaque-sig-xyz" {
+		t.Errorf("signature = %q, want 'opaque-sig-xyz'", thinkingBlock.Signature)
+	}
+}
+
+// TestBuildAnthropicBody_ThinkingBlockNoSignature verifies that when an assistant
+// message has ReasoningContent but no ReasoningSignature (e.g. older history),
+// the thinking block is emitted without a "signature" field and without crashing.
+//
+// TestBuildAnthropicBody_ThinkingBlockNoSignature 验证仅有 ReasoningContent（无签名）
+// 时 thinking block 不含 "signature" 字段且不崩溃。
+func TestBuildAnthropicBody_ThinkingBlockNoSignature(t *testing.T) {
+	req := Request{
+		ModelID: "claude-opus-4-5",
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hello"},
+			{
+				Role:             RoleAssistant,
+				ReasoningContent: "my thinking",
+				Content:          "my answer",
+			},
+			{Role: RoleUser, Content: "next turn"},
+		},
+	}
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		t.Fatalf("buildAnthropicBody: %v", err)
+	}
+
+	// Use raw unmarshal to assert "signature" key is absent.
+	// 用原始 unmarshal 断言 "signature" 键不存在。
+	var out anthropicRequest
+	if err := json.Unmarshal(body, &out); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	var assistantMsg *anthropicMessage
+	for i := range out.Messages {
+		if out.Messages[i].Role == "assistant" {
+			assistantMsg = &out.Messages[i]
+			break
+		}
+	}
+	if assistantMsg == nil {
+		t.Fatal("no assistant message found")
+	}
+	var rawMsg struct {
+		Content []map[string]json.RawMessage `json:"content"`
+	}
+	// Re-unmarshal the body to get raw content blocks.
+	// 重新 unmarshal body 以获得原始 content blocks。
+	var rawBody struct {
+		Messages []struct {
+			Role    string                       `json:"role"`
+			Content []map[string]json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &rawBody); err != nil {
+		t.Fatalf("raw unmarshal body: %v", err)
+	}
+	_ = rawMsg
+	for _, msg := range rawBody.Messages {
+		if msg.Role != "assistant" {
+			continue
+		}
+		for _, blk := range msg.Content {
+			typeRaw, ok := blk["type"]
+			if !ok {
+				continue
+			}
+			var blockType string
+			json.Unmarshal(typeRaw, &blockType)
+			if blockType != "thinking" {
+				continue
+			}
+			if _, hasSig := blk["signature"]; hasSig {
+				t.Error("thinking block must NOT contain 'signature' when ReasoningSignature is empty")
+			}
+		}
+	}
+}
+
 func TestExtractBase64Data(t *testing.T) {
 	cases := []struct {
 		input string

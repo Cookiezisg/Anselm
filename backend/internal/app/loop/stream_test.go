@@ -20,8 +20,15 @@ func makeAccums(triples ...string) map[int]*toolAccum {
 	return m
 }
 
+func makeReason(content, sig string) reasonAccum {
+	var r reasonAccum
+	r.buf.WriteString(content)
+	r.signature = sig
+	return r
+}
+
 func TestAssemble_TextOnly(t *testing.T) {
-	blocks := assembleBlocks("Hello world", "", nil)
+	blocks := assembleBlocks("Hello world", reasonAccum{}, nil)
 	if len(blocks) != 1 {
 		t.Fatalf("want 1 block, got %d", len(blocks))
 	}
@@ -34,7 +41,7 @@ func TestAssemble_TextOnly(t *testing.T) {
 }
 
 func TestAssemble_ReasoningThenText(t *testing.T) {
-	blocks := assembleBlocks("The answer is 42.", "Let me think...", nil)
+	blocks := assembleBlocks("The answer is 42.", makeReason("Let me think...", ""), nil)
 	if len(blocks) != 2 {
 		t.Fatalf("want 2 blocks, got %d", len(blocks))
 	}
@@ -48,7 +55,7 @@ func TestAssemble_ReasoningThenText(t *testing.T) {
 
 func TestAssemble_TextThenToolCall(t *testing.T) {
 	accums := makeAccums("call_1", "get_weather", `{"city":"Beijing"}`)
-	blocks := assembleBlocks("Let me check the weather.", "", accums)
+	blocks := assembleBlocks("Let me check the weather.", reasonAccum{}, accums)
 	if len(blocks) != 2 {
 		t.Fatalf("want 2 blocks (text + tool_call), got %d", len(blocks))
 	}
@@ -62,7 +69,7 @@ func TestAssemble_TextThenToolCall(t *testing.T) {
 
 func TestAssemble_ToolCallOnly(t *testing.T) {
 	accums := makeAccums("call_1", "get_weather", `{"summary":"Checking Beijing weather","city":"Beijing"}`)
-	blocks := assembleBlocks("", "", accums)
+	blocks := assembleBlocks("", reasonAccum{}, accums)
 	if len(blocks) != 1 {
 		t.Fatalf("want 1 block, got %d", len(blocks))
 	}
@@ -92,7 +99,7 @@ func TestAssemble_ParallelToolCalls(t *testing.T) {
 	accums[0] = a0
 	accums[1] = a1
 
-	blocks := assembleBlocks("", "", accums)
+	blocks := assembleBlocks("", reasonAccum{}, accums)
 	if len(blocks) != 2 {
 		t.Fatalf("want 2 blocks, got %d", len(blocks))
 	}
@@ -103,7 +110,7 @@ func TestAssemble_ParallelToolCalls(t *testing.T) {
 
 func TestAssemble_FullReactStep(t *testing.T) {
 	accums := makeAccums("call_1", "get_weather", `{"city":"Beijing"}`)
-	blocks := assembleBlocks("Let me look that up.", "I'll check the weather first.", accums)
+	blocks := assembleBlocks("Let me look that up.", makeReason("I'll check the weather first.", ""), accums)
 	if len(blocks) != 3 {
 		t.Fatalf("want 3 blocks, got %d", len(blocks))
 	}
@@ -119,9 +126,45 @@ func TestAssemble_FullReactStep(t *testing.T) {
 }
 
 func TestAssemble_Empty(t *testing.T) {
-	blocks := assembleBlocks("", "", nil)
+	blocks := assembleBlocks("", reasonAccum{}, nil)
 	if len(blocks) != 0 {
 		t.Errorf("want 0 blocks, got %d", len(blocks))
+	}
+}
+
+// TestAssemble_ReasoningWithSignature verifies that a reasoning accumulator
+// with a signature produces a Block with Attrs["signature"] set.
+//
+// TestAssemble_ReasoningWithSignature 验证含 signature 的 reasonAccum
+// 产生 Attrs["signature"] 已设置的 Block。
+func TestAssemble_ReasoningWithSignature(t *testing.T) {
+	blocks := assembleBlocks("", makeReason("my thinking", "sig-abc"), nil)
+	if len(blocks) != 1 {
+		t.Fatalf("want 1 block, got %d", len(blocks))
+	}
+	if blocks[0].Type != eventlogdomain.BlockTypeReasoning {
+		t.Errorf("type = %q, want reasoning", blocks[0].Type)
+	}
+	if blocks[0].Content != "my thinking" {
+		t.Errorf("content = %q", blocks[0].Content)
+	}
+	if got, ok := blocks[0].Attrs["signature"].(string); !ok || got != "sig-abc" {
+		t.Errorf("Attrs[signature] = %v, want 'sig-abc'", blocks[0].Attrs["signature"])
+	}
+}
+
+// TestAssemble_ReasoningWithoutSignature verifies that a reasoning accumulator
+// without a signature produces a Block with nil Attrs (no signature key).
+//
+// TestAssemble_ReasoningWithoutSignature 验证无 signature 的 reasonAccum
+// 产生 Attrs 为 nil 的 Block。
+func TestAssemble_ReasoningWithoutSignature(t *testing.T) {
+	blocks := assembleBlocks("", makeReason("my thinking", ""), nil)
+	if len(blocks) != 1 {
+		t.Fatalf("want 1 block, got %d", len(blocks))
+	}
+	if blocks[0].Attrs != nil {
+		t.Errorf("Attrs = %v, want nil when no signature", blocks[0].Attrs)
 	}
 }
 

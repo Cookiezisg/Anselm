@@ -233,8 +233,8 @@ func collectAnthropicFromServer(t *testing.T, srv *httptest.Server) []StreamEven
 // TestParseStream_Anthropic_FullFixture feeds the 03 §4 SSE fixture through
 // ParseStream and asserts the full event sequence:
 //   - message_start → input tokens captured
-//   - thinking_delta → EventReasoning
-//   - signature_delta → silently dropped (no StreamEvent field today; P3.6)
+//   - thinking_delta → EventReasoning with Delta set
+//   - signature_delta → EventReasoning with Signature set (P3.6 round-trip)
 //   - text_delta → EventText
 //   - content_block_start(tool_use) → EventToolStart
 //   - input_json_delta → EventToolDelta, args accumulate correctly
@@ -246,9 +246,8 @@ func TestParseStream_Anthropic_FullFixture(t *testing.T) {
 	// 03 §4 golden SSE fixture: message_start → thinking block → text block
 	// → tool_use block → message_delta(stop_reason) → message_stop.
 	//
-	// signature_delta is included to document current behavior: it is silently
-	// dropped because anthropicBlockDelta.Delta has no Signature field.
-	// TODO(P3.6): capture signature for thinking round-trip.
+	// signature_delta emits a zero-Delta EventReasoning carrying the Signature
+	// for P3.6 thinking round-trip.
 	fixture := `event: message_start
 data: {"type":"message_start","message":{"usage":{"input_tokens":42}}}
 
@@ -296,13 +295,19 @@ data: {"type":"message_stop"}
 	defer srv.Close()
 	events := collectAnthropicFromServer(t, srv)
 
-	// thinking_delta → EventReasoning.
+	// thinking_delta → EventReasoning with Delta; signature_delta → EventReasoning with Signature.
+	// thinking_delta → Delta 非空；signature_delta → Signature 非空。
 	reasoning := filterType(events, EventReasoning)
-	if len(reasoning) != 1 {
-		t.Fatalf("want 1 EventReasoning (thinking_delta), got %d", len(reasoning))
+	if len(reasoning) != 2 {
+		t.Fatalf("want 2 EventReasoning (thinking_delta + signature_delta), got %d", len(reasoning))
 	}
-	if reasoning[0].Delta != "I need to check the weather API." {
-		t.Errorf("reasoning delta = %q, want 'I need to check the weather API.'", reasoning[0].Delta)
+	if reasoning[0].Delta != "I need to check the weather API." || reasoning[0].Signature != "" {
+		t.Errorf("first reasoning: Delta=%q Signature=%q, want Delta='I need to check the weather API.' Signature=''",
+			reasoning[0].Delta, reasoning[0].Signature)
+	}
+	if reasoning[1].Delta != "" || reasoning[1].Signature != "opaque-sig-data-abc123" {
+		t.Errorf("signature event: Delta=%q Signature=%q, want Delta='' Signature='opaque-sig-data-abc123'",
+			reasoning[1].Delta, reasoning[1].Signature)
 	}
 
 	// text_delta → EventText.
@@ -368,20 +373,14 @@ data: {"type":"message_stop"}
 	}
 }
 
-// TestParseStream_Anthropic_SignatureDeltaDropped documents that the current
-// parser silently drops signature_delta events (anthropicBlockDelta.Delta has
-// no Signature field → emitAnthropicDelta switch falls through). This is
-// intentional tracking of the P3.6 gap.
+// TestParseStream_Anthropic_SignatureCaptured verifies that a signature_delta
+// event produces an EventReasoning with Signature set and Delta empty. This is
+// the P3.6 round-trip capture: the signature is now carried through the stream
+// rather than silently dropped.
 //
-// 记录当前 parser 静默丢弃 signature_delta（anthropicBlockDelta.Delta 无 Signature
-// 字段，emitAnthropicDelta switch 无 case 匹配）。这是 P3.6 gap 的有意记录。
-//
-// TODO(P3.6): capture signature for thinking round-trip — add Signature field
-// to anthropicBlockDelta.Delta and a new StreamEvent field to carry it through
-// the history store, so multi-turn thinking works without 400.
-func TestParseStream_Anthropic_SignatureDeltaDropped(t *testing.T) {
-	// A fixture with ONLY a signature_delta — current behavior: zero events.
-	// 仅含 signature_delta 的 fixture——当前行为：零事件输出。
+// TestParseStream_Anthropic_SignatureCaptured 验证 signature_delta 产生
+// Signature 非空、Delta 为空的 EventReasoning（P3.6 round-trip 捕获）。
+func TestParseStream_Anthropic_SignatureCaptured(t *testing.T) {
 	fixture := `event: content_block_delta
 data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"opaque-sig-abc"}}
 
@@ -391,20 +390,21 @@ data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"outpu
 `
 	events := collectAnthropicEvents(fixture)
 
-	// Document: NO StreamEvent is emitted for signature_delta today.
-	// 记录：当前 signature_delta 不产生任何 StreamEvent。
+	reasoning := filterType(events, EventReasoning)
+	if len(reasoning) != 1 {
+		t.Fatalf("want 1 EventReasoning (signature_delta), got %d", len(reasoning))
+	}
+	if reasoning[0].Delta != "" {
+		t.Errorf("Delta = %q, want '' (signature event has no text delta)", reasoning[0].Delta)
+	}
+	if reasoning[0].Signature != "opaque-sig-abc" {
+		t.Errorf("Signature = %q, want 'opaque-sig-abc'", reasoning[0].Signature)
+	}
 	for _, ev := range events {
-		// Finish event from message_delta is fine. Error events would be a regression.
 		if ev.Type == EventError {
-			t.Errorf("unexpected EventError for signature_delta: %v", ev.Err)
+			t.Errorf("unexpected EventError: %v", ev.Err)
 		}
 	}
-
-	// Assert no dedicated "signature" event exists (we have no such event type).
-	// 断言不存在专用 signature 事件类型（当前设计无此 StreamEventType）。
-	t.Log("P3.6: signature_delta is silently dropped — no StreamEvent emitted for it. " +
-		"Multi-turn thinking (Anthropic's tool_use loops) will fail without round-trip of signature. " +
-		"Fix: add Delta.Signature field to anthropicBlockDelta and carry through event + store.")
 }
 
 // TestParseStream_Anthropic_EndTurnFinish verifies that message_delta with

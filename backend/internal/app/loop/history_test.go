@@ -153,6 +153,53 @@ func TestBlocksToLLM_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestBuildAssistant_ReasoningWithSignature verifies that a reasoning block
+// whose Attrs carry "signature" is promoted to LLMMessage.ReasoningSignature.
+//
+// TestBuildAssistant_ReasoningWithSignature 验证 Attrs 含 "signature" 的
+// reasoning block 被提升到 LLMMessage.ReasoningSignature。
+func TestBuildAssistant_ReasoningWithSignature(t *testing.T) {
+	block := chatdomain.Block{
+		ID:      "b1",
+		Type:    eventlogdomain.BlockTypeReasoning,
+		Content: "Let me think",
+		Attrs:   map[string]any{"signature": "opaque-sig-xyz"},
+		Status:  eventlogdomain.StatusCompleted,
+	}
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{block})
+	if err != nil {
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("want 1 message, got %d", len(msgs))
+	}
+	if msgs[0].ReasoningContent != "Let me think" {
+		t.Errorf("ReasoningContent = %q, want 'Let me think'", msgs[0].ReasoningContent)
+	}
+	if msgs[0].ReasoningSignature != "opaque-sig-xyz" {
+		t.Errorf("ReasoningSignature = %q, want 'opaque-sig-xyz'", msgs[0].ReasoningSignature)
+	}
+}
+
+// TestBuildAssistant_ReasoningNoSignature verifies that a reasoning block without
+// a signature Attr produces an empty ReasoningSignature without crashing.
+//
+// TestBuildAssistant_ReasoningNoSignature 验证无 signature Attr 的 reasoning block
+// 产生空 ReasoningSignature 且不崩溃。
+func TestBuildAssistant_ReasoningNoSignature(t *testing.T) {
+	block := reasoningBlock("b1", "thinking without sig")
+	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{block})
+	if err != nil {
+		t.Fatalf("BlocksToAssistantLLM: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("want 1 message, got %d", len(msgs))
+	}
+	if msgs[0].ReasoningSignature != "" {
+		t.Errorf("ReasoningSignature = %q, want '' (no signature in Attrs)", msgs[0].ReasoningSignature)
+	}
+}
+
 func TestBlocksToLLM_TextOnly(t *testing.T) {
 	msgs, err := BlocksToAssistantLLM(zap.NewNop(), []chatdomain.Block{textBlock("b1", "hi")})
 	if err != nil {

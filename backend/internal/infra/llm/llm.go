@@ -41,6 +41,13 @@ type StreamEvent struct {
 	Type StreamEventType
 
 	Delta string
+	// Signature carries the Anthropic-issued opaque signature for a completed
+	// thinking block. Set on the final EventReasoning event (after all
+	// thinking_delta chunks) so the round-trip can echo it verbatim.
+	//
+	// Signature 是 Anthropic 颁发的不透明签名，随最后一个 thinking block
+	// 的 EventReasoning 事件到达，多轮对话时必须原样回传。
+	Signature string
 
 	ToolIndex int
 	ToolID    string
@@ -75,6 +82,13 @@ type LLMMessage struct {
 	ToolCalls        []LLMToolCall
 	ToolCallID       string
 	ReasoningContent string
+	// ReasoningSignature is the opaque Anthropic-issued signature that must be
+	// echoed verbatim with the thinking block in subsequent requests. Empty for
+	// non-Anthropic providers and non-thinking responses.
+	//
+	// ReasoningSignature 是 Anthropic 颁发的不透明签名，后续请求必须原样
+	// 随 thinking block 回传；非 Anthropic provider 及无 thinking 响应留空。
+	ReasoningSignature string
 }
 
 // ContentPart is one element of a multi-modal user message (text or image_url).

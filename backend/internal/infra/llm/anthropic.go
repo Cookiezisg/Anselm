@@ -154,6 +154,15 @@ func emitAnthropicDelta(e anthropicBlockDelta, yield func(StreamEvent) bool) boo
 		if e.Delta.Thinking != "" {
 			return yield(StreamEvent{Type: EventReasoning, Delta: e.Delta.Thinking})
 		}
+	case "signature_delta":
+		// Emit a zero-Delta EventReasoning carrying only the signature so the
+		// stream consumer can store it alongside the reasoning content.
+		//
+		// 发一个 Delta 为空、只携带 Signature 的 EventReasoning，让流消费者
+		// 能把签名和 reasoning content 一起存储。
+		if e.Delta.Signature != "" {
+			return yield(StreamEvent{Type: EventReasoning, Signature: e.Delta.Signature})
+		}
 	case "input_json_delta":
 		if e.Delta.PartialJSON != "" {
 			return yield(StreamEvent{
@@ -326,8 +335,9 @@ func buildAnthropicAssistantMsg(m LLMMessage) anthropicMessage {
 	var blocks []anthropicContent
 	if m.ReasoningContent != "" {
 		blocks = append(blocks, anthropicContent{
-			Type:     "thinking",
-			Thinking: m.ReasoningContent,
+			Type:      "thinking",
+			Thinking:  m.ReasoningContent,
+			Signature: m.ReasoningSignature,
 		})
 	}
 	for _, tc := range m.ToolCalls {
@@ -421,6 +431,12 @@ type anthropicContent struct {
 	Type      string                `json:"type"`
 	Text      string                `json:"text,omitempty"`
 	Thinking  string                `json:"thinking,omitempty"`
+	// Signature is the opaque Anthropic-issued token that authorises re-use of a
+	// cached thinking block. Must be echoed verbatim when present; omit otherwise.
+	//
+	// Signature 是 Anthropic 颁发的不透明令牌，授权重用缓存 thinking block；
+	// 存在时必须原样回传，否则省略。
+	Signature string                `json:"signature,omitempty"`
 	ID        string                `json:"id,omitempty"`
 	Name      string                `json:"name,omitempty"`
 	Input     json.RawMessage       `json:"input,omitempty"`
@@ -482,6 +498,12 @@ type anthropicBlockDelta struct {
 		Type        string `json:"type"`
 		Text        string `json:"text"`
 		Thinking    string `json:"thinking"`
+		// Signature arrives in type:"signature_delta" just before
+		// content_block_stop for a thinking block.
+		//
+		// Signature 随 type:"signature_delta" 到达，在 thinking block 的
+		// content_block_stop 之前出现。
+		Signature   string `json:"signature"`
 		PartialJSON string `json:"partial_json"`
 	} `json:"delta"`
 }

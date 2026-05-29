@@ -19,6 +19,14 @@ type toolAccum struct {
 	args     strings.Builder
 }
 
+// reasonAccum collects reasoning content and its accompanying Anthropic signature.
+//
+// reasonAccum 收集 reasoning content 及其 Anthropic 签名。
+type reasonAccum struct {
+	buf       strings.Builder
+	signature string
+}
+
 // streamLLM runs one LLM call, real-time-emitting block lifecycle and returning blocks + tool calls.
 //
 // streamLLM 跑单次 LLM 调用，实时推 block 生命周期，返内存 blocks + tool calls。
@@ -27,7 +35,8 @@ func streamLLM(
 	client llminfra.Client,
 	req llminfra.Request,
 ) (blocks []chatdomain.Block, toolCalls []chatdomain.ToolCallData, stopReason string, errMsg string, inputTokens, outputTokens int) {
-	var textBuf, reasonBuf strings.Builder
+	var textBuf strings.Builder
+	var reason reasonAccum
 	accums := map[int]*toolAccum{}
 	stopReason = chatdomain.StopReasonEndTurn
 
@@ -66,14 +75,21 @@ func streamLLM(
 
 		case llminfra.EventReasoning:
 			closeText(eventlogdomain.StatusCompleted)
-			if reasonBlockID == "" && msgID != "" {
-				reasonBlockID = idgenpkg.New("blk")
-				em.EmitBlockStart(ctx, reasonBlockID, msgID, msgID, eventlogdomain.BlockTypeReasoning, nil)
+			if event.Delta != "" {
+				if reasonBlockID == "" && msgID != "" {
+					reasonBlockID = idgenpkg.New("blk")
+					em.EmitBlockStart(ctx, reasonBlockID, msgID, msgID, eventlogdomain.BlockTypeReasoning, nil)
+				}
+				if reasonBlockID != "" {
+					em.DeltaBlock(ctx, reasonBlockID, event.Delta)
+				}
+				reason.buf.WriteString(event.Delta)
 			}
-			if reasonBlockID != "" {
-				em.DeltaBlock(ctx, reasonBlockID, event.Delta)
+			// Signature arrives as a zero-Delta EventReasoning; capture it for storage.
+			// Signature 随 Delta 为空的 EventReasoning 到达，捕获以存储。
+			if event.Signature != "" {
+				reason.signature = event.Signature
 			}
-			reasonBuf.WriteString(event.Delta)
 
 		case llminfra.EventToolStart:
 			closeText(eventlogdomain.StatusCompleted)
@@ -144,7 +160,7 @@ func streamLLM(
 		em.StopBlock(ctx, id, closeStatus, nil)
 	}
 
-	blocks = assembleBlocks(textBuf.String(), reasonBuf.String(), accums)
+	blocks = assembleBlocks(textBuf.String(), reason, accums)
 	toolCalls = collectToolCalls(accums)
 	return
 }
@@ -152,13 +168,18 @@ func streamLLM(
 // assembleBlocks builds the in-memory Block slice for history conversion (not persisted here).
 //
 // assembleBlocks 组装内存 Block 列表给 history 转换（不在此处落库）。
-func assembleBlocks(text, reasoning string, accums map[int]*toolAccum) []chatdomain.Block {
+func assembleBlocks(text string, reason reasonAccum, accums map[int]*toolAccum) []chatdomain.Block {
 	var blocks []chatdomain.Block
 
-	if reasoning != "" {
+	if reasoning := reason.buf.String(); reasoning != "" {
+		var attrs map[string]any
+		if reason.signature != "" {
+			attrs = map[string]any{"signature": reason.signature}
+		}
 		blocks = append(blocks, chatdomain.Block{
 			Type:    eventlogdomain.BlockTypeReasoning,
 			Content: reasoning,
+			Attrs:   attrs,
 		})
 	}
 	if text != "" {
