@@ -943,6 +943,8 @@ environment     — date + 回复语言（动态；替代原 locale_hint）
 
 **非阻塞**：标题生成失败静默忽略，不影响主流程。10s 超时硬限。
 
+**Goroutine 竞态修复（2026-05-30）**：原 `go s.autoTitle(...)` 脱离 `WaitGroup`，DB 关闭后仍可能查 DB（`-race` 下偶发 `sql: database is closed`）。修复：`runQueue` goroutine 追踪进 `s.wg`（`sync.WaitGroup`），同时监听 `s.shutdown` channel；`chatService.Wait()` 关 shutdown channel + `wg.Wait()`，哈内斯 teardown 在 `t.Cleanup` 中 LIFO 顺序注册 `chatService.Wait()`，先于 DB close，保证 autoTitle goroutine 正常退出后 DB 才关。
+
 ---
 
 ## 11. 完整调用链（当前形态）

@@ -1,7 +1,7 @@
 # Compaction — 对话上下文压缩
 
 **Phase**：V1.2 §1 final-sweep（与 memory 同批落地）
-**状态**：📐 设计期
+**状态**：✅ 部分实现（2026-05-30：ContextManager 骨架 + 窗口感知压缩 + chat goroutine 竞态修复；fullCompact LLM 调用 + 块降级 + SSE 推流为设计期，待后续完整实现）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../event-log-protocol.md`](../event-log-protocol.md) — **本设计加 1 种 block type（`compaction`，第 7 种）+ 给 block.Content 改写加豁免条款** ⚠️
@@ -212,12 +212,13 @@ app/contextmgr/
 
 ```go
 type Manager struct {
-    repo     chatdomain.Repository
-    convRepo convdomain.Repository
-    cheapLLM llmclientpkg.Resolver  // 装配阶段注入：闭包包 ResolveUtility(picker, keys, factory)（utility scenario）
-    em       eventlogpkg.Emitter    // 推 compaction block 用
-    memory   memoryapp.Service      // 逃生通道（§10）
-    log      *zap.Logger
+    repo                chatdomain.Repository
+    convRepo            convdomain.Repository
+    cheapLLM            llmclientpkg.Resolver  // 装配阶段注入：闭包包 ResolveUtility(picker, keys, factory)（utility scenario）
+    em                  eventlogpkg.Emitter    // 推 compaction block 用
+    memory              memoryapp.Service      // 逃生通道（§10）
+    capabilityResolver  CapabilityResolver     // 2026-05-30：注入 per-model 真实窗口；nil 时 fallback 全局常量
+    log                 *zap.Logger
     
     // 阈值（per-conv 可配，默认全局）
     softThreshold float64  // 0.70  → demote
@@ -464,10 +465,10 @@ func BlocksToAssistantLLM(ctx context.Context, blocks []*Block, conv *Conversati
 
 ## 7. Token 估算
 
-### 7.1 估算策略
+### 7.1 估算策略（2026-05-30：窗口感知，真实 per-model 窗口）
 
 ```go
-func (m *Manager) estimate(ctx context.Context, convID string) (usable, used int, err error) {
+func (m *Manager) estimate(ctx context.Context, convID string, provider, modelID string) (usable, used int, err error) {
     conv := m.convRepo.Get(ctx, convID)
     blocks := m.repo.ListBlocksForLLMHistory(ctx, convID)
     
@@ -478,40 +479,37 @@ func (m *Manager) estimate(ctx context.Context, convID string) (usable, used int
         used += countTokensForRole(b)
     }
     
-    // Model registry 查 usable
-    modelMeta := modelmeta.Lookup(conv.ProviderHint, conv.ModelHint)
-    usable = modelMeta.UsableInput()  // ContextWindow - MaxOutput - SafetyBuffer
+    // 2026-05-30：通过注入的 CapabilityResolver 拿真实 per-model 窗口
+    // 之前 hardcoded 调 modelmeta.Lookup("","") 始终返兜底 ~4K，
+    // 导致 200K/1M 窗口大模型被按 4K 压缩，属于严重 bug。
+    usable = m.capabilityResolver(ctx, provider, modelID)  // UsableInput = ContextWindow - MaxOutput - SafetyBuffer
     
     return
 }
 ```
 
-### 7.2 Model registry（`pkg/modelmeta/`）
-
+**`capabilityResolver` 签名**（装配时注入）：
 ```go
-type ModelMeta struct {
-    Provider      string
-    ModelID       string
-    ContextWindow int     // raw
-    MaxOutput     int     // 默认 output reserve
-    Tokenizer     string  // tiktoken base name
-}
-
-var registry = []ModelMeta{
-    {"deepseek",  "deepseek-chat",      64000,  8192,  "cl100k_base"},
-    {"deepseek",  "deepseek-reasoner",  64000,  8192,  "cl100k_base"},
-    {"anthropic", "claude-opus-4-7",   200000, 16384, "o200k_base"},
-    {"anthropic", "claude-sonnet-4-6", 200000, 16384, "o200k_base"},
-    {"openai",    "gpt-4o",            128000, 16384, "o200k_base"},
-    // ... 见 pkg/modelmeta/registry.go
-}
-
-const safetyBuffer = 2000  // tool_defs + 各 overhead
-
-func (m ModelMeta) UsableInput() int {
-    return m.ContextWindow - m.MaxOutput - safetyBuffer
-}
+type CapabilityResolver func(ctx context.Context, provider, modelID string) int // 返 UsableInput
 ```
+
+`Manager` 字段 `capabilityResolver CapabilityResolver`；`main.go` 注入：
+```go
+capRes := func(ctx context.Context, provider, modelID string) int {
+    cap := capabilityService.ResolveCapabilities(ctx, provider, modelID)
+    return cap.UsableInput
+}
+contextMgr = contextmgr.New(..., capRes)
+```
+
+**`MaybeCompact` 和 `ForceCompact` 签名**（2026-05-30 扩展）：调用方（`chat/runner.go`）在调 `MaybeCompact` 时传入当前轮次的 `provider` + `modelID`（来自 `bundle.Provider` / `bundle.ModelID`），使 estimate 能选对窗口。
+
+### 7.2 Model registry — `pkg/modelmeta` 已删除（2026-05-30）
+
+原有 `internal/pkg/modelmeta/` 包（硬编码 ModelMeta 注册表）**已在 2026-05-30 删除**。唯一消费方 `contextmgr/estimate.go` 已迁移到注入的 `CapabilityResolver`（详上节）。
+
+新的能力目录在 `internal/pkg/modelcaps/`，按 family 规则 + per-model 精确覆盖，详见：
+[`documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`](../adhoc-topic-documents/llm-providers/04-capability-catalog.md)
 
 ### 7.3 校准
 

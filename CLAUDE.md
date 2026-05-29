@@ -265,6 +265,9 @@ type Tool interface {
 
 - **单用户本地 + 同人写前后端** → 校验少、便利优先
 - **已摆脱 Eino**：自有 LLM 客户端 `infra/llm`（OpenAI-compat + Anthropic 原生）
+- **`infra/llm` 架构（2026-05-30 P2.0 重构）**：`Provider` 接口（`Name/DefaultBaseURL/BuildRequest/ParseStream`）+ 共享传输铁律（`transport.go`，120s `*http.Client` + `doRequest` + `classifyHTTPError`）+ `providerRegistry`。`openAICompatProvider` 覆盖所有 OpenAI-compat provider（openai / deepseek / qwen / zhipu / moonshot / doubao / openrouter / google-compat / ollama / custom），一份 body/SSE 逻辑，per-provider 仅身份（name + base-url）不同。per-provider 请求微调（deepseek 剥 reasoning、ollama 关流、thinking encoder）仍在 `adapter.go` 钩子。`factory.Build` 按 provider / APIFormat 路由到 registry 或 anthropicProvider。
+- **`pkg/modelcaps`（2026-05-30）**：per-(provider, model) ability catalog（thinking shape + context window + max output），按 family 规则 + per-model 精确行覆盖，替代已删的 `pkg/modelmeta`。`CapabilityService.ResolveCapabilities` 合并：user override（`model_cap_overrides`）> 静态规则。详 `documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`。
+- **Gemini 停留 OpenAI-compat surface**：base-url 已修（`/v1beta/openai`），native `generateContent` 暂缓（reasoning-readback 增强，不影响主流程）。**Live capability overlay deferred**（从 provider API 自动拉取能力）：静态规则 + user override 已满足当前需求，接口位置预留。
 - **modernc.org/sqlite** 纯 Go；DSN 用 `_pragma=...` 语法；跨平台 build 一行命令
 - **桌面端**：Wails 窗口外壳 + 复用 httpapi（不走 Wails native binding）
 - **三条 SSE**：eventlog（5×7）+ notifications（全局 entity 变更）+ forge（4×3）；`domain/events` 已删

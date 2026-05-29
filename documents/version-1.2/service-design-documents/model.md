@@ -1,8 +1,8 @@
 # model domain — 详细设计文档
 
 **所属 Phase**：Phase 2（基础对话能力，第 2 个 domain）
-**状态**：✅ 已实现（2026-04-25 初版；2026-05-28 model selection redesign：3 scenarios + APIKeyID）
-**职责**：为每个"场景"（scenario）记录用户选定的 `(apiKeyID, modelID)`；给 chat / workflow / subagent 提供"我该用谁"的策略层（provider 由 apiKey 隐含）
+**状态**：✅ 已实现（2026-04-25 初版；2026-05-28 model selection redesign：3 scenarios + APIKeyID；2026-05-30 thinking + capability）
+**职责**：为每个"场景"（scenario）记录用户选定的 `(apiKeyID, modelID)`；给 chat / workflow / subagent 提供"我该用谁"的策略层（provider 由 apiKey 隐含）；管理用户的 per-model 能力 override（`model_cap_overrides` 表）
 **依赖**：
 - `infra/db`（GORM 底层）+ `pkg/reqctx`（userID ctx 读取）
 - **不依赖** `domain/crypto`（无敏感数据）
@@ -124,9 +124,23 @@ func ListScenarios() []string {
 // ModelRef = (apiKeyID, modelID) — provider is implicit via the api_key
 // referenced by APIKeyID. Stored on conversation.modelOverride and
 // workflow NodeSpec.modelOverride; persisted as JSON.
+//
+// ThinkingSpec 挂在 ModelRef 上，随 modelOverride 一起持久化/传播；
+// nil = 使用 ModelConfig.Thinking 的 scenario 级默认。
 type ModelRef struct {
-    APIKeyID string `json:"apiKeyId"`
-    ModelID  string `json:"modelId"`
+    APIKeyID string        `json:"apiKeyId"`
+    ModelID  string        `json:"modelId"`
+    Thinking *ThinkingSpec `json:"thinking,omitempty"`
+}
+
+// ThinkingSpec 控制 LLM 推理行为；挂在 ModelRef + ModelConfig 上。
+//   Mode:   "auto" = 按 provider 默认；"on" = 强制开推理；"off" = 强制关
+//   Effort: 可选，低/中/高档，各 provider 映射不同字段
+//   Budget: 可选，Anthropic budget_tokens（整型，token 级精细控制）
+type ThinkingSpec struct {
+    Mode   string `json:"mode"`             // "auto" | "on" | "off"
+    Effort string `json:"effort,omitempty"` // "low" | "medium" | "high"
+    Budget *int   `json:"budget,omitempty"` // Anthropic only: budget_tokens
 }
 
 type ModelConfig struct {
@@ -135,6 +149,7 @@ type ModelConfig struct {
     Scenario  string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:2" json:"scenario"`
     APIKeyID  string         `gorm:"not null;type:text;column:api_key_id" json:"apiKeyId"`
     ModelID   string         `gorm:"not null;type:text" json:"modelId"`
+    Thinking  *ThinkingSpec  `gorm:"type:text;serializer:json" json:"thinking,omitempty"` // 2026-05-30
     CreatedAt time.Time      `json:"createdAt"`
     UpdatedAt time.Time      `json:"updatedAt"`
     DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -152,6 +167,7 @@ func (ModelConfig) TableName() string { return "model_configs" }
 | `Scenario` | 白名单常量（`"dialogue"` / `"utility"` / `"agent"`，2026-05-28 redesign）|
 | `APIKeyID` | 引用 `api_keys.id`（`aki_<16hex>`）；DB 列 `api_key_id`（snake_case）；app 层校验存在 + 跨用户隔离（F1：`keys.ResolveCredentialsByID`），无 GORM FK 声明（V1.2 D4）|
 | `ModelID` | 字符串，如 `"deepseek-chat"` / `"claude-sonnet-4-5"`；**不校验**（不同 provider 的 model 命名无统一白名单）|
+| `Thinking` | `*ThinkingSpec`，GORM `serializer:json` 存文本列；nil = 未设定（接受 provider/model 级默认）（2026-05-30）|
 | 时间戳 | GORM 自动维护 |
 | `DeletedAt` | 软删，GORM 内置 |
 
@@ -176,6 +192,81 @@ CREATE UNIQUE INDEX idx_mc_user_scenario
 ```
 
 在那之前**不**预设 partial UNIQUE。
+
+### ModelCapOverride struct（`internal/domain/model/model.go`，2026-05-30 新增）
+
+用户对某 (provider, model) 组合的能力 override，用于覆盖 `pkg/modelcaps` 的静态规则（stale-catalog 逃生舱）。
+
+```go
+// ModelCapOverride lets users correct stale or missing capability data
+// when the static modelcaps catalog has not yet caught up to a new model.
+//
+// ModelCapOverride 允许用户为静态能力目录尚未收录的新模型手动填入 capability。
+type ModelCapOverride struct {
+    ID             string         `gorm:"primaryKey;type:text" json:"id"` // mco_<16hex>
+    UserID         string         `gorm:"not null;type:text" json:"-"`
+    Provider       string         `gorm:"not null;type:text" json:"provider"`
+    ModelID        string         `gorm:"not null;type:text" json:"modelId"`
+    ThinkingShape  *string        `gorm:"type:text" json:"thinkingShape,omitempty"`
+    ContextWindow  *int           `gorm:"type:int" json:"contextWindow,omitempty"`
+    MaxOutput      *int           `gorm:"type:int" json:"maxOutput,omitempty"`
+    CreatedAt      time.Time      `json:"createdAt"`
+    UpdatedAt      time.Time      `json:"updatedAt"`
+    DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (ModelCapOverride) TableName() string { return "model_cap_overrides" }
+```
+
+| 字段 | 说明 |
+|---|---|
+| `ID` | `mco_<16hex>` 格式 |
+| `Provider` + `ModelID` | 联合唯一（per user；部分 UNIQUE `WHERE deleted_at IS NULL`）|
+| `ThinkingShape` | 若非 nil，覆盖静态规则中的 thinking 形状（`"none"` / `"toggle"` / `"effort"` / `"budget"`）|
+| `ContextWindow` | 若非 nil，覆盖上下文窗口大小（token 数）|
+| `MaxOutput` | 若非 nil，覆盖最大输出 token 数 |
+
+**合并优先级**（`apikey.CapabilityService.ResolveCapabilities`）：
+```
+用户 override（ModelCapOverride）> 静态规则（modelcaps.Lookup）
+```
+live overlay（未来从 provider API 自动拉取）留了接口位置但当前未实现（deferred）。
+
+### CapabilityService（`internal/app/apikey/capability.go`，2026-05-30 新增）
+
+将 provider 静态能力目录 + 用户 override 合并为 `ModelCapability`，供 LLM 推理层和前端 ThinkingControl 消费。归在 `apikeyapp` 包（消费 apikey + modelcaps 两域，无循环依赖）。
+
+```go
+type ModelCapability struct {
+    Provider       string
+    ModelID        string
+    ThinkingShape  string  // "none" | "toggle" | "effort" | "budget"
+    ContextWindow  int
+    MaxOutput      int
+    UsableInput    int     // ContextWindow - MaxOutput - SafetyBuffer
+    IsOverride     bool    // true = 来自用户 override，非静态规则
+}
+
+// CapabilityService exposes resolved per-model capabilities and
+// user override CRUD; consumed by contextmgr and the frontend.
+//
+// CapabilityService 暴露解析后的 per-model 能力 + 用户 override CRUD；
+// 被 contextmgr（注入 Resolver）和前端 ThinkingControl 消费。
+type CapabilityService interface {
+    // ResolveCapabilities resolves the effective capability for (provider, model).
+    ResolveCapabilities(ctx context.Context, provider, modelID string) ModelCapability
+
+    SetOverride(ctx context.Context, provider, modelID string, ov CapOverrideInput) error
+    ClearOverride(ctx context.Context, provider, modelID string) error
+    ListOverrides(ctx context.Context) ([]*ModelCapOverride, error)
+}
+
+type CapOverrideInput struct {
+    ThinkingShape *string
+    ContextWindow *int
+    MaxOutput     *int
+}
+```
 
 ### Sentinel 错误（4 个；2026-05-28 redesign：原 `ErrProvider…Required` 重命名为 `ErrAPIKeyIDRequired`）
 
@@ -454,13 +545,16 @@ func newID() string {
 
 **Path param**：`scenario` ∈ `{"dialogue", "utility", "agent"}`（白名单；扩展机制详 §4 演化表）
 
-**Request body**（2026-05-28 redesign：`provider` → `apiKeyId`）：
+**Request body**（2026-05-28 redesign：`provider` → `apiKeyId`；2026-05-30：`thinking` 字段可选）：
 ```json
 {
   "apiKeyId": "aki_xxx",
-  "modelId": "claude-sonnet-4-5"
+  "modelId": "claude-sonnet-4-5",
+  "thinking": { "mode": "auto" }
 }
 ```
+
+`thinking` 为 nil 表示不设定推理行为（沿用 provider 默认）。
 
 **Response 200**：完整的 `ModelConfig`（同 GET 单条形状，含 `apiKeyId`）
 
@@ -493,6 +587,49 @@ func newID() string {
 
 **特殊**：本端点**不**走 `RequireUser` middleware（与 `/api/v1/providers` 同列）—— 静态 metadata，onboarding 创号前也得可读。`router.requireUserExempt` 路径白名单已加。Phase 5+ 加 `embedding` / `vision` 等 const 时，本端点自动跟进，前端零改。
 
+#### 10.4 `GET /api/v1/model-capabilities` — 当前用户已配置 provider/model 的能力目录（200，2026-05-30）
+
+返回当前用户配置的所有 (provider, model) 对的 resolved capability（静态规则 ⊕ 用户 override），供前端 ThinkingControl 渲染。
+
+**Response 200**：
+```json
+{
+  "data": [
+    {
+      "provider": "anthropic",
+      "modelId": "claude-sonnet-4-6",
+      "thinkingShape": "budget",
+      "contextWindow": 200000,
+      "maxOutput": 16384,
+      "usableInput": 181616,
+      "isOverride": false
+    }
+  ]
+}
+```
+
+#### 10.5 `PUT /api/v1/model-capabilities` — 设置 override（200，2026-05-30）
+
+**Request body**：
+```json
+{
+  "provider": "openai",
+  "modelId": "gpt-5",
+  "thinkingShape": "effort",
+  "contextWindow": 500000
+}
+```
+任意字段可 null（不覆盖该维度）。返回 merged `ModelCapability`。
+
+**错误**：
+- 400 `INVALID_THINKING_SHAPE` — thinkingShape 不在 `{"none","toggle","effort","budget"}` 白名单（handler 内联 400，不走 errmap）
+
+#### 10.6 `DELETE /api/v1/model-capabilities` — 清除 override（204，2026-05-30）
+
+**Query**：`?provider=xxx&modelId=yyy`
+
+清除用户对该 (provider, model) 的 override；下次 `ResolveCapabilities` 退回静态规则。
+
 ### Handler 设计
 
 **ModelConfigHandler**（`transport/httpapi/handlers/model.go`）：
@@ -523,7 +660,7 @@ func (h *ScenariosHandler) Register(mux *http.ServeMux) {
 
 ---
 
-## 11. 数据库表（2026-05-28 redesign：列名 `provider` → `api_key_id`）
+## 11. 数据库表（2026-05-28 redesign：列名 `provider` → `api_key_id`；2026-05-30：`thinking` 列 + `model_cap_overrides` 表）
 
 ```sql
 CREATE TABLE model_configs (
@@ -532,6 +669,7 @@ CREATE TABLE model_configs (
     scenario    TEXT NOT NULL,                    -- 白名单由 app 层校验（3 值：dialogue/utility/agent）
     api_key_id  TEXT NOT NULL,                    -- 引用 api_keys.id；无 GORM FK（V1.2 D4）；app 层 RefScanner 兜底 RESTRICT
     model_id    TEXT NOT NULL,
+    thinking    TEXT,                             -- JSON ThinkingSpec，nullable（2026-05-30）
     created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at  DATETIME
@@ -540,6 +678,27 @@ CREATE TABLE model_configs (
 -- 通过 GORM tag 生成（全索引，不带 WHERE）：
 CREATE UNIQUE INDEX idx_mc_user_scenario ON model_configs(user_id, scenario);
 CREATE INDEX        idx_mc_deleted_at    ON model_configs(deleted_at);
+
+-- 用户 per-model 能力 override（2026-05-30，stale-catalog 逃生舱）
+CREATE TABLE model_cap_overrides (
+    id              TEXT PRIMARY KEY,              -- mco_<16hex>
+    user_id         TEXT NOT NULL,
+    provider        TEXT NOT NULL,
+    model_id        TEXT NOT NULL,
+    thinking_shape  TEXT,                          -- "none"|"toggle"|"effort"|"budget"，nullable
+    context_window  INTEGER,                       -- nullable
+    max_output      INTEGER,                       -- nullable
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at      DATETIME
+);
+
+-- partial UNIQUE：同 user 同 (provider, model_id) 只允许一条活跃 override
+-- 在 schema_extras.go 补充（GORM tag 不能表达 WHERE 子句）
+CREATE UNIQUE INDEX idx_mco_user_provider_model
+    ON model_cap_overrides(user_id, provider, model_id)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_mco_deleted_at ON model_cap_overrides(deleted_at);
 ```
 
 **partial UNIQUE 暂缓**：当前 Service.Upsert 模式无 delete + recreate 同 scenario 路径，全索引足够（详 §5 唯一约束 + §17 实现清单）。`schema_extras.go` 没有 `model_configs` 组。
@@ -709,12 +868,12 @@ model domain 不涉及明文凭证，安全面比 apikey 小。唯一关注：
 
 ---
 
-## 17. 实现清单（✅ 已全部完成；2026-04-25 初版 + 2026-05-28 redesign）
+## 17. 实现清单（✅ 已全部完成；2026-04-25 初版 + 2026-05-28 redesign + 2026-05-30 thinking + capability）
 
 > 注：文件命名遵循 S12 规范——所有层主文件统一用包名（`model.go`，不再叫 `service.go` / `store.go`）。
 
 ### domain 层 ✅
-- [x] `internal/domain/model/model.go` — `ModelConfig` struct（`APIKeyID` 字段 + `column:api_key_id`）+ `ModelRef{APIKeyID, ModelID}` 值类型 + 4 sentinel（含 `ErrAPIKeyIDRequired`）+ 3 scenario 常量（`ScenarioDialogue/Utility/Agent`）+ `IsValidScenario` + `ListScenarios` + `Repository`（3 方法）+ `ModelPicker`（3 方法：`PickForDialogue/Utility/Agent`）
+- [x] `internal/domain/model/model.go` — `ModelConfig` struct（`APIKeyID` + `Thinking` 字段）+ `ModelRef{APIKeyID, ModelID, Thinking}` 值类型（2026-05-30：`Thinking *ThinkingSpec` 新增）+ `ThinkingSpec` struct + `ModelCapOverride` struct + 4 sentinel（含 `ErrAPIKeyIDRequired`）+ 3 scenario 常量（`ScenarioDialogue/Utility/Agent`）+ `IsValidScenario` + `ListScenarios` + `Repository`（3 方法）+ `ModelPicker`（3 方法：`PickForDialogue/Utility/Agent`）
 - [x] `internal/domain/model/model_test.go` — 单测（valid/invalid 3 scenario + ListScenarios 一致性）
 
 ### infra 层 ✅
@@ -736,6 +895,12 @@ model domain 不涉及明文凭证，安全面比 apikey 小。唯一关注：
 - [x] `internal/transport/httpapi/response/errmap.go` — 4 条 model sentinel + `apikey.ErrInUse → 422 API_KEY_IN_USE`
 - [x] `internal/transport/httpapi/router/deps.go` — `ModelService *modelapp.Service` 字段
 - [x] `cmd/server/main.go` — `modelstore.New(gdb)` → `modelapp.NewService(...)` → `modelService.SetKeyProvider(apikeyService)` → `apikeyService.SetModelConfigRefScanner(modelStore)` → `router.Deps`
+
+### capability 层 ✅（2026-05-30）
+- [x] `internal/pkg/modelcaps/modelcaps.go` — `Cap` struct + `CapOverride` + `Apply` / `Lookup` / `UsableInput` / `SafetyBuffer`；按 family 规则 + per-model 精确行覆盖；详见 `documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`
+- [x] `internal/app/apikey/capability.go` — `CapabilityService`（`ResolveCapabilities` / `SetOverride` / `ClearOverride` / `ListOverrides`）+ `ModelCapability` struct；`ResolveCapabilities` 合并优先级：用户 override > 静态规则（live overlay 留接口，当前 deferred）
+- [x] `internal/infra/store/model/capability.go` — `CapOverrideStore` 实现 `CapabilityOverrideRepository`（CRUD + partial UNIQUE per user+provider+model）
+- [x] `internal/transport/httpapi/handlers/capability.go` — GET / PUT / DELETE `/api/v1/model-capabilities`；`INVALID_THINKING_SHAPE` 400 内联 handler 校验（不进 errmap）
 
 ### 验收 ✅
 - [x] `make verify` 绿

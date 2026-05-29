@@ -57,9 +57,13 @@ GORM tag 表达不了的 SQL 都在这里：
 详见 [`../service-design-documents/apikey.md`](../service-design-documents/apikey.md) §11。
 主键 `aki_<16hex>`；软删（`DeletedAt`）；全索引 `(user_id)` + `(user_id, provider)` + `(deleted_at)`（目前未走部分索引 `WHERE deleted_at IS NULL`，见 backlog）。**注**：`idx_api_keys_user_id` 单列与复合索引前导列重合可视为冗余，保留是为匹配 List filter 写法清晰度（单用户本地写入罕见，冗余成本可忽略）。敏感字段 `key_encrypted`（AES-GCM `v1:` 前缀，`json:"-"` 守护永不上线）+ `key_masked` 冗余展示。**feature 列**：`display_name`（UI 展示用）/ `base_url`（ollama / custom 必填）/ `api_format`（custom 必填，openai-compatible / anthropic-compatible 二选一）/ `test_status`（pending / ok / error）/ `test_error`（连通性测试失败原因）/ `last_tested_at`（最近一次测试时间，nullable）/ `models_found TEXT`（GORM `serializer:json`，存 JSON 字符串如 `["deepseek-chat","deepseek-reasoner"]`；测试成功后由 `UpdateTestResult` 写入，测试前为 `[]`）/ **`is_default BOOLEAN NOT NULL DEFAULT false`**（每 category 单选默认；PATCH `isDefault=true` 时 app 层先 `ClearDefaultForCategory` 清同类其他 key，再设本 key；`KeyProvider.DefaultSearchProvider` + `WebSearch` 优先用此 provider）。不加 `UNIQUE(user_id, provider)`，允许同 provider 多 key。Provider / TestStatus 的 DB 层 CHECK 约束**未加**，由 app 层校验。
 
-#### `model_configs` ✅（2026-05-28 model selection redesign：列名 `provider` → `api_key_id`）
+#### `model_configs` ✅（2026-05-28 model selection redesign：列名 `provider` → `api_key_id`；2026-05-30：`thinking` 列）
 详见 [`../service-design-documents/model.md`](../service-design-documents/model.md) §11。
-主键 `mc_<16hex>`；软删（`deleted_at`）；GORM 全唯一索引 `UNIQUE(user_id, scenario)`（partial UNIQUE 暂缓，见 model.md §17 决定）。Scenario 白名单 app 层校验，DB 不 CHECK（3 值：`dialogue`/`utility`/`agent`）。**列名**：`api_key_id TEXT NOT NULL`（引用 `api_keys.id`，无 GORM FK 声明 per V1.2 D4；app 层 RefScanner 走 RESTRICT —— 删 api_key 前扫此列）。**dev-only 迁移故事**：产品未上线无 production migration；`make reset` 清 dev DB 重建即可（AutoMigrate 会加新列但不自动删旧 `provider`）。
+主键 `mc_<16hex>`；软删（`deleted_at`）；GORM 全唯一索引 `UNIQUE(user_id, scenario)`（partial UNIQUE 暂缓，见 model.md §17 决定）。Scenario 白名单 app 层校验，DB 不 CHECK（3 值：`dialogue`/`utility`/`agent`）。**列名**：`api_key_id TEXT NOT NULL`（引用 `api_keys.id`，无 GORM FK 声明 per V1.2 D4；app 层 RefScanner 走 RESTRICT —— 删 api_key 前扫此列）。**2026-05-30 新增列**：`thinking TEXT`（JSON `ThinkingSpec`，nullable；GORM `serializer:json`；nil = 未设定推理行为）。**dev-only 迁移故事**：产品未上线无 production migration；`make reset` 清 dev DB 重建即可（AutoMigrate 会加新列但不自动删旧 `provider`）。
+
+#### `model_cap_overrides` ✅（2026-05-30 新增，stale-catalog 逃生舱）
+详见 [`../service-design-documents/model.md`](../service-design-documents/model.md) §5（ModelCapOverride struct）。
+主键 `mco_<16hex>`；软删（`deleted_at`）；partial UNIQUE `(user_id, provider, model_id) WHERE deleted_at IS NULL`（在 `schema_extras.go`）。字段：`user_id`（索引）/ `provider TEXT NOT NULL` / `model_id TEXT NOT NULL` / `thinking_shape TEXT`（nullable；"none"\|"toggle"\|"effort"\|"budget"，app 层校验）/ `context_window INTEGER`（nullable）/ `max_output INTEGER`（nullable）/ 时间戳 + 软删。HTTP 端点：`GET/PUT/DELETE /api/v1/model-capabilities`（详 api-design.md）。`CapabilityService.ResolveCapabilities` 合并：用户 override 优先于 `pkg/modelcaps` 静态规则。
 
 #### `conversations` ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md) §8。

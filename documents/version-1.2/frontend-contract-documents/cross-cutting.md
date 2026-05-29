@@ -192,6 +192,7 @@ SSE 事件名固定为 `notification`；dispatch 由 `payload.type` 字段驱动
 | `qk.providers()` | `["providers"]` | `GET /api/v1/providers` |
 | `qk.scenarios()` | `["scenarios"]` | `GET /api/v1/scenarios` |
 | `qk.modelConfigs()` | `["model-configs"]` | `GET /api/v1/model-configs` |
+| `qk.modelCapabilities()` | `["model-capabilities"]` | `GET /api/v1/model-capabilities`（**2026-05-30 新增**）|
 | `qk.functions()` | `["functions"]` | `GET /api/v1/functions` |
 | `qk.function(id)` | `["function", id]` | `GET /api/v1/functions/{id}` |
 | `qk.functionVersions(id)` | `["function-versions", id]` | `GET /api/v1/functions/{id}/versions` |
@@ -214,6 +215,16 @@ SSE 事件名固定为 `notification`；dispatch 由 `payload.type` 字段驱动
 | `qk.document(id)` | `["document", id]` | `GET /api/v1/documents/{id}` |
 | `qk.relations(entityId)` | `["relations", entityId]` | `GET /api/v1/relations?entityId=...` |
 | `qk.notificationsSnap()` | `["notifications-snapshot"]` | `GET /api/v1/notifications/snapshot` |
+
+### model-capability hooks（2026-05-30 新增，entities/model-config/api/）
+
+| Hook | 说明 |
+|---|---|
+| `useModelCapabilities()` | `useQuery(qk.modelCapabilities(), ...)` → `ModelCapability[]`；供 ThinkingControl 决定渲染哪种控件 |
+| `useSetModelCapabilityOverride()` | `useMutation(PUT /model-capabilities)`；成功后 `invalidateQueries(qk.modelCapabilities())` |
+| `useClearModelCapabilityOverride()` | `useMutation(DELETE /model-capabilities?provider=&modelId=)` |
+
+**辅助函数**：`capabilityFor(capabilities, provider, modelId): ModelCapability | undefined`（从 list 中精确匹配；用于 ThinkingControl 的 capabilityShape 判断）。
 
 ---
 

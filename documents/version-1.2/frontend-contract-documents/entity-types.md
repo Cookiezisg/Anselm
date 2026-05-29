@@ -162,10 +162,22 @@
 
 | 主类型 | 关键字段 | 对应端点 |
 |---|---|---|
-| `ModelConfig` | `id / scenario / apiKeyId / modelId` | `GET /api/v1/model-configs` |
+| `ModelConfig` | `id / scenario / apiKeyId / modelId / thinking?(ThinkingSpec)` | `GET /api/v1/model-configs` |
 | `Provider` | `name / displayName / category / defaultBaseUrl? / baseUrlRequired` | `GET /api/v1/providers`（静态白名单）|
 | `Scenario` | `name` | `GET /api/v1/scenarios`（后端权威白名单）|
-| `UpsertModelConfigBody` | `apiKeyId / modelId` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
+| `UpsertModelConfigBody` | `apiKeyId / modelId / thinking?(ThinkingSpec)` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
+| `ModelCapability` | `provider / modelId / thinkingShape / contextWindow / maxOutput / usableInput / isOverride` | `GET /api/v1/model-capabilities` |
+| `CapabilityOverrideBody` | `provider / modelId / thinkingShape? / contextWindow? / maxOutput?` | `PUT /api/v1/model-capabilities` |
+
+**ThinkingSpec**（新类型，2026-05-30，挂在 `ModelRef` + `ModelConfig` 上）：
+```ts
+interface ThinkingSpec {
+  mode: 'auto' | 'on' | 'off'
+  effort?: 'low' | 'medium' | 'high'
+  budget?: number  // Anthropic budget_tokens
+}
+```
+`ModelRef`（含 `thinking?`）经 `entities/conversation/@x/workflow.ts` 暴露给 `entities/workflow`（FSD `@x` 机制）。
 
 **2026-05-28 model selection redesign**：
 - `ModelConfig.provider` → `ModelConfig.apiKeyId`（后端 DB 列 `provider` → `api_key_id`）

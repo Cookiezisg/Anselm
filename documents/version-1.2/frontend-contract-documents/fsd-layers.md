@@ -42,6 +42,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 
 当前已有：
 - `entities/session/@x/user.ts` — session 向 user slice 暴露 currentUserId 工具
+- `entities/conversation/@x/workflow.ts` — conversation 向 workflow slice 暴露 `ModelRef`（含 `ThinkingSpec`）类型，供 WorkflowEditor 的节点 modelOverride 检查器使用（**2026-05-30**）
 
 ---
 
@@ -92,7 +93,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 | `features/forge-review` | 锻造审查（diff 查看 + accept/reject）|
 | `features/workflow-edit` | 工作流编辑（节点图 CRUD）|
 | `features/onboarding` | 首次启动流程（创建 user + 配置 API key）|
-| `features/settings` | 用户偏好设置 UI（主题/语言/API key 管理）|
+| `features/settings` | 用户偏好设置 UI（主题/语言/API key 管理）；**2026-05-30 新增**：`ui/ModelCapOverrideEditor.tsx`（stale-catalog 逃生舱，允许手动覆盖 thinkingShape / contextWindow / maxOutput）|
 | `features/ask-user` | ask_user tool 响应（approval/input 弹窗）|
 | `features/entity-link` | 实体链接解析（wikilink → 内联卡片）|
 
@@ -114,7 +115,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 | `entities/session` | `SessionState`（zustand + persist）| `currentUserId`（非 REST entity）|
 | `entities/settings` | `SettingsState`（zustand + persist）| 单例（非 REST entity）|
 | `entities/user` | `User` | `id`（`u_` 前缀）|
-| `entities/model-config` | `ModelConfig` / `Provider` / `Scenario` | `id`（`mc_` 前缀）|
+| `entities/model-config` | `ModelConfig` / `Provider` / `Scenario` / `ThinkingSpec` / `ModelCapability` | `id`（`mc_` 前缀）；**2026-05-30 新增**：`ui/ThinkingControl.tsx`（capability-driven：none/toggle/effort/budget 四态）、`api/useModelCapabilities.ts` + `useSetModelCapabilityOverride.ts` + `useClearModelCapabilityOverride.ts`、`capabilityFor` 辅助函数 |
 
 ### shared（按 segment 组织，不按 slice）
 

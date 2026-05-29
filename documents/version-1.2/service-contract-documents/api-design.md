@@ -115,8 +115,11 @@ type Error = {
 | Method | Path | 用途 |
 |---|---|---|
 | GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）；row shape 含 `apiKeyId`（2026-05-28 redesign：原 `provider` 字段已删）|
-| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）|
+| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId, thinking?}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）；**2026-05-30：body 新增可选 `thinking` 字段（`ThinkingSpec`，nil=未设定）** |
 | GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata，3 项 `dialogue` / `utility` / `agent`；onboarding 前可读，不需 user header）|
+| GET | `/api/v1/model-capabilities` | 当前用户已配置 provider/model 的 resolved capability 列表（静态规则 ⊕ 用户 override）；供前端 ThinkingControl 渲染，详 [`../service-design-documents/model.md`](../service-design-documents/model.md) §10.4（**2026-05-30 新增**）|
+| PUT | `/api/v1/model-capabilities` | 设置用户 per-model capability override；body `{provider, modelId, thinkingShape?, contextWindow?, maxOutput?}`；400 `INVALID_THINKING_SHAPE`（handler 内联，不进 errmap）（**2026-05-30 新增**）|
+| DELETE | `/api/v1/model-capabilities` | 清除用户对 `?provider=xxx&modelId=yyy` 的 override，回退静态规则（**2026-05-30 新增**）|
 
 #### conversation ✅
 详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。
