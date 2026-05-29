@@ -17,50 +17,39 @@ const (
 	anthropicVersion          = "2023-06-01"
 	anthropicMessagesPath     = "/v1/messages"
 	anthropicDefaultMaxTokens = 8096
+	anthropicDefaultBaseURL   = "https://api.anthropic.com"
 )
 
-type anthropicClient struct {
-	http *http.Client
+// anthropicProvider speaks Anthropic's native /v1/messages dialect: block-form
+// messages, x-api-key auth, cache_control breakpoints, named-event SSE.
+//
+// anthropicProvider 讲 Anthropic 原生 /v1/messages 方言：block 形式 messages、
+// x-api-key 鉴权、cache_control 断点、命名事件 SSE。
+type anthropicProvider struct{}
+
+func newAnthropicProvider() *anthropicProvider { return &anthropicProvider{} }
+
+func (p *anthropicProvider) Name() string           { return "anthropic" }
+func (p *anthropicProvider) DefaultBaseURL() string { return anthropicDefaultBaseURL }
+
+func (p *anthropicProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
+	body, err := buildAnthropicBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("llm.anthropic: build body: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, req.BaseURL+anthropicMessagesPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("llm.anthropic: new request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", req.Key)
+	httpReq.Header.Set("anthropic-version", anthropicVersion)
+	return httpReq, nil
 }
 
-func newAnthropicClient() *anthropicClient {
-	return &anthropicClient{http: newOpenAIClient().http}
-}
-
-func (c *anthropicClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
+func (p *anthropicProvider) ParseStream(ctx context.Context, resp *http.Response, _ Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
-		body, err := buildAnthropicBody(req)
-		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: build body: %w", err)})
-			return
-		}
-
-		httpReq, err := http.NewRequestWithContext(
-			ctx, http.MethodPost, req.BaseURL+anthropicMessagesPath, bytes.NewReader(body))
-		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: new request: %w", err)})
-			return
-		}
-		httpReq.Header.Set("Content-Type", "application/json")
-		httpReq.Header.Set("x-api-key", req.Key)
-		httpReq.Header.Set("anthropic-version", anthropicVersion)
-
-		resp, err := c.http.Do(httpReq)
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.anthropic: do: %w", err)})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-			yield(StreamEvent{Type: EventError, Err: classifyHTTPError(resp.StatusCode, raw)})
-			return
-		}
-
 		parseAnthropicSSE(ctx, resp.Body, yield)
 	}
 }

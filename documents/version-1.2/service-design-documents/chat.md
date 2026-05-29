@@ -110,9 +110,14 @@ chat.Service
 llminfra.Factory          ← 按 provider dispatch，返回 Client
     ↓ Build(Config)
 llminfra.Client           ← 唯一方法：Stream(ctx, Request) iter.Seq[StreamEvent]
-    ├── openAIClient      ← 覆盖 OpenAI/DeepSeek/Qwen/Moonshot/Ollama 等 OpenAI-compat
-    └── anthropicClient   ← Anthropic 原生 /v1/messages 协议
+    └── providerClient     ← 把一个 Provider 适配成 Client，跑共享传输铁律
+            ↓ 持有
+        Provider           ← 一种 wire 方言（BuildRequest / ParseStream / Name / DefaultBaseURL）
+            ├── openAICompatProvider  ← 9 个 OpenAI-compat provider 共用一份 body/SSE 逻辑，仅身份不同
+            └── anthropicProvider     ← Anthropic 原生 /v1/messages 协议
 ```
+
+**P2.0 重构（Provider 接口 + 共享传输 + 注册表）**：`Client` 实现从「两个共享 wire client + 薄 adapter」改为「N 个 Provider 注册项，背后共享一份 compat / anthropic wire 逻辑」。`providerRegistry` 按 name 索引；`buildProviderRegistry` 从 `adapters` 列表派生（name + DefaultBaseURL 单一来源）；mock 不入 registry（Factory 直接短路到 MockClient）。SSE 解析 / tool-call index 合成 / reasoning round-trip / sanitize / retry 全部逐字保留。per-provider 请求微调（deepseek 剥 reasoning、ollama 关流）仍在 `adapter.go` 的 `adapterWrappedClient` 钩子里，wrapping 顺序不变。
 
 ### 3.2 核心类型（`infra/llm/llm.go`）
 
@@ -162,34 +167,39 @@ type Request struct {
 - `EventToolStart` 在 tool name 首次出现时立刻 emit，不等 arguments 完整（让前端尽快展示"正在调用 X…"）
 - `Generate()` helper 消费 Stream 实现非流式调用，不引入独立接口
 
-### 3.3 OpenAI 兼容客户端（`infra/llm/openai.go`）
+### 3.3 OpenAI 兼容 Provider（`infra/llm/openai.go`）
 
-覆盖所有 OpenAI-compat provider：openai / deepseek / qwen / moonshot / doubao / openrouter / ollama 等。
+`openAICompatProvider{name, defaultBaseURL}` 覆盖所有 OpenAI-compat provider：openai / deepseek / qwen / zhipu / moonshot / doubao / openrouter / google(compat) / ollama / custom。**body/SSE 逻辑只此一份**，9 个 provider 仅 name + base URL 不同。
 
-- 自写 SSE line reader（`data: {...}\n\n` 格式）
-- 解析 delta chunks：`choices[0].delta.content` / `reasoning_content`（DeepSeek-R1）/ `tool_calls`
-- `classifyHTTPError` 区分 401/429/400/404/5xx 返回对应 Go error
+- `BuildRequest`：`buildOpenAIBody` → POST `<baseURL>/chat/completions` + `Authorization: Bearer`
+- `ParseStream`：`req.DisableStream` 时走 `parseOpenAINonStreaming`（Ollama+tools），否则 `parseOpenAISSE`
+- 自写 SSE line reader（`data: {...}\n\n` 格式）；解析 `choices[0].delta.content` / `reasoning_content`（DeepSeek-R1）/ `tool_calls`；`toolCallState` 对不填 index 的 provider 按 ID 合成 index
 - 畸形 chunk → emit EventError，不 panic
 
-### 3.4 Anthropic 原生客户端（`infra/llm/anthropic.go`）
+### 3.4 Anthropic 原生 Provider（`infra/llm/anthropic.go`）
 
-使用 Anthropic 原生 `/v1/messages` 协议（SSE 格式）：
-- `content_block_start` → 识别 text / tool_use block
-- `content_block_delta` → 分发 EventText / EventToolDelta
-- `content_block_stop` → 关闭当前 block
-- tool result 消息格式与 OpenAI 不同：按 Anthropic 协议将 tool results 合并为一条 `role="user"` 消息（`content = [{type:"tool_result", tool_use_id, content}...]`）
+`anthropicProvider` 使用 Anthropic 原生 `/v1/messages` 协议（SSE 格式）：
+- `BuildRequest`：`buildAnthropicBody` → POST `<baseURL>/v1/messages` + `x-api-key` + `anthropic-version`；system / 最后一个 tool 带 `cache_control`
+- `ParseStream`：`parseAnthropicSSE` —— `content_block_start` 识别 text / thinking / tool_use；`content_block_delta` 分发 EventText / EventReasoning / EventToolDelta
+- tool result 消息格式与 OpenAI 不同：将连续 tool results 合并为一条 `role="user"` 消息（`content = [{type:"tool_result", tool_use_id, content}...]`）
 
-### 3.5 Factory（`infra/llm/factory.go`）
+### 3.5 共享传输（`infra/llm/transport.go`）
+
+`providerClient.Stream` 跑共享「铁律」：`BuildRequest` → `doRequest`（共享 `*http.Client`，120s timeout）→ status→sentinel（`classifyHTTPError` 区分 401/429/400/404/5xx）→ `ParseStream`。ctx 取消静默终止（不发 EventError）。所有 Provider 共用这一份请求/响应管道。
+
+### 3.6 Factory（`infra/llm/factory.go`）
 
 ```go
-// Factory.Build 按 provider 返回对应 Client
+// Factory.Build 按 Config 解析 Provider，包成 Client
 func (f *Factory) Build(cfg Config) (Client, string, error) {
-    // anthropic → anthropicClient{baseURL}
-    // 其余全部 → openAIClient{baseURL}（含 ollama 等）
+    // mock                              → MockClient（短路，不入 registry）
+    // custom + APIFormat=anthropic-compatible → anthropicProvider
+    // 其余（含 anthropic / 未知）       → lookupProvider 查 registry，未知回落 openai-compat
+    //   → providerClient → adapterWrappedClient（BeforeRequest 微调）→ recordingClient（若 tracer）
 }
 ```
 
-Provider 基础 URL 由 `resolveBaseURL` 按 provider 名称给出，调用方传入的 `BaseURL` 会覆盖默认值。
+Provider 基础 URL 由 `resolveBaseURL` 经 `lookupAdapter(provider).DefaultBaseURL()` 给出（adapter 仍是 base-url 权威源，含 mock=`mock://in-process` / custom=空），调用方传入的 `BaseURL` 覆盖默认值。
 
 ---
 

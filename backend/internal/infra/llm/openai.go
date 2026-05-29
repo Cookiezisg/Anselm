@@ -10,52 +10,44 @@ import (
 	"iter"
 	"net/http"
 	"strings"
-	"time"
 )
 
-type openAIClient struct {
-	http *http.Client
+// openAICompatProvider is the shared OpenAI-compatible wire dialect backing
+// every /chat/completions provider (openai, deepseek, qwen, zhipu, moonshot,
+// doubao, openrouter, google's compat surface, ollama, custom). One copy of
+// the body/SSE logic; per-provider identity (name + base URL) is injected.
+//
+// openAICompatProvider 是所有 /chat/completions provider 共用的 OpenAI-compat
+// wire 方言。body/SSE 逻辑只此一份；per-provider 身份（name + base URL）注入。
+type openAICompatProvider struct {
+	name           string
+	defaultBaseURL string
 }
 
-func newOpenAIClient() *openAIClient {
-	return &openAIClient{
-		http: &http.Client{Timeout: 120 * time.Second},
+func newOpenAICompatProvider(name, defaultBaseURL string) *openAICompatProvider {
+	return &openAICompatProvider{name: name, defaultBaseURL: defaultBaseURL}
+}
+
+func (p *openAICompatProvider) Name() string           { return p.name }
+func (p *openAICompatProvider) DefaultBaseURL() string { return p.defaultBaseURL }
+
+func (p *openAICompatProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
+	body, err := buildOpenAIBody(req)
+	if err != nil {
+		return nil, fmt.Errorf("llm.%s: build body: %w", p.name, err)
 	}
+	httpReq, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("llm.%s: new request: %w", p.name, err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+req.Key)
+	return httpReq, nil
 }
 
-func (c *openAIClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
+func (p *openAICompatProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
-		body, err := buildOpenAIBody(req)
-		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: build body: %w", err)})
-			return
-		}
-
-		httpReq, err := http.NewRequestWithContext(
-			ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(body))
-		if err != nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: new request: %w", err)})
-			return
-		}
-		httpReq.Header.Set("Content-Type", "application/json")
-		httpReq.Header.Set("Authorization", "Bearer "+req.Key)
-
-		resp, err := c.http.Do(httpReq)
-		if err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.openai: do: %w", err)})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-			yield(StreamEvent{Type: EventError, Err: classifyHTTPError(resp.StatusCode, raw)})
-			return
-		}
-
 		if req.DisableStream {
 			parseOpenAINonStreaming(resp.Body, yield)
 		} else {

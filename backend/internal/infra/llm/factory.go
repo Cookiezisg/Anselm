@@ -1,6 +1,9 @@
 package llm
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 // Config selects and configures a Client.
 //
@@ -13,14 +16,13 @@ type Config struct {
 	BaseURL   string
 }
 
-// Factory builds Clients per provider; HTTP clients are shared across requests.
+// Factory builds Clients per provider; the HTTP client is shared across requests.
 //
 // Factory 按 provider 构造 Client；HTTP client 跨请求复用。
 type Factory struct {
-	openai    *openAIClient
-	anthropic *anthropicClient
-	mock      *MockClient
-	tracer    *TraceRecorder
+	http   *http.Client
+	mock   *MockClient
+	tracer *TraceRecorder
 }
 
 // NewFactory constructs a Factory ready for use.
@@ -28,9 +30,8 @@ type Factory struct {
 // NewFactory 构造一个可直接使用的 Factory。
 func NewFactory() *Factory {
 	return &Factory{
-		openai:    newOpenAIClient(),
-		anthropic: newAnthropicClient(),
-		mock:      NewMockClient(),
+		http: newSharedHTTPClient(),
+		mock: NewMockClient(),
 	}
 }
 
@@ -58,20 +59,17 @@ func (f *Factory) Build(cfg Config) (Client, string, error) {
 		return nil, "", err
 	}
 	var client Client
-	switch cfg.Provider {
-	case "anthropic":
-		client = f.anthropic
-	case "mock":
+	if cfg.Provider == "mock" {
 		client = f.mock
-	case "custom":
-		if cfg.APIFormat == "anthropic-compatible" {
-			client = f.anthropic
-		} else {
-			client = f.openai
-		}
-	default:
-		client = f.openai
+	} else {
+		client = &providerClient{provider: lookupProvider(cfg), http: f.http}
 	}
+	// Adapter applies per-provider request tweaks (deepseek reasoning strip,
+	// ollama stream-disable) before the wire client sees the Request — same
+	// wrapping order as before the Provider split.
+	//
+	// adapter 在 wire client 看到 Request 前应用 per-provider 调整（deepseek
+	// 剥 reasoning、ollama 关流）；wrapping 顺序与 Provider 拆分前一致。
 	client = &adapterWrappedClient{inner: client, adapter: lookupAdapter(cfg.Provider)}
 	if f.tracer != nil {
 		client = &recordingClient{inner: client, recorder: f.tracer}
