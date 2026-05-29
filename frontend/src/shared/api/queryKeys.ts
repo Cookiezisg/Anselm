@@ -34,4 +34,5 @@ export const qk = {
   document:           (id: string) => ["document", id] as const,
   relations:          (entityId: string) => ["relations", entityId] as const,
   notificationsSnap:  () => ["notifications-snapshot"] as const,
+  modelCapabilities:  () => ["model-capabilities"] as const,
 } as const;

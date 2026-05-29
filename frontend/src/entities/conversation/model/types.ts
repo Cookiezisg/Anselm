@@ -3,6 +3,8 @@
 //
 // 对齐后端 domain/chat + domain/eventlog 的 json tag 字段名(camelCase)。
 
+import type { ThinkingSpec } from "@entities/model-config/@x/conversation";
+
 // ── Conversation ─────────────────────────────────────────────────────
 
 export interface AttachedDocument {
@@ -17,6 +19,7 @@ export interface AttachedDocument {
 export interface ModelRef {
   apiKeyId: string;
   modelId: string;
+  thinking?: ThinkingSpec;
 }
 
 export interface Conversation {
