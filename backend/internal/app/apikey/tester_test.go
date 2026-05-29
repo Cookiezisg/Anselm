@@ -362,6 +362,27 @@ func TestHTTPTester_ProviderDefaultBaseURL_UsedWhenUserEmpty(t *testing.T) {
 	}
 }
 
+func TestHTTPTester_Ollama_ProbePathStripsV1Suffix(t *testing.T) {
+	// Ollama chat base ends in /v1 (OpenAI-compat); /api/tags lives at the root.
+	// The probe must strip /v1 before appending /api/tags, otherwise it 404s.
+	// Ollama chat base 含 /v1；/api/tags 在根路径，探针需先去掉 /v1。
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"models":[]}`))
+	}))
+	defer srv.Close()
+
+	baseWithV1 := srv.URL + "/v1"
+	_, err := newTester().Test(context.Background(), "ollama", "", baseWithV1, "")
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if gotPath != "/api/tags" {
+		t.Errorf("probe path = %q, want /api/tags (must strip /v1 before appending)", gotPath)
+	}
+}
+
 func TestHTTPTester_Google_ProbePathIsRootModels_WhenBaseHasOpenAISuffix(t *testing.T) {
 	// When base_url is the OpenAI-compat form (.../v1beta/openai), the connectivity
 	// probe must strip that suffix and hit .../v1beta/models — not .../v1beta/openai/v1beta/models.

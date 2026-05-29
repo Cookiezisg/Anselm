@@ -249,7 +249,10 @@ func (t *HTTPTester) testGoogleListModels(ctx context.Context, baseURL, key stri
 }
 
 func (t *HTTPTester) testOllamaTags(ctx context.Context, baseURL string) *TestResult {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/tags", nil)
+	// Strip the OpenAI-compat /v1 suffix: /api/tags lives at the Ollama root.
+	// chat base 以 /v1 结尾（OpenAI-compat），/api/tags 在根，需先剥掉。
+	root := strings.TrimSuffix(baseURL, "/v1")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, root+"/api/tags", nil)
 	if err != nil {
 		return &TestResult{OK: false, Message: "build request: " + err.Error()}
 	}
