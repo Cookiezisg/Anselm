@@ -64,13 +64,6 @@ func (f *Factory) Build(cfg Config) (Client, string, error) {
 	} else {
 		client = &providerClient{provider: lookupProvider(cfg), http: f.http}
 	}
-	// Adapter applies per-provider request tweaks (deepseek reasoning strip,
-	// ollama stream-disable) before the wire client sees the Request — same
-	// wrapping order as before the Provider split.
-	//
-	// adapter 在 wire client 看到 Request 前应用 per-provider 调整（deepseek
-	// 剥 reasoning、ollama 关流）；wrapping 顺序与 Provider 拆分前一致。
-	client = &adapterWrappedClient{inner: client, adapter: lookupAdapter(cfg.Provider)}
 	if f.tracer != nil {
 		client = &recordingClient{inner: client, recorder: f.tracer}
 	}
@@ -81,8 +74,8 @@ func resolveBaseURL(cfg Config) (string, error) {
 	if cfg.BaseURL != "" {
 		return cfg.BaseURL, nil
 	}
-	a := lookupAdapter(cfg.Provider)
-	url := a.DefaultBaseURL()
+	p := lookupProvider(cfg)
+	url := p.DefaultBaseURL()
 	if url == "" {
 		return "", fmt.Errorf("llm.factory.resolveBaseURL: %s provider requires base_url: %w", cfg.Provider, ErrBadRequest)
 	}

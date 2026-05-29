@@ -37,6 +37,14 @@ type providerClient struct {
 
 func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
+		// Apply per-provider Request mutations (e.g. deepseek reasoning strip,
+		// ollama stream-disable) before wire encoding — same point as the old Adapter.
+		//
+		// 在 wire 编码前应用 per-provider Request 变换（如 deepseek 剥 reasoning、
+		// ollama 关流）——与旧 Adapter 的执行位置相同。
+		if p, ok := c.provider.(*openAICompatProvider); ok && p.beforeRequest != nil {
+			p.beforeRequest(&req)
+		}
 		httpReq, err := c.provider.BuildRequest(ctx, req)
 		if err != nil {
 			yield(StreamEvent{Type: EventError, Err: err})
@@ -65,29 +73,70 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 // —— 它们都讲 /chat/completions。
 var providerRegistry = buildProviderRegistry()
 
-// buildProviderRegistry derives one registry entry per known adapter, reusing
-// the adapter's name + DefaultBaseURL so identity stays single-sourced. The 9
-// OpenAI-compat providers share one openAICompatProvider wire body, differing
-// only by identity; anthropic / mock get their own Provider.
+// buildProviderRegistry constructs the canonical Provider registry. The two
+// OpenAI-compat providers with non-trivial request mutations carry their hook
+// inline; all others use a nil hook (no mutation). anthropic gets its own
+// native-dialect Provider; mock is absent (Build short-circuits to MockClient).
 //
-// buildProviderRegistry 从每个已知 adapter 派生一条注册项，复用 adapter 的
-// name + DefaultBaseURL 让身份单一来源。9 个 OpenAI-compat provider 共用一份
-// openAICompatProvider wire 逻辑，仅身份不同；anthropic / mock 各有自己的 Provider。
+// buildProviderRegistry 构建权威 Provider 注册表。两个有非平凡 Request 变换的
+// OpenAI-compat provider 直接内联钩子；其余 nil（不变换）。anthropic 使用自有
+// 原生方言 Provider；mock 缺席（Build 直接短路到 MockClient）。
 func buildProviderRegistry() map[string]Provider {
-	reg := map[string]Provider{}
-	for _, a := range adapters {
-		switch a.Name() {
-		case "anthropic":
-			reg[a.Name()] = newAnthropicProvider()
-		case "mock":
-			// mock has no wire Provider; factory short-circuits to MockClient.
-			// mock 无 wire Provider；factory 直接短路到 MockClient。
+	compat := func(name, baseURL string) *openAICompatProvider {
+		return newOpenAICompatProvider(name, baseURL)
+	}
+	reg := map[string]Provider{
+		"openai":     compat("openai", "https://api.openai.com/v1"),
+		"google":     compat("google", "https://generativelanguage.googleapis.com/v1beta/openai"),
+		"openrouter": compat("openrouter", "https://openrouter.ai/api/v1"),
+		"qwen":       compat("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
+		"zhipu":      compat("zhipu", "https://open.bigmodel.cn/api/paas/v4"),
+		"moonshot":   compat("moonshot", "https://api.moonshot.cn/v1"),
+		"doubao":     compat("doubao", "https://ark.cn-beijing.volces.com/api/v3"),
+		"ollama":     compat("ollama", ""),
+		"custom":     compat("custom", ""),
+		"anthropic":  newAnthropicProvider(),
+	}
+
+	// deepseek: strip reasoning_content from plain assistant turns; preserve on tool-call turns (V3.2+).
+	// deepseek：纯 assistant turn 剥 reasoning_content；含 tool_calls 的 turn 保留（V3.2+）。
+	ds := compat("deepseek", "https://api.deepseek.com")
+	ds.beforeRequest = deepseekBeforeRequest
+	reg["deepseek"] = ds
+
+	// ollama: force non-streaming when tools are present (Ollama drops tool_calls when streaming).
+	// ollama：有 tools 时强制非流式（Ollama streaming 会吞 tool_calls）。
+	ol := compat("ollama", "")
+	ol.beforeRequest = ollamaBeforeRequest
+	reg["ollama"] = ol
+
+	return reg
+}
+
+// deepseekBeforeRequest enforces DeepSeek's turn-type-dependent reasoning_content round-trip rule.
+//
+// deepseekBeforeRequest 守 DeepSeek 按 turn 类型的 reasoning_content round-trip 规则。
+func deepseekBeforeRequest(req *Request) {
+	for i := range req.Messages {
+		m := &req.Messages[i]
+		if m.Role != RoleAssistant {
 			continue
-		default:
-			reg[a.Name()] = newOpenAICompatProvider(a.Name(), a.DefaultBaseURL())
+		}
+		// Plain assistant turn: strip; tool-call turn: preserve (V3.2+ requires it).
+		// 纯文字 turn 剥；含 tool_calls turn 保留（V3.2+ 必须）。
+		if len(m.ToolCalls) == 0 {
+			m.ReasoningContent = ""
 		}
 	}
-	return reg
+}
+
+// ollamaBeforeRequest forces non-streaming when tools are present (Ollama drops tool_calls when streaming).
+//
+// ollamaBeforeRequest 有 tools 时强制非流式（Ollama streaming 时会吞 tool_calls）。
+func ollamaBeforeRequest(req *Request) {
+	if len(req.Tools) > 0 {
+		req.DisableStream = true
+	}
 }
 
 // lookupProvider resolves the Provider for a Config; "custom" + anthropic-compatible

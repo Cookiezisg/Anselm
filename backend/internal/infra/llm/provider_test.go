@@ -1,6 +1,8 @@
 package llm
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestLookupProvider_KnownNamesResolveToSelf(t *testing.T) {
 	cases := []struct {
@@ -82,5 +84,153 @@ func TestLookupProvider_OllamaIsCompatWithEmptyBase(t *testing.T) {
 func TestProviderRegistry_OmitsMock(t *testing.T) {
 	if _, ok := providerRegistry["mock"]; ok {
 		t.Error("mock must not be a wire Provider; Build short-circuits to MockClient")
+	}
+}
+
+// TestProviderRegistry_DefaultBaseURLs asserts each provider's DefaultBaseURL via the
+// registry, covering the full set that was previously tested via the Adapter layer.
+//
+// TestProviderRegistry_DefaultBaseURLs 通过 registry 断言每个 provider 的 DefaultBaseURL。
+func TestProviderRegistry_DefaultBaseURLs(t *testing.T) {
+	cases := []struct {
+		provider   string
+		wantBase   string
+		wantNoBase bool // caller must supply base_url
+	}{
+		{"openai", "https://api.openai.com/v1", false},
+		{"anthropic", "https://api.anthropic.com", false},
+		{"google", "https://generativelanguage.googleapis.com/v1beta/openai", false},
+		{"deepseek", "https://api.deepseek.com", false},
+		{"openrouter", "https://openrouter.ai/api/v1", false},
+		{"qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1", false},
+		{"zhipu", "https://open.bigmodel.cn/api/paas/v4", false},
+		{"moonshot", "https://api.moonshot.cn/v1", false},
+		{"doubao", "https://ark.cn-beijing.volces.com/api/v3", false},
+		{"ollama", "", true},
+		{"custom", "", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.provider, func(t *testing.T) {
+			p, ok := providerRegistry[tc.provider]
+			if !ok {
+				t.Fatalf("provider %q not found in registry", tc.provider)
+			}
+			got := p.DefaultBaseURL()
+			if tc.wantNoBase {
+				if got != "" {
+					t.Errorf("DefaultBaseURL() = %q, want empty (caller must supply)", got)
+				}
+				return
+			}
+			if got != tc.wantBase {
+				t.Errorf("DefaultBaseURL() = %q, want %q", got, tc.wantBase)
+			}
+		})
+	}
+}
+
+// TestDeepseekProvider_StripsReasoningOnPlainTurn asserts that deepseekBeforeRequest
+// removes reasoning_content from a plain (no tool_calls) assistant turn.
+//
+// TestDeepseekProvider_StripsReasoningOnPlainTurn 断言纯 assistant turn 的 reasoning_content 被剥除。
+func TestDeepseekProvider_StripsReasoningOnPlainTurn(t *testing.T) {
+	req := Request{
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hi"},
+			{
+				Role:             RoleAssistant,
+				Content:          "hello",
+				ReasoningContent: "let me think about how to greet",
+			},
+			{Role: RoleUser, Content: "next"},
+		},
+	}
+	deepseekBeforeRequest(&req)
+	if req.Messages[1].ReasoningContent != "" {
+		t.Errorf("plain assistant turn should have reasoning_content stripped; got %q",
+			req.Messages[1].ReasoningContent)
+	}
+	if req.Messages[1].Content != "hello" {
+		t.Errorf("Content should not be touched; got %q", req.Messages[1].Content)
+	}
+}
+
+// TestDeepseekProvider_PreservesReasoningOnToolCallTurn asserts that deepseekBeforeRequest
+// keeps reasoning_content on an assistant turn that also has tool_calls (V3.2+).
+//
+// TestDeepseekProvider_PreservesReasoningOnToolCallTurn 断言含 tool_calls 的 turn 保留 reasoning_content（V3.2+）。
+func TestDeepseekProvider_PreservesReasoningOnToolCallTurn(t *testing.T) {
+	req := Request{
+		Messages: []LLMMessage{
+			{
+				Role:             RoleAssistant,
+				ReasoningContent: "I should look this up",
+				ToolCalls:        []LLMToolCall{{ID: "c1", Name: "search"}},
+			},
+		},
+	}
+	deepseekBeforeRequest(&req)
+	if req.Messages[0].ReasoningContent != "I should look this up" {
+		t.Errorf("tool-call turn must preserve reasoning_content (V3.2 requirement); got %q",
+			req.Messages[0].ReasoningContent)
+	}
+}
+
+// TestDeepseekProvider_DoesntTouchNonAssistantMessages asserts that deepseekBeforeRequest
+// leaves user and tool messages untouched.
+//
+// TestDeepseekProvider_DoesntTouchNonAssistantMessages 断言非 assistant 消息不受影响。
+func TestDeepseekProvider_DoesntTouchNonAssistantMessages(t *testing.T) {
+	req := Request{
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "hi", ReasoningContent: "should-not-be-touched"},
+			{Role: RoleTool, ToolCallID: "x", Content: "result"},
+		},
+	}
+	deepseekBeforeRequest(&req)
+	if req.Messages[0].ReasoningContent != "should-not-be-touched" {
+		t.Errorf("user message reasoning_content should not be modified")
+	}
+}
+
+// TestOllamaProvider_DisablesStreamWhenToolsPresent asserts that ollamaBeforeRequest
+// sets DisableStream=true when tools are present, and leaves it false otherwise.
+//
+// TestOllamaProvider_DisablesStreamWhenToolsPresent 断言有 tools 时设 DisableStream，无 tools 时不动。
+func TestOllamaProvider_DisablesStreamWhenToolsPresent(t *testing.T) {
+	r1 := Request{}
+	ollamaBeforeRequest(&r1)
+	if r1.DisableStream {
+		t.Errorf("ollama without tools should leave DisableStream=false")
+	}
+
+	r2 := Request{Tools: []ToolDef{{Name: "search"}}}
+	ollamaBeforeRequest(&r2)
+	if !r2.DisableStream {
+		t.Errorf("ollama with tools should set DisableStream=true (avoids ollama#12557)")
+	}
+}
+
+// TestNonBehavioralProviders_NilBeforeRequest asserts that all OpenAI-compat
+// providers without custom mutations carry a nil beforeRequest hook.
+//
+// TestNonBehavioralProviders_NilBeforeRequest 断言无自定义变换的 compat provider 钩子为 nil。
+func TestNonBehavioralProviders_NilBeforeRequest(t *testing.T) {
+	for _, name := range []string{"openai", "qwen", "moonshot", "google", "openrouter", "zhipu", "moonshot", "doubao"} {
+		p, ok := providerRegistry[name]
+		if !ok {
+			t.Fatalf("provider %q not in registry", name)
+		}
+		cp, ok := p.(*openAICompatProvider)
+		if !ok {
+			t.Fatalf("provider %q is not *openAICompatProvider: %T", name, p)
+		}
+		if cp.beforeRequest != nil {
+			req := Request{Tools: []ToolDef{{Name: "x"}}}
+			cp.beforeRequest(&req)
+			if req.DisableStream {
+				t.Errorf("%s should not set DisableStream; only Ollama needs that quirk", name)
+			}
+		}
 	}
 }

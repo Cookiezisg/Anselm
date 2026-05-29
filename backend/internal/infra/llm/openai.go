@@ -16,12 +16,16 @@ import (
 // every /chat/completions provider (openai, deepseek, qwen, zhipu, moonshot,
 // doubao, openrouter, google's compat surface, ollama, custom). One copy of
 // the body/SSE logic; per-provider identity (name + base URL) is injected.
+// beforeRequest is an optional hook for per-provider Request mutations applied
+// before BuildRequest (e.g. deepseek reasoning strip, ollama stream-disable).
 //
 // openAICompatProvider 是所有 /chat/completions provider 共用的 OpenAI-compat
 // wire 方言。body/SSE 逻辑只此一份；per-provider 身份（name + base URL）注入。
+// beforeRequest 是可选的 per-provider Request 变换钩子，在 BuildRequest 前执行。
 type openAICompatProvider struct {
 	name           string
 	defaultBaseURL string
+	beforeRequest  func(*Request) // nil if no per-provider mutation needed
 }
 
 func newOpenAICompatProvider(name, defaultBaseURL string) *openAICompatProvider {
