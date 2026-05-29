@@ -128,10 +128,11 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 	}
 
 	baseReq := llminfra.Request{
-		ModelID: bundle.ModelID,
-		Key:     bundle.Key,
-		BaseURL: bundle.BaseURL,
-		System:  host.systemPrompt,
+		ModelID:  bundle.ModelID,
+		Key:      bundle.Key,
+		BaseURL:  bundle.BaseURL,
+		System:   host.systemPrompt,
+		Thinking: bundle.Thinking,
 	}
 
 	var (

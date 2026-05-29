@@ -120,10 +120,11 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	}
 
 	baseReq := llminfra.Request{
-		ModelID: bc.ModelID,
-		Key:     bc.Key,
-		BaseURL: bc.BaseURL,
-		System:  s.buildSystemPrompt(agentCtx, task.conv),
+		ModelID:  bc.ModelID,
+		Key:      bc.Key,
+		BaseURL:  bc.BaseURL,
+		System:   s.buildSystemPrompt(agentCtx, task.conv),
+		Thinking: bc.Thinking,
 	}
 
 	host := &chatHost{
@@ -362,8 +363,11 @@ func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, 
 	defer cancel()
 
 	req := llminfra.Request{
-		ModelID: bc.ModelID, Key: bc.Key, BaseURL: bc.BaseURL,
-		System: "Generate a short conversation title (5 words or fewer). Reply with ONLY the title, no punctuation.\n只返回标题本身，不超过 10 个字，不加标点。",
+		ModelID:  bc.ModelID,
+		Key:      bc.Key,
+		BaseURL:  bc.BaseURL,
+		Thinking: bc.Thinking,
+		System:   "Generate a short conversation title (5 words or fewer). Reply with ONLY the title, no punctuation.\n只返回标题本身，不超过 10 个字，不加标点。",
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: "Assistant said: " + truncate(assistantContent, 300)},
 		},

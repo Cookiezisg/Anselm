@@ -506,12 +506,12 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	askaiSpawner := askaiapp.New(convService, chatService, log)
 
-	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
+	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, error) {
 		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
-			return nil, "", "", "", err
+			return nil, "", "", "", nil, err
 		}
-		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, nil
+		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, nil
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStoreInst, chatEmitter, notificationsPub, cheapLLMResolver, log)

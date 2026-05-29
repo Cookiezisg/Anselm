@@ -104,6 +104,18 @@ type ToolDef struct {
 	Parameters  json.RawMessage
 }
 
+// ThinkingSpec is the infra-local mirror of domain/model.ThinkingSpec.
+// Provider adapters read this field in BuildRequest to encode provider-specific
+// reasoning params (effort enum / budget tokens / enabled flag). nil = auto.
+//
+// ThinkingSpec 是 domain/model.ThinkingSpec 的 infra 本地镜像。Provider adapter
+// 在 BuildRequest 里读此字段，翻译为 provider 特有的推理参数。nil = auto。
+type ThinkingSpec struct {
+	Mode   string // "auto" | "off" | "on"
+	Effort string // "minimal|low|medium|high|xhigh|max" — effort-shape providers
+	Budget int    // reasoning token budget — budget-shape providers
+}
+
 // Request specifies one LLM call.
 //
 // Request 是一次 LLM 调用规格。
@@ -114,6 +126,14 @@ type Request struct {
 	System   string
 	Messages []LLMMessage
 	Tools    []ToolDef
+
+	// Thinking carries the resolved reasoning intent for this request.
+	// Provider adapters encode it into their wire format in P3.3-3.5.
+	// nil = auto (current default: send no thinking param).
+	//
+	// Thinking 携带本次请求的推理意图；Provider adapter 在 P3.3-3.5 编码为
+	// 线上格式。nil = auto（当前默认：不发 thinking 参数）。
+	Thinking *ThinkingSpec
 
 	// DisableStream forces non-streaming wire mode (used by Ollama+tools workaround).
 	// DisableStream 强制 non-streaming（Ollama 有 tools 时绕 bug 用）。

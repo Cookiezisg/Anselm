@@ -90,6 +90,7 @@ func (t *SearchHandler) Execute(ctx context.Context, argsJSON string) (string, e
 		ModelID:  bc.ModelID,
 		Key:      bc.Key,
 		BaseURL:  bc.BaseURL,
+		Thinking: bc.Thinking,
 		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: sb.String()}},
 	})
 	if err != nil {

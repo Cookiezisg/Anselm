@@ -82,12 +82,14 @@ type Repository interface {
 }
 
 // ModelPicker is the cross-domain port for LLM-using services; implemented by app/model.Service.
-// Returns (apiKeyID, modelID) — provider is derived later from apikey.ResolveCredentialsByID.
+// Returns (apiKeyID, modelID, thinking) — provider is derived later from apikey.ResolveCredentialsByID.
+// thinking is nil when the scenario has no explicit reasoning spec (= auto).
 //
 // ModelPicker 是跨 domain 端口,由 app/model.Service 实现。
-// 返回 (apiKeyID, modelID)——provider 由 apikey.ResolveCredentialsByID 在解析阶段拿到。
+// 返回 (apiKeyID, modelID, thinking)——provider 由 apikey.ResolveCredentialsByID 在解析阶段拿到。
+// thinking 为 nil 表示该 scenario 无显式推理设置（= auto）。
 type ModelPicker interface {
-	PickForDialogue(ctx context.Context) (apiKeyID, modelID string, err error)
-	PickForUtility(ctx context.Context) (apiKeyID, modelID string, err error)
-	PickForAgent(ctx context.Context) (apiKeyID, modelID string, err error)
+	PickForDialogue(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
+	PickForUtility(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
+	PickForAgent(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
 }

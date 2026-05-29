@@ -166,6 +166,7 @@ func suggestDeps(
 		ModelID:  bundle.ModelID,
 		Key:      bundle.Key,
 		BaseURL:  bundle.BaseURL,
+		Thinking: bundle.Thinking,
 		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: prompt}},
 	})
 	if err != nil {

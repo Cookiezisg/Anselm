@@ -19,23 +19,23 @@ type fakePicker struct {
 	dialogue, utility, agent *modeldomain.ModelRef
 }
 
-func (f *fakePicker) PickForDialogue(ctx context.Context) (string, string, error) {
+func (f *fakePicker) PickForDialogue(ctx context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
 	if f.dialogue == nil {
-		return "", "", modeldomain.ErrNotConfigured
+		return "", "", nil, modeldomain.ErrNotConfigured
 	}
-	return f.dialogue.APIKeyID, f.dialogue.ModelID, nil
+	return f.dialogue.APIKeyID, f.dialogue.ModelID, f.dialogue.Thinking, nil
 }
-func (f *fakePicker) PickForUtility(ctx context.Context) (string, string, error) {
+func (f *fakePicker) PickForUtility(ctx context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
 	if f.utility == nil {
-		return "", "", modeldomain.ErrNotConfigured
+		return "", "", nil, modeldomain.ErrNotConfigured
 	}
-	return f.utility.APIKeyID, f.utility.ModelID, nil
+	return f.utility.APIKeyID, f.utility.ModelID, f.utility.Thinking, nil
 }
-func (f *fakePicker) PickForAgent(ctx context.Context) (string, string, error) {
+func (f *fakePicker) PickForAgent(ctx context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
 	if f.agent == nil {
-		return "", "", modeldomain.ErrNotConfigured
+		return "", "", nil, modeldomain.ErrNotConfigured
 	}
-	return f.agent.APIKeyID, f.agent.ModelID, nil
+	return f.agent.APIKeyID, f.agent.ModelID, f.agent.Thinking, nil
 }
 
 // fakeKeys returns canned credentials keyed by api_key id.
@@ -141,6 +141,60 @@ func TestResolveDialogueWithOverride_OverrideRefersToMissingKey_ErrResolveCreds(
 	_, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), override, picker, newKeys(), newFactory(t))
 	if !errors.Is(err, llmclientpkg.ErrResolveCreds) {
 		t.Fatalf("want ErrResolveCreds, got %v", err)
+	}
+}
+
+func TestResolveDialogueWithOverride_OverrideThinking_FlowsToBundle(t *testing.T) {
+	// override carries Thinking {on, high} → Bundle.Thinking must mirror it in infra form.
+	// override 携带 Thinking {on, high} → Bundle.Thinking 必须映射为 infra 形式。
+	override := &modeldomain.ModelRef{
+		APIKeyID: "aki_ant1",
+		ModelID:  "sonnet",
+		Thinking: &modeldomain.ThinkingSpec{Mode: "on", Effort: "high"},
+	}
+	picker := &fakePicker{dialogue: &modeldomain.ModelRef{APIKeyID: "aki_ds1", ModelID: "deepseek-chat"}}
+	b, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), override, picker, newKeys(), newFactory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Thinking == nil {
+		t.Fatal("Bundle.Thinking is nil, want {on, high, 0}")
+	}
+	if b.Thinking.Mode != "on" || b.Thinking.Effort != "high" || b.Thinking.Budget != 0 {
+		t.Errorf("Bundle.Thinking = %+v, want {on high 0}", b.Thinking)
+	}
+}
+
+func TestResolveDialogueWithOverride_PickerThinking_FlowsToBundle(t *testing.T) {
+	// override absent; dialogue ModelConfig has Thinking {on, budget:5000} → Bundle.Thinking == {on, 5000}.
+	// override 缺失；dialogue ModelConfig 有 Thinking {on, budget:5000} → Bundle.Thinking == {on, 5000}。
+	picker := &fakePicker{dialogue: &modeldomain.ModelRef{
+		APIKeyID: "aki_ant1",
+		ModelID:  "sonnet",
+		Thinking: &modeldomain.ThinkingSpec{Mode: "on", Budget: 5000},
+	}}
+	b, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), nil, picker, newKeys(), newFactory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Thinking == nil {
+		t.Fatal("Bundle.Thinking is nil, want {on,  5000}")
+	}
+	if b.Thinking.Mode != "on" || b.Thinking.Effort != "" || b.Thinking.Budget != 5000 {
+		t.Errorf("Bundle.Thinking = %+v, want {on  5000}", b.Thinking)
+	}
+}
+
+func TestResolveDialogueWithOverride_NoThinking_BundleThinkingIsNil(t *testing.T) {
+	// No thinking anywhere → Bundle.Thinking must be nil (= auto, no wire change).
+	// 全无 thinking → Bundle.Thinking 必须为 nil（= auto，线上不变）。
+	picker := &fakePicker{dialogue: &modeldomain.ModelRef{APIKeyID: "aki_ant1", ModelID: "sonnet"}}
+	b, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), nil, picker, newKeys(), newFactory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.Thinking != nil {
+		t.Errorf("Bundle.Thinking = %+v, want nil", b.Thinking)
 	}
 }
 

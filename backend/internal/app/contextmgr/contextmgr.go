@@ -23,9 +23,11 @@ import (
 var ErrCompactFailed = errors.New("contextmgr: compact failed")
 
 // LLMResolver builds a cheap LLM bundle for summary generation (injection point for fake LLMs in tests).
+// thinking may be nil (= auto); compact.go sets Request.Thinking so adapters can encode it.
 //
 // LLMResolver 为摘要生成构造便宜 LLM bundle（测试可注入 fake）。
-type LLMResolver func(ctx context.Context) (client llminfra.Client, modelID, key, baseURL string, err error)
+// thinking 可为 nil（= auto）；compact.go 把它赋给 Request.Thinking。
+type LLMResolver func(ctx context.Context) (client llminfra.Client, modelID, key, baseURL string, thinking *llminfra.ThinkingSpec, err error)
 
 // Thresholds controls when compaction kicks in.
 //

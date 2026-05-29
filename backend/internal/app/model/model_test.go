@@ -196,7 +196,7 @@ func TestList_AfterUpsert(t *testing.T) {
 func TestService_PickForDialogue(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
 	ctx := ctxAlice()
-	if _, _, err := svc.PickForDialogue(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+	if _, _, _, err := svc.PickForDialogue(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
 		t.Fatalf("unconfigured PickForDialogue: want ErrNotConfigured, got %v", err)
 	}
 	if _, err := svc.Upsert(ctx, modeldomain.ScenarioDialogue, UpsertInput{
@@ -204,7 +204,7 @@ func TestService_PickForDialogue(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	id, m, err := svc.PickForDialogue(ctx)
+	id, m, _, err := svc.PickForDialogue(ctx)
 	if err != nil || id != "aki_test" || m != "claude-sonnet-4-5" {
 		t.Fatalf("PickForDialogue=(%q,%q,%v), want (aki_test, claude-sonnet-4-5, nil)", id, m, err)
 	}
@@ -213,7 +213,7 @@ func TestService_PickForDialogue(t *testing.T) {
 func TestService_PickForUtility(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
 	ctx := ctxAlice()
-	if _, _, err := svc.PickForUtility(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+	if _, _, _, err := svc.PickForUtility(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
 		t.Fatal("want ErrNotConfigured")
 	}
 	if _, err := svc.Upsert(ctx, modeldomain.ScenarioUtility, UpsertInput{
@@ -221,7 +221,7 @@ func TestService_PickForUtility(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	id, m, _ := svc.PickForUtility(ctx)
+	id, m, _, _ := svc.PickForUtility(ctx)
 	if id != "aki_test" || m != "claude-haiku-4-5" {
 		t.Fatalf("PickForUtility=(%q,%q), want (aki_test, claude-haiku-4-5)", id, m)
 	}
@@ -230,7 +230,7 @@ func TestService_PickForUtility(t *testing.T) {
 func TestService_PickForAgent(t *testing.T) {
 	svc := newSvc(t, newFakeRepo())
 	ctx := ctxAlice()
-	if _, _, err := svc.PickForAgent(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
+	if _, _, _, err := svc.PickForAgent(ctx); !errors.Is(err, modeldomain.ErrNotConfigured) {
 		t.Fatal("want ErrNotConfigured")
 	}
 	if _, err := svc.Upsert(ctx, modeldomain.ScenarioAgent, UpsertInput{
@@ -238,7 +238,7 @@ func TestService_PickForAgent(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	id, m, _ := svc.PickForAgent(ctx)
+	id, m, _, _ := svc.PickForAgent(ctx)
 	if id != "aki_test" || m != "deepseek-chat" {
 		t.Fatalf("PickForAgent=(%q,%q), want (aki_test, deepseek-chat)", id, m)
 	}

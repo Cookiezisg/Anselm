@@ -172,9 +172,10 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]mcpdoma
 		return nil, fmt.Errorf("mcpapp.Search: resolve LLM: %w", err)
 	}
 	resp, err := llminfra.Generate(ctx, bundle.Client, llminfra.Request{
-		ModelID: bundle.ModelID,
-		Key:     bundle.Key,
-		BaseURL: bundle.BaseURL,
+		ModelID:  bundle.ModelID,
+		Key:      bundle.Key,
+		BaseURL:  bundle.BaseURL,
+		Thinking: bundle.Thinking,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},
 		},

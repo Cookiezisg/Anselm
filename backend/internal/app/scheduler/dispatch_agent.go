@@ -131,10 +131,11 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		captured:   &agentResult{},
 	}
 	baseReq := llminfra.Request{
-		ModelID: bundle.ModelID,
-		Key:     bundle.Key,
-		BaseURL: bundle.BaseURL,
-		System:  "You are a workflow agent. Use available tools as needed; respond concisely when finished.",
+		ModelID:  bundle.ModelID,
+		Key:      bundle.Key,
+		BaseURL:  bundle.BaseURL,
+		System:   "You are a workflow agent. Use available tools as needed; respond concisely when finished.",
+		Thinking: bundle.Thinking,
 	}
 	result := loopapp.Run(ctx, host, bundle.Client, baseReq, maxTurns, d.log)
 

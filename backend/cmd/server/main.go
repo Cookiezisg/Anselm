@@ -461,12 +461,12 @@ func main() {
 	chatService.SetPermissionsAndHooks(permGate, hookRunner)
 	settingsPath := filepath.Join(homeRoot, "settings.json")
 
-	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, error) {
+	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, error) {
 		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
-			return nil, "", "", "", err
+			return nil, "", "", "", nil, err
 		}
-		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, nil
+		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, nil
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStore, chatEmitter, notificationsPub, cheapLLMResolver, log)

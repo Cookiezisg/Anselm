@@ -296,6 +296,7 @@ func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string
 		ModelID:  bundle.ModelID,
 		Key:      bundle.Key,
 		BaseURL:  bundle.BaseURL,
+		Thinking: bundle.Thinking,
 		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: body}},
 	})
 	if err != nil {

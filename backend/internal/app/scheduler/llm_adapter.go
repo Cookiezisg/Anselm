@@ -48,10 +48,11 @@ func (a *DefaultLLMCaller) Generate(ctx context.Context, override *modeldomain.M
 		return "", fmt.Errorf("DefaultLLMCaller.Generate: %w", err)
 	}
 	req := llminfra.Request{
-		ModelID: bundle.ModelID,
-		Key:     bundle.Key,
-		BaseURL: bundle.BaseURL,
-		System:  "You are a workflow LLM step. Respond concisely.",
+		ModelID:  bundle.ModelID,
+		Key:      bundle.Key,
+		BaseURL:  bundle.BaseURL,
+		System:   "You are a workflow LLM step. Respond concisely.",
+		Thinking: bundle.Thinking,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},
 		},

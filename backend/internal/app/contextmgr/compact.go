@@ -62,7 +62,7 @@ func (m *Manager) fullCompact(
 	blockID := idgenpkg.New("blk")
 	m.emitter.EmitBlockStart(ctx, blockID, msgID, msgID, eventlogdomain.BlockTypeCompaction, blockAttrs)
 
-	client, modelID, key, baseURL, err := m.resolveLLM(ctx)
+	client, modelID, key, baseURL, thinking, err := m.resolveLLM(ctx)
 	if err != nil {
 		m.finishCompactionWithError(ctx, msgID, blockID,
 			fmt.Errorf("contextmgr.fullCompact: resolveLLM: %w", err))
@@ -73,8 +73,11 @@ func (m *Manager) fullCompact(
 	llmCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	newSummary, err := llminfra.Generate(llmCtx, client, llminfra.Request{
-		ModelID: modelID, Key: key, BaseURL: baseURL,
-		System: compactSystemPrompt,
+		ModelID:  modelID,
+		Key:      key,
+		BaseURL:  baseURL,
+		Thinking: thinking,
+		System:   compactSystemPrompt,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},
 		},
