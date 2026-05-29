@@ -61,6 +61,7 @@ type Deps struct {
 	Log *zap.Logger
 
 	APIKeyService       *apikeyapp.Service
+	CapabilityService   *apikeyapp.CapabilityService
 	ModelService        *modelapp.Service
 	ConversationService *convapp.Service
 	FunctionService     *functionapp.Service

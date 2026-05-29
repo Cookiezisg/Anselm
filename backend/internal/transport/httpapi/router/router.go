@@ -25,6 +25,9 @@ func New(deps Deps) http.Handler {
 	if deps.APIKeyService != nil {
 		handlershttpapi.NewAPIKeyHandler(deps.APIKeyService, deps.Log).Register(rec)
 	}
+	if deps.CapabilityService != nil && deps.APIKeyService != nil {
+		handlershttpapi.NewCapabilitiesHandler(deps.CapabilityService, deps.APIKeyService, deps.Log).Register(rec)
+	}
 	if deps.ModelService != nil {
 		handlershttpapi.NewModelConfigHandler(deps.ModelService, deps.Log).Register(rec)
 	}

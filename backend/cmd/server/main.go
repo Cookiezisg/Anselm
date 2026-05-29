@@ -252,7 +252,6 @@ func main() {
 	apikeyService.SetNodeOverrideRefScanner(workflowStore)
 
 	capabilityService := apikeyapp.NewCapabilityService(modelcapoverridestore.New(gdb))
-	_ = capabilityService // P4 will wire this to HTTP handlers; suppress unused-var until then
 
 	modelService := modelapp.NewService(modelStore, apikeyService, log)
 
@@ -596,6 +595,7 @@ func main() {
 	handler := routerhttpapi.New(routerhttpapi.Deps{
 		Log:                 log,
 		APIKeyService:       apikeyService,
+		CapabilityService:   capabilityService,
 		ModelService:        modelService,
 		ConversationService: convService,
 		FunctionService:     functionService,
