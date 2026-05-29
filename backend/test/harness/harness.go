@@ -104,6 +104,7 @@ import (
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
@@ -515,7 +516,16 @@ func New(t *testing.T, opts ...Option) *Harness {
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStoreInst, chatEmitter, notificationsPub, cheapLLMResolver, log)
+	contextManager.SetCapabilityResolver(func(_ context.Context, provider, modelID string) modelcapspkg.Cap {
+		return modelcapspkg.Lookup(provider, modelID)
+	})
 	chatService.SetContextCompactor(contextManager)
+	// Drain detached goroutines (autoTitle) before the DB-close cleanup runs.
+	// t.Cleanup is LIFO: registering Wait here (after the DB close registered above)
+	// ensures Wait fires before DB close.
+	//
+	// autoTitle 等 detached goroutine 必须在 DB 关闭前排空；t.Cleanup LIFO 保证顺序。
+	t.Cleanup(chatService.Wait)
 
 	// V1.2 §3 final-sweep — permissions + hooks. Test harness points at
 	// a per-test settings.json under t.TempDir() (created lazily); tests
