@@ -18,14 +18,18 @@ import (
 // the body/SSE logic; per-provider identity (name + base URL) is injected.
 // beforeRequest is an optional hook for per-provider Request mutations applied
 // before BuildRequest (e.g. deepseek reasoning strip, ollama stream-disable).
+// thinkingEncoder is an optional hook for encoding ThinkingSpec into the wire
+// body; nil = emit no thinking fields (default behavior — critical for P3).
 //
 // openAICompatProvider 是所有 /chat/completions provider 共用的 OpenAI-compat
 // wire 方言。body/SSE 逻辑只此一份；per-provider 身份（name + base URL）注入。
 // beforeRequest 是可选的 per-provider Request 变换钩子，在 BuildRequest 前执行。
+// thinkingEncoder 是可选的 thinking 编码钩子；nil = 不发 thinking 字段（默认）。
 type openAICompatProvider struct {
-	name           string
-	defaultBaseURL string
-	beforeRequest  func(*Request) // nil if no per-provider mutation needed
+	name            string
+	defaultBaseURL  string
+	beforeRequest   func(*Request)                    // nil if no per-provider mutation needed
+	thinkingEncoder func(*oaiRequest, *ThinkingSpec)  // nil = no thinking fields
 }
 
 func newOpenAICompatProvider(name, defaultBaseURL string) *openAICompatProvider {
@@ -36,7 +40,7 @@ func (p *openAICompatProvider) Name() string           { return p.name }
 func (p *openAICompatProvider) DefaultBaseURL() string { return p.defaultBaseURL }
 
 func (p *openAICompatProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
-	body, err := buildOpenAIBody(req)
+	body, err := buildOpenAIBody(req, p.thinkingEncoder)
 	if err != nil {
 		return nil, fmt.Errorf("llm.%s: build body: %w", p.name, err)
 	}
@@ -275,7 +279,7 @@ func emitOpenAIChunk(chunk oaiChunk, state *toolCallState, yield func(StreamEven
 	return true
 }
 
-func buildOpenAIBody(req Request) ([]byte, error) {
+func buildOpenAIBody(req Request, thinkingEncoder func(*oaiRequest, *ThinkingSpec)) ([]byte, error) {
 	// TE-25: sanitize tool_call ↔ tool_result pairing — orphans → 400 lockout.
 	// TE-25：sanitize 配对，orphan 会 400 锁对话。
 	req.Messages = SanitizeMessages(req.Messages)
@@ -293,6 +297,18 @@ func buildOpenAIBody(req Request) ([]byte, error) {
 	}
 	if len(req.Tools) > 0 {
 		body.Tools = toOpenAITools(req.Tools)
+	}
+	// Apply per-provider thinking encoding when spec is non-nil and encoder is
+	// registered. nil spec = auto = no-op (byte-identical to old behaviour).
+	// Qwen guard: enable_thinking=true requires stream:true — skip encoding if
+	// the request is already forced to non-streaming (DisableStream=true).
+	//
+	// spec 非 nil 且 encoder 已注册时编码 thinking；spec=nil 即 auto，不发任何字段。
+	// Qwen 守卫：enable_thinking=true 必须 stream=true；非流式时跳过编码。
+	if req.Thinking != nil && thinkingEncoder != nil && req.Thinking.Mode != "auto" {
+		if !(req.DisableStream && req.Thinking.Mode == "on") {
+			thinkingEncoder(&body, req.Thinking)
+		}
 	}
 	return json.Marshal(body)
 }
@@ -426,6 +442,43 @@ type oaiRequest struct {
 	Tools         []oaiTool         `json:"tools,omitempty"`
 	Stream        bool              `json:"stream"`
 	StreamOptions *oaiStreamOptions `json:"stream_options,omitempty"`
+
+	// Per-provider thinking fields — at most one provider populates a given field
+	// per request. Groups that share a JSON key use the same struct type.
+	// 各 provider 的 thinking 字段；每次请求每个 JSON 字段至多一个 provider 填。
+
+	// openai / google-compat / ollama: reasoning_effort string
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
+	// deepseek / zhipu / moonshot / doubao: thinking:{type:..., budget_tokens?}
+	Thinking *oaiThinkingField `json:"thinking,omitempty"`
+	// deepseek (V4): top-level reasoning_effort string (separate from openai's)
+	// Note: reuses ReasoningEffort field — DeepSeek sends it alongside Thinking.
+	// qwen: top-level enable_thinking bool (pointer to distinguish false vs absent)
+	EnableThinking *bool `json:"enable_thinking,omitempty"`
+	// qwen: thinking_budget int (only when enable_thinking=true and budget>0)
+	ThinkingBudget int `json:"thinking_budget,omitempty"`
+	// openrouter: reasoning:{effort|max_tokens,...}
+	Reasoning *oaiOpenRouterReasoning `json:"reasoning,omitempty"`
+}
+
+// oaiThinkingField is the shared thinking object used by DeepSeek, Zhipu,
+// Moonshot, and Doubao. BudgetTokens is only populated by Doubao.
+//
+// oaiThinkingField 是 DeepSeek / Zhipu / Moonshot / Doubao 共用的 thinking 对象；
+// BudgetTokens 只由豆包填。
+type oaiThinkingField struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+}
+
+// oaiOpenRouterReasoning is OpenRouter's top-level reasoning object.
+// Effort and MaxTokens are mutually exclusive; prefer Effort when both are set.
+//
+// oaiOpenRouterReasoning 是 OpenRouter 的顶层 reasoning 对象；
+// Effort 与 MaxTokens 互斥，两者同时设置优先用 Effort。
+type oaiOpenRouterReasoning struct {
+	Effort    string `json:"effort,omitempty"`
+	MaxTokens int    `json:"max_tokens,omitempty"`
 }
 
 type oaiStreamOptions struct {
@@ -547,4 +600,205 @@ type oaiFuncDelta struct {
 type oaiUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
+}
+
+// ── Per-provider thinking encoders ───────────────────────────────────────────
+//
+// Each encoder is registered as openAICompatProvider.thinkingEncoder.
+// Called only when ThinkingSpec is non-nil and Mode != "auto".
+// Mode="off" emits the provider's explicit-disable form.
+// Mode="on"  emits the provider's enable form with Effort/Budget.
+//
+// 每个 encoder 注册为 openAICompatProvider.thinkingEncoder。
+// 仅在 ThinkingSpec 非 nil 且 Mode != "auto" 时调用。
+
+// clampEffort returns spec.Effort if it appears in allowed; otherwise returns
+// fallback. Empty spec.Effort also returns fallback.
+//
+// clampEffort 若 spec.Effort 在 allowed 列表则返回它，否则返 fallback。
+func clampEffort(effort string, allowed []string, fallback string) string {
+	if effort == "" {
+		return fallback
+	}
+	for _, v := range allowed {
+		if v == effort {
+			return effort
+		}
+	}
+	return fallback
+}
+
+// encodeThinkingOpenAI encodes thinking for OpenAI reasoning models.
+// on  → reasoning_effort = Effort (clamp to allowed; default "medium")
+// off → reasoning_effort = "none" if "none" is in allowed, else omit.
+//
+// encodeThinkingOpenAI 编码 OpenAI 推理参数：
+// on→reasoning_effort（取 Effort 或 "medium"）；off→"none"（若可用）。
+func encodeThinkingOpenAI(allowed []string) func(*oaiRequest, *ThinkingSpec) {
+	return func(body *oaiRequest, spec *ThinkingSpec) {
+		switch spec.Mode {
+		case "on":
+			body.ReasoningEffort = clampEffort(spec.Effort, allowed, "medium")
+		case "off":
+			// Only emit "none" if the model family supports it; otherwise omit.
+			// 只有当模型家族支持 "none" 时才 emit；否则省略。
+			for _, v := range allowed {
+				if v == "none" {
+					body.ReasoningEffort = "none"
+					break
+				}
+			}
+		}
+	}
+}
+
+// encodeThinkingDeepSeek encodes thinking for DeepSeek V4.
+// on  → thinking:{type:"enabled"} + reasoning_effort (map low/medium→high, xhigh→max; default high)
+// off → thinking:{type:"disabled"}
+//
+// encodeThinkingDeepSeek 编码 DeepSeek V4 thinking 参数：
+// on→enabled+effort（low/medium→high；xhigh→max）；off→disabled。
+func encodeThinkingDeepSeek(body *oaiRequest, spec *ThinkingSpec) {
+	switch spec.Mode {
+	case "on":
+		body.Thinking = &oaiThinkingField{Type: "enabled"}
+		body.ReasoningEffort = deepseekMapEffort(spec.Effort)
+	case "off":
+		body.Thinking = &oaiThinkingField{Type: "disabled"}
+	}
+}
+
+// deepseekMapEffort maps generic effort values to DeepSeek's {high,max} set.
+//
+// deepseekMapEffort 把通用 effort 映射到 DeepSeek 的 {high,max}。
+func deepseekMapEffort(effort string) string {
+	switch effort {
+	case "max", "xhigh":
+		return "max"
+	default:
+		// low, medium, high, empty → high
+		return "high"
+	}
+}
+
+// encodeThinkingQwen encodes thinking for Qwen DashScope.
+// on  → enable_thinking=true (+thinking_budget if spec.Budget>0)
+// off → enable_thinking=false
+// GUARD: if DisableStream=true and Mode=on, skip encoding (Qwen requires stream
+// for enable_thinking=true; callers should not set DisableStream+thinking:on).
+// The guard is applied in the calling context (buildOpenAIBody checks
+// req.DisableStream before invoking the encoder).
+//
+// encodeThinkingQwen 编码 Qwen thinking 参数：
+// on→enable_thinking=true（+budget）；off→false。
+// 流式守卫：非流式请求跳过 enable_thinking=true（Qwen 要求 stream）。
+func encodeThinkingQwen(body *oaiRequest, spec *ThinkingSpec) {
+	switch spec.Mode {
+	case "on":
+		t := true
+		body.EnableThinking = &t
+		if spec.Budget > 0 {
+			body.ThinkingBudget = spec.Budget
+		}
+	case "off":
+		f := false
+		body.EnableThinking = &f
+	}
+}
+
+// encodeThinkingZhipu encodes thinking for Zhipu GLM.
+// on  → thinking:{type:"enabled"}
+// off → thinking:{type:"disabled"}
+//
+// encodeThinkingZhipu 编码 Zhipu GLM thinking 参数。
+func encodeThinkingZhipu(body *oaiRequest, spec *ThinkingSpec) {
+	switch spec.Mode {
+	case "on":
+		body.Thinking = &oaiThinkingField{Type: "enabled"}
+	case "off":
+		body.Thinking = &oaiThinkingField{Type: "disabled"}
+	}
+}
+
+// encodeThinkingMoonshot encodes thinking for Moonshot kimi-k2.5/k2.6.
+// on  → thinking:{type:"enabled"}
+// off → thinking:{type:"disabled"}
+// Note: kimi-k2-thinking model-id needs no param; the caller decides whether
+// to pass a ThinkingSpec at all for that model.
+//
+// encodeThinkingMoonshot 编码 Moonshot kimi-k2.5/6 thinking 参数；
+// kimi-k2-thinking 模型 id 本身内禀 thinking，不传 ThinkingSpec 即可。
+func encodeThinkingMoonshot(body *oaiRequest, spec *ThinkingSpec) {
+	switch spec.Mode {
+	case "on":
+		body.Thinking = &oaiThinkingField{Type: "enabled"}
+	case "off":
+		body.Thinking = &oaiThinkingField{Type: "disabled"}
+	}
+}
+
+// encodeThinkingDoubao encodes thinking for Doubao Seed models.
+// on  → thinking:{type:"enabled", budget_tokens?}
+// off → thinking:{type:"disabled"}
+//
+// encodeThinkingDoubao 编码豆包 Seed 模型 thinking 参数。
+func encodeThinkingDoubao(body *oaiRequest, spec *ThinkingSpec) {
+	switch spec.Mode {
+	case "on":
+		tf := &oaiThinkingField{Type: "enabled"}
+		if spec.Budget > 0 {
+			tf.BudgetTokens = spec.Budget
+		}
+		body.Thinking = tf
+	case "off":
+		body.Thinking = &oaiThinkingField{Type: "disabled"}
+	}
+}
+
+// encodeThinkingOpenRouter encodes thinking for OpenRouter.
+// on  → reasoning:{effort:Effort} or reasoning:{max_tokens:Budget} (effort preferred)
+// off → omit (no clean "off" documented; leaving reasoning absent lets the
+//
+//	upstream model use its default — emitting nothing is safer than a
+//	non-standard field).
+//
+// encodeThinkingOpenRouter 编码 OpenRouter reasoning 参数：
+// on→{effort} 或 {max_tokens}（effort 优先）；off→省略（无官方关闭形，不发更安全）。
+func encodeThinkingOpenRouter(body *oaiRequest, spec *ThinkingSpec) {
+	if spec.Mode != "on" {
+		return // off: omit (no documented disable form)
+	}
+	r := &oaiOpenRouterReasoning{}
+	if spec.Effort != "" {
+		r.Effort = spec.Effort
+	} else if spec.Budget > 0 {
+		r.MaxTokens = spec.Budget
+	} else {
+		r.Effort = "medium" // default
+	}
+	body.Reasoning = r
+}
+
+// encodeThinkingGeminiCompat encodes thinking for Gemini OpenAI-compat surface.
+// Same as OpenAI: reasoning_effort string.
+//
+// encodeThinkingGeminiCompat 编码 Gemini compat 面的 thinking（与 OpenAI 相同）。
+func encodeThinkingGeminiCompat(allowed []string) func(*oaiRequest, *ThinkingSpec) {
+	return encodeThinkingOpenAI(allowed)
+}
+
+// encodeThinkingOllama encodes thinking for Ollama /v1.
+// on  → reasoning_effort = Effort (clamp to {high,medium,low,none}; default "medium")
+// off → reasoning_effort = "none"
+//
+// encodeThinkingOllama 编码 Ollama /v1 thinking：
+// on→reasoning_effort（clamp）；off→"none"。
+func encodeThinkingOllama(body *oaiRequest, spec *ThinkingSpec) {
+	allowed := []string{"high", "medium", "low", "none"}
+	switch spec.Mode {
+	case "on":
+		body.ReasoningEffort = clampEffort(spec.Effort, allowed, "medium")
+	case "off":
+		body.ReasoningEffort = "none"
+	}
 }

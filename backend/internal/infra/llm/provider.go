@@ -73,41 +73,77 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 // —— 它们都讲 /chat/completions。
 var providerRegistry = buildProviderRegistry()
 
-// buildProviderRegistry constructs the canonical Provider registry. The two
-// OpenAI-compat providers with non-trivial request mutations carry their hook
-// inline; all others use a nil hook (no mutation). anthropic gets its own
+// buildProviderRegistry constructs the canonical Provider registry. Providers
+// with non-trivial request mutations (beforeRequest) or thinking encoders
+// (thinkingEncoder) carry their hooks inline. anthropic gets its own
 // native-dialect Provider; mock is absent (Build short-circuits to MockClient).
 //
-// buildProviderRegistry 构建权威 Provider 注册表。两个有非平凡 Request 变换的
-// OpenAI-compat provider 直接内联钩子；其余 nil（不变换）。anthropic 使用自有
-// 原生方言 Provider；mock 缺席（Build 直接短路到 MockClient）。
+// buildProviderRegistry 构建权威 Provider 注册表。有非平凡 Request 变换
+// (beforeRequest) 或 thinking 编码器 (thinkingEncoder) 的 provider 内联钩子；
+// anthropic 使用自有原生方言 Provider；mock 缺席（Build 直接短路到 MockClient）。
 func buildProviderRegistry() map[string]Provider {
 	compat := func(name, baseURL string) *openAICompatProvider {
 		return newOpenAICompatProvider(name, baseURL)
 	}
 	reg := map[string]Provider{
-		"openai":     compat("openai", "https://api.openai.com/v1"),
-		"google":     compat("google", "https://generativelanguage.googleapis.com/v1beta/openai"),
-		"openrouter": compat("openrouter", "https://openrouter.ai/api/v1"),
-		"qwen":       compat("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-		"zhipu":      compat("zhipu", "https://open.bigmodel.cn/api/paas/v4"),
-		"moonshot":   compat("moonshot", "https://api.moonshot.cn/v1"),
-		"doubao":     compat("doubao", "https://ark.cn-beijing.volces.com/api/v3"),
-		"ollama":     compat("ollama", ""),
-		"custom":     compat("custom", ""),
-		"anthropic":  newAnthropicProvider(),
+		"custom":    compat("custom", ""),
+		"anthropic": newAnthropicProvider(),
 	}
 
-	// deepseek: strip reasoning_content from plain assistant turns; preserve on tool-call turns (V3.2+).
-	// deepseek：纯 assistant turn 剥 reasoning_content；含 tool_calls 的 turn 保留（V3.2+）。
+	// openai: reasoning_effort for reasoning models.
+	// openai：推理模型用 reasoning_effort。
+	oa := compat("openai", "https://api.openai.com/v1")
+	oa.thinkingEncoder = encodeThinkingOpenAI([]string{"none", "minimal", "low", "medium", "high", "xhigh"})
+	reg["openai"] = oa
+
+	// google compat: reasoning_effort (same shape as OpenAI compat surface).
+	// google compat：reasoning_effort（与 OpenAI compat 面相同）。
+	gc := compat("google", "https://generativelanguage.googleapis.com/v1beta/openai")
+	gc.thinkingEncoder = encodeThinkingGeminiCompat([]string{"minimal", "low", "medium", "high"})
+	reg["google"] = gc
+
+	// deepseek: strip reasoning_content from plain turns + thinking:{type} + reasoning_effort.
+	// deepseek：剥普通 turn reasoning_content + thinking:{type} + reasoning_effort。
 	ds := compat("deepseek", "https://api.deepseek.com")
 	ds.beforeRequest = deepseekBeforeRequest
+	ds.thinkingEncoder = encodeThinkingDeepSeek
 	reg["deepseek"] = ds
 
-	// ollama: force non-streaming when tools are present (Ollama drops tool_calls when streaming).
-	// ollama：有 tools 时强制非流式（Ollama streaming 会吞 tool_calls）。
+	// qwen: enable_thinking bool + optional thinking_budget (stream guard in buildOpenAIBody).
+	// qwen：enable_thinking bool + 可选 thinking_budget（流式守卫在 buildOpenAIBody）。
+	qw := compat("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+	qw.thinkingEncoder = encodeThinkingQwen
+	reg["qwen"] = qw
+
+	// zhipu: thinking:{type:"enabled"|"disabled"}.
+	// zhipu：thinking:{type} 切换。
+	zh := compat("zhipu", "https://open.bigmodel.cn/api/paas/v4")
+	zh.thinkingEncoder = encodeThinkingZhipu
+	reg["zhipu"] = zh
+
+	// moonshot: thinking:{type:"enabled"|"disabled"} for k2.5/k2.6.
+	// moonshot：k2.5/k2.6 用 thinking:{type} 切换。
+	ms := compat("moonshot", "https://api.moonshot.cn/v1")
+	ms.thinkingEncoder = encodeThinkingMoonshot
+	reg["moonshot"] = ms
+
+	// doubao: thinking:{type:"enabled"|"disabled"} + optional budget_tokens.
+	// doubao：thinking:{type} + 可选 budget_tokens。
+	db := compat("doubao", "https://ark.cn-beijing.volces.com/api/v3")
+	db.thinkingEncoder = encodeThinkingDoubao
+	reg["doubao"] = db
+
+	// openrouter: reasoning:{effort|max_tokens}.
+	// openrouter：reasoning:{effort|max_tokens}。
+	or_ := compat("openrouter", "https://openrouter.ai/api/v1")
+	or_.thinkingEncoder = encodeThinkingOpenRouter
+	reg["openrouter"] = or_
+
+	// ollama: force non-streaming when tools present + reasoning_effort.
+	// ollama：有 tools 时强制非流 + reasoning_effort。
 	ol := compat("ollama", "")
 	ol.beforeRequest = ollamaBeforeRequest
+	ol.thinkingEncoder = encodeThinkingOllama
 	reg["ollama"] = ol
 
 	return reg
