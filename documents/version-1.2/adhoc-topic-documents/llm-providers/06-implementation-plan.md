@@ -16,13 +16,16 @@
 ## 文件结构(decomposition 锁定)
 
 **新建**:
-- `backend/internal/pkg/modelcaps/modelcaps.go` — Cap/Rule 类型 + 家族规则表 + Lookup
+- `backend/internal/pkg/modelcaps/modelcaps.go` — Cap/Rule/CapOverride 类型 + 家族规则表 + Lookup + Apply(合并)
 - `backend/internal/pkg/modelcaps/modelcaps_test.go`
+- `backend/internal/domain/model/modelcapoverride.go` — `ModelCapOverride` 实体(`mco_` 前缀)+ 仓储接口
+- `backend/internal/infra/store/modelcapoverride/modelcapoverride.go` — GORM store
+- `backend/internal/app/apikey/capabilities.go` — `ResolveCapabilities`(静态⊕实时读⊕用户覆盖)+ override CRUD
 - `backend/internal/infra/llm/provider.go` — Provider 接口 + 注册表
 - `backend/internal/infra/llm/transport.go` — 共享铁律(http do / SSE 扫描 / sanitize 复用)
 - `backend/internal/infra/llm/{openai,deepseek,anthropic,gemini,qwen,zhipu,moonshot,doubao,openrouter,ollama,custom}.go` — 每家完整 adapter(openai.go/anthropic.go 现存,重构)
 - `backend/internal/infra/llm/golden/<provider>_golden_test.go` — 每家黄金线格式 + httptest 回环
-- `backend/internal/transport/httpapi/handlers/capabilities.go` — `GET /model-capabilities`
+- `backend/internal/transport/httpapi/handlers/capabilities.go` — `GET /model-capabilities` + `PUT/DELETE /model-capabilities/{provider}/{modelId}`(用户覆盖)
 - `frontend/src/entities/model-config/model/capability.ts` — capabilityFor selector + 类型
 
 **修改(关键)**:
@@ -205,7 +208,22 @@ git commit -m "feat(modelcaps): per-(provider,model) capability catalog with fam
 git push origin main
 ```
 
-> 注:实时读(Anthropic/Gemini/OpenRouter/Ollama)+ 用户覆盖留到 P4/P5 增量加(LookupLive 包装);P0 只立静态底座,解锁 compaction(P5)与前端(P4)。`modelmeta` 的删除在 P5 完成(此刻并存,无冲突)。
+> 注:实时读(Anthropic/Gemini/OpenRouter/Ollama)overlay 留到 P4 增量加(ResolveCapabilities 内);P0 立静态规则 + 用户覆盖(P0.2)。`modelmeta` 的删除在 P5 完成(此刻并存,无冲突)。
+
+### Task P0.2: 用户能力覆盖(表 + Apply 合并 + ResolveCapabilities)
+
+**Files:** Create `domain/model/modelcapoverride.go`、`infra/store/modelcapoverride/modelcapoverride.go`、`app/apikey/capabilities.go`;Modify `modelcaps.go`(+CapOverride+Apply)、`cmd/server/main.go`(AutoMigrate + 装配)、`CLAUDE.md §S15`(+`mco_` 前缀)
+
+- [ ] **Step 1: 写失败测试** —— ① `modelcaps_test.go`:`Apply(base, &CapOverride{Thinking:&shapeNone})` 只盖 Thinking、窗口仍来自 base;nil overlay 原样返回。② `modelcapoverride` store 测试:Upsert→Get round-trip(in-memory sqlite,T2)。③ `capabilities_test.go`:`ResolveCapabilities` 对有 override 的 (provider,model) 返合并值、无 override 返静态规则值。
+- [ ] **Step 2:** Run `cd backend && go test ./internal/pkg/modelcaps/ ./internal/infra/store/modelcapoverride/ ./internal/app/apikey/ -run 'Apply|Override|ResolveCapabilities' -v` → FAIL
+- [ ] **Step 3: 实现** ——
+  - `modelcaps.go` 加 `type CapOverride struct { Thinking *ThinkingShape; ContextWindow, MaxOutput *int }` + `func Apply(base Cap, o *CapOverride) Cap`(o 非空字段盖 base,o=nil 返 base)。
+  - `domain/model/modelcapoverride.go`:`ModelCapOverride{ID(mco_), UserID, Provider, ModelID, ThinkingShape *string, ContextWindow *int, MaxOutput *int, timestamps, deleted_at}` + gorm `uniqueIndex` on (user_id,provider,model_id) + 仓储接口 `Upsert/Get/List/Delete`。
+  - `infra/store/modelcapoverride`:GORM 实现(UserID-scoped,软删,§D1/D2/D5)。
+  - `app/apikey/capabilities.go`:`ResolveCapabilities(ctx, provider, modelID) modelcaps.Cap` = `modelcaps.Apply(modelcaps.Lookup(provider, modelID), overrideStore.Get(...))`(实时读 overlay 占位,P4 填);+ `SetOverride/ClearOverride/ListCapabilities`。
+  - `main.go`:`db.AutoMigrate(&ModelCapOverride{})` + 装配 store→capabilities service。`§S15` 加 `mco_`。
+- [ ] **Step 4:** Run → PASS;`make unit` 绿;`staticcheck ./...`
+- [ ] **Step 5:** Commit `feat(modelcaps): user capability override (table + Apply merge + ResolveCapabilities)` + push
 
 ---
 
@@ -330,15 +348,19 @@ git push origin main
 
 # P4 — 能力端点 + 前端
 
-### Task P4.1: GET /model-capabilities
+### Task P4.1: /model-capabilities 端点(GET 合并目录 + PUT/DELETE 覆盖)+ 实时读 overlay
 
-**Files:** Create `handlers/capabilities.go`;Modify router
+**Files:** Create `handlers/capabilities.go`;Modify router、`app/apikey/capabilities.go`(填 P0.2 占位的实时读 overlay)
 
-- [ ] 5 步 TDD —— 返 modelcaps 目录(provider → pattern → {thinking 形状, window, contextMode})。Commit + push
+- [ ] 5 步 TDD ——
+  - `GET /model-capabilities` 返 `ListCapabilities`(静态⊕实时读⊕用户覆盖;provider→model→{thinking 形状, window, contextMode})。
+  - `PUT /model-capabilities/{provider}/{modelId}` → `SetOverride`(body 可空 thinking_shape/context_window/max_output)→ 200;`DELETE` → `ClearOverride` → 204。
+  - `capabilities.go` 填实时读 overlay:4 家(Anthropic `/v1/models`、Gemini `models.get`、OpenRouter `/api/v1/models`、Ollama `/api/show`)复用 tester.go probe helpers,容错(读不到回落静态)。
+  - Commit `feat(api): /model-capabilities GET+PUT+DELETE + live overlay` + push
 
 ### Task P4.2: 前端 entity 类型 + capability hook
 
-**Files:** `entities/model-config/model/types.ts`(ModelConfig/UpsertModelConfigBody +thinking 扁平 {mode,effort?,budget?})、`entities/conversation/model/types.ts`(ModelRef +thinking)、`model-config/api/model-config.ts`(+useModelCapabilities)、`model/capability.ts`(capabilityFor)、`shared/api/queryKeys.ts`(+modelCapabilities)
+**Files:** `entities/model-config/model/types.ts`(ModelConfig/UpsertModelConfigBody +thinking 扁平 {mode,effort?,budget?};+Capability/CapOverride 类型)、`entities/conversation/model/types.ts`(ModelRef +thinking)、`model-config/api/model-config.ts`(+useModelCapabilities/+useSetModelCapabilityOverride/+useClearModelCapabilityOverride)、`model/capability.ts`(capabilityFor)、`shared/api/queryKeys.ts`(+modelCapabilities)
 
 - [ ] vitest TDD;Commit + push
 
@@ -354,8 +376,14 @@ git push origin main
 
 - [ ] vitest TDD;Commit + push
 
+### Task P4.5: 能力覆盖 UI(跟不上更新时的逃生口)
+
+**Files:** `features/settings/ui/`(新小组件 `ModelCapOverrideEditor.tsx` 或并入展开卡)
+
+- [ ] vitest TDD —— 当前选中 model 旁一个「覆盖能力」入口:改 thinking 形状(none/effort/budget/toggle)+ 窗口 + 输出上限,调 `useSetModelCapabilityOverride`;「恢复默认」调 clear。改完 ModelDefaults/override 控件即按新形状渲染(`capabilityFor` 走合并目录)。Commit `feat(settings): per-model capability override UI` + push
+
 > Onboarding **不改**(保持极简,05 §9)。testend ModelConfigs.tsx 若 thinking 列做了可顺带加(可选)。
-> P4 完:`make web` + `make lint-frontend` 绿;`wails dev` 冒烟看 settings 卡。
+> P4 完:`make web` + `make lint-frontend` 绿;`wails dev` 冒烟看 settings 卡 + 覆盖入口。
 
 ---
 
@@ -367,7 +395,7 @@ git push origin main
 
 - [ ] **Step 1: 写失败测试** —— estimate 对 claude-sonnet-4-5 给 usable≈181K(200K−maxout−buffer),不是 4000。
 - [ ] **Step 2:** Run `cd backend && go test ./internal/app/contextmgr/ -v` → FAIL（现在永远 4000）
-- [ ] **Step 3: 实现** —— 签名加 `(provider, modelID string)`;`estimate.go:16` 改 `modelcaps.Lookup(provider, modelID)` 取 ContextWindow/MaxOutput;Ollama 用用户 num_ctx(经 modelcaps.ContextMode 标记,值从 api_key 配置取);删 modelmeta.go + 其 import。
+- [ ] **Step 3: 实现** —— 签名加 `(provider, modelID string)`;compactor 经 DIP 注入 `capResolver func(provider, modelID) modelcaps.Cap`(main.go 接到 `app/apikey.ResolveCapabilities`,**所以用户覆盖/Ollama num_ctx 自动生效**,且 contextmgr 不反向依赖 app/apikey);`estimate.go:16` 改用 `m.capResolver(provider, modelID)` 取 ContextWindow/MaxOutput;删 modelmeta.go + 其 import。
 - [ ] **Step 4:** Run → PASS;`make unit`+`make mock` 绿
 - [ ] **Step 5:** Commit `fix(contextmgr): window-aware compaction via modelcaps (was 4K for all)` + push
 
@@ -393,6 +421,6 @@ git push origin main
 
 ## Self-Review
 
-**Spec 覆盖**:05 §3 modelcaps→P0;§4 Provider→P2;§5 thinking→P3;§6 三 bug→P1;§7 DB→P3.1+P3.7;§8 API→P3.7+P4.1;§9 前端→P4;§10 compaction→P5;§11 测试→P2 黄金/httptest 贯穿。✅ 无遗漏。
+**Spec 覆盖**:05 §3 modelcaps(三层含用户覆盖)→P0.1+P0.2;§4 Provider→P2;§5 thinking→P3;§6 三 bug→P1;§7 DB(含 model_cap_overrides 表)→P0.2+P3.1+P3.7;§8 API(含 /model-capabilities GET+PUT+DELETE)→P3.7+P4.1;§9 前端(含覆盖 UI)→P4(P4.1-P4.5);§10 compaction(用户覆盖经注入 resolver 生效)→P5;§11 测试→P2 黄金/httptest 贯穿。✅ 无遗漏。
 **Placeholder**:per-provider 字节用 "03 §N golden" 引用(精确内容存在,非占位);adapter 逐家 task 化。
 **类型一致**:ThinkingSpec 扁平 {Mode,Effort,Budget} 后端;前端 {mode,effort?,budget?} 一致(05 §9 已统一);modelcaps.Cap.Thinking=ShapeXxx 贯穿 P0→P3 adapter 选形。
