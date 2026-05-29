@@ -3,6 +3,8 @@ package llmclient_test
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
@@ -139,5 +141,48 @@ func TestResolveDialogueWithOverride_OverrideRefersToMissingKey_ErrResolveCreds(
 	_, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), override, picker, newKeys(), newFactory(t))
 	if !errors.Is(err, llmclientpkg.ErrResolveCreds) {
 		t.Fatalf("want ErrResolveCreds, got %v", err)
+	}
+}
+
+func TestResolveDialogue_CustomAnthropicCompat_RoutesToAnthropicClient(t *testing.T) {
+	// A custom+anthropic-compatible key must reach the Anthropic wire client, which
+	// POSTs to /v1/messages — not the OpenAI /chat/completions endpoint.
+	// custom+anthropic-compatible key 必须走 Anthropic wire client（POST /v1/messages），而非 OpenAI。
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		// Return a minimal SSE message_stop so the Anthropic client terminates cleanly.
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = w.Write([]byte("data: {\"type\":\"message_stop\"}\n\n"))
+	}))
+	defer srv.Close()
+
+	keys := &fakeKeys{byID: map[string]apikeydomain.Credentials{
+		"aki_custom1": {
+			Provider:  "custom",
+			Key:       "sk-custom",
+			BaseURL:   srv.URL,
+			APIFormat: apikeydomain.APIFormatAnthropicCompatible,
+		},
+	}}
+	picker := &fakePicker{dialogue: &modeldomain.ModelRef{APIKeyID: "aki_custom1", ModelID: "my-model"}}
+	b, err := llmclientpkg.ResolveDialogueWithOverride(context.Background(), nil, picker, keys, newFactory(t))
+	if err != nil {
+		t.Fatalf("ResolveDialogueWithOverride: %v", err)
+	}
+
+	// Consume the stream to trigger the HTTP call; we only care which path was hit.
+	// The caller must populate Key/BaseURL/ModelID on Request from the Bundle (chat runner pattern).
+	// 调用方需从 Bundle 把 Key/BaseURL/ModelID 填入 Request（同 chat runner 用法）。
+	for range b.Client.Stream(context.Background(), llminfra.Request{
+		Key:      b.Key,
+		BaseURL:  b.BaseURL,
+		ModelID:  b.ModelID,
+		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}},
+	}) {
+	}
+
+	if gotPath != "/v1/messages" {
+		t.Errorf("client hit path %q, want /v1/messages (anthropic endpoint); custom+anthropic-compatible routed to wrong client", gotPath)
 	}
 }

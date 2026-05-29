@@ -300,7 +300,7 @@ func (s *Service) ResolveCredentials(ctx context.Context, provider string) (apik
 			baseURL = meta.DefaultBaseURL
 		}
 	}
-	return apikeydomain.Credentials{Provider: provider, Key: string(plain), BaseURL: baseURL}, nil
+	return apikeydomain.Credentials{Provider: provider, Key: string(plain), BaseURL: baseURL, APIFormat: k.APIFormat}, nil
 }
 
 // ResolveCredentialsByID resolves by api_key id; repo's Get is ctx user_id scoped,
@@ -323,7 +323,7 @@ func (s *Service) ResolveCredentialsByID(ctx context.Context, apiKeyID string) (
 			baseURL = meta.DefaultBaseURL
 		}
 	}
-	return apikeydomain.Credentials{Provider: k.Provider, Key: string(plain), BaseURL: baseURL}, nil
+	return apikeydomain.Credentials{Provider: k.Provider, Key: string(plain), BaseURL: baseURL, APIFormat: k.APIFormat}, nil
 }
 
 // MarkInvalid flips test_status to error on 401/403 via detached ctx (§S9).

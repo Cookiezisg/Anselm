@@ -634,6 +634,59 @@ func TestService_Delete_RefusesWhenReferencedByNodeOverride(t *testing.T) {
 	}
 }
 
+func TestService_ResolveCredentialsByID_CustomKey_CarriesAPIFormat(t *testing.T) {
+	// APIFormat must survive the Credentials boundary so factory.Build can route
+	// custom+anthropic-compatible keys to the Anthropic client.
+	// APIFormat 必须随 Credentials 传递，否则 factory.Build 无法把 custom+anthropic-compat key 路由到 Anthropic client。
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-custom")
+	created, err := svc.Create(ctx, CreateInput{
+		Provider:    "custom",
+		Key:         "sk-custom-key",
+		BaseURL:     "http://localhost:9999/v1",
+		APIFormat:   apikeydomain.APIFormatAnthropicCompatible,
+		DisplayName: "local-llm",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	creds, err := svc.ResolveCredentialsByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ResolveCredentialsByID: %v", err)
+	}
+	if creds.APIFormat != apikeydomain.APIFormatAnthropicCompatible {
+		t.Errorf("Credentials.APIFormat = %q, want %q (dropped at Credentials boundary)",
+			creds.APIFormat, apikeydomain.APIFormatAnthropicCompatible)
+	}
+}
+
+func TestService_ResolveCredentials_CustomKey_CarriesAPIFormat(t *testing.T) {
+	// ResolveCredentials (by provider) must also thread APIFormat through.
+	// 按 provider 解析时 APIFormat 同样不能丢。
+	svc, _ := newTestService(t, &fakeTester{})
+	ctx := ctxFor("u-custom2")
+	_, err := svc.Create(ctx, CreateInput{
+		Provider:    "custom",
+		Key:         "sk-custom-key",
+		BaseURL:     "http://localhost:9999/v1",
+		APIFormat:   apikeydomain.APIFormatAnthropicCompatible,
+		DisplayName: "local-llm",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	creds, err := svc.ResolveCredentials(ctx, "custom")
+	if err != nil {
+		t.Fatalf("ResolveCredentials: %v", err)
+	}
+	if creds.APIFormat != apikeydomain.APIFormatAnthropicCompatible {
+		t.Errorf("Credentials.APIFormat = %q, want %q (dropped at Credentials boundary)",
+			creds.APIFormat, apikeydomain.APIFormatAnthropicCompatible)
+	}
+}
+
 func TestDefaultProvider_ReturnsMarked(t *testing.T) {
 	svc, repo := newTestService(t, &fakeTester{})
 	ctx := ctxFor("u-default-provider-test")

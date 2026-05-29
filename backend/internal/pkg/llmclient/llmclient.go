@@ -118,10 +118,11 @@ func finishResolve(
 		return nil, fmt.Errorf("%w: %w", ErrResolveCreds, err)
 	}
 	client, baseURL, err := factory.Build(llminfra.Config{
-		Provider: creds.Provider,
-		ModelID:  modelID,
-		Key:      creds.Key,
-		BaseURL:  creds.BaseURL,
+		Provider:  creds.Provider,
+		APIFormat: creds.APIFormat,
+		ModelID:   modelID,
+		Key:       creds.Key,
+		BaseURL:   creds.BaseURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrBuildClient, err)

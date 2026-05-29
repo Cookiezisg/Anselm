@@ -55,6 +55,11 @@ type Credentials struct {
 	Provider string
 	Key      string
 	BaseURL  string
+	// APIFormat is non-empty only for "custom" keys; carried to factory.Build so the
+	// anthropic-compatible branch fires correctly.
+	//
+	// APIFormat 仅对 custom key 非空；传给 factory.Build 以正确分派 anthropic-compat 分支。
+	APIFormat string
 }
 
 type ListFilter struct {
