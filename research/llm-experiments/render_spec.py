@@ -1,7 +1,8 @@
-"""Render the 91-tool catalog (spec_catalog.py) → markdown for doc 15-tool-catalog.
+"""Render the 91-tool catalog (spec_catalog.py) → markdown: the AS-TESTED BASELINE descriptions.
 
-Single source of truth: spec_catalog.ALL_TOOLS. Re-run to keep the doc in sync with the
-validated tool descriptions. Output → documents/.../15-tool-catalog.md
+This is the "现状" reference (what each tool's description looked like when validated), NOT the
+optimized ship-this version — the before→after lives in doc 15. Output →
+documents/.../research-archive/baseline-tool-catalog.md
 """
 
 from __future__ import annotations
@@ -29,11 +30,10 @@ FAM_MODE = {
 
 def render() -> str:
     c = count()
-    out = ["# 15 — 全 91 工具目录(每个 tool 告诉 AI 的描述,最新版)",
+    out = ["# 基线工具描述(as-tested,91 工具)——「现状」原始参考",
            "",
-           "> **这是「每个 tool 的描述怎么告诉 AI」的一站式参考。** 由 `research/llm-experiments/render_spec.py` 从 `spec_catalog.py`(可执行 source of truth)渲染——改 `spec_catalog.py` 后重跑即同步。",
-           "> 每个工具:最终 `Description()`(告诉 AI 的原文)+ 必填/可选参数。验证模式见各家族标题。",
-           "> 这是已实测验证的基线;**动土前的改动(case→when:、ops/node pin 形状、forge 教学等 before/after)见 [13-llm-facing-implementation-guide.md](./13-llm-facing-implementation-guide.md)**;实验依据见 [14-llm-validation-research-record.md](./14-llm-validation-research-record.md)。",
+           "> **这是被测的基线工具描述(91 个 `Description()` 原文 + 参数),即 before→after 里的「现状」。** 由 `research/llm-experiments/render_spec.py` 从 `spec_catalog.py` 渲染。",
+           "> **优化后(ship-this)的逐项 before→after 见 [`../15-tool-catalog.md`](../15-tool-catalog.md)**;实验依据见 [`../14-llm-validation-research-record.md`](../14-llm-validation-research-record.md)。",
            f"> 合计 **{c['TOTAL']}** 工具。被测 deepseek-v4-flash。",
            ""]
     for fam, tools in FAMILIES.items():
@@ -62,6 +62,6 @@ def render() -> str:
 
 if __name__ == "__main__":
     md = render()
-    dest = Path(__file__).resolve().parents[2] / "documents/version-1.2/adhoc-topic-documents/workflow-revamp/15-tool-catalog.md"
+    dest = Path(__file__).resolve().parents[2] / "documents/version-1.2/adhoc-topic-documents/workflow-revamp/research-archive/baseline-tool-catalog.md"
     dest.write_text(md)
     print(f"wrote {dest} ({len(md)} chars, {md.count('### ')} tools)")

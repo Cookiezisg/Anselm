@@ -1,8 +1,8 @@
 # 13 — LLM-Facing 实施指南(workflow-revamp:照这个做)
 
-> **这是一篇"你该做什么"的文档。** revamp 的 LLM-facing 层(给 deepseek-v4-flash 看的工具描述 / schema / 系统 prompt / 后端容错)按本文实现,不用再猜。
-> 每条改动都标 **现状(revamp 草案,00-12 文档) → 改成(已实测验证) → 为什么**。
-> 实测证据 + 全部实验在 [`14-research-record.md`](./14-research-record.md);原研究稿归档在 [`research-archive/`](./research-archive/)。
+> **这是一篇"你该做什么"的决策视图**:必做清单 + 优先级 + 产品形态认知(一屏看完)。
+> 📍 **逐项、全面的 before→after(8 个面:工具描述/选择/catalog/系统 prompt/schema/后端/API 杠杆/产品形态)统一在 [`15-tool-catalog.md`](./15-tool-catalog.md)** —— 要照着改某一面,去那篇;本文给优先级和 why。
+> 实测证据 + 全部实验在 [`14-llm-validation-research-record.md`](./14-llm-validation-research-record.md);原研究稿归档在 [`research-archive/`](./research-archive/)。
 > 被测模型:**deepseek-v4-flash**(平台默认便宜模型)。
 
 ---
