@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultCallTimeout = 30 * time.Second
+	defaultCallTimeout = 180 * time.Second // agent-recovery timeout (= limits.Default MCPCallSec); MCP tools may call LLMs / scrape, and timing out returns control to the agent
 	degradedThreshold  = 3
 	addServerTimeout   = 3 * time.Minute
 	initializeTimeout  = 30 * time.Second

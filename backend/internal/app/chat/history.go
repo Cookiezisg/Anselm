@@ -15,7 +15,17 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-const maxHistoryMessages = 200
+// maxHistoryMessages is a pure I/O safety ceiling on the DB read, NOT the
+// semantic context bound — that's the token budget + compaction's ContextRole
+// projection (archived messages are skipped below; warm/cold tool_results are
+// previewed/omitted in BlocksToAssistantLLM). Raised from 200 so a long run of
+// small messages under the compaction threshold isn't silently truncated.
+//
+// maxHistoryMessages 是 DB 读取的纯 I/O 安全上限，非语义边界——语义边界是 token
+// 预算 + compaction 的 ContextRole 投影（下方跳过 archived 消息；warm/cold
+// tool_result 在 BlocksToAssistantLLM 里预览/省略）。从 200 抬高，避免压缩阈值下
+// 大量小消息被静默截断。
+const maxHistoryMessages = 2000
 
 // buildHistory loads completed messages and appends currentUserMsgID last to dodge created_at races.
 //
@@ -52,6 +62,17 @@ func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID str
 		if m.Role == "system" {
 			continue
 		}
+		// Skip messages whose blocks are all archived — their content lives in
+		// conv.Summary (prepended above). Applies the ContextRole projection
+		// uniformly to USER messages too (buildUserLLMMessage itself ignores
+		// role), so raising maxHistoryMessages can't re-inject archived turns full.
+		//
+		// 跳过 blocks 全 archived 的消息——内容已在 conv.Summary。对 user 消息也统一
+		// 应用投影（buildUserLLMMessage 自身不看 role），使抬高 maxHistoryMessages
+		// 不会把已归档回合全量重塞。
+		if allBlocksArchived(m) {
+			continue
+		}
 		msgs, err := s.blocksToLLM(ctx, m)
 		if err != nil {
 			return nil, fmt.Errorf("chat.Service.buildHistory: message %q: %w", m.ID, err)
@@ -67,6 +88,24 @@ func (s *Service) buildHistory(ctx context.Context, convID, currentUserMsgID str
 		out = append(out, msg)
 	}
 	return out, nil
+}
+
+// allBlocksArchived reports whether every block of m is ContextRole "archived"
+// (so the message is fully represented in conv.Summary). Empty-block messages
+// are not archived (nothing to skip).
+//
+// allBlocksArchived 报告 m 的所有 block 是否都为 ContextRole "archived"（即整条
+// 消息已被 conv.Summary 代表）。无 block 的消息不算 archived。
+func allBlocksArchived(m *chatdomain.Message) bool {
+	if len(m.Blocks) == 0 {
+		return false
+	}
+	for _, b := range m.Blocks {
+		if b.ContextRole != "archived" {
+			return false
+		}
+	}
+	return true
 }
 
 // blocksToLLM converts a persisted Message to LLM wire messages.

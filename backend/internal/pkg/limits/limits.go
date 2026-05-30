@@ -124,3 +124,27 @@ func Default() Limits {
 //
 // MaxSearchTopN 是 search_* 返回数的硬上限，不可调。
 const MaxSearchTopN = 50
+
+// current is the live limits source. Defaults to Default (high ceilings); P3's
+// main.go calls SetProvider once at startup with the settings-backed getter, so
+// every consumer (reading via Current) sees user-tuned values + hot-reload. The
+// write happens only at startup before serving, so concurrent reads stay safe.
+//
+// current 是 limits 的活动来源。默认 Default（高 ceiling）；P3 的 main.go 启动时
+// SetProvider 一次换成 settings-backed getter，所有消费方（经 Current 读）见用户
+// 调过的值 + 热重载。写只在启动、服务前，故并发读安全。
+var current = Default
+
+// Current returns the live limits — the single read point for every consumer.
+//
+// Current 返活动 limits——所有消费方的唯一读取点。
+func Current() Limits { return current() }
+
+// SetProvider swaps the limits source (P3 wiring, startup only); nil is ignored.
+//
+// SetProvider 换 limits 来源（P3 装配，仅启动期）；nil 忽略。
+func SetProvider(fn func() Limits) {
+	if fn != nil {
+		current = fn
+	}
+}

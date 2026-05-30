@@ -2,8 +2,12 @@ package llm
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"net/http"
+	"time"
+
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 )
 
 // Provider is one LLM wire dialect: it owns how a Request becomes an HTTP
@@ -37,7 +41,25 @@ type providerClient struct {
 
 func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
-		httpReq, err := c.provider.BuildRequest(ctx, req)
+		// Idle timeout: cancel the call if the stream produces no event for the
+		// idle window. This is a dead-socket detector, NOT a total wall-clock cap —
+		// the timer resets on every event, so a healthy long stream (deep
+		// reasoning, big generation) never trips it. ctx cancellation (user stop /
+		// turn timeout) remains the primary control.
+		//
+		// idle 超时：流在 idle 窗口内无任何事件则取消。这是死连接探测，非总墙钟——
+		// 每个事件重置计时器，健康长流（深推理 / 大生成）永不触发。ctx 取消
+		//（用户 stop / turn 超时）仍是主控。
+		streamCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		idle := time.Duration(limitspkg.Current().Timeout.LLMIdleSec) * time.Second
+		var timer *time.Timer
+		if idle > 0 {
+			timer = time.AfterFunc(idle, cancel)
+			defer timer.Stop()
+		}
+
+		httpReq, err := c.provider.BuildRequest(streamCtx, req)
 		if err != nil {
 			yield(StreamEvent{Type: EventError, Err: err})
 			return
@@ -48,10 +70,23 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 		}
 		defer resp.Body.Close()
 
-		for ev := range c.provider.ParseStream(ctx, resp, req) {
+		for ev := range c.provider.ParseStream(streamCtx, resp, req) {
+			if timer != nil {
+				timer.Reset(idle)
+			}
 			if !yield(ev) {
 				return
 			}
+		}
+
+		// If our idle timer fired (streamCtx cancelled while the parent ctx is
+		// still alive), the stream went silent mid-flight — surface it as an error
+		// instead of a phantom user-cancel (which would mislabel the turn).
+		//
+		// 若 idle 计时器触发（streamCtx 取消而父 ctx 仍活），流中途静默——报错，
+		// 而非伪装成用户取消（会误标该回合）。
+		if streamCtx.Err() != nil && ctx.Err() == nil {
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.%s: no stream activity for %s (connection appears dead)", c.provider.Name(), idle)})
 		}
 	}
 }

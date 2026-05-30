@@ -9,21 +9,22 @@ import (
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
-var defaultTimeouts = map[string]time.Duration{
-	workflowdomain.NodeTypeFunction: 30 * time.Second,
-	workflowdomain.NodeTypeHandler:  30 * time.Second,
-	workflowdomain.NodeTypeMCP:      30 * time.Second,
-	workflowdomain.NodeTypeSkill:    60 * time.Second,
-	workflowdomain.NodeTypeLLM:      60 * time.Second,
-	workflowdomain.NodeTypeHTTP:     30 * time.Second,
-	workflowdomain.NodeTypeApproval: 7 * 24 * time.Hour,
-}
-
+// nodeTimeoutDuration returns ONLY an explicit per-node override; the scheduler
+// imposes no default wall-clock. A workflow node that legitimately runs for
+// minutes (LLM / agent / function) must not be killed by a guessed timeout —
+// run-level ctx (scheduler.Cancel / app shutdown / user "stop run") plus each
+// dispatcher's own bound (HTTP node client timeout, handler RPC ctx, LLM idle
+// timeout) govern liveness; unattended cost is bounded by agent-node maxTurns,
+// not a clock (#1 ctx-over-timeout decision).
+//
+// nodeTimeoutDuration 只返显式 per-node 覆盖；调度器不再强加默认墙钟。合理跑数
+// 分钟的节点（LLM/agent/function）不该被拍脑袋超时杀——run-level ctx + 各
+// dispatcher 自身 bound 管控存活；无人值守成本由 agent maxTurns 兜，不靠时钟。
 func nodeTimeoutDuration(node workflowdomain.NodeSpec) time.Duration {
 	if node.Timeout > 0 {
 		return time.Duration(node.Timeout) * time.Millisecond
 	}
-	return defaultTimeouts[node.Type]
+	return 0
 }
 
 type retryAttemptFn func(ctx context.Context) DispatchOutput

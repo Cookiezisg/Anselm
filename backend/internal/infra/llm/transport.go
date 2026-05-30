@@ -4,22 +4,49 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 )
 
-// sharedHTTPTimeout caps a single streaming call; long enough for slow
-// reasoning models, short enough to fail a wedged connection.
+// These bound only the SETUP phase (connect / TLS / response headers), never the
+// streaming body. A healthy long stream is governed solely by the per-event idle
+// timer in providerClient.Stream + ctx cancellation — never a total wall-clock cap.
 //
-// sharedHTTPTimeout 限制单次流式调用时长；够慢推理模型用，又能让卡死连接超时失败。
-const sharedHTTPTimeout = 120 * time.Second
+// 这些只界定建连阶段（connect / TLS / 响应头），绝不限流式 body。健康长流仅由
+// providerClient.Stream 的逐事件 idle 计时器 + ctx 取消管控，无总墙钟。
+const (
+	dialTimeout           = 10 * time.Second
+	tlsHandshakeTimeout   = 10 * time.Second
+	responseHeaderTimeout = 60 * time.Second
+)
 
-// newSharedHTTPClient builds the one *http.Client every Provider reuses across requests.
+// newSharedHTTPClient builds the one *http.Client every Provider reuses. Timeout
+// is 0 — NO total wall-clock cap (that would kill a healthy streaming response);
+// only connect/TLS/header phases are bounded. Mid-stream silence is caught by the
+// per-event idle timer in providerClient.Stream.
 //
-// newSharedHTTPClient 构造所有 Provider 跨请求复用的唯一 *http.Client。
+// newSharedHTTPClient 构造所有 Provider 复用的唯一 *http.Client。Timeout=0
+//（无总墙钟——否则杀健康流）；只界定 connect/TLS/header。流中静默由 Stream 的
+// 逐事件 idle 计时器捕获。
 func newSharedHTTPClient() *http.Client {
-	return &http.Client{Timeout: sharedHTTPTimeout}
+	return &http.Client{
+		Timeout: 0,
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   dialTimeout,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			TLSHandshakeTimeout:   tlsHandshakeTimeout,
+			ResponseHeaderTimeout: responseHeaderTimeout,
+			ExpectContinueTimeout: 1 * time.Second,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+		},
+	}
 }
 
 // maxSSELineBytes lets the SSE scanner accept a single large data: line (e.g. a
