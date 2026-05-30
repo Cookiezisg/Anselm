@@ -80,18 +80,20 @@ type Rule struct { Pattern string; Cap Cap }   // 前缀匹配, 最具体优先
 
 **保留(稳定契约,所有调用方依赖)**:`Client` 接口、`StreamEvent`/`Request`/`Response`/`LLMMessage` 类型(`llm.go`)、`Generate`/retry/`sanitizer`/`trace`/`mock`。唯一调用入口仍是 `llmclient.finishResolve` → `factory.Build`。
 
-**替换**:`factory.go` 的 provider-name switch(60-79)+ `adapterWrappedClient`(adapter.go:146-163)+ 12 个 `Adapter` struct → **N 个完整 `Provider` 实现**。
+**最终架构(R1-R5 后)**:每个 provider 是完全自包含的独立文件，各自拥有完整的 `BuildRequest`(含 thinking 编码 + auth 头)和 `ParseStream`。`transport.go` 只保留 HTTP/SSE 铁律(`doRequest`/`scanSSELines`/`classifyHTTPError`)，零 provider 逻辑。没有"共享 OpenAI-compat wrapper"——初期 P2 引入的 `openAICompatProvider` 已在 R1-R5 重构中删除。
 
-**接口**:
+**Provider 接口**:
 ```go
 type Provider interface {
     Name() string
-    BaseURL(cfg Config) string                          // 各家正确 base+path
-    BuildRequest(req Request) (*http.Request, error)     // 含 thinking 编码(§5)+ auth 头
-    ParseStream(resp *http.Response) (iter.Seq[StreamEvent], error)
+    DefaultBaseURL() string
+    BuildRequest(ctx context.Context, req Request) (*http.Request, error)
+    ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent]
 }
 ```
-**文件**:`provider.go`(接口+注册表)、`transport.go`(铁律:http do、SSE 行扫描含跳 OpenRouter `:` 注释行、`SanitizeMessages`)、`openai.go`/`deepseek.go`/`anthropic.go`/`gemini.go`/`qwen.go`/`zhipu.go`/`moonshot.go`/`doubao.go`/`openrouter.go`/`ollama.go`/`custom.go` 各一个完整实现。OpenAI-compat 家族可共享一个 base helper,但每家文件显式组合(不靠通用 fallback)。
+**文件**:`provider.go`(接口+注册表+`providerClient`)、`transport.go`(铁律:http do、scanSSELines 含跳 OpenRouter `:` 注释行、classifyHTTPError)、`openai.go`/`deepseek.go`/`anthropic.go`/`gemini.go`/`qwen.go`/`zhipu.go`/`moonshot.go`/`doubao.go`/`openrouter.go`/`ollama.go`/`custom.go` 各一个完整自包含实现。`openai.go` 还持有共享的 `oai*` wire types、`buildOpenAIBody`(测试工具)、`parseOpenAISSE`/`emitOpenAIChunk`/`clampEffort`/`deepseekMapEffort` 等内联原语。
+
+**Gemini**:原生 `generateContent` provider（非 OpenAI-compat 垫片），reasoning-text readback + thoughtSignature round-trip（03 §5）。
 
 **Request 加 thinking 字段**(`llm.go:110`):`Thinking *ThinkingSpec`(归一意图);各 adapter 的 `BuildRequest` 翻译成自己的线上形状(§5)。`Config`(factory.go:8)加 `APIFormat`(已有)+ thinking 不进 Config(走 Request)。
 

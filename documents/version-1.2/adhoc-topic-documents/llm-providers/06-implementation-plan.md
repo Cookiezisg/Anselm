@@ -419,6 +419,17 @@ git push origin main
 
 ---
 
+## R1-R5 后续重构说明（2026-05-30）
+
+P2 的初始结果是「一个共享 `openAICompatProvider` + per-provider `beforeRequest`/`thinkingEncoder` 钩子」。R1-R5 对此做了彻底重构：
+
+- **每个 provider 完全自包含**：openai / deepseek / qwen / zhipu / moonshot / doubao / openrouter / ollama / custom 各自持有完整 `BuildRequest`（含 thinking 编码）和 `ParseStream`，逻辑写到各家官方 API 标准，无共享 mega-builder 依赖。
+- **Gemini 原生化**：`google` 迁移到原生 `generateContent` provider（gemini.go），替代 OpenAI-compat 垫片；reasoning-text readback + thoughtSignature round-trip（03 §5）。
+- **共享 `openAICompatProvider` 已删除**：struct、`newOpenAICompatProvider`、`beforeRequest`/`thinkingEncoder` 钩子字段、`deepseekBeforeRequest` 包级函数全部删除；`transport.go` 只保留 HTTP/SSE 铁律。
+- **测试已同步**：原依赖 `newOpenAICompatProvider` 的 golden 测试改用 `newOpenAIProvider()`；deepseekBeforeRequest 单元测试改驱动 `deepseekProvider.BuildRequest` 直接验证 wire body；staticcheck U1000 无报告。
+
+---
+
 ## Self-Review
 
 **Spec 覆盖**:05 §3 modelcaps(三层含用户覆盖)→P0.1+P0.2;§4 Provider→P2;§5 thinking→P3;§6 三 bug→P1;§7 DB(含 model_cap_overrides 表)→P0.2+P3.1+P3.7;§8 API(含 /model-capabilities GET+PUT+DELETE)→P3.7+P4.1;§9 前端(含覆盖 UI)→P4(P4.1-P4.5);§10 compaction(用户覆盖经注入 resolver 生效)→P5;§11 测试→P2 黄金/httptest 贯穿。✅ 无遗漏。
