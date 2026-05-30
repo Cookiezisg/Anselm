@@ -159,6 +159,58 @@ func (s *Service) Limits() limitspkg.Limits {
 	return *s.currentLimits.Load()
 }
 
+// UpdateLimits rewrites ONLY the "limits" block of settings.json (read-modify-
+// write preserving permissions/hooks/protectedPaths), then reloads. Atomic.
+//
+// UpdateLimits 只重写 settings.json 的 "limits" 块（read-modify-write 保留
+// permissions/hooks/protectedPaths），再 reload。原子写。
+func (s *Service) UpdateLimits(l limitspkg.Limits) error {
+	root := map[string]json.RawMessage{}
+	if raw, err := os.ReadFile(s.path); err == nil && len(raw) > 0 {
+		_ = json.Unmarshal(raw, &root) // malformed → start from an empty root
+	}
+	limBytes, err := json.Marshal(l)
+	if err != nil {
+		return fmt.Errorf("settings.UpdateLimits: marshal limits: %w", err)
+	}
+	root["limits"] = limBytes
+	out, err := json.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return fmt.Errorf("settings.UpdateLimits: marshal root: %w", err)
+	}
+	if err := s.writeAtomic(out); err != nil {
+		return err
+	}
+	return s.loadOnce()
+}
+
+// writeAtomic writes data to settings.json via a same-dir temp file + rename
+// (0600) so a partial write can't corrupt the live file.
+//
+// writeAtomic 经同目录 temp + rename（0600）原子写 settings.json，半成品不破坏。
+func (s *Service) writeAtomic(data []byte) error {
+	dir := filepath.Dir(s.path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("settings.writeAtomic: mkdir: %w", err)
+	}
+	tmp, err := os.CreateTemp(dir, "settings-*.json.tmp")
+	if err != nil {
+		return fmt.Errorf("settings.writeAtomic: temp: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return fmt.Errorf("settings.writeAtomic: write: %w", err)
+	}
+	tmp.Close()
+	_ = os.Chmod(tmp.Name(), 0o600)
+	if err := os.Rename(tmp.Name(), s.path); err != nil {
+		os.Remove(tmp.Name())
+		return fmt.Errorf("settings.writeAtomic: rename: %w", err)
+	}
+	return nil
+}
+
 // Reload forces an immediate file re-read. Used by POST /:reload and
 // tests. Returns parse / validation errors so callers can surface them.
 //

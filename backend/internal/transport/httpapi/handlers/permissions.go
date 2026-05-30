@@ -18,6 +18,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	permgate "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
 	permdomain "github.com/sunweilin/forgify/backend/internal/domain/permissions"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -29,6 +30,8 @@ import (
 type SettingsService interface {
 	GetRules() *permdomain.Settings
 	Reload() error
+	Limits() limitspkg.Limits
+	UpdateLimits(limitspkg.Limits) error
 }
 
 // PermissionsHandler serves the 5 endpoints for V1.2 §3.
@@ -67,6 +70,8 @@ func (h *PermissionsHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/settings", h.Get)
 	mux.HandleFunc("PUT /api/v1/settings", h.Put)
 	mux.HandleFunc("POST /api/v1/settings:reload", h.Reload)
+	mux.HandleFunc("GET /api/v1/settings/limits", h.GetLimits)
+	mux.HandleFunc("PUT /api/v1/settings/limits", h.PutLimits)
 	mux.HandleFunc("GET /api/v1/permissions/tools", h.ListTools)
 	mux.HandleFunc("POST /api/v1/permissions/test", h.Test)
 }
@@ -94,7 +99,21 @@ func (h *PermissionsHandler) Put(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	raw, err := json.MarshalIndent(&s, "", "  ")
+	// Merge into a generic root so the "limits" block (not part of
+	// permdomain.Settings) survives a permissions/hooks edit.
+	// 合并进通用 root，使 "limits" 块（不属 permdomain.Settings）在编辑
+	// permissions/hooks 时不被冲掉。
+	root := map[string]json.RawMessage{}
+	sBytes, err := json.Marshal(&s)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	_ = json.Unmarshal(sBytes, &root)
+	if limBytes, e := json.Marshal(h.settings.Limits()); e == nil {
+		root["limits"] = limBytes
+	}
+	raw, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -147,6 +166,33 @@ func (h *PermissionsHandler) Reload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, h.settings.GetRules())
+}
+
+// GetLimits returns the live operational limits (settings.json "limits" block
+// overlaid on high-ceiling defaults).
+//
+// GetLimits 返活动运行上限（settings.json "limits" 块叠加高 ceiling 默认）。
+func (h *PermissionsHandler) GetLimits(w http.ResponseWriter, r *http.Request) {
+	_ = r
+	responsehttpapi.Success(w, http.StatusOK, h.settings.Limits())
+}
+
+// PutLimits upserts the "limits" block (read-modify-write preserving the rest of
+// settings.json) and reloads so limits.Current() picks up the new values.
+//
+// PutLimits upsert "limits" 块（read-modify-write 保留 settings.json 其余）并
+// reload，使 limits.Current() 读到新值。
+func (h *PermissionsHandler) PutLimits(w http.ResponseWriter, r *http.Request) {
+	var l limitspkg.Limits
+	if err := decodeJSON(r, &l); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if err := h.settings.UpdateLimits(l); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, h.settings.Limits())
 }
 
 type toolRow struct {
