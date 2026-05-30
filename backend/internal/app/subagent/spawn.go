@@ -15,14 +15,10 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
-
-// defaultRunTimeout caps a single Spawn — the sole preemption mechanism for sub-runs.
-//
-// defaultRunTimeout 限定单次 Spawn，是 sub-run 唯一的抢占机制。
-const defaultRunTimeout = 5 * time.Minute
 
 const (
 	StatusCompleted = "completed"
@@ -103,7 +99,18 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 	subCtx = reqctxpkg.WithMessageID(subCtx, subMsgID)
 	subCtx = reqctxpkg.WithParentBlockID(subCtx, "")
 	subCtx = eventlogpkg.With(subCtx, em)
-	subCtx, cancel := context.WithTimeout(subCtx, defaultRunTimeout)
+	// Subagent timeout backstop (limits.Agent.SubagentTimeoutSec; 0 = unbounded).
+	// Like the chat turn, ctx cancellation (parent stop / shutdown) is the real
+	// control; this is a high safety net so an orphaned sub-run can't leak forever.
+	//
+	// subagent 超时兜底（limits.Agent.SubagentTimeoutSec；0 = 无限）。与 chat turn
+	// 同理，ctx 取消（父 stop / 关停）才是真控制，这只是高安全网防孤儿泄漏。
+	var cancel context.CancelFunc
+	if d := time.Duration(limitspkg.Current().Agent.SubagentTimeoutSec) * time.Second; d > 0 {
+		subCtx, cancel = context.WithTimeout(subCtx, d)
+	} else {
+		subCtx, cancel = context.WithCancel(subCtx)
+	}
 	defer cancel()
 
 	// Propagate effective override into subCtx so any subagent → subagent

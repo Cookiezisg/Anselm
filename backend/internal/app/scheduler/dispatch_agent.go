@@ -14,6 +14,7 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
@@ -61,15 +62,6 @@ func NewAgentDispatcher(
 	}
 }
 
-// agentMaxTurnsDefault caps agent dispatch to keep cost bounded; config can
-// override via maxTurns (clamped to [1, agentMaxTurnsHardLimit]).
-//
-// agentMaxTurnsDefault 默认轮次上限,config maxTurns 可覆盖(钳到 [1, hard])。
-const (
-	agentMaxTurnsDefault   = 10
-	agentMaxTurnsHardLimit = 50
-)
-
 func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) DispatchOutput {
 	if d.picker == nil || d.keys == nil || d.factory == nil {
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: missing picker/keys/factory", in.Node.ID)}
@@ -81,7 +73,24 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: prompt required", in.Node.ID)}
 	}
 
-	maxTurns := agentMaxTurnsDefault
+	// Workflow agent nodes are the ONE place a turn cap stays load-bearing: a
+	// triggered workflow runs unattended, so no human can stop a runaway agent.
+	// Configurable via limits.Workflow; 0 falls back to the default — we never let
+	// an unattended agent node go unbounded (decision #2 exception).
+	//
+	// workflow agent 节点是唯一保留 turn cap 的地方：触发型 workflow 无人值守，
+	// 没人能停失控 agent。经 limits.Workflow 可配；0 回落默认——绝不让无人值守
+	// agent 节点无限。
+	wf := limitspkg.Current().Workflow
+	defTurns := wf.AgentNodeMaxTurns
+	if defTurns <= 0 {
+		defTurns = 10
+	}
+	hardTurns := wf.AgentNodeMaxTurnsHard
+	if hardTurns <= 0 {
+		hardTurns = 50
+	}
+	maxTurns := defTurns
 	if v, ok := cfg["maxTurns"]; ok {
 		switch n := v.(type) {
 		case int:
@@ -93,8 +102,8 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 	if maxTurns < 1 {
 		maxTurns = 1
 	}
-	if maxTurns > agentMaxTurnsHardLimit {
-		maxTurns = agentMaxTurnsHardLimit
+	if maxTurns > hardTurns {
+		maxTurns = hardTurns
 	}
 
 	atts, err := parseAttachedDocuments(cfg)

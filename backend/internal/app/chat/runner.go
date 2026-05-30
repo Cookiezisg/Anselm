@@ -18,11 +18,10 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
-
-const maxSteps = 20
 
 func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
 	q := &convQueue{
@@ -67,24 +66,27 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 	}
 }
 
-// maxTurnDuration is the hard wall-clock cap on one chat agent turn.
-// Beyond this, agentCtx is cancelled; loop.Run observes cancellation
-// and exits at the next iteration boundary, host.WriteFinalize lands
-// status="cancelled" stop_reason="timeout". Protects against (a) a
-// runaway tool that never returns, (b) an LLM stream that hangs on a
-// dead socket past the HTTP timeout, (c) infinite tool-call loops.
+// processTask runs one queued chat turn. Its wall-clock backstop is
+// limits.Agent.MaxTurnDurationSec (0 = unbounded) — a high safety net against a
+// genuinely runaway turn, NOT a cap on healthy long work; the LLM idle-timeout +
+// user stop are the primary controls (#1 ctx-over-timeout). Raised from a flat
+// 10min so legitimately long turns aren't killed.
 //
-// maxTurnDuration 是单 chat agent turn 的硬墙钟上限。超时 agentCtx 取消，
-// loop.Run 下一步退出，host.WriteFinalize 落 status=cancelled
-// stop_reason=timeout。防 (a) 永不返回的 tool，(b) socket 死后挂死的
-// LLM stream，(c) 无限 tool-call 循环。10min 取自"单轮工作流复杂任务
-// 合理上限"经验值；超过基本是 bug 而非用户期望。
-const maxTurnDuration = 10 * time.Minute
-
+// processTask 跑一个排队 chat turn。墙钟兜底取自 limits.Agent.MaxTurnDurationSec
+//（0 = 无限）——防真正失控回合的高安全网，非限健康长活；LLM idle 超时 + 用户
+// stop 才是主控。从固定 10min 抬高，避免杀健康长回合。
 func (s *Service) processTask(conversationID string, q *convQueue, task queuedTask) {
 	ctx := task.ctx
 
-	agentCtx, cancel := context.WithTimeout(ctx, maxTurnDuration)
+	var (
+		agentCtx context.Context
+		cancel   context.CancelFunc
+	)
+	if turnDur := time.Duration(limitspkg.Current().Agent.MaxTurnDurationSec) * time.Second; turnDur > 0 {
+		agentCtx, cancel = context.WithTimeout(ctx, turnDur)
+	} else {
+		agentCtx, cancel = context.WithCancel(ctx)
+	}
 	q.mu.Lock()
 	q.cancel = cancel
 	q.mu.Unlock()
@@ -148,7 +150,11 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 	if s.interceptor != nil {
 		agentCtx = loopapp.WithInterceptor(agentCtx, s.interceptor)
 	}
-	result := loopapp.Run(agentCtx, host, bc.Client, baseReq, maxSteps, s.log)
+	ms := limitspkg.Current().Agent.MaxSteps
+	if ms <= 0 {
+		ms = 1_000_000 // 0 = unbounded; a runaway backstop the user can always interrupt
+	}
+	result := loopapp.Run(agentCtx, host, bc.Client, baseReq, ms, s.log)
 
 	s.log.Info("agent run complete",
 		zap.String("conversation_id", task.conv.ID),
