@@ -272,3 +272,5 @@ interface ThinkingSpec {
 | `density` | `"compact" \| "cozy" \| "comfortable"` | `"cozy"` |
 | `lang` | `"zh" \| "en"` | `navigator.language` 检测 |
 | `reasoningDefault` | `"collapsed" \| "expanded"` | `"collapsed"` |
+
+**运行上限（REST，区别于上表 settingsStore 前端偏好）**：`entities/settings/api/limits.ts` 的 `useLimits` / `useUpdateLimits`（`qk.settingsLimits()`）↔ `GET/PUT /api/v1/settings/limits`；类型 `Limits`（`model/limits.ts`，镜像后端 `internal/pkg/limits.Limits`：`agent` / `output` / `context` / `timeout` / `tools` / `workflow` / `guards` 七组数字上限）+ `DEFAULT_LIMITS`。这是**后端行为配置**（经 API 往返 + 存 settings.json，热重载），由 `features/settings/ui/AdvancedCapabilitiesSection` 编辑；详 [`../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md`](../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md)。
