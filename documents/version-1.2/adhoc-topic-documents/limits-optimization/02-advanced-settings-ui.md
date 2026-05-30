@@ -2,6 +2,7 @@
 
 > **定位**:把 [`01`](./01-optimize-decisions.md) 里标"可配"的限制做成**用户可调**,落实原则 #3——**存** `settings.json`,**调节入口在前端 Settings 界面底部新增「高级能力」区**,不让用户碰裸文件。
 > 默认值 = `01` 的高 ceiling;留空/缺省 = 代码默认。
+> **注入时序**:`DefaultLimits` + `func() Limits` getter **在 P0 就落地**(先只返回默认值),P0–P2 一上来就读 getter 写最终形态;P3 只把 getter 的**数据源**从默认改成 `settings.json` + 加读写端点 + 前端 UI(详 [`03`](./03-implementation-plan.md))。
 
 ---
 
@@ -23,16 +24,17 @@
     },
     "output": {
       "unknownModelMaxTokens": 64000,  // 未知模型输出兜底(modelcaps fallback)
-      "perScenarioOverride": {}        // 可选 { dialogue|utility|agent: int };空=用模型真值
+      "perScenarioOverride": {}        // (P3 可选){ dialogue|utility|agent: int };空=用模型真值
     },
     "context": { "softRatio": 0.70, "hardRatio": 0.85 },
     "timeout": {
-      "llmIdleSec": 100,               // 流式 LLM「无 token 多久」算 wedged(非总墙钟)
-      "nodeDefaultSec": 0,             // workflow 普通节点默认(0 = 不强加;http 节点恒 30s)
-      "mcpCallSec": 180
+      "llmIdleSec": 150,               // 流式 LLM「无 token 多久」算死连接(非总墙钟;每 token 重置)
+      "mcpCallSec": 180,               // mcp 工具调用:超时=把控制权还给 agent(高默认)
+      "bashDefaultTimeoutSec": 120     // Bash 默认超时:同上(单次调用仍可传更大值,硬上限 600s 为常量)
+      // 注:workflow 节点墙钟超时已删——节点靠 run-level ctx + stop,不在此配
     },
     "tools": {
-      "searchTopN": 10,                // search_function/handler 默认返回数
+      "searchTopN": 10,                // 所有 search_* 统一默认返回数(硬上限 50 为常量)
       "readDefaultLines": 2000,
       "bashOutputCapKB": 256
     },
@@ -40,7 +42,7 @@
       "agentNodeMaxTurns": 10,
       "agentNodeMaxTurnsHard": 50
     },
-    "guards": {                        // 桶 2 的"机制必需但值可放开"
+    "guards": {                        // (P3 可选)桶 2 的"机制必需但值可放开"
       "attachmentMaxMB": 50,
       "httpNodeRespMaxMB": 10,
       "webhookBodyMaxMB": 10
@@ -49,21 +51,21 @@
 }
 ```
 
-**只暴露有意义的 ~15 个 knob,不是 150 个**——其余写死项(crypto/idgen/SSE buffer/枚举/防护下限)不进 UI。
+**只暴露有意义的 ~14 个 knob,不是 150 个**——其余写死项(crypto/idgen/SSE buffer/枚举/防护下限)不进 UI。
 
 ---
 
 ## §2 后端:读 + 写 + 注入
 
 ### 读 / 写
-- `infra/settings` 增 `Limits()` 返回当前快照(带 zero-value→默认 的填充);整段缺省返回 `DefaultLimits`。
-- 增**写路径**:`Settings.UpdateLimits(patch)` 原子写回 `settings.json`(`tmp+rename`,0600),写完 watcher 自然 reload;或写后立即更新内存快照(避免等轮询)。
+- `infra/settings` 增 `Limits()` 返回当前快照(zero-value → 默认 填充);整段缺省返回 `DefaultLimits`。
+- 增**写路径**:`Settings.UpdateLimits(patch)` —— **read-modify-write**:先读现有 `settings.json`(含用户手改的 permissions/hooks),**只替换 `limits` 段**,原子写回(`tmp+rename`,0600),**绝不整文件覆盖**(否则冲掉用户的 hooks)。写后立即更新内存快照(不等轮询)。
 - 新端点(N 系列 envelope,camelCase):
-  - `GET /api/v1/settings/limits` → `{data: Limits}`(含每项的"是否用默认"标记,供 UI 显示)
+  - `GET /api/v1/settings/limits` → `{data: Limits}`(含每项"是否用默认"标记,供 UI 显示)
   - `PUT /api/v1/settings/limits` → 200,body 为完整 `Limits`(N6 upsert 语义);非法值 400。
 
-### 注入(DIP,沿用现有 `CapabilityResolver func` 注入范式)
-`main.go` 把 `settings.Limits` 快照(或一个 `func() Limits` getter)注入各消费方,**热重载即时生效**:
+### 注入(DIP getter,沿用现有 `CapabilityResolver func` 注入范式)
+`main.go` 把 `func() Limits` getter 注入各消费方,**热重载即时生效**。**getter 本身 P0 就装上**(先返回 `DefaultLimits`),所以下表的注入点在 P0–P2 各自阶段就接好;P3 只让 getter 改读 settings:
 
 | 消费方 | 取哪些 |
 |---|---|
@@ -71,11 +73,11 @@
 | `app/subagent` | `agent.subagentTimeoutSec` / `subagentMaxTurns` |
 | `infra/llm`(transport / anthropic / modelcaps) | `timeout.llmIdleSec`、`output.unknownModelMaxTokens` |
 | `app/contextmgr` | `context.softRatio` / `hardRatio`(已有 `SetThresholds` 钩子) |
-| `app/scheduler` | `timeout.nodeDefaultSec`、`workflow.agentNodeMaxTurns*` |
+| `app/scheduler` | `workflow.agentNodeMaxTurns*`(**节点墙钟超时已删,不再注入 nodeTimeout**) |
 | `app/mcp` | `timeout.mcpCallSec` |
-| `app/tool/{function,handler,filesystem,shell}` | `tools.searchTopN` / `readDefaultLines` / `bashOutputCapKB` |
+| `app/tool/{function,handler,filesystem,shell}` | `tools.searchTopN` / `readDefaultLines` / `bashOutputCapKB`、`timeout.bashDefaultTimeoutSec` |
 
-> getter 而非值快照——这样热重载后下一次 turn 立刻读到新值,无需重启。
+> getter 而非值快照——热重载后下一次 turn 立刻读到新值,无需重启。
 
 ---
 
@@ -88,7 +90,7 @@
 
 ### UX
 - 默认**折叠**的「高级能力 / Advanced」disclosure,顶部一句警示文案(本地单用户、改这些会影响 agent 行为/成本)。
-- 按 §1 分组渲染:`Agent` / `输出` / `上下文` / `超时` / `工具` / `工作流` / `防护`。每项:label + 数字输入(或滑块)+ 当前是否默认的标记 + 单项「恢复默认」。
+- 按 §1 分组渲染:`Agent` / `输出` / `上下文` / `超时` / `工具` / `工作流`(+ P3 可选 `防护`)。每项:label + 数字输入(或滑块)+ 当前是否默认的标记 + 单项「恢复默认」。
 - 区底「全部恢复默认」按钮(PUT 一个空/默认 `Limits`)。
 - 组件零业务决策(= S6/前端铁律):只调 `useUpdateLimits` 拿意图级 API。
 - **i18n**:新增 `settings.advanced.*` 键(zh/en 全量),不硬编码中文。
@@ -107,17 +109,18 @@
 | agent | subagentTimeoutSec | **600** | 300 |
 | agent | subagentMaxTurns | **30** | 25/30 |
 | output | unknownModelMaxTokens | **64000** | 8192/8096 |
+| output | perScenarioOverride(P3 可选) | **{}**(用模型真值) | — |
 | context | soft / hard | **0.70 / 0.85** | 0.70 / 0.85(不变) |
-| timeout | llmIdleSec | **100** | (总墙钟 120) |
-| timeout | nodeDefaultSec | **0** | 30/60 |
-| timeout | mcpCallSec | **180** | 30 |
-| tools | searchTopN | **10** | 3 |
+| timeout | llmIdleSec(死连接网) | **150** | (总墙钟 120,删) |
+| timeout | mcpCallSec(还控制权给 agent) | **180** | 30 |
+| timeout | bashDefaultTimeoutSec(同上) | **120**(硬顶 600 常量) | 120(默认不变,改可配) |
+| tools | searchTopN(统一所有 search_*) | **10**(硬顶 50 常量) | 3/5·5/20·3/10 各异 |
 | tools | readDefaultLines | **2000** | 2000(不变) |
 | tools | bashOutputCapKB | **256** | 256(不变) |
 | workflow | agentNodeMaxTurns / Hard | **10 / 50** | 10 / 50(不变,例外) |
-| guards | attachment/httpResp/webhook MB | **50 / 10 / 10** | 同(可放开) |
+| guards(P3 可选) | attachment/httpResp/webhook MB | **50 / 10 / 10** | 同(可放开) |
 
-> 不变项也进 UI,是为了"一处可调"的完整性;它们的默认即现值。
+> 不变项也进 UI,是为了"一处可调"的完整性;它们的默认即现值。**workflow 节点墙钟超时不在表里**——已删,节点靠 ctx + stop。
 
 ---
 

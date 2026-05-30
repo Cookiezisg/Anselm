@@ -47,7 +47,7 @@
 
 | 限制 | 现状 @ 位置 | 裁决 | 目标 |
 |---|---|---|---|
-| **`maxHistoryMessages`** | `200` @ `chat/history.go:18` | ➖ | **去掉语义边界**:抬成纯 I/O 上限(如 **2000**),让**真实 token 预算 + 已有 compaction** 成为唯一边界。它现在在 `buildHistory` 里、**compaction 投影之前**盲砍,会丢掉本可被摘要保留的早期轮次 |
+| **`maxHistoryMessages`** | `200` @ `chat/history.go:18` | ➖ | **抬成纯 I/O 上限(如 `2000`)**,让 token 预算 + compaction 成为唯一边界。**已核实安全**:`buildHistory` 对 assistant 走 `BlocksToAssistantLLM` 按 `ContextRole` 投影(archived 丢 / cold 省 / warm 截)+ `conv.Summary` 前置——用量 <70% 按定义装得下、>70% 已压缩,计数 cap 纯冗余,唯一实害是"短消息多、未触压缩 → 开头被静默砍"。**但必须同时修**:`buildUserLLMMessage`(`chat/history.go:95`)**完全不看 `ContextRole`** → 抬 cap 会把已归档 user 消息重新全文塞入(与 summary 重复)。所以让 `buildHistory` 对 archived/cold **统一投影,含 user 消息** |
 | 压缩阈值 Soft/Hard | `0.70` / `0.85` @ `contextmgr.go:47,48` | 📌 | **经查正落业界区间**(MemGPT ~70% 驱逐;CLI 95% / VSCode 75% / 服务端 ~75%=150k/200k);0.85 留 15% 收尾余量,**别往 95% 抬**。可配 |
 | RecentTurns / TRKeep / WarmCutoff | `3` / `5` / `15` @ `contextmgr.go:49,50` | 📌 | 对齐 Anthropic 默认(保留近 ~3 条、keep 3 tool_use);Forgify 更保守。已有 `SetThresholds` 钩子,可配 |
 | warm 预览 / cold 省略 | `200B` / 整段省略 @ `loop/history.go:22,99` | ✅ | **占位符塞 block id** 让模型能 re-fetch(Manus/Deep-Agents 可恢复截断;全文已存 DB,`GET /blocks/{id}`);可选抬到 `500–1000` 且按 token(CJK 友好)算 |
@@ -81,18 +81,20 @@
 
 ## ⑤ 超时
 
+**总原则(用户拍板)**:超时**不再用来限"健康的慢活"**。能中止 in-progress 工作的机制 = **ctx 端到端传播 + 用户随时 stop**(`scheduler.Cancel`、聊天 cancel-mid-stream 都已在;ctx 已传到 handler RPC / 子进程 / HTTP / LLM 叶子)。只保留三类 timeout:① LLM idle **死连接探测**;② 探针/setup 的 fail-fast;③ 把控制权还给 **agent** 的工具超时(Bash / mcp call,可配高默认)。成本由 agent `maxTurns`(§①)兜,与超时正交。
+
 | 限制 | 现状 @ 位置 | 裁决 | 目标 |
 |---|---|---|---|
-| **LLM 传输 client** | `Timeout=120s` @ `infra/llm/transport.go:16` | ✅ | **最危险**。改 **idle-timeout**(每收 token 重置 deadline)+ ctx 取消 + TCP keepalive。`Client.Timeout=0`;`Transport` 只管 `DialContext 10s`/`TLSHandshakeTimeout 10s`/`ResponseHeaderTimeout 60s`;在 `provider.go:38-56` 流循环里 `timer.Reset(idle)`,`idle≈90-120s`(=无 token 90s,非总 120s) |
-| scheduler 节点默认超时 | function/handler/mcp/http `30s`、skill/llm `60s` @ `scheduler/retry.go:13-19` | ✅ | llm/function/handler/skill/mcp 默认改 **0**(不强加,靠 ctx + 节点自身传输);**http 保 30s**(纯 REST 该有界);已有 `NodeSpec.Timeout` 覆盖 |
-| handler RPC | **无 Go 超时** @ `infra/handler/client.go:133`;`MethodSpec.Timeout` 未实现 | ✅ | 实现 `MethodSpec.Timeout`(`>0` 才 `WithTimeout`,`0`=无);映射已存在的 `ErrInstanceRPCTimeout`/`CallStatusTimeout`;streaming 方法按 idle reset |
-| mcp `CallTool` | `30s` @ `app/mcp/mcp.go:25` | ➖ | 抬到 **120–300s** 或可配(MCP 工具可能自己调 LLM/爬虫);ctx 取消仍是真控制 |
-| 探针/ setup 超时 | mcp init 30s / AddServer 3min / HealthCheck 10s / apikey test 10s / server Read 15s·Idle 60s·WriteTimeout 0 | 📌 | **保留**:探针/ setup 就该 fail-fast;`WriteTimeout=0` 为 SSE 正确 |
-| python/sandbox exec | `opts.Timeout`,`0`=无 @ `sandbox/spawn.go:29` | 📌 | **已是优雅范式,其它向它看齐** |
+| **LLM 传输 client** | `Timeout=120s` @ `infra/llm/transport.go:16` | ✅ | **删 120s 总墙钟**(误杀健康长流);`Client.Timeout=0`,`Transport` 只管 `DialContext 10s`/`TLSHandshakeTimeout 10s`/`ResponseHeaderTimeout 60s` + TCP keepalive。**保留一个宽松 idle 网**(`provider.go:38-56` 流循环里 `timer.Reset(idle)`,`idle≈150s`,每 token 重置 → 永不杀健康流)**纯当死连接探测**——静默挂死的 socket 不触发 ctx,无人值守节点会泄漏 goroutine |
+| scheduler 节点墙钟超时 | function/handler/mcp/http `30s`、skill/llm `60s` @ `scheduler/retry.go:13-19` | ➖ | **删整张 `defaultTimeouts` 表**。workflow 节点不设墙钟——靠 **run-level ctx**(`scheduler.Cancel` / app 关停)+ 前端「stop run」。真正的活变成「**审计 ctx 传到每个 dispatcher 叶子操作**」,非调超时。(决策 #2 的无人值守护栏 = agent `maxTurns`,不是墙钟) |
+| handler RPC | **无 Go 超时** @ `infra/handler/client.go:133` | 📌 | `readMessage` 已 select `ctx.Done`(`client.go:239`)→ 用户 stop / run cancel 即杀,**安全已够**。`MethodSpec.Timeout` 降为**可选 per-method 便利**(默认无),不为"安全"而做 |
+| mcp `CallTool` / Bash 工具超时 | mcp `30s` @ `mcp.go:25`;Bash 默认 `120s`/max `600s` @ `bash.go:27` | ➖ | 这俩是"超时 → 把控制权还给 **agent**"(Claude Code 同款),**保留为可配高默认**(经 [`02`](./02-advanced-settings-ui.md) 调);不是限健康活,是让 agent 自决换路子 |
+| 探针/ setup 超时 | mcp init 30s / AddServer 3min / HealthCheck 10s / apikey test 10s / server Read 15s·Idle 60s·WriteTimeout 0 | 📌 | **保留**:探针/setup 就该 fail-fast;`WriteTimeout=0` 为 SSE 正确 |
+| python/sandbox exec | `opts.Timeout`,`0`=无 @ `sandbox/spawn.go:29` | 📌 | **已是优雅范式**(可配、`0`=无、ctx 兜),其它向它看齐 |
 
-**依据**:Go `http.Client.Timeout` 覆盖 body 读取 → 对流式是反模式(Cloudflare net/http 超时指南;golang/go#31391)。Anthropic SDK 默认 **10min** 且 `CalculateNonStreamingTimeout` 按 `max_tokens/128000×1h` 缩放、`max_tokens>~21333` 强制 streaming、设 TCP keepalive;OpenAI SDK 默认 **600s** 且建议把超时当"首 token 预算"。SSE 最佳实践 = idle 超时 + `:` 心跳(Forgify 已有 15s keep-alive)。subprocess RPC 无超时的真实事故见 komodo#1392。仓库 `llm-providers/` **无流式超时设计注**——`transport.go` 的 120s 是无依据写的(其注释把"wedged connection"=idle 错当成"总墙钟"=bug)。
+**依据**:Go `http.Client.Timeout` 覆盖 body 读取 → 对流式是反模式(Cloudflare net/http 超时指南;golang/go#31391)。Anthropic SDK 默认 **10min** 且按 `max_tokens` 缩放、设 TCP keepalive;OpenAI SDK 默认 **600s** 当"首 token 预算"。SSE 最佳实践 = idle 超时 + `:` 心跳(Forgify 已有 15s keep-alive)。`transport.go` 原 120s 注释把"wedged connection"(=idle)错当成"总墙钟"——bug 根源。
 
-> **本组净策略**:(a) **流式 LLM = idle 超时,绝不总墙钟**;(b) **工具/节点 = 可配,长跑型默认无 cap**,靠 ctx 取消;(c) **探针/连通测试 = 保留固定短超时**(fail-fast 才是目的)。优先修 LLM 120s。
+> **本组净策略**:**ctx + stop 管一切 in-progress 工作;timeout 只用于(a) LLM idle 死连接探测、(b) 探针 fail-fast、(c) 还控制权给 agent 的工具超时**。优先修 LLM 120s + 审计 ctx 传播。
 
 ---
 
