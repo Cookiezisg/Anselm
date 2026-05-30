@@ -1,0 +1,1653 @@
+[
+  {
+    "name": "search_functions",
+    "description": "Find functions by name/tag/description (optional kind filter). Returns ids. Use before get/edit when you don't have the id; returns empty if none exist.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "polling"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_function",
+    "description": "Get a function's active version: code + signature + kind. Read before editing.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_function_versions",
+    "description": "List a function's version history (who/when/change reason). Use to compare or pick a revert target.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_function",
+    "description": "Create a stateless Python function. kind=normal (on-demand callable) | polling (system runs on interval; must accept last_cursor, return {events,next_cursor}).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "code"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "normal",
+            "polling"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "polling_interval": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_function",
+    "description": "Edit a function via ops (update_code replaces the body; update_kind/update_polling_interval/update_description). Preserve existing behavior unless asked.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "ops"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "accept_pending_function",
+    "description": "Promote a function's pending version to active. Call after create/edit once satisfied.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "revert_function",
+    "description": "Revert a function to a previous version (creates a new pending from it).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "targetVersion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "targetVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_function",
+    "description": "Soft-delete a function. Fails if still referenced by a workflow/agent.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "run_function",
+    "description": "Test-run a function with args (polling: platform supplies a mock last_cursor). Use to verify before wiring.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "args"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_function_executions",
+    "description": "List a function's past executions (filter by time).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_function_execution",
+    "description": "Get one function execution's detail (args, result, timing, error).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "executionId"
+      ],
+      "properties": {
+        "executionId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_handlers",
+    "description": "Find stateful handlers by name/tag/description. Returns ids.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_handler",
+    "description": "Get a handler's class definition + init schema + methods schema. Read before editing.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_handler_versions",
+    "description": "List a handler's version history.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_handler",
+    "description": "Create a stateful Python class handler (holds connections/cache/tokens). Body uses BARE-NAMED params on __init__ and each method (not a dict).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name",
+        "code",
+        "init_schema",
+        "methods_schema"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "init_schema": {
+          "type": "object"
+        },
+        "methods_schema": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_handler",
+    "description": "Edit a handler via ops (update_code / update schemas). Mind state persistence + thread safety.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "ops"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "accept_pending_handler",
+    "description": "Promote a handler's pending version to active.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "revert_handler",
+    "description": "Revert a handler to a previous version.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "targetVersion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "targetVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_handler",
+    "description": "Soft-delete a handler (fails if referenced).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "call_handler",
+    "description": "Test-call one handler method (instantiates with init args, then calls). Use to verify behavior.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "method",
+        "args"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "update_handler_config",
+    "description": "Set a handler's init args / secrets (stored encrypted). Separate from code edits.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "config"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "config": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_handler_calls",
+    "description": "List a handler's past calls (filter by time).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_handler_call",
+    "description": "Get one handler call's detail.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "callId"
+      ],
+      "properties": {
+        "callId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_agents",
+    "description": "Find agents (configured LLM workers) by name/tag/description. Returns ids.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_agent",
+    "description": "Get an agent's active config: prompt / skill / knowledge / tools / outputSchema / model. Read before editing.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_agent_versions",
+    "description": "List an agent's version history.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_agent",
+    "description": "Create an agent (configured LLM worker). Mounts: prompt, skill(0-1), knowledge(docs), tools(fn/hd/mcp only — never platform tools, never another agent), outputSchema(enum|json_schema|free_text), model.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name",
+        "ops"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_agent",
+    "description": "Edit an agent via ops. set_tools REPLACES the list — include existing tools to keep them.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "ops"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "accept_pending_agent",
+    "description": "Promote an agent's pending version to active.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "revert_agent",
+    "description": "Revert an agent to a previous version.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "targetVersion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "targetVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_agent",
+    "description": "Soft-delete an agent (fails if referenced).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "run_agent",
+    "description": "Test-run an agent with a payload; returns output + tokens + latency. Verify before wiring.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "payload"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_agent_executions",
+    "description": "List an agent's past runs.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_agent_execution",
+    "description": "Get one agent run's detail (prompt, tool-call chain, output).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "executionId"
+      ],
+      "properties": {
+        "executionId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_workflows",
+    "description": "Find workflows by name/tag/description (optional active filter). Returns ids + active state.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_workflow",
+    "description": "Get a workflow's full graph (nodes + edges + each node config). Read before editing.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_workflow_versions",
+    "description": "List a workflow's version history.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_workflow",
+    "description": "Create a workflow graph (5 node types: trigger/agent/tool/case/approval) via ops. Initial version auto-accepts.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name",
+        "ops"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_workflow",
+    "description": "Edit a workflow graph via ops (add_node/remove_node/connect/disconnect/update_config). Reference existing node ids.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "ops"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ops": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "accept_pending_workflow",
+    "description": "Promote a workflow's pending version to active.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "revert_workflow",
+    "description": "Revert a workflow to a previous version.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "targetVersion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "targetVersion": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_workflow",
+    "description": "Soft-delete a workflow.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "capability_check_workflow",
+    "description": "Pre-check a workflow before activating: every callable ref exists + kinds match + payload schemas flow. Returns first blocking problem.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "activate_workflow",
+    "description": "Activate a workflow: register its triggers/listeners, set active=true. Fails capability_check if it references missing callables.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "deactivate_workflow",
+    "description": "Deactivate a workflow: remove listeners, destroy owner=workflow instances, set active=false.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "trigger_workflow",
+    "description": "Fire a workflow from a specific trigger node with a payload. Use for manual nodes (product) or to test-fire a cron/webhook node (debug).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "triggerNodeId",
+        "payload"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "triggerNodeId": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_flowruns",
+    "description": "List a workflow's runs (filter status/time). Start here to find failed runs.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "workflowId"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "running",
+            "completed",
+            "failed"
+          ]
+        },
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_flowrun",
+    "description": "Get one run's summary (status / which node failed / timing).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_flowrun_trace",
+    "description": "Get a run's message causal chain (node-by-node, with errors). Use to see WHERE/WHY it failed.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_flowrun_nodes",
+    "description": "Get per-node state of a run (running/completed/failed/approval-pending).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "cancel_flowrun",
+    "description": "Cancel a stuck/running flowrun.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "query_events",
+    "description": "Query a workflow's event log (handler_crash / message_failed / trigger_exhausted / dead_letter_created). Spot recurring failure types.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "workflowId"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "since": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_dead_letters",
+    "description": "List dead-lettered messages (retries exhausted) for a workflow.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "workflowId"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_dead_letter",
+    "description": "Get a dead letter's detail (payload + ctx + failure reason + stack). Root-cause here.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "messageId"
+      ],
+      "properties": {
+        "messageId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "replay_message",
+    "description": "Replay a dead-lettered/failed message (from its node or whole run). ONLY after the root cause is fixed.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "messageId"
+      ],
+      "properties": {
+        "messageId": {
+          "type": "string"
+        },
+        "fromNode": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "clear_dead_letters",
+    "description": "Bulk-clear a workflow's dead letters (after handling them).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "workflowId"
+      ],
+      "properties": {
+        "workflowId": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_mcp_tools",
+    "description": "Search installed MCP servers' tools by capability. Returns server/tool names.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "call_mcp_tool",
+    "description": "Call an MCP tool (server + tool + args). The mcp group must be activated first.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "server",
+        "tool",
+        "args"
+      ],
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "tool": {
+          "type": "string"
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_mcp_servers",
+    "description": "List installed MCP servers + their tools + health.",
+    "parameters": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "install_mcp_from_registry",
+    "description": "Install an MCP server from the registry by name. Use when a needed integration isn't installed yet.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "health_check_mcp",
+    "description": "Check one MCP server's health/connectivity.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "server"
+      ],
+      "properties": {
+        "server": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_skills",
+    "description": "Find skills (reusable methodologies) by name/description.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_skill",
+    "description": "Read a skill's full content/instructions.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "activate_skill",
+    "description": "Activate a skill into the current conversation (loads its methodology). For chat use; agents pin a skill on the entity instead.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "search_documents",
+    "description": "Find documents by content/title/tag. Returns ids.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_documents",
+    "description": "List documents in a folder/path.",
+    "parameters": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "read_document",
+    "description": "Read a document's full content.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create_document",
+    "description": "Create a knowledge document (markdown). Use for notes/knowledge an agent can mount, NOT for code (forge a function/handler).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "title",
+        "content"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "edit_document",
+    "description": "Edit a document's content.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "content"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "move_document",
+    "description": "Move/rename a document.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "delete_document",
+    "description": "Soft-delete a document.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "read_memory",
+    "description": "Read long-term memory entries matching a query (cross-conversation facts the chat boss remembers).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "write_memory",
+    "description": "Save a durable fact/preference to long-term memory. Use for things to remember across conversations, NOT transient task state.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name",
+        "content"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "forget_memory",
+    "description": "Delete a long-term memory entry.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Read",
+    "description": "Read a local file from disk. For the user's own files — NOT for Forgify entities (use get_function/get_workflow/read_document).",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "file_path"
+      ],
+      "properties": {
+        "file_path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Write",
+    "description": "Write/overwrite a local file on disk.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "file_path",
+        "content"
+      ],
+      "properties": {
+        "file_path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Edit",
+    "description": "Edit a local file by string replacement.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "file_path",
+        "old_string",
+        "new_string"
+      ],
+      "properties": {
+        "file_path": {
+          "type": "string"
+        },
+        "old_string": {
+          "type": "string"
+        },
+        "new_string": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Glob",
+    "description": "Find files by glob pattern.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "pattern"
+      ],
+      "properties": {
+        "pattern": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Grep",
+    "description": "Search file contents by regex.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "pattern"
+      ],
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Bash",
+    "description": "Run a shell command on the user's machine. For local system tasks — to give a workflow shell capability, forge a function instead.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "BashOutput",
+    "description": "Get output from a running background shell.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "bash_id"
+      ],
+      "properties": {
+        "bash_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "KillShell",
+    "description": "Kill a background shell.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "shell_id"
+      ],
+      "properties": {
+        "shell_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "WebFetch",
+    "description": "Fetch + extract content from a URL. For the chat boss's research — to give a workflow web access, forge a function.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "WebSearch",
+    "description": "Search the web. For the chat boss's research.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "TodoCreate",
+    "description": "Create a todo to track multi-step work in THIS conversation.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "TodoList",
+    "description": "List this conversation's todos.",
+    "parameters": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "TodoGet",
+    "description": "Get one todo's detail.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "TodoUpdate",
+    "description": "Update a todo's status.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "id",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "AskUserQuestion",
+    "description": "Ask the user a clarifying question when genuinely blocked on a decision only they can make. Don't ask what you can decide or look up.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Subagent",
+    "description": "Spawn a subagent for a parallel/independent exploration. Chat-boss only.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "prompt"
+      ],
+      "properties": {
+        "prompt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "activate_tools",
+    "description": "Load a lazy tool group (function/handler/workflow/mcp/document/skill) into your available tools. Activate ONLY the group the immediate task needs; don't speculatively activate several.",
+    "parameters": {
+      "type": "object",
+      "required": [
+        "category"
+      ],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": [
+            "function",
+            "handler",
+            "workflow",
+            "mcp",
+            "document",
+            "skill"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+]
