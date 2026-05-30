@@ -3,6 +3,8 @@
 脑爆纲领(2026-05-27 立;**2026-05-31 执行模型大改向**)。本文件统领 01-12 各份子设计,是整个 workflow-revamp 的**核心心智事实源**。
 
 > **设计演进(必读)**:本 revamp 的执行底盘曾用 **message-queue + actor** 模型(节点=actor、边=持久化消息队列、控制流从消息涌现)。端到端推演发现该模型对**汇合(join)/ 循环 / 并发**会持续冒窟窿(版本配对、空票、并发双点火),靠打补丁堵不完——这是**选错抽象**的信号。改向后:**workflow = 一段结构化程序,一次 flowrun = 把它确定性地跑一遍,崩了照"事件日志"重放接着跑**。这条路线工业界成熟(Temporal / AWS Step Functions / DBOS,统称 **Durable Execution / 持久化执行**),那些窟窿**由构造消失**。本文档及 01-12 已按此重写;**凡提到"消息队列作为边 / 版本号 / 前沿 / 空票 / 复制消息进 queue"的旧表述一律作废**。
+>
+> **迁移口径(CANON-MIGRATION:不迁移,清空重建)**:项目未上线,存量 `wf_` 图(旧 14 节点)/ 旧引擎 flowrun 直接清空重建,不做数据迁移;durable 新 schema(`flowruns` / `flowrun_events` / `approvals` / `trigger_schedules` / `trigger_firings` 等)全新建,无 ALTER-only 兼容包袱。这是一次重写,不背历史数据。
 
 ---
 
