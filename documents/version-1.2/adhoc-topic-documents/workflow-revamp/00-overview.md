@@ -149,6 +149,8 @@ approvals       ( id, flowrun_id, node_id, prompt, payload,
 
 **`messages` / `node_state` / 版本列 / 前沿 / 空票 —— 全部不存在了。**
 
+> trigger→dispatch→lifecycle 边界另需 durable 持久化(Theme 3):新增 `trigger_schedules`(持久化 listener 注册 + `last_fired_at`)+ `trigger_firings`(durable 触发收件箱,每条触发一行 + outcome)两表,并给 `workflows` 加 `lifecycle_state`(active/draining/inactive)列。详 [`11-integration-chains.md`](./11-integration-chains.md)。
+
 ### 崩溃重放
 
 ```
@@ -238,6 +240,18 @@ handler 是单 subprocess、单 stdin/stdout 管道的 JSON-RPC。**对同一个
 ## Workflow lifecycle
 
 **没有独立 "Deployment" 抽象层。**用 `Workflow.active: bool` 表达"上线/下线",`FlowRun.IsFromListener: bool` 表达"触发来自 listener 自动还是用户/AI 显式"。`active=true` 扫 graph 中 listener 类 trigger 节点(cron/fsnotify/webhook/polling)注册监听;`active=false` 撤监听 + 销毁 `Owner={Kind:"workflow"}` 的 handler 实例。`IsFromListener` 决定 handler Owner(`true→{workflow}` 跨触发复用;`false→{flowrun}` 隔离)。详 [`06-workflow-lifecycle.md`](./06-workflow-lifecycle.md) + [`03-tool-node.md`](./03-tool-node.md)。触发统一入口 `scheduler.StartRun(workflowId, triggerNodeId, payload, isFromListener)`,起一个 flowrun。
+
+### trigger / dispatch / lifecycle 也 durable(Theme 3)
+
+Theme 1 把 flowrun **内部**做成 durable(journal + 重放);Theme 3 把 trigger→dispatch→lifecycle 这一**边界层**也做成 durable —— durable 触发收件箱 + 持久调度器 + 优雅 drain 生命周期。一条根原则:**先持久化再动作 + 受管生命周期,不许有 fire-and-forget**。两层合起来端到端无 fire-and-forget。
+
+- **收件箱先落库**:任何触发(cron/fsnotify/webhook/polling/manual)在尝试跑之前先写一条 `trigger_firings`;所有触发统一走收件箱 → 派发器 → flowrun,崩在"事件到→flowrun 起"之间也不丢。manual 默认 overlap=AllowAll(显式动作,立即跑)。
+- **持久调度 + catchup**:`last_fired_at` 落库(取代原内存里 `gorm:"-"` 不入库的 `LastFiredAt`);开机按 cron 表达式算漏了哪几次,按 Catchup Window 策略(不补 / 补最近一次[默认] / 补窗口内全部)材化进收件箱。诚实边界:cron 靠 cron-math、polling 靠 cursor 自愈;webhook/fsnotify 停机期事件是外部 ephemeral,明说不假装兜住。
+- **单派发器 + overlap**:派发器按 `workflow.concurrency` + `trigger.overlap_policy` 消费收件箱;撞上"正在跑"时 overlap:Skip / BufferOne(默认) / BufferAll / AllowAll。铁律:**每条 firing 都有 outcome,绝不静默丢**。
+- **优雅 drain**:deactivate/accept 不即时销毁,走状态机——停新(撤 listener、不再起新 flowrun、进 draining)→ 排空(在途 flowrun 跑完,共享 handler 按 refcount 归 0 才销毁)→ 销毁老实例 +(accept)挂新版本 listener。零停机、绝不抽在途。
+- **Mechanism vs Policy**:平台保证(mechanism)——触发绝不静默丢 / 每条 firing 有 outcome / 在途绝不被强拆;编排者拍(policy)——catchup_window、overlap_policy(sane 默认:overlap=BufferOne、catchup=补最近一次)。
+
+详 [`01-triggers.md`](./01-triggers.md) + [`06-workflow-lifecycle.md`](./06-workflow-lifecycle.md) + [`11-integration-chains.md`](./11-integration-chains.md)。
 
 ---
 

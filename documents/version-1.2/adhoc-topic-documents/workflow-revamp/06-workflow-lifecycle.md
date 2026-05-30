@@ -36,8 +36,10 @@ Handler Instance Registry(in-memory,不入 DB)
 
 | 状态 | 行为 |
 |---|---|
-| `active = true` | 扫 workflow graph 中所有 **listener 类型** 的 trigger 节点(cron / fsnotify / webhook / polling),调 `triggerService.RegisterTrigger`。listener 开始监听 |
-| `active = false` | 撤所有 listener;销毁 `Owner={Kind:"workflow"}` 的所有 handler instance |
+| `active = true` | 扫 workflow graph 中所有 **listener 类型** 的 trigger 节点(cron / fsnotify / webhook / polling),调 `triggerService.RegisterTrigger`(写 `trigger_schedules` 持久化)。listener 开始监听 |
+| `active = false` | 撤所有 listener;走 drain 状态机(active → draining → inactive)排空在途后才销毁 `Owner={Kind:"workflow"}` 的 handler instance(见 Deactivate 流程) |
+
+`lifecycle_state`(active/draining/inactive)是 drain 期的中间态:`active` 正常运行,`draining` 停新但在途 flowrun 仍在老实例跑完,in-flight 归 0 后转 `inactive`。
 
 **Active / Inactive 只管 listener,不管 manual trigger 节点**。Manual 节点本来就没 listener,任何时候只要 workflow 存在就能被显式触发(`:trigger` HTTP / `trigger_workflow` 工具 / UI 点节点)。
 
@@ -77,81 +79,111 @@ scheduler.StartRun(workflowId, triggerNodeId, payload, isFromListener) → runID
 
 ---
 
-## Activate 流程
+## Activate 流程(持久化注册)
 
 ```
 POST /workflows/{id}:activate
    │
-   ├── workflow.active = true
+   ├── workflow.active = true + lifecycle_state = active
    ├── 读 active version 的 graph
    ├── 扫所有 listener 类型 trigger 节点(cron / fsnotify / webhook / polling)
    ├── 对每个调 triggerService.RegisterTrigger({
    │      WorkflowID, NodeID, Kind, Config, UserID
    │   })
+   │     └── **写一行 trigger_schedules**
+   │         (workflow_id, trigger_node_id, kind, spec,
+   │          last_fired_at[持久化], catchup_window, overlap_policy)
    └── listener 开始监听
 ```
 
 handler instance 此时**不创建**——lazy 等首次触发时 acquire 时再 spawn。
 
+**注册是持久化的(CANON-SCHEDULE)**:listener 注册落 `trigger_schedules` 表,`last_fired_at` 入库;**取代旧设计里只活在内存的 `lastFire`**(原 `workflow.LastFiredAt` 是 `gorm:"-"` 不入库)。这直接修了 [`00-overview.md`](./00-overview.md) 列的 **E1「重启丢补跑」**——进程崩了重启,从 `trigger_schedules` 里读回 `last_fired_at`,按 cron 表达式算 `last_fired_at → now` 漏了哪几次,再按 Catchup Window 策略补(见 Boot 恢复段)。`trigger_schedules` 三处数据模型详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-DATA)。
+
 ---
 
-## Deactivate 流程
+## Deactivate 流程(优雅 drain)
 
 ```
 POST /workflows/{id}:deactivate
    │
-   ├── workflow.active = false
-   ├── triggerService.UnregisterByWorkflow(id)   ← 撤所有 listener
-   └── handlerRegistry.DestroyOwner({Kind:"workflow", ID: id})
-       ↑ 销毁 active workflow 内的所有 handler instance
+   ├── (1) 停新:workflow.active = false + lifecycle_state = draining
+   │        triggerService.UnregisterByWorkflow(id)  ← 撤所有 listener
+   │        删/停 trigger_schedules row + 派发器不再为本 workflow 起新 flowrun
+   │
+   ├── (2) 排空:在途 flowrun(durable、靠 journal 活着)在老实例跑完
+   │        共享 handler 按 refcount 递减,归 0 才 DestroyOwner
+   │
+   └── (3) in-flight = 0 后:销毁 {Kind:"workflow", ID: id} 的 handler instance
+            lifecycle_state = inactive
 ```
 
-正在跑的 flowrun(从 listener 触发的)继续跑完——deactivate 不强杀,只是不接新 listener 触发。
+**不再即时 `DestroyOwner`(CANON-DRAIN)**:deactivate 走 active → draining → inactive 状态机,**绝不抽在途的 handler**。在途 flowrun 是 durable 的(journal + 重放),在老实例跑完;共享 handler 用引用计数(refcount),归 0 才销毁。这直接修了 [`00-overview.md`](./00-overview.md) 列的 **E6「抽在途 handler」**——旧设计 deactivate 即时 `DestroyOwner({workflow})`,会把正在用该 handler 的在途 flowrun 拆掉。`lifecycle_state`(active/draining/inactive)+ handler refcount 两处数据模型详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-DATA / CANON-DRAIN)。
 
 ---
 
-## AcceptPending 联动
+## AcceptPending 联动(优雅 drain 换版)
 
 ```
 AcceptPending(workflowId, pendingVersionId)
    │
    ├── 现有逻辑:翻 active_version_id / 清 needs_attention / trim 老版本
    │
-   └── 新加:如果 workflow.active:
-       ├── triggerService.UnregisterByWorkflow(id)         ← 撤老 listener
-       ├── handlerRegistry.DestroyOwner({Kind:"workflow", ID})  ← 撤老 instance
-       └── 重做 activate 流程(扫新 graph,重新注册 listener)
+   └── 新加:如果 workflow.active,走 drain 换版(CANON-DRAIN):
+       ├── (1) 停新:lifecycle_state = draining
+       │        triggerService.UnregisterByWorkflow(id)  ← 撤老 listener
+       │        停老 trigger_schedules + 派发器不为老版本起新 flowrun
+       ├── (2) 排空:老版本在途 flowrun 跑完;共享 handler 按 refcount,归 0 才销毁
+       └── (3) in-flight = 0 后:销毁老 instance
+                + 重做 activate 流程(扫新 graph,写新 trigger_schedules,重挂 listener)
+                lifecycle_state = active
 ```
 
-正在跑的 flowrun 继续跑完(用老版本的逻辑);新 listener 触发的 flowrun 用新版本。**用户感知零停机**。
+**换版不即时拆老实例(CANON-DRAIN)**:走 active → draining → active 状态机。正在跑的 flowrun 用老版本的逻辑跑完(durable、靠 journal 活着),共享 handler 按 refcount 归 0 才销毁;in-flight 清零后才挂新版本 listener。新 listener 触发的 flowrun 用新版本。**用户感知零停机、绝不抽在途**(同样修 [`00-overview.md`](./00-overview.md) **E6**)。
 
 ---
 
-## Boot 恢复
+## Boot 恢复(CANON-BOOT)
 
-Boot 要恢复两件正交的东西:**(A) 没跑完的 flowrun**(durable execution 的重放)和 **(B) active workflow 的 listener**(入口重挂)。
+重启要恢复四件事(durable 调度器 + durable 触发收件箱 + journal 重放,合起来端到端无 fire-and-forget):
 
 ```
 Process boot
    │
-   ├── (A) 扫 status ∈ {running, awaiting_signal} 的 flowrun
-   │       └── 对每个:从头确定性重放程序(详 00-overview「崩溃重放」段)
+   ├── (a) 从 trigger_schedules 重挂 listener
+   │       └── 对每行(active workflow 的 trigger 节点)重做 activate 注册
+   │             webhook 重挂 mux / fsnotify 重新 watch / polling 重启 tick / cron 重挂
+   │
+   ├── (b) cron-math + catchup:把停机期漏的 firing 材化进收件箱
+   │       └── 按 cron 表达式算 last_fired_at → now 漏了哪几次,
+   │           按 catchup_window 策略(不补 / 补最近一次[默认] / 补窗口内全部)
+   │           写 trigger_firings(status=pending)
+   │       └── 诚实边界:cron 靠 cron-math 补、polling 靠 cursor 自愈;
+   │           webhook/fsnotify 的停机期事件是外部 ephemeral 客观找不回
+   │           (可选 fsnotify 开机扫现状兜底),不假装兜住
+   │
+   ├── (c) 从 journal 重放在途 flowrun(Theme 1)
+   │       └── 扫 status ∈ {running, awaiting_signal} 的 flowrun,从头确定性重放
    │             ├ 命中事件日志的 activity → 直接抄日志里的结果(不重跑 LLM/工具)
    │             ├ 走到第一个没记账的步骤 → 真跑一次、记账,接着往下走
    │             └ awaiting_signal(approval 挂着)→ 重放回到挂起点继续等信号
    │                 (信号到达也是一条日志事件;无需在内存里持有 cancel handle —
    │                  挂起点就是日志里的 signal_awaited,重放天然恢复)
    │
-   └── (B) 扫所有 workflow.active = true 的 row
-           └── 对每个重做 activate 流程
-               └── listener 重新注册
+   └── (d) 派发器继续消费收件箱
+           └── 按 workflow.concurrency + trigger.overlap_policy 消费 trigger_firings
+               把 pending firing 派成 flowrun(撞上限按 overlap 策略,每条都有 outcome)
 ```
 
-(A) 替代旧设计里"扫 paused flowrun + 重建内存态 + 重新 drive DAG"——不再有 PausedState / ExecutionContext 的内存快照需要重建,**唯一真相是事件日志**,重放即恢复。approval 的"挂着等人"由 `awaiting_signal` 状态 + 日志里的 `signal_awaited` 事件表达,重放到该点自然停下等信号,**不依赖任何进程内的 cancel handle**。详 [`05-approval-node.md`](./05-approval-node.md)。
+**(a) 持久重挂取代旧的内存 `lastFire`(CANON-SCHEDULE)**:listener 注册的真相是 `trigger_schedules`(`last_fired_at` 入库),不再依赖只活在内存、随进程消失的 `lastFire`。这跟 Activate 段一起修了 [`00-overview.md`](./00-overview.md) **E1「重启丢补跑」**。
 
-(B) 的 listener 重挂照旧:cron 用 `lastFire` 重新算补跑(现有机制),webhook listener 重挂 mux,fsnotify 重新 watch,polling 重启 tick。
+**(b) catchup 材化进收件箱**:停机期漏的 cron firing 不再当场补跑,而是按 catchup_window 策略写进 `trigger_firings` 收件箱(先持久化再动作),由派发器 (d) 统一消费——崩在"事件到 → flowrun 起"之间也不丢。补多少是编排者拍的 policy(CANON-MP),平台只保证不静默丢。
 
-进程崩溃 → 重启后未完成的 flowrun 接着跑、active workflow 的 listener 自动恢复,**用户感知 ≤ 进程启动时间**。
+**(c) 替代旧设计的"扫 paused flowrun + 重建内存态 + 重新 drive DAG"**——不再有 PausedState / ExecutionContext 的内存快照需要重建,**唯一真相是事件日志**,重放即恢复(Theme 1)。approval 的"挂着等人"由 `awaiting_signal` 状态 + 日志里的 `signal_awaited` 事件表达,重放到该点自然停下等信号,**不依赖任何进程内的 cancel handle**。详 [`05-approval-node.md`](./05-approval-node.md)。
+
+收件箱 / 派发器 / catchup 策略详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-INBOX / CANON-DISPATCH / CANON-SCHEDULE)。
+
+进程崩溃 → 重启后 listener 自动重挂、停机期漏的触发按策略补、未完成的 flowrun 接着跑、收件箱继续派发,**用户感知 ≤ 进程启动时间**。
 
 ---
 
@@ -206,21 +238,23 @@ AI 调 trigger_workflow(wf_xxx, "new_manual_node", payload) → 成功跑
 
 | 改动 | 代码量 |
 |---|---|
-| `Workflow.active bool` 字段 | DB migration 一列 |
+| `Workflow.active bool` + `Workflow.lifecycle_state`(active/draining/inactive)字段 | DB migration 两列 |
 | `FlowRun.trigger_node_id TEXT` + `FlowRun.is_from_listener bool` | DB migration 两列 |
+| `trigger_schedules` 表(持久化 listener 注册 + `last_fired_at` 入库,取代内存 `lastFire`)| 见 [`11-integration-chains.md`](./11-integration-chains.md) CANON-DATA |
+| handler 实例注册表加引用计数(refcount,供 drain) | 见 [`11-integration-chains.md`](./11-integration-chains.md) CANON-DRAIN |
 | `POST /workflows/{id}:activate` / `:deactivate` HTTP action | `handlers/workflow.go` + `app/workflow/lifecycle.go` 新 ~50 行 |
-| activate:扫 graph 提取 trigger 节点 → `RegisterTrigger` | ~30 行 |
-| deactivate:`UnregisterByWorkflow` + `DestroyOwner({workflow})` | ~5 行 |
-| trigger Service `onFire` → `scheduler.StartRun(..., isFromListener=true)` | ~5 行 |
+| activate:扫 graph 提取 trigger 节点 → `RegisterTrigger` + 写 `trigger_schedules` | ~40 行 |
+| deactivate:drain 状态机(停新 → 排空 → refcount 归 0 销毁 → inactive,取代即时 `DestroyOwner`)| ~25 行 |
+| trigger Service `onFire` → 先写 `trigger_firings` 收件箱 → 派发器 `StartRun(..., isFromListener=true)` | 见 [`11-integration-chains.md`](./11-integration-chains.md) CANON-INBOX |
 | `dispatch_handler.go` Owner 双模式(根据 IsFromListener) | 4 行 if |
-| AcceptPending 末尾:active 时撤 + 重 register | ~15 行 |
-| `RehydrateOnBoot` 扩展(B):扫 active workflow 重 register listener | ~20 行 |
-| Boot 重放(A):扫 running/awaiting_signal flowrun → 照事件日志确定性重放接着跑(替代旧的扫 paused + 重建 PausedState/ExecutionContext)| 属执行引擎,见 [`11-integration-chains.md`](./11-integration-chains.md) |
+| AcceptPending 末尾:active 时走 drain 换版(停新 → 排空 → 重 register 新 graph) | ~30 行 |
+| `RehydrateOnBoot`(CANON-BOOT a/b):从 `trigger_schedules` 重挂 + cron-math+catchup 材化漏的 firing | ~40 行 |
+| Boot 重放(CANON-BOOT c):扫 running/awaiting_signal flowrun → 照事件日志确定性重放接着跑(替代旧的扫 paused + 重建 PausedState/ExecutionContext)| 属执行引擎,见 [`11-integration-chains.md`](./11-integration-chains.md) |
 | `:trigger` HTTP body 加 `triggerNodeId` 字段(替代隐式 manual) | ~10 行 |
 | `trigger_workflow` LLM 工具描述加 `triggerNodeId` 必填参数 + 暴露 workflow 的 trigger 节点 list | ~30 行 |
 | 砍 `local-user` magic / 默认 manual:必须显式指定 triggerNodeId | 0 行(自然 by-product) |
 
-**总 ~170 行代码,估 1.5-2 天**(含测试)。
+drain / 收件箱 / 持久调度的数据模型 + 派发器细节落在 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-DATA / DRAIN / INBOX / DISPATCH / SCHEDULE);本篇行数只算 lifecycle 入口侧改动。
 
 ---
 
@@ -247,13 +281,16 @@ AI 调 trigger_workflow(wf_xxx, "new_manual_node", payload) → 成功跑
     → 跟 active workflow 内的 listener-触发 完全隔离
 
 下线:
-  AI 调 :deactivate → listener 停 + workflow-Owner instance 销毁
+  AI 调 :deactivate → listener 停(停新)→ 在途 flowrun drain 跑完
+    → handler refcount 归 0 才销毁(绝不抽在途)→ inactive
   Manual 触发仍可用(workflow 还在就能调)
   workflow 不删,inactive 状态保存
 
-进程重启:
-  Boot 扫所有 active workflow → 自动重 register listener
-  未完成的 flowrun(running / awaiting_signal)→ 照事件日志确定性重放接着跑
+进程重启(CANON-BOOT):
+  从 trigger_schedules 重挂 listener(last_fired_at 入库,不靠内存 lastFire)
+  cron-math + catchup 把停机期漏的 firing 材化进收件箱(按 catchup_window 策略)
+  从 journal 重放未完成的 flowrun(running / awaiting_signal)接着跑
     (awaiting_signal 的 approval 重放到挂起点继续等信号,无需内存 cancel handle)
+  派发器继续消费收件箱
   整体感知 ≤ 进程启动时间
 ```

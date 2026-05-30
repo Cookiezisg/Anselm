@@ -84,6 +84,30 @@ trigger 节点(例:cron / webhook / polling)失败
 - Approval 节点超时拒绝(business 结果,不算节点失败;详 [`05-approval-node.md`](./05-approval-node.md))
 - 用户主动 deactivate(`last_action_by = "user"`)
 
+> trigger retry 用尽 → workflow 自动 inactive,这正是 Schedules 的 **pause-on-failure** 思路:入口反复失败就停掉、等人工修,而不是无限空转烧资源(对齐 [`13-llm-facing-implementation-guide.md`](./13-llm-facing-implementation-guide.md) 的触发层 durable 设计)。
+
+---
+
+## 触发层的诚实(对齐 Theme 3)
+
+错误处理不止在 flowrun 内部(节点 retry / replay),也覆盖 **触发 → 派发** 这一层:触发被丢弃也得是**诚实的、可见的**,绝不静默。这条直接接 Theme 3 的 durable 触发收件箱 + 单派发器设计(详 [`13-llm-facing-implementation-guide.md`](./13-llm-facing-implementation-guide.md))。
+
+铁律:**每条触发(`trigger_firings` 一行)都有 `outcome`,绝不静默丢失。** 撞上"正在跑"时按 `overlap_policy` 处理,但即便是被丢弃的那条也要落账:
+
+| 场景 | outcome | 通知 |
+|---|---|---|
+| `overlap=Skip` 跳过本次触发 | `trigger_firings.outcome=skipped` | **可推 SSE 通知**(绝不静默) |
+| `overlap=BufferOne`(默认)被更新触发顶掉 | 旧 firing 标 `superseded` | 同上,落账可见 |
+| 正常派发起 flowrun | `started`(挂 `flowrun_id`) | — |
+
+这呼应错误处理的两条根原则:
+- **通知是 mechanism**(平台保证)— 触发被丢弃同样要让用户知道,跟"retry 用尽必通知"一脉相承。
+- **触发绝不静默丢**(平台保证)— 每条 firing 有 outcome,是对现状"撞并发上限只 log+return 静默丢"的根治。
+
+Mechanism vs Policy 在触发层的切分(与本文上方「Mechanism vs Policy」表同一口径):
+- **Policy(编排者拍)**:`catchup_window`(开机补多少漏掉的触发)、`overlap_policy`(撞车怎么办)。平台不替业务猜,给显式选项 + sane 默认(overlap 默认 BufferOne、catchup 默认补最近一次)。
+- **Mechanism(平台保证)**:**no silent loss** — 漏掉的触发按 catchup 材化进收件箱、被丢弃的触发落 outcome + 可通知。诚实边界:cron 靠 cron-math 补、polling 靠 cursor 自愈;webhook/fsnotify 的停机期事件是外部 ephemeral 客观找不回,平台明说不假装兜住(详 [`13-llm-facing-implementation-guide.md`](./13-llm-facing-implementation-guide.md))。
+
 ---
 
 ## 平台提供什么(机制层)
