@@ -23,6 +23,7 @@ import (
 	"go.uber.org/zap"
 
 	permdomain "github.com/sunweilin/forgify/backend/internal/domain/permissions"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 )
 
 // Service loads + watches settings.json. New() reads once + spawns a
@@ -33,9 +34,10 @@ import (
 // goroutine fsnotify-watch 父目录；Close() 停 goroutine。GetRules()
 // 原子返最新快照。
 type Service struct {
-	path     string
-	log      *zap.Logger
-	current  atomic.Pointer[permdomain.Settings]
+	path          string
+	log           *zap.Logger
+	current       atomic.Pointer[permdomain.Settings]
+	currentLimits atomic.Pointer[limitspkg.Limits]
 
 	mu       sync.Mutex
 	watcher  *fsnotify.Watcher
@@ -83,6 +85,8 @@ func New(path string, log *zap.Logger) *Service {
 	// 发布空初始快照让 GetRules() 永不返 nil。
 	empty := permdomain.Settings{}
 	s.current.Store(&empty)
+	defaultLimits := limitspkg.Default()
+	s.currentLimits.Store(&defaultLimits)
 	if err := s.loadOnce(); err != nil {
 		s.log.Warn("initial settings load failed (using empty defaults)",
 			zap.String("path", path), zap.Error(err))
@@ -145,6 +149,16 @@ func (s *Service) GetRules() *permdomain.Settings {
 	return s.current.Load()
 }
 
+// Limits returns the live operational limits (settings.json "limits" block
+// overlaid on high-ceiling defaults). Wired to limits.SetProvider in main.go so
+// every consumer reads user-tuned values + hot-reload.
+//
+// Limits 返活动运行上限（settings.json "limits" 块叠加在高 ceiling 默认上）。
+// main.go 接到 limits.SetProvider，所有消费方读用户调过的值 + 热重载。
+func (s *Service) Limits() limitspkg.Limits {
+	return *s.currentLimits.Load()
+}
+
 // Reload forces an immediate file re-read. Used by POST /:reload and
 // tests. Returns parse / validation errors so callers can surface them.
 //
@@ -183,6 +197,19 @@ func (s *Service) loadOnce() error {
 		return fmt.Errorf("settings.loadOnce: validate: %w", err)
 	}
 	s.current.Store(&next)
+	// Parse the optional "limits" block onto a Default() base so absent fields
+	// keep their high-ceiling defaults (json.Unmarshal only overwrites present keys).
+	//
+	// 把可选的 "limits" 块叠加到 Default() 基底——缺失字段保留高 ceiling 默认
+	//（json.Unmarshal 只覆盖出现的 key）。
+	lim := limitspkg.Default()
+	var wrapper struct {
+		Limits json.RawMessage `json:"limits"`
+	}
+	if json.Unmarshal(raw, &wrapper) == nil && len(wrapper.Limits) > 0 {
+		_ = json.Unmarshal(wrapper.Limits, &lim) // partial overlay; ignore err → keep defaults
+	}
+	s.currentLimits.Store(&lim)
 	if fi, err := os.Stat(s.path); err == nil {
 		s.lastMod = fi.ModTime()
 	}

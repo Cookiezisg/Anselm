@@ -108,6 +108,7 @@ import (
 	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	settingsinfra "github.com/sunweilin/forgify/backend/internal/infra/settings"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
@@ -455,6 +456,12 @@ func main() {
 	if err := settingsService.Start(context.Background()); err != nil {
 		log.Warn("settings start failed (continuing with last good snapshot)", zap.Error(err))
 	}
+	// Wire the limits getter to settings.json so every consumer (via
+	// limits.Current) reads user-tuned operational ceilings + hot-reload.
+	//
+	// 把 limits getter 接到 settings.json，所有消费方（经 limits.Current）读用户
+	// 调过的运行上限 + 热重载。
+	limitspkg.SetProvider(settingsService.Limits)
 	permGate := permgateapp.New(settingsService)
 	hookRunner := hooksapp.New(settingsService, log)
 	chatService.SetPermissionsAndHooks(permGate, hookRunner)
