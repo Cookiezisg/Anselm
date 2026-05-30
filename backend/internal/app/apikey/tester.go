@@ -224,9 +224,16 @@ func (t *HTTPTester) testAnthropicPing(ctx context.Context, baseURL, key string)
 }
 
 func (t *HTTPTester) testGoogleListModels(ctx context.Context, baseURL, key string) *TestResult {
-	// Strip the OpenAI-compat suffix so the probe always hits the root models endpoint.
-	// /v1beta/openai 是 chat 端点前缀，但 models-list 在根路径 /v1beta/models。
+	// Native base is .../v1beta and the model list lives at .../v1beta/models.
+	// Reduce either the native base or a legacy compat base (.../v1beta/openai)
+	// down to the API root, then rebuild the canonical /v1beta/models path so the
+	// probe is correct regardless of which base form the credential carries.
+	//
+	// 原生 base 为 .../v1beta，模型列表在 .../v1beta/models。把原生 base 或旧的
+	// compat base（.../v1beta/openai）都归约到 API 根，再拼出 /v1beta/models，
+	// 无论凭证里存的是哪种 base 形态探针都正确。
 	root := strings.TrimSuffix(baseURL, "/v1beta/openai")
+	root = strings.TrimSuffix(root, "/v1beta")
 	u := fmt.Sprintf("%s/v1beta/models?key=%s", root, url.QueryEscape(key))
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {

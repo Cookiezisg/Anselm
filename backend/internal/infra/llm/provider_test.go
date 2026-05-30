@@ -14,7 +14,7 @@ func TestLookupProvider_KnownNamesResolveToSelf(t *testing.T) {
 	}{
 		{"openai", "openai", "https://api.openai.com/v1"},
 		{"deepseek", "deepseek", "https://api.deepseek.com"},
-		{"google", "google", "https://generativelanguage.googleapis.com/v1beta/openai"},
+		{"google", "google", "https://generativelanguage.googleapis.com/v1beta"},
 		{"qwen", "qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
 		{"zhipu", "zhipu", "https://open.bigmodel.cn/api/paas/v4"},
 		{"moonshot", "moonshot", "https://api.moonshot.cn/v1"},
@@ -102,7 +102,7 @@ func TestProviderRegistry_DefaultBaseURLs(t *testing.T) {
 	}{
 		{"openai", "https://api.openai.com/v1", false},
 		{"anthropic", "https://api.anthropic.com", false},
-		{"google", "https://generativelanguage.googleapis.com/v1beta/openai", false},
+		{"google", "https://generativelanguage.googleapis.com/v1beta", false},
 		{"deepseek", "https://api.deepseek.com", false},
 		{"openrouter", "https://openrouter.ai/api/v1", false},
 		{"qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1", false},
@@ -250,26 +250,17 @@ func TestOllamaProvider_DisablesStreamWhenToolsPresent(t *testing.T) {
 	}
 }
 
-// TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil asserts that
-// google (still on openAICompatProvider pending R4) carries a nil beforeRequest
-// hook — it should never set DisableStream or mutate the request.
+// TestGoogleProvider_IsNativeGemini asserts that google resolves to the native
+// geminiProvider (not the OpenAI-compat shim) after the R4 migration.
 //
-// TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil 断言 google（仍用
-// openAICompatProvider，等待 R4）的 beforeRequest 钩子为 nil，不得修改请求。
-func TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil(t *testing.T) {
+// TestGoogleProvider_IsNativeGemini 断言 R4 后 google 解析到原生 geminiProvider
+//（而非 OpenAI-compat 垫片）。
+func TestGoogleProvider_IsNativeGemini(t *testing.T) {
 	p, ok := providerRegistry["google"]
 	if !ok {
 		t.Fatal("provider google not in registry")
 	}
-	cp, ok := p.(*openAICompatProvider)
-	if !ok {
-		t.Fatalf("google is not *openAICompatProvider: %T", p)
-	}
-	if cp.beforeRequest != nil {
-		req := Request{Tools: []ToolDef{{Name: "x"}}}
-		cp.beforeRequest(&req)
-		if req.DisableStream {
-			t.Errorf("google should not set DisableStream; only Ollama needs that quirk")
-		}
+	if _, ok := p.(*geminiProvider); !ok {
+		t.Fatalf("google must be the native *geminiProvider, got %T", p)
 	}
 }

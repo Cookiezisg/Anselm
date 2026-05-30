@@ -403,3 +403,24 @@ func TestHTTPTester_Google_ProbePathIsRootModels_WhenBaseHasOpenAISuffix(t *test
 		t.Errorf("probe path = %q, want /v1beta/models (must strip /v1beta/openai before appending)", gotPath)
 	}
 }
+
+func TestHTTPTester_Google_ProbePathIsRootModels_WhenBaseIsNativeV1Beta(t *testing.T) {
+	// Native base is .../v1beta; the probe must reduce it to the root and rebuild
+	// .../v1beta/models — not .../v1beta/v1beta/models.
+	// 原生 base 为 .../v1beta；探针须归约到根再拼 /v1beta/models，不得双拼 /v1beta。
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"models":[]}`))
+	}))
+	defer srv.Close()
+
+	baseNative := srv.URL + "/v1beta"
+	_, err := newTester().Test(context.Background(), "google", "gk", baseNative, "")
+	if err != nil {
+		t.Fatalf("Test: %v", err)
+	}
+	if gotPath != "/v1beta/models" {
+		t.Errorf("probe path = %q, want /v1beta/models (must strip /v1beta before appending)", gotPath)
+	}
+}

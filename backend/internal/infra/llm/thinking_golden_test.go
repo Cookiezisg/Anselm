@@ -665,34 +665,102 @@ func TestThinking_OpenRouter_Off_NoReasoningField(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Google Gemini (compat surface)
+// Google Gemini (native generateContent)
 // ──────────────────────────────────────────────────────────────────────────────
 
-// TestThinking_Gemini_NilSpec_NoFields verifies nil ThinkingSpec on Gemini compat.
+const geminiNativeBase = "https://generativelanguage.googleapis.com/v1beta"
+
+// TestThinking_Gemini_NilSpec_NoFields verifies nil ThinkingSpec on native
+// Gemini emits no generationConfig/thinkingConfig at all.
 //
-// 验证 Gemini compat nil ThinkingSpec 不含 thinking 字段。
+// 验证原生 Gemini nil ThinkingSpec 不发 generationConfig/thinkingConfig。
 func TestThinking_Gemini_NilSpec_NoFields(t *testing.T) {
 	req := minimalReq("gemini-2.5-flash")
-	body := buildProviderBody(t, "google", "https://generativelanguage.googleapis.com/v1beta/openai", req)
-	assertNoThinkingFields(t, body)
+	body := buildProviderBody(t, "google", geminiNativeBase, req)
+	if bytes.Contains(body, []byte(`"thinkingConfig"`)) || bytes.Contains(body, []byte(`"generationConfig"`)) {
+		t.Errorf("nil ThinkingSpec: body must not contain thinkingConfig/generationConfig; got: %s", body)
+	}
 }
 
-// TestThinking_Gemini_On_ReasoningEffortHigh verifies Mode="on"+Effort="high"
-// emits reasoning_effort:"high". Matches 03 §5 compat surface.
+// TestThinking_Gemini_On_ThinkingBudget verifies Mode="on" emits
+// thinkingConfig{thinkingBudget>0, includeThoughts:true}. Matches 03 §5 native.
 //
-// 验证 Gemini compat Mode="on"+Effort="high" emit reasoning_effort:"high"，
-// 对照 03 §5 compat 面。
-func TestThinking_Gemini_On_ReasoningEffortHigh(t *testing.T) {
+// 验证原生 Gemini Mode="on" emit thinkingConfig{thinkingBudget>0,
+// includeThoughts:true}，对照 03 §5 native。
+func TestThinking_Gemini_On_ThinkingBudget(t *testing.T) {
 	req := minimalReq("gemini-2.5-flash")
-	req.Thinking = &ThinkingSpec{Mode: "on", Effort: "high"}
-	body := buildProviderBody(t, "google", "https://generativelanguage.googleapis.com/v1beta/openai", req)
+	req.Thinking = &ThinkingSpec{Mode: "on", Budget: 1024}
+	body := buildProviderBody(t, "google", geminiNativeBase, req)
 
-	var parsed map[string]json.RawMessage
+	var parsed struct {
+		GenerationConfig struct {
+			ThinkingConfig struct {
+				ThinkingBudget  *int `json:"thinkingBudget"`
+				IncludeThoughts bool `json:"includeThoughts"`
+			} `json:"thinkingConfig"`
+		} `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	tc := parsed.GenerationConfig.ThinkingConfig
+	if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 1024 {
+		t.Errorf("gemini: thinkingBudget = %v, want 1024; body: %s", tc.ThinkingBudget, body)
+	}
+	if !tc.IncludeThoughts {
+		t.Errorf("gemini on: includeThoughts must be true; body: %s", body)
+	}
+}
+
+// TestThinking_Gemini_On_DefaultsBudgetFromCaps verifies Mode="on" with no
+// explicit Budget falls back to the model's catalog BudgetMax (non-zero).
+//
+// 验证 Mode="on" 未给 Budget 时回退到模型目录 BudgetMax（非零）。
+func TestThinking_Gemini_On_DefaultsBudgetFromCaps(t *testing.T) {
+	req := minimalReq("gemini-2.5-flash")
+	req.Thinking = &ThinkingSpec{Mode: "on"}
+	body := buildProviderBody(t, "google", geminiNativeBase, req)
+
+	var parsed struct {
+		GenerationConfig struct {
+			ThinkingConfig struct {
+				ThinkingBudget *int `json:"thinkingBudget"`
+			} `json:"thinkingConfig"`
+		} `json:"generationConfig"`
+	}
 	json.Unmarshal(body, &parsed)
-	var effort string
-	json.Unmarshal(parsed["reasoning_effort"], &effort)
-	if effort != "high" {
-		t.Errorf("gemini: reasoning_effort = %q, want high", effort)
+	got := parsed.GenerationConfig.ThinkingConfig.ThinkingBudget
+	if got == nil || *got <= 0 {
+		t.Errorf("gemini on without explicit budget: thinkingBudget must default >0; got %v; body: %s", got, body)
+	}
+}
+
+// TestThinking_Gemini_Off_BudgetZero verifies Mode="off" emits
+// thinkingConfig{thinkingBudget:0} (the documented disable form).
+//
+// 验证 Mode="off" emit thinkingConfig{thinkingBudget:0}（文档化的关闭形）。
+func TestThinking_Gemini_Off_BudgetZero(t *testing.T) {
+	req := minimalReq("gemini-2.5-flash")
+	req.Thinking = &ThinkingSpec{Mode: "off"}
+	body := buildProviderBody(t, "google", geminiNativeBase, req)
+
+	var parsed struct {
+		GenerationConfig struct {
+			ThinkingConfig struct {
+				ThinkingBudget  *int `json:"thinkingBudget"`
+				IncludeThoughts bool `json:"includeThoughts"`
+			} `json:"thinkingConfig"`
+		} `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	tc := parsed.GenerationConfig.ThinkingConfig
+	if tc.ThinkingBudget == nil || *tc.ThinkingBudget != 0 {
+		t.Errorf("gemini off: thinkingBudget must be 0; got %v; body: %s", tc.ThinkingBudget, body)
+	}
+	if tc.IncludeThoughts {
+		t.Errorf("gemini off: includeThoughts must be false/absent; body: %s", body)
 	}
 }
 

@@ -2,7 +2,6 @@ package apikey
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
@@ -144,15 +143,18 @@ func TestGetProviderMeta_Unknown(t *testing.T) {
 	}
 }
 
-func TestGetProviderMeta_Google_DefaultBaseURL_HasOpenAICompat(t *testing.T) {
-	// Google's OpenAI-compat surface lives at /v1beta/openai — the stored default
-	// must carry the full path so ResolveCredentials backfills the right value.
-	// Google 的 OpenAI-compat 端点是 /v1beta/openai，默认值必须含完整路径。
+func TestGetProviderMeta_Google_DefaultBaseURL_IsNativeV1Beta(t *testing.T) {
+	// Native generateContent base is .../v1beta (the model lives in the request
+	// path, e.g. /v1beta/models/{model}:streamGenerateContent). The old compat
+	// /v1beta/openai suffix is gone after R4.
+	// 原生 generateContent base 为 .../v1beta（model 在请求路径里）；R4 后旧的
+	// compat /v1beta/openai 后缀已移除。
 	m, ok := GetProviderMeta("google")
 	if !ok {
 		t.Fatal("GetProviderMeta(\"google\") not found")
 	}
-	if !strings.HasSuffix(m.DefaultBaseURL, "/v1beta/openai") {
-		t.Errorf("DefaultBaseURL = %q, want suffix /v1beta/openai (chat endpoint path)", m.DefaultBaseURL)
+	want := "https://generativelanguage.googleapis.com/v1beta"
+	if m.DefaultBaseURL != want {
+		t.Errorf("DefaultBaseURL = %q, want %q (native generateContent base)", m.DefaultBaseURL, want)
 	}
 }

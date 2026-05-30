@@ -628,30 +628,6 @@ func clampEffort(effort string, allowed []string, fallback string) string {
 	return fallback
 }
 
-// encodeThinkingOpenAI encodes thinking for OpenAI reasoning models.
-// on  → reasoning_effort = Effort (clamp to allowed; default "medium")
-// off → reasoning_effort = "none" if "none" is in allowed, else omit.
-//
-// encodeThinkingOpenAI 编码 OpenAI 推理参数：
-// on→reasoning_effort（取 Effort 或 "medium"）；off→"none"（若可用）。
-func encodeThinkingOpenAI(allowed []string) func(*oaiRequest, *ThinkingSpec) {
-	return func(body *oaiRequest, spec *ThinkingSpec) {
-		switch spec.Mode {
-		case "on":
-			body.ReasoningEffort = clampEffort(spec.Effort, allowed, "medium")
-		case "off":
-			// Only emit "none" if the model family supports it; otherwise omit.
-			// 只有当模型家族支持 "none" 时才 emit；否则省略。
-			for _, v := range allowed {
-				if v == "none" {
-					body.ReasoningEffort = "none"
-					break
-				}
-			}
-		}
-	}
-}
-
 // deepseekMapEffort maps generic effort values to DeepSeek's {high,max} set.
 //
 // deepseekMapEffort 把通用 effort 映射到 DeepSeek 的 {high,max}。
@@ -663,16 +639,6 @@ func deepseekMapEffort(effort string) string {
 		// low, medium, high, empty → high
 		return "high"
 	}
-}
-
-// encodeThinkingGeminiCompat encodes thinking for Gemini OpenAI-compat surface.
-// Same as OpenAI: reasoning_effort string. Used by the google provider until R4
-// migrates it to the native generateContent API.
-//
-// encodeThinkingGeminiCompat 编码 Gemini compat 面的 thinking（与 OpenAI 相同）。
-// 供 google provider 使用，R4 迁 native 后移除。
-func encodeThinkingGeminiCompat(allowed []string) func(*oaiRequest, *ThinkingSpec) {
-	return encodeThinkingOpenAI(allowed)
 }
 
 // ── Self-contained openaiProvider ────────────────────────────────────────────

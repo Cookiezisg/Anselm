@@ -73,23 +73,26 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 // —— 它们都讲 /chat/completions。
 var providerRegistry = buildProviderRegistry()
 
-// buildProviderRegistry constructs the canonical Provider registry. openai,
-// deepseek, qwen, zhipu, moonshot, doubao, openrouter, ollama, and custom now
-// all use their own self-contained Provider types. google still uses the shared
-// openAICompatProvider (R4 will make it native). anthropic uses its own
-// native-dialect Provider; mock is absent (Build short-circuits to MockClient).
+// buildProviderRegistry constructs the canonical Provider registry. Every
+// provider now uses its own self-contained Provider type: openai / deepseek /
+// qwen / zhipu / moonshot / doubao / openrouter / ollama / custom speak
+// OpenAI-compat; anthropic and google (native generateContent) speak their own
+// dialects. mock is absent (Build short-circuits to MockClient).
 //
-// buildProviderRegistry 构建权威 Provider 注册表。openai/deepseek/qwen/zhipu/moonshot/
-// doubao/openrouter/ollama/custom 均已迁移到各自独立的 Provider 类型；google 仍使用共享
-// openAICompatProvider（R4 迁 native）；anthropic 使用原生方言 Provider；mock 缺席。
+// buildProviderRegistry 构建权威 Provider 注册表。每个 provider 均用各自独立的
+// Provider 类型：openai/deepseek/qwen/zhipu/moonshot/doubao/openrouter/ollama/
+// custom 讲 OpenAI-compat；anthropic 与 google（原生 generateContent）讲各自方言；
+// mock 缺席（Build 短路到 MockClient）。
 func buildProviderRegistry() map[string]Provider {
-	compat := func(name, baseURL string) *openAICompatProvider {
-		return newOpenAICompatProvider(name, baseURL)
-	}
 	reg := map[string]Provider{
 		// anthropic: native-dialect provider.
 		// anthropic：原生方言 provider。
 		"anthropic": newAnthropicProvider(),
+		// google: native generateContent provider (reasoning-text readback +
+		// thoughtSignature round-trip; 03 §5). Replaces the OpenAI-compat shim.
+		// google：原生 generateContent provider（推理文本读回 + thoughtSignature
+		// 回传，03 §5），取代 OpenAI-compat 垫片。
+		"google": newGeminiProvider(),
 		// openai: self-contained provider (reasoning_effort for o-series, 03 §2).
 		// openai：自有 provider（o 系列 reasoning_effort，03 §2）。
 		"openai": newOpenAIProvider(),
@@ -118,15 +121,6 @@ func buildProviderRegistry() map[string]Provider {
 		// custom：自有 provider（纯 OpenAI-compat，无 thinking 编码）。
 		"custom": newCustomProvider(),
 	}
-
-	// google compat: reasoning_effort (same shape as OpenAI compat surface).
-	// R4 will migrate google to a native generateContent provider.
-	//
-	// google compat：reasoning_effort（与 OpenAI compat 面相同）。R4 迁 native。
-	gc := compat("google", "https://generativelanguage.googleapis.com/v1beta/openai")
-	gc.thinkingEncoder = encodeThinkingGeminiCompat([]string{"minimal", "low", "medium", "high"})
-	reg["google"] = gc
-
 	return reg
 }
 

@@ -284,7 +284,7 @@ git push origin main
 - [ ] **P2.1 DeepSeek**(范例,最先做)—— `deepseek.go` + golden(03 §3)。L1 断言 BuildRequest JSON == 03 §3 golden 请求;L2 httptest 返 03 §3 SSE,断言 reasoning_content 先于 content 解析。reasoning_content 回传规则(普通轮剥/tool 轮留)。
 - [ ] **P2.2 OpenAI** —— `openai.go`(03 §2);max_completion_tokens、推理模型禁 temperature。
 - [ ] **P2.3 Anthropic** —— `anthropic.go`(03 §4);native /v1/messages、system 顶层、tool_result 排序、signature 解析(thinking 回传留 P3)、max_tokens 去硬编码。
-- [ ] **P2.4 Gemini(native)** —— `gemini.go` 走 `generateContent`/`streamGenerateContent?alt=sse`(03 §5 建议);thought:true parts 解析、thoughtsTokenCount。
+- [x] **P2.4 Gemini(native)**(R4 交付)—— `gemini.go` `geminiProvider` 走 `streamGenerateContent?alt=sse`(model 在 URL 路径)+ `x-goog-api-key`;BuildRequest 映射 contents(user→user/assistant→model/tool→user+functionResponse)、systemInstruction、tools.functionDeclarations、generationConfig.thinkingConfig(on→budget+includeThoughts / off→budget:0 / auto→省略);ParseStream 解析 thought:true parts(带 thoughtSignature→EventReasoning.Signature)、functionCall(完整 args 一次 emit)、usageMetadata(candidates+thoughts 合计 OutputTokens)。base 改 `…/v1beta`(`providers.go` + `tester.go` 探针归约到 `/v1beta/models`);删 compat shim + `encodeThinkingGeminiCompat`/`encodeThinkingOpenAI`。functionResponse 按函数名(从前序 tool_call 反查)+id 配对。
 - [ ] **P2.5 Qwen** —— `qwen.go`(03 §6);flat error envelope `{code,message}` 解析。
 - [ ] **P2.6 Zhipu GLM** —— `zhipu.go`(03 §7);tool_choice 只 auto、finish_reason sensitive/network_error。
 - [ ] **P2.7 Moonshot** —— `moonshot.go`(03 §8);reasoning_content(下划线)、双路 thinking。

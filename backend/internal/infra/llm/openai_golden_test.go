@@ -153,7 +153,11 @@ func TestDefaultBaseURL_AllKnownCompatProviders(t *testing.T) {
 	cases := []struct{ name, wantBase string }{
 		{"openai", "https://api.openai.com/v1"},
 		{"deepseek", "https://api.deepseek.com"},
-		{"google", "https://generativelanguage.googleapis.com/v1beta/openai"},
+		// google is native generateContent (not /chat/completions) but still has a
+		// canonical DefaultBaseURL; only the base value is asserted here.
+		// google 是原生 generateContent（非 /chat/completions），但仍有规范的
+		// DefaultBaseURL；此处只断言 base 值。
+		{"google", "https://generativelanguage.googleapis.com/v1beta"},
 		{"qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1"},
 		{"zhipu", "https://open.bigmodel.cn/api/paas/v4"},
 		{"moonshot", "https://api.moonshot.cn/v1"},
