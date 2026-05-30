@@ -4,7 +4,7 @@
 
 > Generated 2026-05-30 by `make matrix`. Run `make audit` to verify.
 
-## 1. HTTP endpoints (45 / 143 covered, 31%)
+## 1. HTTP endpoints (47 / 145 covered, 32%)
 
 ### api-keys domain (5/5 ✅)
 
@@ -253,12 +253,14 @@
 |---|---|---|
 | **GET** | **/api/v1/scenarios** | **❌ uncovered** |
 
-### settings domain (0/3 ❌)
+### settings domain (2/5 ⚠️)
 
 | Method | Path | Test |
 |---|---|---|
 | **GET** | **/api/v1/settings** | **❌ uncovered** |
 | **PUT** | **/api/v1/settings** | **❌ uncovered** |
+| GET | /api/v1/settings/limits | backend/test/cross/permissions_pipeline_test.go::TestSettings_LimitsGetPut |
+| PUT | /api/v1/settings/limits | backend/test/cross/permissions_pipeline_test.go::TestSettings_LimitsGetPut |
 | **POST** | **/api/v1/settings:reload** | **❌ uncovered** |
 
 ### skills domain (0/9 ❌)
@@ -644,13 +646,15 @@
 
 ## Summary
 
-- **Total targets**: 442
-- **Covered**: 84 (19%)
+- **Total targets**: 444
+- **Covered**: 86 (19%)
 - **Uncovered**: 358
 - **Orphan annotations**: 4
 - **Tests without `// covers:` annotation**: 42
 
 <!-- COVERAGE-MATRIX:END -->
+
+
 
 
 

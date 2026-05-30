@@ -23,6 +23,7 @@ import (
 	"time"
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -205,5 +206,69 @@ func TestPermissions_PostToolUseHook_AppendsHint(t *testing.T) {
 	text, _ := res["result"].(string)
 	if !strings.Contains(text, "[hook] remember to run tests") {
 		t.Errorf("expected '[hook] remember to run tests' in result, got %q", text)
+	}
+}
+
+// ── 4. Settings limits GET/PUT round-trip (limits-optimization P3) ───────
+
+// TestSettings_LimitsGetPut verifies GET /settings/limits returns the
+// high-ceiling defaults, PUT upserts + persists across reload, and the
+// read-modify-write doesn't clobber the permissions block.
+//
+// covers: GET /api/v1/settings/limits
+// covers: PUT /api/v1/settings/limits
+func TestSettings_LimitsGetPut(t *testing.T) {
+	h := th.New(t)
+
+	// Seed a permissions block so we can prove PUT /limits preserves it.
+	writeSettings(t, h, `{"permissions":{"defaultMode":"allow","deny":["TodoCreate"]}}`)
+
+	var got struct {
+		Data limitspkg.Limits `json:"data"`
+	}
+	h.GetJSON("/api/v1/settings/limits", &got)
+	if got.Data.Agent.MaxSteps != 150 {
+		t.Fatalf("default maxSteps=%d, want 150 (high-ceiling default)", got.Data.Agent.MaxSteps)
+	}
+
+	put := limitspkg.Default()
+	put.Agent.MaxSteps = 99
+	put.Tools.SearchTopN = 25
+	var echo struct {
+		Data limitspkg.Limits `json:"data"`
+	}
+	if code := th.DoRequest(t, h, "PUT", "/api/v1/settings/limits", put, &echo); code != 200 {
+		t.Fatalf("PUT status=%d, want 200", code)
+	}
+	if echo.Data.Agent.MaxSteps != 99 {
+		t.Fatalf("PUT echo maxSteps=%d, want 99", echo.Data.Agent.MaxSteps)
+	}
+
+	var after struct {
+		Data limitspkg.Limits `json:"data"`
+	}
+	h.GetJSON("/api/v1/settings/limits", &after)
+	if after.Data.Agent.MaxSteps != 99 || after.Data.Tools.SearchTopN != 25 {
+		t.Fatalf("after PUT maxSteps=%d topN=%d, want 99/25 (persisted across reload)",
+			after.Data.Agent.MaxSteps, after.Data.Tools.SearchTopN)
+	}
+
+	// read-modify-write must preserve the permissions deny block.
+	var settings struct {
+		Data struct {
+			Permissions struct {
+				Deny []string `json:"deny"`
+			} `json:"permissions"`
+		} `json:"data"`
+	}
+	h.GetJSON("/api/v1/settings", &settings)
+	found := false
+	for _, d := range settings.Data.Permissions.Deny {
+		if d == "TodoCreate" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("PUT /limits clobbered the permissions deny block: %v", settings.Data.Permissions.Deny)
 	}
 }
