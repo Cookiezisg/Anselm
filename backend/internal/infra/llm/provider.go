@@ -74,20 +74,21 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 var providerRegistry = buildProviderRegistry()
 
 // buildProviderRegistry constructs the canonical Provider registry. openai,
-// deepseek, qwen, zhipu, and moonshot now use their own self-contained Provider
-// types; doubao/openrouter/google/ollama/custom still use the shared
-// openAICompatProvider. anthropic uses its own native-dialect Provider;
-// mock is absent (Build short-circuits to MockClient).
+// deepseek, qwen, zhipu, moonshot, doubao, openrouter, ollama, and custom now
+// all use their own self-contained Provider types. google still uses the shared
+// openAICompatProvider (R4 will make it native). anthropic uses its own
+// native-dialect Provider; mock is absent (Build short-circuits to MockClient).
 //
-// buildProviderRegistry 构建权威 Provider 注册表。openai/deepseek/qwen/zhipu/moonshot
-// 已迁移到各自独立的 Provider 类型；doubao/openrouter/google/ollama/custom 仍使用共享的
-// openAICompatProvider；anthropic 使用原生方言 Provider；mock 缺席（Build 直接短路）。
+// buildProviderRegistry 构建权威 Provider 注册表。openai/deepseek/qwen/zhipu/moonshot/
+// doubao/openrouter/ollama/custom 均已迁移到各自独立的 Provider 类型；google 仍使用共享
+// openAICompatProvider（R4 迁 native）；anthropic 使用原生方言 Provider；mock 缺席。
 func buildProviderRegistry() map[string]Provider {
 	compat := func(name, baseURL string) *openAICompatProvider {
 		return newOpenAICompatProvider(name, baseURL)
 	}
 	reg := map[string]Provider{
-		"custom":    compat("custom", ""),
+		// anthropic: native-dialect provider.
+		// anthropic：原生方言 provider。
 		"anthropic": newAnthropicProvider(),
 		// openai: self-contained provider (reasoning_effort for o-series, 03 §2).
 		// openai：自有 provider（o 系列 reasoning_effort，03 §2）。
@@ -104,39 +105,37 @@ func buildProviderRegistry() map[string]Provider {
 		// moonshot: self-contained provider (thinking:{type} for k2.5/k2.6; reasoning_content, 03 §8).
 		// moonshot：自有 provider（k2.5/k2.6 的 thinking:{type}；reasoning_content，03 §8）。
 		"moonshot": newMoonshotProvider(),
+		// doubao: self-contained provider (thinking:{type:enabled|disabled} + budget_tokens, 03 §9).
+		// doubao：自有 provider（thinking:{type} + budget_tokens，03 §9）。
+		"doubao": newDoubaoProvider(),
+		// openrouter: self-contained provider (reasoning:{effort|max_tokens} + ':' skip, 03 §10).
+		// openrouter：自有 provider（reasoning:{effort|max_tokens} + ':' 行跳过，03 §10）。
+		"openrouter": newOpenRouterProvider(),
+		// ollama: self-contained provider (reasoning_effort + stream-disable-on-tools, 03 §11).
+		// ollama：自有 provider（reasoning_effort + tools 时关流，03 §11）。
+		"ollama": newOllamaProvider(),
+		// custom: self-contained provider (plain OpenAI-compat, no thinking encoding).
+		// custom：自有 provider（纯 OpenAI-compat，无 thinking 编码）。
+		"custom": newCustomProvider(),
 	}
 
 	// google compat: reasoning_effort (same shape as OpenAI compat surface).
-	// google compat：reasoning_effort（与 OpenAI compat 面相同）。
+	// R4 will migrate google to a native generateContent provider.
+	//
+	// google compat：reasoning_effort（与 OpenAI compat 面相同）。R4 迁 native。
 	gc := compat("google", "https://generativelanguage.googleapis.com/v1beta/openai")
 	gc.thinkingEncoder = encodeThinkingGeminiCompat([]string{"minimal", "low", "medium", "high"})
 	reg["google"] = gc
-
-	// doubao: thinking:{type:"enabled"|"disabled"} + optional budget_tokens.
-	// doubao：thinking:{type} + 可选 budget_tokens。
-	db := compat("doubao", "https://ark.cn-beijing.volces.com/api/v3")
-	db.thinkingEncoder = encodeThinkingDoubao
-	reg["doubao"] = db
-
-	// openrouter: reasoning:{effort|max_tokens}.
-	// openrouter：reasoning:{effort|max_tokens}。
-	or_ := compat("openrouter", "https://openrouter.ai/api/v1")
-	or_.thinkingEncoder = encodeThinkingOpenRouter
-	reg["openrouter"] = or_
-
-	// ollama: force non-streaming when tools present + reasoning_effort.
-	// ollama：有 tools 时强制非流 + reasoning_effort。
-	ol := compat("ollama", "")
-	ol.beforeRequest = ollamaBeforeRequest
-	ol.thinkingEncoder = encodeThinkingOllama
-	reg["ollama"] = ol
 
 	return reg
 }
 
 // deepseekBeforeRequest enforces DeepSeek's turn-type-dependent reasoning_content round-trip rule.
+// Kept as a package-level function for test coverage; the logic also lives inside
+// deepseekProvider.BuildRequest so the self-contained provider applies it directly.
 //
 // deepseekBeforeRequest 守 DeepSeek 按 turn 类型的 reasoning_content round-trip 规则。
+// 保留为包级函数供测试覆盖；逻辑同样内嵌于 deepseekProvider.BuildRequest。
 func deepseekBeforeRequest(req *Request) {
 	for i := range req.Messages {
 		m := &req.Messages[i]
@@ -148,15 +147,6 @@ func deepseekBeforeRequest(req *Request) {
 		if len(m.ToolCalls) == 0 {
 			m.ReasoningContent = ""
 		}
-	}
-}
-
-// ollamaBeforeRequest forces non-streaming when tools are present (Ollama drops tool_calls when streaming).
-//
-// ollamaBeforeRequest 有 tools 时强制非流式（Ollama streaming 时会吞 tool_calls）。
-func ollamaBeforeRequest(req *Request) {
-	if len(req.Tools) > 0 {
-		req.DisableStream = true
 	}
 }
 

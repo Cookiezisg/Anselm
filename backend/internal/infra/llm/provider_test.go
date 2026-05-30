@@ -1,6 +1,8 @@
 package llm
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 )
 
@@ -40,16 +42,16 @@ func TestLookupProvider_UnknownFallsBackToOpenAICompat(t *testing.T) {
 	}
 }
 
-// custom defaults to the OpenAI-compat wire dialect (its own identity, compat
-// body/SSE) — only an explicit anthropic-compatible APIFormat reroutes it to
-// the Anthropic provider.
+// custom defaults to its own self-contained OpenAI-compat provider (customProvider)
+// — only an explicit anthropic-compatible APIFormat reroutes it to the Anthropic
+// provider.
 //
-// custom 默认走 OpenAI-compat wire 方言（自有身份，compat body/SSE）；只有显式
+// custom 默认走自有的 OpenAI-compat provider（customProvider）；只有显式
 // anthropic-compatible 才改路由到 Anthropic。
 func TestLookupProvider_CustomDefaultsToOpenAICompat(t *testing.T) {
 	p := lookupProvider(Config{Provider: "custom"})
-	if _, ok := p.(*openAICompatProvider); !ok {
-		t.Errorf("bare custom should use the openai-compat dialect, got %T", p)
+	if _, ok := p.(*customProvider); !ok {
+		t.Errorf("bare custom should use customProvider, got %T", p)
 	}
 	if p.Name() != "custom" {
 		t.Errorf("bare custom should keep its own identity, got Name()=%q", p.Name())
@@ -63,10 +65,11 @@ func TestLookupProvider_CustomAnthropicCompatRoutesToAnthropic(t *testing.T) {
 	}
 }
 
-// ollama is OpenAI-compat with an empty default base URL — the caller must
-// supply base_url, matching resolveBaseURL's required-base-url path.
+// ollama has an empty default base URL — the caller must supply base_url,
+// matching resolveBaseURL's required-base-url path. It is now a self-contained
+// ollamaProvider (not openAICompatProvider).
 //
-// ollama 是 OpenAI-compat 但默认 base URL 为空——caller 必须给 base_url。
+// ollama 默认 base URL 为空——caller 必须给 base_url；现为自有 ollamaProvider（非 compat）。
 func TestLookupProvider_OllamaIsCompatWithEmptyBase(t *testing.T) {
 	p := lookupProvider(Config{Provider: "ollama"})
 	if p.Name() != "ollama" {
@@ -193,48 +196,80 @@ func TestDeepseekProvider_DoesntTouchNonAssistantMessages(t *testing.T) {
 	}
 }
 
-// TestOllamaProvider_DisablesStreamWhenToolsPresent asserts that ollamaBeforeRequest
-// sets DisableStream=true when tools are present, and leaves it false otherwise.
+// TestOllamaProvider_DisablesStreamWhenToolsPresent asserts that ollamaProvider.BuildRequest
+// sets stream:false when tools are present (tool_call drop quirk avoidance), and
+// leaves stream:true otherwise. Tests the behaviour via BuildRequest instead of
+// the old ollamaBeforeRequest hook (now folded into BuildRequest).
 //
-// TestOllamaProvider_DisablesStreamWhenToolsPresent 断言有 tools 时设 DisableStream，无 tools 时不动。
+// TestOllamaProvider_DisablesStreamWhenToolsPresent 断言有 tools 时 ollamaProvider.BuildRequest
+// 发 stream:false（避免 tool_call 丢失），无 tools 时发 stream:true。
+// 通过 BuildRequest 测试（ollamaBeforeRequest 已内嵌其中）。
 func TestOllamaProvider_DisablesStreamWhenToolsPresent(t *testing.T) {
-	r1 := Request{}
-	ollamaBeforeRequest(&r1)
-	if r1.DisableStream {
-		t.Errorf("ollama without tools should leave DisableStream=false")
+	p := newOllamaProvider()
+	baseURL := "http://localhost:11434/v1"
+
+	// Without tools: stream should be true.
+	// 无 tools：stream 应为 true。
+	r1 := Request{
+		ModelID:  "qwen3",
+		BaseURL:  baseURL,
+		Key:      "ollama",
+		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
+	}
+	httpReq1, err := p.BuildRequest(context.Background(), r1)
+	if err != nil {
+		t.Fatalf("BuildRequest (no tools): %v", err)
+	}
+	var body1 ollamaRequest
+	if err := json.NewDecoder(httpReq1.Body).Decode(&body1); err != nil {
+		t.Fatalf("decode body1: %v", err)
+	}
+	if !body1.Stream {
+		t.Errorf("ollama without tools should have stream:true")
 	}
 
-	r2 := Request{Tools: []ToolDef{{Name: "search"}}}
-	ollamaBeforeRequest(&r2)
-	if !r2.DisableStream {
-		t.Errorf("ollama with tools should set DisableStream=true (avoids ollama#12557)")
+	// With tools: stream should be false (non-streaming to avoid tool_call drop).
+	// 有 tools：stream 应为 false（非流式，避免 tool_call 丢失）。
+	r2 := Request{
+		ModelID:  "qwen3",
+		BaseURL:  baseURL,
+		Key:      "ollama",
+		Messages: []LLMMessage{{Role: RoleUser, Content: "search for cats"}},
+		Tools:    []ToolDef{{Name: "search"}},
+	}
+	httpReq2, err := p.BuildRequest(context.Background(), r2)
+	if err != nil {
+		t.Fatalf("BuildRequest (with tools): %v", err)
+	}
+	var body2 ollamaRequest
+	if err := json.NewDecoder(httpReq2.Body).Decode(&body2); err != nil {
+		t.Fatalf("decode body2: %v", err)
+	}
+	if body2.Stream {
+		t.Errorf("ollama with tools should have stream:false (avoids tool_call drop quirk)")
 	}
 }
 
-// TestNonBehavioralProviders_NilBeforeRequest asserts that OpenAI-compat
-// providers without custom mutations carry a nil beforeRequest hook.
-// openai, deepseek, qwen, zhipu, and moonshot are excluded — they are now
-// self-contained providers, not openAICompatProvider instances (their
-// pre-request logic lives in BuildRequest).
+// TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil asserts that
+// google (still on openAICompatProvider pending R4) carries a nil beforeRequest
+// hook — it should never set DisableStream or mutate the request.
 //
-// TestNonBehavioralProviders_NilBeforeRequest 断言无自定义变换的 compat provider 钩子为 nil。
-// openai/deepseek/qwen/zhipu/moonshot 已迁移为自有类型，预处理逻辑内嵌于 BuildRequest，故排除。
-func TestNonBehavioralProviders_NilBeforeRequest(t *testing.T) {
-	for _, name := range []string{"google", "openrouter", "doubao"} {
-		p, ok := providerRegistry[name]
-		if !ok {
-			t.Fatalf("provider %q not in registry", name)
-		}
-		cp, ok := p.(*openAICompatProvider)
-		if !ok {
-			t.Fatalf("provider %q is not *openAICompatProvider: %T", name, p)
-		}
-		if cp.beforeRequest != nil {
-			req := Request{Tools: []ToolDef{{Name: "x"}}}
-			cp.beforeRequest(&req)
-			if req.DisableStream {
-				t.Errorf("%s should not set DisableStream; only Ollama needs that quirk", name)
-			}
+// TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil 断言 google（仍用
+// openAICompatProvider，等待 R4）的 beforeRequest 钩子为 nil，不得修改请求。
+func TestNonBehavioralProviders_GoogleIsCompatWithBeforeRequestNil(t *testing.T) {
+	p, ok := providerRegistry["google"]
+	if !ok {
+		t.Fatal("provider google not in registry")
+	}
+	cp, ok := p.(*openAICompatProvider)
+	if !ok {
+		t.Fatalf("google is not *openAICompatProvider: %T", p)
+	}
+	if cp.beforeRequest != nil {
+		req := Request{Tools: []ToolDef{{Name: "x"}}}
+		cp.beforeRequest(&req)
+		if req.DisableStream {
+			t.Errorf("google should not set DisableStream; only Ollama needs that quirk")
 		}
 	}
 }

@@ -665,52 +665,12 @@ func deepseekMapEffort(effort string) string {
 	}
 }
 
-// encodeThinkingDoubao encodes thinking for Doubao Seed models.
-// on  → thinking:{type:"enabled", budget_tokens?}
-// off → thinking:{type:"disabled"}
-//
-// encodeThinkingDoubao 编码豆包 Seed 模型 thinking 参数。
-func encodeThinkingDoubao(body *oaiRequest, spec *ThinkingSpec) {
-	switch spec.Mode {
-	case "on":
-		tf := &oaiThinkingField{Type: "enabled"}
-		if spec.Budget > 0 {
-			tf.BudgetTokens = spec.Budget
-		}
-		body.Thinking = tf
-	case "off":
-		body.Thinking = &oaiThinkingField{Type: "disabled"}
-	}
-}
-
-// encodeThinkingOpenRouter encodes thinking for OpenRouter.
-// on  → reasoning:{effort:Effort} or reasoning:{max_tokens:Budget} (effort preferred)
-// off → omit (no clean "off" documented; leaving reasoning absent lets the
-//
-//	upstream model use its default — emitting nothing is safer than a
-//	non-standard field).
-//
-// encodeThinkingOpenRouter 编码 OpenRouter reasoning 参数：
-// on→{effort} 或 {max_tokens}（effort 优先）；off→省略（无官方关闭形，不发更安全）。
-func encodeThinkingOpenRouter(body *oaiRequest, spec *ThinkingSpec) {
-	if spec.Mode != "on" {
-		return // off: omit (no documented disable form)
-	}
-	r := &oaiOpenRouterReasoning{}
-	if spec.Effort != "" {
-		r.Effort = spec.Effort
-	} else if spec.Budget > 0 {
-		r.MaxTokens = spec.Budget
-	} else {
-		r.Effort = "medium" // default
-	}
-	body.Reasoning = r
-}
-
 // encodeThinkingGeminiCompat encodes thinking for Gemini OpenAI-compat surface.
-// Same as OpenAI: reasoning_effort string.
+// Same as OpenAI: reasoning_effort string. Used by the google provider until R4
+// migrates it to the native generateContent API.
 //
 // encodeThinkingGeminiCompat 编码 Gemini compat 面的 thinking（与 OpenAI 相同）。
+// 供 google provider 使用，R4 迁 native 后移除。
 func encodeThinkingGeminiCompat(allowed []string) func(*oaiRequest, *ThinkingSpec) {
 	return encodeThinkingOpenAI(allowed)
 }
@@ -815,18 +775,3 @@ func (p *openaiProvider) ParseStream(ctx context.Context, resp *http.Response, r
 	}
 }
 
-// encodeThinkingOllama encodes thinking for Ollama /v1.
-// on  → reasoning_effort = Effort (clamp to {high,medium,low,none}; default "medium")
-// off → reasoning_effort = "none"
-//
-// encodeThinkingOllama 编码 Ollama /v1 thinking：
-// on→reasoning_effort（clamp）；off→"none"。
-func encodeThinkingOllama(body *oaiRequest, spec *ThinkingSpec) {
-	allowed := []string{"high", "medium", "low", "none"}
-	switch spec.Mode {
-	case "on":
-		body.ReasoningEffort = clampEffort(spec.Effort, allowed, "medium")
-	case "off":
-		body.ReasoningEffort = "none"
-	}
-}
