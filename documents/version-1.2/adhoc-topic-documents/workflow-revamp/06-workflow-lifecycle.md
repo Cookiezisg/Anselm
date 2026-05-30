@@ -11,7 +11,7 @@
 
 行业里 K8s / n8n / Airflow / GitHub Actions / Lambda 都用 **workflow 自身的 active 状态**表达"上线",**不引入额外的 Deployment 实体**。Forgify 跟进这个标准做法。
 
-数据模型就 2 个 entity + 2 个 flag:
+数据模型:2 个 entity + 2 个 flag(外加 drain 期的 `lifecycle_state` 枚举 active/draining/inactive + 内存 handler refcount,详 CANON-DRAIN):
 
 ```
 Workflow {

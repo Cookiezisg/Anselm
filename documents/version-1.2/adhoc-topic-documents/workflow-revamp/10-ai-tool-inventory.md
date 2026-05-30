@@ -86,7 +86,7 @@
 | `accept_pending_workflow(id)` | pending → active |
 | `revert_workflow(id, targetVersion)` | 退回 |
 | `delete_workflow(id)` | 删 |
-| `capability_check_workflow(id)` | 预校验 callable 存在 + kind 匹配 + payload schema 流 + 图良构/可归约(并行分支自包含、循环单入口) |
+| `capability_check_workflow(id)` | 预校验 callable 存在 + kind 匹配 + handler `.method` 在 active version 还在 + 必填参数给了值(**不查类型**;full payload 类型流**已砍**——payload 动态无类型,运行时由 N1 + case fail-to-false(G9)兜)+ 图良构/可归约(并行分支自包含、循环单入口)。深度详 [`11`](./11-integration-chains.md) §G |
 
 ---
 

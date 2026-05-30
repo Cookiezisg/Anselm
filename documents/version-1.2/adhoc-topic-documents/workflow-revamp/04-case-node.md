@@ -248,6 +248,6 @@ variable 想做的"workflow 级全局变量"完全被这两条覆盖,且**没有
 | | |
 |---|---|
 | trigger / agent / tool / case / approval | 保留 |
-| 砍 9 个 | llm / function / handler / mcp / skill(独立) / condition / loop / variable / parallel / wait / http |
+| 退役 / 合并(11 项)| llm / function / handler / mcp / skill(独立) / condition / loop / variable / parallel / wait / http —— function/handler/mcp/skill 的**调用**并入新 `tool` 节点、condition → `case`、llm → `agent`、loop/variable/parallel/wait/http → case 回边 / 作用域变量 / fork-join / durable timer |
 
 **14 → 5**。控制流只剩 case 一种,其他控制能力(并发 = fork-join / 延迟 = durable timer / 状态 = 作用域变量或 handler)在 infra 层 / 程序结构原生表达。

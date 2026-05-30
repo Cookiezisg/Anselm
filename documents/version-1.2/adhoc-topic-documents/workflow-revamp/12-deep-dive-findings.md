@@ -109,13 +109,12 @@
 
 **好消息**:`relations` 表**当前无 version_id 列** — 永远 prod 天然合规 ✅。
 
-**坏消息**:加 agent 需要 7 种新 relation kind:
+**坏消息**:加 agent 需要 6 种新 relation kind:
 
 ```
 workflow_uses_agent              # workflow 节点 ref agent
 agent_uses_function              # agent 工具挂载 fn_xxx
 agent_uses_handler               # agent 工具挂载 hd_xxx.method
-agent_uses_agent                 # agent 工具挂载 ag_xxx
 agent_uses_mcp                   # agent 工具挂载 mcp:server/tool
 agent_uses_document              # agent knowledge 挂载
 agent_uses_skill                 # agent skill 挂载
@@ -185,14 +184,12 @@ agent_uses_skill                 # agent skill 挂载
 - 新 `POST /flowruns/{id}:cancel`
 - 已有 `GET /flowruns/{id}/nodes` ✅
 
-**死信 / events 5 端点**:
-- `GET /dead-letters?workflowId=...`
-- `GET /dead-letters/{messageId}`
-- `POST /dead-letters/{messageId}:replay`
-- `POST /dead-letters:clear`
+**失败步诊断 / events 端点**(durable 模型,**无独立死信 store**):
+- `GET /flowruns/{id}/failures` —— 列该 flowrun 事件日志里 retry 用尽的失败 activity(`node_id` / `iteration_key` / `error` / `attempts`)
+- `POST /flowruns/{id}/nodes/{nodeId}:replay` —— 从事件日志确定性重放、停在该失败 activity 重跑
 - `GET /events?type=...&workflowId=...&since=...`(或扩 `/eventlog`)
 
-> 注:死信在 durable 模型里 = **retry 用尽仍失败的 activity**(不是"消息状态机半完成的消息");`:replay` = 把该 flowrun 从事件日志确定性重放、停在那个失败 activity 重跑(详 [`07-error-handling.md`](./07-error-handling.md))。端点形状不变,语义按 durable 理解。
+> durable 模型下**没有死信表 / store / `:clear`**:失败步 = 那个 activity 没记账成功,失败信息作为事件留在同一本 `flowrun_events` journal。签名按 **`flowrunId` + `nodeId`**(不是 `messageId`)。对齐 [`07-error-handling.md`](./07-error-handling.md) §"失败步"(`GET /flowruns/{id}/failures`)+ [`10`](./10-ai-tool-inventory.md) 的 `list_failed_steps` / `replay_flowrun`。
 
 **testend 受影响**:`/workflows/{id}:trigger` body 加 triggerNodeId 是 breaking。testend 调用全要 patch。详 [`testend/CLAUDE.md`](../../../testend/CLAUDE.md)。
 
@@ -201,8 +198,8 @@ agent_uses_skill                 # agent skill 挂载
 | 类型 | 新增 | 文件 |
 |---|---|---|
 | Pipeline test | 4 文件 ~850-1100 LoC | `api/agent/` + `api/workflow_lifecycle/` + `cross/flowrun_observe_*` + `cross/diagnosis_*` |
-| Errcode sentinel | 9 个 | `AGENT_NOT_FOUND` / `AGENT_VERSION_NOT_FOUND` / `AGENT_NAME_DUPLICATE` / `CAPABILITY_CHECK_FAILED` / `TRIGGER_EXHAUSTED` / `DEAD_LETTER_EXISTS` / `DEAD_LETTER_NOT_FOUND` / `FLOWRUN_NOT_CANCELLABLE` / `INVALID_TRIGGER_NODE` |
-| SSE truth | 7 个新 notif type + **3 个新 forge kind** | sse_truth.go 加 forge kind `agent` / `document` / `skill` + notif `workflow_activated/deactivated` / `trigger_exhausted` / `handler_crash` / `dead_letter_created` / `flowrun_node_status_changed` |
+| Errcode sentinel | 8 个 | `AGENT_NOT_FOUND` / `AGENT_VERSION_NOT_FOUND` / `AGENT_NAME_DUPLICATE` / `CAPABILITY_CHECK_FAILED` / `TRIGGER_EXHAUSTED` / `FLOWRUN_NODE_NOT_FAILED`(replay 目标不是失败步,取代旧 `DEAD_LETTER_*`)/ `FLOWRUN_NOT_CANCELLABLE` / `INVALID_TRIGGER_NODE` |
+| SSE truth | 7 个新 notif type + **新 forge kind(数量见 B5)** | sse_truth.go 加 forge kind(至少 `agent`;document/skill 是否进 forge SSE = **B5 未决**,见下)+ notif `workflow_activated/deactivated` / `trigger_exhausted` / `handler_crash` / `step_failed`(取代旧 `dead_letter_created`)/ `flowrun_node_status_changed` |
 | Cross seam | 6 个新 | `workflow:activate_register_listener` / `:deactivate_destroy_listener` / `:trigger_sync_acceptance` / `agent:skill_mount` / `:document_mount` / `scheduler:durable_replay_driven` |
 
 > seam `scheduler:durable_replay_driven`(原 `scheduler:message_queue_driven`)= 验证执行引擎按 **durable execution** 跑:节点作为 activity 记账进事件日志、崩溃后确定性重放命中已记账步骤不重跑、停在第一个未记账步骤续跑。对齐 [`00-overview.md`](./00-overview.md) 的"崩溃重放"段。

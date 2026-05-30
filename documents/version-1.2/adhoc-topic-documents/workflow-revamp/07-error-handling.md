@@ -17,7 +17,7 @@
 | 其他节点 retry 用尽 | flowrun 标 `failed` + 通知,**workflow.active 不变** |
 
 派生:
-- **通知是 mechanism**(平台保证)— retry 用尽必通知,用户始终知道
+- **通知是 mechanism**(平台保证)— retry 用尽必通知,用户始终知道。〔**"保证"的精确含义**:失败**记一笔进 journal**(durable)+ UI 重连时从 trace 补;SSE 通知 tick 本身 best-effort(可丢、不进 replay buffer),丢了靠重连补,不是逐条 SSE 投递保证〕
 - **retry 次数是 policy**(用户/AI 编排时拍)— 不填 = 0 次,失败立即通知
 - **Trigger 失败让 workflow inactive 不是"替用户暂停",是诚实**——入口废了,active 是欺骗
 
