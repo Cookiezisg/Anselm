@@ -89,5 +89,7 @@
 
 ## §4 状态
 
-- 2026-05-30:审计 + 调研 + 分类 + 原则拍板,本系列 4 篇落稿。**未动工**。
-- 下一步:按 [`03`](./03-implementation-plan.md) P0 开工(止血:SSE buffer / 输出兜底 / `truncateJSON` / search top-N)。
+- 2026-05-30:审计 + 调研 + 分类 + 原则拍板,本系列 4 篇落稿。
+- **2026-05-31:P0–P3 全部实现并提交**（见 `progress-record.md` 2026-05-30/31 `[opt]` 段，commits `52095f6`→`b863935`）。每阶段 `go build`+`staticcheck`+`make mock`（16 包绿）；前端 `make lint`+`make web` 绿。
+  - ✅ P0 止血 / P1 诚实失败态 / P2 换机制（idle 超时 + 删节点墙钟 + history 投影）/ 上限抬高+接通 `limits.Current()` / P3 settings.json 配置化 + `GET/PUT /settings/limits` 端点 + 前端「高级能力」区。
+  - ⏸ **延后**：Anthropic 4.7/4.8 effort-thinking（需 live key 验 wire format）；live capability overlay（P3.4，独立子工程）；MessageView 徽章美化（诚实态已可见）；前端 contract 细节文档（cross-cutting/fsd-layers/feature-settings）。
