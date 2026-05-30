@@ -18,7 +18,7 @@
 | switchTo | 更新 sessionStore.currentUserId + 全量 invalidate + success toast |
 | addAccount | 创建用户 → 自动 switchTo 新账户 → 清空 name input |
 
-该 slice 仅包含 `useAccountManager`；其他 settings 子区域（API Keys、Model Config、Appearance、Search、System）直接在 UI 组件中消费对应 entity hooks，无需 feature 层编排。
+该 slice 仅包含 `useAccountManager`；其他 settings 子区域（API Keys、Model Config、Appearance、Search、System、**Advanced Capabilities**）直接在 UI 组件中消费对应 entity hooks，无需 feature 层编排。**2026-05-31**：新增 `ui/AdvancedCapabilitiesSection.tsx`——运行上限「高级能力」区，读 `entities/settings` 的 `useLimits`/`useUpdateLimits`（↔ `GET/PUT /settings/limits`），分组数字输入 + 恢复默认；组件零业务（只调 hook）；详 [`../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md`](../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md)。
 
 ---
 

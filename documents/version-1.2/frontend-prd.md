@@ -1469,6 +1469,10 @@ GET    /model-configs                       → useModelConfigs              (ro
 PUT    /model-configs/{scenario}            → useUpsertModelConfig         (body: {apiKeyId, modelId})
 GET    /scenarios                           → useScenarios                 (3 项: dialogue/utility/agent;exempt 自 RequireUser)
 
+# Settings — 运行上限（limits-optimization, 2026-05-31）
+GET    /settings/limits                      → useLimits                     (运行上限快照: agent/output/context/timeout/tools/workflow)
+PUT    /settings/limits                      → useUpdateLimits               (upsert limits 块, read-modify-write 保 permissions/hooks)
+
 # Functions
 GET    /functions                           → useFunctions
 POST   /functions                           → useCreateFunction

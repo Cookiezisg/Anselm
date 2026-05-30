@@ -193,6 +193,7 @@ SSE 事件名固定为 `notification`；dispatch 由 `payload.type` 字段驱动
 | `qk.scenarios()` | `["scenarios"]` | `GET /api/v1/scenarios` |
 | `qk.modelConfigs()` | `["model-configs"]` | `GET /api/v1/model-configs` |
 | `qk.modelCapabilities()` | `["model-capabilities"]` | `GET /api/v1/model-capabilities`（**2026-05-30 新增**）|
+| `qk.settingsLimits()` | `["settings-limits"]` | `GET/PUT /api/v1/settings/limits`（运行上限「高级能力」，**2026-05-31 新增**）|
 | `qk.functions()` | `["functions"]` | `GET /api/v1/functions` |
 | `qk.function(id)` | `["function", id]` | `GET /api/v1/functions/{id}` |
 | `qk.functionVersions(id)` | `["function-versions", id]` | `GET /api/v1/functions/{id}/versions` |

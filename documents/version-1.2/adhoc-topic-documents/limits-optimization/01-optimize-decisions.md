@@ -28,7 +28,7 @@
 
 | 限制 | 现状 @ 位置 | 裁决 | 目标 |
 |---|---|---|---|
-| modelcaps 未知模型兜底 `MaxOutput` | `8192` @ `modelcaps.go:131` | ➖ | 抬到 **64000**;或设哨兵 `0` = 该 provider 不发 cap(除 Anthropic)。`ContextWindow=32768` 兜底**保留**(压缩偏保守是安全的) |
+| modelcaps 未知模型兜底 `MaxOutput` | `8192` @ `modelcaps.go:131` | 📌（实测纠正） | **未抬**——抬到 64000 会让 `UsableInput = 32768 − 64000` 触底、压缩失灵（它是压缩预算用值，非输出 cap）；真·输出截断元凶是 **Gemini 不发 `maxOutputTokens`**（已修）。详见 [`03`](./03-implementation-plan.md) 顶部 as-built 注 |
 | Anthropic 兜底 `max_tokens` | `8096` @ `infra/llm/anthropic.go:21` | ✅ | 接 **live `/v1/models`**(`06-impl-plan P5.4` 已 spec)读真 `max_tokens`;仍未知时兜底抬到 **64000** |
 | 各模型 `MaxOutput` 表 | `modelcaps.go:88-128` | 📌 | 正确底层;上叠 live overlay(Anthropic/Gemini/OpenRouter/Ollama 可 live 读;OpenAI/DeepSeek/Qwen/Zhipu/Kimi/Doubao 只能静态表) |
 | `SafetyBuffer` / `UsableInput` floor | `2000` / `1000` @ `modelcaps.go:14,43` | 📌 | 仅影响压缩触发(内部预算),非 wire 参数;保留 |

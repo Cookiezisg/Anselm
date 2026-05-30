@@ -13,6 +13,13 @@
 
 ---
 
+> **🟢 实施增量（as-built，2026-05-31，commits `52095f6`→`b863935`）—— 与初稿不同处以此为准：**
+> - **「继续」按钮砍掉**：诚实失败态做满（后端 `StopReasonMaxSteps`+`StatusError`+`MAX_STEPS_REACHED` + `ErrorCard` 可见 + errMsg "continue to resume"），但专用一键续跑按钮 / `:continue` 端点**经评估不做**——ceiling 抬到 150 后撞顶罕见，用户再发一条消息即续跑（composer 本就是续跑路径）。
+> - **§② 输出兜底纠正**：`modelcaps` fallback `MaxOutput` **未抬**（抬到 64000 会让 `UsableInput = 32768 − 64000` 触底、压缩失灵）；真·输出截断元凶是 **Gemini 不发 `maxOutputTokens`**（已修：始终发模型真上限）；Anthropic `8096` 近 dead，未动。
+> - **节点超时是"删"非"归 0"**：`scheduler/retry.go` 的 `defaultTimeouts` 整表删除，只留显式 `node.Timeout` 覆盖。
+> - **mcp 180s / Bash 120s** 为 const（非 getter）；subagent maxTurns 保留 per-type 注册表（只 timeout 接 `limits.Current`）。
+> - **Anthropic 4.7/4.8 effort-thinking + live capability overlay** 延后（见 [`00`](./00-overview.md) §4）。
+
 ## 文件结构(decomposition)
 
 **新建**
