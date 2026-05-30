@@ -120,6 +120,8 @@ POST /workflows/{id}:deactivate
 
 **不再即时 `DestroyOwner`(CANON-DRAIN)**:deactivate 走 active → draining → inactive 状态机,**绝不抽在途的 handler**。在途 flowrun 是 durable 的(journal + 重放),在老实例跑完;共享 handler 用引用计数(refcount),归 0 才销毁。这直接修了 [`00-overview.md`](./00-overview.md) 列的 **E6「抽在途 handler」**——旧设计 deactivate 即时 `DestroyOwner({workflow})`,会把正在用该 handler 的在途 flowrun 拆掉。`lifecycle_state`(active/draining/inactive)+ handler refcount 两处数据模型详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-DATA / CANON-DRAIN)。
 
+> **挂起的 approval 不阻塞 drain(C3)**:`refcount` 只计**正在跑 activity** 的在途 flowrun;`awaiting_signal`(挂起等人、可能等 30d)的 flowrun **不占 refcount、不钉老实例**——它没在用 handler,只是 parked 在 journal 里。所以一个长挂 approval **不会让 drain 卡 30 天**:drain 等的是"正在跑的活儿"清零,parked 的等信号 run 继续 durable 地挂着;信号到了照样按 **active 版本**逻辑续(它本就要换到新版本——符合"永远 prod")。这避免了"长挂 approval 饿死 drain + 钉死老实例一个月"。
+
 ---
 
 ## AcceptPending 联动(优雅 drain 换版)
@@ -180,6 +182,10 @@ Process boot
 **(b) catchup 材化进收件箱**:停机期漏的 cron firing 不再当场补跑,而是按 catchup_window 策略写进 `trigger_firings` 收件箱(先持久化再动作),由派发器 (d) 统一消费——崩在"事件到 → flowrun 起"之间也不丢。补多少是编排者拍的 policy(CANON-MP),平台只保证不静默丢。
 
 **(c) 替代旧设计的"扫 paused flowrun + 重建内存态 + 重新 drive DAG"**——不再有 PausedState / ExecutionContext 的内存快照需要重建,**唯一真相是事件日志**,重放即恢复(Theme 1)。approval 的"挂着等人"由 `awaiting_signal` 状态 + 日志里的 `signal_awaited` 事件表达,重放到该点自然停下等信号,**不依赖任何进程内的 cancel handle**。详 [`05-approval-node.md`](./05-approval-node.md)。
+
+**(c) 必须先于 (d):boot 阶段串行(C7)**——派发器 (d) **等 (c) 重放全部完成才开闸**消费收件箱。否则 catchup 的 firing 会给一个"正在被重放"的 workflow 起新 flowrun,而 overlap-policy 此刻还看不到那个重放中的 run、可能误判"没在跑"从而违反 `BufferOne`。规则:**重放中的 run 对 overlap 计为 "running"**;(d) 在 (c) 完成后再按 overlap_policy 消费,看到的"在跑集合"才完整。
+
+**draining 的 refcount 在 boot 时重建**——`lifecycle_state=draining` 持久,但 handler `refcount` 只活在内存、随进程崩丢。boot 时对每个 draining 的 workflow,**从 journal 在途 run 推导 refcount**:扫它老版本的 `running` flowrun(`awaiting_signal` 的不算,见 C3)按 handler 归组重新计数,drain 接着等这个重建后的计数归 0。这样进程崩在 drain 中途也能续上,不会"refcount 丢了 → 要么永不销毁、要么提前抽实例"。
 
 收件箱 / 派发器 / catchup 策略详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-INBOX / CANON-DISPATCH / CANON-SCHEDULE)。
 

@@ -95,6 +95,16 @@ approval 是 durable execution 里的"挂起等信号"步骤(对位 Temporal 的
 
 ---
 
+## 超时定时器 + 信号去重 + 挂起寿命(durable)
+
+approval 的 `timeout` 是一个 **durable timer**(对位 Temporal 的 durable timer / Step Functions 的 `waitForTaskToken` + timeout),不是进程内 `time.AfterFunc`——后者一重启就没了:
+
+- **deadline 持久 + boot 重建**:挂起时 `awaiting_signal` 事件里记下 `deadline = 记账时刻 + timeout`(deadline 是**已记账的确定值**,不是墙钟现算)。一个**单一到期检查器**(复用派发器的 tick)扫 parked approvals 的 deadline;进程重启后从 journal 的 `awaiting_signal` + deadline **重建**待检查集合——所以 30d 的超时跨任意次重启都能**恰好触发一次**。
+- **双信号 first-wins 去重**:用户在超时临界点批准 + 到期检查器同时触发 → 可能两条 `signal_received`(一条 decision、一条 timeout)。**事件日志 append-only,第一条记账的胜出**;写入按"该 approval 是否已有 signal_received"幂等,后到的那条 no-op 丢弃。重放只看第一条 → 端口选择确定。
+- **挂起寿命兜底(防无界增长,C3)**:`timeout` 不填 = 永不超时是合法的(挂到用户操作),但平台给一个**高默认的挂起寿命上限**(可配、默认很长)。到顶**不强杀、不替用户决策**,而是**通知**"这个 approval 挂了很久"(诚实态),避免 `awaiting_signal` 的 flowrun 无界堆积没人管。
+
+---
+
 ## reason 字段 — 纯审计,不进数据流
 
 用户操作 approval 时可选填一段 reason 文本:

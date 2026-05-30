@@ -23,7 +23,7 @@ config:
 
 节点 config 就这一个字段。极简。
 
-**在执行模型里,agent 节点 = 一个 activity(记账步骤)**:执行器照图走到这一步时,跑一次 LLM ReAct loop,把结果记进事件日志。跑之前先记"我要调它",跑完把 LLM 输出记账;崩溃重放时,日志里已有结果的 agent 步骤直接抄结果(**不重跑 LLM**),停在第一个没记账的步骤继续。这一活动语义、确定性约束、exactly-once 边界(LLM 调用属不确定性,结果记进日志、重放读缓存)统一由 [`00-overview.md`](./00-overview.md) 的执行底盘负责,本节不重述。
+**在执行模型里,agent 节点 = 一串子-activity(不是一条原子 activity)**:它内部是多步 LLM ReAct 循环,**每一步(每次 LLM turn、每个 tool-call)各自记一笔账进事件日志**——而这正好就是 eventlog 已经在记的 `reasoning` / `tool_call` / `tool_result` block。所以"agent 跑一次" = 一串子-activity 依次记账。**重放粒度因此是子步级**:崩在第 5 个 tool-call,重放把日志里已记账的前 4 个 tool-call 结果**直接抄**(不重调 LLM、不重跑那 4 个工具),停在第 5 个(第一个没记账的子步)真跑、记账、接着往下。这样 [`07-error-handling.md`](./07-error-handling.md) 的"零重复"按子步成立——**不会因为 agent 中途崩就把整个循环连同已发生的工具副作用重放一遍**。这一子-activity 记账语义、确定性约束、exactly-once 边界统一由 [`00-overview.md`](./00-overview.md) 的执行底盘负责,本节不重述。
 
 跑时:
 

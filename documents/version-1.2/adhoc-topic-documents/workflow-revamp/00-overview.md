@@ -51,9 +51,10 @@ Forgify 是 **嵌入式、跑在自带 SQLite 上的 durable execution 引擎**(
 
 ### 确定性(durable execution 的硬约束,Forgify 天生满足)
 
-重放要正确,**控制流必须确定性**:给定相同输入 + 相同的已记账结果,解释器每次都走同一条路。
+重放要正确,**控制流必须确定性**:给定相同的已记账历史(journal),解释器每次都走同一条路。精确范围:**确定性是"对 journal 而言"——已记账的步骤永远抄日志结果(永不重算),只有还没记账的新步骤才真跑**。
 - 所有**不确定性**(LLM 输出、工具结果、时间、随机)都在 **activity** 里,其结果被记进日志 → 重放时读日志、不重算。
-- **case / loop 的判断只读 payload(= 已记账的结果),是纯 CEL、无副作用**(doc 04:100ms、禁 LLM/HTTP)。
+- **case 的 `when:` 守卫只读 payload / ctx(= 已记账的结果),是纯 CEL、无副作用**(doc 04:100ms、禁 LLM/HTTP)。**且控制流 CEL 不含读取当前时刻的函数(`now()` / wall-clock)**——否则重放在不同时刻求值会分叉;时间运算只作用于已记账的值。CEL 求值若撞 100ms 超时,**把"超时"当一个确定结果记进日志**(重放抄它、不重新求值),不让机器负载决定走哪条分支。
+- **被引用 callable 的"永远 prod"与确定性不矛盾**:已记账的 callable 调用抄日志结果、永不重调,所以版本漂移碰不到它们;只有**还没跑过**的步骤才解析当前 active version——而那恰恰就是"永远 prod"要的(见 §3 永远 prod 的注)。`FlowRun.version_id` 钉的是**图拓扑**(一次执行内图结构稳定),不是 callable 版本。
 - 因此 **Forgify 的 5 节点结构天生满足确定性**:所有"会变"的东西都在 activity,控制流只读已记账的值。
 
 ---
@@ -203,7 +204,7 @@ Forgify 重启
 - Workflow accept 时 capability check 校验"引用需要 vs active version 实际 kind",不匹配 → accept 失败 / 标 needs_attention。**capability-check 不只查存在,还查 kind/method/必填参数齐(handler 的 `.method` 在 active version 还在、node/agent 给了必填参数值);报全部问题 + 每条带 next_step,不首违规即短路;被引用实体改了 active version(kind/签名)时反向重查依赖方、标 needs_attention + 通知。** 详 [`11-integration-chains.md`](./11-integration-chains.md) §E3(CANON-X2)。
 - AI 工程师角色:改 entity 前主动告诉用户"这影响 workflow A/B/C"。
 - 跟 K8s deployment "所有 pod 用同一 image" 心智一致 —— 简单 > 灵活,本地单用户无 SaaS 级 pin 必要。
-- (注:`FlowRun.version_id` 钉住**图拓扑**的版本,保证一次执行内图结构稳定;但被引用的 callable(fn_/hd_/ag_)按"永远 prod"在调用时解析到 active version。长跑/挂起重启后可能跑到改过的 callable——这是"永远 prod"刻意的修复回路属性,编排者改 callable 时应保证幂等。)
+- (注:`FlowRun.version_id` 钉住**图拓扑**的版本,保证一次执行内图结构稳定;但被引用的 callable(fn_/hd_/ag_)按"永远 prod"在调用时解析到 active version。**与确定性重放的关系已在 §"确定性"说清**:已记账的调用永远抄日志结果(版本漂移碰不到)、只有未记账的新步骤才解析当前 active——这是"永远 prod"刻意的修复回路属性,**不破坏确定性**(确定性是对 journal 而言)。长跑/挂起重启后未记账的步可能跑到改过的 callable,编排者改 callable 时应保证幂等。)
 
 ### Quadrinity — Forgify 的 4 类 forge 实体
 
