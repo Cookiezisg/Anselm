@@ -73,14 +73,15 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 // —— 它们都讲 /chat/completions。
 var providerRegistry = buildProviderRegistry()
 
-// buildProviderRegistry constructs the canonical Provider registry. openai and
-// deepseek now use their own self-contained Provider types; the remaining
-// providers still use the shared openAICompatProvider. anthropic uses its own
-// native-dialect Provider; mock is absent (Build short-circuits to MockClient).
+// buildProviderRegistry constructs the canonical Provider registry. openai,
+// deepseek, qwen, zhipu, and moonshot now use their own self-contained Provider
+// types; doubao/openrouter/google/ollama/custom still use the shared
+// openAICompatProvider. anthropic uses its own native-dialect Provider;
+// mock is absent (Build short-circuits to MockClient).
 //
-// buildProviderRegistry 构建权威 Provider 注册表。openai 和 deepseek 已迁移到
-// 各自独立的 Provider 类型；其余 provider 仍使用共享的 openAICompatProvider；
-// anthropic 使用原生方言 Provider；mock 缺席（Build 直接短路到 MockClient）。
+// buildProviderRegistry 构建权威 Provider 注册表。openai/deepseek/qwen/zhipu/moonshot
+// 已迁移到各自独立的 Provider 类型；doubao/openrouter/google/ollama/custom 仍使用共享的
+// openAICompatProvider；anthropic 使用原生方言 Provider；mock 缺席（Build 直接短路）。
 func buildProviderRegistry() map[string]Provider {
 	compat := func(name, baseURL string) *openAICompatProvider {
 		return newOpenAICompatProvider(name, baseURL)
@@ -94,6 +95,15 @@ func buildProviderRegistry() map[string]Provider {
 		// deepseek: self-contained provider (reasoning_content round-trip + thinking, 03 §3).
 		// deepseek：自有 provider（reasoning_content round-trip + thinking，03 §3）。
 		"deepseek": newDeepSeekProvider(),
+		// qwen: self-contained provider (enable_thinking bool + stream guard + flat error envelope, 03 §6).
+		// qwen：自有 provider（enable_thinking bool + 流式守卫 + 扁平错误信封，03 §6）。
+		"qwen": newQwenProvider(),
+		// zhipu: self-contained provider (thinking:{type} + tool_choice:"auto" only, 03 §7).
+		// zhipu：自有 provider（thinking:{type} + tool_choice 只支持 "auto"，03 §7）。
+		"zhipu": newZhipuProvider(),
+		// moonshot: self-contained provider (thinking:{type} for k2.5/k2.6; reasoning_content, 03 §8).
+		// moonshot：自有 provider（k2.5/k2.6 的 thinking:{type}；reasoning_content，03 §8）。
+		"moonshot": newMoonshotProvider(),
 	}
 
 	// google compat: reasoning_effort (same shape as OpenAI compat surface).
@@ -101,24 +111,6 @@ func buildProviderRegistry() map[string]Provider {
 	gc := compat("google", "https://generativelanguage.googleapis.com/v1beta/openai")
 	gc.thinkingEncoder = encodeThinkingGeminiCompat([]string{"minimal", "low", "medium", "high"})
 	reg["google"] = gc
-
-	// qwen: enable_thinking bool + optional thinking_budget (stream guard in buildOpenAIBody).
-	// qwen：enable_thinking bool + 可选 thinking_budget（流式守卫在 buildOpenAIBody）。
-	qw := compat("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-	qw.thinkingEncoder = encodeThinkingQwen
-	reg["qwen"] = qw
-
-	// zhipu: thinking:{type:"enabled"|"disabled"}.
-	// zhipu：thinking:{type} 切换。
-	zh := compat("zhipu", "https://open.bigmodel.cn/api/paas/v4")
-	zh.thinkingEncoder = encodeThinkingZhipu
-	reg["zhipu"] = zh
-
-	// moonshot: thinking:{type:"enabled"|"disabled"} for k2.5/k2.6.
-	// moonshot：k2.5/k2.6 用 thinking:{type} 切换。
-	ms := compat("moonshot", "https://api.moonshot.cn/v1")
-	ms.thinkingEncoder = encodeThinkingMoonshot
-	reg["moonshot"] = ms
 
 	// doubao: thinking:{type:"enabled"|"disabled"} + optional budget_tokens.
 	// doubao：thinking:{type} + 可选 budget_tokens。

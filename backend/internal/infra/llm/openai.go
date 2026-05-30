@@ -665,62 +665,6 @@ func deepseekMapEffort(effort string) string {
 	}
 }
 
-// encodeThinkingQwen encodes thinking for Qwen DashScope.
-// on  → enable_thinking=true (+thinking_budget if spec.Budget>0)
-// off → enable_thinking=false
-// GUARD: if DisableStream=true and Mode=on, skip encoding (Qwen requires stream
-// for enable_thinking=true; callers should not set DisableStream+thinking:on).
-// The guard is applied in the calling context (buildOpenAIBody checks
-// req.DisableStream before invoking the encoder).
-//
-// encodeThinkingQwen 编码 Qwen thinking 参数：
-// on→enable_thinking=true（+budget）；off→false。
-// 流式守卫：非流式请求跳过 enable_thinking=true（Qwen 要求 stream）。
-func encodeThinkingQwen(body *oaiRequest, spec *ThinkingSpec) {
-	switch spec.Mode {
-	case "on":
-		t := true
-		body.EnableThinking = &t
-		if spec.Budget > 0 {
-			body.ThinkingBudget = spec.Budget
-		}
-	case "off":
-		f := false
-		body.EnableThinking = &f
-	}
-}
-
-// encodeThinkingZhipu encodes thinking for Zhipu GLM.
-// on  → thinking:{type:"enabled"}
-// off → thinking:{type:"disabled"}
-//
-// encodeThinkingZhipu 编码 Zhipu GLM thinking 参数。
-func encodeThinkingZhipu(body *oaiRequest, spec *ThinkingSpec) {
-	switch spec.Mode {
-	case "on":
-		body.Thinking = &oaiThinkingField{Type: "enabled"}
-	case "off":
-		body.Thinking = &oaiThinkingField{Type: "disabled"}
-	}
-}
-
-// encodeThinkingMoonshot encodes thinking for Moonshot kimi-k2.5/k2.6.
-// on  → thinking:{type:"enabled"}
-// off → thinking:{type:"disabled"}
-// Note: kimi-k2-thinking model-id needs no param; the caller decides whether
-// to pass a ThinkingSpec at all for that model.
-//
-// encodeThinkingMoonshot 编码 Moonshot kimi-k2.5/6 thinking 参数；
-// kimi-k2-thinking 模型 id 本身内禀 thinking，不传 ThinkingSpec 即可。
-func encodeThinkingMoonshot(body *oaiRequest, spec *ThinkingSpec) {
-	switch spec.Mode {
-	case "on":
-		body.Thinking = &oaiThinkingField{Type: "enabled"}
-	case "off":
-		body.Thinking = &oaiThinkingField{Type: "disabled"}
-	}
-}
-
 // encodeThinkingDoubao encodes thinking for Doubao Seed models.
 // on  → thinking:{type:"enabled", budget_tokens?}
 // off → thinking:{type:"disabled"}
