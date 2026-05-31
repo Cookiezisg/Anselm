@@ -44,3 +44,25 @@ Next: write ADRs 016–022, rewrite `17`§1/§7, delete stale copies, fix 02/05/
 **Decisions taken solo (per async authorization), notable:** (a) collapse `trigger_firings.status`+`outcome` into one enum (drift-7 root fix — two overlapping enums was the smell); recorded inline in `17`§1, no separate ADR (column-shape cleanup). (b) `dedup_key` as a computed NOT NULL column rather than a composite unique over nullable `turn`/`tool_call_id` — driven by SQLite's NULL-distinct-in-unique rule (a naive index would silently break record-once for normal events).
 
 Next: M1 — journal + schema foundation, TDD (record-once dedup via the partial index; seq monotonic; first-wins). First code milestone → use writing-plans for the M1 task breakdown, then failing-test-first.
+
+### 2026-05-31 — M1 DONE (journal + schema foundation)
+
+Plan: `docs/superpowers/plans/2026-05-31-m1-journal-schema-foundation.md`.
+
+**End-to-end推演 (M1 scope):** the journal is the geology — before any interpreter (M2) can replay, the `flowrun_events` table + its record-once keying must exist and be provably correct. M1 builds exactly that, **strangler-fig (non-breaking)**: the old topo-walk scheduler keeps running on `paused_state`/`flowrun_nodes` until M2 deletes it.
+
+**Shipped:**
+- `FlowRun` amended **additively** (T1): +`pinned_callables`/`generation`/`trigger_node_id`, +`awaiting_signal` status; kept `paused_state`+`paused` for the old scheduler.
+- Durable entities (T2–T3): `FlowRunEvent` (+`ComputeDedupKey`, ADR-018), `Approval` (+`cancelled`), `TriggerSchedule` (+`retry_policy`/`consecutive_failures`, ADR-022), `TriggerFiring` (`status` subsumes `outcome`), `PollingState`.
+- Migrations + index (T4): `FlowRunEvent`/`Approval` registered (main.go + harness.go); record-once **partial unique** `idx_fre_record_once ON (flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')` in `schema_extras.go`. `applySchemaExtras` is `HasTable`-guarded → subset migrations safe.
+- Journal store (T5–T7, TDD): `flowruneventstore.AppendEvent` (per-flowrun seq in write-tx + compare-and-insert on dedup_key collision → first-wins) + `LoadJournal`. **3 correctness命脉 tests green:** record-once dedup, seq strict-monotonic + attempt-class append-many, signal_received first-wins (**proves the approval timeout↔decision double-fire the review suspected cannot happen** — both are `signal_received`, one dedup bucket).
+
+**Verification:** `go build ./...` green; `make unit` green; 3 TDD tests green; `go vet` + `staticcheck` clean on M1 packages; `make mock` (pipeline baseline) — see commit.
+
+**Decisions taken solo:**
+- `AppendEvent` fills `ID` if empty (one place) rather than the plan's caller-side `NewEventID()` — matches the journal-writer ergonomics (the interpreter shouldn't gen IDs).
+- Migrated only the flowrun-domain durable tables now; **deferred the 3 trigger-table migrations to M5** (entities defined; registered with their store+dispatcher when needed — avoids premature `triggerdomain` import in main.go for unused tables).
+
+**Pitfall / pre-existing finding:** `make unit` surfaced `TestNodeTimeoutDuration_DefaultByType` (app/scheduler) red. Confirmed **pre-existing** (red at `3f5d16d`, before any M1 code) — it asserts per-type default timeouts the revamp removed (00 mechanism-vs-policy; `nodeTimeoutDuration` returns 0). Skipped with a documented reason (test + old scheduler deleted in M2). Not an M1 regression. SQLite NULL-distinct trap (ADR-018 motivation) validated in practice: the `dedup_key` string column avoids it.
+
+Next: M2 — interpreter core (linear + crash-replay), TDD: the replay-determinism property test (same journal replayed twice = identical events; replay copies, never re-runs). Delete old scheduler state/pause/rehydrate/subdag + `PausedState`.

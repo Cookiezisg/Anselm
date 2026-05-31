@@ -152,6 +152,11 @@ func TestNodeTimeoutDuration_OverrideWins(t *testing.T) {
 }
 
 func TestNodeTimeoutDuration_DefaultByType(t *testing.T) {
+	// Pre-existing red (predates M1): the durable revamp removed per-type business
+	// timeout defaults (00 mechanism-vs-policy — "无 timeout/retry 等任何业务默认值";
+	// not filled = not applied). nodeTimeoutDuration now returns 0 for all types.
+	// This test + the old topo-walk scheduler are deleted in M2 (ADR-016).
+	t.Skip("per-type timeout defaults removed by durable revamp; old scheduler + this test deleted in M2")
 	cases := []struct {
 		typ  string
 		want time.Duration
