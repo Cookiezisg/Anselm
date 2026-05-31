@@ -23,7 +23,7 @@
 | WP6 | Multi-Choice(OR-split,多分支同时激活) | case 是 XOR(只走第一个 true) | ⚖️ 刻意不支持 OR-split(要并发多路 = 用 AND-split 扇出 + 各自 `when:` 守卫) |
 | WP7 | Synchronizing Merge(OR-join) | 因无 OR-split,不需要 full OR-join;只需 WP5 的 active-branch join | ✅(随 A-1 修)|
 | WP8 | Multi-Merge | — | ⚖️ N/A(结构化 / 可归约,无多次触发合并)|
-| WP9 | Discriminator / N-of-M join | — | ⚖️ N/A(静态 join)|
+| WP9 | Discriminator / N-of-M join | 阈值 join 下沉 forge function(A-7) | ⚖️ 刻意偏离:图层只有 AND-join(等全部)/ active-branch(等被激活),**无 "M of N" 阈值 join 原语**;"最快 M 个" = 锻造 function 内部并发取前 M。这是静态-arity 之外的真实模式,非动态扇出 |
 | WP10 | Arbitrary Cycles 任意环 | 只允许**可归约**回边(`case` 回边、单入口);乱 goto 环 accept 拒 | ⚖️ 刻意约束(换可解性 + 重放确定性)|
 | **WP11** | **Implicit Termination 隐式终止** | flowrun 何时算 `completed`? | **🟡 GAP**:没明写。定义:**所有活跃路径都到达无后继出边的节点、且无 parked(approval/timer)= flowrun completed**;有路径 failed 且无 retry = failed |
 | WP12-15 | Multiple Instances(对 N 个实例)| "map over N" 下沉 forge 工具内部 | ⚖️ 刻意(动态扇出不在图层)|
@@ -38,7 +38,7 @@
 
 | 原语 | Forgify 怎么处理 | 状态 |
 |---|---|---|
-| **Event history(append-only 日志)** | `flowrun_events` journal | **🔴 = A-2**:我上轮把 record-once 写成"`UNIQUE(...,type)` 套所有 type",与 retry 多次 `node_failed`/`node_started` 撞键。标准做法:**log 纯 append-only(只 seq 唯一)**;**record-once 只作用于"结果事件"(`node_completed`)** —— 重放取该步第一条 completed 当缓存结果;attempts/failures 全进 history(带 `attempt#`),不设 type 级 UNIQUE |
+| **Event history(append-only 日志)** | `flowrun_events` journal | **🔴 = A-2**:我上轮把 record-once 写成"`UNIQUE(...,type)` 套所有 type",与 retry 多次 `node_failed`/`node_started` 撞键。标准做法:**log 纯 append-only(只 seq 唯一)**;**record-once 只作用于"结果事件"(`node_completed`)** —— 重放取该步最高 generation 的 completed 当缓存结果(ADR-019);attempts/failures 全进 history(带 `attempt#`),不设 type 级 UNIQUE。**落地 ADR-018:`dedup_key` 列 + 一条 partial unique `WHERE type NOT IN ('node_started','node_failed')`** |
 | **Schedules(定时 / 触发)** | Theme 3:`trigger_schedules` + `trigger_firings` 收件箱 + 派发器 | **🔴 = A-3**:trigger 是程序入口、**不是 flowrun 内 activity**;它的失败发生在 **listener / 收件箱 / pre-flowrun polling-function 层**,不能写成"trigger 节点 retry"。标准(Temporal Schedule)= schedule 触发**创建** execution,schedule 自身的失败 / overlap / catchup 是 **schedule 级**。trigger 失败 / retry / "用尽→workflow inactive" 全规约到这一层 |
 | **Durable timer** | A-4:节点级 gate(`at` 绝对 / `after` 相对)+ approval `timeout`,deadline 记 journal | ✅ 采纳(同一原语三用途)|
 | **Versioning / patching** | callable 版本 | **⚖️→✅ 改判(A-5)**:原"永远 prod(callable 调用时解析 active)"会让长跑 / parked run 撞版本漂移。**采纳标准 = 在途 flowrun pin 住启动时解析的 callable 版本**(整生命周期用这份快照,含 resume);**新 flowrun 用新 active**。"永远 prod" 缩回到**编排 / 引用语义**(引用永远指 active、改了自动跟、无 `@v3`),不再作用于在途执行 |
@@ -60,6 +60,6 @@
 **reviewer 其余(非标准目录,工程 / 一致性)**
 - A-4 agent retry 契约对齐 · A-6 approval fail 终态 · A-7 删 sub-workflow(workflow 不可调,只 forge 工具)
 - B-1/B-2/B-3/B-4 实现量 / 协议同步 / JSON-repair 放对层(已知,排期 + 实现纪律)
-- C-1 ephemeral tick 放 notifications(极简,seq-less、不参与 Last-Event-ID)· C-2 continue-as-new 阈值 · C-3 清 `agent_uses_agent` 残留
+- C-1 ephemeral tick 放 notifications(**有 seq、不进 replay buffer**;Last-Event-ID 重连跳过未缓存 tick —— **非 seq-less**,以 17 §9 为准)· C-2 continue-as-new 阈值 · C-3 清 `agent_uses_agent` 残留
 
 > 结论:**没有 whack-a-mole** —— 抽象(durable execution + 可归约图)选对了,剩下全落进标准模式,修法是"采纳标准"。两处刻意偏离(WP6 无 OR-split、WP10 仅可归约环)是 owned trade-off;A-5 从偏离改回标准(pin)。

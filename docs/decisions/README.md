@@ -38,3 +38,17 @@ Decisions are immutable. To change a decision, write a new ADR and set `supersed
 | [013](013-modelcaps-replaces-modelmeta.md) | modelcaps replaces modelmeta | 2026-05-30 | accepted |
 | [014](014-sandbox-v2-embedded-mise.md) | Sandbox v2 with embedded mise binary | 2026-05-13 | accepted |
 | [015](015-fsd-6-layer-frontend.md) | FSD 6-layer architecture for frontend | 2026-05-27 | accepted |
+
+## Durable Engine Implementation (016–022)
+
+Resolve the gaps the 2026-05-31 adversarial review found before/while building the engine (extend ADR-010). Strategy: `docs/superpowers/specs/2026-05-31-durable-engine-implementation-strategy.md`.
+
+| ADR | Title | Date | Status |
+|---|---|---|---|
+| [016](016-durable-interpreter-replaces-topo-walk.md) | Durable interpreter replaces topo-walk scheduler | 2026-05-31 | accepted |
+| [017](017-iteration-key-loop-ordinal.md) | iteration_key = deterministic loop back-edge ordinal | 2026-05-31 | accepted |
+| [018](018-dedup-key-partial-index.md) | record-once via dedup_key + partial unique index | 2026-05-31 | accepted |
+| [019](019-highest-generation-state.md) | step state = highest-generation record-once event | 2026-05-31 | accepted |
+| [020](020-pin-callable-closure.md) | pin transitive callable closure at StartRun | 2026-05-31 | accepted |
+| [021](021-single-tx-trigger-claim.md) | single-transaction trigger claim, no two-step fallback | 2026-05-31 | accepted |
+| [022](022-trigger-retry-schedule-level.md) | trigger retry is schedule-level + durable counter | 2026-05-31 | accepted |

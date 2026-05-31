@@ -149,44 +149,22 @@ Forgify 是 **嵌入式、跑在自带 SQLite 上的 durable execution 引擎**(
 
 执行的可靠性靠**每个 flowrun 一本 append-only 事件日志 + 崩溃重放**(替代旧的"消息状态机 + 原子认领")。
 
-### Schema(对比旧设计,塌缩成三张)
+### Schema + 写入/重放契约 → 见 17(单一事实源)
 
-```sql
--- 一次执行
-flowruns        ( id, workflow_id, version_id,        -- 启动时钉:图拓扑版本
-                  pinned_callables,                    -- 启动时解析并 pin 的 callable→版本 快照(JSON);整个 run 用它,无漂移(A-5)
-                  input,                               -- payload + ctx(JSON)
-                  status,                              -- running / awaiting_signal / completed / failed / cancelled
-                  started_at, ended_at )
+**schema(表 / 列 / 类型 / 约束 / 索引)、event type 全集、record-once、replay-reset、join 激活的 canon 在 [`17-execution-contract.md`](./17-execution-contract.md) §1-§4 + §6/§7。** 本文只讲心智(why),**不再存一份 schema**(旧 schema 块已删,根治 00/11 漂移)。心智摘要(精确以 17 为准):
 
--- 唯一真相:journal
-flowrun_events  ( id, flowrun_id, seq,                -- append 顺序;seq 写入事务内分配,UNIQUE(flowrun_id, seq)
-                  type,                                -- node_started/completed · branch_taken · signal_awaited/received · timer_armed/fired · agent_step_started/completed · node_failed
-                  node_id, iteration_key,              -- replay key(循环轮次;agent 子步另带 turn / tool_call_id)
-                  result )                             -- JSON;record-once + first-wins 的 UNIQUE 见下"Journal 写入契约"段
+- **一次执行 = `flowruns`**:钉 `version_id` + `pinned_callables` 传递闭包快照(A-5/ADR-020);无旧 `paused_state`。
+- **唯一真相 = `flowrun_events`**(append-only journal):`seq` per-flowrun 单调;record-once 走 `dedup_key` partial unique(ADR-018);`node_started`/`node_failed` append-many 留 retry 痕。
+- **durable 等待 = `approvals`**:parked → approved/rejected/timed_out/failed/cancelled。
+- **`messages` / `node_state` / 版本列 / 前沿 / 空票 —— 全部不存在了。**
 
--- durable 等待(approval)
-approvals       ( id, flowrun_id, node_id, prompt, payload,
-                  status,                              -- parked / approved / rejected / timed_out / failed
-                  reason, created_at, decided_at )       -- A-6:timeoutBehavior reject→rejected(走 no)· approve→approved(走 yes)· fail→failed(approval failed + flowrun failed)
-```
+### Journal 写入 / replay key(承重心智 → 精确见 17 §2/§4)
 
-**`messages` / `node_state` / 版本列 / 前沿 / 空票 —— 全部不存在了。**
+"append-only + seq 单调"是 invariant。协议写死(单进程 + 单 SQLite):**per-flowrun 串行写**(并行分支收束到单写入者,不裸写);`seq` 事务内分配 → 单调。**record-once** 走 `dedup_key` partial unique(ADR-018):撞键 = 已记账丢弃;`signal_received`/`timer_fired` first-wins;`node_started`/`node_failed` append-many。**replay key** = `iteration_key`(循环 back-edge 序数,ADR-017,一维);命中抄结果、未命中真跑;跨代取最高 generation(ADR-019)。
 
-> ⚠️ **本节 schema + 下方"Journal 写入契约" 是心智摘要**;字段 / 约束 / event type 全集 / record-once / replay-reset / join 激活 的 **canon 单一事实源在 [`17-execution-contract.md`](./17-execution-contract.md)**(§1-§4),以 17 为准 —— 避免 00/11 各存一份再漂移。
-
-### Journal 写入契约 + replay key(承重 —— 重放正确性的地基)
-
-"append-only + seq 单调"是 invariant、不是写入协议。把协议写死(单进程 + 单 SQLite,比分布式简单太多):
-
-- **per-flowrun 串行写**:同一 flowrun 的 journal 由**单写入者**落(并行分支 goroutine 不并发裸写同一本;走 per-flowrun 写锁 / 串行 channel)。`seq` 在写入事务内分配 → per-flowrun 严格单调。
-- **record-once 只作用于"结果事件"(A-2)**:`UNIQUE(flowrun_id, node_id, iteration_key, type, generation)` **仅对结果类 type**(`node_completed` / `branch_taken` / `signal_received` / `timer_fired`;`generation` 维度见 [`17`](./17-execution-contract.md) §4 replay-reset)—— 重放 / 重试重复写撞 UNIQUE = 已记账 → 丢弃,绝不两份结果。**attempt 轨迹(`node_started` / `node_failed`)是 append-many**(带 `attempt` 序号,retry 多次失败都留痕,见 [`07`](./07-error-handling.md)),**不设 type 级 UNIQUE**。重放取该步**第一条结果事件**当缓存结果。
-- **signal / timer first-wins**:approval 的 `signal_received`、timer 的 `timer_fired` 走 compare-and-insert(同上 UNIQUE)—— 用户决策与 timeout 同刻到,**第一条胜出、第二条 no-op**。
-- **replay key = `(flowrun_id, node_id, iteration_key)`**:`iteration_key` 区分循环轮次(一维,见 04 不嵌套)。重放靠它判"这步记账没":命中抄结果、未命中真跑。
-- **agent 节点子步**:agent run 内部多步,journal 记**子事件** `agent_step_started/completed`,键 = `(flowrun_id, node_id, iteration_key, turn, tool_call_id)`,result 含该 tool-call / LLM turn 输出 → 重放判"前 N 个 tool-call 已记账、第 N+1 个没"(= agent 重放粒度子步级,对位 [`02`](./02-agent-node.md))。
 - **eventlog vs journal**:**`flowrun_events` 是 durable 重放真相**;chat eventlog 的 `reasoning/tool_call/tool_result` block 只是这些子事件的 **UI 投影(best-effort、可丢)**,不是真相源。agent 执行时两边都写(**journal 为源**),重放只信 journal。
 
-> trigger→dispatch→lifecycle 边界另需 durable 持久化(Theme 3):新增 `trigger_schedules`(持久化 listener 注册 + `last_fired_at`)+ `trigger_firings`(durable 触发收件箱,每条触发一行 + outcome)两表,并给 `workflows` 加 `lifecycle_state`(active/draining/inactive)列。详 [`11-integration-chains.md`](./11-integration-chains.md)。
+> trigger→dispatch→lifecycle 边界另需 durable 持久化(Theme 3):`trigger_schedules` + `trigger_firings`(收件箱;终态 status 即 outcome)+ `workflows.lifecycle_state`。schema 见 [`17`](./17-execution-contract.md) §1,机制详 [`11`](./11-integration-chains.md)。
 
 ### 崩溃重放
 

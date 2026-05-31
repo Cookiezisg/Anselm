@@ -85,31 +85,9 @@ DB CHECK `kind IN ('normal', 'polling')`(D3:稳定白名单)。
 
 **A4. Durable 执行 schema 全新**(详 [`00-overview.md`](./00-overview.md) 持久化段)
 
-durable execution 的唯一真相是**每个 flowrun 一本 append-only 事件日志(journal)**,塌缩成三张表(替代旧的 `messages` + `node_state`)。⚠️ **schema 字段 / 约束 / 状态枚举的 canon 在 [`17-execution-contract.md`](./17-execution-contract.md) §1;下方为摘要,以 17 为准**(避免 00/11 漂移):
+durable execution 的唯一真相是**每个 flowrun 一本 append-only 事件日志(journal)**(替代旧的 `messages` + `node_state`)。**schema 字段 / 类型 / 约束 / 状态枚举 / 索引的 canon 在 [`17-execution-contract.md`](./17-execution-contract.md) §1** —— flowruns(+`pinned_callables`/`generation`/`trigger_node_id`,−`paused_state`)/ flowrun_events(+`dedup_key`,record-once = partial unique,ADR-018)/ approvals(+`cancelled`)/ trigger_schedules(+`retry_policy`/`consecutive_failures`)/ trigger_firings(`status` 含 `shed`,终态即 outcome)/ polling_states / workflows·function_versions 加列。**本文不再存 schema 副本**(根治 00/11 漂移)。
 
-```sql
--- 一次执行
-flowruns        ( id, workflow_id, version_id,        -- version_id 启动时钉(图拓扑稳定)
-                  input,                               -- payload + ctx(JSON)
-                  status,                              -- running / awaiting_signal / completed / failed / cancelled
-                  trigger_node_id,                     -- 记哪个 trigger 节点起的(触发来源由其 kind 可知,无需 is_from_listener)
-                  started_at, ended_at )
-
--- 唯一真相:journal(append-only)。写入契约(per-flowrun 串行写 / seq 事务内分配 /
---   record-once + first-wins 的 UNIQUE / agent 子步 key)详 00 "Journal 写入契约 + replay key" 段
-flowrun_events  ( id, flowrun_id, seq,                -- UNIQUE(flowrun_id, seq);seq per-flowrun 严格单调(写入事务内分配)
-                  type,                                -- 结果类:node_completed / branch_taken / signal_received / timer_fired;attempt 类:node_started / node_failed;其他:signal_awaited / timer_armed / agent_step_*
-                  node_id, iteration_key, attempt,     -- replay key=(flowrun_id,node_id,iteration_key);**record-once UNIQUE 只对结果类 kind**(详 00 Journal 写入契约);attempt 仅 node_started/failed 用、append-many 留 retry 痕(A-2)
-                  turn, tool_call_id,                  -- 仅 agent 子事件:定位第几 turn / 哪个 tool-call(其余留空)
-                  result )                             -- JSON(activity 输出 / 分支选择 / 信号 / timer deadline)
-
--- durable 等待(approval)
-approvals       ( id, flowrun_id, node_id, prompt, payload,
-                  status,                              -- parked / approved / rejected / timed_out / failed(全集 canon 见 17 §1/§9)
-                  reason, created_at, decided_at )
-```
-
-App 层 API(围绕 journal,不是队列):`AppendEvent` / `ReplayFrom(flowrunId)` / `LoadJournal(flowrunId)` / `RecordApproval`。
+App 层 API(围绕 journal,不是队列):`AppendEvent`(compare-and-insert via dedup_key)/ `ReplayFrom(flowrunId)` / `LoadJournal(flowrunId)` / `RecordApproval`。
 
 **`messages` / `node_state` / 消息 version / 前沿 / 空票 —— 全部不建。** 旧设计里的"消息队列 infra ~300 行"不再存在;durable 引擎自身就是执行+持久化的全部底盘(见 §H)。
 

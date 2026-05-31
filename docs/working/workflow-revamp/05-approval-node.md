@@ -85,7 +85,7 @@ approval 是 durable execution 里的"挂起等信号"步骤(对位 Temporal 的
          ↓
 渲染 prompt 模板(读已记账的 payload / ctx)
          ↓
-事件日志 append 一条 awaiting_signal 事件  +  建一条 approvals 记录(status=parked)
+事件日志 append 一条 signal_awaited 事件  +  建一条 approvals 记录(status=parked)
          ↓
 这条执行路径在此挂起(不占 goroutine 死等;flowrun.status 转 awaiting_signal)
          ↓
@@ -102,9 +102,9 @@ approval 是 durable execution 里的"挂起等信号"步骤(对位 Temporal 的
             fail   → approvals.status=failed + flowrun 标 failed(A-6;status 枚举含 timed_out/failed,对位 00 approvals 表)
 ```
 
-**状态归属**:挂起期间的真相在 **approvals 表(parked)+ 事件日志的 awaiting_signal 事件**,不在任何内存里。决策本身是日志里的一条 signal_received 事件——**它是已记账的结果,所以重放时控制流走哪个端口是确定的**(满足 00 的确定性约束:控制流只读已记账的值)。
+**状态归属**:挂起期间的真相在 **approvals 表(parked)+ 事件日志的 signal_awaited 事件**,不在任何内存里。决策本身是日志里的一条 signal_received 事件——**它是已记账的结果,所以重放时控制流走哪个端口是确定的**(满足 00 的确定性约束:控制流只读已记账的值)。
 
-**进程重启 / 长部署重启,approval 状态自动保持**——靠 **approvals 表 + 事件日志确定性重放恢复**:重启后扫到 `status=awaiting_signal` 的 flowrun,从头重放程序、命中日志的步骤抄结果,走到这个 approval 时读到只有 awaiting_signal、没有 signal_received,就**继续挂起等信号**;若决策已在重启前到达(日志里已有 signal_received),重放直接沿对应端口往下走。详 [`00-overview.md`](./00-overview.md) 的"崩溃重放"。
+**进程重启 / 长部署重启,approval 状态自动保持**——靠 **approvals 表 + 事件日志确定性重放恢复**:重启后扫到 `status=awaiting_signal` 的 flowrun,从头重放程序、命中日志的步骤抄结果,走到这个 approval 时读到只有 `signal_awaited`、没有 `signal_received`,就**继续挂起等信号**;若决策已在重启前到达(日志里已有 signal_received),重放直接沿对应端口往下走。详 [`00-overview.md`](./00-overview.md) 的"崩溃重放"。
 
 ---
 
@@ -112,7 +112,7 @@ approval 是 durable execution 里的"挂起等信号"步骤(对位 Temporal 的
 
 approval 的 `timeout` 是一个 **durable timer**(也是 [`00`](./00-overview.md) 节点级 `at`/`after` gate 的**同一个原语**,只是这里等信号、那里纯等时间;对位 Temporal 的 durable timer / Step Functions 的 `waitForTaskToken` + timeout),不是进程内 `time.AfterFunc`——后者一重启就没了:
 
-- **deadline 持久 + boot 重建**:挂起时 `awaiting_signal` 事件里记下 `deadline = 记账时刻 + timeout`(deadline 是**已记账的确定值**,不是墙钟现算)。一个**单一到期检查器**(复用派发器的 tick)扫 parked approvals 的 deadline;进程重启后从 journal 的 `awaiting_signal` + deadline **重建**待检查集合——所以 30d 的超时跨任意次重启都能**恰好触发一次**。
+- **deadline 持久 + boot 重建**:挂起时 `signal_awaited` 事件里记下 `deadline = 记账时刻 + timeout`(deadline 是**已记账的确定值**,不是墙钟现算)。一个**单一到期检查器**(复用派发器的 tick)扫 parked approvals 的 deadline;进程重启后从 journal 的 `signal_awaited` + deadline **重建**待检查集合——所以 30d 的超时跨任意次重启都能**恰好触发一次**。
 - **双信号 first-wins 去重**:用户在超时临界点批准 + 到期检查器同时触发 → 可能两条 `signal_received`(一条 decision、一条 timeout)。**事件日志 append-only,第一条记账的胜出**;写入按"该 approval 是否已有 signal_received"幂等,后到的那条 no-op 丢弃。重放只看第一条 → 端口选择确定。
 - **挂起寿命兜底(防无界增长,C3)**:`timeout` 不填 = 永不超时是合法的(挂到用户操作),但平台给一个**高默认的挂起寿命上限**(可配、默认很长)。到顶**不强杀、不替用户决策**,而是**通知**"这个 approval 挂了很久"(诚实态),避免 `awaiting_signal` 的 flowrun 无界堆积没人管。
 
