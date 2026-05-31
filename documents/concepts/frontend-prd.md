@@ -1,3 +1,13 @@
+---
+id: DOC-003
+type: concept
+status: active
+owner: @weilin
+created: 2026-05-15
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+---
 # Forgify 前端 PRD — V1.0
 
 > **⚠️ boilerplate 原型已退役（2026-05-27）。** 本文档多处写"参照 boilerplate / 以 boilerplate 为准 / 改进 vs boilerplate"——`boilerplate/` 目录已删除，**视觉事实源现为已实现的 `frontend/src`（组件 + `src/styles/`）**。下文所有 boilerplate 提及均为前端实现完成前的历史实现上下文，按"实现即事实源"理解，不要再去找该目录。

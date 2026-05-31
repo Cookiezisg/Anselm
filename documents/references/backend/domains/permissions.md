@@ -1,3 +1,13 @@
+---
+id: DOC-116
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Permissions + Hooks — V1.2 §3 final-sweep
 
 **Phase**：V1.2 §3 final-sweep（接 §1 compaction / §2 memory 之后的 ship gate 第三块）

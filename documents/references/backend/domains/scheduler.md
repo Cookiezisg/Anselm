@@ -1,3 +1,13 @@
+---
+id: DOC-119
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Scheduler
 
 > Workflow 执行编排器,Plan 05 三条腿之一。读 active version → 持 FlowRun → DAG dispatch → retry/onError/timeout → pause/resume → cleanup。

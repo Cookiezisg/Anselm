@@ -1,3 +1,13 @@
+---
+id: DOC-242
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # widgets/command-palette — 前端 slice 详细设计
 
 **所属层**：widgets（聚合 entities/conversation + entities/function + entities/handler + entities/workflow + entities/flowrun）

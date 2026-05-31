@@ -1,3 +1,13 @@
+---
+id: DOC-113
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Memory — 跨对话长期记忆
 
 **Phase**：V1.2 §2 final-sweep（与 compaction 同批落地，可独立 ship）

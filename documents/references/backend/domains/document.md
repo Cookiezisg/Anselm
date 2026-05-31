@@ -1,3 +1,13 @@
+---
+id: DOC-107
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Document — Notion-style 树状文档库
 
 **Phase**：Phase 5（V1.2 后端阶段最后一块愿景核心）

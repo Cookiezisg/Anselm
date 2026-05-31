@@ -1,3 +1,13 @@
+---
+id: DOC-218
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # features/entity-link — 前端 slice 详细设计
 
 **所属层**：features（对位后端 app/relation 的查询用例；聚合 7 类 entity list）

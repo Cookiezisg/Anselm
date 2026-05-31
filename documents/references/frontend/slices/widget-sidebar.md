@@ -1,3 +1,13 @@
+---
+id: DOC-245
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # widgets/sidebar — 前端 slice 详细设计
 
 **所属层**：widgets（聚合 entities/conversation + entities/user + app/model/paneStore）

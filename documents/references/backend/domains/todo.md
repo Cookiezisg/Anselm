@@ -1,3 +1,13 @@
+---
+id: DOC-124
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Todo — V1.2 详设计
 
 **Phase**：5（System Tool 第二代 + UX 集成）

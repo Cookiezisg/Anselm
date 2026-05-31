@@ -1,3 +1,13 @@
+---
+id: DOC-110
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Function
 
 > Trinity-domain Python user-tool surface, the Plan 01 deliverable of the forge_redesign topic. Replaces the legacy `forge` domain.

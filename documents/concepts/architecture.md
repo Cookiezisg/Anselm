@@ -1,3 +1,13 @@
+---
+id: DOC-001
+type: concept
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+---
 # Backend 全新重写 — 契约优先 + 分层架构 + Agentic Workflow Platform
 
 **创建于**：2026-04-22

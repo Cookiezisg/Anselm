@@ -1,3 +1,13 @@
+---
+id: DOC-223
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # features/settings — 前端 slice 详细设计
 
 **所属层**：features（对位后端 app/user 的创建用例；account switch 为纯前端 session 操作）

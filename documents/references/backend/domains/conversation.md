@@ -1,3 +1,13 @@
+---
+id: DOC-106
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # conversation domain — 详细设计文档
 
 **所属 Phase**：Phase 2（基础对话能力，第 3 个完成的 domain）

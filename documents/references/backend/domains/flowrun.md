@@ -1,3 +1,13 @@
+---
+id: DOC-109
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # FlowRun
 
 > Workflow 执行记录簿域,Plan 05 三条腿之一(flowrun / trigger / scheduler 单向依赖链)。

@@ -1,3 +1,13 @@
+---
+id: DOC-126
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # User — 本地多 Profile 切换
 
 > V1.2 §20 / 2026-05-17。**单机多账号**（个人 / 工作 / 副业），不是真 auth。Slack workspace 切换风格——单机谁拿 laptop 谁有控制权。

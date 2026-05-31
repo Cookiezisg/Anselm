@@ -1,3 +1,13 @@
+---
+id: DOC-123
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Subagent — V1.2 详设计
 
 **Phase**：Phase 4 准备件（已交付 + 2026-05 schema 统一）

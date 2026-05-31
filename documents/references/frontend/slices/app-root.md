@@ -1,3 +1,13 @@
+---
+id: DOC-212
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # app/App — 前端 slice 详细设计
 
 **所属层**：app（根组件；消费 app/model/useSessionBootstrap + entities/session + entities/settings + app/sse/SSEProvider）

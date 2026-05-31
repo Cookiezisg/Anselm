@@ -1,3 +1,13 @@
+---
+id: DOC-214
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # app/sse — 前端 slice 详细设计
 
 **所属层**：app（被 App.tsx SSEProvider 消费；向下通过 context / props 暴露健康状态）

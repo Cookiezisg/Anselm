@@ -1,3 +1,13 @@
+---
+id: DOC-002
+type: concept
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+---
 # Frontend 架构设计 — TypeScript + Feature-Sliced Design
 
 **创建于**：2026-05-27

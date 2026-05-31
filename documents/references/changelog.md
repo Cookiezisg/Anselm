@@ -1,3 +1,13 @@
+---
+id: DOC-300
+type: log
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: never
+audience: [human, ai]
+---
 # V1.2 Backend 进展记录
 
 **关联**：

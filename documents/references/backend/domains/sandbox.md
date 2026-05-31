@@ -1,3 +1,13 @@
+---
+id: DOC-118
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Sandbox — V1.2 详设计（PluginSandbox v2 统一架构）
 
 **Phase**：Phase 4 准备件（提前到位，与 mcp/skill/forge 整合）

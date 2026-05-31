@@ -1,3 +1,13 @@
+---
+id: DOC-222
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # features/send-message — 前端 slice 详细设计
 
 **所属层**：features（对位后端 app/chat service 的发送/取消用例）

@@ -1,3 +1,13 @@
+---
+id: DOC-114
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # @-Mention 引用 — V1.2 详设计
 
 **状态**：✅ 交付（2026-05-25）：`domain/mention` 端口 + 4 个 `AsMentionResolver()`（document/function/handler/workflow）+ chat `RegisterMentionResolver` 注册表 + `Send` 解析存储 + `buildUserLLMMessage` 渲染。

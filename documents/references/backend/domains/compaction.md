@@ -1,3 +1,13 @@
+---
+id: DOC-105
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Compaction — 对话上下文压缩
 
 **Phase**：V1.2 §1 final-sweep（与 memory 同批落地）

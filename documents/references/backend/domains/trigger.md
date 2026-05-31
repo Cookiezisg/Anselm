@@ -1,3 +1,13 @@
+---
+id: DOC-125
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Trigger
 
 > Workflow 触发器域,Plan 05 三条腿之一。监听外部信号 (cron / fsnotify / webhook) 或被手动调 (manual) → 转 scheduler.StartRun。

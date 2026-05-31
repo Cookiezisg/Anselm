@@ -1,3 +1,13 @@
+---
+id: DOC-101
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # apikey domain — 详细设计文档
 
 **所属 Phase**：Phase 2（基础对话能力，第 1 个完成的 domain）

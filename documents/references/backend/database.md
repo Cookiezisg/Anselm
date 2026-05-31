@@ -1,3 +1,13 @@
+---
+id: DOC-011
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Database Design — V1.2 表一眼索引
 
 **关联**：

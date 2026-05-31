@@ -1,3 +1,13 @@
+---
+id: DOC-120
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Search Tools — V1.2 详设计
 
 **Phase**：5（System Tool 第二代 search 批次）

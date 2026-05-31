@@ -1,3 +1,13 @@
+---
+id: DOC-234
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # pages/forge — 前端 slice 详细设计
 
 **所属层**：pages（聚合 entities/function + entities/handler + entities/workflow + widgets/version-rail + widgets/ask-ai-trigger + widgets/entity-rel-meta）

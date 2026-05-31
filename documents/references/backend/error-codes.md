@@ -1,3 +1,13 @@
+---
+id: DOC-012
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Error Codes — V1.2 错误码一眼索引
 
 **关联**：

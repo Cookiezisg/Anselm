@@ -1,3 +1,13 @@
+---
+id: DOC-244
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # widgets/rel-graph — 前端 slice 详细设计
 
 **所属层**：widgets（聚合 features/entity-link + entities/relation + shared/lib/navigation）

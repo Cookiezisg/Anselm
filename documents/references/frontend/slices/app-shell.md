@@ -1,3 +1,13 @@
+---
+id: DOC-213
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # app/AppShell — 前端 slice 详细设计
 
 **所属层**：app（消费 app/model + app/sse + widgets + pages + features）

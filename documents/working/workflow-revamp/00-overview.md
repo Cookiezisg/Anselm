@@ -1,3 +1,14 @@
+---
+id: WRK-001
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 00 — Overview
 
 脑爆纲领(2026-05-27 立;**2026-05-31 执行模型大改向**)。本文件统领 01-12 各份子设计,是整个 workflow-revamp 的**核心心智事实源**。

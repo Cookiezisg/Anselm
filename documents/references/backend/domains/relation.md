@@ -1,3 +1,13 @@
+---
+id: DOC-117
+type: reference
+status: active
+owner: @weilin
+created: 2026-04-22
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Relation — 跨实体关系图（relgraph 数据底座）
 
 **Phase**：Phase 5 增量（V1.2 后端阶段，前端启动前的最后补块）

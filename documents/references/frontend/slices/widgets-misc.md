@@ -1,3 +1,13 @@
+---
+id: DOC-246
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # widgets/misc — 简单 widget 合并设计文档
 
 **所属层**：widgets

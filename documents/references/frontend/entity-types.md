@@ -1,3 +1,13 @@
+---
+id: DOC-201
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # Entity Types 契约 — 一眼索引
 
 **关联**：

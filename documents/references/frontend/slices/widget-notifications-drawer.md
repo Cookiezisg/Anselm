@@ -1,3 +1,13 @@
+---
+id: DOC-243
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # widgets/notifications-drawer — 前端 slice 详细设计
 
 **所属层**：widgets（聚合 shared/api/httpClient + shared/ui/toastStore + app/model/overlayStore）

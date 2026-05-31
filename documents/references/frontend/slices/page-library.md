@@ -1,3 +1,13 @@
+---
+id: DOC-235
+type: reference
+status: active
+owner: @weilin
+created: 2026-05-27
+reviewed: 2026-05-31
+review-due: 2026-06-30
+audience: [human, ai]
+---
 # pages/library — 前端 slice 详细设计
 
 **所属层**：pages（聚合 entities/document + entities/skill + entities/mcp + entities/memory）
