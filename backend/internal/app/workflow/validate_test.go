@@ -305,7 +305,7 @@ func TestValidate_ApprovalEdgeInvalidPort(t *testing.T) {
 		},
 		Edges: []workflowdomain.EdgeSpec{
 			edge("e1", "trig", "a1"),
-			{ID: "e2", From: "a1", FromPort: "maybe", To: "fn1"}, // ❌ "maybe" not in {approved, rejected}
+			{ID: "e2", From: "a1", FromPort: "maybe", To: "fn1"}, // ❌ "maybe" not in {yes, no}
 		},
 	}
 	err := ValidateGraph(context.Background(), g, NopChecker())
@@ -314,7 +314,7 @@ func TestValidate_ApprovalEdgeInvalidPort(t *testing.T) {
 	}
 }
 
-func TestValidate_ApprovalEdgeApprovedPasses(t *testing.T) {
+func TestValidate_ApprovalEdgeYesPasses(t *testing.T) {
 	g := &workflowdomain.Graph{
 		Nodes: []workflowdomain.NodeSpec{
 			nodeT("trig", workflowdomain.NodeTypeTrigger),
@@ -323,11 +323,11 @@ func TestValidate_ApprovalEdgeApprovedPasses(t *testing.T) {
 		},
 		Edges: []workflowdomain.EdgeSpec{
 			edge("e1", "trig", "a1"),
-			{ID: "e2", From: "a1", FromPort: "approved", To: "fn1"},
+			{ID: "e2", From: "a1", FromPort: "yes", To: "fn1"},
 		},
 	}
 	if err := ValidateGraph(context.Background(), g, NopChecker()); err != nil {
-		t.Errorf("approved-port edge should pass, got %v", err)
+		t.Errorf("yes-port edge should pass, got %v", err)
 	}
 }
 

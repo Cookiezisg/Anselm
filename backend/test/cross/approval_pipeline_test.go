@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	flowruneventstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrunevent"
 	th "github.com/sunweilin/forgify/backend/test/harness"
 )
 
@@ -23,7 +24,7 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"gate","type":"approval","config":{"prompt":"Proceed?"}}}`)},
 			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"ack","type":"variable","config":{"operation":"set","name":"acked","value":"yes"}}}`)},
 			{Type: "add_edge", Raw: []byte(`{"op":"add_edge","edge":{"id":"e1","from":"trig","to":"gate"}}`)},
-			{Type: "add_edge", Raw: []byte(`{"op":"add_edge","edge":{"id":"e2","from":"gate","fromPort":"approved","to":"ack"}}`)},
+			{Type: "add_edge", Raw: []byte(`{"op":"add_edge","edge":{"id":"e2","from":"gate","fromPort":"yes","to":"ack"}}`)},
 		},
 	})
 	if err != nil {
@@ -42,15 +43,17 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	runID := trigResp.Data.RunID
 
 	deadline := time.Now().Add(2 * time.Second)
+	awaited := false
 	for time.Now().Before(deadline) {
 		run, _ := h.FlowRunRepo.Get(ctx, runID)
-		if run != nil && run.Status == flowrundomain.StatusPaused {
-			if run.PausedState == nil || run.PausedState.NodeID != "gate" {
-				t.Fatalf("paused but PausedState wrong: %+v", run.PausedState)
-			}
+		if run != nil && run.Status == flowrundomain.StatusAwaitingSignal {
+			awaited = true
 			break
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+	if !awaited {
+		t.Fatalf("run never reached awaiting_signal (durable approval park)")
 	}
 
 	var approveResp struct {
@@ -68,14 +71,36 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 	}
 
 	deadline = time.Now().Add(2 * time.Second)
+	completed := false
 	for time.Now().Before(deadline) {
 		run, _ := h.FlowRunRepo.Get(ctx, runID)
 		if run != nil && run.Status == flowrundomain.StatusCompleted {
-			return
+			completed = true
+			break
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("run did not complete after approval within 2s")
+	if !completed {
+		t.Fatalf("run did not complete after approval within 2s")
+	}
+
+	// Downstream MUST actually run: the approved (yes-port) branch's `ack` node executed.
+	// Guards the port-canon regression — a yes/no↔approved/rejected mismatch skips ack yet
+	// still completes the run (the false-green this test previously masked).
+	journal := flowruneventstore.New(h.DB)
+	evs, jErr := journal.LoadJournal(ctx, runID)
+	if jErr != nil {
+		t.Fatalf("load journal: %v", jErr)
+	}
+	ackRan := false
+	for i := range evs {
+		if evs[i].NodeID == "ack" && evs[i].Type == flowrundomain.EventNodeCompleted {
+			ackRan = true
+		}
+	}
+	if !ackRan {
+		t.Fatalf("approved branch downstream `ack` never executed (port-canon regression); %d journal events", len(evs))
+	}
 }
 
 // covers: cross:workflow_scheduler:approval_pause_resume

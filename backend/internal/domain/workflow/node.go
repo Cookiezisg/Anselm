@@ -90,8 +90,12 @@ func IsCapabilityNode(t string) bool {
 // BranchOutputPorts maps branching NodeType to its valid output ports; condition uses nil for dynamic.
 //
 // BranchOutputPorts 分叉节点 → 合法输出口名；condition 节点 ports 由 config 动态声明，故 nil。
+// approval ports are the 17 §7 canon yes/no (approved/rejected are the approvals.status values,
+// NOT edge ports) — the interpreter routes the signal_received decision against yes/no.
+//
+// approval 端口取 17 §7 canon yes/no(approved/rejected 是 approvals.status 值,非边端口)。
 var BranchOutputPorts = map[string][]string{
-	NodeTypeApproval:  {"approved", "rejected"},
+	NodeTypeApproval:  {"yes", "no"},
 	NodeTypeLoop:      {"iterate", "done"},
 	NodeTypeCondition: nil,
 }
