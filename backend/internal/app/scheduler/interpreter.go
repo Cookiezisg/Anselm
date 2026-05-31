@@ -33,10 +33,12 @@ func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpre
 	return &Interpreter{journal: journal, dispatch: dispatch}
 }
 
-func (in *Interpreter) Run(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) error {
+// Run/Resume return parked=true when the flowrun suspended at an approval waiting for a signal
+// (caller sets flowrun.status = awaiting_signal); false means it ran to a terminal.
+func (in *Interpreter) Run(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) (bool, error) {
 	return in.walk(ctx, flowrunID, g, input)
 }
-func (in *Interpreter) Resume(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) error {
+func (in *Interpreter) Resume(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) (bool, error) {
 	return in.walk(ctx, flowrunID, g, input)
 }
 
@@ -50,13 +52,15 @@ type agendaItem struct {
 	payload map[string]any
 }
 
-func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) error {
+func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) (bool, error) {
 	events, err := in.journal.LoadJournal(ctx, flowrunID)
 	if err != nil {
-		return fmt.Errorf("scheduler.walk load: %w", err)
+		return false, fmt.Errorf("scheduler.walk load: %w", err)
 	}
 	completed := completedResults(events)
 	branchTaken := branchResults(events)
+	signalReceived := signalResults(events)
+	parked := false
 
 	byID := map[string]workflowdomain.NodeSpec{}
 	for _, n := range g.Nodes {
@@ -67,7 +71,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 
 	trigger := triggerNode(g)
 	if trigger == nil {
-		return fmt.Errorf("scheduler.walk: no trigger node in graph")
+		return false, fmt.Errorf("scheduler.walk: no trigger node in graph")
 	}
 	if input == nil {
 		input = map[string]any{}
@@ -150,7 +154,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 		case workflowdomain.NodeTypeCondition: // 5-node "case"
 			selected, p, cErr := in.caseDecide(ctx, flowrunID, spec, it.iter, it.payload, branchTaken)
 			if cErr != nil {
-				return cErr
+				return false, cErr
 			}
 			out = p
 			for _, e := range edgesFrom(g, it.node) {
@@ -160,10 +164,32 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 					skipTo = append(skipTo, e.To)
 				}
 			}
+		case workflowdomain.NodeTypeApproval: // durable wait for a yes/no signal
+			sig, ok := signalReceived[ck(it.node, it.iter)]
+			if !ok {
+				// park: journal signal_awaited once; the flowrun suspends (status awaiting_signal)
+				// and re-walks after ResumeApproval journals the decision.
+				if _, aErr := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+					FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter,
+				}); aErr != nil {
+					return false, fmt.Errorf("scheduler.approval %s signal_awaited: %w", it.node, aErr)
+				}
+				parked = true
+				continue // do not propagate from a parked approval
+			}
+			out = it.payload
+			decision, _ := sig["decision"].(string) // "yes" / "no"
+			for _, e := range edgesFrom(g, it.node) {
+				if e.FromPort == decision {
+					activeTo = append(activeTo, e.To)
+				} else {
+					skipTo = append(skipTo, e.To)
+				}
+			}
 		default: // activity (function/handler/mcp/agent/...)
 			p, aErr := in.activityRun(ctx, flowrunID, spec, it.iter, it.payload, completed)
 			if aErr != nil {
-				return aErr
+				return false, aErr
 			}
 			out = p
 			for _, e := range edgesFrom(g, it.node) {
@@ -182,7 +208,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 			propagateSkip(to, it.iter)
 		}
 	}
-	return nil
+	return parked, nil
 }
 
 // caseDecide returns the chosen branch's `to` node + emitted payload, journaling branch_taken; on
@@ -319,6 +345,17 @@ func branchResults(events []flowrundomain.FlowRunEvent) map[string]map[string]an
 	out := map[string]map[string]any{}
 	for i := range events {
 		if events[i].Type == flowrundomain.EventBranchTaken {
+			out[ck(events[i].NodeID, events[i].IterationKey)] = asMap(events[i].Result)
+		}
+	}
+	return out
+}
+
+// signalResults maps (approvalNodeID, iteration_key) → recorded signal_received result ({decision}).
+func signalResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	for i := range events {
+		if events[i].Type == flowrundomain.EventSignalReceived {
 			out[ck(events[i].NodeID, events[i].IterationKey)] = asMap(events[i].Result)
 		}
 	}

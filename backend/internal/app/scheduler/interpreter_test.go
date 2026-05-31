@@ -78,7 +78,7 @@ func TestInterpreter_ReplayIsDeterministicAndCopiesNotReruns(t *testing.T) {
 	graph := linearGraph()
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_det", graph, nil); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_det", graph, nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	j1, _ := journal.LoadJournal(ctx, "fr_det")
@@ -86,7 +86,7 @@ func TestInterpreter_ReplayIsDeterministicAndCopiesNotReruns(t *testing.T) {
 		t.Fatalf("first run should dispatch a,b exactly once: %v", router.calls)
 	}
 
-	if err := New(journal, router).Resume(ctx, "fr_det", graph, nil); err != nil {
+	if _, err := New(journal, router).Resume(ctx, "fr_det", graph, nil); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	if router.calls["a"] != 1 || router.calls["b"] != 1 {
@@ -109,7 +109,7 @@ func TestInterpreter_LinearRunJournalsEachActivity(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_lin", linearGraph(), nil); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_lin", linearGraph(), nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	evs, _ := journal.LoadJournal(ctx, "fr_lin")
@@ -135,7 +135,7 @@ func TestInterpreter_CaseFirstTrueWins(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_hi", caseGraph(), map[string]any{"x": 10}); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_hi", caseGraph(), map[string]any{"x": 10}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if router.calls["hi"] != 1 || router.calls["lo"] != 0 {
@@ -162,7 +162,7 @@ func TestInterpreter_CaseFallthroughToTrueBranch(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_lo", caseGraph(), map[string]any{"x": 1}); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_lo", caseGraph(), map[string]any{"x": 1}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if router.calls["lo"] != 1 || router.calls["hi"] != 0 {
@@ -177,10 +177,10 @@ func TestInterpreter_CaseReplay_CopiesDecision(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if err := New(journal, router).Resume(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
+	if _, err := New(journal, router).Resume(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	if router.calls["hi"] != 1 || router.calls["lo"] != 0 {
@@ -218,7 +218,7 @@ func TestInterpreter_StructuredLoop_IterationKey(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_loop", loopGraph(), map[string]any{"n": 0}); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_loop", loopGraph(), map[string]any{"n": 0}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if router.calls["done"] != 1 {
@@ -241,10 +241,10 @@ func TestInterpreter_LoopReplay_NoRerun(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_lr", loopGraph(), map[string]any{"n": 0}); err != nil {
+	if _, err := New(journal, router).Run(ctx, "fr_lr", loopGraph(), map[string]any{"n": 0}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if err := New(journal, router).Resume(ctx, "fr_lr", loopGraph(), map[string]any{"n": 0}); err != nil {
+	if _, err := New(journal, router).Resume(ctx, "fr_lr", loopGraph(), map[string]any{"n": 0}); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	if router.calls["done"] != 1 {
@@ -286,7 +286,7 @@ func andJoinGraph() workflowdomain.Graph {
 func TestInterpreter_ANDJoin_AwaitsAll(t *testing.T) {
 	journal := newJournal(t)
 	router := &countingRouter{calls: map[string]int{}}
-	if err := New(journal, router).Run(context.Background(), "fr_and", andJoinGraph(), nil); err != nil {
+	if _, err := New(journal, router).Run(context.Background(), "fr_and", andJoinGraph(), nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	for _, n := range []string{"f", "a", "b", "j"} {
@@ -328,10 +328,81 @@ func activeBranchGraph() workflowdomain.Graph {
 func TestInterpreter_ActiveBranchJoin_NoDeadlock(t *testing.T) {
 	journal := newJournal(t)
 	router := &countingRouter{calls: map[string]int{}}
-	if err := New(journal, router).Run(context.Background(), "fr_ab", activeBranchGraph(), map[string]any{"x": 10}); err != nil {
+	if _, err := New(journal, router).Run(context.Background(), "fr_ab", activeBranchGraph(), map[string]any{"x": 10}); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	if router.calls["a"] != 1 || router.calls["b"] != 0 || router.calls["j"] != 1 {
 		t.Fatalf("active-branch join: want a=1 b=0 j=1, got %v", router.calls)
+	}
+}
+
+// trigger -> approval -> yes:dy / no:dn. approval routes via FromPort = decision.
+func approvalGraph() workflowdomain.Graph {
+	return workflowdomain.Graph{
+		Name: "approval",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "ap", Type: workflowdomain.NodeTypeApproval},
+			{ID: "dy", Type: workflowdomain.NodeTypeFunction},
+			{ID: "dn", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "ap"},
+			{ID: "e2", From: "ap", FromPort: "yes", To: "dy"},
+			{ID: "e3", From: "ap", FromPort: "no", To: "dn"},
+		},
+	}
+}
+
+// approval parks the run (journals signal_awaited; caller sets status awaiting_signal) until a
+// signal arrives — no downstream runs while parked.
+func TestInterpreter_Approval_Parks(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	parked, err := New(journal, router).Run(context.Background(), "fr_ap", approvalGraph(), nil)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if !parked {
+		t.Fatal("approval must park the run")
+	}
+	if router.calls["dy"] != 0 || router.calls["dn"] != 0 {
+		t.Fatalf("nothing downstream should run while parked: %v", router.calls)
+	}
+	found := false
+	for _, e := range mustLoad(t, journal, "fr_ap") {
+		if e.Type == flowrundomain.EventSignalAwaited && e.NodeID == "ap" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("approval did not journal signal_awaited")
+	}
+}
+
+// once the decision is journaled (signal_received), re-walking routes via the yes/no port and
+// the run completes (durable approval = journal signal; the basis for crash-safe pause/resume).
+func TestInterpreter_Approval_ResumeRoutesByDecision(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	ctx := context.Background()
+	if _, err := New(journal, router).Run(ctx, "fr_apr", approvalGraph(), nil); err != nil {
+		t.Fatalf("park: %v", err)
+	}
+	if _, err := journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+		FlowrunID: "fr_apr", Type: flowrundomain.EventSignalReceived, NodeID: "ap",
+		Result: map[string]any{"decision": "yes"},
+	}); err != nil {
+		t.Fatalf("inject signal: %v", err)
+	}
+	parked, err := New(journal, router).Resume(ctx, "fr_apr", approvalGraph(), nil)
+	if err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if parked {
+		t.Fatal("after the decision the run must complete, not park")
+	}
+	if router.calls["dy"] != 1 || router.calls["dn"] != 0 {
+		t.Fatalf("decision=yes must route to dy: %v", router.calls)
 	}
 }

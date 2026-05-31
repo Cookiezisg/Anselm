@@ -125,8 +125,19 @@ func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, gr
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-	if err := New(s.journal, s.router).Run(ctx, run.ID, *graph, run.TriggerInput); err != nil {
+	parked, err := New(s.journal, s.router).Run(ctx, run.ID, *graph, run.TriggerInput)
+	if err != nil {
 		s.finalizeRun(ctx, run, flowrundomain.StatusFailed, nil, "NODE_FAILED", err.Error())
+		return
+	}
+	if parked {
+		// approval suspended the run; status → awaiting_signal (not terminal). ResumeApproval
+		// journals the decision and re-drives the interpreter.
+		now := time.Now().UTC()
+		elapsed := now.Sub(run.StartedAt).Milliseconds()
+		if uErr := s.repo.UpdateStatus(ctx, run.ID, flowrundomain.StatusAwaitingSignal, nil, "", "", nil, elapsed); uErr != nil {
+			s.log.Error("scheduler.executeRun: park UpdateStatus failed", zap.String("runID", run.ID), zap.Error(uErr))
+		}
 		return
 	}
 	s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, nil, "", "")
