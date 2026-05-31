@@ -97,10 +97,9 @@ func isFatalErr(err error) bool {
 }
 
 // dryRunMockOutput returns a synthetic DispatchOutput for a side-effect node;
-// approval auto-routes "approved" so the DAG continues past the gate.
+// approval auto-routes the "yes" port (17 §7 canon) so the DAG continues past the gate.
 //
-// dryRunMockOutput 返副作用节点的合成 DispatchOutput；approval 自动走 "approved"
-// 让 DAG 越过审批关。
+// dryRunMockOutput 返副作用节点的合成 DispatchOutput；approval 自动走 "yes" 端口让 DAG 越过审批关。
 func dryRunMockOutput(node workflowdomain.NodeSpec) DispatchOutput {
 	out := DispatchOutput{
 		Outputs: map[string]any{
@@ -109,7 +108,7 @@ func dryRunMockOutput(node workflowdomain.NodeSpec) DispatchOutput {
 		},
 	}
 	if node.Type == workflowdomain.NodeTypeApproval {
-		out.NextPort = "approved"
+		out.NextPort = "yes"
 	}
 	return out
 }

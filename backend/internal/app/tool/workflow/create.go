@@ -38,7 +38,7 @@ GRAPH RULES:
   - Edges connect node IDs directly (no dots, no port-in-id).
 
 BRANCHING NODES (require fromPort on each outgoing edge):
-  - approval → fromPort: "approved" | "rejected"
+  - approval → fromPort: "yes" | "no"   (yes = approved branch, no = rejected branch)
   - loop     → fromPort: "iterate" | "done"
   - condition → fromPort: one of the case names declared in config.cases
 
