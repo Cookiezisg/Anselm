@@ -474,3 +474,46 @@ func TestInterpreter_CtxWired_GuardReadsRunId(t *testing.T) {
 		t.Fatalf("ctx.runId guard must route to hit (ctx wired, not empty): %v", router.calls)
 	}
 }
+
+// A journaled number is reloaded as float64; without boundary normalization a downstream CEL
+// `payload.n + 1` (double+int, no overload) errors → the guard silently fail-to-false and the run
+// misroutes. Normalizing copy-hit numbers back to int64 keeps fresh and replayed arithmetic
+// identical (cel-safety-1). Here `a` copy-hits a seeded node_completed carrying n=1.
+func TestInterpreter_NumberCopyHit_StaysIntForCELArithmetic(t *testing.T) {
+	journal := newJournal(t)
+	ctx := context.Background()
+	if _, err := journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+		FlowrunID: "fr_num", Type: flowrundomain.EventNodeCompleted, NodeID: "a", IterationKey: 0,
+		Result: map[string]any{"n": 1},
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	router := &countingRouter{calls: map[string]int{}}
+	g := workflowdomain.Graph{
+		Name: "num",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+			{ID: "c", Type: workflowdomain.NodeTypeCondition, Config: map[string]any{
+				"branches": []any{
+					map[string]any{"when": "payload.n + 1 == 2", "to": "done"},
+					map[string]any{"when": "true", "to": "miss"},
+				},
+			}},
+			{ID: "done", Type: workflowdomain.NodeTypeFunction},
+			{ID: "miss", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "a"},
+			{ID: "e2", From: "a", To: "c"},
+			{ID: "e3", From: "c", To: "done"},
+			{ID: "e4", From: "c", To: "miss"},
+		},
+	}
+	if _, err := New(journal, router).Run(ctx, "fr_num", g, nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["done"] != 1 || router.calls["miss"] != 0 {
+		t.Fatalf("payload.n+1==2 over a journaled (float64) counter must hold as int: %v", router.calls)
+	}
+}

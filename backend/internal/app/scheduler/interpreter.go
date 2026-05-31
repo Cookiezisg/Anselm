@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
@@ -76,6 +77,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 	if input == nil {
 		input = map[string]any{}
 	}
+	input = normalizeNumbers(input).(map[string]any) // match copy-hit number types (cel-safety-1)
 	// ctxMap is the run-scoped read-only context CEL guards/emits read as `ctx` (17 §7: input =
 	// payload + ctx). Replay-deterministic — runId + the original trigger payload are fixed for the
 	// flowrun, so a guard on ctx.* evaluates identically on first run and replay (cel-safety-3).
@@ -91,18 +93,17 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 	// needed reports how many in-edges must arrive before (node,iter) can fire: forward in-edges
 	// on the first iteration, back-edges on later iterations (single-entry loop, C6).
 	needed := func(nodeID string, iter int) int {
-		if iter == 0 {
-			n := fwdIn[nodeID]
-			if n == 0 {
-				return 1 // trigger / loop-entry head: one activation suffices
-			}
-			return n
+		// Only a loop HEADER (a back-edge target) awaits its back-edge(s) at re-entry; an ordinary
+		// body join always awaits its FORWARD in-degree, every iteration. The old code used back-edge
+		// in-degree for every node at iter>0, so a body join (backIn=0) returned 1 and fired after a
+		// single arrival — silently dropping a branch of an AND-join inside a loop (join-skip-1).
+		if iter > 0 && backIn[nodeID] > 0 {
+			return backIn[nodeID]
 		}
-		n := backIn[nodeID]
-		if n == 0 {
-			return 1
+		if fwdIn[nodeID] == 0 {
+			return 1 // trigger / loop-entry head: one activation suffices
 		}
-		return n
+		return fwdIn[nodeID]
 	}
 
 	var propagateSkip func(nodeID string, iter int)
@@ -350,7 +351,7 @@ func completedResults(events []flowrundomain.FlowRunEvent) map[string]map[string
 	out := map[string]map[string]any{}
 	for i := range events {
 		if events[i].Type == flowrundomain.EventNodeCompleted {
-			out[ck(events[i].NodeID, events[i].IterationKey)] = asMap(events[i].Result)
+			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
 		}
 	}
 	return out
@@ -360,7 +361,7 @@ func branchResults(events []flowrundomain.FlowRunEvent) map[string]map[string]an
 	out := map[string]map[string]any{}
 	for i := range events {
 		if events[i].Type == flowrundomain.EventBranchTaken {
-			out[ck(events[i].NodeID, events[i].IterationKey)] = asMap(events[i].Result)
+			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
 		}
 	}
 	return out
@@ -371,7 +372,7 @@ func signalResults(events []flowrundomain.FlowRunEvent) map[string]map[string]an
 	out := map[string]map[string]any{}
 	for i := range events {
 		if events[i].Type == flowrundomain.EventSignalReceived {
-			out[ck(events[i].NodeID, events[i].IterationKey)] = asMap(events[i].Result)
+			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
 		}
 	}
 	return out
@@ -436,6 +437,34 @@ func inDegrees(g workflowdomain.Graph, backEdge map[string]bool) (fwd, back map[
 		}
 	}
 	return fwd, back
+}
+
+// normalizeNumbers folds whole-valued float64 back to int64 throughout a payload tree. JSON (the
+// journal serializer) decodes every number as float64, so a copy-hit result carries float64 where a
+// fresh in-memory run carries int64 — and CEL has no double+int arithmetic overload, so
+// `payload.n + 1` over a replayed counter errors where the fresh run succeeds (cel-safety-1).
+// Normalizing at the journal-read boundary makes fresh and replayed payloads type-identical;
+// non-integral floats (3.14) are left as float64.
+func normalizeNumbers(v any) any {
+	switch x := v.(type) {
+	case float64:
+		if !math.IsInf(x, 0) && !math.IsNaN(x) && x == math.Trunc(x) {
+			return int64(x)
+		}
+		return x
+	case map[string]any:
+		for k, e := range x {
+			x[k] = normalizeNumbers(e)
+		}
+		return x
+	case []any:
+		for i, e := range x {
+			x[i] = normalizeNumbers(e)
+		}
+		return x
+	default:
+		return v
+	}
 }
 
 func asMap(v any) map[string]any {
