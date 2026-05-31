@@ -50,7 +50,7 @@ agent 节点 vs tool 节点(都调 agent)的差异:
 | 适合 | 主要的"思考 / 决策"步骤,产品上凸显 | 当 agent 只是"调一下"被消费的步骤 |
 | 实际机制 | 完全一样(都是一个 activity、调同一个 agent entity) | 同左 |
 
-**实际是 syntax sugar 区别** — 选哪个不影响行为,只影响编辑 UX。
+**基本是 syntax sugar** — 同一个 activity、调同一个 agent entity,选哪个主要影响编辑 UX。**唯一行为差(D4)**:`retry` / `timeout` 两个旋钮在 **tool 节点**上暴露;agent 节点取默认(不重试 / 无超时,保持极简)。要给 agent 调用自定义 retry/timeout,就用 tool 节点调它(`ag_xxx`)。
 
 ---
 

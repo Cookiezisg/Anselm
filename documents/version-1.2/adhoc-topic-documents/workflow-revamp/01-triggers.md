@@ -224,7 +224,7 @@ trigger 永远是**分发任务**:每个触发事件先落 `trigger_firings` 收
 
 ### CANON-INBOX — 收件箱
 
-任何触发(cron / fsnotify / webhook / polling / manual)在**尝试跑之前先写一条 `trigger_firings`**(先持久化再动作);所有触发统一走 **收件箱 → 派发器 → flowrun**。崩在"事件到 → flowrun 起"之间也不丢。
+任何触发(cron / fsnotify / webhook / polling / manual)在**尝试跑之前先写一条 `trigger_firings`**(先持久化再动作);所有触发统一走 **收件箱 → 派发器 → flowrun**。**已落库 firing 不丢**:崩在"firing 落库 → flowrun 起"之间,重放从收件箱续。**落库前的内存窗口**("事件到达 → 写 firing",C9):webhook **落库后才返 200**(崩在落库前 → 无 200 → 发送方按 webhook 标准重试,at-least-once 覆盖该窗口);fsnotify 无重试、该窗口 best-effort(开机扫现状兜底)。所以"不丢"精确指**已落库 firing**,不假装兜住外部 ephemeral 的落库前内存窗口。
 
 - 这正是上面"`StartRun` 是唯一入口"的 durable 化:listener / UI / AI / HTTP 四套入口都先落 firing,派发器再调 `StartRun`。
 - **manual 默认 `overlap=AllowAll`**(显式动作,立即跑)。
@@ -241,7 +241,7 @@ trigger 永远是**分发任务**:每个触发事件先落 `trigger_firings` 收
 | 补最近一次(**默认**) | 只补一条,代表"该跑而没跑" |
 | 补窗口内全部 | 漏几次补几次 |
 
-**诚实边界**:cron 靠 cron-math 补、polling 靠 cursor 自愈(下次 poll 从 lastCursor 续);**webhook / fsnotify 的停机期事件是外部 ephemeral,客观找不回**(可选 fsnotify 开机扫现状兜底),明说**不假装兜住**。
+**诚实边界**:cron 靠 cron-math 补、polling 靠 cursor 自愈(下次 poll 从 lastCursor 续;**cursor 在事件材化进收件箱[已落库 firing]时推进、不等 flowrun 成功 —— 某条 firing 的 flowrun 失败由失败步 / replay 兜,firing 已 durable、有 outcome,不靠 cursor 回退**,C8);**webhook / fsnotify 的停机期事件是外部 ephemeral,客观找不回**(可选 fsnotify 开机扫现状兜底),明说**不假装兜住**。
 
 ### CANON-DISPATCH — 单派发器 + Overlap
 
@@ -257,6 +257,8 @@ trigger 永远是**分发任务**:每个触发事件先落 `trigger_firings` 收
 排队的 firing 留在收件箱(`pending` / buffered)空了再跑。
 
 **铁律:每条 firing 都有 outcome,绝不静默丢。** 这是 E2 的根治 —— 取代现状 `onFire` 对 `ErrConcurrencyLimit` 只 `log+return` 的静默丢。
+
+**资源安全帽(C10,属"防平台崩"豁免,非业务 policy)**:`BufferAll` 的收件箱深度、`AllowAll` 的并发各给一个**高默认上限**(走 `pkg/limits` 配置,见 limits-optimization)——抖动的高频 webhook + `AllowAll` 不会无界 spawn 撑爆平台。超帽**不静默丢**:落 `outcome=shed` + 通知(守"每条 firing 有 outcome"铁律)。这是资源兜底(00 的 mechanism-vs-policy 明确豁免"防平台自己崩"),**不是替用户拍业务并发**。
 
 ### CANON-DRAIN — 优雅 drain(解 E6)
 

@@ -86,7 +86,7 @@ Handler 作为 **stateful object** 的对象能力 ✓ 保留,但进程内存只
 
 - 平台 detect(stdio EOF / pipe broken)
 - 平台**自动 respawn 新 instance**(`handlerRegistry.Acquire` 现状已经如此)
-- **无重启次数硬上限** — 跟 Mechanism vs Policy 原则一致,平台不替用户决定"几次后放弃"
+- **无"几次后放弃"的业务上限** — 跟 Mechanism vs Policy 一致,平台不替用户决定"重试几次算失败"。**但有资源安全帽(C11,"防平台崩"豁免)**:respawn 走**速率限制**,持续 crash-loop(短时间反复崩,如 init 必崩)→ 标 `needs_attention` + 通知(对位 trigger 失败 → workflow inactive + 通知的诚实模式),不无限高频 respawn 烧 CPU/PID。速率/窗口走 `pkg/limits` 高默认。**这是资源兜底,不是替用户放弃业务重试。**
 
 **activity 崩在"副作用已发生、结果未记账"之间怎么办** — tool 节点 config 拍。在 durable 模型里,handler 子进程死掉就是这个 activity 没记账成功;执行器重放时会停在这个未完成的 activity,按下面策略处理:
 

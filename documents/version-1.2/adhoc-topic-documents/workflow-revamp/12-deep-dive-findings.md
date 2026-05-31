@@ -265,6 +265,14 @@ agent_uses_skill                 # agent skill 挂载
 
 **总(后端 + 前端) ~19.5-23.5 天**(doc 11 原估 13-14 天纯写 + 18-20 含测;改向 durable execution 后执行引擎块 3+4 比旧估**省 ~1.5 天**,但 frontend + relations + forge emit 补漏仍让总量高于 doc 11 原估)。
 
+> **实现量重估警示(交叉审 A1/A3/A4/A6 —— 上表偏乐观,几块是从零造的承重子系统,按底线估非上限)**:
+> - **A1 · outputSchema 运行时强制(N1)上表漏列** —— provider-native(可选)+ app 层 JSON-repair / validate / next_step-retry 是独立子系统(实测 ~12% 硬残留),**该单列一块**。
+> - **A3 · #3+#4 的"确定性重放正确性"是研究级不变量**(重放粒度 / 幂等 / callable 版本漂移 / CEL 确定性),不是写完 driveLoop 就完。
+> - **A4 · #6 的 capability-check 查深**(kind / method / 必填参数 + active-version 反向重查)**本质是个静态分析器**,不是布尔存在性查。
+> - **A6 · durable 触发收件箱 / 派发器 / drain(Theme 3)** 是新表 + boot 重注册 + ack loop 的从零工程,别低估。
+>
+> 现实更接近"手搓 **mini-Temporal** + **schema-validate-retry 层** + **capability 静态分析器**"。**进实现前把这几块各排成独立工程块重估,别拿上表当承诺。**(纯排期诚实,不影响设计正确性。)
+
 ---
 
 ## 已拍决策(2026-05-29;2026-05-31 更新 #1)
