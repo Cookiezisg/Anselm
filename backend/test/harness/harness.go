@@ -73,6 +73,7 @@ import (
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
+	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
@@ -244,6 +245,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&flowrundomain.Node{},
 		&flowrundomain.FlowRunEvent{},
 		&flowrundomain.Approval{},
+		&triggerdomain.TriggerSchedule{},
+		&triggerdomain.TriggerFiring{},
+		&triggerdomain.PollingState{},
 		&mcpdomain.Call{},
 		&skilldomain.Execution{},
 		&sandboxdomain.Runtime{},
