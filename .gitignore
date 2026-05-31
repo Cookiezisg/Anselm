@@ -249,7 +249,7 @@ backend/doc-matrix
 # ============================================================
 # Superpowers 工作流散件（非项目文档）
 # ============================================================
-# .superpowers/ = brainstorm 草稿 + dev server 残留；docs/ = 工作流产出的
-# plans/specs/prototypes。真正的项目文档在 documents/，这俩不进 git，归 reset 清。
+# .superpowers/ = brainstorm 草稿 + dev server 残留。
+# docs/ 已改为项目主文档目录（原 documents/），进 git。
+# docs/superpowers/ 内的 skill 产物也进 git（执行完后手动 mv 到 docs/archive/）。
 .superpowers/
-docs/

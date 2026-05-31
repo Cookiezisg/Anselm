@@ -61,7 +61,7 @@ func main() {
 	root := flag.String("root", ".", "repository root directory")
 	flag.Parse()
 
-	domainsDir := filepath.Join(*root, "documents", "references", "backend", "domains")
+	domainsDir := filepath.Join(*root, "docs", "references", "backend", "domains")
 	entries, err := os.ReadDir(domainsDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot read domains dir: %v\n", err)

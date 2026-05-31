@@ -117,8 +117,21 @@ Working docs older than 90 days with empty `landed-into` are flagged by `make li
 When docs conflict, higher wins:
 
 ```
-CLAUDE.md > documents/references/ > documents/concepts/ > documents/working/ > documents/archive/
+CLAUDE.md > docs/references/ > docs/concepts/ > docs/working/ > docs/archive/
 ```
+
+---
+
+## Session Artifacts (`superpowers/`)
+
+The `docs/superpowers/` directory is managed by the Superpowers skill system and **cannot be relocated** — the skills hardcode this path. Files here are AI-generated session artifacts, not human-authored documents, so frontmatter is not required and `make lint-docs` skips this directory entirely.
+
+| Subdirectory | Contents | Lifecycle |
+|---|---|---|
+| `superpowers/plans/` | Implementation plans (writing-plans skill output) | Consumed once executed → `git mv` to `archive/` |
+| `superpowers/specs/` | Design specs (brainstorming skill output) | Consumed once feature lands → `git mv` to `archive/` |
+
+**Cleanup rule:** After executing a plan or landing a spec's feature, move the file to `docs/archive/` manually. Stale plans in `superpowers/` are noise for future AI sessions.
 
 ---
 

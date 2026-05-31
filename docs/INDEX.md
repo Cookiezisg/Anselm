@@ -24,6 +24,7 @@
 | How to do X operationally | `how-to/` |
 | Active research in progress | `working/` |
 | Doc governance rules | `GOVERNANCE.md` |
+| Claude Code session plans + specs | `superpowers/` |
 
 ## Authority Hierarchy
 

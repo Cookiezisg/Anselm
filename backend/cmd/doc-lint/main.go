@@ -23,7 +23,7 @@ func main() {
 	root := flag.String("root", ".", "repository root directory")
 	flag.Parse()
 
-	docsDir := filepath.Join(*root, "documents")
+	docsDir := filepath.Join(*root, "docs")
 	exitCode := 0
 	warnings := 0
 	checked := 0
@@ -34,6 +34,11 @@ func main() {
 		}
 		if d.IsDir() {
 			if d.Name() == "archive" {
+				return filepath.SkipDir
+			}
+			// superpowers/ contains skill-generated session artifacts (plans, specs).
+			// These are AI-written files with their own lifecycle — no frontmatter required.
+			if d.Name() == "superpowers" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -49,8 +54,8 @@ func main() {
 		}
 		// Skip decisions README and template (no frontmatter required)
 		rel, _ := filepath.Rel(*root, path)
-		if strings.HasPrefix(rel, "documents/decisions/README") ||
-			strings.HasPrefix(rel, "documents/decisions/template") {
+		if strings.HasPrefix(rel, "docs/decisions/README") ||
+			strings.HasPrefix(rel, "docs/decisions/template") {
 			return nil
 		}
 
@@ -96,7 +101,7 @@ func main() {
 	if data, err := os.ReadFile(indexPath); err == nil {
 		lines := strings.Count(string(data), "\n")
 		if lines > 50 {
-			fmt.Printf("ERROR documents/INDEX.md: %d lines (must be ≤ 50)\n", lines)
+			fmt.Printf("ERROR docs/INDEX.md: %d lines (must be ≤ 50)\n", lines)
 			exitCode = 1
 		}
 	}
@@ -112,7 +117,7 @@ func main() {
 			if name == "template.md" || name == "README.md" {
 				continue
 			}
-			relPath := filepath.Join("documents", "decisions", name)
+			relPath := filepath.Join("docs", "decisions", name)
 			out, err := exec.Command("git", "-C", *root, "log", "--oneline", "--", relPath).Output()
 			if err == nil {
 				commitLines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -123,7 +128,7 @@ func main() {
 					}
 				}
 				if count > 1 {
-					fmt.Printf("WARN  documents/decisions/%s: %d commits (ADRs should be immutable after merge)\n", name, count)
+					fmt.Printf("WARN  docs/decisions/%s: %d commits (ADRs should be immutable after merge)\n", name, count)
 					warnings++
 				}
 			}

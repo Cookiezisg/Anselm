@@ -1,7 +1,7 @@
 # Forgify — Claude 工作守则
 
 > Claude Code 进入本项目自动加载本文件。**本文件是项目工程纪律的唯一事实源**。
-> 项目愿景 / 架构 / Phase 路线 / Verification 见 [`documents/concepts/architecture.md`](documents/concepts/architecture.md)。
+> 项目愿景 / 架构 / Phase 路线 / Verification 见 [`docs/concepts/architecture.md`](docs/concepts/architecture.md)。
 
 ---
 
@@ -15,24 +15,24 @@
 
 | 用途 | 路径 |
 |---|---|
-| 项目愿景 / 架构 / Phase 路线 | `documents/concepts/architecture.md` |
-| 当前进展 / 决策日志 | `documents/references/changelog.md` |
-| 各 domain 详设计 | `documents/references/backend/domains/<domain>.md` |
-| 契约索引（API / DB / Error / Events） | `documents/references/backend/` |
-| 桌面端 / 调试控制台 | `documents/archive/desktop-packaging-notes-2026-05/` |
+| 项目愿景 / 架构 / Phase 路线 | `docs/concepts/architecture.md` |
+| 当前进展 / 决策日志 | `docs/references/changelog.md` |
+| 各 domain 详设计 | `docs/references/backend/domains/<domain>.md` |
+| 契约索引（API / DB / Error / Events） | `docs/references/backend/` |
+| 桌面端 / 调试控制台 | `docs/archive/desktop-packaging-notes-2026-05/` |
 | testend 子项目工程纪律 | `testend/CLAUDE.md` |
-| testend V3 设计 | `documents/working/testend/` |
-| 前端 PRD（产品需求 / UI 细节） | `documents/concepts/frontend-prd.md` |
-| 前端 FSD 层契约索引 | `documents/references/frontend/fsd-layers.md` |
-| 前端 entity TS 类型 ↔ 端点映射 | `documents/references/frontend/entity-types.md` |
-| 前端横切机制（DIP / SSE / errorMap） | `documents/references/frontend/cross-cutting.md` |
-| 前端各 slice 详设计 | `documents/references/frontend/slices/<slice>.md` |
-| 架构决策记录（ADR） | `documents/decisions/README.md` |
-| 文档导航（AI session 入口） | `documents/INDEX.md` |
+| testend V3 设计 | `docs/working/testend/` |
+| 前端 PRD（产品需求 / UI 细节） | `docs/concepts/frontend-prd.md` |
+| 前端 FSD 层契约索引 | `docs/references/frontend/fsd-layers.md` |
+| 前端 entity TS 类型 ↔ 端点映射 | `docs/references/frontend/entity-types.md` |
+| 前端横切机制（DIP / SSE / errorMap） | `docs/references/frontend/cross-cutting.md` |
+| 前端各 slice 详设计 | `docs/references/frontend/slices/<slice>.md` |
+| 架构决策记录（ADR） | `docs/decisions/README.md` |
+| 文档导航（AI session 入口） | `docs/INDEX.md` |
 
 ## 改代码前必做
 
-1. 读对应 `documents/references/backend/domains/<domain>.md`
+1. 读对应 `docs/references/backend/domains/<domain>.md`
 2. 改完跑 `make test-backend`（单测）+ `cd backend && go build ./... && staticcheck ./...`（编译 + 静态）
 3. 同步联动文档（§S14）
 
@@ -189,7 +189,7 @@
 ## domain 完工 checklist
 
 - [ ] `<domain>.md` 整体逐字段匹配代码
-- [ ] `service-contract-documents/*.md` 该 domain 行从 ⬜ 改 ✅
+- [ ] `docs/references/backend/*.md` 该 domain 行从 ⬜ 改 ✅
 - [ ] `progress-record.md` 完工日志
 - [ ] 新跨域模式 → 更新 `backend-design.md`
 
@@ -268,7 +268,7 @@ type Tool interface {
 - **单用户本地 + 同人写前后端** → 校验少、便利优先
 - **已摆脱 Eino**：自有 LLM 客户端 `infra/llm`（OpenAI-compat + Anthropic 原生）
 - **`infra/llm` 架构（2026-05-30 R1-R5 重构，最终状态）**：`Provider` 接口（`Name/DefaultBaseURL/BuildRequest/ParseStream`）+ 共享传输铁律（`transport.go`，120s `*http.Client` + `doRequest` + `classifyHTTPError`）+ `providerRegistry`。每个 provider 完全自包含：openai / deepseek / qwen / zhipu / moonshot / doubao / openrouter / ollama / custom 各自拥有完整 `BuildRequest`（含 thinking 编码 + auth 头）和 `ParseStream`，逻辑写到各家官方 API 标准；anthropic 和 gemini（原生 generateContent）讲各自原生方言。**共享 `openAICompatProvider` 已删除**（R5）：不再有跨 9 家共用一份 body/SSE 逻辑的设计。`factory.Build` 按 provider / APIFormat 路由到 registry（`lookupProvider`）。
-- **`pkg/modelcaps`（2026-05-30）**：per-(provider, model) ability catalog（thinking shape + context window + max output），按 family 规则 + per-model 精确行覆盖，替代已删的 `pkg/modelmeta`。`CapabilityService.ResolveCapabilities` 合并：user override（`model_cap_overrides`）> 静态规则。详 `documents/working/llm-providers/04-capability-catalog.md`。
+- **`pkg/modelcaps`（2026-05-30）**：per-(provider, model) ability catalog（thinking shape + context window + max output），按 family 规则 + per-model 精确行覆盖，替代已删的 `pkg/modelmeta`。`CapabilityService.ResolveCapabilities` 合并：user override（`model_cap_overrides`）> 静态规则。详 `docs/working/llm-providers/04-capability-catalog.md`。
 - **Gemini 走原生 `generateContent`（R4，2026-05-30）**：`gemini.go` `geminiProvider` 自有标准 —— base `…/v1beta` + `/models/{model}:streamGenerateContent?alt=sse`（model 在 URL 路径）+ `x-goog-api-key`；contents/parts、systemInstruction、tools.functionDeclarations、generationConfig.thinkingConfig；能读回 reasoning 文本（`thought:true` parts）+ round-trip `thoughtSignature`（Gemini-3 多轮工具循环必需）。functionResponse 按**函数名(+id)** 配对（从前序 tool_call 反查名字）。OpenAI-compat shim 已删。**Live capability overlay deferred**（从 provider API 自动拉取能力）：静态规则 + user override 已满足当前需求，接口位置预留。
 - **modernc.org/sqlite** 纯 Go；DSN 用 `_pragma=...` 语法；跨平台 build 一行命令
 - **桌面端**：Wails 窗口外壳 + 复用 httpapi（不走 Wails native binding）
@@ -283,18 +283,18 @@ type Tool interface {
 
 # 前端开发守则（前端阶段 — 现已生效）
 
-> 前端 PRD 全文见 [`documents/concepts/frontend-prd.md`](documents/concepts/frontend-prd.md)。
-> FSD 层契约索引见 [`documents/references/frontend/fsd-layers.md`](documents/references/frontend/fsd-layers.md)。
+> 前端 PRD 全文见 [`docs/concepts/frontend-prd.md`](docs/concepts/frontend-prd.md)。
+> FSD 层契约索引见 [`docs/references/frontend/fsd-layers.md`](docs/references/frontend/fsd-layers.md)。
 > 本节是工程纪律唯一事实源，与 PRD 不矛盾时以本节为准（本节更简洁）。
 
 ## 权威文档地图
 
 | 问题类型 | 去哪里找答案 |
 |---|---|
-| 层定义 / slice 清单 / 依赖规则 | `frontend-contract-documents/fsd-layers.md` |
-| 12 entity TS 类型 ↔ 后端端点 | `frontend-contract-documents/entity-types.md` |
-| DIP / errorMap / SSE / queryKeys | `frontend-contract-documents/cross-cutting.md` |
-| 各 slice 详细设计 | `frontend-design-documents/<slice>.md` |
+| 层定义 / slice 清单 / 依赖规则 | `docs/references/frontend/fsd-layers.md` |
+| 12 entity TS 类型 ↔ 后端端点 | `docs/references/frontend/entity-types.md` |
+| DIP / errorMap / SSE / queryKeys | `docs/references/frontend/cross-cutting.md` |
+| 各 slice 详细设计 | `docs/references/frontend/slices/<slice>.md` |
 | 数据从哪来、接哪个 API、SSE 如何处理 | PRD §5–§7、§9–§14、§17 |
 | 动效用什么参数 | PRD §3.2 |
 | 视觉细节（class 名 / CSS） | 已实现的 `frontend/src`（组件 + `src/styles/`）—— 实现即视觉事实源 |
@@ -380,7 +380,7 @@ entities/conversation/
 
 ## 改代码前必做（前端版）
 
-1. **读对应 `frontend-design-documents/<slice>.md`**（PRD §18.5 有映射）
+1. **读对应 `docs/references/frontend/slices/<slice>.md`**（PRD §18.5 有映射）
 2. **确认 `fsd-layers.md`、`entity-types.md`、`cross-cutting.md`** 中对应条目
 3. **视觉细节参照已实现的 `frontend/src`**（组件 + `src/styles/`），不靠记忆（boilerplate 原型已退役 2026-05-27）
 4. **改完跑 Verification 三段**（见下方）
@@ -457,10 +457,10 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 
 | 前端代码变动 | 必改文档 |
 |---|---|
-| 新 slice / entity / feature / widget / page | `frontend-design-documents/<slice>.md` + `fsd-layers.md`（slice 清单行）+ `progress-record.md` |
-| 新 entity TS 类型 / 字段变 | `frontend-contract-documents/entity-types.md` + `progress-record.md` |
-| DIP / errorMap / SSE / queryKeys 接口变 | `frontend-contract-documents/cross-cutting.md` + `progress-record.md` |
-| FSD 层边界变 / 依赖规则变 | `frontend-contract-documents/fsd-layers.md` + `CLAUDE.md §FSD` + `progress-record.md` |
+| 新 slice / entity / feature / widget / page | `docs/references/frontend/slices/<slice>.md` + `fsd-layers.md`（slice 清单行）+ `progress-record.md` |
+| 新 entity TS 类型 / 字段变 | `docs/references/frontend/entity-types.md` + `progress-record.md` |
+| DIP / errorMap / SSE / queryKeys 接口变 | `docs/references/frontend/cross-cutting.md` + `progress-record.md` |
+| FSD 层边界变 / 依赖规则变 | `docs/references/frontend/fsd-layers.md` + `CLAUDE.md §FSD` + `progress-record.md` |
 | 新 API endpoint / path 变 | `frontend-prd.md §17` + `entity-types.md` + `progress-record.md` |
 | 发现并修了 UI bug | `progress-record.md` dev log（`[bug-fix]`）|
 | Phase 完成 | `frontend-prd.md §15` 对应项打勾 + `progress-record.md` |
@@ -469,7 +469,7 @@ wails dev                    # 冒烟：窗口起得来 + 能连后端
 
 ### 子任务完成 checklist（前端版）
 
-- [ ] `frontend-design-documents/<slice>.md` 实现清单勾 ✅
+- [ ] `docs/references/frontend/slices/<slice>.md` 实现清单勾 ✅
 - [ ] 新 entity 类型 → `entity-types.md` 对应行更新
 - [ ] 横切变动 → `cross-cutting.md` 对应行更新
 - [ ] `progress-record.md` 加 dev log
