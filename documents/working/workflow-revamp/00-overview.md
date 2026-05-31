@@ -93,8 +93,17 @@ Forgify 是 **嵌入式、跑在自带 SQLite 上的 durable execution 引擎**(
 | `loop` | 合到 case + 回边(= 程序里的结构化循环) |
 | `variable` | 跨节点状态本就是**程序作用域里的变量**(循环外算的值在循环里直接读);真要持久化跨执行的状态进 **journaled 作用域变量 / payload 或外部 store**(DB 经 handler 方法,或 document·memory),不放 handler 进程内存。不需要节点表达 |
 | `parallel` | 并发是 infra 行为:**普通节点多条出边 = fork,汇合处 = join(await 全部)**,程序结构原生表达,不需要节点 |
-| `wait` | 延迟 = 程序里的一个 durable timer(记"睡到 T"、重放时按日志判断),不是节点类型 |
+| `wait` | 延迟不是独立节点 —— 做成**任意(非 trigger)节点的 durable-timer gate**(见下"Durable timer"段):`at`(绝对:到 T 才放行)/ `after`(相对:输入到齐后空 D 才放行)。比 wait 节点更灵活(任意节点可门控),5 节点数不变 |
 | `http` | 用 forge function 包装,跟"能力源自 forge"原则一致 |
+
+### Durable timer:节点级 gate(`at` 绝对 / `after` 相对)
+
+时间**不当 control-flow 分支**(`when:` 禁墙钟,见"确定性"段),只当 **durable gate** —— 任意非 trigger 节点可挂一个 timer gate,到点才放行执行该节点:
+
+- **`at T`(绝对)**:墙钟到 T 才放行(如"等到明早 9 点")。
+- **`after D`(相对)**:该节点输入到齐(join 完成)后空 D 才放行(如"上游完成后 2h")。
+- **承重不变量(replay 安全)**:arm 时把**解析后的绝对 deadline 记进 journal**(`timer_armed`;相对模式 = 输入到齐那刻的 `now+D`),放行写 `timer_fired`。重放读账里的 deadline、**绝不重算 `now()`** —— 相对模式重放因此不分叉;崩在挂起中重放 → 按 journal 的 deadline 重挂、等剩余时间。
+- **同一个 durable-timer 原语**也是 **approval `timeout`**(05)的底层;timer-parked 的 flowrun 跟 `awaiting_signal` 同待遇(不计在途、不阻塞 drain、不钉实例)。**time-as-gate ✓ / time-as-branch ✗。**
 
 ---
 
@@ -150,10 +159,10 @@ flowruns        ( id, workflow_id, version_id,        -- version_id 启动时钉
                   started_at, ended_at )
 
 -- 唯一真相:journal
-flowrun_events  ( id, flowrun_id, seq,                -- append 顺序
-                  type,                                -- node_started / node_completed / branch_taken / signal_awaited / signal_received / ...
-                  node_id, iteration_key,              -- iteration_key = 区分循环不同轮的结果(内部重放键)
-                  result )                             -- JSON
+flowrun_events  ( id, flowrun_id, seq,                -- append 顺序;seq 写入事务内分配,UNIQUE(flowrun_id, seq)
+                  type,                                -- node_started/completed · branch_taken · signal_awaited/received · timer_armed/fired · agent_step_started/completed · node_failed
+                  node_id, iteration_key,              -- replay key(循环轮次;agent 子步另带 turn / tool_call_id)
+                  result )                             -- JSON;record-once + first-wins 的 UNIQUE 见下"Journal 写入契约"段
 
 -- durable 等待(approval)
 approvals       ( id, flowrun_id, node_id, prompt, payload,
@@ -162,6 +171,17 @@ approvals       ( id, flowrun_id, node_id, prompt, payload,
 ```
 
 **`messages` / `node_state` / 版本列 / 前沿 / 空票 —— 全部不存在了。**
+
+### Journal 写入契约 + replay key(承重 —— 重放正确性的地基)
+
+"append-only + seq 单调"是 invariant、不是写入协议。把协议写死(单进程 + 单 SQLite,比分布式简单太多):
+
+- **per-flowrun 串行写**:同一 flowrun 的 journal 由**单写入者**落(并行分支 goroutine 不并发裸写同一本;走 per-flowrun 写锁 / 串行 channel)。`seq` 在写入事务内分配 → per-flowrun 严格单调。
+- **record-once(幂等,replay 安全)**:`UNIQUE(flowrun_id, node_id, iteration_key, type)`。重放 / 重试重复写 `node_completed` 撞 UNIQUE = 已记账 → 丢弃,绝不留两份结果。
+- **signal / timer first-wins**:approval 的 `signal_received`、timer 的 `timer_fired` 走 compare-and-insert(同上 UNIQUE)—— 用户决策与 timeout 同刻到,**第一条胜出、第二条 no-op**。
+- **replay key = `(flowrun_id, node_id, iteration_key)`**:`iteration_key` 区分循环轮次(一维,见 04 不嵌套)。重放靠它判"这步记账没":命中抄结果、未命中真跑。
+- **agent 节点子步**:agent run 内部多步,journal 记**子事件** `agent_step_started/completed`,键 = `(flowrun_id, node_id, iteration_key, turn, tool_call_id)`,result 含该 tool-call / LLM turn 输出 → 重放判"前 N 个 tool-call 已记账、第 N+1 个没"(= agent 重放粒度子步级,对位 [`02`](./02-agent-node.md))。
+- **eventlog vs journal**:**`flowrun_events` 是 durable 重放真相**;chat eventlog 的 `reasoning/tool_call/tool_result` block 只是这些子事件的 **UI 投影(best-effort、可丢)**,不是真相源。agent 执行时两边都写(**journal 为源**),重放只信 journal。
 
 > trigger→dispatch→lifecycle 边界另需 durable 持久化(Theme 3):新增 `trigger_schedules`(持久化 listener 注册 + `last_fired_at`)+ `trigger_firings`(durable 触发收件箱,每条触发一行 + outcome)两表,并给 `workflows` 加 `lifecycle_state`(active/draining/inactive)列。详 [`11-integration-chains.md`](./11-integration-chains.md)。
 
@@ -198,7 +218,7 @@ Forgify 重启
 | 轴 | 一句话原则 | 管什么 |
 |---|---|---|
 | **重放对** | durable execution:不确定性全在 activity、结果记 journal;**确定性是"对 journal 而言"**(已记账抄结果、未记账才真跑) | 重放粒度 / CEL 禁墙钟 / callable 版本漂移 / durable 定时器 / drain / boot 恢复 |
-| **不丢** | **先持久化再动作**:收件箱 = durability 边界。已落库 = durable + 有 outcome;落库前 = at-least-once(webhook 200-after-persist + 发送方重试、fsnotify best-effort) | 触发不 fire-and-forget / cursor 推进时机 / 落库前窗口 |
+| **不丢 + 不重** | **先持久化再动作**:收件箱 = durability 边界。已落库 = durable + 有 outcome;落库前 = at-least-once(webhook 200-after-persist + 重试、fsnotify best-effort);**重复材化用 firing 幂等键去重**(cron `scheduled_at` / webhook req-hash / polling source-event-id) | 触发不 fire-and-forget / cursor 推进时机 / 落库前窗口 / 重复材化去重 |
 | **不崩** | **"防平台崩"豁免**(mechanism-vs-policy 的资源例外):能无界增长的点给"高默认 + 可配 + 超帽落 outcome + 通知"的安全帽 | 收件箱深度 / `AllowAll` 并发 / respawn 速率 / CEL 求值超时 / 超长循环 continue-as-new |
 | **不畸形** | **accept 只收良构 / 可归约图**:并行分支自包含、循环单入口、不嵌套结构化循环 | 乱回边 / 不可归约 / 嵌套循环 |
 

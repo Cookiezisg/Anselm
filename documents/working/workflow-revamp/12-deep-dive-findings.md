@@ -98,7 +98,7 @@
 
 1. `internal/infra/forge/protocol.go::IsValidScopeKind` 加 3 个 kind(`agent` / `document` / `skill`)→ 6 — 3 行
 2. function/handler/**agent**/workflow 的 `create` / `accept_pending` / `revert` / `delete` 补 emit(各自锻造点;~10-12 行)
-3. **document / skill 的 create / edit / delete(document 还有 move)补 emit forge SSE** —— 右栏 subpage 才能流式呈现它们的编辑;它们无版本/env,故只发 `forge_started`/`forge_op_applied`/`forge_completed`(无 `env_attempt`、无 accept/revert)
+3. **document / skill 的 create / edit / delete(document 还有 move)补 emit forge SSE** —— 右栏 subpage 才能流式呈现它们的编辑;它们无版本/env,故只发 `forge_started`/`forge_op_applied`/`forge_completed`(无 `env_attempt`、无 accept/revert)。**document `move` 走 `operation=edit` + `ForgeOpApplied{op:"move"}`,不扩 `OperationMove`(C1)**
 4. `ForgeOpApplied` 真 emit(每 op apply 时,~3-5 site)
 5. 试跑结果 emit(已拍 Emit,详 决策 #4)
 
@@ -257,17 +257,18 @@ agent_uses_skill                 # agent skill 挂载
 | 1. DB schema(含 relations migration) | 1.5 天 | **2 天** | 加 relation CHECK migration + agent table 新建;flowrun 持久化塌缩成 `flowruns` + `flowrun_events`(journal)+ `approvals` 三表(比旧 messages+node_state 更少) |
 | 2. Agent domain + 工具(domain-6 内 agent 组) | 2 天 | 2 天 | 不变 |
 | 3. 事件日志(journal)+ 重放底座 | 1.5 天 | **1 天** | 替代旧"Message queue infra ~300 行";append-only 事件日志 + 重放跳过逻辑比消息队列简单(无版本/前沿/空票/原子认领) |
-| 4. 节点执行引擎:执行器照图走 + activity 记账 + 确定性重放 | 3-4 天 | **2.5-3 天** | 替代旧"driveLoop → message-queue + 5 节点 actor";控制流是程序原生结构(顺序 / fork-join / case / 循环),不必实现消息驱动状态机 |
+| 4. 节点执行引擎:执行器照图走 + activity 记账 + 确定性重放 | 3-4 天 | **4-6 天(B2 重估)** | 替代旧"driveLoop → message-queue + 5 节点 actor"。**拆 4 子块分别验收:① journal writer(per-flowrun 串行写 + UNIQUE,见 00 写入契约)② replay interpreter ③ control-flow reducer(fork-join / case 回边 / iteration_key)④ projection + trace API**。"确定性重放正确性"是承重不变量,按上限估 |
 | 5. Lifecycle(activate/deactivate/trigger)| 2 天 | 2 天 | 不变 |
 | 6. Polling 系统 + capability check | 1.5 天 | 1.5 天 | 不变 |
 | 7. 教学 prompt + catalog + toolset + SSE 补 emit | 2 天 | **3 天** | + forge emit 补全(~10 处) + agent system prompt 独立链路 + domain-6 lazy 重组(search_* 入 Resident) |
 | 8. Frontend(平行块 4 后)| 2-3 天 | **5-6 天** | doc 11 低估;~1660 LoC + 滴答 widget 复杂 |
+| **N1. outputSchema 运行时强制**(provider-native + app 层 repair / validate / retry)| **漏列** | **2-3 天** | 跨 provider wire format + JSON-repair + schema validate + next_step retry + 错误 envelope + 测试矩阵;实测 ~12% 硬残留 —— **独立 LLM 子系统,别塞进 agent domain / 引擎顺手做**(B1)|
 
-**总(后端 + 前端) ~19.5-23.5 天**(doc 11 原估 13-14 天纯写 + 18-20 含测;改向 durable execution 后执行引擎块 3+4 比旧估**省 ~1.5 天**,但 frontend + relations + forge emit 补漏仍让总量高于 doc 11 原估)。
+**总(后端 + 前端) ~22.5-26.5 天**(含 N1 单列 + 块 4 按上限重估;doc 11 原估 13-14 天纯写。这是按交叉审 A 组"按底线估非上限"修订后的诚实区间,**非承诺**)。
 
 > **实现量重估警示(交叉审 A1/A3/A4/A6 —— 上表偏乐观,几块是从零造的承重子系统,按底线估非上限)**:
-> - **A1 · outputSchema 运行时强制(N1)上表漏列** —— provider-native(可选)+ app 层 JSON-repair / validate / next_step-retry 是独立子系统(实测 ~12% 硬残留),**该单列一块**。
-> - **A3 · #3+#4 的"确定性重放正确性"是研究级不变量**(重放粒度 / 幂等 / callable 版本漂移 / CEL 确定性),不是写完 driveLoop 就完。
+> - **A1 · outputSchema 运行时强制(N1)** —— **已单列(见上表 N1 行)**;provider-native(可选)+ app 层 JSON-repair / validate / next_step-retry 是独立子系统(实测 ~12% 硬残留),别塞进 agent domain。
+> - **A3 · #3+#4 的"确定性重放正确性"是研究级不变量**(重放粒度 / 幂等 / callable 版本漂移 / CEL 确定性),不是写完 driveLoop 就完。**块 4 已按 B2 拆 4 子块验收 + 按上限重估(见上表)。**
 > - **A4 · #6 的 capability-check 查深**(kind / method / 必填参数 + active-version 反向重查)**本质是个静态分析器**,不是布尔存在性查。
 > - **A6 · durable 触发收件箱 / 派发器 / drain(Theme 3)** 是新表 + boot 重注册 + ack loop 的从零工程,别低估。
 >

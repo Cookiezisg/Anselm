@@ -21,8 +21,7 @@ Workflow {
 
 FlowRun {
   id, workflow_id, workflow_version_id, status,
-  trigger_node_id,            ← 新加,触发的 trigger 节点 ID
-  is_from_listener: bool      ← 新加,触发来源
+  trigger_node_id             ← 新加,触发的 trigger 节点 ID(触发来源由其 kind 可知,无需 is_from_listener)
 }
 
 Handler Instance Registry(in-memory,不入 DB)
@@ -119,7 +118,7 @@ POST /workflows/{id}:deactivate
 
 **不再即时 `DestroyOwner`(CANON-DRAIN)**:deactivate 走 active → draining → inactive 状态机,**绝不抽在途的 handler**。在途 flowrun 是 durable 的(journal + 重放),在老实例跑完;每个 flowrun 结束时各自销毁自己 `{Kind:"flowrun"}` 的独占实例,无 refcount、无共享 handler。这直接修了 [`00-overview.md`](./00-overview.md) 列的 **E6「抽在途 handler」**——旧设计 deactivate 即时 `DestroyOwner({workflow})`,会把正在用该 handler 的在途 flowrun 拆掉。`lifecycle_state`(active/draining/inactive)数据模型详 [`11-integration-chains.md`](./11-integration-chains.md)(CANON-DATA / CANON-DRAIN)。
 
-> **挂起的 approval 不阻塞 drain(C3)**:drain 只等**正在跑 activity** 的在途 flowrun 清零;`awaiting_signal`(挂起等人、可能等 30d)的 flowrun **不计为在途、不钉老实例**——它没在用 handler,只是 parked 在 journal 里。所以一个长挂 approval **不会让 drain 卡 30 天**:drain 等的是"正在跑的活儿"清零,parked 的等信号 run 继续 durable 地挂着;信号到了照样按 **active 版本**逻辑续(它本就要换到新版本——符合"永远 prod")。这避免了"长挂 approval 饿死 drain + 钉死老实例一个月"。
+> **挂起的 approval 不阻塞 drain(C3)**:drain 只等**正在跑 activity** 的在途 flowrun 清零;`awaiting_signal`(挂起等人、可能等 30d)的 flowrun **不计为在途、不钉老实例**——它没在用 handler,只是 parked 在 journal 里。所以一个长挂 approval **不会让 drain 卡 30 天**:drain 等的是"正在跑的活儿"清零,parked 的等信号 run 继续 durable 地挂着;信号到了**按它自己 pinned 的老图拓扑续跑**(`FlowRun.version_id` 钉的是图;只有它之后调的 callable 解析到 active = "永远 prod",见 [`00`](./00-overview.md) 确定性段)。这避免了"长挂 approval 饿死 drain + 钉死老实例一个月"。
 
 ---
 
@@ -245,7 +244,7 @@ AI 调 trigger_workflow(wf_xxx, "new_manual_node", payload) → 成功跑
 | 改动 | 代码量 |
 |---|---|
 | `Workflow.active bool` + `Workflow.lifecycle_state`(active/draining/inactive)字段 | DB migration 两列 |
-| `FlowRun.trigger_node_id TEXT` + `FlowRun.is_from_listener bool` | DB migration 两列 |
+| `FlowRun.trigger_node_id TEXT` | DB migration 1 列(无需 is_from_listener,来源由 trigger 节点 kind 得知) |
 | `trigger_schedules` 表(持久化 listener 注册 + `last_fired_at` 入库,取代内存 `lastFire`)| 见 [`11-integration-chains.md`](./11-integration-chains.md) CANON-DATA |
 | drain 跟在途 flowrun 计数(归 0 = 排空完成;无实例级 refcount,flowrun 结束自销其独占实例) | 见 [`11-integration-chains.md`](./11-integration-chains.md) CANON-DRAIN |
 | `POST /workflows/{id}:activate` / `:deactivate` HTTP action | `handlers/workflow.go` + `app/workflow/lifecycle.go` 新 ~50 行 |
