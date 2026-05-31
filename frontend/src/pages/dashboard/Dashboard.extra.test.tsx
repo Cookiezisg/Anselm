@@ -50,7 +50,7 @@ beforeEach(() => {
 describe("Dashboard — ContextStrip kinds", () => {
   it("waiting_strip_rendered", () => {
     (useFlowRuns as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [{ id: "fr_1", status: "waiting_approval", workflowId: "wf_1", startedAt: NOW }],
+      data: [{ id: "fr_1", status: "awaiting_signal", workflowId: "wf_1", startedAt: NOW }],
     });
     renderDash();
     expect(document.querySelector(".wel-strip")).toBeTruthy();
@@ -93,7 +93,7 @@ describe("Dashboard — ContextStrip kinds", () => {
 
   it("waiting_strip_click_opensExecute", () => {
     (useFlowRuns as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [{ id: "fr_1", status: "waiting_approval", workflowId: "My Flow", startedAt: NOW }],
+      data: [{ id: "fr_1", status: "awaiting_signal", workflowId: "My Flow", startedAt: NOW }],
     });
     renderDash();
     fireEvent.click(screen.getByText("My Flow"));

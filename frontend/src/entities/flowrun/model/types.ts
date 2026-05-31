@@ -3,10 +3,10 @@
 //
 // 对齐后端 domain/flowrun json tag 字段名（camelCase）。
 
-export type FlowRunStatus = "running" | "paused" | "completed" | "failed" | "cancelled";
+export type FlowRunStatus = "running" | "paused" | "awaiting_signal" | "completed" | "failed" | "cancelled";
 export type FlowRunTriggerKind = "cron" | "fsnotify" | "webhook" | "manual";
 export type FlowRunNodeStatus = "pending" | "running" | "ok" | "failed" | "cancelled" | "timeout" | "skipped";
-export type ApprovalDecision = "approve" | "reject";
+export type ApprovalDecision = "approved" | "rejected";
 
 export interface PausedState {
   nodeId: string;

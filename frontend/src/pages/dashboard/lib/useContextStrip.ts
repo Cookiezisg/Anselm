@@ -1,5 +1,5 @@
 // useContextStrip — adaptive single-line status hint for the welcome page.
-// Priority: waiting_approval > failed > running > recent conv (<24h).
+// Priority: awaiting_signal (approval) > failed > running > recent conv (<24h).
 //
 // useContextStrip —— 欢迎页底下自适应一行;按 P1>P2>P3>P4 优先级取最重要的;
 // 都没就返 null,整行隐藏。
@@ -15,7 +15,7 @@ export function useContextStrip() {
   const { data: flowruns = [] } = useFlowRuns();
   const { data: convs = [] } = useConversations();
 
-  const waiting = flowruns.filter((f) => (f.status as string) === "waiting_approval");
+  const waiting = flowruns.filter((f) => f.status === "awaiting_signal");
   if (waiting.length > 0) {
     return {
       kind: "waiting",

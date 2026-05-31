@@ -56,7 +56,7 @@ function ApprovalRow({ runId, node }: { runId: string; node: ApprovalNode }) {
 
   const onApprove = () => {
     approve.mutate(
-      { runId, nodeId: node.id, decision: "approve", reason },
+      { runId, nodeId: node.id, decision: "approved", reason },
       {
         onSuccess: () => { setDecided("approved"); pushToast({ kind: "success", title: t("approval.row.toast.approveSuccess"), desc: node.label || node.id }); },
         onError: (e) => pushToast({ kind: "error", title: t("approval.row.toast.approveFail"), desc: e.message }),

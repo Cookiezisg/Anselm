@@ -49,12 +49,13 @@ export function useCancelFlowRun() {
 }
 
 // Backend: POST /flowruns/{id}/approvals/{nodeId} with {decision, reason}.
-// decision: "approve" / "reject".
-// 后端是 /approvals/{nodeId}（不是 /nodes/{nodeId}:approve），body 带 decision。
+// decision MUST be "approved" / "rejected" (backend canon; anything else → 400
+// FLOWRUN_APPROVAL_DECISION_INVALID).
+// 后端 /approvals/{nodeId}，body 带 decision（值必须是 approved/rejected，否则 400）。
 export function useApproveNode() {
   const qc = useQueryClient();
   return useMutation<unknown, Error, ApproveNodeVars>({
-    mutationFn: ({ runId, nodeId, decision = "approve", reason = "" }) =>
+    mutationFn: ({ runId, nodeId, decision = "approved", reason = "" }) =>
       apiFetch(`/flowruns/${runId}/approvals/${nodeId}`, {
         method: "POST",
         body: { decision, reason },
@@ -73,7 +74,7 @@ export function useRejectNode() {
     mutationFn: ({ runId, nodeId, reason = "" }) =>
       apiFetch(`/flowruns/${runId}/approvals/${nodeId}`, {
         method: "POST",
-        body: { decision: "reject", reason },
+        body: { decision: "rejected", reason },
       }),
     onSuccess: (_, { runId }) => {
       qc.invalidateQueries({ queryKey: qk.flowruns() });

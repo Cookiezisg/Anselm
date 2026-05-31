@@ -30,14 +30,14 @@ describe("useApproveNode / useRejectNode", () => {
     result.current.mutate({ runId: "fr_1", nodeId: "frn_a", reason: "ok" });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(calls[0]).toMatchObject({ url: "/api/v1/flowruns/fr_1/approvals/frn_a", method: "POST" });
-    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approve", reason: "ok" });
+    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approved", reason: "ok" });
   });
 
   it("useRejectNode_postsApprovalDecisionReject", async () => {
     const { result } = await renderMutation(useRejectNode);
     result.current.mutate({ runId: "fr_1", nodeId: "frn_a", reason: "bad" });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(JSON.parse(calls[0].body)).toEqual({ decision: "reject", reason: "bad" });
+    expect(JSON.parse(calls[0].body)).toEqual({ decision: "rejected", reason: "bad" });
   });
 });
 

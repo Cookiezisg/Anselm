@@ -118,7 +118,7 @@ describe("ApprovalBanner", () => {
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     expect(calls[0].url).toBe("/api/v1/flowruns/fr_1/approvals/n_a");
     expect(calls[0].method).toBe("POST");
-    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approve", reason: "" });
+    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approved", reason: "" });
   });
 
   it("rejectClick_postsRejectDecision", async () => {
@@ -132,7 +132,7 @@ describe("ApprovalBanner", () => {
     await userEvent.click(screen.getByText("拒绝"));
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     expect(calls[0].url).toBe("/api/v1/flowruns/fr_1/approvals/n_b");
-    expect(JSON.parse(calls[0].body)).toEqual({ decision: "reject", reason: "" });
+    expect(JSON.parse(calls[0].body)).toEqual({ decision: "rejected", reason: "" });
   });
 
   it("successApprove_replacesRowWithDecidedState_andToasts", async () => {
@@ -186,6 +186,6 @@ describe("ApprovalBanner", () => {
     await userEvent.type(screen.getByPlaceholderText(/审批理由/), "looks safe");
     await userEvent.click(screen.getByText("批准"));
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
-    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approve", reason: "looks safe" });
+    expect(JSON.parse(calls[0].body)).toEqual({ decision: "approved", reason: "looks safe" });
   });
 });
