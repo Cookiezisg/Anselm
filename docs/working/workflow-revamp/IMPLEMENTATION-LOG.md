@@ -167,3 +167,15 @@ Next: **M4 — approval (durable journal signal) + durable timer**, and the boun
 6. Then the bound **14→5 dispatcher collapse**.
 
 **M5–M8** after: trigger inbox+dispatcher (ADR-021/022) / lifecycle drain + `:replay` (generation, ADR-019) + failures API / agent domain + agent-node sub-step replay / observability + forge SSE 6-kind + e2e gate.
+
+### 2026-06-01 — M4 approval DONE (end-to-end durable); durable timer → M5
+
+**Done (committed, pushed):** approval is fully durable end-to-end.
+- interpreter: park (`signal_awaited` + `parked`) / resume (copy-hit `signal_received` → route yes/no port). 11 interpreter tests.
+- `ResumeApproval` rewritten journal-based (`pause.go`): records `signal_received` at the parked iteration_key (`approvalParkedIter`), flips running, re-drives `executeRun`. **Crash-safe by construction.**
+- 14→5 collapse progress: deleted `continueRun` + `driveLoop` (PausedState-based, unused after the rewrite). `pauseRun`/`runReadyLoop` kept (still live via `subdag`/`loop_parallel`).
+- **The 2 approval E2E pipeline tests re-enabled and GREEN** — `POST :trigger` → `awaiting_signal` → `POST approvals/gate` (approved) → ResumeApproval → interpreter continues → completed. Plus `InvalidDecision`→400, `WrongNodeID`→404. The review-suspected approval double-fire is impossible (single `signal_received` dedup bucket); now also E2E-proven.
+
+**Scope move — durable timer → M5:** M4 was "approval + durable timer", but the timer's **expiry checker** (a background tick that scans parked `timer_armed` deadlines and journals `timer_fired`) is the same infra shape as M5's **trigger dispatcher** (background tick consuming the inbox) + catchup. Building both as one background-scheduler layer is cleaner than a half timer now. So: durable timer (node `at`/`after` gate arm + expiry checker fire + approval `timeout`) folds into M5. The interpreter's park/resume mechanism (approval) already generalizes to timer (both are "journal a wait, suspend, resume on a journaled event").
+
+Next: **M5 — durable trigger/dispatch layer + durable timer**: `trigger_firings` inbox + single-tx claim (ADR-021) + overlap + dedup + catchup + polling + boot rehydrate; durable-timer expiry checker (node gate + approval timeout). Then M6 (lifecycle drain + `:replay`/generation + failures) / M7 (agent domain + node) / M8 (observability + SSE + e2e gate).
