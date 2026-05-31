@@ -1,7 +1,7 @@
 # Forgify — Claude 工作守则
 
 > Claude Code 进入本项目自动加载本文件。**本文件是项目工程纪律的唯一事实源**。
-> 项目愿景 / 架构 / Phase 路线 / Verification 见 [`documents/version-1.2/backend-design.md`](documents/version-1.2/backend-design.md)。
+> 项目愿景 / 架构 / Phase 路线 / Verification 见 [`documents/concepts/architecture.md`](documents/concepts/architecture.md)。
 
 ---
 
@@ -15,22 +15,24 @@
 
 | 用途 | 路径 |
 |---|---|
-| 项目愿景 / 架构 / Phase 路线 | `documents/version-1.2/backend-design.md` |
-| 当前进展 / 决策日志 | `documents/version-1.2/progress-record.md` |
-| 各 domain 详设计 | `documents/version-1.2/service-design-documents/<domain>.md` |
-| 契约索引（API / DB / Error / Events） | `documents/version-1.2/service-contract-documents/` |
-| 桌面端 / 调试控制台 | `documents/version-1.2/desktop-packaging-notes.md` / `testend-design.md` |
+| 项目愿景 / 架构 / Phase 路线 | `documents/concepts/architecture.md` |
+| 当前进展 / 决策日志 | `documents/references/changelog.md` |
+| 各 domain 详设计 | `documents/references/backend/domains/<domain>.md` |
+| 契约索引（API / DB / Error / Events） | `documents/references/backend/` |
+| 桌面端 / 调试控制台 | `documents/archive/desktop-packaging-notes-2026-05/` |
 | testend 子项目工程纪律 | `testend/CLAUDE.md` |
-| testend V3 设计 | `documents/version-1.2/adhoc-topic-documents/testend/testend-design.md` |
-| 前端 PRD（产品需求 / UI 细节） | `documents/version-1.2/frontend-prd.md` |
-| 前端 FSD 层契约索引 | `documents/version-1.2/frontend-contract-documents/fsd-layers.md` |
-| 前端 entity TS 类型 ↔ 端点映射 | `documents/version-1.2/frontend-contract-documents/entity-types.md` |
-| 前端横切机制（DIP / SSE / errorMap） | `documents/version-1.2/frontend-contract-documents/cross-cutting.md` |
-| 前端各 slice 详设计 | `documents/version-1.2/frontend-design-documents/<slice>.md` |
+| testend V3 设计 | `documents/working/testend/` |
+| 前端 PRD（产品需求 / UI 细节） | `documents/concepts/frontend-prd.md` |
+| 前端 FSD 层契约索引 | `documents/references/frontend/fsd-layers.md` |
+| 前端 entity TS 类型 ↔ 端点映射 | `documents/references/frontend/entity-types.md` |
+| 前端横切机制（DIP / SSE / errorMap） | `documents/references/frontend/cross-cutting.md` |
+| 前端各 slice 详设计 | `documents/references/frontend/slices/<slice>.md` |
+| 架构决策记录（ADR） | `documents/decisions/README.md` |
+| 文档导航（AI session 入口） | `documents/INDEX.md` |
 
 ## 改代码前必做
 
-1. 读对应 `service-design-documents/<domain>.md`
+1. 读对应 `documents/references/backend/domains/<domain>.md`
 2. 改完跑 `make test-backend`（单测）+ `cd backend && go build ./... && staticcheck ./...`（编译 + 静态）
 3. 同步联动文档（§S14）
 
@@ -266,7 +268,7 @@ type Tool interface {
 - **单用户本地 + 同人写前后端** → 校验少、便利优先
 - **已摆脱 Eino**：自有 LLM 客户端 `infra/llm`（OpenAI-compat + Anthropic 原生）
 - **`infra/llm` 架构（2026-05-30 R1-R5 重构，最终状态）**：`Provider` 接口（`Name/DefaultBaseURL/BuildRequest/ParseStream`）+ 共享传输铁律（`transport.go`，120s `*http.Client` + `doRequest` + `classifyHTTPError`）+ `providerRegistry`。每个 provider 完全自包含：openai / deepseek / qwen / zhipu / moonshot / doubao / openrouter / ollama / custom 各自拥有完整 `BuildRequest`（含 thinking 编码 + auth 头）和 `ParseStream`，逻辑写到各家官方 API 标准；anthropic 和 gemini（原生 generateContent）讲各自原生方言。**共享 `openAICompatProvider` 已删除**（R5）：不再有跨 9 家共用一份 body/SSE 逻辑的设计。`factory.Build` 按 provider / APIFormat 路由到 registry（`lookupProvider`）。
-- **`pkg/modelcaps`（2026-05-30）**：per-(provider, model) ability catalog（thinking shape + context window + max output），按 family 规则 + per-model 精确行覆盖，替代已删的 `pkg/modelmeta`。`CapabilityService.ResolveCapabilities` 合并：user override（`model_cap_overrides`）> 静态规则。详 `documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`。
+- **`pkg/modelcaps`（2026-05-30）**：per-(provider, model) ability catalog（thinking shape + context window + max output），按 family 规则 + per-model 精确行覆盖，替代已删的 `pkg/modelmeta`。`CapabilityService.ResolveCapabilities` 合并：user override（`model_cap_overrides`）> 静态规则。详 `documents/working/llm-providers/04-capability-catalog.md`。
 - **Gemini 走原生 `generateContent`（R4，2026-05-30）**：`gemini.go` `geminiProvider` 自有标准 —— base `…/v1beta` + `/models/{model}:streamGenerateContent?alt=sse`（model 在 URL 路径）+ `x-goog-api-key`；contents/parts、systemInstruction、tools.functionDeclarations、generationConfig.thinkingConfig；能读回 reasoning 文本（`thought:true` parts）+ round-trip `thoughtSignature`（Gemini-3 多轮工具循环必需）。functionResponse 按**函数名(+id)** 配对（从前序 tool_call 反查名字）。OpenAI-compat shim 已删。**Live capability overlay deferred**（从 provider API 自动拉取能力）：静态规则 + user override 已满足当前需求，接口位置预留。
 - **modernc.org/sqlite** 纯 Go；DSN 用 `_pragma=...` 语法；跨平台 build 一行命令
 - **桌面端**：Wails 窗口外壳 + 复用 httpapi（不走 Wails native binding）
@@ -281,8 +283,8 @@ type Tool interface {
 
 # 前端开发守则（前端阶段 — 现已生效）
 
-> 前端 PRD 全文见 [`documents/version-1.2/frontend-prd.md`](documents/version-1.2/frontend-prd.md)。
-> FSD 层契约索引见 [`documents/version-1.2/frontend-contract-documents/fsd-layers.md`](documents/version-1.2/frontend-contract-documents/fsd-layers.md)。
+> 前端 PRD 全文见 [`documents/concepts/frontend-prd.md`](documents/concepts/frontend-prd.md)。
+> FSD 层契约索引见 [`documents/references/frontend/fsd-layers.md`](documents/references/frontend/fsd-layers.md)。
 > 本节是工程纪律唯一事实源，与 PRD 不矛盾时以本节为准（本节更简洁）。
 
 ## 权威文档地图
