@@ -586,3 +586,40 @@ func TestInterpreter_DryRun_SkipsSideEffectDispatch(t *testing.T) {
 		t.Fatal("dry-run should still journal a mock node_completed so the flow completes")
 	}
 }
+
+// A loop whose body contains an ACTIVITY must carry the loop counter through that activity: the
+// activity output merges onto the inbound payload rather than replacing it. Without merge the
+// counter is dropped and the loop exits after one iteration (review R2 replay-3 / loop authoring).
+func TestInterpreter_LoopBodyActivity_CounterSurvivesMerge(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	g := workflowdomain.Graph{
+		Name: "loop_body",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "c", Type: workflowdomain.NodeTypeCondition, Config: map[string]any{
+				"branches": []any{
+					map[string]any{"when": "payload.n < 2", "to": "a", "emit": map[string]any{"n": "payload.n + 1"}},
+					map[string]any{"when": "true", "to": "done"},
+				},
+			}},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+			{ID: "done", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "c"},
+			{ID: "e2", From: "c", To: "a"},    // loop branch (n<2)
+			{ID: "e3", From: "a", To: "c"},    // back-edge
+			{ID: "e4", From: "c", To: "done"}, // exit branch
+		},
+	}
+	if _, err := New(journal, router).Run(context.Background(), "fr_lba", g, map[string]any{"n": 0}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["a"] != 2 {
+		t.Fatalf("loop-body activity must run once per iteration (counter survives merge): got %d", router.calls["a"])
+	}
+	if router.calls["done"] != 1 {
+		t.Fatalf("done should run exactly once after the loop exits: got %d", router.calls["done"])
+	}
+}

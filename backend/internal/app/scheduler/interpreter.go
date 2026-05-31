@@ -230,7 +230,10 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 			if aErr != nil {
 				return false, aErr
 			}
-			out = p
+			// Merge activity output onto the inbound payload so loop-carried fields (e.g. a counter)
+			// survive a loop-body activity instead of being wholesale-replaced (review R2 replay-3).
+			// On key collision the activity output wins (newer value).
+			out = mergeMaps(it.payload, p)
 			for _, e := range edgesFrom(g, it.node) {
 				activeTo = append(activeTo, e.To)
 			}
@@ -285,7 +288,9 @@ func (in *Interpreter) caseDecide(ctx context.Context, flowrunID string, node wo
 			if eErr != nil {
 				return "", nil, fmt.Errorf("scheduler.case %s: %w", node.ID, eErr)
 			}
-			out = o
+			// emit merges onto the payload (preserves loop-carried + upstream fields, updates the
+			// emitted ones) rather than replacing the whole payload (review R2 replay-3).
+			out = mergeMaps(payload, o)
 		}
 		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 			FlowrunID: flowrunID, Type: flowrundomain.EventBranchTaken, NodeID: node.ID, IterationKey: iter,
