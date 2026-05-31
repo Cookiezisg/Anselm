@@ -50,7 +50,11 @@ func caseGraph() workflowdomain.Graph {
 			{ID: "hi", Type: workflowdomain.NodeTypeFunction},
 			{ID: "lo", Type: workflowdomain.NodeTypeFunction},
 		},
-		Edges: []workflowdomain.EdgeSpec{{ID: "e1", From: "t", To: "c"}},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "c"},
+			{ID: "e2", From: "c", To: "hi"},
+			{ID: "e3", From: "c", To: "lo"},
+		},
 	}
 }
 
@@ -199,7 +203,11 @@ func loopGraph() workflowdomain.Graph {
 			}},
 			{ID: "done", Type: workflowdomain.NodeTypeFunction},
 		},
-		Edges: []workflowdomain.EdgeSpec{{ID: "e1", From: "t", To: "c"}},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "c"},
+			{ID: "e2", From: "c", To: "c"},
+			{ID: "e3", From: "c", To: "done"},
+		},
 	}
 }
 
@@ -251,4 +259,79 @@ func mustLoad(t *testing.T, j *flowruneventstore.Store, id string) []flowrundoma
 		t.Fatalf("load: %v", err)
 	}
 	return evs
+}
+
+// trigger -> f -> {a, b} -> j: an AND-split (f forks) and an AND-join (j awaits both a and b).
+func andJoinGraph() workflowdomain.Graph {
+	return workflowdomain.Graph{
+		Name: "andjoin",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "f", Type: workflowdomain.NodeTypeFunction},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+			{ID: "b", Type: workflowdomain.NodeTypeFunction},
+			{ID: "j", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "f"},
+			{ID: "e2", From: "f", To: "a"},
+			{ID: "e3", From: "f", To: "b"},
+			{ID: "e4", From: "a", To: "j"},
+			{ID: "e5", From: "b", To: "j"},
+		},
+	}
+}
+
+// AND-join (WP3): f forks to a+b; j awaits BOTH (forward in-degree 2) and runs exactly once.
+func TestInterpreter_ANDJoin_AwaitsAll(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	if err := New(journal, router).Run(context.Background(), "fr_and", andJoinGraph(), nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	for _, n := range []string{"f", "a", "b", "j"} {
+		if router.calls[n] != 1 {
+			t.Fatalf("AND-join: %s ran %d times, want 1: %v", n, router.calls[n], router.calls)
+		}
+	}
+}
+
+// trigger -> case -> {a, b} -> j: a case diamond. case picks one branch; the join awaits only the
+// activated in-edge (the skipped branch must not deadlock it — A-1, 17 §3 active-branch join).
+func activeBranchGraph() workflowdomain.Graph {
+	return workflowdomain.Graph{
+		Name: "activebranch",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "c", Type: workflowdomain.NodeTypeCondition, Config: map[string]any{
+				"branches": []any{
+					map[string]any{"when": "payload.x > 5", "to": "a"},
+					map[string]any{"when": "true", "to": "b"},
+				},
+			}},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+			{ID: "b", Type: workflowdomain.NodeTypeFunction},
+			{ID: "j", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "c"},
+			{ID: "e2", From: "c", To: "a"},
+			{ID: "e3", From: "c", To: "b"},
+			{ID: "e4", From: "a", To: "j"},
+			{ID: "e5", From: "b", To: "j"},
+		},
+	}
+}
+
+// the case-diamond the old engine dead-locked on: case picks a, b is skipped, j still fires with
+// a's input — proving active-branch join does NOT wait for the skipped branch (A-1).
+func TestInterpreter_ActiveBranchJoin_NoDeadlock(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	if err := New(journal, router).Run(context.Background(), "fr_ab", activeBranchGraph(), map[string]any{"x": 10}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["a"] != 1 || router.calls["b"] != 0 || router.calls["j"] != 1 {
+		t.Fatalf("active-branch join: want a=1 b=0 j=1, got %v", router.calls)
+	}
 }

@@ -10,14 +10,20 @@ import (
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
-// Interpreter is the durable execution engine (ADR-016): one goroutine walks the pinned graph
-// from the trigger node. Each agent/tool node is an activity journaled as node_started →
-// node_completed/node_failed; a case node is pure control flow journaled as branch_taken (a
-// case back-edge to an already-visited node forms a structured loop). Run and Resume share one
-// loop — both consult the journal before each step (copy-hit, ADR-019), so a crash-replay copies
-// recorded results/decisions and only re-runs the first un-journaled step.
+// Interpreter is the durable execution engine (ADR-016). It walks the pinned graph as an agenda
+// of ready (node, iteration_key) units from the trigger node:
+//   - agent/tool node = an activity journaled node_started → node_completed/node_failed;
+//   - case node = pure control flow journaled branch_taken; the chosen out-edge activates, the
+//     others propagate a skip token so an active-branch join doesn't deadlock (A-1, 17 §3);
+//   - a case back-edge to a loop header re-activates it at iteration_key+1 (ADR-017);
+//   - a join (multi-in-edge) node fires once its in-edges have all arrived (active or skipped),
+//     awaiting only the activated ones (AND-join when all are activated; active-branch otherwise).
 //
-// Interpreter 是 durable 执行引擎;Run/Resume 同一套 walk,重放命中已记账步/分支抄结果、不重跑。
+// Run and Resume share the loop: both consult the journal first (copy-hit, ADR-019), so a
+// crash-replay copies recorded results/decisions and only re-runs the first un-journaled unit.
+//
+// Interpreter 是 durable 执行引擎;agenda 驱动:活动记账、case 控制流 + skip token、回边 loop、
+// join 等激活入边(active-branch / AND);Run/Resume 同一套,重放命中已记账抄、不重跑。
 type Interpreter struct {
 	journal  flowrundomain.JournalRepository
 	dispatch Dispatcher
@@ -27,8 +33,6 @@ func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpre
 	return &Interpreter{journal: journal, dispatch: dispatch}
 }
 
-// Run executes a fresh flowrun with the trigger payload. Resume replays an existing one after a
-// crash with the same persisted payload. Identical loop.
 func (in *Interpreter) Run(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) error {
 	return in.walk(ctx, flowrunID, g, input)
 }
@@ -36,9 +40,15 @@ func (in *Interpreter) Resume(ctx context.Context, flowrunID string, g workflowd
 	return in.walk(ctx, flowrunID, g, input)
 }
 
-// ck is the per-iteration replay key: a step is identified by (nodeID, iteration_key) where
-// iteration_key is the enclosing loop's back-edge ordinal (ADR-017). Outside a loop it is 0.
+// ck is the per-iteration replay key: (nodeID, iteration_key) where iteration_key is the enclosing
+// loop's back-edge ordinal (ADR-017); 0 outside any loop.
 func ck(nodeID string, iter int) string { return nodeID + "#" + strconv.Itoa(iter) }
+
+type agendaItem struct {
+	node    string
+	iter    int
+	payload map[string]any
+}
 
 func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) error {
 	events, err := in.journal.LoadJournal(ctx, flowrunID)
@@ -46,65 +56,191 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 		return fmt.Errorf("scheduler.walk load: %w", err)
 	}
 	completed := completedResults(events)
-	branches := branchResults(events)
+	branchTaken := branchResults(events)
 
-	node := triggerNode(g)
-	if node == nil {
+	byID := map[string]workflowdomain.NodeSpec{}
+	for _, n := range g.Nodes {
+		byID[n.ID] = n
+	}
+	backEdge := detectBackEdges(g)
+	fwdIn, backIn := inDegrees(g, backEdge)
+
+	trigger := triggerNode(g)
+	if trigger == nil {
 		return fmt.Errorf("scheduler.walk: no trigger node in graph")
 	}
-	payload := input
-	if payload == nil {
-		payload = map[string]any{}
+	if input == nil {
+		input = map[string]any{}
 	}
 
-	// iterKey is the back-edge ordinal of the structured loop currently being executed (ADR-017,
-	// recomputed identically on replay because case decisions are journaled). visited tracks the
-	// nodes seen in THIS iteration; a successor already in visited is a back-edge (loop header).
-	iterKey := 0
-	visited := map[string]bool{}
-	for {
-		next, out, stepErr := in.step(ctx, flowrunID, g, *node, payload, iterKey, completed, branches)
-		if stepErr != nil {
-			return stepErr
+	agenda := []agendaItem{{node: trigger.ID, iter: 0, payload: input}}
+	executed := map[string]bool{}
+	skipped := map[string]bool{}
+	arrivedActive := map[string]int{}
+	arrivedTotal := map[string]int{}
+	joinPayload := map[string]map[string]any{}
+
+	// needed reports how many in-edges must arrive before (node,iter) can fire: forward in-edges
+	// on the first iteration, back-edges on later iterations (single-entry loop, C6).
+	needed := func(nodeID string, iter int) int {
+		if iter == 0 {
+			n := fwdIn[nodeID]
+			if n == 0 {
+				return 1 // trigger / loop-entry head: one activation suffices
+			}
+			return n
 		}
-		if next == nil {
-			return nil // no successor = terminal path (WP11)
+		n := backIn[nodeID]
+		if n == 0 {
+			return 1
 		}
-		visited[node.ID] = true
-		if visited[next.ID] {
-			iterKey++                  // traversed the loop's back-edge
-			visited = map[string]bool{} // start a fresh iteration
-		}
-		node, payload = next, out
+		return n
 	}
+
+	var propagateSkip func(nodeID string, iter int)
+	arrive := func(toID string, toIter int, payload map[string]any, active bool) {
+		k := ck(toID, toIter)
+		if executed[k] || skipped[k] {
+			return
+		}
+		arrivedTotal[k]++
+		if active {
+			arrivedActive[k]++
+			joinPayload[k] = mergeMaps(joinPayload[k], payload)
+		}
+		if arrivedTotal[k] < needed(toID, toIter) {
+			return
+		}
+		if arrivedActive[k] > 0 {
+			agenda = append(agenda, agendaItem{node: toID, iter: toIter, payload: joinPayload[k]})
+		} else {
+			propagateSkip(toID, toIter)
+		}
+	}
+	propagateSkip = func(nodeID string, iter int) {
+		k := ck(nodeID, iter)
+		if executed[k] || skipped[k] {
+			return
+		}
+		skipped[k] = true
+		for _, e := range edgesFrom(g, nodeID) {
+			arrive(e.To, iter, nil, false) // skip stays in the same iteration
+		}
+	}
+
+	for len(agenda) > 0 {
+		it := agenda[0]
+		agenda = agenda[1:]
+		k := ck(it.node, it.iter)
+		if executed[k] || skipped[k] {
+			continue
+		}
+		executed[k] = true
+		spec := byID[it.node]
+
+		var activeTo, skipTo []string
+		var out map[string]any
+
+		switch spec.Type {
+		case workflowdomain.NodeTypeTrigger:
+			out = it.payload
+			for _, e := range edgesFrom(g, it.node) {
+				activeTo = append(activeTo, e.To)
+			}
+		case workflowdomain.NodeTypeCondition: // 5-node "case"
+			selected, p, cErr := in.caseDecide(ctx, flowrunID, spec, it.iter, it.payload, branchTaken)
+			if cErr != nil {
+				return cErr
+			}
+			out = p
+			for _, e := range edgesFrom(g, it.node) {
+				if e.To == selected {
+					activeTo = append(activeTo, e.To)
+				} else {
+					skipTo = append(skipTo, e.To)
+				}
+			}
+		default: // activity (function/handler/mcp/agent/...)
+			p, aErr := in.activityRun(ctx, flowrunID, spec, it.iter, it.payload, completed)
+			if aErr != nil {
+				return aErr
+			}
+			out = p
+			for _, e := range edgesFrom(g, it.node) {
+				activeTo = append(activeTo, e.To)
+			}
+		}
+
+		for _, to := range activeTo {
+			toIter := it.iter
+			if backEdge[it.node+">"+to] {
+				toIter = it.iter + 1
+			}
+			arrive(to, toIter, out, true)
+		}
+		for _, to := range skipTo {
+			propagateSkip(to, it.iter)
+		}
+	}
+	return nil
 }
 
-func (in *Interpreter) step(ctx context.Context, flowrunID string, g workflowdomain.Graph,
-	node workflowdomain.NodeSpec, payload map[string]any, iter int,
-	completed, branches map[string]map[string]any) (*workflowdomain.NodeSpec, map[string]any, error) {
+// caseDecide returns the chosen branch's `to` node + emitted payload, journaling branch_taken; on
+// replay it copies the recorded decision. First-true-wins over per-branch CEL guards (fail-to-false G9).
+func (in *Interpreter) caseDecide(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
+	iter int, payload map[string]any, branchTaken map[string]map[string]any) (string, map[string]any, error) {
 
-	switch node.Type {
-	case workflowdomain.NodeTypeTrigger:
-		return successor(g, node.ID), payload, nil
-	case workflowdomain.NodeTypeCondition: // 5-node "case": pure control flow
-		return in.stepCase(ctx, flowrunID, g, node, payload, iter, branches)
-	default:
-		return in.stepActivity(ctx, flowrunID, g, node, payload, iter, completed)
+	if bt, ok := branchTaken[ck(node.ID, iter)]; ok {
+		to, _ := bt["to"].(string)
+		out, _ := bt["payload"].(map[string]any)
+		if out == nil {
+			out = payload
+		}
+		return to, out, nil
 	}
+	specs, _ := node.Config["branches"].([]any)
+	for _, b := range specs {
+		bm, _ := b.(map[string]any)
+		when, _ := bm["when"].(string)
+		prg, err := workflowapp.CompileCEL(when)
+		if err != nil {
+			continue
+		}
+		match, evalErr := prg.EvalBool(payload, nil)
+		if evalErr != nil {
+			match = false // G9 fail-to-false
+		}
+		if !match {
+			continue
+		}
+		to, _ := bm["to"].(string)
+		out := payload
+		if emit, has := bm["emit"].(map[string]any); has {
+			out = evalEmit(emit, payload)
+		}
+		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+			FlowrunID: flowrunID, Type: flowrundomain.EventBranchTaken, NodeID: node.ID, IterationKey: iter,
+			Result: map[string]any{"to": to, "payload": out},
+		}); err != nil {
+			return "", nil, fmt.Errorf("scheduler.case %s branch_taken: %w", node.ID, err)
+		}
+		return to, out, nil
+	}
+	return "", nil, fmt.Errorf("scheduler.case %s: no branch matched (missing final when:\"true\"?)", node.ID)
 }
 
-// stepActivity journals an agent/tool node (node_started → Dispatch → node_completed/node_failed),
-// or copies a recorded completion at this iteration on replay (ADR-019 copy-hit).
-func (in *Interpreter) stepActivity(ctx context.Context, flowrunID string, g workflowdomain.Graph,
-	node workflowdomain.NodeSpec, payload map[string]any, iter int, completed map[string]map[string]any) (*workflowdomain.NodeSpec, map[string]any, error) {
+// activityRun journals an activity (node_started → Dispatch → node_completed/node_failed) or copies
+// a recorded completion at this iteration on replay (ADR-019).
+func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
+	iter int, payload map[string]any, completed map[string]map[string]any) (map[string]any, error) {
 
 	if cached, ok := completed[ck(node.ID, iter)]; ok {
-		return successor(g, node.ID), cached, nil // copy-hit: no Dispatch
+		return cached, nil
 	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventNodeStarted, NodeID: node.ID, IterationKey: iter,
 	}); err != nil {
-		return nil, nil, fmt.Errorf("scheduler.step %s started: %w", node.ID, err)
+		return nil, fmt.Errorf("scheduler.activity %s started: %w", node.ID, err)
 	}
 	res := in.dispatch.Dispatch(ctx, DispatchInput{
 		Node:   node,
@@ -120,65 +256,17 @@ func (in *Interpreter) stepActivity(ctx context.Context, flowrunID string, g wor
 			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID, IterationKey: iter,
 			Result: map[string]any{"error": res.Error.Error()},
 		}); err != nil {
-			return nil, nil, fmt.Errorf("scheduler.step %s failed-journal: %w", node.ID, err)
+			return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
 		}
-		return nil, nil, fmt.Errorf("scheduler.step %s: %w", node.ID, res.Error)
+		return nil, fmt.Errorf("scheduler.activity %s: %w", node.ID, res.Error)
 	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventNodeCompleted, NodeID: node.ID, IterationKey: iter,
 		Result: res.Outputs,
 	}); err != nil {
-		return nil, nil, fmt.Errorf("scheduler.step %s completed: %w", node.ID, err)
+		return nil, fmt.Errorf("scheduler.activity %s completed: %w", node.ID, err)
 	}
-	return successor(g, node.ID), res.Outputs, nil
-}
-
-// stepCase evaluates per-branch CEL guards (first-true-wins, fail-to-false G9), journals
-// branch_taken, and routes to the chosen branch's `to` with its emitted payload. On replay it
-// copies the recorded branch_taken — so the same branch (including a loop back-edge) is taken.
-//
-// stepCase 求 case 各分支 when(first-true-wins,fail-to-false),记 branch_taken,按选中 to 路由。
-func (in *Interpreter) stepCase(ctx context.Context, flowrunID string, g workflowdomain.Graph,
-	node workflowdomain.NodeSpec, payload map[string]any, iter int, branches map[string]map[string]any) (*workflowdomain.NodeSpec, map[string]any, error) {
-
-	if bt, ok := branches[ck(node.ID, iter)]; ok { // copy-hit: decision already journaled
-		toID, _ := bt["to"].(string)
-		out, _ := bt["payload"].(map[string]any)
-		if out == nil {
-			out = payload
-		}
-		return nodeByID(g, toID), out, nil
-	}
-
-	specs, _ := node.Config["branches"].([]any)
-	for _, b := range specs {
-		bm, _ := b.(map[string]any)
-		when, _ := bm["when"].(string)
-		prg, err := workflowapp.CompileCEL(when)
-		if err != nil {
-			continue // unparseable guard skipped; final when:"true" still catches
-		}
-		match, evalErr := prg.EvalBool(payload, nil)
-		if evalErr != nil {
-			match = false // G9 fail-to-false
-		}
-		if !match {
-			continue
-		}
-		toID, _ := bm["to"].(string)
-		out := payload
-		if emit, has := bm["emit"].(map[string]any); has {
-			out = evalEmit(emit, payload)
-		}
-		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-			FlowrunID: flowrunID, Type: flowrundomain.EventBranchTaken, NodeID: node.ID, IterationKey: iter,
-			Result: map[string]any{"to": toID, "payload": out},
-		}); err != nil {
-			return nil, nil, fmt.Errorf("scheduler.case %s branch_taken: %w", node.ID, err)
-		}
-		return nodeByID(g, toID), out, nil
-	}
-	return nil, nil, fmt.Errorf("scheduler.case %s: no branch matched (missing final when:\"true\"?)", node.ID)
+	return res.Outputs, nil
 }
 
 // evalEmit evaluates each emit field as a bare CEL expression producing a typed value.
@@ -205,7 +293,18 @@ func evalEmit(emit, payload map[string]any) map[string]any {
 	return out
 }
 
-// completedResults maps (nodeID, iteration_key) → recorded node_completed output.
+// mergeMaps overlays b onto a copy of a (AND-join combines its activated in-edges' payloads).
+func mergeMaps(a, b map[string]any) map[string]any {
+	out := make(map[string]any, len(a)+len(b))
+	for k, v := range a {
+		out[k] = v
+	}
+	for k, v := range b {
+		out[k] = v
+	}
+	return out
+}
+
 func completedResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
 	out := map[string]map[string]any{}
 	for i := range events {
@@ -216,7 +315,6 @@ func completedResults(events []flowrundomain.FlowRunEvent) map[string]map[string
 	return out
 }
 
-// branchResults maps (caseNodeID, iteration_key) → recorded branch_taken result ({to, payload}).
 func branchResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
 	out := map[string]map[string]any{}
 	for i := range events {
@@ -236,24 +334,56 @@ func triggerNode(g workflowdomain.Graph) *workflowdomain.NodeSpec {
 	return nil
 }
 
-func nodeByID(g workflowdomain.Graph, id string) *workflowdomain.NodeSpec {
-	for i := range g.Nodes {
-		if g.Nodes[i].ID == id {
-			return &g.Nodes[i]
-		}
-	}
-	return nil
-}
-
-// successor returns the single downstream node, or nil at a terminal (M3 activity path assumes
-// one out-edge; case routes via branches[].to; AND-split fork-join is next).
-func successor(g workflowdomain.Graph, fromID string) *workflowdomain.NodeSpec {
+func edgesFrom(g workflowdomain.Graph, fromID string) []workflowdomain.EdgeSpec {
+	var out []workflowdomain.EdgeSpec
 	for _, e := range g.Edges {
 		if e.From == fromID {
-			return nodeByID(g, e.To)
+			out = append(out, e)
 		}
 	}
-	return nil
+	return out
+}
+
+// detectBackEdges marks edges whose target is an ancestor on the DFS stack from the trigger — the
+// loop back-edges of a reducible graph (00/04 single-entry loops). Key is "from>to".
+func detectBackEdges(g workflowdomain.Graph) map[string]bool {
+	back := map[string]bool{}
+	onStack := map[string]bool{}
+	visited := map[string]bool{}
+	trigger := triggerNode(g)
+	if trigger == nil {
+		return back
+	}
+	var dfs func(nodeID string)
+	dfs = func(nodeID string) {
+		visited[nodeID] = true
+		onStack[nodeID] = true
+		for _, e := range edgesFrom(g, nodeID) {
+			if onStack[e.To] {
+				back[e.From+">"+e.To] = true
+				continue
+			}
+			if !visited[e.To] {
+				dfs(e.To)
+			}
+		}
+		onStack[nodeID] = false
+	}
+	dfs(trigger.ID)
+	return back
+}
+
+// inDegrees returns the forward (non-back-edge) and back-edge in-degree per node.
+func inDegrees(g workflowdomain.Graph, backEdge map[string]bool) (fwd, back map[string]int) {
+	fwd, back = map[string]int{}, map[string]int{}
+	for _, e := range g.Edges {
+		if backEdge[e.From+">"+e.To] {
+			back[e.To]++
+		} else {
+			fwd[e.To]++
+		}
+	}
+	return fwd, back
 }
 
 func asMap(v any) map[string]any {
