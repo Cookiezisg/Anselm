@@ -66,3 +66,15 @@ Plan: `docs/superpowers/plans/2026-05-31-m1-journal-schema-foundation.md`.
 **Pitfall / pre-existing finding:** `make unit` surfaced `TestNodeTimeoutDuration_DefaultByType` (app/scheduler) red. Confirmed **pre-existing** (red at `3f5d16d`, before any M1 code) — it asserts per-type default timeouts the revamp removed (00 mechanism-vs-policy; `nodeTimeoutDuration` returns 0). Skipped with a documented reason (test + old scheduler deleted in M2). Not an M1 regression. SQLite NULL-distinct trap (ADR-018 motivation) validated in practice: the `dedup_key` string column avoids it.
 
 Next: M2 — interpreter core (linear + crash-replay), TDD: the replay-determinism property test (same journal replayed twice = identical events; replay copies, never re-runs). Delete old scheduler state/pause/rehydrate/subdag + `PausedState`.
+
+### 2026-05-31 — M2 IN PROGRESS (interpreter core proven; deletions + pipeline remain)
+
+Plan: `docs/superpowers/plans/2026-05-31-m2-interpreter-core-replay.md`.
+
+**Done (T1–T2, pushed):** `app/scheduler/interpreter.go` — the durable interpreter. One goroutine walks the pinned graph from the trigger node; each agent/tool node = an activity (`node_started` → `Router.Dispatch` → `node_completed`/`node_failed`); `Run`/`Resume` share one `walk` loop that consults the journal's `node_completed` results before each step (copy-hit, ADR-019) → replay copies, never re-dispatches. **The承重 invariant is proven by a passing property test** (`TestInterpreter_ReplayIsDeterministicAndCopiesNotReruns`): same journal replayed with a fresh interpreter ⇒ identical event sequence + the counting router's dispatch count does **not** increase. Reuses the M1 journal store + the existing `Dispatcher`/`Router` contract unchanged. Build + scheduler pkg tests + staticcheck (my files) green; coexists with the old scheduler (non-breaking).
+
+**Scope held to linear (M2):** `iteration_key=0`, `generation=0`, single out-edge (`successor`), trigger = pass-through. `completedResults` keys on nodeID only for now — generalizes to highest-generation (ADR-019) when replay-reset (M6) + loops (M3) land; flagged in-code.
+
+**Remaining (T3–T4, next):** rewrite `scheduler.go` `executeRun` → `Interpreter.Run` (thread real `flowrun.input` + pinned graph; single terminal status write); **delete** `state.go`/`pause.go`/`rehydrate.go`/`subdag.go` + `FlowRun.PausedState` + the paused repo methods + the `RehydrateOnBoot` paused-scan (grep all refs first); delete the 2 pre-existing staticcheck warnings' files along the way (`pause.go:198` SA4006, `loop_body_test.go` ST1012 — both in old-scheduler code T3 removes) + the M1-skipped stale `TestNodeTimeoutDuration_DefaultByType`; linear pipeline test (`test/durable/`) + full gate.
+
+**Note:** the `Dispatcher` interface (`DispatchInput.ExecCtx *ExecutionContext`) is preserved; the interpreter passes `ExecCtx=nil` for now (fake router ignores it). Real-callable wiring + whether to keep a slim `ExecutionContext` shim vs delete it is resolved during T3 (the grep). The 14→5 node-type dispatcher collapse is M3, not M2.
