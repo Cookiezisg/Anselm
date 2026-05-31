@@ -46,8 +46,16 @@ func (r *fakeRepo) Get(_ context.Context, id string) (*flowrundomain.FlowRun, er
 	return nil, flowrundomain.ErrNotFound
 }
 
-func (r *fakeRepo) List(context.Context, flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, string, error) {
-	return nil, "", nil
+func (r *fakeRepo) List(_ context.Context, f flowrundomain.ListFilter) ([]*flowrundomain.FlowRun, string, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []*flowrundomain.FlowRun
+	for _, run := range r.runs {
+		if f.Status == "" || run.Status == f.Status {
+			out = append(out, run)
+		}
+	}
+	return out, "", nil
 }
 
 func (r *fakeRepo) UpdateStatus(_ context.Context, runID, status string, _ any, _, _ string, _ *time.Time, _ int64) error {
@@ -298,6 +306,25 @@ func TestCancel_AwaitingSignalRun_Cancellable(t *testing.T) {
 	got, _ := repo.Get(context.Background(), "fr_park")
 	if got == nil || got.Status != flowrundomain.StatusCancelled {
 		t.Fatalf("status after cancel = %v, want cancelled", got)
+	}
+}
+
+// A run left in `running` after a mid-execution crash is a zombie (pins CountRunning, uncancellable).
+// Boot reconciliation must mark it failed/INTERRUPTED (review R2 running-crash blocker).
+func TestRehydrateOnBoot_ReconcilesRunningZombieToFailed(t *testing.T) {
+	repo := newFakeRepo()
+	s := newSvc(t, repo, &fakeWorkflowReader{})
+	ctx := ctxWith("u1")
+	_ = repo.Create(ctx, &flowrundomain.FlowRun{
+		ID: "fr_zombie", UserID: "u1", WorkflowID: "wf1",
+		Status: flowrundomain.StatusRunning, StartedAt: time.Now().UTC(),
+	})
+	if err := s.RehydrateOnBoot(context.Background(), "u1"); err != nil {
+		t.Fatalf("RehydrateOnBoot: %v", err)
+	}
+	got, _ := repo.Get(context.Background(), "fr_zombie")
+	if got == nil || got.Status != flowrundomain.StatusFailed {
+		t.Fatalf("running zombie must reconcile to failed, got %v", got)
 	}
 }
 

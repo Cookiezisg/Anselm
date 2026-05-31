@@ -3,9 +3,11 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -33,6 +35,26 @@ func (s *Service) RehydrateOnBoot(ctx context.Context, userID string) error {
 				zap.String("runID", run.ID))
 		}
 		s.cancelsMu.Unlock()
+	}
+
+	// Boot reconciliation: a run still in `running` means the process crashed mid-execution — the
+	// executeRun goroutine never wrote a terminal status. Until M6 journal-replay can resume it,
+	// mark it failed/INTERRUPTED so it stops being an uncancellable zombie that pins CountRunning
+	// and blocks serial workflows forever (review R2 running-crash).
+	running, _, err := s.repo.List(scopedCtx, flowrundomain.ListFilter{Status: flowrundomain.StatusRunning, Limit: 1000})
+	if err != nil {
+		return fmt.Errorf("schedulerapp.RehydrateOnBoot: list running: %w", err)
+	}
+	for _, run := range running {
+		now := time.Now().UTC()
+		elapsed := now.Sub(run.StartedAt).Milliseconds()
+		if uErr := s.repo.UpdateStatus(scopedCtx, run.ID, flowrundomain.StatusFailed, nil,
+			"INTERRUPTED", "process restarted mid-execution", &now, elapsed); uErr != nil {
+			s.log.Error("reconcile running→failed", zap.String("runID", run.ID), zap.Error(uErr))
+		}
+	}
+	if len(running) > 0 {
+		s.log.Warn("reconciled interrupted running flowruns to failed", zap.Int("count", len(running)))
 	}
 	return nil
 }
