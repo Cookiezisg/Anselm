@@ -28,11 +28,17 @@ import (
 type Interpreter struct {
 	journal  flowrundomain.JournalRepository
 	dispatch Dispatcher
+	dryRun   bool // when set, side-effect activity nodes return a mock and approval auto-passes (yes)
 }
 
 func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpreter {
 	return &Interpreter{journal: journal, dispatch: dispatch}
 }
+
+// WithDryRun returns the interpreter configured for a dry-run preview (no real side effects).
+//
+// WithDryRun 返回配置为 dry-run 预览的解释器(不产生真实副作用)。
+func (in *Interpreter) WithDryRun(dry bool) *Interpreter { in.dryRun = dry; return in }
 
 // Run/Resume return parked=true when the flowrun suspended at an approval waiting for a signal
 // (caller sets flowrun.status = awaiting_signal); false means it ran to a terminal.
@@ -175,20 +181,23 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 				}
 			}
 		case workflowdomain.NodeTypeApproval: // durable wait for a yes/no signal
-			sig, ok := signalReceived[ck(it.node, it.iter)]
-			if !ok {
-				// park: journal signal_awaited once; the flowrun suspends (status awaiting_signal)
-				// and re-walks after ResumeApproval journals the decision.
-				if _, aErr := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-					FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter,
-				}); aErr != nil {
-					return false, fmt.Errorf("scheduler.approval %s signal_awaited: %w", it.node, aErr)
+			decision := "yes" // dry-run auto-approves; otherwise the journaled signal decides
+			if !in.dryRun {
+				sig, ok := signalReceived[ck(it.node, it.iter)]
+				if !ok {
+					// park: journal signal_awaited once; the flowrun suspends (status awaiting_signal)
+					// and re-walks after ResumeApproval journals the decision.
+					if _, aErr := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+						FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter,
+					}); aErr != nil {
+						return false, fmt.Errorf("scheduler.approval %s signal_awaited: %w", it.node, aErr)
+					}
+					parked = true
+					continue // do not propagate from a parked approval
 				}
-				parked = true
-				continue // do not propagate from a parked approval
+				decision, _ = sig["decision"].(string) // "yes" / "no"
 			}
 			out = it.payload
-			decision, _ := sig["decision"].(string) // "yes" / "no"
 			for _, e := range edgesFrom(g, it.node) {
 				if e.FromPort == decision {
 					activeTo = append(activeTo, e.To)
@@ -282,15 +291,22 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s started: %w", node.ID, err)
 	}
-	res := in.dispatch.Dispatch(ctx, DispatchInput{
-		Node:   node,
-		NodeIn: payload,
-		ExecCtx: &ExecutionContext{
-			Run:       &flowrundomain.FlowRun{ID: flowrunID},
-			Variables: map[string]any{},
-			Outputs:   map[string]map[string]any{},
-		},
-	})
+	// Dry-run: a side-effect node returns a synthetic output instead of really dispatching, so a
+	// dryRun=true preview never invokes a real function/handler/mcp/http/agent (review R2 dryRun).
+	var res DispatchOutput
+	if in.dryRun && dryRunSideEffectNodes[node.Type] {
+		res = dryRunMockOutput(node)
+	} else {
+		res = in.dispatch.Dispatch(ctx, DispatchInput{
+			Node:   node,
+			NodeIn: payload,
+			ExecCtx: &ExecutionContext{
+				Run:       &flowrundomain.FlowRun{ID: flowrunID},
+				Variables: map[string]any{},
+				Outputs:   map[string]map[string]any{},
+			},
+		})
+	}
 	if res.Error != nil {
 		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID, IterationKey: iter,

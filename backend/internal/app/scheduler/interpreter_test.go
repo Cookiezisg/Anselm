@@ -570,3 +570,19 @@ func dispatchedTo(j *flowruneventstore.Store, t *testing.T, runID, nodeID string
 	}
 	return false
 }
+
+// A dryRun=true preview must NOT invoke the real dispatcher for side-effect nodes (function/...),
+// yet the flow still completes via mock node_completed events (review R2 dryRun).
+func TestInterpreter_DryRun_SkipsSideEffectDispatch(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	if _, err := New(journal, router).WithDryRun(true).Run(context.Background(), "fr_dry", linearGraph(), nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["a"] != 0 || router.calls["b"] != 0 {
+		t.Fatalf("dry-run must NOT dispatch side-effect nodes, got %v", router.calls)
+	}
+	if !dispatchedTo(journal, t, "fr_dry", "b") {
+		t.Fatal("dry-run should still journal a mock node_completed so the flow completes")
+	}
+}
