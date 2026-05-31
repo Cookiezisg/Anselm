@@ -34,6 +34,7 @@ type WorkflowReader interface {
 type Service struct {
 	repo         flowrundomain.Repository
 	journal      flowrundomain.JournalRepository
+	approvals    flowrundomain.ApprovalRepository
 	workflowRead WorkflowReader
 	notif        notificationspkg.Publisher
 	router       *Router
@@ -81,6 +82,9 @@ func (s *Service) SetRouter(r *Router) { s.router = r }
 //
 // SetJournal 注入 durable journal store;executeRun 在其上跑 interpreter。
 func (s *Service) SetJournal(j flowrundomain.JournalRepository) { s.journal = j }
+
+// SetApprovals wires the approvals projection store (UI inbox + audit; 17 §9).
+func (s *Service) SetApprovals(a flowrundomain.ApprovalRepository) { s.approvals = a }
 
 // RouterRef returns the current router for test helpers and observability.
 //
@@ -236,6 +240,12 @@ func (s *Service) Cancel(ctx context.Context, runID string) error {
 			FlowrunID: runID, Type: flowrundomain.EventFlowrunCancelled,
 		}); jErr != nil {
 			s.log.Warn("journal flowrun_cancelled failed", zap.String("runId", runID), zap.Error(jErr))
+		}
+	}
+	// Flip any still-parked approval rows to cancelled (best-effort projection; journal is truth).
+	if s.approvals != nil {
+		if aErr := s.approvals.CancelParked(ctx, runID); aErr != nil {
+			s.log.Warn("cancel parked approvals failed", zap.String("runId", runID), zap.Error(aErr))
 		}
 	}
 	now := time.Now().UTC()

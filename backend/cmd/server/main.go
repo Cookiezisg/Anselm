@@ -89,6 +89,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
+	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
 	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
 	flowruneventstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrunevent"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
@@ -521,6 +522,7 @@ func main() {
 
 	flowrunRepo := flowrunstore.New(gdb)
 	journalStore := flowruneventstore.New(gdb)
+	approvalStore := approvalstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
 	mcpHealthRepo := mcphealthstore.New(gdb)
 	skillExecRepo := skillexecstore.New(gdb)
@@ -541,6 +543,7 @@ func main() {
 		log,
 	)
 	schedulerService.SetJournal(journalStore)
+	schedulerService.SetApprovals(approvalStore)
 	triggerService.SetScheduler(schedulerService)
 
 	router := schedulerapp.NewRouter()

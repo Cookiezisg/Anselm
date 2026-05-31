@@ -88,6 +88,7 @@ import (
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
+	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
 	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
 	flowruneventstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrunevent"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
@@ -573,6 +574,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	triggerService := triggerapp.New(httpMux, log)
 	schedulerService := schedulerapp.NewService(flowrunRepo, workflowService, notificationsPub, log)
 	schedulerService.SetJournal(flowruneventstore.New(gdb))
+	schedulerService.SetApprovals(approvalstore.New(gdb))
 	triggerService.SetScheduler(schedulerService)
 	t.Cleanup(triggerService.Shutdown)
 

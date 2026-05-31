@@ -26,9 +26,10 @@ import (
 // Interpreter 是 durable 执行引擎;agenda 驱动:活动记账、case 控制流 + skip token、回边 loop、
 // join 等激活入边(active-branch / AND);Run/Resume 同一套,重放命中已记账抄、不重跑。
 type Interpreter struct {
-	journal  flowrundomain.JournalRepository
-	dispatch Dispatcher
-	dryRun   bool // when set, side-effect activity nodes return a mock and approval auto-passes (yes)
+	journal   flowrundomain.JournalRepository
+	dispatch  Dispatcher
+	dryRun    bool                             // when set, side-effect nodes mock and approval auto-passes (yes)
+	approvals flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
 }
 
 func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpreter {
@@ -39,6 +40,14 @@ func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpre
 //
 // WithDryRun 返回配置为 dry-run 预览的解释器(不产生真实副作用)。
 func (in *Interpreter) WithDryRun(dry bool) *Interpreter { in.dryRun = dry; return in }
+
+// WithApprovals wires the approvals projection so a park also writes the UI inbox/audit row.
+//
+// WithApprovals 接入 approvals 投影,使 park 同时写 UI inbox/审计行。
+func (in *Interpreter) WithApprovals(a flowrundomain.ApprovalRepository) *Interpreter {
+	in.approvals = a
+	return in
+}
 
 // Run/Resume return parked=true when the flowrun suspended at an approval waiting for a signal
 // (caller sets flowrun.status = awaiting_signal); false means it ran to a terminal.
@@ -191,6 +200,17 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 						FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter,
 					}); aErr != nil {
 						return false, fmt.Errorf("scheduler.approval %s signal_awaited: %w", it.node, aErr)
+					}
+					// Write the approvals projection row (UI inbox + audit). Idempotent on replay via
+					// UNIQUE(flowrun_id, node_id). Same DB as the journal write just above.
+					if in.approvals != nil {
+						prompt, _ := spec.Config["prompt"].(string)
+						allowReason, _ := spec.Config["allowReason"].(bool)
+						if pErr := in.approvals.Park(ctx, &flowrundomain.Approval{
+							FlowrunID: flowrunID, NodeID: it.node, Prompt: prompt, AllowReason: allowReason, Payload: it.payload,
+						}); pErr != nil {
+							return false, fmt.Errorf("scheduler.approval %s park-row: %w", it.node, pErr)
+						}
 					}
 					parked = true
 					continue // do not propagate from a parked approval

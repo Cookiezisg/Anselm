@@ -75,6 +75,13 @@ func (s *Service) ResumeApproval(ctx context.Context, runID, nodeID, decision, r
 	}); err != nil {
 		return fmt.Errorf("schedulerapp.ResumeApproval: journal signal: %w", err)
 	}
+	// Update the approvals projection (audit: decision + reason + decided_at). decision is the API
+	// value approved/rejected, which is exactly approvals.status.
+	if s.approvals != nil {
+		if dErr := s.approvals.Decide(ctx, runID, nodeID, decision, reason); dErr != nil {
+			return fmt.Errorf("schedulerapp.ResumeApproval: approvals decide: %w", dErr)
+		}
+	}
 	// CAS claim serializes one executor per flowrun: under concurrent resume only the winner drives
 	// the walk; the loser's decision is already journaled (first-wins dedup), so it returns cleanly.
 	// This closes the TOCTOU between the status pre-check and the goroutine spawn (record-once-dedup-2).
