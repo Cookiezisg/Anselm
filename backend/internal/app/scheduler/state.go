@@ -125,7 +125,7 @@ func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, gr
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-	if err := New(s.journal, s.router).Run(ctx, run.ID, *graph); err != nil {
+	if err := New(s.journal, s.router).Run(ctx, run.ID, *graph, run.TriggerInput); err != nil {
 		s.finalizeRun(ctx, run, flowrundomain.StatusFailed, nil, "NODE_FAILED", err.Error())
 		return
 	}

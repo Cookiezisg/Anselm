@@ -35,6 +35,25 @@ func linearGraph() workflowdomain.Graph {
 	}
 }
 
+// trigger -> case(when payload.x>5 -> hi, else -> lo). case routes via branches[].to.
+func caseGraph() workflowdomain.Graph {
+	return workflowdomain.Graph{
+		Name: "case",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "c", Type: workflowdomain.NodeTypeCondition, Config: map[string]any{
+				"branches": []any{
+					map[string]any{"when": "payload.x > 5", "to": "hi"},
+					map[string]any{"when": "true", "to": "lo"},
+				},
+			}},
+			{ID: "hi", Type: workflowdomain.NodeTypeFunction},
+			{ID: "lo", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{{ID: "e1", From: "t", To: "c"}},
+	}
+}
+
 func newJournal(t *testing.T) *flowruneventstore.Store {
 	t.Helper()
 	gdb, err := dbinfra.Open(dbinfra.Config{DataDir: ""})
@@ -55,7 +74,7 @@ func TestInterpreter_ReplayIsDeterministicAndCopiesNotReruns(t *testing.T) {
 	graph := linearGraph()
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_det", graph); err != nil {
+	if err := New(journal, router).Run(ctx, "fr_det", graph, nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	j1, _ := journal.LoadJournal(ctx, "fr_det")
@@ -63,8 +82,7 @@ func TestInterpreter_ReplayIsDeterministicAndCopiesNotReruns(t *testing.T) {
 		t.Fatalf("first run should dispatch a,b exactly once: %v", router.calls)
 	}
 
-	// Replay on the SAME journal with a fresh interpreter (post-crash recovery).
-	if err := New(journal, router).Resume(ctx, "fr_det", graph); err != nil {
+	if err := New(journal, router).Resume(ctx, "fr_det", graph, nil); err != nil {
 		t.Fatalf("resume: %v", err)
 	}
 	if router.calls["a"] != 1 || router.calls["b"] != 1 {
@@ -87,7 +105,7 @@ func TestInterpreter_LinearRunJournalsEachActivity(t *testing.T) {
 	router := &countingRouter{calls: map[string]int{}}
 	ctx := context.Background()
 
-	if err := New(journal, router).Run(ctx, "fr_lin", linearGraph()); err != nil {
+	if err := New(journal, router).Run(ctx, "fr_lin", linearGraph(), nil); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 	evs, _ := journal.LoadJournal(ctx, "fr_lin")
@@ -104,5 +122,64 @@ func TestInterpreter_LinearRunJournalsEachActivity(t *testing.T) {
 		if evs[i].Type != w.typ || evs[i].NodeID != w.node {
 			t.Fatalf("event #%d: got %s/%s want %s/%s", i, evs[i].Type, evs[i].NodeID, w.typ, w.node)
 		}
+	}
+}
+
+// case node: per-branch CEL guard, first-true-wins; routes via branches[].to + journals branch_taken.
+func TestInterpreter_CaseFirstTrueWins(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	ctx := context.Background()
+
+	if err := New(journal, router).Run(ctx, "fr_hi", caseGraph(), map[string]any{"x": 10}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["hi"] != 1 || router.calls["lo"] != 0 {
+		t.Fatalf("x=10 (>5) must route to hi, not lo: %v", router.calls)
+	}
+	evs, _ := journal.LoadJournal(ctx, "fr_hi")
+	found := false
+	for _, e := range evs {
+		if e.Type == flowrundomain.EventBranchTaken && e.NodeID == "c" {
+			found = true
+			if to := asMap(e.Result)["to"]; to != "hi" {
+				t.Fatalf("branch_taken to=%v want hi", to)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("case did not journal branch_taken")
+	}
+}
+
+// case falls through to the when:"true" branch when the guard is false.
+func TestInterpreter_CaseFallthroughToTrueBranch(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	ctx := context.Background()
+
+	if err := New(journal, router).Run(ctx, "fr_lo", caseGraph(), map[string]any{"x": 1}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if router.calls["lo"] != 1 || router.calls["hi"] != 0 {
+		t.Fatalf("x=1 (<=5) must fall through to lo: %v", router.calls)
+	}
+}
+
+// replay copies the recorded branch_taken decision — it does not re-evaluate the guard
+// (the basis for deterministic active-branch join, 17 §3).
+func TestInterpreter_CaseReplay_CopiesDecision(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	ctx := context.Background()
+
+	if err := New(journal, router).Run(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if err := New(journal, router).Resume(ctx, "fr_cr", caseGraph(), map[string]any{"x": 10}); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if router.calls["hi"] != 1 || router.calls["lo"] != 0 {
+		t.Fatalf("replay must copy the branch decision (hi once, lo zero): %v", router.calls)
 	}
 }
