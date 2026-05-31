@@ -235,7 +235,8 @@ type Error = {
 | GET    | `/api/v1/flowruns/{id}`                                | 单 FlowRun |
 | GET    | `/api/v1/flowruns/{id}/nodes`                          | per-node 执行记录分页 |
 | DELETE | `/api/v1/flowruns/{id}`                                | 取消 (scheduler.Cancel;in-flight 204 或 已终态 422)|
-| POST   | `/api/v1/flowruns/{id}/approvals/{nodeId}`             | approval 签收 (body `{decision, reason?}`)|
+| POST   | `/api/v1/flowruns/{id}/approvals/{nodeId}`             | approval 签收 (body `{decision, reason?}`;decision ∈ `{approved, rejected}`)|
+| GET    | `/api/v1/approvals`                                    | 当前用户所有 parked approval (前端审批 inbox 数据源;17 §9)|
 | POST   | `/api/v1/webhooks/{wfId}/{path}`                       | webhook trigger 入口 (trigger.webhook listener 直接挂 ServeMux,secret 校验) |
 
 > Plan 05(2026-05-13):执行 plane 三 domain — flowrun(记录簿)/ trigger(4 种 listener:cron/fsnotify/webhook/manual)/ scheduler(编排器 + 13 dispatcher + retry/timeout/onError + pause/resume)。`:trigger` action + `/triggers` state 由 WorkflowHandler 持(共享 `:revert` 的 `{idAction}` mux dispatcher),委派 FlowRunHandler 薄 helper。webhook 端点由 trigger.webhook listener 直接挂主 ServeMux 子路径,跟主 router 共享。14 hardening item 全覆盖(详 spec §6 + scheduler.md §11)。
