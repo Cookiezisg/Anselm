@@ -166,6 +166,25 @@ func (s *Store) UpdateStatus(ctx context.Context, runID, status string, output a
 	return nil
 }
 
+// ClaimStatus atomically transitions status from→to only when the row is currently `from`; true iff
+// this caller won (RowsAffected==1). The single-executor claim that serializes concurrent resumes —
+// a yes/no CAS in one UPDATE, no read-then-write TOCTOU window.
+//
+// ClaimStatus 原子地仅当当前为 from 时把 status 转 to;胜出者(RowsAffected==1)返 true(单执行者认领)。
+func (s *Store) ClaimStatus(ctx context.Context, runID, from, to string) (bool, error) {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return false, err
+	}
+	res := s.db.WithContext(ctx).Model(&flowrundomain.FlowRun{}).
+		Where("id = ? AND user_id = ? AND status = ?", runID, uid, from).
+		Update("status", to)
+	if res.Error != nil {
+		return false, fmt.Errorf("flowrunstore.ClaimStatus: %w", res.Error)
+	}
+	return res.RowsAffected == 1, nil
+}
+
 // SetPausedState writes paused_state JSON blob (marshal manually since Update bypasses serializer).
 //
 // SetPausedState 写 paused_state JSON（手动 marshal，Update 不走 serializer）。

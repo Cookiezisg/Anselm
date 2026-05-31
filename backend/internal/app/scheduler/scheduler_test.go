@@ -60,6 +60,17 @@ func (r *fakeRepo) UpdateStatus(_ context.Context, runID, status string, _ any, 
 	return flowrundomain.ErrNotFound
 }
 
+// ClaimStatus is a real CAS so concurrent-resume tests observe a single winner.
+func (r *fakeRepo) ClaimStatus(_ context.Context, runID, from, to string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if run, ok := r.runs[runID]; ok && run.Status == from {
+		run.Status = to
+		return true, nil
+	}
+	return false, nil
+}
+
 func (r *fakeRepo) SetPausedState(context.Context, string, *flowrundomain.PausedState) error {
 	return nil
 }

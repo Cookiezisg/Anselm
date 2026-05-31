@@ -18,6 +18,12 @@ type Repository interface {
 	// UpdateStatus 转 status；转终态时一并写 ended_at / elapsed / output / error 字段。
 	UpdateStatus(ctx context.Context, runID, status string, output any, errCode, errMsg string, endedAt *time.Time, elapsedMs int64) error
 
+	// ClaimStatus atomically CAS-transitions status from→to, true iff this caller won (RowsAffected==1).
+	// Serializes a single executor per flowrun: concurrent ResumeApproval calls — only the winner drives.
+	//
+	// ClaimStatus 原子 CAS 转 status from→to;仅胜出者返 true。并发 resume 时只有胜者驱动 walk。
+	ClaimStatus(ctx context.Context, runID, from, to string) (bool, error)
+
 	SetPausedState(ctx context.Context, runID string, ps *PausedState) error
 	ClearPausedState(ctx context.Context, runID string) error
 

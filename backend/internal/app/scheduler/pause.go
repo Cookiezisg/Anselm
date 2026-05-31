@@ -75,8 +75,15 @@ func (s *Service) ResumeApproval(ctx context.Context, runID, nodeID, decision, r
 	}); err != nil {
 		return fmt.Errorf("schedulerapp.ResumeApproval: journal signal: %w", err)
 	}
-	if err := s.repo.UpdateStatus(ctx, runID, flowrundomain.StatusRunning, nil, "", "", nil, 0); err != nil {
-		return fmt.Errorf("schedulerapp.ResumeApproval: flip running: %w", err)
+	// CAS claim serializes one executor per flowrun: under concurrent resume only the winner drives
+	// the walk; the loser's decision is already journaled (first-wins dedup), so it returns cleanly.
+	// This closes the TOCTOU between the status pre-check and the goroutine spawn (record-once-dedup-2).
+	won, err := s.repo.ClaimStatus(ctx, runID, flowrundomain.StatusAwaitingSignal, flowrundomain.StatusRunning)
+	if err != nil {
+		return fmt.Errorf("schedulerapp.ResumeApproval: claim: %w", err)
+	}
+	if !won {
+		return nil
 	}
 	s.publish(ctx, runID, run.WorkflowID, "resumed", map[string]any{"nodeID": nodeID, "decision": decision})
 

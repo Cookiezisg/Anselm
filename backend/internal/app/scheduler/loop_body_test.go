@@ -51,6 +51,9 @@ func (r *fakeFlowRunRepo) List(context.Context, flowrundomain.ListFilter) ([]*fl
 func (r *fakeFlowRunRepo) UpdateStatus(context.Context, string, string, any, string, string, *time.Time, int64) error {
 	return nil
 }
+func (r *fakeFlowRunRepo) ClaimStatus(context.Context, string, string, string) (bool, error) {
+	return true, nil
+}
 func (r *fakeFlowRunRepo) CountRunning(context.Context, string) (int, error) { return 0, nil }
 func (r *fakeFlowRunRepo) SetPausedState(context.Context, string, *flowrundomain.PausedState) error {
 	return nil

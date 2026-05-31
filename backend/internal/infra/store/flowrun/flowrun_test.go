@@ -162,6 +162,30 @@ func TestUpdateStatus_MissingReturnsErrNotFound(t *testing.T) {
 	}
 }
 
+// ClaimStatus is the single-executor CAS: the FIRST claim from a given state wins; a second claim
+// from the same expected state loses (status already moved) — no double-walk under concurrent resume.
+func TestClaimStatus_CASTransitionsExactlyOnce(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxFor(userAlice)
+	_ = s.Create(ctx, mkRun("fr1", userAlice, "wf1", flowrundomain.StatusAwaitingSignal))
+
+	won, err := s.ClaimStatus(ctx, "fr1", flowrundomain.StatusAwaitingSignal, flowrundomain.StatusRunning)
+	if err != nil || !won {
+		t.Fatalf("first claim must win: won=%v err=%v", won, err)
+	}
+	got, _ := s.Get(ctx, "fr1")
+	if got.Status != flowrundomain.StatusRunning {
+		t.Fatalf("status after claim = %q, want running", got.Status)
+	}
+	won2, err := s.ClaimStatus(ctx, "fr1", flowrundomain.StatusAwaitingSignal, flowrundomain.StatusRunning)
+	if err != nil {
+		t.Fatalf("second claim err: %v", err)
+	}
+	if won2 {
+		t.Fatal("second claim must lose (status already running) — CAS broken means a double-executor")
+	}
+}
+
 func TestPausedState_RoundTrip(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxFor(userAlice)
