@@ -135,3 +135,17 @@ Next: **M3 — control flow** (case CEL guards + branch_taken + active-branch jo
 **Remaining M3:** active-branch join + AND-split fork-join (multi-out-edge concurrency; join awaits activated-not-skipped in-edges derived from `branch_taken`, 17 §3 — the interpreter's biggest control-flow extension, single-walk → fork-join); then the 14→5 dispatcher collapse (delete the old loop: `pause.go`/`subdag.go`/`retry.go`/`dispatch_condition|loop_parallel`, retire `ExecutionContext`). active-branch join is a correctness命脉 (no-deadlock on the case-diamond, A-1) — next sub-task.
 
 **M4–M8** (after M3): approval+timer / trigger inbox+dispatcher / lifecycle drain+`:replay`+failures / agent domain+node / observability+SSE+e2e gate.
+
+### 2026-05-31 — M3 control-flow core DONE
+
+Unified the interpreter into an **agenda-driven executor** (`interpreter.go`): back-edge detection (DFS over the reducible graph), per-node forward/back in-degree, active/skip token arrival, join readiness. Case now routes via **edges** (unified with fork-join): the chosen branch's out-edge activates, the others propagate a **skip token**. Delivered:
+- **AND-split fork-join** (WP3): a node with multiple out-edges forks; a join awaits all forward in-edges, fires once.
+- **active-branch join** (A-1 / WP5, 17 §3): the case-diamond the old engine dead-locked on — case picks one branch, the join fires on the activated in-edge **without** waiting for the skipped branch. **The lone-blocker-adjacent deadlock from the review is now TDD-proven impossible.**
+- loop back-edge re-activates the header at `iteration_key+1`; copy-hit/journal keyed `(node, iter)`.
+- **9 interpreter tests green** (linear / replay-determinism / case×3 / loop×2 / AND-join / active-branch); `make` workflow pipeline tests (cross + api/workflow) stay green.
+
+**Scope handoff to M4:** the **14→5 dispatcher collapse** (delete `dispatch_condition`/`loop_parallel`/`subdag.go`/`retry.go`/`pause.go`/`rehydrate.go` + retire `ExecutionContext`) is bound to M4 — those live only via the old `ResumeApproval`→`continueRun`→`driveLoop` chain and `loop_parallel`, which M4 rewrites when approval moves onto the interpreter as a journal signal. Doing the collapse now would drag M4 forward; deferred (strangler-fig).
+
+**Flagged data-flow seam (for M4/M-data):** an activity's output currently **replaces** the downstream payload (`res.Outputs`), while a loop counter rides in the payload via case `emit`. A loop whose body contains an activity that must preserve the counter needs replace-vs-merge semantics pinned (join already merges via `mergeMaps`). The self-loop loop test sidesteps it (case-only counter). Pin this when agent/tool data flow lands.
+
+Next: **M4 — approval (durable journal signal) + durable timer**, and the bound 14→5 collapse.
