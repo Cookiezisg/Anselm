@@ -517,3 +517,56 @@ func TestInterpreter_NumberCopyHit_StaysIntForCELArithmetic(t *testing.T) {
 		t.Fatalf("payload.n+1==2 over a journaled (float64) counter must hold as int: %v", router.calls)
 	}
 }
+
+// numberRouter returns a JSON-style float64 output, as a real dispatcher does after decoding
+// sandbox stdout — exercises the FRESH-output normalization (round-2: the asymmetric half).
+type numberRouter struct{ n float64 }
+
+func (r *numberRouter) Dispatch(_ context.Context, in DispatchInput) DispatchOutput {
+	return DispatchOutput{Outputs: map[string]any{"n": r.n}}
+}
+
+// A FRESH activity output carrying a float64 must be normalized to int64 at the same boundary the
+// copy-hit is, so a downstream CEL `payload.n + 1` works on the first (non-replay) run too.
+func TestInterpreter_FreshActivityNumber_NormalizedForCEL(t *testing.T) {
+	journal := newJournal(t)
+	router := &numberRouter{n: 1}
+	g := workflowdomain.Graph{
+		Name: "fresh_num",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+			{ID: "c", Type: workflowdomain.NodeTypeCondition, Config: map[string]any{
+				"branches": []any{
+					map[string]any{"when": "payload.n + 1 == 2", "to": "done"},
+					map[string]any{"when": "true", "to": "miss"},
+				},
+			}},
+			{ID: "done", Type: workflowdomain.NodeTypeFunction},
+			{ID: "miss", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{
+			{ID: "e1", From: "t", To: "a"},
+			{ID: "e2", From: "a", To: "c"},
+			{ID: "e3", From: "c", To: "done"},
+			{ID: "e4", From: "c", To: "miss"},
+		},
+	}
+	if _, err := New(journal, router).Run(context.Background(), "fr_fresh", g, nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	// 'a' is dispatched (not seeded), so this proves the FRESH path normalizes.
+	if router2done := dispatchedTo(journal, t, "fr_fresh", "done"); !router2done {
+		t.Fatal("fresh float64 activity output must normalize so `payload.n+1==2` routes to done")
+	}
+}
+
+// dispatchedTo reports whether nodeID has a journaled node_completed (i.e. the branch ran).
+func dispatchedTo(j *flowruneventstore.Store, t *testing.T, runID, nodeID string) bool {
+	for _, e := range mustLoad(t, j, runID) {
+		if e.NodeID == nodeID && e.Type == flowrundomain.EventNodeCompleted {
+			return true
+		}
+	}
+	return false
+}

@@ -300,13 +300,20 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		}
 		return nil, fmt.Errorf("scheduler.activity %s: %w", node.ID, res.Error)
 	}
+	// Normalize fresh activity output at the same boundary the copy-hit is normalized — a real
+	// dispatcher returns JSON-decoded float64, so without this a fresh node_completed and its
+	// replayed copy-hit would carry different number types (the asymmetric half of cel-safety-1).
+	out := res.Outputs
+	if out != nil {
+		out = normalizeNumbers(out).(map[string]any)
+	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventNodeCompleted, NodeID: node.ID, IterationKey: iter,
-		Result: res.Outputs,
+		Result: out,
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s completed: %w", node.ID, err)
 	}
-	return res.Outputs, nil
+	return out, nil
 }
 
 // evalEmit evaluates each emit field as a bare CEL expression producing a typed value. A compile or
@@ -448,7 +455,9 @@ func inDegrees(g workflowdomain.Graph, backEdge map[string]bool) (fwd, back map[
 func normalizeNumbers(v any) any {
 	switch x := v.(type) {
 	case float64:
-		if !math.IsInf(x, 0) && !math.IsNaN(x) && x == math.Trunc(x) {
+		// Only fold whole floats that fit int64; an out-of-range value (e.g. 1e19) stays float64
+		// rather than saturating to MaxInt64 and silently corrupting it (round-2 number-2).
+		if !math.IsInf(x, 0) && !math.IsNaN(x) && x == math.Trunc(x) && x >= -9.223372036854775e18 && x <= 9.223372036854775e18 {
 			return int64(x)
 		}
 		return x
