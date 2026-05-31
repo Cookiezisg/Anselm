@@ -92,18 +92,17 @@
 
 **改动**:
 
-1. `internal/infra/forge/protocol.go::IsValidScopeKind` 加 3 个 kind(agent / document / skill)— 3 行
-2. function/handler 的 `accept_pending` / `revert` / `delete` 补 emit(8-10 行)
-3. document 的 create / edit / delete / move 补 emit(~6 行)
-4. skill 的 create / edit / delete 补 emit(~4 行)
-5. `ForgeOpApplied` 真 emit(每 op apply 时,~3-5 site)
-6. 试跑结果 emit(已拍 Emit,详 决策 #4)
+1. `internal/infra/forge/protocol.go::IsValidScopeKind` 加 1 个 kind(`agent`)→ 4(quadrinity)— 1 行
+2. function/handler/**agent**/workflow 的 `create` / `accept_pending` / `revert` / `delete` 补 emit(quadrinity 各自的锻造点;~10-12 行)
+3. **document / skill 不 emit forge SSE** —— 它俩无版本 / pending / accept / env 的锻造过程,create/edit 是 chat 工具动作,已在 **eventlog SSE** 以 tool_call/tool_result 显示;实体变更走 **notifications SSE**。
+4. `ForgeOpApplied` 真 emit(每 op apply 时,~3-5 site)
+5. 试跑结果 emit(已拍 Emit,详 决策 #4)
 
-**env_attempt** 只 function/handler 有(其他 kind 没 Python venv)。
+**env_attempt** 只 function/handler 有(agent / workflow 无 Python venv)。
 
-**协议本身不动**:仍 4 event 类型,6 kind 共享。
+**协议本身不动**:仍 4 event 类型,**4 kind(quadrinity)共享**。
 
-> **CANON-X1(扩的是共享 scope 枚举,不另立 forge 私有枚举)**:给 forge SSE 加 agent / document / skill kind,本质是扩 **eventlog 的共享 scope-kind 闭枚举**——`forge.IsValidScopeKind` 复用 `eventlogdomain.Kind*`,两条 SSE 共用同一套 scope 词表。这是项目重构,扩这个共享枚举是接受的、**不另立 forge 私有枚举**。按 **E2**(闭枚举先改协议文档再加 code)先更新 `event-log-protocol.md` 再加 kind。澄清旧表述里"eventlog SSE 不动"——**实际共享 scope 枚举要扩**。
+> **CANON-X1(扩的是共享 scope 枚举,不另立 forge 私有枚举)**:给 forge SSE 加 `agent` kind(→ quadrinity 4 kind),本质是扩 **eventlog 的共享 scope-kind 闭枚举**——`forge.IsValidScopeKind` 复用 `eventlogdomain.Kind*`,两条 SSE 共用同一套 scope 词表。这是项目重构,扩这个共享枚举是接受的、**不另立 forge 私有枚举**。按 **E2**(闭枚举先改协议文档再加 code)先更新 `event-log-protocol.md` 再加 kind。澄清旧表述里"eventlog SSE 不动"——**实际共享 scope 枚举要扩(加 agent)**。(document / skill **不进** forge SSE —— 见 S5 + 改动 #3:它们无锻造生命周期。)
 
 ### S3. Relations — 7 种新 kind + DB CHECK migration
 
@@ -160,8 +159,8 @@ agent_uses_skill                 # agent skill 挂载
 | Domain | 改动 | 备注 |
 |---|---|---|
 | **memory** | 走独立 system prompt 装配链 | agent 不接 memory(产品决策,详上方) |
-| **skill** | 加 `AgentID` 到 ExecutionLog + 锻造编辑 op emit forge SSE | skill.Agent 字段已有 ✅ |
-| **document** | 锻造编辑 op(create/edit/delete/move)emit forge SSE | 走 relation 即可;delete 受 PurgeEntity 自动清 |
+| **skill** | 加 `AgentID` 到 ExecutionLog | skill.Agent 字段已有 ✅;create/edit 是 chat 工具动作走 eventlog SSE,**不进 forge SSE**(无锻造生命周期) |
+| **document** | create/edit/delete/move 走 relation;变更可走 notifications SSE | **不进 forge SSE**(无版本/env 锻造过程,工具动作已在 eventlog 显示);delete 受 PurgeEntity 自动清 |
 | **mcp** | 无 schema 改 | 走 relation;uninstall 时 audit 是否还有 agent mount |
 | **model** | 0 改 | `ScenarioAgent` 已就绪(line 42-44) ✅ |
 | **workflow node** | 0 改 | `NodeTypeAgent` 已声明(line 58)+ `IsCapabilityNode` 包括 ✅ |
@@ -199,7 +198,7 @@ agent_uses_skill                 # agent skill 挂载
 |---|---|---|
 | Pipeline test | 4 文件 ~850-1100 LoC | `api/agent/` + `api/workflow_lifecycle/` + `cross/flowrun_observe_*` + `cross/diagnosis_*` |
 | Errcode sentinel | 8 个 | `AGENT_NOT_FOUND` / `AGENT_VERSION_NOT_FOUND` / `AGENT_NAME_DUPLICATE` / `CAPABILITY_CHECK_FAILED` / `TRIGGER_EXHAUSTED` / `FLOWRUN_NODE_NOT_FAILED`(replay 目标不是失败步,取代旧 `DEAD_LETTER_*`)/ `FLOWRUN_NOT_CANCELLABLE` / `INVALID_TRIGGER_NODE` |
-| SSE truth | 7 个新 notif type + **新 forge kind(数量见 B5)** | sse_truth.go 加 forge kind(至少 `agent`;document/skill 是否进 forge SSE = **B5 未决**,见下)+ notif `workflow_activated/deactivated` / `trigger_exhausted` / `handler_crash` / `step_failed`(取代旧 `dead_letter_created`)/ `flowrun_node_status_changed` |
+| SSE truth | 7 个新 notif type + **forge kind +1 = `agent`(→ quadrinity 4)** | sse_truth.go forge kind 加 `agent`(document/skill **不进** forge SSE —— 无锻造生命周期,走 eventlog / notifications)+ notif `workflow_activated/deactivated` / `trigger_exhausted` / `handler_crash` / `step_failed`(取代旧 `dead_letter_created`)/ `flowrun_node_status_changed` |
 | Cross seam | 6 个新 | `workflow:activate_register_listener` / `:deactivate_destroy_listener` / `:trigger_sync_acceptance` / `agent:skill_mount` / `:document_mount` / `scheduler:durable_replay_driven` |
 
 > seam `scheduler:durable_replay_driven`(原 `scheduler:message_queue_driven`)= 验证执行引擎按 **durable execution** 跑:节点作为 activity 记账进事件日志、崩溃后确定性重放命中已记账步骤不重跑、停在第一个未记账步骤续跑。对齐 [`00-overview.md`](./00-overview.md) 的"崩溃重放"段。
@@ -231,7 +230,7 @@ agent_uses_skill                 # agent skill 挂载
 | doc 11 段 | 现状 | 改 |
 |---|---|---|
 | Lazy 划分(C1)| 提议 7 组(workflow 膨胀到 22) | **domain-6**(按 forge 实体分 6 组,不细分 mutate/inspect)+ `catalog-query`(7 个 `search_*`)入 Resident(详 S1;Round-3 实测推翻了"细分到 11"的旧结论) |
-| Forge SSE(G1) | 只说 "加 agent kind" | kind 扩到 6(加 agent / document / skill)+ 各 kind 的 emit 点补漏 + ForgeOpApplied 真 emit + 试跑结果 emit |
+| Forge SSE(G1) | 只说 "加 agent kind" | kind 扩到 **4(quadrinity,只加 agent)**;document/skill 不进(无锻造生命周期);quadrinity 各 kind emit 点补漏 + ForgeOpApplied 真 emit + 试跑结果 emit |
 | 错诊工具放哪 | 待用户拍 | **已答**:并入 Lazy `workflow` 组(domain-6,不单拆 `workflow-debug`) |
 | Relations 改造 | **doc 11 完全没提** | 新加段落:7 种 kind(`workflow_uses_agent` + 6 `agent_uses_*`;chat 锻造/编辑走通用边 `conversation_*_entity` + `to_kind=agent`,不立专边)+ DB migration + AgentReader |
 | Catalog 改造 | doc 11 只提 source 加 reader | 补 `Kind` / `Active` 字段加进 Item + token cost 估算 |
