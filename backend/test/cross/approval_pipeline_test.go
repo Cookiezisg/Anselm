@@ -56,6 +56,26 @@ func TestApproval_PauseResumeComplete_E2E(t *testing.T) {
 		t.Fatalf("run never reached awaiting_signal (durable approval park)")
 	}
 
+	// The approvals projection (frontend inbox, 17 §9) must now list the parked gate node.
+	var inbox struct {
+		Data []struct {
+			NodeID string `json:"nodeId"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	if status := th.DoRequest(t, h, "GET", "/api/v1/approvals", nil, &inbox); status != 200 {
+		t.Fatalf("GET /approvals: %d", status)
+	}
+	foundGate := false
+	for _, a := range inbox.Data {
+		if a.NodeID == "gate" && a.Status == "parked" {
+			foundGate = true
+		}
+	}
+	if !foundGate {
+		t.Fatalf("approvals inbox must list the parked gate node, got %+v", inbox.Data)
+	}
+
 	var approveResp struct {
 		Data struct {
 			Resumed bool `json:"resumed"`

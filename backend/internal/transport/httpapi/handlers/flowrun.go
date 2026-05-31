@@ -43,8 +43,22 @@ func (h *FlowRunHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}/nodes", h.ListNodes)
 	mux.HandleFunc("DELETE /api/v1/flowruns/{id}", h.Cancel)
+	mux.HandleFunc("GET /api/v1/approvals", h.Inbox)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeId}", h.Approve)
 	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnFlowRun)
+}
+
+// Inbox lists the caller's currently-parked approvals — the frontend approval banner/inbox data
+// source (17 §9). The journal is the execution truth; these rows tell the UI which node is parked.
+//
+// Inbox 列出调用者所有 parked approval(前端审批 banner/inbox 数据源,17 §9)。
+func (h *FlowRunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.scheduler.ListParkedApprovals(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, rows)
 }
 
 // postOnFlowRun dispatches POST /api/v1/flowruns/{id}:<action> (:triage).

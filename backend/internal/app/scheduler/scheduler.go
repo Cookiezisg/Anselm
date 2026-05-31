@@ -86,6 +86,16 @@ func (s *Service) SetJournal(j flowrundomain.JournalRepository) { s.journal = j 
 // SetApprovals wires the approvals projection store (UI inbox + audit; 17 §9).
 func (s *Service) SetApprovals(a flowrundomain.ApprovalRepository) { s.approvals = a }
 
+// ListParkedApprovals returns the ctx user's currently-parked approvals (frontend inbox; 17 §9).
+//
+// ListParkedApprovals 返当前用户所有 parked approval(前端 inbox)。
+func (s *Service) ListParkedApprovals(ctx context.Context) ([]*flowrundomain.Approval, error) {
+	if s.approvals == nil {
+		return nil, nil
+	}
+	return s.approvals.ListParked(ctx)
+}
+
 // RouterRef returns the current router for test helpers and observability.
 //
 // RouterRef 返回当前 router，供测试与观测使用。
