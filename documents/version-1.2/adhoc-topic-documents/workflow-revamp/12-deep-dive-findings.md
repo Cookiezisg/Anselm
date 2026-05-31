@@ -66,29 +66,28 @@
 
 **好消息**:协议 `kind` 字段开放(实际验证只有 3 kind: function/handler/workflow)。扩 kind 集合就行,4 event 类型(started/op_applied/env_attempt/completed)不动。
 
-**Kind 集合扩到 6**(2026-05-29 拍):
+**Kind 集合扩到 4(quadrinity;2026-05-31 定 B5——原拍"6 含 document/skill"已否决,见下)**:
 
 | Kind | 现状 | 用意 |
 |---|---|---|
 | function | ✅ 已支持 | — |
 | handler | ✅ 已支持 | — |
 | workflow | ✅ 已支持 | — |
-| **agent** | ❌ 新 | Quadrinity 一致 |
-| **document** | ❌ 新 | 用户编辑文档 — UI 支撑"锻造历史 / sidebar 实时编辑反馈" |
-| **skill** | ❌ 新 | skill 编辑也算锻造 |
+| **agent** | ❌ 新 | Quadrinity 一致(有版本/pending/accept,无 env,同 workflow)|
 
-**emit 点漏了一大堆**:
+> **B5:document / skill 不进 forge SSE**(否决原"扩到 6")。理由就在下表——document/skill 的 accept_pending/revert 全是 `n/a(无版本)`:它们**没有版本/pending/accept/env 的锻造生命周期**,forge 事件(带 `versionId`/`envStatus`)对它们基本是空壳。它们的 create/edit 是 **chat 工具动作**,已在 **eventlog SSE** 以 tool_call/result 显示;实体变更走 **notifications SSE**。forge SSE 专给"有多步异步锻造过程(版本/环境/accept)"的 quadrinity。
 
-| 事件 | function | handler | workflow | document | skill |
-|---|---|---|---|---|---|
-| create | ✅ | ✅ | ✅ | ❌ | ❌ |
-| edit | ✅ | ✅ | ✅ | ❌ | ❌ |
-| accept_pending | ❌ | ❌ | ❌(都只 notifications) | n/a(无版本) | n/a |
-| revert | ❌ | ❌ | ✅ | n/a | n/a |
-| delete | ❌ | ❌ | ✅ | ❌ | ❌ |
-| move | n/a | n/a | n/a | ❌ | n/a |
-| 试跑结果 | ❌ | ❌ | ❌ | n/a | n/a |
-| `ForgeOpApplied` 逐 op 进度 | 协议声明**从未 emit** | 同 | 同 | 同 | 同 |
+**quadrinity 的 emit 点漏了一大堆**:
+
+| 事件 | function | handler | workflow | agent |
+|---|---|---|---|---|
+| create | ✅ | ✅ | ✅ | ❌ 新 |
+| edit | ✅ | ✅ | ✅ | ❌ 新 |
+| accept_pending | ❌ | ❌ | ❌(都只 notifications) | ❌ 新 |
+| revert | ❌ | ❌ | ✅ | ❌ 新 |
+| delete | ❌ | ❌ | ✅ | ❌ 新 |
+| 试跑结果 | ❌ | ❌ | ❌ | ❌ 新 |
+| `ForgeOpApplied` 逐 op 进度 | 协议声明**从未 emit** | 同 | 同 | 同 |
 
 **改动**:
 
