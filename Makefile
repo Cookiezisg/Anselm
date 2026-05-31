@@ -80,9 +80,12 @@ help:
 	@echo ""
 	@echo "  Matrix:   make matrix    regenerate README coverage matrix section"
 	@echo "            make audit     strict matrix check (used by verify)"
+	@echo "            make doc-matrix  doc freshness report (reviewed vs code change)"
+	@echo ""
+	@echo "  Docs:     make lint-docs  doc frontmatter + lifecycle lint"
 	@echo ""
 	@echo "  Ship:     make build     package macOS .app"
-	@echo "            make verify    pre-push gate (vet+build+lintprompts+audit+mock)"
+	@echo "            make verify    pre-push gate (vet+build+lintprompts+audit+mock+lint-docs)"
 	@echo ""
 	@echo "  QA:       make smoke     playwright frontend walk"
 	@echo ""
@@ -280,6 +283,24 @@ audit:
 	@cd backend && go run ./cmd/coverage-matrix --check || \
 		echo "ℹ matrix has uncovered targets (warn-only; strict gating deferred)."
 
+# lint-docs — validate documentation frontmatter, lifecycle rules, and freshness.
+# Checks: frontmatter presence + required fields, review-due dates (warn),
+# working/ doc age, ADR immutability, INDEX.md ≤ 50 lines.
+#
+# lint-docs —— 文档 frontmatter / 生命周期 lint；集成到 verify。
+lint-docs:
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/doc-lint/... --root=..
+
+# doc-matrix — print documentation freshness report.
+# Compares reviewed date in domain reference docs against last git commit
+# on the corresponding source code path.
+#
+# doc-matrix —— 文档新鲜度报告；对比 reviewed 日期 vs 代码最近提交日期。
+doc-matrix:
+	$(AUTO_DEVBOX)
+	@cd backend && go run ./cmd/doc-matrix/... --root=..
+
 # ──────────────────────────────────────────────────────────────────
 # Ship
 # ──────────────────────────────────────────────────────────────────
@@ -326,6 +347,8 @@ verify:
 	@cd backend && go run ./cmd/lintprompts
 	@echo "→ matrix audit (warn-only)..."
 	@cd backend && go run ./cmd/coverage-matrix --check 2>&1 || true
+	@echo "→ doc lint..."
+	@cd backend && go run ./cmd/doc-lint/... --root=..
 	@echo "→ pipeline mock (fake LLM, ~60s)..."
 	@cd backend && go test -count=1 -race -tags=pipeline -p 1 -timeout=10m ./test/...
 	@echo ""
