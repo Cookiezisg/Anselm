@@ -179,3 +179,13 @@ Next: **M4 — approval (durable journal signal) + durable timer**, and the boun
 **Scope move — durable timer → M5:** M4 was "approval + durable timer", but the timer's **expiry checker** (a background tick that scans parked `timer_armed` deadlines and journals `timer_fired`) is the same infra shape as M5's **trigger dispatcher** (background tick consuming the inbox) + catchup. Building both as one background-scheduler layer is cleaner than a half timer now. So: durable timer (node `at`/`after` gate arm + expiry checker fire + approval `timeout`) folds into M5. The interpreter's park/resume mechanism (approval) already generalizes to timer (both are "journal a wait, suspend, resume on a journaled event").
 
 Next: **M5 — durable trigger/dispatch layer + durable timer**: `trigger_firings` inbox + single-tx claim (ADR-021) + overlap + dedup + catchup + polling + boot rehydrate; durable-timer expiry checker (node gate + approval timeout). Then M6 (lifecycle drain + `:replay`/generation + failures) / M7 (agent domain + node) / M8 (observability + SSE + e2e gate).
+
+### 2026-06-01 — M5 started: trigger firings inbox store + adversarial impl-review round 1
+
+**Done (committed, pushed):** `infra/store/trigger` — the durable firings inbox (ADR-021).
+- `AppendFiring`: persist-before-act; `dedup_key` UNIQUE makes re-materialization idempotent (not-lost + not-duplicated, A-3) — a duplicate returns the existing firing.
+- `ClaimFiring`: single-transaction claim+create+backfill via a `create(tx)` callback — no claimed-but-no-flowrun strand; a 2nd claim loses with `ErrFiringNotPending` and create runs exactly once.
+- `ListPending`/`MarkOutcome`/`AutoMigrateModels`. 2 TDD tests green.
+- **Still to wire (M5 cont.):** dispatcher loop (consume pending → ClaimFiring with a tx-aware StartRun) + `onFire` rewrite (persist-then-dispatch, replacing the fire-and-forget StartRun) + overlap/concurrency policy + catchup (boot scan) + polling cursor + boot rehydrate; durable-timer node gate (`at`/`after`) + expiry checker.
+
+**Quality gate — adversarial implementation review (user directive "一轮一轮 review 直到无问题").** Ran an 8-charter adversarial review *workflow* over the ACTUAL engine code (not the design docs): replay-determinism / record-once-dedup / join-skip / approval-durable / trigger-claim / cel-safety / adr-conformance / concurrency-error-edges. Each finder Reads the real source + cites file:line; every finding is re-checked by a skeptic that independently re-reads the cited lines (refute-by-default). This is round 1 of the loop-until-dry; confirmed findings get root-fixed, then re-reviewed until a round surfaces nothing real. Results + fixes logged below as they land.
