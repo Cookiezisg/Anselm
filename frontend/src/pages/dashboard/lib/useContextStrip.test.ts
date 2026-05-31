@@ -45,8 +45,7 @@ describe("useContextStrip", () => {
 
   it("P1 waiting wins over P2/P3/P4", () => {
     mockFlowRuns([
-      // waiting_approval is a known extension beyond the closed FlowRunStatus enum.
-      { id: "fr_1", status: "waiting_approval" as FlowRun["status"], workflowId: "data-pipeline", startedAt: "2026-05-25T11:00:00Z" },
+      { id: "fr_1", status: "awaiting_signal", workflowId: "data-pipeline", startedAt: "2026-05-25T11:00:00Z" },
       { id: "fr_2", status: "failed", workflowId: "etl", startedAt: "2026-05-25T10:00:00Z" },
       { id: "fr_3", status: "running", workflowId: "build", startedAt: "2026-05-25T11:30:00Z" },
     ]);
