@@ -149,3 +149,21 @@ Unified the interpreter into an **agenda-driven executor** (`interpreter.go`): b
 **Flagged data-flow seam (for M4/M-data):** an activity's output currently **replaces** the downstream payload (`res.Outputs`), while a loop counter rides in the payload via case `emit`. A loop whose body contains an activity that must preserve the counter needs replace-vs-merge semantics pinned (join already merges via `mergeMaps`). The self-loop loop test sidesteps it (case-only counter). Pin this when agent/tool data flow lands.
 
 Next: **M4 — approval (durable journal signal) + durable timer**, and the bound 14→5 collapse.
+
+### 2026-05-31 — M4 progress: approval as a durable journal signal (interpreter)
+
+**Done (committed, pushed; TDD):** the interpreter handles `NodeTypeApproval` as a **durable wait**:
+- no `signal_received` for `(node,iter)` yet → journal **`signal_awaited`** once + return `parked=true`; `executeRun` sets `flowrun.status = awaiting_signal` (not terminal, no `finalizeRun`).
+- `signal_received` present (copy-hit) → route via the out-edge whose `FromPort == decision` (yes/no); other branches get a skip token (so a join past an approval is active-branch correct).
+- `Run`/`Resume` now return `(parked bool, error)`. **Crash-safe pause/resume by construction** — the decision is a journaled event, so a restart mid-wait replays to the parked point and a recorded decision routes deterministically.
+- **11 interpreter tests green** (+ `Approval_Parks`, `Approval_ResumeRoutesByDecision`).
+
+**Remaining M4 (next session — precise, zero-rediscovery):**
+1. **`ResumeApproval` service rewrite** (journal-based): replace the old `PausedState`/`continueRun` body in `pause.go:50-154` with — check `status==awaiting_signal`; find the parked approval's `iteration_key` via a new `approvalParkedIter` (latest `signal_awaited` for the node without a matching `signal_received`); map `approved→yes`/`rejected→no`; `journal.AppendEvent(signal_received, {decision: port, reason})`; flip `running`; `go executeRun(detached, run, graph)` (re-walks; the approval copy-hits the signal and routes). Keep `loadFrozenGraph`.
+2. **Delete `continueRun` (156-215) + `driveLoop` (217-230)** — unused after the rewrite (keep `pauseRun`/`runReadyLoop` — still live via `subdag`/`loop_parallel` until M5/M6). Resolve U1000.
+3. **Approvals store** (`infra/store/approval`): persist the `approvals` row (parked → approved/rejected/...) for the inbox/UI, written when the interpreter parks + updated by ResumeApproval. (The journal is the execution truth; this row is the UI projection.)
+4. **Re-enable** the 2 skipped `approval_pipeline_test.go` E2E tests (remove the `t.Skip`).
+5. **Durable timer** (`at`/`after` node gate + approval `timeout`): journal `timer_armed` (resolved deadline) → a single expiry checker journals `timer_fired`/`signal_received(source=timeout)`; replay reads the journaled deadline (no `now()`).
+6. Then the bound **14→5 dispatcher collapse**.
+
+**M5–M8** after: trigger inbox+dispatcher (ADR-021/022) / lifecycle drain + `:replay` (generation, ADR-019) + failures API / agent domain + agent-node sub-step replay / observability + forge SSE 6-kind + e2e gate.
