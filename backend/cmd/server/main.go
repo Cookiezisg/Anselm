@@ -21,35 +21,33 @@ import (
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
+	askaiapp "github.com/sunweilin/forgify/backend/internal/app/askai"
+	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
+	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
 	convapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	hooksapp "github.com/sunweilin/forgify/backend/internal/app/hooks"
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
-	askaiapp "github.com/sunweilin/forgify/backend/internal/app/askai"
 	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
+	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
-	userapp "github.com/sunweilin/forgify/backend/internal/app/user"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
-	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
-	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
-	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
-	hooksapp "github.com/sunweilin/forgify/backend/internal/app/hooks"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	permgateapp "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
+	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
 	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
 	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
-	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	memorytool "github.com/sunweilin/forgify/backend/internal/app/tool/memory"
+	permgateapp "github.com/sunweilin/forgify/backend/internal/app/tool/permissionsgate"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	skilltool "github.com/sunweilin/forgify/backend/internal/app/tool/skill"
@@ -58,59 +56,62 @@ import (
 	toolsettool "github.com/sunweilin/forgify/backend/internal/app/tool/toolset"
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
+	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	userapp "github.com/sunweilin/forgify/backend/internal/app/user"
+	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
-	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
 	userdomain "github.com/sunweilin/forgify/backend/internal/domain/user"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
 	eventloginfra "github.com/sunweilin/forgify/backend/internal/infra/eventlog"
 	forgeinfra "github.com/sunweilin/forgify/backend/internal/infra/forge"
-	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
-	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
-	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
-	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	userpathpkg "github.com/sunweilin/forgify/backend/internal/pkg/userpath"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
-	mcpinfra     "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	notificationsinfra "github.com/sunweilin/forgify/backend/internal/infra/notifications"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
+	settingsinfra "github.com/sunweilin/forgify/backend/internal/infra/settings"
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
 	chatstore "github.com/sunweilin/forgify/backend/internal/infra/store/chat"
 	convstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
 	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
+	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
+	flowruneventstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrunevent"
 	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
+	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
+	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
 	modelcapoverridestore "github.com/sunweilin/forgify/backend/internal/infra/store/modelcapoverride"
+	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
+	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
 	userstore "github.com/sunweilin/forgify/backend/internal/infra/store/user"
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
-	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
-	mcpcallstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcpcalls"
-	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
-	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
-	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
-	settingsinfra "github.com/sunweilin/forgify/backend/internal/infra/settings"
+	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
+	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	userpathpkg "github.com/sunweilin/forgify/backend/internal/pkg/userpath"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
 
@@ -519,6 +520,7 @@ func main() {
 	askaiSpawner := askaiapp.New(convService, chatService, log)
 
 	flowrunRepo := flowrunstore.New(gdb)
+	journalStore := flowruneventstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
 	mcpHealthRepo := mcphealthstore.New(gdb)
 	skillExecRepo := skillexecstore.New(gdb)
@@ -538,6 +540,7 @@ func main() {
 		notificationsPub,
 		log,
 	)
+	schedulerService.SetJournal(journalStore)
 	triggerService.SetScheduler(schedulerService)
 
 	router := schedulerapp.NewRouter()
@@ -719,22 +722,22 @@ func registerSandboxStack(svc *sandboxapp.Service, _ *zap.Logger) {
 // lazyGroups 是 lazy 工具 Name()→category 的封闭映射。
 var lazyGroups = map[string]string{
 	// function group
-	"create_function":           "function",
-	"edit_function":             "function",
-	"delete_function":           "function",
-	"revert_function":           "function",
-	"get_function":              "function",
-	"get_function_execution":    "function",
+	"create_function":            "function",
+	"edit_function":              "function",
+	"delete_function":            "function",
+	"revert_function":            "function",
+	"get_function":               "function",
+	"get_function_execution":     "function",
 	"search_function_executions": "function",
 	// handler group
-	"create_handler":       "handler",
-	"edit_handler":         "handler",
-	"delete_handler":       "handler",
-	"revert_handler":       "handler",
-	"get_handler":          "handler",
+	"create_handler":        "handler",
+	"edit_handler":          "handler",
+	"delete_handler":        "handler",
+	"revert_handler":        "handler",
+	"get_handler":           "handler",
 	"update_handler_config": "handler",
-	"get_handler_call":     "handler",
-	"search_handler_calls": "handler",
+	"get_handler_call":      "handler",
+	"search_handler_calls":  "handler",
 	// workflow group
 	"create_workflow":            "workflow",
 	"edit_workflow":              "workflow",
@@ -760,7 +763,7 @@ var lazyGroups = map[string]string{
 	"list_documents":   "document",
 	"search_documents": "document",
 	// skill group
-	"get_skill_execution":    "skill",
+	"get_skill_execution":     "skill",
 	"search_skill_executions": "skill",
 }
 
@@ -825,4 +828,3 @@ func buildToolset(all []toolapp.Tool) toolapp.Toolset {
 	}
 	return ts
 }
-

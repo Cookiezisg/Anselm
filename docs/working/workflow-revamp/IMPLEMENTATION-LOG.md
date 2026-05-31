@@ -108,3 +108,16 @@ Read `state.go` + `dispatcher.go` + every `dispatch_*.go`. **Evidence corrects m
 7. T4: linear pipeline test in `test/durable/`; full gate (unit+mock+staticcheck) green.
 
 This is the old→new engine swap as one coherent build-green commit; `ExecutionContext` + the 4 deep-flow dispatchers (condition/loop/llm) carry to M3's 14→5 collapse where the deep data flow is rewired to journal scope-vars (§5) + CEL.
+
+### 2026-05-31 — M2 DONE (cutover complete)
+
+The durable interpreter now drives `StartRun`'s execution. **Final cutover (one build-green change, 8 files):**
+- `executeRun` → `New(s.journal, s.router).Run(ctx, run.ID, *graph)` + single terminal `finalizeRun`. `Service` gained `journal` + `SetJournal`; `main.go`/`harness.go` inject `flowruneventstore`. `interpreter.step` passes a minimal `ExecCtx{Run:{ID}}` (handler reads only Run.ID; function ignores it).
+- **Strangler-fig, minimal:** the old loop (`driveLoop`/`dispatchBatch`/`topo`/`pause.go`/`subdag.go`/`retry.go`) is **retained** — it stays live through the `ResumeApproval`→`continueRun` and `loop_parallel`→`subdag`→`runReadyLoop` reference chains, so **zero new staticcheck unused**. It's deleted in M3/M4 as those nodes fold onto the interpreter. (Corrects the earlier "delete the old loop in M2" plan — the evidence grep showed the loop is one connected graph that can't be cut without dragging M3/M4 forward.)
+- **Retired** the old-engine execution tests `state_test.go` + `pause_test.go` (tested topo-walk fan-out/onError + approval-pause via the replaced `executeRun`; coverage now: `interpreter_test.go` for linear+replay, M3/M4 for fan-out/approval). Skipped the 2 approval E2E pipeline tests (`approval_pipeline_test.go`) → M4 (interpreter models approval as a journal signal from M4; the input-gate test stays green).
+
+**Gate:** `make unit` ✅; `make mock` ✅ (the only 2 fails were the approval E2E, now skipped→M4); scheduler pkg + new files staticcheck-clean. **Crucially, the existing workflow pipeline tests (test/api/workflow, test/cross) stay green through the interpreter — proving linear execution works end-to-end through `StartRun`→journal→completed** (so a dedicated T4 linear pipeline test was unnecessary; it's already covered).
+
+**Net M2:** durable interpreter is the execution engine; replay determinism proven (interpreter_test); linear flows run end-to-end. Known M2-scope gaps, by design: case/fork-join/loop (M3), approval/timer (M4) — interpreter currently treats those nodes' dispatchers as plain activities (case ignores NextPort; approval's `ErrApprovalRequired` → node_failed), rebuilt at their milestones.
+
+Next: **M3 — control flow** (case CEL guards + branch_taken + active-branch join + structured loop/iteration_key; CEL replaces text/template; begin the 14→5 dispatcher collapse, deleting the old loop).

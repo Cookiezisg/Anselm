@@ -77,7 +77,18 @@ func (in *Interpreter) step(ctx context.Context, flowrunID string, g workflowdom
 		return nil, nil, fmt.Errorf("scheduler.step %s started: %w", node.ID, err)
 	}
 
-	res := in.dispatch.Dispatch(ctx, DispatchInput{Node: node, NodeIn: payload})
+	// Minimal ExecutionContext satisfies the Dispatcher contract: the M2 linear path
+	// (function ignores ExecCtx; handler reads only Run.ID). The deep flow (condition/loop/
+	// llm read Outputs/Variables) is wired to journal scope-vars (§5) in M3's node collapse.
+	res := in.dispatch.Dispatch(ctx, DispatchInput{
+		Node:   node,
+		NodeIn: payload,
+		ExecCtx: &ExecutionContext{
+			Run:       &flowrundomain.FlowRun{ID: flowrunID},
+			Variables: map[string]any{},
+			Outputs:   map[string]map[string]any{},
+		},
+	})
 	if res.Error != nil {
 		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID,

@@ -113,18 +113,23 @@ func (t *topoState) advance(done string, nextPort string) []string {
 	return ready
 }
 
-// executeRun is the real Service.ExecuteFn; delegates the main loop to driveLoop.
+// executeRun is Service.ExecuteFn: drive the durable interpreter over the pinned graph, then
+// write the single terminal status (ADR-016, M2). The old topo-walk (buildTopo/driveLoop) is
+// retained for the approval-resume path (continueRun) + loop body (subdag) until M3/M4 collapse
+// those nodes onto the interpreter; StartRun's execution now goes through the journal.
 //
-// executeRun 是 Service.ExecuteFn 的真实实现，主循环委派 driveLoop。
+// executeRun 是 Service.ExecuteFn:在 pinned 图上跑 durable interpreter,写一次终态。
+// 旧 topo-walk 暂留给 approval-resume(continueRun)+ loop body(subdag),M3/M4 折叠后删。
 func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, graph *workflowdomain.Graph) {
 	if graph == nil || len(graph.Nodes) == 0 {
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-	execCtx := newExecutionContext(run, graph)
-	topo := buildTopo(graph)
-	ready := topo.initialReady()
-	s.driveLoop(ctx, run, graph, execCtx, topo, ready)
+	if err := New(s.journal, s.router).Run(ctx, run.ID, *graph); err != nil {
+		s.finalizeRun(ctx, run, flowrundomain.StatusFailed, nil, "NODE_FAILED", err.Error())
+		return
+	}
+	s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, nil, "", "")
 }
 
 type dispatchResult struct {

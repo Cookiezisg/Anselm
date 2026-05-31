@@ -33,6 +33,7 @@ type WorkflowReader interface {
 // Service 编排 FlowRun 执行；StartRun 是唯一入口。
 type Service struct {
 	repo         flowrundomain.Repository
+	journal      flowrundomain.JournalRepository
 	workflowRead WorkflowReader
 	notif        notificationspkg.Publisher
 	router       *Router
@@ -75,6 +76,11 @@ func NewService(
 //
 // SetRouter 装配 dispatcher 后替换 Router。
 func (s *Service) SetRouter(r *Router) { s.router = r }
+
+// SetJournal injects the durable journal store (ADR-016); executeRun drives the interpreter on it.
+//
+// SetJournal 注入 durable journal store;executeRun 在其上跑 interpreter。
+func (s *Service) SetJournal(j flowrundomain.JournalRepository) { s.journal = j }
 
 // RouterRef returns the current router for test helpers and observability.
 //
