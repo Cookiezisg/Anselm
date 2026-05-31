@@ -45,15 +45,15 @@ i18n：      react-i18next（结构化 key + locales/{zh,en}/<ns>.json，setting
 
 **不引入：** Tailwind、Redux、React Router（无 URL 路由需要）
 
-> **架构权威**：FSD 层契约见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md)；
-> DIP / SSE / errorMap 见 [`frontend-contract-documents/cross-cutting.md`](./frontend-contract-documents/cross-cutting.md)。
+> **架构权威**：FSD 层契约见 [`references/frontend/fsd-layers.md`](./references/frontend/fsd-layers.md)；
+> DIP / SSE / errorMap 见 [`references/frontend/cross-cutting.md`](./references/frontend/cross-cutting.md)。
 > 本 PRD 保留产品需求 / UI 细节 / Phase 进度，架构细节以 contract 文档为准。
 
 ---
 
 ## §2 目录结构
 
-**完整 FSD 6 层**。层定义 + 依赖规则 + slice 清单的权威见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md)。
+**完整 FSD 6 层**。层定义 + 依赖规则 + slice 清单的权威见 [`references/frontend/fsd-layers.md`](./references/frontend/fsd-layers.md)。
 
 ```
 frontend/src/
@@ -234,7 +234,7 @@ bootstrap()
 
 ## §5 状态架构
 
-> 状态分层权威见 [`frontend-contract-documents/fsd-layers.md`](./frontend-contract-documents/fsd-layers.md) §横切归属表。本节保留 store 的字段规格。
+> 状态分层权威见 [`references/frontend/fsd-layers.md`](./references/frontend/fsd-layers.md) §横切归属表。本节保留 store 的字段规格。
 
 ### 5.1 Zustand — `app/model/paneStore.ts`（原 `store/ui.js`）
 
@@ -797,7 +797,7 @@ BlockList({ blocks, depth=0, defaultOpenTools=false })
 - 有文字：可点击（accent 色）
 - streaming：stop 按钮（方块图标）
 
-**mentionPool：** 调 `useFunctions()` / `useHandlers()` / `useWorkflows()` + `useDocuments()`（**去 skill** —— skill 有 activate_skill 自驱），过滤后提供 @mention 候选；每项带 `{type,id}`，发送 `body.mentions=[{type,id}]`（后端按 type 解析实体内容快照进消息，详见 service-design-documents/mention.md）。
+**mentionPool：** 调 `useFunctions()` / `useHandlers()` / `useWorkflows()` + `useDocuments()`（**去 skill** —— skill 有 activate_skill 自驱），过滤后提供 @mention 候选；每项带 `{type,id}`，发送 `body.mentions=[{type,id}]`（后端按 type 解析实体内容快照进消息，详见 references/backend/domains/mention.md）。
 
 **改进vs boilerplate：**
 1. 文件 attach 用真实的 `input[type=file]`（boilerplate 只是模拟）
@@ -1451,7 +1451,7 @@ ToastTray（position: fixed bottom right）
 
 ## §17 API Endpoint 映射（前端视角）
 
-> **TS 类型权威**：每个 endpoint 的请求/响应 TS 接口见 [`frontend-contract-documents/entity-types.md`](./frontend-contract-documents/entity-types.md)。本节只列 endpoint 路径 ↔ hook 名映射。
+> **TS 类型权威**：每个 endpoint 的请求/响应 TS 接口见 [`references/frontend/entity-types.md`](./references/frontend/entity-types.md)。本节只列 endpoint 路径 ↔ hook 名映射。
 
 前端实际使用的 API endpoints（Phase 0-4 已实现的）：
 

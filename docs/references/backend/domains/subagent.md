@@ -16,8 +16,8 @@ audience: [human, ai]
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../event-log-protocol.md`](../event-log-protocol.md) — 事件日志协议事实源（subagent 走与 chat 同一协议；嵌套消息靠 `parentBlockId` 串）
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无独立 subagent 表；sub-run 是 `messages` 行（attrs.kind=subagent_run），sub blocks 是 `message_blocks`
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — subagent sentinel
+- [`../references/backend/database.md`](../references/backend/database.md) — 无独立 subagent 表；sub-run 是 `messages` 行（attrs.kind=subagent_run），sub blocks 是 `message_blocks`
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — subagent sentinel
 - [`./chat.md`](./chat.md) — chat domain 详设计；subagent 共享 `app/loop` 引擎与同一 Repository
 - [`./skill.md`](./skill.md) —（未来）`context: fork` 复用本服务
 
@@ -548,7 +548,7 @@ s.log.Info("subagent run terminated",
 
 ## 10. SSE 事件（事件日志协议）
 
-**subagent 不发自己的 SSE 事件类型**——与 chat 共用同一份事件日志协议（5 events × 6 block types）。详见 [`../event-log-protocol.md`](../event-log-protocol.md) 与 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)。
+**subagent 不发自己的 SSE 事件类型**——与 chat 共用同一份事件日志协议（5 events × 6 block types）。详见 [`../event-log-protocol.md`](../event-log-protocol.md) 与 [`../references/backend/events.md`](../references/backend/events.md)。
 
 ### 10.1 Sub-run 在父对话事件树的位置
 
@@ -619,7 +619,7 @@ em.StopMessage(saveCtx, h.subMsgID, h.mapEventLogStatus(status),
 
 Type 列表（Explore / Plan / general-purpose）通过 `Subagent` 工具自身的 `Description()` 暴露给 LLM，**不**单独 HTTP endpoint。
 
-API contract → [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md)（subagent 行）。
+API contract → [`../references/backend/api.md`](../references/backend/api.md)（subagent 行）。
 
 ---
 

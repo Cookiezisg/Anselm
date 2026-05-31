@@ -3,13 +3,13 @@
 **Date**: 2026-05-29
 **Owner**: 单人(用户 + Claude Code agent)
 **Status**: Approved (待用户最终确认)
-**Related**: `documents/version-1.2/adhoc-topic-documents/workflow-revamp/` doc 10-12
+**Related**: `documents/version-1.2/working/workflow-revamp/` doc 10-12
 
 ---
 
 ## 1. Goal
 
-验证 [workflow-revamp doc 12](../../version-1.2/adhoc-topic-documents/workflow-revamp/12-deep-dive-findings.md) 拍的 4 个 LLM-facing 设计决策,在 Forgify 上的实际 token cost vs 任务成功率表现:
+验证 [workflow-revamp doc 12](../../version-1.2/working/workflow-revamp/12-deep-dive-findings.md) 拍的 4 个 LLM-facing 设计决策,在 Forgify 上的实际 token cost vs 任务成功率表现:
 
 1. **Lazy 分组**:11 组(doc 12 提议) vs 6 组 vs 18 组
 2. **Tool description 风格**:terse vs verbose vs antipattern vs few-shot

@@ -16,8 +16,8 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
-- 后端 [`../service-design-documents/user.md`](../service-design-documents/user.md)
-- 后端 [`../service-design-documents/apikey.md`](../service-design-documents/apikey.md)
+- 后端 [`../references/backend/domains/user.md`](../references/backend/domains/user.md)
+- 后端 [`../references/backend/domains/apikey.md`](../references/backend/domains/apikey.md)
 - 实体层 [`user.md`](user.md) / [`apikey.md`](apikey.md) / [`model-config.md`](model-config.md) / [`session.md`](session.md) / [`settings.md`](settings.md)
 
 ---

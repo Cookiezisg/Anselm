@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：✅ 实现完成（2026-05-04；2026-05-05 改名 Task → Todo）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `todos` 表行
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — todo ×3 + ask ×3
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `todo` entity-state 事件
+- [`../references/backend/database.md`](../references/backend/database.md) — `todos` 表行
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — todo ×3 + ask ×3
+- [`../references/backend/events.md`](../references/backend/events.md) — `todo` entity-state 事件
 
 ---
 

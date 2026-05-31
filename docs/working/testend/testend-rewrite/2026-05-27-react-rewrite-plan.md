@@ -1,3 +1,14 @@
+---
+id: WRK-003-03
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-27
+review-due: never
+audience: [human, ai]
+landed-into: docs/references/
+---
 # Testend V3 React Rewrite Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -690,8 +701,8 @@ grep -rn "integration-dir\|integrationDir" documents/version-1.2/ 2>/dev/null
 ```
 
 Edit any matching `.md` files to use the new name. Likely candidates:
-- `documents/version-1.2/adhoc-topic-documents/testend/testend-design.md` (V2 doc — but we're rewriting that in P4 anyway, leave for then)
-- `documents/version-1.2/service-contract-documents/api-design.md`
+- `documents/version-1.2/working/testend/testend-design.md` (V2 doc — but we're rewriting that in P4 anyway, leave for then)
+- `documents/version-1.2/references/backend/api.md`
 - `documents/version-1.2/desktop-packaging-notes.md` (if mentioned)
 
 Update only the references; do not rewrite the docs in this task (P4 owns testend-design.md rewrite).
@@ -4288,7 +4299,7 @@ Each config view is a CRUD-flavored panel. Common pattern:
 **Endpoints:** `GET /api/v1/permissions` (rules) + `GET /api/v1/permissions/hooks` (hooks table)
 **JSX:** two sections — Rules (mode allow/ask/deny, pattern, scope) + Hooks (event → command → match). Editable inline.
 
-(Verify exact endpoints by reading current backend `/permissions*` handlers + service-design-documents/permissions.md before implementation.)
+(Verify exact endpoints by reading current backend `/permissions*` handlers + references/backend/domains/permissions.md before implementation.)
 
 - [ ] ~140 lines. Wire, smoke, commit: `feat(testend/config): Permissions (rules + hooks, post-§3 final-sweep)`
 
@@ -4642,7 +4653,7 @@ make stop
 ### Task 4.4: Rewrite `testend-design.md` to V3
 
 **Files:**
-- Modify (rewrite): `documents/version-1.2/adhoc-topic-documents/testend/testend-design.md`
+- Modify (rewrite): `documents/version-1.2/working/testend/testend-design.md`
 
 **Context:** The V2 design doc is mostly accurate in shape but lists Vue/Pinia and outdated view counts. Rewrite as V3 — React/TanStack/Zustand/Vite, shared types via vite alias, 44 views, backend cleanup record.
 
@@ -4663,7 +4674,7 @@ The new doc should:
 - [ ] **Step 2: Commit**
 
 ```bash
-git add documents/version-1.2/adhoc-topic-documents/testend/testend-design.md
+git add documents/version-1.2/working/testend/testend-design.md
 git commit -m "doc(testend): rewrite testend-design.md to V3 (React + shared types + Recorder)
 
 V2 + V1 sections preserved as historical archive. V3 section
@@ -4679,12 +4690,12 @@ git push origin testend-v3-react
 ### Task 4.5: Update `api-design.md` — delete dev endpoint sections
 
 **Files:**
-- Modify: `documents/version-1.2/service-contract-documents/api-design.md`
+- Modify: `documents/version-1.2/references/backend/api.md`
 
 - [ ] **Step 1: Locate `/dev/*` sections**
 
 ```bash
-grep -n "dev/collections\|dev/tools\|dev/invoke" documents/version-1.2/service-contract-documents/api-design.md
+grep -n "dev/collections\|dev/tools\|dev/invoke" documents/version-1.2/references/backend/api.md
 ```
 
 - [ ] **Step 2: Delete sections for `/dev/collections`, `/dev/tools`, `/dev/invoke`**
@@ -4694,7 +4705,7 @@ Edit out the rows / paragraphs for those three endpoints. Add a note to `/dev/ro
 - [ ] **Step 3: Update `--integration-dir` → `--testend-dir` if mentioned**
 
 ```bash
-grep -n "integration-dir" documents/version-1.2/service-contract-documents/api-design.md
+grep -n "integration-dir" documents/version-1.2/references/backend/api.md
 ```
 
 Rename any occurrence.
@@ -4702,7 +4713,7 @@ Rename any occurrence.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add documents/version-1.2/service-contract-documents/api-design.md
+git add documents/version-1.2/references/backend/api.md
 git commit -m "doc(api): delete /dev/{collections,tools,invoke} + note /dev/routes reflection
 
 Aligns api-design.md with P0 backend cleanup. --integration-dir
@@ -4712,17 +4723,17 @@ git push origin testend-v3-react
 
 ---
 
-### Task 4.6: Append `progress-record.md` dev log
+### Task 4.6: Append `references/changelog.md` dev log
 
 **Files:**
-- Modify: `documents/version-1.2/progress-record.md`
+- Modify: `documents/version-1.2/references/changelog.md`
 
 **Context:** Append one dev log entry per §S19 (1-2 sentences, ~30-100 chars). Place under a new (or existing) 2026-05-27 group section.
 
-- [ ] **Step 1: Read current progress-record.md tail to find the right insertion point**
+- [ ] **Step 1: Read current references/changelog.md tail to find the right insertion point**
 
 ```bash
-tail -80 documents/version-1.2/progress-record.md
+tail -80 documents/version-1.2/references/changelog.md
 ```
 
 - [ ] **Step 2: Insert dev log entry**
@@ -4736,7 +4747,7 @@ After the existing 2026-05-27 entries, add:
 - [ ] **Step 3: Update快照 section if needed**
 
 ```bash
-grep -n "前端 revamp\|当前重心" documents/version-1.2/progress-record.md | head -5
+grep -n "前端 revamp\|当前重心" documents/version-1.2/references/changelog.md | head -5
 ```
 
 If the 快照 table mentions testend in any "当前状态" row, update accordingly. The "当前重心" might shift from "前端功能交付" to "testend 已重做 V3 + 前端继续".
@@ -4744,7 +4755,7 @@ If the 快照 table mentions testend in any "当前状态" row, update according
 - [ ] **Step 4: Commit**
 
 ```bash
-git add documents/version-1.2/progress-record.md
+git add documents/version-1.2/references/changelog.md
 git commit -m "doc(progress): testend V3 + backend dev cleanup dev log"
 git push origin testend-v3-react
 ```
@@ -4754,7 +4765,7 @@ git push origin testend-v3-react
 ### Task 4.7: Append `testend-rewrite-backend-issues.md` V3 section
 
 **Files:**
-- Modify: `documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md`
+- Modify: `documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md`
 
 - [ ] **Step 1: Append V3 section after the V2 收尾总结**
 
@@ -4801,7 +4812,7 @@ P0 backend cleanup(8 commits) + P1 scaffold(7 commits) + P2 infrastructure(15 co
 - [ ] **Step 2: Commit**
 
 ```bash
-git add documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md
+git add documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md
 git commit -m "doc(testend): append V3 issue log (issues #5 #6 #7 + #4 status + V3 总结)"
 git push origin testend-v3-react
 ```
@@ -4834,8 +4845,8 @@ testend 是 Forgify 的**开发调试控制台**,React 19 + TanStack Query v5 + 
 
 | 用途 | 路径 |
 |---|---|
-| 设计文档 | [`../documents/version-1.2/adhoc-topic-documents/testend/testend-design.md`](../documents/version-1.2/adhoc-topic-documents/testend/testend-design.md) |
-| issue log | [`../documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md`](../documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md) |
+| 设计文档 | [`../documents/version-1.2/working/testend/testend-design.md`](../documents/version-1.2/working/testend/testend-design.md) |
+| issue log | [`../documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md`](../documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md) |
 | V3 rewrite plan/spec | 同目录下 `2026-05-27-react-rewrite-{design,plan}.md` |
 
 ---
@@ -4867,11 +4878,11 @@ testend 是 Forgify 的**开发调试控制台**,React 19 + TanStack Query v5 + 
 
 | testend 代码变动 | 必改文档 |
 |---|---|
-| 新 view / 删 view | testend-design.md view inventory + progress-record.md dev log |
-| 引入新 dev 后端 endpoint 消费 | api-design.md + testend-design.md + progress-record.md |
+| 新 view / 删 view | testend-design.md view inventory + references/changelog.md dev log |
+| 引入新 dev 后端 endpoint 消费 | api-design.md + testend-design.md + references/changelog.md |
 | 改共享 import 模式(alias / type 路径) | testend/CLAUDE.md(本文件)+ frontend/CLAUDE.md(若动到 frontend) |
-| 后端 dev/* 端点删除/新增 | api-design.md + testend-design.md + progress-record.md |
-| 发现并修了 testend 影响产品核心思想的 bug | progress-record.md + testend-rewrite-backend-issues.md V3 段 |
+| 后端 dev/* 端点删除/新增 | api-design.md + testend-design.md + references/changelog.md |
+| 发现并修了 testend 影响产品核心思想的 bug | references/changelog.md + testend-rewrite-backend-issues.md V3 段 |
 
 发现文档与代码不符 → 立刻停下修文档,记 `[doc-fix]` dev log。
 
@@ -4928,7 +4939,7 @@ Locate the doc-map table near the top of CLAUDE.md. Add row:
 
 ```markdown
 | testend 子项目工程纪律 | `testend/CLAUDE.md` |
-| testend V3 设计 | `documents/version-1.2/adhoc-topic-documents/testend/testend-design.md` |
+| testend V3 设计 | `documents/version-1.2/working/testend/testend-design.md` |
 ```
 
 - [ ] **Step 3: Update "前端开发守则" section if testend is referenced**
@@ -4987,7 +4998,7 @@ git worktree remove ../Forgify-testend
 git checkout testend-v3-react
 git fetch origin
 git rebase origin/main
-# Resolve any conflicts (likely in shared files: Makefile / CLAUDE.md / progress-record.md)
+# Resolve any conflicts (likely in shared files: Makefile / CLAUDE.md / references/changelog.md)
 git push origin testend-v3-react --force-with-lease
 # Then proceed with FF-merge as (A)
 ```
@@ -5021,7 +5032,7 @@ Plan complete. testend V3 in main. e2e session can FF-merge whenever ready (or a
 - **Total commits**: ~81 across 5 phases on branch `testend-v3-react`
 - **Plan duration**: 5-6.5 days estimated; tracks actuals via commits + progress-record dev log
 - **Forbidden zones honored**: `backend/test/**` + `backend/cmd/coverage-matrix/` untouched throughout
-- **Shared files touched**: `Makefile` (1 line in testend target), `CLAUDE.md` (doc-map row), `progress-record.md` (1 dev log entry), `service-contract-documents/api-design.md` (3 endpoint sections deleted) — all via own branch, integrated at FF-merge
+- **Shared files touched**: `Makefile` (1 line in testend target), `CLAUDE.md` (doc-map row), `references/changelog.md` (1 dev log entry), `references/backend/api.md` (3 endpoint sections deleted) — all via own branch, integrated at FF-merge
 - **Backend net delta**: +1 new file (recorder.go), -1 deleted (dev_routes.go), ~6 files edited, 3 handlers + 2 fields + 1 flag deleted, 1 flag renamed
 - **Frontend net delta**: +1 new file (errorCodes.ts), 1 file edited (errorMap.ts refactor)
 - **testend net delta**: complete rewrite — 1 deleted Vue scaffold, ~70 new React files (`src/{api,stores,hooks,layout,ui,views}/`)

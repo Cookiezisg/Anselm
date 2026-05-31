@@ -12,13 +12,13 @@ audience: [human, ai]
 
 **Phase**：V1.2 §1 final-sweep（与 memory 同批落地）
 
-> **🔧 限制优化（2026-05-31，limits-optimization）**：nil `CapabilityResolver` 时一次性 WARN（防大模型被按 32K 兜底窗口过早压缩——文档自标的"严重 bug"）；上下文边界改由 token 预算 + compaction 投影主导，`chat.buildHistory` 对 archived 消息（含 user）统一跳过。详 [`../adhoc-topic-documents/limits-optimization/`](../adhoc-topic-documents/limits-optimization/)。
+> **🔧 限制优化（2026-05-31，limits-optimization）**：nil `CapabilityResolver` 时一次性 WARN（防大模型被按 32K 兜底窗口过早压缩——文档自标的"严重 bug"）；上下文边界改由 token 预算 + compaction 投影主导，`chat.buildHistory` 对 archived 消息（含 user）统一跳过。详 [`../archive/limits-optimization-2026-05/`](../archive/limits-optimization-2026-05/)。
 **状态**：✅ 部分实现（2026-05-30：ContextManager 骨架 + 窗口感知压缩 + chat goroutine 竞态修复；fullCompact LLM 调用 + 块降级 + SSE 推流为设计期，待后续完整实现）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../event-log-protocol.md`](../event-log-protocol.md) — **本设计加 1 种 block type（`compaction`，第 7 种）+ 给 block.Content 改写加豁免条款** ⚠️
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — conversations 加 2 列，message_blocks 加 1 列
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — compaction ×1 sentinel
+- [`../references/backend/database.md`](../references/backend/database.md) — conversations 加 2 列，message_blocks 加 1 列
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — compaction ×1 sentinel
 - [`./memory.md`](./memory.md) — Memory 作为"逃生通道"
 - [`./chat.md`](./chat.md) — `runner.buildSystemPrompt` + `loop/history.BlocksToAssistantLLM` 双改造点
 
@@ -521,7 +521,7 @@ contextMgr = contextmgr.New(..., capRes)
 原有 `internal/pkg/modelmeta/` 包（硬编码 ModelMeta 注册表）**已在 2026-05-30 删除**。唯一消费方 `contextmgr/estimate.go` 已迁移到注入的 `CapabilityResolver`（详上节）。
 
 新的能力目录在 `internal/pkg/modelcaps/`，按 family 规则 + per-model 精确覆盖，详见：
-[`documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`](../adhoc-topic-documents/llm-providers/04-capability-catalog.md)
+[`documents/version-1.2/working/llm-providers/04-capability-catalog.md`](../working/llm-providers/04-capability-catalog.md)
 
 ### 7.3 校准
 

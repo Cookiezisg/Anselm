@@ -542,4 +542,4 @@ glob 匹配
 
 ## 18. 历史
 
-- 2026-05-16 设计完成。**等用户过审**。基于 Claude Code hooks/permissions 实测调研（2026-05 内部 spike）+ Forgify 单用户本地优化（hot reload、单层 settings、3 时机精简）。完整调研附 `adhoc-topic-documents/permissions-research-2026-05-16.md`（待写）。
+- 2026-05-16 设计完成。**等用户过审**。基于 Claude Code hooks/permissions 实测调研（2026-05 内部 spike）+ Forgify 单用户本地优化（hot reload、单层 settings、3 时机精简）。完整调研附 `archive/permissions-research-2026-05-16.md`（待写）。

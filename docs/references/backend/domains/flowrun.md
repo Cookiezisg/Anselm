@@ -15,9 +15,9 @@ audience: [human, ai]
 **Code 位置**:`backend/internal/{domain,infra/store}/flowrun/` + `backend/internal/transport/httpapi/handlers/flowrun.go`
 
 **联动文档**:
-- 完整 spec:[`adhoc-topic-documents/forge_redesign/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md) §5
-- D22 execution log schema 模板:[`08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md) §2 + §4.5
-- 实施计划:[`plans/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/plans/05-execution-plane.md)
+- 完整 spec:[`archive/forge-redesign-2026-05/05-execution-plane.md`](../archive/forge-redesign-2026-05/05-execution-plane.md) §5
+- D22 execution log schema 模板:[`08-executions.md`](../archive/forge-redesign-2026-05/08-executions.md) §2 + §4.5
+- 实施计划:[`plans/05-execution-plane.md`](../archive/forge-redesign-2026-05/plans/05-execution-plane.md)
 - Trigger / Scheduler 兄弟域:[`trigger.md`](trigger.md) / [`scheduler.md`](scheduler.md)
 
 ---
@@ -129,7 +129,7 @@ spawner 为 nil 时返 503 `FEATURE_UNAVAILABLE`。用于 failed/paused run 的 
 
 ## 7. 错误码 (6 sentinels)
 
-详 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md):
+详 [`../references/backend/error-codes.md`](../references/backend/error-codes.md):
 - `FLOWRUN_NOT_FOUND` (404)
 - `FLOWRUN_NOT_CANCELLABLE` (422) — Cancel/ResumeApproval 时已无 cancel 句柄
 - `FLOWRUN_NOT_PAUSED` (422) — ResumeApproval 时 status != paused

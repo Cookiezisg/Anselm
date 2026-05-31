@@ -11,7 +11,7 @@ audience: [human, ai]
 # Frontend 架构设计 — TypeScript + Feature-Sliced Design
 
 **创建于**：2026-05-27
-**当前进度 / 开发日志**：[`progress-record.md`](./progress-record.md)
+**当前进度 / 开发日志**：[`references/changelog.md`](./references/changelog.md)
 
 **本文档定位**：**前端愿景 + FSD 架构 + Revamp Phase 路线**。**所有代码规范、工程纪律、设计原则、i18n、lint 纪律、boilerplate 守则全部在项目根 [`CLAUDE.md`](../../CLAUDE.md)**——本文档只放"前端长什么样、架构为什么这么设计、怎么走"，不重复规则。
 
@@ -206,7 +206,7 @@ frontend/src/
 
 ## Revamp Phase 路线
 
-**当前状态 / 任务细化** → [`progress-record.md`](./progress-record.md)
+**当前状态 / 任务细化** → [`references/changelog.md`](./references/changelog.md)
 
 | Phase | 主题 | 核心交付 | 状态 |
 |---|---|---|---|
@@ -260,14 +260,14 @@ vitest 是行为不变的安全网；`tsc` 是契约破裂的早期警报；stei
 |---|---|---|
 | [`../../CLAUDE.md`](../../CLAUDE.md) | 前端代码规范 / 工程纪律 / boilerplate 守则 / i18n / F1 文档同步 — 单一事实源 | 规则演化时改 |
 | [`frontend-prd.md`](./frontend-prd.md) | 产品需求：UI/交互/SSE 数据流/API endpoint 映射 | 产品/UX 变更时改 |
-| [`frontend-contract-documents/`](./frontend-contract-documents/)（待建）| 前端契约索引：entity 类型总览 / SSE payload 总览 / queryKeys 映射 | 每个实体/SSE 变更时更新 |
-| [`frontend-design-documents/`](./frontend-design-documents/)（待建）| 每个复杂 slice 的详设计（对位后端 service-design-documents/）| 复杂 feature/entity 开工前写 |
-| [`progress-record.md`](./progress-record.md) | 开发日志 + 当前快照 + 任务清单（前后端统一） | 实时更新 |
+| [`../references/frontend/`](../references/frontend/) | 前端契约索引：fsd-layers / entity-types / cross-cutting / slices | 每个实体/SSE 变更时更新 |
+| [`../references/frontend/slices/`](../references/frontend/slices/) | 每个复杂 slice 的详设计（对位后端 references/backend/domains/）| 复杂 feature/entity 开工前写 |
+| [`../references/changelog.md`](../references/changelog.md) | 开发日志 + 当前快照 + 任务清单（前后端统一） | 实时更新 |
 
 **工作流**：
-1. **开工前** → 填 `frontend-design-documents/<slice>.md` 详设计（含数据流推演 + 实现清单）
-2. **实现中** → 同步更新 `frontend-contract-documents/` 里该 slice 的契约段
-3. **完成后** → 在 `progress-record.md` 加 dev log + 勾任务清单
+1. **开工前** → 填 `docs/references/frontend/slices/<slice>.md` 详设计（含数据流推演 + 实现清单）
+2. **实现中** → 同步更新 `docs/references/frontend/` 里该 slice 的契约段
+3. **完成后** → 在 `docs/references/changelog.md` 加 dev log + 勾任务清单
 
 ---
 

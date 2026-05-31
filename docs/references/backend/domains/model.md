@@ -22,9 +22,9 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../backend-design.md`](../backend-design.md) — 总规范（设计原则 #5 端到端推演先行 + #6 反校验剧场）
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — API 索引
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 表索引
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — 错误码索引
+- [`../references/backend/api.md`](../references/backend/api.md) — API 索引
+- [`../references/backend/database.md`](../references/backend/database.md) — 表索引
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — 错误码索引
 
 ---
 
@@ -907,7 +907,7 @@ model domain 不涉及明文凭证，安全面比 apikey 小。唯一关注：
 - [x] `cmd/server/main.go` — `modelstore.New(gdb)` → `modelapp.NewService(...)` → `modelService.SetKeyProvider(apikeyService)` → `apikeyService.SetModelConfigRefScanner(modelStore)` → `router.Deps`
 
 ### capability 层 ✅（2026-05-30）
-- [x] `internal/pkg/modelcaps/modelcaps.go` — `Cap` struct + `CapOverride` + `Apply` / `Lookup` / `UsableInput` / `SafetyBuffer`；按 family 规则 + per-model 精确行覆盖；详见 `documents/version-1.2/adhoc-topic-documents/llm-providers/04-capability-catalog.md`
+- [x] `internal/pkg/modelcaps/modelcaps.go` — `Cap` struct + `CapOverride` + `Apply` / `Lookup` / `UsableInput` / `SafetyBuffer`；按 family 规则 + per-model 精确行覆盖；详见 `documents/version-1.2/working/llm-providers/04-capability-catalog.md`
 - [x] `internal/app/apikey/capability.go` — `CapabilityService`（`ResolveCapabilities` / `SetOverride` / `ClearOverride` / `ListOverrides`）+ `ModelCapability` struct；`ResolveCapabilities` 合并优先级：用户 override > 静态规则（live overlay 留接口，当前 deferred）
 - [x] `internal/infra/store/model/capability.go` — `CapOverrideStore` 实现 `CapabilityOverrideRepository`（CRUD + partial UNIQUE per user+provider+model）
 - [x] `internal/transport/httpapi/handlers/capability.go` — GET / PUT / DELETE `/api/v1/model-capabilities`；`INVALID_THINKING_SHAPE` 400 内联 handler 校验（不进 errmap）

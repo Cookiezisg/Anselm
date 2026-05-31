@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：📐 设计期
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `memories` 表
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — memory ×3 sentinel
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — memory CRUD 端点
+- [`../references/backend/database.md`](../references/backend/database.md) — `memories` 表
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — memory ×3 sentinel
+- [`../references/backend/api.md`](../references/backend/api.md) — memory CRUD 端点
 - [`./compaction.md`](./compaction.md) — 与 §1 联动的"逃生通道"
 - 参考：[Anthropic Memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool)（spec 参考；我们 SQLite 后端不走 filesystem）
 

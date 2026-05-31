@@ -14,8 +14,8 @@ audience: [human, ai]
 **状态**：✅ 实现完成（2026-05-04，U2-U3）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — `POST /api/v1/conversations/{id}/answers` 端点
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — ASK_NO_PENDING_QUESTION ×3
+- [`../references/backend/api.md`](../references/backend/api.md) — `POST /api/v1/conversations/{id}/answers` 端点
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — ASK_NO_PENDING_QUESTION ×3
 - [`./chat.md`](./chat.md) §4.4 — 系统工具完整目录
 - 实现包：`backend/internal/app/ask/`（Service）+ `backend/internal/app/tool/ask/`（Tool）+ `backend/internal/transport/httpapi/handlers/answers.go`（HTTP）
 

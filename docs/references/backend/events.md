@@ -13,7 +13,7 @@ audience: [human, ai]
 **关联**:
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../event-log-protocol.md`](../event-log-protocol.md) — 完整 eventlog 协议设计文档(事件流示例 / 后端架构 / migration SQL)
-- [`../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) §B-C — SSE 三流统一 + payload 瘦身 的事实源
+- [`../archive/forge-redesign-2026-05/discussions/2026-05-12-env-and-sse-rework.md`](../archive/forge-redesign-2026-05/discussions/2026-05-12-env-and-sse-rework.md) §B-C — SSE 三流统一 + payload 瘦身 的事实源
 - **配套实现**(eventlog):
   - `domain/eventlog/` — Event 接口 + 5 events + 7 block types + Bridge 接口 + ValidateEvent
   - `infra/eventlog/` — in-process Bridge(per-user 单调 seq + replay buffer + 慢订阅者阻塞)
@@ -67,7 +67,7 @@ audience: [human, ai]
 
 新增 block 类型必须先改 [`event-log-protocol.md`](../event-log-protocol.md) + DB CHECK + 前端 renderer，同 PR。
 
-`compaction` 块由 `app/contextmgr.Manager.fullCompact` 服务端 emit（不源于 LLM），挂在虚拟 system message 下（`{kind: "compaction"}`），承载 anchored-append summary 文本。DB block 行的 `context_role` 字段（V1.2 §1）按 `hot`/`warm`/`cold`/`archived` 控制投影到 LLM history 时的形态——见 [`../service-design-documents/compaction.md`](../service-design-documents/compaction.md) §6。
+`compaction` 块由 `app/contextmgr.Manager.fullCompact` 服务端 emit（不源于 LLM），挂在虚拟 system message 下（`{kind: "compaction"}`），承载 anchored-append summary 文本。DB block 行的 `context_role` 字段（V1.2 §1）按 `hot`/`warm`/`cold`/`archived` 控制投影到 LLM history 时的形态——见 [`../references/backend/domains/compaction.md`](../references/backend/domains/compaction.md) §6。
 
 ## 3. Status 枚举（4 种穷举）
 
@@ -206,7 +206,7 @@ Conversation (cv_xx)
 | error | text | block_stop 时填 |
 | created_at / updated_at | datetime | GORM 自动 |
 
-**Message 不双写** — `messages` 表走 chat repo（`infra/store/chat/SaveMessage`，含 user_id / role / status / token 字段），块内容走 eventlog Emitter 写 `message_blocks`。两表 schema 统一后协作而非竞争（详 [`../service-design-documents/chat.md`](../service-design-documents/chat.md) §3）。
+**Message 不双写** — `messages` 表走 chat repo（`infra/store/chat/SaveMessage`，含 user_id / role / status / token 字段），块内容走 eventlog Emitter 写 `message_blocks`。两表 schema 统一后协作而非竞争（详 [`../references/backend/domains/chat.md`](../references/backend/domains/chat.md) §3）。
 
 ## 10. Invariants（§S21）
 
@@ -312,7 +312,7 @@ s.notif.Publish(ctx, "function", fnID, slimPayload, convID)
 | 订阅域 | per-user(无 query)| per-user(无 query)| per-user(无 query)|
 | envelope | 5 封闭事件 × 7 封闭 block type | 1 通用 envelope(type 自由) | 4 封闭事件 × 3 封闭 kind(function/handler/workflow)|
 | 路由 / demux | `parentId` 递归 + client 按 payload.conversationId 分派 | client 按 type / conversationId 过滤 | client 按 scope.kind / scope.id 过滤 |
-| 演化 | 加事件 / block type 必须改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可,无协议升级 | 加 kind 必须改 [`../adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md`](../adhoc-topic-documents/forge_redesign/07-notifications-and-eventlog.md);加 event type 同样封闭演化 |
+| 演化 | 加事件 / block type 必须改 [`../event-log-protocol.md`](../event-log-protocol.md) | 加 type 字符串即可,无协议升级 | 加 kind 必须改 [`../archive/forge-redesign-2026-05/07-notifications-and-eventlog.md`](../archive/forge-redesign-2026-05/07-notifications-and-eventlog.md);加 event type 同样封闭演化 |
 | 用途 | 流式 chat 内容(含 subagent 嵌套)| entity 状态变更(CRUD action)| trinity entity 锻造流式(ops apply + env attempts)|
 | Bridge | per-user seq + replay buffer | per-user seq + replay buffer | per-user seq + replay buffer |
 | Producer | 紧密耦合(5 类型固定 schema)| 松散耦合(任意 type 字符串)| 紧密耦合(4 事件固定 schema)|
@@ -401,7 +401,7 @@ LLM tool 推流时,**每个 forge_env_attempt 同时**:
 1. **forge bus** publish `forge_env_attempt`(给 entity 详情页订)
 2. **eventlog bus** 在 chat tool_call block 下 emit `progress` block delta(给 chat panel 看)
 
-主对话 LLM context 只看到最终 tool_result(env-fix loop 是 tool 内自治),中间 attempts 是 UI 实时观测层。详 [`../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md`](../adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) §E。
+主对话 LLM context 只看到最终 tool_result(env-fix loop 是 tool 内自治),中间 attempts 是 UI 实时观测层。详 [`../archive/forge-redesign-2026-05/discussions/2026-05-12-env-and-sse-rework.md`](../archive/forge-redesign-2026-05/discussions/2026-05-12-env-and-sse-rework.md) §E。
 
 ### 12.4 Publisher API
 

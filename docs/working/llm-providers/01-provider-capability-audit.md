@@ -1,3 +1,14 @@
+---
+id: WRK-002-01
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-30
+review-due: never
+audience: [human, ai]
+landed-into: docs/concepts/architecture.md
+---
 # LLM Provider 能力审计（2026-05-29）
 
 > **目的**：在不开任何付费 key 的前提下，把"我们声称支持的每个 provider 到底怎么被调用、能不能跑通、thinking 怎么配"彻底排清楚。

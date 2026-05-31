@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：✅ 重构为懒生成 + mechanical（2026-05-25）：domain types + `ErrAllSourcesFailed` + Service{New/RegisterSource/build/Get/GetForSystemPrompt} + 4 CatalogSource（function/handler/skill/mcp）+ chat runner SystemPromptProvider 注入 + 1 HTTP endpoint。**移除**：1s 轮询 / per-user 扇出 / LLM Generator / `.catalog.json` 磁盘 cache / version history / fingerprint / `catalog` notification。document 不再进 catalog（走 @-mention，独立功能）。
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无表（纯派生，不落盘）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — `ErrAllSourcesFailed` → 503
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — catalog notification 已停发
+- [`../references/backend/database.md`](../references/backend/database.md) — 无表（纯派生，不落盘）
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — `ErrAllSourcesFailed` → 503
+- [`../references/backend/events.md`](../references/backend/events.md) — catalog notification 已停发
 - 关联设计：[`function.md`](./function.md) / [`handler.md`](./handler.md) / [`mcp.md`](./mcp.md) / [`skill.md`](./skill.md)（4 个 CatalogSource 实现方）
 
 ---

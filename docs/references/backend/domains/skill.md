@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：✅ D7 全部交付（2026-05-06）：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + 1s 轮询 + fingerprint 短路（替换原 fsnotify watcher，2026-05-07）+ 2 system tools (search_skills/activate_skill) + framework permission integration（active skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 无新表（文件系统是 source）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — skill ×5（已接 errmap）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `skill` entity-state 事件 ✅
+- [`../references/backend/database.md`](../references/backend/database.md) — 无新表（文件系统是 source）
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — skill ×5（已接 errmap）
+- [`../references/backend/events.md`](../references/backend/events.md) — `skill` entity-state 事件 ✅
 - 关联设计：[`subagent.md`](./subagent.md)（`context: fork` 复用 SubagentService）/ [`catalog.md`](./catalog.md)
 - 外部 spec：[Anthropic Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) / [agentskills.io](https://agentskills.io)
 
@@ -516,7 +516,7 @@ V3 改用 `notificationspkg.Publisher` 推 `skill` 通知，**不发全 skill �
 
 **短路**：`fingerprint == lastFP` 时**不**publish——避免每秒一发冗余通知；只有用户改了 SKILL.md 才通知前端。
 
-**Wire path**：`/api/v1/notifications` 全局通道 + 客户端按 `type=skill` 过滤。详 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) notifications 协议章。
+**Wire path**：`/api/v1/notifications` 全局通道 + 客户端按 `type=skill` 过滤。详 [`../references/backend/events.md`](../references/backend/events.md) notifications 协议章。
 
 ---
 

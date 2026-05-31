@@ -60,8 +60,8 @@ DeepSeek API returns HTTP 402 / "Insufficient Balance" → `BudgetExhausted`. NO
 - Create: `research/llm-experiments/forge_state.json` — round-robin progress + per-surface current verdict/variant
 
 **Outputs (in-place, no 15/16):**
-- Modify: `documents/version-1.2/adhoc-topic-documents/workflow-revamp/13-llm-research-report.md` — full rewrite: data + per-round iteration logs + design before/after
-- Modify: `documents/version-1.2/adhoc-topic-documents/workflow-revamp/14-llm-research-playbook.md` — full rewrite: death-conclusion blocks per surface + §0 scorecard + §6 design recs + §7 roadmap
+- Modify: `documents/version-1.2/working/workflow-revamp/13-llm-research-report.md` — full rewrite: data + per-round iteration logs + design before/after
+- Modify: `documents/version-1.2/working/workflow-revamp/14-llm-research-playbook.md` — full rewrite: death-conclusion blocks per surface + §0 scorecard + §6 design recs + §7 roadmap
 
 ---
 

@@ -15,7 +15,7 @@ audience: [human, ai]
 **Code 位置**:`backend/internal/{domain,infra/trigger,app/trigger}/`
 
 **联动文档**:
-- 完整 spec:[`adhoc-topic-documents/forge_redesign/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md) §2 + §6.6 + §6.10-§6.13
+- 完整 spec:[`archive/forge-redesign-2026-05/05-execution-plane.md`](../archive/forge-redesign-2026-05/05-execution-plane.md) §2 + §6.6 + §6.10-§6.13
 - FlowRun / Scheduler 兄弟域:[`flowrun.md`](flowrun.md) / [`scheduler.md`](scheduler.md)
 
 ---
@@ -110,7 +110,7 @@ main.go / harness 装配顺序:`triggerService := trigger.New(mux, log)` → `sc
 
 ## 6. 错误码 (4 sentinels)
 
-详 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md):
+详 [`../references/backend/error-codes.md`](../references/backend/error-codes.md):
 - `TRIGGER_PATH_NOT_EXIST` (422) — fsnotify path 不存在
 - `TRIGGER_PATH_CONFLICT` (409) — webhook 路径已注册
 - `TRIGGER_WEBHOOK_SECRET_MISMATCH` (401) — secret 校验失败 (webhook handler 直返 HTTP 401,不进 errmap;sentinel 仅用于 errors.Is)

@@ -1,3 +1,14 @@
+---
+id: WRK-001-10
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 09 — Agent Domain
 
 脑爆结论笔记(2026-05-27)。

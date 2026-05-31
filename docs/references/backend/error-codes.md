@@ -14,7 +14,7 @@ audience: [human, ai]
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - **配套实现**：`internal/transport/httpapi/response/errmap.go`
 
-**定位**：**全仓所有错误码、HTTP 状态、sentinel 一眼索引**。每个 code 的详细触发条件、details 字段，**去对应 domain 的 `service-design-documents/<domain>.md` 看**。
+**定位**：**全仓所有错误码、HTTP 状态、sentinel 一眼索引**。每个 code 的详细触发条件、details 字段，**去对应 domain 的 `references/backend/domains/<domain>.md` 看**。
 
 ---
 
@@ -93,7 +93,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 2：基础对话能力
 
 #### apikey ✅
-详见 [`../service-design-documents/apikey.md`](../service-design-documents/apikey.md) §13。
+详见 [`../references/backend/domains/apikey.md`](../references/backend/domains/apikey.md) §13。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -107,7 +107,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `API_KEY_NAME_CONFLICT` | 409 | `apikeydomain.ErrDisplayNameConflict` | 同用户下 displayName 重复 | ✅ |
 
 #### model ✅（2026-05-28 model selection redesign 后）
-详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。
+详见 [`../references/backend/domains/model.md`](../references/backend/domains/model.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -121,7 +121,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 - 老 `PROVIDER…HAS…NO…KEY` (422) — Upsert F1 改成按 id 校验（走 `apikeydomain.ErrNotFound` → 404 `API_KEY_NOT_FOUND`），不再按 provider 校验
 
 #### conversation ✅
-详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。
+详见 [`../references/backend/domains/conversation.md`](../references/backend/domains/conversation.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -165,7 +165,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 3：工具锻造能力 — function trinity (forge_redesign Plan 01)
 
 #### function ✅
-详见 [`../service-design-documents/function.md`](../service-design-documents/function.md) §10 + redesign topic [`../adhoc-topic-documents/forge_redesign/02-function.md`](../adhoc-topic-documents/forge_redesign/02-function.md)。
+详见 [`../references/backend/domains/function.md`](../references/backend/domains/function.md) §10 + redesign topic [`../archive/forge-redesign-2026-05/02-function.md`](../archive/forge-redesign-2026-05/02-function.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -190,7 +190,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 3：trinity 第二条腿 — handler (forge_redesign Plan 02)
 
 #### handler ✅
-详见 [`../service-design-documents/handler.md`](../service-design-documents/handler.md) §13 + redesign topic [`../adhoc-topic-documents/forge_redesign/03-handler.md`](../adhoc-topic-documents/forge_redesign/03-handler.md)。
+详见 [`../references/backend/domains/handler.md`](../references/backend/domains/handler.md) §13 + redesign topic [`../archive/forge-redesign-2026-05/03-handler.md`](../archive/forge-redesign-2026-05/03-handler.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -228,7 +228,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 3:trinity 第三条腿 — workflow (forge_redesign Plan 04)
 
 #### workflow ✅
-详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §13 + redesign topic [`../adhoc-topic-documents/forge_redesign/04-workflow.md`](../adhoc-topic-documents/forge_redesign/04-workflow.md)。
+详见 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md) §13 + redesign topic [`../archive/forge-redesign-2026-05/04-workflow.md`](../archive/forge-redesign-2026-05/04-workflow.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -252,7 +252,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 ### Phase 3:execution plane (forge_redesign Plan 05)
 
 #### flowrun + trigger + scheduler ✅
-详见 [`../service-design-documents/{flowrun,trigger,scheduler}.md`](../service-design-documents/) + [`05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md)。
+详见 [`../references/backend/domains/{flowrun,trigger,scheduler}.md`](../references/backend/domains/) + [`05-execution-plane.md`](../archive/forge-redesign-2026-05/05-execution-plane.md)。
 
 | Code | HTTP | Sentinel | 场景 |
 |---|---|---|---|
@@ -278,7 +278,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 
 ### Phase 5：System Tool 第二代（2026-05-04）
 
-> **NB：filesystem / search / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../service-design-documents/filesystem.md) / [`search.md`](../service-design-documents/search.md) / [`shell.md`](../service-design-documents/shell.md)。**例外**：web 家族的 BYOK provider HTTP 状态分类 sentinel **登记**（让 `errors.Is` 触发 `apikey.MarkInvalid`，UI 自动翻 "error"）；下方 todo / ask / web 三类有独立 HTTP 端点或显式 errmap 行。
+> **NB：filesystem / search / shell 工具家族不向 errmap 注册**——所有失败以友好字符串返 LLM（吃在 chat.message 的 tool_result block 里），不到 handler。详见各家族 design doc 的 §6 安全边界 + §8 错误返回模式：[`filesystem.md`](../references/backend/domains/filesystem.md) / [`search.md`](../references/backend/domains/search.md) / [`shell.md`](../references/backend/domains/shell.md)。**例外**：web 家族的 BYOK provider HTTP 状态分类 sentinel **登记**（让 `errors.Is` 触发 `apikey.MarkInvalid`，UI 自动翻 "error"）；下方 todo / ask / web 三类有独立 HTTP 端点或显式 errmap 行。
 
 #### web 🔁（控制流 sentinel，handler 不可达）
 BYOK web search providers（Brave / Serper / Tavily / Bocha）的 HTTP 状态分类 sentinel **不进 errmap**——`tool/web/search.go::tryBYOKProvider` 内部 catch 后 fallback 到下一 provider / MCP tier，永不冒泡到 handler。仅 `errors.Is` 内部判定用（`markInvalidIfAuthErr` 触发 `apikey.MarkInvalid` 替代 string match）。
@@ -290,7 +290,7 @@ BYOK web search providers（Brave / Serper / Tavily / Bocha）的 HTTP 状态分
 | `webtool.ErrUpstreamHTTP` | 🔁 | provider 其他 5xx → 落到下一 provider |
 
 #### todo ✅
-详见 [`../service-design-documents/todo.md`](../service-design-documents/todo.md)。
+详见 [`../references/backend/domains/todo.md`](../references/backend/domains/todo.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -309,7 +309,7 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 > ASK_* 端点错误不属于任一 domain entity，归属 app/ask 服务（in-memory 会合，无持久化）。
 
 #### memory（V1.2 §2 final-sweep）✅
-详见 [`../service-design-documents/memory.md`](../service-design-documents/memory.md)。
+详见 [`../references/backend/domains/memory.md`](../references/backend/domains/memory.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|
@@ -318,7 +318,7 @@ AskUserQuestion 的答案投递端点 `POST /api/v1/conversations/{id}/answers` 
 | `MEMORY_INVALID_NAME` | 400 | `memorydomain.ErrInvalidName` | name 违反 `^[a-z][a-z0-9_]{0,63}$`（lowercase 起头 + lowercase/digit/underscore + ≤64 字符）| ✅ |
 
 #### document (Phase 5 §14)
-详见 [`../service-design-documents/document.md`](../service-design-documents/document.md)。
+详见 [`../references/backend/domains/document.md`](../references/backend/domains/document.md)。
 
 | Code | HTTP | Sentinel | 场景 | 状态 |
 |---|---|---|---|---|

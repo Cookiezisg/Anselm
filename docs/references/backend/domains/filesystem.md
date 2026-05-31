@@ -276,7 +276,7 @@ os.Rename(tmpPath, cleaned)  // 同 fs 内 rename 是原子 syscall
 |---|---|---|---|
 | Read | `backend/internal/app/tool/filesystem/read_test.go` | 19 | identity / Validate × 4 / 基本读 / 空文件 / offset / limit truncation / 边界 limit / 无尾 \n / 不存在 / 是目录 / PathGuard 拒（不 MarkRead）/ AgentState 缺失（仍成功）/ 单行超 8 MiB / offset > EOF / 默认 limit |
 | Write | `write_test.go` | 13 | identity / Validate × 4 / 新文件 / 空内容 / 覆写（先 Read）/ 覆写（没 Read）/ AgentState 缺失（拒覆写 / 允新建）/ 父目录缺 / 目标是目录 / PathGuard 拒 / mode 保留 / mode 默认 |
-| Edit | `edit_test.go` | 19 | identity / Validate × 6 / 单替换 / replace_all 多替 / 跨行 old_string / regex 元字符字面量匹配 / 空 new_string 删除 / SeenFiles 链式更新 / 不存在 / 是目录 / PathGuard 拒 / AgentState 缺 / 没 Read / 外部修改检测 / 0 匹配 / N>1+replace_all=false / mode 保留 / **markdown bold #51986 回归**（5 处全替不吃 newline）/ batch 1 回归测试见 [`progress-record.md`](../progress-record.md) |
+| Edit | `edit_test.go` | 19 | identity / Validate × 6 / 单替换 / replace_all 多替 / 跨行 old_string / regex 元字符字面量匹配 / 空 new_string 删除 / SeenFiles 链式更新 / 不存在 / 是目录 / PathGuard 拒 / AgentState 缺 / 没 Read / 外部修改检测 / 0 匹配 / N>1+replace_all=false / mode 保留 / **markdown bold #51986 回归**（5 处全替不吃 newline）/ batch 1 回归测试见 [`references/changelog.md`](../references/changelog.md) |
 | Pipeline | `backend/test/filesystem/` | 3 场景 | LLM ↔ tool 端到端：ReadEditClosedLoop / WriteWithoutReadDenied / PathGuardDeniesSensitivePath（29.7s） |
 
 合计 **51 单测 + 3 pipeline 场景**。

@@ -15,10 +15,10 @@ audience: [human, ai]
 **Code 位置**:`backend/internal/{domain,app,infra/store,transport/httpapi/handlers}/workflow/` + `backend/internal/app/tool/workflow/`
 
 **联动文档**:
-- 完整设计 spec:[`adhoc-topic-documents/forge_redesign/04-workflow.md`](../adhoc-topic-documents/forge_redesign/04-workflow.md)
-- 跨域决策(D1-D22 + D-redo-1..23):[`adhoc-topic-documents/forge_redesign/00-overview.md`](../adhoc-topic-documents/forge_redesign/00-overview.md)
-- 实施计划:[`adhoc-topic-documents/forge_redesign/plans/04-workflow-authoring.md`](../adhoc-topic-documents/forge_redesign/plans/04-workflow-authoring.md)
-- 后续:[`adhoc-topic-documents/forge_redesign/plans/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/plans/05-execution-plane.md)(scheduler / trigger / flowrun)
+- 完整设计 spec:[`archive/forge-redesign-2026-05/04-workflow.md`](../archive/forge-redesign-2026-05/04-workflow.md)
+- 跨域决策(D1-D22 + D-redo-1..23):[`archive/forge-redesign-2026-05/00-overview.md`](../archive/forge-redesign-2026-05/00-overview.md)
+- 实施计划:[`archive/forge-redesign-2026-05/plans/04-workflow-authoring.md`](../archive/forge-redesign-2026-05/plans/04-workflow-authoring.md)
+- 后续:[`archive/forge-redesign-2026-05/plans/05-execution-plane.md`](../archive/forge-redesign-2026-05/plans/05-execution-plane.md)(scheduler / trigger / flowrun)
 
 ---
 
@@ -331,7 +331,7 @@ type ProductionChecker struct {
 
 ## 13. 错误码(11 sentinels)
 
-详见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md)。
+详见 [`../references/backend/error-codes.md`](../references/backend/error-codes.md)。
 
 | Sentinel | Status | Wire code |
 |---|---|---|

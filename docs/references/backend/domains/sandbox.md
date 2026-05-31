@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：✅ Marketplace V3 collapse（2026-05-08）：仅 Python + Node 2 EnvManagers + 3 RuntimeInstaller（python / node / uv via mise）；原 11 EnvManager 矩阵 + Docker / Playwright / Dotnet / Static / Generic / Rust / Go / Java / Ruby / PHP installer 全部删除（无消费方）。Layer A/B leak prevention：Service.Shutdown / RestoreOrCleanupOnBoot + Env.RunningPID manifest 追踪 spawn 子进程。`sandbox_env` per-env notification on every state transition。
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `sandbox_runtimes` + `sandbox_envs` 两表（含 running_pid 列）
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — sandbox ×11（已接 errmap）
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — `sandbox_env` per-env entity-state 通知 + install 进度通过 ctx eventlog Emitter 推 progress block 到调用方 tool_call 父下（详 §10）
+- [`../references/backend/database.md`](../references/backend/database.md) — `sandbox_runtimes` + `sandbox_envs` 两表（含 running_pid 列）
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — sandbox ×11（已接 errmap）
+- [`../references/backend/events.md`](../references/backend/events.md) — `sandbox_env` per-env entity-state 通知 + install 进度通过 ctx eventlog Emitter 推 progress block 到调用方 tool_call 父下（详 §10）
 - 关联设计：[`forge.md`](./forge.md)（forge sandbox 是 first consumer）/ [`mcp.md`](./mcp.md)（MCP server install 走本服务）/ [`skill.md`](./skill.md)（未来 skill 带 deps 时复用）
 
 ---
@@ -943,7 +943,7 @@ err := installprogresspkg.Run(ctx, "Installing MCP server", func(progressFn Prog
 //   - Run 完成 → StopBlock(completed)
 ```
 
-详 §S18 推流约定（`pkg/eventlog`）+ [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) eventlog 协议。
+详 §S18 推流约定（`pkg/eventlog`）+ [`../references/backend/events.md`](../references/backend/events.md) eventlog 协议。
 
 ---
 

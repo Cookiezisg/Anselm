@@ -58,11 +58,11 @@ Add store → service → handler chain following existing patterns in `backend/
 
 ## Step 7: Documentation
 
-- Create `documents/references/backend/domains/widget.md` with frontmatter
-- Update `documents/references/backend/api.md` with new endpoints
-- Update `documents/references/backend/database.md` with new tables
-- Update `documents/references/changelog.md` with dev log
-- Write ADR in `documents/decisions/` if any significant design decision was made
+- Create `docs/references/backend/domains/widget.md` with frontmatter
+- Update `docs/references/backend/api.md` with new endpoints
+- Update `docs/references/backend/database.md` with new tables
+- Update `docs/references/changelog.md` with dev log
+- Write ADR in `docs/decisions/` if any significant design decision was made
 
 ## Step 8: Tests
 

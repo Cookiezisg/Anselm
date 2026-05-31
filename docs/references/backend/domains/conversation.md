@@ -21,9 +21,9 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — API 索引
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 表索引
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — 错误码索引
+- [`../references/backend/api.md`](../references/backend/api.md) — API 索引
+- [`../references/backend/database.md`](../references/backend/database.md) — 表索引
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — 错误码索引
 
 ---
 
@@ -288,7 +288,7 @@ CREATE INDEX idx_conversations_deleted_at ON conversations(deleted_at);
 
 ## 9. 事件
 
-**Phase 6 重构（2026-05-02）**：conversation domain 用 **1 个 SSE 事件 `conversation`**——载荷 = 完整 Conversation 实体的 GET 形状（entity-state 模型）。详见 [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)。
+**Phase 6 重构（2026-05-02）**：conversation domain 用 **1 个 SSE 事件 `conversation`**——载荷 = 完整 Conversation 实体的 GET 形状（entity-state 模型）。详见 [`../references/backend/events.md`](../references/backend/events.md)。
 
 ```go
 type Conversation struct {

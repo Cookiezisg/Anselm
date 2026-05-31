@@ -12,7 +12,7 @@ audience: [human, ai]
 
 **创建于**：2026-04-22
 **分支**：`backend-iteration`
-**当前进度 / 开发日志**：[`progress-record.md`](./progress-record.md)
+**当前进度 / 开发日志**：[`docs/references/changelog.md`](../references/changelog.md)
 
 **本文档定位**：**项目愿景 + 架构 + Phase 路线图**。**所有代码规范、工程纪律、设计原则、S/T 系列、工具纪律全部在项目根 [`CLAUDE.md`](../../CLAUDE.md)**——这里只放"项目长什么样、怎么走"，不重复规则。
 
@@ -84,7 +84,7 @@ Eino 框架已完全移除（`infra/eino/` 目录删除，go.mod 中 Eino 依赖
 
 ## Phase 路线图
 
-**当前状态 / 任务细化** → [`progress-record.md`](./progress-record.md)
+**当前状态 / 任务细化** → [`docs/references/changelog.md`](../references/changelog.md)
 
 | Phase | 主题 | 工时 | 完成后产品形态 | 状态 |
 |---|---|---|---|---|
@@ -118,14 +118,14 @@ handler.SendMessage
 ### Phase 3 — 工具锻造能力 + 执行 plane + 多 agent 锻造(forge_redesign Plan 01-06 全交付)
 `function` 主 domain(版本 / pending / sandbox 执行 / 执行日志 D22,12 端点)+ `handler` 二条腿(stateful Python class + caller-owns lifetime + Config + handler_calls D22,16 端点)+ `workflow` 三条腿(DAG 锻造 + 13 节点类型 + 9 op + Kahn cycle + CapabilityChecker,11 端点 — Plan 04)+ `app/tool/function/` 9 LLM 工具 + `app/tool/handler/` 10 LLM 工具 + `app/tool/workflow/` 6 LLM 工具 + chat ReAct 多步循环。Python 沙箱通过统一 PluginSandbox v2(mise embed)+ SandboxAdapter。
 
-> Phase 3 历史:(1) 2026-05-02 第一轮 `tool` → `forge` 大重命名;(2) 2026-05-11 forge_redesign Plan 01 把 forge 重设为 trinity 域 Function 部分(13 commits);(3) 2026-05-12 Plan 02 handler trinity 第二条腿(11 commits);(4) 2026-05-12 Plan 03 eventlog + forge 三流统一(6 commits + 2 doc commits)— env 模型重整 + SSE 改三流 per-user + 删 :resync/env_synced/env_failed/ErrPendingConflict;(5) 2026-05-12 Plan 04 workflow authoring trinity 第三条腿(9 commits W1-W9);(6) 2026-05-13 **Plan 05 execution plane**(17 commits E1-E17)— scheduler + trigger + flowrun + 13 dispatcher + retry/timeout/onError + pause/resume + RehydrateOnBoot + 4 张新表 D22(mcp_calls / skill_executions / flowruns / flowrun_nodes)+ 6 D22 LLM 工具 + 14 项生产 hardening;(7) 2026-05-13 **Plan 06 trinity 收尾**(5 commits F1-F5)— D21 filterTools strip workflow ops + 主 chat agent multi-agent forging system prompt + trinity catalog 源验证 + approval lifecycle E2E + forge_redesign README。详见 [`adhoc-topic-documents/forge_redesign/README.md`](./adhoc-topic-documents/forge_redesign/README.md) 完工导航 + [`discussions/2026-05-12-env-and-sse-rework.md`](./adhoc-topic-documents/forge_redesign/discussions/2026-05-12-env-and-sse-rework.md) 26 项 D-redo 决策。
+> Phase 3 历史:(1) 2026-05-02 第一轮 `tool` → `forge` 大重命名;(2) 2026-05-11 forge_redesign Plan 01 把 forge 重设为 trinity 域 Function 部分(13 commits);(3) 2026-05-12 Plan 02 handler trinity 第二条腿(11 commits);(4) 2026-05-12 Plan 03 eventlog + forge 三流统一(6 commits + 2 doc commits)— env 模型重整 + SSE 改三流 per-user + 删 :resync/env_synced/env_failed/ErrPendingConflict;(5) 2026-05-12 Plan 04 workflow authoring trinity 第三条腿(9 commits W1-W9);(6) 2026-05-13 **Plan 05 execution plane**(17 commits E1-E17)— scheduler + trigger + flowrun + 13 dispatcher + retry/timeout/onError + pause/resume + RehydrateOnBoot + 4 张新表 D22(mcp_calls / skill_executions / flowruns / flowrun_nodes)+ 6 D22 LLM 工具 + 14 项生产 hardening;(7) 2026-05-13 **Plan 06 trinity 收尾**(5 commits F1-F5)— D21 filterTools strip workflow ops + 主 chat agent multi-agent forging system prompt + trinity catalog 源验证 + approval lifecycle E2E + forge_redesign README。详见 [`archive/forge-redesign-2026-05/README.md`](./archive/forge-redesign-2026-05/README.md) 完工导航 + [`discussions/2026-05-12-env-and-sse-rework.md`](./archive/forge-redesign-2026-05/discussions/2026-05-12-env-and-sse-rework.md) 26 项 D-redo 决策。
 
-**Phase 3 后基础设施优化轮(2026-04-27 起,完工 2026-05-12)**:chat 基础设施重构(移除 Eino + Block 模型)/ chat pipeline.go → runner.go 二次重构 / Brewfile + Makefile setup / Claude Code 内部机制调研(9 份报告)/ SQLite 驱动迁移(mattn → modernc,纯 Go)/ 桌面端 Wails 分发方向定型 / 大规模代码 review 战役 / forge_redesign trinity 重做 + Plan 03 SSE 三流统一。详见 [`progress-record.md`](./progress-record.md) §2。
+**Phase 3 后基础设施优化轮(2026-04-27 起,完工 2026-05-12)**:chat 基础设施重构(移除 Eino + Block 模型)/ chat pipeline.go → runner.go 二次重构 / Brewfile + Makefile setup / Claude Code 内部机制调研(9 份报告)/ SQLite 驱动迁移(mattn → modernc,纯 Go)/ 桌面端 Wails 分发方向定型 / 大规模代码 review 战役 / forge_redesign trinity 重做 + Plan 03 SSE 三流统一。详见 [`docs/references/changelog.md`](../references/changelog.md) §2。
 
 ### Phase 4 — 工作流能力 ✅(已交付,2026-05-13)
 `workflow`(DAG + 状态机) + `flowrun`(执行实例) + **13 类节点**(trigger / function / handler / mcp / skill / llm / http / condition / loop / parallel / approval / wait / variable)+ `scheduler` + `trigger`(cron / fsnotify / webhook / manual)+ `chat` 已支持"对话创建工作流"(主 agent multi-agent forging system prompt 教学)。执行引擎自实现(不依赖 Eino compose,Eino 已全面移除)。
 
-**实际落地**:forge_redesign Plan 04(authoring) + Plan 05(execution plane)+ Plan 06(收尾)共 31 commits;详 [`adhoc-topic-documents/forge_redesign/README.md`](./adhoc-topic-documents/forge_redesign/README.md)。**焦点实体延伸**:workflow 节点编辑时推 `workflow` entity 通知 + flowrun 状态变更推 `flowrun` entity 通知(slim payload D-redo-6,UI 经 GET 拉详情)。
+**实际落地**:forge_redesign Plan 04(authoring) + Plan 05(execution plane)+ Plan 06(收尾)共 31 commits;详 [`archive/forge-redesign-2026-05/README.md`](./archive/forge-redesign-2026-05/README.md)。**焦点实体延伸**:workflow 节点编辑时推 `workflow` entity 通知 + flowrun 状态变更推 `flowrun` entity 通知(slim payload D-redo-6,UI 经 GET 拉详情)。
 
 ### V1.2 final-sweep — 跨对话能力 ✅(已交付,2026-05-16)
 两块"对话长记忆"基础设施一并落地:
@@ -133,7 +133,7 @@ handler.SendMessage
 - **§1 compaction**(`app/contextmgr.Manager`):对话超阈值时自动压缩。3 路径——< Soft(0.70) 跳过 / Soft 降级老 tool_result 到 `warm`/`cold` / Hard(0.85) 调便宜 LLM 生成 anchored-merge 摘要并 archive。schema:`conversations` 加 `summary` + `summary_covers_up_to_seq` 两列;`message_blocks` 加 `context_role` 一列 + 新 block type `compaction`(eventlog 协议 6→7);`pkg/modelmeta` + `pkg/tokencount` 给估算 + 校准。投影:`loop/history.BlocksToAssistantLLM` 按 role 渲染(archived 丢 / warm 200B preview / cold 元数据占位 / hot 全文);`chat.buildHistory` 前置 `<conversation_summary>` wrapper。
 - **§2 memory**(`app/memory.Service`):跨对话长期事实库,4 类(user / feedback / project / reference)× 2 source(user / ai);pinned memory 全文进每个 system prompt,非 pinned 只入索引段。3 system tools(`read_memory` / `write_memory` / `forget_memory`)给 LLM 自管;7 HTTP endpoints + testend `/config/memory` 面板给用户管。LLM 不见 `pinned` 字段——pinning 是用户控件(系统提示词预算只用户能控)。
 
-详见 [`service-design-documents/compaction.md`](./service-design-documents/compaction.md) + [`service-design-documents/memory.md`](./service-design-documents/memory.md);7 pipeline tests(4 memory + 3 compaction)全绿。
+详见 [`../references/backend/domains/compaction.md`](../references/backend/domains/compaction.md) + [`../references/backend/domains/memory.md`](../references/backend/domains/memory.md);7 pipeline tests(4 memory + 3 compaction)全绿。
 
 ### Phase 5 — 智能化（🚧 部分交付）
 `document` **✅ 已交付**（LLM-ranked attach，**无向量库 / 无 sqlite-vec / 无 chunking pipeline**——2026-05-16 设计改向，详 [`final-sweep.md`](./final-sweep.md) §14；CRUD + Notion-style tree + @mention + catalog/relation 接入）+ `intent`（⬜ 自实现 ReAct Agent，尚未开工）+ `chat` 终极版（⬜ 意图识别 → 工作流推荐 → 自动建草稿）。**注**：mcp + skill 已提前在 V1.2 D5-D7 交付（Phase 4 准备件，官方 `modelcontextprotocol/go-sdk` v1.6）；memory + compaction 在 final-sweep（2026-05-16）交付。
@@ -203,7 +203,7 @@ backend/
     │   ├── crypto/                 ← ✅ 接口
     │   ├── events/                 ← ✅ 接口 + types.go（强类型事件）
     │   ├── errors/                 ← ✅ 跨 domain 通用 sentinel
-    │   ├── subagent/               ← ✅ SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 service-design-documents/subagent.md §6）
+    │   ├── subagent/               ← ✅ SubagentType + SubagentRun + SubagentMessage + Repository + 4 sentinel（无 SubRunner 接口——chat/subagent 通过 app/loop 解耦，详见 ../references/backend/domains/subagent.md §6）
     │   ├── mcp/                    ← ✅ ServerConfig + ServerStatus + ToolDef + HealthResult + HealthSnapshot + HealthHistoryRepository + 5 status const + RegistryEntry + 10 sentinels
     │   ├── skill/                  ← ✅ Skill + Frontmatter（Anthropic SKILL.md spec 全字段保留 cross-vendor）+ 5 sentinel + MaxBodyBytes/MaxDescriptionChars 常量
     │   ├── catalog/                ← ✅ CatalogSource port + Catalog + Item + Granularity (PerItem/PerServer/PerCollection) + SystemPromptProvider + 2 sentinel（内部消化不进 errmap）
@@ -311,18 +311,18 @@ backend/
 | 文档 | 用途 | 推进节奏 |
 |---|---|---|
 | [`../../CLAUDE.md`](../../CLAUDE.md) | **代码规范、工程纪律、设计原则、契约宪法**——单一事实源 | 规则演化时改 |
-| [`service-contract-documents/api-design.md`](./service-contract-documents/api-design.md) | **全部 REST API 一眼索引** | 每 domain 开工时加一段 |
-| [`service-contract-documents/database-design.md`](./service-contract-documents/database-design.md) | **全部表一眼索引** | 同上 |
-| [`service-contract-documents/error-codes.md`](./service-contract-documents/error-codes.md) | **全部错误码一眼索引** | 同上 |
-| [`service-contract-documents/events-design.md`](./service-contract-documents/events-design.md) | **全部 SSE 事件一眼索引** | 涉及流式时加 |
-| [`service-design-documents/<domain>.md`](./service-design-documents/) | **每个 domain 详设计** | 每 domain 开工前写 |
-| [`progress-record.md`](./progress-record.md) | 开发日志 + 当前快照 + 任务清单 | 实时更新 |
+| [`../references/backend/api.md`](../references/backend/api.md) | **全部 REST API 一眼索引** | 每 domain 开工时加一段 |
+| [`../references/backend/database.md`](../references/backend/database.md) | **全部表一眼索引** | 同上 |
+| [`../references/backend/error-codes.md`](../references/backend/error-codes.md) | **全部错误码一眼索引** | 同上 |
+| [`../references/backend/events.md`](../references/backend/events.md) | **全部 SSE 事件一眼索引** | 涉及流式时加 |
+| [`../references/backend/domains/<domain>.md`](../references/backend/domains/) | **每个 domain 详设计** | 每 domain 开工前写 |
+| [`docs/references/changelog.md`](../references/changelog.md) | 开发日志 + 当前快照 + 任务清单 | 实时更新 |
 | [`desktop-packaging-notes.md`](./desktop-packaging-notes.md) | 桌面端分发方向（Wails / 打包 / 常驻后台）| 大决策时改 |
 
 **工作流**：
-1. **开工前** → 填 `service-design-documents/<domain>.md` 详设计（含端到端推演 + 实现清单）
-2. **实现中** → 同步更新 `service-contract-documents/*.md` 里该 domain 的索引段
-3. **完成后** → 在 `progress-record.md` 加一行 dev log + 勾任务清单
+1. **开工前** → 填 `../references/backend/domains/<domain>.md` 详设计（含端到端推演 + 实现清单）
+2. **实现中** → 同步更新 `../references/backend/*.md` 里该 domain 的索引段
+3. **完成后** → 在 `docs/references/changelog.md` 加一行 dev log + 勾任务清单
 
 ---
 
@@ -334,7 +334,7 @@ backend/
 - Linux amd64（glibc 系：Ubuntu / Debian / Fedora / CentOS / RHEL）
 - Linux arm64（同上 + Raspberry Pi 4+, AWS Graviton）
 
-**Windows amd64（10/11）—— 限制版**：Python / Node 类 plugin 全可用（覆盖 99% 需求）；Ruby / PHP / Erlang / Elixir / Lua / Crystal / Zig 等长尾语言 plugin 在 Windows 隐藏不可装（mise 这些 plugin 用 bash 实现）。Bash tool 内部用 PowerShell 替代 sh，命令兼容性大部分一致。详 [`service-design-documents/sandbox.md`](./service-design-documents/sandbox.md) §17。
+**Windows amd64（10/11）—— 限制版**：Python / Node 类 plugin 全可用（覆盖 99% 需求）；Ruby / PHP / Erlang / Elixir / Lua / Crystal / Zig 等长尾语言 plugin 在 Windows 隐藏不可装（mise 这些 plugin 用 bash 实现）。Bash tool 内部用 PowerShell 替代 sh，命令兼容性大部分一致。详 [`../references/backend/domains/sandbox.md`](./../references/backend/domains/sandbox.md) §17。
 
 **不支持**：
 - Linux musl（Alpine 等）—— mise 是 glibc binary，bootstrap fail-soft 进 degraded mode

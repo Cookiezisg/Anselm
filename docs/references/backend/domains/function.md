@@ -15,10 +15,10 @@ audience: [human, ai]
 **Code位置**：`backend/internal/{domain,app,infra/store,transport/httpapi/handlers}/function/`
 
 **联动文档**：
-- 完整设计 spec：[`adhoc-topic-documents/forge_redesign/02-function.md`](../adhoc-topic-documents/forge_redesign/02-function.md)
-- 跨域决策 D1-D22：[`adhoc-topic-documents/forge_redesign/00-overview.md`](../adhoc-topic-documents/forge_redesign/00-overview.md)
-- D22 执行日志：[`adhoc-topic-documents/forge_redesign/08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md)
-- 实施计划：[`adhoc-topic-documents/forge_redesign/plans/01-function-domain.md`](../adhoc-topic-documents/forge_redesign/plans/01-function-domain.md)
+- 完整设计 spec：[`archive/forge-redesign-2026-05/02-function.md`](../archive/forge-redesign-2026-05/02-function.md)
+- 跨域决策 D1-D22：[`archive/forge-redesign-2026-05/00-overview.md`](../archive/forge-redesign-2026-05/00-overview.md)
+- D22 执行日志：[`archive/forge-redesign-2026-05/08-executions.md`](../archive/forge-redesign-2026-05/08-executions.md)
+- 实施计划：[`archive/forge-redesign-2026-05/plans/01-function-domain.md`](../archive/forge-redesign-2026-05/plans/01-function-domain.md)
 
 ---
 
@@ -29,7 +29,7 @@ Function 是 trinity 域中的**纯函数/无状态计算**部分。一个 Funct
 形态:
 - HTTP-friendly **direct definition**(POST `/functions` 扁平 JSON,curl / UI / script 用)
 - LLM-friendly **ops stream**(`create_function` / `edit_function` 工具,单 op emit 1 progress delta — 流式锻造)
-- **Env 同步发生在 tool 内部**(D-redo-9):`create_function` / `edit_function` 单次工具调用就闭环 ops apply + 装 env + LLM env-fix loop(详 §2 + [`adhoc-topic-documents/forge_redesign/02-function.md`](../adhoc-topic-documents/forge_redesign/02-function.md) §2.1)
+- **Env 同步发生在 tool 内部**(D-redo-9):`create_function` / `edit_function` 单次工具调用就闭环 ops apply + 装 env + LLM env-fix loop(详 §2 + [`archive/forge-redesign-2026-05/02-function.md`](../archive/forge-redesign-2026-05/02-function.md) §2.1)
 
 ---
 
@@ -149,7 +149,7 @@ def csv_clean(rows, drop_empty=True):
 
 ## 7. LLM 工具(9 个)
 
-详见 [`02-function.md §7`](../adhoc-topic-documents/forge_redesign/02-function.md) + [`08-executions.md §7`](../adhoc-topic-documents/forge_redesign/08-executions.md)。
+详见 [`02-function.md §7`](../archive/forge-redesign-2026-05/02-function.md) + [`08-executions.md §7`](../archive/forge-redesign-2026-05/08-executions.md)。
 
 | 工具 | 用途 |
 |---|---|
@@ -187,7 +187,7 @@ env_status 状态机:`pending → syncing → ready / failed`(evicted 由 sandbo
 
 ## 10. 错误码
 
-详见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) §Phase 3。13 个 sentinel + FUNCTION_* wire code:`FUNCTION_NOT_FOUND` / `_NAME_DUPLICATE` / `_VERSION_NOT_FOUND` / `_PENDING_NOT_FOUND` / `_RUN_FAILED` / `_AST_PARSE_FAILED` / `_OP_INVALID` / `_NO_ACTIVE_VERSION` / `_ENV_NOT_READY` / `_ENV_FAILED` / `_DEPENDENCY_RESOLUTION` / `_SANDBOX_UNAVAILABLE` / `_EXECUTION_NOT_FOUND`。
+详见 [`../references/backend/error-codes.md`](../references/backend/error-codes.md) §Phase 3。13 个 sentinel + FUNCTION_* wire code:`FUNCTION_NOT_FOUND` / `_NAME_DUPLICATE` / `_VERSION_NOT_FOUND` / `_PENDING_NOT_FOUND` / `_RUN_FAILED` / `_AST_PARSE_FAILED` / `_OP_INVALID` / `_NO_ACTIVE_VERSION` / `_ENV_NOT_READY` / `_ENV_FAILED` / `_DEPENDENCY_RESOLUTION` / `_SANDBOX_UNAVAILABLE` / `_EXECUTION_NOT_FOUND`。
 
 **已删除**:`FUNCTION_PENDING_CONFLICT`(409)— Edit 改"iterate same pending"后无冲突场景(D-redo-11)。`SANDBOX_UNAVAILABLE`(503)语义扩展:不仅 bootstrap 失败,Service.Create / Edit 前置 ping 失败也走此 sentinel(D-redo-20)。
 

@@ -1,6 +1,0 @@
-{
-  "model_under_test": "deepseek-v4-flash",
-  "backend": "single_turn",
-  "domain_hint": "电商/客服/运维/金融/内容/IoT/HR/物流/医疗/教育/SaaS/数据/社交/游戏",
-  "judges_n": 3
-}

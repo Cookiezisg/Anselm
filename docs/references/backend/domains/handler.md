@@ -15,10 +15,10 @@ audience: [human, ai]
 **Code 位置**:`backend/internal/{domain,app,infra/store,infra/handler,transport/httpapi/handlers}/handler/`
 
 **联动文档**:
-- 完整设计 spec: [`adhoc-topic-documents/forge_redesign/03-handler.md`](../adhoc-topic-documents/forge_redesign/03-handler.md)
-- 跨域决策(D1-D22): [`adhoc-topic-documents/forge_redesign/00-overview.md`](../adhoc-topic-documents/forge_redesign/00-overview.md)
-- D22 调用日志: [`adhoc-topic-documents/forge_redesign/08-executions.md`](../adhoc-topic-documents/forge_redesign/08-executions.md)
-- 实施计划: [`adhoc-topic-documents/forge_redesign/plans/02-handler-domain.md`](../adhoc-topic-documents/forge_redesign/plans/02-handler-domain.md)
+- 完整设计 spec: [`archive/forge-redesign-2026-05/03-handler.md`](../archive/forge-redesign-2026-05/03-handler.md)
+- 跨域决策(D1-D22): [`archive/forge-redesign-2026-05/00-overview.md`](../archive/forge-redesign-2026-05/00-overview.md)
+- D22 调用日志: [`archive/forge-redesign-2026-05/08-executions.md`](../archive/forge-redesign-2026-05/08-executions.md)
+- 实施计划: [`archive/forge-redesign-2026-05/plans/02-handler-domain.md`](../archive/forge-redesign-2026-05/plans/02-handler-domain.md)
 
 ---
 
@@ -232,7 +232,7 @@ Owner.Kind = `handler`,Owner.ID = `<handlerID>_<envID>`(envID = Version 行的 `
 
 ## 13. 错误码
 
-详见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) §Phase 3。19 个 sentinel + HANDLER_* wire code(NOT_FOUND / NAME_DUPLICATE / METHOD_NOT_FOUND / VERSION_NOT_FOUND / PENDING_NOT_FOUND / INSTANCE_SPAWN_FAILED / INSTANCE_CRASHED / INSTANCE_RPC_TIMEOUT / INSTANCE_NOT_FOUND / NO_ACTIVE_VERSION / ENV_NOT_READY / ENV_FAILED / SANDBOX_UNAVAILABLE / OP_INVALID / AST_PARSE_FAILED / CONFIG_INCOMPLETE / CONFIG_INVALID / CONFIG_DECRYPT_FAILED / CALL_NOT_FOUND)。
+详见 [`../references/backend/error-codes.md`](../references/backend/error-codes.md) §Phase 3。19 个 sentinel + HANDLER_* wire code(NOT_FOUND / NAME_DUPLICATE / METHOD_NOT_FOUND / VERSION_NOT_FOUND / PENDING_NOT_FOUND / INSTANCE_SPAWN_FAILED / INSTANCE_CRASHED / INSTANCE_RPC_TIMEOUT / INSTANCE_NOT_FOUND / NO_ACTIVE_VERSION / ENV_NOT_READY / ENV_FAILED / SANDBOX_UNAVAILABLE / OP_INVALID / AST_PARSE_FAILED / CONFIG_INCOMPLETE / CONFIG_INVALID / CONFIG_DECRYPT_FAILED / CALL_NOT_FOUND)。
 
 **已删除**:`HANDLER_PENDING_CONFLICT`(409)— Edit 改"iterate same pending"后无冲突场景(D-redo-11)。**新增**:`HANDLER_SANDBOX_UNAVAILABLE`(503)— Service.Create / Edit 前置 sandbox ping 失败(D-redo-20)。
 

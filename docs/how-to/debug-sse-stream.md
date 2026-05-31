@@ -38,5 +38,5 @@ Start testend (`make testend`) then open `http://localhost:5173`. The SSE tab sh
 
 ## Event protocol reference
 
-- Event log protocol: `documents/references/backend/events.md`
-- SSE cap rule (3 streams only): `documents/decisions/005-three-sse-streams-cap.md`
+- Event log protocol: `docs/references/backend/events.md`
+- SSE cap rule (3 streams only): `docs/decisions/005-three-sse-streams-cap.md`

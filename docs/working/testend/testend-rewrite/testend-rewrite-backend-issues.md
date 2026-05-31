@@ -1,3 +1,14 @@
+---
+id: WRK-003-04
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-27
+review-due: never
+audience: [human, ai]
+landed-into: docs/references/
+---
 # Testend Rewrite — Backend Issues Log
 
 > 2026-05-14 起,testend 全量重写过程中发现的后端问题 + 顺手修的记录。

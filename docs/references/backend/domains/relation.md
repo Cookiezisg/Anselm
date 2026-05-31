@@ -14,9 +14,9 @@ audience: [human, ai]
 **状态**：📐 设计期（2026-05-19 brainstorm 通过，等开工）
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — 3 端点索引
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `relations` 表 + 3 张 version 表加列
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — 4 sentinel
+- [`../references/backend/api.md`](../references/backend/api.md) — 3 端点索引
+- [`../references/backend/database.md`](../references/backend/database.md) — `relations` 表 + 3 张 version 表加列
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — 4 sentinel
 - [`./function.md`](./function.md) [`./handler.md`](./handler.md) [`./workflow.md`](./workflow.md) — `forged_in_conversation_id` 字段写入方
 - [`./document.md`](./document.md) — wikilink 解析与 `document_links_entity` 边
 - [`./conversation.md`](./conversation.md) — `conversation_forged_entity` / `_edited_entity` 边触发源
@@ -596,14 +596,14 @@ Skill/MCP 仍出现在 relgraph 中（通过 `workflow_uses_skill` / `workflow_u
 
 | 文件 | 改什么 | Phase |
 |---|---|---|
-| `service-design-documents/relation.md`（本文件） | 落地后据实更新 | R1 起持续 |
-| `service-design-documents/function.md` `handler.md` `workflow.md` | + 一节 "relations integration"（hook 在哪几个 method 调）+ `forged_in_conversation_id` 字段说明 | R3 |
-| `service-design-documents/document.md` `conversation.md` `mcp.md` `skill.md` | + 一节 "relations integration"（hook 列表） | R3 |
-| `service-contract-documents/api-design.md` | + relations 一节，3 端点 | R4 |
-| `service-contract-documents/database-design.md` | + `relations` 表行 + 3 张 version 表新列行 | R1 |
-| `service-contract-documents/error-codes.md` | + 4 sentinel | R4 |
-| `service-contract-documents/events-design.md` | 不动（不广播） | — |
-| `progress-record.md` | `[feat]` dev log | R5 |
+| `references/backend/domains/relation.md`（本文件） | 落地后据实更新 | R1 起持续 |
+| `references/backend/domains/function.md` `handler.md` `workflow.md` | + 一节 "relations integration"（hook 在哪几个 method 调）+ `forged_in_conversation_id` 字段说明 | R3 |
+| `references/backend/domains/document.md` `conversation.md` `mcp.md` `skill.md` | + 一节 "relations integration"（hook 列表） | R3 |
+| `references/backend/api.md` | + relations 一节，3 端点 | R4 |
+| `references/backend/database.md` | + `relations` 表行 + 3 张 version 表新列行 | R1 |
+| `references/backend/error-codes.md` | + 4 sentinel | R4 |
+| `references/backend/events.md` | 不动（不广播） | — |
+| `references/changelog.md` | `[feat]` dev log | R5 |
 | `CLAUDE.md §S15` | + `rel_` → relation prefix | R1 |
 | `backend-design.md` | + relation domain 加入 architecture 树 | R5 |
 

@@ -13,7 +13,7 @@ audience: [human, ai]
 **关联**：
 - [`./fsd-layers.md`](./fsd-layers.md) — 层定义 / slice 清单
 - [`./cross-cutting.md`](./cross-cutting.md) — DIP / SSE / queryKeys
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — 后端 REST API 权威（§N3：响应字段 camelCase）
+- [`../references/backend/api.md`](../references/backend/api.md) — 后端 REST API 权威（§N3：响应字段 camelCase）
 
 **定位**：**13 个 REST entity 的 TS 接口 ↔ 后端端点一眼对齐**（apikey / conversation / document / flowrun / function / handler / mcp / memory / model-config / relation / skill / user / workflow）；另有 **2 个非 REST entity**（session / settings，本地持久化，无后端端点）单独列在末节。字段细节 / mutation 参数类型看各 `entities/<name>/model/types.ts`。
 
@@ -283,4 +283,4 @@ interface ThinkingSpec {
 | `lang` | `"zh" \| "en"` | `navigator.language` 检测 |
 | `reasoningDefault` | `"collapsed" \| "expanded"` | `"collapsed"` |
 
-**运行上限（REST，区别于上表 settingsStore 前端偏好）**：`entities/settings/api/limits.ts` 的 `useLimits` / `useUpdateLimits`（`qk.settingsLimits()`）↔ `GET/PUT /api/v1/settings/limits`；类型 `Limits`（`model/limits.ts`，镜像后端 `internal/pkg/limits.Limits`：`agent` / `output` / `context` / `timeout` / `tools` / `workflow` / `guards` 七组数字上限）+ `DEFAULT_LIMITS`。这是**后端行为配置**（经 API 往返 + 存 settings.json，热重载），由 `features/settings/ui/AdvancedCapabilitiesSection` 编辑；详 [`../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md`](../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md)。
+**运行上限（REST，区别于上表 settingsStore 前端偏好）**：`entities/settings/api/limits.ts` 的 `useLimits` / `useUpdateLimits`（`qk.settingsLimits()`）↔ `GET/PUT /api/v1/settings/limits`；类型 `Limits`（`model/limits.ts`，镜像后端 `internal/pkg/limits.Limits`：`agent` / `output` / `context` / `timeout` / `tools` / `workflow` / `guards` 七组数字上限）+ `DEFAULT_LIMITS`。这是**后端行为配置**（经 API 往返 + 存 settings.json，热重载），由 `features/settings/ui/AdvancedCapabilitiesSection` 编辑；详 [`../archive/limits-optimization-2026-05/02-advanced-settings-ui.md`](../archive/limits-optimization-2026-05/02-advanced-settings-ui.md)。

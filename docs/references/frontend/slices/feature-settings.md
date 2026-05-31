@@ -16,7 +16,7 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
-- 后端 [`../service-design-documents/user.md`](../service-design-documents/user.md)
+- 后端 [`../references/backend/domains/user.md`](../references/backend/domains/user.md)
 - 实体层 [`user.md`](user.md) / [`session.md`](session.md)
 
 ---
@@ -28,7 +28,7 @@ audience: [human, ai]
 | switchTo | 更新 sessionStore.currentUserId + 全量 invalidate + success toast |
 | addAccount | 创建用户 → 自动 switchTo 新账户 → 清空 name input |
 
-该 slice 仅包含 `useAccountManager`；其他 settings 子区域（API Keys、Model Config、Appearance、Search、System、**Advanced Capabilities**）直接在 UI 组件中消费对应 entity hooks，无需 feature 层编排。**2026-05-31**：新增 `ui/AdvancedCapabilitiesSection.tsx`——运行上限「高级能力」区，读 `entities/settings` 的 `useLimits`/`useUpdateLimits`（↔ `GET/PUT /settings/limits`），分组数字输入 + 恢复默认；组件零业务（只调 hook）；详 [`../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md`](../adhoc-topic-documents/limits-optimization/02-advanced-settings-ui.md)。
+该 slice 仅包含 `useAccountManager`；其他 settings 子区域（API Keys、Model Config、Appearance、Search、System、**Advanced Capabilities**）直接在 UI 组件中消费对应 entity hooks，无需 feature 层编排。**2026-05-31**：新增 `ui/AdvancedCapabilitiesSection.tsx`——运行上限「高级能力」区，读 `entities/settings` 的 `useLimits`/`useUpdateLimits`（↔ `GET/PUT /settings/limits`），分组数字输入 + 恢复默认；组件零业务（只调 hook）；详 [`../archive/limits-optimization-2026-05/02-advanced-settings-ui.md`](../archive/limits-optimization-2026-05/02-advanced-settings-ui.md)。
 
 ---
 

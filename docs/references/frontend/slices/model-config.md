@@ -16,7 +16,7 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
-- 后端 `service-design-documents/model.md`
+- 后端 `references/backend/domains/model.md`
 - spec `docs/superpowers/specs/2026-05-28-model-selection-redesign-design.md`
 
 ---

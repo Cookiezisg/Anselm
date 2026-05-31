@@ -1,3 +1,14 @@
+---
+id: WRK-002-06
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-30
+review-due: never
+audience: [human, ai]
+landed-into: docs/concepts/architecture.md
+---
 # LLM Provider Adapters + Thinking + Capability Catalog — 实现计划
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development(推荐)或 superpowers:executing-plans。步骤用 `- [ ]` 跟踪。

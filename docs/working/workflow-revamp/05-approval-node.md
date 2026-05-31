@@ -1,3 +1,14 @@
+---
+id: WRK-001-06
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 05 — Approval 节点
 
 脑爆结论笔记(2026-05-27)。

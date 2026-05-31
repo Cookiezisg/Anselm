@@ -14,7 +14,7 @@ audience: [human, ai]
 - [`../frontend-design.md`](../frontend-design.md) — 设计理由（为什么这样切）
 - [`./fsd-layers.md`](./fsd-layers.md) — 层定义 / slice 清单
 - [`./entity-types.md`](./entity-types.md) — entity TS 类型表
-- 后端：[`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)（SSE 协议权威）
+- 后端：[`../references/backend/events.md`](../references/backend/events.md)（SSE 协议权威）
 
 **定位**：**一眼看到 DIP / errorMap / SSE / queryKeys / toastStore / i18n 的接口和数据流**。理由和演进历史去 `frontend-design.md`。
 
@@ -122,7 +122,7 @@ feature hook 只需 `throw` 或让 mutation 自然失败，不手写 `pushToast`
 
 ## 3. SSE 三流
 
-后端协议权威：`service-contract-documents/events-design.md`（E1）。本节记录**前端消费侧**接口。
+后端协议权威：`references/backend/events.md`（E1）。本节记录**前端消费侧**接口。
 
 **上限 3 条，永不再加。** 三流均在 `app/sse/SSEProvider.tsx` 单例挂载（每 userId 一套连接）。
 

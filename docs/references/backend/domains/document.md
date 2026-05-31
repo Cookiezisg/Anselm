@@ -15,9 +15,9 @@ audience: [human, ai]
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../final-sweep.md`](../final-sweep.md) §14 — 5 子项实施清单 + 2026-05-16 设计改向史（弃 RAG / 弃 flat-with-sections）
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — 7 端点索引
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — `documents` 表
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — 4 sentinel
+- [`../references/backend/api.md`](../references/backend/api.md) — 7 端点索引
+- [`../references/backend/database.md`](../references/backend/database.md) — `documents` 表
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — 4 sentinel
 - [`./catalog.md`](./catalog.md) — 第 4 source 接入
 - [`./workflow.md`](./workflow.md) — LLM 节点 `AttachedDocumentIds` 字段
 - [`./chat.md`](./chat.md) — Conversation `AttachedDocumentIDs` 字段

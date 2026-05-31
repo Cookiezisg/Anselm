@@ -1,10 +1,21 @@
+---
+id: WRK-003-02
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-27
+review-due: never
+audience: [human, ai]
+landed-into: docs/references/
+---
 # Testend V3 — React Rewrite + Backend Dev Infra Cleanup
 
 **创建于**: 2026-05-27
 **类型**: brainstorming spec(brainstorming → writing-plans → executing-plans 链上第一环)
 **关联**:
-- 现状文档:[`documents/version-1.2/adhoc-topic-documents/testend/testend-design.md`](../../../documents/version-1.2/adhoc-topic-documents/testend/testend-design.md)(V2 重写完工记录,2026-05-14)
-- 后端 issue log:[`documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md`](../../../documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md)
+- 现状文档:[`documents/version-1.2/working/testend/testend-design.md`](../../../documents/version-1.2/working/testend/testend-design.md)(V2 重写完工记录,2026-05-14)
+- 后端 issue log:[`documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md`](../../../documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md)
 - 后端总规:[`documents/version-1.2/backend-design.md`](../../../documents/version-1.2/backend-design.md)
 - 工程纪律:[`CLAUDE.md`](../../../CLAUDE.md) §S14 后端文档同步 + §F1 前端文档同步
 
@@ -302,14 +313,14 @@ testend-rewrite issue #3 已指出,但只是改了一次清单内容。手维护
 
 | 文档 | 行动 |
 |---|---|
-| `documents/version-1.2/adhoc-topic-documents/testend/testend-design.md` | **完整重写为 V3 React 形态**(目录结构 / 共享策略 / view inventory / verification) |
-| `documents/version-1.2/service-contract-documents/api-design.md` | 删 `/dev/collections` / `/dev/tools` / `/dev/invoke` 端点段;`/dev/routes` 标注"反射自动生成";`--integration-dir` 旧名 → `--testend-dir` |
-| `documents/version-1.2/progress-record.md` | 一条 dev log:`[feat] testend V3 React 重做 + backend dev 设施清理`(~30-100 字 §S19) |
-| `documents/version-1.2/adhoc-topic-documents/testend/testend-rewrite/testend-rewrite-backend-issues.md` | 续 V3 段:append issue #5/#6/#7;V2 issues #1-#4 加历史说明 |
+| `documents/version-1.2/working/testend/testend-design.md` | **完整重写为 V3 React 形态**(目录结构 / 共享策略 / view inventory / verification) |
+| `documents/version-1.2/references/backend/api.md` | 删 `/dev/collections` / `/dev/tools` / `/dev/invoke` 端点段;`/dev/routes` 标注"反射自动生成";`--integration-dir` 旧名 → `--testend-dir` |
+| `documents/version-1.2/references/changelog.md` | 一条 dev log:`[feat] testend V3 React 重做 + backend dev 设施清理`(~30-100 字 §S19) |
+| `documents/version-1.2/working/testend/testend-rewrite/testend-rewrite-backend-issues.md` | 续 V3 段:append issue #5/#6/#7;V2 issues #1-#4 加历史说明 |
 | `testend/CLAUDE.md` | **新增**:子项目工程纪律(共享 alias 规则 / view 扁平不进 FSD / 不引单测 / 与 frontend 版本号同步 / commit / push 纪律) |
 | `CLAUDE.md`(项目根) | 末节"前端开发守则"加一段链接到 `testend/CLAUDE.md`;文档地图加 V3 testend-design 链接 |
-| `frontend-contract-documents/*.md` | **不动**(testend 不进 FSD) |
-| `service-design-documents/*.md` | **不动**(testend 不属于任何后端 domain) |
+| `references/frontend/*.md` | **不动**(testend 不进 FSD) |
+| `references/backend/domains/*.md` | **不动**(testend 不属于任何后端 domain) |
 
 ## 11. 风险 + Known-Unknowns
 

@@ -110,7 +110,7 @@ var (
 )
 ```
 
-errmap 见 [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md)。
+errmap 见 [`../references/backend/error-codes.md`](../references/backend/error-codes.md)。
 
 ---
 
@@ -165,7 +165,7 @@ if Count == 1 → ErrCannotDeleteLast
 
 ## 7. HTTP API（5 端点）
 
-详细 wire 形见 [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md)。
+详细 wire 形见 [`../references/backend/api.md`](../references/backend/api.md)。
 
 | Method | Path | 用途 |
 |---|---|---|

@@ -1,3 +1,14 @@
+---
+id: WRK-001-13
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 12 — 深挖发现(8 subagent 并行盘点 patch 11)
 
 脑爆结论笔记(2026-05-29)。

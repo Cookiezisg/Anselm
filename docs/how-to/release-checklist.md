@@ -17,7 +17,7 @@ audience: [human, ai]
 - [ ] `make e2e` green (mock + sandbox + live)
 - [ ] `make doc-matrix` — no STALE domains
 - [ ] All `working/` docs either have `landed-into` filled or `review-due` in future
-- [ ] `documents/references/changelog.md` up to date
+- [ ] `docs/references/changelog.md` up to date
 
 ## Build
 
@@ -35,5 +35,5 @@ git push origin v1.2.X
 
 ## Post-release
 
-- [ ] Update phase table in `documents/concepts/architecture.md`
-- [ ] Add release entry to `documents/references/changelog.md`
+- [ ] Update phase table in `docs/concepts/architecture.md`
+- [ ] Add release entry to `docs/references/changelog.md`

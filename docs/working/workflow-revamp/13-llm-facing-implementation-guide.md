@@ -1,3 +1,14 @@
+---
+id: WRK-001-14
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 13 — LLM-Facing 实施指南(workflow-revamp:照这个做)
 
 > **这是一篇"你该做什么"的决策视图**:必做清单 + 优先级 + 产品形态认知(一屏看完)。

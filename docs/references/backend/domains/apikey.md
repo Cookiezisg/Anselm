@@ -22,9 +22,9 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — API 索引
-- [`../service-contract-documents/database-design.md`](../service-contract-documents/database-design.md) — 表索引
-- [`../service-contract-documents/error-codes.md`](../service-contract-documents/error-codes.md) — 错误码索引
+- [`../references/backend/api.md`](../references/backend/api.md) — API 索引
+- [`../references/backend/database.md`](../references/backend/database.md) — 表索引
+- [`../references/backend/error-codes.md`](../references/backend/error-codes.md) — 错误码索引
 
 ---
 
@@ -238,7 +238,7 @@ var (
 // nil on success; 401/403 from upstream LLM surfaces as llminfra.ErrAuthFailed).
 ```
 
-各 sentinel → HTTP 映射见 §14 错误码 + `service-contract-documents/error-codes.md`。
+各 sentinel → HTTP 映射见 §14 错误码 + `references/backend/error-codes.md`。
 
 ---
 
@@ -625,7 +625,7 @@ JSON 畸形时 `parseXxx` 返 `nil`，**连通性仍报告成功**（只是不�
 - `contextmgr.Manager`：注入 `func(ctx, provider, modelID) (int, int)` 闭包（包裹 `ResolveCapabilities`），用于获取真实 per-model 上下文窗口（彻底消除 hardcoded 4K fallback 的 bug，详 `compaction.md`）
 - 前端：通过 `GET/PUT/DELETE /api/v1/model-capabilities` HTTP 端点消费（详 `model.md §10.4-10.6`）
 
-**详细设计**：[`llm-providers/04-capability-catalog.md`](../adhoc-topic-documents/llm-providers/04-capability-catalog.md)
+**详细设计**：[`llm-providers/04-capability-catalog.md`](../working/llm-providers/04-capability-catalog.md)
 
 ## 10. HTTP API 详细
 

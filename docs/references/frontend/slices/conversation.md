@@ -16,8 +16,8 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
-- [`../frontend-contract-documents/`](../frontend-contract-documents/) — API 契约索引
-- 后端 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)
+- [`../references/frontend/`](../references/frontend/) — API 契约索引
+- 后端 [`../references/backend/domains/conversation.md`](../references/backend/domains/conversation.md)
 
 ---
 

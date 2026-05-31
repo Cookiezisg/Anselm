@@ -1,3 +1,14 @@
+---
+id: WRK-002-03
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-30
+review-due: never
+audience: [human, ai]
+landed-into: docs/concepts/architecture.md
+---
 # LLM Provider 实现参考(施工图)— 2026-05-29
 
 > **用途**:每家 provider 的完整 adapter + 黄金测试照着这份写。覆盖端点 / auth / 请求体(chat+tools+thinking)/ 响应流式解析 / quirk / 真实 golden fixture / 可抄参考代码。

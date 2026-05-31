@@ -1,6 +1,17 @@
+---
+id: WRK-003-01
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-27
+review-due: never
+audience: [human, ai]
+landed-into: docs/references/
+---
 # Testend Dev Console — 设计文档
 
-**关联**：[`backend-design.md`](../../backend-design.md) / [`progress-record.md`](../../progress-record.md) / [`testend-rewrite/testend-rewrite-backend-issues.md`](./testend-rewrite/testend-rewrite-backend-issues.md)
+**关联**：[`backend-design.md`](../../backend-design.md) / [`references/changelog.md`](../../references/changelog.md) / [`testend-rewrite/testend-rewrite-backend-issues.md`](./testend-rewrite/testend-rewrite-backend-issues.md)
 
 ---
 

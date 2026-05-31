@@ -16,7 +16,7 @@ audience: [human, ai]
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
-- 后端 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md)
+- 后端 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md)
 - 实体层 [`workflow.md`](workflow.md)
 
 ---

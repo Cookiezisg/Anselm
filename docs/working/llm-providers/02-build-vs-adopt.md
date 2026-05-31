@@ -1,3 +1,14 @@
+---
+id: WRK-002-02
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-30
+review-due: never
+audience: [human, ai]
+landed-into: docs/concepts/architecture.md
+---
 # 自己写 vs 用开源：LLM 多厂商方案选型（2026-05-29）
 
 > **问题**：配 key 配模型要完美无 bug，这层我们是不是不用自己写？有没有开源能替掉手写的 `infra/llm`？

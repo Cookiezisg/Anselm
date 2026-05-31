@@ -14,13 +14,13 @@ audience: [human, ai]
 **状态**：✅ 已实现到 Phase 3（含事件日志协议统一 2026-05-08 + loop 引擎抽离 2026-05）；Phase 4-5 时再升级
 **地位**：**全系统最核心的 domain**——用户的每一次对话都从这里进入，一切能力都通过这里编排。
 
-> **🔧 限制优化（2026-05-31，limits-optimization）**：ReAct `maxSteps`（20→150）/ `maxTurnDuration`（10→30min）现读 `limits.Current()`；撞顶写诚实终态 `StopReasonMaxSteps`+`MAX_STEPS_REACHED`（不再冒充 completed）；`maxHistoryMessages` 200→2000 + `buildHistory` 对 archived 消息统一投影（含 user）；LLM idle 死连接超时替代 120s 总墙钟。详 [`../adhoc-topic-documents/limits-optimization/`](../adhoc-topic-documents/limits-optimization/)。
+> **🔧 限制优化（2026-05-31，limits-optimization）**：ReAct `maxSteps`（20→150）/ `maxTurnDuration`（10→30min）现读 `limits.Current()`；撞顶写诚实终态 `StopReasonMaxSteps`+`MAX_STEPS_REACHED`（不再冒充 completed）；`maxHistoryMessages` 200→2000 + `buildHistory` 对 archived 消息统一投影（含 user）；LLM idle 死连接超时替代 120s 总墙钟。详 [`../archive/limits-optimization-2026-05/`](../archive/limits-optimization-2026-05/)。
 
 **关联文档**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
 - [`../event-log-protocol.md`](../event-log-protocol.md) — 事件日志协议事实源（5 events × 6 block types）
-- [`../service-contract-documents/api-design.md`](../service-contract-documents/api-design.md) — API 索引
-- [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md) — 事件契约（双协议）
+- [`../references/backend/api.md`](../references/backend/api.md) — API 索引
+- [`../references/backend/events.md`](../references/backend/events.md) — 事件契约（双协议）
 - [`./subagent.md`](./subagent.md) — Subagent system tool；嵌套 sub-run 走同一事件协议
 
 ---
@@ -704,7 +704,7 @@ POST /api/v1/attachments (multipart/form-data)
 
 ## 8. SSE 事件（事件日志协议）
 
-chat domain 通过 **事件日志协议** 推流——5 events × 6 block types 的递归 SSE 流。完整设计 → [`../event-log-protocol.md`](../event-log-protocol.md)；契约表格 → [`../service-contract-documents/events-design.md`](../service-contract-documents/events-design.md)。本节只讲 chat 作为 producer 的视角。
+chat domain 通过 **事件日志协议** 推流——5 events × 6 block types 的递归 SSE 流。完整设计 → [`../event-log-protocol.md`](../event-log-protocol.md)；契约表格 → [`../references/backend/events.md`](../references/backend/events.md)。本节只讲 chat 作为 producer 的视角。
 
 ### 8.1 双 SSE 协议
 
@@ -721,7 +721,7 @@ chat 的 producer 出口分别经：
 
 ### 8.2 5 个事件类型 + 6 个 block 类型
 
-详见 [`events-design.md` §1-§3](../service-contract-documents/events-design.md)：
+详见 [`events-design.md` §1-§3](../references/backend/events.md)：
 
 | 事件 | 用途 | DB 写入 |
 |---|---|---|

@@ -12,9 +12,9 @@ audience: [human, ai]
 
 **关联**：
 - [`../backend-design.md`](../backend-design.md) — 总规范
-- [`../service-design-documents/`](../service-design-documents/) — 每个 domain 的详设计
+- [`../references/backend/domains/`](../references/backend/domains/) — 每个 domain 的详设计
 
-**定位**：**一眼能看到谁提供了什么**。详细的 request/response schema、错误细节、边界 case，**去 service-design-documents 看**。
+**定位**：**一眼能看到谁提供了什么**。详细的 request/response schema、错误细节、边界 case，**去 references/backend/domains/ 看**。
 
 **遵守标准**：N1（envelope）/ N2（状态码）/ N3（camelCase）/ N4（分页）/ N5（RESTful）
 
@@ -79,7 +79,7 @@ type Error = {
 
 ### 多用户 session（§20）
 
-每个请求需 `X-Forgify-User-ID: <userID>` header 标识当前 profile；缺省回退至 DB 首个 user，再回退 `local-user`。SSE EventSource API 不能自定义 header → 端点 URL append `?userID=<uid>` 兜底。详 [`../service-design-documents/user.md`](../service-design-documents/user.md) §9。
+每个请求需 `X-Forgify-User-ID: <userID>` header 标识当前 profile；缺省回退至 DB 首个 user，再回退 `local-user`。SSE EventSource API 不能自定义 header → 端点 URL append `?userID=<uid>` 兜底。详 [`../references/backend/domains/user.md`](../references/backend/domains/user.md) §9。
 
 ### 多语言（§21）
 
@@ -108,7 +108,7 @@ type Error = {
 ### Phase 2：基础对话能力
 
 #### apikey ✅
-详见 [`../service-design-documents/apikey.md`](../service-design-documents/apikey.md) §10。
+详见 [`../references/backend/domains/apikey.md`](../references/backend/domains/apikey.md) §10。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -120,19 +120,19 @@ type Error = {
 | GET | `/api/v1/providers` | 列 ProviderMeta 注册表（`?category=llm` 或 `?category=search` 过滤）；前端用以替代客户端硬编码 provider 列表（屎山拯救计划 #4 收尾）|
 
 #### model ✅
-详见 [`../service-design-documents/model.md`](../service-design-documents/model.md)。用户给每个 scenario 选定 `(apiKeyId, modelID)`（provider 由 apiKey 隐含）；2026-05-28 redesign 后 3 个 scenario：`dialogue` / `utility` / `agent`。
+详见 [`../references/backend/domains/model.md`](../references/backend/domains/model.md)。用户给每个 scenario 选定 `(apiKeyId, modelID)`（provider 由 apiKey 隐含）；2026-05-28 redesign 后 3 个 scenario：`dialogue` / `utility` / `agent`。
 
 | Method | Path | 用途 |
 |---|---|---|
 | GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）；row shape 含 `apiKeyId`（2026-05-28 redesign：原 `provider` 字段已删）|
 | PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId, thinking?}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）；**2026-05-30：body 新增可选 `thinking` 字段（`ThinkingSpec`，nil=未设定）** |
 | GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata，3 项 `dialogue` / `utility` / `agent`；onboarding 前可读，不需 user header）|
-| GET | `/api/v1/model-capabilities` | 当前用户已配置 provider/model 的 resolved capability 列表（静态规则 ⊕ 用户 override）；供前端 ThinkingControl 渲染，详 [`../service-design-documents/model.md`](../service-design-documents/model.md) §10.4（**2026-05-30 新增**）|
+| GET | `/api/v1/model-capabilities` | 当前用户已配置 provider/model 的 resolved capability 列表（静态规则 ⊕ 用户 override）；供前端 ThinkingControl 渲染，详 [`../references/backend/domains/model.md`](../references/backend/domains/model.md) §10.4（**2026-05-30 新增**）|
 | PUT | `/api/v1/model-capabilities` | 设置用户 per-model capability override；body `{provider, modelId, thinkingShape?, contextWindow?, maxOutput?}`；400 `INVALID_THINKING_SHAPE`（handler 内联，不进 errmap）（**2026-05-30 新增**）|
 | DELETE | `/api/v1/model-capabilities` | 清除用户对 `?provider=xxx&modelId=yyy` 的 override，回退静态规则（**2026-05-30 新增**）|
 
 #### conversation ✅
-详见 [`../service-design-documents/conversation.md`](../service-design-documents/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。
+详见 [`../references/backend/domains/conversation.md`](../references/backend/domains/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -143,12 +143,12 @@ type Error = {
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
 #### chat ✅
-详见 [`../service-design-documents/chat.md`](../service-design-documents/chat.md)。自有 `infra/llm` 驱动（Eino 已移除），Block 模型，Phase 2 tools=nil（纯流式对话），Phase 3+ 注入 System Tools。
+详见 [`../references/backend/domains/chat.md`](../references/backend/domains/chat.md)。自有 `infra/llm` 驱动（Eino 已移除），Block 模型，Phase 2 tools=nil（纯流式对话），Phase 3+ 注入 System Tools。
 
 | Method | Path | 用途 |
 |---|---|---|
 | POST | `/api/v1/attachments` | 上传附件（multipart，50MB 限制）→ 201 返回 attachment_id |
-| POST | `/api/v1/conversations/{id}/messages` | 发送消息（202，队列化异步 Agent 运行）；body 含 `attachmentIds[]` + `mentions[]`（`{type,id}`，@ 引用实体内容快照进消息，type ∈ document/function/handler/workflow；详见 service-design-documents/mention.md）|
+| POST | `/api/v1/conversations/{id}/messages` | 发送消息（202，队列化异步 Agent 运行）；body 含 `attachmentIds[]` + `mentions[]`（`{type,id}`，@ 引用实体内容快照进消息，type ∈ document/function/handler/workflow；详见 references/backend/domains/mention.md）|
 | DELETE | `/api/v1/conversations/{id}/stream` | 取消正在运行的 Agent（204）；404 STREAM_NOT_FOUND |
 | GET | `/api/v1/conversations/{id}/messages` | 消息历史（cursor 分页，ASC 时序）；每条消息含 `blocks[]`（**7 类型**：text/reasoning/tool_call/tool_result/progress/message/compaction）+ `attrs`（user msg 含 `attachments[]` 引用、subagent sub-message 含 `kind=subagent_run`）+ `inputTokens` + `outputTokens`。**注**：附件不是 block 类型，是 `attrs.attachments[]` 引用 `attachments` 表 |
 
@@ -157,7 +157,7 @@ type Error = {
 ### Phase 3：工具锻造能力 — function trinity (forge_redesign Plan 01)
 
 #### function ✅
-详见 [`../service-design-documents/function.md`](../service-design-documents/function.md) §6 + redesign topic [`../adhoc-topic-documents/forge_redesign/02-function.md`](../adhoc-topic-documents/forge_redesign/02-function.md)。
+详见 [`../references/backend/domains/function.md`](../references/backend/domains/function.md) §6 + redesign topic [`../archive/forge-redesign-2026-05/02-function.md`](../archive/forge-redesign-2026-05/02-function.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -178,7 +178,7 @@ type Error = {
 > forge_redesign Plan 01(2026-05-11):整套 forge 代码路径在 Phase 7 删除,trinity domain function 替代。POST 走扁平 definition(curl/UI/script 友好),LLM 走 ops 增量编辑(create_function / edit_function 工具单 op emit 1 progress delta)。env sync 是 caller-owns lifetime(D3):创建/edit/accept 后 SyncEnvForVersion 后台起 goroutine,UI 经 GET /functions/{id} 看 envStatus 翻 ready/failed。D22:每次 RunFunction 终态写 1 行 function_executions(detached ctx §S9);9 LLM tools 含 search_function_executions / get_function_execution 让 LLM 自诊断。
 
 #### handler ✅ (forge_redesign Plan 02)
-详见 [`../service-design-documents/handler.md`](../service-design-documents/handler.md) §9 + redesign topic [`../adhoc-topic-documents/forge_redesign/03-handler.md`](../adhoc-topic-documents/forge_redesign/03-handler.md)。
+详见 [`../references/backend/domains/handler.md`](../references/backend/domains/handler.md) §9 + redesign topic [`../archive/forge-redesign-2026-05/03-handler.md`](../archive/forge-redesign-2026-05/03-handler.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -203,7 +203,7 @@ type Error = {
 > forge_redesign Plan 02(2026-05-12):Handler 是 trinity 第二条腿 — 有状态 Python class。**Caller-owns lifetime**(D3 + 2026-05-12 用户细化):chat = per-call(spawn-method-destroy 一气呵成),workflow/test/session = persistent via instanceRegistry。无 idle GC。**ConfigState**(D-handler):per-Definition 整个 init_args JSON 经 AES-GCM 加密存 `handlers.config_encrypted`;sensitive 字段在 GET/list/LLM 工具结果 mask。stdio JSON-line RPC client 跟 Python subprocess 沟通,自己写一份(不复用 MCP)。D22:每次 Service.Call 终态写 1 行 handler_calls。
 
 #### workflow ✅ (forge_redesign Plan 04)
-详见 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §9 + redesign topic [`../adhoc-topic-documents/forge_redesign/04-workflow.md`](../adhoc-topic-documents/forge_redesign/04-workflow.md)。
+详见 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md) §9 + redesign topic [`../archive/forge-redesign-2026-05/04-workflow.md`](../archive/forge-redesign-2026-05/04-workflow.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -222,10 +222,10 @@ type Error = {
 
 > forge_redesign Plan 04(2026-05-12):Workflow 是 trinity 第三条腿 — **用户命名的有向无环图(DAG)**。锻造 vs 执行分离(D6):本端点集只管"图怎么样",不管"图怎么跑"(`:trigger` action + flowrun endpoints + execution log endpoints 在 Plan 05)。Edit 走 iterate-same-pending(D-redo-11);拒绝 `ops=[]`(workflow 无 env 要"force-rebuild")。CapabilityChecker 真接 function/handler/skill/mcp 服务,validation 期返 `WORKFLOW_CAPABILITY_NOT_FOUND` / `WORKFLOW_MCP_SERVER_NOT_INSTALLED`。
 
-> **2026-05-28 model selection redesign**:`:edit` ops 联合新增第 10 个 `set_node_model_override` op,payload `{nodeId, modelOverride:{apiKeyId, modelId}?}`(modelOverride 字段缺失或 null = 清除)。F1 校验:任一 `apiKeyId`/`modelId` 缺失 → 400 `INVALID_NODE_MODEL_OVERRIDE`;`apiKeyId` 不存在 / 跨用户 → 404 `API_KEY_NOT_FOUND`。详 [`../service-design-documents/workflow.md`](../service-design-documents/workflow.md) §5。
+> **2026-05-28 model selection redesign**:`:edit` ops 联合新增第 10 个 `set_node_model_override` op,payload `{nodeId, modelOverride:{apiKeyId, modelId}?}`(modelOverride 字段缺失或 null = 清除)。F1 校验:任一 `apiKeyId`/`modelId` 缺失 → 400 `INVALID_NODE_MODEL_OVERRIDE`;`apiKeyId` 不存在 / 跨用户 → 404 `API_KEY_NOT_FOUND`。详 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md) §5。
 
 #### flowrun + trigger + scheduler ✅ (forge_redesign Plan 05)
-详见 [`../service-design-documents/{flowrun,trigger,scheduler}.md`](../service-design-documents/) + redesign topic [`../adhoc-topic-documents/forge_redesign/05-execution-plane.md`](../adhoc-topic-documents/forge_redesign/05-execution-plane.md)。
+详见 [`../references/backend/domains/{flowrun,trigger,scheduler}.md`](../references/backend/domains/) + redesign topic [`../archive/forge-redesign-2026-05/05-execution-plane.md`](../archive/forge-redesign-2026-05/05-execution-plane.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -280,10 +280,10 @@ Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 wo
 | search | `Grep` / `Glob` | rg 优先 + stdlib 兜底；Glob 输出 JSON 含 type/size/mtime（决策 D3：替代 LS）|
 | web | `WebFetch` / `WebSearch` | Jina r.jina.ai 摘要 + 直 GET fallback；3 层搜索 fallback（SearXNG 池 → Bing → Bing CN）；SSRF 守卫拒私网 / loopback / link-local |
 | shell | `Bash` / `BashOutput` / `KillShell` | 前后台双模式；cwd 状态机（AgentState.Cwd）；后台子进程 ProcessManager 注册 256 KB 环形缓冲；KillShell SIGKILL 幂等 |
-| todo | `TodoCreate` / `TodoList` / `TodoGet` / `TodoUpdate` | 对话级 TODO 追踪（mini-domain，详见 [`../service-design-documents/todo.md`](../service-design-documents/todo.md)）|
+| todo | `TodoCreate` / `TodoList` / `TodoGet` / `TodoUpdate` | 对话级 TODO 追踪（mini-domain，详见 [`../references/backend/domains/todo.md`](../references/backend/domains/todo.md)）|
 | ask | `AskUserQuestion` | 暂停 agent loop 等用户回答；问题坐 chat.message SSE，答案走下方 answers endpoint |
 
-详细工具集在 chat agent 注入清单见 [`../service-design-documents/chat.md`](../service-design-documents/chat.md)。
+详细工具集在 chat agent 注入清单见 [`../references/backend/domains/chat.md`](../references/backend/domains/chat.md)。
 
 #### chat（Phase 5 新增端点）✅
 
@@ -295,7 +295,7 @@ Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 wo
 
 #### memory（V1.2 §2 final-sweep）✅
 
-跨对话长期事实 CRUD + pin/unpin。详见 [`../service-design-documents/memory.md`](../service-design-documents/memory.md)。
+跨对话长期事实 CRUD + pin/unpin。详见 [`../references/backend/domains/memory.md`](../references/backend/domains/memory.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -311,7 +311,7 @@ Function + Handler + Workflow System Tools 注入(9 function + 10 handler + 6 wo
 
 #### document (Phase 5 §14) ✅ §14.2
 
-Notion-style 树状文档库 CRUD + move。详见 [`../service-design-documents/document.md`](../service-design-documents/document.md)。
+Notion-style 树状文档库 CRUD + move。详见 [`../references/backend/domains/document.md`](../references/backend/domains/document.md)。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -356,12 +356,12 @@ Notion-style 树状文档库 CRUD + move。详见 [`../service-design-documents/
 | GET | `/api/v1/permissions/tools` | 列所有已注册 tool + dangerLevel(`read_only`/`workspace_write`/`danger_full_access`) |
 | POST | `/api/v1/permissions/test` | body `{toolName, args, destructive?}` → 返 `{action, reason}` 预测当前规则下结果，无副作用 |
 
-settings.json 顶层 schema：`{permissions:{defaultMode:ask\|allow\|deny\|bypass, deny:[], ask:[], allow:[]}, hooks:{PreToolUse:[], PostToolUse:[], Stop:[]}, protectedPaths:{denyWrite:[]}}`。规则形态 `"Verb(pattern)"`（如 `"Bash(rm -rf *)"`、`"Edit(./src/**)"`、`"WebFetch(domain:github.com)"`）；详 [`../service-design-documents/permissions.md`](../service-design-documents/permissions.md) §5.1。求值：deny→ask→allow→defaultMode 第一匹配赢；session ask-once 缓存让用户答过的同 (tool, args) 不再问。Hook 形态当前仅 shell exec（stdin/stdout JSON 协议），exit 0/2/其他 三态语义；详 §6。
+settings.json 顶层 schema：`{permissions:{defaultMode:ask\|allow\|deny\|bypass, deny:[], ask:[], allow:[]}, hooks:{PreToolUse:[], PostToolUse:[], Stop:[]}, protectedPaths:{denyWrite:[]}}`。规则形态 `"Verb(pattern)"`（如 `"Bash(rm -rf *)"`、`"Edit(./src/**)"`、`"WebFetch(domain:github.com)"`）；详 [`../references/backend/domains/permissions.md`](../references/backend/domains/permissions.md) §5.1。求值：deny→ask→allow→defaultMode 第一匹配赢；session ask-once 缓存让用户答过的同 (tool, args) 不再问。Hook 形态当前仅 shell exec（stdin/stdout JSON 协议），exit 0/2/其他 三态语义；详 §6。
 
-settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 token / 超时 / 工具结果 / workflow agent 上限）——默认 = 高 ceiling，缺失键保默认（`json.Unmarshal` 叠加在 `limits.Default()` 上），热重载；经 `GET/PUT /api/v1/settings/limits` 或前端「高级能力」设置区编辑；后端经 `internal/pkg/limits.Current()` 单点读取。详 [`../adhoc-topic-documents/limits-optimization/`](../adhoc-topic-documents/limits-optimization/)。
+settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 token / 超时 / 工具结果 / workflow agent 上限）——默认 = 高 ceiling，缺失键保默认（`json.Unmarshal` 叠加在 `limits.Default()` 上），热重载；经 `GET/PUT /api/v1/settings/limits` 或前端「高级能力」设置区编辑；后端经 `internal/pkg/limits.Current()` 单点读取。详 [`../archive/limits-optimization-2026-05/`](../archive/limits-optimization-2026-05/)。
 
 #### user（V1.2 §20 multi-user）✅
-详见 [`../service-design-documents/user.md`](../service-design-documents/user.md)。本地多 profile（无 auth、无密码）；DB 自动 user_id scope；前端 X-Forgify-User-ID header 注入。
+详见 [`../references/backend/domains/user.md`](../references/backend/domains/user.md)。本地多 profile（无 auth、无密码）；DB 自动 user_id scope；前端 X-Forgify-User-ID header 注入。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -373,7 +373,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 | POST | `/api/v1/users/{id}:activate` | touch last_used_at + 返 User → 200 |
 
 #### dev prompts inventory（V1.2 §18 prompt governance）✅
-详见 [`../service-design-documents/../prompt-principles.md`](../prompt-principles.md)。dev-only。
+详见 [`../references/backend/domains/../prompt-principles.md`](../prompt-principles.md)。dev-only。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -398,7 +398,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 
 **V3 清理记录（2026-05-27）**：删除 `/dev/collections`（YAML 集合列举）、`/dev/tools`（system tool 列表）、`/dev/invoke`（直接调 tool），同步删除 `--collections-dir` flag 和 `Deps.Tools` 字段；`--integration-dir` 重命名为 `--testend-dir`。
 
-详见 [`../adhoc-topic-documents/testend/testend-design.md`](../adhoc-topic-documents/testend/testend-design.md)。
+详见 [`../working/testend/testend-design.md`](../working/testend/testend-design.md)。
 
 ---
 
@@ -407,12 +407,12 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 提前完成以下 4 个 domain 作为 Phase 4-5 工作流 / 智能化的基础设施。设计完成、待实施。
 
 #### subagent ✅
-详见 [`../service-design-documents/subagent.md`](../service-design-documents/subagent.md)。LLM 通过 `Subagent` system tool spawn 子 LLM loop（避开 `todo` domain 撞车而改名）；独立 context、过滤后 tool registry；与 chat 都通过 `internal/app/loop` 共享 ReAct 引擎。V1 内置 3 类型（Explore / Plan / general-purpose）。**V1.2 D3-D4 完成 2026-05-06**。
+详见 [`../references/backend/domains/subagent.md`](../references/backend/domains/subagent.md)。LLM 通过 `Subagent` system tool spawn 子 LLM loop（避开 `todo` domain 撞车而改名）；独立 context、过滤后 tool registry；与 chat 都通过 `internal/app/loop` 共享 ReAct 引擎。V1 内置 3 类型（Explore / Plan / general-purpose）。**V1.2 D3-D4 完成 2026-05-06**。
 
 **无独立 HTTP 端点**——2026-05 schema 统一后 sub-run 不再有专表，sub-run 数据是 `messages` 行（`attrs.kind=subagent_run`），sub-run transcript 是该 message 在 `message_blocks` 的 blocks。前端经 `GET /api/v1/conversations/{id}/messages` 读 sub-run 状态；type registry 由 `Subagent` 系统工具进程内消费，不暴露 HTTP。
 
 #### mcp ✅
-详见 [`../service-design-documents/mcp.md`](../service-design-documents/mcp.md)。官方 `modelcontextprotocol/go-sdk` v1.6；stdio only；search/call 模式不 flat 注册（避 token 爆炸）；自包含原则（只读 `~/.forgify/mcp.json`）。**V1.2 D5+D6（2026-05-06）全部落地**：domain types + 10 sentinels + 内置 6 marketplace（Playwright/MarkItDown/Context7/DuckDuckGo/SQLite/everything）+ ~/.forgify/mcp.json Load/Save/Merge + stdio Client wrapper（stderr→zap+256KB ring / SDK CommandTransport 处理 SIGTERM→5s→SIGKILL）+ Service lifecycle/Search/CallTool/Health/Install + 2 system tools (search_mcp/call_mcp) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控。
+详见 [`../references/backend/domains/mcp.md`](../references/backend/domains/mcp.md)。官方 `modelcontextprotocol/go-sdk` v1.6；stdio only；search/call 模式不 flat 注册（避 token 爆炸）；自包含原则（只读 `~/.forgify/mcp.json`）。**V1.2 D5+D6（2026-05-06）全部落地**：domain types + 10 sentinels + 内置 6 marketplace（Playwright/MarkItDown/Context7/DuckDuckGo/SQLite/everything）+ ~/.forgify/mcp.json Load/Save/Merge + stdio Client wrapper（stderr→zap+256KB ring / SDK CommandTransport 处理 SIGTERM→5s→SIGKILL）+ Service lifecycle/Search/CallTool/Health/Install + 2 system tools (search_mcp/call_mcp) + 10 HTTP endpoints + 4 离线 pipeline 场景 + 1 Live_ 装 everything 场景门控。
 
 ##### Server 配置 / 生命周期
 
@@ -438,7 +438,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 **没有 `:enable` / `:disable`**——配置在 mcp.json 即启用，删除即禁用，无中间态。
 
 #### skill ✅
-详见 [`../service-design-documents/skill.md`](../service-design-documents/skill.md)。`SKILL.md` 跨厂兼容（Anthropic spec）；progressive disclosure 三层加载；`context: fork` 可组合到 subagent；自包含（仅 `~/.forgify/skills/`，无项目级）。**V1.2 D7（2026-05-06）全部交付**：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + fsnotify watcher（debounce 500ms + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ 2 system tools (search_skills/activate_skill) + framework permission integration（活动 skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景（Activate inline / Search→Activate / Bash 预授权端到端）。
+详见 [`../references/backend/domains/skill.md`](../references/backend/domains/skill.md)。`SKILL.md` 跨厂兼容（Anthropic spec）；progressive disclosure 三层加载；`context: fork` 可组合到 subagent；自包含（仅 `~/.forgify/skills/`，无项目级）。**V1.2 D7（2026-05-06）全部交付**：domain types + 5 sentinels + agentstate ActiveSkill 旁路 + Service{Scan/Get/List/Search/Activate/Body/Create/Replace/Delete/Import} + fsnotify watcher（debounce 500ms + symlink loop guard + Linux fd-limit fail-soft + 5min poll backstop）+ 2 system tools (search_skills/activate_skill) + framework permission integration（活动 skill 的 allowed-tools 在 loop dispatch 短路 CheckPermissions）+ 9 HTTP endpoints + 3 离线 pipeline 场景（Activate inline / Search→Activate / Bash 预授权端到端）。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -453,7 +453,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 | POST | `/api/v1/skills/{name}:invoke` | 手动调用（slash command 路径用）；body `{arguments: string[]}`（位置参数），返 200 `{result: out}` |
 
 #### catalog ✅
-详见 [`../service-design-documents/catalog.md`](../service-design-documents/catalog.md)。统一能力目录（function + handler + skill + mcp）。**懒生成 + mechanical**：开聊时按需现查四源拼结构化清单注入 system prompt，无轮询 / 无 LLM / 无缓存 / 无磁盘。**不发 SSE**（内部组件）。**2026-05-25 重构**：移除 1s 轮询 / LLM Generator / 磁盘 cache / version history；document 移出 catalog（走 @-mention，独立功能）。
+详见 [`../references/backend/domains/catalog.md`](../references/backend/domains/catalog.md)。统一能力目录（function + handler + skill + mcp）。**懒生成 + mechanical**：开聊时按需现查四源拼结构化清单注入 system prompt，无轮询 / 无 LLM / 无缓存 / 无磁盘。**不发 SSE**（内部组件）。**2026-05-25 重构**：移除 1s 轮询 / LLM Generator / 磁盘 cache / version history；document 移出 catalog（走 @-mention，独立功能）。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -462,7 +462,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 （移除 `POST /catalog:refresh` / `GET /catalog/history` / `GET /catalog/diff`——懒生成下 refresh 等价 get，无版本故无 history/diff。）
 
 #### sandbox ✅
-详见 [`../service-design-documents/sandbox.md`](../service-design-documents/sandbox.md)。统一 PluginSandbox v2（mise embed + per-plugin 隔离 env，4 类 owner：function / mcp / skill / conversation）。Bootstrap 自启 + lazy install runtime。
+详见 [`../references/backend/domains/sandbox.md`](../references/backend/domains/sandbox.md)。统一 PluginSandbox v2（mise embed + per-plugin 隔离 env，4 类 owner：function / mcp / skill / conversation）。Bootstrap 自启 + lazy install runtime。
 
 ##### Read 端点
 
@@ -491,7 +491,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 
 #### chat 同步改动 📐
 
-`chat.message` SSE 事件 schema 加可选字段 `subagentRunId`：当 subagent 内部 sub-runner 推消息时带此字段，前端按是否携带分流到主对话区 / 流式小窗（详 [`../service-design-documents/subagent.md`](../service-design-documents/subagent.md) §10 / [`../service-design-documents/chat.md`](../service-design-documents/chat.md)）。**不影响主对话 wire format**（omitempty）。
+`chat.message` SSE 事件 schema 加可选字段 `subagentRunId`：当 subagent 内部 sub-runner 推消息时带此字段，前端按是否携带分流到主对话区 / 流式小窗（详 [`../references/backend/domains/subagent.md`](../references/backend/domains/subagent.md) §10 / [`../references/backend/domains/chat.md`](../references/backend/domains/chat.md)）。**不影响主对话 wire format**（omitempty）。
 
 ---
 
@@ -523,7 +523,7 @@ settings.json 另含可选 `limits` 块（运行上限：agent 步数 / 输出 t
 | `GET /api/v1/relations/neighborhood?kind&id&depth=1-3` | 中心实体 N 跳邻域 BFS；返所有边 |
 | `GET /api/v1/relgraph` | 洞察 tab 全图快照（`{nodes, edges}`）；conversation 实体只在有边时入图，其他实体类型含孤儿 |
 
-详 [`../service-design-documents/relation.md`](../service-design-documents/relation.md)。
+详 [`../references/backend/domains/relation.md`](../references/backend/domains/relation.md)。
 
 #### askai + capability check + mcp health ✅（2026-05-19）
 
@@ -540,7 +540,7 @@ V1.2 §17 — 前端洞察 / 编辑器 / mcp 屏需要的最后一批端点。
 | `GET /api/v1/mcp-servers/{name}/health-history?sinceMinutes=N` | 返时间窗内的 health 快照；HealthCheck 每次调用自动写一行 |
 | `POST /api/v1/mcp-servers/{name}/tools/{toolName}:invoke` | 直接调 MCP 工具（绕 chat/LLM）；mcp 详情页"试调用"按钮用 |
 
-详 `service-design-documents/{workflow,function,handler,document,flowrun,mcp}.md`。askai 共享编排见 `app/askai/`。
+详 `references/backend/domains/{workflow,function,handler,document,flowrun,mcp}.md`。askai 共享编排见 `app/askai/`。
 
 ---
 

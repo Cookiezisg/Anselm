@@ -1,3 +1,14 @@
+---
+id: WRK-002-04
+type: working
+status: archived
+owner: @weilin
+created: 2026-05-25
+reviewed: 2026-05-30
+review-due: never
+audience: [human, ai]
+landed-into: docs/concepts/architecture.md
+---
 # LLM 能力目录:上下文窗口 + thinking 粒度 — 2026-05-29
 
 > **用途**:配置最细单元 `(厂家/key, 模型, thinking-effort, 上下文模式)` 背后的能力数据。哪个模型能 thinking、effort 收哪些值、窗口多大、1M 怎么(还能不能)开——按**模型家族/前缀规则**组织,抗月度阵容漂移。

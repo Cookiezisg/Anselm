@@ -1,3 +1,14 @@
+---
+id: WRK-001-08
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 07 — 错误处理 / 重试 / 通知 / 失败步与重跑
 
 脑爆结论笔记(2026-05-27 起 / 2026-05-29 重大修正)。

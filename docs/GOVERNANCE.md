@@ -44,7 +44,7 @@ landed-into:         # working docs only: fill when conclusions extracted
 ## Directory Map
 
 ```
-documents/
+docs/
 ├── INDEX.md              ← AI session entry point (≤50 lines)
 ├── GOVERNANCE.md         ← this file
 ├── concepts/             ← stable architecture explanations

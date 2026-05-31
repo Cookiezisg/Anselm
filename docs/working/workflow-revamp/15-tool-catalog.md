@@ -1,3 +1,14 @@
+---
+id: WRK-001-16
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 15 — LLM-Facing 全优化:现状 → 优化后
 
 > **这是一篇逐项 before→after 的文档。** workflow-revamp 要给 deepseek-v4-flash 看的**每一个 LLM-facing 面**——工具调用描述 / 工具选择描述 / catalog 分组 / 系统 prompt / schema 形状 / 后端容错 / API 杠杆 / 产品形态——都按「**现状(revamp 草案 00-12 / 被测基线)→ 优化后(实测验证)→ 证据**」写一遍。

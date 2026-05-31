@@ -1,3 +1,14 @@
+---
+id: WRK-001-15
+type: working
+status: active
+owner: @weilin
+created: 2026-05-20
+reviewed: 2026-05-31
+review-due: 2026-08-31
+audience: [human, ai]
+landed-into:
+---
 # 14 — LLM 验证研究记录(workflow-revamp:我都研究了什么)
 
 > **这是一篇"研究做了什么 + 结论是什么"的标准化记录。** 配套 [`13-llm-facing-implementation-guide.md`](./13-llm-facing-implementation-guide.md)(那篇是"你该做什么")。
