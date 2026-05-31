@@ -78,3 +78,15 @@ Plan: `docs/superpowers/plans/2026-05-31-m2-interpreter-core-replay.md`.
 **Remaining (T3–T4, next):** rewrite `scheduler.go` `executeRun` → `Interpreter.Run` (thread real `flowrun.input` + pinned graph; single terminal status write); **delete** `state.go`/`pause.go`/`rehydrate.go`/`subdag.go` + `FlowRun.PausedState` + the paused repo methods + the `RehydrateOnBoot` paused-scan (grep all refs first); delete the 2 pre-existing staticcheck warnings' files along the way (`pause.go:198` SA4006, `loop_body_test.go` ST1012 — both in old-scheduler code T3 removes) + the M1-skipped stale `TestNodeTimeoutDuration_DefaultByType`; linear pipeline test (`test/durable/`) + full gate.
 
 **Note:** the `Dispatcher` interface (`DispatchInput.ExecCtx *ExecutionContext`) is preserved; the interpreter passes `ExecCtx=nil` for now (fake router ignores it). Real-callable wiring + whether to keep a slim `ExecutionContext` shim vs delete it is resolved during T3 (the grep). The 14→5 node-type dispatcher collapse is M3, not M2.
+
+### 2026-05-31 — M2-T3 scope refined (grep finding: ExecutionContext is dispatcher-entangled)
+
+**Finding (T3 Step 1 blast-radius grep):** `ExecutionContext` is referenced by `dispatcher.go` + **all 13 `dispatch_*.go`** + **7 scheduler test files**. Deleting it in M2 would cascade a special-case rewrite through the entire dispatcher layer — which is precisely the **14→5 node-type collapse that the spec/plan scoped to M3**. Per the goal's triage ("一个改动要同时改 N 个文件 / 特例级联 → 回到设计层重新划界"), forcing it into M2 is the wrong cut.
+
+**Decision (scope T3 surgically; design unchanged, just sequencing):**
+- **KEEP in M2:** `ExecutionContext` (the `Dispatcher` contract) + `retry.go` + the 13 dispatchers. The interpreter will construct a **minimal `ExecutionContext`** per flowrun for real dispatchers (replacing `ExecCtx=nil`) so callable nodes work — no dispatcher edits.
+- **DELETE in M2:** only the **topo-walk + pause-snapshot** machinery — `pause.go` (`driveLoop`/`runReadyLoop`/`pauseRun`/`continueRun`), the topo bits of `state.go` (`buildTopo`/`topoState`/`advance`; **keep `ExecutionContext`**, which also lives in `state.go` → split, not wholesale-delete), `rehydrate.go`, `subdag.go`; `FlowRun.PausedState` + `SetPausedState`/`ClearPausedState`/`ListPaused` (flowrun domain+repo+store) + the `RehydrateOnBoot` paused-scan (main.go); + the now-dead scheduler tests (`pause_test`/`state_test`/`timeout_dryrun`/the M1-skipped `TestNodeTimeoutDuration_DefaultByType`).
+- **REWRITE:** `scheduler.go` `executeRun` → `Interpreter.Run` (thread `flowrun.input` + pinned graph; single terminal status write; drop `ExecuteFn`).
+- **M3 inherits:** full `ExecutionContext` removal happens when the 14→5 collapse rewrites the dispatchers into the 5-node activity model.
+
+This keeps M2's cut clean (engine swap, not dispatcher rewrite) and avoids dragging M3's collapse forward. The cutover surgery (this scoped T3 + T4 pipeline) is the next unit — multi-file, build-break-prone, best executed with fresh budget against the live files.
