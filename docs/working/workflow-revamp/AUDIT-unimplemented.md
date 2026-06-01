@@ -63,7 +63,7 @@ audience: [human, ai]
 2. 到期检查器：扩展 expiry.go，扫 `timer_armed` 且 deadline 未到的 flowrun，到点写 `timer_fired` 并继续
 3. 重放时：`timer_armed`/`timer_fired` 作为 record-once 事件，重放从 journal 读 deadline，不重算
 
-#### ❌-2 🟡 continue-as-new（超长循环滚动续期）
+#### ⚠️-2 🟡 continue-as-new（超长循环滚动续期）（架构复杂，暂 defer）
 
 **设计要求（doc 00 §"持久化"段）：**
 > 超长循环（几千轮）会让日志变大、重放变慢 → continue-as-new：journal 事件数/大小超平台默认上限 → 自动把作用域变量快照成新 flowrun 的 input、开新 journal、旧段归档；replay 只在当前段 journal 内，UI 标"已滚动续期"。
@@ -227,7 +227,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 
 **实际代码（`flowrun.go handler:FireManual`）：** 不接 `triggerNodeId`，直接触发，不区分多 trigger 节点场景。
 
-#### ❌-11 🟡 draining 状态机未完整实现
+#### ⚠️-11 🟡 draining 状态机未完整实现（已接受限制）
 
 **设计要求（doc 06 §"lifecycle"段）：**
 > deactivate → 进 `draining` 状态 → 等在途 flowrun 跑完各自销毁实例 → 进 `inactive`。零停机，绝不强拆在途。
@@ -255,7 +255,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 - 新 interpreter 的 `activityRun`：直接 `dispatch.Dispatch()` → 失败写 `node_failed` → 返 error，**没有 retry 逻辑**
 - `NodeSpec.Retry` 字段定义了，但 interpreter 从不读它
 
-#### ❌-14 🟡 trigger 用尽通知（同 ✅-6）
+#### ✅-14 🟡 trigger 用尽通知（同 ✅-6，已实现）
 
 ---
 

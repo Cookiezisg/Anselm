@@ -57,14 +57,17 @@ func TestParseScope_RejectsMalformed(t *testing.T) {
 }
 
 func TestIsValidKind(t *testing.T) {
+	// All 8 valid kinds: 2 stream kinds + 3 legacy trinity forge kinds + 3 new forge kinds (doc 11 §S2).
 	for _, kind := range []string{
-		KindConversation, KindFlowRun, KindFunction, KindHandler, KindWorkflow,
+		KindConversation, KindFlowRun,
+		KindFunction, KindHandler, KindWorkflow,
+		KindAgent, KindDocument, KindSkill,
 	} {
 		if !IsValidKind(kind) {
 			t.Errorf("IsValidKind(%q) = false, want true", kind)
 		}
 	}
-	for _, bad := range []string{"", "frobnicate", "ConvERSation", "skill"} {
+	for _, bad := range []string{"", "frobnicate", "ConvERSation"} {
 		if IsValidKind(bad) {
 			t.Errorf("IsValidKind(%q) = true, want false", bad)
 		}
