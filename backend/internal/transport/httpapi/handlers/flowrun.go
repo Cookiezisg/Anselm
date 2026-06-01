@@ -42,6 +42,7 @@ func (h *FlowRunHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/flowruns", h.List)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}/nodes", h.ListNodes)
+	mux.HandleFunc("GET /api/v1/flowruns/{id}/failures", h.Failures)
 	mux.HandleFunc("DELETE /api/v1/flowruns/{id}", h.Cancel)
 	mux.HandleFunc("GET /api/v1/approvals", h.Inbox)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeId}", h.Approve)
@@ -54,6 +55,18 @@ func (h *FlowRunHandler) Register(mux Registrar) {
 // Inbox 列出调用者所有 parked approval(前端审批 banner/inbox 数据源,17 §9)。
 func (h *FlowRunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.scheduler.ListParkedApprovals(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, rows)
+}
+
+// Failures lists a flowrun's node failures from the journal (operator triage; M6 failures API).
+//
+// Failures 列出 flowrun 的节点失败(操作者排查;M6 failures API)。
+func (h *FlowRunHandler) Failures(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.scheduler.ListFailures(r.Context(), r.PathValue("id"))
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
