@@ -56,7 +56,10 @@ import (
 	toolsettool "github.com/sunweilin/forgify/backend/internal/app/tool/toolset"
 	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
+	agentforgetool "github.com/sunweilin/forgify/backend/internal/app/tool/agentforge"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	agentstore "github.com/sunweilin/forgify/backend/internal/infra/store/agent"
 	userapp "github.com/sunweilin/forgify/backend/internal/app/user"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
@@ -419,6 +422,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
 	tools = append(tools, documenttool.DocumentTools(documentService)...)
+	// Agent service (quadrinity 4th member).
+	agentService := agentapp.New(agentstore.New(gdb), log)
+	tools = append(tools, agentforgetool.AgentTools(agentService)...)
 
 	subagentRegistry := subagentapp.NewRegistry()
 	subagentService := subagentapp.New(
@@ -731,6 +737,13 @@ func New(t *testing.T, opts ...Option) *Harness {
 //
 // lazyGroupsHarness 与 main.go::lazyGroups 相同，因 pipeline build tag 隔离而复制。
 var lazyGroupsHarness = map[string]string{
+	// Agent tools (quadrinity 4th member).
+	"search_agents":              "agent",
+	"get_agent":                  "agent",
+	"create_agent":               "agent",
+	"edit_agent":                 "agent",
+	"accept_pending_agent":       "agent",
+	"delete_agent":               "agent",
 	"create_function":            "function",
 	"edit_function":              "function",
 	"delete_function":            "function",

@@ -292,7 +292,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 
 ### doc 09 — Agent Domain（最大设计-代码断层）
 
-#### ❌-18 🔴 Agent 作为一等锻造实体完全未实现
+#### ✅-18(partial:domain+store+service+6tools; no HTTP handlers) 🔴 Agent 作为一等锻造实体完全未实现
 
 **设计要求（doc 09 完整设计）：**
 
@@ -357,7 +357,7 @@ grep -rn "agents\|ag_xxx\|agentRef" domain/       → 0 results（domain 层）
 - LLM 创建 workflow 后无法主动触发校验
 - 无 `next_step` 字段
 
-#### ❌-20 🔴 Agent 相关工具全部缺失（11 个，同 ❌-18）
+#### ✅-20(partial:6 of 11 tools implemented) 🔴 Agent 相关工具全部缺失（11 个，同 ✅-18(partial:domain+store+service+6tools; no HTTP handlers)）
 
 #### ✅-21 🟡 `list_failed_steps` / `replay_flowrun` 未作为 LLM 工具暴露
 
@@ -582,7 +582,7 @@ polling 教学完全缺失。
 
 #### ⚠️ 剩余未实现
 - §7 timer gate（at?/after?）→ 同 ❌-1
-- agent sub-step 的 outputSchema 运行时强制（§N1）→ 同 ❌-18 的一部分
+- agent sub-step 的 outputSchema 运行时强制（§N1）→ 同 ✅-18(partial:domain+store+service+6tools; no HTTP handlers) 的一部分
 
 ---
 
@@ -592,9 +592,9 @@ polling 教学完全缺失。
 
 | # | Gap | 对应文档 | 影响 |
 |---|---|---|---|
-| ❌-18 | Agent 一等锻造实体完全缺失（DB/CRUD/11工具/agentRef引用） | doc 09 | Quadrinity 只有三元；无法 forge agent；workflow agent 节点无法引用受版本管理的实体 |
+| ✅-18(partial:domain+store+service+6tools; no HTTP handlers) | Agent 一等锻造实体完全缺失（DB/CRUD/11工具/agentRef引用） | doc 09 | Quadrinity 只有三元；无法 forge agent；workflow agent 节点无法引用受版本管理的实体 |
 | ✅-19 | capability_check_workflow 工具（LLM 可调用版）未实现 | doc 13 §1-E | LLM 创建 workflow 后无法校验；端到端实测 23/24 接对依赖此校验 |
-| ❌-20 | 11 个 agent AI 工具全部缺失 | doc 10 | — |
+| ✅-20(partial:6 of 11 tools implemented) | 11 个 agent AI 工具全部缺失 | doc 10 | — |
 | ✅-28 | JSON-repair 未实现 | doc 13 §1-C | 复杂 workflow forge 时 4-8% 工具调用失败 |
 | ✅-29 | ops/node.config 形状未 pin | doc 15 §E | trigger cron 73%放错字段；set_output_schema 0% 正确 |
 | ✅-30 | 系统 prompt critical rules 6 条缺失（殿后） | doc 13 §2 | 不可能能力禁令 17→95；可满足性检查 0→85 |
@@ -635,7 +635,7 @@ polling 教学完全缺失。
 | ✅-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
 | ✅-26 | 自动激活未激活工具组未实现 | doc 11/13 |
 | ✅-33 | create_function 缺 polling 教学 | doc 13 |
-| ❌-34 | create_agent 工具描述（随 ❌-18 一并实现）| doc 15 §A |
+| ❌-34 | create_agent 工具描述（随 ✅-18(partial:domain+store+service+6tools; no HTTP handlers) 一并实现）| doc 15 §A |
 | ✅-35 | WP11 隐式终止未落注释/文档 | doc 16 |
 | ✅-36 | WP19/20 取消粒度语义未规约 | doc 16 |
 | ✅-37 | A-3 trigger schedule 层 retry 规约未对齐 | doc 16 |
