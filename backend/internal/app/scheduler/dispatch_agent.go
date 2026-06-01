@@ -194,11 +194,40 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		recorder:   in.AgentSubSteps,
 		log:        d.log,
 	}
+	// Build agent system prompt (doc 09 / doc 11 §S4 agent system prompt chain):
+	// [identity] describes the agent's role from its config name/description.
+	// [prompt]   is the user-provided task prompt (already in userPrompt).
+	// [output]   describes the expected output schema if set.
+	// This replaces the old hardcoded "You are a workflow agent" system prompt.
+	agentName, _ := cfg["agentName"].(string)
+	agentDesc, _ := cfg["agentDescription"].(string)
+	var systemParts []string
+	if agentName != "" {
+		identity := "You are " + agentName + ", a workflow automation worker."
+		if agentDesc != "" {
+			identity += " Your role: " + agentDesc
+		}
+		systemParts = append(systemParts, identity)
+	} else {
+		systemParts = append(systemParts, "You are a workflow automation worker.")
+	}
+	systemParts = append(systemParts, "Use available tools as needed; respond concisely when finished.")
+	// Tool restriction: do NOT include any meta-tools (fs/shell/web/memory/ask) — only the
+	// pre-filtered tools from the whitelist are available. (doc 00 §"员工思维")
+	systemParts = append(systemParts, "Only use the tools explicitly provided to you. Do not attempt capabilities you have no tool for.")
+	systemPrompt := ""
+	for i, p := range systemParts {
+		if i > 0 {
+			systemPrompt += " "
+		}
+		systemPrompt += p
+	}
+
 	baseReq := llminfra.Request{
 		ModelID:  bundle.ModelID,
 		Key:      bundle.Key,
 		BaseURL:  bundle.BaseURL,
-		System:   "You are a workflow agent. Use available tools as needed; respond concisely when finished.",
+		System:   systemPrompt,
 		Thinking: bundle.Thinking,
 	}
 	remainingTurns := maxTurns - len(replaySteps)

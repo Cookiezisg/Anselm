@@ -432,7 +432,7 @@ grep -rn "PublishOpApplied\|ForgeOpApplied\|op_applied" backend/ → 0 productio
 
 **实际代码：** 调未激活工具 → 返 `tool not found` 错误，模型必须先 `activate_tools`。
 
-#### ❌-27 🟡 Agent 系统 prompt 独立装配链
+#### ✅-27 🟡 Agent 系统 prompt 独立装配链
 
 **设计要求（doc 11 §S4 + doc 09 §"系统 prompt"段）：**
 > agent 在 workflow flowrun 中跑时，使用**独立于 chat 的系统 prompt 装配链**：
@@ -613,7 +613,7 @@ polling 教学完全缺失。
 | ❌-15 | useFlowrunTicker 实时节点状态机未实现 | doc 08 |
 | ✅-23(partial) | ForgeOpApplied 事件从未真正 emit | doc 11 §S2 |
 | ✅-24(partial) | Relations 缺 6 种 agent 新边类型 | doc 11 §S3 |
-| ❌-27 | agent 系统 prompt 独立装配链未实现 | doc 09/11 |
+| ✅-27 | agent 系统 prompt 独立装配链未实现 | doc 09/11 |
 | ✅-31 | 系统 prompt 缺 gold 示例（+11pt）+ 架构守则（+10pt） | doc 13 §4.5 |
 | ✅-32 | 错误 envelope 无 next_step 字段 | doc 13 §1-E |
 | ❌-1  | durable timer gate（at?/after?）未实现 | doc 00 |
