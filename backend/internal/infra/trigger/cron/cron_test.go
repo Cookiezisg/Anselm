@@ -13,7 +13,7 @@ import (
 )
 
 func TestRegister_InvalidExpressionReturnsSentinel(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	err := l.Register(triggerdomain.Spec{
 		WorkflowID: "wf1",
 		NodeID:     "trig1",
@@ -26,7 +26,7 @@ func TestRegister_InvalidExpressionReturnsSentinel(t *testing.T) {
 }
 
 func TestRegister_EmptyExpressionReturnsSentinel(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	err := l.Register(triggerdomain.Spec{
 		WorkflowID: "wf1",
 		NodeID:     "trig1",
@@ -40,7 +40,7 @@ func TestRegister_EmptyExpressionReturnsSentinel(t *testing.T) {
 
 func TestRegisterAndFire(t *testing.T) {
 	var fired atomic.Int32
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {
 		fired.Add(1)
 	})
 	defer l.Stop()
@@ -68,7 +68,7 @@ func TestRegisterAndFire(t *testing.T) {
 
 func TestUnregister_StopsFiring(t *testing.T) {
 	var fired atomic.Int32
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {
 		fired.Add(1)
 	})
 	defer l.Stop()
@@ -88,7 +88,7 @@ func TestUnregister_StopsFiring(t *testing.T) {
 }
 
 func TestState_BeforeAndAfterRegister(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	defer l.Stop()
 	l.Start()
 
@@ -118,7 +118,7 @@ func TestState_BeforeAndAfterRegister(t *testing.T) {
 func TestRegister_ReplacesExistingEntry(t *testing.T) {
 	var mu sync.Mutex
 	calls := []string{}
-	l := New(zaptest.NewLogger(t), func(_, nodeID string, _ map[string]any) {
+	l := New(zaptest.NewLogger(t), func(_, nodeID string, _ map[string]any, _ string) {
 		mu.Lock()
 		calls = append(calls, nodeID)
 		mu.Unlock()
@@ -144,5 +144,23 @@ func TestRegister_ReplacesExistingEntry(t *testing.T) {
 	st := l.State("wf1", "trig1")
 	if st.Status != triggerdomain.StateActive {
 		t.Errorf("post-replace status = %q", st.Status)
+	}
+}
+
+// cronDedupKey is deterministic per scheduled tick (truncated to minute, the ParseStandard
+// resolution): a live fire and a catch-up re-materialization of the SAME tick collide on the key, so
+// the firing inbox dedups the double-run; different ticks / nodes / workflows stay distinct.
+func TestCronDedupKey_DeterministicPerScheduledTick(t *testing.T) {
+	tick := time.Date(2026, 6, 1, 12, 30, 0, 0, time.UTC)
+	live := cronDedupKey("wf1", "n1", tick.Add(200*time.Millisecond)) // live fire a hair after the tick
+	catchup := cronDedupKey("wf1", "n1", tick)                        // catch-up keyed on the exact tick
+	if live != catchup {
+		t.Fatalf("same minute-tick must yield one dedup key (so re-materialization dedups): %q vs %q", live, catchup)
+	}
+	if cronDedupKey("wf1", "n1", tick.Add(time.Minute)) == live {
+		t.Fatal("a different minute-tick must yield a different dedup key")
+	}
+	if cronDedupKey("wf1", "n2", tick) == live || cronDedupKey("wf2", "n1", tick) == live {
+		t.Fatal("different node / workflow must yield different dedup keys")
 	}
 }

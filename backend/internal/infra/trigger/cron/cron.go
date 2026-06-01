@@ -5,6 +5,7 @@ package cron
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -14,10 +15,21 @@ import (
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 )
 
-// OnFireFunc is invoked when a cron entry fires; caller wires it to scheduler.StartRun.
+// OnFireFunc is invoked when a cron entry fires; caller wires it to the durable firing inbox. dedupKey
+// is the trigger's natural idempotency key: cron keys it on the SCHEDULED TICK (so a missed-tick
+// catch-up that re-materializes an already-fired tick dedups against it, not a fresh wall-clock fire).
 //
-// OnFireFunc 在 cron entry 触发时调用；调用方接到 scheduler.StartRun。
-type OnFireFunc func(workflowID, nodeID string, input map[string]any)
+// OnFireFunc 在 cron entry 触发时调用;dedupKey 是该触发的天然幂等键 —— cron 按**调度刻度**算,
+// 使补跑(re-materialize)同一刻度时与已触发的去重(而非按 wall-clock 各算一份)。
+type OnFireFunc func(workflowID, nodeID string, input map[string]any, dedupKey string)
+
+// cronDedupKey keys a cron firing on its scheduled tick (truncated to minute, the ParseStandard
+// resolution) so two fires of the same tick — a live fire and a catch-up re-materialization — collide.
+//
+// cronDedupKey 按调度刻度(截断到分钟,ParseStandard 的分辨率)算 cron 触发的去重键。
+func cronDedupKey(workflowID, nodeID string, tick time.Time) string {
+	return workflowID + "|" + nodeID + "|cron|" + strconv.FormatInt(tick.Truncate(time.Minute).Unix(), 10)
+}
 
 // Listener wraps robfig/cron with per-(workflowID,nodeID) entries + last-fired tracking.
 //
@@ -76,7 +88,7 @@ func (l *Listener) Register(spec triggerdomain.Spec) error {
 				"firedAt":     time.Now(),
 				"missedSince": missedSince,
 				"catchUp":     true,
-			})
+			}, cronDedupKey(spec.WorkflowID, spec.NodeID, next))
 		}
 	}
 
@@ -97,7 +109,7 @@ func (l *Listener) Register(spec triggerdomain.Spec) error {
 		}()
 		l.onFire(spec.WorkflowID, spec.NodeID, map[string]any{
 			"firedAt": now,
-		})
+		}, cronDedupKey(spec.WorkflowID, spec.NodeID, now))
 	})
 	if addErr != nil {
 		return fmt.Errorf("triggercroninfra.Register: %w: %v", triggerdomain.ErrInvalidCronExpression, addErr)

@@ -31,10 +31,12 @@ const (
 
 const MaxBodyBytes = 10 * 1024 * 1024
 
-// OnFireFunc fires on each accepted webhook request; caller wires to scheduler.StartRun.
+// OnFireFunc fires on each accepted webhook request; caller wires to the durable firing inbox. webhook
+// passes an empty dedupKey — each request is a distinct fire (the inbox falls back to a per-event
+// wall-clock key), unlike cron which keys on the scheduled tick.
 //
-// OnFireFunc 每次 accept 的 webhook 请求触发；调用方接 scheduler.StartRun。
-type OnFireFunc func(workflowID, nodeID string, input map[string]any)
+// OnFireFunc 每次 accept 的 webhook 请求触发;dedupKey 传空 —— 每个请求是独立的一次触发。
+type OnFireFunc func(workflowID, nodeID string, input map[string]any, dedupKey string)
 
 // Listener manages webhook registrations against one shared http.ServeMux.
 //
@@ -247,7 +249,7 @@ func (l *Listener) handleWebhook(fullPath string) http.HandlerFunc {
 						zap.Any("recover", r))
 				}
 			}()
-			l.onFire(reg.WorkflowID, reg.NodeID, input)
+			l.onFire(reg.WorkflowID, reg.NodeID, input, "")
 		}()
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = w.Write([]byte(`{"accepted":true}`))

@@ -17,10 +17,12 @@ import (
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 )
 
-// OnFireFunc fires once per filtered fsnotify event; caller wires to scheduler.StartRun.
+// OnFireFunc fires once per filtered fsnotify event; caller wires to the durable firing inbox. fsnotify
+// passes an empty dedupKey — each file event is a genuinely distinct fire (the inbox falls back to a
+// per-event wall-clock key), unlike cron which keys on the scheduled tick.
 //
-// OnFireFunc 每条过滤后的 fsnotify 事件触发一次；调用方接 scheduler.StartRun。
-type OnFireFunc func(workflowID, nodeID string, input map[string]any)
+// OnFireFunc 每条过滤后的 fsnotify 事件触发一次;dedupKey 传空 —— 每个文件事件是真正独立的一次触发。
+type OnFireFunc func(workflowID, nodeID string, input map[string]any, dedupKey string)
 
 // Listener manages the fsnotify watcher + per-key registrations.
 //
@@ -264,7 +266,7 @@ func (l *Listener) dispatch(ev notifyfsnotify.Event) {
 						zap.Any("recover", r))
 				}
 			}()
-			l.onFire(wf, node, input)
+			l.onFire(wf, node, input, "")
 		}(spec.WorkflowID, spec.NodeID, map[string]any{
 			"firedAt":   now,
 			"path":      ev.Name,

@@ -59,7 +59,7 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 		log:   log.Named("triggerapp"),
 	}
 
-	onFire := func(workflowID, nodeID string, input map[string]any) {
+	onFire := func(workflowID, nodeID string, input map[string]any, dedupKey string) {
 		s.mu.RLock()
 		sched := s.scheduler
 		spec, ok := s.specs[workflowID][nodeID]
@@ -86,14 +86,18 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 		ctx := reqctxpkg.SetUserID(context.Background(), spec.UserID)
 		kind := kindForNode(s, workflowID, nodeID)
 		// Persist-before-act: write a durable firing, then the scheduler drains it via the single-tx
-		// claim (ADR-021). dedup_key is per live fire (workflowID|nodeID|nanos); cron-tick
-		// catchup-determinism (keying on the scheduled tick) is a later refinement.
+		// claim (ADR-021). The listener supplies its natural idempotency key: cron keys on the SCHEDULED
+		// TICK so a missed-tick catch-up that re-materializes an already-fired tick dedups against it;
+		// fsnotify/webhook pass "" (each event/request is a distinct fire → per-event wall-clock key).
+		if dedupKey == "" {
+			dedupKey = workflowID + "|" + nodeID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		}
 		firing := &triggerdomain.TriggerFiring{
 			WorkflowID:    workflowID,
 			TriggerNodeID: nodeID,
 			TriggerKind:   kind,
 			Payload:       input,
-			DedupKey:      workflowID + "|" + nodeID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10),
+			DedupKey:      dedupKey,
 		}
 		if err := sched.OnTriggerFired(ctx, firing); err != nil {
 			s.log.Error("scheduler.OnTriggerFired failed",

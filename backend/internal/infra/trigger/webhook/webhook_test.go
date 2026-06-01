@@ -21,7 +21,7 @@ func newTestServer(t *testing.T) (*Listener, *httptest.Server, *atomic.Int32) {
 	t.Helper()
 	var fired atomic.Int32
 	mux := http.NewServeMux()
-	l := New(mux, zaptest.NewLogger(t), func(string, string, map[string]any) {
+	l := New(mux, zaptest.NewLogger(t), func(string, string, map[string]any, string) {
 		fired.Add(1)
 	})
 	srv := httptest.NewServer(mux)

@@ -14,7 +14,7 @@ import (
 )
 
 func TestRegister_PathNotExist_ReturnsSentinel(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	defer l.Stop()
 
 	err := l.Register(triggerdomain.Spec{
@@ -36,7 +36,7 @@ func TestRegister_PathNotExist_ReturnsSentinel(t *testing.T) {
 }
 
 func TestRegister_EmptyPath_ReturnsSentinel(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	defer l.Stop()
 
 	err := l.Register(triggerdomain.Spec{
@@ -53,7 +53,7 @@ func TestRegister_EmptyPath_ReturnsSentinel(t *testing.T) {
 func TestRegisterAndFire_OnCreate(t *testing.T) {
 	dir := t.TempDir()
 	var fired atomic.Int32
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {
 		fired.Add(1)
 	})
 	defer l.Stop()
@@ -90,7 +90,7 @@ func TestRegisterAndFire_OnCreate(t *testing.T) {
 func TestPatternFilter(t *testing.T) {
 	dir := t.TempDir()
 	var matched atomic.Int32
-	l := New(zaptest.NewLogger(t), func(_, _ string, _ map[string]any) {
+	l := New(zaptest.NewLogger(t), func(_, _ string, _ map[string]any, _ string) {
 		matched.Add(1)
 	})
 	defer l.Stop()
@@ -129,7 +129,7 @@ func TestPatternFilter(t *testing.T) {
 func TestUnregister_StopsFiring(t *testing.T) {
 	dir := t.TempDir()
 	var fired atomic.Int32
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {
 		fired.Add(1)
 	})
 	defer l.Stop()
@@ -153,7 +153,7 @@ func TestUnregister_StopsFiring(t *testing.T) {
 }
 
 func TestState_PreRegisterIdle(t *testing.T) {
-	l := New(zaptest.NewLogger(t), func(string, string, map[string]any) {})
+	l := New(zaptest.NewLogger(t), func(string, string, map[string]any, string) {})
 	defer l.Stop()
 	st := l.State("wf1", "trig1")
 	if st.Status != triggerdomain.StateIdle {
