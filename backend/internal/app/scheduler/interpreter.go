@@ -402,12 +402,49 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		return nil, fmt.Errorf("scheduler.activity %s started: %w", node.ID, err)
 	}
 	in.emitTick(node.ID, "running", iter)
-	// Dry-run: a side-effect node returns a synthetic output instead of really dispatching, so a
-	// dryRun=true preview never invokes a real function/handler/mcp/http/agent (review R2 dryRun).
+
+	// Retry config: maxAttempts counts total dispatch attempts (1 = no retry, default).
+	// node_started/node_failed are append-many (attempt trail in journal).
+	// node_completed is record-once (dedup_key, see ADR-018).
+	maxAttempts := 1
+	delayMs := 0
+	backoff := ""
+	if node.Retry != nil && node.Retry.MaxAttempts > 1 {
+		maxAttempts = node.Retry.MaxAttempts
+		delayMs = node.Retry.DelayMs
+		backoff = node.Retry.Backoff
+	}
+
 	var res DispatchOutput
-	if in.dryRun && dryRunSideEffectNodes[node.Type] {
-		res = dryRunMockOutput(node)
-	} else {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if attempt > 1 && delayMs > 0 {
+			// Durable-safe delay: sleep in the goroutine. For long delays this should use
+			// the timer gate mechanism, but for short retries (ms-sec range) a simple sleep
+			// is acceptable and doesn't affect journal determinism (delay is a policy, not data).
+			d := time.Duration(delayMs) * time.Millisecond
+			if backoff == "exponential" {
+				for i := 1; i < attempt; i++ {
+					d *= 2
+				}
+				if d > 30*time.Second {
+					d = 30 * time.Second
+				}
+			}
+			select {
+			case <-ctx.Done():
+				res = DispatchOutput{Error: ctx.Err()}
+				break
+			case <-time.After(d):
+			}
+		}
+		if res.Error != nil {
+			break // ctx cancelled during delay
+		}
+		// Dry-run: a side-effect node returns a synthetic output instead of really dispatching.
+		if in.dryRun && dryRunSideEffectNodes[node.Type] {
+			res = dryRunMockOutput(node)
+			break
+		}
 		res = in.dispatch.Dispatch(ctx, DispatchInput{
 			Node:   node,
 			NodeIn: payload,
@@ -416,23 +453,43 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 				Variables: map[string]any{},
 				Outputs:   map[string]map[string]any{},
 			},
-			// Sub-step replay handle (ADR-010): only the agent dispatcher reads it — record each ReAct
-			// step live, reconstruct + skip them on a :replay. Scoped to this (flowrun, node, iteration).
+			// Sub-step replay handle (ADR-010): only the agent dispatcher reads it.
 			AgentSubSteps: &agentSubSteps{
 				journal: in.journal, flowrunID: flowrunID, nodeID: node.ID,
 				iter: iter, generation: in.generation, log: in.log,
 			},
 		})
+		if res.Error == nil {
+			break // success
+		}
+		// Record attempt failure in journal (node_failed is append-many, not record-once).
+		if _, jErr := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID,
+			IterationKey: iter, Generation: in.generation, Attempt: attempt,
+			Result: map[string]any{"error": res.Error.Error(), "attempt": attempt},
+		}); jErr != nil {
+			// Journal write failure is critical; propagate.
+			return nil, fmt.Errorf("scheduler.activity %s attempt %d failed-journal: %w", node.ID, attempt, jErr)
+		}
+		if attempt < maxAttempts && in.log != nil {
+			in.log.Info("interpreter: activity failed, retrying",
+				zap.String("nodeID", node.ID), zap.Int("attempt", attempt), zap.Error(res.Error))
+		}
 	}
+
 	if res.Error != nil {
-		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
-			Result: map[string]any{"error": res.Error.Error()},
-		}); err != nil {
-			return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
+		// All attempts exhausted (or first attempt with no retry). Final failure already journaled above.
+		// If maxAttempts==1 (no retry config), write the node_failed event now.
+		if maxAttempts == 1 {
+			if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+				FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID,
+				IterationKey: iter, Generation: in.generation,
+				Result: map[string]any{"error": res.Error.Error()},
+			}); err != nil {
+				return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
+			}
 		}
 		in.emitTick(node.ID, "failed", iter)
-		// Write projection row for failed activity so GET /nodes + search_workflow_executions surface it.
 		in.writeNodeRow(ctx, flowrunID, node, iter, flowrundomain.NodeStatusFailed,
 			payload, nil, res.Error.Error(), startedAt)
 		return nil, fmt.Errorf("scheduler.activity %s: %w", node.ID, res.Error)
