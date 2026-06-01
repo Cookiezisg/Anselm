@@ -184,6 +184,37 @@ func (s *Store) UpdateLastFiredAt(ctx context.Context, workflowID, nodeID string
 	return nil
 }
 
+// IncrementConsecutiveFailures atomically increments the failure counter and returns the new value.
+// Used to track repeated trigger failures toward workflow deactivation.
+//
+// IncrementConsecutiveFailures 原子递增失败计数器，返新值。
+func (s *Store) IncrementConsecutiveFailures(ctx context.Context, workflowID, nodeID string) (int, error) {
+	if err := s.db.WithContext(ctx).
+		Model(&triggerdomain.TriggerSchedule{}).
+		Where("workflow_id = ? AND trigger_node_id = ?", workflowID, nodeID).
+		Update("consecutive_failures", gorm.Expr("consecutive_failures + 1")).Error; err != nil {
+		return 0, fmt.Errorf("triggerstore.IncrementConsecutiveFailures: %w", err)
+	}
+	row, err := s.GetSchedule(ctx, workflowID, nodeID)
+	if err != nil || row == nil {
+		return 0, err
+	}
+	return row.ConsecutiveFailures, nil
+}
+
+// ResetConsecutiveFailures resets the failure counter to 0 after a successful fire.
+//
+// ResetConsecutiveFailures 成功 fire 后重置失败计数器。
+func (s *Store) ResetConsecutiveFailures(ctx context.Context, workflowID, nodeID string) error {
+	if err := s.db.WithContext(ctx).
+		Model(&triggerdomain.TriggerSchedule{}).
+		Where("workflow_id = ? AND trigger_node_id = ?", workflowID, nodeID).
+		Update("consecutive_failures", 0).Error; err != nil {
+		return fmt.Errorf("triggerstore.ResetConsecutiveFailures: %w", err)
+	}
+	return nil
+}
+
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

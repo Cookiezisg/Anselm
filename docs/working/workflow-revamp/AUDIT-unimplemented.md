@@ -115,7 +115,7 @@ audience: [human, ai]
 - `TriggerSchedule.OverlapPolicy` 字段定义了，但**从不被读取**
 - BufferOne/BufferAll 完全没有逻辑
 
-#### ❌-6 🟡 trigger 用尽 → workflow 自动 deactivate 未实现
+#### ✅-6 🟡 trigger 用尽 → workflow 自动 deactivate 未实现
 
 **设计要求（doc 01 §"Trigger listener 用尽 retry"段）：**
 > trigger retry 用尽（如 fsnotify 路径失效重试 N 次）→ listener deactivate + 推送通知 + workflow.needs_attention=true + `trigger_exhausted` SSE 通知。
@@ -255,7 +255,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 - 新 interpreter 的 `activityRun`：直接 `dispatch.Dispatch()` → 失败写 `node_failed` → 返 error，**没有 retry 逻辑**
 - `NodeSpec.Retry` 字段定义了，但 interpreter 从不读它
 
-#### ❌-14 🟡 trigger 用尽通知（同 ❌-6）
+#### ❌-14 🟡 trigger 用尽通知（同 ✅-6）
 
 ---
 
@@ -624,11 +624,11 @@ polling 教学完全缺失。
 |---|---|---|
 | ❌-2  | continue-as-new（超长循环续期）未实现 | doc 00 |
 | ❌-3  | text/template 引擎未完全退役（dispatch_condition/subdag）| doc 00/04 |
-| ❌-6  | trigger 用尽 → workflow deactivate 未实现 | doc 01/07 |
+| ✅-6  | trigger 用尽 → workflow deactivate 未实现 | doc 01/07 |
 | ❌-8  | tool 节点没有统一 callable 字段 + 前缀路由 | doc 03 |
 | ❌-11 | draining 状态机未持久化 | doc 06 |
 | ❌-12 | 同 ❌-5 | — |
-| ❌-14 | 同 ❌-6 | — |
+| ❌-14 | 同 ✅-6 | — |
 | ❌-16 | triggerNodeId 触发按钮 UI 未实现 | doc 08 |
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |
 | ✅-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |

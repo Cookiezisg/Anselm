@@ -581,6 +581,18 @@ func (s *Service) nextVersionNumber(ctx context.Context, workflowID string) (int
 	return *rows[0].Version + 1, nil
 }
 
+// SetNeedsAttention flags a workflow as needing attention (e.g. trigger exhausted).
+// Implements trigger.WorkflowDeactivator.
+//
+// SetNeedsAttention 标 workflow 需关注（如触发器耗尽）。实现 trigger.WorkflowDeactivator。
+func (s *Service) SetNeedsAttention(ctx context.Context, workflowID string, reason string) error {
+	if err := s.repo.SetNeedsAttention(ctx, workflowID, true, reason); err != nil {
+		return fmt.Errorf("workflowapp.SetNeedsAttention: %w", err)
+	}
+	s.publish(ctx, workflowID, "trigger_exhausted", map[string]any{"reason": reason})
+	return nil
+}
+
 func (s *Service) publish(ctx context.Context, workflowID, action string, data map[string]any) {
 	envelope := map[string]any{"action": action}
 	for k, v := range data {

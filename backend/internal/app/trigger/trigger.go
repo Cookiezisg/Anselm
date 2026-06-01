@@ -31,28 +31,54 @@ type SchedulerStarter interface {
 	OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error
 }
 
-// ScheduleStore is the port Service uses to persist trigger schedules (lastFiredAt, upsert).
+// ScheduleStore is the port Service uses to persist trigger schedules (lastFiredAt, upsert, failure tracking).
 // Implemented by infra/store/trigger.Store; nil disables persistence (in-memory only, legacy).
 //
-// ScheduleStore 是 Service 持久化 trigger schedule 的端口(lastFiredAt upsert)。nil = 仅内存(旧行为)。
+// ScheduleStore 是 Service 持久化 trigger schedule 的端口。nil = 仅内存(旧行为)。
 type ScheduleStore interface {
 	UpsertSchedule(ctx context.Context, sched *triggerdomain.TriggerSchedule) error
 	GetSchedule(ctx context.Context, workflowID, nodeID string) (*triggerdomain.TriggerSchedule, error)
 	UpdateLastFiredAt(ctx context.Context, workflowID, nodeID string, t time.Time) error
+	// IncrementConsecutiveFailures atomically increments the consecutive failure counter and returns the new value.
+	IncrementConsecutiveFailures(ctx context.Context, workflowID, nodeID string) (int, error)
+	// ResetConsecutiveFailures resets the counter to 0 after a successful fire.
+	ResetConsecutiveFailures(ctx context.Context, workflowID, nodeID string) error
 }
+
+// WorkflowDeactivator is the port trigger.Service uses to mark a workflow as needing attention
+// after repeated trigger failures (trigger exhausted → workflow.needs_attention=true).
+//
+// WorkflowDeactivator 是 trigger.Service 在触发器多次失败后标记 needs_attention 的端口。
+type WorkflowDeactivator interface {
+	SetNeedsAttention(ctx context.Context, workflowID string, reason string) error
+}
+
+// maxConsecutiveTriggerFailures is the threshold after which a trigger is considered exhausted.
+// The workflow is then flagged as needs_attention so the user knows to investigate.
+const maxConsecutiveTriggerFailures = 5
 
 // Service is the unified trigger surface.
 //
 // Service 是统一的 trigger 入口。
 type Service struct {
-	mu            sync.RWMutex
-	cron          *croninfra.Listener
-	fsnotify      *fsnotifyinfra.Listener
-	webhook       *webhookinfra.Listener
-	specs         map[string]map[string]triggerdomain.Spec
-	scheduler     SchedulerStarter
-	scheduleStore ScheduleStore
-	log           *zap.Logger
+	mu               sync.RWMutex
+	cron             *croninfra.Listener
+	fsnotify         *fsnotifyinfra.Listener
+	webhook          *webhookinfra.Listener
+	specs            map[string]map[string]triggerdomain.Spec
+	scheduler        SchedulerStarter
+	scheduleStore    ScheduleStore
+	workflowDeact    WorkflowDeactivator
+	log              *zap.Logger
+}
+
+// SetWorkflowDeactivator wires the workflow deactivator post-construction.
+//
+// SetWorkflowDeactivator 构造后挂 workflow deactivator。
+func (s *Service) SetWorkflowDeactivator(d WorkflowDeactivator) {
+	s.mu.Lock()
+	s.workflowDeact = d
+	s.mu.Unlock()
 }
 
 // SetScheduleStore attaches the schedule store post-construction for cross-restart lastFiredAt.
@@ -124,6 +150,22 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 				zap.String("workflowID", workflowID),
 				zap.String("nodeID", nodeID),
 				zap.Error(err))
+			// Track consecutive failures; if threshold exceeded, flag workflow as needs_attention.
+			s.mu.RLock()
+			ss := s.scheduleStore
+			deact := s.workflowDeact
+			s.mu.RUnlock()
+			if ss != nil {
+				n, incErr := ss.IncrementConsecutiveFailures(context.Background(), workflowID, nodeID)
+				if incErr == nil && n >= maxConsecutiveTriggerFailures && deact != nil {
+					s.log.Warn("trigger: exhausted consecutive failures, flagging workflow needs_attention",
+						zap.String("workflowID", workflowID), zap.Int("failures", n))
+					if dErr := deact.SetNeedsAttention(context.Background(), workflowID,
+						fmt.Sprintf("trigger node %s failed %d times in a row", nodeID, n)); dErr != nil {
+						s.log.Warn("trigger: SetNeedsAttention failed", zap.Error(dErr))
+					}
+				}
+			}
 			return
 		}
 		// Persist lastFiredAt so cron can detect missed ticks across process restarts.
@@ -137,6 +179,8 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 				s.log.Warn("trigger: UpdateLastFiredAt failed (cross-restart catch-up may miss this tick)",
 					zap.String("workflowID", workflowID), zap.String("nodeID", nodeID), zap.Error(uErr))
 			}
+			// Reset failure counter on success.
+			_ = ss.ResetConsecutiveFailures(context.Background(), workflowID, nodeID)
 		}
 		s.log.Info("trigger fired (durable)",
 			zap.String("workflowID", workflowID),

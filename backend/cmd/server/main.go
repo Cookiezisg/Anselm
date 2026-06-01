@@ -553,6 +553,7 @@ func main() {
 	schedulerService.SetFiringInbox(triggerStore)
 	triggerService.SetScheduler(schedulerService)
 	triggerService.SetScheduleStore(triggerStore)
+	triggerService.SetWorkflowDeactivator(workflowService)
 
 	router := schedulerapp.NewRouter()
 	router.Set(workflowdomain.NodeTypeTrigger, schedulerapp.NewTriggerDispatcher())
