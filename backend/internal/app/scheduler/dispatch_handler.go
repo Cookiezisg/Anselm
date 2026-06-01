@@ -34,6 +34,14 @@ func (d *HandlerDispatcher) Dispatch(ctx context.Context, in DispatchInput) Disp
 		return DispatchOutput{Error: fmt.Errorf("handler node %q: method required", in.Node.ID)}
 	}
 	args, _ := in.Node.Config["args"].(map[string]any)
+	// Fall back to upstream NodeIn if no static args configured, then to empty map.
+	// Never pass nil — handler methods receive args as a map and nil panics some implementations.
+	if args == nil && len(in.NodeIn) > 0 {
+		args = in.NodeIn
+	}
+	if args == nil {
+		args = map[string]any{}
+	}
 
 	result, err := d.svc.Call(ctx, handlerapp.CallInput{
 		HandlerName: name,

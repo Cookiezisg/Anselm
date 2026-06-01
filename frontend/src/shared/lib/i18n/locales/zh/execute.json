@@ -89,6 +89,7 @@
     "cancelBtn": "取消",
     "triageBtn": "AI 排查",
     "rerunBtn": "重跑",
+    "replayBtn": "重放",
     "toast": {
       "triageSuccess": "AI 排查对话已开启",
       "triageFail": "排查失败"

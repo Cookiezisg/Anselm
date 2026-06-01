@@ -3,13 +3,16 @@ export {
   useFlowRun,
   useFlowRunNodes,
   useFlowRunTrace,
+  useFlowRunFailures,
   useApprovalInbox,
   useCancelFlowRun,
   useApproveNode,
   useRejectNode,
   useTriageFlowRun,
+  useReplayFlowRun,
 } from "./api/flowrun";
 export type { TraceEntry } from "./api/flowrun";
+export type { FailureRecord } from "./model/types";
 export type {
   FlowRun,
   FlowRunNode,

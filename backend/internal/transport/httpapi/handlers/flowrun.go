@@ -115,7 +115,7 @@ func (h *FlowRunHandler) replay(w http.ResponseWriter, r *http.Request, id strin
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"runId": id, "replaying": true})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"runId": id, "resumed": true})
 }
 
 // Triage spawns an AI-driven debugging conversation for this flowrun: builds

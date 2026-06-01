@@ -14,6 +14,7 @@ vi.mock("@entities/flowrun", () => ({
   useApproveNode: vi.fn(),
   useRejectNode: vi.fn(),
   useTriageFlowRun: vi.fn(),
+  useReplayFlowRun: vi.fn(),
 }));
 
 vi.mock("@/widgets/entity-rel-meta/EntityRelMeta.tsx", () => ({
@@ -26,7 +27,7 @@ vi.mock("@entities/relation", () => ({
 
 import {
   useFlowRun, useFlowRunNodes, useFlowRunTrace, useApprovalInbox, useCancelFlowRun, useTriageFlowRun,
-  useApproveNode, useRejectNode,
+  useApproveNode, useRejectNode, useReplayFlowRun,
 } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 import { FlowRunDetail } from "./FlowRunDetail.tsx";
@@ -35,6 +36,7 @@ const mockUseFlowRun = useFlowRun as any;
 const mockUseFlowRunNodes = useFlowRunNodes as any;
 const mockUseFlowRunTrace = useFlowRunTrace as any;
 const mockUseApprovalInbox = useApprovalInbox as any;
+const mockUseReplayFlowRun = useReplayFlowRun as any;
 const mockUseCancelFlowRun = useCancelFlowRun as any;
 const mockUseApproveNode = useApproveNode as any;
 const mockUseRejectNode = useRejectNode as any;
@@ -57,6 +59,7 @@ beforeEach(() => {
   mockUseFlowRunNodes.mockReturnValue({ data: NODES });
   mockUseFlowRunTrace.mockReturnValue({ data: [] });
   mockUseApprovalInbox.mockReturnValue({ data: [] });
+  mockUseReplayFlowRun.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockUseCancelFlowRun.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockUseApproveNode.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockUseRejectNode.mockReturnValue({ mutate: vi.fn(), isPending: false });

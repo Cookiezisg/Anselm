@@ -104,8 +104,21 @@ export interface Approval {
   payload?: Record<string, unknown>;
   status: ApprovalStatus;
   allowReason: boolean;
+  // Durable timer fields (M4): deadline is the absolute expiry time (ISO string);
+  // timeoutBehavior is "approve"|"reject"|"fail" (default: "reject").
+  deadline?: string;
+  timeoutBehavior?: string;
   reason?: string;
   decidedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// FailureRecord — one node failure surfaced by GET /flowruns/{id}/failures (M6).
+// Highest-generation state: a step re-run successfully no longer appears.
+export interface FailureRecord {
+  nodeId: string;
+  iterationKey: number;
+  generation: number;
+  error: string;
 }

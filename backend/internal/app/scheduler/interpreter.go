@@ -486,6 +486,7 @@ func (in *Interpreter) writeNodeRow(ctx context.Context, flowrunID string, node 
 		EndedAt:        endedAt,
 		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
 		Attempts:       1,
+		CreatedAt:      startedAt, // not null — set explicitly; GORM auto-set only applies to updatedAt
 	}
 	if output != nil {
 		row.Output = output

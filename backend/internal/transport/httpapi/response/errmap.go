@@ -142,11 +142,16 @@ var errTable = map[error]errMapping{
 	triggerdomain.ErrWebhookSecretMismatch: {http.StatusUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH"},
 	triggerdomain.ErrInvalidCronExpression: {http.StatusBadRequest, "TRIGGER_INVALID_CRON_EXPRESSION"},
 
-	schedulerapp.ErrWorkflowDisabled:       {http.StatusUnprocessableEntity, "WORKFLOW_DISABLED"},
-	schedulerapp.ErrWorkflowNeedsAttention: {http.StatusUnprocessableEntity, "WORKFLOW_NEEDS_ATTENTION"},
-	schedulerapp.ErrConcurrencyLimit:       {http.StatusConflict, "FLOWRUN_CONCURRENCY_LIMIT"},
-	schedulerapp.ErrNotReplayable:          {http.StatusUnprocessableEntity, "FLOWRUN_NOT_REPLAYABLE"},
-	schedulerapp.ErrWorkflowNotFound:       {http.StatusNotFound, "WORKFLOW_NOT_FOUND_FOR_TRIGGER"},
+	schedulerapp.ErrWorkflowDisabled:          {http.StatusUnprocessableEntity, "WORKFLOW_DISABLED"},
+	schedulerapp.ErrWorkflowNeedsAttention:    {http.StatusUnprocessableEntity, "WORKFLOW_NEEDS_ATTENTION"},
+	schedulerapp.ErrConcurrencyLimit:          {http.StatusConflict, "FLOWRUN_CONCURRENCY_LIMIT"},
+	schedulerapp.ErrNotReplayable:             {http.StatusUnprocessableEntity, "FLOWRUN_NOT_REPLAYABLE"},
+	schedulerapp.ErrWorkflowNotFound:          {http.StatusNotFound, "WORKFLOW_NOT_FOUND_FOR_TRIGGER"},
+	// Sub-graph / execution-model V1 limits — these were unregistered and returned 500 INTERNAL_ERROR.
+	schedulerapp.ErrApprovalRequired:          {http.StatusAccepted, "APPROVAL_REQUIRED"},
+	schedulerapp.ErrLoopBodyNotSupported:      {http.StatusUnprocessableEntity, "LOOP_BODY_NOT_SUPPORTED"},
+	schedulerapp.ErrParallelBranchNotSupported: {http.StatusUnprocessableEntity, "PARALLEL_BRANCH_NOT_SUPPORTED"},
+	schedulerapp.ErrSubDAGContainsApproval:    {http.StatusUnprocessableEntity, "SUBDAG_CONTAINS_APPROVAL"},
 
 	// workflow
 	workflowdomain.ErrNotFound:              {http.StatusNotFound, "WORKFLOW_NOT_FOUND"},

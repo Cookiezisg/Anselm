@@ -89,6 +89,7 @@
     "cancelBtn": "Cancel",
     "triageBtn": "AI triage",
     "rerunBtn": "Re-run",
+    "replayBtn": "Replay",
     "toast": {
       "triageSuccess": "AI triage conversation started",
       "triageFail": "Triage failed"

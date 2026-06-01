@@ -216,9 +216,8 @@ func extractHost(u string) string {
 	u = strings.TrimSpace(u)
 	if i := strings.Index(u, "://"); i >= 0 {
 		u = u[i+3:]
-	} else if strings.HasPrefix(u, "//") {
-		u = u[2:]
 	}
+	u = strings.TrimPrefix(u, "//")
 	if i := strings.IndexAny(u, "/?#"); i >= 0 {
 		u = u[:i]
 	}

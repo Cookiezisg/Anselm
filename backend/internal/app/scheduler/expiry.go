@@ -19,18 +19,26 @@ const expiryCheckInterval = 30 * time.Second
 // The goroutine stops when ctx is cancelled (call at service shutdown).
 //
 // StartExpiryChecker 启动后台协程，扫 deadline 过期的 approval 并自动决策(durable timer,17 §9)。
+// StartExpiryChecker launches the approval-expiry background goroutine. The goroutine is tracked
+// in runWG so Drain() can wait for it, and its context is stored in s.stopExpiry so Drain() can
+// cancel it before calling runWG.Wait() — otherwise Drain would deadlock on context.Background().
+//
+// StartExpiryChecker 启动到期检查协程;stopExpiry 让 Drain 能先取消再 Wait，防止 deadlock。
 func (s *Service) StartExpiryChecker(ctx context.Context) {
+	expCtx, cancel := context.WithCancel(ctx)
+	s.stopExpiry = cancel
 	s.runWG.Add(1)
 	go func() {
 		defer s.runWG.Done()
+		defer cancel() // ensure cancel is always called on exit
 		ticker := time.NewTicker(expiryCheckInterval)
 		defer ticker.Stop()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-expCtx.Done():
 				return
 			case <-ticker.C:
-				s.checkExpiredApprovals(ctx)
+				s.checkExpiredApprovals(expCtx)
 			}
 		}
 	}()

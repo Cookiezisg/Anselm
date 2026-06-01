@@ -40,9 +40,10 @@ type Service struct {
 	router       *Router
 	log          *zap.Logger
 
-	cancelsMu sync.RWMutex
-	cancels   map[string]context.CancelFunc
-	runWG     sync.WaitGroup // tracks in-flight run goroutines for graceful Drain (lifecycle, M6)
+	cancelsMu  sync.RWMutex
+	cancels    map[string]context.CancelFunc
+	runWG      sync.WaitGroup // tracks in-flight run goroutines for graceful Drain (lifecycle, M6)
+	stopExpiry func()         // cancels the expiry-checker goroutine on Drain so runWG.Wait() doesn't block
 
 	ExecuteFn func(ctx context.Context, run *flowrundomain.FlowRun, graph *workflowdomain.Graph)
 }

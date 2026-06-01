@@ -17,7 +17,7 @@ import { ApprovalBanner } from "./ApprovalBanner.tsx";
 import type { FlowRun, FlowRunNode, FlowRunStatus, FlowRunNodeStatus } from "@entities/flowrun";
 import {
   useFlowRun, useFlowRunNodes, useFlowRunTrace, useCancelFlowRun, useApproveNode,
-  useRejectNode, useTriageFlowRun, type TraceEntry,
+  useRejectNode, useTriageFlowRun, useReplayFlowRun, type TraceEntry,
 } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
@@ -85,6 +85,7 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
   const { data: nodes = [] } = useFlowRunNodes(runId);
   const cancel = useCancelFlowRun();
   const triage = useTriageFlowRun();
+  const replay = useReplayFlowRun();
   const pushToast = useToastStore((s) => s.pushToast);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -93,7 +94,18 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
   if (!fr) return <div className="empty" style={{ padding: 48 }}><div className="sub">{t("detail.loading")}</div></div>;
 
   const frAny = fr as FlowRunRuntime;
-  const nodesAny = nodes as NodeRuntime[];
+  // Normalise backend Node fields to the display-friendly NodeRuntime shape:
+  // - kind = nodeType (backend field name), label = nodeId (no display name in DB)
+  // - durationMs = elapsedMs (backend field name)
+  // - startedMs  = ms offset from run start (Gantt needs a number, backend sends ISO string)
+  const runStartMs = frAny.startedAt ? new Date(frAny.startedAt).getTime() : 0;
+  const nodesAny: NodeRuntime[] = nodes.map((n) => ({
+    ...(n as unknown as NodeRuntime),
+    kind:       n.nodeType,
+    label:      n.nodeId,
+    durationMs: n.elapsedMs,
+    startedMs:  n.startedAt ? new Date(n.startedAt).getTime() - runStartMs : 0,
+  }));
   const okCount   = nodesAny.filter((n) => n.status === "ok"      || n.status === "completed").length;
   const failCount = nodesAny.filter((n) => n.status === "fail"    || n.status === "failed").length;
   const skipCount = nodesAny.filter((n) => n.status === "skip"    || n.status === "pending").length;
@@ -142,11 +154,15 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
             </Button>
           )}
           {fr.status === "failed" && (
-            <Button size="sm" onClick={onTriage}>
-              <Icon.Sparkles /> {t("detail.triageBtn")}
-            </Button>
+            <>
+              <Button size="sm" onClick={onTriage}>
+                <Icon.Sparkles /> {t("detail.triageBtn")}
+              </Button>
+              <Button size="sm" onClick={() => replay.mutate(runId)} disabled={replay.isPending}>
+                <Icon.Refresh /> {t("detail.replayBtn", { defaultValue: "Replay" })}
+              </Button>
+            </>
           )}
-          <Button size="sm"><Icon.Refresh /> {t("detail.rerunBtn")}</Button>
         </div>
       </div>
 

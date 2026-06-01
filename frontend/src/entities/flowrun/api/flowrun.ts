@@ -7,6 +7,7 @@ import type {
   ApproveNodeVars,
   RejectNodeVars,
   Approval,
+  FailureRecord,
 } from "../model/types";
 
 export function useFlowRuns(params: FlowRunsParams = {}) {
@@ -105,6 +106,34 @@ export function useTriageFlowRun() {
   });
 }
 
+// useReplayFlowRun — POST /flowruns/{id}:replay re-runs a failed flowrun at a new generation
+// (generation++; ADR-019). Returns 202 {runId, resumed:true}. 422 FLOWRUN_NOT_REPLAYABLE if not failed.
+//
+// useReplayFlowRun — 重跑失败 run;202 返 {runId, resumed:true}。
+export function useReplayFlowRun() {
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, string>({
+    mutationFn: (id) => apiFetch(`/flowruns/${id}:replay`, { method: "POST" }),
+    onSuccess: (_, id) => {
+      qc.invalidateQueries({ queryKey: qk.flowruns() });
+      qc.invalidateQueries({ queryKey: qk.flowrun(id) });
+    },
+  });
+}
+
+// useFlowRunFailures — GET /flowruns/{id}/failures returns node_failed events (highest-generation
+// wins; a step re-run successfully no longer appears, ADR-019 §M6).
+//
+// useFlowRunFailures — 节点失败列表;最高代胜出,重跑成功的步不再显示。
+export function useFlowRunFailures(runId: string) {
+  return useQuery<FailureRecord[]>({
+    queryKey: [...qk.flowrun(runId), "failures"],
+    queryFn: () => apiFetch(`/flowruns/${runId}/failures`),
+    select: pickList<FailureRecord>,
+    enabled: !!runId,
+  });
+}
+
 // useFlowRunTrace — GET /flowruns/{id}/trace?nodeId=X projects the flowrun journal (durable truth)
 // for the orchestration UI's per-node inline diagnostic (08 §6). nodeId="" returns the whole run;
 // nodeId set filters to one node (loop iterations stay distinguishable via iterationKey).
@@ -119,6 +148,7 @@ export interface TraceEntry {
   iterationKey: number;
   generation: number;
   turn?: number;
+  toolCallId?: string;  // present for agent_step_started/completed events (ADR-010)
   result?: Record<string, unknown>;
   at: string;
 }

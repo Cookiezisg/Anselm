@@ -14,6 +14,11 @@ import (
 //
 // Drain 等 in-flight run goroutine 结束(到 ctx deadline);超时则取消全部(写终态)再等片刻,优雅关停。
 func (s *Service) Drain(ctx context.Context) {
+	// Stop the expiry-checker goroutine first. It is tracked in runWG but waits on its own context;
+	// without this call, runWG.Wait() would block forever because context.Background() never cancels.
+	if s.stopExpiry != nil {
+		s.stopExpiry()
+	}
 	done := make(chan struct{})
 	go func() {
 		s.runWG.Wait()
