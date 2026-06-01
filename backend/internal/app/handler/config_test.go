@@ -195,6 +195,9 @@ func TestComputeConfigState_AllStates(t *testing.T) {
 		// unconfigured (all required missing). Not "partial".
 		t.Errorf("state with only non-required filled = %q, want unconfigured (dsn missing)", state)
 	}
+	if len(missing) != 1 || missing[0] != "dsn" {
+		t.Errorf("missing after filling only the non-required key = %v, want [dsn]", missing)
+	}
 
 	// 3. ready — fill dsn
 	if err := svc.UpdateConfig(ctx, "hd1", map[string]any{"dsn": "postgres://..."}); err != nil {

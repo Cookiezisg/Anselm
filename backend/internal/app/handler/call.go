@@ -317,7 +317,6 @@ func (s *Service) syncEnv(ctx context.Context, v *handlerdomain.Version) error {
 type stderrRing struct {
 	mu  sync.Mutex
 	buf []byte
-	w   int
 	cap int
 }
 
