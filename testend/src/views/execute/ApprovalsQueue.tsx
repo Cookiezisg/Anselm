@@ -8,10 +8,12 @@ import type { FlowRun } from "@frontend/entities/flowrun/model/types";
 export function ApprovalsQueue() {
   // awaiting_signal = durable-execution status when a flowrun is parked at an approval node.
   // The old "paused" status is no longer emitted in revamp; awaiting_signal is the canonical one.
-  const { data } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: qk.flowruns({ status: "awaiting_signal" }),
     queryFn: () => getPage<FlowRun>("/api/v1/flowruns", { status: "awaiting_signal", limit: 50 }),
   });
+  if (isLoading) return <EmptyView>loading approvals…</EmptyView>;
+  if (isError) return <EmptyView>failed to load approvals</EmptyView>;
   if (!data || data.data.length === 0) return <EmptyView>no flowruns awaiting approval</EmptyView>;
   return (
     <div style={{ height: "100%", overflow: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -30,7 +32,7 @@ export function ApprovalsQueue() {
             </div>
             {r.pausedState && (
               <div className="muted mono" style={{ fontSize: 10, marginTop: 4 }}>
-                paused: {JSON.stringify(r.pausedState).slice(0, 100)}
+                paused: {(() => { try { return JSON.stringify(r.pausedState).slice(0, 100); } catch { return "(unserializable)"; } })()}
               </div>
             )}
           </div>

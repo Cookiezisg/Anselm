@@ -29,8 +29,14 @@ export function FlowRunDetail() {
       qc.invalidateQueries({ queryKey: qk.flowrunNodes(id ?? "") });
       qc.invalidateQueries({ queryKey: qk.flowrun(id ?? "") });
     },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      // Dev tool: just log to console; no toast infrastructure in testend.
+      console.error("approval mutate failed:", msg);
+    },
   });
-  if (!id || !run) return <EmptyView>loading…</EmptyView>;
+  if (!id) return <EmptyView>invalid run id</EmptyView>;
+  if (!run) return <EmptyView>loading…</EmptyView>;
 
   return (
     <div style={{ height: "100%", overflow: "auto", padding: 12 }}>

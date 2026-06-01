@@ -61,7 +61,7 @@ function ApprovalRow({ runId, approval }: { runId: string; approval: Approval })
       { runId, nodeId: approval.nodeId, decision: "approved", reason },
       {
         onSuccess: () => { setDecided("approved"); pushToast({ kind: "success", title: t("approval.row.toast.approveSuccess"), desc: label }); },
-        onError: (e) => pushToast({ kind: "error", title: t("approval.row.toast.approveFail"), desc: e.message }),
+        onError: (e) => pushToast({ kind: "error", title: t("approval.row.toast.approveFail"), desc: e instanceof Error ? e.message : String(e) }),
       }
     );
   };
@@ -70,7 +70,7 @@ function ApprovalRow({ runId, approval }: { runId: string; approval: Approval })
       { runId, nodeId: approval.nodeId, reason },
       {
         onSuccess: () => { setDecided("rejected"); pushToast({ kind: "warn", title: t("approval.row.toast.rejectSuccess"), desc: label }); },
-        onError: (e) => pushToast({ kind: "error", title: t("approval.row.toast.rejectFail"), desc: e.message }),
+        onError: (e) => pushToast({ kind: "error", title: t("approval.row.toast.rejectFail"), desc: e instanceof Error ? e.message : String(e) }),
       }
     );
   };

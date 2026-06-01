@@ -58,19 +58,20 @@ func (s *Service) expireApproval(ctx context.Context, a *flowrundomain.Approval)
 		journalDecision = "yes"
 	}
 
-	// Flip the projection row to timed_out (audit trail separate from the decision port).
-	// Best-effort: if this fails, we skip to avoid partially-applied state.
 	decideCtx := reqctxpkg.SetUserID(context.Background(), a.UserID)
-	if err := s.approvals.Decide(decideCtx, a.FlowrunID, a.NodeID, flowrundomain.ApprovalTimedOut, "timeout"); err != nil {
-		s.log.Warn("expiry checker: Decide(timed_out) failed",
-			zap.String("flowrunID", a.FlowrunID), zap.String("nodeID", a.NodeID), zap.Error(err))
+
+	// Guard both journal and approvals upfront: the two writes must be atomic from a durability
+	// standpoint. If journal is nil, skip entirely — writing only to the projection without a
+	// journal signal_received would leave the approval in an inconsistent state on crash-replay
+	// (projection says timed_out but journal has no signal → interpreter would re-park on replay).
+	if s.journal == nil {
+		s.log.Warn("expiry checker: journal nil, skipping approval timeout (no durability)",
+			zap.String("flowrunID", a.FlowrunID), zap.String("nodeID", a.NodeID))
 		return
 	}
 
-	// Journal signal_received(source=timeout) — first-wins with any concurrent human decision.
-	if s.journal == nil {
-		return
-	}
+	// Journal signal_received(source=timeout) FIRST — durable truth before projection update.
+	// first-wins with any concurrent human decision (ADR-018 dedup_key ensures idempotency).
 	if _, jErr := s.journal.AppendEvent(decideCtx, &flowrundomain.FlowRunEvent{
 		FlowrunID: a.FlowrunID,
 		Type:      flowrundomain.EventSignalReceived,
@@ -80,6 +81,16 @@ func (s *Service) expireApproval(ctx context.Context, a *flowrundomain.Approval)
 		s.log.Warn("expiry checker: AppendEvent(signal_received) failed",
 			zap.String("flowrunID", a.FlowrunID), zap.String("nodeID", a.NodeID), zap.Error(jErr))
 		return
+	}
+
+	// Flip the projection row to timed_out AFTER the journal write succeeds. The journal is the
+	// durable truth; the projection is a best-effort UI inbox. If Decide fails, the journal already
+	// has the signal so the interpreter will resume correctly — the projection just stays "parked"
+	// until a future run or manual cleanup.
+	if err := s.approvals.Decide(decideCtx, a.FlowrunID, a.NodeID, flowrundomain.ApprovalTimedOut, "timeout"); err != nil {
+		s.log.Warn("expiry checker: Decide(timed_out) failed (journal already written, interpreter will resume)",
+			zap.String("flowrunID", a.FlowrunID), zap.String("nodeID", a.NodeID), zap.Error(err))
+		// Don't return — continue to re-drive the interpreter; the journal write succeeded.
 	}
 
 	s.log.Info("expiry checker: approval timed out → auto-decided",

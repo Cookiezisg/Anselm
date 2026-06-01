@@ -246,12 +246,24 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 						// rescanning the journal. The journal signal_awaited carries the ground truth.
 						var deadline *time.Time
 						var timeoutBehavior string
-						if tsec, ok := spec.Config["timeoutSec"].(float64); ok && tsec > 0 {
-							dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
-							deadline = &dl
-						} else if tsecInt, ok := spec.Config["timeoutSec"].(int); ok && tsecInt > 0 {
-							dl := time.Now().UTC().Add(time.Duration(tsecInt) * time.Second)
-							deadline = &dl
+						if tsecRaw, has := spec.Config["timeoutSec"]; has {
+							switch tsec := tsecRaw.(type) {
+							case float64:
+								if tsec > 0 {
+									dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
+									deadline = &dl
+								}
+							case int:
+								if tsec > 0 {
+									dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
+									deadline = &dl
+								}
+							default:
+								if in.log != nil {
+									in.log.Warn("approval node: timeoutSec has unexpected type; timeout ignored",
+										zap.String("nodeID", it.node), zap.String("type", fmt.Sprintf("%T", tsecRaw)))
+								}
+							}
 						}
 						if deadline != nil {
 							if tb, ok := spec.Config["timeoutBehavior"].(string); ok {
@@ -460,35 +472,31 @@ func mergeMaps(a, b map[string]any) map[string]any {
 	return out
 }
 
-func completedResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
+// extractResultsByType builds a (nodeID,iterationKey) → normalised-result map for all journal events
+// of the given type. Used during replay to look up copy-hit payloads without re-running dispatchers.
+//
+// extractResultsByType 按事件类型建 (nodeID,iterationKey)→normalised-result 映射，供重放时拷贝命中。
+func extractResultsByType(events []flowrundomain.FlowRunEvent, eventType string) map[string]map[string]any {
 	out := map[string]map[string]any{}
 	for i := range events {
-		if events[i].Type == flowrundomain.EventNodeCompleted {
+		if events[i].Type == eventType {
 			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
 		}
 	}
 	return out
 }
 
+// Typed wrappers keep call-sites readable without losing the per-event-type semantics.
+func completedResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
+	return extractResultsByType(events, flowrundomain.EventNodeCompleted)
+}
 func branchResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
-	out := map[string]map[string]any{}
-	for i := range events {
-		if events[i].Type == flowrundomain.EventBranchTaken {
-			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
-		}
-	}
-	return out
+	return extractResultsByType(events, flowrundomain.EventBranchTaken)
 }
 
 // signalResults maps (approvalNodeID, iteration_key) → recorded signal_received result ({decision}).
 func signalResults(events []flowrundomain.FlowRunEvent) map[string]map[string]any {
-	out := map[string]map[string]any{}
-	for i := range events {
-		if events[i].Type == flowrundomain.EventSignalReceived {
-			out[ck(events[i].NodeID, events[i].IterationKey)] = normalizeNumbers(asMap(events[i].Result)).(map[string]any)
-		}
-	}
-	return out
+	return extractResultsByType(events, flowrundomain.EventSignalReceived)
 }
 
 func triggerNode(g workflowdomain.Graph) *workflowdomain.NodeSpec {
