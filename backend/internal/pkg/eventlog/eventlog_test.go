@@ -213,6 +213,28 @@ func TestDeltaBlock_DualWritesAppend(t *testing.T) {
 	}
 }
 
+// A cancelled caller ctx must NOT stop the block-row dual-write: persistence is decoupled from stream
+// cancel (§S9, like StopBlock's FinalizeStop). On :memory: a cancelled-ctx DB op would otherwise be
+// rolled back and discard the single connection (losing the whole DB); in production it loses the
+// partial message. So a delta emitted under a cancelled ctx still appends to the block row.
+func TestDeltaBlock_DualWriteSurvivesCancelledCtx(t *testing.T) {
+	ctx, repo, em := setupDBCtx(t)
+	em.EmitBlockStart(ctx, "blk_cancel", "msg_db", "msg_db", eventlogdomain.BlockTypeText, nil)
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel() // caller cancels mid-stream, before the delta's DB write
+
+	em.DeltaBlock(cancelled, "blk_cancel", "partial")
+
+	got, err := repo.GetBlock(ctx, "blk_cancel")
+	if err != nil {
+		t.Fatalf("GetBlock after cancelled-ctx delta: %v (a cancelled-ctx write must not poison the DB)", err)
+	}
+	if got.Content != "partial" {
+		t.Fatalf("delta under a cancelled ctx must still persist (decoupled from stream cancel); content=%q", got.Content)
+	}
+}
+
 func TestStopBlock_DualWritesFinalize(t *testing.T) {
 	ctx, repo, em := setupDBCtx(t)
 

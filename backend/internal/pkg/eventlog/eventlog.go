@@ -88,7 +88,9 @@ func (em *emitter) saveBlockRow(ctx context.Context, convID, id, parentID, messa
 		parentBlock = parentID
 	}
 	now := time.Now().UTC()
-	if err := em.repo.SaveBlock(ctx, &chatdomain.Block{
+	// WithoutCancel: decouple block-row persistence from stream cancel (§S9), so a block opened right as
+	// the caller cancels still persists instead of failing — and on :memory: doesn't discard the conn.
+	if err := em.repo.SaveBlock(context.WithoutCancel(ctx), &chatdomain.Block{
 		ID:             id,
 		ConversationID: convID,
 		MessageID:      messageID,
@@ -209,8 +211,12 @@ func (em *emitter) DeltaBlock(ctx context.Context, blockID, delta string) {
 		ID:             blockID,
 		Delta:          delta,
 	})
+	// WithoutCancel: the block-row persistence is decoupled from stream cancel (§S9, mirroring
+	// StopBlock's FinalizeStop). A cancelled-ctx DB op would otherwise be rolled back — losing the
+	// partial message in production, and on :memory: discarding the single connection (whole DB gone).
+	// Values (user_id / conversation_id) are preserved; only cancellation is dropped.
 	if em.repo != nil {
-		if err := em.repo.AppendDelta(ctx, blockID, delta); err != nil {
+		if err := em.repo.AppendDelta(context.WithoutCancel(ctx), blockID, delta); err != nil {
 			em.log.Warn("blockV2 dual-write failed (delta)",
 				zap.String("blockId", blockID), zap.Error(err))
 		}
