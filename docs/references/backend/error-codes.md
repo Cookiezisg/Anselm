@@ -269,6 +269,7 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `WORKFLOW_DISABLED`                  | 422 | `schedulerapp.ErrWorkflowDisabled`         | :trigger 在 disabled workflow §6.5 |
 | `WORKFLOW_NEEDS_ATTENTION`           | 422 | `schedulerapp.ErrWorkflowNeedsAttention`   | workflow.NeedsAttention=true 时 :trigger |
 | `FLOWRUN_CONCURRENCY_LIMIT`          | 409 | `schedulerapp.ErrConcurrencyLimit`         | serial 并发限制撞 §6.3(trigger 容忍 skip)|
+| `FLOWRUN_NOT_REPLAYABLE`             | 422 | `schedulerapp.ErrNotReplayable`            | `:replay` 时 run 非 terminal-failed(ADR-019,M6)|
 | `WORKFLOW_NOT_FOUND_FOR_TRIGGER`     | 404 | `schedulerapp.ErrWorkflowNotFound`         | :trigger 时 workflow id 查不到 |
 | `SCHEDULER_NOT_AVAILABLE`            | 503 | (handler inline,不进 errmap)              | Plan 05 service 未挂时端点返此(测试/pre-wire 场景) |
 
