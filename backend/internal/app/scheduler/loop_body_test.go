@@ -54,7 +54,8 @@ func (r *fakeFlowRunRepo) UpdateStatus(context.Context, string, string, any, str
 func (r *fakeFlowRunRepo) ClaimStatus(context.Context, string, string, string) (bool, error) {
 	return true, nil
 }
-func (r *fakeFlowRunRepo) CountRunning(context.Context, string) (int, error) { return 0, nil }
+func (r *fakeFlowRunRepo) BumpGeneration(context.Context, string) (int, error) { return 1, nil }
+func (r *fakeFlowRunRepo) CountRunning(context.Context, string) (int, error)   { return 0, nil }
 func (r *fakeFlowRunRepo) SetPausedState(context.Context, string, *flowrundomain.PausedState) error {
 	return nil
 }

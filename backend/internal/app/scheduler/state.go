@@ -127,7 +127,7 @@ func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, gr
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-	parked, err := New(s.journal, s.router).WithDryRun(run.DryRun).WithApprovals(s.approvals).Run(ctx, run.ID, *graph, run.TriggerInput)
+	parked, err := New(s.journal, s.router).WithDryRun(run.DryRun).WithApprovals(s.approvals).WithGeneration(run.Generation).Run(ctx, run.ID, *graph, run.TriggerInput)
 	if err != nil {
 		// Cancel/timeout is a distinct terminal from a node failure (concurrency-error-edges-2).
 		// Finalize on a fresh detached ctx — the run ctx is already cancelled, so its DB write fails.

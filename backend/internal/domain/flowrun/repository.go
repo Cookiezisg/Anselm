@@ -24,6 +24,12 @@ type Repository interface {
 	// ClaimStatus 原子 CAS 转 status from→to;仅胜出者返 true。并发 resume 时只有胜者驱动 walk。
 	ClaimStatus(ctx context.Context, runID, from, to string) (bool, error)
 
+	// BumpGeneration increments the replay-reset epoch (ADR-019) and flips status→running, returning
+	// the new generation. Used by `:replay` to re-run a failed flowrun under a fresh generation.
+	//
+	// BumpGeneration 自增 replay 代(ADR-019)并把 status 翻 running,返新代;:replay 重跑失败 run 用。
+	BumpGeneration(ctx context.Context, runID string) (int, error)
+
 	SetPausedState(ctx context.Context, runID string, ps *PausedState) error
 	ClearPausedState(ctx context.Context, runID string) error
 

@@ -185,6 +185,34 @@ func (s *Store) ClaimStatus(ctx context.Context, runID, from, to string) (bool, 
 	return res.RowsAffected == 1, nil
 }
 
+// BumpGeneration increments generation (replay-reset epoch, ADR-019) and flips status→running in one
+// UPDATE, then reads back the new generation. Used by `:replay`.
+//
+// BumpGeneration 一条 UPDATE 自增 generation + status→running,读回新代;:replay 用。
+func (s *Store) BumpGeneration(ctx context.Context, runID string) (int, error) {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return 0, err
+	}
+	res := s.db.WithContext(ctx).Model(&flowrundomain.FlowRun{}).
+		Where("id = ? AND user_id = ?", runID, uid).
+		Updates(map[string]any{
+			"generation": gorm.Expr("generation + 1"),
+			"status":     flowrundomain.StatusRunning,
+		})
+	if res.Error != nil {
+		return 0, fmt.Errorf("flowrunstore.BumpGeneration: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return 0, flowrundomain.ErrNotFound
+	}
+	var run flowrundomain.FlowRun
+	if err := s.db.WithContext(ctx).Where("id = ?", runID).First(&run).Error; err != nil {
+		return 0, fmt.Errorf("flowrunstore.BumpGeneration: read-back: %w", err)
+	}
+	return run.Generation, nil
+}
+
 // SetPausedState writes paused_state JSON blob (marshal manually since Update bypasses serializer).
 //
 // SetPausedState 写 paused_state JSON（手动 marshal，Update 不走 serializer）。

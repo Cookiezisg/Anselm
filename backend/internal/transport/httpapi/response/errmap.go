@@ -145,6 +145,7 @@ var errTable = map[error]errMapping{
 	schedulerapp.ErrWorkflowDisabled:       {http.StatusUnprocessableEntity, "WORKFLOW_DISABLED"},
 	schedulerapp.ErrWorkflowNeedsAttention: {http.StatusUnprocessableEntity, "WORKFLOW_NEEDS_ATTENTION"},
 	schedulerapp.ErrConcurrencyLimit:       {http.StatusConflict, "FLOWRUN_CONCURRENCY_LIMIT"},
+	schedulerapp.ErrNotReplayable:          {http.StatusUnprocessableEntity, "FLOWRUN_NOT_REPLAYABLE"},
 	schedulerapp.ErrWorkflowNotFound:       {http.StatusNotFound, "WORKFLOW_NOT_FOUND_FOR_TRIGGER"},
 
 	// workflow

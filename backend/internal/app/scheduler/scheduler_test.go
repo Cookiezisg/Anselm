@@ -79,6 +79,17 @@ func (r *fakeRepo) ClaimStatus(_ context.Context, runID, from, to string) (bool,
 	return false, nil
 }
 
+func (r *fakeRepo) BumpGeneration(_ context.Context, runID string) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if run, ok := r.runs[runID]; ok {
+		run.Generation++
+		run.Status = flowrundomain.StatusRunning
+		return run.Generation, nil
+	}
+	return 0, flowrundomain.ErrNotFound
+}
+
 func (r *fakeRepo) SetPausedState(context.Context, string, *flowrundomain.PausedState) error {
 	return nil
 }

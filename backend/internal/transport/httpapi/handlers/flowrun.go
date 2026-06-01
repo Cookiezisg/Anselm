@@ -86,9 +86,22 @@ func (h *FlowRunHandler) postOnFlowRun(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "triage":
 		h.Triage(w, r, id)
+	case "replay":
+		h.replay(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// replay re-runs a failed flowrun under a fresh generation (ADR-019 `:replay`, M6). 202 on accept.
+//
+// replay 在新一代下重跑失败的 flowrun(ADR-019 :replay,M6),202 表示已受理。
+func (h *FlowRunHandler) replay(w http.ResponseWriter, r *http.Request, id string) {
+	if err := h.scheduler.ReplayRun(r.Context(), id); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"runId": id, "replaying": true})
 }
 
 // Triage spawns an AI-driven debugging conversation for this flowrun: builds

@@ -26,10 +26,11 @@ import (
 // Interpreter 是 durable 执行引擎;agenda 驱动:活动记账、case 控制流 + skip token、回边 loop、
 // join 等激活入边(active-branch / AND);Run/Resume 同一套,重放命中已记账抄、不重跑。
 type Interpreter struct {
-	journal   flowrundomain.JournalRepository
-	dispatch  Dispatcher
-	dryRun    bool                             // when set, side-effect nodes mock and approval auto-passes (yes)
-	approvals flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
+	journal    flowrundomain.JournalRepository
+	dispatch   Dispatcher
+	dryRun     bool                             // when set, side-effect nodes mock and approval auto-passes (yes)
+	approvals  flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
+	generation int                              // replay-reset epoch (ADR-019): stamped on events; copy-hit takes highest gen
 }
 
 func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpreter {
@@ -48,6 +49,13 @@ func (in *Interpreter) WithApprovals(a flowrundomain.ApprovalRepository) *Interp
 	in.approvals = a
 	return in
 }
+
+// WithGeneration sets the replay-reset epoch (ADR-019): events this walk journals are stamped with
+// it, so a `:replay` re-run's records are distinct from the prior generation's and copy-hit /
+// failures resolve to the highest generation.
+//
+// WithGeneration 设置 replay 代(ADR-019):本次 walk 记账的事件盖此代,使 :replay 重跑与上一代区分。
+func (in *Interpreter) WithGeneration(gen int) *Interpreter { in.generation = gen; return in }
 
 // Run/Resume return parked=true when the flowrun suspended at an approval waiting for a signal
 // (caller sets flowrun.status = awaiting_signal); false means it ran to a terminal.
@@ -197,7 +205,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 					// park: journal signal_awaited once; the flowrun suspends (status awaiting_signal)
 					// and re-walks after ResumeApproval journals the decision.
 					if _, aErr := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-						FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter,
+						FlowrunID: flowrunID, Type: flowrundomain.EventSignalAwaited, NodeID: it.node, IterationKey: it.iter, Generation: in.generation,
 					}); aErr != nil {
 						return false, fmt.Errorf("scheduler.approval %s signal_awaited: %w", it.node, aErr)
 					}
@@ -293,7 +301,7 @@ func (in *Interpreter) caseDecide(ctx context.Context, flowrunID string, node wo
 			out = mergeMaps(payload, o)
 		}
 		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-			FlowrunID: flowrunID, Type: flowrundomain.EventBranchTaken, NodeID: node.ID, IterationKey: iter,
+			FlowrunID: flowrunID, Type: flowrundomain.EventBranchTaken, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
 			Result: map[string]any{"to": to, "payload": out},
 		}); err != nil {
 			return "", nil, fmt.Errorf("scheduler.case %s branch_taken: %w", node.ID, err)
@@ -312,7 +320,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		return cached, nil
 	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-		FlowrunID: flowrunID, Type: flowrundomain.EventNodeStarted, NodeID: node.ID, IterationKey: iter,
+		FlowrunID: flowrunID, Type: flowrundomain.EventNodeStarted, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s started: %w", node.ID, err)
 	}
@@ -334,7 +342,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	}
 	if res.Error != nil {
 		if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID, IterationKey: iter,
+			FlowrunID: flowrunID, Type: flowrundomain.EventNodeFailed, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
 			Result: map[string]any{"error": res.Error.Error()},
 		}); err != nil {
 			return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
@@ -349,7 +357,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		out = normalizeNumbers(out).(map[string]any)
 	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
-		FlowrunID: flowrunID, Type: flowrundomain.EventNodeCompleted, NodeID: node.ID, IterationKey: iter,
+		FlowrunID: flowrunID, Type: flowrundomain.EventNodeCompleted, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
 		Result: out,
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s completed: %w", node.ID, err)
