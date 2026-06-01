@@ -12,6 +12,8 @@ import (
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // Interpreter is the durable execution engine (ADR-016). It walks the pinned graph as an agenda
@@ -33,6 +35,7 @@ type Interpreter struct {
 	dispatch   Dispatcher
 	dryRun     bool                             // when set, side-effect nodes mock and approval auto-passes (yes)
 	approvals  flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
+	nodeRepo   flowrundomain.Repository         // optional: writes flowrun_nodes projection rows (search_workflow_executions / GET /nodes)
 	generation int                              // replay-reset epoch (ADR-019): stamped on events; copy-hit takes highest gen
 	tick       func(nodeID, status string, iter int)
 	log        *zap.Logger
@@ -46,6 +49,19 @@ func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpre
 //
 // WithLog 接入 logger 供 best-effort 路径(如 agent 子步记账)打日志。
 func (in *Interpreter) WithLog(log *zap.Logger) *Interpreter { in.log = log; return in }
+
+// WithNodeRepo wires the flowrun Repository so the interpreter writes flowrun_nodes projection rows
+// alongside the journal. This makes GET /flowruns/{id}/nodes and search_workflow_executions return
+// live data for new-interpreter runs (without it, those queries return empty because the old
+// recordNode path is bypassed). Best-effort: a write failure only loses the projection row, not the
+// journal truth.
+//
+// WithNodeRepo 接入 flowrun Repository 让 interpreter 写 flowrun_nodes 投影行（old recordNode path
+// 被新 interpreter 绕过;有了这个 GET /nodes + search_workflow_executions 才有数据）。
+func (in *Interpreter) WithNodeRepo(repo flowrundomain.Repository) *Interpreter {
+	in.nodeRepo = repo
+	return in
+}
 
 // WithTick wires a best-effort per-node runtime tick fired as an activity transitions
 // (running/ok/failed) so the orchestration UI canvas animates live. The callback MUST be non-blocking
@@ -379,6 +395,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		in.emitTick(node.ID, "ok", iter) // replay catch-up: the node already completed in a prior walk
 		return cached, nil
 	}
+	startedAt := time.Now().UTC()
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventNodeStarted, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
 	}); err != nil {
@@ -415,6 +432,9 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 			return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
 		}
 		in.emitTick(node.ID, "failed", iter)
+		// Write projection row for failed activity so GET /nodes + search_workflow_executions surface it.
+		in.writeNodeRow(ctx, flowrunID, node, iter, flowrundomain.NodeStatusFailed,
+			payload, nil, res.Error.Error(), startedAt)
 		return nil, fmt.Errorf("scheduler.activity %s: %w", node.ID, res.Error)
 	}
 	// Normalize fresh activity output at the same boundary the copy-hit is normalized — a real
@@ -431,7 +451,55 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		return nil, fmt.Errorf("scheduler.activity %s completed: %w", node.ID, err)
 	}
 	in.emitTick(node.ID, "ok", iter)
+	// Write projection row for completed activity.
+	in.writeNodeRow(ctx, flowrunID, node, iter, flowrundomain.NodeStatusOK,
+		payload, out, "", startedAt)
 	return out, nil
+}
+
+// writeNodeRow persists a flowrun_nodes projection row (best-effort — a write failure only loses the
+// projection, never the journal truth). This makes GET /flowruns/{id}/nodes and
+// search_workflow_executions work for new-interpreter runs (the old recordNode path is bypassed).
+//
+// writeNodeRow 写 flowrun_nodes 投影行(best-effort;失败只丢投影,不影响 journal 真相)。
+func (in *Interpreter) writeNodeRow(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
+	iter int, status string, input, output map[string]any, errMsg string, startedAt time.Time) {
+	if in.nodeRepo == nil {
+		return
+	}
+	uid, _ := reqctxpkg.GetUserID(ctx)
+	if uid == "" {
+		return // context has no user (e.g. expiry checker with anonymous ctx); skip
+	}
+	endedAt := time.Now().UTC()
+	row := &flowrundomain.Node{
+		ID:             idgenpkg.New("frn"),
+		UserID:         uid,
+		Status:         status,
+		TriggeredBy:    "workflow",
+		Input:          input,
+		NodeID:         node.ID,
+		NodeType:       node.Type,
+		FlowrunID:      flowrunID,
+		IterationIndex: iter,
+		StartedAt:      startedAt,
+		EndedAt:        endedAt,
+		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
+		Attempts:       1,
+	}
+	if output != nil {
+		row.Output = output
+	}
+	if errMsg != "" {
+		row.ErrorMessage = errMsg
+		row.ErrorCode = "NODE_FAILED"
+	}
+	if err := in.nodeRepo.CreateNode(ctx, row); err != nil {
+		if in.log != nil {
+			in.log.Warn("interpreter: writeNodeRow failed (projection only, journal intact)",
+				zap.String("flowrunID", flowrunID), zap.String("nodeID", node.ID), zap.Error(err))
+		}
+	}
 }
 
 // evalEmit evaluates each emit field as a bare CEL expression producing a typed value. A compile or
