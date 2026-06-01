@@ -254,3 +254,18 @@ The friction: `triggerstore.ClaimFiring(id, create func(tx *gorm.DB)(string,erro
 3. **Dispatch-coordinator in a wiring layer** that holds both gdb-backed stores.
 
 I deliberately did NOT half-build this (an unwired `buildRunInTx` would be exactly the "declared-but-no-caller" dead code R2 flagged on `ClaimFiring`). M5 is all-or-nothing: the chain `onFire → AppendFiring → claim+create(1 tx) → spawn → MarkOutcome` + boot-catchup + per-source `dedup_key` (cron tick / webhook id / fsnotify path+time, 17 §6) + polling cursor must connect end-to-end before it delivers value. That's a focused session (likely an ADR for the chosen tx-boundary option). Foundation (tables) is laid; the create-path refactor of `StartRun` into validate(pre-tx)+create(in-tx)+spawn(post-commit) is the first code step.
+
+### 2026-06-01 — M5 durable trigger dispatch: BUILT (chose the pragmatic tx-boundary)
+
+Picked **option 2 (pragmatic gorm-in-app concession)** and built the chain end-to-end — the trigger path is no longer fire-and-forget:
+- `onFire → scheduler.OnTriggerFired → AppendFiring (persist-before-act) → DispatchPending`.
+- `DispatchPending` drains pending firings via the **single-tx claim (ADR-021)**: `buildRun` (validation, no write) → `ClaimFiring` claims (pending→claimed) AND `tx.Create(run)` in ONE tx → `spawnRun` post-commit. No claimed-without-flowrun strand; a lost claim race is skipped; a workflow-gone firing is shed (terminal).
+- **Boot catchup**: `RehydrateOnBoot` re-drains crash-leftover `pending` firings — idempotent via the single-tx claim (a started firing isn't pending → no duplicate run).
+- Refactor: `StartRun` → `buildRun` + `spawnRun`, shared by the direct path (FireManual/dry-run) and the dispatch path. `FiringInbox` port in `domain/trigger`; `ErrFiringNotPending` moved to domain; `trigger_firings` gains `trigger_kind`.
+- The gorm.DB in `ClaimFiring`'s callback is the documented single-tx trade-off (the firings + flowruns tables share one DB; one tx spans both). Scheduler is the only app-layer toucher of it, inside the claim.
+
+TDD: `OnTriggerFired` creates exactly one flowrun via the single-tx claim; a re-dispatch (catchup) creates no duplicate. cross + api/workflow pipeline green; staticcheck clean.
+
+**Deferred M5 refinements (noted, not blocking):** cron-tick catchup-DETERMINISM (today `dedup_key = wf|node|wall-clock-nanos`, distinct per live fire — fine for live + crash-catchup of already-persisted firings, but a cron-tick re-materialization would need the dedup_key keyed on the scheduled tick); polling cursor (`polling_states`); overlap policy beyond `serial`. These are enhancements on a working durable baseline.
+
+**Revamp milestone status after this:** M0–M4 ✅, M5 core ✅ (refinements deferred), loop authoring ✅, approvals store ✅. Remaining: M6 (lifecycle drain + `:replay`/generation + failures API), M7 (agent domain + agent-node sub-step replay), M8 (observability + forge SSE 6-kind + e2e gate), frontend approvals-banner rewire.
