@@ -425,7 +425,7 @@ grep -rn "PublishOpApplied\|ForgeOpApplied\|op_applied" backend/ → 0 productio
 
 **实际代码：** `catalog.Item` struct 里没有这两个字段。
 
-#### ❌-26 🟡 自动激活未激活工具组（模型调未激活组工具时）
+#### ✅-26 🟡 自动激活未激活工具组（模型调未激活组工具时）
 
 **设计要求（doc 11 §S1 / doc 13 §"activate_tools"段）：**
 > 模型调一个还没激活的组里的工具时，后端**自动激活该组并执行**（而非报错）。
@@ -633,7 +633,7 @@ polling 教学完全缺失。
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |
 | ❌-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |
 | ✅-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
-| ❌-26 | 自动激活未激活工具组未实现 | doc 11/13 |
+| ✅-26 | 自动激活未激活工具组未实现 | doc 11/13 |
 | ✅-33 | create_function 缺 polling 教学 | doc 13 |
 | ❌-34 | create_agent 工具描述（随 ❌-18 一并实现）| doc 15 §A |
 | ❌-35 | WP11 隐式终止未落注释/文档 | doc 16 |

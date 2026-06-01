@@ -765,6 +765,7 @@ var lazyGroups = map[string]string{
 	"get_workflow":               "workflow",
 	"get_workflow_execution":     "workflow",
 	"search_workflow_executions": "workflow",
+	"capability_check_workflow":  "workflow",
 	"trigger_workflow":           "workflow",
 	// mcp group
 	"call_mcp_tool":        "mcp",
