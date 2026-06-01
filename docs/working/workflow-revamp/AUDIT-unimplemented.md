@@ -359,7 +359,7 @@ grep -rn "agents\|ag_xxx\|agentRef" domain/       → 0 results（domain 层）
 
 #### ❌-20 🔴 Agent 相关工具全部缺失（11 个，同 ❌-18）
 
-#### ❌-21 🟡 `list_failed_steps` / `replay_flowrun` 未作为 LLM 工具暴露
+#### ✅-21 🟡 `list_failed_steps` / `replay_flowrun` 未作为 LLM 工具暴露
 
 **设计要求（doc 10 §"错误诊断工具"）：**
 > - `list_failed_steps(flowrunId)` → 列失败 activity
@@ -631,7 +631,7 @@ polling 教学完全缺失。
 | ❌-14 | 同 ❌-6 | — |
 | ❌-16 | triggerNodeId 触发按钮 UI 未实现 | doc 08 |
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |
-| ❌-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |
+| ✅-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |
 | ✅-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
 | ✅-26 | 自动激活未激活工具组未实现 | doc 11/13 |
 | ✅-33 | create_function 缺 polling 教学 | doc 13 |

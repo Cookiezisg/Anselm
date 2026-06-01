@@ -160,7 +160,8 @@ func (h *FlowRunHandler) Triage(w http.ResponseWriter, r *http.Request, id strin
 // FireManual 给 WorkflowHandler 派 :trigger action 调用。
 func (h *FlowRunHandler) FireManual(w http.ResponseWriter, r *http.Request, workflowID string) {
 	var req struct {
-		Input map[string]any `json:"input"`
+		Input         map[string]any `json:"input"`
+		TriggerNodeID string         `json:"triggerNodeId"` // optional; identifies which trigger node to fire when multiple exist
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

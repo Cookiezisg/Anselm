@@ -172,6 +172,10 @@ func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request)
 		h.CapabilityCheck(w, r, id)
 	case "iterate":
 		h.Iterate(w, r, id)
+	case "activate":
+		h.Activate(w, r, id)
+	case "deactivate":
+		h.Deactivate(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
@@ -233,6 +237,48 @@ func (h *WorkflowHandler) GetTriggers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, h.flowrun.TriggerStates(r.PathValue("id")))
+}
+
+// Activate enables a workflow (sets enabled=true) so its trigger listeners fire.
+// POST /api/v1/workflows/{id}:activate
+//
+// Activate 启用 workflow（enabled=true），trigger listener 开始生效。
+func (h *WorkflowHandler) Activate(w http.ResponseWriter, r *http.Request, id string) {
+	enabled := true
+	wf, err := h.svc.UpdateMeta(r.Context(), workflowapp.UpdateMetaInput{
+		ID:      id,
+		Enabled: &enabled,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"id":      wf.ID,
+		"enabled": wf.Enabled,
+		"message": "Workflow activated. Trigger listeners are now registering.",
+	})
+}
+
+// Deactivate disables a workflow (sets enabled=false) — trigger listeners stop firing.
+// POST /api/v1/workflows/{id}:deactivate
+//
+// Deactivate 禁用 workflow（enabled=false），trigger listener 停止。
+func (h *WorkflowHandler) Deactivate(w http.ResponseWriter, r *http.Request, id string) {
+	enabled := false
+	wf, err := h.svc.UpdateMeta(r.Context(), workflowapp.UpdateMetaInput{
+		ID:      id,
+		Enabled: &enabled,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"id":      wf.ID,
+		"enabled": wf.Enabled,
+		"message": "Workflow deactivated. Trigger listeners are stopping.",
+	})
 }
 
 func (h *WorkflowHandler) Revert(w http.ResponseWriter, r *http.Request, id string) {
