@@ -255,6 +255,30 @@ func validateToolRefs(tools []agentdomain.ToolRef) error {
 	return nil
 }
 
+// GetAgentConfig implements scheduler.AgentEntityResolver: loads the agent entity's active version
+// config for use by the workflow agent dispatcher (doc 02 §"节点形态" agentRef pattern).
+//
+// GetAgentConfig 实现 scheduler.AgentEntityResolver：为 workflow agent dispatcher 加载配置。
+func (s *Service) GetAgentConfig(ctx context.Context, agentRef string) (prompt string, maxTurns int, enabledTools []string, modelOverride string, err error) {
+	a, aErr := s.repo.Get(ctx, agentRef)
+	if aErr != nil {
+		return "", 0, nil, "", fmt.Errorf("agentapp.GetAgentConfig: %w", aErr)
+	}
+	if a.ActiveVersionID == "" {
+		return "", 0, nil, "", agentdomain.ErrNoActiveVersion
+	}
+	v, vErr := s.repo.GetVersion(ctx, a.ActiveVersionID)
+	if vErr != nil {
+		return "", 0, nil, "", fmt.Errorf("agentapp.GetAgentConfig: version: %w", vErr)
+	}
+	// Convert tool refs to string IDs for filterToolsByWhitelist.
+	toolIDs := make([]string, 0, len(v.Tools))
+	for _, t := range v.Tools {
+		toolIDs = append(toolIDs, t.Ref)
+	}
+	return v.Prompt, 0, toolIDs, v.ModelOverride, nil
+}
+
 // ListVersions returns all versions for an agent.
 func (s *Service) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.AgentVersion, error) {
 	return s.repo.ListVersions(ctx, agentID)

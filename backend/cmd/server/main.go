@@ -578,10 +578,13 @@ func main() {
 		schedulerapp.NewDefaultLLMCaller(modelService, apikeyService, llmFactory),
 		documentService,
 	))
-	router.Set(workflowdomain.NodeTypeAgent, schedulerapp.NewAgentDispatcher(
+	agentDisp := schedulerapp.NewAgentDispatcher(
 		modelService, apikeyService, llmFactory,
 		documentService, func() []toolapp.Tool { return tools }, log,
-	))
+	)
+	// Wire agent entity resolver so agentRef nodes load config from the Agent entity (doc 02).
+	agentDisp.SetAgentResolver(agentService)
+	router.Set(workflowdomain.NodeTypeAgent, agentDisp)
 	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
 	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
 	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher(schedulerService))

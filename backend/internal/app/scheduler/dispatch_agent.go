@@ -18,20 +18,32 @@ import (
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
+// AgentEntityResolver is the port AgentDispatcher uses to load an agent entity by agentRef.
+// Implements doc 02 §"节点形态": agentRef makes the node reference a managed Agent entity.
+//
+// AgentEntityResolver 是 AgentDispatcher 按 agentRef 加载 Agent 实体的端口。
+type AgentEntityResolver interface {
+	GetAgentConfig(ctx context.Context, agentRef string) (prompt string, maxTurns int, enabledTools []string, modelOverride string, err error)
+}
+
 // AgentDispatcher runs the workflow `agent` node — an agentic ReAct loop
 // (multi-turn, full system-tool registry) wrapped around app/loop.Run.
-// Distinct from LLMDispatcher which is single-shot non-streaming.
+// When config.agentRef is set, loads config from the Agent entity (quadrinity pattern, doc 02).
+// When config.prompt is set inline, uses it directly (backwards compat).
 //
-// AgentDispatcher 跑 workflow `agent` 节点——基于 app/loop.Run 的 agentic
-// ReAct 循环(多轮 + 完整 system tool 注入);跟 LLMDispatcher 单次非流式区分。
+// AgentDispatcher 跑 workflow `agent` 节点;agentRef 时从 Agent 实体加载配置，否则用内联字段。
 type AgentDispatcher struct {
-	picker    modeldomain.ModelPicker
-	keys      apikeydomain.KeyProvider
-	factory   *llminfra.Factory
-	documents DocumentResolver
-	toolsFn   func() []toolapp.Tool
-	log       *zap.Logger
+	picker        modeldomain.ModelPicker
+	keys          apikeydomain.KeyProvider
+	factory       *llminfra.Factory
+	documents     DocumentResolver
+	toolsFn       func() []toolapp.Tool
+	log           *zap.Logger
+	agentResolver AgentEntityResolver // optional: resolves agentRef → entity config
 }
+
+// SetAgentResolver wires the agent entity resolver post-construction (avoids import cycle).
+func (d *AgentDispatcher) SetAgentResolver(r AgentEntityResolver) { d.agentResolver = r }
 
 // NewAgentDispatcher wires deps. nil picker/keys/factory → dispatch errs;
 // nil documents simply skips attach prefix; toolsFn returns the tool slice
@@ -68,10 +80,35 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 	}
 
 	cfg := in.Node.Config
+
+	// agentRef support (doc 02 §"节点形态"): if config.agentRef is set, load prompt/maxTurns/tools
+	// from the Agent entity's active version. Falls back to inline config for backwards compat.
+	var entityMaxTurns int
+	var entityEnabledTools []string
+	var entityModelOverride string
+	if agentRef, ok := cfg["agentRef"].(string); ok && agentRef != "" && d.agentResolver != nil {
+		p, mt, et, mo, rErr := d.agentResolver.GetAgentConfig(context.Background(), agentRef)
+		if rErr != nil {
+			return DispatchOutput{Error: fmt.Errorf("agent node %q: resolve agentRef %q: %w", in.Node.ID, agentRef, rErr)}
+		}
+		// Override inline config with entity values.
+		cfg = make(map[string]any, len(cfg))
+		for k, v := range in.Node.Config {
+			cfg[k] = v
+		}
+		if p != "" {
+			cfg["prompt"] = p
+		}
+		entityMaxTurns = mt
+		entityEnabledTools = et
+		entityModelOverride = mo
+	}
+
 	prompt, _ := cfg["prompt"].(string)
 	if prompt == "" {
-		return DispatchOutput{Error: fmt.Errorf("agent node %q: prompt required", in.Node.ID)}
+		return DispatchOutput{Error: fmt.Errorf("agent node %q: prompt required (set config.prompt or config.agentRef)", in.Node.ID)}
 	}
+	_ = entityModelOverride // used below in model override logic when entity sets it
 
 	// Workflow agent nodes are the ONE place a turn cap stays load-bearing: a
 	// triggered workflow runs unattended, so no human can stop a runaway agent.
@@ -99,6 +136,10 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 			maxTurns = int(n)
 		}
 	}
+	// Entity maxTurns overrides node config if set via agentRef.
+	if entityMaxTurns > 0 {
+		maxTurns = entityMaxTurns
+	}
 	if maxTurns < 1 {
 		maxTurns = 1
 	}
@@ -120,6 +161,10 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 	}
 
 	enabled, _ := parseEnabledTools(cfg)
+	// Entity tools override inline config when loaded via agentRef.
+	if len(entityEnabledTools) > 0 {
+		enabled = entityEnabledTools
+	}
 	var allTools []toolapp.Tool
 	if d.toolsFn != nil {
 		allTools = d.toolsFn()

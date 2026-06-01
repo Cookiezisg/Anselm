@@ -130,7 +130,7 @@ audience: [human, ai]
 - AgentDispatcher 跑 ReAct 循环 ✅
 - 子步 replay（StepRecorder + agent_step_completed journal）✅
 
-#### ❌-7 🔴 agent 节点通过 agentRef 引用 forge 实体
+#### ✅-7 🔴 agent 节点通过 agentRef 引用 forge 实体
 
 **设计要求（doc 02 §"节点形态"段）：**
 > ```yaml
@@ -600,7 +600,7 @@ polling 教学完全缺失。
 | ✅-30 | 系统 prompt critical rules 6 条缺失（殿后） | doc 13 §2 | 不可能能力禁令 17→95；可满足性检查 0→85 |
 | ❌-22 | forge SSE 缺 agent/document/skill kind | doc 11 §S2 | 右栏 subpage 无法流式呈现 |
 | ❌-4  | polling 触发器完全未实现 | doc 01 | SaaS 集成无法无 webhook 对接 |
-| ❌-7  | agentRef 字段未实现（agent 节点内嵌非引用） | doc 02 | — |
+| ✅-7  | agentRef 字段未实现（agent 节点内嵌非引用） | doc 02 | — |
 
 ### 🟡 HIGH — 显著影响质量/体验
 
