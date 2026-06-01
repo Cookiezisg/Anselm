@@ -145,6 +145,9 @@ type silentBridge struct{}
 func (silentBridge) Publish(_ context.Context, e notificationsdomain.Event) (notificationsdomain.Envelope, error) {
 	return notificationsdomain.Envelope{Event: e}, nil
 }
+func (silentBridge) PublishEphemeral(_ context.Context, _ notificationsdomain.Event) error {
+	return nil
+}
 func (silentBridge) Subscribe(_ context.Context, _ int64) (<-chan notificationsdomain.Envelope, func(), error) {
 	ch := make(chan notificationsdomain.Envelope)
 	return ch, func() {}, nil

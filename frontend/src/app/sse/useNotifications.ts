@@ -58,6 +58,9 @@ export function useNotifications() {
             const keys = factory(id);
             for (const key of keys) qc.invalidateQueries({ queryKey: key as readonly unknown[] });
           }
+          // Ephemeral flowrun runtime ticks (08 CANON-X4) drive the live canvas via the invalidate
+          // above, but they are NOT user-facing notifications — they must not bump the unread badge.
+          if (type === "flowrun" && data?.action === "tick") return;
           setUnread((n) => n + 1);
         },
       },

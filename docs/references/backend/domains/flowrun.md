@@ -97,6 +97,9 @@ running ←→ paused (approval/wait 长延时)
 
 **无 run-level timeout 状态** (V1 §3.3) — 节点 timeout 致 run 终止时 `status=failed + error_code=NODE_TIMEOUT`。
 
+**run-level 通知**(durable):started / paused / resumed / replaying / completed / failed / cancelled,经 `notifications` 流(有 seq、可重放;见 events.md §11.2)。
+**per-node 运行时 tick**(ephemeral,M8):interpreter 每个 activity 节点状态变化(running/ok/failed)推一条 `{action:"tick", nodeId, status, iterationKey}`,经 `notifications` 流的 **ephemeral 投递**(Seq=0、不入 buffer、不背压引擎;丢了从 `/trace` 全量补;events.md §11.2a)。供编排 UI 画布实时动。
+
 ---
 
 ## 5. HTTP API (读 6 + 改 3 + action 2 + webhook 子树)

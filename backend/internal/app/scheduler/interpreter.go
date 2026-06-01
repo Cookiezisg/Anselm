@@ -31,10 +31,28 @@ type Interpreter struct {
 	dryRun     bool                             // when set, side-effect nodes mock and approval auto-passes (yes)
 	approvals  flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
 	generation int                              // replay-reset epoch (ADR-019): stamped on events; copy-hit takes highest gen
+	tick       func(nodeID, status string, iter int)
 }
 
 func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpreter {
 	return &Interpreter{journal: journal, dispatch: dispatch}
+}
+
+// WithTick wires a best-effort per-node runtime tick fired as an activity transitions
+// (running/ok/failed) so the orchestration UI canvas animates live. The callback MUST be non-blocking
+// + lossy (it routes to the ephemeral notification class, 08 CANON-X4) — the journal stays the truth.
+//
+// WithTick 接入 best-effort per-node tick(running/ok/failed),供编排 UI 画布实时动;回调必须非阻塞可丢。
+func (in *Interpreter) WithTick(fn func(nodeID, status string, iter int)) *Interpreter {
+	in.tick = fn
+	return in
+}
+
+// emitTick fires the runtime tick if wired; nil-safe so the engine runs untouched without it.
+func (in *Interpreter) emitTick(nodeID, status string, iter int) {
+	if in.tick != nil {
+		in.tick(nodeID, status, iter)
+	}
 }
 
 // WithDryRun returns the interpreter configured for a dry-run preview (no real side effects).
@@ -317,6 +335,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	iter int, payload map[string]any, completed map[string]map[string]any) (map[string]any, error) {
 
 	if cached, ok := completed[ck(node.ID, iter)]; ok {
+		in.emitTick(node.ID, "ok", iter) // replay catch-up: the node already completed in a prior walk
 		return cached, nil
 	}
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
@@ -324,6 +343,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s started: %w", node.ID, err)
 	}
+	in.emitTick(node.ID, "running", iter)
 	// Dry-run: a side-effect node returns a synthetic output instead of really dispatching, so a
 	// dryRun=true preview never invokes a real function/handler/mcp/http/agent (review R2 dryRun).
 	var res DispatchOutput
@@ -347,6 +367,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		}); err != nil {
 			return nil, fmt.Errorf("scheduler.activity %s failed-journal: %w", node.ID, err)
 		}
+		in.emitTick(node.ID, "failed", iter)
 		return nil, fmt.Errorf("scheduler.activity %s: %w", node.ID, res.Error)
 	}
 	// Normalize fresh activity output at the same boundary the copy-hit is normalized — a real
@@ -362,6 +383,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	}); err != nil {
 		return nil, fmt.Errorf("scheduler.activity %s completed: %w", node.ID, err)
 	}
+	in.emitTick(node.ID, "ok", iter)
 	return out, nil
 }
 

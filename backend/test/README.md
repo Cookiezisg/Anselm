@@ -544,7 +544,7 @@
 | **notification** | ask | **❌ uncovered** |
 
 
-## 4. Cross-domain seams (14 / 79 covered, 18%)
+## 4. Cross-domain seams (15 / 80 covered, 19%)
 
 | Seam ID | Description | Test |
 |---|---|---|
@@ -585,6 +585,7 @@
 | **workflow_scheduler:retry_up_to_max** | 失败 node 按配置重试上限 | **❌ uncovered** |
 | **workflow_scheduler:timeout_status** | node 超时 → 状态 timeout | **❌ uncovered** |
 | **workflow_scheduler:rehydrate_on_boot** | 启动期把 DB 中 paused flowrun 重新挂回 scheduler | **❌ uncovered** |
+| scheduler_notifications:runtime_tick | 节点状态变化 → ephemeral flowrun tick(Seq0、不入 replay、不背压;08 CANON-X4) | backend/test/cross/scheduler_pipeline_test.go::TestFlowRun_RuntimeTick_FiresEphemeralOnNodeTransition |
 | mention_document:single_doc_snapshot | 单 doc @mention → 快照入 message attrs | backend/test/cross/workflow_attach_pipeline_test.go::TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E |
 | mention_document:nonexistent_rejected | 不存在 doc 引用 → 请求拒绝 | backend/test/cross/workflow_attach_pipeline_test.go::TestWorkflow_LLM_AttachedDocMissing_ValidationRejects |
 | **mention_document:trinity_entity_snapshot** | @mention function/handler/workflow → 快照其当前状态 | **❌ uncovered** |
@@ -655,13 +656,15 @@
 
 ## Summary
 
-- **Total targets**: 448
-- **Covered**: 87 (19%)
+- **Total targets**: 449
+- **Covered**: 88 (20%)
 - **Uncovered**: 361
 - **Orphan annotations**: 4
 - **Tests without `// covers:` annotation**: 42
 
 <!-- COVERAGE-MATRIX:END -->
+
+
 
 
 

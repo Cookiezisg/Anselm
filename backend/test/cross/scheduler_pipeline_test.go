@@ -296,3 +296,64 @@ func TestFlowRun_HTTP_TraceProjectsJournal(t *testing.T) {
 		t.Fatalf("unknown-node trace want empty, got %d", len(none.Data))
 	}
 }
+
+// The interpreter fires a best-effort ephemeral runtime tick on the notifications stream as each
+// activity node transitions, so the orchestration UI canvas animates live (08 CANON-X4): Seq==0
+// (never replayed, no Last-Event-ID move), type "flowrun", data.action "tick".
+//
+// covers: cross:scheduler_notifications:runtime_tick
+func TestFlowRun_RuntimeTick_FiresEphemeralOnNodeTransition(t *testing.T) {
+	h := th.New(t)
+	ctx := th.CtxAs("test-user")
+	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
+		Ops: []workflowapp.Op{
+			{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"tick_wf","description":"e2e tick"}`)},
+			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"trig","type":"trigger","config":{"triggerType":"manual"}}}`)},
+			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"step","type":"variable","config":{"operation":"set","name":"done","value":"yes"}}}`)},
+			{Type: "add_edge", Raw: []byte(`{"op":"add_edge","edge":{"id":"e1","from":"trig","to":"step"}}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create workflow: %v", err)
+	}
+
+	// Subscribe BEFORE triggering — ephemeral ticks are live-only (never replayed on reconnect).
+	ch, cancel, err := h.NotificationsBridge.Subscribe(ctx, 0)
+	if err != nil {
+		t.Fatalf("Subscribe: %v", err)
+	}
+	defer cancel()
+
+	var trigResp struct {
+		Data struct {
+			RunID string `json:"runId"`
+		} `json:"data"`
+	}
+	if status := th.DoRequest(t, h, "POST", "/api/v1/workflows/"+wf.ID+":trigger",
+		map[string]any{}, &trigResp); status != 201 {
+		t.Fatalf("trigger: %d", status)
+	}
+
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case env := <-ch:
+			data, _ := env.Event.Data.(map[string]any)
+			if env.Event.Type != "flowrun" || data == nil || data["action"] != "tick" {
+				continue
+			}
+			if data["nodeId"] != "step" { // the trigger doesn't tick; only the step activity
+				continue
+			}
+			if env.Seq != 0 {
+				t.Fatalf("runtime tick must be ephemeral (Seq 0, never replayed), got %d", env.Seq)
+			}
+			if s, _ := data["status"].(string); s != "running" && s != "ok" {
+				t.Fatalf("unexpected tick status: %v", data["status"])
+			}
+			return // a valid ephemeral tick for the step activity arrived
+		case <-deadline:
+			t.Fatal("no ephemeral flowrun runtime tick for the step activity within 2s")
+		}
+	}
+}

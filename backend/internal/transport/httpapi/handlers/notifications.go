@@ -76,8 +76,14 @@ func (h *NotificationsHandler) stream(w http.ResponseWriter, r *http.Request) {
 					zap.Error(err))
 				return err
 			}
-			_, err = fmt.Fprintf(out, "event: notification\nid: %d\ndata: %s\n\n",
-				env.Seq, data)
+			// Ephemeral envelopes (Seq==0, e.g. flowrun runtime ticks) carry NO id: line so they
+			// never move the client's Last-Event-ID — they're live-only, never replayed on reconnect
+			// (the client re-pulls the trace instead; 08 CANON-X4/C2). Durable events keep id: <seq>.
+			if env.Seq == 0 {
+				_, err = fmt.Fprintf(out, "event: notification\ndata: %s\n\n", data)
+			} else {
+				_, err = fmt.Fprintf(out, "event: notification\nid: %d\ndata: %s\n\n", env.Seq, data)
+			}
 			return err
 		},
 	)

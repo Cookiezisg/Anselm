@@ -178,6 +178,7 @@ SSE 事件名固定为 `notification`；dispatch 由 `payload.type` 字段驱动
 | `handler` | invalidate handlers + handler(id) + handlerVersions(id) + handlerConfig(id) |
 | `workflow` | invalidate workflows + workflow(id) + workflowVersions(id) |
 | `flowrun` | invalidate flowruns + flowrun(id) + flowrunNodes(id) + approvals()（approval 可能 park/decide）|
+| `flowrun` (data.action=`tick`) | 同上 invalidate（驱动画布实时刷新），但**不计未读**——ephemeral 运行时滴答非用户向通知（events.md §11.2a / 08 CANON-X4）|
 | `mcp_server` | invalidate `qk.mcpServers()` |
 | `skill` | invalidate `qk.skills()` |
 | `memory` | invalidate `["memories"]` |

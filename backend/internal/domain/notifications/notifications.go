@@ -36,6 +36,12 @@ type Bridge interface {
 	// Publish 校验后分配 seq 并扇出；阻塞慢订阅者，快照不能丢。
 	Publish(ctx context.Context, e Event) (Envelope, error)
 
+	// PublishEphemeral fans out live-only with no seq, no replay buffer, never blocking (drop on full) —
+	// the CANON-X4 ephemeral class for flowrun runtime ticks (high-frequency, lossy, no backpressure).
+	//
+	// PublishEphemeral 实时扇出、无 seq、不入 buffer、永不阻塞（满则丢）—— flowrun tick 的 ephemeral 通道。
+	PublishEphemeral(ctx context.Context, e Event) error
+
 	// Subscribe registers a per-user subscriber; fromSeq>0 replays first, too old returns ErrSeqTooOld.
 	//
 	// Subscribe 注册订阅者；fromSeq>0 先 replay；过旧返 ErrSeqTooOld。

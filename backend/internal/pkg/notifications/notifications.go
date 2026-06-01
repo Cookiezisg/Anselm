@@ -16,6 +16,12 @@ import (
 // Publisher 是高层 publish API；失败仅 log，不阻断业务。
 type Publisher interface {
 	Publish(ctx context.Context, eventType, id string, data any, conversationID string)
+
+	// PublishEphemeral emits a live-only, lossy, no-backpressure signal (flowrun runtime tick) — no
+	// seq, no replay buffer; a full subscriber drops it. Best-effort: failures are log-only.
+	//
+	// PublishEphemeral 发实时可丢无背压信号（flowrun tick）；无 seq、不入 buffer、满则丢；失败仅 log。
+	PublishEphemeral(ctx context.Context, eventType, id string, data any)
 }
 
 // New constructs a Publisher backed by bridge; bridge nil returns a no-op.
@@ -50,6 +56,22 @@ func (p *publisher) Publish(ctx context.Context, eventType, id string, data any,
 	}
 }
 
+// PublishEphemeral delivers a runtime tick live-only (no seq/buffer/backpressure); failures log-only.
+func (p *publisher) PublishEphemeral(ctx context.Context, eventType, id string, data any) {
+	if err := p.bridge.PublishEphemeral(ctx, notificationsdomain.Event{
+		Type: eventType,
+		ID:   id,
+		Data: data,
+	}); err != nil {
+		p.log.Warn("ephemeral notification publish failed",
+			zap.String("type", eventType),
+			zap.String("id", id),
+			zap.Error(err))
+	}
+}
+
 type noopPublisher struct{}
 
 func (noopPublisher) Publish(context.Context, string, string, any, string) {}
+
+func (noopPublisher) PublishEphemeral(context.Context, string, string, any) {}

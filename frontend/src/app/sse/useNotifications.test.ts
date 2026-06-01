@@ -97,4 +97,27 @@ describe("useNotifications", () => {
     act(() => result.current.clearUnread());
     expect(result.current.unread).toBe(0);
   });
+
+  it("flowrunTick_invalidatesCanvasQueries_butDoesNotBumpUnread", async () => {
+    const { client, wrap } = makeWrapper();
+    const spy = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(() => useNotifications(), { wrapper: wrap });
+    await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
+    const es = MockEventSource.instances[0];
+    act(() => es.emit("notification", { type: "flowrun", id: "fr_1", data: { action: "tick", nodeId: "step", status: "running" } }));
+    // Ephemeral runtime tick: live canvas refresh fires, but it's not a user-facing notification.
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["flowruns"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["flowrun", "fr_1"] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ["flowrun-nodes", "fr_1"] });
+    expect(result.current.unread).toBe(0);
+  });
+
+  it("flowrunLifecycleNotification_stillBumpsUnread", async () => {
+    const { wrap } = makeWrapper();
+    const { result } = renderHook(() => useNotifications(), { wrapper: wrap });
+    await vi.waitFor(() => expect(MockEventSource.instances.length).toBe(1));
+    const es = MockEventSource.instances[0];
+    act(() => es.emit("notification", { type: "flowrun", id: "fr_1", data: { action: "completed" } }));
+    expect(result.current.unread).toBe(1);
+  });
 });

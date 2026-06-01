@@ -130,6 +130,57 @@ func TestInterpreter_LinearRunJournalsEachActivity(t *testing.T) {
 	}
 }
 
+// WithTick fires a best-effort runtime tick at each activity transition (running -> ok) in seq order,
+// for activities only (not the trigger) — the orchestration UI's live canvas signal (08 CANON-X4).
+func TestInterpreter_WithTick_FiresRunningThenOkPerActivity(t *testing.T) {
+	journal := newJournal(t)
+	router := &countingRouter{calls: map[string]int{}}
+	ctx := context.Background()
+
+	var ticks []string
+	tick := func(nodeID, status string, _ int) { ticks = append(ticks, nodeID+":"+status) }
+	if _, err := New(journal, router).WithTick(tick).Run(ctx, "fr_tick", linearGraph(), nil); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	want := []string{"a:running", "a:ok", "b:running", "b:ok"}
+	if len(ticks) != len(want) {
+		t.Fatalf("want %d ticks %v, got %d: %v", len(want), want, len(ticks), ticks)
+	}
+	for i := range want {
+		if ticks[i] != want[i] {
+			t.Fatalf("tick #%d: got %q want %q (full: %v)", i, ticks[i], want[i], ticks)
+		}
+	}
+}
+
+// A failing activity ticks running -> failed so the operator sees the node go red live.
+func TestInterpreter_WithTick_FiresFailedOnActivityError(t *testing.T) {
+	journal := newJournal(t)
+	router := NewRouter()
+	router.Set(workflowdomain.NodeTypeFunction, DispatcherFunc(func(_ context.Context, _ DispatchInput) DispatchOutput {
+		return DispatchOutput{Error: errTestFail}
+	}))
+	ctx := context.Background()
+
+	var ticks []string
+	tick := func(nodeID, status string, _ int) { ticks = append(ticks, nodeID+":"+status) }
+	g := workflowdomain.Graph{
+		Name: "fail",
+		Nodes: []workflowdomain.NodeSpec{
+			{ID: "t", Type: workflowdomain.NodeTypeTrigger},
+			{ID: "a", Type: workflowdomain.NodeTypeFunction},
+		},
+		Edges: []workflowdomain.EdgeSpec{{ID: "e1", From: "t", To: "a"}},
+	}
+	if _, err := New(journal, router).WithTick(tick).Run(ctx, "fr_tickfail", g, nil); err == nil {
+		t.Fatal("expected the failing activity to error")
+	}
+	want := []string{"a:running", "a:failed"}
+	if len(ticks) != len(want) || ticks[0] != want[0] || ticks[1] != want[1] {
+		t.Fatalf("want %v, got %v", want, ticks)
+	}
+}
+
 // case node: per-branch CEL guard, first-true-wins; routes via branches[].to + journals branch_taken.
 func TestInterpreter_CaseFirstTrueWins(t *testing.T) {
 	journal := newJournal(t)

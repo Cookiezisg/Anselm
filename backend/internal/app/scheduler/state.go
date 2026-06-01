@@ -127,7 +127,20 @@ func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, gr
 		s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, map[string]any{"empty": true}, "", "")
 		return
 	}
-	parked, err := New(s.journal, s.router).WithDryRun(run.DryRun).WithApprovals(s.approvals).WithGeneration(run.Generation).Run(ctx, run.ID, *graph, run.TriggerInput)
+	// Runtime tick: a best-effort, lossy, no-backpressure ephemeral notification per node transition so
+	// the orchestration UI canvas animates live (08 CANON-X4). Detached ctx carries the owner so ticks
+	// route even as the run ctx nears cancellation; the journal stays the durable truth.
+	tickCtx := reqctxpkg.SetUserID(context.Background(), run.UserID)
+	tick := func(nodeID, status string, iter int) {
+		s.notif.PublishEphemeral(tickCtx, "flowrun", run.ID, map[string]any{
+			"action":       "tick",
+			"workflowId":   run.WorkflowID,
+			"nodeId":       nodeID,
+			"status":       status,
+			"iterationKey": iter,
+		})
+	}
+	parked, err := New(s.journal, s.router).WithDryRun(run.DryRun).WithApprovals(s.approvals).WithGeneration(run.Generation).WithTick(tick).Run(ctx, run.ID, *graph, run.TriggerInput)
 	if err != nil {
 		// Cancel/timeout is a distinct terminal from a node failure (concurrency-error-edges-2).
 		// Finalize on a fresh detached ctx — the run ctx is already cancelled, so its DB write fails.

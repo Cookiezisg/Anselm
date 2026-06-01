@@ -95,6 +95,37 @@ func (b *Bridge) Publish(ctx context.Context, e notificationsdomain.Event) (noti
 	return env, nil
 }
 
+// PublishEphemeral fans an event out to live subscribers WITHOUT assigning a seq, WITHOUT buffering
+// it for replay, and WITHOUT ever blocking — a full subscriber simply drops the event. This is the 08
+// CANON-X4/C2 ephemeral delivery class for high-frequency, lossy, no-backpressure signals (flowrun
+// runtime ticks): it must never stall the execution engine and must not evict durable entity events
+// from the replay ring. Seq 0 marks it so the SSE layer omits the id: line (no Last-Event-ID move).
+//
+// PublishEphemeral 把事件扇给实时订阅者，但不分配 seq、不入 replay buffer、永不阻塞（满则丢）——
+// 08 CANON-X4 ephemeral 通道：高频可丢无背压（flowrun tick），绝不卡引擎、不污染 replay buffer。
+func (b *Bridge) PublishEphemeral(ctx context.Context, e notificationsdomain.Event) error {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return fmt.Errorf("notifications.Bridge.PublishEphemeral: %w", err)
+	}
+	if err := notificationsdomain.ValidateEvent(e); err != nil {
+		return err
+	}
+
+	state := b.ensureUser(uid)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	env := notificationsdomain.Envelope{Seq: 0, Event: e} // Seq 0 = ephemeral: no seq, no replay, no id:
+	for _, s := range state.subs {
+		select {
+		case s.ch <- env:
+		default: // drop on full — never block the producer (the execution engine)
+		}
+	}
+	return nil
+}
+
 // Subscribe registers a subscriber for ctx's user_id; fromSeq>0 replays buffered envelopes first.
 //
 // Subscribe 按 ctx 的 user_id 注册订阅者；fromSeq>0 先 replay 历史再上实时。

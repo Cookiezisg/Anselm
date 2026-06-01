@@ -85,6 +85,10 @@ cross:
   - id: workflow_scheduler:rehydrate_on_boot
     description: 启动期把 DB 中 paused flowrun 重新挂回 scheduler
 
+  # scheduler × notifications — 运行时 tick
+  - id: scheduler_notifications:runtime_tick
+    description: 节点状态变化 → ephemeral flowrun tick(Seq0、不入 replay、不背压;08 CANON-X4)
+
   # @-mention × document
   - id: mention_document:single_doc_snapshot
     description: 单 doc @mention → 快照入 message attrs

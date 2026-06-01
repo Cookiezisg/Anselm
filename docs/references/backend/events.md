@@ -261,12 +261,19 @@ type SlimPayload = {
 | `handler` | `app/handler/Service` 各 CRUD 端点 | 同 function 7 个 + `config_updated` / `config_cleared` | `{action, versionId?, versionNumber?}`(同 D-redo-7 删除 env_synced/env_failed;但 `env_rebuilt` 仍 emit — `handler/crud.go`)|
 | `workflow` | `app/workflow/Service` 各 CRUD 端点 | created / updated / pending_created / version_accepted / pending_rejected / reverted / deleted | `{action, versionId?, versionNumber?}`(slim payload D-redo-6;无 env action,workflow 域无 sandbox)|
 | `document` | `app/document/Service` 各 CRUD 路径 | created / updated / deleted 等（开放词表）| `{action}`(slim;UI 经 `GET /api/v1/documents/{id}` 拉详情)|
-| `flowrun` | `app/scheduler/Service` StartRun/finalize/pauseRun/ResumeApproval | started / paused / resumed / completed / failed / cancelled | `{action, workflowId, triggerKind?, nodeID?, decision?, elapsedMs?}`(slim;UI 经 `GET /flowruns/{id}` 拉详情 D-redo-6)|
+| `flowrun` | `app/scheduler/Service` StartRun/finalize/pauseRun/ResumeApproval/replay + interpreter 节点 tick | started / paused / resumed / replaying / completed / failed / cancelled（durable）+ **tick**（ephemeral 运行时滴答）| `{action, workflowId, triggerKind?, nodeID?, decision?, elapsedMs?}`;tick = `{action:"tick", workflowId, nodeId, status, iterationKey}`（slim;UI 经 `GET /flowruns/{id}` 或 `/trace` 拉详情）|
 | `memory` | `app/memory/Service` 各 mutation 路径 | created / updated / pinned / unpinned / deleted | `{action, name, memType, source}` (slim; UI 经 `GET /api/v1/memories/{name}` 拉全文 — V1.2 §2 final-sweep)|
 | `compaction` | `app/contextmgr/Manager.fullCompact` | completed（暂仅一种 action — 失败仅 log，不推通知）| `{action: "completed", coversToSeq, blocksArchived, summaryBytes}` (slim; UI 经 `GET /api/v1/conversations/{id}` 拉 summary — V1.2 §1 final-sweep)|
 | `ask` | `app/ask/Service.Wait` + `Resolve` | pending（AskUserQuestion 工具注册时推）/ resolved（用户答完或超时/取消后推）| `{toolCallId}` 无 action 时 = pending；`{toolCallId, action: "resolved"}` 已答完。`id` = `conversationId`。前端用此控制 sidebar 红点 |
 
 新增 type 字符串即可(**开放词表** — E2 演化规则)。前端不需协议升级。**已删除**:`handler_instance` / `trigger` 等 forge_redesign 早期表上拟加但未实施的 type。**Plan 05 (2026-05-13)**:加 `flowrun` entity type;scheduler.StartRun 推 `started`,driveLoop 终态推 `completed`/`failed`/`cancelled`,pauseRun 推 `paused`,ResumeApproval 推 `resumed`。**V1.2 §1/§2 final-sweep (2026-05-16)**:加 `memory` + `compaction` entity types(slim payload + GET 拉详情)。
+
+#### 11.2a Ephemeral delivery class（运行时 tick;workflow-revamp M8 / 08 CANON-X4）
+
+notifications 有**两条投递语义**,共享同一条 SSE 流但隔离实现:
+
+- **durable**（默认,上表全部 entity 变更）—— `Bridge.Publish`:分配 per-user 单调 `seq`、入 replay buffer、阻塞慢订阅者(快照不丢)、SSE 带 `id: <seq>`、参与 Last-Event-ID 重放。
+- **ephemeral**（仅 flowrun `tick`)—— `Bridge.PublishEphemeral`:**不分配 seq**(envelope `Seq=0`)、**不入 replay buffer**、**永不阻塞**(满则丢)、SSE **省略 `id:` 行**(不移动客户端 Last-Event-ID)、**不参与重放**。interpreter 每个 activity 节点状态变化(running/ok/failed)推一条,供编排 UI 画布实时动;丢了无所谓——真相在 flowrun journal,UI 重连从 `GET /flowruns/{id}/trace` 全量补。**铁律:tick 绝不背压执行引擎**(慢 UI 不能拖停 workflow)。前端收 tick → invalidate flowruns/flowrun(id)/flowrunNodes(id) 刷新,但**不计未读**(非用户向通知)。
 
 ### 11.3 HTTP 端点
 
