@@ -115,6 +115,9 @@ var (
 // StartRunOptions 调整单次 run 的临时行为（dry-run、覆盖 timeout 等）。
 type StartRunOptions struct {
 	DryRun bool // skip side-effect dispatchers; return mock outputs
+	// TriggerNodeID picks which trigger node the run enters from (multi-trigger workflows, 01 §统一抽象).
+	// Empty = the interpreter falls back to the first trigger node in the graph.
+	TriggerNodeID string
 }
 
 // StartRun spawns a new FlowRun for a workflow trigger; implements SchedulerStarter.
@@ -124,11 +127,18 @@ func (s *Service) StartRun(ctx context.Context, workflowID, triggerKind string, 
 	return s.StartRunWithOptions(ctx, workflowID, triggerKind, triggerInput, StartRunOptions{})
 }
 
+// StartRunFromNode is StartRun pinned to a specific trigger node (multi-trigger manual fire, 01).
+//
+// StartRunFromNode 是钉到指定 trigger 节点的 StartRun（多 trigger 手动触发）。
+func (s *Service) StartRunFromNode(ctx context.Context, workflowID, triggerKind, triggerNodeID string, triggerInput map[string]any) (string, error) {
+	return s.StartRunWithOptions(ctx, workflowID, triggerKind, triggerInput, StartRunOptions{TriggerNodeID: triggerNodeID})
+}
+
 // StartRunWithOptions is the full-arg variant; StartRun delegates.
 //
 // StartRunWithOptions 是带 options 的全参数版本；StartRun 委派。
 func (s *Service) StartRunWithOptions(ctx context.Context, workflowID, triggerKind string, triggerInput map[string]any, opts StartRunOptions) (string, error) {
-	run, graph, timeoutSec, err := s.buildRun(ctx, workflowID, triggerKind, triggerInput, opts.DryRun)
+	run, graph, timeoutSec, err := s.buildRun(ctx, workflowID, triggerKind, opts.TriggerNodeID, triggerInput, opts.DryRun)
 	if err != nil {
 		return "", err
 	}

@@ -33,7 +33,7 @@ func (s *Service) SetFiringInbox(inbox triggerdomain.FiringInbox) { s.firingInbo
 // WHAT happens inside a run.
 //
 // buildRun 校验 workflow 并构造 FlowRun 结构(不落库);直接路径与单事务派发路径共用。
-func (s *Service) buildRun(ctx context.Context, workflowID, triggerKind string, input map[string]any, dryRun bool) (*flowrundomain.FlowRun, *workflowdomain.Graph, int, error) {
+func (s *Service) buildRun(ctx context.Context, workflowID, triggerKind, triggerNodeID string, input map[string]any, dryRun bool) (*flowrundomain.FlowRun, *workflowdomain.Graph, int, error) {
 	uid, err := reqctxpkg.RequireUserID(ctx)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("schedulerapp.buildRun: %w", err)
@@ -75,15 +75,16 @@ func (s *Service) buildRun(ctx context.Context, workflowID, triggerKind string, 
 		return nil, nil, 0, fmt.Errorf("schedulerapp.buildRun: GetActiveVersion: %w", err)
 	}
 	run := &flowrundomain.FlowRun{
-		ID:           idgenpkg.New("fr"),
-		UserID:       uid,
-		WorkflowID:   workflowID,
-		VersionID:    version.ID,
-		TriggerKind:  triggerKind,
-		TriggerInput: input,
-		Status:       flowrundomain.StatusRunning,
-		StartedAt:    time.Now().UTC(),
-		DryRun:       dryRun,
+		ID:            idgenpkg.New("fr"),
+		UserID:        uid,
+		WorkflowID:    workflowID,
+		VersionID:     version.ID,
+		TriggerKind:   triggerKind,
+		TriggerNodeID: triggerNodeID, // empty → interpreter uses the first trigger node
+		TriggerInput:  input,
+		Status:        flowrundomain.StatusRunning,
+		StartedAt:     time.Now().UTC(),
+		DryRun:        dryRun,
 	}
 	return run, version.GraphParsed, wf.TimeoutSec, nil
 }
@@ -135,7 +136,7 @@ func (s *Service) DispatchPending(ctx context.Context) {
 	}
 	for i := range firings {
 		f := firings[i]
-		run, graph, timeoutSec, bErr := s.buildRun(ctx, f.WorkflowID, f.TriggerKind, f.Payload, false)
+		run, graph, timeoutSec, bErr := s.buildRun(ctx, f.WorkflowID, f.TriggerKind, f.TriggerNodeID, f.Payload, false)
 		if bErr != nil {
 			if mErr := s.firingInbox.MarkOutcome(ctx, f.ID, triggerdomain.FiringShed); mErr != nil {
 				s.log.Error("scheduler.DispatchPending: shed", zap.String("firingID", f.ID), zap.Error(mErr))

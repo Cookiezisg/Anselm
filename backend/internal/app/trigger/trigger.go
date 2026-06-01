@@ -28,6 +28,8 @@ import (
 // SchedulerStarter 是 Service 派发 fire 到 scheduler 的端口。
 type SchedulerStarter interface {
 	StartRun(ctx context.Context, workflowID string, triggerKind string, input map[string]any) (string, error)
+	// StartRunFromNode is StartRun pinned to a specific trigger node (multi-trigger manual fire, 01).
+	StartRunFromNode(ctx context.Context, workflowID, triggerKind, triggerNodeID string, input map[string]any) (string, error)
 	// OnTriggerFired persists a firing (durable, persist-before-act) then drains the inbox via the
 	// single-tx claim (ADR-021). The durable trigger path; StartRun stays for manual / dry-run.
 	OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error
@@ -408,12 +410,12 @@ var ErrSchedulerNotAttached = errors.New("triggerapp: scheduler not attached")
 // FireManual forwards a manual trigger directly to the scheduler.
 //
 // FireManual 把手动触发直接转发到 scheduler。
-func (s *Service) FireManual(ctx context.Context, workflowID string, input map[string]any) (string, error) {
+func (s *Service) FireManual(ctx context.Context, workflowID, triggerNodeID string, input map[string]any) (string, error) {
 	s.mu.RLock()
 	sched := s.scheduler
 	s.mu.RUnlock()
 	if sched == nil {
 		return "", ErrSchedulerNotAttached
 	}
-	return sched.StartRun(ctx, workflowID, triggerdomain.KindManual, input)
+	return sched.StartRunFromNode(ctx, workflowID, triggerdomain.KindManual, triggerNodeID, input)
 }

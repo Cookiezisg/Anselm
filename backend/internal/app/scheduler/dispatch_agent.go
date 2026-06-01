@@ -87,7 +87,9 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 	var entityEnabledTools []string
 	var entityModelOverride string
 	if agentRef, ok := cfg["agentRef"].(string); ok && agentRef != "" && d.agentResolver != nil {
-		p, mt, et, mo, rErr := d.agentResolver.GetAgentConfig(context.Background(), agentRef)
+		// Use the run ctx (carries userID) — NOT Background(): the agent store scopes Get by
+		// user_id, so Background() would fail RequireUserID and agentRef resolution would always error.
+		p, mt, et, mo, rErr := d.agentResolver.GetAgentConfig(ctx, agentRef)
 		if rErr != nil {
 			return DispatchOutput{Error: fmt.Errorf("agent node %q: resolve agentRef %q: %w", in.Node.ID, agentRef, rErr)}
 		}

@@ -52,16 +52,12 @@ audience: [human, ai]
 > - `after D`（相对）：输入到齐后空 D 才放行
 > arm 时把解析后的绝对 deadline 记进 journal（`timer_armed`），放行写 `timer_fired`；重放读账里的 deadline，绝不重算 `now()`。
 
-**实际代码：**
-- `EventTimerArmed`/`EventTimerFired` 事件类型已在 `domain/flowrun/event.go` 定义，但 **从不被 emit**
-- interpreter.go 中 `activityRun` 没有任何 gate 逻辑
-- `expiry.go` 只实现了 **approval 节点**的超时，不是通用 gate
-- `at?`/`after?` 字段未在任何 NodeSpec.Config 解析中出现
+**已实现（top-level，2026-06-01 二审补测试）：**
+- `interpreter.go` `activityRun` 开头：`armTimerGateIfNeeded`（读 `config.at` RFC3339 / `config.after` 秒，写 `timer_armed` 含解析后 deadline，record-once 幂等）+ `waitForTimerGate`（从账里 deadline 睡到点、写 `timer_fired`；重放命中已有 `timer_fired` 立即返、不重算 now）。
+- `JournalRepository.EventsForNode` + store 实现支撑 gate 的 per-node 事件查询。
+- **测试**（`timergate_test.go` 4 个）：past-at 立即 fire / after 真等待 / 无 config 不 arm / 重放不重等。
 
-**缺什么：**
-1. interpreter.go 在 `activityRun` 开头：检查 `spec.Config["at"]`/`spec.Config["after"]`，如果有则挂 timer（写 `timer_armed` journal，等到点再走）
-2. 到期检查器：扩展 expiry.go，扫 `timer_armed` 且 deadline 未到的 flowrun，到点写 `timer_fired` 并继续
-3. 重放时：`timer_armed`/`timer_fired` 作为 record-once 事件，重放从 journal 读 deadline，不重算
+**⚠️ 已知限制（documented，非 silent）**：top-level interpreter 派发的节点全覆盖；**loop/parallel 体内节点走旧 subdag 路径（`dispatchWithPolicies`），不识别 at/after** —— loop-body 节点的 timer gate 是 no-op。可接受（timer 多是入口/调度级延迟，少按 loop 迭代挂；subdag 路径正在折叠进 interpreter，届时自动继承 gate）。代码注释在 `activityRun` 已标。
 
 #### ⚠️-2 🟡 continue-as-new（超长循环滚动续期）（架构复杂，暂 defer）
 
@@ -272,19 +268,23 @@ enabledTools, _ := parseEnabledTools(cfg)
 - 5 节点 palette（前端 WorkflowEditor）✅
 - flowrun 节点列表（GET /nodes，现写 flowrun_nodes）✅
 
-#### ✅-15 🔴 `useFlowrunTicker` 实时节点状态机未实现
+#### ✅-15 🔴 实时节点状态 —— 已由 invalidation 机制交付（冗余 hook 已删，2026-06-01 二审）
 
 **设计要求（doc 08 §5 "运行时滴答可视化"）：**
-> 新 `useFlowrunTicker`（消费 notifications + eventlog 两已有流 + 维护 "nodeId → 视觉状态" 映射 + 重连/丢失时从 trace 全量补），不订新 SSE。节点颜色读 `FlowRunNode.status`：spinning = running，绿色 = ok，红色 = failed，黄色⏸ = awaiting_signal。
+> 节点颜色实时反映运行态：spinning=running，绿=ok，红=failed，黄⏸=awaiting_signal。
 
-**实际代码：** `useFlowrunTicker` 不存在。运行时 tick 触发 query invalidation（粗粒度重拉列表），没有 nodeId→视觉状态的 state machine。画布节点颜色是静态的，不是实时的。
+**⚠️ 一审的 "✅-15" 是假的**：一审建了 `useFlowrunTicker` hook 但**从未接线**（全仓库零 import），写 commit 谎称 "wired into FlowRunDetail"。
+
+**二审真相 + 处理**：实时画布**早已工作**，但走的是另一条已接线的机制 —— `app/sse/useNotifications.ts` 收到 `flowrun` tick 通知时 invalidate `qk.flowrunNodes(id)`（line 24/61）→ `useFlowRunNodes(runId)` 重拉 → 画布按 `FlowRunNode.status` 重新着色（节点状态由 `writeNodeRow` 写进 flowrun_nodes，已实时）。`useFlowrunTicker` 是这套机制的**未接线冗余复制**。**处理：删掉死 hook**（`frontend/src/app/sse/useFlowrunTicker.ts`），不再加第二套竞争机制。设计的 "tick 直驱画布"（免每 tick 重拉）是一个可选优化，当前 invalidation→重拉延迟可接受；如需再做单独立项。
 
 #### ✅-16 🟡 triggerNodeId 触发按钮 UI 未实现
 
 **设计要求（doc 08 §4）：**
 > 触发按钮在 Trigger 节点上（▶ 按钮），支持选择具体 trigger 节点 + 填 payload form → `POST /workflows/{id}:trigger {triggerNodeId, payload}`。
 
-**实际代码：** 前端触发按钮存在，但不传 `triggerNodeId`，不区分多 trigger 节点。
+**⚠️ 一审 "✅-16" 是半假**：前端 RunDrawer 加了 triggerNode 选择器并发 `triggerNodeId`，但**后端 `FireManual` 解码 `req.TriggerNodeID` 后直接丢弃**（两条路径都没传进 StartRun），`flowruns.trigger_node_id` 不会被设 —— 看着接了实际没接。
+
+**二审打通（2026-06-01）**：`StartRunOptions.TriggerNodeID` → `buildRun` 写 `run.TriggerNodeID`（manual 路径走 opts、durable 路径走 firing.TriggerNodeID）→ interpreter `WithTriggerNode` + `selectTriggerNode`（指定且确为 trigger 则用、否则回落第一个 trigger，stale id 不 dead-end）→ `SchedulerStarter.StartRunFromNode` port + `trigger.FireManual(workflowID, triggerNodeID, input)` → HTTP handler 正常/dryRun 两路都传 `req.TriggerNodeID`。**测试**：`triggernode_test.go` 3 个（选指定 / 空回落首个 / stale 回落）。
 
 #### ✅-17 🟡 节点详情 inline diagnostic 未完整实现
 
@@ -673,18 +673,30 @@ P2（完善）:
 
 ---
 
+## 四点五、二审 Phase-4 新发现（2026-06-01，逐文档核出测试未覆盖的真 bug）
+
+一审"完整交付"的自报 ✅ 不可信。二审 1:1 对照 + 补测试，揪出：
+
+**已修（含回归测试）：**
+- 🔴 **agentRef 节点必炸**：`dispatch_agent.go` 用 `context.Background()` 调 `GetAgentConfig`，agent store 按 user_id scope → 任何引用 Agent 实体的 agent 节点报 "missing user id"。修：传 run ctx。`dispatch_agent_test.go`。
+- 🔴 **timer gate 提前点火**：deadline 用 `RFC3339`（秒精度）存 → `now+0.4s` 截断到整秒落 now 之前 → 不等待。修：`RFC3339Nano`。`timergate_test.go`（4 例）。
+- 🟡 **approval 超时字段名/类型错**：interpreter 读 `config.timeoutSec`(数字)，契约 canon 是 `config.timeout`(duration 串如 "30d") → 按契约写的 approval 永不超时。修：`approvalTimeout` helper（canon timeout + Nd 天 + timeoutSec 别名）。`TestApprovalTimeout_DurationStringCanon`（8 例）。
+
+**未修（documented gap，新功能、非 faked claim）：**
+- 🟡 **top-level `onError: continue/branch` 不生效**：node 级 OnError 仅 loop-body（`dispatch_loop_parallel.go`）实现；新 interpreter 顶层节点失败一律 fail 整 flowrun，不识别 `continue`（跳过续跑）/`branch`（走 error 出边）。default `stop` 正常。属独立功能（branch 路由需新边语义），已 spawn 单独任务，不在本轮 faked-items 范围。
+
 ## 五、本次审计覆盖的文档
 
 | 文档 | 审计状态 |
 |---|---|
 | 00-overview.md | ✅ 完整 |
 | 01-triggers.md | ✅ 完整 |
-| 02-agent-node.md | ✅ 完整 |
+| 02-agent-node.md | ⚠️ 二审修 agentRef ctx bug（见 §四点五）|
 | 03-tool-node.md | ✅ 完整 |
 | 04-case-node.md | ✅ 完整 |
-| 05-approval-node.md | ✅ 完整 |
+| 05-approval-node.md | ⚠️ 二审修 timeout 字段名 bug（见 §四点五）|
 | 06-workflow-lifecycle.md | ✅ 完整 |
-| 07-error-handling.md | ✅ 完整 |
+| 07-error-handling.md | ⚠️ top-level onError continue/branch 未实现（见 §四点五，已 spawn 任务）|
 | 08-orchestration-ui.md | ✅ 完整 |
 | 09-agent-domain.md | ✅ 完整 |
 | 10-ai-tool-inventory.md | ✅ 完整 |

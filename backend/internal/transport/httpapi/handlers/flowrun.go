@@ -177,7 +177,7 @@ func (h *FlowRunHandler) FireManual(w http.ResponseWriter, r *http.Request, work
 			return
 		}
 		runID, err := h.scheduler.StartRunWithOptions(r.Context(), workflowID,
-			"manual", req.Input, schedulerapp.StartRunOptions{DryRun: true})
+			"manual", req.Input, schedulerapp.StartRunOptions{DryRun: true, TriggerNodeID: req.TriggerNodeID})
 		if err != nil {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
@@ -190,7 +190,7 @@ func (h *FlowRunHandler) FireManual(w http.ResponseWriter, r *http.Request, work
 			"trigger service not wired", nil)
 		return
 	}
-	runID, err := h.trigger.FireManual(r.Context(), workflowID, req.Input)
+	runID, err := h.trigger.FireManual(r.Context(), workflowID, req.TriggerNodeID, req.Input)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

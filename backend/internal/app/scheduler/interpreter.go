@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -37,6 +38,7 @@ type Interpreter struct {
 	approvals  flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
 	nodeRepo   flowrundomain.Repository         // optional: writes flowrun_nodes projection rows (search_workflow_executions / GET /nodes)
 	generation int                              // replay-reset epoch (ADR-019): stamped on events; copy-hit takes highest gen
+	triggerNode string                          // entry trigger node (multi-trigger, 01); empty = first trigger in graph
 	tick       func(nodeID, status string, iter int)
 	log        *zap.Logger
 }
@@ -100,6 +102,12 @@ func (in *Interpreter) WithApprovals(a flowrundomain.ApprovalRepository) *Interp
 // WithGeneration 设置 replay 代(ADR-019):本次 walk 记账的事件盖此代,使 :replay 重跑与上一代区分。
 func (in *Interpreter) WithGeneration(gen int) *Interpreter { in.generation = gen; return in }
 
+// WithTriggerNode pins the entry trigger node (multi-trigger workflows, 01 §统一抽象). Empty falls
+// back to the first trigger node in the graph (single-trigger workflows, unchanged behaviour).
+//
+// WithTriggerNode 钉入口 trigger 节点；空则回落到图中第一个 trigger（单 trigger 行为不变）。
+func (in *Interpreter) WithTriggerNode(nodeID string) *Interpreter { in.triggerNode = nodeID; return in }
+
 // Run/Resume return parked=true when the flowrun suspended at an approval waiting for a signal
 // (caller sets flowrun.status = awaiting_signal); false means it ran to a terminal.
 func (in *Interpreter) Run(ctx context.Context, flowrunID string, g workflowdomain.Graph, input map[string]any) (bool, error) {
@@ -136,7 +144,7 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 	backEdge := workflowdomain.BackEdges(g) // shared with the validator so authoring + execution agree
 	fwdIn, backIn := inDegrees(g, backEdge)
 
-	trigger := triggerNode(g)
+	trigger := selectTriggerNode(g, in.triggerNode)
 	if trigger == nil {
 		return false, fmt.Errorf("scheduler.walk: no trigger node in graph")
 	}
@@ -262,24 +270,11 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 						// rescanning the journal. The journal signal_awaited carries the ground truth.
 						var deadline *time.Time
 						var timeoutBehavior string
-						if tsecRaw, has := spec.Config["timeoutSec"]; has {
-							switch tsec := tsecRaw.(type) {
-							case float64:
-								if tsec > 0 {
-									dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
-									deadline = &dl
-								}
-							case int:
-								if tsec > 0 {
-									dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
-									deadline = &dl
-								}
-							default:
-								if in.log != nil {
-									in.log.Warn("approval node: timeoutSec has unexpected type; timeout ignored",
-										zap.String("nodeID", it.node), zap.String("type", fmt.Sprintf("%T", tsecRaw)))
-								}
-							}
+						// Canon (05/17 §7): config.timeout = duration string ("30d"/"30s"). timeoutSec
+						// (number) is a tolerated legacy alias. Empty = no timeout (parks indefinitely).
+						if d, ok := approvalTimeout(spec.Config); ok {
+							dl := time.Now().UTC().Add(d)
+							deadline = &dl
 						}
 						if deadline != nil {
 							if tb, ok := spec.Config["timeoutBehavior"].(string); ok {
@@ -395,11 +390,18 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		in.emitTick(node.ID, "ok", iter) // replay catch-up: the node already completed in a prior walk
 		return cached, nil
 	}
-	// Durable timer gate (doc 00 §"Durable timer" / 17 §7, ❌-1):
+	// Durable timer gate (doc 00 §"Durable timer" / 17 §7):
 	// If config.at (absolute RFC3339) or config.after (relative seconds) is set, arm a timer
 	// journal event and wait. Deadline is stored in the journal (timer_armed) so replay is
 	// deterministic — we never re-compute now(), we read the journaled deadline.
-	if err := in.armTimerGateIfNeeded(ctx, flowrunID, node, iter, completed); err != nil {
+	//
+	// SCOPE: this gate runs for every node the top-level interpreter dispatches (agent/tool/case/
+	// approval + their fan-out). Nodes executed INSIDE a loop/parallel body go through the legacy
+	// subdag path (dispatchWithPolicies), which does NOT honor at/after — a timer gate on a loop-body
+	// node is a known no-op. Acceptable: timer gates are an entry/scheduling concern (delay before a
+	// step), rarely meaningful per loop-iteration; the subdag path is being folded into the
+	// interpreter (14→5 node consolidation) where it will inherit the gate. Documented, not silent.
+	if err := in.armTimerGateIfNeeded(ctx, flowrunID, node, iter); err != nil {
 		return nil, err
 	}
 	if fired, waitErr := in.waitForTimerGate(ctx, flowrunID, node, iter); waitErr != nil {
@@ -534,7 +536,7 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 //
 // armTimerGateIfNeeded 读取 config.at / config.after, 计算 deadline, 写 timer_armed 事件（幂等）。
 func (in *Interpreter) armTimerGateIfNeeded(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
-	iter int, completed map[string]map[string]any) error {
+	iter int) error {
 	if len(node.Config) == 0 {
 		return nil
 	}
@@ -554,7 +556,7 @@ func (in *Interpreter) armTimerGateIfNeeded(ctx context.Context, flowrunID strin
 	if atVal, ok := node.Config["at"]; ok && atVal != "" {
 		atStr, _ := atVal.(string)
 		if atStr != "" {
-			t, parseErr := time.Parse(time.RFC3339, atStr)
+			t, parseErr := time.Parse(time.RFC3339Nano, atStr) // Nano accepts both second- and sub-second-precision user input
 			if parseErr != nil {
 				return fmt.Errorf("scheduler.armTimer: bad config.at %q: %w", atStr, parseErr)
 			}
@@ -580,7 +582,7 @@ func (in *Interpreter) armTimerGateIfNeeded(ctx context.Context, flowrunID strin
 	_, err = in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventTimerArmed, NodeID: node.ID,
 		IterationKey: iter, Generation: in.generation,
-		Result: map[string]any{"deadline": deadline.Format(time.RFC3339)},
+		Result: map[string]any{"deadline": deadline.Format(time.RFC3339Nano)}, // Nano: preserve sub-second so the deadline isn't truncated below the target (early fire)
 	})
 	return err
 }
@@ -601,7 +603,7 @@ func (in *Interpreter) waitForTimerGate(ctx context.Context, flowrunID string, n
 		if e.Type == flowrundomain.EventTimerArmed {
 			if res, ok := e.Result.(map[string]any); ok {
 				if ds, ok := res["deadline"].(string); ok {
-					t, _ := time.Parse(time.RFC3339, ds)
+					t, _ := time.Parse(time.RFC3339Nano, ds)
 					deadline = t
 				}
 			}
@@ -751,6 +753,57 @@ func triggerNode(g workflowdomain.Graph) *workflowdomain.NodeSpec {
 		}
 	}
 	return nil
+}
+
+// approvalTimeout resolves an approval node's timeout to a positive duration (05/17 §7):
+// config.timeout = duration string ("30d"/"2h"/"30s") is canon; config.timeoutSec = number is a
+// tolerated legacy alias. Returns (0,false) when unset/zero/unparseable (= no timeout, parks forever).
+// Go's ParseDuration lacks a day unit, so "Nd" is handled explicitly (the 05 doc uses "30d").
+//
+// approvalTimeout 解析 approval 超时：canon=duration 串(支持 "Nd" 天)，timeoutSec(数字)兼容别名。
+func approvalTimeout(cfg map[string]any) (time.Duration, bool) {
+	if raw, ok := cfg["timeout"].(string); ok {
+		s := strings.TrimSpace(raw)
+		if s == "" {
+			return 0, false
+		}
+		if strings.HasSuffix(s, "d") {
+			if n, err := strconv.Atoi(strings.TrimSuffix(s, "d")); err == nil && n > 0 {
+				return time.Duration(n) * 24 * time.Hour, true
+			}
+		}
+		if d, err := time.ParseDuration(s); err == nil && d > 0 {
+			return d, true
+		}
+		return 0, false
+	}
+	switch v := cfg["timeoutSec"].(type) {
+	case float64:
+		if v > 0 {
+			return time.Duration(v) * time.Second, true
+		}
+	case int:
+		if v > 0 {
+			return time.Duration(v) * time.Second, true
+		}
+	}
+	return 0, false
+}
+
+// selectTriggerNode picks the entry trigger: the node with id==want when set and it is a trigger,
+// else the first trigger node (single-trigger / unset path). A want that names a non-trigger or
+// missing node falls back to first — the run still starts rather than dead-ending on a stale id.
+//
+// selectTriggerNode 选入口 trigger：want 指定且确为 trigger 则用它，否则回落到第一个 trigger。
+func selectTriggerNode(g workflowdomain.Graph, want string) *workflowdomain.NodeSpec {
+	if want != "" {
+		for i := range g.Nodes {
+			if g.Nodes[i].ID == want && g.Nodes[i].Type == workflowdomain.NodeTypeTrigger {
+				return &g.Nodes[i]
+			}
+		}
+	}
+	return triggerNode(g)
 }
 
 func edgesFrom(g workflowdomain.Graph, fromID string) []workflowdomain.EdgeSpec {

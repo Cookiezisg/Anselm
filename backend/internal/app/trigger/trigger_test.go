@@ -37,6 +37,11 @@ func (f *fakeScheduler) StartRun(_ context.Context, workflowID, triggerKind stri
 	return "fr_fake", nil
 }
 
+// StartRunFromNode delegates to StartRun (the fake ignores the node id; call-count assertions hold).
+func (f *fakeScheduler) StartRunFromNode(ctx context.Context, workflowID, triggerKind, _ string, input map[string]any) (string, error) {
+	return f.StartRun(ctx, workflowID, triggerKind, input)
+}
+
 // OnTriggerFired delegates to StartRun so existing call-count assertions still hold.
 func (f *fakeScheduler) OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error {
 	_, err := f.StartRun(ctx, firing.WorkflowID, firing.TriggerKind, firing.Payload)
@@ -119,7 +124,7 @@ func TestUnregisterByWorkflow_ClearsAllKinds(t *testing.T) {
 func TestFireManual_ForwardsToScheduler(t *testing.T) {
 	s, sched := newTestService(t)
 
-	runID, err := s.FireManual(context.Background(), "wf_abc",
+	runID, err := s.FireManual(context.Background(), "wf_abc", "",
 		map[string]any{"x": 1})
 	if err != nil {
 		t.Fatalf("FireManual: %v", err)
@@ -137,7 +142,7 @@ func TestFireManual_NoScheduler_ReturnsError(t *testing.T) {
 	s := New(mux, zaptest.NewLogger(t))
 	defer s.Shutdown()
 
-	_, err := s.FireManual(context.Background(), "wf_abc", nil)
+	_, err := s.FireManual(context.Background(), "wf_abc", "", nil)
 	if !errors.Is(err, ErrSchedulerNotAttached) {
 		t.Errorf("expected ErrSchedulerNotAttached, got %v", err)
 	}
