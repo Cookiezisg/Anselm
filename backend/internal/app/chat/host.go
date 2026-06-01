@@ -52,6 +52,43 @@ func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 	return out
 }
 
+// TryActivateForTool implements loop.AutoActivator: finds which lazy category owns toolName,
+// activates it in the ctx AgentState, and returns the updated tool set. Returns nil if
+// toolName is not in any lazy group (wiring bug, not an activation gap).
+//
+// TryActivateForTool 实现 loop.AutoActivator:找到 toolName 所属 lazy 组,激活后返新工具集。
+func (h *chatHost) TryActivateForTool(ctx context.Context, toolName string) []toolapp.Tool {
+	ts := h.svc.toolset
+	// Find which lazy category contains this tool.
+	var foundCat string
+	for cat, tools := range ts.Lazy {
+		for _, t := range tools {
+			if t.Name() == toolName {
+				foundCat = cat
+				break
+			}
+		}
+		if foundCat != "" {
+			break
+		}
+	}
+	if foundCat == "" {
+		return nil // not in any lazy group
+	}
+	// Activate the group in the AgentState so host.Tools() returns it next step too.
+	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
+		state.ActivateGroup(foundCat)
+	}
+	// Return expanded tool set including the newly activated group.
+	out := append([]toolapp.Tool{}, ts.Resident...)
+	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
+		for _, cat := range state.ActivatedGroups() {
+			out = append(out, ts.Lazy[cat]...)
+		}
+	}
+	return out
+}
+
 func (h *chatHost) WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	// Detached ctx: upstream cancel must not block the terminal write or message_stop emit.
 	saveCtx := reqctxpkg.SetUserID(context.Background(), h.uid)

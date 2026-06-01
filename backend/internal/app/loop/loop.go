@@ -39,6 +39,19 @@ type Host interface {
 	WriteFinalize(ctx context.Context, blocks []chatdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
 }
 
+// AutoActivator is an optional Host capability (type-asserted). When a host implements it,
+// Run can auto-activate the lazy group that contains a requested tool, instead of failing
+// with "tool not found". This implements the doc 11 §C / doc 13 §"activate_tools" feature:
+// "model calls a tool from an inactive group → backend auto-activates and executes."
+//
+// AutoActivator 是 Host 的可选能力（type-asserted）；auto-activate 未激活组里的工具。
+type AutoActivator interface {
+	// TryActivateForTool looks up which lazy category the named tool belongs to,
+	// activates it in ctx (mutates AgentState), and returns the updated tools slice.
+	// Returns nil if the tool is not found in any lazy group (wiring bug).
+	TryActivateForTool(ctx context.Context, toolName string) []toolapp.Tool
+}
+
 type Result struct {
 	Blocks      []chatdomain.Block
 	Status      string
@@ -143,6 +156,21 @@ func Run(
 			break
 		}
 
+		// Auto-activate: if any requested tool isn't in the current byName map but a
+		// host AutoActivator can find it in a lazy group, activate that group first.
+		// This implements doc 11 §C / doc 13 §"activate_tools": "calling a tool from
+		// an inactive group auto-activates it" so the LLM doesn't have to remember
+		// to call activate_tools() before every forge operation.
+		if aa, ok := host.(AutoActivator); ok {
+			for _, tc := range toolCalls {
+				if _, found := byName[tc.Name]; !found {
+					if newTools := aa.TryActivateForTool(ctx, tc.Name); newTools != nil {
+						// Rebuild byName with the newly activated group's tools.
+						byName = toolsByName(newTools)
+					}
+				}
+			}
+		}
 		rBlocks := runTools(ctx, toolCalls, byName, log)
 		allBlocks = append(allBlocks, rBlocks...)
 

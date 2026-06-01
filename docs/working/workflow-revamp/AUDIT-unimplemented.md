@@ -245,7 +245,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 - 节点失败最终写 node_failed journal ✅
 - approval cancel-on-flowrun-cancel ✅
 
-#### ❌-13 🟡 节点级 retry 在新 interpreter 路径中不生效
+#### ✅-13 🟡 节点级 retry 在新 interpreter 路径中不生效
 
 **设计要求（doc 07 §"节点级 retry"段）：**
 > 节点 config 可配 `retry: {maxAttempts, backoffMs, backoffStrategy}`；activity 失败后按策略重试；`node_started`/`node_failed` append-many 留重试痕；`node_completed` record-once。
@@ -392,7 +392,7 @@ grep -rn "agents\|ag_xxx\|agentRef" domain/       → 0 results（domain 层）
 ```
 agent/document/skill 三种 kind 的 forge SSE 完全未实现。document 编辑、skill 锻造没有实时流式呈现。
 
-#### ❌-23 🔴 `ForgeOpApplied` 事件从未真正 emit
+#### ✅-23(partial) 🔴 `ForgeOpApplied` 事件从未真正 emit
 
 **设计要求（doc 11 §S2）：**
 > `ForgeOpApplied`（每 op apply 时 emit，约 3-5 site）让前端"逐 op 进度"实时展示。
@@ -417,7 +417,7 @@ grep -rn "PublishOpApplied\|ForgeOpApplied\|op_applied" backend/ → 0 productio
 
 **实际代码：** `domain/relation/relation.go` 的 `IsValidKind` 里不存在上述 6 种 kind。`EntityKindAgent` 未加入 entity kind 枚举。
 
-#### ❌-25 🟡 Catalog Item 缺 `Kind` / `Active` 字段
+#### ✅-25 🟡 Catalog Item 缺 `Kind` / `Active` 字段
 
 **设计要求（doc 11 §S4）：**
 > - `Item.Kind` 字段（function 透出 normal/polling）
@@ -609,9 +609,9 @@ polling 教学完全缺失。
 | ❌-5  | overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现 | doc 01/06 |
 | ❌-9  | activate/deactivate 端点缺失 | doc 06 |
 | ❌-10 | :trigger 端点缺 triggerNodeId 必填参数 | doc 06 |
-| ❌-13 | 节点级 retry 在新 interpreter 路径中不生效 | doc 07 |
+| ✅-13 | 节点级 retry 在新 interpreter 路径中不生效 | doc 07 |
 | ❌-15 | useFlowrunTicker 实时节点状态机未实现 | doc 08 |
-| ❌-23 | ForgeOpApplied 事件从未真正 emit | doc 11 §S2 |
+| ✅-23(partial) | ForgeOpApplied 事件从未真正 emit | doc 11 §S2 |
 | ❌-24 | Relations 缺 6 种 agent 新边类型 | doc 11 §S3 |
 | ❌-27 | agent 系统 prompt 独立装配链未实现 | doc 09/11 |
 | ✅-31 | 系统 prompt 缺 gold 示例（+11pt）+ 架构守则（+10pt） | doc 13 §4.5 |
@@ -632,7 +632,7 @@ polling 教学完全缺失。
 | ❌-16 | triggerNodeId 触发按钮 UI 未实现 | doc 08 |
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |
 | ❌-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |
-| ❌-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
+| ✅-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
 | ❌-26 | 自动激活未激活工具组未实现 | doc 11/13 |
 | ✅-33 | create_function 缺 polling 教学 | doc 13 |
 | ❌-34 | create_agent 工具描述（随 ❌-18 一并实现）| doc 15 §A |
