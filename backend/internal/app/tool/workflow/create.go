@@ -24,31 +24,40 @@ func (t *CreateWorkflow) Name() string { return "create_workflow" }
 func (t *CreateWorkflow) Description() string {
 	return `Create a new workflow by applying a sequence of ops. v1 auto-accepts.
 
-OPS (each op is a JSON object with "op" key):
+OPS (exact field names — use these, no synonyms):
   {"op":"set_meta", "name":"...", "description":"...", "tags":[...]}
   {"op":"add_node", "node":{"id":"n1", "type":"<nodeType>", "config":{...}}}
-  {"op":"add_edge", "edge":{"from":"<sourceNodeId>", "to":"<targetNodeId>", "fromPort":"<port>"}}
+  {"op":"add_edge", "edge":{"id":"e1", "from":"<nodeId>", "to":"<nodeId>", "fromPort":"<port>"}}
   {"op":"set_variable", "variable":{"name":"...", "type":"string|number|integer|boolean|object|array", "default":...}}
 
-NODE TYPES: trigger | function | handler | mcp | skill | llm | agent | http | condition | loop | parallel | approval | wait | variable
+NODE TYPES + CONFIG SHAPES (pin these exactly — wrong field names fail silently):
+  trigger:   {"triggerType": "manual"|"cron"|"webhook"|"fsnotify"|"polling", "schedule":"0 * * * *"}  (cron field is "schedule", not "cron" or "expression")
+  function:  {"functionId": "fn_xxx", "args": {"param": "<CEL expr or literal>"}}
+  handler:   {"handlerName": "MyHandler", "method": "run", "args": {...}}
+  agent:     {"prompt": "...", "maxTurns": 10, "enabledTools": ["fn_xxx"]}
+  case:      {"branches": [{"when": "<boolean CEL>", "to": "<nodeId>", "emit": {"key": "<CEL>"}}, ..., {"when": "true", "to": "<fallback nodeId>"}]}
+  approval:  {"prompt": "...", "timeoutSec": 3600, "timeoutBehavior": "reject"|"approve"|"fail"}
+  condition: {"branches": [{"when": "<CEL bool>", "to": "<nodeId>"}]}
+  mcp:       {"serverName": "server", "tool": "tool_name", "args": {...}}
+  llm:       {"prompt": "...", "model": null}
+  skill:     {"skillName": "skill"}
+  http:      {"url": "https://...", "method": "POST", "body": {...}}
+  wait:      {"durationMs": 60000}
+  variable:  {"operation": "set", "name": "x", "value": "<CEL>"}
+  loop:      {"items": "<CEL array expr>", "body": {"nodes":[...], "edges":[...]}}
+  parallel:  {}
 
 GRAPH RULES:
-  - At least one trigger node required. DAG ends implicitly when no outgoing edges remain — DO NOT add "end"/"output"/"finish" nodes, those types do not exist.
-  - Capability nodes (function/handler/mcp/skill/llm/agent/http) reference entities via config.functionId / handlerName / serverName / skillName.
-  - Edges connect node IDs directly (no dots, no port-in-id).
+  - At least one trigger node required. DAG ends when no outgoing edges remain — NO "end"/"output"/"finish" nodes.
+  - Edges connect node IDs directly. fromPort only on branching nodes.
 
 BRANCHING NODES (require fromPort on each outgoing edge):
-  - approval → fromPort: "yes" | "no"   (yes = approved branch, no = rejected branch)
-  - loop     → fromPort: "iterate" | "done"
-  - condition → fromPort: one of the case names declared in config.cases
+  - case/condition → fromPort: matches the "to" of the winning branch
+  - approval → fromPort: "yes" | "no"
+  - loop → fromPort: "iterate" | "done"
 
-SINGLE-OUTPUT NODES (trigger/function/handler/mcp/skill/llm/agent/http/wait/variable/parallel): omit fromPort.
-
-LOOP BODY SUBGRAPH — put {nodes,edges} under config.body. Each iteration binds {{ .loop.item }} and {{ .loop.index }} for template substitution inside body nodes. Default = sequential, fail-fast. Set "parallel":true + "concurrency":N for fan-out (cap 5). Set "onError":"continue" to collect failures instead of stopping. Body output: {out:[terminalNodeOutput×N], count, successes, failures:[{index,error}]}. Body cannot contain approval nodes (V1 limit). Nesting depth ≤ 3.
-
-Schema rejects rule violations at create time with WORKFLOW_OP_INVALID + specific reason.
-
-Keep the entity description (set_meta.description) to one short line — it appears in the capability menu.`
+ALWAYS call capability_check_workflow after creating to verify refs and structure.
+Keep set_meta.description to one short line — it appears in the capability menu.`
 }
 
 func (t *CreateWorkflow) Parameters() json.RawMessage {

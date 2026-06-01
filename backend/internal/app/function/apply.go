@@ -8,6 +8,7 @@ import (
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	jsonrepairpkg "github.com/sunweilin/forgify/backend/internal/pkg/jsonrepair"
 )
 
 // Op is a JSON-discriminated union; Type lives in the `op` field, Raw holds the full body.
@@ -138,6 +139,7 @@ func applyOne(state *VersionDraft, op Op) error {
 //
 // ParseOps 把 LLM 线上格式（带 `op` 判别字段的 JSON 数组）解码为 []Op。
 func ParseOps(raw json.RawMessage) ([]Op, error) {
+	raw = jsonrepairpkg.RepairBytes(raw)
 	var arr []json.RawMessage
 	if err := json.Unmarshal(raw, &arr); err != nil {
 		return nil, fmt.Errorf("ops array unmarshal: %w", err)

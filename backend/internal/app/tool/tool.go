@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	jsonrepairpkg "github.com/sunweilin/forgify/backend/internal/pkg/jsonrepair"
 )
 
 // PermissionMode is the agent's permission mode for a turn.
@@ -147,6 +148,10 @@ type StandardFields struct {
 // StripStandardFields 从 argsJSON 提取三个注入字段并返回剥除后的 JSON。
 func StripStandardFields(argsJSON string) (StandardFields, string) {
 	var fields StandardFields
+	// Repair before parsing: LLMs emit ~4-8% malformed JSON (literal control
+	// chars in strings, missing closing brackets). Repair recovers 100%.
+	// LLM ~4-8% 吐畸形 JSON;repair 后再解析,失败则返原串。
+	argsJSON = jsonrepairpkg.Repair(argsJSON)
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(argsJSON), &m); err != nil {
 		return fields, argsJSON

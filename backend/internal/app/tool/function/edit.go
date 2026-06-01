@@ -32,9 +32,14 @@ type EditFunction struct {
 func (t *EditFunction) Name() string { return "edit_function" }
 
 func (t *EditFunction) Description() string {
-	return "Apply ops to a function as a pending version for user accept/reject. " +
-		"ops=[] force-rebuilds the active env. Failed venv installs auto-retry deps (≤3). " +
-		"Keep the entity description (set_meta.description) to one short line — it appears in the capability menu."
+	return `Apply ops to a function as a pending version for user accept/reject. ops=[] force-rebuilds the active env.
+
+KEY OP SHAPE (field name is "code", not "value" or "content"):
+  {"op":"update_code", "code":"def main(param: str) -> dict:\n    ..."}
+  {"op":"set_meta", "name":"...", "description":"one line"}
+  {"op":"set_dependencies", "dependencies":["requests==2.31"]}
+
+Same op shapes as create_function for other ops. Keep set_meta.description to one short line.`
 }
 
 func (t *EditFunction) Parameters() json.RawMessage {

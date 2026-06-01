@@ -35,6 +35,59 @@ func sanitizeToolErr(err error) string {
 	return msg
 }
 
+// enrichWithNextStep appends an actionable next_step hint to a tool error message.
+// The LLM uses this to self-correct without guessing what to do next. (doc 13 §1-E / doc 15 §F)
+//
+// enrichWithNextStep 给工具错误追加 next_step 提示，帮 LLM 自修而非乱猜。
+func enrichWithNextStep(toolName, errMsg string) string {
+	hint := nextStepHint(toolName, errMsg)
+	if hint == "" {
+		return errMsg
+	}
+	return fmt.Sprintf("%s\n\nnext_step: %s", errMsg, hint)
+}
+
+func nextStepHint(toolName, errMsg string) string {
+	msg := errMsg
+	// Capability / ref errors.
+	if containsAny(msg, "not found", "CAPABILITY_NOT_FOUND", "NOT_FOUND") {
+		if containsAny(toolName, "workflow", "function", "handler") {
+			return "The referenced entity does not exist. Use search_function / search_handler / search_workflow to find the correct id, then edit and re-check."
+		}
+		return "The referenced item does not exist. Search for it first, then retry with the correct id."
+	}
+	if containsAny(msg, "functionId", "handlerName", "serverName", "skillName", "missing required") {
+		return "A required config field is missing. Use edit_workflow / edit_function / edit_handler to add it, then retry."
+	}
+	// Validation errors.
+	if containsAny(msg, "WORKFLOW_OP_INVALID", "validation", "invalid", "unmarshal") {
+		return "The op shape is wrong. Check the tool description for the exact field names and re-issue the call."
+	}
+	// Not-found for the target entity itself.
+	if containsAny(msg, "no active version") {
+		return "Accept a pending version via the UI first, then retry."
+	}
+	// Concurrency.
+	if containsAny(msg, "CONCURRENCY_LIMIT", "already running") {
+		return "A run is already in progress. Wait for it to finish or cancel it with cancel_flowrun, then retry."
+	}
+	return ""
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if sub == "" {
+			continue
+		}
+		for i := 0; i <= len(s)-len(sub); i++ {
+			if s[i:i+len(sub)] == sub {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // runTools executes calls in execution-group batches and returns tool_result blocks.
 //
 // runTools 按 execution-group 分批执行 tool 调用，返 tool_result block 列表。
@@ -205,10 +258,14 @@ func executeAfterPermission(ctx context.Context, t toolapp.Tool, name string, ar
 	if err != nil {
 		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
 		clean := sanitizeToolErr(err)
+		// Enrich output with next_step so the LLM can self-correct without guessing.
+		// This is especially important for forge tools where a missing ref can be fixed
+		// by search + re-edit. (doc 13 §1-E, doc 15 §F)
+		enriched := enrichWithNextStep(name, clean)
 		if output != "" {
-			return output, err.Error(), false
+			return output + "\n\n" + enriched, err.Error(), false
 		}
-		return clean, err.Error(), false
+		return enriched, err.Error(), false
 	}
 	return output, "", true
 }

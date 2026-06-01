@@ -12,6 +12,7 @@ import (
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
+	jsonrepairpkg "github.com/sunweilin/forgify/backend/internal/pkg/jsonrepair"
 )
 
 // Op is one wire-level op; Type is the discriminator and Raw is the unmodified body.
@@ -29,6 +30,8 @@ func ParseOps(raw json.RawMessage) ([]Op, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
+	// Repair malformed JSON before parsing (LLMs emit ~4-8% malformed ops arrays).
+	raw = jsonrepairpkg.RepairBytes(raw)
 	var arr []json.RawMessage
 	if err := json.Unmarshal(raw, &arr); err != nil {
 		return nil, fmt.Errorf("ops must be a JSON array: %w", err)

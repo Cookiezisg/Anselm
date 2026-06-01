@@ -256,6 +256,12 @@ func (s *Service) SystemPromptSections(ctx context.Context, conv *convdomain.Con
 	}
 	out = append(out, PromptSection{Name: "environment",
 		Content: fmt.Sprintf("%s · reply language: %s", time.Now().Format("2006-01-02"), lang)})
+	// Architecture rules + critical rules go LAST (殿后): deepseek respects end-of-prompt most.
+	// Validated by LLM experiments (doc 13 §4.5, doc 15 §D):
+	//   architecture rules: +10pt on complex workflow creation
+	//   critical rules:     impossible capability ban +78pt (17→95); commit-after-recon revert +65pt (35→100)
+	out = append(out, PromptSection{Name: "architecture_rules", Content: architectureRulesSection})
+	out = append(out, PromptSection{Name: "critical_rules", Content: criticalRulesSection})
 	return out
 }
 
@@ -271,6 +277,38 @@ const howToWorkSection = `- Reuse first: search_* the user's library and extend 
 - Ask (AskUserQuestion) when the request is ambiguous or config is missing; don't guess, and don't interrogate over safe defaults.
 - Be concise: lead with the result, skip the play-by-play, match the user's language.
 - Run independent subtasks in parallel — same execution_group, or fan out with Subagent; keep coupled or side-effecting work sequential.`
+
+// architectureRulesSection teaches semantic architecture decisions that LLMs get wrong on first draft.
+// Each rule is validated by LLM experiments (doc 13 §4.5, doc 15 §D). These go before criticalRulesSection.
+//
+// architectureRulesSection 教 LLM 首草图常犯的语义架构决策（实测验证，+10pt）。
+const architectureRulesSection = `Architecture decision rules — apply these before building:
+- Classification / routing / extraction / intent detection → agent node (with outputSchema=enum); NOT a function.
+- Knowledge retrieval / lookup → read_document; NOT local file read.
+- cron/manual trigger carries NO business data → the first node after trigger MUST fetch the data it needs.
+- polling trigger → use a polling function (poll(last_cursor) → {events, next_cursor}); NOT cron + full pull.
+- case node: use per-branch boolean CEL guards (when: "payload.x > 5"); last branch when:"true" is the fallback. case is a router, NOT an analyst — no LLM calls or HTTP in guards.
+- Multi-field guards combine with &&: when:"payload.amount>=1000 && payload.vip==true".
+- Retry back-edge: emit an auto-incrementing counter — when:"(has(payload.attempt)?payload.attempt:0)<3" and emit:{attempt:"(has(payload.attempt)?payload.attempt:0)+1"}. NOT has(x)&&x<3 (fails on first unset).
+- Build the full graph in one create_workflow call. Always run capability_check_workflow after creating or editing.`
+
+// criticalRulesSection goes LAST in the prompt (殿后): deepseek respects end-of-prompt most.
+// Every rule here maps to an observed failure mode with measured recovery (+11pt to +95%).
+//
+// criticalRulesSection 殿后（deepseek 对 prompt 末尾遵守度最高）。每条对应实测失败模式。
+const criticalRulesSection = `CRITICAL RULES — highest priority, follow exactly:
+
+1. WORKER TOOL RESTRICTION: workflow agent/tool nodes may only use fn_/hd_/mcp callables. An agent NEVER calls another agent. Never give workflow workers fs/shell/web/memory/ask tools — these are platform tools for the chat assistant, not workflow workers.
+
+2. ENTITY TYPE DISAMBIGUATION: "classify / judge / extract / route / detect intent" → create_agent (outputSchema=enum). "knowledge base / lookup docs" → document tools. Do NOT implement these as functions.
+
+3. IMPOSSIBLE CAPABILITY BAN: NEVER write a prompt for a workflow agent that says it can do things it has no tool for. If an agent needs external data, wire it via {{payload.*}} or attach a forge function/handler. Writing "search the web" in an agent prompt when no web tool is attached will silently fail. Check tools before writing the prompt.
+
+4. SATISFIABILITY CHECK (tight wording — critical): ONLY flag a conflict when requirements are logically impossible to satisfy simultaneously (e.g. "fully automated, no human approval" AND "every transaction requires human sign-off"). When information is incomplete (missing email, missing data source) — build with sensible defaults, do NOT ask. Flagging incomplete info as a conflict is wrong and blocks the user.
+
+5. COMMIT AFTER RECON: Once you have searched/read an entity, proceed directly to the requested action (edit/run/delete). Do not re-search or re-read the same entity before acting. Repeated recon loops are a bug.
+
+6. GRAPH CONSTRUCTION RULES: cron/manual triggers carry no business data — first node must fetch. Use when: CEL guards on case branches, not add_edge conditionals. Build the complete graph in a single create_workflow. Always call capability_check_workflow before accepting a workflow.`
 
 // toolsSection states the tool model + the three standard fields once, instead of repeating across every tool schema.
 //

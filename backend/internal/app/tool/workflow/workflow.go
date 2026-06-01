@@ -23,6 +23,9 @@ func WorkflowTools(svc *workflowapp.Service, forge forgepkg.Publisher, log *zap.
 		&EditWorkflow{svc: svc, forge: forge},
 		&RevertWorkflow{svc: svc, forge: forge},
 		&DeleteWorkflow{svc: svc, forge: forge},
+		// capability_check_workflow: LLM calls this after create/edit to validate refs + structure.
+		// Returns issues with next_step so the LLM can self-correct before the user accepts.
+		&CapabilityCheckWorkflow{svc: svc},
 	}
 }
 

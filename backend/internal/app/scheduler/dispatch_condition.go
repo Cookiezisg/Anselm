@@ -3,14 +3,15 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
 
-// ConditionDispatcher evaluates condition expressions for branching.
+// ConditionDispatcher evaluates condition expressions for branching using CEL (replacing text/template).
+// The old-style condition node (config.condition = a single CEL expression) routes to "true" or "false"
+// port. In new workflows use the case node with per-branch when: guards instead.
 //
-// ConditionDispatcher 评估条件表达式做分支。
+// ConditionDispatcher 用 CEL 评估 condition（取代旧 text/template）；新 workflow 推荐 case 节点。
 type ConditionDispatcher struct{}
 
 // NewConditionDispatcher constructs ConditionDispatcher.
@@ -18,47 +19,43 @@ type ConditionDispatcher struct{}
 // NewConditionDispatcher 构造 ConditionDispatcher。
 func NewConditionDispatcher() *ConditionDispatcher { return &ConditionDispatcher{} }
 
-// Dispatch evaluates the condition and routes to the "true" or "false" port.
+// Dispatch evaluates the CEL condition and routes to the "true" or "false" port.
+// On eval error: fail-to-false (G9) — routes to "false" instead of aborting.
 //
-// Dispatch 评估 condition 并走 true / false port。
+// Dispatch 评估 CEL condition 走 true/false port；求值出错按 fail-to-false(G9)走 false。
 func (d *ConditionDispatcher) Dispatch(_ context.Context, in DispatchInput) DispatchOutput {
 	exprSrc, _ := in.Node.Config["condition"].(string)
 	if exprSrc == "" {
 		return DispatchOutput{Error: fmt.Errorf("condition node %q: condition required", in.Node.ID)}
 	}
 
-	tmpl, err := workflowapp.Compile(exprSrc)
-	if err != nil {
-		return DispatchOutput{Error: fmt.Errorf("condition node %q: compile: %w", in.Node.ID, err)}
+	prg, compileErr := workflowapp.CompileCEL(exprSrc)
+	if compileErr != nil {
+		return DispatchOutput{Error: fmt.Errorf("condition node %q: compile: %w", in.Node.ID, compileErr)}
 	}
-	ctx := workflowapp.EvalContext{
-		Vars:     in.ExecCtx.Variables,
-		In:       in.NodeIn,
-		NodesOut: in.ExecCtx.Outputs,
-		Loop:     in.ExecCtx.Loop,
-		Run: workflowapp.RunContext{
-			ID:        in.ExecCtx.Run.ID,
-			StartedAt: in.ExecCtx.Run.StartedAt.Format("2006-01-02T15:04:05Z07:00"),
-		},
+
+	// Build payload + ctx map the same way the interpreter does for case nodes.
+	payload := in.NodeIn
+	if payload == nil {
+		payload = map[string]any{}
 	}
-	out, err := workflowapp.Execute(tmpl, ctx, exprSrc)
-	if err != nil {
-		return DispatchOutput{Error: fmt.Errorf("condition node %q: eval: %w", in.Node.ID, err)}
+	ctxMap := map[string]any{}
+	if in.ExecCtx != nil && in.ExecCtx.Run != nil {
+		ctxMap["runId"] = in.ExecCtx.Run.ID
 	}
+
+	// G9 fail-to-false: eval error → treat as false (don't abort the flowrun).
+	matched, evalErr := prg.EvalBool(payload, ctxMap)
+	if evalErr != nil {
+		matched = false
+	}
+
 	port := "false"
-	if isTruthy(out) {
+	if matched {
 		port = "true"
 	}
 	return DispatchOutput{
-		Outputs:  map[string]any{"out": out, "branch": port},
+		Outputs:  map[string]any{"out": matched, "branch": port},
 		NextPort: port,
 	}
-}
-
-func isTruthy(s string) bool {
-	s = strings.TrimSpace(strings.ToLower(s))
-	if s == "" || s == "false" || s == "0" || s == "no" || s == "null" {
-		return false
-	}
-	return true
 }

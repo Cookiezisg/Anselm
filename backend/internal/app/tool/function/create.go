@@ -32,10 +32,25 @@ type CreateFunction struct {
 func (t *CreateFunction) Name() string { return "create_function" }
 
 func (t *CreateFunction) Description() string {
-	return "Build a new function from ops: set_meta, set_code, set_parameters required; " +
-		"set_return_schema/set_dependencies/set_python_version optional. " +
-		"v1 auto-accepts; failed venv installs auto-retry deps (≤3). " +
-		"Keep the entity description (set_meta.description) to one short line — it appears in the capability menu."
+	return `Build a new function from ops. Required: set_meta, set_code, set_parameters. Optional: set_return_schema, set_dependencies, set_python_version. v1 auto-accepts; failed venv installs auto-retry deps (≤3).
+
+OP SHAPES (exact field names):
+  {"op":"set_meta", "name":"...", "description":"one line"}
+  {"op":"set_code", "code":"def main(param: str) -> dict:\n    ..."}
+  {"op":"set_parameters", "parameters":[{"name":"p","type":"string","required":true,"description":"..."}]}
+  {"op":"set_return_schema", "schema":{"type":"object","properties":{...}}}
+  {"op":"set_dependencies", "dependencies":["requests==2.31","pandas"]}
+  {"op":"set_python_version", "version":"3.11"}
+
+FUNCTION KINDS:
+  normal:  def main(**kwargs) → dict  — standard execution.
+  polling: def main(last_cursor) → {"events": [...], "next_cursor": "..."}
+           Rules: only emit events NEWER than last_cursor; advance cursor; no duplicates;
+           handle last_cursor=None on first call (return all or empty); cursor persists between runs.
+           Use polling when the source has no webhook (e.g., polling a queue, RSS feed, API that lacks push).
+
+External IO (API keys, DB strings): pass via handler init_args or function config — do NOT hard-code credentials.
+Keep set_meta.description to one short line — it appears in the capability menu.`
 }
 
 func (t *CreateFunction) Parameters() json.RawMessage {

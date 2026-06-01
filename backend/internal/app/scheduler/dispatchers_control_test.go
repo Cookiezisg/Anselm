@@ -42,12 +42,13 @@ func TestHTTPDispatcher_SSRFBlocksLocalhost(t *testing.T) {
 	}
 }
 
+// ConditionDispatcher now uses CEL (not text/template). Tests updated to use CEL syntax.
 func TestConditionDispatcher_Truthy(t *testing.T) {
 	d := NewConditionDispatcher()
 	in := mkInput(workflowdomain.NodeSpec{ID: "c", Type: workflowdomain.NodeTypeCondition,
-		Config: map[string]any{"condition": `{{ if eq .vars.x "yes" }}true{{ else }}false{{ end }}`}},
+		Config: map[string]any{"condition": `payload.x == "yes"`}},
 		&flowrundomain.FlowRun{ID: "fr1"})
-	in.ExecCtx.Variables["x"] = "yes"
+	in.NodeIn = map[string]any{"x": "yes"}
 
 	out := d.Dispatch(context.Background(), in)
 	if out.Error != nil {
