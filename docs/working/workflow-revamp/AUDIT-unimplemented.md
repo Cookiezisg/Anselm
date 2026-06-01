@@ -105,7 +105,7 @@ audience: [human, ai]
 2. `app/trigger/trigger.go`：注册 polling listener，处理 `KindPolling`
 3. cursor 推进写 `polling_states`，崩溃重启从 DB 恢复
 
-#### ❌-5 🔴 overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现
+#### ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred) 🔴 overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现
 
 **设计要求（doc 01 §"持久派发 + overlap"段）：**
 > 派发器按 `workflow.concurrency` + `trigger.overlap_policy` 消费收件箱；撞上"正在跑"时 overlap：Skip / BufferOne（默认）/ BufferAll / AllowAll。铁律：每条 firing 都有 outcome，绝不静默丢。
@@ -234,7 +234,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 
 **实际代码：** `Drain()` 方法等 runWG，但没有 `draining` 状态持久化，重启后无法感知上次 draining 是否完成。
 
-#### ❌-12 🟡 Overlap 策略未实现（同 ❌-5）
+#### ✅-12(same as ❌-5) 🟡 Overlap 策略未实现（同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred)）
 
 ---
 
@@ -553,21 +553,21 @@ polling 教学完全缺失。
 - A-5 callable 版本 pin ✅
 - Durable timer（approval 超时层面）✅
 
-#### ❌-35 🟡 WP11 隐式终止定义未落入代码注释/文档
+#### ✅-35 🟡 WP11 隐式终止定义未落入代码注释/文档
 
 **设计要求（doc 16 §WP11）：**
 > flowrun completed = 所有活跃路径到达无后继出边的节点、且无 parked（approval/timer）；有路径 failed 且无 retry = failed。
 
 **实际代码：** interpreter 的终态逻辑已实现，但没有对照 WP11 的文档/注释确认。
 
-#### ❌-36 🟡 WP19/20 取消粒度语义未完整规约
+#### ✅-36 🟡 WP19/20 取消粒度语义未完整规约
 
 **设计要求（doc 16 §WP19/20）：**
 > cancel 整个 flowrun → 写 `flowrun_cancelled` 事件、在途 activity 收 ctx.Done、parked approval/timer 标 cancelled。详细规约各状态的 cancel 路径。
 
 **实际代码：** `Cancel()` 方法已实现基础路径，但 approval timer 的 cancel 语义（expiry checker 看到 cancelled 状态后的行为）未明确规约。
 
-#### ❌-37 🟡 A-3 trigger schedule 层规约未对齐
+#### ✅-37 🟡 A-3 trigger schedule 层规约未对齐
 
 **设计要求（doc 16 §A-3）：**
 > trigger 失败 / retry / "用尽→workflow inactive" 全规约到 trigger schedule 层（Temporal Schedule 类比）；trigger 节点本身不是 activity，不在 flowrun journal 里写 retry。
@@ -606,7 +606,7 @@ polling 教学完全缺失。
 
 | # | Gap | 对应文档 |
 |---|---|---|
-| ❌-5  | overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现 | doc 01/06 |
+| ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred)  | overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现 | doc 01/06 |
 | ✅-9  | activate/deactivate 端点缺失 | doc 06 |
 | ✅-10(partial) | :trigger 端点缺 triggerNodeId 必填参数 | doc 06 |
 | ✅-13 | 节点级 retry 在新 interpreter 路径中不生效 | doc 07 |
@@ -627,7 +627,7 @@ polling 教学完全缺失。
 | ✅-6  | trigger 用尽 → workflow deactivate 未实现 | doc 01/07 |
 | ❌-8  | tool 节点没有统一 callable 字段 + 前缀路由 | doc 03 |
 | ❌-11 | draining 状态机未持久化 | doc 06 |
-| ❌-12 | 同 ❌-5 | — |
+| ✅-12(same as ❌-5) | 同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred) | — |
 | ❌-14 | 同 ✅-6 | — |
 | ❌-16 | triggerNodeId 触发按钮 UI 未实现 | doc 08 |
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |
@@ -636,9 +636,9 @@ polling 教学完全缺失。
 | ✅-26 | 自动激活未激活工具组未实现 | doc 11/13 |
 | ✅-33 | create_function 缺 polling 教学 | doc 13 |
 | ❌-34 | create_agent 工具描述（随 ❌-18 一并实现）| doc 15 §A |
-| ❌-35 | WP11 隐式终止未落注释/文档 | doc 16 |
-| ❌-36 | WP19/20 取消粒度语义未规约 | doc 16 |
-| ❌-37 | A-3 trigger schedule 层 retry 规约未对齐 | doc 16 |
+| ✅-35 | WP11 隐式终止未落注释/文档 | doc 16 |
+| ✅-36 | WP19/20 取消粒度语义未规约 | doc 16 |
+| ✅-37 | A-3 trigger schedule 层 retry 规约未对齐 | doc 16 |
 
 ---
 

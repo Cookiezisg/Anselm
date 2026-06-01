@@ -23,6 +23,15 @@ func (s *Service) SetFiringInbox(inbox triggerdomain.FiringInbox) { s.firingInbo
 // direct StartRun path (writes via s.repo.Create) and the durable dispatch path (writes inside the
 // single-tx claim). Returns the run, its pinned graph, and the run-level timeout seconds.
 //
+// A-3 / Temporal Schedules alignment (doc 16 §A-3): trigger failures and retry logic belong to the
+// TRIGGER LAYER (trigger_schedules / trigger_firings / ScheduleStore.ConsecutiveFailures), NOT to
+// the flowrun journal. A trigger.onFire failure (e.g., dispatch rejected due to ConcurrencyLimit)
+// increments ConsecutiveFailures on the schedule; after 5 failures the workflow is flagged
+// needs_attention. This is analogous to Temporal Schedule's own failure/retry machinery — it is
+// distinct from flowrun-level errors (which go into flowrun_events journal). The two layers are
+// orthogonal: trigger layer governs WHEN and WHETHER a run is started; the flowrun journal governs
+// WHAT happens inside a run.
+//
 // buildRun 校验 workflow 并构造 FlowRun 结构(不落库);直接路径与单事务派发路径共用。
 func (s *Service) buildRun(ctx context.Context, workflowID, triggerKind string, input map[string]any, dryRun bool) (*flowrundomain.FlowRun, *workflowdomain.Graph, int, error) {
 	uid, err := reqctxpkg.RequireUserID(ctx)
@@ -42,7 +51,17 @@ func (s *Service) buildRun(ctx context.Context, workflowID, triggerKind string, 
 	if wf.NeedsAttention {
 		return nil, nil, 0, fmt.Errorf("schedulerapp.buildRun: %w", ErrWorkflowNeedsAttention)
 	}
-	if wf.Concurrency == workflowdomain.ConcurrencySerial {
+	// Overlap / concurrency policy enforcement (doc 00/01 §"持久派发 + overlap").
+	// AllowAll: unlimited concurrent runs — no check needed.
+	// Skip: discard this firing silently if any run is in progress.
+	// Serial (default) / BufferOne / BufferAll: limit to 1 concurrent run.
+	//   BufferOne/BufferAll: the firing was already persisted in trigger_firings and will be
+	//   retried by DispatchPending; returning ErrConcurrencyLimit here causes it to be shed/skipped.
+	//   TODO(v1.5): proper BufferOne/BufferAll queuing — currently treated like serial.
+	switch wf.Concurrency {
+	case workflowdomain.ConcurrencyAllowAll:
+		// no concurrency check
+	default: // serial, BufferOne, BufferAll, Skip, or empty (= serial)
 		running, cErr := s.repo.CountRunning(ctx, workflowID)
 		if cErr != nil {
 			return nil, nil, 0, fmt.Errorf("schedulerapp.buildRun: CountRunning: %w", cErr)

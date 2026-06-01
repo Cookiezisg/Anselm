@@ -42,8 +42,21 @@ type Workflow struct {
 
 func (Workflow) TableName() string { return "workflows" }
 
+// Overlap / concurrency policy constants (doc 00/01 §"持久派发 + overlap").
+// These mirror trigger.TriggerSchedule.OverlapPolicy and apply to how the scheduler
+// handles concurrent trigger firings for the same workflow.
 const (
+	// ConcurrencySerial (default): only one run at a time; new firings get ErrConcurrencyLimit.
 	ConcurrencySerial = "serial"
+	// ConcurrencyBufferOne: queue ONE pending run; skip additional until the queued run starts.
+	// (doc 01: BufferOne default for non-manual triggers)
+	ConcurrencyBufferOne = "BufferOne"
+	// ConcurrencyBufferAll: queue ALL pending runs and process sequentially.
+	ConcurrencyBufferAll = "BufferAll"
+	// ConcurrencyAllowAll: allow unlimited concurrent runs of the same workflow.
+	ConcurrencyAllowAll = "AllowAll"
+	// ConcurrencySkip: silently discard firing if a run is already in progress.
+	ConcurrencySkip = "Skip"
 )
 
 const AcceptedVersionCap = 50

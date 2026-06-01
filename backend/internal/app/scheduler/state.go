@@ -166,6 +166,12 @@ func (s *Service) executeRun(ctx context.Context, run *flowrundomain.FlowRun, gr
 		}
 		return
 	}
+	// WP11 Implicit Termination (doc 16 §WP11): a flowrun is COMPLETED when all active paths have
+	// reached nodes with no outgoing edges AND no approvals/timers are parked. The interpreter returns
+	// (parked=false, err=nil) exactly when this condition holds — all agenda items have been processed
+	// to completion without any parked signal. A FAILED terminal occurs when any activity exhausts its
+	// retry budget (interpreter returns err != nil). A CANCELLED terminal is set by Cancel() or timeout.
+	// There is no explicit "end" node — the graph structure determines termination implicitly.
 	s.finalizeRun(ctx, run, flowrundomain.StatusCompleted, nil, "", "")
 }
 
