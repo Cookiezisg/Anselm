@@ -84,6 +84,83 @@ func TestWorkflow_AgentNode_CreatesDoc_E2E(t *testing.T) {
 	}
 }
 
+// TestWorkflow_AgentNode_JournalsSubSteps_E2E — an agent node's completed ReAct tool-step is journaled
+// as agent_step_completed (ADR-010 sub-step replay record path), proving interpreter → AgentSubSteps →
+// dispatcher → agentHost → recorder → journal end-to-end. Visible via the trace API. The replay path
+// (reconstruct + skip) is unit-covered in app/scheduler.
+//
+// covers: cross:workflow_scheduler:agent_substep_replay
+func TestWorkflow_AgentNode_JournalsSubSteps_E2E(t *testing.T) {
+	fake := th.NewFakeLLMServer(t)
+	fake.PushScript(th.ScriptSingleToolCall(
+		"create_document", "tc_substep_1",
+		`{"summary":"agent creates a doc","name":"SubStepDoc","description":"x"}`,
+	))
+	fake.PushScript(th.ScriptText("done"))
+
+	h := th.New(t, th.WithFakeLLMBaseURL(fake.URL()))
+	h.SeedDeepSeek(t, "fake-test-key")
+
+	ctx := th.CtxAs("test-user")
+	wf, _, err := h.Workflow.Create(ctx, workflowapp.CreateInput{
+		Ops: []workflowapp.Op{
+			{Type: "set_meta", Raw: []byte(`{"op":"set_meta","name":"agent_substep","description":"x"}`)},
+			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"trig","type":"trigger","config":{"triggerType":"manual"}}}`)},
+			{Type: "add_node", Raw: []byte(`{"op":"add_node","node":{"id":"ag","type":"agent","config":{"prompt":"Create a doc.","maxTurns":3}}}`)},
+			{Type: "add_edge", Raw: []byte(`{"op":"add_edge","edge":{"id":"e1","from":"trig","to":"ag"}}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create workflow: %v", err)
+	}
+
+	var trigResp struct {
+		Data struct {
+			RunID string `json:"runId"`
+		} `json:"data"`
+	}
+	if status := th.DoRequest(t, h, "POST", "/api/v1/workflows/"+wf.ID+":trigger",
+		map[string]any{}, &trigResp); status != 201 {
+		t.Fatalf("trigger: %d", status)
+	}
+	runID := trigResp.Data.RunID
+
+	deadline := time.Now().Add(15 * time.Second)
+	var final *flowrundomain.FlowRun
+	for time.Now().Before(deadline) {
+		run, _ := h.FlowRunRepo.Get(ctx, runID)
+		if run != nil && (run.Status == flowrundomain.StatusCompleted || run.Status == flowrundomain.StatusFailed) {
+			final = run
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if final == nil || final.Status != flowrundomain.StatusCompleted {
+		t.Fatalf("agent run did not complete: %+v", final)
+	}
+
+	// The agent's tool-step must be journaled as agent_step_completed — visible via the trace API.
+	type traceRow struct {
+		Type   string `json:"type"`
+		NodeID string `json:"nodeId"`
+	}
+	var trace struct {
+		Data []traceRow `json:"data"`
+	}
+	if status := th.DoRequest(t, h, "GET", "/api/v1/flowruns/"+runID+"/trace?nodeId=ag", nil, &trace); status != 200 {
+		t.Fatalf("GET /trace?nodeId=ag: %d", status)
+	}
+	substeps := 0
+	for _, e := range trace.Data {
+		if e.Type == "agent_step_completed" {
+			substeps++
+		}
+	}
+	if substeps < 1 {
+		t.Fatalf("agent node must journal >=1 agent_step_completed (sub-step record path); trace: %+v", trace.Data)
+	}
+}
+
 // TestWorkflow_LLMNode_AttachedDocsInPrompt_E2E — workflow `llm` node with
 // AttachedDocuments; verify fake LLM sees the document content in its prompt.
 //

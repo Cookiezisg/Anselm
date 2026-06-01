@@ -36,6 +36,8 @@ config:
 
 **在执行模型里,agent 节点 = 一串子-activity(不是一条原子 activity)**:它内部是多步 LLM ReAct 循环,**每一步(每次 LLM turn、每个 tool-call)各自记一笔账进事件日志**——而这正好就是 eventlog 已经在记的 `reasoning` / `tool_call` / `tool_result` block。所以"agent 跑一次" = 一串子-activity 依次记账。**重放粒度因此是子步级**:崩在第 5 个 tool-call,重放把日志里已记账的前 4 个 tool-call 结果**直接抄**(不重调 LLM、不重跑那 4 个工具),停在第 5 个(第一个没记账的子步)真跑、记账、接着往下。这样 [`07-error-handling.md`](./07-error-handling.md) 的"零重复"按子步成立——**不会因为 agent 中途崩就把整个循环连同已发生的工具副作用重放一遍**。这一子-activity 记账语义、确定性约束、exactly-once 边界统一由 [`00-overview.md`](./00-overview.md) 的执行底盘负责,本节不重述。
 
+> **实现(M7,ADR-010)**:落地用**历史重建**而非改 loop 拷贝逻辑——`loop.Run` 暴露可选 `StepRecorder`(type-asserted;chat host 不实现,对 chat 引擎零影响),每完成一个 tool-step 记一条 `agent_step_completed`(`Turn`=步序,`Result`=该步 assistant + tool 结果)。`:replay` 时 agentHost.`LoadHistory` 把已记账步重建成 `[prompt, asst0, results0, …]` 历史前置,loop 自然从断点续——完成步是历史消息、**不再 dispatch**(工具副作用不重演)。`LoadSteps` 按 turn 取最高 prior-generation(ADR-019),turn budget 按已 replay 步扣减。机制详 [`17`](./17-execution-contract.md) §4。
+
 跑时:
 
 1. 执行器照图走到本节点,**读其前驱节点的输出**(程序数据流,该输出已记进事件日志)

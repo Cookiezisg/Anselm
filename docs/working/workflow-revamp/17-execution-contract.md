@@ -121,7 +121,7 @@
 ## 4. 重放 + replay-reset(契约 —— 根治 a2;ADR-019)
 
 - **崩溃重放**:从头 replay，命中结果事件抄结果(不重跑 LLM/工具)，停在第一个未记账步真跑。`iteration_key` 由重放控制流确定地推导（ADR-017，循环 back-edge 序数）。
-- **agent 子步**:每 tool-call/turn 记 `agent_step_*`;重放命中已记账子步抄、停在第一个未记账子步真跑（host 接口 `loop.Run(ctx, replayed []AgentStep)` —— 见 02 + ADR-010/M7）。
+- **agent 子步(ADR-010,M7 已实现)**:agent 节点每个完成的 ReAct tool-step 记一条 `agent_step_completed`(`Turn`=步序,`Result`=该步 assistant blocks + tool 结果)。重放**经历史重建**而非改 loop 拷贝逻辑:`loop.Run` 暴露可选 `StepRecorder`(type-asserted,chat host 不实现→对 chat 不变),每步完成调 `RecordStep` 记账;`:replay` 时 agentHost.`LoadHistory` 把已记账步重建成 `[prompt, asst0, results0, …]` 历史前置,loop 从断点续跑——完成步的 LLM/tool **不重跑**(它们是历史消息,不再 dispatch)。`LoadSteps` 按 turn 取最高 prior-generation(ADR-019),replay-of-replay 仍见每个早先 copy-hit 步。turn budget(maxTurns)按已 replay 步扣减,总轮数不超限。崩溃中途的未记账步重跑整步(at-least-once;工具须幂等)。
 - **承重原则（ADR-019）**:一个步骤 `(flowrun_id, node_id, iteration_key)` 的**当前态 = 其最高 generation 的 record-once 事件**。
   - **copy-hit**:查该步最高 generation 结果事件 —— `node_completed`→抄（不重跑、不重写）;`node_failed` 为最高且当前 replay generation 更新→重跑 + 写 `node_completed@当前代`;无→首跑。
   - **`GET /flowruns/{id}/failures`**:最高 generation 事件为 `node_failed` 的步（未被后代 completion 覆盖）。

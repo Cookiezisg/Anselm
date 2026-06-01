@@ -147,3 +147,46 @@ func (t namedTool) CheckPermissions(json.RawMessage, toolapp.PermissionMode) too
 	return toolapp.PermissionAllow
 }
 func (t namedTool) Execute(context.Context, string) (string, error) { return "", nil }
+
+// recordingHost implements loop.Host + the optional loop.StepRecorder, capturing which steps Run
+// journaled. A workflow agent host enables sub-step replay (ADR-010) via exactly this capability.
+type recordingHost struct {
+	tool     toolapp.Tool
+	recorded []int
+}
+
+func (h *recordingHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error) {
+	return []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "go"}}, nil
+}
+func (h *recordingHost) Tools(_ context.Context) []toolapp.Tool { return []toolapp.Tool{h.tool} }
+func (h *recordingHost) WriteFinalize(context.Context, []chatdomain.Block, string, string, string, string, int, int) {
+}
+func (h *recordingHost) RecordStep(_ context.Context, step int, _, _ []chatdomain.Block) {
+	h.recorded = append(h.recorded, step)
+}
+
+// Run journals each completed tool-step via the optional StepRecorder (ADR-010 sub-step replay); the
+// final no-tool step ends the loop and is not recorded. So one tool-call turn + one text turn records
+// exactly step 0.
+func TestRun_StepRecorder_JournalsCompletedToolSteps(t *testing.T) {
+	host := &recordingHost{tool: namedTool{"do_thing"}}
+	client := &scriptedClient{scripts: [][]llminfra.StreamEvent{
+		{
+			{Type: llminfra.EventToolStart, ToolIndex: 0, ToolID: "call_1", ToolName: "do_thing"},
+			{Type: llminfra.EventToolDelta, ToolIndex: 0, ArgsDelta: `{"summary":"x"}`},
+			{Type: llminfra.EventFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: llminfra.EventText, Delta: "done"},
+			{Type: llminfra.EventFinish, FinishReason: "stop"},
+		},
+	}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, zaptest.NewLogger(t))
+	if res.Status != chatdomain.StatusCompleted {
+		t.Fatalf("status = %q, want completed", res.Status)
+	}
+	if len(host.recorded) != 1 || host.recorded[0] != 0 {
+		t.Fatalf("expected RecordStep for exactly the tool-step (step 0), got %v", host.recorded)
+	}
+}

@@ -49,6 +49,19 @@ type Result struct {
 	LastMessage string
 }
 
+// StepRecorder is an OPTIONAL Host capability (type-asserted): when a host implements it, Run journals
+// each completed tool-step so a durable replay (workflow flowrun :replay) can reconstruct the agent's
+// history from the journal and skip re-running already-completed steps (ADR-010 sub-step replay). The
+// chat host does NOT implement it (sub-step replay is a workflow-agent concern), so Run stays unchanged
+// for chat. RecordStep is called only AFTER a step's tools ran and history extended — never mid-step,
+// so a crash before the call re-runs the whole step (at-least-once; tools must be idempotent).
+//
+// StepRecorder 是 Host 可选能力(type-asserted):实现它的 host 让 Run 记账每个完成的 tool-step,
+// 供 flowrun :replay 从 journal 重建历史、跳过已完成步(ADR-010)。chat host 不实现,Run 对 chat 不变。
+type StepRecorder interface {
+	RecordStep(ctx context.Context, step int, assistant, toolResults []chatdomain.Block)
+}
+
 // Run executes the ReAct loop, composing baseReq.Messages from host.LoadHistory; Tools are
 // recomputed per step from host.Tools(ctx) so activate_tools widens the set for later steps.
 //
@@ -174,6 +187,13 @@ func Run(
 			host.WriteFinalize(ctx, allBlocks, chatdomain.StatusError, stopReason, errCode, errMsg, totalIn, totalOut)
 			finalWritten = true
 			break
+		}
+
+		// Sub-step replay (ADR-010): once a tool-step has fully completed (tools ran + history
+		// extended), journal it via the optional recorder so a future flowrun :replay reconstructs
+		// history from here instead of re-running this step's LLM + tool calls.
+		if rec, ok := host.(StepRecorder); ok {
+			rec.RecordStep(ctx, step, aBlocks, rBlocks)
 		}
 
 		log.Debug("react step complete", zap.Int("step", step))

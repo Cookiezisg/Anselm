@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 
+	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
@@ -23,6 +24,33 @@ type DispatchInput struct {
 	Node    workflowdomain.NodeSpec
 	NodeIn  map[string]any
 	ExecCtx *ExecutionContext
+
+	// AgentSubSteps is the per-(flowrun,node,iteration) sub-step journal for an agent node's ReAct loop
+	// (ADR-010 sub-step replay). The interpreter populates it for every activity; only the agent
+	// dispatcher uses it (record each step live, reconstruct + skip them on a flowrun :replay). nil for
+	// non-agent nodes / when no journal is wired.
+	//
+	// AgentSubSteps 是 agent 节点 ReAct 子步的 per-(flowrun,node,iter) 记账(ADR-010);仅 agent dispatcher 用。
+	AgentSubSteps AgentSubStepJournal
+}
+
+// RecordedStep is one journaled agent tool-step: the assistant turn + its tool results — enough to
+// reconstruct the ReAct history on replay without re-running the step's LLM + tool calls.
+//
+// RecordedStep 是一条已记账的 agent tool-step(assistant 回合 + 其 tool 结果),够在 replay 时重建历史。
+type RecordedStep struct {
+	Assistant   []chatdomain.Block `json:"assistant"`
+	ToolResults []chatdomain.Block `json:"toolResults"`
+}
+
+// AgentSubStepJournal records/loads an agent node's completed ReAct steps for durable sub-step replay
+// (ADR-010). RecordStep journals a finished step; LoadSteps returns a PRIOR run's completed steps
+// (highest generation per turn) so a :replay reconstructs history + resumes past them.
+//
+// AgentSubStepJournal 记/读 agent 节点已完成的 ReAct 步(ADR-010 sub-step replay)。
+type AgentSubStepJournal interface {
+	LoadSteps(ctx context.Context) []RecordedStep
+	RecordStep(ctx context.Context, step int, assistant, toolResults []chatdomain.Block)
 }
 
 // DispatchOutput is the response from Dispatcher.Dispatch.

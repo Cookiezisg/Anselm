@@ -134,10 +134,20 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: resolve LLM: %w", in.Node.ID, err)}
 	}
 
+	// Sub-step replay (ADR-010): on a flowrun :replay, load the prior run's completed steps once.
+	// They prepend to history (LoadHistory) and consume their share of the turn budget so the total
+	// LLM turns across runs stays bounded by maxTurns.
+	var replaySteps []RecordedStep
+	if in.AgentSubSteps != nil {
+		replaySteps = in.AgentSubSteps.LoadSteps(ctx)
+	}
 	host := &agentHost{
 		userPrompt: docPrefix + prompt,
 		tools:      tools,
 		captured:   &agentResult{},
+		replay:     replaySteps,
+		recorder:   in.AgentSubSteps,
+		log:        d.log,
 	}
 	baseReq := llminfra.Request{
 		ModelID:  bundle.ModelID,
@@ -146,7 +156,11 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		System:   "You are a workflow agent. Use available tools as needed; respond concisely when finished.",
 		Thinking: bundle.Thinking,
 	}
-	result := loopapp.Run(ctx, host, bundle.Client, baseReq, maxTurns, d.log)
+	remainingTurns := maxTurns - len(replaySteps)
+	if remainingTurns < 1 {
+		remainingTurns = 1
+	}
+	result := loopapp.Run(ctx, host, bundle.Client, baseReq, remainingTurns, d.log)
 
 	if result.Status == chatdomain.StatusError {
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: agent loop error", in.Node.ID)}
@@ -172,6 +186,14 @@ type agentHost struct {
 	userPrompt string
 	tools      []toolapp.Tool
 	captured   *agentResult
+
+	// Sub-step replay (ADR-010): replay = a prior run's completed steps, prepended to history so the
+	// loop resumes past them without re-running their LLM + tool calls; recorder journals each new step.
+	//
+	// 子步 replay(ADR-010):replay 是上一 run 已完成步,前置进历史使 loop 越过它们续跑;recorder 记新步。
+	replay   []RecordedStep
+	recorder AgentSubStepJournal
+	log      *zap.Logger
 }
 
 type agentResult struct {
@@ -180,9 +202,27 @@ type agentResult struct {
 }
 
 func (h *agentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error) {
-	return []llminfra.LLMMessage{
-		{Role: llminfra.RoleUser, Content: h.userPrompt},
-	}, nil
+	history := []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: h.userPrompt}}
+	// Replay (ADR-010): reconstruct prior completed steps as history so the loop continues from the
+	// crash point — their tool side-effects are NOT re-run (they're history, not re-dispatched).
+	for _, step := range h.replay {
+		msgs, err := loopapp.BlocksToAssistantLLM(h.log, append(append([]chatdomain.Block{}, step.Assistant...), step.ToolResults...))
+		if err != nil {
+			return nil, fmt.Errorf("agent replay reconstruct: %w", err)
+		}
+		history = append(history, msgs...)
+	}
+	return history, nil
+}
+
+// RecordStep (loop.StepRecorder) journals each completed step at its ABSOLUTE turn (prior replayed
+// steps occupy the lower turn indices), so a later :replay reconstructs the full step history.
+//
+// RecordStep 按绝对 turn 记账每个完成步(已 replay 的步占据低位 turn)。
+func (h *agentHost) RecordStep(ctx context.Context, step int, assistant, toolResults []chatdomain.Block) {
+	if h.recorder != nil {
+		h.recorder.RecordStep(ctx, len(h.replay)+step, assistant, toolResults)
+	}
 }
 
 // Tools ignores ctx: workflow agent dispatch uses a fixed pre-filtered slice

@@ -41,7 +41,11 @@ func (r *fakeRepo) Get(_ context.Context, id string) (*flowrundomain.FlowRun, er
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if run, ok := r.runs[id]; ok {
-		return run, nil
+		// Return a copy: a run goroutine may UpdateStatus the stored *FlowRun under the lock while a
+		// poller reads the returned struct's fields, which races on the shared pointer. A snapshot is
+		// the correct repo semantic (callers Get-then-Update, never mutate through the Get pointer).
+		cp := *run
+		return &cp, nil
 	}
 	return nil, flowrundomain.ErrNotFound
 }

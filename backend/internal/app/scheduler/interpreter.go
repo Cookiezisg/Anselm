@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 
+	"go.uber.org/zap"
+
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
@@ -32,11 +34,17 @@ type Interpreter struct {
 	approvals  flowrundomain.ApprovalRepository // optional: writes the approvals projection row on park (17 §9)
 	generation int                              // replay-reset epoch (ADR-019): stamped on events; copy-hit takes highest gen
 	tick       func(nodeID, status string, iter int)
+	log        *zap.Logger
 }
 
 func New(journal flowrundomain.JournalRepository, dispatch Dispatcher) *Interpreter {
 	return &Interpreter{journal: journal, dispatch: dispatch}
 }
+
+// WithLog wires a logger for best-effort/fire-and-forget paths (e.g. agent sub-step journaling, §S10).
+//
+// WithLog 接入 logger 供 best-effort 路径(如 agent 子步记账)打日志。
+func (in *Interpreter) WithLog(log *zap.Logger) *Interpreter { in.log = log; return in }
 
 // WithTick wires a best-effort per-node runtime tick fired as an activity transitions
 // (running/ok/failed) so the orchestration UI canvas animates live. The callback MUST be non-blocking
@@ -357,6 +365,12 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 				Run:       &flowrundomain.FlowRun{ID: flowrunID},
 				Variables: map[string]any{},
 				Outputs:   map[string]map[string]any{},
+			},
+			// Sub-step replay handle (ADR-010): only the agent dispatcher reads it — record each ReAct
+			// step live, reconstruct + skip them on a :replay. Scoped to this (flowrun, node, iteration).
+			AgentSubSteps: &agentSubSteps{
+				journal: in.journal, flowrunID: flowrunID, nodeID: node.ID,
+				iter: iter, generation: in.generation, log: in.log,
 			},
 		})
 	}

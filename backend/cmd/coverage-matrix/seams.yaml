@@ -89,6 +89,10 @@ cross:
   - id: scheduler_notifications:runtime_tick
     description: 节点状态变化 → ephemeral flowrun tick(Seq0、不入 replay、不背压;08 CANON-X4)
 
+  # agent 节点 sub-step replay
+  - id: workflow_scheduler:agent_substep_replay
+    description: agent 节点每个 ReAct 步记 agent_step_completed → :replay 重建历史跳过已完成步(ADR-010)
+
   # @-mention × document
   - id: mention_document:single_doc_snapshot
     description: 单 doc @mention → 快照入 message attrs
