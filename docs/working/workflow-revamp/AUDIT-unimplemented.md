@@ -234,7 +234,7 @@ enabledTools, _ := parseEnabledTools(cfg)
 
 **实际代码：** `Drain()` 方法等 runWG，但没有 `draining` 状态持久化，重启后无法感知上次 draining 是否完成。
 
-#### ✅-12(same as ❌-5) 🟡 Overlap 策略未实现（同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred)）
+#### ✅-12(same as ✅-5(partial)) 🟡 Overlap 策略未实现（同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred)）
 
 ---
 
@@ -627,7 +627,7 @@ polling 教学完全缺失。
 | ✅-6  | trigger 用尽 → workflow deactivate 未实现 | doc 01/07 |
 | ❌-8  | tool 节点没有统一 callable 字段 + 前缀路由 | doc 03 |
 | ❌-11 | draining 状态机未持久化 | doc 06 |
-| ✅-12(same as ❌-5) | 同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred) | — |
+| ✅-12(same as ✅-5(partial)) | 同 ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred) | — |
 | ❌-14 | 同 ✅-6 | — |
 | ❌-16 | triggerNodeId 触发按钮 UI 未实现 | doc 08 |
 | ❌-17 | 节点详情字段部分缺失（kind/label/dependsOn/log）| doc 08 |

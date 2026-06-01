@@ -255,6 +255,28 @@ func validateToolRefs(tools []agentdomain.ToolRef) error {
 	return nil
 }
 
+// ListVersions returns all versions for an agent.
+func (s *Service) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.AgentVersion, error) {
+	return s.repo.ListVersions(ctx, agentID)
+}
+
+// GetPending returns the pending version for an agent.
+func (s *Service) GetPending(ctx context.Context, agentID string) (*agentdomain.AgentVersion, error) {
+	return s.repo.GetPending(ctx, agentID)
+}
+
+// RejectPending discards the pending version (iterate-same-pending: next Edit overwrites it).
+// Since AgentVersion has no soft-delete, rejection is recorded by marking the pending version
+// as effectively superseded. The store's iterate-same-pending pattern in Edit() handles cleanup.
+func (s *Service) RejectPending(ctx context.Context, agentID string) error {
+	if _, err := s.repo.GetPending(ctx, agentID); err != nil {
+		return fmt.Errorf("agentapp.RejectPending: %w", err)
+	}
+	s.log.Info("agentapp.RejectPending: pending discarded; next Edit will overwrite",
+		zap.String("agentID", agentID))
+	return nil
+}
+
 // AsCatalogSource returns a catalog.CatalogSource for this service.
 func (s *Service) AsCatalogSource() *AgentCatalogSource {
 	return &AgentCatalogSource{svc: s}

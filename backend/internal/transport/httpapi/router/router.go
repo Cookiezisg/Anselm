@@ -69,6 +69,9 @@ func New(deps Deps) http.Handler {
 			wfH.AttachFlowRunHandler(frH)
 		}
 	}
+	if deps.AgentService != nil {
+		handlershttpapi.NewAgentHandler(deps.AgentService, deps.Log).Register(rec)
+	}
 	if deps.ChatService != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.Log).Register(rec)
 		// /api/v1/usage piggy-backs on chat's SumTokens methods (V1.2 §4.2).

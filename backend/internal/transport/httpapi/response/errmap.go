@@ -9,6 +9,7 @@ import (
 
 	askapp "github.com/sunweilin/forgify/backend/internal/app/ask"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
@@ -147,6 +148,12 @@ var errTable = map[error]errMapping{
 	schedulerapp.ErrConcurrencyLimit:          {http.StatusConflict, "FLOWRUN_CONCURRENCY_LIMIT"},
 	schedulerapp.ErrNotReplayable:             {http.StatusUnprocessableEntity, "FLOWRUN_NOT_REPLAYABLE"},
 	schedulerapp.ErrWorkflowNotFound:          {http.StatusNotFound, "WORKFLOW_NOT_FOUND_FOR_TRIGGER"},
+	// Agent domain sentinels.
+	agentdomain.ErrNotFound:       {http.StatusNotFound, "AGENT_NOT_FOUND"},
+	agentdomain.ErrNameDuplicate:  {http.StatusConflict, "AGENT_NAME_DUPLICATE"},
+	agentdomain.ErrNoPending:      {http.StatusUnprocessableEntity, "AGENT_NO_PENDING"},
+	agentdomain.ErrNoActiveVersion: {http.StatusUnprocessableEntity, "AGENT_NO_ACTIVE_VERSION"},
+	agentdomain.ErrToolsAgentRef:  {http.StatusBadRequest, "AGENT_TOOLS_AGENT_REF_FORBIDDEN"},
 	// Sub-graph / execution-model V1 limits — these were unregistered and returned 500 INTERNAL_ERROR.
 	schedulerapp.ErrApprovalRequired:          {http.StatusAccepted, "APPROVAL_REQUIRED"},
 	schedulerapp.ErrLoopBodyNotSupported:      {http.StatusUnprocessableEntity, "LOOP_BODY_NOT_SUPPORTED"},

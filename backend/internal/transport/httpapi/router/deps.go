@@ -29,6 +29,7 @@ import (
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
+	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	userapp "github.com/sunweilin/forgify/backend/internal/app/user"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
@@ -88,6 +89,7 @@ type Deps struct {
 	MemoryService       *memoryapp.Service
 	DocumentService     *documentapp.Service
 	RelationService     *relationapp.Service
+	AgentService        *agentapp.Service   // quadrinity 4th member (doc 09)
 	AskAISpawner        *askai.Spawner // V1.2 §17 forge :iterate + flowrun :triage
 	UserService         *userapp.Service
 

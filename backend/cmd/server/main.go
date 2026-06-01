@@ -662,6 +662,7 @@ func main() {
 		MemoryService:       memoryService,
 		DocumentService:     documentService,
 		RelationService:     relationService,
+		AgentService:        agentService,
 		AskAISpawner:        askaiSpawner,
 		UserService:         userService,
 		FunctionExecRepo:    functionExecRepo,
