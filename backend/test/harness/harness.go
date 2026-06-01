@@ -615,6 +615,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	schedulerService.SetRouter(router)
 
 	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
+	tools = append(tools, workflowtool.WorkflowDebugTools(schedulerService)...)
 	tools = append(tools, mcptool.MCPCallLogTools(mcpCallRepo)...)
 	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
 
@@ -753,6 +754,8 @@ var lazyGroupsHarness = map[string]string{
 	"get_workflow_execution":     "workflow",
 	"search_workflow_executions": "workflow",
 	"capability_check_workflow":  "workflow",
+	"list_failed_steps":          "workflow",
+	"replay_flowrun":             "workflow",
 	// trigger_workflow is mapped here for consistency but WorkflowTriggerTool is not assembled in harness.
 	"trigger_workflow":        "workflow",
 	"call_mcp_tool":           "mcp",

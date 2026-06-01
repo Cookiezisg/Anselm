@@ -596,6 +596,7 @@ func main() {
 
 	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
 	tools = append(tools, workflowtool.WorkflowTriggerTool(schedulerService)...)
+	tools = append(tools, workflowtool.WorkflowDebugTools(schedulerService)...)
 	tools = append(tools, mcptool.MCPCallLogTools(mcpCallRepo)...)
 	tools = append(tools, skilltool.SkillExecutionTools(skillExecRepo)...)
 
@@ -766,6 +767,8 @@ var lazyGroups = map[string]string{
 	"get_workflow_execution":     "workflow",
 	"search_workflow_executions": "workflow",
 	"capability_check_workflow":  "workflow",
+	"list_failed_steps":          "workflow",
+	"replay_flowrun":             "workflow",
 	"trigger_workflow":           "workflow",
 	// mcp group
 	"call_mcp_tool":        "mcp",

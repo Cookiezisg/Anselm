@@ -36,7 +36,16 @@ func WorkflowExecutionTools(repo flowrundomain.Repository) []toolapp.Tool {
 	return []toolapp.Tool{
 		&SearchWorkflowExecutions{repo: repo},
 		&GetWorkflowExecution{repo: repo},
+		&ListFailedSteps{repo: repo},
 	}
+}
+
+// WorkflowDebugTools constructs flowrun debug tools that need the scheduler.
+// Registered after scheduler construction so they only land in the orchestrator toolset.
+//
+// WorkflowDebugTools 装配需要 scheduler 的 flowrun 调试工具（scheduler 构造后注册）。
+func WorkflowDebugTools(sched SchedulerReplayer) []toolapp.Tool {
+	return []toolapp.Tool{&ReplayFlowRun{sched: sched}}
 }
 
 // WorkflowTriggerTool constructs trigger_workflow wired to the scheduler. Registered
