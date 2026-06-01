@@ -104,6 +104,7 @@ import (
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
+	triggerstore "github.com/sunweilin/forgify/backend/internal/infra/store/trigger"
 	userstore "github.com/sunweilin/forgify/backend/internal/infra/store/user"
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
@@ -527,6 +528,7 @@ func main() {
 	flowrunRepo := flowrunstore.New(gdb)
 	journalStore := flowruneventstore.New(gdb)
 	approvalStore := approvalstore.New(gdb)
+	triggerStore := triggerstore.New(gdb)
 	mcpCallRepo := mcpcallstore.New(gdb)
 	mcpHealthRepo := mcphealthstore.New(gdb)
 	skillExecRepo := skillexecstore.New(gdb)
@@ -548,6 +550,7 @@ func main() {
 	)
 	schedulerService.SetJournal(journalStore)
 	schedulerService.SetApprovals(approvalStore)
+	schedulerService.SetFiringInbox(triggerStore)
 	triggerService.SetScheduler(schedulerService)
 
 	router := schedulerapp.NewRouter()

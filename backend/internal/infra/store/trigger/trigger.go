@@ -19,9 +19,9 @@ import (
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
 
-// ErrFiringNotPending means the firing was already claimed/started/terminal — the claim lost the
-// race (idempotent: the winner already created the flowrun).
-var ErrFiringNotPending = errors.New("triggerstore: firing not pending")
+// ErrFiringNotPending aliases the domain sentinel — the claim lost the race (idempotent: the winner
+// already created the flowrun). Kept as a store-level alias for existing callers/tests.
+var ErrFiringNotPending = triggerdomain.ErrFiringNotPending
 
 type Store struct {
 	db *gorm.DB

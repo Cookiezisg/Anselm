@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -24,6 +26,9 @@ import (
 // SchedulerStarter 是 Service 派发 fire 到 scheduler 的端口。
 type SchedulerStarter interface {
 	StartRun(ctx context.Context, workflowID string, triggerKind string, input map[string]any) (string, error)
+	// OnTriggerFired persists a firing (durable, persist-before-act) then drains the inbox via the
+	// single-tx claim (ADR-021). The durable trigger path; StartRun stays for manual / dry-run.
+	OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error
 }
 
 // Service is the unified trigger surface.
@@ -80,18 +85,26 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 		}
 		ctx := reqctxpkg.SetUserID(context.Background(), spec.UserID)
 		kind := kindForNode(s, workflowID, nodeID)
-		runID, err := sched.StartRun(ctx, workflowID, kind, input)
-		if err != nil {
-			s.log.Error("scheduler.StartRun failed",
+		// Persist-before-act: write a durable firing, then the scheduler drains it via the single-tx
+		// claim (ADR-021). dedup_key is per live fire (workflowID|nodeID|nanos); cron-tick
+		// catchup-determinism (keying on the scheduled tick) is a later refinement.
+		firing := &triggerdomain.TriggerFiring{
+			WorkflowID:    workflowID,
+			TriggerNodeID: nodeID,
+			TriggerKind:   kind,
+			Payload:       input,
+			DedupKey:      workflowID + "|" + nodeID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10),
+		}
+		if err := sched.OnTriggerFired(ctx, firing); err != nil {
+			s.log.Error("scheduler.OnTriggerFired failed",
 				zap.String("workflowID", workflowID),
 				zap.String("nodeID", nodeID),
 				zap.Error(err))
 			return
 		}
-		s.log.Info("trigger fired",
+		s.log.Info("trigger fired (durable)",
 			zap.String("workflowID", workflowID),
-			zap.String("nodeID", nodeID),
-			zap.String("runID", runID))
+			zap.String("nodeID", nodeID))
 	}
 
 	s.cron = croninfra.New(s.log, onFire)

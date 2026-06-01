@@ -56,5 +56,10 @@ func (s *Service) RehydrateOnBoot(ctx context.Context, userID string) error {
 	if len(running) > 0 {
 		s.log.Warn("reconciled interrupted running flowruns to failed", zap.Int("count", len(running)))
 	}
+
+	// Boot catchup: re-drain any firings a crash left `pending` (persist-before-act recorded them
+	// durably). The single-tx claim makes re-dispatch idempotent — a firing already claimed+started
+	// is skipped, so no duplicate runs (ADR-021).
+	s.DispatchPending(scopedCtx)
 	return nil
 }

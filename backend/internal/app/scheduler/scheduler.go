@@ -13,10 +13,9 @@ import (
 	"go.uber.org/zap"
 
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // WorkflowReader is the read-only contract the scheduler consumes from workflowapp.
@@ -35,6 +34,7 @@ type Service struct {
 	repo         flowrundomain.Repository
 	journal      flowrundomain.JournalRepository
 	approvals    flowrundomain.ApprovalRepository
+	firingInbox  triggerdomain.FiringInbox
 	workflowRead WorkflowReader
 	notif        notificationspkg.Publisher
 	router       *Router
@@ -126,85 +126,14 @@ func (s *Service) StartRun(ctx context.Context, workflowID, triggerKind string, 
 //
 // StartRunWithOptions 是带 options 的全参数版本；StartRun 委派。
 func (s *Service) StartRunWithOptions(ctx context.Context, workflowID, triggerKind string, triggerInput map[string]any, opts StartRunOptions) (string, error) {
-	uid, err := reqctxpkg.RequireUserID(ctx)
+	run, graph, timeoutSec, err := s.buildRun(ctx, workflowID, triggerKind, triggerInput, opts.DryRun)
 	if err != nil {
-		return "", fmt.Errorf("schedulerapp.StartRun: %w", err)
-	}
-
-	wf, err := s.workflowRead.GetWorkflow(ctx, workflowID)
-	if err != nil {
-		if errors.Is(err, workflowdomain.ErrNotFound) {
-			return "", fmt.Errorf("schedulerapp.StartRun: %w", ErrWorkflowNotFound)
-		}
-		return "", fmt.Errorf("schedulerapp.StartRun: GetWorkflow: %w", err)
-	}
-
-	if !wf.Enabled {
-		return "", fmt.Errorf("schedulerapp.StartRun: %w", ErrWorkflowDisabled)
-	}
-	if wf.NeedsAttention {
-		return "", fmt.Errorf("schedulerapp.StartRun: %w", ErrWorkflowNeedsAttention)
-	}
-
-	if wf.Concurrency == workflowdomain.ConcurrencySerial {
-		running, err := s.repo.CountRunning(ctx, workflowID)
-		if err != nil {
-			return "", fmt.Errorf("schedulerapp.StartRun: CountRunning: %w", err)
-		}
-		if running >= 1 {
-			return "", fmt.Errorf("schedulerapp.StartRun: %w", ErrConcurrencyLimit)
-		}
-	}
-
-	version, err := s.workflowRead.GetActiveVersion(ctx, workflowID)
-	if err != nil {
-		return "", fmt.Errorf("schedulerapp.StartRun: GetActiveVersion: %w", err)
-	}
-
-	now := time.Now().UTC()
-	run := &flowrundomain.FlowRun{
-		ID:           idgenpkg.New("fr"),
-		UserID:       uid,
-		WorkflowID:   workflowID,
-		VersionID:    version.ID,
-		TriggerKind:  triggerKind,
-		TriggerInput: triggerInput,
-		Status:       flowrundomain.StatusRunning,
-		StartedAt:    now,
-		DryRun:       opts.DryRun,
+		return "", err
 	}
 	if err := s.repo.Create(ctx, run); err != nil {
 		return "", fmt.Errorf("schedulerapp.StartRun: Create: %w", err)
 	}
-
-	// §5.7 run-level timeout: WithTimeout when wf.TimeoutSec>0; ctx.Err == DeadlineExceeded marks RUN_TIMEOUT.
-	// §5.7 run 级 timeout：wf.TimeoutSec>0 时 WithTimeout；ctx.Err == DeadlineExceeded → RUN_TIMEOUT。
-	runCtx := reqctxpkg.SetUserID(context.Background(), uid)
-	var cancel context.CancelFunc
-	if wf.TimeoutSec > 0 {
-		runCtx, cancel = context.WithTimeout(runCtx, time.Duration(wf.TimeoutSec)*time.Second)
-	} else {
-		runCtx, cancel = context.WithCancel(runCtx)
-	}
-	s.cancelsMu.Lock()
-	s.cancels[run.ID] = cancel
-	s.cancelsMu.Unlock()
-
-	graph := version.GraphParsed
-	go func() {
-		defer s.releaseCancel(run.ID)
-		defer func() {
-			if r := recover(); r != nil {
-				s.log.Error("scheduler.executeRun panic",
-					zap.String("runID", run.ID), zap.Any("recover", r))
-				_ = s.repo.UpdateStatus(runCtx, run.ID, flowrundomain.StatusFailed,
-					nil, "INTERNAL_PANIC", fmt.Sprintf("%v", r),
-					ptrNow(), 0)
-			}
-		}()
-		s.ExecuteFn(runCtx, run, graph)
-	}()
-
+	s.spawnRun(run, graph, timeoutSec)
 	s.publish(ctx, run.ID, workflowID, "started", map[string]any{
 		"triggerKind": triggerKind,
 	})

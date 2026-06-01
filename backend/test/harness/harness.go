@@ -103,6 +103,7 @@ import (
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
 	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
+	triggerstore "github.com/sunweilin/forgify/backend/internal/infra/store/trigger"
 	userstore "github.com/sunweilin/forgify/backend/internal/infra/store/user"
 	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
@@ -579,6 +580,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	schedulerService := schedulerapp.NewService(flowrunRepo, workflowService, notificationsPub, log)
 	schedulerService.SetJournal(flowruneventstore.New(gdb))
 	schedulerService.SetApprovals(approvalstore.New(gdb))
+	schedulerService.SetFiringInbox(triggerstore.New(gdb))
 	triggerService.SetScheduler(schedulerService)
 	t.Cleanup(triggerService.Shutdown)
 

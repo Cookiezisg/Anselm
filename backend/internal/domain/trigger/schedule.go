@@ -45,6 +45,7 @@ type TriggerFiring struct {
 	ID            string         `gorm:"primaryKey;type:text" json:"id"`
 	WorkflowID    string         `gorm:"not null;type:text;uniqueIndex:idx_trf_dedup,priority:1" json:"workflowId"`
 	TriggerNodeID string         `gorm:"not null;type:text;uniqueIndex:idx_trf_dedup,priority:2" json:"triggerNodeId"`
+	TriggerKind   string         `gorm:"not null;type:text;default:'manual'" json:"triggerKind"`
 	Payload       map[string]any `gorm:"serializer:json;type:text;default:'{}'" json:"payload"`
 	DedupKey      string         `gorm:"not null;type:text;uniqueIndex:idx_trf_dedup,priority:3" json:"dedupKey"`
 	Status        string         `gorm:"not null;check:status IN ('pending','claimed','started','skipped','superseded','shed');type:text;index" json:"status"`

@@ -37,6 +37,12 @@ func (f *fakeScheduler) StartRun(_ context.Context, workflowID, triggerKind stri
 	return "fr_fake", nil
 }
 
+// OnTriggerFired delegates to StartRun so existing call-count assertions still hold.
+func (f *fakeScheduler) OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error {
+	_, err := f.StartRun(ctx, firing.WorkflowID, firing.TriggerKind, firing.Payload)
+	return err
+}
+
 func (f *fakeScheduler) callCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
