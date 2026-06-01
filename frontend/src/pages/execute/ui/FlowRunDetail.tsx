@@ -105,6 +105,7 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
     label:      n.nodeId,
     durationMs: n.elapsedMs,
     startedMs:  n.startedAt ? new Date(n.startedAt).getTime() - runStartMs : 0,
+    error:      n.errorMessage || undefined,
   }));
   const okCount   = nodesAny.filter((n) => n.status === "ok"      || n.status === "completed").length;
   const failCount = nodesAny.filter((n) => n.status === "fail"    || n.status === "failed").length;
@@ -258,6 +259,7 @@ function NodeInspectorBody({ node, fr }: { node: NodeRuntime; fr: FlowRunRuntime
         {nodeStatusIcon(node.status)}
         {node.kind && <span className="kind-chip fn">{node.kind}</span>}
         {node.durationMs != null && <span className="cell-mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>{fmtDuration(node.durationMs)}</span>}
+        {node.attempts != null && node.attempts > 1 && <span className="cell-mono" style={{ fontSize: 11, color: "var(--fg-warn)" }}>{node.attempts}× attempts</span>}
         {node.error && <span className="fr-inspector-error">{node.error}</span>}
       </div>
       <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>

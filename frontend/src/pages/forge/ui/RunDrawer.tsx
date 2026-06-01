@@ -30,9 +30,10 @@ interface RunDrawerProps {
   kind?: string;
   entity: { id?: string; name?: string; methods?: Array<{ name: string; sig?: string; signature?: string }>; currentVersion?: { methods?: Array<{ name: string; sig?: string; signature?: string }> } };
   onOpenExecute?: (id: string) => void;
+  triggerNodes?: Array<{ id: string; config?: Record<string, unknown> }>;
 }
 
-export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDrawerProps) {
+export function RunDrawer({ open, onClose, kind, entity, onOpenExecute, triggerNodes }: RunDrawerProps) {
   const { t } = useTranslation("execute");
   const run = useRunFunction();
   const call = useCallHandler();
@@ -41,6 +42,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
 
   const [body, setBody] = useState("{\n  \n}");
   const [method, setMethod] = useState("");
+  const [triggerNodeId, setTriggerNodeId] = useState("");
   const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -53,8 +55,11 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
       const methods = entity?.methods || entity?.currentVersion?.methods || [];
       setMethod(methods[0]?.name || "");
     }
+    if (kind === "workflow") {
+      setTriggerNodeId(triggerNodes?.[0]?.id ?? "");
+    }
     setTimeout(() => ta.current?.focus(), 80);
-  }, [open, kind, entity?.id]);
+  }, [open, kind, entity?.id, triggerNodes]);
 
   useEffect(() => {
     if (!open) return;
@@ -75,7 +80,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
         if (!method) { setError(t("runDrawer.noMethod")); return; }
         res = await call.mutateAsync({ id: entity.id ?? "", method, args: parsed });
       } else if (kind === "workflow") {
-        res = await trig.mutateAsync({ id: entity.id ?? "", input: parsed });
+        res = await trig.mutateAsync({ id: entity.id ?? "", input: parsed, ...(triggerNodeId ? { triggerNodeId } : {}) });
         const runId = ((res as Record<string, unknown>)?.flowRunId || (res as Record<string, unknown>)?.id || (res as Record<string, unknown>)?.runId) as string | undefined;
         pushToast({ kind: "success", title: t("runDrawer.toast.triggerSuccess"), desc: runId || t("runDrawer.toast.triggerDefaultDesc") });
         if (runId) {
@@ -138,6 +143,22 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute }: RunDra
                       }))}
                     />
                   )}
+                </div>
+              )}
+
+              {kind === "workflow" && triggerNodes && triggerNodes.length > 1 && (
+                <div>
+                  <label className="drawer-label">{t("runDrawer.triggerNodeLabel")}</label>
+                  <Select
+                    mono
+                    ariaLabel={t("runDrawer.triggerNodeAriaLabel")}
+                    value={triggerNodeId}
+                    onChange={setTriggerNodeId}
+                    options={triggerNodes.map((n) => ({
+                      value: n.id,
+                      label: `${n.id}${n.config?.kind ? ` · ${n.config.kind}` : ""}`,
+                    }))}
+                  />
                 </div>
               )}
 

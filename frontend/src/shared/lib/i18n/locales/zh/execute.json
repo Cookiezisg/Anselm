@@ -154,6 +154,8 @@
     "closeTitle": "关闭",
     "methodLabel": "方法",
     "methodAriaLabel": "方法",
+    "triggerNodeLabel": "触发器节点",
+    "triggerNodeAriaLabel": "选择触发器节点",
     "noMethods": "当前版本没有方法",
     "jsonError": "JSON 不对 · {{detail}}",
     "noMethod": "挑一个方法",

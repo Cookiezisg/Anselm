@@ -154,6 +154,8 @@
     "closeTitle": "Close",
     "methodLabel": "Method",
     "methodAriaLabel": "Method",
+    "triggerNodeLabel": "Trigger node",
+    "triggerNodeAriaLabel": "Select trigger node",
     "noMethods": "No methods in current version",
     "jsonError": "Invalid JSON · {{detail}}",
     "noMethod": "Select a method",

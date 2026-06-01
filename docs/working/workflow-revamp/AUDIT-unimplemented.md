@@ -44,7 +44,7 @@ audience: [human, ai]
 - callable 版本 pin：flowrun 启动时 pin `pinned_callables` 快照 ✅
 - 事件日志 GC（HardDeleteOldest 保留 N 条）✅
 
-#### ❌-1 🔴 Durable timer gate（`at?`/`after?`）
+#### ✅-1 🔴 Durable timer gate（`at?`/`after?`）
 
 **设计要求（doc 00 §"Durable timer"段）：**
 > 任意非 trigger 节点可挂一个 timer gate，到点才放行执行该节点：
@@ -90,7 +90,7 @@ audience: [human, ai]
 - lastFiredAt 持久化 + 跨重启补漏刻度 ✅
 - trigger dedup_key（cron 按调度刻度，不重复触发）✅
 
-#### ❌-4 🔴 polling 触发器完全未实现
+#### ✅-4 🔴 polling 触发器完全未实现
 
 **设计要求（doc 01 §polling）：**
 > polling trigger = kind=`polling` 的 forge function，接 `poll(last_cursor) → {events, next_cursor}`；平台定期调它，光标前进，去重，不重复 emit。polling_states 表持久化 cursor。
@@ -274,14 +274,14 @@ enabledTools, _ := parseEnabledTools(cfg)
 
 **实际代码：** `useFlowrunTicker` 不存在。运行时 tick 触发 query invalidation（粗粒度重拉列表），没有 nodeId→视觉状态的 state machine。画布节点颜色是静态的，不是实时的。
 
-#### ❌-16 🟡 triggerNodeId 触发按钮 UI 未实现
+#### ✅-16 🟡 triggerNodeId 触发按钮 UI 未实现
 
 **设计要求（doc 08 §4）：**
 > 触发按钮在 Trigger 节点上（▶ 按钮），支持选择具体 trigger 节点 + 填 payload form → `POST /workflows/{id}:trigger {triggerNodeId, payload}`。
 
 **实际代码：** 前端触发按钮存在，但不传 `triggerNodeId`，不区分多 trigger 节点。
 
-#### ❌-17 🟡 节点详情 inline diagnostic 未完整实现
+#### ✅-17 🟡 节点详情 inline diagnostic 未完整实现
 
 **设计要求（doc 08 §6）：**
 > 节点详情显示：节点 config（只读）+ 运行时状态（状态/重试次数/耗时）+ **该 flowrun 在这个节点上的事件日志（trace）**：每次执行的 input/结果/分支选择/第几轮，按序列出。

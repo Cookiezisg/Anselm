@@ -395,6 +395,20 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 		in.emitTick(node.ID, "ok", iter) // replay catch-up: the node already completed in a prior walk
 		return cached, nil
 	}
+	// Durable timer gate (doc 00 §"Durable timer" / 17 §7, ❌-1):
+	// If config.at (absolute RFC3339) or config.after (relative seconds) is set, arm a timer
+	// journal event and wait. Deadline is stored in the journal (timer_armed) so replay is
+	// deterministic — we never re-compute now(), we read the journaled deadline.
+	if err := in.armTimerGateIfNeeded(ctx, flowrunID, node, iter, completed); err != nil {
+		return nil, err
+	}
+	if fired, waitErr := in.waitForTimerGate(ctx, flowrunID, node, iter); waitErr != nil {
+		return nil, waitErr
+	} else if !fired {
+		// ctx cancelled while waiting for timer gate.
+		return nil, ctx.Err()
+	}
+
 	startedAt := time.Now().UTC()
 	if _, err := in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
 		FlowrunID: flowrunID, Type: flowrundomain.EventNodeStarted, NodeID: node.ID, IterationKey: iter, Generation: in.generation,
@@ -512,6 +526,111 @@ func (in *Interpreter) activityRun(ctx context.Context, flowrunID string, node w
 	in.writeNodeRow(ctx, flowrunID, node, iter, flowrundomain.NodeStatusOK,
 		payload, out, "", startedAt)
 	return out, nil
+}
+
+// armTimerGateIfNeeded reads config.at (RFC3339 string) or config.after (seconds number) from the node
+// config, computes a deadline, and writes a timer_armed event (record-once idempotent).
+// On replay the event is already in the journal so it's a no-op copy-hit.
+//
+// armTimerGateIfNeeded 读取 config.at / config.after, 计算 deadline, 写 timer_armed 事件（幂等）。
+func (in *Interpreter) armTimerGateIfNeeded(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
+	iter int, completed map[string]map[string]any) error {
+	if len(node.Config) == 0 {
+		return nil
+	}
+	// Check if timer_armed is already in journal (replay path).
+	events, err := in.journal.EventsForNode(ctx, flowrunID, node.ID, iter, in.generation)
+	if err != nil {
+		return fmt.Errorf("scheduler.armTimer: load events %s: %w", node.ID, err)
+	}
+	for _, e := range events {
+		if e.Type == flowrundomain.EventTimerArmed {
+			return nil // already armed; waitForTimerGate will read the deadline from Result
+		}
+	}
+
+	var deadline time.Time
+	now := time.Now().UTC()
+	if atVal, ok := node.Config["at"]; ok && atVal != "" {
+		atStr, _ := atVal.(string)
+		if atStr != "" {
+			t, parseErr := time.Parse(time.RFC3339, atStr)
+			if parseErr != nil {
+				return fmt.Errorf("scheduler.armTimer: bad config.at %q: %w", atStr, parseErr)
+			}
+			deadline = t.UTC()
+		}
+	} else if afterVal, ok := node.Config["after"]; ok && afterVal != nil {
+		secs := 0.0
+		switch v := afterVal.(type) {
+		case float64:
+			secs = v
+		case int:
+			secs = float64(v)
+		case int64:
+			secs = float64(v)
+		}
+		if secs > 0 {
+			deadline = now.Add(time.Duration(secs * float64(time.Second)))
+		}
+	}
+	if deadline.IsZero() {
+		return nil // no timer configured
+	}
+	_, err = in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+		FlowrunID: flowrunID, Type: flowrundomain.EventTimerArmed, NodeID: node.ID,
+		IterationKey: iter, Generation: in.generation,
+		Result: map[string]any{"deadline": deadline.Format(time.RFC3339)},
+	})
+	return err
+}
+
+// waitForTimerGate checks if a timer_armed event exists; if so, sleeps until the deadline passes
+// (or ctx is cancelled), then writes timer_fired. Returns true when the gate opens, false on
+// cancellation. If no timer is configured returns true immediately.
+//
+// waitForTimerGate 检查 timer_armed 是否存在；存在则睡到 deadline, 然后写 timer_fired。
+func (in *Interpreter) waitForTimerGate(ctx context.Context, flowrunID string, node workflowdomain.NodeSpec,
+	iter int) (bool, error) {
+	events, err := in.journal.EventsForNode(ctx, flowrunID, node.ID, iter, in.generation)
+	if err != nil {
+		return false, fmt.Errorf("scheduler.waitTimer: load events %s: %w", node.ID, err)
+	}
+	var deadline time.Time
+	for _, e := range events {
+		if e.Type == flowrundomain.EventTimerArmed {
+			if res, ok := e.Result.(map[string]any); ok {
+				if ds, ok := res["deadline"].(string); ok {
+					t, _ := time.Parse(time.RFC3339, ds)
+					deadline = t
+				}
+			}
+		}
+		if e.Type == flowrundomain.EventTimerFired {
+			return true, nil // already fired on a prior walk (replay)
+		}
+	}
+	if deadline.IsZero() {
+		return true, nil // no timer configured — gate open
+	}
+	// Wait for deadline.
+	remaining := time.Until(deadline)
+	if remaining > 0 {
+		select {
+		case <-time.After(remaining):
+		case <-ctx.Done():
+			return false, nil
+		}
+	}
+	// Write timer_fired to journal so replay won't wait again.
+	_, err = in.journal.AppendEvent(ctx, &flowrundomain.FlowRunEvent{
+		FlowrunID: flowrunID, Type: flowrundomain.EventTimerFired, NodeID: node.ID,
+		IterationKey: iter, Generation: in.generation,
+	})
+	if err != nil {
+		return false, fmt.Errorf("scheduler.waitTimer: write timer_fired %s: %w", node.ID, err)
+	}
+	return true, nil
 }
 
 // writeNodeRow persists a flowrun_nodes projection row (best-effort — a write failure only loses the

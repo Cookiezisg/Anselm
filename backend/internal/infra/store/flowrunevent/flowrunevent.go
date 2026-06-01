@@ -89,6 +89,21 @@ func (s *Store) LoadJournal(ctx context.Context, flowrunID string) ([]flowrundom
 	return evs, nil
 }
 
+// EventsForNode returns events for a specific (nodeId, iterationKey, generation) tuple.
+// Used by the durable timer gate to check timer_armed / timer_fired without re-loading the full journal.
+//
+// EventsForNode 按 (nodeId, iterationKey, generation) 过滤事件，供 durable timer gate 使用。
+func (s *Store) EventsForNode(ctx context.Context, flowrunID, nodeID string, iter, generation int) ([]flowrundomain.FlowRunEvent, error) {
+	var evs []flowrundomain.FlowRunEvent
+	if err := s.db.WithContext(ctx).
+		Where("flowrun_id = ? AND node_id = ? AND iteration_key = ? AND generation = ?",
+			flowrunID, nodeID, iter, generation).
+		Order("seq asc").Find(&evs).Error; err != nil {
+		return nil, fmt.Errorf("flowruneventstore.EventsForNode: %w", err)
+	}
+	return evs, nil
+}
+
 // isUniqueViolation matches modernc.org/sqlite's unique-constraint message.
 //
 // isUniqueViolation 匹配 modernc sqlite 的唯一约束报错。

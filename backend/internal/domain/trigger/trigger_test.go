@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-func TestKind_FourValues(t *testing.T) {
-	got := []string{KindCron, KindFsnotify, KindWebhook, KindManual}
-	want := []string{"cron", "fsnotify", "webhook", "manual"}
+func TestKind_FiveValues(t *testing.T) {
+	got := []string{KindCron, KindFsnotify, KindWebhook, KindManual, KindPolling}
+	want := []string{"cron", "fsnotify", "webhook", "manual", "polling"}
 	for i, g := range got {
 		if g != want[i] {
 			t.Errorf("Kind[%d] = %q, want %q", i, g, want[i])

@@ -215,6 +215,45 @@ func (s *Store) ResetConsecutiveFailures(ctx context.Context, workflowID, nodeID
 	return nil
 }
 
+// GetPollingCursor returns the persisted cursor for a polling trigger; empty string when not found.
+//
+// GetPollingCursor 返 polling trigger 的持久化 cursor；未找到时返 ""。
+func (s *Store) GetPollingCursor(ctx context.Context, workflowID, nodeID string) (string, error) {
+	var row triggerdomain.PollingState
+	err := s.db.WithContext(ctx).
+		Where("workflow_id = ? AND node_id = ?", workflowID, nodeID).
+		First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("triggerstore.GetPollingCursor: %w", err)
+	}
+	return row.Cursor, nil
+}
+
+// UpdatePollingCursor upserts the cursor for a polling trigger (insert-or-update by PK).
+//
+// UpdatePollingCursor 用主键 upsert 更新 polling trigger cursor。
+func (s *Store) UpdatePollingCursor(ctx context.Context, workflowID, nodeID, cursor string) error {
+	row := triggerdomain.PollingState{WorkflowID: workflowID, NodeID: nodeID, Cursor: cursor}
+	if err := s.db.WithContext(ctx).
+		Where(triggerdomain.PollingState{WorkflowID: workflowID, NodeID: nodeID}).
+		Assign(triggerdomain.PollingState{Cursor: cursor}).
+		FirstOrCreate(&row).Error; err != nil {
+		return fmt.Errorf("triggerstore.UpdatePollingCursor: %w", err)
+	}
+	if row.Cursor != cursor {
+		if err := s.db.WithContext(ctx).
+			Model(&triggerdomain.PollingState{}).
+			Where("workflow_id = ? AND node_id = ?", workflowID, nodeID).
+			Update("cursor", cursor).Error; err != nil {
+			return fmt.Errorf("triggerstore.UpdatePollingCursor(update): %w", err)
+		}
+	}
+	return nil
+}
+
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

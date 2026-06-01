@@ -13,6 +13,10 @@ const (
 	KindFsnotify = "fsnotify"
 	KindWebhook  = "webhook"
 	KindManual   = "manual"
+	// KindPolling is the forge-function-backed polling trigger (doc 01 §polling):
+	// config.callable = "fn_xxx", config.intervalSec = poll interval in seconds (default 60).
+	// The platform calls the function with {cursor}, reads {events, nextCursor}, fires per event.
+	KindPolling = "polling"
 )
 
 const (

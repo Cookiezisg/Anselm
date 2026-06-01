@@ -84,6 +84,9 @@ export function WorkflowDetail({ forge, onBack, onOpenExecute }: WorkflowDetailP
   const effectiveSelected = selectedId || pendingV?.id || currentV?.id;
   const selectedV = versions.find((v) => v.id === effectiveSelected) || currentV;
 
+  const liveGraph = currentV?.graphParsed;
+  const triggerNodes = (liveGraph?.nodes ?? []).filter((n) => n.type === "trigger");
+
   return (
     <div className="page">
       <div className="page-header" style={{ paddingTop: 18 }}>
@@ -143,7 +146,7 @@ export function WorkflowDetail({ forge, onBack, onOpenExecute }: WorkflowDetailP
           onDeploy={() => pushToast({ kind: "success", title: t("detail.deployRequested") })}
         />
       </div>
-      <RunDrawer open={runOpen} onClose={() => setRunOpen(false)} kind="workflow" entity={wf} onOpenExecute={onOpenExecute} />
+      <RunDrawer open={runOpen} onClose={() => setRunOpen(false)} kind="workflow" entity={wf} onOpenExecute={onOpenExecute} triggerNodes={triggerNodes} />
     </div>
   );
 }

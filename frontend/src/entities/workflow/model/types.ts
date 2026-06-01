@@ -91,6 +91,7 @@ export interface EditWorkflowVars {
 export interface RunWorkflowVars {
   id: string;
   input?: Record<string, unknown>;
+  triggerNodeId?: string;
 }
 
 export interface CapabilityIssue {

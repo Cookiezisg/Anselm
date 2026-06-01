@@ -47,10 +47,12 @@ const BASE_RUN = {
   status: "running", trigger: "cron", startedAt: "2026-05-23T09:00:00Z",
 };
 
+// Mock nodes use backend field names (nodeId, nodeType, elapsedMs, startedAt).
+// The component normalises: kind←nodeType, label←nodeId, durationMs←elapsedMs, startedMs←startedAt offset.
 const NODES = [
-  { id: "n1", label: "Fetch",   kind: "function", status: "completed", durationMs: 1500, startedMs: 0,    output: { v: 1 } },
-  { id: "n2", label: "Process", kind: "function", status: "running",   startedMs: 1500,                    dependsOn: ["n1"] },
-  { id: "n3", label: "Notify",  kind: "function", status: "pending",                                       dependsOn: ["n2"] },
+  { id: "frn_1", nodeId: "Fetch",   nodeType: "function", status: "completed", elapsedMs: 1500, startedAt: "2026-05-23T09:00:00Z", output: { v: 1 } },
+  { id: "frn_2", nodeId: "Process", nodeType: "function", status: "running",   startedAt: "2026-05-23T09:00:01.5Z" },
+  { id: "frn_3", nodeId: "Notify",  nodeType: "function", status: "pending" },
 ];
 
 beforeEach(() => {

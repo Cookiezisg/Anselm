@@ -17,6 +17,7 @@ import (
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	croninfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/cron"
 	fsnotifyinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/fsnotify"
+	pollinginfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/polling"
 	webhookinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/webhook"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -29,6 +30,14 @@ type SchedulerStarter interface {
 	// OnTriggerFired persists a firing (durable, persist-before-act) then drains the inbox via the
 	// single-tx claim (ADR-021). The durable trigger path; StartRun stays for manual / dry-run.
 	OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error
+}
+
+// PollingCursorStore extends ScheduleStore with cursor persistence for polling triggers.
+// Implemented by infra/store/trigger.Store.
+//
+// PollingCursorStore 扩展 ScheduleStore，加 polling cursor 持久化。
+type PollingCursorStore interface {
+	pollinginfra.CursorStore
 }
 
 // ScheduleStore is the port Service uses to persist trigger schedules (lastFiredAt, upsert, failure tracking).
@@ -65,10 +74,13 @@ type Service struct {
 	cron             *croninfra.Listener
 	fsnotify         *fsnotifyinfra.Listener
 	webhook          *webhookinfra.Listener
+	polling          *pollinginfra.Listener
 	specs            map[string]map[string]triggerdomain.Spec
 	scheduler        SchedulerStarter
 	scheduleStore    ScheduleStore
+	pollingCursor    PollingCursorStore
 	workflowDeact    WorkflowDeactivator
+	onFire           func(workflowID, nodeID string, input map[string]any, dedupKey string)
 	log              *zap.Logger
 }
 
@@ -187,11 +199,28 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 			zap.String("nodeID", nodeID))
 	}
 
+	s.onFire = onFire
 	s.cron = croninfra.New(s.log, onFire)
 	s.fsnotify = fsnotifyinfra.New(s.log, onFire)
 	s.webhook = webhookinfra.New(mux, s.log, onFire)
+	// polling is nil until SetPollingCallable is called — polling triggers can only be registered
+	// after a FunctionCaller is wired. A nil polling listener skips polling registrations gracefully.
 	s.cron.Start()
 	return s
+}
+
+// SetPollingCallable wires the function executor and cursor store for polling triggers.
+// Must be called before any KindPolling trigger is registered; no-op if already set.
+//
+// SetPollingCallable 挂载 polling trigger 所需的 function executor 和 cursor store。
+func (s *Service) SetPollingCallable(callable FunctionCaller, cursor PollingCursorStore) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.polling != nil {
+		return // already set
+	}
+	s.pollingCursor = cursor
+	s.polling = pollinginfra.New(callable, cursor, s.log, s.onFire)
 }
 
 // SetScheduler attaches the scheduler after construction to avoid a ctor cycle.
@@ -227,6 +256,11 @@ func (s *Service) RegisterTrigger(spec triggerdomain.Spec) error {
 		err = s.fsnotify.Register(spec)
 	case triggerdomain.KindWebhook:
 		err = s.webhook.Register(spec)
+	case triggerdomain.KindPolling:
+		if s.polling == nil {
+			return fmt.Errorf("triggerapp.RegisterTrigger: polling listener not configured (call SetPollingCallable first)")
+		}
+		err = s.polling.Register(spec)
 	case triggerdomain.KindManual:
 	default:
 		return fmt.Errorf("triggerapp.RegisterTrigger: unknown kind %q", spec.Kind)
@@ -266,6 +300,10 @@ func (s *Service) UnregisterByWorkflow(workflowID string) {
 			s.fsnotify.Unregister(workflowID, nodeID)
 		case triggerdomain.KindWebhook:
 			s.webhook.Unregister(workflowID, nodeID)
+		case triggerdomain.KindPolling:
+			if s.polling != nil {
+				s.polling.Unregister(workflowID, nodeID)
+			}
 		}
 	}
 	delete(s.specs, workflowID)
@@ -288,6 +326,12 @@ func (s *Service) State(workflowID string) []triggerdomain.State {
 			st = s.fsnotify.State(workflowID, nodeID)
 		case triggerdomain.KindWebhook:
 			st = s.webhook.State(workflowID, nodeID)
+		case triggerdomain.KindPolling:
+			if s.polling != nil {
+				if ps := s.polling.State(workflowID, nodeID); ps != nil {
+					st = *ps
+				}
+			}
 		case triggerdomain.KindManual:
 			st = triggerdomain.State{
 				WorkflowID: workflowID, NodeID: nodeID,
@@ -305,6 +349,9 @@ func (s *Service) State(workflowID string) []triggerdomain.State {
 func (s *Service) Shutdown() {
 	s.cron.Stop()
 	s.fsnotify.Stop()
+	if s.polling != nil {
+		s.polling.Stop()
+	}
 }
 
 func kindForNode(s *Service, workflowID, nodeID string) string {
@@ -334,4 +381,12 @@ func (s *Service) FireManual(ctx context.Context, workflowID string, input map[s
 		return "", ErrSchedulerNotAttached
 	}
 	return sched.StartRun(ctx, workflowID, triggerdomain.KindManual, input)
+}
+
+// FunctionCaller is the port for polling-trigger function invocation.
+// Implemented by a thin adapter wrapping app/function.Service in main.go.
+//
+// FunctionCaller 是 polling trigger 调 function 的端口；main.go 中的薄适配器实现。
+type FunctionCaller interface {
+	CallFunction(ctx context.Context, userID, functionID string, args map[string]any) (map[string]any, error)
 }

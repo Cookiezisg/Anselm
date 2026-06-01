@@ -81,8 +81,11 @@ export function useUpdateWorkflow(id: string) {
 // Backend: POST /workflows/{id}:trigger.
 export function useRunWorkflow() {
   return useMutation<unknown, Error, RunWorkflowVars>({
-    mutationFn: ({ id, input }) =>
-      apiFetch(`/workflows/${id}:trigger`, { method: "POST", body: { input: input || {} } }),
+    mutationFn: ({ id, input, triggerNodeId }) =>
+      apiFetch(`/workflows/${id}:trigger`, {
+        method: "POST",
+        body: { input: input || {}, ...(triggerNodeId ? { triggerNodeId } : {}) },
+      }),
   });
 }
 
