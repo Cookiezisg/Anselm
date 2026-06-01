@@ -199,7 +199,9 @@ func (s *Service) dispatchBatch(ctx context.Context, nodes []workflowdomain.Node
 						zap.Any("recover", r))
 				}
 			}()
-			input := buildNodeInput(node, execCtx)
+			// The loop-body subdag path passes an empty input map; data flow between
+			// loop-body nodes is managed through execCtx.Variables (old model).
+			input := map[string]any{}
 			start := time.Now().UTC()
 			out := s.dispatchWithPolicies(ctx, node, input, execCtx)
 			results[idx] = dispatchResult{
@@ -215,9 +217,6 @@ func (s *Service) dispatchBatch(ctx context.Context, nodes []workflowdomain.Node
 	return results
 }
 
-func buildNodeInput(_ workflowdomain.NodeSpec, _ *ExecutionContext) map[string]any {
-	return map[string]any{}
-}
 
 func (s *Service) recordNode(ctx context.Context, run *flowrundomain.FlowRun, res dispatchResult, execCtx *ExecutionContext) {
 	status := flowrundomain.NodeStatusOK

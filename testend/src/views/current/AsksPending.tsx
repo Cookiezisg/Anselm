@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postJSON } from "@/api/devClient";
+import { qk } from "@/hooks/queryKeys";
 import { useConvStore } from "@/stores/conv";
 import { useNotificationsStore } from "@/stores/notifications";
 import { EmptyView, RelTime } from "@/ui";
@@ -23,7 +24,7 @@ export function AsksPending() {
   const answer = useMutation({
     mutationFn: ({ askId, text }: { askId: string; text: string }) =>
       postJSON(`/api/v1/conversations/${activeId}/asks/${askId}:answer`, { answer: text }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications-snapshot"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.notificationsSnap() }),
   });
 
   if (!activeId) return <EmptyView>pick a conversation</EmptyView>;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postJSON, patchJSON, delJSON } from "@/api/devClient";
+import { qk } from "@/hooks/queryKeys";
 import { useUsersStore } from "@/stores/users";
 import { EmptyView, RelTime } from "@/ui";
 import type { User, CreateUserBody } from "@frontend/entities/user/model/types";
@@ -18,7 +19,7 @@ export function Profile() {
 
   const create = useMutation({
     mutationFn: (body: CreateUserBody) => postJSON<User>("/api/v1/users", body),
-    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["users"] }); setShowCreate(false); setCreateForm(defaultCreate); },
+    onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: qk.users() }); setShowCreate(false); setCreateForm(defaultCreate); },
   });
 
   const update = useMutation({

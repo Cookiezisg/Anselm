@@ -63,8 +63,10 @@
         "desc": "fsnotify watch 路径"
       },
       "webhook": {
+        "label": "Webhook",
         "desc": "HTTP POST 入口"
       },
+      "availableBadge": "可用",
       "manual": {
         "label": "手动入口",
         "desc": "从 UI 或 API 触发"

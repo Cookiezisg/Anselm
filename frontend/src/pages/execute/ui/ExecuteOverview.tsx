@@ -56,7 +56,12 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
 
   const filtered = useMemo(() => {
     return flowruns.filter((f) => {
-      if (statusFilter !== "all" && f.status !== statusFilter) return false;
+      // awaiting_signal (canonical) and waiting_approval (legacy) both satisfy the "awaiting_signal" filter key.
+      if (statusFilter !== "all") {
+        const matches = f.status === statusFilter
+          || (statusFilter === "awaiting_signal" && f.status === "waiting_approval");
+        if (!matches) return false;
+      }
       if (q) {
         const ql = q.toLowerCase();
         return (f.workflow || f.workflowId || "").toLowerCase().includes(ql)
@@ -94,7 +99,7 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
           {[
             ["all",              t("overview.statusFilter.all")],
             ["running",          t("overview.statusFilter.running")],
-            ["waiting_approval", t("overview.statusFilter.waitingApproval")],
+            ["awaiting_signal",  t("overview.statusFilter.waitingApproval")],
             ["failed",           t("overview.statusFilter.failed")],
             ["completed",        t("overview.statusFilter.completed")],
           ].map(([k, l]) => (
@@ -112,7 +117,7 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
       </div>
 
       <div className="page-body" style={{ padding: "16px 32px" }}>
-        <KpiStrip total={flowruns.length} running={running.length} waiting={waiting.length} failed={failed.length} success={completed.length} onOpen={() => {}} />
+        <KpiStrip total={flowruns.length} running={running.length} waiting={waiting.length} failed={failed.length} success={completed.length} />
 
         <div className="page-tabs" style={{ marginTop: 22, padding: 0, border: 0 }}>
           {[
@@ -142,7 +147,7 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
   );
 }
 
-function KpiStrip({ total, running, waiting, failed, success }: { total: number; running: number; waiting: number; failed: number; success: number; onOpen?: () => void }) {
+function KpiStrip({ total, running, waiting, failed, success }: { total: number; running: number; waiting: number; failed: number; success: number }) {
   const { t } = useTranslation("execute");
   const rate = total === 0 ? 0 : Math.round((success / total) * 100);
   return (
@@ -313,7 +318,7 @@ function TriggersGrid() {
   const triggers = [
     { kind: "cron",     icon: Icon.Clock,  label: t("overview.triggers.cron.label"),    desc: t("overview.triggers.cron.desc") },
     { kind: "fsnotify", icon: Icon.Folder, label: t("overview.triggers.fsnotify.label"), desc: t("overview.triggers.fsnotify.desc") },
-    { kind: "webhook",  icon: Icon.Globe,  label: "Webhook",                             desc: t("overview.triggers.webhook.desc") },
+    { kind: "webhook",  icon: Icon.Globe,  label: t("overview.triggers.webhook.label", { defaultValue: "Webhook" }), desc: t("overview.triggers.webhook.desc") },
     { kind: "manual",   icon: Icon.Play,   label: t("overview.triggers.manual.label"),   desc: t("overview.triggers.manual.desc") },
   ];
   return (
@@ -333,7 +338,7 @@ function TriggersGrid() {
                 </div>
                 <div className="cell-mono" style={{ fontSize: 12, color: "var(--fg-strong)" }}>{trigger.label}</div>
               </div>
-              <Badge kind="success">available</Badge>
+              <Badge kind="success">{t("overview.triggers.availableBadge", { defaultValue: "available" })}</Badge>
             </div>
             <div className="card-desc">{trigger.desc}</div>
           </div>

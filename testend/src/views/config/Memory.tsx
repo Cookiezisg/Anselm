@@ -25,24 +25,24 @@ export function Memory() {
 
   const create = useMutation({
     mutationFn: (body: CreateMemoryBody) => postJSON("/api/v1/memories", body),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["memories"] }); setShowCreate(false); setCreateForm(emptyCreate); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: qk.memories() }); setShowCreate(false); setCreateForm(emptyCreate); },
   });
 
   const update = useMutation({
     mutationFn: ({ name, patch }: { name: string; patch: UpdateMemoryBody }) =>
       patchJSON(`/api/v1/memories/${encodeURIComponent(name)}`, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.memories() }),
   });
 
   const pin = useMutation({
     mutationFn: ({ name, pinned }: { name: string; pinned: boolean }) =>
       patchJSON(`/api/v1/memories/${encodeURIComponent(name)}`, { pinned }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["memories"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.memories() }),
   });
 
   const del = useMutation({
     mutationFn: (name: string) => delJSON(`/api/v1/memories/${encodeURIComponent(name)}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["memories"] }); if (selected?.name === del.variables) setSelected(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: qk.memories() }); if (selected?.name === del.variables) setSelected(null); },
   });
 
   if (isLoading) return <EmptyView>loading…</EmptyView>;
