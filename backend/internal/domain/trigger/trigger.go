@@ -25,11 +25,12 @@ const (
 //
 // Spec 是从 workflow trigger 节点解出的规范化触发器配置。
 type Spec struct {
-	WorkflowID string         `json:"workflowId"`
-	UserID     string         `json:"userId"` // owner of the workflow; populated at registration so onFire fires with correct ctx
-	NodeID     string         `json:"nodeId"`
-	Kind       string         `json:"kind"`
-	Config     map[string]any `json:"config"`
+	WorkflowID  string         `json:"workflowId"`
+	UserID      string         `json:"userId"` // owner of the workflow; populated at registration so onFire fires with correct ctx
+	NodeID      string         `json:"nodeId"`
+	Kind        string         `json:"kind"`
+	Config      map[string]any `json:"config"`
+	LastFiredAt *time.Time     `json:"lastFiredAt,omitempty"` // seeded from DB on Register for cross-restart catch-up
 }
 
 // State is the runtime state of one registered trigger (powers GET /workflows/{id}/triggers).

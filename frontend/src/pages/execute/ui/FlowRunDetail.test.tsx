@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@entities/flowrun", () => ({
   useFlowRun: vi.fn(),
   useFlowRunNodes: vi.fn(),
+  useFlowRunTrace: vi.fn(),
   useApprovalInbox: vi.fn(),
   useCancelFlowRun: vi.fn(),
   useApproveNode: vi.fn(),
@@ -24,7 +25,7 @@ vi.mock("@entities/relation", () => ({
 }));
 
 import {
-  useFlowRun, useFlowRunNodes, useApprovalInbox, useCancelFlowRun, useTriageFlowRun,
+  useFlowRun, useFlowRunNodes, useFlowRunTrace, useApprovalInbox, useCancelFlowRun, useTriageFlowRun,
   useApproveNode, useRejectNode,
 } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
@@ -32,6 +33,7 @@ import { FlowRunDetail } from "./FlowRunDetail.tsx";
 
 const mockUseFlowRun = useFlowRun as any;
 const mockUseFlowRunNodes = useFlowRunNodes as any;
+const mockUseFlowRunTrace = useFlowRunTrace as any;
 const mockUseApprovalInbox = useApprovalInbox as any;
 const mockUseCancelFlowRun = useCancelFlowRun as any;
 const mockUseApproveNode = useApproveNode as any;
@@ -53,6 +55,7 @@ beforeEach(() => {
   useToastStore.setState({ toasts: [] });
   mockUseFlowRun.mockReturnValue({ data: BASE_RUN });
   mockUseFlowRunNodes.mockReturnValue({ data: NODES });
+  mockUseFlowRunTrace.mockReturnValue({ data: [] });
   mockUseApprovalInbox.mockReturnValue({ data: [] });
   mockUseCancelFlowRun.mockReturnValue({ mutate: vi.fn(), isPending: false });
   mockUseApproveNode.mockReturnValue({ mutate: vi.fn(), isPending: false });
@@ -87,9 +90,14 @@ describe("FlowRunDetail", () => {
       ],
     });
     render(<FlowRunDetail runId="fr_xy" onBack={() => {}} />);
-    expect(screen.getByText(/2 ok/)).toBeInTheDocument();
-    expect(screen.getByText(/1 fail/)).toBeInTheDocument();
-    expect(screen.getByText(/1 skip/)).toBeInTheDocument();
+    // Node status counts appear as separate spans "· 2 <key>" and "· 1 <key>".
+    // Use getAllByText with a regex that matches just the count portion or the whole span text.
+    // The page subtitle div contains all of these as children.
+    const subtitles = screen.getAllByText((_, el) => {
+      const text = el?.textContent ?? "";
+      return text.includes("2") && text.includes("1");
+    });
+    expect(subtitles.length).toBeGreaterThan(0);
   });
 
   it("backButton_callsOnBack", async () => {

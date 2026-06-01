@@ -68,7 +68,8 @@ export function ExecuteOverview({ onOpen }: ExecuteOverviewProps) {
   }, [flowruns, q, statusFilter]);
 
   const running   = flowruns.filter((f) => f.status === "running");
-  const waiting   = flowruns.filter((f) => f.status === "waiting_approval");
+  // awaiting_signal is the canonical durable-execution status; waiting_approval is a legacy alias.
+  const waiting   = flowruns.filter((f) => f.status === "awaiting_signal" || f.status === "waiting_approval");
   const failed    = flowruns.filter((f) => f.status === "failed");
   const completed = flowruns.filter((f) => f.status === "completed");
 
@@ -169,7 +170,7 @@ function ProgressMini({ done, total, status }: { done: number; total: number; st
   const t = total || 1;
   const pct = Math.round((done / t) * 100);
   const color = status === "failed" ? "var(--status-error)"
-    : status === "waiting_approval" ? "var(--status-warn)"
+    : (status === "awaiting_signal" || status === "waiting_approval") ? "var(--status-warn)"
     : status === "running" ? "var(--accent)"
     : "var(--status-success)";
   return (

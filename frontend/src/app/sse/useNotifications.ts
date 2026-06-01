@@ -19,7 +19,9 @@ const TYPE_TO_INVALIDATIONS: Record<string, (id: string) => unknown[]> = {
   function:     (id) => [qk.functions(), qk.function(id), qk.functionVersions(id)],
   handler:      (id) => [qk.handlers(), qk.handler(id), qk.handlerVersions(id), qk.handlerConfig(id)],
   workflow:     (id) => [qk.workflows(), qk.workflow(id), qk.workflowVersions(id)],
-  flowrun:      (id) => [qk.flowruns(), qk.flowrun(id), qk.flowrunNodes(id)],
+  // flowrun ticks also invalidate approvals: when a run starts and parks at an approval node,
+  // the approvals inbox projection is updated — the banner must refresh automatically.
+  flowrun:      (id) => [qk.flowruns(), qk.flowrun(id), qk.flowrunNodes(id), qk.approvals()],
   mcp_server:   () => [qk.mcpServers()],
   skill:        () => [qk.skills()],
   memory:       () => [["memories"]],

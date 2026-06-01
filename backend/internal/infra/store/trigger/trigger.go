@@ -140,6 +140,50 @@ func (s *Store) MarkOutcome(ctx context.Context, firingID, status string) error 
 	return nil
 }
 
+// UpsertSchedule persists a trigger registration (insert-or-update by PK), seeding LastFiredAt so
+// cron can detect missed ticks across process restarts. Called on RegisterTrigger.
+//
+// UpsertSchedule 持久化 trigger 注册(主键 upsert),为 LastFiredAt 种值使 cron 跨重启补漏跑刻度。
+func (s *Store) UpsertSchedule(ctx context.Context, sched *triggerdomain.TriggerSchedule) error {
+	if err := s.db.WithContext(ctx).
+		Where(triggerdomain.TriggerSchedule{WorkflowID: sched.WorkflowID, TriggerNodeID: sched.TriggerNodeID}).
+		Assign(*sched).
+		FirstOrCreate(sched).Error; err != nil {
+		return fmt.Errorf("triggerstore.UpsertSchedule: %w", err)
+	}
+	return nil
+}
+
+// GetSchedule loads a persisted schedule row; returns nil,nil when not found.
+//
+// GetSchedule 加载已持久化的 schedule 行;未找到时返 nil,nil。
+func (s *Store) GetSchedule(ctx context.Context, workflowID, nodeID string) (*triggerdomain.TriggerSchedule, error) {
+	var row triggerdomain.TriggerSchedule
+	err := s.db.WithContext(ctx).
+		Where("workflow_id = ? AND trigger_node_id = ?", workflowID, nodeID).
+		First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("triggerstore.GetSchedule: %w", err)
+	}
+	return &row, nil
+}
+
+// UpdateLastFiredAt stamps the last-fired timestamp so cron can detect missed ticks across restarts.
+//
+// UpdateLastFiredAt 更新 last_fired_at,供 cron 跨重启侦测漏跑刻度。
+func (s *Store) UpdateLastFiredAt(ctx context.Context, workflowID, nodeID string, t time.Time) error {
+	if err := s.db.WithContext(ctx).
+		Model(&triggerdomain.TriggerSchedule{}).
+		Where("workflow_id = ? AND trigger_node_id = ?", workflowID, nodeID).
+		Update("last_fired_at", t).Error; err != nil {
+		return fmt.Errorf("triggerstore.UpdateLastFiredAt: %w", err)
+	}
+	return nil
+}
+
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

@@ -31,17 +31,37 @@ type SchedulerStarter interface {
 	OnTriggerFired(ctx context.Context, firing *triggerdomain.TriggerFiring) error
 }
 
+// ScheduleStore is the port Service uses to persist trigger schedules (lastFiredAt, upsert).
+// Implemented by infra/store/trigger.Store; nil disables persistence (in-memory only, legacy).
+//
+// ScheduleStore 是 Service 持久化 trigger schedule 的端口(lastFiredAt upsert)。nil = 仅内存(旧行为)。
+type ScheduleStore interface {
+	UpsertSchedule(ctx context.Context, sched *triggerdomain.TriggerSchedule) error
+	GetSchedule(ctx context.Context, workflowID, nodeID string) (*triggerdomain.TriggerSchedule, error)
+	UpdateLastFiredAt(ctx context.Context, workflowID, nodeID string, t time.Time) error
+}
+
 // Service is the unified trigger surface.
 //
 // Service 是统一的 trigger 入口。
 type Service struct {
-	mu        sync.RWMutex
-	cron      *croninfra.Listener
-	fsnotify  *fsnotifyinfra.Listener
-	webhook   *webhookinfra.Listener
-	specs     map[string]map[string]triggerdomain.Spec
-	scheduler SchedulerStarter
-	log       *zap.Logger
+	mu            sync.RWMutex
+	cron          *croninfra.Listener
+	fsnotify      *fsnotifyinfra.Listener
+	webhook       *webhookinfra.Listener
+	specs         map[string]map[string]triggerdomain.Spec
+	scheduler     SchedulerStarter
+	scheduleStore ScheduleStore
+	log           *zap.Logger
+}
+
+// SetScheduleStore attaches the schedule store post-construction for cross-restart lastFiredAt.
+//
+// SetScheduleStore 构造后挂 schedule store，供跨重启 lastFiredAt 持久化。
+func (s *Service) SetScheduleStore(ss ScheduleStore) {
+	s.mu.Lock()
+	s.scheduleStore = ss
+	s.mu.Unlock()
 }
 
 // New constructs Service; scheduler may be nil and attached later via SetScheduler.
@@ -106,6 +126,18 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 				zap.Error(err))
 			return
 		}
+		// Persist lastFiredAt so cron can detect missed ticks across process restarts.
+		// Best-effort: a store failure only costs the cross-restart catch-up, not the firing itself.
+		s.mu.RLock()
+		ss := s.scheduleStore
+		s.mu.RUnlock()
+		if ss != nil {
+			now := time.Now().UTC()
+			if uErr := ss.UpdateLastFiredAt(context.Background(), workflowID, nodeID, now); uErr != nil {
+				s.log.Warn("trigger: UpdateLastFiredAt failed (cross-restart catch-up may miss this tick)",
+					zap.String("workflowID", workflowID), zap.String("nodeID", nodeID), zap.Error(uErr))
+			}
+		}
 		s.log.Info("trigger fired (durable)",
 			zap.String("workflowID", workflowID),
 			zap.String("nodeID", nodeID))
@@ -134,10 +166,19 @@ func (s *Service) RegisterTrigger(spec triggerdomain.Spec) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Seed cron.lastFire from the persisted TriggerSchedule.LastFiredAt so missed-tick catch-up
+	// survives process restarts. We do this BEFORE Register() so the loaded lastFire is in place
+	// when the cron listener checks it during registration.
+	if spec.Kind == triggerdomain.KindCron && s.scheduleStore != nil {
+		if row, gErr := s.scheduleStore.GetSchedule(context.Background(), spec.WorkflowID, spec.NodeID); gErr == nil && row != nil && row.LastFiredAt != nil {
+			spec.LastFiredAt = row.LastFiredAt
+		}
+	}
+
 	var err error
 	switch spec.Kind {
 	case triggerdomain.KindCron:
-		err = s.cron.Register(spec)
+		err = s.cron.RegisterWithLastFire(spec)
 	case triggerdomain.KindFsnotify:
 		err = s.fsnotify.Register(spec)
 	case triggerdomain.KindWebhook:
@@ -145,6 +186,19 @@ func (s *Service) RegisterTrigger(spec triggerdomain.Spec) error {
 	case triggerdomain.KindManual:
 	default:
 		return fmt.Errorf("triggerapp.RegisterTrigger: unknown kind %q", spec.Kind)
+	}
+
+	// Persist schedule registration (upsert idempotent). Best-effort.
+	if s.scheduleStore != nil && err == nil {
+		row := &triggerdomain.TriggerSchedule{
+			WorkflowID:    spec.WorkflowID,
+			TriggerNodeID: spec.NodeID,
+			Kind:          spec.Kind,
+			Spec:          spec.Config,
+		}
+		if uErr := s.scheduleStore.UpsertSchedule(context.Background(), row); uErr != nil {
+			s.log.Warn("trigger: UpsertSchedule failed (non-fatal)", zap.Error(uErr))
+		}
 	}
 
 	if s.specs[spec.WorkflowID] == nil {

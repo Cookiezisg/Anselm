@@ -56,6 +56,22 @@ func New(log *zap.Logger, onFire OnFireFunc) *Listener {
 	}
 }
 
+// RegisterWithLastFire is like Register but seeds the in-memory lastFire map from spec.LastFiredAt
+// (loaded from TriggerSchedule DB row by the app layer). This enables cross-restart missed-tick
+// catch-up: after a process crash the cron listener knows when it last fired and can re-materialize
+// any missed ticks.
+//
+// RegisterWithLastFire 等同 Register 但从 spec.LastFiredAt 种内存 lastFire,实现跨重启补漏跑。
+func (l *Listener) RegisterWithLastFire(spec triggerdomain.Spec) error {
+	if spec.LastFiredAt != nil {
+		key := spec.WorkflowID + "/" + spec.NodeID
+		l.mu.Lock()
+		l.lastFire[key] = *spec.LastFiredAt
+		l.mu.Unlock()
+	}
+	return l.Register(spec)
+}
+
 // Register adds or replaces a cron entry; missed runs fire one catch-up.
 //
 // Register 增加或替换一个 cron entry；漏跑过的会立即补一次。

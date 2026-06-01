@@ -552,6 +552,7 @@ func main() {
 	schedulerService.SetApprovals(approvalStore)
 	schedulerService.SetFiringInbox(triggerStore)
 	triggerService.SetScheduler(schedulerService)
+	triggerService.SetScheduleStore(triggerStore)
 
 	router := schedulerapp.NewRouter()
 	router.Set(workflowdomain.NodeTypeTrigger, schedulerapp.NewTriggerDispatcher())
@@ -588,6 +589,10 @@ func main() {
 	} else {
 		log.Warn("rehydrate: skipped (user list failed)", zap.Error(err))
 	}
+
+	// Durable timer: approval expiry checker scans for timed-out approval nodes and auto-decides them.
+	// Cancels on process shutdown via the same context used for Drain.
+	schedulerService.StartExpiryChecker(context.Background())
 
 	tools = append(tools, workflowtool.WorkflowExecutionTools(flowrunRepo)...)
 	tools = append(tools, workflowtool.WorkflowTriggerTool(schedulerService)...)

@@ -21,6 +21,8 @@ type ApprovalRepository interface {
 	CancelParked(ctx context.Context, flowrunID string) error
 	// ListParked returns the ctx user's currently-parked approvals (frontend inbox).
 	ListParked(ctx context.Context) ([]*Approval, error)
+	// ListExpired returns parked approvals whose Deadline is non-nil and in the past (expiry checker).
+	ListExpired(ctx context.Context) ([]*Approval, error)
 }
 
 const (
@@ -34,8 +36,9 @@ const (
 
 // Approval is the durable parked state of an approval node (17 §1/§9). The decision
 // itself is journaled as a signal_received event; this row carries the audit trail.
+// Deadline enables the expiry checker to auto-decide without re-scanning the journal.
 //
-// Approval 是 approval 节点的 durable 挂起态;决策本身是 journal 的 signal_received 事件。
+// Approval 是 approval 节点的 durable 挂起态;Deadline 供到期检查器自动决策。
 type Approval struct {
 	ID          string         `gorm:"primaryKey;type:text" json:"id"`
 	UserID      string         `gorm:"not null;type:text;index" json:"userId"`
@@ -45,11 +48,16 @@ type Approval struct {
 	Payload     any            `gorm:"serializer:json;type:text" json:"payload,omitempty"`
 	Status      string         `gorm:"not null;check:status IN ('parked','approved','rejected','timed_out','failed','cancelled');type:text" json:"status"`
 	AllowReason bool           `gorm:"not null;default:false" json:"allowReason"`
-	Reason      string         `gorm:"type:text;default:''" json:"reason,omitempty"`
-	DecidedAt   *time.Time     `json:"decidedAt,omitempty"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	// TimeoutBehavior controls what the expiry checker does when Deadline is past:
+	// "reject" → rejected (no port), "approve" → approved (yes port), "fail" → flowrun failed.
+	// Empty means no timeout.
+	TimeoutBehavior string         `gorm:"type:text;default:''" json:"timeoutBehavior,omitempty"`
+	Deadline        *time.Time     `gorm:"index" json:"deadline,omitempty"` // non-nil = expiry checker watches this row
+	Reason          string         `gorm:"type:text;default:''" json:"reason,omitempty"`
+	DecidedAt       *time.Time     `json:"decidedAt,omitempty"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	UpdatedAt       time.Time      `json:"updatedAt"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (Approval) TableName() string { return "approvals" }

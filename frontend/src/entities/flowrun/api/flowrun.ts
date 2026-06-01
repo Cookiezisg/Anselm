@@ -104,3 +104,33 @@ export function useTriageFlowRun() {
     mutationFn: (id) => apiFetch(`/flowruns/${id}:triage`, { method: "POST" }),
   });
 }
+
+// useFlowRunTrace — GET /flowruns/{id}/trace?nodeId=X projects the flowrun journal (durable truth)
+// for the orchestration UI's per-node inline diagnostic (08 §6). nodeId="" returns the whole run;
+// nodeId set filters to one node (loop iterations stay distinguishable via iterationKey).
+// Read-only — never touches the running engine. Reconnect full-pull (CANON-X4).
+//
+// useFlowRunTrace 读 flowrun journal 投影(08 §6 trace API);nodeId 过滤单节点；loop 多轮按 iterationKey 区分。
+// TraceEntry shape (mirrors backend schedulerapp.TraceEntry JSON).
+export interface TraceEntry {
+  seq: number;
+  type: string;
+  nodeId: string;
+  iterationKey: number;
+  generation: number;
+  turn?: number;
+  result?: Record<string, unknown>;
+  at: string;
+}
+
+export function useFlowRunTrace(runId: string, nodeId?: string) {
+  const qs = nodeId ? `?nodeId=${encodeURIComponent(nodeId)}` : "";
+  return useQuery<TraceEntry[]>({
+    queryKey: [...qk.flowrun(runId), "trace", nodeId ?? ""],
+    queryFn: () => apiFetch(`/flowruns/${runId}/trace${qs}`),
+    select: pickList<TraceEntry>,
+    enabled: !!runId,
+    // Stale after 10s — read-only journal projection; re-fetch on focus to stay fresh.
+    staleTime: 10_000,
+  });
+}

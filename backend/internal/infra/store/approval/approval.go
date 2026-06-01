@@ -105,3 +105,18 @@ func (s *Store) ListParked(ctx context.Context) ([]*flowrundomain.Approval, erro
 	}
 	return out, nil
 }
+
+// ListExpired returns all parked approvals whose deadline is non-nil and past. Used by the expiry
+// checker goroutine in the scheduler to auto-decide approval nodes whose timeout elapsed.
+//
+// ListExpired 返所有 deadline 非 nil 且已过期的 parked approval,供 scheduler 到期检查器自动决策。
+func (s *Store) ListExpired(ctx context.Context) ([]*flowrundomain.Approval, error) {
+	now := time.Now().UTC()
+	var out []*flowrundomain.Approval
+	if err := s.db.WithContext(ctx).
+		Where("status = ? AND deadline IS NOT NULL AND deadline < ?", flowrundomain.ApprovalParked, now).
+		Order("deadline asc").Find(&out).Error; err != nil {
+		return nil, fmt.Errorf("approvalstore.ListExpired: %w", err)
+	}
+	return out, nil
+}

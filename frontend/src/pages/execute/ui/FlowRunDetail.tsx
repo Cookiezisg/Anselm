@@ -16,8 +16,8 @@ import { BottomSheet } from "@shared/ui/BottomSheet.tsx";
 import { ApprovalBanner } from "./ApprovalBanner.tsx";
 import type { FlowRun, FlowRunNode, FlowRunStatus, FlowRunNodeStatus } from "@entities/flowrun";
 import {
-  useFlowRun, useFlowRunNodes, useCancelFlowRun, useApproveNode,
-  useRejectNode, useTriageFlowRun,
+  useFlowRun, useFlowRunNodes, useFlowRunTrace, useCancelFlowRun, useApproveNode,
+  useRejectNode, useTriageFlowRun, type TraceEntry,
 } from "@entities/flowrun";
 import { useToastStore } from "@shared/ui/toastStore";
 
@@ -25,6 +25,8 @@ const STATUS_KIND: Record<string, string> = {
   running: "streaming",
   completed: "success",
   failed: "error",
+  // awaiting_signal is the canonical durable-execution status; waiting_approval is a legacy alias.
+  awaiting_signal: "warn",
   waiting_approval: "warn",
   paused: "info",
   cancelled: "muted",
@@ -52,9 +54,12 @@ interface FlowRunRuntime extends FlowRun {
   trigger?: string;
 }
 
+
 function StatusBadge({ status }: { status: FlowRunStatus | string }) {
   const { t } = useTranslation("execute");
-  const label = t(`status.${status === "waiting_approval" ? "waitingApproval" : status}`, status);
+  // awaiting_signal and waiting_approval both map to the same i18n key.
+  const key = (status === "waiting_approval" || status === "awaiting_signal") ? "waitingApproval" : status;
+  const label = t(`status.${key}`, { defaultValue: status });
   const kind = (STATUS_KIND[status] ?? "muted") as "success" | "error" | "warn" | "info" | "streaming" | "muted";
   return <Badge kind={kind}>{label}</Badge>;
 }
@@ -124,9 +129,9 @@ export function FlowRunDetail({ runId, onBack, onOpenChat }: FlowRunDetailProps)
             <span>
               {t("detail.triggeredBy")} <code style={{ fontFamily: "var(--font-mono)" }}>{frAny.trigger || frAny.triggerKind || "?"}</code> · <RelTime ts={frAny.startedAt} />
             </span>
-            <span style={{ color: "var(--status-success)" }}> · {okCount} ok</span>
-            {failCount > 0 && <span style={{ color: "var(--status-error)" }}> · {failCount} fail</span>}
-            {skipCount > 0 && <span style={{ color: "var(--fg-faint)" }}> · {skipCount} skip</span>}
+            <span style={{ color: "var(--status-success)" }}> · {okCount} {t("detail.nodeStatus.ok")}</span>
+            {failCount > 0 && <span style={{ color: "var(--status-error)" }}> · {failCount} {t("detail.nodeStatus.fail")}</span>}
+            {skipCount > 0 && <span style={{ color: "var(--fg-faint)" }}> · {skipCount} {t("detail.nodeStatus.skip")}</span>}
             <EntityRelMeta entityId={fr.id} kind="flowrun" />
           </div>
         </div>
@@ -228,6 +233,9 @@ function FlowRunDag({ nodes, selected, onSelect }: { nodes: NodeRuntime[]; selec
 
 function NodeInspectorBody({ node, fr }: { node: NodeRuntime; fr: FlowRunRuntime }) {
   const { t } = useTranslation("execute");
+  const [activeTab, setActiveTab] = useState<"io" | "trace">("io");
+  const { data: traceEntries = [] } = useFlowRunTrace(fr.id, node.id);
+
   return (
     <div className="fr-inspector-content">
       <div className="fr-inspector-meta-row">
@@ -236,39 +244,77 @@ function NodeInspectorBody({ node, fr }: { node: NodeRuntime; fr: FlowRunRuntime
         {node.durationMs != null && <span className="cell-mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>{fmtDuration(node.durationMs)}</span>}
         {node.error && <span className="fr-inspector-error">{node.error}</span>}
       </div>
-      <div className="fr-inspector-body">
-        {node.input != null && (
-          <div className="fr-section">
-            <div className="fr-section-label">Input</div>
-            <pre className="code-block" style={{ fontSize: 11 }}>{prettyJSON(node.input)}</pre>
-          </div>
-        )}
-        {node.output != null && (
-          <div className="fr-section">
-            <div className="fr-section-label">Output</div>
-            <pre className="code-block" style={{ fontSize: 11 }}>{prettyJSON(node.output)}</pre>
-          </div>
-        )}
-        {Array.isArray(node.log) && node.log.length > 0 && (
-          <div className="fr-section">
-            <div className="fr-section-label">Log</div>
-            <div className="fr-log">
-              {node.log.map((l, i) => (
-                <div key={i} className={"fr-log-row level-" + (l.level || "info")}>
-                  <span className="fr-log-time">{l.time}</span>
-                  <span className="fr-log-level">{l.level || "info"}</span>
-                  <span className="fr-log-msg">{l.msg}</span>
+      <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+        {(["io", "trace"] as const).map((tab) => (
+          <button
+            key={tab}
+            className={"tab-btn" + (activeTab === tab ? " is-active" : "")}
+            onClick={() => setActiveTab(tab)}
+            style={{ padding: "2px 10px", fontSize: 11, borderRadius: 3, border: "1px solid var(--border)", background: activeTab === tab ? "var(--accent)" : "transparent", color: activeTab === tab ? "#fff" : "var(--fg)", cursor: "pointer" }}
+          >
+            {t(`detail.inspector.tab.${tab}`, { defaultValue: tab === "io" ? "I/O" : "Trace" })}
+          </button>
+        ))}
+      </div>
+      {activeTab === "io" ? (
+        <div className="fr-inspector-body">
+          {node.input != null && (
+            <div className="fr-section">
+              <div className="fr-section-label">{t("detail.inspector.inputLabel", { defaultValue: "Input" })}</div>
+              <pre className="code-block" style={{ fontSize: 11 }}>{prettyJSON(node.input)}</pre>
+            </div>
+          )}
+          {node.output != null && (
+            <div className="fr-section">
+              <div className="fr-section-label">{t("detail.inspector.outputLabel", { defaultValue: "Output" })}</div>
+              <pre className="code-block" style={{ fontSize: 11 }}>{prettyJSON(node.output)}</pre>
+            </div>
+          )}
+          {Array.isArray(node.log) && node.log.length > 0 && (
+            <div className="fr-section">
+              <div className="fr-section-label">{t("detail.inspector.logLabel", { defaultValue: "Log" })}</div>
+              <div className="fr-log">
+                {node.log.map((l, i) => (
+                  <div key={i} className={"fr-log-row level-" + (l.level || "info")}>
+                    <span className="fr-log-time">{l.time}</span>
+                    <span className="fr-log-level">{l.level || "info"}</span>
+                    <span className="fr-log-msg">{l.msg}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {node.input == null && node.output == null && (!node.log || node.log.length === 0) && (
+            <div className="empty" style={{ padding: 20 }}>
+              <div className="sub" style={{ color: "var(--fg-faint)" }}>{t("detail.inspector.empty")}</div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="fr-inspector-body">
+          {traceEntries.length === 0 ? (
+            <div className="empty" style={{ padding: 20 }}>
+              <div className="sub" style={{ color: "var(--fg-faint)" }}>{t("detail.inspector.traceEmpty", { defaultValue: "No journal entries for this node yet." })}</div>
+            </div>
+          ) : (
+            <div className="fr-trace">
+              {traceEntries.map((e) => (
+                <div key={e.seq} className="fr-trace-row" style={{ marginBottom: 6, fontSize: 11 }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 2 }}>
+                    <span className="cell-mono" style={{ color: "var(--fg-faint)" }}>#{e.seq}</span>
+                    <span className="kind-chip" style={{ fontSize: 10 }}>{e.type}</span>
+                    {e.iterationKey > 0 && <span style={{ color: "var(--fg-muted)" }}>{t("detail.inspector.traceIter", { count: e.iterationKey, defaultValue: "iter {{count}}" })}</span>}
+                    <span style={{ color: "var(--fg-faint)", marginLeft: "auto" }}>{new Date(e.at).toLocaleTimeString()}</span>
+                  </div>
+                  {e.result != null && (
+                    <pre className="code-block" style={{ fontSize: 10, marginTop: 2 }}>{prettyJSON(e.result)}</pre>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
-        )}
-        {node.input == null && node.output == null && (!node.log || node.log.length === 0) && (
-          <div className="empty" style={{ padding: 20 }}>
-            <div className="sub" style={{ color: "var(--fg-faint)" }}>{t("detail.inspector.empty")}</div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

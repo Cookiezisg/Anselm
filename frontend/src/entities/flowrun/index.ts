@@ -2,12 +2,14 @@ export {
   useFlowRuns,
   useFlowRun,
   useFlowRunNodes,
+  useFlowRunTrace,
   useApprovalInbox,
   useCancelFlowRun,
   useApproveNode,
   useRejectNode,
   useTriageFlowRun,
 } from "./api/flowrun";
+export type { TraceEntry } from "./api/flowrun";
 export type {
   FlowRun,
   FlowRunNode,

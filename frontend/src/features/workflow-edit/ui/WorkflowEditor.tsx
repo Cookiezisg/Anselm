@@ -1,13 +1,13 @@
 // WorkflowEditor — editable DAG canvas for the current workflow version.
 //
-//   - Left palette (13 node kinds) with drag-to-canvas + click-to-add
+//   - Left palette (5 node kinds: trigger/agent/tool/case/approval) with drag-to-canvas + click-to-add
 //   - Pan / zoom / fit-to-content / auto-layout (vertical | horizontal)
 //   - Drag nodes; 4-handle (top/right/bottom/left) connect-to-create-edge
 //   - Right inspector for the selected node (label, config json, retry/timeout)
 //   - 2s debounced autosave: diff vs original → ops → POST /workflows/{id}:edit
 //     (creates/iterates a pending version that user can later Accept)
 //
-// WorkflowEditor —— 当前版本的可编辑 DAG。13 种节点 palette，拖入/点入；4 个
+// WorkflowEditor —— 当前版本的可编辑 DAG。5 种节点 palette（trigger/agent/tool/case/approval），拖入/点入；4 个
 // 连接 handle；自动布局；2s 防抖 autosave 经 :edit 产 pending 版本，等用户
 // Accept 才落到 active。
 
@@ -33,21 +33,16 @@ type HandleKey = "top" | "right" | "bottom" | "left";
 const NODE_W = 184;
 const NODE_H = 76;
 
+// 5-node palette per revamp design (08-orchestration-ui). "tool" creates a function node by
+// default with a callable-type selector in the inspector; "case" creates a condition node.
+// Existing workflows with old kinds (function/handler/mcp/llm/condition/loop etc.) still render
+// correctly — the iconFor/inspector functions cover all legacy kinds for backwards compat.
 const NODE_KINDS = [
-  { kind: "trigger",   label: "Trigger",   icon: "Zap",      desc: "Cron / Webhook / Manual" },
-  { kind: "function",  label: "Function",  icon: "Code",     desc: "纯函数 · 沙箱执行" },
-  { kind: "handler",   label: "Handler",   icon: "Server",   desc: "Stateful 类调用" },
-  { kind: "mcp",       label: "MCP Tool",  icon: "Server",   desc: "调 MCP server" },
-  { kind: "skill",     label: "Skill",     icon: "Sparkles", desc: "SKILL.md 模板" },
-  { kind: "llm",       label: "LLM",       icon: "Brain",    desc: "纯 LLM 节点" },
-  { kind: "agent",     label: "Agent",     icon: "Bot",      desc: "Sub-agent 调用" },
-  { kind: "http",      label: "HTTP",      icon: "Globe",    desc: "外部 API" },
-  { kind: "condition", label: "Condition", icon: "GitBranch",desc: "分支判断" },
-  { kind: "loop",      label: "Loop",      icon: "Refresh",  desc: "迭代" },
-  { kind: "parallel",  label: "Parallel",  icon: "Layers",   desc: "并行 fan-out" },
-  { kind: "approval",  label: "Approval",  icon: "Pause",    desc: "等待人工" },
-  { kind: "wait",      label: "Wait",      icon: "Clock",    desc: "定时延迟" },
-  { kind: "variable",  label: "Variable",  icon: "Database", desc: "读写变量" },
+  { kind: "trigger",  label: "Trigger",  icon: "Zap",       desc: "Cron / Webhook / Manual", backendKind: "trigger" },
+  { kind: "agent",    label: "Agent",    icon: "Bot",        desc: "LLM 节点(prompt + tools)",  backendKind: "agent" },
+  { kind: "tool",     label: "Tool",     icon: "Code",       desc: "调 forge callable (function / handler / mcp)", backendKind: "function" },
+  { kind: "case",     label: "Case",     icon: "GitBranch",  desc: "switch 路由 + 回边形成 loop", backendKind: "condition" },
+  { kind: "approval", label: "Approval", icon: "Pause",      desc: "等待人工 yes/no",           backendKind: "approval" },
 ];
 
 const HANDLES = ["top", "right", "bottom", "left"];
@@ -152,8 +147,8 @@ function Palette({ onAdd, onCollapse }: { onAdd: (kind: string) => void; onColla
               key={k.kind}
               className="wf-palette-item"
               draggable
-              onDragStart={(e) => e.dataTransfer.setData("kind", k.kind)}
-              onClick={() => onAdd(k.kind)}
+              onDragStart={(e) => e.dataTransfer.setData("kind", k.backendKind ?? k.kind)}
+              onClick={() => onAdd(k.backendKind ?? k.kind)}
               title={desc}
             >
               <div className="wf-palette-icon"><Ic /></div>

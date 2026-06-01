@@ -91,13 +91,27 @@
       "triageSuccess": "AI triage conversation started",
       "triageFail": "Triage failed"
     },
+    "nodeStatus": {
+      "ok": "ok",
+      "fail": "fail",
+      "skip": "skip"
+    },
     "dag": {
       "empty": "No node data",
       "nodeRunning": "Running…",
       "nodeWaiting": "Waiting"
     },
     "inspector": {
-      "empty": "No input/output/log (skipped or not yet run)"
+      "empty": "No input/output/log (skipped or not yet run)",
+      "tab": {
+        "io": "I/O",
+        "trace": "Journal"
+      },
+      "inputLabel": "Input",
+      "outputLabel": "Output",
+      "logLabel": "Log",
+      "traceEmpty": "No journal entries for this node yet",
+      "traceIter": "iter {{count}}"
     },
     "gantt": {
       "title": "Timeline",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -240,8 +241,28 @@ func (in *Interpreter) walk(ctx context.Context, flowrunID string, g workflowdom
 					if in.approvals != nil {
 						prompt, _ := spec.Config["prompt"].(string)
 						allowReason, _ := spec.Config["allowReason"].(bool)
+						// Durable timer: if the approval has a timeout, compute the absolute deadline and
+						// store it on the projection row so the expiry checker can auto-decide without
+						// rescanning the journal. The journal signal_awaited carries the ground truth.
+						var deadline *time.Time
+						var timeoutBehavior string
+						if tsec, ok := spec.Config["timeoutSec"].(float64); ok && tsec > 0 {
+							dl := time.Now().UTC().Add(time.Duration(tsec) * time.Second)
+							deadline = &dl
+						} else if tsecInt, ok := spec.Config["timeoutSec"].(int); ok && tsecInt > 0 {
+							dl := time.Now().UTC().Add(time.Duration(tsecInt) * time.Second)
+							deadline = &dl
+						}
+						if deadline != nil {
+							if tb, ok := spec.Config["timeoutBehavior"].(string); ok {
+								timeoutBehavior = tb
+							} else {
+								timeoutBehavior = "reject" // default: timeout → rejected → no port
+							}
+						}
 						if pErr := in.approvals.Park(ctx, &flowrundomain.Approval{
-							FlowrunID: flowrunID, NodeID: it.node, Prompt: prompt, AllowReason: allowReason, Payload: it.payload,
+							FlowrunID: flowrunID, NodeID: it.node, Prompt: prompt, AllowReason: allowReason,
+							Payload: it.payload, Deadline: deadline, TimeoutBehavior: timeoutBehavior,
 						}); pErr != nil {
 							return false, fmt.Errorf("scheduler.approval %s park-row: %w", it.node, pErr)
 						}
