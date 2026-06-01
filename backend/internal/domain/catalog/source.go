@@ -32,6 +32,15 @@ type Item struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Category    string `json:"category,omitempty"`
+	// Kind is the entity subtype (e.g. "normal"|"polling" for functions).
+	// Populated by sources that have subtypes; empty when not applicable.
+	// doc 11 §S4: lets the LLM know a function is a polling function, which
+	// changes how it should be wired (poll(cursor) contract, not simple args).
+	Kind string `json:"kind,omitempty"`
+	// Active is true when the entity is live/enabled (e.g. workflow.active=true).
+	// Inactive entities are shown with [INACTIVE] prefix in the catalog menu.
+	// doc 11 §S4: lets the LLM avoid referencing deactivated workflows.
+	Active *bool `json:"active,omitempty"`
 }
 
 // CatalogSource is what every capability provider implements to join the catalog.

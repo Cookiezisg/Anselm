@@ -70,7 +70,7 @@ audience: [human, ai]
 
 **实际代码：** 完全未实现。没有日志大小检查，没有续期机制，没有归档逻辑。
 
-#### ❌-3 🟡 旧 text/template 引擎未完全退役
+#### ✅-3(partial) 🟡 dispatch_condition.go 已迁移到 CEL（subdag 的 {{ .loop.item }} 待 14→5 折叠时处理）
 
 **设计要求（doc 00 §"表达式语言"段）：**
 > Go text/template 作为语言整个退役（无 if/range/funcMap 控制流）；整个 workflow 平台只有一套表达式语言 = CEL。
@@ -342,7 +342,7 @@ grep -rn "agents\|ag_xxx\|agentRef" domain/       → 0 results（domain 层）
 - search/get/call MCP 全套 ✅
 - trigger_workflow ✅
 
-#### ❌-19 🔴 `capability_check_workflow` 工具（LLM 可调用版本）未实现
+#### ✅-19 🔴 `capability_check_workflow` 工具（LLM 可调用版本）未实现
 
 **设计要求（doc 10 + doc 13 §1-E）：**
 > `capability_check_workflow(id)` 作为 LLM 工具：
@@ -459,7 +459,7 @@ System: "You are a workflow agent. Use available tools as needed; respond concis
 - D: case fail-to-false（G9）✅
 - E: capability_check 后端真查 ref ✅
 
-#### ❌-28 🔴 JSON-repair（§1-C）
+#### ✅-28 🔴 JSON-repair（§1-C）
 
 **设计要求：**
 > 后端解析 tool 参数前跑 JSON-repair——容忍多行字面控制字符 + 括号配平。deepseek ~4-8%（复杂 agent ~17%）吐畸形 JSON，Go 默认拒；repair 恢复 100%。
@@ -469,7 +469,7 @@ System: "You are a workflow agent. Use available tools as needed; respond concis
 json.Unmarshal([]byte(argsJSON), &args)  // 直接拒，无修复
 ```
 
-#### ❌-29 🔴 ops/node.config 形状未 pin 在 schema 里（§1-B）
+#### ✅-29 🔴 ops/node.config 形状未 pin 在 schema 里（§1-B）
 
 **设计要求（实测数据）：**
 
@@ -487,7 +487,7 @@ json.Unmarshal([]byte(argsJSON), &args)  // 直接拒，无修复
 {"type": "array", "items": {"type": "object"}}
 ```
 
-#### ❌-30 🔴 系统 prompt 缺 critical rules 6 条（§2）
+#### ✅-30 🔴 系统 prompt 缺 critical rules 6 条（§2）
 
 **设计要求（殿后，deepseek 对 prompt 末尾遵守度最高）：**
 
@@ -502,7 +502,7 @@ json.Unmarshal([]byte(argsJSON), &args)  // 直接拒，无修复
 
 **实际代码（runner.go）：** `howToWorkSection` 有部分原则，但上述 6 条 critical rules 完全缺失。没有"殿后"段。
 
-#### ❌-31 🟡 系统 prompt 缺 gold 示例 + 架构决策守则
+#### ✅-31 🟡 系统 prompt 缺 gold 示例 + 架构决策守则
 
 **设计要求（§4.5）：**
 > - 1 个 gold 示例（完整正确 workflow，进 system prompt）→ +11pt
@@ -510,14 +510,14 @@ json.Unmarshal([]byte(argsJSON), &args)  // 直接拒，无修复
 
 **实际代码：** 两者均未加入系统 prompt。
 
-#### ❌-32 🟡 错误 envelope 无 `next_step` 字段
+#### ✅-32 🟡 错误 envelope 无 `next_step` 字段
 
 **设计要求（§1-E / doc 15 §F）：**
 > 工具出错时 envelope 带 `next_step`（具体下一步），让模型能自纠（有 next_step 模型自纠 3/3，裸 prose 乱试）。
 
 **实际代码：** 所有工具出错返回裸 error string，无 `next_step`。
 
-#### ❌-33 🟡 create_function 缺 polling 教学
+#### ✅-33 🟡 create_function 缺 polling 教学
 
 **设计要求：**
 > 描述加：*"kind=polling 的函数 `poll(last_cursor) → {events, next_cursor}`，只 emit 比 cursor 新的、cursor 前进、不重复、首次 last_cursor=None 要处理"*
@@ -593,11 +593,11 @@ polling 教学完全缺失。
 | # | Gap | 对应文档 | 影响 |
 |---|---|---|---|
 | ❌-18 | Agent 一等锻造实体完全缺失（DB/CRUD/11工具/agentRef引用） | doc 09 | Quadrinity 只有三元；无法 forge agent；workflow agent 节点无法引用受版本管理的实体 |
-| ❌-19 | capability_check_workflow 工具（LLM 可调用版）未实现 | doc 13 §1-E | LLM 创建 workflow 后无法校验；端到端实测 23/24 接对依赖此校验 |
+| ✅-19 | capability_check_workflow 工具（LLM 可调用版）未实现 | doc 13 §1-E | LLM 创建 workflow 后无法校验；端到端实测 23/24 接对依赖此校验 |
 | ❌-20 | 11 个 agent AI 工具全部缺失 | doc 10 | — |
-| ❌-28 | JSON-repair 未实现 | doc 13 §1-C | 复杂 workflow forge 时 4-8% 工具调用失败 |
-| ❌-29 | ops/node.config 形状未 pin | doc 15 §E | trigger cron 73%放错字段；set_output_schema 0% 正确 |
-| ❌-30 | 系统 prompt critical rules 6 条缺失（殿后） | doc 13 §2 | 不可能能力禁令 17→95；可满足性检查 0→85 |
+| ✅-28 | JSON-repair 未实现 | doc 13 §1-C | 复杂 workflow forge 时 4-8% 工具调用失败 |
+| ✅-29 | ops/node.config 形状未 pin | doc 15 §E | trigger cron 73%放错字段；set_output_schema 0% 正确 |
+| ✅-30 | 系统 prompt critical rules 6 条缺失（殿后） | doc 13 §2 | 不可能能力禁令 17→95；可满足性检查 0→85 |
 | ❌-22 | forge SSE 缺 agent/document/skill kind | doc 11 §S2 | 右栏 subpage 无法流式呈现 |
 | ❌-4  | polling 触发器完全未实现 | doc 01 | SaaS 集成无法无 webhook 对接 |
 | ❌-7  | agentRef 字段未实现（agent 节点内嵌非引用） | doc 02 | — |
@@ -614,8 +614,8 @@ polling 教学完全缺失。
 | ❌-23 | ForgeOpApplied 事件从未真正 emit | doc 11 §S2 |
 | ❌-24 | Relations 缺 6 种 agent 新边类型 | doc 11 §S3 |
 | ❌-27 | agent 系统 prompt 独立装配链未实现 | doc 09/11 |
-| ❌-31 | 系统 prompt 缺 gold 示例（+11pt）+ 架构守则（+10pt） | doc 13 §4.5 |
-| ❌-32 | 错误 envelope 无 next_step 字段 | doc 13 §1-E |
+| ✅-31 | 系统 prompt 缺 gold 示例（+11pt）+ 架构守则（+10pt） | doc 13 §4.5 |
+| ✅-32 | 错误 envelope 无 next_step 字段 | doc 13 §1-E |
 | ❌-1  | durable timer gate（at?/after?）未实现 | doc 00 |
 
 ### 🟢 MEDIUM — 应改但不阻断
@@ -634,7 +634,7 @@ polling 教学完全缺失。
 | ❌-21 | list_failed_steps/replay_flowrun 未作为 LLM 工具暴露 | doc 10 |
 | ❌-25 | Catalog Item 缺 Kind/Active 字段 | doc 11 §S4 |
 | ❌-26 | 自动激活未激活工具组未实现 | doc 11/13 |
-| ❌-33 | create_function 缺 polling 教学 | doc 13 |
+| ✅-33 | create_function 缺 polling 教学 | doc 13 |
 | ❌-34 | create_agent 工具描述（随 ❌-18 一并实现）| doc 15 §A |
 | ❌-35 | WP11 隐式终止未落注释/文档 | doc 16 |
 | ❌-36 | WP19/20 取消粒度语义未规约 | doc 16 |

@@ -25,6 +25,8 @@ type CreateInput struct {
 	Ops             []Op
 	ChangeReason    string
 	ProgressBlockID string
+	// OnOpApplied is called after each op is applied (optional); used to emit ForgeOpApplied SSE.
+	OnOpApplied OnOpApplied
 }
 
 // EditInput is the request shape for Service.Edit.
@@ -35,6 +37,7 @@ type EditInput struct {
 	Ops             []Op
 	ChangeReason    string
 	ProgressBlockID string
+	OnOpApplied     OnOpApplied
 }
 
 // UpdateMetaInput patches Workflow metadata without a version bump.
@@ -241,7 +244,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
 
-	graph, err := ApplyOps(ctx, nil, in.Ops, in.ProgressBlockID, s.keyProvider)
+	graph, err := ApplyOps(ctx, nil, in.Ops, in.ProgressBlockID, s.keyProvider, in.OnOpApplied)
 	if err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
@@ -351,7 +354,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 		base = active.GraphParsed
 	}
 
-	draft, err := ApplyOps(ctx, base, in.Ops, in.ProgressBlockID, s.keyProvider)
+	draft, err := ApplyOps(ctx, base, in.Ops, in.ProgressBlockID, s.keyProvider, in.OnOpApplied)
 	if err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
 	}

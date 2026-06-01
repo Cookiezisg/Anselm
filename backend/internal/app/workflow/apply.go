@@ -59,9 +59,19 @@ func ParseOps(raw json.RawMessage) ([]Op, error) {
 // ApplyOps 把 ops 应用到 base 图（nil = 从零建）并返最终图。
 // keyProvider 可空;非空开启 set_node_model_override 的 F1 校验
 // (跨用户 / 未知 api_key 直接走 apikey.ErrNotFound → 404)。
-func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progressBlockID string, keyProvider apikeydomain.KeyProvider) (*workflowdomain.Graph, error) {
+// OnOpApplied is an optional callback fired after each op is applied; used to emit ForgeOpApplied SSE.
+// Index is the 0-based position in the ops array; opType is the op discriminator.
+//
+// OnOpApplied 是每个 op 应用后的可选回调；用于发 ForgeOpApplied SSE。
+type OnOpApplied func(index int, opType string)
+
+func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progressBlockID string, keyProvider apikeydomain.KeyProvider, hooks ...OnOpApplied) (*workflowdomain.Graph, error) {
 	g := cloneGraph(base)
 	em := eventlogpkg.From(ctx)
+	var onApplied OnOpApplied
+	if len(hooks) > 0 {
+		onApplied = hooks[0]
+	}
 
 	for i, op := range ops {
 		if err := applyOne(ctx, g, op, keyProvider); err != nil {
@@ -78,6 +88,10 @@ func ApplyOps(ctx context.Context, base *workflowdomain.Graph, ops []Op, progres
 		if progressBlockID != "" {
 			em.DeltaBlock(ctx, progressBlockID,
 				fmt.Sprintf("op[%d] %s ✓\n", i, op.Type))
+		}
+		// Emit ForgeOpApplied SSE so the UI right-pane shows live op progress.
+		if onApplied != nil {
+			onApplied(i, op.Type)
 		}
 		_ = eventlogdomain.StatusStreaming
 	}

@@ -93,11 +93,17 @@ func (t *EditWorkflow) Execute(ctx context.Context, argsJSON string) (string, er
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
 	t.forge.PublishStarted(ctx, scope, forgedomain.OperationEdit, convID, toolCallID)
 
+	// Emit ForgeOpApplied per op so the UI right-pane shows live progress. (doc 11 §S2 CANON-X1)
+	forgeScope := scope // captured for callback closure
+	onApplied := func(idx int, opType string) {
+		t.forge.PublishOpApplied(ctx, forgeScope, idx, opType)
+	}
 	v, err := t.svc.Edit(ctx, workflowapp.EditInput{
 		ID:              args.ID,
 		Ops:             ops,
 		ChangeReason:    args.ChangeReason,
 		ProgressBlockID: progID,
+		OnOpApplied:     onApplied,
 	})
 	if err != nil {
 		em.StopBlock(ctx, progID, eventlogdomain.StatusError, err)

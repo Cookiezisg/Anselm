@@ -37,11 +37,15 @@ func (c *workflowCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.
 				desc = "(no description)"
 			}
 		}
+		// Active field (doc 11 §S4): LLM sees [INACTIVE] prefix for disabled workflows
+		// so it doesn't reference them as callable in trigger_workflow.
+		active := w.Enabled
 		items = append(items, catalogdomain.Item{
 			Source:      "workflow",
 			ID:          w.ID,
 			Name:        w.Name,
 			Description: desc,
+			Active:      &active,
 		})
 	}
 	return items, nil

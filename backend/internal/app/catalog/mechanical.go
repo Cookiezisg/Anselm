@@ -42,7 +42,16 @@ func assemble(items []catalogdomain.Item, gMap map[string]catalogdomain.Granular
 				if desc == "" {
 					desc = "(no description)"
 				}
-				fmt.Fprintf(&b, "- **%s**: %s\n", it.Name, desc)
+				// Show [INACTIVE] prefix for disabled workflows so LLM avoids referencing them.
+				// Show (kind) suffix for items with subtypes (e.g. polling functions).
+				name := it.Name
+				if it.Active != nil && !*it.Active {
+					name = "[INACTIVE] " + name
+				}
+				if it.Kind != "" && it.Kind != "normal" {
+					name = name + " (" + it.Kind + ")"
+				}
+				fmt.Fprintf(&b, "- **%s**: %s\n", name, desc)
 				ids = append(ids, it.ID)
 			}
 			coverage[name] = ids
