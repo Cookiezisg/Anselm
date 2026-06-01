@@ -23,14 +23,16 @@ type Op struct {
 //
 // VersionDraft 是 ops 应用过程中累积的内存快照。
 type VersionDraft struct {
-	Name          string
-	Description   string
-	Tags          []string
-	Code          string
-	Parameters    []functiondomain.ParameterSpec
-	ReturnSchema  map[string]any
-	Dependencies  []string
-	PythonVersion string
+	Name            string
+	Description     string
+	Tags            []string
+	Code            string
+	Parameters      []functiondomain.ParameterSpec
+	ReturnSchema    map[string]any
+	Dependencies    []string
+	PythonVersion   string
+	Kind            string // "" → normal at persist; "polling" marks a poll(lastCursor) trigger function
+	PollingInterval string // duration string ("60s"); meaningful only when Kind=polling
 }
 
 // OpResult is the per-op outcome surfaced back to the LLM via the tool result.
@@ -129,6 +131,25 @@ func applyOne(state *VersionDraft, op Op) error {
 			return fmt.Errorf("set_python_version unmarshal: %w", err)
 		}
 		state.PythonVersion = p.Version
+	case "set_kind":
+		var p struct {
+			Kind string `json:"kind"`
+		}
+		if err := json.Unmarshal(op.Raw, &p); err != nil {
+			return fmt.Errorf("set_kind unmarshal: %w", err)
+		}
+		if !functiondomain.IsValidKind(p.Kind) {
+			return fmt.Errorf("set_kind: invalid kind %q (want normal|polling)", p.Kind)
+		}
+		state.Kind = p.Kind
+	case "set_polling_interval":
+		var p struct {
+			Interval string `json:"interval"`
+		}
+		if err := json.Unmarshal(op.Raw, &p); err != nil {
+			return fmt.Errorf("set_polling_interval unmarshal: %w", err)
+		}
+		state.PollingInterval = p.Interval
 	default:
 		return fmt.Errorf("unknown op type: %q", op.Type)
 	}

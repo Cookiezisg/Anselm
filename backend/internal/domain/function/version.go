@@ -8,6 +8,18 @@ const (
 	StatusRejected = "rejected"
 )
 
+// Version kind (doc 01 §"polling = Function entity 的 kind=polling"): kind is version-level so each
+// version can flip normal↔polling. A polling version's code is fixed-signature `def poll(lastCursor)`
+// returning {"events":[...], "nextCursor":...}; the platform calls it every PollingInterval.
+//
+// Kind 是 version 级；polling 版固定签名 def poll(lastCursor)->{events,nextCursor}，平台按 PollingInterval 反复跑。
+const (
+	KindNormal  = "normal"
+	KindPolling = "polling"
+)
+
+func IsValidKind(k string) bool { return k == KindNormal || k == KindPolling }
+
 const (
 	EnvStatusPending = "pending"
 	EnvStatusSyncing = "syncing"
@@ -31,6 +43,12 @@ type Version struct {
 	ReturnSchema  map[string]any  `gorm:"serializer:json;type:text;default:'{}'" json:"returnSchema"`
 	Dependencies  []string        `gorm:"serializer:json;type:text;default:'[]'" json:"dependencies"`
 	PythonVersion string          `gorm:"type:text;default:''" json:"pythonVersion"`
+	// Kind = normal (default) | polling (17 §1 function_versions). PollingInterval is the canon
+	// location for the poll cadence (a duration string like "60s"); meaningful only when Kind=polling.
+	//
+	// Kind 默认 normal；PollingInterval 是 poll 间隔的 canon 位置（"60s" 形式），仅 polling 有意义。
+	Kind            string          `gorm:"not null;check:kind IN ('normal','polling');type:text;default:'normal'" json:"kind"`
+	PollingInterval string          `gorm:"type:text;default:''" json:"pollingInterval,omitempty"`
 	EnvID         string          `gorm:"index:idx_function_versions_env_id;type:text;default:''" json:"envId"`
 	EnvStatus     string          `gorm:"type:text;default:'pending'" json:"envStatus"`
 	EnvError      string          `gorm:"type:text;default:''" json:"envError"`

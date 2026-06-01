@@ -596,6 +596,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	schedulerService.SetFiringInbox(triggerstore.New(gdb))
 	triggerService.SetScheduler(schedulerService)
 	triggerService.SetScheduleStore(triggerstore.New(gdb))
+	triggerService.SetPollingFunction(functionapp.NewPollingAdapter(functionService), triggerstore.New(gdb))
 	workflowService.SetTriggerSync(triggerService) // :activate registers listeners (workflow→trigger wire)
 	t.Cleanup(triggerService.Shutdown)
 

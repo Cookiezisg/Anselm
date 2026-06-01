@@ -38,8 +38,12 @@ KEY OP SHAPE (field name is "code", not "value" or "content"):
   {"op":"update_code", "code":"def main(param: str) -> dict:\n    ..."}
   {"op":"set_meta", "name":"...", "description":"one line"}
   {"op":"set_dependencies", "dependencies":["requests==2.31"]}
+  {"op":"set_kind", "kind":"normal"|"polling"}      — flip a function's kind (carries forward if omitted)
+  {"op":"set_polling_interval", "interval":"60s"}    — polling cadence
 
-Same op shapes as create_function for other ops. Keep set_meta.description to one short line.`
+Same op shapes as create_function for other ops. To make a polling trigger function: set_kind=polling +
+set_polling_interval + code = def poll(lastCursor) -> {"events":[...], "nextCursor":"..."}.
+Keep set_meta.description to one short line.`
 }
 
 func (t *EditFunction) Parameters() json.RawMessage {

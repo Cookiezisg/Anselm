@@ -1,9 +1,11 @@
-// Package polling is the polling-trigger listener (doc 01 §polling): periodically calls a forge
-// function (config.callable) with {cursor}, collects {events, nextCursor}, persists the cursor,
-// and fires one onFire per returned event (deduped by cursor|eventIndex).
+// Package polling is the polling-trigger listener (doc 01 §polling / 17 §6-7): a polling trigger is
+// a forge Function whose active version has Kind="polling". The trigger node config spec carries
+// {functionRef}; the platform resolves the function's PollingInterval, calls poll(lastCursor) on that
+// cadence, fires one onFire per returned event (deduped by cursor|index), and persists nextCursor.
 //
-// Package polling 是 polling 触发器 listener（doc 01 §polling）：周期性调 forge function、
-// 按返回 events 各触发一次 onFire、游标持久化、去重键 = cursor|eventIndex。
+// Package polling 是 polling 触发器 listener：polling trigger = active version Kind=polling 的 forge
+// Function。trigger 节点 spec 带 {functionRef}；平台按 PollingInterval 反复调 poll(lastCursor)、
+// 每事件触发一次、游标持久化。
 package polling
 
 import (
@@ -22,95 +24,91 @@ import (
 // OnFireFunc is called once per returned event; dedupKey prevents duplicate fires across restarts.
 type OnFireFunc func(workflowID, nodeID string, input map[string]any, dedupKey string)
 
-// PollingCallable executes the forge function identified by callable ID with the given args,
-// returning its output as a JSON-serializable map. The platform calls it with {cursor}.
+// PollingFunction resolves + invokes a kind=polling forge Function. Implemented by an adapter over
+// functionapp.Service in main.go. The interval is read from the function's active-version
+// PollingInterval (17 §1, the canon location — NOT the trigger spec).
 //
-// PollingCallable 执行 forge function 并返 map；platform 以 {cursor} 调。
-type PollingCallable interface {
-	CallFunction(ctx context.Context, userID, functionID string, args map[string]any) (map[string]any, error)
+// PollingFunction 解析并调用 kind=polling 的 forge Function；间隔取自 active version 的 PollingInterval。
+type PollingFunction interface {
+	// Interval returns the poll cadence + confirms the function's active version is kind=polling.
+	// An error (not-found / not-polling / unparseable interval) fails registration (surfaced via State).
+	Interval(ctx context.Context, userID, functionID string) (time.Duration, error)
+	// Poll runs the function's poll(lastCursor) and returns its raw output map ({events, nextCursor}).
+	Poll(ctx context.Context, userID, functionID, lastCursor string) (map[string]any, error)
 }
 
-// CursorStore persists and loads the polling cursor across restarts.
-//
-// CursorStore 持久化 polling 游标。
+// CursorStore persists and loads the polling cursor across restarts (polling_states table).
 type CursorStore interface {
 	GetPollingCursor(ctx context.Context, workflowID, nodeID string) (string, error)
 	UpdatePollingCursor(ctx context.Context, workflowID, nodeID, cursor string) error
 }
 
-const defaultIntervalSec = 60
+const minInterval = 5 * time.Second // floor: a misconfigured tiny interval must not hammer
 
 type entry struct {
 	spec   triggerdomain.Spec
 	cancel context.CancelFunc
 }
 
-// Listener runs one goroutine per polling trigger, calling the forge function at the configured interval.
+// Listener runs one goroutine per polling trigger, calling the forge function at its PollingInterval.
 //
-// Listener 每个 polling trigger 起一个 goroutine，按 config.intervalSec 周期轮询。
+// Listener 每个 polling trigger 起一个 goroutine，按 function 的 PollingInterval 周期轮询。
 type Listener struct {
-	mu       sync.Mutex
-	entries  map[string]*entry // key: workflowID+"|"+nodeID
-	callable PollingCallable
-	cursor   CursorStore
-	onFire   OnFireFunc
-	log      *zap.Logger
+	mu      sync.Mutex
+	entries map[string]*entry // key: workflowID+"|"+nodeID
+	fn      PollingFunction
+	cursor  CursorStore
+	onFire  OnFireFunc
+	log     *zap.Logger
 }
 
-func New(callable PollingCallable, cursor CursorStore, log *zap.Logger, onFire OnFireFunc) *Listener {
+func New(fn PollingFunction, cursor CursorStore, log *zap.Logger, onFire OnFireFunc) *Listener {
 	return &Listener{
-		entries:  make(map[string]*entry),
-		callable: callable,
-		cursor:   cursor,
-		onFire:   onFire,
-		log:      log.Named("trigger.polling"),
+		entries: make(map[string]*entry),
+		fn:      fn,
+		cursor:  cursor,
+		onFire:  onFire,
+		log:     log.Named("trigger.polling"),
 	}
 }
 
 func entryKey(workflowID, nodeID string) string { return workflowID + "|" + nodeID }
 
-// Register adds or replaces a polling listener entry. config.callable must be a function ID (fn_xxx).
+// Register resolves the trigger node's functionRef → active-version PollingInterval, then starts the
+// poll goroutine. config.functionRef (17 §7 canon) is required and must point at a kind=polling fn.
 //
-// Register 增加/替换一个 polling 条目；config.callable 必须是 fn_xxx。
+// Register 解析 functionRef → PollingInterval 后起 poll goroutine；functionRef 必填、须指向 kind=polling 函数。
 func (l *Listener) Register(spec triggerdomain.Spec) error {
-	callable, _ := spec.Config["callable"].(string)
-	if callable == "" {
-		return fmt.Errorf("pollinginfra.Register: config.callable is required for polling trigger")
+	functionRef, _ := spec.Config["functionRef"].(string)
+	if functionRef == "" {
+		// Tolerate the legacy/alt key name so a drifted authoring path still resolves.
+		functionRef, _ = spec.Config["callable"].(string)
 	}
-	intervalSec := defaultIntervalSec
-	if iv, ok := spec.Config["intervalSec"]; ok {
-		switch v := iv.(type) {
-		case float64:
-			intervalSec = int(v)
-		case int:
-			intervalSec = v
-		case int64:
-			intervalSec = int(v)
-		}
+	if functionRef == "" {
+		return fmt.Errorf("pollinginfra.Register: config.functionRef is required for a polling trigger")
 	}
-	if intervalSec < 10 {
-		intervalSec = 10 // floor: prevent hammering
+
+	interval, err := l.fn.Interval(context.Background(), spec.UserID, functionRef)
+	if err != nil {
+		return fmt.Errorf("pollinginfra.Register: resolve %s: %w", functionRef, err)
+	}
+	if interval < minInterval {
+		interval = minInterval
 	}
 
 	key := entryKey(spec.WorkflowID, spec.NodeID)
 	l.mu.Lock()
 	defer l.mu.Unlock()
-
 	if e, ok := l.entries[key]; ok {
 		e.cancel()
 	}
-
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &entry{spec: spec, cancel: cancel}
-	l.entries[key] = e
-
-	go l.poll(ctx, spec, callable, time.Duration(intervalSec)*time.Second)
+	l.entries[key] = &entry{spec: spec, cancel: cancel}
+	go l.poll(ctx, spec, functionRef, interval)
 	return nil
 }
 
 // Unregister stops the polling goroutine for (workflowID, nodeID). No-op if not registered.
-//
-// Unregister 停止对应 polling goroutine；未注册时 no-op。
 func (l *Listener) Unregister(workflowID, nodeID string) {
 	key := entryKey(workflowID, nodeID)
 	l.mu.Lock()
@@ -121,27 +119,23 @@ func (l *Listener) Unregister(workflowID, nodeID string) {
 	}
 }
 
-// State returns the runtime state of a registered polling trigger.
-//
-// State 返注册的 polling trigger 运行状态。
+// State returns the runtime state of a registered polling trigger; nil when not registered.
 func (l *Listener) State(workflowID, nodeID string) *triggerdomain.State {
 	l.mu.Lock()
-	e, ok := l.entries[entryKey(workflowID, nodeID)]
+	_, ok := l.entries[entryKey(workflowID, nodeID)]
 	l.mu.Unlock()
 	if !ok {
 		return nil
 	}
 	return &triggerdomain.State{
-		WorkflowID: e.spec.WorkflowID,
-		NodeID:     e.spec.NodeID,
+		WorkflowID: workflowID,
+		NodeID:     nodeID,
 		Kind:       triggerdomain.KindPolling,
 		Status:     triggerdomain.StateActive,
 	}
 }
 
 // Stop cancels all goroutines; called on trigger service shutdown.
-//
-// Stop 取消所有 goroutine；trigger service 关停时调。
 func (l *Listener) Stop() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -151,45 +145,44 @@ func (l *Listener) Stop() {
 	l.entries = make(map[string]*entry)
 }
 
-func (l *Listener) poll(ctx context.Context, spec triggerdomain.Spec, callable string, interval time.Duration) {
+func (l *Listener) poll(ctx context.Context, spec triggerdomain.Spec, functionRef string, interval time.Duration) {
 	l.log.Info("polling trigger started",
 		zap.String("workflowID", spec.WorkflowID), zap.String("nodeID", spec.NodeID),
-		zap.Duration("interval", interval))
-
+		zap.String("functionRef", functionRef), zap.Duration("interval", interval))
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// Run once immediately on registration (catch up after restart).
-	l.runPoll(ctx, spec, callable)
-
+	l.runPoll(ctx, spec, functionRef) // run once on registration (catch up after restart)
 	for {
 		select {
 		case <-ctx.Done():
 			l.log.Info("polling trigger stopped", zap.String("workflowID", spec.WorkflowID), zap.String("nodeID", spec.NodeID))
 			return
 		case <-ticker.C:
-			l.runPoll(ctx, spec, callable)
+			l.runPoll(ctx, spec, functionRef)
 		}
 	}
 }
 
-func (l *Listener) runPoll(ctx context.Context, spec triggerdomain.Spec, callable string) {
+func (l *Listener) runPoll(ctx context.Context, spec triggerdomain.Spec, functionRef string) {
 	cursor, err := l.cursor.GetPollingCursor(ctx, spec.WorkflowID, spec.NodeID)
 	if err != nil {
 		l.log.Warn("polling: load cursor failed", zap.String("workflowID", spec.WorkflowID), zap.Error(err))
 		return
 	}
 
-	result, err := l.callable.CallFunction(ctx, spec.UserID, callable, map[string]any{"cursor": cursor})
+	// poll(lastCursor) → {"events":[...], "nextCursor":...} (doc 01 fixed signature).
+	out, err := l.fn.Poll(ctx, spec.UserID, functionRef, cursor)
 	if err != nil {
-		l.log.Warn("polling: callable failed", zap.String("workflowID", spec.WorkflowID), zap.String("callable", callable), zap.Error(err))
+		l.log.Warn("polling: poll() failed", zap.String("workflowID", spec.WorkflowID), zap.String("functionRef", functionRef), zap.Error(err))
 		return
 	}
 
-	events, _ := result["events"].([]any)
-	nextCursor, _ := result["nextCursor"].(string)
+	events, _ := out["events"].([]any)
+	nextCursor, _ := out["nextCursor"].(string)
 
-	// Fire one onFire per returned event, deduped by cursor|eventIndex.
+	// Each returned event → one onFire (→ one trigger_firing → one flowrun), deduped by cursor|index
+	// (17 §6: polling dedup = (cursor_in, 段内 event-index)).
 	for i, ev := range events {
 		evMap, _ := ev.(map[string]any)
 		if evMap == nil {
@@ -200,6 +193,7 @@ func (l *Listener) runPoll(ctx context.Context, spec triggerdomain.Spec, callabl
 		l.onFire(spec.WorkflowID, spec.NodeID, evMap, dedupKey)
 	}
 
+	// Advance the cursor when poll moved it forward (cursor must progress — 01 forging contract).
 	if nextCursor != "" && nextCursor != cursor {
 		if upErr := l.cursor.UpdatePollingCursor(ctx, spec.WorkflowID, spec.NodeID, nextCursor); upErr != nil {
 			l.log.Warn("polling: update cursor failed", zap.String("workflowID", spec.WorkflowID), zap.Error(upErr))

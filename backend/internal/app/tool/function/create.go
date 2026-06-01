@@ -32,7 +32,7 @@ type CreateFunction struct {
 func (t *CreateFunction) Name() string { return "create_function" }
 
 func (t *CreateFunction) Description() string {
-	return `Build a new function from ops. Required: set_meta, set_code, set_parameters. Optional: set_return_schema, set_dependencies, set_python_version. v1 auto-accepts; failed venv installs auto-retry deps (≤3).
+	return `Build a new function from ops. Required: set_meta, set_code, set_parameters. Optional: set_return_schema, set_dependencies, set_python_version, set_kind, set_polling_interval. v1 auto-accepts; failed venv installs auto-retry deps (≤3).
 
 OP SHAPES (exact field names):
   {"op":"set_meta", "name":"...", "description":"one line"}
@@ -41,13 +41,21 @@ OP SHAPES (exact field names):
   {"op":"set_return_schema", "schema":{"type":"object","properties":{...}}}
   {"op":"set_dependencies", "dependencies":["requests==2.31","pandas"]}
   {"op":"set_python_version", "version":"3.11"}
+  {"op":"set_kind", "kind":"normal"|"polling"}            — default normal; omit for normal functions
+  {"op":"set_polling_interval", "interval":"60s"}         — poll cadence, polling kind only
 
 FUNCTION KINDS:
-  normal:  def main(**kwargs) → dict  — standard execution.
-  polling: def main(last_cursor) → {"events": [...], "next_cursor": "..."}
-           Rules: only emit events NEWER than last_cursor; advance cursor; no duplicates;
-           handle last_cursor=None on first call (return all or empty); cursor persists between runs.
-           Use polling when the source has no webhook (e.g., polling a queue, RSS feed, API that lacks push).
+  normal:  def main(**kwargs) → dict  — standard execution; called by tool nodes / agent.tools.
+  polling: a trigger source. Set BOTH {"op":"set_kind","kind":"polling"} AND
+           {"op":"set_polling_interval","interval":"60s"}. Code MUST be the fixed signature:
+             def poll(lastCursor):
+                 # lastCursor is the string returned as nextCursor last run ("" on first call)
+                 return {"events": [ {...}, ... ], "nextCursor": "..."}
+           Rules: only emit events NEWER than lastCursor; advance nextCursor every run; no duplicates;
+           on first call lastCursor is "" (return recent or empty); read-only (no side effects).
+           N returned events → N separate workflow runs. Use polling when the source has no webhook
+           (queue, RSS, an API that lacks push). A polling function is referenced by a trigger node's
+           config.spec.functionRef, NOT by tool nodes.
 
 External IO (API keys, DB strings): pass via handler init_args or function config — do NOT hard-code credentials.
 Keep set_meta.description to one short line — it appears in the capability menu.`

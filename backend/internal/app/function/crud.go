@@ -131,6 +131,28 @@ func (s *Service) Get(ctx context.Context, id string) (*functiondomain.Function,
 	return f, nil
 }
 
+// ActiveVersion returns the function's active (accepted) version. Used by the polling trigger
+// adapter to read Kind + PollingInterval and confirm a polling functionRef resolves correctly.
+//
+// ActiveVersion 返 function 的 active 版本；polling trigger 适配器读 Kind + PollingInterval 用。
+func (s *Service) ActiveVersion(ctx context.Context, functionID string) (*functiondomain.Version, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("functionapp.ActiveVersion: %w", err)
+	}
+	f, err := s.repo.GetFunction(ctx, functionID)
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.ActiveVersion: %w", err)
+	}
+	if f.ActiveVersionID == "" {
+		return nil, fmt.Errorf("functionapp.ActiveVersion: %w", functiondomain.ErrNoActiveVersion)
+	}
+	v, err := s.repo.GetVersion(ctx, f.ActiveVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.ActiveVersion: %w", err)
+	}
+	return v, nil
+}
+
 func (s *Service) attachComputed(ctx context.Context, f *functiondomain.Function) {
 	if f == nil {
 		return
@@ -199,20 +221,22 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 		UpdatedAt:       now,
 	}
 	v := &functiondomain.Version{
-		ID:            versionID,
-		FunctionID:    fnID,
-		Status:        functiondomain.StatusAccepted,
-		Version:       &versionN,
-		Code:          draft.Code,
-		Parameters:    draft.Parameters,
-		ReturnSchema:  draft.ReturnSchema,
-		Dependencies:  draft.Dependencies,
-		PythonVersion: pyVer,
-		EnvID:         idgenpkg.New("fnenv"),
-		EnvStatus:     functiondomain.EnvStatusPending,
-		ChangeReason:  in.ChangeReason,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:              versionID,
+		FunctionID:      fnID,
+		Status:          functiondomain.StatusAccepted,
+		Version:         &versionN,
+		Code:            draft.Code,
+		Parameters:      draft.Parameters,
+		ReturnSchema:    draft.ReturnSchema,
+		Dependencies:    draft.Dependencies,
+		PythonVersion:   pyVer,
+		Kind:            normalizeKind(draft.Kind),
+		PollingInterval: draft.PollingInterval,
+		EnvID:           idgenpkg.New("fnenv"),
+		EnvStatus:       functiondomain.EnvStatusPending,
+		ChangeReason:    in.ChangeReason,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 		v.ForgedInConversationID = &convID
@@ -386,6 +410,8 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 		pending.ReturnSchema = draft.ReturnSchema
 		pending.Dependencies = draft.Dependencies
 		pending.PythonVersion = pyVer
+		pending.Kind = normalizeKind(draft.Kind)
+		pending.PollingInterval = draft.PollingInterval
 		pending.EnvStatus = functiondomain.EnvStatusPending
 		pending.EnvError = ""
 		pending.EnvSyncedAt = nil
@@ -401,19 +427,21 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 	} else {
 		versionID := idgenpkg.New("fnv")
 		v = &functiondomain.Version{
-			ID:            versionID,
-			FunctionID:    in.ID,
-			Status:        functiondomain.StatusPending,
-			Code:          draft.Code,
-			Parameters:    draft.Parameters,
-			ReturnSchema:  draft.ReturnSchema,
-			Dependencies:  draft.Dependencies,
-			PythonVersion: pyVer,
-			EnvID:         idgenpkg.New("fnenv"),
-			EnvStatus:     functiondomain.EnvStatusPending,
-			ChangeReason:  in.ChangeReason,
-			CreatedAt:     now,
-			UpdatedAt:     now,
+			ID:              versionID,
+			FunctionID:      in.ID,
+			Status:          functiondomain.StatusPending,
+			Code:            draft.Code,
+			Parameters:      draft.Parameters,
+			ReturnSchema:    draft.ReturnSchema,
+			Dependencies:    draft.Dependencies,
+			PythonVersion:   pyVer,
+			Kind:            normalizeKind(draft.Kind),
+			PollingInterval: draft.PollingInterval,
+			EnvID:           idgenpkg.New("fnenv"),
+			EnvStatus:       functiondomain.EnvStatusPending,
+			ChangeReason:    in.ChangeReason,
+			CreatedAt:       now,
+			UpdatedAt:       now,
 		}
 		if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 			v.ForgedInConversationID = &convID
@@ -432,15 +460,26 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 
 func versionToDraft(f *functiondomain.Function, v *functiondomain.Version) *VersionDraft {
 	return &VersionDraft{
-		Name:          f.Name,
-		Description:   f.Description,
-		Tags:          append([]string(nil), f.Tags...),
-		Code:          v.Code,
-		Parameters:    append([]functiondomain.ParameterSpec(nil), v.Parameters...),
-		ReturnSchema:  v.ReturnSchema,
-		Dependencies:  append([]string(nil), v.Dependencies...),
-		PythonVersion: v.PythonVersion,
+		Name:            f.Name,
+		Description:     f.Description,
+		Tags:            append([]string(nil), f.Tags...),
+		Code:            v.Code,
+		Parameters:      append([]functiondomain.ParameterSpec(nil), v.Parameters...),
+		ReturnSchema:    v.ReturnSchema,
+		Dependencies:    append([]string(nil), v.Dependencies...),
+		PythonVersion:   v.PythonVersion,
+		Kind:            v.Kind,            // carry forward kind on edit unless a set_kind op overrides
+		PollingInterval: v.PollingInterval, // ditto for the poll cadence
 	}
+}
+
+// normalizeKind defaults an empty draft kind to normal (the DB column default), so a function
+// created without a set_kind op is explicitly normal rather than an empty string.
+func normalizeKind(k string) string {
+	if k == "" {
+		return functiondomain.KindNormal
+	}
+	return k
 }
 
 // AcceptPending promotes the pending version to a numbered accepted version and flips ActiveVersionID.
@@ -637,6 +676,8 @@ func (s *Service) activeAsDraft(ctx context.Context, f *functiondomain.Function)
 	d.ReturnSchema = active.ReturnSchema
 	d.Dependencies = append([]string(nil), active.Dependencies...)
 	d.PythonVersion = active.PythonVersion
+	d.Kind = active.Kind
+	d.PollingInterval = active.PollingInterval
 	return d, nil
 }
 

@@ -90,20 +90,25 @@ audience: [human, ai]
 - lastFiredAt 持久化 + 跨重启补漏刻度 ✅
 - trigger dedup_key（cron 按调度刻度，不重复触发）✅
 
-#### ✅-4 🔴 polling 触发器完全未实现
+#### ✅-4 🔴 polling 触发器 —— 已按契约完整实现（2026-06-01 二审重写）
 
 **设计要求（doc 01 §polling）：**
-> polling trigger = kind=`polling` 的 forge function，接 `poll(last_cursor) → {events, next_cursor}`；平台定期调它，光标前进，去重，不重复 emit。polling_states 表持久化 cursor。
+> polling trigger = kind=`polling` 的 forge function，接 `poll(lastCursor) → {events, nextCursor}`；平台定期调它，光标前进，去重，不重复 emit。polling_states 表持久化 cursor。
 
-**实际代码：**
-- `trigger_listeners`：只有 cron/fsnotify/webhook，**没有 polling listener**
-- `polling_states` 表虽已建（DB schema 存在），但没有任何代码读写它
-- `PollingState` domain 结构定义了，但 trigger service 没有任何 polling 注册/调度逻辑
+**⚠️ 一审的 "✅-4" 是假的**：当时建的 polling listener 用 `config.callable`/`config.intervalSec`（契约是 `functionRef` + `function_versions.polling_interval`），调 `{"cursor":...}`（签名是 `poll(lastCursor)` → TypeError），function domain 无 `Kind`/`PollingInterval` 字段，且因 trigger 断连永远注册不起来。
 
-**缺什么：**
-1. `infra/trigger/polling/polling.go`：定时调 forge function，传递 cursor，解析 `{events, next_cursor}`
-2. `app/trigger/trigger.go`：注册 polling listener，处理 `KindPolling`
-3. cursor 推进写 `polling_states`，崩溃重启从 DB 恢复
+**二审重写（契约对齐，全链路测试通过）：**
+1. `domain/function/version.go`：加 `Kind`(normal|polling, CHECK) + `PollingInterval`(duration 串)，version 级（GORM AutoMigrate 自动加列，测试已验证读写）。
+2. `app/function/apply.go`：加 `set_kind` / `set_polling_interval` 两个 op；`VersionDraft` 加字段；`versionToDraft`/`activeAsDraft` 编辑时 carry-forward。
+3. `app/function/crud.go`：Create/Edit 持久化 Kind+PollingInterval；`normalizeKind` 默认 normal；新 `ActiveVersion(ctx, fnID)` 公共方法。
+4. `app/function/polling.go`：`PollingAdapter`（Interval 读 active version kind+interval、确认 kind=polling；Poll 跑 `poll(lastCursor)` 传 `{"lastCursor":cursor}`）。
+5. `infra/trigger/polling/polling.go`：重写 —— `PollingFunction` port（Interval+Poll）；Register 从 `spec.functionRef` 解析 → 按 PollingInterval 设 ticker；runPoll 每事件一次 onFire、去重 `cursor|index`、推进 `polling_states.cursor`。
+6. `app/trigger`：`SetPollingFunction`；`KindPolling` 走 Register/Unregister/State/Shutdown。
+7. `app/tool/function/{create,edit}.go`：描述补 set_kind/set_polling_interval + 修正签名为 `def poll(lastCursor)→{events,nextCursor}`。
+
+**测试**：`polling_ops_test.go`（3 单测：set_kind/set_polling_interval 流入 draft、非法 kind 拒绝、默认 normal）+ `polling_trigger_pipeline_test.go`（2 e2e：functionRef 解析+kind=polling 注册成功 / 引 normal 函数注册失败 fail-soft）。
+
+**剩余跟进**（非阻塞）：accept-time capability_check 对 polling trigger 的 functionRef 做 kind=polling 前向校验（doc 08 §8）——目前 register-time 已拒绝非 polling（fail-soft + State 暴露），accept 层校验是额外一层。
 
 #### ✅-5(partial:AllowAll+serial implemented; BufferOne/BufferAll queuing deferred) 🔴 overlap 策略（BufferOne/BufferAll/AllowAll/Skip）未实现
 

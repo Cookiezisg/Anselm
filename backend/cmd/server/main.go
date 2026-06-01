@@ -567,10 +567,10 @@ func main() {
 	triggerService.SetScheduler(schedulerService)
 	triggerService.SetScheduleStore(triggerStore)
 	triggerService.SetWorkflowDeactivator(workflowService)
-	// Wire polling trigger: function executor + cursor store (polling_states table).
-	// pollingFunctionCaller adapts functionapp.Service.RunFunction to the FunctionCaller port.
-	triggerService.SetPollingCallable(
-		pollingFunctionCallerFn(functionService),
+	// Wire polling trigger: resolve functionRef→PollingInterval + run poll(lastCursor); cursor store
+	// is the polling_states table. The adapter reads the function's active-version Kind/PollingInterval.
+	triggerService.SetPollingFunction(
+		functionapp.NewPollingAdapter(functionService),
 		triggerStore,
 	)
 	// Wire workflow→trigger: :activate/:deactivate now registers/unregisters the workflow's
@@ -887,32 +887,6 @@ var residentToolNames = map[string]bool{
 // A tool whose Name() appears in residentToolNames is placed in Resident.
 // Any Name() absent from both maps causes a panic at startup — misconfiguration must not be silent.
 // Note: activate_tools is injected into ts.Resident by the caller after this function returns,
-// pollingFunctionCallerFn returns a FunctionCaller that wraps functionapp.Service.RunFunction.
-// The adapter stamps userID into ctx before calling RunFunction (which requires reqctx.GetUserID).
-//
-// pollingFunctionCallerFn 返 FunctionCaller，调用前把 userID 注入 ctx 供 RunFunction 读取。
-func pollingFunctionCallerFn(svc *functionapp.Service) triggerapp.FunctionCaller {
-	return pollingFunctionCallerAdapter{svc: svc}
-}
-
-type pollingFunctionCallerAdapter struct{ svc *functionapp.Service }
-
-func (a pollingFunctionCallerAdapter) CallFunction(ctx context.Context, userID, functionID string, args map[string]any) (map[string]any, error) {
-	ctx = reqctxpkg.SetUserID(ctx, userID)
-	res, err := a.svc.RunFunction(ctx, functionapp.RunInput{
-		FunctionID:  functionID,
-		Input:       args,
-		TriggeredBy: "polling_trigger",
-	})
-	if err != nil {
-		return nil, err
-	}
-	if m, ok := res.Output.(map[string]any); ok {
-		return m, nil
-	}
-	return map[string]any{"output": res.Output}, nil
-}
-
 // so it does not need to appear in either map.
 //
 // buildToolset 用两张封闭表把工具分入 Resident + Lazy 组。

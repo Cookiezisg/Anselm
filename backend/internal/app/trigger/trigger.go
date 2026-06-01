@@ -204,24 +204,24 @@ func New(mux *http.ServeMux, log *zap.Logger) *Service {
 	s.cron = croninfra.New(s.log, onFire)
 	s.fsnotify = fsnotifyinfra.New(s.log, onFire)
 	s.webhook = webhookinfra.New(mux, s.log, onFire)
-	// polling is nil until SetPollingCallable is called — polling triggers can only be registered
-	// after a FunctionCaller is wired. A nil polling listener skips polling registrations gracefully.
+	// polling is nil until SetPollingFunction is called — polling triggers can only be registered
+	// after a PollingFunction resolver is wired. A nil polling listener rejects polling registration.
 	s.cron.Start()
 	return s
 }
 
-// SetPollingCallable wires the function executor and cursor store for polling triggers.
+// SetPollingFunction wires the polling-function resolver/invoker + cursor store for polling triggers.
 // Must be called before any KindPolling trigger is registered; no-op if already set.
 //
-// SetPollingCallable 挂载 polling trigger 所需的 function executor 和 cursor store。
-func (s *Service) SetPollingCallable(callable FunctionCaller, cursor PollingCursorStore) {
+// SetPollingFunction 挂载 polling trigger 所需的 function 解析/调用器 + cursor store。
+func (s *Service) SetPollingFunction(fn pollinginfra.PollingFunction, cursor PollingCursorStore) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.polling != nil {
 		return // already set
 	}
 	s.pollingCursor = cursor
-	s.polling = pollinginfra.New(callable, cursor, s.log, s.onFire)
+	s.polling = pollinginfra.New(fn, cursor, s.log, s.onFire)
 }
 
 // SetScheduler attaches the scheduler after construction to avoid a ctor cycle.
@@ -293,7 +293,7 @@ func (s *Service) RegisterTrigger(spec triggerdomain.Spec) error {
 		err = s.webhook.Register(spec)
 	case triggerdomain.KindPolling:
 		if s.polling == nil {
-			return fmt.Errorf("triggerapp.RegisterTrigger: polling listener not configured (call SetPollingCallable first)")
+			return fmt.Errorf("triggerapp.RegisterTrigger: polling listener not configured (call SetPollingFunction first)")
 		}
 		err = s.polling.Register(spec)
 	case triggerdomain.KindManual:
@@ -416,12 +416,4 @@ func (s *Service) FireManual(ctx context.Context, workflowID string, input map[s
 		return "", ErrSchedulerNotAttached
 	}
 	return sched.StartRun(ctx, workflowID, triggerdomain.KindManual, input)
-}
-
-// FunctionCaller is the port for polling-trigger function invocation.
-// Implemented by a thin adapter wrapping app/function.Service in main.go.
-//
-// FunctionCaller 是 polling trigger 调 function 的端口；main.go 中的薄适配器实现。
-type FunctionCaller interface {
-	CallFunction(ctx context.Context, userID, functionID string, args map[string]any) (map[string]any, error)
 }
