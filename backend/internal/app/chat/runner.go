@@ -73,7 +73,7 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 // 10min so legitimately long turns aren't killed.
 //
 // processTask 跑一个排队 chat turn。墙钟兜底取自 limits.Agent.MaxTurnDurationSec
-//（0 = 无限）——防真正失控回合的高安全网，非限健康长活；LLM idle 超时 + 用户
+// （0 = 无限）——防真正失控回合的高安全网，非限健康长活；LLM idle 超时 + 用户
 // stop 才是主控。从固定 10min 抬高，避免杀健康长回合。
 func (s *Service) processTask(conversationID string, q *convQueue, task queuedTask) {
 	ctx := task.ctx
@@ -133,6 +133,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, task queuedTa
 		BaseURL:  bc.BaseURL,
 		System:   s.buildSystemPrompt(agentCtx, task.conv),
 		Thinking: bc.Thinking,
+		Options:  bc.Options,
 	}
 
 	host := &chatHost{
@@ -217,7 +218,7 @@ func (s *Service) emitFatalError(
 //
 // PromptSection 是 chat system prompt 的一段；按顺序拼接为最终 wire prompt。
 type PromptSection struct {
-	Name    string `json:"name"`    // "identity" / "how_to_work" / "tools" / "capabilities" / "memory" / "documents" / "user_system_prompt" / "environment"
+	Name    string `json:"name"` // "identity" / "how_to_work" / "tools" / "capabilities" / "memory" / "documents" / "user_system_prompt" / "environment"
 	Content string `json:"content"`
 }
 
@@ -422,6 +423,7 @@ func (s *Service) autoTitle(ctx context.Context, conv *convdomain.Conversation, 
 		Key:      bc.Key,
 		BaseURL:  bc.BaseURL,
 		Thinking: bc.Thinking,
+		Options:  bc.Options,
 		System:   "Generate a short conversation title (5 words or fewer). Reply with ONLY the title, no punctuation.\n只返回标题本身，不超过 10 个字，不加标点。",
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: "Assistant said: " + truncate(assistantContent, 300)},

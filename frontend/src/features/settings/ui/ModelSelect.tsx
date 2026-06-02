@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Select } from "@shared/ui/Select";
 
 export function ModelSelect({ models, value, onChange, disabled }: {
-  models: string[];
+  models: Array<string | { value: string; label?: string }>;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;

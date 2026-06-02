@@ -231,6 +231,7 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		BaseURL:  bundle.BaseURL,
 		System:   systemPrompt,
 		Thinking: bundle.Thinking,
+		Options:  bundle.Options,
 	}
 	remainingTurns := maxTurns - len(replaySteps)
 	if remainingTurns < 1 {

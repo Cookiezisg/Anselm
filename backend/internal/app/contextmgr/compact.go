@@ -53,16 +53,16 @@ func (m *Manager) fullCompact(
 	lastSeq := candidates[len(candidates)-1].Seq
 
 	blockAttrs := map[string]any{
-		"coversFromSeq":   firstSeq,
-		"coversToSeq":     lastSeq,
-		"blocksArchived":  len(candidates),
-		"generatedBy":     "contextmgr",
+		"coversFromSeq":  firstSeq,
+		"coversToSeq":    lastSeq,
+		"blocksArchived": len(candidates),
+		"generatedBy":    "contextmgr",
 	}
 	// Top-level block: parentID must equal messageID (EmitBlockStart rejects empty parentID).
 	blockID := idgenpkg.New("blk")
 	m.emitter.EmitBlockStart(ctx, blockID, msgID, msgID, eventlogdomain.BlockTypeCompaction, blockAttrs)
 
-	client, modelID, key, baseURL, thinking, err := m.resolveLLM(ctx)
+	client, modelID, key, baseURL, thinking, options, err := m.resolveLLM(ctx)
 	if err != nil {
 		m.finishCompactionWithError(ctx, msgID, blockID,
 			fmt.Errorf("contextmgr.fullCompact: resolveLLM: %w", err))
@@ -77,6 +77,7 @@ func (m *Manager) fullCompact(
 		Key:      key,
 		BaseURL:  baseURL,
 		Thinking: thinking,
+		Options:  options,
 		System:   compactSystemPrompt,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},

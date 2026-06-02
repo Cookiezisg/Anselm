@@ -118,12 +118,11 @@ type ToolDef struct {
 	Parameters  json.RawMessage
 }
 
-// ThinkingSpec is the infra-local mirror of domain/model.ThinkingSpec.
-// Provider adapters read this field in BuildRequest to encode provider-specific
+// ThinkingSpec is the infra-local request shape for provider-specific
 // reasoning params (effort enum / budget tokens / enabled flag). nil = auto.
 //
-// ThinkingSpec 是 domain/model.ThinkingSpec 的 infra 本地镜像。Provider adapter
-// 在 BuildRequest 里读此字段，翻译为 provider 特有的推理参数。nil = auto。
+// ThinkingSpec 是 infra 本地请求形状。Provider adapter 在 BuildRequest 里读此
+// 字段，翻译为 provider 特有的推理参数。nil = auto。
 type ThinkingSpec struct {
 	Mode   string // "auto" | "off" | "on"
 	Effort string // "minimal|low|medium|high|xhigh|max" — effort-shape providers
@@ -148,6 +147,11 @@ type Request struct {
 	// Thinking 携带本次请求的推理意图；Provider adapter 在 P3.3-3.5 编码为
 	// 线上格式。nil = auto（当前默认：不发 thinking 参数）。
 	Thinking *ThinkingSpec
+
+	// Options are provider/model-native model configuration values selected by
+	// the user. Adapters may read them directly for knobs that are not captured
+	// by ThinkingSpec, such as Anthropic context tier.
+	Options map[string]string
 
 	// DisableStream forces non-streaming wire mode (used by Ollama+tools workaround).
 	// DisableStream 强制 non-streaming（Ollama 有 tools 时绕 bug 用）。

@@ -10,7 +10,7 @@ import (
 
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 )
 
 // stubConvRepo satisfies convdomain.Repository with a single in-memory conversation.
@@ -42,8 +42,8 @@ func (r *stubChatRepo) ListMessagesByConversation(_ context.Context, _ string, _
 	return nil, "", nil
 }
 func (r *stubChatRepo) SaveBlock(_ context.Context, _ *chatdomain.Block) error { return nil }
-func (r *stubChatRepo) AppendDelta(_ context.Context, _, _ string) error        { return nil }
-func (r *stubChatRepo) FinalizeStop(_ context.Context, _, _, _ string) error    { return nil }
+func (r *stubChatRepo) AppendDelta(_ context.Context, _, _ string) error       { return nil }
+func (r *stubChatRepo) FinalizeStop(_ context.Context, _, _, _ string) error   { return nil }
 func (r *stubChatRepo) GetBlock(_ context.Context, _ string) (*chatdomain.Block, error) {
 	return nil, nil
 }
@@ -79,7 +79,7 @@ func TestMaybeCompact_LargeWindow_NoCompaction(t *testing.T) {
 	const provider = "anthropic"
 	const modelID = "claude-sonnet-4"
 
-	cap := modelcapspkg.Lookup(provider, modelID)
+	cap := modelcatalogpkg.Lookup(provider, modelID).Capability()
 	usable := cap.UsableInput()
 
 	// Build a conversation whose block content totals ~50K characters (≈ tokens after calibration).
@@ -98,8 +98,8 @@ func TestMaybeCompact_LargeWindow_NoCompaction(t *testing.T) {
 	convRepo := &stubConvRepo{conv: conv}
 
 	m := newTestManager(t, chatRepo, convRepo)
-	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcapspkg.Cap {
-		return modelcapspkg.Lookup(p, mid)
+	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcatalogpkg.Capability {
+		return modelcatalogpkg.Lookup(p, mid).Capability()
 	})
 
 	// If compaction ran, it would call resolveLLM which is nil → would no-op at Hard check.
@@ -130,7 +130,7 @@ func TestMaybeCompact_SmallWindow_TriggersCompaction(t *testing.T) {
 	const provider = "ollama"
 	const modelID = "llama3"
 
-	cap := modelcapspkg.Lookup(provider, modelID)
+	cap := modelcatalogpkg.Lookup(provider, modelID).Capability()
 	usable := cap.UsableInput()
 
 	// Ollama fallback: ContextWindow=4096, MaxOutput=0, so usable = 4096 - 0 - 2000 = 2096.
@@ -147,8 +147,8 @@ func TestMaybeCompact_SmallWindow_TriggersCompaction(t *testing.T) {
 	convRepo := &stubConvRepo{conv: conv}
 
 	m := newTestManager(t, chatRepo, convRepo)
-	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcapspkg.Cap {
-		return modelcapspkg.Lookup(p, mid)
+	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcatalogpkg.Capability {
+		return modelcatalogpkg.Lookup(p, mid).Capability()
 	})
 
 	_, used := m.estimate(context.Background(), conv, []*chatdomain.Block{block}, provider, modelID)
@@ -168,15 +168,15 @@ func TestEstimate_UsesRealWindow(t *testing.T) {
 
 	// claude-opus-4-7: ContextWindow=1_000_000, MaxOutput=128_000.
 	// usable = 1_000_000 - 128_000 - 2_000 = 870_000.
-	wantUsable := 1_000_000 - 128_000 - modelcapspkg.SafetyBuffer
+	wantUsable := 1_000_000 - 128_000 - modelcatalogpkg.SafetyBuffer
 
 	conv := &convdomain.Conversation{ID: "cv_big01", UserID: "u_big01"}
 	chatRepo := &stubChatRepo{}
 	convRepo := &stubConvRepo{conv: conv}
 
 	m := newTestManager(t, chatRepo, convRepo)
-	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcapspkg.Cap {
-		return modelcapspkg.Lookup(p, mid)
+	m.SetCapabilityResolver(func(_ context.Context, p, mid string) modelcatalogpkg.Capability {
+		return modelcatalogpkg.Lookup(p, mid).Capability()
 	})
 
 	usable, _ := m.estimate(context.Background(), conv, nil, provider, modelID)

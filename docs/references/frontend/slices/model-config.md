@@ -11,8 +11,8 @@ audience: [human, ai]
 # entities/model-config — 前端 slice 详细设计
 
 **所属层**：entities（对位后端 domain/model）
-**状态**：✅ 已实现；2026-05-28 model selection redesign：3 scenarios + apiKeyId
-**职责**：管理 ModelConfig（scenario → apiKeyId + modelId 映射）的查询 + upsert，以及辅助的 providers / scenarios 白名单查询。
+**状态**：✅ 已实现；2026-05-28 model selection redesign：3 scenarios + apiKeyId；2026-06-02 model options
+**职责**：管理 ModelConfig（scenario → apiKeyId + modelId + options 映射）的查询 + upsert，以及辅助的 providers / scenarios / model capabilities 查询。
 
 **关联文档**：
 - [`../frontend-design.md`](../frontend-design.md) — FSD 总规范
@@ -26,6 +26,7 @@ audience: [human, ai]
 - ModelConfig CRUD（upsert，按 scenario 为键；3 scenarios：`dialogue` / `utility` / `agent`）
 - providers 静态白名单查询（GET /providers）
 - scenarios 权威列表查询（GET /scenarios）
+- model capabilities 查询（GET /model-capabilities）：返回 raw model + provider-native option descriptors，用于 capability-driven UI。
 
 conversation 级 modelOverride 由 entities/conversation PATCH 处理（共享 ModelRef 类型 + KeyModelPicker 共享组件）。
 workflow node 级 modelOverride 由 entities/workflow 维护（NodeSpec.modelOverride；2026-05-28 redesign 加，详 workflow.md）。
@@ -42,6 +43,7 @@ interface ModelConfig {
   scenario: Scenario;
   apiKeyId: string;     // aki_<16hex>（2026-05-28 redesign：原 provider 字段已删）
   modelId: string;
+  options?: Record<string, string>;
   createdAt; updatedAt;
 }
 
@@ -50,8 +52,17 @@ interface Provider {
   defaultBaseUrl?; baseUrlRequired: boolean;
 }
 
-interface ModelRef { apiKeyId: string; modelId: string }  // 共享值类型，conv.modelOverride / node.modelOverride 同形状
-interface UpsertModelConfigBody { apiKeyId: string; modelId: string }
+interface ModelRef { apiKeyId: string; modelId: string; options?: Record<string, string> }  // conv.modelOverride / node.modelOverride 同形状
+interface UpsertModelConfigBody { apiKeyId: string; modelId: string; options?: Record<string, string> }
+
+interface ModelCapability {
+  provider: string;
+  modelId: string;
+  displayName: string;
+  contextWindow: number;
+  maxOutput: number;
+  options: ModelOptionDescriptor[];
+}
 ```
 
 `Scenario` 字面量联合（不再是结构 `{ name }`）；后端 `GET /scenarios` 返 `[{name:"dialogue"},{name:"utility"},{name:"agent"}]`，前端 hook 取 `name`。
@@ -65,7 +76,8 @@ interface UpsertModelConfigBody { apiKeyId: string; modelId: string }
 | `useProviders()` | GET `/providers` | provider 静态白名单 |
 | `useScenarios()` | GET `/scenarios` | scenario 权威列表（3 项）；staleTime 5min |
 | `useModelConfigs()` | GET `/model-configs` | 全量 model config 列表；select pickList |
-| `useUpsertModelConfig()` | PUT `/model-configs/{scenario}` body `{apiKeyId, modelId}` | upsert（无论新建/更新都返 200）；invalidate modelConfigs |
+| `useModelCapabilities()` | GET `/model-capabilities` | 当前用户已验证 key 的 raw model + options descriptors |
+| `useUpsertModelConfig()` | PUT `/model-configs/{scenario}` body `{apiKeyId, modelId, options?}` | upsert（无论新建/更新都返 200）；invalidate modelConfigs |
 
 `useScenarios` 用 `staleTime: 5 * 60 * 1000`——scenario 列表基本不变，减少不必要请求。
 
@@ -74,9 +86,9 @@ interface UpsertModelConfigBody { apiKeyId: string; modelId: string }
 ## 4. 端到端数据流
 
 ```
-用户在 SettingsModal > 模型默认 section 选择 scenario + apiKey + model
-  → useUpsertModelConfig().mutate({scenario, apiKeyId, modelId})
-      → PUT /model-configs/{scenario}  {apiKeyId, modelId}
+用户在 SettingsModal > 模型默认 section 选择 scenario + apiKey + model + options
+  → useUpsertModelConfig().mutate({scenario, apiKeyId, modelId, options})
+      → PUT /model-configs/{scenario}  {apiKeyId, modelId, options}
       → 后端 F1 校验 keys.ResolveCredentialsByID（apiKeyId 存在 + 跨用户隔离）
         失败 → 404 API_KEY_NOT_FOUND
       → 后端 upsert
@@ -84,7 +96,7 @@ interface UpsertModelConfigBody { apiKeyId: string; modelId: string }
       → useModelConfigs() 重取 → ModelDefaultsSection 刷新显示
 ```
 
-**Onboarding 3 行写入**（`features/onboarding`）：用户加完 1 把 key + 验证 + 选 modelId → 拿到 `apiKeyId` → 顺序调 3 次 PUT（dialogue / utility / agent），3 行都引用同一把 key + 同一 modelId（用户后续在 Settings 调整）。
+**Onboarding 3 行写入**（`features/onboarding`）：用户加完 1 把 key + 验证 + 选 modelId/options → 拿到 `apiKeyId` → 顺序调 3 次 PUT（dialogue / utility / agent），3 行都引用同一把 key + 同一 modelId/options（用户后续在 Settings 调整）。
 
 ---
 

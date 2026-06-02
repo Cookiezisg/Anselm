@@ -12,9 +12,11 @@ const mockCreateKey = vi.fn();
 const mockTestKey = vi.fn();
 const mockDeleteKey = vi.fn();
 const mockUpsertModel = vi.fn();
+const mockApiFetch = vi.fn();
 
 let apiKeys: any[] = [];
 let modelConfigs: any[] = [];
+let modelCapabilities: any[] = [];
 
 vi.mock("@entities/apikey", () => ({
   useApiKeys: () => ({ data: apiKeys }),
@@ -32,7 +34,16 @@ vi.mock("@entities/model-config", () => ({
   ] }),
   useModelConfigs: () => ({ data: modelConfigs }),
   useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
+  useModelCapabilities: () => ({ data: modelCapabilities }),
 }));
+
+vi.mock("@shared/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/api")>();
+  return {
+    ...actual,
+    apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  };
+});
 
 import { useToastStore } from "@shared/ui/toastStore";
 import { ApiKeysSection } from "./ApiKeysSection.tsx";
@@ -56,11 +67,26 @@ beforeEach(() => {
   mockTestKey.mockReset().mockResolvedValue({ ok: true, modelsFound: ["deepseek-chat", "deepseek-reasoner"] });
   mockDeleteKey.mockReset().mockResolvedValue({});
   mockUpsertModel.mockReset().mockResolvedValue({});
+  mockApiFetch.mockReset().mockImplementation((path: string) => {
+    const provider = path.includes("provider=anthropic") ? "anthropic" : "deepseek";
+    const caps = modelCapabilities.filter((v) => v.provider === provider);
+    return Promise.resolve(caps);
+  });
   apiKeys = [
     { id: "aki_ds", provider: "deepseek", displayName: "DeepSeek", keyMasked: "sk-ds...3f2a", testStatus: "ok", modelsFound: ["deepseek-chat", "deepseek-reasoner"] },
     { id: "aki_an", provider: "anthropic", displayName: "Anthropic", keyMasked: "sk-an...9c1d", testStatus: "pending", modelsFound: ["claude-sonnet-4-6", "claude-opus-4-7"] },
   ];
   modelConfigs = [{ scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-chat" }];
+  modelCapabilities = [
+    { modelId: "deepseek-chat", provider: "deepseek", displayName: "deepseek-chat", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "off" },
+    ] },
+    { modelId: "deepseek-reasoner", provider: "deepseek", displayName: "deepseek-reasoner", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "max" },
+    ] },
+    { modelId: "claude-sonnet-4-6", provider: "anthropic", displayName: "claude-sonnet-4-6", contextWindow: 200000, maxOutput: 16000, options: [] },
+    { modelId: "claude-opus-4-7", provider: "anthropic", displayName: "claude-opus-4-7", contextWindow: 200000, maxOutput: 16000, options: [] },
+  ];
 });
 
 describe("ApiKeysSection", () => {
@@ -116,6 +142,10 @@ describe("ApiKeysSection", () => {
   });
 
   it("promoteNonDefaultKey_upsertsDialogueModelConfigWithKeysModel", async () => {
+    apiKeys = [
+      { id: "aki_ds", provider: "deepseek", displayName: "DeepSeek", keyMasked: "sk-ds...3f2a", testStatus: "ok", modelsFound: ["deepseek-chat", "deepseek-reasoner"] },
+      { id: "aki_an", provider: "anthropic", displayName: "Anthropic", keyMasked: "sk-an...9c1d", testStatus: "ok", modelsFound: ["claude-sonnet-4-6", "claude-opus-4-7"] },
+    ];
     renderOpen();
     await userEvent.click(screen.getByText("Anthropic"));
     // Anthropic detail: 用途 seg → click 对话默认 promotes it with its first model.
@@ -146,7 +176,7 @@ describe("ApiKeysSection", () => {
     await userEvent.click(screen.getByLabelText("模型"));
     await userEvent.click(screen.getByRole("option", { name: "deepseek-reasoner" }));
     expect(mockUpsertModel).toHaveBeenCalledWith(
-      { scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-reasoner" },
+      { scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-reasoner", options: { thinking: "max" } },
     );
   });
 

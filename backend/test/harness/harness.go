@@ -101,7 +101,6 @@ import (
 	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
-	modelcapoverridestore "github.com/sunweilin/forgify/backend/internal/infra/store/modelcapoverride"
 	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
@@ -112,7 +111,7 @@ import (
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
 	forgepkg "github.com/sunweilin/forgify/backend/internal/pkg/forge"
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
@@ -262,7 +261,6 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&userdomain.User{},
 		&relationdomain.Relation{},
 		&mcpdomain.HealthSnapshot{},
-		&modeldomain.ModelCapOverride{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -300,7 +298,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 	apikeyService.SetConvOverrideRefScanner(convStoreInst)
 	apikeyService.SetNodeOverrideRefScanner(workflowStoreInst)
 
-	capabilityService := apikeyapp.NewCapabilityService(modelcapoverridestore.New(gdb))
+	capabilityService := apikeyapp.NewCapabilityService()
 
 	modelService := modelapp.NewService(modelStoreInst, apikeyService, log)
 
@@ -542,17 +540,17 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	askaiSpawner := askaiapp.New(convService, chatService, log)
 
-	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, error) {
+	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, map[string]string, error) {
 		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
-			return nil, "", "", "", nil, err
+			return nil, "", "", "", nil, nil, err
 		}
-		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, nil
+		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, bundle.Options, nil
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStoreInst, chatEmitter, notificationsPub, cheapLLMResolver, log)
-	contextManager.SetCapabilityResolver(func(_ context.Context, provider, modelID string) modelcapspkg.Cap {
-		return modelcapspkg.Lookup(provider, modelID)
+	contextManager.SetCapabilityResolver(func(_ context.Context, provider, modelID string) modelcatalogpkg.Capability {
+		return modelcatalogpkg.Lookup(provider, modelID).Capability()
 	})
 	chatService.SetContextCompactor(contextManager)
 	// Drain detached goroutines (autoTitle) before the DB-close cleanup runs.

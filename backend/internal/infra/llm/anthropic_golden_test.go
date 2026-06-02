@@ -458,15 +458,15 @@ data: {"type":"message_stop"}
 }
 
 // TestBuildRequest_Anthropic_MaxTokensPerModel verifies that max_tokens is now
-// derived from modelcaps.Lookup("anthropic", modelID) rather than the old
+// derived from modelcatalog.Lookup("anthropic", modelID) rather than the old
 // hardcoded constant (8096). claude-sonnet-4-5 matches the "claude-sonnet-4"
-// prefix rule → MaxOutput == 64000. An unknown model uses the modelcaps global
+// prefix rule → MaxOutput == 64000. An unknown model uses the modelcatalog global
 // fallback (Cap{MaxOutput:8192}) — larger than the old 8096 constant — and only
 // falls back to anthropicDefaultMaxTokens (8096) when Lookup returns MaxOutput==0.
 //
-// 验证 max_tokens 现在从 modelcaps.Lookup 派生，不再硬编码。
+// 验证 max_tokens 现在从 modelcatalog.Lookup 派生，不再硬编码。
 // claude-sonnet-4-5 匹配 "claude-sonnet-4" 前缀规则 → MaxOutput==64000；
-// 完全未知 model 用 modelcaps 全局 fallback (MaxOutput=8192)；
+// 完全未知 model 用 modelcatalog 全局 fallback (MaxOutput=8192)；
 // 仅 Lookup 返回 MaxOutput==0 时才退回 anthropicDefaultMaxTokens (8096)。
 func TestBuildRequest_Anthropic_MaxTokensPerModel(t *testing.T) {
 	p := newAnthropicProvider()
@@ -479,7 +479,7 @@ func TestBuildRequest_Anthropic_MaxTokensPerModel(t *testing.T) {
 		{"claude-sonnet-4-5", 64_000, "known model matches claude-sonnet-4 rule → 64000"},
 		// A model ID with no matching provider prefix hits the global fallback Cap{MaxOutput:8192}.
 		// provider 无前缀匹配时命中全局 fallback Cap{MaxOutput:8192}。
-		{"totally-unknown-model-zzz", 8_192, "unknown model uses modelcaps global fallback 8192"},
+		{"totally-unknown-model-zzz", 8_192, "unknown model uses modelcatalog global fallback 8192"},
 	}
 
 	for _, tc := range cases {

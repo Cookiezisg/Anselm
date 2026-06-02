@@ -14,6 +14,7 @@ const mockUpsertModel = vi.fn();
 const mockDeleteKey = vi.fn();
 const mockPushToast = vi.fn();
 const mockInvalidateQueries = vi.fn();
+const mockApiFetch = vi.fn();
 
 vi.mock("@entities/user", () => ({
   useCreateUser: () => ({ mutateAsync: mockCreateUser }),
@@ -63,6 +64,14 @@ vi.mock("@shared/lib/i18n/index.js", () => ({
   default: { changeLanguage: vi.fn() },
 }));
 
+vi.mock("@shared/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/api")>();
+  return {
+    ...actual,
+    apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  };
+});
+
 vi.mock("@tanstack/react-query", async () => {
   const actual = await vi.importActual("@tanstack/react-query");
   return {
@@ -85,6 +94,15 @@ beforeEach(() => {
   mockTestKey.mockResolvedValue({ ok: true, modelsFound: ["deepseek-chat", "deepseek-reasoner"] });
   mockUpsertModel.mockResolvedValue({});
   mockDeleteKey.mockResolvedValue({});
+  mockApiFetch.mockReset().mockResolvedValue([
+    { provider: "deepseek", modelId: "deepseek-chat", displayName: "deepseek-chat", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "off" },
+    ] },
+    { provider: "deepseek", modelId: "deepseek-reasoner", displayName: "deepseek-reasoner", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "max" },
+    ] },
+    { provider: "anthropic", modelId: "claude-sonnet-4-6", displayName: "claude-sonnet-4-6", contextWindow: 200000, maxOutput: 16000, options: [] },
+  ]);
 });
 
 describe("useOnboardingFlow", () => {
@@ -144,8 +162,9 @@ describe("useOnboardingFlow", () => {
     act(() => { result.current.verify(); });
 
     await waitFor(() => expect(result.current.verified).toBe(true));
-    expect(result.current.models).toEqual(["deepseek-chat", "deepseek-reasoner"]);
+    expect(result.current.models.map((m) => m.modelId)).toEqual(["deepseek-chat", "deepseek-reasoner"]);
     expect(result.current.modelId).toBe("deepseek-chat");
+    expect(result.current.modelOptions).toEqual({ thinking: "off" });
     expect(mockCreateKey).toHaveBeenCalledWith(expect.objectContaining({ provider: "deepseek", key: "sk-test" }));
     expect(mockTestKey).toHaveBeenCalledWith("aki_1");
     expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ kind: "success" }));
@@ -192,7 +211,7 @@ describe("useOnboardingFlow", () => {
     act(() => { result.current.verify(); });
 
     await waitFor(() => expect(result.current.verified).toBe(true));
-    expect(result.current.models).toEqual(["claude-sonnet-4-6"]);
+    expect(result.current.models.map((m) => m.modelId)).toEqual(["claude-sonnet-4-6"]);
     expect(result.current.modelId).toBe("claude-sonnet-4-6");
   });
 

@@ -29,9 +29,9 @@ func (h *ModelConfigHandler) Register(mux Registrar) {
 }
 
 type upsertModelRequest struct {
-	APIKeyID string                    `json:"apiKeyId"`
-	ModelID  string                    `json:"modelId"`
-	Thinking *modeldomain.ThinkingSpec `json:"thinking,omitempty"`
+	APIKeyID string                   `json:"apiKeyId"`
+	ModelID  string                   `json:"modelId"`
+	Options  modeldomain.ModelOptions `json:"options"`
 }
 
 func (h *ModelConfigHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func (h *ModelConfigHandler) Upsert(w http.ResponseWriter, r *http.Request) {
 	m, err := h.svc.Upsert(r.Context(), scenario, modelapp.UpsertInput{
 		APIKeyID: req.APIKeyID,
 		ModelID:  req.ModelID,
-		Thinking: req.Thinking,
+		Options:  req.Options,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

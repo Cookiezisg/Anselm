@@ -47,6 +47,7 @@ func (s *Service) Search(ctx context.Context, query string, topK int) ([]*skilld
 		Key:      bundle.Key,
 		BaseURL:  bundle.BaseURL,
 		Thinking: bundle.Thinking,
+		Options:  bundle.Options,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},
 		},

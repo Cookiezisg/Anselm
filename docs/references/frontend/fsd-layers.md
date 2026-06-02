@@ -52,7 +52,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 
 当前已有：
 - `entities/session/@x/user.ts` — session 向 user slice 暴露 currentUserId 工具
-- `entities/conversation/@x/workflow.ts` — conversation 向 workflow slice 暴露 `ModelRef`（含 `ThinkingSpec`）类型，供 WorkflowEditor 的节点 modelOverride 检查器使用（**2026-05-30**）
+- `entities/conversation/@x/workflow.ts` — conversation 向 workflow slice 暴露 `ModelRef`（`apiKeyId + modelId + options`）类型，供 WorkflowEditor 的节点 modelOverride 检查器使用
 
 ---
 
@@ -103,7 +103,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 | `features/forge-review` | 锻造审查（diff 查看 + accept/reject）|
 | `features/workflow-edit` | 工作流编辑（节点图 CRUD）；palette 已按 revamp 设计折叠为 **5 种**：trigger / agent / tool（→function） / case（→condition） / approval；旧 14 种仍在 canvas 渲染（向后兼容），仅 palette 新增入口关闭 |
 | `features/onboarding` | 首次启动流程（创建 user + 配置 API key）|
-| `features/settings` | 用户偏好设置 UI（主题/语言/API key 管理）；**2026-05-30 新增**：`ui/ModelCapOverrideEditor.tsx`（stale-catalog 逃生舱，允许手动覆盖 thinkingShape / contextWindow / maxOutput）；**2026-05-31 新增**：`ui/AdvancedCapabilitiesSection.tsx`（「高级能力」运行上限区，编辑 settings.json `limits` 块）|
+| `features/settings` | 用户偏好设置 UI（主题/语言/API key 管理）；**2026-06-02**：模型配置改为 raw model + provider-native options，`ModelOptionsFields` 根据后端 descriptors 动态渲染；**2026-05-31 新增**：`ui/AdvancedCapabilitiesSection.tsx`（「高级能力」运行上限区，编辑 settings.json `limits` 块）|
 | `features/ask-user` | ask_user tool 响应（approval/input 弹窗）|
 | `features/entity-link` | 实体链接解析（wikilink → 内联卡片）|
 
@@ -125,7 +125,7 @@ entities/<X>/@x/<Y>.ts   →  给相邻 entities/<Y> 使用的专用 public 片
 | `entities/session` | `SessionState`（zustand + persist）| `currentUserId`（非 REST entity）|
 | `entities/settings` | `SettingsState`（zustand + persist，前端偏好）+ **2026-05-31** `api/limits`（`useLimits`/`useUpdateLimits`）+ `model/limits.ts`（`Limits`）↔ `/settings/limits` | 偏好单例（非 REST）；limits 为 REST 运行上限 |
 | `entities/user` | `User` | `id`（`u_` 前缀）|
-| `entities/model-config` | `ModelConfig` / `Provider` / `Scenario` / `ThinkingSpec` / `ModelCapability` | `id`（`mc_` 前缀）；**2026-05-30 新增**：`ui/ThinkingControl.tsx`（capability-driven：none/toggle/effort/budget 四态）、`api/useModelCapabilities.ts` + `useSetModelCapabilityOverride.ts` + `useClearModelCapabilityOverride.ts`、`capabilityFor` 辅助函数 |
+| `entities/model-config` | `ModelConfig` / `Provider` / `Scenario` / `ModelCapability` / `ModelOptionDescriptor` | `id`（`mc_` 前缀）；`useModelCapabilities()` 返回 raw model + options descriptors，供 settings/onboarding/override UI 渲染 |
 
 ### shared（按 segment 组织，不按 slice）
 

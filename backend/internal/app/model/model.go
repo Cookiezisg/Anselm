@@ -45,7 +45,7 @@ func NewService(repo modeldomain.Repository, keys apikeydomain.KeyProvider, log 
 type UpsertInput struct {
 	APIKeyID string
 	ModelID  string
-	Thinking *modeldomain.ThinkingSpec
+	Options  modeldomain.ModelOptions
 }
 
 var _ modeldomain.ModelPicker = (*Service)(nil)
@@ -107,7 +107,7 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	}
 	m.APIKeyID = strings.TrimSpace(in.APIKeyID)
 	m.ModelID = strings.TrimSpace(in.ModelID)
-	m.Thinking = in.Thinking
+	m.Options = cleanOptions(in.Options)
 	if err := s.repo.Upsert(ctx, m); err != nil {
 		return nil, err
 	}
@@ -119,37 +119,56 @@ func (s *Service) Upsert(ctx context.Context, scenario string, in UpsertInput) (
 	return m, nil
 }
 
-// PickForDialogue returns the (apiKeyID, modelID, thinking) for the dialogue scenario.
+// PickForDialogue returns the (apiKeyID, modelID) for the dialogue scenario.
 //
-// PickForDialogue 返回 dialogue scenario 的 (apiKeyID, modelID, thinking),未配置返 ErrNotConfigured。
-func (s *Service) PickForDialogue(ctx context.Context) (apiKeyID, modelID string, thinking *modeldomain.ThinkingSpec, err error) {
+// PickForDialogue 返回 dialogue scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForDialogue(ctx context.Context) (apiKeyID, modelID string, options modeldomain.ModelOptions, err error) {
 	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioDialogue)
 	if err != nil {
 		return "", "", nil, err
 	}
-	return m.APIKeyID, m.ModelID, m.Thinking, nil
+	return m.APIKeyID, m.ModelID, cleanOptions(m.Options), nil
 }
 
-// PickForUtility returns the (apiKeyID, modelID, thinking) for the utility scenario.
+// PickForUtility returns the (apiKeyID, modelID) for the utility scenario.
 //
-// PickForUtility 返回 utility scenario 的 (apiKeyID, modelID, thinking),未配置返 ErrNotConfigured。
-func (s *Service) PickForUtility(ctx context.Context) (apiKeyID, modelID string, thinking *modeldomain.ThinkingSpec, err error) {
+// PickForUtility 返回 utility scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForUtility(ctx context.Context) (apiKeyID, modelID string, options modeldomain.ModelOptions, err error) {
 	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioUtility)
 	if err != nil {
 		return "", "", nil, err
 	}
-	return m.APIKeyID, m.ModelID, m.Thinking, nil
+	return m.APIKeyID, m.ModelID, cleanOptions(m.Options), nil
 }
 
-// PickForAgent returns the (apiKeyID, modelID, thinking) for the agent scenario.
+// PickForAgent returns the (apiKeyID, modelID) for the agent scenario.
 //
-// PickForAgent 返回 agent scenario 的 (apiKeyID, modelID, thinking),未配置返 ErrNotConfigured。
-func (s *Service) PickForAgent(ctx context.Context) (apiKeyID, modelID string, thinking *modeldomain.ThinkingSpec, err error) {
+// PickForAgent 返回 agent scenario 的 (apiKeyID, modelID),未配置返 ErrNotConfigured。
+func (s *Service) PickForAgent(ctx context.Context) (apiKeyID, modelID string, options modeldomain.ModelOptions, err error) {
 	m, err := s.repo.GetByScenario(ctx, modeldomain.ScenarioAgent)
 	if err != nil {
 		return "", "", nil, err
 	}
-	return m.APIKeyID, m.ModelID, m.Thinking, nil
+	return m.APIKeyID, m.ModelID, cleanOptions(m.Options), nil
 }
 
 func newID() string { return idgenpkg.New("mc") }
+
+func cleanOptions(in modeldomain.ModelOptions) modeldomain.ModelOptions {
+	if len(in) == 0 {
+		return nil
+	}
+	out := modeldomain.ModelOptions{}
+	for k, v := range in {
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		if k == "" || v == "" {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}

@@ -140,6 +140,7 @@ func (s *Service) Spawn(parentCtx context.Context, typeName, prompt string, opts
 		BaseURL:  bundle.BaseURL,
 		System:   host.systemPrompt,
 		Thinking: bundle.Thinking,
+		Options:  bundle.Options,
 	}
 
 	var (

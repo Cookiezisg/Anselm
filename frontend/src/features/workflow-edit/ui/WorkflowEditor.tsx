@@ -19,11 +19,10 @@ import { Select } from "@shared/ui/Select";
 import { PaneCollapseToggle } from "@shared/ui/PaneCollapseToggle.tsx";
 import { FloatingInspector } from "@shared/ui/FloatingInspector.tsx";
 import { useWorkflowEdit } from "@features/workflow-edit";
-import { KeyModelPicker } from "@features/settings";
+import { KeyModelPicker, ModelOptionsFields, mergeOptionDefaults } from "@features/settings";
 import type { ModelRef } from "@entities/conversation";
-import { useModelCapabilities, capabilityFor, ThinkingControl } from "@entities/model-config";
-import type { ThinkingSpec } from "@entities/model-config";
 import { useApiKeys } from "@entities/apikey";
+import { useModelCapabilities } from "@entities/model-config";
 import { useCollapsible } from "@shared/lib/useCollapsible";
 
 type WFNode = { id: string; kind: string; label: string; x: number; y: number; config: Record<string, unknown>; notes: string; onError?: string; timeout?: number; retry?: Record<string, unknown>; modelOverride?: ModelRef | null; sub?: string };
@@ -198,16 +197,15 @@ function CanvasNode({ node, selected, onMouseDown, onHandleMouseDown, connecting
 
 // ── Inspector body ───────────────────────────────────────────────────────
 // Rendered inside a FloatingInspector — no own container/header.
-// caps + apiKeys are passed from the main editor so hooks aren't duplicated.
-function InspectorBody({ node, onChange, onDelete, caps, apiKeys }: {
+function InspectorBody({ node, onChange, onDelete }: {
   node: WFNode;
   onChange: (patch: Partial<WFNode>) => void;
   onDelete: () => void;
-  caps: ReturnType<typeof useModelCapabilities>["data"];
-  apiKeys: ReturnType<typeof useApiKeys>["data"];
 }) {
   const { t } = useTranslation(["forge", "workflow", "common"]);
   const [text, setText] = useState(JSON.stringify(node.config || {}, null, 2));
+  const { data: keys = [] } = useApiKeys();
+  const { data: caps = [] } = useModelCapabilities();
   useEffect(() => setText(JSON.stringify(node.config || {}, null, 2)), [node.id]);
 
   const commitJson = () => {
@@ -221,23 +219,13 @@ function InspectorBody({ node, onChange, onDelete, caps, apiKeys }: {
 
   const supportsModelOverride = node.kind === "agent" || node.kind === "llm";
 
-  // Derive provider from the selected key to resolve capability for ThinkingControl.
-  const resolvedProvider = (apiKeys ?? []).find((k) => k.id === node.modelOverride?.apiKeyId)?.provider ?? "";
-  const capability = node.modelOverride
-    ? capabilityFor(caps ?? [], resolvedProvider, node.modelOverride.modelId)
-    : undefined;
+  const currentProvider = node.modelOverride ? keys.find((k) => k.id === node.modelOverride?.apiKeyId)?.provider : "";
+  const currentCap = node.modelOverride ? caps.find((c) => c.provider === currentProvider && c.modelId === node.modelOverride?.modelId) : undefined;
 
   const handlePickerChange = (v: { apiKeyId: string; modelId: string }) => {
-    // Reset thinking when model/key changes — a budget/effort valid for one
-    // model is meaningless for another.
-    onChange({ modelOverride: { apiKeyId: v.apiKeyId, modelId: v.modelId } });
-  };
-
-  const handleThinkingChange = (spec: ThinkingSpec | undefined) => {
-    if (!node.modelOverride) return;
-    const next: ModelRef = { ...node.modelOverride };
-    if (spec) { next.thinking = spec; } else { delete next.thinking; }
-    onChange({ modelOverride: next });
+    const provider = keys.find((k) => k.id === v.apiKeyId)?.provider || "";
+    const cap = caps.find((c) => c.provider === provider && c.modelId === v.modelId);
+    onChange({ modelOverride: { apiKeyId: v.apiKeyId, modelId: v.modelId, options: mergeOptionDefaults(cap?.options || [], {}) } });
   };
 
   return (
@@ -296,11 +284,15 @@ function InspectorBody({ node, onChange, onDelete, caps, apiKeys }: {
               value={node.modelOverride ?? null}
               onChange={handlePickerChange}
             />
-            <ThinkingControl
-              capability={capability}
-              value={node.modelOverride?.thinking}
-              onChange={handleThinkingChange}
-            />
+            {node.modelOverride && currentCap && currentCap.options.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <ModelOptionsFields
+                  descriptors={currentCap.options}
+                  value={node.modelOverride.options}
+                  onChange={(options) => onChange({ modelOverride: { ...node.modelOverride!, options } })}
+                />
+              </div>
+            )}
             {node.modelOverride && (
               <Button
                 size="xs"
@@ -340,8 +332,6 @@ function InspectorBody({ node, onChange, onDelete, caps, apiKeys }: {
 // Version input accepts any server shape — graph may be JSON string or object.
 export function WorkflowEditor({ workflowId, version }: { workflowId: string; version: Record<string, unknown> | null | undefined }) {
   const { t } = useTranslation("forge");
-  const { data: caps } = useModelCapabilities();
-  const { data: apiKeys } = useApiKeys();
   const original = useMemo(() => parseGraph(version), [version?.id]);
   const [nodes, setNodes] = useState(original.nodes);
   const [edges, setEdges] = useState(original.edges);
@@ -613,8 +603,6 @@ export function WorkflowEditor({ workflowId, version }: { workflowId: string; ve
             node={selectedNode}
             onChange={onNodePatch}
             onDelete={onNodeDelete}
-            caps={caps}
-            apiKeys={apiKeys}
           />
         )}
       </FloatingInspector>

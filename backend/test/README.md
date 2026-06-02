@@ -193,13 +193,11 @@
 |---|---|---|
 | **GET** | **/api/v1/metrics/tools** | **❌ uncovered** |
 
-### model-capabilities domain (3/3 ✅)
+### model-capabilities domain (1/1 ✅)
 
 | Method | Path | Test |
 |---|---|---|
-| GET | /api/v1/model-capabilities | backend/test/api/modelcaps/modelcaps_pipeline_test.go::TestModelCaps_List_VerifiedKeyReturnsStaticCap; backend/test/api/modelcaps/modelcaps_pipeline_test.go::TestModelCaps_Override_SetAndListShowsOverriddenValues |
-| DELETE | /api/v1/model-capabilities/{provider}/{modelId} | backend/test/api/modelcaps/modelcaps_pipeline_test.go::TestModelCaps_Delete_ClearsOverrideRestoresStatic |
-| PUT | /api/v1/model-capabilities/{provider}/{modelId} | backend/test/api/modelcaps/modelcaps_pipeline_test.go::TestModelCaps_Override_SetAndListShowsOverriddenValues; backend/test/api/modelcaps/modelcaps_pipeline_test.go::TestModelCaps_Override_InvalidThinkingShape_Returns400 |
+| GET | /api/v1/model-capabilities | backend/internal/transport/httpapi/handlers package tests |
 
 ### model-configs domain (2/3 ⚠️)
 
@@ -664,7 +662,6 @@
 - **Tests without `// covers:` annotation**: 42
 
 <!-- COVERAGE-MATRIX:END -->
-
 
 
 

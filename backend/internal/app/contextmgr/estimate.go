@@ -6,14 +6,14 @@ import (
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	eventlogdomain "github.com/sunweilin/forgify/backend/internal/domain/eventlog"
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 	"github.com/sunweilin/forgify/backend/internal/pkg/tokencount"
 )
 
-// conservativeDefault is the fallback cap when no resolver is wired; matches modelcaps.fallback.
+// conservativeDefault is the fallback cap when no resolver is wired; matches modelcatalog.fallback.
 //
-// conservativeDefault 是未注入 resolver 时的兜底 cap，值与 modelcaps.fallback 对齐。
-var conservativeDefault = modelcapspkg.Cap{ContextWindow: 32_768, MaxOutput: 8_192}
+// conservativeDefault 是未注入 resolver 时的兜底 cap，值与 modelcatalog.fallback 对齐。
+var conservativeDefault = modelcatalogpkg.Capability{ContextWindow: 32_768, MaxOutput: 8_192}
 
 // estimate computes (usable, used) for the conv using the injected capability resolver.
 // provider/modelID come from the chat runner's resolved bundle so the real window is used.
@@ -21,7 +21,7 @@ var conservativeDefault = modelcapspkg.Cap{ContextWindow: 32_768, MaxOutput: 8_1
 // estimate 用注入的 capability resolver 算 (usable, used)；provider/modelID 来自 runner
 // 解析的 bundle，确保使用真实窗口而不是硬编码兜底。
 func (m *Manager) estimate(ctx context.Context, conv *convdomain.Conversation, blocks []*chatdomain.Block, provider, modelID string) (usable, used int) {
-	var cap modelcapspkg.Cap
+	var cap modelcatalogpkg.Capability
 	if m.capFor != nil {
 		cap = m.capFor(ctx, provider, modelID)
 	} else {
@@ -94,4 +94,3 @@ func (m *Manager) calibrationFor(convID string) float64 {
 	}
 	return 1.0
 }
-

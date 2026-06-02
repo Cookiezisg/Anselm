@@ -103,7 +103,6 @@ import (
 	mcphealthstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcphealth"
 	memorystore "github.com/sunweilin/forgify/backend/internal/infra/store/memory"
 	modelstore "github.com/sunweilin/forgify/backend/internal/infra/store/model"
-	modelcapoverridestore "github.com/sunweilin/forgify/backend/internal/infra/store/modelcapoverride"
 	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
 	skillexecstore "github.com/sunweilin/forgify/backend/internal/infra/store/skillexec"
@@ -172,7 +171,6 @@ func main() {
 	if err := dbinfra.Migrate(gdb,
 		&apikeydomain.APIKey{},
 		&modeldomain.ModelConfig{},
-		&modeldomain.ModelCapOverride{},
 		&convdomain.Conversation{},
 		&chatdomain.Message{},
 		&chatdomain.Block{},
@@ -269,7 +267,7 @@ func main() {
 	apikeyService.SetConvOverrideRefScanner(convStore)
 	apikeyService.SetNodeOverrideRefScanner(workflowStore)
 
-	capabilityService := apikeyapp.NewCapabilityService(modelcapoverridestore.New(gdb))
+	capabilityService := apikeyapp.NewCapabilityService()
 
 	modelService := modelapp.NewService(modelStore, apikeyService, log)
 
@@ -491,12 +489,12 @@ func main() {
 	chatService.SetPermissionsAndHooks(permGate, hookRunner)
 	settingsPath := filepath.Join(homeRoot, "settings.json")
 
-	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, error) {
+	cheapLLMResolver := func(ctx context.Context) (llminfra.Client, string, string, string, *llminfra.ThinkingSpec, map[string]string, error) {
 		bundle, err := llmclientpkg.ResolveUtility(ctx, modelService, apikeyService, llmFactory)
 		if err != nil {
-			return nil, "", "", "", nil, err
+			return nil, "", "", "", nil, nil, err
 		}
-		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, nil
+		return bundle.Client, bundle.ModelID, bundle.Key, bundle.BaseURL, bundle.Thinking, bundle.Options, nil
 	}
 	contextManager := contextmgrapp.New(
 		chatRepo, convStore, chatEmitter, notificationsPub, cheapLLMResolver, log)

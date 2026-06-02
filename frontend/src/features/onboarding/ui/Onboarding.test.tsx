@@ -27,6 +27,7 @@ const mockCreateKey = vi.fn();
 const mockTestKey = vi.fn();
 const mockUpsertModel = vi.fn();
 const mockDeleteKey = vi.fn();
+const mockApiFetch = vi.fn();
 
 // Mock entity hooks used by useOnboardingFlow.
 vi.mock("@entities/user", () => ({
@@ -49,6 +50,14 @@ vi.mock("@entities/model-config", () => ({
   useUpsertModelConfig: () => ({ mutateAsync: mockUpsertModel }),
 }));
 
+vi.mock("@shared/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@shared/api")>();
+  return {
+    ...actual,
+    apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+  };
+});
+
 import { useToastStore } from "@shared/ui/toastStore";
 import { useSettingsStore } from "@entities/settings/model/settingsStore";
 import { useSessionStore } from "@entities/session";
@@ -68,6 +77,14 @@ beforeEach(() => {
   mockTestKey.mockReset().mockResolvedValue({ ok: true, modelsFound: ["deepseek-chat", "deepseek-reasoner"] });
   mockUpsertModel.mockReset().mockResolvedValue({});
   mockDeleteKey.mockReset().mockResolvedValue({});
+  mockApiFetch.mockReset().mockResolvedValue([
+    { provider: "deepseek", modelId: "deepseek-chat", displayName: "deepseek-chat", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "off" },
+    ] },
+    { provider: "deepseek", modelId: "deepseek-reasoner", displayName: "deepseek-reasoner", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "max", label: "Max" }], defaultValue: "max" },
+    ] },
+  ]);
 });
 
 const btn = (re: any) => screen.getByRole("button", { name: re });
@@ -139,12 +156,15 @@ describe("Onboarding", () => {
     await waitFor(() => expect(mockUpsertModel).toHaveBeenCalledTimes(3));
     expect(mockUpsertModel.mock.calls[0][0]).toMatchObject({
       scenario: "dialogue", apiKeyId: "aki_1", modelId: "deepseek-chat",
+      options: { thinking: "off" },
     });
     expect(mockUpsertModel.mock.calls[1][0]).toMatchObject({
       scenario: "utility", apiKeyId: "aki_1", modelId: "deepseek-chat",
+      options: { thinking: "off" },
     });
     expect(mockUpsertModel.mock.calls[2][0]).toMatchObject({
       scenario: "agent", apiKeyId: "aki_1", modelId: "deepseek-chat",
+      options: { thinking: "off" },
     });
   });
 

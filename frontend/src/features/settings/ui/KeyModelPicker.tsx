@@ -10,10 +10,11 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@shared/ui/Select";
 import { useApiKeys } from "@entities/apikey";
+import { useModelCapabilities, type ModelOptions } from "@entities/model-config";
 
 interface KeyModelPickerProps {
-  value: { apiKeyId: string; modelId: string } | null;
-  onChange: (v: { apiKeyId: string; modelId: string }) => void;
+  value: { apiKeyId: string; modelId: string; options?: ModelOptions } | null;
+  onChange: (v: { apiKeyId: string; modelId: string; options?: ModelOptions }) => void;
   disabled?: boolean;
 }
 
@@ -32,6 +33,7 @@ const decode = (s: string): { apiKeyId: string; modelId: string } | null => {
 export function KeyModelPicker({ value, onChange, disabled }: KeyModelPickerProps) {
   const { t } = useTranslation("settings");
   const { data: keys = [] } = useApiKeys();
+  const { data: caps = [] } = useModelCapabilities();
 
   // Verified keys with at least one discovered model; otherwise the option
   // group would be empty.
@@ -43,12 +45,12 @@ export function KeyModelPicker({ value, onChange, disabled }: KeyModelPickerProp
     const out: Array<{ value: string; label: string }> = [];
     for (const k of verified) {
       const header = `${k.displayName || k.provider} · ${k.provider} · ${k.keyMasked}`;
-      for (const m of k.modelsFound) {
-        out.push({ value: encode(k.id, m), label: `${header}  —  ${m}` });
+      for (const m of caps.filter((c) => c.provider === k.provider)) {
+        out.push({ value: encode(k.id, m.modelId), label: `${header}  —  ${m.displayName || m.modelId}` });
       }
     }
     return out;
-  }, [verified]);
+  }, [verified, caps]);
 
   if (verified.length === 0) {
     return (
@@ -69,7 +71,7 @@ export function KeyModelPicker({ value, onChange, disabled }: KeyModelPickerProp
       value={value ? encode(value.apiKeyId, value.modelId) : ""}
       onChange={(v) => {
         const decoded = decode(v);
-        if (decoded) onChange(decoded);
+        if (decoded) onChange({ ...decoded, options: {} });
       }}
       disabled={disabled}
       placeholder={t("modelDefaults.selectModel")}

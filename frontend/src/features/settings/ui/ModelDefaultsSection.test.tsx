@@ -1,5 +1,5 @@
 // ModelDefaultsSection — 3 expandable scenario cards; provider grid +
-// (key, model) cascade picker per card. Includes ThinkingControl integration.
+// (key, model + official options) cascade picker per card.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -7,8 +7,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 
 const mockUpsertModel = vi.fn();
-const mockSetOverride = vi.fn();
-const mockClearOverride = vi.fn();
 let apiKeys: any[] = [];
 let modelConfigs: any[] = [];
 let providers: any[] = [];
@@ -22,8 +20,6 @@ vi.mock("@entities/model-config", async (importOriginal) => {
     useUpsertModelConfig: () => ({ mutate: mockUpsertModel, mutateAsync: mockUpsertModel, isPending: false }),
     useProviders: () => ({ data: providers }),
     useModelCapabilities: () => ({ data: modelCapabilities }),
-    useSetModelCapabilityOverride: () => ({ mutate: mockSetOverride, isPending: false }),
-    useClearModelCapabilityOverride: () => ({ mutate: mockClearOverride, isPending: false }),
   };
 });
 
@@ -49,17 +45,23 @@ function seedStandardKeys() {
     modelsFound: ["deepseek-v4-flash", "deepseek-v4-pro"],
   }];
   providers = [{ name: "deepseek", displayName: "DeepSeek", category: "llm" }];
+  modelCapabilities = [
+    { modelId: "deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "high", label: "High" }, { value: "max", label: "Max" }], defaultValue: "high" },
+    ] },
+    { modelId: "deepseek-v4-pro", provider: "deepseek", displayName: "DeepSeek V4 Pro", contextWindow: 128000, maxOutput: 8000, options: [
+      { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "high", label: "High" }, { value: "max", label: "Max" }], defaultValue: "high" },
+    ] },
+  ];
   modelConfigs = [
-    { scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash" },
-    { scenario: "utility",  apiKeyId: "aki_ds", modelId: "deepseek-v4-flash" },
-    { scenario: "agent",    apiKeyId: "aki_ds", modelId: "deepseek-v4-flash" },
+    { scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash", options: { thinking: "high" } },
+    { scenario: "utility",  apiKeyId: "aki_ds", modelId: "deepseek-v4-flash", options: { thinking: "high" } },
+    { scenario: "agent",    apiKeyId: "aki_ds", modelId: "deepseek-v4-flash", options: { thinking: "high" } },
   ];
 }
 
 beforeEach(() => {
   mockUpsertModel.mockReset().mockResolvedValue({});
-  mockSetOverride.mockReset();
-  mockClearOverride.mockReset();
   apiKeys = [];
   modelConfigs = [];
   providers = [];
@@ -101,8 +103,8 @@ describe("ModelDefaultsSection", () => {
     for (const label of ["主对话", "辅助任务", "Agent"]) {
       const row = screen.getByText(label).closest(".set-mc") as HTMLElement;
       expect(row).not.toBeNull();
-      expect(row.textContent).toContain("deepseek-v4-flash");
-      expect(row.textContent).not.toContain("deepseek-v4-pro");
+      expect(row.textContent).toContain("DeepSeek V4 Flash");
+      expect(row.textContent).not.toContain("DeepSeek V4 Pro");
     }
   });
 
@@ -126,84 +128,54 @@ describe("ModelDefaultsSection", () => {
       { name: "deepseek", displayName: "DeepSeek", category: "llm" },
       { name: "openai", displayName: "OpenAI", category: "llm" },
     ];
+    modelCapabilities = [
+      { modelId: "deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", contextWindow: 128000, maxOutput: 8000, options: [] },
+      { modelId: "gpt-4o-mini", provider: "openai", displayName: "GPT-4o Mini", contextWindow: 128000, maxOutput: 16000, options: [] },
+      { modelId: "gpt-4o", provider: "openai", displayName: "GPT-4o", contextWindow: 128000, maxOutput: 16000, options: [] },
+    ];
     modelConfigs = [{ scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash" }];
     render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
     // Switch dialogue from deepseek to openai by clicking the OpenAI provider chip.
     const openaiChip = screen.getByText("OpenAI");
     fireEvent.click(openaiChip);
     expect(mockUpsertModel).toHaveBeenCalledWith({
-      scenario: "dialogue", apiKeyId: "aki_oa", modelId: "gpt-4o-mini",
+      scenario: "dialogue", apiKeyId: "aki_oa", modelId: "gpt-4o-mini", options: {},
     });
   });
 
-  it("effortCapability_rendersThinkingControl", () => {
-    seedStandardKeys();
-    modelCapabilities = [{
-      provider: "deepseek", modelId: "deepseek-v4-flash",
-      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
-      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
-    }];
-    render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
-    // The expanded dialogue card should show the thinking effort label.
-    expect(screen.getByText("思考强度")).toBeInTheDocument();
-  });
-
-  it("effortCapability_changingThinking_callsUpsertWithThinking", () => {
-    seedStandardKeys();
-    modelCapabilities = [{
-      provider: "deepseek", modelId: "deepseek-v4-flash",
-      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
-      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
-    }];
-    render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
-    // Open the Select for thinking effort.
-    const trigger = screen.getByRole("button", { name: "思考强度" });
-    fireEvent.click(trigger);
-    fireEvent.click(screen.getByText("high"));
-    expect(mockUpsertModel).toHaveBeenCalledWith({
-      scenario: "dialogue",
-      apiKeyId: "aki_ds",
-      modelId: "deepseek-v4-flash",
-      thinking: { mode: "on", effort: "high" },
-    });
-  });
-
-  it("expandedCard_withModel_showsCapOverrideTrigger", () => {
+  it("expandedCard_withModel_showsModelSelect", () => {
     seedStandardKeys();
     render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
-    // Dialogue card is open by default; the override trigger link must be visible.
-    expect(screen.getByText("能力不对？覆盖")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "模型" })).toBeInTheDocument();
+    expect(screen.getAllByText("DeepSeek V4 Flash").length).toBeGreaterThan(0);
   });
 
-  it("changingModel_callsUpsertWithoutThinking", () => {
-    // When model is switched via cascade the upsert must omit thinking so
-    // any previous budget/effort setting does not pollute the new model.
+  it("changingModel_callsUpsertWithSelectedModelAndDefaultOptions", () => {
     apiKeys = [{
       id: "aki_ds", provider: "deepseek", displayName: "DS", keyMasked: "sk-...1",
       testStatus: "ok", modelsFound: ["deepseek-v4-flash", "deepseek-v4-pro"],
     }];
     providers = [{ name: "deepseek", displayName: "DeepSeek", category: "llm" }];
+    modelCapabilities = [
+      { modelId: "deepseek-v4-flash", provider: "deepseek", displayName: "DeepSeek V4 Flash", contextWindow: 128000, maxOutput: 8000, options: [
+        { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "high", label: "High" }, { value: "max", label: "Max" }], defaultValue: "high" },
+      ] },
+      { modelId: "deepseek-v4-pro", provider: "deepseek", displayName: "DeepSeek V4 Pro", contextWindow: 128000, maxOutput: 8000, options: [
+        { key: "thinking", label: "Thinking", control: "segmented", values: [{ value: "off", label: "Off" }, { value: "high", label: "High" }, { value: "max", label: "Max" }], defaultValue: "high" },
+      ] },
+    ];
     modelConfigs = [{
-      scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash",
-      thinking: { mode: "on", effort: "high" },
-    }];
-    modelCapabilities = [{
-      provider: "deepseek", modelId: "deepseek-v4-flash",
-      thinkingShape: "effort", effortValues: ["low", "medium", "high"],
-      budgetMin: 0, budgetMax: 0, contextWindow: 128000, maxOutput: 8000, contextMode: "full",
+      scenario: "dialogue", apiKeyId: "aki_ds", modelId: "deepseek-v4-flash", options: { thinking: "high" },
     }];
     render(<ModelDefaultsSection open={true} onToggle={() => {}} />, { wrapper: wrap });
-    // Open model Select and pick the other model.
     const modelTrigger = screen.getByRole("button", { name: "模型" });
     fireEvent.click(modelTrigger);
-    fireEvent.click(screen.getByText("deepseek-v4-pro"));
-    // Must NOT include thinking.
+    fireEvent.click(screen.getByText("DeepSeek V4 Pro"));
     expect(mockUpsertModel).toHaveBeenCalledWith({
       scenario: "dialogue",
       apiKeyId: "aki_ds",
       modelId: "deepseek-v4-pro",
+      options: { thinking: "high" },
     });
-    const call = mockUpsertModel.mock.calls[0][0];
-    expect(call).not.toHaveProperty("thinking");
   });
 });

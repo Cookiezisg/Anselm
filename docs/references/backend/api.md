@@ -125,11 +125,9 @@ type Error = {
 | Method | Path | 用途 |
 |---|---|---|
 | GET | `/api/v1/model-configs` | 列出当前用户所有 scenario 的配置（不分页，最多 ~6 条）；row shape 含 `apiKeyId`（2026-05-28 redesign：原 `provider` 字段已删）|
-| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId, thinking?}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）；**2026-05-30：body 新增可选 `thinking` 字段（`ThinkingSpec`，nil=未设定）** |
+| PUT | `/api/v1/model-configs/{scenario}` | upsert 指定 scenario 的配置；body `{apiKeyId, modelId, options?}`（200，无论创建或更新）；F1 校验 `apiKeyId` 存在 + 跨用户隔离（404 `API_KEY_NOT_FOUND`）；`options` 是 provider/model 原生选项 map |
 | GET | `/api/v1/scenarios` | 列 scenario 白名单（静态 metadata，3 项 `dialogue` / `utility` / `agent`；onboarding 前可读，不需 user header）|
-| GET | `/api/v1/model-capabilities` | 当前用户已配置 provider/model 的 resolved capability 列表（静态规则 ⊕ 用户 override）；供前端 ThinkingControl 渲染，详 [`../references/backend/domains/model.md`](../references/backend/domains/model.md) §10.4（**2026-05-30 新增**）|
-| PUT | `/api/v1/model-capabilities` | 设置用户 per-model capability override；body `{provider, modelId, thinkingShape?, contextWindow?, maxOutput?}`；400 `INVALID_THINKING_SHAPE`（handler 内联，不进 errmap）（**2026-05-30 新增**）|
-| DELETE | `/api/v1/model-capabilities` | 清除用户对 `?provider=xxx&modelId=yyy` 的 override，回退静态规则（**2026-05-30 新增**）|
+| GET | `/api/v1/model-capabilities` | 当前用户已验证 key 的 provider/model 目录项列表；每项含 `contextWindow` / `maxOutput` / `options[]` descriptors，供前端动态渲染 model options |
 
 #### conversation ✅
 详见 [`../references/backend/domains/conversation.md`](../references/backend/domains/conversation.md)。对话线程容器的 CRUD；消息历史由 chat domain 管理。
@@ -139,7 +137,7 @@ type Error = {
 | POST | `/api/v1/conversations` | 创建对话（201）；title 可为空 |
 | GET | `/api/v1/conversations` | 列表（200，cursor 分页，ORDER BY `pinned DESC, created_at DESC, id DESC`）；query `?search=` title LIKE、`?archived=true/false` 过滤归档（缺省排除已归档，§17.12）|
 | GET | `/api/v1/conversations/{id}` | 单对话详情（200，含 systemPrompt / autoTitled / archived / pinned / metadata）|
-| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?, attachedDocuments?, archived?, pinned?, modelOverride?}`——六个字段可任意组合改；归档/置顶/override 切换发 slim notif `action: archived/unarchived/pinned/unpinned/model_override`（§17.12 + §15.6 + §12.3）。**modelOverride 形状（2026-05-28 redesign）**：三态 absent=不变 / `null`=清除 / `{apiKeyId, modelId}`=设置；F1 校验 apiKeyId 存在 + 跨用户隔离 → 404 `API_KEY_NOT_FOUND`；缺字段 → 400 `API_KEY_ID_REQUIRED` / `MODEL_ID_REQUIRED`。conv override 自动经 ctx 传播到 subagent spawn（subagent 跑同一 (apiKeyId, modelId)）|
+| PATCH | `/api/v1/conversations/{id}` | partial update（200）；body `{title?, systemPrompt?, attachedDocuments?, archived?, pinned?, modelOverride?}`——六个字段可任意组合改；归档/置顶/override 切换发 slim notif `action: archived/unarchived/pinned/unpinned/model_override`（§17.12 + §15.6 + §12.3）。**modelOverride 形状**：三态 absent=不变 / `null`=清除 / `{apiKeyId, modelId, options?}`=设置；F1 校验 apiKeyId 存在 + 跨用户隔离 → 404 `API_KEY_NOT_FOUND`；缺字段 → 400 `API_KEY_ID_REQUIRED` / `MODEL_ID_REQUIRED`。conv override 自动经 ctx 传播到 subagent spawn（subagent 跑同一配置）|
 | DELETE | `/api/v1/conversations/{id}` | 软删（204）|
 
 #### chat ✅
@@ -222,7 +220,7 @@ type Error = {
 
 > forge_redesign Plan 04(2026-05-12):Workflow 是 trinity 第三条腿 — **用户命名的有向无环图(DAG)**。锻造 vs 执行分离(D6):本端点集只管"图怎么样",不管"图怎么跑"(`:trigger` action + flowrun endpoints + execution log endpoints 在 Plan 05)。Edit 走 iterate-same-pending(D-redo-11);拒绝 `ops=[]`(workflow 无 env 要"force-rebuild")。CapabilityChecker 真接 function/handler/skill/mcp 服务,validation 期返 `WORKFLOW_CAPABILITY_NOT_FOUND` / `WORKFLOW_MCP_SERVER_NOT_INSTALLED`。
 
-> **2026-05-28 model selection redesign**:`:edit` ops 联合新增第 10 个 `set_node_model_override` op,payload `{nodeId, modelOverride:{apiKeyId, modelId}?}`(modelOverride 字段缺失或 null = 清除)。F1 校验:任一 `apiKeyId`/`modelId` 缺失 → 400 `INVALID_NODE_MODEL_OVERRIDE`;`apiKeyId` 不存在 / 跨用户 → 404 `API_KEY_NOT_FOUND`。详 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md) §5。
+> **2026-06-02 model options**:`:edit` ops 联合新增第 10 个 `set_node_model_override` op,payload `{nodeId, modelOverride:{apiKeyId, modelId, options?}?}`(modelOverride 字段缺失或 null = 清除)。F1 校验:任一 `apiKeyId`/`modelId` 缺失 → 400 `INVALID_NODE_MODEL_OVERRIDE`;`apiKeyId` 不存在 / 跨用户 → 404 `API_KEY_NOT_FOUND`。详 [`../references/backend/domains/workflow.md`](../references/backend/domains/workflow.md) §5。
 
 #### flowrun + trigger + scheduler ✅ (forge_redesign Plan 05)
 详见 [`../references/backend/domains/{flowrun,trigger,scheduler}.md`](../references/backend/domains/) + redesign topic [`../archive/forge-redesign-2026-05/05-execution-plane.md`](../archive/forge-redesign-2026-05/05-execution-plane.md)。

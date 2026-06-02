@@ -34,6 +34,7 @@ audience: [human, ai]
 | **Phase 5** | 智能化(document / intent / chat 终极版) | 🚧 部分交付 | document/mcp/skill/memory/compaction ✅；intent/chat 终极版未做 |
 | **前端 revamp** | **TS + FSD 6 层完整重构**（阶段 0-5 全交付；401 bug 根治；文档体系建立） | ✅ | 2026-05-27 |
 | **model selection redesign** | **3 scenarios（dialogue/utility/agent）+ APIKeyID + conv/node override + subagent chain inheritance**（17+ commits；后端 12 callsite 全栈迁移 + 前端 SettingsModal/ConvOverride/Onboarding/WorkflowEditor）| ✅ | 2026-05-28 |
+| **model options simplification** | **一个 key + raw modelId + provider-native options**：删除 `thinking` 专用列、`model_cap_overrides`、旧 variant UI、`pkg/modelcaps`；统一到 `internal/pkg/modelcatalog`，前端按 `OptionDescriptor[]` 动态渲染 Settings/Onboarding/ConvOverride/WorkflowOverride | ✅ | 2026-06-02 |
 | **当前重心** | **前端功能实现**（V1.2 桌面 app；FSD 架构已定型；接入后端 API） | 🚧 进行中 | FSD 架构已定型，开始各 page / feature 功能交付 |
 
 **当前测试规模**:`make test-backend`(单测,in-memory SQLite)全绿(174 包,见 settings-redesign 条)。⚠️ **`make e2e`(pipeline tag)当前编译失败**——harness 签名漂移(`LocalCtxAs` 签名变 / `reqctxpkg.DefaultLocalUserID` 已删,见 `completeness-audit-report.md` 🟡-B),修复后重新校准计数。LLM 集成测试因 DeepSeek API key 环境失效优雅 skip。

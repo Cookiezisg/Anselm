@@ -717,11 +717,11 @@ func TestThinking_Gemini_On_ThinkingBudget(t *testing.T) {
 	}
 }
 
-// TestThinking_Gemini_On_DefaultsBudgetFromCaps verifies Mode="on" with no
-// explicit Budget falls back to the model's catalog BudgetMax (non-zero).
+// TestThinking_Gemini_On_DefaultsDynamicBudget verifies Mode="on" with no
+// explicit Budget asks Gemini to choose a dynamic budget.
 //
-// 验证 Mode="on" 未给 Budget 时回退到模型目录 BudgetMax（非零）。
-func TestThinking_Gemini_On_DefaultsBudgetFromCaps(t *testing.T) {
+// 验证 Mode="on" 未给 Budget 时使用 Gemini 动态预算 -1。
+func TestThinking_Gemini_On_DefaultsDynamicBudget(t *testing.T) {
 	req := minimalReq("gemini-2.5-flash")
 	req.Thinking = &ThinkingSpec{Mode: "on"}
 	body := buildProviderBody(t, "google", geminiNativeBase, req)
@@ -735,8 +735,8 @@ func TestThinking_Gemini_On_DefaultsBudgetFromCaps(t *testing.T) {
 	}
 	json.Unmarshal(body, &parsed)
 	got := parsed.GenerationConfig.ThinkingConfig.ThinkingBudget
-	if got == nil || *got <= 0 {
-		t.Errorf("gemini on without explicit budget: thinkingBudget must default >0; got %v; body: %s", got, body)
+	if got == nil || *got != -1 {
+		t.Errorf("gemini on without explicit budget: thinkingBudget = %v, want -1; body: %s", got, body)
 	}
 }
 
@@ -840,10 +840,10 @@ func TestThinking_Ollama_Off_EmitsNone(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 // TestThinking_Anthropic_NilSpec_NoThinkingField verifies that a nil ThinkingSpec
-// produces no thinking field and that max_tokens reflects modelcaps (not the old
+// produces no thinking field and that max_tokens reflects modelcatalog (not the old
 // hardcoded 8096). claude-sonnet-4-5 → 64000.
 //
-// 验证 nil ThinkingSpec 时 Anthropic 请求不含 thinking 字段，max_tokens 反映 modelcaps
+// 验证 nil ThinkingSpec 时 Anthropic 请求不含 thinking 字段，max_tokens 反映 modelcatalog
 // 而非旧常量 8096（claude-sonnet-4-5 → 64000）。
 func TestThinking_Anthropic_NilSpec_NoThinkingField(t *testing.T) {
 	req := minimalReq("claude-sonnet-4-5")
@@ -857,10 +857,10 @@ func TestThinking_Anthropic_NilSpec_NoThinkingField(t *testing.T) {
 	if err := json.Unmarshal(parsed["max_tokens"], &maxTok); err != nil {
 		t.Fatalf("max_tokens not present: %v", err)
 	}
-	// claude-sonnet-4-5 matches the "claude-sonnet-4" modelcaps rule → MaxOutput=64000.
+	// claude-sonnet-4-5 matches the "claude-sonnet-4" modelcatalog rule → MaxOutput=64000.
 	// claude-sonnet-4-5 匹配 "claude-sonnet-4" 规则 → MaxOutput=64000，不再是 8096。
 	if maxTok != 64_000 {
-		t.Errorf("max_tokens = %d, want 64000 (per-model from modelcaps, not hardcoded 8096)", maxTok)
+		t.Errorf("max_tokens = %d, want 64000 (per-model from modelcatalog, not hardcoded 8096)", maxTok)
 	}
 }
 
@@ -935,10 +935,10 @@ func TestThinking_Anthropic_On_BudgetZero_DefaultsApplied(t *testing.T) {
 }
 
 // TestThinking_Anthropic_On_BudgetHuge_MaxTokensBumped verifies that when
-// Budget ≥ modelcaps.MaxOutput (64000 for claude-sonnet-4-5), max_tokens is
+// Budget ≥ modelcatalog.MaxOutput (64000 for claude-sonnet-4-5), max_tokens is
 // bumped to budget+1024 so the Anthropic constraint (budget < max_tokens) holds.
 //
-// 验证 Budget ≥ modelcaps.MaxOutput 时 max_tokens 上调至 budget+1024，
+// 验证 Budget ≥ modelcatalog.MaxOutput 时 max_tokens 上调至 budget+1024，
 // 保证 Anthropic 约束（budget < max_tokens）成立。
 func TestThinking_Anthropic_On_BudgetHuge_MaxTokensBumped(t *testing.T) {
 	req := minimalReq("claude-sonnet-4-5")

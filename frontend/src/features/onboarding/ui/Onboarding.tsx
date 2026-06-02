@@ -17,8 +17,9 @@ import { Button } from "@shared/ui/Button";
 import { useSettingsStore } from "@entities/settings";
 import type { SettingsState } from "@entities/settings";
 import { ACCENTS, LLM_HINTS, SEARCH_HINTS } from "@shared/lib/onboarding-strings";
-import { ProviderGrid, KeyVerifyField, ModelSelect } from "@features/settings";
+import { ProviderGrid, KeyVerifyField, ModelSelect, ModelOptionsFields, mergeOptionDefaults } from "@features/settings";
 import { useOnboardingFlow } from "@features/onboarding";
+import type { ModelCapability, ModelOptions } from "@entities/model-config";
 
 const STEP_KEYS = ["welcome", "workspace", "appearance", "model", "search", "done"];
 const ANVIL = (
@@ -39,7 +40,7 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
     provider, pickProvider,
     apiKey, onKeyChange,
     verify, verifying, verified, verifyError,
-    models, modelId, setModelId,
+    models, modelId, setModelId, modelOptions, setModelOptions,
     llmProviders,
     searchProvider, setSearchProvider,
     searchKey, setSearchKey,
@@ -97,6 +98,7 @@ export function Onboarding({ onFinish }: { onFinish?: () => void }) {
                 apiKey={apiKey} onKeyChange={onKeyChange} verify={verify}
                 verifying={verifying} verified={verified} verifyError={verifyError}
                 models={models} modelId={modelId} setModelId={setModelId}
+                modelOptions={modelOptions} setModelOptions={setModelOptions}
               />
             )}
             {stepKey === "search" && (
@@ -213,9 +215,10 @@ function Appearance({ t, settings }: { t: TFunction<"onboarding">; settings: Set
   );
 }
 
-function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, verifyError, models, modelId, setModelId }: { t: TFunction<"onboarding">; providers: Provider[]; provider: string; pickProvider: (p: string) => void; apiKey: string; onKeyChange: (v: string) => void; verify: () => void; verifying: boolean; verified: boolean; verifyError: string; models: string[]; modelId: string; setModelId: (v: string) => void }) {
+function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, verify, verifying, verified, verifyError, models, modelId, setModelId, modelOptions, setModelOptions }: { t: TFunction<"onboarding">; providers: Provider[]; provider: string; pickProvider: (p: string) => void; apiKey: string; onKeyChange: (v: string) => void; verify: () => void; verifying: boolean; verified: boolean; verifyError: string; models: ModelCapability[]; modelId: string; setModelId: (v: string) => void; modelOptions: ModelOptions; setModelOptions: (v: ModelOptions) => void }) {
   const isOllama = provider === "ollama";
   const display = providers.find((p) => p.name === provider)?.displayName || provider;
+  const selected = models.find((m) => m.modelId === modelId);
   return (
     <>
       <div className="onb-kicker">{t("model.kicker")}</div>
@@ -246,11 +249,24 @@ function Model({ t, providers, provider, pickProvider, apiKey, onKeyChange, veri
             {verified && models.length > 0 && (
               <div className="onb-keyfield" style={{ flex: 1 }}>
                 <div className="onb-klabel">{t("model.modelLabel")}</div>
-                <ModelSelect models={models} value={modelId} onChange={setModelId} />
+                <ModelSelect
+                  models={models.map((m) => ({ value: m.modelId, label: m.displayName }))}
+                  value={modelId}
+                  onChange={(v) => {
+                    setModelId(v);
+                    const cap = models.find((m) => m.modelId === v);
+                    setModelOptions(mergeOptionDefaults(cap?.options || [], {}));
+                  }}
+                />
+                {selected?.options?.length ? (
+                  <div style={{ marginTop: 8 }}>
+                    <ModelOptionsFields descriptors={selected.options} value={modelOptions} onChange={setModelOptions} />
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
-          {verified && models.length > 0 && <div className="onb-khint">{t("model.availHint", { list: models.join(" · ") })}</div>}
+          {verified && models.length > 0 && <div className="onb-khint">{t("model.availHint", { list: models.map((m) => m.displayName || m.modelId).join(" · ") })}</div>}
         </>
       )}
     </>

@@ -7,10 +7,12 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiFetch, pickList } from "@shared/api";
 import i18n from "@shared/lib/i18n";
 import { useCreateUser } from "@entities/user";
 import { useCreateApiKey, useTestApiKey, useDeleteApiKey } from "@entities/apikey";
-import { useProviders, useUpsertModelConfig } from "@entities/model-config";
+import { useProviders, useUpsertModelConfig, type ModelCapability, type ModelOptions } from "@entities/model-config";
+import { mergeOptionDefaults } from "@features/settings";
 import { ACCENTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings";
 import { useSessionStore } from "@entities/session";
 import { useSettingsStore } from "@entities/settings";
@@ -42,9 +44,11 @@ export interface OnboardingFlowState {
   verifying: boolean;
   verified: boolean;
   verifyError: string;
-  models: string[];
+  models: ModelCapability[];
   modelId: string;
   setModelId: (v: string) => void;
+  modelOptions: ModelOptions;
+  setModelOptions: (v: ModelOptions) => void;
   llmProviders: Array<{ name: string; category: string; displayName: string; defaultBaseUrl: string }>;
 
   // search
@@ -97,8 +101,9 @@ export function useOnboardingFlow(): OnboardingFlowState {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifyError, setVerifyError] = useState("");
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelCapability[]>([]);
   const [modelId, setModelId] = useState("");
+  const [modelOptions, setModelOptions] = useState<ModelOptions>({});
   // search
   const [searchProvider, setSearchProvider] = useState("");
   const [searchKey, setSearchKey] = useState("");
@@ -138,13 +143,13 @@ export function useOnboardingFlow(): OnboardingFlowState {
     if (createdKeyId) deleteKey.mutate(createdKeyId);
     setProvider(n);
     setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
-    setVerified(false); setModels([]); setModelId(""); setVerifyError("");
+    setVerified(false); setModels([]); setModelId(""); setModelOptions({}); setVerifyError("");
   };
 
   const onKeyChange = (v: string) => {
     setApiKey(v);
     setVerifyError("");
-    if (verified) { setVerified(false); setModels([]); setModelId(""); }
+    if (verified) { setVerified(false); setModels([]); setModelId(""); setModelOptions({}); }
   };
 
   const verify = () => run(async () => {
@@ -164,9 +169,20 @@ export function useOnboardingFlow(): OnboardingFlowState {
       }
       const res = await testKey.mutateAsync(keyId!);
       const found = (res as { modelsFound?: string[] })?.modelsFound || [];
-      const opts = found.length ? found : ((PROVIDER_DEFAULT_MODEL as Record<string, string>)[provider] ? [(PROVIDER_DEFAULT_MODEL as Record<string, string>)[provider]] : []);
+      const capResp = await apiFetch("/model-capabilities");
+      const caps = pickList<ModelCapability>(capResp).filter((m) => m.provider === provider);
+      const fallbackIDs = found.length ? found : ((PROVIDER_DEFAULT_MODEL as Record<string, string>)[provider] ? [(PROVIDER_DEFAULT_MODEL as Record<string, string>)[provider]] : []);
+      const opts = caps.length ? caps : fallbackIDs.map((m) => ({
+        provider,
+        modelId: m,
+        displayName: m,
+        contextWindow: 0,
+        maxOutput: 0,
+        options: [],
+      }));
       setModels(opts);
-      setModelId(opts[0] || "");
+      setModelId(opts[0]?.modelId || "");
+      setModelOptions(mergeOptionDefaults(opts[0]?.options || [], {}));
       setVerified(true);
       pushToast({ kind: "success", title: t("toast.keyVerified") });
     } catch {
@@ -198,7 +214,7 @@ export function useOnboardingFlow(): OnboardingFlowState {
         // Onboarding 把用户选的模型一次性写到 3 个 scenario;后续设置里再分别调。
         if (verified && modelId && createdKeyId) {
           for (const scenario of ["dialogue", "utility", "agent"] as const) {
-            await upsertModel.mutateAsync({ scenario, apiKeyId: createdKeyId, modelId });
+            await upsertModel.mutateAsync({ scenario, apiKeyId: createdKeyId, modelId, options: modelOptions });
           }
         }
         advance();
@@ -246,6 +262,8 @@ export function useOnboardingFlow(): OnboardingFlowState {
     models,
     modelId,
     setModelId,
+    modelOptions,
+    setModelOptions,
     llmProviders,
     searchProvider,
     setSearchProvider,

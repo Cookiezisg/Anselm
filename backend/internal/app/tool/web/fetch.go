@@ -20,7 +20,6 @@ import (
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
-
 const (
 	fetchTimeout  = 30 * time.Second
 	maxFetchBytes = 1 << 20
@@ -48,7 +47,6 @@ var (
 	ErrUnsupportedScheme = errors.New("url must use http or https scheme")
 )
 
-
 const fetchDescription = `Fetch a URL and return an LLM summary answering prompt. Absolute http/https only; private/loopback addresses blocked.`
 
 var fetchSchema = json.RawMessage(`{
@@ -65,7 +63,6 @@ var fetchSchema = json.RawMessage(`{
 		}
 	}
 }`)
-
 
 // WebFetch implements the WebFetch system tool.
 //
@@ -115,7 +112,6 @@ func (t *WebFetch) CheckPermissions(_ json.RawMessage, _ toolapp.PermissionMode)
 	return toolapp.PermissionAllow
 }
 
-
 // Execute runs SSRF check → two-tier fetch → cap → LLM summary; failures return friendly strings (not Go err).
 //
 // Execute 做 SSRF 检查 → 两段抓取 → 截断 → LLM 摘要；失败返友好字符串（非 Go err）。
@@ -151,7 +147,6 @@ func (t *WebFetch) Execute(ctx context.Context, argsJSON string) (string, error)
 	}
 	return summary, nil
 }
-
 
 // fetchClient is a process-wide http.Client with CheckRedirect re-running the SSRF guard on each hop.
 //
@@ -233,7 +228,6 @@ func doRequest(req *http.Request) (string, error) {
 	return string(body), nil
 }
 
-
 // guardHostname returns empty when host is safe; rejects any DNS answer in a denied range (anti-rebinding).
 //
 // guardHostname 安全则返空；任一 DNS 答案落入禁区即拒（防 DNS rebinding）。
@@ -282,7 +276,6 @@ func classifyIP(ip net.IP) string {
 	return ""
 }
 
-
 // summarise resolves the utility LLM bundle and asks it to answer prompt against content.
 //
 // summarise 解析 utility LLM bundle，让它按 prompt 回答 content。
@@ -297,6 +290,7 @@ func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string
 		Key:      bundle.Key,
 		BaseURL:  bundle.BaseURL,
 		Thinking: bundle.Thinking,
+		Options:  bundle.Options,
 		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: body}},
 	})
 	if err != nil {
@@ -335,6 +329,5 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "\n\n...[truncated]"
 }
-
 
 var _ toolapp.Tool = (*WebFetch)(nil)

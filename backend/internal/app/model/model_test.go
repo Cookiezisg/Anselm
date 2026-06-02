@@ -204,9 +204,12 @@ func TestService_PickForDialogue(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	id, m, _, err := svc.PickForDialogue(ctx)
+	id, m, opts, err := svc.PickForDialogue(ctx)
 	if err != nil || id != "aki_test" || m != "claude-sonnet-4-5" {
 		t.Fatalf("PickForDialogue=(%q,%q,%v), want (aki_test, claude-sonnet-4-5, nil)", id, m, err)
+	}
+	if len(opts) != 0 {
+		t.Fatalf("options=%v, want empty", opts)
 	}
 }
 
@@ -251,35 +254,5 @@ func TestService_Upsert_UnknownAPIKeyID_Returns404(t *testing.T) {
 	})
 	if !errors.Is(err, apikeydomain.ErrNotFound) {
 		t.Fatalf("want ErrNotFound, got %v", err)
-	}
-}
-
-func TestUpsert_WithThinking_PersistedAndReturned(t *testing.T) {
-	svc := newSvc(t, newFakeRepo())
-	spec := &modeldomain.ThinkingSpec{Mode: "on", Effort: "high"}
-	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{
-		APIKeyID: "aki_test", ModelID: "claude-sonnet-4-5", Thinking: spec,
-	})
-	if err != nil {
-		t.Fatalf("Upsert: %v", err)
-	}
-	if got.Thinking == nil {
-		t.Fatal("Thinking is nil, want non-nil")
-	}
-	if got.Thinking.Mode != "on" || got.Thinking.Effort != "high" {
-		t.Errorf("Thinking = %+v, want {Mode:on Effort:high}", got.Thinking)
-	}
-}
-
-func TestUpsert_WithoutThinking_ThinkingIsNil(t *testing.T) {
-	svc := newSvc(t, newFakeRepo())
-	got, err := svc.Upsert(ctxAlice(), modeldomain.ScenarioDialogue, UpsertInput{
-		APIKeyID: "aki_test", ModelID: "gpt-4o",
-	})
-	if err != nil {
-		t.Fatalf("Upsert: %v", err)
-	}
-	if got.Thinking != nil {
-		t.Errorf("Thinking = %+v, want nil", got.Thinking)
 	}
 }

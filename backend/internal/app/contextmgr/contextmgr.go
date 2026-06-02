@@ -14,7 +14,7 @@ import (
 	convdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	eventlogpkg "github.com/sunweilin/forgify/backend/internal/pkg/eventlog"
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 	notificationspkg "github.com/sunweilin/forgify/backend/internal/pkg/notifications"
 )
 
@@ -28,7 +28,7 @@ var ErrCompactFailed = errors.New("contextmgr: compact failed")
 //
 // LLMResolver 为摘要生成构造便宜 LLM bundle（测试可注入 fake）。
 // thinking 可为 nil（= auto）；compact.go 把它赋给 Request.Thinking。
-type LLMResolver func(ctx context.Context) (client llminfra.Client, modelID, key, baseURL string, thinking *llminfra.ThinkingSpec, err error)
+type LLMResolver func(ctx context.Context) (client llminfra.Client, modelID, key, baseURL string, thinking *llminfra.ThinkingSpec, options map[string]string, err error)
 
 // Thresholds controls when compaction kicks in.
 //
@@ -57,7 +57,7 @@ func DefaultThresholds() Thresholds {
 // Used by estimate to read the real context window instead of a static fallback.
 //
 // CapabilityResolver 返回 (provider, modelID) 的有效模型能力，用于 estimate 读真实窗口。
-type CapabilityResolver func(ctx context.Context, provider, modelID string) modelcapspkg.Cap
+type CapabilityResolver func(ctx context.Context, provider, modelID string) modelcatalogpkg.Capability
 
 // Manager orchestrates demotion + compaction; MaybeCompact is the only entry point.
 //

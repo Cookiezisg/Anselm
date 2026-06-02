@@ -50,7 +50,7 @@ audience: [human, ai]
 | `CreateConversationBody` | `title?` | `POST /api/v1/conversations` |
 | `UpdateConversationPatch` | `title? / systemPrompt? / attachedDocuments? / archived? / pinned? / modelOverride?` | `PATCH /api/v1/conversations/{id}` |
 
-`ModelRef = { apiKeyId: string; modelId: string }`（2026-05-28 model selection redesign：原 `{provider, modelId}` 形状已删，前端 / 后端 / DB 全栈同步切到 `apiKeyId`）。
+`ModelRef = { apiKeyId: string; modelId: string; options?: Record<string,string> }`（2026-05-28 model selection redesign：原 `{provider, modelId}` 形状已删；2026-06-02 加 provider-native `options`）。
 | `Message` | `id / conversationId / role / status / parentBlockId / blocks / attachments / inputTokens? / outputTokens? / modelId?` | `GET /api/v1/conversations/{id}/messages` |
 | `SendMessageBody` | `content / attachmentIds?` | `POST /api/v1/conversations/{id}/messages:send` |
 | `Block` | `id / messageId / parentId / type(BlockType) / attrs / content / status(BlockStatus) / durationMs / children` | SSE 增量（非独立 REST 端点）|
@@ -177,22 +177,14 @@ audience: [human, ai]
 
 | 主类型 | 关键字段 | 对应端点 |
 |---|---|---|
-| `ModelConfig` | `id / scenario / apiKeyId / modelId / thinking?(ThinkingSpec)` | `GET /api/v1/model-configs` |
+| `ModelConfig` | `id / scenario / apiKeyId / modelId / options?` | `GET /api/v1/model-configs` |
 | `Provider` | `name / displayName / category / defaultBaseUrl? / baseUrlRequired` | `GET /api/v1/providers`（静态白名单）|
 | `Scenario` | `name` | `GET /api/v1/scenarios`（后端权威白名单）|
-| `UpsertModelConfigBody` | `apiKeyId / modelId / thinking?(ThinkingSpec)` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
-| `ModelCapability` | `provider / modelId / thinkingShape / contextWindow / maxOutput / usableInput / isOverride` | `GET /api/v1/model-capabilities` |
-| `CapabilityOverrideBody` | `provider / modelId / thinkingShape? / contextWindow? / maxOutput?` | `PUT /api/v1/model-capabilities` |
+| `UpsertModelConfigBody` | `apiKeyId / modelId / options?` | `PUT /api/v1/model-configs/{scenario}`（N6：无论新建/更新返 200）|
+| `ModelCapability` | `provider / modelId / displayName / contextWindow / maxOutput / options[]` | `GET /api/v1/model-capabilities` |
+| `ModelOptionDescriptor` | `key / label / control / values[] / defaultValue?` | model option 动态渲染 |
 
-**ThinkingSpec**（新类型，2026-05-30，挂在 `ModelRef` + `ModelConfig` 上）：
-```ts
-interface ThinkingSpec {
-  mode: 'auto' | 'on' | 'off'
-  effort?: 'low' | 'medium' | 'high'
-  budget?: number  // Anthropic budget_tokens
-}
-```
-`ModelRef`（含 `thinking?`）经 `entities/conversation/@x/workflow.ts` 暴露给 `entities/workflow`（FSD `@x` 机制）。
+`ModelRef`（含 `options?`）经 `entities/conversation/@x/workflow.ts` 暴露给 `entities/workflow`（FSD `@x` 机制）。
 
 **2026-05-28 model selection redesign**：
 - `ModelConfig.provider` → `ModelConfig.apiKeyId`（后端 DB 列 `provider` → `api_key_id`）

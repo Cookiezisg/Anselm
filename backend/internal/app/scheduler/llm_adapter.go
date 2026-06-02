@@ -53,6 +53,7 @@ func (a *DefaultLLMCaller) Generate(ctx context.Context, override *modeldomain.M
 		BaseURL:  bundle.BaseURL,
 		System:   "You are a workflow LLM step. Respond concisely.",
 		Thinking: bundle.Thinking,
+		Options:  bundle.Options,
 		Messages: []llminfra.LLMMessage{
 			{Role: llminfra.RoleUser, Content: prompt},
 		},

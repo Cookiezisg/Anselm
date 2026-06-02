@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 )
 
 const (
@@ -47,6 +47,9 @@ func (p *anthropicProvider) BuildRequest(ctx context.Context, req Request) (*htt
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("x-api-key", req.Key)
 	httpReq.Header.Set("anthropic-version", anthropicVersion)
+	if req.Options != nil && req.Options["context"] == "1m" {
+		httpReq.Header.Set("anthropic-beta", "context-1m-2025-08-07")
+	}
 	return httpReq, nil
 }
 
@@ -188,7 +191,7 @@ func buildAnthropicBody(req Request) ([]byte, error) {
 	// for unknown models so callers are never silently down-capped.
 	//
 	// 从 per-model 能力派生 max_tokens；未知 model 退到旧常量，不静默截低。
-	cap := modelcapspkg.Lookup("anthropic", req.ModelID)
+	cap := modelcatalogpkg.Lookup("anthropic", req.ModelID)
 	maxTok := cap.MaxOutput
 	if maxTok == 0 {
 		maxTok = anthropicDefaultMaxTokens
@@ -428,9 +431,9 @@ type anthropicMessage struct {
 }
 
 type anthropicContent struct {
-	Type      string                `json:"type"`
-	Text      string                `json:"text,omitempty"`
-	Thinking  string                `json:"thinking,omitempty"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Thinking string `json:"thinking,omitempty"`
 	// Signature is the opaque Anthropic-issued token that authorises re-use of a
 	// cached thinking block. Must be echoed verbatim when present; omit otherwise.
 	//
@@ -495,9 +498,9 @@ type anthropicBlockStart struct {
 type anthropicBlockDelta struct {
 	Index int `json:"index"`
 	Delta struct {
-		Type        string `json:"type"`
-		Text        string `json:"text"`
-		Thinking    string `json:"thinking"`
+		Type     string `json:"type"`
+		Text     string `json:"text"`
+		Thinking string `json:"thinking"`
 		// Signature arrives in type:"signature_delta" just before
 		// content_block_stop for a thinking block.
 		//

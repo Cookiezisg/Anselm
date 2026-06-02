@@ -233,11 +233,9 @@ SSE 事件名固定为 `notification`；dispatch 由 `payload.type` 字段驱动
 
 | Hook | 说明 |
 |---|---|
-| `useModelCapabilities()` | `useQuery(qk.modelCapabilities(), ...)` → `ModelCapability[]`；供 ThinkingControl 决定渲染哪种控件 |
-| `useSetModelCapabilityOverride()` | `useMutation(PUT /model-capabilities)`；成功后 `invalidateQueries(qk.modelCapabilities())` |
-| `useClearModelCapabilityOverride()` | `useMutation(DELETE /model-capabilities?provider=&modelId=)` |
+| `useModelCapabilities()` | `useQuery(qk.modelCapabilities(), ...)` → `ModelCapability[]`；供 settings/onboarding/override UI 渲染 raw model + provider-native options |
 
-**辅助函数**：`capabilityFor(capabilities, provider, modelId): ModelCapability | undefined`（从 list 中精确匹配；用于 ThinkingControl 的 capabilityShape 判断）。
+**辅助函数**：`capabilityFor(capabilities, provider, modelId): ModelCapability | undefined`（从 list 中精确匹配）。
 
 ---
 

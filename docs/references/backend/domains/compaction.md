@@ -520,8 +520,7 @@ contextMgr = contextmgr.New(..., capRes)
 
 原有 `internal/pkg/modelmeta/` 包（硬编码 ModelMeta 注册表）**已在 2026-05-30 删除**。唯一消费方 `contextmgr/estimate.go` 已迁移到注入的 `CapabilityResolver`（详上节）。
 
-新的能力目录在 `internal/pkg/modelcaps/`，按 family 规则 + per-model 精确覆盖，详见：
-[`documents/version-1.2/working/llm-providers/04-capability-catalog.md`](../working/llm-providers/04-capability-catalog.md)
+新的能力目录在 `internal/pkg/modelcatalog/`，按 provider/model 规则提供 `ContextWindow` / `MaxOutput`，并携带前端渲染用的 provider-native option descriptors。`contextmgr` 只消费其中的 `Capability`。
 
 ### 7.3 校准
 

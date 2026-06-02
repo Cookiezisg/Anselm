@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, pickList, qk } from "@shared/api";
 import type {
-  CapabilityOverrideBody,
   ModelCapability,
   ModelConfig,
   Provider,
@@ -38,28 +37,5 @@ export function useModelCapabilities() {
     queryKey: qk.modelCapabilities(),
     queryFn: () => apiFetch("/model-capabilities"),
     select: pickList<ModelCapability>,
-  });
-}
-
-export function useSetModelCapabilityOverride() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, { provider: string; modelId: string } & CapabilityOverrideBody>({
-    mutationFn: ({ provider, modelId, ...body }) =>
-      apiFetch(`/model-capabilities/${provider}/${encodeURIComponent(modelId)}`, {
-        method: "PUT",
-        body,
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.modelCapabilities() }),
-  });
-}
-
-export function useClearModelCapabilityOverride() {
-  const qc = useQueryClient();
-  return useMutation<void, Error, { provider: string; modelId: string }>({
-    mutationFn: ({ provider, modelId }) =>
-      apiFetch(`/model-capabilities/${provider}/${encodeURIComponent(modelId)}`, {
-        method: "DELETE",
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.modelCapabilities() }),
   });
 }

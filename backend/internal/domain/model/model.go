@@ -11,19 +11,23 @@ import (
 	"gorm.io/gorm"
 )
 
-// ModelRef is a stable (apiKeyId, modelId) pair reusable across domains
+// ModelOptions stores provider/model-native option values. Keys and values are
+// defined by the read-only model catalog; adapters interpret them.
+type ModelOptions map[string]string
+
+// ModelRef is a stable (apiKeyId, modelId, options) selection reusable across domains
 // (Conversation.ModelOverride, NodeSpec.ModelOverride). Provider is implicit
 // via the api_key referenced by APIKeyID.
 //
 // ModelRef 是可跨 domain 复用的 (apiKeyId, modelId) 对(conv 和 node 的 override 复用)。
 // Provider 由 APIKeyID 引用的 api_key 隐含。
 type ModelRef struct {
-	APIKeyID string        `json:"apiKeyId"`
-	ModelID  string        `json:"modelId"`
-	Thinking *ThinkingSpec `json:"thinking,omitempty"`
+	APIKeyID string       `json:"apiKeyId"`
+	ModelID  string       `json:"modelId"`
+	Options  ModelOptions `gorm:"serializer:json;type:text;default:'{}'" json:"options,omitempty"`
 }
 
-// ModelConfig records the user's (apiKeyId, modelId) for one scenario.
+// ModelConfig records the user's model selection for one scenario.
 //
 // ModelConfig 记录用户某 scenario 下的 (apiKeyId, modelId)。
 type ModelConfig struct {
@@ -32,7 +36,7 @@ type ModelConfig struct {
 	Scenario  string         `gorm:"not null;type:text;uniqueIndex:idx_mc_user_scenario,priority:2" json:"scenario"`
 	APIKeyID  string         `gorm:"not null;type:text;column:api_key_id" json:"apiKeyId"`
 	ModelID   string         `gorm:"not null;type:text;column:model_id" json:"modelId"`
-	Thinking  *ThinkingSpec  `gorm:"serializer:json;type:text" json:"thinking,omitempty"`
+	Options   ModelOptions   `gorm:"serializer:json;type:text;default:'{}'" json:"options,omitempty"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -82,14 +86,14 @@ type Repository interface {
 }
 
 // ModelPicker is the cross-domain port for LLM-using services; implemented by app/model.Service.
-// Returns (apiKeyID, modelID, thinking) — provider is derived later from apikey.ResolveCredentialsByID.
-// thinking is nil when the scenario has no explicit reasoning spec (= auto).
+// Returns (apiKeyID, modelID, options). Options are provider/model-native and
+// are compiled at runtime by modelcatalog/adapters.
 //
 // ModelPicker 是跨 domain 端口,由 app/model.Service 实现。
-// 返回 (apiKeyID, modelID, thinking)——provider 由 apikey.ResolveCredentialsByID 在解析阶段拿到。
-// thinking 为 nil 表示该 scenario 无显式推理设置（= auto）。
+// 返回 (apiKeyID, modelID)。modelID 是模型变体 ID,运行时由 modelcatalog 编译为
+// provider 真实模型和请求参数。
 type ModelPicker interface {
-	PickForDialogue(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
-	PickForUtility(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
-	PickForAgent(ctx context.Context) (apiKeyID, modelID string, thinking *ThinkingSpec, err error)
+	PickForDialogue(ctx context.Context) (apiKeyID, modelID string, options ModelOptions, err error)
+	PickForUtility(ctx context.Context) (apiKeyID, modelID string, options ModelOptions, err error)
+	PickForAgent(ctx context.Context) (apiKeyID, modelID string, options ModelOptions, err error)
 }

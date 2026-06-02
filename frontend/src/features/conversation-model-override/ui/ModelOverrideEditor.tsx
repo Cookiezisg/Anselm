@@ -1,20 +1,13 @@
-// ModelOverrideEditor — KeyModelPicker + ThinkingControl + save/clear in a
-// floating popover over the ChatHeader. Save sets the full ModelRef (including
-// thinking); Clear sends null so backend falls back to dialogue default.
-// Changing the model/key resets thinking — a budget valid for one model is
-// meaningless for another.
-//
-// 弹出式编辑器;KeyModelPicker + ThinkingControl + 保存/清除。Save 写完整 ModelRef
-// (含 thinking);Clear 写 null。换模型时重置 thinking。
+// ModelOverrideEditor — KeyModelPicker + save/clear in a floating popover over
+// the ChatHeader. Provider-native model options are saved alongside modelId.
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@shared/ui/Button";
 import type { ModelRef } from "@entities/conversation";
-import { useModelCapabilities, capabilityFor, ThinkingControl } from "@entities/model-config";
-import type { ThinkingSpec } from "@entities/model-config";
 import { useApiKeys } from "@entities/apikey";
-import { KeyModelPicker } from "@features/settings";
+import { useModelCapabilities } from "@entities/model-config";
+import { KeyModelPicker, ModelOptionsFields, mergeOptionDefaults } from "@features/settings";
 import { useConvModelOverride } from "../model/useConvModelOverride";
 
 interface Props {
@@ -27,26 +20,16 @@ export function ModelOverrideEditor({ conversationId, current, onClose }: Props)
   const { t } = useTranslation(["conv", "common"]);
   const setOverride = useConvModelOverride();
   const [pending, setPending] = useState<ModelRef | null>(current);
-
-  const { data: caps = [] } = useModelCapabilities();
   const { data: keys = [] } = useApiKeys();
-
-  // Derive the provider from the selected key so capabilityFor can look up
-  // the right capability row — provider is implicit in ApiKey, not in ModelRef.
-  const provider = keys.find((k) => k.id === pending?.apiKeyId)?.provider ?? "";
-  const capability = pending ? capabilityFor(caps, provider, pending.modelId) : undefined;
+  const { data: caps = [] } = useModelCapabilities();
+  const provider = pending ? keys.find((k) => k.id === pending.apiKeyId)?.provider : "";
+  const cap = pending ? caps.find((c) => c.provider === provider && c.modelId === pending.modelId) : undefined;
+  const optionDescriptors = cap?.options || [];
 
   const handlePickerChange = (v: { apiKeyId: string; modelId: string }) => {
-    // Resetting thinking when model/key changes: a budget/effort valid for one
-    // model is semantically wrong for another.
-    setPending({ apiKeyId: v.apiKeyId, modelId: v.modelId });
-  };
-
-  const handleThinkingChange = (t: ThinkingSpec | undefined) => {
-    if (!pending) return;
-    const next: ModelRef = { ...pending };
-    if (t) { next.thinking = t; } else { delete next.thinking; }
-    setPending(next);
+    const nextProvider = keys.find((k) => k.id === v.apiKeyId)?.provider || "";
+    const nextCap = caps.find((c) => c.provider === nextProvider && c.modelId === v.modelId);
+    setPending({ apiKeyId: v.apiKeyId, modelId: v.modelId, options: mergeOptionDefaults(nextCap?.options || [], {}) });
   };
 
   const save = async () => {
@@ -63,12 +46,13 @@ export function ModelOverrideEditor({ conversationId, current, onClose }: Props)
     <div className="model-override-editor">
       <div className="moe-title">{t("conv:modelOverride.title")}</div>
       <KeyModelPicker value={pending} onChange={handlePickerChange} />
-      <ThinkingControl
-        capability={capability}
-        value={pending?.thinking}
-        onChange={handleThinkingChange}
-        disabled={setOverride.isPending}
-      />
+      {pending && optionDescriptors.length > 0 && (
+        <ModelOptionsFields
+          descriptors={optionDescriptors}
+          value={pending.options}
+          onChange={(options) => setPending({ ...pending, options })}
+        />
+      )}
       <div className="moe-actions">
         <Button variant="ghost" size="sm" onClick={clear} disabled={setOverride.isPending}>
           {t("conv:modelOverride.clear")}

@@ -95,6 +95,7 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		Key:      bc.Key,
 		BaseURL:  bc.BaseURL,
 		Thinking: bc.Thinking,
+		Options:  bc.Options,
 		Messages: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: sb.String()}},
 	})
 	if err != nil {
@@ -119,11 +120,11 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	}
 
 	type result struct {
-		ID          string  `json:"id"`
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
+		ID          string   `json:"id"`
+		Name        string   `json:"name"`
+		Description string   `json:"description"`
 		Tags        []string `json:"tags"`
-		Score       float32 `json:"score"`
+		Score       float32  `json:"score"`
 	}
 	out := make([]result, 0, len(ranked))
 	for _, r := range ranked {

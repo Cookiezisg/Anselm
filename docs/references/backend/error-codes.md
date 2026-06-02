@@ -65,7 +65,6 @@ handler 侧调 `response.FromDomainError(w, log, err)` 自动翻译。
 | `UNKNOWN_ACTION` | 404 | sandbox.go | sandbox `:action` 后缀不识别 |
 | `SCHEDULER_NOT_AVAILABLE` | 503 | flowrun / workflow handler | Plan 05 scheduler 未挂时（见下方 §execution plane）|
 | `TRACER_DISABLED` | 503 | dev_mock_llm.go（dev-only）| 非 `--dev` 模式访问 LLM trace |
-| `INVALID_THINKING_SHAPE` | 400 | capability.go（handler 内联）| PUT /model-capabilities body 的 `thinkingShape` 不在 `{"none","toggle","effort","budget"}` 白名单（**2026-05-30 新增**）|
 
 ---
 

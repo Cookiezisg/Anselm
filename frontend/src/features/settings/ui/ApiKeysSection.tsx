@@ -7,17 +7,19 @@
 // 按 key 组织的 LLM 密钥管理。对话默认 = model-config 的 dialogue 行,不是
 // key 上的标记;升级某 key 即 upsert dialogue 行(隐式顶掉旧默认)。
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "@shared/ui/Icon";
 import { Button } from "@shared/ui/Button";
 import { useToastStore } from "@shared/ui/toastStore";
+import { apiFetch, pickList } from "@shared/api";
 import { useApiKeys, useCreateApiKey, useTestApiKey, useDeleteApiKey, type ApiKey } from "@entities/apikey";
-import { useProviders, useModelConfigs, useUpsertModelConfig, type Provider, type ModelConfig } from "@entities/model-config";
+import { useProviders, useModelConfigs, useUpsertModelConfig, useModelCapabilities, type Provider, type ModelConfig, type ModelCapability, type ModelOptions } from "@entities/model-config";
 import { LLM_HINTS, PROVIDER_DEFAULT_MODEL } from "@shared/lib/onboarding-strings";
 import { ProviderGrid } from "./ProviderGrid.tsx";
 import { KeyVerifyField } from "./KeyVerifyField.tsx";
 import { ModelSelect } from "./ModelSelect.tsx";
+import { ModelOptionsFields, mergeOptionDefaults } from "./ModelOptionsFields.tsx";
 
 export function ApiKeysSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useTranslation("settings");
@@ -111,26 +113,40 @@ function KeyItem({ apiKey, isDefault, dialogueConfig, displayName, open, onToggl
   const testKey = useTestApiKey();
   const deleteKey = useDeleteApiKey();
   const upsertModel = useUpsertModelConfig();
+  const { data: capabilities = [] } = useModelCapabilities();
 
-  const models = apiKey.modelsFound || [];
-  const [localModel, setLocalModel] = useState(models[0] || "");
   const verified = apiKey.testStatus === "ok";
+  const models = verified ? capabilities.filter((v) => v.provider === apiKey.provider) : [];
+  const [localModel, setLocalModel] = useState(models[0]?.modelId || "");
+  const [localOptions, setLocalOptions] = useState<ModelOptions>({});
   const hint = (LLM_HINTS as Record<string, { abbr: string; color: string }>)[apiKey.provider] || { abbr: apiKey.provider.slice(0, 2).toUpperCase(), color: "#6b6459" };
 
+  useEffect(() => {
+    if (!isDefault && !localModel && models[0]) {
+      setLocalModel(models[0].modelId);
+      setLocalOptions(mergeOptionDefaults(models[0].options || [], {}));
+    }
+  }, [isDefault, localModel, models]);
+
   const modelValue = isDefault ? dialogueConfig?.modelId || "" : localModel;
+  const optionValue = isDefault ? dialogueConfig?.options || {} : localOptions;
+  const selectedCap = models.find((m) => m.modelId === modelValue);
   const onModelChange = (v: string) => {
+    const cap = models.find((m) => m.modelId === v);
+    const nextOptions = mergeOptionDefaults(cap?.options || [], {});
     if (isDefault) {
-      upsertModel.mutate({ scenario: "dialogue", apiKeyId: apiKey.id, modelId: v });
+      upsertModel.mutate({ scenario: "dialogue", apiKeyId: apiKey.id, modelId: v, options: nextOptions });
     } else {
       setLocalModel(v);
+      setLocalOptions(nextOptions);
     }
   };
 
-  const canPromote = !isDefault && (modelValue || models.length > 0);
+  const canPromote = !isDefault && verified && (modelValue || models.length > 0);
   const promote = () => {
     if (!canPromote) return;
     upsertModel.mutate(
-      { scenario: "dialogue", apiKeyId: apiKey.id, modelId: modelValue || models[0] },
+      { scenario: "dialogue", apiKeyId: apiKey.id, modelId: modelValue || models[0].modelId, options: modelValue ? optionValue : mergeOptionDefaults(models[0].options || [], {}) },
       { onSuccess: () => pushToast({ kind: "success", title: t("apiKeys.promoteSuccess", { provider: displayName }) }) },
     );
   };
@@ -160,7 +176,7 @@ function KeyItem({ apiKey, isDefault, dialogueConfig, displayName, open, onToggl
           <div className="set-pn">{apiKey.displayName || displayName}</div>
           <div className="set-pk">{apiKey.keyMasked}</div>
         </div>
-        {isDefault && dialogueConfig?.modelId && <span className="set-mtag">{dialogueConfig.modelId}</span>}
+        {isDefault && dialogueConfig?.modelId && <span className="set-mtag">{selectedCap?.displayName || dialogueConfig.modelId}</span>}
         {isDefault && <span className="set-badge is-default">{t("apiKeys.chatDefault")}</span>}
         {verified && <span className="set-badge is-ok">{t("apiKeys.verified")}</span>}
         <Icon.ChevronRight className="set-kchev icon" />
@@ -170,7 +186,29 @@ function KeyItem({ apiKey, isDefault, dialogueConfig, displayName, open, onToggl
           {models.length > 0 && (
             <div className="set-drow">
               <div className="set-dk">{t("apiKeys.model")}</div>
-              <ModelSelect models={models} value={modelValue} onChange={onModelChange} />
+              <ModelSelect
+                models={models.map((m) => ({ value: m.modelId, label: m.displayName }))}
+                value={modelValue}
+                onChange={onModelChange}
+              />
+            </div>
+          )}
+          {selectedCap && selectedCap.options.length > 0 && (
+            <div className="set-drow">
+              <div className="set-dk">Options</div>
+              <div style={{ flex: 1, display: "grid", gap: 8 }}>
+                <ModelOptionsFields
+                  descriptors={selectedCap.options}
+                  value={optionValue}
+                  onChange={(options) => {
+                    if (isDefault) {
+                      upsertModel.mutate({ scenario: "dialogue", apiKeyId: apiKey.id, modelId: modelValue, options });
+                    } else {
+                      setLocalOptions(options);
+                    }
+                  }}
+                />
+              </div>
             </div>
           )}
           <div className="set-drow">
@@ -221,8 +259,9 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [verifyError, setVerifyError] = useState("");
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelCapability[]>([]);
   const [modelId, setModelId] = useState("");
+  const [modelOptions, setModelOptions] = useState<ModelOptions>({});
   const [saving, setSaving] = useState(false);
 
   const isOllama = provider === "ollama";
@@ -232,13 +271,13 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
     if (createdKeyId) deleteKey.mutate(createdKeyId);
     setProvider(n);
     setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
-    setVerified(false); setModels([]); setModelId(""); setVerifyError("");
+    setVerified(false); setModels([]); setModelId(""); setModelOptions({}); setVerifyError("");
   };
 
   const onKeyChange = (v: string) => {
     setApiKey(v);
     setVerifyError("");
-    if (verified) { setVerified(false); setModels([]); setModelId(""); }
+    if (verified) { setVerified(false); setModels([]); setModelId(""); setModelOptions({}); }
   };
 
   const verify = async () => {
@@ -259,9 +298,22 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
       const res = await testKey.mutateAsync(keyId);
       const found = res?.modelsFound || [];
       const pdm = PROVIDER_DEFAULT_MODEL as Record<string, string>;
-      const opts = found.length ? found : (pdm[provider] ? [pdm[provider]] : []);
+      const capResp = await apiFetch("/model-capabilities");
+      const capOpts = pickList<ModelCapability>(capResp).filter((m) => m.provider === provider);
+      const fallbackIDs = found.length ? found : (pdm[provider] ? [pdm[provider]] : []);
+      const opts = capOpts.length
+        ? capOpts
+        : fallbackIDs.map((m) => ({
+            provider,
+            modelId: m,
+            displayName: m,
+            contextWindow: 0,
+            maxOutput: 0,
+            options: [],
+          }));
       setModels(opts);
-      setModelId(opts[0] || "");
+      setModelId(opts[0]?.modelId || "");
+      setModelOptions(mergeOptionDefaults(opts[0]?.options || [], {}));
       setVerified(true);
       pushToast({ kind: "success", title: t("apiKeys.addPanel.verifySuccess") });
     } catch {
@@ -274,7 +326,7 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
 
   const reset = () => {
     setProvider(""); setApiKey(""); setCreatedKeyId(null); setCreatedKeyText("");
-    setVerified(false); setModels([]); setModelId(""); setVerifyError("");
+    setVerified(false); setModels([]); setModelId(""); setModelOptions({}); setVerifyError("");
   };
 
   const cancel = () => {
@@ -287,7 +339,7 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
     setSaving(true);
     try {
       if (modelId && !hasDialogueDefault && createdKeyId) {
-        await upsertModel.mutateAsync({ scenario: "dialogue", apiKeyId: createdKeyId, modelId });
+        await upsertModel.mutateAsync({ scenario: "dialogue", apiKeyId: createdKeyId, modelId, options: modelOptions });
       }
       reset();
       onDone();
@@ -335,7 +387,24 @@ function AddPanel({ providers, configured, hasDialogueDefault, providerDisplay, 
             {verified && models.length > 0 && (
               <div className="set-ap-field">
                 <div className="onb-klabel">{t("apiKeys.addPanel.modelLabel")}</div>
-                <ModelSelect models={models} value={modelId} onChange={setModelId} />
+                <ModelSelect
+                  models={models.map((m) => ({ value: m.modelId, label: m.displayName }))}
+                  value={modelId}
+                  onChange={(v) => {
+                    setModelId(v);
+                    const cap = models.find((m) => m.modelId === v);
+                    setModelOptions(mergeOptionDefaults(cap?.options || [], {}));
+                  }}
+                />
+                {models.find((m) => m.modelId === modelId)?.options?.length ? (
+                  <div style={{ marginTop: 8 }}>
+                    <ModelOptionsFields
+                      descriptors={models.find((m) => m.modelId === modelId)?.options || []}
+                      value={modelOptions}
+                      onChange={setModelOptions}
+                    />
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

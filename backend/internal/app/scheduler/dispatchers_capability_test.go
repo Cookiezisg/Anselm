@@ -282,13 +282,13 @@ type fakeAgentPicker struct {
 	pickedForAgent bool
 }
 
-func (f *fakeAgentPicker) PickForDialogue(_ context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
+func (f *fakeAgentPicker) PickForDialogue(_ context.Context) (string, string, modeldomain.ModelOptions, error) {
 	return "", "", nil, modeldomain.ErrNotConfigured
 }
-func (f *fakeAgentPicker) PickForUtility(_ context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
+func (f *fakeAgentPicker) PickForUtility(_ context.Context) (string, string, modeldomain.ModelOptions, error) {
 	return "", "", nil, modeldomain.ErrNotConfigured
 }
-func (f *fakeAgentPicker) PickForAgent(_ context.Context) (string, string, *modeldomain.ThinkingSpec, error) {
+func (f *fakeAgentPicker) PickForAgent(_ context.Context) (string, string, modeldomain.ModelOptions, error) {
 	f.pickedForAgent = true
 	return "", "", nil, modeldomain.ErrNotConfigured
 }

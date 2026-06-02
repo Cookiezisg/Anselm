@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	modelcapspkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcaps"
+	modelcatalogpkg "github.com/sunweilin/forgify/backend/internal/pkg/modelcatalog"
 )
 
 const geminiDefaultBaseURL = "https://generativelanguage.googleapis.com/v1beta"
@@ -63,15 +63,15 @@ func (p *geminiProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 	}
 	// Always send maxOutputTokens = the model's real cap. Gemini's default is a
 	// truncating ~8192 (and thinking counts against the same budget), so omitting
-	// it silently caps long generations. Unknown models use a generous modelcaps fallback.
+	// it silently caps long generations. Unknown models use a generous modelcatalog fallback.
 	//
 	// 始终发 maxOutputTokens = 模型真实上限。Gemini 默认 ~8192（且 thinking 计入同一
-	// 预算）会静默截断长输出，省略即被腰斩。未知模型用 modelcaps 宽松兜底。
+	// 预算）会静默截断长输出，省略即被腰斩。未知模型用 modelcatalog 宽松兜底。
 	gc := &geminiGenerationConfig{}
-	if maxOut := modelcapspkg.Lookup("google", req.ModelID).MaxOutput; maxOut > 0 {
+	if maxOut := modelcatalogpkg.Lookup("google", req.ModelID).MaxOutput; maxOut > 0 {
 		gc.MaxOutputTokens = &maxOut
 	}
-	gc.ThinkingConfig = encodeGeminiThinking(req.ModelID, req.Thinking)
+	gc.ThinkingConfig = encodeGeminiThinking(req.ModelID, req.Thinking, req.Options)
 	if gc.MaxOutputTokens != nil || gc.ThinkingConfig != nil {
 		body.GenerationConfig = gc
 	}
@@ -104,7 +104,7 @@ func (p *geminiProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 //
 // ParseStream 读原生 generateContent SSE chunk 并 yield StreamEvent。每条 data:
 // 是一个完整 GenerateContentResponse chunk。thought:true part→EventReasoning
-//（Signature 带 thoughtSignature，仿 Anthropic）；text part→EventText；
+// （Signature 带 thoughtSignature，仿 Anthropic）；text part→EventText；
 // functionCall part→EventToolStart+EventToolDelta（Gemini 发完整调用非增量，
 // 整个 args 一次性 emit）。usageMetadata + finishReason→EventFinish。
 func (p *geminiProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
@@ -420,18 +420,20 @@ func toGeminiFunctionDeclarations(defs []ToolDef) []geminiFunctionDeclaration {
 }
 
 // encodeGeminiThinking maps the neutral ThinkingSpec to thinkingConfig (03 §5).
-//   - on  → {thinkingBudget: Budget-or-default, includeThoughts:true}. Default
-//     budget is the model's BudgetMax (clamped sane); thinkingBudget int form
-//     works across 2.5 (and -1 dynamic / 0 off where allowed).
+//   - on  → {thinkingBudget: Budget-or--1, includeThoughts:true}. -1 asks
+//     Gemini to dynamically choose its reasoning budget.
 //   - off → {thinkingBudget:0}. 2.5-pro and 3.x can't fully disable; sending 0 is
 //     still valid (the model floors it to its minimum), so we send what's valid.
 //   - nil/auto → omit thinkingConfig entirely (lets the model self-pace).
 //
 // encodeGeminiThinking 把中立 ThinkingSpec 映射为 thinkingConfig（03 §5）：
-// on→{thinkingBudget, includeThoughts:true}（默认取模型 BudgetMax，整数形跨 2.5
-// 通用）；off→{thinkingBudget:0}（2.5-pro/3.x 不可全关，发 0 仍合法）；
+// on→{thinkingBudget, includeThoughts:true}（默认 -1 动态预算）；off→{thinkingBudget:0}
+// （2.5-pro/3.x 不可全关，发 0 仍合法）；
 // nil/auto→省略 thinkingConfig。
-func encodeGeminiThinking(modelID string, spec *ThinkingSpec) *geminiThinkingConfig {
+func encodeGeminiThinking(modelID string, spec *ThinkingSpec, options map[string]string) *geminiThinkingConfig {
+	if level := options["thinking"]; level == "minimal" || level == "low" || level == "medium" || level == "high" {
+		return &geminiThinkingConfig{ThinkingLevel: level, IncludeThoughts: true}
+	}
 	if spec == nil || spec.Mode == "auto" {
 		return nil
 	}
@@ -439,11 +441,7 @@ func encodeGeminiThinking(modelID string, spec *ThinkingSpec) *geminiThinkingCon
 	case "on":
 		budget := spec.Budget
 		if budget == 0 {
-			cap := modelcapspkg.Lookup("google", modelID)
-			budget = cap.BudgetMax
-			if budget == 0 {
-				budget = -1 // dynamic: let Gemini self-pace thinking, vs a flat 8192 that can starve the visible answer
-			}
+			budget = -1 // dynamic: let Gemini self-pace thinking, vs a flat 8192 that can starve the visible answer
 		}
 		return &geminiThinkingConfig{ThinkingBudget: &budget, IncludeThoughts: true}
 	case "off":
@@ -550,10 +548,11 @@ type geminiGenerationConfig struct {
 // so budget 0 (explicit off) serializes instead of being elided by omitempty.
 //
 // geminiThinkingConfig 是原生 thinking 旋钮。ThinkingBudget 用指针，使 budget 0
-//（显式关闭）能被序列化而不被 omitempty 吞掉。
+// （显式关闭）能被序列化而不被 omitempty 吞掉。
 type geminiThinkingConfig struct {
-	ThinkingBudget  *int `json:"thinkingBudget,omitempty"`
-	IncludeThoughts bool `json:"includeThoughts,omitempty"`
+	ThinkingBudget  *int   `json:"thinkingBudget,omitempty"`
+	ThinkingLevel   string `json:"thinkingLevel,omitempty"`
+	IncludeThoughts bool   `json:"includeThoughts,omitempty"`
 }
 
 type geminiResponse struct {

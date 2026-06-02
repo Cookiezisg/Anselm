@@ -18,15 +18,13 @@ import {
   useModelCapabilities,
   useProviders,
   useUpsertModelConfig,
-  capabilityFor,
-  ThinkingControl,
   type ModelCapability,
   type ModelConfig,
+  type ModelOptions,
   type Scenario,
-  type ThinkingSpec,
 } from "@entities/model-config";
 import { LLM_HINTS } from "@shared/lib/onboarding-strings";
-import { ModelCapOverrideEditor } from "./ModelCapOverrideEditor";
+import { ModelOptionsFields, mergeOptionDefaults } from "./ModelOptionsFields.tsx";
 
 const SCENARIOS: Scenario[] = ["dialogue", "utility", "agent"];
 
@@ -40,7 +38,7 @@ export function ModelDefaultsSection({ open, onToggle }: Props) {
   const { data: configs = [] } = useModelConfigs();
   const { data: keys = [] } = useApiKeys();
   const { data: providers = [] } = useProviders();
-  const { data: caps = [] } = useModelCapabilities();
+  const { data: capabilities = [] } = useModelCapabilities();
   const upsert = useUpsertModelConfig();
   const [expandedSc, setExpandedSc] = useState<Scenario | null>("dialogue");
 
@@ -90,17 +88,12 @@ export function ModelDefaultsSection({ open, onToggle }: Props) {
                   verifiedKeys={verifiedKeys}
                   configuredProviders={configuredProviders}
                   providerDisplay={providerDisplay}
-                  caps={caps}
+                  capabilities={capabilities}
                   isOpen={expandedSc === sc}
                   onToggle={() => setExpandedSc(expandedSc === sc ? null : sc)}
-                  onChange={(apiKeyId, modelId) =>
-                    upsert.mutate({ scenario: sc, apiKeyId, modelId })
+                  onChange={(apiKeyId, modelId, options) =>
+                    upsert.mutate({ scenario: sc, apiKeyId, modelId, options })
                   }
-                  onThinkingChange={(thinking) => {
-                    const cfg = cfgFor(sc);
-                    if (!cfg) return;
-                    upsert.mutate({ scenario: sc, apiKeyId: cfg.apiKeyId, modelId: cfg.modelId, thinking });
-                  }}
                 />
               ))}
             </div>
@@ -117,47 +110,46 @@ interface ScenarioCardProps {
   verifiedKeys: ApiKey[];
   configuredProviders: string[];
   providerDisplay: (name: string) => string;
-  caps: ModelCapability[];
+  capabilities: ModelCapability[];
   isOpen: boolean;
   onToggle: () => void;
-  onChange: (apiKeyId: string, modelId: string) => void;
-  onThinkingChange: (thinking: ThinkingSpec | undefined) => void;
+  onChange: (apiKeyId: string, modelId: string, options?: ModelOptions) => void;
 }
 
 function ScenarioCard({
   scenario, config, verifiedKeys, configuredProviders, providerDisplay,
-  caps, isOpen, onToggle, onChange, onThinkingChange,
+  capabilities, isOpen, onToggle, onChange,
 }: ScenarioCardProps) {
   const { t } = useTranslation("settings");
   const currentKey = config ? verifiedKeys.find((k) => k.id === config.apiKeyId) : undefined;
   const currentProvider = currentKey?.provider || "";
   const summaryHint = (LLM_HINTS as Record<string, { abbr: string; color: string }>)[currentProvider];
-  const capability = config ? capabilityFor(caps, currentProvider, config.modelId) : undefined;
+  const currentCapability = capabilities.find((v) => v.provider === currentProvider && v.modelId === config?.modelId);
 
-  // Model/key/provider cascade resets thinking — a budget or effort valid for
-  // one model is meaningless for another, so we omit thinking on cascade picks.
   const pickProvider = (provider: string) => {
     const firstKey = verifiedKeys.find((k) => k.provider === provider);
     if (!firstKey) return;
-    const firstModel = firstKey.modelsFound[0];
+    const firstModel = capabilities.find((v) => v.provider === provider);
     if (!firstModel) return;
-    onChange(firstKey.id, firstModel);
+    onChange(firstKey.id, firstModel.modelId, mergeOptionDefaults(firstModel.options || [], {}));
   };
 
   const pickKey = (keyId: string) => {
     const k = verifiedKeys.find((kk) => kk.id === keyId);
     if (!k) return;
-    const firstModel = k.modelsFound[0];
+    const firstModel = capabilities.find((v) => v.provider === k.provider);
     if (!firstModel) return;
-    onChange(keyId, firstModel);
+    onChange(keyId, firstModel.modelId, mergeOptionDefaults(firstModel.options || [], {}));
   };
 
   const pickModel = (modelId: string) => {
     if (!config) return;
-    onChange(config.apiKeyId, modelId);
+    const cap = capabilities.find((v) => v.provider === currentProvider && v.modelId === modelId);
+    onChange(config.apiKeyId, modelId, mergeOptionDefaults(cap?.options || [], {}));
   };
 
   const keysForProvider = verifiedKeys.filter((k) => k.provider === currentProvider);
+  const modelsForProvider = capabilities.filter((v) => v.provider === currentProvider);
 
   return (
     <div className={"set-mc" + (isOpen ? " is-open" : "")}>
@@ -170,12 +162,7 @@ function ScenarioCard({
           {config && summaryHint ? (
             <>
               <span className="set-pchip" style={{ background: summaryHint.color }}>{summaryHint.abbr}</span>
-              <span className="set-mtag">{config.modelId}</span>
-              {config.thinking?.mode && config.thinking.mode !== "auto" && (
-                <span className="set-badge" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-                  {t(`modelDefaults.thinking.${config.thinking.mode}`)}
-                </span>
-              )}
+              <span className="set-mtag">{currentCapability?.displayName || config.modelId}</span>
             </>
           ) : (
             <span className="set-mc-notset">{t("modelDefaults.notSet")}</span>
@@ -228,7 +215,7 @@ function ScenarioCard({
                 <div className="onb-keyfield" style={{ flex: 1 }}>
                   <div className="onb-klabel">{t("modelDefaults.modelLabel")}</div>
                   <Select
-                    options={currentKey.modelsFound}
+                    options={modelsForProvider.map((v) => ({ value: v.modelId, label: v.displayName }))}
                     value={config.modelId}
                     onChange={pickModel}
                     mono
@@ -236,16 +223,15 @@ function ScenarioCard({
                   />
                 </div>
               </div>
-              <ThinkingControl
-                capability={capability}
-                value={config.thinking}
-                onChange={onThinkingChange}
-              />
-              <ModelCapOverrideEditor
-                provider={currentProvider}
-                modelId={config.modelId}
-                current={capability}
-              />
+              {currentCapability && currentCapability.options.length > 0 && (
+                <div className="onb-twofield">
+                  <ModelOptionsFields
+                    descriptors={currentCapability.options}
+                    value={config.options}
+                    onChange={(options) => onChange(config.apiKeyId, config.modelId, options)}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

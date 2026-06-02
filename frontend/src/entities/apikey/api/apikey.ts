@@ -15,7 +15,10 @@ export function useCreateApiKey() {
   return useMutation<ApiKey, Error, CreateApiKeyBody>({
     mutationFn: (body) =>
       apiFetch("/api-keys", { method: "POST", body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.apikeys() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.apikeys() });
+      qc.invalidateQueries({ queryKey: qk.modelCapabilities() });
+    },
   });
 }
 
@@ -24,7 +27,10 @@ export function useUpdateApiKey(id: string) {
   return useMutation<ApiKey, Error, UpdateApiKeyPatch>({
     mutationFn: (patch) =>
       apiFetch(`/api-keys/${id}`, { method: "PATCH", body: patch }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.apikeys() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.apikeys() });
+      qc.invalidateQueries({ queryKey: qk.modelCapabilities() });
+    },
   });
 }
 
@@ -33,7 +39,10 @@ export function useDeleteApiKey() {
   return useMutation<null, Error, string>({
     mutationFn: (id) =>
       apiFetch(`/api-keys/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.apikeys() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.apikeys() });
+      qc.invalidateQueries({ queryKey: qk.modelCapabilities() });
+    },
   });
 }
 
@@ -42,6 +51,9 @@ export function useTestApiKey() {
   return useMutation<TestApiKeyResult, Error, string>({
     mutationFn: (id) =>
       apiFetch(`/api-keys/${id}:test`, { method: "POST" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.apikeys() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.apikeys() });
+      qc.invalidateQueries({ queryKey: qk.modelCapabilities() });
+    },
   });
 }
