@@ -27,10 +27,9 @@ type DB struct {
 	pool *sql.DB
 }
 
-// Open wraps a *sql.DB pool as the ORM root. Ownership of the pool (and its
-// Close) stays with the caller — the ORM never closes it.
+// Open wraps a *sql.DB pool as the ORM root. Close it with DB.Close.
 //
-// Open 把 *sql.DB 连接池包成 ORM 根。池的所有权（及 Close）归调用方，ORM 不关它。
+// Open 把 *sql.DB 连接池包成 ORM 根。用 DB.Close 关闭。
 func Open(pool *sql.DB) *DB {
 	return &DB{h: pool, pool: pool}
 }
@@ -62,4 +61,23 @@ func (db *DB) Transaction(ctx context.Context, fn func(tx *DB) error) error {
 		return fmt.Errorf("orm: commit tx: %w", err)
 	}
 	return nil
+}
+
+// Exec runs a raw statement and returns its result — the escape hatch for SQL
+// that isn't row-mapped CRUD: migrations (DDL), PRAGMA, one-off maintenance.
+//
+// Exec 执行原始语句并返回结果——非行映射 CRUD 的逃生口：迁移（DDL）、PRAGMA、一次性维护。
+func (db *DB) Exec(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return db.handle().ExecContext(ctx, query, args...)
+}
+
+// Close closes the underlying connection pool; safe on a transaction wrapper
+// (which owns no pool) and on a nil receiver.
+//
+// Close 关闭底层连接池；对事务包装（不持池）与 nil receiver 都安全。
+func (db *DB) Close() error {
+	if db == nil || db.pool == nil {
+		return nil
+	}
+	return db.pool.Close()
 }

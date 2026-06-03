@@ -10,3 +10,4 @@
 | 0006 | 2026-06-03 | 波次0 · M0.1 | jsonrepair 迁移 + 补测试 | ✅ 实现原样（高质量），补 10 unit，gofmt 归一，测试绿 |
 | 0007 | 2026-06-03 | 波次0 · M0.1 | limits 迁移(搬+清+补测试) | ✅ 保留全局 getter，清 P0/P3+adhoc 叙述，补 4 测试，绿。**M0.1 完成** |
 | 0008 | 2026-06-03 | 波次0 · M0.2 | 自研 pkg/orm（去 GORM） | ✅ 链式/类型安全/自动 workspace+软删+时间戳，9 源+21 测试绿；domain 去 GORM 化成全局方针 |
+| 0009 | 2026-06-03 | 波次0 · M0.2 | infra/db 网关 GORM→database/sql | ✅ glebarez/go-sqlite + 单连接 + DDL 迁移机制；schema_extras 删（分散各模块）；orm 补 Exec/Close。**M0.2 完成** |
