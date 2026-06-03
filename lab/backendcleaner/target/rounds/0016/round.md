@@ -1,20 +1,30 @@
-# Round 0016 — infra/llm 其余 provider（波次 0 · M0.6）【进行中】
+# Round 0016 — infra/llm 其余 10 provider（波次 0 · M0.6）
 
-类型 / 目标：R0015 框架之上逐家移植其余 10 provider，**每家完整自包含 wire（不共享基座）**。逐家加 registry，各家测试随附。
+类型 / 目标：R0015 框架之上逐家移植其余 10 provider，**每家完整自包含 wire（不共享基座）**。逐家加 registry，各家测试随附。M0.6 由此收官（11 家 provider）。
 
-进度（11 provider 总）：
-- ✅ **openai**（R0015）
-- ✅ **anthropic** — 原生方言：`/v1/messages`、x-api-key、**命名事件 SSE**（不能用 scanSSELines，自己 bufio 扫 `event:`+`data:`）、thinking budget + **signature round-trip**、cache_control 断点、block-form messages。去 `modelcatalog` 依赖（max_tokens 改 `Request.MaxTokens`，caller 从 catalog 填）；去 `slog`（malformed 历史 args 静默 fallback `{}`）；strip TE-25/03 §4 历史。
-- ✅ **gemini** — 原生 generateContent：model-in-path、x-goog-api-key、**thought parts + thoughtSignature round-trip**、functionCall/Response（按 name 配对，从前序 tool_call 反查名）、thinkingConfig（budget/-1 动态/level）。去 modelcatalog（maxOutputTokens → `Request.MaxTokens`）；**内联自己的 data-URL 处理**（不依赖 anthropic 的 helper）；去 slog；strip TE-25/03 §5。
-- ✅ **deepseek** — OpenAI-compat **完整自包含模板**：自己的 `ds*` wire 类型 + msg 编码 + `dsToolState`（不借 openai 的 oaiRequest/toOpenAIMsgs/toolCallState）；reasoning_content round-trip（纯文字 turn 剥 / tool-call turn 留）+ thinking enabled+effort/disabled（`deepseekMapEffort`）；strip 旧 readerAdapter hack（非流式改 io.Reader）。
-- ⬜ **qwen / zhipu / moonshot / doubao / openrouter / ollama / custom**（7 家 OpenAI-compat，各自完整、同 deepseek 模式）
+进度（11 provider 全完成）：
+- ✅ **openai**（R0015，框架代表）
+- ✅ **anthropic** — 原生方言：/v1/messages、x-api-key、命名事件 SSE、thinking budget + signature round-trip、cache_control、block-form messages。
+- ✅ **gemini** — 原生 generateContent：model-in-path、x-goog-api-key、thought parts + thoughtSignature round-trip、functionCall/Response。
+- ✅ **deepseek** — OpenAI-compat 自包含模板：reasoning_content round-trip + thinking enabled+effort/disabled。
+- ✅ **qwen** — `enable_thinking` *bool + `thinking_budget`；扁平错误信封（顶层 code/message）；非流式关 thinking 避 400。
+- ✅ **zhipu** — `thinking:{type}`；`tool_choice` 仅 "auto"；不回传 assistant reasoning_content（无 round-trip，发了 400）。
+- ✅ **moonshot** — `thinking:{type}`；reasoning_content；无 max_tokens。
+- ✅ **doubao** — `thinking:{type:enabled|disabled}` + `budget_tokens`。
+- ✅ **openrouter** — `reasoning:{effort|max_tokens}`；流中 error 对象 surface。
+- ✅ **ollama** — `reasoning_effort`；有 tools 强制非流式（绕 bug）；`delta.reasoning`（无下划线）。
+- ✅ **custom** — 纯 OpenAI-compat，**无 thinking**（通用端点不认识的字段会 400）。
 
-每家通用动作：strip 历史叙述、error 内聚 `domain/errors` sentinel、各家 wire 类型/msg 编码/chunk 解析自包含、注册 registry、单元/golden 测试。
+每家自包含：自己前缀的 wire 类型 + msg 编码 + tool-state；不借 openai(`oai*`)/deepseek(`ds*`)；error 用包内 sentinel；去 modelcatalog（→`Request.MaxTokens`）/slog（malformed args 静默 fallback）；strip 历史叙述；注释双语 Why-only。
+
+**后 7 家（qwen…custom）经 workflow 并行生成**：7 agent（~424k token / 90 tool-use / ~5min），每 agent 读自己旧文件 + deepseek 模板，写自包含 provider + 测试、各自 gofmt，不碰 registry（避并发冲突）。
+
+收尾（主 loop 统一）：加 registry 11 条 + `lookupProvider` 恢复 `custom`+`anthropic-compatible` → anthropic 路由；全量 `gofmt -l` 空 / `go build ./...` / `go vet` / **`go test -race`** 全绿；**合规 grep**（7 家无禁用 import modelcatalog/slog/domain-errors、无 `errors.New`、无跨借用 `oai*`·`ds*`·`toOpenAIMsgs`·`toolCallState`、无 TE-/03§/P3/V1.2 历史叙述）全净；抽查 ollama tools→关流、custom 无 thinking、各家 `Name()` 值匹配 registry key。
 
 设计连带（R0016 引入）：
-- **`Request.MaxTokens` 字段**（caller 从 catalog 派生填入；provider 不读 catalog）——anthropic max_tokens 用，**去除 infra/llm → modelcatalog 依赖**（保持零 domain 依赖）。caller 填 → deps-todo。
+- **`Request.MaxTokens` 字段**（caller 从 catalog 派生填；provider 不读 catalog）——anthropic/gemini 用，去除 infra/llm → modelcatalog 依赖。
 - `lookupProvider` 恢复 `custom`+`anthropic-compatible` → anthropic 路由。
 
-验证（累计）：`gofmt -l` 空 / `go build ./...` / `go vet` / `go test` 全绿。
+覆盖状态：infra/llm 11 家 provider 全完成（17 源 + 16 测试）。trace（dev tracing，依赖 conv-ctx）随 M5.2/M7；pkg llmclient/llmcost/llmparse 随业务；caller 填 `Request.MaxTokens` 随业务接线。
 
-下一步：8 家 OpenAI-compat（deepseek/qwen/zhipu/moonshot/doubao/openrouter/ollama/custom），各自完整自包含、差异主要在 thinking 编码 + 各家怪癖（流内错误信封、字段名等）。
+**M0.6 完成。** 下一步：M0.7 transport 框架。

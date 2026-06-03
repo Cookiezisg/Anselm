@@ -1,0 +1,402 @@
+package llm
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"iter"
+	"net/http"
+)
+
+// doubaoProvider speaks Doubao (Volcengine Ark)'s /chat/completions API, fully self-contained:
+// its own wire types, message encoding, and SSE chunk parsing — no sharing with the openai
+// provider even though the wire is OpenAI-shaped. Doubao specifics: the top-level
+// thinking:{type:enabled|disabled} (+ optional budget_tokens) request object, and
+// reasoning_content arriving before content in the stream.
+//
+// doubaoProvider 完整自包含地讲豆包（Volcengine Ark）/chat/completions：自己的 wire 类型、消息编码、
+// SSE 解析——即使 wire 是 OpenAI 形状也不与 openai 共享。豆包特有：请求中的顶层
+// thinking:{type:enabled|disabled}（+可选 budget_tokens）对象、流中 reasoning_content 先于 content。
+type doubaoProvider struct{}
+
+func newDoubaoProvider() *doubaoProvider { return &doubaoProvider{} }
+
+func (p *doubaoProvider) Name() string           { return "doubao" }
+func (p *doubaoProvider) DefaultBaseURL() string { return "https://ark.cn-beijing.volces.com/api/v3" }
+
+// BuildRequest encodes a Request into a Doubao /chat/completions HTTP request.
+//
+// thinking: on → thinking:{type:enabled} (+ budget_tokens when Budget>0); off →
+// thinking:{type:disabled}; nil/auto → omit the object entirely (provider default).
+//
+// BuildRequest 把 Request 编码为豆包 /chat/completions HTTP 请求。thinking：on→{type:enabled}
+// （Budget>0 时带 budget_tokens）；off→{type:disabled}；nil/auto→整个对象省略（取 provider 默认）。
+func (p *doubaoProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
+	req.Messages = SanitizeMessages(req.Messages)
+	msgs, err := todoubaoMsgs(req.Messages, req.System)
+	if err != nil {
+		return nil, fmt.Errorf("llm.doubao: build messages: %w", err)
+	}
+	body := doubaoRequest{
+		Model:    req.ModelID,
+		Messages: msgs,
+		Stream:   !req.DisableStream,
+	}
+	if !req.DisableStream {
+		body.StreamOptions = &doubaoStreamOptions{IncludeUsage: true}
+	}
+	if len(req.Tools) > 0 {
+		body.Tools = todoubaoTools(req.Tools)
+	}
+	if req.Thinking != nil && req.Thinking.Mode != "auto" {
+		switch req.Thinking.Mode {
+		case "on":
+			tf := &doubaoThinking{Type: "enabled"}
+			if req.Thinking.Budget > 0 {
+				tf.BudgetTokens = req.Thinking.Budget
+			}
+			body.Thinking = tf
+		case "off":
+			body.Thinking = &doubaoThinking{Type: "disabled"}
+		}
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("llm.doubao: marshal body: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("llm.doubao: new request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+req.Key)
+	return httpReq, nil
+}
+
+func (p *doubaoProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
+	return func(yield func(StreamEvent) bool) {
+		if req.DisableStream {
+			parsedoubaoNonStreaming(resp.Body, yield)
+			return
+		}
+		state := newdoubaoToolState()
+		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+			if ctx.Err() != nil {
+				return false
+			}
+			var chunk doubaoChunk
+			if err := json.Unmarshal(payload, &chunk); err != nil {
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.doubao: malformed SSE chunk: %w", err)})
+				return false
+			}
+			return emitdoubaoChunk(chunk, state, yield)
+		})
+		if scanErr != nil && ctx.Err() == nil {
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.doubao: scan: %w", scanErr)})
+		}
+	}
+}
+
+func emitdoubaoChunk(chunk doubaoChunk, state *doubaoToolState, yield func(StreamEvent) bool) bool {
+	if chunk.Error != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		return false
+	}
+	if len(chunk.Choices) == 0 {
+		if chunk.Usage != nil {
+			return yield(StreamEvent{Type: EventFinish, InputTokens: chunk.Usage.PromptTokens, OutputTokens: chunk.Usage.CompletionTokens})
+		}
+		return true
+	}
+
+	choice := chunk.Choices[0]
+	delta := choice.Delta
+
+	// Doubao sends reasoning_content before content — preserve that order.
+	// 豆包先发 reasoning_content 再发 content——严格保序。
+	if delta.ReasoningContent != "" {
+		if !yield(StreamEvent{Type: EventReasoning, Delta: delta.ReasoningContent}) {
+			return false
+		}
+	}
+	if delta.Content != "" {
+		if !yield(StreamEvent{Type: EventText, Delta: delta.Content}) {
+			return false
+		}
+	}
+
+	for _, tc := range delta.ToolCalls {
+		idx := state.resolveIndex(tc)
+		if !state.nameSent[idx] && tc.Function.Name != "" {
+			state.nameSent[idx] = true
+			if !yield(StreamEvent{Type: EventToolStart, ToolIndex: idx, ToolID: tc.ID, ToolName: tc.Function.Name}) {
+				return false
+			}
+		}
+		if tc.Function.Arguments != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: tc.Function.Arguments}) {
+				return false
+			}
+		}
+	}
+
+	if choice.FinishReason != "" {
+		ev := StreamEvent{Type: EventFinish, FinishReason: choice.FinishReason}
+		if chunk.Usage != nil {
+			ev.InputTokens = chunk.Usage.PromptTokens
+			ev.OutputTokens = chunk.Usage.CompletionTokens
+		}
+		return yield(ev)
+	}
+	return true
+}
+
+func parsedoubaoNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
+	raw, err := io.ReadAll(io.LimitReader(body, 8<<20))
+	if err != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.doubao: read non-streaming body: %w", err)})
+		return
+	}
+	var resp doubaoNonStreamResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.doubao: parse non-streaming response: %w", err)})
+		return
+	}
+	if resp.Error != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", ErrProviderError, resp.Error.Message)})
+		return
+	}
+	if len(resp.Choices) == 0 {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.doubao: non-streaming response has no choices: %w", ErrProviderError)})
+		return
+	}
+	msg := resp.Choices[0].Message
+	if msg.ReasoningContent != "" {
+		if !yield(StreamEvent{Type: EventReasoning, Delta: msg.ReasoningContent}) {
+			return
+		}
+	}
+	if msg.Content != "" {
+		if !yield(StreamEvent{Type: EventText, Delta: msg.Content}) {
+			return
+		}
+	}
+	for i, tc := range msg.ToolCalls {
+		if !yield(StreamEvent{Type: EventToolStart, ToolIndex: i, ToolID: tc.ID, ToolName: tc.Function.Name}) {
+			return
+		}
+		if tc.Function.Arguments != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: i, ArgsDelta: tc.Function.Arguments}) {
+				return
+			}
+		}
+	}
+	ev := StreamEvent{Type: EventFinish, FinishReason: resp.Choices[0].FinishReason}
+	if resp.Usage != nil {
+		ev.InputTokens = resp.Usage.PromptTokens
+		ev.OutputTokens = resp.Usage.CompletionTokens
+	}
+	yield(ev)
+}
+
+// ── message encoding ──────────────────────────────────────────────────────────
+
+func todoubaoMsgs(msgs []LLMMessage, system string) ([]doubaoMessage, error) {
+	var out []doubaoMessage
+	if system != "" {
+		out = append(out, doubaoMessage{Role: "system", Content: doubaoJSONString(system)})
+	}
+	for _, m := range msgs {
+		dm, err := todoubaoMsg(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, dm)
+	}
+	return out, nil
+}
+
+func todoubaoMsg(m LLMMessage) (doubaoMessage, error) {
+	switch m.Role {
+	case RoleUser:
+		return doubaoMessage{Role: "user", Content: doubaoJSONString(m.Content)}, nil
+	case RoleAssistant:
+		return builddoubaoAssistantMsg(m), nil
+	case RoleTool:
+		return doubaoMessage{Role: "tool", Content: doubaoJSONString(m.Content), ToolCallID: m.ToolCallID}, nil
+	default:
+		return doubaoMessage{}, fmt.Errorf("llm.doubao: unknown role %q: %w", m.Role, ErrBadRequest)
+	}
+}
+
+func builddoubaoAssistantMsg(m LLMMessage) doubaoMessage {
+	dm := doubaoMessage{
+		Role:    "assistant",
+		Content: doubaoJSONString(m.Content),
+	}
+	for _, tc := range m.ToolCalls {
+		// Historic tool args may be malformed; send valid JSON or an empty object so a
+		// strict provider doesn't reject the whole continuation on one bad arg blob.
+		// 历史 tool 参数可能损坏；发合法 JSON，否则降级为空对象，避免严格 provider 因单条坏参整体拒绝。
+		args := json.RawMessage(tc.Arguments)
+		if !json.Valid(args) {
+			args = json.RawMessage("{}")
+		}
+		dm.ToolCalls = append(dm.ToolCalls, doubaoToolCall{
+			ID:       tc.ID,
+			Type:     "function",
+			Function: doubaoFuncCall{Name: tc.Name, Arguments: args},
+		})
+	}
+	return dm
+}
+
+func todoubaoTools(defs []ToolDef) []doubaoTool {
+	out := make([]doubaoTool, len(defs))
+	for i, d := range defs {
+		out[i] = doubaoTool{Type: "function", Function: doubaoFuncDef{Name: d.Name, Description: d.Description, Parameters: d.Parameters}}
+	}
+	return out
+}
+
+func doubaoJSONString(s string) json.RawMessage {
+	b, _ := json.Marshal(s)
+	return b
+}
+
+// ── tool-call streaming state ──────────────────────────────────────────────────
+
+type doubaoToolState struct {
+	nameSent     map[int]bool
+	idToIdx      map[string]int
+	nextSynthIdx int
+}
+
+func newdoubaoToolState() *doubaoToolState {
+	return &doubaoToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}}
+}
+
+func (s *doubaoToolState) resolveIndex(tc doubaoToolCallDelta) int {
+	if tc.Index > 0 {
+		return tc.Index
+	}
+	if tc.ID == "" {
+		return 0
+	}
+	if idx, ok := s.idToIdx[tc.ID]; ok {
+		return idx
+	}
+	idx := s.nextSynthIdx
+	s.idToIdx[tc.ID] = idx
+	s.nextSynthIdx++
+	return idx
+}
+
+// ── Doubao wire types ─────────────────────────────────────────────────────────
+
+type doubaoRequest struct {
+	Model         string               `json:"model"`
+	Messages      []doubaoMessage      `json:"messages"`
+	Tools         []doubaoTool         `json:"tools,omitempty"`
+	Stream        bool                 `json:"stream"`
+	StreamOptions *doubaoStreamOptions `json:"stream_options,omitempty"`
+	// Doubao thinking object: top-level, type:enabled|disabled (+ optional budget_tokens).
+	// 豆包 thinking 对象：顶层，type:enabled|disabled（+可选 budget_tokens）。
+	Thinking *doubaoThinking `json:"thinking,omitempty"`
+}
+
+type doubaoStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
+}
+
+type doubaoThinking struct {
+	Type         string `json:"type"`
+	BudgetTokens int    `json:"budget_tokens,omitempty"`
+}
+
+type doubaoMessage struct {
+	Role       string           `json:"role"`
+	Content    json.RawMessage  `json:"content,omitempty"`
+	ToolCalls  []doubaoToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
+}
+
+type doubaoToolCall struct {
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	Function doubaoFuncCall `json:"function"`
+}
+
+type doubaoFuncCall struct {
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+
+type doubaoTool struct {
+	Type     string        `json:"type"`
+	Function doubaoFuncDef `json:"function"`
+}
+
+type doubaoFuncDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+type doubaoChunk struct {
+	Choices []doubaoChoice    `json:"choices"`
+	Usage   *doubaoUsage      `json:"usage"`
+	Error   *doubaoChunkError `json:"error,omitempty"`
+}
+
+type doubaoChunkError struct {
+	Message string `json:"message"`
+}
+
+type doubaoChoice struct {
+	Delta        doubaoDelta `json:"delta"`
+	FinishReason string      `json:"finish_reason"`
+}
+
+type doubaoDelta struct {
+	Content          string                `json:"content"`
+	ReasoningContent string                `json:"reasoning_content"`
+	ToolCalls        []doubaoToolCallDelta `json:"tool_calls"`
+}
+
+type doubaoToolCallDelta struct {
+	Index    int             `json:"index"`
+	ID       string          `json:"id"`
+	Function doubaoFuncDelta `json:"function"`
+}
+
+type doubaoFuncDelta struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type doubaoUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+}
+
+type doubaoNonStreamResponse struct {
+	Choices []doubaoNonStreamChoice `json:"choices"`
+	Usage   *doubaoUsage            `json:"usage"`
+	Error   *doubaoChunkError       `json:"error,omitempty"`
+}
+
+type doubaoNonStreamChoice struct {
+	Message      doubaoNonStreamMessage `json:"message"`
+	FinishReason string                 `json:"finish_reason"`
+}
+
+type doubaoNonStreamMessage struct {
+	Role             string                `json:"role"`
+	Content          string                `json:"content"`
+	ReasoningContent string                `json:"reasoning_content"`
+	ToolCalls        []doubaoToolCallDelta `json:"tool_calls"`
+}

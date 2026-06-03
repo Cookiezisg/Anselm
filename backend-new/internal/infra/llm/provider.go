@@ -96,10 +96,17 @@ var providerRegistry = buildProviderRegistry()
 
 func buildProviderRegistry() map[string]Provider {
 	return map[string]Provider{
-		"openai":    newOpenAIProvider(),
-		"anthropic": newAnthropicProvider(),
-		"google":    newGeminiProvider(),
-		"deepseek":  newDeepSeekProvider(),
+		"openai":     newOpenAIProvider(),
+		"anthropic":  newAnthropicProvider(),
+		"google":     newGeminiProvider(),
+		"deepseek":   newDeepSeekProvider(),
+		"qwen":       newQwenProvider(),
+		"zhipu":      newZhipuProvider(),
+		"moonshot":   newMoonshotProvider(),
+		"doubao":     newDoubaoProvider(),
+		"openrouter": newOpenRouterProvider(),
+		"ollama":     newOllamaProvider(),
+		"custom":     newCustomProvider(),
 	}
 }
 

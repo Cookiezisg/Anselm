@@ -17,3 +17,4 @@
 | 0013 | 2026-06-03 | 波次0 · M0.4 | SSE 三流统一协议 domain（改名 + 流式树重构） | ✅ 单一 domain/stream：信封+四动词Frame+**通用 Node{Type,Content}**+Bridge/ListReader；id 升信封层、frame 可丢性分级、close 带快照；**node 词表下放业务、砍三流 domain 包**；5 源 3 测试绿 |
 | 0014 | 2026-06-04 | 波次0 · M0.5 | infra/stream 单一 Bus（三流底座） | ✅ per-workspace seq + frame 分级 buffer（durable 入环/ephemeral seq0 不入不卡）+ replay/ErrSeqTooOld + List；旧三抄 Bridge 收敛成 1 份、实例化三次=三流；D2 全量推；3 源 3 测试 -race 绿；infra/chat 移交 M5.2 |
 | 0015 | 2026-06-04 | 波次0 · M0.6 | infra/llm 核心框架 + openai | ✅ Provider 接口+providerClient 铁律+共享传输+类型+factory+mock+openai(完整自包含)；error 内聚 domain/errors(+S20 守则)；**每家 provider 完整自含 wire、不共享基座**；删死代码、strip 历史；8 源 6 测试 -race 绿；trace 推迟；其余 10 provider=R0016 |
+| 0016 | 2026-06-04 | 波次0 · M0.6 | infra/llm 其余 10 provider（各自完整自包含） | ✅ anthropic+gemini 原生方言 + deepseek 模板 + 7 家 OpenAI-compat（**workflow 并行 7 agent ~424k tok**）；每家自包含 wire、error sentinel、去 modelcatalog(→Request.MaxTokens)/slog、strip 历史；11 家 -race+合规 grep 全绿。**M0.6 完成** |

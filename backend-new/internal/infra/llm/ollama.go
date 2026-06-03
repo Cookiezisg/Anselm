@@ -1,0 +1,445 @@
+package llm
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"iter"
+	"net/http"
+	"slices"
+)
+
+// ollamaProvider speaks Ollama's /v1/chat/completions OpenAI-compat API, fully
+// self-contained: its own wire types, message encoding, and SSE chunk parsing — no
+// sharing with the openai provider even though the wire is OpenAI-shaped. Ollama
+// specifics: reasoning_effort thinking encoding, delta.reasoning (no underscore) for
+// thinking content (NOT reasoning_content), and a forced non-streaming path when tools
+// are present.
+//
+// ollamaProvider 完整自包含地讲 Ollama /v1/chat/completions：自己的 wire 类型、消息编码、
+// SSE 解析——即使 wire 是 OpenAI 形状也不与 openai 共享。Ollama 特有：reasoning_effort
+// 编码 thinking、delta.reasoning（无下划线）传思考内容（非 reasoning_content）、有 tools 时
+// 强制非流式路径。
+type ollamaProvider struct{}
+
+func newOllamaProvider() *ollamaProvider { return &ollamaProvider{} }
+
+func (p *ollamaProvider) Name() string { return "ollama" }
+
+// DefaultBaseURL is empty: Ollama is a local daemon with a user-chosen host/port, so the
+// caller must always supply base_url.
+//
+// DefaultBaseURL 为空：Ollama 是本地 daemon、host/port 由用户定，caller 必须自带 base_url。
+func (p *ollamaProvider) DefaultBaseURL() string { return "" }
+
+// BuildRequest encodes a Request into an Ollama /v1/chat/completions HTTP request.
+//
+// Stream disable: forces non-streaming when tools are present — Ollama drops tool_calls
+// in streaming mode, so the only reliable way to read them is a single JSON response.
+//
+// thinking: on → reasoning_effort (clamp to {high,medium,low,none}, default "medium");
+// off → reasoning_effort:"none"; nil/auto → omit.
+//
+// BuildRequest 把 Request 编码为 Ollama /v1/chat/completions 请求。
+// 流式强制：有 tools 时走非流式——Ollama streaming 模式会吞 tool_calls，单条 JSON 响应才能
+// 可靠读到。thinking：on→reasoning_effort（clamp，默认 medium）；off→"none"；nil/auto→省略。
+func (p *ollamaProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
+	if len(req.Tools) > 0 {
+		req.DisableStream = true
+	}
+
+	req.Messages = SanitizeMessages(req.Messages)
+	msgs, err := toOllamaMsgs(req.Messages, req.System)
+	if err != nil {
+		return nil, fmt.Errorf("llm.ollama: build messages: %w", err)
+	}
+	body := ollamaRequest{
+		Model:    req.ModelID,
+		Messages: msgs,
+		Stream:   !req.DisableStream,
+	}
+	if !req.DisableStream {
+		body.StreamOptions = &ollamaStreamOptions{IncludeUsage: true}
+	}
+	if len(req.Tools) > 0 {
+		body.Tools = toOllamaTools(req.Tools)
+	}
+	if req.Thinking != nil && req.Thinking.Mode != "auto" {
+		switch req.Thinking.Mode {
+		case "on":
+			body.ReasoningEffort = ollamaClampEffort(req.Thinking.Effort)
+		case "off":
+			body.ReasoningEffort = "none"
+		}
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("llm.ollama: marshal body: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("llm.ollama: new request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+req.Key)
+	return httpReq, nil
+}
+
+// ollamaClampEffort clamps the generic effort onto Ollama's {high,medium,low,none} set,
+// defaulting to "medium" for empty or out-of-set values.
+//
+// ollamaClampEffort 把通用 effort 收敛到 Ollama 的 {high,medium,low,none}，空值/越界回退 medium。
+func ollamaClampEffort(effort string) string {
+	if effort != "" && slices.Contains([]string{"high", "medium", "low", "none"}, effort) {
+		return effort
+	}
+	return "medium"
+}
+
+// ParseStream reads Ollama /v1 SSE chunks and yields StreamEvents. When tools are present
+// the request is non-streaming, so this routes to the non-streaming path. On the streaming
+// path Ollama /v1 carries thinking content in delta.reasoning (no underscore).
+//
+// ParseStream 读 Ollama /v1 SSE chunk 并 yield StreamEvent。有 tools 时请求非流式，路由到
+// 非流式路径。流式路径中 Ollama /v1 用 delta.reasoning（无下划线）传思考内容。
+func (p *ollamaProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
+	return func(yield func(StreamEvent) bool) {
+		if req.DisableStream {
+			parseOllamaNonStreaming(resp.Body, yield)
+			return
+		}
+		state := newOllamaToolState()
+		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+			if ctx.Err() != nil {
+				return false
+			}
+			var chunk ollamaChunk
+			if err := json.Unmarshal(payload, &chunk); err != nil {
+				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.ollama: malformed SSE chunk: %w", err)})
+				return false
+			}
+			return emitOllamaChunk(chunk, state, yield)
+		})
+		if scanErr != nil && ctx.Err() == nil {
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.ollama: scan: %w", scanErr)})
+		}
+	}
+}
+
+func emitOllamaChunk(chunk ollamaChunk, state *ollamaToolState, yield func(StreamEvent) bool) bool {
+	if chunk.Error != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		return false
+	}
+	if len(chunk.Choices) == 0 {
+		if chunk.Usage != nil {
+			return yield(StreamEvent{Type: EventFinish, InputTokens: chunk.Usage.PromptTokens, OutputTokens: chunk.Usage.CompletionTokens})
+		}
+		return true
+	}
+
+	choice := chunk.Choices[0]
+	delta := choice.Delta
+
+	// Ollama /v1 carries thinking in delta.reasoning (no underscore). Some models put the
+	// whole answer in reasoning with empty content, so surface it as its own reasoning event.
+	//
+	// Ollama /v1 用 delta.reasoning（无下划线）传思考；部分 model 把全文落 reasoning 而 content
+	// 空——照样作为 reasoning 事件呈现。
+	if delta.Reasoning != "" {
+		if !yield(StreamEvent{Type: EventReasoning, Delta: delta.Reasoning}) {
+			return false
+		}
+	}
+	if delta.Content != "" {
+		if !yield(StreamEvent{Type: EventText, Delta: delta.Content}) {
+			return false
+		}
+	}
+
+	for _, tc := range delta.ToolCalls {
+		idx := state.resolveIndex(tc)
+		if !state.nameSent[idx] && tc.Function.Name != "" {
+			state.nameSent[idx] = true
+			if !yield(StreamEvent{Type: EventToolStart, ToolIndex: idx, ToolID: tc.ID, ToolName: tc.Function.Name}) {
+				return false
+			}
+		}
+		if tc.Function.Arguments != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: tc.Function.Arguments}) {
+				return false
+			}
+		}
+	}
+
+	if choice.FinishReason != "" {
+		ev := StreamEvent{Type: EventFinish, FinishReason: choice.FinishReason}
+		if chunk.Usage != nil {
+			ev.InputTokens = chunk.Usage.PromptTokens
+			ev.OutputTokens = chunk.Usage.CompletionTokens
+		}
+		return yield(ev)
+	}
+	return true
+}
+
+// parseOllamaNonStreaming reads a single non-streaming Ollama JSON response and synthesizes
+// StreamEvents. Used when tools are present (forced non-streaming). Ollama's non-streaming
+// message carries thinking in message.reasoning (no underscore).
+//
+// parseOllamaNonStreaming 读单条非流式 Ollama JSON 响应并合成 StreamEvent。有 tools 时使用
+// （强制非流式）。Ollama 非流式 message 用 message.reasoning（无下划线）传思考。
+func parseOllamaNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
+	raw, err := io.ReadAll(io.LimitReader(body, 8<<20))
+	if err != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.ollama: read non-streaming body: %w", err)})
+		return
+	}
+	var resp ollamaNonStreamResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.ollama: parse non-streaming response: %w", err)})
+		return
+	}
+	if resp.Error != nil {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", ErrProviderError, resp.Error.Message)})
+		return
+	}
+	if len(resp.Choices) == 0 {
+		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.ollama: non-streaming response has no choices: %w", ErrProviderError)})
+		return
+	}
+	msg := resp.Choices[0].Message
+	if msg.Reasoning != "" {
+		if !yield(StreamEvent{Type: EventReasoning, Delta: msg.Reasoning}) {
+			return
+		}
+	}
+	if msg.Content != "" {
+		if !yield(StreamEvent{Type: EventText, Delta: msg.Content}) {
+			return
+		}
+	}
+	for i, tc := range msg.ToolCalls {
+		if !yield(StreamEvent{Type: EventToolStart, ToolIndex: i, ToolID: tc.ID, ToolName: tc.Function.Name}) {
+			return
+		}
+		if tc.Function.Arguments != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: i, ArgsDelta: tc.Function.Arguments}) {
+				return
+			}
+		}
+	}
+	ev := StreamEvent{Type: EventFinish, FinishReason: resp.Choices[0].FinishReason}
+	if resp.Usage != nil {
+		ev.InputTokens = resp.Usage.PromptTokens
+		ev.OutputTokens = resp.Usage.CompletionTokens
+	}
+	yield(ev)
+}
+
+// ── message encoding ──────────────────────────────────────────────────────────
+
+func toOllamaMsgs(msgs []LLMMessage, system string) ([]ollamaMessage, error) {
+	var out []ollamaMessage
+	if system != "" {
+		out = append(out, ollamaMessage{Role: "system", Content: system})
+	}
+	for _, m := range msgs {
+		om, err := toOllamaMsg(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, om)
+	}
+	return out, nil
+}
+
+func toOllamaMsg(m LLMMessage) (ollamaMessage, error) {
+	switch m.Role {
+	case RoleUser:
+		return ollamaMessage{Role: "user", Content: m.Content}, nil
+	case RoleAssistant:
+		return buildOllamaAssistantMsg(m), nil
+	case RoleTool:
+		return ollamaMessage{Role: "tool", Content: m.Content, ToolCallID: m.ToolCallID}, nil
+	default:
+		return ollamaMessage{}, fmt.Errorf("llm.ollama: unknown role %q: %w", m.Role, ErrBadRequest)
+	}
+}
+
+func buildOllamaAssistantMsg(m LLMMessage) ollamaMessage {
+	om := ollamaMessage{Role: "assistant", Content: m.Content}
+	for _, tc := range m.ToolCalls {
+		// Guard malformed historical args: Ollama 400s on non-JSON arguments, so a
+		// non-object string is silently replaced with {} rather than failing the turn.
+		//
+		// 守历史 malformed args：Ollama 对非 JSON arguments 会 400，故非合法 object 静默换成 {}
+		// 而非让整轮失败。
+		args := json.RawMessage(tc.Arguments)
+		if !json.Valid(args) {
+			args = json.RawMessage("{}")
+		}
+		om.ToolCalls = append(om.ToolCalls, ollamaToolCall{
+			ID:       tc.ID,
+			Type:     "function",
+			Function: ollamaFuncCall{Name: tc.Name, Arguments: string(args)},
+		})
+	}
+	return om
+}
+
+func toOllamaTools(defs []ToolDef) []ollamaTool {
+	out := make([]ollamaTool, len(defs))
+	for i, d := range defs {
+		out[i] = ollamaTool{Type: "function", Function: ollamaFuncDef{Name: d.Name, Description: d.Description, Parameters: d.Parameters}}
+	}
+	return out
+}
+
+// ── tool-call streaming state ──────────────────────────────────────────────────
+
+// ollamaToolState tracks per-chunk tool-call streaming state, synthesizing an index by ID
+// for chunks that omit it.
+//
+// ollamaToolState 跨 chunk 跟踪 tool-call 流式状态；对不填 index 的 chunk 按 ID 合成 index。
+type ollamaToolState struct {
+	nameSent     map[int]bool
+	idToIdx      map[string]int
+	nextSynthIdx int
+}
+
+func newOllamaToolState() *ollamaToolState {
+	return &ollamaToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}}
+}
+
+func (s *ollamaToolState) resolveIndex(tc ollamaToolCallDelta) int {
+	if tc.Index > 0 {
+		return tc.Index
+	}
+	if tc.ID == "" {
+		return 0
+	}
+	if idx, ok := s.idToIdx[tc.ID]; ok {
+		return idx
+	}
+	idx := s.nextSynthIdx
+	s.idToIdx[tc.ID] = idx
+	s.nextSynthIdx++
+	return idx
+}
+
+// ── Ollama wire types ───────────────────────────────────────────────────────────
+//
+// Ollama /v1 follows OpenAI-compat with one key difference: thinking content arrives in
+// the "reasoning" field (no underscore), both in SSE delta and in the non-streaming
+// message — distinct from providers that use "reasoning_content".
+//
+// Ollama /v1 与 OpenAI-compat 一处关键差异：思考内容落 "reasoning" 字段（无下划线），SSE
+// delta 与非流式 message 皆然——区别于用 "reasoning_content" 的 provider。
+
+type ollamaRequest struct {
+	Model           string               `json:"model"`
+	Messages        []ollamaMessage      `json:"messages"`
+	Tools           []ollamaTool         `json:"tools,omitempty"`
+	Stream          bool                 `json:"stream"`
+	StreamOptions   *ollamaStreamOptions `json:"stream_options,omitempty"`
+	ReasoningEffort string               `json:"reasoning_effort,omitempty"`
+}
+
+type ollamaStreamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
+}
+
+type ollamaMessage struct {
+	Role       string           `json:"role"`
+	Content    string           `json:"content"`
+	ToolCalls  []ollamaToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
+}
+
+type ollamaToolCall struct {
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	Function ollamaFuncCall `json:"function"`
+}
+
+type ollamaFuncCall struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type ollamaTool struct {
+	Type     string        `json:"type"`
+	Function ollamaFuncDef `json:"function"`
+}
+
+type ollamaFuncDef struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+
+type ollamaChunk struct {
+	Choices []ollamaChoice    `json:"choices"`
+	Usage   *ollamaUsage      `json:"usage"`
+	Error   *ollamaChunkError `json:"error,omitempty"`
+}
+
+type ollamaChunkError struct {
+	Message string `json:"message"`
+}
+
+type ollamaChoice struct {
+	Delta        ollamaDelta `json:"delta"`
+	FinishReason string      `json:"finish_reason"`
+}
+
+type ollamaDelta struct {
+	Content string `json:"content"`
+	// Reasoning is Ollama /v1's thinking field — "reasoning" (no underscore), NOT
+	// "reasoning_content".
+	//
+	// Reasoning 是 Ollama /v1 的思考字段——"reasoning"（无下划线），非 "reasoning_content"。
+	Reasoning string                `json:"reasoning"`
+	ToolCalls []ollamaToolCallDelta `json:"tool_calls"`
+}
+
+type ollamaToolCallDelta struct {
+	Index    int             `json:"index"`
+	ID       string          `json:"id"`
+	Function ollamaFuncDelta `json:"function"`
+}
+
+type ollamaFuncDelta struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+type ollamaUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+}
+
+type ollamaNonStreamResponse struct {
+	Choices []ollamaNonStreamChoice `json:"choices"`
+	Usage   *ollamaUsage            `json:"usage"`
+	Error   *ollamaChunkError       `json:"error,omitempty"`
+}
+
+type ollamaNonStreamChoice struct {
+	Message      ollamaNonStreamMessage `json:"message"`
+	FinishReason string                 `json:"finish_reason"`
+}
+
+type ollamaNonStreamMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	// Reasoning is Ollama /v1's thinking field name (no underscore).
+	//
+	// Reasoning 是 Ollama /v1 的思考字段名（无下划线）。
+	Reasoning string                `json:"reasoning"`
+	ToolCalls []ollamaToolCallDelta `json:"tool_calls"`
+}
