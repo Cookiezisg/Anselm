@@ -110,6 +110,10 @@ pip-delete-this-directory.txt
 # lab/backendcleaner/target/ 是 clean-room 计划目录，不是 build 产物——豁免上面的 **/target/
 !lab/backendcleaner/target/
 !lab/backendcleaner/target/**
+
+# backend-new 编译产物（clean-room 期间；覆盖后并入 backend/* 规则）
+backend-new/server
+backend-new/cmd/server/server
 Cargo.lock       # 库项目取消注释此行；应用项目应保留
 
 # Ruby

@@ -39,6 +39,12 @@
 - **后端 reference**：`docs/references/backend/` 的 `api.md` / `database.md` / `events.md` / `error-codes.md` / `domains/<m>.md` 同步（CLAUDE.md #8 物理同步，文档落后 = bug）。
 - **lab**：`rounds/NNNN/round.md` 本轮记录 + 更新 `STATE.md` + `capability-ledger.md` 勾稽 +（若契约变）`contract-changes.md`。
 
+## 2b. 外部依赖纪律（go.mod 按需生长）
+
+- backend-new 的 `go.mod` 从**空**起步、**按需生长**：不 copy 现有 go.mod（那会搬来一堆未用依赖，含 `air` 这种 dev 工具历史包袱）。
+- 模块用到外部库时才 `go get`，且**版本对齐现有 backend**：`go get <pkg>@<现有 go.mod 里的版本>`，避免无意升级引入行为差异。
+- 不提前 `go mod tidy`（会清掉后续波次要用、本波次还没引用的）；覆盖前做最终 tidy 收口。
+
 ## 3. 开工先做依赖扫描（backend-new 语境）
 
 - **上游**：它依赖的模块在 backend-new 是否已就绪（按 `order.md` 应已就绪；没就绪说明顺序排错了，回 order 修）。

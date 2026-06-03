@@ -4,7 +4,7 @@
 
 ## 当前
 
-- **阶段**：Phase 0 计划 — lab 已定稿，**等确认进 Phase 1**。
+- **阶段**：Phase 1 骨架 ✅ — `backend-new/`（空 go.mod 按需生长）+ health server + smoke（build/vet/test 绿）。→ 进波次 0。
 - **分支**：`main`（backend-new 平行重写不需要分支）。
 - **策略**：在 `backend-new/` 平行重建 → 覆盖回 `backend/` → 调前端/testend 兼容。
 
@@ -30,4 +30,4 @@
 
 ## 下一步
 
-- 等确认 → **Phase 1**：建 `backend-new/go.mod`（最终 module path）+ 波次0 地基 + 最小 smoke（启动 / `/api/v1/health` / 用户初始化）。
+- **波次 0 起步（M0.1 `pkg/*`）**：逐个判定去留（`modelcaps` 等残留）并重写纯工具。按 PLAYBOOK 四步——第一个模块先讲逻辑给用户 review 确立范本，再写代码。
