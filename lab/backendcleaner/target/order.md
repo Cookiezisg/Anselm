@@ -26,8 +26,8 @@
 | M0.1 | `pkg/*` 纯工具 | idgen, pagination, reqctx, tokencount, pathguard, userpath, jsonrepair, wikilink, limits | ⚠️ `modelcaps`（modelcatalog 已取代，疑残留）、`forge`/`agentstate`/`envfix`/`installprogress`/`llmclient`/`llmcost`/`llmparse`/`notifications`/`eventlog` 逐个判定去留 |
 | M0.2 | `pkg/orm` + `infra/db` | **去 GORM**：自研链式 ORM（R0008 ✅）+ `infra/db` 用 database/sql + glebarez/go-sqlite | 边界：schema 可激进重定；手写 DDL 对齐 database.md（取代 AutoMigrate）；domain 全部去 GORM 化 |
 | M0.3 | `infra/logger` `infra/crypto` | zap + AES-GCM | |
-| M0.4 | `domain/errors` `domain/eventlog` `domain/notifications` | 横切契约 | |
-| M0.5 | `infra/eventlog` `infra/notifications` `infra/chat` | SSE 三流底座（E1/E2/E3） | |
+| M0.4 | `domain/errors` `domain/eventlog` `domain/notifications` `domain/forge` | 横切契约；eventlog/notif/forge = SSE 三流（E1）的 domain Bridge port | |
+| M0.5 | `infra/eventlog` `infra/notifications` `infra/forge` `infra/chat` | SSE 三流底座（E1/E2/E3）：eventlog/notif/forge 三 Bridge 实现 + chat 流式底座 | |
 | M0.6 | `infra/llm` | 自有 provider 客户端（18 文件）+ factory | 边界：provider wire 格式冻结；`mock.go` 留给测试 |
 | M0.7 | transport 框架：`httpapi/response`(envelope N1) `middleware` `router` + pagination `Parse`/limit 策略 | — | **从波次 7 上移**：所有业务域 handler 的地基 |
 
