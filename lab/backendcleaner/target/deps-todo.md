@@ -41,3 +41,9 @@
 | dev 日志流 SSE 端点 | `handlers/dev.go` | cmd/server（M7） | 随 broadcaster 删；dev 端点整体去留也在 M7 判定 |
 | broadcaster 接线 | `main.go`（`NewLogBroadcaster` + 作 extra core 传 `logger.New`） | cmd/server（M7） | `logger.New` 已简化为 `New(dev)`，无 extras |
 | broadcaster 注入 | `router/deps.go` | transport（M7） | 去除注入 |
+
+## 来自波次 0 · M0.3（crypto 迁移 R0011）
+
+| 待办 | 位置 | 去向 | 备注 |
+|---|---|---|---|
+| encryptor 构造 | `main.go` | cmd/server（M7） | 用 `crypto.NewAESGCMEncryptor(crypto.DeriveKey(crypto.MachineFingerprint()))` 现场派生；判定旧 `~/.forgify/encryption-key` 文件是否残留（机器指纹方案无需存 key 文件） |

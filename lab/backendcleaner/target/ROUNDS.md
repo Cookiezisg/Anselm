@@ -12,3 +12,4 @@
 | 0008 | 2026-06-03 | 波次0 · M0.2 | 自研 pkg/orm（去 GORM） | ✅ 链式/类型安全/自动 workspace+软删+时间戳，9 源+21 测试绿；domain 去 GORM 化成全局方针 |
 | 0009 | 2026-06-03 | 波次0 · M0.2 | infra/db 网关 GORM→database/sql | ✅ glebarez/go-sqlite + 单连接 + DDL 迁移机制；schema_extras 删（分散各模块）；orm 补 Exec/Close。**M0.2 完成** |
 | 0010 | 2026-06-03 | 波次0 · M0.3 | infra/logger | ✅ zap.go 保留+简化(去 extras)；broadcast.go 删(日志 SSE 违反 E1)；2 测试绿 |
+| 0011 | 2026-06-03 | 波次0 · M0.3 | crypto 切片(domain port + infra adapter) | ✅ AES-GCM + 机器指纹，原样保留，13 测试绿；port-adapter 范本。**M0.3 完成** |
