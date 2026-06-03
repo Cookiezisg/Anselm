@@ -30,3 +30,19 @@
 覆盖状态：物理全集中 reqctx/idgen/pagination 标 cleaned；移出项入 deps-todo。
 
 下一步：M0.1 续（tokencount/pathguard/userpath/wikilink/jsonrepair/limits + `modelcaps` 判定）→ M0.2 infra/db。
+
+---
+
+## R0001.1 调整（2026-06-03）— reqctx 包内按 concern 拆文件
+
+起因：`reqctx.go` 整篇是 workspace 身份，把"reqctx（请求上下文通用机制）"这个核心名占了。
+
+调整（同一 `pkg/reqctx` 包内，仅文件重组，无拆包）：
+- `workspace.go`：workspace 身份 ctx 透传（`Set/Get/RequireWorkspaceID` + `ErrMissingWorkspaceID`）。
+- `reqctx.go`：包门面（包 doc）+ `locale`（唯一无业务域的通用请求属性）。
+- 删 `locale.go`（并入 reqctx.go）。
+- 测试同步拆：`workspace_test.go`（TestWorkspaceID）/ `reqctx_test.go`（TestLocale）。
+
+为何不移到 workspace 业务包（M1.1）：写入 workspace id 是横切关注点，由 HTTP 中间件（M0.7）完成、在任何业务包就绪前就接线——移进业务模块会让 M0.7 依赖 M1.1，倒置层级。故留地基包内拆文件，不入 deps-todo。
+
+验证：gofmt 净 / `go build -o /dev/null ./...` OK / `go vet` OK / `go test ./internal/pkg/reqctx` 绿。

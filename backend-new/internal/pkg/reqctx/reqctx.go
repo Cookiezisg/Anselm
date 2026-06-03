@@ -1,46 +1,57 @@
-// Package reqctx ferries request-scoped identity and locale through ctx.
+// Package reqctx carries request-scoped values through context.Context.
+//
+// Layout: generic attributes that belong to no business entity (locale, …) live in this
+// file; a named identity that owns a full domain (workspace) gets its own file
+// (workspace.go). Both stay in this base pkg package rather than the workspace business
+// module — writing the workspace id into ctx is a cross-cutting concern done by HTTP
+// middleware, wired before any business package exists; putting it in the workspace module
+// would invert the layer order.
+//
 // Keys are private empty structs to avoid collisions. Pure stdlib — no upstream deps.
 //
-// Package reqctx 通过 ctx 传递请求级身份与区域（workspace ID、locale）。
-// 私有 empty-struct key 防冲突。纯 stdlib，无任何上层依赖。
+// Package reqctx 通过 context.Context 传递请求作用域的值。
+//
+// 布局：不属于任何业务实体的通用属性（locale 等）放本文件；拥有完整业务域的具名身份（workspace）
+// 单独成文件（workspace.go）。两者都留在本地基 pkg 包、而非 workspace 业务模块——把 workspace id
+// 写入 ctx 是横切关注点，由 HTTP 中间件完成、在任何业务包存在前就接线；放进 workspace 模块会倒置层级。
+// 私有 empty-struct key 防冲突。纯 stdlib，无上层依赖。
 package reqctx
 
-import (
-	"context"
-	"errors"
+import "context"
+
+// Locale is the workspace's preferred language for AI-generated content; not for backend error messages.
+//
+// Locale 是工作区偏好的 AI 生成内容语言；不用于后端错误消息。
+type Locale string
+
+const (
+	LocaleZhCN    Locale = "zh-CN"
+	LocaleEn      Locale = "en"
+	DefaultLocale        = LocaleZhCN
 )
 
-// ErrMissingWorkspaceID is returned when ctx carries no workspace ID (middleware didn't run).
-// Treat it as a wiring bug (500), not an auth failure (401).
+// IsSupported reports whether the locale is one this backend handles.
 //
-// ErrMissingWorkspaceID 在 ctx 无 workspace ID 时返回（中间件未跑）。视为接线 bug（500），非鉴权失败（401）。
-var ErrMissingWorkspaceID = errors.New("reqctx: missing workspace id in context")
-
-type workspaceIDKey struct{}
-
-// SetWorkspaceID returns a copy of ctx carrying id.
-//
-// SetWorkspaceID 返回携带 id 的 ctx 拷贝。
-func SetWorkspaceID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, workspaceIDKey{}, id)
+// IsSupported 报告该 locale 是否被后端支持。
+func (l Locale) IsSupported() bool {
+	return l == LocaleZhCN || l == LocaleEn
 }
 
-// GetWorkspaceID returns the workspace ID; ok=false when missing or empty.
+type localeKey struct{}
+
+// SetLocale returns a copy of ctx carrying l.
 //
-// GetWorkspaceID 取 workspace ID；缺失或为空时 ok=false。
-func GetWorkspaceID(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(workspaceIDKey{}).(string)
-	return id, ok && id != ""
+// SetLocale 返回携带 l 的 ctx 拷贝。
+func SetLocale(ctx context.Context, l Locale) context.Context {
+	return context.WithValue(ctx, localeKey{}, l)
 }
 
-// RequireWorkspaceID is the (string, error) form of GetWorkspaceID. Every workspace-scoped
-// store/app method uses it to bubble up ErrMissingWorkspaceID.
+// GetLocale returns the carried locale, or DefaultLocale when unset/unsupported; always usable.
 //
-// RequireWorkspaceID 是 GetWorkspaceID 的 (string, error) 版本。所有按工作区隔离的 store/app 方法用它。
-func RequireWorkspaceID(ctx context.Context) (string, error) {
-	id, ok := GetWorkspaceID(ctx)
-	if !ok {
-		return "", ErrMissingWorkspaceID
+// GetLocale 返回携带的 locale，未设/不支持时返 DefaultLocale；总返回可用值。
+func GetLocale(ctx context.Context) Locale {
+	if l, ok := ctx.Value(localeKey{}).(Locale); ok && l.IsSupported() {
+		return l
 	}
-	return id, nil
+	return DefaultLocale
 }
