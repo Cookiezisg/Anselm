@@ -10,6 +10,16 @@
 // 共享 node ID）。
 package entities
 
+// ⚠️ PROVISIONAL — node vocabulary not yet settled.
+// The protocol skeleton (stream.Envelope / the 4 Frame verbs / the Node interface) is
+// final and stable. The concrete node set below — which node types exist and what fields
+// each carries — is a first cut derived from design, NOT a contract. It is re-confirmed
+// against real needs when each producer module is wired up (its own wave per order.md).
+//
+// ⚠️ 暂定——词表未定稿。协议骨架（stream 信封 / 四动词 Frame / Node interface）已定稿
+// 稳定；下面具体词表（有哪些 node、各带什么字段）是依设计推演的初版，非契约。到各
+// producer 模块接线那一轮（order.md 各自波次）依实际需求重新确定。
+
 // Forge operations — the kind of edit an AI is streaming onto an entity.
 //
 // Forge 操作——AI 正在向实体流式写入的编辑类型。
