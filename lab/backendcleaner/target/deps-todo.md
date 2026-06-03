@@ -31,3 +31,13 @@
 | 前缀 → EntityKind 映射 + `KindForID` | wikilink（曾经经 idgen.KindByPrefix） | relation domain（M1.4） | relation 持 `EntityKind` 常量 + 前缀映射 + `KindForID(id)(EntityKind,bool)` |
 | 未知前缀过滤 + Kind 解析 | `wikilink.Parse` | document（M1.10） | document 拿 wikilink 的 ID → `relation.KindForID` 解析 Kind + 过滤 + 跳过自链，再建 `SyncEdge` |
 | Kind 映射测试用例 | wikilink_test（`DropsUnknownPrefix` / `AllSupportedPrefixes`） | relation（M1.4）测试 | 验前缀→EntityKind 全集；wikilink 侧已用 `ReturnsAllIdShapedTokens` 固定「不过滤」新语义 |
+
+## 来自波次 0 · M0.3（logger broadcast 删除 R0010）
+
+`LogBroadcaster`（日志 SSE 流，违反 E1 三流）已判删。连带清理（M7 wiring）：
+
+| 移出内容 | 原位置 | 去向 | 备注 |
+|---|---|---|---|
+| dev 日志流 SSE 端点 | `handlers/dev.go` | cmd/server（M7） | 随 broadcaster 删；dev 端点整体去留也在 M7 判定 |
+| broadcaster 接线 | `main.go`（`NewLogBroadcaster` + 作 extra core 传 `logger.New`） | cmd/server（M7） | `logger.New` 已简化为 `New(dev)`，无 extras |
+| broadcaster 注入 | `router/deps.go` | transport（M7） | 去除注入 |
