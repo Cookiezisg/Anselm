@@ -1,4 +1,4 @@
-package agentforge
+package agent
 
 import (
 	"context"

@@ -41,7 +41,7 @@ import (
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentforgetool "github.com/sunweilin/forgify/backend/internal/app/tool/agentforge"
+	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -192,6 +192,24 @@ type Harness struct {
 	Chat         *chatapp.Service
 	User         *userapp.Service
 	Tools        []toolapp.Tool
+}
+
+// knowledgePrefixHarness implements agentapp.KnowledgePrefixer for tests (mirrors main.go's adapter).
+type knowledgePrefixHarness struct{ docs *documentapp.Service }
+
+func (a knowledgePrefixHarness) BuildKnowledgePrefix(ctx context.Context, docIDs []string) (string, error) {
+	if len(docIDs) == 0 {
+		return "", nil
+	}
+	atts := make([]documentdomain.AttachedDocument, len(docIDs))
+	for i, id := range docIDs {
+		atts[i] = documentdomain.AttachedDocument{DocumentID: id}
+	}
+	resolved, err := a.docs.ResolveAttached(ctx, atts)
+	if err != nil {
+		return "", err
+	}
+	return documentapp.RenderAttachedAsXML(resolved), nil
 }
 
 // New boots a fresh harness with in-memory SQLite + httptest server; cleanup is registered on t.
@@ -420,9 +438,14 @@ func New(t *testing.T, opts ...Option) *Harness {
 
 	documentService := documentapp.New(documentstore.New(gdb), notificationsPub, log)
 	tools = append(tools, documenttool.DocumentTools(documentService)...)
-	// Agent service (quadrinity 4th member).
+	// Agent service (quadrinity 4th member). InvokeAgent runner deps wired (mirrors function).
 	agentService := agentapp.New(agentstore.New(gdb), log)
-	tools = append(tools, agentforgetool.AgentTools(agentService)...)
+	agentService.SetInvokeDeps(
+		modelService, apikeyService, llmFactory,
+		func() []toolapp.Tool { return tools },
+		knowledgePrefixHarness{docs: documentService},
+	)
+	tools = append(tools, agenttool.AgentTools(agentService)...)
 
 	subagentRegistry := subagentapp.NewRegistry()
 	subagentService := subagentapp.New(
@@ -745,8 +768,11 @@ var lazyGroupsHarness = map[string]string{
 	"get_agent":                  "agent",
 	"create_agent":               "agent",
 	"edit_agent":                 "agent",
-	"accept_pending_agent":       "agent",
+	"revert_agent":               "agent",
 	"delete_agent":               "agent",
+	"invoke_agent":               "agent",
+	"get_agent_execution":        "agent",
+	"search_agent_executions":    "agent",
 	"create_function":            "function",
 	"edit_function":              "function",
 	"delete_function":            "function",

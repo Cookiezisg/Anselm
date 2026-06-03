@@ -13,15 +13,41 @@ import (
 
 	"go.uber.org/zap"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
+// KnowledgePrefixer resolves an agent's knowledge doc IDs into a system-prompt XML prefix.
+// Implemented by a documentapp adapter in main.go (keeps agentapp free of documentapp's renderer).
+//
+// KnowledgePrefixer 把 agent 的 knowledge doc IDs 渲染成 system-prompt 前缀；main.go 适配 documentapp。
+type KnowledgePrefixer interface {
+	BuildKnowledgePrefix(ctx context.Context, docIDs []string) (string, error)
+}
+
+// invokeDeps are the LLM-execution dependencies the agent service needs to run an agent's ReAct loop
+// (InvokeAgent). Injected post-construction (SetInvokeDeps) — mirrors function service holding the
+// Sandbox port. Nil deps make InvokeAgent return an error rather than panic.
+//
+// invokeDeps 是 agent service 跑 ReAct loop 所需的 LLM 依赖；对标 function service 持有 Sandbox 端口。
+type invokeDeps struct {
+	picker    modeldomain.ModelPicker
+	keys      apikeydomain.KeyProvider
+	factory   *llminfra.Factory
+	toolsFn   func() []toolapp.Tool
+	knowledge KnowledgePrefixer
+}
+
 // Service orchestrates agent lifecycle.
 type Service struct {
-	repo agentdomain.Repository
-	log  *zap.Logger
+	repo   agentdomain.Repository
+	invoke invokeDeps // LLM-execution deps for InvokeAgent (set via SetInvokeDeps)
+	log    *zap.Logger
 }
 
 func New(repo agentdomain.Repository, log *zap.Logger) *Service {
@@ -29,6 +55,39 @@ func New(repo agentdomain.Repository, log *zap.Logger) *Service {
 		panic("agentapp.New: logger is nil")
 	}
 	return &Service{repo: repo, log: log.Named("agentapp")}
+}
+
+// SetInvokeDeps wires the LLM-execution dependencies so InvokeAgent can run an agent's ReAct loop
+// (mirrors function NewService injecting the Sandbox). Call once at DI wire-up; toolsFn is read at
+// invoke time so tools appended after wire-up still apply.
+//
+// SetInvokeDeps 装配 InvokeAgent 跑 ReAct loop 所需依赖；装配阶段调一次。
+func (s *Service) SetInvokeDeps(
+	picker modeldomain.ModelPicker,
+	keys apikeydomain.KeyProvider,
+	factory *llminfra.Factory,
+	toolsFn func() []toolapp.Tool,
+	knowledge KnowledgePrefixer,
+) {
+	s.invoke = invokeDeps{picker: picker, keys: keys, factory: factory, toolsFn: toolsFn, knowledge: knowledge}
+}
+
+// Revert flips the agent's active version to a previously-accepted version number (mirrors
+// function.Service.Revert). The target must already be accepted; the version numbering is unchanged.
+//
+// Revert 把 agent active 切回某个已 accepted 版本号（对标 function.Revert）；不重排号。
+func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*agentdomain.AgentVersion, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("agentapp.Revert: %w", err)
+	}
+	v, err := s.repo.GetVersionByNumber(ctx, id, targetVersion)
+	if err != nil {
+		return nil, fmt.Errorf("agentapp.Revert: %w", err)
+	}
+	if err := s.repo.SetActiveVersion(ctx, id, v.ID); err != nil {
+		return nil, fmt.Errorf("agentapp.Revert: %w", err)
+	}
+	return v, nil
 }
 
 // CreateInput is the request for creating a new agent.

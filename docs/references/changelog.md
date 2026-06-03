@@ -52,6 +52,19 @@ audience: [human, ai]
 - **全局同步**：`CLAUDE.md` (ID 前缀全集 `ag_`/`fr_`/`ts_`/`apv_` 等), `INDEX.md` (workflow-revamp 标为 landed)
 - **结果**：全仓文档与代码（scheduler/interpreter/workflow-app）重新对齐，解决了 20+ 处“愿景与实现”的描述漂移。
 
+### agent 工具面 1:1 对标 function（2026-06-03）
+
+**[feat]** Agent 从“半成品 forge 实体”补成与 function **完全对称**的一等公民。起因：实测中 agent 的工具面只有 6 个（缺 revert / 真跑 / 执行历史），且文件夹 `agentforge`、单体 `tools.go`，与 function 约定不符。
+
+- **domain**：`AgentExecution` 字段拉齐 `function.Execution`（`Output any`、`ErrorCode+ErrorMessage`、+追踪字段 conv/msg/toolCall/flowrun、`triggered_by` 加 `http`）；新增 `ExecutionFilter`/`ExecutionAggregates`/`ErrExecutionNotFound`/`ErrVersionNotFound`；repo 方法改名 `SaveExecution`/`GetExecutionByID`/`ListExecutions(filter)`/`ComputeAggregates` + `GetVersionByNumber`/`SetActiveVersion`（同名对标 `function.ExecutionRepository`）。
+- **store**：execution 查询 = function 的 cursor 分页 + p95 聚合 1:1 复制。
+- **app/agent**：新增 `InvokeAgent`（真跑 ReAct loop + 落表，对标 `RunFunction`；service 经 `SetInvokeDeps` 注入 picker/keys/factory/toolsFn/knowledge，正如 function 持有 sandbox 端口）、`Revert`、`SearchExecutions`/`GetExecutionDetail`（+ `SearchExecutionsResult`/`ExecutionDetail`/`ExecutionHints` 同名）。
+- **tool**：文件夹 `agentforge`→`agent`，单体拆成一文件一工具；**删 `accept_pending_agent`**（对标 function 无 accept 工具，accept 走 UI/HTTP）；**加 `revert_agent`/`invoke_agent`/`get_agent_execution`/`search_agent_executions`** → 共 9 个，与 function 一一对应。
+- **handler**：`postOnAgent` 加 `:invoke`/`:revert`；新增 `GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
+- **接线**：main.go/harness 改 import + `SetInvokeDeps` + `lazyGroups`（删 accept、加 4）；errmap 加两 sentinel。
+- **测试**：`tool/agent` create/search/get 端到端；`app/agent` Revert + executions（search/get/aggregates/not-found）。`make unit`/`make mock`/`go vet` 全绿。
+- **跟进（Task #13）**：workflow agent 节点（dispatch_agent）落表——待 flowrunId 接进新解释器后路由进 `InvokeAgent`。
+
 ---
 
 按时间顺序（旧 → 新）。每个时间块按 phase 或专题分组。

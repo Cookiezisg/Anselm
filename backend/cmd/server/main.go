@@ -41,7 +41,7 @@ import (
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentforgetool "github.com/sunweilin/forgify/backend/internal/app/tool/agentforge"
+	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	fstool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -447,10 +447,16 @@ func main() {
 	//
 	// sources = 全部 LLM 可调能力：function / handler / skill / mcp / workflow / document。
 	// menu 渲染带 invokeTool，让 LLM 确知发哪个 tool-call。
-	// Agent service (quadrinity 4th member, doc 09).
+	// Agent service (quadrinity 4th member, doc 09). InvokeAgent (the ReAct runner mirroring
+	// function.RunFunction) needs the LLM deps + tool registry + knowledge resolver, wired below.
 	agentRepo := agentstore.New(gdb)
 	agentService := agentapp.New(agentRepo, log)
-	tools = append(tools, agentforgetool.AgentTools(agentService)...)
+	agentService.SetInvokeDeps(
+		modelService, apikeyService, llmFactory,
+		func() []toolapp.Tool { return tools },
+		knowledgePrefixAdapter{docs: documentService},
+	)
+	tools = append(tools, agenttool.AgentTools(agentService)...)
 
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
@@ -796,8 +802,11 @@ var lazyGroups = map[string]string{
 	"get_agent":                  "agent",
 	"create_agent":               "agent",
 	"edit_agent":                 "agent",
-	"accept_pending_agent":       "agent",
+	"revert_agent":               "agent",
 	"delete_agent":               "agent",
+	"invoke_agent":               "agent",
+	"get_agent_execution":        "agent",
+	"search_agent_executions":    "agent",
 	"create_function":            "function",
 	"edit_function":              "function",
 	"delete_function":            "function",
@@ -880,6 +889,27 @@ var residentToolNames = map[string]bool{
 	"forget_memory":    true,
 	"activate_skill":   true,
 	"Subagent":         true,
+}
+
+// knowledgePrefixAdapter implements agentapp.KnowledgePrefixer: resolves an agent's knowledge doc IDs
+// into the system-prompt XML prefix (keeps agentapp free of documentapp's renderer).
+//
+// knowledgePrefixAdapter 实现 agentapp.KnowledgePrefixer：把 agent 的 knowledge doc IDs 渲染成前缀。
+type knowledgePrefixAdapter struct{ docs *documentapp.Service }
+
+func (a knowledgePrefixAdapter) BuildKnowledgePrefix(ctx context.Context, docIDs []string) (string, error) {
+	if len(docIDs) == 0 {
+		return "", nil
+	}
+	atts := make([]documentdomain.AttachedDocument, len(docIDs))
+	for i, id := range docIDs {
+		atts[i] = documentdomain.AttachedDocument{DocumentID: id}
+	}
+	resolved, err := a.docs.ResolveAttached(ctx, atts)
+	if err != nil {
+		return "", err
+	}
+	return documentapp.RenderAttachedAsXML(resolved), nil
 }
 
 // buildToolset partitions all assembled tools into Resident + Lazy groups using two closed maps.

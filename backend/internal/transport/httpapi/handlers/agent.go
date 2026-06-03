@@ -33,8 +33,14 @@ func (h *AgentHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/agents/{id}/pending", h.GetPending)
 	mux.HandleFunc("POST /api/v1/agents/{id}/pending:accept", h.AcceptPending)
 	mux.HandleFunc("POST /api/v1/agents/{id}/pending:reject", h.RejectPending)
+	mux.HandleFunc("GET /api/v1/agents/{id}/executions", h.ListExecutions)
+	mux.HandleFunc("GET /api/v1/agent-executions/{execId}", h.GetExecution)
 }
 
+// postOnAgent dispatches POST /api/v1/agents/{id}:<action> (:edit / :invoke / :revert) — mirrors
+// postOnFunction (:run / :revert / :edit), with the agent verb being :invoke instead of :run.
+//
+// postOnAgent 派发 :edit / :invoke / :revert（对标 postOnFunction，agent 用 :invoke 替 :run）。
 func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -44,9 +50,83 @@ func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "edit":
 		h.Edit(w, r, id)
+	case "invoke":
+		h.Invoke(w, r, id)
+	case "revert":
+		h.Revert(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// Invoke runs the agent (real ReAct run; records an execution). Mirrors function :run.
+func (h *AgentHandler) Invoke(w http.ResponseWriter, r *http.Request, id string) {
+	var req struct {
+		Version string         `json:"version"`
+		Input   map[string]any `json:"input"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	res, err := h.svc.InvokeAgent(r.Context(), agentapp.InvokeInput{
+		AgentID:     id,
+		VersionID:   req.Version,
+		Input:       req.Input,
+		TriggeredBy: agentdomain.TriggeredByHTTP,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
+}
+
+// Revert flips the agent's active version to a prior accepted version. Mirrors function :revert.
+func (h *AgentHandler) Revert(w http.ResponseWriter, r *http.Request, id string) {
+	var req struct {
+		TargetVersion int `json:"targetVersion"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	v, err := h.svc.Revert(r.Context(), id, req.TargetVersion)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, v)
+}
+
+// ListExecutions returns the agent's execution log (mirrors function GET /functions/{id}/executions).
+func (h *AgentHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	limit, cursor := parseLimitCursorAgent(r, 50)
+	res, err := h.svc.SearchExecutions(r.Context(), agentdomain.ExecutionFilter{
+		AgentID: id,
+		Status:  r.URL.Query().Get("status"),
+		Limit:   limit,
+		Cursor:  cursor,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]any{
+		"data": res.Executions, "nextCursor": res.NextCursor, "hasMore": res.HasMore, "aggregates": res.Aggregates,
+	})
+}
+
+// GetExecution returns one execution row + hints (mirrors function GET /function-executions/{execId}).
+func (h *AgentHandler) GetExecution(w http.ResponseWriter, r *http.Request) {
+	execID := r.PathValue("execId")
+	detail, err := h.svc.GetExecutionDetail(r.Context(), execID)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, detail)
 }
 
 func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {

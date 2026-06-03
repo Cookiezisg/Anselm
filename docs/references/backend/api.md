@@ -98,11 +98,13 @@ audience: [human, ai]
 | GET | `/api/v1/agents` | `agent.go` |
 | GET | `/api/v1/agents/{id}` | `agent.go` |
 | DELETE | `/api/v1/agents/{id}` | `agent.go` |
-| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:iterate, :revert) |
+| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit, :invoke 真跑, :revert) |
 | GET | `/api/v1/agents/{id}/versions` | `agent.go` |
 | GET | `/api/v1/agents/{id}/pending` | `agent.go` |
 | POST | `/api/v1/agents/{id}/pending:accept` | `agent.go` |
 | POST | `/api/v1/agents/{id}/pending:reject` | `agent.go` |
+| GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（对标 functions/{id}/executions）|
+| GET | `/api/v1/agent-executions/{execId}` | `agent.go` | 单条执行详情 |
 
 ---
 
