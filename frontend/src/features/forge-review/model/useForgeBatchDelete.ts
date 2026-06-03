@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
 import { useDeleteFunction } from "@entities/function";
 import { useDeleteHandler } from "@entities/handler";
 import { useDeleteWorkflow } from "@entities/workflow";
+import { useDeleteAgent } from "@entities/agent";
 
-type ForgeKind = "function" | "handler" | "workflow";
+type ForgeKind = "function" | "handler" | "workflow" | "agent";
 
 interface ForgeItem {
   id: string;
@@ -26,6 +27,7 @@ export function useForgeBatchDelete() {
   const deleteFn = useDeleteFunction();
   const deleteHd = useDeleteHandler();
   const deleteWf = useDeleteWorkflow();
+  const deleteAg = useDeleteAgent();
 
   const batchDelete = (items: ForgeItem[], clearSel: () => void) => {
     if (!confirm(t("forge:list.batch.deleteConfirm", { count: items.length }))) return;
@@ -33,6 +35,7 @@ export function useForgeBatchDelete() {
       const m =
         f.kind === "function" ? deleteFn
         : f.kind === "handler" ? deleteHd
+        : f.kind === "agent"   ? deleteAg
         :                        deleteWf;
       m.mutate(f.id);
     });

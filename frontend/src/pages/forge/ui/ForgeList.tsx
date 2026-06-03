@@ -15,13 +15,14 @@ import { ActionMenu } from "../../../widgets/action-menu/ActionMenu.tsx";
 import { useFunctions, useDeleteFunction, type FunctionEntity } from "@entities/function";
 import { useHandlers, useDeleteHandler, type Handler } from "@entities/handler";
 import { useWorkflows, useDeleteWorkflow, type Workflow } from "@entities/workflow";
+import { useAgents, useDeleteAgent, type Agent } from "@entities/agent";
 import { useForgeProgress } from "@shared/model";
 import { useToastStore } from "@shared/ui/toastStore";
 import { RunDrawer } from "./RunDrawer.tsx";
 import { useForgeBatchDelete } from "@features/forge-review";
 
-type ForgeRow = (FunctionEntity | Handler | Workflow) & {
-  kind: "function" | "handler" | "workflow";
+type ForgeRow = (FunctionEntity | Handler | Workflow | Agent) & {
+  kind: "function" | "handler" | "workflow" | "agent";
   desc?: string;
   versionLabel?: string;
   version?: string | number;
@@ -43,16 +44,19 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
     { key: "all",       label: t("list.tabs.all") },
     { key: "function",  label: "Functions" },
     { key: "handler",   label: "Handlers" },
+    { key: "agent",     label: "Agents" },
     { key: "workflow",  label: "Workflows" },
   ];
 
   const { data: functions = [] } = useFunctions();
   const { data: handlers = [] } = useHandlers();
   const { data: workflows = [] } = useWorkflows();
+  const { data: agents = [] } = useAgents();
   const activeForge = useForgeProgress((s) => s.active);
   const deleteFn = useDeleteFunction();
   const deleteHd = useDeleteHandler();
   const deleteWf = useDeleteWorkflow();
+  const deleteAg = useDeleteAgent();
   const pushToast = useToastStore((s) => s.pushToast);
   const { batchDelete } = useForgeBatchDelete();
   const [runTarget, setRunTarget] = useState<ForgeRow | null>(null);
@@ -61,13 +65,14 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
     const fns = (functions as FunctionEntity[]).map((x) => ({ ...x, kind: "function" as const }));
     const hds = (handlers as Handler[]).map((x) => ({ ...x, kind: "handler" as const }));
     const wfs = (workflows as Workflow[]).map((x) => ({ ...x, kind: "workflow" as const }));
-    const all = [...fns, ...hds, ...wfs];
+    const ags = (agents as Agent[]).map((x) => ({ ...x, kind: "agent" as const }));
+    const all = [...fns, ...hds, ...wfs, ...ags];
     return all.sort((a, b) => {
       const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
       const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
       return tb - ta;
     });
-  }, [functions, handlers, workflows]);
+  }, [functions, handlers, workflows, agents]);
 
   const filtered = useMemo(() => {
     const ql = q.toLowerCase();
@@ -83,6 +88,7 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
     all: rows.length,
     function: rows.filter((r) => r.kind === "function").length,
     handler: rows.filter((r) => r.kind === "handler").length,
+    agent: rows.filter((r) => r.kind === "agent").length,
     workflow: rows.filter((r) => r.kind === "workflow").length,
   };
 
@@ -199,6 +205,7 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
                         <div style={{ width: 24, height: 24, borderRadius: 5, background: "var(--bg-elev-2)", border: "1px solid var(--border-soft)", display: "grid", placeItems: "center", color: "var(--fg-muted)" }}>
                           {f.kind === "function" && <Icon.Code style={{ width: 13, height: 13 }} />}
                           {f.kind === "handler" && <Icon.Server style={{ width: 13, height: 13 }} />}
+                          {f.kind === "agent" && <Icon.Bot style={{ width: 13, height: 13 }} />}
                           {f.kind === "workflow" && <Icon.Workflow style={{ width: 13, height: 13 }} />}
                         </div>
                         <div>
@@ -224,7 +231,10 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
                     <td className="col-tight">
                       <ActionMenu
                         items={[
-                          { label: f.kind === "handler" ? t("list.actionMenu.testCall") : f.kind === "workflow" ? t("list.actionMenu.trigger") : t("list.actionMenu.testRun"),
+                          { label: f.kind === "handler" ? t("list.actionMenu.testCall")
+                                 : f.kind === "workflow" ? t("list.actionMenu.trigger")
+                                 : f.kind === "agent"    ? t("list.actionMenu.invoke")
+                                 :                          t("list.actionMenu.testRun"),
                             icon: Icon.Play,
                             onClick: () => setRunTarget(f) },
                           { label: t("list.actionMenu.viewDetail"), icon: Icon.GitBranch, onClick: () => onOpen(f) },
@@ -233,6 +243,7 @@ export function ForgeList({ onOpen, onOpenExecute }: ForgeListProps) {
                             if (!confirm(t("list.deleteConfirm", { kind: f.kind, name: f.name }))) return;
                             const m = f.kind === "function" ? deleteFn
                                    : f.kind === "handler"  ? deleteHd
+                                   : f.kind === "agent"    ? deleteAg
                                    :                          deleteWf;
                             m.mutate(f.id, {
                               onSuccess: () => pushToast({ kind: "success", title: t("list.toast.deleteSuccess"), desc: f.name }),

@@ -37,6 +37,8 @@ import { Handlers } from "@/views/forge/Handlers";
 import { HandlerDetail } from "@/views/forge/HandlerDetail";
 import { Workflows } from "@/views/forge/Workflows";
 import { WorkflowDetail } from "@/views/forge/WorkflowDetail";
+import { Agents } from "@/views/forge/Agents";
+import { AgentDetail } from "@/views/forge/AgentDetail";
 import { ToolsRegistry } from "@/views/forge/ToolsRegistry";
 import { Triggers } from "@/views/execute/Triggers";
 import { FlowRuns } from "@/views/execute/FlowRuns";
@@ -71,13 +73,15 @@ export const router = createHashRouter([
       { path: "current/attachments",   element: <Attachments /> },
       { path: "current/compaction",    element: <Compaction /> },
 
-      // forge/ (7 — TestCollections deleted)
+      // forge/ (9)
       { path: "forge/functions",       element: <Functions /> },
       { path: "forge/functions/:id",   element: <FunctionDetail /> },
       { path: "forge/handlers",        element: <Handlers /> },
       { path: "forge/handlers/:id",    element: <HandlerDetail /> },
       { path: "forge/workflows",       element: <Workflows /> },
       { path: "forge/workflows/:id",   element: <WorkflowDetail /> },
+      { path: "forge/agents",          element: <Agents /> },
+      { path: "forge/agents/:id",      element: <AgentDetail /> },
       { path: "forge/tools",           element: <ToolsRegistry /> },
 
       // execute/ (5)

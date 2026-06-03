@@ -51,6 +51,9 @@ vi.mock("@entities/handler", () => ({
 vi.mock("@entities/workflow", () => ({
   useWorkflows: () => ({ data: [{ id: "wf_1", name: "MyFlow", description: "flows" }] }),
 }));
+vi.mock("@entities/agent", () => ({
+  useAgents: () => ({ data: [{ id: "ag_1", name: "TriageBot", description: "routes" }] }),
+}));
 vi.mock("@entities/document", () => ({
   useDocuments: () => ({ data: [{ id: "doc_1", name: "README" }] }),
 }));
@@ -78,7 +81,7 @@ describe("useEntityDirectory", () => {
   it("includesAllEntityKinds", () => {
     const { result } = renderHook(() => useEntityDirectory(), { wrapper });
     const kinds = new Set(result.current.nodes.map((n) => n.kind));
-    for (const k of ["function", "handler", "workflow", "document", "skill", "mcp", "conversation"]) {
+    for (const k of ["function", "handler", "workflow", "agent", "document", "skill", "mcp", "conversation"]) {
       expect(kinds).toContain(k);
     }
   });

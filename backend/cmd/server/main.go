@@ -456,7 +456,7 @@ func main() {
 		func() []toolapp.Tool { return tools },
 		knowledgePrefixAdapter{docs: documentService},
 	)
-	tools = append(tools, agenttool.AgentTools(agentService)...)
+	tools = append(tools, agenttool.AgentTools(agentService, modelService, apikeyService, llmFactory, log)...)
 
 	catalogService.RegisterSource(functionService.AsCatalogSource())
 	catalogService.RegisterSource(handlerService.AsCatalogSource())
@@ -525,6 +525,7 @@ func main() {
 		DocumentReader:     documentService,
 		SkillReader:        skillService,
 		McpReader:          mcpService,
+		AgentReader:        agentService,
 		ConversationReader: convService,
 		Log:                log,
 	})
@@ -535,6 +536,7 @@ func main() {
 	convService.SetRelationSyncer(relationService)
 	mcpService.SetRelationSyncer(relationService)
 	skillService.SetRelationSyncer(relationService)
+	agentService.SetRelationSyncer(relationService)
 
 	// V1.2 §17 askai spawner: shared infrastructure for forge :iterate +
 	// flowrun :triage endpoints. Creates user-visible conversation, system-

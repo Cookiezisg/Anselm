@@ -7,16 +7,22 @@
 package agent
 
 import (
+	"go.uber.org/zap"
+
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
 // AgentTools returns the agent forging + execution tools (mirrors function.FunctionTools surface).
+// LLM deps (picker/keys/factory) power search_agents' relevance ranking (mirrors search_function).
 //
 // AgentTools 返 agent 锻造 + 执行工具（对标 function.FunctionTools）。
-func AgentTools(svc *agentapp.Service) []toolapp.Tool {
+func AgentTools(svc *agentapp.Service, picker modeldomain.ModelPicker, keys apikeydomain.KeyProvider, factory *llminfra.Factory, log *zap.Logger) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchAgents{svc: svc},
+		&SearchAgents{svc: svc, picker: picker, keys: keys, factory: factory, log: log},
 		&GetAgent{svc: svc},
 		&CreateAgent{svc: svc},
 		&EditAgent{svc: svc},
@@ -26,30 +32,4 @@ func AgentTools(svc *agentapp.Service) []toolapp.Tool {
 		&SearchAgentExecutions{svc: svc},
 		&GetAgentExecution{svc: svc},
 	}
-}
-
-// containsSub is a simple case-insensitive substring check.
-func containsSub(s, sub string) bool {
-	if sub == "" {
-		return true
-	}
-	ls, lsub := toLower(s), toLower(sub)
-	for i := 0; i <= len(ls)-len(lsub); i++ {
-		if ls[i:i+len(lsub)] == lsub {
-			return true
-		}
-	}
-	return false
-}
-
-func toLower(s string) string {
-	b := make([]byte, len(s))
-	for i := range s {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 32
-		}
-		b[i] = c
-	}
-	return string(b)
 }

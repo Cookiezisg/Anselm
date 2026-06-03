@@ -9,10 +9,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useFunction } from "@entities/function";
 import { useHandler } from "@entities/handler";
 import { useWorkflow } from "@entities/workflow";
+import { useAgent } from "@entities/agent";
 import { ForgeList } from "./ui/ForgeList.tsx";
 import { FunctionDetail } from "./ui/FunctionDetail.tsx";
 import { HandlerDetail } from "./ui/HandlerDetail.tsx";
 import { WorkflowDetail } from "./ui/WorkflowDetail.tsx";
+import { AgentDetail } from "./ui/AgentDetail.tsx";
 import { slideUp, fadeIn } from "@shared/lib/motion";
 import type { MotionProps } from "framer-motion";
 
@@ -22,7 +24,7 @@ interface ForgePageProps {
   onOpenExecute?: (id: string) => void;
 }
 
-interface OpenEntity { kind: "function" | "handler" | "workflow"; id: string; [key: string]: unknown }
+interface OpenEntity { kind: "function" | "handler" | "workflow" | "agent"; id: string; [key: string]: unknown }
 
 export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }: ForgePageProps) {
   const [open, setOpen] = useState<OpenEntity | null>(null);
@@ -34,19 +36,21 @@ export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }: 
   const probeFn = useFunction(focusId && !open ? focusId : "");
   const probeHd = useHandler(focusId && !open ? focusId : "");
   const probeWf = useWorkflow(focusId && !open ? focusId : "");
+  const probeAg = useAgent(focusId && !open ? focusId : "");
 
   useEffect(() => {
     if (!focusId || open) return;
     let entity: object | null = null;
-    let kind: "function" | "handler" | "workflow" | null = null;
+    let kind: "function" | "handler" | "workflow" | "agent" | null = null;
     if (probeFn.data) { entity = probeFn.data; kind = "function"; }
     else if (probeHd.data) { entity = probeHd.data; kind = "handler"; }
     else if (probeWf.data) { entity = probeWf.data; kind = "workflow"; }
+    else if (probeAg.data) { entity = probeAg.data; kind = "agent"; }
     if (entity && kind) {
       setOpen({ ...(entity as OpenEntity), kind });
       onConsumeFocusEntity("forge");
     }
-  }, [focusId, open, probeFn.data, probeHd.data, probeWf.data, onConsumeFocusEntity]);
+  }, [focusId, open, probeFn.data, probeHd.data, probeWf.data, probeAg.data, onConsumeFocusEntity]);
 
   const close = () => setOpen(null);
 
@@ -57,6 +61,7 @@ export function ForgePage({ focusEntity, onConsumeFocusEntity, onOpenExecute }: 
           {open.kind === "function" && <FunctionDetail forge={open} onBack={close} />}
           {open.kind === "handler"  && <HandlerDetail forge={open} onBack={close} />}
           {open.kind === "workflow" && <WorkflowDetail forge={open} onBack={close} onOpenExecute={onOpenExecute} />}
+          {open.kind === "agent"    && <AgentDetail forge={open} onBack={close} />}
         </motion.div>
       ) : (
         <motion.div key="list" {...(fadeIn as MotionProps)} style={{ height: "100%" }}>

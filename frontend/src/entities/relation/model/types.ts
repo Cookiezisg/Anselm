@@ -20,6 +20,12 @@ export type RelationKind =
   | "workflow_uses_mcp"
   | "workflow_uses_skill"
   | "workflow_uses_document"
+  | "workflow_uses_agent"
+  | "agent_uses_function"
+  | "agent_uses_handler"
+  | "agent_uses_mcp"
+  | "agent_uses_document"
+  | "agent_uses_skill"
   | "document_links_entity";
 
 export interface Relation {

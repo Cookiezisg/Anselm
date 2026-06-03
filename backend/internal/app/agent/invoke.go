@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -95,7 +96,7 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*ExecutionRe
 	}
 
 	startedAt := time.Now().UTC()
-	result, runErr := s.runLoop(ctx, a, v, in)
+	result, modelID, runErr := s.runLoop(ctx, a, v, in)
 	endedAt := time.Now().UTC()
 
 	res := &ExecutionResult{
@@ -111,26 +112,26 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*ExecutionRe
 			res.Status = agentdomain.ExecutionStatusFailed
 			res.ErrorMsg = "agent loop error"
 		}
-		res.Output = result.LastMessage
+		res.Output = coerceEnumOutput(v.OutputSchema, result.LastMessage)
 		res.StopReason = result.StopReason
 		res.Steps = result.Steps
 		res.TokensIn = result.TokensIn
 		res.TokensOut = result.TokensOut
 	}
 
-	execID := s.recordExecution(ctx, uid, in, a, v, res, startedAt, endedAt)
+	execID := s.recordExecution(ctx, uid, in, a, v, res, modelID, startedAt, endedAt)
 	res.ExecutionID = execID
 	return res, nil
 }
 
 // runLoop builds the agent host + LLM bundle and runs app/loop.Run (the ReAct loop).
-func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.AgentVersion, in InvokeInput) (loopapp.Result, error) {
+func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.AgentVersion, in InvokeInput) (loopapp.Result, string, error) {
 	// Knowledge prefix (agent's attached docs) prepended to the user message.
 	prefix := ""
 	if s.invoke.knowledge != nil && len(v.Knowledge) > 0 {
 		p, kErr := s.invoke.knowledge.BuildKnowledgePrefix(ctx, v.Knowledge)
 		if kErr != nil {
-			return loopapp.Result{}, fmt.Errorf("resolve knowledge: %w", kErr)
+			return loopapp.Result{}, "", fmt.Errorf("resolve knowledge: %w", kErr)
 		}
 		prefix = p
 	}
@@ -152,9 +153,12 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	}
 	tools := filterToolsByWhitelist(allTools, whitelist)
 
-	bundle, err := llmclientpkg.ResolveAgentWithOverride(ctx, nil, s.invoke.picker, s.invoke.keys, s.invoke.factory)
+	// Pass the version's ModelOverride (nil → default agent scenario model; set → that exact key+model).
+	//
+	// 传 version 的 ModelOverride（nil 走默认 agent scenario 模型；设了就用那把 key+model）。
+	bundle, err := llmclientpkg.ResolveAgentWithOverride(ctx, v.ModelOverride, s.invoke.picker, s.invoke.keys, s.invoke.factory)
 	if err != nil {
-		return loopapp.Result{}, fmt.Errorf("resolve LLM: %w", err)
+		return loopapp.Result{}, "", fmt.Errorf("resolve LLM: %w", err)
 	}
 
 	host := &agentHost{
@@ -175,7 +179,8 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	}
 	systemPrompt := identity +
 		" Use available tools as needed; respond concisely when finished." +
-		" Only use the tools explicitly provided to you. Do not attempt capabilities you have no tool for."
+		" Only use the tools explicitly provided to you. Do not attempt capabilities you have no tool for." +
+		outputSchemaInstruction(v.OutputSchema)
 
 	maxTurns := in.MaxTurns
 	if maxTurns <= 0 {
@@ -194,13 +199,14 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 		Thinking: bundle.Thinking,
 		Options:  bundle.Options,
 	}
-	return loopapp.Run(ctx, host, bundle.Client, baseReq, remaining, s.log), nil
+	result := loopapp.Run(ctx, host, bundle.Client, baseReq, remaining, s.log)
+	return result, bundle.ModelID, nil
 }
 
 // recordExecution writes one terminal AgentExecution (mirrors functionapp.recordExecution).
 //
 // recordExecution 写一条终态 AgentExecution（对标 functionapp.recordExecution）。
-func (s *Service) recordExecution(ctx context.Context, uid string, in InvokeInput, a *agentdomain.Agent, v *agentdomain.AgentVersion, res *ExecutionResult, startedAt, endedAt time.Time) string {
+func (s *Service) recordExecution(ctx context.Context, uid string, in InvokeInput, a *agentdomain.Agent, v *agentdomain.AgentVersion, res *ExecutionResult, modelID string, startedAt, endedAt time.Time) string {
 	triggeredBy := in.TriggeredBy
 	if triggeredBy == "" {
 		triggeredBy = agentdomain.TriggeredByHTTP
@@ -227,7 +233,7 @@ func (s *Service) recordExecution(ctx context.Context, uid string, in InvokeInpu
 		FlowrunNodeID:  in.FlowrunNodeID,
 		AgentID:        a.ID,
 		VersionID:      v.ID,
-		ModelID:        v.ModelOverride,
+		ModelID:        modelID,
 	}
 	// Detached ctx (best-effort persist): a cancelled run ctx must not lose the execution record.
 	detached := reqctxpkg.SetUserID(context.Background(), uid)
@@ -287,6 +293,57 @@ func filterToolsByWhitelist(all []toolapp.Tool, whitelist []string) []toolapp.To
 	for _, t := range all {
 		if allowed[t.Name()] {
 			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// outputSchemaInstruction renders the agent's OutputSchema as a hard instruction appended to the
+// system prompt, so a configured enum/json_schema actually shapes the LLM's final answer
+// (fixes the "configured but ignored" gap).
+//
+// outputSchemaInstruction 把 OutputSchema 渲染成追加到 system prompt 的硬约束，
+// 让配置的 enum/json_schema 真正约束 LLM 最终输出（修复"配了不生效"）。
+func outputSchemaInstruction(os *agentdomain.OutputSchema) string {
+	if os == nil {
+		return ""
+	}
+	switch os.Kind {
+	case agentdomain.OutputSchemaEnum:
+		if len(os.Enums) > 0 {
+			return "\n\nYour FINAL answer must be exactly one of these values verbatim — no extra words, quotes, or punctuation: " +
+				strings.Join(os.Enums, " | ") + "."
+		}
+	case agentdomain.OutputSchemaJSONSchema:
+		if len(os.Schema) > 0 {
+			b, _ := json.Marshal(os.Schema)
+			return "\n\nYour FINAL answer must be a single JSON value conforming to this JSON Schema. Output only the JSON, no prose:\n" + string(b)
+		}
+	}
+	return ""
+}
+
+// coerceEnumOutput best-effort snaps a free-form enum answer onto an allowed value (exact match after
+// trim, else the first enum the answer contains) so downstream workflow case nodes match reliably.
+//
+// coerceEnumOutput 把 enum 输出尽力规整到允许值（trim 精确匹配，否则取输出包含的第一个 enum），方便下游 case 命中。
+func coerceEnumOutput(os *agentdomain.OutputSchema, out any) any {
+	if os == nil || os.Kind != agentdomain.OutputSchemaEnum || len(os.Enums) == 0 {
+		return out
+	}
+	s, ok := out.(string)
+	if !ok {
+		return out
+	}
+	trimmed := strings.TrimSpace(s)
+	for _, e := range os.Enums {
+		if strings.EqualFold(trimmed, e) {
+			return e
+		}
+	}
+	for _, e := range os.Enums {
+		if strings.Contains(trimmed, e) {
+			return e
 		}
 	}
 	return out

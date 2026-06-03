@@ -14,6 +14,8 @@ const mockAcceptHd = vi.fn();
 const mockRejectHd = vi.fn();
 const mockAcceptWf = vi.fn();
 const mockRejectWf = vi.fn();
+const mockAcceptAg = vi.fn();
+const mockRejectAg = vi.fn();
 const mockPushToast = vi.fn();
 
 vi.mock("@entities/function", () => ({
@@ -30,6 +32,11 @@ vi.mock("@entities/handler", () => ({
 vi.mock("@entities/workflow", () => ({
   useAcceptWorkflow: () => ({ mutate: mockAcceptWf }),
   useRejectWorkflow: () => ({ mutate: mockRejectWf }),
+}));
+
+vi.mock("@entities/agent", () => ({
+  useAcceptAgent: () => ({ mutate: mockAcceptAg }),
+  useRejectAgent: () => ({ mutate: mockRejectAg }),
 }));
 
 vi.mock("@shared/ui/toastStore", () => ({
@@ -142,5 +149,34 @@ describe("useForgeReview — workflow", () => {
   it("revert_notDefinedForWorkflow", () => {
     const { result } = renderHook(() => useForgeReview("workflow", "wf_1"), { wrapper });
     expect(result.current.revert).toBeUndefined();
+  });
+});
+
+describe("useForgeReview — agent", () => {
+  it("accept_callsAcceptAgMutate", () => {
+    const { result } = renderHook(() => useForgeReview("agent", "ag_1", "TriageBot"), { wrapper });
+    act(() => { result.current.accept(); });
+    expect(mockAcceptAg).toHaveBeenCalledWith("ag_1", expect.any(Object));
+  });
+
+  it("accept_onSuccess_pushesSuccessToast", () => {
+    const { result } = renderHook(() => useForgeReview("agent", "ag_1", "TriageBot"), { wrapper });
+    act(() => { result.current.accept(); });
+    const { onSuccess } = mockAcceptAg.mock.calls[0][1] as { onSuccess: () => void };
+    act(() => { onSuccess(); });
+    expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ kind: "success" }));
+  });
+
+  it("reject_callsRejectAgMutate", () => {
+    const { result } = renderHook(() => useForgeReview("agent", "ag_1"), { wrapper });
+    act(() => { result.current.reject(); });
+    expect(mockRejectAg).toHaveBeenCalledWith("ag_1", expect.any(Object));
+  });
+
+  it("revert_definedForAgent_aliasesReject", () => {
+    const { result } = renderHook(() => useForgeReview("agent", "ag_1"), { wrapper });
+    expect(result.current.revert).toBeDefined();
+    act(() => { result.current.revert!(); });
+    expect(mockRejectAg).toHaveBeenCalledWith("ag_1", expect.any(Object));
   });
 });

@@ -27,7 +27,7 @@ func (c *agentCatalogSource) InvokeTool() string { return "get_agent" }
 
 // ListItems returns agents for catalog injection (LLM system prompt capability menu).
 func (c *agentCatalogSource) ListItems(ctx context.Context) ([]catalogdomain.Item, error) {
-	agents, _, err := c.svc.List(ctx, 200, "")
+	agents, err := c.svc.ListAll(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ const PREFIX_META = {
   hd:  { pane: "forge",     icon: "Server"        },
   w:   { pane: "forge",     icon: "Workflow"      },
   wf:  { pane: "forge",     icon: "Workflow"      },
+  ag:  { pane: "forge",     icon: "Bot"           },
   s:   { pane: "skills",    icon: "Sparkles"      },
   sk:  { pane: "skills",    icon: "Sparkles"      },
   mcp: { pane: "mcp",       icon: "Server"        },

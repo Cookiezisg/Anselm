@@ -52,6 +52,10 @@ type McpReader interface {
 	ListAllMeta(ctx context.Context, userID string) ([]relationdomain.EntityMeta, error)
 }
 
+type AgentReader interface {
+	ListAllMeta(ctx context.Context, userID string) ([]relationdomain.EntityMeta, error)
+}
+
 type ConversationReader interface {
 	GetMetaBatch(ctx context.Context, userID string, ids []string) ([]relationdomain.EntityMeta, error)
 }
@@ -67,6 +71,7 @@ type Service struct {
 	documentReader     DocumentReader
 	skillReader        SkillReader
 	mcpReader          McpReader
+	agentReader        AgentReader
 	conversationReader ConversationReader
 	log                *zap.Logger
 }
@@ -82,6 +87,7 @@ type Config struct {
 	DocumentReader     DocumentReader
 	SkillReader        SkillReader
 	McpReader          McpReader
+	AgentReader        AgentReader
 	ConversationReader ConversationReader
 	Log                *zap.Logger
 }
@@ -104,6 +110,7 @@ func NewService(cfg Config) *Service {
 		documentReader:     cfg.DocumentReader,
 		skillReader:        cfg.SkillReader,
 		mcpReader:          cfg.McpReader,
+		agentReader:        cfg.AgentReader,
 		conversationReader: cfg.ConversationReader,
 		log:                cfg.Log,
 	}
@@ -390,6 +397,7 @@ func (s *Service) GetRelgraph(ctx context.Context) (*relationdomain.Snapshot, er
 		{relationdomain.EntityKindDocument, s.documentReader},
 		{relationdomain.EntityKindSkill, s.skillReader},
 		{relationdomain.EntityKindMCP, s.mcpReader},
+		{relationdomain.EntityKindAgent, s.agentReader},
 	}
 
 	var nodes []relationdomain.GraphNode

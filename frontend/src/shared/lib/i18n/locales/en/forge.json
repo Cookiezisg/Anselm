@@ -19,7 +19,8 @@
     "kindNames": {
       "function": "function",
       "handler": "handler",
-      "workflow": "workflow"
+      "workflow": "workflow",
+      "agent": "agent"
     },
     "table": {
       "name": "Name",
@@ -32,6 +33,7 @@
       "testRun": "Test run",
       "testCall": "Test call",
       "trigger": "Trigger",
+      "invoke": "Invoke",
       "viewDetail": "View detail"
     },
     "toast": {
@@ -93,6 +95,54 @@
     },
     "config": {
       "encrypted": "Encrypted with AES-GCM · local only"
+    }
+  },
+  "agent": {
+    "runBtn": "Invoke",
+    "aiSuggestions": ["Tighten the system prompt", "Add a tool to the agent", "Constrain output to JSON"],
+    "noVersion": "No version to display",
+    "noPrompt": "This version has no prompt",
+    "noVersionForDiff": "Missing version data, cannot diff",
+    "identical": "Both versions are identical",
+    "changes": "{{count}} change(s)",
+    "runsPlaceholder": "Runs will appear here after invocation",
+    "tabs": {
+      "definition": "Definition",
+      "runs": "Runs"
+    },
+    "fieldLabel": {
+      "description": "Description",
+      "prompt": "System prompt",
+      "skill": "Skill",
+      "knowledge": "Knowledge",
+      "tools": "Tools",
+      "outputSchema": "Output schema",
+      "model": "Model",
+      "modelDefault": "Default agent model",
+      "changeReason": "Change reason",
+      "none": "None"
+    },
+    "outputKind": {
+      "free_text": "Free text",
+      "enum": "Enum",
+      "json_schema": "JSON schema"
+    },
+    "runs": {
+      "id": "Execution",
+      "status": "Status",
+      "triggeredBy": "Triggered by",
+      "elapsed": "Elapsed",
+      "startedAt": "Started"
+    },
+    "invoke": {
+      "title": "Invoke agent",
+      "inputLabel": "input (JSON)",
+      "submit": "Invoke",
+      "running": "Running…",
+      "steps": "{{count}} step(s)",
+      "tokens": "{{in}} in · {{out}} out",
+      "toastOk": "Agent run succeeded",
+      "toastFail": "Agent run failed"
     }
   },
   "workflow": {

@@ -156,6 +156,7 @@ var errTable = map[error]errMapping{
 	agentdomain.ErrToolsAgentRef:  {http.StatusBadRequest, "AGENT_TOOLS_AGENT_REF_FORBIDDEN"},
 	agentdomain.ErrExecutionNotFound: {http.StatusNotFound, "AGENT_EXECUTION_NOT_FOUND"},
 	agentdomain.ErrVersionNotFound:   {http.StatusNotFound, "AGENT_VERSION_NOT_FOUND"},
+	agentdomain.ErrInvalidModelOverride: {http.StatusBadRequest, "AGENT_INVALID_MODEL_OVERRIDE"},
 	// Sub-graph / execution-model V1 limits — these were unregistered and returned 500 INTERNAL_ERROR.
 	schedulerapp.ErrApprovalRequired:          {http.StatusAccepted, "APPROVAL_REQUIRED"},
 	schedulerapp.ErrLoopBodyNotSupported:      {http.StatusUnprocessableEntity, "LOOP_BODY_NOT_SUPPORTED"},

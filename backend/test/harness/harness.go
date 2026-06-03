@@ -450,7 +450,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		func() []toolapp.Tool { return tools },
 		knowledgePrefixHarness{docs: documentService},
 	)
-	tools = append(tools, agenttool.AgentTools(agentService)...)
+	tools = append(tools, agenttool.AgentTools(agentService, modelService, apikeyService, llmFactory, log)...)
 
 	subagentRegistry := subagentapp.NewRegistry()
 	subagentService := subagentapp.New(
@@ -677,6 +677,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		ConversationService: convService,
 		FunctionService:     functionService,
 		HandlerService:      handlerService,
+		AgentService:        agentService,
 		WorkflowService:     workflowService,
 		FlowRunRepo:         flowrunRepo,
 		SchedulerService:    schedulerService,

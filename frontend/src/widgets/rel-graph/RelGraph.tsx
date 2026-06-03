@@ -22,16 +22,17 @@ import { useEntityDirectory, normEdges, guessKind, type EntityNode, type EntityE
 
 const KIND_COLOR: Record<string, string> = {
   function: "#2383E2", handler: "#0F7B6C", workflow: "#D97757",
+  agent: "#8B43C9",
   skill: "#B25E10",    mcp: "#6940A5",     memory: "#9A4A6F",
   conversation: "#3D5A80", document: "#5E6470", flowrun: "#888888",
 };
 const KIND_ICON: Record<string, string> = {
-  function: "Code", handler: "Server", workflow: "Workflow", skill: "Sparkles",
+  function: "Code", handler: "Server", workflow: "Workflow", agent: "Bot", skill: "Sparkles",
   mcp: "Server", memory: "Brain", conversation: "MessageSquare", document: "FileText",
   flowrun: "Play",
 };
 const KIND_LABEL_BASE = {
-  function: "Function", handler: "Handler", workflow: "Workflow", skill: "Skill",
+  function: "Function", handler: "Handler", workflow: "Workflow", agent: "Agent", skill: "Skill",
   mcp: "MCP", memory: "Memory", flowrun: "FlowRun",
 };
 
@@ -44,6 +45,12 @@ const REL_LABEL_KEYS: Record<string, string> = {
   workflow_uses_mcp:          "workflow_uses_mcp",
   workflow_uses_skill:        "workflow_uses_skill",
   workflow_uses_document:     "workflow_uses_document",
+  workflow_uses_agent:        "workflow_uses_agent",
+  agent_uses_function:        "agent_uses_function",
+  agent_uses_handler:         "agent_uses_handler",
+  agent_uses_mcp:             "agent_uses_mcp",
+  agent_uses_document:        "agent_uses_document",
+  agent_uses_skill:           "agent_uses_skill",
   conversation_forged_entity: "conversation_forged_entity",
   conversation_edited_entity: "conversation_edited_entity",
   document_links_entity:      "document_links_entity",

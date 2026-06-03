@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 )
 
 // OutputSchemaKind enumerates the three valid outputSchema modes (doc 09/13/15).
@@ -81,14 +83,18 @@ type AgentVersion struct {
 	// Tools are callable refs available to this agent (no ag_ refs).
 	Tools        []ToolRef     `gorm:"serializer:json;type:text;default:'[]'" json:"tools"`
 	OutputSchema *OutputSchema `gorm:"serializer:json;type:text" json:"outputSchema,omitempty"`
-	// ModelOverride: if non-empty, overrides the default agent scenario model.
-	ModelOverride string `gorm:"type:text;default:''" json:"modelOverride,omitempty"`
+	// ModelOverride: if set, overrides the default agent scenario model (mirrors conversation/node ModelRef override).
+	ModelOverride *modeldomain.ModelRef `gorm:"serializer:json;type:text" json:"modelOverride,omitempty"`
 
 	// Version is the 1-based version number (assigned on accept).
 	Version *int `gorm:"index" json:"version,omitempty"`
 	Status  string `gorm:"not null;check:status IN ('pending','accepted');type:text" json:"status"`
 	AcceptedAt *time.Time `json:"acceptedAt,omitempty"`
 	ChangeReason string `gorm:"type:text;default:''" json:"changeReason,omitempty"`
+	// ForgedInConversationID records which conversation produced this version (for relation forged/edited edges).
+	//
+	// ForgedInConversationID 记录哪个对话产出了此版本（用于 relation forged/edited 边）。
+	ForgedInConversationID *string `gorm:"index;type:text" json:"forgedInConversationId,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -178,6 +184,9 @@ const (
 	VersionStatusAccepted = "accepted"
 )
 
+// AcceptedVersionCap bounds retained accepted versions per agent (mirrors function; trimmed on accept).
+const AcceptedVersionCap = 50
+
 var (
 	ErrNotFound          = errors.New("agent: not found")
 	ErrNameDuplicate     = errors.New("agent: name already exists")
@@ -186,6 +195,8 @@ var (
 	ErrToolsAgentRef     = errors.New("agent: tools cannot reference another agent (ag_ prefix forbidden)")
 	ErrExecutionNotFound = errors.New("agent: execution not found")        // mirrors function.ErrExecutionNotFound
 	ErrVersionNotFound   = errors.New("agent: version not found")          // for revert to a non-existent/unaccepted version
+	// ErrInvalidModelOverride mirrors workflow.ErrInvalidNodeModelOverride: a set override must carry both apiKeyId and modelId.
+	ErrInvalidModelOverride = errors.New("agent: invalid modelOverride (apiKeyId and modelId both required)")
 )
 
 // Repository is the persistence port for the Agent domain.
@@ -196,6 +207,7 @@ type Repository interface {
 	Get(ctx context.Context, id string) (*Agent, error)
 	GetByName(ctx context.Context, name string) (*Agent, error)
 	List(ctx context.Context, userID string, limit int, cursor string) ([]*Agent, string, error)
+	ListAll(ctx context.Context, userID string) ([]*Agent, error)
 	Update(ctx context.Context, a *Agent) error
 	SoftDelete(ctx context.Context, id string) error
 
@@ -208,6 +220,7 @@ type Repository interface {
 	AcceptVersion(ctx context.Context, agentID, versionID string) error
 	SetActiveVersion(ctx context.Context, agentID, versionID string) error // revert: flip active to an accepted version
 	SetNeedsAttention(ctx context.Context, agentID string, val bool) error
+	HardDeleteOldestAccepted(ctx context.Context, agentID string, keep int) error // trim accepted versions past the cap
 
 	// Executions — method names mirror function.ExecutionRepository 1:1.
 	SaveExecution(ctx context.Context, e *AgentExecution) error

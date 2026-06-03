@@ -13,6 +13,9 @@ vi.mock("@entities/handler", () => ({
 vi.mock("@entities/workflow", () => ({
   useWorkflows:    () => ({ data: [{ id: "wf_1", name: "workflow one" }] }),
 }));
+vi.mock("@entities/agent", () => ({
+  useAgents:       () => ({ data: [{ id: "ag_1", name: "agent one" }] }),
+}));
 vi.mock("@entities/document", () => ({
   useDocuments:    () => ({ data: [{ id: "doc_1", name: "doc one", title: "fallback title" }, { id: "doc_2", title: "title only" }] }),
 }));
@@ -55,6 +58,11 @@ describe("useEntityName", () => {
   it("useEntityName_workflowPrefix_resolvesName", () => {
     const { result } = renderHook(() => useEntityName("wf_1"));
     expect(result.current).toBe("workflow one");
+  });
+
+  it("useEntityName_agentPrefix_resolvesName", () => {
+    const { result } = renderHook(() => useEntityName("ag_1"));
+    expect(result.current).toBe("agent one");
   });
 
   it("useEntityName_docPrefix_preferName", () => {

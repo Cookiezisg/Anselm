@@ -9,6 +9,7 @@
 import { useFunctions, type FunctionEntity } from "@entities/function";
 import { useHandlers, type Handler } from "@entities/handler";
 import { useWorkflows, type Workflow } from "@entities/workflow";
+import { useAgents, type Agent } from "@entities/agent";
 import { useDocuments, type Document } from "@entities/document";
 import { useSkills, type Skill } from "@entities/skill";
 import { useMcpServers, type McpServer } from "@entities/mcp";
@@ -30,6 +31,7 @@ export function useEntityName(id: string | null | undefined): string | null {
   const fnQ = useFunctions();
   const hdQ = useHandlers();
   const wfQ = useWorkflows();
+  const agQ = useAgents();
   const dcQ = useDocuments();
   const skQ = useSkills();
   const mcQ = useMcpServers();
@@ -42,6 +44,7 @@ export function useEntityName(id: string | null | undefined): string | null {
     case "f": case "fn":   return pickName<FunctionEntity>(fnQ.data, id, (x) => x.name);
     case "h": case "hd":   return pickName<Handler>(hdQ.data, id, (x) => x.name);
     case "w": case "wf":   return pickName<Workflow>(wfQ.data, id, (x) => x.name);
+    case "ag":             return pickName<Agent>(agQ.data, id, (x) => x.name);
     case "d": case "doc":  return pickName<Document>(dcQ.data, id, (x) => x.name || (x as Document & { title?: string }).title);
     case "s": case "sk":   return pickName<Skill>(skQ.data, id, (x) => x.name);
     case "mcp": case "m":  return pickName<McpServer>(mcQ.data, id, (x) => x.name);

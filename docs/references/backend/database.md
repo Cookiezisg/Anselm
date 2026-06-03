@@ -166,10 +166,13 @@ type Agent struct {
     ActiveVersionID string `json:"activeVersionId"`
 }
 type AgentVersion struct {
-    Prompt    string    `json:"prompt"`
-    Skill     string    `json:"skill"`
-    Knowledge []string  `gorm:"serializer:json" json:"knowledge"`
-    Tools     []ToolRef `gorm:"serializer:json" json:"tools"`
+    Prompt                 string          `json:"prompt"`
+    Skill                  string          `json:"skill"`
+    Knowledge              []string        `gorm:"serializer:json" json:"knowledge"`
+    Tools                  []ToolRef       `gorm:"serializer:json" json:"tools"`
+    OutputSchema           *OutputSchema   `gorm:"serializer:json" json:"outputSchema,omitempty"` // injected into systemPrompt at invoke
+    ModelOverride          *model.ModelRef `gorm:"serializer:json" json:"modelOverride,omitempty"` // apiKeyId+modelId; nil=default agent scenario
+    ForgedInConversationID *string         `gorm:"index" json:"forgedInConversationId,omitempty"` // relation forged/edited edges
 }
 ```
 

@@ -19,7 +19,8 @@
     "kindNames": {
       "function": "函数",
       "handler": "处理器",
-      "workflow": "工作流"
+      "workflow": "工作流",
+      "agent": "智能体"
     },
     "table": {
       "name": "名称",
@@ -32,6 +33,7 @@
       "testRun": "试跑",
       "testCall": "试调用",
       "trigger": "触发",
+      "invoke": "调用",
       "viewDetail": "查看详情"
     },
     "toast": {
@@ -93,6 +95,54 @@
     },
     "config": {
       "encrypted": "AES-GCM 加密 · 仅本地存储"
+    }
+  },
+  "agent": {
+    "runBtn": "调用",
+    "aiSuggestions": ["收紧系统提示词", "给智能体加一个工具", "把输出约束成 JSON"],
+    "noVersion": "没有可显示的版本",
+    "noPrompt": "该版本没有提示词",
+    "noVersionForDiff": "缺少版本数据无法对比",
+    "identical": "两个版本内容完全一致",
+    "changes": "{{count}} 处变更",
+    "runsPlaceholder": "调用记录会显示在这里",
+    "tabs": {
+      "definition": "定义",
+      "runs": "运行"
+    },
+    "fieldLabel": {
+      "description": "说明",
+      "prompt": "系统提示词",
+      "skill": "技能",
+      "knowledge": "知识",
+      "tools": "工具",
+      "outputSchema": "输出契约",
+      "model": "模型",
+      "modelDefault": "默认智能体模型",
+      "changeReason": "变更原因",
+      "none": "无"
+    },
+    "outputKind": {
+      "free_text": "自由文本",
+      "enum": "枚举",
+      "json_schema": "JSON 契约"
+    },
+    "runs": {
+      "id": "执行",
+      "status": "状态",
+      "triggeredBy": "触发来源",
+      "elapsed": "耗时",
+      "startedAt": "开始时间"
+    },
+    "invoke": {
+      "title": "调用智能体",
+      "inputLabel": "input (JSON)",
+      "submit": "调用",
+      "running": "运行中…",
+      "steps": "{{count}} 步",
+      "tokens": "{{in}} 入 · {{out}} 出",
+      "toastOk": "智能体运行成功",
+      "toastFail": "智能体运行失败"
     }
   },
   "workflow": {

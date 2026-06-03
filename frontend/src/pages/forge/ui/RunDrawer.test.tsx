@@ -82,6 +82,27 @@ describe("RunDrawer", () => {
     expect(calls[0].url).toBe("/api/v1/functions/fn_1:run");
   });
 
+  it("agentKind_titleShowsInvokeAgent", () => {
+    render(
+      <RunDrawer open kind="agent" entity={{ id: "ag_1", name: "TriageBot" }} onClose={() => {}} />,
+      { wrapper: wrap }
+    );
+    expect(screen.getByText("调用 agent")).toBeInTheDocument();
+  });
+
+  it("submitAgent_postsInvokeEndpoint", async () => {
+    render(
+      <RunDrawer open kind="agent" entity={{ id: "ag_1" }} onClose={() => {}} />,
+      { wrapper: wrap }
+    );
+    const ta = document.querySelector(".run-drawer-input")!;
+    await userEvent.clear(ta);
+    await userEvent.type(ta,'{{"q":1}');
+    await userEvent.click(screen.getByText("提交"));
+    await waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0].url).toBe("/api/v1/agents/ag_1:invoke");
+  });
+
   it("escapeKey_callsOnClose", async () => {
     const onClose = vi.fn();
     render(

@@ -11,7 +11,7 @@ audience: [human, ai]
 # Agent Domain — 实体化 AI Worker 与 Quadrinity 规格
 
 > **核心地位**：Agent 是 Forgify 的“第四支柱” (Quadrinity)。与临时生成的 Chat Agent 不同，本域定义的 Agent 是 **“持久化、版本化、可重用”** 的专业 AI Worker。它可以独立存在，也可以作为 Workflow 节点被引用。
-！！！现在写的缺tool
+
 ---
 
 ## 1. 物理模型 (Data Anatomy)
@@ -50,8 +50,12 @@ type AgentVersion struct {
     Tools         []ToolRef      `gorm:"serializer:json;type:text" json:"tools"`     // 引用的实体列表
 
     // 约束
-    OutputSchema  *OutputSchema  `gorm:"serializer:json;type:text" json:"outputSchema"`
-    ModelOverride *ModelRef      `gorm:"serializer:json;type:text" json:"modelOverride"`
+    OutputSchema  *OutputSchema  `gorm:"serializer:json;type:text" json:"outputSchema"`  // invoke 时注入 systemPrompt（enum/json_schema）
+    ModelOverride *ModelRef      `gorm:"serializer:json;type:text" json:"modelOverride"` // apiKeyId+modelId；nil=默认 agent scenario
+
+    ChangeReason           string     `gorm:"type:text;default:''" json:"changeReason,omitempty"`
+    ForgedInConversationID *string    `gorm:"index;type:text" json:"forgedInConversationId,omitempty"` // relation forged/edited 边
+    AcceptedAt             *time.Time `json:"acceptedAt,omitempty"`
 
     CreatedAt     time.Time      `json:"createdAt"`
     UpdatedAt     time.Time      `json:"updatedAt"`
@@ -66,7 +70,8 @@ type AgentVersion struct {
 Agent 不直接编写逻辑代码，而是通过 **“挂载”** 其它领域的实体来定义能力：
 - **Knowledge Mount**：挂载 `document` 实体。系统在执行该 Agent 时，会自动将这些文档的内容展开为 XML 注入 Context。
 - **Tool Mount**：显式授权该 Agent 可用的工具（`fn_`, `hd_`, `mcp:`）。禁止 Agent 递归引用另一个 Agent ID（ADR-010）。
-- **Output Schema 强制**：若配置了 Schema，系统在 LLM 生成结束后会执行强制 JSON 校验或重试。
+- **Output Schema**：若配置，`invoke` 时把约束注入 system prompt（`enum` 列出可选值 / `json_schema` 给 schema 并要求纯 JSON 输出）；`enum` 模式对最终输出做 best-effort 规整（trim + 匹配回允许值），方便下游 workflow `case` 节点稳定命中。
+- **Model Override**：`*ModelRef`（apiKeyId+modelId+options）。`invoke` 经 `ResolveAgentWithOverride` 解析——设了就用那把 key+model，nil 走默认 `agent` scenario；execution 记录实际 resolve 出的 modelId。缺 apiKeyId/modelId 在 create/edit 即被 `ErrInvalidModelOverride` 拦下（对标 workflow 节点 override 校验）。
 
 ### 2.2 Sub-step Replay (子步重放 - ADR-010)
 当 Agent 作为 Workflow 的一个节点执行时：
@@ -86,7 +91,7 @@ Agent 的工具/端点面与 function **完全对称**（一文件一工具，`a
 | `edit_function` | `edit_agent` | 产 pending（iterate-same-pending）|
 | `delete_function` | `delete_agent` | 软删 |
 | `get_function` | `get_agent` | 详情 |
-| `search_function` | `search_agents` | 库内搜索 |
+| `search_function` | `search_agents` | 库内搜索（LLM 相关性排序，对标 search_function）|
 | `revert_function` | `revert_agent` | active 切回旧 accepted 版本号 |
 | `run_function` | **`invoke_agent`** | **真跑** ReAct loop（真调 LLM/工具），返 `{ok,output,status,steps,tokens,executionId}`，**落一条 AgentExecution** |
 | `get_function_execution` | `get_agent_execution` | 单条执行详情 + hints |
@@ -94,7 +99,7 @@ Agent 的工具/端点面与 function **完全对称**（一文件一工具，`a
 
 > **无 accept LLM 工具**（同 function）：v1 自动 accept；pending 的 accept/reject 走 UI/HTTP（`pending:accept` / `pending:reject`），不给 LLM。
 
-**HTTP 端点**（对标 function handler）：`POST /agents/{id}:invoke`（真跑）、`POST /agents/{id}:revert`、`GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
+**HTTP 端点**（对标 function handler，完全对称）：`POST /agents`、`GET /agents`、`GET/PATCH/DELETE /agents/{id}`（PATCH=UpdateMeta，改 name/description/tags 不升版本）、`POST /agents/{id}:invoke`（真跑）/`:edit`/`:revert`/`:iterate`（AI 编辑对话→conversationId，经 askai spawner）、`GET /agents/{id}/versions` + `/versions/{version}`（单版本，数字号或 versionId）、`GET /agents/{id}/pending` + `pending:accept|reject`、`GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
 
 **执行落表**：`InvokeAgent` 是唯一执行方法（invoke_agent 工具 / HTTP :invoke / workflow agent 节点都经它），每次跑完写一条 `agent_executions`（`agx_` 前缀，字段对标 `function_executions`：status/triggeredBy/input/output/elapsedMs/conversationId/flowrunId 等）。Service 持有 LLM 依赖（picker/keys/factory/toolsFn/knowledge），经 `SetInvokeDeps` 注入——正如 function service 持有 sandbox 端口。
 
@@ -116,7 +121,7 @@ Agent 的工具/端点面与 function **完全对称**（一文件一工具，`a
 - **Workflow**：通过 `agent` 节点类型引用。
 - **Document**：解析 `Knowledge` 列表。
 - **Capability Catalog**：Agent 实体会作为一类特殊的“能力”出现在系统的全局 Catalog 中，供主对话 Agent 发现。
-- **Relation**：建立 `agent_uses_document` 和 `workflow_uses_agent` 关联。
+- **Relation**：`agentService` 实现 `SetRelationSyncer` + `AgentReader`（对标 7 个兄弟实体）。Create/Accept/Revert 时从 active version 扫出 outgoing 边 `agent_uses_function|handler|mcp|document|skill`（无 `agent_uses_agent`，员工不调员工），并按 `ForgedInConversationID` 写 conversation `forged`/`edited` 边；Delete 级联 purge；relgraph 经 `ListAllMeta` 把 agent 列为节点。
 
 ---
 
@@ -130,3 +135,4 @@ Agent 的工具/端点面与 function **完全对称**（一文件一工具，`a
 | `ErrNoPending` | `AGENT_NO_PENDING` | accept 动作前提不符。 |
 | `ErrExecutionNotFound` | `AGENT_EXECUTION_NOT_FOUND` | get_agent_execution 查无。 |
 | `ErrVersionNotFound` | `AGENT_VERSION_NOT_FOUND` | revert 目标版本号不存在/未 accepted。 |
+| `ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | modelOverride 缺 apiKeyId 或 modelId。 |

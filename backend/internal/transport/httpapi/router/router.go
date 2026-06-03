@@ -70,7 +70,9 @@ func New(deps Deps) http.Handler {
 		}
 	}
 	if deps.AgentService != nil {
-		handlershttpapi.NewAgentHandler(deps.AgentService, deps.Log).Register(rec)
+		ah := handlershttpapi.NewAgentHandler(deps.AgentService, deps.Log)
+		ah.SetSpawner(deps.AskAISpawner)
+		ah.Register(rec)
 	}
 	if deps.ChatService != nil {
 		handlershttpapi.NewChatHandler(deps.ChatService, deps.Log).Register(rec)

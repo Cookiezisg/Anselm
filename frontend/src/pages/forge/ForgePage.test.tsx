@@ -33,6 +33,10 @@ vi.mock("@entities/workflow", () => ({
   useWorkflow: vi.fn(),
 }));
 
+vi.mock("@entities/agent", () => ({
+  useAgent: vi.fn(),
+}));
+
 vi.mock("./ui/FunctionDetail.tsx", () => ({
   FunctionDetail: ({ forge, onBack }: { forge: any; onBack: () => void }) => (
     <div data-testid="fn-detail">
@@ -60,20 +64,32 @@ vi.mock("./ui/WorkflowDetail.tsx", () => ({
   ),
 }));
 
+vi.mock("./ui/AgentDetail.tsx", () => ({
+  AgentDetail: ({ forge, onBack }: { forge: any; onBack: () => void }) => (
+    <div data-testid="ag-detail">
+      ag-{forge.id}
+      <button onClick={onBack}>back</button>
+    </div>
+  ),
+}));
+
 import { useFunction } from "@entities/function";
 import { useHandler } from "@entities/handler";
 import { useWorkflow } from "@entities/workflow";
+import { useAgent } from "@entities/agent";
 import { ForgePage } from "./ForgePage.tsx";
 
 const mockUseFunction = useFunction as any;
 const mockUseHandler = useHandler as any;
 const mockUseWorkflow = useWorkflow as any;
+const mockUseAgent = useAgent as any;
 const mockConsumeFocusEntity = vi.fn();
 
 beforeEach(() => {
   mockUseFunction.mockReturnValue({ data: null });
   mockUseHandler.mockReturnValue({ data: null });
   mockUseWorkflow.mockReturnValue({ data: null });
+  mockUseAgent.mockReturnValue({ data: null });
   mockConsumeFocusEntity.mockReset();
 });
 
@@ -128,6 +144,12 @@ describe("ForgePage", () => {
     mockUseWorkflow.mockReturnValue({ data: { id: "wf_focus", name: "W" } });
     render(<ForgePage focusEntity={{ forge: "wf_focus" }} onConsumeFocusEntity={mockConsumeFocusEntity} />);
     await waitFor(() => expect(screen.getByTestId("wf-detail")).toBeInTheDocument());
+  });
+
+  it("focusEntityForge_agentProbeWins_opensAgentDetail", async () => {
+    mockUseAgent.mockReturnValue({ data: { id: "ag_focus", name: "A" } });
+    render(<ForgePage focusEntity={{ forge: "ag_focus" }} onConsumeFocusEntity={mockConsumeFocusEntity} />);
+    await waitFor(() => expect(screen.getByTestId("ag-detail")).toBeInTheDocument());
   });
 
   it("focusEntityForge_noProbeReturns_staysOnList", () => {

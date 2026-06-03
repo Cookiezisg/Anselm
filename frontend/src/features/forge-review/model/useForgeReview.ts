@@ -18,9 +18,13 @@ import {
   useAcceptWorkflow,
   useRejectWorkflow,
 } from "@entities/workflow";
+import {
+  useAcceptAgent,
+  useRejectAgent,
+} from "@entities/agent";
 import { useToastStore } from "@shared/ui/toastStore";
 
-type ForgeKind = "function" | "handler" | "workflow";
+type ForgeKind = "function" | "handler" | "workflow" | "agent";
 
 interface ReviewActions {
   accept: () => void;
@@ -48,6 +52,8 @@ export function useForgeReview(
   const rejectHd = useRejectHandler();
   const acceptWf = useAcceptWorkflow();
   const rejectWf = useRejectWorkflow();
+  const acceptAg = useAcceptAgent();
+  const rejectAg = useRejectAgent();
 
   if (kind === "function") {
     return {
@@ -81,6 +87,27 @@ export function useForgeReview(
           onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending" }),
           // Error handled by global MutationCache onError (errorMap).
         }),
+    };
+  }
+
+  if (kind === "agent") {
+    // Detail "Revert" on a pending version discards it → reject. (Revert to a
+    // prior accepted version is a separate version-rail action.)
+    //
+    // 详情页 pending 上的 "Revert" = 丢弃 pending → reject。
+    const reject = () =>
+      rejectAg.mutate(id, {
+        onSuccess: () => pushToast({ kind: "warn", title: "Reverted pending", desc: name }),
+        // Error handled by global MutationCache onError (errorMap).
+      });
+    return {
+      accept: () =>
+        acceptAg.mutate(id, {
+          onSuccess: () => pushToast({ kind: "success", title: "Accepted", desc: name }),
+          // Error handled by global MutationCache onError (errorMap).
+        }),
+      reject,
+      revert: reject,
     };
   }
 

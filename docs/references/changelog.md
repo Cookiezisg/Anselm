@@ -65,6 +65,18 @@ audience: [human, ai]
 - **测试**：`tool/agent` create/search/get 端到端；`app/agent` Revert + executions（search/get/aggregates/not-found）。`make unit`/`make mock`/`go vet` 全绿。
 - **workflow 节点落表**：`dispatch_agent` 见 `config.agentRef` 即路由进 `InvokeAgent`（`triggeredBy=workflow` + flowrunId/nodeId），workflow 触发的执行同样落 `agent_executions`——对标 function workflow 节点经 `RunFunction` 落表；`AgentEntityResolver` 端口收敛为单方法 `InvokeAgent`，ADR-010 子步重放经 `ReplaySteps`+`Recorder` 透传。裸 `config.prompt` 内联节点无实体、沿用旧 loop、不落表。e2e `TestWorkflow_AgentRefNode_RecordsExecution_E2E` 守门。
 
+### agent ↔ function 配置面 + relation 全面对齐 ✅ (2026-06-03)
+
+承上（工具/执行面对齐后），补完**配置面 + relation + 剩余端点**，并修 2 个“配了不生效”的 dead config：
+
+- **modelOverride 接通**：`ModelOverride` 由 `string` 升为 `*model.ModelRef`（apiKeyId+modelId，对标 conv/node override）；`invoke` 经 `ResolveAgentWithOverride` 真正解析（原传 nil 永不生效）；execution 记实际 resolve 的 modelId；缺 id 在 create/edit 被 `ErrInvalidModelOverride` 拦下（errmap +1）。
+- **outputSchema 接通**：`invoke` 把 enum/json_schema 约束注入 systemPrompt（原先完全无视）；enum 输出 best-effort 规整以便下游 case 命中。
+- **relation 同步**：新增 `app/agent/relations.go`——`SetRelationSyncer` + 扫 active version 的 `agent_uses_{function,handler,mcp,document,skill}` 出边 + `forged`/`edited` conv 边 + delete purge；relation app 加 `AgentReader`；`AgentVersion` 加 `ForgedInConversationID`；main 接线 + relgraph `ListAllMeta`。
+- **端点补全**：`PATCH /agents/{id}`（UpdateMeta）、`GET /agents/{id}/versions/{version}`（GetVersion 数字号/versionId）、`POST /agents/{id}:iterate`（AI 编辑，经 askai `BuildAgentContext` + spawner）。
+- **次要对齐**：`search_agents` 升级 LLM 相关性排序；`ListAll`/`ListAllMeta`；accepted 版本 cap=50（accept 时 trim）；`get_agent_execution` buffer 4000B→256KB；catalog 改全量；3 个 list 端点（`/agents`、`/versions`、`/executions`）改用 `Paged()`/`SearchExecutionsResult` envelope（消除双层 `data`，对齐 function）。
+- **契约同步**：`api.md` / `database.md` / `error-codes.md`（+3 sentinel） / `domains/agent.md`；新增 `test/api/agent/` 套件。
+- **门禁**：`go build ./...` + `go vet` 全绿。
+
 ---
 
 按时间顺序（旧 → 新）。每个时间块按 phase 或专题分组。

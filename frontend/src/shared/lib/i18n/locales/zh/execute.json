@@ -149,7 +149,8 @@
     "title": {
       "function": "跑 function",
       "handler": "调 handler",
-      "workflow": "触发 workflow"
+      "workflow": "触发 workflow",
+      "agent": "调用 agent"
     },
     "closeTitle": "关闭",
     "methodLabel": "方法",

@@ -23,6 +23,10 @@ export const qk = {
   workflows: () => ["workflows"] as const,
   workflow: (id: string) => ["workflow", id] as const,
   workflowVersions: (id: string) => ["workflow-versions", id] as const,
+  agents: () => ["agents"] as const,
+  agent: (id: string) => ["agent", id] as const,
+  agentVersions: (id: string) => ["agent-versions", id] as const,
+  agentExecutions: (id: string) => ["agent-executions", id] as const,
 
   flowruns: (filter?: Record<string, unknown>) => ["flowruns", filter] as const,
   flowrun: (id: string) => ["flowrun", id] as const,

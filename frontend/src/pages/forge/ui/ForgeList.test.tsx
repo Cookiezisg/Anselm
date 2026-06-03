@@ -17,6 +17,10 @@ vi.mock("@entities/workflow", () => ({
   useWorkflows: vi.fn(),
   useDeleteWorkflow: () => ({ mutate: vi.fn() }),
 }));
+vi.mock("@entities/agent", () => ({
+  useAgents: vi.fn(),
+  useDeleteAgent: () => ({ mutate: vi.fn() }),
+}));
 
 vi.mock("@features/forge-review", () => ({
   useForgeReview: vi.fn(),
@@ -37,12 +41,14 @@ vi.mock("./RunDrawer.tsx", () => ({
 import { useFunctions } from "@entities/function";
 import { useHandlers } from "@entities/handler";
 import { useWorkflows } from "@entities/workflow";
+import { useAgents } from "@entities/agent";
 import { useToastStore } from "@shared/ui/toastStore";
 import { ForgeList } from "./ForgeList.tsx";
 
 const mockUseFunctions = useFunctions as any;
 const mockUseHandlers = useHandlers as any;
 const mockUseWorkflows = useWorkflows as any;
+const mockUseAgents = useAgents as any;
 
 beforeEach(() => {
   useToastStore.setState({ toasts: [] });
@@ -60,6 +66,11 @@ beforeEach(() => {
   mockUseWorkflows.mockReturnValue({
     data: [
       { id: "wf_1", name: "Backup", desc: "nightly", updatedAt: "2026-05-23T09:00:00Z" },
+    ],
+  });
+  mockUseAgents.mockReturnValue({
+    data: [
+      { id: "ag_1", name: "TriageBot", desc: "routes", updatedAt: "2026-05-23T08:00:00Z" },
     ],
   });
 });
@@ -149,6 +160,7 @@ describe("ForgeList", () => {
     mockUseFunctions.mockReturnValue({ data: [] });
     mockUseHandlers.mockReturnValue({ data: [] });
     mockUseWorkflows.mockReturnValue({ data: [] });
+    mockUseAgents.mockReturnValue({ data: [] });
     render(<ForgeList onOpen={() => {}} />);
     expect(screen.getByText(/还没有.*工坊产物/)).toBeInTheDocument();
   });

@@ -8,6 +8,7 @@ import (
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 )
 
 type EditAgent struct{ svc *agentapp.Service }
@@ -28,7 +29,7 @@ func (t *EditAgent) Parameters() json.RawMessage {
 			"knowledge":    {"type": "array", "items": {"type":"string"}},
 			"tools":        {"type": "array", "items": {"type":"object"}, "description": "REPLACE semantics — include all tools"},
 			"outputSchema": {"type": "object"},
-			"modelOverride":{"type": "string"},
+			"modelOverride":{"type": "object", "description": "Optional model override {apiKeyId, modelId, options?}; omit to keep current/default", "properties": {"apiKeyId":{"type":"string"},"modelId":{"type":"string"}}},
 			"changeReason": {"type": "string"}
 		},
 		"required": ["id"]
@@ -57,7 +58,7 @@ func (t *EditAgent) Execute(ctx context.Context, argsJSON string) (string, error
 		Knowledge     []string                  `json:"knowledge"`
 		Tools         []agentdomain.ToolRef     `json:"tools"`
 		OutputSchema  *agentdomain.OutputSchema `json:"outputSchema"`
-		ModelOverride *string                   `json:"modelOverride"`
+		ModelOverride *modeldomain.ModelRef     `json:"modelOverride"`
 		ChangeReason  string                    `json:"changeReason"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {

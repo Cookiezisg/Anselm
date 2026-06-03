@@ -14,6 +14,7 @@ import type { MotionProps } from "framer-motion";
 import { useRunFunction } from "@entities/function";
 import { useCallHandler } from "@entities/handler";
 import { useRunWorkflow } from "@entities/workflow";
+import { useInvokeAgent } from "@entities/agent";
 import { useToastStore } from "@shared/ui/toastStore";
 import { slideRight, scrim } from "@shared/lib/motion";
 
@@ -38,6 +39,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute, triggerN
   const run = useRunFunction();
   const call = useCallHandler();
   const trig = useRunWorkflow();
+  const invoke = useInvokeAgent();
   const pushToast = useToastStore((s) => s.pushToast);
 
   const [body, setBody] = useState("{\n  \n}");
@@ -86,6 +88,8 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute, triggerN
         if (runId) {
           onOpenExecute?.(runId);
         }
+      } else if (kind === "agent") {
+        res = await invoke.mutateAsync({ id: entity.id ?? "", input: parsed });
       }
       setResult(res);
     } catch (e) {
@@ -93,7 +97,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute, triggerN
     }
   };
 
-  const busy = run.isPending || call.isPending || trig.isPending;
+  const busy = run.isPending || call.isPending || trig.isPending || invoke.isPending;
   const methods = kind === "handler"
     ? (entity?.methods || entity?.currentVersion?.methods || [])
     : [];
@@ -166,6 +170,7 @@ export function RunDrawer({ open, onClose, kind, entity, onOpenExecute, triggerN
                 <label className="drawer-label">
                   {kind === "function" ? "inputs (JSON)" : kind === "handler" ? "args (JSON)" : "input (JSON)"}
                 </label>
+                {/* agent/workflow both use the "input (JSON)" label above */}
                 <textarea
                   ref={ta}
                   className="run-drawer-input"

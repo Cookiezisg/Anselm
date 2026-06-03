@@ -97,9 +97,11 @@ audience: [human, ai]
 | POST | `/api/v1/agents` | `agent.go` |
 | GET | `/api/v1/agents` | `agent.go` |
 | GET | `/api/v1/agents/{id}` | `agent.go` |
+| PATCH | `/api/v1/agents/{id}` | `agent.go` | UpdateMeta（name/description/tags，不升版本）|
 | DELETE | `/api/v1/agents/{id}` | `agent.go` |
-| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit, :invoke 真跑, :revert) |
+| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit, :invoke 真跑, :revert, :iterate AI 编辑→conversationId) |
 | GET | `/api/v1/agents/{id}/versions` | `agent.go` |
+| GET | `/api/v1/agents/{id}/versions/{version}` | `agent.go` | 单版本（数字号或 versionId）|
 | GET | `/api/v1/agents/{id}/pending` | `agent.go` |
 | POST | `/api/v1/agents/{id}/pending:accept` | `agent.go` |
 | POST | `/api/v1/agents/{id}/pending:reject` | `agent.go` |

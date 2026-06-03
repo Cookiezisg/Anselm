@@ -8,6 +8,7 @@ export function guessKind(id: string | undefined): string {
     f: "function", fn: "function",
     h: "handler",  hd: "handler",
     w: "workflow", wf: "workflow",
+    ag: "agent",
     cv: "conversation",
     d: "document", doc: "document",
     s: "skill", sk: "skill",

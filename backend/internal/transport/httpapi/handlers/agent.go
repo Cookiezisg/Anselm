@@ -3,11 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"go.uber.org/zap"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	"github.com/sunweilin/forgify/backend/internal/app/askai"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -15,21 +18,29 @@ import (
 //
 // AgentHandler 持 Agent CRUD + 版本管理 HTTP 路由。
 type AgentHandler struct {
-	svc *agentapp.Service
-	log *zap.Logger
+	svc     *agentapp.Service
+	spawner *askai.Spawner // optional; nil disables :iterate
+	log     *zap.Logger
 }
 
 func NewAgentHandler(svc *agentapp.Service, log *zap.Logger) *AgentHandler {
 	return &AgentHandler{svc: svc, log: log}
 }
 
+// SetSpawner installs the askai Spawner post-construction; nil disables :iterate.
+//
+// SetSpawner 装配后注入 askai Spawner；nil 关闭 :iterate。
+func (h *AgentHandler) SetSpawner(s *askai.Spawner) { h.spawner = s }
+
 func (h *AgentHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/agents", h.Create)
 	mux.HandleFunc("GET /api/v1/agents", h.List)
 	mux.HandleFunc("GET /api/v1/agents/{id}", h.Get)
+	mux.HandleFunc("PATCH /api/v1/agents/{id}", h.UpdateMeta)
 	mux.HandleFunc("DELETE /api/v1/agents/{id}", h.Delete)
 	mux.HandleFunc("POST /api/v1/agents/{idAction}", h.postOnAgent)
 	mux.HandleFunc("GET /api/v1/agents/{id}/versions", h.ListVersions)
+	mux.HandleFunc("GET /api/v1/agents/{id}/versions/{version}", h.GetVersion)
 	mux.HandleFunc("GET /api/v1/agents/{id}/pending", h.GetPending)
 	mux.HandleFunc("POST /api/v1/agents/{id}/pending:accept", h.AcceptPending)
 	mux.HandleFunc("POST /api/v1/agents/{id}/pending:reject", h.RejectPending)
@@ -54,9 +65,43 @@ func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 		h.Invoke(w, r, id)
 	case "revert":
 		h.Revert(w, r, id)
+	case "iterate":
+		h.Iterate(w, r, id)
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// Iterate spawns an AI-driven editing conversation for this agent (mirrors function :iterate).
+// Returns conversationId for the frontend to subscribe to eventlog + forge stream.
+//
+// Iterate 起一个 AI 编辑对话（对标 function :iterate），返 conversationId 供前端订阅。
+func (h *AgentHandler) Iterate(w http.ResponseWriter, r *http.Request, id string) {
+	if h.spawner == nil {
+		responsehttpapi.Error(w, http.StatusServiceUnavailable, "ASKAI_NOT_AVAILABLE", "askai spawner not wired", nil)
+		return
+	}
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	sysPrompt, err := askai.BuildAgentContext(r.Context(), id, h.svc)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	result, err := h.spawner.Spawn(r.Context(), askai.SpawnInput{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   req.Prompt,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, result)
 }
 
 // Invoke runs the agent (real ReAct run; records an execution). Mirrors function :run.
@@ -113,9 +158,7 @@ func (h *AgentHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{
-		"data": res.Executions, "nextCursor": res.NextCursor, "hasMore": res.HasMore, "aggregates": res.Aggregates,
-	})
+	responsehttpapi.Success(w, http.StatusOK, res)
 }
 
 // GetExecution returns one execution row + hints (mirrors function GET /function-executions/{execId}).
@@ -139,7 +182,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Knowledge     []string                  `json:"knowledge"`
 		Tools         []agentdomain.ToolRef     `json:"tools"`
 		OutputSchema  *agentdomain.OutputSchema  `json:"outputSchema"`
-		ModelOverride string                    `json:"modelOverride"`
+		ModelOverride *modeldomain.ModelRef     `json:"modelOverride"`
 		ChangeReason  string                    `json:"changeReason"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
@@ -177,9 +220,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{
-		"data": agents, "nextCursor": next, "hasMore": next != "",
-	})
+	responsehttpapi.Paged(w, agents, next, next != "")
 }
 
 func (h *AgentHandler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -191,6 +232,48 @@ func (h *AgentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusNoContent, nil)
 }
 
+// UpdateMeta patches agent name/description/tags without a version bump (mirrors function PATCH).
+func (h *AgentHandler) UpdateMeta(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name        *string   `json:"name"`
+		Description *string   `json:"description"`
+		Tags        *[]string `json:"tags"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	a, err := h.svc.UpdateMeta(r.Context(), agentapp.UpdateMetaInput{
+		ID: r.PathValue("id"), Name: req.Name, Description: req.Description, Tags: req.Tags,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, a)
+}
+
+// GetVersion returns one version by integer number or by versionId (mirrors function GET /versions/{version}).
+func (h *AgentHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
+	versionStr := r.PathValue("version")
+	versionN, err := strconv.Atoi(versionStr)
+	if err != nil {
+		v, gerr := h.svc.GetVersion(r.Context(), versionStr)
+		if gerr != nil {
+			responsehttpapi.FromDomainError(w, h.log, gerr)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusOK, v)
+		return
+	}
+	v, err := h.svc.GetVersionByNumber(r.Context(), r.PathValue("id"), versionN)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, v)
+}
+
 func (h *AgentHandler) Edit(w http.ResponseWriter, r *http.Request, id string) {
 	var req struct {
 		Prompt        *string                   `json:"prompt"`
@@ -198,7 +281,7 @@ func (h *AgentHandler) Edit(w http.ResponseWriter, r *http.Request, id string) {
 		Knowledge     []string                  `json:"knowledge"`
 		Tools         []agentdomain.ToolRef     `json:"tools"`
 		OutputSchema  *agentdomain.OutputSchema  `json:"outputSchema"`
-		ModelOverride *string                   `json:"modelOverride"`
+		ModelOverride *modeldomain.ModelRef     `json:"modelOverride"`
 		ChangeReason  string                    `json:"changeReason"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
@@ -225,7 +308,7 @@ func (h *AgentHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"data": versions, "nextCursor": "", "hasMore": false})
+	responsehttpapi.Paged(w, versions, "", false)
 }
 
 func (h *AgentHandler) GetPending(w http.ResponseWriter, r *http.Request) {

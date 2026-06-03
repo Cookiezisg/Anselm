@@ -13,6 +13,9 @@ vi.mock("@entities/handler", () => ({
 vi.mock("@entities/workflow", () => ({
   useWorkflows: () => ({ data: undefined }),
 }));
+vi.mock("@entities/agent", () => ({
+  useAgents: () => ({ data: undefined }),
+}));
 vi.mock("@entities/document", () => ({
   useDocuments: () => ({ data: undefined }),
 }));

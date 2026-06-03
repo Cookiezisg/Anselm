@@ -149,7 +149,8 @@
     "title": {
       "function": "Run function",
       "handler": "Call handler",
-      "workflow": "Trigger workflow"
+      "workflow": "Trigger workflow",
+      "agent": "Invoke agent"
     },
     "closeTitle": "Close",
     "methodLabel": "Method",

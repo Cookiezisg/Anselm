@@ -7,6 +7,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -45,9 +46,10 @@ type invokeDeps struct {
 
 // Service orchestrates agent lifecycle.
 type Service struct {
-	repo   agentdomain.Repository
-	invoke invokeDeps // LLM-execution deps for InvokeAgent (set via SetInvokeDeps)
-	log    *zap.Logger
+	repo      agentdomain.Repository
+	invoke    invokeDeps     // LLM-execution deps for InvokeAgent (set via SetInvokeDeps)
+	relations RelationSyncer // relation sync port (set via SetRelationSyncer); nil-tolerant
+	log       *zap.Logger
 }
 
 func New(repo agentdomain.Repository, log *zap.Logger) *Service {
@@ -87,6 +89,7 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ag
 	if err := s.repo.SetActiveVersion(ctx, id, v.ID); err != nil {
 		return nil, fmt.Errorf("agentapp.Revert: %w", err)
 	}
+	s.syncRelationsAfterActiveVersionChange(ctx, id)
 	return v, nil
 }
 
@@ -100,7 +103,7 @@ type CreateInput struct {
 	Knowledge     []string
 	Tools         []agentdomain.ToolRef
 	OutputSchema  *agentdomain.OutputSchema
-	ModelOverride string
+	ModelOverride *modeldomain.ModelRef
 	ChangeReason  string
 }
 
@@ -117,6 +120,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 		return nil, nil, fmt.Errorf("agentapp.Create: prompt is required")
 	}
 	if err := validateToolRefs(in.Tools); err != nil {
+		return nil, nil, fmt.Errorf("agentapp.Create: %w", err)
+	}
+	if err := validateModelOverride(in.ModelOverride); err != nil {
 		return nil, nil, fmt.Errorf("agentapp.Create: %w", err)
 	}
 
@@ -155,6 +161,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 	}
 	now := time.Now().UTC()
 	v.AcceptedAt = &now
+	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		v.ForgedInConversationID = &convID
+	}
 	if err := s.repo.CreateVersion(ctx, v); err != nil {
 		return nil, nil, fmt.Errorf("agentapp.Create: version: %w", err)
 	}
@@ -163,6 +172,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 		return nil, nil, fmt.Errorf("agentapp.Create: link active version: %w", err)
 	}
 	a.ActiveVersion = v
+	s.syncRelationsAfterCreate(ctx, a.ID, v.ForgedInConversationID)
+	s.syncRelationsAfterActiveVersionChange(ctx, a.ID)
 	return a, v, nil
 }
 
@@ -191,7 +202,7 @@ type EditInput struct {
 	Knowledge     []string
 	Tools         []agentdomain.ToolRef
 	OutputSchema  *agentdomain.OutputSchema
-	ModelOverride *string
+	ModelOverride *modeldomain.ModelRef
 	ChangeReason  string
 }
 
@@ -205,6 +216,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.AgentVer
 		if err := validateToolRefs(in.Tools); err != nil {
 			return nil, fmt.Errorf("agentapp.Edit: %w", err)
 		}
+	}
+	if err := validateModelOverride(in.ModelOverride); err != nil {
+		return nil, fmt.Errorf("agentapp.Edit: %w", err)
 	}
 	a, err := s.repo.Get(ctx, in.ID)
 	if err != nil {
@@ -249,13 +263,16 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.AgentVer
 		v.OutputSchema = in.OutputSchema
 	}
 	if in.ModelOverride != nil {
-		v.ModelOverride = *in.ModelOverride
+		v.ModelOverride = in.ModelOverride
 	}
 	if v.Knowledge == nil {
 		v.Knowledge = []string{}
 	}
 	if v.Tools == nil {
 		v.Tools = []agentdomain.ToolRef{}
+	}
+	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		v.ForgedInConversationID = &convID
 	}
 
 	// If there's already a pending, overwrite it (iterate-same-pending).
@@ -284,6 +301,10 @@ func (s *Service) Accept(ctx context.Context, agentID string) (*agentdomain.Agen
 		return nil, fmt.Errorf("agentapp.Accept: %w", err)
 	}
 	pv.Status = agentdomain.VersionStatusAccepted
+	if err := s.repo.HardDeleteOldestAccepted(ctx, agentID, agentdomain.AcceptedVersionCap); err != nil {
+		s.log.Warn("agentapp.Accept: trim oldest failed", zap.String("agentId", agentID), zap.Error(err))
+	}
+	s.syncRelationsAfterActiveVersionChange(ctx, agentID)
 	return pv, nil
 }
 
@@ -292,6 +313,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return fmt.Errorf("agentapp.Delete: %w", err)
 	}
+	s.purgeRelations(ctx, id)
 	return nil
 }
 
@@ -304,6 +326,74 @@ func (s *Service) List(ctx context.Context, limit int, cursor string) ([]*agentd
 	return s.repo.List(ctx, uid, limit, cursor)
 }
 
+// ListAll returns all agents for the current user, unpaginated (mirrors function ListAll; used by
+// relation relgraph reader + catalog source).
+//
+// ListAll 返当前用户全部 agents（无分页，对标 function ListAll；relgraph reader + catalog 用）。
+func (s *Service) ListAll(ctx context.Context) ([]*agentdomain.Agent, error) {
+	uid, err := reqctxpkg.RequireUserID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("agentapp.ListAll: %w", err)
+	}
+	return s.repo.ListAll(ctx, uid)
+}
+
+// UpdateMetaInput patches agent metadata without creating a new version.
+type UpdateMetaInput struct {
+	ID          string
+	Name        *string
+	Description *string
+	Tags        *[]string
+}
+
+// UpdateMeta patches agent name/description/tags without creating a new version (mirrors function).
+//
+// UpdateMeta 改 agent 的 name/description/tags 不创建新版本（对标 function）。
+func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*agentdomain.Agent, error) {
+	if _, err := reqctxpkg.RequireUserID(ctx); err != nil {
+		return nil, fmt.Errorf("agentapp.UpdateMeta: %w", err)
+	}
+	a, err := s.repo.Get(ctx, in.ID)
+	if err != nil {
+		return nil, fmt.Errorf("agentapp.UpdateMeta: %w", err)
+	}
+	if in.Name != nil {
+		if *in.Name == "" {
+			return nil, fmt.Errorf("agentapp.UpdateMeta: name cannot be empty")
+		}
+		if *in.Name != a.Name {
+			existing, gErr := s.repo.GetByName(ctx, *in.Name)
+			if gErr != nil && !errors.Is(gErr, agentdomain.ErrNotFound) {
+				return nil, fmt.Errorf("agentapp.UpdateMeta: dup-check: %w", gErr)
+			}
+			if existing != nil && existing.ID != a.ID {
+				return nil, agentdomain.ErrNameDuplicate
+			}
+		}
+		a.Name = *in.Name
+	}
+	if in.Description != nil {
+		a.Description = *in.Description
+	}
+	if in.Tags != nil {
+		a.Tags = *in.Tags
+	}
+	if err := s.repo.Update(ctx, a); err != nil {
+		return nil, fmt.Errorf("agentapp.UpdateMeta: %w", err)
+	}
+	return a, nil
+}
+
+// GetVersion fetches one version by id (mirrors function).
+func (s *Service) GetVersion(ctx context.Context, versionID string) (*agentdomain.AgentVersion, error) {
+	return s.repo.GetVersion(ctx, versionID)
+}
+
+// GetVersionByNumber fetches one accepted version by integer number (mirrors function; revert target lookup).
+func (s *Service) GetVersionByNumber(ctx context.Context, agentID string, versionN int) (*agentdomain.AgentVersion, error) {
+	return s.repo.GetVersionByNumber(ctx, agentID, versionN)
+}
+
 // validateToolRefs ensures no tool references another agent (员工不调员工).
 func validateToolRefs(tools []agentdomain.ToolRef) error {
 	for _, t := range tools {
@@ -314,21 +404,34 @@ func validateToolRefs(tools []agentdomain.ToolRef) error {
 	return nil
 }
 
+// validateModelOverride mirrors workflow node override validation: a set override needs both ids.
+//
+// validateModelOverride 镜像 workflow 节点 override 校验：设了就必须 apiKeyId + modelId 都全。
+func validateModelOverride(ref *modeldomain.ModelRef) error {
+	if ref == nil {
+		return nil
+	}
+	if ref.APIKeyID == "" || ref.ModelID == "" {
+		return agentdomain.ErrInvalidModelOverride
+	}
+	return nil
+}
+
 // GetAgentConfig implements scheduler.AgentEntityResolver: loads the agent entity's active version
 // config for use by the workflow agent dispatcher (doc 02 §"节点形态" agentRef pattern).
 //
 // GetAgentConfig 实现 scheduler.AgentEntityResolver：为 workflow agent dispatcher 加载配置。
-func (s *Service) GetAgentConfig(ctx context.Context, agentRef string) (prompt string, maxTurns int, enabledTools []string, modelOverride string, err error) {
+func (s *Service) GetAgentConfig(ctx context.Context, agentRef string) (prompt string, maxTurns int, enabledTools []string, modelOverride *modeldomain.ModelRef, err error) {
 	a, aErr := s.repo.Get(ctx, agentRef)
 	if aErr != nil {
-		return "", 0, nil, "", fmt.Errorf("agentapp.GetAgentConfig: %w", aErr)
+		return "", 0, nil, nil, fmt.Errorf("agentapp.GetAgentConfig: %w", aErr)
 	}
 	if a.ActiveVersionID == "" {
-		return "", 0, nil, "", agentdomain.ErrNoActiveVersion
+		return "", 0, nil, nil, agentdomain.ErrNoActiveVersion
 	}
 	v, vErr := s.repo.GetVersion(ctx, a.ActiveVersionID)
 	if vErr != nil {
-		return "", 0, nil, "", fmt.Errorf("agentapp.GetAgentConfig: version: %w", vErr)
+		return "", 0, nil, nil, fmt.Errorf("agentapp.GetAgentConfig: version: %w", vErr)
 	}
 	// Convert tool refs to string IDs for filterToolsByWhitelist.
 	toolIDs := make([]string, 0, len(v.Tools))

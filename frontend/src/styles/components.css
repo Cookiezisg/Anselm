@@ -516,6 +516,8 @@
 .kind-chip.fn  { background: oklch(from var(--accent) l c h / 0.10); color: var(--accent); }
 .kind-chip.hd  { background: oklch(from var(--status-info) l c h / 0.10); color: var(--status-info); }
 .kind-chip.wf  { background: oklch(from var(--status-success) l c h / 0.12); color: var(--status-success); }
+.kind-chip.ag  { background: oklch(0.52 0.16 300 / 0.12); color: oklch(0.52 0.16 300); }
+[data-theme="dark"] .kind-chip.ag { color: oklch(0.78 0.13 300); }
 .kind-chip.sk  { background: oklch(from var(--status-warn) l c h / 0.12); color: var(--status-warn); }
 .kind-chip.mcp { background: oklch(0.55 0.10 290 / 0.12); color: oklch(0.55 0.10 290); }
 [data-theme="dark"] .kind-chip.mcp { color: oklch(0.78 0.10 290); }
@@ -1041,6 +1043,10 @@
 }
 .code-block.is-output { color: oklch(from var(--status-success) calc(l - 0.10) c h); }
 [data-theme="dark"] .code-block.is-output { color: oklch(from var(--status-success) l c h); }
+
+/* Agent system prompt — prose, not code: wrap long lines instead of
+   horizontal scroll. */
+.code-block.agent-prompt { white-space: pre-wrap; word-break: break-word; }
 
 /* Language label badge — top-right inside the code block (read-only,
    used by chat MarkdownView fences) */

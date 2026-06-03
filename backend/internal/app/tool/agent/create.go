@@ -8,6 +8,7 @@ import (
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 )
 
 type CreateAgent struct{ svc *agentapp.Service }
@@ -45,7 +46,7 @@ func (t *CreateAgent) Parameters() json.RawMessage {
 			"knowledge":    {"type": "array", "items": {"type":"string"}, "description": "Document IDs"},
 			"tools":        {"type": "array", "items": {"type":"object"}, "description": "[{ref:'fn_xxx'|'hd_xxx.method'|'mcp:server/tool'}]; no ag_ refs"},
 			"outputSchema": {"type": "object", "description": "{kind:'free_text'|'enum'|'json_schema', enums?:[...], schema?:{...}}"},
-			"modelOverride":{"type": "string", "description": "Optional model ID override"},
+			"modelOverride":{"type": "object", "description": "Optional model override {apiKeyId, modelId, options?}; omit to use the default agent model", "properties": {"apiKeyId":{"type":"string"},"modelId":{"type":"string"}}},
 			"changeReason": {"type": "string"}
 		},
 		"required": ["name", "prompt"]
@@ -83,7 +84,7 @@ func (t *CreateAgent) Execute(ctx context.Context, argsJSON string) (string, err
 		Knowledge     []string                  `json:"knowledge"`
 		Tools         []agentdomain.ToolRef     `json:"tools"`
 		OutputSchema  *agentdomain.OutputSchema `json:"outputSchema"`
-		ModelOverride string                    `json:"modelOverride"`
+		ModelOverride *modeldomain.ModelRef     `json:"modelOverride"`
 		ChangeReason  string                    `json:"changeReason"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {

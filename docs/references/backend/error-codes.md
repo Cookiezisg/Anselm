@@ -44,6 +44,9 @@ audience: [human, ai]
 | `agentdomain.ErrNoPending` | `AGENT_NO_PENDING` | 422 | accept/reject 时无 pending |
 | `agentdomain.ErrNoActiveVersion` | `AGENT_NO_ACTIVE_VERSION` | 422 | 引用了一个无 accepted 版本的实体 |
 | `agentdomain.ErrToolsAgentRef` | `AGENT_TOOLS_AGENT_REF_FORBIDDEN` | 400 | 禁止 Agent 递归引用另一个 Agent |
+| `agentdomain.ErrVersionNotFound` | `AGENT_VERSION_NOT_FOUND` | 404 | revert / GetVersion 目标版本不存在 |
+| `agentdomain.ErrExecutionNotFound` | `AGENT_EXECUTION_NOT_FOUND` | 404 | get_agent_execution 命中不到 |
+| `agentdomain.ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | 400 | modelOverride 缺 apiKeyId 或 modelId（对标 workflow 节点 override 校验）|
 
 ### 2.3 APIKey Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

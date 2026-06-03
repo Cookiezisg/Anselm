@@ -104,6 +104,14 @@ func (s *Store) List(ctx context.Context, userID string, limit int, cursor strin
 	return rows, next, nil
 }
 
+func (s *Store) ListAll(ctx context.Context, userID string) ([]*agentdomain.Agent, error) {
+	var rows []*agentdomain.Agent
+	if err := s.db.WithContext(ctx).Where("user_id = ?", userID).Order("name asc").Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("agentstore.ListAll: %w", err)
+	}
+	return rows, nil
+}
+
 func (s *Store) Update(ctx context.Context, a *agentdomain.Agent) error {
 	if err := s.db.WithContext(ctx).Save(a).Error; err != nil {
 		return fmt.Errorf("agentstore.Update: %w", err)
@@ -211,6 +219,34 @@ func (s *Store) SetNeedsAttention(ctx context.Context, agentID string, val bool)
 		Where("id = ?", agentID).
 		Update("needs_attention", val).Error; err != nil {
 		return fmt.Errorf("agentstore.SetNeedsAttention: %w", err)
+	}
+	return nil
+}
+
+// HardDeleteOldestAccepted keeps the newest `keep` accepted versions and physically deletes older ones
+// (mirrors functionstore; AgentVersion has no soft-delete so this is a real delete).
+//
+// HardDeleteOldestAccepted 保留最新 keep 个 accepted 版本，物删更老的（对标 function；AgentVersion 无软删，物理删除）。
+func (s *Store) HardDeleteOldestAccepted(ctx context.Context, agentID string, keep int) error {
+	if keep <= 0 {
+		keep = agentdomain.AcceptedVersionCap
+	}
+	var ids []string
+	if err := s.db.WithContext(ctx).
+		Model(&agentdomain.AgentVersion{}).
+		Where("agent_id = ? AND status = ?", agentID, agentdomain.VersionStatusAccepted).
+		Order("created_at DESC, id DESC").
+		Offset(keep).
+		Pluck("id", &ids).Error; err != nil {
+		return fmt.Errorf("agentstore.HardDeleteOldestAccepted: %w", err)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	if err := s.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Delete(&agentdomain.AgentVersion{}).Error; err != nil {
+		return fmt.Errorf("agentstore.HardDeleteOldestAccepted: %w", err)
 	}
 	return nil
 }

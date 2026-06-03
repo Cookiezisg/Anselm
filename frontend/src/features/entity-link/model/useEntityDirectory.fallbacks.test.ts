@@ -17,6 +17,9 @@ vi.mock("@entities/handler", () => ({
 vi.mock("@entities/workflow", () => ({
   useWorkflows: () => ({ data: [{ id: "wf_no_desc", name: "wf" }] }),
 }));
+vi.mock("@entities/agent", () => ({
+  useAgents: () => ({ data: [{ id: "ag_no_desc", name: "ag" }] }),
+}));
 vi.mock("@entities/document", () => ({
   useDocuments: () => ({ data: [{ id: "doc_no_name" }] }),
 }));

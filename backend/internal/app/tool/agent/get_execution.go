@@ -51,7 +51,7 @@ func (t *GetAgentExecution) Execute(ctx context.Context, argsJSON string) (strin
 		return "", fmt.Errorf("get_agent_execution: %w", err)
 	}
 
-	const limit = 4000
+	const limit = 256 * 1024 // 256KB, mirrors function get_execution buffer
 	out := map[string]any{
 		"id":             detail.ID,
 		"status":         detail.Status,

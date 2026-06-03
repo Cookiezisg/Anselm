@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFunctions, type FunctionEntity } from "@entities/function";
 import { useHandlers, type Handler } from "@entities/handler";
 import { useWorkflows, type Workflow } from "@entities/workflow";
+import { useAgents, type Agent } from "@entities/agent";
 import { useDocuments, type Document } from "@entities/document";
 import { useSkills, type Skill } from "@entities/skill";
 import { useMcpServers, type McpServer } from "@entities/mcp";
@@ -44,6 +45,7 @@ export function useEntityDirectory(): EntityDirectory {
   const fnQ = useFunctions();
   const hdQ = useHandlers();
   const wfQ = useWorkflows();
+  const agQ = useAgents();
   const dcQ = useDocuments();
   const skQ = useSkills();
   const mcQ = useMcpServers();
@@ -57,13 +59,14 @@ export function useEntityDirectory(): EntityDirectory {
     for (const x of (fnQ.data as FunctionEntity[] || [])) out.push({ id: x.id, kind: "function", label: x.name || x.id, sub: x.description || "" });
     for (const x of (hdQ.data as Handler[] || [])) out.push({ id: x.id, kind: "handler", label: x.name || x.id, sub: x.description || "" });
     for (const x of (wfQ.data as Workflow[] || [])) out.push({ id: x.id, kind: "workflow", label: x.name || x.id, sub: x.description || "" });
+    for (const x of (agQ.data as Agent[] || [])) out.push({ id: x.id, kind: "agent", label: x.name || x.id, sub: x.description || "" });
     for (const x of (dcQ.data as Document[] || [])) out.push({ id: x.id, kind: "document", label: x.name || x.id, sub: t("relGraph.subDocument") });
     // skill/mcp use name as primary key (S15 — no id_ prefix, name IS the stable id).
     for (const x of (skQ.data as Skill[] || [])) out.push({ id: x.name, kind: "skill", label: x.name, sub: x.description || "" });
     for (const x of (mcQ.data as McpServer[] || [])) out.push({ id: x.name, kind: "mcp", label: x.name, sub: t("relGraph.subTools", { count: x.tools?.length || 0 }) });
     for (const x of (cvQ.data as Conversation[] || [])) out.push({ id: x.id, kind: "conversation", label: x.title || x.id, sub: "" });
     return out;
-  }, [fnQ.data, hdQ.data, wfQ.data, dcQ.data, skQ.data, mcQ.data, cvQ.data, t]);
+  }, [fnQ.data, hdQ.data, wfQ.data, agQ.data, dcQ.data, skQ.data, mcQ.data, cvQ.data, t]);
 
   const edges = useMemo<EntityEdge[]>(() => normEdges(rawRel as Relation[]), [rawRel]);
 

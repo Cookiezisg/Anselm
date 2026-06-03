@@ -9,7 +9,7 @@ const SECTIONS: Array<{ label: string; routes: Array<[string, string]> }> = [
   ]},
   { label: "forge", routes: [
     ["/forge/functions", "Functions"], ["/forge/handlers", "Handlers"], ["/forge/workflows", "Workflows"],
-    ["/forge/tools", "Tools Registry"],
+    ["/forge/agents", "Agents"], ["/forge/tools", "Tools Registry"],
   ]},
   { label: "execute", routes: [
     ["/execute/triggers", "Triggers"], ["/execute/flowruns", "FlowRuns"],
