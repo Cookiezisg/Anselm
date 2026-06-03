@@ -29,12 +29,13 @@
 | M0.4 | `domain/errors` `domain/eventlog` `domain/notifications` | 横切契约 | |
 | M0.5 | `infra/eventlog` `infra/notifications` `infra/chat` | SSE 三流底座（E1/E2/E3） | |
 | M0.6 | `infra/llm` | 自有 provider 客户端（18 文件）+ factory | 边界：provider wire 格式冻结；`mock.go` 留给测试 |
+| M0.7 | transport 框架：`httpapi/response`(envelope N1) `middleware` `router` + pagination `Parse`/limit 策略 | — | **从波次 7 上移**：所有业务域 handler 的地基 |
 
 ### 波次 1 — 叶子业务域（只依赖地基）
 
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
-| M1.1 | `user` | — | |
+| M1.1 | `workspace`（原 `user` 正名） | — | 隔离标识 = workspace_id；`/users`→`/workspaces` |
 | M1.2 | `apikey` | domain/crypto | |
 | M1.3 | `model` | domain/apikey | ⚠️ `infra/store/modelcapoverride` + `pkg/modelcaps`（旧 model 范式残留） |
 | M1.4 | `relation` | — | 横切（实体关系图） |
@@ -92,14 +93,14 @@
 | M6.1 | `askai` | agent, chat, conversation, document, function, handler, workflow | :iterate / :triage（N5） |
 | M6.2 | `ask` + `tool/ask` | — | ⚠️ **强残留嫌疑**：疑似 askai 旧版；判定后大概率删 |
 
-### 波次 7 — transport + wiring
+### 波次 7 — wiring（transport 框架已上移波次 0；handler 随各业务模块）
+
+> `response`/`middleware`/`router` 在 M0.7；`handlers/<m>.go` 是各业务模块垂直切片的一层（user 模块含 users.go），不在此集中。`dev_*` 及 `answers·scenarios·prompts·capabilities·context_stats·metrics·usage` 等信息端点随其对应模块 handler 逐个判定去留。
 
 | 编号 | 模块 | 说明 | 旗标 |
 |---|---|---|---|
-| M7.1 | `httpapi/response` `middleware` `router` | 框架级通用层 | |
-| M7.2 | `httpapi/handlers/*.go`（36 文件） | 按 API 资源域，对应各 service | ⚠️ `dev_*`（5 个，dev-only 边界）；⚠️ `answers/scenarios/prompts/capabilities/context_stats/metrics/usage`（AI 加的信息端点，逐个审是否真有产品旅程用到）|
-| M7.3 | `cmd/server`（DI 装配） | main.go | 装配收口；只注册 5-node |
-| M7.4 | `cmd/desktop`（wails）`cmd/resources` `cmd/doc-*` `cmd/lintprompts` `cmd/coverage-matrix` | 入口 + 工具 | embed = generated |
+| M7.1 | `cmd/server`（DI 装配） | main.go：装配所有模块（import 全部，天然最后）；只注册 5-node | |
+| M7.2 | `cmd/desktop`（wails）`cmd/resources` `cmd/doc-*` `cmd/lintprompts` `cmd/coverage-matrix` | 入口 + 工具 | embed = generated |
 
 ---
 

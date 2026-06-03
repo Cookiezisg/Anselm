@@ -31,7 +31,7 @@
 - **S15** ID 宪法：`<prefix>_<16hex>`，前缀登记进 `database.md`。
 - **N1** envelope：成功 `{"data":...}` / 失败 `{"error":{code,message,details}}`。
 - **N3** 线缆 camelCase / 物理列 snake_case。**N4** List 必须 `?cursor=&limit=`。**N5** 非 CRUD 用 `:action`。
-- **D1** 业务表软删 `deleted_at`；Journal/Log 禁删。**D2** 除全局配置外都带 `user_id`。
+- **D1** 业务表软删 `deleted_at`；Journal/Log 禁删。**D2** 除全局配置外都带 `workspace_id`（**全局命名**：正名自 `user_id`——本地单机的隔离单元是工作区不是多租户用户；ctx/middleware/物理列/实体一律用 workspace）。
 
 ## "干净"的可执行定义（每轮自证，详见 PLAYBOOK §干净）
 
