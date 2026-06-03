@@ -152,6 +152,14 @@ type Request struct {
 	Messages []LLMMessage
 	Tools    []ToolDef
 
+	// MaxTokens caps output tokens for providers that require it (e.g. anthropic);
+	// 0 → provider default. The caller derives it from model capability (catalog) —
+	// the provider never looks it up itself (keeps infra/llm free of model deps).
+	//
+	// MaxTokens 限制输出 token，供需要它的 provider（如 anthropic）用；0 → provider 默认。
+	// 由 caller 从 model 能力（catalog）派生——provider 自己绝不查（保持 infra/llm 无 model 依赖）。
+	MaxTokens int
+
 	// Thinking carries the resolved reasoning intent; adapters encode it per wire format.
 	// nil = auto (send no thinking param).
 	//

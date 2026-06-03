@@ -88,23 +88,28 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 
 // providerRegistry maps a Config.Provider name to its Provider. Unknown names fall back
 // to the OpenAI-compat default in lookupProvider — they all speak /chat/completions.
-// R0015 registers openai only; R0016 adds the other ten.
+// Providers are registered here as each is ported (one self-contained entry per provider).
 //
 // providerRegistry 把 Config.Provider name 映射到 Provider。未知 name 在 lookupProvider
-// 回落 OpenAI-compat 默认——它们都讲 /chat/completions。R0015 只注册 openai，R0016 补齐。
+// 回落 OpenAI-compat 默认——它们都讲 /chat/completions。每移植一家就在此注册一条（各自包含）。
 var providerRegistry = buildProviderRegistry()
 
 func buildProviderRegistry() map[string]Provider {
 	return map[string]Provider{
-		"openai": newOpenAIProvider(),
+		"openai":    newOpenAIProvider(),
+		"anthropic": newAnthropicProvider(),
 	}
 }
 
-// lookupProvider resolves the Provider for a Config; unknown names fall back to
-// OpenAI-compat (the default wire most providers speak).
+// lookupProvider resolves the Provider for a Config; "custom" + anthropic-compatible
+// routes to the anthropic dialect, every other unknown name falls back to OpenAI-compat.
 //
-// lookupProvider 按 Config 解析 Provider；未知 name 回落 OpenAI-compat（多数 provider 的默认 wire）。
+// lookupProvider 按 Config 解析 Provider；"custom"+anthropic-compatible 路由到 anthropic
+// 方言，其余未知 name 回落 OpenAI-compat。
 func lookupProvider(cfg Config) Provider {
+	if cfg.Provider == "custom" && cfg.APIFormat == "anthropic-compatible" {
+		return providerRegistry["anthropic"]
+	}
 	if p, ok := providerRegistry[cfg.Provider]; ok {
 		return p
 	}
