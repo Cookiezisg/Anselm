@@ -1,13 +1,16 @@
-// Package stream defines the unified streaming-tree protocol shared by the three
-// SSE streams (messages / entities / notifications). The design separates transport
-// from semantics: all three streams share one envelope + four tree-operation verbs
-// (Frame), and each stream only defines what grows on the tree (its Node vocabulary).
-// See lab/backendcleaner/target/stream-protocol.md.
+// Package stream defines the unified streaming-tree protocol shared by the three SSE
+// streams (messages / entities / notifications). The design separates transport from
+// semantics: all three share one envelope + four tree-operation verbs (Frame) + a
+// generic Node ({type, content}); the node vocabulary is owned by each producer
+// business module, not by domain. See lab/backendcleaner/target/stream-protocol.md.
 //
 // Package stream 定义三条 SSE 流（messages / entities / notifications）共享的统一
-// 「流式树」协议。设计是传输与语义正交：三流共享一个信封 + 四个树操作动词（Frame），
-// 各流只定义树上长什么（自己的 Node 词表）。见 stream-protocol.md。
+// 「流式树」协议。设计是传输与语义正交：三流共享一个信封 + 四个树操作动词（Frame）+
+// 一个通用 Node（{type, content}）；node 词表归各 producer 业务模块，不归 domain。
+// 见 stream-protocol.md。
 package stream
+
+import "encoding/json"
 
 // Event is what a producer emits — an unsequenced draft. The producer supplies the
 // target Scope, the node ID it operates on, and the Frame; it does not know the seq
@@ -29,4 +32,21 @@ type Event struct {
 type Envelope struct {
 	Seq int64 `json:"seq"`
 	Event
+}
+
+// Node is a frame's payload: a Type discriminant + an opaque Content JSON. The protocol
+// deliberately does NOT enumerate node types or their fields — that vocabulary belongs
+// to each producing business module (chat defines its message-node types, entities
+// producers define theirs). Type is a free string that may encode hierarchy (e.g.
+// "tool_call" or "tool_call/read_file"); Content is whatever JSON that type carries.
+// domain stays out of the semantics and never inspects Content (#6 反校验剧场).
+//
+// Node 是帧的 payload：一个 Type 判别 + 一坨不透明的 Content JSON。协议**刻意不**枚举
+// node 类型或其字段——那套词表归属各 producer 业务模块（chat 定义它的 message 节点类型，
+// entities 的 producer 定义它们的）。Type 是自由字符串、可编码层级（如 "tool_call" 或
+// "tool_call/read_file"）；Content 是该 type 携带的任意 JSON。domain 不碰语义、从不检查
+// Content（#6 反校验剧场）。
+type Node struct {
+	Type    string          `json:"type"`
+	Content json.RawMessage `json:"content,omitempty"`
 }

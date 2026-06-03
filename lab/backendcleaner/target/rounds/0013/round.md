@@ -15,7 +15,7 @@
 - **砍三流 domain 包（review 修正）**：node 通用 + Bridge 通用 → messages/entities/notifications domain 包无内容，删。三流区别落到 infra 实例 + scope kind + wiring。`stream.Bridge`(Publish/Subscribe) 通用；`stream.ListReader`(+List) 给 notifications（无 DB 落盘读内存 buffer）。
 - **error 内聚 domain/errors（review）**：stream 的 `ErrSeqTooOld`（上 HTTP 410）→ `KindGone`+SEQ_TOO_OLD、`ErrInvalidEvent`（producer bug）→ `KindInternal`+STREAM_INVALID_EVENT，从标准库 sentinel 升结构化——遵守 R0012「错误码内聚 domain、transport 零特例 statusForKind」；连带给 errors 加 `KindGone`(410)。
 
-落地（仅 1 包 `domain/stream`，6 源 + 3 测试）：
+落地（仅 1 包 `domain/stream`，5 源 + 3 测试）：
 - event/scope/node/frame/bridge/validate.go，纯 stdlib。
 - node = `{Type, Content}`；frame `Close.Result = *Node`（可选快照）；validate 只校验骨架（scope kind / 节点 id / open·signal 的 node.Type / close 终态），不碰 Content。
 - scope kind 全集（9 种实体）留 stream（与 relation.EntityKind 重叠，M1.4 收口）。
@@ -24,7 +24,7 @@
 
 验证：`gofmt -l` 空 / `go build ./...` / `go vet` / `go test` 全绿。
 
-是否更干净：✅✅ 经 2 次设计 review 收敛——先统一三流为流式树，再把 node 从「domain 替业务穷举判别联合」简化为「domain 只给 `{Type,Content}` 信封、词表下放业务」。domain 从 4 包 21 文件收到 **1 包 9 文件**。marshal/线缆形状留 M0.7（domain 不碰序列化）。
+是否更干净：✅✅ 经 2 次设计 review 收敛——先统一三流为流式树，再把 node 从「domain 替业务穷举判别联合」简化为「domain 只给 `{Type,Content}` 信封、词表下放业务」。domain 从 4 包 21 文件收到 **1 包 8 文件**（5 源 + 3 测试；Node 简化后 node.go 并入 event.go）。marshal/线缆形状留 M0.7（domain 不碰序列化）。
 
 覆盖状态：三流 domain = 单一 `domain/stream`。infra bus + producer `streamemit` + **type 常量下沉各业务** + ~20 目录 emit 改造 + messages DB 落盘随 chat → deps-todo（R0013 节）。
 
