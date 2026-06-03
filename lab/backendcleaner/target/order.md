@@ -35,7 +35,7 @@
 
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
-| M1.1 | `workspace`（原 `user` 正名） | — | 隔离标识 = workspace_id；`/users`→`/workspaces` |
+| M1.1 | `workspace`（原 `user` 正名） | — | 隔离标识 = workspace_id；`/users`→`/workspaces`；接手 userpath 删除后的 app 资源文件根布局（删 users/local-user 层 + MigrateLegacy，见 deps-todo R0004）|
 | M1.2 | `apikey` | domain/crypto | |
 | M1.3 | `model` | domain/apikey | ⚠️ `infra/store/modelcapoverride` + `pkg/modelcaps`（旧 model 范式残留） |
 | M1.4 | `relation` | — | 横切（实体关系图） |
