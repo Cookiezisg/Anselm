@@ -24,7 +24,7 @@
 | 编号 | 模块 | 说明 | 旗标 |
 |---|---|---|---|
 | M0.1 | `pkg/*` 纯工具 | idgen, pagination, reqctx, tokencount, pathguard, userpath, jsonrepair, wikilink, limits | ⚠️ `modelcaps`（modelcatalog 已取代，疑残留）、`forge`/`agentstate`/`envfix`/`installprogress`/`llmclient`/`llmcost`/`llmparse`/`notifications`/`eventlog` 逐个判定去留 |
-| M0.2 | `infra/db` | modernc sqlite + 迁移 + schema_extras | 边界：schema 可激进重定（无需保留数据） |
+| M0.2 | `pkg/orm` + `infra/db` | **去 GORM**：自研链式 ORM（R0008 ✅）+ `infra/db` 用 database/sql + glebarez/go-sqlite | 边界：schema 可激进重定；手写 DDL 对齐 database.md（取代 AutoMigrate）；domain 全部去 GORM 化 |
 | M0.3 | `infra/logger` `infra/crypto` | zap + AES-GCM | |
 | M0.4 | `domain/errors` `domain/eventlog` `domain/notifications` | 横切契约 | |
 | M0.5 | `infra/eventlog` `infra/notifications` `infra/chat` | SSE 三流底座（E1/E2/E3） | |
