@@ -4,3 +4,4 @@
 |---|---|---|---|---|
 | 0001 | 2026-06-03 | 波次0 · M0.1 | pkg reqctx/idgen/pagination 重写 | ✅ stdlib-only，测试绿（含 R0001.1：reqctx 按 concern 拆 workspace.go/reqctx.go） |
 | 0002 | 2026-06-03 | 波次0 · M0.1 | tokencount 迁移 | ✅ 原样保留（干净叶子），测试绿 |
+| 0003 | 2026-06-03 | 波次0 · M0.1 | pathguard 迁移 + #7 清理 | ✅ 逻辑不动，删 V1.2 叙述/死变量/过时注释，测试绿 |
