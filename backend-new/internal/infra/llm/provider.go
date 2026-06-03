@@ -1,0 +1,112 @@
+package llm
+
+import (
+	"context"
+	"fmt"
+	"iter"
+	"net/http"
+	"time"
+
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
+)
+
+// Provider is one LLM wire dialect: it owns how a Request becomes an HTTP request (body
+// shape, auth headers, base-url + path) and how the response becomes the typed
+// StreamEvent stream. Identity (Name / DefaultBaseURL) drives registry lookup and
+// base-url resolution. Each provider implements this fully self-contained.
+//
+// Provider 是一种 LLM wire 方言：负责 Request→HTTP 请求（body 形状、auth 头、
+// base-url+path）与响应→StreamEvent 流。Name / DefaultBaseURL 供注册表查找与 base-url
+// 解析。每个 provider 完整自包含地实现它。
+type Provider interface {
+	Name() string
+	DefaultBaseURL() string
+	BuildRequest(ctx context.Context, req Request) (*http.Request, error)
+	ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent]
+}
+
+// providerClient adapts a Provider to Client by running the shared transport iron-law
+// (build → do → status-map → parse). It is the single copy of request/response plumbing
+// every Provider funnels through, plus a per-event idle timer for dead-socket detection.
+//
+// providerClient 把 Provider 适配成 Client：跑共享传输铁律（build → do → status-map →
+// parse），是所有 Provider 共用的唯一请求/响应管道，外加逐事件 idle 计时器探测死连接。
+type providerClient struct {
+	provider Provider
+	http     *http.Client
+}
+
+func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEvent] {
+	return func(yield func(StreamEvent) bool) {
+		// Idle timeout: cancel if the stream produces no event for the idle window. A
+		// dead-socket detector, NOT a total wall-clock cap — the timer resets on every
+		// event, so a healthy long stream (deep reasoning, big generation) never trips it.
+		// ctx cancellation (user stop / turn timeout) stays the primary control.
+		//
+		// idle 超时：流在 idle 窗口内无事件则取消。死连接探测，非总墙钟——每个事件重置
+		// 计时器，健康长流永不触发。ctx 取消（用户 stop / turn 超时）仍是主控。
+		streamCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		idle := time.Duration(limitspkg.Current().Timeout.LLMIdleSec) * time.Second
+		var timer *time.Timer
+		if idle > 0 {
+			timer = time.AfterFunc(idle, cancel)
+			defer timer.Stop()
+		}
+
+		httpReq, err := c.provider.BuildRequest(streamCtx, req)
+		if err != nil {
+			yield(StreamEvent{Type: EventError, Err: err})
+			return
+		}
+		resp, ok := doRequest(c.http, httpReq, "llm."+c.provider.Name(), yield)
+		if !ok {
+			return
+		}
+		defer resp.Body.Close()
+
+		for ev := range c.provider.ParseStream(streamCtx, resp, req) {
+			if timer != nil {
+				timer.Reset(idle)
+			}
+			if !yield(ev) {
+				return
+			}
+		}
+
+		// If our idle timer fired (streamCtx cancelled while the parent ctx is still
+		// alive), the stream went silent mid-flight — surface it as a provider error
+		// instead of a phantom user-cancel (which would mislabel the turn).
+		//
+		// 若 idle 计时器触发（streamCtx 取消而父 ctx 仍活），流中途静默——报 provider 错，
+		// 而非伪装成用户取消（会误标该回合）。
+		if streamCtx.Err() != nil && ctx.Err() == nil {
+			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: llm.%s: no stream activity for %s (connection appears dead)", ErrProviderError, c.provider.Name(), idle)})
+		}
+	}
+}
+
+// providerRegistry maps a Config.Provider name to its Provider. Unknown names fall back
+// to the OpenAI-compat default in lookupProvider — they all speak /chat/completions.
+// R0015 registers openai only; R0016 adds the other ten.
+//
+// providerRegistry 把 Config.Provider name 映射到 Provider。未知 name 在 lookupProvider
+// 回落 OpenAI-compat 默认——它们都讲 /chat/completions。R0015 只注册 openai，R0016 补齐。
+var providerRegistry = buildProviderRegistry()
+
+func buildProviderRegistry() map[string]Provider {
+	return map[string]Provider{
+		"openai": newOpenAIProvider(),
+	}
+}
+
+// lookupProvider resolves the Provider for a Config; unknown names fall back to
+// OpenAI-compat (the default wire most providers speak).
+//
+// lookupProvider 按 Config 解析 Provider；未知 name 回落 OpenAI-compat（多数 provider 的默认 wire）。
+func lookupProvider(cfg Config) Provider {
+	if p, ok := providerRegistry[cfg.Provider]; ok {
+		return p
+	}
+	return providerRegistry["openai"]
+}

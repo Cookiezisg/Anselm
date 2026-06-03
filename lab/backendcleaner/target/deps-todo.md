@@ -77,3 +77,11 @@
 | infra/chat extractor | `infra/chat/extractor.go`（import chatdomain） | chat（M5.2） | 依赖 chat domain，M0.5 做不了；随 chat 那轮重写 |
 | 三流 Bus 实例化 + 注入 | — | M0.7 / cmd | messages/entities 按 `stream.Bridge` 注入、notif 按 `stream.ListReader`；buffer 大小 wiring 定（旧 messages 4096 / entities·notif 1024）|
 | SSE 线缆 marshal | — | M0.7 | handler 把 `stream.Envelope` marshal 成 SSE（frame kind + node type 判别字段注入；ephemeral seq0 省 `id:` 行）；线缆形状见 stream-protocol §1-3 |
+
+## 来自波次 0 · M0.6（infra/llm 框架 R0015）
+
+| 待办 | 原位置 | 去向 | 备注 |
+|---|---|---|---|
+| trace（LLM 调用跟踪） | `infra/llm/trace.go`（`recordingClient` 依赖 `reqctx.GetConversationID`） | chat/loop（M5.2）+ dev（M7.2） | conv ctx 随 chat 重建后才能搬；dev tracing 去留 M7.2 判；factory 已去 tracer 钩子 |
+| 其余 10 provider | `infra/llm/{anthropic,gemini,deepseek,qwen,zhipu,moonshot,doubao,openrouter,ollama,custom}.go` | R0016 | **每家完整自包含 wire（不共享基座）**；anthropic/gemini 原生方言；8 家 OpenAI-compat 各自完整；逐家加 registry；`deepseekMapEffort` 等各家 helper 随各家；lookupProvider 恢复 custom+anthropic-compatible 路由 |
+| pkg llmclient/llmcost/llmparse | `pkg/{llmclient,llmcost,llmparse}` | 随 llm 完成 / 相关业务轮 | llmclient(解析 client 配置)·llmcost(费用估算)·llmparse(抽 JSON)；判保留 + 改用 backend-new llm |

@@ -76,6 +76,7 @@
 - **S13 导入别名**：所有 `internal/` 包导入必须带 `<name><role>` 别名（如 `apikeydomain`, `chatapp`）。
 - **S15 ID 宪法**：`<prefix>_<16hex>`。前缀全集（33 种）必须在 `database.md` 中登记。
 - **S18 Tool 规范**：Tool 必须实现 9 方法接口；`summary`/`destructive` 字段由 Framework 强制注入与剥离。
+- **S20 错误构造**：创建会冒泡到 HTTP 的 domain 错误一律 `errorsdomain.New(kind, code, msg)`（带 Kind→HTTP status + 稳定 wire code），**禁止**用标准库 `errors.New` 造命名错误；`errors.Is`/`errors.As`（匹配/解包）仍用标准库。
 
 ---
 
