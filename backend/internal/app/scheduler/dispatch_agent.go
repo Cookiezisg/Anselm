@@ -7,9 +7,11 @@ import (
 
 	"go.uber.org/zap"
 
+	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	chatdomain "github.com/sunweilin/forgify/backend/internal/domain/chat"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
@@ -18,12 +20,14 @@ import (
 	llmclientpkg "github.com/sunweilin/forgify/backend/internal/pkg/llmclient"
 )
 
-// AgentEntityResolver is the port AgentDispatcher uses to load an agent entity by agentRef.
-// Implements doc 02 §"节点形态": agentRef makes the node reference a managed Agent entity.
+// AgentEntityResolver is the port AgentDispatcher uses to run an agentRef node through the agent
+// service's InvokeAgent — the single execution method (mirrors dispatch_function → functionapp.RunFunction)
+// that loads the entity config, runs the ReAct loop, and records one AgentExecution. Implemented by
+// agentapp.Service. The legacy inline-config path (no agentRef) does NOT use this.
 //
-// AgentEntityResolver 是 AgentDispatcher 按 agentRef 加载 Agent 实体的端口。
+// AgentEntityResolver 是 AgentDispatcher 把 agentRef 节点交给 agent service 的 InvokeAgent 执行的端口。
 type AgentEntityResolver interface {
-	GetAgentConfig(ctx context.Context, agentRef string) (prompt string, maxTurns int, enabledTools []string, modelOverride string, err error)
+	InvokeAgent(ctx context.Context, in agentapp.InvokeInput) (*agentapp.ExecutionResult, error)
 }
 
 // AgentDispatcher runs the workflow `agent` node — an agentic ReAct loop
@@ -75,79 +79,27 @@ func NewAgentDispatcher(
 }
 
 func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) DispatchOutput {
+	cfg := in.Node.Config
+
+	// agentRef path (canonical, doc 02): route the run through the agent service's InvokeAgent — the
+	// SINGLE execution method (mirrors dispatch_function → RunFunction) that loads the entity config,
+	// runs the ReAct loop, and records one AgentExecution (triggeredBy=workflow). Sub-step replay
+	// (ADR-010) is threaded through. Checked FIRST: this path uses the agent service's own LLM deps,
+	// not the dispatcher's (picker/keys/factory below are only for the legacy inline path).
+	if agentRef, ok := cfg["agentRef"].(string); ok && agentRef != "" && d.agentResolver != nil {
+		return d.invokeViaEntity(ctx, in, agentRef)
+	}
+
+	// Legacy inline-config path: config.prompt directly on the node (no entity → no execution record).
 	if d.picker == nil || d.keys == nil || d.factory == nil {
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: missing picker/keys/factory", in.Node.ID)}
 	}
-
-	cfg := in.Node.Config
-
-	// agentRef support (doc 02 §"节点形态"): if config.agentRef is set, load prompt/maxTurns/tools
-	// from the Agent entity's active version. Falls back to inline config for backwards compat.
-	var entityMaxTurns int
-	var entityEnabledTools []string
-	var entityModelOverride string
-	if agentRef, ok := cfg["agentRef"].(string); ok && agentRef != "" && d.agentResolver != nil {
-		// Use the run ctx (carries userID) — NOT Background(): the agent store scopes Get by
-		// user_id, so Background() would fail RequireUserID and agentRef resolution would always error.
-		p, mt, et, mo, rErr := d.agentResolver.GetAgentConfig(ctx, agentRef)
-		if rErr != nil {
-			return DispatchOutput{Error: fmt.Errorf("agent node %q: resolve agentRef %q: %w", in.Node.ID, agentRef, rErr)}
-		}
-		// Override inline config with entity values.
-		cfg = make(map[string]any, len(cfg))
-		for k, v := range in.Node.Config {
-			cfg[k] = v
-		}
-		if p != "" {
-			cfg["prompt"] = p
-		}
-		entityMaxTurns = mt
-		entityEnabledTools = et
-		entityModelOverride = mo
-	}
-
 	prompt, _ := cfg["prompt"].(string)
 	if prompt == "" {
 		return DispatchOutput{Error: fmt.Errorf("agent node %q: prompt required (set config.prompt or config.agentRef)", in.Node.ID)}
 	}
-	_ = entityModelOverride // used below in model override logic when entity sets it
 
-	// Workflow agent nodes are the ONE place a turn cap stays load-bearing: a
-	// triggered workflow runs unattended, so no human can stop a runaway agent.
-	// Configurable via limits.Workflow; 0 falls back to the default — we never let
-	// an unattended agent node go unbounded (decision #2 exception).
-	//
-	// workflow agent 节点是唯一保留 turn cap 的地方：触发型 workflow 无人值守，
-	// 没人能停失控 agent。经 limits.Workflow 可配；0 回落默认——绝不让无人值守
-	// agent 节点无限。
-	wf := limitspkg.Current().Workflow
-	defTurns := wf.AgentNodeMaxTurns
-	if defTurns <= 0 {
-		defTurns = 10
-	}
-	hardTurns := wf.AgentNodeMaxTurnsHard
-	if hardTurns <= 0 {
-		hardTurns = 50
-	}
-	maxTurns := defTurns
-	if v, ok := cfg["maxTurns"]; ok {
-		switch n := v.(type) {
-		case int:
-			maxTurns = n
-		case float64:
-			maxTurns = int(n)
-		}
-	}
-	// Entity maxTurns overrides node config if set via agentRef.
-	if entityMaxTurns > 0 {
-		maxTurns = entityMaxTurns
-	}
-	if maxTurns < 1 {
-		maxTurns = 1
-	}
-	if maxTurns > hardTurns {
-		maxTurns = hardTurns
-	}
+	maxTurns := workflowMaxTurns(cfg)
 
 	atts, err := parseAttachedDocuments(cfg)
 	if err != nil {
@@ -163,10 +115,6 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 	}
 
 	enabled, _ := parseEnabledTools(cfg)
-	// Entity tools override inline config when loaded via agentRef.
-	if len(entityEnabledTools) > 0 {
-		enabled = entityEnabledTools
-	}
 	var allTools []toolapp.Tool
 	if d.toolsFn != nil {
 		allTools = d.toolsFn()
@@ -251,6 +199,89 @@ func (d *AgentDispatcher) Dispatch(ctx context.Context, in DispatchInput) Dispat
 		"tokensIn":   result.TokensIn,
 		"tokensOut":  result.TokensOut,
 	}}
+}
+
+// invokeViaEntity runs an agentRef node through the agent service's InvokeAgent (the single execution
+// method, mirrors dispatch_function → RunFunction): it loads the entity config, runs the ReAct loop,
+// and records one AgentExecution. The flowrun sub-step journal (ADR-010 replay) is threaded via
+// InvokeInput.ReplaySteps + Recorder so crash-replay still skips already-completed steps.
+//
+// invokeViaEntity 把 agentRef 节点交给 agent service 的 InvokeAgent（单一执行方法，对标 RunFunction）：
+// 加载实体配置、跑 ReAct、记一条执行；ADR-010 子步重放经 ReplaySteps/Recorder 透传。
+func (d *AgentDispatcher) invokeViaEntity(ctx context.Context, in DispatchInput, agentRef string) DispatchOutput {
+	var replay []agentapp.RecordedStep
+	var recorder agentapp.StepRecorder
+	if in.AgentSubSteps != nil {
+		for _, s := range in.AgentSubSteps.LoadSteps(ctx) {
+			replay = append(replay, agentapp.RecordedStep{Assistant: s.Assistant, ToolResults: s.ToolResults})
+		}
+		journal := in.AgentSubSteps
+		recorder = func(rctx context.Context, step int, assistant, toolResults []chatdomain.Block) {
+			journal.RecordStep(rctx, step, assistant, toolResults)
+		}
+	}
+	flowrunID := ""
+	if in.ExecCtx != nil && in.ExecCtx.Run != nil {
+		flowrunID = in.ExecCtx.Run.ID
+	}
+	res, err := d.agentResolver.InvokeAgent(ctx, agentapp.InvokeInput{
+		AgentID:       agentRef,
+		Input:         in.NodeIn,
+		TriggeredBy:   agentdomain.TriggeredByWorkflow,
+		MaxTurns:      workflowMaxTurns(in.Node.Config),
+		FlowrunID:     flowrunID,
+		FlowrunNodeID: in.Node.ID,
+		ReplaySteps:   replay,
+		Recorder:      recorder,
+	})
+	if err != nil {
+		return DispatchOutput{Error: fmt.Errorf("agent node %q: %w", in.Node.ID, err)}
+	}
+	if !res.OK {
+		return DispatchOutput{Error: fmt.Errorf("agent node %q: %s", in.Node.ID, res.ErrorMsg)}
+	}
+	return DispatchOutput{Outputs: map[string]any{
+		"out":         res.Output,
+		"status":      res.Status,
+		"stopReason":  res.StopReason,
+		"steps":       res.Steps,
+		"tokensIn":    res.TokensIn,
+		"tokensOut":   res.TokensOut,
+		"executionId": res.ExecutionID,
+	}}
+}
+
+// workflowMaxTurns is the unattended agent-node turn cap: limits.Workflow default, overridable by
+// config.maxTurns, clamped to the hard cap. The ONE place a turn cap stays load-bearing — a triggered
+// workflow runs with no human to stop a runaway agent (decision #2 exception).
+//
+// workflowMaxTurns 是无人值守 agent 节点的 turn cap：limits 默认 + config.maxTurns 覆盖 + 硬上限夹取。
+func workflowMaxTurns(cfg map[string]any) int {
+	wf := limitspkg.Current().Workflow
+	defTurns := wf.AgentNodeMaxTurns
+	if defTurns <= 0 {
+		defTurns = 10
+	}
+	hardTurns := wf.AgentNodeMaxTurnsHard
+	if hardTurns <= 0 {
+		hardTurns = 50
+	}
+	maxTurns := defTurns
+	if v, ok := cfg["maxTurns"]; ok {
+		switch n := v.(type) {
+		case int:
+			maxTurns = n
+		case float64:
+			maxTurns = int(n)
+		}
+	}
+	if maxTurns < 1 {
+		maxTurns = 1
+	}
+	if maxTurns > hardTurns {
+		maxTurns = hardTurns
+	}
+	return maxTurns
 }
 
 // agentHost is the per-dispatch loop.Host: history is a single user message

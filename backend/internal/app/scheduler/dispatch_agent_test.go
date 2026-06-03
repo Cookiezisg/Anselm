@@ -2,47 +2,58 @@ package scheduler
 
 import (
 	"context"
-	"errors"
 	"testing"
 
+	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// ctxCapturingResolver records the userID present in the ctx it receives, then errors to
-// short-circuit Dispatch before the LLM path.
-type ctxCapturingResolver struct{ gotUID string }
-
-func (r *ctxCapturingResolver) GetAgentConfig(ctx context.Context, _ string) (string, int, []string, string, error) {
-	r.gotUID, _ = reqctxpkg.GetUserID(ctx)
-	return "", 0, nil, "", errors.New("stop-before-llm")
+// captureInvoker records the InvokeInput + the ctx userID the dispatcher hands InvokeAgent.
+type captureInvoker struct {
+	gotInput agentapp.InvokeInput
+	gotUID   string
 }
 
-// TestAgentDispatch_PassesUserCtxToResolver is the regression guard for the agentRef bug: the
-// dispatcher must pass the run ctx (carrying userID) to GetAgentConfig, NOT context.Background().
-// The agent store scopes Get by user_id, so Background() made every agentRef node fail with
-// "missing user id". Before the fix gotUID == "" (Background); after, it is the run's userID.
-// Reuses fakeAgentPicker/fakeKeyProvider (dispatchers_capability_test.go) so the nil-guard passes
-// and Dispatch reaches the resolver.
-func TestAgentDispatch_PassesUserCtxToResolver(t *testing.T) {
-	d := NewAgentDispatcher(&fakeAgentPicker{}, fakeKeyProvider{}, llminfra.NewFactory(), nil, nil, nil)
-	res := &ctxCapturingResolver{}
-	d.SetAgentResolver(res)
+func (r *captureInvoker) InvokeAgent(ctx context.Context, in agentapp.InvokeInput) (*agentapp.ExecutionResult, error) {
+	r.gotUID, _ = reqctxpkg.GetUserID(ctx)
+	r.gotInput = in
+	return &agentapp.ExecutionResult{OK: true, Output: "done", Status: agentdomain.ExecutionStatusOK}, nil
+}
+
+// TestAgentDispatch_AgentRefRoutesToInvokeAgent verifies an agentRef node routes through the agent
+// service's InvokeAgent (single execution method, mirrors dispatch_function → RunFunction) with the
+// run ctx (carries userID), agentRef, workflow trigger, and node payload.
+func TestAgentDispatch_AgentRefRoutesToInvokeAgent(t *testing.T) {
+	d := NewAgentDispatcher(&fakeAgentPicker{}, fakeKeyProvider{}, nil, nil, nil, nil)
+	inv := &captureInvoker{}
+	d.SetAgentResolver(inv)
 
 	ctx := reqctxpkg.SetUserID(context.Background(), "u_test")
 	out := d.Dispatch(ctx, DispatchInput{
-		Node: workflowdomain.NodeSpec{
-			ID:     "a",
-			Type:   workflowdomain.NodeTypeAgent,
-			Config: map[string]any{"agentRef": "ag_x"},
-		},
+		Node:   workflowdomain.NodeSpec{ID: "n1", Type: workflowdomain.NodeTypeAgent, Config: map[string]any{"agentRef": "ag_x"}},
+		NodeIn: map[string]any{"text": "hello"},
+		ExecCtx: &ExecutionContext{Run: &flowrundomain.FlowRun{ID: "fr_1"}},
 	})
 
-	if res.gotUID != "u_test" {
-		t.Errorf("resolver received userID %q, want u_test — dispatcher passed Background() instead of the run ctx", res.gotUID)
+	if out.Error != nil {
+		t.Fatalf("unexpected dispatch error: %v", out.Error)
 	}
-	if out.Error == nil {
-		t.Errorf("expected the resolver error to propagate as the dispatch error")
+	if inv.gotUID != "u_test" {
+		t.Errorf("InvokeAgent ctx userID = %q, want u_test (dispatcher must pass the run ctx)", inv.gotUID)
+	}
+	if inv.gotInput.AgentID != "ag_x" {
+		t.Errorf("InvokeInput.AgentID = %q, want ag_x", inv.gotInput.AgentID)
+	}
+	if inv.gotInput.TriggeredBy != agentdomain.TriggeredByWorkflow {
+		t.Errorf("InvokeInput.TriggeredBy = %q, want workflow", inv.gotInput.TriggeredBy)
+	}
+	if inv.gotInput.FlowrunID != "fr_1" || inv.gotInput.FlowrunNodeID != "n1" {
+		t.Errorf("InvokeInput flowrun=%q node=%q, want fr_1/n1", inv.gotInput.FlowrunID, inv.gotInput.FlowrunNodeID)
+	}
+	if inv.gotInput.Input["text"] != "hello" {
+		t.Errorf("InvokeInput.Input not forwarded: %+v", inv.gotInput.Input)
 	}
 }

@@ -63,7 +63,7 @@ audience: [human, ai]
 - **handler**：`postOnAgent` 加 `:invoke`/`:revert`；新增 `GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
 - **接线**：main.go/harness 改 import + `SetInvokeDeps` + `lazyGroups`（删 accept、加 4）；errmap 加两 sentinel。
 - **测试**：`tool/agent` create/search/get 端到端；`app/agent` Revert + executions（search/get/aggregates/not-found）。`make unit`/`make mock`/`go vet` 全绿。
-- **跟进（Task #13）**：workflow agent 节点（dispatch_agent）落表——待 flowrunId 接进新解释器后路由进 `InvokeAgent`。
+- **workflow 节点落表**：`dispatch_agent` 见 `config.agentRef` 即路由进 `InvokeAgent`（`triggeredBy=workflow` + flowrunId/nodeId），workflow 触发的执行同样落 `agent_executions`——对标 function workflow 节点经 `RunFunction` 落表；`AgentEntityResolver` 端口收敛为单方法 `InvokeAgent`，ADR-010 子步重放经 `ReplaySteps`+`Recorder` 透传。裸 `config.prompt` 内联节点无实体、沿用旧 loop、不落表。e2e `TestWorkflow_AgentRefNode_RecordsExecution_E2E` 守门。
 
 ---
 

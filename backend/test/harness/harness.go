@@ -67,6 +67,7 @@ import (
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
@@ -185,6 +186,7 @@ type Harness struct {
 	Conversation *convapp.Service
 	Function     *functionapp.Service
 	Handler      *handlerapp.Service
+	Agent        *agentapp.Service
 	Workflow     *workflowapp.Service
 	Scheduler    *schedulerapp.Service
 	Trigger      *triggerapp.Service
@@ -260,6 +262,9 @@ func New(t *testing.T, opts ...Option) *Harness {
 		&handlerdomain.Handler{},
 		&handlerdomain.Version{},
 		&handlerdomain.Call{},
+		&agentdomain.Agent{},
+		&agentdomain.AgentVersion{},
+		&agentdomain.AgentExecution{},
 		&workflowdomain.Workflow{},
 		&workflowdomain.Version{},
 		&flowrundomain.FlowRun{},
@@ -632,10 +637,12 @@ func New(t *testing.T, opts ...Option) *Harness {
 		schedulerapp.NewDefaultLLMCaller(modelService, apikeyService, llmFactory),
 		documentService,
 	))
-	router.Set(workflowdomain.NodeTypeAgent, schedulerapp.NewAgentDispatcher(
+	agentDisp := schedulerapp.NewAgentDispatcher(
 		modelService, apikeyService, llmFactory,
 		documentService, func() []toolapp.Tool { return tools }, log,
-	))
+	)
+	agentDisp.SetAgentResolver(agentService) // agentRef nodes route through agentService.InvokeAgent
+	router.Set(workflowdomain.NodeTypeAgent, agentDisp)
 	router.Set(workflowdomain.NodeTypeHTTP, schedulerapp.NewHTTPDispatcher(nil))
 	router.Set(workflowdomain.NodeTypeCondition, schedulerapp.NewConditionDispatcher())
 	router.Set(workflowdomain.NodeTypeLoop, schedulerapp.NewLoopDispatcher(schedulerService))
@@ -740,6 +747,7 @@ func New(t *testing.T, opts ...Option) *Harness {
 		Conversation:        convService,
 		Function:            functionService,
 		Handler:             handlerService,
+		Agent:               agentService,
 		Workflow:            workflowService,
 		Scheduler:           schedulerService,
 		Trigger:             triggerService,

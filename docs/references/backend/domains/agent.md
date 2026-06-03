@@ -96,9 +96,9 @@ Agent 的工具/端点面与 function **完全对称**（一文件一工具，`a
 
 **HTTP 端点**（对标 function handler）：`POST /agents/{id}:invoke`（真跑）、`POST /agents/{id}:revert`、`GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
 
-**执行落表**：`InvokeAgent` 是唯一执行方法（invoke_agent 工具 / HTTP :invoke 都经它），每次跑完写一条 `agent_executions`（`agx_` 前缀，字段对标 `function_executions`：status/triggeredBy/input/output/elapsedMs/conversationId/flowrunId 等）。Service 持有 LLM 依赖（picker/keys/factory/toolsFn/knowledge），经 `SetInvokeDeps` 注入——正如 function service 持有 sandbox 端口。
+**执行落表**：`InvokeAgent` 是唯一执行方法（invoke_agent 工具 / HTTP :invoke / workflow agent 节点都经它），每次跑完写一条 `agent_executions`（`agx_` 前缀，字段对标 `function_executions`：status/triggeredBy/input/output/elapsedMs/conversationId/flowrunId 等）。Service 持有 LLM 依赖（picker/keys/factory/toolsFn/knowledge），经 `SetInvokeDeps` 注入——正如 function service 持有 sandbox 端口。
 
-> **跟进**：workflow agent 节点（`dispatch_agent`）目前走自己的 loop（含 ADR-010 子步重放），尚未经 `InvokeAgent` 落表；待把 flowrunId 接进新解释器后路由进 `InvokeAgent`，workflow 触发的执行也进 `agent_executions`（对标 function workflow 节点经 RunFunction 落表）。
+> **Workflow agent 节点**：`dispatch_agent` 见 `config.agentRef` 即路由进 `InvokeAgent`（`triggeredBy=workflow` + `flowrunId/flowrunNodeId`），workflow 触发的执行同样落 `agent_executions`——对标 function workflow 节点经 `RunFunction` 落表。ADR-010 子步重放经 `InvokeInput.ReplaySteps`+`Recorder` 透传，崩溃重放仍快进到最后一个未完成子步。（裸 `config.prompt` 内联节点无实体，沿用旧内联 loop，不落表。）
 
 ## 3. 生命周期 (Lifecycle)
 
