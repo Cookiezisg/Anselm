@@ -9,7 +9,7 @@
 | model override ctx | `reqctx/modeloverride.go`（🔴 曾让 reqctx → `domain/model` 反向依赖） | model（M1.3） | `WithModelOverride`/`GetModelOverride`；在 model 模块重建其 ctx 透传 |
 | agent state ctx | `reqctx/agentstate.go` | agent/loop（M2.2/M3.4） | `WithAgentState`/`GetAgentState` + `pkg/agentstate` 去留判定 |
 | 对话/执行标识 ctx | `reqctx/agentrun.go` | chat/loop/eventlog（M2.2/M5.2） | conversationID·messageID·toolCallID·parentBlockID·subagentDepth；判定是否仍走 ctx 透传、放哪一层 |
-| ID 前缀 → 实体类型 | `idgen/prefix.go` | relation/wikilink（M1.4） | `KindByPrefix`/`KindForID`（wikilink 解析才关心实体类型） |
+| ID 前缀 → 实体类型 | `idgen/prefix.go` | **仅 relation（M1.4）** | `KindByPrefix`/`KindForID`；值 = `relationdomain.EntityKind*`。wikilink 已剥离 Kind（R0005），不再是消费者 |
 | HTTP 分页解析 | `pagination`（曾 import `net/http` + `domain/errors`） | transport 框架（M0.7） | `Parse(*http.Request)` + `DefaultLimit`/`MaxLimit`；把 `pagination.ErrMalformedCursor` 映射到 `domain/errors.ErrInvalidRequest` |
 
 ## 来自波次 0 · M0.1（userpath 判定删除 R0004）
@@ -21,3 +21,13 @@
 | app 资源文件根布局 | `userpath.UserHome` → `~/.forgify/users/<uid>/` | workspace（M1.1） | 重定 `~/.forgify/` 下 mcp.json/skills/settings.json/catalog 布局；**删 users/local-user 层**；是否按 workspace 分桶由 workspace 物理模型定 |
 | 历史迁移 | `userpath.MigrateLegacy`（迁 mcp.json/skills/.catalog.json/settings.json） | 删，无去向 | 项目未上线 + 无数据保留 → 无 legacy 可迁 |
 | cmd/server 装配残留 | `main.go`：`legacyDefaultUserDir="local-user"`、`MigrateLegacy` 调用、"切换 user/V1.5 按 user 重建"注释 | cmd/server（M7.1） | 全删；`SetUserID(ctx,"local-user")`→ boot workspace；mcp/skill/settings 路径改走 M1.1 布局；清 `V1.2 §3` 注释 |
+
+## 来自波次 0 · M0.1（wikilink 剥成纯抽取 R0005）
+
+`wikilink.Parse` 去掉 Kind 解析（`[]ParsedRef{Kind,ID,Count}` → `[]Ref{ID,Count}`）、去 idgen 依赖，变纯文本抽取。是**内部 Go API** 变更，影响 document（M1.10）内部依赖，**不进 contract-changes.md**。连带：
+
+| 移出内容 | 原位置 | 去向 | 备注 |
+|---|---|---|---|
+| 前缀 → EntityKind 映射 + `KindForID` | wikilink（曾经经 idgen.KindByPrefix） | relation domain（M1.4） | relation 持 `EntityKind` 常量 + 前缀映射 + `KindForID(id)(EntityKind,bool)` |
+| 未知前缀过滤 + Kind 解析 | `wikilink.Parse` | document（M1.10） | document 拿 wikilink 的 ID → `relation.KindForID` 解析 Kind + 过滤 + 跳过自链，再建 `SyncEdge` |
+| Kind 映射测试用例 | wikilink_test（`DropsUnknownPrefix` / `AllSupportedPrefixes`） | relation（M1.4）测试 | 验前缀→EntityKind 全集；wikilink 侧已用 `ReturnsAllIdShapedTokens` 固定「不过滤」新语义 |

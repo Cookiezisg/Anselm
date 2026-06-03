@@ -38,13 +38,13 @@
 | M1.1 | `workspace`（原 `user` 正名） | — | 隔离标识 = workspace_id；`/users`→`/workspaces`；接手 userpath 删除后的 app 资源文件根布局（删 users/local-user 层 + MigrateLegacy，见 deps-todo R0004）|
 | M1.2 | `apikey` | domain/crypto | |
 | M1.3 | `model` | domain/apikey | ⚠️ `infra/store/modelcapoverride` + `pkg/modelcaps`（旧 model 范式残留） |
-| M1.4 | `relation` | — | 横切（实体关系图） |
+| M1.4 | `relation` | — | 横切（实体关系图）；**持 `EntityKind` 常量 + 前缀→EntityKind 映射 + `KindForID`**（原 idgen.KindByPrefix，见 deps-todo R0005）|
 | M1.5 | `catalog` | — | 核心：被超多模块依赖（trinity catalog 源），重点审实现 |
 | M1.6 | `mention` | — | |
 | M1.7 | `memory` | domain/errors | |
 | M1.8 | `sandbox` | infra/sandbox | 边界：mise binaries = generated |
 | M1.9 | `permissions` / `hooks` | — | |
-| M1.10 | `document` | catalog, relation, mention | LLM-ranked attach（**无 RAG**），Notion 树 |
+| M1.10 | `document` | catalog, relation, mention | LLM-ranked attach（**无 RAG**），Notion 树；relations 消费 `wikilink.Parse`(去 Kind) + `relation.KindForID` 解析/过滤（deps-todo R0005）|
 | M1.11 | `todo` | — | ⚠️ 待判定：是否 Quadrinity/agent 真需要 |
 
 ### 波次 2 — tool 基础 + 执行原语
