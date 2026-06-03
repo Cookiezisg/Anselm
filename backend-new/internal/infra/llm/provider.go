@@ -98,6 +98,7 @@ func buildProviderRegistry() map[string]Provider {
 	return map[string]Provider{
 		"openai":    newOpenAIProvider(),
 		"anthropic": newAnthropicProvider(),
+		"google":    newGeminiProvider(),
 	}
 }
 

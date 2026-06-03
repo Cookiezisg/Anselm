@@ -5,7 +5,7 @@
 进度（11 provider 总）：
 - ✅ **openai**（R0015）
 - ✅ **anthropic** — 原生方言：`/v1/messages`、x-api-key、**命名事件 SSE**（不能用 scanSSELines，自己 bufio 扫 `event:`+`data:`）、thinking budget + **signature round-trip**、cache_control 断点、block-form messages。去 `modelcatalog` 依赖（max_tokens 改 `Request.MaxTokens`，caller 从 catalog 填）；去 `slog`（malformed 历史 args 静默 fallback `{}`）；strip TE-25/03 §4 历史。
-- ⬜ **gemini**（原生 generateContent）
+- ✅ **gemini** — 原生 generateContent：model-in-path、x-goog-api-key、**thought parts + thoughtSignature round-trip**、functionCall/Response（按 name 配对，从前序 tool_call 反查名）、thinkingConfig（budget/-1 动态/level）。去 modelcatalog（maxOutputTokens → `Request.MaxTokens`）；**内联自己的 data-URL 处理**（不依赖 anthropic 的 helper）；去 slog；strip TE-25/03 §5。
 - ⬜ **deepseek / qwen / zhipu / moonshot / doubao / openrouter / ollama / custom**（8 家 OpenAI-compat，各自完整）
 
 每家通用动作：strip 历史叙述、error 内聚 `domain/errors` sentinel、各家 wire 类型/msg 编码/chunk 解析自包含、注册 registry、单元/golden 测试。
@@ -16,4 +16,4 @@
 
 验证（累计）：`gofmt -l` 空 / `go build ./...` / `go vet` / `go test` 全绿。
 
-下一步：gemini（原生方言），然后 8 家 OpenAI-compat（各自完整）。
+下一步：8 家 OpenAI-compat（deepseek/qwen/zhipu/moonshot/doubao/openrouter/ollama/custom），各自完整自包含、差异主要在 thinking 编码 + 各家怪癖（流内错误信封、字段名等）。
