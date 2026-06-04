@@ -29,7 +29,7 @@
 | M0.4 | `domain/errors` · `domain/stream`(协议核心) · `domain/messages` `domain/entities` `domain/notifications` | 横切契约；SSE 三流**统一流式树协议**：stream 定 Envelope/Frame/Node/Bridge，三流各挂 Node 词表（见 `stream-protocol.md`） | eventlog→messages · forge→entities |
 | M0.5 | `infra/stream`(单一 `Bus`) | SSE 三流底座：单一 `Bus`(seq + frame 分级 buffer + fanout)实例化三次 = messages/entities/notifications。`infra/chat`(extractor) 依赖 chat domain → **移交 M5.2** | frame 分级：delta/tick=ephemeral 不入 buffer；close 带快照；D2=workspace 全量推 |
 | M0.6 | `infra/llm` | 自有 provider 客户端 + factory。**R0015 框架+openai · R0016 其余 10 provider** | 边界：wire 格式冻结；**每家完整自包含、不共享 wire 基座**（duplication < wrong abstraction）；mock 留测试；trace 推迟 M5.2/M7 |
-| M0.7 | transport 框架：`httpapi/response`(envelope N1) `middleware` `router` + pagination `Parse`/limit 策略 | — | **从波次 7 上移**：所有业务域 handler 的地基 |
+| M0.7 ✅ R0017 | transport 框架：`response`(N1+errmap 塌缩 statusForKind+SSE marshal+pagination Parse) · `middleware`(workspace+5 标准件) · `router`(recorder+chain) | — | 零业务依赖框架；**完整 New(装配所有 handler)+Deps 容器+health → cmd/server M7** |
 
 ### 波次 1 — 叶子业务域（只依赖地基）
 

@@ -84,5 +84,15 @@
 |---|---|---|---|
 | trace（LLM 调用跟踪） | `infra/llm/trace.go`（`recordingClient` 依赖 `reqctx.GetConversationID`） | chat/loop（M5.2）+ dev（M7.2） | conv ctx 随 chat 重建后才能搬；dev tracing 去留 M7.2 判；factory 已去 tracer 钩子 |
 | ~~其余 provider~~ ✅ R0016 完成 | — | — | 11 家全部移植（含 7 家 workflow 并行）、自包含 + -race + 合规绿 |
+
+## 来自波次 0 · M0.7（transport 框架 R0017）
+
+| 待办 | 原位置 | 去向 | 备注 |
+|---|---|---|---|
+| 完整 `router.New` + Deps 容器 | 旧 router.go 装配所有 handler + deps.go 容器 | cmd/server（M7.1） | 依赖整个 app；M0.7 只建 `Chain`+`Recorder` 框架；M7 构造 mux + 注册所有 handler + 过 Chain |
+| auth `WorkspaceResolver` 实现 + 注入 | `middleware.WorkspaceResolver`(本地接口) | workspace（M1.1）实现 + M7 注入 | M1.1 workspace service 实现 `Validate(ctx,id)error`；M7 wiring 把它注入 `IdentifyWorkspace` |
+| health handler | 旧 handlers/health | M7 / workspace 轮 | `GET /api/v1/health`；框架就绪，handler 随 M7 |
+| stream handler（messages/entities/notifications） | 旧 handlers/{eventlog,forge,notifications} | 各业务（chat M5.2 / 实体各轮 / 通知） | 各 SSE 端点 handler 用 `StreamSSE` + `WriteStreamEnvelope`；随业务垂直切片 |
+| 信息端点(providers/scenarios/capabilities/usage/...) | 旧 handlers | M7.2 逐个判定 | AI 加的信息端点去留 |
 | `Request.MaxTokens` 由 caller 填 | provider 不读 catalog | caller（app/loop/chat 接线时） | anthropic `max_tokens` 用；caller 从 model catalog（M1.5）查 MaxOutput 填 `Request.MaxTokens`；0 → provider 默认。去除了 infra/llm → modelcatalog 依赖 |
 | pkg llmclient/llmcost/llmparse | `pkg/{llmclient,llmcost,llmparse}` | 随 llm 完成 / 相关业务轮 | llmclient(解析 client 配置)·llmcost(费用估算)·llmparse(抽 JSON)；判保留 + 改用 backend-new llm |

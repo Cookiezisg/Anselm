@@ -4,7 +4,7 @@
 
 ## 当前
 
-- **阶段**：Phase 2 逐模块 — 波次 0 进行中。
+- **阶段**：Phase 2 逐模块 — **波次 0（地基层）全部完成**，进波次 1（叶子业务域）。
 - **分支**：`main`（backend-new 平行重写不需要分支）。
 - **策略**：`backend-new/` 平行重建 → 覆盖回 `backend/` → 调前端/testend 兼容。
 
@@ -25,7 +25,7 @@
 状态：⬜ pending ｜ 🔧 doing ｜ ✅ done ｜ ⏭️ 判定删除/合并
 
 - **Phase 1 骨架** ✅：`backend-new/` + 空 go.mod + health server + smoke。
-- **波次0 地基**：M0.1 pkg ✅（**reqctx/idgen/pagination ✅** R0001；**tokencount ✅** R0002；**pathguard ✅** R0003；**userpath ⏭️删** R0004；**wikilink ✅** R0005；**jsonrepair ✅** R0006；**limits ✅** R0007；modelcaps/modelcatalog 移交 M1.3）· M0.2 数据库层 ✅（**pkg/orm R0008 · db 网关 R0009**；业务表 DDL 分散各模块）· M0.3 ✅（**logger R0010 · crypto R0011**）· M0.4 ✅：**errors R0012** · **stream 统一协议 R0013**（单一 domain/stream：信封+四动词Frame+通用 Node{Type,Content}+Bridge/ListReader；词表下放业务）· M0.5 ✅ infra **stream bus（单一 Bus）R0014**（实例化三次=三流；frame 分级；D2 全量推；infra/chat extractor 移交 M5.2）· M0.6 llm ✅（**R0015 框架+openai · R0016 其余 10 provider**；11 家全自包含、-race+合规绿）· M0.7 transport 框架 ⬜
+- **波次0 地基**：M0.1 pkg ✅（**reqctx/idgen/pagination ✅** R0001；**tokencount ✅** R0002；**pathguard ✅** R0003；**userpath ⏭️删** R0004；**wikilink ✅** R0005；**jsonrepair ✅** R0006；**limits ✅** R0007；modelcaps/modelcatalog 移交 M1.3）· M0.2 数据库层 ✅（**pkg/orm R0008 · db 网关 R0009**；业务表 DDL 分散各模块）· M0.3 ✅（**logger R0010 · crypto R0011**）· M0.4 ✅：**errors R0012** · **stream 统一协议 R0013**（单一 domain/stream：信封+四动词Frame+通用 Node{Type,Content}+Bridge/ListReader；词表下放业务）· M0.5 ✅ infra **stream bus（单一 Bus）R0014**（实例化三次=三流；frame 分级；D2 全量推；infra/chat extractor 移交 M5.2）· M0.6 llm ✅（11 家 provider）· **M0.7 transport ✅ R0017**（response N1+errmap 塌缩+SSE marshal · middleware workspace · router 框架；完整 New→M7）· **波次 0 收官 ✅**
 - **波次1 叶子域**：M1.1 workspace(原 user) ⬜ · M1.2 apikey ⬜ · M1.3 model ⬜ · M1.4 relation ⬜ · M1.5 catalog ⬜ · M1.6 mention ⬜ · M1.7 memory ⬜ · M1.8 sandbox ⬜ · M1.9 permissions/hooks ⬜ · M1.10 document ⬜ · M1.11 todo ⬜(待判定)
 - **波次2 tool+原语**：tool ⬜ · loop ⬜ · tool/filesystem·search·web·toolset ⬜
 - **波次3 Quadrinity**：function·handler·subagent·agent·skill·mcp + tool 适配器组 ⬜
@@ -36,4 +36,4 @@
 
 ## 下一步
 
-- **M0.7（下一轮）**：transport 框架——`httpapi/response`(envelope N1) + `middleware` + `router` + pagination `Parse`/limit（所有业务 handler 的地基）；errmap 塌缩成 `statusForKind`（零 domain import）；SSE 线缆 marshal（frame/node 判别字段注入）。`modelcaps`/`modelcatalog` 移交 M1.3。
+- **波次 1（下一轮）**：M1.1 workspace（原 user 正名）——隔离标识 = workspace_id；`/users`→`/workspaces`；接手 userpath 删除后的 app 资源根布局（删 users/local-user 层 + MigrateLegacy，deps-todo R0004）；实现 auth `WorkspaceResolver`（M0.7 留的端口）。`modelcaps`/`modelcatalog` 移交 M1.3。
