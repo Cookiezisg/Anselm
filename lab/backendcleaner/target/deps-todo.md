@@ -96,3 +96,14 @@
 | 信息端点(providers/scenarios/capabilities/usage/...) | 旧 handlers | M7.2 逐个判定 | AI 加的信息端点去留 |
 | `Request.MaxTokens` 由 caller 填 | provider 不读 catalog | caller（app/loop/chat 接线时） | anthropic `max_tokens` 用；caller 从 model catalog（M1.5）查 MaxOutput 填 `Request.MaxTokens`；0 → provider 默认。去除了 infra/llm → modelcatalog 依赖 |
 | pkg llmclient/llmcost/llmparse | `pkg/{llmclient,llmcost,llmparse}` | 随 llm 完成 / 相关业务轮 | llmclient(解析 client 配置)·llmcost(费用估算)·llmparse(抽 JSON)；判保留 + 改用 backend-new llm |
+
+## 来自波次 1 · M1.1（workspace 正名 R0018）
+
+| 待办 | 原位置 | 去向 | 备注 |
+|---|---|---|---|
+| boot 默认 workspace | cmd/server | M7.1 | `Count()==0 → Create("默认工作区")`；前端 onboarding 经 List 拿到（**无固定 id**；EnsureExists 已删）|
+| `WorkspaceResolver` 注入 | `app/workspace.Service.Validate`（已实现） | M7.1 | wiring 把 Service 注入 `middleware.IdentifyWorkspace`（M0.7 留的端口）|
+| `~/.forgify/` 共享资源布局 | 旧 userpath（已删） | M7.1 | mcp.json/skills/settings/catalog **共享一份不分桶**（workspace=数据边界非文件边界，R0018 决策）；落地 boot 路径 |
+| workspaces DDL 收集 | `infra/store/workspace.Schema`（`[]string`） | M7.1 | cmd/server 收集各模块 `Schema` 传 `db.Migrate` |
+| `settings.json` ↔ workspace 偏好边界 | `settingsinfra` | settings 模块轮 | 判哪些偏好归 workspace 行、哪些留文件；`Language` 已进 workspace（第一个）|
+| 通用 `validate` 包（观察点，**未建**） | — | ≥2 模块共享格式校验时 | 现 0 跨模块校验需求（wikilink 正则是私有实现）；YAGNI，勿提前建、勿污染 wikilink 语义 |

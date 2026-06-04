@@ -101,3 +101,39 @@ func TestDelete_SoftThenNotFound(t *testing.T) {
 		t.Error("deleted_at should be set after soft delete")
 	}
 }
+
+func TestCreate_UniqueConflict_TranslatesToErrConflict(t *testing.T) {
+	db, ctx := newTestDB(t)
+	if _, err := db.handle().ExecContext(ctx, uniqItemSchema); err != nil {
+		t.Fatalf("schema: %v", err)
+	}
+	repo := For[uniqItem](db, "uniq_items")
+
+	if err := repo.Create(ctx, &uniqItem{ID: "ui_1", Name: "dup"}); err != nil {
+		t.Fatalf("first create: %v", err)
+	}
+	// Second insert collides on the UNIQUE(name) index → driver error must be
+	// translated, not leaked, so stores match orm.ErrConflict (not SQLite text).
+	err := repo.Create(ctx, &uniqItem{ID: "ui_2", Name: "dup"})
+	if !errors.Is(err, ErrConflict) {
+		t.Errorf("duplicate-name Create: err = %v, want ErrConflict", err)
+	}
+}
+
+func TestSave_UniqueConflict_TranslatesToErrConflict(t *testing.T) {
+	db, ctx := newTestDB(t)
+	if _, err := db.handle().ExecContext(ctx, uniqItemSchema); err != nil {
+		t.Fatalf("schema: %v", err)
+	}
+	repo := For[uniqItem](db, "uniq_items")
+
+	if err := repo.Save(ctx, &uniqItem{ID: "ui_1", Name: "dup"}); err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	// Save is ON CONFLICT(pk) DO UPDATE — that catches only the pk, so a second
+	// row with a different pk but the same UNIQUE(name) still surfaces a conflict.
+	err := repo.Save(ctx, &uniqItem{ID: "ui_2", Name: "dup"})
+	if !errors.Is(err, ErrConflict) {
+		t.Errorf("duplicate-name Save (non-pk unique): err = %v, want ErrConflict", err)
+	}
+}

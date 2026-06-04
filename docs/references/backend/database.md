@@ -18,7 +18,7 @@ audience: [human, ai]
 
 | Domain | Table | Prefix | GORM Model |
 |---|---|---|---|
-| **Identity** | `users` | `u_` | `User` |
+| **Identity** | `workspaces` | `ws_` | `Workspace` |
 | | `api_keys` | `aki_` | `APIKey` |
 | | `model_configs` | `mc_` | `ModelConfig` |
 | **Messaging**| `conversations` | `cv_` | `Conversation` |
@@ -59,13 +59,17 @@ audience: [human, ai]
 
 ### 2.1 Identity & Settings
 ```go
-type User struct {
-    ID          string         `gorm:"primaryKey;type:text" json:"id"`
-    Username    string         `gorm:"not null;uniqueIndex;type:text" json:"username"`
-    DisplayName string         `gorm:"type:text;default:''" json:"displayName"`
-    AvatarColor string         `gorm:"type:text;default:''" json:"avatarColor"`
-    Language    string         `gorm:"type:text;default:'zh-CN';check:language IN ('zh-CN','en')" json:"language"`
-    LastUsedAt  time.Time      `json:"lastUsedAt"`
+// workspaces — the isolation root: the one business table with NO workspace_id.
+// backend-new style: plain struct + lightweight db tags (GORM removed).
+type Workspace struct {
+    ID          string     `db:"id,pk" json:"id"`
+    Name        string     `db:"name" json:"name"`                          // free-form display label; UNIQUE(name) WHERE deleted_at IS NULL
+    AvatarColor string     `db:"avatar_color" json:"avatarColor,omitempty"`
+    Language    string     `db:"language" json:"language"`                  // CHECK IN ('zh-CN','en'), default 'zh-CN'
+    LastUsedAt  *time.Time `db:"last_used_at" json:"lastUsedAt,omitempty"`
+    CreatedAt   time.Time  `db:"created_at,created" json:"createdAt"`
+    UpdatedAt   time.Time  `db:"updated_at,updated" json:"updatedAt"`
+    DeletedAt   *time.Time `db:"deleted_at,deleted" json:"-"`
 }
 type APIKey struct {
     ID           string         `gorm:"primaryKey;type:text" json:"id"`

@@ -27,7 +27,7 @@ func (r *Repo[T]) Create(ctx context.Context, v *T) error {
 	stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
 		r.table, strings.Join(cols, ", "), placeholders(len(cols)))
 	if _, err := r.db.handle().ExecContext(ctx, stmt, vals...); err != nil {
-		return fmt.Errorf("orm: create: %w", err)
+		return writeErr("create", err)
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (r *Repo[T]) Save(ctx context.Context, v *T) error {
 	stmt := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(%s) DO UPDATE SET %s",
 		r.table, strings.Join(cols, ", "), placeholders(len(cols)), r.meta.pk.name, strings.Join(sets, ", "))
 	if _, err := r.db.handle().ExecContext(ctx, stmt, vals...); err != nil {
-		return fmt.Errorf("orm: save: %w", err)
+		return writeErr("save", err)
 	}
 	return nil
 }

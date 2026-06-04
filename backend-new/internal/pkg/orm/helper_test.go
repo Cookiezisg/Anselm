@@ -60,6 +60,29 @@ func newTestDB(t *testing.T) (*DB, context.Context) {
 
 func widgets(db *DB) *Repo[widget] { return For[widget](db, "widgets") }
 
+// uniqItem exercises a UNIQUE-constrained column, for conflict-translation tests.
+//
+// uniqItem 覆盖带 UNIQUE 约束的列，用于冲突翻译测试。
+type uniqItem struct {
+	ID          string     `db:"id,pk"`
+	WorkspaceID string     `db:"workspace_id,ws"`
+	Name        string     `db:"name"`
+	CreatedAt   time.Time  `db:"created_at,created"`
+	UpdatedAt   time.Time  `db:"updated_at,updated"`
+	DeletedAt   *time.Time `db:"deleted_at,deleted"`
+}
+
+const uniqItemSchema = `
+CREATE TABLE uniq_items (
+	id           TEXT PRIMARY KEY,
+	workspace_id TEXT NOT NULL,
+	name         TEXT NOT NULL,
+	created_at   DATETIME,
+	updated_at   DATETIME,
+	deleted_at   DATETIME,
+	UNIQUE(name)
+)`
+
 // mustCreate seeds one widget or fails the test.
 //
 // mustCreate 播种一个 widget，失败即终止测试。

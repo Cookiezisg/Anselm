@@ -214,12 +214,12 @@ audience: [human, ai]
 | PATCH | `/api/v1/api-keys/{id}` | `apikey.go` |
 | DELETE | `/api/v1/api-keys/{id}` | `apikey.go` |
 | POST | `/api/v1/api-keys/{idAction}` | `apikey.go` | (:test) |
-| GET | `/api/v1/users` | `users.go` |
-| POST | `/api/v1/users` | `users.go` |
-| GET | `/api/v1/users/{id}` | `users.go` |
-| PATCH | `/api/v1/users/{id}` | `users.go` |
-| DELETE | `/api/v1/users/{id}` | `users.go` |
-| POST | `/api/v1/users/{idAction}` | `users.go` | (:activate) |
+| GET | `/api/v1/workspaces` | `workspaces.go` |
+| POST | `/api/v1/workspaces` | `workspaces.go` |
+| GET | `/api/v1/workspaces/{id}` | `workspaces.go` |
+| PATCH | `/api/v1/workspaces/{id}` | `workspaces.go` |
+| DELETE | `/api/v1/workspaces/{id}` | `workspaces.go` |
+| POST | `/api/v1/workspaces/{idAction}` | `workspaces.go` | (:activate) |
 
 ### 6.2 Utility & Metrics
 | Method | Path | 文件源 |

@@ -29,8 +29,8 @@ audience: [human, ai]
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
 | `errorsdomain.ErrInvalidRequest` | `INVALID_REQUEST` | 400 | 通用请求格式/逻辑校验失败 |
-| `errorsdomain.ErrUnauthorizedNoUser` | `UNAUTH_NO_USER` | 401 | 缺少 X-Forgify-User-ID |
-| `reqctxpkg.ErrMissingUserID` | `INTERNAL_ERROR` | 500 | [未映射] 中间件丢失 userID |
+| `errorsdomain.ErrUnauthorizedNoWorkspace` | `UNAUTH_NO_WORKSPACE` | 401 | 缺少 X-Forgify-Workspace-ID |
+| `reqctxpkg.ErrMissingWorkspaceID` | `INTERNAL_ERROR` | 500 | [未映射] 中间件丢失 workspaceID |
 | `reqctxpkg.ErrMissingConversationID`| `INTERNAL_ERROR` | 500 | [未映射] 中间件丢失 convID |
 | `cryptoinfra.ErrUnsupportedVersion` | `INTERNAL_ERROR` | 500 | [未映射] 密文版本不受支持 |
 | `context.Canceled` | `CLIENT_CLOSED` | 499 | 客户端断开连接 |
@@ -206,12 +206,12 @@ audience: [human, ai]
 | `modeldomain.ErrModelIDRequired` | `MODEL_ID_REQUIRED` | 400 | |
 | `permdomain.ErrInvalidSettings` | `INVALID_SETTINGS` | 400 | |
 | `permdomain.ErrBlockedByRule` | `BLOCKED_BY_RULE` | 422 | 安全拦截 |
-| `userdomain.ErrNotFound` | `USER_NOT_FOUND` | 404 | |
-| `userdomain.ErrUsernameRequired` | `USERNAME_REQUIRED` | 400 | |
-| `userdomain.ErrUsernameConflict` | `USERNAME_CONFLICT` | 409 | |
-| `userdomain.ErrUsernameInvalid` | `USERNAME_INVALID` | 400 | |
-| `userdomain.ErrCannotDeleteLast` | `CANNOT_DELETE_LAST_USER` | 422 | |
-| `userdomain.ErrLanguageInvalid` | `LANGUAGE_INVALID` | 400 | |
+| `workspacedomain.ErrNotFound` | `WORKSPACE_NOT_FOUND` | 404 | |
+| `workspacedomain.ErrNameRequired` | `WORKSPACE_NAME_REQUIRED` | 400 | |
+| `workspacedomain.ErrNameTooLong` | `WORKSPACE_NAME_TOO_LONG` | 400 | 超过 64 字符 |
+| `workspacedomain.ErrNameConflict` | `WORKSPACE_NAME_CONFLICT` | 409 | |
+| `workspacedomain.ErrCannotDeleteLast` | `CANNOT_DELETE_LAST_WORKSPACE` | 422 | |
+| `workspacedomain.ErrLanguageInvalid` | `WORKSPACE_LANGUAGE_INVALID` | 400 | |
 | `relationdomain.ErrInvalidEntityRef` | `INVALID_ENTITY_REF` | 400 | |
 | `relationdomain.ErrInvalidKind` | `INVALID_RELATION_KIND` | 400 | |
 | `relationdomain.ErrDepthOutOfRange` | `DEPTH_OUT_OF_RANGE` | 400 | |

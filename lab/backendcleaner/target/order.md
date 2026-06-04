@@ -24,7 +24,7 @@
 | 编号 | 模块 | 说明 | 旗标 |
 |---|---|---|---|
 | M0.1 | `pkg/*` 纯工具 | idgen, pagination, reqctx, tokencount, pathguard, userpath, jsonrepair, wikilink, limits | ⚠️ `modelcaps`（modelcatalog 已取代，疑残留）、`agentstate`/`envfix`/`installprogress`/`llmclient`/`llmcost`/`llmparse` 逐个判定去留；`forge`/`notifications`/`eventlog`（producer 辅助层，非残留）→ 统一 `pkg/streamemit`，随三流 M0.4/M0.5 |
-| M0.2 | `pkg/orm` + `infra/db` | **去 GORM**：自研链式 ORM（R0008 ✅）+ `infra/db` 用 database/sql + glebarez/go-sqlite | 边界：schema 可激进重定；手写 DDL 对齐 database.md（取代 AutoMigrate）；domain 全部去 GORM 化 |
+| M0.2 | `pkg/orm` + `infra/db` | **去 GORM**：自研链式 ORM（R0008 ✅）+ `infra/db` 用 database/sql + glebarez/go-sqlite；**R0018 补 `ErrConflict`**（UNIQUE 冲突翻译，对称 NotFound） | 边界：schema 可激进重定；手写 DDL 对齐 database.md（取代 AutoMigrate）；domain 全部去 GORM 化 |
 | M0.3 | `infra/logger` `infra/crypto` | zap + AES-GCM | |
 | M0.4 | `domain/errors` · `domain/stream`(协议核心) · `domain/messages` `domain/entities` `domain/notifications` | 横切契约；SSE 三流**统一流式树协议**：stream 定 Envelope/Frame/Node/Bridge，三流各挂 Node 词表（见 `stream-protocol.md`） | eventlog→messages · forge→entities |
 | M0.5 | `infra/stream`(单一 `Bus`) | SSE 三流底座：单一 `Bus`(seq + frame 分级 buffer + fanout)实例化三次 = messages/entities/notifications。`infra/chat`(extractor) 依赖 chat domain → **移交 M5.2** | frame 分级：delta/tick=ephemeral 不入 buffer；close 带快照；D2=workspace 全量推 |
@@ -35,7 +35,7 @@
 
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
-| M1.1 | `workspace`（原 `user` 正名） | — | 隔离标识 = workspace_id；`/users`→`/workspaces`；接手 userpath 删除后的 app 资源文件根布局（删 users/local-user 层 + MigrateLegacy，见 deps-todo R0004）|
+| M1.1 ✅ R0018 | `workspace`（原 `user` 正名） | — | 隔离标识=workspace_id；**多 workspace 数据隔离 + 资源不分桶**；Name 自由名 UNIQUE（去 slug/GetByUsername/EnsureExists）；`Validate` 实现 WorkspaceResolver；boot 默认 ws + 注入 + 共享资源布局 → M7 |
 | M1.2 | `apikey` | domain/crypto | |
 | M1.3 | `model` | domain/apikey | ⚠️ `infra/store/modelcapoverride` + `pkg/modelcaps`（旧 model 范式残留） |
 | M1.4 | `relation` | — | 横切（实体关系图）；**持 `EntityKind` 常量 + 前缀→EntityKind 映射 + `KindForID`**（原 idgen.KindByPrefix，见 deps-todo R0005）|
