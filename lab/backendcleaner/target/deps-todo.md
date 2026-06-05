@@ -54,6 +54,16 @@ catalog 本体（domain/app/handler，无 store）已建。消费侧与连带登
 | 搜索工具（概览的下游） | `tool/search`（波次 2） | LLM 看完 catalog 概览 → 调 `search_<kind>` 拿精确实体(id/详情)再用；catalog 不管调用 |
 | catalog handler + chat 注入装配 | M7 / 波次 5 | `NewCatalogHandler(...).Register(mux)`；chat runner 经 `SystemPromptProvider` 注入 |
 
+## 来自波次 1 · M1.6（mention 建立 R0023）
+
+mention 纯 domain 契约已建。消费侧登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| 5 个 `AsMentionResolver()` 实现 | 各实体域（波次 3） | function/handler/workflow/agent/document 各实现 `Resolver{Type,Resolve}`，抓内容快照成 `Reference` |
+| chat 注册表 + `<mentions>` 渲染 + 错误处理 | chat（波次 5） | type→resolver 注册表；发送时解析；统一 `<mention>` 标签 + snapshot 标记；resolver 未注册/解析失败的处理（回退 stub 不中断）|
+| `Reference` 快照持久化 | chat / messages（波次 5） | 存进 `messages.attrs` 的 mentions 数组 |
+
 ## 来自波次 0 · M0.3（logger broadcast 删除 R0010）
 
 `LogBroadcaster`（日志 SSE 流，违反 E1 三流）已判删。连带清理（M7 wiring）：

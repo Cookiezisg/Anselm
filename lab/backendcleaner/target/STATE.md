@@ -4,7 +4,7 @@
 
 ## 当前
 
-- **阶段**：Phase 2 逐模块 — 波次 0 全部完成；**波次 1（叶子业务域）进行中：M1.1 workspace ✅ · M1.2 apikey ✅ · M1.3 model ✅ · M1.4 relation ✅ · M1.5 catalog ✅**。
+- **阶段**：Phase 2 逐模块 — 波次 0 全部完成；**波次 1（叶子业务域）进行中：M1.1 workspace ✅ · M1.2 apikey ✅ · M1.3 model ✅ · M1.4 relation ✅ · M1.5 catalog ✅ · M1.6 mention ✅**。
 - **分支**：`main`（backend-new 平行重写不需要分支）。
 - **策略**：`backend-new/` 平行重建 → 覆盖回 `backend/` → 调前端/testend 兼容。
 
@@ -24,6 +24,7 @@
 - **model（重写，M1.3）**：model 退化成「聚合+展示薄层」(无 store/无 Repository)；删中立 `ThinkingSpec`、各家原生旋钮经 `Request.Options` 自包含；模型知识(窗口/上限/旋钮)下沉各家 `infra/llm` provider(`DescribeModels`+静态目录)，弃跨家 `pkg/modelcatalog`；默认模型搬 workspace 3 列(`ModelPicker` 由 workspace 实现)；override 改运行时优雅报错(删删除时保护)；`Resolve` 收口 override 优先；`Knob` 容器统一/内容原生。R0020 ✅。
 - **relation（横切，M1.4）**：实体血缘网（有向边图）。**边类型收成 4 动词** `create/edit/equip/link`（两端类型在 from_kind/to_kind 列，kind 只需动词，删 from/to 冗余编码 + DB CHECK 恒 4 值；中央枚举保留=全局拓扑契约，与删中立抽象不矛盾）；**8 节点**(Quadrinity+document+conversation+skill+mcp)；**`KindForID` 收编自 idgen**(8 条前缀，补 agent + 定 `sk_`/`mcp_` 规矩——skill/mcp 归一 id 体系是波次 3，前缀此刻定死使 document 现在就能 wikilink tag)；**显示名读时内存 hydrate**(按 kind 批量 `Namer.NamesByIDs`，不落库/改名即新/无 reader port/孤立节点不显示)；**无删除时引用保护**(对齐 model override 弱引用，best-effort sync)。R0021 ✅。
 - **catalog（收窄，M1.5）**：能力概览「实体名录」——只报「名字+描述」按类型分组，告诉 LLM「有哪些实体」。**砍 InvokeTool**（调用是搜索工具/调用层的事）+ 砍花活(handler 方法列表/mcp 合成/Kind/Active) + 砍预留(`Generator`/`GeneratedBy`/`Granularity`/`Category`/`activate_tools`)；**两段式**：概览→`search_*`(波次 2)精确定位，故 id 不进菜单、name 不要求唯一；document 例外(name=文档名/desc=路径)；无 store 派生现查。R0022 ✅。
+- **mention（纯契约，M1.6）**：@ 引用快照的 domain 契约——5 种可 @ 类型(四件套+document) + `MentionInput` + `Reference`(含 Content) + `Resolver` 接口 + `IsValidMentionType`。**Freeze-on-Send**(发送瞬间抓内容快照注入、定格)；**纯 domain 无 app/store/handler/error**——resolver 实现(波次 3)、chat 注册表+统一 `<mentions>` 渲染+错误处理(波次 5)。conversation/skill/mcp 不可 @。R0023 ✅。
 
 ## 模块进度（编号见 order.md）
 
@@ -31,7 +32,7 @@
 
 - **Phase 1 骨架** ✅：`backend-new/` + 空 go.mod + health server + smoke。
 - **波次0 地基**：M0.1 pkg ✅（**reqctx/idgen/pagination ✅** R0001；**tokencount ✅** R0002；**pathguard ✅** R0003；**userpath ⏭️删** R0004；**wikilink ✅** R0005；**jsonrepair ✅** R0006；**limits ✅** R0007；modelcaps/modelcatalog 移交 M1.3）· M0.2 数据库层 ✅（**pkg/orm R0008 · db 网关 R0009**；业务表 DDL 分散各模块）· M0.3 ✅（**logger R0010 · crypto R0011**）· M0.4 ✅：**errors R0012** · **stream 统一协议 R0013**（单一 domain/stream：信封+四动词Frame+通用 Node{Type,Content}+Bridge/ListReader；词表下放业务）· M0.5 ✅ infra **stream bus（单一 Bus）R0014**（实例化三次=三流；frame 分级；D2 全量推；infra/chat extractor 移交 M5.2）· M0.6 llm ✅（11 家 provider）· **M0.7 transport ✅ R0017**（response N1+errmap 塌缩+SSE marshal · middleware workspace · router 框架；完整 New→M7）· **波次 0 收官 ✅**
-- **波次1 叶子域**：M1.1 workspace(原 user) **✅ R0018** · M1.2 apikey **✅ R0019** · M1.3 model **✅ R0020** · M1.4 relation **✅ R0021** · M1.5 catalog **✅ R0022** · M1.6 mention ⬜ · M1.7 memory ⬜ · M1.8 sandbox ⬜ · M1.9 permissions/hooks ⬜ · M1.10 document ⬜ · M1.11 todo ⬜(待判定)
+- **波次1 叶子域**：M1.1 workspace(原 user) **✅ R0018** · M1.2 apikey **✅ R0019** · M1.3 model **✅ R0020** · M1.4 relation **✅ R0021** · M1.5 catalog **✅ R0022** · M1.6 mention **✅ R0023** · M1.7 memory ⬜ · M1.8 sandbox ⬜ · M1.9 permissions/hooks ⬜ · M1.10 document ⬜ · M1.11 todo ⬜(待判定)
 - **波次2 tool+原语**：tool ⬜ · loop ⬜ · tool/filesystem·search·web·toolset ⬜
 - **波次3 Quadrinity**：function·handler·subagent·agent·skill·mcp + tool 适配器组 ⬜
 - **波次4 编排核心**：workflow ⬜ · flowrun ⬜ · scheduler 🔴⬜ · trigger ⬜ · tool/workflow ⬜
@@ -41,5 +42,5 @@
 
 ## 下一步
 
-- **波次 1（下一轮）**：M1.6 mention（消息 @提及 解析）。
+- **波次 1（下一轮）**：M1.7 memory（agent 长期记忆）。
 - M1.1 遗留 → M7：boot 默认 workspace（`Count==0→Create`）+ `WorkspaceResolver` 注入 `IdentifyWorkspace` + `~/.forgify/` 共享资源布局落地（不分桶）。

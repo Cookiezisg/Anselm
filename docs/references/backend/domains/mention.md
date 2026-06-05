@@ -4,86 +4,83 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-04-22
-reviewed: 2026-06-02
+reviewed: 2026-06-05
 review-due: 2026-09-01
 audience: [human, ai]
 ---
-# @-Mention Domain — 实体引用、内容快照与注入原理
+# @-Mention Domain — 实体引用快照与发送即冻结
 
-> **核心职责**：Mention 是对话中实体的 **“即时通讯员”**。它允许用户在对话中使用 `@` 符号引用系统内的 Document, Function, Handler, Workflow 等实体，并确保在发送瞬间捕捉其内容快照注入 LLM 上下文。
+> **核心职责**：Mention 让用户在对话里用 `@` 引用一个实体，**在发送瞬间抓取其内容快照**注入这条消息的 LLM 上下文。Mention 是一个**纯 domain 契约**：定义可 @ 的类型集、前端 input、解析后的 Reference、各实体 app 实现的 Resolver 接口——解析与渲染在消费方（各域 resolver + chat），本包无 app / store / handler / error。
 
 ---
 
-## 1. 物理模型 (Data Anatomy)
+## 1. 物理模型
 
-### 1.1 `MentionInput` (前端载荷)
-```typescript
-interface MentionInput {
-    type: "document" | "function" | "handler" | "workflow";
-    id: string; // 实体物理 ID
-}
-```
+Mention **无独立表**：解析后的 `Reference` 快照存在 `messages.attrs` 里（随消息持久化，由 chat 波次 5 落地）。
 
-### 1.2 `Reference` (持久化快照元数据)
-存储在 `messages.attrs` 的 `mentions` 数组中。
+### 1.1 可 @ 的类型（封闭集 · 5 种）
+四件套 + 知识文档——**用户锻造的、有可注入内容快照的实体**：
+
+| `MentionType` | `@` 注入的内容 |
+|---|---|
+| `document` | markdown 正文 |
+| `function` | 描述 + 代码 |
+| `handler` | 描述 + 方法/代码 |
+| `workflow` | 图定义 |
+| `agent` | 配置/定义 |
+
+> 不可 @：`conversation`（对话流无单一快照）、`skill` / `mcp`（外部能力，是「调用」非「引用内容」）。
+
+### 1.2 三个类型
 ```go
-type Reference struct {
-    Type string `json:"type"`
-    ID   string `json:"id"`
-    Name string `json:"name"`
-}
+MentionInput{ Type, ID }              // 前端发来:只 type + id
+Reference{ Type, ID, Name, Content }  // 解析后的快照(Content=各类型自渲内文)
+Resolver{ Type(); Resolve(ctx, id) }  // 各实体 app 实现
 ```
 
 ---
 
-## 2. 核心原理 (Principles)
+## 2. 核心原理
 
-### 2.1 Freeze-on-Send (发送即冻结)
-Forgify 不支持动态引用（即：LLM 生成时再去查实体最新内容）。
-- **原理**：当用户点击“发送”按钮时，`chat.Service` 会立即调用各个域注册的 `Resolver`。
-- **快照行为**：系统获取实体当前的完整内容（代码、文本、图定义），并将其作为一个隐藏的 `system` 消息段附着在该回合的输入中。
-- **优点**：即使实体在 10 分钟后被用户修改或删除，对话历史中的“当时所见”依然保持一致。
+### 2.1 Freeze-on-Send（发送即冻结）
+**不支持动态引用**（LLM 生成时再查最新）。用户点「发送」的瞬间，chat 调各域 `Resolver` 抓取实体**当前内容**快照、附在该回合输入里。即使实体 10 分钟后被改/删，这条历史消息里「当时所见」始终一致。
 
-### 2.2 Content-Specific Rendering (差异化渲染)
-Mention 注入上下文时的表现形态因类型而异：
-- **Document**：渲染为 `<document>` XML 标签包围的纯文本。
-- **Function/Handler**：渲染为 `<code_snippet>` 及其依赖声明。
-- **Workflow**：渲染为 `<graph_definition>` JSON 片段。
+### 2.2 注册表式扩展（各域 Resolver）
+mention domain 不持业务逻辑，只定义 `Resolver` 接口。**5 个实体域各实现一个**（`AsMentionResolver()`），boot 时注册进 chat 的 type→resolver 注册表。chat 收到 `@` 数组 → 遍历调对应 resolver → 拿 `Reference`。
 
-### 2.3 Registry-Based Extension (基于注册表的扩展)
-`Mention` 域本身不持业务逻辑，它定义了一个 `Resolver` 接口：
-```go
-type Resolver interface {
-    Type() MentionType
-    Resolve(ctx context.Context, id string) (*Reference, error)
-}
+### 2.3 统一渲染 + 快照标记
+chat 把所有 `Reference` 渲成**统一**的 `<mentions>` 块（不是各类型不同标签）：
+```xml
+<mentions>
+<mention type="function" id="fn_x" name="greet">
+(snapshot at 2026-06-05T...)
+<函数描述 + 代码>
+</mention>
+</mentions>
 ```
-各业务域（如 `functionapp`）在启动时调用 `chatService.RegisterMentionResolver(this)` 进行挂载。
+- **代码类**（function/handler/workflow/agent）带 `(snapshot at 时间)` 标记，提示 LLM「这是快照，改前先 get 最新」。
+- **document** 是静态参考，不带快照标记。
+- 实体加载失败 → `[引用的实体无法加载]`，**不中断**消息发送。
 
 ---
 
-## 3. 生命周期 (Lifecycle)
-
-1. **选点 (Picking)**：用户在前端编辑器输入 `@`，调 `/api/v1/catalog` 搜索并选中。
-2. **提交 (Submitting)**：`POST /messages` body 包含 `mentions` 数组。
-3. **解析 (Resolving)**：后端 `chat.Service` 遍历数组，同步调各域 `Resolver` 抓取 `Reference` 元数据。
-4. **注入 (Injecting)**：`SystemPromptSections` 模块将抓取到的实体内容拼装进 wire prompt。
-5. **归档 (Journaling)**：`Relation` 域同步记录一条 `message_mentions_entity` 边。
-
----
-
-## 4. 跨域集成 (Interactions)
-
-- **Chat**：主要的消费方和流程控制器。
-- **Catalog**：为前端提供 `@` 自动补全的备选项。
-- **Relation**：利用 Mention 建立实体的活跃度热力图。
+## 3. 生命周期
+1. **选点**：前端输入 `@` → 调 catalog / 搜索选中实体。
+2. **提交**：`POST /messages` body 带 `mentions` 数组（`[{type, id}]`）。
+3. **解析**：chat 遍历数组 → 各域 `Resolver.Resolve(id)` 抓 `Reference`。
+4. **注入**：渲成 `<mentions>` 块拼进 wire prompt。
+5. **持久化**：`Reference` 快照存进 `messages.attrs`。
 
 ---
 
-## 5. 错误字典 (Sentinels)
+## 4. 跨域集成
+- **chat（波次 5）**：主消费者 + 流程控制——持注册表、发送时解析、渲染注入。
+- **5 个实体域（波次 3）**：各实现 `Resolver` 提供快照。
+- **catalog**：前端 `@` 自动补全的备选来源（前端行为）。
 
-| Sentinel | HTTP | Wire Code | 场景 |
-|---|---|---|---|
-| `ErrResolverNotFound`| 500 | `INTERNAL_ERROR` | 尝试引用一个后端未注册 Resolver 的类型。 |
-| `ErrEntityNotFound` | - | - | 解析失败，自动回退到名为 `(无法加载)` 的 Stub，不中断消息发送。 |
-| `ErrInvalidInput` | 400 | `INVALID_REQUEST` | Mention 数组格式错。 |
+> Mention **不依赖 relation**，也**不产生任何 relation 边**（@ 是消息内的内容快照，非实体拓扑关系）。
+
+---
+
+## 5. 错误
+mention domain **不持任何 error**（纯契约）。消费时的错误由 **chat** 处理：resolver 未注册 / input 类型非法 / 实体解析失败（回退「无法加载」stub，不中断）——见 chat（波次 5）。
