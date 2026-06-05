@@ -39,7 +39,7 @@
 | M1.2 ✅ R0019 | `apikey` | domain/crypto | **收窄** = 加密保险箱 + 哑探针 + 按 id 发钥匙；选 key / 解析 / 模型理解全下放（model / 搜索配置）；首个吃 orm 自动隔离的表；modelcatalog/capabilities → M1.3 |
 | M1.3 ✅ R0020 | `model` | domain/apikey | modelcapoverride/modelcaps 确认无残留 R0020（空目录/不存在，backend-new 从零未迁，旧旗标作废） |
 | M1.4 ✅ R0021 | `relation` | — | 横切（实体关系图）；4 动词边(create/edit/equip/link)、8 节点、`KindForID` 8 条(补 agent + 定 sk_/mcp_ 规矩)、读时内存 hydrate name(无 reader port)、override 式弱引用无删除保护 |
-| M1.5 | `catalog` | — | 核心：被超多模块依赖（trinity catalog 源），重点审实现 |
+| M1.5 ✅ R0022 | `catalog` | — | 能力概览「实体名录」：只报名字+描述按类型分组；砍调用工具/Generator/Granularity 等预留；两段式概览→搜索(id 不进菜单/name 不唯一)；无 store 派生 |
 | M1.6 | `mention` | — | |
 | M1.7 | `memory` | domain/errors | |
 | M1.8 | `sandbox` | infra/sandbox | 边界：mise binaries = generated |

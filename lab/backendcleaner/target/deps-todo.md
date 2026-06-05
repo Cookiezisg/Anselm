@@ -43,6 +43,17 @@ relation 本体（domain/store/app/handler + KindForID + 读时 hydrate）已建
 | 各实体 sync 胶水 | 波次 2/3/5 | workflow/agent 锻造后 `SyncOutgoing`(equip)+`SyncIncoming`(create/edit)、删除 `PurgeEntity`；document 解析 wikilink → `SyncOutgoing`(link) |
 | relation handler 路由装配 | M7 | `NewRelationHandler(...).Register(mux)` 接入总 router（同其他 handler）|
 
+## 来自波次 1 · M1.5（catalog 建立 R0022）
+
+catalog 本体（domain/app/handler，无 store）已建。消费侧与连带登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| 7 个 `AsCatalogSource()` 实现 + `RegisterSource` | 各实体域（波次 3）+ boot 装配 | function/handler/workflow/agent/skill/mcp/document 各实现 `CatalogSource{Name,ListItems}`，交「名字+描述」；随各域建好接入 |
+| 实体强制 name + description | 各实体域创建校验（波次 3） | catalog 信任非空、不做回退兜底；creation 必填 name+description |
+| 搜索工具（概览的下游） | `tool/search`（波次 2） | LLM 看完 catalog 概览 → 调 `search_<kind>` 拿精确实体(id/详情)再用；catalog 不管调用 |
+| catalog handler + chat 注入装配 | M7 / 波次 5 | `NewCatalogHandler(...).Register(mux)`；chat runner 经 `SystemPromptProvider` 注入 |
+
 ## 来自波次 0 · M0.3（logger broadcast 删除 R0010）
 
 `LogBroadcaster`（日志 SSE 流，违反 E1 三流）已判删。连带清理（M7 wiring）：

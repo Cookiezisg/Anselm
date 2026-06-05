@@ -197,7 +197,7 @@ audience: [human, ai]
 | `documentdomain.ErrInvalidName` | `DOCUMENT_INVALID_NAME` | 400 | |
 | `documentdomain.ErrParentNotFound` | `DOCUMENT_PARENT_NOT_FOUND` | 422 | |
 
-### 2.11 Other Domains (Model/Perms/User/Rel)
+### 2.11 Other Domains (Model/Perms/User/Rel/Catalog)
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
 | `modeldomain.ErrScenarioInvalid` | `MODEL_SCENARIO_INVALID` | 400 | 非 dialogue/utility/agent |
@@ -216,6 +216,7 @@ audience: [human, ai]
 | `relationdomain.ErrSelfLoop` | `REL_SELF_LOOP` | 400 | 禁止自环（from == to）|
 | `relationdomain.ErrDepthOutOfRange` | `REL_DEPTH_LIMIT` | 400 | neighborhood 深度超 [1,3] |
 | `relationdomain.ErrIncompleteFilter` | `REL_INCOMPLETE_FILTER` | 400 | filter 的 kind/id 未成对 |
+| `catalogdomain.ErrAllSourcesFailed` | `CATALOG_ALL_SOURCES_FAILED` | 503 | 所有 source 失败（系统故障，如 DB 不可达）|
 | `tododomain.ErrNotFound` | `TODO_NOT_FOUND` | 404 | |
 | `tododomain.ErrSubjectRequired` | `TODO_SUBJECT_REQUIRED` | 400 | |
 | `tododomain.ErrInvalidStatus` | `TODO_INVALID_STATUS` | 400 | |
@@ -246,6 +247,5 @@ audience: [human, ai]
 - `chatdomain.ErrBlockNotFound`
 - `skilldomain.ErrExecutionNotFound`
 - `subagentdomain.ErrRecursionAttempt`
-- `catalogdomain.ErrAllSourcesFailed`
 - `askapp.ErrNoPendingQuestion` (注：API 直接处理了 ask，此处为 app 层兜底)
 - ...以及所有 Go 内部 `fmt.Errorf` 产生的动态错误。
