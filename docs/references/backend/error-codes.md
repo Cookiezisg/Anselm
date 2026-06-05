@@ -225,6 +225,8 @@ audience: [human, ai]
 | `triggerdomain.ErrWebhookSecretMismatch` | `TRIGGER_WEBHOOK_SECRET_MISMATCH`| 401 | |
 | `triggerdomain.ErrInvalidCronExpression` | `TRIGGER_INVALID_CRON_EXPRESSION`| 400 | |
 | `triggerdomain.ErrFiringNotPending` | `INTERNAL_ERROR` | 500 | [未映射] 并发冲突 |
+| `notificationdomain.ErrNotFound` | `NOTIFICATION_NOT_FOUND` | 404 | MarkRead 未知 id |
+| `notificationdomain.ErrInvalidType` | `NOTIFICATION_INVALID_TYPE` | 400 | Emit 空 type |
 
 ### 2.12 LLM Upstream Classifications
 | Go Sentinel | Wire Code | HTTP |

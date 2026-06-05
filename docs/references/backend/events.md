@@ -30,11 +30,17 @@ audience: [human, ai]
 
 ---
 
-## 2. Notifications 流 (`/api/v1/notifications`)
+## 2. Notifications 流 (`/api/v1/notifications/stream` + 通知中心 REST)
 
-状态同步总线。
+**持久化通知中心**：每条通知是一个 `Notification` 实体（存 DB，见 `domains/notification.md`），由 notification 模块统一产生，关机重开仍在。任何 producer 经 `Emitter.Emit(type, payload)` 发；notification 模块存 DB + 在本流推一条 **durable signal**。
 
-| Entity Type | Action | 物理源文件 | 载荷 Data (JSON) |
+线缆形态：`scope={kind:"notification", id:"noti_x"}` + `signal` 帧 + `node{type, content}`。
+- **事件类型 = `node.type` = `<域>.<动作>`**（下表 `Entity Type`.`Action`，如 `memory.updated`）；payload = `node.content`。
+- **workspace 不在 scope**——它是 Bus 从 ctx 取的分流轴（前端按当前 workspace 订阅、防多窗口串台）。
+- 通知中心 REST：`GET /notifications`（列表）、`/unread-count`（badge）、`PUT /{id}/read`、`POST /read-all`。
+- `(Ephemeral)` 标记的（如 `flowrun.tick`）是实时进度，**不入通知中心 DB**、可丢。
+
+| Entity Type | Action | 物理源文件（规划） | 载荷 Data (JSON) |
 |---|---|---|---|
 | `conversation` | `created` | `conversation.go` | `{ id }` |
 | `conversation` | `deleted` | `conversation.go` | `{ id }` |

@@ -233,7 +233,11 @@ audience: [human, ai]
 | GET | `/api/v1/catalog` | `catalog.go` |
 | GET | `/api/v1/metrics/tools` | `metrics.go` |
 | GET | `/api/v1/eventlog` | `eventlog.go` (SSE) |
-| GET | `/api/v1/notifications` | `notifications.go` (SSE) |
+| GET | `/api/v1/notifications` | `notification.go` |
+| GET | `/api/v1/notifications/unread-count` | `notification.go` |
+| PUT | `/api/v1/notifications/{id}/read` | `notification.go` |
+| POST | `/api/v1/notifications/read-all` | `notification.go` |
+| GET | `/api/v1/notifications/stream` | `notification.go` (SSE) |
 | GET | `/api/v1/forge` | `forge.go` (SSE) |
 
 ### 6.3 模型面契约 (Model Surface)

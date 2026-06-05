@@ -12,8 +12,8 @@ func TestValidateEvent_Valid(t *testing.T) {
 		{Scope: Scope{Kind: KindConversation, ID: "c1"}, ID: "n1", Frame: Delta{}}, // empty chunk is a no-op
 		{Scope: Scope{Kind: KindFunction, ID: "fn1"}, ID: "n1", Frame: Close{Status: StatusCompleted}},
 		{Scope: Scope{Kind: KindFunction, ID: "fn1"}, ID: "n1", Frame: Close{Status: StatusCompleted, Result: &Node{Type: "text"}}},
-		{Scope: Scope{Kind: KindWorkspace}, ID: "n1", Frame: Signal{Node: Node{Type: "entity_changed"}}},
-		{Scope: Scope{Kind: KindWorkspace}, ID: "n1", Frame: Signal{Node: Node{Type: "flowrun_tick"}, Ephemeral: true}},
+		{Scope: Scope{Kind: KindNotification, ID: "noti_1"}, ID: "noti_1", Frame: Signal{Node: Node{Type: "memory.updated"}}},      // durable notification
+		{Scope: Scope{Kind: KindConversation, ID: "c1"}, ID: "n1", Frame: Signal{Node: Node{Type: "agent.tick"}, Ephemeral: true}}, // ephemeral tick
 	}
 	for i, e := range valid {
 		if err := ValidateEvent(e); err != nil {
@@ -33,7 +33,7 @@ func TestValidateEvent_Invalid(t *testing.T) {
 		{"open with empty node type", Event{Scope: Scope{Kind: KindConversation, ID: "c1"}, ID: "n1", Frame: Open{Node: Node{}}}},
 		{"close with non-terminal status", Event{Scope: Scope{Kind: KindFunction, ID: "f1"}, ID: "n1", Frame: Close{Status: "streaming"}}},
 		{"close result with empty node type", Event{Scope: Scope{Kind: KindFunction, ID: "f1"}, ID: "n1", Frame: Close{Status: StatusCompleted, Result: &Node{}}}},
-		{"signal with empty node type", Event{Scope: Scope{Kind: KindWorkspace}, ID: "n1", Frame: Signal{Node: Node{}}}},
+		{"signal with empty node type", Event{Scope: Scope{Kind: KindNotification, ID: "noti_1"}, ID: "n1", Frame: Signal{Node: Node{}}}},
 	}
 	for _, tt := range invalid {
 		err := ValidateEvent(tt.e)

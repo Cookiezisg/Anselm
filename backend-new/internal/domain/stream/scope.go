@@ -13,11 +13,20 @@ type Scope struct {
 	ID   string `json:"id,omitempty"`
 }
 
-// Scope kinds — the entity-kind vocabulary shared across the three streams.
-// (Overlaps the future relation.EntityKind; consolidation deferred to M1.4.)
+// Scope kinds — the anchor-kind vocabulary for the three streams. A scope Kind is
+// the RENDERING/ENTITY anchor an event acts on, NOT the event type (the event type
+// lives in Node.Type). The three streams use disjoint subsets: messages →
+// conversation; entities → the entity kinds; notifications → notification (each
+// event anchors one notification entity). Workspace is deliberately NOT a scope kind
+// — workspace is the Bus's dispatch axis, taken from ctx, not a rendering anchor. The
+// entity kinds overlap relation.EntityKind; folding them to a single source of truth
+// (relation reuses these) is a registered follow-up.
 //
-// Scope kind 全集——三流共享的实体-kind 词表。（与未来 relation.EntityKind 重叠，
-// M1.4 收口。）
+// Scope kind 全集——三流的「锚点类型」词表。scope.Kind 是事件作用的渲染/实体锚点，
+// **不是事件类型**（事件类型在 Node.Type）。三流用不相交子集：messages → conversation；
+// entities → 各实体 kind；notifications → notification（每事件锚一个通知实体）。workspace
+// **刻意不是** scope kind——它是 Bus 从 ctx 取的分流轴、非渲染锚点。实体 kind 与
+// relation.EntityKind 重叠，收成单一事实源（relation 复用之）为登记的后续项。
 const (
 	KindConversation = "conversation"
 	KindFunction     = "function"
@@ -27,7 +36,7 @@ const (
 	KindDocument     = "document"
 	KindMCP          = "mcp"
 	KindSkill        = "skill"
-	KindWorkspace    = "workspace"
+	KindNotification = "notification"
 )
 
 // String renders "<kind>:<id>" — the form used as a subscription key and ?scope= value.
@@ -43,7 +52,7 @@ func (s Scope) String() string {
 func IsValidKind(kind string) bool {
 	switch kind {
 	case KindConversation, KindFunction, KindHandler, KindAgent, KindWorkflow,
-		KindDocument, KindMCP, KindSkill, KindWorkspace:
+		KindDocument, KindMCP, KindSkill, KindNotification:
 		return true
 	}
 	return false

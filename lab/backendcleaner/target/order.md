@@ -41,6 +41,7 @@
 | M1.4 ✅ R0021 | `relation` | — | 横切（实体关系图）；4 动词边(create/edit/equip/link)、8 节点、`KindForID` 8 条(补 agent + 定 sk_/mcp_ 规矩)、读时内存 hydrate name(无 reader port)、override 式弱引用无删除保护 |
 | M1.5 ✅ R0022 | `catalog` | — | 能力概览「实体名录」：只报名字+描述按类型分组；砍调用工具/Generator/Granularity 等预留；两段式概览→搜索(id 不进菜单/name 不唯一)；无 store 派生 |
 | M1.6 ✅ R0023 | `mention` | — | @ 引用快照纯 domain 契约：5 种可 @ 类型(四件套+document) + Resolver 接口 + IsValidMentionType；Freeze-on-Send；resolver 波次 3 / chat 渲染+错误 波次 5 |
+| ✅ R0024 | `notification` | domain/stream | 通知中心实体(DB 持久 + SSE durable signal)；scope=notification:noti_x、workspace 是 Bus 分流轴非 scope；Emitter 端口；memory 等发通知的前置依赖；连带 stream 清理 + R0018 分桶翻转 |
 | M1.7 | `memory` | domain/errors | |
 | M1.8 | `sandbox` | infra/sandbox | 边界：mise binaries = generated |
 | M1.9 | `permissions` / `hooks` | — | |

@@ -64,6 +64,16 @@ mention 纯 domain 契约已建。消费侧登记：
 | chat 注册表 + `<mentions>` 渲染 + 错误处理 | chat（波次 5） | type→resolver 注册表；发送时解析；统一 `<mention>` 标签 + snapshot 标记；resolver 未注册/解析失败的处理（回退 stub 不中断）|
 | `Reference` 快照持久化 | chat / messages（波次 5） | 存进 `messages.attrs` 的 mentions 数组 |
 
+## 来自 R0024（notification 建立 + stream 清理 + R0018 翻转）
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| notification app 注入 notifications Bridge + SSE 端点装配 | M7 | `NewService(repo, bridge, log)` 的 bridge = Bus notifications 实例；handler SSE 端点接 router |
+| 各 producer 注入 `notification.Emitter` | 各模块（波次 1+/3/5） | memory（下一步）、sandbox/apikey/conversation… 发通知 = `Emitter.Emit(type, payload)` |
+| `~/.forgify/workspaces/<wsID>/` 分桶布局落地 | M7 | R0018→R0024 翻转：memory/skills/settings/mcp 各 workspace 一份；boot 路径 |
+| scope-relation EntityKind 收口 | 单独评估 | stream scope 实体 kind 与 relation.EntityKind 重叠；实体 kind 词表归一（依赖方向待定）|
+| 通知自动清理（保留 N 条/N 天） | 回头 | 当前只增不删；用户手动删/自动清理延后 |
+
 ## 来自波次 0 · M0.3（logger broadcast 删除 R0010）
 
 `LogBroadcaster`（日志 SSE 流，违反 E1 三流）已判删。连带清理（M7 wiring）：

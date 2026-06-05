@@ -114,7 +114,9 @@ func (b *Bus) Publish(ctx context.Context, e streamdomain.Event) (streamdomain.E
 	return env, nil
 }
 
-// Bus implements ListReader (and therefore Bridge); the consumer is wired with whichever fits.
+// Bus implements Bridge (durable seq + replay ring + fan-out). Notification history is
+// persisted by the notification module (DB), so the bus needs no snapshot List.
 //
-// Bus 实现 ListReader（因而也实现 Bridge）；消费方按所需接口接线。
-var _ streamdomain.ListReader = (*Bus)(nil)
+// Bus 实现 Bridge（durable seq + replay 环 + 扇出）。通知历史由 notification 模块持久化
+// （DB），故 bus 无需快照 List。
+var _ streamdomain.Bridge = (*Bus)(nil)

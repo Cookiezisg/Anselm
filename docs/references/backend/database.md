@@ -51,6 +51,7 @@ audience: [human, ai]
 | | `sandbox_runtimes` | `sr_` | `Runtime` |
 | | `mcp_health_history`| `mch_` | `HealthSnapshot` |
 | **Tasks** | `todos` | `td_` | `Todo` |
+| **Notification**| `notifications` | `noti_` | `Notification` |
 
 ---
 
@@ -314,5 +315,5 @@ type TriggerFiring struct {
 
 - **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, hd_, hdv_, hcl_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, mem_, rel_, se_, sr_, mch_, mcl_, ske_, td_, sk_, mcp_`.
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, hd_, hdv_, hcl_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, mem_, rel_, se_, sr_, mch_, mcl_, ske_, td_, sk_, mcp_, noti_`.
 - **保留前缀**: `sk_`(skill) / `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别（故 document 可经 wikilink `[[tag]]`）；`skills`/`mcps` 表与生成器接入是**波次 3** 工作。注意区分既有的执行流水前缀 `ske_`(skill_executions) / `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。
