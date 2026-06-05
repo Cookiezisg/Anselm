@@ -200,3 +200,15 @@ sandbox 三 runtime 隔离运行时（domain/store/infra/app/handler + 25 测试
 | `make fetch-mise` cmd | M7.2 | embed mise 二进制按平台生成（`cmd/fetch-mise`，git 不入库、SHA256 钉）；本地已有 darwin-arm64 |
 | sandbox handler 路由装配 | M7 | `NewSandboxHandler(svc, log).Register(mux)` 接入总 router |
 | sandbox DDL 收集 | M7 | `infra/store/sandbox.Schema` 交 cmd/server `db.Migrate` |
+
+## 来自波次 1 · M1.9（permissions/hooks/settings 判定解散 R0027）
+
+permissions domain + app/hooks + infra/settings 整个不迁。碎片去向：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| 危险控制（灾难命令拦截） | 波次 2 工具（tool/shell 等） | **不做中央门控**；bash 等工具内置极少数硬拦截（`rm -rf /`·`sudo`…）防无人值守闯祸；不做 allow/ask/deny 配置系统、不做 ask 交互 |
+| protectedPaths（写保护） | 波次 2 tool/filesystem | `pathguard`（M0.1）已有默认禁区（.git/.env/.ssh）；filesystem 工具直接用，不要用户可配 |
+| limits 装配 | M7 | `pkg/limits.Current()` 走 `Default()`；**删** settings-backed `SetProvider`（旧 main.go 把 `settings.Limits` 接进去）——不接 settings |
+| M5.4 tool/permissionsgate | 删 | 随 permissions 解散；chat（M5.2）危险控制改由工具自管 |
+| 前端 settings/permissions UI | 覆盖阶段（contract #7） | testend Permissions.tsx + `/settings`·`/permissions` 调用全拆 |

@@ -210,16 +210,9 @@ audience: [human, ai]
 
 ## 6. 全局设置、用户与监控 (System)
 
-### 6.1 Settings & Auth
+### 6.1 API Keys & Auth
 | Method | Path | 文件源 |
 |---|---|---|
-| GET | `/api/v1/settings` | `permissions.go` |
-| PUT | `/api/v1/settings` | `permissions.go` |
-| POST | `/api/v1/settings:reload` | `permissions.go` |
-| GET | `/api/v1/settings/limits` | `permissions.go` |
-| PUT | `/api/v1/settings/limits` | `permissions.go` |
-| GET | `/api/v1/permissions/tools` | `permissions.go` |
-| POST | `/api/v1/permissions/test` | `permissions.go` |
 | POST | `/api/v1/api-keys` | `apikey.go` |
 | GET | `/api/v1/api-keys` | `apikey.go` |
 | PATCH | `/api/v1/api-keys/{id}` | `apikey.go` |

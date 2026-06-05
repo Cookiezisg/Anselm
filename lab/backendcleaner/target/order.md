@@ -44,7 +44,7 @@
 | ✅ R0024 | `notification` | domain/stream | 通知中心实体(DB 持久 + SSE durable signal)；scope=notification:noti_x、workspace 是 Bus 分流轴非 scope；Emitter 端口；memory 等发通知的前置依赖；连带 stream 清理 + R0018 分桶翻转 |
 | M1.7 ✅ R0025 | `memory` | domain/notification | 文件式按 workspace(~/.forgify/workspaces/<wsID>/memories/*.md)；两段式注入(pinned 全文+目录按需读)；无 mem_ id/无 SQLite；发通知用 notification.Emitter；首个文件式 store skills 复用；工具/chat 注入留波次 2/3/5 |
 | M1.8 ✅ R0026 | `sandbox` | infra/sandbox | 三 runtime(Python+Node+Docker，registry 调研 92%+7 docker 缺口)；image=docker runtime/容器=env 统一双接口、`ResolveExec`；两表系统级不分桶(orm meta.ws==nil)；去 GORM+硬删；docker 探测+pull+run(不代装)；Emitter；路由 RESTful+N5；**docker 精细化(stop/孤儿/stdio e2e)留 M3.6、注册+base+fetch-mise 留 M7** |
-| M1.9 | `permissions` / `hooks` | — | |
+| M1.9 ⏭️ R0027 | ~~`permissions` / `hooks`~~ **判定解散** | — | hooks 砍（Claude Code 花活）、危险控制别处管（不做中央门控）、limits 用 `pkg/limits` 默认、settings.json 砍；permissions domain + app/hooks + infra/settings 全不迁。连带 M5.4 permissionsgate 解散、M5.2 chat 去 hooks 依赖 |
 | M1.10 | `document` | catalog, relation, mention | LLM-ranked attach（**无 RAG**），Notion 树；relations 消费 `wikilink.Parse`(去 Kind) + `relation.KindForID` 解析/过滤（deps-todo R0005）|
 | M1.11 | `todo` | — | ⚠️ 待判定：是否 Quadrinity/agent 真需要 |
 
@@ -83,9 +83,9 @@
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
 | M5.1 | `conversation` | — | |
-| M5.2 | `chat` | document, hooks, loop, tool, tool/permissionsgate | runner 庞大，重点审 |
+| M5.2 | `chat` | document, loop, tool | runner 庞大，重点审；hooks/permissionsgate 已解散（M1.9 R0027），危险控制下放工具 |
 | M5.3 | `contextmgr` | — | compaction |
-| M5.4 | `tool/permissionsgate` | hooks, tool | |
+| ⏭️ R0027 | ~~`tool/permissionsgate`~~ **随 M1.9 解散** | — | 中央门控取消；危险控制由工具自管（别处） |
 
 ### 波次 6 — 顶层智能编排
 

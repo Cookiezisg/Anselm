@@ -56,7 +56,7 @@ audience: [human, ai]
 
 ## 2. 核心领域模型详述 (Literal Structs)
 
-### 2.1 Identity & Settings
+### 2.1 Identity (Workspace)
 ```go
 // workspaces — the isolation root: the one business table with NO workspace_id.
 // backend-new style: plain struct + lightweight db tags (GORM removed).

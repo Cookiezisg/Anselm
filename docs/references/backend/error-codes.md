@@ -199,14 +199,12 @@ audience: [human, ai]
 | `documentdomain.ErrInvalidName` | `DOCUMENT_INVALID_NAME` | 400 | |
 | `documentdomain.ErrParentNotFound` | `DOCUMENT_PARENT_NOT_FOUND` | 422 | |
 
-### 2.11 Other Domains (Model/Perms/User/Rel/Catalog)
+### 2.11 Other Domains (Model/Workspace/Rel/Catalog)
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
 | `modeldomain.ErrScenarioInvalid` | `MODEL_SCENARIO_INVALID` | 400 | 非 dialogue/utility/agent |
 | `modeldomain.ErrNotConfigured` | `MODEL_NOT_CONFIGURED` | 422 | 该 scenario 无默认模型，提示去配置 |
 | `modeldomain.ErrRefInvalid` | `MODEL_REF_INVALID` | 400 | ModelRef 缺 apiKeyId 或 modelId |
-| `permdomain.ErrInvalidSettings` | `INVALID_SETTINGS` | 400 | |
-| `permdomain.ErrBlockedByRule` | `BLOCKED_BY_RULE` | 422 | 安全拦截 |
 | `workspacedomain.ErrNotFound` | `WORKSPACE_NOT_FOUND` | 404 | |
 | `workspacedomain.ErrNameRequired` | `WORKSPACE_NAME_REQUIRED` | 400 | |
 | `workspacedomain.ErrNameTooLong` | `WORKSPACE_NAME_TOO_LONG` | 400 | 超过 64 字符 |
