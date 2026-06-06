@@ -4,7 +4,7 @@
 
 ## 当前
 
-- **阶段**：Phase 2 逐模块 — 波次 0 全部完成；**波次 1（叶子业务域）进行中：M1.1 workspace ✅ · M1.2 apikey ✅ · M1.3 model ✅ · M1.4 relation ✅ · M1.5 catalog ✅ · M1.6 mention ✅ · M1.7 memory ✅ · M1.8 sandbox ✅ · M1.9 ⏭️解散 · M1.10 document ✅ · M1.11 todo ✅**。**波次 1 收官**；**波次 2（tool + 原语）进行中：M2.1 tool ✅ · M2.2 loop ✅（+建 domain/messages）· M2.3 叶子工具进行中：#1 filesystem ✅ · #2 search ✅ · 搜索配置 ✅（web 前置，建 domain/websearch）· #3 web ✅（删 MCP tier）· #4 toolset ⬜**。
+- **阶段**：Phase 2 逐模块 — 波次 0 全部完成；**波次 1（叶子业务域）进行中：M1.1 workspace ✅ · M1.2 apikey ✅ · M1.3 model ✅ · M1.4 relation ✅ · M1.5 catalog ✅ · M1.6 mention ✅ · M1.7 memory ✅ · M1.8 sandbox ✅ · M1.9 ⏭️解散 · M1.10 document ✅ · M1.11 todo ✅**。**波次 1 收官**；**波次 2（tool + 原语）✅ 收官：M2.1 tool ✅ · M2.2 loop ✅（+建 domain/messages）· M2.3 叶子工具全完成：#1 filesystem ✅ · #2 search ✅ · 搜索配置 ✅（web 前置，建 domain/websearch）· #3 web ✅（删 MCP tier）· #4 toolset ✅（search_tools 检索式懒加载，砍 activate_tools）**。**下一:波次 3 Quadrinity。**
 - **分支**：`main`（backend-new 平行重写不需要分支）。
 - **策略**：`backend-new/` 平行重建 → 覆盖回 `backend/` → 调前端/testend 兼容。
 
@@ -45,7 +45,7 @@
 - **Phase 1 骨架** ✅：`backend-new/` + 空 go.mod + health server + smoke。
 - **波次0 地基**：M0.1 pkg ✅（**reqctx/idgen/pagination ✅** R0001；**tokencount ✅** R0002；**pathguard ✅** R0003；**userpath ⏭️删** R0004；**wikilink ✅** R0005；**jsonrepair ✅** R0006；**limits ✅** R0007；modelcaps/modelcatalog 移交 M1.3）· M0.2 数据库层 ✅（**pkg/orm R0008 · db 网关 R0009**；业务表 DDL 分散各模块）· M0.3 ✅（**logger R0010 · crypto R0011**）· M0.4 ✅：**errors R0012** · **stream 统一协议 R0013**（单一 domain/stream：信封+四动词Frame+通用 Node{Type,Content}+Bridge/ListReader；词表下放业务）· M0.5 ✅ infra **stream bus（单一 Bus）R0014**（实例化三次=三流；frame 分级；D2 全量推；infra/chat extractor 移交 M5.2）· M0.6 llm ✅（11 家 provider）· **M0.7 transport ✅ R0017**（response N1+errmap 塌缩+SSE marshal · middleware workspace · router 框架；完整 New→M7）· **波次 0 收官 ✅**
 - **波次1 叶子域**：M1.1 workspace(原 user) **✅ R0018** · M1.2 apikey **✅ R0019** · M1.3 model **✅ R0020** · M1.4 relation **✅ R0021** · M1.5 catalog **✅ R0022** · M1.6 mention **✅ R0023** · notification(基础) **✅ R0024** · M1.7 memory **✅ R0025** · M1.8 sandbox **✅ R0026** · M1.9 permissions/hooks **⏭️ 解散 R0027** · M1.10 document **✅ R0028** · M1.11 todo **✅ R0029** · **波次 1 收官 ✅**
-- **波次2 tool+原语**：tool **✅ R0030** · loop **✅ R0031**（+建 messages domain） · tool/**filesystem ✅ R0032**（+首建 pkg/agentstate）· tool/**search ✅ R0033**（+建 pkg/fspath、cwd 全局废弃）· **搜索配置 ✅ R0034**（+建 domain/websearch、workspace 加列）· tool/**web ✅ R0035**（WebFetch 摘要链 + WebSearch 单把 BYOK、删 MCP tier）· tool/toolset ⬜
+- **波次2 tool+原语**：tool **✅ R0030** · loop **✅ R0031**（+建 messages domain） · tool/**filesystem ✅ R0032**（+首建 pkg/agentstate）· tool/**search ✅ R0033**（+建 pkg/fspath、cwd 全局废弃）· **搜索配置 ✅ R0034**（+建 domain/websearch、workspace 加列）· tool/**web ✅ R0035**（WebFetch 摘要链 + WebSearch 单把 BYOK、删 MCP tier）· tool/**toolset ✅ R0036**（search_tools 检索式懒加载，砍 activate_tools，+agentstate discoveredTools）· **波次 2 收官 ✅**
 - **波次3 Quadrinity**：function·handler·subagent·agent·skill·mcp + tool 适配器组 ⬜
 - **波次4 编排核心**：workflow ⬜ · flowrun ⬜ · scheduler 🔴⬜ · trigger ⬜ · tool/workflow ⬜
 - **波次5 对话**：conversation ⬜ · chat ⬜ · contextmgr ⬜ · tool/permissionsgate ⬜
@@ -54,5 +54,6 @@
 
 ## 下一步
 
-- **波次 2（下一轮）**：M2.1 tool ✅ → M2.2 loop ✅（ReAct 引擎接 stream / danger 标记 / execution_group 批 / todo reminder + 建 messages domain）→ **M2.3 叶子工具进行中**：#1 filesystem ✅（+pkg/agentstate）→ #2 search ✅（+pkg/fspath、LS 新增、cwd 全局废弃）→ 搜索配置 ✅（R0034，建 domain/websearch + workspace 加列）→ #3 web ✅（R0035，WebFetch 摘要链 + WebSearch 单把 BYOK、删 MCP tier）→ **#4 toolset**（下一，波次 2 最后一个）。
+- **波次 2 ✅ 全部完成**：M2.1 tool → M2.2 loop（+messages domain）→ M2.3 #1 filesystem（+agentstate）→ #2 search（+fspath、cwd 废弃）→ 搜索配置（R0034，+websearch domain）→ #3 web（删 MCP tier）→ #4 toolset（R0036，search_tools 检索式懒加载，砍 activate_tools）。
+- **下一站:波次 3 Quadrinity 执行体**：function · handler · subagent · agent · skill · mcp + tool 适配器组（lazy 实体工具在此进 Toolset.Lazy）。注意 agent **execution 面对齐 function/skill** 的 in-flight 改动(M3.4)。
 - M1.1 遗留 → M7：boot 默认 workspace（`Count==0→Create`）+ `WorkspaceResolver` 注入 `IdentifyWorkspace` + `~/.forgify/` 共享资源布局落地（不分桶）。

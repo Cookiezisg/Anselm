@@ -165,10 +165,7 @@ func TestIsValidDanger(t *testing.T) {
 func TestToolset_All(t *testing.T) {
 	ts := Toolset{
 		Resident: []Tool{fakeTool{name: "r1"}, fakeTool{name: "r2"}},
-		Lazy: map[string][]Tool{
-			"skill": {fakeTool{name: "s1"}},
-			"mcp":   {fakeTool{name: "m1"}, fakeTool{name: "m2"}},
-		},
+		Lazy:     []Tool{fakeTool{name: "s1"}, fakeTool{name: "m1"}, fakeTool{name: "m2"}},
 	}
 	all := ts.All()
 	if len(all) != 5 {
@@ -176,5 +173,26 @@ func TestToolset_All(t *testing.T) {
 	}
 	if all[0].Name() != "r1" || all[1].Name() != "r2" {
 		t.Errorf("resident not first: %s %s", all[0].Name(), all[1].Name())
+	}
+}
+
+func TestToolset_OverviewAndFindLazy(t *testing.T) {
+	ts := Toolset{
+		Resident: []Tool{fakeTool{name: "r1"}},
+		Lazy:     []Tool{fakeTool{name: "s1"}, fakeTool{name: "m1"}},
+	}
+	ov := ts.Overview()
+	// Overview = lazy tools' name + Description only (no Parameters).
+	if len(ov) != 2 || ov[0].Name != "s1" || ov[0].Description != "desc of s1" {
+		t.Fatalf("Overview = %+v, want lazy briefs (name+desc)", ov)
+	}
+	if ts.FindLazy("m1") == nil {
+		t.Errorf("FindLazy(m1) = nil, want the tool")
+	}
+	if ts.FindLazy("r1") != nil {
+		t.Errorf("FindLazy(r1) must be nil — r1 is resident, not lazy")
+	}
+	if ts.FindLazy("nope") != nil {
+		t.Errorf("FindLazy(nope) must be nil")
 	}
 }

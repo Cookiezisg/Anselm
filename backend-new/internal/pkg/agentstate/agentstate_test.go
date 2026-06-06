@@ -63,3 +63,38 @@ func TestMarkRead_Concurrent(t *testing.T) {
 		t.Fatalf("concurrent MarkRead lost /x/a.go")
 	}
 }
+
+func TestDiscoveredTools_RoundTrip(t *testing.T) {
+	s := New()
+	if s.IsToolDiscovered("run_function") {
+		t.Fatalf("fresh state must not report any discovered tool")
+	}
+	s.MarkToolDiscovered("run_function")
+	s.MarkToolDiscovered("trigger_workflow")
+	if !s.IsToolDiscovered("run_function") || !s.IsToolDiscovered("trigger_workflow") {
+		t.Fatalf("marked tools not reported discovered")
+	}
+	if s.IsToolDiscovered("call_mcp_tool") {
+		t.Fatalf("unmarked tool reported discovered")
+	}
+	got := s.DiscoveredTools()
+	if len(got) != 2 {
+		t.Fatalf("DiscoveredTools = %v, want 2", got)
+	}
+}
+
+func TestMarkToolDiscovered_Concurrent(t *testing.T) {
+	s := New()
+	var wg sync.WaitGroup
+	for i := range 100 {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			s.MarkToolDiscovered("tool_" + string(rune('a'+i%26)))
+		}(i)
+	}
+	wg.Wait()
+	if !s.IsToolDiscovered("tool_a") {
+		t.Fatalf("concurrent MarkToolDiscovered lost tool_a")
+	}
+}
