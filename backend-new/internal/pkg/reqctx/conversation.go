@@ -16,6 +16,7 @@ var ErrMissingConversationID = errors.New("reqctx: missing conversation id in co
 type (
 	conversationIDKey struct{}
 	subagentIDKey     struct{}
+	messageIDKey      struct{}
 )
 
 // SetConversationID returns a copy of ctx carrying the conversation id. Seeded by the
@@ -69,5 +70,25 @@ func SetSubagentID(ctx context.Context, id string) context.Context {
 // 与上面的必填 id 不同，它天然可选。
 func GetSubagentID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(subagentIDKey{}).(string)
+	return id, ok && id != ""
+}
+
+// SetMessageID seeds the current assistant turn's message id. The host (chat / agent)
+// creates the message row before loop.Run and plants its id here so the loop's stream
+// emitter can anchor every block it produces to that message (a block's parentId is the
+// message id). Absent on a non-streaming run — the emitter then skips the live push.
+//
+// SetMessageID 埋当前 assistant 回合的 message id。host（chat / agent）在 loop.Run 前建 message
+// 行、把 id 埋此，使 loop 的流式 emitter 把它产的每个 block 锚到该 message（block 的 parentId 即
+// message id）。非流式运行无此值——emitter 届时跳过 live 推送。
+func SetMessageID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, messageIDKey{}, id)
+}
+
+// GetMessageID returns the message id; ok=false when missing or empty.
+//
+// GetMessageID 取 message id；缺失或空时 ok=false。
+func GetMessageID(ctx context.Context) (string, bool) {
+	id, ok := ctx.Value(messageIDKey{}).(string)
 	return id, ok && id != ""
 }

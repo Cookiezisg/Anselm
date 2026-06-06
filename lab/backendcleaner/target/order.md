@@ -53,7 +53,7 @@
 | 编号 | 模块 | 依赖 | 旗标 |
 |---|---|---|---|
 | M2.1 ✅ R0030 | `tool`（基础接口） | infra/llm | **S18 9→5 方法**（删权限模式机制）；framework 注入 summary/`danger`(三级)/execution_group；Toolset 懒加载保留（与 catalog 正交）；danger 确认流/并行批 → loop M2.2 |
-| M2.2 | `loop`（ReAct 引擎） | tool | 被 chat/agent/subagent/skill 共享 |
+| M2.2 ✅ R0031 | `loop`（ReAct 引擎）+ `domain/messages` | tool, messages | 共享 ReAct 引擎接 stream(eventlog→messages 流 open/delta/close、close 带快照)、danger 纯标记、删 interceptor(M1.9)、todo 注入走 `ReminderProvider` 钩子；**建 messages domain**(Block/ToolCallData/词表无家可归——修正 loop 依赖 chat 耦合反向)；executeTool 极简(删权限/sanitize/enrich)；agentstate 零依赖(随各工具消费者重建)；message_blocks 表/落盘/History 留 M5.2 |
 | M2.3 | `tool/filesystem` `tool/search` `tool/web` `tool/toolset` | tool | 叶子工具适配器 |
 
 ### 波次 3 — Quadrinity 执行体
