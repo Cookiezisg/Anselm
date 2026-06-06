@@ -47,12 +47,9 @@ audience: [human, ai]
 | GET | `/api/v1/functions/{id}` | `function.go` |
 | PATCH | `/api/v1/functions/{id}` | `function.go` |
 | DELETE | `/api/v1/functions/{id}` | `function.go` |
-| POST | `/api/v1/functions/{idAction}` | `function.go` | (:run, :revert, :edit, :iterate) |
+| POST | `/api/v1/functions/{idAction}` | `function.go` | (:run, :revert, :edit；:iterate 随 askai 波次 6) |
 | GET | `/api/v1/functions/{id}/versions` | `function.go` |
-| GET | `/api/v1/functions/{id}/versions/{version}` | `function.go` |
-| GET | `/api/v1/functions/{id}/pending` | `function.go` |
-| POST | `/api/v1/functions/{id}/pending:accept` | `function.go` |
-| POST | `/api/v1/functions/{id}/pending:reject` | `function.go` |
+| GET | `/api/v1/functions/{id}/versions/{version}` | `function.go` | (整数号或 version id) |
 | GET | `/api/v1/functions/{id}/executions` | `function.go` |
 | GET | `/api/v1/function-executions/{execId}` | `function.go` |
 

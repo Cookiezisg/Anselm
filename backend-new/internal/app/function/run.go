@@ -1,0 +1,141 @@
+package function
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"go.uber.org/zap"
+
+	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+)
+
+// RunInput is the request shape for RunFunction. TriggeredBy is the execution body
+// (chat / agent / workflow / manual); empty defaults to manual.
+//
+// RunInput 是 RunFunction 的请求形状。TriggeredBy 是执行体（chat / agent / workflow /
+// manual）；空默认 manual。
+type RunInput struct {
+	FunctionID  string
+	VersionID   string // empty → active version
+	Input       map[string]any
+	TriggeredBy string
+}
+
+// RunFunction synchronously runs a function: ensure its env is ready (rebuilding on
+// demand if it was reclaimed), spawn the code, and write one Execution audit row.
+//
+// RunFunction 同步运行 function：确保 env 就绪（被回收则按需重建）、spawn 代码、写一行
+// Execution 审计。
+func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain.ExecutionResult, error) {
+	f, err := s.repo.GetFunction(ctx, in.FunctionID)
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.RunFunction: %w", err)
+	}
+	versionID := in.VersionID
+	if versionID == "" {
+		versionID = f.ActiveVersionID
+	}
+	if versionID == "" {
+		return nil, fmt.Errorf("functionapp.RunFunction: %w", functiondomain.ErrNoActiveVersion)
+	}
+	v, err := s.repo.GetVersion(ctx, versionID)
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.RunFunction: %w", err)
+	}
+
+	if v.EnvStatus != functiondomain.EnvStatusReady {
+		if ready, errMsg := s.ensureEnv(ctx, v, nil); !ready {
+			return nil, fmt.Errorf("functionapp.RunFunction: %s: %w", errMsg, functiondomain.ErrEnvNotReady)
+		}
+	}
+
+	owner := envOwner(v.FunctionID, v.EnvID)
+	startedAt := time.Now().UTC()
+	res, sandboxErr := s.runner.Run(ctx, owner, v.FunctionID, v.ID, v.Code, in.Input)
+
+	// Env reclaimed externally (GC / manual cleanup): rebuild from the version snapshot
+	// and retry once.
+	// env 被外部回收（GC / 手工清理）：按版本快照重建并重试一次。
+	if sandboxErr != nil && errors.Is(sandboxErr, sandboxdomain.ErrEnvNotFound) {
+		s.log.Info("function env reclaimed; rebuilding then retrying",
+			zap.String("functionId", v.FunctionID), zap.String("versionId", v.ID))
+		if ready, _ := s.ensureEnv(ctx, v, nil); ready {
+			res, sandboxErr = s.runner.Run(ctx, owner, v.FunctionID, v.ID, v.Code, in.Input)
+		}
+	}
+	endedAt := time.Now().UTC()
+
+	s.recordExecution(ctx, in, v, startedAt, endedAt, res, sandboxErr, ctx.Err())
+
+	if sandboxErr != nil {
+		return nil, fmt.Errorf("functionapp.RunFunction: %w", sandboxErr)
+	}
+	return res, nil
+}
+
+// recordExecution writes one terminal Execution row (best-effort, on a detached context
+// preserving the workspace so a cancelled run's record still lands).
+//
+// recordExecution 写一行终态 Execution（best-effort，用保留 workspace 的 detached ctx，
+// 使被取消的运行记录仍落库）。
+func (s *Service) recordExecution(ctx context.Context, in RunInput, v *functiondomain.Version, startedAt, endedAt time.Time, res *functiondomain.ExecutionResult, sandboxErr, runCtxErr error) {
+	status := functiondomain.ExecutionStatusOK
+	errMsg := ""
+	var output any
+	switch {
+	case sandboxErr != nil:
+		status = functiondomain.ExecutionStatusFailed
+		errMsg = sandboxErr.Error()
+		if errors.Is(runCtxErr, context.DeadlineExceeded) {
+			status = functiondomain.ExecutionStatusTimeout
+		} else if errors.Is(runCtxErr, context.Canceled) {
+			status = functiondomain.ExecutionStatusCancelled
+		}
+	case res != nil:
+		if !res.OK {
+			status = functiondomain.ExecutionStatusFailed
+			errMsg = res.ErrorMsg
+		}
+		output = res.Output
+	}
+
+	triggeredBy := in.TriggeredBy
+	if !functiondomain.IsValidTrigger(triggeredBy) {
+		triggeredBy = functiondomain.TriggeredByManual
+	}
+	input := in.Input
+	if input == nil {
+		input = map[string]any{}
+	}
+
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	msgID, _ := reqctxpkg.GetMessageID(ctx)
+
+	exec := &functiondomain.Execution{
+		ID:             idgenpkg.New("fne"),
+		FunctionID:     v.FunctionID,
+		VersionID:      v.ID,
+		Status:         status,
+		TriggeredBy:    triggeredBy,
+		Input:          input,
+		Output:         output,
+		ErrorMessage:   errMsg,
+		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
+		StartedAt:      startedAt,
+		EndedAt:        endedAt,
+		ConversationID: convID,
+		MessageID:      msgID,
+	}
+
+	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
+	detached := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	if err := s.repo.SaveExecution(detached, exec); err != nil {
+		s.log.Warn("functionapp.recordExecution: save failed (best-effort)",
+			zap.String("functionId", v.FunctionID), zap.String("versionId", v.ID), zap.Error(err))
+	}
+}

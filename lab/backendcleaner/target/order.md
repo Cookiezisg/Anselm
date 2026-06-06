@@ -64,8 +64,8 @@
 
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
-| M3.1 | `function` | sandbox | |
-| M3.2 | `handler` | sandbox | |
+| M3.1 ✅ R0037 | `function` | sandbox, **app/envfix(新)** | 版本号去 accept(方案 A 指针式 revert) + polling 剥离(独立概念) + **env-fix 抽 `app/envfix` 共享包**(function/handler/trigger 复用) |
+| M3.2 | `handler` | sandbox, app/envfix | 复用 `app/envfix`；常驻 `SpawnLongLived` + lazy rebuild |
 | M3.3 | `subagent` | loop, tool | |
 | M3.4 | `agent` | loop, tool | 🔧 in-flight：execution 面对齐 function/skill（当前未提交改动）|
 | M3.5 | `skill` | subagent | |

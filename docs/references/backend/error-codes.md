@@ -80,16 +80,12 @@ audience: [human, ai]
 | `functiondomain.ErrNotFound` | `FUNCTION_NOT_FOUND` | 404 | |
 | `functiondomain.ErrDuplicateName` | `FUNCTION_NAME_DUPLICATE` | 409 | |
 | `functiondomain.ErrVersionNotFound` | `FUNCTION_VERSION_NOT_FOUND` | 404 | |
-| `functiondomain.ErrPendingNotFound` | `FUNCTION_PENDING_NOT_FOUND` | 404 | |
-| `functiondomain.ErrRunFailed` | `FUNCTION_RUN_FAILED` | 422 | 执行中出错 |
-| `functiondomain.ErrASTParseError` | `FUNCTION_AST_PARSE_FAILED` | 422 | 语法错 |
-| `functiondomain.ErrNoActiveVersion` | `FUNCTION_NO_ACTIVE_VERSION` | 422 | |
-| `functiondomain.ErrEnvNotReady` | `FUNCTION_ENV_NOT_READY` | 422 | 环境同步中 |
-| `functiondomain.ErrEnvFailed` | `FUNCTION_ENV_FAILED` | 422 | 环境彻底失败 |
-| `functiondomain.ErrDependencyResolution` | `FUNCTION_DEPENDENCY_RESOLUTION`| 422 | pip 依赖冲突 |
-| `functiondomain.ErrSandboxUnavailable` | `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | Sandbox 组件未启动 |
-| `functiondomain.ErrOpInvalid` | `FUNCTION_OP_INVALID` | 400 | 锻造指令语法错误 |
 | `functiondomain.ErrExecutionNotFound` | `FUNCTION_EXECUTION_NOT_FOUND` | 404 | 历史记录查不到 |
+| `functiondomain.ErrNoActiveVersion` | `FUNCTION_NO_ACTIVE_VERSION` | 422 | |
+| `functiondomain.ErrEnvNotReady` | `FUNCTION_ENV_NOT_READY` | 422 | env 建不起来（fix 后仍失败） |
+| `functiondomain.ErrOpInvalid` | `FUNCTION_OP_INVALID` | 422 | 锻造 op 畸形 / 草稿非法 |
+| `functiondomain.ErrInvalidCode` | `FUNCTION_INVALID_CODE` | 422 | 代码终校验失败（无 def / D7 黑名单） |
+| `functiondomain.ErrSandboxUnavailable` | `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime 未就绪 |
 
 ### 2.6 Handler Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

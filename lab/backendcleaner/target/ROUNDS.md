@@ -2,6 +2,7 @@
 
 | Round | 日期 | 阶段 | 目标 | 结果 |
 |---|---|---|---|---|
+| 0037 | 2026-06-06 | 波次3 · M3.1 | function 重写 + 抽 app/envfix（**波次 3 起步**） | ✅ 用户拍板三大简化：**①版本号去 accept**（方案 A：单调号 / 不可变内容 / 自由 active 指针三正交，无 pending/accept；create/edit 立即生效写 max+1，**revert 纯移指针**不删"更新的"版本，edit fork-from-active，50 上限裁最老但**绝不裁 active**）**②polling 剥离**（删 kind/polling_interval/PollingAdapter/2 ops——独立概念不寄生；顺带修旧 `triggered_by="polling_trigger"` 违反 CHECK 的 bug）**③env-fix 抽共享 `app/envfix`**（function/handler/trigger 复用，Provision 装→失败 utility LLM 改 deps 重试≤3→回写 FinalDeps；链对齐新地基删 Thinking/llmclient/llmparse；Sink 回调推流留 tool 层、包 stream-agnostic）；triggered_by ∈ chat/agent/workflow/manual（执行体轴）；execution 砍 hints、aggregates 只 ok/failed；domain 去 GORM + errorsdomain（删 5 旧码 + 加 ErrInvalidCode）；store orm（trim cutoff 避 offset + 保护 active）；9 工具（5 方法、danger 自报、create/edit forgeSink 折 envFixAttempts）；handler 删 pending 三端点；envfix 6 + store 9 + app 8（含 revert 纯移指针 + fork-from-active 核心）+ tool + domain 测试；契约 function.md 重写(DOC-110) + envfix.md 新(DOC-304) + error-codes/api/database 前缀 fnenv_ + contract #17；gofmt/build/vet/test -race 全绿 |
 | 0001 | 2026-06-03 | 波次0 · M0.1 | pkg reqctx/idgen/pagination 重写 | ✅ stdlib-only，测试绿（含 R0001.1：reqctx 按 concern 拆 workspace.go/reqctx.go） |
 | 0002 | 2026-06-03 | 波次0 · M0.1 | tokencount 迁移 | ✅ 原样保留（干净叶子），测试绿 |
 | 0003 | 2026-06-03 | 波次0 · M0.1 | pathguard 迁移 + #7 清理 | ✅ 逻辑不动，删 V1.2 叙述/死变量/过时注释，测试绿 |

@@ -305,3 +305,20 @@ search 三件套(LS/Glob/Grep) + `pkg/fspath.Expand` + filesystem 回溯补 `~` 
 | ~~**WebSearch MCP tier**~~ **废弃 R0035** | — | 改判删除:MCP 搜索经 `tool/mcp`(M3.7)**平级暴露**给 LLM、直接调,WebSearch 不代理。web 零 mcp 依赖。引导文案提"装 duckduckgo MCP"是纯文字、零代码耦合 |
 | **前端"默认搜索 key"选择器** | 覆盖阶段（contract #14） | Settings 从 `category=search` 的 apikey 单选 → PUT/DELETE default-search;读 workspace 响应 `defaultSearchKeyId` |
 | **boot 注入 web 的 SearchKeyPicker** | server boot M7 | `workspace.Service` 实例传给 `WebTools(...)`（同 model.ModelPicker 的注入） |
+
+## 来自波次 3 · M3.1（function 重写 + 抽 app/envfix R0037）
+
+function（domain/store/app/tool/handler）+ 共享 `app/envfix` 已建。消费侧 / 装配登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **`app/envfix` 给 handler 复用** | M3.2 handler | handler 也装 env（有 deps）→ 复用 `envfix.Provisioner`（注入 sandboxapp.Service + picker + keys + factory）；handler 的 SandboxRunner 用 `SpawnLongLived`（常驻）而非一次性 Spawn |
+| **`app/envfix` 给轮询触发源复用** | 「单独一种」那轮 | 轮询源（用户后面单独算的触发概念）若需 sandbox env 同样复用 envfix |
+| **`envfix.Sink` live 推流** | chat host M5.2 | 当前 create/edit 工具用累积 `forgeSink` 把尝试折进结果；M5.2 建「tool-progress 流缝」后，Sink.OnAttempt/OnFixing 同时推 messages/forge 流 |
+| **boot 装配 envfix.Provisioner + function SandboxRunner** | M7 | `envfix.NewProvisioner(sandboxapp.Service, picker, keys, factory, log)` + `functionapp.NewSandboxAdapter(sandboxapp.Service, dataDir)` 注入 `functionapp.NewService` |
+| **function 3 适配器注入** | M7 | catalog `RegisterSource(fnSvc.AsCatalogSource())`、chat mention 注册 `fnSvc.AsMentionResolver()`、`fnSvc.SetRelationSyncer(relationSvc)`、relation `Config.Namers["function"]=fnSvc`（fnSvc 实现 `NamesByIDs`）|
+| **function 9 工具进 `Toolset.Lazy`** | M7 boot / chat host | `functiontool.FunctionTools(fnSvc)` 返 9 工具 → 加入 Toolset.Lazy（懒加载实体工具，经 search_tools 浮现）|
+| **function handler 路由 + DDL 收集** | M7 | `NewFunctionHandler(fnSvc, log).Register(mux)`；`functionstore.Schema`（3 表）交 `db.Migrate` |
+| **`triggered_by` 写入方接线** | agent M3.4 / workflow M4 / chat M5.2 | tool 已按 reqctx 有无 subagent 区分 chat/agent；agent host 显式 set agent、workflow dispatcher 调 `Service.RunFunction` set workflow、HTTP 手动已 set manual |
+| **`:iterate`（askai AI 编辑）** | 波次 6 | function handler 的 `:iterate` + `BuildFunctionContext` + `SetSpawner`（askai 那轮加，本轮端点不挂）|
+| **execution `tool_call_id` 种子** | chat M5.2 | reqctx 暂无 `GetToolCallID`（旧 agentrun.go 余项随 chat 那轮）；Execution.ToolCallID 当前留空，M5.2 接 |
