@@ -61,14 +61,11 @@ audience: [human, ai]
 | GET | `/api/v1/handlers/{id}` | `handler.go` |
 | PATCH | `/api/v1/handlers/{id}` | `handler.go` |
 | DELETE | `/api/v1/handlers/{id}` | `handler.go` |
-| POST | `/api/v1/handlers/{idAction}` | `handler.go` | (:call, :revert, :edit, :iterate) |
+| POST | `/api/v1/handlers/{idAction}` | `handler.go` | (:call, :restart, :revert, :edit；:iterate 随 askai 波次 6) |
 | GET | `/api/v1/handlers/{id}/versions` | `handler.go` |
-| GET | `/api/v1/handlers/{id}/versions/{version}` | `handler.go` |
-| GET | `/api/v1/handlers/{id}/pending` | `handler.go` |
-| POST | `/api/v1/handlers/{id}/pending:accept` | `handler.go` |
-| POST | `/api/v1/handlers/{id}/pending:reject` | `handler.go` |
-| GET | `/api/v1/handlers/{id}/config` | `handler.go` |
-| POST | `/api/v1/handlers/{id}/config` | `handler.go` |
+| GET | `/api/v1/handlers/{id}/versions/{version}` | `handler.go` | (整数号或 version id) |
+| GET | `/api/v1/handlers/{id}/config` | `handler.go` | (masked + configState + missing) |
+| PUT | `/api/v1/handlers/{id}/config` | `handler.go` | (merge patch + 重启实例) |
 | DELETE | `/api/v1/handlers/{id}/config` | `handler.go` |
 | GET | `/api/v1/handlers/{id}/calls` | `handler.go` |
 | GET | `/api/v1/handler-calls/{callId}` | `handler.go` |

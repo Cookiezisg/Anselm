@@ -322,3 +322,19 @@ function（domain/store/app/tool/handler）+ 共享 `app/envfix` 已建。消费
 | **`triggered_by` 写入方接线** | agent M3.4 / workflow M4 / chat M5.2 | tool 已按 reqctx 有无 subagent 区分 chat/agent；agent host 显式 set agent、workflow dispatcher 调 `Service.RunFunction` set workflow、HTTP 手动已 set manual |
 | **`:iterate`（askai AI 编辑）** | 波次 6 | function handler 的 `:iterate` + `BuildFunctionContext` + `SetSpawner`（askai 那轮加，本轮端点不挂）|
 | **execution `tool_call_id` 种子** | chat M5.2 | reqctx 暂无 `GetToolCallID`（旧 agentrun.go 余项随 chat 那轮）；Execution.ToolCallID 当前留空，M5.2 接 |
+
+## 来自波次 3 · M3.2（handler MCP 式单例常驻 R0038）
+
+handler（domain/store/app/tool/handler + infra/handler client + 单例进程管理器）已建。消费侧 / 装配登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **`Service.Boot(ctx)` / `Shutdown(ctx)` 注入生命周期** | server boot/退出 M7 | boot 调 `handlerSvc.Boot(ctx)` 开局起常驻实例、进程退出调 `Shutdown(ctx)` 优雅关全部。**多 workspace boot 编排 + workspace 切换时起停**（切走停旧 ws、切入起新 ws，还是全程常驻？）留 M7 定——manager 按 handlerID 全局键，跨 workspace 实例可共存 |
+| **boot 装配 envfix.Provisioner + SandboxRunner + encryptor + clientFact** | M7 | `envfix.NewProvisioner(sandboxapp.Service,...)` + `handlerapp.NewSandboxAdapter(sandboxapp.Service, dataDir)` + `crypto` 注入 `handlerapp.NewService`；clientFact 默认 `DefaultClientFactory` |
+| **handler 3 适配器注入** | M7 | catalog `RegisterSource`、mention 注册 `AsMentionResolver`、`SetRelationSyncer`、relation `Config.Namers["handler"]=handlerSvc` |
+| **handler 11 工具进 `Toolset.Lazy`** | M7 / chat host | `handlertool.HandlerTools(handlerSvc)` → Toolset.Lazy |
+| **handler handler 路由 + DDL 收集** | M7 | `NewHandlerHandler(svc, log).Register(mux)`；`handlerstore.Schema`（3 表）交 `db.Migrate` |
+| **workflow tool 节点 kind=handler 调方法** | M4 | dispatcher 调 `handlerSvc.Call`（TriggeredBy=workflow）|
+| **`triggered_by` 写入方 + StreamCall 进度推流** | agent M3.4 / chat M5.2 | tool 已按 ctx subagent 区分 chat/agent；StreamCall 的 OnProgress 推 messages 流（同 function env-fix sink，M5.2 tool-progress 流缝）|
+| **`:iterate`（askai AI 编辑）** | 波次 6 | handler handler 的 `:iterate` + BuildHandlerContext（那轮加，本轮端点不挂）|
+| **call `tool_call_id` 种子** | chat M5.2 | 同 function——reqctx 暂无 GetToolCallID，Call.ToolCallID 留空 M5.2 接 |

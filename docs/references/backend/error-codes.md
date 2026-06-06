@@ -92,23 +92,19 @@ audience: [human, ai]
 |---|---|---|---|
 | `handlerdomain.ErrNotFound` | `HANDLER_NOT_FOUND` | 404 | |
 | `handlerdomain.ErrDuplicateName` | `HANDLER_NAME_DUPLICATE` | 409 | |
-| `handlerdomain.ErrMethodNotFound` | `HANDLER_METHOD_NOT_FOUND` | 404 | 调用了不存在的方法 |
 | `handlerdomain.ErrVersionNotFound` | `HANDLER_VERSION_NOT_FOUND` | 404 | |
-| `handlerdomain.ErrPendingNotFound` | `HANDLER_PENDING_NOT_FOUND` | 404 | |
-| `handlerdomain.ErrInstanceSpawnFailed` | `HANDLER_INSTANCE_SPAWN_FAILED` | 422 | 子进程拉起失败 |
-| `handlerdomain.ErrInstanceCrashed` | `HANDLER_INSTANCE_CRASHED` | 422 | |
-| `handlerdomain.ErrInstanceRPCTimeout` | `HANDLER_INSTANCE_RPC_TIMEOUT` | 504 | 子进程通信超时 |
-| `handlerdomain.ErrInstanceNotFound` | `HANDLER_INSTANCE_NOT_FOUND` | 404 | 进程已销毁 |
-| `handlerdomain.ErrNoActiveVersion` | `HANDLER_NO_ACTIVE_VERSION` | 422 | |
-| `handlerdomain.ErrEnvNotReady` | `HANDLER_ENV_NOT_READY` | 422 | |
-| `handlerdomain.ErrEnvFailed` | `HANDLER_ENV_FAILED` | 422 | |
-| `handlerdomain.ErrSandboxUnavailable` | `HANDLER_SANDBOX_UNAVAILABLE` | 503 | |
-| `handlerdomain.ErrOpInvalid` | `HANDLER_OP_INVALID` | 400 | |
-| `handlerdomain.ErrASTParseError` | `HANDLER_AST_PARSE_FAILED` | 422 | |
-| `handlerdomain.ErrConfigIncomplete` | `HANDLER_CONFIG_INCOMPLETE` | 422 | 缺初始化参数 |
-| `handlerdomain.ErrConfigInvalid` | `HANDLER_CONFIG_INVALID` | 400 | 参数校验失败 |
-| `handlerdomain.ErrConfigDecryptFailed` | `HANDLER_CONFIG_DECRYPT_FAILED`| 500 | 密钥无法解密 DB 记录 |
 | `handlerdomain.ErrCallNotFound` | `HANDLER_CALL_NOT_FOUND` | 404 | 调用日志查不到 |
+| `handlerdomain.ErrMethodNotFound` | `HANDLER_METHOD_NOT_FOUND` | 404 | 调用了不存在的方法 |
+| `handlerdomain.ErrNoActiveVersion` | `HANDLER_NO_ACTIVE_VERSION` | 422 | |
+| `handlerdomain.ErrEnvNotReady` | `HANDLER_ENV_NOT_READY` | 422 | env 建不起来 |
+| `handlerdomain.ErrConfigIncomplete` | `HANDLER_CONFIG_INCOMPLETE` | 422 | 缺必填初始化参数 |
+| `handlerdomain.ErrOpInvalid` | `HANDLER_OP_INVALID` | 422 | 锻造 op 畸形 |
+| `handlerdomain.ErrInvalidCode` | `HANDLER_INVALID_CODE` | 422 | 类草稿校验失败（无名/无方法）|
+| `handlerdomain.ErrSandboxUnavailable` | `HANDLER_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime 未就绪 |
+| `handlerdomain.ErrInstanceSpawnFailed` | `HANDLER_INSTANCE_SPAWN_FAILED` | 502 | 常驻进程拉起失败 |
+| `handlerdomain.ErrInstanceCrashed` | `HANDLER_CRASHED` | 502 | 常驻进程崩溃（下次调用重生）|
+| `handlerdomain.ErrInstanceRPCTimeout` | `HANDLER_RPC_TIMEOUT` | 504 | 子进程通信超时 |
+| `handlerdomain.ErrConfigDecryptFailed` | `HANDLER_CONFIG_DECRYPT_FAILED` | 500 | 密钥无法解密 DB 记录 |
 | `handlerinfra.ErrCallFailed` | `HANDLER_CALL_FAILED` | 422 | 底层派发失败 |
 | `handlerinfra.ErrInitFailed` | `HANDLER_INIT_FAILED` | 422 | __init__ 挂了 |
 | `handlerinfra.ErrCrashed` | `HANDLER_INSTANCE_CRASHED_INFRA` | 422 | |

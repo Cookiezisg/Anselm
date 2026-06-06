@@ -4,104 +4,111 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-04-22
-reviewed: 2026-06-02
+reviewed: 2026-06-07
 review-due: 2026-09-01
 audience: [human, ai]
 ---
-# Handler Domain — 有状态 Python 类与长连接服务
+# Handler — 有状态 Python 类与常驻进程（MCP 式生命周期）
 
-> **核心地位**：Handler 是 Forgify “四项全能” (Quadrinity) 的第二元。它代表了 **“常驻的、有状态的服务”**。与 Function 不同，Handler 的实例在多次调用间保持存活，适用于数据库连接、外部 API 会话维持等场景。
-
----
-
-## 1. 物理模型 (Data Anatomy)
-
-### 1.1 `Handler` (实体主表)
-```go
-type Handler struct {
-    ID              string         `gorm:"primaryKey;type:text" json:"id"` // hd_<16hex>
-    UserID          string         `gorm:"not null;index" json:"userId"`
-    Name            string         `gorm:"not null;type:text" json:"name"`
-    
-    // 初始化配置: 加密存储的 JSON 载荷
-    ConfigEncrypted string         `gorm:"type:text;default:''" json:"-"`
-    
-    ActiveVersionID string         `gorm:"type:text;default:''" json:"activeVersionId"`
-    CreatedAt       time.Time      `json:"createdAt"`
-    UpdatedAt       time.Time      `json:"updatedAt"`
-    DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-}
-```
-
-### 1.2 `Version` (类定义表)
-```go
-type Version struct {
-    ID            string          `gorm:"primaryKey;type:text" json:"id"` // hdv_<16hex>
-    HandlerID     string          `gorm:"not null;index" json:"handlerId"`
-    Status        string          `gorm:"not null;default:'pending'" json:"status"`
-    
-    // 结构化代码块
-    Imports       string          `gorm:"type:text" json:"imports"`
-    InitBody      string          `gorm:"type:text" json:"initBody"`     // __init__ 逻辑
-    ShutdownBody  string          `gorm:"type:text" json:"shutdownBody"` // __del__ 或清理逻辑
-    Methods       []MethodSpec    `gorm:"serializer:json;type:text" json:"methods"` // 公开方法索引
-    
-    Dependencies  []string        `gorm:"serializer:json;type:text" json:"dependencies"`
-    EnvID         string          `gorm:"index;type:text" json:"envId"`
-    EnvStatus     string          `gorm:"type:text;default:'pending'" json:"envStatus"`
-    
-    CreatedAt     time.Time       `json:"createdAt"`
-}
-```
+> **核心地位**：Handler 是 Forgify「四项全能」(Quadrinity) 的第二元——**常驻的、有状态的服务**。是 function 的孪生：同样的锻造 / 版本 / env / 审计，多出三件——**类组装**（`__init__`/methods/`shutdown`）、**加密 config**（init-args）、**常驻进程生命周期**。状态（`self.xxx`）跨调用留存，适合数据库连接、API 会话、缓存。
 
 ---
 
-## 2. 核心原理 (Principles)
+## 1. 生命周期：MCP 式单例常驻（boot / restart / shutdown）
 
-### 2.1 Instance-Keep-Alive (实例常驻)
-Handler 运行在独立的长连接子进程中：
-1. **实例化**：调用方首次调 `:call` 时，后端在沙箱内拉起进程，执行 `InitBody`。
-2. **状态驻留**：进程不退出，类成员变量 (`self.xxx`) 在多次调用间保持。
-3. **RPC 通信**：后端与子进程通过 Unix Domain Socket 或 StdIO 运行轻量级 JSON-RPC。
-4. **懒加载销毁**：若 15 分钟无调用，系统会自动发送 `SHUTDOWN` 信号并执行 `ShutdownBody`。
+**一个 handler = 一个常驻单例进程**，像一台 MCP server：
 
-### 2.2 双层配置架构
-- **类定义 (Version)**：固化了方法的逻辑和入参 Schema。
-- **实例配置 (Config)**：存储了秘钥、端点等。
-- **逻辑隔离**：同一套 `Version` 代码可以被不同用户实例化为不同的 `Config`，实现“代码与凭证”的分离。
+| 动词 | 触发 | 行为 |
+|---|---|---|
+| **boot** | 开局（active 版 env-ready + config 完整的）/ 创建后配齐 / 首次调用兜底 | spawn 一个进程，跑 `__init__(config)` |
+| **restart** | edit（新代码）/ 改 config / crash / 手动 `restart_handler` `:restart` | 优雅关旧（跑 `shutdown()`）→ spawn 新（吃最新 config + 代码） |
+| **shutdown** | 删除 / 退出软件 | 优雅关闭 |
 
-### 2.3 自动方法探测
-当用户编辑 Handler 代码时，系统会自动利用 Python `ast` 模块扫过整个类定义：
-- 识别所有 `def` 开头的方法。
-- 排除 `_` 开头的私有方法。
-- 自动提取 `async def` 的协程标识。
+**所有调用方（chat / agent / workflow）共享这单一实例 + 单一状态**（真有状态）。实例键 = `handlerID`（单例），管理器是扁平 `map[handlerID]*Instance`。
+
+> **删除的旧机制**：旧实现有 `Owner` + `map[Owner]map[name]` 每对话一份实例、两套 call 分叉（chat 即起即杀——使 chat 里 handler 退化成无状态、自我矛盾；workflow 走 per-owner registry）、lazy-spawn / crash 重生 / owner-end 销毁。全塌成 3 个动词。文档曾吹的 **15 分钟 idle 自动 SHUTDOWN / ast 自动扫方法 / Unix Domain Socket / :reconnect** 都**未实现**——已删。
+
+**restart 为何是有状态服务的必需**：crash 重生救不了「进程活着但状态坏了」（DB 连接被对端掐断、session 过期、缓存陈旧）——restart 是常驻进程的「重置按钮」。无状态的 function 永不需要它。
+
+**并发**：单例 + 客户端 mutex 串行化调用（单 stdio 管道），共享实例对并发调用方逐个处理。
 
 ---
 
-## 3. 生命周期 (Lifecycle)
+## 2. 版本模型（方案 A，同 function）
 
-1. **定义 (Defining)**：编写类逻辑和 `__init__` 参数 Schema。
-2. **同步 (Syncing)**：Sandbox 准备 venv 环境。
-3. **实例化测试 (Probing)**：用户填入 `config` 运行 `:call`。系统拉起进程。
-4. **服务运行 (Serving)**：进入 Stable 态。
-5. **停机回收 (Grooming)**：超时销毁或用户执行 `:reconnect` 强制重启。
+线性 append-only + 自由 `active_version_id` 指针，**无 pending/accept**：create/edit 立即生效写 `v(max+1)`，revert 纯移指针（不删「更新的」版本），edit fork-from-active，50 上限裁最老**但绝不裁 active**。edit / revert 改变 active 后**重启常驻实例**加载新代码。
 
 ---
 
-## 4. 跨域集成 (Interactions)
+## 3. 物理模型
 
-- **APIKey**：Handler 的 `config` 经常引用 `aki_` ID，通过解密后注入子进程。
-- **Workflow**：`tool` 节点若 `kind=handler`，则会触发该 Handler 的方法调用。
-- **Sandbox**：Handler 拥有独立的进程管理生命周期，不参与 Function 的瞬时 GC。
+### `handlers`（`hd_`，软删）
+`id` · `workspace_id` · `name` · `description` · `tags` · `active_version_id`(指针) · **`config_encrypted`**(init-args 值，加密存盘) · 时间戳 · `deleted_at`。
+
+### `handler_versions`（`hdv_`，append-only + cap 裁剪）
+类快照：`imports` · `init_body` · `shutdown_body` · **`methods []MethodSpec`**(多方法，各带 args/returnSchema/body/streaming/timeout) · `init_args_schema []InitArgSpec`(Sensitive→加密) · `dependencies` · `python_version` · `version`(单调号) · env_* · `change_reason` · `forged_in_conversation_id`。`UNIQUE(handler_id, version)`。
+
+### `handler_calls`（`hcl_`，append-only log，无软删 D1）
+每次方法调用审计：`method` · `status`(ok/failed/cancelled/timeout) · **`triggered_by`**(chat/agent/workflow/manual) · input/output/error/计时 · `instance_id`(哪个实例服务的) · conversation/flowrun 关联。
+
+实例 `hdi_` + 进程 env `hdenv_`(handler 自 mint 的 sandbox owner id)——均不入业务表（实例在内存，env 在 sandbox 侧）。
 
 ---
 
-## 5. 错误字典 (Sentinels)
+## 4. 加密 config（init-args）
 
-| Sentinel | HTTP | Wire Code | 备注 |
-|---|---|---|---|
-| `ErrInstanceCrashed` | 502 | `HANDLER_CRASHED` | 子进程 Exception 退出。 |
-| `ErrMethodNotFound` | 404 | `HANDLER_METHOD_NOT_FOUND` | 调用了一个不存在的 def。 |
-| `ErrConfigIncomplete` | 422 | `HANDLER_CONFIG_MISSING` | 没配初始化参数。 |
-| `ErrInstanceRPCTimeout`| 504 | `HANDLER_TIMEOUT` | 子进程死锁或响应超 30s。 |
-| `ErrEnvFailed` | 422 | `HANDLER_ENV_FAILED` | 环境损毁无法拉起。 |
+`__init__` 的一次性参数（密钥 / 端点）经**加密** config 存盘（Sensitive 字段读时掩码 `********`）。`ConfigState`：unconfigured / partially_configured / ready。**config 门控 spawn**——必填 init-args 未齐则不起实例。`update_config`（JSON Merge Patch + 重加密 + **重启实例吃新值**）/ `clear_config`（清 + 停实例）。**代码与凭证分离**：同一套 Version 类，不同 config 实例化。
+
+---
+
+## 5. 锻造（Forge）：ops 累积类草稿 → AssembleClass
+
+ops：`set_meta` / `set_imports` / `set_init` / `set_shutdown` / `set_init_args_schema` / `add_method` / `update_method`(RFC 7396 merge patch) / `delete_method` / `set_dependencies` / `set_python_version`。`AssembleClass` 拼 `class HandlerImpl`(`__init__(self, ...initArgs)` + `shutdown(self)` + 每 method 一 def)。Python `DriverScript`：stdio 行-JSON RPC（init→ready、call→return/error、generator `yield {"progress":...}`→progress、`_` 私有方法不可调）。env 装失败用 utility LLM 改 deps 重试（≤3，复用 [`app/envfix`](envfix.md)）。
+
+---
+
+## 6. LLM 工具（11，懒加载）
+
+`search_handler` · `get_handler`(含 config/runtime 状态) · `create_handler` · `edit_handler`(空 ops=重建 env+重启) · `revert_handler` · `delete_handler` · **`call_handler`**(method+args) · `update_handler_config` · **`restart_handler`**(「这个坏了帮我重启」) · `search_handler_calls` · `get_handler_call`。全 5 方法、danger LLM 自报。
+
+---
+
+## 7. HTTP 端点
+
+`POST /handlers`(扁平) · `GET /handlers`(分页) · `GET|PATCH|DELETE /handlers/{id}` · `POST /handlers/{id}:call|:restart|:revert|:edit` · `GET /handlers/{id}/versions` · `GET /handlers/{id}/versions/{version}` · `GET|PUT|DELETE /handlers/{id}/config` · `GET /handlers/{id}/calls` · `GET /handler-calls/{callId}`。
+
+> **删**：`/{id}/pending`、`pending:accept`、`pending:reject`（无 accept）。新增 `:restart`。`:iterate` 随 askai 波次 6。
+
+---
+
+## 8. 跨域集成
+
+- **sandbox**：env 物化经 `envfix.Provisioner`；常驻进程经 `SandboxRunner.Spawn`（写 user_handler.py + driver.py + `SpawnLongLived`）。
+- **apikey**：config 常引用密钥（用户填，加密存）。
+- **relation / catalog / mention**：同 function（4 动词 create/edit 边、`CatalogSource`、`Resolver` 快照类接口）。
+- **workflow**：`tool` 节点 `kind=handler` 调方法（triggered_by=workflow）。
+- **notification**：`handler.created/edited/reverted/restarted/config_updated/deleted` 等经 `Emitter`。
+
+---
+
+## 9. 错误字典
+
+| Sentinel | Wire Code | HTTP |
+|---|---|---|
+| `ErrNotFound` | `HANDLER_NOT_FOUND` | 404 |
+| `ErrDuplicateName` | `HANDLER_NAME_DUPLICATE` | 409 |
+| `ErrVersionNotFound` | `HANDLER_VERSION_NOT_FOUND` | 404 |
+| `ErrCallNotFound` | `HANDLER_CALL_NOT_FOUND` | 404 |
+| `ErrMethodNotFound` | `HANDLER_METHOD_NOT_FOUND` | 404 |
+| `ErrNoActiveVersion` | `HANDLER_NO_ACTIVE_VERSION` | 422 |
+| `ErrEnvNotReady` | `HANDLER_ENV_NOT_READY` | 422 |
+| `ErrConfigIncomplete` | `HANDLER_CONFIG_INCOMPLETE` | 422 |
+| `ErrOpInvalid` | `HANDLER_OP_INVALID` | 422 |
+| `ErrInvalidCode` | `HANDLER_INVALID_CODE` | 422 |
+| `ErrInstanceSpawnFailed` | `HANDLER_INSTANCE_SPAWN_FAILED` | 502 |
+| `ErrInstanceCrashed` | `HANDLER_CRASHED` | 502 |
+| `ErrInstanceRPCTimeout` | `HANDLER_RPC_TIMEOUT` | 504 |
+| `ErrSandboxUnavailable` | `HANDLER_SANDBOX_UNAVAILABLE` | 503 |
+| `ErrConfigDecryptFailed` | `HANDLER_CONFIG_DECRYPT_FAILED` | 500 |
+
+> 工具失败软返 tool-result 串（不冒泡 HTTP）；上表是 HTTP 端点冒泡的 domain 错误。

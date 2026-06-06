@@ -349,7 +349,7 @@ type Item struct {
 
 - **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`. （`fnenv_` = function 为各版本 venv 自 mint 的 sandbox owner id；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
 > 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
 - **保留前缀**: `sk_`(skill) / `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别（故 document 可经 wikilink `[[tag]]`）；`skills`/`mcps` 表与生成器接入是**波次 3** 工作。注意区分既有的执行流水前缀 `ske_`(skill_executions) / `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。

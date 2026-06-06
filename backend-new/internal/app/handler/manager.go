@@ -1,0 +1,148 @@
+package handler
+
+import (
+	"context"
+	"sync"
+
+	"go.uber.org/zap"
+
+	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	handlerinfra "github.com/sunweilin/forgify/backend/internal/infra/handler"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+)
+
+// Instance is one live resident HandlerInstance subprocess + its RPC client. There is
+// at most ONE per handler (singleton) — no per-owner / per-conversation copies.
+//
+// Instance 是一个活的常驻 HandlerInstance 子进程 + 其 RPC 客户端。每 handler 至多一个（单例）——
+// 无 per-owner / per-conversation 副本。
+type Instance struct {
+	ID        string
+	HandlerID string
+	VersionID string
+	Client    handlerinfra.Client
+	Kill      func() error
+}
+
+// spawnFn builds a fresh resident Instance for handlerID (load active version + config,
+// ensure env, write code, SpawnLongLived, Init). Supplied by the Service.
+//
+// spawnFn 为 handlerID 构造一个新的常驻 Instance（加载 active 版本 + config、装 env、写代码、
+// SpawnLongLived、Init）。由 Service 提供。
+type spawnFn func(ctx context.Context, handlerID string) (*Instance, error)
+
+// instanceManager keeps one resident instance per handler, MCP-server style: spawned at
+// boot / first call, kept alive, restarted on edit / config-change / crash, gracefully
+// shut down on app exit. Replaces the old per-owner instanceRegistry.
+//
+// instanceManager 按 MCP-server 风格每 handler 保一个常驻实例：开局 / 首调 spawn、保活、
+// edit / 改 config / crash 时重启、退出软件优雅关闭。替代旧的 per-owner instanceRegistry。
+type instanceManager struct {
+	mu        sync.Mutex
+	instances map[string]*Instance // handlerID → the one resident instance
+	spawn     spawnFn
+	log       *zap.Logger
+}
+
+func newInstanceManager(spawn spawnFn, log *zap.Logger) *instanceManager {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &instanceManager{instances: make(map[string]*Instance), spawn: spawn, log: log.Named("manager")}
+}
+
+// Get returns the live instance for handlerID, spawning if absent or crashed.
+//
+// Get 返 handlerID 的活实例；不存在或 crashed 则 spawn。
+func (m *instanceManager) Get(ctx context.Context, handlerID string) (*Instance, error) {
+	m.mu.Lock()
+	if inst, ok := m.instances[handlerID]; ok {
+		if !inst.Client.Crashed() {
+			m.mu.Unlock()
+			return inst, nil
+		}
+		delete(m.instances, handlerID) // crashed → reap + respawn below
+		go func() { _ = inst.Kill() }()
+	}
+	m.mu.Unlock()
+
+	inst, err := m.spawn(ctx, handlerID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Race: a concurrent caller may have spawned the same handler; prefer the registered one.
+	// 竞态：并发调用方可能已 spawn 同一 handler，优先用已注册的。
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if existing, ok := m.instances[handlerID]; ok && !existing.Client.Crashed() {
+		go func() {
+			_ = inst.Client.Shutdown(context.Background())
+			_ = inst.Kill()
+		}()
+		return existing, nil
+	}
+	m.instances[handlerID] = inst
+	return inst, nil
+}
+
+// Restart gracefully stops the current instance and spawns a fresh one (picks up new
+// config / code). Returns the new instance.
+//
+// Restart 优雅停当前实例并 spawn 新的（吃新 config / 代码）。返回新实例。
+func (m *instanceManager) Restart(ctx context.Context, handlerID string) (*Instance, error) {
+	m.Stop(ctx, handlerID)
+	return m.Get(ctx, handlerID)
+}
+
+// Stop gracefully shuts down + removes the instance for handlerID (no respawn).
+//
+// Stop 优雅关闭 + 移除 handlerID 的实例（不重生）。
+func (m *instanceManager) Stop(ctx context.Context, handlerID string) {
+	m.mu.Lock()
+	inst, ok := m.instances[handlerID]
+	delete(m.instances, handlerID)
+	m.mu.Unlock()
+	if ok {
+		_ = inst.Client.Shutdown(ctx)
+		_ = inst.Kill()
+	}
+}
+
+// StopAll gracefully shuts down every resident instance (app exit).
+//
+// StopAll 优雅关闭所有常驻实例（退出软件）。
+func (m *instanceManager) StopAll(ctx context.Context) {
+	m.mu.Lock()
+	insts := make([]*Instance, 0, len(m.instances))
+	for _, inst := range m.instances {
+		insts = append(insts, inst)
+	}
+	m.instances = make(map[string]*Instance)
+	m.mu.Unlock()
+	for _, inst := range insts {
+		_ = inst.Client.Shutdown(ctx)
+		_ = inst.Kill()
+	}
+}
+
+// State reports running / stopped / crashed for one handler (observability).
+//
+// State 报某 handler 的 running / stopped / crashed（观测）。
+func (m *instanceManager) State(handlerID string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	inst, ok := m.instances[handlerID]
+	if !ok {
+		return handlerdomain.RuntimeStateStopped
+	}
+	if inst.Client.Crashed() {
+		return handlerdomain.RuntimeStateCrashed
+	}
+	return handlerdomain.RuntimeStateRunning
+}
+
+// newInstanceID mints a fresh instance id (hdi_ prefix).
+//
+// newInstanceID 生成新实例 id（hdi_ 前缀）。
+func newInstanceID() string { return idgenpkg.New("hdi") }
