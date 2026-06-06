@@ -66,11 +66,12 @@
 |---|---|---|---|
 | M3.1 ✅ R0037 | `function` | sandbox, **app/envfix(新)** | 版本号去 accept(方案 A 指针式 revert) + polling 剥离(独立概念) + **env-fix 抽 `app/envfix` 共享包**(function/handler/trigger 复用) |
 | M3.2 ✅ R0038 | `handler` | sandbox, app/envfix | **MCP 式单例常驻**(boot/restart/shutdown，删 per-owner) + restart 双触发(工具+:restart) + 复用 `app/envfix` + 加密 config 门控 spawn + 类组装(AssembleClass+DriverScript) |
-| M3.3 | `subagent` | loop, tool | |
-| M3.4 | `agent` | loop, tool | 🔧 in-flight：execution 面对齐 function/skill（当前未提交改动）|
-| M3.5 | `skill` | subagent | |
-| M3.6 | `mcp` | infra/mcp | ⚠️ `infra/store/mcpcalls`+`mcphealth` 判定 |
-| M3.7 | tool 适配器 | `tool/function` `tool/handler` `tool/agent` `tool/skill` `tool/subagent` `tool/mcp` `tool/memory` `tool/document` `tool/shell` | `domain/forge` 在此被工具适配器依赖（forge 角色已定：M0.4 SSE 三流之一，非旧实体） |
+| M3.3 ✅ R0039 | `trigger`（+ `pkg/cel` 新 + infra/trigger: cron/fsnotify/webhook/sensor） | function/handler（sensor 端口）· workflow（扇出端口）· pkg/cel | **独立信号源实体**（加站）：从 workflow 节点提升为一等实体（`trg_`，进 catalog + relation 第 9 节点 + 8 工具）；4 source（cron/webhook/fsnotify/**sensor**=function/handler+CEL）；引用计数生命周期（Attach/Detach 启停、N workflow 共享一 listener）；3 表 + Activation 日志；填 polling 坑 |
+| M3.4 | `subagent` | loop, tool | |
+| M3.5 | `agent` | loop, tool | 🔧 in-flight：execution 面对齐 function/skill（当前未提交改动）|
+| M3.6 | `skill` | subagent | |
+| M3.7 | `mcp` | infra/mcp | ⚠️ `infra/store/mcpcalls`+`mcphealth` 判定 |
+| M3.8 | tool 适配器 | `tool/function` `tool/handler` `tool/trigger` `tool/agent` `tool/skill` `tool/subagent` `tool/mcp` `tool/memory` `tool/document` `tool/shell` | `domain/forge` 在此被工具适配器依赖（forge 角色已定：M0.4 SSE 三流之一，非旧实体）|
 
 ### 波次 4 — 编排核心（最复杂，重灾区）
 
@@ -79,7 +80,7 @@
 | M4.1 | `workflow` | document, function, handler, mcp, skill | 5-node DAG 规格 + CEL；**13→5 节点收敛在此定型** |
 | M4.2 | `flowrun`（domain+store: flowrun/flowrunevent/approval） | — | Journal 真相模型 |
 | M4.3 | **`scheduler`** | agent, function, handler, loop, mcp, skill, tool, workflow | 🔴 **最大重灾区**：删 topo-walk 旧链（state/pause/subdag/retry 旧半）；14 dispatcher 收 5；`LoopDispatcher` 删→结构化 loop 取代；只保留 durable interpreter |
-| M4.4 | `trigger`（+ infra/trigger: cron/fsnotify/webhook/polling） | workflow | inbox 单事务 claim；⚠️ polling listener 是否真需要 |
+| ✅ R0039 | ~~`trigger`~~ **已移波次 3（独立实体）** | — | trigger 实体 + 4 source + durable firing 已在 M3.3 做完；波次 4 仅剩**消费侧**：Firing claim→flowrun 随 M4.3 scheduler；workflow→trigger 监听 Attach/Detach 随 M4.1 workflow |
 | M4.5 | `tool/workflow` | scheduler, workflow | |
 
 ### 波次 5 — 对话与上下文

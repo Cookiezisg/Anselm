@@ -111,6 +111,22 @@ audience: [human, ai]
 | `handlerinfra.ErrProtocol` | `HANDLER_PROTOCOL_ERROR` | 500 | RPC 协议错 |
 | `handlerinfra.ErrShutdownAlready` | `HANDLER_SHUTDOWN_ALREADY` | 422 | 已关闭 |
 
+### 2.6.1 Trigger Domain (trg_ / trf_ / tra_)
+| Go Sentinel | Wire Code | HTTP | 场景 |
+|---|---|---|---|
+| `triggerdomain.ErrNotFound` | `TRIGGER_NOT_FOUND` | 404 | |
+| `triggerdomain.ErrDuplicateName` | `TRIGGER_NAME_DUPLICATE` | 409 | |
+| `triggerdomain.ErrInvalidKind` | `TRIGGER_INVALID_KIND` | 422 | 非 cron/webhook/fsnotify/sensor |
+| `triggerdomain.ErrInvalidConfig` | `TRIGGER_INVALID_CONFIG` | 422 | config 结构缺字段 |
+| `triggerdomain.ErrInvalidCron` | `TRIGGER_INVALID_CRON` | 422 | cron 表达式语法错 |
+| `triggerdomain.ErrInvalidCEL` | `TRIGGER_INVALID_CEL` | 422 | sensor condition/output CEL 编译失败 |
+| `triggerdomain.ErrInvalidInterval` | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval < 5s |
+| `triggerdomain.ErrSensorTargetRequired` | `TRIGGER_SENSOR_TARGET_REQUIRED` | 422 | sensor 缺 function/handler 目标 |
+| `triggerdomain.ErrWebhookSecretMismatch` | `TRIGGER_WEBHOOK_SECRET_MISMATCH` | 401 | HMAC/secret 验签失败 |
+| `triggerdomain.ErrActivationNotFound` | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | |
+| `triggerdomain.ErrListenerUnavailable` | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | listener 未就绪 |
+| `triggerdomain.ErrFiringNotPending` | `TRIGGER_FIRING_NOT_PENDING` | 409 | claim 竞争失败（scheduler 波次 4 消费）|
+
 ### 2.7 Workflow & Execution Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|

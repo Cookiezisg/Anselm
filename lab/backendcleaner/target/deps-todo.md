@@ -338,3 +338,21 @@ handler（domain/store/app/tool/handler + infra/handler client + 单例进程管
 | **`triggered_by` 写入方 + StreamCall 进度推流** | agent M3.4 / chat M5.2 | tool 已按 ctx subagent 区分 chat/agent；StreamCall 的 OnProgress 推 messages 流（同 function env-fix sink，M5.2 tool-progress 流缝）|
 | **`:iterate`（askai AI 编辑）** | 波次 6 | handler handler 的 `:iterate` + BuildHandlerContext（那轮加，本轮端点不挂）|
 | **call `tool_call_id` 种子** | chat M5.2 | 同 function——reqctx 暂无 GetToolCallID，Call.ToolCallID 留空 M5.2 接 |
+
+## 来自波次 3 · M3.3（trigger 独立实体 R0039）
+
+trigger（domain/store/app/tool/handler + infra/trigger 4 listener + 新建 `pkg/cel`）已建。消费侧 / 装配登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **Firing claim → 建 flowrun**（消费收件箱） | scheduler M4.3 | scheduler drain `ListPendingFirings` → `triggerstore.ClaimFiring(firingID, create)`（单事务 ADR-021，create 在同 tx 内建 flowrun——store 已备此具体方法）；trigger 这轮只写 Firing |
+| **workflow 开关 = Attach/Detach** | workflow + scheduler M4 | workflow `:activate` → 对其引用的每个 trigger 调 `triggerSvc.Attach(triggerID, workflowID)`；`:deactivate`/删 → Detach。**active = 永久监听 / 手动跑一次 = 监听额度 1**（arm-once：收一个信号即 Detach；"等下一刻度还是立刻跑"那轮定）|
+| **boot 重建 Attach + Start/Shutdown** | server boot M7 | boot 调 `triggerSvc.Start()`（启所有 listener）+ 遍历 active workflow 重新 `Attach`（内存引用计数的持久真相在 workflow 侧）；进程退出调 `Shutdown()` |
+| **注入 SensorInvoker（function/handler 适配器）** | M7 | sensor 探测靠 `sensorinfra.SensorInvoker.Invoke(ctx, kind, id, method)`；function app / handler app 各包一个适配器（`function.Run` / `handler.Call`），boot 注入 `triggerapp.NewService` 的 invoker 参数 |
+| **boot 装配 + 路由 + DDL 收集** | M7 | `triggerapp.NewService(repo, mux, invoker, log)` + `SetRelationSyncer`；`NewTriggerHandler(svc, log).Register(mux)`；`triggerstore.Schema`（3 表）交 `db.Migrate`；webhook listener 与 HTTP server 共享同一 `mux` |
+| **trigger 适配器注入** | M7 | catalog `RegisterSource(triggerSvc.AsCatalogSource())`；relation `Config.Namers["trigger"]=triggerSvc` + `SetRelationSyncer`（sensor `equip` 边 + 对话 `create` 边）|
+| **trigger 8 工具进 `Toolset.Lazy`** | M7 / chat host | `triggertool.TriggerTools(triggerSvc)` → Toolset.Lazy（懒加载实体工具，经 search_tools 浮现）|
+| **`pkg/cel` 给 workflow 节点控制复用** | workflow M4 | `pkg/cel.Compile/Eval/EvalBool`（读 `payload`/`ctx`、无 `now()`）已建；workflow case.when / emit / tool.args 的 CEL 直接复用，不再各写一份（是否还需扩 env 变量那轮定）|
+| **workflow→trigger 监听边 + 删旧 workflow 内嵌 trigger 节点** | workflow M4 | workflow 不再有 trigger 节点；改为引用独立 trigger（产 `workflow → trigger` 监听边）；旧 `GET /workflows/{id}/triggers` 端点语义改为"列出该 workflow 引用的 trigger"|
+| **missed-tick cron 补跑** | 择机 | 这轮 cron 不做跨重启补漏（旧靠 `schedule.lastFire` 持久化，已随 schedule 表砍）；要补可用 Activation 日志的最后 fired 时间重建 |
+| **`:iterate`（askai AI 编辑）** | 波次 6 | trigger handler 的 `:iterate`（那轮加，本轮端点不挂）|

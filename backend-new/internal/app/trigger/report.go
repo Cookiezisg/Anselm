@@ -1,0 +1,114 @@
+package trigger
+
+import (
+	"context"
+	"strconv"
+	"time"
+
+	"go.uber.org/zap"
+
+	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
+	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+)
+
+// onReport is the ReportFunc handed to every listener. A listener only knows "my trigger did
+// X"; here the app resolves the trigger's workspace + listening workflows and turns the
+// report into an Activation (always) plus, when Fired, one Firing per workflow (fan-out).
+// A report racing in after Detach (listeners entry gone) is dropped.
+//
+// onReport 是交给每个 listener 的 ReportFunc。listener 只知"我这个 trigger 做了 X"；app 在此解析 trigger
+// 的 workspace + 监听 workflow，把报告变成 Activation（总是）+ Fired 时每 workflow 一条 Firing（扇出）。
+func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
+	s.mu.RLock()
+	e, ok := s.listeners[triggerID]
+	if !ok {
+		s.mu.RUnlock()
+		return // detached mid-flight — drop
+	}
+	wsID, kind := e.workspaceID, e.kind
+	workflows := make([]string, 0, len(e.workflows))
+	for wf := range e.workflows {
+		workflows = append(workflows, wf)
+	}
+	s.mu.RUnlock()
+
+	// Detached context seeded with the trigger's workspace — the listener fired off-request.
+	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	s.fanOut(ctx, triggerID, kind, workflows, act)
+}
+
+// fanOut writes one Activation (always) and, when the activity fired, one Firing per listening
+// workflow (each sharing the activity's dedup key so a re-materialized fire dedups per
+// workflow). The Activation is minted first so every Firing references it.
+//
+// fanOut 写一条 Activation（总是），动作触发时每监听 workflow 一条 Firing（共享 dedup key，使重复材化
+// 按 workflow 去重）。先 mint Activation 使每条 Firing 都能反指它。
+func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows []string, act triggerinfra.Activity) {
+	actID := idgenpkg.New("tra")
+	fired := 0
+	if act.Fired {
+		dedup := act.DedupKey
+		if dedup == "" {
+			dedup = triggerID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		}
+		for _, wfID := range workflows {
+			if _, err := s.repo.AppendFiring(ctx, &triggerdomain.Firing{
+				TriggerID:    triggerID,
+				WorkflowID:   wfID,
+				ActivationID: actID,
+				Payload:      act.Payload,
+				DedupKey:     dedup,
+			}); err != nil {
+				s.log.Warn("triggerapp: append firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
+				continue
+			}
+			fired++
+		}
+	}
+	if err := s.repo.AppendActivation(ctx, &triggerdomain.Activation{
+		ID:          actID,
+		TriggerID:   triggerID,
+		Kind:        kind,
+		Fired:       act.Fired,
+		ReturnValue: act.ReturnValue,
+		Payload:     act.Payload,
+		Error:       act.Error,
+		Detail:      act.Detail,
+		FiringCount: fired,
+	}); err != nil {
+		s.log.Warn("triggerapp: append activation failed", zapTrigger(triggerID), zapErr(err))
+	}
+}
+
+// FireManual fires a trigger by hand (the fire_trigger tool / a test "ping it now"): it
+// fans out to whatever workflows currently listen (possibly none — then it's just a recorded
+// Activation with 0 firings).
+//
+// FireManual 手动触发一次（fire_trigger 工具 / 测试"立刻催它"）：扇给当前监听的 workflow（可能没有——
+// 那就只是一条 0 firing 的 Activation 记录）。
+func (s *Service) FireManual(ctx context.Context, triggerID string) error {
+	t, err := s.repo.GetTrigger(ctx, triggerID)
+	if err != nil {
+		return err
+	}
+	s.mu.RLock()
+	var workflows []string
+	if e, ok := s.listeners[triggerID]; ok {
+		for wf := range e.workflows {
+			workflows = append(workflows, wf)
+		}
+	}
+	s.mu.RUnlock()
+	s.fanOut(ctx, triggerID, t.Kind, workflows, triggerinfra.Activity{
+		Fired:    true,
+		Payload:  map[string]any{"manual": true},
+		DedupKey: triggerID + "|manual|" + strconv.FormatInt(time.Now().UnixNano(), 10),
+	})
+	return nil
+}
+
+func zapTrigger(id string) zap.Field { return zap.String("triggerId", id) }
+func zapErr(err error) zap.Field     { return zap.Error(err) }

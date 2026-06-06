@@ -103,6 +103,20 @@ audience: [human, ai]
 | GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（对标 functions/{id}/executions）|
 | GET | `/api/v1/agent-executions/{execId}` | `agent.go` | 单条执行详情 |
 
+### 2.5 Triggers (trg_)
+> 独立信号源实体（cron / webhook / fsnotify / sensor），无版本。引用计数生命周期由 workflow 激活/停用驱动（Attach/Detach，波次 4）。
+| Method | Path | 文件源 | 备注 |
+|---|---|---|---|
+| POST | `/api/v1/triggers` | `trigger.go` | 创建（kind + config）|
+| GET | `/api/v1/triggers` | `trigger.go` | 列表（分页）|
+| GET | `/api/v1/triggers/{id}` | `trigger.go` | 含 refCount/listening |
+| PATCH | `/api/v1/triggers/{id}` | `trigger.go` | 改 name/description/config（kind 不可变、config 立即生效）|
+| DELETE | `/api/v1/triggers/{id}` | `trigger.go` | 软删（停 listener + 清边）|
+| POST | `/api/v1/triggers/{idAction}` | `trigger.go` | (:fire 手动触发一次→202；:iterate 随 askai 波次 6) |
+| GET | `/api/v1/triggers/{id}/activations` | `trigger.go` | 动作日志（?firedOnly，"为什么没触发"）|
+| GET | `/api/v1/trigger-activations/{actId}` | `trigger.go` | 单条 activation |
+| (动态) | `/api/v1/webhooks/{triggerId}/{path}` | webhook listener | webhook 入口（由 listener 挂载）|
+
 ---
 
 ## 3. 执行引擎 (Execution Plane)

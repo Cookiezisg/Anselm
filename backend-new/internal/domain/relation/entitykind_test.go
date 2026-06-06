@@ -17,6 +17,7 @@ func TestKindForID(t *testing.T) {
 		// sk_/mcp_ rule is fixed now; tables come in 波次 3, but resolution already works.
 		{"sk_aabbccdd11223344", EntityKindSkill, true},
 		{"mcp_aabbccdd11223344", EntityKindMCP, true},
+		{"trg_aabbccdd11223344", EntityKindTrigger, true},
 		// unknown prefix, an execution-record prefix (not an entity), and name/blank forms.
 		{"xyz_aabbccdd11223344", "", false},
 		{"fne_aabbccdd11223344", "", false},
@@ -50,13 +51,14 @@ func TestIsValidEntityKind(t *testing.T) {
 	all := []string{
 		EntityKindFunction, EntityKindHandler, EntityKindWorkflow, EntityKindAgent,
 		EntityKindDocument, EntityKindConversation, EntityKindSkill, EntityKindMCP,
+		EntityKindTrigger,
 	}
 	for _, k := range all {
 		if !IsValidEntityKind(k) {
 			t.Errorf("IsValidEntityKind(%q) = false, want true", k)
 		}
 	}
-	for _, k := range []string{"trigger", "memory", "todo", ""} {
+	for _, k := range []string{"memory", "todo", "flowrun", ""} {
 		if IsValidEntityKind(k) {
 			t.Errorf("IsValidEntityKind(%q) = true, want false", k)
 		}

@@ -4,10 +4,12 @@ import "strings"
 
 // EntityKind enumerates the node types that can appear in the topology graph. The
 // graph shows the Quadrinity (function/handler/workflow/agent) plus the resources
-// they reference (document/skill/mcp) and the conversation that forged them.
+// they reference (document/skill/mcp), the conversation that forged them, and the
+// trigger signal sources that drive workflows.
 //
 // EntityKind 枚举可出现在拓扑图中的节点类型：Quadrinity（function/handler/workflow/agent）
-// 加上它们引用的资源（document/skill/mcp）以及锻造它们的 conversation。
+// 加上它们引用的资源（document/skill/mcp）、锻造它们的 conversation，以及驱动 workflow 的
+// trigger 信号源。
 const (
 	EntityKindFunction     = "function"
 	EntityKindHandler      = "handler"
@@ -17,15 +19,17 @@ const (
 	EntityKindConversation = "conversation"
 	EntityKindSkill        = "skill"
 	EntityKindMCP          = "mcp"
+	EntityKindTrigger      = "trigger"
 )
 
-// IsValidEntityKind reports whether k is one of the 8 node kinds.
+// IsValidEntityKind reports whether k is one of the 9 node kinds.
 //
-// IsValidEntityKind 报告 k 是否 8 种节点类型之一。
+// IsValidEntityKind 报告 k 是否 9 种节点类型之一。
 func IsValidEntityKind(k string) bool {
 	switch k {
 	case EntityKindFunction, EntityKindHandler, EntityKindWorkflow, EntityKindAgent,
-		EntityKindDocument, EntityKindConversation, EntityKindSkill, EntityKindMCP:
+		EntityKindDocument, EntityKindConversation, EntityKindSkill, EntityKindMCP,
+		EntityKindTrigger:
 		return true
 	}
 	return false
@@ -58,13 +62,13 @@ func IsValidKind(k string) bool {
 
 // prefixKind maps a generated id's "<prefix>_<hex>" prefix to its EntityKind — the
 // routing inherited from idgen so the whole codebase reads an entity's kind off its
-// id. All 8 node kinds are registered. skill/mcp don't own tables yet (波次 3 work),
+// id. All 9 node kinds are registered. skill/mcp don't own tables yet (波次 3 work),
 // but their prefixes sk_/mcp_ are fixed HERE NOW as the rule, so document wikilinks
 // can already [[tag]] them and resolution needs no later change — building the tables
 // just starts minting these ids.
 //
 // prefixKind 把生成 id 的 "<前缀>_<hex>" 前缀映射到 EntityKind——从 idgen 收编的路由，
-// 让全仓据 id 读出实体类型。8 种节点类型全部登记。skill/mcp 暂无独立表（波次 3 工作），
+// 让全仓据 id 读出实体类型。9 种节点类型全部登记。skill/mcp 暂无独立表（波次 3 工作），
 // 但其前缀 sk_/mcp_ 此刻即作为规矩定死，使 document wikilink 现在就能 [[tag]] 它们、解析
 // 无需日后改动——建表时只是开始发这些 id。
 var prefixKind = map[string]string{
@@ -76,6 +80,7 @@ var prefixKind = map[string]string{
 	"cv":  EntityKindConversation,
 	"sk":  EntityKindSkill,
 	"mcp": EntityKindMCP,
+	"trg": EntityKindTrigger,
 }
 
 // KindForID returns the EntityKind for an id like "fn_a1b2…"; ok=false when the

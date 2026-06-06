@@ -305,20 +305,14 @@ type Relation struct {
 - `idx_rel_dedup` UNIQUE(workspace_id, from_id, to_id, kind) — 幂等重同步。
 - `idx_rel_from` / `idx_rel_to` (workspace_id, from_id|to_id) — 方向性邻域遍历。
 
-### 4.3 Trigger
-```go
-type TriggerSchedule struct {
-    WorkflowID string `gorm:"not null;index" json:"workflowId"`
-    Kind       string `gorm:"not null" json:"kind"`
-    Spec       any    `gorm:"serializer:json" json:"spec"`
-    Enabled    bool   `json:"enabled"`
-}
-type TriggerFiring struct {
-    DedupKey  string `gorm:"not null;uniqueIndex" json:"-"`
-    Status    string `gorm:"index" json:"status"`
-    FlowrunID string `json:"flowrunId"`
-}
-```
+### 4.3 Trigger（独立实体，trg_/trf_/tra_）
+> trigger 从 workflow 图节点提升为**独立实体**（详见 domains/trigger.md）。3 表，去 GORM（pkg/orm）。
+
+| 表 | 关键列 | 说明 |
+|---|---|---|
+| `triggers` | id(trg_), workspace_id, name, kind CHECK(cron/webhook/fsnotify/sensor), config(JSON), deleted_at | 实体本体，软删；`idx_triggers_ws_name` = UNIQUE(workspace_id, name) WHERE deleted_at IS NULL |
+| `trigger_firings` | id(trf_), trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id | durable 收件箱（persist-before-act）；`idx_trf_dedup` = UNIQUE(workflow_id, trigger_id, dedup_key)（**D3 幂等**）；status pending→claimed→started→{skipped,superseded,shed}；单事务 claim（ADR-021）留波次 4 scheduler |
+| `trigger_activations` | id(tra_), trigger_id, kind, fired, return_value, payload, error, detail, firing_count | 动作日志，只增（**D1 不删**）；fired=false 也记 return_value/detail——"为什么没触发"可查 |
 
 ### 4.4 Todo (Working Checklist)
 Agent 工作记忆清单（TodoWrite 式）。整列替换、无逐项 id；作用域 = 一个执行上下文（对话，或嵌入其中的 subagent run）。`scope_id` 是多态 owner 键（= `subagent_id ?? conversation_id`，kind ∈ {conversation, subagent}，同 relation 的 `from_id`），**无 `td_` 生成前缀**。
@@ -349,7 +343,7 @@ type Item struct {
 
 - **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, trg_, trf_, tra_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
 > 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
 - **保留前缀**: `sk_`(skill) / `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别（故 document 可经 wikilink `[[tag]]`）；`skills`/`mcps` 表与生成器接入是**波次 3** 工作。注意区分既有的执行流水前缀 `ske_`(skill_executions) / `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。
