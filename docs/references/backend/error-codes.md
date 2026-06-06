@@ -217,9 +217,6 @@ audience: [human, ai]
 | `relationdomain.ErrDepthOutOfRange` | `REL_DEPTH_LIMIT` | 400 | neighborhood 深度超 [1,3] |
 | `relationdomain.ErrIncompleteFilter` | `REL_INCOMPLETE_FILTER` | 400 | filter 的 kind/id 未成对 |
 | `catalogdomain.ErrAllSourcesFailed` | `CATALOG_ALL_SOURCES_FAILED` | 503 | 所有 source 失败（系统故障，如 DB 不可达）|
-| `tododomain.ErrNotFound` | `TODO_NOT_FOUND` | 404 | |
-| `tododomain.ErrSubjectRequired` | `TODO_SUBJECT_REQUIRED` | 400 | |
-| `tododomain.ErrInvalidStatus` | `TODO_INVALID_STATUS` | 400 | |
 | `triggerdomain.ErrPathNotExist` | `TRIGGER_PATH_NOT_EXIST` | 422 | |
 | `triggerdomain.ErrPathConflict` | `TRIGGER_PATH_CONFLICT` | 409 | |
 | `triggerdomain.ErrWebhookSecretMismatch` | `TRIGGER_WEBHOOK_SECRET_MISMATCH`| 401 | |

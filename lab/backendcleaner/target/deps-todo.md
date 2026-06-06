@@ -225,3 +225,18 @@ document Notion 树 + 4 适配器已建。消费侧 / 注入登记：
 | `:iterate`（askai 编辑） | 波次 6 | document handler 的 `:iterate` + `BuildDocumentContext` |
 | `app/tool/document`（LLM 工具） | 波次 3 | `read_document` 等工具适配器 |
 | document handler 路由装配 + DDL 收集 | M7 | `NewDocumentHandler(...).Register(mux)` + `documentstore.Schema` 交 `db.Migrate` |
+
+## 来自波次 1 · M1.11（todo 重铸 R0029）
+
+todo TodoWrite 式重铸（reqctx 双种子 + domain/store/app/handler + 11 测试）已建。跨波次接线登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **`TodoWrite` 工具**（唯一写入面） | 波次 2/3（app/tool 建后） | 薄包 `Service.Write(ctx, items)`；单工具整列替换；S18 九方法；description 教 LLM「整列发、恰一项 in_progress、做完即标」；app 已就绪 |
+| **loop 每轮注入 `SystemReminder`** | M2.2（loop） | loop 每迭代调 `todoSvc.SystemReminder(ctx)` → 非空把未完成清单作 system-reminder 注入；这是「LLM 真用」的持续可见层 |
+| **subagent loop 埋 `SetSubagentID`** | 波次 3（subagent） | subagent run 起 loop 时 `ctx = reqctx.SetSubagentID(ctx, subagentRunID)`；种子已埋、写入方那轮接 |
+| **messages-bridge 实接 broadcast** | M7 boot | `todoapp.New(repo, bridge, log)` 的 bridge = Bus **messages** 实例（非 notifications）；nil 时只持久不推 |
+| **TodoHandler 注册 + DDL 收集** | M7 | `NewTodoHandler(svc, log).Register(mux)`；`todostore.Schema` 交 `db.Migrate` |
+| **前端真任务看板** | 覆盖回 backend/ 后前端兼容期 | 删旧（无真消费：`todo` 通知 handler 返 `[]`、误名 TodoTab 实为 Ask tab）；建真看板：`GET /conversations/{id}/todos` 初值 + 订 messages `todo` signal 实时更新 + 按 `subagentId` 嵌子树；testend 死链 `/todos` 改打新只读端点（contract #9）|
+| **对话删除级联清理 todo 清单** | conversation（波次 5）/ 后波次 | 对话删 → `Query(conversation_id)` 软删其主清单 + 所有 subagent 清单；store 已留 `idx_todos_ws_conversation` 索引 |
+| reqctx 双种子已埋（conversation_id + subagent_id）；旧 `agentrun.go` 余项（messageID/toolCallID/parentBlockID）仍待 | M2.2/M5.2 | 见本文件顶「对话/执行标识 ctx」行——todo 只需 conv+subagent，已落；其余随 chat/loop 那轮 |

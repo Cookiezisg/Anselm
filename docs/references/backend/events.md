@@ -28,6 +28,8 @@ audience: [human, ai]
 
 **BlockType 物理全集**：`text`, `reasoning`, `tool_call`, `tool_result`, `progress`, `message`, `compaction`。
 
+**Todo 看板信号（M1.11）**：todo 写入时本流额外推一条 `signal` 帧承载任务看板快照——`scope={kind:"conversation", id:<convId>}` + `signal` + `node{type:"todo", content:{conversationId, subagentId?, todos:[{content,activeForm,status}]}}`。锚定对话（查看该对话的前端即收到）；subagent 清单的 `subagentId` 入 payload、前端据此嵌到对应子树。durable（重连 replay 最后看板态）。**写入是 LLM 专属**（`TodoWrite` 工具，波次 2/3），前端只读不写（REST 初值见 `api.md`）。
+
 ---
 
 ## 2. Notifications 流 (`/api/v1/notifications/stream` + 通知中心 REST)

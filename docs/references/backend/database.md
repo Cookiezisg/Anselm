@@ -49,7 +49,7 @@ audience: [human, ai]
 | **Infra** | `sandbox_envs` | `se_` | `Env` |
 | | `sandbox_runtimes` | `sr_` | `Runtime` |
 | | `mcp_health_history`| `mch_` | `HealthSnapshot` |
-| **Tasks** | `todos` | `td_` | `Todo` |
+| **Tasks** | `todos` | `-` | `List` |
 | **Notification**| `notifications` | `noti_` | `Notification` |
 
 ---
@@ -319,12 +319,36 @@ type TriggerFiring struct {
 }
 ```
 
+### 4.4 Todo (Working Checklist)
+Agent 工作记忆清单（TodoWrite 式）。整列替换、无逐项 id；作用域 = 一个执行上下文（对话，或嵌入其中的 subagent run）。`scope_id` 是多态 owner 键（= `subagent_id ?? conversation_id`，kind ∈ {conversation, subagent}，同 relation 的 `from_id`），**无 `td_` 生成前缀**。
+
+```go
+type List struct {
+    ScopeID        string     `db:"scope_id,pk"`         // = subagent_id ?? conversation_id（全局唯一）
+    WorkspaceID    string     `db:"workspace_id,ws"`
+    ConversationID string     `db:"conversation_id"`     // subagent 行 = 父对话（清理/分组）
+    SubagentID     *string    `db:"subagent_id"`         // nil = 主对话清单
+    Items          []Item     `db:"items,json"`          // 整张清单作 JSON 列；整体替换
+    CreatedAt      time.Time  `db:"created_at,created"`
+    UpdatedAt      time.Time  `db:"updated_at,updated"`
+    DeletedAt      *time.Time `db:"deleted_at,deleted"`  // 软删（对话级联，留后波次）
+}
+type Item struct {
+    Content    string `json:"content"`    // 祈使标题 "Run tests"
+    ActiveForm string `json:"activeForm"` // 进行时 "Running tests"（in_progress 时展示）
+    Status     string `json:"status"`     // pending | in_progress | completed（无 deleted）
+}
+```
+- 每 `(workspace, conversation, subagent?)` 作用域恰一行；`scope_id` 是 PK（两种 id 都全局唯一，故无需 surrogate / COALESCE 唯一技巧）。整列替换 = 单行 upsert。
+- `idx_todos_ws_conversation` (workspace_id, conversation_id) WHERE deleted_at IS NULL — 未来「某对话所有清单」级联清理查询。
+
 ---
 
 ## 5. SQL 约束与扩展 (Schema Extras)
 
 - **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, hd_, hdv_, hcl_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, td_, sk_, mcp_, noti_`.
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, hd_, hdv_, hcl_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, ts_, tfi_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`.
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
+> 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
 - **保留前缀**: `sk_`(skill) / `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别（故 document 可经 wikilink `[[tag]]`）；`skills`/`mcps` 表与生成器接入是**波次 3** 工作。注意区分既有的执行流水前缀 `ske_`(skill_executions) / `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。

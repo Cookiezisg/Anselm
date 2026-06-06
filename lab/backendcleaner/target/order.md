@@ -46,7 +46,7 @@
 | M1.8 ✅ R0026 | `sandbox` | infra/sandbox | 三 runtime(Python+Node+Docker，registry 调研 92%+7 docker 缺口)；image=docker runtime/容器=env 统一双接口、`ResolveExec`；两表系统级不分桶(orm meta.ws==nil)；去 GORM+硬删；docker 探测+pull+run(不代装)；Emitter；路由 RESTful+N5；**docker 精细化(stop/孤儿/stdio e2e)留 M3.6、注册+base+fetch-mise 留 M7** |
 | M1.9 ⏭️ R0027 | ~~`permissions` / `hooks`~~ **判定解散** | — | hooks 砍（Claude Code 花活）、危险控制别处管（不做中央门控）、limits 用 `pkg/limits` 默认、settings.json 砍；permissions domain + app/hooks + infra/settings 全不迁。连带 M5.4 permissionsgate 解散、M5.2 chat 去 hooks 依赖 |
 | M1.10 ✅ R0028 | `document` | catalog, relation, mention | Notion 树(树 CRUD/path 级联/防环/软删/COALESCE UNIQUE)+ 显式挂载注入(**无 RAG/砍子树**)；去 GORM+workspace；**4 适配器对齐前三模块新地基**(catalog 去 Granularity/Category、relations wikilink→KindForID→link 边、mention、Namer)；注入留 M7、attach 消费波次4/5、:iterate 波次6 |
-| M1.11 | `todo` | — | ⚠️ 待判定：是否 Quadrinity/agent 真需要 |
+| M1.11 ✅ R0029 | `todo` | — | TodoWrite 式重铸（1 工具整列替换 / `scope_id` 多态键 / 双层注入 / messages live）；工具波次 2-3、注入 M2.2、bridge M7、前端真看板覆盖后 |
 
 ### 波次 2 — tool 基础 + 执行原语
 
