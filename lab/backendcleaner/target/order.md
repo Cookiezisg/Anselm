@@ -57,7 +57,7 @@
 | M2.3#1 ✅ R0032 | `tool/filesystem` | tool, pkg/agentstate(新建,SeenFiles 渐进) | Read/Write/Edit 三件套:9→5 方法机械跟进;Read 用 `Allow`、Write/Edit 升级用 `AllowWrite`(.git/.env/node_modules 物理拦截);写前必读 fail-closed;Edit size 漂移;原子写 mode 保留;danger 不静态(M2.1 纯信任);agentstate activeSkill/activatedGroups 留 skill/toolset 按需追加(**cwd R0033 废弃**) |
 | M2.3#2 ✅ R0033 | `tool/search`(LS/Glob/Grep) | tool, pkg/fspath(新建) | 三件套;**LS 新增**列目录;**无 cwd 全绝对路径 + `~` 展开**(fspath,六文件工具共用);Grep 双后端(rg 优先/stdlib 兜底,不代装);path 必填;danger LLM 自报工具不碰;**回溯改 filesystem 补 `~` + cwd 全局废弃** |
 | 前置 ✅ R0034 | `domain/websearch`(新) + workspace `default_search_key_id` | workspace | 搜索配置(web 前置):独立 `domain/websearch` 包(Provider 词表 + `SearchKeyPicker`、无 store、对齐 domain/model)+ workspace 加列(选 key 显式、防乱烧钱、provider 由 key 隐含);存储借 workspace、不建 app/websearch |
-| M2.3#3 | `tool/web`(WebFetch + WebSearch) | tool, websearch, apikey, model, llm | WebFetch 摘要链对齐新地基 + WebSearch 消费 `SearchKeyPicker`(BYOK)+ MCP 接口(注入)+ SSRF 守卫 |
+| M2.3#3 ✅ R0035 | `tool/web`(WebFetch + WebSearch) | tool, websearch, apikey, model, llm | WebFetch 摘要链对齐新地基(删 llmclient/Thinking、失败降级)+ SSRF 双层 + WebSearch 单把 BYOK(SearchKeyPicker、替 provider 遍历防乱烧钱)+ **删 MCP tier**(MCP 走 tool/mcp 平级、web 零 mcp 依赖) |
 | M2.3#4 | `tool/toolset` | tool | 剩余叶子工具适配器 |
 
 ### 波次 3 — Quadrinity 执行体

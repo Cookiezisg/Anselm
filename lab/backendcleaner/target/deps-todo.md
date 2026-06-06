@@ -301,7 +301,7 @@ search 三件套(LS/Glob/Grep) + `pkg/fspath.Expand` + filesystem 回溯补 `~` 
 
 | 关注点 | 去向 | 备注 |
 |---|---|---|
-| **WebSearch 消费 SearchKeyPicker + Provider 常量** | tool/web（R0035 下一轮） | `picker.DefaultSearchKeyID(ctx)` → `keys.ResolveCredentialsByID(id)` → `websearch.IsProvider(creds.Provider)` ? switch → searchBrave/Serper/Tavily/Bocha;`workspace.Service` 已实现 picker(注入 web) |
-| **WebSearch MCP tier** | mcp（M3.6） | `MCPSearchRouter` 接口由 web 定义、mcp 注入;nil 降级（同旧设计的 DIP，已对） |
+| **WebSearch 消费 SearchKeyPicker + Provider 常量** | ✅ tool/web（R0035 已实接） | `picker.DefaultSearchKeyID(ctx)` → `keys.ResolveCredentialsByID(id)` → `websearch.IsProvider(creds.Provider)` ? switch → searchBrave/Serper/Tavily/Bocha;`workspace.Service` 已实现 picker(boot M7 注入 web) |
+| ~~**WebSearch MCP tier**~~ **废弃 R0035** | — | 改判删除:MCP 搜索经 `tool/mcp`(M3.7)**平级暴露**给 LLM、直接调,WebSearch 不代理。web 零 mcp 依赖。引导文案提"装 duckduckgo MCP"是纯文字、零代码耦合 |
 | **前端"默认搜索 key"选择器** | 覆盖阶段（contract #14） | Settings 从 `category=search` 的 apikey 单选 → PUT/DELETE default-search;读 workspace 响应 `defaultSearchKeyId` |
 | **boot 注入 web 的 SearchKeyPicker** | server boot M7 | `workspace.Service` 实例传给 `WebTools(...)`（同 model.ModelPicker 的注入） |
