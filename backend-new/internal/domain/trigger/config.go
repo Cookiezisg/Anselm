@@ -13,6 +13,7 @@ package trigger
 const (
 	SensorTargetFunction = "function"
 	SensorTargetHandler  = "handler"
+	SensorTargetMCP      = "mcp" // an installed mcp server's tool (TargetID=server name, Method=tool name)
 )
 
 // MinSensorIntervalSec floors the probe cadence — a tiny interval would hammer the
@@ -26,9 +27,9 @@ const MinSensorIntervalSec = 5
 //
 // SensorConfig 是解析后的 sensor source 配置。
 type SensorConfig struct {
-	TargetKind  string // function | handler — what to invoke
-	TargetID    string // fn_… / hd…
-	Method      string // handler only: which method to call
+	TargetKind  string // function | handler | mcp — what to invoke
+	TargetID    string // fn_… / hd… / mcp server name
+	Method      string // handler: method name · mcp: tool name (function is the whole unit)
 	IntervalSec int    // probe cadence in seconds (>= MinSensorIntervalSec)
 	Condition   string // CEL bool expr over `payload` (= the invoke return value)
 	Output      string // CEL expr building the fire payload from `payload`
@@ -77,13 +78,15 @@ func ValidateConfig(kind string, cfg map[string]any) error {
 		}
 	case KindSensor:
 		sc := ParseSensorConfig(cfg)
-		if sc.TargetKind != SensorTargetFunction && sc.TargetKind != SensorTargetHandler {
+		if sc.TargetKind != SensorTargetFunction && sc.TargetKind != SensorTargetHandler && sc.TargetKind != SensorTargetMCP {
 			return ErrSensorTargetRequired
 		}
 		if sc.TargetID == "" {
 			return ErrSensorTargetRequired
 		}
-		if sc.TargetKind == SensorTargetHandler && sc.Method == "" {
+		// handler/mcp need a sub-unit name (method / tool); function is the whole callable unit.
+		// handler/mcp 需要子单元名（method / tool）；function 整体即可调单元。
+		if (sc.TargetKind == SensorTargetHandler || sc.TargetKind == SensorTargetMCP) && sc.Method == "" {
 			return ErrSensorTargetRequired
 		}
 		if sc.Condition == "" || sc.Output == "" {

@@ -49,8 +49,11 @@ func (s *Service) syncSensorBinding(ctx context.Context, t *triggerdomain.Trigge
 		sc := triggerdomain.ParseSensorConfig(t.Config)
 		if sc.TargetID != "" {
 			otherKind := relationdomain.EntityKindFunction
-			if sc.TargetKind == triggerdomain.SensorTargetHandler {
+			switch sc.TargetKind {
+			case triggerdomain.SensorTargetHandler:
 				otherKind = relationdomain.EntityKindHandler
+			case triggerdomain.SensorTargetMCP:
+				otherKind = relationdomain.EntityKindMCP
 			}
 			edges = append(edges, relationdomain.SyncEdge{
 				OtherKind: otherKind,
