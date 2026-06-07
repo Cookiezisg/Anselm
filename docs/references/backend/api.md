@@ -138,20 +138,20 @@ audience: [human, ai]
 ## 4. MCP & Sandbox 治理
 
 ### 4.1 MCP
-| Method | Path | 文件源 |
-|---|---|---|
-| GET | `/api/v1/mcp-servers` | `mcp.go` |
-| GET | `/api/v1/mcp-servers/{name}` | `mcp.go` |
-| GET | `/api/v1/mcp-servers/{name}/stderr` | `mcp.go` |
-| GET | `/api/v1/mcp-servers/{name}/health-history` | `mcp.go` |
-| PUT | `/api/v1/mcp-servers/{name}` | `mcp.go` |
-| DELETE | `/api/v1/mcp-servers/{name}` | `mcp.go` |
-| POST | `/api/v1/mcp-servers/{nameAction}` | `mcp.go` | (:reconnect, :health-check) |
-| POST | `/api/v1/mcp-servers/{name}/tools/{toolNameAction}` | `mcp.go` | (:invoke) |
-| POST | `/api/v1/mcp-servers:import` | `mcp.go` |
-| GET | `/api/v1/mcp-registry` | `mcp.go` |
-| GET | `/api/v1/mcp-registry/{name}` | `mcp.go` |
-| POST | `/api/v1/mcp-registry/{nameAction}` | `mcp.go` | (:install) |
+> N5：server 用短名（工作区唯一）作 path key；registry 用完整 slug（含 `/`，放 body）。
+
+| Method | Path | 文件源 | 备注 |
+|---|---|---|---|
+| GET | `/api/v1/mcp-servers` | `mcp.go` | 列已装 server（实时 status）|
+| GET | `/api/v1/mcp-servers/{name}` | `mcp.go` | 单个 server status |
+| GET | `/api/v1/mcp-servers/{name}/stderr` | `mcp.go` | stderr 尾部 |
+| PUT | `/api/v1/mcp-servers/{name}` | `mcp.go` | 手动 upsert（command/args/env/url/transport/runtime/timeoutSec）|
+| DELETE | `/api/v1/mcp-servers/{name}` | `mcp.go` | 软删 |
+| POST | `/api/v1/mcp-servers/{nameAction}` | `mcp.go` | (:reconnect) 重置闸 |
+| POST | `/api/v1/mcp-servers/{name}/tools/{toolNameAction}` | `mcp.go` | (:invoke) 直接试调用，绕过 LLM（body: args）|
+| POST | `/api/v1/mcp-servers:import` | `mcp.go` | Claude Desktop mcp.json 片段（`?overwrite=true`）|
+| GET | `/api/v1/mcp-registry` | `mcp.go` | 列市场全量（99 个）|
+| POST | `/api/v1/mcp-registry:install` | `mcp.go` | (:install) body: 完整 slug + env |
 
 ### 4.2 Sandbox
 | Method | Path | 说明 |

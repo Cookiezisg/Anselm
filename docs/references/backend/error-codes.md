@@ -177,16 +177,16 @@ audience: [human, ai]
 ### 2.9 MCP Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
-| `mcpdomain.ErrServerNotFound` | `MCP_SERVER_NOT_FOUND` | 404 | |
-| `mcpdomain.ErrServerNotConnected` | `MCP_SERVER_NOT_CONNECTED` | 409 | |
-| `mcpdomain.ErrToolNotFound` | `MCP_TOOL_NOT_FOUND` | 404 | |
-| `mcpdomain.ErrToolCallFailed` | `MCP_TOOL_CALL_FAILED` | 502 | |
-| `mcpdomain.ErrToolCallTimeout` | `MCP_TOOL_CALL_TIMEOUT` | 504 | |
-| `mcpdomain.ErrRegistryEntryNotFound` | `MCP_REGISTRY_ENTRY_NOT_FOUND` | 404 | |
-| `mcpdomain.ErrRequiredEnvMissing` | `MCP_REQUIRED_ENV_MISSING` | 422 | |
-| `mcpdomain.ErrRequiredArgsMissing` | `MCP_REQUIRED_ARGS_MISSING` | 422 | |
-| `mcpdomain.ErrInstallFailed` | `MCP_INSTALL_FAILED` | 502 | |
-| `mcpdomain.ErrAlreadyInstalled` | `MCP_ALREADY_INSTALLED` | 409 | |
+| `mcpdomain.ErrServerNotFound` | `MCP_SERVER_NOT_FOUND` | 404 | 短名查不到已装 server |
+| `mcpdomain.ErrServerNotConnected` | `MCP_SERVER_DOWN` | 503 | 连接断 / 子进程崩，暂不可用 |
+| `mcpdomain.ErrToolNotFound` | `MCP_TOOL_NOT_FOUND` | 404 | server 未自报此工具 |
+| `mcpdomain.ErrToolCallFailed` | `MCP_RPC_ERROR` | 502 | 上游 server 返回错误 JSON-RPC |
+| `mcpdomain.ErrToolCallTimeout` | `MCP_TOOL_TIMEOUT` | 504 | CallTool 超 `timeout_sec` |
+| `mcpdomain.ErrNameConflict` | `MCP_NAME_CONFLICT` | 409 | 短名在工作区内已占用 |
+| `mcpdomain.ErrInstallFailed` | `MCP_INSTALL_FAILED` | 502 | 装包 / 连接失败 |
+| `mcpdomain.ErrEnvMissing` | `MCP_ENV_MISSING` | 422 | 缺必填 env |
+| `mcpdomain.ErrRegistryEntryNotFound` | `MCP_REGISTRY_NOT_FOUND` | 404 | slug 不在 registry |
+| `mcpdomain.ErrNoRunnablePackage` | `MCP_NO_RUNNABLE_PACKAGE` | 422 | registry entry 无可装 package |
 
 ### 2.10 Knowledge & Skills Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

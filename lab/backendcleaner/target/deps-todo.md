@@ -386,3 +386,15 @@ skill（domain/skill + infra/fs/skill + app/skill + 5 工具 + handler + agentst
 | **boot 装配** | M7 | `skillfs.New(~/.forgify)` → `skillapp.NewService(repo, subagentRunner, emitter, log)` + `SetRelationSyncer` → catalog `RegisterSource(svc.AsCatalogSource())` + relation `Config.Namers["skill"]=svc` → `SkillTools(svc)` 进 `Toolset.Lazy` + `NewSkillHandler(svc, log).Register(mux)` |
 | **user-invocable 前端 slash 入口** | 前端覆盖期 | frontmatter `user-invocable` 已解析存；前端 slash command 触发 UI 那轮接 |
 
+## 来自波次 3 · M3.5（mcp 市场对接 + 加密表 + 双 transport R0041）
+
+mcp 模块逻辑完整 + 测试绿（fake sandbox/client/repo/registry，全离线）。3 处留口（物理跑通真实 server 需后续）+ boot 装配：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **sandbox 物理 runtime-tool（mcp 真实跑通的前提）** | 🔴 单独一轮（回改 sandbox R0026，需真实环境验证） | mcp 用 `npx/uvx/dnx`（runtime 自带的「拉包即跑」工具），但 sandbox node/python `ResolveExec` 现在解析 env binary（node_modules/.bin、venv/bin），不认 runtime 工具。要补：① node ResolveExec 认 `npx/npm/node` → `<runtimeRef>/bin/<cmd>`（runtimeRef=rt.Path=node install dir；InstallDeps 已证明 `<rt>/bin/npm`）② **python uvx 需装 uv**（mise python 不含 uvx；mise 可 `use uv` 或让 python runtime 伴随 uv）③ dnx（.NET 10）④ docker：`prepareSpawn` 把空-Cmd 检查移到 runtime 查之后、docker 放行（docker.go ResolveExec 已支持空 Cmd 用 image entrypoint）⑤ **dotnet runtime 新增**（新 EnvManager + mise dotnet + dnx）。离线单测用 fake sandbox 已覆盖 mcp 逻辑；真实 npx/uvx 跑通需真实 node/python/uv/docker 环境，前端联调阶段才真正需要。 |
+| **handler catalog 列方法名（对齐 mcp 容器实体）** | handler 回改（择机） | catalog 渲染已支持 `Item.Members`（mcp 在用），handler source 填方法名需逐查每个 handler 的 active version `methods`（`ListAll` 不附 ActiveVersion，那是 `Service.Get` 才 hydrate 的 computed 字段）。`memberLabel("handler")="methods"` 已就位，只缺 handler catalog_source 填 Members。 |
+| **trigger sensor 绑 mcp.tool** | trigger 回改（择机） | 用户洞察：mcp 是常驻有状态实体（像 handler），sensor 该能绑 `mcp.tool`（周期 `CallTool` 喂 CEL）。回改 trigger R0039：sensor target 从 `function`/`handler.method` 加第三类 `mcp.tool` + trigger 依赖 mcp 端口（`CallTool`）。 |
+| **boot 装配** | M7 | `mcpinfra.NewGitHubRegistrySource(~/.forgify/cache, log)` + `mcpstore.New(db, encryptor)` + `mcpapp.New(repo, registry, sandboxSvc, log)` + `SetRelationSyncer` → `svc.Boot(ctx)`（per-workspace 起常驻）+ `svc.Shutdown` 接退出；catalog `RegisterSource(svc.AsCatalogSource())` + relation `Namers["mcp"]=svc` + `MCPTools(svc)` 进 resident、`DynamicTools(ctx,svc)` 进 `search_tools` 检索池（host 组装，M5.2）+ `NewMCPHandler(svc, log).Register(mux)`；db.Migrate 收 `mcpstore.Schema` |
+| **mcp.json export（互操作）** | 择机 | `ParseImport` 已做（Claude Desktop mcp.json → 加密表）；反向 export（表 → mcp.json，secret 占位）用户需要再加 |
+

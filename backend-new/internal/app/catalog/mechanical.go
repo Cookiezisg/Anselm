@@ -48,12 +48,32 @@ func assemble(items []catalogdomain.Item) *catalogdomain.Catalog {
 			for _, it := range group {
 				desc := truncate(strings.TrimSpace(it.Description), descMaxRunes)
 				fmt.Fprintf(&b, "- **%s**: %s\n", it.Name, desc)
+				if len(it.Members) > 0 {
+					// Container entities (mcp/handler) list their callable sub-units by name
+					// only — not truncated, so the LLM sees the whole menu and can target one.
+					// 容器实体（mcp/handler）只列可调子单元名——不截断，使 LLM 看到全部菜名、能精准定位。
+					fmt.Fprintf(&b, "    %s: %s\n", memberLabel(kind), strings.Join(it.Members, ", "))
+				}
 				ids = append(ids, it.ID)
 			}
 			coverage[kind] = ids
 		}
 	}
 	return &catalogdomain.Catalog{Summary: b.String(), Coverage: coverage}
+}
+
+// memberLabel names a container kind's sub-units for the catalog: mcp → tools, handler →
+// methods. Single entities have no Members so never reach here.
+//
+// memberLabel 给容器类型的子单元命名：mcp → tools、handler → methods。单一实体无 Members，到不了这。
+func memberLabel(kind string) string {
+	switch kind {
+	case "mcp":
+		return "tools"
+	case "handler":
+		return "methods"
+	}
+	return "items"
 }
 
 // truncate caps s to max runes, appending "…" when cut; rune-safe.

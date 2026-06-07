@@ -21,10 +21,11 @@ Catalog 是**纯派生视图，不持久化、不缓存、按需现查**（无 s
 ### 1.1 `Item`（一条能力）
 ```go
 type Item struct {
-    Source      string // 实体类型（分组用）："function" / "workflow" / ...
-    ID          string // 主键（仅进 Coverage，不渲染给 LLM）
+    Source      string   // 实体类型（分组用）："function" / "workflow" / ...
+    ID          string   // 主键（仅进 Coverage，不渲染给 LLM）
     Name        string
     Description string
+    Members     []string // 容器实体的子能力名（仅 mcp server 用：列全部工具名，不带描述、不截断）
 }
 ```
 
@@ -62,7 +63,8 @@ You currently have these capabilities (to use one, search with the matching tool
 ```
 - **不报 id、不报调用工具**：catalog 不负责精确指认。
 - **document 例外**：Name = 文档名，Description = 路径（让 LLM 看懂层级关系）。
-- 描述按 rune 截断（48），防单条啰嗦撑大 prompt。
+- **mcp 例外（容器实体）**：mcp server 是工具容器，故其 `Item.Members` 列出该 server 自报的**全部工具名**（只列名、不列描述、不截断），菜单在 server 名 + 描述下附一行工具清单，让 LLM 知道这个 server 里有哪些工具可搜（动态工具名 `mcp__<server>__<tool>` 进 `search_tools` 检索池）。仅报 ready/degraded 的 server。
+- 描述按 rune 截断（48），防单条啰嗦撑大 prompt（`Members` 工具名不截断）。
 - 空库：整段不输出（全新 workspace 无 header 下空白怪态）。
 
 ### 2.3 两段式：概览 → 搜索

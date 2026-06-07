@@ -24,6 +24,16 @@ type Item struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+
+	// Members lists a CONTAINER entity's callable sub-units by NAME only — an mcp server's
+	// tools, a handler's methods. Single entities (function/skill/agent) leave it empty. The
+	// menu renders these as a one-line name list so the LLM knows what's inside without the
+	// full tool/method schemas (those load on demand via search_tools / get_handler).
+	//
+	// Members 列出容器实体的可调子单元，只列名——mcp server 的工具、handler 的方法。单一实体
+	// （function/skill/agent）留空。菜单渲染成一行名字清单，使 LLM 知道里面有什么、而不含完整
+	// schema（那些按需经 search_tools / get_handler 加载）。
+	Members []string `json:"members,omitempty"`
 }
 
 // CatalogSource is what every capability provider implements to join the catalog.
