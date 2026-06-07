@@ -4,17 +4,18 @@
 // so the host seeds an AgentState into ctx and tools cooperate through it.
 //
 // Scope = creator chooses. Two slots exist today: SeenFiles (filesystem's
-// write-before-read) and discoveredTools (search_tools' lazy-tool discovery). Other
-// slots (cwd, activeSkill) will be added by their own first consumers (shell /
-// skill) — agentstate grows on demand, no speculative fields.
+// write-before-read) and discoveredTools (search_tools' lazy-tool discovery). The
+// activeSkill slot will be added by its first consumer (skill). cwd is deliberately
+// absent — the desktop agent has no working directory (R0033), so shell adds no cwd
+// slot. agentstate grows on demand, no speculative fields.
 //
 // Package agentstate 持有单次运行内跨 tool 调用的对话级共享状态。它存在是因为某些安全不变式
 // （如写前必读、skill 预授权域）跨工具——单个工具的 args 表达不了，所以 host 把 AgentState
 // 埋进 ctx，工具间靠它协作。
 //
 // 作用域 = 创建者决定。当下两个字段：SeenFiles（filesystem 写前必读）与 discoveredTools
-// （search_tools 的 lazy 工具发现）。其余字段（cwd、activeSkill）由各自首个消费者（shell /
-// skill）自己引入——agentstate 按需生长，不预留。
+// （search_tools 的 lazy 工具发现）。activeSkill 字段由其首个消费者（skill）引入；cwd 刻意
+// 不设——桌面 agent 无工作目录（R0033），shell 不引入 cwd。agentstate 按需生长，不预留。
 package agentstate
 
 import "sync"

@@ -87,6 +87,7 @@ document 是**第一个接通 catalog / relation / mention 的实体**，实现 
 ---
 
 ## 5. 跨域集成
+- **工具（R0044 已建）**：`search/list/read/create/edit/move/delete_document`（`app/tool/document`，7 件）包 Service 的 Search/ListByParent/Get/Create/Update/Move/Delete；errorsdomain 转软失败串、不冒泡 HTTP。装入 `Toolset.Lazy` 留 M7。
 - **Chat / Scheduler**：消费 `ResolveAttached` + `RenderAttachedAsXML` 注入挂载文档（波次 4/5）。
 - **Catalog / Mention / Relation**：经上述 4 适配器（注入 M7）。
 - **AI `:iterate`**：askai 编辑（波次 6）。

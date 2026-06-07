@@ -1,0 +1,170 @@
+package shell
+
+import (
+	"errors"
+	"os/exec"
+	"sync"
+	"time"
+
+	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+)
+
+// bgBufferBytes caps the per-process ring buffer; oldest bytes drop on overflow.
+//
+// bgBufferBytes 限制单进程环形缓冲；溢出丢最旧字节。
+const bgBufferBytes = 256 * 1024
+
+// Status reports a background process's current lifecycle phase.
+//
+// Status 报告后台进程的生命周期阶段。
+type Status string
+
+const (
+	StatusRunning Status = "running"
+	StatusExited  Status = "exited"
+	StatusKilled  Status = "killed"
+	StatusErrored Status = "errored"
+)
+
+// ErrProcessNotFound: bash_id unknown.
+//
+// ErrProcessNotFound：bash_id 未知。
+var ErrProcessNotFound = errors.New("background shell process not found")
+
+// BgProcess holds one tracked background child; the output buffer + cursor are guarded by mu.
+//
+// BgProcess 是一个被追踪的后台子进程；输出缓冲与游标受 mu 保护。
+type BgProcess struct {
+	ID        string
+	Command   string
+	Cmd       *exec.Cmd
+	StartedAt time.Time
+
+	mu         sync.Mutex
+	buf        []byte
+	dropped    int64
+	readCursor int
+	status     Status
+	exitCode   int
+	finishedAt time.Time
+	launchErr  error
+}
+
+// appendOutput appends b to the ring buffer; on overflow drops from the front and rewinds the cursor.
+//
+// appendOutput 把 b 追加到环形缓冲；溢出时从头丢并相应回退游标。
+func (p *BgProcess) appendOutput(b []byte) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.buf = append(p.buf, b...)
+	if len(p.buf) <= bgBufferBytes {
+		return
+	}
+	overflow := len(p.buf) - bgBufferBytes
+	p.dropped += int64(overflow)
+	p.buf = p.buf[overflow:]
+	p.readCursor -= overflow
+	if p.readCursor < 0 {
+		p.readCursor = 0
+	}
+}
+
+// drainNew returns bytes appended since the last drain and advances the cursor.
+//
+// drainNew 返回上次以来追加的字节并推进游标。
+func (p *BgProcess) drainNew() (newBytes []byte, dropped int64, status Status, exitCode int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := append([]byte(nil), p.buf[p.readCursor:]...)
+	p.readCursor = len(p.buf)
+	return out, p.dropped, p.status, p.exitCode
+}
+
+func (p *BgProcess) markFinished(status Status, exitCode int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status = status
+	p.exitCode = exitCode
+	p.finishedAt = time.Now()
+}
+
+func (p *BgProcess) markErrored(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.status = StatusErrored
+	p.launchErr = err
+	p.finishedAt = time.Now()
+}
+
+// ProcessManager owns the registry of background shell processes.
+//
+// ProcessManager 持有后台 shell 进程的注册表。
+type ProcessManager struct {
+	mu    sync.Mutex
+	procs map[string]*BgProcess
+}
+
+// NewProcessManager returns an empty manager.
+//
+// NewProcessManager 返一个空 manager。
+func NewProcessManager() *ProcessManager {
+	return &ProcessManager{procs: make(map[string]*BgProcess)}
+}
+
+// Register stamps a bsh_ ID and stores the process; caller must have set Command + Cmd before calling.
+//
+// Register 派 bsh_ ID 并入库；调用方须已填好 Command + Cmd。
+func (m *ProcessManager) Register(p *BgProcess) {
+	if p.ID == "" {
+		p.ID = idgenpkg.New("bsh")
+	}
+	if p.StartedAt.IsZero() {
+		p.StartedAt = time.Now()
+	}
+	if p.status == "" {
+		p.status = StatusRunning
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.procs[p.ID] = p
+}
+
+// Get returns the process by ID or ErrProcessNotFound.
+//
+// Get 按 ID 返进程，找不到返 ErrProcessNotFound。
+func (m *ProcessManager) Get(id string) (*BgProcess, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p, ok := m.procs[id]
+	if !ok {
+		return nil, ErrProcessNotFound
+	}
+	return p, nil
+}
+
+// Remove drops the entry; used by KillShell after killing + reaping.
+//
+// Remove 删除注册表条目；KillShell 杀完 reap 后调用。
+func (m *ProcessManager) Remove(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.procs, id)
+}
+
+// Stop best-effort kills every running child during graceful shutdown.
+//
+// Stop 优雅关停时尽力杀掉所有 running 子进程。
+func (m *ProcessManager) Stop() {
+	m.mu.Lock()
+	procs := make([]*BgProcess, 0, len(m.procs))
+	for _, p := range m.procs {
+		procs = append(procs, p)
+	}
+	m.mu.Unlock()
+	for _, p := range procs {
+		if p.Cmd == nil || p.Cmd.Process == nil {
+			continue
+		}
+		_ = p.Cmd.Process.Kill()
+	}
+}
