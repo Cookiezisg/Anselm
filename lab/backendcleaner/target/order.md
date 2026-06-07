@@ -67,11 +67,11 @@
 | M3.1 ✅ R0037 | `function` | sandbox, **app/envfix(新)** | 版本号去 accept(方案 A 指针式 revert) + polling 剥离(独立概念) + **env-fix 抽 `app/envfix` 共享包**(function/handler/trigger 复用) |
 | M3.2 ✅ R0038 | `handler` | sandbox, app/envfix | **MCP 式单例常驻**(boot/restart/shutdown，删 per-owner) + restart 双触发(工具+:restart) + 复用 `app/envfix` + 加密 config 门控 spawn + 类组装(AssembleClass+DriverScript) |
 | M3.3 ✅ R0039 | `trigger`（+ `pkg/cel` 新 + infra/trigger: cron/fsnotify/webhook/sensor） | function/handler（sensor 端口）· workflow（扇出端口）· pkg/cel | **独立信号源实体**（加站）：从 workflow 节点提升为一等实体（`trg_`，进 catalog + relation 第 9 节点 + 8 工具）；4 source（cron/webhook/fsnotify/**sensor**=function/handler+CEL）；引用计数生命周期（Attach/Detach 启停、N workflow 共享一 listener）；3 表 + Activation 日志；填 polling 坑 |
-| M3.4 | `subagent` | loop, tool | |
-| M3.5 | `agent` | loop, tool | 🔧 in-flight：execution 面对齐 function/skill（当前未提交改动）|
-| M3.6 | `skill` | subagent | |
-| M3.7 | `mcp` | infra/mcp | ⚠️ `infra/store/mcpcalls`+`mcphealth` 判定 |
-| M3.8 | tool 适配器 | `tool/function` `tool/handler` `tool/trigger` `tool/agent` `tool/skill` `tool/subagent` `tool/mcp` `tool/memory` `tool/document` `tool/shell` | `domain/forge` 在此被工具适配器依赖（forge 角色已定：M0.4 SSE 三流之一，非旧实体）|
+| M3.4 ✅ R0040 | `skill` | tool · 文件 store 范式（memory）· `SubagentRunner` 端口 | ✅ **文件式指令载体**（memory 近亲）：砍 execution/search/polling、纯按需扫描、无版本；allowed-tools=预授权（消费 ask 波次 6）；AI 可创建（`source=ai`）；disable-model-invocation 实装；fork 走 `SubagentRunner`（subagent 波次 5 注入、nil 降级）；`polling.go` 判定=文件热重载（非 trigger/sensor）已砍；relation 节点用 name（`sk_` 作废）|
+| M3.5 | `mcp` | infra/mcp · sandbox | docker stdio MCP server（sandbox ✅）；**`searchrouter.go` 八成砍（R0035 删 MCP tier、MCP 搜索改平级）**；⚠️ `mcpcalls`/`mcphealth` 判定 |
+| M3.6 | `agent` | loop, tool（挂载 skill/mcp/doc/fn/hd/model）| **自洽实体**：自有 invocation log 表 + 自有 model 配置列 → 落盘/model 不依赖 chat；**挂载件齐全后做、一次做完整**；跟进方案 A **砍 pending/accept**（孪生 function/handler R0037/R0038）；execution 面对齐 function |
+| M3.7 | tool 适配器 | `tool/function` `tool/handler` `tool/trigger` `tool/agent` `tool/skill` `tool/mcp` `tool/memory` `tool/document` `tool/shell`（`tool/subagent` 移波次 5）| `domain/forge` 在此被工具适配器依赖（forge 角色已定：M0.4 SSE 三流之一，非旧实体）|
+| ➡️ M3.4 考古 | ~~`subagent`~~ **已移波次 5** | — | subagent ≈ 递归 chat（写父对话 message + 承袭父 model = chat host 子集）→ 与 chat 同轮做干净；唯一消费者 skill 走 DIP 端口不被堵；详见 deps-todo |
 
 ### 波次 4 — 编排核心（最复杂，重灾区）
 
@@ -89,6 +89,7 @@
 |---|---|---|---|
 | M5.1 | `conversation` | — | |
 | M5.2 | `chat` | document, loop, tool | runner 庞大，重点审；hooks/permissionsgate 已解散（M1.9 R0027），危险控制下放工具 |
+| M5.2+ | `subagent` + `tool/subagent` | chat, loop, tool | **波次 3 后移**：subagent ≈ 递归的 chat（无表、写父对话 message + parentBlock 锚点、承袭父 model）→ 落盘/model 是 chat host 子集，与 chat 同轮共享实现；3 内置类型 Explore/Plan/general-purpose；防递归用 `SubagentID` 存在性（种子已埋）；agentstate 子 run 独立新建；旧契约 DOC-123 整篇重写 |
 | M5.3 | `contextmgr` | — | compaction |
 | ⏭️ R0027 | ~~`tool/permissionsgate`~~ **随 M1.9 解散** | — | 中央门控取消；危险控制由工具自管（别处） |
 

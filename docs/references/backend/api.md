@@ -177,15 +177,14 @@ audience: [human, ai]
 ### 5.1 Skills
 | Method | Path | 文件源 |
 |---|---|---|
-| POST | `/api/v1/skills:import` | `skills.go` |
-| POST | `/api/v1/skills:refresh` | `skills.go` |
-| GET | `/api/v1/skills` | `skills.go` |
-| POST | `/api/v1/skills` | `skills.go` |
-| GET | `/api/v1/skills/{name}` | `skills.go` |
-| GET | `/api/v1/skills/{name}/body` | `skills.go` |
-| PUT | `/api/v1/skills/{name}` | `skills.go` |
-| DELETE | `/api/v1/skills/{name}` | `skills.go` |
-| POST | `/api/v1/skills/{nameAction}` | `skills.go` | (:invoke) |
+| GET | `/api/v1/skills` | `skill.go` |
+| POST | `/api/v1/skills` | `skill.go` |
+| GET | `/api/v1/skills/{name}` | `skill.go` |
+| PUT | `/api/v1/skills/{name}` | `skill.go` |
+| DELETE | `/api/v1/skills/{name}` | `skill.go` |
+| POST | `/api/v1/skills/{nameAction}` | `skill.go` | (:activate) |
+
+> R0040：skill 重写为文件式。删 `:import`/`:refresh`（无市场、纯按需扫描）+ `/{name}/body`（GET 已含 body）；`:invoke`→`:activate`。List 返全集（文件式，不分页）。
 
 ### 5.2 Documents
 | Method | Path | 文件源 |

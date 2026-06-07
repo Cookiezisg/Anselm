@@ -356,3 +356,33 @@ trigger（domain/store/app/tool/handler + infra/trigger 4 listener + 新建 `pkg
 | **workflow→trigger 监听边 + 删旧 workflow 内嵌 trigger 节点** | workflow M4 | workflow 不再有 trigger 节点；改为引用独立 trigger（产 `workflow → trigger` 监听边）；旧 `GET /workflows/{id}/triggers` 端点语义改为"列出该 workflow 引用的 trigger"|
 | **missed-tick cron 补跑** | 择机 | 这轮 cron 不做跨重启补漏（旧靠 `schedule.lastFire` 持久化，已随 schedule 表砍）；要补可用 Activation 日志的最后 fired 时间重建 |
 | **`:iterate`（askai AI 编辑）** | 波次 6 | trigger handler 的 `:iterate`（那轮加，本轮端点不挂）|
+
+## 来自波次 3 · M3.4 考古（subagent 后移波次 5）
+
+考古 subagent 后判定**后移波次 5（贴 chat）**——非因乱，而是 subagent 两个核心行为是 chat host 子集，波次 3 做只能 stub：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **subagent 落盘** | 波次 5 chat | subagent 无自己的表，写**父对话 messages 表**（sub-message + parentBlock 锚点 E3 递归）；chat 表波次 5 → 与 chat host 共享落盘端口 |
+| **subagent model 承袭** | 波次 5 chat | subagent 无 model 配置、承袭父 effective model；reqctx 不带 override、只 chat 知父 override → 与 chat 同轮解析 |
+| **skill fork 端口（M3.5 这轮留空）** | M3.5 skill | skill 定 `SubagentService` 端口 + `subagent==nil` 优雅降级（旧代码已有）；subagent 波次 5 就绪后 boot 注入、fork 才生效。**非 fork 模式照常做** |
+| **防递归** | 波次 5 | 旧 `subagentDepth`(int) → 新 `SubagentID`(string) 存在性：子 run `SetSubagentID` 后再 spawn 即拒（种子 R0029 已埋，本为 todo 作用域）；限 1 层 |
+| **agentstate 隔离** | 波次 5 | 子 run **独立新建 AgentState**（否则 SeenFiles 写前必读账本污染父对话）|
+| **3 内置类型** | 波次 5 | Explore/Plan/general-purpose（借 Claude Code）；AllowedTools 对齐新 Toolset（Resident 安全子集 + 新 search_* 命名 + 加 LS）|
+| **`tool/subagent` 工具** | 波次 5（随 subagent）| SubagentTool 9→5 方法；防递归守卫；属 chat 场景分治工具 |
+| **契约 DOC-123 整篇重写** | 波次 5 | 旧文档严重腐烂（虚构 cv_xxx 子对话 / 深度限 2 实为 1 / AgentState 沙箱 / 4 个虚构错误码 ErrRecursionTooDeep·ErrSubagentCrash·ErrTaskAmbiguous·ErrToolAccessDenied 代码全无）|
+
+**附：agent 顺序后移（同次考古连带）**——agent 挂载 skill/mcp/doc/fn/hd/model，现做挂载只能 stub。波次 3 顺序调成 **skill(M3.4) → mcp(M3.5) → agent(M3.6 压轴)**；agent 挂载件齐全后一次做完整。agent 重写跟进方案 A **砍 pending/accept**（孪生 function/handler）、**不需 sandbox/envfix**（不跑代码）、execution 面对齐 function。skill `polling.go` / mcp `searchrouter.go` 去留考古时判（疑分别与 trigger/sensor、R0035 删 MCP tier 重叠）。
+
+## 来自波次 3 · M3.4（skill 文件式 R0040）
+
+skill（domain/skill + infra/fs/skill + app/skill + 5 工具 + handler + agentstate activeSkill）已建。`polling.go` 判定=**文件热重载非 trigger/sensor**，已砍（改纯按需扫描）。跨波次接线登记：
+
+| 关注点 | 去向 | 备注 |
+|---|---|---|
+| **fork `SubagentRunner` 注入** | subagent 波次 5 | `skillapp.NewService(repo, runner, ...)` 的 runner = subagent 适配器（实现 `skilldomain.SubagentRunner.Spawn(ctx, agentType, prompt)→result`，包 subagent.Spawn 把 agentType 映射到内置类型）；波次 5 前 nil → fork 返 `ErrSubagentUnavailable`、inline 完整可用 |
+| **allowed-tools 预授权消费** | ask 波次 6 | danger 确认流查 `agentstate.IsToolPreApprovedBySkill(tool)` → 命中免逐次确认；这轮只在 activate 时 `SetActiveSkill` 存字段 |
+| **`${CLAUDE_SKILL_DIR}` + L3 附加文件** | 择机 | 目录式已留结构（`skills/<name>/`）；附加 references/scripts 按需读 + `${CLAUDE_SKILL_DIR}` 占位那轮加 |
+| **boot 装配** | M7 | `skillfs.New(~/.forgify)` → `skillapp.NewService(repo, subagentRunner, emitter, log)` + `SetRelationSyncer` → catalog `RegisterSource(svc.AsCatalogSource())` + relation `Config.Namers["skill"]=svc` → `SkillTools(svc)` 进 `Toolset.Lazy` + `NewSkillHandler(svc, log).Register(mux)` |
+| **user-invocable 前端 slash 入口** | 前端覆盖期 | frontmatter `user-invocable` 已解析存；前端 slash command 触发 UI 那轮接 |
+

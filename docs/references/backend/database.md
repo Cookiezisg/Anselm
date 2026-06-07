@@ -42,7 +42,6 @@ audience: [human, ai]
 | **Audit** | `function_executions`| `fne_` | `Execution` |
 | | `handler_calls` | `hcl_` | `Call` |
 | | `mcp_calls` | `mcl_` | `Call` |
-| | `skill_executions` | `ske_` | `Execution` |
 | | `agent_executions` | `agx_` | `AgentExecution` |
 | **Knowledge**| `documents` | `doc_` | `Document` |
 | | `relations` | `rel_` | `Relation` |
@@ -343,7 +342,8 @@ type Item struct {
 
 - **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, trg_, trf_, tra_, doc_, rel_, se_, sr_, mch_, mcl_, ske_, sk_, mcp_, noti_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, trg_, trf_, tra_, doc_, rel_, se_, sr_, mch_, mcl_, mcp_, noti_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs）
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
 > 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
-- **保留前缀**: `sk_`(skill) / `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别（故 document 可经 wikilink `[[tag]]`）；`skills`/`mcps` 表与生成器接入是**波次 3** 工作。注意区分既有的执行流水前缀 `ske_`(skill_executions) / `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。
+> 注：skill 改文件式（`~/.forgify/workspaces/<wsID>/skills/<name>/SKILL.md`），**无 skill 表、无 `skill_executions` 表（execution 审计砍）、无 `ske_`/`sk_` 前缀**（name 即标识、relation 节点用 name；R0021 预留的 `sk_` 对文件式 skill 不启用）。
+- **保留前缀**: `mcp_`(mcp server) 为实体保留——规矩已定，`relation.KindForID` 已识别；`mcps` 表与生成器接入是 **M3.5 mcp** 工作；既有执行流水前缀 `mcl_`(mcp_calls) / `mch_`(mcp_health_history)。（`sk_` 原为 skill 预留，**R0040 skill 重写为文件式后作废**——skill 无生成 id、relation 节点用 name；`ske_` 随 skill execution 审计砍而删。）

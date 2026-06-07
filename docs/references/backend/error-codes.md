@@ -191,11 +191,13 @@ audience: [human, ai]
 ### 2.10 Knowledge & Skills Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
-| `skilldomain.ErrSkillNotFound` | `SKILL_NOT_FOUND` | 404 | |
-| `skilldomain.ErrInvalidFrontmatter` | `SKILL_INVALID_FRONTMATTER` | 422 | |
-| `skilldomain.ErrBodyTooLarge` | `SKILL_BODY_TOO_LARGE` | 422 | |
-| `skilldomain.ErrNameConflict` | `SKILL_NAME_CONFLICT` | 409 | |
-| `skilldomain.ErrInvalidName` | `SKILL_INVALID_NAME` | 422 | |
+| `skilldomain.ErrNotFound` | `SKILL_NOT_FOUND` | 404 | SKILL.md 不存在 |
+| `skilldomain.ErrInvalidName` | `SKILL_INVALID_NAME` | 400 | name 非 slug / 路径穿越 |
+| `skilldomain.ErrInvalidFrontmatter` | `SKILL_INVALID_FRONTMATTER` | 422 | YAML 坏 / description 缺或超长 / source 非法 |
+| `skilldomain.ErrBodyTooLarge` | `SKILL_BODY_TOO_LARGE` | 422 | body > 32 KiB |
+| `skilldomain.ErrNameConflict` | `SKILL_NAME_CONFLICT` | 409 | create 同名已存在 |
+| `skilldomain.ErrForkRequiresAgent` | `SKILL_FORK_REQUIRES_AGENT` | 422 | context=fork 缺 agent |
+| `skilldomain.ErrSubagentUnavailable` | `SKILL_SUBAGENT_UNAVAILABLE` | 503 | fork 但 subagent runner 未装（波次 5 前） |
 | `memorydomain.ErrNotFound` | `MEMORY_NOT_FOUND` | 404 | 记忆文件不存在 |
 | `memorydomain.ErrInvalidName` | `MEMORY_INVALID_NAME` | 400 | name 非小写 slug |
 | `memorydomain.ErrInvalidSource` | `MEMORY_INVALID_SOURCE` | 400 | source 非 user/ai |
@@ -252,7 +254,6 @@ audience: [human, ai]
 - `cryptoinfra.ErrUnsupportedVersion`
 - `triggerdomain.ErrFiringNotPending`
 - `chatdomain.ErrBlockNotFound`
-- `skilldomain.ErrExecutionNotFound`
 - `subagentdomain.ErrRecursionAttempt`
 - `askapp.ErrNoPendingQuestion` (注：API 直接处理了 ask，此处为 app 层兜底)
 - ...以及所有 Go 内部 `fmt.Errorf` 产生的动态错误。

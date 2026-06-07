@@ -28,6 +28,15 @@ import "sync"
 type AgentState struct {
 	seenFiles       sync.Map // string → int64
 	discoveredTools sync.Map // string (tool name) → bool
+
+	// activeSkill is a single compound value (name + allowed-tools set), so it uses an explicit
+	// RWMutex rather than sync.Map — the latter can't atomically read a name+slice pair together.
+	//
+	// activeSkill 是单个复合值（name + allowed-tools 集），故用显式 RWMutex 而非 sync.Map
+	// （后者无法原子读到一致的 name+slice 对）。
+	mu               sync.RWMutex
+	activeSkillName  string
+	activeSkillAllow map[string]struct{}
 }
 
 // New returns a fresh AgentState. A host creates one per run and seeds it into ctx
@@ -97,4 +106,44 @@ func (s *AgentState) DiscoveredTools() []string {
 		return true
 	})
 	return out
+}
+
+// SetActiveSkill records the skill activated this run and pre-approves its allowed-tools. The
+// allowed-tools set is a PRE-APPROVAL grant (skip per-call danger confirmation for these
+// tools), NOT a restriction whitelist — unlisted tools still run, just with the usual flow.
+// Consumed by the danger-confirmation flow (ask 波次 6). Activating a skill replaces any prior.
+//
+// SetActiveSkill 记录本次运行激活的 skill 并预授权其 allowed-tools。该集合是预授权（对这些
+// 工具免逐次危险确认），不是限制白名单——未列出的工具照常跑。由危险确认流（ask 波次 6）消费。
+// 激活新 skill 整体替换旧的。
+func (s *AgentState) SetActiveSkill(name string, allowedTools []string) {
+	allow := make(map[string]struct{}, len(allowedTools))
+	for _, t := range allowedTools {
+		allow[t] = struct{}{}
+	}
+	s.mu.Lock()
+	s.activeSkillName = name
+	s.activeSkillAllow = allow
+	s.mu.Unlock()
+}
+
+// ActiveSkill returns the name of the skill activated this run (empty if none).
+//
+// ActiveSkill 返回本次运行激活的 skill 名（无则空）。
+func (s *AgentState) ActiveSkill() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.activeSkillName
+}
+
+// IsToolPreApprovedBySkill reports whether the active skill's allowed-tools pre-approve the
+// named tool. False when no skill is active or the tool isn't listed.
+//
+// IsToolPreApprovedBySkill 报告 active skill 的 allowed-tools 是否预授权了该工具。无 active
+// skill 或未列出时返 false。
+func (s *AgentState) IsToolPreApprovedBySkill(toolName string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	_, ok := s.activeSkillAllow[toolName]
+	return ok
 }
