@@ -87,20 +87,19 @@ audience: [human, ai]
 | POST | `/api/v1/workflows/{id}/pending:reject` | `workflow.go` |
 
 ### 2.4 Agents (ag_)
-| Method | Path | 文件源 |
-|---|---|---|
-| POST | `/api/v1/agents` | `agent.go` |
-| GET | `/api/v1/agents` | `agent.go` |
-| GET | `/api/v1/agents/{id}` | `agent.go` |
+> 第四元「配置好的 LLM worker」：不写代码，按引用挂载六件（skill / 文档 / fn·hd·mcp 工具 / model 覆盖），跑 ReAct loop。线性版本 + 自由 active 指针，无 pending/accept。`:invoke` 是唯一执行入口（落 `agent_executions`）。
+
+| Method | Path | 文件源 | 备注 |
+|---|---|---|---|
+| POST | `/api/v1/agents` | `agent.go` | 扁平创建（name/description/tags + v1 Config），立即生效 |
+| GET | `/api/v1/agents` | `agent.go` | 列表（分页）|
+| GET | `/api/v1/agents/{id}` | `agent.go` | 含 activeVersion |
 | PATCH | `/api/v1/agents/{id}` | `agent.go` | UpdateMeta（name/description/tags，不升版本）|
-| DELETE | `/api/v1/agents/{id}` | `agent.go` |
-| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit, :invoke 真跑, :revert, :iterate AI 编辑→conversationId) |
-| GET | `/api/v1/agents/{id}/versions` | `agent.go` |
-| GET | `/api/v1/agents/{id}/versions/{version}` | `agent.go` | 单版本（数字号或 versionId）|
-| GET | `/api/v1/agents/{id}/pending` | `agent.go` |
-| POST | `/api/v1/agents/{id}/pending:accept` | `agent.go` |
-| POST | `/api/v1/agents/{id}/pending:reject` | `agent.go` |
-| GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（对标 functions/{id}/executions）|
+| DELETE | `/api/v1/agents/{id}` | `agent.go` | 软删（清边）|
+| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit 全量替换写 max+1, :invoke 真跑 ReAct, :revert 移指针；:iterate 随 askai 波次 6) |
+| GET | `/api/v1/agents/{id}/versions` | `agent.go` | 全版本（新→旧）|
+| GET | `/api/v1/agents/{id}/versions/{version}` | `agent.go` | 单版本（整数号或 version id）|
+| GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（?versionId/status/triggeredBy/conversationId/flowrunId）|
 | GET | `/api/v1/agent-executions/{execId}` | `agent.go` | 单条执行详情 |
 
 ### 2.5 Triggers (trg_)

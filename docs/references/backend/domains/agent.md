@@ -4,135 +4,126 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-01
-reviewed: 2026-06-02
+reviewed: 2026-06-08
 review-due: 2026-09-01
 audience: [human, ai]
 ---
-# Agent Domain — 实体化 AI Worker 与 Quadrinity 规格
+# Agent — 配置好的 LLM Worker（Quadrinity 第四元）
 
-> **核心地位**：Agent 是 Forgify 的“第四支柱” (Quadrinity)。与临时生成的 Chat Agent 不同，本域定义的 Agent 是 **“持久化、版本化、可重用”** 的专业 AI Worker。它可以独立存在，也可以作为 Workflow 节点被引用。
-
----
-
-## 1. 物理模型 (Data Anatomy)
-
-### 1.1 `Agent` (实体主表)
-```go
-type Agent struct {
-    ID              string         `gorm:"primaryKey;type:text" json:"id"` // ag_<16hex>
-    UserID          string         `gorm:"not null;index" json:"-"`
-    Name            string         `gorm:"not null;type:text" json:"name"`
-    Description     string         `gorm:"type:text;default:''" json:"description"`
-    Tags            []string       `gorm:"serializer:json;type:text;default:'[]'" json:"tags"`
-
-    NeedsAttention  bool           `gorm:"not null;default:false" json:"needsAttention"`
-    AttentionReason string         `gorm:"type:text;default:''" json:"attentionReason,omitempty"`
-
-    ActiveVersionID string         `gorm:"type:text;default:''" json:"activeVersionId"`
-    CreatedAt       time.Time      `json:"createdAt"`
-    UpdatedAt       time.Time      `json:"updatedAt"`
-    DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
-}
-```
-
-### 1.2 `AgentVersion` (配置快照)
-```go
-type AgentVersion struct {
-    ID            string         `gorm:"primaryKey;type:text" json:"id"` // agv_<16hex>
-    AgentID       string         `gorm:"not null;index" json:"agentId"`
-    Status        string         `gorm:"not null;default:'pending'" json:"status"` // pending|accepted
-    Version       *int           `gorm:"type:integer" json:"version,omitempty"`
-
-    // 挂载件 (Mounts)
-    Prompt        string         `gorm:"type:text;default:''" json:"prompt"` // System Prompt
-    Skill         string         `gorm:"type:text;default:''" json:"skill"`  // 引用的 Skill 名
-    Knowledge     []string       `gorm:"serializer:json;type:text" json:"knowledge"` // doc_ID 列表
-    Tools         []ToolRef      `gorm:"serializer:json;type:text" json:"tools"`     // 引用的实体列表
-
-    // 约束
-    OutputSchema  *OutputSchema  `gorm:"serializer:json;type:text" json:"outputSchema"`  // invoke 时注入 systemPrompt（enum/json_schema）
-    ModelOverride *ModelRef      `gorm:"serializer:json;type:text" json:"modelOverride"` // apiKeyId+modelId；nil=默认 agent scenario
-
-    ChangeReason           string     `gorm:"type:text;default:''" json:"changeReason,omitempty"`
-    ForgedInConversationID *string    `gorm:"index;type:text" json:"forgedInConversationId,omitempty"` // relation forged/edited 边
-    AcceptedAt             *time.Time `json:"acceptedAt,omitempty"`
-
-    CreatedAt     time.Time      `json:"createdAt"`
-    UpdatedAt     time.Time      `json:"updatedAt"`
-}
-```
+> **核心地位**：Agent 是 Forgify「四项全能」(Quadrinity) 的第四元——**配置好的 LLM worker**。它**不写一行代码**，靠**按引用挂载**六件（一个 system prompt、0-1 个 skill 名、若干文档作知识、`fn_`/`hd_`/`mcp` 工具白名单、一个可选 outputSchema、一个可选 model 覆盖）定义能力，以 **ReAct loop** 运行。与对话里临时生成的 subagent 不同，本域的 Agent 是**持久化、版本化、可重用**的专业 worker：可独立 `:invoke` 试跑，也可作为 Workflow 的 agent 节点被引用。
 
 ---
 
-## 2. 核心原理 (Principles)
+## 1. 版本模型：线性历史 + 自由指针（无 accept）
 
-### 2.1 挂载件架构 (Mounts Architecture)
-Agent 不直接编写逻辑代码，而是通过 **“挂载”** 其它领域的实体来定义能力：
-- **Knowledge Mount**：挂载 `document` 实体。系统在执行该 Agent 时，会自动将这些文档的内容展开为 XML 注入 Context。
-- **Tool Mount**：显式授权该 Agent 可用的工具（`fn_`, `hd_`, `mcp:`）。禁止 Agent 递归引用另一个 Agent ID（ADR-010）。
-- **Output Schema**：若配置，`invoke` 时把约束注入 system prompt（`enum` 列出可选值 / `json_schema` 给 schema 并要求纯 JSON 输出）；`enum` 模式对最终输出做 best-effort 规整（trim + 匹配回允许值），方便下游 workflow `case` 节点稳定命中。
-- **Model Override**：`*ModelRef`（apiKeyId+modelId+options）。`invoke` 经 `ResolveAgentWithOverride` 解析——设了就用那把 key+model，nil 走默认 `agent` scenario；execution 记录实际 resolve 出的 modelId。缺 apiKeyId/modelId 在 create/edit 即被 `ErrInvalidModelOverride` 拦下（对标 workflow 节点 override 校验）。
+与 function / handler 完全一致——版本号、版本内容、active 指针三者正交：
 
-### 2.2 Sub-step Replay (子步重放 - ADR-010)
-当 Agent 作为 Workflow 的一个节点执行时：
-- **问题**：一个 Agent 回回合可能包含 5 次工具调用。如果 Workflow 在第 3 次调用后崩溃，重启后不应重新消耗前 2 次 Token。
-- **方案**：解释器通过 `AgentSubSteps` 句柄，将 Agent 内部的每一轮 LLM 响应和工具结果都记入 `flowrun_events`。
-- **效果**：重放时，Agent 会“快进”到最后一个未完成的子步。
-
----
-
-## 2.5 工具面 + HTTP 端点（1:1 对标 function）
-
-Agent 的工具/端点面与 function **完全对称**（一文件一工具，`app/tool/agent/`）：
-
-| function | agent | 说明 |
+| 概念 | 语义 | 谁能动 |
 |---|---|---|
-| `create_function` | `create_agent` | v1 自动 accept |
-| `edit_function` | `edit_agent` | 产 pending（iterate-same-pending）|
-| `delete_function` | `delete_agent` | 软删 |
-| `get_function` | `get_agent` | 详情 |
-| `search_function` | `search_agents` | 库内搜索（LLM 相关性排序，对标 search_function）|
-| `revert_function` | `revert_agent` | active 切回旧 accepted 版本号 |
-| `run_function` | **`invoke_agent`** | **真跑** ReAct loop（真调 LLM/工具），返 `{ok,output,status,steps,tokens,executionId}`，**落一条 AgentExecution** |
-| `get_function_execution` | `get_agent_execution` | 单条执行详情 + hints |
-| `search_function_executions` | `search_agent_executions` | 执行日志分页 + 聚合 |
+| **版本号 `version`** | 写入顺序（单调计数器，只增不改） | 写新版本时 = `max+1` |
+| **版本内容** | 不可变快照（append-only，无 `updated_at`） | 永不修改既有版本 |
+| **active 指针 `active_version_id`** | 「现在用哪个」 | edit 前移 / revert 自由移动 |
 
-> **无 accept LLM 工具**（同 function）：v1 自动 accept；pending 的 accept/reject 走 UI/HTTP（`pending:accept` / `pending:reject`），不给 LLM。
+- **create** = 写 v1，立即生效。
+- **edit** = **全量替换** Config → 写 `v(max+1)` → 指针前移。立即生效、无断点（edit 是替换、非合并）。
+- **revert(N)** = **只挪指针**到 vN，不产生版本、不删「更新的」版本。active 号可能小于某些历史号（前端诚实显示「当前 vN，之后还有 …」）。
+- 历史保留供 revert / 审计；超 `AcceptedVersionCap=50` 裁最老的——**但绝不裁 active 版本**（revert 后它可能很老）。
 
-**HTTP 端点**（对标 function handler，完全对称）：`POST /agents`、`GET /agents`、`GET/PATCH/DELETE /agents/{id}`（PATCH=UpdateMeta，改 name/description/tags 不升版本）、`POST /agents/{id}:invoke`（真跑）/`:edit`/`:revert`/`:iterate`（AI 编辑对话→conversationId，经 askai spawner）、`GET /agents/{id}/versions` + `/versions/{version}`（单版本，数字号或 versionId）、`GET /agents/{id}/pending` + `pending:accept|reject`、`GET /agents/{id}/executions`、`GET /agent-executions/{execId}`。
-
-**执行落表**：`InvokeAgent` 是唯一执行方法（invoke_agent 工具 / HTTP :invoke / workflow agent 节点都经它），每次跑完写一条 `agent_executions`（`agx_` 前缀，字段对标 `function_executions`：status/triggeredBy/input/output/elapsedMs/conversationId/flowrunId 等）。Service 持有 LLM 依赖（picker/keys/factory/toolsFn/knowledge），经 `SetInvokeDeps` 注入——正如 function service 持有 sandbox 端口。
-
-> **Workflow agent 节点**：`dispatch_agent` 见 `config.agentRef` 即路由进 `InvokeAgent`（`triggeredBy=workflow` + `flowrunId/flowrunNodeId`），workflow 触发的执行同样落 `agent_executions`——对标 function workflow 节点经 `RunFunction` 落表。ADR-010 子步重放经 `InvokeInput.ReplaySteps`+`Recorder` 透传，崩溃重放仍快进到最后一个未完成子步。（裸 `config.prompt` 内联节点无实体，沿用旧内联 loop，不落表。）
-
-## 3. 生命周期 (Lifecycle)
-
-1. **锻造 (Forging)**：用户或 AI 调 `create_agent` 工具，填入 Prompt 和 Mounts。
-2. **待审 (Pending)**：生成 `agv_` 记录。此时该 Agent 尚不可被 Workflow 引用。
-3. **试跑 (Invoke)**：调 `invoke_agent` 真跑一次验证配置（对标 run_function 试跑），结果落 `agent_executions`。
-4. **转正 (Accepting)**：用户确认配置，Pending -> Accepted。
-5. **嵌入 (Embedding)**：在 Workflow 图中通过 `agentRef: "ag_xxx"` 进行引用。
-6. **执行 (Execution)**：Scheduler 唤起 `chatHost`，加载 Agent 配置，启动 ReAct 循环。
+`ActiveVersion` 是 `Agent` 上的 **computed 字段**（非列），由 `Service.Get` 附上，使读者一趟拿到当前配置。
 
 ---
 
-## 4. 跨域集成 (Interactions)
+## 2. 物理模型
 
-- **Workflow**：通过 `agent` 节点类型引用。
-- **Document**：解析 `Knowledge` 列表。
-- **Capability Catalog**：Agent 实体会作为一类特殊的“能力”出现在系统的全局 Catalog 中，供主对话 Agent 发现。
-- **Relation**：`agentService` 实现 `SetRelationSyncer` + `AgentReader`（对标 7 个兄弟实体）。Create/Accept/Revert 时从 active version 扫出 outgoing 边 `agent_uses_function|handler|mcp|document|skill`（无 `agent_uses_agent`，员工不调员工），并按 `ForgedInConversationID` 写 conversation `forged`/`edited` 边；Delete 级联 purge；relgraph 经 `ListAllMeta` 把 agent 列为节点。
+### 2.1 `agents`（`ag_`，软删）
+`id` · `workspace_id`(orm 自动隔离) · `name`(workspace 内 partial-UNIQUE，软删后释放) · `description` · `tags`(json) · **`active_version_id`**(指针) · 时间戳 · `deleted_at`。
+
+### 2.2 `agent_versions`（`agv_`，append-only + cap 裁剪，**不可变、无 `updated_at`**）
+`id` · `workspace_id` · `agent_id` · **`version`**(单调号，**无 status**) · `prompt`(system prompt) · `skill`(单个 skill 名) · `knowledge`(json，文档 ID 列表) · `tools`(json，`ToolRef{ref,name}` 列表) · `output_schema`(json，nullable) · `model_override`(json，`ModelRef` nullable) · `change_reason` · `forged_in_conversation_id`(relation 边用) · `created_at`。`UNIQUE(agent_id, version)`。
+
+### 2.3 `agent_executions`（`agx_`，append-only log，**无软删/无硬删** D1）
+`id` · `workspace_id` · `agent_id` · `version_id` · `model_id`(实际 resolve 出的) · `status`(ok/failed/cancelled/timeout，CHECK) · **`triggered_by`**(chat/workflow/manual，CHECK) · `input`(json) · `output`(json) · `error_message` · `elapsed_ms` · `started_at` · `ended_at` · `conversation_id` · `message_id` · `tool_call_id` · `flowrun_id` · `flowrun_node_id` · `created_at`。
+
+**`triggered_by` = 执行体**（「谁在跑」，非「请求怎么来的」）：`chat`(对话里 LLM 调 invoke_agent) / `workflow`(工作流 agent 节点) / `manual`(REST `:invoke` 手动跑)。**无 `agent` 触发**——员工不调员工（agent tools 禁 `ag_` ref）。
 
 ---
 
-## 5. 错误字典 (Sentinels)
+## 3. 挂载架构（Mounts）
 
-| Sentinel | Wire Code | 备注 |
+Agent 不编写逻辑，而是「挂载」其它领域的实体来定义能力，全部存在 active 版本上：
+
+- **Prompt**：system prompt（worker 身份）。`buildSystemPrompt` 拼 agent 身份 + worker 纪律（「只用给你的工具」）+ outputSchema 指令。
+- **Skill**：0-1 个 skill 名（预激活）。
+- **Knowledge**：文档 ID 列表。invoke 时经 `KnowledgeProvider.BuildKnowledgePrefix` 渲染成 prompt 前缀，拼到 user message 头部。
+- **Tools**：显式授权的 callable 白名单（`fn_` / `hd_…method` / `mcp:server/tool`）。**禁 `ag_` ref**（员工不调员工，`ValidateTools` 拦 `ag_` 与空 ref）。invoke 时 `filterToolsByWhitelist` 把全局工具池按白名单 `Name()` 过滤；空白名单 = 纯 prompt worker。
+- **Output Schema**：三态 `free_text` / `enum` / `json_schema`。若配置，invoke 时把约束注入 system prompt（`enum` 列出可选值；`json_schema` 给 schema 并要求纯 JSON 输出）；`enum` 模式对最终输出做 best-effort 规整（`coerceEnumOutput`：trim 精确匹配，否则取输出包含的第一个 enum），方便下游 workflow `case` 节点稳定命中。
+- **Model Override**：`*ModelRef`（apiKeyId + modelId + options）。nil = 默认 `agent` scenario 模型。缺 apiKeyId/modelId 在 create/edit 即被 `ErrInvalidModelOverride` 拦下。execution 记录实际 resolve 出的 `model_id`。
+
+---
+
+## 4. 执行（Invoke）：唯一入口 + 端口注入（DIP）
+
+`InvokeAgent` 是**唯一执行方法**——invoke_agent 工具 / HTTP `:invoke` / workflow agent 节点都经它，每次跑完写一条 `agent_executions`（对标 function 的 `RunFunction`）。
+
+agent 自己**不拥有** LLM / 工具池 / 知识渲染，三个外部依赖经 **`InvokeDeps` 端口注入**（构造后 `SetInvokeDeps`，避 init 环；M7 装配注入真实、测试注入 fake）：
+
+| 端口 | 职责 | 实现（boot 时） |
 |---|---|---|
-| `ErrNotFound` | `AGENT_NOT_FOUND` | |
-| `ErrNoActiveVersion`| `AGENT_NO_ACTIVE_VERSION` | 尝试运行一个未转正的 Agent。 |
-| `ErrToolsAgentRef` | `AGENT_TOOLS_AGENT_REF_FORBIDDEN` | 安全红线：禁止 Agent 互相调用。 |
-| `ErrNoPending` | `AGENT_NO_PENDING` | accept 动作前提不符。 |
-| `ErrExecutionNotFound` | `AGENT_EXECUTION_NOT_FOUND` | get_agent_execution 查无。 |
-| `ErrVersionNotFound` | `AGENT_VERSION_NOT_FOUND` | revert 目标版本号不存在/未 accepted。 |
-| `ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | modelOverride 缺 apiKeyId 或 modelId。 |
+| `LLMResolver` | `(nil = 默认 agent 场景) model 覆盖 → 可运行 LLMBundle`（client + 预填 Request）| model-picker + apikey + llm-factory |
+| `Tools func() []Tool` | 返回**全局工具池**；invoke 按 agent 白名单过滤 | 全局 toolset |
+| `KnowledgeProvider` | 文档 ID → prompt 前缀字符串 | document 渲染器 |
+
+`InvokeAgent` 取 active（或指定）版本 → 渲染知识前缀 + 拼 input → 过滤工具白名单 → resolve LLM bundle → 跑 `app/loop.Run`（ReAct loop，默认 10 turns）→ 经 detached ctx（保留 workspace，使被取消的运行仍落库）写一行 `Execution` 审计。
+
+**SSE 白捡**：loop 的 emitter 把 block 推到 ctx 携带的 stream scope——在 chat 里调用即 messages 流，渲染成**嵌套 subagent 子树**（E3）。**agent 零 stream 代码**。
+
+**Workflow 子步重放（ADR-010）**：agent 作为 workflow 节点时，一个回合可能含 N 次工具调用；崩溃重启不应重消耗已完成的子步。`InvokeInput.ReplaySteps`（已完成步前置）+ `Recorder`（记新步到绝对回合下标）透传，重放快进到最后一个未完成子步。standalone chat/manual invoke 时这些字段全空。
+
+---
+
+## 5. 锻造（Forge）：全量 Config 替换
+
+create/edit 携带完整 `Config`（`prompt` / `skill` / `knowledge` / `tools` / `outputSchema` / `modelOverride` / `changeReason`）——edit 是**全量替换**、非增量 ops（agent 配置小、整体替换最清爽，区别于 function/handler 的 ops 草稿）。落版本前 `ValidateTools`（禁 `ag_` + 非空 ref）+ `validateModelOverride`（override 设了则 apiKeyId/modelId 都必填）。
+
+---
+
+## 6. LLM 工具（9，懒加载）
+
+`search_agent`（子串找）· `get_agent`（含 active 版配置）· `create_agent`（立即生效、非 pending）· `edit_agent`（全量替换写 max+1）· `revert_agent`（按号移指针）· `delete_agent`（软删）· **`invoke_agent`**（真跑 ReAct loop，落一条 `agent_executions`）· `search_agent_executions`（分页 + ok/failed 汇总）· `get_agent_execution`（单条详情）。
+
+全 S18 五方法接口、danger 由 LLM 逐次自报；进 `Toolset.Lazy`，经 `search_tools` 浮现。**无 accept 工具**（create/edit 立即生效，无 pending/accept，同 function/handler）。
+
+---
+
+## 7. HTTP 端点
+
+`POST /agents`（扁平创建）· `GET /agents`（分页）· `GET|PATCH|DELETE /agents/{id}`（PATCH=UpdateMeta，改 name/description/tags 不升版本）· `POST /agents/{id}:edit|:invoke|:revert` · `GET /agents/{id}/versions` · `GET /agents/{id}/versions/{version}`（整数号或 version id）· `GET /agents/{id}/executions`（分页 + filter）· `GET /agent-executions/{execId}`。
+
+> **删**：`/{id}/pending`、`pending:accept`、`pending:reject`（无 accept 状态机）。`:iterate`(AI 编辑→conversationId) 随 askai 波次 6。
+
+---
+
+## 8. 跨域集成
+
+- **relation**：`Service` 实现 `SetRelationSyncer`。Create/Edit/Revert（active 版本变 → 挂载可能变）重算**出向 equip 边**——active 版本挂载的 ref 各推一条 `KindEquip`，`OtherKind` 区分目标：`fn_` → Function、`hd_…method` → Handler（剥 `.method`）、`mcp:server/tool` → MCP（剥 `/tool`）、每个 knowledge 文档 → Document、`skill` → Skill。**5 出边、无 agent→agent**（员工不挂员工）。另按 `ForgedInConversationID` 写**入向**对话边（`KindCreate` v1 / `KindEdit` v>1，分 kind-scope 故共存）。Delete 级联 `PurgeEntity`。
+- **catalog**：`AsCatalogSource` 把 agent 库暴露给能力 catalog（名 + 描述）。agent **不是容器实体**——挂载工具是内部白名单、非可调子单元，故**不报 Members**（区别于 mcp/handler）。
+- **workflow**：`agent` 节点经 `InvokeAgent` 执行（`triggeredBy=workflow` + `flowrunId/flowrunNodeId`），落 `agent_executions`；ADR-010 子步重放经 `ReplaySteps`+`Recorder`。
+- **document / skill / function / handler / mcp**：被 active 版本按引用挂载（弱引用，relation 出边记录）。
+- **notification**：`agent.created/edited/reverted/meta_updated/deleted` 经 `Emitter`。
+
+---
+
+## 9. 错误字典
+
+| Sentinel | Wire Code | HTTP |
+|---|---|---|
+| `ErrNotFound` | `AGENT_NOT_FOUND` | 404 |
+| `ErrNameConflict` | `AGENT_NAME_CONFLICT` | 409 |
+| `ErrVersionNotFound` | `AGENT_VERSION_NOT_FOUND` | 404 |
+| `ErrNoActiveVersion` | `AGENT_NO_ACTIVE_VERSION` | 422 |
+| `ErrToolsAgentRef` | `AGENT_TOOLS_AGENT_REF` | 422 |
+| `ErrToolRefBlank` | `AGENT_TOOL_REF_BLANK` | 422 |
+| `ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | 422 |
+| `ErrExecutionNotFound` | `AGENT_EXECUTION_NOT_FOUND` | 404 |
+
+> 工具失败软返 tool-result 串（不冒泡 HTTP）；上表是 HTTP 端点冒泡的 domain 错误。

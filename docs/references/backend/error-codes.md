@@ -40,13 +40,13 @@ audience: [human, ai]
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
 | `agentdomain.ErrNotFound` | `AGENT_NOT_FOUND` | 404 | 实体不存在 |
-| `agentdomain.ErrNameDuplicate` | `AGENT_NAME_DUPLICATE` | 409 | 名字碰撞 |
-| `agentdomain.ErrNoPending` | `AGENT_NO_PENDING` | 422 | accept/reject 时无 pending |
-| `agentdomain.ErrNoActiveVersion` | `AGENT_NO_ACTIVE_VERSION` | 422 | 引用了一个无 accepted 版本的实体 |
-| `agentdomain.ErrToolsAgentRef` | `AGENT_TOOLS_AGENT_REF_FORBIDDEN` | 400 | 禁止 Agent 递归引用另一个 Agent |
+| `agentdomain.ErrNameConflict` | `AGENT_NAME_CONFLICT` | 409 | 名字碰撞（workspace 内 partial-UNIQUE）|
 | `agentdomain.ErrVersionNotFound` | `AGENT_VERSION_NOT_FOUND` | 404 | revert / GetVersion 目标版本不存在 |
+| `agentdomain.ErrNoActiveVersion` | `AGENT_NO_ACTIVE_VERSION` | 422 | invoke 一个无 active 版本的 agent |
+| `agentdomain.ErrToolsAgentRef` | `AGENT_TOOLS_AGENT_REF` | 422 | 挂载工具引用了另一个 agent（`ag_` 禁，员工不调员工）|
+| `agentdomain.ErrToolRefBlank` | `AGENT_TOOL_REF_BLANK` | 422 | 工具 ref 为空 |
+| `agentdomain.ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | 422 | modelOverride 缺 apiKeyId 或 modelId |
 | `agentdomain.ErrExecutionNotFound` | `AGENT_EXECUTION_NOT_FOUND` | 404 | get_agent_execution 命中不到 |
-| `agentdomain.ErrInvalidModelOverride` | `AGENT_INVALID_MODEL_OVERRIDE` | 400 | modelOverride 缺 apiKeyId 或 modelId（对标 workflow 节点 override 校验）|
 
 ### 2.3 APIKey Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

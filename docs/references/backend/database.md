@@ -168,19 +168,63 @@ type Version struct {
     Graph string `gorm:"type:text;not null" json:"-"` // Resolved as Graph DTO
 }
 
-// Agent
+// Agent — the 4th Quadrinity element: a configured LLM worker (no code; mounts capabilities
+// by reference, runs a ReAct loop). Linear append-only versions + free-moving active pointer;
+// NO pending/accept. backend-new style: plain struct + lightweight db tags (GORM removed),
+// workspace_id isolation via ,ws. partial-UNIQUE(workspace_id, name).
 type Agent struct {
-    ID              string `gorm:"primaryKey;type:text" json:"id"`
-    ActiveVersionID string `json:"activeVersionId"`
+    ID              string     `db:"id,pk"`
+    WorkspaceID     string     `db:"workspace_id,ws"`
+    Name            string     `db:"name"`              // workspace-scoped partial-UNIQUE (freed on soft-delete)
+    Description     string     `db:"description"`
+    Tags            []string   `db:"tags,json"`
+    ActiveVersionID string     `db:"active_version_id"` // pointer; edit moves forward / revert moves freely
+    CreatedAt       time.Time  `db:"created_at,created"`
+    UpdatedAt       time.Time  `db:"updated_at,updated"`
+    DeletedAt       *time.Time `db:"deleted_at,deleted"`
+    // ActiveVersion is computed (non-column), attached by Service.Get.
 }
+
+// AgentVersion (agv_) — immutable config snapshot; no status, no updated_at. UNIQUE(agent_id, version).
 type AgentVersion struct {
-    Prompt                 string          `json:"prompt"`
-    Skill                  string          `json:"skill"`
-    Knowledge              []string        `gorm:"serializer:json" json:"knowledge"`
-    Tools                  []ToolRef       `gorm:"serializer:json" json:"tools"`
-    OutputSchema           *OutputSchema   `gorm:"serializer:json" json:"outputSchema,omitempty"` // injected into systemPrompt at invoke
-    ModelOverride          *model.ModelRef `gorm:"serializer:json" json:"modelOverride,omitempty"` // apiKeyId+modelId; nil=default agent scenario
-    ForgedInConversationID *string         `gorm:"index" json:"forgedInConversationId,omitempty"` // relation forged/edited edges
+    ID                     string          `db:"id,pk"`
+    WorkspaceID            string          `db:"workspace_id,ws"`
+    AgentID                string          `db:"agent_id"`
+    Version                int             `db:"version"`                  // monotonic max+1 (no status)
+    Prompt                 string          `db:"prompt"`
+    Skill                  string          `db:"skill"`                    // single skill name to pre-activate
+    Knowledge              []string        `db:"knowledge,json"`           // document IDs attached as context
+    Tools                  []ToolRef       `db:"tools,json"`               // fn_/hd_/mcp refs (no ag_)
+    OutputSchema           *OutputSchema   `db:"output_schema,json"`       // free_text/enum/json_schema; injected into systemPrompt at invoke
+    ModelOverride          *model.ModelRef `db:"model_override,json"`      // apiKeyId+modelId; nil=default agent scenario
+    ChangeReason           string          `db:"change_reason"`
+    ForgedInConversationID string          `db:"forged_in_conversation_id"`// relation create(v1)/edit(v>1) edges
+    CreatedAt              time.Time        `db:"created_at,created"`
+}
+
+// AgentExecution (agx_) — append-only log of one InvokeAgent run; NO deleted_at (D1).
+// status CHECK(ok|failed|cancelled|timeout); triggered_by CHECK(chat|workflow|manual) — no
+// "agent" trigger (an agent cannot invoke another agent).
+type AgentExecution struct {
+    ID             string         `db:"id,pk"`
+    WorkspaceID    string         `db:"workspace_id,ws"`
+    AgentID        string         `db:"agent_id"`
+    VersionID      string         `db:"version_id"`
+    ModelID        string         `db:"model_id"`        // which model actually ran
+    Status         string         `db:"status"`          // ok|failed|cancelled|timeout
+    TriggeredBy    string         `db:"triggered_by"`    // chat|workflow|manual
+    Input          map[string]any `db:"input,json"`
+    Output         any            `db:"output,json"`
+    ErrorMessage   string         `db:"error_message"`
+    ElapsedMs      int64          `db:"elapsed_ms"`
+    StartedAt      time.Time      `db:"started_at"`
+    EndedAt        time.Time      `db:"ended_at"`
+    ConversationID string         `db:"conversation_id"`
+    MessageID      string         `db:"message_id"`
+    ToolCallID     string         `db:"tool_call_id"`
+    FlowrunID      string         `db:"flowrun_id"`
+    FlowrunNodeID  string         `db:"flowrun_node_id"`
+    CreatedAt      time.Time      `db:"created_at,created"`
 }
 ```
 
