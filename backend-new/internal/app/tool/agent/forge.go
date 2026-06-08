@@ -16,14 +16,14 @@ import (
 //
 // configArgs 是 create/edit 共享的配置载荷（全量快照——edit 替换）。
 type configArgs struct {
-	Prompt        string                    `json:"prompt"`
-	Skill         string                    `json:"skill"`
-	Knowledge     []string                  `json:"knowledge"`
+	Prompt        string                `json:"prompt"`
+	Skill         string                `json:"skill"`
+	Knowledge     []string              `json:"knowledge"`
 	Tools         []agentdomain.ToolRef `json:"tools"`
 	Inputs        []schemapkg.Field     `json:"inputs"`
 	Outputs       []schemapkg.Field     `json:"outputs"`
 	ModelOverride *modeldomain.ModelRef `json:"modelOverride"`
-	ChangeReason  string                    `json:"changeReason"`
+	ChangeReason  string                `json:"changeReason"`
 }
 
 func (c configArgs) toConfig() agentapp.Config {

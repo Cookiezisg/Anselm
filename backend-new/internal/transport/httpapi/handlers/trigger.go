@@ -45,8 +45,8 @@ func (h *TriggerHandler) Register(mux Registrar) {
 
 func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description"`
+		Name        string            `json:"name"`
+		Description string            `json:"description"`
 		Kind        string            `json:"kind"`
 		Config      map[string]any    `json:"config"`
 		Outputs     []schemapkg.Field `json:"outputs"`
@@ -90,7 +90,7 @@ func (h *TriggerHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 func (h *TriggerHandler) Edit(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name        *string        `json:"name"`
+		Name        *string           `json:"name"`
 		Description *string           `json:"description"`
 		Config      map[string]any    `json:"config"`
 		Outputs     []schemapkg.Field `json:"outputs"`

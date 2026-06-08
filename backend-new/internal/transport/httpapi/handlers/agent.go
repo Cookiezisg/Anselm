@@ -54,9 +54,9 @@ func (h *AgentHandler) Register(mux Registrar) {
 //
 // agentConfigRequest 是 create/edit HTTP body 携带的挂载配置。
 type agentConfigRequest struct {
-	Prompt        string                    `json:"prompt"`
-	Skill         string                    `json:"skill"`
-	Knowledge     []string                  `json:"knowledge"`
+	Prompt        string                `json:"prompt"`
+	Skill         string                `json:"skill"`
+	Knowledge     []string              `json:"knowledge"`
 	Tools         []agentdomain.ToolRef `json:"tools"`
 	Inputs        []schemapkg.Field     `json:"inputs"`
 	Outputs       []schemapkg.Field     `json:"outputs"`

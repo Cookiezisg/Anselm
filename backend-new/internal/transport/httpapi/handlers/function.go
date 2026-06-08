@@ -51,9 +51,9 @@ func (h *FunctionHandler) Register(mux Registrar) {
 }
 
 type createFunctionRequest struct {
-	Name          string                         `json:"name"`
-	Description   string                         `json:"description"`
-	Code          string                         `json:"code"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Code          string            `json:"code"`
 	Tags          []string          `json:"tags"`
 	Inputs        []schemapkg.Field `json:"inputs"`
 	Outputs       []schemapkg.Field `json:"outputs"`

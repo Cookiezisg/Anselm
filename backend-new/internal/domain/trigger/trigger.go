@@ -44,10 +44,10 @@ func IsValidKind(k string) bool {
 //
 // Trigger 是实体行。Config 持有 source 专属配置（见 config.go），用自由 map 存——加 source 种类无需改列。
 type Trigger struct {
-	ID          string         `db:"id,pk"`
-	WorkspaceID string         `db:"workspace_id,ws"`
-	Name        string         `db:"name"`
-	Description string         `db:"description"`
+	ID          string            `db:"id,pk"`
+	WorkspaceID string            `db:"workspace_id,ws"`
+	Name        string            `db:"name"`
+	Description string            `db:"description"`
 	Kind        string            `db:"kind"`
 	Config      map[string]any    `db:"config,json"`
 	Outputs     []schemapkg.Field `db:"outputs,json"` // declared payload fields delivered to listening workflows (downstream reads these)

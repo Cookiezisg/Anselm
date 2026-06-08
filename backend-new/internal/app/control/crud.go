@@ -23,7 +23,8 @@ import (
 type CreateInput struct {
 	Name         string
 	Description  string
-	InputSchema  []schemapkg.Field
+	Inputs       []schemapkg.Field
+	Outputs      []schemapkg.Field
 	Branches     []controldomain.Branch
 	ChangeReason string
 }
@@ -34,7 +35,8 @@ type CreateInput struct {
 // EditInput 用一组新 branches 写新版本（整组替换）并把 active 指针移到它。
 type EditInput struct {
 	ID           string
-	InputSchema  []schemapkg.Field
+	Inputs       []schemapkg.Field
+	Outputs      []schemapkg.Field
 	Branches     []controldomain.Branch
 	ChangeReason string
 }
@@ -69,7 +71,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 		ActiveVersionID: versionID, CreatedAt: now, UpdatedAt: now,
 	}
 	v := &controldomain.Version{
-		ID: versionID, ControlID: ctlID, Version: 1, InputSchema: in.InputSchema, Branches: in.Branches,
+		ID: versionID, ControlID: ctlID, Version: 1, Inputs: in.Inputs, Outputs: in.Outputs, Branches: in.Branches,
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
@@ -106,7 +108,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	now := time.Now().UTC()
 	versionID := idgenpkg.New("ctlv")
 	v := &controldomain.Version{
-		ID: versionID, ControlID: in.ID, Version: max + 1, InputSchema: in.InputSchema, Branches: in.Branches,
+		ID: versionID, ControlID: in.ID, Version: max + 1, Inputs: in.Inputs, Outputs: in.Outputs, Branches: in.Branches,
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {

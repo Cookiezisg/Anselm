@@ -59,8 +59,8 @@ func (t *CreateTrigger) ValidateInput(args json.RawMessage) error {
 
 func (t *CreateTrigger) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		Name        string         `json:"name"`
-		Description string         `json:"description"`
+		Name        string            `json:"name"`
+		Description string            `json:"description"`
 		Kind        string            `json:"kind"`
 		Config      map[string]any    `json:"config"`
 		Outputs     []schemapkg.Field `json:"outputs"`
@@ -116,9 +116,9 @@ func (t *EditTrigger) ValidateInput(args json.RawMessage) error {
 
 func (t *EditTrigger) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		TriggerID   string         `json:"triggerId"`
-		Name        *string        `json:"name"`
-		Description *string        `json:"description"`
+		TriggerID   string            `json:"triggerId"`
+		Name        *string           `json:"name"`
+		Description *string           `json:"description"`
 		Config      map[string]any    `json:"config"`
 		Outputs     []schemapkg.Field `json:"outputs"`
 	}

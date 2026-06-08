@@ -44,8 +44,8 @@ func mkVer(t *testing.T, s *Store, ctx context.Context, id, fnID string, n int) 
 	t.Helper()
 	v := &functiondomain.Version{
 		ID: id, FunctionID: fnID, Version: n, Code: "def main():\n    return 1",
-		Inputs:  []schemapkg.Field{{Name: "x", Type: schemapkg.TypeString}},
-		Outputs: []schemapkg.Field{{Name: "y", Type: schemapkg.TypeNumber}},
+		Inputs:       []schemapkg.Field{{Name: "x", Type: schemapkg.TypeString}},
+		Outputs:      []schemapkg.Field{{Name: "y", Type: schemapkg.TypeNumber}},
 		Dependencies: []string{}, EnvStatus: functiondomain.EnvStatusPending,
 	}
 	if err := s.SaveVersion(ctx, v); err != nil {

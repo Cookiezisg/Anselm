@@ -12,7 +12,11 @@
 // 精确的数据塑形是运行时 CEL 的事，不是 schema 的事——故无嵌套、无 enum、无 required、无 JSON-Schema 校验。
 package schema
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+)
 
 // Field types. A coarse hint for the UI / authoring agent; runtime values flow through CEL,
 // which is dynamically typed, so this is never enforced as a hard contract.
@@ -68,4 +72,39 @@ func ValidateFields(fields []Field) error {
 		}
 	}
 	return nil
+}
+
+// FromJSONSchema converts a JSON Schema object's top-level properties into a flat []Field —
+// used to expose an MCP tool's server-provided inputSchema as the uniform Field view for
+// workflow wiring. Name comes from the property key, Type from its "type" (default "object"),
+// Description from its "description". Nested/exotic schema features are intentionally dropped
+// (workflow wiring only needs top-level field names + coarse types). Invalid/empty input → nil.
+//
+// FromJSONSchema 把一个 JSON Schema object 的顶层 properties 转成扁平 []Field——用于把 MCP 工具
+// 服务端给的 inputSchema 暴露成统一 Field 视图供 workflow 接线。Name=属性键，Type=其 "type"
+// （缺省 "object"），Description=其 "description"。嵌套/异类特性刻意丢弃（接线只需顶层名+粗类型）。
+// 非法/空输入 → nil。
+func FromJSONSchema(raw json.RawMessage) []Field {
+	var doc struct {
+		Properties map[string]struct {
+			Type        string `json:"type"`
+			Description string `json:"description"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil || len(doc.Properties) == 0 {
+		return nil
+	}
+	fields := make([]Field, 0, len(doc.Properties))
+	for name, p := range doc.Properties {
+		typ := p.Type
+		if !IsValidType(typ) {
+			typ = TypeObject
+		}
+		fields = append(fields, Field{Name: name, Type: typ, Description: p.Description})
+	}
+	// Map iteration is unordered; sort by name so the result is stable across calls.
+	//
+	// map 遍历无序；按 name 排序使结果跨调用稳定。
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
+	return fields
 }

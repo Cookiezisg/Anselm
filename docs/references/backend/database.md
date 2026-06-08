@@ -268,7 +268,7 @@ type Approval struct {
 ## 3. 逻辑协议 DTOs (Nested Schemas)
 
 ### 3.1 Field（统一 I/O）& Method Specs
-`schema.Field`（`internal/pkg/schema`）是**所有锻造实体共享的唯一 I/O 字段类型**——fn/hd/ag 的 inputs/outputs、ctl/apf 的 inputSchema、trg 的 outputs 全用它。刻意极简：无 required / default / enum / 嵌套，精确塑形交运行时 CEL。各处以 `,json` 存为 JSON 数组列（`TEXT NOT NULL DEFAULT '[]'`）。
+`schema.Field`（`internal/pkg/schema`）是**所有锻造实体共享的唯一 I/O 字段类型**——fn/hd/ag/ctl/apf 的 inputs/outputs、trg 的 outputs 全用它。刻意极简：无 required / default / enum / 嵌套，精确塑形交运行时 CEL。各处以 `,json` 存为 JSON 数组列（`TEXT NOT NULL DEFAULT '[]'`）。
 
 ```typescript
 interface Field {                                  // pkg/schema.Field — 双向、处处通用
@@ -397,7 +397,7 @@ type Item struct {
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `control_logics` | id(ctl_), workspace_id, name, description, active_version_id, deleted_at | 实体本体，软删；`idx_control_logics_ws_name` = UNIQUE(workspace_id, name) WHERE deleted_at IS NULL |
-| `control_logic_versions` | id(ctlv_), control_id, version, **input_schema**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`when`/`emit` 读 `input.*`), branches(JSON `[{port,when,emit}]`), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_ctlv_control_version` = UNIQUE(control_id, version) |
+| `control_logic_versions` | id(ctlv_), control_id, version, **inputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`when`/`emit` 读 `input.*`), **outputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明胜出分支 emit 产出、下游读取的字段), branches(JSON `[{port,when,emit}]`), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_ctlv_control_version` = UNIQUE(control_id, version) |
 
 ### 4.6 Approval（审批渲染实体，apf_/apfv_）
 > workflow `approval` 节点引用的审批表（markdown prompt 模板 + 决策规则）。AI 工作实体，有版本但**无 sandbox/env/executions**——渲染 + park 是波次 4 运行时事。**前缀 `apf_`/`apfv_` ≠ `apv_`**（`apv_` 是 `approvals` 运行时表）。详 domains/approval.md。2 表，pkg/orm。
@@ -405,7 +405,7 @@ type Item struct {
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `approval_forms` | id(apf_), workspace_id, name, description, active_version_id, deleted_at | 实体本体，软删；`idx_approval_forms_ws_name` = UNIQUE(workspace_id, name) WHERE deleted_at IS NULL |
-| `approval_form_versions` | id(apfv_), approval_id, version, **input_schema**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`template` 读 `{{ input.* }}`), template(markdown `{{ CEL }}`), allow_reason(bool), timeout, timeout_behavior(reject/approve/fail), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_apfv_approval_version` = UNIQUE(approval_id, version) |
+| `approval_form_versions` | id(apfv_), approval_id, version, **inputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`template` 读 `{{ input.* }}`), **outputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明节点向下游固定吐出的 `{decision, reason}`), template(markdown `{{ CEL }}`), allow_reason(bool), timeout, timeout_behavior(reject/approve/fail), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_apfv_approval_version` = UNIQUE(approval_id, version) |
 
 ---
 

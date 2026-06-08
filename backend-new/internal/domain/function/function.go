@@ -51,23 +51,23 @@ const DefaultPythonVersion = "3.12"
 // Version 是函数代码+接口+依赖的一份不可变快照。Version 是写入时分配的单调号（max+1）——绝不
 // 重分配、绝不重排号。EnvID 锚定为这组确切依赖物化的 sandbox env。
 type Version struct {
-	ID                     string          `db:"id,pk"                      json:"id"`
-	WorkspaceID            string          `db:"workspace_id,ws"            json:"-"`
-	FunctionID             string          `db:"function_id"                json:"functionId"`
-	Version                int             `db:"version"                    json:"version"`
-	Code                   string          `db:"code"                       json:"code"`
+	ID                     string            `db:"id,pk"                      json:"id"`
+	WorkspaceID            string            `db:"workspace_id,ws"            json:"-"`
+	FunctionID             string            `db:"function_id"                json:"functionId"`
+	Version                int               `db:"version"                    json:"version"`
+	Code                   string            `db:"code"                       json:"code"`
 	Inputs                 []schemapkg.Field `db:"inputs,json"             json:"inputs"`
 	Outputs                []schemapkg.Field `db:"outputs,json"            json:"outputs"`
-	Dependencies           []string        `db:"dependencies,json"          json:"dependencies"`
-	PythonVersion          string          `db:"python_version"             json:"pythonVersion"`
-	EnvID                  string          `db:"env_id"                     json:"envId"`
-	EnvStatus              string          `db:"env_status"                 json:"envStatus"`
-	EnvError               string          `db:"env_error"                  json:"envError,omitempty"`
-	EnvSyncedAt            *time.Time      `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
-	ChangeReason           string          `db:"change_reason"              json:"changeReason,omitempty"`
-	ForgedInConversationID *string         `db:"forged_in_conversation_id"  json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time       `db:"created_at,created"         json:"createdAt"`
-	UpdatedAt              time.Time       `db:"updated_at,updated"         json:"updatedAt"`
+	Dependencies           []string          `db:"dependencies,json"          json:"dependencies"`
+	PythonVersion          string            `db:"python_version"             json:"pythonVersion"`
+	EnvID                  string            `db:"env_id"                     json:"envId"`
+	EnvStatus              string            `db:"env_status"                 json:"envStatus"`
+	EnvError               string            `db:"env_error"                  json:"envError,omitempty"`
+	EnvSyncedAt            *time.Time        `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
+	ChangeReason           string            `db:"change_reason"              json:"changeReason,omitempty"`
+	ForgedInConversationID *string           `db:"forged_in_conversation_id"  json:"forgedInConversationId,omitempty"`
+	CreatedAt              time.Time         `db:"created_at,created"         json:"createdAt"`
+	UpdatedAt              time.Time         `db:"updated_at,updated"         json:"updatedAt"`
 }
 
 // Env status values (mirror sandbox env lifecycle, surfaced on the version row).

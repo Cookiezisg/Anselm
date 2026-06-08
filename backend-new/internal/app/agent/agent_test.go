@@ -113,8 +113,8 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	a, _, err := svc.Create(ctx, CreateInput{
 		Name: "judge",
 		Config: Config{
-			Prompt:       "judge the PR",
-			Outputs:      []schemapkg.Field{{Name: "decision", Type: schemapkg.TypeString, Description: "one of: approve, reject"}},
+			Prompt:  "judge the PR",
+			Outputs: []schemapkg.Field{{Name: "decision", Type: schemapkg.TypeString, Description: "one of: approve, reject"}},
 		},
 	})
 	if err != nil {

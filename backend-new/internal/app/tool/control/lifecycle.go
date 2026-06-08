@@ -27,7 +27,8 @@ func (t *CreateControl) Parameters() json.RawMessage {
 		"properties": {
 			"name": {"type": "string", "description": "Unique name within the workspace."},
 			"description": {"type": "string", "description": "One line on what this routing logic decides."},
-			"inputSchema": {"type": "array", "description": "Declared inputs the workflow node feeds (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"inputs": {"type": "array", "description": "Declared inputs the workflow node feeds (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"outputs": {"type": "array", "description": "Declared output fields downstream reads: each {name, type, description}.", "items": {"type": "object"}},
 			"branches": {
 				"type": "array",
 				"description": "Ordered branches; first true when wins; the last branch must be when:\"true\".",
@@ -67,7 +68,8 @@ func (t *CreateControl) Execute(ctx context.Context, argsJSON string) (string, e
 	var args struct {
 		Name         string            `json:"name"`
 		Description  string            `json:"description"`
-		InputSchema  []schemapkg.Field `json:"inputSchema"`
+		Inputs       []schemapkg.Field `json:"inputs"`
+		Outputs      []schemapkg.Field `json:"outputs"`
 		Branches     []branchArg       `json:"branches"`
 		ChangeReason string            `json:"changeReason"`
 	}
@@ -75,7 +77,7 @@ func (t *CreateControl) Execute(ctx context.Context, argsJSON string) (string, e
 		return "", fmt.Errorf("create_control: bad args: %w", err)
 	}
 	c, v, err := t.svc.Create(ctx, controlapp.CreateInput{
-		Name: args.Name, Description: args.Description, InputSchema: args.InputSchema,
+		Name: args.Name, Description: args.Description, Inputs: args.Inputs, Outputs: args.Outputs,
 		Branches: toBranches(args.Branches), ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
@@ -100,7 +102,8 @@ func (t *EditControl) Parameters() json.RawMessage {
 		"required": ["controlId", "branches"],
 		"properties": {
 			"controlId": {"type": "string"},
-			"inputSchema": {"type": "array", "description": "Declared inputs (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"inputs": {"type": "array", "description": "Declared inputs (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"outputs": {"type": "array", "description": "Declared output fields downstream reads: each {name, type, description}.", "items": {"type": "object"}},
 			"branches": {
 				"type": "array",
 				"description": "The complete new ordered branch list; last must be when:\"true\".",
@@ -139,7 +142,8 @@ func (t *EditControl) ValidateInput(args json.RawMessage) error {
 func (t *EditControl) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
 		ControlID    string            `json:"controlId"`
-		InputSchema  []schemapkg.Field `json:"inputSchema"`
+		Inputs       []schemapkg.Field `json:"inputs"`
+		Outputs      []schemapkg.Field `json:"outputs"`
 		Branches     []branchArg       `json:"branches"`
 		ChangeReason string            `json:"changeReason"`
 	}
@@ -147,7 +151,7 @@ func (t *EditControl) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("edit_control: bad args: %w", err)
 	}
 	v, err := t.svc.Edit(ctx, controlapp.EditInput{
-		ID: args.ControlID, InputSchema: args.InputSchema, Branches: toBranches(args.Branches), ChangeReason: args.ChangeReason,
+		ID: args.ControlID, Inputs: args.Inputs, Outputs: args.Outputs, Branches: toBranches(args.Branches), ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
 		return "", fmt.Errorf("edit_control: %w", err)

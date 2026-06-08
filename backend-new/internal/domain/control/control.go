@@ -52,16 +52,17 @@ type ControlLogic struct {
 // Version 是 control 逻辑分支组的一份不可变快照。Version 是写入时分配的单调号（max+1）——绝不
 // 重分配、绝不重排号。
 type Version struct {
-	ID                     string    `db:"id,pk"                     json:"id"`
-	WorkspaceID            string    `db:"workspace_id,ws"           json:"-"`
+	ID                     string            `db:"id,pk"                     json:"id"`
+	WorkspaceID            string            `db:"workspace_id,ws"           json:"-"`
 	ControlID              string            `db:"control_id"                json:"controlId"`
 	Version                int               `db:"version"                   json:"version"`
-	InputSchema            []schemapkg.Field `db:"input_schema,json"         json:"inputSchema"` // declared inputs the workflow node feeds; when/emit read input.*
+	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"`  // declared inputs the workflow node feeds; when/emit read input.*
+	Outputs                []schemapkg.Field `db:"outputs,json"              json:"outputs"` // fields the winning branch's emit produces (what downstream reads)
 	Branches               []Branch          `db:"branches,json"             json:"branches"`
-	ChangeReason           string    `db:"change_reason"             json:"changeReason,omitempty"`
-	ForgedInConversationID *string   `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time `db:"created_at,created"        json:"createdAt"`
-	UpdatedAt              time.Time `db:"updated_at,updated"        json:"updatedAt"`
+	ChangeReason           string            `db:"change_reason"             json:"changeReason,omitempty"`
+	ForgedInConversationID *string           `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
+	CreatedAt              time.Time         `db:"created_at,created"        json:"createdAt"`
+	UpdatedAt              time.Time         `db:"updated_at,updated"        json:"updatedAt"`
 }
 
 // Branch is one ordered routing arm. The interpreter evaluates When (bool CEL over input.*)

@@ -38,9 +38,9 @@ audience: [human, ai]
 `id` · `workspace_id`(orm 自动隔离) · `name`(workspace 内 partial-UNIQUE，软删后释放) · `description` · **`active_version_id`**(指针) · 时间戳 · `deleted_at`。
 
 ### 2.2 `control_logic_versions`（`ctlv_`，append-only + cap 裁剪，无软删）
-`id` · `workspace_id` · `control_id` · **`version`**(单调号) · **`input_schema`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`branches`**(json) · `change_reason` · `forged_in_conversation_id`(relation 边用) · 时间戳。`UNIQUE(control_id, version)`。
+`id` · `workspace_id` · `control_id` · **`version`**(单调号) · **`inputs`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`outputs`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`branches`**(json) · `change_reason` · `forged_in_conversation_id`(relation 边用) · 时间戳。`UNIQUE(control_id, version)`。
 
-> **`input_schema`（统一 I/O 入参）**：`[]schema.Field`（共享 `internal/pkg/schema` 类型，全锻造实体统一），声明 workflow 节点喂给本 control 的输入字段。`branches[].when`/`emit` 的 CEL 据此读 **`input.*`**（见 §3）。
+> **`inputs` / `outputs`（统一 I/O，与 fn/hd/ag/trg 对齐）**：均为 `[]schema.Field`（共享 `internal/pkg/schema` 类型，全锻造实体统一）。`inputs` 声明 workflow 节点喂给本 control 的输入字段——`branches[].when`/`emit` 的 CEL 据此读 **`input.*`**（见 §3）；`outputs` 声明胜出分支 `emit` 产出、下游读取的字段。
 
 ### 2.3 `Branch`（分支结构，存于 `branches` json）
 ```go
@@ -58,8 +58,8 @@ type Branch struct {
 
 | 层 | 管什么 | 何时 |
 |---|---|---|
-| **① domain 结构** (`ValidateBranches` + `schema.ValidateFields`) | branches 非空 · 每个 port 非空且**唯一**（图要可区分寻址每个出口）· 末条 `when:"true"` **兜底**（防全 false 无路）· inputSchema 字段名唯一 + 类型合法 | create/edit |
-| **② app CEL** (`pkg/cel` 编译) | 每个 `when` / `emit` 表达式语法 + 未知函数（如 `now()`）→ `ErrInvalidCEL`；表达式根变量 = **`input`**（节点喂入，由 inputSchema 声明） | create/edit（快速失败） |
+| **① domain 结构** (`ValidateBranches` + `schema.ValidateFields`) | branches 非空 · 每个 port 非空且**唯一**（图要可区分寻址每个出口）· 末条 `when:"true"` **兜底**（防全 false 无路）· inputs/outputs 字段名唯一 + 类型合法 | create/edit |
+| **② app CEL** (`pkg/cel` 编译) | 每个 `when` / `emit` 表达式语法 + 未知函数（如 `now()`）→ `ErrInvalidCEL`；表达式根变量 = **`input`**（节点喂入，由 inputs 声明） | create/edit（快速失败） |
 
 > CEL **不在 domain 编译**（domain 不准 import cel-go，原则 #3）——app 层编译校验。运行期的 CEL **求值**是波次 4 解释器的事（按 flowrun pin 版本、缓存 program）；本实体只存 CEL **源串** + accept 期编译校验。
 
@@ -67,7 +67,7 @@ type Branch struct {
 
 ## 4. 锻造：全量 branches（无 ops）
 
-create/edit 直接传 **`inputSchema` + 完整 branch 组**——两者是一个原子整体，function 那套增量 `ops` 框架对它无价值（全量替换），故**刻意简化**为整组传入。`when`/`emit` 引用的 `input.*` 字段（由 `inputSchema` 声明）与具体 workflow 的 payload 形状耦合，故 control 实体的**复用主要在同一 workflow 内**，价值在「编排-锻造分离 + 统一节点心智」而非跨 workflow 共享。
+create/edit 直接传 **`inputs` + `outputs` + 完整 branch 组**——三者是一个原子整体，function 那套增量 `ops` 框架对它无价值（全量替换），故**刻意简化**为整组传入。`when`/`emit` 引用的 `input.*` 字段（由 `inputs` 声明）与具体 workflow 的 payload 形状耦合，故 control 实体的**复用主要在同一 workflow 内**，价值在「编排-锻造分离 + 统一节点心智」而非跨 workflow 共享。
 
 ---
 
@@ -102,8 +102,8 @@ create/edit 直接传 **`inputSchema` + 完整 branch 组**——两者是一个
 `control` 节点 config 仅 `{ controlRef, 各 port → 下游 }`。scheduler 走到 control 节点：
 
 ```
-取 ctl_ 的 pin 版本（pinned_callables）→ Service.Resolve(id, versionId) 拿 inputSchema + branches
-  → 按 inputSchema 把节点入参喂成 input → 逐分支求 when（读 input.*，first-true-wins）
+取 ctl_ 的 pin 版本（pinned_callables）→ Service.Resolve(id, versionId) 拿 inputs + branches
+  → 按 inputs 把节点入参喂成 input → 逐分支求 when（读 input.*，first-true-wins）
   → 命中分支算 emit（读 input.*）→ 记 branch_taken{port, payload}
   → 沿 fromPort==该 port 的下游边走（port 连回上游 = 结构化循环，emit 携带循环状态如 attempt+1）
 ```
