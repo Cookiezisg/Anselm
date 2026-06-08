@@ -127,6 +127,18 @@ audience: [human, ai]
 | `triggerdomain.ErrListenerUnavailable` | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | listener 未就绪 |
 | `triggerdomain.ErrFiringNotPending` | `TRIGGER_FIRING_NOT_PENDING` | 409 | claim 竞争失败（scheduler 波次 4 消费）|
 
+### 2.6b Control Logic（control 逻辑实体，ctl_）
+| Go Sentinel | Wire Code | HTTP | 场景 |
+|---|---|---|---|
+| `controldomain.ErrNotFound` | `CONTROL_NOT_FOUND` | 404 | |
+| `controldomain.ErrDuplicateName` | `CONTROL_NAME_DUPLICATE` | 409 | workspace 内同名 |
+| `controldomain.ErrVersionNotFound` | `CONTROL_VERSION_NOT_FOUND` | 404 | |
+| `controldomain.ErrNoActiveVersion` | `CONTROL_NO_ACTIVE_VERSION` | 422 | |
+| `controldomain.ErrInvalidName` | `CONTROL_INVALID_NAME` | 422 | name 空 / 畸形 |
+| `controldomain.ErrInvalidBranches` | `CONTROL_INVALID_BRANCHES` | 422 | branches 空 / port 空或重复 |
+| `controldomain.ErrNoCatchAll` | `CONTROL_NO_CATCHALL` | 422 | 末条非 when:"true" 兜底 |
+| `controldomain.ErrInvalidCEL` | `CONTROL_INVALID_CEL` | 422 | branch when/emit CEL 编译失败 |
+
 ### 2.7 Workflow & Execution Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|

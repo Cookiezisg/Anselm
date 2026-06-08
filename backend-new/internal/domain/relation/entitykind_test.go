@@ -18,6 +18,7 @@ func TestKindForID(t *testing.T) {
 		{"sk_aabbccdd11223344", EntityKindSkill, true},
 		{"mcp_aabbccdd11223344", EntityKindMCP, true},
 		{"trg_aabbccdd11223344", EntityKindTrigger, true},
+		{"ctl_aabbccdd11223344", EntityKindControl, true},
 		// unknown prefix, an execution-record prefix (not an entity), and name/blank forms.
 		{"xyz_aabbccdd11223344", "", false},
 		{"fne_aabbccdd11223344", "", false},
@@ -51,7 +52,7 @@ func TestIsValidEntityKind(t *testing.T) {
 	all := []string{
 		EntityKindFunction, EntityKindHandler, EntityKindWorkflow, EntityKindAgent,
 		EntityKindDocument, EntityKindConversation, EntityKindSkill, EntityKindMCP,
-		EntityKindTrigger,
+		EntityKindTrigger, EntityKindControl,
 	}
 	for _, k := range all {
 		if !IsValidEntityKind(k) {

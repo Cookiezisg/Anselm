@@ -116,6 +116,20 @@ audience: [human, ai]
 | GET | `/api/v1/trigger-activations/{actId}` | `trigger.go` | 单条 activation |
 | (动态) | `/api/v1/webhooks/{triggerId}/{path}` | webhook listener | webhook 入口（由 listener 挂载）|
 
+### 2.6 Controls (ctl_)
+> workflow `control` 节点引用的路由逻辑实体（when/emit 分支组；详 domains/control.md）。AI 工作实体，有版本、无 `:run`。
+
+| Method | Path | 文件源 | 备注 |
+|---|---|---|---|
+| POST | `/api/v1/controls` | `control.go` | 创建（name + branches）|
+| GET | `/api/v1/controls` | `control.go` | 列表（分页）|
+| GET | `/api/v1/controls/{id}` | `control.go` | 含 active 版分支 |
+| PATCH | `/api/v1/controls/{id}` | `control.go` | 改 name/description（不动版本）|
+| DELETE | `/api/v1/controls/{id}` | `control.go` | 软删 + 清边 |
+| POST | `/api/v1/controls/{idAction}` | `control.go` | (:edit 整组替换写新版本、:revert 移指针；**无 :run**) |
+| GET | `/api/v1/controls/{id}/versions` | `control.go` | 分页 |
+| GET | `/api/v1/controls/{id}/versions/{version}` | `control.go` | 整数号或 version id |
+
 ---
 
 ## 3. 执行引擎 (Execution Plane)
