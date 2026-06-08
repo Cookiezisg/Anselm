@@ -270,6 +270,8 @@ type Approval struct {
 ### 3.1 Field（统一 I/O）& Method Specs
 `schema.Field`（`internal/pkg/schema`）是**所有锻造实体共享的唯一 I/O 字段类型**——fn/hd/ag 的 inputs/outputs、ctl/apf 的 inputs（输出派生：ctl 读分支 emit、apf 恒为 `{decision,reason}`）、trg 的 outputs 全用它。刻意极简：无 required / default / enum / 嵌套，精确塑形交运行时 CEL。各处以 `,json` 存为 JSON 数组列（`TEXT NOT NULL DEFAULT '[]'`）。
 
+> **CEL env**：`pkg/cel` 除固定三根变量 env（`payload`/`ctx`：trigger sensor；`input`：ctl/apf 的 when/emit/template）外，现也暴露 **`ScopedEnv`/`NewScopedEnv`**——根为调用方给的一组名字（各 DynType）+ 恒有的 `ctx`，专供 workflow 接线：节点 `input` CEL 按一张图的 **node id** 编译（`reviewer.score`），引用集合外名字即编译失败（白送「只引用存在节点」校验）。
+
 ```typescript
 interface Field {                                  // pkg/schema.Field — 双向、处处通用
   name: string;
@@ -293,20 +295,25 @@ interface InitArgSpec {                            // handler __init__ 配置（
 }
 ```
 
-### 3.2 Graph Engine
+### 3.2 Graph Engine（workflow_versions.graph）
+> workflow 版本的图 blob（详 domains/workflow.md §2.3/§3）。node `kind` ∈ trigger/action/agent/control/approval（**非**旧 tool/case）；node `input` 是 `field → 裸 CEL` 接线（按 **node id** 读上游结果，`reviewer.score`），无全图 `variables`；边只携控制（`fromPort`：control 源=Branch.Port / approval 源=yes\|no / 其它=空），不携数据。
+
 ```typescript
 interface Graph {
-  nodes: NodeSpec[];
-  edges: EdgeSpec[];
-  variables: VariableSpec[];
+  nodes: Node[];
+  edges: Edge[];                                   // 无 variables：数据走 node.input 的 node-id CEL
 }
-interface NodeSpec {
+interface Node {
+  id: string;                                      // 图内局部 id；也是下游 input CEL 引用本节点结果的名字
+  kind: "trigger" | "action" | "agent" | "control" | "approval";
+  ref: string;                                     // trg_ / fn_·hd_<id>.method·mcp:server/tool / ag_ / ctl_ / apf_
+  input?: { [field: string]: string };             // field → 读上游结果的裸 CEL（trigger 无）
+  retry?: { maxAttempts: number, backoff?: string, delayMs?: number };
+  pos?: { x: number, y: number };                  // 画布坐标（执行忽略）
+  notes?: string;
+}
+interface Edge {
   id: string;
-  type: "trigger" | "agent" | "tool" | "case" | "approval";
-  config: any;
-  retry?: { maxAttempts: number, backoff: string, delay: number };
-}
-interface EdgeSpec {
   from: string;
   fromPort?: string;
   to: string;
@@ -407,6 +414,14 @@ type Item struct {
 | `approval_forms` | id(apf_), workspace_id, name, description, active_version_id, deleted_at | 实体本体，软删；`idx_approval_forms_ws_name` = UNIQUE(workspace_id, name) WHERE deleted_at IS NULL |
 | `approval_form_versions` | id(apfv_), approval_id, version, **inputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`template` 读 `{{ input.* }}`), template(markdown `{{ CEL }}`；输出恒为 `{decision,reason}` 常量，无独立 outputs 列), allow_reason(bool), timeout, timeout_behavior(reject/approve/fail), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_apfv_approval_version` = UNIQUE(approval_id, version) |
 
+### 4.7 Workflow（静态编排图实体，wf_/wfv_）
+> Quadrinity 的编排者：一张静态「DAG + 回边」typed 图，按 id 引用其它实体并用每个节点 CEL 接线 I/O。本模块**只 STORE + VALIDATE + PIN 图，不执行**——执行（解释器/scheduler/flowrun）是后续波次，import 同一批纯 helper 走 pin 版本。线性版本 + 自由 active 指针，无 pending/accept。详 domains/workflow.md。2 表，pkg/orm。
+
+| 表 | 关键列 | 说明 |
+|---|---|---|
+| `workflows` | id(wf_), workspace_id, name, description, tags(json), active(bool，镜像 lifecycle==active), **lifecycle_state**(active\|draining\|inactive), **concurrency**(serial\|Skip\|BufferOne\|BufferAll\|AllowAll), needs_attention(bool), attention_reason, last_action_by(user\|system), active_version_id, deleted_at | 实体本体，软删；`idx_workflows_ws_name` = UNIQUE(workspace_id, name) WHERE deleted_at IS NULL；**CHECK** lifecycle_state / concurrency 各限上列枚举；`idx_workflows_ws_active` = (workspace_id, active) WHERE deleted_at IS NULL AND active = 1 |
+| `workflow_versions` | id(wfv_), workflow_id, version, **graph**(JSON `{nodes,edges}`，`TEXT NOT NULL DEFAULT '{}'`；node=`{id,kind,ref,input:{field→CEL},retry}`、edge=`{id,from,fromPort,to}`), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（**无 deleted_at**，超 cap 硬删、始终放过 active）；`idx_wfv_workflow_version` = UNIQUE(workflow_id, version) |
+
 ---
 
 ## 5. SQL 约束与扩展 (Schema Extras)
@@ -422,4 +437,5 @@ type Item struct {
 > 注：mcp server 为容器实体（`mcp_` 前缀、一表 `mcp_servers`，`relation.KindForID` 已识别）。**无 `mcp_calls`/`mcp_health_history` 表、无 `mcl_`/`mch_` 前缀**（调用审计 + 健康历史砍，server 工具不落库——动态落成 `mcp__<server>__<tool>` 工具）。
 > 注：`ctl_`/`ctlv_` = control 逻辑实体 / 其版本（workflow `control` 节点引用的路由逻辑 when/emit 分支组；AI 工作实体，有版本但无 sandbox/env/executions，详 domains/control.md）。
 > 注：`apf_`/`apfv_` = approval **form**（审批渲染实体）/ 其版本（workflow `approval` 节点引用的 markdown 模板 + 决策规则；详 domains/approval.md）。**`apf_` ≠ `apv_`**——`apv_` 是 `approvals` 运行时表（波次 4 flowrun 的 parked 记录）。
+> 注：`wf_`/`wfv_` = workflow 静态编排图实体 / 其版本（按 id 引用 trg_/fn_·hd_·mcp_/ag_/ctl_/apf_ 的 typed 图，graph 以 JSON 存于版本行；只 STORE+VALIDATE+PIN，不执行；详 domains/workflow.md）。**本轮仅 `wf_`/`wfv_` 落地**——执行面前缀 **`fr_`/`fre_`/`apv_`**（flowrun / flowrun-event / approval 运行时记录）**尚未建**（durable scheduler 波次产；上表 §1 Execution 段 + §2.4 Run Plane struct 是该波次的前瞻设计，未落物理表）。
 - **作废前缀**: `sk_` 原为 skill 预留，**R0040 skill 重写为文件式后作废**——skill 无生成 id、relation 节点用 name；`ske_` 随 skill execution 审计砍而删。

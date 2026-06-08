@@ -10,7 +10,7 @@ audience: [human, ai]
 ---
 # Error Codes — 100% 物理对账契约
 
-> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 180 个 Domain Sentinel 错误生成。严禁任何摘要或省略。
+> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 Domain Sentinel 错误生成（已建模块约 180+ 个；workflow 静态图实体本轮 +8 个 `WORKFLOW_*`）。严禁任何摘要或省略。标注「前瞻·未建」的执行面（flowrun/scheduler）错误码尚未落物理代码，不计入扫描总数。
 
 ---
 
@@ -150,21 +150,24 @@ audience: [human, ai]
 | `approvaldomain.ErrInvalidTemplate` | `APPROVAL_INVALID_TEMPLATE` | 422 | template 空 / {{ CEL }} 编译失败 |
 | `approvaldomain.ErrInvalidTimeout` | `APPROVAL_INVALID_TIMEOUT` | 422 | timeout 非法 duration / behavior 缺或非法 |
 
-### 2.7 Workflow & Execution Domain
+### 2.7 Workflow Domain（静态编排图实体，wf_/wfv_）
+> workflow 模块**只 STORE+VALIDATE+PIN 图**——下表 8 个均为锻造/校验冒泡的 domain 错误。`ErrInvalidGraph` 的人类原因在 `details["reason"]`（结构 / CEL 接线失败）；`ErrRefNotFound` 由 app `CapabilityCheck` 据 resolver 抛（ref 解析不到或 kind/port/method 不符）。
+
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
-| `workflowdomain.ErrNotFound` | `WORKFLOW_NOT_FOUND` | 404 | |
-| `workflowdomain.ErrDuplicateName` | `WORKFLOW_NAME_DUPLICATE` | 409 | |
-| `workflowdomain.ErrVersionNotFound` | `WORKFLOW_VERSION_NOT_FOUND` | 404 | |
-| `workflowdomain.ErrPendingNotFound` | `WORKFLOW_PENDING_NOT_FOUND` | 404 | |
-| `workflowdomain.ErrNoActiveVersion` | `WORKFLOW_NO_ACTIVE_VERSION` | 422 | |
-| `workflowdomain.ErrDAGCycle` | `WORKFLOW_DAG_CYCLE` | 422 | 环路检测失败 |
-| `workflowdomain.ErrInvalidReference` | `WORKFLOW_INVALID_REFERENCE` | 422 | 节点引用了已删除资源 |
-| `workflowdomain.ErrNoTrigger` | `WORKFLOW_NO_TRIGGER` | 422 | 无启动入口 |
-| `workflowdomain.ErrOpInvalid` | `WORKFLOW_OP_INVALID` | 400 | |
-| `workflowdomain.ErrCapabilityNotFound` | `WORKFLOW_CAPABILITY_NOT_FOUND` | 422 | 运行期引用丢失 |
-| `workflowdomain.ErrMCPServerNotInstalled` | `WORKFLOW_MCP_SERVER_NOT_INSTALLED`| 422 | |
-| `workflowdomain.ErrInvalidNodeModelOverride`| `INVALID_NODE_MODEL_OVERRIDE` | 400 | Override 字段格式错 |
+| `workflowdomain.ErrNotFound` | `WORKFLOW_NOT_FOUND` | 404 | workflow id 未命中（按 workspace 隔离）|
+| `workflowdomain.ErrDuplicateName` | `WORKFLOW_NAME_DUPLICATE` | 409 | workspace 内同名活跃 workflow |
+| `workflowdomain.ErrVersionNotFound` | `WORKFLOW_VERSION_NOT_FOUND` | 404 | version id / 号未命中 |
+| `workflowdomain.ErrNoActiveVersion` | `WORKFLOW_NO_ACTIVE_VERSION` | 422 | 尚无 active 版本（图）|
+| `workflowdomain.ErrInvalidGraph` | `WORKFLOW_INVALID_GRAPH` | 422 | 图未过结构校验（形状/接线/环/端口）或 node.Input CEL 编译失败 |
+| `workflowdomain.ErrInvalidOps` | `WORKFLOW_INVALID_OPS` | 422 | 图 op 畸形，或应用后图不一致（未知/重复 id、name 空）|
+| `workflowdomain.ErrRefNotFound` | `WORKFLOW_REF_NOT_FOUND` | 422 | node Ref 解析不到，或 kind/port/method 不符 |
+| `workflowdomain.ErrInvalidLifecycle` | `WORKFLOW_INVALID_LIFECYCLE` | 422 | 非法 lifecycle 值或转换 |
+
+> **执行面错误码（`FLOWRUN_*` / `WORKFLOW_DISABLED` / `WORKFLOW_NEEDS_ATTENTION` / `APPROVAL_REQUIRED` 等）尚未建**——`flowrundomain` / `schedulerapp` 包不存在；下列为 durable scheduler 波次的前瞻设计，未落地（届时随该波次入册）。
+
+| Go Sentinel（前瞻·未建） | Wire Code | HTTP | 场景 |
+|---|---|---|---|
 | `flowrundomain.ErrNotFound` | `FLOWRUN_NOT_FOUND` | 404 | |
 | `flowrundomain.ErrNotCancellable` | `FLOWRUN_NOT_CANCELLABLE` | 422 | 已经结束了 |
 | `flowrundomain.ErrNotPaused` | `FLOWRUN_NOT_PAUSED` | 422 | 尝试 Resume 未暂停的任务 |

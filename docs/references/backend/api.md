@@ -75,20 +75,21 @@ audience: [human, ai]
 | GET | `/api/v1/handler-calls/{callId}` | `handler.go` |
 
 ### 2.3 Workflows (wf_)
-| Method | Path | 文件源 |
-|---|---|---|
-| POST | `/api/v1/workflows` | `workflow.go` |
-| GET | `/api/v1/workflows` | `workflow.go` |
-| GET | `/api/v1/workflows/{id}` | `workflow.go` |
-| PATCH | `/api/v1/workflows/{id}` | `workflow.go` |
-| DELETE | `/api/v1/workflows/{id}` | `workflow.go` |
-| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:trigger, :activate, :deactivate, :revert, :iterate) |
-| GET | `/api/v1/workflows/{id}/triggers` | `workflow.go` |
-| GET | `/api/v1/workflows/{id}/versions` | `workflow.go` |
-| GET | `/api/v1/workflows/{id}/versions/{version}` | `workflow.go` |
-| GET | `/api/v1/workflows/{id}/pending` | `workflow.go` |
-| POST | `/api/v1/workflows/{id}/pending:accept` | `workflow.go` |
-| POST | `/api/v1/workflows/{id}/pending:reject` | `workflow.go` |
+> Quadrinity 的编排者：静态「DAG + 回边」typed 图，按 id 引用 trg_/fn_·hd_·mcp_/ag_/ctl_/apf_，每节点 CEL 接线 I/O。线性版本 + 自由 active 指针，无 pending/accept。**只 STORE+VALIDATE+PIN，不执行**（执行 = scheduler/flowrun 后续波次）。详 domains/workflow.md。
+> **I/O**：图经 **ops** 编辑（`set_meta`/`add_node`/`update_node`/`delete_node`〔级联删边〕/`add_edge`/`update_edge`/`delete_edge`）。节点 `input` 是 `field → 裸 CEL`，**按 node id 读上游结果**（`reviewer.score`，对全图 node id + ctx 的 ScopedEnv 编译）；边只携控制（`fromPort`：control 源=Branch.Port / approval 源=yes\|no）。create 起始 deactivated（`active=false`/`lifecycle=inactive`），图无误后 `:activate`。
+
+| Method | Path | 文件源 | 备注 |
+|---|---|---|---|
+| POST | `/api/v1/workflows` | `workflow.go` | 创建（name/description/tags + ops 建 v1，≥1 trigger，立即 active 指针但 deactivated）；返 `{workflow,version}` |
+| GET | `/api/v1/workflows` | `workflow.go` | 列表（分页）|
+| GET | `/api/v1/workflows/{id}` | `workflow.go` | 含 activeVersion + 解码图（nodes+edges）|
+| PATCH | `/api/v1/workflows/{id}` | `workflow.go` | UpdateMeta（name/description/tags，不升版本）|
+| DELETE | `/api/v1/workflows/{id}` | `workflow.go` | 软删（清边）|
+| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:edit 套 ops 写 max+1〔非空 ops〕、:revert 移指针、:activate/:deactivate 切 lifecycle、:capability-check 结构+ref 报告；**无 :trigger**；:iterate 随 askai 波次 6) |
+| GET | `/api/v1/workflows/{id}/versions` | `workflow.go` | 分页 |
+| GET | `/api/v1/workflows/{id}/versions/{version}` | `workflow.go` | 整数号或 version id |
+
+> **无 `:trigger` / execution-history 端点**（消费 durable scheduler，后续波次）；**无 pending 端点**（无 accept 状态机）；`draining` 是 scheduler 设的系统态，无专门用户动词。
 
 ### 2.4 Agents (ag_)
 > 第四元「配置好的 LLM worker」：不写代码，按引用挂载（skill / 文档 / fn·hd·mcp 工具 / model 覆盖 + 声明 `inputs`/`outputs`），跑 ReAct loop。线性版本 + 自由 active 指针，无 pending/accept。`:invoke` 是唯一执行入口（落 `agent_executions`）。
