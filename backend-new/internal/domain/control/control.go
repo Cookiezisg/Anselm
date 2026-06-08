@@ -56,8 +56,7 @@ type Version struct {
 	WorkspaceID            string            `db:"workspace_id,ws"           json:"-"`
 	ControlID              string            `db:"control_id"                json:"controlId"`
 	Version                int               `db:"version"                   json:"version"`
-	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"`  // declared inputs the workflow node feeds; when/emit read input.*
-	Outputs                []schemapkg.Field `db:"outputs,json"              json:"outputs"` // fields the winning branch's emit produces (what downstream reads)
+	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"` // declared inputs the workflow node feeds; when/emit read input.*
 	Branches               []Branch          `db:"branches,json"             json:"branches"`
 	ChangeReason           string            `db:"change_reason"             json:"changeReason,omitempty"`
 	ForgedInConversationID *string           `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`

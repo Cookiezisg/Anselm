@@ -45,7 +45,6 @@ var Schema = []string{
 		approval_id               TEXT NOT NULL,
 		version                   INTEGER NOT NULL,
 		inputs                    TEXT NOT NULL DEFAULT '[]',
-		outputs                   TEXT NOT NULL DEFAULT '[]',
 		template                  TEXT NOT NULL DEFAULT '',
 		allow_reason              INTEGER NOT NULL DEFAULT 0,
 		timeout                   TEXT NOT NULL DEFAULT '',

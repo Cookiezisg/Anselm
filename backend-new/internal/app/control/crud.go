@@ -24,7 +24,6 @@ type CreateInput struct {
 	Name         string
 	Description  string
 	Inputs       []schemapkg.Field
-	Outputs      []schemapkg.Field
 	Branches     []controldomain.Branch
 	ChangeReason string
 }
@@ -36,7 +35,6 @@ type CreateInput struct {
 type EditInput struct {
 	ID           string
 	Inputs       []schemapkg.Field
-	Outputs      []schemapkg.Field
 	Branches     []controldomain.Branch
 	ChangeReason string
 }
@@ -71,7 +69,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 		ActiveVersionID: versionID, CreatedAt: now, UpdatedAt: now,
 	}
 	v := &controldomain.Version{
-		ID: versionID, ControlID: ctlID, Version: 1, Inputs: in.Inputs, Outputs: in.Outputs, Branches: in.Branches,
+		ID: versionID, ControlID: ctlID, Version: 1, Inputs: in.Inputs, Branches: in.Branches,
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
@@ -108,7 +106,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	now := time.Now().UTC()
 	versionID := idgenpkg.New("ctlv")
 	v := &controldomain.Version{
-		ID: versionID, ControlID: in.ID, Version: max + 1, Inputs: in.Inputs, Outputs: in.Outputs, Branches: in.Branches,
+		ID: versionID, ControlID: in.ID, Version: max + 1, Inputs: in.Inputs, Branches: in.Branches,
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {

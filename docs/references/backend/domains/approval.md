@@ -31,9 +31,9 @@ audience: [human, ai]
 `id` · `workspace_id`(orm 自动隔离) · `name`(workspace 内 partial-UNIQUE，软删后释放) · `description` · **`active_version_id`** · 时间戳 · `deleted_at`。
 
 ### 2.2 `approval_form_versions`（`apfv_`，append-only + cap 裁剪，无软删）
-`id` · `workspace_id` · `approval_id` · **`version`**(单调号) · **`inputs`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`outputs`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`template`**(markdown，含 `{{ input.* }}`) · **`allow_reason`**(bool) · **`timeout`**("" = 永不超时) · **`timeout_behavior`**(reject/approve/fail) · `change_reason` · `forged_in_conversation_id` · 时间戳。`UNIQUE(approval_id, version)`。
+`id` · `workspace_id` · `approval_id` · **`version`**(单调号) · **`inputs`**(json，`[]schema.Field`，`TEXT NOT NULL DEFAULT '[]'`) · **`template`**(markdown，含 `{{ input.* }}`) · **`allow_reason`**(bool) · **`timeout`**("" = 永不超时) · **`timeout_behavior`**(reject/approve/fail) · `change_reason` · `forged_in_conversation_id` · 时间戳。`UNIQUE(approval_id, version)`。
 
-> **`inputs` / `outputs`（统一 I/O，与 fn/hd/ag/trg 对齐）**：均为 `[]schema.Field`（共享 `internal/pkg/schema` 类型，全锻造实体统一）。`inputs` 声明 workflow 节点喂给本审批表的输入字段——`template` 的 `{{ … }}` 插值据此读 **`input.*`**；`outputs` 声明节点向下游固定吐出的 `{decision, reason}`（其运行时值落 `apv_` `approvals` 运行时表，**不变**）。
+> **`inputs`（统一声明，与 fn/hd/ag/trg 对齐）**：`[]schema.Field`（共享 `internal/pkg/schema` 类型）。声明 workflow 节点喂给本审批表的输入字段——`template` 的 `{{ … }}` 插值据此读 **`input.*`**。**无独立 `outputs` 字段**：审批节点向下游固定吐出 `{decision, reason}`（常量，运行时值落 `apv_` `approvals` 表），无需逐表声明。
 
 ---
 
@@ -41,7 +41,7 @@ audience: [human, ai]
 
 | 层 | 管什么 | 何时 |
 |---|---|---|
-| **① domain** (`ValidateForm` + `schema.ValidateFields`) | `template` 非空（无说明的审批无意义——用户看到孤零零按钮）· `timeout` 非空时 `timeoutBehavior` ∈ {reject,approve,fail} **且** `timeout` 是合法 duration（`ParseTimeout` 支持 `30d`/`2w`）· inputs/outputs 字段名唯一 + 类型合法 | create/edit |
+| **① domain** (`ValidateForm` + `schema.ValidateFields`) | `template` 非空（无说明的审批无意义——用户看到孤零零按钮）· `timeout` 非空时 `timeoutBehavior` ∈ {reject,approve,fail} **且** `timeout` 是合法 duration（`ParseTimeout` 支持 `30d`/`2w`）· inputs 字段名唯一 + 类型合法 | create/edit |
 | **② app CEL 模板** (`pkg/cel.CompileTemplate`) | 提取 `template` 里的 `{{ expr }}` 段，各自编译；语法错 / 未知函数（`now()`）→ `ErrInvalidTemplate`；插值根变量 = **`input`**（节点喂入，由 inputs 声明） | create/edit（快速失败） |
 
 > `{{ CEL }}` 模板支持是本轮给 `pkg/cel` 加的**地基**（`Template` 类型：`CompileTemplate` 编译校验 + `Render` 运行时渲染）；agent.prompt（波次 4）复用同一套。CEL **不在 domain 编译**（domain 不准 import cel-go，原则 #3）。
@@ -50,7 +50,7 @@ audience: [human, ai]
 
 ## 4. 锻造：全量 template + 规则（无 ops）
 
-create/edit 直接传**完整**的 inputs + outputs + template + allowReason + timeout + timeoutBehavior——表是一个原子整体，无 `ops` 框架。`template` 里 `{{ input.* }}`（由 `inputs` 声明）引用的字段与具体 workflow 的 payload 形状耦合，故复用主要在同一 workflow 内（同 control）；价值在「编排-锻造分离 + 统一节点心智」。
+create/edit 直接传**完整**的 inputs + template + allowReason + timeout + timeoutBehavior——表是一个原子整体，无 `ops` 框架。`template` 里 `{{ input.* }}`（由 `inputs` 声明）引用的字段与具体 workflow 的 payload 形状耦合，故复用主要在同一 workflow 内（同 control）；价值在「编排-锻造分离 + 统一节点心智」。
 
 ---
 

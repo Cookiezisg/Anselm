@@ -53,7 +53,6 @@ func (h *ApprovalHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name            string            `json:"name"`
 		Description     string            `json:"description"`
 		Inputs          []schemapkg.Field `json:"inputs"`
-		Outputs         []schemapkg.Field `json:"outputs"`
 		Template        string            `json:"template"`
 		AllowReason     bool              `json:"allowReason"`
 		Timeout         string            `json:"timeout"`
@@ -68,7 +67,6 @@ func (h *ApprovalHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name:            req.Name,
 		Description:     req.Description,
 		Inputs:          req.Inputs,
-		Outputs:         req.Outputs,
 		Template:        req.Template,
 		AllowReason:     req.AllowReason,
 		Timeout:         req.Timeout,
@@ -154,7 +152,6 @@ func (h *ApprovalHandler) postOnApproval(w http.ResponseWriter, r *http.Request)
 func (h *ApprovalHandler) edit(w http.ResponseWriter, r *http.Request, id string) {
 	var req struct {
 		Inputs          []schemapkg.Field `json:"inputs"`
-		Outputs         []schemapkg.Field `json:"outputs"`
 		Template        string            `json:"template"`
 		AllowReason     bool              `json:"allowReason"`
 		Timeout         string            `json:"timeout"`
@@ -166,7 +163,7 @@ func (h *ApprovalHandler) edit(w http.ResponseWriter, r *http.Request, id string
 		return
 	}
 	v, err := h.svc.Edit(r.Context(), approvalapp.EditInput{
-		ID: id, Inputs: req.Inputs, Outputs: req.Outputs, Template: req.Template, AllowReason: req.AllowReason,
+		ID: id, Inputs: req.Inputs, Template: req.Template, AllowReason: req.AllowReason,
 		Timeout: req.Timeout, TimeoutBehavior: req.TimeoutBehavior, ChangeReason: req.ChangeReason,
 	})
 	if err != nil {

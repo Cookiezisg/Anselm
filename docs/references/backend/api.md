@@ -124,31 +124,31 @@ audience: [human, ai]
 
 ### 2.6 Controls (ctl_)
 > workflow `control` 节点引用的路由逻辑实体（when/emit 分支组；详 domains/control.md）。AI 工作实体，有版本、无 `:run`。
-> **I/O**：create/`:edit` body 含 `inputs` + `outputs`（均 `[]schema.Field`，与 fn/hd/ag/trg 对齐）——`inputs` 声明 workflow 节点喂入的字段（`branches[].when`/`emit` 的 CEL 读 `input.*`），`outputs` 声明胜出分支 emit 产出、下游读取的字段。Port 是 workflow 路由的具名结局（`fromPort==port` 的边把本臂 emit 输出带到下游，control 不知道连哪个节点）。
+> **I/O**：create/`:edit` body 含 `inputs`（`[]schema.Field`，与 fn/hd/ag/trg 对齐）——声明 workflow 节点喂入的字段（`branches[].when`/`emit` 的 CEL 读 `input.*`）。**无 `outputs`**：输出已被各分支 `emit` 的 keys 描述（下游按 port 读）。Port 是 workflow 路由的具名结局（`fromPort==port` 的边把本臂 emit 输出带到下游，control 不知道连哪个节点）。
 
 | Method | Path | 文件源 | 备注 |
 |---|---|---|---|
-| POST | `/api/v1/controls` | `control.go` | 创建（name + inputs + outputs + branches）|
+| POST | `/api/v1/controls` | `control.go` | 创建（name + inputs + branches）|
 | GET | `/api/v1/controls` | `control.go` | 列表（分页）|
-| GET | `/api/v1/controls/{id}` | `control.go` | 含 active 版 inputs + outputs + 分支 |
+| GET | `/api/v1/controls/{id}` | `control.go` | 含 active 版 inputs + 分支 |
 | PATCH | `/api/v1/controls/{id}` | `control.go` | 改 name/description（不动版本）|
 | DELETE | `/api/v1/controls/{id}` | `control.go` | 软删 + 清边 |
-| POST | `/api/v1/controls/{idAction}` | `control.go` | (:edit 整组替换写新版本〔inputs + outputs + branches〕、:revert 移指针；**无 :run**) |
+| POST | `/api/v1/controls/{idAction}` | `control.go` | (:edit 整组替换写新版本〔inputs + branches〕、:revert 移指针；**无 :run**) |
 | GET | `/api/v1/controls/{id}/versions` | `control.go` | 分页 |
 | GET | `/api/v1/controls/{id}/versions/{version}` | `control.go` | 整数号或 version id |
 
 ### 2.7 Approvals (apf_)
 > workflow `approval` 节点引用的审批渲染实体（prompt 模板 + 决策规则；详 domains/approval.md）。AI 工作实体，前缀 `apf_`（≠ `apv_`=运行时），无 `:run`。
-> **I/O**：create/`:edit` body 含 `inputs` + `outputs`（均 `[]schema.Field`，与 fn/hd/ag/trg 对齐）——`inputs` 声明 workflow 节点喂入的字段（`template` markdown 用 `{{ input.* }}` 插值），`outputs` 声明节点向下游固定吐出的 `{decision, reason}`（其运行时值落 `approvals` 运行时表，不变）。
+> **I/O**：create/`:edit` body 含 `inputs`（`[]schema.Field`，与 fn/hd/ag/trg 对齐）——声明 workflow 节点喂入的字段（`template` markdown 用 `{{ input.* }}` 插值）。**无 `outputs`**：审批节点向下游固定吐出 `{decision, reason}`（常量，落 `approvals` 运行时表）。
 
 | Method | Path | 文件源 | 备注 |
 |---|---|---|---|
-| POST | `/api/v1/approvals` | `approval.go` | 创建（name + inputs + outputs + template + 规则）|
+| POST | `/api/v1/approvals` | `approval.go` | 创建（name + inputs + template + 规则）|
 | GET | `/api/v1/approvals` | `approval.go` | 列表（分页）|
-| GET | `/api/v1/approvals/{id}` | `approval.go` | 含 active 版 inputs + outputs + template + 规则 |
+| GET | `/api/v1/approvals/{id}` | `approval.go` | 含 active 版 inputs + template + 规则 |
 | PATCH | `/api/v1/approvals/{id}` | `approval.go` | 改 name/description（不动版本）|
 | DELETE | `/api/v1/approvals/{id}` | `approval.go` | 软删 + 清边 |
-| POST | `/api/v1/approvals/{idAction}` | `approval.go` | (:edit 整组替换〔inputs + outputs + template + 规则〕、:revert 移指针；**无 :run**) |
+| POST | `/api/v1/approvals/{idAction}` | `approval.go` | (:edit 整组替换〔inputs + template + 规则〕、:revert 移指针；**无 :run**) |
 | GET | `/api/v1/approvals/{id}/versions` | `approval.go` | 分页 |
 | GET | `/api/v1/approvals/{id}/versions/{version}` | `approval.go` | 整数号或 version id |
 

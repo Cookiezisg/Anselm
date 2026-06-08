@@ -45,7 +45,6 @@ var Schema = []string{
 		control_id                TEXT NOT NULL,
 		version                   INTEGER NOT NULL,
 		inputs                    TEXT NOT NULL DEFAULT '[]',
-		outputs                   TEXT NOT NULL DEFAULT '[]',
 		branches                  TEXT NOT NULL DEFAULT '[]',
 		change_reason             TEXT NOT NULL DEFAULT '',
 		forged_in_conversation_id TEXT,

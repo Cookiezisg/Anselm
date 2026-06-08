@@ -61,7 +61,6 @@ type Version struct {
 	ApprovalID             string            `db:"approval_id"               json:"approvalId"`
 	Version                int               `db:"version"                   json:"version"`
 	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"`          // declared inputs the workflow node feeds; template reads input.*
-	Outputs                []schemapkg.Field `db:"outputs,json"              json:"outputs"`         // fixed {decision, reason} the node emits downstream / 节点向下游固定吐出 {decision, reason}
 	Template               string            `db:"template"                  json:"template"`        // markdown，含 {{ input.* }} 插值
 	AllowReason            bool              `db:"allow_reason"              json:"allowReason"`     // 是否允许填备注
 	Timeout                string            `db:"timeout"                   json:"timeout"`         // duration（"30d"）；"" = 永不超时
