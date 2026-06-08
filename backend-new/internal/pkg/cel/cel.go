@@ -61,6 +61,55 @@ func Compile(expr string) (*Program, error) {
 	return &Program{prg: prg, src: expr}, nil
 }
 
+// ScopedEnv is a CEL environment whose roots are a caller-supplied set of names (each DynType)
+// plus the always-present `ctx`. It serves the workflow layer, whose node Input wiring reads
+// upstream results by node id (`reviewer.score`) — a per-graph variable set the fixed package
+// env (payload/ctx/input) can't name. Build one per graph from its node ids, then Compile each
+// wiring expression; a reference to a name outside the set fails compile (a free "the expression
+// only references existing nodes" check).
+//
+// ScopedEnv 是根为「调用方给的一组名字（各 DynType）+ 恒有的 ctx」的 CEL 环境。服务 workflow 层
+// ——节点 Input 接线按 node id 读上游结果（`reviewer.score`），是固定包 env（payload/ctx/input）
+// 命名不了的、随图而变的变量集。按一张图的 node ids 建一个，再编译它每条接线；引用集合外的名字
+// 编译失败（白送一个「只引用存在的节点」校验）。
+type ScopedEnv struct{ env *celgo.Env }
+
+// NewScopedEnv builds a ScopedEnv declaring each root (+ ctx) as DynType. A root equal to "ctx"
+// is skipped (ctx is always declared) to avoid a duplicate-variable env error.
+//
+// NewScopedEnv 建一个把每个 root（+ ctx）声明为 DynType 的 ScopedEnv。等于 "ctx" 的 root 跳过
+// （ctx 恒已声明），避免重复变量导致 env 报错。
+func NewScopedEnv(roots []string) (*ScopedEnv, error) {
+	opts := make([]celgo.EnvOption, 0, len(roots)+1)
+	opts = append(opts, celgo.Variable("ctx", celgo.DynType))
+	for _, r := range roots {
+		if r == "ctx" {
+			continue
+		}
+		opts = append(opts, celgo.Variable(r, celgo.DynType))
+	}
+	e, err := celgo.NewEnv(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("cel.NewScopedEnv: %w", err)
+	}
+	return &ScopedEnv{env: e}, nil
+}
+
+// Compile compiles a bare CEL expression against the scoped roots, reusing the shared Program.
+//
+// Compile 针对 scoped 根编译一条裸 CEL 表达式，复用共享 Program 类型。
+func (s *ScopedEnv) Compile(expr string) (*Program, error) {
+	ast, iss := s.env.Compile(expr)
+	if iss != nil && iss.Err() != nil {
+		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
+	}
+	prg, err := s.env.Program(ast)
+	if err != nil {
+		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
+	}
+	return &Program{prg: prg, src: expr}, nil
+}
+
 // Eval evaluates to a native Go value (recursing into lists/maps). vars is the activation: a
 // map naming the root variables the expression reads (e.g. {"input": {...}} for an entity
 // expression, or {"payload": {...}} for a sensor expression). A root the expression does not
