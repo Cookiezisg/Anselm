@@ -30,6 +30,7 @@ import (
 	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
@@ -172,11 +173,12 @@ type Deps struct {
 // Service 是 chat 引擎。messages 是持久化（R0054）；其余经 Deps。queues 每活跃对话一个 convQueue；
 // wg 追踪其 goroutine 供关停。
 type Service struct {
-	messages   messagesdomain.Repository
-	deps       Deps
-	searchTool toolapp.Tool // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
-	maxSteps   int
-	log        *zap.Logger
+	messages         messagesdomain.Repository
+	deps             Deps
+	searchTool       toolapp.Tool                                         // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
+	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type at M7
+	maxSteps         int
+	log              *zap.Logger
 
 	queues sync.Map // conversationID → *convQueue
 	wg     sync.WaitGroup
@@ -193,11 +195,12 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 		panic("chatapp.New: nil messages repository or logger")
 	}
 	return &Service{
-		messages:   messages,
-		deps:       deps,
-		searchTool: toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
-		maxSteps:   defaultMaxSteps,
-		log:        log,
+		messages:         messages,
+		deps:             deps,
+		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
+		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
+		maxSteps:         defaultMaxSteps,
+		log:              log,
 	}
 }
 
@@ -210,6 +213,7 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 type SendInput struct {
 	Content       string
 	AttachmentIDs []string
+	Mentions      []mentiondomain.MentionInput // @-references, frozen to content snapshots at send time
 }
 
 // Send persists the user turn, opens an assistant turn (streaming), emits message_start, and
@@ -233,8 +237,15 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		Role:           messagesdomain.RoleUser,
 		Status:         messagesdomain.StatusCompleted,
 	}
+	attrs := map[string]any{}
 	if len(in.AttachmentIDs) > 0 {
-		userMsg.Attrs = map[string]any{attrAttachments: in.AttachmentIDs}
+		attrs[attrAttachments] = in.AttachmentIDs
+	}
+	if snaps := s.resolveMentions(ctx, in.Mentions); len(snaps) > 0 {
+		attrs[attrMentions] = snaps // freeze-on-send: snapshot @-mentioned entities' content now
+	}
+	if len(attrs) > 0 {
+		userMsg.Attrs = attrs
 	}
 	var userBlocks []messagesdomain.Block
 	if in.Content != "" {
@@ -348,3 +359,69 @@ func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
 //
 // Shutdown 等所有在飞对话 goroutine 抽干（M7 boot 拆卸优雅停）。空闲队列已退出；活跃的跑完当前回合。
 func (s *Service) Shutdown() { s.wg.Wait() }
+
+// ListMessages returns one keyset page of a conversation's turns (each with its blocks) for the
+// REST history endpoint — a thin pass-through to the messages store (N4 pagination, newest-first).
+//
+// ListMessages 返回一个对话回合的一页 keyset（每条带 blocks）给 REST 历史端点——薄转 messages
+// store（N4 分页、最新在前）。
+func (s *Service) ListMessages(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
+	return s.messages.ListMessages(ctx, conversationID, cursor, limit)
+}
+
+// Cancel stops a conversation's generation (the DELETE stream endpoint, R0056): it triggers the
+// running turn's context cancel — loop's stream aborts and WriteFinalize lands a cancelled
+// terminal on its detached context — and drains any queued-but-unstarted turns, finalizing each
+// as cancelled so none becomes a streaming orphan. No active queue → a graceful no-op.
+//
+// Cancel 停止一个对话的生成（DELETE stream 端点）：触发运行回合的 context cancel——loop 流式中断、
+// WriteFinalize 在其 detached context 落 cancelled 终态——并清空已入队未开始的回合，逐个落
+// cancelled 终态使无 streaming 孤儿。无活跃队列 → 优雅 no-op。
+func (s *Service) Cancel(_ context.Context, conversationID string) error {
+	v, ok := s.queues.Load(conversationID)
+	if !ok {
+		return nil
+	}
+	q := v.(*convQueue)
+
+	q.mu.Lock()
+	cancel := q.cancel
+	q.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+
+	// Drain queued-but-unstarted turns and finalize each as cancelled (they hold a streaming
+	// assistant row from Send that would otherwise hang forever).
+	//
+	// 清空已入队未开始的回合并逐个落 cancelled（它们持 Send 建的 streaming assistant 行，否则永挂）。
+	for {
+		select {
+		case t := <-q.ch:
+			s.finalizeCancelled(conversationID, t.assistantMsgID, t.workspaceID)
+		default:
+			return nil
+		}
+	}
+}
+
+// finalizeCancelled marks a never-started assistant turn cancelled + pushes message_stop, on a
+// detached context (same orphan-avoidance discipline as WriteFinalize).
+//
+// finalizeCancelled 把一个从未开始的 assistant 回合标 cancelled + 推 message_stop，在 detached
+// context 上（与 WriteFinalize 同一防孤儿纪律）。
+func (s *Service) finalizeCancelled(conversationID, msgID, workspaceID string) {
+	dctx := reqctxpkg.SetWorkspaceID(context.Background(), workspaceID)
+	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
+	m := &messagesdomain.Message{
+		ID:             msgID,
+		ConversationID: conversationID,
+		Role:           messagesdomain.RoleAssistant,
+		Status:         messagesdomain.StatusCancelled,
+		StopReason:     messagesdomain.StopReasonCancelled,
+	}
+	if err := s.messages.FinalizeMessage(dctx, m, nil); err != nil {
+		s.log.Warn("chatapp.finalizeCancelled: finalize failed", zap.String("messageId", msgID), zap.Error(err))
+	}
+	s.emitMessageStop(dctx, conversationID, m)
+}

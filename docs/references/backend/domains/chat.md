@@ -14,7 +14,7 @@ audience: [human, ai]
 >
 > **职责边界**：对话线程**容器 + 配置**（CRUD）是 `conversation` 域（DOC-106）；回合**内容模型**（Message / Block / 词表 / 落盘）是 `messages` 域（DOC-301）。本文是**引擎**——怎么把一条用户消息跑成一个 assistant 回合。
 >
-> **交付分轮**：**R0055（本文 as-built）= 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 外围**（HTTP handler / auto-title / cancel 端点 / mention 渲染 / tokensUsed 富化）——下文标 🔜R0056。
+> **交付分轮**：**R0055 = 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 可用面 + mention**（HTTP handler〔Send 202 / List / Cancel 204〕 + `Service.Cancel` + mention 整套〔注册表 + `<mentions>` 渲染 + freeze-on-send + 补 workflow/agent resolver〕）。**R0057 = 收尾**（auto-title / conversation tokensUsed / system-prompt-preview / export / llm-trace）——下文标 🔜R0057。
 
 ---
 
@@ -56,7 +56,7 @@ chat **不重写循环**——它实现 `loop.Host` 接口（`chatHost`），把
 - **容量 5**：`Send` 投不进（缓冲满）→ `STREAM_IN_PROGRESS`（409）。
 - **idle GC 5min**：无任务 5 分钟后 goroutine 自毁、从 `sync.Map` 注销，休眠对话零成本；新 `Send` 按需重建。拆卸期竞态进来的任务会重新注册保活。
 - **agentState 挂 queue**：`SeenFiles` / `discoveredTools` 跨该对话的回合共享。
-- **cancel 存储**：每回合 `processTask` 把 `context.CancelFunc` 存进 queue，供 cancel 端点触发（🔜R0056）。
+- **cancel 存储**：每回合 `processTask` 把 `context.CancelFunc` 存进 queue；`Service.Cancel`（DELETE stream 端点）取它触发运行回合 ctx Done（loop 流式中断 → WriteFinalize 落 cancelled）+ drain 积压回合逐个 `finalizeCancelled`（防 streaming 孤儿）；无队列优雅 no-op。
 
 ---
 
@@ -65,7 +65,7 @@ chat **不重写循环**——它实现 `loop.Host` 接口（`chatHost`），把
 ### 4.1 LoadHistory（喂 loop 的历史）
 `messages.LoadThread(convID)` → 逐回合转 LLM 消息（最旧在前）：
 - `conversation.Summary` 非空 → 前置一条 `<conversation_summary>` user 上下文块（被压缩的旧历史，原 block 已 archived）。
-- **user 回合**：text block → content；附件 id（落在 `Attrs`）→ `attachment.ToContentParts(ids, Capabilities{Vision,NativeDocs})` 渲成多模态 `Parts`（按当前模型能力门控；渲染失败降级纯文本）。
+- **user 回合**：freeze 的 `<mentions>` 快照（§8，从 `Attrs` 渲染）前置 + text block → content；附件 id（落在 `Attrs`）→ `attachment.ToContentParts(ids, Capabilities{Vision,NativeDocs})` 渲成多模态 `Parts`（按当前模型能力门控；渲染失败降级纯文本）。
 - **assistant 回合**：`loop.BlocksToAssistantLLM`（hot/warm/cold 投影，archived/compaction 丢）。
 - **在飞的 assistant 回合**（本次生成、status=streaming 无 block）被跳过。
 
@@ -109,7 +109,7 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 
 ## 7. model resolve
 
-`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，🔜R0056 补）。
+`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，🔜R0057 补）。
 
 ---
 
@@ -122,7 +122,7 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 4. 入队（携带 assistant msgID + workspace + locale，因队列 goroutine 脱离 Send ctx）→ 立即返回 assistant msgID（**202 语义**，回合经 messages SSE 流式）。
 5. 入队失败（`STREAM_IN_PROGRESS`）→ 把 assistant 回合落 error，不留 streaming 孤儿。
 
-> Mentions 入参 🔜R0056（注册表 + `<mentions>` 渲染 + freeze-on-send，含补 `workflow`/`agent` 两个 backend-new 缺失 resolver）。
+**mention freeze-on-send（R0056）**：`SendInput.Mentions` 在 Send 时经注册表（`RegisterMentionResolver`，各域 M7 注册自己的 `AsMentionResolver`，5 类 document/function/handler/workflow/agent 全在）逐个 `Resolve` 抓 `Reference` 快照存进 `Attrs["mentions"]`——**发送瞬间定格内容**（后续不 re-resolve；resolver 缺失/失败 → stub `(unavailable)` 不阻断发送）；LoadHistory（§4.1）从快照渲 `<mentions>` 块前置到 user 文本。
 
 ---
 
@@ -139,4 +139,14 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 
 ## 10. 跨域端口（DIP）
 
-`chatapp.Deps`：`Conversations`（Get）/ `Resolver`（ResolveChat）/ `Attachments`（ToContentParts）/ `Toolset` / `Memory` / `Catalog` / `Documents` / `Todo` / `Bridge`（messages 流实例）。可选 provider nil → 优雅降级。装配（真实现注入）+ HTTP handler + auto-title + cancel + mention + tokensUsed → 🔜R0056 / M7。
+`chatapp.Deps`：`Conversations`（Get）/ `Resolver`（ResolveChat）/ `Attachments`（ToContentParts）/ `Toolset` / `Memory` / `Catalog` / `Documents` / `Todo` / `Bridge`（messages 流实例）。可选 provider nil → 优雅降级。mention resolver 经 `RegisterMentionResolver` 后注入（各域 M7 注册）。真实现注入留 M7。
+
+## 11. HTTP 端点（R0056）
+
+| 方法 | 路径 | 动作 | 响应 |
+|---|---|---|---|
+| POST | `/api/v1/conversations/{id}/messages` | `Send`（body `{content, attachmentIds?, mentions?}`） | **202** `{messageId}`（回合经 messages SSE 流式） |
+| GET | `/api/v1/conversations/{id}/messages` | `ListMessages`（`?cursor&limit`，N4） | 200 Paged（最新在前，每条带 blocks） |
+| DELETE | `/api/v1/conversations/{id}/stream` | `Cancel`（停运行回合 + drain） | **204** |
+
+🔜R0057：`GET /{id}/system-prompt-preview`、conversation `GET /{id}` 的 `tokensUsed` 富化、export / llm-trace、auto-title（首回合 detached utility Generate + 通知）。

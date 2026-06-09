@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
@@ -331,5 +332,87 @@ func TestLoadHistory_Composition(t *testing.T) {
 	}
 	if hist[2].Role != llminfra.RoleAssistant || hist[2].Content != "earlier answer" {
 		t.Fatalf("assistant message wrong: %+v", hist[2])
+	}
+}
+
+// --- R0056: mention + cancel ----------------------------------------------
+
+type fakeMentionResolver struct {
+	typ mentiondomain.MentionType
+	ref *mentiondomain.Reference
+	err error
+}
+
+func (r fakeMentionResolver) Type() mentiondomain.MentionType { return r.typ }
+func (r fakeMentionResolver) Resolve(context.Context, string) (*mentiondomain.Reference, error) {
+	return r.ref, r.err
+}
+
+func TestMention_ResolveFreeze(t *testing.T) {
+	svc, _ := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	svc.RegisterMentionResolver(fakeMentionResolver{
+		typ: mentiondomain.MentionDocument,
+		ref: &mentiondomain.Reference{Name: "Doc X", Content: "doc body"},
+	})
+
+	snaps := svc.resolveMentions(ctxWS("ws_1"), []mentiondomain.MentionInput{
+		{Type: mentiondomain.MentionDocument, ID: "doc_1"},
+		{Type: mentiondomain.MentionFunction, ID: "fn_1"}, // no resolver registered → stub
+	})
+	if len(snaps) != 2 {
+		t.Fatalf("want 2 snapshots, got %d", len(snaps))
+	}
+	if snaps[0]["name"] != "Doc X" || snaps[0]["content"] != "doc body" {
+		t.Fatalf("resolved snapshot wrong: %+v", snaps[0])
+	}
+	if snaps[1]["name"] != "(unavailable)" {
+		t.Fatalf("missing-resolver should stub, got: %+v", snaps[1])
+	}
+}
+
+func TestMention_Render(t *testing.T) {
+	m := &messagesdomain.Message{Attrs: map[string]any{attrMentions: []map[string]any{
+		{"type": "document", "id": "doc_1", "name": "Doc X", "content": "doc body"},
+	}}}
+	out := renderMentions(m)
+	for _, want := range []string{"<mentions>", `type="document"`, `name="Doc X"`, "doc body", "</mentions>"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("render missing %q:\n%s", want, out)
+		}
+	}
+	if renderMentions(&messagesdomain.Message{}) != "" {
+		t.Fatal("no mentions should render empty")
+	}
+}
+
+func TestCancel_NoQueue(t *testing.T) {
+	svc, _ := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	if err := svc.Cancel(ctxWS("ws_1"), "cv_none"); err != nil {
+		t.Fatalf("Cancel on a conversation with no active queue should be a no-op, got %v", err)
+	}
+}
+
+func TestFinalizeCancelled(t *testing.T) {
+	bridge := newRecordBridge()
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, bridge)
+	ctx := ctxWS("ws_1")
+
+	// Seed a streaming assistant turn (as Send opens one before the loop runs).
+	m := &messagesdomain.Message{ID: "msg_a", ConversationID: "cv_1", Role: messagesdomain.RoleAssistant, Status: messagesdomain.StatusStreaming}
+	if err := store.CreateMessage(ctx, m, nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	svc.finalizeCancelled("cv_1", "msg_a", "ws_1")
+
+	got, err := store.GetMessage(ctx, "msg_a")
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if got.Status != messagesdomain.StatusCancelled || got.StopReason != messagesdomain.StopReasonCancelled {
+		t.Fatalf("turn not cancelled: %+v", got)
+	}
+	if !bridge.frameFor("msg_a", streamdomain.Close{}) {
+		t.Fatal("cancelled turn must still push message_stop")
 	}
 }

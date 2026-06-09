@@ -63,6 +63,15 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 // 绝不因坏附件而加载失败。
 func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) llminfra.LLMMessage {
 	text := userText(m)
+	// Prepend the frozen @-mention snapshots so the referenced entities' content is inline.
+	// 前置冻结的 @ mention 快照，使被引用实体内容内联。
+	if mentions := renderMentions(m); mentions != "" {
+		if text != "" {
+			text = mentions + "\n\n" + text
+		} else {
+			text = mentions
+		}
+	}
 	ids := attachmentIDsOf(m)
 	if len(ids) == 0 || h.svc.deps.Attachments == nil {
 		return llminfra.LLMMessage{Role: llminfra.RoleUser, Content: text}

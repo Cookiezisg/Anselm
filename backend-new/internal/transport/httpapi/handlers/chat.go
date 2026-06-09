@@ -1,0 +1,106 @@
+package handlers
+
+import (
+	"net/http"
+	"strconv"
+
+	"go.uber.org/zap"
+
+	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+)
+
+// ChatHandler serves the chat engine's 3 endpoints: send a message (202, streams over the
+// messages SSE), list a conversation's history (paged), and cancel the running turn (204). The
+// assistant turn itself is delivered over the messages stream, not this REST surface.
+//
+// ChatHandler 提供 chat 引擎 3 端点：发消息（202，经 messages SSE 流式）、列对话历史（分页）、取消
+// 运行回合（204）。assistant 回合本身经 messages 流交付、不在此 REST 面。
+type ChatHandler struct {
+	svc *chatapp.Service
+	log *zap.Logger
+}
+
+// NewChatHandler constructs the handler.
+//
+// NewChatHandler 构造 handler。
+func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	return &ChatHandler{svc: svc, log: log.Named("handlers.chat")}
+}
+
+// Register wires the endpoints onto mux.
+//
+// Register 把端点挂到 mux。
+func (h *ChatHandler) Register(mux Registrar) {
+	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
+	mux.HandleFunc("DELETE /api/v1/conversations/{id}/stream", h.Cancel)
+}
+
+// sendMessageRequest is the user turn: text + referenced attachments + @-mentions.
+//
+// sendMessageRequest 是用户回合：文本 + 引用附件 + @ mention。
+type sendMessageRequest struct {
+	Content       string                       `json:"content"`
+	AttachmentIDs []string                     `json:"attachmentIds"`
+	Mentions      []mentiondomain.MentionInput `json:"mentions"`
+}
+
+// Send accepts a user turn and starts the generation: 202 Accepted + the assistant message id;
+// the turn streams over the messages SSE. EMPTY_CONTENT (400) / STREAM_IN_PROGRESS (409) bubble
+// from the service.
+//
+// Send 接受用户回合并启动生成：202 Accepted + assistant message id；回合经 messages SSE 流式。
+// EMPTY_CONTENT (400) / STREAM_IN_PROGRESS (409) 从 service 冒泡。
+func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
+	var req sendMessageRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	msgID, err := h.svc.Send(r.Context(), r.PathValue("id"), chatapp.SendInput{
+		Content:       req.Content,
+		AttachmentIDs: req.AttachmentIDs,
+		Mentions:      req.Mentions,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
+}
+
+// List returns one keyset page of the conversation's history (newest-first), each message with
+// its blocks. N4 pagination via ?cursor & ?limit.
+//
+// List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。
+func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	limit := 0
+	if raw := q.Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), q.Get("cursor"), limit)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, items, next, next != "")
+}
+
+// Cancel stops the conversation's running turn (204). A graceful no-op when nothing is running.
+//
+// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
+func (h *ChatHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.Cancel(r.Context(), r.PathValue("id")); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.NoContent(w)
+}
