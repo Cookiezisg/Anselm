@@ -69,11 +69,17 @@ audience: [human, ai]
 | `chatdomain.ErrBlockNotFound` | `INTERNAL_ERROR` | 500 | [未映射] 内容块丢失 |
 | `chatdomain.ErrStreamNotFound` | `STREAM_NOT_FOUND` | 404 | 找不到正在生成的流 |
 | `chatdomain.ErrStreamInProgress` | `STREAM_IN_PROGRESS` | 409 | 对话中已有 AI 正在运行 |
-| `chatdomain.ErrAttachmentTooLarge` | `ATTACHMENT_TOO_LARGE` | 413 | 超过 50MB |
-| `chatdomain.ErrAttachmentTypeUnsupported`| `ATTACHMENT_TYPE_UNSUPPORTED`| 415 | 不支持的文件 MIME |
-| `chatdomain.ErrAttachmentParseFailed` | `ATTACHMENT_PARSE_FAILED` | 422 | 内容提取失败 |
-| `chatdomain.ErrAttachmentNotFound` | `ATTACHMENT_NOT_FOUND` | 404 | 附件物理丢失 |
-| `chatdomain.ErrEmptyContent` | `EMPTY_CONTENT` | 400 | 发送了空消息 |
+| `chatdomain.ErrEmptyContent` | `EMPTY_CONTENT` | 400 | 发送了空消息（chat M5.2）|
+
+### 2.4b Attachment Domain（R0051 ✅，独立模块；详见 domains/attachment.md DOC-307）
+> 附件从 chat 内嵌提升为独立 `attachment` 域（CAS 存储 + 多 provider 注入 + sandbox 提取）。旧 `chatdomain.ErrAttachment*` 已被取代。
+
+| Go Sentinel | Wire Code | HTTP | 场景 |
+|---|---|---|---|
+| `attachmentdomain.ErrNotFound` | `ATTACHMENT_NOT_FOUND` | 404 | id 不存在 / 已软删 / 跨 workspace |
+| `attachmentdomain.ErrTooLarge` | `ATTACHMENT_TOO_LARGE` | 413 | 超 50 MB |
+| `attachmentdomain.ErrEmpty` | `ATTACHMENT_EMPTY` | 422 | 空文件 |
+| (handler) | `ATTACHMENT_BAD_UPLOAD` | 400/413 | multipart 缺 `file` 字段 / 读取失败 |
 
 ### 2.5 Function Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

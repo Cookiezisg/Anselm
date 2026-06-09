@@ -33,7 +33,10 @@ audience: [human, ai]
 | GET | `/api/v1/conversations/{id}/eventlog` | `eventlog.go` | |
 | POST | `/api/v1/conversations/{id}/answers` | `answers.go` | |
 | GET | `/api/v1/conversations/{id}/todos` | `todo.go` | 任务看板只读（`?subagentId=` 可选）；写入是 LLM `TodoWrite` 工具（波次 2/3）|
-| POST | `/api/v1/attachments` | `chat.go` | |
+| POST | `/api/v1/attachments` | `attachment.go` | R0051 ✅ multipart 上传（单 `file` 字段）→ CAS 存 → 返 att_ |
+| GET | `/api/v1/attachments/{id}` | `attachment.go` | R0051 ✅ 元数据 |
+| GET | `/api/v1/attachments/{id}/content` | `attachment.go` | R0051 ✅ 原始字节（按存储 mime）|
+| DELETE | `/api/v1/attachments/{id}` | `attachment.go` | R0051 ✅ 软删（blob 由 GC 回收）|
 
 ---
 

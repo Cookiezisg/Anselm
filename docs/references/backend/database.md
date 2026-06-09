@@ -144,6 +144,24 @@ type Block struct {
 }
 ```
 
+### 2.2b Attachment (att_) — 多模态附件（R0051 ✅，详见 domains/attachment.md DOC-307）
+```go
+// attachments (att_) — 上传文件元数据；字节在 CAS blob 存储（~/.forgify/workspaces/<ws>/blobs/<sha[:2]>/<sha>），
+// 绝不进 SQLite。业务表软删 D1；sha256 不唯一（多行共享一 blob = 内容寻址 dedup）。
+type Attachment struct {
+    ID          string     `db:"id,pk"`              // att_<16hex>
+    WorkspaceID string     `db:"workspace_id,ws"`
+    SHA256      string     `db:"sha256"`             // CAS 键
+    Filename    string     `db:"filename"`
+    MimeType    string     `db:"mime_type"`
+    SizeBytes   int64      `db:"size_bytes"`
+    Kind        string     `db:"kind"`               // image|document|text|audio|video|other
+    CreatedAt   time.Time  `db:"created_at,created"`
+    DeletedAt   *time.Time `db:"deleted_at,deleted"`
+}
+// idx_attachments_ws_sha = (workspace_id, sha256) WHERE deleted_at IS NULL（GC 保留集 / dedup-ref）
+```
+
 ### 2.3 The Quadrinity Entities (Forge)
 ```go
 // Function
