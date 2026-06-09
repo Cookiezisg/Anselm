@@ -33,18 +33,20 @@
 | 5 | agentResolver | agent.LLMResolver | ResolveAgent=resolve(agent,override)→LLMBundle |
 | 6 | conversationSummary | contextmgr.ConversationSummary | conversation.Service.Get(→Summary/水位) + SetSummary |
 | 7 | windowResolver | contextmgr.WindowResolver | CapabilityService/DescribeModels 查 (window,maxOutput) |
-| 8 | attachmentRenderer | chat.AttachmentRenderer | attachment.Service → []llminfra.ContentPart（待 attachment Service 方法核实） |
-| 9 | documentRenderer | chat.DocumentRenderer | document.Service.RenderAttached（待核实） |
-| 10 | knowledgeProvider | agent.KnowledgeProvider | document.Service.BuildKnowledgePrefix（待核实） |
-| 11 | dispatcher | scheduler.Dispatcher | RunAction→function.Run/handler.Call/mcp；RunAgent→agent.InvokeAgent（待核实 scheduler 端口 + ref 路由约定） |
-| 12 | refResolver | workflow.RefResolver | catalog 查 node ref→RefInfo（待核实） |
+| 8 | attachmentRenderer | chat.AttachmentRenderer | attachment.ToContentParts 桥 caps → []llminfra.ContentPart ✅ |
+| 9 | documentRenderer | chat.DocumentRenderer | document ResolveAttached + RenderAttachedAsXML ✅ |
+| 10 | knowledgeProvider | agent.KnowledgeProvider | document GetBatch + RenderAttachedAsXML ✅ |
+| 11 | dispatcher | scheduler.Dispatcher | RunAction→fn RunFunction/hd Call/mcp CallTool；RunAgent→ag InvokeAgent；toResultMap 扁平 ✅ |
+| 12 | refResolver | workflow.RefResolver | 7 实体 Service 扇出→RefInfo（catalog 纯菜单不能解析，改直查实体）✅ |
 
-外加 **toolFactory**：把 17 个 tool 包各 New（注入其 Service）+ 分 Resident/Lazy → `tool.Toolset`（待核实各 New 签名）。
+~~外加 **toolFactory**：把 17 个 tool 包各 New + 分 Resident/Lazy → `tool.Toolset`。~~ **→ 折进 R0061**（纯装配非 DIP 适配器、吃全 16 Service 只在 Build 存在；分层已查实：Resident=filesystem/search/shell，Lazy=function/handler/agent/control/approval/workflow/trigger/document/memory/mcp/skill）。
 
 ## 本轮增量（R0060-keystone，先 commit）
 
 #1-7（model resolver 核 + 4 wrapper + ConversationSummary + WindowResolver）——签名全验证、最耦合的 P0 keystone，独立编译可测。`internal/bootstrap/resolvers.go` + `conversation.go` + `window.go`。
-**续（同轮后续推进）**：#8-12 renderer/dispatcher/refResolver（需再核实 attachment/document/scheduler/workflow/catalog 签名）+ toolFactory（核实 17 New）。
+**续（同轮 as-built）✅**：#8-10 renderer（commit eff32afe）+ #11 Dispatcher（4b60b439）+ #12 RefResolver（da9c3031）——签名全亲验、各带测试、bootstrap 包全绿。**toolFactory 折进 R0061**（用户拍板：纯装配非 DIP 适配器〔无类型桥接，构造器已返 `[]Tool`、Toolset 即 `[]Tool`〕、吃全 16 Service〔只在 Build 存在〕、dynamic-mcp/subagent/filtering 三特例耦合 Build 上下文）。**R0060 收官于 keystone + model-caps + 3 适配器；composition-root 适配器层完成，余总装归 R0061。**
+
+**#12 RefResolver 误称纠正**：原计划写「catalog 查 ref→RefInfo」——但 catalog 是**纯菜单**（domain doc 明示「刻意不带 id / 调用句柄」），不能解析。as-built 改为**直查 7 个实体 Service**（fn/hd/ag/ctl/apf/trigger/mcp），各取 ActiveVersionID + 各 kind 附加项（hd MethodNames / ag AgentCallables / ctl BranchPorts）。**版本无关实体（trigger/mcp）语义**：存在=可用 → `HasActiveVersion=true`、空 `ActiveVersionID`（pin 记空 no-op、CapabilityCheck 不误报 phantom 缺版本）——用户确认 trigger 有意无版本（新老后端皆无 version 字段 / trigger_versions 表）。Dispatcher 结果 `toResultMap`：JSON 对象直通扁平（model B `node.field`）/ 标量→`{text}`（doc 21 §157-159）。
 
 测试：modelResolver（mock factory + fake picker/keys → 验 scenario 路由 + Bundle 形状）；conversationSummary 往返；windowResolver 命中/未命中(0,0)。
 

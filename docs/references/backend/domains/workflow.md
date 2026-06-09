@@ -137,7 +137,7 @@ type CapabilityReport struct {
     Problems          []string `json:"problems,omitempty"` // 解析出的所有 ref/端口问题
 }
 ```
-`CapabilityCheck` **容忍 nil resolver**：届时跑**仅结构**报告（`Resolved=false`）并说明——结构非法的图短路（在畸形图上解析 ref 是噪声）。`RefResolver` 实现在本模块外（能力 catalog，**M7 装配**），测试里 fake：
+`CapabilityCheck` **容忍 nil resolver**：届时跑**仅结构**报告（`Resolved=false`）并说明——结构非法的图短路（在畸形图上解析 ref 是噪声）。`RefResolver` 实现在本模块外（**M7 `bootstrap.NewRefResolver`** ✅：直查 7 个实体 Service〔fn/hd/ag/ctl/apf/trigger/mcp〕——**非** catalog（catalog 是纯菜单、刻意不带 ref 句柄，不能解析）。**版本无关实体（trigger/mcp）：存在=可用** → `HasActiveVersion=true`、空 `ActiveVersionID`（pin 记空 no-op；下面 `false` 仅指**可锻造实体尚无 active 版本**这一不可用态）），测试里 fake：
 
 ```go
 type RefResolver interface { Resolve(ctx, ref string) (RefInfo, error) }   // miss → ErrRefNotFound
@@ -222,5 +222,5 @@ type RefInfo struct {
 - **执行**：durable 解释器 / scheduler（走 pin 的图，import `ValidateGraph`/`BackEdges`/`BuildPinClosure`/`WorkflowReader`）。
 - **flowrun / journal**：执行实例 + 持久化流水账 + 重放（`fr_`/`fre_`/`apv_` 表尚未建——仅 `wf_`/`wfv_` 本轮落地）。
 - **ancestor-only CEL lint**：§3.1 的更严祖先可见性校验（需 `pkg/cel` 暴露 AST 标识符抽取）。
-- **M7 中央装配**：`RefResolver` 接真能力 catalog、`WorkflowTools` 进 `Toolset.Lazy`、`WorkflowHandler` 注册、`workflowstore.Schema` 进 migrate。
+- **M7 中央装配**：`RefResolver` 接真（✅ `bootstrap.NewRefResolver` 直查 7 实体 Service，非 catalog）、`WorkflowTools` 进 `Toolset.Lazy`、`WorkflowHandler` 注册、`workflowstore.Schema` 进 migrate。
 - **`:trigger` / `:iterate`**：执行入口（scheduler 波次）/ AI 编辑（askai 波次 6）。

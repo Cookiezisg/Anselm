@@ -173,7 +173,7 @@ scheduler 不 import 任何实体的具体 Service，全走端口（M7 装配注
 
 | 端口 | 做什么 | M7 实现 |
 |---|---|---|
-| **`Dispatcher`** | `RunAction(ref, input)` / `RunAgent(ref, input)`——两类执行单元，都粗粒度 activity | function/handler/mcp + agent Service |
+| **`Dispatcher`** | `RunAction(ref, input)` / `RunAgent(ref, input)`——两类执行单元，都粗粒度 activity | ✅ `bootstrap.NewDispatcher`（fn_→RunFunction · hd_<id>.method→Call · mcp:<id>/<tool>→CallTool · ag_→InvokeAgent；`toResultMap`：对象直通扁平 / nil→空 / 标量→`{text}`；fn·ag `OK=false`→fail-fast） |
 | **`WorkflowReader`** | `GetWorkflow` · `GetActiveVersion`（StartRun pin 步） · **`GetVersion(pinnedID)`**（解释器读冻结拓扑） · `BuildPinClosure` | `*workflowapp.Service` |
 | **`ControlResolver`** | `Resolve(id, versionID) → []controldomain.Branch`（内联求 branches） | `*controlapp.Service` |
 | **`ApprovalResolver`** | `Resolve(id, versionID) → *approvaldomain.Version`（内联求 form + timeout） | `*approvalapp.Service` |
