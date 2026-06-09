@@ -80,16 +80,19 @@ type Message struct {                 // 一个对话回合（user 发言 / assi
 
 ---
 
-## 3. messages 流的 Node content 形状（loop 那一份词表）
+## 3. messages 流的 Node content 形状（producer 那一份词表）
 
-loop 是 messages 流的 producer，定义它发的 4 种 node 的 `Node.Content` 形状（「词表下放 producer」）。`open` 帧带最小元数据；**`close` 帧带完整快照**——`delta` 是 ephemeral（不入 replay buffer），buffer 内重连只见 open/close，故 close 的 `Result` 必须能重建内容。
+messages 流有**两个 producer**：**chat（R0055）发 message 级** node（一整个回合，message_start/stop）、**loop 发 block 级** node（回合内的 text/reasoning/tool_call/tool_result，嵌在 message 下）。各自定义所发 node 的 `Node.Content` 形状（「词表下放 producer」）。`open` 帧带最小元数据；**`close` 帧带完整快照**——`delta` 是 ephemeral（不入 replay buffer），buffer 内重连只见 open/close，故 close 的 `Result` 必须能重建内容。
 
-| node.type | open content | delta | close result |
-|---|---|---|---|
-| `text` | —（空） | token 文本 | `{content}` |
-| `reasoning` | —（空） | token 文本 | `{content, signature?}` |
-| `tool_call` | `{name}` | args JSON 增量 | `{name, arguments, summary?, danger?}` |
-| `tool_result` | `{content}`（一次性产出，无 delta） | — | —（close 只带 status/error） |
+| node.type | producer | open content | delta | close result |
+|---|---|---|---|---|
+| `message` | **chat** | `{role}` | —（无 delta，block 子节点流式） | `{role, status, stopReason?, inputTokens, outputTokens, errorCode?, errorMessage?}`（assistant 终态元数据）/ `{role, content, attachmentIds?}`（user 回显快照） |
+| `text` | loop | —（空） | token 文本 | `{content}` |
+| `reasoning` | loop | —（空） | token 文本 | `{content, signature?}` |
+| `tool_call` | loop | `{name}` | args JSON 增量 | `{name, arguments, summary?, danger?}` |
+| `tool_result` | loop | `{content}`（一次性产出，无 delta） | — | —（close 只带 status/error） |
+
+**message 节点是回合的顶层父**：id=`msg_<id>`、`scope=conversation:<id>`、`Open.ParentID` 空（挂 scope 根）；loop 的 block 节点 `Open.ParentID = msgID`（挂其下）。**token/终态进 message 的 `Close.Result`**（回合元数据，不进任何 block 快照）。E3 递归：subagent 的 message 节点 `ParentID = 父 tool_call id`。
 
 **danger 纯标记**（M2.2「纯信任」）：LLM 自报的 `danger`/`summary` 随 `tool_call` 节点上行（close result + 落库 `Attrs`），前端据此显示一句话摘要、标记 `cautious`/`dangerous` 调用。**本轮不阻塞执行**——`dangerous` 调用的确认暂停在 loop 层留接口位，待 ask 通道就绪（波次 6）接入。
 

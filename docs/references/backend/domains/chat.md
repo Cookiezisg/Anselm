@@ -4,122 +4,139 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-04-22
-reviewed: 2026-06-02
+reviewed: 2026-06-09
 review-due: 2026-09-01
 audience: [human, ai]
 ---
-# Conversation & Chat — 核心消息引擎深度审计全书
+# Chat — 对话引擎 (The Conversation Engine)
 
-> **核心地位**：这是 Forgify 的心脏。它不仅管理对话线程（Conversation），更通过一个极其复杂的 **ReAct 递归循环**，实现了“一切皆工具”的交互哲学。
-
----
-
-## 1. 物理存储架构 (Data Persistence)
-
-### 1.1 `Conversation` — 线程主表
-```go
-type Conversation struct {
-    ID                   string    `gorm:"primaryKey;type:text" json:"id"` // cv_<16hex>
-    UserID               string    `gorm:"not null;index" json:"-"`
-    Title                string    `gorm:"not null;type:text;default:''" json:"title"`
-    AutoTitled           bool      `gorm:"not null;default:false" json:"autoTitled"`
-    SystemPrompt         string    `gorm:"type:text;default:''" json:"systemPrompt,omitempty"`
-    Summary              string    `gorm:"type:text;default:''" json:"summary,omitempty"`
-    SummaryCoversUpToSeq int64     `gorm:"not null;default:0" json:"summaryCoversUpToSeq,omitempty"`
-    AttachedDocuments    []AttachedDocument `gorm:"serializer:json" json:"attachedDocuments,omitempty"`
-    Archived             bool      `gorm:"not null;default:false;index" json:"archived"`
-    Pinned               bool      `gorm:"not null;default:false" json:"pinned"`
-    ModelOverride        *ModelRef `gorm:"serializer:json" json:"modelOverride,omitempty"`
-}
-```
-- **排序逻辑**：`List` 接口采用 `pinned DESC, created_at DESC` 复合排序，确保置顶对话永远浮顶。
-
-### 1.2 `Message` — 逻辑回合 (Turn)
-一个 Message 代表 LLM 或用户的一次发言。
-- **Token 记账**：`InputTokens`, `OutputTokens` 字段固化了每次生成的消耗，直接支撑 `/api/v1/usage` 统计。
-- **溯源**：`Provider`, `ModelID` 字段记录了产出该消息的具体模型，解决了多模型混合对话下的成本核算难题。
-
-### 1.3 `Block` — 物理内容树 (The Content Journal)
-这是 Forgify V1.2 最重大的架构升级：内容不再是纯文本，而是 **`message_blocks`** 中的结构化记录。
-- **Seq (序列号)**：对话内全局单调递增，是 SSE 重连（`from=seq`）的唯一索引。
-- **ContextRole**：控制该 Block 如何参与 LLM 上下文。
-  - `hot`: 活跃，完整送入。
-  - `warm`: 被压缩后的摘要。
-  - `archived`: 已过期，不参与生成。
-- **物理校验**：数据库通过 `CHECK (type IN ('text','reasoning','tool_call',...))` 确保内容类型的严格闭合。
+> **核心地位**：`app/chat` 是波次 5 的枢纽——把用户消息变成持久化回合、在工作区工具上驱动 **ReAct 循环**（`app/loop`）、实时推 assistant 回合到 messages 流、落盘结果。它**拧合**已建的 conversation / messages / loop / tool / attachment / memory / document / catalog / todo / model，**但一个都不拥有**：每个依赖经端口（DIP）注入，故 chat 用 fake LLM 即可端到端测、真实装配留 M7。
+>
+> **职责边界**：对话线程**容器 + 配置**（CRUD）是 `conversation` 域（DOC-106）；回合**内容模型**（Message / Block / 词表 / 落盘）是 `messages` 域（DOC-301）。本文是**引擎**——怎么把一条用户消息跑成一个 assistant 回合。
+>
+> **交付分轮**：**R0055（本文 as-built）= 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 外围**（HTTP handler / auto-title / cancel 端点 / mention 渲染 / tokensUsed 富化）——下文标 🔜R0056。
 
 ---
 
-## 2. ReAct 循环原理 (The Engine)
+## 1. 落盘（持久化）
 
-### 2.1 任务队列 (The Queue)
-- **并发控制**：每个 Conversation 拥有一个独立的 `convQueue`（容量 5）。同一时间只允许一个 AI 协程为该对话工作。
-- **空闲回收**：Queue 协程在 5 分钟无任务后自动销毁 (`time.NewTimer`)。
+回合落盘是 `messages` 域（DOC-301 §6）：`messages`（`msg_`，回合记录）+ `message_blocks`（`blk_`，Block 树）两表、两段式写。chat 是其消费者，**不碰表**——经 `messages.Repository` 端口：
 
-### 2.2 循环算法 (`loop.Run`)
-ReAct 引擎采用 `for step := range maxSteps` 结构：
-1. **采样 (Sampling)**：调用 LLM 获取生成的 Block 流。
-2. **熔断 (Circuit Breaker)**：
-   - **TOOL_ERROR_STORM**：若连续 3 回合的所有工具调用全部失败，立即熔断，防止 Token 空转。
-   - **MAX_STEPS_REACHED**：达到步数上限（默认 25-30）时停止，返回“继续”建议。
-3. **工具派发 (Dispatching)**：
-   - **Auto-Activation**：若 LLM 调用了一个尚未加载的工具组（Lazy Group），系统自动调用 `TryActivateForTool` 加载对应的 AgentState 并执行。
-4. **状态写回**：每步完成后，通过 `RecordStep` 将历史增量（Assistant Blocks + Tool Results）持久化。
+- **开 user 回合**：`CreateMessage(userMsg{role:user, status:completed, attrs:{attachments}}, [text block])`。
+- **开 assistant 回合**：`CreateMessage(asstMsg{role:assistant, status:streaming}, nil)` → 拿 `msg_` id 作流锚点 + reqctx 种子。
+- **收 assistant 回合**：`WriteFinalize` → `FinalizeMessage(asstMsg 终态, blocks)`（loop 产的 block 在此分配 seq 落盘）。
+
+block seq 单调靠 **convQueue per-conversation 串行写**（§3）、非 DB 序列。
 
 ---
 
-## 3. SSE 发射协议 (Live Wire)
+## 2. ReAct 循环（借 `app/loop`，不自己写）
 
-SSE 不仅仅是推流，它在物理上驱动了前端的状态机。
+chat **不重写循环**——它实现 `loop.Host` 接口（`chatHost`），把循环交给共享的 `app/loop.Run`。`chatHost` 是 `agentHost` 的**持久化对应物**，同三方法形状，两处改写：
 
-### 3.1 严格发射时序
-一个完整的 AI 生成回合遵循以下原子序列：
-1. `message_start` (msg_xxx)
-2. `block_start` (blk_text_1) -> `block_delta` (N 次) -> `block_stop`
-3. `block_start` (tc_call_1) -> `block_stop` (带 tool name)
-4. (后端执行工具...)
-5. `block_start` (tr_result_1, parent=tc_call_1) -> `block_stop`
-6. `message_stop` (带 Token 统计)
-
-### 3.2 鲁棒性设计
-- **Detached Context**：`StopMessage` 和 `FinalizeStop` 必须在剥离原有 Cancel 链的 Context 下执行（`context.Background()`）。
-- **目的**：即便用户在 AI 生成的最后一毫秒关闭浏览器，后端也必须确保该 Block 的“终态”被标记为 `completed` 或 `cancelled`，禁止在数据库中留下永久的 `streaming` 孤儿块。
-
----
-
-## 4. 上下文拼装 (System Prompt Build)
-
-系统提示词采用 **Section 容器化** 架构，各部分通过 `<section name="...">` 标签隔离。
-
-### 4.1 优先级顺序 (Cache-Friendly)
-1. `identity`: 谁是 Forgify。
-2. `how_to_work`: 核心指令（reuse first, verify before claiming）。
-3. `tools`: 当前可用工具索引。
-4. `memory`: 长期记忆（Memory 域注入）。
-5. `documents`: 挂载文档（Notion 树展开后的 XML）。
-6. **`architecture_rules`**: 架构决策（如：分类任务用 Agent 节点）。
-7. **`critical_rules`**: 殿后指令（DeepSeek 等模型对末尾指令遵守度最高）。
-
-### 4.2 语言注入 (Locale)
-`InjectLocale` 中间件读 User 语言，将 `lang` 变量（"Chinese"/"English"）注入 `environment` 段，强制要求 LLM 遵循对应的回复语言。
-
----
-
-## 5. 跨域联动详情 (Interactions)
-
-- **Mention (@引用)**：`RegisterMentionResolver` 允许 `document`, `function`, `handler`, `workflow` 各域注册解析器。在消息发送时，系统会自动抓取这些实体的“快照”并存储在 Message 的 `attrs` 字段中。
-- **Compaction (压缩)**：回合结束后，同步触发 `compactor.MaybeCompact`。如果检测到 Token 溢出，会自动生成摘要并切掉旧的 Blocks。
-- **Auto-Title**：对于第一个回合，系统会异步启动一个 **Utility 档** 模型，根据 Assistant 的回答总结一个 5-10 字的标题。
-
----
-
-## 6. 错误矩阵 (Failures)
-
-| Wire Code | 物理起因 | 处理逻辑 |
+| 方法 | agentHost | chatHost |
 |---|---|---|
-| `STREAM_IN_PROGRESS` | `select q.ch <- task` default 分支命中 | 告知用户 AI 还在忙。 |
-| `TOOL_ERROR_STORM` | `consecAllFail >= 3` | 彻底停止 Loop。 |
-| `MAX_STEPS_REACHED` | `step == maxSteps` | 引导用户点击 UI 的“继续”。 |
-| `LLM_STREAM_ERROR` | `streamLLM` 捕获到网络异常 | 标记 Message 为 `error`，停止 SSE。 |
-| `EMPTY_CONTENT` | 用户输入为空且无附件 | `handlers` 层拦截。 |
-| `UNAUTH_NO_USER` | `RequireUser` 找不到 UserID | 触发前端 self-heal。 |
+| `LoadHistory` | prompt（+ replay） | `messages.LoadThread` → LLM 历史（§4） |
+| `Tools` | 静态白名单 | resident + search_tools + 本对话已 discovered 的 lazy（§5） |
+| `WriteFinalize` | no-op（落 Execution） | `FinalizeMessage` + 推 message_stop（§6，Detached） |
+
++ 两个可选能力（loop type-assert）：
+- **`AutoActivator.TryActivateForTool`**：LLM 点了某 lazy 工具但没先 `search_tools` → 在 lazy 集 `FindLazy` 命中即 `agentstate.MarkToolDiscovered` + 重算工具集。
+- **`ReminderProvider.SystemReminders`**：每步前把 `todo.SystemReminder` 作临时 `<system-reminder>` 注入（live 清单顶在模型眼前，不污染持久历史）。
+- **不实现 `StepRecorder`**（持久重放是 workflow-agent 的事）。
+
+熔断 / 步数上限（`TOOL_ERROR_STORM` 连续 3 轮全失败、`MAX_STEPS_REACHED` 默认 **25** 步）由 loop 实现、chat 不复制（见 messages.md / loop）。
+
+---
+
+## 3. convQueue（per-conversation 串行）
+
+每个对话一个 `convQueue`：单 goroutine 抽干小缓冲 channel，**同一时刻只跑一个 assistant 回合**（这使 block seq 分配无竞争）。
+
+- **容量 5**：`Send` 投不进（缓冲满）→ `STREAM_IN_PROGRESS`（409）。
+- **idle GC 5min**：无任务 5 分钟后 goroutine 自毁、从 `sync.Map` 注销，休眠对话零成本；新 `Send` 按需重建。拆卸期竞态进来的任务会重新注册保活。
+- **agentState 挂 queue**：`SeenFiles` / `discoveredTools` 跨该对话的回合共享。
+- **cancel 存储**：每回合 `processTask` 把 `context.CancelFunc` 存进 queue，供 cancel 端点触发（🔜R0056）。
+
+---
+
+## 4. 上下文拼装
+
+### 4.1 LoadHistory（喂 loop 的历史）
+`messages.LoadThread(convID)` → 逐回合转 LLM 消息（最旧在前）：
+- `conversation.Summary` 非空 → 前置一条 `<conversation_summary>` user 上下文块（被压缩的旧历史，原 block 已 archived）。
+- **user 回合**：text block → content；附件 id（落在 `Attrs`）→ `attachment.ToContentParts(ids, Capabilities{Vision,NativeDocs})` 渲成多模态 `Parts`（按当前模型能力门控；渲染失败降级纯文本）。
+- **assistant 回合**：`loop.BlocksToAssistantLLM`（hot/warm/cold 投影，archived/compaction 丢）。
+- **在飞的 assistant 回合**（本次生成、status=streaming 无 block）被跳过。
+
+### 4.2 System Prompt（Section 容器）
+每回合现拼，`<section name="...">` 包装，cache-friendly 顺序（不变静态在前、动态居中、规则殿后）：
+
+| # | section | 来源 | 静态/动态 |
+|---|---|---|---|
+| 1 | `identity` | 重写常量 | 静态 |
+| 2 | `how_to_work` | 重写常量 | 静态 |
+| 3 | `tools` | 静态指引 + `Toolset.Overview()`（lazy 工具一行目录，使 LLM 知全集不盲搜） | 半动态 |
+| 4 | `capabilities` | `catalog.GetForSystemPrompt` | 动态 |
+| 5 | `memory` | `memory.ForSystemPrompt`（pinned 全文 + 目录） | 动态 |
+| 6 | `documents` | `document.RenderAttached(conv.AttachedDocuments)`（XML） | 动态 |
+| 7 | `user_system_prompt` | `conv.SystemPrompt` | 动态 |
+| 8 | `environment` | 日期 + `reqctx.GetLocale` 回复语言 | 动态 |
+| 9 | `architecture_rules` | 重写常量（Quadrinity / durable workflow 指引） | 静态 |
+| 10 | `critical_rules` | 重写常量（殿后，末尾指令遵从最高） | 静态 |
+
+静态段 **R0055 重写**（高密度 / 去产品 fluff / 去 safety theater / 不框死 agent），非照搬旧文案。可选 provider 为 nil 时该段降级为空。
+
+---
+
+## 5. 工具集（resident + 按需 lazy）
+
+`chatHost.Tools(ctx)` 每步重算（loop 契约）= `Toolset.Resident` + `search_tools` + 本对话 `agentstate` 已 discovered 的 lazy 工具。lazy 工具默认只在 System Prompt §4.2#3 露一行概览；LLM 调 `search_tools`（chat 从 `Toolset.Lazy` 构造）拉某 lazy 工具完整 schema，标记 discovered，后续步即在工具集内。`search_tools` 是 chat 组装的（`Toolset` 文档明确「overview / search_tools / discovered 集由 chat 组装」）。
+
+---
+
+## 6. SSE 发射（message 级）+ Detached 终态
+
+loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **message 级** node（messages.md §3）：
+- **message_start** = `Open{Node{type:"message", {role}}}`（Send 里、开 assistant 回合后）。
+- **block 流**（loop 经 `WithBridge` 注入的同一 Bridge）。
+- **message_stop** = `Close{Status, Result:{role,status,stopReason,inputTokens,outputTokens,errorCode?,errorMessage?}}`（`WriteFinalize` 里）。
+- user 回合 echo = `Open` + `Close{Result:{role:user,content,attachmentIds?}}`（即时完整，使其他客户端立即看到）。
+
+**Detached Context**：`WriteFinalize` / `failTurn` 在 `context.Background()`（重埋 workspace + conversation）上落盘 + 推 message_stop——上游 cancel（用户生成中关页）**绝不留永久 streaming 孤儿**，回合总抵达终态。
+
+---
+
+## 7. model resolve
+
+`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，🔜R0056 补）。
+
+---
+
+## 8. Send 流程
+
+`Send(ctx, convID, SendInput{Content, AttachmentIDs}) (assistantMsgID, error)`：
+1. 空内容 + 无附件 → `EMPTY_CONTENT`（400）。
+2. `CreateMessage` user 回合（+ text block，附件 id 进 Attrs）+ emit user echo。
+3. `CreateMessage` assistant 回合（streaming）拿 id + emit message_start。
+4. 入队（携带 assistant msgID + workspace + locale，因队列 goroutine 脱离 Send ctx）→ 立即返回 assistant msgID（**202 语义**，回合经 messages SSE 流式）。
+5. 入队失败（`STREAM_IN_PROGRESS`）→ 把 assistant 回合落 error，不留 streaming 孤儿。
+
+> Mentions 入参 🔜R0056（注册表 + `<mentions>` 渲染 + freeze-on-send，含补 `workflow`/`agent` 两个 backend-new 缺失 resolver）。
+
+---
+
+## 9. 错误矩阵
+
+| Wire Code | HTTP | 物理起因 |
+|---|---|---|
+| `EMPTY_CONTENT` | 400 | `Send` 无文本无附件 |
+| `STREAM_IN_PROGRESS` | 409 | convQueue 缓冲满（对话已在跑） |
+| `MESSAGE_NOT_FOUND` | 404 | `messages` 域（DOC-301） |
+| `TOOL_ERROR_STORM` / `MAX_STEPS_REACHED` / `LLM_STREAM_ERROR` | — | loop 终态（落 message `error_code`，经 message_stop 上行；非 HTTP） |
+
+---
+
+## 10. 跨域端口（DIP）
+
+`chatapp.Deps`：`Conversations`（Get）/ `Resolver`（ResolveChat）/ `Attachments`（ToContentParts）/ `Toolset` / `Memory` / `Catalog` / `Documents` / `Todo` / `Bridge`（messages 流实例）。可选 provider nil → 优雅降级。装配（真实现注入）+ HTTP handler + auto-title + cancel + mention + tokensUsed → 🔜R0056 / M7。
