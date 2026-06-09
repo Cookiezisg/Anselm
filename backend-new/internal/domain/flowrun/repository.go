@@ -38,6 +38,12 @@ type Repository interface {
 	// ListRunningRuns 返所有仍 StatusRunning 的 run——boot 恢复候选集（逐个重走；记忆化行跳过、parked 留）。
 	ListRunningRuns(ctx context.Context) ([]*FlowRun, error)
 
+	// CountRunningByWorkflow counts a workflow's currently-running runs (overlap-policy input: serial
+	// defers / Skip drops a new firing when this is > 0). Workspace-scoped.
+	// CountRunningByWorkflow 数一个 workflow 当前 running 的 run（overlap 策略输入：>0 时 serial 推迟 /
+	// Skip 丢弃新 firing）。按 workspace 隔离。
+	CountRunningByWorkflow(ctx context.Context, workflowID string) (int, error)
+
 	// MarkRunTerminal sets a run's terminal status (completed/failed) + error + completed_at.
 	// MarkRunTerminal 置 run 终态（completed/failed）+ error + completed_at。
 	MarkRunTerminal(ctx context.Context, id, status, errMsg string) error

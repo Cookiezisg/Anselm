@@ -57,23 +57,30 @@ const (
 // Result keys —— FlowRunNode.Result 的 per-kind 形状（doc 21 §3.2）。control/approval 的 result 有
 // 结构（port/decision 驱动路由 + 携带数据）；action/agent 的 result 是 callable/agent 原始输出原样存。
 const (
-	ResultKeyPort     = "port"     // control: chosen branch port
-	ResultKeyEmit     = "emit"     // control: the chosen branch's emitted data (map)
-	ResultKeyDecision = "decision" // approval: yes | no
+	// ResultKeyPort: a control node's chosen routing port, stored under this RESERVED key ALONGSIDE
+	// the chosen branch's emitted fields (which are stored FLAT) — so downstream reads
+	// gate.<emitField> directly (doc 20 §5.4: "下游按名读 gate.feedback") while the interpreter reads
+	// gate.__port for routing. The double-underscore avoids colliding with a user emit field.
+	// ResultKeyPort：control 节点选中的路由 port，存在这个**保留**键下，与选中分支 emit 的字段（扁平存）
+	// 并列——故下游直接读 gate.<emit字段>（doc 20 §5.4），解释器读 gate.__port 路由。双下划线避免撞 emit 字段。
+	ResultKeyPort     = "__port"   // control: chosen branch port (reserved routing key)
+	ResultKeyDecision = "decision" // approval: yes | no (also downstream-readable)
 	ResultKeyReason   = "reason"   // approval: human reason (optional)
 	ResultKeyRendered = "rendered" // approval (parked): the rendered markdown for the inbox UI
 )
 
-// ControlResult builds a control node's memoized result: the chosen port + that branch's emitted
-// data. Downstream nodes read the emitted fields by name (e.g. gate.feedback).
+// ControlResult builds a control node's memoized result: the chosen branch's emitted fields FLAT
+// (so downstream reads gate.feedback, doc 20 §5.4) plus the reserved __port routing key.
 //
-// ControlResult 构造 control 节点的记忆化 result：选中的 port + 该分支 emit 的数据。下游按名读
-// emit 字段（如 gate.feedback）。
+// ControlResult 构造 control 节点的记忆化 result：选中分支 emit 的字段**扁平**（下游读 gate.feedback，
+// doc 20 §5.4）+ 保留的 __port 路由键。
 func ControlResult(port string, emit map[string]any) map[string]any {
-	if emit == nil {
-		emit = map[string]any{}
+	out := make(map[string]any, len(emit)+1)
+	for k, v := range emit {
+		out[k] = v
 	}
-	return map[string]any{ResultKeyPort: port, ResultKeyEmit: emit}
+	out[ResultKeyPort] = port
+	return out
 }
 
 // ApprovalDecision builds a decided approval node's result. decision ∈ {yes,no}; reason may be "".
@@ -146,4 +153,14 @@ var (
 	// ErrNodeNotParked：审批决策指向一个不在等信号的节点（已决/已超时/从未 park）——first-wins 的输家，
 	// 以干净 422 上呈。
 	ErrNodeNotParked = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_APPROVAL_NOT_PARKED", "approval node is not awaiting a decision")
+
+	// ErrInvalidEntry: a manual :trigger named an entry node that is missing or not a trigger, or
+	// omitted entryNode for a graph with multiple trigger nodes (ambiguous). Details carry the reason.
+	// ErrInvalidEntry：手动 :trigger 指定的 entry 节点缺失/非 trigger，或多 trigger 图未指定 entryNode
+	// （歧义）。details 带原因。
+	ErrInvalidEntry = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_INVALID_ENTRY", "invalid or ambiguous trigger entry node")
+
+	// ErrInvalidDecision: an approval decision was neither "yes" nor "no".
+	// ErrInvalidDecision：审批决策既非 "yes" 也非 "no"。
+	ErrInvalidDecision = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_INVALID_DECISION", "approval decision must be 'yes' or 'no'")
 )

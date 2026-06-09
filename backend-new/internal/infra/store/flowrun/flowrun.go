@@ -195,6 +195,17 @@ func (s *Store) ListRunningRuns(ctx context.Context) ([]*flowrundomain.FlowRun, 
 	return rows, nil
 }
 
+// CountRunningByWorkflow counts a workflow's running runs in the current workspace (overlap input).
+//
+// CountRunningByWorkflow 数当前 workspace 内某 workflow 的 running run（overlap 输入）。
+func (s *Store) CountRunningByWorkflow(ctx context.Context, workflowID string) (int, error) {
+	n, err := s.runs.WhereEq("workflow_id", workflowID).WhereEq("status", flowrundomain.StatusRunning).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("flowrunstore.CountRunningByWorkflow: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) MarkRunTerminal(ctx context.Context, id, status, errMsg string) error {
 	_, err := s.runs.WhereEq("id", id).Updates(ctx, map[string]any{
 		"status":       status,
