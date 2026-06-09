@@ -191,6 +191,25 @@ func (s *Store) LoadThread(ctx context.Context, conversationID string) ([]*messa
 	return rows, nil
 }
 
+// SumTokens totals a conversation's input + output tokens. It loads the turn rows (no blocks)
+// and sums in Go — a single conversation's turns fit in memory, and the orm workspace filter
+// keeps it scoped. Empty conversation → (0, 0).
+//
+// SumTokens 求和一个对话的 input + output token。加载回合行（不取 block）在 Go 里累加——单对话回合
+// 可装进内存、orm workspace 过滤限定范围。空对话 → (0, 0)。
+func (s *Store) SumTokens(ctx context.Context, conversationID string) (int, int, error) {
+	rows, err := s.msgs.WhereEq("conversation_id", conversationID).Find(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("messagesstore.SumTokens: %w", err)
+	}
+	var in, out int
+	for _, m := range rows {
+		in += m.InputTokens
+		out += m.OutputTokens
+	}
+	return in, out, nil
+}
+
 // hydrate loads every block of the given messages in one query and attaches each message's
 // blocks (seq-ordered) to its Blocks field. A message with no blocks gets a nil slice.
 //

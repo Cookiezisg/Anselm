@@ -39,6 +39,8 @@ func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}/stream", h.Cancel)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 }
 
 // sendMessageRequest is the user turn: text + referenced attachments + @-mentions.
@@ -103,4 +105,33 @@ func (h *ChatHandler) Cancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+// SystemPromptPreview returns the system prompt a turn in this conversation would receive — a
+// transparency / debugging aid (R0057).
+//
+// SystemPromptPreview 返回本对话一个回合会收到的 system prompt——透明度 / 调试辅助（R0057）。
+func (h *ChatHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request) {
+	prompt, err := h.svc.SystemPromptPreview(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]string{"systemPrompt": prompt})
+}
+
+// Usage returns a conversation's total token cost (the tokensUsed the detail view shows, R0057).
+//
+// Usage 返回一个对话的 token 总成本（详情视图显示的 tokensUsed，R0057）。
+func (h *ChatHandler) Usage(w http.ResponseWriter, r *http.Request) {
+	in, out, err := h.svc.Usage(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, map[string]int{
+		"inputTokens":  in,
+		"outputTokens": out,
+		"totalTokens":  in + out,
+	})
 }

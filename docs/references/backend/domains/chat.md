@@ -14,7 +14,7 @@ audience: [human, ai]
 >
 > **职责边界**：对话线程**容器 + 配置**（CRUD）是 `conversation` 域（DOC-106）；回合**内容模型**（Message / Block / 词表 / 落盘）是 `messages` 域（DOC-301）。本文是**引擎**——怎么把一条用户消息跑成一个 assistant 回合。
 >
-> **交付分轮**：**R0055 = 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 可用面 + mention**（HTTP handler〔Send 202 / List / Cancel 204〕 + `Service.Cancel` + mention 整套〔注册表 + `<mentions>` 渲染 + freeze-on-send + 补 workflow/agent resolver〕）。**R0057 = 收尾**（auto-title / conversation tokensUsed / system-prompt-preview / export / llm-trace）——下文标 🔜R0057。
+> **交付分轮（chat 模块收官 🎉）**：**R0055 = 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 可用面 + mention**（HTTP handler〔Send 202 / List / Cancel 204〕 + `Service.Cancel` + mention 整套〔注册表 + `<mentions>` 渲染 + freeze-on-send + 补 workflow/agent resolver〕）。**R0057 = 收尾**（auto-title〔首回合 detached utility Generate + SetAutoTitle + 通知〕 + `GET /usage`〔tokensUsed〕 + `GET /system-prompt-preview`）。**砍**：export / llm-trace（投机占位、YAGNI）。**待 model 域补**：attachment caps 的 model 目录 vision/nativeDocs flag。
 
 ---
 
@@ -109,7 +109,7 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 
 ## 7. model resolve
 
-`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，🔜R0057 补）。
+`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，**待 model 域补 DescribeModels 字段**；现 M7 adapter 给保守默认）。
 
 ---
 
@@ -141,12 +141,16 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 
 `chatapp.Deps`：`Conversations`（Get）/ `Resolver`（ResolveChat）/ `Attachments`（ToContentParts）/ `Toolset` / `Memory` / `Catalog` / `Documents` / `Todo` / `Bridge`（messages 流实例）。可选 provider nil → 优雅降级。mention resolver 经 `RegisterMentionResolver` 后注入（各域 M7 注册）。真实现注入留 M7。
 
-## 11. HTTP 端点（R0056）
+## 11. HTTP 端点
 
-| 方法 | 路径 | 动作 | 响应 |
-|---|---|---|---|
-| POST | `/api/v1/conversations/{id}/messages` | `Send`（body `{content, attachmentIds?, mentions?}`） | **202** `{messageId}`（回合经 messages SSE 流式） |
-| GET | `/api/v1/conversations/{id}/messages` | `ListMessages`（`?cursor&limit`，N4） | 200 Paged（最新在前，每条带 blocks） |
-| DELETE | `/api/v1/conversations/{id}/stream` | `Cancel`（停运行回合 + drain） | **204** |
+| 方法 | 路径 | 动作 | 响应 | 轮 |
+|---|---|---|---|---|
+| POST | `/api/v1/conversations/{id}/messages` | `Send`（body `{content, attachmentIds?, mentions?}`） | **202** `{messageId}`（回合经 messages SSE 流式） | R0056 |
+| GET | `/api/v1/conversations/{id}/messages` | `ListMessages`（`?cursor&limit`，N4） | 200 Paged（最新在前，每条带 blocks） | R0056 |
+| DELETE | `/api/v1/conversations/{id}/stream` | `Cancel`（停运行回合 + drain） | **204** | R0056 |
+| GET | `/api/v1/conversations/{id}/system-prompt-preview` | `SystemPromptPreview`（复用 buildSystemPrompt，不解析模型） | 200 `{systemPrompt}` | R0057 |
+| GET | `/api/v1/conversations/{id}/usage` | `Usage`（`messages.SumTokens` 透传） | 200 `{inputTokens, outputTokens, totalTokens}` | R0057 |
 
-🔜R0057：`GET /{id}/system-prompt-preview`、conversation `GET /{id}` 的 `tokensUsed` 富化、export / llm-trace、auto-title（首回合 detached utility Generate + 通知）。
+**auto-title（R0057）**：`Send` 首回合后 `processTask` 后台（detached + 10s + best-effort，s.wg 追踪）经 `ModelResolver.ResolveUtility` + `llm.Generate`（首 user + 首 assistant 摘要 → 5-10 词标题、清洗）→ `ConversationTitler.SetAutoTitle`（写 Title+AutoTitled、不覆盖用户标题）→ `conversation.auto_titled` 通知。非首回合 / 已 AutoTitled 不触发。
+
+> `tokensUsed` 实现为专用 `GET /usage`（解耦 conversation←messages），非富化 conversation 的 `GET /{id}`（契约微调，记 contract #39）。`export` / `llm-trace` 判定为投机占位、**砍**（YAGNI）。

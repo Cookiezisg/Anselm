@@ -267,4 +267,11 @@ type Repository interface {
 	// LoadThread 返回整个对话（最旧在前），每个回合都 hydrate Blocks——chat 的 LoadHistory 据此
 	// 组装 LLM 历史（不分页：单用户本地一条线程可装进内存）。
 	LoadThread(ctx context.Context, conversationID string) ([]*Message, error)
+
+	// SumTokens returns a conversation's total input + output tokens across all turns — the
+	// usage endpoint's source. Zero for an empty / unknown conversation.
+	//
+	// SumTokens 返回一个对话所有回合的 input + output token 总和——usage 端点的来源。空 / 未知
+	// 对话返 0。
+	SumTokens(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error)
 }

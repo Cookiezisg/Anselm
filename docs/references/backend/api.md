@@ -23,12 +23,11 @@ audience: [human, ai]
 | GET | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅（`tokensUsed` 富化延后 M5.2） |
 | PATCH | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ title/systemPrompt/attachedDocuments/archived/pinned/modelOverride（三态） |
 | DELETE | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ 软删 + 清 relation 边 |
-| GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | 🔜 R0057（prompt 拼装属 chat 数据） |
 | POST | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** **202** `{messageId}`；body `{content, attachmentIds?, mentions?}`；回合经 messages SSE 流式 |
 | GET | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** Paged（最新在前 + blocks）；`?cursor&limit`（N4） |
 | DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压 |
-| GET | `/api/v1/conversations/{id}/export` | `chat.go` | 🔜 R0057 |
-| GET | `/api/v1/conversations/{id}/llm-trace` | `chat.go` | 🔜 R0057 |
+| GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | **R0057 ✅** `{systemPrompt}`（复用 buildSystemPrompt，不解析模型） |
+| GET | `/api/v1/conversations/{id}/usage` | `chat.go` | **R0057 ✅** `{inputTokens, outputTokens, totalTokens}`（tokensUsed，解耦 conversation←messages） |
 | GET | `/api/v1/conversations/{id}/context-stats` | `context_stats.go` | |
 | GET | `/api/v1/conversations/{id}/eventlog` | `eventlog.go` | |
 | POST | `/api/v1/conversations/{id}/answers` | `answers.go` | |

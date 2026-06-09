@@ -153,6 +153,31 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 // Delete soft-deletes a conversation and purges its relation edges.
 //
 // Delete 软删对话并清除其 relation 边。
+// SetAutoTitle sets a conversation's auto-generated title (chat's auto-title, R0057). It writes
+// both Title and AutoTitled — a path PATCH deliberately doesn't expose (auto-title is chat-owned)
+// — and emits conversation.auto_titled. A title that already exists (user-set or previously
+// auto-titled) is left untouched, so a manual rename is never clobbered.
+//
+// SetAutoTitle 设置对话的自动生成标题（chat auto-title，R0057）。写 Title + AutoTitled——PATCH 故意
+// 不暴露的路径（auto-title 由 chat 专写）——并发 conversation.auto_titled。已存在的标题（用户设或已
+// 自动标题）不动，故手动改名永不被覆盖。
+func (s *Service) SetAutoTitle(ctx context.Context, id, title string) error {
+	c, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if c.AutoTitled || strings.TrimSpace(c.Title) != "" {
+		return nil
+	}
+	c.Title = strings.TrimSpace(title)
+	c.AutoTitled = true
+	if err := s.repo.Update(ctx, c); err != nil {
+		return err
+	}
+	s.emit(ctx, c.ID, "auto_titled", map[string]any{"title": c.Title})
+	return nil
+}
+
 func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return err

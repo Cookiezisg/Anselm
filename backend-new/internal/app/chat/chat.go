@@ -5,18 +5,18 @@
 // pieces into one dialogue turn — but owns none of them: every dependency arrives through a port
 // (DIP), so chat stays testable with a fake LLM and the real wiring lands in M7.
 //
-// R0055 (this round) is the engine core: chatHost (loop.Host) + convQueue (per-conversation
-// serialization) + Send + System Prompt + SSE message node + model resolve. The HTTP handler,
-// auto-title, cancel endpoint, mention rendering, and tokensUsed enrichment land in R0056.
+// Built across M5.2's chat sub-rounds: R0055 = engine core (chatHost / convQueue / Send /
+// System Prompt / SSE message node / model resolve); R0056 = HTTP handler + Cancel + mention
+// (registry / freeze-on-send / render); R0057 = auto-title + usage + system-prompt-preview.
 //
 // Package chat 是对话引擎：把用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（app/loop）、
 // 实时推 assistant 回合（messages 流）、落盘结果。它是波次 5 的枢纽——把已建的 conversation /
 // messages / loop / tool / attachment / memory / document / catalog / todo / model 拧成一个对话
 // 回合——但一个都不拥有：每个依赖都经端口注入（DIP），故 chat 用 fake LLM 即可测，真实装配在 M7。
 //
-// R0055（本轮）是引擎核心：chatHost（loop.Host）+ convQueue（per-conversation 串行）+ Send +
-// System Prompt + SSE message 节点 + model resolve。HTTP handler、auto-title、cancel 端点、
-// mention 渲染、tokensUsed 富化在 R0056。
+// 跨 M5.2 chat 子轮建成：R0055 = 引擎核心（chatHost / convQueue / Send / System Prompt / SSE
+// message 节点 / model resolve）；R0056 = HTTP handler + Cancel + mention（注册表 / freeze / 渲染）；
+// R0057 = auto-title + usage + system-prompt-preview。
 package chat
 
 import (
@@ -33,6 +33,7 @@ import (
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
@@ -117,6 +118,21 @@ type Bundle struct {
 // 做 model.Resolve(dialogue, override, picker) → credentials → factory.Build，对标 agent runLoop。
 type ModelResolver interface {
 	ResolveChat(ctx context.Context, override *modeldomain.ModelRef) (Bundle, error)
+	// ResolveUtility resolves the workspace's utility model (a small, cheap model) for
+	// background chores like auto-title — the M7 adapter does model.Resolve(ScenarioUtility, …).
+	//
+	// ResolveUtility 解析 workspace 的 utility 模型（小而廉价）供 auto-title 等后台杂活——M7 适配器做
+	// model.Resolve(ScenarioUtility, …)。
+	ResolveUtility(ctx context.Context) (Bundle, error)
+}
+
+// ConversationTitler writes a conversation's auto-generated title (auto-title, R0057). The
+// conversationapp.Service satisfies it; it deliberately never clobbers a user-set title.
+//
+// ConversationTitler 写对话的自动生成标题（auto-title）。conversationapp.Service 满足之；它绝不
+// 覆盖用户已设标题。
+type ConversationTitler interface {
+	SetAutoTitle(ctx context.Context, conversationID, title string) error
 }
 
 // AttachmentRenderer turns a user turn's attachment ids into neutral multimodal content parts,
@@ -164,7 +180,9 @@ type Deps struct {
 	Catalog       CatalogProvider
 	Documents     DocumentRenderer
 	Todo          TodoReminder
-	Bridge        streamdomain.Bridge // messages stream instance; nil → no live push (REST history still works)
+	Bridge        streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
+	Titler        ConversationTitler         // auto-title writer (R0057); nil → no auto-titling
+	Notifier      notificationdomain.Emitter // auto-title notification (R0057); nil → no notify
 }
 
 // Service is the chat engine. messages is the persistence (R0054); the rest arrive via Deps.
@@ -367,6 +385,28 @@ func (s *Service) Shutdown() { s.wg.Wait() }
 // store（N4 分页、最新在前）。
 func (s *Service) ListMessages(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
 	return s.messages.ListMessages(ctx, conversationID, cursor, limit)
+}
+
+// SystemPromptPreview builds the system prompt a turn in this conversation would receive — the
+// GET /system-prompt-preview endpoint (transparency / debugging). Reuses buildSystemPrompt; no
+// model is resolved (the prompt doesn't depend on the model).
+//
+// SystemPromptPreview 构建本对话一个回合会收到的 system prompt——GET /system-prompt-preview 端点
+// （透明度 / 调试）。复用 buildSystemPrompt；不解析模型（prompt 不依赖模型）。
+func (s *Service) SystemPromptPreview(ctx context.Context, conversationID string) (string, error) {
+	conv, err := s.deps.Conversations.Get(ctx, conversationID)
+	if err != nil {
+		return "", err
+	}
+	return s.buildSystemPrompt(ctx, conv), nil
+}
+
+// Usage returns a conversation's total input + output token cost across all turns — the
+// GET /usage endpoint (the tokensUsed the conversation detail shows).
+//
+// Usage 返回一个对话所有回合的 input + output token 总成本——GET /usage 端点（对话详情的 tokensUsed）。
+func (s *Service) Usage(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error) {
+	return s.messages.SumTokens(ctx, conversationID)
 }
 
 // Cancel stops a conversation's generation (the DELETE stream endpoint, R0056): it triggers the

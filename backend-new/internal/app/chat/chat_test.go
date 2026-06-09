@@ -73,6 +73,14 @@ func (r fakeResolver) ResolveChat(_ context.Context, _ *modeldomain.ModelRef) (B
 	}, nil
 }
 
+func (r fakeResolver) ResolveUtility(_ context.Context) (Bundle, error) {
+	return Bundle{
+		Client:   r.client,
+		Request:  llminfra.Request{ModelID: "fake-utility"},
+		Provider: "fake",
+	}, nil
+}
+
 // fakeConvs returns one fixed conversation for any id.
 type fakeConvs struct {
 	conv *conversationdomain.Conversation
@@ -414,5 +422,83 @@ func TestFinalizeCancelled(t *testing.T) {
 	}
 	if !bridge.frameFor("msg_a", streamdomain.Close{}) {
 		t.Fatal("cancelled turn must still push message_stop")
+	}
+}
+
+// --- R0057: auto-title + usage + system-prompt-preview ---------------------
+
+type fakeTitler struct{ called chan string }
+
+func (f *fakeTitler) SetAutoTitle(_ context.Context, _, title string) error {
+	select {
+	case f.called <- title:
+	default:
+	}
+	return nil
+}
+
+func titleTurn() []llminfra.StreamEvent {
+	return []llminfra.StreamEvent{
+		{Type: llminfra.EventText, Delta: "My Conversation Title"},
+		{Type: llminfra.EventFinish, FinishReason: "stop", InputTokens: 3, OutputTokens: 4},
+	}
+}
+
+func TestAutoTitle_FirstTurn(t *testing.T) {
+	store := newStore(t)
+	titler := &fakeTitler{called: make(chan string, 1)}
+	svc := New(store, Deps{
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{}}, // untitled
+		Resolver:      fakeResolver{client: &fakeClient{script: titleTurn()}},
+		Bridge:        newRecordBridge(),
+		Titler:        titler,
+	}, zap.NewNop())
+
+	if _, err := svc.Send(ctxWS("ws_1"), "cv_1", SendInput{Content: "hi"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	select {
+	case title := <-titler.called:
+		if title != "My Conversation Title" {
+			t.Fatalf("auto-title wrong: %q", title)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("auto-title was not invoked for the first turn")
+	}
+}
+
+func TestUsage_SumTokens(t *testing.T) {
+	bridge := newRecordBridge()
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, bridge)
+	ctx := ctxWS("ws_1")
+
+	for i, id := range []string{"msg_1", "msg_2"} {
+		m := &messagesdomain.Message{
+			ID: id, ConversationID: "cv_1", Role: messagesdomain.RoleAssistant,
+			Status: messagesdomain.StatusCompleted, InputTokens: 10 * (i + 1), OutputTokens: i + 1,
+		}
+		if err := store.CreateMessage(ctx, m, nil); err != nil {
+			t.Fatalf("seed %s: %v", id, err)
+		}
+	}
+	in, out, err := svc.Usage(ctx, "cv_1")
+	if err != nil {
+		t.Fatalf("Usage: %v", err)
+	}
+	if in != 30 || out != 3 { // 10+20, 1+2
+		t.Fatalf("token sum wrong: in=%d out=%d", in, out)
+	}
+}
+
+func TestSystemPromptPreview(t *testing.T) {
+	svc, _ := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	prompt, err := svc.SystemPromptPreview(ctxWS("ws_1"), "cv_1")
+	if err != nil {
+		t.Fatalf("SystemPromptPreview: %v", err)
+	}
+	for _, want := range []string{`<section name="identity">`, `<section name="critical_rules">`, "be concise"} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("preview missing %q:\n%s", want, prompt)
+		}
 	}
 }

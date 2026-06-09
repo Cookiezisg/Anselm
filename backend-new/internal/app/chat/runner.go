@@ -118,6 +118,14 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	//
 	// loop.Run 总以恰一次 host.WriteFinalize（落盘 + message_stop）收尾，故此处 Result 冗余。
 	loopapp.Run(ctx, host, bundle.Client, req, s.maxSteps, s.log)
+
+	// After the first turn of an untitled conversation, auto-title it in the background
+	// (best-effort, detached). conv is the pre-turn snapshot, so its empty title is exactly the
+	// "first turn" signal.
+	//
+	// 无标题对话首回合后，后台自动起标题（best-effort，detached）。conv 是回合前快照，其空标题正是
+	// 「首回合」信号。
+	s.maybeAutoTitle(conv, t.workspaceID)
 }
 
 // failTurn marks an assistant turn terminal-error before the loop ever runs (model resolve or
