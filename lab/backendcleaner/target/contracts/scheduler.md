@@ -17,11 +17,11 @@
 
 14 dispatcher → **2 dispatch（RunAction[fn/hd/mcp] + RunAgent）+ 2 内联（control/approval 解释器内求值）**；删 `state.go`/`pause.go`（topo-walk + paused_state）、`LoopDispatcher`（结构化 loop 取代）、generation 代数、`flowrun_events`（`fre_` 事件日志）、`approvals`（`apv_` 投影表）、所有分布式机制（task queue / worker / sticky / sharding / lease / stale-claim 回收）。
 
-## 3. 数据模型（3 表 · doc 21 §3）
+## 3. 数据模型（2 表 · doc 21 §3）
 
-- **`flowruns`（`fr_`）** header：workflow_id + **pin 的 version_id + pinned_refs JSON** + firing_id + status（running|completed|failed）+ replay_count。
+- **`flowruns`（`fr_`）** header：workflow_id + **pin 的 version_id + pinned_refs JSON** + trigger_id/firing_id（手动 :trigger 时空）+ status（running|completed|failed）+ replay_count。
 - **`flowrun_nodes`（`frn_`）★真相表**：`UNIQUE(flowrun_id,node_id,iteration)` → status/result；action·agent·control·approval 各写自己的 result；parked 行 = 审批收件箱。
-- **`flowrun_agent_steps`（`frs_`）**：agent ReAct 逐轮记忆化，`UNIQUE(flowrun_node_id,step_index)`，收窄非幂等重跑窗口。
+- **agent = 粗粒度 activity（无 `frs_`）**：和 action 一样只记忆化最终 result 进 frn、崩溃整体重跑（at-least-once）。卡点 = `app/loop.Run` 是流式黑盒、无 resume 入口；resume-mid-agent（子步记忆化 + loop durable 重放）→ v2，要动 loop.go。
 - 全 Log 性质**严禁删除**（D1）、workspace 隔离（D2）。
 
 ## 4. 必须保证的行为（三血泪边界 = 新测试规格 · doc 21 §6）
@@ -34,23 +34,23 @@
 
 ## 5. DIP 端口（doc 21 §5）
 
-唯一新增 = **`Dispatcher`**（`RunAction`/`RunAgent`+`AgentStepSink`，M7 接 fn/hd/mcp/agent Service、测试 fake）。其余全已落地直接 import：`WorkflowReader` / `BuildPinClosure` / `ValidateGraph` / `BackEdges` / `control.Resolve` / `approval.Resolve` / `pkg/cel`（ScopedEnv/Program/Template）/ trigger firings claim。
+唯一新增 = **`Dispatcher`**（`RunAction`/`RunAgent`，两者**粗粒度**、M7 接 fn/hd/mcp/agent Service、测试 fake）。其余全已落地直接 import：`WorkflowReader` / `BuildPinClosure` / `ValidateGraph` / `BackEdges` / `control.Resolve` / `approval.Resolve` / `pkg/cel`（ScopedEnv/Program/Template）/ trigger firings claim。scheduler **暴露 `StartRun`**（建-run 原语，手动 :trigger 与 firing 两入口共用）。
 
 ## 6. 契约变更（→ contract-changes.md，落地时记 #30/#31）
 
-- **database.md**：S15 删 `fre_`/`apv_`、加 `frs_`、重定义 `frn_`；§1 Execution 段删旧 GORM-tag 前瞻 struct、写 as-built 3 表；D3 → `idx_frn_once`。
+- **database.md**：S15 删 `fre_`/`apv_`、重定义 `frn_`（**不加 frs_**，agent 粗粒度）；§1 Execution 段删旧 GORM-tag 前瞻 struct、写 as-built 2 表；D3 → `idx_frn_once`。
 - **events.md**：`flowrun.*` 事件保留（前端实时视图），校准 source 路径 + tick payload；tick 仍 E2 Ephemeral seq=0；三流不变（E1）。
-- **api.md**：+ `GET /flowruns`、`GET /flowruns/{id}`、`POST …:replay`、`POST …/approvals/{nodeId}:decide`（**无 `:trigger`**，firing 驱动）。
+- **api.md**：+ `GET /flowruns`、`GET /flowruns/{id}`、`POST …:replay`、`POST …/approvals/{nodeId}:decide` + **`POST /workflows/{id}:trigger`**（手动起 run，body `{entryNode?, payload}`；payload 表单 schema = **入口 trigger.Outputs**，客户端用现有端点自组装无需新端点；`trigger_workflow` LLM 工具随 M7）。
 - **error-codes.md**：+ `FLOWRUN_*`。
 - **domains/flowrun.md + domains/scheduler.md**：旧引擎契约整篇重写为 as-built。
 
 ## 7. 延后 v2
 
-通用 durable timer 门（at?/after?）/ continue-as-new / overlap BufferOne·BufferAll / 手动 `:trigger` / catch-up 补偿 / agent 子步工具提升为独立节点。
+通用 durable timer 门（at?/after?）/ continue-as-new / overlap BufferOne·BufferAll / catch-up 补偿 / **resume-mid-agent**（agent 子步记忆化 `frs_` + loop.Run durable 重放改造，要动 loop.go）/ `trigger_workflow` LLM 工具（随 M7）。
 
 ## 8. 顺序（PLAYBOOK 四步 · 每步 verify+commit+push）
 
 1. ✅ 契约（本文 + doc 21）→ **用户审**（当前）。
-2. **R0048 flowrun**：domain（3 实体 + record-once 不变式）+ store（3 表 orm + 手写 DDL）+ 测试。
-3. **R0049 scheduler**：app 解释器（advance / computeLiveSubgraph / dispatch / park-resume / firing claim / boot 恢复 / :replay）+ `Dispatcher` 端口 + handler（flowrun REST）+ **集成测试**（doc 21 §11，核心模块必须）。
+2. **R0048 flowrun**：domain（2 实体 fr_/frn_ + record-once 不变式）+ store（2 表 orm + 手写 DDL）+ 测试。
+3. **R0049 scheduler**：app 解释器（**StartRun** / advance / computeLiveSubgraph / dispatch / park-resume / firing claim / boot 恢复 / :replay）+ `Dispatcher` 端口 + handler（flowrun REST + **`POST /workflows/{id}:trigger`** 手动起 run）+ **集成测试**（doc 21 §11，核心模块必须）。
 4. 契约文档同步（§6）+ lab round + verify + commit push。M7 装配（Dispatcher 注真 / ticker / boot）延后。
