@@ -120,28 +120,46 @@ type Conversation struct {
 }
 // idx_conversations_ws_list = (workspace_id, pinned DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL
 //
-// 以下 Message / Block 是 chat 域的 message_blocks（M5.2 未建，下为 as-designed）。
+// messages (msg_) + message_blocks (blk_) — 一个对话的内容日志（R0054 ✅，归 domain/messages，
+// 详见 domains/messages.md §6）。两表 append-only（无 deleted_at，D1：内容日志永不删）、workspace
+// 隔离（,ws）。回合两段式写（CreateMessage 开 / FinalizeMessage 收 assistant 回合）对应 loop.Host。
 type Message struct {
-    ID             string         `gorm:"primaryKey;type:text" json:"id"`
-    ConversationID string         `gorm:"not null;index" json:"conversationId"`
-    Role           string         `gorm:"not null" json:"role"`
-    Status         string         `gorm:"not null;default:completed" json:"status"`
-    InputTokens    int            `json:"inputTokens"`
-    OutputTokens   int            `json:"outputTokens"`
-    Provider       string         `gorm:"index" json:"provider"`
-    ModelID        string         `gorm:"index" json:"modelId"`
-    Attrs          map[string]any `gorm:"serializer:json" json:"attrs"`
+    ID             string         `db:"id,pk"`              // msg_<16hex>
+    ConversationID string         `db:"conversation_id"`
+    WorkspaceID    string         `db:"workspace_id,ws"`
+    Role           string         `db:"role"`              // CHECK(user|assistant)；无 system/tool 行
+    Status         string         `db:"status"`            // CHECK(5 态) DEFAULT 'completed'
+    StopReason     string         `db:"stop_reason"`
+    ErrorCode      string         `db:"error_code"`
+    ErrorMessage   string         `db:"error_message"`
+    InputTokens    int            `db:"input_tokens"`      // /usage + 对话 tokensUsed 富化
+    OutputTokens   int            `db:"output_tokens"`
+    Provider       string         `db:"provider"`          // 溯源：产此回合的 provider
+    ModelID        string         `db:"model_id"`          // 溯源：产此回合的模型
+    Attrs          map[string]any `db:"attrs,json"`        // attachments / mentions 快照（freeze-on-send）
+    CreatedAt      time.Time      `db:"created_at,created"`
+    UpdatedAt      time.Time      `db:"updated_at,updated"`
+    // Blocks []Block — 内容树，store hydrate（非列）
 }
+// idx_messages_conv = (workspace_id, conversation_id, created_at, id)
 type Block struct {
-    ID             string         `gorm:"primaryKey;type:text" json:"id"`
-    ConversationID string         `gorm:"not null;uniqueIndex:idx_conv_seq" json:"conversationId"`
-    Seq            int64          `gorm:"not null;uniqueIndex:idx_conv_seq" json:"seq"`
-    Type           string         `gorm:"not null" json:"type"`
-    Content        string         `gorm:"not null" json:"content"`
-    Attrs          map[string]any `gorm:"serializer:json" json:"attrs"`
-    Status         string         `gorm:"not null" json:"status"`
-    ContextRole    string         `gorm:"not null;default:hot" json:"contextRole"`
+    ID             string         `db:"id,pk"`             // blk_<16hex>
+    ConversationID string         `db:"conversation_id"`
+    WorkspaceID    string         `db:"workspace_id,ws"`
+    MessageID      string         `db:"message_id"`        // 所属回合；block 的 stream parentId
+    ParentBlockID  string         `db:"parent_block_id"`   // tool_result → 其 tool_call
+    Seq            int64          `db:"seq"`               // 对话内单调；落盘时分配（MAX+1）
+    Type           string         `db:"type"`              // CHECK(text|reasoning|tool_call|tool_result|compaction)
+    Attrs          map[string]any `db:"attrs,json"`        // tool_call:{tool,summary,danger}; reasoning:{signature}
+    Content        string         `db:"content"`
+    Status         string         `db:"status"`            // CHECK(5 态)
+    Error          string         `db:"error"`
+    ContextRole    string         `db:"context_role"`      // CHECK(hot|warm|cold|archived) DEFAULT 'hot'；压缩器（M5.3）投影
+    CreatedAt      time.Time      `db:"created_at,created"`
+    UpdatedAt      time.Time      `db:"updated_at,updated"`
 }
+// idx_blocks_conv_seq = UNIQUE(conversation_id, seq)   ← seq 单调保证（D3 风格幂等键）
+// idx_blocks_message  = (message_id, seq)              ← hydrate 按回合取 block
 ```
 
 ### 2.2b Attachment (att_) — 多模态附件（R0051 ✅，详见 domains/attachment.md DOC-307）

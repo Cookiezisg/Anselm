@@ -13,7 +13,12 @@
 // 依赖 chat 这种具体消费者，故 agent / subagent / chat 共享一个中立内容模型。
 package messages
 
-import "time"
+import (
+	"context"
+	"time"
+
+	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+)
 
 // Block is one node of an assistant turn's content tree, persisted to message_blocks.
 // loop produces Blocks in memory; the host persists them (the store lives in chat M5.2).
@@ -27,6 +32,7 @@ import "time"
 type Block struct {
 	ID             string         `db:"id,pk" json:"id"`
 	ConversationID string         `db:"conversation_id" json:"conversationId"`
+	WorkspaceID    string         `db:"workspace_id,ws" json:"-"` // D2 物理隔离；orm 自动填/过滤（落盘时设，loop 内存态不填）
 	MessageID      string         `db:"message_id" json:"messageId"`
 	ParentBlockID  string         `db:"parent_block_id" json:"parentBlockId,omitempty"`
 	Seq            int64          `db:"seq" json:"seq"`
@@ -155,4 +161,110 @@ type ToolCallData struct {
 	Danger         string         `json:"danger"`
 	ExecutionGroup int            `json:"executionGroup"`
 	Arguments      map[string]any `json:"arguments"`
+}
+
+// Message is one conversation turn — a user utterance or an assistant generation — that owns
+// a Block tree. It lands in the `messages` table (message_blocks' sibling). The chat host
+// persists it: CreateMessage opens the turn (and, for a user turn, writes its text Block);
+// FinalizeMessage closes an assistant turn with terminal status + token accounting + blocks.
+// loop never touches the table — it produces Blocks in memory and streams them; persistence
+// is the host's job (the WriteFinalize seam, loop.Host).
+//
+// Message 是一个对话回合——用户发言或 assistant 生成——拥有一棵 Block 树。落 `messages` 表
+// （message_blocks 的姊妹表）。由 chat host 持久化：CreateMessage 开回合（user 回合顺带写其
+// text Block）；FinalizeMessage 以终态 + token 记账 + blocks 收一个 assistant 回合。loop 永不
+// 碰表——它内存产 Block 并推流；落盘是 host 的事（WriteFinalize 缝，loop.Host）。
+type Message struct {
+	ID             string         `db:"id,pk" json:"id"` // msg_<16hex>
+	ConversationID string         `db:"conversation_id" json:"conversationId"`
+	WorkspaceID    string         `db:"workspace_id,ws" json:"-"` // D2 物理隔离；orm 自动填/过滤
+	Role           string         `db:"role" json:"role"`         // RoleUser | RoleAssistant
+	Status         string         `db:"status" json:"status"`     // Status* (assistant 回合开始前为 pending)
+	StopReason     string         `db:"stop_reason" json:"stopReason,omitempty"`
+	ErrorCode      string         `db:"error_code" json:"errorCode,omitempty"`
+	ErrorMessage   string         `db:"error_message" json:"errorMessage,omitempty"`
+	InputTokens    int            `db:"input_tokens" json:"inputTokens"`
+	OutputTokens   int            `db:"output_tokens" json:"outputTokens"`
+	Provider       string         `db:"provider" json:"provider,omitempty"` // 溯源：产此回合的 provider
+	ModelID        string         `db:"model_id" json:"modelId,omitempty"`  // 溯源：产此回合的模型
+	Attrs          map[string]any `db:"attrs,json" json:"attrs,omitempty"`  // attachments / mentions 快照（freeze-on-send）
+	CreatedAt      time.Time      `db:"created_at,created" json:"createdAt"`
+	UpdatedAt      time.Time      `db:"updated_at,updated" json:"updatedAt"`
+
+	// Blocks is the turn's content tree, hydrated by the store on read and supplied by the
+	// caller on write — never a column (db:"-"). On a user turn it's the lone text block; on
+	// an assistant turn it's what loop produced (text / reasoning / tool_call / tool_result).
+	//
+	// Blocks 是回合的内容树，读时由 store hydrate、写时由 caller 提供——非列（db:"-"）。user 回合
+	// 是单个 text block；assistant 回合是 loop 产出（text / reasoning / tool_call / tool_result）。
+	Blocks []Block `db:"-" json:"blocks,omitempty"`
+}
+
+// Roles a Message carries. There is no system/tool message row — the system prompt is built
+// per-turn by chat (not persisted as a turn) and tool results are tool_result Blocks under an
+// assistant turn, not standalone messages.
+//
+// Message 的角色。无 system/tool 消息行——system prompt 由 chat 每回合现拼（不作为回合落盘）、
+// tool 结果是 assistant 回合下的 tool_result Block 而非独立消息。
+const (
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+)
+
+// IsValidRole reports whether r is a known message role (store CHECK / 契约对账).
+//
+// IsValidRole 报告 r 是否已知消息角色（供 store CHECK / 契约对账）。
+func IsValidRole(r string) bool {
+	return r == RoleUser || r == RoleAssistant
+}
+
+// ErrMessageNotFound: GetMessage on an unknown message id.
+//
+// ErrMessageNotFound：对未知 message id 调 GetMessage。
+var ErrMessageNotFound = errorsdomain.New(errorsdomain.KindNotFound, "MESSAGE_NOT_FOUND", "message not found")
+
+// Repository persists conversation turns and their Block trees. Workspace isolation is
+// automatic (orm fills/filters workspace_id from ctx via the ,ws tag), so no method takes a
+// workspace id. Both tables are append-only (no deleted_at, D1: the content journal is never
+// deleted). The two-phase write — CreateMessage (open) then FinalizeMessage (close) — mirrors
+// the loop.Host contract: the host creates the message row before loop.Run to obtain the id
+// for the live stream, then writes the terminal state and blocks once the turn ends.
+//
+// Repository 持久化对话回合及其 Block 树。workspace 隔离自动（orm 据 ctx 经 ,ws tag 填/过滤），
+// 故方法不带 workspace id。两表皆 append-only（无 deleted_at，D1：内容日志永不删）。两段式写
+// ——CreateMessage（开）再 FinalizeMessage（收）——对应 loop.Host 契约：host 在 loop.Run 前建
+// message 行拿 id 供实时流，回合结束后写终态与 blocks。
+type Repository interface {
+	// CreateMessage inserts the turn row + (seq-assigned) blocks in one transaction. blocks may
+	// be nil (an assistant turn opened before loop.Run produces none yet).
+	//
+	// CreateMessage 在一个事务内 insert 回合行 + （分配 seq 的）blocks。blocks 可为 nil
+	// （loop.Run 前开的 assistant 回合尚无 block）。
+	CreateMessage(ctx context.Context, m *Message, blocks []Block) error
+
+	// FinalizeMessage updates an existing turn's terminal fields (status / stopReason / error /
+	// tokens / provider / modelId) and appends its (seq-assigned) blocks, in one transaction.
+	//
+	// FinalizeMessage 在一个事务内更新已存在回合的终态字段（status / stopReason / error /
+	// tokens / provider / modelId）并追加其（分配 seq 的）blocks。
+	FinalizeMessage(ctx context.Context, m *Message, blocks []Block) error
+
+	// GetMessage returns one turn with its Blocks hydrated; ErrMessageNotFound when absent.
+	//
+	// GetMessage 返回一个回合并 hydrate 其 Blocks；缺失时 ErrMessageNotFound。
+	GetMessage(ctx context.Context, id string) (*Message, error)
+
+	// ListMessages returns one keyset page of a conversation's turns, oldest-first, each with
+	// Blocks hydrated (the REST history endpoint, N4 pagination).
+	//
+	// ListMessages 返回一个对话回合的一页 keyset（最旧在前），每条 hydrate Blocks（REST 历史端点，N4 分页）。
+	ListMessages(ctx context.Context, conversationID, cursor string, limit int) (items []*Message, next string, err error)
+
+	// LoadThread returns the whole conversation, oldest-first, every turn with Blocks hydrated
+	// — the source chat's LoadHistory composes LLM history from (not paginated: a single local
+	// user's thread fits in memory).
+	//
+	// LoadThread 返回整个对话（最旧在前），每个回合都 hydrate Blocks——chat 的 LoadHistory 据此
+	// 组装 LLM 历史（不分页：单用户本地一条线程可装进内存）。
+	LoadThread(ctx context.Context, conversationID string) ([]*Message, error)
 }
