@@ -96,12 +96,28 @@
 | ✅ R0059 | `contextmgr` | chat, messages, conversation, model | **上下文压缩 ✅·波次 5 收官**：`app/contextmgr`（生产侧；消费侧 R0055 已接）。触发=末回合真实 InputTokens vs 0.80×(window−maxOutput)（免估算器）；两步管线（demote 旧 tool_result 四档 hot/warm/cold → bytes/4 gate → 增量摘要 archived，整 message 保 tool 对原子）；**水位真相源**（chat LoadHistory 丢 seq≤水位，崩溃安全+幂等）；compaction 锚块。地基：messages UpdateBlocksContextRole + conversation SetSummary + chat unfolded/空跳过。无 REST/error-code/新列。DOC-105 重写（砍 tiktoken/Calibrate/4 码）。9 测绿。M7：Deps 注真 + chat 注入 Compactor |
 | ⏭️ R0027 | ~~`tool/permissionsgate`~~ **随 M1.9 解散** | — | 中央门控取消；危险控制由工具自管（别处） |
 
-### 波次 6 — 顶层智能编排
+### 波次 6 — 顶层智能编排（**⬜ 未建——重写从波次 5 直接跳 M7 装配，整波次延后；R0062 前审计回收**）
 
-| 编号 | 模块 | app→ 依赖 | 旗标 |
+> **审计结论（2026-06-10，R0061 后）**：波次 6 是唯一**整波次跳过**的功能层。两个子系统都**真需要**、且老后端 `backend/` 有可参考实现。M6.2「疑似 askai 旧版大概率删」是**误判**——`ask` 是人工干预会合（与 askai 正交），已纠正。各实体 handler 早已留好 `:iterate` 钩子注释（"依赖 askai 波次 6"）。
+
+| 编号 | 模块 | app→ 依赖 | 范围 / 老后端参考 |
 |---|---|---|---|
-| M6.1 | `askai` | agent, chat, conversation, document, function, handler, workflow | :iterate / :triage（N5） |
-| M6.2 | `ask` + `tool/ask` | — | ⚠️ **强残留嫌疑**：疑似 askai 旧版；判定后大概率删 |
+| M6.1 | `askai`（`:iterate` AI 编辑 / `:triage` AI 诊断） | agent, chat, conversation + 各实体 | `Spawner`（conv+chat → 单发 AI 对话、返 `conversationId` N5）；**`:iterate` × 8 实体**（function/handler/agent/workflow/control/approval/document/trigger handler 均留注释钩子）+ **flowrun `:triage`**（诊断失败 run）；老后端 `app/askai`（askai.go + forge_context.go + triage_context.go）可参考 |
+| M6.2 | `ask` + `tool/ask`（**人工干预会合，非 askai 旧版**） | conversation, loop | `AskUserQuestion` 工具 Go channel **阻塞**（暂停 loop 等用户答）+ `POST /conversations/{id}/answers` 唤醒 + `ask:pending` Notifications SSE + 7 天 zombie 守卫；纯内存会合无表；老后端 `app/ask` + `app/tool/ask` + DOC-102 `ask.md` 可参考 |
+| M6.3 | **danger 阻塞确认流**（消费 ask 通道） | loop, ask, skill, agentstate | `dangerous` 工具 → 暂停 → 经 ask 问用户同意 → 续（loop 现仅 M2.2「纯标记」不阻塞）；+ **skill allowed-tools 预授权消费**（`agentstate.IsToolPreApprovedBySkill` 命中免逐次确认——skill 已写 `activeSkill`，消费侧延后，见 `skill/activate.go:33` 注释） |
+
+#### 散落延后项回收清单（审计汇总，逐个判 do-now / v2 / drop）
+
+| # | 项 | 出处 | 现状 / 备注 |
+|---|---|---|---|
+| D1 | **`trigger_workflow` 执行工具** | order M4.5 / deps-todo | 需 `scheduler.StartRun`；backend-new **未建**（WorkflowTools 仅 7 管理工具）；手动「Run now」入口 |
+| D2 | **SSE 订阅端点**（messages/entities 的 GET subscribe） | R0061 标注 | 3 bus 已构造 + 注入 NotificationHandler；messages/entities 的客户端订阅 GET 端点**待核实是否已接**（R0062 覆盖期核） |
+| D3 | **error-codes `chatdomain.*` 命名 drift 对账** | M7 审计 | chatdomain 不存在；码在 chatapp/messagesdomain；删 stale 行 |
+| D4 | workflow v2：resume-mid-agent(`frs_`) / 通用 durable timer / continue-as-new / overlap `BufferOne`·`BufferAll` | scheduler.md §6 | 明确 v2、不在 v1 范围（CheckTimeouts 是唯一 v1 durable timer） |
+| D5 | 通知自动清理（保留 N 条/N 天） | deps-todo 75 | 当前只增不删；「回头」低优先 |
+| D6 | missed-tick cron 补跑（跨重启补漏） | deps-todo 357 | 「择机」；旧靠 schedule.lastFire 持久化已砍 |
+| D7 | attachment 音频(Whisper)/视频/扫描 OCR(tesseract) extractor | R0053 留插槽 | 可插 Extractor 端口已留；dogfood 再上 |
+| D8 | workflow-lint（更严祖先可见性 lint） | crud.go TODO | 现仅引用存在性校验；增强 lint |
 
 ### 波次 7 — wiring（transport 框架已上移波次 0；handler 随各业务模块）
 
@@ -128,5 +144,5 @@
 重写某模块时若发现"它依赖的下游模块设计有问题、需要等那一轮调整"，**不要当场跨界改**，在该下游模块的 `target/rounds/` 记录或 `contracts/<下游>.md` 顶部"待调整"区登记，留给那一轮处理。已知大项先列在此：
 
 - `scheduler`（M4.3）：topo-walk 整条旧链删除、14→5 dispatcher 收敛——见独立审计（已深挖）。
-- `ask`/`askai`（M6）：双实现合并决策。
+- ~~`ask`/`askai`（M6）：双实现合并决策。~~ **✅ 已判（2026-06-10 审计）**：两者**正交非重复**——`askai`=:iterate/:triage AI 编辑诊断对话，`ask`=人工干预会合（AskUserQuestion 阻塞）。均保留、均需建（见波次 6 表 M6.1/M6.2/M6.3 + 散落回收清单）。
 - ~~`forge`（domain/infra/pkg 三处）~~：✅ 已判定为 SSE 三流之一（E1），保留；domain→M0.4 / infra→M0.5 / pkg 随附。
