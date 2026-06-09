@@ -68,7 +68,9 @@ func TestBuild_GuardsWorkspaceRoutes(t *testing.T) {
 // TestApp_BootShutdownNoPanic 在 degraded 模式（无真 sandbox/mise）跑生命周期，确认 Boot 起 +
 // Shutdown 干净停后台工作。
 func TestApp_BootShutdownNoPanic(t *testing.T) {
-	app, err := Build(Config{})
+	// DataDir → a temp dir: Boot's sandbox.Bootstrap extracts the mise binary under it, so the
+	// test must not pollute the package dir (t.TempDir auto-cleans).
+	app, err := Build(Config{DataDir: t.TempDir()})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
