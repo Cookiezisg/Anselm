@@ -211,6 +211,26 @@ func (s *Store) SumTokens(ctx context.Context, conversationID string) (int, int,
 	return in, out, nil
 }
 
+// UpdateBlocksContextRole batch-updates context_role for the given block ids (one statement via
+// WhereIn). Mirrors FinalizeMessage's partial Updates (auto workspace filter in the WHERE); the
+// stored content is never touched — only the projection role.
+//
+// UpdateBlocksContextRole 按给定 block id 批量更新 context_role（WhereIn 一条语句）。镜像
+// FinalizeMessage 的部分 Updates（WHERE 带自动 workspace 过滤）；落库 content 永不动——只改投影角色。
+func (s *Store) UpdateBlocksContextRole(ctx context.Context, blockIDs []string, role string) error {
+	if len(blockIDs) == 0 {
+		return nil
+	}
+	ids := make([]any, len(blockIDs))
+	for i, id := range blockIDs {
+		ids[i] = id
+	}
+	if _, err := s.blocks.WhereIn("id", ids...).Updates(ctx, map[string]any{"context_role": role}); err != nil {
+		return fmt.Errorf("messagesstore.UpdateBlocksContextRole: %w", err)
+	}
+	return nil
+}
+
 // hydrate loads every block of the given messages in one query and attaches each message's
 // blocks (seq-ordered) to its Blocks field. A message with no blocks gets a nil slice.
 //

@@ -56,10 +56,57 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 			if m.ID == h.assistantMsgID {
 				continue // the turn being generated right now — no blocks to replay yet
 			}
-			out = append(out, loopapp.BlocksToAssistantLLM(m.Blocks)...)
+			msgs := loopapp.BlocksToAssistantLLM(h.unfolded(m.Blocks))
+			if isEmptyAssistant(msgs) {
+				// Every block was archived/compaction (a fully-compacted turn or the compaction
+				// anchor message): its content now lives in the summary. Skip it rather than emit
+				// an empty assistant message (which some providers reject).
+				//
+				// 全部 block 被 archived/compaction（整回合已压缩，或 compaction 锚 message）：内容已在
+				// summary。跳过、不发空 assistant（部分 provider 拒收）。
+				continue
+			}
+			out = append(out, msgs...)
 		}
 	}
 	return out, nil
+}
+
+// unfolded drops the blocks already folded into the conversation summary (seq ≤ watermark) — the
+// watermark is the source of truth for "covered by summary", so a crash between writing the
+// summary and flipping the archived flag can never double-count. No watermark (0) → unchanged
+// (no allocation, the common path).
+//
+// unfolded 丢弃已并入对话摘要的 block（seq ≤ 水位线）——水位线是「已被摘要覆盖」的真相源，故写完
+// 摘要、翻 archived 标记之间崩溃也绝不重复计数。无水位线（0）→ 原样返回（不分配，常路径）。
+func (h *chatHost) unfolded(blocks []messagesdomain.Block) []messagesdomain.Block {
+	if h.summaryCoversUpToSeq <= 0 {
+		return blocks
+	}
+	out := make([]messagesdomain.Block, 0, len(blocks))
+	for _, b := range blocks {
+		if b.Seq <= h.summaryCoversUpToSeq {
+			continue
+		}
+		out = append(out, b)
+	}
+	return out
+}
+
+// isEmptyAssistant reports whether a projected turn carries nothing for the LLM — a single
+// assistant message with no text, reasoning, or tool calls, and no tool-result messages. That
+// happens when every block dropped (archived / compaction). A tool-only turn (ToolCalls > 0) or
+// any tool-result message is NOT empty.
+//
+// isEmptyAssistant 报告投影后的回合对 LLM 是否一无所有——单条 assistant 消息、无文本/推理/工具调用，
+// 且无 tool-result 消息。当每个 block 都被丢弃（archived / compaction）时发生。纯工具回合
+// （ToolCalls > 0）或任何 tool-result 消息都**不**算空。
+func isEmptyAssistant(msgs []llminfra.LLMMessage) bool {
+	if len(msgs) != 1 {
+		return false
+	}
+	m := msgs[0]
+	return m.Role == llminfra.RoleAssistant && m.Content == "" && m.ReasoningContent == "" && len(m.ToolCalls) == 0
 }
 
 // userMessage renders one persisted user turn to an LLM message: plain text when there are no

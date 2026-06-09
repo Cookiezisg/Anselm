@@ -73,6 +73,9 @@ ContextRole archived「内容并入 conversation.summary」）前向引用，故
 标题可手动改（PATCH title）；**自动命名属 chat 运行时**——chat 在首轮 assistant 回复后识别 `autoTitled==false`、
 调 utility 模型生成标题、写回 DB 并经 notifications SSE 通知前端。本域只声明 `auto_titled` 列。
 
+### 2.4 压缩摘要 + 水位（contextmgr M5.3，非本域）
+`Summary`（滚动压缩摘要）+ `SummaryCoversUpToSeq`（水位线：摘要已并入的最大 block seq）二列由 **contextmgr 运行时**写，本域只提供写入路径 `Service.SetSummary(id, summary, coversUpToSeq)`（Get→写二列→Update→emit `conversation.compacted {coversUpToSeq, summaryBytes}`；PATCH 不暴露）。**水位是「已并入摘要」的真相源**：chat `LoadHistory` 丢弃 `seq ≤ 水位` 的块（崩溃安全 + 幂等重摘）。压缩原理详见 `compaction.md`。
+
 ---
 
 ## 3. 生命周期 (Lifecycle)

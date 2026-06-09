@@ -178,6 +178,28 @@ func (s *Service) SetAutoTitle(ctx context.Context, id, title string) error {
 	return nil
 }
 
+// SetSummary writes the compaction summary + its watermark (contextmgr M5.3). A PATCH-invisible
+// path (only the compactor writes it). The watermark `coversUpToSeq` is the max block seq the
+// summary now folds in, so the next compaction summarizes only `(coversUpToSeq, …]` — the
+// idempotent re-summarization guard. Emits conversation.compacted.
+//
+// SetSummary 写压缩摘要 + 其水位线（contextmgr M5.3）。PATCH 不暴露的路径（只压缩器写）。水位
+// `coversUpToSeq` 是摘要现已并入的最大 block seq，故下次压缩只摘要 `(coversUpToSeq, …]`——幂等
+// 重摘守卫。发 conversation.compacted。
+func (s *Service) SetSummary(ctx context.Context, id, summary string, coversUpToSeq int64) error {
+	c, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	c.Summary = summary
+	c.SummaryCoversUpToSeq = coversUpToSeq
+	if err := s.repo.Update(ctx, c); err != nil {
+		return err
+	}
+	s.emit(ctx, c.ID, "compacted", map[string]any{"coversUpToSeq": coversUpToSeq, "summaryBytes": len(summary)})
+	return nil
+}
+
 func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return err

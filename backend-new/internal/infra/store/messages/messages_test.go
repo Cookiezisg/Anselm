@@ -297,3 +297,44 @@ func idsOf(rows []*messagesdomain.Message) []string {
 	}
 	return out
 }
+
+func TestUpdateBlocksContextRole(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+
+	m := &messagesdomain.Message{ID: "msg_1", ConversationID: "cv_1", Role: messagesdomain.RoleAssistant, Status: messagesdomain.StatusCompleted}
+	blocks := []messagesdomain.Block{
+		{Type: messagesdomain.BlockTypeToolResult, Content: "big output"},
+		{Type: messagesdomain.BlockTypeText, Content: "answer"},
+	}
+	if err := s.CreateMessage(ctx, m, blocks); err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+	if blocks[0].ContextRole != messagesdomain.ContextRoleHot {
+		t.Fatalf("default role should be hot, got %q", blocks[0].ContextRole)
+	}
+
+	// Demote the tool_result block to cold; the text block stays hot.
+	if err := s.UpdateBlocksContextRole(ctx, []string{blocks[0].ID}, messagesdomain.ContextRoleCold); err != nil {
+		t.Fatalf("UpdateBlocksContextRole: %v", err)
+	}
+	// Empty ids is a no-op (not an error).
+	if err := s.UpdateBlocksContextRole(ctx, nil, messagesdomain.ContextRoleArchived); err != nil {
+		t.Fatalf("empty ids should be a no-op: %v", err)
+	}
+
+	got, err := s.GetMessage(ctx, "msg_1")
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	roles := map[string]string{}
+	for _, b := range got.Blocks {
+		roles[b.Type] = b.ContextRole
+	}
+	if roles[messagesdomain.BlockTypeToolResult] != messagesdomain.ContextRoleCold {
+		t.Fatalf("tool_result should be cold, got %q", roles[messagesdomain.BlockTypeToolResult])
+	}
+	if roles[messagesdomain.BlockTypeText] != messagesdomain.ContextRoleHot {
+		t.Fatalf("text should stay hot, got %q", roles[messagesdomain.BlockTypeText])
+	}
+}

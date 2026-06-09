@@ -106,8 +106,9 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 			Provider:       bundle.Provider,        // provenance: which provider produced this turn
 			ModelID:        bundle.Request.ModelID, // provenance: which model
 		},
-		caps:    bundle.Caps,
-		summary: conv.Summary,
+		caps:                 bundle.Caps,
+		summary:              conv.Summary,
+		summaryCoversUpToSeq: conv.SummaryCoversUpToSeq,
 	}
 
 	req := bundle.Request
@@ -126,6 +127,21 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	// 无标题对话首回合后，后台自动起标题（best-effort，detached）。conv 是回合前快照，其空标题正是
 	// 「首回合」信号。
 	s.maybeAutoTitle(conv, t.workspaceID)
+
+	// Compact older history if this turn pushed the context near the model's window. Synchronous
+	// here (inside the per-conversation queue slot, so the next turn's LoadHistory can't race the
+	// summary/role writes), on a detached context so a cancelled turn still compacts. Best-effort:
+	// a failure is non-fatal — the next turn just re-checks.
+	//
+	// 若本回合把上下文逼近模型 window 则压缩旧历史。此处同步（在 per-conversation queue 槽内，故下回合
+	// LoadHistory 不与 summary/角色写竞态），detached context 使被取消的回合仍压缩。best-effort：失败
+	// 非致命——下回合再查。
+	if s.deps.Compactor != nil {
+		cctx := reqctxpkg.SetWorkspaceID(context.Background(), t.workspaceID)
+		if err := s.deps.Compactor.MaybeCompact(cctx, conversationID); err != nil {
+			s.log.Warn("chatapp: compaction failed (non-fatal)", zap.Error(err))
+		}
+	}
 }
 
 // failTurn marks an assistant turn terminal-error before the loop ever runs (model resolve or

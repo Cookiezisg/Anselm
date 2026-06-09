@@ -285,4 +285,12 @@ type Repository interface {
 	// SumTokens 返回一个对话所有回合的 input + output token 总和——usage 端点的来源。空 / 未知
 	// 对话返 0。
 	SumTokens(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error)
+
+	// UpdateBlocksContextRole batch-sets the ContextRole of the given blocks (the compactor's
+	// only write into message_blocks: a projection change, never a content rewrite). Empty ids is
+	// a no-op. role must be a valid ContextRole (CHECK enforces it).
+	//
+	// UpdateBlocksContextRole 批量设置给定 block 的 ContextRole（压缩器对 message_blocks 的唯一写：
+	// 投影变更、绝不改写 content）。空 ids 为 no-op。role 须是合法 ContextRole（CHECK 兜底）。
+	UpdateBlocksContextRole(ctx context.Context, blockIDs []string, role string) error
 }

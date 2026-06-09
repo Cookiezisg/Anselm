@@ -183,6 +183,17 @@ type Deps struct {
 	Bridge        streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
 	Titler        ConversationTitler         // auto-title writer (R0057); nil → no auto-titling
 	Notifier      notificationdomain.Emitter // auto-title notification (R0057); nil → no notify
+	Compactor     Compactor                  // context compaction (R0059); nil → no compaction
+}
+
+// Compactor compacts a conversation when it nears the model's context window (contextmgr M5.3).
+// chat calls it at the tail of a turn, on a detached context inside the per-conversation queue
+// slot (so it can't race the next turn's history load). nil → compaction is off.
+//
+// Compactor 在对话逼近模型 context window 时压缩它（contextmgr M5.3）。chat 在回合尾、per-conversation
+// queue 槽内的 detached context 上调用（故与下回合历史加载无竞态）。nil → 关闭压缩。
+type Compactor interface {
+	MaybeCompact(ctx context.Context, conversationID string) error
 }
 
 // Service is the chat engine. messages is the persistence (R0054); the rest arrive via Deps.

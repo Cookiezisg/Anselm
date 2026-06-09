@@ -31,6 +31,13 @@ type chatHost struct {
 	assistantMsg   *messagesdomain.Message // mutated + persisted by WriteFinalize
 	caps           ContentCapabilities     // the resolved model's content capabilities (attachment gating)
 	summary        string                  // conversation.Summary — compacted older history, prepended
+	// summaryCoversUpToSeq is the compaction watermark: blocks with seq ≤ it are folded into
+	// summary and dropped from LLM history. The source of truth (crash-safe: contextmgr writes
+	// the summary+watermark before the archived flag, so a crash can't double-count).
+	//
+	// summaryCoversUpToSeq 是压缩水位线：seq ≤ 它的 block 已并入 summary、从 LLM 历史丢弃。真相源
+	// （崩溃安全：contextmgr 先写 summary+水位再写 archived 标记，崩溃不会重复计数）。
+	summaryCoversUpToSeq int64
 }
 
 // Interface assertions: a compile error fires if chatHost drifts from the loop hook surface.

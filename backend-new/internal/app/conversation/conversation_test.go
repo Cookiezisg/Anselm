@@ -188,3 +188,23 @@ func TestNamesByIDs_LabelFallback(t *testing.T) {
 		t.Errorf("untitled label = %q", names[untitled.ID])
 	}
 }
+
+func TestSetSummary_PersistsAndEmits(t *testing.T) {
+	svc, em, _, ctx := newSvc(t)
+	c, _ := svc.Create(ctx, "Thread")
+
+	if err := svc.SetSummary(ctx, c.ID, "the running summary", 42); err != nil {
+		t.Fatalf("SetSummary: %v", err)
+	}
+
+	got, err := svc.Get(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Summary != "the running summary" || got.SummaryCoversUpToSeq != 42 {
+		t.Fatalf("summary/watermark not persisted: %q / %d", got.Summary, got.SummaryCoversUpToSeq)
+	}
+	if em.last() != "conversation.compacted" {
+		t.Fatalf("expected conversation.compacted emit, got %q", em.last())
+	}
+}

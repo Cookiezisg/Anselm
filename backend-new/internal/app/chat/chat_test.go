@@ -521,6 +521,22 @@ func TestLoadHistory_ExcludesSubagent(t *testing.T) {
 	}
 }
 
+func TestUnfolded_DropsByWatermark(t *testing.T) {
+	blocks := []messagesdomain.Block{{ID: "a", Seq: 3}, {ID: "b", Seq: 5}, {ID: "c", Seq: 7}}
+
+	// With a watermark of 5, blocks at seq ≤ 5 are folded into the summary and dropped.
+	h := &chatHost{summaryCoversUpToSeq: 5}
+	got := h.unfolded(blocks)
+	if len(got) != 1 || got[0].ID != "c" {
+		t.Fatalf("watermark 5 should keep only seq>5 (c), got %+v", got)
+	}
+
+	// No watermark (0) → everything kept (the common, pre-compaction path).
+	if len((&chatHost{}).unfolded(blocks)) != 3 {
+		t.Fatal("no watermark must keep all blocks")
+	}
+}
+
 func TestSystemPromptPreview(t *testing.T) {
 	svc, _ := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
 	prompt, err := svc.SystemPromptPreview(ctxWS("ws_1"), "cv_1")
