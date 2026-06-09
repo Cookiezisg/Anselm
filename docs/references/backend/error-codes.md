@@ -63,7 +63,8 @@ audience: [human, ai]
 ### 2.4 Chat & Conversation Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
-| `convdomain.ErrNotFound` | `CONVERSATION_NOT_FOUND` | 404 | 对话不存在 |
+| `convdomain.ErrNotFound` | `CONVERSATION_NOT_FOUND` | 404 | 对话不存在 / 已软删 / 跨 workspace |
+| `convdomain.ErrInvalidModelOverride` | `CONVERSATION_INVALID_MODEL_OVERRIDE` | 422 | 已设 modelOverride 缺 apiKeyId 或 modelId（结构校验，照 agent） |
 | `chatdomain.ErrMessageNotFound` | `MESSAGE_NOT_FOUND` | 404 | 消息 ID 错误 |
 | `chatdomain.ErrBlockNotFound` | `INTERNAL_ERROR` | 500 | [未映射] 内容块丢失 |
 | `chatdomain.ErrStreamNotFound` | `STREAM_NOT_FOUND` | 404 | 找不到正在生成的流 |

@@ -89,7 +89,7 @@
 
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
-| M5.1 | `conversation` | — | |
+| ✅ R0050 | `conversation` | — | 持久化容器 + 线程级配置（CRUD 叶子，无 LLM/loop/消息）；去 GORM → pkg/orm 软删；modelOverride 仅结构校验照 agent、对 apikey 零依赖；置顶优先列表；relation 第 8 节点；`tokensUsed`/`system-prompt-preview` 延后 M5.2 |
 | M5.2 | `chat` | document, loop, tool | runner 庞大，重点审；hooks/permissionsgate 已解散（M1.9 R0027），危险控制下放工具 |
 | M5.2+ | `subagent` + `tool/subagent` | chat, loop, tool | **波次 3 后移**：subagent ≈ 递归的 chat（无表、写父对话 message + parentBlock 锚点、承袭父 model）→ 落盘/model 是 chat host 子集，与 chat 同轮共享实现；3 内置类型 Explore/Plan/general-purpose；防递归用 `SubagentID` 存在性（种子已埋）；agentstate 子 run 独立新建；旧契约 DOC-123 整篇重写 |
 | M5.3 | `contextmgr` | — | compaction |

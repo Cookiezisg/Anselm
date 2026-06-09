@@ -18,12 +18,12 @@ audience: [human, ai]
 
 | Method | Path | 文件源 | 备注 |
 |---|---|---|---|
-| POST | `/api/v1/conversations` | `conversation.go` | |
-| GET | `/api/v1/conversations` | `conversation.go` | |
-| GET | `/api/v1/conversations/{id}` | `conversation.go` | |
-| PATCH | `/api/v1/conversations/{id}` | `conversation.go` | |
-| DELETE | `/api/v1/conversations/{id}` | `conversation.go` | |
-| GET | `/api/v1/conversations/{id}/system-prompt-preview` | `conversation.go` | |
+| POST | `/api/v1/conversations` | `conversation.go` | M5.1 ✅ 建线程容器 |
+| GET | `/api/v1/conversations` | `conversation.go` | M5.1 ✅ `?cursor&limit&search&archived`；置顶优先 |
+| GET | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅（`tokensUsed` 富化延后 M5.2） |
+| PATCH | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ title/systemPrompt/attachedDocuments/archived/pinned/modelOverride（三态） |
+| DELETE | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ 软删 + 清 relation 边 |
+| GET | `/api/v1/conversations/{id}/system-prompt-preview` | `conversation.go` | M5.2 chat 加入（prompt 拼装属 chat 数据） |
 | POST | `/api/v1/conversations/{id}/messages` | `chat.go` | |
 | GET | `/api/v1/conversations/{id}/messages` | `chat.go` | |
 | DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | |

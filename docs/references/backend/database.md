@@ -100,17 +100,27 @@ type APIKey struct {
 
 ### 2.2 Chat & Messaging
 ```go
+// conversations (cv_) — 线程容器 + 配置（M5.1 ✅ as-built，pkg/orm；详见 domains/conversation.md DOC-106）。
+// 业务表软删（deleted_at，D1）。summary/summaryCoversUpToSeq 由 contextmgr(M5.3) 写、auto_titled 由 chat(M5.2) 写。
 type Conversation struct {
-    ID                   string         `gorm:"primaryKey;type:text" json:"id"`
-    UserID               string         `gorm:"not null;index" json:"-"`
-    Title                string         `gorm:"not null;default:''" json:"title"`
-    SystemPrompt         string         `gorm:"type:text" json:"systemPrompt"`
-    Summary              string         `gorm:"type:text" json:"summary"`
-    SummaryCoversUpToSeq int64          `gorm:"not null;default:0" json:"summaryCoversUpToSeq"`
-    Archived             bool           `gorm:"not null;default:false;index" json:"archived"`
-    Pinned               bool           `gorm:"not null;default:false" json:"pinned"`
-    AttachedDocuments    []AttachedDoc  `gorm:"serializer:json" json:"attachedDocuments"`
+    ID                   string                            `db:"id,pk"`                    // cv_<16hex>
+    WorkspaceID          string                            `db:"workspace_id,ws"`
+    Title                string                            `db:"title"`
+    AutoTitled           bool                              `db:"auto_titled"`
+    SystemPrompt         string                            `db:"system_prompt"`
+    Summary              string                            `db:"summary"`
+    SummaryCoversUpToSeq int64                             `db:"summary_covers_up_to_seq"`
+    AttachedDocuments    []documentdomain.AttachedDocument `db:"attached_documents,json"`
+    Archived             bool                              `db:"archived"`
+    Pinned               bool                              `db:"pinned"`
+    ModelOverride        *modeldomain.ModelRef             `db:"model_override,json"`      // nil=用默认；结构校验 only
+    CreatedAt            time.Time                         `db:"created_at,created"`
+    UpdatedAt            time.Time                         `db:"updated_at,updated"`
+    DeletedAt            *time.Time                        `db:"deleted_at,deleted"`
 }
+// idx_conversations_ws_list = (workspace_id, pinned DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL
+//
+// 以下 Message / Block 是 chat 域的 message_blocks（M5.2 未建，下为 as-designed）。
 type Message struct {
     ID             string         `gorm:"primaryKey;type:text" json:"id"`
     ConversationID string         `gorm:"not null;index" json:"conversationId"`
