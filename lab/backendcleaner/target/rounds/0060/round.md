@@ -19,8 +19,8 @@
 4. `llm.Request{ModelID, Key, BaseURL:baseURL, Options:ref.Options}`（Options map[string]string 直传；MaxTokens=0 让 provider 自填）。
 
 **caps + window**：
-- `llminfra.ModelInfo{ID, DisplayName, ContextWindow, MaxOutput, Knobs}`——**无 Vision/NativeDocs**（caps 的 model-domain 工作此前 deferred）→ chat Caps 适配器先填 `{Vision:false, NativeDocs:false}`（已知延后，attachment 渲染保守降级，原生 PDF/图先不开）。
-- window 经 `model.CapabilityService`（aggregates `llm.DescribeModels(provider, apikey.TestResponse)→[]ModelInfo`）。`WindowResolver.ContextBudget(provider,modelID)`：查得 → (ContextWindow, MaxOutput)；查不到 → (0,0)（contextmgr 设计就跳过压缩）。
+- **【as-built 修订】**原计划：ModelInfo 无 Vision/NativeDocs（deferred），chat Caps 先填 false。**实际**：审计发现这让 attachment 多模态（R0051-53）哑掉 → 用户拍板「最干净彻底」，**轮中插入 model-caps**：`modelSpec`/`ModelInfo`/`CapabilityView` += `Vision`/`NativeDocs`（caps 进 provider 自描述 spec 表，与 ctx/out 同源；7 表 + gemini 逐项**查官网**填——anthropic/gemini=vision+docs、openai/kimi-k2.x=vision、deepseek/qwen/zhipu/doubao 列出文本旗舰=否）。
+- **合并冗余**：原计划 windowResolver + capsResolver 两适配器各查目录 → 合成**一个 `ModelInfoLookup`**（`CapabilityService.List` 找 (provider,modelID)）：contextmgr 取 (ContextWindow, MaxOutput)、chat `Bundle.Caps` 取 (Vision, NativeDocs)；未知 → 零（contextmgr 跳过压缩 / chat 保守降级）。见 commit d41c3bb1 + contract #42。
 
 ## 11 适配器清单（R0060 全量）
 

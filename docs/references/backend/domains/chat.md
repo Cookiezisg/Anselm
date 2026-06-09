@@ -14,7 +14,7 @@ audience: [human, ai]
 >
 > **职责边界**：对话线程**容器 + 配置**（CRUD）是 `conversation` 域（DOC-106）；回合**内容模型**（Message / Block / 词表 / 落盘）是 `messages` 域（DOC-301）。本文是**引擎**——怎么把一条用户消息跑成一个 assistant 回合。
 >
-> **交付分轮（chat 模块收官 🎉）**：**R0055 = 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 可用面 + mention**（HTTP handler〔Send 202 / List / Cancel 204〕 + `Service.Cancel` + mention 整套〔注册表 + `<mentions>` 渲染 + freeze-on-send + 补 workflow/agent resolver〕）。**R0057 = 收尾**（auto-title〔首回合 detached utility Generate + SetAutoTitle + 通知〕 + `GET /usage`〔tokensUsed〕 + `GET /system-prompt-preview`）。**砍**：export / llm-trace（投机占位、YAGNI）。**待 model 域补**：attachment caps 的 model 目录 vision/nativeDocs flag。
+> **交付分轮（chat 模块收官 🎉）**：**R0055 = 引擎核心**（chatHost + convQueue + Send + System Prompt + SSE message 节点 + model resolve）。**R0056 = 可用面 + mention**（HTTP handler〔Send 202 / List / Cancel 204〕 + `Service.Cancel` + mention 整套〔注册表 + `<mentions>` 渲染 + freeze-on-send + 补 workflow/agent resolver〕）。**R0057 = 收尾**（auto-title〔首回合 detached utility Generate + SetAutoTitle + 通知〕 + `GET /usage`〔tokensUsed〕 + `GET /system-prompt-preview`）。**砍**：export / llm-trace（投机占位、YAGNI）。attachment caps 的 model 目录 vision/nativeDocs flag **R0060 已补**（caps 进 provider spec 表 + ModelInfo，bootstrap ModelInfoLookup 喂 chat Caps）。
 
 ---
 
@@ -110,7 +110,7 @@ loop 只发 **block 级** node（open/delta/close 挂 msgID 下）；chat 发 **
 
 ## 7. model resolve
 
-`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染（真实 flag 来自 model 目录，**待 model 域补 DescribeModels 字段**；现 M7 adapter 给保守默认）。
+`processTask` 经 `ModelResolver.ResolveChat(conv.ModelOverride)` 拿 `Bundle{Client, Request, Caps, Provider}`：M7 适配器做 `model.Resolve(ScenarioDialogue, override, workspace picker) → apikey.ResolveCredentialsByID → factory.Build`（对标 `agent` runLoop）。override nil → workspace dialogue 默认模型。`Provider`/`ModelID` 在 loop.Run 前设在 assistant message 上（溯源）。`Caps`（vision/nativeDocs）喂 §4.1 附件渲染——**R0060 已接**：bootstrap `ModelInfoLookup` 由 `CapabilityService` 查 (provider,modelID) 的 spec-表 caps 填 `Bundle.Caps`（未知模型保守 false → 文本抽取降级）。
 
 ---
 

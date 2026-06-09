@@ -88,7 +88,7 @@ type Attachment struct {
 - `document` → **caps.NativeDocs ?** `file` part（MediaType + base64 + 文件名，原生三家原样读）**:** sandbox 抽取文本内联（§5，token 截断；无 extractor / 抽取失败 → 占位）。
 - `audio`/`video`/`other` → 文字占位（那些 extractor 是未来插件，§5）。
 - 缺失 / blob 不可读的 id 告警跳过（陈旧 id 不让回合失败）；parts 按 `att_ids` 保序（`GetBatch` 的 `WHERE id IN` 不保序，按 id 建索引重排）。
-- model 目录的 `vision` / `nativeDocs` flag 由 M5.2 接线时补（R0052/R0053 桥已留 `Capabilities` 形参，不碰目录）。
+- model 目录的 `vision` / `nativeDocs` flag **R0060 已补**：caps 进各 provider 静态 spec 表（provider 自描述，与 ctx/out 同源）+ `ModelInfo`/`CapabilityView`；bootstrap `ModelInfoLookup` 查 (provider,modelID) 喂 chat `Bundle.Caps`。R0052/R0053 桥早留的 `Capabilities` 形参零改即生效。
 
 ## 5. 提取流水线（R0053，as-built ✅）—— sandbox 当本地引擎
 **何时抽**：`ToContentParts` 中 `document` kind 且 `caps.NativeDocs=false`（模型无原生文档输入）→ 抽文本内联；原生三家（anthropic/openai/gemini）走 file part、不抽。无独立缓存——抽出的 text part 由 chat M5.2 落进 message_blocks，天然「抽一次」。
@@ -114,7 +114,7 @@ type Attachment struct {
 ## 7. 跨域集成 (Interactions)
 - **chat（M5.2）**：消息引用 `att_ids` → `ToContentParts(att_ids, visionCapable)` → 拼用户文本 part → 进 loop/provider；`visionCapable` 由 chat 按解析后模型能力传入。
 - **sandbox（R0053 ✅）**：文档抽取引擎——`SandboxExtractor` 经 `SandboxRunner` 端口（EnsureEnv+Spawn）跑 python 脚本；attachment 是 sandbox 新增 env owner kind（固定共享 owner）。
-- **model（M5.2 接线）**：`Capabilities{Vision, NativeDocs}` flag（R0052/R0053 桥已留形参，目录 flag 待 M5.2 补）。
+- **model（接线 R0060 ✅）**：`Capabilities{Vision, NativeDocs}` flag 已接——caps 进各 provider spec 表（provider 自描述）+ `ModelInfo`/`CapabilityView`；bootstrap `ModelInfoLookup` 查 (provider,modelID) 喂 chat `Bundle.Caps`。R0052/R0053 桥的形参零改生效。
 - **无 RAG**：大文档抽文本 + token 限额 + 直接注入（对齐 document 域无向量检索）。
 - **GC**：boot 或 ticker 定期 `:gc`（M7 接线）。
 
