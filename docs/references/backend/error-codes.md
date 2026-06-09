@@ -10,7 +10,7 @@ audience: [human, ai]
 ---
 # Error Codes — 100% 物理对账契约
 
-> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 Domain Sentinel 错误生成（已建模块约 180+ 个；workflow 静态图实体本轮 +8 个 `WORKFLOW_*`）。严禁任何摘要或省略。标注「前瞻·未建」的执行面（flowrun/scheduler）错误码尚未落物理代码，不计入扫描总数。
+> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 Domain Sentinel 错误生成（已建模块约 180+ 个；workflow 静态图实体 +8 个 `WORKFLOW_*`；flowrun + scheduler 执行引擎 +5 个 `FLOWRUN_*`）。严禁任何摘要或省略。
 
 ---
 
@@ -164,24 +164,17 @@ audience: [human, ai]
 | `workflowdomain.ErrRefNotFound` | `WORKFLOW_REF_NOT_FOUND` | 422 | node Ref 解析不到，或 kind/port/method 不符 |
 | `workflowdomain.ErrInvalidLifecycle` | `WORKFLOW_INVALID_LIFECYCLE` | 422 | 非法 lifecycle 值或转换 |
 
-> **执行面错误码（`FLOWRUN_*` / `WORKFLOW_DISABLED` / `WORKFLOW_NEEDS_ATTENTION` / `APPROVAL_REQUIRED` 等）尚未建**——`flowrundomain` / `schedulerapp` 包不存在；下列为 durable scheduler 波次的前瞻设计，未落地（届时随该波次入册）。
+> **执行面错误码 `FLOWRUN_*`（M4.2/M4.3 落地）**——由 `flowrundomain` 定义、`schedulerapp` 消费。取代旧「前瞻·未建」的事件溯源 / 取消 / 暂停 / generation / subDAG 模型虚构码（全删）。
 
-| Go Sentinel（前瞻·未建） | Wire Code | HTTP | 场景 |
+| Go Sentinel | Wire Code | HTTP | 场景 |
 |---|---|---|---|
-| `flowrundomain.ErrNotFound` | `FLOWRUN_NOT_FOUND` | 404 | |
-| `flowrundomain.ErrNotCancellable` | `FLOWRUN_NOT_CANCELLABLE` | 422 | 已经结束了 |
-| `flowrundomain.ErrNotPaused` | `FLOWRUN_NOT_PAUSED` | 422 | 尝试 Resume 未暂停的任务 |
-| `flowrundomain.ErrApprovalNodeNotFound` | `FLOWRUN_APPROVAL_NODE_NOT_FOUND`| 404 | 节点 ID 匹配错 |
-| `flowrundomain.ErrApprovalDecisionInvalid` | `FLOWRUN_APPROVAL_DECISION_INVALID`| 400 | decision 只能是 yes/no |
-| `flowrundomain.ErrNodeNotFound` | `FLOWRUN_NODE_NOT_FOUND` | 404 | 原子节点历史查不到 |
-| `schedulerapp.ErrWorkflowDisabled` | `WORKFLOW_DISABLED` | 422 | 尝试触发禁用流 |
-| `schedulerapp.ErrWorkflowNeedsAttention` | `WORKFLOW_NEEDS_ATTENTION` | 422 | 自动下线的流 |
-| `schedulerapp.ErrConcurrencyLimit` | `FLOWRUN_CONCURRENCY_LIMIT` | 409 | Serial 已满 |
-| `schedulerapp.ErrNotReplayable` | `FLOWRUN_NOT_REPLAYABLE` | 422 | 只有 Failed 且 Generation < Max 可重跑 |
-| `schedulerapp.ErrApprovalRequired` | `APPROVAL_REQUIRED` | 202 | 正常暂停，需前端切审批页 |
-| `schedulerapp.ErrLoopBodyNotSupported` | `LOOP_BODY_NOT_SUPPORTED` | 422 | 仅限 V1.5+ |
-| `schedulerapp.ErrParallelBranchNotSupported`| `PARALLEL_BRANCH_NOT_SUPPORTED`| 422 | |
-| `schedulerapp.ErrSubDAGContainsApproval` | `SUBDAG_CONTAINS_APPROVAL` | 422 | 嵌套图禁止再等审批 |
+| `flowrundomain.ErrNotFound` | `FLOWRUN_NOT_FOUND` | 404 | flowrun id 未命中（按 workspace 隔离）|
+| `flowrundomain.ErrNotReplayable` | `FLOWRUN_NOT_REPLAYABLE` | 422 | 对非 failed 状态的 run 调 `:replay`（没坏东西可修）|
+| `flowrundomain.ErrNodeNotParked` | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | 决策指向不在等信号的节点（已决 / 已超时 / 从未 park）——approval first-wins 的输家 |
+| `flowrundomain.ErrInvalidEntry` | `FLOWRUN_INVALID_ENTRY` | 422 | 手动 `:trigger` 的 entry 节点缺失 / 非 trigger，或多 trigger 图未指定 entryNode（歧义）|
+| `flowrundomain.ErrInvalidDecision` | `FLOWRUN_INVALID_DECISION` | 422 | 审批决策既非 `"yes"` 也非 `"no"` |
+
+> firing claim 竞争失败复用 `triggerdomain.ErrFiringNotPending`（`TRIGGER_FIRING_NOT_PENDING` 409，见 §2.5）。**删**旧虚构码 `FLOWRUN_NOT_CANCELLABLE` / `FLOWRUN_NOT_PAUSED` / `FLOWRUN_APPROVAL_NODE_NOT_FOUND` / `FLOWRUN_APPROVAL_DECISION_INVALID` / `FLOWRUN_NODE_NOT_FOUND` / `WORKFLOW_DISABLED` / `WORKFLOW_NEEDS_ATTENTION` / `FLOWRUN_CONCURRENCY_LIMIT` / `APPROVAL_REQUIRED` / `LOOP_BODY_NOT_SUPPORTED` / `PARALLEL_BRANCH_NOT_SUPPORTED` / `SUBDAG_CONTAINS_APPROVAL`（旧 generation/pause/subDAG 残留；overlap 不报错——serial 推迟 / Skip 丢 / AllowAll 并发；审批 park 是运行时状态非错误码）。
 
 ### 2.8 Sandbox & Infrastructure Domain
 | Go Sentinel | Wire Code | HTTP | 场景 |

@@ -80,8 +80,8 @@
 | 编号 | 模块 | app→ 依赖 | 旗标 |
 |---|---|---|---|
 | M4.1 | `workflow` | document, function, handler, mcp, skill | 5-node DAG 规格 + CEL；**13→5 节点收敛在此定型** |
-| M4.2 | `flowrun`（domain+store: flowrun/flowrunevent/approval） | — | Journal 真相模型 |
-| M4.3 | **`scheduler`** | agent, function, handler, loop, mcp, skill, tool, workflow | 🔴 **最大重灾区**：删 topo-walk 旧链（state/pause/subdag/retry 旧半）；14 dispatcher 收 5；`LoopDispatcher` 删→结构化 loop 取代；只保留 durable interpreter |
+| ✅ R0048 | `flowrun`（domain+store: `flowruns`/`flowrun_nodes`，**2 表记忆化**） | — | **节点结果记忆化真相模型**（非 journal）：frn_ 行表 + `idx_frn_once` record-once + first-wins；删 fre_/apv_/frs_、generation；5 错误码 FLOWRUN_* |
+| ✅ R0049 | **`scheduler`** | agent, function, handler, loop, mcp, skill, tool, workflow | 🔴 **最大重灾区拿下**：~1500 行纯解释器取代旧 9302 行；幂等 advance + 从决策重推活跃子图(无 skip 传播) + 14→2 dispatch + 手动/firing 两入口 + park/timeout/replay；删 topo-walk/state/pause/generation/LoopDispatcher；18 集成测试绿 |
 | ✅ R0039 | ~~`trigger`~~ **已移波次 3（独立实体）** | — | trigger 实体 + 4 source + durable firing 已在 M3.3 做完；波次 4 仅剩**消费侧**：Firing claim→flowrun 随 M4.3 scheduler；workflow→trigger 监听 Attach/Detach 随 M4.1 workflow |
 | M4.5 | `tool/workflow` | scheduler, workflow | |
 

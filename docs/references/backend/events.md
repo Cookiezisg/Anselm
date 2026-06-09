@@ -50,10 +50,10 @@ audience: [human, ai]
 | `handler` | `config_updated` | `handler/config.go` | `{ id, status: "ok" }` |
 | `function` | `version_accepted` | `function/crud.go` | `{ id, versionId }` |
 | `workflow` | `version_accepted` | `workflow/crud.go` | `{ id, versionId }` |
-| `flowrun` | `started` | `scheduler/scheduler.go` | `{ FrID, WfID, triggerKind }` |
-| `flowrun` | `completed` | `scheduler/scheduler.go` | `{ FrID, WfID, status: "completed" }` |
-| `flowrun` | `failed` | `scheduler/scheduler.go` | `{ FrID, WfID, status: "failed", error }` |
-| `flowrun` | `tick` (Ephemeral) | `scheduler/state.go` | `{ WfID, nodeID, status, iterKey }` |
+| `flowrun` | `started` | `app/scheduler` | `{ flowrunId, workflowId, triggerId? }` |
+| `flowrun` | `completed` | `app/scheduler` | `{ flowrunId, workflowId, status: "completed" }` |
+| `flowrun` | `failed` | `app/scheduler` | `{ flowrunId, workflowId, status: "failed", error }` |
+| `flowrun` | `tick` (Ephemeral) | `app/scheduler` | `{ flowrunId, nodeId, iteration, status }` |
 | `sandbox` | `env_status_changed` | `app/sandbox` | `{ envId, status, ownerKind, ownerId, errorMsg? }` |
 | `sandbox` | `env_deleted` | `app/sandbox` | `{ envId, ownerKind, ownerId }` |
 | `mcp_server` | `connected` | `mcp/mcp.go` | `{ name, status: "ok" }` |

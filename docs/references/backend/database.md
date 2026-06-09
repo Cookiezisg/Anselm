@@ -38,9 +38,7 @@ audience: [human, ai]
 | | `approval_form_versions` | `apfv_` | `Version` |
 | | `mcp_servers` | `mcp_` | `Server` |
 | **Execution**| `flowruns` | `fr_` | `FlowRun` |
-| | `flowrun_events` | `fre_` | `FlowRunEvent` |
-| | `flowrun_nodes` | `frn_` | `Node` |
-| | `approvals` | `apv_` | `Approval` |
+| | `flowrun_nodes` | `frn_` | `FlowRunNode` |
 | **Inbound** | `trigger_schedules` | `ts_` | `TriggerSchedule` |
 | | `trigger_firings` | `tfi_` | `TriggerFiring` |
 | | `polling_states` | - | `PollingState` |
@@ -233,35 +231,47 @@ type AgentExecution struct {
 }
 ```
 
-### 2.4 Durable Execution (Run Plane)
+### 2.4 Durable Execution (Run Plane) — 节点结果记忆化（M4.2/M4.3 落地）
+
+> **取代旧事件溯源模型**：真相是 `flowrun_nodes` 行表（**记忆化**）——**无 `flowrun_events` 日志、无 generation 代数、无 `approvals` 投影表、无 GORM、无 user_id**（workspace_id）。崩溃恢复 = 重走图、completed 行抄不重跑。详 domains/flowrun.md + domains/scheduler.md + workflow-revamp/21。
+
 ```go
-type FlowRun struct {
-    ID              string            `gorm:"primaryKey;type:text" json:"id"`
-    WorkflowID      string            `gorm:"not null;index" json:"workflowId"`
-    Generation      int               `gorm:"not null;default:0" json:"generation"`
-    PinnedCallables map[string]string `gorm:"serializer:json" json:"pinnedCallables"`
-    Status          string            `gorm:"not null;index" json:"status"`
-    StartedAt       time.Time         `gorm:"not null" json:"startedAt"`
+type FlowRun struct { // flowruns — 执行头：钉死的拓扑 + pin 闭包 + 状态机（Log 表，无 deleted_at，D1）
+    ID          string            `db:"id,pk"`              // fr_
+    WorkspaceID string            `db:"workspace_id,ws"`
+    WorkflowID  string            `db:"workflow_id"`
+    VersionID   string            `db:"version_id"`         // 钉死的 wfv_（图拓扑，确定性锁之一）
+    PinnedRefs  map[string]string `db:"pinned_refs,json"`   // BuildPinClosure {entity_id: active_version_id}（确定性锁之二）
+    TriggerID   string            `db:"trigger_id"`         // 起点 trg_（手动 :trigger 时空）
+    FiringID    string            `db:"firing_id"`          // 来源 trf_（firing 单事务 claim 写）
+    Status      string            `db:"status"`             // running|completed|failed（CHECK）
+    ReplayCount int               `db:"replay_count"`       // :replay 自增；非 generation
+    Error       string            `db:"error"`
+    StartedAt   time.Time         `db:"started_at,created"`
+    CompletedAt *time.Time        `db:"completed_at"`
+    UpdatedAt   time.Time         `db:"updated_at,updated"`
 }
-type FlowRunEvent struct {
-    ID           string `gorm:"primaryKey;type:text" json:"id"`
-    FlowrunID    string `gorm:"not null;uniqueIndex:idx_fre_seq" json:"flowrunId"`
-    Seq          int64  `gorm:"not null;uniqueIndex:idx_fre_seq" json:"seq"`
-    Type         string `gorm:"not null" json:"type"`
-    NodeID       string `gorm:"index" json:"nodeId"`
-    IterationKey int    `gorm:"index" json:"iterationKey"`
-    Generation   int    `gorm:"index" json:"generation"`
-    DedupKey     string `gorm:"not null" json:"-"`
-    Result       any    `gorm:"serializer:json" json:"result"`
-}
-type Approval struct {
-    FlowrunID string `gorm:"not null;uniqueIndex:idx_apv" json:"flowrunId"`
-    NodeID    string `gorm:"not null;uniqueIndex:idx_apv" json:"nodeId"`
-    Status    string `gorm:"not null" json:"status"`
-    Decision  string `json:"decision"`
-    Deadline  *time.Time `gorm:"index" json:"deadline"`
+type FlowRunNode struct { // flowrun_nodes — ★真相表（记忆化）；每个 (节点,轮次) 一行（Log 表，无 deleted_at，D1）
+    ID          string         `db:"id,pk"`              // frn_
+    WorkspaceID string         `db:"workspace_id,ws"`
+    FlowRunID   string         `db:"flowrun_id"`
+    NodeID      string         `db:"node_id"`            // 图内局部 id（= 下游引用名）
+    Iteration   int            `db:"iteration"`          // 循环轮次（回边 +1）
+    Kind        string         `db:"kind"`               // trigger|action|agent|control|approval
+    Ref         string         `db:"ref"`                // pin 的实体 ref（审计）
+    Status      string         `db:"status"`             // completed|failed|parked（CHECK；只写终态/parked，无 running 行）
+    Result      map[string]any `db:"result,json"`        // per-kind：trigger=payload / action·agent=返回 / control=emit 字段扁平+保留键 __port / approval=parked{rendered,allowReason}→{decision,reason}
+    Error       string         `db:"error"`
+    CreatedAt   time.Time      `db:"created_at,created"` // 终态写 / park 时间
+    CompletedAt *time.Time     `db:"completed_at"`       // parked 期间 nil
+    UpdatedAt   time.Time      `db:"updated_at,updated"`
 }
 ```
+
+- **`idx_frn_once` = UNIQUE(flowrun_id, node_id, iteration)**（D3 record-once，取代旧 `idx_fre_record_once`）：写终态一律 `INSERT OR IGNORE` first-wins（重放抄、不重跑）；approval 决策是条件 `UPDATE … WHERE status='parked'`（同 first-wins）。
+- 索引：`idx_fr_running`（`WHERE status='running'` 部分，boot 跨 ws 恢复扫）· `idx_fr_ws_created`/`idx_fr_ws_workflow`（列表）· `idx_frn_run`（flowrun_id，重走拉全 run）· `idx_frn_parked`（`WHERE status='parked'` 部分，**审批收件箱 = parked 行，无 apv_ 投影**）。
+- **`:replay`** = 物理删该 run 的 `status='failed'` 行（`DeleteFailedNodes`，Log 表上唯一允许的物理删——failed 是非结果）+ `replay_count++` + status 回 running，再重走（completed 行复用）。**取代旧 generation 代数。**
+- **删**（旧 backend 残留）：`flowrun_events`(fre_ 事件日志) / `approvals`(apv_ parked 投影) / `Generation` / `PinnedCallables`(改名 `pinned_refs`) / GORM tag。`frs_`（agent 子步）**不引入**（agent 粗粒度，详 21 §3.3）。
 
 ---
 
@@ -407,7 +417,7 @@ type Item struct {
 | `control_logic_versions` | id(ctlv_), control_id, version, **inputs**(`TEXT NOT NULL DEFAULT '[]'`，`[]schema.Field` 声明 workflow 节点喂入的字段；`when`/`emit` 读 `input.*`), branches(JSON `[{port,when,emit}]`；输出由各臂 emit 的 keys 描述，无独立 outputs 列), change_reason, forged_in_conversation_id | append-only + cap 50 裁剪（无 deleted_at）；`idx_ctlv_control_version` = UNIQUE(control_id, version) |
 
 ### 4.6 Approval（审批渲染实体，apf_/apfv_）
-> workflow `approval` 节点引用的审批表（markdown prompt 模板 + 决策规则）。AI 工作实体，有版本但**无 sandbox/env/executions**——渲染 + park 是波次 4 运行时事。**前缀 `apf_`/`apfv_` ≠ `apv_`**（`apv_` 是 `approvals` 运行时表）。详 domains/approval.md。2 表，pkg/orm。
+> workflow `approval` 节点引用的审批表（markdown prompt 模板 + 决策规则）。AI 工作实体，有版本但**无 sandbox/env/executions**——渲染 + park 是 flowrun 运行时事。**前缀 `apf_`/`apfv_`**（运行时 parked 状态 = `flowrun_nodes` 行，**无独立 `apv_` 表**）。详 domains/approval.md。2 表，pkg/orm。
 
 | 表 | 关键列 | 说明 |
 |---|---|---|
@@ -426,16 +436,17 @@ type Item struct {
 
 ## 5. SQL 约束与扩展 (Schema Extras)
 
-- **Partial Unique**: `idx_fre_record_once` -> `UNIQUE(flowrun_id, dedup_key) WHERE type NOT IN ('node_started','node_failed')`.
+- **Partial Unique / Record-once**: `idx_frn_once` -> `UNIQUE(flowrun_id, node_id, iteration)`（D3：flowrun 节点结果记忆化的 first-wins 去重键；写终态 `INSERT OR IGNORE`、approval 决策条件 `UPDATE WHERE status='parked'`。取代旧 journal `idx_fre_record_once`）。
 - **Partial Unique**: `idx_mcp_ws_name` -> `UNIQUE(workspace_id, name) WHERE deleted_at IS NULL`（mcp server 短名工作区内唯一，故可作 HTTP path key）。
 - **Encrypted Column**: `mcp_servers.config_enc` -> AES-GCM 密文，载 `{env, headers}`；加密封在 store 层，domain.Server 持明文 `Env`/`Headers`。
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, fre_, frn_, apv_, trg_, trf_, tra_, mcp_, doc_, rel_, se_, sr_, noti_, bsh_, ctl_, ctlv_, apf_, apfv_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`mcp_` = mcp server 容器实体（一表 `mcp_servers`，工具不落库）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs；`bsh_` = 后台 shell 进程 id（`tool/shell` 的 `ProcessManager`，内存态、不入库，性质同 `hdi_`））
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, frn_, trg_, trf_, tra_, mcp_, doc_, rel_, se_, sr_, noti_, bsh_, ctl_, ctlv_, apf_, apfv_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`mcp_` = mcp server 容器实体（一表 `mcp_servers`，工具不落库）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs；`bsh_` = 后台 shell 进程 id（`tool/shell` 的 `ProcessManager`，内存态、不入库，性质同 `hdi_`））
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
 > 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
 > 注：skill 改文件式（`~/.forgify/workspaces/<wsID>/skills/<name>/SKILL.md`），**无 skill 表、无 `skill_executions` 表（execution 审计砍）、无 `ske_`/`sk_` 前缀**（name 即标识、relation 节点用 name；R0021 预留的 `sk_` 对文件式 skill 不启用）。
 > 注：mcp server 为容器实体（`mcp_` 前缀、一表 `mcp_servers`，`relation.KindForID` 已识别）。**无 `mcp_calls`/`mcp_health_history` 表、无 `mcl_`/`mch_` 前缀**（调用审计 + 健康历史砍，server 工具不落库——动态落成 `mcp__<server>__<tool>` 工具）。
 > 注：`ctl_`/`ctlv_` = control 逻辑实体 / 其版本（workflow `control` 节点引用的路由逻辑 when/emit 分支组；AI 工作实体，有版本但无 sandbox/env/executions，详 domains/control.md）。
-> 注：`apf_`/`apfv_` = approval **form**（审批渲染实体）/ 其版本（workflow `approval` 节点引用的 markdown 模板 + 决策规则；详 domains/approval.md）。**`apf_` ≠ `apv_`**——`apv_` 是 `approvals` 运行时表（波次 4 flowrun 的 parked 记录）。
+> 注：`apf_`/`apfv_` = approval **form**（审批渲染实体）/ 其版本（workflow `approval` 节点引用的 markdown 模板 + 决策规则；详 domains/approval.md）。审批的运行时 parked 状态 = `flowrun_nodes` 行（status=parked），**无独立 `apv_` 投影表**（M4.2 落地：parked frn 行即审批收件箱）。
+> 注：`fr_`/`frn_` = flowrun 执行头 / 节点结果记忆化真相表（M4.2/M4.3，详 domains/flowrun.md + domains/scheduler.md）。**旧 `fre_`（事件日志）/`apv_`（parked 投影）已删**（记忆化模型无事件日志）；`frs_`（agent 子步）**不引入**（agent 粗粒度，详 workflow-revamp/21 §3.3）。
 > 注：`wf_`/`wfv_` = workflow 静态编排图实体 / 其版本（按 id 引用 trg_/fn_·hd_·mcp_/ag_/ctl_/apf_ 的 typed 图，graph 以 JSON 存于版本行；只 STORE+VALIDATE+PIN，不执行；详 domains/workflow.md）。**本轮仅 `wf_`/`wfv_` 落地**——执行面前缀 **`fr_`/`fre_`/`apv_`**（flowrun / flowrun-event / approval 运行时记录）**尚未建**（durable scheduler 波次产；上表 §1 Execution 段 + §2.4 Run Plane struct 是该波次的前瞻设计，未落物理表）。
 - **作废前缀**: `sk_` 原为 skill 预留，**R0040 skill 重写为文件式后作废**——skill 无生成 id、relation 节点用 name；`ske_` 随 skill execution 审计砍而删。

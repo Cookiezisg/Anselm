@@ -156,7 +156,7 @@ type FlowRunNode struct {
 | trigger | 入口 payload（`{orderId:…}`，= firing.Payload 或手动 payload） | StartRun 启动时 seed |
 | action | callable 返回（fn returnSchema / hd method 返回 / mcp tool 返回） | RunAction 完成 |
 | agent | agent outputSchema 的 JSON（或自由文本 `{text:…}`） | RunAgent 完成 |
-| **control** | `{port: "pass", emit: {…}}`——选中分支 + emit 求值数据 | 解释器内联求值 |
+| **control** | 选中分支 emit 字段**扁平** + 保留键 `__port`（如 `{feedback:…, text:…, __port:"pass"}`）——下游读 `gate.feedback`（doc 20 §5.4 扁平），解释器读 `gate.__port` 路由 | 解释器内联求值 |
 | **approval** | parked 时 `{rendered, allowReason}`（供 inbox 展示）→ 决策后 `{decision, reason}` | park 写 / 人决策或 timeout 翻 |
 
 - **`idx_frn_once = UNIQUE(flowrun_id, node_id, iteration)`** —— record-once 键。写终态一律 `INSERT OR IGNORE`：**首写赢、后续静默忽略**。重走时 completed 行命中即跳。

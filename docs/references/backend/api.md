@@ -155,19 +155,20 @@ audience: [human, ai]
 
 ---
 
-## 3. 执行引擎 (Execution Plane)
+## 3. 执行引擎 (Execution Plane) — flowrun + scheduler（M4.2/M4.3 落地）
 
-| Method | Path | 文件源 |
-|---|---|---|
-| GET | `/api/v1/flowruns` | `flowrun.go` |
-| GET | `/api/v1/flowruns/{id}` | `flowrun.go` |
-| GET | `/api/v1/flowruns/{id}/nodes` | `flowrun.go` |
-| GET | `/api/v1/flowruns/{id}/failures` | `flowrun.go` |
-| GET | `/api/v1/flowruns/{id}/trace` | `flowrun.go` |
-| DELETE | `/api/v1/flowruns/{id}` | `flowrun.go` |
-| GET | `/api/v1/approvals` | `flowrun.go` |
-| POST | `/api/v1/flowruns/{id}/approvals/{nodeId}` | `flowrun.go` |
-| POST | `/api/v1/flowruns/{idAction}` | `flowrun.go` | (:replay, :triage) |
+> durable 图解释器：节点结果记忆化、崩溃可恢复（重走图、completed 行抄不重跑）。flowrun 是运行时记录（无版本/无锻造）。详 domains/flowrun.md + domains/scheduler.md + workflow-revamp/21。
+
+| Method | Path | 文件源 | 说明 |
+|---|---|---|---|
+| GET | `/api/v1/flowruns` | `flowrun.go` | 分页列出（`?workflowId=` 限定单 workflow；N4 cursor/limit）|
+| POST | `/api/v1/flowruns` | `flowrun.go` | **手动起 run（「Run now」）**；body `{workflowId, entryNode?, payload}`，payload 形如入口 trigger 的 `Outputs`；201 返 `{flowrun, nodes}`（v1 advance 同步，故可能已 completed/failed/running-parked）|
+| GET | `/api/v1/flowruns/{id}` | `flowrun.go` | run 头 + 全部节点行（`{flowrun, nodes}`，完整记忆化）|
+| GET | `/api/v1/flowrun-inbox` | `flowrun.go` | 审批收件箱 = 所有 parked 节点行（无 `apv_` 投影表）|
+| POST | `/api/v1/flowruns/{idAction}` | `flowrun.go` | `:replay`（清 failed 行重走；非 failed → `FLOWRUN_NOT_REPLAYABLE`）|
+| POST | `/api/v1/flowruns/{id}/approvals/{nodeId}:decide` | `flowrun.go` | 人工决策 parked 审批；body `{decision: "yes"\|"no", reason?}`；first-wins（输家 → `FLOWRUN_APPROVAL_NOT_PARKED`）|
+
+> **firing 驱动的自动 run** 不经 HTTP（scheduler 排空 `trigger_firings` 收件箱、单事务 claim，ADR-021）。`trigger_workflow` LLM 工具随 M7 装配。删旧虚构端点 `/nodes`·`/failures`·`/trace`·`DELETE /flowruns/{id}`·`GET /approvals`（旧事件溯源/取消模型残留）。
 
 ---
 
