@@ -7,27 +7,31 @@ import (
 
 	"go.uber.org/zap"
 
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // HandlerHandler hosts the handler HTTP endpoints. The version model is linear with a
 // free-moving active pointer (no pending/accept). The resident instance is MCP-style
-// (boot / restart / shutdown); :restart resets it. :iterate (askai) is added in 波次 6.
+// (boot / restart / shutdown); :restart resets it. :iterate (R0065) opens an AI conversation
+// to edit this handler via aispawn.
 //
 // HandlerHandler 持 handler HTTP 端点。版本模型线性 + 自由 active 指针（无 pending/accept）。
-// 常驻实例 MCP 式（boot / restart / shutdown）；:restart 重置它。:iterate 随 askai 波次 6。
+// 常驻实例 MCP 式（boot / restart / shutdown）；:restart 重置它。:iterate（R0065）经 aispawn 开 AI 对话编辑本 handler。
 type HandlerHandler struct {
-	svc *handlerapp.Service
-	log *zap.Logger
+	svc     *handlerapp.Service
+	aispawn *aispawnapp.Service
+	log     *zap.Logger
 }
 
-func NewHandlerHandler(svc *handlerapp.Service, log *zap.Logger) *HandlerHandler {
+func NewHandlerHandler(svc *handlerapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *HandlerHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &HandlerHandler{svc: svc, log: log.Named("handlers.handler")}
+	return &HandlerHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.handler")}
 }
 
 func (h *HandlerHandler) Register(mux Registrar) {
@@ -148,6 +152,8 @@ func (h *HandlerHandler) postOnHandler(w http.ResponseWriter, r *http.Request) {
 		h.revert(w, r, id)
 	case "edit":
 		h.edit(w, r, id)
+	case "iterate":
+		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionHandler, id)
 	default:
 		http.NotFound(w, r)
 	}

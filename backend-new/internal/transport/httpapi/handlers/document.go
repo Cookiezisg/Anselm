@@ -5,29 +5,31 @@ import (
 
 	"go.uber.org/zap"
 
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
-// DocumentHandler hosts the document-tree HTTP endpoints (tree CRUD + move). The
-// AI :iterate verb depends on askai (波次 6) and is added in that wave.
+// DocumentHandler hosts the document-tree HTTP endpoints (tree CRUD + move). The :iterate verb
+// (R0065) opens an AI conversation to edit this document via aispawn.
 //
-// DocumentHandler 持文档树的 HTTP 端点（树 CRUD + move）。AI :iterate 依赖 askai（波次 6），
-// 在那轮加入。
+// DocumentHandler 持文档树的 HTTP 端点（树 CRUD + move）。:iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本文档。
 type DocumentHandler struct {
-	svc *documentapp.Service
-	log *zap.Logger
+	svc     *documentapp.Service
+	aispawn *aispawnapp.Service
+	log     *zap.Logger
 }
 
 // NewDocumentHandler constructs the handler.
 //
 // NewDocumentHandler 构造 handler。
-func NewDocumentHandler(svc *documentapp.Service, log *zap.Logger) *DocumentHandler {
+func NewDocumentHandler(svc *documentapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *DocumentHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &DocumentHandler{svc: svc, log: log.Named("handlers.document")}
+	return &DocumentHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.document")}
 }
 
 // Register wires the endpoints onto mux.
@@ -173,6 +175,10 @@ func (h *DocumentHandler) postOnDoc(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
 		responsehttpapi.Error(w, http.StatusNotFound, "DOCUMENT_UNKNOWN_ROUTE", "unknown route", nil)
+		return
+	}
+	if action == "iterate" {
+		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionDocument, id)
 		return
 	}
 	if action != "move" {

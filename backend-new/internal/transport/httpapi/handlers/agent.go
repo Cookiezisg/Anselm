@@ -7,31 +7,34 @@ import (
 	"go.uber.org/zap"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // AgentHandler hosts the agent HTTP endpoints. The version model is linear with a free-moving
-// active pointer — no pending/accept endpoints. The AI :iterate verb depends on askai (波次 6)
-// and is added in that wave.
+// active pointer — no pending/accept endpoints. The :iterate verb (R0065) opens an AI conversation
+// to edit this agent via aispawn.
 //
 // AgentHandler 持 agent HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无 pending/accept 端点。
-// AI :iterate 依赖 askai（波次 6），那轮加入。
+// :iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本 agent。
 type AgentHandler struct {
-	svc *agentapp.Service
-	log *zap.Logger
+	svc     *agentapp.Service
+	aispawn *aispawnapp.Service
+	log     *zap.Logger
 }
 
 // NewAgentHandler constructs the handler.
 //
 // NewAgentHandler 构造 handler。
-func NewAgentHandler(svc *agentapp.Service, log *zap.Logger) *AgentHandler {
+func NewAgentHandler(svc *agentapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *AgentHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &AgentHandler{svc: svc, log: log.Named("handlers.agent")}
+	return &AgentHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.agent")}
 }
 
 // Register wires the endpoints onto mux.
@@ -159,6 +162,8 @@ func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 		h.revert(w, r, id)
 	case "edit":
 		h.edit(w, r, id)
+	case "iterate":
+		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionAgent, id)
 	default:
 		http.NotFound(w, r)
 	}

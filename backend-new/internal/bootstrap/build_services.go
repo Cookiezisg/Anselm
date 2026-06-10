@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
 	attachmentapp "github.com/sunweilin/forgify/backend/internal/app/attachment"
@@ -87,6 +88,7 @@ type services struct {
 	chat         *chatapp.Service
 	subagent     *subagentapp.Service
 	contextmgr   *contextmgrapp.Service
+	aispawn      *aispawnapp.Service
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -267,13 +269,19 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat.RegisterMentionResolver(wf.AsMentionResolver())
 	chat.RegisterMentionResolver(ag.AsMentionResolver())
 
-	return &services{
+	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
 	}
+	// aispawn (R0065) composes conversation + chat + a prefix-dispatched execution renderer; built
+	// last since it reads the assembled services.
+	//
+	// aispawn（R0065）组合 conversation + chat + 前缀分发执行渲染器；最后建（它读已装配的 services）。
+	s.aispawn = newAispawn(s, log)
+	return s
 }
 
 // registerSandboxStack registers the mise-managed runtimes (python/node/uv/dotnet) + the docker

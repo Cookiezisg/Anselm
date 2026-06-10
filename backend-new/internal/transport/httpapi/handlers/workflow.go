@@ -7,32 +7,35 @@ import (
 
 	"go.uber.org/zap"
 
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // WorkflowHandler hosts the workflow graph HTTP endpoints. The version model is linear with
 // a free-moving active pointer — no pending/accept endpoints. There is NO :trigger and no
-// execution-history endpoint: those consume the durable scheduler (later wave). The AI
-// :iterate verb depends on askai (波次 6) and is added in that wave.
+// execution-history endpoint: those consume the durable scheduler (later wave). The :iterate
+// verb (R0065) opens an AI conversation to edit this workflow via aispawn.
 //
 // WorkflowHandler 持 workflow 图 HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无
 // pending/accept 端点。无 :trigger、无 execution-history 端点：那些消费 durable 调度器（后续
-// 波次）。AI :iterate 依赖 askai（波次 6），那轮加入。
+// 波次）。:iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本 workflow。
 type WorkflowHandler struct {
-	svc *workflowapp.Service
-	log *zap.Logger
+	svc     *workflowapp.Service
+	aispawn *aispawnapp.Service
+	log     *zap.Logger
 }
 
 // NewWorkflowHandler constructs the handler.
 //
 // NewWorkflowHandler 构造 handler。
-func NewWorkflowHandler(svc *workflowapp.Service, log *zap.Logger) *WorkflowHandler {
+func NewWorkflowHandler(svc *workflowapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *WorkflowHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &WorkflowHandler{svc: svc, log: log.Named("handlers.workflow")}
+	return &WorkflowHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.workflow")}
 }
 
 // Register wires the endpoints onto mux.
@@ -151,6 +154,8 @@ func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request)
 		h.setLifecycle(w, r, id, workflowdomain.LifecycleInactive)
 	case "capability-check":
 		h.capabilityCheck(w, r, id)
+	case "iterate":
+		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionWorkflow, id)
 	default:
 		http.NotFound(w, r)
 	}

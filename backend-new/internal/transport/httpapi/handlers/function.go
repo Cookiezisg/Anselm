@@ -7,31 +7,34 @@ import (
 
 	"go.uber.org/zap"
 
+	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
 // FunctionHandler hosts the function HTTP endpoints. The version model is linear with a
-// free-moving active pointer — no pending/accept endpoints. The AI :iterate verb
-// depends on askai (波次 6) and is added in that wave.
+// free-moving active pointer — no pending/accept endpoints. The :iterate verb (R0065) opens an AI
+// conversation to edit this function via aispawn.
 //
-// FunctionHandler 持 function HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无
-// pending/accept 端点。AI :iterate 依赖 askai（波次 6），那轮加入。
+// FunctionHandler 持 function HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无 pending/accept 端点。
+// :iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本 function。
 type FunctionHandler struct {
-	svc *functionapp.Service
-	log *zap.Logger
+	svc     *functionapp.Service
+	aispawn *aispawnapp.Service
+	log     *zap.Logger
 }
 
 // NewFunctionHandler constructs the handler.
 //
 // NewFunctionHandler 构造 handler。
-func NewFunctionHandler(svc *functionapp.Service, log *zap.Logger) *FunctionHandler {
+func NewFunctionHandler(svc *functionapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *FunctionHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &FunctionHandler{svc: svc, log: log.Named("handlers.function")}
+	return &FunctionHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.function")}
 }
 
 // Register wires the endpoints onto mux.
@@ -153,6 +156,8 @@ func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request)
 		h.revert(w, r, id)
 	case "edit":
 		h.edit(w, r, id)
+	case "iterate":
+		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionFunction, id)
 	default:
 		http.NotFound(w, r)
 	}
