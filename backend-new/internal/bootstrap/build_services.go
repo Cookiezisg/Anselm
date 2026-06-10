@@ -31,6 +31,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
 	approvaltool "github.com/sunweilin/forgify/backend/internal/app/tool/approval"
+	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
 	controltool "github.com/sunweilin/forgify/backend/internal/app/tool/control"
 	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	filesystemtool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -157,6 +158,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			filesystemtool.FilesystemTools(guard),
 			searchtool.SearchTools(guard, log),
 			shelltool.NewShellTools().Tools,
+			[]toolapp.Tool{asktool.New()}, // R0064: ask_user — agent asks the human (blocks on the humanloop broker)
 		),
 		Lazy: concat(
 			functiontool.FunctionTools(fn),
