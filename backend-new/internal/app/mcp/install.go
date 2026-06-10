@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
@@ -178,7 +179,21 @@ func (s *Service) ensureEnv(ctx context.Context, srv *mcpdomain.Server) error {
 	if srv.Runtime == mcpdomain.RuntimeDocker {
 		spec.Runtime.Version = srv.Command
 	}
-	_, err := s.sandbox.EnsureEnv(ctx, ownerFor(srv), spec, nil)
+	// Stream each install stage live under the install_mcp_server tool_call so the user watches the
+	// runtime (npx/uvx/docker pull) get provisioned. nil-safe off a streamed turn (REST / boot
+	// reconnect) → a no-op, identical to passing nil.
+	//
+	// 把每个安装阶段实时流在 install_mcp_server tool_call 下，使用户看 runtime（npx/uvx/docker pull）被物化。
+	// 非流式 turn（REST / boot 重连）→ no-op，等同传 nil。
+	prog := loopapp.ToolProgress(ctx)
+	defer prog.Close()
+	_, err := s.sandbox.EnsureEnv(ctx, ownerFor(srv), spec, func(stage, message string, percent int) {
+		if percent > 0 {
+			prog.Print(fmt.Sprintf("[%s] %s (%d%%)\n", stage, message, percent))
+			return
+		}
+		prog.Print(fmt.Sprintf("[%s] %s\n", stage, message))
+	})
 	return err
 }
 
