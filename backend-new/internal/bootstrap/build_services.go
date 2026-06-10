@@ -205,9 +205,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + the (lazy) tool universe + knowledge-doc prefix builder.
 	ag.SetInvokeDeps(agentapp.InvokeDeps{
-		Resolver:  resolvers.Agent(),
-		Tools:     holder.all,
-		Knowledge: NewKnowledgeProvider(doc),
+		Resolver:       resolvers.Agent(),
+		Tools:          holder.all,
+		Knowledge:      NewKnowledgeProvider(doc),
+		EntitiesBridge: bus.entities, // SSE-C: agent run mirrors its ReAct trace to the agent panel
 	})
 	// workflow ref resolution (CapabilityCheck + pin closure determinism).
 	wf.SetResolver(NewRefResolver(fn, hd, ag, ctl, apf, trg, mcp))

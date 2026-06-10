@@ -9,10 +9,12 @@ import (
 
 	"go.uber.org/zap"
 
+	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -192,6 +194,15 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	if tcID, ok := reqctxpkg.GetToolCallID(ctx); ok && tcID != "" {
 		ctx = reqctxpkg.SetMessageID(ctx, tcID)
 	}
+
+	// SSE-C: mirror this run's ReAct trace (every block) onto the entities stream scoped to the
+	// agent, so the agent panel shows the run live regardless of caller (chat / REST / workflow).
+	// nil bridge → no-op.
+	//
+	// SSE-C：把本次运行的 ReAct 轨迹（每个 block）镜像到 agent scope 的 entities 流，使 agent 面板实时显示运行
+	// （与谁触发无关——chat / REST / workflow）。nil bridge → no-op。
+	ctx = entitystreamapp.WithBridge(ctx, s.invoke.EntitiesBridge)
+	ctx = entitystreamapp.WithRunScope(ctx, streamdomain.Scope{Kind: streamdomain.KindAgent, ID: a.ID})
 
 	result := loopapp.Run(ctx, host, bundle.Client, req, remaining, s.log)
 	return result, req.ModelID, nil

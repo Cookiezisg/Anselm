@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -50,33 +51,50 @@ func bridgeFrom(ctx context.Context) streamdomain.Bridge {
 type emitter struct {
 	bridge streamdomain.Bridge
 	scope  streamdomain.Scope
-	log    *zap.Logger
+	// mirror (SSE-C, optional): when this loop run IS an entity's execution (WithRunScope), every
+	// frame is ALSO published to the entities stream scoped to that entity — the agent panel shows
+	// the run's ReAct trace live. Independent of the messages side (an off-chat agent run mirrors
+	// even with no conversation).
+	//
+	// mirror（SSE-C，可选）：当本次 loop run 即某实体的执行（WithRunScope）时，每帧**也**发到该实体 scope 的
+	// entities 流——agent 面板实时显示运行的 ReAct 轨迹。独立于 messages 侧（不在 chat 的 agent run 即使无
+	// conversation 也镜像）。
+	mirrorBridge streamdomain.Bridge
+	mirrorScope  streamdomain.Scope
+	log          *zap.Logger
 }
 
-// newEmitter assembles the emitter from ctx: the Bridge (WithBridge) + the conversation
-// anchor (reqctx). Either missing yields a disabled emitter whose methods are no-ops.
+// newEmitter assembles the emitter from ctx, independently wiring two destinations: the messages
+// stream (WithBridge + a conversation anchor) and/or the entities mirror (entitystream.WithBridge +
+// WithRunScope). Both absent → a no-op emitter.
 //
-// newEmitter 从 ctx 组装 emitter：Bridge（WithBridge）+ 对话锚点（reqctx）。任一缺失 → 禁用的
-// emitter，其方法皆 no-op。
+// newEmitter 从 ctx 组装 emitter，独立接两个目的地：messages 流（WithBridge + 对话锚点）和/或 entities
+// 镜像（entitystream.WithBridge + WithRunScope）。两者皆缺 → no-op emitter。
 func newEmitter(ctx context.Context, log *zap.Logger) emitter {
-	b := bridgeFrom(ctx)
-	conv, ok := reqctxpkg.GetConversationID(ctx)
-	if b == nil || !ok {
-		return emitter{}
+	em := emitter{log: log}
+	if b := bridgeFrom(ctx); b != nil {
+		if conv, ok := reqctxpkg.GetConversationID(ctx); ok {
+			em.bridge = b
+			em.scope = streamdomain.Scope{Kind: streamdomain.KindConversation, ID: conv}
+		}
 	}
-	return emitter{
-		bridge: b,
-		scope:  streamdomain.Scope{Kind: streamdomain.KindConversation, ID: conv},
-		log:    log,
+	if mb := entitystreamapp.BridgeFrom(ctx); mb != nil {
+		if sc, ok := entitystreamapp.RunScopeFrom(ctx); ok {
+			em.mirrorBridge = mb
+			em.mirrorScope = sc
+		}
 	}
+	return em
 }
 
 func (e emitter) publish(ctx context.Context, nodeID string, frame streamdomain.Frame) {
-	if e.bridge == nil {
-		return
+	if e.bridge != nil {
+		if _, err := e.bridge.Publish(ctx, streamdomain.Event{Scope: e.scope, ID: nodeID, Frame: frame}); err != nil {
+			e.log.Warn("messages stream push failed", zap.String("node_id", nodeID), zap.Error(err))
+		}
 	}
-	if _, err := e.bridge.Publish(ctx, streamdomain.Event{Scope: e.scope, ID: nodeID, Frame: frame}); err != nil {
-		e.log.Warn("messages stream push failed", zap.String("node_id", nodeID), zap.Error(err))
+	if e.mirrorBridge != nil {
+		_, _ = e.mirrorBridge.Publish(ctx, streamdomain.Event{Scope: e.mirrorScope, ID: nodeID, Frame: frame})
 	}
 }
 

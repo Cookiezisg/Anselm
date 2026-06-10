@@ -62,6 +62,29 @@ func BridgeFrom(ctx context.Context) streamdomain.Bridge {
 	return b
 }
 
+type runScopeKey struct{}
+
+// WithRunScope marks ctx as "this loop run IS an entity's execution" so the loop's block emitter
+// mirrors every frame onto the entities stream scoped here (SSE-C: an agent run shows its ReAct
+// trace live on the agent panel). Set by the run Service alongside WithBridge.
+//
+// WithRunScope 标记 ctx「本次 loop run 即某实体的执行」，使 loop 的 block emitter 把每帧镜像到此 scope 的
+// entities 流（SSE-C：agent run 在 agent 面板实时显示 ReAct 轨迹）。由 run Service 与 WithBridge 一同设。
+func WithRunScope(ctx context.Context, scope streamdomain.Scope) context.Context {
+	if scope.ID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, runScopeKey{}, scope)
+}
+
+// RunScopeFrom returns the entity run scope set by WithRunScope (ok=false if unset).
+//
+// RunScopeFrom 返回 WithRunScope 设的实体 run scope（未设则 ok=false）。
+func RunScopeFrom(ctx context.Context) (streamdomain.Scope, bool) {
+	s, ok := ctx.Value(runScopeKey{}).(streamdomain.Scope)
+	return s, ok
+}
+
 // Writer streams one node (open → delta* → close) to bridge, scoped to an entity. It implements
 // io.Writer so a run's stdout / yields pipe straight through; the node opens lazily on first write.
 // nil-safe: a disabled writer (no bridge / no scope id) drops everything and Close is a no-op.

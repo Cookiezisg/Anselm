@@ -24,6 +24,7 @@ import (
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
@@ -62,6 +63,16 @@ type InvokeDeps struct {
 	Resolver  LLMResolver
 	Tools     func() []toolapp.Tool
 	Knowledge KnowledgeProvider
+
+	// EntitiesBridge (SSE-C, nil-tolerant): the agent run mirrors its ReAct trace (every block)
+	// onto the entities stream scoped to the agent, so the agent panel shows the run live —
+	// regardless of caller (chat / REST / workflow node). A stream, not the messages-table coupling
+	// B5 deliberately avoided.
+	//
+	// EntitiesBridge（SSE-C，允许 nil）：agent run 把 ReAct 轨迹（每个 block）镜像到 agent scope 的 entities
+	// 流，使 agent 面板实时显示运行——与谁触发无关（chat / REST / workflow 节点）。是流、非 B5 刻意回避的
+	// messages 表耦合。
+	EntitiesBridge streamdomain.Bridge
 }
 
 // RelationSyncer is the slice of relationapp.Service the agent consumes (nil-tolerant). Agents
