@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
@@ -49,6 +50,24 @@ type (
 type toolAccum struct {
 	id, name string
 	args     strings.Builder
+	// forge (non-nil for a ForgeTool call) mirrors this tool_call's arg delta onto the entities
+	// stream so the entity panel fills in live (SSE-C). nil for non-forge calls.
+	//
+	// forge（ForgeTool 调用时非 nil）把本 tool_call 的 arg delta 镜像到 entities 流，使实体面板实时填充
+	// （SSE-C）。非 forge 调用为 nil。
+	forge *entitystreamapp.Writer
+}
+
+// nodeForge is the entities-stream node type for a forge activity (an entity's content being
+// written). Open content = forgeOpenContent; delta = the raw arg chunks; close result = the final
+// args. (run / fire node types live with their producers — SSE-C C2+/C5.)
+//
+// nodeForge 是 entities 流「锻造活动」节点型（某实体正被写出的内容）。open 内容=forgeOpenContent；
+// delta=裸 arg chunk；close 结果=最终 args。（run / fire 节点型随各自 producer——SSE-C C2+/C5。）
+const nodeForge = "forge"
+
+type forgeOpenContent struct {
+	Op string `json:"op"` // "create" | "edit"
 }
 
 // reasonAccum collects reasoning content and its accompanying Anthropic signature.
@@ -70,10 +89,17 @@ func streamLLM(
 	ctx context.Context,
 	client llminfra.Client,
 	req llminfra.Request,
+	forgeOf func(toolName string) (toolapp.ForgeSpec, bool),
 	log *zap.Logger,
 ) (blocks []messagesdomain.Block, toolCalls []messagesdomain.ToolCallData, stopReason, errMsg string, inputTokens, outputTokens int) {
 	em := newEmitter(ctx, log)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	// entBridge (nil off a streamed chat turn) carries forge tool_call arg deltas onto the entities
+	// stream, scoped to a forge session, so the entity panel fills in live.
+	//
+	// entBridge（不在流式 chat turn 则 nil）把 forge tool_call 的 arg delta 送上 entities 流、锚到一次 forge
+	// 会话，使实体面板实时填充。
+	entBridge := entitystreamapp.BridgeFrom(ctx)
 
 	var textBuf strings.Builder
 	var reason reasonAccum
@@ -125,10 +151,22 @@ func streamLLM(
 		case llminfra.EventToolStart:
 			closeText(messagesdomain.StatusCompleted)
 			closeReason(messagesdomain.StatusCompleted)
-			accums[event.ToolIndex] = &toolAccum{id: event.ToolID, name: event.ToolName}
+			a := &toolAccum{id: event.ToolID, name: event.ToolName}
+			accums[event.ToolIndex] = a
 			if event.ToolID != "" {
 				em.open(ctx, event.ToolID, msgID, messagesdomain.BlockTypeToolCall,
 					jsonContent(toolCallContent{Name: event.ToolName}))
+				// SSE-C: a forge tool_call's args ARE an entity's content being written — mirror the
+				// delta onto the entities stream (scope = a forge session keyed by the tool_call id;
+				// the front end correlates to the entity via the streamed args + the tool_result).
+				//
+				// SSE-C：forge tool_call 的 args 本身就是某实体正被写出的内容——把 delta 镜像到 entities 流
+				// （scope = 以 tool_call id 为键的 forge 会话；前端经流式 args + tool_result 关联到实体）。
+				if spec, ok := forgeOf(event.ToolName); ok {
+					a.forge = entitystreamapp.New(ctx, entBridge,
+						streamdomain.Scope{Kind: spec.Kind, ID: event.ToolID},
+						nodeForge, jsonContent(forgeOpenContent{Op: spec.Op}))
+				}
 			}
 
 		case llminfra.EventToolDelta:
@@ -136,6 +174,9 @@ func streamLLM(
 				a.args.WriteString(event.ArgsDelta)
 				if a.id != "" {
 					em.delta(ctx, a.id, event.ArgsDelta)
+				}
+				if a.forge != nil {
+					_, _ = a.forge.Write([]byte(event.ArgsDelta))
 				}
 			}
 
@@ -186,6 +227,12 @@ func streamLLM(
 	for _, a := range accums {
 		if a.id != "" {
 			em.close(ctx, a.id, closeStatus, toolCallSnapshot(a), "")
+		}
+		if a.forge != nil {
+			// close the entities forge node with the final args as the reconnect snapshot.
+			//
+			// 用最终 args 作重连快照关 entities forge 节点。
+			a.forge.Close(closeStatus, json.RawMessage(a.args.String()))
 		}
 	}
 

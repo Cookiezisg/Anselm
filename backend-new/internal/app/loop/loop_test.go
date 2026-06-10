@@ -352,7 +352,8 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 		finishEv(),
 	}}}
 
-	blocks, calls, stop, _, in, out := streamLLM(context.Background(), client, llminfra.Request{}, nil)
+	noForge := func(string) (toolapp.ForgeSpec, bool) { return toolapp.ForgeSpec{}, false }
+	blocks, calls, stop, _, in, out := streamLLM(context.Background(), client, llminfra.Request{}, noForge, nil)
 
 	if stop != messagesdomain.StopReasonEndTurn || in != 10 || out != 5 {
 		t.Fatalf("stop=%q in=%d out=%d", stop, in, out)

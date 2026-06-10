@@ -153,7 +153,18 @@ func Run(
 
 		stepsRun = step + 1
 
-		aBlocks, toolCalls, sr, streamErr, iT, oT := streamLLM(ctx, client, req, log)
+		// forgeOf lets streamLLM recognize a create/edit tool_call (a ForgeTool) and mirror its arg
+		// delta onto the entities stream (SSE-C). Built per step from this step's byName.
+		//
+		// forgeOf 让 streamLLM 识别 create/edit tool_call（ForgeTool）并把 arg delta 镜像到 entities 流
+		// （SSE-C）。每步据本步 byName 建。
+		forgeOf := func(name string) (toolapp.ForgeSpec, bool) {
+			if ft, ok := byName[name].(toolapp.ForgeTool); ok {
+				return ft.Forge(), true
+			}
+			return toolapp.ForgeSpec{}, false
+		}
+		aBlocks, toolCalls, sr, streamErr, iT, oT := streamLLM(ctx, client, req, forgeOf, log)
 		allBlocks = append(allBlocks, aBlocks...)
 		totalIn += iT
 		totalOut += oT
