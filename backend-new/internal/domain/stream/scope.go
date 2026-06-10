@@ -36,6 +36,9 @@ const (
 	KindDocument     = "document"
 	KindMCP          = "mcp"
 	KindSkill        = "skill"
+	KindControl      = "control"  // SSE-C: entities-stream forge activity
+	KindApproval     = "approval" // SSE-C: entities-stream forge activity
+	KindTrigger      = "trigger"  // SSE-C: entities-stream fire activity
 	KindNotification = "notification"
 )
 
@@ -52,7 +55,7 @@ func (s Scope) String() string {
 func IsValidKind(kind string) bool {
 	switch kind {
 	case KindConversation, KindFunction, KindHandler, KindAgent, KindWorkflow,
-		KindDocument, KindMCP, KindSkill, KindNotification:
+		KindDocument, KindMCP, KindSkill, KindControl, KindApproval, KindTrigger, KindNotification:
 		return true
 	}
 	return false

@@ -12,7 +12,7 @@ func TestScopeString(t *testing.T) {
 func TestIsValidKind(t *testing.T) {
 	valid := []string{
 		KindConversation, KindFunction, KindHandler, KindAgent, KindWorkflow,
-		KindDocument, KindMCP, KindSkill, KindNotification,
+		KindDocument, KindMCP, KindSkill, KindControl, KindApproval, KindTrigger, KindNotification,
 	}
 	for _, k := range valid {
 		if !IsValidKind(k) {
