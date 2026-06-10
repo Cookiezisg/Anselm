@@ -30,7 +30,7 @@ audience: [human, ai]
 | DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压（也解阻任何等待中的人在环交互） |
 | GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | **R0057 ✅** `{systemPrompt}`（复用 buildSystemPrompt，不解析模型） |
 | GET | `/api/v1/conversations/{id}/usage` | `chat.go` | **R0057 ✅** `{inputTokens, outputTokens, totalTokens}`（tokensUsed，解耦 conversation←messages） |
-| POST | `/api/v1/executions/{execId}:triage` | `aispawn.go` | **R0065 ✅** **202** 诊断**任意**执行记录（统一虚拟集合，按 id 前缀分发 `fne_`function/`hcl_`handler/`agx_`agent/`fr_`flowrun）；body `{note?}`→开 AI 诊断对话→`{conversationId}`。对偶动词 **:iterate**（面对实体）挂在各实体 `{idAction}` 行（见 Forge 节）|
+| POST | `/api/v1/executions/{execId}:triage` | `aispawn.go` | **R0065 ✅** **202** 诊断**任意**执行记录（统一虚拟集合，按 id 前缀分发 `fne_`function/`hcl_`handler/`agx_`agent/`fr_`flowrun/`mcl_`mcp-call/`tra_`trigger-activation）；body `{note?}`→开 AI 诊断对话→`{conversationId}`。对偶动词 **:iterate**（面对实体）挂在各实体 `{idAction}` 行（见 Forge 节）|
 | GET | `/api/v1/conversations/{id}/context-stats` | `context_stats.go` | |
 | GET | `/api/v1/conversations/{id}/eventlog` | `eventlog.go` | |
 | POST | `/api/v1/conversations/{id}/answers` | `answers.go` | |
@@ -123,7 +123,7 @@ audience: [human, ai]
 | GET | `/api/v1/triggers/{id}` | `trigger.go` | 含 refCount/listening |
 | PATCH | `/api/v1/triggers/{id}` | `trigger.go` | 改 name/description/config/outputs（kind 不可变、config 立即生效）|
 | DELETE | `/api/v1/triggers/{id}` | `trigger.go` | 软删（停 listener + 清边）|
-| POST | `/api/v1/triggers/{idAction}` | `trigger.go` | (:fire 手动触发一次→202；**无 :iterate**——trigger 无 mention resolver，未纳入 iterate 集) |
+| POST | `/api/v1/triggers/{idAction}` | `trigger.go` | (:fire 手动触发一次→202；**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`) |
 | GET | `/api/v1/triggers/{id}/activations` | `trigger.go` | 动作日志（?firedOnly，"为什么没触发"）|
 | GET | `/api/v1/trigger-activations/{actId}` | `trigger.go` | 单条 activation |
 | (动态) | `/api/v1/webhooks/{triggerId}/{path}` | webhook listener | webhook 入口（由 listener 挂载）|
@@ -139,7 +139,7 @@ audience: [human, ai]
 | GET | `/api/v1/controls/{id}` | `control.go` | 含 active 版 inputs + 分支 |
 | PATCH | `/api/v1/controls/{id}` | `control.go` | 改 name/description（不动版本）|
 | DELETE | `/api/v1/controls/{id}` | `control.go` | 软删 + 清边 |
-| POST | `/api/v1/controls/{idAction}` | `control.go` | (:edit 整组替换写新版本〔inputs + branches〕、:revert 移指针；**无 :run**) |
+| POST | `/api/v1/controls/{idAction}` | `control.go` | (:edit 整组替换写新版本〔inputs + branches〕、:revert 移指针、**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`；**无 :run**) |
 | GET | `/api/v1/controls/{id}/versions` | `control.go` | 分页 |
 | GET | `/api/v1/controls/{id}/versions/{version}` | `control.go` | 整数号或 version id |
 
@@ -154,7 +154,7 @@ audience: [human, ai]
 | GET | `/api/v1/approvals/{id}` | `approval.go` | 含 active 版 inputs + template + 规则 |
 | PATCH | `/api/v1/approvals/{id}` | `approval.go` | 改 name/description（不动版本）|
 | DELETE | `/api/v1/approvals/{id}` | `approval.go` | 软删 + 清边 |
-| POST | `/api/v1/approvals/{idAction}` | `approval.go` | (:edit 整组替换〔inputs + template + 规则〕、:revert 移指针；**无 :run**) |
+| POST | `/api/v1/approvals/{idAction}` | `approval.go` | (:edit 整组替换〔inputs + template + 规则〕、:revert 移指针、**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`；**无 :run**) |
 | GET | `/api/v1/approvals/{id}/versions` | `approval.go` | 分页 |
 | GET | `/api/v1/approvals/{id}/versions/{version}` | `approval.go` | 整数号或 version id |
 

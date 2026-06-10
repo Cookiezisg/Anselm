@@ -42,8 +42,14 @@
 
 **R0065 全完成**（aispawn）：iterate 面对实体借 @-mention、triage 面对任意执行借详情读取。**波次6 全完成**（R0064 ask/danger + R0065 iterate/triage）。
 
+## 扩展（用户「都做了吧」，已全做）
+
+- **iterate 5→8 实体**：补 trigger/control/approval（各 +mention resolver + MentionType + :iterate case + bootstrap 注册）。mention 可 @ 类型 5→8。
+- **triage 4→6 类型**：补 mcp 调用（`mcl_`，新增 mcp.GetCall：domain 接口/store/service/fake）+ trigger activation（`tra_`，复用现有 GetActivation——activation 动作日志「为什么没/触发」比内部 firing 更可诊断）。executionRenderer +mcp/trg 依赖 + 2 前缀分支。
+
+**全覆盖**：iterate = 8 个有 mention resolver 的 forge 实体；triage = 6 类执行记录（function/handler/agent/flowrun/mcp-call/trigger-activation）。
+
 ## 不做（明确）
 
-- mcp/trigger-firing 诊断（各补单条读取 + 一分支即可，前缀分发已留口）——v1 不做，4 个核心可执行体已证明"不只工作流"。
 - 不碰 schema（开的是普通对话，复用现有 messages/conversation 表）。
 - triage 不自动重跑（用户审 fix 后手动重试）。
