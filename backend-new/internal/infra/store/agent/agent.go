@@ -70,6 +70,7 @@ var Schema = []string{
 		triggered_by    TEXT NOT NULL CHECK (triggered_by IN ('chat','workflow','manual')),
 		input           TEXT NOT NULL DEFAULT '{}',
 		output          TEXT,
+		transcript      TEXT NOT NULL DEFAULT '[]',
 		error_message   TEXT NOT NULL DEFAULT '',
 		elapsed_ms      INTEGER NOT NULL DEFAULT 0,
 		started_at      DATETIME NOT NULL,

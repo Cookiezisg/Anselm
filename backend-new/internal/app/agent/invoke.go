@@ -119,7 +119,7 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 		res.TokensOut = result.TokensOut
 	}
 
-	res.ExecutionID = s.recordExecution(ctx, in, a, v, res, modelID, startedAt, endedAt)
+	res.ExecutionID = s.recordExecution(ctx, in, a, v, res, modelID, result.Blocks, startedAt, endedAt)
 	return res, nil
 }
 
@@ -181,6 +181,18 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 		remaining = 1
 	}
 
+	// Chat surfacing (E3): invoked as a tool in a chat turn, nest the agent's streamed blocks under
+	// the invoke_agent tool_call so the front end shows the run inline as the tool's intermediate.
+	// These blocks are stream-only — the durable record is the Execution transcript, NOT
+	// message_blocks. Outside chat (no tool_call) this is a no-op and nothing streams.
+	//
+	// chat 呈现（E3）：在 chat turn 内作为 tool 调起时，把 agent 的流式 block 嵌在 invoke_agent tool_call
+	// 下，使前端把运行内联呈现为该 tool 的中间过程。这些 block 仅流——耐久记录是 Execution transcript、**非**
+	// message_blocks。不在 chat（无 tool_call）则 no-op、不流。
+	if tcID, ok := reqctxpkg.GetToolCallID(ctx); ok && tcID != "" {
+		ctx = reqctxpkg.SetMessageID(ctx, tcID)
+	}
+
 	result := loopapp.Run(ctx, host, bundle.Client, req, remaining, s.log)
 	return result, req.ModelID, nil
 }
@@ -190,7 +202,7 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 //
 // recordExecution 写一行终态 Execution（best-effort，用保留 workspace 的 detached ctx，使被取消的
 // 运行仍落账）。对标 functionapp.recordExecution。
-func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentdomain.Agent, v *agentdomain.Version, res *InvokeResult, modelID string, startedAt, endedAt time.Time) string {
+func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentdomain.Agent, v *agentdomain.Version, res *InvokeResult, modelID string, blocks []messagesdomain.Block, startedAt, endedAt time.Time) string {
 	triggeredBy := in.TriggeredBy
 	if !agentdomain.IsValidTrigger(triggeredBy) {
 		triggeredBy = agentdomain.TriggeredByManual
@@ -201,6 +213,16 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	}
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+
+	// The full block transcript is this run's self-contained durable record (NOT persisted to the
+	// shared message_blocks table). Always at least "[]" so the column never holds null.
+	//
+	// 完整 block transcript 是本次运行自包含的耐久记录（**不**落共享的 message_blocks 表）。至少 "[]"，使列永不为 null。
+	transcript, err := json.Marshal(blocks)
+	if err != nil || len(transcript) == 0 {
+		transcript = []byte("[]")
+	}
 
 	exec := &agentdomain.Execution{
 		ID:             idgenpkg.New("agx"),
@@ -211,12 +233,14 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 		TriggeredBy:    triggeredBy,
 		Input:          input,
 		Output:         res.Output,
+		Transcript:     transcript,
 		ErrorMessage:   res.ErrorMsg,
 		ElapsedMs:      res.ElapsedMs,
 		StartedAt:      startedAt,
 		EndedAt:        endedAt,
 		ConversationID: convID,
 		MessageID:      msgID,
+		ToolCallID:     toolCallID,
 		FlowrunID:      in.FlowrunID,
 		FlowrunNodeID:  in.FlowrunNodeID,
 	}

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -43,25 +44,34 @@ func IsValidTrigger(s string) bool {
 // Execution 是 InvokeAgent 一次完成的终态审计记录。这是 log 表：只增，绝不软删/硬删（D1）——
 // 故无 DeletedAt 列。
 type Execution struct {
-	ID             string         `db:"id,pk"               json:"id"`
-	WorkspaceID    string         `db:"workspace_id,ws"     json:"-"`
-	AgentID        string         `db:"agent_id"            json:"agentId"`
-	VersionID      string         `db:"version_id"          json:"versionId"`
-	ModelID        string         `db:"model_id"            json:"modelId,omitempty"` // which model actually ran
-	Status         string         `db:"status"              json:"status"`
-	TriggeredBy    string         `db:"triggered_by"        json:"triggeredBy"`
-	Input          map[string]any `db:"input,json"          json:"input"`
-	Output         any            `db:"output,json"         json:"output,omitempty"`
-	ErrorMessage   string         `db:"error_message"       json:"errorMessage,omitempty"`
-	ElapsedMs      int64          `db:"elapsed_ms"          json:"elapsedMs"`
-	StartedAt      time.Time      `db:"started_at"          json:"startedAt"`
-	EndedAt        time.Time      `db:"ended_at"            json:"endedAt"`
-	ConversationID string         `db:"conversation_id"     json:"conversationId,omitempty"`
-	MessageID      string         `db:"message_id"          json:"messageId,omitempty"`
-	ToolCallID     string         `db:"tool_call_id"        json:"toolCallId,omitempty"`
-	FlowrunID      string         `db:"flowrun_id"          json:"flowrunId,omitempty"`
-	FlowrunNodeID  string         `db:"flowrun_node_id"     json:"flowrunNodeId,omitempty"`
-	CreatedAt      time.Time      `db:"created_at,created"  json:"createdAt"`
+	ID          string         `db:"id,pk"               json:"id"`
+	WorkspaceID string         `db:"workspace_id,ws"     json:"-"`
+	AgentID     string         `db:"agent_id"            json:"agentId"`
+	VersionID   string         `db:"version_id"          json:"versionId"`
+	ModelID     string         `db:"model_id"            json:"modelId,omitempty"` // which model actually ran
+	Status      string         `db:"status"              json:"status"`
+	TriggeredBy string         `db:"triggered_by"        json:"triggeredBy"`
+	Input       map[string]any `db:"input,json"          json:"input"`
+	Output      any            `db:"output,json"         json:"output,omitempty"`
+	// Transcript is the agent's full block sequence (text / reasoning / tool_call / tool_result
+	// across steps) serialized as JSON — the durable, self-contained record of the run. The chat
+	// stream nests these blocks live under the invoke_agent tool_call; on reload the front end
+	// rehydrates them from here (agent runs persist HERE, not in the shared message_blocks table).
+	//
+	// Transcript 是 agent 的完整 block 序列（跨步的 text/reasoning/tool_call/tool_result）序列化为 JSON
+	// ——本次运行的耐久、自包含记录。chat 流把这些 block 实时嵌在 invoke_agent tool_call 下；reload 时前端从
+	// 此处重水合（agent 运行落在**这里**，不与共享的 message_blocks 表公用）。
+	Transcript     json.RawMessage `db:"transcript,json"     json:"transcript,omitempty"`
+	ErrorMessage   string          `db:"error_message"       json:"errorMessage,omitempty"`
+	ElapsedMs      int64           `db:"elapsed_ms"          json:"elapsedMs"`
+	StartedAt      time.Time       `db:"started_at"          json:"startedAt"`
+	EndedAt        time.Time       `db:"ended_at"            json:"endedAt"`
+	ConversationID string          `db:"conversation_id"     json:"conversationId,omitempty"`
+	MessageID      string          `db:"message_id"          json:"messageId,omitempty"`
+	ToolCallID     string          `db:"tool_call_id"        json:"toolCallId,omitempty"`
+	FlowrunID      string          `db:"flowrun_id"          json:"flowrunId,omitempty"`
+	FlowrunNodeID  string          `db:"flowrun_node_id"     json:"flowrunNodeId,omitempty"`
+	CreatedAt      time.Time       `db:"created_at,created"  json:"createdAt"`
 }
 
 // ExecutionFilter scopes an execution-log query; empty fields are not constrained.

@@ -24,7 +24,7 @@
 | B2 | create/edit_function · create/edit_handler | forgeSink（`OnAttempt`/`OnFixing`）= 装依赖 + 内层 LLM 改依赖 log |
 | B3 | call_handler | `OnProgress`（method `yield`） |
 | B4 | WebFetch | 内层 LLM 摘要链（边生成边流） |
-| B5 | invoke_agent | 子 ReAct loop block 树嵌 tool_call 下（**E3，复用 subagent**，非 progress block——②③） |
+| B5 | invoke_agent | 子 ReAct loop block 流式嵌 tool_call 下（`SetMessageID(ctx, toolCallID)`，用 ctx 已有 bridge）；**持久化落 agent_executions.transcript 自包含、不碰 messages 表**（用户定调）——execution 经 `ToolCallID` 关联回 tool_call，前端 reload 从 execution 重水合。**不抄 subagent 的 sub-message 模式** |
 | B6 | run_function · mcp 动态 · install_mcp_server | 代码 stdout / MCP progress notif / 装包进度 |
 
 每 phase：建 + 测 + 独立 commit。
