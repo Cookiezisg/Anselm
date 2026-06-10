@@ -96,9 +96,9 @@
 | ✅ R0059 | `contextmgr` | chat, messages, conversation, model | **上下文压缩 ✅·波次 5 收官**：`app/contextmgr`（生产侧；消费侧 R0055 已接）。触发=末回合真实 InputTokens vs 0.80×(window−maxOutput)（免估算器）；两步管线（demote 旧 tool_result 四档 hot/warm/cold → bytes/4 gate → 增量摘要 archived，整 message 保 tool 对原子）；**水位真相源**（chat LoadHistory 丢 seq≤水位，崩溃安全+幂等）；compaction 锚块。地基：messages UpdateBlocksContextRole + conversation SetSummary + chat unfolded/空跳过。无 REST/error-code/新列。DOC-105 重写（砍 tiktoken/Calibrate/4 码）。9 测绿。M7：Deps 注真 + chat 注入 Compactor |
 | ⏭️ R0027 | ~~`tool/permissionsgate`~~ **随 M1.9 解散** | — | 中央门控取消；危险控制由工具自管（别处） |
 
-### 波次 6 — 顶层智能编排（**⬜ 未建——重写从波次 5 直接跳 M7 装配，整波次延后；R0062 前审计回收**）
+### 波次 6 — 顶层智能编排（**✅ 全完成 R0064（ask/danger）+ R0065（iterate/triage）**）
 
-> **审计结论（2026-06-10，R0061 后）**：波次 6 是唯一**整波次跳过**的功能层。两个子系统都**真需要**、且老后端 `backend/` 有可参考实现。M6.2「疑似 askai 旧版大概率删」是**误判**——`ask` 是人工干预会合（与 askai 正交），已纠正。各实体 handler 早已留好 `:iterate` 钩子注释（"依赖 askai 波次 6"）。
+> **审计结论（2026-06-10，R0061 后）**：波次 6 是唯一整波次跳过的功能层，两个子系统都真需要。**已全做完**：M6.2/M6.3 = **R0064 内存阻塞 humanloop**（ask 人工干预会合 + danger 阻塞确认 + always-allow；先做 durable park 版后整体回退，单进程桌面 app overkill）；M6.1 = **R0065 aispawn**（弃名 askai；iterate 面对**8 实体**借 @-mention、triage 面对**6 类执行**借详情读取，删旧两个 context-builder）。实现细节与当初设想的出入：ask 用内存阻塞而非 `/answers`+7天守卫；triage 通用化到 6 类执行（非仅 flowrun）。详见 rounds/0064、0065。
 
 | 编号 | 模块 | app→ 依赖 | 范围 / 老后端参考 |
 |---|---|---|---|
@@ -110,8 +110,8 @@
 
 | # | 项 | 出处 | 现状 / 备注 |
 |---|---|---|---|
-| D1 | **`trigger_workflow` 执行工具** | order M4.5 / deps-todo | 需 `scheduler.StartRun`；backend-new **未建**（WorkflowTools 仅 7 管理工具）；手动「Run now」入口 |
-| D2 | **SSE 订阅端点**（messages/entities 的 GET subscribe） | R0061 标注 | 3 bus 已构造 + 注入 NotificationHandler；messages/entities 的客户端订阅 GET 端点**待核实是否已接**（R0062 覆盖期核） |
+| D1 | **工作流执行生命周期 5 工具/端点** | order M4.5 / deps-todo | ✅ **R0066**——用户把「1 个 Run now」纠正成 5 动作：**trigger**(StartRun 立即跑)·**stage**(一次性监听、扇出后自动 Detach)·**activate**(Attach+lifecycle，补 R0048 deferred 接线)·**deactivate**(Detach+draining/inactive)·**kill**(scheduler inflight ctx 取消打断在跑 run + StatusCancelled)。归 workflow.Service（Binder→trigger/Runner→scheduler 两 DIP 端口）；5 LLM 工具 + 5 `:action`；boot ReattachActive 跨重启重挂 |
+| D2 | **SSE 订阅端点**（messages/entities 的 GET subscribe） | R0061 标注 | ✅ **R0062/SSE-A**——`StreamHandler` 三流订阅 `GET /api/v1/{messages,entities,notifications}/stream`，workspace 级零过滤 + Last-Event-ID 续传 + 410 |
 | D3 | **error-codes `chatdomain.*` 命名 drift 对账** | M7 审计 | chatdomain 不存在；码在 chatapp/messagesdomain；删 stale 行 |
 | D4 | workflow v2：resume-mid-agent(`frs_`) / 通用 durable timer / continue-as-new / overlap `BufferOne`·`BufferAll` | scheduler.md §6 | 明确 v2、不在 v1 范围（CheckTimeouts 是唯一 v1 durable timer） |
 | D5 | 通知自动清理（保留 N 条/N 天） | deps-todo 75 | 当前只增不删；「回头」低优先 |

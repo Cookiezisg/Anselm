@@ -158,12 +158,23 @@ computeReady():
 | **`CheckTimeouts(ctx, now)`** | **唯一保留的 durable timer**：扫 parked 行，解析 pin 表单的 `Timeout`/`TimeoutBehavior`（`ParseTimeout` 支持 d/w）；到期按 behavior 落定（`reject→no` / `approve→yes` / `fail→run failed`）。first-wins 防与人工决策竞争。**通用 durable timer 门（任意节点 at?/after?）是 v2**。 |
 | **`Replay(ctx, flowrunID)`** | 修复失败 run：`DeleteFailedNodes`（清非结果失败行）+ `ReopenForReplay`（翻 running + `replay_count++`）+ `Advance`。completed 行全复用、从失败点续。run 非 failed → `ErrNotReplayable`。**取代旧 generation 自增代**。 |
 | **`ListRuns` / `GetRunWithNodes` / `ListInbox`**（`query.go`） | 运行历史分页 / run 详情（头 + 全部节点行，含 parked）/ 审批收件箱（parked 行即收件箱，无投影表）。 |
+| **`KillWorkflow(ctx, workflowID) → killed`**（`kill.go`，R0066） | 硬停一个 workflow 的所有在途 run（`workflow.Service.Kill` 在 Detach 后调）。见 §4.5。 |
+| **`CountRunning(ctx, workflowID)`**（R0066） | 在途 run 数；workflow `:deactivate` 据此选 draining vs inactive。 |
+
+#### 4.5 kill：取消在途 run（R0066/D1）
+
+`Advance` 是**同步**走图——撞 agent 节点会阻塞在 `loop.Run` 里。要打断它，必须取消其 ctx：
+
+- **inflight 注册表**（`map[flowrunID]context.CancelFunc` + mutex）：`Advance` 入口 `trackInflight` 派生可取消子 ctx 注册、defer 注销。per-run 单 goroutine，故每 run 至多一个 cancel。`Advance` 循环顶 `if ctx.Err()!=nil { return nil }`（中断非错误：durable 状态为准）。
+- **`KillWorkflow`**：`ListRunningByWorkflow` → 逐 run **先标 `cancelled`**（`MarkRunTerminal` 守卫 `WHERE running`）**再 `cancelInflight`** 取消 ctx。顺序关键——被打断的节点 RunAgent/RunAction 返 `ctx.Err()` 会经 `failNode` 想标 failed，但此时 run 已 cancelled、`WHERE running` 匹配 0 行 no-op → **cancelled 确定性赢**。park 中的 run 无 inflight 项（已从 Advance 返回）→ cancelInflight no-op、纯靠 store 标 cancelled。
+- 对忽略 ctx 的纯 CPU 工作只能 best-effort（标 cancelled + 循环顶 bail），但真实 agent 的 LLM/工具调用都吃 ctx。
 
 ### 4.4 finalize（`advance.go`）
 
-- **completed**：无人 ready、无 parked → `MarkRunTerminal(completed)`。
+- **completed**：无人 ready、无 parked → `markRunTerminal(completed)`。
 - **failed**：某节点 fail-fast（action 耗尽 retry / CEL 错 / resolver 错）→ `failNode` 写 failed 行 + run failed（已完成兄弟行保留记忆化，`:replay` 复用）。引擎级失败（loop overflow）走 `failRun`。
 - **仍 running**：无人 ready 但有 parked（approval 等人）→ `Advance` 让出，等信号重驱。
+- **drain reconcile（R0066）**：completed/failed 都经 `markRunTerminal` 收口——run 结算后若该 workflow `CountRunning==0` 且接了 `LifecycleReconciler`，调 `MarkInactiveIfDrained`（把 `:deactivate` 落下的 `draining` 翻 `inactive`，优雅排空完成）。
 
 ---
 
@@ -179,6 +190,7 @@ scheduler 不 import 任何实体的具体 Service，全走端口（M7 装配注
 | **`ApprovalResolver`** | `Resolve(id, versionID) → *approvaldomain.Version`（内联求 form + timeout） | `*approvalapp.Service` |
 | **`FiringInbox`** | `ListPendingFirings` · **`ClaimFiring(id, create)`**（单事务 claim + 建 run，ADR-021） · `MarkFiringOutcome`。**nil 容忍**：纯手动部署不接 | `*triggerstore.Store` |
 | **`RunStore`** | `flowrundomain.Repository` + 两个 store-concrete 原子建-run 方法（`CreateRunWithTrigger` / `SeedRunOnTx`，跨两表单事务） | `*flowrunstore.Store` |
+| **`LifecycleReconciler`**（R0066，setter 注入，**nil 容忍**） | `MarkInactiveIfDrained(workflowID)`——run 结算后翻 draining→inactive（§4.4 drain reconcile） | `*workflowapp.Service` |
 
 `pkg/cel`（`ScopedEnv` / `Compile` / `CompileTemplate`）直接 import（纯求值，无状态、无 DIP 需要）。
 

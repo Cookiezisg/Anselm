@@ -10,7 +10,7 @@ audience: [human, ai]
 ---
 # Error Codes — 100% 物理对账契约
 
-> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 Domain Sentinel 错误生成（已建模块约 180+ 个；workflow 静态图实体 +8 个 `WORKFLOW_*`；flowrun + scheduler 执行引擎 +5 个 `FLOWRUN_*`）。严禁任何摘要或省略。
+> **法律级声明**：本文档通过物理扫描 `errmap.go` 与全仓 Domain Sentinel 错误生成（已建模块约 180+ 个；workflow 静态图实体 +11 个 `WORKFLOW_*`〔含 R0066 执行生命周期 3 个〕；flowrun + scheduler 执行引擎 +5 个 `FLOWRUN_*`）。严禁任何摘要或省略。
 
 ---
 
@@ -174,6 +174,9 @@ audience: [human, ai]
 | `workflowdomain.ErrInvalidOps` | `WORKFLOW_INVALID_OPS` | 422 | 图 op 畸形，或应用后图不一致（未知/重复 id、name 空）|
 | `workflowdomain.ErrRefNotFound` | `WORKFLOW_REF_NOT_FOUND` | 422 | node Ref 解析不到，或 kind/port/method 不符 |
 | `workflowdomain.ErrInvalidLifecycle` | `WORKFLOW_INVALID_LIFECYCLE` | 422 | 非法 lifecycle 值或转换 |
+| `workflowdomain.ErrNoTriggerEntry` | `WORKFLOW_NO_TRIGGER_ENTRY` | 422 | R0066：:activate/:stage 需入口 trigger 节点挂监听，但 active 图无 trigger 节点（纯手动图只能 :trigger）|
+| `workflowdomain.ErrAlreadyActive` | `WORKFLOW_ALREADY_ACTIVE` | 409 | R0066：对已 active 的 workflow 调 :stage（一次性待命无意义，先 :deactivate）|
+| `workflowapp.errExecUnavailable` | `WORKFLOW_EXECUTION_UNAVAILABLE` | 500 | R0066：5 执行动词在 Binder/Runner 端口未接线时的守卫（生产恒接线；app 层 sentinel）|
 
 > **执行面错误码 `FLOWRUN_*`（M4.2/M4.3 落地）**——由 `flowrundomain` 定义、`schedulerapp` 消费。取代旧「前瞻·未建」的事件溯源 / 取消 / 暂停 / generation / subDAG 模型虚构码（全删）。
 

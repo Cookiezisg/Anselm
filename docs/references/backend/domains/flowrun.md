@@ -49,7 +49,7 @@ type FlowRun struct {
     PinnedRefs  map[string]string `db:"pinned_refs,json"`   // BuildPinClosure {entity_id: active_version_id}
     TriggerID   string            `db:"trigger_id"`         // 起点 trg_（手动 :trigger 时空）
     FiringID    string            `db:"firing_id"`          // 来源 trf_（firing 路径单事务 claim 写；手动时空）
-    Status      string            `db:"status"`             // running | completed | failed
+    Status      string            `db:"status"`             // running | completed | failed | cancelled
     ReplayCount int               `db:"replay_count"`       // :replay 自增；非 generation
     Error       string            `db:"error"`              // 终态 failed 的原因摘要
     StartedAt   time.Time         `db:"started_at,created"`
@@ -58,7 +58,7 @@ type FlowRun struct {
 }
 ```
 
-- **run 级状态只有 3 个**：`running | completed | failed`。**无 `parked`**——「等人审批」是某个 approval **节点**的状态（frn 行 `status=parked`），run 仍 `running`。「哪些 run 在等人」从 parked frn 行**派生查**（§3），不在头上冗余。
+- **run 级状态 4 个**：`running | completed | failed | cancelled`。**无 `parked`**——「等人审批」是某个 approval **节点**的状态（frn 行 `status=parked`），run 仍 `running`。「哪些 run 在等人」从 parked frn 行**派生查**（§3），不在头上冗余。`cancelled`（R0066）= `kill_workflow` 硬停，区别于 `failed`（activity 出错）——不带引擎故障，run 被手动终止；`MarkRunTerminal` 守卫 `WHERE status='running'`（first-wins），故 kill 标 cancelled 后被打断的节点经 failNode 标 failed 会 no-op、cancelled 确定性赢。
 - **`VersionID` + `PinnedRefs` = 确定性的两把锁**：拓扑冻结 + 引用实体版本冻结，运行中任何编辑都改不动在途 run（§5 边界一）。pin 闭包由 workflow 的 `BuildPinClosure(graph) → {entity_id: active_version_id}`（depth ≤ 2：agent → 其 fn/hd callable）在 `StartRun` 瞬间构建。
 - **trigger payload 不存头**——它是 trigger 节点的 result，进 frn 行，统一按 node-id 读。
 - 索引：`idx_fr_ws_created`（历史分页）· `idx_fr_ws_workflow`（单 workflow 历史）· partial `idx_fr_running WHERE status='running'`（boot 恢复候选集）。

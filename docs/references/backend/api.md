@@ -80,7 +80,7 @@ audience: [human, ai]
 | GET | `/api/v1/handler-calls/{callId}` | `handler.go` |
 
 ### 2.3 Workflows (wf_)
-> Quadrinity 的编排者：静态「DAG + 回边」typed 图，按 id 引用 trg_/fn_·hd_·mcp_/ag_/ctl_/apf_，每节点 CEL 接线 I/O。线性版本 + 自由 active 指针，无 pending/accept。**只 STORE+VALIDATE+PIN，不执行**（执行 = scheduler/flowrun 后续波次）。详 domains/workflow.md。
+> Quadrinity 的编排者：静态「DAG + 回边」typed 图，按 id 引用 trg_/fn_·hd_·mcp_/ag_/ctl_/apf_，每节点 CEL 接线 I/O。线性版本 + 自由 active 指针，无 pending/accept。**STORE+VALIDATE+PIN 图本身**（图的**解释执行** = scheduler/flowrun），并经 Binder/Runner 端口**编排执行生命周期**（R0066/D1 的 trigger/stage/activate/deactivate/kill 5 动词）。详 domains/workflow.md。
 > **I/O**：图经 **ops** 编辑（`set_meta`/`add_node`/`update_node`/`delete_node`〔级联删边〕/`add_edge`/`update_edge`/`delete_edge`）。节点 `input` 是 `field → 裸 CEL`，**按 node id 读上游结果**（`reviewer.score`，对全图 node id + ctx 的 ScopedEnv 编译）；边只携控制（`fromPort`：control 源=Branch.Port / approval 源=yes\|no）。create 起始 deactivated（`active=false`/`lifecycle=inactive`），图无误后 `:activate`。
 
 | Method | Path | 文件源 | 备注 |
@@ -90,11 +90,21 @@ audience: [human, ai]
 | GET | `/api/v1/workflows/{id}` | `workflow.go` | 含 activeVersion + 解码图（nodes+edges）|
 | PATCH | `/api/v1/workflows/{id}` | `workflow.go` | UpdateMeta（name/description/tags，不升版本）|
 | DELETE | `/api/v1/workflows/{id}` | `workflow.go` | 软删（清边）|
-| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:edit 套 ops 写 max+1〔非空 ops〕、:revert 移指针、:activate/:deactivate 切 lifecycle、:capability-check 结构+ref 报告、**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`；**无 :trigger**) |
+| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:edit 套 ops 写 max+1〔非空 ops〕、:revert 移指针、:capability-check 结构+ref 报告、**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`；**执行生命周期 5 动词 R0066/D1** 见下) |
 | GET | `/api/v1/workflows/{id}/versions` | `workflow.go` | 分页 |
 | GET | `/api/v1/workflows/{id}/versions/{version}` | `workflow.go` | 整数号或 version id |
 
-> **无 `:trigger` / execution-history 端点**（消费 durable scheduler，后续波次）；**无 pending 端点**（无 accept 状态机）；`draining` 是 scheduler 设的系统态，无专门用户动词。
+**执行生命周期 5 动词（R0066/D1，`workflow.go`，均 `POST /workflows/{id}:<verb>`）** —— workflow.Service 经 Binder(→trigger)/Runner(→scheduler) 两 DIP 端口驱动：
+
+| 动词 | 语义 | 返回 |
+|---|---|---|
+| **:trigger** | body `{payload?}` 立即跑一次（scheduler.StartRun，不改监听态） | **202** `{flowrunId}` |
+| **:stage** | 待命接**下一次真实**触发、跑一次自动撤防（trigger.AttachOnce）；已 active→`WORKFLOW_ALREADY_ACTIVE`，无 trigger 入口→`WORKFLOW_NO_TRIGGER_ENTRY` | 200 `{staged:true}` |
+| **:activate** | 上线：trigger.Attach 每入口 + lifecycle=active（**真挂监听**，非旧的只翻 DB 标志）；无 trigger 入口→`WORKFLOW_NO_TRIGGER_ENTRY` | 200 workflow |
+| **:deactivate** | 优雅下线：trigger.Detach + lifecycle=(有在跑 run→draining 否则 inactive)，在途 run 不杀（scheduler 在最后一个 run 结算时 reconcile draining→inactive） | 200 workflow |
+| **:kill** | 硬停：Detach + scheduler.KillWorkflow（取消所有在途 run、ctx 打断阻塞节点、标 `cancelled`）+ lifecycle=inactive | 200 `{killed}` |
+
+> **无 execution-history 端点**（run 列表/详情消费 durable scheduler，另见 flowrun）；**无 pending 端点**（无 accept 状态机）；`draining` 由 :deactivate 落、scheduler reconcile 清，无专门用户动词。
 
 ### 2.4 Agents (ag_)
 > 第四元「配置好的 LLM worker」：不写代码，按引用挂载（skill / 文档 / fn·hd·mcp 工具 / model 覆盖 + 声明 `inputs`/`outputs`），跑 ReAct loop。线性版本 + 自由 active 指针，无 pending/accept。`:invoke` 是唯一执行入口（落 `agent_executions`）。

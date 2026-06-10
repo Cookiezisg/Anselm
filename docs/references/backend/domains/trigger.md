@@ -120,10 +120,11 @@ sensor 把旧的「polling」一般化：**周期性调用一个 function / hand
 
 ## 5. 生命周期（引用计数）
 
-- app 维护内存表 `triggerId → {workspaceId, kind, 监听的 workflow 集}`。
+- app 维护内存表 `triggerId → {workspaceId, kind, 监听的 workflow 集, 一次性子集}`。
 - `Attach(triggerId, workflowId)`：首个引用（0→1）启动底层 listener；后续只加入扇出集。
-- `Detach(...)`：最后一个引用（1→0）停掉 listener。
-- 持久真相在 workflow（谁 active + 引用谁）；**boot 时 scheduler 重新 Attach 重建**（波次 4）。
+- `AttachOnce(triggerId, workflowId)`（R0066，workflow `:stage`）：同 Attach 加入扇出，但标入**一次性集**——`fanOut` 在其单次扇出后自动 `Detach`（试运行：恰接下一次真实触发、跑一次即撤防，可能把 listener 1→0 停掉）。
+- `Detach(...)`：移除引用（同时清一次性标记）；最后一个引用（1→0）停掉 listener。
+- 持久真相在 workflow（谁 active + 引用谁）；**boot 时 workflow.ReattachActive 为每个 active workflow 重新 Attach**（内存表跨重启重建，R0066）。
 
 `Start()` 开机启所有 listener（cron 启调度器，push 型 no-op）；`Shutdown()` 退出时停全部。
 

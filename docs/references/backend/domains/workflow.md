@@ -161,31 +161,48 @@ type RefInfo struct {
 
 ---
 
-## 7. 生命周期（lifecycle / concurrency / attention）
+## 7. 生命周期 + 执行动作（D1，R0066）
 
-- **lifecycle_state**（治理调度参与，任意态可达任意态——调度器可从任何处强制 drain / park）：
-  - `active`：接受触发（`:activate` 设此，`active=true`）。
-  - `draining`：跑完在途、不再起新（系统态，scheduler 设；无专门用户动词）。
-  - `inactive`：完全停泊（`:deactivate` 设此）。
-- **concurrency**（有运行在途时再请求运行调度器怎么办）：`serial`(等) / `Skip`(丢新) / `BufferOne`(仅留最新) / `BufferAll`(全排队) / `AllowAll`(并发)。
-- **needs_attention**：scheduler 在运行不可重试失败时拉起横幅 + reason（`last_action_by=system`）；`needs=false` 时清 reason。
-- **last_action_by**：区分用户发起的状态变更（`user`）与系统发起的（`system`，如调度器自动停泊丢了 trigger 的流）。
+- **lifecycle_state**（治理调度参与）：
+  - `active`：接受触发、持续监听（`:activate` 设此，`active=true`）。
+  - `draining`：跑完在途、不再起新（`:deactivate` 在仍有在途 run 时落此；scheduler 在最后一个 run 结算时 `MarkInactiveIfDrained` 翻 inactive——见 scheduler §4.4）。
+  - `inactive`：完全停泊（`:deactivate`〔无在途 run〕/ `:kill` 设此）。
+- **concurrency**：`serial`(等) / `Skip`(丢新) / `BufferOne`(仅留最新) / `BufferAll`(全排队) / `AllowAll`(并发)。
+- **needs_attention** / **last_action_by**：scheduler 运行不可重试失败拉横幅 + reason；区分 user/system 发起的状态变更。
+
+**执行生命周期 5 动作**——workflow.Service 是单一拥有者，经两 DIP 端口驱动（**bootstrap 注入、无 import 环**：workflow app → scheduler/trigger app；scheduler app 只 import workflow **domain**）：
+- **`Binder`**（→ `*triggerapp.Service`）：`Attach` / `AttachOnce` / `Detach`——挂/摘 trigger 监听。
+- **`Runner`**（→ `*schedulerapp.Service`，bootstrap `runnerAdapter` 把原生参数桥成 `StartInput`）：`StartRun` / `KillWorkflow` / `CountRunning`。
+
+| 动作 | 做什么 |
+|---|---|
+| **`Trigger(id, payload)`** | `runner.StartRun` 立即跑一次（不改监听态）；无 active 版本/trigger 入口由调度器报 422 |
+| **`Stage(id)`** | 入口 trigger 逐个 `binder.AttachOnce`（一次性、不改 lifecycle）；已 active→`ErrAlreadyActive` |
+| **`Activate(id)`** | 入口 trigger 逐个 `binder.Attach` + `SetLifecycle(active)` |
+| **`Deactivate(id)`** | 逐个 `binder.Detach` + `SetLifecycle(有在跑 run→draining 否则 inactive)`（在途 run 不杀）|
+| **`Kill(id)`** | 逐个 `binder.Detach` + `runner.KillWorkflow`（取消在途 run）+ `SetLifecycle(inactive)`→`killed` 数 |
+
+- **`entryTriggerRefs`**：解 active 图、收 `NodeKindTrigger` 节点的去重 ref（trg_）。无 active 版本→`ErrNoActiveVersion`；无 trigger 节点→`ErrNoTriggerEntry`（纯手动图只能 `Trigger`/`Kill`）。
+- **`ReattachActive(ctx)`**：boot 调——监听注册表是内存的、重启后空，故为每个 active workflow 重 `Attach`（App.Boot 在 trigger.Start 后调，按 ctx workspace，同 handler/mcp Boot）。
+- **`MarkInactiveIfDrained`**：实现 scheduler 的 `LifecycleReconciler`（draining→inactive 条件更新）。
 
 ---
 
-## 8. LLM 工具（7，懒加载）
+## 8. LLM 工具（12，懒加载）
 
-`search_workflow`（子串找 name/description/tags）· `get_workflow`（含 active 版完整图 nodes+edges）· `create_workflow`（ops 建 v1，起始 deactivated）· `edit_workflow`（ops 套 active 图写新版本，非空 ops）· `revert_workflow`（按号移指针）· `delete_workflow` · `capability_check_workflow`（结构 + ref 能力报告，activate 前用）。
+**Forge/Query（7）**：`search_workflow`（子串找 name/description/tags）· `get_workflow`（含 active 版完整图 nodes+edges）· `create_workflow`（ops 建 v1，起始 deactivated）· `edit_workflow`（ops 套 active 图写新版本，非空 ops）· `revert_workflow`（按号移指针）· `delete_workflow` · `capability_check_workflow`（结构 + ref 能力报告，activate 前用）。
 
-全 S18 五方法接口、danger 由 LLM 逐次自报；进 `Toolset.Lazy`，经 `search_tools` 浮现。**无 `trigger_workflow` / execution-query 工具**——那些消费 durable scheduler（后续波次），超出范围。
+**执行生命周期（5，R0066/D1）**：`trigger_workflow`（现在跑一次，可带 payload）· `stage_workflow`（待命接下一次真实触发、跑一次自动撤防）· `activate_workflow`（上线持续监听）· `deactivate_workflow`（优雅下线，在途跑完）· `kill_workflow`（硬停 + 取消所有在途 run）。各落 §7 对应 Service 方法。
+
+全 S18 五方法接口、danger 由 LLM 逐次自报（kill 自然被标 dangerous → 走 R0064 确认门）；进 `Toolset.Lazy`，经 `search_tools` 浮现。
 
 ---
 
 ## 9. HTTP 端点
 
-`POST /workflows`（扁平创建，body `{name,description,tags,ops,changeReason}`，返 `{workflow,version}`）· `GET /workflows`（分页）· `GET /workflows/{id}`（含 activeVersion + 解码图）· `PATCH /workflows/{id}`（UpdateMeta：name/description/tags，不升版本）· `DELETE /workflows/{id}`（软删 + 清边）· `POST /workflows/{id}:edit|:revert|:activate|:deactivate|:capability-check` · `GET /workflows/{id}/versions`(分页) · `GET /workflows/{id}/versions/{version}`(整数号或 version id)。
+`POST /workflows`（扁平创建，body `{name,description,tags,ops,changeReason}`，返 `{workflow,version}`）· `GET /workflows`（分页）· `GET /workflows/{id}`（含 activeVersion + 解码图）· `PATCH /workflows/{id}`（UpdateMeta：name/description/tags，不升版本）· `DELETE /workflows/{id}`（软删 + 清边）· `POST /workflows/{id}:edit|:revert|:capability-check|:iterate` · **执行生命周期 `POST /workflows/{id}:trigger|:stage|:activate|:deactivate|:kill`（R0066/D1，§7）** · `GET /workflows/{id}/versions`(分页) · `GET /workflows/{id}/versions/{version}`(整数号或 version id)。
 
-> **无 `:trigger`、无 execution-history 端点**：那些消费 durable scheduler（后续波次）。**无 pending 端点**（无 accept 状态机）。`:iterate`(AI 编辑) 依赖 askai 波次 6，那轮加入。`:activate`/`:deactivate` 是用户动作；`draining` 是 scheduler 设的系统态，故无专门用户动词。
+> `:trigger` 返 **202** `{flowrunId}`；`:kill` 返 `{killed}`；`:activate`/`:deactivate` 返 workflow。**无 execution-history 端点**（run 列表/详情消费 durable scheduler，另见 flowrun）；**无 pending 端点**（无 accept 状态机）。`:iterate`(AI 编辑，R0065)。`draining` 由 `:deactivate` 落、scheduler reconcile 清，无专门用户动词。
 
 ---
 

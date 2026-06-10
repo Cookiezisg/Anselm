@@ -293,7 +293,7 @@ type FlowRun struct { // flowruns — 执行头：钉死的拓扑 + pin 闭包 +
     PinnedRefs  map[string]string `db:"pinned_refs,json"`   // BuildPinClosure {entity_id: active_version_id}（确定性锁之二）
     TriggerID   string            `db:"trigger_id"`         // 起点 trg_（手动 :trigger 时空）
     FiringID    string            `db:"firing_id"`          // 来源 trf_（firing 单事务 claim 写）
-    Status      string            `db:"status"`             // running|completed|failed（CHECK）
+    Status      string            `db:"status"`             // running|completed|failed|cancelled（CHECK；cancelled=kill_workflow 硬停，R0066）
     ReplayCount int               `db:"replay_count"`       // :replay 自增；非 generation
     Error       string            `db:"error"`
     StartedAt   time.Time         `db:"started_at,created"`
