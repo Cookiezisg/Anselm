@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
+	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
@@ -82,6 +83,12 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	//
 	// SSE-C：种 entities Bridge，使 loop 把 forge tool_call 的内容 delta 镜像到 entities 流（LLM 锻造时实体面板实时填充）。
 	base = entitystreamapp.WithBridge(base, s.deps.EntitiesBridge)
+	// R0064: seed the human-in-the-loop broker so the loop's danger gate + ask_user can block for a
+	// human decision (and it flows into any nested agent run via ctx). Cancel (below) unblocks them.
+	//
+	// R0064：种人在环 broker，使 loop 的 danger 门 + ask_user 能阻塞等人决定（经 ctx 流入任何嵌套 agent 运行）。
+	// 下方 cancel 解阻它们。
+	base = humanloopapp.WithBroker(base, s.broker)
 
 	ctx, cancel := context.WithCancel(base)
 	q.mu.Lock()

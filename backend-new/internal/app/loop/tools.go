@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
@@ -74,14 +75,14 @@ func runTools(
 	return blocks
 }
 
-// runOneTool executes one tool call and returns its tool_result block, live-pushing the
-// block lifecycle. The danger level the LLM self-reported rode the tool_call node already
-// (pure trust, M2.2: no gate here); a future approval pause for dangerous calls hooks in at
-// the loop level once the ask channel exists (波次 6).
+// runOneTool executes one tool call and returns its tool_result block, live-pushing the block
+// lifecycle. A self-reported-dangerous call is gated for human approval first when a humanloop
+// broker is in ctx (chat / nested agent); otherwise pure trust (M2.2) — the danger level rode the
+// tool_call node and the call just runs.
 //
-// runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。LLM 自报的
-// danger 已随 tool_call 节点上行（纯信任，M2.2：此处无门控）；将来 dangerous 调用的确认暂停在
-// loop 层接入（待 ask 通道就绪，波次 6）。
+// runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。当 ctx 里有 humanloop
+// broker 时（chat / 嵌套 agent），自报 dangerous 的调用先门控到人批准；否则纯信任（M2.2）——danger 已随
+// tool_call 节点上行、调用直接跑。
 func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, log *zap.Logger) []messagesdomain.Block {
 	argsJSON, _ := json.Marshal(tc.Arguments)
 	// Seed this call's id so a tool can learn its own tool_call block id (the Subagent tool
@@ -95,7 +96,7 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	ctx = reqctxpkg.SetToolCallID(ctx, tc.ID)
 	pcap := &progressCapture{}
 	ctx = withProgressCapture(ctx, pcap)
-	output, errMsg, ok := executeTool(ctx, t, tc.Name, argsJSON, log)
+	output, errMsg, ok := dispatchWithGate(ctx, t, tc, argsJSON, log)
 
 	status := messagesdomain.StatusCompleted
 	if !ok {
@@ -125,6 +126,45 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	// progress 块（Execute 期间发的）排在 tool_result 前——时序 + tool_call 下正确的兄弟序。通常为空
 	// （多数工具不发进度）。
 	return append(pcap.take(), result)
+}
+
+// dispatchWithGate runs the tool, gating a self-reported-dangerous call on human approval first
+// when a humanloop broker is in ctx (chat / nested agent runs seed one; subagent / workflow do not
+// → pure trust). It is interrupt-before-side-effect: a denied tool never executes — the denial is
+// recorded as the result so the model re-routes; a cancelled ctx (the run aborted) records that.
+// approve / approve_always fall through and execute (approve_always also session-whitelists, so the
+// next dangerous call to this tool in this conversation skips the gate).
+//
+// dispatchWithGate 跑工具，但当 ctx 里有 humanloop broker 时（chat / 嵌套 agent 运行 seed 之；subagent /
+// workflow 不 → 纯信任），先把自报 dangerous 的调用门控到人批准。interrupt-before-side-effect：被拒的工具绝不
+// 执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。approve / approve_always 落下去执行（approve_always
+// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。
+func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
+	if b := humanloopapp.From(ctx); b != nil && tc.Danger == string(toolapp.DangerDangerous) {
+		convID, _ := reqctxpkg.GetConversationID(ctx)
+		if !b.IsAllowed(convID, tc.Name) {
+			prompt, _ := json.Marshal(map[string]any{"summary": tc.Summary, "args": json.RawMessage(argsJSON)})
+			resp, err := b.Request(ctx, humanloopapp.Request{
+				ToolCallID:     tc.ID,
+				Kind:           humanloopapp.KindDanger,
+				Tool:           tc.Name,
+				ConversationID: convID,
+				Prompt:         prompt,
+			})
+			if err != nil { // ctx cancelled — the run is aborting
+				return "The run was cancelled before this tool ran.", "", true
+			}
+			// Fail-safe: only an explicit approve runs the tool; deny / an unexpected action does NOT
+			// (a malformed resolve must never execute a dangerous call).
+			//
+			// fail-safe：只有显式 approve 才跑工具；deny / 意外动作都不跑（畸形 resolve 绝不能执行危险调用）。
+			if resp.Action != humanloopapp.DecisionApprove && resp.Action != humanloopapp.DecisionApproveAlways {
+				return humanloopapp.DenyFeedback, "", true
+			}
+			// approve / approve_always → fall through and execute
+		}
+	}
+	return executeTool(ctx, t, tc.Name, argsJSON, log)
 }
 
 // executeTool runs ValidateInput then Execute and shapes the (output, errMsg, ok) tuple.

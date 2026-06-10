@@ -41,6 +41,8 @@ func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}/stream", h.Cancel)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
+	mux.HandleFunc("POST /api/v1/conversations/{id}/interactions/{toolCallId}", h.ResolveInteraction)
 }
 
 // sendMessageRequest is the user turn: text + referenced attachments + @-mentions.
@@ -118,6 +120,36 @@ func (h *ChatHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, map[string]string{"systemPrompt": prompt})
+}
+
+// ListInteractions returns the human interactions this conversation is currently awaiting — the
+// front end's reconnect/refresh re-sync (the live surface signal is ephemeral, R0064).
+//
+// ListInteractions 返回本对话当前在等的人机交互——前端重连/刷新的重新同步（live surface signal 是 ephemeral，R0064）。
+func (h *ChatHandler) ListInteractions(w http.ResponseWriter, r *http.Request) {
+	responsehttpapi.Success(w, http.StatusOK, h.svc.PendingInteractions(r.Context(), r.PathValue("id")))
+}
+
+// ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline)
+// to a tool blocked awaiting input in this conversation; 202 (the gated tool resumes + streams over
+// the messages SSE). NO_PENDING_INTERACTION (404) if nothing is waiting on that tool_call (R0064).
+//
+// ResolveInteraction 把人的决定（approve / approve_always / deny / accept / decline）送给本对话中阻塞等输入的
+// 工具；202（被门工具续跑 + 经 messages SSE 流式）。该 tool_call 无等待项则 NO_PENDING_INTERACTION (404)。
+func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Action string `json:"action"` // approve | approve_always | deny | accept | decline
+		Answer string `json:"answer"` // ask accept: the user's answer
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "resolved"})
 }
 
 // Usage returns a conversation's total token cost (the tokensUsed the detail view shows, R0057).

@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 
+	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	toolsetpkg "github.com/sunweilin/forgify/backend/internal/app/tool/toolset"
 	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
@@ -210,6 +211,13 @@ type Service struct {
 	maxSteps         int
 	log              *zap.Logger
 
+	// broker is the human-in-the-loop broker (R0064): seeded into every turn's ctx so the loop's
+	// danger gate + the ask_user tool can block for a human decision, resolved via ResolveInteraction.
+	//
+	// broker 是人在环 broker（R0064）：seed 进每个回合的 ctx，使 loop 的 danger 门 + ask_user 工具能阻塞等人
+	// 决定，经 ResolveInteraction 决议。
+	broker *humanloopapp.Broker
+
 	queues sync.Map // conversationID → *convQueue
 	wg     sync.WaitGroup
 }
@@ -224,7 +232,7 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 	if messages == nil || log == nil {
 		panic("chatapp.New: nil messages repository or logger")
 	}
-	return &Service{
+	s := &Service{
 		messages:         messages,
 		deps:             deps,
 		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
@@ -232,6 +240,8 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 		maxSteps:         defaultMaxSteps,
 		log:              log,
 	}
+	s.broker = humanloopapp.New(s.interactionSurface)
+	return s
 }
 
 // SendInput is the user's turn: text plus referenced attachment ids. Mentions are deferred to
