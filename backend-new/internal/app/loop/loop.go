@@ -179,6 +179,16 @@ const (
 	ResolveCancel        = "cancel"         // either: abandon the whole parked run
 )
 
+// Model-facing feedback recorded as the tool_result when a parked interaction is refused, so the
+// model re-routes (LangChain's documented reject behavior). Shared by every parking host.
+//
+// 拒绝一条 parked 交互时记为 tool_result 的、面向模型的反馈，使模型改道（LangChain 文档化的 reject 行为）。
+// 每个 parking host 共用。
+const (
+	DenyFeedback    = "The user denied running this tool. Do not retry it unless the user explicitly asks."
+	DeclineFeedback = "The user declined to answer this question. Proceed without it or ask differently."
+)
+
 // Result is the terminal summary of one Run.
 //
 // Result 是一次 Run 的终态汇总。

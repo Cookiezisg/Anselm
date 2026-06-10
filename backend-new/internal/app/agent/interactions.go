@@ -43,7 +43,7 @@ func (s *Service) ResumeExecution(ctx context.Context, executionID, leafToolCall
 	if err := json.Unmarshal(exec.Transcript, &blocks); err != nil {
 		return nil, fmt.Errorf("agentapp.ResumeExecution: decode transcript: %w", err)
 	}
-	tcBlock, pending := findInteractionInBlocks(blocks, leafToolCallID)
+	tcBlock, pending := messagesdomain.FindPendingInteraction(blocks, leafToolCallID)
 	if tcBlock == nil || pending == nil {
 		return nil, agentdomain.ErrInteractionNotFound
 	}
@@ -89,7 +89,7 @@ func (s *Service) ResumeExecution(ctx context.Context, executionID, leafToolCall
 	// Other pending leaves in this same step? Persist the partial fill, stay parked.
 	//
 	// 同一步还有其它 pending leaf？落部分填充、保持 parked。
-	if hasOtherPendingInBlocks(blocks, pending.ID) {
+	if messagesdomain.HasOtherPendingInteraction(blocks, pending.ID) {
 		exec.Transcript = mustMarshalBlocks(blocks)
 		if err := s.repo.UpdateExecution(detachedWS(ctx), exec); err != nil {
 			return nil, err
@@ -145,7 +145,7 @@ func (s *Service) resolveLeaf(ctx context.Context, a *agentdomain.Agent, v *agen
 			}
 			return out, messagesdomain.StatusCompleted, "", nil
 		case loopapp.ResolveDeny:
-			return "The user denied running this tool. Do not retry it unless the user explicitly asks.", messagesdomain.StatusCompleted, "", nil
+			return loopapp.DenyFeedback, messagesdomain.StatusCompleted, "", nil
 		}
 	case loopapp.ParkKindAsk:
 		switch action {
@@ -156,7 +156,7 @@ func (s *Service) resolveLeaf(ctx context.Context, a *agentdomain.Agent, v *agen
 			}
 			return ans, messagesdomain.StatusCompleted, "", nil
 		case loopapp.ResolveDecline:
-			return "The user declined to answer this question. Proceed without it or ask differently.", messagesdomain.StatusCompleted, "", nil
+			return loopapp.DeclineFeedback, messagesdomain.StatusCompleted, "", nil
 		}
 	}
 	return "", "", "", agentdomain.ErrBadResolveAction
@@ -235,35 +235,6 @@ func applyLoopResult(res *InvokeResult, result loopapp.Result, runErr error) {
 		res.TokensIn = result.TokensIn
 		res.TokensOut = result.TokensOut
 	}
-}
-
-// findInteractionInBlocks locates a tool_call (id == toolCallID) and its pending tool_result child.
-//
-// findInteractionInBlocks 定位 tool_call（id == toolCallID）及其 pending tool_result 子块。
-func findInteractionInBlocks(blocks []messagesdomain.Block, toolCallID string) (tcBlock, pending *messagesdomain.Block) {
-	for i := range blocks {
-		b := &blocks[i]
-		if b.ID == toolCallID && b.Type == messagesdomain.BlockTypeToolCall {
-			tcBlock = b
-		}
-		if b.ParentBlockID == toolCallID && b.Type == messagesdomain.BlockTypeToolResult && b.Status == messagesdomain.StatusPending {
-			pending = b
-		}
-	}
-	return
-}
-
-// hasOtherPendingInBlocks reports a pending tool_result other than exceptID.
-//
-// hasOtherPendingInBlocks 报告除 exceptID 外的 pending tool_result。
-func hasOtherPendingInBlocks(blocks []messagesdomain.Block, exceptID string) bool {
-	for i := range blocks {
-		b := &blocks[i]
-		if b.Type == messagesdomain.BlockTypeToolResult && b.Status == messagesdomain.StatusPending && b.ID != exceptID {
-			return true
-		}
-	}
-	return false
 }
 
 func mustMarshalBlocks(blocks []messagesdomain.Block) json.RawMessage {

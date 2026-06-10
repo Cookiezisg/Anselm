@@ -70,7 +70,7 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 	if err != nil {
 		return ErrNoPendingInteraction
 	}
-	tcBlock, pending := findInteraction(parked, toolCallID)
+	tcBlock, pending := messagesdomain.FindPendingInteraction(parked.Blocks, toolCallID)
 	if tcBlock == nil || pending == nil {
 		return ErrNoPendingInteraction
 	}
@@ -128,7 +128,7 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 	// More pending in this turn (a step with several gated calls)? Wait for them all.
 	//
 	// 本回合还有 pending（一步多个被门调用）？等全部决议。
-	if hasOtherPending(parked, pending.ID) {
+	if messagesdomain.HasOtherPendingInteraction(parked.Blocks, pending.ID) {
 		return nil
 	}
 	// All resolved → the turn is no longer parked; drive the continuation.
@@ -209,7 +209,7 @@ func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, k
 			}
 			return out, messagesdomain.StatusCompleted, "", nil
 		case ResolveDeny:
-			return "The user denied running this tool. Do not retry it unless the user explicitly asks.", messagesdomain.StatusCompleted, "", nil
+			return loopapp.DenyFeedback, messagesdomain.StatusCompleted, "", nil
 		}
 	case loopapp.ParkKindAsk:
 		switch action {
@@ -220,7 +220,7 @@ func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, k
 			}
 			return ans, messagesdomain.StatusCompleted, "", nil
 		case ResolveDecline:
-			return "The user declined to answer this question. Proceed without it or ask differently.", messagesdomain.StatusCompleted, "", nil
+			return loopapp.DeclineFeedback, messagesdomain.StatusCompleted, "", nil
 		}
 	}
 	return "", "", "", ErrBadResolveAction
@@ -308,35 +308,4 @@ func (s *Service) findTool(name string) toolapp.Tool {
 		return s.searchTool
 	}
 	return nil
-}
-
-// findInteraction locates the tool_call block (id == toolCallID) and its pending tool_result child
-// in a parked turn.
-//
-// findInteraction 在 parked 回合里定位 tool_call 块（id == toolCallID）及其 pending tool_result 子块。
-func findInteraction(m *messagesdomain.Message, toolCallID string) (tcBlock, pending *messagesdomain.Block) {
-	for i := range m.Blocks {
-		b := &m.Blocks[i]
-		if b.ID == toolCallID && b.Type == messagesdomain.BlockTypeToolCall {
-			tcBlock = b
-		}
-		if b.ParentBlockID == toolCallID && b.Type == messagesdomain.BlockTypeToolResult && b.Status == messagesdomain.StatusPending {
-			pending = b
-		}
-	}
-	return
-}
-
-// hasOtherPending reports whether the turn has a pending tool_result other than exceptID (the
-// in-memory copy of the just-resolved one still reads pending).
-//
-// hasOtherPending 报告回合是否有除 exceptID 外的 pending tool_result（刚决议那条的内存副本仍读 pending）。
-func hasOtherPending(m *messagesdomain.Message, exceptID string) bool {
-	for i := range m.Blocks {
-		b := &m.Blocks[i]
-		if b.Type == messagesdomain.BlockTypeToolResult && b.Status == messagesdomain.StatusPending && b.ID != exceptID {
-			return true
-		}
-	}
-	return false
 }

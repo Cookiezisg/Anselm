@@ -240,6 +240,42 @@ type Message struct {
 	Blocks []Block `db:"-" json:"blocks,omitempty"`
 }
 
+// FindPendingInteraction locates a tool_call block (id == toolCallID) and its pending tool_result
+// child within a block list — the durable shape of a parked human-in-the-loop interaction (R0064).
+// Returns nil pointers if either is absent. Shared by chat (over a message's blocks) and agent
+// (over an execution transcript) so the park/resolve scan lives once, in the block model's home.
+//
+// FindPendingInteraction 在一个 block 列表里定位 tool_call 块（id == toolCallID）及其 pending tool_result
+// 子块——一条 parked 人在环交互的耐久形态（R0064）。任一缺失返 nil。chat（在 message 的 blocks 上）与 agent
+// （在 execution transcript 上）共用，使 park/resolve 扫描只在块模型的家里存一份。
+func FindPendingInteraction(blocks []Block, toolCallID string) (toolCall, pending *Block) {
+	for i := range blocks {
+		b := &blocks[i]
+		if b.ID == toolCallID && b.Type == BlockTypeToolCall {
+			toolCall = b
+		}
+		if b.ParentBlockID == toolCallID && b.Type == BlockTypeToolResult && b.Status == StatusPending {
+			pending = b
+		}
+	}
+	return
+}
+
+// HasOtherPendingInteraction reports whether blocks hold a pending tool_result other than exceptID
+// (a step may gate several calls at once — all must resolve before the run continues, R0064).
+//
+// HasOtherPendingInteraction 报告 blocks 是否有除 exceptID 外的 pending tool_result（一步可能门控多个调用——
+// 全部决议后运行才继续，R0064）。
+func HasOtherPendingInteraction(blocks []Block, exceptID string) bool {
+	for i := range blocks {
+		b := &blocks[i]
+		if b.Type == BlockTypeToolResult && b.Status == StatusPending && b.ID != exceptID {
+			return true
+		}
+	}
+	return false
+}
+
 // Roles a Message carries. There is no system/tool message row — the system prompt is built
 // per-turn by chat (not persisted as a turn) and tool results are tool_result Blocks under an
 // assistant turn, not standalone messages.
