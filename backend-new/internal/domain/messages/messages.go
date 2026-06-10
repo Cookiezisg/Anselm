@@ -105,6 +105,15 @@ const (
 	StatusCompleted = "completed"
 	StatusError     = "error"
 	StatusCancelled = "cancelled"
+	// StatusParked is a MESSAGE-only non-terminal status: the assistant turn paused for human
+	// input — an ask_user call or a dangerous tool awaiting approval (durable human-in-the-loop,
+	// R0064). The pending tool_result block(s) under it carry StatusPending; resolving them drives
+	// a continuation turn. Blocks are never parked (the block CHECK excludes it).
+	//
+	// StatusParked 是 MESSAGE 专属的非终态：assistant 回合为等人输入而暂停——ask_user 调用或危险工具等
+	// 批准（durable 人在环 R0064）。其下 pending tool_result 块为 StatusPending；决议它们驱动续跑回合。
+	// block 永不 parked（block CHECK 不含它）。
+	StatusParked = "parked"
 )
 
 // IsValidStatus reports whether s is a known message/block status.
@@ -112,7 +121,7 @@ const (
 // IsValidStatus 报告 s 是否已知 message/block 状态。
 func IsValidStatus(s string) bool {
 	switch s {
-	case StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled:
+	case StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled, StatusParked:
 		return true
 	}
 	return false
@@ -130,6 +139,11 @@ const (
 	StopReasonMaxSteps  = "max_steps"
 	StopReasonCancelled = "cancelled"
 	StopReasonError     = "error"
+	// StopReasonParked pairs with StatusParked: the turn stopped to await human input (R0064).
+	// A non-terminal stop — a continuation turn resumes once the pending interaction resolves.
+	//
+	// StopReasonParked 配 StatusParked：回合为等人输入而停（R0064）。非终态停——pending 决议后续跑回合恢复。
+	StopReasonParked = "parked"
 )
 
 // ContextRole projects how a block reaches LLM history without rewriting stored Content:

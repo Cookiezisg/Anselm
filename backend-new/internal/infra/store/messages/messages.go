@@ -46,7 +46,7 @@ var Schema = []string{
 		conversation_id TEXT NOT NULL,
 		subagent_id     TEXT NOT NULL DEFAULT '',
 		role            TEXT NOT NULL CHECK(role IN ('user','assistant')),
-		status          TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('pending','streaming','completed','error','cancelled')),
+		status          TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('pending','streaming','completed','error','cancelled','parked')),
 		stop_reason     TEXT NOT NULL DEFAULT '',
 		error_code      TEXT NOT NULL DEFAULT '',
 		error_message   TEXT NOT NULL DEFAULT '',

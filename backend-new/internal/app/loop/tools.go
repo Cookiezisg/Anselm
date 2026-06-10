@@ -37,10 +37,12 @@ func runTools(
 	ctx context.Context,
 	calls []messagesdomain.ToolCallData,
 	byName map[string]toolapp.Tool,
+	parkEnabled bool,
+	allowsTool func(name string) bool,
 	log *zap.Logger,
-) []messagesdomain.Block {
+) ([]messagesdomain.Block, []ParkRequest) {
 	if len(calls) == 0 {
-		return nil
+		return nil, nil
 	}
 	// Per-call block lists (progress* + tool_result), index-aligned so a parallel batch's writes
 	// don't race on order; flattened in call order at the end.
@@ -48,7 +50,30 @@ func runTools(
 	// 每调用一组 block（progress* + tool_result），按下标对齐使并行批写入不竞争顺序；末尾按调用序拍平。
 	perCall := make([][]messagesdomain.Block, len(calls))
 
-	for _, batch := range partitionByExecutionGroup(calls) {
+	// First pass (R0064): classify park calls. A dangerous call (not session-allowed) or an
+	// InteractiveTool (ask_user) does NOT execute — it writes a pending tool_result placeholder and
+	// surfaces a ParkRequest. Safe calls run normally. Running safe siblings while parking unsafe
+	// ones keeps every tool_call's result present (valid LLM projection) and wastes no safe work.
+	//
+	// 第一遍（R0064）：分类 park 调用。危险调用（未会话放行）或 InteractiveTool（ask_user）**不执行**——写
+	// pending tool_result 占位 + 露出 ParkRequest。safe 调用照跑。park 不安全的同时跑 safe 兄弟，使每个
+	// tool_call 都有 result（LLM 投影合法）、不浪费 safe 工作。
+	var parks []ParkRequest
+	runnable := make([]indexedCall, 0, len(calls))
+	em := newEmitter(ctx, log)
+	for i, tc := range calls {
+		if parkEnabled {
+			if kind := parkKind(tc, byName[tc.Name], allowsTool); kind != "" {
+				perCall[i] = []messagesdomain.Block{openPendingToolResult(ctx, em, tc)}
+				argsJSON, _ := json.Marshal(tc.Arguments)
+				parks = append(parks, ParkRequest{ToolCallID: tc.ID, Kind: kind, ToolName: tc.Name, Args: string(argsJSON)})
+				continue
+			}
+		}
+		runnable = append(runnable, indexedCall{idx: i, tc: tc})
+	}
+
+	for _, batch := range partitionByExecutionGroup(runnable) {
 		if len(batch.items) == 1 {
 			item := batch.items[0]
 			perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, log)
@@ -71,7 +96,42 @@ func runTools(
 	for _, bs := range perCall {
 		blocks = append(blocks, bs...)
 	}
-	return blocks
+	return blocks, parks
+}
+
+// parkKind reports why a call must park — ParkKindAsk (an InteractiveTool, e.g. ask_user) or
+// ParkKindDanger (a self-reported dangerous call the user hasn't session-allowed) — or "" if it
+// runs normally. ask takes precedence (an ask_user call is never auto-allowed by always-allow).
+//
+// parkKind 报告调用为何须 park——ParkKindAsk（InteractiveTool 如 ask_user）或 ParkKindDanger（自报危险且用户
+// 未会话放行）——否则 "" 正常跑。ask 优先（ask_user 永不被 always-allow 自动放行）。
+func parkKind(tc messagesdomain.ToolCallData, t toolapp.Tool, allowsTool func(string) bool) string {
+	if _, ok := t.(toolapp.InteractiveTool); ok {
+		return ParkKindAsk
+	}
+	if tc.Danger == string(toolapp.DangerDangerous) && !allowsTool(tc.Name) {
+		return ParkKindDanger
+	}
+	return ""
+}
+
+// openPendingToolResult writes the placeholder tool_result for a parked call: status=pending,
+// empty content, parented to the tool_call. It is the durable marker the resolver fills (keyed by
+// the tool_call id) and the inbox queries. Streams an Open frame (no Close — the close arrives at
+// resolve, possibly a different turn / after a restart).
+//
+// openPendingToolResult 为 park 调用写占位 tool_result：status=pending、空内容、挂其 tool_call。它是 resolver
+// 据 tool_call id 填充、收件箱查询的耐久标记。流式发 Open 帧（无 Close——close 在 resolve 时来，可能跨回合 / 重启后）。
+func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.ToolCallData) messagesdomain.Block {
+	blockID := idgenpkg.New("blk")
+	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, nil)
+	return messagesdomain.Block{
+		ID:            blockID,
+		Type:          messagesdomain.BlockTypeToolResult,
+		ParentBlockID: tc.ID,
+		Status:        messagesdomain.StatusPending,
+		Attrs:         map[string]any{"tool": tc.Name},
+	}
 }
 
 // runOneTool executes one tool call and returns its tool_result block, live-pushing the
@@ -176,27 +236,30 @@ type executionBatch struct {
 // 总排在显式分组批之后。
 const autoGroupBase = 1000
 
-// partitionByExecutionGroup buckets calls by ExecutionGroup; ≤0 get sequential auto-groups
-// (each its own batch) placed after the explicit ones. Same explicit group → one batch →
-// concurrent; distinct groups → separate batches → ordered.
+// partitionByExecutionGroup buckets the runnable calls by ExecutionGroup; ≤0 get sequential
+// auto-groups (each its own batch) placed after the explicit ones. Same explicit group → one batch
+// → concurrent; distinct groups → separate batches → ordered. Takes indexedCalls (the original
+// call index preserved) so a parallel batch's writes land in the right slot after park calls were
+// filtered out (R0064).
 //
-// partitionByExecutionGroup 按 ExecutionGroup 分桶；≤0 获顺序自动组（各自一批）排在显式组之后。
-// 同一显式组 → 一批 → 并行；不同组 → 分批 → 有序。
-func partitionByExecutionGroup(calls []messagesdomain.ToolCallData) []executionBatch {
-	if len(calls) == 0 {
+// partitionByExecutionGroup 把可运行调用按 ExecutionGroup 分桶；≤0 获顺序自动组（各自一批）排在显式组之后。
+// 同一显式组 → 一批 → 并行；不同组 → 分批 → 有序。收 indexedCall（保留原始调用下标），使过滤掉 park 调用后并行
+// 批的写入仍落对槽（R0064）。
+func partitionByExecutionGroup(items []indexedCall) []executionBatch {
+	if len(items) == 0 {
 		return nil
 	}
 
 	maxExplicit := 0
-	for _, tc := range calls {
-		maxExplicit = max(maxExplicit, tc.ExecutionGroup)
+	for _, it := range items {
+		maxExplicit = max(maxExplicit, it.tc.ExecutionGroup)
 	}
 	nextAuto := max(maxExplicit+1, autoGroupBase)
 
 	buckets := map[int][]indexedCall{}
 	var groupNums []int
-	for i, tc := range calls {
-		g := tc.ExecutionGroup
+	for _, it := range items {
+		g := it.tc.ExecutionGroup
 		if g <= 0 {
 			g = nextAuto
 			nextAuto++
@@ -204,7 +267,7 @@ func partitionByExecutionGroup(calls []messagesdomain.ToolCallData) []executionB
 		if _, ok := buckets[g]; !ok {
 			groupNums = append(groupNums, g)
 		}
-		buckets[g] = append(buckets[g], indexedCall{idx: i, tc: tc})
+		buckets[g] = append(buckets[g], it)
 	}
 
 	sort.Ints(groupNums)

@@ -296,7 +296,11 @@ func TestPartitionByExecutionGroup(t *testing.T) {
 		{ID: "c", ExecutionGroup: 0}, // auto-grouped, sorts after explicit
 		{ID: "d", ExecutionGroup: 2},
 	}
-	batches := partitionByExecutionGroup(calls)
+	items := make([]indexedCall, len(calls))
+	for i, tc := range calls {
+		items[i] = indexedCall{idx: i, tc: tc}
+	}
+	batches := partitionByExecutionGroup(items)
 	// groups: 1 -> [a,b], 2 -> [d], auto(1000) -> [c]. Order: 1, 2, 1000.
 	if len(batches) != 3 {
 		t.Fatalf("got %d batches, want 3", len(batches))
@@ -322,7 +326,7 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 		"a": fakeTool{name: "a", result: "result-a"},
 		"b": fakeTool{name: "b", result: "result-b"},
 	}
-	blocks := runTools(context.Background(), calls, byName, zap.NewNop())
+	blocks, _ := runTools(context.Background(), calls, byName, false, func(string) bool { return false }, zap.NewNop())
 	if len(blocks) != 2 {
 		t.Fatalf("got %d blocks, want 2", len(blocks))
 	}

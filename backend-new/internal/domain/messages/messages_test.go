@@ -19,7 +19,7 @@ func TestIsValidBlockType(t *testing.T) {
 }
 
 func TestIsValidStatus(t *testing.T) {
-	for _, v := range []string{StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled} {
+	for _, v := range []string{StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled, StatusParked} {
 		if !IsValidStatus(v) {
 			t.Errorf("IsValidStatus(%q) = false, want true", v)
 		}
