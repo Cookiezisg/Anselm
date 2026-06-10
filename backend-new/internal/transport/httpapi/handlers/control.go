@@ -14,12 +14,12 @@ import (
 
 // ControlHandler hosts the control-logic HTTP endpoints. The version model is linear
 // with a free-moving active pointer — no pending/accept endpoints, no :run (a control
-// logic is evaluated by the workflow interpreter, never invoked standalone). The AI
-// :iterate verb depends on askai (波次 6) and is added in that wave.
+// logic is evaluated by the workflow interpreter, never invoked standalone). No :iterate
+// (R0065 only wired the five entities with mention resolvers; control has none yet).
 //
 // ControlHandler 持 control 逻辑 HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无
-// pending/accept 端点、无 :run（control 逻辑由 workflow 解释器求值，绝不独立调用）。AI :iterate
-// 依赖 askai（波次 6），那轮加入。
+// pending/accept 端点、无 :run（control 逻辑由 workflow 解释器求值，绝不独立调用）。无 :iterate
+// （R0065 只接了有 mention resolver 的五个实体；control 暂无）。
 type ControlHandler struct {
 	svc *controlapp.Service
 	log *zap.Logger

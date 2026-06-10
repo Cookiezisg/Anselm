@@ -14,11 +14,12 @@ import (
 
 // ApprovalHandler hosts the approval-form HTTP endpoints. Linear version model with a
 // free-moving active pointer — no pending/accept endpoints, no :run (an approval form is
-// rendered + parked by the workflow interpreter, never invoked standalone). The AI :iterate
-// verb depends on askai (波次 6).
+// rendered + parked by the workflow interpreter, never invoked standalone). No :iterate
+// (R0065 only wired the five entities with mention resolvers; approval forms have none yet).
 //
 // ApprovalHandler 持审批表 HTTP 端点。线性版本 + 自由 active 指针——无 pending/accept 端点、无 :run
-// （审批表由 workflow 解释器渲染 + park，绝不独立调用）。AI :iterate 依赖 askai（波次 6）。
+// （审批表由 workflow 解释器渲染 + park，绝不独立调用）。无 :iterate（R0065 只接了有 mention resolver
+// 的五个实体；审批表暂无）。
 type ApprovalHandler struct {
 	svc *approvalapp.Service
 	log *zap.Logger
