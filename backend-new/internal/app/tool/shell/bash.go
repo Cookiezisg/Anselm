@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 )
 
 const (
@@ -121,9 +123,21 @@ func (t *Bash) runForeground(ctx context.Context, command string, timeout time.D
 	defer cancel()
 
 	cmd := buildShellCmd(runCtx, command)
+
+	// Tee combined output to BOTH the result buffer (the final tool_result the LLM reads) AND a
+	// live progress stream, so the user watches stdout/stderr scroll in real time under the Bash
+	// tool_call. ToolProgress is nil-safe: off a streamed chat turn (REST / tests) it is a no-op
+	// and only buf is written.
+	//
+	// 把合并输出**同时**写结果 buf（LLM 读的最终 tool_result）+ 实时 progress 流，使用户在 Bash
+	// tool_call 下实时看 stdout/stderr 滚动。ToolProgress nil 安全：不在流式 chat turn（REST/测试）则
+	// no-op、只写 buf。
+	prog := loopapp.ToolProgress(ctx)
+	defer prog.Close()
 	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	w := io.MultiWriter(&buf, prog)
+	cmd.Stdout = w
+	cmd.Stderr = w
 
 	err := cmd.Run()
 	output := capOutput(buf.Bytes())
