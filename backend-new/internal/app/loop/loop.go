@@ -171,11 +171,12 @@ func AsParkSignal(err error) (*ParkSignal, bool) {
 // 决议动词——人如何决议一个 parked 交互（R0064）。每个 parking host（chat / agent）共用，使线缆契约是一套词表。
 // danger：approve | deny；ask：accept | decline；两者：cancel（放弃运行）。
 const (
-	ResolveApprove = "approve" // danger: run the gated tool
-	ResolveDeny    = "deny"    // danger: skip it, feed the denial back to the model
-	ResolveAccept  = "accept"  // ask: submit the answer
-	ResolveDecline = "decline" // ask: refuse to answer, feed back
-	ResolveCancel  = "cancel"  // either: abandon the whole parked run
+	ResolveApprove       = "approve"        // danger: run the gated tool
+	ResolveApproveAlways = "approve_always" // danger: run it + session-whitelist the tool (always-allow)
+	ResolveDeny          = "deny"           // danger: skip it, feed the denial back to the model
+	ResolveAccept        = "accept"         // ask: submit the answer
+	ResolveDecline       = "decline"        // ask: refuse to answer, feed back
+	ResolveCancel        = "cancel"         // either: abandon the whole parked run
 )
 
 // Result is the terminal summary of one Run.

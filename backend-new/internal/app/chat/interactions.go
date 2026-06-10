@@ -37,13 +37,22 @@ var (
 )
 
 // allowsToolForConversation reports whether the conversation has session-whitelisted a tool
-// (always-allow), so the danger park is skipped. D1 has no whitelist (always false → every
-// dangerous call parks); D4 wires the per-conversation set populated by the approve-always action.
+// (always-allow, R0064 D4), so the danger park is skipped. allowTool adds one (on approve_always).
+// Deny-first holds trivially: a non-whitelisted dangerous call still parks; always-allow only
+// suppresses the prompt for tools the user already blessed in this conversation.
 //
-// allowsToolForConversation 报告本对话是否会话白名单了某工具（always-allow）以跳过 danger park。D1 无白名单
-// （恒 false → 每个危险调用都 park）；D4 接由 approve-always 动作填充的 per-conversation 集合。
-func (s *Service) allowsToolForConversation(_ /*conversationID*/, _ /*name*/ string) bool {
-	return false
+// allowsToolForConversation 报告本对话是否会话白名单了某工具（always-allow，R0064 D4）以跳过 danger park。
+// allowTool 加一个（approve_always 时）。deny-first 平凡成立：未白名单的危险调用仍 park；always-allow 只压制
+// 用户在本对话已批准过的工具的提示。
+func (s *Service) allowsToolForConversation(conversationID, name string) bool {
+	_, ok := s.allowedTools.Load(conversationID + "\x00" + name)
+	return ok
+}
+
+func (s *Service) allowTool(conversationID, name string) {
+	if name != "" {
+		s.allowedTools.Store(conversationID+"\x00"+name, struct{}{})
+	}
 }
 
 // ResolveInteraction resolves one pending human interaction in a conversation's parked turn
@@ -101,6 +110,14 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 		content, status, errMsg, err = s.resolveOne(ctx, conversationID, parked.ID, kind, action, answer, tcBlock)
 		if err != nil {
 			return err
+		}
+		// always-allow (D4): a successful approve_always session-whitelists the tool so future
+		// dangerous calls to it in this conversation skip the park.
+		//
+		// always-allow（D4）：成功的 approve_always 会话白名单该工具，使本对话未来对它的危险调用跳过 park。
+		if action == loopapp.ResolveApproveAlways && kind == loopapp.ParkKindDanger && status == messagesdomain.StatusCompleted {
+			name, _ := tcBlock.Attrs["tool"].(string)
+			s.allowTool(conversationID, name)
 		}
 	}
 	if err := s.messages.ResolveToolResult(ctx, pending.ID, content, status, errMsg); err != nil {
@@ -181,7 +198,11 @@ func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, k
 	switch kind {
 	case loopapp.ParkKindDanger:
 		switch action {
-		case ResolveApprove:
+		case ResolveApprove, loopapp.ResolveApproveAlways:
+			// approve_always also whitelists the tool for the conversation (the caller does that on
+			// success); both run the tool now.
+			//
+			// approve_always 还为本对话白名单该工具（调用方在成功时做）；两者都此刻跑工具。
 			out, exErr := s.executeApprovedTool(ctx, conversationID, parkedMsgID, tcBlock)
 			if exErr != "" {
 				return out, messagesdomain.StatusError, exErr, nil

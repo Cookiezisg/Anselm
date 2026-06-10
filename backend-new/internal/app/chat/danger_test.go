@@ -45,12 +45,17 @@ func (c *scriptedClient) Stream(_ context.Context, _ llminfra.Request) iter.Seq[
 	}
 }
 
-// dangerToolCall scripts one step that calls tool `name` self-reporting danger=dangerous.
+// dangerToolCall scripts one step that calls tool `name` self-reporting danger=dangerous (tool_call
+// id "tc1"). dangerToolCallID takes the id explicitly — a multi-turn test needs distinct ids since
+// block ids are persisted (the PK), exactly as a real LLM mints a fresh id per turn.
 //
-// dangerToolCall 脚本一步：调用工具 name 且自报 danger=dangerous。
-func dangerToolCall(name string) []llminfra.StreamEvent {
+// dangerToolCall 脚本一步：调用工具 name 且自报 danger=dangerous（tool_call id "tc1"）。dangerToolCallID 显式取
+// id——多回合测试需不同 id，因 block id 落库（主键），正如真实 LLM 每轮新 id。
+func dangerToolCall(name string) []llminfra.StreamEvent { return dangerToolCallID("tc1", name) }
+
+func dangerToolCallID(tcID, name string) []llminfra.StreamEvent {
 	return []llminfra.StreamEvent{
-		{Type: llminfra.EventToolStart, ToolIndex: 0, ToolID: "tc1", ToolName: name},
+		{Type: llminfra.EventToolStart, ToolIndex: 0, ToolID: tcID, ToolName: name},
 		{Type: llminfra.EventToolDelta, ToolIndex: 0, ArgsDelta: `{"danger":"dangerous","target":"prod"}`},
 		{Type: llminfra.EventFinish, FinishReason: "tool_use", InputTokens: 5, OutputTokens: 3},
 	}
@@ -79,7 +84,11 @@ func newDangerSvc(t *testing.T, client llminfra.Client, bridge *recordBridge, to
 	t.Helper()
 	store := newStore(t)
 	return New(store, Deps{
-		Conversations: fakeConvs{conv: &conversationdomain.Conversation{SystemPrompt: "be concise"}},
+		// Title set so auto-title never fires — it would consume a scripted Stream call and shift the
+		// per-turn script indices in a multi-turn test (always-allow).
+		//
+		// 设 Title 使 auto-title 不触发——否则它消耗一个脚本 Stream 调用、打乱多回合测试（always-allow）的每回合脚本索引。
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{SystemPrompt: "be concise", Title: "deploys"}},
 		Resolver:      fakeResolver{client: client},
 		Bridge:        bridge,
 		Toolset:       toolapp.Toolset{Resident: []toolapp.Tool{tool}},

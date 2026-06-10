@@ -228,6 +228,14 @@ type Service struct {
 
 	queues sync.Map // conversationID → *convQueue
 	wg     sync.WaitGroup
+
+	// allowedTools is the always-allow session whitelist (R0064 D4): a danger park is skipped for a
+	// tool the user resolved with approve_always in this conversation. Keyed "conversationID\x00tool"
+	// → struct{}. In-memory + session-scoped (a convenience, lost on restart — re-prompts then).
+	//
+	// allowedTools 是 always-allow 会话白名单（R0064 D4）：用户在本对话以 approve_always 决议过的工具，其 danger
+	// park 被跳过。键 "conversationID\x00tool" → struct{}。内存 + 会话级（便利，重启即失、届时重新提示）。
+	allowedTools sync.Map
 }
 
 // New constructs the chat Service. nil messages / log is a wiring bug; Deps fields may be nil
