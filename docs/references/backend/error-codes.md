@@ -66,14 +66,11 @@ audience: [human, ai]
 | `convdomain.ErrNotFound` | `CONVERSATION_NOT_FOUND` | 404 | 对话不存在 / 已软删 / 跨 workspace |
 | `convdomain.ErrInvalidModelOverride` | `CONVERSATION_INVALID_MODEL_OVERRIDE` | 422 | 已设 modelOverride 缺 apiKeyId 或 modelId（结构校验，照 agent） |
 | `messagesdomain.ErrMessageNotFound` | `MESSAGE_NOT_FOUND` | 404 | GetMessage / FinalizeMessage 命中未知 message id（R0054，归 domain/messages） |
-| `chatdomain.ErrBlockNotFound` | `INTERNAL_ERROR` | 500 | [未映射] 内容块丢失 |
-| `chatdomain.ErrStreamNotFound` | `STREAM_NOT_FOUND` | 404 | 找不到正在生成的流 |
-| `chatdomain.ErrStreamInProgress` | `STREAM_IN_PROGRESS` | 409 | 对话中已有 AI 正在运行 |
-| `chatdomain.ErrEmptyContent` | `EMPTY_CONTENT` | 400 | 发送了空消息（chat M5.2）|
+| `chatapp.ErrStreamInProgress` | `STREAM_IN_PROGRESS` | 409 | 对话中已有 AI 正在运行（chat.go） |
+| `chatapp.ErrEmptyContent` | `EMPTY_CONTENT` | 400 | 发送了空消息（无文本无附件，chat.go） |
+| `chatapp.ErrNoPendingInteraction` | `NO_PENDING_INTERACTION` | 404 | resolve 指向一个并未在等人决定的 tool_call（未知 id / 已决议 / 重复 POST；R0064 humanloop，interactions.go） |
 | `streamdomain.ErrSeqTooOld` | `SEQ_TOO_OLD` | 410 | SSE 重连请求的 seq 已被 replay 环淘汰（E2/N2 Gone，客户端重订） |
 | `streamdomain.ErrInvalidEvent` | `STREAM_INVALID_EVENT` | 500 | producer 发了非法 stream 事件（内部 bug，不应到达用户） |
-
-> ⚠️ doc-sync 待办（折叠进 M7 接 chat）：上表 `chatdomain.*` 前缀已陈旧——backend-new 无 `chatdomain` 包，`ErrEmptyContent`/`ErrStreamInProgress` 实在 `chatapp`（chat.go），`MESSAGE_NOT_FOUND` 在 `messagesdomain`；`chatdomain.ErrBlockNotFound`/`ErrStreamNotFound` 在 backend-new **不存在**（chat Cancel 幂等、无 STREAM_NOT_FOUND）。M7 接 chat 时开着代码统一对账 rename + 删两条陈旧行。
 
 ### 2.4b Attachment Domain（R0051 ✅，独立模块；详见 domains/attachment.md DOC-307）
 > 附件从 chat 内嵌提升为独立 `attachment` 域（CAS 存储 + 多 provider 注入 + sandbox 提取）。旧 `chatdomain.ErrAttachment*` 已被取代。
@@ -282,11 +279,9 @@ audience: [human, ai]
 ## 3. 未映射 (Fallback 500) 审计清单
 
 以下 Sentinel 目前尚未在 `errmap.go` 登记，前端收到时 Code 均为 `INTERNAL_ERROR`：
-- `reqctxpkg.ErrMissingUserID`
-- `reqctxpkg.ErrMissingConversationID`
+- `reqctxpkg.ErrMissingWorkspaceID`（接线 bug：中间件未埋 workspace 种子）
+- `reqctxpkg.ErrMissingConversationID`（接线 bug：对话作用域调用未埋 conversation 种子）
 - `cryptoinfra.ErrUnsupportedVersion`
-- `triggerdomain.ErrFiringNotPending`
-- `chatdomain.ErrBlockNotFound`
-- `subagentdomain.ErrRecursionAttempt`
-- `askapp.ErrNoPendingQuestion` (注：API 直接处理了 ask，此处为 app 层兜底)
 - ...以及所有 Go 内部 `fmt.Errorf` 产生的动态错误。
+
+> D3 对账（R0066）：删去 `chatdomain.ErrBlockNotFound`（backend-new 无 `chatdomain` 包）、`subagentdomain.ErrRecursionAttempt`（无 `subagentdomain` 包——递归在工具层拒绝、非 HTTP sentinel）、`askapp.ErrNoPendingQuestion`（R0064 humanloop 重做后无 `askapp`，被 `chatapp.ErrNoPendingInteraction` 取代，已映射 404、见 §2.4）；`ErrMissingUserID`→`ErrMissingWorkspaceID`（workspace 改名）。`triggerdomain.ErrFiringNotPending` 已映射（`TRIGGER_FIRING_NOT_PENDING` 409，见 §2.5），非 fallback。

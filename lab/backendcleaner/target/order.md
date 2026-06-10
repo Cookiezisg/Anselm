@@ -98,7 +98,7 @@
 
 ### 波次 6 — 顶层智能编排（**✅ 全完成 R0064（ask/danger）+ R0065（iterate/triage）**）
 
-> **审计结论（2026-06-10，R0061 后）**：波次 6 是唯一整波次跳过的功能层，两个子系统都真需要。**已全做完**：M6.2/M6.3 = **R0064 内存阻塞 humanloop**（ask 人工干预会合 + danger 阻塞确认 + always-allow；先做 durable park 版后整体回退，单进程桌面 app overkill）；M6.1 = **R0065 aispawn**（弃名 askai；iterate 面对**8 实体**借 @-mention、triage 面对**6 类执行**借详情读取，删旧两个 context-builder）。实现细节与当初设想的出入：ask 用内存阻塞而非 `/answers`+7天守卫；triage 通用化到 6 类执行（非仅 flowrun）。详见 rounds/0064、0065。
+> **审计结论（2026-06-10，R0061 后）**：波次 6 是唯一整波次跳过的功能层，两个子系统都真需要。**已全做完**：M6.2/M6.3 = **R0064 内存阻塞 humanloop**（ask 人工干预会合 + danger 阻塞确认 + always-allow；先做 durable park 版后整体回退，单进程桌面 app overkill）；M6.1 = **R0065 aispawn**（弃名 askai；iterate 面对**8 实体**借 @-mention、triage 面对**6 类执行**借详情读取，删旧两个 context-builder）。实现细节与当初设想的出入：ask 用内存阻塞而非 `/answers`+7天守卫；triage 通用化到 6 类执行（非仅 flowrun）。**M6.3 的 skill allowed-tools 预授权消费侧（R0064 留口）在 R0066 接通**：danger 门 `loop.dispatchWithGate` 查 `agentstate.IsToolPreApprovedBySkill`，active skill 声明的工具免逐次确认。详见 rounds/0064、0065。
 
 | 编号 | 模块 | app→ 依赖 | 范围 / 老后端参考 |
 |---|---|---|---|

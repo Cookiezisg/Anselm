@@ -54,7 +54,7 @@ skill 作为 catalog 数据源，catalog 组装概览时**现扫** `skills/` 目
 `$ARGUMENTS`（全部）/ `$1..$n`（位置）/ `$name`（命名）/ `${CLAUDE_SESSION_ID}`。**不支持** `` !`cmd` `` shell 注入（任意执行面，拒绝）；`${CLAUDE_SKILL_DIR}` 待 L3 附加文件那轮。
 
 ### 2.4 allowed-tools = 预授权（非限制）
-激活时把 allowed-tools 写入 `agentstate.activeSkill`；危险确认流（ask 波次 6）据此对这些工具**免逐次确认**。未列出的工具照常可用、照常确认。与「无中央门控、危险靠 LLM 逐次自报」(S18) 天然自洽——allowed-tools 是免确认快捷通道，不是门控。
+激活时把 allowed-tools 写入 `agentstate.activeSkill`（`skill/activate.go`）；danger 确认门（`loop.dispatchWithGate`）经 `agentstate.IsToolPreApprovedBySkill` 据此对这些工具**免逐次确认**——**R0064 建 danger 门 + R0066 接通 skill 消费侧**（消费侧此前留口、现已落地）。未列出的工具照常可用、照常确认。与「无中央门控、危险靠 LLM 逐次自报」(S18) 天然自洽——allowed-tools 是免确认快捷通道，不是门控。
 
 ### 2.5 创作与分发
 - `create_skill` / `edit_skill` / `delete_skill`：人工 HTTP（`source=user`）/ AI 工具（`source=ai`，区分作者防污染）。
