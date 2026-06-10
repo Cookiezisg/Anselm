@@ -143,7 +143,7 @@ func TestDanger_ParksThenApproveRunsAndContinues(t *testing.T) {
 	}
 
 	// approve → executes the tool now + continues
-	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveApprove); err != nil {
+	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveApprove, "", ""); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
 	}
 	if !ran {
@@ -176,7 +176,7 @@ func TestDanger_Deny(t *testing.T) {
 	asstID, _ := svc.Send(ctx, "cv_1", SendInput{Content: "deploy prod"})
 	waitClose(t, bridge, asstID)
 
-	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveDeny); err != nil {
+	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveDeny, "", ""); err != nil {
 		t.Fatalf("ResolveInteraction deny: %v", err)
 	}
 	if ran {

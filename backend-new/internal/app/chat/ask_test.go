@@ -71,7 +71,7 @@ func TestAsk_ParksThenAcceptFillsAnswer(t *testing.T) {
 		t.Fatalf("ask should leave a pending tool_result, got %+v", tr)
 	}
 
-	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveAccept, "staging"); err != nil {
+	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveAccept, "staging", ""); err != nil {
 		t.Fatalf("ResolveInteraction accept: %v", err)
 	}
 	// the answer is now the tool_result content
@@ -98,7 +98,7 @@ func TestAsk_Decline(t *testing.T) {
 	asstID, _ := svc.Send(ctx, "cv_1", SendInput{Content: "deploy"})
 	waitClose(t, bridge, asstID)
 
-	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveDecline, ""); err != nil {
+	if err := svc.ResolveInteraction(ctx, "cv_1", "tc1", ResolveDecline, "", ""); err != nil {
 		t.Fatalf("ResolveInteraction decline: %v", err)
 	}
 	done, _ := store.GetMessage(ctx, asstID)

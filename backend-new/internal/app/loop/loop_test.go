@@ -339,7 +339,7 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 }
 
 func TestExecuteTool_NotFound(t *testing.T) {
-	out, errMsg, ok := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
+	out, errMsg, ok, _ := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
 	if ok || !strings.Contains(out, "not found") || errMsg == "" {
 		t.Fatalf("nil tool: out=%q errMsg=%q ok=%v", out, errMsg, ok)
 	}

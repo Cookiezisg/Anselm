@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 
@@ -50,23 +51,21 @@ func runTools(
 	// 每调用一组 block（progress* + tool_result），按下标对齐使并行批写入不竞争顺序；末尾按调用序拍平。
 	perCall := make([][]messagesdomain.Block, len(calls))
 
-	// First pass (R0064): classify park calls. A dangerous call (not session-allowed) or an
-	// InteractiveTool (ask_user) does NOT execute — it writes a pending tool_result placeholder and
-	// surfaces a ParkRequest. Safe calls run normally. Running safe siblings while parking unsafe
-	// ones keeps every tool_call's result present (valid LLM projection) and wastes no safe work.
+	// First pass (R0064): a PRE-execution park — a dangerous call (not session-allowed) or an
+	// InteractiveTool (ask_user) — does NOT execute; it writes a pending tool_result placeholder.
+	// Safe calls (and tools that may POST-execution park, e.g. invoke_agent) run normally. Running
+	// safe siblings while parking unsafe ones keeps every tool_call's result present (valid LLM
+	// projection) and wastes no safe work.
 	//
-	// 第一遍（R0064）：分类 park 调用。危险调用（未会话放行）或 InteractiveTool（ask_user）**不执行**——写
-	// pending tool_result 占位 + 露出 ParkRequest。safe 调用照跑。park 不安全的同时跑 safe 兄弟，使每个
-	// tool_call 都有 result（LLM 投影合法）、不浪费 safe 工作。
-	var parks []ParkRequest
+	// 第一遍（R0064）：**执行前** park——危险调用（未会话放行）或 InteractiveTool（ask_user）——不执行；写 pending
+	// tool_result 占位。safe 调用（及可能**执行后** park 的工具，如 invoke_agent）照跑。park 不安全的同时跑 safe
+	// 兄弟，使每个 tool_call 都有 result（LLM 投影合法）、不浪费 safe 工作。
 	runnable := make([]indexedCall, 0, len(calls))
 	em := newEmitter(ctx, log)
 	for i, tc := range calls {
 		if parkEnabled {
 			if kind := parkKind(tc, byName[tc.Name], allowsTool); kind != "" {
-				perCall[i] = []messagesdomain.Block{openPendingToolResult(ctx, em, tc, kind)}
-				argsJSON, _ := json.Marshal(tc.Arguments)
-				parks = append(parks, ParkRequest{ToolCallID: tc.ID, Kind: kind, ToolName: tc.Name, Args: string(argsJSON)})
+				perCall[i] = []messagesdomain.Block{openPendingToolResult(ctx, em, tc, kind, nil)}
 				continue
 			}
 		}
@@ -76,7 +75,7 @@ func runTools(
 	for _, batch := range partitionByExecutionGroup(runnable) {
 		if len(batch.items) == 1 {
 			item := batch.items[0]
-			perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, log)
+			perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, parkEnabled, log)
 			continue
 		}
 		var wg sync.WaitGroup
@@ -87,16 +86,50 @@ func runTools(
 				// Each goroutine writes its own pre-assigned index — no shared-slot race, no lock.
 				//
 				// 每个 goroutine 只写自己预分配的下标——无共享槽竞争、无需锁。
-				perCall[it.idx] = runOneTool(ctx, byName[it.tc.Name], it.tc, log)
+				perCall[it.idx] = runOneTool(ctx, byName[it.tc.Name], it.tc, parkEnabled, log)
 			}(item)
 		}
 		wg.Wait()
 	}
+
 	var blocks []messagesdomain.Block
 	for _, bs := range perCall {
 		blocks = append(blocks, bs...)
 	}
+	// Collect parks by scanning for pending tool_results (R0064) — this unifies the PRE-execution
+	// parks written above and the POST-execution parks runOneTool wrote on a ParkSignal (invoke_agent
+	// whose sub-run parked). The durable refs (kind, nested agent execution) ride each block's Attrs.
+	//
+	// 扫 pending tool_result 收集 parks（R0064）——统一上面的执行前 park 与 runOneTool 在 ParkSignal 上写的执行后
+	// park（invoke_agent 的子运行 park）。耐久引用（kind、嵌套 agent execution）随各 block 的 Attrs。
+	parks := collectParks(blocks, calls)
 	return blocks, parks
+}
+
+// collectParks derives a ParkRequest from each pending tool_result block (the unified park marker).
+// Args is the gated call's raw args (from the matching tool_call), for surfacing.
+//
+// collectParks 从每个 pending tool_result 块（统一的 park 标记）导出 ParkRequest。Args 是被门调用的裸 args
+// （取自匹配的 tool_call），供露出。
+func collectParks(blocks []messagesdomain.Block, calls []messagesdomain.ToolCallData) []ParkRequest {
+	var parks []ParkRequest
+	for _, b := range blocks {
+		if b.Type != messagesdomain.BlockTypeToolResult || b.Status != messagesdomain.StatusPending {
+			continue
+		}
+		kind, _ := b.Attrs["park"].(string)
+		name, _ := b.Attrs["tool"].(string)
+		args := ""
+		for _, tc := range calls {
+			if tc.ID == b.ParentBlockID {
+				j, _ := json.Marshal(tc.Arguments)
+				args = string(j)
+				break
+			}
+		}
+		parks = append(parks, ParkRequest{ToolCallID: b.ParentBlockID, Kind: kind, ToolName: name, Args: args})
+	}
+	return parks
 }
 
 // parkKind reports why a call must park — ParkKindAsk (an InteractiveTool, e.g. ask_user) or
@@ -122,31 +155,36 @@ func parkKind(tc messagesdomain.ToolCallData, t toolapp.Tool, allowsTool func(st
 //
 // openPendingToolResult 为 park 调用写占位 tool_result：status=pending、空内容、挂其 tool_call。它是 resolver
 // 据 tool_call id 填充、收件箱查询的耐久标记。流式发 Open 帧（无 Close——close 在 resolve 时来，可能跨回合 / 重启后）。
-func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.ToolCallData, kind string) messagesdomain.Block {
+func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.ToolCallData, kind string, extra map[string]any) messagesdomain.Block {
 	blockID := idgenpkg.New("blk")
 	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, nil)
+	// park=kind ("ask"|"danger"|"agent") lets the resolver act without re-deriving the tool's type;
+	// tool is the gated tool name. extra carries kind-specific refs (agent: the nested execution id
+	// + leaf tool_call ids the resolver threads down to).
+	//
+	// park=kind（"ask"|"danger"|"agent"）使 resolver 无需重判工具类型；tool 是被门工具名。extra 携带 kind 专属
+	// 引用（agent：resolver 向下穿的嵌套 execution id + leaf tool_call id）。
+	attrs := map[string]any{"tool": tc.Name, "park": kind}
+	maps.Copy(attrs, extra)
 	return messagesdomain.Block{
 		ID:            blockID,
 		Type:          messagesdomain.BlockTypeToolResult,
 		ParentBlockID: tc.ID,
 		Status:        messagesdomain.StatusPending,
-		// park=kind ("ask"|"danger") lets the resolver act without re-deriving the tool's type; tool
-		// is the gated tool name (danger: the tool to run on approve).
-		//
-		// park=kind（"ask"|"danger"）使 resolver 无需重判工具类型；tool 是被门工具名（danger：批准时要跑的工具）。
-		Attrs: map[string]any{"tool": tc.Name, "park": kind},
+		Attrs:         attrs,
 	}
 }
 
-// runOneTool executes one tool call and returns its tool_result block, live-pushing the
-// block lifecycle. The danger level the LLM self-reported rode the tool_call node already
-// (pure trust, M2.2: no gate here); a future approval pause for dangerous calls hooks in at
-// the loop level once the ask channel exists (波次 6).
+// runOneTool executes one tool call and returns its tool_result block, live-pushing the block
+// lifecycle. Two parks happen here (R0064, only when parkEnabled): the LLM's self-reported danger
+// is gated PRE-execution by the caller (runTools); POST-execution, a tool that returns a ParkSignal
+// (invoke_agent whose sub-run parked) yields a pending tool_result carrying the nested refs instead
+// of a normal result — propagating the park up so the caller's turn parks too.
 //
-// runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。LLM 自报的
-// danger 已随 tool_call 节点上行（纯信任，M2.2：此处无门控）；将来 dangerous 调用的确认暂停在
-// loop 层接入（待 ask 通道就绪，波次 6）。
-func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, log *zap.Logger) []messagesdomain.Block {
+// runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。两种 park（R0064，仅 parkEnabled
+// 时）：LLM 自报的 danger 由调用方（runTools）**执行前**门控；**执行后**，返回 ParkSignal 的工具（invoke_agent 的
+// 子运行 park 了）产出携嵌套引用的 pending tool_result 而非正常结果——把 park 向上传播使调用方回合也 park。
+func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, parkEnabled bool, log *zap.Logger) []messagesdomain.Block {
 	argsJSON, _ := json.Marshal(tc.Arguments)
 	// Seed this call's id so a tool can learn its own tool_call block id (the Subagent tool
 	// anchors the subagent's message subtree under it, E3) and ToolProgress nests its progress
@@ -159,7 +197,28 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	ctx = reqctxpkg.SetToolCallID(ctx, tc.ID)
 	pcap := &progressCapture{}
 	ctx = withProgressCapture(ctx, pcap)
-	output, errMsg, ok := executeTool(ctx, t, tc.Name, argsJSON, log)
+	output, errMsg, ok, rawErr := executeTool(ctx, t, tc.Name, argsJSON, log)
+
+	// POST-execution park: the tool ran but its nested run paused for human input (invoke_agent).
+	// Emit a pending tool_result carrying the nested refs so the caller's turn parks; the resolver
+	// threads the resolution down via ResumeExecution.
+	//
+	// 执行后 park：工具跑了但其嵌套运行为等人输入暂停（invoke_agent）。产出携嵌套引用的 pending tool_result 使
+	// 调用方回合 park；resolver 经 ResumeExecution 把决议向下穿。
+	if parkEnabled {
+		if ps, isPark := AsParkSignal(rawErr); isPark {
+			em := newEmitter(ctx, log)
+			leafIDs := make([]string, 0, len(ps.Leaves))
+			for _, lf := range ps.Leaves {
+				leafIDs = append(leafIDs, lf.ToolCallID)
+			}
+			pending := openPendingToolResult(ctx, em, tc, ParkKindAgent, map[string]any{
+				"agentExecutionId": ps.ExecutionID,
+				"leafToolCallIds":  leafIDs,
+			})
+			return append(pcap.take(), pending)
+		}
+	}
 
 	status := messagesdomain.StatusCompleted
 	if !ok {
@@ -199,29 +258,35 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // executeTool 跑 ValidateInput 再 Execute，整形 (output, errMsg, ok) 三元组。无权限门控
 // （M1.9 解散中央门控）、无错误改写：工具自负其 error message 质量（干净文本、必要的 next-step
 // 提示），故 loop 保持中立引擎、只把 err.Error() 透传给 LLM。
-func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
+func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool, rawErr error) {
 	if t == nil {
 		// The LLM named a tool not in this turn's set — a wiring bug or a stale catalog.
 		// LLM 点了本回合工具集外的工具——接线 bug 或过期 catalog。
 		log.Warn("executeTool: tool not in registry — likely wiring bug or stale catalog", zap.String("tool", name))
 		msg := fmt.Sprintf("tool %q not found", name)
-		return msg, msg, false
+		return msg, msg, false, nil
 	}
 
 	if err := t.ValidateInput(argsJSON); err != nil {
 		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
-		return "input validation failed: " + err.Error(), err.Error(), false
+		return "input validation failed: " + err.Error(), err.Error(), false, err
 	}
 
 	output, err := t.Execute(ctx, string(argsJSON))
 	if err != nil {
-		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
-		if output != "" {
-			return output + "\n\n" + err.Error(), err.Error(), false
+		// A ParkSignal is NOT a failure — it propagates a nested park; the caller (runOneTool)
+		// converts it, so don't log it as an error.
+		//
+		// ParkSignal 不是失败——它传播嵌套 park；调用方（runOneTool）转换它，故不当错误记日志。
+		if _, isPark := AsParkSignal(err); !isPark {
+			log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
 		}
-		return err.Error(), err.Error(), false
+		if output != "" {
+			return output + "\n\n" + err.Error(), err.Error(), false, err
+		}
+		return err.Error(), err.Error(), false, err
 	}
-	return output, "", true
+	return output, "", true, nil
 }
 
 type indexedCall struct {

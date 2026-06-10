@@ -12,6 +12,7 @@ package loop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -120,9 +121,48 @@ type ParkRequest struct {
 //
 // Park 种类。
 const (
-	ParkKindAsk    = "ask"
-	ParkKindDanger = "danger"
+	ParkKindAsk    = "ask"    // an InteractiveTool (ask_user) — pre-execution
+	ParkKindDanger = "danger" // a self-reported dangerous tool call — pre-execution
+	ParkKindAgent  = "agent"  // a tool (invoke_agent) whose run parked — POST-execution, propagated via ParkSignal
 )
+
+// ParkSignal is the error a tool's Execute returns to PROPAGATE a park up to its caller's loop
+// (R0064 nested HITL): invoke_agent returns it when the sub-agent it ran parked, so the chat turn
+// running invoke_agent parks too — surfacing the sub-agent's pending interaction to the user. It
+// carries the parked sub-run's execution id + its leaf interactions so the resolver can thread the
+// resolution down. The loop recognizes it after Execute (errors.As) and treats the call as a park
+// instead of a normal result/error.
+//
+// ParkSignal 是工具 Execute 返回的、把 park 向上**传播**给调用方 loop 的错误（R0064 嵌套人在环）：invoke_agent
+// 在其所跑子 agent park 时返回它，使正跑 invoke_agent 的 chat 回合也 park——把子 agent 的待决交互露给用户。它带
+// parked 子运行的 execution id + 其 leaf 交互，使 resolver 能把决议向下穿。loop 在 Execute 后用 errors.As 认它、
+// 把该调用当 park 而非正常结果/错误。
+type ParkSignal struct {
+	ExecutionID string        // the sub-run that parked (e.g. an agent_executions id)
+	Leaves      []ParkRequest // its pending interactions
+}
+
+func (s *ParkSignal) Error() string {
+	return "tool run parked awaiting human input (nested run " + s.ExecutionID + ")"
+}
+
+// NewParkSignal builds the error a tool returns to propagate a park (the loop converts it to one).
+//
+// NewParkSignal 构造工具返回以传播 park 的错误（loop 把它转成一个 park）。
+func NewParkSignal(executionID string, leaves []ParkRequest) error {
+	return &ParkSignal{ExecutionID: executionID, Leaves: leaves}
+}
+
+// AsParkSignal extracts a ParkSignal from a tool error, if it is one.
+//
+// AsParkSignal 从工具错误里取出 ParkSignal（若是）。
+func AsParkSignal(err error) (*ParkSignal, bool) {
+	var s *ParkSignal
+	if errors.As(err, &s) {
+		return s, true
+	}
+	return nil, false
+}
 
 // Resolution verbs — how a human resolves a parked interaction (R0064). Shared by every parking
 // host (chat / agent) so the wire contract is one vocabulary. danger: approve | deny; ask:

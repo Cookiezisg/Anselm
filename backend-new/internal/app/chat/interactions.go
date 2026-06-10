@@ -56,7 +56,7 @@ func (s *Service) allowsToolForConversation(_ /*conversationID*/, _ /*name*/ str
 // ResolveInteraction 决议一个对话 parked 回合里的一条待决人机交互（R0064）：按动作填 toolCallID 的 pending
 // tool_result，待该 parked 回合无其它待决交互时翻为 completed（或 cancelled）并驱动续跑回合。决议作为 data 注入
 // 续跑是业界标准 durable-HITL resume；批准的 danger 工具 execute-then-record，使续跑从历史重读而非重执行。
-func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action, answer string) error {
+func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action, answer, leafToolCallID string) error {
 	parked, err := s.messages.GetParkedMessage(ctx, conversationID)
 	if err != nil {
 		return ErrNoPendingInteraction
@@ -83,9 +83,25 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 		return s.messages.SetMessageStatus(ctx, parked.ID, messagesdomain.StatusCancelled, messagesdomain.StopReasonCancelled)
 	}
 
-	content, status, errMsg, err := s.resolveOne(ctx, conversationID, parked.ID, kind, action, answer, tcBlock)
-	if err != nil {
-		return err
+	// Nested (R0064): the chat turn parked because an invoke_agent sub-run parked. Thread the
+	// resolution down to the sub-agent; only when it COMPLETES does its output fill the invoke_agent
+	// tool_result and the chat continue. A re-park leaves the chat parked (the user resolves the
+	// sub-agent's next leaf).
+	//
+	// 嵌套（R0064）：chat 回合因 invoke_agent 子运行 park 而 park。把决议向下穿到子 agent；仅当它**完成**，其输出才
+	// 填 invoke_agent tool_result、chat 才续跑。再次 park 则 chat 保持 parked（用户决议子 agent 下一 leaf）。
+	var content, status, errMsg string
+	if kind == loopapp.ParkKindAgent {
+		out, err := s.resolveAgentInteraction(ctx, conversationID, tcBlock, pending, action, answer, leafToolCallID)
+		if err != nil || out == nil {
+			return err // out == nil → sub-agent re-parked, chat stays parked; or a real error
+		}
+		content, status = out.content, out.status
+	} else {
+		content, status, errMsg, err = s.resolveOne(ctx, conversationID, parked.ID, kind, action, answer, tcBlock)
+		if err != nil {
+			return err
+		}
 	}
 	if err := s.messages.ResolveToolResult(ctx, pending.ID, content, status, errMsg); err != nil {
 		return err
@@ -106,6 +122,54 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 	}
 	s.driveContinuation(ctx, conversationID)
 	return nil
+}
+
+// agentResolveOutcome carries a completed sub-agent's result (what fills the invoke_agent
+// tool_result). A nil *agentResolveOutcome from resolveAgentInteraction means the sub-agent
+// re-parked — the chat stays parked.
+//
+// agentResolveOutcome 携带完成的子 agent 结果（填 invoke_agent tool_result）。resolveAgentInteraction 返
+// nil 表示子 agent 再次 park——chat 保持 parked。
+type agentResolveOutcome struct {
+	content string
+	status  string
+}
+
+// resolveAgentInteraction threads a resolution down into a parked sub-agent run (nested HITL,
+// R0064): it resumes the sub-agent (streaming its continuation back under the invoke_agent
+// tool_call, B5), and returns a non-nil outcome only when the sub-agent COMPLETED — otherwise nil
+// (it re-parked at another interaction; the chat stays parked for the next resolve). leafToolCallID
+// picks which sub-agent interaction to resolve ("" → its first pending one).
+//
+// resolveAgentInteraction 把决议向下穿进 parked 子 agent 运行（嵌套人在环，R0064）：恢复子 agent（把续跑流式
+// 回到 invoke_agent tool_call 下，B5），仅当子 agent**完成**才返回非 nil outcome——否则 nil（它在另一交互再次 park；
+// chat 保持 parked 待下次 resolve）。leafToolCallID 选决议子 agent 哪条交互（"" → 其第一条 pending）。
+func (s *Service) resolveAgentInteraction(ctx context.Context, conversationID string, tcBlock, pending *messagesdomain.Block, action, answer, leafToolCallID string) (*agentResolveOutcome, error) {
+	if s.deps.AgentResumer == nil {
+		return nil, ErrNoPendingInteraction
+	}
+	execID, _ := pending.Attrs["agentExecutionId"].(string)
+	if execID == "" {
+		return nil, ErrNoPendingInteraction
+	}
+	// Resume on a ctx that nests the sub-agent's continuation back under the invoke_agent tool_call
+	// (B5: SetMessageID = the tool_call id) on the messages stream, so the user watches it continue.
+	//
+	// 用把子 agent 续跑嵌回 invoke_agent tool_call 下（B5：SetMessageID = tool_call id）的 ctx 恢复，使用户看它继续。
+	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
+	rctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	rctx = reqctxpkg.SetConversationID(rctx, conversationID)
+	rctx = reqctxpkg.SetMessageID(rctx, tcBlock.ID)
+	rctx = loopapp.WithBridge(rctx, s.deps.Bridge)
+
+	parkedAgain, output, err := s.deps.AgentResumer.ResumeExecution(rctx, execID, leafToolCallID, action, answer)
+	if err != nil {
+		return nil, err
+	}
+	if parkedAgain {
+		return nil, nil // sub-agent re-parked at another interaction; chat stays parked
+	}
+	return &agentResolveOutcome{content: output, status: messagesdomain.StatusCompleted}, nil
 }
 
 // resolveOne computes the (content, status, error) for one interaction's tool_result. danger:

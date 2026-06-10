@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 )
 
@@ -135,6 +136,16 @@ func (t *InvokeAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	})
 	if err != nil {
 		return "", fmt.Errorf("invoke_agent: %w", err)
+	}
+	// Nested HITL (R0064): the sub-agent paused for human input. Propagate the park up via a
+	// ParkSignal so the caller's turn (chat) parks too — the loop converts it to a pending
+	// tool_result referencing the parked sub-execution, and the chat resolve threads the user's
+	// decision down via ResumeExecution.
+	//
+	// 嵌套人在环（R0064）：子 agent 为等人输入暂停。经 ParkSignal 把 park 向上传播，使调用方回合（chat）也 park
+	// ——loop 把它转成引用 parked 子 execution 的 pending tool_result，chat resolve 经 ResumeExecution 把用户决议向下穿。
+	if res.Parked {
+		return "", loopapp.NewParkSignal(res.ExecutionID, res.ParkRequests)
 	}
 	return toJSON(res), nil
 }

@@ -198,6 +198,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Todo:           todo,
 		Bridge:         bus.messages,
 		EntitiesBridge: bus.entities,
+		AgentResumer:   agentResumer{ag}, // R0064 nested HITL: resolve a parked sub-agent from a chat resolve
 		Titler:         conv,
 		Notifier:       notif,
 		Compactor:      ctxmgr,

@@ -86,13 +86,14 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"`
-		Answer string `json:"answer"` // ask accept: the user's answer (free text / chosen option)
+		Answer string `json:"answer"`         // ask accept: the user's answer (free text / chosen option)
+		Leaf   string `json:"leafToolCallId"` // nested (invoke_agent): which sub-agent interaction; "" → its first pending
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
+	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer, req.Leaf); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
