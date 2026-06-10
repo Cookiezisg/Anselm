@@ -138,7 +138,12 @@ func (s *Service) resolveLeaf(ctx context.Context, a *agentdomain.Agent, v *agen
 	switch kind {
 	case loopapp.ParkKindDanger:
 		switch action {
-		case loopapp.ResolveApprove:
+		case loopapp.ResolveApprove, loopapp.ResolveApproveAlways:
+			// agent has no per-agent always-allow whitelist, so approve_always degrades to a plain
+			// approve (run it; it may re-park next time). The whitelist is a chat-conversation concept.
+			//
+			// agent 无 per-agent always-allow 白名单，故 approve_always 退化为普通 approve（跑它，下次可能再 park）。
+			// 白名单是 chat 对话概念。
 			out, exErr := s.executeApprovedTool(ctx, a, v, tcBlock)
 			if exErr != "" {
 				return out, messagesdomain.StatusError, exErr, nil
