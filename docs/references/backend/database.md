@@ -130,7 +130,7 @@ type Message struct {
     WorkspaceID    string         `db:"workspace_id,ws"`
     SubagentID     string         `db:"subagent_id"`       // ''=顶层；非空=subagent run（R0058）；chat LoadHistory 排除非空（不污染父历史）
     Role           string         `db:"role"`              // CHECK(user|assistant)；无 system/tool 行
-    Status         string         `db:"status"`            // CHECK(5 态) DEFAULT 'completed'
+    Status         string         `db:"status"`            // CHECK(pending|streaming|completed|error|cancelled|parked) DEFAULT 'completed'；parked=回合为等人输入暂停(R0064 人在环，message 专属)；block 仍 5 态(pending tool_result 作待决占位)
     StopReason     string         `db:"stop_reason"`
     ErrorCode      string         `db:"error_code"`
     ErrorMessage   string         `db:"error_message"`
@@ -253,16 +253,17 @@ type AgentVersion struct {
     CreatedAt              time.Time        `db:"created_at,created"`
 }
 
-// AgentExecution (agx_) — append-only log of one InvokeAgent run; NO deleted_at (D1).
-// status CHECK(ok|failed|cancelled|timeout); triggered_by CHECK(chat|workflow|manual) — no
-// "agent" trigger (an agent cannot invoke another agent).
+// AgentExecution (agx_) — log of one InvokeAgent run; NO deleted_at (D1). status
+// CHECK(ok|failed|cancelled|timeout|parked); triggered_by CHECK(chat|workflow|manual) — no "agent"
+// trigger. parked (R0064) = an interactively-invoked run paused for human input; ResumeExecution
+// rewrites the row in place (the one mutable case — UpdateExecution) to its next state.
 type AgentExecution struct {
     ID             string         `db:"id,pk"`
     WorkspaceID    string         `db:"workspace_id,ws"`
     AgentID        string         `db:"agent_id"`
     VersionID      string         `db:"version_id"`
     ModelID        string         `db:"model_id"`        // which model actually ran
-    Status         string         `db:"status"`          // ok|failed|cancelled|timeout
+    Status         string         `db:"status"`          // ok|failed|cancelled|timeout|parked（parked=等人输入，R0064；ResumeExecution 原地更新）
     TriggeredBy    string         `db:"triggered_by"`    // chat|workflow|manual
     Input          map[string]any `db:"input,json"`
     Output         any            `db:"output,json"`     // 最终返回值

@@ -28,6 +28,8 @@ audience: [human, ai]
 
 **BlockType 物理全集**：`text`, `reasoning`, `tool_call`, `tool_result`, `progress`, `message`, `compaction`。
 
+**人在环 park / resolve（durable HITL，R0064）**：一个回合撞到自报 `dangerous` 的工具调用、或 `ask_user`（InteractiveTool），会**暂停**——`message_stop` 带 `status="parked"` / `stop_reason="parked"`，且被门调用挂一个 `tool_result` 占位块（`status="pending"`，`attrs.park="danger"|"ask"|"agent"`）。loop 释放 goroutine（不持有）。用户经 `POST /api/v1/conversations/{id}/interactions/{toolCallId}` 决议（body `{action, answer?, leafToolCallId?}`；action=`approve`/`approve_always`/`deny`/`accept`/`decline`/`cancel`）；后端填那条 pending `tool_result`（发 `block_stop` 关它）、全部决议后**驱动续跑回合**（新 message 重读已决议历史继续）。danger `approve` 在 resolve 时执行该工具再落盘（续跑只重读、不重跑）；`ask` 的答案即 tool_result。**嵌套**：`invoke_agent` 的子 agent park 时冒泡使 chat 回合 park（`attrs.park="agent"` + `agentExecutionId`），resolve 经 agent 的 `ResumeExecution` 向下穿。`agent_executions` 同有 `parked` 态 + 独立端点 `POST /api/v1/agent-executions/{execId}/interactions/{toolCallId}`。**收件箱 = 查 `parked` 的 message / execution 行**（无投影表，同 approval）。
+
 **Todo 看板信号（M1.11）**：todo 写入时本流额外推一条 `signal` 帧承载任务看板快照——`scope={kind:"conversation", id:<convId>}` + `signal` + `node{type:"todo", content:{conversationId, subagentId?, todos:[{content,activeForm,status}]}}`。锚定对话（查看该对话的前端即收到）；subagent 清单的 `subagentId` 入 payload、前端据此嵌到对应子树。durable（重连 replay 最后看板态）。**写入是 LLM 专属**（`TodoWrite` 工具，波次 2/3），前端只读不写（REST 初值见 `api.md`）。
 
 ---
@@ -58,9 +60,6 @@ audience: [human, ai]
 | `sandbox` | `env_deleted` | `app/sandbox` | `{ envId, ownerKind, ownerId }` |
 | `mcp_server` | `connected` | `mcp/mcp.go` | `{ name, status: "ok" }` |
 | `mcp_server` | `error` | `mcp/mcp.go` | `{ name, status: "error", lastError }` |
-| `ask` | `pending` | `ask/ask.go` | `{ toolCallId, conversationId }` |
-| `ask` | `resolved` | `ask/ask.go` | `{ toolCallId, status: "resolved" }` |
-| `ask` | `timeout` | `ask/ask.go` | `{ toolCallId, status: "timeout" }` |
 | `memory` | `created`/`updated`/`deleted` | `app/memory` | `{ name }` |
 | `document` | `created`/`updated`/`moved`/`deleted` | `app/document` | `{ documentId, path, parentId? }` |
 | `compaction` | `completed` | `contextmgr/compact.go` | `{ convID, coversToSeq }` |
