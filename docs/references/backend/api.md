@@ -30,6 +30,7 @@ audience: [human, ai]
 | DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压（也解阻任何等待中的人在环交互） |
 | GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | **R0057 ✅** `{systemPrompt}`（复用 buildSystemPrompt，不解析模型） |
 | GET | `/api/v1/conversations/{id}/usage` | `chat.go` | **R0057 ✅** `{inputTokens, outputTokens, totalTokens}`（tokensUsed，解耦 conversation←messages） |
+| POST | `/api/v1/executions/{execId}:triage` | `aispawn.go` | **R0065 ✅** **202** 诊断**任意**执行记录（统一虚拟集合，按 id 前缀分发 `fne_`function/`hcl_`handler/`agx_`agent/`fr_`flowrun）；body `{note?}`→开 AI 诊断对话→`{conversationId}`。对偶动词 **:iterate**（面对实体）挂在各实体 `{idAction}` 行（见 Forge 节）|
 | GET | `/api/v1/conversations/{id}/context-stats` | `context_stats.go` | |
 | GET | `/api/v1/conversations/{id}/eventlog` | `eventlog.go` | |
 | POST | `/api/v1/conversations/{id}/answers` | `answers.go` | |
@@ -53,7 +54,7 @@ audience: [human, ai]
 | GET | `/api/v1/functions/{id}` | `function.go` |
 | PATCH | `/api/v1/functions/{id}` | `function.go` |
 | DELETE | `/api/v1/functions/{id}` | `function.go` |
-| POST | `/api/v1/functions/{idAction}` | `function.go` | (:run, :revert, :edit；:iterate 随 askai 波次 6) |
+| POST | `/api/v1/functions/{idAction}` | `function.go` | (:run, :revert, :edit, **:iterate** R0065——body `{request}`，开 AI 编辑对话〔本 fn 经 @-mention 入种子〕→202 `{conversationId}`) |
 | GET | `/api/v1/functions/{id}/versions` | `function.go` |
 | GET | `/api/v1/functions/{id}/versions/{version}` | `function.go` | (整数号或 version id) |
 | GET | `/api/v1/functions/{id}/executions` | `function.go` |
@@ -69,7 +70,7 @@ audience: [human, ai]
 | GET | `/api/v1/handlers/{id}` | `handler.go` |
 | PATCH | `/api/v1/handlers/{id}` | `handler.go` |
 | DELETE | `/api/v1/handlers/{id}` | `handler.go` |
-| POST | `/api/v1/handlers/{idAction}` | `handler.go` | (:call, :restart, :revert, :edit；:iterate 随 askai 波次 6) |
+| POST | `/api/v1/handlers/{idAction}` | `handler.go` | (:call, :restart, :revert, :edit, **:iterate** R0065——body `{request}`，开 AI 编辑对话→202 `{conversationId}`) |
 | GET | `/api/v1/handlers/{id}/versions` | `handler.go` |
 | GET | `/api/v1/handlers/{id}/versions/{version}` | `handler.go` | (整数号或 version id) |
 | GET | `/api/v1/handlers/{id}/config` | `handler.go` | (masked + configState + missing) |
@@ -89,7 +90,7 @@ audience: [human, ai]
 | GET | `/api/v1/workflows/{id}` | `workflow.go` | 含 activeVersion + 解码图（nodes+edges）|
 | PATCH | `/api/v1/workflows/{id}` | `workflow.go` | UpdateMeta（name/description/tags，不升版本）|
 | DELETE | `/api/v1/workflows/{id}` | `workflow.go` | 软删（清边）|
-| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:edit 套 ops 写 max+1〔非空 ops〕、:revert 移指针、:activate/:deactivate 切 lifecycle、:capability-check 结构+ref 报告；**无 :trigger**；:iterate 随 askai 波次 6) |
+| POST | `/api/v1/workflows/{idAction}` | `workflow.go` | (:edit 套 ops 写 max+1〔非空 ops〕、:revert 移指针、:activate/:deactivate 切 lifecycle、:capability-check 结构+ref 报告、**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`；**无 :trigger**) |
 | GET | `/api/v1/workflows/{id}/versions` | `workflow.go` | 分页 |
 | GET | `/api/v1/workflows/{id}/versions/{version}` | `workflow.go` | 整数号或 version id |
 
@@ -106,7 +107,7 @@ audience: [human, ai]
 | GET | `/api/v1/agents/{id}` | `agent.go` | 含 activeVersion |
 | PATCH | `/api/v1/agents/{id}` | `agent.go` | UpdateMeta（name/description/tags，不升版本）|
 | DELETE | `/api/v1/agents/{id}` | `agent.go` | 软删（清边）|
-| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit 全量替换写 max+1, :invoke 真跑 ReAct, :revert 移指针；:iterate 随 askai 波次 6) |
+| POST | `/api/v1/agents/{idAction}` | `agent.go` | (:edit 全量替换写 max+1, :invoke 真跑 ReAct, :revert 移指针, **:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`) |
 | GET | `/api/v1/agents/{id}/versions` | `agent.go` | 全版本（新→旧）|
 | GET | `/api/v1/agents/{id}/versions/{version}` | `agent.go` | 单版本（整数号或 version id）|
 | GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（?versionId/status/triggeredBy/conversationId/flowrunId）|
@@ -122,7 +123,7 @@ audience: [human, ai]
 | GET | `/api/v1/triggers/{id}` | `trigger.go` | 含 refCount/listening |
 | PATCH | `/api/v1/triggers/{id}` | `trigger.go` | 改 name/description/config/outputs（kind 不可变、config 立即生效）|
 | DELETE | `/api/v1/triggers/{id}` | `trigger.go` | 软删（停 listener + 清边）|
-| POST | `/api/v1/triggers/{idAction}` | `trigger.go` | (:fire 手动触发一次→202；:iterate 随 askai 波次 6) |
+| POST | `/api/v1/triggers/{idAction}` | `trigger.go` | (:fire 手动触发一次→202；**无 :iterate**——trigger 无 mention resolver，未纳入 iterate 集) |
 | GET | `/api/v1/triggers/{id}/activations` | `trigger.go` | 动作日志（?firedOnly，"为什么没触发"）|
 | GET | `/api/v1/trigger-activations/{actId}` | `trigger.go` | 单条 activation |
 | (动态) | `/api/v1/webhooks/{triggerId}/{path}` | webhook listener | webhook 入口（由 listener 挂载）|
@@ -237,7 +238,7 @@ audience: [human, ai]
 | GET | `/api/v1/documents/{id}` | `document.go` |
 | PATCH | `/api/v1/documents/{id}` | `document.go` |
 | DELETE | `/api/v1/documents/{id}` | `document.go` |
-| POST | `/api/v1/documents/{idAction}` | `document.go` | (:move；:iterate 留波次 6 askai) |
+| POST | `/api/v1/documents/{idAction}` | `document.go` | (:move；**:iterate** R0065 body `{request}` 开 AI 编辑对话→202 `{conversationId}`) |
 
 ### 5.3 Relations & Graph
 | Method | Path | 文件源 |

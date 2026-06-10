@@ -34,11 +34,13 @@
 
 ## 分期
 
-| 期 | 内容 |
-|---|---|
-| **G1** | `aispawn` 服务（spawn + Iterate + Triage + 3 端口）+ 单测（fake 端口） |
-| **G2** | bootstrap：3 端口接真实现 + ExecutionRenderer 前缀分发适配器（4 类型）；HTTP 5×iterate + 1×triage |
-| 文档 | api.md（:iterate ×5 + :triage）+ events 复用既有（开的就是普通对话）+ contract #49 + lab |
+| 期 | 内容 | 状态 |
+|---|---|---|
+| **G1** | `aispawn` 服务（spawn + Iterate + Triage + 3 端口）+ 单测（fake 端口） | ✅ `d346737b` |
+| **G2** | bootstrap：3 端口接真实现 + ExecutionRenderer 前缀分发适配器（4 类型）；HTTP 5×iterate + 1×triage | ✅ `7d52e26e` |
+| 文档 | api.md（:iterate ×5 + :triage）+ contract #49 + lab。events 复用既有（开的就是普通对话、无新事件）；**DB 无变更**（普通 cv_ 对话） | ✅ 本提交 |
+
+**R0065 全完成**（aispawn）：iterate 面对实体借 @-mention、triage 面对任意执行借详情读取。**波次6 全完成**（R0064 ask/danger + R0065 iterate/triage）。
 
 ## 不做（明确）
 
