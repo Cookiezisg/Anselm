@@ -25,6 +25,7 @@ import (
 	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
@@ -113,8 +114,15 @@ type Service struct {
 	approval  ApprovalResolver
 	dispatch  Dispatcher
 	inbox     FiringInbox
+	entities  streamdomain.Bridge // entities stream (SSE-C); nil → no workflow-panel run terminal
 	log       *zap.Logger
 }
+
+// SetEntitiesBridge installs the entities stream post-construction (SSE-C): Advance emits a node
+// progress signal per node so the workflow panel shows a run progressing live.
+//
+// SetEntitiesBridge 装配后装入 entities 流（SSE-C）：Advance 每节点发一条进度信号，使 workflow 面板实时显示运行推进。
+func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
 
 // NewService wires the interpreter. runs/workflows/control/approval/dispatch are required; inbox is
 // optional (nil = manual-only); log nil → nop.

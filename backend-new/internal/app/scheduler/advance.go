@@ -2,9 +2,12 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
+	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
 )
@@ -60,6 +63,7 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 			if err != nil {
 				return err
 			}
+			s.emitNodeProgress(ctx, run, rn, status) // SSE-C: workflow panel run terminal
 			if status == flowrundomain.NodeFailed {
 				return nil // fail-fast: the run was already marked failed inside failNode
 			}
@@ -72,6 +76,25 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		}
 	}
 	return s.finalize(ctx, run, flowrunID)
+}
+
+// emitNodeProgress streams one node's terminal status onto the entities stream scoped to the
+// workflow, so the workflow panel shows a flowrun progressing node by node (SSE-C). A point Signal
+// keyed by flowrunId; the durable record is flowrun_nodes. nil bridge → no-op.
+//
+// emitNodeProgress 把一个节点的终态流到 workflow scope 的 entities 流，使 workflow 面板逐节点显示 flowrun
+// 推进（SSE-C）。按 flowrunId 的点 Signal；耐久记录是 flowrun_nodes。nil bridge → no-op。
+func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowRun, rn readyNode, status string) {
+	if s.entities == nil {
+		return
+	}
+	content, _ := json.Marshal(map[string]any{
+		"flowrunId": run.ID,
+		"nodeId":    rn.node.ID,
+		"iteration": rn.iter,
+		"status":    status,
+	})
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRun, content)
 }
 
 // finalize settles a run that has no ready nodes left: still-running if any node is parked (awaiting

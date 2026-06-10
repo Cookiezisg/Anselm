@@ -201,6 +201,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 
 	// --- durable workflow interpreter ---
 	sched := schedulerapp.NewService(st.flowrun, wf, ctl, apf, NewDispatcher(fn, hd, mcp, ag), st.trigger, log)
+	sched.SetEntitiesBridge(bus.entities) // SSE-C: Advance streams node progress to the workflow panel
 
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + the (lazy) tool universe + knowledge-doc prefix builder.
