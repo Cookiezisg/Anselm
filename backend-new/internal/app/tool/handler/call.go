@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 )
 
@@ -57,8 +58,26 @@ func (t *CallHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("call_handler: bad args: %w", err)
 	}
+	// Stream the method's yields (a streaming handler method emits progress) live as a `progress`
+	// block under the tool_call; the final return value is still the tool_result. nil-safe off a
+	// streamed turn (no-op → a plain blocking Call).
+	//
+	// 把 method 的 yield（流式 handler method 发的进度）实时流成 tool_call 下的 `progress` 块；最终返回值
+	// 仍是 tool_result。非流式 turn 下 nil 安全（no-op → 退化成普通阻塞 Call）。
+	prog := loopapp.ToolProgress(ctx)
+	defer prog.Close()
 	// TriggeredBy left empty → Service derives it from ctx (subagent → agent, else chat).
-	res, err := t.svc.Call(ctx, handlerapp.CallInput{HandlerID: args.HandlerID, Method: args.Method, Args: args.Args})
+	res, err := t.svc.Call(ctx, handlerapp.CallInput{
+		HandlerID: args.HandlerID, Method: args.Method, Args: args.Args,
+		OnProgress: func(v any) {
+			if s, ok := v.(string); ok {
+				prog.Print(s + "\n")
+				return
+			}
+			b, _ := json.Marshal(v)
+			prog.Print(string(b) + "\n")
+		},
+	})
 	if err != nil {
 		return "", fmt.Errorf("call_handler: %w", err)
 	}
