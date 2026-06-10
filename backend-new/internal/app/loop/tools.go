@@ -64,7 +64,7 @@ func runTools(
 	for i, tc := range calls {
 		if parkEnabled {
 			if kind := parkKind(tc, byName[tc.Name], allowsTool); kind != "" {
-				perCall[i] = []messagesdomain.Block{openPendingToolResult(ctx, em, tc)}
+				perCall[i] = []messagesdomain.Block{openPendingToolResult(ctx, em, tc, kind)}
 				argsJSON, _ := json.Marshal(tc.Arguments)
 				parks = append(parks, ParkRequest{ToolCallID: tc.ID, Kind: kind, ToolName: tc.Name, Args: string(argsJSON)})
 				continue
@@ -122,7 +122,7 @@ func parkKind(tc messagesdomain.ToolCallData, t toolapp.Tool, allowsTool func(st
 //
 // openPendingToolResult 为 park 调用写占位 tool_result：status=pending、空内容、挂其 tool_call。它是 resolver
 // 据 tool_call id 填充、收件箱查询的耐久标记。流式发 Open 帧（无 Close——close 在 resolve 时来，可能跨回合 / 重启后）。
-func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.ToolCallData) messagesdomain.Block {
+func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.ToolCallData, kind string) messagesdomain.Block {
 	blockID := idgenpkg.New("blk")
 	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, nil)
 	return messagesdomain.Block{
@@ -130,7 +130,11 @@ func openPendingToolResult(ctx context.Context, em emitter, tc messagesdomain.To
 		Type:          messagesdomain.BlockTypeToolResult,
 		ParentBlockID: tc.ID,
 		Status:        messagesdomain.StatusPending,
-		Attrs:         map[string]any{"tool": tc.Name},
+		// park=kind ("ask"|"danger") lets the resolver act without re-deriving the tool's type; tool
+		// is the gated tool name (danger: the tool to run on approve).
+		//
+		// park=kind（"ask"|"danger"）使 resolver 无需重判工具类型；tool 是被门工具名（danger：批准时要跑的工具）。
+		Attrs: map[string]any{"tool": tc.Name, "park": kind},
 	}
 }
 

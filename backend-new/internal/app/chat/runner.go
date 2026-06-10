@@ -123,8 +123,13 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	// loop.Run always ends with exactly one host.WriteFinalize (persist + message_stop), so the
 	// Result is redundant here.
 	//
-	// loop.Run 总以恰一次 host.WriteFinalize（落盘 + message_stop）收尾，故此处 Result 冗余。
-	loopapp.Run(ctx, host, bundle.Client, req, s.maxSteps, s.log)
+	// loop.Run 总以恰一次 host.WriteFinalize（落盘 + message_stop）收尾，故此处 Result 多数冗余——除
+	// parked：回合为等人输入暂停（R0064），message_stop 已带 status=parked（前端据此渲染待决交互提示）。
+	// 此时回合未完，跳过 auto-title / 压缩；goroutine 结束（释放），续跑由 ResolveInteraction 驱动。
+	res := loopapp.Run(ctx, host, bundle.Client, req, s.maxSteps, s.log)
+	if res.Status == messagesdomain.StatusParked {
+		return
+	}
 
 	// After the first turn of an untitled conversation, auto-title it in the background
 	// (best-effort, detached). conv is the pre-turn snapshot, so its empty title is exactly the

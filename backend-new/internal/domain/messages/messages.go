@@ -322,4 +322,30 @@ type Repository interface {
 	// UpdateBlocksContextRole 批量设置给定 block 的 ContextRole（压缩器对 message_blocks 的唯一写：
 	// 投影变更、绝不改写 content）。空 ids 为 no-op。role 须是合法 ContextRole（CHECK 兜底）。
 	UpdateBlocksContextRole(ctx context.Context, blockIDs []string, role string) error
+
+	// GetParkedMessage returns a conversation's currently-parked assistant turn (StatusParked) with
+	// Blocks hydrated, or ErrMessageNotFound if none — the resolve path's entry point and the Send
+	// guard's "is an interaction pending?" check (R0064). At most one turn is parked at a time (Send
+	// is refused while one is).
+	//
+	// GetParkedMessage 返回一个对话当前 parked 的 assistant 回合（StatusParked）并 hydrate Blocks，无则
+	// ErrMessageNotFound——resolve 路径入口 + Send 守卫的「有待决交互？」检查（R0064）。同一时刻至多一个回合
+	// parked（parked 期间 Send 被拒）。
+	GetParkedMessage(ctx context.Context, conversationID string) (*Message, error)
+
+	// ResolveToolResult fills a pending tool_result block in place (content + terminal status +
+	// error) — the durable half of resolving one human interaction (R0064). Not an append: it
+	// UPDATEs the placeholder openPendingToolResult wrote, keyed by block id.
+	//
+	// ResolveToolResult 原地填一个 pending tool_result 块（content + 终态 + error）——决议一条人机交互的
+	// 耐久半边（R0064）。非追加：按 block id UPDATE 那个占位（openPendingToolResult 写的）。
+	ResolveToolResult(ctx context.Context, blockID, content, status, errMsg string) error
+
+	// SetMessageStatus flips a turn's status + stop_reason in place (parked → completed once its
+	// last pending interaction resolves, or → cancelled on abandon). A partial update — never
+	// touches blocks (R0064).
+	//
+	// SetMessageStatus 原地翻一个回合的 status + stop_reason（最后一条待决交互决议后 parked → completed，
+	// 或放弃时 → cancelled）。部分更新——绝不碰 blocks（R0064）。
+	SetMessageStatus(ctx context.Context, messageID, status, stopReason string) error
 }

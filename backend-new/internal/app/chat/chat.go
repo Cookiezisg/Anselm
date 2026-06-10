@@ -257,6 +257,16 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		return "", ErrEmptyContent
 	}
 
+	// A parked turn owns the conversation until its interaction resolves (R0064): refuse a new Send
+	// so the dangling pending tool_result can't strand the history. The user resolves via the
+	// interactions endpoint (an answer / approval), which drives the continuation itself.
+	//
+	// parked 回合在其交互决议前独占对话（R0064）：拒新 Send，使悬空 pending tool_result 不破坏历史。用户经
+	// interactions 端点决议（作答 / 批准），由它自身驱动续跑。
+	if _, err := s.messages.GetParkedMessage(ctx, conversationID); err == nil {
+		return "", ErrInteractionPending
+	}
+
 	// Persist the user turn (one text block + attachment ids snapshotted in Attrs) and echo it
 	// to the stream so other clients see it immediately.
 	//
