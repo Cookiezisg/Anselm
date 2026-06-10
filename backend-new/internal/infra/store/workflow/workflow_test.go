@@ -239,6 +239,40 @@ func TestWorkflow_UpdateMetaAndActiveList(t *testing.T) {
 	}
 }
 
+// TestMarkInactiveIfDraining: the drain reconcile is conditional — it flips a draining workflow to
+// inactive (+active=false) but leaves a non-draining one untouched, and is a no-op (not NotFound)
+// when nothing matches.
+func TestMarkInactiveIfDraining(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkWf(t, s, ctx, "wf_1", "w", "")
+	yes := true
+
+	// draining → flips to inactive
+	if err := s.UpdateWorkflowMeta(ctx, "wf_1", workflowdomain.MetaUpdate{Active: &yes, LifecycleState: ptr(workflowdomain.LifecycleDraining)}); err != nil {
+		t.Fatalf("set draining: %v", err)
+	}
+	if err := s.MarkInactiveIfDraining(ctx, "wf_1"); err != nil {
+		t.Fatalf("MarkInactiveIfDraining: %v", err)
+	}
+	got, _ := s.GetWorkflow(ctx, "wf_1")
+	if got.Active || got.LifecycleState != workflowdomain.LifecycleInactive {
+		t.Fatalf("draining should flip to inactive: active=%v state=%q", got.Active, got.LifecycleState)
+	}
+
+	// active → untouched (only draining is reconciled); idempotent, no error
+	if err := s.UpdateWorkflowMeta(ctx, "wf_1", workflowdomain.MetaUpdate{Active: &yes, LifecycleState: ptr(workflowdomain.LifecycleActive)}); err != nil {
+		t.Fatalf("set active: %v", err)
+	}
+	if err := s.MarkInactiveIfDraining(ctx, "wf_1"); err != nil {
+		t.Fatalf("MarkInactiveIfDraining on active: %v", err)
+	}
+	got, _ = s.GetWorkflow(ctx, "wf_1")
+	if got.LifecycleState != workflowdomain.LifecycleActive {
+		t.Fatalf("a non-draining workflow must not be touched, got %q", got.LifecycleState)
+	}
+}
+
 func TestWorkflow_GetByIDsPreservesOrder(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

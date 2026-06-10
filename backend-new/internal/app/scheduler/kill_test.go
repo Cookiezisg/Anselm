@@ -12,6 +12,37 @@ import (
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
+// fakeReconciler records which workflows the scheduler asked to settle their drain.
+type fakeReconciler struct{ drained []string }
+
+func (f *fakeReconciler) MarkInactiveIfDrained(_ context.Context, workflowID string) error {
+	f.drained = append(f.drained, workflowID)
+	return nil
+}
+
+// TestDrainReconcile_FiresOnRunSettle: when a run reaches a terminal state and its workflow has no
+// other runs in flight, the scheduler asks the LifecycleReconciler to settle the drain (the
+// :deactivate→draining→inactive auto-flip). A one-node run completes → reconcile fires for wf_1.
+func TestDrainReconcile_FiresOnRunSettle(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("t", workflowdomain.NodeKindTrigger, "trg_1", nil),
+			node("a", workflowdomain.NodeKindAction, "fn_1", nil),
+		},
+		Edges: []workflowdomain.Edge{edge("e", "t", "", "a")},
+	}
+	svc, store := mkSvc(t, g, newDisp(), nil, nil, "")
+	recon := &fakeReconciler{}
+	svc.SetLifecycleReconciler(recon)
+	ctx := ctxWS("ws_1")
+
+	runID := mustRun(t, svc, ctx, map[string]any{})
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCompleted)
+	if len(recon.drained) == 0 || recon.drained[len(recon.drained)-1] != "wf_1" {
+		t.Fatalf("a settled run with 0 in-flight should reconcile drain for wf_1, got %v", recon.drained)
+	}
+}
+
 // TestKillWorkflow_CancelsParkedRun: a run parked on an approval is StatusRunning but has no
 // in-flight advance (the goroutine returned at the park). Kill marks it cancelled — the simple
 // not-blocked path (cancelInflight is a no-op, the store write does the work).

@@ -133,16 +133,19 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // → pure trust). It is interrupt-before-side-effect: a denied tool never executes — the denial is
 // recorded as the result so the model re-routes; a cancelled ctx (the run aborted) records that.
 // approve / approve_always fall through and execute (approve_always also session-whitelists, so the
-// next dangerous call to this tool in this conversation skips the gate).
+// next dangerous call to this tool in this conversation skips the gate). The active skill's
+// allowed-tools also pre-approve (R0040: a skill declares the tools it expects, so a dangerous call
+// it intends skips the per-call confirmation) — see skillPreApproves.
 //
 // dispatchWithGate 跑工具，但当 ctx 里有 humanloop broker 时（chat / 嵌套 agent 运行 seed 之；subagent /
 // workflow 不 → 纯信任），先把自报 dangerous 的调用门控到人批准。interrupt-before-side-effect：被拒的工具绝不
 // 执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。approve / approve_always 落下去执行（approve_always
-// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。
+// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。active skill 的 allowed-tools 同样预授权（R0040：skill
+// 声明它期待的工具，故它有意的危险调用跳过逐次确认）——见 skillPreApproves。
 func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
 	if b := humanloopapp.From(ctx); b != nil && tc.Danger == string(toolapp.DangerDangerous) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
-		if !b.IsAllowed(convID, tc.Name) {
+		if !b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name) {
 			prompt, _ := json.Marshal(map[string]any{"summary": tc.Summary, "args": json.RawMessage(argsJSON)})
 			resp, err := b.Request(ctx, humanloopapp.Request{
 				ToolCallID:     tc.ID,
@@ -165,6 +168,19 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		}
 	}
 	return executeTool(ctx, t, tc.Name, argsJSON, log)
+}
+
+// skillPreApproves reports whether the run's active skill declared this tool in its allowed-tools.
+// A skill's allowed-tools are a PRE-AUTHORIZATION (R0040), not a restriction: a dangerous call the
+// active skill expects skips the per-call confirmation. No agent state / no active skill → false
+// (the gate stands). The active skill is recorded by skill activation (skill/activate.go).
+//
+// skillPreApproves 报告本次运行的 active skill 是否在其 allowed-tools 里声明了该工具。skill 的 allowed-tools
+// 是**预授权**（R0040）、非限制：active skill 期待的危险调用跳过逐次确认。无 agent state / 无 active skill →
+// false（门照常）。active skill 由 skill 激活记录（skill/activate.go）。
+func skillPreApproves(ctx context.Context, toolName string) bool {
+	st, ok := reqctxpkg.GetAgentState(ctx)
+	return ok && st.IsToolPreApprovedBySkill(toolName)
 }
 
 // executeTool runs ValidateInput then Execute and shapes the (output, errMsg, ok) tuple.
