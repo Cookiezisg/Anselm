@@ -184,7 +184,7 @@ func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage
 	//
 	// 若调用方 opt-in 进度（chat 工具层在 ctx 放了 sink），登记 per-call token，使本 server 的进度通知在
 	// 调用期间流到该 sink。
-	if sink := progressFrom(ctx); sink != nil {
+	if sink := ProgressFrom(ctx); sink != nil {
 		token := strconv.FormatInt(c.progSeq.Add(1), 10)
 		c.progress.Store(token, sink)
 		defer c.progress.Delete(token)

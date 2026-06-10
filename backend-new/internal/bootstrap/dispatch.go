@@ -13,6 +13,7 @@ import (
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
@@ -30,7 +31,7 @@ type HandlerCaller interface {
 	Call(ctx context.Context, in handlerapp.CallInput) (any, error)
 }
 type MCPCaller interface {
-	CallTool(ctx context.Context, serverID, tool string, args json.RawMessage) (string, error)
+	CallTool(ctx context.Context, serverID, tool string, args json.RawMessage, triggeredBy string) (string, error)
 }
 type AgentInvoker interface {
 	InvokeAgent(ctx context.Context, in agentapp.InvokeInput) (*agentapp.InvokeResult, error)
@@ -110,7 +111,7 @@ func (d dispatcher) RunAction(ctx context.Context, ref string, input map[string]
 		if err != nil {
 			return nil, fmt.Errorf("mcp ref %q: marshal args: %w", ref, err)
 		}
-		out, err := d.mcp.CallTool(ctx, server, tool, args)
+		out, err := d.mcp.CallTool(ctx, server, tool, args, mcpdomain.CallTriggeredByWorkflow)
 		if err != nil {
 			return nil, err
 		}

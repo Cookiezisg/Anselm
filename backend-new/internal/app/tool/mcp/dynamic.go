@@ -47,5 +47,8 @@ func (t *dynamicTool) Execute(ctx context.Context, argsJSON string) (string, err
 	prog := loopapp.ToolProgress(ctx)
 	defer prog.Close()
 	ctx = mcpinfra.WithProgress(ctx, prog.Print)
-	return t.svc.CallTool(ctx, t.serverID, t.toolName, json.RawMessage(argsJSON))
+	// triggeredBy "" → the service derives chat/agent from ctx (this adapter only runs in the loop).
+	//
+	// triggeredBy 传 "" → service 从 ctx 推 chat/agent（本适配器只在 loop 内跑）。
+	return t.svc.CallTool(ctx, t.serverID, t.toolName, json.RawMessage(argsJSON), "")
 }

@@ -39,6 +39,7 @@ func (h *MCPHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/mcp-servers", h.ListServers)
 	mux.HandleFunc("GET /api/v1/mcp-servers/{name}", h.GetServer)
 	mux.HandleFunc("GET /api/v1/mcp-servers/{name}/stderr", h.GetStderr)
+	mux.HandleFunc("GET /api/v1/mcp-servers/{name}/calls", h.ListCalls)
 	mux.HandleFunc("PUT /api/v1/mcp-servers/{name}", h.PutServer)
 	mux.HandleFunc("DELETE /api/v1/mcp-servers/{name}", h.DeleteServer)
 	mux.HandleFunc("POST /api/v1/mcp-servers/{nameAction}", h.serverNameAction)
@@ -64,6 +65,35 @@ func (h *MCPHandler) GetServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, st)
+}
+
+// ListCalls pages a server's tool-call log (C4) — the entity panel's run history.
+//
+// ListCalls 分页 server 的工具调用日志（C4）——实体面板的运行历史。
+func (h *MCPHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	st, err := h.svc.GetServer(r.Context(), r.PathValue("name"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	rows, next, err := h.svc.ListCalls(r.Context(), mcpdomain.CallFilter{
+		ServerID:    st.ID,
+		Tool:        r.URL.Query().Get("tool"),
+		Status:      r.URL.Query().Get("status"),
+		TriggeredBy: r.URL.Query().Get("triggeredBy"),
+		Cursor:      p.Cursor,
+		Limit:       p.Limit,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
 }
 
 func (h *MCPHandler) GetStderr(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +201,7 @@ func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	res, err := h.svc.CallTool(r.Context(), st.ID, tool, req.Args)
+	res, err := h.svc.CallTool(r.Context(), st.ID, tool, req.Args, mcpdomain.CallTriggeredByManual)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

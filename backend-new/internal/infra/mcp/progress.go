@@ -22,7 +22,12 @@ func WithProgress(ctx context.Context, sink func(string)) context.Context {
 	return context.WithValue(ctx, progressKey{}, sink)
 }
 
-func progressFrom(ctx context.Context) func(string) {
+// ProgressFrom returns the sink set by WithProgress (nil if unset) — exported so the app layer can
+// wrap an existing sink (e.g. tee the chat sink AND the entities run terminal).
+//
+// ProgressFrom 返回 WithProgress 设的 sink（未设为 nil）——导出使 app 层能包既有 sink（如同时 tee chat sink
+// 与 entities run 终端）。
+func ProgressFrom(ctx context.Context) func(string) {
 	sink, _ := ctx.Value(progressKey{}).(func(string))
 	return sink
 }

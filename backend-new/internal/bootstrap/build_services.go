@@ -134,8 +134,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ctl := controlapp.NewService(st.control, notif, log)
 	apf := approvalapp.NewService(st.approval, notif, log)
 	mcp := mcpapp.New(st.mcp, mcpinfra.NewGitHubRegistrySource(dataDir, log), sbx, log)
+	mcp.SetEntitiesBridge(bus.entities) // SSE-C: CallTool tees progress to the server's run terminal
 	conv := conversationapp.New(st.conversation, notif, log)
-	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd), log)
+	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd, mcp), log)
 	wf := workflowapp.NewService(st.workflow, nil, notif, log) // resolver set below
 
 	// --- subagent + skill: subagent reads the toolset lazily via the holder ---

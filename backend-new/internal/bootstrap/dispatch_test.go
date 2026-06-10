@@ -34,7 +34,7 @@ func (f *fakeCallables) Call(_ context.Context, in handlerapp.CallInput) (any, e
 	f.hdIn = in
 	return f.hdOut, nil
 }
-func (f *fakeCallables) CallTool(_ context.Context, serverID, tool string, args json.RawMessage) (string, error) {
+func (f *fakeCallables) CallTool(_ context.Context, serverID, tool string, args json.RawMessage, _ string) (string, error) {
 	f.mcpSrv, f.mcpTl, f.mcpRaw = serverID, tool, args
 	return f.mcpOut, nil
 }

@@ -20,7 +20,10 @@ func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.
 
 // --- fakes -----------------------------------------------------------------
 
-type fakeRepo struct{ byID map[string]*mcpdomain.Server }
+type fakeRepo struct {
+	byID  map[string]*mcpdomain.Server
+	calls []*mcpdomain.Call
+}
 
 func newFakeRepo() *fakeRepo { return &fakeRepo{byID: map[string]*mcpdomain.Server{}} }
 
@@ -59,6 +62,13 @@ func (r *fakeRepo) Delete(_ context.Context, id string) error {
 	}
 	delete(r.byID, id)
 	return nil
+}
+func (r *fakeRepo) SaveCall(_ context.Context, c *mcpdomain.Call) error {
+	r.calls = append(r.calls, c)
+	return nil
+}
+func (r *fakeRepo) ListCalls(_ context.Context, _ mcpdomain.CallFilter) ([]*mcpdomain.Call, string, error) {
+	return r.calls, "", nil
 }
 
 type fakeSandbox struct{ ensureErr error }
@@ -169,12 +179,22 @@ func TestCallTool_RoutesToClient(t *testing.T) {
 	svc := svcWith(repo, ctx7Registry(), fc)
 	ctx := ctxWS("ws_1")
 	st, _ := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
-	res, err := svc.CallTool(ctx, st.ID, "get-library-docs", json.RawMessage(`{}`))
+	res, err := svc.CallTool(ctx, st.ID, "get-library-docs", json.RawMessage(`{}`), "")
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
 	if res != "DOCS" {
 		t.Fatalf("want DOCS, got %q", res)
+	}
+	// C4: every invocation records one mcp_calls audit row; "" derives chat off a plain ctx.
+	// C4：每次调用记一行 mcp_calls 审计；"" 在裸 ctx 下推为 chat。
+	if len(repo.calls) != 1 {
+		t.Fatalf("want 1 recorded call, got %d", len(repo.calls))
+	}
+	c := repo.calls[0]
+	if c.ServerID != st.ID || c.Tool != "get-library-docs" || c.Status != mcpdomain.CallStatusOK ||
+		c.TriggeredBy != mcpdomain.CallTriggeredByChat || c.Output != "DOCS" {
+		t.Fatalf("recorded call wrong: %+v", c)
 	}
 }
 

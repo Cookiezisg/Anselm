@@ -19,6 +19,7 @@ import (
 
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 )
 
@@ -51,7 +52,8 @@ type Service struct {
 	repo      mcpdomain.Repository
 	registry  mcpdomain.RegistrySource
 	sandbox   SandboxPort
-	relations RelationSyncer // optional; nil disables relation hooks
+	relations RelationSyncer      // optional; nil disables relation hooks
+	entities  streamdomain.Bridge // entities stream (SSE-C); nil → no server-panel run terminal
 	log       *zap.Logger
 
 	// newClient builds a Client from a spec; swappable in tests.
@@ -84,6 +86,13 @@ func New(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sandbox S
 
 // SetRelationSyncer installs the relation Service post-construction.
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
+
+// SetEntitiesBridge installs the entities stream post-construction (SSE-C): CallTool tees a tool
+// call's progress notifications onto the server's run terminal for the entity panel.
+//
+// SetEntitiesBridge 装配后装入 entities 流（SSE-C）：CallTool 把工具调用的进度通知 tee 到 server 的 run
+// 终端供实体面板。
+func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
 
 // SetClientFactory swaps the Client constructor (tests only).
 func (s *Service) SetClientFactory(f func(spec mcpinfra.ClientSpec, log *zap.Logger) mcpinfra.Client) {

@@ -135,17 +135,18 @@ type ServerStatus struct {
 	Tools               []ToolDef  `json:"tools"`
 }
 
-// Repository persists mcp_servers — workspace-scoped automatically via orm (D2). The
-// store encrypts/decrypts Env + Headers around these calls.
+// Repository persists mcp_servers + the mcp_calls log — workspace-scoped automatically via orm
+// (D2). The store encrypts/decrypts Env + Headers around the server calls.
 //
-// Repository 持久化 mcp_servers——经 orm 自动 workspace 隔离（D2）。store 在这些调用周围
-// 加解密 Env + Headers。
+// Repository 持久化 mcp_servers + mcp_calls log——经 orm 自动 workspace 隔离（D2）。store 在 server
+// 调用周围加解密 Env + Headers。
 type Repository interface {
 	Save(ctx context.Context, s *Server) error
 	GetByID(ctx context.Context, id string) (*Server, error)
 	GetByName(ctx context.Context, name string) (*Server, error)
 	List(ctx context.Context) ([]*Server, error)
 	Delete(ctx context.Context, id string) error
+	CallRepository
 }
 
 // Error dictionary. KindBadGateway (502) for upstream MCP/install failures, KindUnavailable

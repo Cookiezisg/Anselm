@@ -46,6 +46,25 @@ var Schema = []string{
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_ws_name ON mcp_servers(workspace_id, name) WHERE deleted_at IS NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_mcp_ws_created ON mcp_servers(workspace_id, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
+	`CREATE TABLE IF NOT EXISTS mcp_calls (
+		id              TEXT PRIMARY KEY,
+		workspace_id    TEXT NOT NULL,
+		server_id       TEXT NOT NULL,
+		tool            TEXT NOT NULL,
+		status          TEXT NOT NULL CHECK (status IN ('ok','failed','cancelled','timeout')),
+		triggered_by    TEXT NOT NULL CHECK (triggered_by IN ('chat','agent','workflow','manual')),
+		input           TEXT NOT NULL DEFAULT 'null',
+		output          TEXT NOT NULL DEFAULT '',
+		error_message   TEXT NOT NULL DEFAULT '',
+		elapsed_ms      INTEGER NOT NULL DEFAULT 0,
+		started_at      DATETIME NOT NULL,
+		ended_at        DATETIME NOT NULL,
+		conversation_id TEXT NOT NULL DEFAULT '',
+		message_id      TEXT NOT NULL DEFAULT '',
+		tool_call_id    TEXT NOT NULL DEFAULT '',
+		created_at      DATETIME NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_mcl_ws_server ON mcp_calls(workspace_id, server_id, created_at DESC, id DESC)`,
 }
 
 // serverRow is the on-disk shape; config_enc carries the encrypted {env, headers}. Env and
@@ -83,13 +102,15 @@ type configBlob struct {
 // Store implements mcpdomain.Repository over pkg/orm with config_enc encryption.
 type Store struct {
 	servers   *ormpkg.Repo[serverRow]
+	calls     *ormpkg.Repo[mcpdomain.Call]
 	encryptor cryptodomain.Encryptor
 }
 
-// New binds the store to the mcp_servers table + the encryptor used for config_enc.
+// New binds the store to the mcp_servers + mcp_calls tables + the encryptor used for config_enc.
 func New(db *ormpkg.DB, encryptor cryptodomain.Encryptor) *Store {
 	return &Store{
 		servers:   ormpkg.For[serverRow](db, "mcp_servers"),
+		calls:     ormpkg.For[mcpdomain.Call](db, "mcp_calls"),
 		encryptor: encryptor,
 	}
 }

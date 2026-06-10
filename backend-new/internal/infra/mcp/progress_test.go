@@ -9,12 +9,12 @@ import (
 )
 
 func TestWithProgress_RoundTrip(t *testing.T) {
-	if progressFrom(context.Background()) != nil {
+	if ProgressFrom(context.Background()) != nil {
 		t.Fatal("no sink set → progressFrom must be nil")
 	}
 	got := ""
 	ctx := WithProgress(context.Background(), func(s string) { got = s })
-	if sink := progressFrom(ctx); sink == nil {
+	if sink := ProgressFrom(ctx); sink == nil {
 		t.Fatal("WithProgress sink not retrievable")
 	} else {
 		sink("x")
@@ -23,7 +23,7 @@ func TestWithProgress_RoundTrip(t *testing.T) {
 		t.Fatalf("sink not the one set: %q", got)
 	}
 	// nil sink is a no-op wrap.
-	if progressFrom(WithProgress(context.Background(), nil)) != nil {
+	if ProgressFrom(WithProgress(context.Background(), nil)) != nil {
 		t.Fatal("WithProgress(nil) must not set a sink")
 	}
 }
