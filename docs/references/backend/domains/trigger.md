@@ -89,27 +89,28 @@ type Activation struct {
 | `cron` | 到 cron 刻度 | `{firedAt}` | `config.expression`（5 字段）。dedupKey 按刻度（分钟）去重 |
 | `webhook` | 外部 HTTP 推到 `/api/v1/webhooks/{triggerId}/{path}` | `{method, headers, body}` | `config.path` + 可选 `secret`（+ `signatureAlgo:"hmac-sha256-hex"` 走 HMAC）|
 | `fsnotify` | 监听路径文件增/改/删 | `{path, eventKind}` | `config.path` + 可选 `events[]`/`pattern` |
-| `sensor` | 周期调一个 function/handler，CEL 条件满足 | CEL `output` 构造 | 见 §4 |
+| `sensor` | 周期调一个 function/handler/mcp 工具，CEL 条件满足 | CEL `output` 构造 | 见 §4 |
 
 > manual 不是 trigger source——手动跑 workflow 是 workflow 自己的能力（不监听任何东西）。手动催一个 trigger 立即响用 `:fire`（测试用）。
 
 ---
 
-## 4. Sensor：function/handler + CEL
+## 4. Sensor：function/handler/mcp + CEL
 
-sensor 把旧的「polling」一般化：**周期性调用一个 function 或 handler.method（永远看 active 版本），对返回值求 CEL 条件，满足则 fire**。
+sensor 把旧的「polling」一般化：**周期性调用一个 function / handler.method / mcp 工具（fn/hd 永远看 active 版本），对返回值求 CEL 条件，满足则 fire**。
 
 `config`：
 ```json
 {
-  "targetKind": "function",   // function | handler
+  "targetKind": "function",   // function | handler | mcp（mcp 于 C4/R0063 接通 invoker）
   "targetId":   "fn_xxx",
-  "method":     "",           // handler 才用
+  "method":     "",           // handler 方法名 / mcp 工具名（两者必填）
   "intervalSec": 60,          // 必填，最小 5
   "condition":  "payload.count > 0",     // CEL bool，对返回值（= payload）求值
   "output":     "{\"items\": payload.items}"  // CEL，构造 fire payload
 }
 ```
+> mcp 目标的返回是文本，经 `toResultMap` 以 `{text: …}` 喂 CEL（`payload.text`）。
 流程：每 `intervalSec` 调 target → 返回值 `rv` → `condition(rv)` → 真则 `fire(output(rv))`。
 
 - **要状态绑 handler**：handler 是常驻进程，自己记游标/session/连接，做「自上次以来的新东西」式增量探测；**不要状态绑 function**（每次干净探当前值）。trigger 自身永远无状态。

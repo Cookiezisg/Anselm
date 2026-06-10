@@ -10,7 +10,7 @@ audience: [human, ai]
 ---
 # Events Design — SSE 物理发射全量契约 (100% Coverage)
 
-> **as-built（2026-06-10 改名对账）**：SSE 三流 2026-06-03 改名 `eventlog→messages`、`forge→entities`、`notifications` 不变（CLAUDE.md E1）。**订阅端点统一在 `StreamHandler`**：`GET /api/v1/{messages,entities,notifications}/stream`——**workspace 级、后端不过滤**（始终发完整 delta，前端常驻全连 + 按对话/实体自滤）、`Last-Event-ID`/`?fromSeq` 续传、`410 SEQ_TOO_OLD`。下表事件/载荷是**目标设计**：§1 block 生命周期生产侧 ✅ 已在 `app/loop` 落地；§3 forge **双写 entities 流**的生产侧待建（B/C 层，逐 tool）。物理源路径列含旧 backend 残留，随覆盖阶段 events.md 全量重写校准。
+> **as-built（2026-06-10 改名对账）**：SSE 三流 2026-06-03 改名 `eventlog→messages`、`forge→entities`、`notifications` 不变（CLAUDE.md E1）。**订阅端点统一在 `StreamHandler`**：`GET /api/v1/{messages,entities,notifications}/stream`——**workspace 级、后端不过滤**（始终发完整 delta，前端常驻全连 + 按对话/实体自滤）、`Last-Event-ID`/`?fromSeq` 续传、`410 SEQ_TOO_OLD`。§1 block 生命周期生产侧 ✅（`app/loop`，含 tool 中间 `progress` 块——SSE-B R0062）；§3 entities 实体活动流生产侧 ✅（forge/run/fire 三节点型——SSE-C R0063）。§2 notification 物理源路径列仍含旧 backend 残留，随覆盖阶段校准。
 
 ---
 
@@ -70,18 +70,33 @@ audience: [human, ai]
 
 ## 3. Entities 流 (`/api/v1/entities/stream`)
 
-锻造流水线进度（全实体流式总线）。**双写**：forge 工具把进度同时写 messages 流（tool_call 下的中间过程，§1）+ 本流（独立锻造流，给前端实体面板）。**生产侧待建**（Layer C，逐 tool）。
+**实体活动流**（SSE-C as-built R0063）：每个实体自己的活动，scope = 实体（`{kind:"function", id:"fn_x"}` 等，11 类 kind 含 control/approval/trigger），喂前端**实体面板**。三种活动 = 三种节点型（`app/entitystream` 原语统一发射；与 messages 同一信封/四动词）：
 
-### 3.1 物理事件序列 (By Code Path)
-| Event | 常用物理路径 | 载荷详情 |
+### 3.1 `forge` 节点（open → delta* → close）——锻造内容哗啦填
+
+LLM create/edit 实体时，**loop 把该 forge tool_call 的 args delta 原样镜像到本流**（`ForgeTool` 接口自报 Kind+Op；loop 不解析 args，前端复用对话里那套 tool_call args 解析器渲染）。同一份 delta 双写：messages（对话里看代码被打出来，§1）+ 本流（实体面板那张卡实时填充）。
+
+- scope = `{kind, <tool_call id>}`（**forge 会话**——create 时实体还没 ID；前端经流式 args 里的 `functionId` 等 + messages 的 tool_result 关联到真实体/草稿卡替换）
+- `open` content = `{op: "create"|"edit"}`；`delta` = 裸 args chunk；`close.Result` = 最终完整 args（重连快照）
+- **覆盖 8 实体 × create/edit = 16 工具**：fn/hd/ag/wf/ctl/apf/document/skill（mcp 不锻造，trigger 是信号源）
+
+### 3.2 `run` 节点——运行小终端（**全 caller**：chat/REST/workflow 节点/sensor-poll）
+
+| 实体 | 中间信息 | 产出方（与谁触发无关） |
 |---|---|---|
-| `forge_started` | `tool/handler/create.go` | `{ scope, operation, conversationId, toolCallId }` |
-| `forge_op_applied` | `tool/workflow/edit.go` | `{ scope, index, op }` |
-| `forge_env_attempt` | `tool/function/edit.go` | `{ scope, attempt, status: "installing"\|"ok"\|"failed", stage, detail }` |
-| `forge_completed` | `tool/handler/edit.go` | `{ scope, status: "ok"\|"failed", versionId, envStatus, attemptsUsed, error }` |
+| `function` | 函数 `print()` 输出（driver 引到 stderr）逐行 | `functionapp.SandboxAdapter.Run`（MultiWriter：messages ToolProgress + 本流） |
+| `handler` | 流式 method 的 `yield` 逐条 | `handlerapp.Service.Call`（包 OnProgress 双发） |
+| `agent` | **完整 ReAct 轨迹**（loop 每帧镜像，`WithRunScope`） | `agentapp.runLoop`（emitter mirror，off-chat 也流） |
+| `workflow` | flowrun **节点逐个推进**（Signal：`{flowrunId, nodeId, iteration, status}`） | `scheduler.Advance` 每节点 |
+| `mcp` | server 的 progress notifications 逐条 | `mcpapp.CallTool`（叠在 chat sink 上 tee） |
 
-### 3.2 物理覆盖范围
-全量覆盖 `Quadrinity` (fn/hd/wf/ag) 以及 `document`, `skill` 实体。
+scope = `{kind, <实体真 id>}`；fn/hd/mcp 是 open→delta*→close（懒开，无输出不开帧），wf 是逐节点 Signal。**耐久记录在执行表**（function_executions / handler_calls / agent_executions.transcript / flowrun_nodes / **mcp_calls**〔C4 新增〕），本流是 live 视图、刷新后从 REST 重建。
+
+### 3.3 `fire` 节点（点 Signal）——trigger 触发活动
+
+所有 fire 路径（cron/webhook/fsnotify/sensor/manual）经 `triggerapp.fanOut` 唯一咽喉，每次扇出发一条：scope = `{trigger, trg_id}`，content = `{activationId, kind, fired, firingCount, error}`。耐久记录 = Activation/Firing 行。
+
+> **本流 live-only 不持久化**：锻造的 durable 真相 = 实体行；运行的 = 执行表；触发的 = activation/firing 表。前端刷新走 REST，本流只管「此刻哗啦哗啦」。
 
 ---
 

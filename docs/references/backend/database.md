@@ -37,6 +37,7 @@ audience: [human, ai]
 | | `approval_forms` | `apf_` | `ApprovalForm` |
 | | `approval_form_versions` | `apfv_` | `Version` |
 | | `mcp_servers` | `mcp_` | `Server` |
+| | `mcp_calls` | `mcl_` | `Call`（C4 R0063：MCP 工具调用审计 log，对标 `handler_calls` 精简版——无 version/instance/flowrun 列；status/triggered_by CHECK 同 handler；`idx_mcl_ws_server`） |
 | **Execution**| `flowruns` | `fr_` | `FlowRun` |
 | | `flowrun_nodes` | `frn_` | `FlowRunNode` |
 | **Inbound** | `trigger_schedules` | `ts_` | `TriggerSchedule` |
@@ -488,11 +489,11 @@ type Item struct {
 - **Partial Unique**: `idx_mcp_ws_name` -> `UNIQUE(workspace_id, name) WHERE deleted_at IS NULL`（mcp server 短名工作区内唯一，故可作 HTTP path key）。
 - **Encrypted Column**: `mcp_servers.config_enc` -> AES-GCM 密文，载 `{env, headers}`；加密封在 store 层，domain.Server 持明文 `Env`/`Headers`。
 - **Soft Delete**: `DeletedAt` 字段在全量业务表中存在，查询需强制过滤。
-- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, subagt_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, frn_, trg_, trf_, tra_, mcp_, doc_, rel_, se_, sr_, noti_, bsh_, ctl_, ctlv_, apf_, apfv_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`subagt_` = subagent run id（R0058；`messages.subagent_id` 标记 + todo 作用域，内存运行态、非独立实体表）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`mcp_` = mcp server 容器实体（一表 `mcp_servers`，工具不落库）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs；`bsh_` = 后台 shell 进程 id（`tool/shell` 的 `ProcessManager`，内存态、不入库，性质同 `hdi_`））
+- **ID 前缀**: `u_, aki_, cv_, msg_, blk_, subagt_, att_, fn_, fnv_, fne_, fnenv_, hd_, hdv_, hcl_, hdenv_, hdi_, wf_, wfv_, ag_, agv_, agx_, fr_, frn_, trg_, trf_, tra_, mcp_, doc_, rel_, se_, sr_, noti_, bsh_, ctl_, ctlv_, apf_, apfv_`. （`fnenv_`/`hdenv_` = function/handler 为各版本 venv 自 mint 的 sandbox owner id；`hdi_` = handler 常驻实例 id（内存态，不入库）；`subagt_` = subagent run id（R0058；`messages.subagent_id` 标记 + todo 作用域，内存运行态、非独立实体表）；`trg_`/`trf_`/`tra_` = trigger 实体 / firing 收件箱 / activation 动作日志（trigger 升为独立实体，取代旧 `ts_`/`tfi_`）；`mcp_` = mcp server 容器实体（表 `mcp_servers`，工具不落库）；`mcl_` = mcp 工具调用审计 log（`mcp_calls`，C4 R0063）；`se_` = sandbox 内部物理 env 行 id——consumer 不复用 entity id，见 shared-infra-IDs；`bsh_` = 后台 shell 进程 id（`tool/shell` 的 `ProcessManager`，内存态、不入库，性质同 `hdi_`））
 > 注：memory 改文件式（`~/.forgify/workspaces/<wsID>/memories/*.md`），**无 memories 表、无 `mem_` 前缀**（文件名即标识）。
 > 注：todo 改 TodoWrite 式（一行一作用域、整列替换），PK `scope_id` = 对话/subagent id 多态键，**无 `td_` 前缀**（项无 id、清单按作用域寻址）。
 > 注：skill 改文件式（`~/.forgify/workspaces/<wsID>/skills/<name>/SKILL.md`），**无 skill 表、无 `skill_executions` 表（execution 审计砍）、无 `ske_`/`sk_` 前缀**（name 即标识、relation 节点用 name；R0021 预留的 `sk_` 对文件式 skill 不启用）。
-> 注：mcp server 为容器实体（`mcp_` 前缀、一表 `mcp_servers`，`relation.KindForID` 已识别）。**无 `mcp_calls`/`mcp_health_history` 表、无 `mcl_`/`mch_` 前缀**（调用审计 + 健康历史砍，server 工具不落库——动态落成 `mcp__<server>__<tool>` 工具）。
+> 注：mcp server 为容器实体（`mcp_` 前缀、表 `mcp_servers`，`relation.KindForID` 已识别）；server 工具不落库——动态落成 `mcp__<server>__<tool>` 工具。**`mcp_calls`（`mcl_`）于 C4/R0063 补全**（此前无调用审计；现与 fn/hd/ag 一样有耐久执行日志，CallTool 每次调用记一行 + `GET /mcp-servers/{name}/calls` 读取）。健康历史表（`mch_`）仍砍（live 计数在内存 ServerStatus）。
 > 注：`ctl_`/`ctlv_` = control 逻辑实体 / 其版本（workflow `control` 节点引用的路由逻辑 when/emit 分支组；AI 工作实体，有版本但无 sandbox/env/executions，详 domains/control.md）。
 > 注：`apf_`/`apfv_` = approval **form**（审批渲染实体）/ 其版本（workflow `approval` 节点引用的 markdown 模板 + 决策规则；详 domains/approval.md）。审批的运行时 parked 状态 = `flowrun_nodes` 行（status=parked），**无独立 `apv_` 投影表**（M4.2 落地：parked frn 行即审批收件箱）。
 > 注：`fr_`/`frn_` = flowrun 执行头 / 节点结果记忆化真相表（M4.2/M4.3，详 domains/flowrun.md + domains/scheduler.md）。**旧 `fre_`（事件日志）/`apv_`（parked 投影）已删**（记忆化模型无事件日志）；`frs_`（agent 子步）**不引入**（agent 粗粒度，详 workflow-revamp/21 §3.3）。

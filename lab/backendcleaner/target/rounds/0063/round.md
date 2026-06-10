@@ -31,16 +31,16 @@
 
 `entitystream.Writer`：包 (bridge, scope, nodeType)，发流式节点——`New` / `Write`(io.Writer：懒 open + delta) / `Close`(快照) / `Signal`(点信号，给 fire)。**单一职责**：往一个 bridge+scope 发节点；dual-write 由调用方组合（不在原语里 fan-out，保持简单）。loop（forge）+ Service（run）+ trigger（fire）共用。
 
-## 分期
+## 分期（全部 ✅ as-built）
 
-| 期 | 内容 |
-|---|---|
-| **C0** | stream domain 补 `KindControl`/`KindApproval`/`KindTrigger` + `entitystream` 原语 + `WithEntitiesBridge`（loop ctx 接缝）+ 测 |
-| **C1 forge** | `ForgeTool` 接口（Kind + TargetID(args)）+ loop 对 forge tool_call 双发 entities；16 工具（8×create/edit）实现 Forge() |
-| **C2 run fn/hd** | function/handler Service 注入 entities bridge，run 中间信息（stdout/yield）MultiWriter 到 entities（B6/B3 出口升级，覆盖全 caller） |
-| **C3 run ag/wf** | agent Service：ReAct 轨迹 → entities(agent)；scheduler：flowrun 节点 → entities(workflow) |
-| **C4 mcp 补全** | 新 `mcp_calls` 执行表 + 记录 + run 中间信息 → entities(mcp) + 接上 sensor 的 mcp 目标（填 config.go 声明了的洞） |
-| **C5 trigger fire** | trigger fire 时发 fire 信号 → entities(trigger) |
+| 期 | 内容 | as-built 备注 |
+|---|---|---|
+| **C0** ✅ | stream domain 补 `KindControl`/`KindApproval`/`KindTrigger` + `entitystream` 原语 + WithBridge ctx 接缝 + 测 | + `NodeForge/NodeRun/NodeFire` 常量、`WithRunScope`（C3a 加） |
+| **C1 forge** ✅ | `ForgeTool` 接口 + loop 对 forge tool_call 双发 entities；16 工具实现 Forge() | **简化**：ForgeSpec 只 `{Kind, Op}`（无 TargetID——loop 不解析 args，scope=tool_call id 的 forge 会话，前端经 args/tool_result 关联实体）；**C2a 补 chat seed**（EntitiesBridge 进 chat.Deps，否则 inert） |
+| **C2 run fn/hd** ✅ | function stdout / handler yield → entities run 终端（全 caller） | fn=adapter ctor 注入 + MultiWriter；hd=Service.Call setter 注入 + 包 OnProgress 双发 + 一律 StreamCall |
+| **C3 run ag/wf** ✅ | agent ReAct 轨迹 / workflow 节点推进 → entities | ag=**loop emitter mirror**（WithRunScope，整轨迹每帧、off-chat 也流）；wf=Advance 每节点 Signal |
+| **C4 mcp 补全** ✅ | `mcp_calls` 表 + 记录 + run→entities + sensor mcp 目标 | `mcl_` 前缀；CallTool 签名 += triggeredBy（4 调用点显式：HTTP=manual/dispatcher=workflow/sensor=workflow/动态工具=""推 ctx）；**砍 aggregates/get-by-id/LLM 检索工具**（无消费者不预建）；`GET /mcp-servers/{name}/calls`；infra 导出 `ProgressFrom`（Service 包既有 sink） |
+| **C5 trigger fire** ✅ | fanOut（所有 fire 路径唯一咽喉）每扇出发 fire Signal | content={activationId, kind, fired, firingCount, error} |
 
 ## 验证 + 文档
 - go build ./... + 各 phase 测试 + 全模块 0 FAIL。

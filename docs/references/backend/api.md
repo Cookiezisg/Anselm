@@ -184,6 +184,7 @@ audience: [human, ai]
 | GET | `/api/v1/mcp-servers` | `mcp.go` | 列已装 server（实时 status）|
 | GET | `/api/v1/mcp-servers/{name}` | `mcp.go` | 单个 server status |
 | GET | `/api/v1/mcp-servers/{name}/stderr` | `mcp.go` | stderr 尾部 |
+| GET | `/api/v1/mcp-servers/{name}/calls` | `mcp.go` | 调用审计分页（C4 R0063；`?tool&status&triggeredBy` + cursor/limit N4）|
 | PUT | `/api/v1/mcp-servers/{name}` | `mcp.go` | 手动 upsert（command/args/env/url/transport/runtime/timeoutSec）|
 | DELETE | `/api/v1/mcp-servers/{name}` | `mcp.go` | 软删 |
 | POST | `/api/v1/mcp-servers/{nameAction}` | `mcp.go` | (:reconnect) 重置闸 |
