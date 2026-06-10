@@ -14,12 +14,13 @@ package mention
 
 import "context"
 
-// MentionType is the closed set of @-mentionable entity kinds: the Quadrinity plus
-// document — entities the user forged that carry an injectable content snapshot.
-// conversation/skill/mcp are NOT mentionable (no single content snapshot to inject).
+// MentionType is the closed set of @-mentionable entity kinds: the Quadrinity + document +
+// trigger / control / approval — forge entities that carry an injectable content snapshot (R0065
+// added the latter three so AI :iterate can seed them). conversation/skill/mcp are NOT mentionable
+// (no single content snapshot to inject).
 //
-// MentionType 是可被 @ 的实体类型封闭集：四件套 + document——用户锻造的、有可注入内容快照
-// 的实体。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
+// MentionType 是可被 @ 的实体类型封闭集：四件套 + document + trigger / control / approval——有可注入
+// 内容快照的 forge 实体（R0065 加后三个，使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
 type MentionType string
 
 const (
