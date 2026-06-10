@@ -150,7 +150,7 @@ type Block struct {
     MessageID      string         `db:"message_id"`        // 所属回合；block 的 stream parentId
     ParentBlockID  string         `db:"parent_block_id"`   // tool_result → 其 tool_call
     Seq            int64          `db:"seq"`               // 对话内单调；落盘时分配（MAX+1）
-    Type           string         `db:"type"`              // CHECK(text|reasoning|tool_call|tool_result|compaction)
+    Type           string         `db:"type"`              // CHECK(text|reasoning|tool_call|tool_result|compaction|progress)。progress=工具中间过程（持久但 LLM 白名单排除，loop.ToolProgress 经 ParentBlockID=tool_call 挂）
     Attrs          map[string]any `db:"attrs,json"`        // tool_call:{tool,summary,danger}; reasoning:{signature}
     Content        string         `db:"content"`
     Status         string         `db:"status"`            // CHECK(5 态)
@@ -264,7 +264,8 @@ type AgentExecution struct {
     Status         string         `db:"status"`          // ok|failed|cancelled|timeout
     TriggeredBy    string         `db:"triggered_by"`    // chat|workflow|manual
     Input          map[string]any `db:"input,json"`
-    Output         any            `db:"output,json"`
+    Output         any            `db:"output,json"`     // 最终返回值
+    Transcript     json.RawMessage `db:"transcript,json"` // 完整 block 序列(JSON)——本次运行自包含耐久记录(SSE-B/R0062)；chat 内调起时这些 block 经 tool_call_id 关联、实时嵌 invoke_agent tool_call 下；**不**落 message_blocks
     ErrorMessage   string         `db:"error_message"`
     ElapsedMs      int64          `db:"elapsed_ms"`
     StartedAt      time.Time      `db:"started_at"`

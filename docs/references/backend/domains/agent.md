@@ -44,7 +44,9 @@ audience: [human, ai]
 > **I/O 统一**：`inputs`/`outputs` 均为共享 `[]schema.Field`（`internal/pkg/schema`），取代旧 `output_schema` 列与三态 `OutputSchema`/`OutputSchemaKind`(free_text/enum/json_schema) 类型——后者连同 enum 硬约束 + coercion 一并删除。
 
 ### 2.3 `agent_executions`（`agx_`，append-only log，**无软删/无硬删** D1）
-`id` · `workspace_id` · `agent_id` · `version_id` · `model_id`(实际 resolve 出的) · `status`(ok/failed/cancelled/timeout，CHECK) · **`triggered_by`**(chat/workflow/manual，CHECK) · `input`(json) · `output`(json) · `error_message` · `elapsed_ms` · `started_at` · `ended_at` · `conversation_id` · `message_id` · `tool_call_id` · `flowrun_id` · `flowrun_node_id` · `created_at`。
+`id` · `workspace_id` · `agent_id` · `version_id` · `model_id`(实际 resolve 出的) · `status`(ok/failed/cancelled/timeout，CHECK) · **`triggered_by`**(chat/workflow/manual，CHECK) · `input`(json) · `output`(json，最终返回值) · **`transcript`**(json，完整 block 序列) · `error_message` · `elapsed_ms` · `started_at` · `ended_at` · `conversation_id` · `message_id` · `tool_call_id` · `flowrun_id` · `flowrun_node_id` · `created_at`。
+
+> **`transcript`（SSE-B/R0062）= 本次运行自包含的耐久记录**：agent 跨步的全部 block（text/reasoning/tool_call/tool_result）序列化为 JSON。**agent 的持久化自做进本表、不与 `message_blocks` 公用**。chat 内调起（`tool_call_id` 在）时，这些 block 经 loop `SetMessageID(toolCallID)` **实时嵌在 invoke_agent tool_call 下流**（前端内联呈现为该 tool 的「中间过程」）；reload 经 `tool_call_id` 关联从 `transcript` 重水合。
 
 **`triggered_by` = 执行体**（「谁在跑」，非「请求怎么来的」）：`chat`(对话里 LLM 调 invoke_agent) / `workflow`(工作流 agent 节点) / `manual`(REST `:invoke` 手动跑)。**无 `agent` 触发**——员工不调员工（agent tools 禁 `ag_` ref）。
 

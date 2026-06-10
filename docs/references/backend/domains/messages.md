@@ -74,7 +74,7 @@ type Message struct {                 // 一个对话回合（user 发言 / assi
 
 | 词表 | 取值 | 说明 |
 |---|---|---|
-| `BlockType*` | `text` `reasoning` `tool_call` `tool_result` `compaction` | loop 发的内容树节点种类。旧 eventlog 的 `progress`/`message` **已砍**——更深层级（subagent 子树）经 stream `Open.ParentID` 表达，不靠新增块型。 |
+| `BlockType*` | `text` `reasoning` `tool_call` `tool_result` `compaction` `progress` | loop 发的内容树节点种类。**`progress`**（SSE-B/R0062）= 工具的实时中间过程（bash 输出 / env-fix log / handler yield…），经 `loop.ToolProgress` 挂在其 tool_call 下（`ParentBlockID=tool_call`）实时流 **并随回合持久化**；但 LLM 历史投影 `BlocksToAssistantLLM` 是**类型白名单**（text/reasoning/tool_call/tool_result）→ progress **持久但永不回喂模型**（纯 UI、LLM 读的仍是 tool_result）。`message` **不是**块型——更深层级（subagent 子树）经 stream `Open.ParentID` 表达。 |
 | `Status*` | `pending` `streaming` `completed` `error` `cancelled` | message 与 block 共用一套。message 回合开始前为 `pending`；block 在 open↔close 间隐含 `streaming`；三终态与 `stream.Close` 状态 1:1。 |
 | `StopReason*` | `end_turn` `max_tokens` `max_steps` `cancelled` `error` | 回合结束原因。`max_steps` 是**非成功**终态——loop 撞步数上限，诚实暴露使 UI 提供「继续」（不冒充 completed end_turn）。 |
 | `ContextRole*` | `hot` `warm` `cold` `archived` | 压缩器（contextmgr M5.3）投影 block 如何进 LLM 历史而**不改写**落库 Content：hot 全文 / warm 截断预览 / cold 省略带标记 / archived 丢弃（并入 conversation.summary）。 |
