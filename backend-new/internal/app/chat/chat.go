@@ -135,21 +135,6 @@ type ConversationTitler interface {
 	SetAutoTitle(ctx context.Context, conversationID, title string) error
 }
 
-// AgentResumer resolves one pending interaction in a parked sub-agent run and re-drives it — the
-// down-thread of nested human-in-the-loop (R0064): when a chat turn parked because an invoke_agent
-// sub-run parked, ResolveInteraction calls this to resume the sub-agent. Returns whether it parked
-// again (the chat stays parked, the user resolves the next leaf) and, when it completed, the
-// sub-agent's final output (which fills the invoke_agent tool_result). agentapp.Service satisfies
-// it via an adapter. An empty leafToolCallID resolves the sub-run's first pending interaction.
-//
-// AgentResumer 决议一个 parked 子 agent 运行的一条待决交互并重驱——嵌套人在环的向下穿（R0064）：当 chat 回合因
-// invoke_agent 子运行 park 而 park 时，ResolveInteraction 调它恢复子 agent。返回是否再次 park（chat 保持 parked、
-// 用户决议下一 leaf）+ 完成时子 agent 的终果（填 invoke_agent tool_result）。agentapp.Service 经适配器满足。空
-// leafToolCallID 决议子运行第一条待决交互。
-type AgentResumer interface {
-	ResumeExecution(ctx context.Context, executionID, leafToolCallID, action, answer string) (parked bool, output string, err error)
-}
-
 // AttachmentRenderer turns a user turn's attachment ids into neutral multimodal content parts,
 // gated by the model's capabilities. The attachmentapp.Service satisfies it (adapter converts
 // ContentCapabilities → attachment.Capabilities).
@@ -197,7 +182,6 @@ type Deps struct {
 	Todo           TodoReminder
 	Bridge         streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
 	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors forge tool_call deltas here; nil → no entity-panel live fill
-	AgentResumer   AgentResumer               // resumes a parked sub-agent for nested HITL (R0064); nil → invoke_agent can't park the chat turn
 	Titler         ConversationTitler         // auto-title writer (R0057); nil → no auto-titling
 	Notifier       notificationdomain.Emitter // auto-title notification (R0057); nil → no notify
 	Compactor      Compactor                  // context compaction (R0059); nil → no compaction
@@ -228,14 +212,6 @@ type Service struct {
 
 	queues sync.Map // conversationID → *convQueue
 	wg     sync.WaitGroup
-
-	// allowedTools is the always-allow session whitelist (R0064 D4): a danger park is skipped for a
-	// tool the user resolved with approve_always in this conversation. Keyed "conversationID\x00tool"
-	// → struct{}. In-memory + session-scoped (a convenience, lost on restart — re-prompts then).
-	//
-	// allowedTools 是 always-allow 会话白名单（R0064 D4）：用户在本对话以 approve_always 决议过的工具，其 danger
-	// park 被跳过。键 "conversationID\x00tool" → struct{}。内存 + 会话级（便利，重启即失、届时重新提示）。
-	allowedTools sync.Map
 }
 
 // New constructs the chat Service. nil messages / log is a wiring bug; Deps fields may be nil
@@ -279,16 +255,6 @@ type SendInput struct {
 func (s *Service) Send(ctx context.Context, conversationID string, in SendInput) (string, error) {
 	if in.Content == "" && len(in.AttachmentIDs) == 0 {
 		return "", ErrEmptyContent
-	}
-
-	// A parked turn owns the conversation until its interaction resolves (R0064): refuse a new Send
-	// so the dangling pending tool_result can't strand the history. The user resolves via the
-	// interactions endpoint (an answer / approval), which drives the continuation itself.
-	//
-	// parked 回合在其交互决议前独占对话（R0064）：拒新 Send，使悬空 pending tool_result 不破坏历史。用户经
-	// interactions 端点决议（作答 / 批准），由它自身驱动续跑。
-	if _, err := s.messages.GetParkedMessage(ctx, conversationID); err == nil {
-		return "", ErrInteractionPending
 	}
 
 	// Persist the user turn (one text block + attachment ids snapshotted in Attrs) and echo it

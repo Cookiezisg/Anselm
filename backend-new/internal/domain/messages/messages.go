@@ -105,15 +105,6 @@ const (
 	StatusCompleted = "completed"
 	StatusError     = "error"
 	StatusCancelled = "cancelled"
-	// StatusParked is a MESSAGE-only non-terminal status: the assistant turn paused for human
-	// input — an ask_user call or a dangerous tool awaiting approval (durable human-in-the-loop,
-	// R0064). The pending tool_result block(s) under it carry StatusPending; resolving them drives
-	// a continuation turn. Blocks are never parked (the block CHECK excludes it).
-	//
-	// StatusParked 是 MESSAGE 专属的非终态：assistant 回合为等人输入而暂停——ask_user 调用或危险工具等
-	// 批准（durable 人在环 R0064）。其下 pending tool_result 块为 StatusPending；决议它们驱动续跑回合。
-	// block 永不 parked（block CHECK 不含它）。
-	StatusParked = "parked"
 )
 
 // IsValidStatus reports whether s is a known message/block status.
@@ -121,7 +112,7 @@ const (
 // IsValidStatus 报告 s 是否已知 message/block 状态。
 func IsValidStatus(s string) bool {
 	switch s {
-	case StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled, StatusParked:
+	case StatusPending, StatusStreaming, StatusCompleted, StatusError, StatusCancelled:
 		return true
 	}
 	return false
@@ -139,11 +130,6 @@ const (
 	StopReasonMaxSteps  = "max_steps"
 	StopReasonCancelled = "cancelled"
 	StopReasonError     = "error"
-	// StopReasonParked pairs with StatusParked: the turn stopped to await human input (R0064).
-	// A non-terminal stop — a continuation turn resumes once the pending interaction resolves.
-	//
-	// StopReasonParked 配 StatusParked：回合为等人输入而停（R0064）。非终态停——pending 决议后续跑回合恢复。
-	StopReasonParked = "parked"
 )
 
 // ContextRole projects how a block reaches LLM history without rewriting stored Content:
@@ -240,42 +226,6 @@ type Message struct {
 	Blocks []Block `db:"-" json:"blocks,omitempty"`
 }
 
-// FindPendingInteraction locates a tool_call block (id == toolCallID) and its pending tool_result
-// child within a block list — the durable shape of a parked human-in-the-loop interaction (R0064).
-// Returns nil pointers if either is absent. Shared by chat (over a message's blocks) and agent
-// (over an execution transcript) so the park/resolve scan lives once, in the block model's home.
-//
-// FindPendingInteraction 在一个 block 列表里定位 tool_call 块（id == toolCallID）及其 pending tool_result
-// 子块——一条 parked 人在环交互的耐久形态（R0064）。任一缺失返 nil。chat（在 message 的 blocks 上）与 agent
-// （在 execution transcript 上）共用，使 park/resolve 扫描只在块模型的家里存一份。
-func FindPendingInteraction(blocks []Block, toolCallID string) (toolCall, pending *Block) {
-	for i := range blocks {
-		b := &blocks[i]
-		if b.ID == toolCallID && b.Type == BlockTypeToolCall {
-			toolCall = b
-		}
-		if b.ParentBlockID == toolCallID && b.Type == BlockTypeToolResult && b.Status == StatusPending {
-			pending = b
-		}
-	}
-	return
-}
-
-// HasOtherPendingInteraction reports whether blocks hold a pending tool_result other than exceptID
-// (a step may gate several calls at once — all must resolve before the run continues, R0064).
-//
-// HasOtherPendingInteraction 报告 blocks 是否有除 exceptID 外的 pending tool_result（一步可能门控多个调用——
-// 全部决议后运行才继续，R0064）。
-func HasOtherPendingInteraction(blocks []Block, exceptID string) bool {
-	for i := range blocks {
-		b := &blocks[i]
-		if b.Type == BlockTypeToolResult && b.Status == StatusPending && b.ID != exceptID {
-			return true
-		}
-	}
-	return false
-}
-
 // Roles a Message carries. There is no system/tool message row — the system prompt is built
 // per-turn by chat (not persisted as a turn) and tool results are tool_result Blocks under an
 // assistant turn, not standalone messages.
@@ -358,30 +308,4 @@ type Repository interface {
 	// UpdateBlocksContextRole 批量设置给定 block 的 ContextRole（压缩器对 message_blocks 的唯一写：
 	// 投影变更、绝不改写 content）。空 ids 为 no-op。role 须是合法 ContextRole（CHECK 兜底）。
 	UpdateBlocksContextRole(ctx context.Context, blockIDs []string, role string) error
-
-	// GetParkedMessage returns a conversation's currently-parked assistant turn (StatusParked) with
-	// Blocks hydrated, or ErrMessageNotFound if none — the resolve path's entry point and the Send
-	// guard's "is an interaction pending?" check (R0064). At most one turn is parked at a time (Send
-	// is refused while one is).
-	//
-	// GetParkedMessage 返回一个对话当前 parked 的 assistant 回合（StatusParked）并 hydrate Blocks，无则
-	// ErrMessageNotFound——resolve 路径入口 + Send 守卫的「有待决交互？」检查（R0064）。同一时刻至多一个回合
-	// parked（parked 期间 Send 被拒）。
-	GetParkedMessage(ctx context.Context, conversationID string) (*Message, error)
-
-	// ResolveToolResult fills a pending tool_result block in place (content + terminal status +
-	// error) — the durable half of resolving one human interaction (R0064). Not an append: it
-	// UPDATEs the placeholder openPendingToolResult wrote, keyed by block id.
-	//
-	// ResolveToolResult 原地填一个 pending tool_result 块（content + 终态 + error）——决议一条人机交互的
-	// 耐久半边（R0064）。非追加：按 block id UPDATE 那个占位（openPendingToolResult 写的）。
-	ResolveToolResult(ctx context.Context, blockID, content, status, errMsg string) error
-
-	// SetMessageStatus flips a turn's status + stop_reason in place (parked → completed once its
-	// last pending interaction resolves, or → cancelled on abandon). A partial update — never
-	// touches blocks (R0064).
-	//
-	// SetMessageStatus 原地翻一个回合的 status + stop_reason（最后一条待决交互决议后 parked → completed，
-	// 或放弃时 → cancelled）。部分更新——绝不碰 blocks（R0064）。
-	SetMessageStatus(ctx context.Context, messageID, status, stopReason string) error
 }

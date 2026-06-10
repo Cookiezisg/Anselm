@@ -107,17 +107,3 @@ type ForgeSpec struct {
 	Kind string // entities-stream scope kind: "function" | "handler" | "agent" | "workflow" | "control" | "approval" | "document" | "skill"
 	Op   string // "create" | "edit"
 }
-
-// InteractiveTool marks a tool whose "execution" IS a request for human input — the ask_user tool
-// (durable human-in-the-loop, R0064). The loop NEVER calls its Execute: it parks the run, surfaces
-// the call's args as the elicitation request, and the human's resolution fills the tool_result.
-// Loop-recognized like ForgeTool — only a host that opts into parking (loop.ParkHandler) honors it;
-// a non-interactive host (subagent / workflow-agent) would never reach an ask_user call.
-//
-// InteractiveTool 标记「执行即向用户要输入」的工具——ask_user（durable 人在环 R0064）。loop **从不**调它的
-// Execute：它 park 本次运行、把调用 args 当 elicitation 请求露出、由人的决议填 tool_result。如 ForgeTool 般被
-// loop 识别——仅 opt-in park 的 host（loop.ParkHandler）认它；非交互 host（subagent / workflow-agent）不会走到
-// ask_user 调用。
-type InteractiveTool interface {
-	Interactive()
-}

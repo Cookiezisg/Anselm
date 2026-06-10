@@ -107,22 +107,6 @@ func (s *Service) emitMessageStop(ctx context.Context, conversationID string, m 
 	})
 }
 
-// closeInteractionNode streams the Close for a resolved pending tool_result (R0064): its content
-// rode no Open frame (the park placeholder opened empty), so the content travels on this Close as
-// the reconnect snapshot. The model-facing half is the persisted block (ResolveToolResult).
-//
-// closeInteractionNode 流式发一个已决议 pending tool_result 的 Close（R0064）：其内容没随 Open 帧（park 占位
-// 开的是空），故内容随此 Close 作重连快照。面向模型的半边是持久化块（ResolveToolResult）。
-func (s *Service) closeInteractionNode(ctx context.Context, conversationID, blockID, content, status string) {
-	s.publishFrame(ctx, conversationID, blockID, streamdomain.Close{
-		Status: status,
-		Result: &streamdomain.Node{
-			Type:    messagesdomain.BlockTypeToolResult,
-			Content: streamdomain.JSONContent(map[string]string{"content": content}),
-		},
-	})
-}
-
 // publishFrame pushes one frame for a node anchored at conversation:<id>. best-effort: no bridge
 // → skip; a failed push is recovered by SSE replay + REST history, so it never fails the turn.
 //

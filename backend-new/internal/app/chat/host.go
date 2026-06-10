@@ -47,22 +47,7 @@ var (
 	_ loopapp.Host             = (*chatHost)(nil)
 	_ loopapp.AutoActivator    = (*chatHost)(nil)
 	_ loopapp.ReminderProvider = (*chatHost)(nil)
-	_ loopapp.ParkHandler      = (*chatHost)(nil)
 )
-
-// AllowsTool implements loop.ParkHandler — its mere presence OPTS chat INTO human-in-the-loop
-// parking (R0064): a dangerous tool call or an ask_user call parks the turn instead of running.
-// It returns whether the conversation has session-whitelisted this tool (always-allow) so the
-// danger park is skipped; D1 has no whitelist yet (always false → every dangerous call parks),
-// D4 wires the real per-conversation set. ask is never auto-allowed (handled in the loop).
-//
-// AllowsTool 实现 loop.ParkHandler——它仅仅存在就让 chat opt-in 人在环 park（R0064）：危险工具调用或
-// ask_user 调用 park 回合而非执行。返回本对话是否会话白名单了此工具（always-allow）以跳过 danger park；
-// D1 暂无白名单（恒 false → 每个危险调用都 park），D4 接真正的 per-conversation 集合。ask 永不被自动放行
-// （loop 内处理）。
-func (h *chatHost) AllowsTool(name string) bool {
-	return h.svc.allowsToolForConversation(h.conversationID, name)
-}
 
 // Tools recomputes the offered set every step (loop contract): always the resident tools +
 // search_tools, plus the lazy tools this conversation has already discovered (via search_tools,

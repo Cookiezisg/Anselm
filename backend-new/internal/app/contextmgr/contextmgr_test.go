@@ -53,13 +53,6 @@ func (f *fakeMessages) ListMessages(context.Context, string, string, int) ([]*me
 	return nil, "", nil
 }
 func (f *fakeMessages) SumTokens(context.Context, string) (int, int, error) { return 0, 0, nil }
-func (f *fakeMessages) GetParkedMessage(context.Context, string) (*messagesdomain.Message, error) {
-	return nil, messagesdomain.ErrMessageNotFound
-}
-func (f *fakeMessages) ResolveToolResult(context.Context, string, string, string, string) error {
-	return nil
-}
-func (f *fakeMessages) SetMessageStatus(context.Context, string, string, string) error { return nil }
 
 func (f *fakeMessages) idsForRole(role string) []string {
 	var out []string

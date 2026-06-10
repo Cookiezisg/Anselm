@@ -44,9 +44,7 @@ audience: [human, ai]
 > **I/O 统一**：`inputs`/`outputs` 均为共享 `[]schema.Field`（`internal/pkg/schema`），取代旧 `output_schema` 列与三态 `OutputSchema`/`OutputSchemaKind`(free_text/enum/json_schema) 类型——后者连同 enum 硬约束 + coercion 一并删除。
 
 ### 2.3 `agent_executions`（`agx_`，append-only log，**无软删/无硬删** D1）
-`id` · `workspace_id` · `agent_id` · `version_id` · `model_id`(实际 resolve 出的) · `status`(ok/failed/cancelled/timeout/**parked**，CHECK) · **`triggered_by`**(chat/workflow/manual，CHECK) · `input`(json) · `output`(json，最终返回值) · **`transcript`**(json，完整 block 序列) · `error_message` · `elapsed_ms` · `started_at` · `ended_at` · `conversation_id` · `message_id` · `tool_call_id` · `flowrun_id` · `flowrun_node_id` · `created_at`。
-
-> **`parked` 态（R0064 人在环）**：交互调起（chat/manual）的运行撞到危险工具/`ask_user` 会暂停——`transcript` 含一个 pending tool_result 占位，`status=parked`。`ResumeExecution(execId, leafToolCallId, action, answer)` 填 leaf + 把 transcript 当 replay 重驱 runLoop 续跑，**原地更新**本行（`UpdateExecution`——唯一可变写）到下一态（ok/failed/再 parked）。workflow 运行**绝不** parked（无交互审批人，纯信任）。详 §4。
+`id` · `workspace_id` · `agent_id` · `version_id` · `model_id`(实际 resolve 出的) · `status`(ok/failed/cancelled/timeout，CHECK) · **`triggered_by`**(chat/workflow/manual，CHECK) · `input`(json) · `output`(json，最终返回值) · **`transcript`**(json，完整 block 序列) · `error_message` · `elapsed_ms` · `started_at` · `ended_at` · `conversation_id` · `message_id` · `tool_call_id` · `flowrun_id` · `flowrun_node_id` · `created_at`。
 
 > **`transcript`（SSE-B/R0062）= 本次运行自包含的耐久记录**：agent 跨步的全部 block（text/reasoning/tool_call/tool_result）序列化为 JSON。**agent 的持久化自做进本表、不与 `message_blocks` 公用**。chat 内调起（`tool_call_id` 在）时，这些 block 经 loop `SetMessageID(toolCallID)` **实时嵌在 invoke_agent tool_call 下流**（前端内联呈现为该 tool 的「中间过程」）；reload 经 `tool_call_id` 关联从 `transcript` 重水合。
 
@@ -84,8 +82,6 @@ agent 自己**不拥有** LLM / 工具池 / 知识渲染，三个外部依赖经
 **SSE 白捡**：loop 的 emitter 把 block 推到 ctx 携带的 stream scope——在 chat 里调用即 messages 流，渲染成**嵌套 subagent 子树**（E3）。**agent 零 stream 代码**。
 
 **Workflow 子步重放（ADR-010）**：agent 作为 workflow 节点时，一个回合可能含 N 次工具调用；崩溃重启不应重消耗已完成的子步。`InvokeInput.ReplaySteps`（已完成步前置）+ `Recorder`（记新步到绝对回合下标）透传，重放快进到最后一个未完成子步。standalone chat/manual invoke 时这些字段全空。
-
-**人在环 park / 恢复（R0064）**：当 `TriggeredBy` 是 `chat`/`manual`（交互调起）时，runLoop 用 `parkableAgentHost`（实现 `loop.ParkHandler`）——撞到危险工具/`ask_user` 即 park（`Result.Status=parked`），`InvokeResult.Parked=true` + `ParkRequests`。`ResumeExecution` 复用 ReplaySteps 机制续跑（把 parked transcript 当一份 replay），danger approve 在 resolve 时执行被门工具（execute-at-resolve，续跑重读不重跑）。**workflow 运行用基础 host、不 parkable**（自动化无交互审批人）。**嵌套**：chat 经 `invoke_agent` 委托的子 agent park 时，工具返 `loop.ParkSignal` 冒泡使 chat 回合 park；chat 的 resolve 经 `AgentResumer.ResumeExecution` 把决议向下穿（流式嵌回 invoke_agent tool_call）。详见 `events.md §1` + `rounds/0064/round.md`。
 
 ---
 

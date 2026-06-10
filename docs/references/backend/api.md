@@ -25,7 +25,6 @@ audience: [human, ai]
 | DELETE | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ 软删 + 清 relation 边 |
 | POST | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** **202** `{messageId}`；body `{content, attachmentIds?, mentions?}`；回合经 messages SSE 流式 |
 | GET | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** Paged（最新在前 + blocks）；`?cursor&limit`（N4） |
-| POST | `/api/v1/conversations/{id}/interactions/{toolCallId}` | `chat.go` | **R0064 ✅** **202** 决议 parked 回合的待决交互；body `{action, answer?, leafToolCallId?}`（action=`approve`/`approve_always`/`deny`/`accept`/`decline`/`cancel`）；填 pending tool_result + 驱动续跑回合（经 messages SSE） |
 | DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压 |
 | GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | **R0057 ✅** `{systemPrompt}`（复用 buildSystemPrompt，不解析模型） |
 | GET | `/api/v1/conversations/{id}/usage` | `chat.go` | **R0057 ✅** `{inputTokens, outputTokens, totalTokens}`（tokensUsed，解耦 conversation←messages） |
@@ -110,7 +109,6 @@ audience: [human, ai]
 | GET | `/api/v1/agents/{id}/versions/{version}` | `agent.go` | 单版本（整数号或 version id）|
 | GET | `/api/v1/agents/{id}/executions` | `agent.go` | 执行日志（?versionId/status/triggeredBy/conversationId/flowrunId）|
 | GET | `/api/v1/agent-executions/{execId}` | `agent.go` | 单条执行详情 |
-| POST | `/api/v1/agent-executions/{execId}/interactions/{toolCallId}` | `agent.go` | **R0064 ✅** 决议 parked agent run 的待决交互（独立 REST 表面）；body `{action, answer?}`；同步恢复 + 返下一态（completed/failed/parked） |
 
 ### 2.5 Triggers (trg_)
 > 独立信号源实体（cron / webhook / fsnotify / sensor），无版本。引用计数生命周期由 workflow 激活/停用驱动（Attach/Detach，波次 4）。

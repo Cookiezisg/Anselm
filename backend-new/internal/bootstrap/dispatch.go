@@ -167,19 +167,3 @@ func toResultMap(v any) map[string]any {
 		return map[string]any{"text": t}
 	}
 }
-
-// agentResumer adapts *agentapp.Service to chatapp.AgentResumer (nested HITL, R0064): resume a
-// parked sub-agent run and flatten its result to (parked, output) for the chat resolve cascade.
-//
-// agentResumer 把 *agentapp.Service 适配成 chatapp.AgentResumer（嵌套人在环，R0064）：恢复一个 parked 子
-// agent 运行、把结果压平成 (parked, output) 供 chat resolve 级联。
-type agentResumer struct{ svc *agentapp.Service }
-
-func (a agentResumer) ResumeExecution(ctx context.Context, executionID, leafToolCallID, action, answer string) (bool, string, error) {
-	res, err := a.svc.ResumeExecution(ctx, executionID, leafToolCallID, action, answer)
-	if err != nil {
-		return false, "", err
-	}
-	output, _ := res.Output.(string)
-	return res.Parked, output, nil
-}

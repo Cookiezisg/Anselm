@@ -12,7 +12,6 @@ package loop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -84,111 +83,6 @@ type StepRecorder interface {
 	RecordStep(ctx context.Context, step int, assistant, toolResults []messagesdomain.Block)
 }
 
-// ParkHandler is an OPTIONAL Host capability (type-asserted): implementing it OPTS THE RUN INTO
-// human-in-the-loop parking (R0064). When present, the loop parks — finalizes the partial turn as
-// `parked` and returns the pending requests in Result.Parks — on a dangerous tool call or an
-// InteractiveTool (ask_user) call. AllowsTool lets the host skip the danger park for a tool the
-// user session-whitelisted (always-allow); it never suppresses an ask. A host WITHOUT this
-// capability never parks: dangerous tools run (pure trust) and ask_user is unreachable — correct
-// for a non-interactive host (subagent / workflow-agent, which has no interactive approver).
-//
-// ParkHandler 是 Host 可选能力（type-asserted）：实现它即让本次运行 opt-in 人在环 park（R0064）。在场时，
-// loop 在危险工具调用或 InteractiveTool（ask_user）调用处 park——把半截回合落成 `parked` 并在 Result.Parks
-// 返回待决请求。AllowsTool 让 host 对用户会话白名单的工具跳过 danger park（always-allow）；绝不抑制 ask。
-// 无此能力的 host 永不 park：危险工具照跑（纯信任）、ask_user 不可达——非交互 host（subagent / workflow-agent，
-// 无交互审批人）正确。
-type ParkHandler interface {
-	AllowsTool(name string) bool
-}
-
-// ParkRequest is one pending human interaction surfaced when the loop parks: the tool_call that
-// triggered it, why (Kind), and the call's name + raw args (the danger gate's gated call, or the
-// ask_user elicitation request). The DURABLE record is the parked message's pending tool_result
-// block keyed by ToolCallID; this struct is the in-memory hand-off to the host's caller for
-// surfacing (notifications) — resolution reads the durable row, not this.
-//
-// ParkRequest 是 loop park 时露出的一条待决人机交互：触发的 tool_call、原因（Kind）、调用名 + 裸 args
-// （danger 门控的被门调用，或 ask_user 的 elicitation 请求）。耐久记录是 parked message 下按 ToolCallID 键的
-// pending tool_result 块；本结构是交给 host 调用方做露出（通知）的内存交接——决议读耐久行、非此。
-type ParkRequest struct {
-	ToolCallID string
-	Kind       string // ParkKindAsk | ParkKindDanger
-	ToolName   string
-	Args       string // the call's raw JSON args
-}
-
-// Park kinds.
-//
-// Park 种类。
-const (
-	ParkKindAsk    = "ask"    // an InteractiveTool (ask_user) — pre-execution
-	ParkKindDanger = "danger" // a self-reported dangerous tool call — pre-execution
-	ParkKindAgent  = "agent"  // a tool (invoke_agent) whose run parked — POST-execution, propagated via ParkSignal
-)
-
-// ParkSignal is the error a tool's Execute returns to PROPAGATE a park up to its caller's loop
-// (R0064 nested HITL): invoke_agent returns it when the sub-agent it ran parked, so the chat turn
-// running invoke_agent parks too — surfacing the sub-agent's pending interaction to the user. It
-// carries the parked sub-run's execution id + its leaf interactions so the resolver can thread the
-// resolution down. The loop recognizes it after Execute (errors.As) and treats the call as a park
-// instead of a normal result/error.
-//
-// ParkSignal 是工具 Execute 返回的、把 park 向上**传播**给调用方 loop 的错误（R0064 嵌套人在环）：invoke_agent
-// 在其所跑子 agent park 时返回它，使正跑 invoke_agent 的 chat 回合也 park——把子 agent 的待决交互露给用户。它带
-// parked 子运行的 execution id + 其 leaf 交互，使 resolver 能把决议向下穿。loop 在 Execute 后用 errors.As 认它、
-// 把该调用当 park 而非正常结果/错误。
-type ParkSignal struct {
-	ExecutionID string        // the sub-run that parked (e.g. an agent_executions id)
-	Leaves      []ParkRequest // its pending interactions
-}
-
-func (s *ParkSignal) Error() string {
-	return "tool run parked awaiting human input (nested run " + s.ExecutionID + ")"
-}
-
-// NewParkSignal builds the error a tool returns to propagate a park (the loop converts it to one).
-//
-// NewParkSignal 构造工具返回以传播 park 的错误（loop 把它转成一个 park）。
-func NewParkSignal(executionID string, leaves []ParkRequest) error {
-	return &ParkSignal{ExecutionID: executionID, Leaves: leaves}
-}
-
-// AsParkSignal extracts a ParkSignal from a tool error, if it is one.
-//
-// AsParkSignal 从工具错误里取出 ParkSignal（若是）。
-func AsParkSignal(err error) (*ParkSignal, bool) {
-	var s *ParkSignal
-	if errors.As(err, &s) {
-		return s, true
-	}
-	return nil, false
-}
-
-// Resolution verbs — how a human resolves a parked interaction (R0064). Shared by every parking
-// host (chat / agent) so the wire contract is one vocabulary. danger: approve | deny; ask:
-// accept | decline; either: cancel (abandon the run).
-//
-// 决议动词——人如何决议一个 parked 交互（R0064）。每个 parking host（chat / agent）共用，使线缆契约是一套词表。
-// danger：approve | deny；ask：accept | decline；两者：cancel（放弃运行）。
-const (
-	ResolveApprove       = "approve"        // danger: run the gated tool
-	ResolveApproveAlways = "approve_always" // danger: run it + session-whitelist the tool (always-allow)
-	ResolveDeny          = "deny"           // danger: skip it, feed the denial back to the model
-	ResolveAccept        = "accept"         // ask: submit the answer
-	ResolveDecline       = "decline"        // ask: refuse to answer, feed back
-	ResolveCancel        = "cancel"         // either: abandon the whole parked run
-)
-
-// Model-facing feedback recorded as the tool_result when a parked interaction is refused, so the
-// model re-routes (LangChain's documented reject behavior). Shared by every parking host.
-//
-// 拒绝一条 parked 交互时记为 tool_result 的、面向模型的反馈，使模型改道（LangChain 文档化的 reject 行为）。
-// 每个 parking host 共用。
-const (
-	DenyFeedback    = "The user denied running this tool. Do not retry it unless the user explicitly asks."
-	DeclineFeedback = "The user declined to answer this question. Proceed without it or ask differently."
-)
-
 // Result is the terminal summary of one Run.
 //
 // Result 是一次 Run 的终态汇总。
@@ -200,12 +94,6 @@ type Result struct {
 	TokensOut   int
 	Steps       int
 	LastMessage string
-	// Parks (non-nil only when Status == parked) lists the pending human interactions the host's
-	// caller must surface; their durable form is the parked message's pending tool_result blocks.
-	//
-	// Parks（仅 Status==parked 时非空）列出 host 调用方须露出的待决人机交互；其耐久形态是 parked message 的
-	// pending tool_result 块。
-	Parks []ParkRequest
 }
 
 // Run executes the ReAct loop. baseReq.Messages is composed from host.LoadHistory; tools are
@@ -247,19 +135,7 @@ func Run(
 		finalWritten  bool
 		stepsRun      int
 		consecAllFail int
-		parkReqs      []ParkRequest
 	)
-
-	// Human-in-the-loop parking is enabled only for a host that opts in (ParkHandler). allowsTool
-	// is the always-allow session whitelist (skip the danger park); absent → nothing whitelisted.
-	//
-	// 人在环 park 仅对 opt-in 的 host（ParkHandler）启用。allowsTool 是 always-allow 会话白名单（跳过 danger
-	// park）；缺省 → 无白名单。
-	ph, parkEnabled := host.(ParkHandler)
-	allowsTool := func(string) bool { return false }
-	if parkEnabled {
-		allowsTool = ph.AllowsTool
-	}
 
 	for step := range maxSteps {
 		req := baseReq
@@ -330,24 +206,8 @@ func Run(
 			}
 		}
 
-		rBlocks, parks := runTools(ctx, toolCalls, byName, parkEnabled, allowsTool, log)
+		rBlocks := runTools(ctx, toolCalls, byName, log)
 		allBlocks = append(allBlocks, rBlocks...)
-
-		// Park (R0064): a dangerous call or an ask_user call wrote a pending tool_result instead of
-		// running. Finalize the partial turn as `parked` (durable; the inbox is parked messages) and
-		// hand the pending requests back for the host's caller to surface. A continuation turn resumes
-		// once they resolve.
-		//
-		// Park（R0064）：危险调用或 ask_user 调用写了 pending tool_result 而非执行。把半截回合落成 `parked`
-		// （耐久；收件箱即 parked message），并把待决请求交回供 host 调用方露出。决议后续跑回合恢复。
-		if len(parks) > 0 {
-			parkReqs = parks
-			finalStatus = messagesdomain.StatusParked
-			stopReason = messagesdomain.StopReasonParked
-			host.WriteFinalize(ctx, allBlocks, finalStatus, stopReason, "", "", totalIn, totalOut)
-			finalWritten = true
-			break
-		}
 
 		// Consecutive-all-fail circuit breaker: count turns where every tool_result carries
 		// an error. Three in a row breaks the loop to stop the LLM drilling deeper into a
@@ -415,7 +275,6 @@ func Run(
 		TokensOut:   totalOut,
 		Steps:       stepsRun,
 		LastMessage: ExtractTextContent(allBlocks),
-		Parks:       parkReqs,
 	}
 }
 

@@ -296,11 +296,7 @@ func TestPartitionByExecutionGroup(t *testing.T) {
 		{ID: "c", ExecutionGroup: 0}, // auto-grouped, sorts after explicit
 		{ID: "d", ExecutionGroup: 2},
 	}
-	items := make([]indexedCall, len(calls))
-	for i, tc := range calls {
-		items[i] = indexedCall{idx: i, tc: tc}
-	}
-	batches := partitionByExecutionGroup(items)
+	batches := partitionByExecutionGroup(calls)
 	// groups: 1 -> [a,b], 2 -> [d], auto(1000) -> [c]. Order: 1, 2, 1000.
 	if len(batches) != 3 {
 		t.Fatalf("got %d batches, want 3", len(batches))
@@ -326,7 +322,7 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 		"a": fakeTool{name: "a", result: "result-a"},
 		"b": fakeTool{name: "b", result: "result-b"},
 	}
-	blocks, _ := runTools(context.Background(), calls, byName, false, func(string) bool { return false }, zap.NewNop())
+	blocks := runTools(context.Background(), calls, byName, zap.NewNop())
 	if len(blocks) != 2 {
 		t.Fatalf("got %d blocks, want 2", len(blocks))
 	}
@@ -339,7 +335,7 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 }
 
 func TestExecuteTool_NotFound(t *testing.T) {
-	out, errMsg, ok, _ := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
+	out, errMsg, ok := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
 	if ok || !strings.Contains(out, "not found") || errMsg == "" {
 		t.Fatalf("nil tool: out=%q errMsg=%q ok=%v", out, errMsg, ok)
 	}

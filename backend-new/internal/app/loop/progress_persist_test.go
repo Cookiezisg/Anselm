@@ -39,7 +39,7 @@ func TestRunOneTool_PersistsProgressBeforeResult(t *testing.T) {
 	ctx := reqctxpkg.SetConversationID(WithBridge(context.Background(), b), "c1")
 	tc := messagesdomain.ToolCallData{ID: "tc1", Name: "emitter"}
 
-	blocks := runOneTool(ctx, progressEmittingTool{}, tc, false, zap.NewNop())
+	blocks := runOneTool(ctx, progressEmittingTool{}, tc, zap.NewNop())
 
 	if len(blocks) != 2 {
 		t.Fatalf("want 2 persisted blocks (progress + tool_result), got %d: %+v", len(blocks), blocks)
@@ -69,7 +69,7 @@ func TestRunOneTool_NoProgressNoExtraBlock(t *testing.T) {
 	ctx := reqctxpkg.SetConversationID(WithBridge(context.Background(), b), "c1")
 	tc := messagesdomain.ToolCallData{ID: "tc1", Name: "silent"}
 
-	blocks := runOneTool(ctx, silentTool{}, tc, false, zap.NewNop())
+	blocks := runOneTool(ctx, silentTool{}, tc, zap.NewNop())
 	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeToolResult {
 		t.Fatalf("want exactly 1 tool_result block, got %+v", blocks)
 	}

@@ -38,7 +38,6 @@ func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
 func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
-	mux.HandleFunc("POST /api/v1/conversations/{id}/interactions/{toolCallId}", h.ResolveInteraction)
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}/stream", h.Cancel)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
@@ -75,29 +74,6 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
-}
-
-// ResolveInteraction resolves a parked turn's pending interaction (R0064): danger approve | deny,
-// ask accept | decline (D2), or cancel — body {"action": "...", "answer": "..."?}. 202: the
-// continuation turn (if any) runs async on the conversation's queue, streamed over messages SSE.
-//
-// ResolveInteraction 决议一个 parked 回合的待决交互（R0064）：danger approve|deny、ask accept|decline（D2）、
-// 或 cancel——body {"action": "...", "answer": "..."?}。202：续跑回合（若有）在对话队列上异步跑、经 messages SSE 流。
-func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Action string `json:"action"`
-		Answer string `json:"answer"`         // ask accept: the user's answer (free text / chosen option)
-		Leaf   string `json:"leafToolCallId"` // nested (invoke_agent): which sub-agent interaction; "" → its first pending
-	}
-	if err := decodeJSON(r, &req); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
-	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer, req.Leaf); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "resolved"})
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with
