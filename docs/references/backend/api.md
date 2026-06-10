@@ -25,7 +25,9 @@ audience: [human, ai]
 | DELETE | `/api/v1/conversations/{id}` | `conversation.go` | M5.1 ✅ 软删 + 清 relation 边 |
 | POST | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** **202** `{messageId}`；body `{content, attachmentIds?, mentions?}`；回合经 messages SSE 流式 |
 | GET | `/api/v1/conversations/{id}/messages` | `chat.go` | **R0056 ✅** Paged（最新在前 + blocks）；`?cursor&limit`（N4） |
-| DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压 |
+| GET | `/api/v1/conversations/{id}/interactions` | `chat.go` | **R0064 ✅** 列对话当前在等的人在环交互（`{toolCallId,kind,tool,prompt}[]`）——重连/刷新重同步（live signal 是 ephemeral） |
+| POST | `/api/v1/conversations/{id}/interactions/{toolCallId}` | `chat.go` | **R0064 ✅** **202** 决议阻塞中的工具/ask；body `{action, answer?}`（action=`approve`/`approve_always`/`deny`/`accept`/`decline`）；被门工具续跑、经 messages SSE 流式 |
+| DELETE | `/api/v1/conversations/{id}/stream` | `chat.go` | **R0056 ✅** **204** 停运行回合 + drain 积压（也解阻任何等待中的人在环交互） |
 | GET | `/api/v1/conversations/{id}/system-prompt-preview` | `chat.go` | **R0057 ✅** `{systemPrompt}`（复用 buildSystemPrompt，不解析模型） |
 | GET | `/api/v1/conversations/{id}/usage` | `chat.go` | **R0057 ✅** `{inputTokens, outputTokens, totalTokens}`（tokensUsed，解耦 conversation←messages） |
 | GET | `/api/v1/conversations/{id}/context-stats` | `context_stats.go` | |

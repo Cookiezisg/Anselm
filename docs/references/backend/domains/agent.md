@@ -81,6 +81,8 @@ agent 自己**不拥有** LLM / 工具池 / 知识渲染，三个外部依赖经
 
 **SSE 白捡**：loop 的 emitter 把 block 推到 ctx 携带的 stream scope——在 chat 里调用即 messages 流，渲染成**嵌套 subagent 子树**（E3）。**agent 零 stream 代码**。
 
+**人在环白捡（R0064）**：agent **零 HITL 代码**。当被交互调起（ctx 里有 `humanloop` broker——典型是嵌套在一个 chat 回合的 `invoke_agent` 下）时，子运行里自报 `dangerous` 的工具调用 / `ask_user` 会在**共享 loop 的 danger 门**就地阻塞等人决议，阻塞的 goroutine 天然 hold 住整个调用栈；chat 的 resolve 按子运行的 `toolCallId` 解阻。off-chat / workflow / sensor 运行 ctx 无 broker → 不门控、纯信任（人工门用 workflow 的 approval 节点）。详见 `events.md §1` + `rounds/0064/round.md`。
+
 **Workflow 子步重放（ADR-010）**：agent 作为 workflow 节点时，一个回合可能含 N 次工具调用；崩溃重启不应重消耗已完成的子步。`InvokeInput.ReplaySteps`（已完成步前置）+ `Recorder`（记新步到绝对回合下标）透传，重放快进到最后一个未完成子步。standalone chat/manual invoke 时这些字段全空。
 
 ---

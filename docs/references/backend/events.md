@@ -30,6 +30,8 @@ audience: [human, ai]
 
 **Todo 看板信号（M1.11）**：todo 写入时本流额外推一条 `signal` 帧承载任务看板快照——`scope={kind:"conversation", id:<convId>}` + `signal` + `node{type:"todo", content:{conversationId, subagentId?, todos:[{content,activeForm,status}]}}`。锚定对话（查看该对话的前端即收到）；subagent 清单的 `subagentId` 入 payload、前端据此嵌到对应子树。durable（重连 replay 最后看板态）。**写入是 LLM 专属**（`TodoWrite` 工具，波次 2/3），前端只读不写（REST 初值见 `api.md`）。
 
+**人在环交互信号（R0064 · 内存阻塞）**：当一个工具需要人决定时——`ask_user`（agent 主动问），或一个自报 `dangerous` 的工具调用执行前的门控——该工具**就地阻塞**等用户决议（`app/humanloop` broker；非分布式 park）。阻塞瞬间本流推一条 **ephemeral** `signal`：`scope={kind:"conversation", id:<convId>}` + `signal` + `node{type:"interaction", content:{toolCallId, kind:"ask"|"danger", tool, conversationId, prompt}}`（danger 的 `prompt={summary,args}`、ask 的 `={message,options}`）。**回合不进 parked 态——message 阻塞期间一直 `streaming`**（整回合是一条连续 message，中间停一下）。前端据此渲提示（danger 批准/拒绝、ask 表单），经 `POST /conversations/{id}/interactions/{toolCallId}`（body `{action, answer?}`；action=`approve`/`approve_always`/`deny`/`accept`/`decline`）决议；被门工具醒来——approve 跑它、deny/decline 把反馈当 tool_result——续跑同一回合（**tool_result 块流入 = 决议完成**的标志）。**嵌套天然就对**：broker 经 ctx 流进 `invoke_agent` 的子 agent 运行，子运行的危险调用阻塞自然 hold 住整个调用栈，resolve 按子运行的 `toolCallId` 解阻。**signal 是 ephemeral**（不入 buffer、不 replay）；重连/刷新经 `GET /conversations/{id}/interactions` 重新同步（broker 内存 pending 表 = 真相，因这是内存阻塞、不跨重启）。`approve_always` 还会话白名单该工具（同对话后续跳过门）。
+
 ---
 
 ## 2. Notifications 流 (`/api/v1/notifications/stream` + 通知中心 REST)
