@@ -86,12 +86,13 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"`
+		Answer string `json:"answer"` // ask accept: the user's answer (free text / chosen option)
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action); err != nil {
+	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

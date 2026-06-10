@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -55,7 +56,7 @@ func (s *Service) allowsToolForConversation(_ /*conversationID*/, _ /*name*/ str
 // ResolveInteraction 决议一个对话 parked 回合里的一条待决人机交互（R0064）：按动作填 toolCallID 的 pending
 // tool_result，待该 parked 回合无其它待决交互时翻为 completed（或 cancelled）并驱动续跑回合。决议作为 data 注入
 // 续跑是业界标准 durable-HITL resume；批准的 danger 工具 execute-then-record，使续跑从历史重读而非重执行。
-func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action string) error {
+func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action, answer string) error {
 	parked, err := s.messages.GetParkedMessage(ctx, conversationID)
 	if err != nil {
 		return ErrNoPendingInteraction
@@ -82,7 +83,7 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 		return s.messages.SetMessageStatus(ctx, parked.ID, messagesdomain.StatusCancelled, messagesdomain.StopReasonCancelled)
 	}
 
-	content, status, errMsg, err := s.resolveOne(ctx, conversationID, parked.ID, kind, action, tcBlock)
+	content, status, errMsg, err := s.resolveOne(ctx, conversationID, parked.ID, kind, action, answer, tcBlock)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 //
 // resolveOne 算一条交互 tool_result 的 (content, status, error)。danger：approve 此刻跑被门工具
 // （execute-then-record），deny 把拒绝反馈回模型。ask：D2。
-func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, kind, action string, tcBlock *messagesdomain.Block) (content, status, errMsg string, err error) {
+func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, kind, action, answer string, tcBlock *messagesdomain.Block) (content, status, errMsg string, err error) {
 	switch kind {
 	case loopapp.ParkKindDanger:
 		switch action {
@@ -124,6 +125,17 @@ func (s *Service) resolveOne(ctx context.Context, conversationID, parkedMsgID, k
 			return out, messagesdomain.StatusCompleted, "", nil
 		case ResolveDeny:
 			return "The user denied running this tool. Do not retry it unless the user explicitly asks.", messagesdomain.StatusCompleted, "", nil
+		}
+	case loopapp.ParkKindAsk:
+		switch action {
+		case ResolveAccept:
+			ans := strings.TrimSpace(answer)
+			if ans == "" {
+				ans = "(the user submitted an empty answer)"
+			}
+			return ans, messagesdomain.StatusCompleted, "", nil
+		case ResolveDecline:
+			return "The user declined to answer this question. Proceed without it or ask differently.", messagesdomain.StatusCompleted, "", nil
 		}
 	}
 	return "", "", "", ErrBadResolveAction
