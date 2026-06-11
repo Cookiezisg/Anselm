@@ -22,6 +22,16 @@ const (
 	defaultTimeoutMS = 120_000
 	maxTimeoutMS     = 600_000
 	outputCapBytes   = 256 * 1024
+
+	// waitDelay bounds how long Run/Wait keeps the I/O pipes open after the process exits or
+	// the context is cancelled. Without it, any surviving grandchild that inherited the stdout
+	// pipe (a daemon the command spawned, a pipeline member outliving a timeout kill) keeps
+	// cmd.Run blocked FOREVER — hanging the whole conversation turn beyond cancel's reach.
+	//
+	// waitDelay 限定进程退出或 ctx 取消后 Run/Wait 还保持 I/O 管道打开多久。不设它，任何继承了
+	// stdout 管道的存活孙进程（命令拉起的 daemon、超时杀后残留的管道成员）会让 cmd.Run **永久**
+	// 阻塞——整个对话回合挂死、cancel 也救不回。
+	waitDelay = 10 * time.Second
 )
 
 var (
@@ -125,6 +135,13 @@ func (t *Bash) runForeground(ctx context.Context, command string, timeout time.D
 	defer cancel()
 
 	cmd := buildShellCmd(runCtx, command)
+	// Timeout / cancel must kill the whole process group, not just sh — and WaitDelay force-closes
+	// the pipes so Run returns even if something survives holding them (see waitDelay).
+	//
+	// 超时 / 取消必须杀整个进程组而非只杀 sh——WaitDelay 强制关管道，即使有谁攥着管道残活 Run 也能返回
+	// （见 waitDelay）。
+	cmd.Cancel = func() error { return killProcessTree(cmd) }
+	cmd.WaitDelay = waitDelay
 
 	// Tee combined output to BOTH the result buffer (the final tool_result the LLM reads) AND a
 	// live progress stream, so the user watches stdout/stderr scroll in real time under the Bash
@@ -266,13 +283,18 @@ func pumpReader(wg *sync.WaitGroup, proc *BgProcess, r io.Reader) {
 }
 
 // buildShellCmd builds *exec.Cmd; Unix uses /bin/sh -c, Windows uses cmd.exe /c (not
-// PowerShell). No Dir is set (no cwd) and Env is inherited from the backend process.
+// PowerShell). No Dir is set (no cwd) and Env is inherited from the backend process. The child
+// gets its own process group (Unix) so kills reach grandchildren too.
 //
 // buildShellCmd 构造 *exec.Cmd；Unix 用 /bin/sh -c，Windows 用 cmd.exe /c（不用 PowerShell）。
-// 不设 Dir（无 cwd），Env 继承后端进程。
+// 不设 Dir（无 cwd），Env 继承后端进程。子进程自成进程组（Unix），使杀进程能波及孙进程。
 func buildShellCmd(ctx context.Context, command string) *exec.Cmd {
+	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		return exec.CommandContext(ctx, "cmd", "/c", command)
+		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
+	} else {
+		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", command)
 	}
-	return exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	setProcessGroup(cmd)
+	return cmd
 }

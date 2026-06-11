@@ -152,6 +152,16 @@ func (t *Glob) Execute(ctx context.Context, argsJSON string) (string, error) {
 		if ctx.Err() != nil {
 			break
 		}
+		// Same noise-dir policy as Grep: a "**/*.js" in a JS project must not return 100
+		// node_modules files (mtime-desc makes it worse — freshly installed packages are newest).
+		// Matching inside the root itself (root already in a noise dir) stays allowed — explicit
+		// intent.
+		//
+		// 与 Grep 同一噪音目录策略："**/*.js" 在 JS 项目里不能返回 100 个 node_modules 文件
+		// （mtime 降序更糟——刚装的包最新）。root 本身在噪音目录内（显式意图）不受限。
+		if hasNoiseSegment(rel) {
+			continue
+		}
 		full := filepath.Join(root, rel)
 		st, err := os.Lstat(full)
 		if err != nil {

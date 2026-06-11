@@ -34,6 +34,20 @@ var noiseDirs = map[string]struct{}{
 	".forgify":     {},
 }
 
+// hasNoiseSegment reports whether any path segment of rel (slash- or OS-separated) is a noise
+// dir. Shared by Glob (post-filter) — Grep's WalkDir skips the same set during the walk.
+//
+// hasNoiseSegment 报告 rel 的任一路径段（/ 或系统分隔符）是否为噪音目录。Glob（后置过滤）共用——
+// Grep 的 WalkDir 在遍历时跳过同一集合。
+func hasNoiseSegment(rel string) bool {
+	for _, seg := range strings.FieldsFunc(filepath.ToSlash(rel), func(r rune) bool { return r == '/' }) {
+		if _, ok := noiseDirs[seg]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 var typeExtensions = map[string][]string{
 	"go":     {".go"},
 	"py":     {".py"},
@@ -176,6 +190,21 @@ func fileMatchesFilters(path string, args grepArgs) bool {
 	return true
 }
 
+// stdlibOutputCapBytes mirrors rgOutputCapBytes for the pure-Go backend: stop accumulating
+// once the builder passes this (head_limit-less searches over big trees stay memory-bounded).
+//
+// stdlibOutputCapBytes 与 rgOutputCapBytes 对齐：builder 超限即停止累积（不带 head_limit 的
+// 大树搜索内存有界）。
+const stdlibOutputCapBytes = 256 * 1024
+
+func overByteCap(sb *strings.Builder) bool {
+	if sb.Len() < stdlibOutputCapBytes {
+		return false
+	}
+	fmt.Fprintf(sb, "... [output capped at %d bytes; narrow with glob/type or use head_limit]\n", stdlibOutputCapBytes)
+	return true
+}
+
 func searchFilesWithMatches(ctx context.Context, re *regexp.Regexp, files []string, args grepArgs) string {
 	var sb strings.Builder
 	emitted := 0
@@ -192,6 +221,9 @@ func searchFilesWithMatches(ctx context.Context, re *regexp.Regexp, files []stri
 		emitted++
 		if args.HeadLimit > 0 && emitted >= args.HeadLimit {
 			fmt.Fprintf(&sb, "... [truncated at %d files; raise head_limit to see more]\n", args.HeadLimit)
+			break
+		}
+		if overByteCap(&sb) {
 			break
 		}
 	}
@@ -216,6 +248,9 @@ func searchCount(ctx context.Context, re *regexp.Regexp, files []string, args gr
 		emitted++
 		if args.HeadLimit > 0 && emitted >= args.HeadLimit {
 			fmt.Fprintf(&sb, "... [truncated at %d files; raise head_limit to see more]\n", args.HeadLimit)
+			break
+		}
+		if overByteCap(&sb) {
 			break
 		}
 	}
@@ -247,6 +282,9 @@ func searchContent(ctx context.Context, re *regexp.Regexp, files []string, args 
 			emitted++
 			if args.HeadLimit > 0 && emitted >= args.HeadLimit {
 				fmt.Fprintf(&sb, "... [truncated at %d matches; raise head_limit to see more]\n", args.HeadLimit)
+				return sb.String()
+			}
+			if overByteCap(&sb) {
 				return sb.String()
 			}
 		}
@@ -294,6 +332,14 @@ func scanFileContent(path string, re *regexp.Regexp, args grepArgs) []matchedLin
 }
 
 func scanFileContentLineMode(path string, re *regexp.Regexp, args grepArgs) []matchedLine {
+	// Content mode loads all lines for context windows — bound it to the same cap as the
+	// multiline scan so a multi-GB log can't balloon memory (files_with_matches/count stream).
+	//
+	// content 模式为上下文窗口载入全部行——与 multiline 扫描同界，防多 GB 日志撑爆内存
+	// （files_with_matches/count 是流式的，不受此限）。
+	if info, err := os.Stat(path); err != nil || info.Size() > maxStdlibFileBytes {
+		return nil
+	}
 	f, err := os.Open(path) //nolint:gosec // path is under the validated walk root.
 	if err != nil {
 		return nil

@@ -166,6 +166,6 @@ func (m *ProcessManager) Stop() {
 		if p.Cmd == nil || p.Cmd.Process == nil {
 			continue
 		}
-		_ = p.Cmd.Process.Kill()
+		_ = killProcessTree(p.Cmd)
 	}
 }

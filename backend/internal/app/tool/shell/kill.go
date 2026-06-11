@@ -61,9 +61,13 @@ func (t *KillShell) Execute(_ context.Context, argsJSON string) (string, error) 
 		return fmt.Sprintf("Background shell process not found: %s", a.BashID), nil
 	}
 
+	// Group kill: take out grandchildren too (a daemon the command spawned would otherwise
+	// survive the kill and keep running with no bash_id left to address it).
+	//
+	// 组杀：连孙进程一起杀（命令拉起的 daemon 否则杀完还活着，且再无 bash_id 可指）。
 	wasRunning := false
 	if proc.Cmd != nil && proc.Cmd.Process != nil {
-		if err := proc.Cmd.Process.Kill(); err == nil {
+		if err := killProcessTree(proc.Cmd); err == nil {
 			wasRunning = true
 		}
 	}
