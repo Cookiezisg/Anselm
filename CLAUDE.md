@@ -2,6 +2,7 @@
 
 > Claude Code 进入本项目自动加载本文件。**本文件是项目工程纪律的唯一事实源**。
 > 项目愿景 / 架构 / Phase 路线 / Verification 见 [`docs/concepts/architecture.md`](docs/concepts/architecture.md)。
+> **历史版本**：之前版本（**V0.2**——`backend-new` 平行重写完成、覆盖回 `backend/` 之前的快照）归档在 **`version-0.2`** 分支。需参考旧版请 checkout 该分支；`main` 在其上继续（覆盖回 + 前端联调）。
 
 ---
 
