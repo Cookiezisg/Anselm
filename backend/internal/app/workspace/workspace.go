@@ -76,9 +76,10 @@ type CreateInput struct {
 //
 // UpdateInput 是部分更新载荷；nil 字段跳过。
 type UpdateInput struct {
-	Name        *string
-	AvatarColor *string
-	Language    *string
+	Name         *string
+	AvatarColor  *string
+	Language     *string
+	WebFetchMode *string // "local" | "jina" (PD-4 C)
 }
 
 // Create makes a new workspace; name is required and length-bounded, language
@@ -147,6 +148,12 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*works
 			return nil, workspacedomain.ErrLanguageInvalid
 		}
 		w.Language = *in.Language
+	}
+	if in.WebFetchMode != nil {
+		if !workspacedomain.IsValidWebFetchMode(*in.WebFetchMode) {
+			return nil, workspacedomain.ErrWebFetchModeInvalid
+		}
+		w.WebFetchMode = *in.WebFetchMode
 	}
 	w.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, w); err != nil {
@@ -265,6 +272,24 @@ func (s *Service) DefaultSearchKeyID(ctx context.Context) (string, bool) {
 	}
 	id := strings.TrimSpace(w.DefaultSearchKeyID)
 	return id, id != ""
+}
+
+// WebFetchMode resolves the current workspace's web-fetch mode for the WebFetch tool:
+// "local" (direct GET, the default) or "jina" (third-party reader). Any failure to read the
+// workspace falls back to local — never leak a URL on a degraded path (PD-4 decision C).
+//
+// WebFetchMode 为 WebFetch 工具解析当前 workspace 的抓取模式："local"（直接 GET，默认）或
+// "jina"（第三方 reader）。读不到 workspace 一律落回 local——降级路径绝不外发 URL（PD-4 裁决 C）。
+func (s *Service) WebFetchMode(ctx context.Context) string {
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return workspacedomain.WebFetchModeLocal
+	}
+	w, err := s.repo.Get(ctx, wsID)
+	if err != nil {
+		return workspacedomain.WebFetchModeLocal
+	}
+	return workspacedomain.EffectiveWebFetchMode(w.WebFetchMode)
 }
 
 // SetDefaultSearch sets (or clears with "") the workspace's default search api-key id.

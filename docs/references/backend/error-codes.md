@@ -501,6 +501,7 @@ audience: [human, ai]
 |---|---|---|
 | `CANNOT_DELETE_LAST_WORKSPACE` | 422 | cannot delete the last workspace |
 | `WORKSPACE_LANGUAGE_INVALID` | 400 | language must be one of zh-CN, en |
+| `WORKSPACE_WEB_FETCH_MODE_INVALID` | 400 | webFetchMode must be one of local, jina |
 | `WORKSPACE_NAME_CONFLICT` | 409 | workspace name already exists |
 | `WORKSPACE_NAME_REQUIRED` | 400 | workspace name is required |
 | `WORKSPACE_NAME_TOO_LONG` | 400 | workspace name exceeds the length limit |

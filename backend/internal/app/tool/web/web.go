@@ -28,19 +28,22 @@ import (
 )
 
 // WebTools constructs the web system tools. searchKeys resolves the workspace's
-// default search key (websearch.SearchKeyPicker, implemented by workspace.Service).
+// default search key (websearch.SearchKeyPicker) and fetchMode the workspace's
+// web-fetch mode (FetchModePicker) — both implemented by workspace.Service.
 //
 // WebTools 构造 web system tool。searchKeys 解析 workspace 默认搜索 key
-// （websearch.SearchKeyPicker，由 workspace.Service 实现）。
+// （websearch.SearchKeyPicker），fetchMode 解析 workspace 抓取模式（FetchModePicker）——
+// 均由 workspace.Service 实现。
 func WebTools(
 	picker modeldomain.ModelPicker,
 	keys apikeydomain.KeyProvider,
 	factory *llminfra.Factory,
 	searchKeys websearchdomain.SearchKeyPicker,
+	fetchMode FetchModePicker,
 	log *zap.Logger,
 ) []toolapp.Tool {
 	return []toolapp.Tool{
-		newWebFetch(picker, keys, factory),
+		newWebFetch(picker, keys, factory, fetchMode),
 		newWebSearch(keys, searchKeys, log),
 	}
 }
@@ -49,8 +52,9 @@ func newWebFetch(
 	picker modeldomain.ModelPicker,
 	keys apikeydomain.KeyProvider,
 	factory *llminfra.Factory,
+	mode FetchModePicker,
 ) *WebFetch {
-	return &WebFetch{picker: picker, keys: keys, factory: factory}
+	return &WebFetch{picker: picker, keys: keys, factory: factory, mode: mode}
 }
 
 func newWebSearch(keys apikeydomain.KeyProvider, searchKeys websearchdomain.SearchKeyPicker, log *zap.Logger) *WebSearch {

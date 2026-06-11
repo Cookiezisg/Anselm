@@ -54,9 +54,10 @@ type createWorkspaceRequest struct {
 }
 
 type updateWorkspaceRequest struct {
-	Name        *string `json:"name,omitempty"`
-	AvatarColor *string `json:"avatarColor,omitempty"`
-	Language    *string `json:"language,omitempty"`
+	Name         *string `json:"name,omitempty"`
+	AvatarColor  *string `json:"avatarColor,omitempty"`
+	Language     *string `json:"language,omitempty"`
+	WebFetchMode *string `json:"webFetchMode,omitempty"` // local | jina (PD-4 C)
 }
 
 type setDefaultModelRequest struct {
@@ -112,9 +113,10 @@ func (h *WorkspacesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ws, err := h.svc.Update(r.Context(), r.PathValue("id"), workspaceapp.UpdateInput{
-		Name:        req.Name,
-		AvatarColor: req.AvatarColor,
-		Language:    req.Language,
+		Name:         req.Name,
+		AvatarColor:  req.AvatarColor,
+		Language:     req.Language,
+		WebFetchMode: req.WebFetchMode,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

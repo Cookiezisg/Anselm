@@ -11,6 +11,7 @@ import (
 
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	workspacedomain "github.com/sunweilin/forgify/backend/internal/domain/workspace"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
@@ -23,6 +24,11 @@ type fakePicker struct {
 func (f *fakePicker) Pick(_ context.Context, _ string) (modeldomain.ModelRef, error) {
 	return f.ref, f.err
 }
+
+// fixedMode implements FetchModePicker with a constant mode.
+type fixedMode string
+
+func (m fixedMode) WebFetchMode(context.Context) string { return string(m) }
 
 func TestWebFetch_ValidateInput(t *testing.T) {
 	wf := &WebFetch{}
@@ -106,6 +112,7 @@ func TestWebFetch_Execute_Summarises(t *testing.T) {
 		picker:  &fakePicker{ref: modeldomain.ModelRef{APIKeyID: "ak", ModelID: "m"}},
 		keys:    &fakeKeys{creds: apikeydomain.Credentials{Provider: "mock"}},
 		factory: factory,
+		mode:    fixedMode(workspacedomain.WebFetchModeJina),
 	}
 	// Public IP host → SSRF guard passes without DNS; fetch routes through the mock Jina.
 	out, err := wf.Execute(context.Background(), `{"url":"http://93.184.216.34/","prompt":"what"}`)
@@ -131,6 +138,7 @@ func TestWebFetch_Execute_SummariseFailDegrades(t *testing.T) {
 		picker:  &fakePicker{err: modeldomain.ErrNotConfigured},
 		keys:    &fakeKeys{},
 		factory: llminfra.NewFactory(),
+		mode:    fixedMode(workspacedomain.WebFetchModeJina),
 	}
 	out, err := wf.Execute(context.Background(), `{"url":"http://93.184.216.34/","prompt":"what"}`)
 	if err != nil {
@@ -138,5 +146,98 @@ func TestWebFetch_Execute_SummariseFailDegrades(t *testing.T) {
 	}
 	if !strings.Contains(out, "raw page body") || !strings.Contains(out, "Summarisation unavailable") {
 		t.Fatalf("expected degraded raw content, got %q", out)
+	}
+}
+
+// PD-4 C: local mode must never touch the Jina endpoint — the URL stays on this machine.
+//
+// PD-4 C：local 模式绝不能碰 Jina 端点——URL 不出本机。
+func TestWebFetch_FetchMode_LocalSkipsJina(t *testing.T) {
+	jinaHits := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		jinaHits++
+		_, _ = w.Write([]byte("jina content"))
+	}))
+	defer srv.Close()
+	old := jinaEndpoint
+	jinaEndpoint = srv.URL + "/"
+	defer func() { jinaEndpoint = old }()
+
+	oldDirect := fetchDirectFn
+	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	defer func() { fetchDirectFn = oldDirect }()
+
+	wf := &WebFetch{
+		picker:  &fakePicker{err: modeldomain.ErrNotConfigured}, // summarise degrades → raw content visible
+		keys:    &fakeKeys{},
+		factory: llminfra.NewFactory(),
+		mode:    fixedMode(workspacedomain.WebFetchModeLocal),
+	}
+	out, err := wf.Execute(context.Background(), `{"url":"http://93.184.216.34/","prompt":"what"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "direct content") {
+		t.Fatalf("local mode must use direct GET, got %q", out)
+	}
+	if jinaHits != 0 {
+		t.Fatalf("local mode leaked the URL to Jina (%d hit(s))", jinaHits)
+	}
+}
+
+// nil picker (no workspace service wired) fails closed to local.
+//
+// picker 为 nil（未接 workspace 服务）时收敛到 local。
+func TestWebFetch_FetchMode_NilPickerDefaultsLocal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("nil mode picker must not reach Jina")
+	}))
+	defer srv.Close()
+	old := jinaEndpoint
+	jinaEndpoint = srv.URL + "/"
+	defer func() { jinaEndpoint = old }()
+
+	oldDirect := fetchDirectFn
+	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	defer func() { fetchDirectFn = oldDirect }()
+
+	wf := &WebFetch{picker: &fakePicker{err: modeldomain.ErrNotConfigured}, keys: &fakeKeys{}, factory: llminfra.NewFactory()}
+	out, err := wf.Execute(context.Background(), `{"url":"http://93.184.216.34/","prompt":"what"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "direct content") {
+		t.Fatalf("nil picker must default to direct GET, got %q", out)
+	}
+}
+
+// jina mode falls back to direct GET when the reader fails.
+//
+// jina 模式在 reader 失败时回退直 GET。
+func TestWebFetch_FetchMode_JinaFallsBackToDirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+	old := jinaEndpoint
+	jinaEndpoint = srv.URL + "/"
+	defer func() { jinaEndpoint = old }()
+
+	oldDirect := fetchDirectFn
+	fetchDirectFn = func(context.Context, string) (string, error) { return "direct content", nil }
+	defer func() { fetchDirectFn = oldDirect }()
+
+	wf := &WebFetch{
+		picker:  &fakePicker{err: modeldomain.ErrNotConfigured},
+		keys:    &fakeKeys{},
+		factory: llminfra.NewFactory(),
+		mode:    fixedMode(workspacedomain.WebFetchModeJina),
+	}
+	out, err := wf.Execute(context.Background(), `{"url":"http://93.184.216.34/","prompt":"what"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "direct content") {
+		t.Fatalf("jina mode must fall back to direct GET, got %q", out)
 	}
 }

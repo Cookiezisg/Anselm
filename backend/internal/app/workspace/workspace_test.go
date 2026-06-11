@@ -147,6 +147,45 @@ func TestUpdate_InvalidLanguage(t *testing.T) {
 	}
 }
 
+// PD-4 C: web-fetch mode is a workspace preference — set/validate via PATCH, read
+// (already defaulted to local) by the WebFetch tool.
+//
+// PD-4 C：抓取模式是 workspace 偏好——经 PATCH 设置/校验，由 WebFetch 工具读（已兜底 local）。
+func TestUpdate_WebFetchMode_SetAndValidate(t *testing.T) {
+	s := newService()
+	w, _ := s.Create(context.Background(), CreateInput{Name: "X"})
+
+	jina := workspacedomain.WebFetchModeJina
+	got, err := s.Update(context.Background(), w.ID, UpdateInput{WebFetchMode: &jina})
+	if err != nil || got.WebFetchMode != workspacedomain.WebFetchModeJina {
+		t.Fatalf("set jina: mode=%q err=%v", got.WebFetchMode, err)
+	}
+	bad := "proxy"
+	if _, err := s.Update(context.Background(), w.ID, UpdateInput{WebFetchMode: &bad}); !errors.Is(err, workspacedomain.ErrWebFetchModeInvalid) {
+		t.Fatalf("err = %v, want ErrWebFetchModeInvalid", err)
+	}
+}
+
+func TestWebFetchMode_DefaultsAndResolution(t *testing.T) {
+	s := newService()
+	w, _ := s.Create(context.Background(), CreateInput{Name: "X"})
+	ctx := reqctxpkg.Detached(w.ID)
+
+	if m := s.WebFetchMode(ctx); m != workspacedomain.WebFetchModeLocal {
+		t.Fatalf("unset must default to local, got %q", m)
+	}
+	jina := workspacedomain.WebFetchModeJina
+	if _, err := s.Update(context.Background(), w.ID, UpdateInput{WebFetchMode: &jina}); err != nil {
+		t.Fatal(err)
+	}
+	if m := s.WebFetchMode(ctx); m != workspacedomain.WebFetchModeJina {
+		t.Fatalf("configured jina not resolved, got %q", m)
+	}
+	if m := s.WebFetchMode(context.Background()); m != workspacedomain.WebFetchModeLocal {
+		t.Fatalf("no-workspace ctx must fail closed to local, got %q", m)
+	}
+}
+
 func TestDelete_LastRefused(t *testing.T) {
 	s := newService()
 	w, _ := s.Create(context.Background(), CreateInput{Name: "Only"})

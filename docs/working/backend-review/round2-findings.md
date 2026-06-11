@@ -37,7 +37,7 @@ audience: [human, ai]
 - **CR-13 🔴 已修** Bash foreground 孙进程持管道永久挂死：`cmd.Run()` 的 stdout/stderr 是 io.Writer → Go 开 os.Pipe + copy goroutine，Wait 等 copy 到 EOF。命令留下持有管道的孙进程（`npm run dev` 忘开后台被超时杀、脚本拉起 daemon 后正常退出）→ EOF 永不来 → **Run 永不返回**，对话队列整体卡死、cancel 无效（Cancel 只杀 sh）。修：① `WaitDelay=10s`（进程退出或 ctx 取消后强制关管道，Go 官方为此设计）② Unix `Setpgid` + 超时/取消/KillShell/Stop 全部组杀（`kill(-pgid)`，proc_unix/proc_windows 平台分流）。回归测试：`sleep 30 | sleep 30` timeout 200ms 须秒回（无修复阻塞 30s）。验证：shell 包测试 2s 全绿。
 - **CR-14 🔴 已修** tool_result 无界：框架/loop 层无任何截断，结果整段落库 + 整段上 durable SSE open 帧 + 整段进**同回合**下一步 LLM 请求（warm 投影只裁后续回合）——一次不带 head_limit 的大树 content Grep（rg `cmd.Output()` 内存也无界）= LLM 400 + 巨型 DB 行 + 前端巨帧三连。修（强化地基）：① loop `capToolResult` 中央 256 KiB 硬顶（覆盖全部现/未来工具，含 MCP）② rg 路径 `cappedBuffer`（保头 256 KiB、丢弃计数、rg 跑完不杀——免断管舞步）③ stdlib 三模式输出循环加同值字节预算 + content 行模式 32 MB 文件守卫（与 multiline 同界；files/count 模式流式不受限）。
 - **CR-15 🟡 已修** Glob 不跳噪音目录：与 Grep 的 noiseDirs 政策不一致——JS 项目 `**/*.js` 返回的 100 条几乎全是 node_modules（mtime 降序放大：刚装的包最新）。修：`hasNoiseSegment` 后置过滤（root 自身在噪音目录内不受限——显式意图）；测试断言 node_modules/.git 命中被排除。
-- **📋 PD-4 留档**：WebFetch 默认把每个抓取 URL 发给第三方 r.jina.ai（带签名/token 的 URL 一并外发），直连仅为 fallback——local-first 隐私定位下这是产品决策（候选：A 默认直连+Jina 显式开启；B 现状+文档声明；C 配置项）。SSRF 守卫本身健全（全 DNS 答案检查、逐跳重检、1MB 封顶）。
+- **✅ PD-4 已裁决 C 并实现（2026-06-12）**：workspace 加 `web_fetch_mode`（local|jina，CHECK 约束，空=local）；WebFetch 经 `FetchModePicker` 端口读模式——local=仅本机直 GET（URL 不出本机，默认），jina=Jina 优先+直 GET 兜底；picker 缺失/读不到一律收敛 local（隐私降级绝不静默）。PATCH /workspaces 接受 `webFetchMode`，新码 `WORKSPACE_WEB_FETCH_MODE_INVALID`。原档案：WebFetch 默认把每个抓取 URL 发给 r.jina.ai——local-first 定位下属产品决策。SSRF 守卫健全（全 DNS 答案检查、逐跳重检、1MB 封顶）不变。
 - **🟢 wontfix/留档**：pathguard 不解析 symlink（本地单用户反足枪层、非安全边界，shell 本就可直读）；DNS rebinding TOCTOU（查后拨号，同阈值）；`invoke_agent` 硬编码 TriggeredByChat 而 `run_function` 有 triggerFromCtx（溯源标签不一致，W6 看 subagent 工具集后定）；grep stdlib `byteOffsetToLine` O(hits×size)（有 32MB 界，可接受）。
 - **整体评价**：工具层质量高——5 方法契约一致、sentinel 共享（S20）、domain 错误全译 LLM 可行动话术、forge 镜像/进度流一致、fs 三件穿越守卫+原子写+隔离齐全、测试覆盖扎实。
 
@@ -109,6 +109,6 @@ audience: [human, ai]
 ## 二轮总结（发版判定）
 
 **覆盖**：624/624 文件（87,628 行 Go + 配置）全部亲读标记，零 agent 代审。
-**发现**：CR-13🔴 CR-14🔴 CR-18🔴（W1-W4，已修）、CR-15🟡 CR-16🟡 CR-17🟡 CR-19🟡 CR-20🟡（已修）、PD-4 候选（WebFetch 第三方代理隐私，待用户裁决）、CORS Wails origin（发版前补）、若干 🟢 留账。
+**发现**：CR-13🔴 CR-14🔴 CR-18🔴（W1-W4，已修）、CR-15🟡 CR-16🟡 CR-17🟡 CR-19🟡 CR-20🟡（已修）、PD-4（已裁决 C 实现：webFetchMode 配置、默认 local）、CORS Wails origin（用户裁决：回头再说）、若干 🟢 留账。
 **门禁**：make verify 全绿 + 并发包 -race 全绿。
-**判定**：除 PD-4 裁决与 CORS Wails origin 两项外，后端达到可发版质量。
+**判定**：PD-4 已落地（裁决 C）；CORS Wails origin 经用户确认延后（前端联调时一行补上）。后端达到可发版质量。

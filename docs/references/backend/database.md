@@ -104,7 +104,7 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 
 | 表 | 说明 |
 |---|---|
-| `workspaces` | **全局表（无 ws 列——它即 workspace）**；语言/三场景模型默认/默认搜索 key；`ws_` |
+| `workspaces` | **全局表（无 ws 列——它即 workspace）**；语言/三场景模型默认/默认搜索 key/`web_fetch_mode`（local\|jina，CHECK，空=local）；`ws_` |
 | `api_keys` | 密文整列加密；probe 归档；软删；`key_` |
 | `relations` | from/to (kind,id) × edge kind；硬删（PurgeEntity 级联）；`rel_` |
 | `notifications` | type(`<domain>.<action>`) · payload · read_at；`ntf_` |

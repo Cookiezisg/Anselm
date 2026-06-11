@@ -139,4 +139,4 @@ memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/p
 
 ## P6 支撑域
 
-workspace：CRUD（守最后一个）。apikey：CRUD + `:test`（probe）。model：`GET /model-capabilities` · scenarios。sandbox：`GET /sandbox/status` · `POST /sandbox:retry-bootstrap` · envs 列表/销毁。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。notification：list / 已读标记 / 未读计数。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /triage`。
+workspace：CRUD（守最后一个；PATCH 含 `webFetchMode`: local|jina）。apikey：CRUD + `:test`（probe）。model：`GET /model-capabilities` · scenarios。sandbox：`GET /sandbox/status` · `POST /sandbox:retry-bootstrap` · envs 列表/销毁。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。notification：list / 已读标记 / 未读计数。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /triage`。

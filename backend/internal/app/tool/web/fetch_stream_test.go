@@ -11,6 +11,7 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
+	workspacedomain "github.com/sunweilin/forgify/backend/internal/domain/workspace"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -50,6 +51,7 @@ func TestWebFetch_StreamsSummaryProgress(t *testing.T) {
 		picker:  &fakePicker{ref: modeldomain.ModelRef{APIKeyID: "ak", ModelID: "m"}},
 		keys:    &fakeKeys{creds: apikeydomain.Credentials{Provider: "mock"}},
 		factory: factory,
+		mode:    fixedMode(workspacedomain.WebFetchModeJina),
 	}
 
 	bridge := &webBridge{}

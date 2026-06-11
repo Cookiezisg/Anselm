@@ -178,7 +178,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			memorytool.MemoryTools(mem),
 			mcptool.MCPTools(mcp),
 			skilltool.SkillTools(skill),
-			webtool.WebTools(ws, keys, inf.factory, ws, log),
+			webtool.WebTools(ws, keys, inf.factory, ws, ws, log),
 		),
 	}
 	// Append the Subagent tool (depth-1 guard: the subagent registry always filters it out, so a

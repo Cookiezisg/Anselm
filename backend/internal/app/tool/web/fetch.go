@@ -17,6 +17,7 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	workspacedomain "github.com/sunweilin/forgify/backend/internal/domain/workspace"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
@@ -30,6 +31,13 @@ const (
 //
 // jinaEndpoint 是 Jina 公共 reader；用 var 是为测试可改写。
 var jinaEndpoint = "https://r.jina.ai/"
+
+// fetchDirectFn is the direct-GET seam; var so tests can stub the network out
+// (the SSRF guard only passes public addresses, so a hermetic test cannot host one).
+//
+// fetchDirectFn 是直 GET 的测试缝；用 var 是因为 SSRF 守卫只放行公网地址，封闭测试无法
+// 自架一个，故测试需替换掉网络。
+var fetchDirectFn = fetchDirect
 
 var (
 	// ErrEmptyURL: url missing or empty.
@@ -48,7 +56,7 @@ var (
 	ErrUnsupportedScheme = errorspkg.New(errorspkg.KindInvalid, "WEB_UNSUPPORTED_SCHEME", "url must use http or https scheme")
 )
 
-const fetchDescription = `Fetch a URL and return an LLM summary answering prompt. Absolute http/https only; private/loopback addresses blocked.`
+const fetchDescription = `Fetch a URL and return an LLM summary answering prompt. Absolute http/https only; private/loopback addresses blocked. Retrieval method (local direct GET vs Jina reader) follows the workspace webFetchMode setting.`
 
 var fetchSchema = json.RawMessage(`{
 	"type": "object",
@@ -65,16 +73,29 @@ var fetchSchema = json.RawMessage(`{
 	}
 }`)
 
+// FetchModePicker resolves the workspace's web-fetch mode (workspacedomain.WebFetchMode*,
+// already defaulted — never ""). Satisfied by *workspaceapp.Service.
+//
+// FetchModePicker 解析 workspace 的抓取模式（workspacedomain.WebFetchMode*，已兜底——永不为 ""）。
+// 由 *workspaceapp.Service 实现。
+type FetchModePicker interface {
+	WebFetchMode(ctx context.Context) string
+}
+
 // WebFetch fetches a URL (SSRF-guarded) and returns a utility-model summary
 // answering the prompt — it does not return raw HTML, so a huge page never
-// floods the context window.
+// floods the context window. How the page is retrieved is a workspace setting
+// (PD-4 C): "local" = direct GET only (no URL leaves the machine); "jina" =
+// Jina reader first, direct GET fallback.
 //
 // WebFetch 抓 URL（SSRF 守卫）并返回 utility 模型按 prompt 的摘要——不返原始 HTML，
-// 使超大页面永不灌爆上下文窗口。
+// 使超大页面永不灌爆上下文窗口。抓取方式是 workspace 配置（PD-4 C）："local" = 仅本机
+// 直接 GET（URL 不出本机）；"jina" = Jina reader 优先、直 GET 兜底。
 type WebFetch struct {
 	picker  modeldomain.ModelPicker
 	keys    apikeydomain.KeyProvider
 	factory *llminfra.Factory
+	mode    FetchModePicker // nil → local (fail-closed on privacy)
 }
 
 func (t *WebFetch) Name() string                { return "WebFetch" }
@@ -131,7 +152,7 @@ func (t *WebFetch) Execute(ctx context.Context, argsJSON string) (string, error)
 		return reason, nil
 	}
 
-	content, err := fetchContent(ctx, args.URL)
+	content, err := t.fetchContent(ctx, args.URL)
 	if err != nil {
 		return fmt.Sprintf("Failed to fetch %s: %v", args.URL, err), nil
 	}
@@ -168,16 +189,26 @@ func ssrfCheckRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// fetchContent tries Jina first, falls back to direct GET; returns capped body.
+// fetchContent retrieves the page per the workspace's web-fetch mode: local = direct GET only
+// (the URL never leaves this machine); jina = Jina reader first, direct GET fallback. A nil
+// picker fails closed to local — privacy degradation is never silent.
 //
-// fetchContent 先 Jina，失败 fallback 直 GET；返截断后正文。
-func fetchContent(ctx context.Context, target string) (string, error) {
+// fetchContent 按 workspace 抓取模式取页面：local = 仅直接 GET（URL 不出本机）；jina = Jina
+// 优先、直 GET 兜底。picker 为 nil 时收敛到 local——隐私降级绝不静默发生。
+func (t *WebFetch) fetchContent(ctx context.Context, target string) (string, error) {
+	mode := workspacedomain.WebFetchModeLocal
+	if t.mode != nil {
+		mode = t.mode.WebFetchMode(ctx)
+	}
+	if mode != workspacedomain.WebFetchModeJina {
+		return fetchDirectFn(ctx, target)
+	}
 	if body, err := fetchViaJina(ctx, target); err == nil {
 		return body, nil
 	} else if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return "", err
 	}
-	return fetchDirect(ctx, target)
+	return fetchDirectFn(ctx, target)
 }
 
 // fetchViaJina fetches via Jina reader; JINA_API_KEY enables higher rate limits.
