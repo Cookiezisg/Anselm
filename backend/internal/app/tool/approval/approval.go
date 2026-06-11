@@ -9,8 +9,6 @@
 package approval
 
 import (
-	"encoding/json"
-
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
@@ -27,9 +25,4 @@ func ApprovalTools(svc *approvalapp.Service) []toolapp.Tool {
 		&RevertApproval{svc: svc},
 		&DeleteApproval{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

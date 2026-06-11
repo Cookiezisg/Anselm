@@ -130,9 +130,15 @@ func (b *Broker) Request(ctx context.Context, req Request) (Response, error) {
 //
 // Resolve 把人的决定送给阻塞的 Request，无该 id 待决则返 false（已决议 / 未知——重复 POST 安全 no-op）。
 func (b *Broker) Resolve(toolCallID string, resp Response) bool {
+	// Send under the lock: Request's deregister (defer delete) also takes it, so a waiter we
+	// found here is still genuinely waiting — we can't report "delivered" to a run that already
+	// aborted. The send is non-blocking (buffered 1), so holding the lock is safe.
+	//
+	// 锁内投递：Request 的注销（defer delete）也要拿锁，故此处查到的 waiter 必然还真在等——不会对
+	// 已中止的 run 报「已送达」。投递非阻塞（buffered 1），持锁安全。
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	w := b.pending[toolCallID]
-	b.mu.Unlock()
 	if w == nil {
 		return false
 	}

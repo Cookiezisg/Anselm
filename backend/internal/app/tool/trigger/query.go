@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 )
 
@@ -50,7 +51,7 @@ func (t *SearchTriggers) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, tr := range ts {
 		out = append(out, slim{ID: tr.ID, Name: tr.Name, Kind: tr.Kind, Description: tr.Description, RefCount: tr.RefCount, Listening: tr.Listening})
 	}
-	return toJSON(map[string]any{"count": len(out), "triggers": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "triggers": out}), nil
 }
 
 // --- get_trigger -----------------------------------------------------------
@@ -95,5 +96,5 @@ func (t *GetTrigger) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_trigger: %w", err)
 	}
-	return toJSON(tr), nil
+	return toolapp.ToJSON(tr), nil
 }

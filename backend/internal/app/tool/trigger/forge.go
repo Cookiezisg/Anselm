@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
@@ -74,7 +75,7 @@ func (t *CreateTrigger) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("create_trigger: %w", err)
 	}
-	return toJSON(tr), nil
+	return toolapp.ToJSON(tr), nil
 }
 
 // --- edit_trigger ----------------------------------------------------------
@@ -131,7 +132,7 @@ func (t *EditTrigger) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("edit_trigger: %w", err)
 	}
-	return toJSON(tr), nil
+	return toolapp.ToJSON(tr), nil
 }
 
 // --- delete_trigger --------------------------------------------------------
@@ -175,5 +176,5 @@ func (t *DeleteTrigger) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := t.svc.Delete(ctx, args.TriggerID); err != nil {
 		return "", fmt.Errorf("delete_trigger: %w", err)
 	}
-	return toJSON(map[string]any{"deleted": true, "triggerId": args.TriggerID}), nil
+	return toolapp.ToJSON(map[string]any{"deleted": true, "triggerId": args.TriggerID}), nil
 }

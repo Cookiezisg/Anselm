@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- search_agent ----------------------------------------------------------
@@ -47,7 +48,7 @@ func (t *SearchAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	for _, a := range ags {
 		out = append(out, slim{ID: a.ID, Name: a.Name, Description: a.Description})
 	}
-	return toJSON(map[string]any{"agents": out, "count": len(out)}), nil
+	return toolapp.ToJSON(map[string]any{"agents": out, "count": len(out)}), nil
 }
 
 // --- get_agent -------------------------------------------------------------
@@ -88,5 +89,5 @@ func (t *GetAgent) Execute(ctx context.Context, argsJSON string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("get_agent: %w", err)
 	}
-	return toJSON(ag), nil
+	return toolapp.ToJSON(ag), nil
 }

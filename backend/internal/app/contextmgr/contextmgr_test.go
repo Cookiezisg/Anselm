@@ -251,3 +251,5 @@ func TestSummarize_NothingPastWatermark(t *testing.T) {
 }
 
 func contains(ss []string, s string) bool { return slices.Contains(ss, s) }
+
+func (f *fakeMessages) SweepNonTerminal(context.Context) (int, error) { return 0, nil }

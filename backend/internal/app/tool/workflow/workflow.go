@@ -11,8 +11,6 @@
 package workflow
 
 import (
-	"encoding/json"
-
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
@@ -54,8 +52,3 @@ NODE KINDS & REF PREFIXES: trigger→trg_, action→fn_ | hd_<id>.method | mcp:s
 A node's "input" wires each field to a bare CEL expression over upstream results (payload/ctx for a trigger's signal, input for node-fed data). A trigger node has no input.
 fromPort is required on an edge leaving a control node (a branch name) or an approval node (yes|no), and must be absent otherwise.
 The graph must have ≥1 trigger, no orphan nodes, and any loop must be closed by a control or approval branch (a back edge).`
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}

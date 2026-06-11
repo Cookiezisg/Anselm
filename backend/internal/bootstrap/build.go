@@ -233,6 +233,12 @@ func (a *App) Boot(ctx context.Context) {
 	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 		a.svc.handler.Boot(wsCtx)
 		a.svc.mcp.Boot(wsCtx)
+		// Reconcile turns orphaned mid-stream by a hard crash (messages' scheduler.Recover
+		// counterpart): pending/streaming rows become cancelled so the UI never shows a
+		// forever-spinning bubble.
+		// 对账被硬崩溃卡在流式中的孤儿回合（messages 版 scheduler.Recover）：pending/streaming 行
+		// 置 cancelled，UI 不再出现永久转圈气泡。
+		a.svc.chat.SweepOrphans(wsCtx)
 		// D1: the trigger listen-registry is in-memory, so re-engage the listener for every
 		// active workflow ("replay active references on boot").
 		// D1：trigger 监听注册表是内存的，为每个 active workflow 重挂监听（boot 重放 active 引用）。

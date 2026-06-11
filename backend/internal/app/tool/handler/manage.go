@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- revert_handler --------------------------------------------------------
@@ -58,7 +59,7 @@ func (t *RevertHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("revert_handler: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.HandlerID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_handler --------------------------------------------------------
@@ -102,7 +103,7 @@ func (t *DeleteHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := t.svc.Delete(ctx, args.HandlerID); err != nil {
 		return "", fmt.Errorf("delete_handler: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.HandlerID, "deleted": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "deleted": true}), nil
 }
 
 // --- restart_handler -------------------------------------------------------
@@ -146,9 +147,9 @@ func (t *RestartHandler) Execute(ctx context.Context, argsJSON string) (string, 
 	state, err := t.svc.Restart(ctx, args.HandlerID)
 	if err != nil {
 		// Restart returns the (failed) state alongside the error — surface both.
-		return toJSON(map[string]any{"id": args.HandlerID, "runtimeState": state, "error": err.Error()}), nil
+		return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "runtimeState": state, "error": err.Error()}), nil
 	}
-	return toJSON(map[string]any{"id": args.HandlerID, "runtimeState": state}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "runtimeState": state}), nil
 }
 
 // --- update_handler_config -------------------------------------------------
@@ -196,5 +197,5 @@ func (t *UpdateHandlerConfig) Execute(ctx context.Context, argsJSON string) (str
 	if err := t.svc.UpdateConfig(ctx, args.HandlerID, args.Config); err != nil {
 		return "", fmt.Errorf("update_handler_config: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.HandlerID, "configUpdated": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "configUpdated": true}), nil
 }

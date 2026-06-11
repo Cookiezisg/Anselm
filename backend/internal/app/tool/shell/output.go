@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"regexp"
 	"strings"
+
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // ErrEmptyBashID: bash_id missing.

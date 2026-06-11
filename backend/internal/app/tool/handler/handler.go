@@ -11,7 +11,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
@@ -69,8 +68,3 @@ func (s *forgeSink) OnFixing(attempt int) {
 //
 // Close 结束进度块（未流过则 no-op）；create/edit defer 它。
 func (s *forgeSink) Close() { s.prog.Close() }
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}

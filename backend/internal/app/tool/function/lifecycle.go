@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- revert_function -------------------------------------------------------
@@ -58,7 +59,7 @@ func (t *RevertFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("revert_function: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.FunctionID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.FunctionID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_function -------------------------------------------------------
@@ -102,5 +103,5 @@ func (t *DeleteFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := t.svc.Delete(ctx, args.FunctionID); err != nil {
 		return "", fmt.Errorf("delete_function: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.FunctionID, "deleted": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.FunctionID, "deleted": true}), nil
 }

@@ -9,8 +9,6 @@
 package agent
 
 import (
-	"encoding/json"
-
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
@@ -30,9 +28,4 @@ func AgentTools(svc *agentapp.Service) []toolapp.Tool {
 		&SearchAgentExecutions{svc: svc},
 		&GetAgentExecution{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

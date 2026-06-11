@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- search_handler --------------------------------------------------------
@@ -47,7 +48,7 @@ func (t *SearchHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	for _, h := range hs {
 		out = append(out, slim{ID: h.ID, Name: h.Name, Description: h.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "handlers": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "handlers": out}), nil
 }
 
 // --- get_handler -----------------------------------------------------------
@@ -92,5 +93,5 @@ func (t *GetHandler) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_handler: %w", err)
 	}
-	return toJSON(h), nil
+	return toolapp.ToJSON(h), nil
 }

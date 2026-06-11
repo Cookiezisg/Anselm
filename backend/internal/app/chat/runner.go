@@ -21,12 +21,16 @@ const idleTimeout = 5 * time.Minute
 
 // runQueue is the conversation's single drain goroutine — it serializes generations (one
 // assistant turn at a time, which makes per-conversation block seq allocation race-free). It
-// self-destructs after idleTimeout with no task, deregistering from s.queues; a task that races
-// in during teardown re-registers the queue and keeps it alive.
+// self-destructs after idleTimeout with no task, deregistering from s.queues. The exit decision
+// happens under q.mu together with setting q.dead: enqueue sends under the same lock after
+// checking dead, so a task either lands before the final drain (and is served) or sees dead and
+// re-creates the queue — no task can be stranded in a dead channel. s.stop short-circuits the
+// loop at shutdown (the running turn was already cancelled by Shutdown).
 //
 // runQueue 是对话的单抽取 goroutine——串行化生成（同时一个 assistant 回合，这使 per-conversation
-// block seq 分配无竞争）。无任务 idleTimeout 后自毁、从 s.queues 注销；拆卸期竞态进来的任务会重新
-// 注册队列并保活。
+// block seq 分配无竞争）。无任务 idleTimeout 后自毁、从 s.queues 注销。退出判定与设 q.dead 在
+// q.mu 下原子完成：enqueue 在同一锁下查 dead 再投，task 要么落在最终抽干之前（被服务）、要么看见
+// dead 重建队列——不可能滞留死 channel。s.stop 在关停时短路循环（在跑回合已被 Shutdown 取消）。
 func (s *Service) runQueue(conversationID string, q *convQueue) {
 	defer s.wg.Done()
 	idle := time.NewTimer(idleTimeout)
@@ -34,6 +38,9 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 
 	for {
 		select {
+		case <-s.stop:
+			return
+
 		case t := <-q.ch:
 			if !idle.Stop() {
 				select {
@@ -45,19 +52,24 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 			idle.Reset(idleTimeout)
 
 		case <-idle.C:
-			s.queues.Delete(conversationID)
-			// A task may have been offered between the timer firing and the Delete; if so,
-			// re-register and serve it. Otherwise the goroutine exits.
+			// Atomic teardown: mark dead + deregister + final drain all under q.mu, so a
+			// concurrent enqueue (which sends under q.mu) cannot slip a task in after the drain.
 			//
-			// 任务可能在 timer 触发与 Delete 之间被投递；若是，重新注册并服务。否则 goroutine 退出。
+			// 原子拆卸：标 dead + 注销 + 最终抽干全在 q.mu 下，使并发 enqueue（同锁下投递）不可能
+			// 在抽干之后塞进 task。
+			q.mu.Lock()
 			select {
 			case t := <-q.ch:
-				s.queues.Store(conversationID, q)
+				q.mu.Unlock()
 				s.processTask(conversationID, q, t)
 				idle.Reset(idleTimeout)
+				continue
 			default:
-				return
 			}
+			q.dead = true
+			s.queues.Delete(conversationID)
+			q.mu.Unlock()
+			return
 		}
 	}
 }

@@ -203,6 +203,19 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 
 	now := time.Now().UTC()
 	s.mu.Lock()
+	// A concurrent connect (double-clicked Reconnect, or Reconnect racing Boot) may have
+	// registered another live client for this server: swap it out and close it, or the loser's
+	// process leaks as a zombie. Last-writer-wins matches Reconnect's "reset" semantics.
+	//
+	// 并发连接（双击 Reconnect、或 Reconnect 与 Boot 重叠）可能已为该 server 注册了另一个活
+	// client：换出并关闭它，否则输家的进程泄漏成僵尸。后写者赢与 Reconnect 的「重置」语义一致。
+	if old := s.clients[srv.ID]; old != nil {
+		go func() { _ = old.Close() }()
+	}
+	if oldH := s.handles[srv.ID]; oldH != nil {
+		go func() { _ = oldH.Kill() }()
+	}
+	delete(s.handles, srv.ID)
 	s.clients[srv.ID] = client
 	if handle != nil {
 		s.handles[srv.ID] = handle

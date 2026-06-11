@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- search_function -------------------------------------------------------
@@ -49,7 +50,7 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, f := range fns {
 		out = append(out, slim{ID: f.ID, Name: f.Name, Description: f.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "functions": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "functions": out}), nil
 }
 
 // --- get_function ----------------------------------------------------------
@@ -94,5 +95,5 @@ func (t *GetFunction) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("get_function: %w", err)
 	}
-	return toJSON(f), nil
+	return toolapp.ToJSON(f), nil
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
@@ -71,7 +72,7 @@ func (t *CreateWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("create_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"id": w.ID, "versionId": v.ID, "version": v.Version, "active": w.Active, "lifecycleState": w.LifecycleState}), nil
+	return toolapp.ToJSON(map[string]any{"id": w.ID, "versionId": v.ID, "version": v.Version, "active": w.Active, "lifecycleState": w.LifecycleState}), nil
 }
 
 // --- edit_workflow ---------------------------------------------------------
@@ -130,7 +131,7 @@ func (t *EditWorkflow) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("edit_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.WorkflowID, "versionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.WorkflowID, "versionId": v.ID, "version": v.Version}), nil
 }
 
 // --- revert_workflow -------------------------------------------------------
@@ -183,7 +184,7 @@ func (t *RevertWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("revert_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.WorkflowID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.WorkflowID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_workflow -------------------------------------------------------
@@ -227,5 +228,5 @@ func (t *DeleteWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := t.svc.Delete(ctx, args.WorkflowID); err != nil {
 		return "", fmt.Errorf("delete_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.WorkflowID, "deleted": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.WorkflowID, "deleted": true}), nil
 }

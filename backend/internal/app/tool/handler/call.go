@@ -7,6 +7,7 @@ import (
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 )
 
@@ -81,7 +82,7 @@ func (t *CallHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("call_handler: %w", err)
 	}
-	return toJSON(map[string]any{"result": res}), nil
+	return toolapp.ToJSON(map[string]any{"result": res}), nil
 }
 
 // --- search_handler_calls --------------------------------------------------
@@ -138,7 +139,7 @@ func (t *SearchHandlerCalls) Execute(ctx context.Context, argsJSON string) (stri
 	if err != nil {
 		return "", fmt.Errorf("search_handler_calls: %w", err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }
 
 // --- get_handler_call ------------------------------------------------------
@@ -183,5 +184,5 @@ func (t *GetHandlerCall) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("get_handler_call: %w", err)
 	}
-	return toJSON(c), nil
+	return toolapp.ToJSON(c), nil
 }

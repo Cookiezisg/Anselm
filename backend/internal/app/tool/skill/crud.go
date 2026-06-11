@@ -104,7 +104,7 @@ func (t *CreateSkill) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("create_skill: %w", err)
 	}
-	return toJSON(map[string]any{"created": sk.Name}), nil
+	return toolapp.ToJSON(map[string]any{"created": sk.Name}), nil
 }
 
 var _ toolapp.Tool = (*CreateSkill)(nil)
@@ -135,7 +135,7 @@ func (t *EditSkill) Execute(ctx context.Context, argsJSON string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("edit_skill: %w", err)
 	}
-	return toJSON(map[string]any{"updated": sk.Name}), nil
+	return toolapp.ToJSON(map[string]any{"updated": sk.Name}), nil
 }
 
 var _ toolapp.Tool = (*EditSkill)(nil)
@@ -182,7 +182,7 @@ func (t *DeleteSkill) Execute(ctx context.Context, argsJSON string) (string, err
 	if err := t.svc.Delete(ctx, args.Name); err != nil {
 		return "", fmt.Errorf("delete_skill: %w", err)
 	}
-	return toJSON(map[string]any{"deleted": args.Name}), nil
+	return toolapp.ToJSON(map[string]any{"deleted": args.Name}), nil
 }
 
 var _ toolapp.Tool = (*DeleteSkill)(nil)

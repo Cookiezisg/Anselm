@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- list_mcp_marketplace --------------------------------------------------
@@ -59,7 +60,7 @@ func (t *ListMarketplace) Execute(ctx context.Context, _ string) (string, error)
 		}
 		views = append(views, v)
 	}
-	return toJSON(map[string]any{"servers": views, "count": len(views)})
+	return toolapp.ToJSON(map[string]any{"servers": views, "count": len(views)}), nil
 }
 
 // --- install_mcp_server ----------------------------------------------------
@@ -110,7 +111,7 @@ func (t *InstallServer) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", err
 	}
-	return toJSON(status)
+	return toolapp.ToJSON(status), nil
 }
 
 // --- uninstall_mcp_server --------------------------------------------------
@@ -173,7 +174,7 @@ func (t *ReconnectMCP) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", err
 	}
-	return toJSON(status)
+	return toolapp.ToJSON(status), nil
 }
 
 func requireName(args json.RawMessage) error {

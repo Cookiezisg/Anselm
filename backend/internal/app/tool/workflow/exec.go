@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
 
@@ -65,7 +66,7 @@ func (t *TriggerWorkflow) Execute(ctx context.Context, argsJSON string) (string,
 	if err != nil {
 		return "", fmt.Errorf("trigger_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"flowrunId": runID, "workflowId": args.WorkflowID}), nil
+	return toolapp.ToJSON(map[string]any{"flowrunId": runID, "workflowId": args.WorkflowID}), nil
 }
 
 // --- stage_workflow --------------------------------------------------------
@@ -98,7 +99,7 @@ func (t *StageWorkflow) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := t.svc.Stage(ctx, id); err != nil {
 		return "", fmt.Errorf("stage_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"staged": true, "workflowId": id}), nil
+	return toolapp.ToJSON(map[string]any{"staged": true, "workflowId": id}), nil
 }
 
 // --- activate_workflow -----------------------------------------------------
@@ -132,7 +133,7 @@ func (t *ActivateWorkflow) Execute(ctx context.Context, argsJSON string) (string
 	if err != nil {
 		return "", fmt.Errorf("activate_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
 }
 
 // --- deactivate_workflow ---------------------------------------------------
@@ -166,7 +167,7 @@ func (t *DeactivateWorkflow) Execute(ctx context.Context, argsJSON string) (stri
 	if err != nil {
 		return "", fmt.Errorf("deactivate_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
 }
 
 // --- kill_workflow ---------------------------------------------------------
@@ -200,7 +201,7 @@ func (t *KillWorkflow) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("kill_workflow: %w", err)
 	}
-	return toJSON(map[string]any{"workflowId": id, "killed": killed}), nil
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "killed": killed}), nil
 }
 
 // --- shared {workflowId}-only arg helpers ----------------------------------

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 )
 
@@ -50,7 +51,7 @@ func (t *RevertAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("revert_agent: %w", err)
 	}
-	return toJSON(map[string]any{"agentId": a.AgentID, "versionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"agentId": a.AgentID, "versionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_agent ----------------------------------------------------------
@@ -136,5 +137,5 @@ func (t *InvokeAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("invoke_agent: %w", err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }

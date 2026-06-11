@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
 
@@ -51,7 +52,7 @@ func (t *SearchWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, w := range wfs {
 		out = append(out, slim{ID: w.ID, Name: w.Name, Description: w.Description, LifecycleState: w.LifecycleState, Active: w.Active})
 	}
-	return toJSON(map[string]any{"count": len(out), "workflows": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "workflows": out}), nil
 }
 
 // --- get_workflow ----------------------------------------------------------
@@ -96,5 +97,5 @@ func (t *GetWorkflow) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("get_workflow: %w", err)
 	}
-	return toJSON(w), nil
+	return toolapp.ToJSON(w), nil
 }

@@ -10,8 +10,6 @@
 package control
 
 import (
-	"encoding/json"
-
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
@@ -46,9 +44,4 @@ func toBranches(in []branchArg) []controldomain.Branch {
 		out[i] = controldomain.Branch{Port: b.Port, When: b.When, Emit: b.Emit}
 	}
 	return out
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

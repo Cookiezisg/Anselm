@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // --- search_control --------------------------------------------------------
@@ -49,7 +50,7 @@ func (t *SearchControl) Execute(ctx context.Context, argsJSON string) (string, e
 	for _, c := range ctls {
 		out = append(out, slim{ID: c.ID, Name: c.Name, Description: c.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "controls": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "controls": out}), nil
 }
 
 // --- get_control -----------------------------------------------------------
@@ -94,5 +95,5 @@ func (t *GetControl) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_control: %w", err)
 	}
-	return toJSON(c), nil
+	return toolapp.ToJSON(c), nil
 }

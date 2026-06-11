@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 )
 
@@ -64,7 +65,7 @@ func (t *SearchAgentExecutions) Execute(ctx context.Context, argsJSON string) (s
 	if err != nil {
 		return "", fmt.Errorf("search_agent_executions: %w", err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }
 
 // --- get_agent_execution ---------------------------------------------------
@@ -105,5 +106,5 @@ func (t *GetAgentExecution) Execute(ctx context.Context, argsJSON string) (strin
 	if err != nil {
 		return "", fmt.Errorf("get_agent_execution: %w", err)
 	}
-	return toJSON(e), nil
+	return toolapp.ToJSON(e), nil
 }

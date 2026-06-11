@@ -8,8 +8,6 @@
 package trigger
 
 import (
-	"encoding/json"
-
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 )
@@ -28,9 +26,4 @@ func TriggerTools(svc *triggerapp.Service) []toolapp.Tool {
 		&SearchActivations{svc: svc},
 		&GetActivation{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

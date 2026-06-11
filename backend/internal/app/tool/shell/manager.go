@@ -1,10 +1,11 @@
 package shell
 
 import (
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os/exec"
 	"sync"
 	"time"
+
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
