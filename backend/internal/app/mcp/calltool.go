@@ -102,6 +102,8 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
+	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
 
 	call := &mcpdomain.Call{
 		ID:             idgenpkg.New("mcl"),
@@ -118,6 +120,8 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 		ConversationID: convID,
 		MessageID:      msgID,
 		ToolCallID:     toolCallID,
+		FlowrunID:      flowrunID,
+		FlowrunNodeID:  flowrunNodeID,
 	}
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
 	detached := reqctxpkg.Detached(wsID)

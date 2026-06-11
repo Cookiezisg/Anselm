@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 数据库 —— 表 / ID 前缀登记
 
-> 物理 schema 的单一事实源（表 · 关键列 · 索引/约束 · ID 前缀）。DDL 全文在各 `infra/store/<域>` 的 `Schema`（幂等 `CREATE IF NOT EXISTS`，启动时 `db.Migrate` 单事务应用）。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval。
+> 物理 schema 的单一事实源（表 · 关键列 · 索引/约束 · ID 前缀）。DDL 全文在各 `infra/store/<域>` 的 `Schema`（幂等 `CREATE IF NOT EXISTS`，启动时 `db.Migrate` 单事务应用）。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval · skill · mcp · document。
 > 通则（D 系列）：业务表软删 `deleted_at`；Log 表（executions/calls）**只增不删**（D1）；全表带 `workspace_id`（orm 据 ctx 自动隔离，D2）；name 用 partial-UNIQUE `WHERE deleted_at IS NULL`（软删释放名字）；版本表 `UNIQUE(<entity>_id, version)`。
 
 ## 三实体共同形状
@@ -77,3 +77,14 @@ ID：`trg_`/`tra_`/`trf_`
 | `flowrun_nodes` | flowrun_id · **node_id**(图内名) · **iteration**(循环轮次) · kind · ref · status(CHECK completed/failed/parked) · **result**(json 记忆化) · error | **`idx_frn_once` UNIQUE(flowrun_id,node_id,iteration)**（D3 record-once）+ parked 偏索引（收件箱）|
 
 ID：`fr_`/`frn_`。两张无 deleted_at（D1）；唯一物理删 = `:replay` 清 failed 行（非结果）。
+
+## P4 三域
+
+| 表 | 关键列 | 说明 |
+|---|---|---|
+| **skill：无表** | — | 文件式：`~/.forgify/workspaces/<ws>/skills/<name>/SKILL.md`（目录/条，纯按需扫描） |
+| `mcp_servers` | transport(stdio/sse/streamable-http) · runtime(node/python/docker/dotnet) · command/args · url · **config_enc**（加密的 {env,headers}，Env/Headers 非列）· timeout_sec · source(registry/manual/import) · registry_id | 软删；partial-UNIQUE(ws,name) |
+| `mcp_calls`（Log） | server_id · tool · status/triggered_by(CHECK) · input/output · elapsed_ms · 溯源 5 列（含 flowrun 2 列）| ws+server 索引 + flowrun 偏索引 |
+| `documents` | parent_id(nullable=根) · name · content · **path**(物化全路径) · **position**(同级序) · size_bytes · tags | 软删；同父名唯一（应用层重试加后缀） |
+
+ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）

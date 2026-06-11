@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 事件 —— SSE 流挂载 / 通知类型登记
 
-> 流式产出的单一事实源。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval。
+> 流式产出的单一事实源。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval · skill · mcp · document。
 > 通则（E 系列）：全系统**仅三条 SSE 流**（messages / entities / notifications，E1 永不再加）；workspace 级、后端不过滤；delta/tick 标 `seq=0` ephemeral（E2）；messages 流 `parentBlockId` 嵌套（E3）。任何实体**不开新流**——只把内容挂上三条流。
 
 ## notifications 流（生命周期通知，`<domain>.<action>`）
@@ -50,3 +50,11 @@ audience: [human, ai]
 | workflow | **flowrun 节点进度**：advance 每节点终态发一条 Signal（`{flowrunId, nodeId, iteration, status}`）→ workflow scope——面板实时看 run 逐节点推进；forge 镜像（create/edit_workflow 的图 ops） |
 | trigger | **fire 信号**：每次扇出（全 4 源 + manual）发 `{activationId, kind, fired, firingCount, error}` → trigger scope；durable 记录 = Activation/Firing 行 |
 | control / approval | forge 镜像（create/edit 的 branches/template） |
+
+## P4 三域挂载
+
+**notifications**：`skill.{created,updated,deleted}` · `mcp.{installed,updated,removed,reconnected}` 族 · `document.{created,updated,moved,deleted}`。
+
+**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）；skill/document = forge 镜像（create/edit 的 body/content）。
+
+**messages 流**：mcp 动态工具（`mcp__*__*`）的进度作为 tool_call 下 progress 块。

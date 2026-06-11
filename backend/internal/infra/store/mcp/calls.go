@@ -41,6 +41,12 @@ func (s *Store) ListCalls(ctx context.Context, filter mcpdomain.CallFilter) ([]*
 	if filter.TriggeredBy != "" {
 		q = q.WhereEq("triggered_by", filter.TriggeredBy)
 	}
+	if filter.ConversationID != "" {
+		q = q.WhereEq("conversation_id", filter.ConversationID)
+	}
+	if filter.FlowrunID != "" {
+		q = q.WhereEq("flowrun_id", filter.FlowrunID)
+	}
 	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("mcpstore.ListCalls: %w", err)

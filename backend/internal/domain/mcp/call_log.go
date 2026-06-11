@@ -64,6 +64,8 @@ type Call struct {
 	ConversationID string          `db:"conversation_id"     json:"conversationId,omitempty"`
 	MessageID      string          `db:"message_id"          json:"messageId,omitempty"`
 	ToolCallID     string          `db:"tool_call_id"        json:"toolCallId,omitempty"`
+	FlowrunID      string          `db:"flowrun_id"          json:"flowrunId,omitempty"`
+	FlowrunNodeID  string          `db:"flowrun_node_id"     json:"flowrunNodeId,omitempty"`
 	CreatedAt      time.Time       `db:"created_at,created"  json:"createdAt"`
 }
 
@@ -71,12 +73,14 @@ type Call struct {
 //
 // CallFilter 约束 call-log 查询；空字段不约束。
 type CallFilter struct {
-	ServerID    string
-	Tool        string
-	Status      string
-	TriggeredBy string
-	Cursor      string
-	Limit       int
+	ServerID       string
+	Tool           string
+	Status         string
+	TriggeredBy    string
+	ConversationID string
+	FlowrunID      string
+	Cursor         string
+	Limit          int
 }
 
 // CallRepository is the call-log slice of Repository (Save on every invocation; Get fetches one

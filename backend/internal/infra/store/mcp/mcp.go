@@ -62,9 +62,12 @@ var Schema = []string{
 		conversation_id TEXT NOT NULL DEFAULT '',
 		message_id      TEXT NOT NULL DEFAULT '',
 		tool_call_id    TEXT NOT NULL DEFAULT '',
+		flowrun_id      TEXT NOT NULL DEFAULT '',
+		flowrun_node_id TEXT NOT NULL DEFAULT '',
 		created_at      DATETIME NOT NULL
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_mcl_ws_server ON mcp_calls(workspace_id, server_id, created_at DESC, id DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_mcl_ws_flowrun ON mcp_calls(workspace_id, flowrun_id) WHERE flowrun_id != ''`,
 }
 
 // serverRow is the on-disk shape; config_enc carries the encrypted {env, headers}. Env and

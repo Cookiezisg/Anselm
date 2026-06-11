@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # HTTP API —— 端点登记
 
-> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval。
+> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval · skill · mcp · document。
 > 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；List 全部 `?cursor&limit` 分页；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 
 ## function（`/api/v1/functions`）
@@ -107,3 +107,15 @@ audience: [human, ai]
 ## control / approval（`/api/v1/controls` · `/api/v1/approvals`）
 
 两域同构：CRUD + `POST {id}:edit / :revert / :iterate` + `GET {id}/versions[/{version}]`。approval 的运行时决策端点在 flowrun 侧（见上）。
+
+## skill（`/api/v1/skills`，name 即 id）
+
+CRUD（`POST` 严格冲突 / `PUT {name}` 覆盖 / `DELETE {name}`）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）。
+
+## mcp（`/api/v1/mcp/...`）
+
+servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry[/{name}]`（市场浏览）+ `POST /mcp/import`（Claude Desktop mcp.json）+ `GET {id}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`）+ `GET /mcp-calls/{id}`。
+
+## document（`/api/v1/documents`）
+
+CRUD + `POST {id}:move`（防环；nil parent=根）+ `GET /documents?parentId=`（树层列）+ `GET /documents:search?q=`（DB LIKE）。

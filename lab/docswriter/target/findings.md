@@ -90,3 +90,11 @@
 - **验证（吸取 F-4 教训）**：三重证据一致；测试断言 error 身份非 kind，改后 0 FAIL。
 - **修法**：`KindUnauthorized` → `KindInternal`(500)；error-codes.md 同步（401→500 + 补"两个 no-workspace 错误之分"）。
 - **状态**：**✅ 已修**
+
+## F-10 P4 亲审批（skill · mcp · document）✅ 已修
+
+亲读 ~5300 行三模块全栈。三模块都干净——skill（文件式、slug=身份=路径守卫、按需扫描、Anthropic spec 镜像）、document（自动加后缀 create / 改名级联 path / 防环 move / attach 单篇有界 / wikilink 出边）、mcp（镜像 handler 生命周期 / config_enc 加密 / degraded 阈值 / progress token 关联 / 进程归 sandbox）。
+
+- **P4-1（🟡 一致性，机械修）mcp_calls 缺 flowrun 审计列**：X1（F-8）接通后四执行单元三家有审计列、mcp 没有——workflow 跑 mcp action 后"这个 flowrun 调了哪些 mcp 工具"查不了（调度器 ctx 已注入、表却没列）。修：domain Call + DDL（2 列+偏索引）+ recordCall 读 ctx + CallFilter/store/HTTP `?conversationId&flowrunId` 全对齐其它三家（CallFilter 此前连 conversationId 都没有，一并补）。
+- **记录为设计事实（写进 domains 文档）**：document Search 走 DB LIKE vs fn/hd/agent 内存过滤（content 大列+行数大，DB 侧合理，有意分化）；skill 无 DB 表（文件式，slug 即身份）；mcp 状态不落盘（重启即重连）。
+- **文档**：`domains/{skill,mcp,document}.md` 三篇 + 三索引 P4 增量。

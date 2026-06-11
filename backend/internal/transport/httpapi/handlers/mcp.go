@@ -82,12 +82,14 @@ func (h *MCPHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, next, err := h.svc.ListCalls(r.Context(), mcpdomain.CallFilter{
-		ServerID:    st.ID,
-		Tool:        r.URL.Query().Get("tool"),
-		Status:      r.URL.Query().Get("status"),
-		TriggeredBy: r.URL.Query().Get("triggeredBy"),
-		Cursor:      p.Cursor,
-		Limit:       p.Limit,
+		ServerID:       st.ID,
+		Tool:           r.URL.Query().Get("tool"),
+		Status:         r.URL.Query().Get("status"),
+		TriggeredBy:    r.URL.Query().Get("triggeredBy"),
+		ConversationID: r.URL.Query().Get("conversationId"),
+		FlowrunID:      r.URL.Query().Get("flowrunId"),
+		Cursor:         p.Cursor,
+		Limit:          p.Limit,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

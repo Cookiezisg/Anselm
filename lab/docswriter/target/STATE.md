@@ -12,16 +12,16 @@
 | P1 | orm ✅（STD-2 + `foundation/orm.md`；F-4 撤回）· reqctx ✅（`foundation/reqctx.md` + F-5 `Detached` helper + F-6 kind 修） | ✅ 完成 |
 | P2 | function · handler · agent | ✅ **完成**（亲审全栈 + F-7/F-8 全修 + `domains/{function,handler,agent}.md` 三篇 0 障碍级 + seed api/database/events 三索引） |
 | P3 | trigger · control · approval · workflow · flowrun · scheduler | ✅ **完成**（亲审 ~11000 行 + F-9 全修（P3-1 致命 boot/drain 裸 ctx + 守护测试、P3-2 三源 dedup、P3-3 concurrency 统一）+ `foundation/scheduler-flowrun.md` + 4 domains + 三索引增量） |
-| P4 | skill · mcp · document | **← 下一步** |
-| P5 | conversation · chat · messages · attachment · memory · todo · subagent | ⬜ |
+| P4 | skill · mcp · document | ✅ **完成**（亲审 ~5300 行 + F-10（mcp flowrun 审计列对齐）+ 三篇 domains + 索引增量） |
+| P5 | conversation · chat · messages · attachment · memory · todo · subagent | **← 下一步** |
 | P6 | catalog · relation · mention · model · apikey · websearch · notification · workspace · sandbox · aispawn · humanloop · contextmgr · envfix · entitystream | ⬜ |
 | P7 | cel · crypto · stream · loop · tool · llm · db · pkg-utils · transport | ⬜ |
 | P8 | bootstrap | ⬜ |
 
 ## 账本
 - `standards.md`：STD-1（错误处理，已全量统一）· STD-2（数据访问 / orm）
-- `findings.md`：F-1/F-2/F-3 ✅ · F-4 撤回 · F-5/F-6 ✅ · F-7 ✅（agent 挂载）· F-8 ✅（P2 批）· F-9 ✅（P3 批：boot/drain 裸 ctx 致命修 + 三源 dedup + concurrency 统一）
-- 已落文档：`error-codes.md`（**246 码**+2 守卫）· `foundation/{orm,reqctx,scheduler-flowrun}.md` · `domains/{function,handler,agent,workflow,trigger,control,approval}.md`（0 障碍级）· **api/database/events 已覆盖 8 域**。其余域随评审填
+- `findings.md`：F-1/F-2/F-3 ✅ · F-4 撤回 · F-5/F-6 ✅ · F-7 ✅（agent 挂载）· F-8 ✅（P2 批）· F-9 ✅（P3 批）· F-10 ✅（P4 批：mcp flowrun 列对齐）
+- 已落文档：`error-codes.md`（**246 码**+2 守卫）· `foundation/{orm,reqctx,scheduler-flowrun}.md` · `domains/`×10 + `foundation/`×3（0 障碍级）· **api/database/events 已覆盖 11 域**。其余域随评审填
 
 ## Full coverage
 130 个 internal 包全有归属（order.md 折叠规则 + P8 bootstrap + logger 显式豁免）。covering 前逐包对账（inventory §对账）。
