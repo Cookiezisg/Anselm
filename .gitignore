@@ -111,9 +111,10 @@ pip-delete-this-directory.txt
 !lab/backendcleaner/target/
 !lab/backendcleaner/target/**
 
-# backend-new 编译产物（clean-room 期间；覆盖后并入 backend/* 规则）
-backend-new/server
-backend-new/cmd/server/server
+# backend 编译产物
+backend/server
+backend/cmd/server/server
+backend/bin/
 Cargo.lock       # 库项目取消注释此行；应用项目应保留
 
 # Ruby
