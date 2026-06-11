@@ -9,7 +9,7 @@
 | 阶段 | 模块 | 状态 |
 |---|---|---|
 | P0 | errors | ✅ → STD-1 + **全量统一**（类型移 pkg/errors、37 sentinel 全转 errorspkg.New、ADR 0002、error-codes.md seeded） |
-| P1 | orm ✅（STD-2，无 findings）· **reqctx** | **reqctx ← 下一步** |
+| P1 | orm ✅（STD-2 + `foundation/orm.md`；F-4 撤回——误判、回退+加注释）· **reqctx** | **reqctx ← 下一步** |
 | P2 | function · handler · agent | ⬜ |
 | P3 | trigger · control · approval · workflow · flowrun · scheduler | ⬜ |
 | P4 | skill · mcp · document | ⬜ |
@@ -20,8 +20,8 @@
 
 ## 账本
 - `standards.md`：STD-1（错误处理，已全量统一）· STD-2（数据访问 / orm）
-- `findings.md`：F-1 ✅（错误构造分裂→全量统一）· F-2 ✅（websearch 随 F-1）· F-3 ✅（22 处内联 validation 去重统一，7 agent 读码）
-- 索引：`error-codes.md` 已 seed（框架 + Kind + 命名空间）；逐域码随模块填。其余（api/database/events/changelog）随评审填
+- `findings.md`：F-1/F-2/F-3 ✅（错误全量统一）· F-4 撤回（orm.Page+Order 误判、回退+加解释注释）
+- 已落文档：`error-codes.md`（**完整 210 码**+ 2 守卫）· `foundation/orm.md`（STD-2 落地）。其余（api/database/events/changelog + 各 domains/）随评审填
 
 ## Full coverage
 130 个 internal 包全有归属（order.md 折叠规则 + P8 bootstrap + logger 显式豁免）。covering 前逐包对账（inventory §对账）。

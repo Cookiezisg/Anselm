@@ -103,7 +103,8 @@ docs/
 ├── concepts/             ← 稳定的架构解释（concept）
 ├── references/           ← 必须与代码同步的契约（reference）
 │   ├── backend/          ← api.md · database.md · events.md · error-codes.md · changelog.md
-│   │   └── domains/      ← 每个后端域一篇 <domain>.md
+│   │   ├── domains/      ← 每个后端域一篇 <domain>.md
+│   │   └── foundation/   ← 地基/引擎/infra 一篇（orm · cel · reqctx · loop · tool · …）
 │   └── frontend/         ← fsd-layers.md · entity-types.md · cross-cutting.md
 │       └── slices/       ← 每个 FSD slice 一篇 <slice>.md
 ├── decisions/            ← ADR，仅追加、不可变（decision）

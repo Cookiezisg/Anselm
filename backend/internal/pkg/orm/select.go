@@ -154,6 +154,15 @@ func (q *Query[T]) Page(ctx context.Context, cursor string, limit int) ([]*T, st
 		}
 		q.Where("("+q.meta.created.name+", "+q.meta.pk.name+") < (?, ?)", c.CreatedAt, c.ID)
 	}
+	// Default keyset order is (created, pk) DESC — matching the cursor's tuple
+	// comparison. A caller MAY override via a prior .Order() (kept intentionally):
+	// conversation lists pinned-first ("pinned DESC, created_at DESC, id DESC"). The
+	// cursor stays created-keyed, which is good enough since pins are few and land on
+	// page one — do NOT "fix" this by forcing the default order (it breaks pinned-first).
+	//
+	// 默认 keyset 排序 (created, pk) DESC，与游标元组比较一致。调用方可用先前 .Order() 覆盖
+	// （有意保留）：conversation 置顶优先列表（"pinned DESC, created_at DESC, id DESC"）。此时
+	// 游标仍按 created 键——够用（置顶少、都在首页）。别"修"成强制默认序（会破置顶优先）。
 	if q.order == "" {
 		q.order = q.meta.created.name + " DESC, " + q.meta.pk.name + " DESC"
 	}

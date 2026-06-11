@@ -31,3 +31,12 @@
 - **已做（7 agent 并行读码理解业务 + 去重，2026-06-11）**：22 处全转 `errorspkg.New`，**先去重不盲配码**——shell/kill 复用 `ErrEmptyBashID`、search 3 处 "limit must be non-negative" → 1 个 `ErrNegativeLimit`、document 4 处 "id is required" → 1 个 `ErrIDRequired`、memory 3 处共享 `ErrEmpty*`；ask 的 malformed-JSON 对齐全库 `fmt.Errorf("…: %w")` 包裹惯例（**不配码**——它是包裹非 sentinel）；顺带把 `shell.ErrInvalidTimeout`（还在 fmt.Errorf）也转了。
 - **故意保留**：`web/fetch.go:163` "stopped after 10 redirects" 是 `http.Client.CheckRedirect` 回调的内部控制流、非面向 LLM 的 sentinel → 留 std `errors.New`（全库唯一一处）。
 - **状态**：**✅ 已修**（Phase 3，全量统一彻底收尾）
+
+## F-4 `orm.Page` + 自定义 `Order` ~~脚雷~~ → 撤回（误判，是有意特性）
+
+- **模块**：P1 orm（`pkg/orm/select.go`）
+- **我的误判**：以为「`Page` 只在 `order==""` 时设 keyset 序」是脚雷（自定义 Order 会与游标失配），建议"改成无条件强制默认序"。**没先 grep 调用方**。
+- **真相（make verify 拦下）**：`conversation` 列表**故意** `.Order("pinned DESC, created_at DESC")` + `Page()` 做**置顶优先**——我的改动让 `TestList_PinnedFirstThenNewest` 立刻挂。这是**被用的特性**：`Page` 给默认序、可被覆盖；置顶少、都在首页，游标按 created 键够用。
+- **处置**：回退；转成**解释性注释**（写明「别强制默认序、会破置顶优先」），防下个人重蹈。净收益 = 多了一处设计注释。
+- **教训**：建议改地基行为前必须先 grep 全部调用方；机械门禁是安全网、不该靠它兜判断。
+- **状态**：**撤回**（非 finding；orm 仍无实质 findings，STD-2 成立）
