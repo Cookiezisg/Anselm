@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # HTTP API —— 端点登记
 
-> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：18 域（P0-P5 全部实体 + 对话运行时族）。
+> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：P0-P6 全部 32 域。
 > 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；List 全部 `?cursor&limit` 分页；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 
 ## function（`/api/v1/functions`）
@@ -136,3 +136,7 @@ CRUD + `POST {id}:move`（防环；nil parent=根）+ `GET /documents?parentId=`
 
 attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `DELETE /{id}`。
 memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/pin|unpin`（name 即 id）。
+
+## P6 支撑域
+
+workspace：CRUD（守最后一个）。apikey：CRUD + `:test`（probe）。model：`GET /model-capabilities` · scenarios。sandbox：`GET /sandbox/status` · `POST /sandbox:retry-bootstrap` · envs 列表/销毁。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。notification：list / 已读标记 / 未读计数。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /triage`。

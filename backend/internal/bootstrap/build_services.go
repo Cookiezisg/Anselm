@@ -244,6 +244,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Namers: map[string]relationapp.Namer{
 			relationdomain.EntityKindFunction:     fn,
 			relationdomain.EntityKindHandler:      hd,
+			relationdomain.EntityKindAgent:        ag, // workflow→agent equip / conversation→agent forged 边的目标端 hydrate
 			relationdomain.EntityKindControl:      ctl,
 			relationdomain.EntityKindApproval:     apf,
 			relationdomain.EntityKindWorkflow:     wf,

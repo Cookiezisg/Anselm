@@ -292,3 +292,21 @@ func (s *Store) TrimVersions(ctx context.Context, agentID string, keep int) erro
 	}
 	return nil
 }
+
+// GetByIDs batch-loads agents by id (relation Namer hydration). Missing ids are skipped.
+//
+// GetByIDs 按 id 批量取 agent（relation Namer hydrate 用）。缺失 id 跳过。
+func (s *Store) GetByIDs(ctx context.Context, ids []string) ([]*agentdomain.Agent, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	vals := make([]any, len(ids))
+	for i, id := range ids {
+		vals[i] = id
+	}
+	rows, err := s.agents.WhereIn("id", vals...).Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("agentstore.GetByIDs: %w", err)
+	}
+	return rows, nil
+}

@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 数据库 —— 表 / ID 前缀登记
 
-> 物理 schema 的单一事实源（表 · 关键列 · 索引/约束 · ID 前缀）。DDL 全文在各 `infra/store/<域>` 的 `Schema`（幂等 `CREATE IF NOT EXISTS`，启动时 `db.Migrate` 单事务应用）。随评审逐域填入；当前已落：18 域（P0-P5 全部实体 + 对话运行时族）。
+> 物理 schema 的单一事实源（表 · 关键列 · 索引/约束 · ID 前缀）。DDL 全文在各 `infra/store/<域>` 的 `Schema`（幂等 `CREATE IF NOT EXISTS`，启动时 `db.Migrate` 单事务应用）。随评审逐域填入；当前已落：P0-P6 全部 32 域。
 > 通则（D 系列）：业务表软删 `deleted_at`；Log 表（executions/calls）**只增不删**（D1）；全表带 `workspace_id`（orm 据 ctx 自动隔离，D2）；name 用 partial-UNIQUE `WHERE deleted_at IS NULL`（软删释放名字）；版本表 `UNIQUE(<entity>_id, version)`。
 
 ## 三实体共同形状
@@ -99,3 +99,14 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 | `attachments` | filename · mime · kind(image/document/text) · size · blob 在文件系统 | 软删；`att_`；≤50MB |
 | `todos` | conversation_id · items(json ≤64) | 整表替换写 |
 | **memory / subagent：无表** | — | memory=文件式（`workspaces/<ws>/memories/<name>.md`）；subagent=运行时机制（回合落父对话 messages） |
+
+## P6 支撑域
+
+| 表 | 说明 |
+|---|---|
+| `workspaces` | **全局表（无 ws 列——它即 workspace）**；语言/三场景模型默认/默认搜索 key；`ws_` |
+| `api_keys` | 密文整列加密；probe 归档；软删；`key_` |
+| `relations` | from/to (kind,id) × edge kind；硬删（PurgeEntity 级联）；`rel_` |
+| `notifications` | type(`<domain>.<action>`) · payload · read_at；`ntf_` |
+| `sandbox_envs` | env manifest（owner kind+id · runtime · status）——**硬删**（盘上目录是实体，墓碑无意义） |
+| catalog / mention / model / websearch / aispawn / humanloop / contextmgr / entitystream：**无表** | 派生/契约/运行时机制 |

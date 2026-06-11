@@ -104,3 +104,20 @@ func (s *Service) purgeRelations(ctx context.Context, id string) {
 		s.log.Warn("agentapp.purgeRelations: failed", zap.String("agentId", id), zap.Error(err))
 	}
 }
+
+// NamesByIDs implements relationapp.Namer: batch id→name so the relation graph hydrates
+// display names for agent nodes (the target end of workflow equip / conversation forged edges).
+//
+// NamesByIDs 实现 relationapp.Namer：批量 id→name，供 relation 图为 agent 节点（workflow equip /
+// conversation forged 边的目标端）hydrate 显示名。
+func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	rows, err := s.repo.GetByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(rows))
+	for _, a := range rows {
+		out[a.ID] = a.Name
+	}
+	return out, nil
+}

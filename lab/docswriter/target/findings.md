@@ -106,3 +106,10 @@
 - 验证插曲：subagent 白名单工具名（Read/LS/Glob/Grep…）初次 grep 全部"不存在"——是我 grep 模式没吃 gofmt 对齐空格，宽松重验全部存在（F-4 教训再次拦住误报）。
 - 记录：message 行的 error_code（LLM_RESOLVE_ERROR 等）是回合级错误码、与 HTTP wire code 两个命名空间（chat.md §6 写明）。
 - **文档**：domains/{chat,messages,conversation,subagent,attachment,memory,todo}.md 七篇 + 三索引 P5 增量。
+
+## F-12 P6 亲审批（14 支撑域）✅ 已修
+
+亲读 ~7700 行（sandbox 大头 + relation/contextmgr/humanloop 横切核心 + 11 微域 outline）。全族干净：relation 的 diff-sync（调用方声明终态）、contextmgr 的两步管线+水位幂等键（崩溃安全协议注释写透）、humanloop 的 broker 真相源、catalog 永不缓存、sandbox 的 per-key 锁+degraded 模式。
+
+- **P6-1（真 finding，已修）relation Namers 缺 agent**：11 种 EntityKind 注册了 10 种——唯独缺 agent，而 workflow→agent equip 边/conversation→agent forged 边都以 agent 为目标 → 关系图 hydrate 时 agent 节点无名。根因：agent Service 压根没实现 NamesByIDs（P2 报告提过、当时误判"agent 主要是关系源"未裁）。修：agentdomain.Repository 加 GetByIDs + store 实现 + app NamesByIDs（对齐 function 范式）+ bootstrap 注册第 11 个 Namer。
+- **文档**：foundation/sandbox.md（含 envfix）+ domains/relation.md + domains/support-services.md（十微域合篇——微域合篇是 skeleton B 类的取节变体，避免 10 个碎片文档）+ 三索引 P6 增量。

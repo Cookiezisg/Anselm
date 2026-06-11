@@ -121,6 +121,7 @@ var (
 type Repository interface {
 	Create(ctx context.Context, a *Agent) error
 	Get(ctx context.Context, id string) (*Agent, error)
+	GetByIDs(ctx context.Context, ids []string) ([]*Agent, error)
 	GetByName(ctx context.Context, name string) (*Agent, error)
 	List(ctx context.Context, limit int, cursor string) ([]*Agent, string, error)
 	ListAll(ctx context.Context) ([]*Agent, error)
