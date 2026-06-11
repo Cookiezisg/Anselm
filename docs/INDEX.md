@@ -6,34 +6,23 @@
 
 | Question | Go here |
 |---|---|
-| System architecture, phase roadmap | `concepts/architecture.md` |
-| Frontend PRD + UX requirements | `concepts/frontend-prd.md` |
-| Frontend architecture (FSD layers) | `concepts/frontend-architecture.md` |
-| Backend code rules (S/T series) | `CLAUDE.md` |
-| Specific domain design | `references/backend/domains/<domain>.md` |
-| API contracts (endpoints, payloads) | `references/backend/api.md` |
-| DB schema | `references/backend/database.md` |
-| Error codes | `references/backend/error-codes.md` |
-| SSE event protocols | `references/backend/events.md` |
-| FSD layer boundaries + slice list | `references/frontend/fsd-layers.md` |
-| Entity TS types ↔ API mapping | `references/frontend/entity-types.md` |
-| DIP / errorMap / SSE / queryKeys | `references/frontend/cross-cutting.md` |
-| Frontend slice design | `references/frontend/slices/<slice>.md` |
-| Recent progress + dev log | `references/changelog.md` |
-| Why we made a specific decision | `decisions/README.md` |
-| How to do X operationally | `how-to/` |
-| Active research in progress | `working/` |
-| Doc governance rules | `GOVERNANCE.md` |
-| Claude Code session plans + specs | `superpowers/` |
+| System architecture, phase roadmap, vision | `concepts/architecture.md` |
+| Engineering rules + work discipline (S/T/N/D/E series) | `../CLAUDE.md` |
+| Doc governance (types, mutability, sync rules) | `GOVERNANCE.md` |
+
+## Status — docs reset (V0.2 → V-next)
+
+The reference layer (API / DB / events / error-codes / 36 backend domains / frontend slices),
+the ADRs (`decisions/`), the how-to guides, and the working/archive notes were **cleared** at the
+V0.2 → V-next reset: the backend rewrite is complete and about to be covered back, and the frontend
+will be rebuilt — docs will be **regenerated against the new structure** as it lands.
+
+Only the two survivors are kept here: `concepts/architecture.md` (the north star) and `GOVERNANCE.md`
+(how docs are organized).
+
+**The previous version's complete docs are archived on the `version-0.2` git branch.** Recover any
+of them with, e.g., `git checkout version-0.2 -- docs/references/backend`.
 
 ## Authority Hierarchy
 
-`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`
-
-## Active Working Docs
-
-| Topic | Status | Started |
-|---|---|---|
-| workflow-revamp | landed (Durable Engine shipped) | 2026-05-20 |
-| llm-providers | landed (R1-R5 shipped) | 2026-05-25 |
-| testend | landed (V3 shipped) | 2026-05-27 |
+`CLAUDE.md` > `concepts/architecture.md` > `GOVERNANCE.md`

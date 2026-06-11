@@ -1,7 +1,0 @@
-{
-  "nodeModelOverride": {
-    "label": "Agent 模型",
-    "hint": "为此节点设置专用模型;留空则跟 Agent 默认相同。",
-    "useDefault": "跟默认相同"
-  }
-}

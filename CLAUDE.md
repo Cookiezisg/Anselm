@@ -15,17 +15,13 @@
 
 ## 文档地图
 
+> **V0.2 → V-next 重置**：契约层（API / DB / events / error-codes / 36 domain）、前端文档、ADR、how-to、working/archive 已**清空**——后端重写完成、即将覆盖回，前端将重建，文档按新结构**重生成**。前版完整文档归档在 **`version-0.2`** 分支（`git checkout version-0.2 -- docs/...` 取回）。
+
 | 用途 | 路径 |
 |---|---|
 | 项目愿景 / 架构 / 路线图 | `docs/concepts/architecture.md` |
-| 开发日志 / 决策快照 | `docs/references/changelog.md` |
-| 契约: 全量 REST API | `docs/references/backend/api.md` |
-| 契约: 全量 DB Schema | `docs/references/backend/database.md` |
-| 契约: SSE 实时协议 | `docs/references/backend/events.md` |
-| 契约: 181 错误码对账 | `docs/references/backend/error-codes.md` |
-| 领域: 29 个 Domain 详设计 | `docs/references/backend/domains/<domain>.md` |
-| 前端: FSD 层级与 Slice 设计 | `docs/references/frontend/` |
-| 架构决策记录（ADR） | `docs/decisions/README.md` |
+| 文档治理（类型/可变性/同步规则） | `docs/GOVERNANCE.md` |
+| 文档索引（入口 + 重置状态） | `docs/INDEX.md` |
 
 ---
 

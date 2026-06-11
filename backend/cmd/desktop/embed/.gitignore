@@ -1,5 +1,0 @@
-# Build output copied here by `make frontend-build` before wails build.
-# Track only this .gitignore + .gitkeep so the dir exists for go:embed.
-*
-!.gitignore
-!.gitkeep
