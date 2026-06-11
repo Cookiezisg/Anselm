@@ -113,3 +113,10 @@
 
 - **P6-1（真 finding，已修）relation Namers 缺 agent**：11 种 EntityKind 注册了 10 种——唯独缺 agent，而 workflow→agent equip 边/conversation→agent forged 边都以 agent 为目标 → 关系图 hydrate 时 agent 节点无名。根因：agent Service 压根没实现 NamesByIDs（P2 报告提过、当时误判"agent 主要是关系源"未裁）。修：agentdomain.Repository 加 GetByIDs + store 实现 + app NamesByIDs（对齐 function 范式）+ bootstrap 注册第 11 个 Namer。
 - **文档**：foundation/sandbox.md（含 envfix）+ domains/relation.md + domains/support-services.md（十微域合篇——微域合篇是 skeleton B 类的取节变体，避免 10 个碎片文档）+ 三索引 P6 增量。
+
+## F-13 P7+P8 亲审收口（地基/引擎件 + bootstrap）✅ 零 finding
+
+P7（cel/crypto/stream/loop/tool/llm/db/pkg 工具箱/transport）+ P8（bootstrap，前几轮已全读）。**零 finding**——这层是全库根基且最干净：loop（错误风暴熔断/诚实 MAX_STEPS/可选能力 type-assert/执行组并行下标对齐无锁）、stream（durable/ephemeral 双轨 + replay 环 + 410 重拉）、cel（无 now() 的重放确定性）、llm（sanitizer 守 tool_call 配对 + stub 回复救被打断回合）、bootstrap（后注入破环/三步优雅关停顺序/forEachWorkspace 播种）。
+
+- **文档**：foundation/{loop, stream-llm, platform-pkgs, bootstrap}.md 四篇 + INDEX.md 整体重述（文档体系入口）。
+- **P0-P8 全程完成**：32 域全覆盖、19+8 篇文档、四索引逐字对账、246+ 码 registry、4 条机械守卫、F-1~F-13（真 bug 修复 7 批、撤回 1、零 finding 3 轮）。

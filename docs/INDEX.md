@@ -6,30 +6,21 @@
 
 | 要找 | 去 |
 |---|---|
-| 系统架构 / Phase 路线 / 愿景 | `concepts/architecture.md` |
-| 工程纪律 + 代码规则（S/T/N/D/E 系列） | `../CLAUDE.md` |
-| 文档规范（类型 / frontmatter / 同步 / 执行） | `GOVERNANCE.md` |
+| 系统架构 / 路线 / 愿景 | `concepts/architecture.md` |
+| 工程纪律 + 代码规则（S/T/N/D/E） | `../CLAUDE.md` |
+| **HTTP 端点 / DB 表 / 错误码 / SSE 事件**（四索引，与代码逐字同步） | `references/backend/{api,database,error-codes,events}.md` |
+| 某个域怎么设计的（心智模型 / 生命周期 / 坑） | `references/backend/domains/<域>.md` |
+| 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
+| 架构决策（直装运行时 / 统一错误类型） | `decisions/000{1,2}-*.md` |
 
-## 结构 —— 骨架已建、内容待填（V0.2 → V-next）
+## 后端文档体系（V-next 重写完成，2026-06-11）
 
-下树即 canonical 组织（依 `GOVERNANCE.md`）。reference / how-to / working / archive 当前为**空占位**（`.gitkeep`，各含一行职责）——随重写覆盖回 + 前端重建，按新结构往里填。
+全后端 32 域评审完毕（lab/docswriter P0-P8），每域一篇 0 障碍级文档 + 四索引逐字对账：
 
-```
-docs/
-├── INDEX.md          ← 本文（AI 入口）
-├── GOVERNANCE.md     ← 文档规范（强制）
-├── concepts/         ← architecture.md（愿景 / 架构 / 引擎）
-├── references/       ← 与代码同步的契约（空）
-│   ├── backend/      ← api / database / events / error-codes / changelog + domains/
-│   └── frontend/     ← fsd-layers / entity-types / cross-cutting + slices/
-├── decisions/        ← ADR（0001 沙箱运行时直装）
-├── how-to/           ← 操作手册（空）
-├── working/          ← 在研，≤90 天（空）
-└── archive/          ← 只读墓地（空）
-```
-
-**前版完整文档**在 `version-0.2` 分支 —— `git checkout version-0.2 -- docs/...` 取回。
+- **domains/**（19 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · support-services（十微域合篇）
+- **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
+- **frontend/**：随前端重建填充
 
 ## 权威层级
 
-`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`
+`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`。前版文档在 `version-0.2` 分支。

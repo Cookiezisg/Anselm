@@ -3,7 +3,7 @@
 > 改进度/阶段 = **整体重述本文件到当前**（非追加）。
 
 ## 阶段
-**Phase 1 评审中** —— 以文档为手段的全后端设计评审，按 `order.md` 评审序（P0–P8）逐模块走 PLAYBOOK 循环。
+**✅ 全程完成（2026-06-11）** —— P0-P8 全后端设计评审收口：32 域全覆盖、27 篇文档（19 domains + 8 foundation）、四索引逐字对账、F-1~F-13。
 
 ## 进度
 | 阶段 | 模块 | 状态 |
@@ -15,8 +15,8 @@
 | P4 | skill · mcp · document | ✅ **完成**（亲审 ~5300 行 + F-10（mcp flowrun 审计列对齐）+ 三篇 domains + 索引增量） |
 | P5 | conversation · chat · messages · attachment · memory · todo · subagent | ✅ **完成**（亲审 ~5500 行，零真 bug + 七篇 domains + 索引增量） |
 | P6 | catalog · relation · mention · model · apikey · websearch · notification · workspace · sandbox · aispawn · humanloop · contextmgr · envfix · entitystream | ✅ **完成**（F-12：relation Namers 缺 agent 已修 + 3 篇文档） |
-| P7 | cel · crypto · stream · loop · tool · llm · db · pkg-utils · transport | **← 下一步** |
-| P8 | bootstrap | ⬜ |
+| P7 | cel · crypto · stream · loop · tool · llm · db · pkg-utils · transport | ✅ 完成（零 finding + 4 篇 foundation） |
+| P8 | bootstrap | ✅ **完成**（foundation/bootstrap.md；全程 P0-P8 收口） |
 
 ## 账本
 - `standards.md`：STD-1（错误处理，已全量统一）· STD-2（数据访问 / orm）
