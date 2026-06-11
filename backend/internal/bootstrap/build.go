@@ -11,7 +11,9 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
+	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 	handlershttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
 	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
 )
@@ -45,6 +48,7 @@ type App struct {
 	Addr     string
 	log      *zap.Logger
 	svc      *services
+	db       *ormpkg.DB
 	tickStop context.CancelFunc
 }
 
@@ -87,6 +91,7 @@ func Build(cfg Config) (*App, error) {
 		Addr:    addr,
 		log:     log,
 		svc:     svc,
+		db:      database,
 	}, nil
 }
 
@@ -138,6 +143,62 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(`{"data":{"status":"ok"}}`))
+}
+
+// shutdownGrace bounds the whole graceful drain (HTTP + background + DB).
+//
+// shutdownGrace 限定整个优雅排空（HTTP + 后台 + DB）。
+const shutdownGrace = 10 * time.Second
+
+// Serve owns the entire server lifecycle and blocks until ctx is cancelled (the entry shell wires
+// SIGINT/SIGTERM to it) or the listener fails. The graceful-shutdown ORDER is a backend concern, not
+// the shell's, and it must be exactly this — otherwise it is NOT graceful:
+//
+//  1. cancel the base request context FIRST — every request derives from it, so the frontend's three
+//     resident SSE streams (never idle) end at once. Without this, http.Shutdown would block the full
+//     grace window waiting for those connections to go idle (they never do).
+//  2. http.Shutdown — now drains instantly (only short requests remain).
+//  3. App.Shutdown — stop background work, then close the DB last.
+//
+// Returns the listener error, or nil on a clean signal-triggered stop.
+//
+// Serve 拥有整个服务生命周期，阻塞到 ctx 取消（入口壳把 SIGINT/SIGTERM 接到它）或 listener 失败。优雅关停的
+// **顺序**是后端的事、不是壳的事，且必须正是这个顺序——否则就不优雅：① 先取消 base 请求 ctx——每个请求都从它派
+// 生，故前端三条常驻 SSE 流（永不 idle）一起结束；否则 http.Shutdown 会干等满整个 grace 窗口等这些永不 idle 的
+// 连接。② http.Shutdown——这下瞬间排空（只剩短请求）。③ App.Shutdown——停后台、最后关 DB。
+func (a *App) Serve(ctx context.Context) error {
+	a.Boot(context.Background())
+
+	baseCtx, cancelBase := context.WithCancel(context.Background())
+	srv := &http.Server{
+		Addr:        a.Addr,
+		Handler:     a.Handler,
+		BaseContext: func(net.Listener) context.Context { return baseCtx },
+	}
+
+	serveErr := make(chan error, 1)
+	go func() {
+		a.log.Info("serving", zap.String("addr", a.Addr))
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- err
+		}
+	}()
+
+	var listenErr error
+	select {
+	case <-ctx.Done(): // SIGINT/SIGTERM
+	case listenErr = <-serveErr:
+	}
+
+	sctx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
+	defer cancel()
+	a.log.Info("shutting down gracefully")
+	cancelBase() // 1. end resident SSE streams so HTTP can drain
+	if err := srv.Shutdown(sctx); err != nil {
+		a.log.Warn("bootstrap: http shutdown", zap.Error(err))
+	}
+	a.Shutdown(sctx) // 2. stop background work + close DB
+	return listenErr
 }
 
 // Boot starts background work: sandbox runtime bootstrap + env-manager registration, resident
@@ -198,9 +259,15 @@ func (a *App) drainLoop(ctx context.Context) {
 	}
 }
 
-// Shutdown stops background work in reverse dependency order. ctx bounds the graceful drain.
+// Shutdown stops everything in reverse dependency order, then closes the DB last. ctx bounds the
+// graceful drain. Order: stop the firing-drain ticker (no new runs) → trigger listeners → chat
+// queues → mcp / handler resident processes → sandbox (kills any remaining spawned long-lived
+// handles its consumers didn't) → flush logs → close the DB (checkpoints the SQLite WAL). Each step
+// is best-effort logged so one stuck subsystem cannot block the rest.
 //
-// Shutdown 逆依赖序停后台工作。ctx 限定优雅排空时间。
+// Shutdown 逆依赖序停一切、最后关 DB。ctx 限优雅排空。顺序：停 firing-drain ticker（不再起新 run）→
+// trigger listener → chat 队列 → mcp / handler 常驻进程 → sandbox（杀消费者没杀干净的 spawned long-lived
+// handle）→ flush 日志 → 关 DB（checkpoint SQLite WAL）。每步 best-effort 记日志，一个卡死子系统不拖垮其余。
 func (a *App) Shutdown(ctx context.Context) {
 	if a.tickStop != nil {
 		a.tickStop()
@@ -209,5 +276,11 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.svc.chat.Shutdown()
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)
+	if err := a.svc.sandbox.Shutdown(ctx); err != nil {
+		a.log.Warn("bootstrap: sandbox shutdown", zap.Error(err))
+	}
 	_ = a.log.Sync()
+	if err := a.db.Close(); err != nil {
+		a.log.Warn("bootstrap: db close", zap.Error(err))
+	}
 }
