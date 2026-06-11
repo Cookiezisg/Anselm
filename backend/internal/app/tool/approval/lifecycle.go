@@ -46,10 +46,10 @@ func (t *CreateApproval) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_approval: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("create_approval: name is required")
+		return ErrNameRequired
 	}
 	if strings.TrimSpace(a.Template) == "" {
-		return fmt.Errorf("create_approval: template is required")
+		return ErrTemplateRequired
 	}
 	return nil
 }
@@ -114,10 +114,10 @@ func (t *EditApproval) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_approval: bad args: %w", err)
 	}
 	if a.ApprovalID == "" {
-		return fmt.Errorf("edit_approval: approvalId is required")
+		return ErrApprovalIDRequired
 	}
 	if strings.TrimSpace(a.Template) == "" {
-		return fmt.Errorf("edit_approval: template is required")
+		return ErrTemplateRequired
 	}
 	return nil
 }
@@ -175,10 +175,10 @@ func (t *RevertApproval) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_approval: bad args: %w", err)
 	}
 	if a.ApprovalID == "" {
-		return fmt.Errorf("revert_approval: approvalId is required")
+		return ErrApprovalIDRequired
 	}
 	if a.Version <= 0 {
-		return fmt.Errorf("revert_approval: version must be a positive integer")
+		return ErrVersionPositive
 	}
 	return nil
 }
@@ -224,7 +224,7 @@ func (t *DeleteApproval) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_approval: bad args: %w", err)
 	}
 	if a.ApprovalID == "" {
-		return fmt.Errorf("delete_approval: approvalId is required")
+		return ErrApprovalIDRequired
 	}
 	return nil
 }

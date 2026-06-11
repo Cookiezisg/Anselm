@@ -49,6 +49,22 @@
 - **修（完整功能实现）**：新 `app/tool/mount` 包——per-mount **合成绑定工具**（fn→以 function 命名、hd→`name__method`、mcp→`mcp__server__tool`；目标自己的 desc+inputs schema；Execute 走实体标准执行方法、TriggeredBy=agent；DIP 三窄端口可 fake）；`skillapp.Guide`（渲染执行指南，不设 active-skill、不 fork）注入 system prompt；InvokeDeps 重塑（删 `Tools func()`，加 Mounts/Skill；需要却 nil = 大声失败）；挂载解析 fail-fast + 撞名检测（`AGENT_MOUNT_INVALID`）；`schemapkg.ToJSONSchema`（地基补正向转换）；rigged 测试改真实路径 + mount 包全合成单测。**评审报告纠偏**：agent 的 recordExecution 其实早已填 toolCallID/flowrunID/flowrunNodeID（X1 不含 agent）。
 - **状态**：**✅ 已修**（build + 全测试 0 FAIL；`domains/agent.md` 落定）
 
+## F-8 P2 亲审 findings 批（用户裁决 2026-06-11：X1 选 A、其余全修）✅ 已修
+
+我亲读三实体全栈（~9000 行）重审（用户不信 subagent 报告），证实/纠正/新增如下，全部修复：
+
+- **X1（A 案）审计列三实体悬空**：`tool_call_id/flowrun_id/flowrun_node_id` 列+索引+过滤器+HTTP param 齐全但无写入供给（根因：scheduler.Dispatcher 接口不带 flowrun 上下文；之前"agent 已全"只对一半——有管道但 dispatcher 不喂）。修：`reqctx` 加 `SetFlowrunID/SetFlowrunNodeID`（横切，与 conversation/toolCall id 同级）、调度器 `runNode` 派发前注入 ctx、三实体 recordX 读 ctx（agent 的 InvokeInput 显式字段优先供 ADR-010）。派发端口保持 `(ctx, ref, input)` 不穿透。
+- **H3（真 bug）config 孤儿 key 炸 spawn**：`__init__` 命名参数 + driver `**args`，schema 删过的 arg 留在 config → TypeError → 永久 spawn 失败。修：`spawnInstance` 唯一咽喉点按 active schema 过滤 config。
+- **H2 `MethodSpec.Timeout` 死字段 + 注释撒谎**（亲验 0 读取、"client default"不存在）。修：**实现**——Call 先解析 method spec（不存在 → `HANDLER_METHOD_NOT_FOUND` 早失败，不进 RPC）+ Timeout>0 加 ctx deadline（防卡死 method 堵死单例串行管道）；domain 注释重述。
+- **H1 `Client.Call` 死代码**（亲验 0 调用方）。修：删接口方法+实现，统一 StreamCall。
+- **X5 事件名分叉**：UpdateMeta 通知 fn/hd 发 `updated`、agent 发 `meta_updated`。修：统一 `updated`。
+- **X2 UpdateMeta 错码**：fn+hd 用 `*_OP_INVALID`（forge 语义）报 PATCH meta 的 name 非法。修：各加 `FUNCTION_INVALID_NAME`/`HANDLER_INVALID_NAME`(400)。
+- **Count 字段误导**（三实体一致 Count=页大小）。修：删字段（数组长度自明；前端重建中零迁移成本）；测试断言改 len()。
+- **Create 查名预检冗余**（TOCTOU；store 的 partial-UNIQUE + ErrConflict 翻译才是真守卫）。修：删三实体预检，唯一性单源化到 DB 约束。
+- **F-3 漏网 67 处**：tool 层 `fmt.Errorf("<tool>: x is required")` 静态校验（当时只扫了 errors.New 形式）。修：9 包各加 `sentinels.go`（共享 sentinel、同物理违例一码，31 新码）；trigger 的 kind 校验**复用** domain `ErrInvalidKind` 不造新码。错误码 213→246，机械重抽取保 parity。
+- **wontfix（记录为设计事实，写进 domains 文档）**：ctx 取消标 crashed 重启单例（协议正确性）；`HANDLER_CLIENT_*` 冒泡 HTTP（502 语义对）；Search 全表载入（本地规模取舍）；agent tokens/steps 不持久化（无 ALTER 机制，留观测议题）；ForgedInConversationID 类型微分叉（不值得动 DDL）。
+- **文档**：`domains/{function,handler,agent}.md` 三篇 0 障碍级详解 + seed `api.md`/`database.md`/`events.md` 三索引（三实体条目）+ reqctx.md 补 flowrun 行。
+
 ## F-5 detached context 散手搓 → 加 `reqctx.Detached` helper ✅ 已修
 
 - **模块**：P1 reqctx（横切：~15 个 app/infra 站点）

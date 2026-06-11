@@ -12,7 +12,6 @@ import (
 //
 // SearchExecutionsResult 是 SearchExecutions 的响应形状：一页行 + ok/failed 汇总。
 type SearchExecutionsResult struct {
-	Count      int                                `json:"count"`
 	Executions []*functiondomain.Execution        `json:"executions"`
 	NextCursor string                             `json:"nextCursor,omitempty"`
 	HasMore    bool                               `json:"hasMore"`
@@ -32,7 +31,6 @@ func (s *Service) SearchExecutions(ctx context.Context, filter functiondomain.Ex
 		return nil, fmt.Errorf("functionapp.SearchExecutions: aggregates: %w", err)
 	}
 	return &SearchExecutionsResult{
-		Count:      len(rows),
 		Executions: rows,
 		NextCursor: next,
 		HasMore:    next != "",

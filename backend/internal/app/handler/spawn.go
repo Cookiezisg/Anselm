@@ -44,6 +44,15 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 			return nil, fmt.Errorf("%w: missing required init arg %q", handlerdomain.ErrConfigIncomplete, arg.Name)
 		}
 	}
+	// Pass ONLY the args the active schema declares: __init__ has a named parameter list, so an
+	// orphaned config key (its arg removed by a later version, or left behind by a revert) would
+	// be an unexpected kwarg → Python TypeError → permanent spawn failure. Filtering at the single
+	// spawn choke point defends against every drift source, with no stored-config rewrite.
+	//
+	// 只传 active schema 声明的 args：__init__ 是命名参数列表，孤儿 config key（arg 被后续版本删、或
+	// revert 留下）会成为意外 kwarg → Python TypeError → spawn 永久失败。在 spawn 这个唯一咽喉点过滤，
+	// 防住所有漂移来源，且无需改写存储的 config。
+	config = filterConfigToSchema(config, active.InitArgsSchema)
 
 	if active.EnvStatus != handlerdomain.EnvStatusReady {
 		if ready, errMsg := s.ensureEnv(ctx, active, nil); !ready {
@@ -82,6 +91,26 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 		Client:    client,
 		Kill:      handle.Kill,
 	}, nil
+}
+
+// filterConfigToSchema drops config keys not declared by the schema (nil-safe both ways).
+//
+// filterConfigToSchema 丢弃 schema 未声明的 config key（双向 nil 安全）。
+func filterConfigToSchema(config map[string]any, schema []handlerdomain.InitArgSpec) map[string]any {
+	if config == nil {
+		return nil
+	}
+	declared := make(map[string]bool, len(schema))
+	for _, a := range schema {
+		declared[a.Name] = true
+	}
+	out := make(map[string]any, len(config))
+	for k, v := range config {
+		if declared[k] {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func activeToDraft(v *handlerdomain.Version) *VersionDraft {

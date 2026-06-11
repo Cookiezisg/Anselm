@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 213 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 246 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（213 码，按域）
+## 全量登记（246 码，按域）
 
-> `errorspkg.New` 机械抽取（211）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（244）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -73,12 +73,40 @@ audience: [human, ai]
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
 
+### `app/tool/agent`
+
+| code | HTTP | message |
+|---|---|---|
+| `AGENT_EXECUTION_ID_REQUIRED` | 400 | executionId is required |
+| `AGENT_ID_PROMPT_REQUIRED` | 400 | agentId and prompt are required |
+| `AGENT_ID_REQUIRED` | 400 | agentId is required |
+| `AGENT_NAME_PROMPT_REQUIRED` | 400 | name and prompt are required |
+| `AGENT_REVERT_ARGS_REQUIRED` | 400 | agentId and a positive version are required |
+
+### `app/tool/approval`
+
+| code | HTTP | message |
+|---|---|---|
+| `APPROVAL_ID_REQUIRED` | 400 | approvalId is required |
+| `APPROVAL_NAME_REQUIRED` | 400 | name is required |
+| `APPROVAL_TEMPLATE_REQUIRED` | 400 | template is required |
+| `APPROVAL_VERSION_POSITIVE` | 400 | version must be a positive integer |
+
 ### `app/tool/ask`
 
 | code | HTTP | message |
 |---|---|---|
 | `ASK_MESSAGE_REQUIRED` | 400 | message is required |
 | `ASK_NO_INTERACTIVE_USER` | 503 | ask_user is only available in an interactive conversation; proceed without asking |
+
+### `app/tool/control`
+
+| code | HTTP | message |
+|---|---|---|
+| `CONTROL_BRANCHES_REQUIRED` | 400 | branches is required (at least one) |
+| `CONTROL_ID_REQUIRED` | 400 | controlId is required |
+| `CONTROL_NAME_REQUIRED` | 400 | name is required |
+| `CONTROL_VERSION_POSITIVE` | 400 | version must be a positive integer |
 
 ### `app/tool/document`
 
@@ -99,6 +127,31 @@ audience: [human, ai]
 | `FS_NEGATIVE_LIMIT` | 400 | limit must be non-negative |
 | `FS_NEGATIVE_OFFSET` | 400 | offset must be non-negative |
 | `FS_NEW_STRING_REQUIRED` | 400 | new_string field is required (use empty string to delete the matched text) |
+
+### `app/tool/function`
+
+| code | HTTP | message |
+|---|---|---|
+| `FUNCTION_EXECUTION_ID_REQUIRED` | 400 | executionId is required |
+| `FUNCTION_ID_REQUIRED` | 400 | functionId is required |
+| `FUNCTION_OPS_REQUIRED` | 400 | ops is required (non-empty) |
+| `FUNCTION_VERSION_POSITIVE` | 400 | version must be a positive integer |
+
+### `app/tool/handler`
+
+| code | HTTP | message |
+|---|---|---|
+| `HANDLER_CALL_ID_REQUIRED` | 400 | callId is required |
+| `HANDLER_ID_REQUIRED` | 400 | handlerId is required |
+| `HANDLER_METHOD_REQUIRED` | 400 | method is required |
+| `HANDLER_OPS_REQUIRED` | 400 | ops is required (non-empty) |
+| `HANDLER_VERSION_POSITIVE` | 400 | version must be a positive integer |
+
+### `app/tool/mcp`
+
+| code | HTTP | message |
+|---|---|---|
+| `MCP_NAME_REQUIRED` | 400 | name is required |
 
 ### `app/tool/memory`
 
@@ -126,11 +179,25 @@ audience: [human, ai]
 | `SHELL_INVALID_TIMEOUT` | 400 | timeout must be between 0 and %d ms |
 | `SHELL_PROCESS_NOT_FOUND` | 404 | background shell process not found |
 
+### `app/tool/skill`
+
+| code | HTTP | message |
+|---|---|---|
+| `SKILL_NAME_REQUIRED` | 400 | name is required |
+
 ### `app/tool/toolset`
 
 | code | HTTP | message |
 |---|---|---|
 | `TOOLSET_EMPTY_QUERY` | 400 | query is required and must be non-empty |
+
+### `app/tool/trigger`
+
+| code | HTTP | message |
+|---|---|---|
+| `TRIGGER_ACTIVATION_ID_REQUIRED` | 400 | activationId is required |
+| `TRIGGER_ID_REQUIRED` | 400 | triggerId is required |
+| `TRIGGER_NAME_REQUIRED` | 400 | name is required |
 
 ### `app/tool/web`
 
@@ -144,6 +211,15 @@ audience: [human, ai]
 | `WEB_EMPTY_PROMPT` | 400 | prompt is required and must be non-empty |
 | `WEB_EMPTY_URL` | 400 | url is required and must be non-empty |
 | `WEB_UNSUPPORTED_SCHEME` | 400 | url must use http or https scheme |
+
+### `app/tool/workflow`
+
+| code | HTTP | message |
+|---|---|---|
+| `WORKFLOW_ID_REQUIRED` | 400 | workflowId is required |
+| `WORKFLOW_NAME_REQUIRED` | 400 | name is required |
+| `WORKFLOW_OPS_REQUIRED` | 400 | ops is required (non-empty) |
+| `WORKFLOW_VERSION_POSITIVE` | 400 | version must be a positive integer |
 
 ### `app/workflow`
 
@@ -257,6 +333,7 @@ audience: [human, ai]
 | `FUNCTION_ENV_NOT_READY` | 422 | function env not ready |
 | `FUNCTION_EXECUTION_NOT_FOUND` | 404 | function execution not found |
 | `FUNCTION_INVALID_CODE` | 422 | function code invalid |
+| `FUNCTION_INVALID_NAME` | 400 | invalid function name (lowercase alphanumeric + dashes/underscores, 1-64 chars) |
 | `FUNCTION_NAME_DUPLICATE` | 409 | function name already exists |
 | `FUNCTION_NOT_FOUND` | 404 | function not found |
 | `FUNCTION_NO_ACTIVE_VERSION` | 422 | function has no active version |
@@ -275,6 +352,7 @@ audience: [human, ai]
 | `HANDLER_ENV_NOT_READY` | 422 | handler env not ready |
 | `HANDLER_INSTANCE_SPAWN_FAILED` | 502 | handler instance spawn failed |
 | `HANDLER_INVALID_CODE` | 422 | handler class code invalid |
+| `HANDLER_INVALID_NAME` | 400 | invalid handler name (lowercase alphanumeric + dashes/underscores, 1-64 chars) |
 | `HANDLER_METHOD_NOT_FOUND` | 404 | handler method not found |
 | `HANDLER_NAME_DUPLICATE` | 409 | handler name already exists |
 | `HANDLER_NOT_FOUND` | 404 | handler not found |

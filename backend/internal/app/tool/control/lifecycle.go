@@ -55,10 +55,10 @@ func (t *CreateControl) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_control: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("create_control: name is required")
+		return ErrNameRequired
 	}
 	if len(a.Branches) == 0 {
-		return fmt.Errorf("create_control: at least one branch is required")
+		return ErrBranchesRequired
 	}
 	return nil
 }
@@ -128,10 +128,10 @@ func (t *EditControl) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_control: bad args: %w", err)
 	}
 	if a.ControlID == "" {
-		return fmt.Errorf("edit_control: controlId is required")
+		return ErrControlIDRequired
 	}
 	if len(a.Branches) == 0 {
-		return fmt.Errorf("edit_control: branches is required (the complete new set)")
+		return ErrBranchesRequired
 	}
 	return nil
 }
@@ -185,10 +185,10 @@ func (t *RevertControl) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_control: bad args: %w", err)
 	}
 	if a.ControlID == "" {
-		return fmt.Errorf("revert_control: controlId is required")
+		return ErrControlIDRequired
 	}
 	if a.Version <= 0 {
-		return fmt.Errorf("revert_control: version must be a positive integer")
+		return ErrVersionPositive
 	}
 	return nil
 }
@@ -234,7 +234,7 @@ func (t *DeleteControl) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_control: bad args: %w", err)
 	}
 	if a.ControlID == "" {
-		return fmt.Errorf("delete_control: controlId is required")
+		return ErrControlIDRequired
 	}
 	return nil
 }

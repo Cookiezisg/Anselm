@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -125,12 +124,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 	if err != nil {
 		return nil, nil, fmt.Errorf("handlerapp.Create: %w", err)
 	}
-	if _, derr := s.repo.GetHandlerByName(ctx, draft.Name); derr == nil {
-		return nil, nil, handlerdomain.ErrDuplicateName
-	} else if !errors.Is(derr, handlerdomain.ErrNotFound) {
-		return nil, nil, fmt.Errorf("handlerapp.Create: dup-check: %w", derr)
-	}
-
 	now := time.Now().UTC()
 	hID := idgenpkg.New("hd")
 	versionID := idgenpkg.New("hdv")
@@ -280,7 +273,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerd
 	}
 	if in.Name != nil {
 		if !validNameRe.MatchString(*in.Name) {
-			return nil, fmt.Errorf("handlerapp.UpdateMeta: %w: name %q", handlerdomain.ErrOpInvalid, *in.Name)
+			return nil, fmt.Errorf("handlerapp.UpdateMeta: %w: name %q", handlerdomain.ErrInvalidName, *in.Name)
 		}
 		h.Name = *in.Name
 	}

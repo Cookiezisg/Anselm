@@ -75,7 +75,7 @@ func (t *CreateAgent) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" || strings.TrimSpace(a.Prompt) == "" {
-		return fmt.Errorf("create_agent: name and prompt are required")
+		return ErrNamePromptRequired
 	}
 	return nil
 }
@@ -128,7 +128,7 @@ func (t *EditAgent) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.AgentID) == "" || strings.TrimSpace(a.Prompt) == "" {
-		return fmt.Errorf("edit_agent: agentId and prompt are required")
+		return ErrIDPromptRequired
 	}
 	return nil
 }

@@ -45,6 +45,34 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 		return nil, fmt.Errorf("handlerapp.Call: %w", handlerdomain.ErrNoActiveVersion)
 	}
 
+	// Resolve the method's spec up front: a miss fails with the precise domain error before any
+	// spawn/RPC, and the spec's Timeout (ms) deadline-bounds THIS call — without it a wedged
+	// method would block the resident instance's serial pipe (one mutexed stdio) indefinitely
+	// when the caller carries no deadline of its own.
+	//
+	// 先解析 method 的 spec：未命中在任何 spawn/RPC 前以精确 domain 错误失败；spec 的 Timeout（ms）
+	// 给本次调用加 deadline——没有它，卡死的 method 会在调用方自身无 deadline 时无限期堵住常驻实例的
+	// 串行管道（单 mutex stdio）。
+	active, err := s.repo.GetVersion(ctx, h.ActiveVersionID)
+	if err != nil {
+		return nil, fmt.Errorf("handlerapp.Call: %w", err)
+	}
+	var spec *handlerdomain.MethodSpec
+	for i := range active.Methods {
+		if active.Methods[i].Name == in.Method {
+			spec = &active.Methods[i]
+			break
+		}
+	}
+	if spec == nil {
+		return nil, fmt.Errorf("handlerapp.Call: %q: %w", in.Method, handlerdomain.ErrMethodNotFound)
+	}
+	if spec.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.Timeout)*time.Millisecond)
+		defer cancel()
+	}
+
 	inst, err := s.manager.Get(ctx, h.ID)
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.Call: %w", err)
@@ -138,8 +166,15 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		input = map[string]any{}
 	}
 
+	// Provenance comes off ctx: chat identity (conversation/message/toolCall) from the loop,
+	// flowrun identity from the scheduler's dispatch injection — whichever path ran us.
+	// 溯源取自 ctx：chat 身份（conversation/message/toolCall）来自 loop，flowrun 身份来自调度器
+	// 派发注入——哪条路径跑的就带哪份。
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
+	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
 
 	call := &handlerdomain.Call{
 		ID:             idgenpkg.New("hcl"),
@@ -157,6 +192,9 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		InstanceID:     inst.ID,
 		ConversationID: convID,
 		MessageID:      msgID,
+		ToolCallID:     toolCallID,
+		FlowrunID:      flowrunID,
+		FlowrunNodeID:  flowrunNodeID,
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)

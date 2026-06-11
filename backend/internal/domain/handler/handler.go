@@ -116,6 +116,7 @@ var (
 	ErrEnvNotReady         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_ENV_NOT_READY", "handler env not ready")
 	ErrConfigIncomplete    = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_CONFIG_INCOMPLETE", "handler config incomplete (required init args unset)")
 	ErrOpInvalid           = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_OP_INVALID", "invalid forge op")
+	ErrInvalidName         = errorspkg.New(errorspkg.KindInvalid, "HANDLER_INVALID_NAME", "invalid handler name (lowercase alphanumeric + dashes/underscores, 1-64 chars)")
 	ErrInvalidCode         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_INVALID_CODE", "handler class code invalid")
 	ErrSandboxUnavailable  = errorspkg.New(errorspkg.KindUnavailable, "HANDLER_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
 	ErrInstanceSpawnFailed = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_INSTANCE_SPAWN_FAILED", "handler instance spawn failed")

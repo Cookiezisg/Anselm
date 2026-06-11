@@ -49,10 +49,10 @@ func (t *CreateTrigger) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_trigger: bad args: %w", err)
 	}
 	if a.Name == "" {
-		return fmt.Errorf("create_trigger: name is required")
+		return ErrNameRequired
 	}
 	if !triggerdomain.IsValidKind(a.Kind) {
-		return fmt.Errorf("create_trigger: kind must be one of cron/webhook/fsnotify/sensor")
+		return triggerdomain.ErrInvalidKind
 	}
 	return nil
 }
@@ -109,7 +109,7 @@ func (t *EditTrigger) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_trigger: bad args: %w", err)
 	}
 	if a.TriggerID == "" {
-		return fmt.Errorf("edit_trigger: triggerId is required")
+		return ErrTriggerIDRequired
 	}
 	return nil
 }
@@ -160,7 +160,7 @@ func (t *DeleteTrigger) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_trigger: bad args: %w", err)
 	}
 	if a.TriggerID == "" {
-		return fmt.Errorf("delete_trigger: triggerId is required")
+		return ErrTriggerIDRequired
 	}
 	return nil
 }

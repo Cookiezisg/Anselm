@@ -33,7 +33,7 @@ func (t *RevertAgent) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.AgentID) == "" || a.Version < 1 {
-		return fmt.Errorf("revert_agent: agentId and a positive version are required")
+		return ErrRevertArgsRequired
 	}
 	return nil
 }
@@ -75,7 +75,7 @@ func (t *DeleteAgent) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.AgentID) == "" {
-		return fmt.Errorf("delete_agent: agentId is required")
+		return ErrAgentIDRequired
 	}
 	return nil
 }
@@ -115,7 +115,7 @@ func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("invoke_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.AgentID) == "" {
-		return fmt.Errorf("invoke_agent: agentId is required")
+		return ErrAgentIDRequired
 	}
 	return nil
 }

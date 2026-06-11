@@ -194,7 +194,7 @@ func TestCall_SpawnsRecordsReuses(t *testing.T) {
 	}
 	// the call was recorded
 	page, _ := svc.SearchCalls(ctx, handlerdomain.CallFilter{HandlerID: h.ID})
-	if page.Count != 2 || page.Aggregates.OKCount != 2 {
+	if len(page.Calls) != 2 || page.Aggregates.OKCount != 2 {
 		t.Fatalf("calls not recorded: %+v", page)
 	}
 }

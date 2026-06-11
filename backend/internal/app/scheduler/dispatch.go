@@ -8,6 +8,7 @@ import (
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // runNode executes one ready (node, iteration) and writes its frn row, returning the resulting node
@@ -30,6 +31,16 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 	if err != nil {
 		return s.failNode(ctx, run, node, iter, fmt.Sprintf("input eval: %v", err))
 	}
+
+	// Flowrun identity rides ctx into the execution entity (function/handler/mcp/agent), whose
+	// audit recorder fills the flowrun_id / flowrun_node_id columns — the dispatch port stays
+	// (ctx, ref, input) without threading workflow concepts through every entity's input struct.
+	//
+	// Flowrun 身份经 ctx 进执行实体（function/handler/mcp/agent），由各实体审计记账填
+	// flowrun_id / flowrun_node_id 列——派发端口保持 (ctx, ref, input)，不让 workflow 概念穿透
+	// 每个实体的入参结构。
+	ctx = reqctxpkg.SetFlowrunID(ctx, run.ID)
+	ctx = reqctxpkg.SetFlowrunNodeID(ctx, node.ID)
 
 	switch node.Kind {
 	case workflowdomain.NodeKindAction:

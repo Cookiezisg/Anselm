@@ -79,7 +79,7 @@ func (t *GetTrigger) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_trigger: bad args: %w", err)
 	}
 	if a.TriggerID == "" {
-		return fmt.Errorf("get_trigger: triggerId is required")
+		return ErrTriggerIDRequired
 	}
 	return nil
 }

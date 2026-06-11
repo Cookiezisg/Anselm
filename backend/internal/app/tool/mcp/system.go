@@ -96,7 +96,7 @@ func (t *InstallServer) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("install_mcp_server: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("install_mcp_server: name is required")
+		return ErrNameRequired
 	}
 	return nil
 }

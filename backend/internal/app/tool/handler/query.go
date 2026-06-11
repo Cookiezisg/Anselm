@@ -76,7 +76,7 @@ func (t *GetHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("get_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }

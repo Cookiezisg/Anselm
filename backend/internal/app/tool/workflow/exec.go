@@ -48,7 +48,7 @@ func (t *TriggerWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("trigger_workflow: bad args: %w", err)
 	}
 	if a.WorkflowID == "" {
-		return fmt.Errorf("trigger_workflow: workflowId is required")
+		return ErrWorkflowIDRequired
 	}
 	return nil
 }

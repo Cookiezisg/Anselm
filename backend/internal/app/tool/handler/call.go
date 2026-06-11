@@ -41,10 +41,10 @@ func (t *CallHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("call_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("call_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	if a.Method == "" {
-		return fmt.Errorf("call_handler: method is required")
+		return ErrMethodRequired
 	}
 	return nil
 }
@@ -116,7 +116,7 @@ func (t *SearchHandlerCalls) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("search_handler_calls: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("search_handler_calls: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (t *GetHandlerCall) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_handler_call: bad args: %w", err)
 	}
 	if a.CallID == "" {
-		return fmt.Errorf("get_handler_call: callId is required")
+		return ErrCallIDRequired
 	}
 	return nil
 }

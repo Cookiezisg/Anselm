@@ -42,10 +42,10 @@ func (t *CreateWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_workflow: bad args: %w", err)
 	}
 	if a.Name == "" {
-		return fmt.Errorf("create_workflow: name is required")
+		return ErrNameRequired
 	}
 	if len(a.Ops) == 0 {
-		return fmt.Errorf("create_workflow: ops is required (non-empty)")
+		return ErrOpsRequired
 	}
 	return nil
 }
@@ -105,10 +105,10 @@ func (t *EditWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_workflow: bad args: %w", err)
 	}
 	if a.WorkflowID == "" {
-		return fmt.Errorf("edit_workflow: workflowId is required")
+		return ErrWorkflowIDRequired
 	}
 	if len(a.Ops) == 0 {
-		return fmt.Errorf("edit_workflow: ops is required (non-empty)")
+		return ErrOpsRequired
 	}
 	return nil
 }
@@ -163,10 +163,10 @@ func (t *RevertWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_workflow: bad args: %w", err)
 	}
 	if a.WorkflowID == "" {
-		return fmt.Errorf("revert_workflow: workflowId is required")
+		return ErrWorkflowIDRequired
 	}
 	if a.Version <= 0 {
-		return fmt.Errorf("revert_workflow: version must be a positive integer")
+		return ErrVersionPositive
 	}
 	return nil
 }
@@ -212,7 +212,7 @@ func (t *DeleteWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_workflow: bad args: %w", err)
 	}
 	if a.WorkflowID == "" {
-		return fmt.Errorf("delete_workflow: workflowId is required")
+		return ErrWorkflowIDRequired
 	}
 	return nil
 }

@@ -40,7 +40,7 @@ func (t *SearchActivations) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("search_activations: bad args: %w", err)
 	}
 	if a.TriggerID == "" {
-		return fmt.Errorf("search_activations: triggerId is required")
+		return ErrTriggerIDRequired
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func (t *GetActivation) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_activation: bad args: %w", err)
 	}
 	if a.ActivationID == "" {
-		return fmt.Errorf("get_activation: activationId is required")
+		return ErrActivationIDRequired
 	}
 	return nil
 }

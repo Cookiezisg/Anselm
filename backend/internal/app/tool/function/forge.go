@@ -51,7 +51,7 @@ func (t *CreateFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_function: bad args: %w", err)
 	}
 	if len(a.Ops) == 0 {
-		return fmt.Errorf("create_function: ops is required (non-empty)")
+		return ErrOpsRequired
 	}
 	return nil
 }
@@ -108,7 +108,7 @@ func (t *EditFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_function: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("edit_function: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	return nil
 }

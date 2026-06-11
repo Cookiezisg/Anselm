@@ -167,7 +167,7 @@ func (t *DeleteSkill) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_skill: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("delete_skill: name is required")
+		return ErrNameRequired
 	}
 	return nil
 }

@@ -134,7 +134,7 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	}
 
 	sr, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: a.ID})
-	if err != nil || sr.Count != 1 || sr.Aggregates.OKCount != 1 {
+	if err != nil || len(sr.Executions) != 1 || sr.Aggregates.OKCount != 1 {
 		t.Fatalf("execution not recorded as ok: %v %+v", err, sr)
 	}
 }

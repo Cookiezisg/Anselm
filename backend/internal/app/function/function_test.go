@@ -212,8 +212,8 @@ func TestRun_RecordsExecution(t *testing.T) {
 		t.Fatalf("run not executed: ok=%v ran=%d", res.OK, runner.ran)
 	}
 	page, err := svc.SearchExecutions(ctx, functiondomain.ExecutionFilter{FunctionID: f.ID})
-	if err != nil || page.Count != 1 {
-		t.Fatalf("execution not recorded: count=%d err=%v", page.Count, err)
+	if err != nil || len(page.Executions) != 1 {
+		t.Fatalf("execution not recorded: count=%d err=%v", len(page.Executions), err)
 	}
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("aggregates: %+v", page.Aggregates)

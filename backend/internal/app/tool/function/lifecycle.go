@@ -38,10 +38,10 @@ func (t *RevertFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_function: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("revert_function: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	if a.Version <= 0 {
-		return fmt.Errorf("revert_function: version must be a positive integer")
+		return ErrVersionPositive
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func (t *DeleteFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_function: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("delete_function: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	return nil
 }

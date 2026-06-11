@@ -53,7 +53,7 @@ func (t *CreateHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("create_handler: bad args: %w", err)
 	}
 	if len(a.Ops) == 0 {
-		return fmt.Errorf("create_handler: ops is required (non-empty)")
+		return ErrOpsRequired
 	}
 	return nil
 }
@@ -110,7 +110,7 @@ func (t *EditHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("edit_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("edit_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }

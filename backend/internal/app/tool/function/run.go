@@ -40,7 +40,7 @@ func (t *RunFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("run_function: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("run_function: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	return nil
 }
@@ -121,7 +121,7 @@ func (t *SearchFunctionExecutions) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("search_function_executions: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("search_function_executions: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	return nil
 }
@@ -176,7 +176,7 @@ func (t *GetFunctionExecution) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_function_execution: bad args: %w", err)
 	}
 	if a.ExecutionID == "" {
-		return fmt.Errorf("get_function_execution: executionId is required")
+		return ErrExecutionIDRequired
 	}
 	return nil
 }

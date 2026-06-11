@@ -117,6 +117,13 @@ var (
 	// ErrOpInvalid：锻造 op 畸形，或应用后草稿非法。
 	ErrOpInvalid = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_OP_INVALID", "invalid forge op")
 
+	// ErrInvalidName: the name fails the identifier rule (UpdateMeta path — the forge path
+	// reports the same violation as ErrOpInvalid, since there it IS a bad op).
+	//
+	// ErrInvalidName：name 不符标识符规则（UpdateMeta 路径——锻造路径同样的违规报 ErrOpInvalid，
+	// 因为在那里它就是一个坏 op）。
+	ErrInvalidName = errorspkg.New(errorspkg.KindInvalid, "FUNCTION_INVALID_NAME", "invalid function name (lowercase alphanumeric + dashes/underscores, 1-64 chars)")
+
 	// ErrInvalidCode: final draft validation failed (no def, empty code, blacklisted import).
 	//
 	// ErrInvalidCode：草稿终校验失败（无 def、空代码、黑名单 import）。

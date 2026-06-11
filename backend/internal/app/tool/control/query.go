@@ -78,7 +78,7 @@ func (t *GetControl) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_control: bad args: %w", err)
 	}
 	if a.ControlID == "" {
-		return fmt.Errorf("get_control: controlId is required")
+		return ErrControlIDRequired
 	}
 	return nil
 }

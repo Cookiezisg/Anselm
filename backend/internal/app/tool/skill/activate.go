@@ -40,7 +40,7 @@ func (t *ActivateSkill) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("activate_skill: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("activate_skill: name is required")
+		return ErrNameRequired
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (t *GetSkill) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_skill: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.Name) == "" {
-		return fmt.Errorf("get_skill: name is required")
+		return ErrNameRequired
 	}
 	return nil
 }

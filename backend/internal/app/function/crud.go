@@ -3,7 +3,6 @@ package function
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -125,12 +124,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 	draft, _, err := s.ApplyOps(nil, in.Ops)
 	if err != nil {
 		return nil, nil, fmt.Errorf("functionapp.Create: %w", err)
-	}
-
-	if _, derr := s.repo.GetFunctionByName(ctx, draft.Name); derr == nil {
-		return nil, nil, functiondomain.ErrDuplicateName
-	} else if !errors.Is(derr, functiondomain.ErrNotFound) {
-		return nil, nil, fmt.Errorf("functionapp.Create: dup-check: %w", derr)
 	}
 
 	now := time.Now().UTC()
@@ -260,7 +253,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*function
 	}
 	if in.Name != nil {
 		if !validNameRe.MatchString(*in.Name) {
-			return nil, fmt.Errorf("functionapp.UpdateMeta: %w: name %q", functiondomain.ErrOpInvalid, *in.Name)
+			return nil, fmt.Errorf("functionapp.UpdateMeta: %w: name %q", functiondomain.ErrInvalidName, *in.Name)
 		}
 		f.Name = *in.Name
 	}

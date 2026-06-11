@@ -19,8 +19,11 @@ type MethodSpec struct {
 	// Streaming=true 表 body 用 yield；driver 把每次 yield 翻成 progress delta。
 	Streaming bool `json:"streaming"`
 
-	// Timeout in ms for this method call (0 = client default); ctx cancel still wins.
-	// 单 method timeout（ms，0=客户端默认）；ctx cancel 优先。
+	// Timeout in ms: a deadline the app layer puts on each call of THIS method (0 = none —
+	// only the caller's own ctx bounds it). Guards the resident instance's serial stdio pipe
+	// from a wedged method.
+	// 单 method timeout（ms）：app 层给该 method 每次调用加 deadline（0 = 不加——只受调用方自身
+	// ctx 约束）。防卡死的 method 堵住常驻实例的串行 stdio 管道。
 	Timeout int `json:"timeout,omitempty"`
 }
 

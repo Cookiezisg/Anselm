@@ -13,47 +13,73 @@ audience: [human, ai]
 
 ## 1. 定位
 
-Agent **自己不写代码**：靠**按引用挂载**能力（fn_/hd_/mcp 工具 ref、skill 名、文档 IDs、model 覆盖），以 ReAct loop（共享 `app/loop.Run`）运行。版本模型与 function/handler 同构：线性只增 Version + 自由移动 `ActiveVersionID` 指针，**无 pending/accept**——edit 写新版（max+1）立即生效、revert 只移指针、Trim cap 50 放过 active。
+Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + **按引用挂载**的能力（fn_/hd_/mcp 工具、skill、文档、模型覆盖），运行时跑共享的 ReAct 引擎（`app/loop.Run`）。代码层级：`domain/agent`（2 文件）→ `app/agent`（7 文件 + invoke 是核心）→ `infra/store/agent` + `app/tool/mount`（挂载合成，agent 专属机制）+ `app/tool/agent`（8 工具）。
 
-## 2. 实体模型
+## 2. 心智模型
 
-| 实体 | 前缀 | 关键字段 |
-|---|---|---|
-| **Agent** | `ag_` | name / description / tags / activeVersionId；软删 |
-| **Version**（不可变） | `agv_` | prompt · **skill**(0-1) · **knowledge**(docIDs) · **tools**([]ToolRef) · inputs/outputs(schema.Field) · modelOverride · changeReason · forgedInConversationID |
-| **Execution**（log 表，D1 不删） | `agx_` | versionID / modelID / status(ok·failed·cancelled·timeout) / triggeredBy(chat·workflow·manual，**无 agent**——员工不调员工) / input / output / **transcript**(完整 block 序列，自包含耐久记录、不入 message_blocks) / conversationID / messageID / toolCallID / flowrunID / flowrunNodeID |
+**三个对象**：`Agent`（身份 + active 指针）→ `Version`（不可变快照：**prompt · skill(0-1) · knowledge(docIDs) · tools(ToolRef[]) · inputs/outputs 声明 · modelOverride**——可变配置全在版本上）→ `Execution`（一次运行的审计行 + **transcript**）。
 
-`ToolRef{Ref, Name}`：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>`；**禁 `ag_`**（domain `ValidateTools`）。Name 是挂载时的展示名——运行时一律按**现名**重新解析。
+**版本模型与 function/handler 同构**（方案 A，见 [function.md](function.md)#2），但有两个**有意分化**：
+- **编辑是全量 Config 快照替换、非 ops**：agent 配置是声明式字段（无代码体），整体替换语义清晰；ops 增量是为代码体设计的。
+- **name 不强制 slug**：function/handler 的 name 是代码标识符（Python 入口/类名，强制 `^[a-z][a-z0-9_-]{0,63}$`）；agent 的 name 是展示身份（"You are <Name>"），可中文/空格。
+
+**`ToolRef{Ref, Name}`**：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>`；**禁 `ag_`**（员工不调员工，domain `ValidateTools` 在 create/edit 时拒）。Name 是挂载时存的展示名——运行时**一律按现名重新解析**（实体改名后工具自动用新名）。
+
+**transcript 是核心持久化决策**：agent 运行的完整 block 序列（text/reasoning/tool_call/tool_result 跨步）序列化存进 `Execution.transcript`——**自包含的耐久记录，不进共享 message_blocks 表**。chat 内实时呈现走流（嵌套在 invoke_agent tool_call 下），reload 后前端从 transcript 重水合。
 
 ## 3. 五类挂载的运行时语义（invoke 时逐项生效）
 
-| 挂载 | 运行时 | 机制 |
+| 挂载 | 运行时形态 | 机制 |
 |---|---|---|
-| **fn_** | 一个以 function 命名的绑定工具 | `tool/mount`：description/inputs 来自活实体，Execute → `RunFunction`(TriggeredBy=agent) |
-| **hd_…method** | `<handlerName>__<method>` 绑定工具 | method spec → schema；Execute → `handler.Call`(agent)，yield 流进 tool_call progress |
-| **mcp:server/tool** | `mcp__server__tool` 绑定工具 | 经在线 server 解析（离线即失败）；Execute → `mcp.CallTool`(agent) |
-| **skill** | **执行指南**注入 system prompt（`## Execution guide`段） | `skillapp.Guide`：渲染正文、**不**设 active-skill、**不** fork |
-| **knowledge** | 知识前缀拼进 user 消息 | `BuildKnowledgePrefix(docIDs)` |
+| `fn_<id>` | 以 **function 现名**命名的绑定工具 | desc/inputs schema 来自活实体；Execute → `RunFunction`(TriggeredBy=agent) |
+| `hd_<id>.<method>` | `<handlerName>__<method>` 绑定工具 | method spec → schema；Execute → `handler.Call`(agent)，yield 流进 progress |
+| `mcp:<server>/<tool>` | `mcp__server__tool` 绑定工具 | 经**在线** server 解析（离线即失败）；Execute → `mcp.CallTool`(agent) |
+| skill 名 | **执行指南**注入 system prompt（`## Execution guide` 段） | `skillapp.Guide`：渲染正文；**不**设 active-skill（防预授权泄漏父对话）、**不** fork |
+| knowledge docIDs | 知识前缀拼进 user 消息 | `BuildKnowledgePrefix` |
 
-**核心设计**：agent **永不**见通用系统工具表（无 `run_function`/`Read`/`Bash`）——其工具宇宙**恰是其挂载**，每个工具预绑定目标（LLM 无自由 id 参数可乱走）。挂载解析 **fail-fast**：目标被删/server 离线/ref 格式坏/合成名撞名 → invoke 失败（worker 缺声明能力绝不静默降级跑）；错误带具体码（`FUNCTION_NOT_FOUND` 等），mount 自身问题 = `AGENT_MOUNT_INVALID`。合成在 `app/tool/mount`（DIP 三窄端口：FunctionPort/HandlerPort/MCPPort）。
+**核心设计**：agent **永不**见通用系统工具表（无 `run_function`/`Read`/`Bash`）——工具宇宙**恰是其挂载**，每个工具预绑定目标（LLM 没有自由 id 参数可乱走）。合成在 `app/tool/mount`：`Resolver` 持三个窄端口（FunctionPort/HandlerPort/MCPPort，DIP、测试可 fake），按 ref 前缀分流出三种绑定工具。
 
-## 4. Invoke 生命周期
+**fail-fast**：目标被删（冒具体码如 `FUNCTION_NOT_FOUND`）/ method 不存在（`HANDLER_METHOD_NOT_FOUND`）/ MCP server 离线 / ref 格式坏 / 两挂载合成同名（撞名检测）→ **invoke 失败**（mount 自身问题 = `AGENT_MOUNT_INVALID`）。worker 缺声明能力**绝不静默降级跑**。
 
-`InvokeAgent`（所有路径唯一执行方法，对标 `RunFunction`）：取 version（空→active）→ `runLoop`（knowledge 前缀 + mount 合成 + skill 指南 + LLM resolve(modelOverride) + `loop.Run`，maxTurns 默认 10）→ `recordExecution`（**Detached ctx** best-effort，被取消的运行仍落账；ctx 取 conversation/message/toolCall id、InvokeInput 取 flowrun ids）。
+## 4. Invoke 生命周期（所有路径唯一漏斗，对标 RunFunction）
 
-- **InvokeDeps**（DIP 后注入）：Resolver / **Mounts** / **Skill** / Knowledge / EntitiesBridge——「需要却 nil」= 装配 bug，invoke 大声失败。
-- **三条触发路径**：chat 的 `invoke_agent` 工具（chat）/ HTTP `:invoke`（manual）/ workflow agent 节点 `dispatch.RunAgent`（workflow；粗粒度 activity，只记忆化最终 result，sub-step replay 字段 ADR-010 预留）。
-- **呈现**：chat 内嵌套在 invoke_agent tool_call 下（E3）；entities 流 agent scope 镜像全轨迹（SSE-C）；durable 记录 = Execution.transcript。
-- **人在环**：ctx 带 humanloop broker 时，危险工具在共享 loop 的 danger 门阻塞至 resolve（嵌套不冒泡）。
+```
+InvokeAgent(in)
+  ├─ 取 version（空→active；无 active → AGENT_NO_ACTIVE_VERSION）
+  ├─ runLoop:
+  │   ├─ knowledge 前缀 + v.Prompt + Input(JSON 块) → user 消息
+  │   ├─ mounts.Resolve(v.Tools) → 绑定工具（fail-fast）
+  │   ├─ skill.Guide(v.Skill) → system prompt 的执行指南段
+  │   ├─ Resolver.ResolveAgent(modelOverride) → LLM bundle（nil=默认 agent 场景模型）
+  │   ├─ ctx 装饰：tool_call 嵌套（E3）+ entities 流 agent scope 镜像（SSE-C）
+  │   └─ loop.Run(agentHost, maxTurns 默认 10 − 已重放步数)
+  └─ recordExecution（Detached ctx，best-effort）
+```
 
-## 5. 契约
+- **InvokeDeps**（DIP 后注入：Resolver/Mounts/Skill/Knowledge/EntitiesBridge）——"挂载了某能力却 nil 对应依赖" = 装配 bug，invoke **大声失败**（不静默跳过）。
+- **agentHost 实现 loop.Host**：LoadHistory = prompt + 重放步；Tools = 预合成挂载；**WriteFinalize = no-op**（agent 经 Execution 落账、非消息历史）；RecordStep 在装了 recorder 时按绝对回合下标记账。不实现 AutoActivator/ReminderProvider（无 search_tools 扩张、无 todo reminder——worker 聚焦）。
+- **system prompt 组装**：身份（"You are <Name>… Your role: <Description>"）+ worker 纪律（只用给的工具）+ skill 指南段 + **outputs 硬约束**（声明了 Outputs → "最终答案必须是恰含这些字段的单个 JSON"；未声明 → 自由作答）。
+- **三条触发路径**：chat 的 `invoke_agent` 工具（TriggeredBy=chat；toolCallID 设进 ctx 使流式 block 嵌套其下）/ HTTP `:invoke`（manual）/ workflow agent 节点 `dispatch.RunAgent`（workflow；**粗粒度 activity**——只记忆化最终 result，`ReplaySteps/Recorder/FlowrunID` 等 InvokeInput 字段是 ADR-010 子步重放的预留，调度器 v1 留空）。
+- **溯源**：conversation/message/toolCall 从 ctx；flowrun **InvokeInput 显式字段优先、ctx 注入兜底**（调度器派发前 `reqctx.SetFlowrunID`）。
+- **人在环**：ctx 带 humanloop broker（chat 回合的 broker 自然流进子运行）时，自报 dangerous 的工具在共享 loop 的 danger 门**阻塞**至用户 resolve——嵌套不冒泡，阻塞的 goroutine 天然 hold 整个栈。
+- **状态判定**：runErr → failed；loop 结果 StatusError → failed；其余 ok。tokens/steps/stopReason 在 `InvokeResult` 同步返回（**不持久化**——留全局观测议题；transcript 已含全过程）。
 
-- **错误码（9）**：见 [error-codes](../error-codes.md) `domain/agent` 段（含 `AGENT_MOUNT_INVALID` 422）。
-- **HTTP**：`POST/GET /api/v1/agents` · `GET/PATCH/DELETE /{id}` · `POST /{id}:invoke|:revert|:edit|:iterate` · `GET /{id}/versions[/{version}]` · `GET /{id}/executions`。N5 执行动词 = **`:invoke`**。
-- **DB**：`agents` / `agent_versions`(UNIQUE agent_id+version) / `agent_executions`(CHECK status·triggered_by；ws+agent/conversation/flowrun 索引)。
-- **SSE**：无新流（E1）；entities 流 agent scope + notifications `agent.*`。
-- **Tools（LLM 面）**：search/get/create/edit/revert/delete_agent · invoke_agent · executions 查询（`tool/agent`）。
+## 5. 关键设计决策
 
-## 6. 跨实体定位 / 有意分化
+- **挂载合成 vs 过滤注册表**：不是"从全局工具里挑"，是"为每个挂载造一个绑定工具"——这使 agent 的能力面=配置面，且系统工具物理上进不来。
+- **skill 作指南而非激活**：`Guide` 渲染正文（无参替换）注入 system prompt；不写 AgentState 的 active-skill（那会把 allowed-tools 预授权泄漏给父对话）、不触发 fork（指南就是给本次运行的文本）。
+- **无 sandbox 依赖**：agent 不写代码——是唯一没有 env/物化链路的执行实体。
+- **TriggeredBy 无 "agent"**：员工不调员工（与 ToolRef 禁 ag_ 同一条公理的两面）。
+- **subagent 与 agent 实体无关**：subagent 是 chat 内 spawn 的隔离 loop 运行（固定动词工具白名单、落 sub-message）；agent 是持久化实体。两者只共享 loop 引擎。
 
-与 function/handler 同构：版本模型 / CRUD / catalog·mention·relation 三适配器 / recordExecution(Detached)。**有意分化**：① AI 编辑用**全量 Config 快照**而非 forge op 数组（agent 是声明式配置、无代码体，整体替换语义清晰）；② **name 不强制 slug**（function/handler 名是代码标识符（入口函数/类名），agent 名是展示身份，可中文/空格）；③ 无 sandbox 依赖。subagent 与 agent 实体**无关**（chat 内 spawn 的隔离 loop 运行，非实体）。
+## 6. 契约（引用）
+
+端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 8 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询；create/edit 是 forge 工具（config 镜像 entities 流）。
+
+## 7. 跨域集成
+
+- **invoke 被谁调**：chat loop / HTTP / workflow 调度器（`AgentInvoker` 窄接口）。
+- **mount 端口指向**：functionapp / handlerapp / mcpapp 的具体服务（bootstrap 装配 `mount.NewResolver(fn, hd, mcp)`）。
+- **relation 是双向的**（唯一双向实体）：**出边** equip（挂载的 fn/hd/mcp/doc/skill，每次 active 变更重算——hd 剥 `.method`、mcp 剥 `/tool` 归到容器实体）+ **入边** create/edit（锻造对话，create 和 edit 分 kind-scope 共存）。
+- **catalog 非容器**：只报 name+desc，**不报 Members**——挂载是内部白名单、非 agent 的可调子单元（对比 handler/mcp 的容器形态）。
+- **@ 提及**：快照 name+description（这个员工是干什么的——供模型谈及/转交）。

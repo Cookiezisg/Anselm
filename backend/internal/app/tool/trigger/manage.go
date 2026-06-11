@@ -34,7 +34,7 @@ func (t *FireTrigger) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("fire_trigger: bad args: %w", err)
 	}
 	if a.TriggerID == "" {
-		return fmt.Errorf("fire_trigger: triggerId is required")
+		return ErrTriggerIDRequired
 	}
 	return nil
 }

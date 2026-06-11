@@ -250,6 +250,17 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	// Flowrun identity: the explicit InvokeInput fields win (ADR-010 sub-step replay passes them);
+	// otherwise the scheduler's ctx injection covers the plain workflow-dispatch path.
+	// Flowrun 身份：显式 InvokeInput 字段优先（ADR-010 子步重放会传）；否则调度器的 ctx 注入覆盖普通
+	// workflow 派发路径。
+	flowrunID, flowrunNodeID := in.FlowrunID, in.FlowrunNodeID
+	if flowrunID == "" {
+		flowrunID, _ = reqctxpkg.GetFlowrunID(ctx)
+	}
+	if flowrunNodeID == "" {
+		flowrunNodeID, _ = reqctxpkg.GetFlowrunNodeID(ctx)
+	}
 
 	// The full block transcript is this run's self-contained durable record (NOT persisted to the
 	// shared message_blocks table). Always at least "[]" so the column never holds null.
@@ -277,8 +288,8 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 		ConversationID: convID,
 		MessageID:      msgID,
 		ToolCallID:     toolCallID,
-		FlowrunID:      in.FlowrunID,
-		FlowrunNodeID:  in.FlowrunNodeID,
+		FlowrunID:      flowrunID,
+		FlowrunNodeID:  flowrunNodeID,
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)

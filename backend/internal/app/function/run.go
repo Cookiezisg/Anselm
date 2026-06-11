@@ -113,8 +113,15 @@ func (s *Service) recordExecution(ctx context.Context, in RunInput, v *functiond
 		input = map[string]any{}
 	}
 
+	// Provenance comes off ctx: chat identity (conversation/message/toolCall) from the loop,
+	// flowrun identity from the scheduler's dispatch injection — whichever path ran us.
+	// 溯源取自 ctx：chat 身份（conversation/message/toolCall）来自 loop，flowrun 身份来自调度器
+	// 派发注入——哪条路径跑的就带哪份。
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
+	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
 
 	exec := &functiondomain.Execution{
 		ID:             idgenpkg.New("fne"),
@@ -130,6 +137,9 @@ func (s *Service) recordExecution(ctx context.Context, in RunInput, v *functiond
 		EndedAt:        endedAt,
 		ConversationID: convID,
 		MessageID:      msgID,
+		ToolCallID:     toolCallID,
+		FlowrunID:      flowrunID,
+		FlowrunNodeID:  flowrunNodeID,
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)

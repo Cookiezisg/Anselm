@@ -89,7 +89,7 @@ func (t *GetAgentExecution) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_agent_execution: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.ExecutionID) == "" {
-		return fmt.Errorf("get_agent_execution: executionId is required")
+		return ErrExecutionIDRequired
 	}
 	return nil
 }

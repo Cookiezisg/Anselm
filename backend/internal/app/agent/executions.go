@@ -11,7 +11,6 @@ import (
 //
 // SearchExecutionsResult 是一页 execution + 供状态徽标的 ok/failed 汇总。
 type SearchExecutionsResult struct {
-	Count      int                             `json:"count"`
 	Executions []*agentdomain.Execution        `json:"executions"`
 	NextCursor string                          `json:"nextCursor,omitempty"`
 	HasMore    bool                            `json:"hasMore"`
@@ -31,7 +30,6 @@ func (s *Service) SearchExecutions(ctx context.Context, filter agentdomain.Execu
 		return nil, fmt.Errorf("agentapp.SearchExecutions: aggregates: %w", err)
 	}
 	return &SearchExecutionsResult{
-		Count:      len(rows),
 		Executions: rows,
 		NextCursor: next,
 		HasMore:    next != "",

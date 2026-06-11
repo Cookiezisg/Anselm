@@ -11,7 +11,6 @@ import (
 //
 // SearchCallsResult 是 SearchCalls 的响应形状：一页行 + ok/failed 汇总。
 type SearchCallsResult struct {
-	Count      int                          `json:"count"`
 	Calls      []*handlerdomain.Call        `json:"calls"`
 	NextCursor string                       `json:"nextCursor,omitempty"`
 	HasMore    bool                         `json:"hasMore"`
@@ -28,7 +27,7 @@ func (s *Service) SearchCalls(ctx context.Context, filter handlerdomain.CallFilt
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.SearchCalls: aggregates: %w", err)
 	}
-	return &SearchCallsResult{Count: len(rows), Calls: rows, NextCursor: next, HasMore: next != "", Aggregates: agg}, nil
+	return &SearchCallsResult{Calls: rows, NextCursor: next, HasMore: next != "", Aggregates: agg}, nil
 }
 
 // GetCall returns one call-log row verbatim.

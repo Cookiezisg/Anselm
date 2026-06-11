@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -134,11 +133,6 @@ func (s *Service) Search(ctx context.Context, query string) ([]*agentdomain.Agen
 //
 // Create 持久化新 Agent + v1（active）并同步 relation 边。无 env、无 sandbox。
 func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agent, *agentdomain.Version, error) {
-	if _, derr := s.repo.GetByName(ctx, in.Name); derr == nil {
-		return nil, nil, agentdomain.ErrNameConflict
-	} else if !errors.Is(derr, agentdomain.ErrNotFound) {
-		return nil, nil, fmt.Errorf("agentapp.Create: dup-check: %w", derr)
-	}
 	if err := validateModelOverride(in.ModelOverride); err != nil {
 		return nil, nil, err
 	}
@@ -249,7 +243,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*agentdom
 	if err := s.repo.UpdateMeta(ctx, a); err != nil {
 		return nil, fmt.Errorf("agentapp.UpdateMeta: %w", err) // ErrNameConflict
 	}
-	s.publish(ctx, "meta_updated", in.ID, nil)
+	s.publish(ctx, "updated", in.ID, nil)
 	return a, nil
 }
 

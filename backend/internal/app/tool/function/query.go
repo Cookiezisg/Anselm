@@ -78,7 +78,7 @@ func (t *GetFunction) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_function: bad args: %w", err)
 	}
 	if a.FunctionID == "" {
-		return fmt.Errorf("get_function: functionId is required")
+		return ErrFunctionIDRequired
 	}
 	return nil
 }

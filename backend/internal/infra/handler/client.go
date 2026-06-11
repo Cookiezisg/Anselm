@@ -49,7 +49,6 @@ var (
 // Client 是 HandlerInstance 子进程的对外契约。
 type Client interface {
 	Init(ctx context.Context, args map[string]any) error
-	Call(ctx context.Context, method string, args map[string]any) (any, error)
 	StreamCall(ctx context.Context, method string, args map[string]any, onProgress func(any)) (any, error)
 	Shutdown(ctx context.Context) error
 	Crashed() bool
@@ -110,10 +109,6 @@ func (c *stdioClient) Init(ctx context.Context, args map[string]any) error {
 	default:
 		return c.fail(fmt.Errorf("%w: expected ready/init_error after init, got %q", ErrProtocol, msg["type"]))
 	}
-}
-
-func (c *stdioClient) Call(ctx context.Context, method string, args map[string]any) (any, error) {
-	return c.doCall(ctx, method, args, nil)
 }
 
 func (c *stdioClient) StreamCall(ctx context.Context, method string, args map[string]any, onProgress func(any)) (any, error) {

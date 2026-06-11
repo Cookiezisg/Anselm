@@ -38,10 +38,10 @@ func (t *RevertHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("revert_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("revert_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	if a.Version <= 0 {
-		return fmt.Errorf("revert_handler: version must be a positive integer")
+		return ErrVersionPositive
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func (t *DeleteHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("delete_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("delete_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }
@@ -131,7 +131,7 @@ func (t *RestartHandler) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("restart_handler: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("restart_handler: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }
@@ -180,7 +180,7 @@ func (t *UpdateHandlerConfig) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("update_handler_config: bad args: %w", err)
 	}
 	if a.HandlerID == "" {
-		return fmt.Errorf("update_handler_config: handlerId is required")
+		return ErrHandlerIDRequired
 	}
 	return nil
 }

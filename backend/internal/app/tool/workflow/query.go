@@ -80,7 +80,7 @@ func (t *GetWorkflow) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_workflow: bad args: %w", err)
 	}
 	if a.WorkflowID == "" {
-		return fmt.Errorf("get_workflow: workflowId is required")
+		return ErrWorkflowIDRequired
 	}
 	return nil
 }

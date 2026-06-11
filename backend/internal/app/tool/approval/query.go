@@ -78,7 +78,7 @@ func (t *GetApproval) ValidateInput(args json.RawMessage) error {
 		return fmt.Errorf("get_approval: bad args: %w", err)
 	}
 	if a.ApprovalID == "" {
-		return fmt.Errorf("get_approval: approvalId is required")
+		return ErrApprovalIDRequired
 	}
 	return nil
 }
