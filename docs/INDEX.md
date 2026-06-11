@@ -6,6 +6,7 @@
 
 | 要找 | 去 |
 |---|---|
+| **后端整体怎么组成、怎么流动（第 0 篇）** | `references/backend/overview.md` |
 | 系统架构 / 路线 / 愿景 | `concepts/architecture.md` |
 | 工程纪律 + 代码规则（S/T/N/D/E） | `../CLAUDE.md` |
 | **HTTP 端点 / DB 表 / 错误码 / SSE 事件**（四索引，与代码逐字同步） | `references/backend/{api,database,error-codes,events}.md` |
@@ -15,7 +16,7 @@
 
 ## 后端文档体系（V-next 重写完成，2026-06-11）
 
-全后端 32 域评审完毕（lab/docswriter P0-P8），每域一篇 0 障碍级文档 + 四索引逐字对账：
+全后端 32 域评审完毕（lab/docswriter P0-P8）。**先读 [overview.md](references/backend/overview.md)**（鸟瞰 + 三条端到端数据流 + 横切机制），再进分域：
 
 - **domains/**（19 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · support-services（十微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
