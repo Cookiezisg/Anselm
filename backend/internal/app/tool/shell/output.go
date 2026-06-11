@@ -3,8 +3,8 @@ package shell
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"regexp"
 	"strings"
 )
@@ -12,7 +12,7 @@ import (
 // ErrEmptyBashID: bash_id missing.
 //
 // ErrEmptyBashID：bash_id 缺失。
-var ErrEmptyBashID = errors.New("bash_id is required")
+var ErrEmptyBashID = errorspkg.New(errorspkg.KindInvalid, "SHELL_EMPTY_BASH_ID", "bash_id is required")
 
 const outputDescription = `Read new stdout/stderr from a background Bash shell (bash_id). Returns only output appended since the last poll, plus a status footer.`
 

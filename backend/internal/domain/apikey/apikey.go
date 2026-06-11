@@ -14,7 +14,7 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // APIKey is one encrypted credential for one provider. WorkspaceID isolates it
@@ -91,19 +91,19 @@ type ListFilter struct {
 	Provider string
 }
 
-// Domain sentinels — built via errorsdomain.New so transport reads Kind/Code
+// Domain sentinels — built via errorspkg.New so transport reads Kind/Code
 // directly (§S20); wire codes align with error-codes.md.
 //
-// domain sentinel——经 errorsdomain.New 构造，transport 直接读 Kind/Code（§S20）；
+// domain sentinel——经 errorspkg.New 构造，transport 直接读 Kind/Code（§S20）；
 // wire code 对齐 error-codes.md。
 var (
-	ErrNotFound            = errorsdomain.New(errorsdomain.KindNotFound, "API_KEY_NOT_FOUND", "api key not found")
-	ErrInvalidProvider     = errorsdomain.New(errorsdomain.KindInvalid, "API_KEY_INVALID_PROVIDER", "unknown provider")
-	ErrKeyRequired         = errorsdomain.New(errorsdomain.KindInvalid, "API_KEY_VALUE_REQUIRED", "key value is required")
-	ErrBaseURLRequired     = errorsdomain.New(errorsdomain.KindInvalid, "API_KEY_BASE_URL_REQUIRED", "base url is required for this provider")
-	ErrAPIFormatRequired   = errorsdomain.New(errorsdomain.KindInvalid, "API_KEY_API_FORMAT_REQUIRED", "api format is required for custom provider")
-	ErrDisplayNameConflict = errorsdomain.New(errorsdomain.KindConflict, "API_KEY_DISPLAY_NAME_CONFLICT", "display name already in use")
-	ErrInUse               = errorsdomain.New(errorsdomain.KindUnprocessable, "API_KEY_IN_USE", "api key is referenced and cannot be deleted")
+	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "API_KEY_NOT_FOUND", "api key not found")
+	ErrInvalidProvider     = errorspkg.New(errorspkg.KindInvalid, "API_KEY_INVALID_PROVIDER", "unknown provider")
+	ErrKeyRequired         = errorspkg.New(errorspkg.KindInvalid, "API_KEY_VALUE_REQUIRED", "key value is required")
+	ErrBaseURLRequired     = errorspkg.New(errorspkg.KindInvalid, "API_KEY_BASE_URL_REQUIRED", "base url is required for this provider")
+	ErrAPIFormatRequired   = errorspkg.New(errorspkg.KindInvalid, "API_KEY_API_FORMAT_REQUIRED", "api format is required for custom provider")
+	ErrDisplayNameConflict = errorspkg.New(errorspkg.KindConflict, "API_KEY_DISPLAY_NAME_CONFLICT", "display name already in use")
+	ErrInUse               = errorspkg.New(errorspkg.KindUnprocessable, "API_KEY_IN_USE", "api key is referenced and cannot be deleted")
 )
 
 // Repository is the storage contract for APIKey, isolated by ctx workspace.

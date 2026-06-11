@@ -16,8 +16,8 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // aispawn adapters (R0065): glue the iterate/triage engine onto the concrete conversation + chat
@@ -112,7 +112,7 @@ func (r executionRenderer) Render(ctx context.Context, executionID string) (stri
 		}
 		return renderExecution("trigger activation", rec), nil
 	default:
-		return "", errorsdomain.New(errorsdomain.KindInvalid, "UNTRIAGEABLE_EXECUTION",
+		return "", errorspkg.New(errorspkg.KindInvalid, "UNTRIAGEABLE_EXECUTION",
 			"id prefix "+prefix+"_ is not a triageable execution type")
 	}
 }

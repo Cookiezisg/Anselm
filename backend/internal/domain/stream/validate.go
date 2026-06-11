@@ -3,7 +3,7 @@ package stream
 import (
 	"fmt"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // ErrInvalidEvent marks a malformed event — a producer bug, surfaced at Publish so it
@@ -12,7 +12,7 @@ import (
 //
 // ErrInvalidEvent 标记形状错误事件——producer bug，在 Publish 暴露，让它在边界失败而非
 // 流到线缆。万一真的逃逸，KindInternal(500) 是对的类：producer 发畸形事件是服务端 bug。
-var ErrInvalidEvent = errorsdomain.New(errorsdomain.KindInternal, "STREAM_INVALID_EVENT",
+var ErrInvalidEvent = errorspkg.New(errorspkg.KindInternal, "STREAM_INVALID_EVENT",
 	"stream: invalid event")
 
 // ValidateEvent runs the protocol's universal shape invariants: valid scope kind,

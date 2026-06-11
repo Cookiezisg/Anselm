@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
 )
 
@@ -37,7 +37,7 @@ func ParsePage(r *http.Request) (PageParams, error) {
 	if v := q.Get("limit"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			return PageParams{}, errorsdomain.ErrInvalidRequest
+			return PageParams{}, errorspkg.ErrInvalidRequest
 		}
 		p.Limit = n
 	}
@@ -55,7 +55,7 @@ func ParsePage(r *http.Request) (PageParams, error) {
 // ErrInvalidRequest，使 pkg/pagination.ErrMalformedCursor 不越过这层。
 func (p PageParams) DecodeCursor(v any) error {
 	if err := paginationpkg.DecodeCursor(p.Cursor, v); err != nil {
-		return errorsdomain.ErrInvalidRequest
+		return errorspkg.ErrInvalidRequest
 	}
 	return nil
 }

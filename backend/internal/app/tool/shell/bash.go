@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"io"
 	"os/exec"
 	"runtime"
@@ -26,7 +27,7 @@ var (
 	// ErrEmptyCommand: command missing or empty.
 	//
 	// ErrEmptyCommand：command 缺失或为空。
-	ErrEmptyCommand = errors.New("command is required and must be non-empty")
+	ErrEmptyCommand = errorspkg.New(errorspkg.KindInvalid, "SHELL_EMPTY_COMMAND", "command is required and must be non-empty")
 
 	// ErrInvalidTimeout: timeout outside [0, maxTimeoutMS].
 	//

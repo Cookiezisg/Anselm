@@ -13,8 +13,9 @@ package todo
 
 import (
 	"context"
-	"errors"
 	"time"
+
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Item statuses. A removed task simply isn't in the next write (whole-list replace) —
@@ -75,19 +76,19 @@ type List struct {
 	DeletedAt      *time.Time `db:"deleted_at,deleted" json:"-"`
 }
 
-// Sentinel errors. They never reach HTTP: the only writer is the TodoWrite tool (波次
-// 2/3), which renders them as a tool-result string for the model to self-correct, and the
-// REST read never validates input. So they are plain errors (no Kind / wire code) —
-// unlike the HTTP-bound domain errors built with errorsdomain.New (S20). todo therefore
-// holds no error-code contract.
+// Sentinel errors. Built with errorspkg.New like every domain sentinel (S20: one
+// construction, no "is this HTTP-bound?" judgment). Today they surface only via the
+// TodoWrite tool — rendered as a tool-result string for the model to self-correct (that
+// path reads Message; Kind/Code go unused) — but if a write ever reaches HTTP they map
+// correctly (KindInvalid → 400 + a stable code).
 //
-// Sentinel 错误。它们从不抵达 HTTP：唯一写入者是 TodoWrite 工具（波次 2/3），把它们渲染成
-// tool-result 字符串供模型自纠，REST 读也从不校验输入。故为 plain error（无 Kind / wire code）——
-// 不同于用 errorsdomain.New 构造、会冒泡 HTTP 的 domain 错误（S20）。todo 因此不持错误码契约。
+// Sentinel 错误。与每个 domain sentinel 一样用 errorspkg.New 构造（S20：一种造法、不判断
+// "是否冒泡 HTTP"）。今天只经 TodoWrite 工具呈现——渲染成 tool-result 字符串供模型自纠（该路径
+// 读 Message，不用 Kind/Code）——但万一某写入将来到达 HTTP，能正确映射（KindInvalid → 400 + 稳定码）。
 var (
-	ErrEmptyContent  = errors.New("todo: item content is required")
-	ErrInvalidStatus = errors.New("todo: invalid item status")
-	ErrTooManyItems  = errors.New("todo: too many items")
+	ErrEmptyContent  = errorspkg.New(errorspkg.KindInvalid, "TODO_EMPTY_CONTENT", "todo item content is required")
+	ErrInvalidStatus = errorspkg.New(errorspkg.KindInvalid, "TODO_INVALID_STATUS", "invalid todo item status")
+	ErrTooManyItems  = errorspkg.New(errorspkg.KindInvalid, "TODO_TOO_MANY_ITEMS", "too many todo items")
 )
 
 // Repository persists one checklist per scope. Workspace isolation is applied by the orm

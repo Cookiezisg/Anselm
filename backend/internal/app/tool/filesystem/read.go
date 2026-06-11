@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"io/fs"
 	"os"
 	"strings"
@@ -36,9 +37,9 @@ const (
 // Read 工具错误由 ValidateInput 返回、以 tool-result 字符串呈现给 LLM 让它修参数。
 // 它们不走 domain errmap（S20）——永不到达 HTTP。
 var (
-	ErrEmptyFilePath  = errors.New("file_path is required")
-	ErrNegativeOffset = errors.New("offset must be non-negative")
-	ErrNegativeLimit  = errors.New("limit must be non-negative")
+	ErrEmptyFilePath  = errorspkg.New(errorspkg.KindInvalid, "FS_EMPTY_FILE_PATH", "file_path is required")
+	ErrNegativeOffset = errorspkg.New(errorspkg.KindInvalid, "FS_NEGATIVE_OFFSET", "offset must be non-negative")
+	ErrNegativeLimit  = errorspkg.New(errorspkg.KindInvalid, "FS_NEGATIVE_LIMIT", "limit must be non-negative")
 )
 
 const readDescription = `Read a file. Absolute path; cat -n output (line-num TAB content). Defaults to first 2000 lines; use offset+limit to page. For directory listing use Glob "*".`

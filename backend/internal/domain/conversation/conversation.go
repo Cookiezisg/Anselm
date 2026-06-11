@@ -13,8 +13,8 @@ import (
 	"time"
 
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Conversation is a chat-thread container. The thread's messages live in chat's
@@ -76,13 +76,13 @@ type UpdateInput struct {
 var (
 	// ErrNotFound: get/update/delete on an unknown (or soft-deleted) conversation.
 	// ErrNotFound：对未知（或已软删）对话 get/update/delete。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "CONVERSATION_NOT_FOUND", "conversation not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "CONVERSATION_NOT_FOUND", "conversation not found")
 
 	// ErrInvalidModelOverride: a set modelOverride is missing apiKeyId or modelId. Mirrors
 	// agent — structural only; key existence is resolved (and may fail gracefully) at chat time.
 	// ErrInvalidModelOverride：已设的 modelOverride 缺 apiKeyId 或 modelId。照 agent——仅结构；
 	// key 存在性在 chat 时解析（可优雅失败）。
-	ErrInvalidModelOverride = errorsdomain.New(errorsdomain.KindUnprocessable, "CONVERSATION_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
+	ErrInvalidModelOverride = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
 )
 
 // Repository is the storage contract; workspace isolation + soft-delete are applied by the

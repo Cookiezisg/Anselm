@@ -4,8 +4,8 @@ import (
 	"context"
 
 	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // nodeTypeInteraction is the messages-stream node type for a pending human interaction (R0064): an
@@ -21,7 +21,7 @@ const nodeTypeInteraction = "interaction"
 //
 // ErrNoPendingInteraction 在 resolve 指向一个并未在等人决定的 tool_call 时返回（未知 id，或已决议——重复 POST
 // 安全 no-op）。
-var ErrNoPendingInteraction = errorsdomain.New(errorsdomain.KindNotFound, "NO_PENDING_INTERACTION", "no pending interaction with that tool call id in this conversation")
+var ErrNoPendingInteraction = errorspkg.New(errorspkg.KindNotFound, "NO_PENDING_INTERACTION", "no pending interaction with that tool call id in this conversation")
 
 // interactionSurface is the humanloop.Surface chat injects into its broker: it pushes an EPHEMERAL
 // interaction signal on the messages stream (conversation scope, keyed by the tool_call id) so a

@@ -10,7 +10,7 @@
 
 ## 精确（parity，文档 = 代码）
 
-- 索引每条对码逐字：端点 = 真实路由（method/path）；表+列 = 真实 schema；码 = 真实 `errorsdomain` sentinel + wire code；事件 = 真实 stream producer。
+- 索引每条对码逐字：端点 = 真实路由（method/path）；表+列 = 真实 schema；码 = 真实 `errorspkg` sentinel + wire code；事件 = 真实 stream producer。
 - **无多**：文档里没有代码里不存在的端点/表/码/字段（无投机、无前瞻）。
 - **无错**：动词、状态码、前缀、类型对得上。
 

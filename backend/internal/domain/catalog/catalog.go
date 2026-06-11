@@ -3,7 +3,7 @@ package catalog
 import (
 	"context"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Catalog is the derived capability overview: Summary is the grouped menu text
@@ -29,4 +29,4 @@ type SystemPromptProvider interface {
 //
 // ErrAllSourcesFailed 所有已注册 source 都报错时返回——系统故障（如 DB 不可达），非用户
 // 错误；映射 503。
-var ErrAllSourcesFailed = errorsdomain.New(errorsdomain.KindUnavailable, "CATALOG_ALL_SOURCES_FAILED", "all catalog sources failed")
+var ErrAllSourcesFailed = errorspkg.New(errorspkg.KindUnavailable, "CATALOG_ALL_SOURCES_FAILED", "all catalog sources failed")

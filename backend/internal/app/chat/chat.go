@@ -30,7 +30,6 @@ import (
 	toolsetpkg "github.com/sunweilin/forgify/backend/internal/app/tool/toolset"
 	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
@@ -38,6 +37,7 @@ import (
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -66,14 +66,14 @@ const defaultMaxSteps = 25
 const queueCapacity = 5
 
 // Errors that bubble to HTTP (R0056 handler maps them). Defined here (chat has no domain package
-// — messages is the neutral content model) via errorsdomain so they carry a Kind→status + a
+// — messages is the neutral content model) via errorspkg so they carry a Kind→status + a
 // stable wire code, per S20. The wire codes are already registered in error-codes.md §2.4.
 //
 // 冒泡到 HTTP 的错误（R0056 handler 映射）。在此定义（chat 无 domain 包——messages 是中立内容
-// 模型），经 errorsdomain 带 Kind→status + 稳定 wire code（S20）。wire code 已登记 error-codes §2.4。
+// 模型），经 errorspkg 带 Kind→status + 稳定 wire code（S20）。wire code 已登记 error-codes §2.4。
 var (
-	ErrEmptyContent     = errorsdomain.New(errorsdomain.KindInvalid, "EMPTY_CONTENT", "message has no text and no attachments")
-	ErrStreamInProgress = errorsdomain.New(errorsdomain.KindConflict, "STREAM_IN_PROGRESS", "this conversation already has an assistant turn running")
+	ErrEmptyContent     = errorspkg.New(errorspkg.KindInvalid, "EMPTY_CONTENT", "message has no text and no attachments")
+	ErrStreamInProgress = errorspkg.New(errorspkg.KindConflict, "STREAM_IN_PROGRESS", "this conversation already has an assistant turn running")
 )
 
 // ----- DIP ports: chat depends on capabilities, never on concrete app packages. -----

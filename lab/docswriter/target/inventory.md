@@ -39,7 +39,7 @@
 | | pkg-utils | `pkg/{idgen,jsonrepair,pagination,pathguard,fspath,tokencount,wikilink,limits,schema}` 总览（各一段） |
 | **共享引擎** | loop | `app/loop`——共享 ReAct 引擎（chat/agent/subagent/workflow 都是调用方）+ danger 门 |
 | | tool | `app/tool` 5 方法接口 + 三字段注入 + `toolset` 懒加载/search_tools；内置工具组（filesystem/search/shell/web/ask）总览 |
-| | errors | `domain/errors`——`errorsdomain.New(kind,code,msg)` 错误框架（Kind→HTTP + wire code） |
+| | errors | `pkg/errors`——`errorspkg.New(kind,code,msg)` 错误框架（Kind→HTTP + wire code） |
 | **infra** | llm | `infra/llm`——自研各家原生流式客户端 + factory |
 | | db | `infra/db`——sqlite open/migrate（glebarez/go-sqlite） |
 | | stream | `infra/stream` + `domain/stream`——3 实例 SSE Bus（信封/四动词/replay 环/seq） |

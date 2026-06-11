@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -148,29 +148,29 @@ func ValidateForm(template, timeout, timeoutBehavior string) error {
 var (
 	// ErrNotFound: approval form id miss (scoped to workspace).
 	// ErrNotFound：审批表 id 未命中（按 workspace 隔离）。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "APPROVAL_NOT_FOUND", "approval form not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "APPROVAL_NOT_FOUND", "approval form not found")
 
 	// ErrDuplicateName: a live approval form already owns this name in the workspace.
 	// ErrDuplicateName：workspace 内已有同名活跃审批表。
-	ErrDuplicateName = errorsdomain.New(errorsdomain.KindConflict, "APPROVAL_NAME_DUPLICATE", "approval form name already exists")
+	ErrDuplicateName = errorspkg.New(errorspkg.KindConflict, "APPROVAL_NAME_DUPLICATE", "approval form name already exists")
 
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
-	ErrVersionNotFound = errorsdomain.New(errorsdomain.KindNotFound, "APPROVAL_VERSION_NOT_FOUND", "approval form version not found")
+	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "APPROVAL_VERSION_NOT_FOUND", "approval form version not found")
 
 	// ErrNoActiveVersion: approval form has no active version.
 	// ErrNoActiveVersion：审批表无 active 版本。
-	ErrNoActiveVersion = errorsdomain.New(errorsdomain.KindUnprocessable, "APPROVAL_NO_ACTIVE_VERSION", "approval form has no active version")
+	ErrNoActiveVersion = errorspkg.New(errorspkg.KindUnprocessable, "APPROVAL_NO_ACTIVE_VERSION", "approval form has no active version")
 
 	// ErrInvalidName: name empty / malformed.
 	// ErrInvalidName：name 空 / 畸形。
-	ErrInvalidName = errorsdomain.New(errorsdomain.KindUnprocessable, "APPROVAL_INVALID_NAME", "invalid approval form name")
+	ErrInvalidName = errorspkg.New(errorspkg.KindUnprocessable, "APPROVAL_INVALID_NAME", "invalid approval form name")
 
 	// ErrInvalidTemplate: template empty, or its `{{ CEL }}` spans failed to compile (app maps the latter).
 	// ErrInvalidTemplate：template 空，或其 `{{ CEL }}` 段编译失败（后者 app 映射）。
-	ErrInvalidTemplate = errorsdomain.New(errorsdomain.KindUnprocessable, "APPROVAL_INVALID_TEMPLATE", "approval template empty or its {{ CEL }} failed to compile")
+	ErrInvalidTemplate = errorspkg.New(errorspkg.KindUnprocessable, "APPROVAL_INVALID_TEMPLATE", "approval template empty or its {{ CEL }} failed to compile")
 
 	// ErrInvalidTimeout: timeout not a valid duration, or set without a valid timeoutBehavior.
 	// ErrInvalidTimeout：timeout 非合法 duration，或设了 timeout 却无合法 timeoutBehavior。
-	ErrInvalidTimeout = errorsdomain.New(errorsdomain.KindUnprocessable, "APPROVAL_INVALID_TIMEOUT", "invalid timeout duration or missing/invalid timeoutBehavior")
+	ErrInvalidTimeout = errorspkg.New(errorspkg.KindUnprocessable, "APPROVAL_INVALID_TIMEOUT", "invalid timeout duration or missing/invalid timeoutBehavior")
 )

@@ -14,16 +14,20 @@ import (
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	websearchdomain "github.com/sunweilin/forgify/backend/internal/domain/websearch"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// HTTP-classified sentinels enabling errors.Is matching (not substring).
+// Sentinels with real HTTP semantics — upstream provider failures map to 502/429
+// if ever surfaced via HTTP; today they reach the LLM as a tool-result message.
+// errors.Is matches by Code.
 //
-// HTTP 状态分类的 sentinel，允许 errors.Is 匹配（非 substring）。
+// 带真 HTTP 语义的 sentinel——上游 provider 失败将来若经 HTTP 冒出即 502/429；今天经
+// tool-result 给 LLM。errors.Is 按 Code 匹配。
 var (
-	ErrAuthFailed   = errors.New("websearch: provider authentication failed")
-	ErrRateLimited  = errors.New("websearch: provider rate limited")
-	ErrUpstreamHTTP = errors.New("websearch: provider upstream HTTP error")
+	ErrAuthFailed   = errorspkg.New(errorspkg.KindBadGateway, "WEBSEARCH_AUTH_FAILED", "search provider authentication failed")
+	ErrRateLimited  = errorspkg.New(errorspkg.KindRateLimited, "WEBSEARCH_RATE_LIMITED", "search provider rate limited")
+	ErrUpstreamHTTP = errorspkg.New(errorspkg.KindBadGateway, "WEBSEARCH_UPSTREAM_HTTP", "search provider upstream error")
 )
 
 const (
@@ -35,7 +39,7 @@ const (
 // ErrEmptyQuery: query missing or empty.
 //
 // ErrEmptyQuery：query 缺失或为空。
-var ErrEmptyQuery = errors.New("query is required and must be non-empty")
+var ErrEmptyQuery = errorspkg.New(errorspkg.KindInvalid, "WEBSEARCH_EMPTY_QUERY", "query is required and must be non-empty")
 
 const searchDescription = `Web search via the workspace's configured search key (BYOK: Brave/Serper/Tavily/Bocha — one explicit key). Returns JSON {query,source,results:[{title,url,snippet}],truncated}. If no search key is configured, returns setup guidance.`
 

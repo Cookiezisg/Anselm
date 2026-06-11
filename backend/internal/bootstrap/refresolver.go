@@ -9,12 +9,12 @@ import (
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // The narrow read ports the resolver inspects per entity family. The forgeable five expose Get
@@ -212,8 +212,8 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 // refMiss 把实体「不存在」存储错误映射成 workflowdomain.ErrRefNotFound（使调用方统一对待不可解析
 // ref）；其它错误（如 DB 故障）原样透传。
 func refMiss(err error) (workflowapp.RefInfo, error) {
-	var e *errorsdomain.Error
-	if stderrors.As(err, &e) && e.Kind == errorsdomain.KindNotFound {
+	var e *errorspkg.Error
+	if stderrors.As(err, &e) && e.Kind == errorspkg.KindNotFound {
 		return workflowapp.RefInfo{}, workflowdomain.ErrRefNotFound
 	}
 	return workflowapp.RefInfo{}, err

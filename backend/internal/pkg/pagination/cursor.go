@@ -8,8 +8,8 @@ package pagination
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"time"
 )
 
@@ -18,7 +18,7 @@ import (
 //
 // ErrMalformedCursor 表示无法解码的 cursor。调用方将其映射到自己的 transport/domain 错误
 // （pagination 不依赖任何上层）。
-var ErrMalformedCursor = errors.New("pagination: malformed cursor")
+var ErrMalformedCursor = errorspkg.New(errorspkg.KindInvalid, "MALFORMED_CURSOR", "pagination: malformed cursor")
 
 // Cursor is the standard (created_at, id) keyset tuple; short JSON tags keep encoded cursors compact.
 //

@@ -18,6 +18,7 @@ import (
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 const (
@@ -34,17 +35,17 @@ var (
 	// ErrEmptyURL: url missing or empty.
 	//
 	// ErrEmptyURL：url 缺失或为空。
-	ErrEmptyURL = errors.New("url is required and must be non-empty")
+	ErrEmptyURL = errorspkg.New(errorspkg.KindInvalid, "WEB_EMPTY_URL", "url is required and must be non-empty")
 
 	// ErrEmptyPrompt: prompt missing or empty.
 	//
 	// ErrEmptyPrompt：prompt 缺失或为空。
-	ErrEmptyPrompt = errors.New("prompt is required and must be non-empty")
+	ErrEmptyPrompt = errorspkg.New(errorspkg.KindInvalid, "WEB_EMPTY_PROMPT", "prompt is required and must be non-empty")
 
 	// ErrUnsupportedScheme: only http and https allowed (SSRF surface).
 	//
 	// ErrUnsupportedScheme：仅允许 http/https（SSRF 面）。
-	ErrUnsupportedScheme = errors.New("url must use http or https scheme")
+	ErrUnsupportedScheme = errorspkg.New(errorspkg.KindInvalid, "WEB_UNSUPPORTED_SCHEME", "url must use http or https scheme")
 )
 
 const fetchDescription = `Fetch a URL and return an LLM summary answering prompt. Absolute http/https only; private/loopback addresses blocked.`

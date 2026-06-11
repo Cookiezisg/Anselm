@@ -17,7 +17,7 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Block is one node of an assistant turn's content tree, persisted to message_blocks.
@@ -247,7 +247,7 @@ func IsValidRole(r string) bool {
 // ErrMessageNotFound: GetMessage on an unknown message id.
 //
 // ErrMessageNotFound：对未知 message id 调 GetMessage。
-var ErrMessageNotFound = errorsdomain.New(errorsdomain.KindNotFound, "MESSAGE_NOT_FOUND", "message not found")
+var ErrMessageNotFound = errorspkg.New(errorspkg.KindNotFound, "MESSAGE_NOT_FOUND", "message not found")
 
 // Repository persists conversation turns and their Block trees. Workspace isolation is
 // automatic (orm fills/filters workspace_id from ctx via the ,ws tag), so no method takes a

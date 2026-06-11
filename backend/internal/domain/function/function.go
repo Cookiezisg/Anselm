@@ -14,7 +14,7 @@ package function
 import (
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -84,46 +84,46 @@ var (
 	// ErrNotFound: function id miss (scoped to workspace).
 	//
 	// ErrNotFound：function id 未命中（按 workspace 隔离）。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "FUNCTION_NOT_FOUND", "function not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "FUNCTION_NOT_FOUND", "function not found")
 
 	// ErrDuplicateName: a live function already owns this name in the workspace.
 	//
 	// ErrDuplicateName：workspace 内已有同名活跃 function。
-	ErrDuplicateName = errorsdomain.New(errorsdomain.KindConflict, "FUNCTION_NAME_DUPLICATE", "function name already exists")
+	ErrDuplicateName = errorspkg.New(errorspkg.KindConflict, "FUNCTION_NAME_DUPLICATE", "function name already exists")
 
 	// ErrVersionNotFound: version id / number miss.
 	//
 	// ErrVersionNotFound：version id / 号未命中。
-	ErrVersionNotFound = errorsdomain.New(errorsdomain.KindNotFound, "FUNCTION_VERSION_NOT_FOUND", "function version not found")
+	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "FUNCTION_VERSION_NOT_FOUND", "function version not found")
 
 	// ErrNoActiveVersion: function has no active version to run.
 	//
 	// ErrNoActiveVersion：function 无 active 版本可运行。
-	ErrNoActiveVersion = errorsdomain.New(errorsdomain.KindUnprocessable, "FUNCTION_NO_ACTIVE_VERSION", "function has no active version")
+	ErrNoActiveVersion = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_NO_ACTIVE_VERSION", "function has no active version")
 
 	// ErrEnvNotReady: the version's sandbox env could not be built (deps won't install
 	// even after the fix loop), so it cannot run.
 	//
 	// ErrEnvNotReady：版本的 sandbox env 建不起来（修复循环后依赖仍装不上），无法运行。
-	ErrEnvNotReady = errorsdomain.New(errorsdomain.KindUnprocessable, "FUNCTION_ENV_NOT_READY", "function env not ready")
+	ErrEnvNotReady = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_ENV_NOT_READY", "function env not ready")
 
 	// ErrSandboxUnavailable: sandbox runtime not ready (cannot materialize venv).
 	//
 	// ErrSandboxUnavailable：sandbox runtime 未就绪（无法物化 venv）。
-	ErrSandboxUnavailable = errorsdomain.New(errorsdomain.KindUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
+	ErrSandboxUnavailable = errorspkg.New(errorspkg.KindUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
 
 	// ErrOpInvalid: a forge op is malformed or leaves the draft invalid.
 	//
 	// ErrOpInvalid：锻造 op 畸形，或应用后草稿非法。
-	ErrOpInvalid = errorsdomain.New(errorsdomain.KindUnprocessable, "FUNCTION_OP_INVALID", "invalid forge op")
+	ErrOpInvalid = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_OP_INVALID", "invalid forge op")
 
 	// ErrInvalidCode: final draft validation failed (no def, empty code, blacklisted import).
 	//
 	// ErrInvalidCode：草稿终校验失败（无 def、空代码、黑名单 import）。
-	ErrInvalidCode = errorsdomain.New(errorsdomain.KindUnprocessable, "FUNCTION_INVALID_CODE", "function code invalid")
+	ErrInvalidCode = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_INVALID_CODE", "function code invalid")
 
 	// ErrExecutionNotFound: execution id miss.
 	//
 	// ErrExecutionNotFound：execution id 未命中。
-	ErrExecutionNotFound = errorsdomain.New(errorsdomain.KindNotFound, "FUNCTION_EXECUTION_NOT_FOUND", "function execution not found")
+	ErrExecutionNotFound = errorspkg.New(errorspkg.KindNotFound, "FUNCTION_EXECUTION_NOT_FOUND", "function execution not found")
 )

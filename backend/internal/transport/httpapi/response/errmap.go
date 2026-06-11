@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // statusForKind maps a domain error Kind to its HTTP status — the canonical mapping
@@ -18,42 +18,42 @@ import (
 // statusForKind 把 domain 错误 Kind 映射到 HTTP status——domain/errors 每个 Kind 注释里的
 // 权威映射。这个 switch 就是 domain→HTTP 的全部映射：transport 不持逐错误表、不 import 任何
 // 业务 domain（旧 errmap 是 293 行表、import 27 包；结构化 Error{Kind,Code} 把它塌缩到这里）。
-func statusForKind(k errorsdomain.Kind) int {
+func statusForKind(k errorspkg.Kind) int {
 	switch k {
-	case errorsdomain.KindInvalid:
+	case errorspkg.KindInvalid:
 		return http.StatusBadRequest
-	case errorsdomain.KindUnauthorized:
+	case errorspkg.KindUnauthorized:
 		return http.StatusUnauthorized
-	case errorsdomain.KindNotFound:
+	case errorspkg.KindNotFound:
 		return http.StatusNotFound
-	case errorsdomain.KindConflict:
+	case errorspkg.KindConflict:
 		return http.StatusConflict
-	case errorsdomain.KindUnprocessable:
+	case errorspkg.KindUnprocessable:
 		return http.StatusUnprocessableEntity
-	case errorsdomain.KindTooLarge:
+	case errorspkg.KindTooLarge:
 		return http.StatusRequestEntityTooLarge
-	case errorsdomain.KindUnsupportedMedia:
+	case errorspkg.KindUnsupportedMedia:
 		return http.StatusUnsupportedMediaType
-	case errorsdomain.KindRateLimited:
+	case errorspkg.KindRateLimited:
 		return http.StatusTooManyRequests
-	case errorsdomain.KindBadGateway:
+	case errorspkg.KindBadGateway:
 		return http.StatusBadGateway
-	case errorsdomain.KindUnavailable:
+	case errorspkg.KindUnavailable:
 		return http.StatusServiceUnavailable
-	case errorsdomain.KindGatewayTimeout:
+	case errorspkg.KindGatewayTimeout:
 		return http.StatusGatewayTimeout
-	case errorsdomain.KindAccepted:
+	case errorspkg.KindAccepted:
 		return http.StatusAccepted
-	case errorsdomain.KindClientClosed:
+	case errorspkg.KindClientClosed:
 		return 499
-	case errorsdomain.KindGone:
+	case errorspkg.KindGone:
 		return http.StatusGone
 	default: // KindInternal + zero value → safest outcome
 		return http.StatusInternalServerError
 	}
 }
 
-// FromDomainError writes the N1 error envelope for err. A structured *errorsdomain.Error
+// FromDomainError writes the N1 error envelope for err. A structured *errorspkg.Error
 // maps via statusForKind(Kind) + its stable wire Code + Details. stdlib context errors are
 // special-cased (the only non-Error sentinels transport knows). Anything else → 500 with a
 // suppressed message (logged), never leaking internals.
@@ -62,7 +62,7 @@ func statusForKind(k errorsdomain.Kind) int {
 // wire Code + Details 映射；stdlib context 错误特例（transport 唯一认识的非 Error sentinel）；
 // 其余 → 500 隐藏原文（记日志），绝不泄露内部。
 func FromDomainError(w http.ResponseWriter, log *zap.Logger, err error) {
-	var de *errorsdomain.Error
+	var de *errorspkg.Error
 	if errors.As(err, &de) {
 		Error(w, statusForKind(de.Kind), de.Code, de.Message, de.Details)
 		return

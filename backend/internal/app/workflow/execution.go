@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // execution.go is the workflow EXECUTION-LIFECYCLE surface (D1): the five actions that drive a
@@ -25,7 +25,7 @@ import (
 // misconfiguration — in production SetExecutionPorts always runs at assembly). Surfaced as a 500.
 //
 // errExecUnavailable 在执行端口未接线（配置错误——生产中 SetExecutionPorts 必在装配时跑）时守卫五个动作。以 500 上呈。
-var errExecUnavailable = errorsdomain.New(errorsdomain.KindInternal, "WORKFLOW_EXECUTION_UNAVAILABLE", "workflow execution lifecycle is unavailable (engine not wired)")
+var errExecUnavailable = errorspkg.New(errorspkg.KindInternal, "WORKFLOW_EXECUTION_UNAVAILABLE", "workflow execution lifecycle is unavailable (engine not wired)")
 
 // Trigger fires one run now with a payload shaped like the entry trigger's signal (the LLM/UI
 // "run now"). It does not touch listening state — it works whatever the lifecycle. Returns the new

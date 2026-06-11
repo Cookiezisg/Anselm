@@ -12,7 +12,7 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Document is one node in the workspace's markdown tree; ParentID nil = root-level.
@@ -45,12 +45,12 @@ const MaxContentBytes = 1 << 20 // 1 MB
 const MaxNameLength = 256
 
 var (
-	ErrNotFound        = errorsdomain.New(errorsdomain.KindNotFound, "DOCUMENT_NOT_FOUND", "document not found")
-	ErrInvalidParent   = errorsdomain.New(errorsdomain.KindUnprocessable, "DOCUMENT_INVALID_PARENT", "invalid parent (cycle or self)")
-	ErrNameConflict    = errorsdomain.New(errorsdomain.KindConflict, "DOCUMENT_NAME_CONFLICT", "name already exists under same parent")
-	ErrContentTooLarge = errorsdomain.New(errorsdomain.KindTooLarge, "DOCUMENT_CONTENT_TOO_LARGE", "content exceeds 1 MB limit")
-	ErrInvalidName     = errorsdomain.New(errorsdomain.KindInvalid, "DOCUMENT_INVALID_NAME", "invalid name (empty, too long, or contains '/')")
-	ErrParentNotFound  = errorsdomain.New(errorsdomain.KindUnprocessable, "DOCUMENT_PARENT_NOT_FOUND", "parent not found")
+	ErrNotFound        = errorspkg.New(errorspkg.KindNotFound, "DOCUMENT_NOT_FOUND", "document not found")
+	ErrInvalidParent   = errorspkg.New(errorspkg.KindUnprocessable, "DOCUMENT_INVALID_PARENT", "invalid parent (cycle or self)")
+	ErrNameConflict    = errorspkg.New(errorspkg.KindConflict, "DOCUMENT_NAME_CONFLICT", "name already exists under same parent")
+	ErrContentTooLarge = errorspkg.New(errorspkg.KindTooLarge, "DOCUMENT_CONTENT_TOO_LARGE", "content exceeds 1 MB limit")
+	ErrInvalidName     = errorspkg.New(errorspkg.KindInvalid, "DOCUMENT_INVALID_NAME", "invalid name (empty, too long, or contains '/')")
+	ErrParentNotFound  = errorspkg.New(errorspkg.KindUnprocessable, "DOCUMENT_PARENT_NOT_FOUND", "parent not found")
 )
 
 // CreateInput is the write payload for a new document; WorkspaceID is filled by the

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -102,14 +102,14 @@ func (v *Version) ValidateTools() error {
 //
 // Domain 错误（wire code 稳定；Kind → HTTP status）。
 var (
-	ErrNotFound             = errorsdomain.New(errorsdomain.KindNotFound, "AGENT_NOT_FOUND", "agent not found")
-	ErrNameConflict         = errorsdomain.New(errorsdomain.KindConflict, "AGENT_NAME_CONFLICT", "agent name already exists")
-	ErrVersionNotFound      = errorsdomain.New(errorsdomain.KindNotFound, "AGENT_VERSION_NOT_FOUND", "agent version not found")
-	ErrNoActiveVersion      = errorsdomain.New(errorsdomain.KindUnprocessable, "AGENT_NO_ACTIVE_VERSION", "agent has no active version to invoke")
-	ErrToolsAgentRef        = errorsdomain.New(errorsdomain.KindUnprocessable, "AGENT_TOOLS_AGENT_REF", "agent tools cannot reference another agent (ag_ forbidden)")
-	ErrToolRefBlank         = errorsdomain.New(errorsdomain.KindUnprocessable, "AGENT_TOOL_REF_BLANK", "agent tool ref must not be blank")
-	ErrInvalidModelOverride = errorsdomain.New(errorsdomain.KindUnprocessable, "AGENT_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
-	ErrExecutionNotFound    = errorsdomain.New(errorsdomain.KindNotFound, "AGENT_EXECUTION_NOT_FOUND", "agent execution not found")
+	ErrNotFound             = errorspkg.New(errorspkg.KindNotFound, "AGENT_NOT_FOUND", "agent not found")
+	ErrNameConflict         = errorspkg.New(errorspkg.KindConflict, "AGENT_NAME_CONFLICT", "agent name already exists")
+	ErrVersionNotFound      = errorspkg.New(errorspkg.KindNotFound, "AGENT_VERSION_NOT_FOUND", "agent version not found")
+	ErrNoActiveVersion      = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_NO_ACTIVE_VERSION", "agent has no active version to invoke")
+	ErrToolsAgentRef        = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOLS_AGENT_REF", "agent tools cannot reference another agent (ag_ forbidden)")
+	ErrToolRefBlank         = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOL_REF_BLANK", "agent tool ref must not be blank")
+	ErrInvalidModelOverride = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
+	ErrExecutionNotFound    = errorspkg.New(errorspkg.KindNotFound, "AGENT_EXECUTION_NOT_FOUND", "agent execution not found")
 )
 
 // Repository is the persistence port for the Agent domain. No GetPending / AcceptVersion —

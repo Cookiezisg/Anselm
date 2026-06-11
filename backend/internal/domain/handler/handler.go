@@ -19,7 +19,7 @@ package handler
 import (
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Handler is the Definition entity; class code / methods / init-args schema / deps live
@@ -107,19 +107,19 @@ const (
 )
 
 var (
-	ErrNotFound            = errorsdomain.New(errorsdomain.KindNotFound, "HANDLER_NOT_FOUND", "handler not found")
-	ErrDuplicateName       = errorsdomain.New(errorsdomain.KindConflict, "HANDLER_NAME_DUPLICATE", "handler name already exists")
-	ErrVersionNotFound     = errorsdomain.New(errorsdomain.KindNotFound, "HANDLER_VERSION_NOT_FOUND", "handler version not found")
-	ErrCallNotFound        = errorsdomain.New(errorsdomain.KindNotFound, "HANDLER_CALL_NOT_FOUND", "handler call not found")
-	ErrMethodNotFound      = errorsdomain.New(errorsdomain.KindNotFound, "HANDLER_METHOD_NOT_FOUND", "handler method not found")
-	ErrNoActiveVersion     = errorsdomain.New(errorsdomain.KindUnprocessable, "HANDLER_NO_ACTIVE_VERSION", "handler has no active version")
-	ErrEnvNotReady         = errorsdomain.New(errorsdomain.KindUnprocessable, "HANDLER_ENV_NOT_READY", "handler env not ready")
-	ErrConfigIncomplete    = errorsdomain.New(errorsdomain.KindUnprocessable, "HANDLER_CONFIG_INCOMPLETE", "handler config incomplete (required init args unset)")
-	ErrOpInvalid           = errorsdomain.New(errorsdomain.KindUnprocessable, "HANDLER_OP_INVALID", "invalid forge op")
-	ErrInvalidCode         = errorsdomain.New(errorsdomain.KindUnprocessable, "HANDLER_INVALID_CODE", "handler class code invalid")
-	ErrSandboxUnavailable  = errorsdomain.New(errorsdomain.KindUnavailable, "HANDLER_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
-	ErrInstanceSpawnFailed = errorsdomain.New(errorsdomain.KindBadGateway, "HANDLER_INSTANCE_SPAWN_FAILED", "handler instance spawn failed")
-	ErrInstanceCrashed     = errorsdomain.New(errorsdomain.KindBadGateway, "HANDLER_CRASHED", "handler instance crashed")
-	ErrInstanceRPCTimeout  = errorsdomain.New(errorsdomain.KindGatewayTimeout, "HANDLER_RPC_TIMEOUT", "handler instance RPC timeout")
-	ErrConfigDecryptFailed = errorsdomain.New(errorsdomain.KindInternal, "HANDLER_CONFIG_DECRYPT_FAILED", "handler config decrypt failed")
+	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "HANDLER_NOT_FOUND", "handler not found")
+	ErrDuplicateName       = errorspkg.New(errorspkg.KindConflict, "HANDLER_NAME_DUPLICATE", "handler name already exists")
+	ErrVersionNotFound     = errorspkg.New(errorspkg.KindNotFound, "HANDLER_VERSION_NOT_FOUND", "handler version not found")
+	ErrCallNotFound        = errorspkg.New(errorspkg.KindNotFound, "HANDLER_CALL_NOT_FOUND", "handler call not found")
+	ErrMethodNotFound      = errorspkg.New(errorspkg.KindNotFound, "HANDLER_METHOD_NOT_FOUND", "handler method not found")
+	ErrNoActiveVersion     = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_NO_ACTIVE_VERSION", "handler has no active version")
+	ErrEnvNotReady         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_ENV_NOT_READY", "handler env not ready")
+	ErrConfigIncomplete    = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_CONFIG_INCOMPLETE", "handler config incomplete (required init args unset)")
+	ErrOpInvalid           = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_OP_INVALID", "invalid forge op")
+	ErrInvalidCode         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_INVALID_CODE", "handler class code invalid")
+	ErrSandboxUnavailable  = errorspkg.New(errorspkg.KindUnavailable, "HANDLER_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
+	ErrInstanceSpawnFailed = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_INSTANCE_SPAWN_FAILED", "handler instance spawn failed")
+	ErrInstanceCrashed     = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CRASHED", "handler instance crashed")
+	ErrInstanceRPCTimeout  = errorspkg.New(errorspkg.KindGatewayTimeout, "HANDLER_RPC_TIMEOUT", "handler instance RPC timeout")
+	ErrConfigDecryptFailed = errorspkg.New(errorspkg.KindInternal, "HANDLER_CONFIG_DECRYPT_FAILED", "handler config decrypt failed")
 )

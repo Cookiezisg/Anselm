@@ -8,8 +8,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"io"
 )
 
@@ -88,4 +88,4 @@ func (e *AESGCMEncryptor) Decrypt(_ context.Context, ciphertext []byte) ([]byte,
 // ErrUnsupportedVersion signals Decrypt got a ciphertext version it can't handle.
 //
 // ErrUnsupportedVersion 表示 Decrypt 遇到不支持的密文版本。
-var ErrUnsupportedVersion = errors.New("aesgcm: unsupported ciphertext version")
+var ErrUnsupportedVersion = errorspkg.New(errorspkg.KindInternal, "CRYPTO_UNSUPPORTED_VERSION", "aesgcm: unsupported ciphertext version")

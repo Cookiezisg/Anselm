@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // decodeJSON strictly decodes the request body into v (unknown fields rejected).
@@ -19,7 +19,7 @@ func decodeJSON(r *http.Request, v any) error {
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		return errorsdomain.ErrInvalidRequest.WithCause(err)
+		return errorspkg.ErrInvalidRequest.WithCause(err)
 	}
 	return nil
 }
@@ -37,7 +37,7 @@ func decodeJSONOptional(r *http.Request, v any) error {
 		if errors.Is(err, io.EOF) {
 			return nil // empty body — leave v zero-valued
 		}
-		return errorsdomain.ErrInvalidRequest.WithCause(err)
+		return errorspkg.ErrInvalidRequest.WithCause(err)
 	}
 	return nil
 }

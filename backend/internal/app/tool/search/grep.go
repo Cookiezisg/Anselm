@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os"
 	"strings"
 
@@ -19,17 +20,17 @@ var (
 	// ErrEmptyPattern: pattern missing or empty.
 	//
 	// ErrEmptyPattern：pattern 缺失或为空。
-	ErrEmptyPattern = errors.New("pattern is required and must be non-empty")
+	ErrEmptyPattern = errorspkg.New(errorspkg.KindInvalid, "SEARCH_EMPTY_PATTERN", "pattern is required and must be non-empty")
 
 	// ErrInvalidOutputMode: output_mode not in supported enum.
 	//
 	// ErrInvalidOutputMode：output_mode 不在支持的枚举内。
-	ErrInvalidOutputMode = errors.New(`output_mode must be one of "content", "files_with_matches", "count"`)
+	ErrInvalidOutputMode = errorspkg.New(errorspkg.KindInvalid, "SEARCH_INVALID_OUTPUT_MODE", `output_mode must be one of "content", "files_with_matches", "count"`)
 
 	// ErrPathRequired: path missing — there is no current directory to default to.
 	//
 	// ErrPathRequired：path 缺失——没有当前目录可作默认。
-	ErrPathRequired = errors.New("path is required (absolute or ~; the agent has no current directory)")
+	ErrPathRequired = errorspkg.New(errorspkg.KindInvalid, "SEARCH_PATH_REQUIRED", "path is required (absolute or ~; the agent has no current directory)")
 )
 
 const (

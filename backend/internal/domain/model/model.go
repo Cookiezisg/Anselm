@@ -10,7 +10,7 @@ package model
 import (
 	"context"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // ModelRef is a reusable model selection: which key, which model, and the user's native option
@@ -77,16 +77,16 @@ func ListScenarios() []string {
 var (
 	// ErrScenarioInvalid: unknown scenario name.
 	// ErrScenarioInvalid：未知 scenario 名。
-	ErrScenarioInvalid = errorsdomain.New(errorsdomain.KindInvalid, "MODEL_SCENARIO_INVALID", "unknown model scenario")
+	ErrScenarioInvalid = errorspkg.New(errorspkg.KindInvalid, "MODEL_SCENARIO_INVALID", "unknown model scenario")
 
 	// ErrNotConfigured: the workspace has no default model for this scenario — the caller surfaces
 	// a "configure a model" prompt rather than failing opaquely.
 	// ErrNotConfigured：该 workspace 在此 scenario 下无默认模型——caller 提示"去配置模型"而非晦涩报错。
-	ErrNotConfigured = errorsdomain.New(errorsdomain.KindUnprocessable, "MODEL_NOT_CONFIGURED", "no model configured for scenario")
+	ErrNotConfigured = errorspkg.New(errorspkg.KindUnprocessable, "MODEL_NOT_CONFIGURED", "no model configured for scenario")
 
 	// ErrRefInvalid: a model selection is missing apiKeyId or modelId.
 	// ErrRefInvalid：模型选择缺 apiKeyId 或 modelId。
-	ErrRefInvalid = errorsdomain.New(errorsdomain.KindInvalid, "MODEL_REF_INVALID", "model selection requires both apiKeyId and modelId")
+	ErrRefInvalid = errorspkg.New(errorspkg.KindInvalid, "MODEL_REF_INVALID", "model selection requires both apiKeyId and modelId")
 )
 
 // ModelPicker resolves a workspace's default ModelRef for a scenario. Implemented by app/workspace

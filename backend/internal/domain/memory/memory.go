@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Memory is one long-term fact stored as <name>.md (frontmatter + body). Name (the
@@ -61,19 +61,19 @@ func IsValidName(name string) bool { return NameRegex.MatchString(name) }
 var (
 	// ErrNotFound: no memory file for the given name.
 	// ErrNotFound：给定 name 无对应 memory 文件。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "MEMORY_NOT_FOUND", "memory not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "MEMORY_NOT_FOUND", "memory not found")
 
 	// ErrInvalidName: name is not a lowercase slug.
 	// ErrInvalidName：name 非小写 slug。
-	ErrInvalidName = errorsdomain.New(errorsdomain.KindInvalid, "MEMORY_INVALID_NAME", "invalid memory name (must be a lowercase slug)")
+	ErrInvalidName = errorspkg.New(errorspkg.KindInvalid, "MEMORY_INVALID_NAME", "invalid memory name (must be a lowercase slug)")
 
 	// ErrInvalidSource: source is not user/ai.
 	// ErrInvalidSource：source 非 user/ai。
-	ErrInvalidSource = errorsdomain.New(errorsdomain.KindInvalid, "MEMORY_INVALID_SOURCE", "invalid memory source (must be user or ai)")
+	ErrInvalidSource = errorspkg.New(errorspkg.KindInvalid, "MEMORY_INVALID_SOURCE", "invalid memory source (must be user or ai)")
 
 	// ErrInvalidInput: description or content missing.
 	// ErrInvalidInput：description 或 content 缺失。
-	ErrInvalidInput = errorsdomain.New(errorsdomain.KindInvalid, "MEMORY_INVALID_INPUT", "memory description and content required")
+	ErrInvalidInput = errorspkg.New(errorspkg.KindInvalid, "MEMORY_INVALID_INPUT", "memory description and content required")
 )
 
 // ListFilter optionally narrows List; nil Pinned = all.

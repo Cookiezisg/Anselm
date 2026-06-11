@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -110,33 +110,33 @@ func ValidateBranches(branches []Branch) error {
 var (
 	// ErrNotFound: control id miss (scoped to workspace).
 	// ErrNotFound：control id 未命中（按 workspace 隔离）。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "CONTROL_NOT_FOUND", "control logic not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "CONTROL_NOT_FOUND", "control logic not found")
 
 	// ErrDuplicateName: a live control logic already owns this name in the workspace.
 	// ErrDuplicateName：workspace 内已有同名活跃 control 逻辑。
-	ErrDuplicateName = errorsdomain.New(errorsdomain.KindConflict, "CONTROL_NAME_DUPLICATE", "control logic name already exists")
+	ErrDuplicateName = errorspkg.New(errorspkg.KindConflict, "CONTROL_NAME_DUPLICATE", "control logic name already exists")
 
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
-	ErrVersionNotFound = errorsdomain.New(errorsdomain.KindNotFound, "CONTROL_VERSION_NOT_FOUND", "control logic version not found")
+	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "CONTROL_VERSION_NOT_FOUND", "control logic version not found")
 
 	// ErrNoActiveVersion: control logic has no active version.
 	// ErrNoActiveVersion：control 逻辑无 active 版本。
-	ErrNoActiveVersion = errorsdomain.New(errorsdomain.KindUnprocessable, "CONTROL_NO_ACTIVE_VERSION", "control logic has no active version")
+	ErrNoActiveVersion = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_NO_ACTIVE_VERSION", "control logic has no active version")
 
 	// ErrInvalidName: name empty / malformed.
 	// ErrInvalidName：name 空 / 畸形。
-	ErrInvalidName = errorsdomain.New(errorsdomain.KindUnprocessable, "CONTROL_INVALID_NAME", "invalid control logic name")
+	ErrInvalidName = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_INVALID_NAME", "invalid control logic name")
 
 	// ErrInvalidBranches: branches empty, or a port is empty / duplicated.
 	// ErrInvalidBranches：branches 空，或 port 空 / 重复。
-	ErrInvalidBranches = errorsdomain.New(errorsdomain.KindUnprocessable, "CONTROL_INVALID_BRANCHES", "branches empty, or port empty/duplicate")
+	ErrInvalidBranches = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_INVALID_BRANCHES", "branches empty, or port empty/duplicate")
 
 	// ErrNoCatchAll: the last branch is not the When=="true" catch-all.
 	// ErrNoCatchAll：末条不是 When=="true" 兜底。
-	ErrNoCatchAll = errorsdomain.New(errorsdomain.KindUnprocessable, "CONTROL_NO_CATCHALL", `last branch must be when:"true"`)
+	ErrNoCatchAll = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_NO_CATCHALL", `last branch must be when:"true"`)
 
 	// ErrInvalidCEL: a branch When/Emit expression failed to compile (the app layer maps this).
 	// ErrInvalidCEL：分支 When/Emit 表达式编译失败（app 层映射）。
-	ErrInvalidCEL = errorsdomain.New(errorsdomain.KindUnprocessable, "CONTROL_INVALID_CEL", "branch when/emit failed to compile")
+	ErrInvalidCEL = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_INVALID_CEL", "branch when/emit failed to compile")
 )

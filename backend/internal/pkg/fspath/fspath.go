@@ -19,7 +19,7 @@
 package fspath
 
 import (
-	"errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,18 +29,18 @@ var (
 	// ErrEmptyPath: path is empty or whitespace-only.
 	//
 	// ErrEmptyPath:路径为空或纯空白。
-	ErrEmptyPath = errors.New("path is required")
+	ErrEmptyPath = errorspkg.New(errorspkg.KindInvalid, "FSPATH_EMPTY_PATH", "path is required")
 
 	// ErrNotAbsolute: path is not absolute after ~ expansion. The agent has no
 	// working directory to resolve a relative path against — unrecoverable here.
 	//
 	// ErrNotAbsolute:展开 ~ 后仍非绝对。agent 无工作目录可解析相对路径——此处不可恢复。
-	ErrNotAbsolute = errors.New("path must be absolute (the agent has no working directory; pass an absolute path or one starting with ~)")
+	ErrNotAbsolute = errorspkg.New(errorspkg.KindInvalid, "FSPATH_NOT_ABSOLUTE", "path must be absolute (the agent has no working directory; pass an absolute path or one starting with ~)")
 
 	// ErrNoHome: path starts with ~ but the OS home directory is unknown.
 	//
 	// ErrNoHome:路径以 ~ 开头但系统 home 目录未知。
-	ErrNoHome = errors.New("cannot expand ~: home directory is unknown")
+	ErrNoHome = errorspkg.New(errorspkg.KindInternal, "FSPATH_NO_HOME", "cannot expand ~: home directory is unknown")
 )
 
 // Expand turns a user-supplied path into a clean absolute path. A leading "~" or

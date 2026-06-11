@@ -2,14 +2,14 @@ package reqctx
 
 import (
 	"context"
-	"errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // ErrMissingWorkspaceID is returned when ctx carries no workspace ID (middleware didn't run).
 // Treat it as a wiring bug (500), not an auth failure (401).
 //
 // ErrMissingWorkspaceID 在 ctx 无 workspace ID 时返回（中间件未跑）。视为接线 bug（500），非鉴权失败（401）。
-var ErrMissingWorkspaceID = errors.New("reqctx: missing workspace id in context")
+var ErrMissingWorkspaceID = errorspkg.New(errorspkg.KindUnauthorized, "MISSING_WORKSPACE_ID", "reqctx: missing workspace id in context")
 
 type workspaceIDKey struct{}
 

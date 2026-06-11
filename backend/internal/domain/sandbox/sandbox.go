@@ -13,7 +13,7 @@ import (
 	"io"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Owner kinds — the entity types that can own an isolated env. function/handler/mcp/skill/
@@ -169,31 +169,31 @@ type LongLivedHandle interface {
 // ProgressFunc 报装机/同步进度；percent 0-100，-1 表未知。
 type ProgressFunc func(stage, message string, percent int)
 
-// Sentinel errors. Built with errorsdomain.New so transport reads Kind→HTTP +
+// Sentinel errors. Built with errorspkg.New so transport reads Kind→HTTP +
 // stable wire code directly (§S20). KindBadGateway (502) is the canonical class
 // for "an upstream tool we shelled out to failed".
 //
-// Sentinel 错误。用 errorsdomain.New 构造，使 transport 直接读 Kind→HTTP + 稳定 wire
+// Sentinel 错误。用 errorspkg.New 构造，使 transport 直接读 Kind→HTTP + 稳定 wire
 // code（§S20）。KindBadGateway (502) 是"外包给的上游工具失败"的标准类别。
 var (
-	ErrRuntimeNotSupported  = errorsdomain.New(errorsdomain.KindUnprocessable, "SANDBOX_RUNTIME_NOT_SUPPORTED", "runtime kind not registered")
-	ErrRuntimeInstallFailed = errorsdomain.New(errorsdomain.KindBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED", "runtime install failed")
+	ErrRuntimeNotSupported  = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_RUNTIME_NOT_SUPPORTED", "runtime kind not registered")
+	ErrRuntimeInstallFailed = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED", "runtime install failed")
 	// ErrRuntimeNotFound is an internal lookup miss (EnsureRuntime consumes it to
 	// decide "not installed → install"); it does not normally reach HTTP.
 	//
 	// ErrRuntimeNotFound 是内部查找未命中（EnsureRuntime 据此判断"未装→去装"），
 	// 通常不冒泡到 HTTP。
-	ErrRuntimeNotFound    = errorsdomain.New(errorsdomain.KindNotFound, "SANDBOX_RUNTIME_NOT_FOUND", "runtime not found")
-	ErrEnvNotFound        = errorsdomain.New(errorsdomain.KindNotFound, "SANDBOX_ENV_NOT_FOUND", "env not found")
-	ErrEnvCreateFailed    = errorsdomain.New(errorsdomain.KindBadGateway, "SANDBOX_ENV_CREATE_FAILED", "env create failed")
-	ErrDepInstallFailed   = errorsdomain.New(errorsdomain.KindBadGateway, "SANDBOX_DEP_INSTALL_FAILED", "dependency install failed")
-	ErrSpawnFailed        = errorsdomain.New(errorsdomain.KindBadGateway, "SANDBOX_SPAWN_FAILED", "spawn process failed")
-	ErrSpawnTimeout       = errorsdomain.New(errorsdomain.KindGatewayTimeout, "SANDBOX_SPAWN_TIMEOUT", "spawn process timeout")
-	ErrEnvInUse           = errorsdomain.New(errorsdomain.KindConflict, "SANDBOX_ENV_IN_USE", "env in use; cannot destroy")
-	ErrInvalidOwnerID     = errorsdomain.New(errorsdomain.KindInvalid, "SANDBOX_INVALID_OWNER_ID", "owner id contains PATH-meta or whitespace character")
-	ErrCmdRequired        = errorsdomain.New(errorsdomain.KindInvalid, "SANDBOX_CMD_REQUIRED", "spawn cmd is required")
-	ErrDockerNotInstalled = errorsdomain.New(errorsdomain.KindUnprocessable, "SANDBOX_DOCKER_NOT_INSTALLED", "docker not installed")
-	ErrDockerDaemonDown   = errorsdomain.New(errorsdomain.KindUnavailable, "SANDBOX_DOCKER_DAEMON_DOWN", "docker daemon not responding")
+	ErrRuntimeNotFound    = errorspkg.New(errorspkg.KindNotFound, "SANDBOX_RUNTIME_NOT_FOUND", "runtime not found")
+	ErrEnvNotFound        = errorspkg.New(errorspkg.KindNotFound, "SANDBOX_ENV_NOT_FOUND", "env not found")
+	ErrEnvCreateFailed    = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_ENV_CREATE_FAILED", "env create failed")
+	ErrDepInstallFailed   = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_DEP_INSTALL_FAILED", "dependency install failed")
+	ErrSpawnFailed        = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_SPAWN_FAILED", "spawn process failed")
+	ErrSpawnTimeout       = errorspkg.New(errorspkg.KindGatewayTimeout, "SANDBOX_SPAWN_TIMEOUT", "spawn process timeout")
+	ErrEnvInUse           = errorspkg.New(errorspkg.KindConflict, "SANDBOX_ENV_IN_USE", "env in use; cannot destroy")
+	ErrInvalidOwnerID     = errorspkg.New(errorspkg.KindInvalid, "SANDBOX_INVALID_OWNER_ID", "owner id contains PATH-meta or whitespace character")
+	ErrCmdRequired        = errorspkg.New(errorspkg.KindInvalid, "SANDBOX_CMD_REQUIRED", "spawn cmd is required")
+	ErrDockerNotInstalled = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_DOCKER_NOT_INSTALLED", "docker not installed")
+	ErrDockerDaemonDown   = errorspkg.New(errorspkg.KindUnavailable, "SANDBOX_DOCKER_DAEMON_DOWN", "docker daemon not responding")
 )
 
 // Repository is the persistence contract for the sandbox manifest tables

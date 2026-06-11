@@ -16,7 +16,7 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Relation is one directed edge: (from_kind, from_id) --kind--> (to_kind, to_id),
@@ -107,23 +107,23 @@ const (
 var (
 	// ErrInvalidRef: source or target ref has an empty id or an unknown entity kind.
 	// ErrInvalidRef：源或目标 ref 的 id 为空或实体类型未知。
-	ErrInvalidRef = errorsdomain.New(errorsdomain.KindInvalid, "REL_INVALID_REF", "invalid entity ref (unknown kind or empty id)")
+	ErrInvalidRef = errorspkg.New(errorspkg.KindInvalid, "REL_INVALID_REF", "invalid entity ref (unknown kind or empty id)")
 
 	// ErrInvalidKind: an edge kind is not one of the 4 verbs.
 	// ErrInvalidKind：边类型不是 4 个动词之一。
-	ErrInvalidKind = errorsdomain.New(errorsdomain.KindInvalid, "REL_INVALID_KIND", "invalid relation kind")
+	ErrInvalidKind = errorspkg.New(errorspkg.KindInvalid, "REL_INVALID_KIND", "invalid relation kind")
 
 	// ErrSelfLoop: an entity may not reference itself.
 	// ErrSelfLoop：实体不能引用自身。
-	ErrSelfLoop = errorsdomain.New(errorsdomain.KindInvalid, "REL_SELF_LOOP", "self-loop forbidden (from == to)")
+	ErrSelfLoop = errorspkg.New(errorspkg.KindInvalid, "REL_SELF_LOOP", "self-loop forbidden (from == to)")
 
 	// ErrDepthOutOfRange: neighborhood depth outside [Min,Max].
 	// ErrDepthOutOfRange：neighborhood 深度超出 [Min,Max]。
-	ErrDepthOutOfRange = errorsdomain.New(errorsdomain.KindInvalid, "REL_DEPTH_LIMIT", "neighborhood depth out of range")
+	ErrDepthOutOfRange = errorspkg.New(errorspkg.KindInvalid, "REL_DEPTH_LIMIT", "neighborhood depth out of range")
 
 	// ErrIncompleteFilter: a filter gave a kind without its id, or vice versa.
 	// ErrIncompleteFilter：filter 给了 kind 却没给 id，或反之。
-	ErrIncompleteFilter = errorsdomain.New(errorsdomain.KindInvalid, "REL_INCOMPLETE_FILTER", "incomplete filter (kind without id, or vice versa)")
+	ErrIncompleteFilter = errorspkg.New(errorspkg.KindInvalid, "REL_INCOMPLETE_FILTER", "incomplete filter (kind without id, or vice versa)")
 )
 
 // Service is the high-level relation API. The write side (Sync*/Purge) is called

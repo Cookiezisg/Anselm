@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // CapabilityReport is the result of a capability check: structural validity always, ref
@@ -267,7 +267,7 @@ func handlerMethod(ref string) string {
 //
 // structuralReason 从 ErrInvalidGraph 取人类原因（回退为错误串）。
 func structuralReason(err error) string {
-	var de *errorsdomain.Error
+	var de *errorspkg.Error
 	if errors.As(err, &de) && de.Details != nil {
 		if reason, ok := de.Details["reason"].(string); ok {
 			return reason

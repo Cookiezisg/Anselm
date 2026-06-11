@@ -19,14 +19,14 @@ import (
 
 	"go.uber.org/zap"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Errors that bubble to HTTP (S20 — Kind→status + stable wire code).
 //
 // 冒泡到 HTTP 的错误（S20——Kind→status + 稳定 wire code）。
-var ErrEmptyRequest = errorsdomain.New(errorsdomain.KindInvalid, "EMPTY_ITERATE_REQUEST", "iterate needs a request describing what to change")
+var ErrEmptyRequest = errorspkg.New(errorspkg.KindInvalid, "EMPTY_ITERATE_REQUEST", "iterate needs a request describing what to change")
 
 // ----- DIP ports: aispawn composes conversation + chat + execution reads, depending only on
 // capabilities so it stays testable with fakes. -----

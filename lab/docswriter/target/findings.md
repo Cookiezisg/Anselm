@@ -12,22 +12,22 @@
 
 ---
 
-## F-1 todo 的 domain 错误绕过错误标准（违 S20 / STD-1）
+## F-1 错误构造分裂（std vs errorsdomain）→ 全量统一 ✅ 已修
 
-- **模块**：errors 评审横切到 `domain/todo`
-- **类型**：冗余 + 不合理
-- **现状**：`domain/todo/todo.go` 的 `ErrEmptyContent` / `ErrInvalidStatus` / `ErrTooManyItems` 用 std `errors.New` 构造（全库唯三在 domain 层这么干的；其余 152 个走 `errorsdomain.New`）。它们从 `app/todo/render.go` 返回。
-- **对照标准**：STD-1 ——会冒泡到 HTTP 的 domain 错误一律 `errorsdomain.New`。todo 有 HTTP 端点（`GET /conversations/{id}/todos` 等）；这些 std-error 一旦冒泡 → `FromDomainError` 落 default → **不透明 500**（本应 400 `TODO_*` / 422）。
-- **冗余佐证**：`app/chat` 已有**正确版** `ErrEmptyContent = errorsdomain.New(KindInvalid, "EMPTY_CONTENT", …)`——同一"内容为空"概念，chat 守标准、todo 绕过。
-- **建议修法（标准化）**：todo 三个 sentinel 改 `errorsdomain.New(Kind, "TODO_EMPTY_CONTENT"/"TODO_INVALID_STATUS"/"TODO_TOO_MANY_ITEMS", …)`，Kind 取 `KindInvalid`/`KindUnprocessable`。**不打补丁**（不在 transport 加 todo 特判）。
-- **严重度**：中（端到端错误码语义错 + 标准破口）
-- **状态**：**open（待你裁决）**
+- **原现状**：errorsdomain.New 只用于"会冒泡 HTTP"的 domain 错误；tool 错误（todo/shell/web/filesystem/search/toolset）+ pkg/infra 原语用 std `errors.New`。"按出口分情况"是认知税（todo 为此写 9 行注释、易踩坑）+ 脆弱（一加写端点就漏成 500）。
+- **裁决（用户 2026-06-11）**：真正全量统一。把错误**类型**从 `domain/errors` 移到 `pkg/errors`（纯机制、全层可用、无反向依赖）；**所有命名 sentinel 一律 `errorspkg.New`**——无"是否冒泡 HTTP"之分（出口不同：HTTP 读 Kind/Code、LLM tool 读 Message）。
+- **已做**：类型搬迁（39 文件重命名 `errorsdomain`→`errorspkg`）+ 37 个命名 sentinel（tool 22 + pkg/infra 15）全转 `errorspkg.New`；web 的 auth/ratelimit/upstream 配真 HTTP 语义（502/429）。build + 全测试绿。
+- **状态**：**已修**（type relocation + 全 sentinel；ADR `decisions/0002`）。
 
-## F-2 websearch 无标准 sentinel（待查）
+## F-2 websearch 错误无 Kind → 随 F-1 一并修 ✅
 
-- **模块**：errors 评审横切到 websearch
-- **类型**：待定（可能 不合理）
-- **现状**：`domain/websearch` 无 `errorsdomain.New` sentinel；`app/tool/web` 的 `ErrAuthFailed`/`ErrRateLimited`/`ErrUpstreamHTTP` 是 std `errors.New`。websearch **无独立 HTTP handler**（初步），所以这些错误大概只回流 LLM（按 STD-1 边界 std 可）。
-- **待查**：websearch 是否经其它路径（如某 service）冒泡到 HTTP？若是，upstream 失败应映射 `KindBadGateway`(502)/`KindRateLimited`(429) 而非沦为 500。
-- **建议**：到 websearch 模块评审时确认；当前**不动**。
-- **状态**：open（websearch 模块再定）
+- **原现状**：`app/tool/web` 的 `ErrAuthFailed`/`ErrRateLimited`/`ErrUpstreamHTTP` 是 std error，丢了它们本有的 HTTP 语义。
+- **已做**：转为 `errorspkg.New`——`WEBSEARCH_AUTH_FAILED`/`WEBSEARCH_UPSTREAM_HTTP`(KindBadGateway 502)、`WEBSEARCH_RATE_LIMITED`(KindRateLimited 429)。语义编码正确、未来若经 HTTP 冒出即对。
+- **状态**：**已修**（随 F-1）。
+
+## F-3 内联 validation 错误重复样板（Phase 3，open）
+
+- **现状**：~22 处内联 `return errors.New("x is required")`（memory/ask/document/filesystem/search/shell 等 tool 的 ValidateInput）——非命名 sentinel，是逐工具重复的输入校验样板。
+- **要点（去重，不盲配码）**：部分**与已有 sentinel 重复**——如 `shell/kill.go` 的 "bash_id is required" ≈ `shell.ErrEmptyBashID`；盲转成一次性码会把冗余焊死。
+- **建议修法**：转 `errorspkg.New` 时**先去重**（复用已有 sentinel）+ 重复"x required"模式考虑共享 helper，而非 22 个一次性码。属 tool 层标准化。
+- **状态**：**open（Phase 3，全量统一收尾）**

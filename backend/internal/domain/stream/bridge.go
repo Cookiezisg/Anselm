@@ -3,7 +3,7 @@ package stream
 import (
 	"context"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Bridge is the per-workspace dispatch port for one stream: assign seq, buffer
@@ -37,5 +37,5 @@ type Bridge interface {
 // ErrSeqTooOld 在 fromSeq 已被 replay buffer 淘汰时返回；客户端须全量重取（messages 走
 // DB 历史；entities 重订阅；notifications 从 DB 支撑的 notification.List 拉历史）。它是
 // 结构化 domain 错误（KindGone → HTTP 410），transport 经 statusForKind 映射、零特例。
-var ErrSeqTooOld = errorsdomain.New(errorsdomain.KindGone, "SEQ_TOO_OLD",
+var ErrSeqTooOld = errorspkg.New(errorspkg.KindGone, "SEQ_TOO_OLD",
 	"requested seq too old (evicted from replay buffer)")

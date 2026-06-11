@@ -17,7 +17,7 @@ import (
 
 	"encoding/json"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // LLM upstream failures, classified by HTTP status (see classifyHTTPError). These are
@@ -27,11 +27,11 @@ import (
 // LLM upstream 失败，按 HTTP 状态分类（见 classifyHTTPError）。均为结构化 domain 错误，
 // 经 Stream 冒泡后 transport 零特例映射到正确 HTTP 状态。
 var (
-	ErrAuthFailed    = errorsdomain.New(errorsdomain.KindUnauthorized, "LLM_AUTH_FAILED", "llm: authentication failed")
-	ErrRateLimited   = errorsdomain.New(errorsdomain.KindRateLimited, "LLM_RATE_LIMITED", "llm: rate limited")
-	ErrBadRequest    = errorsdomain.New(errorsdomain.KindInvalid, "LLM_BAD_REQUEST", "llm: bad request")
-	ErrModelNotFound = errorsdomain.New(errorsdomain.KindNotFound, "LLM_MODEL_NOT_FOUND", "llm: model not found")
-	ErrProviderError = errorsdomain.New(errorsdomain.KindBadGateway, "LLM_PROVIDER_ERROR", "llm: provider error")
+	ErrAuthFailed    = errorspkg.New(errorspkg.KindUnauthorized, "LLM_AUTH_FAILED", "llm: authentication failed")
+	ErrRateLimited   = errorspkg.New(errorspkg.KindRateLimited, "LLM_RATE_LIMITED", "llm: rate limited")
+	ErrBadRequest    = errorspkg.New(errorspkg.KindInvalid, "LLM_BAD_REQUEST", "llm: bad request")
+	ErrModelNotFound = errorspkg.New(errorspkg.KindNotFound, "LLM_MODEL_NOT_FOUND", "llm: model not found")
+	ErrProviderError = errorspkg.New(errorspkg.KindBadGateway, "LLM_PROVIDER_ERROR", "llm: provider error")
 )
 
 // StreamEventType identifies a Client.Stream event variant.

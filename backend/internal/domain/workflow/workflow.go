@@ -30,7 +30,7 @@ package workflow
 import (
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Workflow is a workflow graph entity; its graph lives on the active Version, not here.
@@ -240,49 +240,49 @@ const (
 var (
 	// ErrNotFound: workflow id miss (scoped to workspace).
 	// ErrNotFound：workflow id 未命中（按 workspace 隔离）。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "WORKFLOW_NOT_FOUND", "workflow not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "WORKFLOW_NOT_FOUND", "workflow not found")
 
 	// ErrDuplicateName: a live workflow already owns this name in the workspace.
 	// ErrDuplicateName：workspace 内已有同名活跃 workflow。
-	ErrDuplicateName = errorsdomain.New(errorsdomain.KindConflict, "WORKFLOW_NAME_DUPLICATE", "workflow name already exists")
+	ErrDuplicateName = errorspkg.New(errorspkg.KindConflict, "WORKFLOW_NAME_DUPLICATE", "workflow name already exists")
 
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
-	ErrVersionNotFound = errorsdomain.New(errorsdomain.KindNotFound, "WORKFLOW_VERSION_NOT_FOUND", "workflow version not found")
+	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "WORKFLOW_VERSION_NOT_FOUND", "workflow version not found")
 
 	// ErrNoActiveVersion: workflow has no active version (graph) yet.
 	// ErrNoActiveVersion：workflow 尚无 active 版本（图）。
-	ErrNoActiveVersion = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_NO_ACTIVE_VERSION", "workflow has no active version")
+	ErrNoActiveVersion = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_NO_ACTIVE_VERSION", "workflow has no active version")
 
 	// ErrInvalidGraph: the graph failed structural validation (shape / wiring / cycles /
 	// ports). The descriptive cause rides in details["reason"].
 	// ErrInvalidGraph：图未过结构校验（形状 / 接线 / 环 / 端口）。具体原因在 details["reason"]。
-	ErrInvalidGraph = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_INVALID_GRAPH", "workflow graph is invalid")
+	ErrInvalidGraph = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_INVALID_GRAPH", "workflow graph is invalid")
 
 	// ErrInvalidOps: a graph op is malformed or leaves the graph invalid.
 	// ErrInvalidOps：图 op 畸形，或应用后图非法。
-	ErrInvalidOps = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_INVALID_OPS", "invalid workflow ops")
+	ErrInvalidOps = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_INVALID_OPS", "invalid workflow ops")
 
 	// ErrRefNotFound: a node Ref does not resolve, or its resolved kind/port/method
 	// mismatches (raised by the app CapabilityCheck against the resolver).
 	// ErrRefNotFound：某 node Ref 解析不到，或解析出的 kind/port/method 不符（由 app CapabilityCheck
 	// 据 resolver 抛出）。
-	ErrRefNotFound = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_REF_NOT_FOUND", "workflow node ref not found or mismatched")
+	ErrRefNotFound = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_REF_NOT_FOUND", "workflow node ref not found or mismatched")
 
 	// ErrInvalidLifecycle: an illegal lifecycle value or transition.
 	// ErrInvalidLifecycle：非法 lifecycle 值或转换。
-	ErrInvalidLifecycle = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_INVALID_LIFECYCLE", "invalid workflow lifecycle state or transition")
+	ErrInvalidLifecycle = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_INVALID_LIFECYCLE", "invalid workflow lifecycle state or transition")
 
 	// ErrNoTriggerEntry: an execution-lifecycle action (activate / stage) needs the workflow's entry
 	// trigger node(s) to bind a listener, but the active graph has none (a manual-only graph can only
 	// be :trigger-ed by hand, never armed to listen).
 	// ErrNoTriggerEntry：执行生命周期动作（activate / stage）要靠 workflow 的入口 trigger 节点挂监听，但
 	// active 图里没有（纯手动图只能手动 :trigger、无从挂监听）。
-	ErrNoTriggerEntry = errorsdomain.New(errorsdomain.KindUnprocessable, "WORKFLOW_NO_TRIGGER_ENTRY", "workflow has no entry trigger node to listen on")
+	ErrNoTriggerEntry = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_NO_TRIGGER_ENTRY", "workflow has no entry trigger node to listen on")
 
 	// ErrAlreadyActive: stage (one-shot arm) was called on a workflow that is already active — it is
 	// continuously listening, so a one-shot arm is meaningless (deactivate it first to stage).
 	// ErrAlreadyActive：对已 active 的 workflow 调 stage（一次性待命）——它已在持续监听，一次性待命无意义
 	// （先 deactivate 再 stage）。
-	ErrAlreadyActive = errorsdomain.New(errorsdomain.KindConflict, "WORKFLOW_ALREADY_ACTIVE", "workflow is already active; deactivate before staging a one-shot run")
+	ErrAlreadyActive = errorspkg.New(errorspkg.KindConflict, "WORKFLOW_ALREADY_ACTIVE", "workflow is already active; deactivate before staging a one-shot run")
 )

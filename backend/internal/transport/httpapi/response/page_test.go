@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 func TestParsePageDefault(t *testing.T) {
@@ -32,7 +32,7 @@ func TestParsePageClampsToMax(t *testing.T) {
 func TestParsePageMalformedLimit(t *testing.T) {
 	for _, bad := range []string{"abc", "0", "-5"} {
 		_, err := ParsePage(httptest.NewRequest("GET", "/x?limit="+bad, nil))
-		if !errors.Is(err, errorsdomain.ErrInvalidRequest) {
+		if !errors.Is(err, errorspkg.ErrInvalidRequest) {
 			t.Errorf("limit=%q → err=%v, want ErrInvalidRequest", bad, err)
 		}
 	}

@@ -22,8 +22,8 @@ package toolset
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"sort"
 	"strings"
 
@@ -36,7 +36,7 @@ const defaultSearchToolsLimit = 5
 // ErrEmptyQuery: query missing or empty.
 //
 // ErrEmptyQuery：query 缺失或为空。
-var ErrEmptyQuery = errors.New("query is required and must be non-empty")
+var ErrEmptyQuery = errorspkg.New(errorspkg.KindInvalid, "TOOLSET_EMPTY_QUERY", "query is required and must be non-empty")
 
 var searchToolsSchema = json.RawMessage(`{
 	"type": "object",

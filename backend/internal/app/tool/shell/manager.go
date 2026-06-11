@@ -1,7 +1,7 @@
 package shell
 
 import (
-	"errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os/exec"
 	"sync"
 	"time"
@@ -29,7 +29,7 @@ const (
 // ErrProcessNotFound: bash_id unknown.
 //
 // ErrProcessNotFound：bash_id 未知。
-var ErrProcessNotFound = errors.New("background shell process not found")
+var ErrProcessNotFound = errorspkg.New(errorspkg.KindNotFound, "SHELL_PROCESS_NOT_FOUND", "background shell process not found")
 
 // BgProcess holds one tracked background child; the output buffer + cursor are guarded by mu.
 //

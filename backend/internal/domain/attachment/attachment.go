@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Attachment is one uploaded file's metadata row. SHA256 is the content-addressed key into
@@ -61,9 +61,9 @@ const (
 const MaxBytes = 50 << 20
 
 var (
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "ATTACHMENT_NOT_FOUND", "attachment not found")
-	ErrTooLarge = errorsdomain.New(errorsdomain.KindTooLarge, "ATTACHMENT_TOO_LARGE", "file exceeds the 50 MB limit")
-	ErrEmpty    = errorsdomain.New(errorsdomain.KindInvalid, "ATTACHMENT_EMPTY", "empty file")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "ATTACHMENT_NOT_FOUND", "attachment not found")
+	ErrTooLarge = errorspkg.New(errorspkg.KindTooLarge, "ATTACHMENT_TOO_LARGE", "file exceeds the 50 MB limit")
+	ErrEmpty    = errorspkg.New(errorspkg.KindInvalid, "ATTACHMENT_EMPTY", "empty file")
 )
 
 // KindFromMIME classifies an upload by mime type (a "; charset=…" suffix is stripped), with a

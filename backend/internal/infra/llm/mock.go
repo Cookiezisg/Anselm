@@ -5,7 +5,7 @@ import (
 	"iter"
 	"sync"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // MockScript is one canned response; ErrAfter replaces the entire script with a single error event.
@@ -113,7 +113,7 @@ func (m *MockClient) Stream(ctx context.Context, req Request) iter.Seq[StreamEve
 		if !ok {
 			yield(StreamEvent{
 				Type: EventError,
-				Err:  errorsdomain.New(errorsdomain.KindInternal, "MOCK_QUEUE_EMPTY", "mock-llm: script queue empty — push a script before sending"),
+				Err:  errorspkg.New(errorspkg.KindInternal, "MOCK_QUEUE_EMPTY", "mock-llm: script queue empty — push a script before sending"),
 			})
 			return
 		}

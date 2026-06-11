@@ -13,7 +13,7 @@ package trigger
 import (
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -72,22 +72,22 @@ type ListFilter struct {
 	Limit  int
 }
 
-// Domain errors. Wire codes are stable; Kind maps to HTTP status (errorsdomain).
+// Domain errors. Wire codes are stable; Kind maps to HTTP status (errorspkg).
 //
 // Domain 错误。wire code 稳定；Kind 映射 HTTP status。
 var (
-	ErrNotFound              = errorsdomain.New(errorsdomain.KindNotFound, "TRIGGER_NOT_FOUND", "trigger not found")
-	ErrDuplicateName         = errorsdomain.New(errorsdomain.KindConflict, "TRIGGER_NAME_DUPLICATE", "trigger name already exists")
-	ErrInvalidKind           = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_INVALID_KIND", "unknown trigger kind")
-	ErrInvalidConfig         = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_INVALID_CONFIG", "invalid trigger config")
-	ErrInvalidCron           = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_INVALID_CRON", "invalid cron expression")
-	ErrInvalidCEL            = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_INVALID_CEL", "invalid CEL expression")
-	ErrInvalidInterval       = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_INVALID_INTERVAL", "sensor interval below minimum")
-	ErrSensorTargetRequired  = errorsdomain.New(errorsdomain.KindUnprocessable, "TRIGGER_SENSOR_TARGET_REQUIRED", "sensor requires a function or handler target")
-	ErrWebhookSecretMismatch = errorsdomain.New(errorsdomain.KindUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH", "webhook secret mismatch")
-	ErrActivationNotFound    = errorsdomain.New(errorsdomain.KindNotFound, "TRIGGER_ACTIVATION_NOT_FOUND", "activation not found")
-	ErrListenerUnavailable   = errorsdomain.New(errorsdomain.KindUnavailable, "TRIGGER_LISTENER_UNAVAILABLE", "trigger listener not available")
+	ErrNotFound              = errorspkg.New(errorspkg.KindNotFound, "TRIGGER_NOT_FOUND", "trigger not found")
+	ErrDuplicateName         = errorspkg.New(errorspkg.KindConflict, "TRIGGER_NAME_DUPLICATE", "trigger name already exists")
+	ErrInvalidKind           = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_KIND", "unknown trigger kind")
+	ErrInvalidConfig         = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CONFIG", "invalid trigger config")
+	ErrInvalidCron           = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CRON", "invalid cron expression")
+	ErrInvalidCEL            = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CEL", "invalid CEL expression")
+	ErrInvalidInterval       = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_INTERVAL", "sensor interval below minimum")
+	ErrSensorTargetRequired  = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_SENSOR_TARGET_REQUIRED", "sensor requires a function or handler target")
+	ErrWebhookSecretMismatch = errorspkg.New(errorspkg.KindUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH", "webhook secret mismatch")
+	ErrActivationNotFound    = errorspkg.New(errorspkg.KindNotFound, "TRIGGER_ACTIVATION_NOT_FOUND", "activation not found")
+	ErrListenerUnavailable   = errorspkg.New(errorspkg.KindUnavailable, "TRIGGER_LISTENER_UNAVAILABLE", "trigger listener not available")
 	// ErrFiringNotPending: a ClaimFiring lost the race — already claimed/terminal (consumed by scheduler, 波次 4).
 	// ErrFiringNotPending：claim 竞争失败（已被认领/终态），波次 4 scheduler 消费。
-	ErrFiringNotPending = errorsdomain.New(errorsdomain.KindConflict, "TRIGGER_FIRING_NOT_PENDING", "firing already claimed")
+	ErrFiringNotPending = errorspkg.New(errorspkg.KindConflict, "TRIGGER_FIRING_NOT_PENDING", "firing already claimed")
 )

@@ -12,7 +12,7 @@
 ## 验收闸门（每篇文档「完成」必过）
 
 1. **结构**：符合 `skeleton.md` 章节（module 文档）/ 索引格式（索引文件）。
-2. **精确**：枚举条目逐条对得上代码（端点 = handler 路由；表 = store schema；码 = errorsdomain；事件 = stream producer）。
+2. **精确**：枚举条目逐条对得上代码（端点 = handler 路由；表 = store schema；码 = errorspkg；事件 = stream producer）。
 3. **单源**：本篇没重复别处已枚举的东西（端点只在 api.md、schema 只在 database.md…）。
 4. **零历史**：无 R 轮次 / 演化叙述 / 「曾经」。
 5. **frontmatter**：合法（`make docs` 过）。

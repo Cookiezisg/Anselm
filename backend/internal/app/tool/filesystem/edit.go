@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -17,8 +18,8 @@ import (
 )
 
 var (
-	ErrEmptyOldString = errors.New("old_string is required and must be non-empty")
-	ErrEditNoOp       = errors.New("old_string and new_string must be different")
+	ErrEmptyOldString = errorspkg.New(errorspkg.KindInvalid, "FS_EMPTY_OLD_STRING", "old_string is required and must be non-empty")
+	ErrEditNoOp       = errorspkg.New(errorspkg.KindInvalid, "FS_EDIT_NOOP", "old_string and new_string must be different")
 )
 
 const editDescription = `Exact literal string replace in a file (not regex; whitespace/case matter). Read the file first. old_string must be unique unless replace_all; strip Read's line-num prefix.`

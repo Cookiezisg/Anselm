@@ -12,26 +12,26 @@ import (
 
 	"go.uber.org/zap"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 func TestStatusForKind(t *testing.T) {
-	cases := map[errorsdomain.Kind]int{
-		errorsdomain.KindInvalid:          http.StatusBadRequest,
-		errorsdomain.KindUnauthorized:     http.StatusUnauthorized,
-		errorsdomain.KindNotFound:         http.StatusNotFound,
-		errorsdomain.KindConflict:         http.StatusConflict,
-		errorsdomain.KindGone:             http.StatusGone,
-		errorsdomain.KindUnprocessable:    http.StatusUnprocessableEntity,
-		errorsdomain.KindTooLarge:         http.StatusRequestEntityTooLarge,
-		errorsdomain.KindUnsupportedMedia: http.StatusUnsupportedMediaType,
-		errorsdomain.KindRateLimited:      http.StatusTooManyRequests,
-		errorsdomain.KindBadGateway:       http.StatusBadGateway,
-		errorsdomain.KindUnavailable:      http.StatusServiceUnavailable,
-		errorsdomain.KindGatewayTimeout:   http.StatusGatewayTimeout,
-		errorsdomain.KindAccepted:         http.StatusAccepted,
-		errorsdomain.KindClientClosed:     499,
-		errorsdomain.KindInternal:         http.StatusInternalServerError,
+	cases := map[errorspkg.Kind]int{
+		errorspkg.KindInvalid:          http.StatusBadRequest,
+		errorspkg.KindUnauthorized:     http.StatusUnauthorized,
+		errorspkg.KindNotFound:         http.StatusNotFound,
+		errorspkg.KindConflict:         http.StatusConflict,
+		errorspkg.KindGone:             http.StatusGone,
+		errorspkg.KindUnprocessable:    http.StatusUnprocessableEntity,
+		errorspkg.KindTooLarge:         http.StatusRequestEntityTooLarge,
+		errorspkg.KindUnsupportedMedia: http.StatusUnsupportedMediaType,
+		errorspkg.KindRateLimited:      http.StatusTooManyRequests,
+		errorspkg.KindBadGateway:       http.StatusBadGateway,
+		errorspkg.KindUnavailable:      http.StatusServiceUnavailable,
+		errorspkg.KindGatewayTimeout:   http.StatusGatewayTimeout,
+		errorspkg.KindAccepted:         http.StatusAccepted,
+		errorspkg.KindClientClosed:     499,
+		errorspkg.KindInternal:         http.StatusInternalServerError,
 	}
 	for k, want := range cases {
 		if got := statusForKind(k); got != want {
@@ -56,7 +56,7 @@ func decodeErr(t *testing.T, body []byte) (code, message string) {
 
 func TestFromDomainErrorStructured(t *testing.T) {
 	w := httptest.NewRecorder()
-	FromDomainError(w, zap.NewNop(), errorsdomain.New(errorsdomain.KindNotFound, "THING_NOT_FOUND", "thing not found"))
+	FromDomainError(w, zap.NewNop(), errorspkg.New(errorspkg.KindNotFound, "THING_NOT_FOUND", "thing not found"))
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", w.Code)
 	}
@@ -67,7 +67,7 @@ func TestFromDomainErrorStructured(t *testing.T) {
 
 func TestFromDomainErrorWrappedStillMaps(t *testing.T) {
 	// A fmt-wrapped *Error must still map via errors.As (no special unwrapping needed).
-	base := errorsdomain.New(errorsdomain.KindConflict, "DUP", "duplicate")
+	base := errorspkg.New(errorspkg.KindConflict, "DUP", "duplicate")
 	w := httptest.NewRecorder()
 	FromDomainError(w, zap.NewNop(), fmt.Errorf("service layer: %w", base))
 	if w.Code != http.StatusConflict {

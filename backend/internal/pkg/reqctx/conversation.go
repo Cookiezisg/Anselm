@@ -2,7 +2,7 @@ package reqctx
 
 import (
 	"context"
-	"errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // ErrMissingConversationID is returned when a conversation-scoped call runs without a
@@ -11,7 +11,7 @@ import (
 //
 // ErrMissingConversationID 在对话作用域调用缺 ctx 对话 id 时返回——接线 bug（chat / agent loop
 // 须埋种子），非用户错误。对称 ErrMissingWorkspaceID（500，非 401）。
-var ErrMissingConversationID = errors.New("reqctx: missing conversation id in context")
+var ErrMissingConversationID = errorspkg.New(errorspkg.KindInternal, "MISSING_CONVERSATION_ID", "reqctx: missing conversation id in context")
 
 type (
 	conversationIDKey struct{}

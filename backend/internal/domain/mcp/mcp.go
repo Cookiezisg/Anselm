@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Transport kinds. stdio = local subprocess; the other two = remote endpoints.
@@ -155,15 +155,15 @@ type Repository interface {
 // 错误字典。KindBadGateway（502）给上游 MCP/安装失败，KindUnavailable（503）给挂掉的子进程
 // ——与 handler 同款划分。
 var (
-	ErrServerNotFound        = errorsdomain.New(errorsdomain.KindNotFound, "MCP_SERVER_NOT_FOUND", "mcp server not found")
-	ErrServerNotConnected    = errorsdomain.New(errorsdomain.KindUnavailable, "MCP_SERVER_DOWN", "mcp server not connected")
-	ErrToolNotFound          = errorsdomain.New(errorsdomain.KindNotFound, "MCP_TOOL_NOT_FOUND", "mcp tool not found on server")
-	ErrToolCallFailed        = errorsdomain.New(errorsdomain.KindBadGateway, "MCP_RPC_ERROR", "mcp tool call failed")
-	ErrToolCallTimeout       = errorsdomain.New(errorsdomain.KindGatewayTimeout, "MCP_TOOL_TIMEOUT", "mcp tool call timed out")
-	ErrNameConflict          = errorsdomain.New(errorsdomain.KindConflict, "MCP_NAME_CONFLICT", "mcp server name already exists")
-	ErrInstallFailed         = errorsdomain.New(errorsdomain.KindBadGateway, "MCP_INSTALL_FAILED", "mcp server install failed")
-	ErrEnvMissing            = errorsdomain.New(errorsdomain.KindUnprocessable, "MCP_ENV_MISSING", "required environment variables missing")
-	ErrRegistryEntryNotFound = errorsdomain.New(errorsdomain.KindNotFound, "MCP_REGISTRY_NOT_FOUND", "mcp registry entry not found")
-	ErrNoRunnablePackage     = errorsdomain.New(errorsdomain.KindUnprocessable, "MCP_NO_RUNNABLE_PACKAGE", "no package with a supported runtime (node/python/docker/dotnet) and no remote endpoint")
-	ErrCallNotFound          = errorsdomain.New(errorsdomain.KindNotFound, "MCP_CALL_NOT_FOUND", "mcp call not found")
+	ErrServerNotFound        = errorspkg.New(errorspkg.KindNotFound, "MCP_SERVER_NOT_FOUND", "mcp server not found")
+	ErrServerNotConnected    = errorspkg.New(errorspkg.KindUnavailable, "MCP_SERVER_DOWN", "mcp server not connected")
+	ErrToolNotFound          = errorspkg.New(errorspkg.KindNotFound, "MCP_TOOL_NOT_FOUND", "mcp tool not found on server")
+	ErrToolCallFailed        = errorspkg.New(errorspkg.KindBadGateway, "MCP_RPC_ERROR", "mcp tool call failed")
+	ErrToolCallTimeout       = errorspkg.New(errorspkg.KindGatewayTimeout, "MCP_TOOL_TIMEOUT", "mcp tool call timed out")
+	ErrNameConflict          = errorspkg.New(errorspkg.KindConflict, "MCP_NAME_CONFLICT", "mcp server name already exists")
+	ErrInstallFailed         = errorspkg.New(errorspkg.KindBadGateway, "MCP_INSTALL_FAILED", "mcp server install failed")
+	ErrEnvMissing            = errorspkg.New(errorspkg.KindUnprocessable, "MCP_ENV_MISSING", "required environment variables missing")
+	ErrRegistryEntryNotFound = errorspkg.New(errorspkg.KindNotFound, "MCP_REGISTRY_NOT_FOUND", "mcp registry entry not found")
+	ErrNoRunnablePackage     = errorspkg.New(errorspkg.KindUnprocessable, "MCP_NO_RUNNABLE_PACKAGE", "no package with a supported runtime (node/python/docker/dotnet) and no remote endpoint")
+	ErrCallNotFound          = errorspkg.New(errorspkg.KindNotFound, "MCP_CALL_NOT_FOUND", "mcp call not found")
 )

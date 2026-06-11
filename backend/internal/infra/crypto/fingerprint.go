@@ -4,8 +4,8 @@
 package crypto
 
 import (
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os"
 	"os/exec"
 	"runtime"
@@ -15,7 +15,7 @@ import (
 // ErrNoFingerprint signals no stable machine identity; callers MUST refuse to proceed.
 //
 // ErrNoFingerprint 表示拿不到稳定机器标识，调用方必须拒绝继续。
-var ErrNoFingerprint = errors.New("cannot determine machine fingerprint")
+var ErrNoFingerprint = errorspkg.New(errorspkg.KindInternal, "CRYPTO_NO_FINGERPRINT", "cannot determine machine fingerprint")
 
 // MachineFingerprint returns a stable per-machine ID for key derivation; never returns a fallback.
 //

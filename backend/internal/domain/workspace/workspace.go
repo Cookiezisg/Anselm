@@ -15,8 +15,8 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Workspace is one local isolation root. Name is a free-form display label,
@@ -99,18 +99,18 @@ func (w *Workspace) SetDefaultFor(scenario string, ref *modeldomain.ModelRef) {
 	}
 }
 
-// Domain sentinels — built via errorsdomain.New so transport reads Kind/Code
+// Domain sentinels — built via errorspkg.New so transport reads Kind/Code
 // directly (§S20); wire codes align with error-codes.md.
 //
-// domain sentinel——经 errorsdomain.New 构造，使 transport 直接读 Kind/Code（§S20）；
+// domain sentinel——经 errorspkg.New 构造，使 transport 直接读 Kind/Code（§S20）；
 // wire code 对齐 error-codes.md。
 var (
-	ErrNotFound         = errorsdomain.New(errorsdomain.KindNotFound, "WORKSPACE_NOT_FOUND", "workspace not found")
-	ErrNameRequired     = errorsdomain.New(errorsdomain.KindInvalid, "WORKSPACE_NAME_REQUIRED", "workspace name is required")
-	ErrNameTooLong      = errorsdomain.New(errorsdomain.KindInvalid, "WORKSPACE_NAME_TOO_LONG", "workspace name exceeds the length limit")
-	ErrNameConflict     = errorsdomain.New(errorsdomain.KindConflict, "WORKSPACE_NAME_CONFLICT", "workspace name already exists")
-	ErrCannotDeleteLast = errorsdomain.New(errorsdomain.KindUnprocessable, "CANNOT_DELETE_LAST_WORKSPACE", "cannot delete the last workspace")
-	ErrLanguageInvalid  = errorsdomain.New(errorsdomain.KindInvalid, "WORKSPACE_LANGUAGE_INVALID", "language must be one of zh-CN, en")
+	ErrNotFound         = errorspkg.New(errorspkg.KindNotFound, "WORKSPACE_NOT_FOUND", "workspace not found")
+	ErrNameRequired     = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_REQUIRED", "workspace name is required")
+	ErrNameTooLong      = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_TOO_LONG", "workspace name exceeds the length limit")
+	ErrNameConflict     = errorspkg.New(errorspkg.KindConflict, "WORKSPACE_NAME_CONFLICT", "workspace name already exists")
+	ErrCannotDeleteLast = errorspkg.New(errorspkg.KindUnprocessable, "CANNOT_DELETE_LAST_WORKSPACE", "cannot delete the last workspace")
+	ErrLanguageInvalid  = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_LANGUAGE_INVALID", "language must be one of zh-CN, en")
 )
 
 // Repository is the storage contract for Workspace. Like the entity it is not

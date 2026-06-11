@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Skill is one SKILL.md entry's metadata. Body is populated only by Get (single read);
@@ -85,13 +85,13 @@ var NameRegex = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 func IsValidName(name string) bool { return NameRegex.MatchString(name) }
 
 var (
-	ErrNotFound            = errorsdomain.New(errorsdomain.KindNotFound, "SKILL_NOT_FOUND", "skill not found")
-	ErrInvalidName         = errorsdomain.New(errorsdomain.KindInvalid, "SKILL_INVALID_NAME", "invalid skill name (must be a lowercase slug)")
-	ErrInvalidFrontmatter  = errorsdomain.New(errorsdomain.KindUnprocessable, "SKILL_INVALID_FRONTMATTER", "invalid skill frontmatter")
-	ErrBodyTooLarge        = errorsdomain.New(errorsdomain.KindUnprocessable, "SKILL_BODY_TOO_LARGE", "skill body exceeds size limit")
-	ErrNameConflict        = errorsdomain.New(errorsdomain.KindConflict, "SKILL_NAME_CONFLICT", "skill name already exists")
-	ErrForkRequiresAgent   = errorsdomain.New(errorsdomain.KindUnprocessable, "SKILL_FORK_REQUIRES_AGENT", "context=fork requires an agent type")
-	ErrSubagentUnavailable = errorsdomain.New(errorsdomain.KindUnavailable, "SKILL_SUBAGENT_UNAVAILABLE", "fork skill requires a subagent runner (not wired)")
+	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "SKILL_NOT_FOUND", "skill not found")
+	ErrInvalidName         = errorspkg.New(errorspkg.KindInvalid, "SKILL_INVALID_NAME", "invalid skill name (must be a lowercase slug)")
+	ErrInvalidFrontmatter  = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_INVALID_FRONTMATTER", "invalid skill frontmatter")
+	ErrBodyTooLarge        = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_BODY_TOO_LARGE", "skill body exceeds size limit")
+	ErrNameConflict        = errorspkg.New(errorspkg.KindConflict, "SKILL_NAME_CONFLICT", "skill name already exists")
+	ErrForkRequiresAgent   = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FORK_REQUIRES_AGENT", "context=fork requires an agent type")
+	ErrSubagentUnavailable = errorspkg.New(errorspkg.KindUnavailable, "SKILL_SUBAGENT_UNAVAILABLE", "fork skill requires a subagent runner (not wired)")
 )
 
 // ListFilter narrows List queries; zero value = all skills.

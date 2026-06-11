@@ -1,8 +1,8 @@
 package orm
 
 import (
-	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"strings"
 )
 
@@ -10,7 +10,7 @@ import (
 // Stores translate it into their own domain not-found error.
 //
 // ErrNotFound 在 First / Repo.Get 无匹配行时返回。store 把它翻译成各自 domain 的 not-found 错误。
-var ErrNotFound = errors.New("orm: record not found")
+var ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "ORM_NOT_FOUND", "orm: record not found")
 
 // ErrConflict is returned by Create/Save when a write violates a UNIQUE
 // constraint (a duplicate value on a uniquely-indexed column). Stores translate
@@ -22,7 +22,7 @@ var ErrNotFound = errors.New("orm: record not found")
 // ErrConflict 在 Create/Save 违反 UNIQUE 约束（唯一索引列重值）时返回。store 用
 // errors.Is 翻译成各自 domain 的冲突错误；driver error 作 cause 包裹，保留原始信息。
 // 网关收口两个最常见的写结果——not-found 与 conflict——store 永不手搓 SQLite 字符串。
-var ErrConflict = errors.New("orm: unique constraint conflict")
+var ErrConflict = errorspkg.New(errorspkg.KindConflict, "ORM_CONFLICT", "orm: unique constraint conflict")
 
 // uniqueViolationText is the substring SQLite drivers put in the error message
 // on a UNIQUE constraint failure (glebarez/modernc & mattn alike).

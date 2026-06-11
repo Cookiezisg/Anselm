@@ -8,10 +8,10 @@
 
 ## STD-1 错误处理
 
-**确认于** errors 模块（`domain/errors` + `transport/httpapi/response/errmap.go`）。**结论：标准设计优秀，152 个 sentinel 基本遵守；偏差见 F-1/F-2。**
+**确认于** errors 模块（`pkg/errors` + `errmap.go` + 全库错误用法，全扫）。**结论：标准优秀、已全量统一**——错误类型移到 `pkg/errors`（纯机制、全层可用）；**所有命名 sentinel 一律 `errorspkg.New`**（全库无 std-errors 命名 sentinel）；wire code 100% 唯一 + 100% `<ENTITY>_<REASON>` SCREAMING_SNAKE；Kind 分布健康。见 [`decisions/0002`](../../../docs/decisions/0002-unified-error-type.md)。
 
 ### 框架
-`errorsdomain.Error{Kind, Code, Message, Details, cause}`；`New(kind, code, msg)` 构造。
+`errorspkg.Error{Kind, Code, Message, Details, cause}`（`pkg/errors`——纯机制地基，pkg/infra/domain/app 全层可 import、无反向依赖）；`New(kind, code, msg)` 构造。
 - `Is` **按 Code 匹配** → sentinel 与其 `WithCause`/`WithDetails` 副本在 `errors.Is` 下仍相等（保留 sentinel 比较习惯 + 允许包裹）。
 - `Unwrap` 暴露 cause 供 `errors.Is/As`。`Details` → N1 `error.details`。
 
@@ -34,15 +34,15 @@
 范例（function 是模板）：`FUNCTION_NOT_FOUND` · `FUNCTION_NAME_DUPLICATE` · `FUNCTION_VERSION_NOT_FOUND` · `FUNCTION_NO_ACTIVE_VERSION` · `FUNCTION_SANDBOX_UNAVAILABLE`。
 
 ### sentinel 归属
-跨域 sentinel 在 `domain/errors/sentinel.go`（`ErrInvalidRequest` / `ErrUnauthorizedNoWorkspace`）；按域 sentinel 在各自包——但**都用 `errorsdomain.New` 构造**。
+跨域 sentinel 在 `pkg/errors/sentinel.go`（`ErrInvalidRequest` / `ErrUnauthorizedNoWorkspace`）；按域/按包 sentinel 在各自包——但**一律用 `errorspkg.New` 构造**（含 pkg/infra 原语，如 `orm.ErrNotFound`）。
 
-### `errorsdomain.New` vs std `errors.New` 边界（= S20 的实操判据）
-- **会冒泡到 HTTP 的 domain 错误 → 一律 `errorsdomain.New`**（带 Kind+Code）。否则 `FromDomainError` 认不出 → 落 default → **不透明 500、丢 wire code**。
-- **不冒泡到 HTTP 的**（如 LLM tool 内部错误，回流给 LLM 作文本）→ std `errors.New` 可。
-- `errors.Is` / `errors.As` 始终用标准库。
+### 统一规则（S20，无"是否冒泡 HTTP"之分）
+- **所有命名 sentinel → 一律 `errorspkg.New`**（含 tool 错误、pkg/infra 原语）。区别不在造法、在**出口**：HTTP 读 Kind/Code 走 Envelope；LLM tool 读 Message（Kind/Code 该路径不用，但未来若冒到 HTTP 即正确映射）。
+- **泛型原语**（`orm.ErrNotFound`/`ErrConflict`）带兜底码（`ORM_*`），但 domain 仍 `errors.Is` 后翻成具体码（`FUNCTION_NOT_FOUND`）——类型全层可用、翻译保特异性（见 [`decisions/0002`](../../../docs/decisions/0002-unified-error-type.md)）。
+- `fmt.Errorf("…: %w", err)` 包裹照常（保留 `errorspkg.Error` 链）；**禁止** std `errors.New` 造命名 sentinel。`errors.Is`/`errors.As` 用标准库。
 
 ### HTTP 落地（`FromDomainError`）
-`*errorsdomain.Error` → `statusForKind(Kind)` + Code + Details；`context.Canceled`→499 / `DeadlineExceeded`→504（唯二特例）；其余 → 500 `INTERNAL_ERROR`（隐藏原文、记日志，绝不泄露内部）。
+`*errorspkg.Error` → `statusForKind(Kind)` + Code + Details；`context.Canceled`→499 / `DeadlineExceeded`→504（唯二特例）；其余 → 500 `INTERNAL_ERROR`（隐藏原文、记日志，绝不泄露内部）。
 
 ---
 

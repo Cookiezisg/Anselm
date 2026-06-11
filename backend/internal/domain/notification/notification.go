@@ -15,7 +15,7 @@ import (
 	"context"
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Notification is one persisted event. Type is the event kind (<domain>.<action>,
@@ -38,11 +38,11 @@ type Notification struct {
 var (
 	// ErrNotFound: MarkRead on an unknown id.
 	// ErrNotFound：对未知 id 调 MarkRead。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "NOTIFICATION_NOT_FOUND", "notification not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "NOTIFICATION_NOT_FOUND", "notification not found")
 
 	// ErrInvalidType: Emit with an empty event type.
 	// ErrInvalidType：Emit 时事件类型为空。
-	ErrInvalidType = errorsdomain.New(errorsdomain.KindInvalid, "NOTIFICATION_INVALID_TYPE", "notification type required (<domain>.<action>)")
+	ErrInvalidType = errorspkg.New(errorspkg.KindInvalid, "NOTIFICATION_INVALID_TYPE", "notification type required (<domain>.<action>)")
 )
 
 // Emitter is the port any module calls to raise a notification. The app

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"io"
 	"sync"
 	"time"
@@ -36,11 +37,11 @@ const (
 )
 
 var (
-	ErrCrashed         = errors.New("handler.Client: subprocess crashed")
-	ErrInitFailed      = errors.New("handler.Client: init failed")
-	ErrCallFailed      = errors.New("handler.Client: call failed")
-	ErrShutdownAlready = errors.New("handler.Client: already shut down")
-	ErrProtocol        = errors.New("handler.Client: protocol error")
+	ErrCrashed         = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CRASHED", "handler.Client: subprocess crashed")
+	ErrInitFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_INIT_FAILED", "handler.Client: init failed")
+	ErrCallFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CALL_FAILED", "handler.Client: call failed")
+	ErrShutdownAlready = errorspkg.New(errorspkg.KindInternal, "HANDLER_ALREADY_SHUTDOWN", "handler.Client: already shut down")
+	ErrProtocol        = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_PROTOCOL", "handler.Client: protocol error")
 )
 
 // Client is the contract a HandlerInstance subprocess exposes.

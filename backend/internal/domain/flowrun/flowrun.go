@@ -20,7 +20,7 @@ package flowrun
 import (
 	"time"
 
-	errorsdomain "github.com/sunweilin/forgify/backend/internal/domain/errors"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Run statuses. A run is running until terminal; "等人审批" is a NODE state (NodeParked), not a
@@ -146,25 +146,25 @@ type FlowRunNode struct {
 var (
 	// ErrNotFound: flowrun id miss (scoped to workspace).
 	// ErrNotFound：flowrun id 未命中（按 workspace 隔离）。
-	ErrNotFound = errorsdomain.New(errorsdomain.KindNotFound, "FLOWRUN_NOT_FOUND", "flowrun not found")
+	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "FLOWRUN_NOT_FOUND", "flowrun not found")
 
 	// ErrNotReplayable: :replay called on a run that is not in a failed state (nothing to fix).
 	// ErrNotReplayable：对非 failed 状态的 run 调 :replay（没坏东西可修）。
-	ErrNotReplayable = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_NOT_REPLAYABLE", "flowrun is not in a replayable (failed) state")
+	ErrNotReplayable = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_NOT_REPLAYABLE", "flowrun is not in a replayable (failed) state")
 
 	// ErrNodeNotParked: an approval decision targeted a node that is not awaiting a signal (already
 	// decided / timed out / never parked) — the first-wins loser, surfaced as a clean 422.
 	// ErrNodeNotParked：审批决策指向一个不在等信号的节点（已决/已超时/从未 park）——first-wins 的输家，
 	// 以干净 422 上呈。
-	ErrNodeNotParked = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_APPROVAL_NOT_PARKED", "approval node is not awaiting a decision")
+	ErrNodeNotParked = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_APPROVAL_NOT_PARKED", "approval node is not awaiting a decision")
 
 	// ErrInvalidEntry: a manual :trigger named an entry node that is missing or not a trigger, or
 	// omitted entryNode for a graph with multiple trigger nodes (ambiguous). Details carry the reason.
 	// ErrInvalidEntry：手动 :trigger 指定的 entry 节点缺失/非 trigger，或多 trigger 图未指定 entryNode
 	// （歧义）。details 带原因。
-	ErrInvalidEntry = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_INVALID_ENTRY", "invalid or ambiguous trigger entry node")
+	ErrInvalidEntry = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_INVALID_ENTRY", "invalid or ambiguous trigger entry node")
 
 	// ErrInvalidDecision: an approval decision was neither "yes" nor "no".
 	// ErrInvalidDecision：审批决策既非 "yes" 也非 "no"。
-	ErrInvalidDecision = errorsdomain.New(errorsdomain.KindUnprocessable, "FLOWRUN_INVALID_DECISION", "approval decision must be 'yes' or 'no'")
+	ErrInvalidDecision = errorspkg.New(errorspkg.KindUnprocessable, "FLOWRUN_INVALID_DECISION", "approval decision must be 'yes' or 'no'")
 )
