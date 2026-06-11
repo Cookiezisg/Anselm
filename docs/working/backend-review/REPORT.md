@@ -4,18 +4,22 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
+reviewed: 2026-06-12
 review-due: 2026-09-11
 expires: 2026-09-11
 landed-into: ""
 audience: [human, ai]
 ---
 
-# REPORT —— 全后端系统级 Code Review 终报（2026-06-11）
+# REPORT —— 全后端系统级 Code Review 终报（一轮 2026-06-11 · 二轮 2026-06-12）
 
 ## 结论
 
-五维审查完成（R1-R5）。**修复 12 条（🔴×4 + 🟡×5 + 裁决实现 ×3）、产品决策 3 条已裁决并实现、亲验驳回误报 6 条、wontfix 带理由 7 条**。`make verify` + **全量 `go test -race`** 双绿。方法：并发热点全部亲审 + 2 个 subagent 面扫后逐条亲验（含验证过程登记，见 [findings.md](findings.md)）。
+**一轮**（2026-06-11，五维 R1-R5）：修复 12 条（🔴×4 + 🟡×5 + 裁决实现 ×3）、产品决策 3 条已裁决并实现、亲验驳回误报 6 条、wontfix 带理由 7 条。方法：并发热点全部亲审 + 2 个 subagent 面扫后逐条亲验（见 [findings.md](findings.md)）。
+
+**二轮**（2026-06-12，发版门禁）：**全仓库 624/624 文件（87,628 行 Go + 配置）逐行亲读、零 agent 代审**，产品正确性为第一维度。新修 8 条：CR-13🔴（Bash 孙进程持管道挂死→进程组杀+WaitDelay）、CR-14🔴（tool_result 无界→ 256KiB 三层封顶）、CR-18🔴（webhook 被 RequireWorkspace 拦→外部回调全 401）、CR-15🟡（Glob 噪音目录）、CR-16🟡（4 个 List 绕过 ParsePage 钳制）、CR-17🟡（agent 版本列表无分页）、CR-19🟡（pin 闭包没传到派发口——fn/ag 跑 active 版本而非冻结版本，违反 durable 语义承诺）、CR-20🟡（MachineFingerprint 死代码——落盘加密种子可猜，拷库即解）。W3（orm+22 store）、W5（loop/stream/llm/contextmgr）、W6（sandbox 双层+六实体 app）、W8（domain+pkg）为零缺陷波次。覆盖与逐波明细见 [round2-findings.md](round2-findings.md) + [round2-coverage.md](round2-coverage.md)。
+
+两轮后 `make verify` + 并发包 `go test -race` 双绿。**发版判定：除 PD-4（WebFetch 第三方代理隐私）待裁决与 CORS Wails origin 待补两项外，后端达到可发版质量。**
 
 ## 修复一览（按维度）
 

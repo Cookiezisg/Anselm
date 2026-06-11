@@ -90,3 +90,25 @@ audience: [human, ai]
 ## W7 进行中 —— CR-19 🟡（产品语义违约，已修）
 
 **CR-19：pin 闭包没传到派发口——function/agent 节点跑 active 版本而非冻结版本。** 文档承诺 `pinned_refs` 使"运行中编辑任何被引用实体都改不动在途 run"，但 `Dispatcher` 端口签名只有 `(ctx, ref, input)`：pin 只被 control/approval（内联求值）与图拓扑（`version_id`）消费，fn/ag 派发时 `VersionID: ""` 落回 active——中途编辑实体会改变在途 run 未执行节点的行为。**修复**：Dispatcher 接口加 `pinnedVersionID` 参数（scheduler.go），runNode 传 `run.PinnedRefs[entityIDOf(ref)]`（dispatch.go），bootstrap dispatcher fn→`RunInput.VersionID`、ag→`InvokeInput.VersionID`；handler（常驻实例=active 类代码）与 mcp（无版本外部 server）**活态绑定属设计事实**，显式注释+文档定性而非假装支持。新增 `TestDispatch_PinnedVersionsReachPort` 断言 pin 贯穿 StartRun→派发。文档同步：scheduler-flowrun.md §2/§7 精确化 pin 边界。
+
+## W7 —— bootstrap ×18 + cmd/server + cmd/docs
+
+亲读全部装配件（build/build_data/build_services/dispatch/refresolver/resolvers/renderers/model_info/aispawn/conversation/sensor/workflow_exec + 6 测试文件）+ 两个 main。除 CR-19/CR-20（已修，见上）外干净。确认项：
+- **DrainFirings tick = 5s**（`drainInterval`，逐 workspace 轮询 + CheckTimeouts）——关闭 W4 留档的 serial-defer 延迟疑问（最长 5s 延迟，桌面产品可接受）。
+- DI 全图核对：26 服务装配顺序、relation Namers 11 实体齐、catalog 10 源、mention 8 解析器、workspace reaper（杀 wf + 停 handler 实例 + 断 mcp + 删文件树）与 PD-1 A 一致。
+- 优雅关停顺序：SSE 流(cancelBase) → HTTP 排空 → trigger/chat/mcp/handler/sandbox → DB；cmd/server 薄壳只接信号。
+- 🟢 `Boot` 里 `RestoreOrCleanupOnBoot` 在 `sandbox.Bootstrap` 内已调、Boot 又显式调一次——属防御性（Bootstrap mkdir 失败的降级路径仍要收割 PID），二次调用幂等无害，留账不动。
+
+## W8 —— domain 全层 + pkg 全包 + 配置文件
+
+亲读 23 个 domain 包（实体+错误+Repository 接口）+ pkg（errors/idgen/reqctx/agentstate/schema/limits/cel/jsonrepair/tokencount/wikilink）+ infra/logger + 全部剩余测试 + 配置文件。发现：
+- 🟢 **S22 卫生**（已修）：`.gitattributes` 的 `documents/**`/`testend/**` 与 `.gitignore` 的 `!lab/*/target/` 豁免指向已不存在目录——按状态即重述删除。
+- domain 层零 import 违规（仅依赖 pkg/errors+pkg/schema+兄弟 domain，无 ORM/cel-go）；S15 前缀与 S20 错误码全层一致（standard_test 的 WireCodesGloballyUnique 门禁在）。
+- cel 包 ScopedEnv 双轴（payload/ctx/input 全局 + node-id 根 scoped）与 workflow/scheduler 用法吻合；jsonrepair 三段修复幂等；tokencount CJK=1/ASCII÷4 + 校准钳制 [0.5,3.0]。
+
+## 二轮总结（发版判定）
+
+**覆盖**：624/624 文件（87,628 行 Go + 配置）全部亲读标记，零 agent 代审。
+**发现**：CR-13🔴 CR-14🔴 CR-18🔴（W1-W4，已修）、CR-15🟡 CR-16🟡 CR-17🟡 CR-19🟡 CR-20🟡（已修）、PD-4 候选（WebFetch 第三方代理隐私，待用户裁决）、CORS Wails origin（发版前补）、若干 🟢 留账。
+**门禁**：make verify 全绿 + 并发包 -race 全绿。
+**判定**：除 PD-4 裁决与 CORS Wails origin 两项外，后端达到可发版质量。

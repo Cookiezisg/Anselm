@@ -18,11 +18,11 @@ audience: [human, ai]
 
 ## backend/cmd/docs (199 行)
 
-- [ ] main.go (199)
+- [x] main.go (199)
 
 ## backend/cmd/server (55 行)
 
-- [ ] main.go (55)
+- [x] main.go (55)
 
 ## backend/internal/app/agent (1556 行)
 
@@ -118,8 +118,8 @@ audience: [human, ai]
 
 ## backend/internal/app/entitystream (278 行)
 
-- [ ] entitystream.go (175)
-- [ ] entitystream_test.go (103)
+- [x] entitystream.go (175)
+- [x] entitystream_test.go (103)
 
 ## backend/internal/app/envfix (536 行)
 
@@ -163,8 +163,8 @@ audience: [human, ai]
 
 ## backend/internal/app/humanloop (313 行)
 
-- [ ] humanloop.go (210)
-- [ ] humanloop_test.go (103)
+- [x] humanloop.go (210)
+- [x] humanloop_test.go (103)
 
 ## backend/internal/app/loop (2121 行)
 
@@ -201,13 +201,13 @@ audience: [human, ai]
 
 ## backend/internal/app/notification (246 行)
 
-- [ ] notification.go (105)
-- [ ] notification_test.go (141)
+- [x] notification.go (105)
+- [x] notification_test.go (141)
 
 ## backend/internal/app/relation (759 行)
 
-- [ ] relation.go (401)
-- [ ] relation_test.go (358)
+- [x] relation.go (401)
+- [x] relation_test.go (358)
 
 ## backend/internal/app/sandbox (1251 行)
 
@@ -417,9 +417,9 @@ audience: [human, ai]
 - [x] fetch.go (359)
 - [x] fetch_stream_test.go (78)
 - [x] fetch_test.go (142)
-- [ ] search.go (254)
+- [x] search.go (254)
 - [x] search_byok.go (196)
-- [ ] search_test.go (175)
+- [x] search_test.go (175)
 - [x] web.go (66)
 
 ## backend/internal/app/tool/workflow (905 行)
@@ -465,66 +465,66 @@ audience: [human, ai]
 
 ## backend/internal/bootstrap (2615 行)
 
-- [ ] aispawn.go (143)
-- [ ] background_ctx_test.go (86)
-- [ ] build.go (326)
-- [ ] build_data.go (189)
-- [ ] build_services.go (376)
-- [ ] build_test.go (79)
-- [ ] conversation.go (47)
-- [ ] dispatch.go (169)
-- [ ] dispatch_test.go (152)
-- [ ] model_info.go (77)
-- [ ] refresolver.go (220)
-- [ ] refresolver_test.go (152)
-- [ ] renderers.go (100)
-- [ ] renderers_test.go (63)
-- [ ] resolvers.go (177)
-- [ ] resolvers_test.go (158)
-- [ ] sensor.go (72)
-- [ ] workflow_exec.go (29)
+- [x] aispawn.go (143)
+- [x] background_ctx_test.go (86)
+- [x] build.go (326)
+- [x] build_data.go (189)
+- [x] build_services.go (376)
+- [x] build_test.go (79)
+- [x] conversation.go (47)
+- [x] dispatch.go (169)
+- [x] dispatch_test.go (152)
+- [x] model_info.go (77)
+- [x] refresolver.go (220)
+- [x] refresolver_test.go (152)
+- [x] renderers.go (100)
+- [x] renderers_test.go (63)
+- [x] resolvers.go (177)
+- [x] resolvers_test.go (158)
+- [x] sensor.go (72)
+- [x] workflow_exec.go (29)
 
 ## backend/internal/domain/agent (251 行)
 
-- [ ] agent.go (142)
-- [ ] execution.go (109)
+- [x] agent.go (142)
+- [x] execution.go (109)
 
 ## backend/internal/domain/apikey (151 行)
 
-- [ ] apikey.go (151)
+- [x] apikey.go (151)
 
 ## backend/internal/domain/approval (300 行)
 
-- [ ] approval.go (176)
-- [ ] approval_test.go (65)
-- [ ] repository.go (59)
+- [x] approval.go (176)
+- [x] approval_test.go (65)
+- [x] repository.go (59)
 
 ## backend/internal/domain/attachment (144 行)
 
-- [ ] attachment.go (144)
+- [x] attachment.go (144)
 
 ## backend/internal/domain/catalog (90 行)
 
-- [ ] catalog.go (32)
-- [ ] source.go (58)
+- [x] catalog.go (32)
+- [x] source.go (58)
 
 ## backend/internal/domain/control (231 行)
 
-- [ ] control.go (142)
-- [ ] control_test.go (29)
-- [ ] repository.go (60)
+- [x] control.go (142)
+- [x] control_test.go (29)
+- [x] repository.go (60)
 
 ## backend/internal/domain/conversation (100 行)
 
-- [ ] conversation.go (100)
+- [x] conversation.go (100)
 
 ## backend/internal/domain/crypto (25 行)
 
-- [ ] encryptor.go (25)
+- [x] encryptor.go (25)
 
 ## backend/internal/domain/document (124 行)
 
-- [ ] document.go (124)
+- [x] document.go (124)
 
 ## backend/internal/domain/flowrun (274 行)
 
@@ -533,64 +533,64 @@ audience: [human, ai]
 
 ## backend/internal/domain/function (343 行)
 
-- [ ] execution.go (113)
-- [ ] function.go (136)
-- [ ] function_test.go (17)
-- [ ] repository.go (77)
+- [x] execution.go (113)
+- [x] function.go (136)
+- [x] function_test.go (17)
+- [x] repository.go (77)
 
 ## backend/internal/domain/handler (346 行)
 
-- [ ] call_log.go (98)
-- [ ] handler.go (126)
-- [ ] handler_test.go (16)
-- [ ] method.go (45)
-- [ ] repository.go (61)
+- [x] call_log.go (98)
+- [x] handler.go (126)
+- [x] handler_test.go (16)
+- [x] method.go (45)
+- [x] repository.go (61)
 
 ## backend/internal/domain/mcp (562 行)
 
-- [ ] call_log.go (94)
-- [ ] mcp.go (169)
-- [ ] registry.go (217)
-- [ ] registry_test.go (82)
+- [x] call_log.go (94)
+- [x] mcp.go (169)
+- [x] registry.go (217)
+- [x] registry_test.go (82)
 
 ## backend/internal/domain/memory (102 行)
 
-- [ ] memory.go (102)
+- [x] memory.go (102)
 
 ## backend/internal/domain/mention (101 行)
 
-- [ ] mention.go (82)
-- [ ] mention_test.go (19)
+- [x] mention.go (82)
+- [x] mention_test.go (19)
 
 ## backend/internal/domain/messages (366 行)
 
-- [ ] messages.go (321)
-- [ ] messages_test.go (45)
+- [x] messages.go (321)
+- [x] messages_test.go (45)
 
 ## backend/internal/domain/model (204 行)
 
-- [ ] model.go (115)
-- [ ] model_test.go (89)
+- [x] model.go (115)
+- [x] model_test.go (89)
 
 ## backend/internal/domain/notification (69 行)
 
-- [ ] notification.go (69)
+- [x] notification.go (69)
 
 ## backend/internal/domain/relation (380 行)
 
-- [ ] entitykind.go (101)
-- [ ] entitykind_test.go (68)
-- [ ] relation.go (211)
+- [x] entitykind.go (101)
+- [x] entitykind_test.go (68)
+- [x] relation.go (211)
 
 ## backend/internal/domain/sandbox (310 行)
 
-- [ ] installer.go (65)
-- [ ] sandbox.go (225)
-- [ ] tooling.go (20)
+- [x] installer.go (65)
+- [x] sandbox.go (225)
+- [x] tooling.go (20)
 
 ## backend/internal/domain/skill (125 行)
 
-- [ ] skill.go (125)
+- [x] skill.go (125)
 
 ## backend/internal/domain/stream (413 行)
 
@@ -605,7 +605,7 @@ audience: [human, ai]
 
 ## backend/internal/domain/todo (105 行)
 
-- [ ] todo.go (105)
+- [x] todo.go (105)
 
 ## backend/internal/domain/trigger (360 行)
 
@@ -618,8 +618,8 @@ audience: [human, ai]
 
 ## backend/internal/domain/websearch (104 行)
 
-- [ ] websearch.go (73)
-- [ ] websearch_test.go (31)
+- [x] websearch.go (73)
+- [x] websearch_test.go (31)
 
 ## backend/internal/domain/workflow (1573 行)
 
@@ -632,7 +632,7 @@ audience: [human, ai]
 
 ## backend/internal/domain/workspace (127 行)
 
-- [ ] workspace.go (127)
+- [x] workspace.go (127)
 
 ## backend/internal/infra/crypto (379 行)
 
@@ -708,8 +708,8 @@ audience: [human, ai]
 
 ## backend/internal/infra/logger (59 行)
 
-- [ ] zap.go (32)
-- [ ] zap_test.go (27)
+- [x] zap.go (32)
+- [x] zap_test.go (27)
 
 ## backend/internal/infra/mcp (866 行)
 
@@ -872,24 +872,24 @@ audience: [human, ai]
 
 ## backend/internal/pkg/agentstate (283 行)
 
-- [ ] activeskill_test.go (33)
-- [ ] agentstate.go (150)
-- [ ] agentstate_test.go (100)
+- [x] activeskill_test.go (33)
+- [x] agentstate.go (150)
+- [x] agentstate_test.go (100)
 
 ## backend/internal/pkg/cel (363 行)
 
-- [ ] cel.go (168)
-- [ ] scoped_test.go (35)
-- [ ] template.go (101)
-- [ ] template_test.go (59)
+- [x] cel.go (168)
+- [x] scoped_test.go (35)
+- [x] template.go (101)
+- [x] template_test.go (59)
 
 ## backend/internal/pkg/errors (373 行)
 
-- [ ] error.go (73)
-- [ ] error_test.go (75)
-- [ ] kind.go (37)
-- [ ] sentinel.go (17)
-- [ ] standard_test.go (171)
+- [x] error.go (73)
+- [x] error_test.go (75)
+- [x] kind.go (37)
+- [x] sentinel.go (17)
+- [x] standard_test.go (171)
 
 ## backend/internal/pkg/fspath (154 行)
 
@@ -898,18 +898,18 @@ audience: [human, ai]
 
 ## backend/internal/pkg/idgen (51 行)
 
-- [ ] idgen.go (25)
-- [ ] idgen_test.go (26)
+- [x] idgen.go (25)
+- [x] idgen_test.go (26)
 
 ## backend/internal/pkg/jsonrepair (262 行)
 
-- [ ] jsonrepair.go (158)
-- [ ] jsonrepair_test.go (104)
+- [x] jsonrepair.go (158)
+- [x] jsonrepair_test.go (104)
 
 ## backend/internal/pkg/limits (216 行)
 
-- [ ] limits.go (151)
-- [ ] limits_test.go (65)
+- [x] limits.go (151)
+- [x] limits_test.go (65)
 
 ## backend/internal/pkg/orm (1518 行)
 
@@ -943,30 +943,30 @@ audience: [human, ai]
 
 ## backend/internal/pkg/reqctx (455 行)
 
-- [ ] agentstate.go (38)
-- [ ] agentstate_test.go (38)
-- [ ] conversation.go (116)
-- [ ] conversation_test.go (45)
-- [ ] flowrun.go (49)
-- [ ] reqctx.go (57)
-- [ ] reqctx_test.go (18)
-- [ ] workspace.go (63)
-- [ ] workspace_test.go (31)
+- [x] agentstate.go (38)
+- [x] agentstate_test.go (38)
+- [x] conversation.go (116)
+- [x] conversation_test.go (45)
+- [x] flowrun.go (49)
+- [x] reqctx.go (57)
+- [x] reqctx_test.go (18)
+- [x] workspace.go (63)
+- [x] workspace_test.go (31)
 
 ## backend/internal/pkg/schema (193 行)
 
-- [ ] schema.go (137)
-- [ ] schema_test.go (56)
+- [x] schema.go (137)
+- [x] schema_test.go (56)
 
 ## backend/internal/pkg/tokencount (146 行)
 
-- [ ] tokencount.go (73)
-- [ ] tokencount_test.go (73)
+- [x] tokencount.go (73)
+- [x] tokencount_test.go (73)
 
 ## backend/internal/pkg/wikilink (143 行)
 
-- [ ] wikilink.go (47)
-- [ ] wikilink_test.go (96)
+- [x] wikilink.go (47)
+- [x] wikilink_test.go (96)
 
 ## backend/internal/transport/httpapi/handlers (4754 行)
 
@@ -1030,16 +1030,16 @@ audience: [human, ai]
 
 ## 配置 / 数据文件
 
-- [ ] .editorconfig (45)
-- [ ] .env.example (11)
-- [ ] .gitattributes (56)
-- [ ] .gitignore (247)
-- [ ] LICENSE (201)
-- [ ] Makefile (121)
-- [ ] backend/go.mod (38)
-- [ ] backend/go.sum (82)
+- [x] .editorconfig (45)
+- [x] .env.example (11)
+- [x] .gitattributes (56)
+- [x] .gitignore (247)
+- [x] LICENSE (201)
+- [x] Makefile (121)
+- [x] backend/go.mod (38)
+- [x] backend/go.sum (82)
 - [x] backend/internal/infra/mcp/registry_snapshot.json (1)
-- [ ] devbox.json (15)
-- [ ] devbox.lock (165)
+- [x] devbox.json (15)
+- [x] devbox.lock (165)
 
 **总计：87628 行 Go + 配置**
