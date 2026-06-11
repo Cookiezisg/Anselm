@@ -69,3 +69,12 @@ audience: [human, ai]
   - trigger 引用计数监听（N workflow 共享 1 listener、1→0 停）、stage 一次性自动撤防、Activation 触没触发都记（"为什么没触发"可查）、四源 dedup key 设计各对其源语义（cron=刻度分钟、webhook=body hash+分钟桶、fsnotify=path+op+秒桶、sensor=probe 秒刻）。
   - webhook HMAC 常量时间比较 + 10MB body 封顶；cron/fsnotify/sensor 回调全带 panic recover。
 - **🟢 注意**：cron 锁 time.Local（桌面 app 语义正确——用户本地时间）；webhook 明文 secret 接受 ?token= query（外发日志可能记 URL——但本地单用户、HMAC 模式可选，可接受）；serial defer 的 firing 靠下一次 DrainFirings tick 重拾（W7 验证 tick 周期）。
+
+### W5 loop + stream + contextmgr + llm ×34（全读含测试，~9000 行）
+
+- **零缺陷**。此波核对了 W1 留下的 CR-14 定性前提（loop 层确无截断→已修），其余全为质量确认：
+  - loop：取消态提升（provider 静默关流不发 EventError 时把 EndTurn 提升为 Cancelled，防止悬挂块误标 completed）、TOOL_ERROR_STORM 熔断、MAX_STEPS 诚实终态、reminder 注入副本不污染持久历史、forge 镜像 SSE-C、progress 块仅流不回喂 LLM（类型白名单）。
+  - stream：E2 语义精确——durable 帧入环 + 阻塞背压、ephemeral 非阻塞丢弃；Subscribe 的 replay 缺口检测（最旧 seq 越过 fromSeq+1 → 410）；cancel 先 close(done) 再争锁（防与阻塞 Publish 死锁）。
+  - contextmgr：水位（summary_covers_up_to_seq）幂等键 + SetSummary 先于 archive 标记的崩溃安全次序；触发用真实 InputTokens、闸用 bytes/4 自校正估算；demote 只降不升；archive 按整回合粒度（tool_call 绝不失 tool_result）。
+  - llm：唯一 idle 计时器替代总墙钟（健康长流永不杀）；classifyHTTPError 收口 status→sentinel；SanitizeMessages 缝合孤儿 tool_call（防严格 provider 400 锁死）；Generate 的 retry 只许无副作用调用方用（emit 方禁用，注释明示）；11 家 provider 各自自包含（刻意重复防共享分支地狱）、签名/思考块回传、多模态矩阵测试逐家断言官方 wire、PDF 不支持家优雅降级。
+- **🟢 注意**：anthropic「enabled」thinking 的 budget 派生（max/2 clamp [1024,8192]、必要时上调 max_tokens）正确防 400；mock 队列空发 MOCK_QUEUE_EMPTY 错误（fail-loud，T6 正确语义）。
