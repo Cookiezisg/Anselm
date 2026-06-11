@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -84,6 +85,69 @@ func TestErrorSentinelsUseErrorsPkg(t *testing.T) {
 	if len(violations) > 0 {
 		t.Errorf("%d error sentinel(s) bypass errorspkg.New — use errorspkg.New(kind, code, msg) "+
 			"(ADR 0002 / S20):\n%s", len(violations), strings.Join(violations, "\n"))
+	}
+}
+
+// TestWireCodesGloballyUnique enforces that every errorspkg.New wire code is unique across
+// internal/. Two sentinels sharing a code would make errors.Is conflate them (Is matches by Code)
+// and corrupt the error-codes registry's single-source property. Catches the exact bug the full
+// registry exposed (infra HANDLER_CRASHED vs domain HANDLER_CRASHED).
+//
+// TestWireCodesGloballyUnique 强制 internal/ 下每个 errorspkg.New 的 wire code 全库唯一。两个 sentinel
+// 共码会让 errors.Is 混淆（Is 按 Code 匹配）、破坏 error-codes registry 的单一事实源。正是 registry 暴露的
+// 那个 bug（infra HANDLER_CRASHED vs domain HANDLER_CRASHED）的守卫。
+func TestWireCodesGloballyUnique(t *testing.T) {
+	const internalRoot = "../.."
+	fset := token.NewFileSet()
+	seen := map[string][]string{} // code → definition positions
+
+	walkErr := filepath.WalkDir(internalRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		file, perr := parser.ParseFile(fset, path, nil, 0)
+		if perr != nil {
+			return nil
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok || len(call.Args) < 2 {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok || sel.Sel.Name != "New" {
+				return true
+			}
+			if id, ok := sel.X.(*ast.Ident); !ok || id.Name != "errorspkg" {
+				return true
+			}
+			lit, ok := call.Args[1].(*ast.BasicLit)
+			if !ok || lit.Kind != token.STRING {
+				return true
+			}
+			code := strings.Trim(lit.Value, "\"`")
+			seen[code] = append(seen[code], fset.Position(call.Pos()).String())
+			return true
+		})
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("walk internal/: %v", walkErr)
+	}
+
+	var dups []string
+	for code, positions := range seen {
+		if len(positions) > 1 {
+			dups = append(dups, code+" @ "+strings.Join(positions, ", "))
+		}
+	}
+	if len(dups) > 0 {
+		sort.Strings(dups)
+		t.Errorf("%d duplicate wire code(s) — each must be globally unique:\n%s",
+			len(dups), strings.Join(dups, "\n"))
 	}
 }
 

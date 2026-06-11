@@ -37,11 +37,11 @@ const (
 )
 
 var (
-	ErrCrashed         = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CRASHED", "handler.Client: subprocess crashed")
-	ErrInitFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_INIT_FAILED", "handler.Client: init failed")
-	ErrCallFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CALL_FAILED", "handler.Client: call failed")
-	ErrShutdownAlready = errorspkg.New(errorspkg.KindInternal, "HANDLER_ALREADY_SHUTDOWN", "handler.Client: already shut down")
-	ErrProtocol        = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_PROTOCOL", "handler.Client: protocol error")
+	ErrCrashed         = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_CRASHED", "handler.Client: subprocess crashed")
+	ErrInitFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_INIT_FAILED", "handler.Client: init failed")
+	ErrCallFailed      = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_CALL_FAILED", "handler.Client: call failed")
+	ErrShutdownAlready = errorspkg.New(errorspkg.KindInternal, "HANDLER_CLIENT_ALREADY_SHUTDOWN", "handler.Client: already shut down")
+	ErrProtocol        = errorspkg.New(errorspkg.KindBadGateway, "HANDLER_CLIENT_PROTOCOL", "handler.Client: protocol error")
 )
 
 // Client is the contract a HandlerInstance subprocess exposes.
