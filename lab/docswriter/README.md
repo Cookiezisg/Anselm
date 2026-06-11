@@ -32,15 +32,17 @@
 | 文件 | 作用 |
 |---|---|
 | `SPEC.md` | 阶段 / 验收闸门 / **禁止清单** |
-| `PLAYBOOK.md` | 每篇文档的四步循环手册 |
+| `PLAYBOOK.md` | 每模块循环：研究 → 列 findings / 记 standards → **用户裁决** → 修 + 文档 → 下一模块 |
 | `target/skeleton.md` | canonical module 文档骨架（统一章节） |
 | `target/inventory.md` | **全量模块清单**（5 索引 + 全模块，doc 分配 + 海拔） |
 | `target/order.md` | 依赖波次写作顺序 |
 | `target/criteria.md` | done = 干净 + 完整 + 精确 判据 |
+| `target/standards.md` | **尺子**：评审中确认的 canonical 标准（STD-N），后续模块对照 |
+| `target/findings.md` | **产出**：发现的偏差（F-N，不合理/冗余/产品），待用户裁决 |
 | `target/STATE.md` | **单一状态源**：阶段 + 进度 + 下一步 |
 | `target/ROUNDS.md` | 已写文档轮次索引 |
 | `target/rounds/NNNN/` | 每轮执行记录 |
 
 ## 当前状态
 
-**Phase 0 计划** —— lab 定稿中。确认后进 Phase 1（按波次开写，索引骨架先行）。`docs/references/backend/` 现为空（仅 `.gitkeep`）。
+**Phase 1 评审中** —— errors 模块已评审 → `standards.md` STD-1（错误处理）+ `findings.md` F-1（todo 违 S20）/ F-2（websearch 待查）。评审顺序待用户确认（见 `order.md`）。`docs/references/backend/` 现为空（仅 `.gitkeep`），随评审逐模块落文档。

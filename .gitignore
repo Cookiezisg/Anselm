@@ -107,9 +107,10 @@ pip-delete-this-directory.txt
 # Rust
 **/target/
 
-# lab/backendcleaner/target/ 是 clean-room 计划目录，不是 build 产物——豁免上面的 **/target/
-!lab/backendcleaner/target/
-!lab/backendcleaner/target/**
+# lab/*/target/ 是各 clean-room 计划目录（backendcleaner / docswriter / …）的内容，不是 build
+# 产物——豁免上面的 **/target/。一条规则覆盖所有 lab、新 lab 自动纳入（标准化，不每 lab 加补丁）。
+!lab/*/target/
+!lab/*/target/**
 
 # backend 编译产物——`go build ./cmd/<x>` 在 backend/ 留下与子命令同名的二进制
 # （Makefile 全用 `go run` / `-o bin/`，这些散件从不被消费；曾误 commit）。
