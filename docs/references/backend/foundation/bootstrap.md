@@ -28,4 +28,4 @@ audience: [human, ai]
 
 ## 3. 契约（引用）
 
-守护测试 `background_ctx_test.go`（裸 ctx 必败/播种必通）。码 `UNTRIAGEABLE_EXECUTION`（aispawn triage 适配在此实现）。`Config{DataDir("" = 内存 DB 测试), Addr, Fingerprint, Dev}`。
+守护测试 `background_ctx_test.go`（裸 ctx 必败/播种必通）。码 `UNTRIAGEABLE_EXECUTION`（aispawn triage 适配在此实现）。`Config{DataDir("" = 内存 DB 测试), Addr, Fingerprint, Dev}`；Fingerprint 空（服务正常路径）时 newEncryptor 解析真实机器指纹（`MachineFingerprint()`），平台拿不到才回退 `forgify-local:<dataDir>` 种子。

@@ -141,14 +141,21 @@ func allSchemas() []string {
 }
 
 // newEncryptor derives the AES-256 master key from a machine-stable fingerprint (api-key &
-// mcp-config secrets are encrypted at rest). A blank fingerprint falls back to the data dir so
-// a single install stays self-consistent.
+// mcp-config secrets are encrypted at rest). A blank Config.Fingerprint (the normal server path)
+// resolves the real machine fingerprint — a guessable seed like the data-dir path would make the
+// SQLite file decryptable by anyone who copies it; only when the platform offers no fingerprint
+// does it fall back to the data dir so the install stays self-consistent.
 //
-// newEncryptor 从机器稳定指纹派生 AES-256 主密钥（api-key & mcp-config 密文落盘加密）。空指纹回退到
-// data dir，使单次安装自洽。
+// newEncryptor 从机器稳定指纹派生 AES-256 主密钥（api-key & mcp-config 密文落盘加密）。空
+// Config.Fingerprint（服务正常路径）解析真实机器指纹——可猜种子（如 data-dir 路径）会让拷走 SQLite
+// 文件的人直接解密；仅当平台拿不到指纹才回退 data dir，使单次安装自洽。
 func newEncryptor(fingerprint, dataDir string) (cryptodomain.Encryptor, error) {
 	if fingerprint == "" {
-		fingerprint = "forgify-local:" + dataDir
+		if fp, err := cryptoinfra.MachineFingerprint(); err == nil {
+			fingerprint = fp
+		} else {
+			fingerprint = "forgify-local:" + dataDir
+		}
 	}
 	enc, err := cryptoinfra.NewAESGCMEncryptor(cryptoinfra.DeriveKey(fingerprint))
 	if err != nil {
