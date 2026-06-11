@@ -108,3 +108,30 @@ func FromJSONSchema(raw json.RawMessage) []Field {
 	sort.Slice(fields, func(i, j int) bool { return fields[i].Name < fields[j].Name })
 	return fields
 }
+
+// ToJSONSchema renders a flat []Field as a JSON Schema object — the inverse of FromJSONSchema.
+// Every declared field is required (a Field list IS the call contract; there is no optional
+// marker in the coarse model). Empty fields → a schema accepting any object.
+//
+// ToJSONSchema 把扁平 []Field 渲成 JSON Schema object——FromJSONSchema 的逆向。每个声明字段都
+// required（Field 列表即调用契约；粗模型无可选标记）。空列表 → 接受任意对象的 schema。
+func ToJSONSchema(fields []Field) json.RawMessage {
+	type prop struct {
+		Type        string `json:"type"`
+		Description string `json:"description,omitempty"`
+	}
+	doc := struct {
+		Type       string          `json:"type"`
+		Properties map[string]prop `json:"properties"`
+		Required   []string        `json:"required,omitempty"`
+	}{Type: "object", Properties: map[string]prop{}}
+	for _, f := range fields {
+		doc.Properties[f.Name] = prop{Type: f.Type, Description: f.Description}
+		doc.Required = append(doc.Required, f.Name)
+	}
+	b, err := json.Marshal(doc)
+	if err != nil {
+		return json.RawMessage(`{"type":"object"}`)
+	}
+	return b
+}

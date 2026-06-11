@@ -3,7 +3,6 @@ package agent
 import (
 	"testing"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -23,7 +22,6 @@ func TestService_InvokeMirrorsRunToEntities(t *testing.T) {
 			{Type: llminfra.EventText, Delta: "thinking out loud"},
 			{Type: llminfra.EventFinish, InputTokens: 1, OutputTokens: 1},
 		}}},
-		Tools:          func() []toolapp.Tool { return nil },
 		Knowledge:      fakeKnowledge{},
 		EntitiesBridge: ent,
 	})

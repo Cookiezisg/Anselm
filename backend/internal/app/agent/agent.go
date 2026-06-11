@@ -4,13 +4,15 @@
 // The version model is linear append-only with a free-moving ActiveVersionID pointer — no
 // pending/accept. Create/edit write a new version (max+1) and take effect immediately; revert
 // just moves the pointer. An agent writes no code, so there is NO sandbox dependency; instead
-// invoke needs three injected ports (DIP): an LLM resolver, the global tool provider, and a
-// knowledge renderer — none of which the agent owns.
+// invoke needs four injected ports (DIP): an LLM resolver, a mount resolver (synthesizes the
+// version's fn_/hd_/mcp refs into bound tools), a skill-guide renderer, and a knowledge
+// renderer — none of which the agent owns.
 //
 // Package agent（app 层）编排 agent domain：锻造配置版本、跑 ReAct loop（invoke）、execution-log
 // 面、relation / catalog 适配器。版本模型线性只增 + 可移动 ActiveVersionID 指针——无 pending/accept。
 // create/edit 写新版本（max+1）立即生效；revert 只移指针。agent 不写代码，故**无 sandbox 依赖**；
-// invoke 需三个注入端口（DIP）：LLM resolver、全局工具 provider、knowledge renderer——agent 自己都不拥有。
+// invoke 需四个注入端口（DIP）：LLM resolver、mount resolver（把版本的 fn_/hd_/mcp ref 合成绑定
+// 工具）、skill 指南渲染器、knowledge 渲染器——agent 自己都不拥有。
 package agent
 
 import (
@@ -54,14 +56,37 @@ type KnowledgeProvider interface {
 	BuildKnowledgePrefix(ctx context.Context, docIDs []string) (string, error)
 }
 
-// InvokeDeps are the LLM-side dependencies InvokeAgent needs, injected post-construction (DIP).
-// Tools returns the full global tool registry; invoke filters it to the agent's whitelist.
+// MountResolver synthesizes the version's mounted ToolRefs (fn_/hd_…method/mcp:server/tool)
+// into bound, callable tools — one per mount, named after the target, executing through the
+// target's standard execution method. The agent NEVER sees the generic system-tool registry
+// (no run_function / Read / Bash); its tool universe is exactly its mounts.
 //
-// InvokeDeps 是 InvokeAgent 需要的 LLM 侧依赖，构造后注入（DIP）。Tools 返回全局工具表；invoke 按
-// agent 白名单过滤。
+// MountResolver 把版本挂载的 ToolRef（fn_/hd_…method/mcp:server/tool）合成绑定可调工具——每挂载
+// 一个、以目标命名、经目标标准执行方法执行。agent **永不**见通用系统工具表（无 run_function /
+// Read / Bash）；其工具宇宙恰是其挂载。
+type MountResolver interface {
+	Resolve(ctx context.Context, refs []agentdomain.ToolRef) ([]toolapp.Tool, error)
+}
+
+// SkillGuide renders the version's mounted skill into an execution-guide string injected into
+// the system prompt (no active-skill state, no fork — see skillapp.Guide).
+//
+// SkillGuide 把版本挂载的 skill 渲染成注入 system prompt 的执行指南串（无 active-skill 状态、
+// 不 fork——见 skillapp.Guide）。
+type SkillGuide interface {
+	Guide(ctx context.Context, name string) (string, error)
+}
+
+// InvokeDeps are the LLM-side dependencies InvokeAgent needs, injected post-construction (DIP).
+// Each dep is consulted only when the version mounts the matching capability — but a needed-yet-
+// nil dep is a wiring bug and fails the invoke loudly (a worker must not run silently degraded).
+//
+// InvokeDeps 是 InvokeAgent 需要的 LLM 侧依赖，构造后注入（DIP）。每个依赖仅在版本挂载对应能力时
+// 被用到——但「需要却为 nil」是装配 bug、让 invoke 大声失败（worker 绝不静默降级运行）。
 type InvokeDeps struct {
 	Resolver  LLMResolver
-	Tools     func() []toolapp.Tool
+	Mounts    MountResolver
+	Skill     SkillGuide
 	Knowledge KnowledgeProvider
 
 	// EntitiesBridge (SSE-C, nil-tolerant): the agent run mirrors its ReAct trace (every block)

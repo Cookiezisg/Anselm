@@ -56,6 +56,25 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 	return rendered, nil
 }
 
+// Guide renders a skill's body as a mounted execution guide (the agent-mount path): rendered
+// with no invocation arguments, NOT recorded as the run's active skill (an agent's tools are
+// explicit mounts — there is no allowed-tools pre-approval to install, and writing into a parent
+// chat's AgentState would leak the pre-approval across runs), and never forked (a guide is text
+// for THIS run, whatever the skill's own context mode says).
+//
+// Guide 把 skill 正文渲染为挂载的执行指南（agent 挂载路径）：无调用参数渲染、**不**记为本次运行的
+// active skill（agent 的工具是显式挂载——没有 allowed-tools 预授权可装，写进父 chat 的 AgentState
+// 会把预授权泄漏到别的运行）、也绝不 fork（指南就是给**本次**运行的文本，无论 skill 自己的 context
+// 模式是什么）。
+func (s *Service) Guide(ctx context.Context, name string) (string, error) {
+	sk, err := s.repo.Get(ctx, name)
+	if err != nil {
+		return "", fmt.Errorf("skillapp.Guide: %w", err)
+	}
+	convID, _ := reqctxpkg.GetConversationID(ctx)
+	return substitute(sk.Body, substituteVars{SessionID: convID}), nil
+}
+
 // substituteVars carries the values for placeholder expansion.
 //
 // substituteVars 承载占位替换的取值。

@@ -53,6 +53,17 @@ func (t dangerTool) Execute(context.Context, string) (string, error) {
 	return "deployed", nil
 }
 
+// fakeMounts resolves any mounted refs to a fixed tool list (mount synthesis itself is covered
+// by tool/mount's own tests; this test only needs A mounted tool inside the loop).
+//
+// fakeMounts 把任意挂载 ref 解析为固定工具列表（挂载合成本身由 tool/mount 自己的测试覆盖；
+// 本测试只需要 loop 里**有**一个挂载工具）。
+type fakeMounts struct{ tools []toolapp.Tool }
+
+func (m fakeMounts) Resolve(context.Context, []agentdomain.ToolRef) ([]toolapp.Tool, error) {
+	return m.tools, nil
+}
+
 // TestInvoke_DangerGateFromBrokerInCtx is the nested human-in-the-loop proof (R0064): an agent run
 // given a humanloop broker via ctx (exactly how a chat turn's broker flows into an invoke_agent
 // sub-run) blocks at the shared loop's danger gate before a dangerous tool executes, and a resolve
@@ -78,10 +89,10 @@ func TestInvoke_DangerGateFromBrokerInCtx(t *testing.T) {
 				{Type: llminfra.EventFinish, InputTokens: 1, OutputTokens: 1},
 			},
 		}}},
-		Tools:     func() []toolapp.Tool { return []toolapp.Tool{dangerTool{ran: &ran}} },
+		Mounts:    fakeMounts{tools: []toolapp.Tool{dangerTool{ran: &ran}}},
 		Knowledge: fakeKnowledge{},
 	})
-	a, _, err := svc.Create(baseCtx, CreateInput{Name: "deployer", Config: Config{Prompt: "deploy it", Tools: []agentdomain.ToolRef{{Ref: "deploy"}}}})
+	a, _, err := svc.Create(baseCtx, CreateInput{Name: "deployer", Config: Config{Prompt: "deploy it", Tools: []agentdomain.ToolRef{{Ref: "fn_deploy"}}}})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}

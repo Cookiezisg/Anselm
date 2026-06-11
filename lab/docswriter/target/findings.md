@@ -41,6 +41,14 @@
 - **教训**：建议改地基行为前必须先 grep 全部调用方；机械门禁是安全网、不该靠它兜判断。
 - **状态**：**撤回**（非 finding；orm 仍无实质 findings，STD-2 成立）
 
+## F-7 agent 挂载运行时断裂（工具拿不到 + skill 没接线）✅ 已修（完整功能收尾）
+
+- **模块**：P2 agent · **类型**：真 bug / 半成品（用户证实 agent 执行面曾 in-flight）
+- **现状（3 agent 评审 + 我亲验 crux）**：① 旧 `filterToolsByWhitelist` 拿挂载 ref（`fn_`/`hd_`/`mcp:`）匹配全局工具 `Name()`（动词 `run_function`…）——永不相等 → **agent mount 的工具运行时全拿不到、裸跑**；唯一过的测试是 rigged 的（令 Name()==Ref）。② `Version.Skill` 存了、关系连了，但 **invoke 从不读**——skill 挂载完全没接线。③ knowledge（文档）是五类挂载中唯一真生效的。
+- **设计裁决（用户 2026-06-11）**：agent 可接 function / handler 方法 / mcp call + 挂 skill（激活为执行指南）+ 挂 document；**不能**挂普通系统 tool call。"过滤全局表"思路本身就错。
+- **修（完整功能实现）**：新 `app/tool/mount` 包——per-mount **合成绑定工具**（fn→以 function 命名、hd→`name__method`、mcp→`mcp__server__tool`；目标自己的 desc+inputs schema；Execute 走实体标准执行方法、TriggeredBy=agent；DIP 三窄端口可 fake）；`skillapp.Guide`（渲染执行指南，不设 active-skill、不 fork）注入 system prompt；InvokeDeps 重塑（删 `Tools func()`，加 Mounts/Skill；需要却 nil = 大声失败）；挂载解析 fail-fast + 撞名检测（`AGENT_MOUNT_INVALID`）；`schemapkg.ToJSONSchema`（地基补正向转换）；rigged 测试改真实路径 + mount 包全合成单测。**评审报告纠偏**：agent 的 recordExecution 其实早已填 toolCallID/flowrunID/flowrunNodeID（X1 不含 agent）。
+- **状态**：**✅ 已修**（build + 全测试 0 FAIL；`domains/agent.md` 落定）
+
 ## F-5 detached context 散手搓 → 加 `reqctx.Detached` helper ✅ 已修
 
 - **模块**：P1 reqctx（横切：~15 个 app/infra 站点）

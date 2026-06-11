@@ -132,9 +132,14 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 // runLoop 构造 agent host + LLM bundle 并跑 app/loop.Run（ReAct 循环）。loop 的 emitter 把 block
 // 推到 ctx 携带的 stream scope（chat 内调用时即 eventlog）——agent 不写流式代码。
 func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version, in InvokeInput) (loopapp.Result, string, error) {
-	// Knowledge prefix (the agent's attached docs) prepended to the user message.
+	// Knowledge prefix (the agent's attached docs) prepended to the user message. A mounted
+	// capability with its dep unwired is a wiring bug — fail loudly, never run degraded.
+	// Knowledge 前缀（agent 挂的文档）前置到 user 消息。挂了能力而依赖未装配是装配 bug——大声失败、绝不降级跑。
 	prefix := ""
-	if s.invoke.Knowledge != nil && len(v.Knowledge) > 0 {
+	if len(v.Knowledge) > 0 {
+		if s.invoke.Knowledge == nil {
+			return loopapp.Result{}, "", fmt.Errorf("agent mounts knowledge but no KnowledgeProvider is wired")
+		}
 		p, kErr := s.invoke.Knowledge.BuildKnowledgePrefix(ctx, v.Knowledge)
 		if kErr != nil {
 			return loopapp.Result{}, "", fmt.Errorf("resolve knowledge: %w", kErr)
@@ -147,16 +152,36 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 		userMsg += "\n\nInput data:\n```json\n" + string(b) + "\n```"
 	}
 
-	// Filter the global tool registry to the agent's whitelisted callables.
-	var allTools []toolapp.Tool
-	if s.invoke.Tools != nil {
-		allTools = s.invoke.Tools()
+	// Synthesize the version's mounts (fn_/hd_…method/mcp:server/tool) into bound tools — the
+	// agent's entire tool universe. Fail-fast: a deleted/renamed-away target fails the invoke
+	// (a worker missing a declared capability must not run silently degraded).
+	// 把版本挂载（fn_/hd_…method/mcp:server/tool）合成绑定工具——agent 的全部工具宇宙。fail-fast：
+	// 目标被删/不在线即 invoke 失败（worker 缺声明能力绝不静默降级跑）。
+	var tools []toolapp.Tool
+	if len(v.Tools) > 0 {
+		if s.invoke.Mounts == nil {
+			return loopapp.Result{}, "", fmt.Errorf("agent mounts tools but no MountResolver is wired")
+		}
+		var mErr error
+		tools, mErr = s.invoke.Mounts.Resolve(ctx, v.Tools)
+		if mErr != nil {
+			return loopapp.Result{}, "", fmt.Errorf("resolve mounts: %w", mErr)
+		}
 	}
-	whitelist := make([]string, 0, len(v.Tools))
-	for _, t := range v.Tools {
-		whitelist = append(whitelist, t.Ref)
+
+	// The mounted skill renders into the system prompt as the run's execution guide.
+	// 挂载的 skill 渲染进 system prompt，作为本次运行的执行指南。
+	skillGuide := ""
+	if v.Skill != "" {
+		if s.invoke.Skill == nil {
+			return loopapp.Result{}, "", fmt.Errorf("agent mounts skill %q but no SkillGuide is wired", v.Skill)
+		}
+		g, gErr := s.invoke.Skill.Guide(ctx, v.Skill)
+		if gErr != nil {
+			return loopapp.Result{}, "", fmt.Errorf("resolve skill: %w", gErr)
+		}
+		skillGuide = g
 	}
-	tools := filterToolsByWhitelist(allTools, whitelist)
 
 	bundle, err := s.invoke.Resolver.ResolveAgent(ctx, v.ModelOverride)
 	if err != nil {
@@ -172,7 +197,7 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	}
 
 	req := bundle.Request
-	req.System = buildSystemPrompt(a, v)
+	req.System = buildSystemPrompt(a, v, skillGuide)
 
 	maxTurns := in.MaxTurns
 	if maxTurns <= 0 {
@@ -266,10 +291,11 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	return exec.ID
 }
 
-// buildSystemPrompt composes the agent identity + worker discipline + outputSchema instruction.
+// buildSystemPrompt composes the agent identity + worker discipline + the mounted skill's
+// execution guide + the outputSchema instruction.
 //
-// buildSystemPrompt 组装 agent 身份 + worker 纪律 + outputSchema 指令。
-func buildSystemPrompt(a *agentdomain.Agent, v *agentdomain.Version) string {
+// buildSystemPrompt 组装 agent 身份 + worker 纪律 + 挂载 skill 的执行指南 + outputSchema 指令。
+func buildSystemPrompt(a *agentdomain.Agent, v *agentdomain.Version, skillGuide string) string {
 	identity := "You are a workflow automation worker."
 	if a.Name != "" {
 		identity = "You are " + a.Name + ", a workflow automation worker."
@@ -277,10 +303,13 @@ func buildSystemPrompt(a *agentdomain.Agent, v *agentdomain.Version) string {
 			identity += " Your role: " + a.Description
 		}
 	}
-	return identity +
+	prompt := identity +
 		" Use available tools as needed; respond concisely when finished." +
-		" Only use the tools explicitly provided to you. Do not attempt capabilities you have no tool for." +
-		outputsInstruction(v.Outputs)
+		" Only use the tools explicitly provided to you. Do not attempt capabilities you have no tool for."
+	if skillGuide != "" {
+		prompt += "\n\n## Execution guide (skill: " + v.Skill + ")\n\n" + skillGuide
+	}
+	return prompt + outputsInstruction(v.Outputs)
 }
 
 // agentHost is the per-invoke loop.Host: history is the prompt (+ replay), Tools is the
@@ -321,28 +350,6 @@ func (h *agentHost) RecordStep(ctx context.Context, step int, assistant, toolRes
 	if h.recorder != nil {
 		h.recorder(ctx, len(h.replay)+step, assistant, toolResults)
 	}
-}
-
-// filterToolsByWhitelist keeps only tools whose Name() is in the whitelist; an empty whitelist
-// grants no tools (an agent with no tools mounted is a pure-prompt worker).
-//
-// filterToolsByWhitelist 仅保留 Name() 在白名单内的工具；空白名单 = 不给工具（无工具的 agent 是纯
-// prompt worker）。
-func filterToolsByWhitelist(all []toolapp.Tool, whitelist []string) []toolapp.Tool {
-	if len(whitelist) == 0 {
-		return nil
-	}
-	allowed := make(map[string]bool, len(whitelist))
-	for _, n := range whitelist {
-		allowed[n] = true
-	}
-	out := make([]toolapp.Tool, 0, len(whitelist))
-	for _, t := range all {
-		if allowed[t.Name()] {
-			out = append(out, t)
-		}
-	}
-	return out
 }
 
 // outputsInstruction renders the agent's declared output fields as a hard instruction

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -38,7 +37,6 @@ func TestService_InvokeStreamsNestedAndPersistsTranscript(t *testing.T) {
 			{Type: llminfra.EventText, Delta: "hello from agent"},
 			{Type: llminfra.EventFinish, InputTokens: 1, OutputTokens: 1},
 		}}},
-		Tools:     func() []toolapp.Tool { return nil },
 		Knowledge: fakeKnowledge{},
 	})
 	a, _, err := svc.Create(baseCtx, CreateInput{Name: "streamer", Config: Config{Prompt: "do it"}})
@@ -90,7 +88,6 @@ func TestService_InvokeOffChatStillPersistsTranscript(t *testing.T) {
 			{Type: llminfra.EventText, Delta: "batch output"},
 			{Type: llminfra.EventFinish, InputTokens: 1, OutputTokens: 1},
 		}}},
-		Tools:     func() []toolapp.Tool { return nil },
 		Knowledge: fakeKnowledge{},
 	})
 	a, _, err := svc.Create(baseCtx, CreateInput{Name: "batch", Config: Config{Prompt: "run"}})

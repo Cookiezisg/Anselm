@@ -40,6 +40,7 @@ import (
 	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
 	memorytool "github.com/sunweilin/forgify/backend/internal/app/tool/memory"
+	mounttool "github.com/sunweilin/forgify/backend/internal/app/tool/mount"
 	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
 	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
 	skilltool "github.com/sunweilin/forgify/backend/internal/app/tool/skill"
@@ -100,7 +101,6 @@ type services struct {
 type toolsetHolder struct{ tools []toolapp.Tool }
 
 func (h *toolsetHolder) Tools() []toolapp.Tool { return h.tools }
-func (h *toolsetHolder) all() []toolapp.Tool   { return h.tools }
 
 // buildServices constructs all 21 app Services in dependency order, wires every cross-Service
 // adapter (R0060), the toolset, and all post-construction injection (relation syncers / catalog
@@ -223,10 +223,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	sched.SetLifecycleReconciler(wf)
 
 	// === post-construction injection ===
-	// agent's ReAct deps: LLM resolver + the (lazy) tool universe + knowledge-doc prefix builder.
+	// agent's ReAct deps: LLM resolver + mount synthesis (the agent's tool universe is exactly its
+	// fn_/hd_/mcp mounts — never the system-tool registry) + skill guide + knowledge prefix.
+	// agent 的 ReAct 依赖：LLM resolver + 挂载合成（agent 的工具宇宙恰是其 fn_/hd_/mcp 挂载——绝非系统
+	// 工具表）+ skill 指南 + knowledge 前缀。
 	ag.SetInvokeDeps(agentapp.InvokeDeps{
 		Resolver:       resolvers.Agent(),
-		Tools:          holder.all,
+		Mounts:         mounttool.NewResolver(fn, hd, mcp),
+		Skill:          skill,
 		Knowledge:      NewKnowledgeProvider(doc),
 		EntitiesBridge: bus.entities, // SSE-C: agent run mirrors its ReAct trace to the agent panel
 	})

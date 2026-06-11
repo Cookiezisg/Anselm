@@ -108,6 +108,7 @@ var (
 	ErrNoActiveVersion      = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_NO_ACTIVE_VERSION", "agent has no active version to invoke")
 	ErrToolsAgentRef        = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOLS_AGENT_REF", "agent tools cannot reference another agent (ag_ forbidden)")
 	ErrToolRefBlank         = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOL_REF_BLANK", "agent tool ref must not be blank")
+	ErrMountInvalid         = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_MOUNT_INVALID", "agent mounted tool ref is invalid or unresolvable")
 	ErrInvalidModelOverride = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
 	ErrExecutionNotFound    = errorspkg.New(errorspkg.KindNotFound, "AGENT_EXECUTION_NOT_FOUND", "agent execution not found")
 )

@@ -10,7 +10,7 @@
 |---|---|---|
 | P0 | errors | ✅ → STD-1 + **全量统一**（类型移 pkg/errors、37 sentinel 全转 errorspkg.New、ADR 0002、error-codes.md seeded） |
 | P1 | orm ✅（STD-2 + `foundation/orm.md`；F-4 撤回）· reqctx ✅（`foundation/reqctx.md` + F-5 `Detached` helper + F-6 kind 修） | ✅ 完成 |
-| P2 | function · handler · agent | **← 下一步** |
+| P2 | function · handler · agent（3 agent 全栈评审完）| agent ✅（F-7 挂载断裂修成完成品 + `domains/agent.md`）；function/handler findings 待裁（X1 flowrun 列悬空、handler 死代码/死字段/config 对账、X3 等） |
 | P3 | trigger · control · approval · workflow · flowrun · scheduler | ⬜ |
 | P4 | skill · mcp · document | ⬜ |
 | P5 | conversation · chat · messages · attachment · memory · todo · subagent | ⬜ |
