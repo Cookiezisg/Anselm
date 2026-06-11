@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 事件 —— SSE 流挂载 / 通知类型登记
 
-> 流式产出的单一事实源。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval · skill · mcp · document。
+> 流式产出的单一事实源。随评审逐域填入；当前已落：18 域（P0-P5 全部实体 + 对话运行时族）。
 > 通则（E 系列）：全系统**仅三条 SSE 流**（messages / entities / notifications，E1 永不再加）；workspace 级、后端不过滤；delta/tick 标 `seq=0` ephemeral（E2）；messages 流 `parentBlockId` 嵌套（E3）。任何实体**不开新流**——只把内容挂上三条流。
 
 ## notifications 流（生命周期通知，`<domain>.<action>`）
@@ -58,3 +58,9 @@ audience: [human, ai]
 **entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）；skill/document = forge 镜像（create/edit 的 body/content）。
 
 **messages 流**：mcp 动态工具（`mcp__*__*`）的进度作为 tool_call 下 progress 块。
+
+## P5 对话运行时族挂载
+
+**messages 流（主战场）**：message_start/stop（durable，close 带快照）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral——broker pending 表是真相、重连走 REST 重同步）· todo 信号 · subagent 子树经 `Open.ParentID` 嵌套（E3）。
+
+**notifications**：`conversation.auto_titled` · `memory.*` · 上传/删除类生命周期。

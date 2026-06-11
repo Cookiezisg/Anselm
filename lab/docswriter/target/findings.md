@@ -98,3 +98,11 @@
 - **P4-1（🟡 一致性，机械修）mcp_calls 缺 flowrun 审计列**：X1（F-8）接通后四执行单元三家有审计列、mcp 没有——workflow 跑 mcp action 后"这个 flowrun 调了哪些 mcp 工具"查不了（调度器 ctx 已注入、表却没列）。修：domain Call + DDL（2 列+偏索引）+ recordCall 读 ctx + CallFilter/store/HTTP `?conversationId&flowrunId` 全对齐其它三家（CallFilter 此前连 conversationId 都没有，一并补）。
 - **记录为设计事实（写进 domains 文档）**：document Search 走 DB LIKE vs fn/hd/agent 内存过滤（content 大列+行数大，DB 侧合理，有意分化）；skill 无 DB 表（文件式，slug 即身份）；mcp 状态不落盘（重启即重连）。
 - **文档**：`domains/{skill,mcp,document}.md` 三篇 + 三索引 P4 增量。
+
+## F-11 P5 亲审批（conversation·chat·messages·attachment·memory·todo·subagent）✅ 零真 bug
+
+亲读 ~5500 行七模块。**全族零真 bug——全库质量最高的一族**：messages 块模型（两段式写/seq 落盘分配/SubagentID 历史隔离/ContextRole 投影不改写/progress 一等持久块但不回喂）、chat（每对话串行队列自毁重建/processTask 全 ctx 装配/freeze-on-send/interactions ephemeral 信号+broker 真相源/lazy 工具 AutoActivator/同步压缩防竞态）、subagent（双层递归守卫/混血 host/无表落父对话）、conversation（PATCH 三态指针）、attachment（按模型能力门控渲染+sandbox 抽取降级）、memory（pinned 全文+目录列表的 token 策展）、todo（整表替换+reminder 不污染历史）。
+
+- 验证插曲：subagent 白名单工具名（Read/LS/Glob/Grep…）初次 grep 全部"不存在"——是我 grep 模式没吃 gofmt 对齐空格，宽松重验全部存在（F-4 教训再次拦住误报）。
+- 记录：message 行的 error_code（LLM_RESOLVE_ERROR 等）是回合级错误码、与 HTTP wire code 两个命名空间（chat.md §6 写明）。
+- **文档**：domains/{chat,messages,conversation,subagent,attachment,memory,todo}.md 七篇 + 三索引 P5 增量。

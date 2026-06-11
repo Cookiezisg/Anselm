@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # HTTP API —— 端点登记
 
-> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：function · handler · agent · workflow · flowrun · trigger · control · approval · skill · mcp · document。
+> 全部端点的单一事实源（method · path · 语义一行）。随评审逐域填入；当前已落：18 域（P0-P5 全部实体 + 对话运行时族）。
 > 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；List 全部 `?cursor&limit` 分页；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 
 ## function（`/api/v1/functions`）
@@ -119,3 +119,20 @@ servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry
 ## document（`/api/v1/documents`）
 
 CRUD + `POST {id}:move`（防环；nil parent=根）+ `GET /documents?parentId=`（树层列）+ `GET /documents:search?q=`（DB LIKE）。
+
+## conversation / chat（`/api/v1/conversations`）
+
+| Method · Path | 语义 |
+|---|---|
+| conversation CRUD | `POST` · `GET`(list：`?search&archived`) · `GET/{id}` · `PATCH/{id}`（含 ModelOverride 三态）· `DELETE/{id}` |
+| `POST /{id}/messages` | **Send**：落 user 回合 + 开 assistant 回合 + 入队，返 assistant msg id |
+| `GET /{id}/messages` | 回合历史 keyset 分页（含 blocks） |
+| `DELETE /{id}/stream` | **Cancel** 在途生成 |
+| `GET /{id}/interactions` · `POST /{id}/interactions/{toolCallId}` | 待决人机交互重同步 / 决议（approve/deny/approve_always/answer） |
+| `GET /{id}/system-prompt-preview` · `GET /{id}/usage` | 调试预览 / token 用量 |
+| `GET /{conversationID}/todos` | 对话工作清单 |
+
+## attachment / memory（`/api/v1/...`）
+
+attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `DELETE /{id}`。
+memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/pin|unpin`（name 即 id）。
