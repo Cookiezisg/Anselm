@@ -43,7 +43,29 @@ type Service struct {
 	// relations is the optional relation hook; nil disables edge purge + the Namer is harmless.
 	// relations 是可选 relation 钩子；nil 时禁用边清理、Namer 仍无害。
 	relations RelationSyncer
+
+	// canceler is the optional generation hook (chatapp, injected post-build like relations):
+	// Delete cancels any in-flight generation so a deleted conversation can't keep burning
+	// tokens and streaming into the void. nil → deletion alone.
+	//
+	// canceler 是可选生成钩子（chatapp，与 relations 同款后注入）：Delete 取消在途生成，使已删
+	// 对话不再烧 token、不再对空推流。nil → 只删除。
+	canceler GenerationCanceler
 }
+
+// GenerationCanceler stops a conversation's in-flight generation (chatapp.Service satisfies it).
+//
+// GenerationCanceler 停止对话的在途生成（chatapp.Service 满足之）。
+type GenerationCanceler interface {
+	Cancel(ctx context.Context, conversationID string) error
+}
+
+// SetGenerationCanceler injects the chat cancel hook after construction (bootstrap breaks the
+// chat→conversation→chat cycle this way, same as SetRelationSyncer).
+//
+// SetGenerationCanceler 构造后注入 chat cancel 钩子（bootstrap 以此破 chat→conversation→chat
+// 环，与 SetRelationSyncer 同款）。
+func (s *Service) SetGenerationCanceler(c GenerationCanceler) { s.canceler = c }
 
 // New constructs a Service; panics on nil logger. A nil emitter disables notifications (best-effort).
 //
@@ -201,6 +223,15 @@ func (s *Service) SetSummary(ctx context.Context, id, summary string, coversUpTo
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
+	// Stop any in-flight generation first: a deleted conversation must not keep calling the
+	// LLM or streaming to a thread nobody can see.
+	//
+	// 先停在途生成：已删对话不该继续调 LLM、不该往没人能看的线程推流。
+	if s.canceler != nil {
+		if err := s.canceler.Cancel(ctx, id); err != nil {
+			s.log.Warn("conversation.Delete: cancel generation failed", zap.String("id", id), zap.Error(err))
+		}
+	}
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return err
 	}

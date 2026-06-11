@@ -268,6 +268,14 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if in.Content == "" && len(in.AttachmentIDs) == 0 {
 		return "", ErrEmptyContent
 	}
+	// Existence gate: without it a Send to a deleted / unknown conversation persists an orphan
+	// user turn (and an assistant row) that only fails later inside processTask — 404 first.
+	//
+	// 存在性闸：没有它，发往已删/未知对话的 Send 会先落孤儿 user 回合（和 assistant 行），到
+	// processTask 里才失败——先 404。
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return "", err
+	}
 
 	// Persist the user turn (one text block + attachment ids snapshotted in Attrs) and echo it
 	// to the stream so other clients see it immediately.

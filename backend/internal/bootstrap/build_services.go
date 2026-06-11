@@ -221,6 +221,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// active workflow 是 App.Boot 的事。
 	wf.SetExecutionPorts(trg, runnerAdapter{sched: sched})
 	sched.SetLifecycleReconciler(wf)
+	// Deleting a conversation cancels its in-flight generation (chat satisfies the port;
+	// post-build injection breaks the chat→conversation→chat cycle).
+	// 删对话连带取消在途生成（chat 满足该端口；后注入破 chat→conversation→chat 环）。
+	conv.SetGenerationCanceler(chat)
 
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + mount synthesis (the agent's tool universe is exactly its

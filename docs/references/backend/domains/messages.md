@@ -23,4 +23,4 @@ audience: [human, ai]
 
 ## 2. 契约（引用）
 
-表 `messages` / `message_blocks`（CHECK type/status/role/context_role）→ [database.md](../database.md) · 码 `MESSAGE_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`msg_`/块 `blk_`。读面：`ListMessages`（keyset 分页）/ `LoadThread`（整线程，单用户内存可装）/ `SumTokens`（usage）。压缩器唯一写入口 = `UpdateBlocksContextRole`。
+表 `messages` / `message_blocks`（CHECK type/status/role/context_role）→ [database.md](../database.md) · 码 `MESSAGE_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`msg_`/块 `blk_`。读面：`ListMessages`（keyset 分页）/ `LoadThread`（整线程，单用户内存可装）/ `SumTokens`（usage）。压缩器唯一写入口 = `UpdateBlocksContextRole`；boot 对账入口 = `SweepNonTerminal`（pending/streaming → cancelled，硬崩溃孤儿清扫）。

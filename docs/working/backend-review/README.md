@@ -4,6 +4,8 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-11
+reviewed: 2026-06-11
+review-due: 2026-09-11
 expires: 2026-09-11
 landed-into: ""
 audience: [human, ai]
