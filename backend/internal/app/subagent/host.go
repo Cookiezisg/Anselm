@@ -58,7 +58,7 @@ func (h *subagentHost) Tools(_ context.Context) []toolapp.Tool { return h.tools 
 // LLM 看的是那个、而非这条 sub-message。
 func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	dctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	dctx := reqctxpkg.Detached(wsID)
 	dctx = reqctxpkg.SetConversationID(dctx, h.conversationID)
 
 	h.subMsg.Status = status

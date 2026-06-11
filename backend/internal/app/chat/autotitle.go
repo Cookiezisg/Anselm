@@ -54,7 +54,7 @@ func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspac
 // autoTitle 在 detached + 限时 context 上从对话首次交流生成并落标题。任何失败（无线程 / 解析 /
 // 生成 / 落盘）记日志后丢弃——对话就保持无标题。
 func (s *Service) autoTitle(conversationID, workspaceID string) {
-	dctx := reqctxpkg.SetWorkspaceID(context.Background(), workspaceID)
+	dctx := reqctxpkg.Detached(workspaceID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 	ctx, cancel := context.WithTimeout(dctx, autoTitleTimeout)
 	defer cancel()

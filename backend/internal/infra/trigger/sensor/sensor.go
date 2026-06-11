@@ -86,7 +86,7 @@ func (l *Listener) Register(triggerID, workspaceID string, config map[string]any
 	if e, ok := l.entries[triggerID]; ok {
 		e.cancel()
 	}
-	ctx, cancel := context.WithCancel(reqctxpkg.SetWorkspaceID(context.Background(), workspaceID))
+	ctx, cancel := context.WithCancel(reqctxpkg.Detached(workspaceID))
 	l.entries[triggerID] = &entry{cancel: cancel}
 	go l.loop(ctx, triggerID, sc, condProg, outProg, interval)
 	return nil

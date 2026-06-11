@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 210 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 212 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,16 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（210 码，按域）
+## 全量登记（212 码，按域）
 
-> 由 `errorspkg.New` 机械抽取。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（210）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+
+### `pkg/errors`（跨域 sentinel）
+
+| code | HTTP | message |
+|---|---|---|
+| `INVALID_REQUEST` | 400 | invalid request（domain 逻辑前的格式/语义无效） |
+| `UNAUTH_NO_WORKSPACE` | 401 | unauthorized: no valid workspace id（隔离路由缺 ws；中间件 `RequireWorkspace` 兜、前端清 workspace 重选） |
 
 ### `app/aispawn`
 
@@ -474,4 +481,4 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `MISSING_CONVERSATION_ID` | 500 | reqctx: missing conversation id in context |
-| `MISSING_WORKSPACE_ID` | 401 | reqctx: missing workspace id in context |
+| `MISSING_WORKSPACE_ID` | 500 | reqctx: missing workspace id in context（接线 bug；客户端的 401 是 UNAUTH_NO_WORKSPACE） |

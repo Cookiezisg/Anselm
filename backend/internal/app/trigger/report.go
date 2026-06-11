@@ -38,7 +38,7 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 
 	// Detached context seeded with the trigger's workspace — the listener fired off-request.
 	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
-	ctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	ctx := reqctxpkg.Detached(wsID)
 	s.fanOut(ctx, triggerID, kind, workflows, act)
 }
 

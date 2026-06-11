@@ -120,7 +120,7 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 		ToolCallID:     toolCallID,
 	}
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	detached := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	detached := reqctxpkg.Detached(wsID)
 	if err := s.repo.SaveCall(detached, call); err != nil {
 		s.log.Warn("mcpapp.recordCall: save failed (best-effort)",
 			zap.String("serverId", serverID), zap.String("tool", tool), zap.Error(err))

@@ -120,7 +120,7 @@ func (h *chatHost) SystemReminders(ctx context.Context) []string {
 // loop.Run 前已设在 message 上（溯源）。
 func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Block, status, stopReason, errCode, errMsg string, in, out int) {
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	dctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	dctx := reqctxpkg.Detached(wsID)
 	dctx = reqctxpkg.SetConversationID(dctx, h.conversationID)
 
 	h.assistantMsg.Status = status

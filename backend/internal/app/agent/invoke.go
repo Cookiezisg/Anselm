@@ -257,7 +257,7 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	detached := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	detached := reqctxpkg.Detached(wsID)
 	if err := s.repo.SaveExecution(detached, exec); err != nil {
 		s.log.Warn("agentapp.recordExecution: save failed (best-effort)",
 			zap.String("agentId", a.ID), zap.String("versionId", v.ID), zap.Error(err))

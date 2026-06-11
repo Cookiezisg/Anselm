@@ -72,7 +72,7 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 // AgentState + live 流桥 + cancel 端点（R0056）可触发的 cancel，解析对话模型、拼 system prompt、跑
 // ReAct 循环。host 的 WriteFinalize 落盘 + 推流终态，故 processTask 丢弃 loop Result。
 func (s *Service) processTask(conversationID string, q *convQueue, t task) {
-	base := reqctxpkg.SetWorkspaceID(context.Background(), t.workspaceID)
+	base := reqctxpkg.Detached(t.workspaceID)
 	base = reqctxpkg.SetLocale(base, t.locale)
 	base = reqctxpkg.SetConversationID(base, conversationID)
 	base = reqctxpkg.SetMessageID(base, t.assistantMsgID)
@@ -150,7 +150,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	// LoadHistory 不与 summary/角色写竞态），detached context 使被取消的回合仍压缩。best-effort：失败
 	// 非致命——下回合再查。
 	if s.deps.Compactor != nil {
-		cctx := reqctxpkg.SetWorkspaceID(context.Background(), t.workspaceID)
+		cctx := reqctxpkg.Detached(t.workspaceID)
 		if err := s.deps.Compactor.MaybeCompact(cctx, conversationID); err != nil {
 			s.log.Warn("chatapp: compaction failed (non-fatal)", zap.Error(err))
 		}
@@ -165,7 +165,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 // message_stop，使流式气泡不挂死。出于与 WriteFinalize 相同的理由在 detached context 上跑。
 func (s *Service) failTurn(ctx context.Context, conversationID, msgID, code, msg string) {
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	dctx := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	dctx := reqctxpkg.Detached(wsID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 
 	m := &messagesdomain.Message{

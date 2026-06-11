@@ -287,7 +287,7 @@ func (s *Service) detach(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	return reqctxpkg.SetWorkspaceID(context.Background(), ws), nil
+	return reqctxpkg.Detached(ws), nil
 }
 
 // resolveBaseURL uses the key's own base, falling back to the provider default.

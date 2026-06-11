@@ -9,8 +9,8 @@
 | 阶段 | 模块 | 状态 |
 |---|---|---|
 | P0 | errors | ✅ → STD-1 + **全量统一**（类型移 pkg/errors、37 sentinel 全转 errorspkg.New、ADR 0002、error-codes.md seeded） |
-| P1 | orm ✅（STD-2 + `foundation/orm.md`；F-4 撤回——误判、回退+加注释）· **reqctx** | **reqctx ← 下一步** |
-| P2 | function · handler · agent | ⬜ |
+| P1 | orm ✅（STD-2 + `foundation/orm.md`；F-4 撤回）· reqctx ✅（`foundation/reqctx.md` + F-5 `Detached` helper + F-6 kind 修） | ✅ 完成 |
+| P2 | function · handler · agent | **← 下一步** |
 | P3 | trigger · control · approval · workflow · flowrun · scheduler | ⬜ |
 | P4 | skill · mcp · document | ⬜ |
 | P5 | conversation · chat · messages · attachment · memory · todo · subagent | ⬜ |
@@ -20,8 +20,8 @@
 
 ## 账本
 - `standards.md`：STD-1（错误处理，已全量统一）· STD-2（数据访问 / orm）
-- `findings.md`：F-1/F-2/F-3 ✅（错误全量统一）· F-4 撤回（orm.Page+Order 误判、回退+加解释注释）
-- 已落文档：`error-codes.md`（**完整 210 码**+ 2 守卫）· `foundation/orm.md`（STD-2 落地）。其余（api/database/events/changelog + 各 domains/）随评审填
+- `findings.md`：F-1/F-2/F-3 ✅（错误全量统一）· F-4 撤回（orm.Page 误判）· F-5 ✅（reqctx.Detached helper）· F-6 ✅（MISSING_WORKSPACE_ID kind 401→500 真 bug）
+- 已落文档：`error-codes.md`（**完整 212 码**+ 2 守卫）· `foundation/orm.md` · `foundation/reqctx.md`。其余（api/database/events/changelog + 各 domains/）随评审填
 
 ## Full coverage
 130 个 internal 包全有归属（order.md 折叠规则 + P8 bootstrap + logger 显式豁免）。covering 前逐包对账（inventory §对账）。

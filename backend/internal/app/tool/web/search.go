@@ -214,7 +214,7 @@ func (t *WebSearch) markInvalidIfAuthErr(ctx context.Context, keyID string, err 
 	}
 	mctx := ctx
 	if wsID, ok := reqctxpkg.GetWorkspaceID(ctx); ok {
-		mctx = reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+		mctx = reqctxpkg.Detached(wsID)
 	}
 	if merr := t.keys.MarkInvalidByID(mctx, keyID, err.Error()); merr != nil {
 		t.debugf("MarkInvalidByID failed", merr)

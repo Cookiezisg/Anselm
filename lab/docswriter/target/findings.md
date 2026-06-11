@@ -40,3 +40,19 @@
 - **处置**：回退；转成**解释性注释**（写明「别强制默认序、会破置顶优先」），防下个人重蹈。净收益 = 多了一处设计注释。
 - **教训**：建议改地基行为前必须先 grep 全部调用方；机械门禁是安全网、不该靠它兜判断。
 - **状态**：**撤回**（非 finding；orm 仍无实质 findings，STD-2 成立）
+
+## F-5 detached context 散手搓 → 加 `reqctx.Detached` helper ✅ 已修
+
+- **模块**：P1 reqctx（横切：~15 个 app/infra 站点）
+- **类型**：冗余（标准化）
+- **现状**：detached 异步（finalize / 后台写 / 自动标题）的"防孤儿 ctx"惯用法 `SetWorkspaceID(context.Background(), wsID)` 散在 ~15 处手搓，靠每作者记得重埋 ws（忘 → 运行时 `MISSING_WORKSPACE_ID`）。
+- **修法（用户裁：加 helper）**：`reqctx.Detached(wsID)` 命名并集中惯例（Background 非 WithoutCancel = 脱离已取消请求；重埋 ws = orm 隔离最低要求）；15 站点统一改用，conv 子集照常链 `SetConversationID`。
+- **状态**：**✅ 已修**（helper + 15 站点 + `foundation/reqctx.md` 写明惯例）
+
+## F-6 `ErrMissingWorkspaceID` Kind 401 与自己注释/镜像/架构三重矛盾 ✅ 已修（真 bug）
+
+- **模块**：P1 reqctx（`pkg/reqctx/workspace.go`）· **类型**：真 bug
+- **现状**：码 `KindUnauthorized`(401)，但 ① 自己注释写"wiring bug(500), not 401" ② 镜像 `ErrMissingConversationID` 是 500 且注释"Mirrors ErrMissingWorkspaceID (500, not 401)" ③ 客户端 401 已由中间件 `UNAUTH_NO_WORKSPACE` 兜。是我之前错误统一时挑错 Kind——全项目视角（读注释 + 镜像 + 中间件）才暴露。
+- **验证（吸取 F-4 教训）**：三重证据一致；测试断言 error 身份非 kind，改后 0 FAIL。
+- **修法**：`KindUnauthorized` → `KindInternal`(500)；error-codes.md 同步（401→500 + 补"两个 no-workspace 错误之分"）。
+- **状态**：**✅ 已修**

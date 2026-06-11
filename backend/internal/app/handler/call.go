@@ -160,7 +160,7 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 	}
 
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
-	detached := reqctxpkg.SetWorkspaceID(context.Background(), wsID)
+	detached := reqctxpkg.Detached(wsID)
 	if err := s.repo.SaveCall(detached, call); err != nil {
 		s.log.Warn("handlerapp.recordCall: save failed (best-effort)",
 			zap.String("handlerId", h.ID), zap.String("method", in.Method), zap.Error(err))

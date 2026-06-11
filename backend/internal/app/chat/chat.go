@@ -473,7 +473,7 @@ func (s *Service) Cancel(_ context.Context, conversationID string) error {
 // finalizeCancelled 把一个从未开始的 assistant 回合标 cancelled + 推 message_stop，在 detached
 // context 上（与 WriteFinalize 同一防孤儿纪律）。
 func (s *Service) finalizeCancelled(conversationID, msgID, workspaceID string) {
-	dctx := reqctxpkg.SetWorkspaceID(context.Background(), workspaceID)
+	dctx := reqctxpkg.Detached(workspaceID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 	m := &messagesdomain.Message{
 		ID:             msgID,
