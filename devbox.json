@@ -10,15 +10,6 @@
   "shell": {
     "init_hook": [
       "printf '✓ forgify devbox ready — go=%s\\n' \"$(go version | awk '{print $3}')\""
-    ],
-    "scripts": {
-      "bootstrap": [
-        "go install honnef.co/go/tools/cmd/staticcheck@latest",
-        "go install golang.org/x/tools/cmd/deadcode@latest",
-        "cd backend && go run ./cmd/resources",
-        "echo ''",
-        "echo '→ bootstrap done. now run: make test-console'"
-      ]
-    }
+    ]
   }
 }
