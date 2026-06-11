@@ -643,9 +643,9 @@ audience: [human, ai]
 
 ## backend/internal/infra/db (192 行)
 
-- [ ] db.go (91)
-- [ ] db_test.go (70)
-- [ ] migrate.go (31)
+- [x] db.go (91)
+- [x] db_test.go (70)
+- [x] migrate.go (31)
 
 ## backend/internal/infra/fs/blob (315 行)
 
@@ -744,103 +744,103 @@ audience: [human, ai]
 
 ## backend/internal/infra/store/agent (541 行)
 
-- [ ] agent.go (354)
-- [ ] agent_test.go (104)
-- [ ] executions.go (83)
+- [x] agent.go (354)
+- [x] agent_test.go (104)
+- [x] executions.go (83)
 
 ## backend/internal/infra/store/apikey (315 行)
 
-- [ ] apikey.go (154)
-- [ ] apikey_test.go (161)
+- [x] apikey.go (154)
+- [x] apikey_test.go (161)
 
 ## backend/internal/infra/store/approval (507 行)
 
-- [ ] approval.go (298)
-- [ ] approval_test.go (209)
+- [x] approval.go (298)
+- [x] approval_test.go (209)
 
 ## backend/internal/infra/store/attachment (262 行)
 
-- [ ] attachment.go (123)
-- [ ] attachment_test.go (139)
+- [x] attachment.go (123)
+- [x] attachment_test.go (139)
 
 ## backend/internal/infra/store/control (507 行)
 
-- [ ] control.go (295)
-- [ ] control_test.go (212)
+- [x] control.go (295)
+- [x] control_test.go (212)
 
 ## backend/internal/infra/store/conversation (412 行)
 
-- [ ] conversation.go (143)
-- [ ] conversation_test.go (269)
+- [x] conversation.go (143)
+- [x] conversation_test.go (269)
 
 ## backend/internal/infra/store/document (450 行)
 
-- [ ] document.go (278)
-- [ ] document_test.go (172)
+- [x] document.go (278)
+- [x] document_test.go (172)
 
 ## backend/internal/infra/store/flowrun (595 行)
 
-- [ ] flowrun.go (336)
-- [ ] flowrun_test.go (259)
+- [x] flowrun.go (336)
+- [x] flowrun_test.go (259)
 
 ## backend/internal/infra/store/function (699 行)
 
-- [ ] executions.go (85)
-- [ ] function.go (373)
-- [ ] function_test.go (241)
+- [x] executions.go (85)
+- [x] function.go (373)
+- [x] function_test.go (241)
 
 ## backend/internal/infra/store/handler (612 行)
 
-- [ ] calls.go (78)
-- [ ] handler.go (393)
-- [ ] handler_test.go (141)
+- [x] calls.go (78)
+- [x] handler.go (393)
+- [x] handler_test.go (141)
 
 ## backend/internal/infra/store/mcp (468 行)
 
-- [ ] calls.go (55)
-- [ ] calls_test.go (53)
-- [ ] mcp.go (230)
-- [ ] mcp_test.go (130)
+- [x] calls.go (55)
+- [x] calls_test.go (53)
+- [x] mcp.go (230)
+- [x] mcp_test.go (130)
 
 ## backend/internal/infra/store/messages (677 行)
 
-- [ ] messages.go (337)
-- [ ] messages_test.go (340)
+- [x] messages.go (337)
+- [x] messages_test.go (340)
 
 ## backend/internal/infra/store/notification (102 行)
 
-- [ ] notification.go (102)
+- [x] notification.go (102)
 
 ## backend/internal/infra/store/relation (198 行)
 
-- [ ] relation.go (198)
+- [x] relation.go (198)
 
 ## backend/internal/infra/store/sandbox (471 行)
 
-- [ ] sandbox.go (250)
-- [ ] sandbox_test.go (221)
+- [x] sandbox.go (250)
+- [x] sandbox_test.go (221)
 
 ## backend/internal/infra/store/todo (217 行)
 
-- [ ] todo.go (97)
-- [ ] todo_test.go (120)
+- [x] todo.go (97)
+- [x] todo_test.go (120)
 
 ## backend/internal/infra/store/trigger (495 行)
 
-- [ ] activations.go (53)
-- [ ] firings.go (110)
-- [ ] trigger.go (181)
-- [ ] trigger_test.go (151)
+- [x] activations.go (53)
+- [x] firings.go (110)
+- [x] trigger.go (181)
+- [x] trigger_test.go (151)
 
 ## backend/internal/infra/store/workflow (624 行)
 
-- [ ] workflow.go (334)
-- [ ] workflow_test.go (290)
+- [x] workflow.go (334)
+- [x] workflow_test.go (290)
 
 ## backend/internal/infra/store/workspace (281 行)
 
-- [ ] workspace.go (124)
-- [ ] workspace_test.go (157)
+- [x] workspace.go (124)
+- [x] workspace_test.go (157)
 
 ## backend/internal/infra/stream (362 行)
 
@@ -913,28 +913,28 @@ audience: [human, ai]
 
 ## backend/internal/pkg/orm (1518 行)
 
-- [ ] compile.go (76)
-- [ ] crud_test.go (139)
-- [ ] db.go (83)
-- [ ] errors.go (44)
-- [ ] exec_test.go (31)
-- [ ] helper_test.go (94)
-- [ ] meta.go (130)
-- [ ] meta_test.go (60)
-- [ ] mutation.go (189)
-- [ ] mutation_test.go (68)
-- [ ] page_test.go (47)
-- [ ] query.go (92)
-- [ ] query_test.go (110)
-- [ ] repo.go (54)
-- [ ] scan.go (77)
-- [ ] select.go (188)
-- [ ] tx_test.go (36)
+- [x] compile.go (76)
+- [x] crud_test.go (139)
+- [x] db.go (83)
+- [x] errors.go (44)
+- [x] exec_test.go (31)
+- [x] helper_test.go (94)
+- [x] meta.go (130)
+- [x] meta_test.go (60)
+- [x] mutation.go (189)
+- [x] mutation_test.go (68)
+- [x] page_test.go (47)
+- [x] query.go (92)
+- [x] query_test.go (110)
+- [x] repo.go (54)
+- [x] scan.go (77)
+- [x] select.go (188)
+- [x] tx_test.go (36)
 
 ## backend/internal/pkg/pagination (106 行)
 
-- [ ] cursor.go (61)
-- [ ] cursor_test.go (45)
+- [x] cursor.go (61)
+- [x] cursor_test.go (45)
 
 ## backend/internal/pkg/pathguard (547 行)
 

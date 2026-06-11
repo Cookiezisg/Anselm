@@ -48,3 +48,13 @@ audience: [human, ai]
 - **🟡 留档（发版打包前必修）**：CORS 白名单仅 localhost:5173/3000 dev 端口——Wails 打包后 webview origin（`wails://` 等）不在名单，桌面端 fetch 会被浏览器侧 CORS 拦截。前端接入 Wails 时补 origin（后端一行配置）。
 - **🟢 注意**：middleware 未知 workspace id 静默清除→RequireWorkspace 401 + 引导语（产品行为正确：删掉的 ws 残留在 localStorage 时自动 re-onboard）；Recover 在 handler 已写头后无法改状态码（净身出户惯例）；attachment Content-Disposition 已剥引号（CR/LF 由 net/http 丢弃非法 header 兜底）。
 - **整体评价**：传输层质量极高——Kind→status 塌缩表 + 不泄露内部错误、N1/N4/N5/202/204/410 全合规、28 个 handler 模式完全统一、SSE 三流一处 + Last-Event-ID 续传 + keep-alive、测试覆盖（含 410/续传/越权 401）扎实。
+
+### W3 orm 地基 + infra/db + 全部 22 个 store（含全部 store 测试，~7000 行全读）
+
+- **零缺陷**。全仓质量最高的一层：
+  - **D2 双向 fail-closed**：读侧 `whereClause` 缺 ws ctx 即报错、写侧 `applyWorkspace` 自动盖章；`CrossWorkspace()` 显式逃生口仅 flowrun boot 恢复一处使用且注释清楚。跨 ws 更新 0 行、隔离泄露均有测试。
+  - **D1/D3 物理铁律全兑现**：Log 表（executions/calls/activations/firings/flowruns/flowrun_nodes/messages/blocks）一律无 deleted_at；`idx_frn_once` record-once first-wins、approval 决策 `status='parked'` 条件更新 first-wins、`idx_trf_dedup` 幂等去重——三者皆有专项测试。
+  - **关键并发原语正确**：ClaimFiring 单事务 claim+建 run（ADR-021 精确实现，崩溃回滚 firing 留 pending）；MarkRunTerminal 守卫在 still-running（kill/finalize/fail 竞态 first-wins）；MarkInactiveIfDraining 条件 reconcile 0 行=幂等 no-op 非 NotFound。
+  - **一致性纪律**：22 个 store 同模板（Schema 导出/orm 错误翻译/partial-UNIQUE 软删释名/TrimOldest 放过 active）；document 的 COALESCE(parent_id,'') UNIQUE 技巧、todo 的 scope_id 天然 PK、mcp/handler 的 config 加密列均有注释讲清 why。
+  - cursor 错误链带 KindInvalid → 400（亲验 pagination sentinel，排除 500 嫌疑）；orm Page 测试覆盖跨页去重/终止。
+- **🟢 注意（不修）**：orm.Page 无上限钳制是刻意分层（limit 策略归 transport——CR-16 已在 handler 层补齐）；`uniqueViolationText` 字符串匹配是 driver 错误识别的业界惯例（注释已声明两 driver 均含该子串）。
