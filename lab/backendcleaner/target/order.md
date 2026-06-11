@@ -117,7 +117,7 @@
 | D5 | 通知自动清理（保留 N 条/N 天） | deps-todo 75 | 当前只增不删；「回头」低优先 |
 | D6 | missed-tick cron 补跑（跨重启补漏） | deps-todo 357 | 「择机」；旧靠 schedule.lastFire 持久化已砍 |
 | D7 | attachment 音频(Whisper)/视频/扫描 OCR(tesseract) extractor | R0053 留插槽 | 可插 Extractor 端口已留；dogfood 再上 |
-| D8 | workflow-lint（更严祖先可见性 lint） | crud.go TODO | 现仅引用存在性校验；增强 lint |
+| D8 | workflow-lint（更严祖先可见性 lint） | crud.go TODO | ✅ **R0067**——节点 input CEL 只可引用祖先节点。`compileGraphCEL` 改逐节点用「祖先 scoped env」编译（引用非祖先→未声明→编译失败），**绕开**原 TODO 以为要的 `cel.ReferencedRoots` AST 抽取（无 pkg/cel 改动）；新 `workflowdomain.Ancestors`（含回边反向 BFS）。无 API/schema 变更 |
 
 ### 波次 7 — wiring（transport 框架已上移波次 0；handler 随各业务模块）
 
