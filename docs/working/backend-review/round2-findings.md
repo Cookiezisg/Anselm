@@ -58,3 +58,14 @@ audience: [human, ai]
   - **一致性纪律**：22 个 store 同模板（Schema 导出/orm 错误翻译/partial-UNIQUE 软删释名/TrimOldest 放过 active）；document 的 COALESCE(parent_id,'') UNIQUE 技巧、todo 的 scope_id 天然 PK、mcp/handler 的 config 加密列均有注释讲清 why。
   - cursor 错误链带 KindInvalid → 400（亲验 pagination sentinel，排除 500 嫌疑）；orm Page 测试覆盖跨页去重/终止。
 - **🟢 注意（不修）**：orm.Page 无上限钳制是刻意分层（limit 策略归 transport——CR-16 已在 handler 层补齐）；`uniqueViolationText` 字符串匹配是 driver 错误识别的业界惯例（注释已声明两 driver 均含该子串）。
+
+### W4 引擎（scheduler ×9 + workflow/flowrun domain ×9 + trigger app×10 + infra/trigger ×6，全读含测试）
+
+- **CR-18 🔴 已修** webhook trigger 产品级完全不可用：webhook 路由挂在共享 mux 的 `/api/v1/webhooks/...`、被 Chain 整体包裹，而 `requireWorkspaceExempt` 豁免表不含它 → 外部调用方（GitHub push、一切第三方回调——**不可能**带 X-Forgify-Workspace-ID）一律 401 UNAUTH_NO_WORKSPACE，请求根本到不了 webhook 监听器。修：豁免 `/api/v1/webhooks/` 前缀（安全性不降——webhook 自带 secret/HMAC 鉴权，workspace 由 trigger app 在 report 时从注册表解析，不依赖 header）；chain_test 加回归 case。**验证过程**：webhook 监听器→trigger Service 共享 mux→bootstrap build.go L82-91（mux 整体过 Chain）→chain.go 豁免表四项无 webhooks，链路逐环确认。
+- **零其他缺陷，引擎质量卓越**：
+  - advance() 幂等核心精确（completed 行抄、绝不重跑；批后重 walk；全 parked 即 yield；ctx.Err() 退出不误标终态——kill 先写 cancelled 再 cancel ctx 的次序保证记录终态正确）。
+  - walk 的活跃子图推导（tentative 前向传播 + 回边仅真实决策走一轮 + 统一 AND-join/simple-merge 规则 + MaxIterations 安全帽 + 声明序确定性排序）逐条兑现 doc 21 §4.3。
+  - ClaimFiring 单事务（ADR-021）、record-once first-wins、approval 条件更新 first-wins、超时三行为（reject/approve/fail）+ 人机竞速 first-wins——全部有专项测试（含阻塞 agent 被 kill 打断、at-least-once 丢行重跑的诚实证明）。
+  - trigger 引用计数监听（N workflow 共享 1 listener、1→0 停）、stage 一次性自动撤防、Activation 触没触发都记（"为什么没触发"可查）、四源 dedup key 设计各对其源语义（cron=刻度分钟、webhook=body hash+分钟桶、fsnotify=path+op+秒桶、sensor=probe 秒刻）。
+  - webhook HMAC 常量时间比较 + 10MB body 封顶；cron/fsnotify/sensor 回调全带 panic recover。
+- **🟢 注意**：cron 锁 time.Local（桌面 app 语义正确——用户本地时间）；webhook 明文 secret 接受 ?token= query（外发日志可能记 URL——但本地单用户、HMAC 模式可选，可接受）；serial defer 的 firing 靠下一次 DrainFirings tick 重拾（W7 验证 tick 周期）。

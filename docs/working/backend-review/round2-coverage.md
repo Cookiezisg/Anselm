@@ -222,15 +222,15 @@ audience: [human, ai]
 
 ## backend/internal/app/scheduler (2208 行)
 
-- [ ] advance.go (157)
-- [ ] dispatch.go (205)
-- [ ] kill.go (127)
-- [ ] kill_test.go (145)
-- [ ] query.go (39)
-- [ ] run.go (374)
-- [ ] scheduler.go (202)
-- [ ] scheduler_test.go (664)
-- [ ] walk.go (295)
+- [x] advance.go (157)
+- [x] dispatch.go (205)
+- [x] kill.go (127)
+- [x] kill_test.go (145)
+- [x] query.go (39)
+- [x] run.go (374)
+- [x] scheduler.go (202)
+- [x] scheduler_test.go (664)
+- [x] walk.go (295)
 
 ## backend/internal/app/skill (690 行)
 
@@ -435,16 +435,16 @@ audience: [human, ai]
 
 ## backend/internal/app/trigger (1107 行)
 
-- [ ] catalog_source.go (36)
-- [ ] crud.go (211)
-- [ ] fire_entities_test.go (53)
-- [ ] lifecycle.go (116)
-- [ ] mention_resolver.go (33)
-- [ ] relations.go (104)
-- [ ] report.go (157)
-- [ ] stage_test.go (65)
-- [ ] trigger.go (128)
-- [ ] trigger_test.go (204)
+- [x] catalog_source.go (36)
+- [x] crud.go (211)
+- [x] fire_entities_test.go (53)
+- [x] lifecycle.go (116)
+- [x] mention_resolver.go (33)
+- [x] relations.go (104)
+- [x] report.go (157)
+- [x] stage_test.go (65)
+- [x] trigger.go (128)
+- [x] trigger_test.go (204)
 
 ## backend/internal/app/workflow (2060 行)
 
@@ -528,8 +528,8 @@ audience: [human, ai]
 
 ## backend/internal/domain/flowrun (274 行)
 
-- [ ] flowrun.go (170)
-- [ ] repository.go (104)
+- [x] flowrun.go (170)
+- [x] repository.go (104)
 
 ## backend/internal/domain/function (343 行)
 
@@ -609,12 +609,12 @@ audience: [human, ai]
 
 ## backend/internal/domain/trigger (360 行)
 
-- [ ] activation.go (39)
-- [ ] config.go (119)
-- [ ] config_test.go (37)
-- [ ] firing.go (38)
-- [ ] repository.go (34)
-- [ ] trigger.go (93)
+- [x] activation.go (39)
+- [x] config.go (119)
+- [x] config_test.go (37)
+- [x] firing.go (38)
+- [x] repository.go (34)
+- [x] trigger.go (93)
 
 ## backend/internal/domain/websearch (104 行)
 
@@ -623,12 +623,12 @@ audience: [human, ai]
 
 ## backend/internal/domain/workflow (1573 行)
 
-- [ ] graph.go (356)
-- [ ] graph_test.go (271)
-- [ ] ops.go (374)
-- [ ] ops_test.go (182)
-- [ ] repository.go (100)
-- [ ] workflow.go (290)
+- [x] graph.go (356)
+- [x] graph_test.go (271)
+- [x] ops.go (374)
+- [x] ops_test.go (182)
+- [x] repository.go (100)
+- [x] workflow.go (290)
 
 ## backend/internal/domain/workspace (127 行)
 
@@ -851,24 +851,24 @@ audience: [human, ai]
 
 ## backend/internal/infra/trigger/cron (118 行)
 
-- [ ] cron.go (118)
+- [x] cron.go (118)
 
 ## backend/internal/infra/trigger/fsnotify (235 行)
 
-- [ ] fsnotify.go (235)
+- [x] fsnotify.go (235)
 
 ## backend/internal/infra/trigger (52 行)
 
-- [ ] listener.go (52)
+- [x] listener.go (52)
 
 ## backend/internal/infra/trigger/sensor (259 行)
 
-- [ ] sensor.go (186)
-- [ ] sensor_test.go (73)
+- [x] sensor.go (186)
+- [x] sensor_test.go (73)
 
 ## backend/internal/infra/trigger/webhook (256 行)
 
-- [ ] webhook.go (256)
+- [x] webhook.go (256)
 
 ## backend/internal/pkg/agentstate (283 行)
 
