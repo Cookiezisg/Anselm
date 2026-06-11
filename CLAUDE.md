@@ -35,7 +35,7 @@
 6. **反校验剧场**：只保留有物理价值的校验（JSON、必填、CHECK/UNIQUE）；不加多余的 null-check。
 7. **零历史包袱**：项目未上线，禁止维护任何兼容性、禁止带有任何历史演化描述。修改直接一步到位，只保留当前物理事实。
 8. **复用优先、不造轮子**：每个模块动工前先盘点 `pkg/*` 与 `infra/*` 既有能力——能复用就复用；若业务层将要手搓的样板本应由地基提供（如 orm 补 UNIQUE 冲突翻译），**强化地基**而非在模块内重抄。错误抽象与重复样板比多写一行更糟。
-9. **📌 文档与代码物理同步**：每个代码改动必须伴随契约文档的 1:1 更新。**文档落后于代码 = 严重 Bug**。
+9. **📌 文档与代码物理同步（最高优先级）**：每个代码改动必须在**同一提交**伴随对应文档的 1:1 更新——**文档落后于代码 = 严重 Bug，与编译失败同级**。完整执行规则见本文件末「**文档纪律（强制）**」节 + [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)（文档规范，强制、binding）。
 
 
 ---
@@ -99,4 +99,35 @@
 
 ---
 
-**发现文档与代码不符 -> 立刻停下修文档，记 `[doc-fix]` dev log。**
+# 文档纪律（强制 —— 完整规范见 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)）
+
+> 本节是文档规范的**常驻执行层**：CLAUDE.md 每次会话自动加载，故下列规则你**每次都已读到、无「不知道」借口**。详尽规则（6 类型 / frontmatter / 生命周期 / 命名 / 质量门禁）在 `GOVERNANCE.md`——它是 binding。**本节与 GOVERNANCE §0/§7/§12 必须一致**（改一处即同步另一处）。
+
+## 三条铁律（违反 = 严重 Bug，与编译失败同级）
+
+1. **同步**：改代码 → **同一提交**改对应文档。文档落后于代码 = 这次改动**未完成**。
+2. **触发即停**：发现文档与代码不符 → 立刻停下修文档（记 `[doc-fix]` dev log），再续原任务。
+3. **存疑即查**：不确定 → 查 `GOVERNANCE.md`；它没覆盖 → 按设计原则推导 + 回头补一条进 GOVERNANCE。
+
+## 同步触发表（改左列代码 → 同一提交改右列文档）
+
+| 代码改动 | 必须同步 |
+|---|---|
+| 新增/改 API 端点 | `references/backend/api.md` + 对应 `domains/<域>.md` |
+| 新增/改 DB 表/列 | `references/backend/database.md` + 对应 `domains/<域>.md` |
+| 新增/改 error code | `references/backend/error-codes.md` + 对应 `domains/<域>.md` |
+| 新增/改 SSE 事件 | `references/backend/events.md` + 对应 `domains/<域>.md` |
+| 架构决策（选型/取舍） | `decisions/` 新建一篇 ADR |
+| 完成 Phase / 里程碑 | `concepts/architecture.md` 路线表 + changelog |
+| 前端实体类型 / FSD 规则变更 | `references/frontend/{entity-types,fsd-layers}.md` |
+
+非穷举——判据始终是「`reference` 文档必须 = 代码」。
+
+## 收尾清单（声明任何代码改动「完成」前逐条勾，任一未过 = 未完成）
+
+1. ☐ 碰了上表的东西？→ 对应文档**同提交**更新了？
+2. ☐ 改的 `reference` 文档与代码**逐字**对得上（端点/字段/码/事件 一一吻合）？
+3. ☐ 新文档 frontmatter 合法（`type`/`status`/`id`）、放对目录（§GOVERNANCE 5）？
+4. ☐ 删/移文档后无孤儿链接（`INDEX.md` 及他处指向它的都修了）？
+5. ☐ 没编辑 `decisions/` 里的 ADR（不可变，只能新建 supersede）？
+6. ☐ working 文档落地了（结论提取进 concepts/references + 填 `landed-into` + 移 `archive/`）？

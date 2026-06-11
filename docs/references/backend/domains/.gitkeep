@@ -1,1 +1,1 @@
-Per-domain backend design docs (reference type) — one <domain>.md per domain.
+每个后端域一篇详设计（reference 类），文件名 <域>.md 与代码模块 1:1 对应。

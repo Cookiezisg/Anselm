@@ -1,1 +1,1 @@
-Backend contract specs (GOVERNANCE type: reference — must sync on every code change): api.md, database.md, events.md, error-codes.md, changelog.md. Empty pending regeneration against the new structure; the previous version's full set lives on the version-0.2 branch.
+后端契约规格（reference 类——每次代码改动即同步）：api.md · database.md · events.md · error-codes.md · changelog.md。当前空，待按新结构重生成；前版完整集在 version-0.2 分支。
