@@ -9,7 +9,7 @@
 | 阶段 | 模块 | 状态 |
 |---|---|---|
 | P0 | errors | ✅ → STD-1；F-1/F-2 |
-| **P1** | **orm · reqctx** | **← 下一步（orm 先）** |
+| P1 | orm ✅（STD-2，无 findings）· **reqctx** | **reqctx ← 下一步** |
 | P2 | function · handler · agent | ⬜ |
 | P3 | trigger · control · approval · workflow · flowrun · scheduler | ⬜ |
 | P4 | skill · mcp · document | ⬜ |
@@ -19,7 +19,7 @@
 | P8 | bootstrap | ⬜ |
 
 ## 账本
-- `standards.md`：STD-1（错误处理）
+- `standards.md`：STD-1（错误处理）· STD-2（数据访问 / orm）
 - `findings.md`：F-1（todo 违 S20，**open 待裁**）· F-2（websearch 待查，open）
 - 索引（api/database/events/error-codes/changelog）：随评审逐模块填，现空
 

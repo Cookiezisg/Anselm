@@ -43,3 +43,22 @@
 
 ### HTTP 落地（`FromDomainError`）
 `*errorsdomain.Error` → `statusForKind(Kind)` + Code + Details；`context.Canceled`→499 / `DeadlineExceeded`→504（唯二特例）；其余 → 500 `INTERNAL_ERROR`（隐藏原文、记日志，绝不泄露内部）。
+
+---
+
+## STD-2 数据访问
+
+**确认于** orm 模块（`pkg/orm` + 20 处 store 用法）。**结论：框架优秀、用法 100% 统一，无 findings。**
+
+### 框架
+泛型 `Repo[T]` / `Query[T]`（`For[T](db, table)`）。链式 `Where`/`WhereEq`/`WhereIn`/`Order`/`Limit` + `First`/`Find`/`Count`/`Exists`/`Pluck`/`Page(cursor, limit)` + `Create`/`Save`(upsert)/`Update`/`Updates`/`Delete`。表元数据靠 struct tag（`pk` / `ws` / `created` / `updated` / `deleted`）。
+
+### 五条自动行为（地基统一、业务层不手搓）
+1. **workspace 隔离**：`,ws` 列由 `applyWorkspace` 从 ctx 写入（写）+ `whereClause` 过滤（读）——调用方永不手设 `workspace_id`，不可能跨 workspace 误写/误读。
+2. **软删**：有 `deleted` 列且非 `Unscoped` → `Delete` 设 `deleted_at`（UPDATE）；否则物理 DELETE。
+3. **时间戳**：`created`（仅首次/零值）+ `updated`（每次）自动 stamp。
+4. **UNIQUE 冲突 → `ErrConflict` 翻译**（地基翻译，业务不手搓——原则 #8「强化地基」范例）。
+5. **first-wins 守卫更新范式**：竞态终态翻转用 `WhereEq("status", Running).Updates(...)`——先到者赢、输家 0 行 no-op（如 flowrun `MarkRunTerminal`）。
+
+### 用法标准
+所有 store 走 `For[T]` + 链式，**无裸 SQL**（document 子树软删 = `WhereIn("id",…).Delete`、flowrun 终态 = 链式 Updates）、**无手搓 workspace_id 过滤**。store 文件名 = Repository 接口（S5）。
