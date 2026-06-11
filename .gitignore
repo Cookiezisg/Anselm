@@ -111,8 +111,12 @@ pip-delete-this-directory.txt
 !lab/backendcleaner/target/
 !lab/backendcleaner/target/**
 
-# backend 编译产物
+# backend 编译产物——`go build ./cmd/<x>` 在 backend/ 留下与子命令同名的二进制
+# （Makefile 全用 `go run` / `-o bin/`，这些散件从不被消费；曾误 commit）。
+# 当前 cmd/ = server · docs · setup。
 backend/server
+backend/docs
+backend/setup
 backend/cmd/server/server
 backend/bin/
 Cargo.lock       # 库项目取消注释此行；应用项目应保留
@@ -231,34 +235,6 @@ composer.lock   # 如为库项目，取消注释此行
 backend/sandbox/
 
 
-# ============================================================
-# Frontend / Wails specific
-# ============================================================
-frontend/wailsjs/
-backend/cmd/desktop/build/
-backend/desktop
-backend/forgify-desktop
-backend/forgify-server
-backend/cmd/desktop/Forgify
-
-# 'go build ./cmd/server' / './cmd/lintprompts' 在 backend/ 留下的二进制
-# （Makefile 全用 go run，这俩从不被消费；曾误 commit）
-backend/server
-backend/lintprompts
-backend/fakeserver
-backend/fetch-mise.exe
-backend/coverage-matrix
-backend/doc-lint
-backend/doc-matrix
-
 # Test artifacts
 .env
 /tmp/forgify-tests/
-
-# ============================================================
-# Superpowers 工作流散件（非项目文档）
-# ============================================================
-# .superpowers/ = brainstorm 草稿 + dev server 残留。
-# docs/ 已改为项目主文档目录（原 documents/），进 git。
-# docs/superpowers/ 内的 skill 产物也进 git（执行完后手动 mv 到 docs/archive/）。
-.superpowers/
