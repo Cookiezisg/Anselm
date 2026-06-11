@@ -75,11 +75,11 @@ func (s *Service) Get(ctx context.Context, id string) (*agentdomain.Agent, error
 	return a, nil
 }
 
-// ListVersions returns all versions of an agent (newest first, no pagination).
+// ListVersions returns one keyset page of an agent's versions (newest first, N4).
 //
-// ListVersions 返 agent 全部版本（新→旧，不分页）。
-func (s *Service) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.Version, error) {
-	return s.repo.ListVersions(ctx, agentID)
+// ListVersions 返 agent 版本的一页 keyset（新→旧，N4）。
+func (s *Service) ListVersions(ctx context.Context, agentID string, filter agentdomain.VersionListFilter) ([]*agentdomain.Version, string, error) {
+	return s.repo.ListVersions(ctx, agentID, filter)
 }
 
 // GetVersion returns one version by its id.

@@ -66,7 +66,7 @@ audience: [human, ai]
 | `POST /agents/{id}:revert` | 移 active 指针 |
 | `POST /agents/{id}:edit` | 全量 Config 替换 → 新版本（**非** ops、非合并） |
 | `POST /agents/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /agents/{id}/versions` · `/versions/{version}` | 版本 |
+| `GET /agents/{id}/versions` · `/versions/{version}` | 版本分页 · 单版本（接受版本号或 agv_ id） |
 | `GET /agents/{id}/executions` | 执行日志分页（同款过滤） |
 | `GET /agent-executions/{execId}` | 单执行详情（含完整 transcript） |
 

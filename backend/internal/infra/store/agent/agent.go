@@ -241,12 +241,12 @@ func (s *Store) GetVersionByNumber(ctx context.Context, agentID string, version 
 	return v, nil
 }
 
-func (s *Store) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.Version, error) {
-	rows, err := s.vers.WhereEq("agent_id", agentID).Order("version DESC").Find(ctx)
+func (s *Store) ListVersions(ctx context.Context, agentID string, filter agentdomain.VersionListFilter) ([]*agentdomain.Version, string, error) {
+	rows, next, err := s.vers.WhereEq("agent_id", agentID).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
-		return nil, fmt.Errorf("agentstore.ListVersions: %w", err)
+		return nil, "", fmt.Errorf("agentstore.ListVersions: %w", err)
 	}
-	return rows, nil
+	return rows, next, nil
 }
 
 // NextVersionNumber returns max(version)+1 for the agent (1 for the first version).

@@ -55,13 +55,12 @@ func (h *RelationHandler) List(w http.ResponseWriter, r *http.Request) {
 		ToID:     q.Get("toId"),
 		Kind:     q.Get("kind"),
 	}
-	limit := 0 // 0 → store default
-	if raw := q.Get("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			limit = n
-		}
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
-	views, next, err := h.svc.List(r.Context(), filter, q.Get("cursor"), limit)
+	views, next, err := h.svc.List(r.Context(), filter, p.Cursor, p.Limit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

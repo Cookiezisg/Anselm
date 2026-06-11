@@ -40,3 +40,11 @@ audience: [human, ai]
 - **📋 PD-4 留档**：WebFetch 默认把每个抓取 URL 发给第三方 r.jina.ai（带签名/token 的 URL 一并外发），直连仅为 fallback——local-first 隐私定位下这是产品决策（候选：A 默认直连+Jina 显式开启；B 现状+文档声明；C 配置项）。SSRF 守卫本身健全（全 DNS 答案检查、逐跳重检、1MB 封顶）。
 - **🟢 wontfix/留档**：pathguard 不解析 symlink（本地单用户反足枪层、非安全边界，shell 本就可直读）；DNS rebinding TOCTOU（查后拨号，同阈值）；`invoke_agent` 硬编码 TriggeredByChat 而 `run_function` 有 triggerFromCtx（溯源标签不一致，W6 看 subagent 工具集后定）；grep stdlib `byteOffsetToLine` O(hits×size)（有 32MB 界，可接受）。
 - **整体评价**：工具层质量高——5 方法契约一致、sentinel 共享（S20）、domain 错误全译 LLM 可行动话术、forge 镜像/进度流一致、fs 三件穿越守卫+原子写+隔离齐全、测试覆盖扎实。
+
+### W2 传输层（全部亲读：28 handlers + middleware ×7 + response ×9 + router ×3）
+
+- **CR-16 🟡 已修** 四个 List 手搓 limit 解析绕过 `ParsePage`：chat.List / conversation.List / notification.List / relation.List 自行 Atoi——**无 MaxLimit 钳制**（`?limit=999999` 直达 SQL，orm.Page 只兜下限）且非法 limit 静默吞（其余 List 全 400）。修：四处统一 `ParsePage`（消 4 份样板 + 对齐 N4 语义）。
+- **CR-17 🟡 已修** `GET /agents/{id}/versions` 不分页：返全量，违反 N4 + api.md 通则「List 全部 ?cursor&limit」（function/handler/workflow/approval/control 同端点都分页）。修：domain 加 `VersionListFilter` + store 走 orm.Page + app/handler 对齐 + api.md 行重述（注明 agv_ id）。
+- **🟡 留档（发版打包前必修）**：CORS 白名单仅 localhost:5173/3000 dev 端口——Wails 打包后 webview origin（`wails://` 等）不在名单，桌面端 fetch 会被浏览器侧 CORS 拦截。前端接入 Wails 时补 origin（后端一行配置）。
+- **🟢 注意**：middleware 未知 workspace id 静默清除→RequireWorkspace 401 + 引导语（产品行为正确：删掉的 ws 残留在 localStorage 时自动 re-onboard）；Recover 在 handler 已写头后无法改状态码（净身出户惯例）；attachment Content-Disposition 已剥引号（CR/LF 由 net/http 丢弃非法 header 兜底）。
+- **整体评价**：传输层质量极高——Kind→status 塌缩表 + 不泄露内部错误、N1/N4/N5/202/204/410 全合规、28 个 handler 模式完全统一、SSE 三流一处 + Last-Event-ID 续传 + keep-alive、测试覆盖（含 410/续传/越权 401）扎实。
