@@ -1,7 +1,10 @@
 package bootstrap
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 
@@ -55,6 +58,7 @@ import (
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // services holds every constructed app Service — the handlers read these, and the boot/shutdown
@@ -225,6 +229,38 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// post-build injection breaks the chat→conversation→chat cycle).
 	// 删对话连带取消在途生成（chat 满足该端口；后注入破 chat→conversation→chat 环）。
 	conv.SetGenerationCanceler(chat)
+
+	// Workspace delete cascades (PD-1 plan A): kill every workflow's automation (detach
+	// listeners + cancel in-flight runs + inactive — idempotent on already-inactive ones, and
+	// it also reaps manually-triggered runs), stop the workspace's resident handler/mcp
+	// processes, then remove its on-disk tree (skills / memories). All on a Detached(target)
+	// ctx — the DELETE request may arrive from a DIFFERENT workspace. Best-effort: the row
+	// delete that follows is what makes the data unreachable.
+	//
+	// workspace 删除级联（PD-1 A 案）：杀每个 workflow 的自动化（摘监听 + 取消在途 run +
+	// inactive——对已 inactive 幂等，且连手动触发的 run 一并收割）、停本 workspace 常驻
+	// handler/mcp 进程、删盘上文件树（skills / memories）。全程用 Detached(目标) ctx——
+	// DELETE 请求可能来自**另一个** workspace。best-effort：随后的删行才是数据不可达的根因。
+	ws.SetReaper(func(_ context.Context, wsID string) {
+		wsCtx := reqctxpkg.Detached(wsID)
+		if wfs, err := wf.ListAll(wsCtx); err == nil {
+			for _, w := range wfs {
+				if _, kerr := wf.Kill(wsCtx, w.ID); kerr != nil {
+					log.Warn("workspace reaper: kill workflow failed",
+						zap.String("workspaceId", wsID), zap.String("workflowId", w.ID), zap.Error(kerr))
+				}
+			}
+		} else {
+			log.Warn("workspace reaper: list workflows failed", zap.String("workspaceId", wsID), zap.Error(err))
+		}
+		hd.StopWorkspaceInstances(wsCtx)
+		mcp.DisconnectWorkspace(wsCtx)
+		if dataDir != "" {
+			if rerr := os.RemoveAll(filepath.Join(dataDir, "workspaces", wsID)); rerr != nil {
+				log.Warn("workspace reaper: remove file tree failed", zap.String("workspaceId", wsID), zap.Error(rerr))
+			}
+		}
+	})
 
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + mount synthesis (the agent's tool universe is exactly its

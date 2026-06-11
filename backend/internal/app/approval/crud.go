@@ -75,10 +75,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*approvaldomain.A
 		v.ForgedInConversationID = &convID
 	}
 
-	if err := s.repo.SaveForm(ctx, f); err != nil { // UNIQUE name → ErrDuplicateName here
-		return nil, nil, fmt.Errorf("approvalapp.Create: %w", err)
-	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
+	if err := s.repo.CreateWithVersion(ctx, f, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("approvalapp.Create: %w", err)
 	}
 	s.publish(ctx, "created", formID, map[string]any{"versionId": versionID, "version": 1})
@@ -108,10 +105,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*approvaldomain.Versi
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 		v.ForgedInConversationID = &convID
 	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("approvalapp.Edit: %w", err)
-	}
-	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
+	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("approvalapp.Edit: %w", err)
 	}
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, approvaldomain.VersionCap); err != nil {

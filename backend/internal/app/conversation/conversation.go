@@ -271,3 +271,14 @@ func validateModelOverride(o *modeldomain.ModelRef) error {
 	}
 	return nil
 }
+
+// Unarchive clears the archived flag (no-op when already active) — chat's auto-unarchive on
+// Send: messaging an archived thread implicitly brings it back (review PD-2).
+//
+// Unarchive 清除归档标志（已活跃则 no-op）——chat Send 的自动解档：给归档线程发消息即隐式唤回
+// （评审 PD-2）。
+func (s *Service) Unarchive(ctx context.Context, id string) error {
+	f := false
+	_, err := s.Update(ctx, id, UpdateInput{Archived: &f})
+	return err
+}

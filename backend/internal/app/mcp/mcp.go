@@ -372,3 +372,19 @@ func (s *Service) setFailed(id string, err error) {
 func ownerFor(srv *mcpdomain.Server) sandboxdomain.Owner {
 	return sandboxdomain.Owner{Kind: sandboxdomain.OwnerKindMCP, ID: srv.ID, Name: srv.Name}
 }
+
+// DisconnectWorkspace closes every connected server belonging to the ctx workspace (client +
+// sandbox process) — the workspace-delete reaper's mcp step.
+//
+// DisconnectWorkspace 关闭 ctx workspace 名下全部已连接 server（client + sandbox 进程）——
+// workspace 删除 reaper 的 mcp 步。
+func (s *Service) DisconnectWorkspace(ctx context.Context) {
+	servers, err := s.repo.List(ctx)
+	if err != nil {
+		s.log.Warn("mcpapp.DisconnectWorkspace: list failed", zap.Error(err))
+		return
+	}
+	for _, srv := range servers {
+		s.closeOne(srv.ID)
+	}
+}

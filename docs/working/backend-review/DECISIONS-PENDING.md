@@ -13,7 +13,13 @@ audience: [human, ai]
 
 # DECISIONS-PENDING —— 等待产品级裁决
 
-> 评审中发现、但修法需要产品决策的问题。每条：现状 · 影响 · 候选方案（带推荐）。用户回来逐条裁决后移入 findings 处置。
+> 评审中发现、但修法需要产品决策的问题。**三条全部已裁决并实现（2026-06-11）**：
+>
+> - **PD-1 → A 级联销毁 ✅ 已实现**：workspace.Delete 经 Reaper 端口（bootstrap 后注入）——wf.Kill 全部（摘监听+杀 run+inactive，含手动 run）→ handler.StopWorkspaceInstances + mcp.DisconnectWorkspace → 删 `<dataDir>/workspaces/<ws>` 文件树 → 删行。Detached(目标 ws) ctx（请求可来自另一 ws）。
+> - **PD-2 → 允许+自动解档 ✅ 已实现**：conversationapp.Unarchive + chat ConversationReader 端口扩展；Send 见 archived 即解档（软失败不挡消息）。
+> - **PD-3 → B 完整修复 ✅ 已实现**：5 实体（function/handler/agent/control/approval）store 各加 `CreateWithVersion`（实体行+v1 单事务）与 `SaveVersionAndActivate`（新版本+指针移单事务），app Create/Edit 10 个调用点全改，domain Repository 接口同步。
+>
+> 以下为裁决时的原始留档。
 
 ## PD-1 workspace 删除：数据与运行时清理策略 📋
 

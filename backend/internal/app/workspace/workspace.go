@@ -28,7 +28,30 @@ import (
 type Service struct {
 	repo workspacedomain.Repository
 	log  *zap.Logger
+
+	// reaper tears down a workspace's runtime + files before the row is deleted (review PD-1:
+	// cascade destroy — kill automation, stop resident processes, remove the file tree).
+	// Injected post-build by bootstrap (it alone sees every service); nil → row-delete only.
+	//
+	// reaper 在删行前拆掉 workspace 的运行时与文件（评审 PD-1：级联销毁——杀自动化、停常驻
+	// 进程、删文件树）。bootstrap 后注入（只有它看得到全部 service）；nil → 仅删行。
+	reaper Reaper
 }
+
+// Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
+// listeners, resident handler/mcp processes, and the on-disk file tree. Best-effort by
+// contract — a partially failed reap still proceeds to the row delete (the row's absence
+// is what makes the data unreachable and the background seeding skip it).
+//
+// Reaper 销毁 workspace 行之外的一切所有物：在途 run、trigger 监听、常驻 handler/mcp 进程、
+// 盘上文件树。契约上 best-effort——部分失败仍继续删行（行的消失才是数据不可达、后台播种
+// 跳过它的根因）。
+type Reaper func(ctx context.Context, workspaceID string)
+
+// SetReaper injects the cascade-destroy hook (bootstrap, post-build).
+//
+// SetReaper 注入级联销毁钩子（bootstrap 后注入）。
+func (s *Service) SetReaper(r Reaper) { s.reaper = r }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -142,6 +165,15 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	if n <= 1 {
 		return workspacedomain.ErrCannotDeleteLast
+	}
+	// Cascade destroy first (PD-1): kill in-flight runs, detach trigger listeners, stop the
+	// workspace's resident handler/mcp processes, remove its file tree. Best-effort — the row
+	// delete below is the point of no return that makes everything unreachable.
+	//
+	// 先级联销毁（PD-1）：杀在途 run、摘 trigger 监听、停本 workspace 常驻 handler/mcp 进程、
+	// 删文件树。best-effort——下方删行才是让一切不可达的不可回退点。
+	if s.reaper != nil {
+		s.reaper(ctx, id)
 	}
 	return s.repo.Delete(ctx, id)
 }

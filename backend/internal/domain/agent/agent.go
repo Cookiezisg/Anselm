@@ -125,8 +125,10 @@ type Repository interface {
 	GetByName(ctx context.Context, name string) (*Agent, error)
 	List(ctx context.Context, limit int, cursor string) ([]*Agent, string, error)
 	ListAll(ctx context.Context) ([]*Agent, error)
-	UpdateMeta(ctx context.Context, a *Agent) error                        // name/description/tags only — no version bump
-	SetActiveVersion(ctx context.Context, agentID, versionID string) error // edit / revert: move the pointer
+	UpdateMeta(ctx context.Context, a *Agent) error                                // name/description/tags only — no version bump
+	SetActiveVersion(ctx context.Context, agentID, versionID string) error         // edit / revert: move the pointer
+	CreateWithVersion(ctx context.Context, e *Agent, v *Version) error             // create + v1, one tx (review PD-3)
+	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx (review PD-3)
 	SoftDelete(ctx context.Context, id string) error
 
 	CreateVersion(ctx context.Context, v *Version) error // version pre-set to max+1 by the Service

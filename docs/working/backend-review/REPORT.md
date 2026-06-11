@@ -15,7 +15,7 @@ audience: [human, ai]
 
 ## 结论
 
-五维审查完成（R1-R5）。**修复 9 条（🔴×4 + 🟡×5）、留档产品决策 3 条（PD-1/2/3）、亲验驳回误报 6 条、wontfix 带理由 7 条**。`make verify` + **全量 `go test -race`** 双绿。方法：并发热点全部亲审 + 2 个 subagent 面扫后逐条亲验（含验证过程登记，见 [findings.md](findings.md)）。
+五维审查完成（R1-R5）。**修复 12 条（🔴×4 + 🟡×5 + 裁决实现 ×3）、产品决策 3 条已裁决并实现、亲验驳回误报 6 条、wontfix 带理由 7 条**。`make verify` + **全量 `go test -race`** 双绿。方法：并发热点全部亲审 + 2 个 subagent 面扫后逐条亲验（含验证过程登记，见 [findings.md](findings.md)）。
 
 ## 修复一览（按维度）
 
@@ -40,11 +40,11 @@ audience: [human, ai]
 |---|---|---|
 | CR-7 🟡 | toJSON ×10 包级副本 | 下沉 `toolapp.ToJSON`，10 包统一 |
 
-## 等你裁决（[DECISIONS-PENDING.md](DECISIONS-PENDING.md)）
+## 产品裁决（已全部实现，2026-06-11）
 
-1. **PD-1 workspace 删除零清理**——删了 ws 行但自动化还在跑、数据全留。推荐 A（级联销毁）。
-2. **PD-2 归档对话可 Send**——纯产品语义二选一。
-3. **PD-3 Edit 两步写事务性**——我倾向 wontfix（反校验剧场），候选 B 是 store 复合事务方法。
+1. **PD-1 → A 级联销毁 ✅**：workspace.Delete 经 Reaper 端口杀全部自动化 + 停 per-ws 常驻进程 + 删文件树 + 删行（CR-10）。
+2. **PD-2 → 允许+自动解档 ✅**：Send 见 archived 即解档，软失败不挡消息（CR-11）。
+3. **PD-3 → B 完整修复 ✅**：5 实体 create/edit 版本写各为单事务（store 复合方法 ×2、10 调用点、接口同步）（CR-12）。
 
 ## 审查覆盖与方法说明
 

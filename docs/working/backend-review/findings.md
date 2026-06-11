@@ -44,3 +44,9 @@ audience: [human, ai]
 - **🟢 留档** forgeSink ×2 同构（function/handler）：真实重复（仅注释措辞差异），但下沉 toolapp 会引 toolapp→loop 依赖环——若修需落 envfix 侧。低收益，暂留。
 - **误报驳回**：llm StreamEvent.Signature（anthropic 产/loop 消费，活代码）；WorkflowReader 同名两接口（不同包各自声明窄端口 = Go DIP 惯例）。
 - TODO/FIXME 残留：0（subagent 与我 grep 双确认）。
+
+## R6 裁决实现批（用户裁决 2026-06-11：PD-1 A / PD-2 允许+自动解档 / PD-3 B）
+
+- **CR-10 ✅ 已修（PD-1 A）** workspace 级联销毁：Reaper 端口后注入；reaper = wf.Kill 全量（摘监听+杀在途 run+inactive——对 inactive 幂等、连手动 run 收割）+ handler/mcp per-ws 停（新增 StopWorkspaceInstances / DisconnectWorkspace——Shutdown 是全局的不能用）+ 删 ws 文件树 + 删行。关键正确性：reaper 用 Detached(目标 wsID)——DELETE 请求可来自另一 workspace。
+- **CR-11 ✅ 已修（PD-2）** Send 自动解档：conversationapp.Unarchive（薄包 Update）+ chat 端口扩展 + Send 接线（软失败 warn 不挡消息）。
+- **CR-12 ✅ 已修（PD-3 B）** 版本写事务化：5 实体 store 复合事务方法 ×2（orm Transaction 扁平嵌套）、app 10 调用点、domain 接口。create 不再可能留无版本实体行；edit 不再可能留孤儿版本+旧指针。

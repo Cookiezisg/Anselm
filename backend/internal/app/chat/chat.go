@@ -85,6 +85,11 @@ var (
 // ConversationReader 读对话线程级配置。conversationapp.Service 结构化满足。
 type ConversationReader interface {
 	Get(ctx context.Context, id string) (*conversationdomain.Conversation, error)
+	// Unarchive clears the archived flag — Send auto-unarchives (messaging an archived thread
+	// implicitly brings it back, review PD-2).
+	//
+	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回，评审 PD-2）。
+	Unarchive(ctx context.Context, id string) error
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver
@@ -273,8 +278,18 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	//
 	// 存在性闸：没有它，发往已删/未知对话的 Send 会先落孤儿 user 回合（和 assistant 行），到
 	// processTask 里才失败——先 404。
-	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+	conv, err := s.deps.Conversations.Get(ctx, conversationID)
+	if err != nil {
 		return "", err
+	}
+	// Auto-unarchive (PD-2): sending to an archived thread implicitly brings it back. Soft-fail
+	// — a failed flag flip must not block the message itself.
+	//
+	// 自动解档（PD-2）：给归档线程发消息即隐式唤回。软失败——标志翻转失败不挡消息本身。
+	if conv.Archived {
+		if err := s.deps.Conversations.Unarchive(ctx, conversationID); err != nil {
+			s.log.Warn("chatapp.Send: auto-unarchive failed", zap.String("conversationId", conversationID), zap.Error(err))
+		}
 	}
 
 	// Persist the user turn (one text block + attachment ids snapshotted in Attrs) and echo it

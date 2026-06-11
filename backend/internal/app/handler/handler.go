@@ -214,3 +214,19 @@ func (s *Service) publish(ctx context.Context, action, handlerID string, extra m
 		s.log.Warn("handlerapp.publish: emit failed", zap.String("action", action), zap.Error(err))
 	}
 }
+
+// StopWorkspaceInstances stops every resident instance belonging to the ctx workspace — the
+// workspace-delete reaper's handler step (Shutdown stops ALL workspaces; this stops one).
+//
+// StopWorkspaceInstances 停掉 ctx workspace 名下的全部常驻实例——workspace 删除 reaper 的
+// handler 步（Shutdown 停全部 workspace；这里只停一个）。
+func (s *Service) StopWorkspaceInstances(ctx context.Context) {
+	handlers, err := s.repo.ListAllHandlers(ctx)
+	if err != nil {
+		s.log.Warn("handlerapp.StopWorkspaceInstances: list failed", zap.Error(err))
+		return
+	}
+	for _, h := range handlers {
+		s.manager.Stop(ctx, h.ID)
+	}
+}
