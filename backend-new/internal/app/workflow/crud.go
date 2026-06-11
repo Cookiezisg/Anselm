@@ -393,21 +393,16 @@ func (s *Service) GetVersionByNumber(ctx context.Context, workflowID string, ver
 // error maps to ErrInvalidGraph with the offending node/field in details. It does NOT resolve
 // refs — that is CapabilityCheck's job (needs the catalog).
 //
-// Node Input CEL is compiled against a ScopedEnv of the graph's node ids (compileGraphCEL), so a
-// reference to a non-existent node id already fails at create/edit. TODO(workflow-lint): the
-// stricter ancestor-visibility lint — "may only reference ANCESTOR node ids, not merely any
-// existing node" — needs per-node identifier extraction from the CEL AST (cel.ReferencedRoots),
-// which pkg/cel does not yet expose. Deferred to the scheduler wave; until then a node may
-// reference a non-ancestor (but existing) node and the interpreter surfaces it at run time.
+// Node Input CEL is compiled per-node against an ANCESTOR-scoped env (compileGraphCEL), enforcing
+// the visibility lint: a node may read only the results of nodes guaranteed to have completed before
+// it (its ancestors), never an arbitrary existing node — caught at create/edit, not at run time.
 //
 // buildGraph 是 create/edit 共享内核：套 ops 到 base → ValidateGraph（结构）→ 用 pkg/cel 编译
 // 每个 node.Input CEL（domain 不能 import cel-go，原则 #3）。编译错映射 ErrInvalidGraph，违例
 // 节点/字段在 details。它不解析 ref——那是 CapabilityCheck 的事（需 catalog）。
 //
-// 节点 Input CEL 用图的 node ids 作根的 ScopedEnv 编译，故引用不存在的 node id 已在 create/edit
-// 失败。TODO(workflow-lint)：更严的祖先可见性 lint——「只可引用祖先 node id，而非任意存在节点」——
-// 需逐节点从 CEL AST 抽标识符（cel.ReferencedRoots），pkg/cel 暂未暴露。推迟到调度器波次；在此之前
-// 节点可引用非祖先（但存在）的节点，解释器运行时上呈。
+// 节点 Input CEL 逐节点用**祖先作根**的 ScopedEnv 编译（compileGraphCEL），落实可见性 lint：一个节点只能
+// 读保证在它之前已完成的节点（其祖先）的 result，不能读任意存在节点——在 create/edit 当场拒、非运行时。
 func (s *Service) buildGraph(base *workflowdomain.Graph, ops []workflowdomain.Op) (*workflowdomain.Graph, error) {
 	graph, err := workflowdomain.ApplyOps(base, ops)
 	if err != nil {
@@ -422,30 +417,49 @@ func (s *Service) buildGraph(base *workflowdomain.Graph, ops []workflowdomain.Op
 	return graph, nil
 }
 
-// compileGraphCEL compiles every node's Input wiring against a ScopedEnv whose roots are the
-// graph's node ids (+ ctx) — node Input reads upstream results by node id (`reviewer.score`). A
-// syntax error, or a reference to a name that isn't a node id, fast-fails at authoring time (the
-// latter a free "references an existing node" check; the stricter ancestor-only lint is deferred,
-// see buildGraph TODO).
+// compileGraphCEL compiles every node's Input wiring and enforces the ancestor-visibility lint.
+// Node Input reads upstream results by node id (`reviewer.score`). Each node is compiled against an
+// env whose roots are exactly ITS ancestors (+ the always-present ctx), so:
+//   - a syntax error, or a reference to a name that is no node at all → "invalid CEL";
+//   - a reference to an existing but NON-ANCESTOR node → "references a non-ancestor node".
 //
-// compileGraphCEL 用一个根为图的 node ids（+ ctx）的 ScopedEnv 编译每条 Input 接线——节点 Input
-// 按 node id 读上游结果（`reviewer.score`）。语法错、或引用了非 node id 的名字，都在编写期快速失败
-// （后者白送一个「引用的是存在节点」校验；更严的「只可引用祖先」lint 推迟，见 buildGraph TODO）。
+// The two-tier check (full env first, ancestor env second) is only to tell those two apart for a
+// clear authoring message — the ancestor env is what actually enforces visibility. No CEL-AST walk
+// is needed: an out-of-scope identifier simply fails to compile.
+//
+// compileGraphCEL 编译每条 Input 接线并落实祖先可见性 lint。节点 Input 按 node id 读上游结果
+// （`reviewer.score`）。每个节点用「**恰为其祖先** + 恒在的 ctx」作根的 env 编译，故：语法错 / 引用根本不存在
+// 的名字 →「invalid CEL」；引用存在但**非祖先**的节点 →「references a non-ancestor node」。两段检查（先全图
+// env、再祖先 env）只为把这两类区分开给出清晰提示——真正强制可见性的是祖先 env。无需走 CEL AST：越界标识符直接
+// 编译失败。
 func compileGraphCEL(g *workflowdomain.Graph) error {
-	roots := make([]string, len(g.Nodes))
+	allRoots := make([]string, len(g.Nodes))
 	for i := range g.Nodes {
-		roots[i] = g.Nodes[i].ID
+		allRoots[i] = g.Nodes[i].ID
 	}
-	senv, err := celpkg.NewScopedEnv(roots)
+	fullEnv, err := celpkg.NewScopedEnv(allRoots)
 	if err != nil {
 		return workflowdomain.ErrInvalidGraph.WithDetails(map[string]any{"reason": fmt.Sprintf("cel scope: %v", err)})
 	}
 	for i := range g.Nodes {
 		n := &g.Nodes[i]
+		if len(n.Input) == 0 {
+			continue // trigger (and any input-less node) reads nothing
+		}
+		anc := workflowdomain.Ancestors(g, n.ID)
+		ancEnv, err := celpkg.NewScopedEnv(anc)
+		if err != nil {
+			return workflowdomain.ErrInvalidGraph.WithDetails(map[string]any{"reason": fmt.Sprintf("cel scope: %v", err)})
+		}
 		for field, expr := range n.Input {
-			if _, err := senv.Compile(expr); err != nil {
+			if _, err := fullEnv.Compile(expr); err != nil {
 				return workflowdomain.ErrInvalidGraph.WithDetails(map[string]any{
 					"reason": fmt.Sprintf("node %q input %q has invalid CEL: %v", n.ID, field, err),
+				})
+			}
+			if _, err := ancEnv.Compile(expr); err != nil {
+				return workflowdomain.ErrInvalidGraph.WithDetails(map[string]any{
+					"reason": fmt.Sprintf("node %q input %q references a non-ancestor node (only these upstream nodes are visible: %v): %v", n.ID, field, anc, err),
 				})
 			}
 		}

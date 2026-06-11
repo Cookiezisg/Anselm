@@ -213,3 +213,59 @@ func TestBackEdges(t *testing.T) {
 		}
 	})
 }
+
+func TestAncestors(t *testing.T) {
+	eq := func(got, want []string) bool {
+		if len(got) != len(want) {
+			return false
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	t.Run("linear t→a→b", func(t *testing.T) {
+		g := &Graph{
+			Nodes: []Node{trigNode("t"), actNode("a"), actNode("b")},
+			Edges: []Edge{edge("e1", "t", "a"), edge("e2", "a", "b")},
+		}
+		if got := Ancestors(g, "b"); !eq(got, []string{"a", "t"}) {
+			t.Fatalf("ancestors(b) = %v, want [a t]", got)
+		}
+		if got := Ancestors(g, "a"); !eq(got, []string{"t"}) {
+			t.Fatalf("ancestors(a) = %v, want [t]", got)
+		}
+		if got := Ancestors(g, "t"); !eq(got, []string{}) {
+			t.Fatalf("ancestors(t) = %v, want []", got)
+		}
+	})
+
+	t.Run("diamond: siblings are not each other's ancestors", func(t *testing.T) {
+		g := &Graph{
+			Nodes: []Node{trigNode("t"), actNode("a"), actNode("b"), actNode("c")},
+			Edges: []Edge{edge("e1", "t", "a"), edge("e2", "t", "b"), edge("e3", "a", "c"), edge("e4", "b", "c")},
+		}
+		if got := Ancestors(g, "c"); !eq(got, []string{"a", "b", "t"}) {
+			t.Fatalf("ancestors(c) = %v, want [a b t] (join sees both branches)", got)
+		}
+		// the visibility lint's whole point: a may NOT read b (and vice versa).
+		if got := Ancestors(g, "a"); !eq(got, []string{"t"}) {
+			t.Fatalf("ancestors(a) = %v, want [t] (sibling b must NOT be visible)", got)
+		}
+	})
+
+	t.Run("loop: back edge carries an ancestor + self on the cycle", func(t *testing.T) {
+		g := &Graph{
+			Nodes: []Node{trigNode("t"), actNode("a"), ctlNode("c")},
+			Edges: []Edge{edge("e1", "t", "a"), edge("e2", "a", "c"), edgeP("e3", "c", "retry", "a")},
+		}
+		// a's ancestors include c (reachable only via the back edge c→a) and a itself (a→c→a cycle),
+		// so a loop body may read its own / the control's previous-iteration result.
+		if got := Ancestors(g, "a"); !eq(got, []string{"a", "c", "t"}) {
+			t.Fatalf("ancestors(a) = %v, want [a c t] (loop-carried + self)", got)
+		}
+	})
+}

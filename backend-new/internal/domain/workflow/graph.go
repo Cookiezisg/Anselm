@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -295,6 +296,55 @@ func BackEdges(g *Graph) []Edge {
 		}
 	}
 	return back
+}
+
+// Ancestors returns, sorted, every node id with a directed path TO nodeID over the FULL edge set
+// (forward AND back edges) — i.e. the nodes guaranteed to have completed before nodeID runs, hence
+// the only ones whose result its Input CEL may read (model B). Reverse BFS over To→From adjacency; a
+// visited set terminates loops, so nodeID itself appears iff it sits on a cycle (a loop body may read
+// its own previous iteration). Edges with a missing endpoint are skipped (ValidateGraph reports those
+// separately), so this is safe on an unvalidated graph. Like BackEdges, it is an exported pure
+// function so any future consumer classifies "ancestor" the one way.
+//
+// Ancestors 返回（已排序）所有「有一条有向路径通到 nodeID」的 node id（沿全部边——前向 + 回边），即保证在
+// nodeID 跑之前已完成、因而其 Input CEL 可读其 result 的节点（model B）。沿 To→From 反向 BFS；visited 集终止
+// 循环，故 nodeID 自身仅当它在某个环上时出现（循环体可读自己上一轮）。缺端点的边被跳过（ValidateGraph 另报），
+// 故对未校验图调用安全。同 BackEdges，是导出纯函数，使任何后续消费者对「祖先」只有一个定义。
+func Ancestors(g *Graph, nodeID string) []string {
+	if g == nil {
+		return nil
+	}
+	exists := make(map[string]bool, len(g.Nodes))
+	for _, n := range g.Nodes {
+		exists[n.ID] = true
+	}
+	preds := make(map[string][]string, len(g.Nodes))
+	for _, e := range g.Edges {
+		if exists[e.From] && exists[e.To] {
+			preds[e.To] = append(preds[e.To], e.From)
+		}
+	}
+	seen := make(map[string]bool)
+	queue := append([]string(nil), preds[nodeID]...)
+	for _, p := range queue {
+		seen[p] = true
+	}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, p := range preds[cur] {
+			if !seen[p] {
+				seen[p] = true
+				queue = append(queue, p)
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for id := range seen {
+		out = append(out, id)
+	}
+	sort.Strings(out) // deterministic env roots + stable error messages
+	return out
 }
 
 // invalidGraph wraps a human reason into ErrInvalidGraph's details (errors.Is still matches

@@ -110,12 +110,11 @@ func TestCreate_InvalidCELRejected(t *testing.T) {
 	}
 }
 
-// TestCreate_NonNodeRefRejected: node Input wiring is compiled against a ScopedEnv of the graph's
-// node ids, so a reference to a name that isn't a node id ("ghost") fails at create — the free
-// "references an existing node" lint (the stricter ancestor-only lint is deferred).
+// TestCreate_NonNodeRefRejected: a node Input referencing a name that is no node at all ("ghost")
+// fails at create — caught by the full-graph env pass (the "references an existing node" tier).
 //
-// TestCreate_NonNodeRefRejected：节点 Input 接线用图 node ids 的 ScopedEnv 编译，故引用非 node id
-// 的名字（"ghost"）在 create 失败——白送的「引用存在节点」lint（更严的「只可祖先」lint 推迟）。
+// TestCreate_NonNodeRefRejected：节点 Input 引用一个根本不存在的名字（"ghost"）在 create 失败——由全图 env
+// 那一段（「引用存在节点」层）拦下。
 func TestCreate_NonNodeRefRejected(t *testing.T) {
 	svc, ctx := newSvc(t, nil)
 	_, _, err := svc.Create(ctx, CreateInput{Name: "ghost", Ops: opsJSON(t, `[
@@ -125,6 +124,47 @@ func TestCreate_NonNodeRefRejected(t *testing.T) {
 	]`)})
 	if !errors.Is(err, workflowdomain.ErrInvalidGraph) {
 		t.Fatalf("want ErrInvalidGraph for ref to non-node, got %v", err)
+	}
+}
+
+// TestCreate_NonAncestorRefRejected (D8): a node Input referencing an EXISTING but non-ancestor node
+// is rejected at create — the visibility lint. Here a and b are parallel siblings off the trigger;
+// a reads b.v, but b is not upstream of a (no path b→a), so it must fail.
+//
+// TestCreate_NonAncestorRefRejected（D8）：节点 Input 引用一个**存在但非祖先**的节点在 create 被拒——可见性
+// lint。此处 a、b 是 trigger 下的并行兄弟；a 读 b.v，但 b 不在 a 上游（无 b→a 路径），故必拒。
+func TestCreate_NonAncestorRefRejected(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	_, _, err := svc.Create(ctx, CreateInput{Name: "vis", Ops: opsJSON(t, `[
+		{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+		{"op":"add_node","node":{"id":"a","kind":"action","ref":"fn_a","input":{"x":"b.v"}}},
+		{"op":"add_node","node":{"id":"b","kind":"action","ref":"fn_b","input":{"y":"t.v"}}},
+		{"op":"add_edge","edge":{"id":"e1","from":"t","to":"a"}},
+		{"op":"add_edge","edge":{"id":"e2","from":"t","to":"b"}}
+	]`)})
+	if !errors.Is(err, workflowdomain.ErrInvalidGraph) {
+		t.Fatalf("want ErrInvalidGraph for non-ancestor ref, got %v", err)
+	}
+}
+
+// TestCreate_AncestorRefAccepted (D8): a diamond join may read BOTH branches — they are both
+// ancestors of the join. t→a, t→b, a→c, b→c; c reads a.n + b.n → accepted.
+//
+// TestCreate_AncestorRefAccepted（D8）：菱形 join 可读**两条**分支——它们都是 join 的祖先。
+func TestCreate_AncestorRefAccepted(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	_, _, err := svc.Create(ctx, CreateInput{Name: "diamond", Ops: opsJSON(t, `[
+		{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+		{"op":"add_node","node":{"id":"a","kind":"action","ref":"fn_a","input":{"x":"t.v"}}},
+		{"op":"add_node","node":{"id":"b","kind":"action","ref":"fn_b","input":{"y":"t.v"}}},
+		{"op":"add_node","node":{"id":"c","kind":"action","ref":"fn_c","input":{"sum":"a.n + b.n"}}},
+		{"op":"add_edge","edge":{"id":"e1","from":"t","to":"a"}},
+		{"op":"add_edge","edge":{"id":"e2","from":"t","to":"b"}},
+		{"op":"add_edge","edge":{"id":"e3","from":"a","to":"c"}},
+		{"op":"add_edge","edge":{"id":"e4","from":"b","to":"c"}}
+	]`)})
+	if err != nil {
+		t.Fatalf("diamond join reading both ancestors should pass, got %v", err)
 	}
 }
 
