@@ -65,7 +65,7 @@ func newSvc(t *testing.T, kind string) *Service {
 		t.Fatalf("migrate: %v", err)
 	}
 	svc := New(sandboxstore.New(db), t.TempDir(), nil, zap.NewNop())
-	svc.MarkReadyForTest("/fake/mise")
+	svc.MarkReadyForTest()
 	svc.RegisterInstaller(fakeInstaller{kind: kind})
 	svc.RegisterEnvManager(fakeEnvManager{kind: kind})
 	return svc

@@ -113,10 +113,9 @@ pip-delete-this-directory.txt
 
 # backend 编译产物——`go build ./cmd/<x>` 在 backend/ 留下与子命令同名的二进制
 # （Makefile 全用 `go run` / `-o bin/`，这些散件从不被消费；曾误 commit）。
-# 当前 cmd/ = server · docs · setup。
+# 当前 cmd/ = server · docs。
 backend/server
 backend/docs
-backend/setup
 backend/cmd/server/server
 backend/bin/
 Cargo.lock       # 库项目取消注释此行；应用项目应保留
@@ -230,8 +229,8 @@ composer.lock   # 如为库项目，取消注释此行
 # Backend runtime sandbox data
 # ============================================================
 # Created when running 'go run ./cmd/server' from backend/ (default
-# data-dir resolves under cwd). Contains the local mise install +
-# downloaded runtimes — large (~100MB+), regenerable, never commit.
+# data-dir resolves under cwd). Contains the lazily-downloaded runtimes
+# (python/node/uv/dotnet) — large (~100MB+), regenerable, never commit.
 backend/sandbox/
 
 

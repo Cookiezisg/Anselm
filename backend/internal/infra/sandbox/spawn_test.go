@@ -219,12 +219,12 @@ func TestSpawnLongLived_StartFailure(t *testing.T) {
 }
 
 // TestSpawnOnce_DanglingSymlink — §11.5 core scenario: venv .venv/bin/python
-// is a symlink to a runtime that mise relocated. os.Stat follows the link
-// and returns ENOENT; pre-check surfaces ErrEnvNotFound so the app-layer
-// lazy rebuild kicks in.
+// is a symlink to a runtime dir removed by a version upgrade. os.Stat follows
+// the link and returns ENOENT; pre-check surfaces ErrEnvNotFound so the
+// app-layer lazy rebuild kicks in.
 //
-// TestSpawnOnce_DanglingSymlink —— §11.5 核心场景:venv 内 python 是
-// 指向已被 mise 重定位的 runtime 的 symlink。os.Stat 跟 link 返 ENOENT,
+// TestSpawnOnce_DanglingSymlink —— §11.5 核心场景:venv 内 python 是指向
+// 被版本升级移除的 runtime 目录的 symlink。os.Stat 跟 link 返 ENOENT,
 // 预检上抛 ErrEnvNotFound 让 app 层 lazy rebuild 接管。
 func TestSpawnOnce_DanglingSymlink(t *testing.T) {
 	if runtime.GOOS == "windows" {

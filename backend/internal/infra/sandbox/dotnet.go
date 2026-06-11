@@ -10,14 +10,14 @@ import (
 
 // DotnetEnvManager runs .NET MCP servers via dnx — .NET 10's "package runner" (pulls a NuGet
 // package and runs it, like npx/uvx). dnx sits at the runtime install dir's TOP LEVEL
-// (<install>/dnx — verified on a real machine via `mise install dotnet@10.0.300`), not under
-// bin/. dnx manages its own package cache, so there's no per-owner env: CreateEnv / InstallDeps
-// are no-ops. Paired with a mise dotnet RuntimeInstaller (registered in cmd/server, M7).
+// (<install>/dnx — the dotnet SDK tarball's flat layout), not under bin/. dnx manages its own
+// package cache, so there's no per-owner env: CreateEnv / InstallDeps are no-ops. Paired with the
+// dotnet directInstaller (registered in build_services).
 //
 // DotnetEnvManager 经 dnx 跑 .NET MCP server——.NET 10 的「包运行器」（拉 NuGet 包即跑，像
-// npx/uvx）。dnx 在 runtime install dir 顶层（<install>/dnx——经 `mise install dotnet@10.0.300`
-// 真机验证），不在 bin/。dnx 自管包缓存，故无 per-owner env：CreateEnv / InstallDeps 为 no-op。
-// 与 mise dotnet RuntimeInstaller 配对（在 cmd/server 注册，M7）。
+// npx/uvx）。dnx 在 runtime install dir 顶层（<install>/dnx——dotnet SDK tarball 的扁平布局），
+// 不在 bin/。dnx 自管包缓存，故无 per-owner env：CreateEnv / InstallDeps 为 no-op。与 dotnet
+// directInstaller 配对（在 build_services 注册）。
 type DotnetEnvManager struct{}
 
 // NewDotnetEnvManager constructs the manager.

@@ -16,15 +16,16 @@ import (
 )
 
 // checkBinaryExists guards against env corruption — a dangling symlink left
-// behind by a mise runtime upgrade (mise relocates runtimes/python/3.12.5 to
-// 3.12.6 and the venv's python link goes dangling). os.Stat follows symlinks, so
-// a dangling link returns ENOENT here; returning ErrEnvNotFound lets the app
-// layer lazily rebuild the env and retry once. Non-absolute commands rely on
-// PATH resolution — exec handles those.
+// behind when a runtime dir is replaced (the installer atomic-swaps
+// runtimes/<kind>/<version>/ on a re-install, and a venv's python link into the
+// old tree goes dangling). os.Stat follows symlinks, so a dangling link returns
+// ENOENT here; returning ErrEnvNotFound lets the app layer lazily rebuild the
+// env and retry once. Non-absolute commands rely on PATH resolution — exec
+// handles those.
 //
-// checkBinaryExists 防 env 腐坏——mise 升级后留下的 dangling symlink（mise 把
-// runtimes/python/3.12.5 迁到 3.12.6，venv 里的 python link 悬空）。os.Stat 跟 link，
-// dangling 返 ENOENT；返 ErrEnvNotFound 让 app 层懒重建 env 并重试一次。非绝对路径走
+// checkBinaryExists 防 env 腐坏——runtime 目录被替换后留下的 dangling symlink（installer
+// 在重装时原子换掉 runtimes/<kind>/<version>/，venv 里指向旧树的 python link 悬空）。os.Stat
+// 跟 link，dangling 返 ENOENT；返 ErrEnvNotFound 让 app 层懒重建 env 并重试一次。非绝对路径走
 // PATH 解析，由 exec 处理。
 func checkBinaryExists(cmd string) error {
 	if cmd == "" || !filepath.IsAbs(cmd) {

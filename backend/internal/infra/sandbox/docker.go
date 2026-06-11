@@ -19,13 +19,13 @@ import (
 const dockerBin = "docker"
 
 // DockerInstaller is the RuntimeInstaller for docker-image MCP servers. Unlike
-// mise it installs nothing on disk: "install" = confirm the daemon is reachable,
-// then `docker pull <image>`. The returned ref (stored in Runtime.Path) is the
-// image ref itself.
+// the directInstaller it installs nothing on the host disk: "install" = confirm
+// the daemon is reachable, then `docker pull <image>`. The returned ref (stored
+// in Runtime.Path) is the image ref itself.
 //
-// DockerInstaller 是 docker 镜像型 MCP server 的 RuntimeInstaller。不同于 mise，它不在
-// 磁盘装任何东西："install" = 确认 daemon 可达，然后 `docker pull <image>`。返回的 ref
-// （存进 Runtime.Path）就是镜像 ref 本身。
+// DockerInstaller 是 docker 镜像型 MCP server 的 RuntimeInstaller。不同于 directInstaller，
+// 它不在宿主磁盘装任何东西："install" = 确认 daemon 可达，然后 `docker pull <image>`。返回的
+// ref（存进 Runtime.Path）就是镜像 ref 本身。
 type DockerInstaller struct{}
 
 var _ sandboxdomain.RuntimeInstaller = (*DockerInstaller)(nil)

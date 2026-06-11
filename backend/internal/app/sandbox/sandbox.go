@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,7 +21,6 @@ import (
 
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
 
@@ -35,8 +35,6 @@ type Service struct {
 	// emitter raises env state-change notifications; nil disables them (degraded).
 	// emitter 发 env 状态变更通知；nil 时禁用（degraded）。
 	emitter notificationdomain.Emitter
-
-	miseBin string
 
 	bootstrapped atomic.Bool
 	bootstrapErr atomic.Pointer[error]
@@ -76,11 +74,6 @@ func New(repo sandboxdomain.Repository, dataDir string, emitter notificationdoma
 // SandboxRoot 返回文件系统根路径（<dataDir>/sandbox/）。
 func (s *Service) SandboxRoot() string { return s.sandboxRoot }
 
-// MiseBin returns the extracted mise binary path, or "" before Bootstrap.
-//
-// MiseBin 返回 mise 二进制路径，Bootstrap 前为空串。
-func (s *Service) MiseBin() string { return s.miseBin }
-
 // IsReady reports whether Bootstrap has succeeded.
 //
 // IsReady 报告 Bootstrap 是否已成功。
@@ -96,22 +89,22 @@ func (s *Service) BootstrapError() error {
 	return nil
 }
 
-// Bootstrap extracts the embedded mise binary; idempotent, failure → degraded mode.
+// Bootstrap prepares the sandbox root dir; idempotent, failure → degraded mode. Runtimes are no
+// longer bootstrapped here — directInstaller fetches each from upstream on first use.
 //
-// Bootstrap 抽取 embed mise 二进制；幂等，失败进入 degraded mode。
+// Bootstrap 准备 sandbox 根目录；幂等，失败进 degraded。运行时不再在此 bootstrap——directInstaller
+// 首次使用时直接从上游拉取。
 func (s *Service) Bootstrap(ctx context.Context) error {
-	miseBin, err := sandboxinfra.ExtractMiseBinary(ctx, s.sandboxRoot, s.log)
-	if err != nil {
+	if err := os.MkdirAll(s.sandboxRoot, 0o755); err != nil {
 		s.log.Warn("sandbox bootstrap failed (degraded mode active)", zap.Error(err))
-		captured := err
+		captured := fmt.Errorf("sandboxapp.Bootstrap: mkdir root: %w", err)
 		s.bootstrapErr.Store(&captured)
 		s.bootstrapped.Store(false)
-		return fmt.Errorf("sandboxapp.Bootstrap: %w", err)
+		return captured
 	}
-	s.miseBin = miseBin
 	s.bootstrapErr.Store(nil)
 	s.bootstrapped.Store(true)
-	s.log.Info("sandbox bootstrap ready", zap.String("mise_bin", miseBin))
+	s.log.Info("sandbox bootstrap ready", zap.String("root", s.sandboxRoot))
 
 	s.RestoreOrCleanupOnBoot(ctx)
 	return nil
@@ -506,8 +499,7 @@ func depsEqual(a, b []string) bool {
 // MarkReadyForTest forces IsReady true; production code MUST NOT call this.
 //
 // MarkReadyForTest 强制 IsReady 为 true，仅测试用，生产禁用。
-func (s *Service) MarkReadyForTest(miseBin string) {
-	s.miseBin = miseBin
+func (s *Service) MarkReadyForTest() {
 	s.bootstrapped.Store(true)
 }
 

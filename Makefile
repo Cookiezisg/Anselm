@@ -2,7 +2,7 @@
 # Forgify — make 命令（后端单体；前端待重建）
 # ──────────────────────────────────────────────────────────────────
 #
-#   环境   setup    创建开发环境（devbox + mise 内嵌二进制）
+#   环境   setup    创建开发环境（devbox 装 pin 的 go）
 #   运行   server   起后端服务（FORGIFY_DEV，端口 $(BACKEND_PORT)）
 #          stop     优雅关停后端（SIGTERM → App.Serve 有序关停）
 #   测试   unit     Go 单测（in-memory SQLite）
@@ -30,7 +30,7 @@ endef
 help:
 	@echo "Forgify（后端单体；前端待重建）"
 	@echo ""
-	@echo "  环境:   make setup    创建开发环境（devbox + mise 内嵌）"
+	@echo "  环境:   make setup    创建开发环境（devbox）"
 	@echo "  运行:   make server   起后端服务（:$(BACKEND_PORT)）"
 	@echo "          make stop     优雅关停后端"
 	@echo "  测试:   make unit     Go 单测"
@@ -41,7 +41,7 @@ help:
 
 # ── 环境 ────────────────────────────────────────────────────────────
 
-# setup — 装齐开发环境。先在 devbox shell 外引导 devbox（它装 go），再经 devbox 跑 cmd/setup 下 mise。
+# setup — 引导 devbox（它装 pin 的 go）。运行时（python/node/uv/dotnet）首次使用时直接从上游按需下，无需预装。
 setup:
 	@[ -z "$$DEVBOX_SHELL_ENABLED" ] || { echo "✗ 在普通 shell 跑 make setup（先 Ctrl+D 退出 devbox）"; exit 1; }
 	@if [ ! -x "$(DEVBOX)" ] && ! command -v devbox >/dev/null 2>&1; then \
@@ -50,8 +50,7 @@ setup:
 		chmod +x $(DEVBOX); \
 	fi
 	@DBX=$$(command -v devbox || echo $(DEVBOX)); \
-		echo "→ devbox install（首次可能要 sudo）…"; $$DBX install; \
-		echo "→ 下 mise 内嵌二进制（cmd/setup）…"; $$DBX run -- bash -c 'cd backend && go run ./cmd/setup'
+		echo "→ devbox install（首次可能要 sudo）…"; $$DBX install
 	@echo ""
 	@echo "✓ setup 完成。现在：make server"
 
@@ -93,8 +92,9 @@ build:
 
 # ── 门禁 ────────────────────────────────────────────────────────────
 
-# verify — pre-push 门禁（host 平台）：gofmt 净 + vet + build + 单测 + 文档门禁。
-# 跨平台 release 编译需先 `cd backend && go run ./cmd/setup --all`（拉全 5 平台 mise embed），不在日常门禁内。
+# verify — pre-push 门禁：gofmt 净 + vet + build + 单测 + 文档门禁。
+# 跨平台 release 现在就是 `cd backend && GOOS=x GOARCH=y go build ./cmd/server`——无内嵌、无预拉；
+# 运行时（python/node/uv/dotnet）在目标机首次使用时按需下，故无平台依赖、go build 可直接交叉编译。
 verify:
 	$(AUTO_DEVBOX)
 	@echo "→ gofmt…"
@@ -112,8 +112,8 @@ verify:
 
 # ── 清理 ────────────────────────────────────────────────────────────
 
-# clean — 停服务 + 清 dev 数据目录（SQLite + 附件 + sandbox + mcp + skills 都在 $(BACKEND_DATA_DIR)/.forgify）。
-# 不碰 ~/.forgify（真实用户数据）、不碰 docs/、不碰 mise embed 二进制。
+# clean — 停服务 + 清 dev 数据目录（SQLite + 附件 + sandbox 运行时 + mcp + skills 都在 $(BACKEND_DATA_DIR)）。
+# 不碰 ~/.forgify（真实用户数据）、不碰 docs/。
 clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"

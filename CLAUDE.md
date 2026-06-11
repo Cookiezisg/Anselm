@@ -83,7 +83,7 @@
 - **T6 Fake LLM**：默认测试用 `fake_llm`，0 Token 消耗。
 - **`make verify`（pre-push 门禁，host 平台）**：`gofmt` 净 + `go vet` + `go build` + 单测 + 文档门禁全绿。并发/取消测试带 `-race`。
 - **`make docs`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接）。
-- **跨平台 release**：`cd backend && go run ./cmd/setup --all` 拉全 5 平台 mise embed 后跨平台 `go build`（go:embed 要求目标平台二进制在场）——不在日常 verify 内。
+- **跨平台 release**：任意平台 `cd backend && GOOS=x GOARCH=y go build ./cmd/server` 直接出二进制——**无内嵌、无预拉**（运行时由自研 `directInstaller` 在目标机首用按需下，见 [`decisions/0001`](docs/decisions/0001-sandbox-runtime-direct-install.md)）。
 - 前端门禁（TS / ESLint / FSD 架构检查）随前端重建接入。
 
 ---

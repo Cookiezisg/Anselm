@@ -300,21 +300,17 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	return s
 }
 
-// registerSandboxStack registers the mise-managed runtimes (python/node/uv/dotnet) + the docker
-// installer + the four env managers, after sandbox.Bootstrap extracts the mise binary. A blank
-// MiseBin means bootstrap failed → degraded mode, no runtimes (sandbox-dependent features error
-// at call time, the server still runs). PythonEnvManager takes the Service as its ToolRegistry.
+// registerSandboxStack registers the four self-built runtime installers (python/node/uv/dotnet, each
+// fetching its pinned tarball straight from upstream on first use) + the docker installer + the four
+// env managers. No mise, no embed, no bootstrap gate — the installers carry no host state.
+// PythonEnvManager takes the Service as its ToolRegistry.
 //
-// registerSandboxStack 在 sandbox.Bootstrap 抽出 mise 二进制后，注册 mise 管的 runtime（python/node/
-// uv/dotnet）+ docker installer + 4 个 env manager。MiseBin 空 = bootstrap 失败进 degraded（无 runtime，
-// sandbox 相关功能调用时报错，server 照跑）。PythonEnvManager 以 Service 作 ToolRegistry。
+// registerSandboxStack 注册四个自研运行时 installer（python/node/uv/dotnet，各自首次使用时直接从上游拉
+// 钉死的 tarball）+ docker installer + 4 个 env manager。无 mise、无内嵌、无 bootstrap 门控——installer
+// 不持有宿主状态。PythonEnvManager 以 Service 作 ToolRegistry。
 func registerSandboxStack(svc *sandboxapp.Service) {
-	miseBin := svc.MiseBin()
-	if miseBin == "" {
-		return
-	}
-	for kind, ver := range map[string]string{"python": "3.12", "node": "22", "uv": "0.11.4", "dotnet": "10.0.300"} {
-		svc.RegisterInstaller(sandboxinfra.NewMiseInstaller(miseBin, kind, ver))
+	for _, inst := range sandboxinfra.DirectInstallers() {
+		svc.RegisterInstaller(inst)
 	}
 	svc.RegisterInstaller(sandboxinfra.NewDockerInstaller())
 	svc.RegisterEnvManager(sandboxinfra.NewPythonEnvManager(svc))

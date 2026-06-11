@@ -15,28 +15,34 @@ import (
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 )
 
-// TestE2E_Context7ViaNpx is a REAL-MACHINE end-to-end of the whole mcp stdio path: extract the
-// embedded mise → install node → create an env → ResolveExec turns `npx` into <runtime>/bin/npx
-// → SpawnLongLived (with the runtime's bin on PATH so npx's `#!/usr/bin/env node` shebang
-// resolves) → go-sdk Initialize + ListTools against the LIVE context7 MCP server (node, no API
-// key needed). It proves the sandbox runtime-tool rework actually launches a real server.
+// TestE2E_Context7ViaNpx is a REAL-MACHINE end-to-end of the whole mcp stdio path: the node direct
+// installer fetches node straight from nodejs.org → create an env → ResolveExec turns `npx` into
+// <runtime>/bin/npx → SpawnLongLived (with the runtime's bin on PATH so npx's `#!/usr/bin/env node`
+// shebang resolves) → go-sdk Initialize + ListTools against the LIVE context7 MCP server (node, no
+// API key needed). It proves the sandbox runtime-tool path actually launches a real server.
 //
 // Run: go test -tags e2e -run TestE2E_Context7ViaNpx -v -timeout 300s ./internal/infra/mcp/
 //
-// 真机端到端，跑通整条 mcp stdio 路径：抽 embed mise → 装 node → 建 env → ResolveExec 把 `npx`
-// 解析为 <runtime>/bin/npx → SpawnLongLived（runtime bin 在 PATH，使 npx 的 `env node` shebang
-// 解析）→ go-sdk 对 live context7 server（node，无需 key）Initialize + ListTools。证明 sandbox
-// runtime-tool 回改真能拉起真 server。
+// 真机端到端，跑通整条 mcp stdio 路径：node direct installer 直接从 nodejs.org 拉 node → 建 env →
+// ResolveExec 把 `npx` 解析为 <runtime>/bin/npx → SpawnLongLived（runtime bin 在 PATH，使 npx 的
+// `env node` shebang 解析）→ go-sdk 对 live context7 server（node，无需 key）Initialize + ListTools。
+// 证明 sandbox runtime-tool 路径真能拉起真 server。
 func TestE2E_Context7ViaNpx(t *testing.T) {
 	root := t.TempDir()
 	log, _ := zap.NewDevelopment()
 	ctx := context.Background()
 
-	mise, err := sandboxinfra.ExtractMiseBinary(ctx, root, log)
-	if err != nil {
-		t.Fatalf("extract mise: %v", err)
+	var nodeInst sandboxdomain.RuntimeInstaller
+	for _, inst := range sandboxinfra.DirectInstallers() {
+		if inst.Kind() == "node" {
+			nodeInst = inst
+			break
+		}
 	}
-	rel, err := sandboxinfra.NewMiseInstaller(mise, "node", "22").Install(ctx, "22", root, nil)
+	if nodeInst == nil {
+		t.Fatal("no node direct installer registered")
+	}
+	rel, err := nodeInst.Install(ctx, "22", root, nil)
 	if err != nil {
 		t.Fatalf("install node: %v", err)
 	}

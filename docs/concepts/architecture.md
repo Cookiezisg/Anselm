@@ -155,8 +155,8 @@ trigger 是**独立信号源实体**：
 
 ## 6. 沙箱与平台
 
-- **Sandbox = 三 runtime**：Python + Node（mise 嵌入式驱动）+ Docker（仅 docker-only 的 MCP）。统一双接口（image=runtime、容器=env）。后端物理内嵌当前平台 `mise` 二进制，开箱即用。
-- **平台**：macOS arm64/amd64 · Linux arm64/amd64 · Windows amd64。每平台 `go build` 单条命令出二进制，**无 CGO、无 C 工具链**。
+- **Sandbox 运行时**：Python · Node · uv · dotnet 四个，由**自研 `directInstaller`** 在首次使用时直接从上游（python-build-standalone / nodejs.org / astral / dotnet）拉钉死版本 tarball、校验、解压到 `<dataDir>/sandbox/runtimes/`；Docker 为 docker-only 的 MCP 提供镜像式 runtime。统一双接口（image=runtime、容器=env）。**无 mise、无内嵌工具**（见 [`decisions/0001`](../decisions/0001-sandbox-runtime-direct-install.md)）；依赖管理（venv / npm / uv pip）由各 `EnvManager` 自理。
+- **平台**：macOS arm64/amd64 · Linux arm64/amd64 · Windows amd64。**无 CGO、无 C 工具链、无 embed 预拉**——任意平台 `GOOS=x GOARCH=y go build ./cmd/server` 单条命令出二进制，运行时在目标机按需下。
 
 ---
 

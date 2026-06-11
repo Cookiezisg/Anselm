@@ -12,17 +12,17 @@
 
 ## 结构 —— 骨架已建、内容待填（V0.2 → V-next）
 
-下树即 canonical 组织（依 `GOVERNANCE.md`）。reference / decision / how-to / working / archive 当前为**空占位**（`.gitkeep`，各含一行职责）——随重写覆盖回 + 前端重建，按新结构往里填。
+下树即 canonical 组织（依 `GOVERNANCE.md`）。reference / how-to / working / archive 当前为**空占位**（`.gitkeep`，各含一行职责）——随重写覆盖回 + 前端重建，按新结构往里填。
 
 ```
 docs/
 ├── INDEX.md          ← 本文（AI 入口）
 ├── GOVERNANCE.md     ← 文档规范（强制）
-├── concepts/         ← architecture.md（唯一存内容的文档）
+├── concepts/         ← architecture.md（愿景 / 架构 / 引擎）
 ├── references/       ← 与代码同步的契约（空）
 │   ├── backend/      ← api / database / events / error-codes / changelog + domains/
 │   └── frontend/     ← fsd-layers / entity-types / cross-cutting + slices/
-├── decisions/        ← ADR（空）
+├── decisions/        ← ADR（0001 沙箱运行时直装）
 ├── how-to/           ← 操作手册（空）
 ├── working/          ← 在研，≤90 天（空）
 └── archive/          ← 只读墓地（空）

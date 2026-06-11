@@ -179,8 +179,7 @@ func (h *SandboxHandler) DiskUsage(w http.ResponseWriter, r *http.Request) {
 // BootstrapStatus 处理 GET /api/v1/sandbox/bootstrap-status。
 func (h *SandboxHandler) BootstrapStatus(w http.ResponseWriter, r *http.Request) {
 	body := map[string]any{
-		"ok":      h.svc.IsReady(),
-		"miseBin": h.svc.MiseBin(),
+		"ok": h.svc.IsReady(),
 	}
 	if err := h.svc.BootstrapError(); err != nil {
 		body["error"] = err.Error()
