@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
 // Extractor pulls plain text out of a binary document (PDF / Office). It is the pluggable port the
@@ -26,7 +27,7 @@ type Extractor interface {
 //
 // ErrExtractionUnsupported 表本 extractor 没有该 mime 的处理器；调用方把附件降级为文字占位，而非
 // 让回合失败。
-var ErrExtractionUnsupported = fmt.Errorf("attachment: extraction unsupported for this mime")
+var ErrExtractionUnsupported = errorspkg.New(errorspkg.KindUnsupportedMedia, "ATTACHMENT_EXTRACTION_UNSUPPORTED", "extraction unsupported for this mime")
 
 // SandboxRunner is the slice of the sandbox app Service the document extractor needs: ensure a
 // shared python env with the extraction toolchain, then run a one-shot script. sandboxapp.Service
