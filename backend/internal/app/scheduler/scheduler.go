@@ -45,12 +45,19 @@ const MaxIterations = 1000
 // agent has no per-turn sink (resume-mid-agent is v2 — needs a durable loop.Run). M7 adapts the
 // function/handler/mcp + agent Services onto this; tests inject a fake.
 //
+// pinnedVersionID is the run's pin-closure entry for the node's entity ("" when unpinned).
+// function/agent execute that frozen version; handler (resident instance = active class code) and
+// mcp (unversioned external server) are live-binding and ignore it.
+//
 // Dispatcher 跑两类执行单元节点。两者都是粗粒度 activity：跑到最终 result 返回；中途崩溃整体重跑
 // （at-least-once，doc 21 §8）。agent 无逐轮 sink（resume-mid-agent 是 v2）。M7 把
 // function/handler/mcp + agent Service 适配进来；测试注 fake。
+//
+// pinnedVersionID 是该节点实体在 run pin 闭包里的版本（未 pin 为 ""）。function/agent 执行该冻结
+// 版本；handler（常驻实例 = active 类代码）与 mcp（无版本的外部 server）活态绑定、忽略之。
 type Dispatcher interface {
-	RunAction(ctx context.Context, ref string, input map[string]any) (map[string]any, error)
-	RunAgent(ctx context.Context, ref string, input map[string]any) (map[string]any, error)
+	RunAction(ctx context.Context, ref, pinnedVersionID string, input map[string]any) (map[string]any, error)
+	RunAgent(ctx context.Context, ref, pinnedVersionID string, input map[string]any) (map[string]any, error)
 }
 
 // WorkflowReader is the read surface the interpreter needs. GetVersion(pinnedID) reads the FROZEN

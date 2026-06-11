@@ -86,3 +86,7 @@ audience: [human, ai]
 | 级别 | 发现 | 处置 |
 |---|---|---|
 | 🟢 | handler DriverScript 把 tuple/set 当生成器迭代消费（`hasattr __iter__` 排除 str/bytes/list/dict 但漏 tuple/set），返回 tuple 的方法只留末元素 | 留档不修——LLM 生成的 handler 方法实际返回 dict/list/标量；修复属 driver 协议升级，发版后随真实反馈定 |
+
+## W7 进行中 —— CR-19 🟡（产品语义违约，已修）
+
+**CR-19：pin 闭包没传到派发口——function/agent 节点跑 active 版本而非冻结版本。** 文档承诺 `pinned_refs` 使"运行中编辑任何被引用实体都改不动在途 run"，但 `Dispatcher` 端口签名只有 `(ctx, ref, input)`：pin 只被 control/approval（内联求值）与图拓扑（`version_id`）消费，fn/ag 派发时 `VersionID: ""` 落回 active——中途编辑实体会改变在途 run 未执行节点的行为。**修复**：Dispatcher 接口加 `pinnedVersionID` 参数（scheduler.go），runNode 传 `run.PinnedRefs[entityIDOf(ref)]`（dispatch.go），bootstrap dispatcher fn→`RunInput.VersionID`、ag→`InvokeInput.VersionID`；handler（常驻实例=active 类代码）与 mcp（无版本外部 server）**活态绑定属设计事实**，显式注释+文档定性而非假装支持。新增 `TestDispatch_PinnedVersionsReachPort` 断言 pin 贯穿 StartRun→派发。文档同步：scheduler-flowrun.md §2/§7 精确化 pin 边界。

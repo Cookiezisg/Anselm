@@ -61,14 +61,19 @@ var _ schedulerapp.Dispatcher = dispatcher{}
 
 // RunAction dispatches an action node (fn_ / hd_<id>.method / mcp:<serverId>/<tool>). A callable
 // that runs but reports failure (function/agent OK=false) fail-fasts as an error so the node row
-// is written failed (doc 21 §4.4).
+// is written failed (doc 21 §4.4). function honors pinnedVersionID (frozen at run start); handler
+// (resident instance always runs the active class code) and mcp (unversioned external server) are
+// live-binding and ignore it.
 //
-// RunAction 派发 action 节点。callable 跑了但自报失败（OK=false）走 error fail-fast，使节点行写 failed。
-func (d dispatcher) RunAction(ctx context.Context, ref string, input map[string]any) (map[string]any, error) {
+// RunAction 派发 action 节点。callable 跑了但自报失败（OK=false）走 error fail-fast，使节点行写
+// failed。function 执行 pinnedVersionID（run 启动时冻结）；handler（常驻实例永远跑 active 类代码）
+// 与 mcp（无版本的外部 server）活态绑定、忽略之。
+func (d dispatcher) RunAction(ctx context.Context, ref, pinnedVersionID string, input map[string]any) (map[string]any, error) {
 	switch {
 	case strings.HasPrefix(ref, workflowdomain.RefPrefixFunction):
 		res, err := d.fn.RunFunction(ctx, functionapp.RunInput{
 			FunctionID:  ref,
+			VersionID:   pinnedVersionID,
 			Input:       input,
 			TriggeredBy: functiondomain.TriggeredByWorkflow,
 		})
@@ -124,17 +129,18 @@ func (d dispatcher) RunAction(ctx context.Context, ref string, input map[string]
 }
 
 // RunAgent dispatches an agent node (ag_). Coarse-grained activity (flowrun.md §4): run the full
-// ReAct loop, memoize only the final result; v1 has no sub-step replay, so the InvokeInput
-// workflow-replay fields stay nil.
+// ReAct loop against the pinned version (frozen at run start), memoize only the final result; v1
+// has no sub-step replay, so the InvokeInput workflow-replay fields stay nil.
 //
-// RunAgent 派发 agent 节点（ag_）。粗粒度 activity：跑完整 ReAct loop、只记忆化最终 result；v1 无子步
-// 重放，故 InvokeInput 的 workflow-replay 字段留空。
-func (d dispatcher) RunAgent(ctx context.Context, ref string, input map[string]any) (map[string]any, error) {
+// RunAgent 派发 agent 节点（ag_）。粗粒度 activity：对 pin 版本（run 启动时冻结）跑完整 ReAct loop、
+// 只记忆化最终 result；v1 无子步重放，故 InvokeInput 的 workflow-replay 字段留空。
+func (d dispatcher) RunAgent(ctx context.Context, ref, pinnedVersionID string, input map[string]any) (map[string]any, error) {
 	if !strings.HasPrefix(ref, workflowdomain.RefPrefixAgent) {
 		return nil, fmt.Errorf("agent ref %q: want %s prefix", ref, workflowdomain.RefPrefixAgent)
 	}
 	res, err := d.ag.InvokeAgent(ctx, agentapp.InvokeInput{
 		AgentID:     ref,
+		VersionID:   pinnedVersionID,
 		Input:       input,
 		TriggeredBy: agentdomain.TriggeredByWorkflow,
 	})

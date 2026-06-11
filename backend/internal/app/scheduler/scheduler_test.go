@@ -29,20 +29,27 @@ type fakeDispatcher struct {
 	actionCalls map[string]int
 	agentCalls  map[string]int
 	failRefs    map[string]bool
+	actionPins  map[string]string // ref → last pinnedVersionID received
+	agentPins   map[string]string
 }
 
 func newDisp() *fakeDispatcher {
-	return &fakeDispatcher{actionCalls: map[string]int{}, agentCalls: map[string]int{}, failRefs: map[string]bool{}}
+	return &fakeDispatcher{
+		actionCalls: map[string]int{}, agentCalls: map[string]int{}, failRefs: map[string]bool{},
+		actionPins: map[string]string{}, agentPins: map[string]string{},
+	}
 }
-func (d *fakeDispatcher) RunAction(_ context.Context, ref string, _ map[string]any) (map[string]any, error) {
+func (d *fakeDispatcher) RunAction(_ context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
 	d.actionCalls[ref]++
+	d.actionPins[ref] = pin
 	if d.failRefs[ref] {
 		return nil, errors.New("action exploded")
 	}
 	return map[string]any{"n": d.actionCalls[ref]}, nil
 }
-func (d *fakeDispatcher) RunAgent(_ context.Context, ref string, _ map[string]any) (map[string]any, error) {
+func (d *fakeDispatcher) RunAgent(_ context.Context, ref, pin string, _ map[string]any) (map[string]any, error) {
 	d.agentCalls[ref]++
+	d.agentPins[ref] = pin
 	return map[string]any{"out": "agent-" + ref}, nil
 }
 
@@ -186,6 +193,44 @@ func TestWalk_Linear(t *testing.T) {
 	assertRunStatus(t, store, ctx, id, flowrundomain.StatusCompleted)
 	if disp.actionCalls["fn_a"] != 1 || disp.actionCalls["fn_b"] != 1 {
 		t.Fatalf("linear dispatch counts: %+v", disp.actionCalls)
+	}
+}
+
+// CR-19: the run's pin closure must reach the dispatch port — function/agent nodes execute the
+// version frozen at run start, not whatever is active at dispatch time.
+//
+// CR-19：run 的 pin 闭包必须传到派发口——function/agent 节点执行 run 启动时冻结的版本，而非派发
+// 时刻的 active 版本。
+func TestDispatch_PinnedVersionsReachPort(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("start", "trigger", "trg_1", nil),
+			node("a", "action", "fn_a", map[string]string{"x": "start.v"}),
+			node("b", "agent", "ag_b", map[string]string{"y": "a.n"}),
+		},
+		Edges: []workflowdomain.Edge{edge("e1", "start", "", "a"), edge("e2", "a", "", "b")},
+	}
+	disp := newDisp()
+	store, _ := newStore(t)
+	raw, err := json.Marshal(g)
+	if err != nil {
+		t.Fatalf("marshal graph: %v", err)
+	}
+	wf := &fakeWorkflows{
+		wf:   &workflowdomain.Workflow{ID: "wf_1", Concurrency: workflowdomain.ConcurrencyAllowAll, ActiveVersionID: "wfv_1", LifecycleState: workflowdomain.LifecycleActive},
+		ver:  &workflowdomain.Version{ID: "wfv_1", WorkflowID: "wf_1", Version: 1, Graph: string(raw)},
+		pins: map[string]string{"fn_a": "fnv_frozen", "ag_b": "agv_frozen"},
+	}
+	svc := NewService(store, wf, &fakeControl{byID: map[string][]controldomain.Branch{}}, &fakeApproval{byID: map[string]*approvaldomain.Version{}}, disp, nil, nil)
+	ctx := ctxWS("ws_1")
+	id := mustRun(t, svc, ctx, map[string]any{"v": "hi"})
+
+	assertRunStatus(t, store, ctx, id, flowrundomain.StatusCompleted)
+	if disp.actionPins["fn_a"] != "fnv_frozen" {
+		t.Fatalf("function pin not threaded to dispatch: got %q", disp.actionPins["fn_a"])
+	}
+	if disp.agentPins["ag_b"] != "agv_frozen" {
+		t.Fatalf("agent pin not threaded to dispatch: got %q", disp.agentPins["ag_b"])
 	}
 }
 
