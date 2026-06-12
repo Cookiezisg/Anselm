@@ -23,6 +23,7 @@ import (
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service control consumes (nil-tolerant).
@@ -38,6 +39,7 @@ type RelationSyncer interface {
 // Service 编排 control 逻辑 domain。
 type Service struct {
 	repo      controldomain.Repository
+	search    searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
 	notif     notificationdomain.Emitter // nil-tolerant
 	relations RelationSyncer             // nil disables relation hooks
 	log       *zap.Logger
@@ -65,6 +67,7 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 //
 // publish 发一条 control 生命周期通知；nil emitter 为 no-op。
 func (s *Service) publish(ctx context.Context, action, controlID string, extra map[string]any) {
+	s.notifySearch(ctx, controlID)
 	if s.notif == nil {
 		return
 	}

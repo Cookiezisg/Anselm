@@ -134,5 +134,6 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 		h.svc.log.Warn("chatapp.WriteFinalize: persist failed (turn lost from history)",
 			zap.String("messageId", h.assistantMsgID), zap.Error(err))
 	}
+	h.svc.notifySearchMessage(dctx, h.conversationID, h.assistantMsg.ID)
 	h.svc.emitMessageStop(dctx, h.conversationID, h.assistantMsg)
 }

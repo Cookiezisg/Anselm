@@ -29,6 +29,7 @@ import (
 
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
 )
 
@@ -125,6 +126,7 @@ type Runner interface {
 // Service 编排 workflow 图 domain。
 type Service struct {
 	repo      workflowdomain.Repository
+	search    searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
 	resolver  RefResolver                // nil → CapabilityCheck/pin run structural-only
 	notif     notificationdomain.Emitter // nil-tolerant
 	relations RelationSyncer             // nil disables relation hooks
@@ -172,6 +174,7 @@ func (s *Service) SetExecutionPorts(b Binder, r Runner) { s.binder, s.runner = b
 //
 // publish 发一条 workflow 生命周期通知；nil emitter 为 no-op。
 func (s *Service) publish(ctx context.Context, action, workflowID string, extra map[string]any) {
+	s.notifySearch(ctx, workflowID)
 	if s.notif == nil {
 		return
 	}

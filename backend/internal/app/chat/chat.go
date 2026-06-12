@@ -34,6 +34,7 @@ import (
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
@@ -210,6 +211,7 @@ type Compactor interface {
 // wg 追踪其 goroutine 供关停。
 type Service struct {
 	messages         messagesdomain.Repository
+	search           searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	deps             Deps
 	searchTool       toolapp.Tool                                         // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
 	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type at M7
@@ -319,6 +321,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err := s.messages.CreateMessage(ctx, userMsg, userBlocks); err != nil {
 		return "", err
 	}
+	s.notifySearchMessage(ctx, conversationID, userMsg.ID)
 	s.emitUserMessage(ctx, conversationID, userMsg, in.Content)
 
 	// Open the assistant turn (streaming, no blocks yet) to mint its id for the live stream

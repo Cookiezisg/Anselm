@@ -205,6 +205,16 @@ type Notifier interface {
 	Changed(ctx context.Context, t EntityType, entityID, anchor string)
 }
 
+// Notify is the nil-safe Notifier call every entity Service uses — a service
+// without search wired stays fully functional.
+//
+// Notify 是实体 Service 统一使用的 nil 安全通知——未接搜索的 service 完全可用。
+func Notify(ctx context.Context, n Notifier, t EntityType, entityID, anchor string) {
+	if n != nil && entityID != "" {
+		n.Changed(ctx, t, entityID, anchor)
+	}
+}
+
 // EmbeddingProvider is the semantic-layer port (§8): builtin llama-server
 // subprocess or Ollama. Absence degrades search to pure lexical silently.
 //

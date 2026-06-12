@@ -15,6 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
@@ -41,7 +42,8 @@ type listenEntry struct {
 //
 // Service 是统一的 trigger 入口。
 type Service struct {
-	repo triggerdomain.Repository
+	repo   triggerdomain.Repository
+	search searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 
 	cron     triggerinfra.Listener
 	webhook  triggerinfra.Listener

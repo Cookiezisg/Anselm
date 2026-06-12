@@ -21,6 +21,7 @@ import (
 	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
 
@@ -37,6 +38,7 @@ type (
 // Service 是对话 CRUD 应用 façade。
 type Service struct {
 	repo    conversationdomain.Repository
+	search  searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	emitter notificationdomain.Emitter
 	log     *zap.Logger
 
@@ -246,6 +248,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 // emit 发一条 conversation.<动作> 通知（持久化 + SSE signal）；nil emitter 即 best-effort no-op，
 // 软失败只 log、绝不挡 mutation。
 func (s *Service) emit(ctx context.Context, convID, action string, extra map[string]any) {
+	s.notifySearch(ctx, convID)
 	if s.emitter == nil {
 		return
 	}

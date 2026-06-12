@@ -19,6 +19,7 @@ import (
 
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 )
@@ -50,6 +51,7 @@ type RelationSyncer interface {
 // Service 串联 repo、registry、sandbox 与 per-server client。
 type Service struct {
 	repo      mcpdomain.Repository
+	search    searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	registry  mcpdomain.RegistrySource
 	sandbox   SandboxPort
 	relations RelationSyncer      // optional; nil disables relation hooks
@@ -228,6 +230,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		st.Tools = tools
 	}
 	s.mu.Unlock()
+	s.notifySearch(ctx, srv.ID)
 	return nil
 }
 

@@ -217,6 +217,19 @@ func (a *App) Boot(ctx context.Context) {
 	registerSandboxStack(a.svc.sandbox)
 	a.svc.sandbox.RestoreOrCleanupOnBoot(ctx)
 	a.svc.trigger.Start()
+	// search index worker + per-workspace reconcile (self-healing for dropped events /
+	// crashes / schema bumps); never blocks boot.
+	// 搜索索引 worker + 逐 workspace 对账（丢事件/崩溃/schema 升版的自愈）；绝不阻塞 boot。
+	if workspaces, err := a.svc.workspace.List(ctx); err == nil {
+		ids := make([]string, 0, len(workspaces))
+		for _, w := range workspaces {
+			ids = append(ids, w.ID)
+		}
+		a.svc.search.Start(ids)
+	} else {
+		a.log.Warn("bootstrap: list workspaces for search start", zap.Error(err))
+		a.svc.search.Start(nil)
+	}
 	if err := a.svc.scheduler.Recover(ctx); err != nil {
 		a.log.Warn("bootstrap: scheduler recover failed", zap.Error(err))
 	}
@@ -314,6 +327,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 	a.svc.trigger.Shutdown()
 	a.svc.chat.Shutdown()
+	a.svc.search.Close()
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)
 	if err := a.svc.sandbox.Shutdown(ctx); err != nil {

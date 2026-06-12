@@ -21,6 +21,7 @@ import (
 	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service approval consumes (nil-tolerant).
@@ -36,6 +37,7 @@ type RelationSyncer interface {
 // Service 编排审批表 domain。
 type Service struct {
 	repo      approvaldomain.Repository
+	search    searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
 	notif     notificationdomain.Emitter // nil-tolerant
 	relations RelationSyncer             // nil disables relation hooks
 	log       *zap.Logger
@@ -63,6 +65,7 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 //
 // publish 发一条 approval 生命周期通知；nil emitter 为 no-op。
 func (s *Service) publish(ctx context.Context, action, approvalID string, extra map[string]any) {
+	s.notifySearch(ctx, approvalID)
 	if s.notif == nil {
 		return
 	}

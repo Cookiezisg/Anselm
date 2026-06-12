@@ -29,6 +29,7 @@ import (
 	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
@@ -94,6 +95,7 @@ type services struct {
 	subagent     *subagentapp.Service
 	contextmgr   *contextmgrapp.Service
 	aispawn      *aispawnapp.Service
+	search       *searchapp.Service
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -122,6 +124,11 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	cat := catalogapp.New(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
 	sbx := sandboxapp.New(st.sandbox, dataDir, notif, log)
+	// search: one engine behind every surface (omni/vertical/blocks/RAG); sources and
+	// notifiers wire post-construction, the worker starts at App.Boot.
+	// search：所有出口背后的同一个引擎（综搜/垂搜/积木/RAG）；source 与 notifier 在装配后
+	// 接线，worker 于 App.Boot 启动。
+	searchSvc := searchapp.New(st.search, log)
 
 	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
 	lookup := NewModelInfoLookup(modelCaps)
@@ -255,6 +262,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		}
 		hd.StopWorkspaceInstances(wsCtx)
 		mcp.DisconnectWorkspace(wsCtx)
+		if perr := searchSvc.PurgeWorkspace(wsCtx, wsID); perr != nil {
+			log.Warn("workspace reaper: purge search index failed", zap.String("workspaceId", wsID), zap.Error(perr))
+		}
 		if dataDir != "" {
 			if rerr := os.RemoveAll(filepath.Join(dataDir, "workspaces", wsID)); rerr != nil {
 				log.Warn("workspace reaper: remove file tree failed", zap.String("workspaceId", wsID), zap.Error(rerr))
@@ -330,12 +340,45 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat.RegisterMentionResolver(ctl.AsMentionResolver())
 	chat.RegisterMentionResolver(apf.AsMentionResolver())
 
+	// search wiring: 12 entity projections in, one notifier out to every writer
+	// (incl. chat/subagent message completion — anchor routes the incremental path).
+	// search 接线：12 个实体投影接入，一个 notifier 发给所有写者（含 chat/subagent 的
+	// message 完成——anchor 路由增量路径）。
+	searchSvc.RegisterSource(fn.SearchSource())
+	searchSvc.RegisterSource(hd.SearchSource())
+	searchSvc.RegisterSource(ag.SearchSource())
+	searchSvc.RegisterSource(wf.SearchSource())
+	searchSvc.RegisterSource(trg.SearchSource())
+	searchSvc.RegisterSource(ctl.SearchSource())
+	searchSvc.RegisterSource(apf.SearchSource())
+	searchSvc.RegisterSource(doc.SearchSource())
+	searchSvc.RegisterSource(conv.SearchSource(st.messages))
+	searchSvc.RegisterSource(mem.SearchSource())
+	searchSvc.RegisterSource(skill.SearchSource())
+	searchSvc.RegisterSource(mcp.SearchSource())
+	sn := searchSvc.Notifier()
+	fn.SetSearchNotifier(sn)
+	hd.SetSearchNotifier(sn)
+	ag.SetSearchNotifier(sn)
+	wf.SetSearchNotifier(sn)
+	trg.SetSearchNotifier(sn)
+	ctl.SetSearchNotifier(sn)
+	apf.SetSearchNotifier(sn)
+	doc.SetSearchNotifier(sn)
+	conv.SetSearchNotifier(sn)
+	mem.SetSearchNotifier(sn)
+	skill.SetSearchNotifier(sn)
+	mcp.SetSearchNotifier(sn)
+	chat.SetSearchNotifier(sn)
+	subagentSvc.SetSearchNotifier(sn)
+
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
+		search: searchSvc,
 	}
 	// aispawn (R0065) composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.

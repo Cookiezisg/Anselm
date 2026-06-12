@@ -26,6 +26,7 @@ import (
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/forgify/backend/internal/infra/handler"
 )
@@ -69,6 +70,7 @@ type RelationSyncer interface {
 // Service orchestrates the handler domain.
 type Service struct {
 	repo        handlerdomain.Repository
+	search      searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	provisioner *envfixapp.Provisioner
 	runner      SandboxRunner
 	clientFact  ClientFactory
@@ -203,6 +205,7 @@ func lastEnvError(history []envfixapp.Attempt) string {
 
 // publish emits a handler lifecycle notification; nil emitter is a no-op.
 func (s *Service) publish(ctx context.Context, action, handlerID string, extra map[string]any) {
+	s.notifySearch(ctx, handlerID)
 	if s.notif == nil {
 		return
 	}

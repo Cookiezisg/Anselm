@@ -10,6 +10,7 @@ import (
 	memoryfs "github.com/sunweilin/forgify/backend/internal/infra/fs/memory"
 	skillfs "github.com/sunweilin/forgify/backend/internal/infra/fs/skill"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	searchstore "github.com/sunweilin/forgify/backend/internal/infra/search"
 	agentstore "github.com/sunweilin/forgify/backend/internal/infra/store/agent"
 	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
 	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
@@ -59,6 +60,7 @@ type stores struct {
 	flowrun      *flowrunstore.Store
 	conversation *conversationstore.Store
 	messages     *messagesstore.Store
+	search       *searchstore.Store
 
 	memory *memoryfs.Store
 	skill  *skillfs.Store
@@ -137,6 +139,7 @@ func allSchemas() []string {
 	s = append(s, flowrunstore.Schema...)
 	s = append(s, conversationstore.Schema...)
 	s = append(s, messagesstore.Schema...)
+	s = append(s, searchstore.Schema...)
 	return s
 }
 
@@ -188,6 +191,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		flowrun:      flowrunstore.New(database),
 		conversation: conversationstore.New(database),
 		messages:     messagesstore.New(database),
+		search:       searchstore.New(database),
 
 		memory: memoryfs.New(dataDir),
 		skill:  skillfs.New(dataDir),

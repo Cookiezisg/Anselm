@@ -122,6 +122,9 @@ func (ix *Indexer) apply(c change) {
 				return
 			}
 			if found {
+				if doc == nil {
+					return // nothing to index for this anchor. 该锚无可索。
+				}
 				if err := ix.repo.UpsertDocAt(ctx, c.t, c.id, *doc); err != nil {
 					ix.log.Warn("search: upsert failed", zap.String("id", c.id), zap.Error(err))
 				}

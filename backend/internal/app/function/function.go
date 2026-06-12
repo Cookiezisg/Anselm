@@ -24,6 +24,7 @@ import (
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // SandboxRunner is the execution + cleanup surface function needs from the sandbox
@@ -64,6 +65,7 @@ type RelationSyncer interface {
 // Service 编排 function domain。
 type Service struct {
 	repo        functiondomain.Repository
+	search      searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	provisioner *envfixapp.Provisioner
 	runner      SandboxRunner
 	notif       notificationdomain.Emitter // nil-tolerant
@@ -157,6 +159,7 @@ func lastEnvError(history []envfixapp.Attempt) string {
 //
 // publish 发一条 function 生命周期通知；nil emitter 为 no-op。
 func (s *Service) publish(ctx context.Context, action, functionID string, extra map[string]any) {
+	s.notifySearch(ctx, functionID)
 	if s.notif == nil {
 		return
 	}

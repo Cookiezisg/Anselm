@@ -18,6 +18,7 @@ import (
 
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
 
@@ -26,6 +27,7 @@ import (
 // Service 是文档树应用 façade。
 type Service struct {
 	repo    documentdomain.Repository
+	search  searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	emitter notificationdomain.Emitter
 	log     *zap.Logger
 
@@ -394,6 +396,9 @@ func (s *Service) cascadePathSubtree(ctx context.Context, rootID, rootPath strin
 //
 // publish 发送文档生命周期通知（best-effort）。
 func (s *Service) publish(ctx context.Context, action string, d *documentdomain.Document) {
+	if d != nil {
+		s.notifySearch(ctx, d.ID)
+	}
 	if s.emitter == nil {
 		return
 	}
