@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 254 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 255 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（254 码，按域）
+## 全量登记（255 码，按域）
 
-> `errorspkg.New` 机械抽取（252）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（253）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -72,6 +72,12 @@ audience: [human, ai]
 | `EMPTY_CONTENT` | 400 | message has no text and no attachments |
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
+
+### `app/settings`
+
+| code | HTTP | message |
+|---|---|---|
+| `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
 
 ### `app/tool/agent`
 

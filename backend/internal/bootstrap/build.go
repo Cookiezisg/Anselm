@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/zap"
 
+	settingsapp "github.com/sunweilin/forgify/backend/internal/app/settings"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
@@ -74,6 +75,14 @@ func Build(cfg Config) (*App, error) {
 		return nil, err
 	}
 
+	// settings.json (limits) loads before services so every consumer's first read sees
+	// user-tuned values; a malformed file fails boot loudly.
+	// settings.json（limits）先于服务加载，使所有消费方首读即见用户调校值；坏文件大声喊停。
+	settingsSvc, err := settingsapp.Load(cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: %w", err)
+	}
+
 	st := buildStores(database, enc, cfg.DataDir)
 	inf := infra{factory: llminfra.NewFactory(), encryptor: enc}
 	bus := newBuses()
@@ -82,6 +91,7 @@ func Build(cfg Config) (*App, error) {
 	// then Chain wraps it with the middleware stack (workspace identify/require, locale, cors…).
 	mux := http.NewServeMux()
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
+	svc.settings = settingsSvc
 	registerHandlers(mux, svc, bus, log)
 
 	addr := cfg.Addr
@@ -118,6 +128,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 		handlershttpapi.NewStreamHandler(bus.messages, bus.entities, bus.notifications, log),
 		handlershttpapi.NewMemoryHandler(s.memory, log),
 		handlershttpapi.NewSandboxHandler(s.sandbox, log),
+		handlershttpapi.NewLimitsHandler(s.settings, log),
 		handlershttpapi.NewDocumentHandler(s.document, s.aispawn, log),
 		handlershttpapi.NewTodoHandler(s.todo, log),
 		handlershttpapi.NewAttachmentHandler(s.attachment, log),

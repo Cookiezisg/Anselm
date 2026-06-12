@@ -30,6 +30,7 @@ import (
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	settingsapp "github.com/sunweilin/forgify/backend/internal/app/settings"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
@@ -93,6 +94,7 @@ type services struct {
 	approval     *approvalapp.Service
 	workflow     *workflowapp.Service
 	scheduler    *schedulerapp.Service
+	settings     *settingsapp.Service
 	conversation *conversationapp.Service
 	chat         *chatapp.Service
 	subagent     *subagentapp.Service

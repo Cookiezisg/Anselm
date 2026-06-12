@@ -14,6 +14,7 @@ import (
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	logtailpkg "github.com/sunweilin/forgify/backend/internal/pkg/logtail"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -43,7 +44,7 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 		return "", fmt.Errorf("mcpapp.CallTool %s: %w (status=%s)", st.Name, mcpdomain.ErrServerNotConnected, st.Status)
 	}
 
-	cctx, cancel := context.WithTimeout(ctx, defaultCallTimeout)
+	cctx, cancel := context.WithTimeout(ctx, time.Duration(limitspkg.Current().Timeout.MCPCallSec)*time.Second)
 	defer cancel()
 
 	// Tee progress notifications to the entities run terminal (entity panel, all callers) and the

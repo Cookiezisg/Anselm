@@ -28,7 +28,7 @@ audience: [human, ai]
 
 ### 实锤·待裁决（详见 DECISIONS-PENDING）
 
-- **PR-3 🔴 `pkg/limits` 是未接线的空壳**（裁决 A 已批：做配置面 + 全量接线——下一批实现）
+- **PR-3 🔴 `pkg/limits` 是未接线的空壳**（fixed——裁决 A：schema 重述为现实投影（删 9 个无消费方字段、并入 InvokeMaxTurns、新增 ToolResultCapKB/TriggerRatio）、Default 对齐接线前常量（行为零变化、测试钉死）；新 `app/settings` 读写 `<dataDir>/settings.json` + `GET/PATCH /api/v1/limits` 热换；9 处硬编码常量改读 `limits.Current()`：chat MaxSteps、agent InvokeMaxTurns、mcp 调用超时、bash 超时+输出 cap、read 页大小、loop tool_result cap、contextmgr 触发比、attachment 上限、webhook body 上限）
   验证：包自述「用户可调运行上限的唯一来源……启动装配经 SetProvider 换成 settings.json 支持的 getter」（limits.go:1-8）。实际：①全仓无任何 settings.json 加载器；②`SetProvider` 生产代码零调用（仅测试）；③全仓唯一消费方是 `infra/llm/provider.go:59` 读 `Timeout.LLMIdleSec`——其余全部字段（MaxSteps/Subagent*/bash·mcp 超时/工具体量/attachment 上限/workflow 轮数…）无人读，真实生效的是各模块**各自的硬编码常量**（如 `loop.maxToolResultBytes`、`mcp.defaultCallTimeout`、`shell.outputCapBytes`）。「用户可调」目前是虚构。
 
 - **PR-4 🟡 Ollama embedder 参数无配置面**（fixed——裁决 A：search_meta 补 `ollama_base_url`/`ollama_model` 两键、PATCH/GET 全接、工厂注入 + 参数变化重建适配器、域默认权威 `searchdomain.DefaultOllama*`；app/integration 双层测试）

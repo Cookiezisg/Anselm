@@ -25,8 +25,7 @@ import (
 )
 
 const (
-	connectTimeout     = 30 * time.Second
-	defaultCallTimeout = 180 * time.Second // MCP tools may call LLMs / scrape; a long ceiling returns control to the agent
+	connectTimeout = 30 * time.Second
 )
 
 // SandboxPort is the subset of sandboxapp.Service mcp needs: provision a runtime env

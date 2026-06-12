@@ -40,6 +40,7 @@ import (
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -49,14 +50,6 @@ import (
 // attrAttachments 是 Send 把 user 回合附件 id 快照进 Message.Attrs 的键；LoadHistory 读回以渲染
 // 多模态内容部件。
 const attrAttachments = "attachments"
-
-// defaultMaxSteps caps the ReAct loop's turns for a chat conversation. Higher than the agent
-// default (10) because an interactive chat legitimately chains more tool steps; surfaced as
-// MAX_STEPS_REACHED with a "continue" affordance rather than a silent stop.
-//
-// defaultMaxSteps 限定 chat 对话 ReAct 循环的回合上限。高于 agent 默认（10），因交互对话合理地
-// 串更多工具步；触顶以 MAX_STEPS_REACHED + 「继续」提示暴露、非静默停。
-const defaultMaxSteps = 25
 
 // queueCapacity is the per-conversation task buffer. A conversation already streaming rejects a
 // new Send with STREAM_IN_PROGRESS rather than queueing unboundedly; the small buffer absorbs a
@@ -245,7 +238,7 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 		deps:             deps,
 		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
-		maxSteps:         defaultMaxSteps,
+		maxSteps:         limitspkg.Current().Agent.MaxSteps,
 		log:              log,
 		stop:             make(chan struct{}),
 	}
