@@ -43,6 +43,7 @@ func (h *TriggerHandler) Register(mux Registrar) {
 	mux.HandleFunc("DELETE /api/v1/triggers/{id}", h.Delete)
 	mux.HandleFunc("POST /api/v1/triggers/{idAction}", h.postOnTrigger)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/activations", h.ListActivations)
+	mux.HandleFunc("GET /api/v1/triggers/{id}/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/trigger-activations/{actId}", h.GetActivation)
 }
 
@@ -160,6 +161,29 @@ func (h *TriggerHandler) ListActivations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	responsehttpapi.Paged(w, acts, next, next != "")
+}
+
+// ListFirings pages the trigger's firing inbox (?status=pending|started|skipped|superseded|shed) —
+// the disposition surface behind "it fired, why didn't it run".
+//
+// ListFirings 分页 trigger 的 firing 收件箱（?status=…）——「触发了为什么没跑」的处置面。
+func (h *TriggerHandler) ListFirings(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	rows, next, err := h.svc.SearchFirings(r.Context(), triggerdomain.FiringFilter{
+		TriggerID: r.PathValue("id"),
+		Status:    r.URL.Query().Get("status"),
+		Cursor:    p.Cursor,
+		Limit:     p.Limit,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
 }
 
 func (h *TriggerHandler) GetActivation(w http.ResponseWriter, r *http.Request) {

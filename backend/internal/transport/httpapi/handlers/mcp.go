@@ -81,7 +81,7 @@ func (h *MCPHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	rows, next, err := h.svc.ListCalls(r.Context(), mcpdomain.CallFilter{
+	res, err := h.svc.SearchCalls(r.Context(), mcpdomain.CallFilter{
 		ServerID:       st.ID,
 		Tool:           r.URL.Query().Get("tool"),
 		Status:         r.URL.Query().Get("status"),
@@ -95,7 +95,7 @@ func (h *MCPHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Paged(w, rows, next, next != "")
+	responsehttpapi.Success(w, http.StatusOK, res)
 }
 
 func (h *MCPHandler) GetStderr(w http.ResponseWriter, r *http.Request) {

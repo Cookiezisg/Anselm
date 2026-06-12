@@ -103,6 +103,7 @@ audience: [human, ai]
 | `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者） |
 | `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /triggers/{id}/activations` · `GET /trigger-activations/{actId}` | 活动审计（触没触发都有记录） |
+| `GET /triggers/{id}/firings` | firing 收件箱分页（`?status=pending\|started\|skipped\|superseded\|shed`）——「触发了为什么没跑」的处置面 |
 
 ## control / approval（`/api/v1/controls` · `/api/v1/approvals`）
 
@@ -114,7 +115,7 @@ CRUD（`POST` 严格冲突 / `PUT {name}` 覆盖 / `DELETE {name}`）+ `POST /sk
 
 ## mcp（`/api/v1/mcp/...`）
 
-servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry[/{name}]`（市场浏览）+ `POST /mcp/import`（Claude Desktop mcp.json）+ `GET {id}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`）+ `GET /mcp-calls/{id}`（含 `logs`——progress 通知 + 失败附 server stderr 尾；列表端点不带）。
+servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry[/{name}]`（市场浏览）+ `POST /mcp/import`（Claude Desktop mcp.json）+ `GET {id}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`；返 `{calls, nextCursor, hasMore, aggregates:{okCount,failedCount}}`，与 handler 同形）+ `GET /mcp-calls/{id}`（含 `logs`——progress 通知 + 失败附 server stderr 尾；列表端点不带）。
 
 ## document（`/api/v1/documents`）
 

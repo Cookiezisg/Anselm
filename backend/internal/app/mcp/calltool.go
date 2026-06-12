@@ -159,6 +159,33 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 	}
 }
 
+// SearchCallsResult is the paged call-log + ok/failed rollup (mirrors handlerapp).
+//
+// SearchCallsResult 是分页调用日志 + ok/失败汇总（对标 handlerapp）。
+type SearchCallsResult struct {
+	Calls      []*mcpdomain.Call        `json:"calls"`
+	NextCursor string                   `json:"nextCursor,omitempty"`
+	HasMore    bool                     `json:"hasMore"`
+	Aggregates mcpdomain.CallAggregates `json:"aggregates"`
+}
+
+// SearchCalls runs a paginated call-log query with the ok/failed rollup (the entity
+// panel's run history + status badge — same surface every executable kind has).
+//
+// SearchCalls 跑分页调用日志查询 + ok/失败汇总（实体面板运行历史 + 状态徽标——与其它
+// 可执行体同面）。
+func (s *Service) SearchCalls(ctx context.Context, filter mcpdomain.CallFilter) (*SearchCallsResult, error) {
+	rows, next, err := s.repo.ListCalls(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("mcpapp.SearchCalls: %w", err)
+	}
+	agg, err := s.repo.ComputeCallAggregates(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("mcpapp.SearchCalls: aggregates: %w", err)
+	}
+	return &SearchCallsResult{Calls: rows, NextCursor: next, HasMore: next != "", Aggregates: agg}, nil
+}
+
 // ListCalls pages a server's call log (the entity panel's run history).
 //
 // ListCalls 分页 server 的调用日志（实体面板的运行历史）。

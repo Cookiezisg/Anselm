@@ -56,7 +56,7 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 6. 契约（引用）
 
-端点（CRUD + `:fire`/`:iterate` + activations 两查询）→ [api.md](../api.md) · 表（`triggers`/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 12+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。
+端点（CRUD + `:fire`/`:iterate` + activations 两查询）→ [api.md](../api.md) · 表（`triggers`/`trigger_activations`/`trigger_firings`——后两张 Log）→ [database.md](../database.md) · 码 `TRIGGER_*` 12+3 → [error-codes.md](../error-codes.md) · ID：`trg_`/`tra_`/`trf_`。（另有 `GET {id}/firings`——收件箱处置面：started/skipped/superseded/shed）
 
 ## 7. 跨域集成
 

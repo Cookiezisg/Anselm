@@ -109,3 +109,24 @@ audience: [human, ai]
 
 - **PR-18 🟢 function/handler env 构建失败无通知**（记录待办）：`env_rebuilt` 成功有事件、失败只落 EnvStatus 列（面板可见但无唤回）；与 run_failed 同构的小补，挂后续批。
 
+## R4 横向一致性
+
+### 实锤·已修
+
+- **PR-19 🟡 Activation/Firing 整 struct 无 json tags——HTTP 线缆 PascalCase，违 N3**（fixed）
+  验证：`GET /triggers/{id}/activations` 已在暴露 Activation，序列化字段为 `ID/TriggerID/Fired/FiringCount`（Go 字段名），全系统唯一违 N3 的线缆面；Firing 同病（彼时未暴露）。已补全两 struct 的 camelCase json tags（workspace_id → `json:"-"`）。
+- **PR-20 🟡 firing 收件箱零可见性——「触发了为什么没跑」答不了**（fixed）
+  验证：trf_ 表有完整处置状态机（pending/started/skipped/superseded/shed——overlap 政策与资源 shed 的判决），但无任何读取口；activation 只记 firingCount，skip/shed 的去向用户不可见。补 `SearchFirings`（domain filter + store + service + `GET /triggers/{id}/firings?status=`）+ store 测试。
+- **PR-21 🟡 mcp_calls 无 ok/failed 聚合——四个执行体里唯一缺徽标数据的**（fixed）
+  验证：fn/hd/agent 的执行历史都带 ComputeAggregates，mcp 没有——面板一致性断档。补 domain `CallAggregates` + store（filter 复用重构）+ app `SearchCalls`（镜像 handlerapp 形状）+ HTTP/工具双面换装。
+- **PR-22 🟢 执行类工具互导参差**（fixed）
+  验证：trigger_workflow→get_flowrun、search/get 系列已互导（前几轮补），但 invoke_agent 只说「recorded in history」不点名工具、call_handler 完全不提、run_function 不提。三处描述补点名（search/get_*_executions / calls）——LLM 不读文档，工具描述就是它的全部地图。
+
+### 一致性台账（核过、齐）
+
+- 六版本实体（fn/hd/ag/ctl/apf/wf）：CRUD+versions+revert+iterate+事件族对齐 ✅（handler 特有 restart/config、wf 特有 lifecycle 是合理差异）。
+- 执行四件套（fn/hd/ag/mcp）：溯源 5 列 + logs/transcript + get/search 工具 + 聚合（本轮补齐 mcp）✅。
+- 分页（N4）：全 List 走 ParsePage ✅（document/memory/skill 树/名列豁免，R2 已记）。
+- 错误码（S20）：机械守卫在 verify 内，无需重扫。
+- entities 流 run 终端：fn/hd/ag/mcp + wf 节点信号 + trigger fire 信号 ✅。
+
