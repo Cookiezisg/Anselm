@@ -23,13 +23,16 @@ func TestFunction_CreateEnvVisibility(t *testing.T) {
 	wc := c.WS(ws.Field(t, "id"))
 
 	ns := wc.Subscribe(t, "notifications")
-	done := make(chan struct{})
+	// The POST runs in a goroutine; its status comes back over the channel (Fatalf is
+	// illegal off the test goroutine).
+	// POST 在 goroutine 里跑；状态经 channel 带回（测试 goroutine 之外不可 Fatalf）。
+	done := make(chan int, 1)
 	go func() {
-		defer close(done)
-		wc.POST("/api/v1/functions", map[string]any{
+		r := wc.POST("/api/v1/functions", map[string]any{
 			"name": "dep_probe", "code": "import requests\ndef f() -> dict:\n    return {}\n",
 			"dependencies": []string{"requests"},
-		}).OK(t, nil)
+		})
+		done <- r.Status
 	}()
 
 	// Both signals must arrive WHILE create may still be blocking — the wait runs
@@ -37,6 +40,8 @@ func TestFunction_CreateEnvVisibility(t *testing.T) {
 	// 两个信号必须在 create 可能仍阻塞期间到达——等待与 POST 并发，不在其后。
 	ns.WaitFor(t, 20000, "created lands before env build finishes", "function.created")
 	ns.WaitFor(t, 30000, "env build start/terminal is signalled", "sandbox.env_status_changed")
-	<-done
+	if st := <-done; st != 201 {
+		t.Fatalf("create failed: %d", st)
+	}
 	ns.WaitFor(t, 10000, "env reaches a terminal state", "sandbox.env_status_changed", "ready")
 }
