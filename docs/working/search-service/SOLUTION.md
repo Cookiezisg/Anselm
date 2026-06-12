@@ -362,6 +362,27 @@ AnythingLLM 桌面版的「核心秘密」= 安装包内封 ONNX Runtime + all-M
 - **换模型/换 provider**：`search_embeddings.model` 逐行记账——切换后旧向量自动失效、后台重算，查询期间混存不混用。
 - **未来扩展**：BYOK 云端 embedding = 新适配器 + settings 枚举值；外接向量库**明确不做**（§2.2）。
 
+### 8.3 引擎下载与安装生命周期（复用 directInstaller，decisions/0001）
+
+**何时下**——惰性、需求驱动，与 python/node 运行时同律（无内嵌、无预拉、首用按需下）：
+
+- 触发点：`embedder=builtin`（默认）且引擎 absent 时**第一次产生嵌入需求**即触发——实践中就是 M2 上线后的首次启动（boot 对账发现 search_docs 有行缺当前模型向量 → 索引 worker 要嵌入 → 引擎 absent → detached goroutine 后台安装）。
+- 三个不阻塞：不阻塞 boot、不阻塞索引（FTS 先行写完）、不阻塞搜索（纯 BM25 全程可用）。
+- 失败语义：status=error（settings 可见原因）+ notifications 流一条；**不自动死循环重试**（离线环境不反复打网络）——下次 boot 对账重试，或 settings `PATCH embedder=builtin` 手动重触发。
+- 防抖：索引 worker 单线程天然串行；settings 手动触发与 worker 之间加安装单飞锁。
+
+**怎么下**——directInstaller 既有五步流水线（钉版本 → 平台选 asset → 流式下载 → 校验和 → staging 解压 + 原子 rename），新增两个 recipe：
+
+| recipe | 来源（钉死版本） | 落点 | 体积 |
+|---|---|---|---|
+| `llamasrv` | llama.cpp 官方 release 固定 tag，按 GOOS/GOARCH 选 zip（macos-arm64/x64、win-x64/arm64、linux-x64）；sha256 钉死在 recipe（钉版本即钉 hash，与 uv sidecar 同级保证） | `<sandboxRoot>/runtimes/llamasrv/<tag>/`（llama-server + 动态库树） | ~几十 MB |
+| `embedmodel` | EmbeddingGemma-300m QAT Q8 单 GGUF（ggml-org 官方仓库，HF LFS 自带 sha256）；**URL 主备链**：huggingface.co 主、hf-mirror.com 备（国内网络现实），逐个尝试 | `<sandboxRoot>/models/embedding/<name>/` | ~300 MB |
+
+- 原子性/幂等：temp 下载 + staging 解压 + rename——目录要么完整要么不存在，崩溃残留可清，重入先 `Locate` 已装即跳过。
+- 落账：`sandbox_runtimes` 既有表记 kind/version/path/size/installed_at；进度经既有 ProgressFunc → settings `engine.status=downloading`（含百分比），完成/失败发 notifications 流。
+- 就绪后：进程**仍是惰性 spawn**（首次 `Embed` 调用才起 llama-server，127.0.0.1 随机端口）；`embedder=off` 只停进程不删文件。
+- 隐私边界：下载是静态产物拉取（GitHub/HF），不携带任何用户数据——与 python/node 运行时下载同一信任面。
+
 ---
 
 ## 9. 测试与门禁
