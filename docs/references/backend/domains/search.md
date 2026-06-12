@@ -26,7 +26,9 @@ audience: [human, ai]
 
 `domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
 
-四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎，`toolapp.ContentSearch`：非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线）。
+四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎——其中 7 个经 `toolapp.ContentSearch` 渲染 slim `{count, list}` JSON；`search_documents` 引擎同源但自有散文渲染（path+id 列表）。非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线。**当前零生产消费方**——为未来 agent 上下文注入/知识挂载预留的休眠口，单测覆盖管线、黑盒不可达，见 acceptance AC-25）。
+
+**投影身份键**：各 Source 的 entity_id 用实体的**公开寻址键**——多数实体是行 id；skill 与 **mcp 用 name**（两者 HTTP 即按 name 寻址；mcp 曾按行 id 键控，refHint 发出 `mcp:msv_…/tool` 而挂载只解析 `mcp:<name>/<tool>`，可接线 ref 物理死亡，AC-27 修复）。
 
 **search_blocks 三段精度链**（对调用方透明）：①目录序列化 ≤4k token（`pkg/tokencount`，常量非配置）→ **整目录直喂 utility 模型精选**（`Sifter` 端口，bootstrap 的 `llmSifter` 走 utility resolve→credentials→build→Generate 链，严格只回编号 JSON）；②超阈 → 索引检索 top-50 → utility 精选；③sifter 缺席/出错 → 纯索引排序。
 

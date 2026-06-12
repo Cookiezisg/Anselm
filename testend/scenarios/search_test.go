@@ -19,12 +19,15 @@ import (
 // searchPage 是 GET /search 的线缆形状。
 type searchPage struct {
 	Hits []struct {
-		EntityType string  `json:"entityType"`
-		EntityID   string  `json:"entityId"`
-		Name       string  `json:"name"`
-		Snippet    string  `json:"snippet"`
-		Score      float64 `json:"score"`
-		Archived   bool    `json:"archived"`
+		EntityType    string  `json:"entityType"`
+		EntityID      string  `json:"entityId"`
+		Name          string  `json:"name"`
+		Snippet       string  `json:"snippet"`
+		Anchor        string  `json:"anchor"`
+		RefHint       string  `json:"refHint"`
+		MatchedChunks int     `json:"matchedChunks"`
+		Score         float64 `json:"score"`
+		Archived      bool    `json:"archived"`
 	} `json:"hits"`
 	NextCursor string `json:"nextCursor"`
 	Total      int    `json:"total"`

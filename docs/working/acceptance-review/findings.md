@@ -141,3 +141,13 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
   - **无新 AC bug**：工具面 schema（S18 框架字段）、懒工具自动发现、danger 门、memory 注入、降级面在真模型下全部如设计工作。**柱 C 证明柱 A/B 的 llmmock 结论不是假模型的假象**。
   - 范围说明：golden 现 7 旅程覆盖 function 锻造+执行 / handler 常驻服务 / AI 自愈 / 积木检索 / memory / 自举 / 降级七条核心能力线。柱 C 计划的 workflow-to-parked / MCP 真装 / skill / 跨压缩长任务等更重旅程，已在 W2/W3/W4 用 llmmock 结构性覆盖；真模型 golden 视价值/稳定性按需增补（flash 模型搓多节点图易飘，过重项不强求）。
 
+## R1 A7 Search 高标准补全（程序重开后首波，标尺=W1/W2）
+
+新增 `search_lifecycle_test.go`（投影全周期 12 实体 / 粒度锚点 / 排序折叠 / 代码符号+混合查询 / 隔离 / 密文红线 / boot 对账）+ `search_llm_test.go`（8 垂搜真走内容引擎 / search_blocks 三段精度链逐档 / search_conversations 回忆窗）。缺口矩阵见 [R-PLAN.md](R-PLAN.md)。
+
+- **AC-26** 🔴（三处生产面同死：LLM 解析链手抄误用——**第十种模式：地基 API 设陷 + 复制传播**）：`Factory.Build` 返回 `(Client, 解析后 baseURL, error)`，而 **三个**后加的 utility 消费方全把第二返回值绑成 `modelID` 喂进 `Request.ModelID`——线缆上发出 `"model": "http://127.0.0.1:.../v1"`。真 provider 必报 model 不存在 → 三个功能**生产从未工作**、且全部静默降级不报错：① `bootstrap/searchsift.go` —— search_blocks 三段精度链的 tier1/tier2 永远失败、永远落 tier3 纯索引（用户以为精选在工作）；② `app/envfix/fix.go` —— AI 依赖自愈建议永远失败；③ `app/tool/web/fetch.go` —— WebFetch 摘要永远失败。**单测全绿**（fake 链不真上线缆）、唯一正确用法在 bootstrap resolvers.go（主 chat 链没死，故 W4/W7 全过）。黑盒抓法：R1 新断言「sifter 必须被咨询 + prompt 含整目录」→ 零 utility dump → 后端日志（新补的 zap.Error）现形 `model="http://..."`。**修复（标准化非补丁）**：新建 `app/modelclient.Resolve` 唯一解析链，bootstrap 四 resolver 核 + 三病灶全部委托；顺手补两处 sift 失败错误日志（原来静默吞错，utility 断线伪装成普通排序）。文档：stream-llm.md 增"禁止手抄该链"。
+- **AC-27** 🟡（mcp 可接线 ref 物理死亡：投影键与挂载键不一致）：mcp searchsource 按 **msv_ 行 id** 键控投影，refHint 渲染成 `mcp:msv_…/<tool>`；而 agent 挂载解析（`mount.mcpTool`）只按 **server name** 匹配（`mcp:<name>/<tool>`，与 HTTP `/mcp-servers/{name}`、api.md「name 即键」一致）。后果：search_blocks/综搜给 LLM 的每条 mcp ref 都挂载不上（`MCP_SERVER_NOT_FOUND`）——「ref 直填」契约对 mcp 类从未成立。skill 早已按 name 投影（代码库自身标准），mcp 是漏网。修复：mcp 投影身份换 server name（Stamps/Docs/3 处 notifySearch）；旧 id 行由 boot 对账孤儿清理自愈、零迁移。黑盒钉死：R1 GranularityAnchors 断言 `refHint == "mcp:granmcp/<tool>"`。
+- **AC-28** 🟢（垂搜渲染不一致，记录不改）：8 个垂搜中 7 个经 ContentSearch 返回 slim `{count, list}` JSON，`search_documents` 引擎同源但自有散文渲染（`- name (id=…)` 列表 + 空态指路 list_documents）。LLM 面两种形状并存——按 doc 工具自身定位（path 浏览心智）保留现状，文档已改述精确计数（7+1）。
+- **AC-25** 🟢（定性：休眠口 + 文档误导）：`Service.Retrieve`（RAG 内部口、search 域文档自称"四个出口"之一）**零生产消费方**——`grep -rn "\.Retrieve(" backend/internal` 仅定义处。archive 设计文档言明它为"agent 上下文注入/未来知识挂载"预留，非接线缺失 bug；但 reference 把它列为活出口有误导、PLAN 把 `Retrieve(MaxChars)` 列为必验格而黑盒不可达。处置：`domains/search.md` 已补"当前零生产消费方（休眠口）"一句；验收面记 **N/A（黑盒不可达，单测覆盖管线）**。
+- **N/A 台账（黑盒不可达格，亲验定界）**：① Retrieve（上）；② 垂搜"引擎出错回退原子串路径"——黑盒无法注入引擎错误（引擎 nil 仅当 search 服务整体缺席），回退逻辑由 `contentsearch.go` 单测覆盖；③ `fts_schema_version` 不匹配→boot 清空重建——需直改 DB 文件，白盒不变量；④ ollama 真连真嵌——本机无 ollama，W3 已验"设置生效+死端口软降级"边界。
+

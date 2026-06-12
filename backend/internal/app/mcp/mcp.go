@@ -229,7 +229,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		st.Tools = tools
 	}
 	s.mu.Unlock()
-	s.notifySearch(ctx, srv.ID)
+	s.notifySearch(ctx, srv.Name)
 	return nil
 }
 
