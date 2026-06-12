@@ -28,8 +28,8 @@ audience: [human, ai]
 
 | 域 | 挂载 |
 |---|---|
-| function | **run 终端**：每次执行的实时 stderr（= 函数自己的 `print()`，driver 引流）→ function scope；**forge 镜像**：create/edit_function 的流式 code args → 面板实时填充 |
-| handler | **run 终端**：流式 method 的每个 yield → handler scope（不论谁触发）；**forge 镜像**：create/edit_handler 的类代码 |
+| function | **run 终端**：每次执行的实时 stderr（= 函数自己的 `print()`，driver 引流）→ function scope；**forge 镜像**：create/edit_function 的流式 code args → 面板实时填充；**env 物化终端**：每次 ensureEnv 的尝试/修复行（不分入口——HTTP 编辑器/chat 锻造/run 重建）→ forge 节点 |
+| handler | **run 终端**：流式 method 的每个 yield → handler scope（不论谁触发）；**forge 镜像**：create/edit_handler 的类代码；**env 物化终端**：同 function |
 | agent | **run 轨迹**：invoke 的完整 ReAct block 流（text/reasoning/tool_call/tool_result）→ agent scope（不论 chat/REST/workflow 触发）；**forge 镜像**：create/edit_agent 的 config |
 
 ## messages 流挂载（对话内呈现）

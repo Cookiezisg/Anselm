@@ -51,7 +51,7 @@ class HandlerImpl:
 
 ### spawn 链（`spawnInstance`）
 
-加载 active 版本 + **解密** config → 校验必填 init-args（缺 → `HANDLER_CONFIG_INCOMPLETE`，不 spawn）→ **按 active schema 过滤 config**（孤儿 key——被后续版本删掉的 arg、revert 留下的——会成为 `__init__` 的意外 kwarg → Python TypeError → 永久 spawn 失败；在 spawn 这个唯一咽喉点过滤，防住所有漂移来源）→ env 未 ready 则物化 → `AssembleClass` 写 `user_handler.py` + `driver.py` → 起长跑 `python driver.py` → **`ErrEnvNotFound`（env 被 GC）= 重建+重试一次** → stderr 进日志（崩溃诊断）**并进实例级 stderr 扇出**（`stderrFan`——调用挂 per-call sink 收窗口内输出）→ `client.Init(config)` 跑 `__init__`。**driver 协议护盾**：进程启动即把用户态 stdout 整体重定向到 stderr（import/`__init__`/method/shutdown 里的 print() 全部变成调用日志），协议帧只经保存的真 stdout 写——一个 print() 永远炸不了协议（与 function driver 同款护盾）。
+加载 active 版本 + **解密** config → 校验必填 init-args（缺 → `HANDLER_CONFIG_INCOMPLETE`，不 spawn）→ **按 active schema 过滤 config**（孤儿 key——被后续版本删掉的 arg、revert 留下的——会成为 `__init__` 的意外 kwarg → Python TypeError → 永久 spawn 失败；在 spawn 这个唯一咽喉点过滤，防住所有漂移来源）→ env 未 ready 则物化（尝试/修复行 tee 到 entities 流 forge 终端，同 function）→ `AssembleClass` 写 `user_handler.py` + `driver.py` → 起长跑 `python driver.py` → **`ErrEnvNotFound`（env 被 GC）= 重建+重试一次** → stderr 进日志（崩溃诊断）**并进实例级 stderr 扇出**（`stderrFan`——调用挂 per-call sink 收窗口内输出）→ `client.Init(config)` 跑 `__init__`。**driver 协议护盾**：进程启动即把用户态 stdout 整体重定向到 stderr（import/`__init__`/method/shutdown 里的 print() 全部变成调用日志），协议帧只经保存的真 stdout 写——一个 print() 永远炸不了协议（与 function driver 同款护盾）。
 
 ### RPC 协议（`infra/handler` 客户端 ↔ `driver.py`）
 

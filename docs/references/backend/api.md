@@ -100,7 +100,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener） |
-| `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者） |
+| `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{fired, triggerId, activationId}`——拿 id 直查 activation 闭环 |
 | `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /triggers/{id}/activations` · `GET /trigger-activations/{actId}` | 活动审计（触没触发都有记录） |
 | `GET /triggers/{id}/firings` | firing 收件箱分页（`?status=pending\|started\|skipped\|superseded\|shed`）——「触发了为什么没跑」的处置面 |

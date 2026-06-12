@@ -39,3 +39,9 @@ audience: [human, ai]
 - **AC-2 终定性：同步阻塞 env 物化 = by-design，可见性链实测在场**（关闭，场景钉死）
   用户裁决：同步是预期（环境要搞、崩了有 LLM 修复、再不行打回），要求是「阻塞期间用户看得到在搞」。真机实测：阻塞窗口内 notifications 流三连——`function.created` 立即落（前端可先画实体行）→ `sandbox.env_status_changed`(installing，构建开始即推) → (ready/failed 终态)；LLM 修复链 Provision 不分入口都跑、修不好落 envStatus=failed+envError（打回可见）。`TestFunction_CreateEnvVisibility` 钉死该承诺。nuance：逐行进度（pip 输出）仅 chat 锻造路径流（progress 块），HTTP 路径状态级信号——够用；将来编辑器要逐行再把 envfix Sink 接 entities 流。
 
+## W1.5 小尾巴清账（用户指示「这种小问题都顺手做了」）
+
+- **AC-8 🟢 HTTP 编辑器路径 env 物化无逐行进度**（fixed）：`envfix.WriterSink`+`MultiSink` 新地基，function/handler 的 ensureEnv 把尝试/修复行 tee 到 entities 流 forge 终端——不分入口（HTTP/chat/run 重建）面板都看得到逐行；状态级 `env_status_changed` 照旧。
+- **PR-14 回收**（fixed）：fire_trigger/HTTP `:fire` 返 `activationId`（fanOut/FireManual 签名升级）。
+- **PR-18 回收**（closed）：env 失败通知实已在场（sandbox.env_status_changed failed+errorMsg），原定性漏看 sandbox 层。
+

@@ -154,6 +154,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	todo := todoapp.New(st.todo, bus.messages, log)
 	att := attachmentapp.New(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
 	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
+	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 锻造终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
 	hd.SetEntitiesBridge(bus.entities) // SSE-C: Call tees method yields to the handler's run terminal
 	ag := agentapp.NewService(st.agent, notif, log)

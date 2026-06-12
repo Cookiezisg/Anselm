@@ -132,11 +132,12 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 	}
 	switch action {
 	case "fire":
-		if err := h.svc.FireManual(r.Context(), id); err != nil {
+		actID, err := h.svc.FireManual(r.Context(), id)
+		if err != nil {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}
-		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"fired": true, "triggerId": id})
+		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"fired": true, "triggerId": id, "activationId": actID})
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)
 	default:

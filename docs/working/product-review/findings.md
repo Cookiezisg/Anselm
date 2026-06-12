@@ -78,7 +78,7 @@ audience: [human, ai]
 ### 轻症·已处置
 
 - **PR-13 🟢 handler config 清空无 LLM 工具**（wontfix）：`update_handler_config` 的 merge-patch null 已可删键，HTTP DELETE 兜底；为罕见场景加工具是面积膨胀。
-- **PR-14 🟢 fire_trigger 不返 activationId**（记录待办）：返 `{fired, triggerId}`，查结果需再 search_activations(triggerId)——闭环可走但多一跳；返 id 需改 FireManual 签名，挂后续批。
+- **PR-14 🟢 fire_trigger 不返 activationId**（fixed，acceptance-w1 后批）：fanOut/FireManual 返 actID，HTTP `:fire` 与 fire_trigger 工具均带 `activationId`——拿 id 直查闭环。
 - **PR-16 🟢 document/memory/skill List 无分页**（wontfix）：树/名列语义 + 本地规模；前端树渲染本就要全量。
 
 ### by-design 记录（矩阵空格、确认有意）
@@ -107,7 +107,7 @@ audience: [human, ai]
 
 ### 轻症
 
-- **PR-18 🟢 function/handler env 构建失败无通知**（记录待办）：`env_rebuilt` 成功有事件、失败只落 EnvStatus 列（面板可见但无唤回）；与 run_failed 同构的小补，挂后续批。
+- **PR-18 🟢 function/handler env 构建失败无通知**（closed——复验已覆盖）：sandbox 层 `env_status_changed` 对 failed 同样 emit 且带 errorMsg（sandbox.go:415+publishEnvStatus），唤回在场；当初定性时只看了 function 层事件、漏了 sandbox 层。
 
 ## R4 横向一致性
 

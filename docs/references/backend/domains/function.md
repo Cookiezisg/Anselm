@@ -44,6 +44,8 @@ audience: [human, ai]
 
 **沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
 
+**env 物化可见性**：ensureEnv 把每次尝试/模型修复行经 `envfix.WriterSink` tee 到 entities 流 forge 终端（不分入口——HTTP 编辑器路径与 chat 锻造同等可见）；状态级信号另走 `sandbox.env_status_changed` 通知（installing/ready/failed 带 errorMsg）。
+
 **记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按 `ctx.Err()` 区分 timeout/cancelled/failed；`logs` 随行落盘（List 置空、单条 Get 携带）。
 
 ## 5. 关键设计决策
