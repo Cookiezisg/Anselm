@@ -31,9 +31,11 @@ audience: [human, ai]
 | W0 | 环境+座架（harness/sse/smoke；llmmock/promptdump 随 W4 进场） | ✅ |
 | W1 | 锻造域 A1-A3（function/handler/control/approval） | ✅ |
 | W2 | 编排域 A5（workflow/trigger/flowrun，含 kill -9 恢复） | ✅ |
-| W3 | 集成域 A6+A7（MCP 真装真调 + Search 全况含 RAG） | ✅ |
-| W4 | 对话域 A8（chat 全链/压缩/附件/memory/skill/todo/SSE）——llmmock+promptdump 进场 | ✅ |
-| W5 | 平台域 A9 + 涟漪矩阵 A10 | ✅ |
-| W6 | 体验静态（柱 B：六视角 dump 审读/可见性矩阵/prompt lint） | ✅ |
-| W7 | 金标旅程（柱 C：真模型 deepseek-v4-flash） | ✅ |
-| W8 | 修复收口 + 终报 | ⬜ |
+| W3 | 集成域 A6+A7（MCP 真装真调 + Search） | ✅ 首验；A7 缺格见 R1 |
+| W4 | 对话域 A8（chat 全链/压缩/todo/错误路径）——llmmock+promptdump 进场 | ✅ 首验；缺格见 R3 |
+| W5 | 平台域 A9 + 涟漪 A10 | ✅ 首验；缺格见 R4/R5 |
+| W6 | 体验静态（柱 B） | ✅ 首验；缺格见 R6 |
+| W7 | 金标旅程（柱 C：deepseek-v4-flash 7/12） | ✅ 首验；缺 5 旅程见 R7 |
+| W8 | 首轮收口 | ✅（被 R 重开取代） |
+
+**程序重开（2026-06-13 用户裁定）**：A7 起标准滑坡——首轮只覆盖 happy path + 部分错误码，未按 PLAN.md 逐格穷尽"必验情况"。重开为 **R1-R8 高标准重验波次**，缺口矩阵与执行纪律见 [R-PLAN.md](R-PLAN.md)。W0-W7 首验结论仍有效（抓到的 24 条 finding 与修复不回退），但**覆盖完整性以 R 波次收口为准**。

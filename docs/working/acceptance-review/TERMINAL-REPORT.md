@@ -11,9 +11,11 @@ landed-into: ""
 audience: [human, ai]
 ---
 
-# 终报 —— 全产品真机验收 + 体验审查（2026-06-12～13）
+# 首轮终报 —— 全产品真机验收 + 体验审查（2026-06-12～13）
 
-> 草稿（W7 真模型结果跑完即定稿、W8 收口）。逐条细节见 [findings.md](findings.md)；裁决见 [DECISIONS-PENDING.md](DECISIONS-PENDING.md)；接手见 [HANDOFF.md](HANDOFF.md)。
+> **状态：首轮（W0-W8）报告，已被重开**——用户裁定 A7 起覆盖标准不足，程序重开为 R1-R8 高标准重验（见 [R-PLAN.md](R-PLAN.md) 缺口矩阵）。本报记录首轮结论（findings 与修复仍有效）；**最终终报待 R8 收口整体重述**。逐条细节见 [findings.md](findings.md)；裁决见 [DECISIONS-PENDING.md](DECISIONS-PENDING.md)；接手见 [HANDOFF.md](HANDOFF.md)。
+
+**一句话**：真开机真打抓到了读码三审抓不到的 **8 条 🔴 + 一串 🟡**（核心是 **9 个「设计完整、接线缺失」**），全部修复；真模型（deepseek-v4-flash）7 旅程证明产品工具面端到端可驱动，反证柱 A/B 的零 token llmmock 结论非假象。产出可重跑的 `make testend` / `make evals` 两套永久套件 + promptdump 体验审计 + 可换 agent 接手的文档体系。
 
 ## 1. 定位：第四种审查
 
