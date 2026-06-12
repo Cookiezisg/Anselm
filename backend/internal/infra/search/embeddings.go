@@ -141,3 +141,67 @@ func (s *Store) DocsByIDs(ctx context.Context, ids []string) ([]*searchdomain.Do
 	defer rows.Close()
 	return scanHits(rows, false)
 }
+
+// BodiesByIDs returns full bodies for RAG retrieval.
+//
+// BodiesByIDs 返回完整 body 供 RAG 取数。
+func (s *Store) BodiesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return map[string]string{}, nil
+	}
+	var sb strings.Builder
+	sb.WriteString(`SELECT id, body FROM search_docs WHERE workspace_id = ? AND id IN (`)
+	args := []any{wsID}
+	for i, id := range ids {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString("?")
+		args = append(args, id)
+	}
+	sb.WriteString(")")
+	rows, err := s.db.Query(ctx, sb.String(), args...)
+	if err != nil {
+		return nil, fmt.Errorf("searchstore.BodiesByIDs: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, body string
+		if err := rows.Scan(&id, &body); err != nil {
+			return nil, fmt.Errorf("searchstore.BodiesByIDs scan: %w", err)
+		}
+		out[id] = body
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("searchstore.BodiesByIDs rows: %w", err)
+	}
+	return out, nil
+}
+
+// BlockRows lists every block-palette row (six kinds) in the ctx workspace —
+// the precision chain's direct-feed catalog (snippet = body head).
+//
+// BlockRows 列出 ctx workspace 全部积木行（六类）——精度链直喂目录（snippet=正文头）。
+func (s *Store) BlockRows(ctx context.Context) ([]*searchdomain.DocHit, error) {
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT d.id, d.entity_type, d.entity_id, d.chunk_no, d.anchor, d.title, d.tags, d.archived, d.updated_at,
+			substr(d.body, 1, 240)
+		FROM search_docs d
+		WHERE d.workspace_id = ? AND d.entity_type IN ('function','handler','mcp','agent','control','approval')
+		ORDER BY d.entity_type, d.entity_id, d.chunk_no`,
+		wsID)
+	if err != nil {
+		return nil, fmt.Errorf("searchstore.BlockRows: %w", err)
+	}
+	defer rows.Close()
+	return scanHits(rows, false)
+}

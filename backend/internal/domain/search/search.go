@@ -130,6 +130,28 @@ type Hit struct {
 	RefHint       string     `json:"refHint,omitempty"`
 }
 
+// Chunk is one RAG retrieval unit: full body (not a snippet) for context
+// injection, plus the anchor for provenance.
+//
+// Chunk 是一个 RAG 取数单元：完整 body（非 snippet）供上下文注入，附 anchor 溯源。
+type Chunk struct {
+	EntityType EntityType `json:"entityType"`
+	EntityID   string     `json:"entityId"`
+	Anchor     string     `json:"anchor,omitempty"`
+	Title      string     `json:"title"`
+	Body       string     `json:"body"`
+	Score      float64    `json:"score"`
+}
+
+// RetrieveOpts tunes the RAG surface: TopK chunks, MaxChars total budget.
+//
+// RetrieveOpts 调 RAG 面：TopK 块数、MaxChars 总预算。
+type RetrieveOpts struct {
+	Types    []EntityType
+	TopK     int
+	MaxChars int
+}
+
 // Query is the unified search input. Empty Types = omni-search; cursor/limit
 // follow N4.
 //
@@ -200,6 +222,14 @@ type Repository interface {
 	// DocsByIDs hydrates chunk rows for vector-only hits (snippet = body head).
 	// DocsByIDs 为纯向量命中补行（snippet = 正文头部）。
 	DocsByIDs(ctx context.Context, ids []string) ([]*DocHit, error)
+	// BodiesByIDs returns full bodies for RAG retrieval (snippets won't do as
+	// injected context).
+	// BodiesByIDs 返回完整 body 供 RAG 取数（注入上下文不能用 snippet 凑）。
+	BodiesByIDs(ctx context.Context, ids []string) (map[string]string, error)
+	// BlockRows lists every block-palette row in the ctx workspace (six kinds,
+	// snippet = body head) — the precision chain's direct-feed catalog.
+	// BlockRows 列出 ctx workspace 全部积木行（六类，snippet=正文头）——精度链的直喂目录。
+	BlockRows(ctx context.Context) ([]*DocHit, error)
 	// DropAll clears every index row (all workspaces) — the schema-version
 	// rebuild path; sources repopulate via reconcile.
 	// DropAll 清空全索引（所有 workspace）——schema 版本重建路径；对账重灌。

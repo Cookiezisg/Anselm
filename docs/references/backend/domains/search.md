@@ -26,7 +26,9 @@ audience: [human, ai]
 
 `domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
 
-四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎，`toolapp.ContentSearch`：非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve` RAG 内部口（M3）。
+四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎，`toolapp.ContentSearch`：非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线）。
+
+**search_blocks 三段精度链**（对调用方透明）：①目录序列化 ≤4k token（`pkg/tokencount`，常量非配置）→ **整目录直喂 utility 模型精选**（`Sifter` 端口，bootstrap 的 `llmSifter` 走 utility resolve→credentials→build→Generate 链，严格只回编号 JSON）；②超阈 → 索引检索 top-50 → utility 精选；③sifter 缺席/出错 → 纯索引排序。
 
 ## 语义层（默认混合）
 

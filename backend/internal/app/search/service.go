@@ -70,6 +70,7 @@ type Service struct {
 	// 补算走独立 worker。
 	builtinProv searchdomain.EmbeddingProvider
 	ollamaProv  searchdomain.EmbeddingProvider
+	sifter      Sifter // nil → precision chain tier 3 only. nil → 精度链只剩第三档。
 	vectors     *vecCache
 	embedKick   chan string
 	embedQuit   chan struct{}

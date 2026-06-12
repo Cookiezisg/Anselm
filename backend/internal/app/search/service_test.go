@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +31,8 @@ type fakeRepo struct {
 	embedded   map[string][]float32 // key: model/docID
 	embedQueue []searchdomain.EmbedDoc
 	docsByID   map[string]*searchdomain.DocHit
+	bodies     map[string]string
+	blockRows  []*searchdomain.DocHit
 }
 
 func newFakeRepo() *fakeRepo {
@@ -565,5 +568,148 @@ func TestSettings_SwitchAndValidate(t *testing.T) {
 	view, err = svc.SetEmbedder(ctxWS("ws_a"), searchdomain.EmbedderOllama)
 	if err != nil || view.Engine.Model != "ollama:x" {
 		t.Fatalf("ollama switch: %v %+v", err, view)
+	}
+}
+
+func (f *fakeRepo) BodiesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[string]string{}
+	for _, id := range ids {
+		if b, ok := f.bodies[id]; ok {
+			out[id] = b
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) BlockRows(context.Context) ([]*searchdomain.DocHit, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.blockRows, nil
+}
+
+// fakeSifter records what it saw and returns scripted picks.
+//
+// fakeSifter 记录所见并返回预置选择。
+type fakeSifter struct {
+	mu        sync.Mutex
+	lastItems []string
+	picks     []int
+	fail      bool
+	calls     int
+}
+
+func (f *fakeSifter) Sift(_ context.Context, _ string, items []string, _ int) ([]int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	f.lastItems = items
+	if f.fail {
+		return nil, errors.New("utility down")
+	}
+	return f.picks, nil
+}
+
+func blockRow(t searchdomain.EntityType, id, anchor, title, snip string) *searchdomain.DocHit {
+	return &searchdomain.DocHit{
+		DocID: "sd_" + id, EntityType: t, EntityID: id, Anchor: anchor, Title: title, Snippet: snip,
+		UpdatedAt: time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC),
+	}
+}
+
+func TestSearchBlocks_TierOne_DirectSiftOverWholeCatalog(t *testing.T) {
+	repo := newFakeRepo()
+	repo.blockRows = []*searchdomain.DocHit{
+		blockRow(searchdomain.TypeFunction, "fn_w", "", "天气查询", "查城市天气"),
+		blockRow(searchdomain.TypeHandler, "hd_m", "sendMail", "邮件.sendMail", "发送邮件"),
+		blockRow(searchdomain.TypeMCP, "mcp_s", "", "srv", "server card — no ref, must be filtered"),
+	}
+	sifter := &fakeSifter{picks: []int{1, 0}}
+	svc := New(repo, nil)
+	svc.SetSifter(sifter)
+
+	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "发邮件", nil, 0)
+	if err != nil {
+		t.Fatalf("blocks: %v", err)
+	}
+	// Whole wireable catalog (2 rows — the card dropped) went to the sifter; no
+	// index retrieval involved.
+	// 全部可接线目录（2 行——卡片被滤）直喂 sifter；不经索引检索。
+	if len(sifter.lastItems) != 2 {
+		t.Fatalf("sifter must see the whole wireable catalog, saw %d", len(sifter.lastItems))
+	}
+	if len(hits) != 2 || hits[0].Ref != "hd_m.sendMail" || hits[1].Ref != "fn_w" {
+		t.Fatalf("sift order must win: %+v", hits)
+	}
+}
+
+func TestSearchBlocks_TierTwo_RetrieveThenSift(t *testing.T) {
+	repo := newFakeRepo()
+	// Catalog far over the token budget → tier 1 skipped.
+	// 目录远超 token 预算 → 跳过第一档。
+	long := strings.Repeat("非常长的描述文本 ", 200)
+	for i := 0; i < 40; i++ {
+		repo.blockRows = append(repo.blockRows, blockRow(searchdomain.TypeFunction, fmt.Sprintf("fn_%02d", i), "", "函数", long))
+	}
+	repo.hits = []*searchdomain.DocHit{
+		dh(searchdomain.TypeFunction, "fn_07", 0, "", "目标函数", 9.0),
+		dh(searchdomain.TypeFunction, "fn_08", 0, "", "次选函数", 5.0),
+	}
+	sifter := &fakeSifter{picks: []int{1}}
+	svc := New(repo, nil)
+	svc.SetSifter(sifter)
+
+	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "目标", nil, 0)
+	if err != nil {
+		t.Fatalf("blocks: %v", err)
+	}
+	if len(sifter.lastItems) != 2 {
+		t.Fatalf("tier 2 must sift the retrieved candidates, saw %d", len(sifter.lastItems))
+	}
+	if len(hits) != 1 || hits[0].EntityID != "fn_08" {
+		t.Fatalf("sift pick must win: %+v", hits)
+	}
+}
+
+func TestSearchBlocks_TierThree_SiftFailureFallsBack(t *testing.T) {
+	repo := newFakeRepo()
+	repo.blockRows = []*searchdomain.DocHit{
+		blockRow(searchdomain.TypeFunction, "fn_w", "", "天气查询", "查城市天气"),
+	}
+	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeFunction, "fn_w", 0, "", "天气查询", 3.0)}
+	svc := New(repo, nil)
+	svc.SetSifter(&fakeSifter{fail: true})
+
+	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "天气", nil, 0)
+	if err != nil || len(hits) != 1 || hits[0].Ref != "fn_w" {
+		t.Fatalf("sift failure must fall back to index ranking: %v %+v", err, hits)
+	}
+}
+
+func TestRetrieve_ChunksWithFullBodies(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{
+		dh(searchdomain.TypeDocument, "doc_1", 1, "概述", "设计稿", 9.0),
+		dh(searchdomain.TypeDocument, "doc_2", 0, "", "另一篇", 4.0),
+	}
+	repo.hits[0].DocID, repo.hits[1].DocID = "sd_1", "sd_2"
+	repo.bodies = map[string]string{
+		"sd_1": "完整正文第一篇，比 snippet 长得多。",
+		"sd_2": "第二篇完整正文。",
+	}
+	svc := New(repo, nil)
+	chunks, err := svc.Retrieve(ctxWS("ws_a"), "设计", searchdomain.RetrieveOpts{TopK: 5})
+	if err != nil {
+		t.Fatalf("retrieve: %v", err)
+	}
+	if len(chunks) != 2 || chunks[0].Body != "完整正文第一篇，比 snippet 长得多。" || chunks[0].Anchor != "概述" {
+		t.Fatalf("chunks wrong: %+v", chunks)
+	}
+	// MaxChars truncates the budgeted tail.
+	// MaxChars 截断超预算尾部。
+	chunks, err = svc.Retrieve(ctxWS("ws_a"), "设计", searchdomain.RetrieveOpts{TopK: 5, MaxChars: 5})
+	if err != nil || len(chunks) != 1 || len([]rune(chunks[0].Body)) != 5 {
+		t.Fatalf("budget truncation wrong: %v %+v", err, chunks)
 	}
 }

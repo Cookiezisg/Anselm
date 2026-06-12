@@ -132,6 +132,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 接线，worker 于 App.Boot 启动。
 	searchSvc := searchapp.New(st.search, log)
 	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), searchengine.NewOllama("", ""))
+	searchSvc.SetSifter(&llmSifter{picker: ws, keys: keys, factory: inf.factory})
 
 	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
 	lookup := NewModelInfoLookup(modelCaps)
