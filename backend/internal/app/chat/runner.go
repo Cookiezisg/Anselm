@@ -48,7 +48,14 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 				default:
 				}
 			}
+			// running brackets processTask: once dequeued the task is invisible in the
+			// channel, so without the flag a concurrent Send would queue behind the user's
+			// back instead of getting STREAM_IN_PROGRESS.
+			// running 括住 processTask：task 一被取走在 channel 里就不可见，没有该标志，
+			// 并发 Send 会背着用户排队而非收到 STREAM_IN_PROGRESS。
+			q.setRunning(true)
 			s.processTask(conversationID, q, t)
+			q.setRunning(false)
 			idle.Reset(idleTimeout)
 
 		case <-idle.C:
@@ -61,7 +68,9 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 			select {
 			case t := <-q.ch:
 				q.mu.Unlock()
+				q.setRunning(true)
 				s.processTask(conversationID, q, t)
+				q.setRunning(false)
 				idle.Reset(idleTimeout)
 				continue
 			default:
@@ -144,6 +153,13 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	//
 	// loop.Run 总以恰一次 host.WriteFinalize（落盘 + message_stop）收尾，故此处 Result 冗余。
 	loopapp.Run(ctx, host, bundle.Client, req, s.maxSteps, s.log)
+
+	// The user-visible turn is over (finalized + message_stop) — release the in-flight gate
+	// BEFORE the synchronous tail: compaction below can be a real LLM call lasting seconds,
+	// and a follow-up Send right after the reply must queue (slot), not bounce with 409.
+	// 用户可见回合已结束（已落盘 + message_stop）——在同步尾活前释放在飞门：下面的压缩可能是
+	// 数秒级的真 LLM 调用，回复刚完用户接着发的消息应进槽排队、而不是被 409 弹回。
+	q.setRunning(false)
 
 	// After the first turn of an untitled conversation, auto-title it in the background
 	// (best-effort, detached). conv is the pre-turn snapshot, so its empty title is exactly the

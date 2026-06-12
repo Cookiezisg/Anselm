@@ -36,7 +36,7 @@ type searchPage struct {
 func searchQ(t *testing.T, wc *harness.Client, params string) searchPage {
 	t.Helper()
 	var page searchPage
-	wc.GET("/api/v1/search?" + params).OK(t, &page)
+	wc.GET("/api/v1/search?"+params).OK(t, &page)
 	return page
 }
 

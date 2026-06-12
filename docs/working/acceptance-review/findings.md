@@ -74,3 +74,23 @@ audience: [human, ai]
   - MCP：脚本 stdio server 全生命周期（PUT ready+tools schema 原样透传、`:invoke` 真调、**progress 通知真落调用 logs**、连续 3 失败翻 degraded→一次成功回 ready、失败调用附 stderr 尾、stderr ring、reconnect、删净 404）；错误路径（未知工具 502 `MCP_RPC_ERROR`、坏 command 落盘 failed+lastError 可 reconnect、死 remote 同语义、down 调用 503 `MCP_SERVER_DOWN`、未知 action 400）；import skip/overwrite 语义 + registry 全列 + 装未知 404 + 缺 env 422（下载前拦截）；**官方 filesystem server npx 真装**（node runtime 真下载、真读真文件、台账记账，22s）。
   - Search：8 类实体投影同索引综搜收敛、中文短词 LIKE 回退（2 rune「天气」/1 rune「猫」）、exact-name 置顶、垂搜 types/tags/归档过滤、FTS5 注入安全（6 种元字符/SQL 片段不 500）、`<mark>` 高亮；物化窗口分页 25 行 3 页不重不漏 total 稳定、异查询 cursor 400 `SEARCH_CURSOR_INVALID`；reindex 202 后命中恢复、settings 回显/非法 embedder 400/off 词法照常/ollama 指死端口软降级/空串重置默认；**RAG 真下载真嵌入**——builtin 引擎真装真 spawn，英文查询 `rain umbrella tomorrow forecast` 经向量命中纯中文文档《出行备忘》（零词法重叠 = RRF 融合的物理证明，缓存后 20s）。
 
+## W4 对话域（llmmock 驱动 chat 全链）
+
+llmmock 进场（`testend/harness/llmmock.go`）：OpenAI 兼容假模型 httptest server——真走 provider HTTP 链（请求构造/SSE 流解析/tool-call 组装/usage 记账全被压到）、按 model id 路由独立 FIFO 队列（dialogue 与 utility 互不抢帧）、每请求捕获为 **PromptDump**（模型在线缆上真看到什么 = 体验断言的事实源，柱 B promptdump 同源）。
+
+- **AC-16 🔴 `STREAM_IN_PROGRESS` 契约失效——流式中的 Send 被静默排队而非 409**（fixed）
+  真机：流式中（SSE 已见 delta）第二次 Send 返 202。根因：容量 5 的 channel + 任务被取走后即不可见——409 只在「积压 5 条」时触发；chat.md 与代码注释都宣称「正在流式直接 409」，注释自身两句互斥。修复：单槽 + `q.running` 标志（生成中拒）；**finalize 即放行**——回合收尾活（同步压缩检查可达秒级真 LLM 调用）期间的 Send 进槽排队，回复刚完就接着发的消息不被弹回。chat.md 同步重述。
+- **AC-17 🔴 provider tool-call id 直接当全局块 PK——撞键整回合静默丢失、行永卡 pending**（fixed）
+  真机：mock 每步发 `call_1`（index 风格 provider 如 deepseek/qwen 的家常）→ `WriteFinalize: UNIQUE constraint failed: message_blocks.id` → **「turn lost from history」**：整回合内容丢失、assistant 行永远 pending（前端永转圈、boot SweepOrphans 才扫成 cancelled）。messages.md 本就声明块 id 是 `blk_`——实现违约。修复：tool_call 块 id 一律服务端铸造（provider id 只是响应内关联句柄，accums 本按 ToolIndex 键控；历史回喂用块 id 配对 assistant tool_calls 与 tool 结果，provider 照单全收）；forge scope / interaction 键 / 溯源 ctx 全链随之一致；5 个单测从硬编码线缆 id 改读 pending id。
+- **AC-18 🔴 压缩水位线只投影 assistant 块——user 回合永远原文随行**（fixed）
+  真机：summary 落库、watermark>0，下一请求里 `TURN1-ANCIENT-MARKER` 仍逐字在场。根因：LoadHistory 的 user 分支绕过 `unfolded()`——摘要+原文双份在场，而用户粘贴正是上下文膨胀的大头，压缩对最该压的部分形同虚设。修复：全折叠 user 回合整条跳过（与 assistant 的 isEmptyAssistant 对称）。
+- **AC-19 🟢 EMPTY_CONTENT 不 trim**（fixed）：`"   "` 被 202 接受——落空白 user 回合、为空内容白付一次模型调用。TrimSpace 后再判。
+- **AC-20 🟡 能力目录只来自探测档案**（观察，不修）：apikey Create 不自动探测（TestStatusPending）；从未点 `:test` 的 key：模型窗口未知 → **压缩静默禁用**、附件保守渲染。与「utility 未配静默降级」同家族——前端设置页应提示「测试一下你的 key」。
+- **场景批（6 个全绿，71s）**：
+  - 主链：发送→流式→reasoning/tool_call/text 三块落盘；**懒工具自动发现**（请求 1 线缆工具集 resident-only、模型直接点名 run_function 仍跑、请求 2 起它进入工具集——AutoActivator 实证）；工具结果回喂；function 执行台账 chat 溯源（triggeredBy=chat + conversationId）；usage 精确和（mock 控的 300/40）；SSE 帧；system-prompt-preview。
+  - 人在环：dangerous 自报 → interactions 重同步 → approve 真跑（台账 +1）/ deny 不跑且拒绝回喂模型视角 / 重复决议 404 `NO_PENDING_INTERACTION`。
+  - 在途控制：SSE 见 delta 证明在飞（DB 行至 finalize 前保持 pending——流是实时事实源）、第二 Send 409、Cancel 落 cancelled。
+  - todo+标题：todo_write 落库可查、live 清单 reminder 出现在下一请求模型视角（不污染持久历史）、首回合 utility 自动起标题（用户已命名则不动）。
+  - 压缩长程：PATCH limits 调 triggerRatio、4 回合 ~30KB 灌注、真实 input token 越线 → utility 摘要 → **水位线投影实证**（下一请求带滚动摘要、TURN1 原文消失、当前问题在场）。
+  - 错误路径：空白 400、未知对话 404 `CONVERSATION_NOT_FOUND`、供应商连环 5xx 落 error 回合（`LLM_STREAM_ERROR`）、25 步触顶诚实报 `MAX_STEPS_REACHED`、全新未配模型 workspace 的 Send 被收下而回合以配置类错误码落地（产品的「去配模型」时刻）。
+
