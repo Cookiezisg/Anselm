@@ -276,6 +276,17 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 删对话连带取消在途生成（chat 满足该端口；后注入破 chat→conversation→chat 环）。
 	conv.SetGenerationCanceler(chat)
 
+	// apikey delete-guard (RefScanner): refuse to delete a key still referenced, so the
+	// reference never dangles. Two real sources — a workspace's scenario default models /
+	// search key, and an agent's pinned modelOverride; both implement RefScanner structurally.
+	// Without these the guard consults an empty scanner list and API_KEY_IN_USE can never fire.
+	//
+	// apikey 删除守卫（RefScanner）：仍被引用的 key 拒删，引用绝不悬空。两个真实来源——workspace
+	// 的 scenario 默认模型 / 搜索 key，与 agent 钉死的 modelOverride；二者结构上满足 RefScanner。
+	// 缺这两行则守卫询问空 scanner 列、API_KEY_IN_USE 永不触发。
+	keys.AddRefScanner(ws)
+	keys.AddRefScanner(ag)
+
 	// Workspace delete cascades (PD-1 plan A): kill every workflow's automation (detach
 	// listeners + cancel in-flight runs + inactive — idempotent on already-inactive ones, and
 	// it also reaps manually-triggered runs), stop the workspace's resident handler/mcp

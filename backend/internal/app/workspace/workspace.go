@@ -274,6 +274,37 @@ func (s *Service) DefaultSearchKeyID(ctx context.Context) (string, bool) {
 	return id, id != ""
 }
 
+// ReferencesAPIKey implements apikeyapp.RefScanner: the current workspace (id from ctx)
+// references an api-key when any scenario default model (dialogue/utility/agent) or the
+// default search key points at it. Deleting such a key would silently dangle the
+// workspace's model config, so apikey.Delete consults this scanner and refuses with
+// API_KEY_IN_USE. A missing workspace in ctx or an unreadable row is a scan miss (false),
+// never a hard error — a delete-guard must not block on its own lookup failing.
+//
+// ReferencesAPIKey 实现 apikeyapp.RefScanner：当前 workspace（id 取自 ctx）的任一 scenario
+// 默认模型（dialogue/utility/agent）或默认搜索 key 指向某 api-key 即算引用。删它会静默悬空
+// workspace 的模型配置，故 apikey.Delete 询问本 scanner、命中即拒删 API_KEY_IN_USE。ctx 无
+// workspace 或行读不到都算未命中（false）、绝不硬错——删除守卫不能因自身查询失败而挡删。
+func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, error) {
+	if apiKeyID == "" {
+		return false, nil
+	}
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return false, nil
+	}
+	w, err := s.repo.Get(ctx, wsID)
+	if err != nil {
+		return false, nil
+	}
+	for _, scenario := range modeldomain.ListScenarios() {
+		if ref := w.DefaultFor(scenario); ref != nil && ref.APIKeyID == apiKeyID {
+			return true, nil
+		}
+	}
+	return strings.TrimSpace(w.DefaultSearchKeyID) == apiKeyID, nil
+}
+
 // WebFetchMode resolves the current workspace's web-fetch mode for the WebFetch tool:
 // "local" (direct GET, the default) or "jina" (third-party reader). Any failure to read the
 // workspace falls back to local — never leak a URL on a degraded path (PD-4 decision C).

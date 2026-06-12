@@ -28,7 +28,7 @@ audience: [human, ai]
 
 **产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make testend`）+ 金标套件（`make evals`）+ promptdump 体验审计 + 终报。
 
-**当前进度**：W0–W4 ✅（环境座架 / 锻造域 / 编排域 / 集成域 / 对话域），全套 `make testend` 零失败、`make verify` 绿。**下一波 = W5 平台域 + 涟漪矩阵**。
+**当前进度**：W0–W5 ✅（环境座架 / 锻造域 / 编排域 / 集成域 / 对话域 / 平台域+涟漪矩阵），全套 `make testend` 零失败、`make verify` 绿。**下一波 = W6 体验静态（柱 B：六视角×六状态 promptdump 审读 / 可见性矩阵 / prompt lint）**，见 §8。
 
 ---
 
@@ -60,7 +60,7 @@ audience: [human, ai]
 
 到目前为止抓到的 bug 高度同型。新场景写之前，主动按这些模式去"找茬"：
 
-1. **设计完整、接线缺失**（出现 8+ 次，本轮最高产）：domain/store/工具全做了，**只缺一处接线**，于是功能名义存在、物理失效。已证实：AC-9（并发政策无设置口）、AC-10（`ExtractMeta` 零调用 → set_meta no-op）、AC-13（`mcp-calls/{id}` 缺路由）；产品审查期还有 limits 空壳 / todo_write / 唤回环 / 活监听重绑 / `GetRegistryEntry`。**修法永远是"接上已有的件"，不是"造新件"**。找法：顺着一条链 store→app→transport→tool 逐跳问"这跳真有调用方吗"。
+1. **设计完整、接线缺失**（出现 9+ 次，本轮最高产）：domain/store/工具全做了，**只缺一处接线**，于是功能名义存在、物理失效。已证实：AC-9（并发政策无设置口）、AC-10（`ExtractMeta` 零调用 → set_meta no-op）、AC-13（`mcp-calls/{id}` 缺路由）、**AC-21（apikey `RefScanner` 端口 + Delete 循环 + 单测 + 文档全在，但 `AddRefScanner` 生产零调用 → `API_KEY_IN_USE` 永不触发）**；产品审查期还有 limits 空壳 / todo_write / 唤回环 / 活监听重绑 / `GetRegistryEntry`。**修法永远是"接上已有的件"，不是"造新件"**。找法：顺着一条链 store→app→transport→tool 逐跳问"这跳真有调用方吗"——尤其留意"端口定义了、有单测（注入 fake）、有文档承诺，但 boot 从没注册真实现"这种最阴的接线缺失（单测+code review+doc 全绿，唯独线缆断）。
 2. **契约名义存在、物理失效**：AC-16 `STREAM_IN_PROGRESS` 注释/文档都说"直接 409"，实际容量 5 channel 静默排队、注释自身两句互斥。找法：凡是"按文档应该报错/拒绝"的路径，真去触发它，别信注释。
 3. **provider 线缆习惯触雷**：假模型/真模型按 OpenAI 惯例发的东西打爆后端假设。AC-11（nil→`json.Marshal`→`null`→`f(**None)` TypeError）、AC-17（每步复用 `call_1` → 撞 `message_blocks.id` 主键 → 整回合丢失、行永卡 pending）。找法：让 mock 发"index 风格 id"（`call_1` 每步复用）、发 nil input、发空 content、发多 tool_calls 同批——这些都是 deepseek/qwen 等真 provider 的家常。
 4. **不变量只覆盖一半**：AC-18 压缩水位线投影只作用于 assistant 块、user 回合绕过 `unfolded()`。找法：凡有"对称两侧"的逻辑（user/assistant、create/delete、活/休眠），验两侧都覆盖。
@@ -244,8 +244,9 @@ func TestDomain_Situation(t *testing.T) {
 | **W2** | 编排域 workflow/trigger/flowrun | 🔴 **AC-9**（并发政策无设置口）、🔴 **AC-10**（`ExtractMeta` 零调用 set_meta no-op）、🔴 **AC-11**（nil-input 触发零参实体必崩）；AC-12（cron 错误消息指路）。**kill -9 崩溃恢复 PASS**（durable 终极考试）。harness 增 `Kill9`/`Restart`/`Try`。 |
 | **W3** | 集成域 MCP+Search | 🟠 **AC-13**（`mcp-calls/{id}` 缺路由）、🟠 **AC-14**（Status() 与下载抢锁挂 52.7s）；AC-15（memory 必填 by-design）。runtime 缓存 all-or-nothing bug 修复。9 新场景：MCP 真装真调（脚本 stdio + 官方 filesystem npx）、Search 全况（8 实体投影 + 中文短词 + FTS 注入安全 + **RAG 真下载真嵌入跨语言命中**）。 |
 | **W4** | 对话域 chat 全链 | **llmmock + promptdump 进场**。🔴 **AC-16**（`STREAM_IN_PROGRESS` 名义存在物理失效）、🔴 **AC-17**（provider tool-call id 撞主键整回合丢失行永卡 pending）、🔴 **AC-18**（压缩水位线只折叠 assistant、user 原文永随行）；AC-19（EMPTY_CONTENT 不 trim）、AC-20（能力目录仅来自探测，观察不修）。6 场景：主链+懒工具自动发现、人在环 approve/deny、在飞 409+Cancel、todo+起标题、压缩水位线投影、错误路径。 |
+| **W5** | 平台域 A9 + 涟漪矩阵 A10 | 🔴 **AC-21**（apikey `API_KEY_IN_USE` 守卫 `AddRefScanner` 生产零调用→永不触发；修复=boot 注册 workspace+agent 两 scanner）、🟡 **AC-22**（chat `maxSteps` 构造时捕获→`PATCH /limits` 不热换；修复=runner 改实时 `Current()` 读）；AC-23（limits 11 字段全有真消费方，非空壳，by-design）。8 场景：workspace CRUD/校验/activate/最后一个拒删/删除级联、apikey 探活+被引用拒删三来源、model scenarios/caps、limits 热换（含 promptdump 验 tool_result 截断）、notification 已读流转、sandbox 治理、relation equip 边+改名跟随+删除清边。 |
 
-**关键洞见**：W4 三条 🔴 全是读码审查抓不到的——它们需要真 index 风格 provider（AC-17）、真落库的摘要（AC-18）、真流式重叠（AC-16）。这验证了整个黑盒+llmmock 路线的价值。
+**关键洞见**：W4 三条 🔴 全是读码审查抓不到的——它们需要真 index 风格 provider（AC-17）、真落库的摘要（AC-18）、真流式重叠（AC-16）。W5 AC-21 同理：端口+单测+文档全绿、唯独 boot 没注册真 scanner，只有"真删一个在用 key 拿到 204"才暴露。这验证了整个黑盒+llmmock 路线的价值。
 
 **未决裁决**：DECISIONS-PENDING.md 目前只有 AC-PD-1（同步 env 物化，已关闭 by-design）。新发现的"大决策"往这张表加。
 

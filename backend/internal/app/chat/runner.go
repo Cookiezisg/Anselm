@@ -10,6 +10,7 @@ import (
 	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
+	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -149,10 +150,12 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	req.System = s.buildSystemPrompt(ctx, conv)
 
 	// loop.Run always ends with exactly one host.WriteFinalize (persist + message_stop), so the
-	// Result is redundant here.
+	// Result is redundant here. maxSteps is read live (not captured at construction) so a
+	// PATCH /limits hot-swap takes effect on the next turn — like every other limits consumer.
 	//
 	// loop.Run 总以恰一次 host.WriteFinalize（落盘 + message_stop）收尾，故此处 Result 冗余。
-	loopapp.Run(ctx, host, bundle.Client, req, s.maxSteps, s.log)
+	// maxSteps 实时读取（非构造时捕获），故 PATCH /limits 热换下一回合即生效——与其余 limits 消费方一致。
+	loopapp.Run(ctx, host, bundle.Client, req, limitspkg.Current().Agent.MaxSteps, s.log)
 
 	// The user-visible turn is over (finalized + message_stop) — release the in-flight gate
 	// BEFORE the synchronous tail: compaction below can be a real LLM call lasting seconds,

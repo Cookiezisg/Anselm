@@ -94,3 +94,20 @@ llmmock 进场（`testend/harness/llmmock.go`）：OpenAI 兼容假模型 httpte
   - 压缩长程：PATCH limits 调 triggerRatio、4 回合 ~30KB 灌注、真实 input token 越线 → utility 摘要 → **水位线投影实证**（下一请求带滚动摘要、TURN1 原文消失、当前问题在场）。
   - 错误路径：空白 400、未知对话 404 `CONVERSATION_NOT_FOUND`、供应商连环 5xx 落 error 回合（`LLM_STREAM_ERROR`）、25 步触顶诚实报 `MAX_STEPS_REACHED`、全新未配模型 workspace 的 Send 被收下而回合以配置类错误码落地（产品的「去配模型」时刻）。
 
+## W5 平台域（workspace / apikey / model / limits / notification / sandbox / relation）+ 涟漪矩阵 A10
+
+- **AC-21 🔴 `API_KEY_IN_USE` 删除守卫接线于无——任何被引用的 api-key 都能被删、引用静默悬空**（fixed）
+  真机：把 key 设为 workspace dialogue 默认模型后 `DELETE /api-keys/{id}` 返 **204**（应 422）。根因：apikey.Service 的 `RefScanner` 端口 + `Delete` 的 scanner 循环 + `ErrInUse`/`API_KEY_IN_USE` + 单测（`fakeScanner`）+ 文档承诺（support-services「删除前查引用」）**全在**，但 `AddRefScanner` **生产侧零调用**——scanner 列恒空 → 守卫永真放行。**第 9 个「设计完整、接线缺失」**，且最阴：单测注入 fake 故绿、code review 见守卫、doc 称其有，唯独线缆被剪；只有真删一个在用 key 拿到 204 才暴露。删后 workspace 默认/agent override 指向死 key → 下次 chat/invoke 以晦涩解析错误崩，而非删时一句干净的「key 在用」。修复：boot 注册两个真 scanner——`workspace.ReferencesAPIKey`（三 scenario 默认模型 + 默认搜索 key）与 `agent.ReferencesAPIKey`（active 版本 modelOverride），均结构上满足 RefScanner、于 build_services 后注入；三引用来源黑盒逐一验拒删。文档承诺自此为真（doc 本就对、code 补齐）。
+- **AC-22 🟡 chat `maxSteps` 构造时捕获、`PATCH /limits` 不热换——唯一不实时读的 limits 字段**（fixed）
+  真机：`PATCH /limits {agent:{maxSteps:2}}` 后 `GET /limits` 回读为 2（settings 已热换），但驱动一个无限点工具的对话仍跑满（未在 2 步触顶）。根因：`chat.go` 的 `New()` 把 `limitspkg.Current().Agent.MaxSteps` 一次性存进 `s.maxSteps` 字段——而 limits 包文档/CLAUDE/api.md 均承诺「消费方下次读取即生效」，其余字段（ToolResultCapKB/InvokeMaxTurns/MCPCallSec…）都在用点 `Current()` 实时读，独此一个构造时定死。修复：删 `s.maxSteps` 字段，`runner.go` 调用点改实时读 `limitspkg.Current().Agent.MaxSteps`——热换下一回合即生效，与全体 limits 消费方一致。
+- **AC-23 🟢 limits 11 字段全有真消费方（非空壳）**（by-design 关闭）：逐字段 grep 消费点——MaxSteps→chat、InvokeMaxTurns→agent、TriggerRatio→contextmgr、LLMIdleSec→infra/llm、MCPCallSec→mcp、BashDefaultTimeoutSec/BashOutputCapKB→shell、ReadDefaultLines→filesystem、ToolResultCapKB→loop、AttachmentMaxMB→attachment+上传、WebhookBodyMaxMB→webhook，全部在场。product-review 已硬化过的 limits 这轮无新空壳；本轮验的是**运行时热换真生效**（AC-22 即唯一漏网）。
+- **场景批（8 个全绿，73s）**：
+  - workspace：CRUD + 校验四态（空名 `WORKSPACE_NAME_REQUIRED`/重名 `WORKSPACE_NAME_CONFLICT`/非法语言/非法 webFetchMode）+ `:activate` 刷 lastUsedAt + 最后一个拒删 `CANNOT_DELETE_LAST_WORKSPACE`（删到只剩 1 时精确触发）。
+  - 删除级联：含 function（落盘 env）+ 对话的 workspace 删除及时 204（Reaper 跑完不挂死）→ ws 行 404 → 其下数据带旧头不可达。
+  - apikey：创建校验（未知 provider/空 key）+ `:test` 两态（活 200/死 baseUrl 422）+ 重名 409 + **被引用拒删三来源全验**（dialogue 默认 / 默认搜索 key / agent override）。
+  - model：scenarios 白名单（dialogue/utility/agent）+ 默认模型校验（非法 scenario `MODEL_SCENARIO_INVALID`/残缺 ref `MODEL_REF_INVALID`）+ capabilities 经探测档案聚合现身 mock 模型。
+  - limits：非法 triggerRatio 400 `SETTINGS_LIMITS_INVALID` + maxSteps=2 热换真 2 步触顶 + **toolResultCapKB=1 经 promptdump 实证**模型真收到被截到 ~1KB 的 tool_result（5KB 函数返回值）。
+  - notification：function.created 真落 → list/未读计数/标已读减计/全标已读归零。
+  - sandbox：bootstrap-status + runtimes 列 + disk-usage 物化后 >0 + envs ownerKind 守卫（缺失/非法各 400）+ 单 env 销毁 204。
+  - relation（A10 涟漪）：agent equip function → neighborhood 现 equip 边（toName hydrate）；改 function 名 → 边 toName 自动跟随（图存 id、名读时取）；relgraph 全景含 agent；删 function → PurgeEntity 清边（neighborhood 不再含 fnId）。
+

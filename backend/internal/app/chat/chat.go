@@ -41,7 +41,6 @@ import (
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -211,7 +210,6 @@ type Service struct {
 	deps             Deps
 	searchTool       toolapp.Tool                                         // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
 	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type at M7
-	maxSteps         int
 	log              *zap.Logger
 
 	// broker is the human-in-the-loop broker (R0064): seeded into every turn's ctx so the loop's
@@ -241,7 +239,6 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 		deps:             deps,
 		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
-		maxSteps:         limitspkg.Current().Agent.MaxSteps,
 		log:              log,
 		stop:             make(chan struct{}),
 	}
