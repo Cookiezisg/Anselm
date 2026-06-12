@@ -142,6 +142,11 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
 	}
+	// A live (active) workflow whose edit changed the entry trigger refs must rebind NOW:
+	// the binder still holds the old graph's refs (see rebindIfListening).
+	// 活（active）workflow 的编辑若改了入口 trigger ref，必须立刻重绑：binder 还挂着旧图的 ref
+	// （见 rebindIfListening）。
+	s.rebindIfListening(ctx, w, base, graph)
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, workflowdomain.VersionCap); err != nil {
 		s.log.Warn("workflowapp.Edit: trim versions failed", zap.String("workflowId", in.ID), zap.Error(err))
 	}
@@ -162,17 +167,25 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*wo
 	if err != nil {
 		return nil, fmt.Errorf("workflowapp.Revert: %w", err)
 	}
+	// Snapshot the OLD active graph before the pointer moves — a revert can change the entry
+	// trigger refs just like an edit, and a live listener must rebind (see rebindIfListening).
+	// 在指针移动前快照**旧** active 图——revert 与 edit 一样可能换入口 trigger ref，活监听必须重绑
+	// （见 rebindIfListening）。
+	w, err := s.repo.GetWorkflow(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("workflowapp.Revert: %w", err)
+	}
+	oldGraph, _ := s.activeGraph(ctx, w)
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Revert: %w", err)
 	}
 	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion})
 
-	if w, gerr := s.repo.GetWorkflow(ctx, id); gerr == nil {
-		w.ActiveVersionID = target.ID
-		if g, perr := decodeGraph(target.Graph); perr == nil {
-			s.syncRelations(ctx, w, target, g)
-			target.GraphParsed = g
-		}
+	w.ActiveVersionID = target.ID
+	if g, perr := decodeGraph(target.Graph); perr == nil {
+		s.rebindIfListening(ctx, w, oldGraph, g)
+		s.syncRelations(ctx, w, target, g)
+		target.GraphParsed = g
 	}
 	return target, nil
 }

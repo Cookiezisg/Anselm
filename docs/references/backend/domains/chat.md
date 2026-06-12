@@ -28,7 +28,7 @@ audience: [human, ai]
 - **Tools 每步重算**：resident + `search_tools` + 本对话已 discovered 的 lazy 工具（记在 AgentState）；**AutoActivator**——LLM 直接点名 lazy 工具时自动标记 discovered（免先跑 search_tools）。
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **WriteFinalize 在 Detached ctx**：用户中途关页也绝不留永久 streaming 孤儿；**硬崩溃**（kill -9）的孤儿由 boot 对账兜底（`SweepOrphans`——每 workspace 把 pending/streaming 行扫成 cancelled，messages 版 scheduler.Recover）。
-- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。
+- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 未配时的全降级面**：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引——对话主链路（dialogue 模型）不受影响，但这些静默缺席的归因口前端应在设置页提示「未配 utility 模型」。
 - maxSteps=25（高于 agent 的 10——交互对话合理串更多步）；触顶诚实报 `max_steps` + "继续"提示。
 
 ## 4. 人在环（R0064）
