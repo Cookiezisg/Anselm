@@ -17,6 +17,8 @@ audience: [human, ai]
 
 第四种审查：前三种（实现正确性 / 设计自洽 / 闭环配对）都是读码推演，本轮**真开机真打**——全部 feature × 全部情况 × 涟漪面，三列判定（用户面 / 产品逻辑 / LLM 面），外加六视角×六状态体验审查。完整计划见 [PLAN.md](PLAN.md)。
 
+> **换 agent 接手？先读 [HANDOFF.md](HANDOFF.md)** —— 操作手册 + 方法论 + harness/llmmock API 速查 + bug 模式图谱 + W5 逐步接手指南。读它即可无缝续跑、标准不变。
+
 ## 规则
 
 - 分支 `acceptance-review`；场景即 go test（testend/scenarios，黑盒零 backend import）；发现 PR-N 亲验落 [findings.md](findings.md)；能修顺手修、产品裁决留 [DECISIONS-PENDING.md](DECISIONS-PENDING.md)；每波 verify+testend 双绿收口提交。
