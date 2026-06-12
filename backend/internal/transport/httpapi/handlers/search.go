@@ -40,6 +40,47 @@ func NewSearchHandler(svc *searchapp.Service, log *zap.Logger) *SearchHandler {
 func (h *SearchHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/search", h.Search)
 	mux.HandleFunc("POST /api/v1/search:reindex", h.Reindex)
+	mux.HandleFunc("GET /api/v1/search/settings", h.GetSettings)
+	mux.HandleFunc("PATCH /api/v1/search/settings", h.PatchSettings)
+}
+
+// GetSettings handles GET /api/v1/search/settings — the machine-level embedder
+// choice + live engine status (the model/engine are install-once per machine,
+// shared by every workspace, hence not a workspaces column).
+//
+// GetSettings 处理 GET /api/v1/search/settings——机器级 embedder 选择 + 引擎实时
+// 状态（模型/引擎装机一次、全 workspace 共用，故不是 workspaces 列）。
+func (h *SearchHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
+	view, err := h.svc.Settings(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, view)
+}
+
+type patchSearchSettingsRequest struct {
+	Embedder string `json:"embedder"`
+}
+
+// PatchSettings handles PATCH /api/v1/search/settings — switch embedder
+// (builtin|ollama|off); old-model vectors invalidate by the model column and
+// re-embed in the background.
+//
+// PatchSettings 处理 PATCH /api/v1/search/settings——切 embedder（builtin|ollama|off）；
+// 旧模型向量按 model 列失效、后台重嵌。
+func (h *SearchHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
+	var req patchSearchSettingsRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	view, err := h.svc.SetEmbedder(r.Context(), req.Embedder)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, view)
 }
 
 // Search handles GET /api/v1/search?q=&types=&tags=&updatedAfter=&updatedBefore=&includeArchived=&cursor=&limit=.

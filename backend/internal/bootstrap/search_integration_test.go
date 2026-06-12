@@ -154,3 +154,51 @@ func TestBuild_SearchHTTPSurface(t *testing.T) {
 		t.Fatalf("reindex status = %d, want 202", resp.StatusCode)
 	}
 }
+
+// TestBuild_SearchSettingsSurface proves the settings wire: default builtin,
+// PATCH switches, invalid values reject with the domain code.
+//
+// TestBuild_SearchSettingsSurface 证明 settings 线缆：默认 builtin、PATCH 可切、
+// 非法值按域码拒绝。
+func TestBuild_SearchSettingsSurface(t *testing.T) {
+	app, err := Build(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer app.svc.search.Close()
+	srv := httptest.NewServer(app.Handler)
+	defer srv.Close()
+
+	ws, err := app.svc.workspace.Create(context.Background(), workspaceapp.CreateInput{Name: "settings 测试"})
+	if err != nil {
+		t.Fatalf("create workspace: %v", err)
+	}
+	do := func(method, path, body string) (int, string) {
+		var rdr io.Reader
+		if body != "" {
+			rdr = strings.NewReader(body)
+		}
+		req, _ := http.NewRequest(method, srv.URL+path, rdr)
+		req.Header.Set(middlewarehttpapi.HeaderWorkspaceID, ws.ID)
+		if body != "" {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", method, path, err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	if code, body := do(http.MethodGet, "/api/v1/search/settings", ""); code != 200 || !strings.Contains(body, `"embedder":"builtin"`) {
+		t.Fatalf("default settings: %d %s", code, body)
+	}
+	if code, body := do(http.MethodPatch, "/api/v1/search/settings", `{"embedder":"off"}`); code != 200 || !strings.Contains(body, `"status":"off"`) {
+		t.Fatalf("switch off: %d %s", code, body)
+	}
+	if code, body := do(http.MethodPatch, "/api/v1/search/settings", `{"embedder":"cloud"}`); code != 400 || !strings.Contains(body, "SEARCH_EMBEDDER_INVALID") {
+		t.Fatalf("invalid embedder: %d %s", code, body)
+	}
+}

@@ -63,6 +63,16 @@ type Service struct {
 	log     *zap.Logger
 
 	reindexing atomic.Bool
+
+	// Semantic layer (§8): two adapters, the active one resolved per call from
+	// search_meta; vectors cached per workspace; backfill runs on its own worker.
+	// 语义层（§8）：两个适配器、按 search_meta 逐次解析生效者；向量按 workspace 缓存；
+	// 补算走独立 worker。
+	builtinProv searchdomain.EmbeddingProvider
+	ollamaProv  searchdomain.EmbeddingProvider
+	vectors     *vecCache
+	embedKick   chan string
+	embedQuit   chan struct{}
 }
 
 // New builds the Service; register sources before Start.
@@ -73,11 +83,15 @@ func New(repo searchdomain.Repository, log *zap.Logger) *Service {
 		log = zap.NewNop()
 	}
 	s := &Service{
-		repo:    repo,
-		sources: map[searchdomain.EntityType]Source{},
-		log:     log,
+		repo:      repo,
+		sources:   map[searchdomain.EntityType]Source{},
+		log:       log,
+		vectors:   newVecCache(),
+		embedKick: make(chan string, embedKickQueue),
+		embedQuit: make(chan struct{}),
 	}
 	s.indexer = newIndexer(repo, s.sources, log)
+	s.indexer.onApplied = s.kickEmbed
 	return s
 }
 
@@ -100,6 +114,7 @@ func (s *Service) Notifier() searchdomain.Notifier { return s.indexer }
 // 绝不阻塞 boot。
 func (s *Service) Start(workspaceIDs []string) {
 	s.indexer.start()
+	go s.embedWorker()
 	go func() {
 		ctx := reqctxpkg.Detached("")
 		v, err := s.repo.GetMeta(ctx, metaSchemaKey)
@@ -117,14 +132,23 @@ func (s *Service) Start(workspaceIDs []string) {
 		}
 		for _, ws := range workspaceIDs {
 			s.indexer.reconcile(reqctxpkg.Detached(ws), ws)
+			s.kickEmbed(ws)
 		}
 	}()
 }
 
-// Close stops the index worker.
+// Close stops the index worker, the embed worker and any provider subprocess.
 //
-// Close 停索引 worker。
-func (s *Service) Close() { s.indexer.close() }
+// Close 停索引 worker、嵌入 worker 与 provider 子进程。
+func (s *Service) Close() {
+	close(s.embedQuit)
+	s.indexer.close()
+	for _, p := range []searchdomain.EmbeddingProvider{s.builtinProv, s.ollamaProv} {
+		if c, ok := p.(ProviderCloser); ok {
+			c.Close()
+		}
+	}
+}
 
 // ReconcileWorkspace re-diffs one workspace on demand (workspace switch /
 // tests).
@@ -153,7 +177,9 @@ func (s *Service) Reindex(ctx context.Context) error {
 			s.log.Warn("search reindex: purge failed", zap.Error(err))
 			return
 		}
+		s.vectors.invalidate(wsID)
 		s.indexer.reconcile(dctx, wsID)
+		s.kickEmbed(wsID)
 	}()
 	return nil
 }
@@ -162,6 +188,7 @@ func (s *Service) Reindex(ctx context.Context) error {
 //
 // PurgeWorkspace 是 workspace 删除级联钩子。
 func (s *Service) PurgeWorkspace(ctx context.Context, wsID string) error {
+	s.vectors.invalidate(wsID)
 	return s.repo.PurgeWorkspace(ctx, wsID)
 }
 
@@ -232,6 +259,7 @@ func (s *Service) window(ctx context.Context, q *searchdomain.Query, foldByEntit
 	if err != nil {
 		return nil, fmt.Errorf("search: lexical: %w", err)
 	}
+	lex = s.fuseSemantic(ctx, q, lex)
 	hits := fold(lex, foldByEntity)
 	boost(hits, q.Q)
 	sort.SliceStable(hits, func(i, j int) bool {

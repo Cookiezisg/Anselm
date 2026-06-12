@@ -59,6 +59,7 @@ import (
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
+	searchengine "github.com/sunweilin/forgify/backend/internal/infra/search/engine"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -130,6 +131,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// search：所有出口背后的同一个引擎（综搜/垂搜/积木/RAG）；source 与 notifier 在装配后
 	// 接线，worker 于 App.Boot 启动。
 	searchSvc := searchapp.New(st.search, log)
+	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), searchengine.NewOllama("", ""))
 
 	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
 	lookup := NewModelInfoLookup(modelCaps)
@@ -400,6 +402,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 // 不持有宿主状态。PythonEnvManager 以 Service 作 ToolRegistry。
 func registerSandboxStack(svc *sandboxapp.Service) {
 	for _, inst := range sandboxinfra.DirectInstallers() {
+		svc.RegisterInstaller(inst)
+	}
+	// Search embedder artifacts (llama-server + GGUF model) ride the same
+	// installer registry — one download discipline for everything (§decisions/0001).
+	// 搜索 embedder 产物（llama-server + GGUF 模型）走同一 installer 注册表——
+	// 全部下载共用一套纪律（§decisions/0001）。
+	for _, inst := range sandboxinfra.EngineInstallers() {
 		svc.RegisterInstaller(inst)
 	}
 	svc.RegisterInstaller(sandboxinfra.NewDockerInstaller())

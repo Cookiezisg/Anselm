@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +26,10 @@ type fakeRepo struct {
 	meta     map[string]string
 	purged   []string
 	purgeGo  chan struct{} // non-nil → PurgeWorkspace blocks until closed. 非 nil → PurgeWorkspace 阻塞到关闭。
+
+	embedded   map[string][]float32 // key: model/docID
+	embedQueue []searchdomain.EmbedDoc
+	docsByID   map[string]*searchdomain.DocHit
 }
 
 func newFakeRepo() *fakeRepo {
@@ -391,5 +396,174 @@ func TestSearchBlocks_PaletteSemantics(t *testing.T) {
 	}
 	if _, err := svc.SearchBlocks(ctxWS("ws_a"), "x", []searchdomain.EntityType{searchdomain.TypeConversation}, 0); !errors.Is(err, searchdomain.ErrTypeInvalid) {
 		t.Fatalf("non-block kind must be rejected: %v", err)
+	}
+}
+
+// --- semantic-layer fakes ----------------------------------------------------
+
+func (f *fakeRepo) UpsertEmbedding(_ context.Context, docID, model string, vec []float32) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.embedded == nil {
+		f.embedded = map[string][]float32{}
+	}
+	f.embedded[model+"/"+docID] = vec
+	return nil
+}
+
+func (f *fakeRepo) MissingEmbeddings(_ context.Context, model string, limit int) ([]searchdomain.EmbedDoc, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []searchdomain.EmbedDoc
+	for _, d := range f.embedQueue {
+		if _, ok := f.embedded[model+"/"+d.DocID]; ok {
+			continue
+		}
+		out = append(out, d)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) WorkspaceVectors(_ context.Context, model string) (map[string][]float32, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := map[string][]float32{}
+	for k, v := range f.embedded {
+		if strings.HasPrefix(k, model+"/") {
+			out[strings.TrimPrefix(k, model+"/")] = v
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) DocsByIDs(_ context.Context, ids []string) ([]*searchdomain.DocHit, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []*searchdomain.DocHit
+	for _, id := range ids {
+		if dh, ok := f.docsByID[id]; ok {
+			out = append(out, dh)
+		}
+	}
+	return out, nil
+}
+
+// fakeProvider returns scripted vectors keyed by exact text.
+//
+// fakeProvider 按精确文本返回预置向量。
+type fakeProvider struct {
+	model string
+	vecs  map[string][]float32
+	fail  bool
+}
+
+func (f *fakeProvider) Model() string { return f.model }
+
+func (f *fakeProvider) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	if f.fail {
+		return nil, errors.New("provider down")
+	}
+	out := make([][]float32, len(texts))
+	for i, t := range texts {
+		v, ok := f.vecs[t]
+		if !ok {
+			v = []float32{0, 0, 1}
+		}
+		out[i] = v
+	}
+	return out, nil
+}
+
+func TestHybrid_SemanticOnlyHitSurfaces(t *testing.T) {
+	repo := newFakeRepo()
+	// Lexical finds doc A; doc B matches only semantically (vector near query).
+	// 词法命中 A；B 只有语义相近（向量贴近查询）。
+	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "天气预报文档", 5.0)}
+	repo.hits[0].DocID = "sd_a"
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_b": {DocID: "sd_b", EntityType: searchdomain.TypeDocument, EntityID: "doc_b", Title: "气象播报", Snippet: "正文头部", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+	}
+	repo.embedded = map[string][]float32{
+		"m1/sd_b": {1, 0, 0},
+		"m1/sd_a": {0, 1, 0},
+	}
+	svc := New(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"天气": {1, 0, 0}}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气", IncludeArchived: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, h := range page.Hits {
+		ids[h.EntityID] = true
+	}
+	if !ids["doc_a"] || !ids["doc_b"] {
+		t.Fatalf("hybrid must surface both lexical and semantic-only hits: %+v", page.Hits)
+	}
+}
+
+func TestHybrid_DegradesWhenProviderFails(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "天气预报文档", 5.0)}
+	repo.hits[0].DocID = "sd_a"
+	repo.embedded = map[string][]float32{"m1/sd_a": {0, 1, 0}}
+	svc := New(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", fail: true}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气", IncludeArchived: true})
+	if err != nil || len(page.Hits) != 1 {
+		t.Fatalf("provider failure must degrade to lexical, got %v %+v", err, page)
+	}
+
+	// embedder=off skips fusion entirely.
+	// embedder=off 完全跳过融合。
+	repo.meta["embedder"] = searchdomain.EmbedderOff
+	if page, err = svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气", IncludeArchived: true}); err != nil || len(page.Hits) != 1 {
+		t.Fatalf("off mode must stay lexical: %v %+v", err, page)
+	}
+}
+
+func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
+	repo := newFakeRepo()
+	repo.embedQueue = []searchdomain.EmbedDoc{
+		{DocID: "sd_1", Title: "标题", Body: "正文"},
+		{DocID: "sd_2", Title: "另一", Body: "再来"},
+	}
+	svc := New(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{}}, nil)
+	svc.Start(nil)
+	defer svc.Close()
+
+	svc.kickEmbed("ws_a")
+	waitFor(t, func() bool {
+		repo.mu.Lock()
+		defer repo.mu.Unlock()
+		return len(repo.embedded) == 2
+	})
+}
+
+func TestSettings_SwitchAndValidate(t *testing.T) {
+	repo := newFakeRepo()
+	svc := New(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1"}, &fakeProvider{model: "ollama:x"})
+
+	view, err := svc.Settings(ctxWS("ws_a"))
+	if err != nil || view.Embedder != searchdomain.EmbedderBuiltin {
+		t.Fatalf("default must be builtin: %v %+v", err, view)
+	}
+	if _, err := svc.SetEmbedder(ctxWS("ws_a"), "nope"); !errors.Is(err, searchdomain.ErrEmbedderInvalid) {
+		t.Fatalf("invalid embedder: %v", err)
+	}
+	view, err = svc.SetEmbedder(ctxWS("ws_a"), searchdomain.EmbedderOff)
+	if err != nil || view.Embedder != searchdomain.EmbedderOff || view.Engine.Status != "off" {
+		t.Fatalf("off switch: %v %+v", err, view)
+	}
+	view, err = svc.SetEmbedder(ctxWS("ws_a"), searchdomain.EmbedderOllama)
+	if err != nil || view.Engine.Model != "ollama:x" {
+		t.Fatalf("ollama switch: %v %+v", err, view)
 	}
 }

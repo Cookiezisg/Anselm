@@ -28,6 +28,14 @@ audience: [human, ai]
 
 四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎，`toolapp.ContentSearch`：非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve` RAG 内部口（M3）。
 
+## 语义层（默认混合）
+
+- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，五平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、Close 优雅停；`Ollama` = 本机 `/api/embed` 复用其模型库。
+- **配置**：机器级 `search_meta.embedder = builtin|ollama|off`（空=builtin），经 `GET/PATCH /search/settings`；**检索模式无配置**——恒混合、降级自动。
+- **补算**：独立 embed worker（与索引 worker 分离，下载/嵌入绝不阻塞 FTS）；索引写成功与 boot 对账后 kick；缺生效模型向量的行批 ≤32 补嵌（title+body，CapRunes）；provider 出错停本轮等下次 kick。
+- **融合**：查询时 provider 在场且向量就绪 → 余弦 top-100 与词法 top-100 做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存，upsert/purge/切换失效。
+- **换 embedder**：`search_embeddings.model` 逐行记账——旧模型行对新模型即「缺向量」，自动重嵌，绝不混用。
+
 ## 关键不变量
 
 1. `infra/search` 每条查询必须带显式 `workspace_id = ?` 谓词（隔离测试钉死）。

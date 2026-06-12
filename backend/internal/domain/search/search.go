@@ -186,6 +186,20 @@ type Repository interface {
 	EntityStamps(ctx context.Context, t EntityType) (map[string]time.Time, error)
 	GetMeta(ctx context.Context, key string) (string, error)
 	SetMeta(ctx context.Context, key, value string) error
+	// Semantic layer: vectors keyed by doc id + model (mixed models never fuse).
+	// 语义层：向量按 doc id + model 记账（混模型绝不融合）。
+	UpsertEmbedding(ctx context.Context, docID, model string, vector []float32) error
+	// MissingEmbeddings lists ctx-workspace rows lacking a vector for model —
+	// the backfill worker's work queue.
+	// MissingEmbeddings 列出 ctx workspace 内缺该 model 向量的行——补算 worker 的工作队列。
+	MissingEmbeddings(ctx context.Context, model string, limit int) ([]EmbedDoc, error)
+	// WorkspaceVectors loads the ctx workspace's vectors for model (query-side
+	// cosine scan source, cached by the app layer).
+	// WorkspaceVectors 加载 ctx workspace 的该 model 向量（查询侧余弦扫描源，app 层缓存）。
+	WorkspaceVectors(ctx context.Context, model string) (map[string][]float32, error)
+	// DocsByIDs hydrates chunk rows for vector-only hits (snippet = body head).
+	// DocsByIDs 为纯向量命中补行（snippet = 正文头部）。
+	DocsByIDs(ctx context.Context, ids []string) ([]*DocHit, error)
 	// DropAll clears every index row (all workspaces) — the schema-version
 	// rebuild path; sources repopulate via reconcile.
 	// DropAll 清空全索引（所有 workspace）——schema 版本重建路径；对账重灌。
@@ -222,10 +236,19 @@ func Notify(ctx context.Context, n Notifier, t EntityType, entityID, anchor stri
 // 缺席时检索无声降级纯词法。
 type EmbeddingProvider interface {
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
-	// Info identifies the model so stored vectors are attributable — switching
-	// embedders must invalidate, not mix.
-	// Info 标识模型使存量向量可归属——换 embedder 必须失效而非混用。
-	Info() (model string, dims int)
+	// Model identifies stored vectors so switching embedders invalidates them
+	// instead of mixing; dims derive from the vectors themselves.
+	// Model 标识存量向量，使换 embedder 时失效而非混用；维度由向量自身得出。
+	Model() string
+}
+
+// EmbedDoc is one projection row awaiting a vector.
+//
+// EmbedDoc 是一行待嵌入的投影。
+type EmbedDoc struct {
+	DocID string
+	Title string
+	Body  string
 }
 
 // Embedder configuration values (search_meta "embedder"; "" reads as builtin).

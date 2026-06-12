@@ -46,6 +46,11 @@ type Indexer struct {
 	ch   chan change
 	quit chan struct{}
 	wg   sync.WaitGroup
+
+	// onApplied fires after a successful projection write — the embed backfill
+	// kick (set by the Service before start).
+	// onApplied 在投影写成功后触发——嵌入补算 kick（Service 在 start 前设置）。
+	onApplied func(ws string)
 }
 
 var _ searchdomain.Notifier = (*Indexer)(nil)
@@ -127,6 +132,8 @@ func (ix *Indexer) apply(c change) {
 				}
 				if err := ix.repo.UpsertDocAt(ctx, c.t, c.id, *doc); err != nil {
 					ix.log.Warn("search: upsert failed", zap.String("id", c.id), zap.Error(err))
+				} else if ix.onApplied != nil {
+					ix.onApplied(c.ws)
 				}
 				return
 			}
@@ -141,6 +148,8 @@ func (ix *Indexer) apply(c change) {
 	}
 	if err := ix.repo.ReplaceDocs(ctx, c.t, c.id, docs); err != nil {
 		ix.log.Warn("search: replace failed", zap.String("type", string(c.t)), zap.String("id", c.id), zap.Error(err))
+	} else if ix.onApplied != nil {
+		ix.onApplied(c.ws)
 	}
 }
 
