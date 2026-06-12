@@ -232,6 +232,41 @@ func TestGolden_J5_DebugFunction(t *testing.T) {
 	}
 }
 
+// ── J3 常驻服务：从零建 handler 并调其方法 ───────────────────────────────────
+// 真模型 create_handler（有状态服务）再 call_handler；结果状态：handlers 列出 ≥1。
+func TestGolden_J3_BuildAndCallHandler(t *testing.T) {
+	wc := evalWS(t)
+	conv := newConv(t, wc, "build handler")
+	say(t, wc, conv,
+		"Create a handler named Greeter with a method 'hello' that takes a name string and returns "+
+			"a dict {\"msg\": \"Hello, <name>!\"}. Then call hello with name='Ada' and tell me what it returned.",
+		240000)
+
+	var handlers []json.RawMessage
+	wc.GET("/api/v1/handlers").OK(t, &handlers)
+	if len(handlers) == 0 {
+		t.Fatal("model did not create any handler (create_handler not driven)")
+	}
+}
+
+// ── J7 积木检索：搜到一个已锻造的 function ───────────────────────────────────
+// 预置一个 function，请真模型用搜索找到它并报出确切名字（驱动 search_tools/search_blocks）。
+func TestGolden_J7_SearchBuildingBlocks(t *testing.T) {
+	wc := evalWS(t)
+	wc.POST("/api/v1/functions", map[string]any{
+		"name": "celsius_to_fahrenheit", "description": "convert a Celsius temperature to Fahrenheit",
+		"code": "def celsius_to_fahrenheit(c: float) -> dict:\n    return {\"f\": c * 9 / 5 + 32}\n",
+	}).OK(t, nil)
+
+	conv := newConv(t, wc, "find block")
+	out := say(t, wc, conv,
+		"I forged a function earlier that converts Celsius to Fahrenheit but I forget its exact name. "+
+			"Search my workspace and tell me its exact name.", 180000)
+	if !strings.Contains(out, "celsius_to_fahrenheit") {
+		t.Errorf("model did not find the forged function by search:\n%s", out)
+	}
+}
+
 // ── J9 记忆：写入一条 memory，新对话里召回 ───────────────────────────────────
 // 真模型在对话 A 写 memory（write_memory），对话 B（全新、靠 system prompt 注入的 memory）召回。
 func TestGolden_J9_MemoryWriteRecall(t *testing.T) {

@@ -28,7 +28,7 @@ audience: [human, ai]
 
 **产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make testend`）+ 金标套件（`make evals`）+ promptdump 体验审计 + 终报。
 
-**当前进度**：W0–W6 ✅（环境座架 / 锻造域 / 编排域 / 集成域 / 对话域 / 平台域+涟漪 / 体验静态柱B），全套 `make testend` 零失败、`make verify` 绿。**下一波 = W7 金标真模型旅程（柱 C：`make evals`，12 条，deepseek-v4-flash，key 在仓库根 `.env`）**，见 §8。W6 抓到 AC-24（workspace.language 不驱动回复语言）→ 用户裁决 workspace.language 权威、已修（`WorkspaceResolver.Resolve` 返 locale + `IdentifyWorkspace` 覆盖头默认）；prompt 设计审读整体干净（无安全剧场 / preview 无漂移 / S18 字段齐 / 视角隔离）。
+**当前进度**：W0–W7 ✅（柱 A 真机 W0-W5 + 柱 B 体验静态 W6 + 柱 C 真模型 W7），全套 `make testend` 零失败、`make verify` 绿、`make evals` 真模型旅程全绿。**下一波 = W8 修复收口 + 终报**（[TERMINAL-REPORT.md](TERMINAL-REPORT.md) 草稿已起，收口定稿 + working→archive 落地）。柱 C 用 deepseek-v4-flash 真驱动产品工具面全过——证明柱 A/B 的 llmmock 结论非假模型假象。
 
 ---
 

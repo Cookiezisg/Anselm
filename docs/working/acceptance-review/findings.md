@@ -124,5 +124,20 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
   - **R0057 透明度无漂移**：`GET /system-prompt-preview` 与模型真收到的 system prompt **逐字一致**（同对话同日，二者都走 buildSystemPrompt）——用户看到的就是模型看到的。
   - **视角隔离**：Utility（首回合起标题）收到的是紧凑专用 prompt，不泄漏 chat 全 section（无 identity 段/无 Searchable tools），且确实引用了对话内容；Agent 实体 :invoke 收到「You are <name>, a workflow automation worker. Your role: …」自有身份，不漏 chat 主视角。
   - **空态自举连贯**：零 forged 实体的 workspace，核心身份/规则段仍在、无残壳。
-  - **i18n 接缝在场**：environment 段带「Reply in <lang>」指令、prompt 本体保持英文（不整体翻译）——唯回复语言的来源是 AC-24 的待裁决项。
+  - **i18n 接缝在场**：environment 段带「Reply in <lang>」指令、prompt 本体保持英文（不整体翻译）——回复语言来源 AC-24 已修为 workspace.language 权威。
+
+## W7 金标真模型旅程（柱 C：make evals / deepseek-v4-flash，真烧 token）
+
+`golden/golden_test.go` 把 llmmock 换成**真 deepseek-v4-flash**（key 在仓库根 `.env`，`make evals` 自动 source），断言只看**结果状态**（实体建了 / function 跑了 / memory 召回了），不看逐字——真模型非确定。`say()` 每轮自动放行人在环门（danger→approve_always、ask→accept），故真模型把工具自报危险也不卡。
+
+- **W7 正面结论（7/7 全绿，真模型，首跑即过）——真模型真驱动得了产品工具面**：
+  - **J1 Bootstrap**（13.7s）：空 workspace + 完整工具面，开放问题得连贯非报错引导。
+  - **J2 Build+Run Function**（20.5s，旗舰）：真模型 **create_function 再 run_function**——functions 列出实体 + 最终答复报出和 5。锻造→执行整环真模型跑通。
+  - **J3 Build+Call Handler**（26.5s）：真模型 **create_handler**（有状态服务，env 物化 + 进程 spawn）再 call_handler——handlers 列出实体。常驻服务锻造+调用真模型跑通。
+  - **J5 Debug Function**（24.4s）：预置引用未定义变量的 bug function，真模型诊断 + **edit_function 真落新版本**（active 版本号前进 ≥2）。AI 自愈环真模型跑通。
+  - **J7 Search Building Blocks**（12.2s）：预置一个 function，真模型用**搜索**找到它并报出确切名字。积木检索（search_tools/search_blocks）真模型跑通。
+  - **J9 Memory Write+Recall**（14.1s）：对话 A 真模型 **write_memory** 落库；对话 B（全新）经 system prompt 注入**召回**（命中 codename）。memory 写读环真模型跑通。
+  - **J12 Degraded Main Path**（9.7s）：仅配 dialogue（utility 缺）——起标题/压缩静默降级，主问答照常完成不报错。
+  - **无新 AC bug**：工具面 schema（S18 框架字段）、懒工具自动发现、danger 门、memory 注入、降级面在真模型下全部如设计工作。**柱 C 证明柱 A/B 的 llmmock 结论不是假模型的假象**。
+  - 范围说明：golden 现 7 旅程覆盖 function 锻造+执行 / handler 常驻服务 / AI 自愈 / 积木检索 / memory / 自举 / 降级七条核心能力线。柱 C 计划的 workflow-to-parked / MCP 真装 / skill / 跨压缩长任务等更重旅程，已在 W2/W3/W4 用 llmmock 结构性覆盖；真模型 golden 视价值/稳定性按需增补（flash 模型搓多节点图易飘，过重项不强求）。
 
