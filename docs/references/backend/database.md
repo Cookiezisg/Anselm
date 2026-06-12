@@ -100,6 +100,17 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 | `todos` | conversation_id · items(json ≤64) | 整表替换写 |
 | **memory / subagent：无表** | — | memory=文件式（`workspaces/<ws>/memories/<name>.md`）；subagent=运行时机制（回合落父对话 messages） |
 
+## search（统一搜索索引——派生数据）
+
+| 表 | 关键列 | 约束/索引 |
+|---|---|---|
+| `search_docs` | workspace_id · entity_type(CHECK 12 类) · entity_id · chunk_no · anchor（message_id/方法名/工具名/标题链/节点 id）· title · body · tags(json) · archived | UNIQUE(ws,entity_type,entity_id,chunk_no)；ws+entity 索引 |
+| `search_fts` | FTS5 **external-content 虚表**（content=search_docs，`tokenize='trigram'`，title/body 两列）+ 三触发器（AI/AD/AU）构造性同步 | bm25 权重 title:body=4:1 在查询侧 |
+| `search_meta` | key/value：`fts_schema_version`（不匹配→boot 清空重建）· `embedder`（builtin\|ollama\|off，空=builtin，机器级） | PK(key) |
+| `search_embeddings` | doc_id(=search_docs.id) · model · dims · vector(BLOB float32 LE)——model 逐行记账，换 embedder 旧向量直接可辨失效 | PK(doc_id) |
+
+ID：`sd_`。**派生数据**：物理删（实体删/级联/重建即删行），D1 不适用、无软删。**D2 豁免点（全库唯一）**：FTS5 虚表在 pkg/orm 之外，`infra/search` 手写 raw SQL——每条查询显式 `workspace_id = ?` 谓词，隔离由专项测试钉死（`infra/search/search_test.go::TestSearch_WorkspaceIsolation`）。
+
 ## P6 支撑域
 
 | 表 | 说明 |

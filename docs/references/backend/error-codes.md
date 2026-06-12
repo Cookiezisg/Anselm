@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 246 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 251 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（246 码，按域）
+## 全量登记（251 码，按域）
 
-> `errorspkg.New` 机械抽取（244）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（249）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -435,6 +435,16 @@ audience: [human, ai]
 | `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | runtime kind not registered |
 | `SANDBOX_SPAWN_FAILED` | 502 | spawn process failed |
 | `SANDBOX_SPAWN_TIMEOUT` | 504 | spawn process timeout |
+
+### `domain/search`
+
+| code | HTTP | message |
+|---|---|---|
+| `SEARCH_QUERY_REQUIRED` | 400 | search query is required |
+| `SEARCH_TYPE_INVALID` | 400 | unknown search entity type |
+| `SEARCH_CURSOR_INVALID` | 400 | search cursor is invalid or stale |
+| `SEARCH_REINDEX_RUNNING` | 409 | a reindex is already running |
+| `SEARCH_EMBEDDER_INVALID` | 400 | embedder must be one of builtin, ollama, off |
 
 ### `domain/skill`
 
