@@ -11,7 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"testing"
 	"time"
 )
@@ -158,6 +160,57 @@ func (r *Resp) Field(t *testing.T, name string) string {
 		t.Fatalf("field %s: not string in %s", name, r.Data)
 	}
 	return s
+}
+
+// Upload posts one file as multipart/form-data (the attachments wire shape) and
+// decodes the N1 envelope like Do.
+//
+// Upload 把一个文件按 multipart/form-data 上传（attachments 线缆形状），并像 Do 一样
+// 解 N1 envelope。
+func (c *Client) Upload(t *testing.T, path, filename, mime string, content []byte) *Resp {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	hdr := textproto.MIMEHeader{}
+	hdr.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename=%q`, filename))
+	hdr.Set("Content-Type", mime)
+	part, err := mw.CreatePart(hdr)
+	if err != nil {
+		t.Fatalf("upload: create part: %v", err)
+	}
+	if _, err := part.Write(content); err != nil {
+		t.Fatalf("upload: write: %v", err)
+	}
+	_ = mw.Close()
+	req, err := http.NewRequest(http.MethodPost, c.base+path, &buf)
+	if err != nil {
+		t.Fatalf("upload: new request: %v", err)
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if c.ws != "" {
+		req.Header.Set(HeaderWorkspace, c.ws)
+	}
+	httpResp, err := c.httpc.Do(req)
+	if err != nil {
+		t.Fatalf("upload: do: %v", err)
+	}
+	defer httpResp.Body.Close()
+	raw, _ := io.ReadAll(httpResp.Body)
+	r := &Resp{Status: httpResp.StatusCode, Raw: raw}
+	var env struct {
+		Data  json.RawMessage `json:"data"`
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(raw, &env); err == nil {
+		r.Data = env.Data
+		if env.Error != nil {
+			r.Code, r.Msg = env.Error.Code, env.Error.Message
+		}
+	}
+	return r
 }
 
 // GET/POST/PATCH/DELETE sugar.

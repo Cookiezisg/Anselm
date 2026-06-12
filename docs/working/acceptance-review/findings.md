@@ -164,3 +164,17 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 - **版本面**：:edit 全量替换 → v2 即时生效；:revert 回 v1 下次 invoke 生效。
 - 线缆事实（接手须知）：InvokeResult/执行行 status 词汇 = `ok|failed`（与 function 域一致）；`GET /agents/{id}/versions` 与 `GET /api-keys` 返回**裸数组**；执行列表返回 `{executions, aggregates}`。
 
+## R3 A8 Chat 高标准补全（chat_r3_test.go 新建，10/10 + W4 原 6 全绿）
+
+**无新后端 bug**——首轮全缺的十个面在高标准黑盒下全部如设计工作：
+
+- **附件三路按能力门控**（gpt-4o：vision ✓ nativeDocs ✗）：文本内联原文 / 图片成 `image_url` part / PDF 走 **sandbox 真抽取**（pdfplumber 共享 env 首用真装）后文本内联——三路同回合并存、模型视角逐一验到。
+- **skill 两路**：inline activate 渲染正文回喂 + **allowed-tools 预授权实证**（active skill 下自报 dangerous 的 run_function 零询问直接执行、interactions 空）；fork activate 真派 subagent（`context=fork` 必须声明 `agent` 类型，缺则 422 `SKILL_FORK_REQUIRES_AGENT`——校验在岗）、结果同步回喂、sub-message 落库。
+- **memory 两段式注入**：unpinned = name+description **索引**入 system（全文不入）+ `read_memory` 取回全文；**pinned = 全文直接入 system**；forget 后新对话彻底消失。写读忘 + pin 升级全环闭合。
+- **@mention 冻结**：发送时刻快照实体内容入模型视角；实体后续改版，同对话后续回合的历史快照**保持 V1**（freeze-on-send）。
+- **归档 Send 自动解档**；**删除对话取消在途生成**（stalled 流中 DELETE → 404 + 后续对话不受阻、无孤儿）。
+- **并行工具批**：同回合两个 tool_call（同 execution_group）都执行、两个 tool 结果**同一请求**回喂、两条台账各一。
+- **Subagent 嵌套树**：general-purpose 子运行结果同步回喂；sub-message 以 `subagentId` 落父对话（重水合源）；**子集物理剔除 Subagent 工具**（深度 1 守卫实证）。
+- **SSE 重连 replay**：live 流带 ephemeral delta；`fromSeq=<durable seq>` 重连重放其后 durable 帧（close 带全文快照）、**delta 绝不重放**（E2）。线缆事实：fromSeq=0 是「仅实时」哨兵、重放语义 = seq > fromSeq。
+- **utility 缺席静默降级**：未命名不起标题、压缩越线不压缩、主链三回合零错误。
+

@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -40,8 +41,22 @@ type SSE struct {
 // Subscribe 打开一条流（messages|entities|notifications）并后台收集每一帧。
 func (c *Client) Subscribe(t *testing.T, stream string) *SSE {
 	t.Helper()
+	return c.SubscribeFrom(t, stream, -1)
+}
+
+// SubscribeFrom opens a stream resuming from seq (the reconnect path: durable frames
+// with seq > fromSeq replay, ephemeral deltas never do). fromSeq < 0 → live-only.
+//
+// SubscribeFrom 从 seq 续传打开一条流（重连路径：seq > fromSeq 的 durable 帧重放、
+// ephemeral delta 永不重放）。fromSeq < 0 → 仅实时。
+func (c *Client) SubscribeFrom(t *testing.T, stream string, fromSeq int64) *SSE {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/api/v1/"+stream+"/stream", nil)
+	url := c.base + "/api/v1/" + stream + "/stream"
+	if fromSeq >= 0 {
+		url += fmt.Sprintf("?fromSeq=%d", fromSeq)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		cancel()
 		t.Fatalf("sse: new request: %v", err)

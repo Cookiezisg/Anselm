@@ -28,7 +28,7 @@ audience: [human, ai]
 
 **产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make testend`）+ 金标套件（`make evals`）+ promptdump 体验审计 + 终报。
 
-**当前进度**：W0–W7 ✅（柱 A 真机 W0-W5 + 柱 B 体验静态 W6 + 柱 C 真模型 W7），全套 `make testend` 零失败、`make verify` 绿、`make evals` 真模型旅程全绿。**下一波 = W8 修复收口 + 终报**（[TERMINAL-REPORT.md](TERMINAL-REPORT.md) 草稿已起，收口定稿 + working→archive 落地）。柱 C 用 deepseek-v4-flash 真驱动产品工具面全过——证明柱 A/B 的 llmmock 结论非假模型假象。
+**当前进度**：首轮 W0–W8 ✅ 后**用户裁定 A7 起标准滑坡、程序重开为 R1-R8 高标准重验**（缺口矩阵+波次表见 [R-PLAN.md](R-PLAN.md)，这是当前唯一权威进度表）。已完成：R1（A7 Search 17/17，抓到 AC-26 🔴 三面同死 + AC-27 🟡 mcp ref 死链）、R2（A4 Agent 整域 6/6 新建 agent_test.go）、R3（A8 Chat 补全 10/10 新建 chat_r3_test.go：附件三路/skill 两路/memory 两段式/mention 冻结/删除取消在途/并行批/Subagent 树/SSE 重连 replay/utility 降级）。**下一波 = R4 平台补全**（platform_r4_test.go 已落、待跑）→ R5 涟漪矩阵 → R6 柱B → R7 柱C 5 旅程 → R8 终收口。harness 新增：`Upload`（multipart）+ `SubscribeFrom`（fromSeq 续传；0 是 live-only 哨兵，重放语义 = seq > fromSeq）。
 
 ---
 
