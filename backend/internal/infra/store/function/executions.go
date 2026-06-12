@@ -33,6 +33,13 @@ func (s *Store) ListExecutions(ctx context.Context, filter functiondomain.Execut
 	if err != nil {
 		return nil, "", fmt.Errorf("functionstore.ListExecutions: %w", err)
 	}
+	// Lists travel light: logs (up to 64KiB/row) ride only the single-record Get —
+	// a 50-row page carrying them would blow the LLM tool-result cap mid-JSON.
+	// 列表轻装：logs（每行至多 64KiB）只随单条 Get——50 行的页带上它会把 LLM
+	// tool-result 上限撑爆在 JSON 半中腰。
+	for _, e := range rows {
+		e.Logs = ""
+	}
 	return rows, next, nil
 }
 

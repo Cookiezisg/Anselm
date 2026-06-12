@@ -25,6 +25,10 @@ func MCPTools(svc *mcpapp.Service) []toolapp.Tool {
 		&InstallServer{svc: svc},
 		&UninstallServer{svc: svc},
 		&ReconnectMCP{svc: svc},
+		// call-log observability — read back what the dynamic tools executed
+		// 调用日志可观测——把动态工具执行过的读回来
+		&SearchMCPCalls{svc: svc},
+		&GetMCPCall{svc: svc},
 	}
 }
 

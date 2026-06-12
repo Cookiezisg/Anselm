@@ -103,6 +103,10 @@ func (s *Service) recordExecution(ctx context.Context, in RunInput, v *functiond
 		}
 		output = res.Output
 	}
+	logs := ""
+	if res != nil {
+		logs = res.Logs
+	}
 
 	triggeredBy := in.TriggeredBy
 	if !functiondomain.IsValidTrigger(triggeredBy) {
@@ -132,6 +136,7 @@ func (s *Service) recordExecution(ctx context.Context, in RunInput, v *functiond
 		Input:          input,
 		Output:         output,
 		ErrorMessage:   errMsg,
+		Logs:           logs,
 		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:      startedAt,
 		EndedAt:        endedAt,

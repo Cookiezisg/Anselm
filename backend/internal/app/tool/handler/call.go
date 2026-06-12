@@ -92,7 +92,7 @@ type SearchHandlerCalls struct{ svc *handlerapp.Service }
 func (t *SearchHandlerCalls) Name() string { return "search_handler_calls" }
 
 func (t *SearchHandlerCalls) Description() string {
-	return "List a handler's call history (most recent first) with an ok/failed rollup. Filter by method or status (ok|failed|cancelled|timeout)."
+	return "List a handler's call history (most recent first) with an ok/failed rollup. Filter by method or status (ok|failed|cancelled|timeout). Use get_handler_call on an id for the full record including logs."
 }
 
 func (t *SearchHandlerCalls) Parameters() json.RawMessage {
@@ -149,7 +149,7 @@ type GetHandlerCall struct{ svc *handlerapp.Service }
 func (t *GetHandlerCall) Name() string { return "get_handler_call" }
 
 func (t *GetHandlerCall) Description() string {
-	return "Get one call record (method, input, output, error, timing) by its id."
+	return "Get one call record (method, input, output, error, logs, timing) by its id. logs carries the method's yields and the handler's print()/stderr output emitted during the call."
 }
 
 func (t *GetHandlerCall) Parameters() json.RawMessage {

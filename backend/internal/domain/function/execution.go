@@ -42,14 +42,19 @@ func IsValidTrigger(s string) bool {
 }
 
 // ExecutionResult is the in-memory outcome of one sandbox Run (not persisted directly;
-// recordExecution maps it into an Execution row).
+// recordExecution maps it into an Execution row). Logs is the function's own print()/
+// debug output (capped head+tail by the adapter) — returned to the caller too, so the
+// LLM's run_function tool_result carries what the code printed, not just its return value.
 //
 // ExecutionResult 是单次 sandbox Run 的内存结果（不直接持久化；recordExecution 映射成 Execution 行）。
+// Logs 是函数自己的 print()/调试输出（adapter 做头尾限长）——也返回给调用方，使 LLM 的 run_function
+// tool_result 带上代码打印的内容、而不只是返回值。
 type ExecutionResult struct {
 	OK        bool   `json:"ok"`
 	Output    any    `json:"output"`
 	ErrorMsg  string `json:"errorMsg"`
 	ElapsedMs int64  `json:"elapsedMs"`
+	Logs      string `json:"logs,omitempty"`
 }
 
 // Execution is one terminal audit record of a RunFunction call. This is a log table:
@@ -66,6 +71,7 @@ type Execution struct {
 	Input          map[string]any `db:"input,json"          json:"input"`
 	Output         any            `db:"output,json"         json:"output,omitempty"`
 	ErrorMessage   string         `db:"error_message"       json:"errorMessage,omitempty"`
+	Logs           string         `db:"logs"                json:"logs,omitempty"`
 	ElapsedMs      int64          `db:"elapsed_ms"          json:"elapsedMs"`
 	StartedAt      time.Time      `db:"started_at"          json:"startedAt"`
 	EndedAt        time.Time      `db:"ended_at"            json:"endedAt"`

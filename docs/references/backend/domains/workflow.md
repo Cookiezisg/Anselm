@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（CRUD + 6 动作 + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 10 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 9 个（含 `trigger_workflow`/`capability_check_workflow`）。
+端点（CRUD + 6 动作 + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 10 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 14 个：7 锻造/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 2 运行可观测（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环）。
 
 ## 7. 跨域集成
 

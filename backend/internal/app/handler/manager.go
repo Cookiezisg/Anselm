@@ -12,16 +12,20 @@ import (
 )
 
 // Instance is one live resident HandlerInstance subprocess + its RPC client. There is
-// at most ONE per handler (singleton) — no per-owner / per-conversation copies.
+// at most ONE per handler (singleton) — no per-owner / per-conversation copies. Stderr
+// is the instance's stderr fan-out: calls attach per-call sinks to receive the print()/
+// log output emitted in their window (see stderrFan).
 //
 // Instance 是一个活的常驻 HandlerInstance 子进程 + 其 RPC 客户端。每 handler 至多一个（单例）——
-// 无 per-owner / per-conversation 副本。
+// 无 per-owner / per-conversation 副本。Stderr 是实例的 stderr 扇出：调用挂 per-call sink，
+// 收取自己窗口内发出的 print()/日志输出（见 stderrFan）。
 type Instance struct {
 	ID        string
 	HandlerID string
 	VersionID string
 	Client    handlerinfra.Client
 	Kill      func() error
+	Stderr    *stderrFan
 }
 
 // spawnFn builds a fresh resident Instance for handlerID (load active version + config,

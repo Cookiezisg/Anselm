@@ -42,9 +42,9 @@ audience: [human, ai]
 
 **执行（`RunFunction`，所有路径唯一漏斗）**：取版本（空→active）→ env 未 ready 则懒物化 → `runner.Run` → **`ErrEnvNotFound`（env 被 GC 回收）= 重建 env + 重试一次** → `recordExecution`。四个调用方：`run_function` 工具（chat/agent，按 ctx 推）、HTTP `:run`（manual）、workflow 调度器 `dispatch.RunAction`（workflow，fail-fast：`OK=false` 转 error 使节点行写 failed）、sensor 触发器。
 
-**沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**双写**到 messages 流 tool_call progress + entities 流 run 终端）。
+**沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
 
-**记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按 `ctx.Err()` 区分 timeout/cancelled/failed。
+**记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按 `ctx.Err()` 区分 timeout/cancelled/failed；`logs` 随行落盘（List 置空、单条 Get 携带）。
 
 ## 5. 关键设计决策
 

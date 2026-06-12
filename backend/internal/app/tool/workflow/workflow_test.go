@@ -16,10 +16,11 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// TestWorkflowTools_Wiring asserts all 12 tools are constructed with the expected names and
-// each satisfies the 5-method Tool interface: 7 forge/query + 5 execution-lifecycle (D1).
+// TestWorkflowTools_Wiring asserts all 14 tools are constructed with the expected names and
+// each satisfies the 5-method Tool interface: 7 forge/query + 5 execution-lifecycle (D1) +
+// 2 run-observability.
 func TestWorkflowTools_Wiring(t *testing.T) {
-	tools := WorkflowTools(nil, nil) // nil svc OK: we only inspect Name() here
+	tools := WorkflowTools(nil, nil, nil) // nil svc OK: we only inspect Name() here
 	want := map[string]bool{
 		"search_workflow": false, "get_workflow": false, "create_workflow": false,
 		"edit_workflow": false, "revert_workflow": false, "delete_workflow": false,
@@ -27,6 +28,8 @@ func TestWorkflowTools_Wiring(t *testing.T) {
 		// execution lifecycle (D1)
 		"trigger_workflow": false, "stage_workflow": false, "activate_workflow": false,
 		"deactivate_workflow": false, "kill_workflow": false,
+		// run observability
+		"get_flowrun": false, "search_flowruns": false,
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("want %d tools, got %d", len(want), len(tools))
@@ -80,6 +83,11 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		{"deactivate ok", &DeactivateWorkflow{}, `{"workflowId":"wf_1"}`, false},
 		{"kill no id", &KillWorkflow{}, `{}`, true},
 		{"kill ok", &KillWorkflow{}, `{"workflowId":"wf_1"}`, false},
+		// run observability
+		{"getrun no id", &GetFlowrun{}, `{}`, true},
+		{"getrun ok", &GetFlowrun{}, `{"flowrunId":"fr_1"}`, false},
+		{"searchruns any", &SearchFlowruns{}, `{}`, false},
+		{"searchruns scoped", &SearchFlowruns{}, `{"workflowId":"wf_1","limit":5}`, false},
 	}
 	for _, c := range cases {
 		err := c.tool.ValidateInput([]byte(c.args))

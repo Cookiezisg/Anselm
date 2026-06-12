@@ -239,3 +239,34 @@ func TestExecutions_SaveListAggregates(t *testing.T) {
 		t.Fatalf("missing exec should be ErrExecutionNotFound, got %v", err)
 	}
 }
+
+// TestExecutions_LogsOnGetNotList: logs persist on the row and come back on the
+// single-record Get, but lists travel light (logs blanked).
+//
+// TestExecutions_LogsOnGetNotList：logs 随行落盘、单条 Get 读回；列表轻装（logs 置空）。
+func TestExecutions_LogsOnGetNotList(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	e := &functiondomain.Execution{
+		ID: "fne_logs", FunctionID: "fn_1", VersionID: "fnv_1",
+		Status: functiondomain.ExecutionStatusOK, TriggeredBy: functiondomain.TriggeredByChat,
+		Input: map[string]any{}, Logs: "step 1\nstep 2\n", StartedAt: now, EndedAt: now,
+	}
+	if err := s.SaveExecution(ctx, e); err != nil {
+		t.Fatalf("SaveExecution: %v", err)
+	}
+	one, err := s.GetExecutionByID(ctx, "fne_logs")
+	if err != nil || one.Logs != "step 1\nstep 2\n" {
+		t.Fatalf("get should carry logs: %+v err=%v", one, err)
+	}
+	rows, _, err := s.ListExecutions(ctx, functiondomain.ExecutionFilter{FunctionID: "fn_1"})
+	if err != nil || len(rows) == 0 {
+		t.Fatalf("list: %v", err)
+	}
+	for _, r := range rows {
+		if r.Logs != "" {
+			t.Fatalf("list must blank logs, got %q on %s", r.Logs, r.ID)
+		}
+	}
+}

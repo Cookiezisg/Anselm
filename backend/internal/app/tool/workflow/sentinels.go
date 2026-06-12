@@ -11,6 +11,7 @@ import errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 
 var (
 	ErrWorkflowIDRequired = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_ID_REQUIRED", "workflowId is required")
+	ErrFlowrunIDRequired  = errorspkg.New(errorspkg.KindInvalid, "FLOWRUN_ID_REQUIRED", "flowrunId is required")
 	ErrNameRequired       = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_NAME_REQUIRED", "name is required")
 	ErrOpsRequired        = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_OPS_REQUIRED", "ops is required (non-empty)")
 	ErrVersionPositive    = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_VERSION_POSITIVE", "version must be a positive integer")

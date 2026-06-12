@@ -76,7 +76,8 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 		return nil, fmt.Errorf("%w: %v", handlerdomain.ErrInstanceSpawnFailed, err)
 	}
 
-	go captureStderr(handle.Stderr(), s.log.With(zap.String("handlerId", handlerID), zap.Int("pid", handle.PID())))
+	fan := newStderrFan()
+	go captureStderr(handle.Stderr(), s.log.With(zap.String("handlerId", handlerID), zap.Int("pid", handle.PID())), fan)
 
 	client := s.clientFact(handle.Stdin(), handle.Stdout(), s.log)
 	if err := client.Init(ctx, config); err != nil {
@@ -90,6 +91,7 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 		VersionID: active.ID,
 		Client:    client,
 		Kill:      handle.Kill,
+		Stderr:    fan,
 	}, nil
 }
 
@@ -125,10 +127,15 @@ func activeToDraft(v *handlerdomain.Version) *VersionDraft {
 	}
 }
 
-// captureStderr scans the subprocess stderr line-by-line into the log (crash diagnosis).
+// captureStderr scans the subprocess stderr line-by-line into the log (crash diagnosis)
+// AND the instance's stderr fan (per-call attribution: live progress + persisted call
+// logs). The protocol owns stdout, so stderr is the ONLY channel a handler's print()/
+// logging reaches — before the fan it was zap-only, invisible to the user.
 //
-// captureStderr 行扫子进程 stderr 进 log（崩溃诊断）。
-func captureStderr(r io.ReadCloser, log *zap.Logger) {
+// captureStderr 行扫子进程 stderr 进 log（崩溃诊断）**并**进实例 stderr 扇出（per-call 归属：
+// 实时进度 + 调用日志落盘）。协议占用 stdout，stderr 是 handler 的 print()/日志唯一能到达的
+// 通道——接扇出前它只进 zap、用户不可见。
+func captureStderr(r io.ReadCloser, log *zap.Logger, fan *stderrFan) {
 	if r == nil {
 		return
 	}
@@ -136,5 +143,12 @@ func captureStderr(r io.ReadCloser, log *zap.Logger) {
 	sc.Buffer(make([]byte, 4096), 64*1024)
 	for sc.Scan() {
 		log.Info("handler.stderr", zap.ByteString("line", sc.Bytes()))
+		// Copy before appending: sc.Bytes() views the scanner's internal buffer, and an
+		// in-place append could clobber the next buffered token.
+		// 先拷再补换行：sc.Bytes() 是 scanner 内部缓冲的视图，原地 append 可能踩到下一个 token。
+		line := make([]byte, len(sc.Bytes())+1)
+		copy(line, sc.Bytes())
+		line[len(line)-1] = '\n'
+		_, _ = fan.Write(line)
 	}
 }

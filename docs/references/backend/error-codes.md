@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 251 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 254 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（251 码，按域）
+## 全量登记（254 码，按域）
 
-> `errorspkg.New` 机械抽取（249）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（252）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -151,7 +151,9 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `MCP_CALL_ID_REQUIRED` | 400 | callId is required |
 | `MCP_NAME_REQUIRED` | 400 | name is required |
+| `MCP_SERVER_ID_REQUIRED` | 400 | serverId is required |
 
 ### `app/tool/memory`
 
@@ -216,6 +218,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `FLOWRUN_ID_REQUIRED` | 400 | flowrunId is required |
 | `WORKFLOW_ID_REQUIRED` | 400 | workflowId is required |
 | `WORKFLOW_NAME_REQUIRED` | 400 | name is required |
 | `WORKFLOW_OPS_REQUIRED` | 400 | ops is required (non-empty) |

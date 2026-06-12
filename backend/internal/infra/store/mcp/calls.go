@@ -51,5 +51,10 @@ func (s *Store) ListCalls(ctx context.Context, filter mcpdomain.CallFilter) ([]*
 	if err != nil {
 		return nil, "", fmt.Errorf("mcpstore.ListCalls: %w", err)
 	}
+	// Lists travel light: logs ride only the single-record Get (see functionstore).
+	// 列表轻装：logs 只随单条 Get（同 functionstore）。
+	for _, c := range rows {
+		c.Logs = ""
+	}
 	return rows, next, nil
 }
