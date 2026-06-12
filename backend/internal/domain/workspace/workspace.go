@@ -1,14 +1,19 @@
 // Package workspace is the domain layer for the local isolation root. A named
 // workspace is the unit every other entity is scoped to (its workspace_id), and
-// is itself the one table with no workspace_id column — it IS the workspace.
-// Switching workspaces gives each its own agents, documents, api keys and runs,
-// isolated in the database; application-level resources (mcp / skills / settings)
-// stay shared on disk, so a workspace is a data boundary, not a filesystem bucket.
+// is itself the one business table with no workspace_id column — it IS the
+// workspace. Isolation is two-fold: DB rows (agents, documents, api keys, mcp
+// servers, runs) are filtered by workspace_id via the orm, and the file-backed
+// stores (memory / skill / blob) bucket under workspaces/<wsID>/ on disk. Only
+// machine-level infrastructure (sandbox runtimes / envs) is shared across
+// workspaces; workspace preferences (language, model defaults, web fetch mode)
+// are columns on the workspace row itself.
 //
 // Package workspace 是本地隔离根的 domain 层。一个具名 workspace 是其它所有实体的隔离单元
-// （它们的 workspace_id），而它自己是唯一不带 workspace_id 列的表——它就是 workspace。
-// 切换 workspace 让各自拥有独立的 agent/document/api key/run，在数据库层隔离；应用级资源
-// （mcp/skills/settings）在磁盘共享——故 workspace 是数据边界，不是文件系统分桶。
+// （它们的 workspace_id），而它自己是唯一不带 workspace_id 列的业务表——它就是 workspace。
+// 隔离是双重的：DB 行（agent/document/api key/mcp server/run）经 orm 按 workspace_id 过滤，
+// 文件式 store（memory/skill/blob）在磁盘按 workspaces/<wsID>/ 分桶。仅机器级基础设施
+// （sandbox runtime/env）跨 workspace 共享；workspace 偏好（语言/模型默认/抓取模式）即
+// workspace 行自身的列。
 package workspace
 
 import (
