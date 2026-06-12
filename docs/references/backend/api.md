@@ -88,7 +88,7 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /flowruns` | 运行历史分页（`?workflowId`） |
+| `GET /flowruns` | 运行历史分页（`?workflowId&status=running\|completed\|failed\|cancelled`） |
 | `POST /flowruns` | 手动起 run（= workflow `:trigger` 的等价入口） |
 | `GET /flowruns/{id}` | run 头 + 全部节点行（完整记忆化） |
 | `POST /flowruns/{id}:replay` | 修复失败 run：清 failed 行 + 重走（completed 复用） |

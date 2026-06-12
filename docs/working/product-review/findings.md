@@ -130,3 +130,18 @@ audience: [human, ai]
 - 错误码（S20）：机械守卫在 verify 内，无需重扫。
 - entities 流 run 终端：fn/hd/ag/mcp + wf 节点信号 + trigger fire 信号 ✅。
 
+## R5 前端对接预检
+
+### 实锤·已修
+
+- **PR-23 🟢 flowrun 列表无 status 过滤**（fixed）：「看所有失败的 run」此前要全拉自滤。ListFilter+store 谓词+HTTP `?status=`+search_flowruns 工具同步。
+
+### 面板反推台账（全核齐）
+
+- 实体列表/详情/版本页：list+get+versions+聚合徽标（执行四件套）✅。chat 页：messages 流全块系+重连重水合 ✅。设置页：models(:test+capabilities)/keys/limits(GET/PATCH)/search settings(含 ollama)/webFetchMode/sandbox(runtimes/envs/disk-usage/gc/bootstrap-status) ✅。通知中心：list/unread/mark + run_failed/approval_pending 唤回 ✅。审批收件箱：flowrun-inbox+decide ✅。trigger 面板：activations+firings(R4)+fire 信号 ✅。综搜/关系图/catalog/workspace 切换器 ✅。
+
+### 轻症·记录
+
+- **PR-24 🟢 实体列表页无执行聚合摘要**（wontfix）：卡片想显示 ok/failed 徽标需逐实体查 executions 聚合——本地 app N 请求廉价 + 前端可懒加载可见区；列表带聚合是 N+1 JOIN 复杂度，不值。
+- **PR-25 🟢 无全局活动总览端点**（wontfix）：「dashboard 首页」可由通知中心+各 list 组合；后端聚合首页是前端形态定型前的过早抽象。
+
