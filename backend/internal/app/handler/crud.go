@@ -136,10 +136,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 		v.ForgedInConversationID = &convID
 	}
 
-	if err := s.repo.SaveHandler(ctx, h); err != nil {
-		return nil, nil, fmt.Errorf("handlerapp.Create: %w", err)
-	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
+	if err := s.repo.CreateWithVersion(ctx, h, v); err != nil {
 		return nil, nil, fmt.Errorf("handlerapp.Create: %w", err)
 	}
 	s.publish(ctx, "created", hID, map[string]any{"versionId": versionID, "version": 1})
@@ -206,10 +203,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 		v.ForgedInConversationID = &convID
 	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("handlerapp.Edit: %w", err)
-	}
-	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
+	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)
 	}
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, handlerdomain.VersionCap); err != nil {

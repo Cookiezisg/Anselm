@@ -168,7 +168,7 @@ func (t *functionTool) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", t.name, err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }
 
 // --- handler mount (hd_<id>.method) -------------------------------------------
@@ -250,7 +250,7 @@ func (t *handlerTool) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", t.name, err)
 	}
-	return toJSON(map[string]any{"result": res}), nil
+	return toolapp.ToJSON(map[string]any{"result": res}), nil
 }
 
 // --- mcp mount (mcp:server/tool) ------------------------------------------------
@@ -316,15 +316,4 @@ func (t *mcpTool) Execute(ctx context.Context, argsJSON string) (string, error) 
 	defer prog.Close()
 	ctx = mcpinfra.WithProgress(ctx, prog.Print)
 	return t.mcp.CallTool(ctx, t.serverID, t.toolName, json.RawMessage(argsJSON), mcpdomain.CallTriggeredByAgent)
-}
-
-// toJSON marshals v for the LLM; a marshal failure degrades to %v text.
-//
-// toJSON 为 LLM 序列化 v；失败降级为 %v 文本。
-func toJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return fmt.Sprintf("%v", v)
-	}
-	return string(b)
 }

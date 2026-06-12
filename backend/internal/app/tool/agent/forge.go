@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
@@ -96,7 +97,7 @@ func (t *CreateAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("create_agent: %w", err)
 	}
-	return toJSON(map[string]any{"id": ag.ID, "versionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": ag.ID, "versionId": v.ID, "version": v.Version}), nil
 }
 
 // --- edit_agent ------------------------------------------------------------
@@ -145,5 +146,5 @@ func (t *EditAgent) Execute(ctx context.Context, argsJSON string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("edit_agent: %w", err)
 	}
-	return toJSON(map[string]any{"agentId": a.AgentID, "versionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"agentId": a.AgentID, "versionId": v.ID, "version": v.Version}), nil
 }

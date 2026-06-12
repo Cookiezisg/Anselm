@@ -19,6 +19,7 @@ import (
 
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 )
@@ -50,6 +51,7 @@ type RelationSyncer interface {
 // Service 串联 repo、registry、sandbox 与 per-server client。
 type Service struct {
 	repo      mcpdomain.Repository
+	search    searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	registry  mcpdomain.RegistrySource
 	sandbox   SandboxPort
 	relations RelationSyncer      // optional; nil disables relation hooks
@@ -203,6 +205,19 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 
 	now := time.Now().UTC()
 	s.mu.Lock()
+	// A concurrent connect (double-clicked Reconnect, or Reconnect racing Boot) may have
+	// registered another live client for this server: swap it out and close it, or the loser's
+	// process leaks as a zombie. Last-writer-wins matches Reconnect's "reset" semantics.
+	//
+	// 并发连接（双击 Reconnect、或 Reconnect 与 Boot 重叠）可能已为该 server 注册了另一个活
+	// client：换出并关闭它，否则输家的进程泄漏成僵尸。后写者赢与 Reconnect 的「重置」语义一致。
+	if old := s.clients[srv.ID]; old != nil {
+		go func() { _ = old.Close() }()
+	}
+	if oldH := s.handles[srv.ID]; oldH != nil {
+		go func() { _ = oldH.Kill() }()
+	}
+	delete(s.handles, srv.ID)
 	s.clients[srv.ID] = client
 	if handle != nil {
 		s.handles[srv.ID] = handle
@@ -215,6 +230,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		st.Tools = tools
 	}
 	s.mu.Unlock()
+	s.notifySearch(ctx, srv.ID)
 	return nil
 }
 
@@ -358,4 +374,20 @@ func (s *Service) setFailed(id string, err error) {
 // ownerFor 构造 server runtime env 的 sandbox owner key。
 func ownerFor(srv *mcpdomain.Server) sandboxdomain.Owner {
 	return sandboxdomain.Owner{Kind: sandboxdomain.OwnerKindMCP, ID: srv.ID, Name: srv.Name}
+}
+
+// DisconnectWorkspace closes every connected server belonging to the ctx workspace (client +
+// sandbox process) — the workspace-delete reaper's mcp step.
+//
+// DisconnectWorkspace 关闭 ctx workspace 名下全部已连接 server（client + sandbox 进程）——
+// workspace 删除 reaper 的 mcp 步。
+func (s *Service) DisconnectWorkspace(ctx context.Context) {
+	servers, err := s.repo.List(ctx)
+	if err != nil {
+		s.log.Warn("mcpapp.DisconnectWorkspace: list failed", zap.Error(err))
+		return
+	}
+	for _, srv := range servers {
+		s.closeOne(srv.ID)
+	}
 }

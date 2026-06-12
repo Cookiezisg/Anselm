@@ -6,11 +6,17 @@ import (
 	"fmt"
 
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_approval -------------------------------------------------------
 
-type SearchApproval struct{ svc *approvalapp.Service }
+type SearchApproval struct {
+	svc     *approvalapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchApproval) Name() string { return "search_approval" }
 
@@ -36,6 +42,9 @@ func (t *SearchApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_approval: bad args: %w", err)
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeApproval, args.Query, "approvals"); ok {
+		return body, nil
+	}
 	forms, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_approval: %w", err)
@@ -49,7 +58,7 @@ func (t *SearchApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, f := range forms {
 		out = append(out, slim{ID: f.ID, Name: f.Name, Description: f.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "approvals": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "approvals": out}), nil
 }
 
 // --- get_approval ----------------------------------------------------------
@@ -94,5 +103,5 @@ func (t *GetApproval) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("get_approval: %w", err)
 	}
-	return toJSON(f), nil
+	return toolapp.ToJSON(f), nil
 }

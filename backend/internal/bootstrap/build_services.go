@@ -1,7 +1,10 @@
 package bootstrap
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 
@@ -26,6 +29,7 @@ import (
 	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
@@ -33,6 +37,7 @@ import (
 	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
 	approvaltool "github.com/sunweilin/forgify/backend/internal/app/tool/approval"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
+	blockstool "github.com/sunweilin/forgify/backend/internal/app/tool/blocks"
 	controltool "github.com/sunweilin/forgify/backend/internal/app/tool/control"
 	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	filesystemtool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -54,7 +59,9 @@ import (
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
+	searchengine "github.com/sunweilin/forgify/backend/internal/infra/search/engine"
 	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
 // services holds every constructed app Service — the handlers read these, and the boot/shutdown
@@ -90,6 +97,7 @@ type services struct {
 	subagent     *subagentapp.Service
 	contextmgr   *contextmgrapp.Service
 	aispawn      *aispawnapp.Service
+	search       *searchapp.Service
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -118,6 +126,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	cat := catalogapp.New(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
 	sbx := sandboxapp.New(st.sandbox, dataDir, notif, log)
+	// search: one engine behind every surface (omni/vertical/blocks/RAG); sources and
+	// notifiers wire post-construction, the worker starts at App.Boot.
+	// search：所有出口背后的同一个引擎（综搜/垂搜/积木/RAG）；source 与 notifier 在装配后
+	// 接线，worker 于 App.Boot 启动。
+	searchSvc := searchapp.New(st.search, log)
+	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), searchengine.NewOllama("", ""))
+	searchSvc.SetSifter(&llmSifter{picker: ws, keys: keys, factory: inf.factory})
 
 	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
 	lookup := NewModelInfoLookup(modelCaps)
@@ -163,18 +178,19 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			[]toolapp.Tool{asktool.New()}, // R0064: ask_user — agent asks the human (blocks on the humanloop broker)
 		),
 		Lazy: concat(
-			functiontool.FunctionTools(fn),
-			handlertool.HandlerTools(hd),
-			agenttool.AgentTools(ag),
-			controltool.ControlTools(ctl),
-			approvaltool.ApprovalTools(apf),
-			workflowtool.WorkflowTools(wf),
-			triggertool.TriggerTools(trg),
-			documenttool.DocumentTools(doc),
+			functiontool.FunctionTools(fn, searchSvc),
+			handlertool.HandlerTools(hd, searchSvc),
+			agenttool.AgentTools(ag, searchSvc),
+			controltool.ControlTools(ctl, searchSvc),
+			approvaltool.ApprovalTools(apf, searchSvc),
+			workflowtool.WorkflowTools(wf, searchSvc),
+			triggertool.TriggerTools(trg, searchSvc),
+			documenttool.DocumentTools(doc, searchSvc),
 			memorytool.MemoryTools(mem),
 			mcptool.MCPTools(mcp),
 			skilltool.SkillTools(skill),
-			webtool.WebTools(ws, keys, inf.factory, ws, log),
+			blockstool.BlocksTools(searchSvc),
+			webtool.WebTools(ws, keys, inf.factory, ws, ws, log),
 		),
 	}
 	// Append the Subagent tool (depth-1 guard: the subagent registry always filters it out, so a
@@ -221,6 +237,45 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// active workflow 是 App.Boot 的事。
 	wf.SetExecutionPorts(trg, runnerAdapter{sched: sched})
 	sched.SetLifecycleReconciler(wf)
+	// Deleting a conversation cancels its in-flight generation (chat satisfies the port;
+	// post-build injection breaks the chat→conversation→chat cycle).
+	// 删对话连带取消在途生成（chat 满足该端口；后注入破 chat→conversation→chat 环）。
+	conv.SetGenerationCanceler(chat)
+
+	// Workspace delete cascades (PD-1 plan A): kill every workflow's automation (detach
+	// listeners + cancel in-flight runs + inactive — idempotent on already-inactive ones, and
+	// it also reaps manually-triggered runs), stop the workspace's resident handler/mcp
+	// processes, then remove its on-disk tree (skills / memories). All on a Detached(target)
+	// ctx — the DELETE request may arrive from a DIFFERENT workspace. Best-effort: the row
+	// delete that follows is what makes the data unreachable.
+	//
+	// workspace 删除级联（PD-1 A 案）：杀每个 workflow 的自动化（摘监听 + 取消在途 run +
+	// inactive——对已 inactive 幂等，且连手动触发的 run 一并收割）、停本 workspace 常驻
+	// handler/mcp 进程、删盘上文件树（skills / memories）。全程用 Detached(目标) ctx——
+	// DELETE 请求可能来自**另一个** workspace。best-effort：随后的删行才是数据不可达的根因。
+	ws.SetReaper(func(_ context.Context, wsID string) {
+		wsCtx := reqctxpkg.Detached(wsID)
+		if wfs, err := wf.ListAll(wsCtx); err == nil {
+			for _, w := range wfs {
+				if _, kerr := wf.Kill(wsCtx, w.ID); kerr != nil {
+					log.Warn("workspace reaper: kill workflow failed",
+						zap.String("workspaceId", wsID), zap.String("workflowId", w.ID), zap.Error(kerr))
+				}
+			}
+		} else {
+			log.Warn("workspace reaper: list workflows failed", zap.String("workspaceId", wsID), zap.Error(err))
+		}
+		hd.StopWorkspaceInstances(wsCtx)
+		mcp.DisconnectWorkspace(wsCtx)
+		if perr := searchSvc.PurgeWorkspace(wsCtx, wsID); perr != nil {
+			log.Warn("workspace reaper: purge search index failed", zap.String("workspaceId", wsID), zap.Error(perr))
+		}
+		if dataDir != "" {
+			if rerr := os.RemoveAll(filepath.Join(dataDir, "workspaces", wsID)); rerr != nil {
+				log.Warn("workspace reaper: remove file tree failed", zap.String("workspaceId", wsID), zap.Error(rerr))
+			}
+		}
+	})
 
 	// === post-construction injection ===
 	// agent's ReAct deps: LLM resolver + mount synthesis (the agent's tool universe is exactly its
@@ -290,12 +345,45 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat.RegisterMentionResolver(ctl.AsMentionResolver())
 	chat.RegisterMentionResolver(apf.AsMentionResolver())
 
+	// search wiring: 12 entity projections in, one notifier out to every writer
+	// (incl. chat/subagent message completion — anchor routes the incremental path).
+	// search 接线：12 个实体投影接入，一个 notifier 发给所有写者（含 chat/subagent 的
+	// message 完成——anchor 路由增量路径）。
+	searchSvc.RegisterSource(fn.SearchSource())
+	searchSvc.RegisterSource(hd.SearchSource())
+	searchSvc.RegisterSource(ag.SearchSource())
+	searchSvc.RegisterSource(wf.SearchSource())
+	searchSvc.RegisterSource(trg.SearchSource())
+	searchSvc.RegisterSource(ctl.SearchSource())
+	searchSvc.RegisterSource(apf.SearchSource())
+	searchSvc.RegisterSource(doc.SearchSource())
+	searchSvc.RegisterSource(conv.SearchSource(st.messages))
+	searchSvc.RegisterSource(mem.SearchSource())
+	searchSvc.RegisterSource(skill.SearchSource())
+	searchSvc.RegisterSource(mcp.SearchSource())
+	sn := searchSvc.Notifier()
+	fn.SetSearchNotifier(sn)
+	hd.SetSearchNotifier(sn)
+	ag.SetSearchNotifier(sn)
+	wf.SetSearchNotifier(sn)
+	trg.SetSearchNotifier(sn)
+	ctl.SetSearchNotifier(sn)
+	apf.SetSearchNotifier(sn)
+	doc.SetSearchNotifier(sn)
+	conv.SetSearchNotifier(sn)
+	mem.SetSearchNotifier(sn)
+	skill.SetSearchNotifier(sn)
+	mcp.SetSearchNotifier(sn)
+	chat.SetSearchNotifier(sn)
+	subagentSvc.SetSearchNotifier(sn)
+
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
+		search: searchSvc,
 	}
 	// aispawn (R0065) composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.
@@ -315,6 +403,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 // 不持有宿主状态。PythonEnvManager 以 Service 作 ToolRegistry。
 func registerSandboxStack(svc *sandboxapp.Service) {
 	for _, inst := range sandboxinfra.DirectInstallers() {
+		svc.RegisterInstaller(inst)
+	}
+	// Search embedder artifacts (llama-server + GGUF model) ride the same
+	// installer registry — one download discipline for everything (§decisions/0001).
+	// 搜索 embedder 产物（llama-server + GGUF 模型）走同一 installer 注册表——
+	// 全部下载共用一套纪律（§decisions/0001）。
+	for _, inst := range sandboxinfra.EngineInstallers() {
 		svc.RegisterInstaller(inst)
 	}
 	svc.RegisterInstaller(sandboxinfra.NewDockerInstaller())

@@ -33,25 +33,26 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 	}
 
 	// Flowrun identity rides ctx into the execution entity (function/handler/mcp/agent), whose
-	// audit recorder fills the flowrun_id / flowrun_node_id columns — the dispatch port stays
-	// (ctx, ref, input) without threading workflow concepts through every entity's input struct.
+	// audit recorder fills the flowrun_id / flowrun_node_id columns. The pinned version travels
+	// as an explicit dispatch arg: it is execution semantics (which frozen version runs), not
+	// ambient identity.
 	//
 	// Flowrun 身份经 ctx 进执行实体（function/handler/mcp/agent），由各实体审计记账填
-	// flowrun_id / flowrun_node_id 列——派发端口保持 (ctx, ref, input)，不让 workflow 概念穿透
-	// 每个实体的入参结构。
+	// flowrun_id / flowrun_node_id 列。pin 版本走显式派发参数：它是执行语义（跑哪个冻结版本），
+	// 不是环境身份。
 	ctx = reqctxpkg.SetFlowrunID(ctx, run.ID)
 	ctx = reqctxpkg.SetFlowrunNodeID(ctx, node.ID)
 
 	switch node.Kind {
 	case workflowdomain.NodeKindAction:
-		result, err := s.dispatch.RunAction(ctx, node.Ref, input)
+		result, err := s.dispatch.RunAction(ctx, node.Ref, run.PinnedRefs[entityIDOf(node.Ref)], input)
 		if err != nil {
 			return s.failNode(ctx, run, node, iter, fmt.Sprintf("action %s: %v", node.Ref, err))
 		}
 		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, result, "")
 
 	case workflowdomain.NodeKindAgent:
-		result, err := s.dispatch.RunAgent(ctx, node.Ref, input)
+		result, err := s.dispatch.RunAgent(ctx, node.Ref, run.PinnedRefs[entityIDOf(node.Ref)], input)
 		if err != nil {
 			return s.failNode(ctx, run, node, iter, fmt.Sprintf("agent %s: %v", node.Ref, err))
 		}

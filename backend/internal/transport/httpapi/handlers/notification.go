@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"go.uber.org/zap"
 
@@ -45,14 +44,12 @@ func (h *NotificationHandler) Register(mux Registrar) {
 //
 // List 处理 GET /api/v1/notifications —— 最新优先、keyset 分页。
 func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	limit := 0
-	if raw := q.Get("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			limit = n
-		}
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
-	items, next, err := h.svc.List(r.Context(), q.Get("cursor"), limit)
+	items, next, err := h.svc.List(r.Context(), p.Cursor, p.Limit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

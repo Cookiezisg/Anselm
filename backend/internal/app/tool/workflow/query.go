@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_workflow -------------------------------------------------------
 
-type SearchWorkflow struct{ svc *workflowapp.Service }
+type SearchWorkflow struct {
+	svc     *workflowapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchWorkflow) Name() string { return "search_workflow" }
 
@@ -36,6 +42,9 @@ func (t *SearchWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_workflow: bad args: %w", err)
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeWorkflow, args.Query, "workflows"); ok {
+		return body, nil
+	}
 	wfs, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_workflow: %w", err)
@@ -51,7 +60,7 @@ func (t *SearchWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, w := range wfs {
 		out = append(out, slim{ID: w.ID, Name: w.Name, Description: w.Description, LifecycleState: w.LifecycleState, Active: w.Active})
 	}
-	return toJSON(map[string]any{"count": len(out), "workflows": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "workflows": out}), nil
 }
 
 // --- get_workflow ----------------------------------------------------------
@@ -96,5 +105,5 @@ func (t *GetWorkflow) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("get_workflow: %w", err)
 	}
-	return toJSON(w), nil
+	return toolapp.ToJSON(w), nil
 }

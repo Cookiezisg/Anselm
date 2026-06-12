@@ -93,7 +93,7 @@ LLM 调 create_function（ops 数组，jsonrepair 容错）
 
 - **workspace 隔离链**：HTTP 中间件注入 → ctx 一路下传 → orm 自动过滤/填充（D2）；异步用 `reqctx.Detached(wsID)` 重播种；**后台入口逐 workspace 播种**（`forEachWorkspace` 铁律 + 守护测试）。
 - **错误系统**：一个类型（`pkg/errors`）、一种造法（`errorspkg.New(kind, code, msg)`）、246+ 码全 registry 登记；HTTP 读 Kind/Code、LLM 读 Message；2 条机械守卫防回退。
-- **版本模型（方案 A，全实体统一）**：线性只增版本 + 自由 active 指针；无 pending/accept；revert=移指针；Trim cap 50 放过 active。
+- **版本模型（方案 A，全实体统一）**：线性只增版本 + 自由 active 指针；无 pending/accept；revert=移指针；Trim cap 50 放过 active；**create（实体行+v1）与 edit（新版本+移指针）各为单事务**（store 复合方法 CreateWithVersion / SaveVersionAndActivate——不留无版本实体或孤儿版本+旧指针）。
 - **执行审计（四执行单元统一）**：Log 表只增（D1）+ 溯源 5 列（conversation/message/toolCall 由 loop 注入 ctx；flowrun 2 列由调度器派发注入）+ Detached 记账（被取消也落账）。
 - **ID 体系**：`<prefix>_<16hex>`（S15）；infra 侧自有前缀（fnenv_/hdenv_）。
 - **三条 SSE 流（E1 封顶）**：messages（对话）/ entities（实体面板）/ notifications（通知中心）；durable 帧入 replay 环、ephemeral 即发即丢（E2）；嵌套靠 ParentID（E3）。

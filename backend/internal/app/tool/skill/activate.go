@@ -105,7 +105,7 @@ func (t *GetSkill) Execute(ctx context.Context, argsJSON string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("get_skill: %w", err)
 	}
-	return toJSON(sk), nil
+	return toolapp.ToJSON(sk), nil
 }
 
 var _ toolapp.Tool = (*GetSkill)(nil)

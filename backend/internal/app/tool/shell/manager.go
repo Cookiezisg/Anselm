@@ -1,10 +1,11 @@
 package shell
 
 import (
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	"os/exec"
 	"sync"
 	"time"
+
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
 )
@@ -165,6 +166,6 @@ func (m *ProcessManager) Stop() {
 		if p.Cmd == nil || p.Cmd.Process == nil {
 			continue
 		}
-		_ = p.Cmd.Process.Kill()
+		_ = killProcessTree(p.Cmd)
 	}
 }

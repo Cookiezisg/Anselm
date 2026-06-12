@@ -14,21 +14,21 @@ package function
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // FunctionTools constructs the function system tools over the app service.
 //
 // FunctionTools 基于 app service 构造 function system tool。
-func FunctionTools(svc *functionapp.Service) []toolapp.Tool {
+func FunctionTools(svc *functionapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchFunction{svc: svc},
+		&SearchFunction{svc: svc, content: content},
 		&GetFunction{svc: svc},
 		&CreateFunction{svc: svc},
 		&EditFunction{svc: svc},
@@ -75,8 +75,3 @@ func (s *forgeSink) OnFixing(attempt int) {
 //
 // Close 结束进度块（未流过则 no-op）；create/edit 工具 defer 它。
 func (s *forgeSink) Close() { s.prog.Close() }
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}

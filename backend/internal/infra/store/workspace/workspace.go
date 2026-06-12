@@ -31,6 +31,7 @@ var Schema = []string{
 		default_utility  TEXT,
 		default_agent    TEXT,
 		default_search_key_id TEXT NOT NULL DEFAULT '',
+		web_fetch_mode TEXT NOT NULL DEFAULT '' CHECK (web_fetch_mode IN ('','local','jina')),
 		last_used_at DATETIME,
 		created_at   DATETIME NOT NULL,
 		updated_at   DATETIME NOT NULL,

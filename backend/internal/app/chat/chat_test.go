@@ -549,3 +549,5 @@ func TestSystemPromptPreview(t *testing.T) {
 		}
 	}
 }
+
+func (f fakeConvs) Unarchive(context.Context, string) error { return nil }

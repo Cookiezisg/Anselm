@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 
 	"go.uber.org/zap"
 
@@ -83,14 +82,12 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 //
 // List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。
 func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	limit := 0
-	if raw := q.Get("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			limit = n
-		}
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
-	items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), q.Get("cursor"), limit)
+	items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

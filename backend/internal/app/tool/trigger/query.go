@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_triggers -------------------------------------------------------
 
-type SearchTriggers struct{ svc *triggerapp.Service }
+type SearchTriggers struct {
+	svc     *triggerapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchTriggers) Name() string { return "search_triggers" }
 
@@ -34,6 +40,9 @@ func (t *SearchTriggers) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_triggers: bad args: %w", err)
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeTrigger, args.Query, "triggers"); ok {
+		return body, nil
+	}
 	ts, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_triggers: %w", err)
@@ -50,7 +59,7 @@ func (t *SearchTriggers) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, tr := range ts {
 		out = append(out, slim{ID: tr.ID, Name: tr.Name, Kind: tr.Kind, Description: tr.Description, RefCount: tr.RefCount, Listening: tr.Listening})
 	}
-	return toJSON(map[string]any{"count": len(out), "triggers": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "triggers": out}), nil
 }
 
 // --- get_trigger -----------------------------------------------------------
@@ -95,5 +104,5 @@ func (t *GetTrigger) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_trigger: %w", err)
 	}
-	return toJSON(tr), nil
+	return toolapp.ToJSON(tr), nil
 }

@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"go.uber.org/zap"
 
@@ -100,11 +99,10 @@ func (h *ConversationHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	limit := 0
-	if raw := q.Get("limit"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
-			limit = n
-		}
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
 	// archived: absent = exclude archived (default); "true"/"1" = archived only; else = active only.
 	// archived：缺省 = 排除已归档；"true"/"1" = 仅归档；其余 = 仅活跃。
@@ -114,8 +112,8 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		archived = &b
 	}
 	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
-		Cursor:   q.Get("cursor"),
-		Limit:    limit,
+		Cursor:   p.Cursor,
+		Limit:    p.Limit,
 		Search:   q.Get("search"),
 		Archived: archived,
 	})

@@ -26,6 +26,7 @@ import (
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
@@ -117,6 +118,7 @@ type RelationSyncer interface {
 // Service 编排 agent domain。
 type Service struct {
 	repo      agentdomain.Repository
+	search    searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	invoke    InvokeDeps
 	relations RelationSyncer             // nil disables relation hooks
 	notif     notificationdomain.Emitter // nil-tolerant
@@ -152,6 +154,7 @@ func (s *Service) SetInvokeDeps(deps InvokeDeps) { s.invoke = deps }
 //
 // publish 发一条 agent 生命周期通知；nil emitter 为 no-op。
 func (s *Service) publish(ctx context.Context, action, agentID string, extra map[string]any) {
+	s.notifySearch(ctx, agentID)
 	if s.notif == nil {
 		return
 	}

@@ -75,10 +75,10 @@ func TestKillWorkflow_CancelsParkedRun(t *testing.T) {
 // — modelling a long agent stuck mid-run. This is exactly the case kill must interrupt.
 type blockingAgentDispatcher struct{ entered chan string }
 
-func (d *blockingAgentDispatcher) RunAction(context.Context, string, map[string]any) (map[string]any, error) {
+func (d *blockingAgentDispatcher) RunAction(context.Context, string, string, map[string]any) (map[string]any, error) {
 	return map[string]any{}, nil
 }
-func (d *blockingAgentDispatcher) RunAgent(ctx context.Context, ref string, _ map[string]any) (map[string]any, error) {
+func (d *blockingAgentDispatcher) RunAgent(ctx context.Context, ref, _ string, _ map[string]any) (map[string]any, error) {
 	d.entered <- ref
 	<-ctx.Done()
 	return nil, ctx.Err()

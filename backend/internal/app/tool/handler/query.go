@@ -6,11 +6,17 @@ import (
 	"fmt"
 
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_handler --------------------------------------------------------
 
-type SearchHandler struct{ svc *handlerapp.Service }
+type SearchHandler struct {
+	svc     *handlerapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchHandler) Name() string { return "search_handler" }
 
@@ -34,6 +40,9 @@ func (t *SearchHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_handler: bad args: %w", err)
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeHandler, args.Query, "handlers"); ok {
+		return body, nil
+	}
 	hs, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_handler: %w", err)
@@ -47,7 +56,7 @@ func (t *SearchHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	for _, h := range hs {
 		out = append(out, slim{ID: h.ID, Name: h.Name, Description: h.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "handlers": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "handlers": out}), nil
 }
 
 // --- get_handler -----------------------------------------------------------
@@ -92,5 +101,5 @@ func (t *GetHandler) Execute(ctx context.Context, argsJSON string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("get_handler: %w", err)
 	}
-	return toJSON(h), nil
+	return toolapp.ToJSON(h), nil
 }

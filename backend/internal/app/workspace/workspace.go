@@ -28,7 +28,30 @@ import (
 type Service struct {
 	repo workspacedomain.Repository
 	log  *zap.Logger
+
+	// reaper tears down a workspace's runtime + files before the row is deleted (review PD-1:
+	// cascade destroy — kill automation, stop resident processes, remove the file tree).
+	// Injected post-build by bootstrap (it alone sees every service); nil → row-delete only.
+	//
+	// reaper 在删行前拆掉 workspace 的运行时与文件（评审 PD-1：级联销毁——杀自动化、停常驻
+	// 进程、删文件树）。bootstrap 后注入（只有它看得到全部 service）；nil → 仅删行。
+	reaper Reaper
 }
+
+// Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
+// listeners, resident handler/mcp processes, and the on-disk file tree. Best-effort by
+// contract — a partially failed reap still proceeds to the row delete (the row's absence
+// is what makes the data unreachable and the background seeding skip it).
+//
+// Reaper 销毁 workspace 行之外的一切所有物：在途 run、trigger 监听、常驻 handler/mcp 进程、
+// 盘上文件树。契约上 best-effort——部分失败仍继续删行（行的消失才是数据不可达、后台播种
+// 跳过它的根因）。
+type Reaper func(ctx context.Context, workspaceID string)
+
+// SetReaper injects the cascade-destroy hook (bootstrap, post-build).
+//
+// SetReaper 注入级联销毁钩子（bootstrap 后注入）。
+func (s *Service) SetReaper(r Reaper) { s.reaper = r }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -53,9 +76,10 @@ type CreateInput struct {
 //
 // UpdateInput 是部分更新载荷；nil 字段跳过。
 type UpdateInput struct {
-	Name        *string
-	AvatarColor *string
-	Language    *string
+	Name         *string
+	AvatarColor  *string
+	Language     *string
+	WebFetchMode *string // "local" | "jina" (PD-4 C)
 }
 
 // Create makes a new workspace; name is required and length-bounded, language
@@ -125,6 +149,12 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*works
 		}
 		w.Language = *in.Language
 	}
+	if in.WebFetchMode != nil {
+		if !workspacedomain.IsValidWebFetchMode(*in.WebFetchMode) {
+			return nil, workspacedomain.ErrWebFetchModeInvalid
+		}
+		w.WebFetchMode = *in.WebFetchMode
+	}
 	w.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, w); err != nil {
 		return nil, err
@@ -142,6 +172,15 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	if n <= 1 {
 		return workspacedomain.ErrCannotDeleteLast
+	}
+	// Cascade destroy first (PD-1): kill in-flight runs, detach trigger listeners, stop the
+	// workspace's resident handler/mcp processes, remove its file tree. Best-effort — the row
+	// delete below is the point of no return that makes everything unreachable.
+	//
+	// 先级联销毁（PD-1）：杀在途 run、摘 trigger 监听、停本 workspace 常驻 handler/mcp 进程、
+	// 删文件树。best-effort——下方删行才是让一切不可达的不可回退点。
+	if s.reaper != nil {
+		s.reaper(ctx, id)
 	}
 	return s.repo.Delete(ctx, id)
 }
@@ -233,6 +272,24 @@ func (s *Service) DefaultSearchKeyID(ctx context.Context) (string, bool) {
 	}
 	id := strings.TrimSpace(w.DefaultSearchKeyID)
 	return id, id != ""
+}
+
+// WebFetchMode resolves the current workspace's web-fetch mode for the WebFetch tool:
+// "local" (direct GET, the default) or "jina" (third-party reader). Any failure to read the
+// workspace falls back to local — never leak a URL on a degraded path (PD-4 decision C).
+//
+// WebFetchMode 为 WebFetch 工具解析当前 workspace 的抓取模式："local"（直接 GET，默认）或
+// "jina"（第三方 reader）。读不到 workspace 一律落回 local——降级路径绝不外发 URL（PD-4 裁决 C）。
+func (s *Service) WebFetchMode(ctx context.Context) string {
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return workspacedomain.WebFetchModeLocal
+	}
+	w, err := s.repo.Get(ctx, wsID)
+	if err != nil {
+		return workspacedomain.WebFetchModeLocal
+	}
+	return workspacedomain.EffectiveWebFetchMode(w.WebFetchMode)
 }
 
 // SetDefaultSearch sets (or clears with "") the workspace's default search api-key id.

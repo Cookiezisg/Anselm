@@ -99,6 +99,13 @@ func (d *directInstaller) Install(ctx context.Context, version, sandboxRoot stri
 
 	progress(stream, "↓ 下载 %s %s（%s）", d.r.kind, norm, spec.asset)
 	tmp, gotHash, err := streamDownload(ctx, spec.url, spec.sumAlgo)
+	for _, alt := range spec.altURLs {
+		if err == nil {
+			break
+		}
+		progress(stream, "↓ 主源失败，改用镜像 %s", alt)
+		tmp, gotHash, err = streamDownload(ctx, alt, spec.sumAlgo)
+	}
 	if err != nil {
 		return "", fmt.Errorf("sandbox.directInstaller.Install %s: %w: %w", d.r.kind, err, sandboxdomain.ErrRuntimeInstallFailed)
 	}
@@ -113,17 +120,32 @@ func (d *directInstaller) Install(ctx context.Context, version, sandboxRoot stri
 			d.r.kind, spec.sumAlgo, wantHash, gotHash, sandboxdomain.ErrRuntimeInstallFailed)
 	}
 
-	progress(stream, "⤓ 解压 %s", d.r.kind)
 	staging := root + ".staging"
 	_ = os.RemoveAll(staging)
-	if spec.isZip() {
-		err = extractZipTree(tmp, staging, spec.strip)
+	if spec.raw {
+		// Single-file asset: verified bytes land as <staging>/<asset>, the same
+		// atomic-rename discipline as an extracted tree.
+		// 单文件 asset：校验后的字节落 <staging>/<asset>，与解压树同一套原子换纪律。
+		if err := os.MkdirAll(staging, 0o755); err == nil {
+			err = copyFile(tmp, filepath.Join(staging, spec.asset))
+		} else {
+			err = fmt.Errorf("mkdir staging: %w", err)
+		}
+		if err != nil {
+			_ = os.RemoveAll(staging)
+			return "", fmt.Errorf("sandbox.directInstaller.Install %s: place: %w: %w", d.r.kind, err, sandboxdomain.ErrRuntimeInstallFailed)
+		}
 	} else {
-		err = extractTarGzTree(tmp, staging, spec.strip)
-	}
-	if err != nil {
-		_ = os.RemoveAll(staging)
-		return "", fmt.Errorf("sandbox.directInstaller.Install %s: extract: %w: %w", d.r.kind, err, sandboxdomain.ErrRuntimeInstallFailed)
+		progress(stream, "⤓ 解压 %s", d.r.kind)
+		if spec.isZip() {
+			err = extractZipTree(tmp, staging, spec.strip)
+		} else {
+			err = extractTarGzTree(tmp, staging, spec.strip)
+		}
+		if err != nil {
+			_ = os.RemoveAll(staging)
+			return "", fmt.Errorf("sandbox.directInstaller.Install %s: extract: %w: %w", d.r.kind, err, sandboxdomain.ErrRuntimeInstallFailed)
+		}
 	}
 
 	// Atomic swap: a half-extracted tree never occupies the canonical dir.
@@ -175,6 +197,21 @@ type downloadSpec struct {
 	sumAlgo string // "sha256" | "sha512"
 	sumList bool   // sumURL is a SHASUMS file (lookup by filename); else sidecar (hash-first) / 是 SHASUMS 清单（按文件名查）否则 sidecar（取首个 hash）
 	strip   int    // leading path components to drop (wrapper dir) / 剥掉的前导路径段（wrapper）
+
+	// sumFixed pins the digest in the recipe itself — for upstreams that publish
+	// no checksum file (llama.cpp releases); pinning the version pins the hash.
+	// sumFixed 把摘要钉死在 recipe 里——上游不发 checksum 文件时用（llama.cpp release）；
+	// 钉版本即钉 hash。
+	sumFixed string
+	// raw marks a single-file asset (a GGUF model): save verified bytes as
+	// <root>/<asset> instead of extracting an archive tree.
+	// raw 标记单文件 asset（GGUF 模型）：校验后直接落 <root>/<asset>，不解压。
+	raw bool
+	// altURLs are fallback mirrors tried in order when url fails — the HF →
+	// hf-mirror chain for networks where huggingface.co is unreachable.
+	// altURLs 是 url 失败后按序尝试的镜像——HF → hf-mirror 链，应对 huggingface.co
+	// 不可达的网络。
+	altURLs []string
 }
 
 func (s downloadSpec) isZip() bool { return strings.HasSuffix(s.asset, ".zip") }
@@ -419,6 +456,9 @@ func newHasher(algo string) hash.Hash {
 //
 // fetchChecksum 取期望的 hex 摘要：SHASUMS 清单（按文件名）或裸 sidecar（首个空白分隔 token）。
 func fetchChecksum(ctx context.Context, spec downloadSpec) (string, error) {
+	if spec.sumFixed != "" {
+		return strings.ToLower(spec.sumFixed), nil
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.sumURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("new request %s: %w", spec.sumURL, err)
@@ -644,4 +684,118 @@ func within(base, target string) bool {
 		return false
 	}
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// copyFile copies src to dst (0644) — the raw-asset placement step.
+//
+// copyFile 把 src 拷到 dst（0644）——raw asset 的落位步骤。
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
+
+// llamasrv: the llama.cpp server binary powering the builtin search embedder
+// (§domains/search.md). PINNED release tag with per-platform sha256 baked into
+// the recipe (llama.cpp publishes no checksum files — pinning the tag pins the
+// hash; layouts verified: tar.gz wraps a llama-<tag>/ dir, win zips are flat).
+// CPU builds only: a 300M embedding model needs no GPU runtime.
+//
+// llamasrv：驱动内置搜索 embedder 的 llama.cpp server 二进制（§domains/search.md）。
+// 钉死 release tag + 每平台 sha256 直接焙进 recipe（llama.cpp 不发 checksum 文件——
+// 钉 tag 即钉 hash；布局已实证：tar.gz 包一层 llama-<tag>/、win zip 平铺）。只用
+// CPU 构建：300M 嵌入模型不需要 GPU 运行时。
+func llamasrvRecipe() runtimeRecipe {
+	const tag = "b9601"
+	type asset struct {
+		name, sum string
+		strip     int
+	}
+	assets := map[string]asset{
+		"darwin/arm64":  {"llama-" + tag + "-bin-macos-arm64.tar.gz", "8e26998a6a47f68142a42006247ecd0a4c6b9a72accc67d88834c851b4703e1f", 1},
+		"darwin/amd64":  {"llama-" + tag + "-bin-macos-x64.tar.gz", "ae423e8e959e82496530937b2874e5ab59983b6df25d4b3472131de07fafc079", 1},
+		"linux/amd64":   {"llama-" + tag + "-bin-ubuntu-x64.tar.gz", "16d7cd9e190c63d0355a2eb751333fb806f32b9a0ba30f8a52255f0a9de407fd", 1},
+		"linux/arm64":   {"llama-" + tag + "-bin-ubuntu-arm64.tar.gz", "676c85757b96c327a7ca4750678fd7ca347c5a743b71d8f8e7ef5084ab5db686", 1},
+		"windows/amd64": {"llama-" + tag + "-bin-win-cpu-x64.zip", "33b1888cdc8e0469561a58019174bad8a2705d2717270f35e99757b342c25596", 0},
+		"windows/arm64": {"llama-" + tag + "-bin-win-cpu-arm64.zip", "50ce7216f388221d1f16603017d439e8ffeab8878c9ee683be76ac6255540c45", 0},
+	}
+	return runtimeRecipe{
+		kind:       "llamasrv",
+		defVersion: tag,
+		normalize:  func(v string) string { return v },
+		resolve: func(version, goos, goarch string) (downloadSpec, error) {
+			a, ok := assets[goos+"/"+goarch]
+			if !ok {
+				return downloadSpec{}, fmt.Errorf("llamasrv: unsupported platform %s/%s", goos, goarch)
+			}
+			return downloadSpec{
+				url:      "https://github.com/ggml-org/llama.cpp/releases/download/" + version + "/" + a.name,
+				asset:    a.name,
+				sumAlgo:  "sha256",
+				sumFixed: a.sum,
+				strip:    a.strip,
+			}, nil
+		},
+		binRel: func(goos, _ string) string {
+			if goos == "windows" {
+				return "llama-server.exe"
+			}
+			return "llama-server"
+		},
+	}
+}
+
+// embedmodel: the default embedding model (EmbeddingGemma-300m QAT Q8 GGUF,
+// 100+ languages incl. Chinese, <200MB RAM). Single raw file with the HF LFS
+// sha256 pinned; hf-mirror.com is the fallback for networks where
+// huggingface.co is unreachable.
+//
+// embedmodel：默认嵌入模型（EmbeddingGemma-300m QAT Q8 GGUF，100+ 语言含中文、
+// <200MB RAM）。单 raw 文件、钉 HF LFS sha256；hf-mirror.com 兜底 huggingface.co
+// 不可达的网络。
+func embedmodelRecipe() runtimeRecipe {
+	const (
+		repo = "ggml-org/embeddinggemma-300m-qat-q8_0-GGUF"
+		file = "embeddinggemma-300m-qat-Q8_0.gguf"
+		sum  = "6fa0c02a9c302be6f977521d399b4de3a46310a4f2621ee0063747881b673f67"
+	)
+	return runtimeRecipe{
+		kind:       "embedmodel",
+		defVersion: "embeddinggemma-300m-qat-q8_0",
+		normalize:  func(v string) string { return v },
+		resolve: func(_, _, _ string) (downloadSpec, error) {
+			return downloadSpec{
+				url:      "https://huggingface.co/" + repo + "/resolve/main/" + file,
+				altURLs:  []string{"https://hf-mirror.com/" + repo + "/resolve/main/" + file},
+				asset:    file,
+				sumAlgo:  "sha256",
+				sumFixed: sum,
+				raw:      true,
+			}, nil
+		},
+		binRel: func(_, _ string) string { return file },
+	}
+}
+
+// EngineInstallers returns the search-embedder installers (llama-server binary
+// + GGUF model), registered alongside the runtime installers.
+//
+// EngineInstallers 返回搜索 embedder 的 installer（llama-server 二进制 + GGUF 模型），
+// 与运行时 installer 一并注册。
+func EngineInstallers() []sandboxdomain.RuntimeInstaller {
+	return []sandboxdomain.RuntimeInstaller{
+		&directInstaller{r: llamasrvRecipe()},
+		&directInstaller{r: embedmodelRecipe()},
+	}
 }

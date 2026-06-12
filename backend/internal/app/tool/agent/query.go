@@ -7,11 +7,17 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_agent ----------------------------------------------------------
 
-type SearchAgent struct{ svc *agentapp.Service }
+type SearchAgent struct {
+	svc     *agentapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchAgent) Name() string { return "search_agent" }
 
@@ -34,6 +40,9 @@ func (t *SearchAgent) Execute(ctx context.Context, argsJSON string) (string, err
 			return "", fmt.Errorf("search_agent: bad args: %w", err)
 		}
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeAgent, args.Query, "agents"); ok {
+		return body, nil
+	}
 	ags, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_agent: %w", err)
@@ -47,7 +56,7 @@ func (t *SearchAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	for _, a := range ags {
 		out = append(out, slim{ID: a.ID, Name: a.Name, Description: a.Description})
 	}
-	return toJSON(map[string]any{"agents": out, "count": len(out)}), nil
+	return toolapp.ToJSON(map[string]any{"agents": out, "count": len(out)}), nil
 }
 
 // --- get_agent -------------------------------------------------------------
@@ -88,5 +97,5 @@ func (t *GetAgent) Execute(ctx context.Context, argsJSON string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("get_agent: %w", err)
 	}
-	return toJSON(ag), nil
+	return toolapp.ToJSON(ag), nil
 }

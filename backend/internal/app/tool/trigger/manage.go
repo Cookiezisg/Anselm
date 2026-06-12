@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 )
 
@@ -49,5 +50,5 @@ func (t *FireTrigger) Execute(ctx context.Context, argsJSON string) (string, err
 	if err := t.svc.FireManual(ctx, args.TriggerID); err != nil {
 		return "", fmt.Errorf("fire_trigger: %w", err)
 	}
-	return toJSON(map[string]any{"fired": true, "triggerId": args.TriggerID}), nil
+	return toolapp.ToJSON(map[string]any{"fired": true, "triggerId": args.TriggerID}), nil
 }

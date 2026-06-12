@@ -349,3 +349,45 @@ func toAny(ss []string) []any {
 	}
 	return out
 }
+
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
+//
+// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// ——中途失败不留无版本实体行。
+func (s *Store) CreateWithVersion(ctx context.Context, e *handlerdomain.Handler, v *handlerdomain.Version) error {
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		if err := ormpkg.For[handlerdomain.Handler](tx, "handlers").Save(ctx, e); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return handlerdomain.ErrDuplicateName
+			}
+			return fmt.Errorf("handlerstore.CreateWithVersion: entity: %w", err)
+		}
+		if err := ormpkg.For[handlerdomain.Version](tx, "handler_versions").Save(ctx, v); err != nil {
+			return fmt.Errorf("handlerstore.CreateWithVersion: version: %w", err)
+		}
+		return nil
+	})
+}
+
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
+// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+//
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// 要么完全不生效——不留孤儿版本 + 旧指针。
+func (s *Store) SaveVersionAndActivate(ctx context.Context, v *handlerdomain.Version, entityID string) error {
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		if err := ormpkg.For[handlerdomain.Version](tx, "handler_versions").Save(ctx, v); err != nil {
+			return fmt.Errorf("handlerstore.SaveVersionAndActivate: version: %w", err)
+		}
+		n, err := ormpkg.For[handlerdomain.Handler](tx, "handlers").
+			WhereEq("id", entityID).Update(ctx, "active_version_id", v.ID)
+		if err != nil {
+			return fmt.Errorf("handlerstore.SaveVersionAndActivate: pointer: %w", err)
+		}
+		if n == 0 {
+			return handlerdomain.ErrNotFound
+		}
+		return nil
+	})
+}

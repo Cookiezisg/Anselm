@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位 + 心智模型
 
-MCP server 是**容器实体**：持 N 个可调工具、以常驻进程（stdio 经 sandbox）或远程连接（SSE / streamable-HTTP + header 鉴权）运行。**生命周期镜像 handler**：`map[mcp_id]` 单例池、Boot per-workspace 并发连接（best-effort）、`reconnect`（"重置按钮"——救活着但坏了的连接）、优雅 Shutdown。
+MCP server 是**容器实体**：持 N 个可调工具、以常驻进程（stdio 经 sandbox）或远程连接（SSE / streamable-HTTP + header 鉴权）运行。**生命周期镜像 handler**：`map[mcp_id]` 单例池、Boot per-workspace 并发连接（best-effort）、`reconnect`（"重置按钮"——救活着但坏了的连接；并发连接注册时换出旧 client+进程并关闭，后写者赢）、优雅 Shutdown。
 
 **状态机（进程内、永不落盘）**：disconnected → connecting → ready；连续 3 次调用失败 → **degraded**（仍可服务、软警告）；连不上 → failed（reconnect 可救）。`IsCallable` = ready|degraded。
 

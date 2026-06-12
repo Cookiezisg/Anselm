@@ -9,27 +9,21 @@
 package approval
 
 import (
-	"encoding/json"
-
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // ApprovalTools constructs the approval-form system tools over the app service.
 //
 // ApprovalTools 基于 app service 构造审批表 system tool。
-func ApprovalTools(svc *approvalapp.Service) []toolapp.Tool {
+func ApprovalTools(svc *approvalapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchApproval{svc: svc},
+		&SearchApproval{svc: svc, content: content},
 		&GetApproval{svc: svc},
 		&CreateApproval{svc: svc},
 		&EditApproval{svc: svc},
 		&RevertApproval{svc: svc},
 		&DeleteApproval{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

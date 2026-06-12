@@ -94,6 +94,32 @@ func TestBash_DangerBlocked(t *testing.T) {
 	}
 }
 
+// TestBash_Timeout_GrandchildHoldingPipe: a timed-out command whose CHILD still holds the
+// stdout pipe (sh -c pipeline / spawned daemon) must return promptly — group kill takes the
+// grandchildren out and WaitDelay bounds any leftover pipe-holder. Without the fix this test
+// blocks until the inner sleep ends (~30s).
+//
+// TestBash_Timeout_GrandchildHoldingPipe：超时命令的**子进程**仍攥着 stdout 管道（sh -c 管道 /
+// 拉起的 daemon）也必须及时返回——组杀连孙进程一起带走、WaitDelay 兜住残余管道持有者。无此修复
+// 本测试会阻塞到内层 sleep 结束（~30s）。
+func TestBash_Timeout_GrandchildHoldingPipe(t *testing.T) {
+	if testing.Short() {
+		t.Skip("spawns real processes")
+	}
+	b := &Bash{mgr: NewProcessManager()}
+	start := time.Now()
+	out, err := b.Execute(context.Background(), `{"command":"sleep 30 | sleep 30","timeout":200}`)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if !strings.Contains(out, "timed out") {
+		t.Fatalf("expected timeout note, got %q", out)
+	}
+	if took := time.Since(start); took > 8*time.Second {
+		t.Fatalf("Execute took %s — group kill / WaitDelay not effective", took)
+	}
+}
+
 // TestBash_NoCwdPersistence proves cd does NOT carry across calls (no cwd state) but works
 // within a single command.
 //

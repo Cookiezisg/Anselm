@@ -23,6 +23,7 @@ import (
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
@@ -89,9 +90,10 @@ type Deps struct {
 //
 // Service 跑 subagent。它满足 skilldomain.SubagentRunner 使 skill fork 经它派发，Subagent 工具调同一 Spawn。
 type Service struct {
-	deps Deps
-	reg  *Registry
-	log  *zap.Logger
+	deps   Deps
+	search searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
+	reg    *Registry
+	log    *zap.Logger
 }
 
 // New constructs the Service. nil log → no-op logger.

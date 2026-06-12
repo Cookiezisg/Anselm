@@ -38,6 +38,8 @@ type Repository interface {
 	ListAllControls(ctx context.Context) ([]*ControlLogic, error)
 	DeleteControl(ctx context.Context, id string) error // soft-delete (tombstone)
 	SetActiveVersion(ctx context.Context, controlID, versionID string) error
+	CreateWithVersion(ctx context.Context, e *ControlLogic, v *Version) error      // create + v1, one tx (review PD-3)
+	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx (review PD-3)
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)

@@ -6,11 +6,17 @@ import (
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_function -------------------------------------------------------
 
-type SearchFunction struct{ svc *functionapp.Service }
+type SearchFunction struct {
+	svc     *functionapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchFunction) Name() string { return "search_function" }
 
@@ -36,6 +42,9 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_function: bad args: %w", err)
 	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeFunction, args.Query, "functions"); ok {
+		return body, nil
+	}
 	fns, err := t.svc.Search(ctx, args.Query)
 	if err != nil {
 		return "", fmt.Errorf("search_function: %w", err)
@@ -49,7 +58,7 @@ func (t *SearchFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	for _, f := range fns {
 		out = append(out, slim{ID: f.ID, Name: f.Name, Description: f.Description})
 	}
-	return toJSON(map[string]any{"count": len(out), "functions": out}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "functions": out}), nil
 }
 
 // --- get_function ----------------------------------------------------------
@@ -94,5 +103,5 @@ func (t *GetFunction) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("get_function: %w", err)
 	}
-	return toJSON(f), nil
+	return toolapp.ToJSON(f), nil
 }

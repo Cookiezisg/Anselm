@@ -39,7 +39,8 @@ type spawnFn func(ctx context.Context, handlerID string) (*Instance, error)
 // edit / 改 config / crash 时重启、退出软件优雅关闭。替代旧的 per-owner instanceRegistry。
 type instanceManager struct {
 	mu        sync.Mutex
-	instances map[string]*Instance // handlerID → the one resident instance
+	instances map[string]*Instance     // handlerID → the one resident instance
+	spawning  map[string]chan struct{} // handlerID → closed when the in-flight spawn finishes
 	spawn     spawnFn
 	log       *zap.Logger
 }
@@ -48,7 +49,12 @@ func newInstanceManager(spawn spawnFn, log *zap.Logger) *instanceManager {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &instanceManager{instances: make(map[string]*Instance), spawn: spawn, log: log.Named("manager")}
+	return &instanceManager{
+		instances: make(map[string]*Instance),
+		spawning:  make(map[string]chan struct{}),
+		spawn:     spawn,
+		log:       log.Named("manager"),
+	}
 }
 
 // Get returns the live instance for handlerID, spawning if absent or crashed.
@@ -64,25 +70,36 @@ func (m *instanceManager) Get(ctx context.Context, handlerID string) (*Instance,
 		delete(m.instances, handlerID) // crashed → reap + respawn below
 		go func() { _ = inst.Kill() }()
 	}
+	// Single-flight: a spawn is expensive (env + process + __init__, seconds). Concurrent
+	// callers — chat's parallel tool batch hitting two methods of the same handler — wait for
+	// the in-flight spawn instead of paying for a duplicate that gets thrown away.
+	//
+	// 单飞：spawn 很贵（env + 进程 + __init__，秒级）。并发调用方——chat 并行工具批同时打同一
+	// handler 的两个方法——等在飞的 spawn，而不是花钱造一个注定被扔的副本。
+	if ch, busy := m.spawning[handlerID]; busy {
+		m.mu.Unlock()
+		select {
+		case <-ch:
+			return m.Get(ctx, handlerID) // spawn settled (registered or failed) — re-check
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	ch := make(chan struct{})
+	m.spawning[handlerID] = ch
 	m.mu.Unlock()
 
 	inst, err := m.spawn(ctx, handlerID)
+
+	m.mu.Lock()
+	delete(m.spawning, handlerID)
+	close(ch)
 	if err != nil {
+		m.mu.Unlock()
 		return nil, err
 	}
-
-	// Race: a concurrent caller may have spawned the same handler; prefer the registered one.
-	// 竞态：并发调用方可能已 spawn 同一 handler，优先用已注册的。
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if existing, ok := m.instances[handlerID]; ok && !existing.Client.Crashed() {
-		go func() {
-			_ = inst.Client.Shutdown(context.Background())
-			_ = inst.Kill()
-		}()
-		return existing, nil
-	}
 	m.instances[handlerID] = inst
+	m.mu.Unlock()
 	return inst, nil
 }
 

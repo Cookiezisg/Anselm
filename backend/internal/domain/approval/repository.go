@@ -37,6 +37,8 @@ type Repository interface {
 	ListAllForms(ctx context.Context) ([]*ApprovalForm, error)
 	DeleteForm(ctx context.Context, id string) error // soft-delete (tombstone)
 	SetActiveVersion(ctx context.Context, formID, versionID string) error
+	CreateWithVersion(ctx context.Context, e *ApprovalForm, v *Version) error      // create + v1, one tx (review PD-3)
+	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx (review PD-3)
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)

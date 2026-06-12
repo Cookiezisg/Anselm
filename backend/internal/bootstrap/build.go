@@ -107,6 +107,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 		Register(handlershttpapi.Registrar)
 	}{
 		handlershttpapi.NewWorkspacesHandler(s.workspace, log),
+		handlershttpapi.NewSearchHandler(s.search, log),
 		handlershttpapi.NewAPIKeyHandler(s.apikey, log),
 		handlershttpapi.NewModelCapabilitiesHandler(s.modelCaps, log),
 		handlershttpapi.NewScenariosHandler(),
@@ -217,6 +218,19 @@ func (a *App) Boot(ctx context.Context) {
 	registerSandboxStack(a.svc.sandbox)
 	a.svc.sandbox.RestoreOrCleanupOnBoot(ctx)
 	a.svc.trigger.Start()
+	// search index worker + per-workspace reconcile (self-healing for dropped events /
+	// crashes / schema bumps); never blocks boot.
+	// 搜索索引 worker + 逐 workspace 对账（丢事件/崩溃/schema 升版的自愈）；绝不阻塞 boot。
+	if workspaces, err := a.svc.workspace.List(ctx); err == nil {
+		ids := make([]string, 0, len(workspaces))
+		for _, w := range workspaces {
+			ids = append(ids, w.ID)
+		}
+		a.svc.search.Start(ids)
+	} else {
+		a.log.Warn("bootstrap: list workspaces for search start", zap.Error(err))
+		a.svc.search.Start(nil)
+	}
 	if err := a.svc.scheduler.Recover(ctx); err != nil {
 		a.log.Warn("bootstrap: scheduler recover failed", zap.Error(err))
 	}
@@ -233,6 +247,12 @@ func (a *App) Boot(ctx context.Context) {
 	a.forEachWorkspace(ctx, func(wsCtx context.Context) {
 		a.svc.handler.Boot(wsCtx)
 		a.svc.mcp.Boot(wsCtx)
+		// Reconcile turns orphaned mid-stream by a hard crash (messages' scheduler.Recover
+		// counterpart): pending/streaming rows become cancelled so the UI never shows a
+		// forever-spinning bubble.
+		// 对账被硬崩溃卡在流式中的孤儿回合（messages 版 scheduler.Recover）：pending/streaming 行
+		// 置 cancelled，UI 不再出现永久转圈气泡。
+		a.svc.chat.SweepOrphans(wsCtx)
 		// D1: the trigger listen-registry is in-memory, so re-engage the listener for every
 		// active workflow ("replay active references on boot").
 		// D1：trigger 监听注册表是内存的，为每个 active workflow 重挂监听（boot 重放 active 引用）。
@@ -308,6 +328,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 	a.svc.trigger.Shutdown()
 	a.svc.chat.Shutdown()
+	a.svc.search.Close()
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)
 	if err := a.svc.sandbox.Shutdown(ctx); err != nil {

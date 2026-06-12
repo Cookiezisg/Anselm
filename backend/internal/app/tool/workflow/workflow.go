@@ -11,8 +11,7 @@
 package workflow
 
 import (
-	"encoding/json"
-
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
@@ -20,9 +19,9 @@ import (
 // WorkflowTools constructs the workflow system tools over the app service.
 //
 // WorkflowTools 基于 app service 构造 workflow system tool。
-func WorkflowTools(svc *workflowapp.Service) []toolapp.Tool {
+func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchWorkflow{svc: svc},
+		&SearchWorkflow{svc: svc, content: content},
 		&GetWorkflow{svc: svc},
 		&CreateWorkflow{svc: svc},
 		&EditWorkflow{svc: svc},
@@ -54,8 +53,3 @@ NODE KINDS & REF PREFIXES: trigger→trg_, action→fn_ | hd_<id>.method | mcp:s
 A node's "input" wires each field to a bare CEL expression over upstream results (payload/ctx for a trigger's signal, input for node-fed data). A trigger node has no input.
 fromPort is required on an edge leaving a control node (a branch name) or an approval node (yes|no), and must be absent otherwise.
 The graph must have ≥1 trigger, no orphan nodes, and any loop must be closed by a control or approval branch (a back edge).`
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}

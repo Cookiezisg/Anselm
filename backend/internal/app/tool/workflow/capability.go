@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
 
@@ -50,7 +51,7 @@ func (t *CapabilityCheckWorkflow) Execute(ctx context.Context, argsJSON string) 
 	if err != nil {
 		return "", fmt.Errorf("capability_check_workflow: %w", err)
 	}
-	return toJSON(map[string]any{
+	return toolapp.ToJSON(map[string]any{
 		"id":                args.WorkflowID,
 		"ok":                rep.OK(),
 		"structurallyValid": rep.StructurallyValid,

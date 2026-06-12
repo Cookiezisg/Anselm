@@ -11,19 +11,19 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // HandlerTools constructs the handler system tools over the app service.
-func HandlerTools(svc *handlerapp.Service) []toolapp.Tool {
+func HandlerTools(svc *handlerapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchHandler{svc: svc},
+		&SearchHandler{svc: svc, content: content},
 		&GetHandler{svc: svc},
 		&CreateHandler{svc: svc},
 		&EditHandler{svc: svc},
@@ -69,8 +69,3 @@ func (s *forgeSink) OnFixing(attempt int) {
 //
 // Close 结束进度块（未流过则 no-op）；create/edit defer 它。
 func (s *forgeSink) Close() { s.prog.Close() }
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
-}

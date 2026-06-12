@@ -56,6 +56,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Tr
 	if err := s.repo.SaveTrigger(ctx, t); err != nil {
 		return nil, err
 	}
+	s.notifySearch(ctx, t.ID)
 	s.syncSensorBinding(ctx, t)
 	s.syncForgedEdge(ctx, t.ID)
 	return t, nil
@@ -88,6 +89,7 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 	if err := s.repo.SaveTrigger(ctx, t); err != nil {
 		return nil, err
 	}
+	s.notifySearch(ctx, t.ID)
 	s.syncSensorBinding(ctx, t)
 	s.restartIfListening(t)
 	s.attachRuntime(t)
@@ -109,6 +111,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.DeleteTrigger(ctx, id); err != nil {
 		return err
 	}
+	s.notifySearch(ctx, id)
 	s.purgeRelations(ctx, id)
 	return nil
 }

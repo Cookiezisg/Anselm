@@ -8,8 +8,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
@@ -59,12 +57,4 @@ func DynamicTools(ctx context.Context, svc *mcpapp.Service) ([]toolapp.Tool, err
 		}
 	}
 	return out, nil
-}
-
-func toJSON(v any) (string, error) {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("tool/mcp: marshal: %w", err)
-	}
-	return string(b), nil
 }

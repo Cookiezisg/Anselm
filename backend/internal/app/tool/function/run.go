@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
@@ -73,7 +74,7 @@ func (t *RunFunction) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("run_function: %w", err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }
 
 // triggerFromCtx derives the execution body: a subagent context means an agent run,
@@ -147,7 +148,7 @@ func (t *SearchFunctionExecutions) Execute(ctx context.Context, argsJSON string)
 	if err != nil {
 		return "", fmt.Errorf("search_function_executions: %w", err)
 	}
-	return toJSON(res), nil
+	return toolapp.ToJSON(res), nil
 }
 
 // --- get_function_execution ------------------------------------------------
@@ -192,5 +193,5 @@ func (t *GetFunctionExecution) Execute(ctx context.Context, argsJSON string) (st
 	if err != nil {
 		return "", fmt.Errorf("get_function_execution: %w", err)
 	}
-	return toJSON(e), nil
+	return toolapp.ToJSON(e), nil
 }

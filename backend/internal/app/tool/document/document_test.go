@@ -35,7 +35,7 @@ func newToolSvc(t *testing.T) (*documentapp.Service, context.Context) {
 
 func TestDocumentTools_NamesAndCount(t *testing.T) {
 	svc, _ := newToolSvc(t)
-	tools := DocumentTools(svc)
+	tools := DocumentTools(svc, nil)
 	if len(tools) != 7 {
 		t.Fatalf("want 7 tools, got %d", len(tools))
 	}

@@ -30,22 +30,27 @@ func Chain(h http.Handler, log *zap.Logger, resolver middlewarehttpapi.Workspace
 }
 
 // requireWorkspaceExempt applies RequireWorkspace to all /api/v1/* routes EXCEPT the ones
-// that must work before a workspace exists:
+// that must work without a workspace header:
 //   - /api/v1/workspaces — onboarding must create a workspace first
 //   - /api/v1/health — liveness probe
 //   - /api/v1/providers, /api/v1/scenarios — static metadata the onboarding UI reads
+//   - /api/v1/webhooks/ — EXTERNAL callers (GitHub etc.) can never send the workspace
+//     header; the webhook listener authenticates with its own secret/HMAC and the trigger
+//     app resolves the workspace from the trigger's registration at report time
 //
 // Non-/api/v1/* paths pass through (mux handles NotFound / static assets).
 //
-// requireWorkspaceExempt 给所有 /api/v1/* 套 RequireWorkspace，但豁免 onboarding 前必须可达的：
-// /workspaces（创建工作区）、/health（健康检查）、/providers + /scenarios（静态元数据）。
-// 非 /api/v1/* 路径放过（交 mux 处理 NotFound / 静态资源）。
+// requireWorkspaceExempt 给所有 /api/v1/* 套 RequireWorkspace，但豁免无法带 workspace header 的：
+// /workspaces（创建工作区）、/health（健康检查）、/providers + /scenarios（静态元数据）、
+// /webhooks/（**外部**调用方如 GitHub 不可能带 header；webhook 监听器自带 secret/HMAC 鉴权，
+// workspace 由 trigger app 在 report 时从注册表解析）。非 /api/v1/* 路径放过。
 func requireWorkspaceExempt(next http.Handler) http.Handler {
 	guarded := middlewarehttpapi.RequireWorkspace(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
 		if !strings.HasPrefix(p, "/api/v1/") ||
 			strings.HasPrefix(p, "/api/v1/workspaces") ||
+			strings.HasPrefix(p, "/api/v1/webhooks/") ||
 			p == "/api/v1/health" ||
 			p == "/api/v1/providers" ||
 			p == "/api/v1/scenarios" {

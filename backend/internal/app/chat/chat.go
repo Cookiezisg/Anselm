@@ -34,6 +34,7 @@ import (
 	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
@@ -85,6 +86,11 @@ var (
 // ConversationReader 读对话线程级配置。conversationapp.Service 结构化满足。
 type ConversationReader interface {
 	Get(ctx context.Context, id string) (*conversationdomain.Conversation, error)
+	// Unarchive clears the archived flag — Send auto-unarchives (messaging an archived thread
+	// implicitly brings it back, review PD-2).
+	//
+	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回，评审 PD-2）。
+	Unarchive(ctx context.Context, id string) error
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver
@@ -205,6 +211,7 @@ type Compactor interface {
 // wg 追踪其 goroutine 供关停。
 type Service struct {
 	messages         messagesdomain.Repository
+	search           searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	deps             Deps
 	searchTool       toolapp.Tool                                         // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
 	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type at M7
@@ -220,6 +227,7 @@ type Service struct {
 
 	queues sync.Map // conversationID → *convQueue
 	wg     sync.WaitGroup
+	stop   chan struct{} // closed by Shutdown: short-circuits every runQueue loop
 }
 
 // New constructs the chat Service. nil messages / log is a wiring bug; Deps fields may be nil
@@ -239,6 +247,7 @@ func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Servic
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
 		maxSteps:         defaultMaxSteps,
 		log:              log,
+		stop:             make(chan struct{}),
 	}
 	s.broker = humanloopapp.New(s.interactionSurface)
 	return s
@@ -265,6 +274,24 @@ type SendInput struct {
 func (s *Service) Send(ctx context.Context, conversationID string, in SendInput) (string, error) {
 	if in.Content == "" && len(in.AttachmentIDs) == 0 {
 		return "", ErrEmptyContent
+	}
+	// Existence gate: without it a Send to a deleted / unknown conversation persists an orphan
+	// user turn (and an assistant row) that only fails later inside processTask — 404 first.
+	//
+	// 存在性闸：没有它，发往已删/未知对话的 Send 会先落孤儿 user 回合（和 assistant 行），到
+	// processTask 里才失败——先 404。
+	conv, err := s.deps.Conversations.Get(ctx, conversationID)
+	if err != nil {
+		return "", err
+	}
+	// Auto-unarchive (PD-2): sending to an archived thread implicitly brings it back. Soft-fail
+	// — a failed flag flip must not block the message itself.
+	//
+	// 自动解档（PD-2）：给归档线程发消息即隐式唤回。软失败——标志翻转失败不挡消息本身。
+	if conv.Archived {
+		if err := s.deps.Conversations.Unarchive(ctx, conversationID); err != nil {
+			s.log.Warn("chatapp.Send: auto-unarchive failed", zap.String("conversationId", conversationID), zap.Error(err))
+		}
 	}
 
 	// Persist the user turn (one text block + attachment ids snapshotted in Attrs) and echo it
@@ -294,6 +321,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err := s.messages.CreateMessage(ctx, userMsg, userBlocks); err != nil {
 		return "", err
 	}
+	s.notifySearchMessage(ctx, conversationID, userMsg.ID)
 	s.emitUserMessage(ctx, conversationID, userMsg, in.Content)
 
 	// Open the assistant turn (streaming, no blocks yet) to mint its id for the live stream
@@ -358,19 +386,34 @@ type convQueue struct {
 	agentState *agentstatepkg.AgentState
 	mu         sync.Mutex
 	cancel     context.CancelFunc
+	dead       bool // set under mu by runQueue at teardown; enqueue re-creates on sight
 }
 
 // enqueue gets-or-creates the conversation's queue and offers the task; a full buffer means a
-// turn is already running (or backlogged) → STREAM_IN_PROGRESS.
+// turn is already running (or backlogged) → STREAM_IN_PROGRESS. The send happens under q.mu
+// after checking q.dead: runQueue's teardown (mark dead + final drain) runs under the same
+// lock, so a task can never land in a channel nobody will ever read — it either arrives before
+// the final drain or sees dead and retries on a fresh queue.
 //
-// enqueue 取/建对话队列并投递 task；缓冲满 = 已有回合在跑（或积压）→ STREAM_IN_PROGRESS。
+// enqueue 取/建对话队列并投递 task；缓冲满 = 已有回合在跑（或积压）→ STREAM_IN_PROGRESS。投递在
+// q.mu 下、先查 q.dead：runQueue 的拆卸（标 dead + 最终抽干）在同一锁下进行，故 task 不可能落进
+// 永远无人读的 channel——要么赶在最终抽干前到达、要么看见 dead 在新队列重试。
 func (s *Service) enqueue(conversationID string, t task) error {
-	q := s.getOrCreateQueue(conversationID)
-	select {
-	case q.ch <- t:
-		return nil
-	default:
-		return ErrStreamInProgress
+	for {
+		q := s.getOrCreateQueue(conversationID)
+		q.mu.Lock()
+		if q.dead {
+			q.mu.Unlock()
+			continue // teardown won the race — the map entry is gone; build a fresh queue
+		}
+		select {
+		case q.ch <- t:
+			q.mu.Unlock()
+			return nil
+		default:
+			q.mu.Unlock()
+			return ErrStreamInProgress
+		}
 	}
 }
 
@@ -394,11 +437,29 @@ func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
 	return q
 }
 
-// Shutdown waits for all in-flight conversation goroutines to drain (graceful stop at M7 boot
-// teardown). Idle queues have already exited; active ones finish their current turn.
+// Shutdown stops all conversation goroutines promptly: it cancels every running turn (loop
+// aborts; WriteFinalize lands a cancelled terminal on its detached context — no streaming
+// orphan), closes s.stop so every runQueue exits on its next select instead of waiting out the
+// 5-minute idle timer, then waits. Queued-but-unstarted tasks are NOT finalized here — the boot
+// sweep (SweepOrphans) reconciles their streaming rows on next start, same as a hard crash.
 //
-// Shutdown 等所有在飞对话 goroutine 抽干（M7 boot 拆卸优雅停）。空闲队列已退出；活跃的跑完当前回合。
-func (s *Service) Shutdown() { s.wg.Wait() }
+// Shutdown 立即停下所有对话 goroutine：先取消每个在跑回合（loop 中断；WriteFinalize 在 detached
+// context 落 cancelled 终态——无 streaming 孤儿），再 close s.stop 使每个 runQueue 在下次 select
+// 即退（而非等满 5 分钟 idle timer），最后等待。已入队未开始的 task 不在此落账——下次启动的
+// boot 对账（SweepOrphans）收拾其 streaming 行，与硬崩溃同一路径。
+func (s *Service) Shutdown() {
+	close(s.stop)
+	s.queues.Range(func(_, v any) bool {
+		q := v.(*convQueue)
+		q.mu.Lock()
+		if q.cancel != nil {
+			q.cancel()
+		}
+		q.mu.Unlock()
+		return true
+	})
+	s.wg.Wait()
+}
 
 // ListMessages returns one keyset page of a conversation's turns (each with its blocks) for the
 // REST history endpoint — a thin pass-through to the messages store (N4 pagination, newest-first).
@@ -486,4 +547,21 @@ func (s *Service) finalizeCancelled(conversationID, msgID, workspaceID string) {
 		s.log.Warn("chatapp.finalizeCancelled: finalize failed", zap.String("messageId", msgID), zap.Error(err))
 	}
 	s.emitMessageStop(dctx, conversationID, m)
+}
+
+// SweepOrphans force-finalizes turns left in a non-terminal status by a hard crash (or a
+// shutdown that outpaced the queue) — called once per workspace at boot, the messages
+// counterpart of scheduler.Recover. Detached/graceful paths never need it; death does.
+//
+// SweepOrphans 强制收尾被硬崩溃（或快过队列的关停）留在非终态的回合——boot 时每 workspace 调一次，
+// 是 scheduler.Recover 的 messages 对应物。detached/优雅路径用不到它；进程死亡用得到。
+func (s *Service) SweepOrphans(ctx context.Context) {
+	n, err := s.messages.SweepNonTerminal(ctx)
+	if err != nil {
+		s.log.Warn("chatapp.SweepOrphans failed", zap.Error(err))
+		return
+	}
+	if n > 0 {
+		s.log.Info("chatapp: swept orphaned non-terminal turns", zap.Int("count", n))
+	}
 }

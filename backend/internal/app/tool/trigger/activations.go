@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 )
@@ -61,7 +62,7 @@ func (t *SearchActivations) Execute(ctx context.Context, argsJSON string) (strin
 	if err != nil {
 		return "", fmt.Errorf("search_activations: %w", err)
 	}
-	return toJSON(map[string]any{"count": len(acts), "activations": acts, "nextCursor": next}), nil
+	return toolapp.ToJSON(map[string]any{"count": len(acts), "activations": acts, "nextCursor": next}), nil
 }
 
 // --- get_activation --------------------------------------------------------
@@ -106,5 +107,5 @@ func (t *GetActivation) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("get_activation: %w", err)
 	}
-	return toJSON(act), nil
+	return toolapp.ToJSON(act), nil
 }

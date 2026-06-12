@@ -76,10 +76,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 		v.ForgedInConversationID = &convID
 	}
 
-	if err := s.repo.SaveControl(ctx, c); err != nil { // UNIQUE name → ErrDuplicateName here
-		return nil, nil, fmt.Errorf("controlapp.Create: %w", err)
-	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
+	if err := s.repo.CreateWithVersion(ctx, c, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("controlapp.Create: %w", err)
 	}
 	s.publish(ctx, "created", ctlID, map[string]any{"versionId": versionID, "version": 1})
@@ -112,10 +109,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 		v.ForgedInConversationID = &convID
 	}
-	if err := s.repo.SaveVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("controlapp.Edit: %w", err)
-	}
-	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
+	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("controlapp.Edit: %w", err)
 	}
 	if err := s.repo.TrimOldestVersions(ctx, in.ID, controldomain.VersionCap); err != nil {

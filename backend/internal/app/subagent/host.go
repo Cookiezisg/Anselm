@@ -72,5 +72,6 @@ func (h *subagentHost) WriteFinalize(ctx context.Context, blocks []messagesdomai
 		h.svc.log.Warn("subagentapp.WriteFinalize: persist failed",
 			zap.String("subMessageId", h.subMsg.ID), zap.Error(err))
 	}
+	h.svc.notifySearchMessage(dctx, h.conversationID, h.subMsg.ID)
 	h.svc.emitMessageStop(dctx, h.conversationID, h.subMsg)
 }

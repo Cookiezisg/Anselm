@@ -20,6 +20,7 @@ import (
 
 	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // Service is the memory CRUD + system-prompt provider.
@@ -27,6 +28,7 @@ import (
 // Service 是记忆 CRUD + system-prompt 提供器。
 type Service struct {
 	repo    memorydomain.Repository
+	search  searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
 	emitter notificationdomain.Emitter // notifications; nil → no notify (still persisted)
 	log     *zap.Logger
 }
@@ -177,6 +179,7 @@ func (s *Service) ForSystemPrompt(ctx context.Context) string {
 //
 // notify 发一条 memory.<action> 通知（best-effort；emitter 为 nil 则跳过）。
 func (s *Service) notify(ctx context.Context, action, name string) {
+	s.notifySearch(ctx, name)
 	if s.emitter == nil {
 		return
 	}

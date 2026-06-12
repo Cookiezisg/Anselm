@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -76,7 +77,7 @@ func (t *CreateApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("create_approval: %w", err)
 	}
-	return toJSON(map[string]any{"id": f.ID, "name": f.Name, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": f.ID, "name": f.Name, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- edit_approval ---------------------------------------------------------
@@ -142,7 +143,7 @@ func (t *EditApproval) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("edit_approval: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ApprovalID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ApprovalID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- revert_approval -------------------------------------------------------
@@ -195,7 +196,7 @@ func (t *RevertApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("revert_approval: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ApprovalID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ApprovalID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_approval -------------------------------------------------------
@@ -239,5 +240,5 @@ func (t *DeleteApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := t.svc.Delete(ctx, args.ApprovalID); err != nil {
 		return "", fmt.Errorf("delete_approval: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ApprovalID, "deleted": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ApprovalID, "deleted": true}), nil
 }

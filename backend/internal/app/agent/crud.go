@@ -75,11 +75,11 @@ func (s *Service) Get(ctx context.Context, id string) (*agentdomain.Agent, error
 	return a, nil
 }
 
-// ListVersions returns all versions of an agent (newest first, no pagination).
+// ListVersions returns one keyset page of an agent's versions (newest first, N4).
 //
-// ListVersions 返 agent 全部版本（新→旧，不分页）。
-func (s *Service) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.Version, error) {
-	return s.repo.ListVersions(ctx, agentID)
+// ListVersions 返 agent 版本的一页 keyset（新→旧，N4）。
+func (s *Service) ListVersions(ctx context.Context, agentID string, filter agentdomain.VersionListFilter) ([]*agentdomain.Version, string, error) {
+	return s.repo.ListVersions(ctx, agentID, filter)
 }
 
 // GetVersion returns one version by its id.
@@ -151,11 +151,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 		ActiveVersionID: versionID, CreatedAt: now, UpdatedAt: now,
 	}
 
-	if err := s.repo.Create(ctx, a); err != nil {
-		return nil, nil, fmt.Errorf("agentapp.Create: %w", err) // ErrNameConflict
-	}
-	if err := s.repo.CreateVersion(ctx, v); err != nil {
-		return nil, nil, fmt.Errorf("agentapp.Create: version: %w", err)
+	if err := s.repo.CreateWithVersion(ctx, a, v); err != nil {
+		return nil, nil, fmt.Errorf("agentapp.Create: %w", err) // ErrNameConflict on duplicate
 	}
 	a.ActiveVersion = v
 	s.syncRelations(ctx, a, v)
@@ -188,10 +185,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 		return nil, err
 	}
 
-	if err := s.repo.CreateVersion(ctx, v); err != nil {
-		return nil, fmt.Errorf("agentapp.Edit: %w", err)
-	}
-	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
+	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("agentapp.Edit: %w", err)
 	}
 	if err := s.repo.TrimVersions(ctx, in.ID, agentdomain.AcceptedVersionCap); err != nil {

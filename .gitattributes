@@ -49,8 +49,3 @@ Makefile    text eol=lf
 *.dylib     binary
 *.so        binary
 *.exe       binary
-
-# ── GitHub linguist 提示（可选，影响 GitHub 仓库主页的语言条颜色）─────────
-# documents/ 是文档不是代码，从语言统计排除
-documents/** linguist-documentation
-testend/** linguist-vendored=false

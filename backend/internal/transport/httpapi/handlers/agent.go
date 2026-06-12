@@ -233,12 +233,17 @@ func (h *AgentHandler) edit(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func (h *AgentHandler) ListVersions(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.svc.ListVersions(r.Context(), r.PathValue("id"))
+	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, rows)
+	rows, next, err := h.svc.ListVersions(r.Context(), r.PathValue("id"), agentdomain.VersionListFilter{Cursor: p.Cursor, Limit: p.Limit})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
 }
 
 // GetVersion accepts either an integer version number or a version id in {version}.

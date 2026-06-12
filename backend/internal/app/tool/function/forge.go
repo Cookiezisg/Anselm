@@ -7,6 +7,7 @@ import (
 
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 )
 
@@ -74,7 +75,7 @@ func (t *CreateFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("create_function: %w", err)
 	}
-	return toJSON(forgeOutput(f.ID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(forgeOutput(f.ID, v, len(ops), sink.attempts)), nil
 }
 
 // --- edit_function ---------------------------------------------------------
@@ -136,7 +137,7 @@ func (t *EditFunction) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("edit_function: %w", err)
 	}
-	return toJSON(forgeOutput(args.FunctionID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(forgeOutput(args.FunctionID, v, len(ops), sink.attempts)), nil
 }
 
 // forgeOutput is the shared create/edit result envelope: identity + env outcome +

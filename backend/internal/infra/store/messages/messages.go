@@ -312,3 +312,26 @@ func nextSeq(ctx context.Context, blockRepo *ormpkg.Repo[messagesdomain.Block], 
 	}
 	return seqs[0] + 1, nil
 }
+
+// SweepNonTerminal force-finalizes orphaned non-terminal turns (boot reconciliation after a
+// hard crash). Messages stuck pending/streaming become cancelled with stop_reason=cancelled;
+// their streaming blocks close the same way. Workspace-scoped via ctx like every other method.
+//
+// SweepNonTerminal 强制收尾孤儿非终态回合（硬崩溃后的 boot 对账）。卡在 pending/streaming 的
+// message 置 cancelled + stop_reason=cancelled；其 streaming block 同步收尾。与其它方法一样经
+// ctx 按 workspace 隔离。
+func (s *Store) SweepNonTerminal(ctx context.Context) (int, error) {
+	n, err := s.msgs.WhereIn("status", messagesdomain.StatusPending, messagesdomain.StatusStreaming).
+		Updates(ctx, map[string]any{
+			"status":      messagesdomain.StatusCancelled,
+			"stop_reason": messagesdomain.StopReasonCancelled,
+		})
+	if err != nil {
+		return 0, fmt.Errorf("messagesstore.SweepNonTerminal: %w", err)
+	}
+	if _, err := s.blocks.WhereIn("status", messagesdomain.StatusStreaming).
+		Updates(ctx, map[string]any{"status": messagesdomain.StatusCancelled}); err != nil {
+		return 0, fmt.Errorf("messagesstore.SweepNonTerminal: blocks: %w", err)
+	}
+	return int(n), nil
+}

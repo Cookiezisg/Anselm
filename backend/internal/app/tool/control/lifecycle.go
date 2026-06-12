@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 )
 
@@ -81,7 +82,7 @@ func (t *CreateControl) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("create_control: %w", err)
 	}
-	return toJSON(map[string]any{"id": c.ID, "name": c.Name, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": c.ID, "name": c.Name, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- edit_control ----------------------------------------------------------
@@ -152,7 +153,7 @@ func (t *EditControl) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("edit_control: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ControlID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ControlID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- revert_control --------------------------------------------------------
@@ -205,7 +206,7 @@ func (t *RevertControl) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("revert_control: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ControlID, "activeVersionId": v.ID, "version": v.Version}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ControlID, "activeVersionId": v.ID, "version": v.Version}), nil
 }
 
 // --- delete_control --------------------------------------------------------
@@ -249,5 +250,5 @@ func (t *DeleteControl) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := t.svc.Delete(ctx, args.ControlID); err != nil {
 		return "", fmt.Errorf("delete_control: %w", err)
 	}
-	return toJSON(map[string]any{"id": args.ControlID, "deleted": true}), nil
+	return toolapp.ToJSON(map[string]any{"id": args.ControlID, "deleted": true}), nil
 }

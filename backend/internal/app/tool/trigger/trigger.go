@@ -8,8 +8,7 @@
 package trigger
 
 import (
-	"encoding/json"
-
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 )
@@ -17,9 +16,9 @@ import (
 // TriggerTools constructs the trigger system tools over the app service.
 //
 // TriggerTools 在 app service 之上构造 trigger system tool。
-func TriggerTools(svc *triggerapp.Service) []toolapp.Tool {
+func TriggerTools(svc *triggerapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchTriggers{svc: svc},
+		&SearchTriggers{svc: svc, content: content},
 		&GetTrigger{svc: svc},
 		&CreateTrigger{svc: svc},
 		&EditTrigger{svc: svc},
@@ -28,9 +27,4 @@ func TriggerTools(svc *triggerapp.Service) []toolapp.Tool {
 		&SearchActivations{svc: svc},
 		&GetActivation{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

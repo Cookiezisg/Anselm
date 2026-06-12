@@ -9,18 +9,17 @@
 package agent
 
 import (
-	"encoding/json"
-
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // AgentTools constructs the agent system tools over the app service.
 //
 // AgentTools 基于 app service 构造 agent system tool。
-func AgentTools(svc *agentapp.Service) []toolapp.Tool {
+func AgentTools(svc *agentapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchAgent{svc: svc},
+		&SearchAgent{svc: svc, content: content},
 		&GetAgent{svc: svc},
 		&CreateAgent{svc: svc},
 		&EditAgent{svc: svc},
@@ -30,9 +29,4 @@ func AgentTools(svc *agentapp.Service) []toolapp.Tool {
 		&SearchAgentExecutions{svc: svc},
 		&GetAgentExecution{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

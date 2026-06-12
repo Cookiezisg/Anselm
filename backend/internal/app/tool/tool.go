@@ -12,6 +12,7 @@ package tool
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 )
 
 // DangerLevel is the LLM's self-declared risk for one tool call (the injected `danger`
@@ -106,4 +107,20 @@ type ForgeTool interface {
 type ForgeSpec struct {
 	Kind string // entities-stream scope kind: "function" | "handler" | "agent" | "workflow" | "control" | "approval" | "document" | "skill"
 	Op   string // "create" | "edit"
+}
+
+// ToJSON renders any value as a compact JSON string for a tool result. Marshal failure (only
+// possible for non-JSON-able values like channels — a programming error, not runtime input)
+// degrades to fmt %v so the LLM still sees something rather than an empty string. One shared
+// helper replaces the per-package copies every tool package used to carry.
+//
+// ToJSON 把任意值渲染成紧凑 JSON 字符串作工具结果。Marshal 失败（仅 channel 等不可 JSON 值——
+// 编程错误而非运行期输入）降级 fmt %v，让 LLM 至少看到内容而非空串。一个共享 helper 取代各工具
+// 包人手一份的副本。
+func ToJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
 }

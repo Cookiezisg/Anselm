@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
 )
 
@@ -22,6 +23,7 @@ import (
 // Service 把文件 repo、fork 派发端口、通知器、关系同步绑在一起。
 type Service struct {
 	repo      skilldomain.Repository
+	search    searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
 	subagent  skilldomain.SubagentRunner // fork 端口；nil → fork 降级 ErrSubagentUnavailable
 	emitter   notificationdomain.Emitter // nil → 不发通知（仍持久化）
 	relations RelationSyncer             // nil → 不同步关系（best-effort 派生）
@@ -74,6 +76,7 @@ func (s *Service) List(ctx context.Context, filter skilldomain.ListFilter) ([]*s
 //
 // notify 尽力发 skill.<action>；nil emitter / 出错均不阻断主流程。
 func (s *Service) notify(ctx context.Context, action, name string) {
+	s.notifySearch(ctx, name)
 	if s.emitter == nil {
 		return
 	}

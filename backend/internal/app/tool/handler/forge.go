@@ -7,6 +7,7 @@ import (
 
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 )
 
@@ -76,7 +77,7 @@ func (t *CreateHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("create_handler: %w", err)
 	}
-	return toJSON(forgeOutput(h.ID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(forgeOutput(h.ID, v, len(ops), sink.attempts)), nil
 }
 
 // --- edit_handler ----------------------------------------------------------
@@ -138,7 +139,7 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("edit_handler: %w", err)
 	}
-	return toJSON(forgeOutput(args.HandlerID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(forgeOutput(args.HandlerID, v, len(ops), sink.attempts)), nil
 }
 
 func forgeOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt) map[string]any {

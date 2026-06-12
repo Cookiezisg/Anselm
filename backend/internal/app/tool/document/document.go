@@ -13,6 +13,7 @@ package document
 
 import (
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
@@ -30,9 +31,9 @@ var (
 // DocumentTools constructs the 7 document system tools over one Service.
 //
 // DocumentTools 用一个 Service 构造 7 个 document 系统工具。
-func DocumentTools(svc *documentapp.Service) []toolapp.Tool {
+func DocumentTools(svc *documentapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchDocuments{svc: svc},
+		&SearchDocuments{svc: svc, content: content},
 		&ListDocuments{svc: svc},
 		&ReadDocument{svc: svc},
 		&CreateDocument{svc: svc},

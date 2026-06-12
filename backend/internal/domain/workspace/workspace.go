@@ -1,14 +1,19 @@
 // Package workspace is the domain layer for the local isolation root. A named
 // workspace is the unit every other entity is scoped to (its workspace_id), and
-// is itself the one table with no workspace_id column — it IS the workspace.
-// Switching workspaces gives each its own agents, documents, api keys and runs,
-// isolated in the database; application-level resources (mcp / skills / settings)
-// stay shared on disk, so a workspace is a data boundary, not a filesystem bucket.
+// is itself the one business table with no workspace_id column — it IS the
+// workspace. Isolation is two-fold: DB rows (agents, documents, api keys, mcp
+// servers, runs) are filtered by workspace_id via the orm, and the file-backed
+// stores (memory / skill / blob) bucket under workspaces/<wsID>/ on disk. Only
+// machine-level infrastructure (sandbox runtimes / envs) is shared across
+// workspaces; workspace preferences (language, model defaults, web fetch mode)
+// are columns on the workspace row itself.
 //
 // Package workspace 是本地隔离根的 domain 层。一个具名 workspace 是其它所有实体的隔离单元
-// （它们的 workspace_id），而它自己是唯一不带 workspace_id 列的表——它就是 workspace。
-// 切换 workspace 让各自拥有独立的 agent/document/api key/run，在数据库层隔离；应用级资源
-// （mcp/skills/settings）在磁盘共享——故 workspace 是数据边界，不是文件系统分桶。
+// （它们的 workspace_id），而它自己是唯一不带 workspace_id 列的业务表——它就是 workspace。
+// 隔离是双重的：DB 行（agent/document/api key/mcp server/run）经 orm 按 workspace_id 过滤，
+// 文件式 store（memory/skill/blob）在磁盘按 workspaces/<wsID>/ 分桶。仅机器级基础设施
+// （sandbox runtime/env）跨 workspace 共享；workspace 偏好（语言/模型默认/抓取模式）即
+// workspace 行自身的列。
 package workspace
 
 import (
@@ -42,11 +47,19 @@ type Workspace struct {
 	// never burns credits probing providers. Implements websearch.SearchKeyPicker via Service.
 	// DefaultSearchKeyID 是为 WebSearch 选定的 api-key id（provider 由 key 隐含）。"" = 未配置。
 	// 单一显式选择、非优先级列表——agent 永不试 provider 乱烧钱。经 Service 实现 websearch.SearchKeyPicker。
-	DefaultSearchKeyID string     `db:"default_search_key_id" json:"defaultSearchKeyId,omitempty"`
-	LastUsedAt         *time.Time `db:"last_used_at" json:"lastUsedAt,omitempty"`
-	CreatedAt          time.Time  `db:"created_at,created" json:"createdAt"`
-	UpdatedAt          time.Time  `db:"updated_at,updated" json:"updatedAt"`
-	DeletedAt          *time.Time `db:"deleted_at,deleted" json:"-"`
+	DefaultSearchKeyID string `db:"default_search_key_id" json:"defaultSearchKeyId,omitempty"`
+	// WebFetchMode picks how the WebFetch tool retrieves pages: "local" = direct HTTP GET from
+	// this machine (no URL leaves it — the local-first default); "jina" = via the public Jina
+	// reader (better Markdown extraction, but every fetched URL is sent to a third party).
+	// "" = local (PD-4, decision C).
+	// WebFetchMode 决定 WebFetch 工具的抓取方式："local" = 本机直接 HTTP GET（URL 不出本机——
+	// 本地优先的默认）；"jina" = 走公共 Jina reader（Markdown 提取更好，但每个抓取 URL 都发给
+	// 第三方）。"" = local（PD-4 裁决 C）。
+	WebFetchMode string     `db:"web_fetch_mode" json:"webFetchMode,omitempty"`
+	LastUsedAt   *time.Time `db:"last_used_at" json:"lastUsedAt,omitempty"`
+	CreatedAt    time.Time  `db:"created_at,created" json:"createdAt"`
+	UpdatedAt    time.Time  `db:"updated_at,updated" json:"updatedAt"`
+	DeletedAt    *time.Time `db:"deleted_at,deleted" json:"-"`
 }
 
 // Supported UI languages; Language is CHECK-constrained to this set in the DDL.
@@ -56,6 +69,32 @@ const (
 	LanguageZhCN = "zh-CN"
 	LanguageEn   = "en"
 )
+
+// WebFetch modes; WebFetchMode is CHECK-constrained to this set plus the empty string in the DDL.
+//
+// WebFetch 模式；WebFetchMode 在 DDL 里被 CHECK 约束到此集合外加空串。
+const (
+	WebFetchModeLocal = "local"
+	WebFetchModeJina  = "jina"
+)
+
+// IsValidWebFetchMode reports whether m is an explicit, storable mode.
+//
+// IsValidWebFetchMode 判断 m 是否为可落库的显式模式。
+func IsValidWebFetchMode(m string) bool {
+	return m == WebFetchModeLocal || m == WebFetchModeJina
+}
+
+// EffectiveWebFetchMode resolves the stored value to the mode that runs: "" → local
+// (the local-first default, PD-4 decision C).
+//
+// EffectiveWebFetchMode 把存储值解析为实际生效模式："" → local（本地优先默认，PD-4 裁决 C）。
+func EffectiveWebFetchMode(stored string) string {
+	if stored == WebFetchModeJina {
+		return WebFetchModeJina
+	}
+	return WebFetchModeLocal
+}
 
 // MaxNameLen bounds a workspace name in runes — free-form display text, not a slug.
 //
@@ -105,12 +144,13 @@ func (w *Workspace) SetDefaultFor(scenario string, ref *modeldomain.ModelRef) {
 // domain sentinel——经 errorspkg.New 构造，使 transport 直接读 Kind/Code（§S20）；
 // wire code 对齐 error-codes.md。
 var (
-	ErrNotFound         = errorspkg.New(errorspkg.KindNotFound, "WORKSPACE_NOT_FOUND", "workspace not found")
-	ErrNameRequired     = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_REQUIRED", "workspace name is required")
-	ErrNameTooLong      = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_TOO_LONG", "workspace name exceeds the length limit")
-	ErrNameConflict     = errorspkg.New(errorspkg.KindConflict, "WORKSPACE_NAME_CONFLICT", "workspace name already exists")
-	ErrCannotDeleteLast = errorspkg.New(errorspkg.KindUnprocessable, "CANNOT_DELETE_LAST_WORKSPACE", "cannot delete the last workspace")
-	ErrLanguageInvalid  = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_LANGUAGE_INVALID", "language must be one of zh-CN, en")
+	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "WORKSPACE_NOT_FOUND", "workspace not found")
+	ErrNameRequired        = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_REQUIRED", "workspace name is required")
+	ErrNameTooLong         = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_NAME_TOO_LONG", "workspace name exceeds the length limit")
+	ErrNameConflict        = errorspkg.New(errorspkg.KindConflict, "WORKSPACE_NAME_CONFLICT", "workspace name already exists")
+	ErrCannotDeleteLast    = errorspkg.New(errorspkg.KindUnprocessable, "CANNOT_DELETE_LAST_WORKSPACE", "cannot delete the last workspace")
+	ErrLanguageInvalid     = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_LANGUAGE_INVALID", "language must be one of zh-CN, en")
+	ErrWebFetchModeInvalid = errorspkg.New(errorspkg.KindInvalid, "WORKSPACE_WEB_FETCH_MODE_INVALID", "webFetchMode must be one of local, jina")
 )
 
 // Repository is the storage contract for Workspace. Like the entity it is not

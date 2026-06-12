@@ -123,6 +123,22 @@ func TestGlob_Execute_LimitTruncates(t *testing.T) {
 	}
 }
 
+func TestGlob_Execute_SkipsNoiseDirs(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "src", "app.js"))
+	writeFile(t, filepath.Join(dir, "node_modules", "pkg", "index.js"))
+	writeFile(t, filepath.Join(dir, ".git", "hooks", "x.js"))
+
+	out, err := newGlob().Execute(context.Background(), `{"pattern":"**/*.js","path":"`+dir+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := parseGlob(t, out)
+	if r.Total != 1 || !strings.HasSuffix(r.Matches[0].Path, "app.js") {
+		t.Fatalf("noise dirs must be excluded (same policy as Grep):\n%s", out)
+	}
+}
+
 func TestGlob_Execute_RootNotFound(t *testing.T) {
 	out, err := newGlob().Execute(context.Background(), `{"pattern":"*.go","path":"/no/such/root"}`)
 	if err != nil {

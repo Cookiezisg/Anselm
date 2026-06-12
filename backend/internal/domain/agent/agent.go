@@ -118,6 +118,15 @@ var (
 //
 // Repository 是 Agent domain 的持久化端口。无 GetPending / AcceptVersion——编辑立即生效
 // （pending/accept 机制已去除）。
+// VersionListFilter is a cursor page request for one agent's versions (N4 — same shape as
+// function/handler).
+//
+// VersionListFilter 是单 agent 版本的 cursor 分页请求（N4——与 function/handler 同形）。
+type VersionListFilter struct {
+	Cursor string
+	Limit  int
+}
+
 type Repository interface {
 	Create(ctx context.Context, a *Agent) error
 	Get(ctx context.Context, id string) (*Agent, error)
@@ -125,14 +134,16 @@ type Repository interface {
 	GetByName(ctx context.Context, name string) (*Agent, error)
 	List(ctx context.Context, limit int, cursor string) ([]*Agent, string, error)
 	ListAll(ctx context.Context) ([]*Agent, error)
-	UpdateMeta(ctx context.Context, a *Agent) error                        // name/description/tags only — no version bump
-	SetActiveVersion(ctx context.Context, agentID, versionID string) error // edit / revert: move the pointer
+	UpdateMeta(ctx context.Context, a *Agent) error                                // name/description/tags only — no version bump
+	SetActiveVersion(ctx context.Context, agentID, versionID string) error         // edit / revert: move the pointer
+	CreateWithVersion(ctx context.Context, e *Agent, v *Version) error             // create + v1, one tx (review PD-3)
+	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx (review PD-3)
 	SoftDelete(ctx context.Context, id string) error
 
 	CreateVersion(ctx context.Context, v *Version) error // version pre-set to max+1 by the Service
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, agentID string, version int) (*Version, error)
-	ListVersions(ctx context.Context, agentID string) ([]*Version, error)
+	ListVersions(ctx context.Context, agentID string, filter VersionListFilter) ([]*Version, string, error)
 	NextVersionNumber(ctx context.Context, agentID string) (int, error) // max(version)+1
 	TrimVersions(ctx context.Context, agentID string, keep int) error   // hard-delete oldest beyond the cap
 

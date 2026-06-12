@@ -301,6 +301,16 @@ type Repository interface {
 	// 对话返 0。
 	SumTokens(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error)
 
+	// SweepNonTerminal force-finalizes every message (and its blocks) stuck in a non-terminal
+	// status (pending / streaming) — the boot reconciliation for turns orphaned by a hard crash
+	// or a shutdown that outpaced the queue. Returns how many messages were swept. The graceful
+	// path (WriteFinalize on a detached ctx) already covers cancellation; this covers死亡.
+	//
+	// SweepNonTerminal 把所有卡在非终态（pending / streaming）的 message（及其 blocks）强制收尾
+	// ——硬崩溃或关停快过队列时留下的孤儿回合的 boot 对账。返回清扫条数。优雅路径（detached ctx
+	// 上的 WriteFinalize）已覆盖取消；这里覆盖进程死亡。
+	SweepNonTerminal(ctx context.Context) (int, error)
+
 	// UpdateBlocksContextRole batch-sets the ContextRole of the given blocks (the compactor's
 	// only write into message_blocks: a projection change, never a content rewrite). Empty ids is
 	// a no-op. role must be a valid ContextRole (CHECK enforces it).

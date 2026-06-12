@@ -33,6 +33,8 @@ class HandlerImpl:
 ```
 **两套参数体系刻意分开**：method 的 I/O 用通用 `schema.Field`（与 function/agent 同款）；`__init__` 的参数用专属 `InitArgSpec`——因为它带 `Required/Sensitive/Default` 语义（API key 等实例化配置，加密存+读时掩码），不是 method I/O。
 
+**spawn 单飞**：实例缺失/crashed 时并发调用（chat 并行工具批）共享一次 in-flight spawn（per-handler done channel），不重复支付秒级 env+进程+__init__ 开销。
+
 ## 3. 物理模型
 
 三表见 [database.md](../database.md)#handler。独有列：`handlers.config_encrypted`（整 blob AES-GCM）、`handler_calls.instance_id`（哪个实例服务的这次调用——重启后实例 id 变，可据此分代）。

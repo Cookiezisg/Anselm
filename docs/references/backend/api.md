@@ -66,7 +66,7 @@ audience: [human, ai]
 | `POST /agents/{id}:revert` | 移 active 指针 |
 | `POST /agents/{id}:edit` | 全量 Config 替换 → 新版本（**非** ops、非合并） |
 | `POST /agents/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /agents/{id}/versions` · `/versions/{version}` | 版本 |
+| `GET /agents/{id}/versions` · `/versions/{version}` | 版本分页 · 单版本（接受版本号或 agv_ id） |
 | `GET /agents/{id}/executions` | 执行日志分页（同款过滤） |
 | `GET /agent-executions/{execId}` | 单执行详情（含完整 transcript） |
 
@@ -137,6 +137,17 @@ CRUD + `POST {id}:move`（防环；nil parent=根）+ `GET /documents?parentId=`
 attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `DELETE /{id}`。
 memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/pin|unpin`（name 即 id）。
 
+## search（`/api/v1/search`，统一搜索）
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /search` | 综搜/垂搜同端点：`?q`(必填) `&types`(csv，空=综搜) `&tags`(csv) `&updatedAfter/Before`(RFC3339) `&includeArchived`(默认 true) `&cursor&limit`(默认 20 上限 50)。返 `{hits, nextCursor, total}`，hit 含 entityType/entityId/name/snippet(`<mark>`)/anchor/tags/archived/score/matchedChunks/refHint（仅积木六类） |
+| `POST /search:reindex` | 清空重建 ctx workspace 索引，202；运行中 409 `SEARCH_REINDEX_RUNNING` |
+| `GET /search/settings` | 机器级 embedder 设置 + 引擎实时状态 `{embedder, engine:{status: ready\|downloading\|absent\|error\|off, model, lastError}}` |
+| `PATCH /search/settings` | 切 embedder：`{embedder: builtin\|ollama\|off}`；非法值 400 `SEARCH_EMBEDDER_INVALID`；旧模型向量按 model 列失效、后台重嵌 |
+
+LLM 工具面（非 HTTP）：`search_blocks`（积木面板：六类可接线单元，返 ref 直填 workflow 节点）；8 个 `search_<entity>` 垂搜工具保 schema 换引擎（非空 query 走内容引擎、引擎错误回退原子串路径）。
+
 ## P6 支撑域
 
-workspace：CRUD（守最后一个）。apikey：CRUD + `:test`（probe）。model：`GET /model-capabilities` · scenarios。sandbox：`GET /sandbox/status` · `POST /sandbox:retry-bootstrap` · envs 列表/销毁。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。notification：list / 已读标记 / 未读计数。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /triage`。
+workspace：CRUD（守最后一个；PATCH 含 `webFetchMode`: local|jina）。apikey：CRUD + `:test`（probe）。model：`GET /model-capabilities` · scenarios。sandbox：`GET /sandbox/status` · `POST /sandbox:retry-bootstrap` · envs 列表/销毁。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。notification：list / 已读标记 / 未读计数。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /triage`。

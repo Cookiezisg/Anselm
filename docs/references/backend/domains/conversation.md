@@ -17,6 +17,8 @@ audience: [human, ai]
 
 **PATCH 三态**：`ModelOverride **ModelRef`——nil=不变、&nil=清除、&(&ref)=设置（指针的指针表达三态）。List：Archived nil=排除归档（默认）/&true=仅归档/&false=仅活跃；置顶优先排序靠 store 的 `pinned DESC, created_at DESC` + orm Page 序覆盖（见 [orm.md](../foundation/orm.md)）。
 
+**Unarchive**：chat Send 的自动解档入口（给归档线程发消息即隐式唤回）。**Delete 连带停生成**：可选 `GenerationCanceler` 端口（chat 满足、后注入破环）——删对话先 cancel 在途生成，已删线程不再烧 LLM/推流。
+
 ## 2. 契约（引用）
 
 端点（CRUD + usage）→ [api.md](../api.md) · 表 `conversations` → [database.md](../database.md) · 码 `CONVERSATION_*` 2 个 → [error-codes.md](../error-codes.md) · ID：`cv_`。被消费：chat（每回合读配置）、relation（conversation↔实体的 create/edit 边的另一端）、aispawn（`:iterate`/`:triage` 创建）。

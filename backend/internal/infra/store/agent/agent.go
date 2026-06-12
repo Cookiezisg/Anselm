@@ -241,12 +241,12 @@ func (s *Store) GetVersionByNumber(ctx context.Context, agentID string, version 
 	return v, nil
 }
 
-func (s *Store) ListVersions(ctx context.Context, agentID string) ([]*agentdomain.Version, error) {
-	rows, err := s.vers.WhereEq("agent_id", agentID).Order("version DESC").Find(ctx)
+func (s *Store) ListVersions(ctx context.Context, agentID string, filter agentdomain.VersionListFilter) ([]*agentdomain.Version, string, error) {
+	rows, next, err := s.vers.WhereEq("agent_id", agentID).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
-		return nil, fmt.Errorf("agentstore.ListVersions: %w", err)
+		return nil, "", fmt.Errorf("agentstore.ListVersions: %w", err)
 	}
-	return rows, nil
+	return rows, next, nil
 }
 
 // NextVersionNumber returns max(version)+1 for the agent (1 for the first version).
@@ -309,4 +309,46 @@ func (s *Store) GetByIDs(ctx context.Context, ids []string) ([]*agentdomain.Agen
 		return nil, fmt.Errorf("agentstore.GetByIDs: %w", err)
 	}
 	return rows, nil
+}
+
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
+//
+// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// ——中途失败不留无版本实体行。
+func (s *Store) CreateWithVersion(ctx context.Context, e *agentdomain.Agent, v *agentdomain.Version) error {
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		if err := ormpkg.For[agentdomain.Agent](tx, "agents").Create(ctx, e); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return agentdomain.ErrNameConflict
+			}
+			return fmt.Errorf("agentstore.CreateWithVersion: entity: %w", err)
+		}
+		if err := ormpkg.For[agentdomain.Version](tx, "agent_versions").Create(ctx, v); err != nil {
+			return fmt.Errorf("agentstore.CreateWithVersion: version: %w", err)
+		}
+		return nil
+	})
+}
+
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
+// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+//
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// 要么完全不生效——不留孤儿版本 + 旧指针。
+func (s *Store) SaveVersionAndActivate(ctx context.Context, v *agentdomain.Version, entityID string) error {
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		if err := ormpkg.For[agentdomain.Version](tx, "agent_versions").Create(ctx, v); err != nil {
+			return fmt.Errorf("agentstore.SaveVersionAndActivate: version: %w", err)
+		}
+		n, err := ormpkg.For[agentdomain.Agent](tx, "agents").
+			WhereEq("id", entityID).Update(ctx, "active_version_id", v.ID)
+		if err != nil {
+			return fmt.Errorf("agentstore.SaveVersionAndActivate: pointer: %w", err)
+		}
+		if n == 0 {
+			return agentdomain.ErrNotFound
+		}
+		return nil
+	})
 }

@@ -71,6 +71,21 @@ func (db *DB) Exec(ctx context.Context, query string, args ...any) (sql.Result, 
 	return db.handle().ExecContext(ctx, query, args...)
 }
 
+// Query runs a raw row-returning statement — the read-side escape hatch for SQL the
+// row-mapped CRUD cannot express (FTS5 virtual tables, MATCH ranking, snippets).
+//
+// Query 执行原始查询——行映射 CRUD 表达不了的读侧逃生口（FTS5 虚表、MATCH 排序、snippet）。
+func (db *DB) Query(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return db.handle().QueryContext(ctx, query, args...)
+}
+
+// QueryRow is the single-row form of Query.
+//
+// QueryRow 是 Query 的单行版本。
+func (db *DB) QueryRow(ctx context.Context, query string, args ...any) *sql.Row {
+	return db.handle().QueryRowContext(ctx, query, args...)
+}
+
 // Close closes the underlying connection pool; safe on a transaction wrapper
 // (which owns no pool) and on a nil receiver.
 //

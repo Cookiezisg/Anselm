@@ -9,8 +9,6 @@
 package skill
 
 import (
-	"encoding/json"
-
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
@@ -26,9 +24,4 @@ func SkillTools(svc *skillapp.Service) []toolapp.Tool {
 		&EditSkill{svc: svc},
 		&DeleteSkill{svc: svc},
 	}
-}
-
-func toJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

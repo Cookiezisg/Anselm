@@ -151,6 +151,7 @@ func (s *Service) RemoveServer(ctx context.Context, name string) error {
 	s.mu.Lock()
 	delete(s.states, srv.ID)
 	s.mu.Unlock()
+	s.notifySearch(ctx, srv.ID)
 	s.purgeRelations(ctx, srv.ID)
 	return nil
 }
@@ -162,6 +163,7 @@ func (s *Service) persistAndConnect(ctx context.Context, srv *mcpdomain.Server) 
 	if err := s.repo.Save(ctx, srv); err != nil {
 		return nil, fmt.Errorf("mcpapp.persistAndConnect: save: %w", err)
 	}
+	s.notifySearch(ctx, srv.ID)
 	s.initStatus(srv)
 	cctx, cancel := context.WithTimeout(ctx, addServerTimeout)
 	defer cancel()

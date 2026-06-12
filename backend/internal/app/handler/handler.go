@@ -26,6 +26,7 @@ import (
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/forgify/backend/internal/infra/handler"
 )
@@ -69,6 +70,7 @@ type RelationSyncer interface {
 // Service orchestrates the handler domain.
 type Service struct {
 	repo        handlerdomain.Repository
+	search      searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	provisioner *envfixapp.Provisioner
 	runner      SandboxRunner
 	clientFact  ClientFactory
@@ -203,6 +205,7 @@ func lastEnvError(history []envfixapp.Attempt) string {
 
 // publish emits a handler lifecycle notification; nil emitter is a no-op.
 func (s *Service) publish(ctx context.Context, action, handlerID string, extra map[string]any) {
+	s.notifySearch(ctx, handlerID)
 	if s.notif == nil {
 		return
 	}
@@ -212,5 +215,21 @@ func (s *Service) publish(ctx context.Context, action, handlerID string, extra m
 	}
 	if err := s.notif.Emit(ctx, "handler."+action, payload); err != nil {
 		s.log.Warn("handlerapp.publish: emit failed", zap.String("action", action), zap.Error(err))
+	}
+}
+
+// StopWorkspaceInstances stops every resident instance belonging to the ctx workspace — the
+// workspace-delete reaper's handler step (Shutdown stops ALL workspaces; this stops one).
+//
+// StopWorkspaceInstances 停掉 ctx workspace 名下的全部常驻实例——workspace 删除 reaper 的
+// handler 步（Shutdown 停全部 workspace；这里只停一个）。
+func (s *Service) StopWorkspaceInstances(ctx context.Context) {
+	handlers, err := s.repo.ListAllHandlers(ctx)
+	if err != nil {
+		s.log.Warn("handlerapp.StopWorkspaceInstances: list failed", zap.Error(err))
+		return
+	}
+	for _, h := range handlers {
+		s.manager.Stop(ctx, h.ID)
 	}
 }
