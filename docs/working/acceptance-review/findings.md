@@ -167,7 +167,7 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 ## R7 柱C 金标补全（golden_r7_test.go：J4/J6/J8/J10/J12b 五旅程，真模型 deepseek-v4-flash）
 
 - **AC-30** 🟡（体验陷阱，AC-20 同族——记录待前端提示，无后端改动）：把 deepseek 以 **openai-compatible 路线**（provider=openai + 自定义 baseURL）接入时，窗口/能力静态表按 (provider, modelID) 查不到 → 预算未知 → **压缩按设计静默禁用**（`contextmgr`: "unknown budget — don't compact blind"）。J12b 首跑据此全哑。正解 = 用户选 deepseek provider（静态表 1M/384k 命中）；产品侧应在 key 探测/设置页提示「该模型窗口未知，长对话压缩不可用」。golden 套件已改为 provider=deepseek（真实用户选法）。
-- **J6 溯源语义（非 bug）**：真模型可能把任务**委托 Subagent**完成——子运行内的 mcp 调用台账记 `triggeredBy=agent`（`recordCall`: ctx 带 SubagentID → agent）。断言放宽为 chat|agent，两者都证明「对话驱动的 mcp 真调」。
+- **J6 溯源语义（非 bug，正面实证）**：三轮实跑 flash 各走了**三条不同合法路线**完成同一任务——chat 直调（triggeredBy=chat）/ 委托 Subagent（子运行记 agent）/ **自搓 workflow 用 mcp 节点跑**（记 workflow）。断言改为路线无关（ok + 溯源在账）；这是产品工具面组合自由度的活证据。
 - J4 真模型搓三节点图 + trigger_workflow：flash 首轮常建图不触发——旅程按真实用户范式给自愈迭代回合（J5 同款）。线缆事实（接手须知）：**`parked` 是节点状态、run 行保持 `running`**——必须查 `GET /flowruns/{id}` 详情的 nodes，列表行匹配不到；flowrun 列表 data 是裸数组。
 - **终绿：5/5**（J4 建图→触发→真挂 parked 44s 一轮过 / J6 mcp 真调（Subagent 委托路线）/ J8 跨对话回忆 GOLDHARBOR 命中 / J10 skill 激活且遵循 SKILLSTAMP / J12b 压缩真发生且跨边界召回 GOLDCOMPACT）。与首批 7 条合计 **12/12 旅程全绿**（provider=deepseek 切换后 J1 金丝雀复验通过）。
 

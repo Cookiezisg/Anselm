@@ -143,8 +143,9 @@ func TestGolden_J6_MCPDiscoverAndCall(t *testing.T) {
 		"I installed an MCP server named goldecho with one tool. Use its echo tool to echo back "+
 			"the exact text GOLDENPING and tell me what it returned.", 240000)
 
-	// 真模型可走直调（chat）或 Subagent 委托（子运行内记 agent）——两者都证明
-	// 「对话驱动的 mcp 真调」。
+	// 路线是模型的自由：三轮实跑各走过 chat 直调 / Subagent 委托（记 agent）/ 自搓
+	// workflow mcp 节点（记 workflow）——全是产品合法面。结果状态只钉「这个全新
+	// workspace 里 echo 被真调成功且溯源在账」。
 	var calls struct {
 		Calls []struct {
 			Tool        string `json:"tool"`
@@ -155,7 +156,7 @@ func TestGolden_J6_MCPDiscoverAndCall(t *testing.T) {
 	wc.GET("/api/v1/mcp-servers/goldecho/calls").OK(t, &calls)
 	ok := false
 	for _, c := range calls.Calls {
-		if c.Tool == "echo" && c.Status == "ok" && (c.TriggeredBy == "chat" || c.TriggeredBy == "agent") {
+		if c.Tool == "echo" && c.Status == "ok" && c.TriggeredBy != "" {
 			ok = true
 		}
 	}

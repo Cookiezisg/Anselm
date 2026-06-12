@@ -11,72 +11,57 @@ landed-into: ""
 audience: [human, ai]
 ---
 
-# 首轮终报 —— 全产品真机验收 + 体验审查（2026-06-12～13）
+# 终报 —— 全产品真机验收 + 体验审查（2026-06-12～13，含 R 波次高标准重验）
 
-> **状态：首轮（W0-W8）报告，已被重开**——用户裁定 A7 起覆盖标准不足，程序重开为 R1-R8 高标准重验（见 [R-PLAN.md](R-PLAN.md) 缺口矩阵）。本报记录首轮结论（findings 与修复仍有效）；**最终终报待 R8 收口整体重述**。逐条细节见 [findings.md](findings.md)；裁决见 [DECISIONS-PENDING.md](DECISIONS-PENDING.md)；接手见 [HANDOFF.md](HANDOFF.md)。
+> **程序完成**：首轮 W0-W8 后经用户裁定「A7 起标准滑坡」**重开为 R1-R8 高标准重验**，按 PLAN.md 逐格穷尽补课后三柱全绿。细节：[findings.md](findings.md)（30 条 AC 台账 + R 波次逐节）；缺口矩阵与波次记录：[R-PLAN.md](R-PLAN.md)；裁决：[DECISIONS-PENDING.md](DECISIONS-PENDING.md)；接手：[HANDOFF.md](HANDOFF.md)。
 
-**一句话**：真开机真打抓到了读码三审抓不到的 **8 条 🔴 + 一串 🟡**（核心是 **9 个「设计完整、接线缺失」**），全部修复；真模型（deepseek-v4-flash）7 旅程证明产品工具面端到端可驱动，反证柱 A/B 的零 token llmmock 结论非假象。产出可重跑的 `make testend` / `make evals` 两套永久套件 + promptdump 体验审计 + 可换 agent 接手的文档体系。
+**一句话**：两轮（首轮快扫 + R 轮逐格高标准）真开机真打共抓 **9 条 🔴 + 一串 🟡**（核心是 **12 例「设计完整、接线缺失/哑火」**——最重的 AC-26 三个功能生产从未工作、AC-27 mcp 可接线 ref 物理死链、AC-29 整族通知哑火都在 R 轮被逐格机械扫抓出），全部修复；真模型（deepseek-v4-flash）**计划 12 旅程全数跑齐全绿**；沉淀 95 黑盒场景 + 12 金标旅程（约 7900 行）两套可重跑永久资产。
 
-## 1. 定位：第四种审查
+## 1. 定位：第四种审查 + 第二轮标准重校
 
-前三种审查（实现正确性 / 设计自洽 / 闭环配对，见 git `product-review-r*`）都是**读码推演**。本轮**真开机、真打请求、真跑模型**——独立 Go module `testend/`（零 backend import）编译并拉起真 `cmd/server` 二进制，讲纯 HTTP/SSE；柱 A 全功能真机验收 + 柱 B 体验静态审读 + 柱 C 真模型金标旅程。
+前三种审查（实现正确性 / 设计自洽 / 闭环配对）都是读码推演。本程序**真开机、真打请求、真跑模型**：独立 Go module `testend/`（零 backend import）编译并拉起真 `cmd/server`，讲纯 HTTP/SSE。首轮 W0-W8 跑完后用户裁定 A7 起覆盖不足，重开 R1-R8：**以 PLAN.md 的"必验情况"逐格勾稽为完成标准**（缺格 = 未完成），正反都断言、三列判定（用户面/产品逻辑/LLM 面）、不可达格记 N/A 并写明亲验原因。
 
-**核心命题被证实**：黑盒压力能抓到读码审查结构上抓不到的 bug。最硬的证据是 **9 个「设计完整、接线缺失」**——端口/store/工具/单测/文档全在，唯独 boot 漏接一条线，于是功能名义存在、物理失效；单测（注入 fake）绿、code review 见实现、doc 称其有，只有"真打那条路拿到错误结果"才暴露。
+**核心命题两轮都被证实**：黑盒压力抓到读码审查结构性抓不到的 bug——且 R 轮证明**首轮的"全绿"并不蕴含覆盖完整**：A7-A10/柱B/柱C 的缺格里藏着三条全新 🔴/🟡（AC-26/27/29），全部属于"单测 fake 绿、文档有承诺、唯独真线缆死"的家族。
 
 ## 2. 方法与永久资产
 
 | 资产 | 作用 | 命令 |
 |---|---|---|
-| `testend/` 黑盒套件 | 真二进制 + 纯 HTTP/SSE，函数名即验收台账行 | `make testend`（llmmock 零 token，分钟级） |
-| `harness/llmmock.go` | OpenAI 兼容假模型，真走 provider HTTP 链、按 model id 独立队列、每请求捕获 PromptDump | （随 testend） |
-| **PromptDump** | 「模型在线缆上真看到什么」= 体验审计事实源（柱 B）+ tool_result/usage 断言 | （随 testend） |
-| `golden/` 金标套件 | 真模型端到端旅程（deepseek-v4-flash），EVALS 门控 | `make evals`（自动 source `.env`，烧钱手动跑） |
+| `testend/scenarios`（95 场景） | 真二进制全功能黑盒，函数名即验收台账行 | `make testend`（llmmock 零 token） |
+| `testend/golden`（12 旅程） | 真模型端到端（deepseek-v4-flash，provider=deepseek） | `make evals`（EVALS=1 门控，自动 source `.env`） |
+| `harness/`（llmmock+PromptDump+SSE+multipart+续传订阅） | OpenAI 兼容假模型 + 模型线缆视角抓包 + 三流帧采集 | （随 testend） |
+| 文档体系（R-PLAN 缺口矩阵 / findings 台账 / HANDOFF） | 换 agent 无缝接手、标准不漂移 | — |
 
-三柱共用同一 harness：柱 A 用 llmmock（零 token 跑全功能），柱 B 审 llmmock 抓到的 promptdump，柱 C 把 llmmock 换成真模型。
+## 3. 发现总账（AC-1..AC-30）
 
-## 3. 发现总账（AC-1..AC-24）
-
-24 条 finding，亲机复现 + 亲验定性。分级处置：
-
-- **🔴 功能不可用/语义错（6）**：AC-4（常驻实例绑死请求 ctx）、AC-9（并发政策无设置口）、AC-10（ExtractMeta 零调用 set_meta no-op）、AC-11（nil-input 触发零参实体必崩）、AC-16（STREAM_IN_PROGRESS 名义存在物理失效）、AC-17（provider tool-call id 撞主键整回合丢失）、AC-18（压缩水位线只折叠 assistant）、AC-21（apikey 删除守卫 RefScanner 生产零注册）。**全部 fixed**。
-- **🟠 介于（2）**：AC-13（mcp-calls 路由缺失）、AC-14（Status 与下载抢锁挂 52.7s）。fixed。
-- **🟡 体验/一致性（8）**：AC-2/5/6/7/12/19/20/22/24——含护盾、竞态、校验漏洞、错误指路、热换、locale 权威等。多数 fixed，AC-20 观察。
-- **🟢 轻症 / by-design 关闭（多条）**：AC-1/3/8/15/23 等。
-
-> 注：🔴 计数含跨波的同族（AC-17/18 同属 W4），实修复独立条目以 findings.md 为准。
+- **🔴 功能不可用/语义错（9）**：首轮 AC-4/9/10/11/16/17/18/21 + **R1 AC-26**（`Factory.Build` 第二返回值 baseURL 被三处手抄链误作 modelID 上线缆——search 精度链/envfix 自愈/WebFetch 摘要**生产从未工作**；收敛为 `app/modelclient` 唯一解析链）。全部修复。
+- **🟡 体验/一致性（11）**：首轮 AC-2/5/6/7/12/19/20/22/24 + **R1 AC-27**（mcp 投影按行 id 键控 → refHint `mcp:msv_…` 挂载永远解析不了——"ref 直填"契约对 mcp 物理死链；投影改 server name）+ **R4 AC-29**（events.md 承诺的 `mcp.{installed,updated,removed,reconnected}` 通知族从未接 Emitter——11 域机械扫独缺 mcp 当场现形；补线）+ **R7 AC-30**（openai 兼容路线接 deepseek → 窗口表未命中 → 压缩按设计盲禁——体验陷阱，前端提示素材，与 AC-20 同族）。
+- **🟠（2）**：AC-13/14（首轮）。**🟢 / by-design**：AC-1/3/8/15/23/25/28 等（含 Retrieve 休眠口、垂搜 7+1 渲染差异等定界记录）。
+- 全程 N/A 格皆有亲验原因落档（findings 各节）：黑盒不可达（需第二真嵌入引擎/直改 DB 文件）或物理不存在（mention 不产边、trigger 无生命周期通知、name 即 id 无改名）。
 
 ## 4. 贯穿 bug 模式图谱（最可迁移）
 
-1. **设计完整、接线缺失（9×，本程序最高产）**：AC-9/10/13/21 + 产品审查期 limits 空壳 / todo_write / 唤回环 / 活监听重绑 / GetRegistryEntry。修法永远是"接上已有的件"。最阴变体：端口有定义、有单测（注入 fake）、有文档承诺，但 boot 从没注册真实现（AC-21）。
-2. **契约名义存在、物理失效**：AC-16（STREAM_IN_PROGRESS 注释自身两句互斥）。
-3. **provider 线缆习惯触雷**：AC-11（nil→null→f(**None)）、AC-17（call_1 每步复用撞 PK）。
-4. **不变量只覆盖一半**：AC-18（水位线只投影 assistant、user 原文随行）。
-5. **生命周期绑错 ctx**：AC-4（常驻实例绑死首个请求 ctx）。
-6. **锁顺序把可见状态锁死**：AC-14。
-7. **护盾缺失 / 跨管道竞态**：AC-5（print 污染 JSON-RPC）、AC-6（stderr 窗口）。
-8. **校验漏洞**：AC-7（approval 孤值）、AC-19（EMPTY_CONTENT 不 trim）。
-9. **运行时热换未贯通**：AC-22（maxSteps 构造时捕获，唯一不实时读的 limits 字段）。
-10. **显式设置不驱动其该驱动者**：AC-24（workspace.language 不驱动回复语言）→ 用户裁决修复。
+1. **设计完整、接线缺失/哑火（12 例，两轮最高产）**：端口/实现/单测/文档全在，唯独一条线没接——AC-9/10/13/21（首轮）+ **AC-26（地基 API 设陷 + 三处复制传播）** + **AC-27（投影键与挂载键不一致）** + **AC-29（Emitter 全场标配独漏一域）** + 产品审查期 5 例。抓法品类：①断言"协作方必须被咨询过"（sifter 零 dump 现形 AC-26）；②跨域机械扫齐全性（11 域通知独缺 mcp 现形 AC-29）；③契约字面直填回路（refHint 直接喂挂载现形 AC-27）。
+2. **契约名义存在、物理失效**（AC-16）；**provider 线缆触雷**（AC-11/17）；**不变量半覆盖**（AC-18）；**生命周期绑错 ctx**（AC-4）；**锁序锁死可见性**（AC-14）；**护盾缺失**（AC-5/6）；**校验漏洞**（AC-7/19）；**热换未贯通**（AC-22）；**显式设置不驱动**（AC-24）；**能力目录未命中的静默降级**（AC-20/30 家族）。
 
-## 5. 各波结论
+## 5. R 波次结论（高标准重验，每波独立收口提交）
 
 | 波 | 范围 | 结论 |
 |---|---|---|
-| W0 | 环境+座架 | harness/llmmock/promptdump 三件套落地；真二进制 smoke 绿 |
-| W1 | 锻造域 | 4 雷修复（含只有真机能抓的 AC-4）；env 物化可见性钉死 |
-| W2 | 编排域 | 3 🔴 修复 + **kill -9 崩溃恢复 PASS**（durable 终极考试）；四 trigger kind 全真跑 |
-| W3 | 集成域 | MCP 真装真调（脚本+官方 npx）+ Search 全况含 **RAG 真下载真嵌入跨语言命中**；2 接线/锁 bug 修复 |
-| W4 | 对话域 | **llmmock 进场即钓三 🔴**（读码审查抓不到，需真 provider/真落库/真重叠）；压缩水位线/人在环/在飞控制全验 |
-| W5 | 平台域+涟漪 | AC-21（守卫接线于无）+ AC-22（热换）修复；workspace 级联删/apikey 三引用拒删/limits promptdump 验截断/relation 涟漪 |
-| W6 | 体验静态柱B | promptdump 7 审读全绿（无安全剧场 / preview 无漂移 / S18 字段齐 / 视角隔离）；AC-24 locale 权威修复 |
-| W7 | 金标真模型柱C | **deepseek-v4-flash 真驱动产品工具面，7/7 全绿首跑即过**：J1 bootstrap / J2 build+run function（旗舰）/ J3 build+call handler / J5 debug+edit / J7 search building blocks / J9 memory write+recall / J12 degraded。结果状态断言（实体建了、function 跑了、handler 调了、memory 召回了、搜到了）。**证明柱 A/B 的 llmmock 结论非假模型假象**。 |
+| R1 | A7 Search 17/17 | 12 实体投影全周期 / 粒度锚点 / LLM 口整面（8 垂搜 + blocks 三段链逐档 + search_conversations）/ boot 对账 / 隔离 / 密文红线；**抓 AC-26 🔴 + AC-27 🟡** |
+| R2 | A4 Agent 6/6（首轮零覆盖） | 三类挂载真合成（恰为挂载、系统工具零泄漏）+ 四处台账 / 改名重解析 / fail-fast 三态 / prompt 组装 / modelOverride 队列物证 / 三入口（含 E3 嵌套实证）/ 版本生效 |
+| R3 | A8 Chat 10/10 | 附件三路按能力门控（PDF sandbox 真抽取）/ skill 两路 + 预授权免确认 / memory 两段式 / mention 冻结 / 删除取消在途 / 并行批 / Subagent 树 + 深度守卫 / SSE 重连 replay（delta 不重放）/ utility 降级 |
+| R4 | A9 平台 5/5 | SSE 协议面（410 环淘汰实证）/ limits 九字段热换 / 通知 11 域机械扫（**抓 AC-29 🟡**）/ sandbox 治理（删除守卫）/ 级联逐资产零残留 |
+| R5 | A10 涟漪 3/3 | 12×3×6 矩阵逐格台账（建/改/删 × 搜索/catalog/通知/关系/挂载方/引用方）；同名重建不救（ref 按 id）实证 |
+| R6 | 柱B 6/6 | Subagent/前端开发者两视角 + 规模（200 实体 <3×）/降级/崩溃恢复（历史恰一次）/压缩后四状态 + tool 配对零孤儿 + usage 逐数对账 |
+| R7 | 柱C 5/5 | 计划 12 旅程收齐：J4 搓图到 parked / J6 mcp 真调 / J8 跨对话回忆 / J10 skill 遵循 / J12b 跨压缩召回；**抓 AC-30 🟡** |
+| R8 | 终收口 | 全量回归（95 场景）+ 全套 evals（12 旅程）+ verify 全绿；本报整体重述 |
 
 ## 6. 裁决台账
 
 - **AC-PD-1**：function/handler 同步阻塞 env 物化 = by-design（可见性实测成立）。✅
-- **AC-PD-2**：locale 权威 = workspace.language（用户裁决，已实现：WorkspaceResolver.Resolve + IdentifyWorkspace 覆盖）。✅
+- **AC-PD-2**：locale 权威 = workspace.language（用户裁决，已实现）。✅
 
-## 7. 永久资产 + 后续
+## 7. 后续（非本程序范围）
 
-- 验收套件 `make testend`（回归门禁候选）、金标 `make evals`、promptdump 审计、本套 working 文档（HANDOFF 可换 agent 接手）。
-- 后续：前端重建对接已验证的后端契约；AC-20（apikey 未探测的静默降级）前端设置页提示；golden 旅程可按需扩到柱 C 计划 12 条（workflow-to-parked / MCP / skill 等过重项酌情）。
+前端重建对接已验证契约；AC-20/AC-30 家族的设置页提示（模型窗口未知→压缩不可用、key 未探测→能力保守）；`make testend` 入回归门禁的取舍（9 分钟级）。

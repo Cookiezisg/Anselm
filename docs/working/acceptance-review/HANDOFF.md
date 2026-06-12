@@ -28,7 +28,7 @@ audience: [human, ai]
 
 **产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make testend`）+ 金标套件（`make evals`）+ promptdump 体验审计 + 终报。
 
-**当前进度**：首轮 W0–W8 ✅ 后**用户裁定 A7 起标准滑坡、程序重开为 R1-R8 高标准重验**（缺口矩阵+波次表见 [R-PLAN.md](R-PLAN.md)，这是当前唯一权威进度表）。已完成：R1（A7 Search 17/17，抓到 AC-26 🔴 三面同死 + AC-27 🟡 mcp ref 死链）、R2（A4 Agent 整域 6/6 新建 agent_test.go）、R3（A8 Chat 补全 10/10 新建 chat_r3_test.go：附件三路/skill 两路/memory 两段式/mention 冻结/删除取消在途/并行批/Subagent 树/SSE 重连 replay/utility 降级）。**下一波 = R4 平台补全**（platform_r4_test.go 已落、待跑）→ R5 涟漪矩阵 → R6 柱B → R7 柱C 5 旅程 → R8 终收口。harness 新增：`Upload`（multipart）+ `SubscribeFrom`（fromSeq 续传；0 是 live-only 哨兵，重放语义 = seq > fromSeq）。
+**当前进度**：**程序完成（2026-06-13）**——首轮 W0-W8 + 用户裁定重开的 R1-R8 高标准重验全部收口（权威记录：[R-PLAN.md](R-PLAN.md) 波次表 + [TERMINAL-REPORT.md](TERMINAL-REPORT.md) 终报）。最终资产：95 黑盒场景（`make testend`）+ 12 金标旅程（`make evals`，provider=deepseek）。R 轮新增线缆事实（接手必读）：`SubscribeFrom`（fromSeq=0 是 live-only 哨兵、重放 = seq > fromSeq）；流帧 `{seq,scope,id,frame{kind}}`；`parked` 是节点状态（查 run 详情）；agent/api-keys/versions/notifications 列表返裸数组；skill/mcp 投影按 name 键控；InvokeResult status = ok|failed。后续工作（新会话自取）：前端重建对接、AC-20/30 设置页提示。
 
 ---
 

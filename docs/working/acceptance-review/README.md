@@ -28,14 +28,8 @@ audience: [human, ai]
 
 | 波 | 范围 | 状态 |
 |---|---|---|
-| W0 | 环境+座架（harness/sse/smoke；llmmock/promptdump 随 W4 进场） | ✅ |
-| W1 | 锻造域 A1-A3（function/handler/control/approval） | ✅ |
-| W2 | 编排域 A5（workflow/trigger/flowrun，含 kill -9 恢复） | ✅ |
-| W3 | 集成域 A6+A7（MCP 真装真调 + Search） | ✅ 首验；A7 缺格见 R1 |
-| W4 | 对话域 A8（chat 全链/压缩/todo/错误路径）——llmmock+promptdump 进场 | ✅ 首验；缺格见 R3 |
-| W5 | 平台域 A9 + 涟漪 A10 | ✅ 首验；缺格见 R4/R5 |
-| W6 | 体验静态（柱 B） | ✅ 首验；缺格见 R6 |
-| W7 | 金标旅程（柱 C：deepseek-v4-flash 7/12） | ✅ 首验；缺 5 旅程见 R7 |
-| W8 | 首轮收口 | ✅（被 R 重开取代） |
+| W0-W8 | 首轮（环境/锻造/编排/集成/对话/平台/柱B/柱C 快扫 + 首收口） | ✅ 首验（24 条 finding） |
+| R1-R7 | **高标准重验**（用户裁定重开）：A7 整面 / A4 整域 / A8 缺格 / A9 协议面 / A10 矩阵 / 柱B 四状态两视角 / 柱C 后 5 旅程 | ✅ 逐格全绿（新增 AC-25..30） |
+| R8 | 终收口：全量回归 95 场景 + 全套 evals 12 旅程 + verify | ✅ |
 
-**程序重开（2026-06-13 用户裁定）**：A7 起标准滑坡——首轮只覆盖 happy path + 部分错误码，未按 PLAN.md 逐格穷尽"必验情况"。重开为 **R1-R8 高标准重验波次**，缺口矩阵与执行纪律见 [R-PLAN.md](R-PLAN.md)。W0-W7 首验结论仍有效（抓到的 24 条 finding 与修复不回退），但**覆盖完整性以 R 波次收口为准**。
+**程序完成（2026-06-13）**：首轮 W0-W8 后用户裁定 A7 起标准滑坡、重开 R1-R8 按 [R-PLAN.md](R-PLAN.md) 缺口矩阵逐格补课——三柱最终全绿。30 条 AC 全处置（R 轮新抓 AC-26 🔴 三面同死 / AC-27 🟡 mcp ref 死链 / AC-29 🟡 通知族哑火 / AC-30 🟡 窗口未知压缩盲禁）。终报：[TERMINAL-REPORT.md](TERMINAL-REPORT.md)。永久资产：`make testend`（95 黑盒场景）+ `make evals`（12 金标旅程）+ promptdump 体验审计。
