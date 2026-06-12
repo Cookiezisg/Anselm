@@ -36,5 +36,6 @@ audience: [human, ai]
   真机：`{timeoutBehavior:"explode"}`（无 timeout）201 落库；ValidateForm 只在 timeout 非空时校验 behavior。今天无害、补上 timeout 即毒化该行。修复：behavior 非空必合法（domain/approval ValidateForm）。
 - **AC-1 复定性：创建响应嵌套形是六版本实体的统一约定**（by-design 关闭）
   真机对照：fn/hd/ctl/apf 创建一律返 `{<entity>, version}`（双对象都需要：实体头+版本体）；workspace 无版本故扁平。前端按「版本实体 vs 平实体」两类解析即可，约定一致。
-- **AC-2 复定性 → AC-PD-1**：创建同步阻塞 env 物化（冷 26s/暖 3-6s）——进 DECISIONS 待裁。
+- **AC-2 终定性：同步阻塞 env 物化 = by-design，可见性链实测在场**（关闭，场景钉死）
+  用户裁决：同步是预期（环境要搞、崩了有 LLM 修复、再不行打回），要求是「阻塞期间用户看得到在搞」。真机实测：阻塞窗口内 notifications 流三连——`function.created` 立即落（前端可先画实体行）→ `sandbox.env_status_changed`(installing，构建开始即推) → (ready/failed 终态)；LLM 修复链 Provision 不分入口都跑、修不好落 envStatus=failed+envError（打回可见）。`TestFunction_CreateEnvVisibility` 钉死该承诺。nuance：逐行进度（pip 输出）仅 chat 锻造路径流（progress 块），HTTP 路径状态级信号——够用；将来编辑器要逐行再把 envfix Sink 接 entities 流。
 
