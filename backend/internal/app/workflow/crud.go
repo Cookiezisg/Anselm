@@ -50,6 +50,10 @@ type UpdateMetaInput struct {
 	Name        *string
 	Description *string
 	Tags        *[]string
+	// Concurrency switches the overlap policy (serial|skip|buffer_one|buffer_all|allow_all)
+	// — a runtime header knob, not version content; takes effect on the NEXT firing drain.
+	// Concurrency 切换 overlap 政策——运行时头部旋钮、非版本内容；下一次 firing drain 生效。
+	Concurrency *string
 }
 
 // Create applies ops → validates the graph → compiles every node.Input CEL → persists a
@@ -66,6 +70,33 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 	if err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
+	// set_meta ops project onto the HEADER (name/description/tags/concurrency) — an explicit
+	// op wins over the flat payload fields. Without this projection a set_meta was a silent
+	// no-op (shape-checked, applied nowhere).
+	// set_meta op 投影到**头部**（name/description/tags/concurrency）——显式 op 赢过扁平字段。
+	// 没有这步投影，set_meta 曾是静默 no-op（查形状、无处生效）。
+	meta, err := workflowdomain.ExtractMeta(in.Ops)
+	if err != nil {
+		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
+	}
+	name, desc, tags := in.Name, in.Description, in.Tags
+	if meta.Name != nil {
+		name = *meta.Name
+	}
+	if meta.Description != nil {
+		desc = *meta.Description
+	}
+	if meta.Tags != nil {
+		tags = *meta.Tags
+	}
+	concurrency := workflowdomain.ConcurrencySerial
+	if meta.Concurrency != nil {
+		if !workflowdomain.IsValidConcurrency(*meta.Concurrency) {
+			return nil, nil, workflowdomain.ErrInvalidOps.WithDetails(map[string]any{"reason": "invalid concurrency policy"})
+		}
+		concurrency = *meta.Concurrency
+	}
+	in.Name = name
 
 	if _, derr := s.repo.GetWorkflowByName(ctx, in.Name); derr == nil {
 		return nil, nil, workflowdomain.ErrDuplicateName
@@ -77,9 +108,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 	wfID := idgenpkg.New("wf")
 	versionID := idgenpkg.New("wfv")
 	w := &workflowdomain.Workflow{
-		ID: wfID, Name: in.Name, Description: in.Description, Tags: orEmpty(in.Tags),
+		ID: wfID, Name: in.Name, Description: desc, Tags: orEmpty(tags),
 		Active: false, LifecycleState: workflowdomain.LifecycleInactive,
-		Concurrency: workflowdomain.ConcurrencySerial, LastActionBy: workflowdomain.ActorUser,
+		Concurrency: concurrency, LastActionBy: workflowdomain.ActorUser,
 		ActiveVersionID: versionID, CreatedAt: now, UpdatedAt: now,
 	}
 	v := newVersion(versionID, wfID, 1, graph, in.ChangeReason, now)
@@ -141,6 +172,30 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	}
 	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
+	}
+	// set_meta ops project onto the header (previously a silent no-op — shape-checked,
+	// applied nowhere). Name change re-checks uniqueness via SaveWorkflow's UNIQUE.
+	// set_meta op 投影到头部（此前是静默 no-op——查形状、无处生效）。改名经 SaveWorkflow 的
+	// UNIQUE 重查唯一性。
+	if meta, merr := workflowdomain.ExtractMeta(in.Ops); merr == nil {
+		dirty := false
+		if meta.Name != nil && strings.TrimSpace(*meta.Name) != "" {
+			w.Name, dirty = *meta.Name, true
+		}
+		if meta.Description != nil {
+			w.Description, dirty = *meta.Description, true
+		}
+		if meta.Tags != nil {
+			w.Tags, dirty = orEmpty(*meta.Tags), true
+		}
+		if meta.Concurrency != nil && workflowdomain.IsValidConcurrency(*meta.Concurrency) {
+			w.Concurrency, dirty = *meta.Concurrency, true
+		}
+		if dirty {
+			if err := s.repo.SaveWorkflow(ctx, w); err != nil {
+				return nil, fmt.Errorf("workflowapp.Edit: meta: %w", err)
+			}
+		}
 	}
 	// A live (active) workflow whose edit changed the entry trigger refs must rebind NOW:
 	// the binder still holds the old graph's refs (see rebindIfListening).
@@ -209,6 +264,12 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*workflow
 	}
 	if in.Tags != nil {
 		w.Tags = orEmpty(*in.Tags)
+	}
+	if in.Concurrency != nil {
+		if !workflowdomain.IsValidConcurrency(*in.Concurrency) {
+			return nil, workflowdomain.ErrInvalidOps.WithDetails(map[string]any{"reason": "invalid concurrency policy"})
+		}
+		w.Concurrency = *in.Concurrency
 	}
 	if err := s.repo.SaveWorkflow(ctx, w); err != nil {
 		return nil, fmt.Errorf("workflowapp.UpdateMeta: %w", err) // ErrDuplicateName

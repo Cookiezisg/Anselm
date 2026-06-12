@@ -45,3 +45,12 @@ audience: [human, ai]
 - **PR-14 回收**（fixed）：fire_trigger/HTTP `:fire` 返 `activationId`（fanOut/FireManual 签名升级）。
 - **PR-18 回收**（closed）：env 失败通知实已在场（sandbox.env_status_changed failed+errorMsg），原定性漏看 sandbox 层。
 
+## W2 编排域
+
+- **AC-9 🔴 并发政策无任何设置口——四个 overlap 政策三个是死配置**（fixed）
+  真机：create 硬编码 `ConcurrencySerial`、PATCH meta 只收 name/description/tags、set_meta op 不含——调度器认真执行的 skip/buffer_one/buffer_all/allow_all 永远配不出来。第五个「设计完整、接线缺失」。修复：PATCH `{concurrency}`（IsValidConcurrency 校验）+ set_meta op 扩展，双面打通。
+- **AC-10 🔴 ExtractMeta 零调用——set_meta op 是静默 no-op**（fixed）
+  真机：applyOne 对 set_meta 只查形状、注释自信「ExtractMeta owns the header projection」，而 ExtractMeta 生产代码零调用方；workflow.md 同样声称投影存在。LLM/编辑器发 set_meta 改名 → 200+新版本+名字纹丝不动（最恶劣的静默 no-op）。修复：Create（显式 op 赢过扁平字段、并发校验）与 Edit（dirty 才 SaveWorkflow、UNIQUE 重查）接线 ExtractMeta；`TestWorkflow_SetMetaProjection` 钉死。
+- **场景批（全绿）**：图校验拒（无 trigger/孤儿）、线性 run CEL 寻址+执行溯源（triggered_by=workflow+flowrun 双列）、control 真路由（选边跑/未选不跑/emit 下游可读）、approval 人在环全链（park→approval_pending 唤回→收件箱→decide yes→续跑 completed）、**kill -9 崩溃恢复**（6s action 中处决、同库重启 Recover 续跑到 completed——durable 终极考试 PASS）。
+- harness 增强：Kill9/Restart（同数据目录重启）、client.Try（崩溃场景的不致命请求）。
+

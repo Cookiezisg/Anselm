@@ -9,6 +9,7 @@ package harness
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -52,22 +53,24 @@ type Resp struct {
 	Raw    []byte
 }
 
-// Do performs one request and decodes the envelope. body nil → no payload.
+// Try performs one request without failing the test — crash scenarios need to fire
+// requests that may die mid-flight (the kill IS the point), and goroutines may not call
+// Fatalf anyway.
 //
-// Do 执行一次请求并解包 envelope。body nil → 无载荷。
-func (c *Client) Do(method, path string, body any) *Resp {
-	c.t.Helper()
+// Try 执行一次请求且不让测试失败——崩溃类场景要发可能半途夭折的请求（杀就是目的），
+// 且 goroutine 本就不可 Fatalf。
+func (c *Client) Try(method, path string, body any) (*Resp, error) {
 	var rdr io.Reader
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
-			c.t.Fatalf("client: marshal body: %v", err)
+			return nil, fmt.Errorf("client: marshal body: %w", err)
 		}
 		rdr = bytes.NewReader(b)
 	}
 	req, err := http.NewRequest(method, c.base+path, rdr)
 	if err != nil {
-		c.t.Fatalf("client: new request: %v", err)
+		return nil, fmt.Errorf("client: new request: %w", err)
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -77,7 +80,7 @@ func (c *Client) Do(method, path string, body any) *Resp {
 	}
 	resp, err := c.httpc.Do(req)
 	if err != nil {
-		c.t.Fatalf("client: %s %s: %v", method, path, err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
@@ -91,12 +94,25 @@ func (c *Client) Do(method, path string, body any) *Resp {
 	}
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &env); err != nil {
-			c.t.Fatalf("client: %s %s: non-envelope body (%d): %s", method, path, resp.StatusCode, raw)
+			return nil, fmt.Errorf("client: %s %s: non-envelope body (%d): %s", method, path, resp.StatusCode, raw)
 		}
 	}
 	out.Data = env.Data
 	if env.Error != nil {
 		out.Code, out.Msg = env.Error.Code, env.Error.Message
+	}
+	return out, nil
+}
+
+// Do performs one request and decodes the envelope, failing the test on transport-level
+// errors. body nil → no payload.
+//
+// Do 执行一次请求并解包 envelope，传输层错误即测试失败。body nil → 无载荷。
+func (c *Client) Do(method, path string, body any) *Resp {
+	c.t.Helper()
+	out, err := c.Try(method, path, body)
+	if err != nil {
+		c.t.Fatalf("client: %s %s: %v", method, path, err)
 	}
 	return out
 }

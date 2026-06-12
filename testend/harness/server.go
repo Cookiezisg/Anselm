@@ -178,3 +178,45 @@ func freePort(t *testing.T) int {
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port
 }
+
+// Kill9 hard-kills the backend (SIGKILL — the crash in "crash recovery"). The data dir
+// survives; pair with Restart to assert durable recovery.
+//
+// Kill9 硬杀 backend（SIGKILL——「崩溃恢复」里的那个崩溃）。数据目录幸存；与 Restart 配对
+// 断言持久化恢复。
+func (s *Server) Kill9(t *testing.T) {
+	t.Helper()
+	if err := s.cmd.Process.Kill(); err != nil {
+		t.Fatalf("harness: kill -9: %v", err)
+	}
+	_, _ = s.cmd.Process.Wait()
+}
+
+// Restart boots a fresh process on the SAME data dir (new port) and waits for health —
+// the recovery half of a crash test. The caller must re-derive clients (BaseURL changed).
+//
+// Restart 在**同一**数据目录上拉起新进程（新端口）并等 health——崩溃测试的恢复半场。
+// 调用方需重取客户端（BaseURL 已变）。
+func (s *Server) Restart(t *testing.T) {
+	t.Helper()
+	bin := binary(t)
+	port := freePort(t)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	cmd := exec.Command(bin)
+	cmd.Env = append(os.Environ(),
+		"FORGIFY_DATA_DIR="+s.DataDir,
+		"FORGIFY_ADDR="+addr,
+	)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("harness: restart backend: %v", err)
+	}
+	s.cmd = cmd
+	s.BaseURL = "http://" + addr
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	})
+	s.waitHealthy(t, 30*time.Second)
+}
