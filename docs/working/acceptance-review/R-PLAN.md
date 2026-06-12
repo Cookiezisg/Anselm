@@ -87,7 +87,7 @@ PLAN 要求 {创建/改名/删除} × 12 实体 → {搜索索引/关系图/cata
 | 波 | 范围 | 状态 |
 |---|---|---|
 | R1 | A7 Search 补全（LLM 口整面 + 投影全周期 12 实体 + boot 对账 + 质量格） | ✅ 17/17（抓 AC-26 🔴 三面同死 + AC-27 🟡 mcp ref 死链 + AC-25/28；见 findings） |
-| R2 | A4 Agent 整域新建 agent_test.go（三入口/三类挂载/transcript/悬空/schema） | ⬜ |
+| R2 | A4 Agent 整域新建 agent_test.go（三入口/三类挂载/transcript/悬空/schema） | ✅ 6/6（无新 bug——A4 全如设计；E3 嵌套/挂载合成/fail-fast 实证；见 findings） |
 | R3 | A8 Chat 补全（附件三路/skill/memory/mention/归档/删除取消/并行批/subagent/重水合/utility 降级） | ⬜ |
 | R4 | A9 平台补全（SSE 三流协议面/limits 每字段/通知全事件/sandbox 装删 gc/级联逐资产） | ⬜ |
 | R5 | A10 涟漪矩阵机械表（12 实体 × 3 操作 × 6 面） | ⬜ |

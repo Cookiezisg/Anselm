@@ -73,6 +73,7 @@ type chatMsg struct {
 	InputTokens  int    `json:"inputTokens"`
 	OutputTokens int    `json:"outputTokens"`
 	Blocks       []struct {
+		ID      string         `json:"id"`
 		Type    string         `json:"type"`
 		Content string         `json:"content"`
 		Attrs   map[string]any `json:"attrs"`

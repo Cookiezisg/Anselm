@@ -151,3 +151,16 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 - **AC-25** 🟢（定性：休眠口 + 文档误导）：`Service.Retrieve`（RAG 内部口、search 域文档自称"四个出口"之一）**零生产消费方**——`grep -rn "\.Retrieve(" backend/internal` 仅定义处。archive 设计文档言明它为"agent 上下文注入/未来知识挂载"预留，非接线缺失 bug；但 reference 把它列为活出口有误导、PLAN 把 `Retrieve(MaxChars)` 列为必验格而黑盒不可达。处置：`domains/search.md` 已补"当前零生产消费方（休眠口）"一句；验收面记 **N/A（黑盒不可达，单测覆盖管线）**。
 - **N/A 台账（黑盒不可达格，亲验定界）**：① Retrieve（上）；② 垂搜"引擎出错回退原子串路径"——黑盒无法注入引擎错误（引擎 nil 仅当 search 服务整体缺席），回退逻辑由 `contentsearch.go` 单测覆盖；③ `fts_schema_version` 不匹配→boot 清空重建——需直改 DB 文件，白盒不变量；④ ollama 真连真嵌——本机无 ollama，W3 已验"设置生效+死端口软降级"边界。
 
+## R2 A4 Agent 整域（agent_test.go 新建，首轮零覆盖的补课）
+
+6/6 全绿，**无新后端 bug**——A4 在高标准黑盒下全部如设计工作：
+
+- **挂载合成（核心格）**：fn / hd.method / mcp:server/tool 三类真合成绑定工具（名=函数现名 / `<handler>__<method>` / `mcp__<server>__<tool>`），agent 线缆工具集**恰为挂载**、四类系统工具零泄漏；三工具真调通且四处台账齐（fn 执行 / hd call / mcp call 各 TriggeredBy=agent + agent 执行行带自包含 transcript）。
+- **运行时按现名重解析**：改 function 名 → 下次 invoke 工具自动换新名（ToolRef.Name 只是快照）。
+- **fail-fast 三态**：挂载物被删 → run 落 failed + errorMsg 带因（HTTP 200、失败可审计——产品语义：配置坏的是"运行失败"非"请求非法"）；合成撞名（fn `greeter__hello` vs hd `greeter.hello`）→ failed 引撞名；`ag_` 挂载在 create 即拒（员工不调员工）。
+- **prompt 组装**：身份段 + skill `Execution guide` 段（指南注入、非激活非 fork）+ outputs declared → JSON 硬约束 + knowledge 前缀进 user 消息；chat 主视角零泄漏。
+- **modelOverride 物理证明**：override agent 的请求落自己的 mock 队列、默认 agent 队列分毫未动。
+- **三入口**：HTTP :invoke（manual）/ chat invoke_agent（**E3 嵌套实证**：provider call id 重映射为 blk_ 后，agent 流式 text 节点 open 帧 parentId=持久化 tool_call 块 id、close 带完整快照；结果回喂主对话；台账 chat+conversationId）/ workflow agent 节点（active v2 配置真驱动、结果记忆化进节点行、台账 workflow+flowrunId）。
+- **版本面**：:edit 全量替换 → v2 即时生效；:revert 回 v1 下次 invoke 生效。
+- 线缆事实（接手须知）：InvokeResult/执行行 status 词汇 = `ok|failed`（与 function 域一致）；`GET /agents/{id}/versions` 与 `GET /api-keys` 返回**裸数组**；执行列表返回 `{executions, aggregates}`。
+
