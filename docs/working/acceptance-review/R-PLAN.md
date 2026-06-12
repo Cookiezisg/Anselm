@@ -89,7 +89,7 @@ PLAN 要求 {创建/改名/删除} × 12 实体 → {搜索索引/关系图/cata
 | R1 | A7 Search 补全（LLM 口整面 + 投影全周期 12 实体 + boot 对账 + 质量格） | ✅ 17/17（抓 AC-26 🔴 三面同死 + AC-27 🟡 mcp ref 死链 + AC-25/28；见 findings） |
 | R2 | A4 Agent 整域新建 agent_test.go（三入口/三类挂载/transcript/悬空/schema） | ✅ 6/6（无新 bug——A4 全如设计；E3 嵌套/挂载合成/fail-fast 实证；见 findings） |
 | R3 | A8 Chat 补全（附件三路/skill/memory/mention/归档/删除取消/并行批/subagent/重水合/utility 降级） | ✅ 10/10（无新 bug——十面全如设计；harness 增 Upload/SubscribeFrom；见 findings） |
-| R4 | A9 平台补全（SSE 三流协议面/limits 每字段/通知全事件/sandbox 装删 gc/级联逐资产） | ⬜ |
+| R4 | A9 平台补全（SSE 三流协议面/limits 每字段/通知全事件/sandbox 装删 gc/级联逐资产） | ✅ 5/5（抓 AC-29 🟡 mcp 通知族哑火并修复；410 环淘汰/limits 九字段/删除守卫实证；见 findings） |
 | R5 | A10 涟漪矩阵机械表（12 实体 × 3 操作 × 6 面） | ⬜ |
 | R6 | 柱B 补全（subagent+前端开发者视角；规模/降级/恢复/压缩后四状态；tool_result 形状+token 账单） | ⬜ |
 | R7 | 柱C 补全（J4 workflow-parked / J6 MCP / J8 历史对话 / J10 skill / J11 跨压缩） | ⬜ |

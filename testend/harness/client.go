@@ -44,6 +44,12 @@ func (c *Client) WS(wsID string) *Client {
 	return &cp
 }
 
+// BaseURL exposes the server base for raw HTTP scenarios (webhook inbound posts
+// that must not carry the workspace header).
+//
+// BaseURL 暴露 server 基址给裸 HTTP 场景（不得带 workspace 头的 webhook 入站）。
+func (c *Client) BaseURL() string { return c.base }
+
 // Resp is one decoded N1 envelope.
 //
 // Resp 是一个解包后的 N1 envelope。

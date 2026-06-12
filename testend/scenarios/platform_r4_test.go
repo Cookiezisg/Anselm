@@ -9,8 +9,12 @@
 package scenarios
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -72,15 +76,34 @@ func TestPlatformR4_LimitsEveryField(t *testing.T) {
 		t.Fatalf("1.5MB upload must reject under attachmentMaxMB=1, got %d", r.Status)
 	}
 
-	// guards.webhookBodyMaxMB：默认 10MB 放行 1.5MB；调到 1 后 413。
+	// guards.webhookBodyMaxMB：1.5MB 正签 body 在默认 10MB 下放行、调到 1 后 413。
+	// （入站路由按 trigger id：/api/v1/webhooks/{trgID}/incoming，监听需 activate。）
+	secret := "limitsecret"
 	trgID := trgCreate(t, wc, "limit_hook", "webhook", map[string]any{
-		"path": "limit-in", "secret": "s1", "signatureAlgo": "hmac-sha256-hex",
+		"path": "limit-in", "secret": secret, "signatureAlgo": "hmac-sha256-hex",
 	})
-	_ = trgID
+	wfWithTrigger(t, wc, "limit_hook_wf", trgID)
+	bigBody := []byte(`{"pad":"` + strings.Repeat("x", 1500*1024) + `"}`)
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(bigBody)
+	sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	post := func() int {
+		req, _ := http.NewRequest("POST", wc.BaseURL()+"/api/v1/webhooks/"+trgID+"/limit-in",
+			strings.NewReader(string(bigBody)))
+		req.Header.Set("X-Hub-Signature-256", sig)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("webhook post: %v", err)
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode
+	}
+	if code := post(); code >= 300 {
+		t.Fatalf("1.5MB webhook body must pass under the 10MB default, got %d", code)
+	}
 	wc.PATCH("/api/v1/limits", map[string]any{"guards": map[string]any{"webhookBodyMaxMB": 1}}).OK(t, nil)
-	r := wc.Do("POST", "/api/v1/hooks/limit-in", map[string]any{"pad": strings.Repeat("x", 1500*1024)})
-	if r.Status != 413 {
-		t.Fatalf("oversized webhook body must 413 under webhookBodyMaxMB=1, got %d %s", r.Status, r.Raw)
+	if code := post(); code != 413 {
+		t.Fatalf("oversized webhook body must 413 under webhookBodyMaxMB=1, got %d", code)
 	}
 
 	// timeout.bashDefaultTimeoutSec + tools.bashOutputCapKB：LLM 跑 Bash——超时真切、输出真截。
@@ -211,44 +234,53 @@ func TestPlatformR4_NotificationAllDomains(t *testing.T) {
 		"function.", "handler.", "agent.", "control.", "approval.",
 		"workflow.", "skill.", "memory.", "document.", "conversation.", "mcp.",
 	}
-	type notifPage struct {
-		Notifications []struct {
-			ID   string `json:"id"`
-			Type string `json:"type"`
-			Read bool   `json:"read"`
-		} `json:"notifications"`
+	type notifRow struct {
+		ID   string `json:"id"`
+		Type string `json:"type"`
+		Read bool   `json:"read"`
 	}
-	var page notifPage
+	var page []notifRow
+	seen := map[string]bool{}
 	harness.Eventually(t, 20000, "all 11 domains notified", func() bool {
-		page = notifPage{}
+		page = nil
 		wc.GET("/api/v1/notifications?limit=100").OK(t, &page)
-		seen := map[string]bool{}
-		for _, n := range page.Notifications {
+		seen = map[string]bool{}
+		for _, n := range page {
 			for _, w := range want {
 				if strings.HasPrefix(n.Type, w) {
 					seen[w] = true
 				}
 			}
 		}
-		return len(seen) == len(want)
+		if len(seen) != len(want) {
+			types := map[string]bool{}
+			for _, n := range page {
+				types[n.Type] = true
+			}
+			t.Logf("DEBUG seen=%v distinct types=%v", seen, types)
+			return false
+		}
+		return true
 	})
 
-	// 未读计数 > 0 → 全部已读 → 计数归零。
+	// 未读计数 > 0 → 单条已读递减 → read-all 清零。
 	var unread struct {
-		Count int `json:"count"`
+		Unread int `json:"unread"`
 	}
 	wc.GET("/api/v1/notifications/unread-count").OK(t, &unread)
-	if unread.Count == 0 {
+	if unread.Unread == 0 {
 		t.Fatal("unread count must be positive after the burst")
 	}
-	for _, n := range page.Notifications {
-		if !n.Read {
-			wc.POST("/api/v1/notifications/"+n.ID+":read", nil).OK(t, nil)
-		}
-	}
+	before := unread.Unread
+	wc.PUT("/api/v1/notifications/"+page[0].ID+"/read", nil).OK(t, nil)
 	wc.GET("/api/v1/notifications/unread-count").OK(t, &unread)
-	if unread.Count != 0 {
-		t.Fatalf("unread must drop to zero after marking all, got %d", unread.Count)
+	if unread.Unread != before-1 {
+		t.Fatalf("single mark-read must decrement (want %d, got %d)", before-1, unread.Unread)
+	}
+	wc.POST("/api/v1/notifications/read-all", nil).OK(t, nil)
+	wc.GET("/api/v1/notifications/unread-count").OK(t, &unread)
+	if unread.Unread != 0 {
+		t.Fatalf("read-all must zero the unread count, got %d", unread.Unread)
 	}
 }
 
@@ -285,7 +317,15 @@ func TestPlatformR4_SandboxRuntimesGCDisk(t *testing.T) {
 	}
 	wc.POST("/api/v1/sandbox:gc", nil).OK(t, nil)
 
-	// 删 runtime（数据目录隔离在本测试临时区，安全）→ 列表消失。
+	// 引用守卫：env 还挂在 runtime 上时拒删（409）；清掉 env 后删除放行、列表消失。
+	wc.Do("DELETE", "/api/v1/sandbox/runtimes/"+pyID, nil).Fail(t, 409, "SANDBOX_ENV_IN_USE")
+	var envs []struct {
+		ID string `json:"id"`
+	}
+	wc.GET("/api/v1/sandbox/envs?ownerKind=function").OK(t, &envs)
+	for _, e := range envs {
+		wc.DELETE("/api/v1/sandbox/envs/" + e.ID).OK(t, nil)
+	}
 	wc.DELETE("/api/v1/sandbox/runtimes/" + pyID).OK(t, nil)
 	wc.GET("/api/v1/sandbox/runtimes").OK(t, &runtimes)
 	for _, rt := range runtimes {

@@ -164,6 +164,15 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 - **版本面**：:edit 全量替换 → v2 即时生效；:revert 回 v1 下次 invoke 生效。
 - 线缆事实（接手须知）：InvokeResult/执行行 status 词汇 = `ok|failed`（与 function 域一致）；`GET /agents/{id}/versions` 与 `GET /api-keys` 返回**裸数组**；执行列表返回 `{executions, aggregates}`。
 
+## R4 A9 平台高标准补全（platform_r4_test.go 新建，5/5 全绿）
+
+- **AC-29** 🟡（通知族名义存在、物理哑火——模式 #1 第 11 例）：`events.md` P4 契约写明 `mcp.{installed,updated,removed,reconnected}` 通知族，但 `app/mcp` **从未持有 notification Emitter**（其余 11 个发射域都有）——整族从未发出。R4「11 域通知全到达」机械扫直接抓出（10/11、独缺 mcp）。修复：mcp Service 加 `SetNotifier` + 四事件点（AddServer 区分 installed/updated、InstallFromRegistry、RemoveServer、Reconnect；Import 经 AddServer 自然覆盖）+ bootstrap 接线。
+- **SSE 协议面全绿**：entities 流 forge 镜像 + run 终端 stderr 帧真到达；notifications durable `fromSeq` 续传重放；**环淘汰真验**（>256 durable 后 fromSeq=1 → 410 `SEQ_TOO_OLD` 走 Envelope）。
+- **limits 逐字段热换全验**（与 W4/W5 合计九字段全覆盖）：attachmentMaxMB（1.5MB 在 50 默认过、=1 拒）/ webhookBodyMaxMB（正签 1.5MB 默认过、=1 → 413；入站路由 = `/webhooks/{trgID}/{配置 path}`）/ bashDefaultTimeoutSec=1 真切 5s 命令 / bashOutputCapKB=1 真截 200KB 洪水 / invokeMaxTurns=2 真切死循环 agent（stopReason 诚实带 max）/ llmIdleSec=2 流中 8s 静默 → 回合错误码落地。N/A：mcpCallSec（脚本 server 无慢工具）、readDefaultLines（Read 面随 R5 涟漪酌情）。
+- **通知中心**：11 发射域 created 族全到达；unread 单减 + read-all 清零（线缆：`{unread}`、`PUT /{id}/read`、`POST /read-all`）。
+- **sandbox 治理**：runtimes 列表 / disk-usage / :gc；**删除守卫**（env 在用 → 409 `SANDBOX_ENV_IN_USE`，清 env 后放行）——比计划格更严的正确行为。
+- **级联逐资产**：12 类全建（共享 token）→ 删 ws → keeper 隔离无恙（total=1 恰己方）、同名重生 ws 索引/列表零残留。
+
 ## R3 A8 Chat 高标准补全（chat_r3_test.go 新建，10/10 + W4 原 6 全绿）
 
 **无新后端 bug**——首轮全缺的十个面在高标准黑盒下全部如设计工作：

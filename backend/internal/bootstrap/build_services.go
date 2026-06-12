@@ -402,6 +402,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	mcp.SetSearchNotifier(sn)
 	chat.SetSearchNotifier(sn)
 	subagentSvc.SetSearchNotifier(sn)
+	// events.md 的 mcp.{installed,updated,removed,reconnected} 族——缺此线整族哑火（AC-29）。
+	mcp.SetNotifier(notif)
 
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
