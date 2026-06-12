@@ -158,6 +158,11 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	trg.SetEntitiesBridge(bus.entities)                        // SSE-C: every fan-out emits a fire signal to the trigger panel
 	wf := workflowapp.NewService(st.workflow, nil, notif, log) // resolver set below
 
+	// --- durable workflow interpreter (before the toolset: the flowrun-observability tools read it) ---
+	// --- durable workflow 解释器（先于 toolset：flowrun 可观测工具要读它）---
+	sched := schedulerapp.NewService(st.flowrun, wf, ctl, apf, NewDispatcher(fn, hd, mcp, ag), st.trigger, log)
+	sched.SetEntitiesBridge(bus.entities) // SSE-C: Advance streams node progress to the workflow panel
+
 	// --- subagent + skill: subagent reads the toolset lazily via the holder ---
 	holder := &toolsetHolder{}
 	subagentSvc := subagentapp.New(subagentapp.Deps{
@@ -183,7 +188,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			agenttool.AgentTools(ag, searchSvc),
 			controltool.ControlTools(ctl, searchSvc),
 			approvaltool.ApprovalTools(apf, searchSvc),
-			workflowtool.WorkflowTools(wf, searchSvc),
+			workflowtool.WorkflowTools(wf, searchSvc, sched),
 			triggertool.TriggerTools(trg, searchSvc),
 			documenttool.DocumentTools(doc, searchSvc),
 			memorytool.MemoryTools(mem),
@@ -220,10 +225,6 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Notifier:       notif,
 		Compactor:      ctxmgr,
 	}, log)
-
-	// --- durable workflow interpreter ---
-	sched := schedulerapp.NewService(st.flowrun, wf, ctl, apf, NewDispatcher(fn, hd, mcp, ag), st.trigger, log)
-	sched.SetEntitiesBridge(bus.entities) // SSE-C: Advance streams node progress to the workflow panel
 
 	// D1 execution lifecycle: workflow drives the trigger binder (activate/stage/deactivate/kill engage
 	// or release the listener) + the scheduler runner (trigger/kill drive runs); the scheduler drives

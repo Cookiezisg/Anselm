@@ -14,6 +14,7 @@ import (
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	logtailpkg "github.com/sunweilin/forgify/backend/internal/pkg/logtail"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -45,35 +46,60 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 	cctx, cancel := context.WithTimeout(ctx, defaultCallTimeout)
 	defer cancel()
 
-	// Tee progress notifications to the entities run terminal (entity panel, all callers) on top of
-	// any sink the caller already put in ctx (the dynamic tool's chat sink). Lazy node — a server
-	// that emits no progress opens nothing.
+	// Tee progress notifications to the entities run terminal (entity panel, all callers) and the
+	// call's capped logtail (persisted on the mcp_calls row), on top of any sink the caller already
+	// put in ctx (the dynamic tool's chat sink). Lazy node — a server that emits no progress opens
+	// nothing on the terminal; the logtail just stays empty.
 	//
-	// 把进度通知 tee 到 entities run 终端（实体面板，全 caller），叠在调用方已放 ctx 的 sink（动态工具的
-	// chat sink）之上。懒节点——不发进度的 server 不开任何帧。
+	// 把进度通知 tee 到 entities run 终端（实体面板，全 caller）+ 本次调用的限长 logtail（随 mcp_calls
+	// 行落盘），叠在调用方已放 ctx 的 sink（动态工具的 chat sink）之上。懒节点——不发进度的 server 终端
+	// 不开任何帧；logtail 保持空。
 	runTerm := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindMCP, ID: serverID}, entitystreamapp.NodeRun, streamdomain.JSONContent(map[string]any{"tool": tool}))
-	if s.entities != nil {
-		prev := mcpinfra.ProgressFrom(cctx)
-		cctx = mcpinfra.WithProgress(cctx, func(line string) {
-			if prev != nil {
-				prev(line)
-			}
-			_, _ = runTerm.Write([]byte(line))
-		})
-	}
+	logs := logtailpkg.New(logtailpkg.DefaultCap)
+	prev := mcpinfra.ProgressFrom(cctx)
+	cctx = mcpinfra.WithProgress(cctx, func(line string) {
+		if prev != nil {
+			prev(line)
+		}
+		_, _ = runTerm.Write([]byte(line))
+		_, _ = logs.Write([]byte(line))
+	})
 
 	startedAt := time.Now().UTC()
 	result, err := client.CallTool(cctx, tool, args)
 	endedAt := time.Now().UTC()
 	if err != nil {
 		runTerm.Close("error", nil)
+		// A failed call appends the server's stderr tail (MCP's log channel) — the progress stream
+		// rarely explains a crash, the stderr usually does. Server-level, so annotated as such.
+		// 失败的调用补上 server stderr 尾（MCP 的日志通道）——progress 流很少解释崩溃，stderr 通常能。
+		// 它是 server 级的，故标注说明。
+		if tail := stderrTail(client.StderrTail(), stderrTailCap); tail != "" {
+			fmt.Fprintf(logs, "\n--- server stderr tail (server-level, may predate this call) ---\n%s", tail)
+		}
 	} else {
 		runTerm.Close("completed", nil)
 	}
 
 	s.recordResult(serverID, err)
-	s.recordCall(ctx, serverID, tool, args, triggeredBy, result, err, cctx.Err(), startedAt, endedAt)
+	s.recordCall(ctx, serverID, tool, args, triggeredBy, result, logs.String(), err, cctx.Err(), startedAt, endedAt)
 	return result, err
+}
+
+// stderrTailCap bounds how much server stderr a failed call carries — enough for a
+// traceback, not the whole ring.
+//
+// stderrTailCap 限定失败调用携带多少 server stderr——够一个 traceback、不是整个 ring。
+const stderrTailCap = 8 * 1024
+
+// stderrTail keeps the last capBytes of s.
+//
+// stderrTail 保留 s 的末 capBytes。
+func stderrTail(s string, capBytes int) string {
+	if len(s) <= capBytes {
+		return s
+	}
+	return s[len(s)-capBytes:]
 }
 
 // recordCall writes one terminal mcp_calls row (best-effort, on a detached ctx that keeps workspace
@@ -81,7 +107,7 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 //
 // recordCall 写一行终态 mcp_calls（best-effort，用保留 workspace 的 detached ctx，使被取消的调用仍落账）。
 // 对标 handlerapp.recordCall。
-func (s *Service) recordCall(ctx context.Context, serverID, tool string, args json.RawMessage, triggeredBy, result string, callErr, runCtxErr error, startedAt, endedAt time.Time) {
+func (s *Service) recordCall(ctx context.Context, serverID, tool string, args json.RawMessage, triggeredBy, result, logs string, callErr, runCtxErr error, startedAt, endedAt time.Time) {
 	status := mcpdomain.CallStatusOK
 	errMsg := ""
 	if callErr != nil {
@@ -114,6 +140,7 @@ func (s *Service) recordCall(ctx context.Context, serverID, tool string, args js
 		Input:          args,
 		Output:         result,
 		ErrorMessage:   errMsg,
+		Logs:           logs,
 		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:      startedAt,
 		EndedAt:        endedAt,

@@ -139,3 +139,33 @@ func TestCalls_SaveListAggregates(t *testing.T) {
 		t.Fatalf("missing call should be ErrCallNotFound, got %v", err)
 	}
 }
+
+// TestCalls_LogsOnGetNotList: logs persist and return on Get; lists blank them.
+//
+// TestCalls_LogsOnGetNotList：logs 落盘、Get 读回；列表置空。
+func TestCalls_LogsOnGetNotList(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	c := &handlerdomain.Call{
+		ID: "hcl_logs", HandlerID: "hd_1", VersionID: "hdv_1", Method: "fetch",
+		Status: handlerdomain.CallStatusOK, TriggeredBy: handlerdomain.TriggeredByChat,
+		Input: map[string]any{}, Logs: "yield a\nprint b\n", StartedAt: now, EndedAt: now,
+	}
+	if err := s.SaveCall(ctx, c); err != nil {
+		t.Fatalf("SaveCall: %v", err)
+	}
+	one, err := s.GetCallByID(ctx, "hcl_logs")
+	if err != nil || one.Logs != "yield a\nprint b\n" {
+		t.Fatalf("get should carry logs: %+v err=%v", one, err)
+	}
+	rows, _, err := s.ListCalls(ctx, handlerdomain.CallFilter{HandlerID: "hd_1"})
+	if err != nil || len(rows) == 0 {
+		t.Fatalf("list: %v", err)
+	}
+	for _, r := range rows {
+		if r.Logs != "" {
+			t.Fatalf("list must blank logs, got %q on %s", r.Logs, r.ID)
+		}
+	}
+}

@@ -15,6 +15,7 @@ import (
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
+	logtailpkg "github.com/sunweilin/forgify/backend/internal/pkg/logtail"
 )
 
 // SandboxAdapter satisfies SandboxRunner by delegating spawn + cleanup to sandboxapp
@@ -70,20 +71,23 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 	}
 
 	// Tee the function's own print() output (the driver routes it to stderr; the JSON result still
-	// lands on clean stdout) to BOTH: the messages stream under the run_function tool_call (chat
-	// view, ToolProgress) AND the entities stream's run terminal scoped to this function (panel
-	// view, all callers). Both nil-safe.
+	// lands on clean stdout) THREE ways: the messages stream under the run_function tool_call (chat
+	// view, ToolProgress), the entities stream's run terminal scoped to this function (panel view,
+	// all callers), and a capped logtail collector that persists onto the execution record (the
+	// after-the-fact view — :triage and the execution tools read it). All nil-safe.
 	//
-	// 把函数自己的 print() 输出（driver 引到 stderr；JSON 结果仍走干净 stdout）**双写**：messages 流 run_function
-	// tool_call 下（对话视图，ToolProgress）+ entities 流锚到本 function 的 run 终端（面板视图，全 caller）。皆 nil 安全。
+	// 把函数自己的 print() 输出（driver 引到 stderr；JSON 结果仍走干净 stdout）**三写**：messages 流 run_function
+	// tool_call 下（对话视图，ToolProgress）+ entities 流锚到本 function 的 run 终端（面板视图，全 caller）+
+	// 限长 logtail 收集器随执行记录落盘（事后视图——:triage 与执行工具读它）。皆 nil 安全。
 	prog := loopapp.ToolProgress(ctx)
 	defer prog.Close()
 	runTerm := entitystreamapp.New(ctx, a.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: functionID}, entitystreamapp.NodeRun, nil)
+	logs := logtailpkg.New(logtailpkg.DefaultCap)
 	res, spawnErr := a.svc.Spawn(ctx, owner, sandboxdomain.SpawnOpts{
 		Cmd:       "python",
 		Args:      []string{mainPy},
 		Stdin:     inputJSON,
-		StreamErr: io.MultiWriter(prog, runTerm),
+		StreamErr: io.MultiWriter(prog, runTerm, logs),
 	})
 	if spawnErr != nil {
 		runTerm.Close("error", nil)
@@ -95,7 +99,7 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 		runTerm.Close("error", nil)
 	}
 
-	out := &functiondomain.ExecutionResult{ElapsedMs: res.Duration.Milliseconds()}
+	out := &functiondomain.ExecutionResult{ElapsedMs: res.Duration.Milliseconds(), Logs: logs.String()}
 	if !res.Ok {
 		msg := strings.TrimSpace(string(res.Stderr))
 		if msg == "" {

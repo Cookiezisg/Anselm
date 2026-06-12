@@ -27,7 +27,7 @@ type TriggerWorkflow struct{ svc *workflowapp.Service }
 func (t *TriggerWorkflow) Name() string { return "trigger_workflow" }
 
 func (t *TriggerWorkflow) Description() string {
-	return "Run a workflow once, right now, with a payload you supply as if a trigger had fired it. Use this to execute a workflow on demand (a manual \"run now\"). The payload should match the shape the workflow's entry trigger emits; pass {} if it reads nothing. Returns the new flowrun id. Does not change whether the workflow is listening for real triggers — use activate_workflow for that."
+	return "Run a workflow once, right now, with a payload you supply as if a trigger had fired it. Use this to execute a workflow on demand (a manual \"run now\"). The payload should match the shape the workflow's entry trigger emits; pass {} if it reads nothing. Returns the new flowrun id — call get_flowrun with it to inspect how the run went (per-node status, results, errors). Does not change whether the workflow is listening for real triggers — use activate_workflow for that."
 }
 
 func (t *TriggerWorkflow) Parameters() json.RawMessage {

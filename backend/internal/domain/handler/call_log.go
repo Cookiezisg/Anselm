@@ -52,6 +52,7 @@ type Call struct {
 	Input          map[string]any `db:"input,json"          json:"input"`
 	Output         any            `db:"output,json"         json:"output,omitempty"`
 	ErrorMessage   string         `db:"error_message"       json:"errorMessage,omitempty"`
+	Logs           string         `db:"logs"                json:"logs,omitempty"`
 	ElapsedMs      int64          `db:"elapsed_ms"          json:"elapsedMs"`
 	StartedAt      time.Time      `db:"started_at"          json:"startedAt"`
 	EndedAt        time.Time      `db:"ended_at"            json:"endedAt"`

@@ -51,3 +51,33 @@ func TestCalls_RoundTripAndIsolation(t *testing.T) {
 		t.Fatalf("workspace isolation broken: %v %+v", err, rows2)
 	}
 }
+
+// TestCalls_LogsOnGetNotList: logs persist and return on Get; lists blank them.
+//
+// TestCalls_LogsOnGetNotList：logs 落盘、Get 读回；列表置空。
+func TestCalls_LogsOnGetNotList(t *testing.T) {
+	s, _ := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	if err := s.SaveCall(ctx, &mcpdomain.Call{
+		ID: "mcl_logs", ServerID: "mcp_a", Tool: "search",
+		Status: mcpdomain.CallStatusFailed, TriggeredBy: mcpdomain.CallTriggeredByChat,
+		Input: json.RawMessage(`{}`), Logs: "progress 1\n--- server stderr tail ---\nboom\n",
+		StartedAt: now, EndedAt: now,
+	}); err != nil {
+		t.Fatalf("SaveCall: %v", err)
+	}
+	one, err := s.GetCall(ctx, "mcl_logs")
+	if err != nil || one.Logs == "" {
+		t.Fatalf("get should carry logs: %+v err=%v", one, err)
+	}
+	rows, _, err := s.ListCalls(ctx, mcpdomain.CallFilter{ServerID: "mcp_a"})
+	if err != nil || len(rows) == 0 {
+		t.Fatalf("list: %v", err)
+	}
+	for _, r := range rows {
+		if r.Logs != "" {
+			t.Fatalf("list must blank logs, got %q on %s", r.Logs, r.ID)
+		}
+	}
+}

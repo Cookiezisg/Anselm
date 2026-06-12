@@ -11,15 +11,18 @@
 package workflow
 
 import (
+	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
 
-// WorkflowTools constructs the workflow system tools over the app service.
+// WorkflowTools constructs the workflow system tools over the app service; sched is the
+// durable scheduler's read surface backing the run-observability tools (runs.go).
 //
-// WorkflowTools 基于 app service 构造 workflow system tool。
-func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service) []toolapp.Tool {
+// WorkflowTools 基于 app service 构造 workflow system tool；sched 是 durable 调度器的读取面，
+// 支撑运行可观测工具（runs.go）。
+func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service, sched *schedulerapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
 		&SearchWorkflow{svc: svc, content: content},
 		&GetWorkflow{svc: svc},
@@ -34,6 +37,10 @@ func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service) []toola
 		&ActivateWorkflow{svc: svc},
 		&DeactivateWorkflow{svc: svc},
 		&KillWorkflow{svc: svc},
+		// run observability — read back what the lifecycle verbs started
+		// 运行可观测——把生命周期动词启动的东西读回来
+		&GetFlowrun{sched: sched},
+		&SearchFlowruns{sched: sched},
 	}
 }
 

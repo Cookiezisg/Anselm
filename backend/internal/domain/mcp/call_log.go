@@ -58,6 +58,7 @@ type Call struct {
 	Input          json.RawMessage `db:"input,json"          json:"input,omitempty"`
 	Output         string          `db:"output"              json:"output,omitempty"`
 	ErrorMessage   string          `db:"error_message"       json:"errorMessage,omitempty"`
+	Logs           string          `db:"logs"                json:"logs,omitempty"`
 	ElapsedMs      int64           `db:"elapsed_ms"          json:"elapsedMs"`
 	StartedAt      time.Time       `db:"started_at"          json:"startedAt"`
 	EndedAt        time.Time       `db:"ended_at"            json:"endedAt"`

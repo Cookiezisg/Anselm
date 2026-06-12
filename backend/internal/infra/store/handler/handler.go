@@ -75,6 +75,7 @@ var Schema = []string{
 		input           TEXT NOT NULL DEFAULT '{}',
 		output          TEXT,
 		error_message   TEXT NOT NULL DEFAULT '',
+		logs            TEXT NOT NULL DEFAULT '',
 		elapsed_ms      INTEGER NOT NULL DEFAULT 0,
 		started_at      DATETIME NOT NULL,
 		ended_at        DATETIME NOT NULL,

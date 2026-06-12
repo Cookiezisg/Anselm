@@ -18,7 +18,7 @@ type RunFunction struct{ svc *functionapp.Service }
 func (t *RunFunction) Name() string { return "run_function" }
 
 func (t *RunFunction) Description() string {
-	return "Run a function with keyword arguments; returns {ok, output, errorMsg, elapsedMs}. Omit version to run the active version."
+	return "Run a function with keyword arguments; returns {ok, output, errorMsg, elapsedMs, logs} — logs carries the function's print()/debug output. Omit version to run the active version."
 }
 
 func (t *RunFunction) Parameters() json.RawMessage {
@@ -97,7 +97,7 @@ type SearchFunctionExecutions struct{ svc *functionapp.Service }
 func (t *SearchFunctionExecutions) Name() string { return "search_function_executions" }
 
 func (t *SearchFunctionExecutions) Description() string {
-	return "List a function's execution history (most recent first) with an ok/failed rollup. Filter by status (ok|failed|cancelled|timeout) or version id."
+	return "List a function's execution history (most recent first) with an ok/failed rollup. Filter by status (ok|failed|cancelled|timeout) or version id. Use get_function_execution on an id for the full record including logs."
 }
 
 func (t *SearchFunctionExecutions) Parameters() json.RawMessage {
@@ -158,7 +158,7 @@ type GetFunctionExecution struct{ svc *functionapp.Service }
 func (t *GetFunctionExecution) Name() string { return "get_function_execution" }
 
 func (t *GetFunctionExecution) Description() string {
-	return "Get one execution record (input, output, error, timing) by its id."
+	return "Get one execution record (input, output, error, logs, timing) by its id. logs carries the function's print()/debug output."
 }
 
 func (t *GetFunctionExecution) Parameters() json.RawMessage {

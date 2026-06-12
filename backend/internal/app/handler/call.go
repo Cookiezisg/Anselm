@@ -5,15 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"go.uber.org/zap"
 
 	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
+	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/forgify/backend/internal/infra/handler"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	logtailpkg "github.com/sunweilin/forgify/backend/internal/pkg/logtail"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
@@ -79,21 +82,40 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	}
 
 	// Tee the method's yields onto the handler's entities run terminal (entity panel, all callers)
-	// in addition to the caller's progress sink (messages, chat). Always StreamCall — doCall is safe
-	// for a non-streaming method (no yields → onProgress never fires → plain return).
+	// and the call's capped logtail (persisted on the call record), in addition to the caller's
+	// progress sink (messages, chat). Always StreamCall — doCall is safe for a non-streaming method
+	// (no yields → onProgress never fires → plain return).
 	//
-	// 把 method 的 yield tee 到 handler 的 entities run 终端（实体面板，全 caller）+ 调用方的进度 sink
-	// （messages，chat）。一律 StreamCall——doCall 对非流式 method 安全（无 yield → onProgress 不触发 → 正常返回）。
+	// 把 method 的 yield tee 到 handler 的 entities run 终端（实体面板，全 caller）+ 本次调用的限长
+	// logtail（随 call 记录落盘）+ 调用方的进度 sink（messages，chat）。一律 StreamCall——doCall 对
+	// 非流式 method 安全（无 yield → onProgress 不触发 → 正常返回）。
 	runTerm := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: h.ID}, entitystreamapp.NodeRun, nil)
+	logs := logtailpkg.New(logtailpkg.DefaultCap)
 	onProgress := func(v any) {
 		if in.OnProgress != nil {
 			in.OnProgress(v)
 		}
-		_, _ = runTerm.Write(yieldBytes(v))
+		line := yieldBytes(v)
+		_, _ = runTerm.Write(line)
+		_, _ = logs.Write(line)
 	}
+
+	// Attach a per-call sink to the instance's stderr fan for the duration of the call: the
+	// handler's print()/logging (stderr is its only reachable channel — the protocol owns stdout)
+	// streams to chat progress + the run terminal and persists into the call's logs. Window
+	// attribution: concurrent calls on the same instance each receive the window's lines.
+	//
+	// 调用存续期把 per-call sink 挂上实例 stderr 扇出：handler 的 print()/日志（stderr 是它唯一可达
+	// 通道——协议占用 stdout）流到 chat 进度 + run 终端，并落盘进本次调用的 logs。窗口归属：同实例
+	// 并发调用各收各窗口的行。
+	prog := loopapp.ToolProgress(ctx)
+	defer prog.Close()
+	detach := inst.Stderr.attach(io.MultiWriter(prog, runTerm, logs))
+
 	startedAt := time.Now().UTC()
 	result, err := inst.Client.StreamCall(ctx, in.Method, in.Args, onProgress)
 	endedAt := time.Now().UTC()
+	detach()
 	if err != nil {
 		runTerm.Close("error", nil)
 	} else {
@@ -101,7 +123,7 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	}
 
 	callErr := s.mapCallErr(ctx, err)
-	s.recordCall(ctx, h, inst, in, startedAt, endedAt, result, callErr, ctx.Err())
+	s.recordCall(ctx, h, inst, in, startedAt, endedAt, result, logs.String(), callErr, ctx.Err())
 	return result, callErr
 }
 
@@ -144,7 +166,7 @@ func (s *Service) resolveHandler(ctx context.Context, id, name string) (*handler
 	}
 }
 
-func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst *Instance, in CallInput, startedAt, endedAt time.Time, result any, callErr, runCtxErr error) {
+func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst *Instance, in CallInput, startedAt, endedAt time.Time, result any, logs string, callErr, runCtxErr error) {
 	status := handlerdomain.CallStatusOK
 	errMsg := ""
 	if callErr != nil {
@@ -186,6 +208,7 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		Input:          input,
 		Output:         result,
 		ErrorMessage:   errMsg,
+		Logs:           logs,
 		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:      startedAt,
 		EndedAt:        endedAt,

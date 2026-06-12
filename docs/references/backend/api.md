@@ -30,7 +30,7 @@ audience: [human, ai]
 | `GET /functions/{id}/versions` | 版本分页 |
 | `GET /functions/{id}/versions/{version}` | 单版本（接受版本号或 fnv_ id） |
 | `GET /functions/{id}/executions` | 执行日志分页（`?status&triggeredBy&conversationId&flowrunId`） |
-| `GET /function-executions/{execId}` | 单执行详情 |
+| `GET /function-executions/{execId}` | 单执行详情（含 `logs`——print/调试输出；列表端点不带） |
 
 ## handler（`/api/v1/handlers`）
 
@@ -51,7 +51,7 @@ audience: [human, ai]
 | `PUT /handlers/{id}/config` | JSON Merge Patch 更新（null 删 key）→ 整 blob 重加密 → **重启实例重跑 `__init__`** |
 | `DELETE /handlers/{id}/config` | 清空 config + 停实例 |
 | `GET /handlers/{id}/calls` | 调用日志分页（`?method&status&triggeredBy&conversationId&flowrunId`） |
-| `GET /handler-calls/{callId}` | 单调用详情 |
+| `GET /handler-calls/{callId}` | 单调用详情（含 `logs`——yield + 调用窗口 stderr；列表端点不带） |
 
 ## agent（`/api/v1/agents`）
 
@@ -114,7 +114,7 @@ CRUD（`POST` 严格冲突 / `PUT {name}` 覆盖 / `DELETE {name}`）+ `POST /sk
 
 ## mcp（`/api/v1/mcp/...`）
 
-servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry[/{name}]`（市场浏览）+ `POST /mcp/import`（Claude Desktop mcp.json）+ `GET {id}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`）+ `GET /mcp-calls/{id}`。
+servers CRUD（`PUT` 同名替换）+ `POST {id}:reconnect` + `GET /mcp/registry[/{name}]`（市场浏览）+ `POST /mcp/import`（Claude Desktop mcp.json）+ `GET {id}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`）+ `GET /mcp-calls/{id}`（含 `logs`——progress 通知 + 失败附 server stderr 尾；列表端点不带）。
 
 ## document（`/api/v1/documents`）
 
