@@ -81,6 +81,15 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 		return nil, fmt.Errorf("handlerapp.Call: %w", err)
 	}
 
+	// Normalize nil args to {} BEFORE the RPC: the driver does method(**args), and a nil map
+	// marshals to JSON `null` → method(**None) → TypeError. A no-arg caller (sensor poll,
+	// workflow node with no input wiring) must not crash a zero-arg method (same as function).
+	// RPC 前把 nil args 归一成 {}：driver 做 method(**args)，nil map 序列化成 JSON `null`
+	// → method(**None) → TypeError。无参调用方不该把零参 method 搞崩（同 function）。
+	if in.Args == nil {
+		in.Args = map[string]any{}
+	}
+
 	// Tee the method's yields onto the handler's entities run terminal (entity panel, all callers)
 	// and the call's capped logtail (persisted on the call record), in addition to the caller's
 	// progress sink (messages, chat). Always StreamCall — doCall is safe for a non-streaming method

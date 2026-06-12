@@ -54,3 +54,11 @@ audience: [human, ai]
 - **场景批（全绿）**：图校验拒（无 trigger/孤儿）、线性 run CEL 寻址+执行溯源（triggered_by=workflow+flowrun 双列）、control 真路由（选边跑/未选不跑/emit 下游可读）、approval 人在环全链（park→approval_pending 唤回→收件箱→decide yes→续跑 completed）、**kill -9 崩溃恢复**（6s action 中处决、同库重启 Recover 续跑到 completed——durable 终极考试 PASS）。
 - harness 增强：Kill9/Restart（同数据目录重启）、client.Try（崩溃场景的不致命请求）。
 
+## W2 编排域（续：trigger 真触发）
+
+- **AC-11 🔴 nil input 的 function/handler 调用必崩——sensor 触发零参函数 100% Python TypeError**（fixed）
+  真机：sensor 轮询 → `RunFunction{Input: nil}` → adapter `json.Marshal(nil)` = JSON `null` → driver `f(**None)` → TypeError；activation 记 `fired:false` + traceback，workflow 永不触发。标准 `:run` 传 `{args:{}}` 故掩盖了它。**任何 nil-input 调用方（sensor / 无 input 接线的 workflow 节点）触发零参实体都崩**——读码看不出（input 一路是 `map[string]any`，nil 与 {} 类型相同）。修复：RunFunction（含重试路径）+ handler Call 入口把 nil 归一成 `{}`，driver 收到 `{}` → `f(**{})`。function/handler 同源同修。
+- **AC-12 🟢 cron `@every`/秒级被 ParseStandard 拒、错误消息不指路**（doc+UX）
+  真机：`@every 2s` → 422 `invalid cron expression`（robfig ParseStandard 只认 5 段、分钟粒度，与分钟桶 dedup 一致——by-design）。但错误消息没说「为什么/该用什么」。修复：错误消息改为「use a 5-field expression (minute granularity); @every and seconds are not supported」。
+- **场景批（全绿）**：webhook HMAC 正签触发+坏签 401+activation/firing 双台账；cron `* * * * *` 真等分钟边界触发（67s）；sensor CEL 真轮询（`payload` 变量、condition 真→fire、ReturnValue 入 activation）。
+
