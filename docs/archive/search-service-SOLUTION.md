@@ -7,13 +7,13 @@ created: 2026-06-12
 reviewed: 2026-06-12
 review-due: 2026-09-12
 expires: 2026-09-12
-landed-into: ""
+landed-into: "references/backend/domains/search.md"
 audience: [human, ai]
 ---
 
 # 统一搜索服务（BM25 + RAG）—— 现状与完整技术方案
 
-> **状态：方案待审，未动工。** 批准后按 §10 分期实施；落地后结论提取进 `concepts/architecture.md` + references 四件套，本文档填 `landed-into` 移 `archive/`。
+> **状态：已实施落地（2026-06-12，M1+M2+M3 全量）。** 权威源已迁移：设计结论在 [`domains/search.md`](../../references/backend/domains/search.md) + `concepts/architecture.md` §3.5/§6/§8 + api/database/error-codes 四索引；本文档仅存档设计过程。
 
 ---
 
