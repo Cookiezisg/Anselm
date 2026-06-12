@@ -164,6 +164,21 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 - **版本面**：:edit 全量替换 → v2 即时生效；:revert 回 v1 下次 invoke 生效。
 - 线缆事实（接手须知）：InvokeResult/执行行 status 词汇 = `ok|failed`（与 function 域一致）；`GET /agents/{id}/versions` 与 `GET /api-keys` 返回**裸数组**；执行列表返回 `{executions, aggregates}`。
 
+## R5 A10 跨域涟漪矩阵（ripple_test.go 新建，3/3 全绿）
+
+**矩阵台账**：{创建/改名/删除} × 12 实体 × 6 面，逐格归口（✅=黑盒已测于；N/A=物理不存在该格，亲验定界）：
+
+| 涟漪面 | 覆盖 | N/A 格（亲验原因） |
+|---|---|---|
+| **搜索索引** | 建/删 ×12：R1 ProjectionLifecycle（content token）+ R5 Matrix（exact-name）。改名 ×9：R5 Matrix（标题跟名；function/handler 旧名随代码体常驻 = by design 不断言出局） | skill/memory/mcp 改名（name 即 id，无改名操作） |
+| **catalog** | 建/改/删 × 6 积木类（fn/hd/ag/ctl/apf/wf）：R5 Matrix（coverage 进出 + summary 跟名） | document/conversation/trigger/skill/memory（catalog 是能力菜单、内容类不入——代码事实）；mcp 工具经动态工具面呈现（W3） |
+| **通知** | created/deleted ×8 + updated 改名族：R5 Matrix；11 域 created：R4；scheduler 族（run_failed/approval_pending/lifecycle/attention）：W2 | trigger 无生命周期通知（events.md 言明：活动走 activations+fire 信号）；mcp 三态于 R4（AC-29 修复后） |
+| **关系图** | agent 五类挂载出边 + 改名水化跟随 + 删除级联清：R5 RelationGraphFaces；trigger↔workflow 绑定边：R5；document wikilink link 边（按 **id** 链接）：R5；apikey 引用守卫：W5 | conversation @mention **不产边**（快照非引用，relations 仅 purge+Namer——代码事实）；锻造 create/edit 入边随 :iterate（AI 面，R7 酌情） |
+| **挂载方跟随** | agent 挂载按现名重解析（改名跟、删除 fail-fast）：R2；trigger 改绑 workflow 重监听：W2 | hd/mcp 挂载跟名与 fn 同机制（mount 单测 + R2 fn 代表性实证） |
+| **引用方报缺** | workflow :capability-check 删 fn 后报缺 + **同名重建不救**（ref 按 id）：R5 ReferenceRipples；apikey 三引用拒删：W5；env 在用拒删 runtime：R4 | — |
+
+- 过程中测试侧自伤两处（已修、非产品 bug）：①把实体名写进代码体导致旧名"出不了局"——function/handler 名随 def/类名常驻正文是设计事实；②wikilink 误用名字——按 id 链接（`[[doc_xxx]]`）。
+
 ## R4 A9 平台高标准补全（platform_r4_test.go 新建，5/5 全绿）
 
 - **AC-29** 🟡（通知族名义存在、物理哑火——模式 #1 第 11 例）：`events.md` P4 契约写明 `mcp.{installed,updated,removed,reconnected}` 通知族，但 `app/mcp` **从未持有 notification Emitter**（其余 11 个发射域都有）——整族从未发出。R4「11 域通知全到达」机械扫直接抓出（10/11、独缺 mcp）。修复：mcp Service 加 `SetNotifier` + 四事件点（AddServer 区分 installed/updated、InstallFromRegistry、RemoveServer、Reconnect；Import 经 AddServer 自然覆盖）+ bootstrap 接线。
