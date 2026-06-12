@@ -88,3 +88,24 @@ audience: [human, ai]
 - LLM 无 approval 决策工具——human-in-loop 红线：决策永远是人的。
 - 矩阵六件套（执行→记录→人查→LLM 查→诊断→过程可见）：六类可执行体全格 ✅（exec-observability + 本轮补齐）；:triage 六前缀全覆盖；:iterate 八实体（六版本实体+document+trigger）。
 
+## R3 角色旅程走查
+
+### 实锤·已修
+
+- **PR-17 🔴 异步完成的唤回环整体缺失——run 失败/审批挂起不通知任何人**（fixed）
+  验证：`markRunTerminal` 只写库 + drain reconcile（kill.go:99），approval park 只写 parked 行——notifications 流**零事件**；entities 流的 NodeRun Signal 只够到正开着面板的人。更实锤的是 `workflowapp.SetNeedsAttention` 注释明写「The scheduler raises this when a run fails」且 `attention_changed` 事件齐备，但**全仓零调用方**——与 todo_write/limits 同款「设计了没接线」。旅程断点：用户 activate workflow 后离开 → run 失败/等审批 → 永远不会被唤起（除非主动回查）。
+  修复：scheduler 加 `SetNotifier`（best-effort，通知绝不连累 run）——failed → `workflow.run_failed` + 经 LifecycleReconciler 新口 `MarkRunAttention(true, reason)` 点灯；completed → 熄灯（**自愈语义**，免 acknowledge 端点）；cancelled 两不做（手动终止非故障）；approval park → `workflow.approval_pending`（at-least-once，重复唤起优于静默卡死）。workflowapp.MarkRunAttention 幂等（旗标一致不写不发）。`TestRunTerminal_NotifyAndAttention` + `TestApprovalPark_Notifies` 钉死。
+
+### 旅程走查台账（断点已清面）
+
+- LLM 搓 workflow 全旅程：search_blocks → create/edit（ops+capability_check）→ trigger_workflow → **get_flowrun**（R2 补）→ :triage/edit 循环 ✅。
+- 用户调试失败 function：执行历史 → 详情+**logs**（exec-observability 补）→ :triage → :iterate ✅。
+- 装 MCP 排错：marketplace（requiredEnv 显式）→ install 自动连 → reconnect 重置 → 调用失败附 stderr 尾 ✅。
+- 配模型/密钥并验证：CRUD → `:test` probe → capabilities 聚合 → 场景配置即时生效（R1 验）✅。
+- 审批人在环：park → **通知唤回**（本轮）→ inbox → decide first-wins → 续跑 ✅。
+- boot/崩溃/恢复/退出：Recover 重走 + SweepOrphans + 优雅关停逆序（二轮 review 验）✅。
+
+### 轻症
+
+- **PR-18 🟢 function/handler env 构建失败无通知**（记录待办）：`env_rebuilt` 成功有事件、失败只落 EnvStatus 列（面板可见但无唤回）；与 run_failed 同构的小补，挂后续批。
+

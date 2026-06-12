@@ -262,6 +262,24 @@ func (s *Service) SetNeedsAttention(ctx context.Context, id string, needs bool, 
 	return s.repo.GetWorkflow(ctx, id)
 }
 
+// MarkRunAttention is the scheduler-facing slice of SetNeedsAttention: idempotent (no
+// write, no event when the flag already matches) and error-only — failed runs light the
+// banner, a completed run clears it (self-healing semantics, no acknowledge endpoint).
+//
+// MarkRunAttention 是面向调度器的 SetNeedsAttention 切面：幂等（旗标已一致则不写不发事件）、
+// 只返 error——失败 run 点灯、completed run 熄灯（自愈语义，无需 acknowledge 端点）。
+func (s *Service) MarkRunAttention(ctx context.Context, id string, needs bool, reason string) error {
+	w, err := s.repo.GetWorkflow(ctx, id)
+	if err != nil {
+		return fmt.Errorf("workflowapp.MarkRunAttention: %w", err)
+	}
+	if w.NeedsAttention == needs && (!needs || w.AttentionReason == reason) {
+		return nil
+	}
+	_, err = s.SetNeedsAttention(ctx, id, needs, reason)
+	return err
+}
+
 // Get returns one workflow with its active version + decoded graph attached (graph in one
 // round-trip).
 //

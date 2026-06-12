@@ -42,7 +42,7 @@ audience: [human, ai]
 
 ## P3 五域挂载
 
-**notifications**：workflow/control/approval 的 `<域>.{created, edited, reverted, updated, deleted}` 生命周期族；workflow 另有 `workflow.lifecycle_changed`（activate/deactivate/kill 的状态流转，payload {lifecycleState, active}）与 `workflow.attention_changed`（payload {needsAttention, attentionReason}）。trigger **无**生命周期通知（其活动经 activations 行 + entities 流 fire 信号呈现）。
+**notifications**：workflow/control/approval 的 `<域>.{created, edited, reverted, updated, deleted}` 生命周期族；workflow 另有 `workflow.lifecycle_changed`（activate/deactivate/kill 的状态流转，payload {lifecycleState, active}）、`workflow.attention_changed`（payload {needsAttention, attentionReason}——调度器自愈语义：run 失败点亮、completed 熄灭，无 acknowledge 端点）、`workflow.run_failed`（payload {workflowId, flowrunId, error}）与 `workflow.approval_pending`（payload {workflowId, flowrunId, nodeId}，at-least-once——唤人决策）。trigger **无**生命周期通知（其活动经 activations 行 + entities 流 fire 信号呈现）。
 
 **entities 流**：
 | 域 | 挂载 |
