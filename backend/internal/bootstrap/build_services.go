@@ -37,6 +37,7 @@ import (
 	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
 	approvaltool "github.com/sunweilin/forgify/backend/internal/app/tool/approval"
 	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
+	blockstool "github.com/sunweilin/forgify/backend/internal/app/tool/blocks"
 	controltool "github.com/sunweilin/forgify/backend/internal/app/tool/control"
 	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
 	filesystemtool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
@@ -174,17 +175,18 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			[]toolapp.Tool{asktool.New()}, // R0064: ask_user — agent asks the human (blocks on the humanloop broker)
 		),
 		Lazy: concat(
-			functiontool.FunctionTools(fn),
-			handlertool.HandlerTools(hd),
-			agenttool.AgentTools(ag),
-			controltool.ControlTools(ctl),
-			approvaltool.ApprovalTools(apf),
-			workflowtool.WorkflowTools(wf),
-			triggertool.TriggerTools(trg),
-			documenttool.DocumentTools(doc),
+			functiontool.FunctionTools(fn, searchSvc),
+			handlertool.HandlerTools(hd, searchSvc),
+			agenttool.AgentTools(ag, searchSvc),
+			controltool.ControlTools(ctl, searchSvc),
+			approvaltool.ApprovalTools(apf, searchSvc),
+			workflowtool.WorkflowTools(wf, searchSvc),
+			triggertool.TriggerTools(trg, searchSvc),
+			documenttool.DocumentTools(doc, searchSvc),
 			memorytool.MemoryTools(mem),
 			mcptool.MCPTools(mcp),
 			skilltool.SkillTools(skill),
+			blockstool.BlocksTools(searchSvc),
 			webtool.WebTools(ws, keys, inf.factory, ws, ws, log),
 		),
 	}

@@ -359,3 +359,37 @@ func TestReindex_ConflictWhileRunning(t *testing.T) {
 	// 完成后新的 reindex 再次可用。
 	waitFor(t, func() bool { return svc.Reindex(ctxWS("ws_a")) == nil })
 }
+
+func TestSearchBlocks_PaletteSemantics(t *testing.T) {
+	repo := newFakeRepo()
+	// Two methods of one handler + an mcp tool + an mcp server card (no ref).
+	// 同一 handler 两个方法 + 一个 mcp 工具 + 一张无 ref 的 mcp server 卡。
+	repo.hits = []*searchdomain.DocHit{
+		dh(searchdomain.TypeHandler, "hd_x", 1, "sendMail", "邮件.sendMail", 9.0),
+		dh(searchdomain.TypeHandler, "hd_x", 2, "sendSMS", "邮件.sendSMS", 8.0),
+		dh(searchdomain.TypeMCP, "mcp_s", 1, "send_email", "srv/send_email", 7.0),
+		dh(searchdomain.TypeMCP, "mcp_s", 0, "", "srv", 6.0),
+	}
+	svc := New(repo, nil)
+
+	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "发送", nil, 0)
+	if err != nil {
+		t.Fatalf("blocks: %v", err)
+	}
+	// (entity, anchor) folding: both methods are separate hits — palette unit is
+	// the callable, and the ref wires straight into a node.
+	// (entity, anchor) 折叠：两个方法各自成命中——面板单元是可调用体，ref 直接接线。
+	if len(hits) != 3 {
+		t.Fatalf("want 3 wireable hits (server card dropped), got %d: %+v", len(hits), hits)
+	}
+	if hits[0].Ref != "hd_x.sendMail" || hits[1].Ref != "hd_x.sendSMS" || hits[2].Ref != "mcp:mcp_s/send_email" {
+		t.Fatalf("refs wrong: %+v", hits)
+	}
+
+	if _, err := svc.SearchBlocks(ctxWS("ws_a"), " ", nil, 0); !errors.Is(err, searchdomain.ErrQueryRequired) {
+		t.Fatalf("empty query: %v", err)
+	}
+	if _, err := svc.SearchBlocks(ctxWS("ws_a"), "x", []searchdomain.EntityType{searchdomain.TypeConversation}, 0); !errors.Is(err, searchdomain.ErrTypeInvalid) {
+		t.Fatalf("non-block kind must be rejected: %v", err)
+	}
+}

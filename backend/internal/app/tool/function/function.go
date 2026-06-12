@@ -19,15 +19,16 @@ import (
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // FunctionTools constructs the function system tools over the app service.
 //
 // FunctionTools 基于 app service 构造 function system tool。
-func FunctionTools(svc *functionapp.Service) []toolapp.Tool {
+func FunctionTools(svc *functionapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchFunction{svc: svc},
+		&SearchFunction{svc: svc, content: content},
 		&GetFunction{svc: svc},
 		&CreateFunction{svc: svc},
 		&EditFunction{svc: svc},

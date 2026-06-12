@@ -11,6 +11,7 @@
 package workflow
 
 import (
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 )
@@ -18,9 +19,9 @@ import (
 // WorkflowTools constructs the workflow system tools over the app service.
 //
 // WorkflowTools 基于 app service 构造 workflow system tool。
-func WorkflowTools(svc *workflowapp.Service) []toolapp.Tool {
+func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchWorkflow{svc: svc},
+		&SearchWorkflow{svc: svc, content: content},
 		&GetWorkflow{svc: svc},
 		&CreateWorkflow{svc: svc},
 		&EditWorkflow{svc: svc},

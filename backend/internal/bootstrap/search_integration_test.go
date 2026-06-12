@@ -2,6 +2,11 @@ package bootstrap
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +14,7 @@ import (
 	workspaceapp "github.com/sunweilin/forgify/backend/internal/app/workspace"
 	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
 )
 
 // TestBuild_SearchEndToEnd proves the whole search chain through the real
@@ -82,4 +88,69 @@ func TestBuild_SearchEndToEnd(t *testing.T) {
 		t.Fatalf("delete document: %v", err)
 	}
 	wait("index cleaned after delete", func() bool { return len(search("记忆化")) == 0 })
+}
+
+// TestBuild_SearchHTTPSurface proves the HTTP wire: omni-search returns the N1
+// envelope with hits, and reindex answers 202 (N2/N5).
+//
+// TestBuild_SearchHTTPSurface 证明 HTTP 线缆：综搜返回 N1 envelope + 命中，
+// reindex 回 202（N2/N5）。
+func TestBuild_SearchHTTPSurface(t *testing.T) {
+	app, err := Build(Config{DataDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	defer app.svc.search.Close()
+	srv := httptest.NewServer(app.Handler)
+	defer srv.Close()
+
+	ws, err := app.svc.workspace.Create(context.Background(), workspaceapp.CreateInput{Name: "http 测试"})
+	if err != nil {
+		t.Fatalf("create workspace: %v", err)
+	}
+	app.svc.search.Start([]string{ws.ID})
+	ctx := reqctxpkg.Detached(ws.ID)
+	if _, err := app.svc.document.Create(ctx, documentapp.CreateInput{Name: "天气接入指南", Content: "对接天气服务的步骤"}); err != nil {
+		t.Fatalf("create document: %v", err)
+	}
+
+	get := func(path string) (int, string) {
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+		req.Header.Set(middlewarehttpapi.HeaderWorkspaceID, ws.ID)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("GET %s: %v", path, err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(body)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		code, body := get("/api/v1/search?q=" + url.QueryEscape("天气"))
+		if code == http.StatusOK && strings.Contains(body, `"entityType":"document"`) && strings.Contains(body, `"total":1`) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("omni-search never hit: %d %s", code, body)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// Empty q → 400 SEARCH_QUERY_REQUIRED through the envelope.
+	// 空 q → 经 envelope 的 400 SEARCH_QUERY_REQUIRED。
+	if code, body := get("/api/v1/search?q="); code != http.StatusBadRequest || !strings.Contains(body, "SEARCH_QUERY_REQUIRED") {
+		t.Fatalf("empty q: %d %s", code, body)
+	}
+
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/api/v1/search:reindex", nil)
+	req.Header.Set(middlewarehttpapi.HeaderWorkspaceID, ws.ID)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST reindex: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("reindex status = %d, want 202", resp.StatusCode)
+	}
 }

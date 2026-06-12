@@ -24,7 +24,9 @@ audience: [human, ai]
 
 ## 代码层级
 
-`domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）。
+`domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
+
+四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎，`toolapp.ContentSearch`：非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve` RAG 内部口（M3）。
 
 ## 关键不变量
 

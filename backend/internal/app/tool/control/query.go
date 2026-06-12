@@ -6,12 +6,17 @@ import (
 	"fmt"
 
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_control --------------------------------------------------------
 
-type SearchControl struct{ svc *controlapp.Service }
+type SearchControl struct {
+	svc     *controlapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchControl) Name() string { return "search_control" }
 
@@ -36,6 +41,9 @@ func (t *SearchControl) Execute(ctx context.Context, argsJSON string) (string, e
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_control: bad args: %w", err)
+	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeControl, args.Query, "controls"); ok {
+		return body, nil
 	}
 	ctls, err := t.svc.Search(ctx, args.Query)
 	if err != nil {

@@ -7,12 +7,17 @@ import (
 	"strings"
 
 	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_agent ----------------------------------------------------------
 
-type SearchAgent struct{ svc *agentapp.Service }
+type SearchAgent struct {
+	svc     *agentapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchAgent) Name() string { return "search_agent" }
 
@@ -34,6 +39,9 @@ func (t *SearchAgent) Execute(ctx context.Context, argsJSON string) (string, err
 		if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 			return "", fmt.Errorf("search_agent: bad args: %w", err)
 		}
+	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeAgent, args.Query, "agents"); ok {
+		return body, nil
 	}
 	ags, err := t.svc.Search(ctx, args.Query)
 	if err != nil {

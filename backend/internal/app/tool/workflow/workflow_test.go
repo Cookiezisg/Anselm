@@ -19,7 +19,7 @@ import (
 // TestWorkflowTools_Wiring asserts all 12 tools are constructed with the expected names and
 // each satisfies the 5-method Tool interface: 7 forge/query + 5 execution-lifecycle (D1).
 func TestWorkflowTools_Wiring(t *testing.T) {
-	tools := WorkflowTools(nil) // nil svc OK: we only inspect Name() here
+	tools := WorkflowTools(nil, nil) // nil svc OK: we only inspect Name() here
 	want := map[string]bool{
 		"search_workflow": false, "get_workflow": false, "create_workflow": false,
 		"edit_workflow": false, "revert_workflow": false, "delete_workflow": false,

@@ -16,13 +16,14 @@ import (
 	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 // HandlerTools constructs the handler system tools over the app service.
-func HandlerTools(svc *handlerapp.Service) []toolapp.Tool {
+func HandlerTools(svc *handlerapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchHandler{svc: svc},
+		&SearchHandler{svc: svc, content: content},
 		&GetHandler{svc: svc},
 		&CreateHandler{svc: svc},
 		&EditHandler{svc: svc},

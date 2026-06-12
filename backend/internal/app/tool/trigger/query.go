@@ -5,13 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
 
 // --- search_triggers -------------------------------------------------------
 
-type SearchTriggers struct{ svc *triggerapp.Service }
+type SearchTriggers struct {
+	svc     *triggerapp.Service
+	content *searchapp.Service // nil → legacy substring only. nil → 仅原子串路径。
+}
 
 func (t *SearchTriggers) Name() string { return "search_triggers" }
 
@@ -34,6 +39,9 @@ func (t *SearchTriggers) Execute(ctx context.Context, argsJSON string) (string, 
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_triggers: bad args: %w", err)
+	}
+	if body, ok := toolapp.ContentSearch(ctx, t.content, searchdomain.TypeTrigger, args.Query, "triggers"); ok {
+		return body, nil
 	}
 	ts, err := t.svc.Search(ctx, args.Query)
 	if err != nil {

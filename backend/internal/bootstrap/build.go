@@ -107,6 +107,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 		Register(handlershttpapi.Registrar)
 	}{
 		handlershttpapi.NewWorkspacesHandler(s.workspace, log),
+		handlershttpapi.NewSearchHandler(s.search, log),
 		handlershttpapi.NewAPIKeyHandler(s.apikey, log),
 		handlershttpapi.NewModelCapabilitiesHandler(s.modelCaps, log),
 		handlershttpapi.NewScenariosHandler(),

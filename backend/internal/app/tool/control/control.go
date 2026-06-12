@@ -11,6 +11,7 @@ package control
 
 import (
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
+	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
 	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
 )
@@ -18,9 +19,9 @@ import (
 // ControlTools constructs the control-logic system tools over the app service.
 //
 // ControlTools 基于 app service 构造 control 逻辑 system tool。
-func ControlTools(svc *controlapp.Service) []toolapp.Tool {
+func ControlTools(svc *controlapp.Service, content *searchapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
-		&SearchControl{svc: svc},
+		&SearchControl{svc: svc, content: content},
 		&GetControl{svc: svc},
 		&CreateControl{svc: svc},
 		&EditControl{svc: svc},
