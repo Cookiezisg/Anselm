@@ -61,8 +61,9 @@ audience: [human, ai]
 |---|---|---|
 | 词法检索 | **SQLite FTS5 + bm25()**（驱动内置，已实测） | Bleve：第二份索引文件 + 新依赖，FTS5 在场即重复轮子（原则 #8）；自研倒排：造轮子 |
 | 中文分词 | **trigram**（免词典、中英文/代码统一子串语义）+ **短词 LIKE 回退** | gse（纯 Go jieba）：新依赖 + 词典常驻 ~50MB 内存，本地规模 trigram 召回已够；不满意时可日后叠加第二索引列，地基不变 |
-| 向量存储 | **自有表 float32 BLOB + Go 内暴力余弦**（本地 ≤10 万 chunk 毫秒级，FAISS 在此规模也推荐 Flat） | sqlite-vec：C 扩展不可加载；chromem-go 等：新依赖且内部同样是暴力余弦 |
-| Embedder | **可选端口**：workspace 配置 `searchSemantic: off\|ollama`，默认 off；Ollama 适配（推荐 bge-m3，中英双语）；缺席/失败**无声降级纯 BM25** | 云端 embedding API：违反「不依赖 embedding API」约束（架构上留适配器位，未来要 BYOK 只加枚举值） |
+| 向量存储 | **自有表 float32 BLOB + Go 内暴力余弦**（本地 ≤10 万 chunk 毫秒级，FAISS 在此规模也推荐 Flat）。**不抄 AnythingLLM 的向量库可换**（Chroma/Pinecone/Milvus）——那是服务端规模化的逃生门，单用户本地外接向量库只引入服务器与网络面；真要换只动 infra/search 一层 | sqlite-vec：C 扩展不可加载；chromem-go 等：新依赖且内部同样是暴力余弦 |
+| Embedder | **内置默认开**（对标 AnythingLLM Native Embedder 的产品语义：零配置、拖入即向量化、全程透明）：directInstaller 首用下载 **llama-server 官方预编译二进制 + EmbeddingGemma-300m QAT GGUF**（量化后 <200MB RAM、100+ 语言含中文、MTEB 500M 以下开源第一），常驻子进程出本机 `/v1/embeddings`；**机器级配置可换** `builtin\|ollama\|off`；引擎缺席/下载中/失败**无声降级纯 BM25**（§8） | 照搬 AnythingLLM 技术栈（Node 进程内 ONNX Runtime）：纯 Go 无 CGO 进不了程内，且其默认 all-MiniLM-L6-v2 **主要是英文模型**、中文场景不合格；hugot/gomlx 纯 Go 进程内推理：experimental、~5x 慢、把 ML 框架拖进 go.mod——列为未来替换路径；云端 embedding API：违反约束（适配器位留好） |
+| 检索模式 | **无配置、恒混合**：hybrid 是默认且唯一模式，向量未就绪自动退纯 BM25——降级自动化，不让用户选 | per-workspace 的 bm25/rag/hybrid 三选一开关：用户已裁决不做（自动降级优于配置化） |
 | 混合融合 | **RRF（k=60）**——Elasticsearch/Weaviate/LanceDB 默认 | 线性加权：要调权、对分数尺度敏感 |
 | 索引同步 | **写后 Enqueue + 单 worker 异步 + boot 对账**（索引=纯派生数据，永远可重建） | 事务内同步写：耦合业务事务、慢热路径；复用 entitystream：那是 SSE 直播帧原语非 CRUD 变更流 |
 
@@ -74,15 +75,17 @@ audience: [human, ai]
                 └─ app 内部 Retrieve(ctx, q, opts)      ← RAG 取数
                          │
                  app/search.Service
-                 ├─ Search():  FTS5 BM25 ──┐
-                 │             向量(可选) ───┴─ RRF → boost → 折叠 → 分页/snippet
+                 ├─ Search():  FTS5 BM25 ────────┐
+                 │             向量(默认开,自动降级) ┴─ RRF → boost → 折叠 → 分页/snippet
                  ├─ Retrieve(): 同管线，chunk 粒度
-                 └─ Indexer:   Enqueue 队列 + 单 worker + boot 对账
+                 └─ Indexer:   Enqueue 队列 + 单 worker + boot 对账 + 嵌入补算
                          │ DIP：12 个 SearchSource 端口（各实体 app Service 实现）
+                         │      EmbeddingProvider 端口（builtin 子进程 / ollama）
                  infra/search
                  ├─ search_docs 投影表 + search_fts(FTS5 external-content) + 触发器
-                 ├─ search_meta（fts schema 版本）
-                 └─ search_embeddings（M3 可选）
+                 ├─ search_meta（fts schema 版本 + embedder 机器级配置）
+                 ├─ search_embeddings（向量，模型/维度逐行记账）
+                 └─ embedded engine：directInstaller 下发 llama-server + GGUF，常驻子进程（§8）
 ```
 
 ---
@@ -185,11 +188,12 @@ END;
 
 CREATE TABLE IF NOT EXISTS search_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 -- 行：fts_schema_version = "1"（变更 → boot 全量重建）
+--     embedder = builtin|ollama|off（机器级配置，缺省视为 builtin，§8）
 
--- M3 可选：
+-- 语义层（M2，默认在场）：
 CREATE TABLE IF NOT EXISTS search_embeddings (
   doc_id TEXT PRIMARY KEY,                  -- = search_docs.id
-  model  TEXT NOT NULL,
+  model  TEXT NOT NULL,                     -- 逐行记账：换 embedder 后旧向量直接失效可辨
   dims   INTEGER NOT NULL,
   vector BLOB NOT NULL                      -- float32 小端序列
 );
@@ -220,7 +224,7 @@ query → 清洗（去 FTS5 运算符，按空白切 token，每 token 双引号
       长 token(≥3 字符) 存在 → FTS5 MATCH（隐式 AND）→ 候选集
                                 短 token 作为 LIKE 谓词叠在 JOIN 上（候选集已窄，代价小）
       全部 token <3 字符     → 纯 LIKE 路径（title 优先，LIMIT 截断）
-  → [语义开启且向量就绪] 余弦 top-100 ──┐
+  → [向量就绪] 余弦 top-100 ──────────┐   （引擎缺席/下载中/向量未追平 → 自动跳过，纯 BM25）
     BM25 top-100 ────────────────────┴─ RRF(k=60)
   → boost（§6.3）→ 同实体多 chunk 折叠（取最高分，附命中 chunk 数）
   → types/tags/时间/归档过滤 → 窗口分页 → snippet() 高亮片段
@@ -276,9 +280,20 @@ final = rrf（或纯 BM25 归一）           — 基底
 } }
 ```
 
-### 7.2 `POST /api/v1/search:reindex`
+### 7.2 管理面：`POST /api/v1/search:reindex` 与 `GET/PATCH /api/v1/search/settings`
 
-202 Accepted（N2/N5）；运行中再触发 → 409 `SEARCH_REINDEX_RUNNING`；完成发 notifications 流通知。
+- `search:reindex`：202 Accepted（N2/N5）；运行中再触发 → 409 `SEARCH_REINDEX_RUNNING`；完成发 notifications 流通知。
+- `search/settings`（**机器级**，存 `search_meta`——embedder 是装机资源、引擎与模型全 workspace 共用，不进 workspaces 表）：
+
+```jsonc
+{ "data": {
+    "embedder": "builtin",                       // builtin | ollama | off，PATCH 可改
+    "engine": { "status": "ready",               // ready | downloading | absent | error
+                "model": "embeddinggemma-300m-qat-q8_0", "dims": 768 }
+} }
+```
+
+PATCH 非法值 → `SEARCH_EMBEDDER_INVALID`；切换 embedder 后后台对当前模型缺向量的行重新补算（旧模型向量按 `model` 列识别、直接失效）。
 
 ### 7.3 错误码（S20，登记 error-codes.md）
 
@@ -288,7 +303,7 @@ final = rrf（或纯 BM25 归一）           — 基底
 | `SEARCH_TYPE_INVALID` | Invalid |
 | `SEARCH_CURSOR_INVALID` | Invalid |
 | `SEARCH_REINDEX_RUNNING` | Conflict |
-| `WORKSPACE_SEARCH_SEMANTIC_INVALID`（M3，workspace 域） | Invalid |
+| `SEARCH_EMBEDDER_INVALID` | Invalid |
 
 ### 7.4 tool：`search_workspace`（LLM 搓工作流主入口）
 
@@ -304,18 +319,30 @@ final = rrf（或纯 BM25 归一）           — 基底
 
 ### 7.6 RAG 内部口
 
-`Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars}) []Chunk{entityType, entityId, anchor, title, body, score}`——chunk 粒度不折叠，给 agent 上下文注入/知识挂载；M3 接通向量后此口自动 hybrid，调用方零改动。
+`Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars}) []Chunk{entityType, entityId, anchor, title, body, score}`——chunk 粒度不折叠，给 agent 上下文注入/知识挂载；向量默认在场（M2 起）即天然 hybrid，引擎缺席自动纯 BM25，调用方零改动零感知。
 
 ---
 
-## 8. 语义层（M3，可选增强，hybrid-ready）
+## 8. 语义层（M2，内置默认开——对标 AnythingLLM Native Embedder）
 
-- `domain/search.EmbeddingProvider` 端口：`Embed(ctx, texts []string) ([][]float32, error)`。
-- 适配器：**Ollama**（`localhost:11434/api/embed`，推荐 `bge-m3`，1024 维中英双语；URL/模型名进 server 启动配置，非 workspace）。
-- 开关：workspaces 表加 `search_semantic TEXT NOT NULL DEFAULT '' CHECK (search_semantic IN ('','off','ollama'))`，`''`→off——与 `web_fetch_mode` 同款裁决形态（显式选择、保守默认、读失败降级）。
-- 嵌入由索引 worker 顺带批算；失败仅记日志、下次对账重试；**缺向量的行无声降级纯 BM25**（开关开着但 Ollama 没起，搜索照常工作）。
-- 查询侧：ws 级向量内存缓存（懒加载、upsert/delete 失效；20k chunk × 4KB ≈ 80MB 上界，单活跃 ws 常驻可受）；暴力余弦 top-100 → RRF。
-- 未来 BYOK 云端 embedding = 新适配器 + 枚举值，地基不动。
+### 8.1 借鉴判定（调研结论）
+
+AnythingLLM 桌面版的「核心秘密」= 安装包内封 ONNX Runtime + all-MiniLM-L6-v2（几十 MB、CPU 毫秒级），拖入文档自动向量化、全程透明，设置里可换 Ollama/HF/云端。**产品语义全盘借鉴，技术栈三处不照搬**：
+
+1. **进程内 ONNX Runtime 进不来**：它是 Node/Electron 生态；Go 侧 ONNX Runtime 绑定要 CGO（地基铁律禁）。纯 Go 推理（hugot/gomlx simplego）2025 年才出、官方自称 experimental、~5x 慢、把整个 ML 框架拖进 go.mod——列为未来替换路径、暂不选。
+2. **Forgify 的等价物是子进程**：directInstaller（decisions/0001：无内嵌、首用按需下）下发 **llama.cpp `llama-server` 官方预编译二进制**（macOS arm64/x64、Windows x64/arm64、Linux x64 全覆盖，MIT），以 `--embeddings` 常驻子进程暴露本机 OpenAI 兼容 `/v1/embeddings`——与 handler 常驻进程、MCP 子进程**同一套已有范式**，两块地基直接复用。
+3. **默认模型不抄**：all-MiniLM-L6-v2 主要以英文训练（AnythingLLM 自己有 multilingual 的 FEAT issue 挂着），中文场景不合格。选 **EmbeddingGemma-300m QAT Q8 GGUF**（Google 2025-09，official ggml-org 仓库）：100+ 语言含中文、MTEB 500M 以下开源第一、量化后 **<200MB RAM**、768 维（Matryoshka 可截 512/256）、CPU 毫秒级。
+
+### 8.2 设计
+
+- **端口**：`domain/search.EmbeddingProvider`：`Embed(ctx, texts []string) ([][]float32, error)` + `Info() (model, dims)`。
+- **适配器 builtin（默认）**：`infra/search/engine`——directInstaller recipe 下 `llama-server` 二进制 + EmbeddingGemma GGUF（~300MB，一次性）；惰性启动（首次需要嵌入时 spawn）、随 app 优雅关停、crash 重启（复用常驻进程管理范式）；本机随机端口、仅监听 127.0.0.1。
+- **适配器 ollama**：`localhost:11434/api/embed`，模型名经 settings 配置（默认 `embeddinggemma`）——给已有 Ollama 的用户复用其模型库。
+- **配置**：机器级 `search_meta.embedder = builtin|ollama|off`（§7.2 settings 端点），默认 builtin。**检索模式无配置**：恒 hybrid，降级自动。
+- **生命周期（全程透明，抄 AnythingLLM 的产品手感）**：嵌入由索引 worker 写完 FTS 后**异步批算**（批 ≤32 文本），永不阻塞索引与搜索；引擎 absent/downloading/error 期间查询自动纯 BM25，就绪后向量逐步追平、搜索无感变 hybrid；失败记日志、boot 对账重试。
+- **查询侧**：ws 级向量内存缓存（懒加载、upsert/delete 失效；20k chunk × 768d×4B ≈ 60MB 上界，单活跃 ws 常驻可受）；暴力余弦 top-100 → RRF。
+- **换模型/换 provider**：`search_embeddings.model` 逐行记账——切换后旧向量自动失效、后台重算，查询期间混存不混用。
+- **未来扩展**：BYOK 云端 embedding = 新适配器 + settings 枚举值；外接向量库**明确不做**（§2.2）。
 
 ---
 
@@ -329,7 +356,7 @@ final = rrf（或纯 BM25 归一）           — 基底
 | 增量 | message 完成单条入索；版本激活重索；conversation 改名重索 title |
 | 排序 | exact-name > prefix > 正文命中的相对序 |
 | 注入 | query 含 FTS5 运算符（`" ( ) * OR NEAR`）不报语法错 |
-| 降级 | 语义开但 Ollama 缺席 → 纯 BM25 正常返回 |
+| 降级 | 引擎 absent/downloading/crash、Ollama 没起 → 纯 BM25 正常返回；引擎就绪向量追平后同一查询自动变 hybrid |
 | 安全 | mcp config / trigger config / api key 内容在索引中 **0 命中**（红线测试） |
 | 门禁 | `make verify` 全绿；索引 worker 并发路径 `-race`；fake_llm（T6）零 token |
 
@@ -339,10 +366,10 @@ final = rrf（或纯 BM25 归一）           — 基底
 
 | 期 | 内容 | 量级 |
 |---|---|---|
-| **M1 地基** | domain/app/infra 三层 + DDL/触发器 + 12 个 Source + Notifier 接线 + 队列/对账 + HTTP 两端点 + `search_workspace` + 8 tool 换引擎 + §9 测试 + 文档四件套（api/database/error-codes/domains）| ~3 天，发版即 12 类全量可搜 |
-| **M2 RAG** | document/conversation 分块精修 + `Retrieve` 口 + agent 取数接入点 | ~1 天 |
-| **M3 语义** | EmbeddingProvider + Ollama 适配 + embeddings 表 + RRF + workspace 配置 | ~1.5 天 |
-| **M4 前端** | Cmd+K 综搜框 + 垂搜过滤 + anchor 跳转 + 重建索引按钮 | 随前端重建 |
+| **M1 地基（BM25 全量）** | domain/app/infra 三层 + DDL/触发器 + 12 个 Source + Notifier 接线 + 队列/对账 + HTTP 端点 + `search_workspace` + 8 tool 换引擎 + §9 测试 + 文档四件套（api/database/error-codes/domains）| ~3 天，发版即 12 类全量可搜 |
+| **M2 内置语义（默认混合）** | builtin 引擎 recipe（llama-server + EmbeddingGemma GGUF）+ 常驻进程管理 + EmbeddingProvider 双适配器 + embeddings 表/缓存 + RRF + settings 端点 + 降级链测试 | ~2.5 天 |
+| **M3 RAG 精修** | document/conversation 分块精修 + `Retrieve` 口 + agent 取数接入点 | ~1 天 |
+| **M4 前端** | Cmd+K 综搜框 + 垂搜过滤 + anchor 跳转 + 设置页（embedder/重建索引）| 随前端重建 |
 
 ## 11. 风险与边界
 
@@ -350,4 +377,6 @@ final = rrf（或纯 BM25 归一）           — 基底
 - **索引体积**：正文 3–5 倍，对话靠 text-only 压制；上限可控（单用户本地）。
 - **新鲜度**：异步秒级延迟；列表过滤走实时 LIKE 不受影响。
 - **执行日志检索**是未来独立轴（体量无界、产品语义不同），本方案明确不背。
-- **精度天花板**：trigram 召回宽、精度靠 BM25+boost；若实际使用中中文精度不满意，升级路径是叠加 gse 分词列（地基不变）。
+- **首启下载 ~300MB**（llama-server 二进制 + GGUF）：与 directInstaller 既有体验一致（python/node 同样首用下）；下载失败/离线 → builtin 长期 absent，搜索以纯 BM25 持续可用，settings 可重试。
+- **常驻子进程**：引擎 RSS <200MB、惰性启动；crash 重启与优雅关停复用 handler 常驻进程范式，不新发明生命周期。
+- **精度天花板**：trigram 召回宽、词法精度靠 BM25+boost、语义召回靠默认混合；若中文词法精度仍不满意，升级路径是叠加 gse 分词列（地基不变）。
