@@ -28,16 +28,16 @@ audience: [human, ai]
 
 ### 实锤·待裁决（详见 DECISIONS-PENDING）
 
-- **PR-3 🔴 `pkg/limits` 是未接线的空壳**（pending → PD-A）
+- **PR-3 🔴 `pkg/limits` 是未接线的空壳**（裁决 A 已批：做配置面 + 全量接线——下一批实现）
   验证：包自述「用户可调运行上限的唯一来源……启动装配经 SetProvider 换成 settings.json 支持的 getter」（limits.go:1-8）。实际：①全仓无任何 settings.json 加载器；②`SetProvider` 生产代码零调用（仅测试）；③全仓唯一消费方是 `infra/llm/provider.go:59` 读 `Timeout.LLMIdleSec`——其余全部字段（MaxSteps/Subagent*/bash·mcp 超时/工具体量/attachment 上限/workflow 轮数…）无人读，真实生效的是各模块**各自的硬编码常量**（如 `loop.maxToolResultBytes`、`mcp.defaultCallTimeout`、`shell.outputCapBytes`）。「用户可调」目前是虚构。
 
-- **PR-4 🟡 Ollama embedder 参数无配置面**（pending → PD-B）
+- **PR-4 🟡 Ollama embedder 参数无配置面**（fixed——裁决 A：search_meta 补 `ollama_base_url`/`ollama_model` 两键、PATCH/GET 全接、工厂注入 + 参数变化重建适配器、域默认权威 `searchdomain.DefaultOllama*`；app/integration 双层测试）
   验证：`SetEmbeddingProviders(…, NewOllama("", ""))`（build_services.go:134）——baseURL 钉死 `127.0.0.1:11434`、model 钉死 `embeddinggemma`（engine.go NewOllama 默认分支）；`PATCH /search/settings` 只收 `embedder` 一个字段。用户切到 ollama 后无法指定地址/模型，GET 也看不到生效的 baseURL。
 
-- **PR-5 🟡 桌面 app 日志故事缺失**（pending → PD-C）
+- **PR-5 🟡 桌面 app 日志故事缺失**（fixed——裁决 A 最小版：`<dataDir>/logs/forgify.log` 轮转 JSON（lumberjack 10MB×3×28d gzip）tee 在 stderr 控制台旁；文件 sink 测试）
   验证：zap 只出 stdout/stderr、级别仅由 `FORGIFY_DEV` 环境变量二档切换（infra/logger/zap.go:16-32、cmd/server/main.go:25）；无文件落盘/轮转/级别配置。Wails 桌面 app 用户报障无日志可交。
 
-- **PR-6 🟡 备份/跨机迁移故事缺失**（pending → PD-D）
+- **PR-6 🟡 备份/跨机迁移故事缺失**（doc-fix——裁决 B：`how-to/data-migration.md` 声明数据布局/备份/三类密文重填边界；export/import 进 roadmap）
   验证：落盘加密密钥从 `MachineFingerprint` 派生（build_data.go:155-168，CR-20 接通）——拷 `~/.forgify` 换机后 api key/handler config/mcp config 密文**全部不可解**；无任何 export/import 面；文档零说明。
 
 ### 轻症·已处置

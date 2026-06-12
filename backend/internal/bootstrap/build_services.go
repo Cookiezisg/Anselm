@@ -57,6 +57,7 @@ import (
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	workspaceapp "github.com/sunweilin/forgify/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
 	searchengine "github.com/sunweilin/forgify/backend/internal/infra/search/engine"
@@ -131,7 +132,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// search：所有出口背后的同一个引擎（综搜/垂搜/积木/RAG）；source 与 notifier 在装配后
 	// 接线，worker 于 App.Boot 启动。
 	searchSvc := searchapp.New(st.search, log)
-	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), searchengine.NewOllama("", ""))
+	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), func(baseURL, model string) searchdomain.EmbeddingProvider {
+		return searchengine.NewOllama(baseURL, model)
+	})
 	searchSvc.SetSifter(&llmSifter{picker: ws, keys: keys, factory: inf.factory})
 
 	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.

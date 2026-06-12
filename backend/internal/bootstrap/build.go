@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"go.uber.org/zap"
@@ -60,7 +61,7 @@ const drainInterval = 5 * time.Second
 //
 // Build 装配整个后端。返回的 App 立即可服务（Boot 前 health 即通）；调 Boot 启后台、Shutdown 停。
 func Build(cfg Config) (*App, error) {
-	log, err := loggerinfra.New(cfg.Dev)
+	log, err := loggerinfra.New(cfg.Dev, filepath.Join(cfg.DataDir, "logs"))
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: logger: %w", err)
 	}
