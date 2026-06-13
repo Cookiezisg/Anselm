@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgify · 主屏（海与岛 + 信号交互）</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== 左导航岛 ===== -->
+  <nav class="nav island">
+    <div class="brand"><span class="mark" id="brandMark"></span> Forgify</div>
+    <div class="nav-top" id="navTop">
+      <button class="nav-item is-active" data-pane="chat"  title="Chat"><span class="ico"></span><span class="lbl">Chat</span></button>
+      <button class="nav-item"           data-pane="forge" title="Forge"><span class="ico"></span><span class="lbl">Forge</span></button>
+      <button class="nav-item"           data-pane="docs"  title="Documents"><span class="ico"></span><span class="lbl">Documents</span></button>
+      <button class="nav-item"           data-pane="bell"  title="Notifications"><span class="ico"></span><span class="lbl">Notifications</span><span class="count">2</span></button>
+    </div>
+    <div class="nav-spacer"></div>
+    <div class="nav-bottom">
+      <div class="ws">
+        <span class="ava">F</span>
+        <span class="meta"><b>Forge Studio</b><span>本地工作区 · 已连接</span></span>
+        <button class="icon-btn" id="settingsBtn" title="Settings"></button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== 中间：海（对话平铺其上） ===== -->
+  <main class="stage">
+    <div class="topbar">
+      <span class="title" id="paneTitle">Researcher 升级<small> · Chat</small></span>
+      <span class="grow"></span>
+      <span class="chip" id="modelChip"></span>
+      <button class="icon-btn" id="replayBtn" title="重播演示"></button>
+      <button class="icon-btn" id="themeBtn" title="切换主题"></button>
+    </div>
+
+    <div class="scroll" id="scroll"><div class="thread" id="thread"></div></div>
+
+    <div class="composer-wrap" id="composerWrap">
+      <div class="composer">
+        <textarea class="ta" id="ta" rows="1" placeholder="给 AI 发消息…（这是演示，点 ▷ 重播看信号交互）"></textarea>
+        <button class="send" id="send"></button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== 右侧实体岛（信号交互主角，默认隐藏） ===== -->
+  <aside class="aside island hidden" id="aside"></aside>
+
+</div>
+
+<script src="../shared/mock-data.js"></script>
+<script>
+// ---------- 工具 ----------
+const $ = (s, r=document) => r.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const scroll = $('#scroll'), aside = $('#aside');
+let thread = $('#thread');                        // 切面会重建容器，故用 let 兜住闭包
+function toBottom(){ scroll.scrollTop = scroll.scrollHeight; }
+let runId = 0;                                   // 重播时让旧时间线作废
+const alive = id => id === runId;
+
+// 注入图标
+$('#brandMark').innerHTML = icon('forge', 15, 2);
+$('#settingsBtn').innerHTML = icon('settings', 17);
+$('#replayBtn').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+$('#themeBtn').innerHTML = icon('moon', 17);
+$('#send').innerHTML = icon('send', 17, 2);
+$('#modelChip').innerHTML = icon('sparkle', 14) + ' claude-opus-4-8';
+document.querySelectorAll('.nav-item').forEach(b => {
+  $('.ico', b).innerHTML = icon(b.dataset.pane === 'bell' ? 'bell' : b.dataset.pane === 'docs' ? 'docs' : b.dataset.pane, 19);
+});
+
+// ---------- 打字机：把文本流入节点 ----------
+function typeInto(node, text, cps = 60){
+  const id = runId;
+  return new Promise(res => {
+    const caret = document.createElement('span'); caret.className = 'caret';
+    node.appendChild(caret);
+    let i = 0;
+    (function step(){
+      if(!alive(id)){ caret.remove(); return res(); }
+      caret.insertAdjacentText('beforebegin', text[i++] ?? '');
+      toBottom();
+      if(i > text.length){ caret.remove(); return res(); }
+      setTimeout(step, 1000 / cps + Math.random() * 16);
+    })();
+  });
+}
+
+// ---------- 气泡构造 ----------
+function userMsg(html){
+  const m = document.createElement('div'); m.className = 'msg user fade-in';
+  m.innerHTML = `<div class="bubble">${html}</div>`;
+  thread.appendChild(m); toBottom();
+}
+function aiMsg(){
+  const m = document.createElement('div'); m.className = 'msg ai fade-in';
+  m.innerHTML = `<div class="avatar">${icon('forge',15,2)}</div><div class="body"></div>`;
+  thread.appendChild(m); toBottom();
+  return $('.body', m);
+}
+
+// ---------- 工具调用组 ----------
+function toolGroup(){
+  const g = document.createElement('div'); g.className = 'tools open';
+  g.innerHTML = `<button class="tools-head">${icon('sparkle',15)} <span class="ttl">使用工具</span>
+      <span class="chev">${icon('chevron',16)}</span></button>
+    <div class="tools-list"><div></div></div>`;
+  $('.tools-head', g).onclick = () => g.classList.toggle('open');
+  return g;
+}
+function toolRow(g, name, arg){
+  const r = document.createElement('div'); r.className = 'tool-row';
+  r.innerHTML = `<span class="st run">${icon('spin',15)}</span>
+    <span class="tname">${name}</span><span class="targ">(${arg})</span>`;
+  $('.tools-list > div', g).appendChild(r); toBottom();
+  return {
+    done(){ $('.st', r).className = 'st done'; $('.st', r).innerHTML = icon('check',15); }
+  };
+}
+
+// ---------- 右侧实体岛：渲染一个 Agent ----------
+function renderAgent({ name, version, model, system, tools, live }){
+  aside.classList.remove('hidden', 'collapsed');
+  aside.innerHTML = `
+    <div class="aside-head">
+      <span class="etype agent">${icon('agent',18)}</span>
+      <span class="htext">
+        <b>${name}</b>
+        <span class="sub">
+          <span class="ver" data-ver>v${version}</span>
+          <span data-live>${live ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : '已保存'}</span>
+        </span>
+      </span>
+      <button class="icon-btn" data-collapse title="收起"></button>
+      <button class="icon-btn" data-close title="关闭"></button>
+    </div>
+    <div class="aside-tabs">
+      <button class="on">Overview</button><button>Versions</button>
+      <button>Runs</button><button>Iterate</button>
+    </div>
+    <div class="aside-body">
+      <div class="field" data-f="model"><label>Model</label><div class="val mono">${model}</div></div>
+      <div class="field" data-f="system"><label>System prompt</label><div class="val">${system}</div></div>
+      <div class="field" data-f="tools"><label>Tools</label><div class="val" style="padding:8px"><div class="taglist">${
+        tools.map(t => `<span class="tag">${t}</span>`).join('')
+      }</div></div></div>
+    </div>`;
+  $('[data-collapse]', aside).innerHTML = icon('collapse',17);
+  $('[data-close]', aside).innerHTML = icon('close',16);
+  $('[data-collapse]', aside).onclick = () => aside.classList.toggle('collapsed');
+  $('[data-close]', aside).onclick = () => aside.classList.add('hidden');
+  aside.querySelectorAll('.aside-tabs button').forEach(b =>
+    b.onclick = () => { aside.querySelectorAll('.aside-tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
+  // 收起态点一下整条 → 展开
+  aside.onclick = e => { if(aside.classList.contains('collapsed') && !e.target.closest('button')) aside.classList.remove('collapsed'); };
+}
+function setLive(on, note){
+  const s = $('[data-live]', aside); if(!s) return;
+  s.innerHTML = on ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : note;
+}
+
+// ====================================================================
+// 信号交互演示时间线
+// ====================================================================
+async function runDemo(){
+  const id = ++runId;
+  thread.innerHTML = '';
+  aside.className = 'aside island hidden';
+
+  // —— 历史：一段已存在的对话，让进来不空 ——
+  userMsg('帮我把仓库里这周的 PR 理一理。');
+  const h = aiMsg();
+  h.innerHTML = '<p>这周有 9 个 PR，其中 3 个还在等审。要我让 <span class="ref-pill" data-open>'
+    + icon('agent',12) + 'Researcher</span> 出一份带链接的周报吗？</p>';
+  if(!alive(id)) return;
+
+  await sleep(700);
+
+  // —— 用户发新请求 ——
+  userMsg('把 Researcher 升级到 Opus，并要求它所有结论都带引用来源。');
+  await sleep(450); if(!alive(id)) return;
+
+  // —— AI 推理 chip（默认折叠形态） ——
+  const body = aiMsg();
+  const reason = document.createElement('span'); reason.className = 'reason';
+  reason.innerHTML = `<span class="spin">${icon('spin',13)}</span> 思考中…`;
+  body.appendChild(reason);
+  await sleep(1100); if(!alive(id)) return;
+  reason.innerHTML = `${icon('sparkle',13)} 已思考 2 秒`;
+
+  // —— AI 开场 ——
+  const p1 = document.createElement('p'); body.appendChild(p1);
+  await typeInto(p1, '好的，我来更新 Researcher：切换模型到 claude-opus-4-8，并在系统提示里加上引用要求。', 70);
+  if(!alive(id)) return;
+
+  // —— 工具组 ——
+  const g = toolGroup(); body.appendChild(g); toBottom();
+  await sleep(300);
+  const t1 = toolRow(g, 'read_agent', 'Researcher');
+  await sleep(750); if(!alive(id)) return; t1.done();
+
+  const t2 = toolRow(g, 'update_agent', 'Researcher');   // ← 这一刻唤出右侧岛
+  await sleep(450); if(!alive(id)) return;
+
+  // —— 实体岛从右滑入，开始流式编辑 ——
+  renderAgent({
+    name: 'Researcher', version: 4, model: 'claude-sonnet-4-6',
+    system: '你是严谨的调研助手。检索、交叉验证、给出结构化综述。',
+    tools: ['web_fetch','read_file','python','summarize'], live: true,
+  });
+  toBottom();
+  await sleep(650); if(!alive(id)) return;
+
+  // 1) 改模型（闪光）
+  const modelVal = $('[data-f="model"] .val', aside);
+  modelVal.classList.add('changed','flash');
+  modelVal.textContent = 'claude-opus-4-8';
+  await sleep(900); if(!alive(id)) return;
+
+  // 2) 系统提示流式追加一行
+  const sysVal = $('[data-f="system"] .val', aside);
+  sysVal.classList.add('changed');
+  await typeInto(sysVal, '\n\n务必为每条结论附引用来源（行内链接）。', 45);
+  if(!alive(id)) return;
+  await sleep(500);
+
+  // 3) 工具新增 web_search（popin）
+  const tagList = $('[data-f="tools"] .taglist', aside);
+  const ntag = document.createElement('span'); ntag.className = 'tag new'; ntag.textContent = 'web_search';
+  tagList.appendChild(ntag);
+  await sleep(700); if(!alive(id)) return;
+
+  // 4) 收尾：版本 bump，停止活体指示
+  $('[data-ver]', aside).textContent = 'v5';
+  setLive(false, '刚刚更新 · v5');
+  modelVal.classList.remove('flash'); sysVal.classList.remove('changed');
+  t2.done();
+  await sleep(400); if(!alive(id)) return;
+
+  // —— AI 收尾 ——
+  const p2 = document.createElement('p'); body.appendChild(p2);
+  await typeInto(p2, '完成 ✅ Researcher 现在跑在 Opus 上，并会为每条结论附引用。', 70);
+  if(!alive(id)) return;
+  const p3 = document.createElement('p'); body.appendChild(p3);
+  p3.innerHTML = '要我顺手给它配一个每日 web 巡检的 <span class="ref-pill" style="background:var(--accent-soft)">'
+    + icon('workflow',12) + 'workflow</span> 吗？';
+  toBottom();
+
+  // 行内引用药丸 → 重新唤出/展开实体岛
+  thread.querySelectorAll('[data-open]').forEach(p => p.onclick = () => aside.classList.remove('hidden','collapsed'));
+}
+
+// ====================================================================
+// 导航切换（四导航动效）+ 其它面
+// ====================================================================
+function paneChat(){
+  $('#composerWrap').style.display = '';
+  $('#paneTitle').innerHTML = 'Researcher 升级<small> · Chat</small>';
+  runDemo();
+}
+function paneForge(){
+  runId++; aside.className = 'aside island hidden';
+  $('#composerWrap').style.display = 'none';
+  $('#paneTitle').innerHTML = 'Forge<small> · 四类实体</small>';
+  scroll.innerHTML = `<div class="fade-in">
+    <div class="pane-head"><h1>Forge</h1><button class="btn primary">${icon('plus',16)} 新建</button></div>
+    <div class="pane-body"><div class="grid">${FORGE.map((e,i)=>`
+      <div class="card" data-i="${i}">
+        <div class="ch"><span class="ei etype ${e.kind}">${icon(e.kind,16)}</span><b>${e.name}</b></div>
+        <div class="desc">${e.desc}</div>
+        <div class="foot"><span class="dot ok"></span>${e.model} · ${e.meta}</div>
+      </div>`).join('')}</div></div></div>`;
+  // 点卡片 → 在右侧岛打开实体（静态，无流式）—— 证明实体岛是通用面
+  scroll.querySelectorAll('.card').forEach(c => c.onclick = () => {
+    const e = FORGE[c.dataset.i];
+    if(e.kind === 'agent') renderAgent({ name:e.name, version:e.meta.match(/v(\d)/)?.[1]||1,
+      model:e.model, system:e.desc, tools:['web_fetch','read_file','python','summarize'], live:false });
+    else { renderAgent({ name:e.name, version:1, model:e.model, system:e.desc, tools:[], live:false });
+      $('.etype', aside).className = `etype ${e.kind}`; $('.etype', aside).innerHTML = icon(e.kind,18); }
+  });
+}
+function paneDocs(){
+  runId++; aside.className = 'aside island hidden';
+  $('#composerWrap').style.display = 'none';
+  $('#paneTitle').innerHTML = 'Documents<small> · 知识库</small>';
+  scroll.innerHTML = `<div class="fade-in">
+    <div class="pane-head"><h1>Documents</h1><button class="btn">${icon('plus',16)} 新文档</button></div>
+    <div class="pane-body">${DOCS.map(d=>`
+      <div class="row"><span class="ri etype function">${icon('docs',16)}</span>
+        <span class="rt"><b>${d.name}</b><span>${d.sub}</span></span>
+        <span class="rtime">${icon('chevron',16)}</span></div>`).join('')}</div></div>`;
+}
+function paneBell(){
+  runId++; aside.className = 'aside island hidden';
+  $('#composerWrap').style.display = 'none';
+  $('#paneTitle').innerHTML = 'Notifications<small> · 通知</small>';
+  scroll.innerHTML = `<div class="fade-in">
+    <div class="pane-head"><h1>Notifications</h1><button class="btn">全部已读</button></div>
+    <div class="pane-body">${NOTIFS.map(n=>`
+      <div class="row"><span class="ri etype ${n.kind}">${icon(n.kind,16)}</span>
+        <span class="rt"><b>${n.title}</b><span>${n.sub}</span></span>
+        <span class="rtime">${n.time}</span>${n.unread?'<span class="unread"></span>':''}</div>`).join('')}</div></div>`;
+}
+const PANES = { chat: paneChat, forge: paneForge, docs: paneDocs, bell: paneBell };
+document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('is-active'));
+  b.classList.add('is-active');
+  // chat 面需要把 thread 容器还原并重绑闭包引用
+  if(b.dataset.pane === 'chat'){ scroll.innerHTML = '<div class="thread" id="thread"></div>'; thread = document.getElementById('thread'); }
+  PANES[b.dataset.pane]();
+});
+
+// ---------- 顶栏交互 ----------
+$('#themeBtn').onclick = () => {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
+  $('#themeBtn').innerHTML = icon(dark ? 'moon' : 'sun', 17);
+};
+$('#replayBtn').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
+$('#send').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
+
+// ---------- 启动 ----------
+runDemo();
+</script>
+</body>
+</html>

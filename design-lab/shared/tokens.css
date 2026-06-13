@@ -1,0 +1,84 @@
+/* Forgify design tokens — Apple-flavored, B2B, light + dark.
+   单一事实源：颜色 / 圆角 / 间距 / 字体 / 动效全走变量。
+   品牌强调色是单一 token（--accent），换色 = 改一行。 */
+
+:root {
+  /* 海与岛 sea & islands ----------------------------------------- */
+  --sea:        #f5f5f7;   /* 中间「大海」：窗口底面，对话直接铺在上面 */
+  --island:     #ffffff;   /* 浮起的「岛屿」：导航 / 实体卡 / 输入框 */
+  --island-2:   #fbfbfd;   /* 岛内嵌套面（工具组、字段块） */
+  --island-3:   #f0f0f3;   /* 更深一层 / hover 底 */
+
+  /* 墨 ink ------------------------------------------------------- */
+  --ink:        #1d1d1f;   /* 主文字（Apple near-black） */
+  --ink-2:      #6e6e73;   /* 次要 */
+  --ink-3:      #8e8e93;   /* 三级 / 占位 */
+  --ink-on-accent: #ffffff;
+
+  /* 线 lines ----------------------------------------------------- */
+  --line:        rgba(0,0,0,.08);
+  --line-strong: rgba(0,0,0,.13);
+
+  /* 强调与语义 accent & semantic --------------------------------- */
+  --accent:       #0071e3;            /* Apple system blue */
+  --accent-hover: #0077ed;
+  --accent-soft:  rgba(0,113,227,.10);
+  --accent-line:  rgba(0,113,227,.30);
+  --ok:      #2da44e;
+  --ok-soft: rgba(45,164,78,.12);
+  --warn:    #bf6a02;
+  --danger:  #d70015;
+  --live:    #0071e3;                 /* 「AI 正在编辑」脉冲色 */
+
+  /* 阴影：岛屿的「浮」全靠它 shadows ----------------------------- */
+  --shadow-island: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  --shadow-pop:    0 4px 12px rgba(0,0,0,.08), 0 16px 40px rgba(0,0,0,.12);
+
+  /* 圆角：抄 Claude 的慷慨圆角 radii ----------------------------- */
+  --r-island: 18px;
+  --r-card:   12px;
+  --r-chip:   8px;
+  --r-pill:   999px;
+
+  /* 间距 spacing ------------------------------------------------- */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;
+  --row: 32px;                        /* 紧凑行高（与 Flutter Tokens.rowHeight 对齐） */
+
+  /* 字体：标准产品字体，不抄 Claude 的衬线 type ------------------ */
+  --font: -apple-system, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, monospace;
+  --t-xs: 11px; --t-sm: 12px; --t-md: 13px; --t-lg: 15px; --t-xl: 19px; --t-2xl: 24px;
+
+  /* 动效：发散探索的灵魂 motion ---------------------------------- */
+  --ease-spring: cubic-bezier(.2, .9, .25, 1);   /* 收尾微弹，nav 切换/卡片滑入 */
+  --ease-out:    cubic-bezier(.16, 1, .3, 1);
+  --d-fast: 160ms; --d-mid: 240ms; --d-slow: 340ms;
+}
+
+[data-theme="dark"] {
+  --sea:        #0a0a0a;
+  --island:     #1a1a1c;
+  --island-2:   #232326;
+  --island-3:   #2c2c30;
+
+  --ink:        #f5f5f7;
+  --ink-2:      #a1a1a6;
+  --ink-3:      #6e6e73;
+  --ink-on-accent: #ffffff;
+
+  --line:        rgba(255,255,255,.10);
+  --line-strong: rgba(255,255,255,.16);
+
+  --accent:       #0a84ff;
+  --accent-hover: #409cff;
+  --accent-soft:  rgba(10,132,255,.16);
+  --accent-line:  rgba(10,132,255,.40);
+  --ok:      #30d158;
+  --ok-soft: rgba(48,209,88,.16);
+  --warn:    #ff9f0a;
+  --danger:  #ff453a;
+  --live:    #0a84ff;
+
+  --shadow-island: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.5);
+  --shadow-pop:    0 8px 24px rgba(0,0,0,.55), 0 20px 50px rgba(0,0,0,.6);
+}

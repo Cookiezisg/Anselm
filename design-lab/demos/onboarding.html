@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgify · Onboarding</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<style>
+  body { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+  .ob { width: 540px; max-width: 100%; padding: 32px; }
+  .ob-head { text-align: center; margin-bottom: 28px; }
+  .ob-head .mark { width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; color: #fff;
+    background: linear-gradient(135deg, var(--accent), #9b5de5); margin: 0 auto 14px; }
+  .ob-head h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+  .ob-head p { color: var(--ink-2); font-size: var(--t-md); margin: 0; }
+  .dots { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
+  .dots i { width: 7px; height: 7px; border-radius: 999px; background: var(--line-strong); transition: all var(--d-mid) var(--ease-spring); }
+  .dots i.on { width: 22px; background: var(--accent); }
+
+  .step { display: none; animation: slideUp var(--d-mid) var(--ease-out); }
+  .step.on { display: block; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .lbl { font-size: var(--t-sm); font-weight: 600; color: var(--ink); margin: 22px 0 10px; }
+  .lbl:first-child { margin-top: 4px; }
+
+  /* 主题三选 */
+  .themes { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .theme { border: 1.5px solid var(--line); border-radius: var(--r-card); padding: 12px; cursor: pointer;
+    transition: border-color var(--d-fast), box-shadow var(--d-fast); text-align: center; }
+  .theme:hover { border-color: var(--line-strong); }
+  .theme.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .swatch { height: 46px; border-radius: 8px; margin-bottom: 9px; border: 1px solid var(--line); position: relative; overflow: hidden; }
+  .swatch.light { background: #f5f5f7; } .swatch.dark { background: #0a0a0a; }
+  .swatch.system { background: linear-gradient(90deg,#f5f5f7 50%,#0a0a0a 50%); }
+  .swatch::after { content:''; position:absolute; left:8px; top:9px; width:40%; height:28px; border-radius:5px;
+    background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .swatch.dark::after { background:#1a1a1c; } .swatch.system::after { background:#fff; }
+  .theme .tn { font-size: var(--t-sm); font-weight: 600; }
+
+  /* 语言分段 */
+  .seg { display: inline-flex; background: var(--island-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 3px; }
+  .seg button { padding: 6px 16px; border-radius: var(--r-pill); font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
+    transition: background var(--d-fast), color var(--d-fast); }
+  .seg button.on { background: var(--island); color: var(--ink); box-shadow: var(--shadow-island); }
+
+  /* 输入 */
+  .input { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px;
+    background: var(--island-2); border: 1px solid var(--line); border-radius: var(--r-card);
+    transition: border-color var(--d-fast), box-shadow var(--d-fast); }
+  .input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--island); }
+  .input input { flex: 1; border: 0; outline: 0; background: none; color: var(--ink); font: inherit; }
+  .input .pre { font-family: var(--mono); font-size: var(--t-sm); color: var(--ink-3); }
+  .req { color: var(--danger); } .opt { color: var(--ink-3); font-weight: 500; }
+  .hint { font-size: var(--t-xs); color: var(--ink-3); margin-top: 6px; }
+  .providers { display: flex; gap: 6px; margin-bottom: 10px; }
+
+  .ob-foot { display: flex; align-items: center; gap: 10px; margin-top: 30px; }
+  .ob-foot .grow { flex: 1; }
+</style>
+</head>
+<body>
+<div class="ob island">
+  <div class="ob-head">
+    <div class="mark" id="mark"></div>
+    <h1 id="obTitle">欢迎使用 Forgify</h1>
+    <p id="obSub">两步配好，立刻开干</p>
+    <div class="dots"><i class="on" data-d="0"></i><i data-d="1"></i></div>
+  </div>
+
+  <!-- Step 1: 外观 + 语言 -->
+  <div class="step on" data-s="0">
+    <div class="lbl">外观</div>
+    <div class="themes" id="themes">
+      <div class="theme sel" data-theme-val="light"><div class="swatch light"></div><div class="tn">亮色</div></div>
+      <div class="theme" data-theme-val="dark"><div class="swatch dark"></div><div class="tn">暗色</div></div>
+      <div class="theme" data-theme-val="system"><div class="swatch system"></div><div class="tn">跟随系统</div></div>
+    </div>
+    <div class="lbl">语言</div>
+    <div class="seg" id="lang">
+      <button class="on" data-lang="en">English</button>
+      <button data-lang="zh">中文</button>
+      <button data-lang="system">跟随系统</button>
+    </div>
+  </div>
+
+  <!-- Step 2: API Keys -->
+  <div class="step" data-s="1">
+    <div class="lbl">大模型 API Key <span class="req">· 必须</span></div>
+    <div class="providers" id="providers">
+      <span class="chip" data-prov="anthropic">Anthropic</span>
+      <span class="chip" data-prov="openai">OpenAI</span>
+      <span class="chip" data-prov="deepseek">DeepSeek</span>
+      <span class="chip" data-prov="custom">自定义</span>
+    </div>
+    <div class="input"><span class="pre">sk-</span><input id="llmKey" type="password" placeholder="粘贴你的 API Key"></div>
+    <div class="hint">仅存本地 SQLite，绝不上传。这是单进程单用户的本地应用。</div>
+
+    <div class="lbl">联网搜索 API Key <span class="opt">· 可选</span></div>
+    <div class="input"><input id="searchKey" type="password" placeholder="Tavily / Serper… 留空则禁用联网搜索"></div>
+    <div class="hint">配了它，Agent 才能用 web_search 工具实时检索。</div>
+  </div>
+
+  <div class="ob-foot">
+    <button class="btn" id="back" style="visibility:hidden">返回</button>
+    <span class="grow"></span>
+    <button class="btn primary" id="next">下一步</button>
+  </div>
+</div>
+
+<script src="../shared/mock-data.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+$('#mark').innerHTML = icon('forge', 24, 2);
+
+let step = 0;
+const steps = document.querySelectorAll('.step');
+const dots = document.querySelectorAll('.dots i');
+function render(){
+  steps.forEach(s => s.classList.toggle('on', +s.dataset.s === step));
+  dots.forEach(d => d.classList.toggle('on', +d.dataset.d === step));
+  $('#back').style.visibility = step === 0 ? 'hidden' : 'visible';
+  $('#next').textContent = step === steps.length - 1 ? '进入 Forgify →' : '下一步';
+  $('#obTitle').textContent = step === 0 ? '欢迎使用 Forgify' : '连接你的模型';
+  $('#obSub').textContent = step === 0 ? '先挑外观与语言' : '钥匙只存本地，绝不外传';
+}
+$('#next').onclick = () => {
+  if(step < steps.length - 1){ step++; render(); }
+  else { location.href = 'main-shell.html'; }   // 配完进主屏
+};
+$('#back').onclick = () => { if(step > 0){ step--; render(); } };
+
+// 主题：选了即时生效（让你当场看到效果）
+document.querySelectorAll('.theme').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.theme').forEach(x => x.classList.remove('sel'));
+  t.classList.add('sel');
+  const v = t.dataset.themeVal;
+  const sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = v === 'system' ? (sysDark ? 'dark' : 'light') : v;
+});
+// 语言分段
+document.querySelectorAll('#lang button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#lang button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+});
+// 模型供应商单选
+document.querySelectorAll('#providers .chip').forEach(c => c.onclick = () => {
+  document.querySelectorAll('#providers .chip').forEach(x => x.style.cssText = '');
+  c.style.cssText = 'background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)';
+});
+document.querySelector('#providers .chip').click();
+render();
+</script>
+</body>
+</html>
