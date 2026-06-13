@@ -157,15 +157,12 @@ func (h *DocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	n, err := h.svc.Delete(r.Context(), r.PathValue("id"))
-	if err != nil {
+	// 级联删子树;DELETE 统一 204(被删数可由删后 list 推得)。
+	if _, err := h.svc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{
-		"id":           r.PathValue("id"),
-		"deletedCount": n,
-	})
+	responsehttpapi.NoContent(w)
 }
 
 // postOnDoc dispatches POST /api/v1/documents/{id}:move.

@@ -173,5 +173,5 @@ func (h *SkillHandler) activate(w http.ResponseWriter, r *http.Request, name str
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"output": out})
+	responsehttpapi.Success(w, http.StatusOK, out) // 裸结果,不裹 {output}(envelope 内层)
 }

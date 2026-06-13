@@ -176,16 +176,20 @@ func (h *HandlerHandler) call(w http.ResponseWriter, r *http.Request, id string)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"result": res})
+	responsehttpapi.Success(w, http.StatusOK, res) // 裸结果,不裹 {result}(envelope 内层)
 }
 
 func (h *HandlerHandler) restart(w http.ResponseWriter, r *http.Request, id string) {
-	state, err := h.svc.Restart(r.Context(), id)
+	if _, err := h.svc.Restart(r.Context(), id); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	hd, err := h.svc.Get(r.Context(), id) // 返动作后实体快照(含 runtimeState 计算字段)(MD4)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"id": id, "runtimeState": state})
+	responsehttpapi.Success(w, http.StatusOK, hd)
 }
 
 func (h *HandlerHandler) revert(w http.ResponseWriter, r *http.Request, id string) {

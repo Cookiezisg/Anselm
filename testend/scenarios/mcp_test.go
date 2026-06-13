@@ -138,14 +138,12 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 
 	// invoke echo → result; the progress notification must land in the call's logs.
 	// 调 echo → 结果；进度通知必须落进该次调用的 logs。
-	var inv struct {
-		Result string `json:"result"`
-	}
+	var inv string // tools/{tool}:invoke 现返裸结果(去 {result} 包裹)
 	wc.POST("/api/v1/mcp-servers/scripted/tools/echo:invoke", map[string]any{
 		"args": map[string]any{"text": "hello"},
 	}).OK(t, &inv)
-	if inv.Result != "echo:hello" {
-		t.Fatalf("echo result wrong: %q", inv.Result)
+	if inv != "echo:hello" {
+		t.Fatalf("echo result wrong: %q", inv)
 	}
 
 	var page mcpCallsPage

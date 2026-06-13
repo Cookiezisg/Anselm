@@ -146,7 +146,7 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "resolved"})
+	responsehttpapi.NoContent(w) // 纯状态变更、无新产物(MD4)
 }
 
 // Usage returns a conversation's total token cost (the tokensUsed the detail view shows, R0057).

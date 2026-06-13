@@ -134,7 +134,7 @@ func (h *SearchHandler) Reindex(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "accepted"})
+	responsehttpapi.NoContent(w) // fire-and-forget、无可轮询产物(MD4)
 }
 
 func splitCSV(s string) []string {

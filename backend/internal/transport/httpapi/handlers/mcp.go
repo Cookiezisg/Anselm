@@ -224,7 +224,7 @@ func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"result": res})
+	responsehttpapi.Success(w, http.StatusOK, res) // 裸结果,不裹 {result}(envelope 内层)
 }
 
 // Import folds a Claude Desktop mcp.json fragment into the store. ?overwrite=true replaces

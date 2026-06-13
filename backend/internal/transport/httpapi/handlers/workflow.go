@@ -238,7 +238,12 @@ func (h *WorkflowHandler) stage(w http.ResponseWriter, r *http.Request, id strin
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"staged": true})
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照,不发 {staged:true} 裸键(MD4)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, wf)
 }
 
 // activate backs :activate — bring the workflow online (start listening to its trigger) + flip
@@ -273,12 +278,16 @@ func (h *WorkflowHandler) deactivate(w http.ResponseWriter, r *http.Request, id 
 //
 // kill 支撑 :kill——硬停 workflow（停监听 + 取消所有在途 run）。返被杀 run 数。
 func (h *WorkflowHandler) kill(w http.ResponseWriter, r *http.Request, id string) {
-	killed, err := h.svc.Kill(r.Context(), id)
+	if _, err := h.svc.Kill(r.Context(), id); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照;被杀 run 数由 GET /flowruns?status=cancelled 查(MD4)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"killed": killed})
+	responsehttpapi.Success(w, http.StatusOK, wf)
 }
 
 func (h *WorkflowHandler) capabilityCheck(w http.ResponseWriter, r *http.Request, id string) {

@@ -72,3 +72,4 @@ audience: [human, ai]
 - **第 3 轮 = 执行 S1-S9**(用户批准自主跑完)。
   - **S1 ✅**(ST-1 + 新抓 ST-26):7 Create handler 裸实体化 + trigger json tag 补全;testend 11 文件解析点全转 `Field(t,"id")`;api.md 响应形状铁律;verify+testend 绿。
   - **S2 ✅**(ST-2/3):异步动作返新 id 统一 `{id}`——chat send(messageId→id)、workflow :trigger(flowrunId→id)、aispawn :iterate/:triage(conversationId→id)、trigger :fire(去 fired/triggerId,留 {id:activationId})。同步执行(:run/:invoke/:call)不在此列(返完整结果)。3 处 send helper 转 Field("id");api.md 加异步动作返 id 铁律。verify+testend 绿。
+  - **S3 ✅**(ST-4/5/6/7/8):状态变更动作 :stage/:kill 返实体后置快照(经 Get,对齐 activate/deactivate)、handler :restart 同;Call/mcp :call/skill :activate 去 {result}/{output} 包裹返裸结果;chat :resolve / search :reindex / document DELETE → 204。testend handler/mcp result 解析转裸;bootstrap search 集成测试 reindex 断言改 204;api.md 加状态变更/无产物铁律。verify+testend 绿。
