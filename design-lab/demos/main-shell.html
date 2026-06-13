@@ -10,22 +10,22 @@
 <body>
 <div class="app">
 
-  <!-- ===== 左导航岛 ===== -->
+  <!-- ===== 左侧栏（Claude 范：New chat + 四导航 + Recents + 用户位） ===== -->
   <nav class="nav island">
-    <div class="brand"><span class="mark" id="brandMark"></span> Forgify</div>
+    <div class="sb-head"><span class="mark" id="brandMark"></span><b>Forgify</b>
+      <button class="icon-btn" id="searchBtn" title="Search"></button></div>
+    <button class="sb-new" id="newChat"><span class="ico"></span> New chat</button>
     <div class="nav-top" id="navTop">
-      <button class="nav-item is-active" data-pane="chat"  title="Chat"><span class="ico"></span><span class="lbl">Chat</span></button>
-      <button class="nav-item"           data-pane="forge" title="Forge"><span class="ico"></span><span class="lbl">Forge</span></button>
-      <button class="nav-item"           data-pane="docs"  title="Documents"><span class="ico"></span><span class="lbl">Documents</span></button>
-      <button class="nav-item"           data-pane="bell"  title="Notifications"><span class="ico"></span><span class="lbl">Notifications</span><span class="count">2</span></button>
+      <button class="nav-item is-active" data-pane="chat"><span class="ico"></span><span class="lbl">Chat</span></button>
+      <button class="nav-item"           data-pane="forge"><span class="ico"></span><span class="lbl">Forge</span></button>
+      <button class="nav-item"           data-pane="docs"><span class="ico"></span><span class="lbl">Documents</span></button>
+      <button class="nav-item"           data-pane="bell"><span class="ico"></span><span class="lbl">Notifications</span><span class="count">2</span></button>
     </div>
-    <div class="nav-spacer"></div>
-    <div class="nav-bottom">
-      <div class="ws">
-        <span class="ava">F</span>
-        <span class="meta"><b>Forge Studio</b><span>本地工作区 · 已连接</span></span>
-        <button class="icon-btn" id="settingsBtn" title="Settings"></button>
-      </div>
+    <div class="sb-list" id="sbList"></div>
+    <div class="sb-user">
+      <span class="ava">F</span>
+      <span class="meta"><b>Forge Studio</b><span>本地工作区 · 已连接</span></span>
+      <button class="icon-btn" id="settingsBtn" title="Settings"></button>
     </div>
   </nav>
 
@@ -34,7 +34,6 @@
     <div class="topbar">
       <span class="title" id="paneTitle">Researcher 升级<small> · Chat</small></span>
       <span class="grow"></span>
-      <span class="chip" id="modelChip"></span>
       <button class="icon-btn" id="replayBtn" title="重播演示"></button>
       <button class="icon-btn" id="themeBtn" title="切换主题"></button>
     </div>
@@ -43,8 +42,14 @@
 
     <div class="composer-wrap" id="composerWrap">
       <div class="composer">
-        <textarea class="ta" id="ta" rows="1" placeholder="给 AI 发消息…（这是演示，点 ▷ 重播看信号交互）"></textarea>
-        <button class="send" id="send"></button>
+        <textarea class="ta" id="ta" rows="1" placeholder="给 AI 发消息…（演示，点 ▷ 重播看信号交互）"></textarea>
+        <div class="bar">
+          <button class="cbtn ic" id="attach" title="附件"></button>
+          <button class="cbtn" id="autoChip">Auto</button>
+          <span class="grow"></span>
+          <span class="cbtn muted"><span id="cmodel"></span> claude-opus-4-8</span>
+          <button class="send" id="send"></button>
+        </div>
       </div>
     </div>
   </main>
@@ -61,19 +66,23 @@ const $ = (s, r=document) => r.querySelector(s);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const scroll = $('#scroll'), aside = $('#aside');
 let thread = $('#thread');                        // 切面会重建容器，故用 let 兜住闭包
+const sbList = $('#sbList');
 function toBottom(){ scroll.scrollTop = scroll.scrollHeight; }
 let runId = 0;                                   // 重播时让旧时间线作废
 const alive = id => id === runId;
 
 // 注入图标
-$('#brandMark').innerHTML = icon('forge', 15, 2);
-$('#settingsBtn').innerHTML = icon('settings', 17);
-$('#replayBtn').innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-$('#themeBtn').innerHTML = icon('moon', 17);
-$('#send').innerHTML = icon('send', 17, 2);
-$('#modelChip').innerHTML = icon('sparkle', 14) + ' claude-opus-4-8';
+$('#brandMark').innerHTML = icon('forge', 14, 2);
+$('#searchBtn').innerHTML = icon('search', 16);
+$('#newChat .ico').innerHTML = icon('newchat', 16);
+$('#settingsBtn').innerHTML = icon('settings', 16);
+$('#replayBtn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+$('#themeBtn').innerHTML = icon('moon', 16);
+$('#attach').innerHTML = icon('plus', 18);
+$('#cmodel').innerHTML = icon('sparkle', 13);
+$('#send').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 document.querySelectorAll('.nav-item').forEach(b => {
-  $('.ico', b).innerHTML = icon(b.dataset.pane === 'bell' ? 'bell' : b.dataset.pane === 'docs' ? 'docs' : b.dataset.pane, 19);
+  $('.ico', b).innerHTML = icon(b.dataset.pane === 'bell' ? 'bell' : b.dataset.pane, 18);
 });
 
 // ---------- 打字机：把文本流入节点 ----------
@@ -258,16 +267,27 @@ async function runDemo(){
 }
 
 // ====================================================================
-// 导航切换（四导航动效）+ 其它面
+// 导航切换 + Recents 列表 + 其它面
 // ====================================================================
+// Recents（Claude 范的会话列表，仅 Chat 面显示）
+const CONVOS = ['Researcher 升级到 Opus','PR 周报自动化','Invoice OCR 调试','给 slugify 加单测','Nightly Digest 编排','部署脚本 review','清理 stale 产物'];
+function fillRecents(){
+  sbList.innerHTML = `<div class="sb-sect"><span>Recents</span></div>` +
+    CONVOS.map((c,i)=>`<div class="sb-item${i===0?' is-active':''}"><span class="t">${c}</span></div>`).join('');
+  sbList.querySelectorAll('.sb-item').forEach(it => it.onclick = () => {
+    sbList.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('is-active')); it.classList.add('is-active');
+  });
+}
+
 function paneChat(){
   $('#composerWrap').style.display = '';
   $('#paneTitle').innerHTML = 'Researcher 升级<small> · Chat</small>';
+  fillRecents();
   runDemo();
 }
 function paneForge(){
   runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none';
+  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
   $('#paneTitle').innerHTML = 'Forge<small> · 四类实体</small>';
   scroll.innerHTML = `<div class="fade-in">
     <div class="pane-head"><h1>Forge</h1><button class="btn primary">${icon('plus',16)} 新建</button></div>
@@ -288,7 +308,7 @@ function paneForge(){
 }
 function paneDocs(){
   runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none';
+  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
   $('#paneTitle').innerHTML = 'Documents<small> · 知识库</small>';
   scroll.innerHTML = `<div class="fade-in">
     <div class="pane-head"><h1>Documents</h1><button class="btn">${icon('plus',16)} 新文档</button></div>
@@ -299,7 +319,7 @@ function paneDocs(){
 }
 function paneBell(){
   runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none';
+  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
   $('#paneTitle').innerHTML = 'Notifications<small> · 通知</small>';
   scroll.innerHTML = `<div class="fade-in">
     <div class="pane-head"><h1>Notifications</h1><button class="btn">全部已读</button></div>
@@ -325,8 +345,10 @@ $('#themeBtn').onclick = () => {
 };
 $('#replayBtn').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
 $('#send').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
+$('#newChat').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
 
 // ---------- 启动 ----------
+fillRecents();
 runDemo();
 </script>
 </body>
