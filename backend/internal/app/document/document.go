@@ -39,7 +39,7 @@ type Service struct {
 // New constructs a Service. A nil emitter disables notifications (best-effort).
 //
 // New 构造 Service。emitter 为 nil 时禁用通知（best-effort）。
-func New(repo documentdomain.Repository, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
+func NewService(repo documentdomain.Repository, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
 	if log == nil {
 		panic("documentapp.New: nil logger")
 	}

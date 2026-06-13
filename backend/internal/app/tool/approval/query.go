@@ -49,14 +49,9 @@ func (t *SearchApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("search_approval: %w", err)
 	}
-	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-	out := make([]slim, 0, len(forms))
+	out := make([]searchdomain.EntitySlim, 0, len(forms))
 	for _, f := range forms {
-		out = append(out, slim{ID: f.ID, Name: f.Name, Description: f.Description})
+		out = append(out, searchdomain.EntitySlim{ID: f.ID, Name: f.Name, Description: f.Description})
 	}
 	return toolapp.ToJSON(map[string]any{"count": len(out), "approvals": out}), nil
 }

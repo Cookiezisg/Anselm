@@ -128,7 +128,7 @@ func TestSearch_BoostRelativeOrder(t *testing.T) {
 		dh(searchdomain.TypeFunction, "fn_prefix", 0, "", "天气预报增强版", 2.0),
 		dh(searchdomain.TypeFunction, "fn_exact", 0, "", "天气预报", 1.0),
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气预报", IncludeArchived: true})
 	if err != nil {
 		t.Fatalf("search: %v", err)
@@ -156,7 +156,7 @@ func TestSearch_FoldsChunksPerEntity(t *testing.T) {
 		dh(searchdomain.TypeDocument, "doc_1", 1, "h1", "设计稿", 3.0),
 		dh(searchdomain.TypeDocument, "doc_2", 0, "", "另一篇", 4.0),
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "设计", IncludeArchived: true})
 	if err != nil {
 		t.Fatalf("search: %v", err)
@@ -174,7 +174,7 @@ func TestSearch_CursorPagination(t *testing.T) {
 	for i := range 30 {
 		repo.hits = append(repo.hits, dh(searchdomain.TypeFunction, "fn_"+string(rune('a'+i)), 0, "", "工具函数", float64(30-i)))
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	q := &searchdomain.Query{Q: "工具", Limit: 10, IncludeArchived: true}
 	p1, err := svc.Search(ctxWS("ws_a"), q)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestSearch_CursorPagination(t *testing.T) {
 }
 
 func TestSearch_Validation(t *testing.T) {
-	svc := New(newFakeRepo(), nil)
+	svc := NewService(newFakeRepo(), nil)
 	if _, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "  "}); !errors.Is(err, searchdomain.ErrQueryRequired) {
 		t.Fatalf("blank query: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestIndexer_ChangedRoutesFullAndIncremental(t *testing.T) {
 	src.docs["cv_1"] = []searchdomain.SourceDoc{{ChunkNo: 0, Title: "会话", Body: "全文"}}
 	src.atDocs["cv_1#msg_9"] = searchdomain.SourceDoc{ChunkNo: 9, Anchor: "msg_9", Title: "会话", Body: "新消息"}
 
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.RegisterSource(src)
 	svc.Start(nil)
 	defer svc.Close()
@@ -321,7 +321,7 @@ func TestIndexer_ReconcileDiffsAndOrphans(t *testing.T) {
 		"fn_orphan": now, // indexed but no longer live → delete. 已入索但已无 → 删。
 	}
 
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.RegisterSource(src)
 	svc.Start([]string{"ws_a"})
 	defer svc.Close()
@@ -347,7 +347,7 @@ func TestIndexer_ReconcileDiffsAndOrphans(t *testing.T) {
 func TestReindex_ConflictWhileRunning(t *testing.T) {
 	repo := newFakeRepo()
 	repo.purgeGo = make(chan struct{})
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.Start(nil)
 	defer svc.Close()
 
@@ -378,7 +378,7 @@ func TestSearchBlocks_PaletteSemantics(t *testing.T) {
 		dh(searchdomain.TypeMCP, "mcp_s", 1, "send_email", "srv/send_email", 7.0),
 		dh(searchdomain.TypeMCP, "mcp_s", 0, "", "srv", 6.0),
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 
 	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "发送", nil, 0)
 	if err != nil {
@@ -493,7 +493,7 @@ func TestHybrid_SemanticOnlyHitSurfaces(t *testing.T) {
 		"m1/sd_b": {1, 0, 0},
 		"m1/sd_a": {0, 1, 0},
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"天气": {1, 0, 0}}}, nil)
 
 	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气", IncludeArchived: true})
@@ -514,7 +514,7 @@ func TestHybrid_DegradesWhenProviderFails(t *testing.T) {
 	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "天气预报文档", 5.0)}
 	repo.hits[0].DocID = "sd_a"
 	repo.embedded = map[string][]float32{"m1/sd_a": {0, 1, 0}}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", fail: true}, nil)
 
 	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "天气", IncludeArchived: true})
@@ -536,7 +536,7 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 		{DocID: "sd_1", Title: "标题", Body: "正文"},
 		{DocID: "sd_2", Title: "另一", Body: "再来"},
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{}}, nil)
 	svc.Start(nil)
 	defer svc.Close()
@@ -551,7 +551,7 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 
 func TestSettings_SwitchAndValidate(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	var gotBase, gotModel string
 	svc.SetEmbeddingProviders(&fakeProvider{model: "m1"}, func(baseURL, model string) searchdomain.EmbeddingProvider {
 		gotBase, gotModel = baseURL, model
@@ -589,7 +589,7 @@ func TestSettings_SwitchAndValidate(t *testing.T) {
 // TestSettings_OllamaParamsPatch：修补连接参数即用新值重建适配器并回显；"" 重置默认。
 func TestSettings_OllamaParamsPatch(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	var gotBase, gotModel string
 	svc.SetEmbeddingProviders(nil, func(baseURL, model string) searchdomain.EmbeddingProvider {
 		gotBase, gotModel = baseURL, model
@@ -675,7 +675,7 @@ func TestSearchBlocks_TierOne_DirectSiftOverWholeCatalog(t *testing.T) {
 		blockRow(searchdomain.TypeMCP, "mcp_s", "", "srv", "server card — no ref, must be filtered"),
 	}
 	sifter := &fakeSifter{picks: []int{1, 0}}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetSifter(sifter)
 
 	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "发邮件", nil, 0)
@@ -706,7 +706,7 @@ func TestSearchBlocks_TierTwo_RetrieveThenSift(t *testing.T) {
 		dh(searchdomain.TypeFunction, "fn_08", 0, "", "次选函数", 5.0),
 	}
 	sifter := &fakeSifter{picks: []int{1}}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetSifter(sifter)
 
 	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "目标", nil, 0)
@@ -727,7 +727,7 @@ func TestSearchBlocks_TierThree_SiftFailureFallsBack(t *testing.T) {
 		blockRow(searchdomain.TypeFunction, "fn_w", "", "天气查询", "查城市天气"),
 	}
 	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeFunction, "fn_w", 0, "", "天气查询", 3.0)}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	svc.SetSifter(&fakeSifter{fail: true})
 
 	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "天气", nil, 0)
@@ -747,7 +747,7 @@ func TestRetrieve_ChunksWithFullBodies(t *testing.T) {
 		"sd_1": "完整正文第一篇，比 snippet 长得多。",
 		"sd_2": "第二篇完整正文。",
 	}
-	svc := New(repo, nil)
+	svc := NewService(repo, nil)
 	chunks, err := svc.Retrieve(ctxWS("ws_a"), "设计", searchdomain.RetrieveOpts{TopK: 5})
 	if err != nil {
 		t.Fatalf("retrieve: %v", err)

@@ -230,7 +230,7 @@ type Service struct {
 //
 // New 构造 chat Service。nil messages / log 是装配 bug；Deps 字段可为 nil（可选 provider 优雅降级）。
 // search_tools 由 lazy 划分构造，使 LLM 按需拉取 lazy 工具完整 schema。
-func New(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Service {
+func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) *Service {
 	if messages == nil || log == nil {
 		panic("chatapp.New: nil messages repository or logger")
 	}

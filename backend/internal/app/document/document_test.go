@@ -26,7 +26,7 @@ func newSvc(t *testing.T) (*Service, context.Context) {
 	if err := dbinfra.Migrate(db, documentstore.Schema...); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	svc := New(documentstore.New(db), nil, zap.NewNop())
+	svc := NewService(documentstore.New(db), nil, zap.NewNop())
 	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_test")
 	return svc, ctx
 }

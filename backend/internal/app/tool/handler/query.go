@@ -47,14 +47,9 @@ func (t *SearchHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("search_handler: %w", err)
 	}
-	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-	out := make([]slim, 0, len(hs))
+	out := make([]searchdomain.EntitySlim, 0, len(hs))
 	for _, h := range hs {
-		out = append(out, slim{ID: h.ID, Name: h.Name, Description: h.Description})
+		out = append(out, searchdomain.EntitySlim{ID: h.ID, Name: h.Name, Description: h.Description})
 	}
 	return toolapp.ToJSON(map[string]any{"count": len(out), "handlers": out}), nil
 }

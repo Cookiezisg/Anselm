@@ -43,18 +43,18 @@ func (s *Store) ListExecutions(ctx context.Context, filter functiondomain.Execut
 	return rows, next, nil
 }
 
-// ComputeAggregates returns the ok / not-ok split over the filter (status filter is
+// ComputeExecutionAggregates returns the ok / not-ok split over the filter (status filter is
 // ignored for the rollup — the badge always shows both halves of the matched set).
 //
-// ComputeAggregates 返过滤集的 ok / 非 ok 计数（汇总忽略 status 过滤——徽标总显示匹配集两半）。
-func (s *Store) ComputeAggregates(ctx context.Context, filter functiondomain.ExecutionFilter) (functiondomain.ExecutionAggregates, error) {
+// ComputeExecutionAggregates 返过滤集的 ok / 非 ok 计数（汇总忽略 status 过滤——徽标总显示匹配集两半）。
+func (s *Store) ComputeExecutionAggregates(ctx context.Context, filter functiondomain.ExecutionFilter) (functiondomain.ExecutionAggregates, error) {
 	total, err := s.execFilterQuery(filter, false).Count(ctx)
 	if err != nil {
-		return functiondomain.ExecutionAggregates{}, fmt.Errorf("functionstore.ComputeAggregates: total: %w", err)
+		return functiondomain.ExecutionAggregates{}, fmt.Errorf("functionstore.ComputeExecutionAggregates: total: %w", err)
 	}
 	ok, err := s.execFilterQuery(filter, false).WhereEq("status", functiondomain.ExecutionStatusOK).Count(ctx)
 	if err != nil {
-		return functiondomain.ExecutionAggregates{}, fmt.Errorf("functionstore.ComputeAggregates: ok: %w", err)
+		return functiondomain.ExecutionAggregates{}, fmt.Errorf("functionstore.ComputeExecutionAggregates: ok: %w", err)
 	}
 	return functiondomain.ExecutionAggregates{
 		OKCount:     int(ok),

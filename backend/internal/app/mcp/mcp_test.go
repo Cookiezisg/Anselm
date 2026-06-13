@@ -140,7 +140,7 @@ func (r *fakeRegistry) Get(_ context.Context, name string) (*mcpdomain.RegistryE
 
 // svcWith builds a Service with a fixed fake client (so CallTool reaches the same instance).
 func svcWith(repo *fakeRepo, reg *fakeRegistry, fc *fakeClient) *Service {
-	svc := New(repo, reg, &fakeSandbox{}, zap.NewNop())
+	svc := NewService(repo, reg, &fakeSandbox{}, zap.NewNop())
 	svc.SetClientFactory(func(mcpinfra.ClientSpec, *zap.Logger) mcpinfra.Client { return fc })
 	return svc
 }

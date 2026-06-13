@@ -87,7 +87,7 @@ type Service struct {
 // New builds the Service; register sources before Start.
 //
 // New 构造 Service；Start 前注册 source。
-func New(repo searchdomain.Repository, log *zap.Logger) *Service {
+func NewService(repo searchdomain.Repository, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}

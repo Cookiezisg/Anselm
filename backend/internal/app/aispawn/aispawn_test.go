@@ -57,7 +57,7 @@ func (r *renderer) Render(_ context.Context, executionID string) (string, error)
 func TestIterate_SeedsEntityMentionAndSteer(t *testing.T) {
 	st := &starter{}
 	sd := &sender{}
-	svc := New(st, sd, nil, nil)
+	svc := NewService(st, sd, nil, nil)
 
 	convID, err := svc.Iterate(context.Background(), mentiondomain.MentionFunction, "fn_42", "make it batch-capable")
 	if err != nil {
@@ -82,7 +82,7 @@ func TestIterate_SeedsEntityMentionAndSteer(t *testing.T) {
 //
 // TestIterate_EmptyRequestRejected：iterate 需要一个请求（实体随消息的 mention 上行，故必须有消息）。
 func TestIterate_EmptyRequestRejected(t *testing.T) {
-	svc := New(&starter{}, &sender{}, nil, nil)
+	svc := NewService(&starter{}, &sender{}, nil, nil)
 	if _, err := svc.Iterate(context.Background(), mentiondomain.MentionAgent, "ag_1", ""); !errors.Is(err, ErrEmptyRequest) {
 		t.Fatalf("empty request should be rejected, got %v", err)
 	}
@@ -98,7 +98,7 @@ func TestTriage_RendersExecutionIntoSystemPrompt(t *testing.T) {
 	st := &starter{}
 	sd := &sender{}
 	rd := &renderer{out: "Status: failed\nError: boom"}
-	svc := New(st, sd, rd, nil)
+	svc := NewService(st, sd, rd, nil)
 
 	convID, err := svc.Triage(context.Background(), "fne_7", "")
 	if err != nil {
@@ -128,7 +128,7 @@ func TestTriage_RendersExecutionIntoSystemPrompt(t *testing.T) {
 func TestTriage_RendererErrorBubbles(t *testing.T) {
 	st := &starter{}
 	rd := &renderer{err: errors.New("unknown execution id prefix")}
-	svc := New(st, &sender{}, rd, nil)
+	svc := NewService(st, &sender{}, rd, nil)
 	if _, err := svc.Triage(context.Background(), "zzz_1", ""); err == nil {
 		t.Fatal("a renderer error should bubble")
 	}

@@ -48,16 +48,17 @@ func (t *SearchTriggers) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("search_triggers: %w", err)
 	}
 	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Kind        string `json:"kind"`
-		Description string `json:"description"`
-		RefCount    int    `json:"refCount"`
-		Listening   bool   `json:"listening"`
+		searchdomain.EntitySlim
+		Kind      string `json:"kind"`
+		RefCount  int    `json:"refCount"`
+		Listening bool   `json:"listening"`
 	}
 	out := make([]slim, 0, len(ts))
 	for _, tr := range ts {
-		out = append(out, slim{ID: tr.ID, Name: tr.Name, Kind: tr.Kind, Description: tr.Description, RefCount: tr.RefCount, Listening: tr.Listening})
+		out = append(out, slim{
+			EntitySlim: searchdomain.EntitySlim{ID: tr.ID, Name: tr.Name, Description: tr.Description},
+			Kind:       tr.Kind, RefCount: tr.RefCount, Listening: tr.Listening,
+		})
 	}
 	return toolapp.ToJSON(map[string]any{"count": len(out), "triggers": out}), nil
 }

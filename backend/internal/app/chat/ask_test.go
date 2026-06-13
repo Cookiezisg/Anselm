@@ -29,7 +29,7 @@ func askCall(tcID string) []llminfra.StreamEvent {
 func newAskSvc(t *testing.T, client llminfra.Client, bridge streamdomain.Bridge) (*Service, messagesdomain.Repository) {
 	t.Helper()
 	store := newStore(t)
-	return New(store, Deps{
+	return NewService(store, Deps{
 		Conversations: fakeConvs{conv: &conversationdomain.Conversation{SystemPrompt: "be concise", Title: "t"}},
 		Resolver:      fakeResolver{client: client},
 		Bridge:        bridge,

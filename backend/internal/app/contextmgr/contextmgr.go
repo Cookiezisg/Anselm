@@ -139,7 +139,7 @@ type Service struct {
 // New constructs the Service. nil log → no-op.
 //
 // New 构造 Service。nil log → no-op。
-func New(deps Deps, log *zap.Logger) *Service {
+func NewService(deps Deps, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}

@@ -112,7 +112,7 @@ func TestFilterTools(t *testing.T) {
 
 func TestSpawn_PersistsSubMessage(t *testing.T) {
 	store := newStore(t)
-	svc := New(Deps{
+	svc := NewService(Deps{
 		Messages: store,
 		Resolver: fakeResolver{client: &fakeClient{script: textTurn("explored: found it")}},
 		Tools:    fakeTools{tools: []toolapp.Tool{fakeTool{"Read"}}},
@@ -152,7 +152,7 @@ func TestSpawn_PersistsSubMessage(t *testing.T) {
 }
 
 func TestSpawn_RecursionRefused(t *testing.T) {
-	svc := New(Deps{
+	svc := NewService(Deps{
 		Messages: newStore(t),
 		Resolver: fakeResolver{client: &fakeClient{script: textTurn("x")}},
 		Tools:    fakeTools{},
@@ -166,7 +166,7 @@ func TestSpawn_RecursionRefused(t *testing.T) {
 }
 
 func TestSpawn_UnknownType(t *testing.T) {
-	svc := New(Deps{Messages: newStore(t), Resolver: fakeResolver{client: &fakeClient{}}, Tools: fakeTools{}}, zap.NewNop())
+	svc := NewService(Deps{Messages: newStore(t), Resolver: fakeResolver{client: &fakeClient{}}, Tools: fakeTools{}}, zap.NewNop())
 	if _, err := svc.Spawn(reqctxpkg.SetConversationID(ctxWS("ws_1"), "cv_1"), "Nope", "x"); err == nil {
 		t.Fatal("unknown subagent type should error")
 	}

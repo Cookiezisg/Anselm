@@ -224,7 +224,7 @@ func TestExecutions_SaveListAggregates(t *testing.T) {
 	if err != nil || len(rows) != 3 {
 		t.Fatalf("list: rows=%d err=%v", len(rows), err)
 	}
-	agg, err := s.ComputeAggregates(ctx, functiondomain.ExecutionFilter{FunctionID: "fn_1"})
+	agg, err := s.ComputeExecutionAggregates(ctx, functiondomain.ExecutionFilter{FunctionID: "fn_1"})
 	if err != nil {
 		t.Fatalf("aggregates: %v", err)
 	}

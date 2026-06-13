@@ -127,12 +127,20 @@ type VersionListFilter struct {
 	Limit  int
 }
 
+// ListFilter is a cursor page request for agents (same shape as function/handler/control).
+//
+// ListFilter 是 agent 的 cursor 分页请求（与 function/handler/control 同形）。
+type ListFilter struct {
+	Cursor string
+	Limit  int
+}
+
 type Repository interface {
 	Create(ctx context.Context, a *Agent) error
 	Get(ctx context.Context, id string) (*Agent, error)
 	GetByIDs(ctx context.Context, ids []string) ([]*Agent, error)
 	GetByName(ctx context.Context, name string) (*Agent, error)
-	List(ctx context.Context, limit int, cursor string) ([]*Agent, string, error)
+	ListAgents(ctx context.Context, filter ListFilter) ([]*Agent, string, error)
 	ListAll(ctx context.Context) ([]*Agent, error)
 	UpdateMeta(ctx context.Context, a *Agent) error                                // name/description/tags only — no version bump
 	SetActiveVersion(ctx context.Context, agentID, versionID string) error         // edit / revert: move the pointer

@@ -25,7 +25,7 @@ func (s *Service) SearchExecutions(ctx context.Context, filter agentdomain.Execu
 	if err != nil {
 		return nil, fmt.Errorf("agentapp.SearchExecutions: %w", err)
 	}
-	agg, err := s.repo.ComputeAggregates(ctx, filter)
+	agg, err := s.repo.ComputeExecutionAggregates(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("agentapp.SearchExecutions: aggregates: %w", err)
 	}

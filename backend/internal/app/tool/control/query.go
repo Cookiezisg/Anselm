@@ -49,14 +49,9 @@ func (t *SearchControl) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("search_control: %w", err)
 	}
-	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-	out := make([]slim, 0, len(ctls))
+	out := make([]searchdomain.EntitySlim, 0, len(ctls))
 	for _, c := range ctls {
-		out = append(out, slim{ID: c.ID, Name: c.Name, Description: c.Description})
+		out = append(out, searchdomain.EntitySlim{ID: c.ID, Name: c.Name, Description: c.Description})
 	}
 	return toolapp.ToJSON(map[string]any{"count": len(out), "controls": out}), nil
 }

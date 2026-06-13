@@ -103,7 +103,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.List(r.Context(), p.Limit, p.Cursor)
+	items, next, err := h.svc.List(r.Context(), agentdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

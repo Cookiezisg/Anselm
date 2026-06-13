@@ -134,7 +134,7 @@ func renderExecution(label string, v any) string {
 //
 // newAispawn 从 conversation + chat 服务 + 覆盖四类可执行体的渲染器组装 iterate/triage 引擎。
 func newAispawn(s *services, log *zap.Logger) *aispawnapp.Service {
-	return aispawnapp.New(
+	return aispawnapp.NewService(
 		aispawnConvStarter{conv: s.conversation},
 		aispawnSender{chat: s.chat},
 		executionRenderer{fn: s.function, hd: s.handler, ag: s.agent, sch: s.scheduler, mcp: s.mcp, trg: s.trigger},
