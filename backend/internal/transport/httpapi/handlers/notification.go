@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	notificationapp "github.com/sunweilin/forgify/backend/internal/app/notification"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -47,7 +48,7 @@ func (h *NotificationHandler) Register(mux Registrar) {
 func (h *NotificationHandler) postOnNotification(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok || action != "mark-read" {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	h.markRead(w, r, id)

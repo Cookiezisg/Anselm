@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	attachmentapp "github.com/sunweilin/forgify/backend/internal/app/attachment"
+	attachmentdomain "github.com/sunweilin/forgify/backend/internal/domain/attachment"
 	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -57,22 +58,19 @@ const uploadHeadroom = 1 << 20
 func (h *AttachmentHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, int64(limitspkg.Current().Guards.AttachmentMaxMB)<<20+uploadHeadroom)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		responsehttpapi.Error(w, http.StatusRequestEntityTooLarge, "ATTACHMENT_BAD_UPLOAD",
-			"could not read multipart upload (too large or malformed)", nil)
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrTooLarge)
 		return
 	}
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		responsehttpapi.Error(w, http.StatusBadRequest, "ATTACHMENT_BAD_UPLOAD",
-			"missing 'file' form field", nil)
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrBadUpload)
 		return
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		responsehttpapi.Error(w, http.StatusBadRequest, "ATTACHMENT_BAD_UPLOAD",
-			"could not read uploaded file", nil)
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrBadUpload)
 		return
 	}
 

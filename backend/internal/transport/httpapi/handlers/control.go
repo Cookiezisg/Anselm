@@ -10,6 +10,7 @@ import (
 	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
 	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -152,7 +153,7 @@ func (h *ControlHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *ControlHandler) postOnControl(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -163,7 +164,7 @@ func (h *ControlHandler) postOnControl(w http.ResponseWriter, r *http.Request) {
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionControl, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -178,7 +179,7 @@ func (h *MCPHandler) DeleteServer(w http.ResponseWriter, r *http.Request) {
 func (h *MCPHandler) serverNameAction(w http.ResponseWriter, r *http.Request) {
 	name, action, ok := idAndAction(r, "nameAction")
 	if !ok || name == "" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "missing server name in path", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
 		return
 	}
 	switch action {
@@ -190,7 +191,7 @@ func (h *MCPHandler) serverNameAction(w http.ResponseWriter, r *http.Request) {
 		}
 		responsehttpapi.Success(w, http.StatusOK, st)
 	default:
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "unknown action "+action, nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -202,7 +203,7 @@ func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	tool, action, ok := idAndAction(r, "toolNameAction")
 	if !ok || tool == "" || action != "invoke" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "expected tools/{tool}:invoke", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
 		return
 	}
 	var req struct {
@@ -235,12 +236,12 @@ func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
 func (h *MCPHandler) Import(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, mcpImportMaxBytes))
 	if err != nil {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", "read body: "+err.Error(), nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
 		return
 	}
 	entries, err := mcpinfra.ParseImport(raw)
 	if err != nil {
-		responsehttpapi.Error(w, http.StatusBadRequest, "INVALID_REQUEST", err.Error(), nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
 		return
 	}
 	imported, skipped, err := h.svc.Import(r.Context(), entries, r.URL.Query().Get("overwrite") == "true")

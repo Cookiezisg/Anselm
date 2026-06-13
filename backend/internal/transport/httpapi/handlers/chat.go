@@ -7,6 +7,7 @@ import (
 
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -101,7 +102,7 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok || action != "cancel" {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.

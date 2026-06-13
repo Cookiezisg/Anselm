@@ -11,6 +11,7 @@ import (
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -147,7 +148,7 @@ func (h *FunctionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -160,7 +161,7 @@ func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionFunction, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 

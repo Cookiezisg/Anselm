@@ -7,6 +7,7 @@ import (
 
 	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -64,7 +65,7 @@ func (h *TriageHandler) Register(mux Registrar) {
 func (h *TriageHandler) post(w http.ResponseWriter, r *http.Request) {
 	execID, action, ok := idAndAction(r, "idAction")
 	if !ok || action != "triage" {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	var req struct {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -75,8 +76,7 @@ func IdentifyWorkspace(resolver WorkspaceResolver) func(http.Handler) http.Handl
 func RequireWorkspace(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := reqctxpkg.GetWorkspaceID(r.Context()); !ok {
-			responsehttpapi.Error(w, http.StatusUnauthorized, "UNAUTH_NO_WORKSPACE",
-				"no valid workspace identifier; client should clear activeWorkspaceId and re-onboard", nil)
+			responsehttpapi.FromDomainError(w, nil, errorspkg.ErrUnauthorizedNoWorkspace)
 			return
 		}
 		next.ServeHTTP(w, r)

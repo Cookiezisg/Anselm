@@ -14,4 +14,25 @@ var (
 	// ErrUnauthorizedNoWorkspace：按 workspace 隔离的路由未携带有效 workspace id；
 	// 前端据此清除当前 workspace 并重新选择。
 	ErrUnauthorizedNoWorkspace = New(KindUnauthorized, "UNAUTH_NO_WORKSPACE", "unauthorized: no valid workspace id")
+
+	// ErrNotFound: a route / sub-action / resource the router or a handler's :action
+	// dispatcher can't resolve. Every unmatched dispatch + unknown :action lands here
+	// (404) — transport never hand-codes a 404 (S20/MD-err).
+	//
+	// ErrNotFound：路由 / 子动作 / 资源解析不出（router 兜底 + handler 的 :action 派发器未
+	// 命中 + 未知 :action 全落此,404）——transport 不再手编 404（S20/MD-err）。
+	ErrNotFound = New(KindNotFound, "NOT_FOUND", "not found")
+
+	// ErrInternal: an unexpected server fault (recovered panic). Original detail is logged,
+	// never sent on the wire.
+	//
+	// ErrInternal：未预期的服务端故障（recover 的 panic）。原始细节记日志、绝不上线缆。
+	ErrInternal = New(KindInternal, "INTERNAL_ERROR", "internal error")
+
+	// ErrStreamingUnsupported: the ResponseWriter can't stream (no http.Flusher) — an SSE
+	// endpoint hit a non-streaming transport.
+	//
+	// ErrStreamingUnsupported：ResponseWriter 不支持流式（无 http.Flusher）——SSE 端点遇非
+	// 流式传输。
+	ErrStreamingUnsupported = New(KindInternal, "STREAMING_UNSUPPORTED", "streaming not supported")
 )

@@ -56,9 +56,10 @@ const (
 )
 
 var (
-	ErrNotFound = errorspkg.New(errorspkg.KindNotFound, "ATTACHMENT_NOT_FOUND", "attachment not found")
-	ErrTooLarge = errorspkg.New(errorspkg.KindTooLarge, "ATTACHMENT_TOO_LARGE", "file exceeds the 50 MB limit")
-	ErrEmpty    = errorspkg.New(errorspkg.KindInvalid, "ATTACHMENT_EMPTY", "empty file")
+	ErrNotFound  = errorspkg.New(errorspkg.KindNotFound, "ATTACHMENT_NOT_FOUND", "attachment not found")
+	ErrTooLarge  = errorspkg.New(errorspkg.KindTooLarge, "ATTACHMENT_TOO_LARGE", "file exceeds the 50 MB limit")
+	ErrEmpty     = errorspkg.New(errorspkg.KindInvalid, "ATTACHMENT_EMPTY", "empty file")
+	ErrBadUpload = errorspkg.New(errorspkg.KindInvalid, "ATTACHMENT_BAD_UPLOAD", "malformed multipart upload or missing 'file' field")
 )
 
 // KindFromMIME classifies an upload by mime type (a "; charset=…" suffix is stripped), with a

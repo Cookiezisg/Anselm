@@ -10,6 +10,7 @@ import (
 
 	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -116,13 +117,11 @@ var validOwnerKinds = map[string]bool{
 func (h *SandboxHandler) ListEnvs(w http.ResponseWriter, r *http.Request) {
 	ownerKind := r.URL.Query().Get("ownerKind")
 	if ownerKind == "" {
-		responsehttpapi.Error(w, http.StatusBadRequest, "SANDBOX_OWNER_KIND_REQUIRED",
-			"ownerKind query parameter is required", nil)
+		responsehttpapi.FromDomainError(w, h.log, sandboxdomain.ErrOwnerKindRequired)
 		return
 	}
 	if !validOwnerKinds[ownerKind] {
-		responsehttpapi.Error(w, http.StatusBadRequest, "SANDBOX_INVALID_OWNER_KIND",
-			"ownerKind must be one of: function, handler, mcp, skill, conversation", nil)
+		responsehttpapi.FromDomainError(w, h.log, sandboxdomain.ErrInvalidOwnerKind)
 		return
 	}
 	rows, err := h.svc.ListEnvs(r.Context(), ownerKind)
@@ -255,8 +254,7 @@ func (h *SandboxHandler) ConvEnvReset(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
 	kind, action, _ := idAndAction(r, "kindAction")
 	if action != "reset" {
-		responsehttpapi.Error(w, http.StatusNotFound, "SANDBOX_UNKNOWN_ACTION",
-			"unknown conv-env action: "+action, nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	owner := sandboxdomain.Owner{

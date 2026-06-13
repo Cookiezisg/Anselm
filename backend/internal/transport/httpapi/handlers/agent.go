@@ -11,6 +11,7 @@ import (
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -153,7 +154,7 @@ func (h *AgentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -166,7 +167,7 @@ func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionAgent, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 

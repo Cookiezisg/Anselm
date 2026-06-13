@@ -255,8 +255,8 @@ func TestMCP_ErrorPaths(t *testing.T) {
 		t.Fatalf("unreachable remote must be failed, got %s", st.Status)
 	}
 
-	// unknown :action. 未知 action。
-	wc.Do("POST", "/api/v1/mcp-servers/errsrv:explode", nil).Fail(t, 400, "INVALID_REQUEST")
+	// unknown :action → 404 NOT_FOUND(全 API 未知动作统一 404,S6/MD-err)。
+	wc.Do("POST", "/api/v1/mcp-servers/errsrv:explode", nil).Fail(t, 404, "NOT_FOUND")
 }
 
 // TestMCP_ImportAndRegistry: A6 安装路径——Claude Desktop mcp.json 导入（skip/overwrite 语义）+

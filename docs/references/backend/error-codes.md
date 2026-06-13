@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（256 码，按域）
+## 全量登记（263 码，按域）
 
-> `errorspkg.New` 机械抽取（254）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（2）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（258）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -52,6 +52,9 @@ audience: [human, ai]
 |---|---|---|
 | `INVALID_REQUEST` | 400 | invalid request（domain 逻辑前的格式/语义无效） |
 | `UNAUTH_NO_WORKSPACE` | 401 | unauthorized: no valid workspace id（隔离路由缺 ws；中间件 `RequireWorkspace` 兜、前端清 workspace 重选） |
+| `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6/MD-err） |
+| `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
+| `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter） |
 
 ### `app/aispawn`
 
@@ -265,6 +268,7 @@ audience: [human, ai]
 | `API_KEY_DISPLAY_NAME_CONFLICT` | 409 | display name already in use |
 | `API_KEY_INVALID_PROVIDER` | 400 | unknown provider |
 | `API_KEY_IN_USE` | 422 | api key is referenced and cannot be deleted |
+| `API_KEY_TEST_FAILED` | 422 | api key probe failed（details: latencyMs + reason） |
 | `API_KEY_NOT_FOUND` | 404 | api key not found |
 | `API_KEY_VALUE_REQUIRED` | 400 | key value is required |
 
@@ -284,6 +288,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `ATTACHMENT_BAD_UPLOAD` | 400 | malformed multipart upload or missing 'file' field |
 | `ATTACHMENT_EMPTY` | 400 | empty file |
 | `ATTACHMENT_NOT_FOUND` | 404 | attachment not found |
 | `ATTACHMENT_TOO_LARGE` | 413 | file exceeds the 50 MB limit |
@@ -439,6 +444,8 @@ audience: [human, ai]
 | `SANDBOX_ENV_IN_USE` | 409 | env in use; cannot destroy |
 | `SANDBOX_ENV_NOT_FOUND` | 404 | env not found |
 | `SANDBOX_INVALID_OWNER_ID` | 400 | owner id contains PATH-meta or whitespace character |
+| `SANDBOX_INVALID_OWNER_KIND` | 400 | ownerKind must be one of: function, handler, mcp, skill, conversation |
+| `SANDBOX_OWNER_KIND_REQUIRED` | 400 | ownerKind query parameter is required |
 | `SANDBOX_RUNTIME_INSTALL_FAILED` | 502 | runtime install failed |
 | `SANDBOX_RUNTIME_NOT_FOUND` | 404 | runtime not found |
 | `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | runtime kind not registered |

@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -149,6 +150,97 @@ func TestWireCodesGloballyUnique(t *testing.T) {
 		t.Errorf("%d duplicate wire code(s) — each must be globally unique:\n%s",
 			len(dups), strings.Join(dups, "\n"))
 	}
+}
+
+// TestTransportErrorsUseFromDomainError enforces S6 / MD-err: every error written by an HTTP
+// handler or middleware must flow through responsehttpapi.FromDomainError, which maps an
+// *errorspkg.Error's Kind→HTTP status and Code→wire envelope. The three escape hatches that
+// bypass that mapping must be zero in transport code:
+//   - responsehttpapi.Error(...)   — writes a raw envelope without a domain sentinel (no Kind)
+//   - http.NotFound(w, r)          — stdlib, emits "404 page not found" text, not an N1 envelope
+//   - http.Error(w, ...)           — stdlib, emits a plain-text body, not an N1 envelope
+//
+// This is the mechanical guard that keeps every endpoint's failure path identical for the
+// frontend: one envelope shape, one Kind→status table. The response package itself is out of
+// scope (FromDomainError legitimately calls the low-level writer there).
+//
+// 守 S6 / MD-err：HTTP handler / 中间件写出的每个错误都必须走 responsehttpapi.FromDomainError
+// （它把 *errorspkg.Error 的 Kind→HTTP status、Code→线缆 envelope）。三个绕过映射的逃逸口在
+// transport 代码里必须为零：responsehttpapi.Error（裸 envelope、无 Kind）、http.NotFound、
+// http.Error（标准库纯文本、非 N1 envelope）。这是让前端面对每个端点失败路径完全一致（一种
+// envelope、一张 Kind→status 表）的机械守卫。response 包自身豁免（FromDomainError 合法地调它）。
+func TestTransportErrorsUseFromDomainError(t *testing.T) {
+	dirs := []string{
+		"../../transport/httpapi/handlers",
+		"../../transport/httpapi/middleware",
+	}
+	fset := token.NewFileSet()
+	var violations []string
+
+	for _, dir := range dirs {
+		walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			file, perr := parser.ParseFile(fset, path, nil, 0)
+			if perr != nil {
+				return nil
+			}
+			// Resolve per-file import aliases — robust to S13 renames.
+			// 按文件解析导入别名——对 S13 改名稳健。
+			respAlias := importAlias(file, "transport/httpapi/response")
+			httpAlias := importAlias(file, "net/http")
+			ast.Inspect(file, func(n ast.Node) bool {
+				sel, ok := n.(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				x, ok := sel.X.(*ast.Ident)
+				if !ok {
+					return true
+				}
+				bad := (respAlias != "" && x.Name == respAlias && sel.Sel.Name == "Error") ||
+					(httpAlias != "" && x.Name == httpAlias && (sel.Sel.Name == "NotFound" || sel.Sel.Name == "Error"))
+				if bad {
+					violations = append(violations,
+						fset.Position(sel.Pos()).String()+": "+x.Name+"."+sel.Sel.Name+"(...)")
+				}
+				return true
+			})
+			return nil
+		})
+		if walkErr != nil {
+			t.Fatalf("walk %s: %v", dir, walkErr)
+		}
+	}
+
+	if len(violations) > 0 {
+		sort.Strings(violations)
+		t.Errorf("%d transport error-write(s) bypass FromDomainError — route every failure through "+
+			"responsehttpapi.FromDomainError(w, log, err) with a domain/pkg sentinel (S6 / MD-err):\n%s",
+			len(violations), strings.Join(violations, "\n"))
+	}
+}
+
+// importAlias returns the local name bound to the import whose path contains suffix (the explicit
+// alias, or the package's base name when unaliased). Empty if the file does not import it.
+//
+// importAlias 返回路径含 suffix 的那个 import 的本地名（显式别名，或未别名时的包基名）。文件未导入则空。
+func importAlias(file *ast.File, suffix string) string {
+	for _, imp := range file.Imports {
+		p := strings.Trim(imp.Path.Value, "\"`")
+		if !strings.Contains(p, suffix) {
+			continue
+		}
+		if imp.Name != nil {
+			return imp.Name.Name
+		}
+		return path.Base(p)
+	}
+	return ""
 }
 
 // selectorCall reports a `pkg.Fn(...)` call expression's package + function identifiers.
