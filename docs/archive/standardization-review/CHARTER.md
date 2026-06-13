@@ -1,13 +1,13 @@
 ---
 id: WRK-020
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-13
 reviewed: 2026-06-13
 review-due: 2026-09-13
 expires: 2026-09-13
-landed-into: ""
+landed-into: decisions/0003-api-contract-standardization.md
 audience: [human, ai]
 ---
 
