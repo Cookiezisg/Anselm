@@ -278,5 +278,5 @@ func (h *MCPHandler) Install(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusCreated, st)
+	responsehttpapi.Created(w, st)
 }
