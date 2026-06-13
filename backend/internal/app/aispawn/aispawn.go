@@ -69,7 +69,7 @@ type Service struct {
 	log      *zap.Logger
 }
 
-func New(conv ConversationStarter, chat TurnSender, renderer ExecutionRenderer, log *zap.Logger) *Service {
+func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRenderer, log *zap.Logger) *Service {
 	if conv == nil || chat == nil {
 		panic("aispawn.New: nil conversation starter or turn sender")
 	}

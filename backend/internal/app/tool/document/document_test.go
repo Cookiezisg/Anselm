@@ -28,7 +28,7 @@ func newToolSvc(t *testing.T) (*documentapp.Service, context.Context) {
 	if err := dbinfra.Migrate(db, documentstore.Schema...); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	svc := documentapp.New(documentstore.New(db), nil, zap.NewNop())
+	svc := documentapp.NewService(documentstore.New(db), nil, zap.NewNop())
 	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_test")
 	return svc, ctx
 }
@@ -126,15 +126,15 @@ func TestSearchDocuments(t *testing.T) {
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
-	if !strings.Contains(hit, "Found 1") {
-		t.Fatalf("expected 1 hit, got %q", hit)
+	if !strings.Contains(hit, `"count":1`) || !strings.Contains(hit, "Alpha") {
+		t.Fatalf("expected 1 hit for Alpha, got %q", hit)
 	}
 	miss, err := (&SearchDocuments{svc: svc}).Execute(ctx, `{"query":"zzzznope"}`)
 	if err != nil {
 		t.Fatalf("search miss: %v", err)
 	}
-	if !strings.Contains(miss, "No documents matched") {
-		t.Fatalf("expected miss, got %q", miss)
+	if !strings.Contains(miss, `"count":0`) {
+		t.Fatalf("expected miss (count 0), got %q", miss)
 	}
 }
 

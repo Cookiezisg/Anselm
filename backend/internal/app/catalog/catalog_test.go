@@ -30,7 +30,7 @@ func item(source, id, name, desc string) catalogdomain.Item {
 }
 
 func newSvc(srcs ...catalogdomain.CatalogSource) *Service {
-	s := New(zap.NewNop())
+	s := NewService(zap.NewNop())
 	for _, src := range srcs {
 		s.RegisterSource(src)
 	}

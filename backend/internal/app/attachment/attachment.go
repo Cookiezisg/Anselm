@@ -54,7 +54,7 @@ type Service struct {
 //
 // New 构造 Service；nil logger/repo/blobs panic（皆必需）。extractor 可选——nil 时，发给无原生文档
 // 输入模型的文档降级为占位，而非抽文本。
-func New(repo attachmentdomain.Repository, blobs BlobStore, extractor Extractor, log *zap.Logger) *Service {
+func NewService(repo attachmentdomain.Repository, blobs BlobStore, extractor Extractor, log *zap.Logger) *Service {
 	if log == nil {
 		panic("attachmentapp.New: nil logger")
 	}

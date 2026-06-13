@@ -7,6 +7,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -120,14 +121,14 @@ func (h *APIKeyHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *APIKeyHandler) postOnID(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "route not found", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
 	case "test":
 		h.test(w, r, id)
 	default:
-		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -144,8 +145,8 @@ func (h *APIKeyHandler) test(w http.ResponseWriter, r *http.Request, id string) 
 		return
 	}
 	if !res.OK {
-		responsehttpapi.Error(w, http.StatusUnprocessableEntity,
-			"API_KEY_TEST_FAILED", res.Message, map[string]any{"latencyMs": res.LatencyMs})
+		responsehttpapi.FromDomainError(w, h.log,
+			apikeydomain.ErrTestFailed.WithDetails(map[string]any{"latencyMs": res.LatencyMs, "reason": res.Message}))
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{

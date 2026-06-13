@@ -97,7 +97,7 @@ func TestStore_ExecutionsPagingAggregates(t *testing.T) {
 	if err != nil || len(rows) != 3 {
 		t.Fatalf("list: %v %d", err, len(rows))
 	}
-	agg, err := s.ComputeAggregates(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1"})
+	agg, err := s.ComputeExecutionAggregates(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1"})
 	if err != nil || agg.OKCount != 2 || agg.FailedCount != 1 {
 		t.Fatalf("aggregates: %v %+v", err, agg)
 	}

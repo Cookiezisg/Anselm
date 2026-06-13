@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -26,8 +27,7 @@ func Recover(log *zap.Logger) func(http.Handler) http.Handler {
 					zap.String("method", r.Method),
 					zap.String("path", r.URL.Path),
 				)
-				responsehttpapi.Error(w, http.StatusInternalServerError,
-					"INTERNAL_ERROR", "internal server error", nil)
+				responsehttpapi.FromDomainError(w, log, errorspkg.ErrInternal)
 			}()
 			next.ServeHTTP(w, r)
 		})

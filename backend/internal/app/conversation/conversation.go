@@ -72,7 +72,7 @@ func (s *Service) SetGenerationCanceler(c GenerationCanceler) { s.canceler = c }
 // New constructs a Service; panics on nil logger. A nil emitter disables notifications (best-effort).
 //
 // New 构造 Service；nil logger panic。emitter 为 nil 时禁用通知（best-effort）。
-func New(repo conversationdomain.Repository, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
+func NewService(repo conversationdomain.Repository, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
 	if log == nil {
 		panic("conversationapp.New: nil logger")
 	}

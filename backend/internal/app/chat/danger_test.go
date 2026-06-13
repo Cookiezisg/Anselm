@@ -79,7 +79,7 @@ func dangerCall(tcID, name string) []llminfra.StreamEvent {
 func newDangerSvc(t *testing.T, client llminfra.Client, bridge streamdomain.Bridge, tool recordingTool) (*Service, messagesdomain.Repository) {
 	t.Helper()
 	store := newStore(t)
-	return New(store, Deps{
+	return NewService(store, Deps{
 		// Title set so auto-title doesn't fire (it would consume a scripted Stream call and shift the
 		// per-turn script indices in multi-turn tests).
 		//

@@ -7,6 +7,7 @@ import (
 
 	workspaceapp "github.com/sunweilin/forgify/backend/internal/app/workspace"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -139,14 +140,14 @@ func (h *WorkspacesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *WorkspacesHandler) postOnWorkspace(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
 	case "activate":
 		h.activate(w, r, id)
 	default:
-		responsehttpapi.Error(w, http.StatusNotFound, "NOT_FOUND", "unknown action: "+action, nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 

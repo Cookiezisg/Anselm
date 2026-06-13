@@ -72,7 +72,7 @@ func uploadAtt(t *testing.T, wc *harness.Client, name, mime string, content []by
 // sendWith 发送带附件/mention 的用户回合。
 func sendWith(t *testing.T, wc *harness.Client, convID string, body map[string]any) string {
 	t.Helper()
-	return wc.POST("/api/v1/conversations/"+convID+"/messages", body).Field(t, "messageId")
+	return wc.POST("/api/v1/conversations/"+convID+"/messages", body).Field(t, "id") // MD3
 }
 
 // TestChatR3_AttachmentsThreeRoutes: 附件三路按模型能力门控（gpt-4o：vision=true、

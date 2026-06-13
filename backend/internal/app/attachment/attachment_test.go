@@ -47,7 +47,7 @@ func newSvcWith(t *testing.T, ext Extractor) (*Service, *blobfs.Store, context.C
 		}
 	}
 	blobs := blobfs.New(t.TempDir())
-	svc := New(attachmentstore.New(ormpkg.Open(sqlDB)), blobs, ext, zap.NewNop())
+	svc := NewService(attachmentstore.New(ormpkg.Open(sqlDB)), blobs, ext, zap.NewNop())
 	return svc, blobs, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
 }
 

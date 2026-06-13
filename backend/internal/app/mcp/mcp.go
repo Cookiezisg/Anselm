@@ -71,7 +71,7 @@ type Service struct {
 // New constructs a Service; call Boot before serving.
 //
 // New 构造 Service；服务前先 Boot。
-func New(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sandbox SandboxPort, log *zap.Logger) *Service {
+func NewService(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sandbox SandboxPort, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}

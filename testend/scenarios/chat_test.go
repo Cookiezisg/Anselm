@@ -57,7 +57,7 @@ func convCreate(t *testing.T, wc *harness.Client, title string) string {
 func sendMsg(t *testing.T, wc *harness.Client, convID, content string) string {
 	t.Helper()
 	return wc.POST("/api/v1/conversations/"+convID+"/messages",
-		map[string]any{"content": content}).Field(t, "messageId")
+		map[string]any{"content": content}).Field(t, "id") // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // chatMsg is the wire shape of one turn in GET /conversations/{id}/messages.
@@ -323,7 +323,7 @@ func TestChat_CancelAndStreamConflict(t *testing.T) {
 	wc.Do("POST", "/api/v1/conversations/"+convID+"/messages",
 		map[string]any{"content": "impatient second send"}).Fail(t, 409, "STREAM_IN_PROGRESS")
 
-	wc.DELETE("/api/v1/conversations/" + convID + "/stream")
+	wc.POST("/api/v1/conversations/"+convID+":cancel", nil) // 取消在途生成走 :action(MD5)
 	turn := waitTurn(t, wc, convID, mid, 15000)
 	if turn.Status != "cancelled" {
 		t.Fatalf("cancelled turn must persist as cancelled, got %s", turn.Status)

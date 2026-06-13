@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 )
 
 const listDocumentsDescription = `List direct children one level under parentId (null/omit = root): name, description, path each. Walk the tree progressively; use search_documents for keyword search.`
@@ -59,21 +59,15 @@ func (t *ListDocuments) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", err
 	}
-	scopeLabel := "root level"
-	if a.ParentID != nil {
-		scopeLabel = fmt.Sprintf("under %s", *a.ParentID)
+	type slim struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Path        string `json:"path"`
+		Description string `json:"description,omitempty"`
 	}
-	if len(rows) == 0 {
-		return fmt.Sprintf("No documents at %s.", scopeLabel), nil
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%d document(s) at %s:\n\n", len(rows), scopeLabel)
+	out := make([]slim, 0, len(rows))
 	for _, d := range rows {
-		fmt.Fprintf(&sb, "- %s (id=%s, path=%s)\n", d.Name, d.ID, d.Path)
-		if d.Description != "" {
-			fmt.Fprintf(&sb, "  %s\n", d.Description)
-		}
+		out = append(out, slim{ID: d.ID, Name: d.Name, Path: d.Path, Description: d.Description})
 	}
-	sb.WriteString("\nUse list_documents(parentId=<id>) to drill in or read_document(id) to load content.")
-	return sb.String(), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "documents": out}), nil
 }

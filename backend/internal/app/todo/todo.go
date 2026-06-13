@@ -43,7 +43,7 @@ type Service struct {
 // board update — wired at boot, M7); nil repo / logger panics.
 //
 // New 构造 Service。bridge 是 messages 流（nil → 只持久化、不更新看板——boot 装配 M7）；nil repo / logger panic。
-func New(repo tododomain.Repository, bridge streamdomain.Bridge, log *zap.Logger) *Service {
+func NewService(repo tododomain.Repository, bridge streamdomain.Bridge, log *zap.Logger) *Service {
 	if repo == nil {
 		panic("todoapp.New: repo is nil")
 	}

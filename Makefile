@@ -134,4 +134,4 @@ clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
 
-.PHONY: help setup server stop unit docs build verify clean
+.PHONY: help setup server stop unit docs build verify clean testend evals

@@ -50,15 +50,16 @@ func (t *SearchWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("search_workflow: %w", err)
 	}
 	type slim struct {
-		ID             string `json:"id"`
-		Name           string `json:"name"`
-		Description    string `json:"description"`
+		searchdomain.EntitySlim
 		LifecycleState string `json:"lifecycleState"`
 		Active         bool   `json:"active"`
 	}
 	out := make([]slim, 0, len(wfs))
 	for _, w := range wfs {
-		out = append(out, slim{ID: w.ID, Name: w.Name, Description: w.Description, LifecycleState: w.LifecycleState, Active: w.Active})
+		out = append(out, slim{
+			EntitySlim:     searchdomain.EntitySlim{ID: w.ID, Name: w.Name, Description: w.Description},
+			LifecycleState: w.LifecycleState, Active: w.Active,
+		})
 	}
 	return toolapp.ToJSON(map[string]any{"count": len(out), "workflows": out}), nil
 }

@@ -11,6 +11,7 @@ import (
 	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
 	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -47,7 +48,7 @@ func (h *HandlerHandler) Register(mux Registrar) {
 	mux.HandleFunc("PUT /api/v1/handlers/{id}/config", h.UpdateConfig)
 	mux.HandleFunc("DELETE /api/v1/handlers/{id}/config", h.ClearConfig)
 	mux.HandleFunc("GET /api/v1/handlers/{id}/calls", h.ListCalls)
-	mux.HandleFunc("GET /api/v1/handler-calls/{callId}", h.GetCall)
+	mux.HandleFunc("GET /api/v1/handler-calls/{id}", h.GetCall) // Log 单读路径变量统一 {id}(MD-id4)
 }
 
 type createHandlerRequest struct {
@@ -80,7 +81,8 @@ func (h *HandlerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"handler": hd, "version": v})
+	hd.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	responsehttpapi.Created(w, hd)
 }
 
 func (h *HandlerHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -140,7 +142,7 @@ func (h *HandlerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *HandlerHandler) postOnHandler(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -155,7 +157,7 @@ func (h *HandlerHandler) postOnHandler(w http.ResponseWriter, r *http.Request) {
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionHandler, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -175,16 +177,20 @@ func (h *HandlerHandler) call(w http.ResponseWriter, r *http.Request, id string)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"result": res})
+	responsehttpapi.Success(w, http.StatusOK, res) // 裸结果,不裹 {result}(envelope 内层)
 }
 
 func (h *HandlerHandler) restart(w http.ResponseWriter, r *http.Request, id string) {
-	state, err := h.svc.Restart(r.Context(), id)
+	if _, err := h.svc.Restart(r.Context(), id); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	hd, err := h.svc.Get(r.Context(), id) // 返动作后实体快照(含 runtimeState 计算字段)(MD4)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"id": id, "runtimeState": state})
+	responsehttpapi.Success(w, http.StatusOK, hd)
 }
 
 func (h *HandlerHandler) revert(w http.ResponseWriter, r *http.Request, id string) {
@@ -329,11 +335,12 @@ func (h *HandlerHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, res)
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	responsehttpapi.Paged(w, map[string]any{"calls": res.Calls, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 
 func (h *HandlerHandler) GetCall(w http.ResponseWriter, r *http.Request) {
-	c, err := h.svc.GetCall(r.Context(), r.PathValue("callId"))
+	c, err := h.svc.GetCall(r.Context(), r.PathValue("id"))
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

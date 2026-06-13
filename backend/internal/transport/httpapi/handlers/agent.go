@@ -11,6 +11,7 @@ import (
 	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -50,7 +51,7 @@ func (h *AgentHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/agents/{id}/versions", h.ListVersions)
 	mux.HandleFunc("GET /api/v1/agents/{id}/versions/{version}", h.GetVersion)
 	mux.HandleFunc("GET /api/v1/agents/{id}/executions", h.ListExecutions)
-	mux.HandleFunc("GET /api/v1/agent-executions/{execId}", h.GetExecution)
+	mux.HandleFunc("GET /api/v1/agent-executions/{id}", h.GetExecution) // Log 单读路径变量统一 {id}(MD-id4)
 }
 
 // agentConfigRequest is the mounted config carried by create/edit HTTP bodies.
@@ -92,7 +93,8 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"agent": ag, "version": v})
+	ag.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	responsehttpapi.Created(w, ag)
 }
 
 func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +103,7 @@ func (h *AgentHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.List(r.Context(), p.Limit, p.Cursor)
+	items, next, err := h.svc.List(r.Context(), agentdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -152,7 +154,7 @@ func (h *AgentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -165,7 +167,7 @@ func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionAgent, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -289,11 +291,12 @@ func (h *AgentHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, res)
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	responsehttpapi.Paged(w, map[string]any{"executions": res.Executions, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 
 func (h *AgentHandler) GetExecution(w http.ResponseWriter, r *http.Request) {
-	e, err := h.svc.GetExecutionDetail(r.Context(), r.PathValue("execId"))
+	e, err := h.svc.GetExecutionDetail(r.Context(), r.PathValue("id"))
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

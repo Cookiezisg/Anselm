@@ -7,6 +7,7 @@ import (
 
 	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
 	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -149,14 +150,14 @@ func (h *SkillHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *SkillHandler) postOnSkill(w http.ResponseWriter, r *http.Request) {
 	name, action, ok := idAndAction(r, "nameAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
 	case "activate":
 		h.activate(w, r, name)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -173,5 +174,5 @@ func (h *SkillHandler) activate(w http.ResponseWriter, r *http.Request, name str
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"output": out})
+	responsehttpapi.Success(w, http.StatusOK, out) // 裸结果,不裹 {output}(envelope 内层)
 }

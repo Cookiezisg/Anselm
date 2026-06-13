@@ -130,6 +130,22 @@ type Hit struct {
 	RefHint       string     `json:"refHint,omitempty"`
 }
 
+// EntitySlim is the shared {id, name, description} projection every search_<entity> system
+// tool returns to the LLM — one shape so the model reads any entity list the same way.
+// Tools needing extra columns (trigger's listening state, workflow's lifecycle) embed it and
+// add fields, keeping id/name/description identical. Lives here next to Hit (the search domain
+// already owns LLM-facing result DTOs); rendered via toolapp.ToJSON / ContentSearch.
+//
+// EntitySlim 是每个 search_<entity> 系统工具回给 LLM 的共享 {id, name, description} 投影——
+// 单一形状使模型以同一方式读任何实体列表。需额外列的工具（trigger 的监听态、workflow 的生命周期）
+// 嵌入它再加字段，保持 id/name/description 一致。放在 Hit 旁（search 域本就持 LLM 面结果 DTO）；
+// 经 toolapp.ToJSON / ContentSearch 渲染。
+type EntitySlim struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 // Chunk is one RAG retrieval unit: full body (not a snippet) for context
 // injection, plus the anchor for provenance.
 //

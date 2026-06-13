@@ -55,7 +55,7 @@ type Service struct {
 //
 // New 构造 Service；EnsureRuntime/Spawn 前必须 Bootstrap 成功。emitter 为 nil 时禁用通知
 // （全程 best-effort）。
-func New(repo sandboxdomain.Repository, dataDir string, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
+func NewService(repo sandboxdomain.Repository, dataDir string, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
 	if log == nil {
 		panic("sandboxapp.New: nil logger")
 	}

@@ -119,7 +119,7 @@ func trTurn(id string, seq int64, tokens int, content string) *messagesdomain.Me
 }
 
 func newSvc(msgs *fakeMessages, conv *fakeConv, win fakeWindow, client *fakeClient) *Service {
-	return New(Deps{
+	return NewService(Deps{
 		Messages:      msgs,
 		Conversations: conv,
 		Resolver:      fakeResolver{client: client},

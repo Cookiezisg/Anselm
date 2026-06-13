@@ -138,14 +138,12 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 
 	// invoke echo → result; the progress notification must land in the call's logs.
 	// 调 echo → 结果；进度通知必须落进该次调用的 logs。
-	var inv struct {
-		Result string `json:"result"`
-	}
+	var inv string // tools/{tool}:invoke 现返裸结果(去 {result} 包裹)
 	wc.POST("/api/v1/mcp-servers/scripted/tools/echo:invoke", map[string]any{
 		"args": map[string]any{"text": "hello"},
 	}).OK(t, &inv)
-	if inv.Result != "echo:hello" {
-		t.Fatalf("echo result wrong: %q", inv.Result)
+	if inv != "echo:hello" {
+		t.Fatalf("echo result wrong: %q", inv)
 	}
 
 	var page mcpCallsPage
@@ -257,8 +255,8 @@ func TestMCP_ErrorPaths(t *testing.T) {
 		t.Fatalf("unreachable remote must be failed, got %s", st.Status)
 	}
 
-	// unknown :action. 未知 action。
-	wc.Do("POST", "/api/v1/mcp-servers/errsrv:explode", nil).Fail(t, 400, "INVALID_REQUEST")
+	// unknown :action → 404 NOT_FOUND(全 API 未知动作统一 404,S6/MD-err)。
+	wc.Do("POST", "/api/v1/mcp-servers/errsrv:explode", nil).Fail(t, 404, "NOT_FOUND")
 }
 
 // TestMCP_ImportAndRegistry: A6 安装路径——Claude Desktop mcp.json 导入（skip/overwrite 语义）+
@@ -382,14 +380,12 @@ func TestMCP_OfficialFilesystemServer(t *testing.T) {
 		t.Fatalf("no read tool advertised; tools=%v", names)
 	}
 
-	var inv struct {
-		Result string `json:"result"`
-	}
+	var inv string // tools/{tool}:invoke 返裸结果(去 {result} 包裹，与 scripted echo 同——S3/MD)
 	wc.POST(fmt.Sprintf("/api/v1/mcp-servers/fs/tools/%s:invoke", readTool), map[string]any{
 		"args": map[string]any{"path": filepath.Join(dir, "hello.txt")},
 	}).OK(t, &inv)
-	if !strings.Contains(inv.Result, proof) {
-		t.Fatalf("read via mcp must return the file content, got %q", inv.Result)
+	if !strings.Contains(inv, proof) {
+		t.Fatalf("read via mcp must return the file content, got %q", inv)
 	}
 
 	var page mcpCallsPage

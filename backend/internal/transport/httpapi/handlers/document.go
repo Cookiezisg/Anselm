@@ -9,6 +9,7 @@ import (
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -157,15 +158,12 @@ func (h *DocumentHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	n, err := h.svc.Delete(r.Context(), r.PathValue("id"))
-	if err != nil {
+	// 级联删子树;DELETE 统一 204(被删数可由删后 list 推得)。
+	if _, err := h.svc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{
-		"id":           r.PathValue("id"),
-		"deletedCount": n,
-	})
+	responsehttpapi.NoContent(w)
 }
 
 // postOnDoc dispatches POST /api/v1/documents/{id}:move.
@@ -174,7 +172,7 @@ func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *DocumentHandler) postOnDoc(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		responsehttpapi.Error(w, http.StatusNotFound, "DOCUMENT_UNKNOWN_ROUTE", "unknown route", nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	if action == "iterate" {
@@ -182,7 +180,7 @@ func (h *DocumentHandler) postOnDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action != "move" {
-		responsehttpapi.Error(w, http.StatusNotFound, "DOCUMENT_UNKNOWN_ACTION", "unknown action: "+action, nil)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	var req moveDocumentRequest

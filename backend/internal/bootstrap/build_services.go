@@ -129,14 +129,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ws := workspaceapp.NewService(st.workspace, log)
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(http.DefaultClient), log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
-	cat := catalogapp.New(log)
+	cat := catalogapp.NewService(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
-	sbx := sandboxapp.New(st.sandbox, dataDir, notif, log)
+	sbx := sandboxapp.NewService(st.sandbox, dataDir, notif, log)
 	// search: one engine behind every surface (omni/vertical/blocks/RAG); sources and
 	// notifiers wire post-construction, the worker starts at App.Boot.
 	// search：所有出口背后的同一个引擎（综搜/垂搜/积木/RAG）；source 与 notifier 在装配后
 	// 接线，worker 于 App.Boot 启动。
-	searchSvc := searchapp.New(st.search, log)
+	searchSvc := searchapp.NewService(st.search, log)
 	searchSvc.SetEmbeddingProviders(searchengine.NewBuiltin(sbx, log), func(baseURL, model string) searchdomain.EmbeddingProvider {
 		return searchengine.NewOllama(baseURL, model)
 	})
@@ -150,9 +150,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	prov := envfixapp.NewProvisioner(sbx, ws, keys, inf.factory, log)
 
 	// --- Tier 1: entities (relation injected post-construction; nil-tolerant at build) ---
-	doc := documentapp.New(st.document, notif, log)
-	todo := todoapp.New(st.todo, bus.messages, log)
-	att := attachmentapp.New(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
+	doc := documentapp.NewService(st.document, notif, log)
+	todo := todoapp.NewService(st.todo, bus.messages, log)
+	att := attachmentapp.NewService(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
 	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
 	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 锻造终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
@@ -160,9 +160,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag := agentapp.NewService(st.agent, notif, log)
 	ctl := controlapp.NewService(st.control, notif, log)
 	apf := approvalapp.NewService(st.approval, notif, log)
-	mcp := mcpapp.New(st.mcp, mcpinfra.NewGitHubRegistrySource(dataDir, log), sbx, log)
+	mcp := mcpapp.NewService(st.mcp, mcpinfra.NewGitHubRegistrySource(dataDir, log), sbx, log)
 	mcp.SetEntitiesBridge(bus.entities) // SSE-C: CallTool tees progress to the server's run terminal
-	conv := conversationapp.New(st.conversation, notif, log)
+	conv := conversationapp.NewService(st.conversation, notif, log)
 	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd, mcp), log)
 	trg.SetEntitiesBridge(bus.entities)                        // SSE-C: every fan-out emits a fire signal to the trigger panel
 	wf := workflowapp.NewService(st.workflow, nil, notif, log) // resolver set below
@@ -174,7 +174,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 
 	// --- subagent + skill: subagent reads the toolset lazily via the holder ---
 	holder := &toolsetHolder{}
-	subagentSvc := subagentapp.New(subagentapp.Deps{
+	subagentSvc := subagentapp.NewService(subagentapp.Deps{
 		Messages: st.messages,
 		Resolver: resolvers.Subagent(),
 		Tools:    holder,
@@ -236,13 +236,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	holder.tools = toolset.All()
 
 	// --- context compaction + chat (the dialogue surface) ---
-	ctxmgr := contextmgrapp.New(contextmgrapp.Deps{
+	ctxmgr := contextmgrapp.NewService(contextmgrapp.Deps{
 		Messages:      st.messages,
 		Conversations: NewConversationSummary(conv),
 		Resolver:      resolvers.ContextmgrUtility(),
 		Windows:       lookup.WindowResolver(),
 	}, log)
-	chat := chatapp.New(st.messages, chatapp.Deps{
+	chat := chatapp.NewService(st.messages, chatapp.Deps{
 		Conversations:  conv,
 		Resolver:       resolvers.Chat(),
 		Attachments:    NewAttachmentRenderer(att),

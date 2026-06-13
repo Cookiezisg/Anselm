@@ -105,5 +105,5 @@ type ExecutionRepository interface {
 	SaveExecution(ctx context.Context, e *Execution) error
 	GetExecutionByID(ctx context.Context, id string) (*Execution, error)
 	ListExecutions(ctx context.Context, filter ExecutionFilter) ([]*Execution, string, error)
-	ComputeAggregates(ctx context.Context, filter ExecutionFilter) (ExecutionAggregates, error)
+	ComputeExecutionAggregates(ctx context.Context, filter ExecutionFilter) (ExecutionAggregates, error)
 }

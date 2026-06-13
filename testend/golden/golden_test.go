@@ -136,7 +136,7 @@ func drainInteractions(wc *harness.Client, convID string) {
 func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) string {
 	t.Helper()
 	msgID := wc.POST("/api/v1/conversations/"+convID+"/messages",
-		map[string]any{"content": content}).Field(t, "messageId")
+		map[string]any{"content": content}).Field(t, "id") // 异步动作返新资源 id 统一 {id}(MD3)
 	var text string
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)
@@ -202,17 +202,11 @@ func TestGolden_J2_BuildAndRunFunction(t *testing.T) {
 // 预置一个会抛错的 function，请模型修；结果状态：active 版本号前进（>1，说明 edit_function 真改了）。
 func TestGolden_J5_DebugFunction(t *testing.T) {
 	wc := evalWS(t)
-	// 预置 bug：引用未定义变量。
-	var created struct {
-		Function struct {
-			ID string `json:"id"`
-		} `json:"function"`
-	}
-	wc.POST("/api/v1/functions", map[string]any{
+	// 预置 bug：引用未定义变量。create 现返裸实体(MD1):data 顶层即 id。
+	fnID := wc.POST("/api/v1/functions", map[string]any{
 		"name": "buggy_double", "description": "double a number (has a bug)",
 		"code": "def buggy_double(n: int) -> dict:\n    return {\"out\": n * undefined_factor}\n",
-	}).OK(t, &created)
-	fnID := created.Function.ID
+	}).Field(t, "id")
 
 	conv := newConv(t, wc, "fix bug")
 	say(t, wc, conv,

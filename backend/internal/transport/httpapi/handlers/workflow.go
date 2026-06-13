@@ -11,6 +11,7 @@ import (
 	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -78,7 +79,8 @@ func (h *WorkflowHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"workflow": wf, "version": v})
+	wf.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	responsehttpapi.Created(w, wf)
 }
 
 func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +146,7 @@ func (h *WorkflowHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -167,7 +169,7 @@ func (h *WorkflowHandler) postOnWorkflow(w http.ResponseWriter, r *http.Request)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionWorkflow, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -226,7 +228,7 @@ func (h *WorkflowHandler) trigger(w http.ResponseWriter, r *http.Request, id str
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"flowrunId": runID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": runID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // stage backs :stage — arm the workflow for one run on its next real trigger fire, then auto-disarm.
@@ -237,7 +239,12 @@ func (h *WorkflowHandler) stage(w http.ResponseWriter, r *http.Request, id strin
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"staged": true})
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照,不发 {staged:true} 裸键(MD4)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, wf)
 }
 
 // activate backs :activate — bring the workflow online (start listening to its trigger) + flip
@@ -272,12 +279,16 @@ func (h *WorkflowHandler) deactivate(w http.ResponseWriter, r *http.Request, id 
 //
 // kill 支撑 :kill——硬停 workflow（停监听 + 取消所有在途 run）。返被杀 run 数。
 func (h *WorkflowHandler) kill(w http.ResponseWriter, r *http.Request, id string) {
-	killed, err := h.svc.Kill(r.Context(), id)
+	if _, err := h.svc.Kill(r.Context(), id); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照;被杀 run 数由 GET /flowruns?status=cancelled 查(MD4)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, map[string]any{"killed": killed})
+	responsehttpapi.Success(w, http.StatusOK, wf)
 }
 
 func (h *WorkflowHandler) capabilityCheck(w http.ResponseWriter, r *http.Request, id string) {

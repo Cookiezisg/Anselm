@@ -9,6 +9,7 @@ import (
 	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -44,7 +45,7 @@ func (h *TriggerHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/triggers/{idAction}", h.postOnTrigger)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/activations", h.ListActivations)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/firings", h.ListFirings)
-	mux.HandleFunc("GET /api/v1/trigger-activations/{actId}", h.GetActivation)
+	mux.HandleFunc("GET /api/v1/trigger-activations/{id}", h.GetActivation) // Log 单读路径变量统一 {id}(MD-id4)
 }
 
 func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,7 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"trigger": t})
+	responsehttpapi.Created(w, t) // 裸实体(trigger 无版本)(MD1)
 }
 
 func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +128,7 @@ func (h *TriggerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -137,11 +138,12 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}
-		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"fired": true, "triggerId": id, "activationId": actID})
+		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}(MD3)
+		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": actID})
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -188,7 +190,7 @@ func (h *TriggerHandler) ListFirings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TriggerHandler) GetActivation(w http.ResponseWriter, r *http.Request) {
-	act, err := h.svc.GetActivation(r.Context(), r.PathValue("actId"))
+	act, err := h.svc.GetActivation(r.Context(), r.PathValue("id"))
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

@@ -104,6 +104,9 @@ var (
 	ErrAPIFormatRequired   = errorspkg.New(errorspkg.KindInvalid, "API_KEY_API_FORMAT_REQUIRED", "api format is required for custom provider")
 	ErrDisplayNameConflict = errorspkg.New(errorspkg.KindConflict, "API_KEY_DISPLAY_NAME_CONFLICT", "display name already in use")
 	ErrInUse               = errorspkg.New(errorspkg.KindUnprocessable, "API_KEY_IN_USE", "api key is referenced and cannot be deleted")
+	// ErrTestFailed: the :test probe reached the provider but it rejected the key.
+	// ErrTestFailed：:test 探活连到 provider 但 key 被拒。
+	ErrTestFailed = errorspkg.New(errorspkg.KindUnprocessable, "API_KEY_TEST_FAILED", "api key probe failed")
 )
 
 // Repository is the storage contract for APIKey, isolated by ctx workspace.

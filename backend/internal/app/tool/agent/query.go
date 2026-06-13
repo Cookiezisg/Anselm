@@ -47,14 +47,9 @@ func (t *SearchAgent) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("search_agent: %w", err)
 	}
-	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-	out := make([]slim, 0, len(ags))
+	out := make([]searchdomain.EntitySlim, 0, len(ags))
 	for _, a := range ags {
-		out = append(out, slim{ID: a.ID, Name: a.Name, Description: a.Description})
+		out = append(out, searchdomain.EntitySlim{ID: a.ID, Name: a.Name, Description: a.Description})
 	}
 	return toolapp.ToJSON(map[string]any{"agents": out, "count": len(out)}), nil
 }

@@ -29,14 +29,9 @@ func ContentSearch(ctx context.Context, engine *searchapp.Service, t searchdomai
 	if err != nil {
 		return "", false
 	}
-	type slim struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
-	}
-	out := make([]slim, 0, len(page.Hits))
+	out := make([]searchdomain.EntitySlim, 0, len(page.Hits))
 	for _, h := range page.Hits {
-		out = append(out, slim{ID: h.EntityID, Name: h.Name, Description: h.Snippet})
+		out = append(out, searchdomain.EntitySlim{ID: h.EntityID, Name: h.Name, Description: h.Snippet})
 	}
 	return ToJSON(map[string]any{"count": len(out), listKey: out}), true
 }

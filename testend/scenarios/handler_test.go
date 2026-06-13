@@ -16,20 +16,12 @@ func hdCreate(t *testing.T, wc *harness.Client, name string, body map[string]any
 	for k, v := range body {
 		payload[k] = v
 	}
-	var created struct {
-		Handler struct {
-			ID string `json:"id"`
-		} `json:"handler"`
-	}
 	r := wc.POST("/api/v1/handlers", payload)
 	if r.Status >= 300 {
 		t.Fatalf("handler create: %d %s", r.Status, r.Raw)
 	}
-	r.OK(t, &created)
-	if created.Handler.ID == "" {
-		t.Fatalf("create returned no handler.id: %s", r.Data)
-	}
-	return created.Handler.ID
+	// Create 现返裸实体(MD1):data 顶层即 id + 内嵌 activeVersion。
+	return r.Field(t, "id")
 }
 
 // TestHandler_ResidentLifecycleAndCalls: A2 核心——首调 spawn、状态保持（常驻的灵魂）、
@@ -48,20 +40,18 @@ func TestHandler_ResidentLifecycleAndCalls(t *testing.T) {
 	})
 
 	// state persists across calls — the resident soul. 状态跨调用保持——常驻之魂。
-	var out struct {
-		Result map[string]any `json:"result"`
-	}
+	var out map[string]any // :call 现返裸结果(去 {result} 包裹)
 	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "bump", "args": map[string]any{}}).OK(t, &out)
 	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "bump", "args": map[string]any{}}).OK(t, &out)
-	if out.Result["count"] != float64(2) {
-		t.Fatalf("resident state lost: %+v", out.Result)
+	if out["count"] != float64(2) {
+		t.Fatalf("resident state lost: %+v", out)
 	}
 
 	// restart resets in-memory state. restart 清内存状态。
 	wc.POST("/api/v1/handlers/"+hdID+":restart", nil).OK(t, nil)
 	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "bump", "args": map[string]any{}}).OK(t, &out)
-	if out.Result["count"] != float64(1) {
-		t.Fatalf("restart must reset state: %+v", out.Result)
+	if out["count"] != float64(1) {
+		t.Fatalf("restart must reset state: %+v", out)
 	}
 
 	// unknown method rejects with the domain code. 未知方法按域码拒。
@@ -102,12 +92,10 @@ func TestHandler_PrintToStdout(t *testing.T) {
 	// The driver shields stdout (AC-5 fix): print must NOT crash the protocol, and the
 	// printed line must surface in the call's logs.
 	// driver 护住 stdout（AC-5 修复）：print 绝不炸协议，且打印行须出现在调用 logs 里。
-	var out struct {
-		Result map[string]any `json:"result"`
-	}
+	var out map[string]any // :call 现返裸结果(去 {result} 包裹)
 	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "speak", "args": map[string]any{}}).OK(t, &out)
-	if out.Result["ok"] != true {
-		t.Fatalf("print method result wrong: %+v", out.Result)
+	if out["ok"] != true {
+		t.Fatalf("print method result wrong: %+v", out)
 	}
 	var page struct {
 		Calls []struct {
@@ -149,12 +137,10 @@ func TestHandler_ConfigFlow(t *testing.T) {
 
 	// configure → call works and saw the value. 配上 → 调用成功且拿到值。
 	wc.PUT("/api/v1/handlers/"+hdID+"/config", map[string]any{"token": "secret-12345"}).OK(t, nil)
-	var out struct {
-		Result map[string]any `json:"result"`
-	}
+	var out map[string]any // :call 现返裸结果(去 {result} 包裹)
 	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "show", "args": map[string]any{}}).OK(t, &out)
-	if out.Result["token_len"] != float64(12) {
-		t.Fatalf("config not applied: %+v", out.Result)
+	if out["token_len"] != float64(12) {
+		t.Fatalf("config not applied: %+v", out)
 	}
 
 	// masked echo: sensitive value never returns in plain. 掩码回显：敏感值绝不明文回。

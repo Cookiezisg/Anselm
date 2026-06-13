@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,10 +14,12 @@ import (
 
 // SearchHandler serves the unified search surface: omni/vertical search (one
 // endpoint — empty types = omni) and the reindex action. The window-cursor
-// pagination follows N4; reindex follows N2/N5 (202 + :action).
+// pagination follows N4; reindex follows N5 (:action) and returns 204 — it is
+// fire-and-forget with no pollable product (MD4), so no 202+id.
 //
 // SearchHandler 提供统一搜索面：综搜/垂搜（同一端点——types 空 = 综搜）与重建动作。
-// 窗口 cursor 分页遵循 N4；reindex 遵循 N2/N5（202 + :action）。
+// 窗口 cursor 分页遵循 N4；reindex 遵循 N5（:action）、返 204——fire-and-forget、
+// 无可轮询产物（MD4），故非 202+id。
 type SearchHandler struct {
 	svc *searchapp.Service
 	log *zap.Logger
@@ -93,9 +94,17 @@ func (h *SearchHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
 // Search 处理 GET /api/v1/search 全参数面。
 func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	qp := r.URL.Query()
+	// search 专属界（默认 20 / 上限 50），走统一 ParsePageBounded 取错误语义 + 钳制（N4/MD2），
+	// 不再手搓 limit 解析。
+	pg, err := responsehttpapi.ParsePageBounded(r, 20, 50)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	q := &searchdomain.Query{
 		Q:               qp.Get("q"),
-		Cursor:          qp.Get("cursor"),
+		Cursor:          pg.Cursor,
+		Limit:           pg.Limit,
 		IncludeArchived: qp.Get("includeArchived") != "false", // default true: archived+searchable is the point of archiving. 默认 true：归档+可搜正是归档的意义。
 	}
 	for _, t := range splitCSV(qp.Get("types")) {
@@ -112,29 +121,26 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 			q.UpdatedBefore = &ts
 		}
 	}
-	if v := qp.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			q.Limit = n
-		}
-	}
 	page, err := h.svc.Search(r.Context(), q)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, page)
+	// 分页坐标恒在 envelope 顶层(Paged);total 作 list 元数据进 data 子对象(MD2)。
+	responsehttpapi.Paged(w, map[string]any{"hits": page.Hits, "total": page.Total}, page.NextCursor, page.NextCursor != "")
 }
 
 // Reindex handles POST /api/v1/search:reindex — purge + rebuild the ctx
-// workspace asynchronously (202).
+// workspace asynchronously, returning 204 (fire-and-forget, nothing to poll).
 //
-// Reindex 处理 POST /api/v1/search:reindex——异步清空重建 ctx workspace（202）。
+// Reindex 处理 POST /api/v1/search:reindex——异步清空重建 ctx workspace，返 204
+// （fire-and-forget、无可轮询产物）。
 func (h *SearchHandler) Reindex(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Reindex(r.Context()); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "accepted"})
+	responsehttpapi.NoContent(w) // fire-and-forget、无可轮询产物(MD4)
 }
 
 func splitCSV(s string) []string {

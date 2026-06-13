@@ -8,8 +8,23 @@ import (
 
 	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
 	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
+	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
 	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
 )
+
+// docHit is the unified slim shape both search paths render — the content engine fills
+// id/name/snippet, the legacy name search fills id/name/path/description; omitempty keeps the
+// JSON tight (MD7: one structured shape, no prose).
+//
+// docHit 是两条检索路径共用的 slim 形状——内容引擎填 id/name/snippet，原名字检索填
+// id/name/path/description；omitempty 保持 JSON 紧凑（MD7：单一结构形状、无散文）。
+type docHit struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Path        string `json:"path,omitempty"`
+	Description string `json:"description,omitempty"`
+	Snippet     string `json:"snippet,omitempty"`
+}
 
 const searchDocumentsDescription = `Search documents by keyword over name / description / tags. Returns path + description per match so you can pick which to read. Prefer list_documents when you already know the folder.`
 
@@ -71,36 +86,20 @@ func (t *SearchDocuments) Execute(ctx context.Context, argsJSON string) (string,
 		if page, err := t.content.Search(ctx, &searchdomain.Query{
 			Q: a.Query, Types: []searchdomain.EntityType{searchdomain.TypeDocument}, IncludeArchived: true, Limit: a.Limit,
 		}); err == nil {
-			if len(page.Hits) == 0 {
-				return fmt.Sprintf("No documents matched %q. Try list_documents(parentId=null) to browse top-level docs or refine the query.", a.Query), nil
-			}
-			var sb strings.Builder
-			fmt.Fprintf(&sb, "Found %d document(s) matching %q:\n\n", len(page.Hits), a.Query)
+			out := make([]docHit, 0, len(page.Hits))
 			for _, h := range page.Hits {
-				fmt.Fprintf(&sb, "- %s (id=%s)\n", h.Name, h.EntityID)
-				if h.Snippet != "" {
-					fmt.Fprintf(&sb, "  %s\n", h.Snippet)
-				}
+				out = append(out, docHit{ID: h.EntityID, Name: h.Name, Snippet: h.Snippet})
 			}
-			sb.WriteString("\nUse read_document(id) to load full content.")
-			return sb.String(), nil
+			return toolapp.ToJSON(map[string]any{"count": len(out), "documents": out}), nil
 		}
 	}
 	rows, err := t.svc.Search(ctx, a.Query, a.Limit)
 	if err != nil {
 		return "", err
 	}
-	if len(rows) == 0 {
-		return fmt.Sprintf("No documents matched %q. Try list_documents(parentId=null) to browse top-level docs or refine the query.", a.Query), nil
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Found %d document(s) matching %q:\n\n", len(rows), a.Query)
+	out := make([]docHit, 0, len(rows))
 	for _, d := range rows {
-		fmt.Fprintf(&sb, "- %s (id=%s)\n", d.Path, d.ID)
-		if d.Description != "" {
-			fmt.Fprintf(&sb, "  %s\n", d.Description)
-		}
+		out = append(out, docHit{ID: d.ID, Name: d.Name, Path: d.Path, Description: d.Description})
 	}
-	sb.WriteString("\nUse read_document(id) to load full content.")
-	return sb.String(), nil
+	return toolapp.ToJSON(map[string]any{"count": len(out), "documents": out}), nil
 }

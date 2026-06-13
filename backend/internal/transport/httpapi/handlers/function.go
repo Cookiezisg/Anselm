@@ -11,6 +11,7 @@ import (
 	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
 	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -50,7 +51,7 @@ func (h *FunctionHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/functions/{id}/versions", h.ListVersions)
 	mux.HandleFunc("GET /api/v1/functions/{id}/versions/{version}", h.GetVersion)
 	mux.HandleFunc("GET /api/v1/functions/{id}/executions", h.ListExecutions)
-	mux.HandleFunc("GET /api/v1/function-executions/{execId}", h.GetExecution)
+	mux.HandleFunc("GET /api/v1/function-executions/{id}", h.GetExecution) // Log 单读路径变量统一 {id}(MD-id4)
 }
 
 type createFunctionRequest struct {
@@ -86,7 +87,8 @@ func (h *FunctionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"function": f, "version": v})
+	f.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	responsehttpapi.Created(w, f)
 }
 
 func (h *FunctionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +148,7 @@ func (h *FunctionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -159,7 +161,7 @@ func (h *FunctionHandler) postOnFunction(w http.ResponseWriter, r *http.Request)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionFunction, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -293,11 +295,12 @@ func (h *FunctionHandler) ListExecutions(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, res)
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	responsehttpapi.Paged(w, map[string]any{"executions": res.Executions, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 
 func (h *FunctionHandler) GetExecution(w http.ResponseWriter, r *http.Request) {
-	e, err := h.svc.GetExecution(r.Context(), r.PathValue("execId"))
+	e, err := h.svc.GetExecution(r.Context(), r.PathValue("id"))
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

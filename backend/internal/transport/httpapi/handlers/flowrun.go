@@ -7,6 +7,7 @@ import (
 
 	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
 	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -119,7 +120,7 @@ func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -130,7 +131,7 @@ func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 		}
 		h.writeRun(w, r, id, func(w http.ResponseWriter, data any) { responsehttpapi.Success(w, http.StatusAccepted, data) })
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 
@@ -140,7 +141,7 @@ func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 func (h *FlowrunHandler) postOnApproval(w http.ResponseWriter, r *http.Request) {
 	nodeID, action, ok := idAndAction(r, "nodeAction")
 	if !ok || action != "decide" {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	var req struct {

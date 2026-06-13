@@ -61,7 +61,7 @@ func newSvc(t *testing.T) (*Service, *fakeEmitter, *fakeRelations, context.Conte
 		}
 	}
 	em := &fakeEmitter{}
-	svc := New(conversationstore.New(ormpkg.Open(sqlDB)), em, zap.NewNop())
+	svc := NewService(conversationstore.New(ormpkg.Open(sqlDB)), em, zap.NewNop())
 	rel := &fakeRelations{}
 	svc.SetRelationSyncer(rel)
 	return svc, em, rel, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")

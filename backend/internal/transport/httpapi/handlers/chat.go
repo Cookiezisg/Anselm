@@ -7,6 +7,7 @@ import (
 
 	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
@@ -37,7 +38,7 @@ func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
 func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
-	mux.HandleFunc("DELETE /api/v1/conversations/{id}/stream", h.Cancel)
+	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel(N5/MD5——取消在途生成是动作、非删子资源)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
@@ -74,7 +75,7 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": msgID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with
@@ -95,11 +96,18 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 
-// Cancel stops the conversation's running turn (204). A graceful no-op when nothing is running.
+// postAction dispatches the conversation-level action POST /conversations/{id}:cancel.
 //
-// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
-func (h *ChatHandler) Cancel(w http.ResponseWriter, r *http.Request) {
-	if err := h.svc.Cancel(r.Context(), r.PathValue("id")); err != nil {
+// postAction 派发对话级动作 POST /conversations/{id}:cancel。
+func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
+	id, action, ok := idAndAction(r, "idAction")
+	if !ok || action != "cancel" {
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
+		return
+	}
+	// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
+	// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
+	if err := h.svc.Cancel(r.Context(), id); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
@@ -146,7 +154,7 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"status": "resolved"})
+	responsehttpapi.NoContent(w) // 纯状态变更、无新产物(MD4)
 }
 
 // Usage returns a conversation's total token cost (the tokensUsed the detail view shows, R0057).

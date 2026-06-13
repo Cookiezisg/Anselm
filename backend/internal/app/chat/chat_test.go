@@ -169,7 +169,7 @@ func newSvc(t *testing.T, client llminfra.Client, bridge streamdomain.Bridge) (*
 		Resolver:      fakeResolver{client: client},
 		Bridge:        bridge,
 	}
-	return New(store, deps, zap.NewNop()), store
+	return NewService(store, deps, zap.NewNop()), store
 }
 
 func ctxWS(id string) context.Context {
@@ -447,7 +447,7 @@ func titleTurn() []llminfra.StreamEvent {
 func TestAutoTitle_FirstTurn(t *testing.T) {
 	store := newStore(t)
 	titler := &fakeTitler{called: make(chan string, 1)}
-	svc := New(store, Deps{
+	svc := NewService(store, Deps{
 		Conversations: fakeConvs{conv: &conversationdomain.Conversation{}}, // untitled
 		Resolver:      fakeResolver{client: &fakeClient{script: titleTurn()}},
 		Bridge:        newRecordBridge(),

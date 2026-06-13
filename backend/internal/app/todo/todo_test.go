@@ -44,7 +44,7 @@ func newSvc(t *testing.T) (*Service, *fakeBridge) {
 		}
 	}
 	br := &fakeBridge{}
-	return New(todostore.New(ormpkg.Open(sqlDB)), br, zap.NewNop()), br
+	return NewService(todostore.New(ormpkg.Open(sqlDB)), br, zap.NewNop()), br
 }
 
 // runCtx seeds workspace + conversation — the ctx a chat/agent loop hands to a tool call.

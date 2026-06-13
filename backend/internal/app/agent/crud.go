@@ -97,8 +97,8 @@ func (s *Service) GetVersionByNumber(ctx context.Context, agentID string, versio
 }
 
 // List returns a cursor page of live agents.
-func (s *Service) List(ctx context.Context, limit int, cursor string) ([]*agentdomain.Agent, string, error) {
-	return s.repo.List(ctx, limit, cursor)
+func (s *Service) List(ctx context.Context, filter agentdomain.ListFilter) ([]*agentdomain.Agent, string, error) {
+	return s.repo.ListAgents(ctx, filter)
 }
 
 // ListAll returns every live agent (no pagination).

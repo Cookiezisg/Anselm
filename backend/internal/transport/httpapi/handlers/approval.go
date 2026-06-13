@@ -10,6 +10,7 @@ import (
 	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
 	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
 	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
@@ -80,7 +81,8 @@ func (h *ApprovalHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, map[string]any{"approval": f, "version": v})
+	f.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	responsehttpapi.Created(w, f)
 }
 
 func (h *ApprovalHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +141,7 @@ func (h *ApprovalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *ApprovalHandler) postOnApproval(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	switch action {
@@ -150,7 +152,7 @@ func (h *ApprovalHandler) postOnApproval(w http.ResponseWriter, r *http.Request)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionApproval, id)
 	default:
-		http.NotFound(w, r)
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
 }
 

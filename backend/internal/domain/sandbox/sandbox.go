@@ -178,6 +178,10 @@ type ProgressFunc func(stage, message string, percent int)
 var (
 	ErrRuntimeNotSupported  = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_RUNTIME_NOT_SUPPORTED", "runtime kind not registered")
 	ErrRuntimeInstallFailed = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED", "runtime install failed")
+	// ErrOwnerKindRequired / ErrInvalidOwnerKind: transport-validation for the envs list query.
+	// ErrOwnerKindRequired / ErrInvalidOwnerKind：envs 列表查询的传输层校验。
+	ErrOwnerKindRequired = errorspkg.New(errorspkg.KindInvalid, "SANDBOX_OWNER_KIND_REQUIRED", "ownerKind query parameter is required")
+	ErrInvalidOwnerKind  = errorspkg.New(errorspkg.KindInvalid, "SANDBOX_INVALID_OWNER_KIND", "ownerKind must be one of: function, handler, mcp, skill, conversation")
 	// ErrRuntimeNotFound is an internal lookup miss (EnsureRuntime consumes it to
 	// decide "not installed → install"); it does not normally reach HTTP.
 	//
