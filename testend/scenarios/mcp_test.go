@@ -380,14 +380,12 @@ func TestMCP_OfficialFilesystemServer(t *testing.T) {
 		t.Fatalf("no read tool advertised; tools=%v", names)
 	}
 
-	var inv struct {
-		Result string `json:"result"`
-	}
+	var inv string // tools/{tool}:invoke 返裸结果(去 {result} 包裹，与 scripted echo 同——S3/MD)
 	wc.POST(fmt.Sprintf("/api/v1/mcp-servers/fs/tools/%s:invoke", readTool), map[string]any{
 		"args": map[string]any{"path": filepath.Join(dir, "hello.txt")},
 	}).OK(t, &inv)
-	if !strings.Contains(inv.Result, proof) {
-		t.Fatalf("read via mcp must return the file content, got %q", inv.Result)
+	if !strings.Contains(inv, proof) {
+		t.Fatalf("read via mcp must return the file content, got %q", inv)
 	}
 
 	var page mcpCallsPage
