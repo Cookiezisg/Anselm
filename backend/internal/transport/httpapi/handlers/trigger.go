@@ -137,7 +137,8 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}
-		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"fired": true, "triggerId": id, "activationId": actID})
+		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}(MD3)
+		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": actID})
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)
 	default:

@@ -74,7 +74,7 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"messageId": msgID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": msgID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with

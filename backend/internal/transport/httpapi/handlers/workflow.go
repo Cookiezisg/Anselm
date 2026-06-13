@@ -227,7 +227,7 @@ func (h *WorkflowHandler) trigger(w http.ResponseWriter, r *http.Request, id str
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"flowrunId": runID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": runID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // stage backs :stage — arm the workflow for one run on its next real trigger fire, then auto-disarm.

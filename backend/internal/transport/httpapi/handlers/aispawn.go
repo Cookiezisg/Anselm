@@ -32,7 +32,7 @@ func iterateEntity(w http.ResponseWriter, r *http.Request, log *zap.Logger, svc 
 		responsehttpapi.FromDomainError(w, log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"conversationId": convID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": convID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // TriageHandler serves the universal `:triage` verb (R0065): diagnose ANY execution record, not
@@ -79,5 +79,5 @@ func (h *TriageHandler) post(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"conversationId": convID})
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": convID}) // 异步动作返新资源 id 统一 {id}(MD3)
 }

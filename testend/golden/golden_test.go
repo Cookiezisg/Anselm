@@ -136,7 +136,7 @@ func drainInteractions(wc *harness.Client, convID string) {
 func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) string {
 	t.Helper()
 	msgID := wc.POST("/api/v1/conversations/"+convID+"/messages",
-		map[string]any{"content": content}).Field(t, "messageId")
+		map[string]any{"content": content}).Field(t, "id") // 异步动作返新资源 id 统一 {id}(MD3)
 	var text string
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)

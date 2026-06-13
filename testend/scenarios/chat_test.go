@@ -57,7 +57,7 @@ func convCreate(t *testing.T, wc *harness.Client, title string) string {
 func sendMsg(t *testing.T, wc *harness.Client, convID, content string) string {
 	t.Helper()
 	return wc.POST("/api/v1/conversations/"+convID+"/messages",
-		map[string]any{"content": content}).Field(t, "messageId")
+		map[string]any{"content": content}).Field(t, "id") // 异步动作返新资源 id 统一 {id}(MD3)
 }
 
 // chatMsg is the wire shape of one turn in GET /conversations/{id}/messages.
