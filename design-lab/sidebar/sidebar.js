@@ -63,7 +63,7 @@
       ['Older', [{ t: 'Notion 同步实验', time: 'May 28' }, { t: '旧版迁移笔记', time: 'May 20' }]],
     ];
     const ARCHIVED = [{ t: '临时调试 agent' }, { t: '废弃的爬虫流程' }, { t: '一次性数据清洗' }];
-    // 行：状态点在首(空心=闲置 / accent脉冲=生成中 / 琥珀=等你 / 红=失败 / 实心灰=未读)+ 标题 + 时间戳(可选) + 悬浮 ⋯
+    // 行：状态点在首(空心=闲置 / 蓝脉冲=生成中 / 橙脉冲=提问 / 红=失败 / 绿=待查看)+ 标题 + 时间戳(可选) + 悬浮 ⋯
     const row = c => `<div class="cv${c.on ? ' on' : ''}"><span class="cv-st${c.st ? ' ' + c.st : ''}"></span><span class="t">${c.t}</span>${c.time ? `<span class="cv-time">${c.time}</span>` : ''}<span class="cv-more">${icon('more', 16)}</span></div>`;
     const opt = (attr, val, on, label) => `<button class="cdisp-opt${on ? ' on' : ''}" ${attr}="${val}"><span class="ck">${icon('check', 14)}</span>${label}</button>`;
     // 空区不渲染（无置顶/无归档则该区整段不出）

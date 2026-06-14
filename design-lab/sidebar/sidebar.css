@@ -90,9 +90,9 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .cv.on { background: var(--cc-active); color: var(--ink); }
 .cv-st { flex: none; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--ink-3); }   /* 闲置:空心环 */
 .cv-st.run { background: var(--accent); border-color: var(--accent); animation: sidePulse 1.5s ease infinite; }                 /* 生成中:accent 脉冲 */
-.cv-st.wait { background: var(--warn); border-color: var(--warn); }                                                             /* 等你(humanloop ask/danger):琥珀 */
+.cv-st.wait { background: var(--warn); border-color: var(--warn); animation: sidePulse 1.5s ease infinite; }                    /* 提问/等你(humanloop):橙 + 脉冲 */
 .cv-st.err { background: var(--danger); border-color: var(--danger); }                                                          /* 失败:红 */
-.cv-st.unread { background: var(--ink-2); border-color: var(--ink-2); }                                                         /* 未读/新:实心灰(需后端读态) */
+.cv-st.unread { background: var(--ok); border-color: var(--ok); }                                                               /* 待查看(后台跑完待看):绿(需后端读态) */
 .cv .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cv-time { flex: none; font-size: 11px; color: var(--ink-3); display: none; }
 .cvlist.show-time .cv-time { display: block; }
