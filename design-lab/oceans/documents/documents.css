@@ -145,6 +145,26 @@
   background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.5s linear infinite; }
 @keyframes shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 
+/* 选中工具条的「点选格式化」按钮（不用记 markdown）：B/I/S/高亮/代码/链接 + AI */
+.ai-bar .sb { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; color: var(--ink-2); font-size: var(--t-sm); transition: background .12s, color .12s; }
+.ai-bar .sb:hover { background: var(--cc-hover); color: var(--ink); }
+.ai-bar .sb b { font-weight: 700; } .ai-bar .sb i { font-style: italic; } .ai-bar .sb s { text-decoration: line-through; }
+.ai-bar .sb.ai { color: var(--accent); font-weight: 600; }                       /* AI 一等、唯一上色 */
+.ai-bar .sb .hl { background: var(--accent-soft); border-radius: 3px; padding: 0 3px; }
+.ai-bar .sb-div { width: 1px; align-self: stretch; margin: 6px 2px; background: var(--line); }   /* 条内细分隔（行内、非横向 divider） */
+
+/* ===== 斜杠菜单 / 命令窗：敲 / 弹出，非 markdown 用户「插入」的唯一入口（学 Notion 的窗） ===== */
+.slash-menu { position: absolute; z-index: 30; width: 288px; max-height: 340px; overflow-y: auto; padding: 6px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-pop);
+  animation: aibarIn var(--d-fast) var(--ease-spring); }
+.slash-group { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); padding: 8px 10px 4px; letter-spacing: .04em; }
+.slash-item { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 8px; cursor: pointer; }
+.slash-item .si-ic { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); }
+.slash-item .si-nm { flex: 1; font-size: var(--t-md); color: var(--ink); }
+.slash-item .si-hint { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
+.slash-item.on { background: var(--cc-active); }                                  /* 选中=中性灰底，非 accent */
+.slash-empty { padding: 14px 12px; font-size: var(--t-sm); color: var(--ink-3); }
+
 /* 整篇错峰入场 */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .fadein { animation: fadeIn .42s var(--ease-spring) both; }

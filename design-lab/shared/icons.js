@@ -50,6 +50,15 @@ window.ICONS = {
   // —— 侧栏底部:通知 / 设置 ——
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',  // 铃铛 = 通知(带未读角标)
   gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/>',  // 齿轮 = 设置
+  // —— Documents 海洋 · 斜杠菜单块类型 ——
+  text:'<path d="M4 6h16M4 12h16M4 18h11"/>',                                                  // 正文段落
+  heading:'<path d="M6 5v14M18 5v14M6 12h12"/>',                                               // 标题 H
+  list:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',  // 无序
+  listol:'<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5h1v4M3.5 9h2"/>',                 // 有序
+  quote:'<path d="M9 7H5v5h4l-1.5 5M19 7h-4v5h4l-1.5 5"/>',                                     // 引用
+  table:'<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M3 10.5h18M9 5v14"/>',    // 表格
+  image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="m4.5 18 4.5-4 3.5 2.5L17 11l3 3.5"/>',  // 图片
+  divider:'<path d="M3 12h18"/>',                                                              // 分隔线
 };
 window.icon = (k, n = 16, w = 1.7) =>
   `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[k] || ''}</svg>`;
