@@ -216,11 +216,13 @@ composer.lock   # 如为库项目，取消注释此行
 .claude/
 
 # ============================================================
-# devbox 本地 virtenv（生成物，可重建）
+# mise 本地覆盖（用户机器特定，不入库）
 # ============================================================
-# .devbox/ = `devbox install` 生成的 nix virtenv（它自带 .devbox/.gitignore=* 自忽略，
-# 此处显式声明、不依赖内部隐式忽略）。源是 devbox.json / devbox.lock（已跟踪）。
-.devbox/
+# mise.toml = 工具链钉版本（已跟踪，源）。mise.local.toml / .mise.local.toml = 个人本地覆盖,
+# 不入库。装的工具在 ~/.local/share/mise（全局,非仓库)。
+mise.local.toml
+.mise.local.toml
+.mise/
 
 # ============================================================
 # Pipeline 测试副产物
