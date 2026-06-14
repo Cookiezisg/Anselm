@@ -11,20 +11,24 @@
    仅换：颜色（干净白/近黑，非米白）+ 字体（系统字，非衬线）。
    ============================================================ */
 :root {
-  --cc-desk:   #d4d5d9;   /* 桌面底（窗口外，衬出浮窗） */
-  --cc-win:    #eaeaed;   /* 窗口内底 = 海（岛之间露出来的缝） */
-  --cc-panel:  #ffffff;   /* 岛（侧栏 / 主区） */
-  --cc-hover:  #efeff1;
-  --cc-active: #e6e6ea;
-  --cc-input:  #ffffff;
+  /* Claude 配色（浅色）：中间对话=白(最亮)，侧栏=略浅灰，整体干净——非米白 */
+  --cc-desk:   #d4d5d9;   /* 桌面底（窗外，衬出浮窗） */
+  --cc-win:    #ffffff;   /* 窗内 = 海 = 中间对话面（白） */
+  --cc-side:   #f5f5f7;   /* 侧栏岛（比海略深的浅灰，克制区分） */
+  --cc-bubble: #f0f0f2;   /* 用户气泡 */
+  --cc-input:  #ffffff;   /* 输入框（白 + 发丝边） */
+  --cc-hover:  #ebebee;
+  --cc-active: #e4e4e8;
 }
 [data-theme="dark"] {
+  /* 暗色：海最深，岛略亮（浮起） */
   --cc-desk:   #050506;
-  --cc-win:    #100f12;
-  --cc-panel:  #1b1b1d;
-  --cc-hover:  #252527;
-  --cc-active: #2d2d31;
-  --cc-input:  #202023;
+  --cc-win:    #0e0e10;
+  --cc-side:   #1a1a1c;
+  --cc-bubble: #232325;
+  --cc-input:  #1a1a1c;
+  --cc-hover:  #242426;
+  --cc-active: #2c2c30;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -62,8 +66,8 @@ code, .mono { font-family: var(--mono); }
 .body { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 0 8px 8px; }
 
 /* ---- 侧栏 ---- */
-/* 侧栏 = 岛：白面板，浮在海上 */
-.side { width: 240px; flex: none; background: var(--cc-panel); border: 1px solid var(--line);
+/* 侧栏 = 岛：略浅灰面板，浮在白海上 */
+.side { width: 240px; flex: none; background: var(--cc-side); border: 1px solid var(--line);
   border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04);
   display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
 
@@ -111,8 +115,8 @@ code, .mono { font-family: var(--mono); }
 /* 消息 */
 .turn { margin-bottom: 26px; }
 .umsg { display: flex; justify-content: flex-end; margin-bottom: 26px; }
-.umsg .b { background: var(--cc-panel); border: 1px solid var(--line); border-radius: 16px;
-  padding: 10px 15px; max-width: 80%; line-height: 1.55; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.umsg .b { background: var(--cc-bubble); border-radius: 16px;
+  padding: 10px 15px; max-width: 80%; line-height: 1.55; }
 .spark { display: flex; align-items: center; gap: 0; margin-bottom: 12px; color: var(--accent); }
 .amsg { font-size: 14px; line-height: 1.65; }
 .amsg p { margin: 0 0 12px; }
@@ -142,7 +146,7 @@ code, .mono { font-family: var(--mono); }
 .composer { flex: none; padding: 0 32px 18px; }
 .cwrap { max-width: 860px; margin: 0 auto; }
 .ctx { display: flex; align-items: center; gap: 10px; padding: 7px 12px; margin-bottom: 8px;
-  background: var(--cc-panel); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--cc-input); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: 0 1px 2px rgba(0,0,0,.04); font-size: 12px; color: var(--ink-2); }
 .ctx .repo { display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
 .ctx .branch { display: flex; align-items: center; gap: 5px; color: var(--ink-2); }
