@@ -81,6 +81,26 @@
       sea.querySelectorAll('.mention-row').forEach(r => r.onclick = () => $('#mpop').classList.remove('show'));
       $('#b_stop').onclick = () => { runId++; setGen(false); };   // 停止 = POST :cancel（中断当前回合）
 
+      // 对话标题块 → 主区头左侧 head-lead（原面包屑位）：紧凑块 + 向下箭头快捷操作（重命名/置顶/归档/删除）
+      Shell.headLead.querySelectorAll('[data-ocean-head]').forEach(e => e.remove());   // 自清：重挂不重复
+      const titlebar = el('span', 'chat-titlebar'); titlebar.setAttribute('data-ocean-head', 'chat');
+      titlebar.innerHTML = `<button class="chat-title"><span class="tt">每日竞品摘要</span><span class="chev">${icon('chevd', 13)}</span></button>
+        <div class="qa-menu"><div class="qa-item" data-a="rename">重命名</div><div class="qa-item" data-a="pin">置顶</div><div class="qa-item" data-a="archive">归档</div><div class="qa-item danger" data-a="delete">删除对话</div></div>`;
+      Shell.headLead.appendChild(titlebar);
+      const titleBtn = $('.chat-title', titlebar), qa = $('.qa-menu', titlebar);
+      titleBtn.onclick = e => { e.stopPropagation(); const open = qa.classList.toggle('show'); titleBtn.classList.toggle('open', open); };
+      document.addEventListener('click', () => { qa.classList.remove('show'); titleBtn.classList.remove('open'); });
+      qa.querySelectorAll('.qa-item').forEach(it => it.onclick = e => {
+        e.stopPropagation(); qa.classList.remove('show'); titleBtn.classList.remove('open');
+        if (it.dataset.a !== 'rename') return;
+        const tt = $('.tt', titleBtn), cur = tt.textContent;
+        const inp = el('input', 'chat-title-edit'); inp.value = cur;
+        ['click', 'mousedown'].forEach(ev => inp.addEventListener(ev, x => x.stopPropagation()));   // 编辑时别触发块的开关
+        tt.replaceWith(inp); inp.focus(); inp.select();
+        const fin = () => { const s = el('span', 'tt'); s.textContent = inp.value.trim() || cur; inp.replaceWith(s); };
+        inp.onblur = fin; inp.onkeydown = ev => { if (ev.key === 'Enter') inp.blur(); else if (ev.key === 'Escape') { inp.value = cur; inp.blur(); } };
+      });
+
       dock = buildDock();
       run();
     },

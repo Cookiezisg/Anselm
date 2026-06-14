@@ -194,6 +194,22 @@
 /* ===== compaction 标记（六型之一；安静耳语、无框无线，守「禁分割线」） ===== */
 .compaction { text-align: center; color: var(--ink-3); font-size: 11px; font-family: var(--mono); margin: 22px 0; opacity: .8; }
 
+/* ===== 主区头：对话标题块（原面包屑位，左上角紧凑块；配右上角控件的克制风格——无边、hover 出底） ===== */
+.chat-titlebar { position: relative; }
+.chat-title { display: inline-flex; align-items: center; gap: 4px; height: 30px; max-width: 340px; padding: 0 6px 0 11px; border-radius: 8px; color: var(--ink); font-weight: 600; font-size: 13px; transition: background .15s; }
+.chat-title:hover { background: var(--cc-hover); }
+.chat-title .tt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-title .chev { color: var(--ink-3); }
+.chat-title.open .chev { transform: rotate(180deg); }
+.chat-title-edit { font: inherit; font-weight: 600; font-size: 13px; color: var(--ink); background: var(--cc-input); border: 1px solid var(--line-strong); border-radius: 6px; padding: 1px 7px; outline: none; width: 180px; }
+.qa-menu { position: absolute; top: 36px; left: 0; min-width: 168px; padding: 4px; display: none; z-index: 20;
+  background: var(--cc-input); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-pop); }
+.qa-menu.show { display: block; animation: popin .16s var(--ease-spring); }
+.qa-item { display: flex; align-items: center; padding: 7px 10px; border-radius: 7px; font-size: 13px; color: var(--ink); cursor: pointer; transition: background .12s; }
+.qa-item:hover { background: var(--cc-hover); }
+.qa-item.danger { color: var(--danger); }
+.qa-item.danger:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+
 /* ===== composer（纠正为产品真相：去 git/PR/Auto/Ultracode/mic；加 dialogue 模型 / @提及 / 附件 / 生成中 cancel） ===== */
 .composer { flex: none; padding: 0 32px 18px; }
 .cwrap { max-width: 860px; margin: 0 auto; }
