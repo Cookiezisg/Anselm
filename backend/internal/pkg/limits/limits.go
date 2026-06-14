@@ -74,10 +74,10 @@ type GuardLimits struct {
 	WebhookBodyMaxMB int `json:"webhookBodyMaxMB"`
 }
 
-// Default returns the defaults — aligned with what the code actually enforced before
-// limits was wired (the previous hardcoded constants), so wiring changed no behavior.
+// Default returns the operative defaults — the constants enforced when settings.json
+// names no override.
 //
-// Default 返默认值——与接线前代码实际执行的硬编码常量对齐，接线不改变任何行为。
+// Default 返默认值——settings.json 未点名覆盖时执行的常量。
 func Default() Limits {
 	return Limits{
 		Agent:   AgentLimits{MaxSteps: 25, InvokeMaxTurns: 10},

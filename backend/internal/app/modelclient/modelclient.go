@@ -1,16 +1,16 @@
 // Package modelclient is THE model→client resolution chain (scenario → ModelRef →
 // credentials → built Client + pre-filled base Request). Every LLM consumer outside
 // the chat loop (utility sifter / envfix / web summariser / bootstrap resolvers) goes
-// through this one function: the chain was hand-rolled three times before, and all
-// three copies miswired Factory.Build's second return (the resolved base URL) into
+// through this one function so no consumer re-hand-rolls the chain: a hand-rolled copy
+// easily miswires Factory.Build's second return (the resolved base URL) into
 // Request.ModelID — sending "model": "<base url>" on the wire and silently killing
-// the feature behind it (acceptance AC-26).
+// the feature behind it.
 //
 // Package modelclient 是唯一的 model→client 解析链（scenario → ModelRef → 凭证 →
 // 造好的 Client + 预填 base Request）。chat loop 之外的所有 LLM 消费方（utility
-// 精选 / envfix / web 摘要 / bootstrap resolvers）都走这一个函数：此前这条链被手抄
-// 三份，三份全把 Factory.Build 的第二返回值（解析后的 base URL）误接到
-// Request.ModelID——线缆上发出 "model": "<base url>"，静默杀死其背后的功能（AC-26）。
+// 精选 / envfix / web 摘要 / bootstrap resolvers）都走这一个函数，使任何消费方都不再手抄
+// 此链：手抄极易把 Factory.Build 的第二返回值（解析后的 base URL）误接到
+// Request.ModelID——线缆上发出 "model": "<base url>"，静默杀死其背后的功能。
 package modelclient
 
 import (

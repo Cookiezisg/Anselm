@@ -1,12 +1,12 @@
 // Package control provides the LLM system tools for the control-logic library:
 // search / get / create / edit / revert / delete. These are lazy tools (Toolset.Lazy)
 // — surfaced via search_tools, not resident. There is NO run/executions tool: a control
-// logic is evaluated by the workflow durable interpreter (波次 4), never invoked
+// logic is evaluated by the workflow durable interpreter, never invoked
 // standalone.
 //
 // Package control 提供操作 control 逻辑库的 LLM system tool：search/get/create/edit/revert/
 // delete。懒加载工具（Toolset.Lazy）——经 search_tools 浮现，非常驻。**无 run/executions 工具**：
-// control 逻辑由 workflow durable 解释器（波次 4）求值，绝不独立调用。
+// control 逻辑由 workflow durable 解释器求值，绝不独立调用。
 package control
 
 import (

@@ -4,12 +4,12 @@ import "time"
 
 // Firing is the durable inbox row — persist-before-act: written the moment a trigger
 // fires, before any flowrun starts. A single fire fans out to one Firing per listening
-// workflow. The scheduler (波次 4) drains pending firings, claiming each in one tx
-// (pending→claimed→started) so there is never a claimed-but-no-flowrun strand (ADR-021).
+// workflow. The scheduler drains pending firings, claiming each in one tx
+// (pending→claimed→started) so there is never a claimed-but-no-flowrun strand.
 // Terminal status IS the outcome ("every firing reaches a terminal status").
 //
 // Firing 是 durable 收件箱行——先持久化再动作：trigger fire 的瞬间就写，早于任何 flowrun。
-// 一次 fire 按监听的 workflow 扇出成多条 Firing。scheduler（波次 4）排空 pending、单事务 claim
+// 一次 fire 按监听的 workflow 扇出成多条 Firing。scheduler 排空 pending、单事务 claim
 // 每条（pending→claimed→started），无 claimed-但-无-flowrun 残留态。终态 status 即 outcome。
 type Firing struct {
 	ID           string         `db:"id,pk"               json:"id"`

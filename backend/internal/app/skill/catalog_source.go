@@ -9,11 +9,13 @@ import (
 )
 
 // AsCatalogSource exposes the skill library to the capability catalog (name + description only).
-// This IS skill's discovery channel — the overview is injected into the system prompt, the LLM
-// reads it and calls activate_skill directly (no search_skills middle layer needed).
+// This IS skill's discovery channel — skills get no search_tools projection and no dedicated
+// search tool; the catalog overview is injected into the system prompt, and the LLM reads it
+// and calls activate_skill directly.
 //
 // AsCatalogSource 把 skill 库暴露给能力 catalog（只 name + description）。这就是 skill 的发现
-// 通道——概览注入系统提示，LLM 看完直接调 activate_skill（无需 search_skills 中间层）。
+// 通道——skill 不进 search_tools 投影、无专门搜索工具，catalog 概览注入系统提示，LLM 看完直接
+// 调 activate_skill。
 func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 	return &skillCatalogSource{svc: s}
 }

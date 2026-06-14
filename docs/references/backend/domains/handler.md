@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-用户锻造的**有状态** Python 类：每个 handler 跑**一个长生命周期的常驻进程**（像 MCP server）——开局/首调 spawn、跨调用保活（`self.xxx` 状态留存）、edit/改 config/crash 时重启、退出软件才优雅关闭。**所有调用方（chat/agent/workflow）共享这一个实例**（真共享状态）。代码层级：`domain/handler` → `app/handler`（14 文件，最大的实体 app）→ `infra/store/handler` + `infra/handler`（RPC 客户端）+ `app/tool/handler`（11 工具）。
+用户锻造的**有状态** Python 类：每个 handler 跑**一个长生命周期的常驻进程**（像 MCP server）——开局/首调 spawn、跨调用保活（`self.xxx` 状态留存）、edit/改 config/crash 时重启、退出软件才优雅关闭。**所有调用方（chat/agent/workflow）共享这一个实例**（真共享状态）。代码层级：`domain/handler` → `app/handler`（16 文件，最大的实体 app）→ `infra/store/handler` + `infra/handler`（RPC 客户端）+ `app/tool/handler`（11 工具）。
 
 ## 2. 心智模型
 
@@ -44,7 +44,7 @@ class HandlerImpl:
 ### 实例生命周期（`instanceManager`，handler 的灵魂）
 
 `map[handlerID]*Instance` + mutex，**每 handler 至多一个**：
-- **Get**：有且未 crashed → 直接用；crashed → 摘掉+杀掉，重新 spawn；spawn 后**双检竞态**（并发已注册则用已有的、把自己这个 shutdown 掉）。
+- **Get**：有且未 crashed → 直接用；crashed → 摘掉+杀掉，重新 spawn；并发缺失/crashed 走 §2 的 per-handler 单飞 channel（并发调用方等 channel settle 后重新 Get，绝不造重复实例）。
 - **Boot**：启动时为每个"active 版本 env-ready 且 config 完整"的 handler 预热实例（best-effort，起不来就停着、首调重试）。
 - **Restart** = Stop + Get（edit/revert/改 config 后必走——实例要吃新代码/新 config）；**StopAll** = 退出软件。
 - `State()` 报 running/stopped/crashed（`Get` 单读上 RuntimeState 计算字段）。

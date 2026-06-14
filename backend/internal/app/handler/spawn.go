@@ -130,11 +130,11 @@ func activeToDraft(v *handlerdomain.Version) *VersionDraft {
 // captureStderr scans the subprocess stderr line-by-line into the log (crash diagnosis)
 // AND the instance's stderr fan (per-call attribution: live progress + persisted call
 // logs). The protocol owns stdout, so stderr is the ONLY channel a handler's print()/
-// logging reaches — before the fan it was zap-only, invisible to the user.
+// logging reaches — the fan makes it user-visible instead of zap-only.
 //
 // captureStderr 行扫子进程 stderr 进 log（崩溃诊断）**并**进实例 stderr 扇出（per-call 归属：
 // 实时进度 + 调用日志落盘）。协议占用 stdout，stderr 是 handler 的 print()/日志唯一能到达的
-// 通道——接扇出前它只进 zap、用户不可见。
+// 通道——扇出让它对用户可见、而非只进 zap。
 func captureStderr(r io.ReadCloser, log *zap.Logger, fan *stderrFan) {
 	if r == nil {
 		return

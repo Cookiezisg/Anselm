@@ -34,7 +34,7 @@ type EditInput struct {
 }
 
 // Create validates + persists a new trigger and syncs its relation edges. It does NOT attach
-// a listener — a listener starts only when an active workflow references it (Attach, 波次 4).
+// a listener — a listener starts only when an active workflow references it (Attach).
 //
 // Create 校验 + 持久化新 trigger 并同步关系边。**不挂 listener**——listener 仅在 active workflow 引用时启动。
 func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Trigger, error) {

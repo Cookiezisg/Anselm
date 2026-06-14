@@ -21,14 +21,14 @@ import (
 )
 
 // Block is one node of an assistant turn's content tree, persisted to message_blocks.
-// loop produces Blocks in memory; the host persists them (the store lives in chat M5.2).
-// Seq is assigned at persist time, not by loop. ContextRole is set later by the compactor
-// (contextmgr M5.3) and only projects how the block reaches LLM history — stored Content
+// loop produces Blocks in memory; the host persists them (the store lives in chat). Seq is
+// assigned at persist time, not by loop. ContextRole is set later by the compactor
+// (app/contextmgr) and only projects how the block reaches LLM history — stored Content
 // is never rewritten.
 //
 // Block 是 assistant 回合内容树的一个节点，持久化到 message_blocks。loop 内存产 Block；
-// host 落盘（store 在 chat M5.2）。Seq 在落盘时分配、非 loop 设。ContextRole 后由压缩器
-// （contextmgr M5.3）设置，只投影 block 如何进入 LLM 历史——落库 Content 永不改写。
+// host 落盘（store 在 chat）。Seq 在落盘时分配、非 loop 设。ContextRole 后由压缩器
+// （app/contextmgr）设置，只投影 block 如何进入 LLM 历史——落库 Content 永不改写。
 type Block struct {
 	ID             string         `db:"id,pk" json:"id"`
 	ConversationID string         `db:"conversation_id" json:"conversationId"`
@@ -57,10 +57,10 @@ const (
 	BlockTypeReasoning  = "reasoning"
 	BlockTypeToolCall   = "tool_call"
 	BlockTypeToolResult = "tool_result"
-	// BlockTypeCompaction marks a context-compaction summary (contextmgr M5.3); loop drops
+	// BlockTypeCompaction marks a context-compaction summary (app/contextmgr); loop drops
 	// it from LLM history because the content already lives in conversation.summary.
 	//
-	// BlockTypeCompaction 标记上下文压缩摘要（contextmgr M5.3）；loop 从 LLM 历史丢弃它，
+	// BlockTypeCompaction 标记上下文压缩摘要（app/contextmgr）；loop 从 LLM 历史丢弃它，
 	// 内容已在 conversation.summary。
 	BlockTypeCompaction = "compaction"
 
@@ -134,12 +134,12 @@ const (
 
 // ContextRole projects how a block reaches LLM history without rewriting stored Content:
 // hot = full, warm = truncated preview, cold = omitted-with-marker, archived = dropped
-// (content folded into conversation.summary). Set by the compactor (contextmgr M5.3); the
+// (content folded into conversation.summary). Set by the compactor (app/contextmgr); the
 // default at write time is hot.
 //
 // ContextRole 投影 block 如何进入 LLM 历史而不改写落库 Content：hot 全文、warm 截断预览、
-// cold 省略带标记、archived 丢弃（内容并入 conversation.summary）。由压缩器（contextmgr
-// M5.3）设置；落盘默认 hot。
+// cold 省略带标记、archived 丢弃（内容并入 conversation.summary）。由压缩器（app/contextmgr）
+// 设置；落盘默认 hot。
 const (
 	ContextRoleHot      = "hot"
 	ContextRoleWarm     = "warm"
@@ -193,13 +193,13 @@ type Message struct {
 	ID             string `db:"id,pk" json:"id"` // msg_<16hex>
 	ConversationID string `db:"conversation_id" json:"conversationId"`
 	WorkspaceID    string `db:"workspace_id,ws" json:"-"` // D2 物理隔离；orm 自动填/过滤
-	// SubagentID marks a turn produced by a subagent run (recursive sub-conversation, M5.2+):
+	// SubagentID marks a turn produced by a subagent run (recursive sub-conversation):
 	// "" for a top-level turn; the subagent run id otherwise. chat's LoadHistory excludes
 	// SubagentID != "" so a subagent's internal trace never pollutes the parent's LLM history
 	// (the parent only sees the spawning tool_call + its tool_result). ListMessages still returns
 	// them so a reload can rebuild the subagent subtree (the spawning tool_call id rides Attrs).
 	//
-	// SubagentID 标记由 subagent run 产出的回合（递归子对话，M5.2+）：顶层回合 ""；否则 subagent
+	// SubagentID 标记由 subagent run 产出的回合（递归子对话）：顶层回合 ""；否则 subagent
 	// run id。chat 的 LoadHistory 排除 SubagentID != ""，使 subagent 内部 trace 绝不污染父的 LLM
 	// 历史（父只见派它的 tool_call + 其 tool_result）。ListMessages 仍返回它们，使 reload 能重建
 	// subagent 子树（派它的 tool_call id 走 Attrs）。
@@ -280,10 +280,10 @@ type Repository interface {
 	// GetMessage 返回一个回合并 hydrate 其 Blocks；缺失时 ErrMessageNotFound。
 	GetMessage(ctx context.Context, id string) (*Message, error)
 
-	// ListMessages returns one keyset page of a conversation's turns, oldest-first, each with
+	// ListMessages returns one keyset page of a conversation's turns, newest-first, each with
 	// Blocks hydrated (the REST history endpoint, N4 pagination).
 	//
-	// ListMessages 返回一个对话回合的一页 keyset（最旧在前），每条 hydrate Blocks（REST 历史端点，N4 分页）。
+	// ListMessages 返回一个对话回合的一页 keyset（最新在前），每条 hydrate Blocks（REST 历史端点，N4 分页）。
 	ListMessages(ctx context.Context, conversationID, cursor string, limit int) (items []*Message, next string, err error)
 
 	// LoadThread returns the whole conversation, oldest-first, every turn with Blocks hydrated

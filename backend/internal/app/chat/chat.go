@@ -1,22 +1,14 @@
 // Package chat is the conversation engine: it turns a user message into a persisted turn,
 // drives a ReAct loop (app/loop) over the workspace's tools, streams the assistant turn live
-// (messages stream), and persists the result. It is the hub of wave 5 — wiring the already-built
-// conversation / messages / loop / tool / attachment / memory / document / catalog / todo / model
-// pieces into one dialogue turn — but owns none of them: every dependency arrives through a port
-// (DIP), so chat stays testable with a fake LLM and the real wiring lands in M7.
-//
-// Built across M5.2's chat sub-rounds: R0055 = engine core (chatHost / convQueue / Send /
-// System Prompt / SSE message node / model resolve); R0056 = HTTP handler + Cancel + mention
-// (registry / freeze-on-send / render); R0057 = auto-title + usage + system-prompt-preview.
+// (messages stream), and persists the result. It wires the conversation / messages / loop /
+// tool / attachment / memory / document / catalog / todo / model pieces into one dialogue turn
+// but owns none of them: every dependency arrives through a port (DIP), so chat stays testable
+// with a fake LLM and the concrete implementations are injected by bootstrap.
 //
 // Package chat 是对话引擎：把用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（app/loop）、
-// 实时推 assistant 回合（messages 流）、落盘结果。它是波次 5 的枢纽——把已建的 conversation /
-// messages / loop / tool / attachment / memory / document / catalog / todo / model 拧成一个对话
-// 回合——但一个都不拥有：每个依赖都经端口注入（DIP），故 chat 用 fake LLM 即可测，真实装配在 M7。
-//
-// 跨 M5.2 chat 子轮建成：R0055 = 引擎核心（chatHost / convQueue / Send / System Prompt / SSE
-// message 节点 / model resolve）；R0056 = HTTP handler + Cancel + mention（注册表 / freeze / 渲染）；
-// R0057 = auto-title + usage + system-prompt-preview。
+// 实时推 assistant 回合（messages 流）、落盘结果。它把 conversation / messages / loop / tool /
+// attachment / memory / document / catalog / todo / model 拧成一个对话回合，但一个都不拥有：每个
+// 依赖都经端口注入（DIP），故 chat 用 fake LLM 即可测，具体实现由 bootstrap 注入。
 package chat
 
 import (
@@ -61,12 +53,12 @@ const attrAttachments = "attachments"
 // 不背着用户排队。
 const queueCapacity = 1
 
-// Errors that bubble to HTTP (R0056 handler maps them). Defined here (chat has no domain package
+// Errors that bubble to HTTP (the handler maps them). Defined here (chat has no domain package
 // — messages is the neutral content model) via errorspkg so they carry a Kind→status + a
-// stable wire code, per S20. The wire codes are already registered in error-codes.md §2.4.
+// stable wire code, per S20. The wire codes are registered under error-codes.md's app/chat section.
 //
-// 冒泡到 HTTP 的错误（R0056 handler 映射）。在此定义（chat 无 domain 包——messages 是中立内容
-// 模型），经 errorspkg 带 Kind→status + 稳定 wire code（S20）。wire code 已登记 error-codes §2.4。
+// 冒泡到 HTTP 的错误（handler 映射）。在此定义（chat 无 domain 包——messages 是中立内容
+// 模型），经 errorspkg 带 Kind→status + 稳定 wire code（S20）。wire code 登记在 error-codes 的 app/chat 节。
 var (
 	ErrEmptyContent     = errorspkg.New(errorspkg.KindInvalid, "EMPTY_CONTENT", "message has no text and no attachments")
 	ErrStreamInProgress = errorspkg.New(errorspkg.KindConflict, "STREAM_IN_PROGRESS", "this conversation already has an assistant turn running")
@@ -82,9 +74,9 @@ var (
 type ConversationReader interface {
 	Get(ctx context.Context, id string) (*conversationdomain.Conversation, error)
 	// Unarchive clears the archived flag — Send auto-unarchives (messaging an archived thread
-	// implicitly brings it back, review PD-2).
+	// implicitly brings it back).
 	//
-	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回，评审 PD-2）。
+	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回）。
 	Unarchive(ctx context.Context, id string) error
 }
 
@@ -113,22 +105,22 @@ type Bundle struct {
 }
 
 // ModelResolver turns the conversation's model override (nil = workspace dialogue default) into
-// a runnable Bundle. The M7 adapter does model.Resolve(dialogue, override, picker) → credentials
-// → factory.Build, mirroring agent's runLoop.
+// a runnable Bundle. The bootstrap adapter does model.Resolve(dialogue, override, picker) →
+// credentials → factory.Build, mirroring agent's runLoop.
 //
-// ModelResolver 把对话的 model 覆盖（nil = workspace dialogue 默认）解析为可运行 Bundle。M7 适配器
-// 做 model.Resolve(dialogue, override, picker) → credentials → factory.Build，对标 agent runLoop。
+// ModelResolver 把对话的 model 覆盖（nil = workspace dialogue 默认）解析为可运行 Bundle。bootstrap
+// 适配器做 model.Resolve(dialogue, override, picker) → credentials → factory.Build，对标 agent runLoop。
 type ModelResolver interface {
 	ResolveChat(ctx context.Context, override *modeldomain.ModelRef) (Bundle, error)
 	// ResolveUtility resolves the workspace's utility model (a small, cheap model) for
-	// background chores like auto-title — the M7 adapter does model.Resolve(ScenarioUtility, …).
+	// background chores like auto-title — the bootstrap adapter does model.Resolve(ScenarioUtility, …).
 	//
-	// ResolveUtility 解析 workspace 的 utility 模型（小而廉价）供 auto-title 等后台杂活——M7 适配器做
-	// model.Resolve(ScenarioUtility, …)。
+	// ResolveUtility 解析 workspace 的 utility 模型（小而廉价）供 auto-title 等后台杂活——bootstrap
+	// 适配器做 model.Resolve(ScenarioUtility, …)。
 	ResolveUtility(ctx context.Context) (Bundle, error)
 }
 
-// ConversationTitler writes a conversation's auto-generated title (auto-title, R0057). The
+// ConversationTitler writes a conversation's auto-generated title (auto-title). The
 // conversationapp.Service satisfies it; it deliberately never clobbers a user-set title.
 //
 // ConversationTitler 写对话的自动生成标题（auto-title）。conversationapp.Service 满足之；它绝不
@@ -167,12 +159,12 @@ type (
 	}
 )
 
-// Deps are chat's injected collaborators (DIP). Grouped so New stays readable; M7 fills the real
-// implementations, tests fill fakes. A nil optional provider degrades that System Prompt section
-// to empty (chat never hard-requires memory/catalog/documents to be wired).
+// Deps are chat's injected collaborators (DIP). Grouped so New stays readable; bootstrap fills
+// the real implementations, tests fill fakes. A nil optional provider degrades that System Prompt
+// section to empty (chat never hard-requires memory/catalog/documents to be wired).
 //
-// Deps 是 chat 注入的协作者（DIP）。分组使 New 可读；M7 填真实现、测试填 fake。可选 provider 为
-// nil 时该 System Prompt 段降级为空（chat 不硬要求 memory/catalog/documents 接线）。
+// Deps 是 chat 注入的协作者（DIP）。分组使 New 可读；bootstrap 填真实现、测试填 fake。可选 provider
+// 为 nil 时该 System Prompt 段降级为空（chat 不硬要求 memory/catalog/documents 接线）。
 type Deps struct {
 	Conversations  ConversationReader
 	Resolver       ModelResolver
@@ -184,38 +176,38 @@ type Deps struct {
 	Todo           TodoReminder
 	Bridge         streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
 	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors forge tool_call deltas here; nil → no entity-panel live fill
-	Titler         ConversationTitler         // auto-title writer (R0057); nil → no auto-titling
-	Notifier       notificationdomain.Emitter // auto-title notification (R0057); nil → no notify
-	Compactor      Compactor                  // context compaction (R0059); nil → no compaction
+	Titler         ConversationTitler         // auto-title writer; nil → no auto-titling
+	Notifier       notificationdomain.Emitter // auto-title notification; nil → no notify
+	Compactor      Compactor                  // context compaction; nil → no compaction
 }
 
-// Compactor compacts a conversation when it nears the model's context window (contextmgr M5.3).
+// Compactor compacts a conversation when it nears the model's context window (app/contextmgr).
 // chat calls it at the tail of a turn, on a detached context inside the per-conversation queue
 // slot (so it can't race the next turn's history load). nil → compaction is off.
 //
-// Compactor 在对话逼近模型 context window 时压缩它（contextmgr M5.3）。chat 在回合尾、per-conversation
+// Compactor 在对话逼近模型 context window 时压缩它（app/contextmgr）。chat 在回合尾、per-conversation
 // queue 槽内的 detached context 上调用（故与下回合历史加载无竞态）。nil → 关闭压缩。
 type Compactor interface {
 	MaybeCompact(ctx context.Context, conversationID string) error
 }
 
-// Service is the chat engine. messages is the persistence (R0054); the rest arrive via Deps.
+// Service is the chat engine. messages is the persistence; the rest arrive via Deps.
 // queues holds one convQueue per active conversation; wg tracks their goroutines for shutdown.
 //
-// Service 是 chat 引擎。messages 是持久化（R0054）；其余经 Deps。queues 每活跃对话一个 convQueue；
+// Service 是 chat 引擎。messages 是持久化；其余经 Deps。queues 每活跃对话一个 convQueue；
 // wg 追踪其 goroutine 供关停。
 type Service struct {
 	messages         messagesdomain.Repository
 	search           searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	deps             Deps
 	searchTool       toolapp.Tool                                         // search_tools, built once from Deps.Toolset.Lazy; resident in every turn
-	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type at M7
+	mentionResolvers map[mentiondomain.MentionType]mentiondomain.Resolver // @-mention resolvers, registered per type by bootstrap
 	log              *zap.Logger
 
-	// broker is the human-in-the-loop broker (R0064): seeded into every turn's ctx so the loop's
+	// broker is the human-in-the-loop broker: seeded into every turn's ctx so the loop's
 	// danger gate + the ask_user tool can block for a human decision, resolved via ResolveInteraction.
 	//
-	// broker 是人在环 broker（R0064）：seed 进每个回合的 ctx，使 loop 的 danger 门 + ask_user 工具能阻塞等人
+	// broker 是人在环 broker：seed 进每个回合的 ctx，使 loop 的 danger 门 + ask_user 工具能阻塞等人
 	// 决定，经 ResolveInteraction 决议。
 	broker *humanloopapp.Broker
 
@@ -246,11 +238,11 @@ func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) 
 	return s
 }
 
-// SendInput is the user's turn: text plus referenced attachment ids. Mentions are deferred to
-// R0056 (the resolver registry + <mentions> rendering); the field is reserved so the Send API is
-// stable across the two sub-rounds.
+// SendInput is the user's turn: text plus referenced attachment ids. Mentions are deferred
+// to a later sub-round (the resolver registry + <mentions> rendering); the field is reserved so the
+// Send API is stable across the two sub-rounds.
 //
-// SendInput 是用户回合：文本 + 引用的附件 id。Mentions 留 R0056（resolver 注册表 + <mentions> 渲染）；
+// SendInput 是用户回合：文本 + 引用的附件 id。Mentions 留待后续子轮（resolver 注册表 + <mentions> 渲染）；
 // 字段预留使 Send API 在两个子轮间稳定。
 type SendInput struct {
 	Content       string
@@ -280,10 +272,10 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err != nil {
 		return "", err
 	}
-	// Auto-unarchive (PD-2): sending to an archived thread implicitly brings it back. Soft-fail
+	// Auto-unarchive: sending to an archived thread implicitly brings it back. Soft-fail
 	// — a failed flag flip must not block the message itself.
 	//
-	// 自动解档（PD-2）：给归档线程发消息即隐式唤回。软失败——标志翻转失败不挡消息本身。
+	// 自动解档：给归档线程发消息即隐式唤回。软失败——标志翻转失败不挡消息本身。
 	if conv.Archived {
 		if err := s.deps.Conversations.Unarchive(ctx, conversationID); err != nil {
 			s.log.Warn("chatapp.Send: auto-unarchive failed", zap.String("conversationId", conversationID), zap.Error(err))
@@ -371,12 +363,12 @@ type task struct {
 
 // convQueue serializes one conversation's generations: a single goroutine drains a small buffered
 // channel, so only one assistant turn runs at a time (which makes the per-conversation seq
-// allocation race-free, R0054). agentState is shared across the conversation's turns; cancel
-// holds the running turn's cancel func (the cancel endpoint, R0056, calls it).
+// allocation race-free). agentState is shared across the conversation's turns; cancel
+// holds the running turn's cancel func (the cancel endpoint calls it).
 //
 // convQueue 串行化一个对话的生成：单 goroutine 抽干小缓冲 channel，故同一时刻只跑一个 assistant 回合
-// （这使 per-conversation seq 分配无竞争，R0054）。agentState 跨对话的回合共享；cancel 持运行中回合的
-// cancel func（cancel 端点 R0056 调它）。
+// （这使 per-conversation seq 分配无竞争）。agentState 跨对话的回合共享；cancel 持运行中回合的
+// cancel func（cancel 端点调它）。
 type convQueue struct {
 	ch         chan task
 	agentState *agentstatepkg.AgentState
@@ -504,7 +496,7 @@ func (s *Service) Usage(ctx context.Context, conversationID string) (inputTokens
 	return s.messages.SumTokens(ctx, conversationID)
 }
 
-// Cancel stops a conversation's generation (the DELETE stream endpoint, R0056): it triggers the
+// Cancel stops a conversation's generation (the DELETE stream endpoint): it triggers the
 // running turn's context cancel — loop's stream aborts and WriteFinalize lands a cancelled
 // terminal on its detached context — and drains any queued-but-unstarted turns, finalizing each
 // as cancelled so none becomes a streaming orphan. No active queue → a graceful no-op.

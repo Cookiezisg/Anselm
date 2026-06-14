@@ -1,13 +1,14 @@
 // Package approval is the orm-backed implementation of approvaldomain.Repository:
 // approval_forms (soft-deleted) + approval_form_versions (append-only, cap-trimmed).
 // Workspace isolation is automatic (orm fills/filters workspace_id from ctx via the ,ws
-// tag), so no method hand-writes a workspace predicate. Prefix apf_/apfv_ — NOT apv_
-// (which is the `approvals` runtime table, 波次 4).
+// tag), so no method hand-writes a workspace predicate. Prefix apf_/apfv_ — these are the
+// form (config) tables; a waiting approval at runtime is a parked flowrun_nodes row, not a
+// table here.
 //
 // Package approval 是 approvaldomain.Repository 的 orm 实现：approval_forms（软删）+
 // approval_form_versions（只增、按上限裁剪）。workspace 隔离自动（orm 据 ctx 经 ,ws tag 填/过滤
-// workspace_id），故无方法手写 workspace 谓词。前缀 apf_/apfv_——**非** apv_（那是 `approvals`
-// 运行时表，波次 4）。
+// workspace_id），故无方法手写 workspace 谓词。前缀 apf_/apfv_——这是表（配置）侧；运行时等待中
+// 的审批是 flowrun_nodes 的 parked 行，不在此处建表。
 package approval
 
 import (
@@ -20,10 +21,10 @@ import (
 )
 
 // Schema is the approval-form tables' DDL, exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. approval_forms has a partial-UNIQUE name
+// bootstrap to collect and apply via db.Migrate. approval_forms has a partial-UNIQUE name
 // (freed on soft-delete); versions are UNIQUE(approval_id, version) and append-only.
 //
-// Schema 是审批表两表 DDL，按序幂等导出，由 cmd/server 汇总经 db.Migrate 应用。approval_forms 用
+// Schema 是审批表两表 DDL，按序幂等导出，由 bootstrap 汇总经 db.Migrate 应用。approval_forms 用
 // partial-UNIQUE name（软删后释放）；versions UNIQUE(approval_id, version)、只增。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS approval_forms (
@@ -255,10 +256,10 @@ func toAny(ss []string) []any {
 	return out
 }
 
-// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction: a
 // create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
 //
-// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// CreateWithVersion 在单事务内插入实体行与其 v1：create 要么完整落地、要么完全不落
 // ——中途失败不留无版本实体行。
 func (s *Store) CreateWithVersion(ctx context.Context, e *approvaldomain.ApprovalForm, v *approvaldomain.Version) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
@@ -275,10 +276,10 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *approvaldomain.Approva
 	})
 }
 
-// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
-// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction:
+// an edit either fully lands or fully doesn't — no orphan version + stale pointer.
 //
-// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针：edit 要么完整生效、
 // 要么完全不生效——不留孤儿版本 + 旧指针。
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *approvaldomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {

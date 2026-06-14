@@ -2,12 +2,12 @@
 // streams (messages / entities / notifications). The design separates transport from
 // semantics: all three share one envelope + four tree-operation verbs (Frame) + a
 // generic Node ({type, content}); the node vocabulary is owned by each producer
-// business module, not by domain. See lab/backendcleaner/target/stream-protocol.md.
+// business module, not by domain. See docs/references/backend/events.md.
 //
 // Package stream 定义三条 SSE 流（messages / entities / notifications）共享的统一
 // 「流式树」协议。设计是传输与语义正交：三流共享一个信封 + 四个树操作动词（Frame）+
 // 一个通用 Node（{type, content}）；node 词表归各 producer 业务模块，不归 domain。
-// 见 stream-protocol.md。
+// 见 docs/references/backend/events.md。
 package stream
 
 import "encoding/json"

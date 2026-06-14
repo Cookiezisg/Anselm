@@ -40,9 +40,9 @@ type Service struct {
 }
 
 // New constructs a Service. bridge is the messages stream (nil → persist only, no live
-// board update — wired at boot, M7); nil repo / logger panics.
+// board update — wired at boot); nil repo / logger panics.
 //
-// New 构造 Service。bridge 是 messages 流（nil → 只持久化、不更新看板——boot 装配 M7）；nil repo / logger panic。
+// New 构造 Service。bridge 是 messages 流（nil → 只持久化、不更新看板——boot 装配）；nil repo / logger panic。
 func NewService(repo tododomain.Repository, bridge streamdomain.Bridge, log *zap.Logger) *Service {
 	if repo == nil {
 		panic("todoapp.New: repo is nil")
@@ -108,10 +108,10 @@ func (s *Service) GetForScope(ctx context.Context, conversationID string, subage
 // SystemReminder renders the current scope's open (non-completed) checklist as a reminder
 // block for injection into the next model turn, plus whether to inject (false when empty
 // or fully completed). This is the mechanism that keeps the plan in front of the model —
-// the loop (M2.2) calls it each iteration. A read error degrades to "do not inject".
+// the loop calls it each iteration. A read error degrades to "do not inject".
 //
 // SystemReminder 把当前作用域的未完成清单渲染成 reminder 块、供注入下一轮模型回合，外加是否
-// 注入（空或全完成时 false）。这是把计划顶在模型眼前的机制——loop（M2.2）每轮迭代调它。读出错
+// 注入（空或全完成时 false）。这是把计划顶在模型眼前的机制——loop 每轮迭代调它。读出错
 // 降级为"不注入"。
 func (s *Service) SystemReminder(ctx context.Context) (string, bool) {
 	items, err := s.Get(ctx)

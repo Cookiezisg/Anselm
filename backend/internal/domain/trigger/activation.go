@@ -28,7 +28,7 @@ type Activation struct {
 }
 
 // ActivationFilter queries the activation log for one trigger (newest first), optionally
-// only the misses (FiredOnly is the opposite — only the hits).
+// only the fired ones (FiredOnly).
 //
 // ActivationFilter 查某 trigger 的 activation 日志（最新优先），FiredOnly 只看触发的。
 type ActivationFilter struct {

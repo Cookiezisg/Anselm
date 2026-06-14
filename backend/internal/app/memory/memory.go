@@ -34,9 +34,9 @@ type Service struct {
 }
 
 // NewService wires dependencies; repo + log required, emitter optional (nil → no
-// notifications, wired at boot M7).
+// notifications, wired at boot).
 //
-// NewService 装配依赖；repo + log 必填，emitter 可选（nil → 不发通知，boot 装配 M7）。
+// NewService 装配依赖；repo + log 必填，emitter 可选（nil → 不发通知，boot 装配）。
 func NewService(repo memorydomain.Repository, emitter notificationdomain.Emitter, log *zap.Logger) *Service {
 	if repo == nil {
 		panic("memoryapp.NewService: repo is nil")

@@ -4,12 +4,13 @@ import "strings"
 
 // EntityKind enumerates the node types that can appear in the topology graph. The
 // graph shows the Quadrinity (function/handler/workflow/agent) plus the resources
-// they reference (document/skill/mcp), the conversation that forged them, and the
-// trigger signal sources that drive workflows.
+// they reference (document/skill/mcp), the conversation that forged them, the
+// trigger signal sources that drive workflows, and the control/approval entities a
+// workflow's nodes reference.
 //
 // EntityKind 枚举可出现在拓扑图中的节点类型：Quadrinity（function/handler/workflow/agent）
-// 加上它们引用的资源（document/skill/mcp）、锻造它们的 conversation，以及驱动 workflow 的
-// trigger 信号源。
+// 加上它们引用的资源（document/skill/mcp）、锻造它们的 conversation、驱动 workflow 的
+// trigger 信号源，以及 workflow 节点引用的 control/approval 实体。
 const (
 	EntityKindFunction     = "function"
 	EntityKindHandler      = "handler"
@@ -64,15 +65,14 @@ func IsValidKind(k string) bool {
 
 // prefixKind maps a generated id's "<prefix>_<hex>" prefix to its EntityKind — the
 // routing inherited from idgen so the whole codebase reads an entity's kind off its
-// id. All 9 node kinds are registered. skill/mcp don't own tables yet (波次 3 work),
-// but their prefixes sk_/mcp_ are fixed HERE NOW as the rule, so document wikilinks
-// can already [[tag]] them and resolution needs no later change — building the tables
-// just starts minting these ids.
+// id. All 11 node kinds are registered. skill is file-based (name-as-id, no table);
+// the rest are DB entities. Fixing every prefix HERE as the rule lets document
+// wikilinks [[tag]] any kind with resolution that needs no per-kind change.
 //
 // prefixKind 把生成 id 的 "<前缀>_<hex>" 前缀映射到 EntityKind——从 idgen 收编的路由，
-// 让全仓据 id 读出实体类型。9 种节点类型全部登记。skill/mcp 暂无独立表（波次 3 工作），
-// 但其前缀 sk_/mcp_ 此刻即作为规矩定死，使 document wikilink 现在就能 [[tag]] 它们、解析
-// 无需日后改动——建表时只是开始发这些 id。
+// 让全仓据 id 读出实体类型。11 种节点类型全部登记。skill 是文件式（name 即 id、无表），
+// 其余为 DB 实体。每个前缀在此定死为规矩，使 document wikilink 能 [[tag]] 任意 kind、
+// 解析无需逐 kind 改动。
 var prefixKind = map[string]string{
 	"fn":  EntityKindFunction,
 	"hd":  EntityKindHandler,

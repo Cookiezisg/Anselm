@@ -19,12 +19,12 @@ import (
 
 // Node content shapes for the messages stream — the loop's slice of the vocabulary. open
 // frames carry minimal metadata; the durable close frame carries the full snapshot so a
-// reconnect that missed the lossy (ephemeral) deltas can rebuild the node. Front-end
-// contract: see contract-changes / domains/messages.
+// reconnect that missed the lossy (ephemeral) deltas can rebuild the node. Contract:
+// see references/backend/domains/messages.md.
 //
 // messages 流的 Node content 形状——loop 那一份词表。open 帧带最小元数据；durable 的 close
-// 帧带完整快照，使错过可丢（ephemeral）delta 的重连能重建节点。前端契约见 contract-changes /
-// domains/messages。
+// 帧带完整快照，使错过可丢（ephemeral）delta 的重连能重建节点。契约见
+// references/backend/domains/messages.md。
 type (
 	textContent struct {
 		Content string `json:"content"`

@@ -71,10 +71,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
 	}
 	// set_meta ops project onto the HEADER (name/description/tags/concurrency) — an explicit
-	// op wins over the flat payload fields. Without this projection a set_meta was a silent
-	// no-op (shape-checked, applied nowhere).
+	// op wins over the flat payload fields. The projection is what makes set_meta take effect:
+	// ApplyOps only shape-checks it (the graph stays untouched), so without this it lands nowhere.
 	// set_meta op 投影到**头部**（name/description/tags/concurrency）——显式 op 赢过扁平字段。
-	// 没有这步投影，set_meta 曾是静默 no-op（查形状、无处生效）。
+	// 这步投影是 set_meta 生效之处：ApplyOps 只查它形状（不动图），没有这步它无处落地。
 	meta, err := workflowdomain.ExtractMeta(in.Ops)
 	if err != nil {
 		return nil, nil, fmt.Errorf("workflowapp.Create: %w", err)
@@ -173,10 +173,11 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	if err := s.repo.SetActiveVersion(ctx, in.ID, versionID); err != nil {
 		return nil, fmt.Errorf("workflowapp.Edit: %w", err)
 	}
-	// set_meta ops project onto the header (previously a silent no-op — shape-checked,
-	// applied nowhere). Name change re-checks uniqueness via SaveWorkflow's UNIQUE.
-	// set_meta op 投影到头部（此前是静默 no-op——查形状、无处生效）。改名经 SaveWorkflow 的
-	// UNIQUE 重查唯一性。
+	// set_meta ops project onto the header — the projection is what makes them take effect
+	// (ApplyOps only shape-checks set_meta, applying nothing to the graph). Name change
+	// re-checks uniqueness via SaveWorkflow's UNIQUE.
+	// set_meta op 投影到头部——这步投影是它生效之处（ApplyOps 只查 set_meta 形状、不动图）。改名
+	// 经 SaveWorkflow 的 UNIQUE 重查唯一性。
 	if meta, merr := workflowdomain.ExtractMeta(in.Ops); merr == nil {
 		dirty := false
 		if meta.Name != nil && strings.TrimSpace(*meta.Name) != "" {
@@ -245,9 +246,9 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*wo
 	return target, nil
 }
 
-// UpdateMeta patches workflow identity (name/description/tags) without creating a version.
+// UpdateMeta patches workflow identity (name/description/tags/concurrency) without creating a version.
 //
-// UpdateMeta 改 workflow 身份（name/description/tags）不产版本。
+// UpdateMeta 改 workflow 身份（name/description/tags/concurrency）不产版本。
 func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*workflowdomain.Workflow, error) {
 	w, err := s.repo.GetWorkflow(ctx, in.ID)
 	if err != nil {

@@ -104,7 +104,7 @@ func TestBuild_EmptyLibrary(t *testing.T) {
 }
 
 func TestBuild_NoSources(t *testing.T) {
-	// No sources registered yet (before 波次 3 wiring) → empty, not an error.
+	// No sources registered → empty, not an error.
 	cat, err := newSvc().Get(context.Background())
 	if err != nil {
 		t.Fatalf("no sources should not error: %v", err)

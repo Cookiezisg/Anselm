@@ -9,10 +9,10 @@ import (
 )
 
 // AsMentionResolver exposes this service as the chat @-mention resolver for control logics: a
-// reference snapshots the description + active version's branches. Enables AI :iterate (R0065).
+// reference snapshots the description + active version's branches. Enables AI :iterate.
 //
 // AsMentionResolver 把本 service 暴露为 control 的 @ resolver：引用快照 description + active 版本的 branches。
-// 使 AI :iterate（R0065）可用。
+// 使 AI :iterate 可用。
 func (s *Service) AsMentionResolver() mentiondomain.Resolver { return &mentionResolver{svc: s} }
 
 type mentionResolver struct{ svc *Service }

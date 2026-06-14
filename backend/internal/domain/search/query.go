@@ -13,9 +13,9 @@ import (
 // （探针实证：2 字中文 0 命中），必须改走 LIKE。
 const minTrigramRunes = 3
 
-// ParsedQuery is the §6.1 token routing result.
+// ParsedQuery is the token routing result.
 //
-// ParsedQuery 是 §6.1 token 路由结果。
+// ParsedQuery 是 token 路由结果。
 type ParsedQuery struct {
 	Long  []string
 	Short []string

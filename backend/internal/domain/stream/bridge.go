@@ -8,12 +8,12 @@ import (
 
 // Bridge is the per-workspace dispatch port for one stream: assign seq, buffer
 // durable frames for replay, fan out to subscribers. Implemented in infra/stream
-// (a single Bus instantiated three times). Each stream re-declares a thin Bridge
-// (messages.Bridge / entities.Bridge / notifications.Bridge) for typed injection.
+// by a single Bus type instantiated three times (messages / entities /
+// notifications); producers depend on this one interface, never the concrete Bus.
 //
 // Bridge 是单条流的 per-workspace 分发端口：分配 seq、把 durable 帧入 buffer 供
-// replay、扇出订阅者。实现在 infra/stream（单一 Bus 实例化三次）。各流再声明 thin
-// Bridge 供强类型注入。
+// replay、扇出订阅者。实现在 infra/stream 的单一 Bus 类型、实例化三次（messages /
+// entities / notifications）；producer 只依赖此接口、不碰具体 Bus。
 type Bridge interface {
 	// Publish validates e, stamps a seq (0 for ephemeral), buffers durable frames, fans out.
 	//

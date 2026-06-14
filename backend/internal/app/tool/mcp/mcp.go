@@ -1,9 +1,11 @@
-// Package mcp provides MCP system tools (browse marketplace + install/uninstall/reconnect)
-// and the dynamic per-server tool adapters. The 3 management tools are fixed; each installed
-// server's tools become individual lazy tools (mcp__server__tool) discovered via search_tools.
+// Package mcp provides MCP system tools (browse marketplace + install/uninstall/reconnect +
+// call-log inspection) and the dynamic per-server tool adapters. The 6 management tools are
+// fixed; each installed server's tools become individual lazy tools (mcp__server__tool)
+// discovered via search_tools.
 //
-// Package mcp 提供 MCP 系统工具（逛市场 + 装/卸/重连）与动态的 per-server 工具适配器。3 个管理
-// 工具固定；每个已装 server 的工具成为独立 lazy 工具（mcp__server__tool），经 search_tools 发现。
+// Package mcp 提供 MCP 系统工具（逛市场 + 装/卸/重连 + 调用日志查看）与动态的 per-server 工具
+// 适配器。6 个管理工具固定；每个已装 server 的工具成为独立 lazy 工具（mcp__server__tool），经
+// search_tools 发现。
 package mcp
 
 import (

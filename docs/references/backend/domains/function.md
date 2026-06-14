@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -19,7 +19,7 @@ audience: [human, ai]
 
 **三个对象**：`Function`（身份：name/description/tags + 一个 `ActiveVersionID` 指针，**代码不在这**）→ `Version`（**不可变快照**：code + inputs/outputs 声明 + 依赖 + Python 版本 + **env 镜像**）→ `Execution`（一次运行的终态审计行）。
 
-**版本模型 = 线性只增 + 自由指针**（三实体统一，"方案 A"）：
+**版本模型 = 线性只增 + 自由指针**（全实体统一，"方案 A"）：
 - 每次 edit = 在 active 基础上套 ops → 写**新** Version（号 = max+1，永不重排）→ 指针移过去，**立即生效**。没有 pending/accept/审批态。
 - revert = **纯指针移动**到旧版本号——不复制、不删"更新的"版本，可以再 revert 回来。
 - 版本数 cap 50，超出硬删最老的，**但绝不删 active**（revert 后 active 可能很老）。
@@ -36,11 +36,11 @@ audience: [human, ai]
 
 **锻造（create/edit）**：唯一的变更词汇是 **ops**（JSON 判别式：`set_meta/set_code/set_inputs/set_outputs/set_dependencies/set_python_version`，闭集）。三条入口殊途同归——LLM 工具传 ops、HTTP `:edit` 传 ops、HTTP create 的扁平 payload 由 `buildOpsFromDirect` **反推成 ops**——全走 `ApplyOps`：逐 op 应用到 `VersionDraft` + **每步后** `validateIncremental`（name 正则 + 字段 schema）+ 末尾 `validateFinal`。LLM 的脏 JSON 先过 `jsonrepair` 容错。错误码：op 畸形/中途非法 = `FUNCTION_OP_INVALID`；终校验失败 = `FUNCTION_INVALID_CODE`。
 
-**代码校验是刻意的词法检查、非 AST**：要求至少一个顶层 `def `（首个 def 名即执行入口）；黑名单 `import forgify_handler`（**D7 边界**：function 无状态、handler 持久——function 不许碰 handler SDK）。
+**代码校验是刻意的词法检查、非 AST**：要求至少一个顶层 `def `（首个 def 名即执行入口）；黑名单 `import forgify_handler`（**无状态/有状态边界**：function 无状态、handler 持久——function 不许碰 handler SDK）。
 
 **env 物化（`ensureEnv`）**：写 syncing → 委托 `envfix.Provisioner`（带 LLM 改依赖的修复循环，≤3 次——装不上时让 LLM 改依赖列表重试）→ 终态（ready/failed + **修正后的依赖**）写回 Version 行。create/edit **容忍**失败（env failed 也创建成功，状态可见）；run 时未 ready 才报 `FUNCTION_ENV_NOT_READY`。`Edit` 空 ops = "重建 active env"路径（重试失败的安装），发 `function.env_rebuilt`。
 
-**执行（`RunFunction`，所有路径唯一漏斗）**：nil input 在 runner 前归一成 `{}`（driver 做 `f(**input)`，nil→JSON `null`→`f(**None)` TypeError；无参调用方如 sensor/无接线 workflow 节点不该崩）；取版本（空→active）→ env 未 ready 则懒物化 → `runner.Run` → **`ErrEnvNotFound`（env 被 GC 回收）= 重建 env + 重试一次** → `recordExecution`。四个调用方：`run_function` 工具（chat/agent，按 ctx 推）、HTTP `:run`（manual）、workflow 调度器 `dispatch.RunAction`（workflow，fail-fast：`OK=false` 转 error 使节点行写 failed）、sensor 触发器。
+**执行（`RunFunction`，所有路径唯一漏斗）**：nil input 在 runner 前归一成 `{}`（driver 做 `f(**input)`，nil→JSON `null`→`f(**None)` TypeError；无参调用方如 sensor/无接线 workflow 节点不该崩）；取版本（空→active）→ env 未 ready 则懒物化 → `runner.Run` → **`ErrEnvNotFound`（env 被 GC 回收）= 重建 env + 重试一次** → `recordExecution`。五个调用方：`run_function` 工具（chat/agent，按 ctx 推）、HTTP `:run`（manual）、workflow 调度器 `dispatch.RunAction`（workflow，fail-fast：`OK=false` 转 error 使节点行写 failed）、sensor 触发器、agent 挂载工具（`mount.go`：`fn_<id>` 挂为 agent 专属工具，TriggeredBy=agent）。
 
 **沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用，不重列）
 
-端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 12 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **forge 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
+端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 10 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **forge 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
 
 ## 7. 跨域集成
 

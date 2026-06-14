@@ -12,15 +12,15 @@ import (
 	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
 )
 
-// llmSifter backs the search_blocks precision chain (§7.4) with the utility
-// model — resolution goes through modelclient (the one shared chain; a hand-rolled
-// copy here once miswired base URL into the wire model id, AC-26). One short
+// llmSifter backs the search_blocks precision chain with the utility model —
+// resolution goes through modelclient (the one shared chain; never hand-roll a
+// copy, which risks miswiring base URL into the wire model id). One short
 // completion, strict numbers-only output; any failure makes the chain fall back
 // to index ranking.
 //
-// llmSifter 用 utility 模型支撑 search_blocks 精度链（§7.4）——解析走 modelclient
-// （唯一共享链；这里曾手抄一份并把 base URL 误接进线缆 model id，AC-26）。一次短
-// 补全、严格只回编号；任何失败让链回退索引排序。
+// llmSifter 用 utility 模型支撑 search_blocks 精度链——解析走 modelclient（唯一共享
+// 链；绝不手抄一份，否则有把 base URL 误接进线缆 model id 之险）。一次短补全、严格
+// 只回编号；任何失败让链回退索引排序。
 type llmSifter struct {
 	picker  modeldomain.ModelPicker
 	keys    apikeydomain.KeyProvider

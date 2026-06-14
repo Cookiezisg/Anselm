@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -27,8 +27,8 @@ audience: [human, ai]
 ## 3. 校验三层（依次设闸）
 
 1. **`ValidateGraph`（domain 纯函数）**：形状（kind/ref 前缀匹配/action 接线非空）、良构（id 唯一、无悬挂/自环边、≥1 trigger、**全节点从 trigger 可达**）、**环纪律**（每条回边必须出自 control/approval——循环只能由分支决策闭合）、端口结构调和。失败 = `WORKFLOW_INVALID_GRAPH` + details.reason。
-2. **CEL 编译**（app，create/edit 时逐 Input 编译——domain 不准 import cel-go）。
-3. **`CapabilityCheck`（app，对 resolver）**：ref 解析得到吗、kind 对吗、control 的 FromPort 在分支集吗、hd 的 method 存在吗 → `WORKFLOW_REF_NOT_FOUND`。
+2. **CEL 编译 + 可见性 lint**（app `compileGraphCEL`，create/edit 时逐 Input 编译——domain 不准 import cel-go）：每节点先用**全图根** env 编译（区分语法错/引用不存在的名字），再用**恰为其祖先**（`Ancestors`）的 env 编译——后者强制「节点只能读保证已先于它完成的祖先 result」，越界标识符直接编译失败 →「references a non-ancestor node」，当场拒、非运行时。
+3. **`CapabilityCheck`（app，对 resolver）**：ref 解析得到吗、kind 对吗、control 的 FromPort 在解析后分支集吗、hd 的 `.method` 存在吗。**绝不为缺失 ref 返 transport 错误**——把全部问题收进 `report.Problems`（编辑器一次看齐），仅在 resolver 自身故障时冒泡。`WORKFLOW_REF_NOT_FOUND` 是 resolver 的 miss 信号、被此处 `errors.Is` 捕获转成 problem 串，非由本检查抛出。无 resolver 时退化为仅结构报告（`Resolved=false`）。
 
 ## 4. 生命周期 / 行为
 
@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（CRUD + 6 动作 + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 10 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 14 个：7 锻造/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 2 运行可观测（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环）。
+端点（CRUD + 9 个 `POST :action`——锻造/查询 `:edit`/`:revert`/`:capability-check`/`:iterate` + 执行生命周期 `:trigger`/`:stage`/`:activate`/`:deactivate`/`:kill` + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 15 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 14 个：7 锻造/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 2 运行可观测（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环）。
 
 ## 7. 跨域集成
 

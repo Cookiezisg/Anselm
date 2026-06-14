@@ -32,7 +32,7 @@ type InvokeInput struct {
 	TriggeredBy string         // chat | workflow | manual
 	MaxTurns    int            // ReAct turn cap; 0 → default
 
-	// Workflow-only (ADR-010 sub-step replay): a flowrun :replay prepends prior completed steps
+	// Workflow-only (sub-step replay): a flowrun :replay prepends prior completed steps
 	// and records new ones. All nil/empty for a standalone chat/manual invoke.
 	FlowrunID     string
 	FlowrunNodeID string
@@ -249,9 +249,9 @@ func (s *Service) recordExecution(ctx context.Context, in InvokeInput, a *agentd
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
-	// Flowrun identity: the explicit InvokeInput fields win (ADR-010 sub-step replay passes them);
+	// Flowrun identity: the explicit InvokeInput fields win (sub-step replay passes them);
 	// otherwise the scheduler's ctx injection covers the plain workflow-dispatch path.
-	// Flowrun 身份：显式 InvokeInput 字段优先（ADR-010 子步重放会传）；否则调度器的 ctx 注入覆盖普通
+	// Flowrun 身份：显式 InvokeInput 字段优先（子步重放会传）；否则调度器的 ctx 注入覆盖普通
 	// workflow 派发路径。
 	flowrunID, flowrunNodeID := in.FlowrunID, in.FlowrunNodeID
 	if flowrunID == "" {

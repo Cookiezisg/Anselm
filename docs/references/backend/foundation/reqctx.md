@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -19,21 +19,21 @@ audience: [human, ai]
 
 | 值 | API | 注入者 | 读取者 |
 |---|---|---|---|
-| workspace id | `Set`/`Get`/`RequireWorkspaceID` | auth 中间件（唯一的源）+ ~15 detached 重埋 | **orm 自动隔离** + ~20 包 |
+| workspace id | `Set`/`Get`/`RequireWorkspaceID` | `IdentifyWorkspace` 中间件（HTTP 请求入口的源，读 header `X-Forgify-Workspace-ID`）+ scheduler 从实体行重埋 + ~22 detached 站点重埋 | **orm 自动隔离** + 17 包 |
 | conversation id | `Set`/`Get`/`RequireConversationID` | chat / subagent | loop + 多 app |
-| subagent / message / toolCall id | `Set`/`Get*` | loop / chat / subagent | 流式嵌套（E3）/ 归属 |
-| flowrun / flowrunNode id | `Set`/`Get*`（只 Get、无 Require——缺席=非 workflow 派发，非错误） | **workflow 调度器**（runNode 派发前） | function/handler/agent 执行记账填 flowrun 审计列 |
+| subagent / message / toolCall id | `Set`/`Get*` | loop（toolCall）/ chat·agent·subagent（message）/ subagent（subagent） | 流式嵌套（E3）/ 归属 |
+| flowrun / flowrunNode id | `Set`/`Get*`（只 Get、无 Require——缺席=非 workflow 派发，非错误） | **workflow 调度器**（`dispatch.go` 节点派发前） | function/handler/agent/mcp 执行记账填 flowrun 审计列 |
 | locale | `Set`/`GetLocale`（总返可用值，默认 zh-CN） | `InjectLocale`（Accept-Language，pre-workspace 兜底）→ `IdentifyWorkspace`（**workspace.language 权威**，识别到 workspace 即覆盖）+ chat detached 重埋 | AI 生成内容语言 |
-| agentState | `With`/`GetAgentState` | chat / subagent runner | loop / tool / skill |
+| agentState | `WithAgentState`/`GetAgentState` | chat / subagent runner | loop / tool / skill |
 
 ## 3. 横切链路（单看包看不见，必须全项目看）
 
 ```
-入口注入：auth 中间件 SetWorkspaceID（从 session）—— 唯一的"源"
+入口注入：IdentifyWorkspace 中间件 SetWorkspaceID（读 header X-Forgify-Workspace-ID / SSE 用 ?workspaceID=）—— HTTP 请求入口的"源"
    ↓ ctx 一路下传（S9：每跨层调用带 ctx）
-读取：orm.whereClause 自动 ws 过滤（隔离安全网）+ RequireWorkspaceID（~20 包）
+读取：orm.whereClause 自动 ws 过滤（隔离安全网）+ Get/RequireWorkspaceID（17 包，其中 RequireWorkspaceID 10 包）
    ↓ 工作脱离请求（异步 / 比请求活得久）时
-detached 重播种：reqctx.Detached(wsID)[+SetConversationID]（~15 站点）
+detached 重播种：reqctx.Detached(wsID)[+SetConversationID]（~22 站点，trigger 报告/扇出即从此起）；scheduler 另在已有 ctx 上 SetWorkspaceID 从 firing/run 行重埋
 ```
 
 ## 4. workspace 隔离的两个错误（别混 —— 同 §[error-codes](../error-codes.md)）
@@ -47,7 +47,7 @@ detached 重播种：reqctx.Detached(wsID)[+SetConversationID]（~15 站点）
 
 ## 5. Detached Context 惯例（S9）
 
-异步工作（finalize / best-effort 后台写 / 自动标题）必须**比派生它的请求活得久** → 用 `reqctx.Detached(wsID)`：从 `context.Background()` 起、重埋 workspace（orm 隔离最低要求），按需链 `SetConversationID`。~15 站点统一走它。
+异步工作（finalize / best-effort 后台写 / 自动标题）必须**比派生它的请求活得久** → 用 `reqctx.Detached(wsID)`：从 `context.Background()` 起、重埋 workspace（orm 隔离最低要求），按需链 `SetConversationID`。~22 站点统一走它。
 
 - **为何 `Background()` 而非 `WithoutCancel(ctx)`**：要的就是脱离**已取消**的请求——回合取消正是 finalize 触发时机（被取消的 subagent 仍须落终态，防孤儿）。
 - **为何重埋而非沿用 ctx**：trigger / scheduler 起的异步**无请求 ctx**；workspace 来自实体行，不取已死的请求 ctx。

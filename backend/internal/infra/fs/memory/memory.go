@@ -1,13 +1,13 @@
 // Package memory is the file-backed memorydomain.Repository: each memory is a
 // markdown file under <base>/workspaces/<wsID>/memories/<name>.md. The workspace id
 // comes from ctx (one directory per workspace = full isolation); the slug name maps
-// 1:1 to a file and cannot traverse (validated). This is backend-new's first
-// file-backed store — skills (波次 3) reuses the pattern.
+// 1:1 to a file and cannot traverse (validated). The skill store reuses this same
+// file-backed pattern.
 //
 // Package memory 是文件式 memorydomain.Repository：每条记忆是
 // <base>/workspaces/<wsID>/memories/<name>.md。workspace id 取自 ctx（每 workspace 一个
-// 目录 = 完全隔离）；slug name 1:1 映射文件、不能穿越（已校验）。这是 backend-new 第一个
-// 文件式 store——skills（波次 3）复用此范式。
+// 目录 = 完全隔离）；slug name 1:1 映射文件、不能穿越（已校验）。skill store 复用同一
+// 文件式范式。
 package memory
 
 import (
@@ -23,9 +23,9 @@ import (
 )
 
 // Store is the file-backed memory repository. base is the ~/.forgify root (injected
-// at boot, M7; a temp dir in tests); the per-workspace memories dir lives under it.
+// at boot; a temp dir in tests); the per-workspace memories dir lives under it.
 //
-// Store 是文件式 memory 仓库。base 是 ~/.forgify 根（boot 装配 M7；测试用 temp）；
+// Store 是文件式 memory 仓库。base 是 ~/.forgify 根（boot 装配；测试用 temp）；
 // 各 workspace 的 memories 目录在其下。
 type Store struct {
 	base string

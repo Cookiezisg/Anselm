@@ -21,9 +21,9 @@ import (
 const (
 	// fusionWindow is the materialized result window: RRF/boost scores are not
 	// stable across separate queries, so pagination slices ONE deterministic
-	// top-200 instead of re-ranking per page (§6.2).
+	// top-200 instead of re-ranking per page.
 	// fusionWindow 是物化结果窗口：RRF/boost 分跨查询不稳定，分页在单次确定性的
-	// top-200 上切片而非逐页重排（§6.2）。
+	// top-200 上切片而非逐页重排。
 	fusionWindow = 200
 	defaultLimit = 20
 	maxLimit     = 50
@@ -38,9 +38,9 @@ const (
 	metaOllamaModelKey = "ollama_model"
 )
 
-// §6.3 ranking constants — initial values, tests assert relative order only.
+// ranking constants — initial values, tests assert relative order only.
 //
-// §6.3 排序常量——初始值，测试只断言相对序。
+// 排序常量——初始值，测试只断言相对序。
 const (
 	boostExactName  = 3.0
 	boostNamePrefix = 1.5
@@ -84,9 +84,9 @@ type Service struct {
 	embedQuit     chan struct{}
 }
 
-// New builds the Service; register sources before Start.
+// NewService builds the Service; register sources before Start.
 //
-// New 构造 Service；Start 前注册 source。
+// NewService 构造 Service；Start 前注册 source。
 func NewService(repo searchdomain.Repository, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
@@ -339,10 +339,10 @@ func fold(lex []*searchdomain.DocHit, byEntity bool) []*searchdomain.Hit {
 	return out
 }
 
-// boost applies §6.3: normalize the base to [0,1] (scale-free vs bm25/RRF),
+// boost normalizes the base to [0,1] (scale-free vs bm25/RRF),
 // then exact-name > prefix > nothing, plus a small block-over-content nudge.
 //
-// boost 应用 §6.3：基底归一到 [0,1]（对 bm25/RRF 尺度无感），再叠 exact-name >
+// boost 把基底归一到 [0,1]（对 bm25/RRF 尺度无感），再叠 exact-name >
 // prefix，外加积木类对内容类的小幅倾斜。
 func boost(hits []*searchdomain.Hit, rawQuery string) {
 	var maxScore float64

@@ -1,12 +1,12 @@
 // Package skill is the file-backed store for the skill domain — one directory per skill
 // (~/.forgify/workspaces/<wsID>/skills/<name>/SKILL.md). Pure on-demand: every List rescans
 // the directory, no cache / no fingerprint / no watcher goroutine. Mirrors memory's infra/fs
-// pattern (R0025) with a directory (not a flat file) per entry so future references/ assets
+// pattern with a directory (not a flat file) per entry so future references/ assets
 // can live alongside SKILL.md.
 //
 // Package skill 是 skill domain 的文件式 store——每 skill 一个目录
 // （~/.forgify/workspaces/<wsID>/skills/<name>/SKILL.md）。纯按需：每次 List 现扫目录，
-// 无缓存 / 无 fingerprint / 无 watcher goroutine。复用 memory R0025 的 infra/fs 范式，
+// 无缓存 / 无 fingerprint / 无 watcher goroutine。复用 memory 的 infra/fs 范式，
 // 每条用目录（非扁平文件）以便未来附加 references/ assets。
 package skill
 

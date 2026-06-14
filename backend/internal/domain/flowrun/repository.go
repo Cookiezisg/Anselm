@@ -13,13 +13,13 @@ type ListFilter struct {
 	Limit      int
 }
 
-// Repository persists the three flowrun tables. All three are Log tables (D1: never deleted).
+// Repository persists the two flowrun tables. Both are Log tables (D1: never deleted).
 // The single-tx firing claim (pending→claimed + flowrun INSERT) is NOT here — it lives on the
 // trigger store (it spans trigger_firings) and is handed the flowrun INSERT as a create callback;
 // see triggerstore.ClaimFiring. The scheduler writes the claimed run's header + seed trigger node
 // through that callback, then uses this Repository for everything after.
 //
-// Repository 持久化 flowrun 三表。三张都是 Log 表（D1：绝不删）。单事务 firing claim
+// Repository 持久化 flowrun 两表。两张都是 Log 表（D1：绝不删）。单事务 firing claim
 // （pending→claimed + 建 flowrun）不在此——它住在 trigger store（跨 trigger_firings），以 create 回调
 // 接住 flowrun 的 INSERT，见 triggerstore.ClaimFiring。scheduler 经该回调写 claim 后 run 的头 + seed
 // trigger 节点，之后一切用本 Repository。

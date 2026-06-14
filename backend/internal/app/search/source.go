@@ -1,12 +1,12 @@
 // Package search is the app layer of the unified search service: one engine
-// behind four surfaces (omni/vertical HTTP search, the LLM block palette, RAG
-// retrieval) plus the Indexer that keeps the projection in sync. It depends
-// only on ports — the 12 entity packages plug in as Sources, never the
-// reverse.
+// behind four surfaces (omni/vertical HTTP search, the LLM block palette
+// search_blocks, the 8 search_<entity> vertical-search tools, RAG Retrieve)
+// plus the Indexer that keeps the projection in sync. It depends only on
+// ports — the 12 entity packages plug in as Sources, never the reverse.
 //
 // Package search 是统一搜索服务的 app 层：一个引擎背四个出口（综搜/垂搜 HTTP、LLM
-// 搜积木、RAG 取数），外加保持投影同步的 Indexer。只依赖端口——12 个实体包作为
-// Source 接入，绝不反向依赖。
+// 搜积木 search_blocks、8 个 search_<entity> 垂搜工具、RAG 取数 Retrieve），外加保持
+// 投影同步的 Indexer。只依赖端口——12 个实体包作为 Source 接入，绝不反向依赖。
 package search
 
 import (

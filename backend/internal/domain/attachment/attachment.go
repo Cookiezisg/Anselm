@@ -2,14 +2,14 @@
 // content-addressed blob (the bytes, stored on disk by SHA-256) plus a metadata row (att_).
 // The bytes NEVER enter SQLite — the blob lives under the workspace, the row carries only
 // identity (sha / filename / mime / size / kind). Multiple rows may reference one blob
-// (content-addressed dedup). Kind classifies how the file reaches the LLM (chat M5.2):
+// (content-addressed dedup). Kind classifies how the file reaches the LLM in a chat turn:
 // image → vision block, document/text → inline-or-extract, audio/video → extraction (deferred,
 // pluggable). Pure structs + the storage contract; upload / download / GC orchestration is in app.
 //
 // Package attachment 是聊天回合上传文件的 domain 层：一个内容寻址的 blob（字节按 SHA-256 存盘）
 // + 一条元数据行（att_）。字节**绝不进 SQLite**——blob 在 workspace 下，行只承载身份
 // （sha / 文件名 / mime / 大小 / 类别）。多行可指同一 blob（内容寻址 dedup）。Kind 决定文件如何
-// 进 LLM（chat M5.2）：image→vision 块、document/text→内联或抽取、audio/video→抽取（延后、可插）。
+// 进 LLM（聊天回合）：image→vision 块、document/text→内联或抽取、audio/video→抽取（延后、可插）。
 // 纯 struct + 存储契约；上传/下载/GC 编排在 app。
 package attachment
 

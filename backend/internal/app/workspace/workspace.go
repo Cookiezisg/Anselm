@@ -29,11 +29,11 @@ type Service struct {
 	repo workspacedomain.Repository
 	log  *zap.Logger
 
-	// reaper tears down a workspace's runtime + files before the row is deleted (review PD-1:
-	// cascade destroy — kill automation, stop resident processes, remove the file tree).
+	// reaper tears down a workspace's runtime + files before the row is deleted (cascade
+	// destroy — kill automation, stop resident processes, remove the file tree).
 	// Injected post-build by bootstrap (it alone sees every service); nil → row-delete only.
 	//
-	// reaper 在删行前拆掉 workspace 的运行时与文件（评审 PD-1：级联销毁——杀自动化、停常驻
+	// reaper 在删行前拆掉 workspace 的运行时与文件（级联销毁——杀自动化、停常驻
 	// 进程、删文件树）。bootstrap 后注入（只有它看得到全部 service）；nil → 仅删行。
 	reaper Reaper
 }
@@ -79,7 +79,7 @@ type UpdateInput struct {
 	Name         *string
 	AvatarColor  *string
 	Language     *string
-	WebFetchMode *string // "local" | "jina" (PD-4 C)
+	WebFetchMode *string // "local" | "jina"
 }
 
 // Create makes a new workspace; name is required and length-bounded, language
@@ -173,11 +173,11 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if n <= 1 {
 		return workspacedomain.ErrCannotDeleteLast
 	}
-	// Cascade destroy first (PD-1): kill in-flight runs, detach trigger listeners, stop the
+	// Cascade destroy first: kill in-flight runs, detach trigger listeners, stop the
 	// workspace's resident handler/mcp processes, remove its file tree. Best-effort — the row
 	// delete below is the point of no return that makes everything unreachable.
 	//
-	// 先级联销毁（PD-1）：杀在途 run、摘 trigger 监听、停本 workspace 常驻 handler/mcp 进程、
+	// 先级联销毁：杀在途 run、摘 trigger 监听、停本 workspace 常驻 handler/mcp 进程、
 	// 删文件树。best-effort——下方删行才是让一切不可达的不可回退点。
 	if s.reaper != nil {
 		s.reaper(ctx, id)
@@ -194,12 +194,12 @@ func (s *Service) TouchLastUsed(ctx context.Context, id string) error {
 
 // Resolve implements the auth middleware's WorkspaceResolver port: it confirms id names an
 // existing workspace and returns its UI locale (derived from the persisted language) so the
-// middleware can make the workspace language authoritative over Accept-Language (AC-PD-2).
+// middleware can make the workspace language authoritative over Accept-Language.
 // Unknown id → error. workspace.Language values ("zh-CN"/"en") are exactly the Locale values, so
 // the cast is direct; an empty/invalid one is dropped by the middleware's IsSupported() guard.
 //
 // Resolve 实现 auth 中间件的 WorkspaceResolver 端口：确认 id 为已存在 workspace 并返回其 UI locale
-// （由持久化 language 派生），使中间件让 workspace 语言压过 Accept-Language（AC-PD-2）。未知 id→错。
+// （由持久化 language 派生），使中间件让 workspace 语言压过 Accept-Language。未知 id→错。
 // workspace.Language 取值（"zh-CN"/"en"）正是 Locale 取值，故直接 cast；空/非法值由中间件
 // IsSupported() 守卫丢弃。
 func (s *Service) Resolve(ctx context.Context, id string) (reqctxpkg.Locale, error) {
@@ -314,10 +314,10 @@ func (s *Service) ReferencesAPIKey(ctx context.Context, apiKeyID string) (bool, 
 
 // WebFetchMode resolves the current workspace's web-fetch mode for the WebFetch tool:
 // "local" (direct GET, the default) or "jina" (third-party reader). Any failure to read the
-// workspace falls back to local — never leak a URL on a degraded path (PD-4 decision C).
+// workspace falls back to local — never leak a URL on a degraded path.
 //
 // WebFetchMode 为 WebFetch 工具解析当前 workspace 的抓取模式："local"（直接 GET，默认）或
-// "jina"（第三方 reader）。读不到 workspace 一律落回 local——降级路径绝不外发 URL（PD-4 裁决 C）。
+// "jina"（第三方 reader）。读不到 workspace 一律落回 local——降级路径绝不外发 URL。
 func (s *Service) WebFetchMode(ctx context.Context) string {
 	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
 	if err != nil {
@@ -352,9 +352,9 @@ func (s *Service) SetDefaultSearch(ctx context.Context, id, keyID string) (*work
 }
 
 // Service implements ModelPicker and websearch.SearchKeyPicker — the LLM/search-using
-// callers (波次 2/3/5) depend on these ports.
+// callers depend on these ports.
 //
-// Service 实现 ModelPicker 与 websearch.SearchKeyPicker——用 LLM/搜索的 caller（波次 2/3/5）依赖这些端口。
+// Service 实现 ModelPicker 与 websearch.SearchKeyPicker——用 LLM/搜索的 caller 依赖这些端口。
 var (
 	_ modeldomain.ModelPicker         = (*Service)(nil)
 	_ websearchdomain.SearchKeyPicker = (*Service)(nil)

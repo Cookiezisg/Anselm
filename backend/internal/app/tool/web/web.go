@@ -4,14 +4,14 @@
 // WebSearch routes a query to the workspace's chosen search key (BYOK: brave /
 // serper / tavily / bocha — a single explicit key, provider implied by the key),
 // or returns an actionable message when none is configured. There is NO MCP tier:
-// a connected search MCP server exposes its own tool via tool/mcp (波次 3) — the
+// a connected search MCP server exposes its own tool via tool/mcp — the
 // LLM calls it directly; WebSearch does not proxy it.
 //
 // Package web 提供网络相关 system tool（WebFetch + WebSearch）。
 //
 // WebFetch 在 SSRF 守卫后抓 URL，返回 utility 模型摘要。WebSearch 把查询路由到 workspace
 // 选定的搜索 key（BYOK：brave / serper / tavily / bocha——单把显式 key、provider 由 key 隐含），
-// 未配置时返可操作引导。**无 MCP tier**：连接的搜索 MCP server 经 tool/mcp（波次 3）暴露自己的
+// 未配置时返可操作引导。**无 MCP tier**：连接的搜索 MCP server 经 tool/mcp 暴露自己的
 // 工具、LLM 直接调；WebSearch 不代理它。
 package web
 

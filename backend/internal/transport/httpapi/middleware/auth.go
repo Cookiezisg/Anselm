@@ -21,13 +21,13 @@ const HeaderWorkspaceID = "X-Forgify-Workspace-ID"
 // WorkspaceResolver is the minimal port the auth middleware needs: validate a workspace id and
 // return its UI locale (derived from the persisted language). A non-nil error means the id is
 // unknown. Returning the locale lets the middleware make the workspace's language authoritative
-// over Accept-Language (AC-PD-2): a user's explicit in-app language choice drives the assistant,
+// over Accept-Language: a user's explicit in-app language choice drives the assistant,
 // not the browser header. Kept as a local interface so middleware imports no business domain; the
 // workspace module implements it and is injected at wiring.
 //
 // WorkspaceResolver 是 auth 中间件所需的最小端口：校验 workspace id 并返回其 UI locale（由持久化
-// language 派生）。非 nil 错 = 未知 id。返回 locale 使中间件让 workspace 语言压过 Accept-Language
-// （AC-PD-2）：用户在 app 内的显式语言选择驱动 assistant，而非浏览器头。用本地接口使中间件不 import
+// language 派生）。非 nil 错 = 未知 id。返回 locale 使中间件让 workspace 语言压过 Accept-Language：
+// 用户在 app 内的显式语言选择驱动 assistant，而非浏览器头。用本地接口使中间件不 import
 // 业务 domain；workspace 模块实现并在装配时注入。
 type WorkspaceResolver interface {
 	Resolve(ctx context.Context, id string) (reqctxpkg.Locale, error)
@@ -52,10 +52,10 @@ func IdentifyWorkspace(resolver WorkspaceResolver) func(http.Handler) http.Handl
 				if err != nil {
 					id = "" // unknown id → treat as missing
 				} else if loc.IsSupported() {
-					// Workspace language is authoritative over Accept-Language (AC-PD-2): the user's
+					// Workspace language is authoritative over Accept-Language: the user's
 					// explicit, persisted choice wins; the header (set upstream by InjectLocale) is
 					// only the pre-workspace (onboarding) fallback.
-					// workspace 语言压过 Accept-Language（AC-PD-2）：用户显式持久化选择胜；头（上游
+					// workspace 语言压过 Accept-Language：用户显式持久化选择胜；头（上游
 					// InjectLocale 设）仅作 pre-workspace（onboarding）兜底。
 					ctx = reqctxpkg.SetLocale(ctx, loc)
 				}

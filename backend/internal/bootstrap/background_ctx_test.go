@@ -63,9 +63,9 @@ func TestBackgroundPaths_RequireWorkspaceSeeding(t *testing.T) {
 		t.Fatalf("seed parked: %v", err)
 	}
 
-	// Bare Background ctx (the old drainLoop wiring) MUST fail — this failing is the alarm
-	// that keeps anyone from wiring a background entry point without workspace seeding.
-	// 裸 Background ctx（旧 drainLoop 接法）必须失败——这条失败就是警报，防止任何人再不播种就接后台入口。
+	// Bare Background ctx MUST fail — this failing is the alarm that keeps anyone from wiring a
+	// background entry point without workspace seeding.
+	// 裸 Background ctx 必须失败——这条失败就是警报，防止任何人再不播种就接后台入口。
 	if _, err := trs.ListPendingFirings(context.Background(), 10); err == nil {
 		t.Fatal("ListPendingFirings(Background) should fail without a workspace ctx")
 	}

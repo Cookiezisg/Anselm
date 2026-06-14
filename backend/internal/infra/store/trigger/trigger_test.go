@@ -98,7 +98,7 @@ func TestFiring_ClaimSingleTx(t *testing.T) {
 		t.Fatalf("AppendFiring: %v", err)
 	}
 	frID, err := s.ClaimFiring(ctx, f.ID, func(tx *ormpkg.DB) (string, error) {
-		return "fr_run1", nil // scheduler builds the flowrun here in 波次 4
+		return "fr_run1", nil // scheduler builds the flowrun here
 	})
 	if err != nil || frID != "fr_run1" {
 		t.Fatalf("ClaimFiring: id=%q err=%v", frID, err)

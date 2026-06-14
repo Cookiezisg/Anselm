@@ -34,12 +34,12 @@ type CredsResolver interface {
 
 // modelResolver is the shared model→client core every per-consumer resolver wraps: it runs the one
 // resolution chain (model.Resolve picks the ref → apikey decrypts creds → llm.Factory builds the
-// client + base url → a pre-filled Request). This is the chain that was only ever a port + test
-// fake before M7 — bootstrap is where it's finally implemented, once.
+// client + base url → a pre-filled Request). The consumers depend only on the resolver port;
+// bootstrap is the one place this chain is implemented, once.
 //
 // modelResolver 是每个 per-consumer resolver 包的共享 model→client 核：跑唯一的解析链（model.Resolve
-// 选 ref → apikey 解密 creds → llm.Factory 造 client + base url → 预填 Request）。这条链在 M7 前只是
-// 端口 + 测试 fake——bootstrap 是它终于被实现的地方，仅一次。
+// 选 ref → apikey 解密 creds → llm.Factory 造 client + base url → 预填 Request）。消费者只依赖 resolver
+// 端口；bootstrap 是这条链唯一被实现的地方，仅一次。
 type modelResolver struct {
 	picker  modeldomain.ModelPicker
 	keys    CredsResolver
@@ -130,7 +130,7 @@ func (r contextmgrResolver) ResolveUtility(ctx context.Context) (contextmgrapp.B
 	return contextmgrapp.Bundle{Client: client, Request: req}, nil
 }
 
-// --- subagent (dialogue model; no per-conversation override inheritance, M5.2+) ---
+// --- subagent (dialogue model; no per-conversation override inheritance) ---
 
 type subagentResolver struct{ core *modelResolver }
 

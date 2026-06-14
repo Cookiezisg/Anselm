@@ -8,11 +8,11 @@ import (
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
-// nodeTypeInteraction is the messages-stream node type for a pending human interaction (R0064): an
+// nodeTypeInteraction is the messages-stream node type for a pending human interaction: an
 // ephemeral signal carrying the humanloop.Request so the front end renders the prompt (a danger
 // approve/deny, or an ask_user question) inline under the conversation.
 //
-// nodeTypeInteraction 是一条待决人机交互的 messages 流节点类型（R0064）：一条 ephemeral signal 承载
+// nodeTypeInteraction 是一条待决人机交互的 messages 流节点类型：一条 ephemeral signal 承载
 // humanloop.Request，使前端在对话内联渲提示（danger 批准/拒绝，或 ask_user 提问）。
 const nodeTypeInteraction = "interaction"
 
@@ -39,12 +39,12 @@ func (s *Service) interactionSurface(ctx context.Context, req humanloopapp.Reque
 	})
 }
 
-// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation (R0064).
+// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation.
 // It just hands the decision to the broker — the gated tool / ask_user, blocked inside the running
 // turn's goroutine, wakes and interprets it (approve runs the tool; deny / decline feed back;
 // approve_always also session-whitelists). Returns ErrNoPendingInteraction if nothing is waiting.
 //
-// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask（R0064）。它只是把决定交给 broker——被门工具 / ask_user
+// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask。它只是把决定交给 broker——被门工具 / ask_user
 // 阻塞在运行回合的 goroutine 里，醒来并解读它（approve 跑工具；deny / decline 反馈；approve_always 还会话白名单）。
 // 无等待项则返 ErrNoPendingInteraction。
 func (s *Service) ResolveInteraction(_ context.Context, toolCallID, action, answer string) error {

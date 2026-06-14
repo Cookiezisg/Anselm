@@ -1,9 +1,10 @@
 // Package fsnotify is the filesystem-watch source listener (wraps fsnotify v1), keyed by
-// triggerID. It fires once per filtered file event with an empty dedupKey — each event is a
-// genuinely distinct fire (the app derives a per-event key), unlike cron's scheduled tick.
+// triggerID. It fires once per filtered file event; the dedupKey is path + op + a second
+// bucket so an editor's burst of duplicate events for one save collapses, while a later real
+// change fires again.
 //
 // Package fsnotify 是文件系统监听 source listener（封装 fsnotify v1），按 triggerID 键。每条过滤后
-// 的文件事件触发一次、dedupKey 传空——每个事件是真正独立的一次触发（app 自生成键），不像 cron 按刻度。
+// 的文件事件触发一次；dedupKey = path + op + 秒桶，使编辑器一次保存的重复事件突发折叠，之后的真实变化照常触发。
 package fsnotify
 
 import (

@@ -1,10 +1,11 @@
 // Package skill is the service layer for file-based Agent Skills (memory's kin, not function's).
 // It owns discovery (on-demand scan), activation (inline / fork), and authoring (create/edit/
-// delete). No execution log, no LLM-backed search — those were cut as abstraction mismatches.
+// delete). No execution log, no LLM-backed search — both are abstraction mismatches for a
+// file-based instruction carrier.
 //
 // Package skill 是文件式 Agent Skill 的服务层（memory 的近亲，非 function 的）。负责发现
 // （按需扫描）、激活（inline / fork）、创作（create/edit/delete）。无 execution log、无
-// LLM 搜索——它们作为抽象错配被砍。
+// LLM 搜索——两者皆与文件式指令载体抽象错配。
 package skill
 
 import (
@@ -31,10 +32,10 @@ type Service struct {
 }
 
 // NewService builds the Service. repo + log are required; subagent / emitter are optional
-// (nil-tolerant) so skill works before subagent (波次 5) and notification wiring (M7).
+// (nil-tolerant) so skill works even when the subagent runner and notifier are unwired.
 //
 // NewService 构造 Service。repo + log 必填；subagent / emitter 可选（nil-tolerant），使
-// skill 在 subagent（波次 5）与通知装配（M7）就绪前即可工作。
+// skill 在 subagent runner 与通知器未接时仍可工作。
 func NewService(
 	repo skilldomain.Repository,
 	subagent skilldomain.SubagentRunner,

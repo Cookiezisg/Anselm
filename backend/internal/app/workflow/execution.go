@@ -10,13 +10,13 @@ import (
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
-// execution.go is the workflow EXECUTION-LIFECYCLE surface (D1): the five actions that drive a
+// execution.go is the workflow EXECUTION-LIFECYCLE surface: the five actions that drive a
 // workflow's runtime — trigger (run now), stage (arm for one real fire), activate (go live),
 // deactivate (graceful off), kill (hard stop). They coordinate two injected collaborators: the
 // trigger Binder (engage/disengage the listener) and the scheduler Runner (start/stop runs).
 // "Store/validate/pin the graph" lives in crud.go; this is "drive the graph's execution".
 //
-// execution.go 是 workflow 执行生命周期入口（D1）：驱动 workflow 运行时的五个动作——trigger（现在跑）、
+// execution.go 是 workflow 执行生命周期入口：驱动 workflow 运行时的五个动作——trigger（现在跑）、
 // stage（待命接一次真实触发）、activate（上线）、deactivate（优雅下线）、kill（硬停）。它们协调两个注入的
 // 协作者：trigger Binder（挂/摘监听）+ scheduler Runner（起/停 run）。「存/校验/pin 图」在 crud.go；这里是
 // 「驱动图的执行」。

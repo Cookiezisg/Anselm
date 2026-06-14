@@ -61,7 +61,7 @@ var _ schedulerapp.Dispatcher = dispatcher{}
 
 // RunAction dispatches an action node (fn_ / hd_<id>.method / mcp:<serverId>/<tool>). A callable
 // that runs but reports failure (function/agent OK=false) fail-fasts as an error so the node row
-// is written failed (doc 21 §4.4). function honors pinnedVersionID (frozen at run start); handler
+// is written failed. function honors pinnedVersionID (frozen at run start); handler
 // (resident instance always runs the active class code) and mcp (unversioned external server) are
 // live-binding and ignore it.
 //
@@ -128,9 +128,9 @@ func (d dispatcher) RunAction(ctx context.Context, ref, pinnedVersionID string, 
 	}
 }
 
-// RunAgent dispatches an agent node (ag_). Coarse-grained activity (flowrun.md §4): run the full
-// ReAct loop against the pinned version (frozen at run start), memoize only the final result; v1
-// has no sub-step replay, so the InvokeInput workflow-replay fields stay nil.
+// RunAgent dispatches an agent node (ag_). Coarse-grained activity (foundation/scheduler-flowrun.md):
+// run the full ReAct loop against the pinned version (frozen at run start), memoize only the final
+// result; v1 has no sub-step replay, so the InvokeInput workflow-replay fields stay nil.
 //
 // RunAgent 派发 agent 节点（ag_）。粗粒度 activity：对 pin 版本（run 启动时冻结）跑完整 ReAct loop、
 // 只记忆化最终 result；v1 无子步重放，故 InvokeInput 的 workflow-replay 字段留空。
@@ -157,8 +157,8 @@ func (d dispatcher) RunAgent(ctx context.Context, ref, pinnedVersionID string, i
 }
 
 // toResultMap coerces a callable's return into the flat node-result map model B reads
-// (`node.field`, doc 20 §5.4): a JSON object passes through; nil → empty; any scalar / string /
-// array wraps under "text" (the schema-less-output convention, doc 21 §4.2 — mcp text + agent
+// (`node.field`): a JSON object passes through; nil → empty; any scalar / string /
+// array wraps under "text" (the schema-less-output convention — mcp text + agent
 // free-text land here).
 //
 // toResultMap 把 callable 返回规整成 model B 读的扁平节点结果 map：JSON 对象直通；nil → 空；标量 /

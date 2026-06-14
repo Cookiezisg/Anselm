@@ -12,12 +12,12 @@ import (
 
 // statusForKind maps a domain error Kind to its HTTP status — the canonical mapping
 // declared on each Kind in domain/errors. This switch IS the entire domain→HTTP table:
-// transport carries no per-error mapping and imports no business domain (the old errmap
-// was a 293-line table importing 27 packages; structured Error{Kind,Code} collapsed it here).
+// transport carries no per-error mapping and imports no business domain — the structured
+// Error{Kind,Code} makes one Kind→status switch sufficient.
 //
 // statusForKind 把 domain 错误 Kind 映射到 HTTP status——domain/errors 每个 Kind 注释里的
 // 权威映射。这个 switch 就是 domain→HTTP 的全部映射：transport 不持逐错误表、不 import 任何
-// 业务 domain（旧 errmap 是 293 行表、import 27 包；结构化 Error{Kind,Code} 把它塌缩到这里）。
+// 业务 domain——结构化 Error{Kind,Code} 使一个 Kind→status switch 足矣。
 func statusForKind(k errorspkg.Kind) int {
 	switch k {
 	case errorspkg.KindInvalid:

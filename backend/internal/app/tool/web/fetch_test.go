@@ -149,9 +149,9 @@ func TestWebFetch_Execute_SummariseFailDegrades(t *testing.T) {
 	}
 }
 
-// PD-4 C: local mode must never touch the Jina endpoint — the URL stays on this machine.
+// Local mode must never touch the Jina endpoint — the URL stays on this machine.
 //
-// PD-4 C：local 模式绝不能碰 Jina 端点——URL 不出本机。
+// local 模式绝不能碰 Jina 端点——URL 不出本机。
 func TestWebFetch_FetchMode_LocalSkipsJina(t *testing.T) {
 	jinaHits := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

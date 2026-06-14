@@ -14,10 +14,10 @@ import (
 
 // docHit is the unified slim shape both search paths render — the content engine fills
 // id/name/snippet, the legacy name search fills id/name/path/description; omitempty keeps the
-// JSON tight (MD7: one structured shape, no prose).
+// JSON tight (one structured shape, no prose).
 //
 // docHit 是两条检索路径共用的 slim 形状——内容引擎填 id/name/snippet，原名字检索填
-// id/name/path/description；omitempty 保持 JSON 紧凑（MD7：单一结构形状、无散文）。
+// id/name/path/description；omitempty 保持 JSON 紧凑（单一结构形状、无散文）。
 type docHit struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`

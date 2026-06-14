@@ -20,13 +20,13 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the todos DDL, exported as ordered idempotent statements for cmd/server to
-// collect and apply via db.Migrate. deleted_at honors D1 (soft-delete) though the only
-// deletion path — cascade when a conversation is deleted — lands in a later wave. The
-// index supports the future "all lists of a conversation" cleanup query.
+// Schema is the todos DDL, exported as ordered idempotent statements for bootstrap to
+// collect and apply via db.Migrate. deleted_at honors D1 (soft-delete) even though no
+// deletion path exists yet (a conversation-delete cascade would be the only one). The
+// index supports an "all lists of a conversation" cleanup query.
 //
-// Schema 是 todos 表 DDL，按序幂等语句导出，由 cmd/server 汇总经 db.Migrate 应用。deleted_at
-// 守 D1（软删），尽管唯一删除路径——对话删除时级联——在更后波次。索引支撑未来"某对话所有清单"清理查询。
+// Schema 是 todos 表 DDL，按序幂等语句导出，由 bootstrap 汇总经 db.Migrate 应用。deleted_at
+// 守 D1（软删），尽管目前尚无删除路径（唯一可能的删除路径是对话删除时的级联）。索引支撑"某对话所有清单"清理查询。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS todos (
 		scope_id        TEXT PRIMARY KEY,

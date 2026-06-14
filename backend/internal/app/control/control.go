@@ -4,14 +4,14 @@
 // adapters. The version model is a linear, append-only history with a free-moving
 // ActiveVersionID pointer — no pending/accept. Create/edit write a new version and take
 // effect immediately; revert just moves the pointer. There is no run/executions: a
-// control node is pure control flow evaluated by the durable interpreter (波次 4), never
+// control node is pure control flow evaluated by the durable interpreter, never
 // an activity — the Service exposes Resolve so the interpreter reads the pinned version's
 // branches.
 //
 // Package control（app 层）编排 control 逻辑 domain：从完整 branch 组锻造版本（无 ops——branches
 // 是整体）、create/edit 时用 pkg/cel 编译每个分支的 when/emit、relation / catalog 适配器。版本
 // 模型线性、只增 + 可自由移动的 ActiveVersionID 指针——无 pending/accept。create/edit 写新版本并
-// 立即生效；revert 只移指针。无 run/executions——control 节点是纯控制流，由 durable 解释器（波次 4）
+// 立即生效；revert 只移指针。无 run/executions——control 节点是纯控制流，由 durable 解释器
 // 求值、绝非 activity——Service 暴露 Resolve 供解释器读 pin 版本的 branches。
 package control
 

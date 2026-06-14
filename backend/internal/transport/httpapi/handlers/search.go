@@ -15,11 +15,11 @@ import (
 // SearchHandler serves the unified search surface: omni/vertical search (one
 // endpoint — empty types = omni) and the reindex action. The window-cursor
 // pagination follows N4; reindex follows N5 (:action) and returns 204 — it is
-// fire-and-forget with no pollable product (MD4), so no 202+id.
+// fire-and-forget with no pollable product, so no 202+id.
 //
 // SearchHandler 提供统一搜索面：综搜/垂搜（同一端点——types 空 = 综搜）与重建动作。
 // 窗口 cursor 分页遵循 N4；reindex 遵循 N5（:action）、返 204——fire-and-forget、
-// 无可轮询产物（MD4），故非 202+id。
+// 无可轮询产物，故非 202+id。
 type SearchHandler struct {
 	svc *searchapp.Service
 	log *zap.Logger
@@ -94,7 +94,7 @@ func (h *SearchHandler) PatchSettings(w http.ResponseWriter, r *http.Request) {
 // Search 处理 GET /api/v1/search 全参数面。
 func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	qp := r.URL.Query()
-	// search 专属界（默认 20 / 上限 50），走统一 ParsePageBounded 取错误语义 + 钳制（N4/MD2），
+	// search 专属界（默认 20 / 上限 50），走统一 ParsePageBounded 取错误语义 + 钳制（N4），
 	// 不再手搓 limit 解析。
 	pg, err := responsehttpapi.ParsePageBounded(r, 20, 50)
 	if err != nil {
@@ -126,7 +126,7 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// 分页坐标恒在 envelope 顶层(Paged);total 作 list 元数据进 data 子对象(MD2)。
+	// 分页坐标恒在 envelope 顶层(Paged);total 作 list 元数据进 data 子对象。
 	responsehttpapi.Paged(w, map[string]any{"hits": page.Hits, "total": page.Total}, page.NextCursor, page.NextCursor != "")
 }
 
@@ -140,7 +140,7 @@ func (h *SearchHandler) Reindex(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.NoContent(w) // fire-and-forget、无可轮询产物(MD4)
+	responsehttpapi.NoContent(w) // fire-and-forget、无可轮询产物
 }
 
 func splitCSV(s string) []string {

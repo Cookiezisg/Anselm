@@ -37,7 +37,7 @@ func NewNotificationHandler(svc *notificationapp.Service, log *zap.Logger) *Noti
 func (h *NotificationHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/notifications", h.List)
 	mux.HandleFunc("GET /api/v1/notifications/unread-count", h.UnreadCount)
-	// 非 CRUD 状态变更用 :action(N5/MD5):实体级 {id}:mark-read、集合级 :mark-all-read。
+	// 非 CRUD 状态变更用 :action(N5):实体级 {id}:mark-read、集合级 :mark-all-read。
 	mux.HandleFunc("POST /api/v1/notifications/{idAction}", h.postOnNotification)
 	mux.HandleFunc("POST /api/v1/notifications:mark-all-read", h.MarkAllRead)
 }

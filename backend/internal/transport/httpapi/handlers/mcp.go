@@ -19,11 +19,11 @@ const mcpImportMaxBytes = 1 << 20
 // MCPHandler hosts the MCP HTTP endpoints: installed servers (list / get / stderr / put /
 // delete / :reconnect / tools:invoke / :import) + the marketplace (list / :install). Servers
 // are keyed by their short name (workspace-unique); the registry by full slug (in body, since
-// slugs contain '/'). Health-history is gone (live ServerStatus is enough).
+// slugs contain '/'). No health-history surface — live ServerStatus is enough.
 //
 // MCPHandler 持 MCP HTTP 端点：已装 server（list/get/stderr/put/delete/:reconnect/tools:invoke/
 // :import）+ 市场（list/:install）。server 用短名为键（workspace 唯一）；registry 用完整 slug
-// （在 body，因 slug 含 '/'）。health-history 已删（实时 ServerStatus 够用）。
+// （在 body，因 slug 含 '/'）。无 health-history 面——实时 ServerStatus 够用。
 type MCPHandler struct {
 	svc *mcpapp.Service
 	log *zap.Logger
@@ -112,7 +112,7 @@ func (h *MCPHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象。
 	responsehttpapi.Paged(w, map[string]any{"calls": res.Calls, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 

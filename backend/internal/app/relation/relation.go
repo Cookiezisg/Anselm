@@ -24,11 +24,11 @@ import (
 
 // Namer resolves display names for a batch of one kind's entity ids. Each source
 // domain implements it (one query: WHERE id IN …, pluck name) and is injected
-// post-construction (波次 3). A missing/nil namer for a kind contributes no names,
+// post-construction. A missing/nil namer for a kind contributes no names,
 // and those ids fall back to displaying themselves.
 //
 // Namer 批量解析某一类实体 id 的显示名。各 source domain 实现（一条查询：WHERE id IN… 取
-// name），装配后注入（波次 3）。某 kind 无 namer 时不贡献名字，这些 id 回退为显示自身。
+// name），装配后注入。某 kind 无 namer 时不贡献名字，这些 id 回退为显示自身。
 type Namer interface {
 	NamesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
@@ -71,7 +71,7 @@ func NewService(cfg Config) *Service {
 
 var _ relationdomain.Service = (*Service)(nil)
 
-// --- write side (called by source-domain sync hooks, 波次 2/3/5) ---
+// --- write side (called by source-domain sync hooks) ---
 
 func (s *Service) SyncOutgoing(ctx context.Context, fromKind, fromID string, kindScope []string, edges []relationdomain.SyncEdge) error {
 	if err := s.validateSync(fromKind, fromID, kindScope, edges); err != nil {

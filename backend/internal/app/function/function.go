@@ -126,16 +126,16 @@ func envOwner(functionID, envID string) sandboxdomain.Owner {
 // ensureEnv materializes v's env via the envfix loop, writes the terminal env state +
 // (fix-corrected) deps back to the row and mirrors them onto v, and returns whether the
 // env ended ready. It never errors on a build failure — that is a state the caller
-// surfaces (Create/Edit tolerate it; Run treats not-ready as ErrNoActiveVersion's kin).
+// surfaces (Create/Edit tolerate it; Run turns not-ready into ErrEnvNotReady).
 //
 // ensureEnv 经 envfix 循环物化 v 的 env，把终态 + （修复后）deps 写回行并镜像到 v，返回 env
 // 是否就绪。它从不因构建失败报错——那是调用方上呈的状态（Create/Edit 容忍；Run 视未就绪为错）。
 func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink envfixapp.Sink) (ready bool, errMsg string) {
 	_ = s.repo.UpdateVersionEnv(ctx, v.ID, functiondomain.EnvStatusSyncing, "", v.Dependencies, nil)
 
-	// Tee attempts to the panel's forge terminal regardless of caller — the HTTP editor
-	// path used to build in silence while chat forge streamed (AC follow-up).
-	// 把尝试行 tee 到面板锻造终端、不分调用方——此前 HTTP 编辑器路径静默构建而 chat 锻造有流。
+	// Tee attempts to the panel's forge terminal regardless of caller, so the HTTP editor
+	// path and chat forge are equally visible.
+	// 把尝试行 tee 到面板锻造终端、不分调用方——HTTP 编辑器路径与 chat 锻造同等可见。
 	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeForge, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))

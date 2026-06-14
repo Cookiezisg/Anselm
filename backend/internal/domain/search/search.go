@@ -183,10 +183,10 @@ type Query struct {
 	Limit           int
 }
 
-// LexicalQuery is the repository-level form: tokens already routed (§6.1), the
+// LexicalQuery is the repository-level form: tokens already routed, the
 // workspace comes from ctx inside the store.
 //
-// LexicalQuery 是仓储层入参：token 已路由（§6.1），workspace 由 store 从 ctx 取。
+// LexicalQuery 是仓储层入参：token 已路由，workspace 由 store 从 ctx 取。
 type LexicalQuery struct {
 	LongTokens      []string // ≥3 chars → FTS5 MATCH. ≥3 字符 → FTS5 MATCH。
 	ShortTokens     []string // <3 chars → LIKE predicates. <3 字符 → LIKE 谓词。

@@ -17,11 +17,11 @@ import (
 
 // HandlerHandler hosts the handler HTTP endpoints. The version model is linear with a
 // free-moving active pointer (no pending/accept). The resident instance is MCP-style
-// (boot / restart / shutdown); :restart resets it. :iterate (R0065) opens an AI conversation
+// (boot / restart / shutdown); :restart resets it. :iterate opens an AI conversation
 // to edit this handler via aispawn.
 //
 // HandlerHandler 持 handler HTTP 端点。版本模型线性 + 自由 active 指针（无 pending/accept）。
-// 常驻实例 MCP 式（boot / restart / shutdown）；:restart 重置它。:iterate（R0065）经 aispawn 开 AI 对话编辑本 handler。
+// 常驻实例 MCP 式（boot / restart / shutdown）；:restart 重置它。:iterate 经 aispawn 开 AI 对话编辑本 handler。
 type HandlerHandler struct {
 	svc     *handlerapp.Service
 	aispawn *aispawnapp.Service
@@ -81,7 +81,7 @@ func (h *HandlerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	hd.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	hd.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形
 	responsehttpapi.Created(w, hd)
 }
 
@@ -136,9 +136,9 @@ func (h *HandlerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnHandler dispatches POST /handlers/{id}:<action> (:call / :restart / :revert / :edit).
+// postOnHandler dispatches POST /handlers/{id}:<action> (:call / :restart / :revert / :edit / :iterate).
 //
-// postOnHandler 派发 POST /handlers/{id}:<action>（:call / :restart / :revert / :edit）。
+// postOnHandler 派发 POST /handlers/{id}:<action>（:call / :restart / :revert / :edit / :iterate）。
 func (h *HandlerHandler) postOnHandler(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -185,7 +185,7 @@ func (h *HandlerHandler) restart(w http.ResponseWriter, r *http.Request, id stri
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	hd, err := h.svc.Get(r.Context(), id) // 返动作后实体快照(含 runtimeState 计算字段)(MD4)
+	hd, err := h.svc.Get(r.Context(), id) // 返动作后实体快照(含 runtimeState 计算字段)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -335,7 +335,7 @@ func (h *HandlerHandler) ListCalls(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象。
 	responsehttpapi.Paged(w, map[string]any{"calls": res.Calls, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 

@@ -31,12 +31,12 @@ func (s *Service) notifySearch(ctx context.Context, id string) {
 
 // SearchSource projects a conversation: chunk 0 is the title card, then one
 // row per message holding ONLY its text blocks (tool_result / reasoning /
-// tool_call / compaction / progress are noise by decision §3.2). chunk_no =
+// tool_call / compaction / progress are noise). chunk_no =
 // first block seq + 1 — stable per message, so the incremental DocAt path
 // upserts without renumbering; 0 stays reserved for the card.
 //
 // SearchSource 投影对话：chunk 0 是标题卡，之后每条 message 一行、只含其 text 块
-// （tool_result/reasoning/tool_call/compaction/progress 按 §3.2 裁决为噪声）。
+// （tool_result/reasoning/tool_call/compaction/progress 为噪声）。
 // chunk_no = 首块 seq + 1——对 message 稳定，增量 DocAt 直接 upsert 不重排号；
 // 0 留给标题卡。
 func (s *Service) SearchSource(messages MessageReader) *SearchSource {

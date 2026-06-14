@@ -108,12 +108,11 @@ func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, nod
 	return status, nil
 }
 
-// failNode writes the failed node row then fail-fasts the whole run (doc 21 §4.4): completed sibling
-// rows stay memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance
-// loop stops.
+// failNode writes the failed node row then fail-fasts the whole run: completed sibling rows stay
+// memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance loop stops.
 //
-// failNode 写 failed 节点行后 fail-fast 整个 run（doc 21 §4.4）：completed 兄弟行留作记忆化；:replay
-// 清 failed 行重走。返 NodeFailed 使 advance 循环停。
+// failNode 写 failed 节点行后 fail-fast 整个 run：completed 兄弟行留作记忆化；:replay 清 failed 行
+// 重走。返 NodeFailed 使 advance 循环停。
 func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string) (string, error) {
 	if _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason); err != nil {
 		return "", err

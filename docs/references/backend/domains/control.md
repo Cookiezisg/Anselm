@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -23,4 +23,4 @@ create/edit 时：domain `ValidateBranches`（结构）+ app 编译每条 when/e
 
 ## 3. 契约（引用）
 
-端点（CRUD + `:edit`/`:revert`/`:iterate` + versions）→ [api.md](../api.md) · 表 `controls`/`control_versions` → [database.md](../database.md) · 码 `CONTROL_*` 8+4 → [error-codes.md](../error-codes.md) · ID：`ctl_`/`ctlv_`。catalog/mention/relation 三适配器同构；版本 cap 50 放过 active。
+端点（CRUD + `:edit`/`:revert`/`:iterate` + versions）→ [api.md](../api.md) · 表 `control_logics`/`control_logic_versions` → [database.md](../database.md) · 码 `CONTROL_*` 8+4 → [error-codes.md](../error-codes.md) · ID：`ctl_`/`ctlv_`。catalog/mention/relation 三适配器同构；版本 cap 50 放过 active。

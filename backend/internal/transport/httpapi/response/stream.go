@@ -8,12 +8,12 @@ import (
 	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
 )
 
-// streamWire is the on-wire JSON shape of a stream Envelope (stream-protocol.md §1-3):
+// streamWire is the on-wire JSON shape of a stream Envelope (see references/backend/events.md):
 // {seq, scope, id, frame:{kind, ...}}. Built here, not in domain/stream, so the domain
 // stays serialization-free; this is the single place the frame discriminant (kind) and
 // node discriminant (type, via Node's own json tags) are injected onto the wire.
 //
-// streamWire 是 stream Envelope 的线上 JSON 形状（stream-protocol.md §1-3）。在此构造而非
+// streamWire 是 stream Envelope 的线上 JSON 形状（见 references/backend/events.md）。在此构造而非
 // domain/stream，让 domain 不碰序列化；这是 frame 判别（kind）与 node 判别（type）注入线缆的唯一处。
 type streamWire struct {
 	Seq   int64              `json:"seq"`

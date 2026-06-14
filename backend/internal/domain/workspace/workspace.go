@@ -51,10 +51,10 @@ type Workspace struct {
 	// WebFetchMode picks how the WebFetch tool retrieves pages: "local" = direct HTTP GET from
 	// this machine (no URL leaves it — the local-first default); "jina" = via the public Jina
 	// reader (better Markdown extraction, but every fetched URL is sent to a third party).
-	// "" = local (PD-4, decision C).
+	// "" = local.
 	// WebFetchMode 决定 WebFetch 工具的抓取方式："local" = 本机直接 HTTP GET（URL 不出本机——
 	// 本地优先的默认）；"jina" = 走公共 Jina reader（Markdown 提取更好，但每个抓取 URL 都发给
-	// 第三方）。"" = local（PD-4 裁决 C）。
+	// 第三方）。"" = local。
 	WebFetchMode string     `db:"web_fetch_mode" json:"webFetchMode,omitempty"`
 	LastUsedAt   *time.Time `db:"last_used_at" json:"lastUsedAt,omitempty"`
 	CreatedAt    time.Time  `db:"created_at,created" json:"createdAt"`
@@ -86,9 +86,9 @@ func IsValidWebFetchMode(m string) bool {
 }
 
 // EffectiveWebFetchMode resolves the stored value to the mode that runs: "" → local
-// (the local-first default, PD-4 decision C).
+// (the local-first default).
 //
-// EffectiveWebFetchMode 把存储值解析为实际生效模式："" → local（本地优先默认，PD-4 裁决 C）。
+// EffectiveWebFetchMode 把存储值解析为实际生效模式："" → local（本地优先默认）。
 func EffectiveWebFetchMode(stored string) string {
 	if stored == WebFetchModeJina {
 		return WebFetchModeJina

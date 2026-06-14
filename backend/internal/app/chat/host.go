@@ -109,12 +109,12 @@ func (h *chatHost) SystemReminders(ctx context.Context) []string {
 }
 
 // WriteFinalize lands the assistant turn: it updates the message's terminal fields, persists it
-// with its blocks (seq-allocated, R0054), and pushes message_stop. It runs on a DETACHED context
+// with its blocks (seq-allocated), and pushes message_stop. It runs on a DETACHED context
 // (background + re-seeded workspace/conversation) so an upstream cancel — the user closing the tab
 // mid-generation — can never leave a permanent streaming orphan; the turn always reaches a
 // terminal state. Provider / ModelID were set on the message before loop.Run (provenance).
 //
-// WriteFinalize 落 assistant 回合：更新 message 终态字段、连同 blocks（分配 seq，R0054）落盘、推
+// WriteFinalize 落 assistant 回合：更新 message 终态字段、连同 blocks（分配 seq）落盘、推
 // message_stop。它在 DETACHED context（background + 重新埋 workspace/conversation）上跑，故上游
 // cancel——用户在生成中关页——绝不会留永久 streaming 孤儿；回合总抵达终态。Provider / ModelID 在
 // loop.Run 前已设在 message 上（溯源）。

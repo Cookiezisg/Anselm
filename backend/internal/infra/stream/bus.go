@@ -5,13 +5,13 @@
 // ephemeral frames (delta, tick) fan out live with seq 0, are never buffered, and are
 // dropped on a full subscriber — so token-rate deltas never overflow the replay window
 // nor stall the producer. v1 keys by workspace only (全量推); per-scope subscription is
-// a future extension. See lab/backendcleaner/target/stream-protocol.md §5.
+// a future extension. See docs/references/backend/events.md.
 //
 // Package stream 是支撑三条 SSE 流的进程内 Bus。一个 Bus 类型、每条流实例化一次；各自
 // 持有 per-workspace seq + replay 环。可丢性由 frame 决定：durable 帧（open/close、非
 // ephemeral signal）分配 seq 并入环供 replay；ephemeral 帧（delta、tick）实时扇出、seq 0、
 // 不入环、满则丢——token 级 delta 永不撑爆 replay 窗口、永不卡 producer。v1 仅按 workspace
-// 分流（全量推），scope 级订阅是未来扩展。见 stream-protocol.md §5。
+// 分流（全量推），scope 级订阅是未来扩展。见 docs/references/backend/events.md。
 package stream
 
 import (

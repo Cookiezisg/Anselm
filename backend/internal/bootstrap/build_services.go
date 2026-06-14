@@ -116,12 +116,12 @@ type toolsetHolder struct{ tools []toolapp.Tool }
 
 func (h *toolsetHolder) Tools() []toolapp.Tool { return h.tools }
 
-// buildServices constructs all 21 app Services in dependency order, wires every cross-Service
-// adapter (R0060), the toolset, and all post-construction injection (relation syncers / catalog
+// buildServices constructs all 28 app Services in dependency order, wires every cross-Service
+// adapter, the toolset, and all post-construction injection (relation syncers / catalog
 // sources / mention resolvers / invoke deps / ref resolver). mux is the shared ServeMux trigger
 // registers webhook routes on; dataDir roots the file-backed stores + sandbox.
 //
-// buildServices 按依赖序构造全部 21 个 app Service，接好每个跨 Service 适配器（R0060）、工具集，
+// buildServices 按依赖序构造全部 28 个 app Service，接好每个跨 Service 适配器、工具集，
 // 以及所有装配后注入。mux 是 trigger 注册 webhook 路由的共享 mux；dataDir 是文件式 store + sandbox 的根。
 func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir string, log *zap.Logger) *services {
 	// --- Tier 0: leaves (no app-Service dependencies) ---
@@ -142,7 +142,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	})
 	searchSvc.SetSifter(&llmSifter{picker: ws, keys: keys, factory: inf.factory})
 
-	// R0060 model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
+	// model-resolution chain (one core, four scenario wrappers) + caps/window lookup.
 	lookup := NewModelInfoLookup(modelCaps)
 	resolvers := NewModelResolvers(ws, keys, inf.factory, lookup)
 
@@ -209,7 +209,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			filesystemtool.FilesystemTools(guard),
 			searchtool.SearchTools(guard, log),
 			shelltool.NewShellTools().Tools,
-			[]toolapp.Tool{asktool.New()}, // R0064: ask_user — agent asks the human (blocks on the humanloop broker)
+			[]toolapp.Tool{asktool.New()}, // ask_user — agent asks the human (blocks on the humanloop broker)
 			todotool.TodoTools(todo),      // todo_write — the checklist's only write path (the HTTP board is read-only)
 		),
 		Lazy: concat(
@@ -287,14 +287,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	keys.AddRefScanner(ws)
 	keys.AddRefScanner(ag)
 
-	// Workspace delete cascades (PD-1 plan A): kill every workflow's automation (detach
+	// Workspace delete cascades: kill every workflow's automation (detach
 	// listeners + cancel in-flight runs + inactive — idempotent on already-inactive ones, and
 	// it also reaps manually-triggered runs), stop the workspace's resident handler/mcp
 	// processes, then remove its on-disk tree (skills / memories). All on a Detached(target)
 	// ctx — the DELETE request may arrive from a DIFFERENT workspace. Best-effort: the row
 	// delete that follows is what makes the data unreachable.
 	//
-	// workspace 删除级联（PD-1 A 案）：杀每个 workflow 的自动化（摘监听 + 取消在途 run +
+	// workspace 删除级联：杀每个 workflow 的自动化（摘监听 + 取消在途 run +
 	// inactive——对已 inactive 幂等，且连手动触发的 run 一并收割）、停本 workspace 常驻
 	// handler/mcp 进程、删盘上文件树（skills / memories）。全程用 Detached(目标) ctx——
 	// DELETE 请求可能来自**另一个** workspace。best-effort：随后的删行才是数据不可达的根因。
@@ -402,7 +402,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	mcp.SetSearchNotifier(sn)
 	chat.SetSearchNotifier(sn)
 	subagentSvc.SetSearchNotifier(sn)
-	// events.md 的 mcp.{installed,updated,removed,reconnected} 族——缺此线整族哑火（AC-29）。
+	// events.md 的 mcp.{installed,updated,removed,reconnected} 族——缺此线整族哑火。
 	mcp.SetNotifier(notif)
 
 	s := &services{
@@ -413,10 +413,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
 		search: searchSvc,
 	}
-	// aispawn (R0065) composes conversation + chat + a prefix-dispatched execution renderer; built
+	// aispawn composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.
 	//
-	// aispawn（R0065）组合 conversation + chat + 前缀分发执行渲染器；最后建（它读已装配的 services）。
+	// aispawn 组合 conversation + chat + 前缀分发执行渲染器；最后建（它读已装配的 services）。
 	s.aispawn = newAispawn(s, log)
 	return s
 }

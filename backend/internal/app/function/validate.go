@@ -28,11 +28,11 @@ func validateIncremental(d *VersionDraft) error {
 
 // validateFinal checks the completed draft is runnable. This is a deliberately light
 // lexical check — not a real AST parse: code must declare at least one top-level def
-// and must not import the handler SDK (D7: functions are stateless, handlers persistent;
+// and must not import the handler SDK (functions are stateless, handlers persistent;
 // a function importing forgify_handler would blur that boundary).
 //
 // validateFinal 校验完成的草稿可运行。这是刻意轻量的词法检查——非真 AST 解析：代码须至少一个
-// 顶层 def，且不得 import handler SDK（D7：function 无状态、handler 常驻；function import
+// 顶层 def，且不得 import handler SDK（function 无状态、handler 常驻；function import
 // forgify_handler 会模糊这条边界）。
 func validateFinal(d *VersionDraft) error {
 	if d.Name == "" {
@@ -46,7 +46,7 @@ func validateFinal(d *VersionDraft) error {
 	}
 	for _, banned := range handlerImportBlacklist {
 		if strings.Contains(d.Code, banned) {
-			return fmt.Errorf("D7: function code may not import the handler SDK (%q)", banned)
+			return fmt.Errorf("function code may not import the handler SDK (%q)", banned)
 		}
 	}
 	return nil

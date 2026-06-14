@@ -86,12 +86,12 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 
 // processTask runs one assistant generation. It rebuilds a fresh context (the Send context is
 // long gone) carrying the per-run identity + AgentState + the live stream bridge + a cancel the
-// cancel endpoint (R0056) can trigger, resolves the conversation's model, builds the system
+// cancel endpoint can trigger, resolves the conversation's model, builds the system
 // prompt, and runs the ReAct loop. The host's WriteFinalize persists + streams the terminal turn,
 // so processTask discards the loop Result.
 //
 // processTask 跑一次 assistant 生成。它重建新 context（Send context 早已消失），携带 per-run 身份 +
-// AgentState + live 流桥 + cancel 端点（R0056）可触发的 cancel，解析对话模型、拼 system prompt、跑
+// AgentState + live 流桥 + cancel 端点可触发的 cancel，解析对话模型、拼 system prompt、跑
 // ReAct 循环。host 的 WriteFinalize 落盘 + 推流终态，故 processTask 丢弃 loop Result。
 func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	base := reqctxpkg.Detached(t.workspaceID)
@@ -105,10 +105,10 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	//
 	// SSE-C：种 entities Bridge，使 loop 把 forge tool_call 的内容 delta 镜像到 entities 流（LLM 锻造时实体面板实时填充）。
 	base = entitystreamapp.WithBridge(base, s.deps.EntitiesBridge)
-	// R0064: seed the human-in-the-loop broker so the loop's danger gate + ask_user can block for a
+	// Seed the human-in-the-loop broker so the loop's danger gate + ask_user can block for a
 	// human decision (and it flows into any nested agent run via ctx). Cancel (below) unblocks them.
 	//
-	// R0064：种人在环 broker，使 loop 的 danger 门 + ask_user 能阻塞等人决定（经 ctx 流入任何嵌套 agent 运行）。
+	// 种人在环 broker，使 loop 的 danger 门 + ask_user 能阻塞等人决定（经 ctx 流入任何嵌套 agent 运行）。
 	// 下方 cancel 解阻它们。
 	base = humanloopapp.WithBroker(base, s.broker)
 

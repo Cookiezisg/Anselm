@@ -148,12 +148,12 @@ func (a *SandboxAdapter) versionDir(functionID, versionID string) string {
 // driverTemplate redirects the function's stdout to stderr for the duration of the call, then
 // prints the JSON result to the real stdout. This keeps stdout a clean single JSON document (so
 // res.Stdout parses) AND routes the function's own print()s to stderr — which the tool layer
-// streams live as progress under the run_function tool_call. (Before this, a print() corrupted the
-// result by interleaving on stdout.)
+// streams live as progress under the run_function tool_call. Without the redirect a print() would
+// interleave on stdout and corrupt the result.
 //
 // driverTemplate 在调用期间把函数 stdout 重定向到 stderr，再把 JSON 结果打到真正的 stdout。这既让
 // stdout 保持单一干净 JSON（res.Stdout 可解析），又把函数自己的 print() 引到 stderr——工具层将其作为
-// run_function tool_call 下的实时进度流出。（此前 print() 会在 stdout 上交错、破坏结果。）
+// run_function tool_call 下的实时进度流出。无此重定向，print() 会在 stdout 上交错、破坏结果。
 const driverTemplate = `
 
 if __name__ == "__main__":

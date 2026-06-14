@@ -15,10 +15,10 @@ const (
 	blocksDefaultLimit = 8
 	blocksMaxLimit     = 20
 
-	// siftBudgetTokens is the direct-feed threshold (§7.4): a catalog this small
+	// siftBudgetTokens is the direct-feed threshold: a catalog this small
 	// goes WHOLE to the utility model — lossless, maximum precision. Measured in
 	// serialized tokens, not row count; a constant, not a setting.
-	// siftBudgetTokens 是直喂阈值（§7.4）：目录小于它就**整体**交给 utility 模型——
+	// siftBudgetTokens 是直喂阈值：目录小于它就**整体**交给 utility 模型——
 	// 无损、最大精度。按序列化 token 计、非条数；常量、非配置。
 	siftBudgetTokens = 4000
 	// siftRetrieveTopK is tier 2's candidate pool: index retrieval narrows, the
@@ -56,12 +56,12 @@ type BlockHit struct {
 	Snippet  string `json:"snippet,omitempty"`
 }
 
-// SearchBlocks is the LLM palette query (§7.4): six block kinds only, folded
+// SearchBlocks is the LLM palette query: six block kinds only, folded
 // per (entity, anchor) so each handler method / mcp tool is its own hit, and
 // every result carries a wireable ref. Hits without one (an mcp server card)
 // are dropped — un-wireable results are noise here.
 //
-// SearchBlocks 是 LLM 积木面板查询（§7.4）：仅六类积木、按 (entity, anchor) 折叠
+// SearchBlocks 是 LLM 积木面板查询：仅六类积木、按 (entity, anchor) 折叠
 // （每个 handler 方法 / mcp 工具各自成命中）、每条结果带可接线 ref。没有 ref 的
 // 命中（mcp server 卡）丢弃——不可接线的结果在这里是噪声。
 func (s *Service) SearchBlocks(ctx context.Context, query string, kinds []searchdomain.EntityType, limit int) ([]BlockHit, error) {
@@ -82,9 +82,9 @@ func (s *Service) SearchBlocks(ctx context.Context, query string, kinds []search
 	if limit > blocksMaxLimit {
 		limit = blocksMaxLimit
 	}
-	// Three-tier precision chain (§7.4). Tier 1: a catalog under the token
+	// Three-tier precision chain. Tier 1: a catalog under the token
 	// budget goes whole to the utility model — nothing the index might miss.
-	// 三段精度链（§7.4）。第一档：目录在 token 预算内就整体直喂 utility——索引可能
+	// 三段精度链。第一档：目录在 token 预算内就整体直喂 utility——索引可能
 	// 漏的它不会漏。
 	if s.sifter != nil {
 		if rows, err := s.repo.BlockRows(ctx); err == nil {

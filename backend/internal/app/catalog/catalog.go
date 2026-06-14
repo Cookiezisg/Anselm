@@ -28,9 +28,9 @@ type Service struct {
 	sources []catalogdomain.CatalogSource
 }
 
-// New constructs a Service. Register sources (at boot, 波次 3), then Get / GetForSystemPrompt.
+// New constructs a Service. Register sources (at boot), then Get / GetForSystemPrompt.
 //
-// New 构造 Service；注册 source（boot 装配，波次 3）后即可 Get / GetForSystemPrompt。
+// New 构造 Service；注册 source（boot 装配）后即可 Get / GetForSystemPrompt。
 func NewService(log *zap.Logger) *Service {
 	if log == nil {
 		panic("catalogapp.New: logger is nil")

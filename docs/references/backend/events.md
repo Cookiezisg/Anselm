@@ -4,17 +4,17 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
 # 事件 —— SSE 流挂载 / 通知类型登记
 
-> 流式产出的单一事实源。随评审逐域填入；当前已落：P0-P6 全部 32 域。
+> 流式产出的单一事实源。
 > 通则（E 系列）：全系统**仅三条 SSE 流**（messages / entities / notifications，E1 永不再加）；workspace 级、后端不过滤；delta/tick 标 `seq=0` ephemeral（E2）；messages 流 `parentBlockId` 嵌套（E3）。任何实体**不开新流**——只把内容挂上三条流。
 
-## Frame 协议与 node.type 词表（MD-sse2 登记，非穷举）
+## Frame 协议与 node.type 词表（非穷举）
 
 三流共用统一帧 envelope `{seq, scope:{kind,id}, id, frame}`，`frame` 是四动词封闭联合。`durable` 报告该帧是否进 replay 环（重连可重建）；`seq=0` = ephemeral、不入 buffer、不产生背压。
 

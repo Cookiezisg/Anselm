@@ -14,11 +14,11 @@ import (
 )
 
 // Schema is the workspaces DDL, exported as ordered idempotent statements that
-// cmd/server collects and applies via db.Migrate. The workspace IS the isolation
+// bootstrap collects and applies via db.Migrate. The workspace IS the isolation
 // root, so this is the one business table with no workspace_id column. The name
 // index is partial (excludes soft-deleted rows) so a deleted name can be reused.
 //
-// Schema 是 workspaces 表 DDL，按序幂等语句导出，由 cmd/server 汇总经 db.Migrate 应用。
+// Schema 是 workspaces 表 DDL，按序幂等语句导出，由 bootstrap 汇总经 db.Migrate 应用。
 // workspace 就是隔离根，故这是唯一不带 workspace_id 列的业务表。name 索引是 partial
 // （排除软删行），使软删掉的名字可被重用。
 var Schema = []string{

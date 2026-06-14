@@ -18,7 +18,7 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the agent tables' DDL, exported as ordered idempotent statements for cmd/server to
+// Schema is the agent tables' DDL, exported as ordered idempotent statements for bootstrap to
 // collect via db.Migrate. agents has a partial-UNIQUE name (freed on soft-delete); versions are
 // UNIQUE(agent_id, version) and immutable (no updated_at); executions are an append-only log
 // (no deleted_at — D1) with CHECK-constrained status / triggered_by.
@@ -311,10 +311,10 @@ func (s *Store) GetByIDs(ctx context.Context, ids []string) ([]*agentdomain.Agen
 	return rows, nil
 }
 
-// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction: a
 // create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
 //
-// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// CreateWithVersion 在单事务内插入实体行与其 v1：create 要么完整落地、要么完全不落
 // ——中途失败不留无版本实体行。
 func (s *Store) CreateWithVersion(ctx context.Context, e *agentdomain.Agent, v *agentdomain.Version) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
@@ -331,10 +331,10 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *agentdomain.Agent, v *
 	})
 }
 
-// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
-// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction:
+// an edit either fully lands or fully doesn't — no orphan version + stale pointer.
 //
-// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针：edit 要么完整生效、
 // 要么完全不生效——不留孤儿版本 + 旧指针。
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *agentdomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {

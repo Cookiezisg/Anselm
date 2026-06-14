@@ -301,12 +301,12 @@ func shortTokenSQL(tokens []string) (string, []any) {
 	return sb.String(), args
 }
 
-// SearchLexical runs the §6.1 token-routed lexical query: long tokens hit the
+// SearchLexical runs the token-routed lexical query: long tokens hit the
 // FTS index (bm25-ranked, title weighted 4:1, score negated to higher-better);
 // queries with only short tokens fall back to a LIKE scan with Go-built
 // snippets — the trigram blind spot (<3 runes) must still find 2-char names.
 //
-// SearchLexical 执行 §6.1 的 token 路由词法查询：长 token 打 FTS 索引（bm25 排序、
+// SearchLexical 执行 token 路由词法查询：长 token 打 FTS 索引（bm25 排序、
 // title 4:1 加权、取负为越大越好）；只有短 token 的查询回退 LIKE 扫描 + Go 构造
 // snippet——trigram 盲区（<3 rune）也必须搜得到 2 字名。
 func (s *Store) SearchLexical(ctx context.Context, q searchdomain.LexicalQuery) ([]*searchdomain.DocHit, error) {

@@ -229,12 +229,12 @@ func (s *Service) GetVersionByNumber(ctx context.Context, formID string, version
 	return s.repo.GetVersionByNumber(ctx, formID, versionN)
 }
 
-// Resolve returns a version (template + decision rules) for the durable interpreter (波次 4).
+// Resolve returns a version (template + decision rules) for the durable interpreter.
 // versionID=="" means the active version. The interpreter compiles the template + Renders it
-// over the pinned payload, then parks (approvals runtime table).
+// over the pinned payload, then parks (a flowrun_nodes row).
 //
-// Resolve 返某版本（template + 决策规则）供 durable 解释器（波次 4）。versionID 空 = active。解释器
-// 编译 template + 对 pin 的 payload Render，然后 park（approvals 运行时表）。
+// Resolve 返某版本（template + 决策规则）供 durable 解释器。versionID 空 = active。解释器
+// 编译 template + 对 pin 的 payload Render，然后 park（一行 flowrun_nodes）。
 func (s *Service) Resolve(ctx context.Context, id, versionID string) (*approvaldomain.Version, error) {
 	f, err := s.repo.GetForm(ctx, id)
 	if err != nil {

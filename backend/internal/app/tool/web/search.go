@@ -91,11 +91,11 @@ type searchResponse struct {
 }
 
 // WebSearch runs a query against the workspace's single configured search key
-// (BYOK). No provider walk (the old SearchProviderPriority burned credits probing
-// each), no MCP tier (a search MCP server exposes its own tool via tool/mcp).
+// (BYOK). No provider walk (probing each provider in turn would burn credits),
+// no MCP tier (a search MCP server exposes its own tool via tool/mcp).
 //
-// WebSearch 用 workspace 唯一配置的搜索 key（BYOK）跑查询。无 provider 遍历（旧
-// SearchProviderPriority 挨个试烧钱），无 MCP tier（搜索 MCP server 经 tool/mcp 暴露自己的工具）。
+// WebSearch 用 workspace 唯一配置的搜索 key（BYOK）跑查询。无 provider 遍历（挨个试 provider
+// 会烧钱），无 MCP tier（搜索 MCP server 经 tool/mcp 暴露自己的工具）。
 type WebSearch struct {
 	httpClient *http.Client
 	keys       apikeydomain.KeyProvider

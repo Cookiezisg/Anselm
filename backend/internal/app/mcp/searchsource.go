@@ -24,17 +24,16 @@ func (s *Service) notifySearch(ctx context.Context, name string) {
 // index row would undo the at-rest encryption.
 //
 // Projection identity is the server NAME (the entity's public, workspace-unique
-// key: HTTP addresses /mcp-servers/{name}, mounts resolve mcp:<name>/<tool>).
-// Keying by row id once made every emitted refHint ("mcp:msv_…/tool")
-// unresolvable by agent mounts — a dead wireable ref (AC-27).
+// key: HTTP addresses /mcp-servers/{name}, mounts resolve mcp:<name>/<tool>), so
+// the emitted refHint ("mcp:<name>/<tool>") resolves against agent mounts.
 //
 // SearchSource 投影 mcp server：server 卡 + **每个缓存工具一行**（anchor=工具名）——
 // 面板命中单元是可调用工具。加密 config（env/headers）**永不入投影**：索引明文
 // 落盘等于废掉落盘加密。
 //
 // 投影身份用 server **NAME**（实体的公开 workspace 唯一键：HTTP 以 /mcp-servers/{name}
-// 寻址、挂载解析 mcp:<name>/<tool>）。曾按行 id 键控，导致发出的 refHint
-// （"mcp:msv_…/tool"）对 agent 挂载永不可解析——可接线 ref 物理死亡（AC-27）。
+// 寻址、挂载解析 mcp:<name>/<tool>），使发出的 refHint（"mcp:<name>/<tool>"）能对 agent
+// 挂载解析。
 func (s *Service) SearchSource() *SearchSource { return &SearchSource{svc: s} }
 
 type SearchSource struct{ svc *Service }

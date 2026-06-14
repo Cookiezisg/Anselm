@@ -12,12 +12,12 @@ const (
 	retrieveMaxTopK     = 20
 )
 
-// Retrieve is the RAG surface (§7.6): the same hybrid pipeline as Search but
+// Retrieve is the RAG surface: the same hybrid pipeline as Search but
 // chunk-grained and unfolded, with full bodies hydrated — callers inject the
 // chunks as context. Vectors present = hybrid, absent = lexical; callers never
 // know nor care.
 //
-// Retrieve 是 RAG 出口（§7.6）：与 Search 同一条混合管线，但 chunk 粒度、不折叠、
+// Retrieve 是 RAG 出口：与 Search 同一条混合管线，但 chunk 粒度、不折叠、
 // 补全文 body——调用方把块注入上下文。向量在场即混合、缺席即词法；调用方无感知。
 func (s *Service) Retrieve(ctx context.Context, q string, opts searchdomain.RetrieveOpts) ([]searchdomain.Chunk, error) {
 	if strings.TrimSpace(q) == "" {

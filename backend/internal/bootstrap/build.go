@@ -1,11 +1,11 @@
 // Package bootstrap is the composition root: the one place allowed to import across every app
-// and infra package. Build wires the SQLite DB, all stores, infra singletons, the 21 app
+// and infra package. Build wires the SQLite DB, all stores, infra singletons, the 28 app
 // Services, every cross-Service adapter (see resolvers/dispatch/refresolver/renderers/sensor),
 // the tool set, the HTTP router, and the boot/shutdown lifecycle into a single *App. Nothing
 // imports bootstrap, so there is no dependency cycle. cmd/server/main.go is a thin shell over it.
 //
 // Package bootstrap 是 composition root：唯一允许横跨所有 app/infra 包 import 的地方。Build 把 SQLite
-// DB、所有 store、infra 单例、21 个 app Service、每个跨 Service 适配器、工具集、HTTP router、boot/
+// DB、所有 store、infra 单例、28 个 app Service、每个跨 Service 适配器、工具集、HTTP router、boot/
 // shutdown 生命周期焊成一个 *App。无人 import bootstrap，故无依赖环。main.go 是它的薄壳。
 package bootstrap
 
@@ -87,7 +87,7 @@ func Build(cfg Config) (*App, error) {
 	inf := infra{factory: llminfra.NewFactory(), encryptor: enc}
 	bus := newBuses()
 
-	// One mux: trigger registers webhook routes on it; the 24 resource handlers register theirs;
+	// One mux: trigger registers webhook routes on it; the 28 resource handlers register theirs;
 	// then Chain wraps it with the middleware stack (workspace identify/require, locale, cors…).
 	mux := http.NewServeMux()
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)

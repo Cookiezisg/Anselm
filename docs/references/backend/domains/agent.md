@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + **按引用挂载**的能力（fn_/hd_/mcp 工具、skill、文档、模型覆盖），运行时跑共享的 ReAct 引擎（`app/loop.Run`）。代码层级：`domain/agent`（2 文件）→ `app/agent`（7 文件 + invoke 是核心）→ `infra/store/agent` + `app/tool/mount`（挂载合成，agent 专属机制）+ `app/tool/agent`（8 工具）。
+Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + **按引用挂载**的能力（fn_/hd_/mcp 工具、skill、文档、模型覆盖），运行时跑共享的 ReAct 引擎（`app/loop.Run`）。代码层级：`domain/agent`（2 文件）→ `app/agent`（8 文件 + invoke 是核心）→ `infra/store/agent` + `app/tool/mount`（挂载合成，agent 专属机制）+ `app/tool/agent`（9 工具）。
 
 ## 2. 心智模型
 
@@ -59,7 +59,7 @@ InvokeAgent(in)
 - **InvokeDeps**（DIP 后注入：Resolver/Mounts/Skill/Knowledge/EntitiesBridge）——"挂载了某能力却 nil 对应依赖" = 装配 bug，invoke **大声失败**（不静默跳过）。
 - **agentHost 实现 loop.Host**：LoadHistory = prompt + 重放步；Tools = 预合成挂载；**WriteFinalize = no-op**（agent 经 Execution 落账、非消息历史）；RecordStep 在装了 recorder 时按绝对回合下标记账。不实现 AutoActivator/ReminderProvider（无 search_tools 扩张、无 todo reminder——worker 聚焦）。
 - **system prompt 组装**：身份（"You are <Name>… Your role: <Description>"）+ worker 纪律（只用给的工具）+ skill 指南段 + **outputs 硬约束**（声明了 Outputs → "最终答案必须是恰含这些字段的单个 JSON"；未声明 → 自由作答）。
-- **三条触发路径**：chat 的 `invoke_agent` 工具（TriggeredBy=chat；toolCallID 设进 ctx 使流式 block 嵌套其下）/ HTTP `:invoke`（manual）/ workflow agent 节点 `dispatch.RunAgent`（workflow；**粗粒度 activity**——只记忆化最终 result，`ReplaySteps/Recorder/FlowrunID` 等 InvokeInput 字段是 ADR-010 子步重放的预留，调度器 v1 留空）。
+- **三条触发路径**：chat 的 `invoke_agent` 工具（TriggeredBy=chat；toolCallID 设进 ctx 使流式 block 嵌套其下）/ HTTP `:invoke`（manual）/ workflow agent 节点 `dispatch.RunAgent`（workflow；**粗粒度 activity**——只记忆化最终 result，`ReplaySteps/Recorder/FlowrunID` 等 InvokeInput 字段是子步重放的预留，调度器 v1 留空）。
 - **溯源**：conversation/message/toolCall 从 ctx；flowrun **InvokeInput 显式字段优先、ctx 注入兜底**（调度器派发前 `reqctx.SetFlowrunID`）。
 - **人在环**：ctx 带 humanloop broker（chat 回合的 broker 自然流进子运行）时，自报 dangerous 的工具在共享 loop 的 danger 门**阻塞**至用户 resolve——嵌套不冒泡，阻塞的 goroutine 天然 hold 整个栈。
 - **状态判定**：runErr → failed；loop 结果 StatusError → failed；其余 ok。tokens/steps/stopReason 在 `InvokeResult` 同步返回（**不持久化**——留全局观测议题；transcript 已含全过程）。
@@ -67,19 +67,19 @@ InvokeAgent(in)
 ## 5. 关键设计决策
 
 - **挂载合成 vs 过滤注册表**：不是"从全局工具里挑"，是"为每个挂载造一个绑定工具"——这使 agent 的能力面=配置面，且系统工具物理上进不来。
-- **skill 作指南而非激活**：`Guide` 渲染正文（无参替换）注入 system prompt；不写 AgentState 的 active-skill（那会把 allowed-tools 预授权泄漏给父对话）、不触发 fork（指南就是给本次运行的文本）。
+- **skill 作指南而非激活**：`Guide` 渲染正文（展开 `${CLAUDE_SESSION_ID}`，不接 `$ARGUMENTS`/位置参数）注入 system prompt；不写 AgentState 的 active-skill（那会把 allowed-tools 预授权泄漏给父对话）、不触发 fork（指南就是给本次运行的文本）。
 - **无 sandbox 依赖**：agent 不写代码——是唯一没有 env/物化链路的执行实体。
 - **TriggeredBy 无 "agent"**：员工不调员工（与 ToolRef 禁 ag_ 同一条公理的两面）。
 - **subagent 与 agent 实体无关**：subagent 是 chat 内 spawn 的隔离 loop 运行（固定动词工具白名单、落 sub-message）；agent 是持久化实体。两者只共享 loop 引擎。
 
 ## 6. 契约（引用）
 
-端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 8 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询；create/edit 是 forge 工具（config 镜像 entities 流）。
+端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询（search_agent_executions + get_agent_execution）；create/edit 是 forge 工具（config 镜像 entities 流）。
 
 ## 7. 跨域集成
 
 - **invoke 被谁调**：chat loop / HTTP / workflow 调度器（`AgentInvoker` 窄接口）。
 - **mount 端口指向**：functionapp / handlerapp / mcpapp 的具体服务（bootstrap 装配 `mount.NewResolver(fn, hd, mcp)`）。
-- **relation 是双向的**（唯一双向实体）：**出边** equip（挂载的 fn/hd/mcp/doc/skill，每次 active 变更重算——hd 剥 `.method`、mcp 剥 `/tool` 归到容器实体）+ **入边** create/edit（锻造对话，create 和 edit 分 kind-scope 共存）。
+- **relation 双向同步**（出 + 入；workflow/skill/trigger 同样双向，function/handler 仅入向）：**出边** equip（挂载的 fn/hd/mcp/doc/skill，每次 active 变更重算——hd 剥 `.method`、mcp 剥 `/tool` 归到容器实体）+ **入边** create/edit（锻造对话，create 和 edit 分 kind-scope 共存）。
 - **catalog 非容器**：只报 name+desc，**不报 Members**——挂载是内部白名单、非 agent 的可调子单元（对比 handler/mcp 的容器形态）。
 - **@ 提及**：快照 name+description（这个员工是干什么的——供模型谈及/转交）。

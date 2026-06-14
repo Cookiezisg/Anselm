@@ -11,11 +11,11 @@ import (
 )
 
 // TodoHandler exposes the read-only task-board endpoint. Writes are LLM-only (the
-// TodoWrite tool, 波次 2/3) — the frontend never edits the agent's plan, it observes it:
+// todo_write tool) — the frontend never edits the agent's plan, it observes it:
 // fetch the current list on conversation open, then live-update from the messages stream's
 // "todo" signal.
 //
-// TodoHandler 暴露只读任务看板端点。写入是 LLM 专属（TodoWrite 工具，波次 2/3）——前端从不
+// TodoHandler 暴露只读任务看板端点。写入是 LLM 专属（todo_write 工具）——前端从不
 // 编辑 agent 的计划，只观察它：对话打开时拉当前清单，之后由 messages 流的 "todo" signal 实时更新。
 type TodoHandler struct {
 	svc *todoapp.Service

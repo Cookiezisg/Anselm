@@ -1,11 +1,11 @@
 // Package conversation is the domain layer for chat-thread containers: the persistent,
 // per-workspace thread entity (title, pin/archive, soft-delete) plus its thread-level
 // config (system prompt, attached documents, model override). Messages are NOT here —
-// they belong to chat (M5.2); this package owns only the thread record + storage contract.
+// they belong to chat; this package owns only the thread record + storage contract.
 //
 // Package conversation 是对话线程容器的 domain 层：按 workspace 持久化的线程实体（标题、
 // 置顶/归档、软删）及其线程级配置（system prompt、挂载文档、模型覆盖）。消息**不在这里**——
-// 归 chat（M5.2）；本包只持有线程记录 + 存储契约。
+// 归 chat；本包只持有线程记录 + 存储契约。
 package conversation
 
 import (
@@ -18,16 +18,16 @@ import (
 )
 
 // Conversation is a chat-thread container. The thread's messages live in chat's
-// message_blocks (M5.2); this record carries only the thread's identity, interaction state,
+// message_blocks; this record carries only the thread's identity, interaction state,
 // and the config the chat runtime reads each turn. Summary / SummaryCoversUpToSeq are
-// written by the compactor (contextmgr M5.3); AutoTitled is set by chat after it auto-names
+// written by the compactor (app/contextmgr); AutoTitled is set by chat after it auto-names
 // a turn-1 thread — all three are declared here (one coherent thread record) but kept off the
 // PATCH surface. SystemPrompt / AttachedDocuments / ModelOverride are user-editable settings
 // (this is conversation's job); chat merely consumes them at runtime.
 //
-// Conversation 是对话线程容器。线程消息在 chat 的 message_blocks（M5.2）；本记录只承载线程身份、
-// 交互状态、chat 运行时每轮要读的配置。Summary / SummaryCoversUpToSeq 由压缩器（contextmgr
-// M5.3）写；AutoTitled 由 chat 给首轮线程自动命名后设——三者在此声明（一份内聚的线程记录）但
+// Conversation 是对话线程容器。线程消息在 chat 的 message_blocks；本记录只承载线程身份、
+// 交互状态、chat 运行时每轮要读的配置。Summary / SummaryCoversUpToSeq 由压缩器（app/contextmgr）
+// 写；AutoTitled 由 chat 给首轮线程自动命名后设——三者在此声明（一份内聚的线程记录）但
 // 不进 PATCH 面。SystemPrompt / AttachedDocuments / ModelOverride 是用户可改的设置（conversation
 // 的职责）；chat 仅在运行时消费。
 type Conversation struct {

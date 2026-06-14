@@ -52,14 +52,13 @@ func RequireConversationID(ctx context.Context) (string, error) {
 }
 
 // SetSubagentID returns a copy of ctx marking the current run as a subagent invocation.
-// Seeded by the subagent loop (波次 3); absent in a main-conversation turn. It refines
+// Seeded by the subagent loop; absent in a main-conversation turn. It refines
 // the execution scope: todo lists and other per-run scratch state key on
 // (conversation, subagent?) so a subagent's plan never pollutes the parent's board.
-// The seed is planted now (todo is its first consumer) even though the writer ships later.
 //
-// SetSubagentID 返回标记当前运行为 subagent 调用的 ctx 拷贝。subagent loop（波次 3）埋下；
+// SetSubagentID 返回标记当前运行为 subagent 调用的 ctx 拷贝。subagent loop 埋下；
 // 主对话回合无此值。它细化执行作用域：todo 清单等 per-run 草稿状态按 (conversation, subagent?)
-// 分键，使 subagent 的计划永不污染父看板。种子现在就埋（todo 是首个消费者），尽管写入方更晚才上线。
+// 分键，使 subagent 的计划永不污染父看板。
 func SetSubagentID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, subagentIDKey{}, id)
 }

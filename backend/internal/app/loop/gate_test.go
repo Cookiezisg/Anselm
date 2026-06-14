@@ -19,7 +19,7 @@ func dangerTC(name string) messagesdomain.ToolCallData {
 
 // TestDispatchWithGate_SkillPreApproved: a dangerous tool the active skill declared in its
 // allowed-tools runs WITHOUT surfacing for confirmation — allowed-tools are a pre-authorization
-// (R0040), the M6.3 tail wiring the skill consumer into the danger gate.
+// wiring the skill consumer into the danger gate.
 func TestDispatchWithGate_SkillPreApproved(t *testing.T) {
 	surfaced := 0
 	broker := humanloopapp.New(func(context.Context, humanloopapp.Request) { surfaced++ })

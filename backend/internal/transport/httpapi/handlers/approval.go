@@ -18,10 +18,10 @@ import (
 // ApprovalHandler hosts the approval-form HTTP endpoints. Linear version model with a
 // free-moving active pointer — no pending/accept endpoints, no :run (an approval form is
 // rendered + parked by the workflow interpreter, never invoked standalone). The :iterate
-// verb (R0065) opens an AI conversation to edit this approval form via aispawn.
+// verb opens an AI conversation to edit this approval form via aispawn.
 //
 // ApprovalHandler 持审批表 HTTP 端点。线性版本 + 自由 active 指针——无 pending/accept 端点、无 :run
-// （审批表由 workflow 解释器渲染 + park，绝不独立调用）。:iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本审批表。
+// （审批表由 workflow 解释器渲染 + park，绝不独立调用）。:iterate 动词经 aispawn 开一个 AI 对话来编辑本审批表。
 type ApprovalHandler struct {
 	svc     *approvalapp.Service
 	aispawn *aispawnapp.Service
@@ -81,7 +81,7 @@ func (h *ApprovalHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	f.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	f.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形
 	responsehttpapi.Created(w, f)
 }
 
@@ -135,9 +135,9 @@ func (h *ApprovalHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnApproval dispatches POST /approvals/{id}:<action> (:edit / :revert). No :run.
+// postOnApproval dispatches POST /approvals/{id}:<action> (:edit / :revert / :iterate). No :run.
 //
-// postOnApproval 派发 POST /approvals/{id}:<action>（:edit / :revert）。无 :run。
+// postOnApproval 派发 POST /approvals/{id}:<action>（:edit / :revert / :iterate）。无 :run。
 func (h *ApprovalHandler) postOnApproval(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {

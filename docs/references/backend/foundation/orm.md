@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -37,7 +37,7 @@ audience: [human, ai]
 
 - **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
 - **终结**：读 `First`(无则 `ErrNotFound`)/`Find`/`Count`/`Exists`/`Pluck`(单列入 `*[]T`)/`Page`；写 `Create`/`Save`(按 pk upsert，保留 created)/`Update`(单列)/`Updates`(多列)/`Delete`；by-pk `Get`/`Delete`。
-- **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合）· `Exec`（裸 SQL 逃生口：DDL / PRAGMA / 一次性维护）· `Close`。
+- **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合）· `Exec`（裸 SQL 写逃生口：DDL / PRAGMA / 一次性维护）· `Query`/`QueryRow`（裸读逃生口：行映射表达不了的 FTS5 虚表 / MATCH 排序 / snippet）· `Close`。
 - **json 列**：`db:"…,json"` 经 `[]byte` 暂存自动 marshal/unmarshal。
 
 ## 5. 关键设计决策 / 边界
@@ -51,4 +51,4 @@ audience: [human, ai]
 
 ## 6. 集成
 
-被全部 **18 个 `infra/store/*`** 使用（100% 统一、无裸 SQL、无手搓 workspace_id）。错误经 [`pkg/errors`](../error-codes.md)（`ORM_NOT_FOUND` / `ORM_CONFLICT` 兜底码，domain `errors.Is` 后翻成具体码）。游标用 `pkg/pagination`；workspace ctx 用 `pkg/reqctx`。`infra/db` 负责 `Open` + migrate（`Exec` DDL）。
+**19 个 `infra/store/*`** 经 `Repo[T]`/`Query[T]` 全类型化访问（无裸 SQL、无手搓 workspace_id）；另有非-store 消费者 `infra/search` 持 `*orm.DB`、经 `Query`/`QueryRow` 裸逃生口跑 FTS5/embeddings SQL——"无裸 SQL" 仅就 store 层而言。错误经 [`pkg/errors`](../error-codes.md)（`ORM_NOT_FOUND` / `ORM_CONFLICT` 兜底码，domain `errors.Is` 后翻成具体码）。游标用 `pkg/pagination`；workspace ctx 用 `pkg/reqctx`。`infra/db` 负责 `Open` + migrate（`Exec` DDL）。

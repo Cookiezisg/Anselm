@@ -5,17 +5,16 @@
 // the full definitions (incl. the large Parameters schema) of the best matches,
 // and the host includes those tools in the tool list on subsequent turns.
 //
-// This replaces the legacy activate_tools-by-category pattern: instead of loading
-// a whole group's schemas for the rest of the conversation, search_tools surfaces
-// only the few individually-relevant tools and lets the LLM re-search as the task
-// evolves.
+// Discovery is per-tool, not per-category: instead of loading a whole group's
+// schemas for the rest of the conversation, search_tools surfaces only the few
+// individually-relevant tools and lets the LLM re-search as the task evolves.
 //
 // Package toolset 提供 search_tools 系统工具——按需发现 lazy 工具的完整定义。LLM 从 system-prompt
 // 概览（Toolset.Overview：每个 name + 一句话 description）知道 lazy 全集；需要某能力时用一段描述调
 // search_tools，拿回最佳命中的完整定义（含大 Parameters schema），host 在后续回合把这些工具纳入
 // 工具列表。
 //
-// 这替代了 legacy 的 activate_tools 按类激活：不再为整组的 schema 锁定整对话，search_tools 只浮出
+// 发现按工具粒度、非按类：不为整组的 schema 锁定整对话，search_tools 只浮出
 // 少数逐个相关的工具，并让 LLM 随任务演进重搜。
 package toolset
 

@@ -343,7 +343,7 @@ func TestLoadHistory_Composition(t *testing.T) {
 	}
 }
 
-// --- R0056: mention + cancel ----------------------------------------------
+// --- mention + cancel -----------------------------------------------------
 
 type fakeMentionResolver struct {
 	typ mentiondomain.MentionType
@@ -425,7 +425,7 @@ func TestFinalizeCancelled(t *testing.T) {
 	}
 }
 
-// --- R0057: auto-title + usage + system-prompt-preview ---------------------
+// --- auto-title + usage + system-prompt-preview ---------------------------
 
 type fakeTitler struct{ called chan string }
 

@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -39,13 +39,13 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 | 源 | DedupKey | 折叠什么 |
 |---|---|---|
 | cron | trigger + tick 时刻 | 同一刻度的重复材化 |
-| webhook | sha256(body)[:8hex] + **分钟桶** | 秒级网络重试；下一分钟起同 payload 照常触发 |
+| webhook | sha256(body) 前 8 字节(16 hex) + **分钟桶** | 秒级网络重试；下一分钟起同 payload 照常触发 |
 | fsnotify | path + op + **秒桶** | 编辑器一次保存的事件突发 |
 | sensor | trigger + probe 时刻（秒） | 一次探测至多一条/工作流 |
 
 ## 4. 生命周期 / 行为
 
-- **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（明文比对或 HMAC-SHA256 验签，`TRIGGER_WEBHOOK_SECRET_MISMATCH` 401）；fsnotify=路径 + 事件类型 + 可选 pattern；sensor=周期 invoke fn/hd + CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）。
+- **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（明文比对或 HMAC-SHA256 验签，不匹配 → 401 纯文本响应，不走标准 envelope 错误码）；fsnotify=路径(必填) + 可选事件类型 + 可选 pattern；sensor=周期 invoke function/handler/mcp（targetKind 三选一；handler/mcp 需 method=方法名/工具名，function 整体即单元）+ CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）。
 - **Edit 热更**：正在监听的 trigger 用新 config 重 Register。
 - **`:fire`**（FireManual）：手动催一次——扇给当前监听者（可能 0 个，那就只是一条 0 firing 的 Activation）。
 - webhook 异步 fire + recover（handler 不被慢/panic 拖累）、202 立即返回。
@@ -60,4 +60,4 @@ listener 永不知道 workflow（扇出是 app 的事）；Activation 与 Firing
 
 ## 7. 跨域集成
 
-被 workflow 经 Binder 端口驱动（Attach/AttachOnce/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPending/ClaimFiring 单事务/MarkOutcome）；sensor listener 经 invoker 端口调 function/handler（bootstrap/sensor.go 适配，TriggeredBy=workflow）；catalog/mention/relation 三适配器同构。
+被 workflow 经 Binder 端口驱动（Attach/AttachOnce/Detach）；firings 被 scheduler 经 FiringInbox 端口消费（ListPendingFirings/ClaimFiring 单事务/MarkFiringOutcome）；sensor listener 经 invoker 端口调 function/handler/mcp（bootstrap/sensor.go 适配，TriggeredBy=workflow；sensor 出向 `equip` 边按 targetKind 指 function/handler/mcp 实体）；catalog/mention/relation 三适配器同构。

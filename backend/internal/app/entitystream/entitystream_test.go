@@ -80,7 +80,7 @@ func TestSignal_PointNode(t *testing.T) {
 	if !ok || sig.Node.Type != "fire" || b.events[0].Scope.ID != "trg_1" {
 		t.Fatalf("not a fire Signal scoped to the trigger: %+v", b.events[0])
 	}
-	// ephemeral=true → lossy, never buffered (E2/MD-sse1: the DB row is the reconnect truth).
+	// ephemeral=true → lossy, never buffered (E2: the DB row is the reconnect truth).
 	if !sig.Ephemeral || sig.Durable() {
 		t.Fatalf("ephemeral signal must not be durable: %+v", sig)
 	}

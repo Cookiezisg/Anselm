@@ -1,5 +1,5 @@
 // Package aispawn opens an AI working conversation pre-seeded with context — the engine behind the
-// :iterate and :triage verbs (R0065, the slimmed replacement for the old askai). Both verbs reduce
+// :iterate and :triage verbs. Both verbs reduce
 // to "open a conversation that already carries the relevant context, then let the normal chat loop
 // work": iterate seeds an ENTITY (function / handler / agent / workflow / document) via an
 // @-mention so its current definition is frozen into the first message; triage seeds an EXECUTION
@@ -7,7 +7,7 @@
 // It owns no context-building of its own: iterate reuses the existing mention resolvers, triage
 // reuses the existing execution-detail reads (via the ExecutionRenderer port).
 //
-// Package aispawn 开一个预置上下文的 AI 工作对话——`:iterate` 与 `:triage` 动词的引擎（R0065，旧 askai 的瘦身替代）。
+// Package aispawn 开一个预置上下文的 AI 工作对话——`:iterate` 与 `:triage` 动词的引擎。
 // 两个动词都归约成「开一个已携带相关上下文的对话、再让普通 chat loop 干活」：iterate 经 @-mention 种一个**实体**
 // （其当前定义冻结进首条消息）；triage 把一条**执行记录**（任意类型——function/handler/agent/flowrun）渲进 system
 // prompt。它自己不造任何上下文：iterate 复用现有 mention resolver，triage 复用现有执行详情读取（经 ExecutionRenderer 端口）。

@@ -2,12 +2,12 @@
 // delete) for chat-thread containers. Workspace isolation is automatic at the orm layer, so the
 // Service holds no workspace id. Lifecycle changes broadcast via notification.Emitter
 // (conversation.<action>); relation hydrate + edge purge live in relations.go. The chat runtime
-// (M5.2) reads SystemPrompt / AttachedDocuments / ModelOverride from the record — this layer only
+// reads SystemPrompt / AttachedDocuments / ModelOverride from the record — this layer only
 // persists them.
 //
 // Package conversation 持有对话线程容器的 CRUD Service（建/列/取/改/删）。workspace 隔离在 orm 层
 // 自动完成，故 Service 不持 workspace id。生命周期变更经 notification.Emitter（conversation.<动作>）
-// 广播；relation hydrate + 边清理在 relations.go。chat 运行时（M5.2）从记录读 SystemPrompt /
+// 广播；relation hydrate + 边清理在 relations.go。chat 运行时从记录读 SystemPrompt /
 // AttachedDocuments / ModelOverride——本层只持久化它们。
 package conversation
 
@@ -94,9 +94,9 @@ func (s *Service) Create(ctx context.Context, title string) (*conversationdomain
 }
 
 // CreateWithSystemPrompt creates a thread pre-stamped with a system-prompt section — used by the
-// ask-ai / triage spawner (M6) so the LLM sees entity context from turn 1.
+// ask-ai / triage spawner so the LLM sees entity context from turn 1.
 //
-// CreateWithSystemPrompt 创建带 system prompt 的新对话——ask-ai / triage（M6）用，LLM 从第 1 轮起
+// CreateWithSystemPrompt 创建带 system prompt 的新对话——ask-ai / triage 用，LLM 从第 1 轮起
 // 就看到 entity 上下文。
 func (s *Service) CreateWithSystemPrompt(ctx context.Context, title, systemPrompt string) (*conversationdomain.Conversation, error) {
 	c := &conversationdomain.Conversation{
@@ -177,12 +177,12 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 // Delete soft-deletes a conversation and purges its relation edges.
 //
 // Delete 软删对话并清除其 relation 边。
-// SetAutoTitle sets a conversation's auto-generated title (chat's auto-title, R0057). It writes
+// SetAutoTitle sets a conversation's auto-generated title (chat's auto-title). It writes
 // both Title and AutoTitled — a path PATCH deliberately doesn't expose (auto-title is chat-owned)
 // — and emits conversation.auto_titled. A title that already exists (user-set or previously
 // auto-titled) is left untouched, so a manual rename is never clobbered.
 //
-// SetAutoTitle 设置对话的自动生成标题（chat auto-title，R0057）。写 Title + AutoTitled——PATCH 故意
+// SetAutoTitle 设置对话的自动生成标题（chat auto-title）。写 Title + AutoTitled——PATCH 故意
 // 不暴露的路径（auto-title 由 chat 专写）——并发 conversation.auto_titled。已存在的标题（用户设或已
 // 自动标题）不动，故手动改名永不被覆盖。
 func (s *Service) SetAutoTitle(ctx context.Context, id, title string) error {
@@ -202,12 +202,12 @@ func (s *Service) SetAutoTitle(ctx context.Context, id, title string) error {
 	return nil
 }
 
-// SetSummary writes the compaction summary + its watermark (contextmgr M5.3). A PATCH-invisible
+// SetSummary writes the compaction summary + its watermark (app/contextmgr). A PATCH-invisible
 // path (only the compactor writes it). The watermark `coversUpToSeq` is the max block seq the
 // summary now folds in, so the next compaction summarizes only `(coversUpToSeq, …]` — the
 // idempotent re-summarization guard. Emits conversation.compacted.
 //
-// SetSummary 写压缩摘要 + 其水位线（contextmgr M5.3）。PATCH 不暴露的路径（只压缩器写）。水位
+// SetSummary 写压缩摘要 + 其水位线（app/contextmgr）。PATCH 不暴露的路径（只压缩器写）。水位
 // `coversUpToSeq` 是摘要现已并入的最大 block seq，故下次压缩只摘要 `(coversUpToSeq, …]`——幂等
 // 重摘守卫。发 conversation.compacted。
 func (s *Service) SetSummary(ctx context.Context, id, summary string, coversUpToSeq int64) error {
@@ -276,10 +276,9 @@ func validateModelOverride(o *modeldomain.ModelRef) error {
 }
 
 // Unarchive clears the archived flag (no-op when already active) — chat's auto-unarchive on
-// Send: messaging an archived thread implicitly brings it back (review PD-2).
+// Send: messaging an archived thread implicitly brings it back.
 //
-// Unarchive 清除归档标志（已活跃则 no-op）——chat Send 的自动解档：给归档线程发消息即隐式唤回
-// （评审 PD-2）。
+// Unarchive 清除归档标志（已活跃则 no-op）——chat Send 的自动解档：给归档线程发消息即隐式唤回。
 func (s *Service) Unarchive(ctx context.Context, id string) error {
 	f := false
 	_, err := s.Update(ctx, id, UpdateInput{Archived: &f})

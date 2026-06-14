@@ -37,10 +37,10 @@ type spawnFn func(ctx context.Context, handlerID string) (*Instance, error)
 
 // instanceManager keeps one resident instance per handler, MCP-server style: spawned at
 // boot / first call, kept alive, restarted on edit / config-change / crash, gracefully
-// shut down on app exit. Replaces the old per-owner instanceRegistry.
+// shut down on app exit.
 //
 // instanceManager 按 MCP-server 风格每 handler 保一个常驻实例：开局 / 首调 spawn、保活、
-// edit / 改 config / crash 时重启、退出软件优雅关闭。替代旧的 per-owner instanceRegistry。
+// edit / 改 config / crash 时重启、退出软件优雅关闭。
 type instanceManager struct {
 	mu        sync.Mutex
 	instances map[string]*Instance     // handlerID → the one resident instance

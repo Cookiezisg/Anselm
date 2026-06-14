@@ -5,12 +5,12 @@ import (
 	"fmt"
 )
 
-// ImportEntry is one server from a Claude Desktop-style mcp.json fragment. mcp.json is NO
-// LONGER our store (that's the encrypted mcp_servers table) — it survives only as an
-// interop/migration format consumed by the :import endpoint.
+// ImportEntry is one server from a Claude Desktop-style mcp.json fragment. The store is the
+// encrypted mcp_servers table; mcp.json is only an interop/migration format consumed by the
+// :import endpoint.
 //
-// ImportEntry 是 Claude Desktop 式 mcp.json 片段里的一条。mcp.json 不再是我们的存储
-// （存储是加密的 mcp_servers 表）——它只作为 :import 端点消费的互操作/迁移格式存在。
+// ImportEntry 是 Claude Desktop 式 mcp.json 片段里的一条。存储是加密的 mcp_servers 表；mcp.json
+// 只作为 :import 端点消费的互操作/迁移格式。
 type ImportEntry struct {
 	Command    string            `json:"command,omitempty"`
 	Args       []string          `json:"args,omitempty"`

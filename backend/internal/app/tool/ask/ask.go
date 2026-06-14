@@ -1,10 +1,10 @@
-// Package ask is the ask_user tool (R0064): it lets an agent pause and ask the human a question
+// Package ask is the ask_user tool: it lets an agent pause and ask the human a question
 // when it needs information or a decision only the user can give. It is an ordinary tool — no
 // special loop support — whose Execute blocks on the humanloop broker until the user answers, then
 // returns that answer as the tool_result. In a non-interactive context (no broker in ctx — a
 // workflow / sensor run) it reports that asking isn't available, so the model adapts.
 //
-// Package ask 是 ask_user 工具（R0064）：当 agent 需要只有用户能给的信息或决定时，让它暂停发问。它是个普通工具
+// Package ask 是 ask_user 工具：当 agent 需要只有用户能给的信息或决定时，让它暂停发问。它是个普通工具
 // ——无特殊 loop 支持——其 Execute 阻塞在 humanloop broker 上直到用户回答，再把答案当 tool_result 返回。在非交互
 // 语境（ctx 无 broker——workflow / sensor 运行）它报告无法发问，使模型自适应。
 package ask

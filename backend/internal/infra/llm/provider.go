@@ -95,12 +95,12 @@ func (c *providerClient) Stream(ctx context.Context, req Request) iter.Seq[Strea
 	}
 }
 
-// providerRegistry maps a Config.Provider name to its Provider. Unknown names fall back
-// to the OpenAI-compat default in lookupProvider — they all speak /chat/completions.
-// Providers are registered here as each is ported (one self-contained entry per provider).
+// providerRegistry maps a Config.Provider name to its Provider, one self-contained entry per
+// provider. Unknown names fall back to the OpenAI-compat default in lookupProvider — they all
+// speak /chat/completions.
 //
-// providerRegistry 把 Config.Provider name 映射到 Provider。未知 name 在 lookupProvider
-// 回落 OpenAI-compat 默认——它们都讲 /chat/completions。每移植一家就在此注册一条（各自包含）。
+// providerRegistry 把 Config.Provider name 映射到 Provider，每个 provider 注册为一条自包含
+// 条目。未知 name 在 lookupProvider 回落 OpenAI-compat 默认——它们都讲 /chat/completions。
 var providerRegistry = buildProviderRegistry()
 
 func buildProviderRegistry() map[string]Provider {

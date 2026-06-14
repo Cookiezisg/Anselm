@@ -3,19 +3,19 @@
 // pre-approved skill scope) span tools — a single tool's args cannot express them,
 // so the host seeds an AgentState into ctx and tools cooperate through it.
 //
-// Scope = creator chooses. Two slots exist today: SeenFiles (filesystem's
-// write-before-read) and discoveredTools (search_tools' lazy-tool discovery). The
-// activeSkill slot will be added by its first consumer (skill). cwd is deliberately
-// absent — the desktop agent has no working directory (R0033), so shell adds no cwd
-// slot. agentstate grows on demand, no speculative fields.
+// Scope = creator chooses. Slots: SeenFiles (filesystem's write-before-read),
+// discoveredTools (search_tools' lazy-tool discovery), and activeSkill (skill's
+// pre-approved tool scope). cwd is deliberately absent — the desktop agent has no
+// working directory, so shell adds no cwd slot. agentstate grows on demand,
+// no speculative fields.
 //
 // Package agentstate 持有单次运行内跨 tool 调用的对话级共享状态。它存在是因为某些安全不变式
 // （如写前必读、skill 预授权域）跨工具——单个工具的 args 表达不了，所以 host 把 AgentState
 // 埋进 ctx，工具间靠它协作。
 //
-// 作用域 = 创建者决定。当下两个字段：SeenFiles（filesystem 写前必读）与 discoveredTools
-// （search_tools 的 lazy 工具发现）。activeSkill 字段由其首个消费者（skill）引入；cwd 刻意
-// 不设——桌面 agent 无工作目录（R0033），shell 不引入 cwd。agentstate 按需生长，不预留。
+// 作用域 = 创建者决定。字段：SeenFiles（filesystem 写前必读）、discoveredTools（search_tools
+// 的 lazy 工具发现）与 activeSkill（skill 的预授权工具域）。cwd 刻意不设——桌面 agent 无工作
+// 目录，shell 不引入 cwd。agentstate 按需生长，不预留。
 package agentstate
 
 import "sync"
@@ -112,10 +112,10 @@ func (s *AgentState) DiscoveredTools() []string {
 // SetActiveSkill records the skill activated this run and pre-approves its allowed-tools. The
 // allowed-tools set is a PRE-APPROVAL grant (skip per-call danger confirmation for these
 // tools), NOT a restriction whitelist — unlisted tools still run, just with the usual flow.
-// Consumed by the danger-confirmation flow (ask 波次 6). Activating a skill replaces any prior.
+// Consumed by the danger-confirmation flow. Activating a skill replaces any prior.
 //
 // SetActiveSkill 记录本次运行激活的 skill 并预授权其 allowed-tools。该集合是预授权（对这些
-// 工具免逐次危险确认），不是限制白名单——未列出的工具照常跑。由危险确认流（ask 波次 6）消费。
+// 工具免逐次危险确认），不是限制白名单——未列出的工具照常跑。由危险确认流消费。
 // 激活新 skill 整体替换旧的。
 func (s *AgentState) SetActiveSkill(name string, allowedTools []string) {
 	allow := make(map[string]struct{}, len(allowedTools))

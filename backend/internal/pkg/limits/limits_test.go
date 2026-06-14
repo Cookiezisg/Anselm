@@ -2,10 +2,10 @@ package limits
 
 import "testing"
 
-// TestDefault_MatchesPreWiringConstants pins the defaults to the values the code enforced
-// before limits was wired — wiring must not change behavior.
+// TestDefault_MatchesPreWiringConstants pins each Default() constant so the operative
+// defaults can't drift silently.
 //
-// TestDefault_MatchesPreWiringConstants 把默认值钉到接线前代码实际执行的常量——接线不得改行为。
+// TestDefault_MatchesPreWiringConstants 钉住每个 Default() 常量，使生效默认值不致静默漂移。
 func TestDefault_MatchesPreWiringConstants(t *testing.T) {
 	d := Default()
 	if d.Agent.MaxSteps != 25 || d.Agent.InvokeMaxTurns != 10 {

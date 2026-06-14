@@ -12,11 +12,12 @@ import (
 
 // MemoryHandler serves the per-workspace memory management UI: list / get / upsert /
 // delete + pin / unpin. Memories are markdown files (see domains/memory.md); the
-// LLM-facing read/write/forget tools come later (波次 2/3).
+// LLM-facing tools (read_memory / write_memory / forget_memory) live separately under
+// app/tool/memory.
 //
 // MemoryHandler 提供按 workspace 的记忆管理 UI：list / get / upsert / delete + pin /
-// unpin。记忆是 markdown 文件（见 domains/memory.md）；LLM 用的 read/write/forget 工具
-// 留波次 2/3。
+// unpin。记忆是 markdown 文件（见 domains/memory.md）；LLM 用的工具（read_memory /
+// write_memory / forget_memory）另在 app/tool/memory。
 type MemoryHandler struct {
 	svc *memoryapp.Service
 	log *zap.Logger

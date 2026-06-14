@@ -2,11 +2,11 @@
 // registry (a trigger's listener runs only while ≥1 active workflow references it) + fan-out
 // of fires into durable Firings + the per-action Activation log. It owns four source
 // listeners (cron/webhook/fsnotify/sensor) behind one report callback. The claim of Firings
-// into flowruns is the scheduler's job (波次 4).
+// into flowruns is the scheduler's job.
 //
 // Package trigger（app）是 trigger 实体入口：CRUD + 引用计数监听表（listener 仅在 ≥1 个 active
 // workflow 引用时运行）+ 把 fire 扇成 durable Firing + 逐动作 Activation 日志。它在一个 report
-// 回调后持有 4 个 source listener。Firing→flowrun 的 claim 是 scheduler 的事（波次 4）。
+// 回调后持有 4 个 source listener。Firing→flowrun 的 claim 是 scheduler 的事。
 package trigger
 
 import (
