@@ -1,6 +1,9 @@
 /* Forgify design tokens — Apple-flavored, B2B, light + dark.
    单一事实源：颜色 / 圆角 / 间距 / 字体 / 动效全走变量。
-   品牌强调色是单一 token（--accent），换色 = 改一行。 */
+   品牌强调色是单一 token（--accent），换色 = 改一行。
+   字体：默认打包 MiSans（开源·双语·苹果味）——拉丁近 SF、中文近苹方，一个家族治中英顿挫、跨端一致。
+   design-lab 经 CDN 引（便于预览）；真 Flutter app 打包字体文件（离线·瞬时·真打包）。 */
+@import url('https://cdn.jsdelivr.net/npm/cn-fontsource-mi-sans-vf/font.css');
 
 :root {
   /* 海与岛 sea & islands ----------------------------------------- */
@@ -45,7 +48,7 @@
   --row: 32px;                        /* 紧凑行高（与 Flutter Tokens.rowHeight 对齐） */
 
   /* 字体：标准产品字体，不抄 Claude 的衬线 type ------------------ */
-  --font: -apple-system, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font: "MiSans", -apple-system, "SF Pro Text", "Inter", "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   --mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, monospace;
   --t-xs: 11px; --t-sm: 12px; --t-md: 13px; --t-lg: 15px; --t-xl: 19px; --t-2xl: 24px;
 
