@@ -172,27 +172,39 @@ code, .mono { font-family: var(--mono); }
 .dl.del { background: color-mix(in srgb, var(--danger) 9%, transparent); }
 .dl.del .s { color: var(--danger); } .dl.del .c { color: var(--ink-3); }
 
-/* 工具调用：复刻 Claude Code —— 折叠=一行(无框)；展开=外框+工具列表；每工具各自展开详情 */
-.tg { }
+/* 工具调用：复刻 Claude Code（动画走主体 spring；运行流光；详情就一个块，无灰头） */
 .tg-sum { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 13px; cursor: pointer; padding: 2px 0; }
 .tg-sum:hover { color: var(--ink-2); }
-.tg-sum .chev { color: var(--ink-3); transition: transform .18s; }
+.chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .3s var(--ease-spring); }
+.chev svg { display: block; }
 .tg.open > .tg-sum .chev { transform: rotate(90deg); }
-.tg-list { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
-.tg.open > .tg-list { display: block; }
-.ti-sum { display: flex; align-items: center; gap: 7px; color: var(--ink-3); font-size: 13px; cursor: pointer; padding: 7px 9px; border-radius: 8px; }
+.tg-sum.run { cursor: default; }
+.tg-sum.run .tk {
+  background: linear-gradient(105deg, var(--ink-3) 36%, var(--ink) 50%, var(--ink-3) 64%);
+  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
+  color: transparent; animation: shimmer 1.5s linear infinite;
+}
+@keyframes shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+.tg-list { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .34s var(--ease-spring); }
+.tg.open > .tg-list { grid-template-rows: 1fr; }
+.tg-list > .w { overflow: hidden; min-height: 0; }
+.tg-list > .w > .tg-box { margin-top: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+.ti-sum { display: flex; align-items: center; gap: 7px; color: var(--ink-3); font-size: 13px; cursor: pointer; padding: 7px 9px; border-radius: 8px; transition: background .15s; }
 .ti-sum:hover { background: var(--cc-hover); }
 .ti-sum .v { color: var(--ink-3); }
 .ti-sum .nm { color: var(--ink); font-family: var(--mono); font-size: 12.5px; }
-.ti-sum .chev { margin-left: auto; color: var(--ink-3); transition: transform .18s; }
+.ti-sum .chev { margin-left: auto; }
 .ti.open > .ti-sum .chev { transform: rotate(90deg); }
-.ti-det { display: none; padding: 0 9px 8px; }
-.ti.open > .ti-det { display: block; }
+.ti-det { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s var(--ease-spring); }
+.ti.open > .ti-det { grid-template-rows: 1fr; }
+.ti-det > .w { overflow: hidden; min-height: 0; }
+.ti-det > .w > .tbox { margin: 2px 9px 8px; }
 .tbox { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
-.tbox .lbl { padding: 6px 11px; font-size: 12px; color: var(--ink-2); border-bottom: 1px solid var(--line); background: var(--cc-active); font-family: var(--mono); }
 .tbox .out { padding: 9px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.85; color: var(--ink-2); white-space: pre-wrap; }
 .tbox .diff { padding: 6px 0; }
-.dline { display: flex; padding: 0 12px; line-height: 1.85; font-family: var(--mono); font-size: 12px; }
+.dline { display: flex; padding: 0 12px; line-height: 1.85; font-family: var(--mono); font-size: 12px; animation: dlineIn .32s var(--ease-spring) both; }
+.dline:nth-child(2){animation-delay:.07s} .dline:nth-child(3){animation-delay:.14s} .dline:nth-child(4){animation-delay:.21s} .dline:nth-child(5){animation-delay:.28s}
+@keyframes dlineIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 .dline .s { width: 14px; flex: none; color: var(--ink-3); }
 .dline .c { flex: 1; white-space: pre-wrap; color: var(--ink-2); }
 .dline.add { background: color-mix(in srgb, var(--ok) 11%, transparent); }
@@ -245,43 +257,47 @@ code, .mono { font-family: var(--mono); }
     <p class="note" style="margin-bottom:18px">复刻 Claude Code 的 tool call：<b>平时一行、无框</b>；<b>展开</b>是一个外框，里面是工具列表；<b>点某个工具</b>展开它自己的详情框（命令=终端输出，编辑=绿增红删 diff）。<b>不自创</b>。点下面试试。</p>
     <div class="tc-demos">
       <div class="demo wide">
-        <div class="lab">② 展开（外框 + 工具列表）+ 点开单个工具看它的详情</div>
+        <div class="lab">② 展开（外框 + 工具列表）+ 点开单个工具看它的详情（就一个块，无灰头）</div>
         <div class="tg open" data-tg>
-          <div class="tg-sum">Used 2 tools <span class="chev"></span></div>
-          <div class="tg-list">
+          <div class="tg-sum"><span class="tk">Used 2 tools</span> <span class="chev"></span></div>
+          <div class="tg-list"><div class="w"><div class="tg-box">
             <div class="ti">
               <div class="ti-sum"><span class="v">Used</span> <span class="nm">read_agent(Researcher)</span> <span class="chev"></span></div>
-              <div class="ti-det"><div class="tbox"><div class="lbl">read_agent → Researcher</div><div class="out">model: claude-sonnet-4-6 · tools: web_fetch, read_file, python, summarize</div></div></div>
+              <div class="ti-det"><div class="w"><div class="tbox"><div class="out">model: claude-sonnet-4-6 · tools: web_fetch, read_file, python, summarize</div></div></div></div>
             </div>
             <div class="ti open">
               <div class="ti-sum"><span class="v">Used</span> <span class="nm">update_agent(Researcher)</span> <span class="chev"></span></div>
-              <div class="ti-det"><div class="tbox"><div class="lbl">update_agent → agent Researcher</div><div class="diff">
+              <div class="ti-det"><div class="w"><div class="tbox"><div class="diff">
                 <div class="dline del"><span class="s">−</span><span class="c">model: claude-sonnet-4-6</span></div>
                 <div class="dline add"><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div>
                 <div class="dline add"><span class="s">+</span><span class="c">system += 务必为每条结论附引用来源（行内链接）</span></div>
                 <div class="dline add"><span class="s">+</span><span class="c">tools += web_search</span></div>
-              </div></div></div>
+              </div></div></div></div>
             </div>
-          </div>
+          </div></div></div>
         </div>
+      </div>
+      <div class="demo">
+        <div class="lab">④ 运行中（文字流光，斜向左→右扫过）</div>
+        <div class="tg"><div class="tg-sum run"><span class="tk">Updating Researcher…</span></div></div>
       </div>
       <div class="demo">
         <div class="lab">① 折叠态（平时，一行无框）</div>
         <div class="tg" data-tg>
-          <div class="tg-sum">Used 2 tools <span class="chev"></span></div>
-          <div class="tg-list">
-            <div class="ti"><div class="ti-sum"><span class="v">Used</span> <span class="nm">read_agent(Researcher)</span> <span class="chev"></span></div><div class="ti-det"><div class="tbox"><div class="lbl">read_agent → Researcher</div><div class="out">model: claude-sonnet-4-6</div></div></div></div>
-            <div class="ti"><div class="ti-sum"><span class="v">Used</span> <span class="nm">update_agent(Researcher)</span> <span class="chev"></span></div><div class="ti-det"><div class="tbox"><div class="lbl">update_agent</div><div class="diff"><div class="dline add"><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div></div></div></div></div>
-          </div>
+          <div class="tg-sum"><span class="tk">Used 2 tools</span> <span class="chev"></span></div>
+          <div class="tg-list"><div class="w"><div class="tg-box">
+            <div class="ti"><div class="ti-sum"><span class="v">Used</span> <span class="nm">read_agent(Researcher)</span> <span class="chev"></span></div><div class="ti-det"><div class="w"><div class="tbox"><div class="out">model: claude-sonnet-4-6</div></div></div></div></div>
+            <div class="ti"><div class="ti-sum"><span class="v">Used</span> <span class="nm">update_agent(Researcher)</span> <span class="chev"></span></div><div class="ti-det"><div class="w"><div class="tbox"><div class="diff"><div class="dline add"><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div></div></div></div></div></div>
+          </div></div></div>
         </div>
       </div>
       <div class="demo">
         <div class="lab">③ 只有一个工具（无外框，直接一行 + 展开详情）</div>
         <div class="ti open" data-ti style="margin:0">
           <div class="ti-sum" style="padding-left:0"><span class="v">Ran</span> <span class="nm">flutter analyze</span> <span class="ok" data-ck></span> <span class="chev"></span></div>
-          <div class="ti-det" style="padding:0"><div class="tbox"><div class="lbl">Bash</div><div class="out">$ flutter analyze
+          <div class="ti-det"><div class="w"><div class="tbox" style="margin:6px 0 2px"><div class="out">$ flutter analyze
 Analyzing forgify…
-No issues found! (ran in 4.1s)</div></div></div>
+No issues found! (ran in 4.1s)</div></div></div></div>
         </div>
       </div>
     </div>
