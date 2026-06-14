@@ -57,9 +57,13 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .ritem:hover { background: var(--cc-hover); color: var(--ink); }
 .ritem.on { background: var(--cc-active); color: var(--ink); }
 
-.suser { display: flex; align-items: center; gap: 9px; padding: 7px 8px; margin-top: 6px; }
-.suser .av { width: 26px; height: 26px; border-radius: 7px; flex: none; display: grid; place-items: center; background: #3b3b40; color: #fff; font-size: 11px; font-weight: 700; }
-.suser .m { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
-.suser .m b { font-size: 13px; font-weight: 600; }
-.suser .m .plan { font-size: 11px; color: var(--ink-3); }
-.suser .chev { color: var(--ink-3); }
+/* 底部:工作区(可切换) + 通知 + 设置——单行,沉底,靠留白与 Recents 分(无横线)。
+   身份轴 = workspace(本地单用户、无账号/套餐);未读角标是唯一允许的强调色(真实状态、非装饰)。 */
+.sfoot { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
+.ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 6px; border-radius: 9px; color: var(--ink); transition: background .12s; }
+.ws:hover { background: var(--cc-hover); }
+.ws-ava { width: 26px; height: 26px; border-radius: 7px; flex: none; display: grid; place-items: center; background: #3b3b40; color: #fff; font-size: 12px; font-weight: 700; }
+.ws-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.ws .chev { flex: none; color: var(--ink-3); }
+.ws-act { flex: none; position: relative; }
+.ws-act .badge { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid var(--cc-side); }

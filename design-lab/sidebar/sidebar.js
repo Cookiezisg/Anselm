@@ -30,21 +30,30 @@
       <button class="sitem"><span class="ico" data-i="plus"></span> New session</button>
       <button class="sitem"><span class="ico" data-i="zap"></span> Routines</button>
       <button class="sitem"><span class="ico" data-i="dispatch"></span> Dispatch <span class="beta">Beta</span></button>
-      <button class="sitem"><span class="ico" data-i="sliders"></span> Customize</button>
       <button class="sitem"><span class="ico" data-i="chevd"></span> More</button>
     </div>
     <div class="recents">
       <div class="rec-head"><span>Recents</span><button class="ibtn" data-i="sort"></button></div>
       <div id="reclist"></div>
     </div>
-    <div class="suser">
-      <span class="av">sw</span>
-      <span class="m"><b>Sun Weilin</b><span class="plan">· Max</span></span>
-      <span class="chev" data-i="chevd"></span>
+    <!-- 底部:工作区(可切换,⌄ 开切换菜单) + 通知铃铛(未读角标) + 设置。本地单用户、无账号/套餐——身份轴 = workspace。 -->
+    <div class="sfoot">
+      <button class="ws" title="切换工作区">
+        <span class="ws-ava" id="ws-ava"></span>
+        <span class="ws-name" id="ws-name"></span>
+        <span class="chev" data-i="chevd"></span>
+      </button>
+      <button class="ibtn ws-act" title="通知"><span class="ico" data-i="bell"></span><span class="badge"></span></button>
+      <button class="ibtn ws-act" title="设置"><span class="ico" data-i="gear"></span></button>
     </div>`;
 
-  const sz = { side: 18, search: 18, chat: 15, entities: 15, scheduler: 15, doc: 15, plus: 18, zap: 18, dispatch: 18, sliders: 18, chevd: 14, sort: 15 };
+  const sz = { side: 18, search: 18, chat: 15, entities: 15, scheduler: 15, doc: 15, plus: 18, zap: 18, dispatch: 18, chevd: 14, sort: 15, bell: 18, gear: 18 };
   left.querySelectorAll('[data-i]').forEach(el => { const k = el.dataset.i; el.innerHTML = icon(k, sz[k] || 18); });
+
+  // 工作区身份(示意;接后端时换真 workspace 名)。头像 = 名字首字
+  const WS = '我的工作区';
+  left.querySelector('#ws-name').textContent = WS;
+  left.querySelector('#ws-ava').textContent = (WS.trim()[0] || 'W');
 
   const SESS = [
     ['前端设计 (fork)', 'run', true], ['前端部署', 'run', false], ['Backend重构 [Done]', 'done', false],
