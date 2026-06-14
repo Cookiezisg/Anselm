@@ -1,225 +1,188 @@
-/* Forgify design-lab — Documents 海洋（单独，一人负责整个 oceans/documents/ 文件夹）。
-   文档页本身 = markdown 排版样张 + 内联选段 AI + 可滑入右岛(大纲/反链/元信息)。
-
-   ★ 内容区排版规则（与 app 外壳铁律不同——外壳「海岛同色/禁结构性横线」仍成立，但这里是 markdown 正文）：
-     · 放宽禁横线/禁下划线：分隔线、链接下划线、表格细线都可用，大范围参考 Notion。
-     · 红线①：正文内不用灰色填充块——代码/引用/标签一律「白底 + 描边圈」或「左竖线」，不靠灰底划块。
-     · 红线②：行内代码绝不学 Notion 的红——白底 + 细描边 + 中性色等宽字。
-     · 仍守：少强调色（--accent 只点「正在发生」：caret/选区/AI 流光/编辑中●）、系统字非衬线、32 紧凑。
-   依赖：shared/tokens.css + shared/shell.css 的 --cc- 表面色与原语（只读）。shimmer / caret / typeInto 自包含。
-   ⚠ 右岛是「本海洋的」：.doc-aside 框+内容都在这，外壳只给 Shell.body 让我 append。 */
+/* Forgify design-lab — 文档海洋（重写 v2；单独，一人负责整个 oceans/documents/ 文件夹）。
+   文档页本身 = 面包屑(path) + 标题 + WYSIWYG markdown 正文；编辑零-markdown 心智（斜杠命令窗 / 选中工具条 / 块手柄 / 即输即渲）；右岛 = 元信息抽屉。
+   风格对齐侧栏：px 管布局（行高 32 / radius 8·10·12 / 字号 13·14·11）、token 管色与动效；菜单/岛/行规与 sidebar 一脉。
+   依赖：shared/tokens.css + shared/shell.css 的 --cc-*/原语(.ibtn/.chev/.scroll-fade)（只读）。
+   ⚠ 右岛是「本海洋的」：.doc-aside 的框 + 内容都在这（外壳只给 Shell.body 让我 append）。
+   视觉宪法：① 内容区放宽外壳禁横线（分隔线/下划线/表格线可用，大范围学 Notion）；② 但正文不用灰填充块（代码/引用=白底描边或左竖线）；③ 行内代码不学 Notion 的红；④ --accent 只点正在发生；⑤ 动效走 --ease-spring。 */
 
 /* ===== 阅读列：单列纵向滚动，正文平铺在海上 ===== */
-.doc-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; }   /* min-height:0 关键：flex 子项不加它会撑到内容全高、overflow 失效（滚不动） */
-.doc { position: relative; max-width: 720px; margin: 0 auto; padding: 36px var(--s5) 200px; }
+.doc-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; }   /* min-height:0 关键：flex 子项不加它会撑满内容、overflow 失效 */
+.doc { position: relative; max-width: 720px; margin: 0 auto; padding: 44px 24px 200px; }
 
-/* 文档头：靠纯留白与正文分 */
-.doc-path { display: flex; align-items: center; gap: 5px; font-size: var(--t-xs); color: var(--ink-3); margin-bottom: var(--s4); }
-.doc-path .ico { display: grid; place-items: center; color: var(--ink-3); }
-.doc-pathseg { color: var(--ink-3); padding: 2px 6px; border-radius: var(--r-chip); transition: background .15s, color .15s; }
-.doc-pathseg:hover { background: var(--cc-hover); color: var(--ink-2); }
-.doc-path .sep { color: var(--ink-3); opacity: .5; }
-.doc-path .cur { color: var(--ink-2); font-weight: 500; padding-left: 1px; }
-
-.doc-title { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.2; color: var(--ink); margin: 0 0 var(--s2); outline: none; }
+/* 文档头：面包屑(在树哪) + 标题 + 元信息，靠留白与正文分 */
+.doc-path { display: flex; align-items: center; gap: 5px; height: 24px; font-size: 11px; color: var(--ink-3); margin-bottom: 14px; }
+.doc-path .ico { display: grid; place-items: center; }
+.doc-seg { padding: 2px 6px; border-radius: 6px; color: var(--ink-3); transition: background .12s, color .12s; }
+.doc-seg:hover { background: var(--cc-hover); color: var(--ink-2); }
+.doc-path .sep { opacity: .5; }
+.doc-path .cur { color: var(--ink-2); font-weight: 500; }
+.doc-title { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; color: var(--ink); margin: 0 0 8px; outline: none; }
 .doc-title:empty::before { content: "无标题"; color: var(--ink-3); }
+.doc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--ink-3); margin-bottom: 26px; }
+.doc-meta .sep { opacity: .5; }
+.doc-meta .backref { padding: 1px 5px; border-radius: 6px; color: var(--ink-2); font-weight: 500; transition: background .12s, color .12s; }
+.doc-meta .backref:hover { background: var(--cc-hover); color: var(--ink); }
+.doc-tags { display: inline-flex; gap: 6px; }
+.doc-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+.doc-tag .ico { display: grid; place-items: center; color: var(--ink-3); }
 
-.doc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: var(--t-xs); color: var(--ink-3); margin-bottom: var(--s6); }
-.doc-meta .dot-sep { opacity: .5; }
-.doc-backref { color: var(--ink-2); font-weight: 500; padding: 1px 5px; border-radius: 6px; transition: background .15s, color .15s; }
-.doc-backref:hover { background: var(--cc-hover); color: var(--ink); }
-
-/* ===== WYSIWYG 正文：渲染态即默认态 ===== */
-.doc-body { font-size: var(--t-md); line-height: 1.72; color: var(--ink); outline: none; cursor: text; }
-.doc-body:empty::before { content: "开始写，或输入 / 唤起命令"; color: var(--ink-3); }
-.doc-body > *:first-child { margin-top: 0; }
-
-/* 标题：尺寸阶梯（24/19/15），不靠编号 */
-.doc-body h2 { font-size: var(--t-xl); font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: var(--s6) 0 var(--s3); position: relative; }
-.doc-body h3 { font-size: var(--t-lg); font-weight: 600; color: var(--ink); margin: var(--s5) 0 var(--s2); }
-.doc-body h2::before { content: "#"; position: absolute; left: -22px; color: var(--ink-3); font-weight: 400; opacity: 0; transition: opacity .15s; }
+/* ===== WYSIWYG 正文：渲染态即编辑态。内容区放宽禁横线，但不用灰填充块、行内码不红 ===== */
+.doc-body { font-size: 14px; line-height: 1.7; color: var(--ink); outline: none; cursor: text; }
+.doc-body:empty::before { content: "开始写，或敲 / 唤起命令"; color: var(--ink-3); }
+.doc-body > :first-child { margin-top: 0; }
+.doc-body h2 { position: relative; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: 26px 0 10px; }
+.doc-body h3 { font-size: 15px; font-weight: 600; color: var(--ink); margin: 20px 0 8px; }
+.doc-body h2::before { content: "#"; position: absolute; left: -22px; color: var(--ink-3); font-weight: 400; opacity: 0; transition: opacity .12s; }   /* hover 锚点 */
 .doc-body h2:hover::before { opacity: .5; }
-
-/* 文字样式 */
-.doc-body p { margin: 0 0 var(--s4); }
+.doc-body p { margin: 0 0 14px; }
 .doc-body p:last-child { margin-bottom: 0; }
-.doc-body strong, .doc-body b { font-weight: 600; }
-.doc-body em, .doc-body i { font-style: italic; }
-.doc-body del, .doc-body s { text-decoration: line-through; color: var(--ink-3); }
-.doc-body mark { background: var(--accent-soft); color: inherit; padding: 0 3px; border-radius: 4px; }   /* 高亮：accent-soft（非灰） */
-/* 链接：下划线（放宽禁下划线），中性墨色，hover 才上 accent */
-.doc-body a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; transition: color .15s, text-decoration-color .15s; }
+.doc-body b, .doc-body strong { font-weight: 600; }
+.doc-body em { font-style: italic; }
+.doc-body del { text-decoration: line-through; color: var(--ink-3); }
+.doc-body mark { background: var(--accent-soft); border-radius: 3px; padding: 0 3px; }   /* 高亮：accent-soft（非灰块） */
+.doc-body a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; transition: color .12s, text-decoration-color .12s; }
 .doc-body a:hover { color: var(--accent); text-decoration-color: var(--accent); }
+/* 行内代码：白底 + 细描边 + 中性等宽（绝不学 Notion 的红） */
+.doc-body code { font-family: var(--mono); font-size: .86em; padding: 1px 5px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); }
 
 /* 列表：圆点/数字 marker，靠缩进不画连接线 */
-.doc-body ul, .doc-body ol { margin: 0 0 var(--s4); padding-left: var(--s5); }
-.doc-body li { margin: var(--s1) 0; }
+.doc-body ul, .doc-body ol { margin: 0 0 14px; padding-left: 22px; }
+.doc-body li { margin: 3px 0; }
 .doc-body ul { list-style: none; }
 .doc-body ul > li { position: relative; }
 .doc-body ul > li::before { content: ""; position: absolute; left: -15px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); }
-.doc-body ul ul { margin: var(--s1) 0 0; }
+.doc-body ul ul { margin: 3px 0 0; }
 .doc-body ul ul > li::before { background: none; border: 1px solid var(--ink-3); }
 .doc-body ol { list-style: none; counter-reset: ol; }
 .doc-body ol > li { counter-increment: ol; position: relative; }
-.doc-body ol > li::before { content: counter(ol) "."; position: absolute; left: -24px; width: 20px; text-align: right; color: var(--ink-3); font-family: var(--mono); font-size: .92em; }
+.doc-body ol > li::before { content: counter(ol) "."; position: absolute; left: -24px; width: 20px; text-align: right; font-family: var(--mono); font-size: .9em; color: var(--ink-3); }
 
-/* 任务清单：完成框中性近黑实底 + 白勾（非 accent，完成是事实非「正在发生」） */
-.doc-tasks { list-style: none; padding-left: 1px; margin: 0 0 var(--s4); }
-.doc-tasks li { display: flex; align-items: flex-start; gap: 9px; margin: var(--s1) 0; }
-.doc-tasks .box { flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 5px; border: 1px solid var(--line-strong);
-  display: grid; place-items: center; color: transparent; transition: background .2s var(--ease-spring), border-color .2s; }
-.doc-tasks li.done .box { background: var(--ink); border-color: var(--ink); color: var(--cc-win); }
-.doc-tasks li.done .t { color: var(--ink-3); text-decoration: line-through; }
+/* 任务清单：完成框中性近黑实底 + 白勾（非 accent——完成是事实、非「正在发生」） */
+.doc-task { list-style: none; padding-left: 1px; margin: 0 0 14px; }
+.doc-task li { display: flex; align-items: flex-start; gap: 9px; margin: 3px 0; }
+.doc-task .box { flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 5px; border: 1px solid var(--line-strong); display: grid; place-items: center; color: transparent; transition: background .2s var(--ease-spring), border-color .2s; }
+.doc-task li.done .box { background: var(--ink); border-color: var(--ink); color: var(--cc-win); }
+.doc-task li.done .t { color: var(--ink-3); text-decoration: line-through; }
 
-/* 引用：左侧细竖线 + 灰字，白底无填充（学 Notion 经典引用，去掉灰块） */
-.doc-body blockquote { margin: var(--s5) 0; padding: 2px 0 2px var(--s4); border-left: 3px solid var(--line-strong); color: var(--ink-2); }
+/* 引用：左竖线 + 灰字、白底无填充（学 Notion 经典引用、去灰块） */
+.doc-body blockquote { margin: 20px 0; padding: 2px 0 2px 16px; border-left: 3px solid var(--line-strong); color: var(--ink-2); }
 .doc-body blockquote p:last-child { margin-bottom: 0; }
 
-/* 提示块 Callout（我们设计、Notion 借鉴）：白底 + 描边圈 + 左图标，强调而不靠底色 */
-.doc-callout { display: flex; align-items: flex-start; gap: 10px; margin: var(--s5) 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r-card); }
+/* 提示块 Callout：白底 + 一圈描边 + 左图标（强调而不靠底色） */
+.doc-callout { display: flex; align-items: flex-start; gap: 10px; margin: 20px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; }
 .doc-callout .ico { flex: none; margin-top: 1px; color: var(--ink-2); display: grid; place-items: center; }
 .doc-callout .c { flex: 1; color: var(--ink-2); }
 .doc-callout .c b { color: var(--ink); }
 
 /* 代码块：白底 + 一圈描边 + 等宽（无灰填充）；右上角语言名 */
-.doc-code { position: relative; margin: var(--s5) 0; padding: var(--s3) var(--s4); border: 1px solid var(--line); border-radius: var(--r-card); overflow-x: auto; }
-.doc-code pre { margin: 0; font-family: var(--mono); font-size: var(--t-sm); line-height: 1.7; color: var(--ink); white-space: pre; }
+.doc-code { position: relative; margin: 20px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.doc-code pre { margin: 0; font-family: var(--mono); font-size: 13px; line-height: 1.7; color: var(--ink); white-space: pre; }
+.doc-code pre code { border: 0; padding: 0; font-size: inherit; }
 .doc-code .lang { position: absolute; top: 8px; right: 12px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
 
-/* 行内代码：白底 + 细描边 + 中性等宽（绝不学 Notion 的红） */
-.doc-body code { font-family: var(--mono); font-size: .88em; padding: 1px 5px; border: 1px solid var(--line); border-radius: 5px; color: var(--ink); background: none; }
-.doc-code pre code { border: none; padding: 0; font-size: inherit; color: inherit; }
-
 /* 表格：细线分隔（放宽禁线），无填充无斑马 */
-.doc-table { width: 100%; margin: var(--s5) 0; border-collapse: collapse; font-size: var(--t-sm); }
-.doc-table th { text-align: left; font-weight: 600; color: var(--ink-2); padding: var(--s2) var(--s3); border-bottom: 1.5px solid var(--line-strong); }
-.doc-table td { padding: var(--s2) var(--s3); color: var(--ink); border-bottom: 1px solid var(--line); }
-.doc-table tbody tr:last-child td { border-bottom: none; }
+.doc-table { width: 100%; margin: 20px 0; border-collapse: collapse; font-size: 13px; }
+.doc-table th { text-align: left; font-weight: 600; color: var(--ink-2); padding: 7px 12px 7px 0; border-bottom: 1.5px solid var(--line-strong); }
+.doc-table td { padding: 7px 12px 7px 0; color: var(--ink); border-bottom: 1px solid var(--line); }
+.doc-table tbody tr:last-child td { border-bottom: 0; }
 
-/* 分隔线：一条细线（放宽禁线，不再三点） */
-.doc-body hr, .doc-hr { border: none; height: 0; border-top: 1px solid var(--line); margin: var(--s8) 0; }
+/* 分隔线：一条细线（内容区放宽禁线） */
+.doc-body hr { border: 0; height: 0; border-top: 1px solid var(--line); margin: 32px 0; }
 
-/* 图片：圆角裁切 + 说明；占位用虚线框（无填充） */
-.doc-img { display: block; max-width: 100%; border-radius: var(--r-card); box-shadow: var(--shadow-island); margin: var(--s5) 0; }
-.doc-imgph { display: flex; align-items: center; justify-content: center; height: 150px; margin: var(--s5) 0 var(--s2);
-  border: 1px dashed var(--line-strong); border-radius: var(--r-card); color: var(--ink-3); font-size: var(--t-sm); }
-.doc-cap { font-size: var(--t-xs); color: var(--ink-3); text-align: center; }
+/* 图片：圆角裁切 + 说明；占位用虚线框 */
+.doc-imgph { display: flex; align-items: center; justify-content: center; height: 150px; margin: 20px 0 6px; border: 1px dashed var(--line-strong); border-radius: 12px; color: var(--ink-3); font-size: 13px; }
+.doc-cap { font-size: 11px; color: var(--ink-3); text-align: center; }
 
-/* wikilink / @提及：图标 + 下划线文字（学 Notion，去掉灰药丸）；靠图标语义区分 */
-.doc-pill { display: inline-flex; align-items: baseline; gap: 3px; color: var(--ink); cursor: pointer;
-  text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px;
-  transition: color .15s, text-decoration-color .15s; }
-.doc-pill:hover { color: var(--accent); text-decoration-color: var(--accent); }
-.doc-pill .ico { align-self: center; color: var(--ink-3); display: inline-grid; place-items: center; transition: color .15s; }
-.doc-pill:hover .ico { color: var(--accent); }
-.doc-pill.broken { color: var(--ink-3); text-decoration-style: dotted; text-decoration-color: var(--warn); }
-.doc-pill.broken .ico { color: var(--warn); }
+/* wikilink / @提及：图标 + 下划线文字（去灰药丸；靠图标语义区分） */
+.doc-pill { display: inline-flex; align-items: baseline; gap: 3px; color: var(--ink); cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; transition: color .12s, text-decoration-color .12s; }
+.doc-pill:hover, .doc-pill:hover .ico { color: var(--accent); text-decoration-color: var(--accent); }
+.doc-pill .ico { align-self: center; color: var(--ink-3); display: inline-grid; place-items: center; transition: color .12s; }
 
-/* 标签：描边 chip（无填充） */
-.doc-tags { display: inline-flex; gap: 6px; }
-.doc-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink-2); font-size: var(--t-xs); }
-.doc-tag .ico { display: grid; place-items: center; color: var(--ink-3); }
-
-/* WYSIWYG 光标 */
-.caret { display: inline-block; width: 6px; height: 1.05em; vertical-align: -3px; background: var(--accent); border-radius: 1px; margin-left: 1px; animation: blink 1s steps(2) infinite; }
-@keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
-
-/* 主区头状态：已保存(中性) ↔ AI 编辑中(--accent 脉冲) */
-.doc-status { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; font-size: var(--t-sm); color: var(--ink-3); white-space: nowrap; }
-.doc-status .ico { display: grid; place-items: center; }
-.doc-status.live { color: var(--accent); }
-.doc-status .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease infinite; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-
-/* ===== 内联选段唤起 :iterate（真实选中 → 浮条 → 选区流光扫过） ===== */
-.doc ::selection { background: var(--accent-soft); }
-.ai-bar { position: absolute; z-index: 20; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
-  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-pill); box-shadow: var(--shadow-pop);
-  transform-origin: center bottom; animation: aibarIn var(--d-fast) var(--ease-spring); }
-@keyframes aibarIn { from { opacity: 0; transform: scale(.9) translateY(4px); } to { opacity: 1; transform: none; } }
-.ai-bar .spark { display: grid; place-items: center; color: var(--accent); padding: 0 4px 0 6px; }
-.ai-bar button { height: 26px; padding: 0 10px; border-radius: var(--r-pill); font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); transition: background .12s, color .12s; }
-.ai-bar button:hover { background: var(--cc-hover); color: var(--ink); }
-/* 选区流光：文字 -webkit-background-clip:text（复刻 chat 真实做法，非选区背景扫光） */
-.ai-new.run { background: linear-gradient(105deg, var(--ink-3) 36%, var(--accent) 50%, var(--ink-3) 64%);
-  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.5s linear infinite; }
-@keyframes shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
-
-/* 选中工具条的「点选格式化」按钮（不用记 markdown）：B/I/S/高亮/代码/链接 + AI */
-.ai-bar .sb { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; color: var(--ink-2); font-size: var(--t-sm); transition: background .12s, color .12s; }
-.ai-bar .sb:hover { background: var(--cc-hover); color: var(--ink); }
-.ai-bar .sb b { font-weight: 700; } .ai-bar .sb i { font-style: italic; } .ai-bar .sb s { text-decoration: line-through; }
-.ai-bar .sb.ai { color: var(--accent); font-weight: 600; }                       /* AI 一等、唯一上色 */
-.ai-bar .sb .hl { background: var(--accent-soft); border-radius: 3px; padding: 0 3px; }
-.ai-bar .sb-div { width: 1px; align-self: stretch; margin: 6px 2px; background: var(--line); }   /* 条内细分隔（行内、非横向 divider） */
-
-/* ===== 斜杠菜单 / 命令窗：敲 / 弹出，非 markdown 用户「插入」的唯一入口（学 Notion 的窗） ===== */
-.slash-menu { position: absolute; z-index: 30; width: 288px; max-height: 340px; overflow-y: auto; padding: 6px;
-  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-pop);
-  animation: aibarIn var(--d-fast) var(--ease-spring); }
-.slash-group { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); padding: 8px 10px 4px; letter-spacing: .04em; }
-.slash-item { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 10px; border-radius: 8px; cursor: pointer; }
-.slash-item .si-ic { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); }
-.slash-item .si-nm { flex: 1; font-size: var(--t-md); color: var(--ink); }
-.slash-item .si-hint { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
-.slash-item.on { background: var(--cc-active); }                                  /* 选中=中性灰底，非 accent */
-.slash-empty { padding: 14px 12px; font-size: var(--t-sm); color: var(--ink-3); }
-
-/* ===== 块左侧悬浮手柄（hover 出现）：+ 插入 / ⋮⋮ 拖拽重排·点开菜单 ===== */
-.blk-gutter { position: absolute; z-index: 15; display: flex; align-items: center; gap: 0; opacity: 0; transition: opacity .12s; }
-.blk-gutter.show { opacity: 1; }
-.blk-gutter button { width: 20px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); transition: background .12s, color .12s; }
-.blk-gutter .bg-add { cursor: pointer; }
-.blk-gutter .bg-handle { cursor: grab; }
-.blk-gutter button:hover { background: var(--cc-hover); color: var(--ink-2); }
-.blk-dragging { opacity: .45; }
-.blk-drop { position: absolute; z-index: 14; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
-
-/* 块菜单（点 ⋮⋮） */
-.blk-menu { position: absolute; z-index: 32; min-width: 168px; padding: 5px; background: var(--cc-side); border: 1px solid var(--line);
-  border-radius: var(--r-chip); box-shadow: var(--shadow-pop); animation: aibarIn var(--d-fast) var(--ease-spring); }
-.blk-menu button { display: flex; align-items: center; gap: 10px; width: 100%; height: 32px; padding: 0 9px; border-radius: 7px; color: var(--ink); font-size: var(--t-sm); }
-.blk-menu button:hover { background: var(--cc-hover); }
-.blk-menu .ico { color: var(--ink-3); display: grid; place-items: center; }
-.blk-menu .danger, .blk-menu .danger .ico { color: var(--danger); }
-
-/* AI 询问输入（选中→AI，给一句自然语言指令，对齐后端 :iterate） */
-.ai-ask { position: absolute; z-index: 30; width: 326px; padding: 8px; background: var(--cc-side); border: 1px solid var(--line);
-  border-radius: var(--r-card); box-shadow: var(--shadow-pop); animation: aibarIn var(--d-fast) var(--ease-spring); }
-.ai-ask .row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; }
-.ai-ask .row .ico { color: var(--accent); display: grid; place-items: center; }
-.ai-ask input { flex: 1; border: 0; outline: 0; background: none; font: inherit; font-size: var(--t-md); color: var(--ink); }
-.ai-ask input::placeholder { color: var(--ink-3); }
-.ai-ask .quick { display: flex; flex-wrap: wrap; gap: 5px; padding: 7px 4px 2px; }
-.ai-ask .quick button { height: 26px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--ink-2); font-size: var(--t-xs); transition: background .12s, color .12s; }
-.ai-ask .quick button:hover { background: var(--cc-hover); color: var(--ink); }
-
+/* WYSIWYG 光标（自包含，复用侧栏/chat 的 caret 心智：6px accent blink） */
+.doc-caret { display: inline-block; width: 6px; height: 1.05em; vertical-align: -3px; margin-left: 1px; border-radius: 1px; background: var(--accent); animation: docBlink 1s steps(2) infinite; }
+@keyframes docBlink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
 /* markdown 即输即渲：块 spring 变形 */
-@keyframes blkMorph { from { transform: scale(.97); opacity: .5; } to { transform: none; opacity: 1; } }
-.blk-morph { animation: blkMorph .28s var(--ease-spring); }
+@keyframes docMorph { from { transform: scale(.97); opacity: .5; } to { transform: none; opacity: 1; } }
+.doc-morph { animation: docMorph .26s var(--ease-spring); }
+/* 选区流光（AI 改写：文字 background-clip，复刻 chat shimmer 心智，非选区扫光） */
+.doc-flow { background: linear-gradient(105deg, var(--ink-3) 36%, var(--accent) 50%, var(--ink-3) 64%); background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: docFlow 1.5s linear infinite; }
+@keyframes docFlow { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 
-/* 整篇错峰入场 */
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.fadein { animation: fadeIn .42s var(--ease-spring) both; }
+/* ===== 主区头状态指示（进 Shell.headExtra；已保存中性 / AI 编辑中 accent 脉冲） ===== */
+.doc-status { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.doc-status .ico { display: grid; place-items: center; }
+.doc-status.busy { color: var(--accent); }
+.doc-status .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: docPulse 1.4s ease infinite; }
+@keyframes docPulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-/* ===== 右岛 = 元信息抽屉（大纲/反链/元信息；默认收起、可滑入。右岛属于海洋） ===== */
+/* ===== 选中工具条：点选格式化（不用记符号）+ AI。浮层 = 弹层式（菜单阴影） ===== */
+.doc-tb { position: absolute; z-index: 30; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  transform-origin: center bottom; animation: docPop .14s var(--ease-spring); }
+@keyframes docPop { from { opacity: 0; transform: scale(.92) translateY(4px); } to { opacity: 1; transform: none; } }
+.doc-tb button { min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--ink-2); font-size: 13px; transition: background .12s, color .12s; }
+.doc-tb button:hover { background: var(--cc-hover); color: var(--ink); }
+.doc-tb button.ai { color: var(--accent); font-weight: 600; }   /* AI 一等、唯一上色 */
+.doc-tb button b { font-weight: 700; } .doc-tb button i { font-style: italic; } .doc-tb button s { text-decoration: line-through; }
+.doc-tb .hl { background: var(--accent-soft); border-radius: 3px; padding: 0 3px; }
+.doc-tb .sep { width: 1px; align-self: stretch; margin: 5px 2px; background: var(--line); }
+
+/* AI 询问输入（选中→AI：给一句自然语言指令 + 快捷动作，对齐后端 :iterate） */
+.doc-ask { position: absolute; z-index: 30; width: 320px; padding: 8px; background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.12); animation: docPop .14s var(--ease-spring); }
+.doc-ask .row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; }
+.doc-ask .row .ico { color: var(--accent); display: grid; place-items: center; }
+.doc-ask input { flex: 1; border: 0; outline: 0; background: none; font: inherit; font-size: 14px; color: var(--ink); }
+.doc-ask input::placeholder { color: var(--ink-3); }
+.doc-ask .quick { display: flex; flex-wrap: wrap; gap: 5px; padding: 7px 4px 2px; }
+.doc-ask .quick button { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; transition: background .12s, color .12s; }
+.doc-ask .quick button:hover { background: var(--cc-hover); color: var(--ink); }
+
+/* ===== 斜杠命令窗：敲 / 弹出，所有「插入」收进一窗（菜单样式对齐侧栏 .cdisp-menu） ===== */
+.doc-slash { position: absolute; z-index: 32; width: 288px; max-height: 340px; overflow-y: auto; padding: 5px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); animation: docPop .14s var(--ease-spring); }
+.doc-slash .grp { padding: 7px 8px 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.doc-slash .grp:first-child { padding-top: 3px; }
+.doc-slash .item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 8px; border-radius: 7px; cursor: pointer; }
+.doc-slash .item.on { background: var(--cc-active); }                            /* 选中 = 中性灰底（非 accent） */
+.doc-slash .item .ic { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; color: var(--ink-2); }
+.doc-slash .item .nm { flex: 1; font-size: 13px; color: var(--ink); }
+.doc-slash .item .hint { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }   /* 给想学的人看的 markdown 提示、不强求 */
+.doc-slash .empty { padding: 12px 10px; font-size: 13px; color: var(--ink-3); }
+
+/* ===== 块左侧悬浮手柄：+ 在此后插入 · ⋮⋮ 拖拽重排 / 点开菜单 ===== */
+.doc-gut { position: absolute; z-index: 15; display: flex; align-items: center; gap: 0; opacity: 0; transition: opacity .12s; }
+.doc-gut.show { opacity: 1; }
+.doc-gut button { width: 20px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); transition: background .12s, color .12s; }
+.doc-gut button:hover { background: var(--cc-hover); color: var(--ink-2); }
+.doc-gut .grip { cursor: grab; }
+.doc-dragging { opacity: .45; }
+.doc-drop { position: absolute; z-index: 14; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+/* 块菜单（点 ⋮⋮；样式对齐侧栏菜单） */
+.doc-bmenu { position: absolute; z-index: 32; min-width: 168px; padding: 5px; background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); animation: docPop .14s var(--ease-spring); }
+.doc-bmenu button { display: flex; align-items: center; gap: 10px; width: 100%; height: 32px; padding: 0 8px; border-radius: 7px; color: var(--ink); font-size: 13px; transition: background .12s; }
+.doc-bmenu button:hover { background: var(--cc-hover); }
+.doc-bmenu .ico { color: var(--ink-3); display: grid; place-items: center; }
+.doc-bmenu .danger, .doc-bmenu .danger .ico { color: var(--danger); }
+
+/* ===== 右岛 = 元信息抽屉（大纲/反链/信息；默认收起、可滑入。框对齐侧栏岛，行对齐 .cv） ===== */
 .doc-aside { flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
-  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island);
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04);
   display: flex; flex-direction: column; transition: width .42s var(--ease-spring), opacity .3s, margin-left .42s var(--ease-spring); }
-.doc-aside.show { width: 320px; opacity: 1; margin-left: 0; }
-.doc-aside-body { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 24px; }
-.da-sect .da-h { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+.doc-aside.show { width: 300px; opacity: 1; margin-left: 0; }
+.doc-aside .body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 10px; display: flex; flex-direction: column; gap: 20px; }
+.da-sec .da-h { padding: 0 10px 6px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
 .da-toc { display: flex; flex-direction: column; gap: 1px; }
-.da-toc a { display: block; padding: 5px 9px; border-radius: 7px; font-size: var(--t-sm); color: var(--ink-2); text-decoration: none;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .15s, color .15s; }
+.da-toc a { display: block; height: 30px; line-height: 30px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--ink-2); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .12s, color .12s; }
 .da-toc a:hover { background: var(--cc-hover); color: var(--ink); }
-.da-toc a.h3 { padding-left: 20px; color: var(--ink-3); font-size: var(--t-xs); }
+.da-toc a.h3 { padding-left: 22px; color: var(--ink-3); }
 .da-toc a.on { background: var(--cc-active); color: var(--ink); font-weight: 500; }
-.da-back { display: flex; flex-direction: column; gap: 10px; }
-.da-backitem { display: block; text-decoration: none; }
-.da-backitem .snip { display: block; font-size: var(--t-xs); color: var(--ink-3); line-height: 1.5; margin-top: 5px; padding-left: 2px; }
-.da-meta { display: flex; flex-direction: column; gap: 9px; font-size: var(--t-sm); }
-.da-row { display: flex; gap: 8px; }
-.da-row .k { width: 40px; flex: none; color: var(--ink-3); }
-.da-row .v { color: var(--ink-2); }
-.da-row .v.mono { font-family: var(--mono); font-size: var(--t-xs); word-break: break-all; }
+.da-back { display: flex; flex-direction: column; gap: 2px; }
+.da-back a { display: block; padding: 6px 10px; border-radius: 8px; text-decoration: none; transition: background .12s; }
+.da-back a:hover { background: var(--cc-hover); }
+.da-back .snip { display: block; font-size: 11px; color: var(--ink-3); line-height: 1.5; margin-top: 3px; }
+.da-meta { display: flex; flex-direction: column; gap: 9px; padding: 0 10px; font-size: 13px; }
+.da-meta .row { display: flex; gap: 8px; }
+.da-meta .k { width: 40px; flex: none; color: var(--ink-3); }
+.da-meta .v { color: var(--ink-2); }
+.da-meta .v.mono { font-family: var(--mono); font-size: 12px; word-break: break-all; }

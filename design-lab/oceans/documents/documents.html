@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Forgify · 文档海洋（产品适配 v1）</title>
+<title>Forgify · 文档海洋（重写 v2）</title>
 <!-- 内核（只读） -->
 <link rel="stylesheet" href="../../shared/tokens.css">
 <link rel="stylesheet" href="../../shared/shell.css">
@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="./documents.css">
 </head>
 <body>
-<!-- 加载顺序：图标 → 外壳(搭框开槽) → 侧栏(进#left) → 右岛 → 海洋编排 → 挂载 -->
+<!-- 加载顺序：图标 → 外壳(搭框开槽) → 侧栏(进#left) → 右岛 → 海洋块 → 挂载 -->
 <script src="../../shared/icons.js"></script>
 <script src="../../shared/shell.js"></script>
 <script src="../../sidebar/sidebar.js"></script>
@@ -21,8 +21,7 @@
 <script src="./documents.js"></script>
 <script>
   Shell.mount('documents');
-  // 预览初始把侧栏四导航高亮到 Documents（用侧栏自己的 click 行为，不碰其内部）
-  document.querySelector('#modeseg [data-m="documents"]')?.click();
+  document.querySelector('#modeseg [data-m="documents"]')?.click();   // 侧栏四导航高亮到 Documents（用侧栏自己的 click 行为）
 </script>
 </body>
 </html>
