@@ -1,8 +1,9 @@
 /* Forgify design-lab — Documents 海洋编排（单独，一人负责整个 oceans/documents/ 文件夹）。
-   本页 = 全 markdown 格式样张（可上下滑）+ 两套「零 markdown 心智」编辑操作：
-     ① 斜杠菜单 /：敲 / 弹窗，所有「插入」（标题/列表/待办/引用/代码/表格/图片/分隔线/提示块 + [[文档]]/@提及/✦AI）收进一个窗，打字过滤、↑↓回车或点选插入——非 markdown 用户的唯一入口。
-     ② 选中工具条：选文字→上方浮条，点选加粗/斜体/删除线/高亮/行内代码/链接（真改，不用记符号）+ ✦AI（改写/续写/精简/翻译）。
-   markdown 快捷键（## / - / >）作为「奖励」仍可保留，不在此 mockup 强求。
+   本页 = 全 markdown 格式样张（可上下滑）+ 零-markdown 心智编辑：
+     · 斜杠菜单 /：敲 / 弹命令窗，所有「插入」收进一窗，打字过滤、↑↓回车/点选插入（非 md 用户唯一入口）。
+     · 选中即浮工具条：点选 加粗/斜体/删除线/高亮/行内代码/链接（execCommand 真改）+ ✦AI（给一句指令→流式改写）。
+     · 块左侧悬浮手柄：+ 在此后插入（开命令窗）· ⋮⋮ 拖拽重排 / 点开块菜单（转换/复制/删除）。
+     · markdown 即输即渲：行首打 # / - / 1. / > / [] / --- + 空格，块 spring 变形（给会的人的「奖励」，不强求）。
    内容区放宽外壳禁横线（见 documents.css 注）。依赖：shared/icons.js · shared/shell.js · ./right-island.js。 */
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
@@ -25,11 +26,11 @@
   }
 
   const BODY_HTML = `
-    <p>这是 Forgify 文档海洋的 <b>markdown 排版样张</b>。文档内容区<b>放宽</b>了外壳的「禁横线」规则——可以有 <a href="#">下划线链接</a>、分隔线、表格细线，大范围参考 Notion；但正文里 <b>不用灰色填充块</b>（代码、引用都是白底描边），行内代码也 <b>不学 Notion 的红色</b>。</p>
-    <p><b>不会 markdown？</b>在空行敲 <code>/</code> 唤出命令窗挑要插入的块；选中文字会浮出工具条点选格式——都不用记符号。</p>
+    <p>这是 Forgify 文档海洋的 <b>markdown 排版样张</b>。文档内容区<b>放宽</b>了外壳的「禁横线」规则——可以有 <a href="#">下划线链接</a>、分隔线、表格细线，大范围参考 Notion；但正文里 <b>不用灰色填充块</b>，行内代码也 <b>不学 Notion 的红色</b>。</p>
+    <p><b>不会 markdown？</b>空行敲 <code>/</code> 唤出命令窗挑块；选中文字浮出工具条点选格式；块左侧悬停有 <code>+</code> 和拖拽手柄——都不用记符号。</p>
 
     <h2>标题层级</h2>
-    <p>靠尺寸阶梯区分（24 / 19 / 15），不靠编号或下划线。</p>
+    <p>靠尺寸阶梯区分（24 / 19 / 15），不靠编号或下划线。行首打 <code>## </code> 会即时变标题。</p>
     <h3>这是一个三级标题</h3>
     <p>正文紧随其后，靠留白分节。</p>
 
@@ -40,9 +41,8 @@
     <ul>
       <li>无序列表用小圆点</li>
       <li>支持嵌套
-        <ul><li>第二层换成空心环</li><li>靠缩进，不画连接线</li></ul>
+        <ul><li>第二层换成空心环</li></ul>
       </li>
-      <li>项与项之间留白呼吸</li>
     </ul>
     <ol>
       <li>有序列表用等宽数字</li>
@@ -51,18 +51,14 @@
 
     <h2>任务清单</h2>
     <ul class="doc-tasks">
-      <li class="done"><span class="box">${icon('check', 12)}</span><span class="t">完成框是中性的近黑实底 + 白勾</span></li>
+      <li class="done"><span class="box">${icon('check', 12)}</span><span class="t">完成框是中性近黑实底 + 白勾</span></li>
       <li><span class="box"></span><span class="t">未完成只是一个细描边空框</span></li>
     </ul>
 
     <h2>引用</h2>
     <blockquote>引用用左侧一道细竖线 + 文字降一档灰，白底无填充。学 Notion 的经典引用，但去掉了灰块。</blockquote>
 
-    <h2>提示块</h2>
-    <div class="doc-callout"><span class="ico">${icon('spark', 16, 1.6)}</span><div class="c"><b>这是一个 Callout。</b>白底 + 一圈描边 + 左侧图标，强调一段话而不靠底色块。</div></div>
-
     <h2>代码</h2>
-    <p>行内是 <code>const x = 1</code>；多行是代码块——白底、外面一个圈、等宽字、右上角标语言：</p>
     <div class="doc-code"><span class="lang">ts</span><pre>// 文档正文 = 单块 markdown 字符串
 function render(md: string): Html {
   return parse(md);   // 整篇覆盖、无版本 diff
@@ -70,22 +66,21 @@ function render(md: string): Html {
 
     <h2>表格</h2>
     <table class="doc-table">
-      <thead><tr><th>构件</th><th>样式</th><th>说明</th></tr></thead>
+      <thead><tr><th>构件</th><th>样式</th></tr></thead>
       <tbody>
-        <tr><td>引用</td><td>左竖线 + 灰字</td><td>白底无填充</td></tr>
-        <tr><td>代码</td><td>白底 + 描边 + 等宽</td><td>不红</td></tr>
+        <tr><td>引用</td><td>左竖线 + 灰字</td></tr>
+        <tr><td>代码</td><td>白底 + 描边 + 等宽</td></tr>
       </tbody>
     </table>
 
     <h2>链接与提及</h2>
-    <p>文档间用 <span class="doc-pill"><span class="ico">${icon('link', 13)}</span>另一篇文档</span> 这样的 wikilink；提到实体用 <span class="doc-pill"><span class="ico">${icon('at', 13)}</span>某个 Agent</span>。都是「图标 + 下划线文字」，不是灰药丸。</p>
+    <p>文档间用 <span class="doc-pill"><span class="ico">${icon('link', 13)}</span>另一篇文档</span> 这样的 wikilink；提到实体用 <span class="doc-pill"><span class="ico">${icon('at', 13)}</span>某个 Agent</span>。</p>
 
     <h2>分隔线</h2>
     <p>分隔线就是一条细线：</p>
     <hr>
     <p>用来分隔大段落。</p>`;
 
-  // 斜杠菜单块清单（接后端时这套就是「插入」能力表）
   const BLOCKS = [
     { grp: '基础' },
     { k: 'text', ic: 'text', nm: '文本', hint: '', html: '<p>新段落</p>' },
@@ -128,6 +123,7 @@ function render(md: string): Html {
       render();
       wireSelectionToolbar();
       wireSlashMenu();
+      wireGutter();
     },
   });
 
@@ -162,7 +158,7 @@ function render(md: string): Html {
   function render() {
     runId++;
     const body = $('#docBody'); if (!body) return;
-    closeSlash(); hideToolbar();
+    closeSlash(); hideToolbar(); closeBlockMenu();
     renderHead();
     body.innerHTML = BODY_HTML;
     body.classList.remove('fadein'); void body.offsetWidth; body.classList.add('fadein');
@@ -174,19 +170,18 @@ function render(md: string): Html {
 
   const docBody = () => $('#docBody');
   const doc = () => $('#doc');
-  function caretRect() { const s = window.getSelection(); if (!s.rangeCount) return null; const r = s.getRangeAt(0).getBoundingClientRect(); return r.width || r.height ? r : null; }
-  function placeAbove(el, rect) {                                     // 把浮层放选区/光标上方，限制在 .doc 内
-    const dr = doc().getBoundingClientRect();
-    el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px';
-    el.style.top = (rect.top - dr.top - el.offsetHeight - 8) + 'px';
+  function directBlock(node) {                                       // node 所在的 #docBody 直接子元素（= 一个「块」）
+    if (!node) return null;
+    let el = node.nodeType === 3 ? node.parentNode : node;
+    while (el && el.parentNode && el.parentNode !== docBody()) el = el.parentNode;
+    return el && el.parentNode === docBody() ? el : null;
   }
-  function placeBelow(el, rect) {
-    const dr = doc().getBoundingClientRect();
-    el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px';
-    el.style.top = (rect.bottom - dr.top + 6) + 'px';
-  }
+  function caretRect() { const s = window.getSelection(); if (!s.rangeCount) return null; const r = s.getRangeAt(0).getBoundingClientRect(); return (r.width || r.height) ? r : null; }
+  function caretTo(el, end) { try { const r = document.createRange(); r.selectNodeContents(el); r.collapse(!end); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } catch (e) {} }
+  function placeAbove(el, rect) { const dr = doc().getBoundingClientRect(); el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px'; el.style.top = (rect.top - dr.top - el.offsetHeight - 8) + 'px'; }
+  function placeBelow(el, rect) { const dr = doc().getBoundingClientRect(); el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px'; el.style.top = (rect.bottom - dr.top + 6) + 'px'; }
 
-  /* ===== ① 选中工具条：点选格式化 + AI ===== */
+  /* ===== 选中工具条：点选格式化 + AI ===== */
   let bar = null;
   function hideToolbar() { if (bar) { bar.remove(); bar = null; } }
   function wireSelectionToolbar() {
@@ -214,12 +209,12 @@ function render(md: string): Html {
     placeAbove(bar, rect);
     bar.querySelectorAll('button').forEach(btn => btn.addEventListener('mousedown', e => {
       e.preventDefault();
-      if (btn.dataset.a === 'ai') return showAiActions(rect, range);
+      if (btn.dataset.a === 'ai') return showAiAsk(rect, range);
       applyFormat(btn.dataset.a, range);
     }));
   }
   function reselect(range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); }
-  function wrap(range, tag, cls) { try { const el = document.createElement(tag); if (cls) el.className = cls; range.surroundContents(el); } catch (e) {} }
+  function wrap(range, tag) { try { const el = document.createElement(tag); range.surroundContents(el); } catch (e) {} }
   function applyFormat(a, range) {
     reselect(range);
     if (a === 'bold' || a === 'italic') document.execCommand(a);
@@ -229,15 +224,19 @@ function render(md: string): Html {
     else if (a === 'link') { const el = document.createElement('a'); el.href = '#'; try { range.surroundContents(el); } catch (e) {} }
     hideToolbar();
   }
-  // AI 子层：改写/续写/精简/翻译 → 选区流光扫过（演示流式改写视觉）
-  function showAiActions(rect, range) {
+  // AI 询问：给一句自然语言指令（对齐后端 :iterate）+ 快捷动作 → 选区流光改写
+  function showAiAsk(rect, range) {
     hideToolbar();
-    bar = document.createElement('div'); bar.className = 'ai-bar';
-    bar.innerHTML = `<span class="spark" style="display:grid;place-items:center;color:var(--accent);padding:0 4px 0 6px">${icon('spark', 15, 1.6)}</span>` +
-      ['改写', '续写', '精简', '翻译'].map(t => `<button class="sb">${t}</button>`).join('');
+    bar = document.createElement('div'); bar.className = 'ai-ask';
+    bar.innerHTML = `
+      <div class="row"><span class="ico">${icon('spark', 16, 1.7)}</span><input id="aiAsk" placeholder="让 AI 改写选中内容…" autocomplete="off"></div>
+      <div class="quick">${['改简洁', '续写', '翻译成英文', '更正式'].map(t => `<button>${t}</button>`).join('')}</div>`;
     doc().appendChild(bar);
-    placeAbove(bar, rect);
-    bar.querySelectorAll('button').forEach(btn => btn.addEventListener('mousedown', e => { e.preventDefault(); aiSweep(range); }));
+    placeBelow(bar, rect);
+    const input = bar.querySelector('#aiAsk');
+    setTimeout(() => input.focus(), 0);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aiSweep(range); } else if (e.key === 'Escape') hideToolbar(); });
+    bar.querySelectorAll('.quick button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); aiSweep(range); }));
   }
   async function aiSweep(range) {
     const id = ++runId;
@@ -257,27 +256,27 @@ function render(md: string): Html {
     p.removeChild(span); p.normalize && p.normalize();
   }
 
-  /* ===== ② 斜杠菜单 / 命令窗 ===== */
+  /* ===== 斜杠菜单 / 命令窗（敲 / · 块手柄 + · 块菜单转换 共用） ===== */
   let menu = null, slash = null, onIdx = 0, flat = [];
   const slashOpen = () => !!menu;
   function wireSlashMenu() {
     const b = docBody();
-    b.addEventListener('input', onInput);
-    b.addEventListener('keydown', onKey, true);
+    b.addEventListener('input', onBodyInput);
+    document.addEventListener('keydown', onSlashKey, true);
     document.addEventListener('mousedown', e => { if (menu && !menu.contains(e.target)) closeSlash(); });
   }
-  function onInput() {
-    const s = window.getSelection();
-    if (!s.rangeCount) return closeSlash();
-    const r = s.getRangeAt(0);
-    if (r.startContainer.nodeType !== 3) return closeSlash();
-    const node = r.startContainer;
-    const before = node.textContent.slice(0, r.startOffset);
-    const m = before.match(/(?:^|\s)\/([^\s/]*)$/);
-    if (!m) return closeSlash();
-    slash = { node, start: r.startOffset - m[1].length - 1, end: r.startOffset, query: m[1] };
-    openSlash();
+  function onBodyInput() { if (detectSlash()) return; closeSlash(); autoFormat(); }
+  function detectSlash() {
+    const s = window.getSelection(); if (!s.rangeCount) return false;
+    const r = s.getRangeAt(0); if (r.startContainer.nodeType !== 3) return false;
+    const node = r.startContainer; const before = node.textContent.slice(0, r.startOffset);
+    const m = before.match(/(?:^|\s)\/([^\s/]*)$/); if (!m) return false;
+    slash = { mode: 'type', node, start: r.startOffset - m[1].length - 1, end: r.startOffset, query: m[1] };
+    openSlash(); return true;
   }
+  function openSlashAfter(block) { slash = { mode: 'plus', host: block, query: '' }; openSlash(gutterAnchor()); }
+  function openSlashTurn(block) { slash = { mode: 'turn', host: block, query: '' }; openSlash(gutterAnchor()); }
+  function gutterAnchor() { return gutter && gutter.classList.contains('show') ? gutter.getBoundingClientRect() : (gutterBlock ? gutterBlock.getBoundingClientRect() : null); }
   function matched() {
     const q = (slash?.query || '').toLowerCase();
     const out = []; let lastGrp = null;
@@ -288,27 +287,23 @@ function render(md: string): Html {
     });
     return out;
   }
-  function openSlash() {
+  function openSlash(anchorRect) {
     const list = matched();
     flat = list.filter(x => !x.grp);
     if (!menu) { menu = document.createElement('div'); menu.className = 'slash-menu'; doc().appendChild(menu); onIdx = 0; }
     if (onIdx >= flat.length) onIdx = 0;
     menu.innerHTML = flat.length ? list.map(it => it.grp
       ? `<div class="slash-group">${it.grp}</div>`
-      : `<div class="slash-item${flat[onIdx] === it ? ' on' : ''}" data-k="${it.k}">
-           <span class="si-ic">${icon(it.ic, 16)}</span><span class="si-nm">${it.nm}</span>${it.hint ? `<span class="si-hint">${it.hint}</span>` : ''}
-         </div>`).join('')
+      : `<div class="slash-item${flat[onIdx] === it ? ' on' : ''}" data-k="${it.k}"><span class="si-ic">${icon(it.ic, 16)}</span><span class="si-nm">${it.nm}</span>${it.hint ? `<span class="si-hint">${it.hint}</span>` : ''}</div>`).join('')
       : `<div class="slash-empty">没有匹配「${slash.query}」的块</div>`;
     menu.querySelectorAll('.slash-item').forEach(el => {
       el.addEventListener('mousedown', e => { e.preventDefault(); choose(flat.find(x => x.k === el.dataset.k)); });
-      el.addEventListener('mousemove', () => { onIdx = flat.findIndex(x => x.k === el.dataset.k); paintOn(); });
+      el.addEventListener('mousemove', () => { const i = flat.findIndex(x => x.k === el.dataset.k); if (i !== onIdx) { onIdx = i; paintOn(); } });
     });
-    const rect = caretRect(); if (rect) placeBelow(menu, rect);
+    const rect = anchorRect || caretRect(); if (rect) placeBelow(menu, rect);
   }
-  function paintOn() {
-    menu.querySelectorAll('.slash-item').forEach((el, i) => el.classList.toggle('on', flat[onIdx] && el.dataset.k === flat[onIdx].k));
-  }
-  function onKey(e) {
+  function paintOn() { menu.querySelectorAll('.slash-item').forEach(el => el.classList.toggle('on', flat[onIdx] && el.dataset.k === flat[onIdx].k)); }
+  function onSlashKey(e) {
     if (!menu) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); onIdx = (onIdx + 1) % flat.length; paintOn(); ensureVisible(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); onIdx = (onIdx - 1 + flat.length) % flat.length; paintOn(); ensureVisible(); }
@@ -319,27 +314,17 @@ function render(md: string): Html {
   function closeSlash() { if (menu) { menu.remove(); menu = null; } slash = null; }
   function choose(block) {
     if (!block || !slash) return closeSlash();
-    const { node, start, end } = slash;
-    try { node.textContent = node.textContent.slice(0, start) + node.textContent.slice(end); } catch (e) {}
+    const mode = slash.mode;
+    let host;
+    if (mode === 'type') { const { node, start, end } = slash; try { node.textContent = node.textContent.slice(0, start) + node.textContent.slice(end); } catch (e) {} host = directBlock(node) || docBody().lastElementChild; }
+    else host = slash.host;
     closeSlash();
-    // 宿主块 = node 在 #docBody 下的直接子元素
-    let host = node;
-    while (host && host.parentNode && host.parentNode !== docBody()) host = host.parentNode;
-    if (!host || host.parentNode !== docBody()) host = docBody().lastElementChild;
-    if (block.inline) {                                              // 行内：wikilink / @提及
-      host.insertAdjacentHTML('beforeend', ' ' + block.inline);
-      bindPills();
-    } else if (block.ai) {                                           // ✦ AI 写：在宿主块后插一段、流光打字
-      host.insertAdjacentHTML('afterend', '<p class="ai-host"></p>');
-      const p = host.nextElementSibling;
-      aiWrite(p);
-    } else {                                                         // 块：插到宿主块之后；宿主空则替换
-      host.insertAdjacentHTML('afterend', block.html);
-      const fresh = host.nextElementSibling;
-      if (host.textContent.trim() === '' && host.tagName === 'P') host.remove();
-      bindPills();
-      fresh && fresh.scrollIntoView({ block: 'nearest' });
-    }
+    if (!host) return;
+    if (block.inline) { host.insertAdjacentHTML('beforeend', ' ' + block.inline); bindPills(); }
+    else if (block.ai) { host.insertAdjacentHTML('afterend', '<p class="ai-host"></p>'); aiWrite(host.nextElementSibling); }
+    else if (mode === 'turn') { host.insertAdjacentHTML('beforebegin', block.html); const fresh = host.previousElementSibling; host.remove(); fresh && fresh.classList.add('blk-morph'); bindPills(); }
+    else { host.insertAdjacentHTML('afterend', block.html); const fresh = host.nextElementSibling; if (mode === 'type' && host.tagName === 'P' && host.textContent.trim() === '') host.remove(); fresh && fresh.classList.add('blk-morph'); fresh && fresh.scrollIntoView({ block: 'nearest' }); bindPills(); }
+    DocAside.render();
   }
   async function aiWrite(p) {
     if (!p) return;
@@ -349,5 +334,105 @@ function render(md: string): Html {
     await typeInto(span, 'AI 根据上下文续写的一段内容，落定后从流光沉淀为正文。'); if (!alive(id)) return;
     await sleep(200); if (!alive(id)) return;
     unwrap(span); setStatus('saved');
+  }
+
+  /* ===== markdown 即输即渲（行首打 # / - / 1. / > / [] / --- + 空格 → 块 spring 变形） ===== */
+  const MD = [
+    { re: /^###\s/, tag: 'h3' }, { re: /^##\s/, tag: 'h3' }, { re: /^#\s/, tag: 'h2' },
+    { re: /^[-*]\s/, kind: 'ul' }, { re: /^\d+\.\s/, kind: 'ol' },
+    { re: /^>\s/, tag: 'blockquote' }, { re: /^\[[ xX]?\]\s/, kind: 'todo' }, { re: /^---$/, kind: 'hr' },
+  ];
+  function autoFormat() {
+    const s = window.getSelection(); if (!s.rangeCount) return;
+    const blk = directBlock(s.anchorNode); if (!blk || blk.tagName !== 'P') return;
+    const text = blk.textContent;
+    const rule = MD.find(r => r.re.test(text)); if (!rule) return;
+    const rest = text.replace(rule.re, '');
+    let neo, tgt;
+    if (rule.tag) { neo = document.createElement(rule.tag); neo.textContent = rest; tgt = neo; }
+    else if (rule.kind === 'ul' || rule.kind === 'ol') { neo = document.createElement(rule.kind); const li = document.createElement('li'); li.textContent = rest; neo.appendChild(li); tgt = li; }
+    else if (rule.kind === 'todo') { neo = document.createElement('ul'); neo.className = 'doc-tasks'; neo.innerHTML = `<li><span class="box"></span><span class="t">${rest || ''}</span></li>`; tgt = neo.querySelector('.t'); }
+    else if (rule.kind === 'hr') { neo = document.createElement('hr'); }
+    if (!neo) return;
+    blk.replaceWith(neo);
+    if (neo.classList) neo.classList.add('blk-morph');
+    if (rule.kind === 'hr') { const p = document.createElement('p'); p.innerHTML = '<br>'; neo.after(p); caretTo(p, false); }
+    else if (tgt) caretTo(tgt, true);
+    DocAside.render();
+  }
+
+  /* ===== 块左侧悬浮手柄：+ 插入 · ⋮⋮ 拖拽重排 / 点开菜单 ===== */
+  let gutter = null, gutterBlock = null, dragging = false, dragBlock = null, dropBefore = null, dropEl = null, justDragged = false;
+  function wireGutter() {
+    gutter = document.createElement('div'); gutter.className = 'blk-gutter';
+    gutter.innerHTML = `<button class="bg-add" title="在此后插入">${icon('plus', 16)}</button><button class="bg-handle" title="拖动重排 · 点击菜单">${icon('grip', 16)}</button>`;
+    doc().appendChild(gutter);
+    docBody().addEventListener('mousemove', e => { if (dragging) return; const b = directBlock(e.target); if (b) showGutterFor(b); });
+    docBody().addEventListener('mouseleave', () => { if (!dragging && !blkMenuOpen()) hideGutter(); });
+    gutter.addEventListener('mouseenter', () => gutter.classList.add('show'));
+    gutter.addEventListener('mouseleave', () => { if (!dragging && !blkMenuOpen()) hideGutter(); });
+    gutter.querySelector('.bg-add').addEventListener('click', () => { if (gutterBlock) openSlashAfter(gutterBlock); });
+    const handle = gutter.querySelector('.bg-handle');
+    handle.addEventListener('click', () => { if (!justDragged && gutterBlock) openBlockMenu(gutterBlock); });
+    handle.addEventListener('pointerdown', startDrag);
+  }
+  function showGutterFor(b) { gutterBlock = b; gutter.classList.add('show'); const dr = doc().getBoundingClientRect(), br = b.getBoundingClientRect(); gutter.style.left = (br.left - dr.left - 44) + 'px'; gutter.style.top = (br.top - dr.top + 1) + 'px'; }
+  function hideGutter() { if (gutter) gutter.classList.remove('show'); gutterBlock = null; }
+  function startDrag(e) {
+    if (!gutterBlock) return;
+    e.preventDefault();
+    dragging = true; dragBlock = gutterBlock; justDragged = false; dropBefore = null;
+    window.addEventListener('pointermove', onDrag);
+    window.addEventListener('pointerup', endDrag, { once: true });
+  }
+  function onDrag(e) {
+    if (!justDragged) { justDragged = true; dragBlock.classList.add('blk-dragging'); document.body.style.cursor = 'grabbing'; }
+    const others = [...docBody().children].filter(b => b !== dragBlock);
+    let before = null;
+    for (const b of others) { const r = b.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { before = b; break; } }
+    dropBefore = before;
+    showDrop(before);
+  }
+  function showDrop(before) {
+    if (!dropEl) { dropEl = document.createElement('div'); dropEl.className = 'blk-drop'; doc().appendChild(dropEl); }
+    const dr = doc().getBoundingClientRect(), bodyR = docBody().getBoundingClientRect();
+    const ref = before || dragBlock; const rr = ref.getBoundingClientRect();
+    const y = before ? rr.top : (docBody().lastElementChild.getBoundingClientRect().bottom);
+    dropEl.style.left = (bodyR.left - dr.left) + 'px';
+    dropEl.style.width = docBody().clientWidth + 'px';
+    dropEl.style.top = (y - dr.top - 1) + 'px';
+  }
+  function endDrag() {
+    dragging = false; document.body.style.cursor = '';
+    window.removeEventListener('pointermove', onDrag);
+    if (justDragged && dragBlock) { if (dropBefore) docBody().insertBefore(dragBlock, dropBefore); else docBody().appendChild(dragBlock); DocAside.render(); }
+    dragBlock && dragBlock.classList.remove('blk-dragging');
+    if (dropEl) { dropEl.remove(); dropEl = null; }
+    dragBlock = null; dropBefore = null;
+    setTimeout(() => { justDragged = false; }, 0);
+  }
+  // 块菜单（点 ⋮⋮）
+  let blkMenuEl = null;
+  const blkMenuOpen = () => !!blkMenuEl;
+  function openBlockMenu(block) {
+    closeBlockMenu();
+    blkMenuEl = document.createElement('div'); blkMenuEl.className = 'blk-menu';
+    blkMenuEl.innerHTML = `
+      <button data-a="turn"><span class="ico">${icon('edit', 15)}</span>转换成…</button>
+      <button data-a="dup"><span class="ico">${icon('copy', 15)}</span>复制</button>
+      <button class="danger" data-a="del"><span class="ico">${icon('trash', 15)}</span>删除</button>`;
+    doc().appendChild(blkMenuEl);
+    const dr = doc().getBoundingClientRect(), gr = gutter.getBoundingClientRect();
+    blkMenuEl.style.left = (gr.left - dr.left) + 'px';
+    blkMenuEl.style.top = (gr.bottom - dr.top + 4) + 'px';
+    blkMenuEl.querySelectorAll('button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); blkAction(b.dataset.a, block); }));
+    setTimeout(() => document.addEventListener('mousedown', closeBlkOut), 0);
+  }
+  function closeBlkOut(e) { if (blkMenuEl && !blkMenuEl.contains(e.target)) closeBlockMenu(); }
+  function closeBlockMenu() { if (blkMenuEl) { blkMenuEl.remove(); blkMenuEl = null; document.removeEventListener('mousedown', closeBlkOut); } }
+  function blkAction(a, block) {
+    if (a === 'del') { block.remove(); closeBlockMenu(); hideGutter(); DocAside.render(); }
+    else if (a === 'dup') { const c = block.cloneNode(true); block.after(c); c.classList.add('blk-morph'); bindPills(); closeBlockMenu(); DocAside.render(); }
+    else if (a === 'turn') { closeBlockMenu(); openSlashTurn(block); }
   }
 })();

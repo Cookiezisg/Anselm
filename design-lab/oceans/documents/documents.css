@@ -165,6 +165,39 @@
 .slash-item.on { background: var(--cc-active); }                                  /* 选中=中性灰底，非 accent */
 .slash-empty { padding: 14px 12px; font-size: var(--t-sm); color: var(--ink-3); }
 
+/* ===== 块左侧悬浮手柄（hover 出现）：+ 插入 / ⋮⋮ 拖拽重排·点开菜单 ===== */
+.blk-gutter { position: absolute; z-index: 15; display: flex; align-items: center; gap: 0; opacity: 0; transition: opacity .12s; }
+.blk-gutter.show { opacity: 1; }
+.blk-gutter button { width: 20px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-3); transition: background .12s, color .12s; }
+.blk-gutter .bg-add { cursor: pointer; }
+.blk-gutter .bg-handle { cursor: grab; }
+.blk-gutter button:hover { background: var(--cc-hover); color: var(--ink-2); }
+.blk-dragging { opacity: .45; }
+.blk-drop { position: absolute; z-index: 14; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+
+/* 块菜单（点 ⋮⋮） */
+.blk-menu { position: absolute; z-index: 32; min-width: 168px; padding: 5px; background: var(--cc-side); border: 1px solid var(--line);
+  border-radius: var(--r-chip); box-shadow: var(--shadow-pop); animation: aibarIn var(--d-fast) var(--ease-spring); }
+.blk-menu button { display: flex; align-items: center; gap: 10px; width: 100%; height: 32px; padding: 0 9px; border-radius: 7px; color: var(--ink); font-size: var(--t-sm); }
+.blk-menu button:hover { background: var(--cc-hover); }
+.blk-menu .ico { color: var(--ink-3); display: grid; place-items: center; }
+.blk-menu .danger, .blk-menu .danger .ico { color: var(--danger); }
+
+/* AI 询问输入（选中→AI，给一句自然语言指令，对齐后端 :iterate） */
+.ai-ask { position: absolute; z-index: 30; width: 326px; padding: 8px; background: var(--cc-side); border: 1px solid var(--line);
+  border-radius: var(--r-card); box-shadow: var(--shadow-pop); animation: aibarIn var(--d-fast) var(--ease-spring); }
+.ai-ask .row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; }
+.ai-ask .row .ico { color: var(--accent); display: grid; place-items: center; }
+.ai-ask input { flex: 1; border: 0; outline: 0; background: none; font: inherit; font-size: var(--t-md); color: var(--ink); }
+.ai-ask input::placeholder { color: var(--ink-3); }
+.ai-ask .quick { display: flex; flex-wrap: wrap; gap: 5px; padding: 7px 4px 2px; }
+.ai-ask .quick button { height: 26px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--ink-2); font-size: var(--t-xs); transition: background .12s, color .12s; }
+.ai-ask .quick button:hover { background: var(--cc-hover); color: var(--ink); }
+
+/* markdown 即输即渲：块 spring 变形 */
+@keyframes blkMorph { from { transform: scale(.97); opacity: .5; } to { transform: none; opacity: 1; } }
+.blk-morph { animation: blkMorph .28s var(--ease-spring); }
+
 /* 整篇错峰入场 */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .fadein { animation: fadeIn .42s var(--ease-spring) both; }
