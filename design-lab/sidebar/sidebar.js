@@ -23,8 +23,8 @@
       <button class="ibtn" data-act="collapse" title="收起侧栏">${icon('side', 18)}</button>
       <button class="ibtn" title="搜索">${icon('search', 18)}</button>
     </div>
-    <div class="modeseg">
-      ${NAV.map(([id, label, ic], i) => `<button class="${i === 0 ? 'on' : ''}" data-ocean="${id}"><span class="ico">${icon(ic, 18)}</span><span class="lbl">${label}</span></button>`).join('')}
+    <div class="modeseg" id="modeseg">
+      ${NAV.map(([id, label, ic], i) => `<button class="${i === 0 ? 'on' : ''}" data-m="${id}"><span class="ico">${icon(ic, 18)}</span><span class="lbl">${label}</span></button>`).join('')}
     </div>
     <div id="sidebody"></div>
     <div class="sfoot">
@@ -53,11 +53,11 @@
     },
   };
 
-  // 四导航切换 → 挂载对应海洋
+  // 四导航切换 → 挂载对应海洋。data-m 是与海洋 harness 的契约（harness 用 #modeseg [data-m=<id>].click() 切到本海洋侧栏）。
   const seg = left.querySelector('.modeseg');
   seg.querySelectorAll('button').forEach(b => b.onclick = () => {
     seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    SideBar.mount(b.dataset.ocean);
+    SideBar.mount(b.dataset.m);
   });
 
   // ===== 收起/展开 + 拖拽调宽（状态/持久化全归侧栏；单一真相 = html[data-side] + --side-w） =====
