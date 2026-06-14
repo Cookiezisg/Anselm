@@ -28,7 +28,9 @@ body { font-family: var(--font); font-size: 13px; color: var(--ink);
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 code, .mono { font-family: var(--mono); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+/* 滚动条自动隐藏（macOS 风）：默认透明，仅滚动时显——html[data-scrolling] 由 shell.js 在滚动期间置位、停 700ms 后清；hover 滚动条也显（可抓）。 */
+::-webkit-scrollbar-thumb { background: transparent; border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+html[data-scrolling] ::-webkit-scrollbar-thumb, ::-webkit-scrollbar-thumb:hover { background: var(--line-strong); }
 
 /* ===== 圆角浮窗 + 三槽布局 ===== */
 .win { height: 100%; display: flex; flex-direction: column; background: var(--cc-win);

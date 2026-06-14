@@ -52,4 +52,13 @@
       o.build(this.sea);
     },
   };
+
+  // 滚动条自动隐藏：任意滚动期间给 <html> 打 data-scrolling，停 700ms 后清（capture：scroll 不冒泡，一处兜全站滚动容器）。
+  let scrollHideT;
+  document.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    h.dataset.scrolling = '';
+    clearTimeout(scrollHideT);
+    scrollHideT = setTimeout(() => { delete h.dataset.scrolling; }, 700);
+  }, true);
 })();
