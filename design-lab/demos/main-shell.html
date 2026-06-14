@@ -188,28 +188,35 @@ code, .mono { font-family: var(--mono); }
   transition: width .42s cubic-bezier(.2,.85,.25,1), opacity .3s, margin-left .42s cubic-bezier(.2,.85,.25,1); }
 .aside.show { width: 384px; opacity: 1; margin-left: 0; }
 .aside-head { display: flex; align-items: center; gap: 10px; padding: 11px 8px 11px 14px; border-bottom: 1px solid var(--line); flex: none; }
-.etype { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; color: #fff; }
-.etype.agent { background: linear-gradient(135deg, var(--accent), #9b5de5); }
+.etype { width: 30px; height: 30px; border-radius: 8px; flex: none; display: grid; place-items: center;
+  background: var(--cc-active); color: var(--ink-2); }   /* 中性，不再用强调色大块 */
 .aside-head .ht { flex: 1; min-width: 0; }
 .aside-head .ht b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .aside-head .ht .sub { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink-3); margin-top: 1px; }
 .ver { font-family: var(--mono); background: var(--cc-active); color: var(--ink-2); padding: 0 6px; border-radius: 5px; }
-.live { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 600; }
-.live .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease infinite; }
+.live { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-weight: 500; font-size: 11px; }
+.live .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: .85; animation: pulse 1.4s ease infinite; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 .aside-tabs { display: flex; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--line); flex: none; }
 .aside-tabs button { font-size: 12px; color: var(--ink-3); padding: 5px 10px; border-radius: 8px; font-weight: 500; transition: background .15s, color .15s; }
 .aside-tabs button.on { background: var(--cc-active); color: var(--ink); font-weight: 600; }
 .aside-body { flex: 1; overflow-y: auto; padding: 14px; }
+.ec-desc { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-bottom: 16px; }
+.field > label .ct { color: var(--ink-3); font-weight: 500; margin-left: 5px; text-transform: none; letter-spacing: 0; }
+.ec-foot { flex: none; border-top: 1px solid var(--line); padding: 9px 14px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-3); }
+.ec-foot .mono { font-family: var(--mono); }
+.ec-foot .gap { flex: 1; }
+.ec-foot .act { color: var(--ink-2); font-weight: 500; cursor: pointer; }
+.ec-foot .act:hover { color: var(--ink); }
 .field { margin-bottom: 16px; }
 .field > label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
 .field .val { background: var(--cc-input); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 13px; white-space: pre-wrap; transition: box-shadow .4s, border-color .4s, background .4s; }
 .field .val.mono { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
-.field .val.flash { animation: flash 1.3s ease; }
-@keyframes flash { 0% { background: var(--accent-soft); border-color: var(--accent-line); } 100% { } }
+.field .val.flash { animation: flash 1.4s ease; }
+@keyframes flash { 0% { background: var(--cc-active); border-color: var(--line-strong); } 100% { } }
 .taglist { display: flex; flex-wrap: wrap; gap: 6px; }
 .tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: var(--cc-input); border: 1px solid var(--line); font-size: 11px; font-family: var(--mono); color: var(--ink-2); }
-.tag.new { background: var(--ok-soft); color: var(--ok); border-color: transparent; animation: popin .3s cubic-bezier(.2,.85,.25,1); }
+.tag.new { animation: popin .3s cubic-bezier(.2,.85,.25,1); }  /* 中性 tag，仅靠弹入动画提示「新增」 */
 @keyframes popin { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .caret { display: inline-block; width: 6px; height: 1em; vertical-align: -2px; background: var(--accent); border-radius: 1px; margin-left: 1px; animation: blink 1s steps(2) infinite; }
 @keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
@@ -228,7 +235,8 @@ code, .mono { font-family: var(--mono); }
 .editline .ename { font-family: var(--mono); color: var(--ink); }
 .editline .estat { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .editline .estat .to { color: var(--ok); }
-.ref-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+.ref-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px 1px 7px; border-radius: 999px; background: var(--cc-active); color: var(--ink); border: 1px solid var(--line); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; }
+.ref-pill:hover { background: var(--cc-hover); }
 </style>
 </head>
 <body>
@@ -430,24 +438,26 @@ function renderAgent(a){
   aside.classList.add('show');
   aside.innerHTML = `
     <div class="aside-head">
-      <span class="etype agent">${svg('agent',18)}</span>
-      <span class="ht"><b>${a.name}</b><span class="sub">
-        <span class="ver" data-ver>v${a.version}</span>
-        <span data-live>${a.live ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : '已保存'}</span>
-      </span></span>
+      <span class="etype">${svg('agent',17)}</span>
+      <span class="ht"><b>${a.name}</b><span class="sub">Agent · <span class="ver" data-ver>v${a.version}</span></span></span>
+      <span data-live>${a.live ? '<span class="live"><span class="pulse"></span>编辑中</span>' : ''}</span>
       <button class="ibtn" data-close>${svg('close',16)}</button>
     </div>
     <div class="aside-tabs"><button class="on">Overview</button><button>Versions</button><button>Runs</button><button>Iterate</button></div>
     <div class="aside-body">
+      ${a.desc ? `<div class="ec-desc">${a.desc}</div>` : ''}
       <div class="field" data-f="model"><label>Model</label><div class="val mono">${a.model}</div></div>
       <div class="field" data-f="system"><label>System prompt</label><div class="val">${a.system}</div></div>
-      <div class="field" data-f="tools"><label>Tools</label><div class="val" style="padding:8px"><div class="taglist">${a.tools.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div></div>
-    </div>`;
+      <div class="field" data-f="tools"><label>Tools <span class="ct" data-tc>${a.tools.length}</span></label><div class="val" style="padding:8px"><div class="taglist">${a.tools.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div></div>
+    </div>
+    <div class="ec-foot"><span class="mono">ag_7f3c2a91</span> · 12 runs<span class="gap"></span><span class="act">历史版本</span></div>`;
   $('[data-close]', aside).onclick = () => aside.classList.remove('show');
   aside.querySelectorAll('.aside-tabs button').forEach(b => b.onclick = () => {
     aside.querySelectorAll('.aside-tabs button').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
 }
-function setLive(on, note){ const s = $('[data-live]', aside); if(s) s.innerHTML = on ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : note; }
+function setLive(on){ const s = $('[data-live]', aside); if(s) s.innerHTML = on
+  ? '<span class="live"><span class="pulse"></span>编辑中</span>'
+  : '<span class="live" style="opacity:.65">已保存</span>'; }
 
 // 编排
 async function runDemo(){
@@ -471,6 +481,7 @@ async function runDemo(){
   ta.status('Updating Researcher…');           // ← 这一刻唤出右岛
   await sleep(350); if(!alive(id)) return;
   renderAgent({ name:'Researcher', version:4, model:'claude-sonnet-4-6',
+    desc:'深度调研助手：检索、交叉验证，产出带引用的结构化综述。',
     system:'你是严谨的调研助手。检索、交叉验证、给出结构化综述。',
     tools:['web_fetch','read_file','python','summarize'], live:true });
   await sleep(650); if(!alive(id)) return;
@@ -482,9 +493,10 @@ async function runDemo(){
   if(!alive(id)) return; await sleep(500);
   const tl = $('[data-f="tools"] .taglist', aside);
   const nt = document.createElement('span'); nt.className = 'tag new'; nt.textContent = 'web_search'; tl.appendChild(nt);
+  $('[data-tc]', aside).textContent = tl.children.length;
   await sleep(700); if(!alive(id)) return;
 
-  $('[data-ver]', aside).textContent = 'v5'; setLive(false, '刚刚更新 · v5');
+  $('[data-ver]', aside).textContent = 'v5'; setLive(false);
   ta.settle('Used 2 tools', `<b>read_agent</b>(Researcher)\n  → model = claude-sonnet-4-6\n  → tools = [web_fetch, read_file, python, summarize]\n\n<b>update_agent</b>(Researcher)\n  → model = claude-opus-4-8\n  → system += 引用要求（行内链接）\n  → tools += web_search`);
   editLine(body, 'Researcher', 4, 5);
   await sleep(350); if(!alive(id)) return;

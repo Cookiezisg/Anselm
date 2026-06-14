@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgify · 设计参考</title>
+<link rel="stylesheet" href="shared/tokens.css">
+<style>
+/* 设计参考页：把精修后的形态沉淀下来，供后面真实设计 / Flutter 落地参考。
+   配色同 main-shell：海与岛同色，靠海岸线(描边)分；少强调色。 */
+:root {
+  --cc-desk:#d4d5d9; --cc-win:#ffffff; --cc-side:#ffffff; --cc-bubble:#f0f0f2;
+  --cc-input:#ffffff; --cc-hover:#f1f1f3; --cc-active:#e9e9ec;
+}
+[data-theme="dark"] {
+  --cc-desk:#000; --cc-win:#161618; --cc-side:#1c1c1e; --cc-bubble:#2c2c2f;
+  --cc-input:#1c1c1e; --cc-hover:#2a2a2d; --cc-active:#323236;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font); font-size: 14px; color: var(--ink); background: var(--cc-desk);
+  -webkit-font-smoothing: antialiased; padding: 40px 24px 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+code, .mono { font-family: var(--mono); }
+.page { max-width: 1080px; margin: 0 auto; }
+
+.r-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+.r-head .mk { width: 42px; height: 42px; border-radius: 11px; flex: none; display: grid; place-items: center;
+  background: var(--cc-win); border: 1px solid var(--line); color: var(--ink-2); }
+.r-head h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+.r-head p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; }
+.r-head .grow { flex: 1; }
+.tbtn { height: 34px; padding: 0 14px; border-radius: 10px; background: var(--cc-win); border: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.tbtn:hover { background: var(--cc-hover); }
+
+.sect { margin-top: 44px; }
+.sect > h2 { font-size: 12px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em;
+  margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.note { color: var(--ink-2); line-height: 1.65; max-width: 720px; }
+.note b { color: var(--ink); font-weight: 600; }
+.note code { background: var(--cc-win); border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+
+/* 原则卡片 */
+.principles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.pc { background: var(--cc-win); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.pc h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.pc p { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+
+/* 配色 swatches */
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.sw { background: var(--cc-win); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sw .chip { height: 56px; }
+.sw .meta { padding: 9px 11px; }
+.sw .meta b { display: block; font-size: 12px; font-weight: 600; }
+.sw .meta span { display: block; font-size: 11px; color: var(--ink-3); font-family: var(--mono); margin-top: 1px; }
+
+/* 实体卡（精修，少强调色）—— 参考态：静态展示 */
+.cards { display: flex; gap: 20px; flex-wrap: wrap; }
+.card-wrap { width: 360px; }
+.card-wrap .cap { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+.ec { background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04); display: flex; flex-direction: column; overflow: hidden; }
+.ec-head { display: flex; align-items: center; gap: 10px; padding: 11px 8px 11px 14px; border-bottom: 1px solid var(--line); }
+.etype { width: 30px; height: 30px; border-radius: 8px; flex: none; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); }
+.ht { flex: 1; min-width: 0; }
+.ht b { display: block; font-size: 15px; font-weight: 600; }
+.ht .sub { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.ver { font-family: var(--mono); background: var(--cc-active); color: var(--ink-2); padding: 0 6px; border-radius: 5px; }
+.live { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-weight: 500; font-size: 11px; }
+.live .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: .85; animation: pulse 1.4s ease infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.ibtn { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-3); }
+.ibtn:hover { background: var(--cc-hover); color: var(--ink); }
+.ec-tabs { display: flex; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.ec-tabs span { font-size: 12px; color: var(--ink-3); padding: 5px 10px; border-radius: 8px; font-weight: 500; }
+.ec-tabs span.on { background: var(--cc-active); color: var(--ink); font-weight: 600; }
+.ec-body { padding: 14px; }
+.ec-desc { font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-bottom: 16px; }
+.field { margin-bottom: 16px; }
+.field > label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.field > label .ct { color: var(--ink-3); font-weight: 500; margin-left: 5px; text-transform: none; }
+.val { background: var(--cc-input); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 13px; white-space: pre-wrap; }
+.val.mono { font-family: var(--mono); font-size: 12px; }
+.val.changed { border-color: var(--line-strong); box-shadow: 0 0 0 3px var(--cc-active); }
+.taglist { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { padding: 3px 9px; border-radius: 999px; background: var(--cc-input); border: 1px solid var(--line); font-size: 11px; font-family: var(--mono); color: var(--ink-2); }
+.ec-foot { border-top: 1px solid var(--line); padding: 9px 14px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-3); }
+.ec-foot .mono { font-family: var(--mono); } .ec-foot .gap { flex: 1; } .ec-foot .act { color: var(--ink-2); font-weight: 500; }
+
+/* 组件小集 */
+.comp { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.demo { background: var(--cc-win); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.demo .lab { font-size: 11px; color: var(--ink-3); margin-bottom: 12px; font-weight: 600; }
+.umsg { display: flex; justify-content: flex-end; }
+.umsg .b { background: var(--cc-bubble); border-radius: 16px; padding: 10px 15px; max-width: 85%; font-size: 14px; }
+.tool-h { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; color: var(--ink-2); font-size: 13px; }
+.tool-h:hover { background: var(--cc-active); } .tool-h code { font-family: var(--mono); color: var(--ink); }
+.tool-h .diff .add { color: var(--ok); } .tool-h .diff .del { color: var(--danger); } .tool-h .chev { color: var(--ink-3); }
+.seg { display: flex; gap: 2px; }
+.seg button { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 8px; border-radius: 9px; color: var(--ink-2); font-size: 13px; font-weight: 600; }
+.seg button.on { background: var(--cc-active); color: var(--ink); padding: 0 11px; }
+.ref-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px 1px 7px; border-radius: 999px; background: var(--cc-active); color: var(--ink); border: 1px solid var(--line); font-size: 13px; font-weight: 500; }
+.ic { display: inline-grid; place-items: center; vertical-align: -3px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="r-head">
+    <span class="mk" id="mk"></span>
+    <div>
+      <h1>Forgify · 设计参考</h1>
+      <p>把 <code>main-shell</code> 精修后的形态沉淀于此，供后面真实设计 / Flutter 落地直接参考。配色 = 干净白/近黑（非米白）。</p>
+    </div>
+    <span class="grow"></span>
+    <button class="tbtn" id="theme">切换明暗</button>
+  </div>
+
+  <!-- 原则 -->
+  <div class="sect">
+    <h2>一 · 核心原则</h2>
+    <div class="principles">
+      <div class="pc"><h3>海与岛，靠海岸线分</h3><p>中间主区 = 海（平铺，对话直接铺其上）；侧栏 / 实体卡 / 输入框 = 岛。<b>海与岛同一颜色</b>，分割只靠 1px 描边 + 12px 圆角 + 8px 窄缝 + 微阴影——不靠颜色差。</p></div>
+      <div class="pc"><h3>少强调色</h3><p>整体克制：仅在「正在发生」处点极小一抹 accent（如卡片的「● 编辑中」小圆点）。图标块、标签、面板一律中性灰，不上大色块。</p></div>
+      <div class="pc"><h3>抄 Claude Code 的结构，不抄它的色与字</h3><p>圆角浮窗、齐边面包屑、工具摘要行、composer 全照搬；但<b>底色用干净白/近黑</b>（非米白）、<b>字体用系统字</b>（非衬线）。</p></div>
+      <div class="pc"><h3>切换抄 Notion 原理</h3><p>选中项展开成「图标 + 文字」药丸、未选只图标、spring 丝滑过渡——只取原理，圆角/灰/缓动都用我们自己的。</p></div>
+    </div>
+  </div>
+
+  <!-- 配色 -->
+  <div class="sect">
+    <h2>二 · 配色 token（浅色；暗色对应翻深）</h2>
+    <div class="swatches" id="sw"></div>
+    <p class="note" style="margin-top:14px">强调色是<b>单一 token</b> <code>--accent</code>（默认 Apple blue <code>#0071e3</code>，换品牌色 = 改一行）。语义色（成功 / 警告 / 危险）仅用于真实状态，绝不当装饰。</p>
+  </div>
+
+  <!-- 实体卡 -->
+  <div class="sect">
+    <h2>三 · 实体卡（信号交互的主角）</h2>
+    <p class="note" style="margin-bottom:18px">AI 在聊天里调实体相关工具时，实体卡作为<b>右侧岛</b>从右滑入、流式展示编辑。下面是两态参考：</p>
+    <div class="cards" id="cards"></div>
+  </div>
+
+  <!-- 组件 -->
+  <div class="sect">
+    <h2>四 · 核心组件</h2>
+    <div class="comp">
+      <div class="demo"><div class="lab">用户气泡（灰药丸，唯一的灰填充例外）</div>
+        <div class="umsg"><div class="b">把 Researcher 升级到 Opus，并要求结论带引用来源。</div></div></div>
+      <div class="demo"><div class="lab">工具摘要行（运行 → 收敛，可展开）</div>
+        <div class="tool-h">Used 2 tools <span class="chev" id="c1"></span></div><br>
+        <div class="tool-h">Edited <code>app_shell.dart</code> <span class="diff"><span class="add">+18</span> <span class="del">−26</span></span> <span class="chev" id="c2"></span></div></div>
+      <div class="demo"><div class="lab">Notion 式切换（选中展开药丸）</div>
+        <div class="seg" id="seg"></div></div>
+      <div class="demo"><div class="lab">实体引用药丸（行内、中性）</div>
+        <span class="ref-pill"><span class="ic" id="rp"></span>Researcher</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const P = {
+  forge:'<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  agent:'<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V5M9 3h6"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/>',
+  close:'<path d="M18 6 6 18M6 6l12 12"/>', chevr:'<path d="m9 6 6 6-6 6"/>',
+  chat:'<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 9 9 0 0 1-4-1L3 20l1.5-5.5a8.5 8.5 0 1 1 16.5-3Z"/>',
+  tasks:'<path d="M11 6h10M11 12h10M11 18h10"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/>',
+  code:'<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+};
+const svg = (k, n=16, w=1.7) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[k]}</svg>`;
+$('#mk').innerHTML = svg('forge',22,2);
+$('#c1').innerHTML = svg('chevr',14); $('#c2').innerHTML = svg('chevr',14);
+$('#rp').innerHTML = svg('agent',12);
+$('#seg').innerHTML = `<button class="on">${svg('chat',15)} Chat</button><button>${svg('tasks',15)}</button><button>${svg('code',15)}</button>`;
+
+// 配色 swatches
+const SW = [
+  ['海 / 岛（同色）','--cc-win','#fff'],['海岸线（描边）','--line','rgba(0,0,0,.08)'],
+  ['主文字 ink','--ink','#1d1d1f'],['次要 ink-2','--ink-2','#6e6e73'],
+  ['用户气泡','--cc-bubble','#f0f0f2'],['hover / 选中','--cc-active','#e9e9ec'],
+  ['强调（极少用）','--accent','#0071e3'],['成功（仅状态）','--ok','#2da44e'],
+];
+$('#sw').innerHTML = SW.map(([n,v,hex]) =>
+  `<div class="sw"><div class="chip" style="background:var(${v})"></div><div class="meta"><b>${n}</b><span>${v}</span></div></div>`).join('');
+
+// 实体卡两态
+function card({ live, model, system, changed, tools, newTool, ver, statusNote }){
+  const tags = tools.map(t => `<span class="tag">${t}</span>`).join('') + (newTool ? `<span class="tag">${newTool}</span>` : '');
+  return `<div class="ec">
+    <div class="ec-head">
+      <span class="etype">${svg('agent',17)}</span>
+      <span class="ht"><b>Researcher</b><span class="sub">Agent · <span class="ver">v${ver}</span></span></span>
+      <span>${live ? '<span class="live"><span class="pulse"></span>编辑中</span>' : '<span class="live" style="opacity:.65">已保存</span>'}</span>
+      <button class="ibtn">${svg('close',16)}</button>
+    </div>
+    <div class="ec-tabs"><span class="on">Overview</span><span>Versions</span><span>Runs</span><span>Iterate</span></div>
+    <div class="ec-body">
+      <div class="ec-desc">深度调研助手：检索、交叉验证，产出带引用的结构化综述。</div>
+      <div class="field"><label>Model</label><div class="val mono${changed?' changed':''}">${model}</div></div>
+      <div class="field"><label>System prompt</label><div class="val">${system}</div></div>
+      <div class="field"><label>Tools <span class="ct">${tools.length + (newTool?1:0)}</span></label><div class="val" style="padding:8px"><div class="taglist">${tags}</div></div></div>
+    </div>
+    <div class="ec-foot"><span class="mono">ag_7f3c2a91</span> · 12 runs<span class="gap"></span><span class="act">历史版本</span></div>
+  </div>`;
+}
+$('#cards').innerHTML = `
+  <div class="card-wrap"><div class="cap">编辑中（AI 正在改 model）</div>
+    ${card({ live:true, ver:5, changed:true, model:'claude-opus-4-8',
+      system:'你是严谨的调研助手。检索、交叉验证、给出结构化综述。',
+      tools:['web_fetch','read_file','python','summarize'], newTool:null })}</div>
+  <div class="card-wrap"><div class="cap">已保存（v5）</div>
+    ${card({ live:false, ver:5, changed:false, model:'claude-opus-4-8',
+      system:'你是严谨的调研助手。检索、交叉验证、给出结构化综述。\n\n务必为每条结论附引用来源（行内链接）。',
+      tools:['web_fetch','read_file','python','summarize'], newTool:'web_search' })}</div>`;
+
+$('#theme').onclick = () => {
+  const d = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = d ? 'light' : 'dark';
+};
+</script>
+</body>
+</html>
