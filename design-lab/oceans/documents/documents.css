@@ -1,0 +1,181 @@
+/* Forgify design-lab — Documents 海洋（单独，一人负责整个 oceans/documents/ 文件夹）。
+   文档页本身：面包屑(path) + 标题 + WYSIWYG markdown 正文 + 内联选段 AI 改写 + 可滑入右岛(大纲/反链/元信息)。
+   形态决定：WYSIWYG 渲染即编辑、内联 :iterate、严格只做文档页（树归侧栏，本页不画树）。
+   铁律：海与岛同色靠海岸线分；禁横向分割线（标题/表格/代码/引用全靠留白+灰块+字号，绝不画线）；
+        少强调色（--accent 只点「正在发生」：caret / 选区 / AI 流光 / 编辑中●——手编辑刻意零流光）；
+        系统字非衬线（不抄 Notion 米白纸感）；32 紧凑。
+   依赖：shared/tokens.css + shared/shell.css 的 --cc-*/原语（.ibtn/.chev/spin，只读）。
+   shimmer / caret / typeInto 自包含（不 import chat；同 chat-v0 动效语言）。
+   ⚠ 右岛是「本海洋的」：.doc-aside 的框 + 内容都在这（外壳只给 Shell.body 让我 append）。 */
+
+/* ===== 阅读列：单列纵向滚动，正文平铺在海上（不套外框卡） ===== */
+.doc-scroll { flex: 1; overflow-y: auto; position: relative; }
+.doc { position: relative; max-width: 720px; margin: 0 auto; padding: 36px var(--s5) 160px; }
+
+/* 文档头：靠纯留白与正文分（无线） */
+.doc-path { display: flex; align-items: center; gap: 5px; font-size: var(--t-xs); color: var(--ink-3); margin-bottom: var(--s4); }
+.doc-path .ico { display: grid; place-items: center; color: var(--ink-3); }
+.doc-pathseg { color: var(--ink-3); padding: 2px 6px; border-radius: var(--r-chip); transition: background .15s, color .15s; }
+.doc-pathseg:hover { background: var(--cc-hover); color: var(--ink-2); }
+.doc-path .sep { color: var(--ink-3); opacity: .5; }
+.doc-path .cur { color: var(--ink-2); font-weight: 500; padding-left: 1px; }
+
+.doc-title { font-size: var(--t-2xl); font-weight: 700; letter-spacing: -.02em; line-height: 1.2; color: var(--ink); margin: 0 0 var(--s2); outline: none; }
+.doc-title:empty::before { content: "无标题"; color: var(--ink-3); }
+
+.doc-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: var(--t-xs); color: var(--ink-3); margin-bottom: var(--s6); }
+.doc-meta .dot-sep { opacity: .5; }
+.doc-backref { color: var(--ink-2); font-weight: 500; padding: 1px 5px; border-radius: 6px; transition: background .15s, color .15s; }
+.doc-backref:hover { background: var(--cc-hover); color: var(--ink); }
+.doc-tags { display: inline-flex; gap: 6px; }
+.doc-tag { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: var(--r-pill); background: var(--cc-active); color: var(--ink-2); font-size: var(--t-xs); }
+.doc-tag .ico { display: grid; place-items: center; color: var(--ink-3); }
+
+/* ===== WYSIWYG 正文：渲染态即默认态，零工具栏 ===== */
+.doc-body { font-size: var(--t-md); line-height: 1.72; color: var(--ink); outline: none; cursor: text; }
+.doc-body:empty::before { content: "开始写，或输入 / 唤起命令"; color: var(--ink-3); }
+.doc-body > *:first-child { margin-top: 0; }
+
+.doc-body h2 { font-size: var(--t-xl); font-weight: 600; letter-spacing: -.01em; color: var(--ink); margin: var(--s6) 0 var(--s3);
+  position: relative; transition: font-size .34s var(--ease-spring), color .34s, font-weight .2s; }
+.doc-body h3 { font-size: var(--t-lg); font-weight: 600; color: var(--ink); margin: var(--s5) 0 var(--s2); }
+/* hover 左 gutter 浮 #（复制锚链暗示）；不画线 */
+.doc-body h2::before { content: "#"; position: absolute; left: -22px; color: var(--ink-3); font-weight: 400; opacity: 0; transition: opacity .15s; }
+.doc-body h2:hover::before { opacity: .5; }
+/* markdown 即输即渲：源态(小/mono/灰) → 去 .doc-morph 后 spring 长成标题 */
+.doc-body h2.doc-morph { font-size: var(--t-md); font-family: var(--mono); font-weight: 400; color: var(--ink-3); }
+.doc-body h2.doc-morph::before { content: none; }
+
+.doc-body p { margin: 0 0 var(--s4); }
+.doc-body p:last-child { margin-bottom: 0; }
+.doc-body strong, .doc-body b { font-weight: 600; }
+.doc-body a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid var(--line-strong); transition: color .15s; }
+.doc-body a:hover { color: var(--ink); }
+
+/* 列表：圆点/数字 marker，零连接线零竖 guide */
+.doc-body ul, .doc-body ol { margin: 0 0 var(--s4); padding-left: var(--s5); }
+.doc-body li { margin: var(--s1) 0; }
+.doc-body ul { list-style: none; }
+.doc-body ul > li { position: relative; }
+.doc-body ul > li::before { content: ""; position: absolute; left: -15px; top: .62em; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); }
+.doc-body ul ul > li::before { background: none; border: 1px solid var(--ink-3); }   /* 嵌套换空心环 */
+.doc-body ol { list-style: none; counter-reset: ol; }
+.doc-body ol > li { counter-increment: ol; position: relative; }
+.doc-body ol > li::before { content: counter(ol) "."; position: absolute; left: -24px; width: 20px; text-align: right; color: var(--ink-3); font-family: var(--mono); font-size: .92em; }
+
+/* 任务清单：完成框用中性 --ink（完成是事实、非「正在发生」），非 --accent */
+.doc-tasks { list-style: none; padding-left: 1px; margin: 0 0 var(--s4); }
+.doc-tasks li { display: flex; align-items: flex-start; gap: 9px; margin: var(--s1) 0; }
+.doc-tasks .box { flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 5px; border: 1px solid var(--line-strong);
+  display: grid; place-items: center; color: transparent; transition: background .2s var(--ease-spring), border-color .2s; }
+.doc-tasks li.done .box { background: var(--ink); border-color: var(--ink); color: var(--cc-win); }
+.doc-tasks li.done .t { color: var(--ink-3); text-decoration: line-through; }
+
+/* 引用：浮起浅灰岛（零左竖线） */
+.doc-body blockquote { background: var(--cc-hover); border-radius: var(--r-card); padding: var(--s3) var(--s4); margin: var(--s5) 0; color: var(--ink-2); }
+.doc-body blockquote p:last-child { margin-bottom: 0; }
+
+/* 代码块：深一档灰岛（引用浅 / 代码深，灰阶 + 等宽双轴区分） */
+.doc-code { position: relative; background: var(--cc-active); border-radius: var(--r-card); padding: var(--s3) var(--s4); margin: var(--s5) 0; overflow-x: auto; }
+.doc-code pre { margin: 0; font-family: var(--mono); font-size: var(--t-sm); line-height: 1.75; color: var(--ink-2); white-space: pre; }
+.doc-code .lang { position: absolute; top: 8px; right: 12px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+
+/* 行内代码（复刻 chat） */
+.doc-body code { font-family: var(--mono); font-size: .9em; background: var(--cc-active); padding: 1px 5px; border-radius: 5px; color: var(--ink); }
+.doc-code pre code { background: none; padding: 0; font-size: inherit; }
+
+/* 表格：零网格线零竖线；表头靠字重、数据行斑马留白。
+   ⚠ 待内核拍板：偶行 --cc-hover 斑马底是唯一擦「不靠颜色差」铁律的手法；退路=纯靠 padding+字重、无斑马底。 */
+.doc-table { width: 100%; margin: var(--s5) 0; border-collapse: collapse; font-size: var(--t-sm); }
+.doc-table th { text-align: left; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); letter-spacing: .03em; padding: var(--s2) var(--s4) var(--s2) var(--s3); }
+.doc-table td { padding: var(--s2) var(--s4) var(--s2) var(--s3); color: var(--ink); }
+.doc-table tbody tr:nth-child(even) td { background: var(--cc-hover); }
+.doc-table tbody tr td:first-child { border-radius: var(--r-chip) 0 0 var(--r-chip); }
+.doc-table tbody tr td:last-child { border-radius: 0 var(--r-chip) var(--r-chip) 0; }
+
+/* 分隔线 hr：不画线 → 加倍留白 + 居中三点 */
+.doc-hr { display: flex; justify-content: center; gap: 7px; margin: var(--s8) 0; }
+.doc-hr i { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-3); opacity: .5; }
+
+/* 图片 */
+.doc-img { display: block; max-width: 100%; border-radius: var(--r-card); box-shadow: var(--shadow-island); margin: var(--s5) 0; }
+
+/* wikilink / @提及 药丸（新建中性灰；区别于旧 base.css 蓝 ref-pill。靠图标语义区分两者、不靠颜色） */
+.doc-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px 1px 7px; border-radius: var(--r-pill);
+  background: var(--cc-active); color: var(--ink-2); border: 1px solid var(--line); font-size: .92em; cursor: pointer;
+  vertical-align: baseline; transition: background .15s, color .15s; }
+.doc-pill:hover { background: var(--cc-hover); color: var(--ink); }
+.doc-pill .ico { display: grid; place-items: center; color: var(--ink-3); }
+.doc-pill.broken { border-color: var(--warn); color: var(--ink-3); }   /* 失效 wikilink：语义色仅真实状态 */
+.doc-pill.broken .ico { color: var(--warn); }
+
+/* WYSIWYG 光标（自包含）：'可改'的唯一暗示 */
+.caret { display: inline-block; width: 6px; height: 1.05em; vertical-align: -3px; background: var(--accent); border-radius: 1px; margin-left: 1px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
+
+/* 主区头状态：已保存(中性) ↔ 编辑中/AI(--accent 脉冲) */
+.doc-status { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; font-size: var(--t-sm); color: var(--ink-3); white-space: nowrap; }
+.doc-status .ico { display: grid; place-items: center; }
+.doc-status.live { color: var(--accent); }
+.doc-status .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* ===== 内联选段唤起 :iterate（本页 --accent 主舞台；手编辑零流光是硬规则） ===== */
+.doc-sel { background: var(--accent-soft); border-radius: 3px; }   /* 程序化选区（真选区走 ::selection） */
+.doc ::selection { background: var(--accent-soft); }
+
+.ai-bar { position: absolute; z-index: 20; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-pill); box-shadow: var(--shadow-pop);
+  transform-origin: center bottom; animation: aibarIn var(--d-fast) var(--ease-spring); }
+@keyframes aibarIn { from { opacity: 0; transform: scale(.9) translateY(4px); } to { opacity: 1; transform: none; } }
+.ai-bar .spark { display: grid; place-items: center; color: var(--accent); padding: 0 4px 0 6px; }
+.ai-bar button { height: 26px; padding: 0 10px; border-radius: var(--r-pill); font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); transition: background .12s, color .12s; }
+.ai-bar button:hover { background: var(--cc-hover); color: var(--ink); }
+
+/* 改写流式：旧文退场 + 新文 --accent 文字流光（复刻 chat 的 -webkit-background-clip:text，非选区扫光） → 沉淀 ink */
+.ai-old { color: var(--ink-3); text-decoration: line-through; opacity: .6; }
+.ai-new.run { background: linear-gradient(105deg, var(--ink-3) 36%, var(--accent) 50%, var(--ink-3) 64%);
+  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 1.5s linear infinite; }
+@keyframes shimmer { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+.ai-live { display: inline-block; width: 6px; height: 6px; margin: 0 2px 0 4px; border-radius: 50%; background: var(--accent); vertical-align: middle; animation: pulse 1.4s ease infinite; }
+
+/* 接受/丢弃（保留=中性 ink 实底，非 accent） */
+.ai-actions { display: inline-flex; gap: 6px; margin-left: 8px; vertical-align: middle; animation: aibarIn var(--d-fast) var(--ease-spring); }
+.ai-act { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: var(--r-chip); font-size: var(--t-xs); font-weight: 600; transition: background .12s; }
+.ai-act .ico { display: grid; place-items: center; }
+.ai-act.keep { background: var(--ink); color: var(--cc-win); }
+.ai-act.keep:hover { background: var(--ink-2); }
+.ai-act.undo { color: var(--ink-2); border: 1px solid var(--line); }
+.ai-act.undo:hover { background: var(--cc-hover); }
+
+/* 块错峰入场 */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fadein { animation: fadeIn .42s var(--ease-spring) both; }
+
+/* ===== 右岛 = 元信息抽屉（大纲/反链/元信息；默认收起、可滑入。右岛属于海洋） ===== */
+.doc-aside { flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island);
+  display: flex; flex-direction: column; transition: width .42s var(--ease-spring), opacity .3s, margin-left .42s var(--ease-spring); }
+.doc-aside.show { width: 320px; opacity: 1; margin-left: 0; }
+.doc-aside-body { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 24px; }
+.da-sect .da-h { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+
+/* 大纲 TOC：当前节中性灰底高亮（非 accent） */
+.da-toc { display: flex; flex-direction: column; gap: 1px; }
+.da-toc a { display: block; padding: 5px 9px; border-radius: 7px; font-size: var(--t-sm); color: var(--ink-2); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .15s, color .15s; }
+.da-toc a:hover { background: var(--cc-hover); color: var(--ink); }
+.da-toc a.h3 { padding-left: 20px; color: var(--ink-3); font-size: var(--t-xs); }
+.da-toc a.on { background: var(--cc-active); color: var(--ink); font-weight: 500; }
+
+/* 反向链接（标注：relation 入边消费视图、非本表字段） */
+.da-back { display: flex; flex-direction: column; gap: 10px; }
+.da-backitem { display: block; text-decoration: none; }
+.da-backitem .snip { display: block; font-size: var(--t-xs); color: var(--ink-3); line-height: 1.5; margin-top: 5px; padding-left: 2px; }
+
+/* 元信息 */
+.da-meta { display: flex; flex-direction: column; gap: 9px; font-size: var(--t-sm); }
+.da-row { display: flex; gap: 8px; }
+.da-row .k { width: 40px; flex: none; color: var(--ink-3); }
+.da-row .v { color: var(--ink-2); }
+.da-row .v.mono { font-family: var(--mono); font-size: var(--t-xs); word-break: break-all; }
