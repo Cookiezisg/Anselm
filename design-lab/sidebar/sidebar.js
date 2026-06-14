@@ -42,7 +42,7 @@
         <span class="ws-ava" id="ws-ava"></span>
         <span class="ws-name" id="ws-name"></span>
       </button>
-      <button class="sf-act" title="Notifications"><span data-i="bell"></span><span class="badge"></span></button>
+      <button class="sf-act" title="Notifications"><span data-i="bell"></span><span class="sf-dot"></span></button>
       <button class="sf-act" title="Settings"><span data-i="gear"></span></button>
     </div>`;
 

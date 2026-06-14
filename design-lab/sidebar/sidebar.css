@@ -64,8 +64,9 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 6px; border-radius: 10px; color: var(--ink); transition: background .12s; }
 .ws:hover { background: var(--cc-hover); }
 .ws-ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); font-size: 11px; font-weight: 600; }
-.ws-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
+.ws-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .sf-act { flex: none; position: relative; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
 .sf-act:hover { color: var(--ink); background: var(--cc-hover); }
 .sf-act svg { display: block; }
-.sf-act .badge { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 2px solid var(--cc-side); }
+/* 未读点:独有类名 .sf-dot(勿用通用 .badge——chat 海洋已占该类名,会撞成椭圆)。贴铃铛右肩,island 色描边punch out。 */
+.sf-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 2px solid var(--cc-side); }
