@@ -57,3 +57,11 @@ html[data-side-dragging] .side { transition: none; }   /* 拖拽跟手：关 wid
 .chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .3s var(--ease-spring); }
 .chev svg { display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* 滚动容器柔化上下缘：内容滚到顶/底时渐隐到背景，顶部浮层控件下不硬切（更通透）。
+   海洋给自己的「滚动元素」加 .scroll-fade（如 .doc-scroll / chat 的 .conv）——挂滚动容器、非整个 .sea，免得误伤底部常驻条(composer)。
+   竖向滚动只柔上下；左右不做（居中列两侧是空白边距，无内容触边）。--fade 默认 28px；内容上/下 padding 应 ≥ --fade，静止时首/末行不被吃。 */
+.scroll-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade, 28px), #000 calc(100% - var(--fade, 28px)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade, 28px), #000 calc(100% - var(--fade, 28px)), transparent 100%);
+}

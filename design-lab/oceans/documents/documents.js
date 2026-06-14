@@ -83,7 +83,7 @@ function render(md: string): Html {
     crumb: '文档',
     build(sea) {
       sea.innerHTML = `
-        <div class="doc-scroll" id="docScroll">
+        <div class="doc-scroll scroll-fade" id="docScroll">
           <article class="doc" id="doc">
             <div class="doc-path" id="docPath"></div>
             <h1 class="doc-title" id="docTitle" contenteditable="true" spellcheck="false"></h1>
