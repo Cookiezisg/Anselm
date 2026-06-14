@@ -22,7 +22,7 @@ python3 -m http.server 4180 --directory design-lab
 
 | Demo | 看点 |
 |---|---|
-| `demos/main-shell.html` | **主屏（1:1 复刻 Claude Code 桌面端）**：圆角浮窗 · 海与岛同色靠海岸线分 · Notion 式三切换 · 工具摘要行 · **信号交互**（AI 调工具时实体卡作右岛从右滑入、流式编辑）。进页自动播放，点 ▷ 重播，可切明暗、收起/关闭右岛。 |
+| `demos/main-shell.html` | **主屏（视觉参考 Claude Code 桌面端）**：圆角浮窗 · 海与岛同色靠海岸线分 · Notion 式三切换 · 工具摘要行 · **信号交互**（AI 调工具时实体卡作右岛从右滑入、流式编辑）。进页自动播放，点 ▷ 重播，可切明暗、收起/关闭右岛。 |
 | `reference.html` | **设计参考**：精修形态沉淀——核心原则 + 配色 token + 实体卡两态（编辑中/已保存）+ 核心组件。供后面真实设计 / Flutter 落地直接参考。 |
 | `demos/onboarding.html` | **首启向导**：外观（亮/暗/跟随系统，选了即时生效）+ 语言 → 大模型 / 联网搜索 API Key。 |
 
