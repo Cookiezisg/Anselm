@@ -47,10 +47,25 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
   color: var(--ink); font-size: 13px; font-weight: 500; transition: background .12s; }
 .newconv:hover { background: var(--cc-hover); }
 .newconv svg { color: var(--ink-2); display: block; }
-.cfilter { display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 10px; color: var(--ink-3); }
-.cfilter svg { flex: none; display: block; }
+.cfilter { position: relative; display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 6px 0 10px; color: var(--ink-3); }
+.cfilter > svg { flex: none; display: block; }
 .cfilter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
 .cfilter input::placeholder { color: var(--ink-3); }
+
+/* 展示/排序选项:sliders 按钮 + 下拉菜单(选「怎么展示」) */
+.cdisp { flex: none; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
+.cdisp:hover, .cdisp.on { color: var(--ink); background: var(--cc-hover); }
+.cdisp svg { display: block; }
+.cdisp-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 172px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; padding: 5px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none; }
+.cdisp-menu.open { display: block; }
+.cdisp-h { padding: 3px 8px 4px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.cdisp-opt { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px; color: var(--ink); font-size: 13px; transition: background .12s; }
+.cdisp-opt:hover { background: var(--cc-hover); }
+.cdisp-opt .ck { flex: none; width: 14px; display: grid; place-items: center; color: var(--ink); opacity: 0; }
+.cdisp-opt.on .ck { opacity: 1; }
+.cdisp-opt .ck svg { display: block; }
 
 .cvlist { flex: 1; min-height: 0; overflow-y: auto; }
 .cvsec { margin-bottom: 10px; }
@@ -67,13 +82,14 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 @keyframes sidePulse { 50% { opacity: .3; } }
 
 .cvarch { margin-top: 2px; }
-.cvarch-h { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 8px;
+/* Archived 在前、展开箭头在后(margin-left:auto 推到行尾);width:100% 让 hover 灰块盖满整行(非半截) */
+.cvarch-h { width: 100%; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 8px;
   color: var(--ink-3); font-size: 12px; font-weight: 600; transition: background .12s; }
 .cvarch-h:hover { background: var(--cc-hover); }
-.cvarch-h .chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
+.cvarch-h .cnt { font-weight: 500; color: var(--ink-3); }
+.cvarch-h .chev { margin-left: auto; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
 .cvarch-h .chev svg { display: block; }
 .cvarch.open .cvarch-h .chev { transform: rotate(90deg); }
-.cvarch-h .cnt { margin-left: auto; font-weight: 500; }
 .cvarch-list { display: none; }
 .cvarch.open .cvarch-list { display: block; }
 

@@ -64,12 +64,20 @@
     const sec = (label, items) => `<div class="cvsec"><div class="cvsec-h">${label}</div>${items.map(row).join('')}</div>`;
     return `
       <button class="newconv">${icon('plus', 18)} New conversation</button>
-      <div class="cfilter">${icon('search', 16)}<input type="text" placeholder="Filter conversations…"></div>
+      <div class="cfilter">${icon('search', 16)}<input type="text" placeholder="Filter conversations…">
+        <button class="cdisp" title="Display options">${icon('sliders', 16)}</button>
+        <div class="cdisp-menu">
+          <div class="cdisp-h">Sort by</div>
+          <button class="cdisp-opt on" data-sort="recent"><span class="ck">${icon('check', 14)}</span>Recent activity</button>
+          <button class="cdisp-opt" data-sort="created"><span class="ck">${icon('check', 14)}</span>Date created</button>
+          <button class="cdisp-opt" data-sort="title"><span class="ck">${icon('check', 14)}</span>Title A–Z</button>
+        </div>
+      </div>
       <div class="cvlist">
         ${sec('Pinned', PINNED)}
         ${GROUPS.map(([l, items]) => sec(l, items)).join('')}
         <div class="cvarch">
-          <button class="cvarch-h"><span class="chev">${icon('chevr', 14)}</span> Archived <span class="cnt">12</span></button>
+          <button class="cvarch-h"><span class="cvarch-t">Archived</span><span class="cnt">12</span><span class="chev">${icon('chevr', 14)}</span></button>
           <div class="cvarch-list">${ARCHIVED.map(t => row({ t })).join('')}</div>
         </div>
       </div>`;
@@ -83,6 +91,13 @@
     });
     const arch = body.querySelector('.cvarch');
     arch.querySelector('.cvarch-h').onclick = () => arch.classList.toggle('open');
+    // 展示/排序选项菜单（sliders 按钮）——选哪种排法。接后端 = List sort 参数
+    const disp = body.querySelector('.cdisp'), dmenu = body.querySelector('.cdisp-menu');
+    disp.onclick = e => { e.stopPropagation(); const open = dmenu.classList.toggle('open'); disp.classList.toggle('on', open); };
+    dmenu.querySelectorAll('.cdisp-opt').forEach(o => o.onclick = () => {
+      dmenu.querySelectorAll('.cdisp-opt').forEach(x => x.classList.remove('on'));
+      o.classList.add('on'); dmenu.classList.remove('open'); disp.classList.remove('on');
+    });
     const fin = body.querySelector('.cfilter input');   // 标题快滤前端体感（对应 List ?q= LIKE）
     fin.oninput = () => {
       const q = fin.value.trim().toLowerCase();
@@ -109,6 +124,12 @@
     renderBody(b.dataset.m);
   });
   renderBody('chat');   // 默认进 Chat 海洋
+
+  // 点菜单外收起展示选项菜单（一次性挂载；body 重渲染后查询仍有效）
+  document.addEventListener('click', () => {
+    const m = body.querySelector('.cdisp-menu.open');
+    if (m) { m.classList.remove('open'); body.querySelector('.cdisp')?.classList.remove('on'); }
+  });
 
   // —— 收起/展开 + 拖拽调宽（状态/交互/持久化全归侧栏；单一真相 = html[data-side]） ——
   function toggle() {
