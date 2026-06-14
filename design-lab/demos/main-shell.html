@@ -143,11 +143,32 @@ code, .mono { font-family: var(--mono); }
 .tool-h .add { color: var(--ok); } .tool-h .del { color: var(--danger); }
 .tool-h .chev { color: var(--ink-3); transition: transform .15s; }
 .tool.open .tool-h .chev { transform: rotate(90deg); }
-.tool-d { display: none; margin: 6px 0 0 6px; padding: 9px 12px; border-left: 2px solid var(--line);
-  font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: pre-wrap; line-height: 1.7; }
+/* 展开明细：缩进 + 左边线的「框」（与右侧面板同语言）；结构化步骤，行距舒服 */
+.tool-d { display: none; margin: 6px 0 2px 9px; padding-left: 14px; border-left: 2px solid var(--line);
+  font-size: 12px; color: var(--ink-2); }
 .tool.open .tool-d { display: block; }
-.tool-d b { color: var(--ink); font-weight: 600; }
+.tool-d .tc-step { padding: 9px 0; }
+.tool-d .tc-step:first-child { padding-top: 2px; }
+.tool-d .tc-step + .tc-step { border-top: 1px solid var(--line); }
+.tool-d .sh { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); }
+.tool-d .sh code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+.tool-d .sh .tgt { color: var(--ink-3); font-size: 12px; margin-left: auto; }
+.tool-d .so { margin: 6px 0 0 16px; font-family: var(--mono); font-size: 12px; color: var(--ink-2); line-height: 1.85; white-space: pre-wrap; }
+.pdot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); flex: none; display: inline-block; }
 .tool.status .tool-h { color: var(--ink-3); }
+
+/* 实体变更块：对话内的实体卡缩影，点开右侧岛看全貌（对话内框 × 右侧框成对） */
+.tc-entity { display: flex; align-items: center; gap: 11px; padding: 10px 12px; margin: 12px 0;
+  background: var(--cc-input); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  transition: border-color .15s, background .15s; }
+.tc-entity:hover { border-color: var(--line-strong); background: var(--cc-hover); }
+.tc-entity .etype { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); }
+.tc-entity .en { flex: 1; min-width: 0; }
+.tc-entity .en b { font-size: 13px; font-weight: 600; }
+.tc-entity .en .d { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+.tc-entity .en .d code { font-family: var(--mono); }
+.tc-entity .en .d .to { color: var(--ink); font-family: var(--mono); }
+.tc-entity .go { font-size: 12px; color: var(--ink-3); flex: none; }
 
 /* ---- 底部 composer ---- */
 .composer { flex: none; padding: 0 32px 18px; }
@@ -231,10 +252,6 @@ code, .mono { font-family: var(--mono); }
 .amsg code { font-family: var(--mono); font-size: .9em; background: var(--cc-active); padding: 1px 5px; border-radius: 5px; }
 .tool-h .run { display: grid; place-items: center; color: var(--ink-3); }
 .tool-h .run svg { animation: spin 1s linear infinite; }
-.editline { display: inline-flex; align-items: center; gap: 7px; margin: 12px 0; padding: 4px 8px 4px 0; font-size: 13px; color: var(--ink-2); }
-.editline .ename { font-family: var(--mono); color: var(--ink); }
-.editline .estat { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
-.editline .estat .to { color: var(--ok); }
 .ref-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px 1px 7px; border-radius: 999px; background: var(--cc-active); color: var(--ink); border: 1px solid var(--line); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; }
 .ref-pill:hover { background: var(--cc-hover); }
 </style>
@@ -427,9 +444,13 @@ function toolAct(body){
   return { status(t){ tk.textContent = t; toBottom(); },
     settle(s, d){ run.remove(); tk.textContent = s; det.innerHTML = d; chev.style.display = ''; head.classList.add('click'); toBottom(); } };
 }
-function editLine(body, name, fromV, toV){
-  const w = document.createElement('div'); w.className = 'editline';
-  w.innerHTML = `${svg('edit',14)} Updated <span class="ename">${name}</span> <span class="estat">v${fromV} → <span class="to">v${toV}</span></span>`;
+// 实体变更块：对话内的实体卡缩影，点开右侧岛看全貌
+function entityBlock(body, name, fromV, toV){
+  const w = document.createElement('div'); w.className = 'tc-entity fade-in';
+  w.innerHTML = `<span class="etype">${svg('agent',17)}</span>
+    <span class="en"><b>${name}</b><span class="d"><code>update_agent</code> · <span class="to">v${fromV} → v${toV}</span></span></span>
+    <span class="go">在右侧查看 →</span>`;
+  w.onclick = () => aside.classList.add('show');
   body.appendChild(w); toBottom();
 }
 
@@ -497,8 +518,12 @@ async function runDemo(){
   await sleep(700); if(!alive(id)) return;
 
   $('[data-ver]', aside).textContent = 'v5'; setLive(false);
-  ta.settle('Used 2 tools', `<b>read_agent</b>(Researcher)\n  → model = claude-sonnet-4-6\n  → tools = [web_fetch, read_file, python, summarize]\n\n<b>update_agent</b>(Researcher)\n  → model = claude-opus-4-8\n  → system += 引用要求（行内链接）\n  → tools += web_search`);
-  editLine(body, 'Researcher', 4, 5);
+  ta.settle('Used 2 tools', `
+    <div class="tc-step"><div class="sh"><span class="pdot"></span><code>read_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model = claude-sonnet-4-6 · 4 tools</div></div>
+    <div class="tc-step"><div class="sh"><span class="pdot"></span><code>update_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model → claude-opus-4-8
+→ system += 引用要求
+→ tools += web_search</div></div>`);
+  entityBlock(body, 'Researcher', 4, 5);
   await sleep(350); if(!alive(id)) return;
   await typeInto(para(body), '完成 ✅ Researcher 现在跑在 Opus 上，每条结论都会附引用。', 66);
 
