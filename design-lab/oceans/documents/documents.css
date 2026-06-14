@@ -133,6 +133,7 @@
 
 /* ===== 内联选段唤起 :iterate（真实选中 → 浮条 → 选区流光扫过） ===== */
 .doc ::selection { background: var(--accent-soft); }
+.ai-target { background: var(--accent-soft); border-radius: 3px; }   /* 点 AI 后持久点亮选区（focus 移走原生 ::selection 会消失，用它兜住） */
 .ai-bar { position: absolute; z-index: 20; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
   background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-pill); box-shadow: var(--shadow-pop);
   transform-origin: center bottom; animation: aibarIn var(--d-fast) var(--ease-spring); }

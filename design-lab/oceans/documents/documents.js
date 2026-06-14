@@ -182,8 +182,12 @@ function render(md: string): Html {
   function placeBelow(el, rect) { const dr = doc().getBoundingClientRect(); el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px'; el.style.top = (rect.bottom - dr.top + 6) + 'px'; }
 
   /* ===== 选中工具条：点选格式化 + AI ===== */
-  let bar = null;
-  function hideToolbar() { if (bar) { bar.remove(); bar = null; } }
+  let bar = null, aiTarget = null, askOut = null;
+  function hideToolbar() {
+    if (askOut) { document.removeEventListener('mousedown', askOut); askOut = null; }
+    if (bar) { bar.remove(); bar = null; }
+    if (aiTarget) { unwrap(aiTarget); aiTarget = null; }   // 取消 AI：去掉持久高亮、复原文字
+  }
   function wireSelectionToolbar() {
     const b = docBody();
     b.addEventListener('mousedown', hideToolbar);
@@ -227,27 +231,30 @@ function render(md: string): Html {
   // AI 询问：给一句自然语言指令（对齐后端 :iterate）+ 快捷动作 → 选区流光改写
   function showAiAsk(rect, range) {
     hideToolbar();
+    // 持久点亮选区：focus 移到输入框后原生 ::selection 会消失，用 .ai-target 一直点亮，用户看得见 AI 要改哪段
+    try { aiTarget = document.createElement('span'); aiTarget.className = 'ai-target'; range.surroundContents(aiTarget); } catch (e) { aiTarget = null; }
+    window.getSelection()?.removeAllRanges();
     bar = document.createElement('div'); bar.className = 'ai-ask';
     bar.innerHTML = `
       <div class="row"><span class="ico">${icon('spark', 16, 1.7)}</span><input id="aiAsk" placeholder="让 AI 改写选中内容…" autocomplete="off"></div>
       <div class="quick">${['改简洁', '续写', '翻译成英文', '更正式'].map(t => `<button>${t}</button>`).join('')}</div>`;
     doc().appendChild(bar);
-    placeBelow(bar, rect);
+    placeBelow(bar, (aiTarget || range).getBoundingClientRect());
     const input = bar.querySelector('#aiAsk');
     setTimeout(() => input.focus(), 0);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aiSweep(range); } else if (e.key === 'Escape') hideToolbar(); });
-    bar.querySelectorAll('.quick button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); aiSweep(range); }));
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runAi(); } else if (e.key === 'Escape') hideToolbar(); });
+    bar.querySelectorAll('.quick button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); runAi(); }));
+    askOut = e => { if (bar && !bar.contains(e.target)) hideToolbar(); };   // 点面板外即取消（复原高亮）
+    setTimeout(() => document.addEventListener('mousedown', askOut), 0);
   }
-  async function aiSweep(range) {
-    const id = ++runId;
+  async function runAi() {
+    const target = aiTarget; aiTarget = null;   // 交给流光，别在 hideToolbar 里被复原
     hideToolbar();
-    setStatus('ai');
-    let span = null;
-    try { span = document.createElement('span'); span.className = 'ai-new run'; range.surroundContents(span); } catch (e) { span = null; }
-    window.getSelection()?.removeAllRanges();
-    await sleep(1500); if (!alive(id)) { if (span) unwrap(span); return; }
-    if (span) unwrap(span);
-    setStatus('saved');
+    if (!target) { setStatus('saved'); return; }
+    const id = ++runId; setStatus('ai');
+    target.classList.remove('ai-target'); target.classList.add('ai-new', 'run');   // 持久高亮 → 流光
+    await sleep(1500); if (!alive(id)) { unwrap(target); return; }
+    unwrap(target); setStatus('saved');
   }
   function unwrap(span) {
     span.classList.remove('run');
