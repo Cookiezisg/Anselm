@@ -50,64 +50,80 @@
   const body = left.querySelector('#sidebody');
   const OCEAN_NAME = { entities: 'Entities', scheduler: 'Scheduler', documents: 'Documents' };
 
-  // Chat 会话史（示意数据）。接后端：列表/置顶/归档/标题滤已有；运行点=B3 isGenerating；时间分组=B4 last_message_at。
+  // 展示选项状态（filter 行 sliders 控制，作用于全部对话）
+  let dispSort = 'recent', dispGroup = true, dispTime = false;
+
+  // Chat 会话史（示意数据）。接后端：列表/置顶/归档/标题滤/排序(List sort) 已有；运行点=B3 isGenerating；分组+时间=B4 last_message_at。
   function buildChat() {
     const PINNED = [{ t: '竞品动态日报流程' }, { t: 'Researcher agent 调优', on: true }];
     const GROUPS = [
-      ['Today', [{ t: '修复 CEL 校验器', run: true }, { t: 'Webhook 入库 handler' }]],
-      ['Yesterday', [{ t: '周报自动汇总 workflow' }, { t: '文档问答 agent' }]],
-      ['Previous 7 days', [{ t: '账单对账流程' }, { t: 'Slack 通知 trigger' }, { t: 'PDF 提取 function' }]],
-      ['Older', [{ t: 'Notion 同步实验' }, { t: '旧版迁移笔记' }]],
+      ['Today', [{ t: '修复 CEL 校验器', run: true, time: '14:32' }, { t: 'Webhook 入库 handler', time: '11:08' }]],
+      ['Yesterday', [{ t: '周报自动汇总 workflow', time: 'Tue' }, { t: '文档问答 agent', time: 'Tue' }]],
+      ['Previous 7 days', [{ t: '账单对账流程', time: 'Jun 9' }, { t: 'Slack 通知 trigger', time: 'Jun 8' }, { t: 'PDF 提取 function', time: 'Jun 7' }]],
+      ['Older', [{ t: 'Notion 同步实验', time: 'May 28' }, { t: '旧版迁移笔记', time: 'May 20' }]],
     ];
-    const ARCHIVED = ['临时调试 agent', '废弃的爬虫流程', '一次性数据清洗'];
-    const row = c => `<div class="cv${c.on ? ' on' : ''}"><span class="t">${c.t}</span>${c.run ? '<span class="cv-run" title="生成中"></span>' : ''}<span class="cv-more">${icon('more', 16)}</span></div>`;
-    const sec = (label, items) => `<div class="cvsec"><div class="cvsec-h">${label}</div>${items.map(row).join('')}</div>`;
+    const ARCHIVED = [{ t: '临时调试 agent' }, { t: '废弃的爬虫流程' }, { t: '一次性数据清洗' }];
+    // 行：状态点在首（实心 accent=生成中 / 空心环=闲置）+ 标题 + 时间戳(可选) + 悬浮 ⋯
+    const row = c => `<div class="cv${c.on ? ' on' : ''}"><span class="cv-st${c.run ? ' run' : ''}"></span><span class="t">${c.t}</span>${c.time ? `<span class="cv-time">${c.time}</span>` : ''}<span class="cv-more">${icon('more', 16)}</span></div>`;
+    const opt = (attr, val, on, label) => `<button class="cdisp-opt${on ? ' on' : ''}" ${attr}="${val}"><span class="ck">${icon('check', 14)}</span>${label}</button>`;
+    // 空区不渲染（无置顶/无归档则该区整段不出）
+    const pinned = PINNED.length ? `
+        <div class="cvsec collapsible open">
+          <button class="cvsec-h cvsec-tog"><span class="t">Pinned</span><span class="chev">${icon('chevr', 14)}</span></button>
+          <div class="cvsec-body">${PINNED.map(row).join('')}</div>
+        </div>` : '';
+    const recents = `
+        <div class="cvsec">
+          <div class="cvsec-h"><span class="t">Recents</span></div>
+          <div class="cvsec-body">${GROUPS.map(([l, items]) => `<div class="cvsub">${l}</div>${items.map(row).join('')}`).join('')}</div>
+        </div>`;
+    const archived = ARCHIVED.length ? `
+        <div class="cvsec collapsible">
+          <button class="cvsec-h cvsec-tog"><span class="t">Archived</span><span class="cnt">${ARCHIVED.length}</span><span class="chev">${icon('chevr', 14)}</span></button>
+          <div class="cvsec-body">${ARCHIVED.map(row).join('')}</div>
+        </div>` : '';
     return `
       <button class="newconv">${icon('plus', 18)} New conversation</button>
       <div class="cfilter">${icon('search', 16)}<input type="text" placeholder="Filter conversations…">
         <button class="cdisp" title="Display options">${icon('sliders', 16)}</button>
         <div class="cdisp-menu">
           <div class="cdisp-h">Sort by</div>
-          <button class="cdisp-opt on" data-sort="recent"><span class="ck">${icon('check', 14)}</span>Recent activity</button>
-          <button class="cdisp-opt" data-sort="created"><span class="ck">${icon('check', 14)}</span>Date created</button>
-          <button class="cdisp-opt" data-sort="title"><span class="ck">${icon('check', 14)}</span>Title A–Z</button>
+          ${opt('data-sort', 'recent', dispSort === 'recent', 'Recent activity')}
+          ${opt('data-sort', 'created', dispSort === 'created', 'Date created')}
+          ${opt('data-sort', 'title', dispSort === 'title', 'Title A–Z')}
+          <div class="cdisp-h">Display</div>
+          ${opt('data-toggle', 'group', dispGroup, 'Group by date')}
+          ${opt('data-toggle', 'time', dispTime, 'Show timestamps')}
         </div>
       </div>
-      <div class="cvlist">
-        ${sec('Pinned', PINNED)}
-        ${GROUPS.map(([l, items]) => sec(l, items)).join('')}
-        <div class="cvarch">
-          <button class="cvarch-h"><span class="cvarch-t">Archived</span><span class="cnt">12</span><span class="chev">${icon('chevr', 14)}</span></button>
-          <div class="cvarch-list">${ARCHIVED.map(t => row({ t })).join('')}</div>
-        </div>
+      <div class="cvlist${dispGroup ? '' : ' no-group'}${dispTime ? ' show-time' : ''}">
+        ${pinned}${recents}${archived}
       </div>`;
   }
 
   function wireChat() {
+    // Pinned/Archived 折叠
+    body.querySelectorAll('.cvsec-tog').forEach(h => h.onclick = () => h.closest('.collapsible').classList.toggle('open'));
+    // 选中对话
     body.querySelectorAll('.cv').forEach(it => it.onclick = e => {
       if (e.target.closest('.cv-more')) return;
-      body.querySelectorAll('.cv').forEach(x => x.classList.remove('on'));
-      it.classList.add('on');
+      body.querySelectorAll('.cv').forEach(x => x.classList.remove('on')); it.classList.add('on');
     });
-    const arch = body.querySelector('.cvarch');
-    arch.querySelector('.cvarch-h').onclick = () => arch.classList.toggle('open');
-    // 展示/排序选项菜单（sliders 按钮）——选哪种排法。接后端 = List sort 参数
-    const disp = body.querySelector('.cdisp'), dmenu = body.querySelector('.cdisp-menu');
+    // 展示菜单（filter 行 sliders，作用于全部）：排序(单选,示意) + 分组/时间戳(开关,实时改 .cvlist 类)
+    const disp = body.querySelector('.cdisp'), dmenu = body.querySelector('.cdisp-menu'), clist = body.querySelector('.cvlist');
     disp.onclick = e => { e.stopPropagation(); const open = dmenu.classList.toggle('open'); disp.classList.toggle('on', open); };
-    dmenu.querySelectorAll('.cdisp-opt').forEach(o => o.onclick = () => {
-      dmenu.querySelectorAll('.cdisp-opt').forEach(x => x.classList.remove('on'));
-      o.classList.add('on'); dmenu.classList.remove('open'); disp.classList.remove('on');
+    dmenu.addEventListener('click', e => e.stopPropagation());   // 菜单内点击不冒泡（不被外部收起）
+    dmenu.querySelectorAll('[data-sort]').forEach(o => o.onclick = () => {
+      dmenu.querySelectorAll('[data-sort]').forEach(x => x.classList.remove('on')); o.classList.add('on'); dispSort = o.dataset.sort;
     });
-    const fin = body.querySelector('.cfilter input');   // 标题快滤前端体感（对应 List ?q= LIKE）
+    dmenu.querySelector('[data-toggle="group"]').onclick = function () { dispGroup = !dispGroup; this.classList.toggle('on', dispGroup); clist.classList.toggle('no-group', !dispGroup); };
+    dmenu.querySelector('[data-toggle="time"]').onclick = function () { dispTime = !dispTime; this.classList.toggle('on', dispTime); clist.classList.toggle('show-time', dispTime); };
+    // 标题快滤
+    const fin = body.querySelector('.cfilter input');
     fin.oninput = () => {
       const q = fin.value.trim().toLowerCase();
-      body.querySelectorAll('.cvsec, .cvarch').forEach(s => {
-        let any = false;
-        s.querySelectorAll('.cv').forEach(cv => {
-          const hit = cv.querySelector('.t').textContent.toLowerCase().includes(q);
-          cv.style.display = hit ? '' : 'none'; if (hit) any = true;
-        });
-        const h = s.querySelector('.cvsec-h'); if (h) h.style.display = any ? '' : 'none';
+      body.querySelectorAll('.cvsec-body .cv').forEach(cv => {
+        cv.style.display = cv.querySelector('.t').textContent.toLowerCase().includes(q) ? '' : 'none';
       });
     };
   }

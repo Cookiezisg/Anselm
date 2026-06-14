@@ -42,7 +42,8 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 #sidebody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .side-soon { padding: 22px 12px; color: var(--ink-3); font-size: 12px; }
 
-/* Chat 会话史：新建 + 标题快滤(B/LIKE) + 置顶/时间分组(B4 last_message_at)/归档；运行中(B3 isGenerating)=accent 脉冲点 */
+/* Chat 会话史：新建 + 标题快滤 + 展示选项(filter 行 sliders,作用于全部);三区 Pinned(可折叠)/Recents(常驻)/Archived(可折叠);
+   状态点在行首(B3 isGenerating:实心 accent 脉冲 / 闲置空心环);日期分组(B4)+ 时间戳由展示菜单开关;空区不渲染。 */
 .newconv { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: 8px;
   color: var(--ink); font-size: 13px; font-weight: 500; transition: background .12s; }
 .newconv:hover { background: var(--cc-hover); }
@@ -52,15 +53,16 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .cfilter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
 .cfilter input::placeholder { color: var(--ink-3); }
 
-/* 展示/排序选项:sliders 按钮 + 下拉菜单(选「怎么展示」) */
+/* 展示/排序菜单:sliders(filter 行) → 下拉(排序单选 + 分组/时间戳开关) */
 .cdisp { flex: none; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
 .cdisp:hover, .cdisp.on { color: var(--ink); background: var(--cc-hover); }
 .cdisp svg { display: block; }
-.cdisp-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 172px;
+.cdisp-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 180px;
   background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; padding: 5px;
   box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none; }
 .cdisp-menu.open { display: block; }
-.cdisp-h { padding: 3px 8px 4px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.cdisp-h { padding: 6px 8px 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.cdisp-h:first-child { padding-top: 3px; }
 .cdisp-opt { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px; color: var(--ink); font-size: 13px; transition: background .12s; }
 .cdisp-opt:hover { background: var(--cc-hover); }
 .cdisp-opt .ck { flex: none; width: 14px; display: grid; place-items: center; color: var(--ink); opacity: 0; }
@@ -68,30 +70,34 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .cdisp-opt .ck svg { display: block; }
 
 .cvlist { flex: 1; min-height: 0; overflow-y: auto; }
-.cvsec { margin-bottom: 10px; }
-.cvsec-h { padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
-.cv { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px;
+.cvsec { margin-bottom: 8px; }
+/* 区头:Recents=纯标签;Pinned/Archived=可折叠按钮(.cvsec-tog,full-width hover),箭头在尾(margin-left:auto) */
+.cvsec-h { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.cvsec-tog { transition: background .12s; }
+.cvsec-tog:hover { background: var(--cc-hover); }
+.cvsec-h .cnt { font-weight: 500; }
+.cvsec-h .chev { margin-left: auto; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
+.cvsec-h .chev svg { display: block; }
+.collapsible.open > .cvsec-h .chev { transform: rotate(90deg); }
+.collapsible:not(.open) > .cvsec-body { display: none; }
+.cvsub { padding: 5px 10px 3px; font-size: 11px; color: var(--ink-3); }   /* Recents 内日期分隔 */
+.cvlist.no-group .cvsub { display: none; }                                /* 关分组 → 隐藏日期分隔(变扁平) */
+
+.cv { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: 8px;
   color: var(--ink-2); font-size: 13px; transition: background .12s, color .12s; }
 .cv:hover { background: var(--cc-hover); color: var(--ink); }
 .cv.on { background: var(--cc-active); color: var(--ink); }
+.cv-st { flex: none; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--ink-3); }   /* 状态点在首:空心=闲置 */
+.cv-st.run { background: var(--accent); border-color: var(--accent); animation: sidePulse 1.5s ease infinite; }                 /* 实心 accent 脉冲=生成中 */
 .cv .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cv-run { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: sidePulse 1.5s ease infinite; }
+.cv-time { flex: none; font-size: 11px; color: var(--ink-3); display: none; }
+.cvlist.show-time .cv-time { display: block; }
 .cv-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity .12s; }
 .cv-more svg { display: block; }
 .cv:hover .cv-more { opacity: 1; }
+.cvlist.show-time .cv:hover .cv-time { display: none; }   /* hover 让位给 ⋯ */
 @keyframes sidePulse { 50% { opacity: .3; } }
-
-.cvarch { margin-top: 2px; }
-/* Archived 在前、展开箭头在后(margin-left:auto 推到行尾);width:100% 让 hover 灰块盖满整行(非半截) */
-.cvarch-h { width: 100%; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 8px;
-  color: var(--ink-3); font-size: 12px; font-weight: 600; transition: background .12s; }
-.cvarch-h:hover { background: var(--cc-hover); }
-.cvarch-h .cnt { font-weight: 500; color: var(--ink-3); }
-.cvarch-h .chev { margin-left: auto; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
-.cvarch-h .chev svg { display: block; }
-.cvarch.open .cvarch-h .chev { transform: rotate(90deg); }
-.cvarch-list { display: none; }
-.cvarch.open .cvarch-list { display: block; }
 
 /* 底部:工作区(圆头像+名,点切换;无箭头) + 通知 + 设置。学 Claude Code 用户行的清爽——
    圆头像、留白、右侧只两个轻图标。身份轴 = workspace(本地单用户、无账号/套餐);
