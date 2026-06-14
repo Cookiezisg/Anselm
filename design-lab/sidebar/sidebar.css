@@ -1,0 +1,50 @@
+/* Forgify design-lab — 左侧栏模块（单独，一人负责）。
+   左岛 = 同色 + 海岸线浮岛；无横向 divider；红绿灯/折叠/搜索在岛顶。
+   依赖：shared/tokens.css + shared/shell.css 的 cc-* / 原语（只读）。 */
+
+.side { width: 240px; flex: none; background: var(--cc-side); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04);
+  display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
+.side-top { display: flex; align-items: center; gap: 4px; height: 32px; margin-bottom: 6px; }
+.lights { display: flex; gap: 8px; padding-left: 2px; }
+.light { width: 12px; height: 12px; border-radius: 50%; }
+.light.r { background: #ff5f57; } .light.y { background: #febc2e; } .light.g { background: #28c840; }
+
+/* 三切换（Notion 原理：选中展开成 图标+文字 药丸；风格用我们的） */
+.modeseg { display: flex; gap: 2px; margin-bottom: 10px; }
+.modeseg button { display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 7px; border-radius: 9px;
+  color: var(--ink-2); font-size: 13px; font-weight: 600; background: transparent;
+  transition: background .2s, color .2s, padding .34s var(--ease-spring); }
+.modeseg button:hover { background: var(--cc-hover); }
+.modeseg button .ico { flex: none; display: grid; place-items: center; }
+.modeseg button .lbl { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap;
+  transition: max-width .34s var(--ease-spring), opacity .22s; }
+.modeseg button.on { background: var(--cc-active); color: var(--ink); padding: 0 11px; }
+.modeseg button.on .lbl { max-width: 120px; opacity: 1; }
+
+.sact { display: flex; flex-direction: column; gap: 1px; }
+.sitem { display: flex; align-items: center; gap: 11px; height: 32px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink); font-size: 13px; transition: background .12s; }
+.sitem:hover { background: var(--cc-hover); }
+.sitem .ico { width: 16px; display: grid; place-items: center; color: var(--ink-2); }
+.sitem .beta { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.sitem .chev { margin-left: auto; color: var(--ink-3); }
+
+.recents { flex: 1; min-height: 0; overflow-y: auto; margin-top: 10px; }
+.rec-head { display: flex; align-items: center; padding: 4px 10px 6px; }
+.rec-head span { flex: 1; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.rec-head .ibtn { width: 22px; height: 22px; }
+.ritem { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; transition: background .12s; }
+.ritem .d { width: 6px; height: 6px; border-radius: 50%; flex: none; border: 1.5px solid var(--ink-3); }
+.ritem .d.run { background: var(--accent); border-color: var(--accent); }
+.ritem .t { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.ritem:hover { background: var(--cc-hover); color: var(--ink); }
+.ritem.on { background: var(--cc-active); color: var(--ink); }
+
+.suser { display: flex; align-items: center; gap: 9px; padding: 7px 8px; margin-top: 6px; }
+.suser .av { width: 26px; height: 26px; border-radius: 7px; flex: none; display: grid; place-items: center; background: #3b3b40; color: #fff; font-size: 11px; font-weight: 700; }
+.suser .m { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.suser .m b { font-size: 13px; font-weight: 600; }
+.suser .m .plan { font-size: 11px; color: var(--ink-3); }
+.suser .chev { color: var(--ink-3); }

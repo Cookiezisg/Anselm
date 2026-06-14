@@ -62,7 +62,7 @@
 
 ## 四、信号交互（Streaming Entity Card）—— 灵魂
 
-> **已在 `demos/main-shell.html` 落地**：AI 调 `update_agent` 时右侧实体卡（岛，同色 + 海岸线）
+> **已在 `oceans/chat/chat.html` 落地**：AI 调 `update_agent` 时右侧实体卡（岛，同色 + 海岸线）
 > 从右滑入，model 闪光改值、system prompt 逐字流入、`web_search` 工具弹入、版本 v4→v5；
 > 中间对话同步出 `Used 2 tools ›` + `Updated Researcher v4→v5`；卡可关闭、ref 药丸点了重唤。
 

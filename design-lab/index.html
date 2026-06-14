@@ -34,6 +34,7 @@
   <div class="sect">读我</div>
   <div class="grid">
     <a class="demo" href="PHILOSOPHY.md"><div class="card"><div class="ch"><span class="ei etype workflow"></span><b>PHILOSOPHY.md</b></div><div class="desc">产品哲学：海与岛、信号交互、Apple 化 B 端视觉、四导航。</div></div></a>
+    <a class="demo" href="CONTRIBUTING.md"><div class="card"><div class="ch"><span class="ei etype agent"></span><b>CONTRIBUTING.md</b></div><div class="desc">并发协作约定：主人地图 + 共享契约 + 加海洋套路（多 AI 不打架）。</div></div></a>
     <a class="demo" href="README.md"><div class="card"><div class="ch"><span class="ei etype handler"></span><b>README.md</b></div><div class="desc">这个文件夹是什么、怎么看、和 Flutter 的关系。</div></div></a>
   </div>
 </div>
@@ -41,9 +42,9 @@
 <script src="shared/mock-data.js"></script>
 <script>
 const DEMOS = [
-  { href: 'demos/main-shell.html', kind: 'agent', name: '主屏（视觉参考 Claude Code）', desc: '海与岛靠海岸线分 · Notion 式切换 · AI 调工具时实体卡从右流式编辑。', soon: false },
+  { href: 'oceans/chat/chat.html', kind: 'agent', name: 'Chat 海洋（视觉参考 Claude Code）', desc: '外壳 + 侧栏 + Chat 海洋 · 海与岛靠海岸线分 · AI 调工具时右岛实体卡从右流式编辑。', soon: false },
   { href: 'reference.html', kind: 'workflow', name: '设计参考', desc: '精修形态沉淀：原则 + 配色 token + 实体卡两态 + 核心组件，供真实设计落地参考。', soon: false },
-  { href: 'demos/onboarding.html', kind: 'function', name: 'Onboarding 向导', desc: '首启配置：主题 / 语言 → 大模型与搜索 API Key。', soon: false },
+  { href: 'onboarding/onboarding.html', kind: 'function', name: 'Onboarding 向导', desc: '首启配置：主题 / 语言 → 大模型与搜索 API Key。', soon: false },
 ];
 document.getElementById('demos').innerHTML = DEMOS.map(d => `
   <a class="demo" href="${d.href}"><div class="card">

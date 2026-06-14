@@ -1,0 +1,52 @@
+/* Forgify design-lab — 外壳 + 共享原语（内核，只读消费）。
+   只放「窗口框架」与「全站通用原语」；侧栏样式在 sidebar/，海洋组件在 oceans/<海>/。
+   海与岛同色、靠海岸线(描边)分；无横向 divider；少强调色。颜色/字体用我们自己的（非米白/衬线）。
+   配色 token 见 tokens.css；本文件加 cc-* 表面色。 */
+
+:root {
+  --cc-desk:   #d4d5d9;   /* 桌面底（窗外，衬出浮窗） */
+  --cc-win:    #ffffff;   /* 海（中间）= 白 */
+  --cc-side:   #ffffff;   /* 岛 = 同样的白；分割靠海岸线 */
+  --cc-bubble: #f0f0f2;   /* 用户气泡（唯一的灰填充例外） */
+  --cc-input:  #ffffff;
+  --cc-hover:  #f1f1f3;
+  --cc-active: #e9e9ec;
+}
+[data-theme="dark"] {
+  --cc-desk:   #000000;
+  --cc-win:    #1c1c1e;
+  --cc-side:   #1c1c1e;
+  --cc-bubble: #2c2c2f;
+  --cc-input:  #1c1c1e;
+  --cc-hover:  #2a2a2d;
+  --cc-active: #323236;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font-family: var(--font); font-size: 13px; color: var(--ink);
+  background: var(--cc-desk); -webkit-font-smoothing: antialiased; padding: 16px; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+code, .mono { font-family: var(--mono); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+
+/* ===== 圆角浮窗 + 三槽布局 ===== */
+.win { height: 100%; display: flex; flex-direction: column; background: var(--cc-win);
+  border-radius: 14px; box-shadow: 0 16px 50px rgba(0,0,0,.20); overflow: hidden; }
+.body { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
+.main { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; }
+.main-head { display: flex; align-items: center; gap: 8px; height: 44px; flex: none; padding: 0 12px 0 16px; }
+.crumb { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; }
+.crumb .ico { color: var(--ink-3); display: grid; place-items: center; }
+.crumb .sep { color: var(--ink-3); font-weight: 400; }
+.crumb .muted { color: var(--ink-2); font-weight: 400; }
+.sea { flex: 1; min-height: 0; display: flex; flex-direction: column; }   /* ← 海洋渲染进这里 */
+
+/* ===== 全站通用原语（侧栏/海洋共用） ===== */
+.grow { flex: 1; }
+.ibtn { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-2); transition: background .15s; }
+.ibtn:hover { background: var(--cc-hover); color: var(--ink); }
+/* chevron：inline-grid 让旋转轴心居中（不偏）。「.X.open > … .chev{rotate(90deg)}」由各模块自定。 */
+.chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .3s var(--ease-spring); }
+.chev svg { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
