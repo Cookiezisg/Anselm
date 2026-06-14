@@ -1,117 +1,54 @@
-/* Forgify design-lab — 左侧栏模块（单独，一人负责）。
+/* Forgify design-lab — 左侧栏【固定外壳 chrome】样式。海洋内容样式各在 sidebar/<id>.css，外壳不掺和。
    左岛 = 同色 + 海岸线浮岛；无横向 divider；红绿灯/折叠/搜索在岛顶。
-   依赖：shared/tokens.css + shared/shell.css 的 cc-* / 原语（只读）。 */
+   依赖 shared/tokens.css + shell.css 的 cc-* 表面色与原语（只读）。宽度 --side-w 全仓库唯一处在 shell.css。 */
 
-/* 宽度归 shell（--side-w，全仓库唯一处）；这里只管岛的「皮肤」+ 给手柄定位基准 */
-.side { position: relative; flex: none; background: var(--cc-side); border: 1px solid var(--line);
-  border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04);
-  display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
+/* 岛皮肤（宽度归 shell；这里只皮肤 + 给拖拽手柄定位基准） */
+.side { position: relative; flex: none; display: flex; flex-direction: column; padding: 8px; overflow: hidden;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04); }
 
-/* 拖拽调宽手柄（归侧栏，append 进 #left；贴右内缘 col-resize，hover 一抹竖线） */
+/* 拖拽调宽手柄（贴右内缘，hover 一抹竖线；收起态隐藏） */
 .side-grip { position: absolute; top: 0; right: 0; width: 9px; height: 100%; cursor: col-resize; z-index: 3; }
-.side-grip::after { content: ""; position: absolute; top: 0; bottom: 0; right: 1px; width: 2px; border-radius: 2px;
-  background: transparent; transition: background var(--d-fast); }
+.side-grip::after { content: ""; position: absolute; inset: 0 1px 0 auto; width: 2px; border-radius: 2px; background: transparent; transition: background var(--d-fast); }
 .side-grip:hover::after { background: var(--line-strong); }
-html[data-side="off"] .side-grip { display: none; }   /* 收起态不可拖 */
+html[data-side="off"] .side-grip { display: none; }
 
-/* 再展开按钮（归侧栏，但 append 进 shell 的 #head-lead；收起态才淡入） */
+/* 再展开按钮（归侧栏，但 append 进 shell 的 #head-lead；仅收起态淡入） */
 .side-reopen { width: 0; opacity: 0; margin-left: -4px; pointer-events: none; overflow: hidden;
   transition: opacity var(--d-mid), width var(--d-slow) var(--ease-spring), margin-left var(--d-slow) var(--ease-spring); }
 html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; pointer-events: auto; }
+
+/* 岛顶：红绿灯 + 折叠 + 搜索 */
 .side-top { display: flex; align-items: center; gap: 4px; height: 32px; margin-bottom: 6px; }
 .lights { display: flex; gap: 8px; padding-left: 2px; }
 .light { width: 12px; height: 12px; border-radius: 50%; }
 .light.r { background: #ff5f57; } .light.y { background: #febc2e; } .light.g { background: #28c840; }
+.side-top .ibtn svg, .sf-act svg, .modeseg .ico svg { display: block; }
 
-/* 四导航（Notion 原理：选中展开成 图标+文字 药丸；未选只图标）。
-   视觉与下方 .sitem 列表统一:图标 18px·恒 --ink-2、字重 500、圆角 8、选中 gap 11——
-   只多一层「选中灰药丸 + 未选收成图标」的开关语义,其余分量与列表一致(不再粗黑)。
-   收窄护栏:4 图标 flex:none 永远全显,只让选中药丸文字省略号截断(Documents→Docu…)。 */
+/* 四导航（Notion：选中=灰药丸图标+文字 / 未选只图标）。图标 18px·恒 --ink-2、字重 500、圆角 8、选中 gap 11。
+   收窄护栏：4 图标 flex:none 恒显，只让选中药丸文字省略号截断（Documents→Docu…）。 */
 .modeseg { display: flex; gap: 2px; margin-bottom: 10px; min-width: 0; }
 .modeseg button { flex: none; display: flex; align-items: center; gap: 0; height: 32px; padding: 0 6px; border-radius: 8px;
   color: var(--ink-2); font-size: 13px; font-weight: 500; background: transparent;
   transition: background .2s, color .2s, gap .34s var(--ease-spring), padding .34s var(--ease-spring); }
 .modeseg button:hover { background: var(--cc-hover); }
-.modeseg button .ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }   /* 图标恒浅灰 = 与 .sitem 一致 */
+.modeseg button .ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }
 .modeseg button .lbl { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   transition: max-width .34s var(--ease-spring), opacity .22s; }
-.modeseg button.on { flex: 0 1 auto; min-width: 0; gap: 11px; background: var(--cc-active); color: var(--ink); padding: 0 10px; }
+.modeseg button.on { flex: 0 1 auto; min-width: 0; gap: 11px; padding: 0 10px; background: var(--cc-active); color: var(--ink); }
 .modeseg button.on .lbl { max-width: 110px; opacity: 1; }
 
-/* ===== 海洋专属内容区（#sidebody，据四导航切换；当前实现 Chat，其余海洋占位） ===== */
+/* 海洋内容宿主 + 未注册/缺文件占位（内容样式各在 sidebar/<id>.css） */
 #sidebody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .side-soon { padding: 22px 12px; color: var(--ink-3); font-size: 12px; }
 
-/* Chat 会话史：新建 + 标题快滤 + 展示选项(filter 行 sliders,作用于全部);三区 Pinned(可折叠)/Recents(常驻)/Archived(可折叠);
-   状态点在行首(B3 isGenerating:实心 accent 脉冲 / 闲置空心环);日期分组(B4)+ 时间戳由展示菜单开关;空区不渲染。 */
-.newconv { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: 8px;
-  color: var(--ink); font-size: 13px; font-weight: 500; transition: background .12s; }
-.newconv:hover { background: var(--cc-hover); }
-.newconv svg { color: var(--ink-2); display: block; }
-.cfilter { position: relative; display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 6px 0 10px; color: var(--ink-3); }
-.cfilter > svg { flex: none; display: block; }
-.cfilter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
-.cfilter input::placeholder { color: var(--ink-3); }
-
-/* 展示/排序菜单:sliders(filter 行) → 下拉(排序单选 + 分组/时间戳开关) */
-.cdisp { flex: none; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
-.cdisp:hover, .cdisp.on { color: var(--ink); background: var(--cc-hover); }
-.cdisp svg { display: block; }
-.cdisp-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 180px;
-  background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; padding: 5px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none; }
-.cdisp-menu.open { display: block; }
-.cdisp-h { padding: 6px 8px 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
-.cdisp-h:first-child { padding-top: 3px; }
-.cdisp-opt { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px; color: var(--ink); font-size: 13px; transition: background .12s; }
-.cdisp-opt:hover { background: var(--cc-hover); }
-.cdisp-opt .ck { flex: none; width: 14px; display: grid; place-items: center; color: var(--ink); opacity: 0; }
-.cdisp-opt.on .ck { opacity: 1; }
-.cdisp-opt .ck svg { display: block; }
-
-.cvlist { flex: 1; min-height: 0; overflow-y: auto; }
-.cvsec { margin-bottom: 8px; }
-/* 区头:Recents=纯标签;Pinned/Archived=可折叠按钮(.cvsec-tog,full-width hover),箭头在尾(margin-left:auto) */
-.cvsec-h { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 10px; border-radius: 8px;
-  font-size: 11px; font-weight: 600; color: var(--ink-3); }
-.cvsec-tog { transition: background .12s; }
-.cvsec-tog:hover { background: var(--cc-hover); }
-.cvsec-h .cnt { font-weight: 500; }
-.cvsec-h .chev { margin-left: auto; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
-.cvsec-h .chev svg { display: block; }
-.collapsible.open > .cvsec-h .chev { transform: rotate(90deg); }
-.collapsible:not(.open) > .cvsec-body { display: none; }
-.cvsub { padding: 5px 10px 3px; font-size: 11px; color: var(--ink-3); }   /* Recents 内日期分隔 */
-.cvlist.no-group .cvsub { display: none; }                                /* 关分组 → 隐藏日期分隔(变扁平) */
-
-.cv { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: 8px;
-  color: var(--ink-2); font-size: 13px; transition: background .12s, color .12s; }
-.cv:hover { background: var(--cc-hover); color: var(--ink); }
-.cv.on { background: var(--cc-active); color: var(--ink); }
-.cv-st { flex: none; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid var(--ink-3); }   /* 闲置:空心环 */
-.cv-st.run { background: var(--accent); border-color: var(--accent); animation: sidePulse 1.5s ease infinite; }                 /* 生成中:accent 脉冲 */
-.cv-st.wait { background: var(--warn); border-color: var(--warn); animation: sidePulse 1.5s ease infinite; }                    /* 提问/等你(humanloop):橙 + 脉冲 */
-.cv-st.err { background: var(--danger); border-color: var(--danger); }                                                          /* 失败:红 */
-.cv-st.unread { background: var(--ok); border-color: var(--ok); }                                                               /* 待查看(后台跑完待看):绿(需后端读态) */
-.cv .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cv-time { flex: none; font-size: 11px; color: var(--ink-3); display: none; }
-.cvlist.show-time .cv-time { display: block; }
-.cv-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity .12s; }
-.cv-more svg { display: block; }
-.cv:hover .cv-more { opacity: 1; }
-.cvlist.show-time .cv:hover .cv-time { display: none; }   /* hover 让位给 ⋯ */
-@keyframes sidePulse { 50% { opacity: .3; } }
-
-/* 底部:工作区(圆头像+名,点切换;无箭头) + 通知 + 设置。学 Claude Code 用户行的清爽——
-   圆头像、留白、右侧只两个轻图标。身份轴 = workspace(本地单用户、无账号/套餐);
-   铃铛/齿轮 15px = 与顶部四导航同号;未读角标是唯一 accent(真实状态、非装饰)。 */
+/* 底部：工作区(圆头像+名,点切换) + 通知(铃铛+未读点) + 设置。本地单用户、无账号/套餐——身份轴=workspace。 */
 .sfoot { display: flex; align-items: center; gap: 2px; margin-top: 6px; }
 .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 6px; border-radius: 10px; color: var(--ink); transition: background .12s; }
 .ws:hover { background: var(--cc-hover); }
-.ws-ava { width: 28px; height: 28px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); font-size: 11px; font-weight: 600; }
+.ws-ava { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); font-size: 11px; font-weight: 600; }
 .ws-name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .sf-act { flex: none; position: relative; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
 .sf-act:hover { color: var(--ink); background: var(--cc-hover); }
-.sf-act svg { display: block; }
-/* 未读点:独有类名 .sf-dot(勿用通用 .badge——chat 海洋已占该类名,会撞成椭圆)。贴铃铛右肩,island 色描边punch out。 */
+/* 未读点：独有类名（勿用通用 .badge，会与海洋 CSS 撞名）。贴铃铛右肩，island 色描边 punch out。 */
 .sf-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 2px solid var(--cc-side); }
