@@ -7,7 +7,7 @@
 
   // 首帧无闪：注入前先据 localStorage 把终态宽度/收起态写到 <html>（避免 240→实际宽跳变）
   let w0 = parseInt(localStorage.getItem('fg.side.w'), 10);
-  if (!(w0 >= 200 && w0 <= 420)) w0 = 240;                 // 脏值/NaN 回退
+  if (!(w0 >= 240 && w0 <= 420)) w0 = 240;                 // 脏值/NaN/旧窄值 回退(下限 240=最长标签 Documents 恒显)
   html.style.setProperty('--side-w', w0 + 'px');
   html.dataset.side = localStorage.getItem('fg.side.collapsed') === '1' ? 'off' : 'on';
 
@@ -104,7 +104,7 @@
   });
   window.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const next = Math.max(200, Math.min(420, sw + (e.clientX - sx)));   // clamp[200,420]
+    const next = Math.max(240, Math.min(420, sw + (e.clientX - sx)));   // clamp[240,420]（下限 240 保英文标签恒显）
     html.style.setProperty('--side-w', next + 'px');
   });
   window.addEventListener('pointerup', () => {
