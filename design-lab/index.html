@@ -18,6 +18,8 @@
   a.demo { text-decoration: none; color: inherit; }
   .demo .ch b { font-size: 15px; }
   .tag-soon { font-size: 11px; color: var(--warn); font-weight: 600; }
+  /* 统一图标 chip 为中性灰(盖掉旧渐变),贴合当前干净/少强调色调性;所有 kind 都可见 */
+  .card .ch .ei { background: var(--island-3); color: var(--ink-2); }
 </style>
 </head>
 <body>
@@ -28,33 +30,34 @@
     <p>交互形态 + 产品哲学的发散场。这里的 demo <b>不连后端</b>，只用来把「做成什么样」聊清楚——形态定了再统一落 Flutter。</p>
   </div>
 
-  <div class="sect">Demos</div>
+  <div class="sect">海洋 · 形态 demos</div>
   <div class="grid" id="demos"></div>
 
   <div class="sect">读我</div>
-  <div class="grid">
-    <a class="demo" href="PHILOSOPHY.md"><div class="card"><div class="ch"><span class="ei etype workflow"></span><b>PHILOSOPHY.md</b></div><div class="desc">产品哲学：海与岛、信号交互、Apple 化 B 端视觉、四导航。</div></div></a>
-    <a class="demo" href="CONTRIBUTING.md"><div class="card"><div class="ch"><span class="ei etype agent"></span><b>CONTRIBUTING.md</b></div><div class="desc">并发协作约定：主人地图 + 共享契约 + 加海洋套路（多 AI 不打架）。</div></div></a>
-    <a class="demo" href="README.md"><div class="card"><div class="ch"><span class="ei etype handler"></span><b>README.md</b></div><div class="desc">这个文件夹是什么、怎么看、和 Flutter 的关系。</div></div></a>
-  </div>
+  <div class="grid" id="reads"></div>
 </div>
 
 <script src="shared/mock-data.js"></script>
 <script>
+// 入口画廊：海洋/形态 demos + 读我。加海洋只在此加一行（CONTRIBUTING §四：唯一需内核串行合的共享触点）。
 const DEMOS = [
-  { href: 'oceans/chat/chat.html', kind: 'agent', name: 'Chat 海洋（视觉参考 Claude Code）', desc: '外壳 + 侧栏 + Chat 海洋 · 海与岛靠海岸线分 · AI 调工具时右岛实体卡从右流式编辑。', soon: false },
-  { href: 'oceans/documents/documents.html', kind: 'docs', name: '文档海洋（Notion 原理 · 海岛皮肤）', desc: 'WYSIWYG markdown 文档页 · 零横线靠海岸线分区 · 选段唤起内联 AI 改写（:iterate）· 大纲/反链/元信息右岛。', soon: false },
-  { href: 'reference.html', kind: 'workflow', name: '设计参考', desc: '精修形态沉淀：原则 + 配色 token + 实体卡两态 + 核心组件，供真实设计落地参考。', soon: false },
-  { href: 'onboarding/onboarding.html', kind: 'function', name: 'Onboarding 向导', desc: '首启配置：主题 / 语言 → 大模型与搜索 API Key。', soon: false },
+  { href: 'oceans/chat/chat.html',          kind: 'chat',     name: 'Chat 海洋',              desc: '外壳 + 侧栏 + Chat 海洋 · 海与岛靠海岸线分 · AI 调工具时右岛实体卡从右流式编辑。' },
+  { href: 'oceans/documents/documents.html',kind: 'docs',     name: '文档海洋',               desc: 'WYSIWYG markdown 文档页 · 零横线靠海岸线分区 · 选段唤起内联 AI（:iterate）· 大纲/反链右岛。' },
+  { href: 'oceans/settings/preview.html',   kind: 'settings', name: '设置 · 概览（参考 Codex）', desc: '设置面 / 工作区主页：左分组类目 + 居中身份 + 统计卡 + 活动热力图 + 最常用实体。调性预览。' },
+  { href: 'onboarding/onboarding.html',     kind: 'function', name: 'Onboarding 向导',        desc: '首启配置：主题 / 语言 → 大模型与搜索 API Key。' },
+  { href: 'reference.html',                 kind: 'workflow', name: '设计参考',               desc: '精修形态沉淀：原则 + 配色 token + 实体卡两态 + 核心组件。' },
 ];
-document.getElementById('demos').innerHTML = DEMOS.map(d => `
-  <a class="demo" href="${d.href}"><div class="card">
-    <div class="ch"><span class="ei etype ${d.kind}">${icon(d.kind,16)}</span><b>${d.name}</b>
-      ${d.soon ? '<span class="tag-soon">即将</span>' : ''}</div>
+const READS = [
+  { href: 'PHILOSOPHY.md',   kind: 'sparkle', name: 'PHILOSOPHY.md',   desc: '产品哲学：海与岛、信号交互、Apple 化 B 端视觉、四导航。' },
+  { href: 'CONTRIBUTING.md', kind: 'agent',   name: 'CONTRIBUTING.md', desc: '并发协作约定：主人地图 + 共享契约 + 加海洋套路（多 AI 不打架）。' },
+  { href: 'README.md',       kind: 'docs',    name: 'README.md',       desc: '这个文件夹是什么、怎么看、和 Flutter 的关系。' },
+];
+const card = d => `<a class="demo" href="${d.href}"><div class="card">
+    <div class="ch"><span class="ei etype ${d.kind}">${icon(d.kind, 16)}</span><b>${d.name}</b></div>
     <div class="desc">${d.desc}</div>
-  </div></a>`).join('');
-document.querySelectorAll('.etype.workflow.ei')[0]?.insertAdjacentHTML('beforeend', icon('sparkle',15));
-document.querySelectorAll('.etype.handler.ei')[0]?.insertAdjacentHTML('beforeend', icon('docs',15));
+  </div></a>`;
+document.getElementById('demos').innerHTML = DEMOS.map(card).join('');
+document.getElementById('reads').innerHTML = READS.map(card).join('');
 </script>
 </body>
 </html>
