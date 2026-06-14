@@ -130,7 +130,7 @@ CRUD + `POST {id}:move`（防环；nil parent=根）+ `POST {id}:iterate`（开 
 
 | Method · Path | 语义 |
 |---|---|
-| conversation CRUD | `POST` · `GET`(list：`?search&archived`，**置顶优先再按最近活跃** `last_message_at` 降序) · `GET/{id}` · `PATCH/{id}`（含 ModelOverride 三态）· `DELETE/{id}`。List/Get 每条带 `lastMessageAt` + **`isGenerating`**（派生只读：chat 是否有在途回合，供冷启动活动圆点；不入 PATCH） |
+| conversation CRUD | `POST` · `GET`(list：`?search&archived&sort`) · `GET/{id}` · `PATCH/{id}`（含 ModelOverride 三态）· `DELETE/{id}`。**`?sort`** = `activity`(默认，置顶优先再 `last_message_at` 降序——最近聊过) \| `created`(置顶优先再创建序)；切换 sort 须重置分页（游标随排序列走、跨 sort 无意义）。List/Get 每条带 `lastMessageAt` + **`isGenerating`**（派生只读：chat 是否有在途回合，供冷启动活动圆点；不入 PATCH） |
 | `POST /{id}/messages` | **Send**：落 user 回合 + 开 assistant 回合 + 入队，返 assistant msg id |
 | `GET /{id}/messages` | 回合历史 keyset 分页（含 blocks） |
 | `POST /{id}:cancel` | **Cancel** 在途生成（动作语法,非删子资源） |

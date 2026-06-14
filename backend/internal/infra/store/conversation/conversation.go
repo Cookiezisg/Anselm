@@ -110,7 +110,18 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	if term := strings.TrimSpace(filter.Search); term != "" {
 		q = q.Where("title LIKE ?", "%"+term+"%")
 	}
-	rows, next, err := q.Order("pinned DESC, last_message_at DESC, id DESC").PageKeyset("last_message_at").Page(ctx, filter.Cursor, filter.Limit)
+	// Sort is always pinned-first; the secondary key is recency (default) or creation order. The
+	// keyset cursor MUST key the same column the ORDER BY sorts by — PageKeyset aligns them, so the
+	// cursor's WHERE/encode track the chosen column (else pages skip/duplicate). Unknown/empty sort
+	// → activity (no 400 on a sort typo).
+	//
+	// 排序恒置顶优先；次键为最近活跃（默认）或创建序。keyset 游标必须键 ORDER BY 所按的同一列——PageKeyset
+	// 对齐之，使游标 WHERE/encode 跟选定列（否则跨页漏/重）。未知/空 sort → activity（不为 sort 笔误报 400）。
+	keyset := "last_message_at"
+	if filter.Sort == conversationdomain.ListSortCreated {
+		keyset = "created_at"
+	}
+	rows, next, err := q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("conversationstore.List: %w", err)
 	}

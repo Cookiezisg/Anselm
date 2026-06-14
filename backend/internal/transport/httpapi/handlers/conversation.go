@@ -110,11 +110,15 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		b := v == "true" || v == "1"
 		archived = &b
 	}
+	// sort: "created" = pinned-first then creation order; anything else (incl absent) = "activity"
+	// (pinned-first then most-recently-active, the default). Switching sort resets pagination.
+	// sort："created" = 置顶优先再创建序；其余（含缺省）= "activity"（置顶优先再最近活跃，默认）。切换排序须重置分页。
 	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
 		Cursor:   p.Cursor,
 		Limit:    p.Limit,
 		Search:   q.Get("search"),
 		Archived: archived,
+		Sort:     conversationdomain.ListSort(q.Get("sort")),
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

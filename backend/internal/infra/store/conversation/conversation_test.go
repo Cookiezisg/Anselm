@@ -246,6 +246,54 @@ func TestList_RecencySortByLastMessage(t *testing.T) {
 	}
 }
 
+// seedTimes inserts a conversation with INDEPENDENT created_at and last_message_at, so a test can
+// decorrelate the two sort orders.
+//
+// seedTimes 插入 created_at 与 last_message_at 各自独立的对话，使测试能解耦两种排序序。
+func seedTimes(t *testing.T, s *Store, ctx context.Context, id string, created, lastMsg time.Time) {
+	t.Helper()
+	if err := s.Insert(ctx, &conversationdomain.Conversation{ID: id, Title: id}); err != nil {
+		t.Fatalf("insert %s: %v", id, err)
+	}
+	if _, err := s.db.Exec(ctx, "UPDATE conversations SET created_at = ?, last_message_at = ? WHERE id = ?", created.UTC(), lastMsg.UTC(), id); err != nil {
+		t.Fatalf("seed times %s: %v", id, err)
+	}
+}
+
+// TestList_SortParam proves the sort selector flips both the order AND the keyset cursor column.
+// Data decorrelates the two keys: cv_early_active is created oldest but most recently active, so the
+// two sorts yield OPPOSITE orders — and the created-sort cursor must walk created_at, not
+// last_message_at.
+//
+// TestList_SortParam 证明 sort 选择器同时翻转排序序与 keyset 游标列。数据解耦两键：cv_early_active
+// 创建最早却最近活跃，故两种排序结果相反——且 created 排序的游标须走 created_at 而非 last_message_at。
+func TestList_SortParam(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seedTimes(t, s, ctx, "cv_early_active", t1, t3) // created oldest, active newest
+	seedTimes(t, s, ctx, "cv_late_idle", t3, t1)    // created newest, active oldest
+
+	if rows, _, err := s.List(ctx, conversationdomain.ListFilter{}); err != nil {
+		t.Fatalf("activity list: %v", err)
+	} else if got := ids(rows); !equal(got, []string{"cv_early_active", "cv_late_idle"}) {
+		t.Errorf("default(activity) = %v, want [cv_early_active cv_late_idle]", got)
+	}
+	if rows, _, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortCreated}); err != nil {
+		t.Fatalf("created list: %v", err)
+	} else if got := ids(rows); !equal(got, []string{"cv_late_idle", "cv_early_active"}) {
+		t.Errorf("sort=created = %v, want [cv_late_idle cv_early_active] (opposite of activity)", got)
+	}
+	// Cursor under created sort walks created_at: page1 = cv_late_idle, page2 = cv_early_active.
+	p1, next, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortCreated, Limit: 1})
+	if err != nil || len(p1) != 1 || p1[0].ID != "cv_late_idle" || next == "" {
+		t.Fatalf("created page1 = %v next=%q err=%v, want [cv_late_idle] with cursor", ids(p1), next, err)
+	}
+	p2, _, err := s.List(ctx, conversationdomain.ListFilter{Sort: conversationdomain.ListSortCreated, Limit: 1, Cursor: next})
+	if err != nil || len(p2) != 1 || p2[0].ID != "cv_early_active" {
+		t.Fatalf("created page2 = %v err=%v, want [cv_early_active] (cursor walks created_at)", ids(p2), err)
+	}
+}
+
 func TestSoftDelete_NotFoundAndExcluded(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
