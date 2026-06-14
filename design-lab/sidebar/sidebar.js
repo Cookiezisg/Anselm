@@ -18,11 +18,11 @@
       <button class="ibtn" data-i="side"></button>
       <button class="ibtn" data-i="search"></button>
     </div>
-    <!-- 四导航(海洋切换器):Notion 式选中展开药丸。中间两个(Forge/Scheduler)的「侧栏内容」待定,
-         此处只立切换器骨架;data-m 用真海洋 id,便于日后接 Shell.mount。命名/图标待拍:Scheduler 偏窄(候选 Runs/Operate)。 -->
+    <!-- 四导航(海洋切换器):Notion 式选中展开药丸。中间两个(Entities/Scheduler)的「侧栏内容」待定,
+         此处只立切换器骨架;data-m 用真海洋 id,便于日后接 Shell.mount。命名待拍:Scheduler 偏窄(候选 Runs/Operate)。 -->
     <div class="modeseg" id="modeseg">
       <button class="on" data-m="chat"><span class="ico" data-i="chat"></span><span class="lbl">Chat</span></button>
-      <button data-m="forge"><span class="ico" data-i="forge"></span><span class="lbl">Forge</span></button>
+      <button data-m="entities"><span class="ico" data-i="entities"></span><span class="lbl">Entities</span></button>
       <button data-m="scheduler"><span class="ico" data-i="scheduler"></span><span class="lbl">Scheduler</span></button>
       <button data-m="documents"><span class="ico" data-i="doc"></span><span class="lbl">Documents</span></button>
     </div>
@@ -43,7 +43,7 @@
       <span class="chev" data-i="chevd"></span>
     </div>`;
 
-  const sz = { side: 18, search: 18, chat: 15, forge: 15, scheduler: 15, doc: 15, plus: 18, zap: 18, dispatch: 18, sliders: 18, chevd: 14, sort: 15 };
+  const sz = { side: 18, search: 18, chat: 15, entities: 15, scheduler: 15, doc: 15, plus: 18, zap: 18, dispatch: 18, sliders: 18, chevd: 14, sort: 15 };
   left.querySelectorAll('[data-i]').forEach(el => { const k = el.dataset.i; el.innerHTML = icon(k, sz[k] || 18); });
 
   const SESS = [
