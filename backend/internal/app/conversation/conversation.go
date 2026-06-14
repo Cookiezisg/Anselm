@@ -237,6 +237,10 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 		return nil, err
 	}
 	s.emit(ctx, c.ID, action, map[string]any{"title": c.Title, "archived": c.Archived, "pinned": c.Pinned})
+	// Fill the derived flag so a PATCH (e.g. pinning a conversation mid-generation) returns the same
+	// accurate isGenerating the frontend sees in List/Get — never a stale false.
+	// 填派生标志，使 PATCH（如生成中置顶）返回与 List/Get 一致的准确 isGenerating，不返回过期 false。
+	s.markGenerating(c)
 	return c, nil
 }
 

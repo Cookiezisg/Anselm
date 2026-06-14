@@ -111,6 +111,15 @@ func TestDerivesIsGenerating(t *testing.T) {
 		}
 	}
 
+	// PATCH must also return the accurate derived flag — pinning a generating conversation must not
+	// return a stale isGenerating=false.
+	pin := true
+	if up, err := svc.Update(ctx, a.ID, UpdateInput{Pinned: &pin}); err != nil {
+		t.Fatalf("update: %v", err)
+	} else if !up.IsGenerating {
+		t.Error("Update: PATCH on a generating conversation must return isGenerating=true")
+	}
+
 	// No querier wired (default) → derived flag stays false, no panic.
 	svc2, _, _, ctx2 := newSvc(t)
 	c, _ := svc2.Create(ctx2, "c")
