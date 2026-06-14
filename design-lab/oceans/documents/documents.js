@@ -218,21 +218,29 @@ function render(md: string): Html {
     }));
   }
   function reselect(range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); }
-  function wrap(range, tag) { try { const el = document.createElement(tag); range.surroundContents(el); } catch (e) {} }
+  // 包住选区：surroundContents 跨内联边界(选区含/截断 <b><code> 等)会抛错 → extractContents 兜底，能包任意范围
+  function wrapRange(range, tag, cls) {
+    let el = document.createElement(tag); if (cls) el.className = cls;
+    try { range.surroundContents(el); return el; }
+    catch (e) {
+      try { el = document.createElement(tag); if (cls) el.className = cls; el.appendChild(range.extractContents()); range.insertNode(el); return el; }
+      catch (e2) { return null; }
+    }
+  }
   function applyFormat(a, range) {
     reselect(range);
     if (a === 'bold' || a === 'italic') document.execCommand(a);
     else if (a === 'strike') document.execCommand('strikethrough');
-    else if (a === 'mark') wrap(range, 'mark');
-    else if (a === 'code') wrap(range, 'code');
-    else if (a === 'link') { const el = document.createElement('a'); el.href = '#'; try { range.surroundContents(el); } catch (e) {} }
+    else if (a === 'mark') wrapRange(range, 'mark');
+    else if (a === 'code') wrapRange(range, 'code');
+    else if (a === 'link') { const el = wrapRange(range, 'a'); if (el) el.href = '#'; }
     hideToolbar();
   }
   // AI 询问：给一句自然语言指令（对齐后端 :iterate）+ 快捷动作 → 选区流光改写
   function showAiAsk(rect, range) {
     hideToolbar();
     // 持久点亮选区：focus 移到输入框后原生 ::selection 会消失，用 .ai-target 一直点亮，用户看得见 AI 要改哪段
-    try { aiTarget = document.createElement('span'); aiTarget.className = 'ai-target'; range.surroundContents(aiTarget); } catch (e) { aiTarget = null; }
+    aiTarget = wrapRange(range, 'span', 'ai-target');
     window.getSelection()?.removeAllRanges();
     bar = document.createElement('div'); bar.className = 'ai-ask';
     bar.innerHTML = `
