@@ -27,7 +27,11 @@ window.ICONS = {
   close:'<path d="M18 6 6 18M6 6l12 12"/>',
   edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   play:'<path d="M8 5v14l11-7z"/>',
-  // 后续海洋按需 append：function / handler / workflow / doc / calendar / bell …（只加不改）
+  // —— 四导航海洋图标 ——
+  forge:'<path d="M4 7h14l-2.5 4.5H8.5A4.5 4.5 0 0 1 4 7Z"/><path d="M8.5 16.5h7l-1.2-4H9.7z"/>',   // 铁砧 = 锻造
+  scheduler:'<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>',                          // 钟（名/形待定，见 sidebar 注）
+  doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',  // 折角页
+  // 后续海洋按需 append：function / handler / workflow / calendar / bell …（只加不改）
 };
 window.icon = (k, n = 16, w = 1.7) =>
   `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${ICONS[k] || ''}</svg>`;
