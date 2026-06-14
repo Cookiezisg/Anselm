@@ -182,12 +182,8 @@ function render(md: string): Html {
   function placeBelow(el, rect) { const dr = doc().getBoundingClientRect(); el.style.left = Math.min(Math.max(8, rect.left - dr.left), doc().clientWidth - el.offsetWidth - 8) + 'px'; el.style.top = (rect.bottom - dr.top + 6) + 'px'; }
 
   /* ===== 选中工具条：点选格式化 + AI ===== */
-  let bar = null, aiTarget = null, askOut = null;
-  function hideToolbar() {
-    if (askOut) { document.removeEventListener('mousedown', askOut); askOut = null; }
-    if (bar) { bar.remove(); bar = null; }
-    if (aiTarget) { unwrap(aiTarget); aiTarget = null; }   // 取消 AI：去掉持久高亮、复原文字
-  }
+  let bar = null;
+  function hideToolbar() { if (bar) { bar.remove(); bar = null; } }
   function wireSelectionToolbar() {
     const b = docBody();
     b.addEventListener('mousedown', hideToolbar);
@@ -218,51 +214,40 @@ function render(md: string): Html {
     }));
   }
   function reselect(range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); }
-  // 包住选区：surroundContents 跨内联边界(选区含/截断 <b><code> 等)会抛错 → extractContents 兜底，能包任意范围
-  function wrapRange(range, tag, cls) {
-    let el = document.createElement(tag); if (cls) el.className = cls;
-    try { range.surroundContents(el); return el; }
-    catch (e) {
-      try { el = document.createElement(tag); if (cls) el.className = cls; el.appendChild(range.extractContents()); range.insertNode(el); return el; }
-      catch (e2) { return null; }
-    }
-  }
+  function wrap(range, tag) { try { const el = document.createElement(tag); range.surroundContents(el); } catch (e) {} }
   function applyFormat(a, range) {
     reselect(range);
     if (a === 'bold' || a === 'italic') document.execCommand(a);
     else if (a === 'strike') document.execCommand('strikethrough');
-    else if (a === 'mark') wrapRange(range, 'mark');
-    else if (a === 'code') wrapRange(range, 'code');
-    else if (a === 'link') { const el = wrapRange(range, 'a'); if (el) el.href = '#'; }
+    else if (a === 'mark') wrap(range, 'mark');
+    else if (a === 'code') wrap(range, 'code');
+    else if (a === 'link') { const el = document.createElement('a'); el.href = '#'; try { range.surroundContents(el); } catch (e) {} }
     hideToolbar();
   }
   // AI 询问：给一句自然语言指令（对齐后端 :iterate）+ 快捷动作 → 选区流光改写
   function showAiAsk(rect, range) {
     hideToolbar();
-    // 持久点亮选区：focus 移到输入框后原生 ::selection 会消失，用 .ai-target 一直点亮，用户看得见 AI 要改哪段
-    aiTarget = wrapRange(range, 'span', 'ai-target');
-    window.getSelection()?.removeAllRanges();
     bar = document.createElement('div'); bar.className = 'ai-ask';
     bar.innerHTML = `
       <div class="row"><span class="ico">${icon('spark', 16, 1.7)}</span><input id="aiAsk" placeholder="让 AI 改写选中内容…" autocomplete="off"></div>
       <div class="quick">${['改简洁', '续写', '翻译成英文', '更正式'].map(t => `<button>${t}</button>`).join('')}</div>`;
     doc().appendChild(bar);
-    placeBelow(bar, (aiTarget || range).getBoundingClientRect());
+    placeBelow(bar, rect);
     const input = bar.querySelector('#aiAsk');
     setTimeout(() => input.focus(), 0);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runAi(); } else if (e.key === 'Escape') hideToolbar(); });
-    bar.querySelectorAll('.quick button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); runAi(); }));
-    askOut = e => { if (bar && !bar.contains(e.target)) hideToolbar(); };   // 点面板外即取消（复原高亮）
-    setTimeout(() => document.addEventListener('mousedown', askOut), 0);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); aiSweep(range); } else if (e.key === 'Escape') hideToolbar(); });
+    bar.querySelectorAll('.quick button').forEach(b => b.addEventListener('mousedown', e => { e.preventDefault(); aiSweep(range); }));
   }
-  async function runAi() {
-    const target = aiTarget; aiTarget = null;   // 交给流光，别在 hideToolbar 里被复原
+  async function aiSweep(range) {
+    const id = ++runId;
     hideToolbar();
-    if (!target) { setStatus('saved'); return; }
-    const id = ++runId; setStatus('ai');
-    target.classList.remove('ai-target'); target.classList.add('ai-new', 'run');   // 持久高亮 → 流光
-    await sleep(1500); if (!alive(id)) { unwrap(target); return; }
-    unwrap(target); setStatus('saved');
+    setStatus('ai');
+    let span = null;
+    try { span = document.createElement('span'); span.className = 'ai-new run'; range.surroundContents(span); } catch (e) { span = null; }
+    window.getSelection()?.removeAllRanges();
+    await sleep(1500); if (!alive(id)) { if (span) unwrap(span); return; }
+    if (span) unwrap(span);
+    setStatus('saved');
   }
   function unwrap(span) {
     span.classList.remove('run');
