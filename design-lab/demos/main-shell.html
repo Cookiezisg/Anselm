@@ -178,6 +178,57 @@ code, .mono { font-family: var(--mono); }
 .bar .right .spin { color: var(--ink-3); display: grid; place-items: center; }
 .bar .right .spin svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== 右侧实体卡 = 岛（信号交互：AI 触碰实体时从右滑入、流式编辑） ===== */
+/* 同样的白/深 + 海岸线，默认收起(宽0)，唤出时滑入 */
+.aside { flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.04);
+  display: flex; flex-direction: column;
+  transition: width .42s cubic-bezier(.2,.85,.25,1), opacity .3s, margin-left .42s cubic-bezier(.2,.85,.25,1); }
+.aside.show { width: 384px; opacity: 1; margin-left: 0; }
+.aside-head { display: flex; align-items: center; gap: 10px; padding: 11px 8px 11px 14px; border-bottom: 1px solid var(--line); flex: none; }
+.etype { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; color: #fff; }
+.etype.agent { background: linear-gradient(135deg, var(--accent), #9b5de5); }
+.aside-head .ht { flex: 1; min-width: 0; }
+.aside-head .ht b { display: block; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aside-head .ht .sub { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.ver { font-family: var(--mono); background: var(--cc-active); color: var(--ink-2); padding: 0 6px; border-radius: 5px; }
+.live { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-weight: 600; }
+.live .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s ease infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-soft); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.aside-tabs { display: flex; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--line); flex: none; }
+.aside-tabs button { font-size: 12px; color: var(--ink-3); padding: 5px 10px; border-radius: 8px; font-weight: 500; transition: background .15s, color .15s; }
+.aside-tabs button.on { background: var(--cc-active); color: var(--ink); font-weight: 600; }
+.aside-body { flex: 1; overflow-y: auto; padding: 14px; }
+.field { margin-bottom: 16px; }
+.field > label { display: block; font-size: 11px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.field .val { background: var(--cc-input); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; font-size: 13px; white-space: pre-wrap; transition: box-shadow .4s, border-color .4s, background .4s; }
+.field .val.mono { font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+.field .val.flash { animation: flash 1.3s ease; }
+@keyframes flash { 0% { background: var(--accent-soft); border-color: var(--accent-line); } 100% { } }
+.taglist { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; background: var(--cc-input); border: 1px solid var(--line); font-size: 11px; font-family: var(--mono); color: var(--ink-2); }
+.tag.new { background: var(--ok-soft); color: var(--ok); border-color: transparent; animation: popin .3s cubic-bezier(.2,.85,.25,1); }
+@keyframes popin { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.caret { display: inline-block; width: 6px; height: 1em; vertical-align: -2px; background: var(--accent); border-radius: 1px; margin-left: 1px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
+
+/* 会话内：sparkle 标记 + amsg + 工具运行态 + editline + ref 药丸 */
+.turn { margin-bottom: 26px; }
+.umsg { display: flex; justify-content: flex-end; margin-bottom: 26px; }
+.spark { display: flex; color: var(--accent); margin-bottom: 12px; }
+.amsg { font-size: 14px; line-height: 1.65; }
+.amsg p { margin: 0 0 12px; } .amsg p:last-child { margin-bottom: 0; }
+.amsg b { font-weight: 600; }
+.amsg code { font-family: var(--mono); font-size: .9em; background: var(--cc-active); padding: 1px 5px; border-radius: 5px; }
+.tool-h .run { display: grid; place-items: center; color: var(--ink-3); }
+.tool-h .run svg { animation: spin 1s linear infinite; }
+.editline { display: inline-flex; align-items: center; gap: 7px; margin: 12px 0; padding: 4px 8px 4px 0; font-size: 13px; color: var(--ink-2); }
+.editline .ename { font-family: var(--mono); color: var(--ink); }
+.editline .estat { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.editline .estat .to { color: var(--ok); }
+.ref-pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -224,46 +275,12 @@ code, .mono { font-family: var(--mono); }
         <div class="crumb"><span class="ico" id="i_repo"></span> Forgify <span class="sep">/</span>
           <span class="muted">前端设计 (fork)</span> <span class="chev" id="i_cd"></span></div>
         <span class="grow"></span>
+        <button class="ibtn" id="i_replay" title="重播信号交互"></button>
         <button class="ibtn" id="i_theme"></button>
         <button class="ibtn" id="i_panel"></button>
       </div>
       <div class="conv" id="conv">
-        <div class="col">
-
-          <!-- 用户消息 -->
-          <div class="umsg"><div class="b">把左侧栏改成 Claude Code 那种扁平风格，去掉浮岛和阴影。</div></div>
-
-          <!-- 助手回合 -->
-          <div class="turn">
-            <div class="spark" id="sp1"></div>
-            <div class="amsg">
-              <p>好的。我把侧栏从「浮岛」改成<b>齐边扁平</b>：去掉外间距与阴影、加一条发丝分割线、压紧行高，并让选中项用中性灰高亮。</p>
-
-              <div class="tool"><button class="tool-h click"><span class="tk">Read 2 files</span><span class="chev" data-chev></span></button>
-                <div class="tool-d"><b>app_shell.dart</b>  · 142 lines
-<b>tokens.dart</b>  · 68 lines</div></div>
-
-              <p>改动如下：</p>
-
-              <div class="tool"><button class="tool-h click"><span class="tk">Edited</span> <code>app_shell.dart</code>
-                <span class="diff"><span class="add">+18</span> <span class="del">−26</span></span><span class="chev" data-chev></span></button>
-                <div class="tool-d">- 去掉 Container 的 margin / boxShadow / borderRadius
-- 侧栏底色改 surfaceMuted，右侧加 1px divider
-+ rowHeight 收到 32，item padding 收紧
-+ 选中态用 neutral hover/active，不再用 accent pill</div></div>
-
-              <div class="tool"><button class="tool-h click"><span class="tk">Ran a command</span><span class="chev" data-chev></span></button>
-                <div class="tool-d">$ flutter analyze
-Analyzing forgify…
-No issues found! (ran in 4.1s)</div></div>
-
-              <div class="tool status"><span class="tool-h"><span class="tk">Background shell completed <b style="color:var(--ink-2)">flutter analyze</b></span></span></div>
-
-              <p>分析通过、无告警。侧栏已是扁平齐边风格，和主区无缝衔接。要我把右侧实体面板也一并扁平化吗？</p>
-            </div>
-          </div>
-
-        </div>
+        <div class="col" id="col"></div>
       </div>
 
       <!-- ===== composer ===== -->
@@ -290,6 +307,9 @@ No issues found! (ran in 4.1s)</div></div>
         </div>
       </div>
     </main>
+
+    <!-- ===== 右侧实体卡 = 岛（信号交互：AI 触碰实体时从右滑入、流式编辑） ===== -->
+    <aside class="aside" id="aside"></aside>
   </div>
 </div>
 
@@ -317,6 +337,9 @@ const P = {
   mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/>',
   spin:'<path d="M21 12a9 9 0 1 1-6.2-8.5"/>',
   spark:'<path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l3.5 3.5M15.5 15.5 19 19M19 5l-3.5 3.5M8.5 15.5 5 19"/>',
+  agent:'<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V5M9 3h6"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/>',
+  close:'<path d="M18 6 6 18M6 6l12 12"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
 };
 const svg = (k, n=16, w=1.7) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[k]}</svg>`;
 
@@ -358,6 +381,122 @@ $('#i_theme').onclick = () => {
   document.documentElement.dataset.theme = d ? 'light' : 'dark';
   $('#i_theme').innerHTML = svg(d ? 'moon' : 'sun');
 };
+
+// ===== 信号交互：对话动画编排 + 右侧实体卡岛 =====
+$('#i_replay').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const col = $('#col'), aside = $('#aside'), conv = $('#conv');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let runId = 0; const alive = id => id === runId;
+const toBottom = () => { conv.scrollTop = conv.scrollHeight; };
+
+function typeInto(node, text, cps = 58){
+  const id = runId;
+  return new Promise(res => {
+    const caret = document.createElement('span'); caret.className = 'caret'; node.appendChild(caret);
+    let i = 0;
+    (function step(){
+      if(!alive(id)){ caret.remove(); return res(); }
+      caret.insertAdjacentText('beforebegin', text[i++] ?? '');
+      toBottom();
+      if(i > text.length){ caret.remove(); return res(); }
+      setTimeout(step, 1000 / cps + Math.random() * 16);
+    })();
+  });
+}
+function userMsg(html){ const m = document.createElement('div'); m.className = 'umsg'; m.innerHTML = `<div class="b">${html}</div>`; col.appendChild(m); toBottom(); }
+function aiTurn(){ const t = document.createElement('div'); t.className = 'turn';
+  t.innerHTML = `<div class="spark">${svg('spark',16,1.6)}</div><div class="amsg"></div>`; col.appendChild(t); toBottom(); return $('.amsg', t); }
+function para(body){ const p = document.createElement('p'); body.appendChild(p); return p; }
+
+// 工具活动行：运行态(spinner+实时文案) → 收敛「Used N tools ›」可展开
+function toolAct(body){
+  const w = document.createElement('div'); w.className = 'tool';
+  w.innerHTML = `<button class="tool-h"><span class="run">${svg('spin',14)}</span><span class="tk"></span>
+    <span class="chev" style="display:none">${svg('chevr',14)}</span></button><div class="tool-d"></div>`;
+  body.appendChild(w); toBottom();
+  const head = $('.tool-h', w), run = $('.run', w), tk = $('.tk', w), chev = $('.chev', w), det = $('.tool-d', w);
+  head.onclick = () => { if(!det.innerHTML) return; w.classList.toggle('open'); };
+  return { status(t){ tk.textContent = t; toBottom(); },
+    settle(s, d){ run.remove(); tk.textContent = s; det.innerHTML = d; chev.style.display = ''; head.classList.add('click'); toBottom(); } };
+}
+function editLine(body, name, fromV, toV){
+  const w = document.createElement('div'); w.className = 'editline';
+  w.innerHTML = `${svg('edit',14)} Updated <span class="ename">${name}</span> <span class="estat">v${fromV} → <span class="to">v${toV}</span></span>`;
+  body.appendChild(w); toBottom();
+}
+
+// 右侧实体卡（岛）：渲染 Agent + 滑入
+function renderAgent(a){
+  aside.classList.add('show');
+  aside.innerHTML = `
+    <div class="aside-head">
+      <span class="etype agent">${svg('agent',18)}</span>
+      <span class="ht"><b>${a.name}</b><span class="sub">
+        <span class="ver" data-ver>v${a.version}</span>
+        <span data-live>${a.live ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : '已保存'}</span>
+      </span></span>
+      <button class="ibtn" data-close>${svg('close',16)}</button>
+    </div>
+    <div class="aside-tabs"><button class="on">Overview</button><button>Versions</button><button>Runs</button><button>Iterate</button></div>
+    <div class="aside-body">
+      <div class="field" data-f="model"><label>Model</label><div class="val mono">${a.model}</div></div>
+      <div class="field" data-f="system"><label>System prompt</label><div class="val">${a.system}</div></div>
+      <div class="field" data-f="tools"><label>Tools</label><div class="val" style="padding:8px"><div class="taglist">${a.tools.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div></div>
+    </div>`;
+  $('[data-close]', aside).onclick = () => aside.classList.remove('show');
+  aside.querySelectorAll('.aside-tabs button').forEach(b => b.onclick = () => {
+    aside.querySelectorAll('.aside-tabs button').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+}
+function setLive(on, note){ const s = $('[data-live]', aside); if(s) s.innerHTML = on ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : note; }
+
+// 编排
+async function runDemo(){
+  const id = ++runId;
+  col.innerHTML = ''; aside.classList.remove('show'); aside.innerHTML = '';
+
+  userMsg('帮我把仓库这周的 PR 理一理。');
+  const h = aiTurn();
+  h.innerHTML = `<p>这周有 9 个 PR，其中 3 个还在等审。要我让 <span class="ref-pill" data-open>${svg('agent',12)}Researcher</span> 出一份带链接的周报吗？</p>`;
+  if(!alive(id)) return; await sleep(700);
+
+  userMsg('把 Researcher 升级到 Opus，并要求它所有结论都带引用来源。');
+  await sleep(450); if(!alive(id)) return;
+  const body = aiTurn();
+  await typeInto(para(body), '好的，我来更新 Researcher：切换模型到 claude-opus-4-8，并在系统提示里加上引用要求。', 66);
+  if(!alive(id)) return;
+
+  await sleep(250);
+  const ta = toolAct(body); ta.status('Reading Researcher…');
+  await sleep(800); if(!alive(id)) return;
+  ta.status('Updating Researcher…');           // ← 这一刻唤出右岛
+  await sleep(350); if(!alive(id)) return;
+  renderAgent({ name:'Researcher', version:4, model:'claude-sonnet-4-6',
+    system:'你是严谨的调研助手。检索、交叉验证、给出结构化综述。',
+    tools:['web_fetch','read_file','python','summarize'], live:true });
+  await sleep(650); if(!alive(id)) return;
+
+  const mv = $('[data-f="model"] .val', aside); mv.classList.add('flash'); mv.textContent = 'claude-opus-4-8';
+  await sleep(900); if(!alive(id)) return;
+  const sv = $('[data-f="system"] .val', aside); sv.classList.add('flash');
+  await typeInto(sv, '\n\n务必为每条结论附引用来源（行内链接）。', 42);
+  if(!alive(id)) return; await sleep(500);
+  const tl = $('[data-f="tools"] .taglist', aside);
+  const nt = document.createElement('span'); nt.className = 'tag new'; nt.textContent = 'web_search'; tl.appendChild(nt);
+  await sleep(700); if(!alive(id)) return;
+
+  $('[data-ver]', aside).textContent = 'v5'; setLive(false, '刚刚更新 · v5');
+  ta.settle('Used 2 tools', `<b>read_agent</b>(Researcher)\n  → model = claude-sonnet-4-6\n  → tools = [web_fetch, read_file, python, summarize]\n\n<b>update_agent</b>(Researcher)\n  → model = claude-opus-4-8\n  → system += 引用要求（行内链接）\n  → tools += web_search`);
+  editLine(body, 'Researcher', 4, 5);
+  await sleep(350); if(!alive(id)) return;
+  await typeInto(para(body), '完成 ✅ Researcher 现在跑在 Opus 上，每条结论都会附引用。', 66);
+
+  col.querySelectorAll('[data-open]').forEach(p => p.onclick = () => aside.classList.add('show'));
+}
+
+$('#i_replay').onclick = runDemo;
+$('#i_enter').onclick = runDemo;
+$('#i_panel').onclick = () => aside.classList.toggle('show');
+runDemo();
 </script>
 </body>
 </html>
