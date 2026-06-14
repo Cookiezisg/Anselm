@@ -170,6 +170,40 @@ code, .mono { font-family: var(--mono); }
 .tc-entity .en .d .to { color: var(--ink); font-family: var(--mono); }
 .tc-entity .go { font-size: 12px; color: var(--ink-3); flex: none; }
 
+/* Codex 式工具卡（操作列表 + 增删数）+ diff 查看器（行号 · 绿增红删） */
+.tcx { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--cc-input); margin: 12px 0; }
+.tcx-h { display: flex; align-items: center; gap: 9px; padding: 9px 12px; font-size: 13px; color: var(--ink); }
+.tcx.click .tcx-h { cursor: pointer; }
+.tcx.click .tcx-h:hover { background: var(--cc-hover); }
+.tcx-h .run { display: grid; place-items: center; color: var(--ink-3); }
+.tcx-h .run svg { animation: spin 1s linear infinite; }
+.tcx-h .stat { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.stat .a { color: var(--ok); } .stat .d { color: var(--danger); }
+.tcx-h .chev { margin-left: auto; color: var(--ink-3); transition: transform .18s; }
+.tcx.open .tcx-h .chev { transform: rotate(90deg); }
+.tcx-body { display: none; border-top: 1px solid var(--line); }
+.tcx.open .tcx-body { display: block; }
+.opr { display: flex; align-items: center; gap: 9px; padding: 9px 12px; font-size: 13px; }
+.opr + .opr, .opr + .dvwrap { border-top: 1px solid var(--line); }
+.opr .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.opr code { font-family: var(--mono); color: var(--ink); font-size: 12.5px; }
+.opr .tgt { color: var(--ink-3); font-size: 12px; }
+.opr .stat { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.dvwrap { padding: 10px 12px 12px; }
+.dv { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.dv-h { display: flex; align-items: center; gap: 8px; padding: 7px 11px; background: var(--cc-active); font-size: 12px; }
+.dv-h code { font-family: var(--mono); color: var(--ink); }
+.dv-h .stat { margin-left: auto; font-family: var(--mono); font-size: 11px; }
+.dv-b { padding: 6px 0; font-family: var(--mono); font-size: 12px; }
+.dl { display: flex; line-height: 1.85; }
+.dl .n { width: 34px; flex: none; text-align: right; padding-right: 10px; color: var(--ink-3); opacity: .5; user-select: none; }
+.dl .s { width: 13px; flex: none; text-align: center; color: var(--ink-3); }
+.dl .c { flex: 1; padding-right: 12px; white-space: pre-wrap; color: var(--ink-2); }
+.dl.add { background: color-mix(in srgb, var(--ok) 11%, transparent); }
+.dl.add .s { color: var(--ok); } .dl.add .c { color: var(--ink); }
+.dl.del { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.dl.del .s { color: var(--danger); } .dl.del .c { color: var(--ink-3); }
+
 /* ---- 底部 composer ---- */
 .composer { flex: none; padding: 0 32px 18px; }
 .cwrap { max-width: 860px; margin: 0 auto; }
@@ -433,16 +467,20 @@ function aiTurn(){ const t = document.createElement('div'); t.className = 'turn'
   t.innerHTML = `<div class="spark">${svg('spark',16,1.6)}</div><div class="amsg"></div>`; col.appendChild(t); toBottom(); return $('.amsg', t); }
 function para(body){ const p = document.createElement('p'); body.appendChild(p); return p; }
 
-// 工具活动行：运行态(spinner+实时文案) → 收敛「Used N tools ›」可展开
+// 工具卡（Codex 式）：运行态(spinner + 实时文案) → 收敛「Used N tools +X −Y」+ 操作列表 + diff
 function toolAct(body){
-  const w = document.createElement('div'); w.className = 'tool';
-  w.innerHTML = `<button class="tool-h"><span class="run">${svg('spin',14)}</span><span class="tk"></span>
-    <span class="chev" style="display:none">${svg('chevr',14)}</span></button><div class="tool-d"></div>`;
+  const w = document.createElement('div'); w.className = 'tcx';
+  w.innerHTML = `<div class="tcx-h"><span class="run">${svg('spin',14)}</span><span class="tk"></span>
+    <span class="stat" data-stat></span><span class="chev" style="display:none">${svg('chevr',14)}</span></div>
+    <div class="tcx-body"></div>`;
   body.appendChild(w); toBottom();
-  const head = $('.tool-h', w), run = $('.run', w), tk = $('.tk', w), chev = $('.chev', w), det = $('.tool-d', w);
-  head.onclick = () => { if(!det.innerHTML) return; w.classList.toggle('open'); };
+  const head = $('.tcx-h', w), run = $('.run', w), tk = $('.tk', w), stat = $('[data-stat]', w), chev = $('.chev', w), bd = $('.tcx-body', w);
+  head.onclick = () => { if(w.classList.contains('click')) w.classList.toggle('open'); };
   return { status(t){ tk.textContent = t; toBottom(); },
-    settle(s, d){ run.remove(); tk.textContent = s; det.innerHTML = d; chev.style.display = ''; head.classList.add('click'); toBottom(); } };
+    settle(s, statHTML, bodyHTML){
+      run.remove(); tk.textContent = s; stat.innerHTML = statHTML || ''; bd.innerHTML = bodyHTML;
+      chev.style.display = ''; w.classList.add('click', 'open'); toBottom();
+    } };
 }
 // 实体变更块：对话内的实体卡缩影，点开右侧岛看全貌
 function entityBlock(body, name, fromV, toV){
@@ -518,11 +556,21 @@ async function runDemo(){
   await sleep(700); if(!alive(id)) return;
 
   $('[data-ver]', aside).textContent = 'v5'; setLive(false);
-  ta.settle('Used 2 tools', `
-    <div class="tc-step"><div class="sh"><span class="pdot"></span><code>read_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model = claude-sonnet-4-6 · 4 tools</div></div>
-    <div class="tc-step"><div class="sh"><span class="pdot"></span><code>update_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model → claude-opus-4-8
-→ system += 引用要求
-→ tools += web_search</div></div>`);
+  ta.settle('Used 2 tools', '<span class="a">+3</span> <span class="d">−2</span>', `
+    <div class="opr"><span class="dot"></span><code>read_agent</code><span class="tgt">Researcher</span></div>
+    <div class="opr"><span class="dot"></span><code>update_agent</code><span class="tgt">Researcher</span><span class="stat"><span class="a">+3</span> <span class="d">−2</span></span></div>
+    <div class="dvwrap"><div class="dv">
+      <div class="dv-h"><code>agent · Researcher</code><span class="stat"><span class="a">+3</span> <span class="d">−2</span></span></div>
+      <div class="dv-b">
+        <div class="dl del"><span class="n">12</span><span class="s">−</span><span class="c">model: claude-sonnet-4-6</span></div>
+        <div class="dl add"><span class="n">12</span><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div>
+        <div class="dl"><span class="n">18</span><span class="s"></span><span class="c">system: |</span></div>
+        <div class="dl"><span class="n">19</span><span class="s"></span><span class="c">  你是严谨的调研助手。检索、交叉验证、给出结构化综述。</span></div>
+        <div class="dl add"><span class="n">20</span><span class="s">+</span><span class="c">  务必为每条结论附引用来源（行内链接）。</span></div>
+        <div class="dl del"><span class="n">24</span><span class="s">−</span><span class="c">tools: [web_fetch, read_file, python, summarize]</span></div>
+        <div class="dl add"><span class="n">24</span><span class="s">+</span><span class="c">tools: [web_fetch, read_file, python, summarize, web_search]</span></div>
+      </div>
+    </div></div>`);
   entityBlock(body, 'Researcher', 4, 5);
   await sleep(350); if(!alive(id)) return;
   await typeInto(para(body), '完成 ✅ Researcher 现在跑在 Opus 上，每条结论都会附引用。', 66);

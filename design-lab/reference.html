@@ -138,6 +138,39 @@ code, .mono { font-family: var(--mono); }
 .tc-entity .en .d { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
 .tc-entity .en .d code { font-family: var(--mono); } .tc-entity .en .d .to { color: var(--ink); font-family: var(--mono); }
 .tc-entity .go { font-size: 12px; color: var(--ink-3); flex: none; }
+
+/* ===== Codex 式：工具卡（操作列表 + 增删数）+ diff 查看器（行号 · 绿增红删） ===== */
+.tcx { border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: var(--cc-input); }
+.tcx-h { display: flex; align-items: center; gap: 9px; padding: 9px 12px; cursor: pointer; font-size: 13px; color: var(--ink); }
+.tcx-h:hover { background: var(--cc-hover); }
+.tcx-h .stat { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.stat .a { color: var(--ok); } .stat .d { color: var(--danger); }
+.tcx-h .chev { margin-left: auto; color: var(--ink-3); transition: transform .18s; }
+.tcx.open .tcx-h .chev { transform: rotate(90deg); }
+.tcx-body { display: none; border-top: 1px solid var(--line); }
+.tcx.open .tcx-body { display: block; }
+.opr { display: flex; align-items: center; gap: 9px; padding: 9px 12px; font-size: 13px; }
+.opr + .opr, .opr + .dvwrap, .dvwrap + .opr { border-top: 1px solid var(--line); }
+.opr .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.opr code { font-family: var(--mono); color: var(--ink); font-size: 12.5px; }
+.opr .tgt { color: var(--ink-3); font-size: 12px; }
+.opr .stat { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.dvwrap { padding: 10px 12px 12px; }
+/* diff 查看器 */
+.dv { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.dv-h { display: flex; align-items: center; gap: 8px; padding: 7px 11px; background: var(--cc-active); font-size: 12px; }
+.dv-h code { font-family: var(--mono); color: var(--ink); }
+.dv-h .stat { margin-left: auto; font-family: var(--mono); font-size: 11px; }
+.dv-b { padding: 6px 0; font-family: var(--mono); font-size: 12px; background: var(--cc-input); }
+.term { font-family: var(--mono); font-size: 12px; line-height: 1.85; white-space: pre-wrap; color: var(--ink-2); padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; }
+.dl { display: flex; line-height: 1.85; }
+.dl .n { width: 34px; flex: none; text-align: right; padding-right: 10px; color: var(--ink-3); opacity: .5; user-select: none; }
+.dl .s { width: 13px; flex: none; text-align: center; color: var(--ink-3); }
+.dl .c { flex: 1; padding-right: 12px; white-space: pre-wrap; color: var(--ink-2); }
+.dl.add { background: color-mix(in srgb, var(--ok) 11%, transparent); }
+.dl.add .s { color: var(--ok); } .dl.add .c { color: var(--ink); }
+.dl.del { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.dl.del .s { color: var(--danger); } .dl.del .c { color: var(--ink-3); }
 </style>
 </head>
 <body>
@@ -181,31 +214,49 @@ code, .mono { font-family: var(--mono); }
   <!-- 工具调用块 -->
   <div class="sect">
     <h2>四 · 工具调用块（对话内的框 × 右侧面板的框，成对设计）</h2>
-    <p class="note" style="margin-bottom:18px">规矩：工具调用在对话里是<b>紧凑的「框」</b>（日志态，默认折叠）；详情要么<b>就地展开</b>、要么落到<b>右侧面板</b>——两者<b>同一种框语言</b>（海岸线描边、中性、mono）。点一下展开 / 唤出右岛。</p>
+    <p class="note" style="margin-bottom:18px">规矩：工具调用在对话里是一个<b>紧凑的框</b>（默认折叠 + 操作数 <span class="stat"><span class="a">+N</span> <span class="d">−M</span></span>）；点开看<b>操作列表</b>，再点开看<b>带行号、绿增红删的 diff</b>。实体变更落到<b>右侧面板</b>看全貌——对话内框与右侧框<b>同一设计语言</b>。</p>
     <div class="tc-demos">
-      <div class="demo">
-        <div class="lab">① 一组工具（就地展开看每步）</div>
-        <div class="tc open" data-tc>
-          <div class="tc-sum">Used 2 tools <span class="chev"></span></div>
-          <div class="tc-det">
-            <div class="tc-step"><div class="sh"><span class="pdot"></span><code>read_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model = claude-sonnet-4-6 · 4 tools</div></div>
-            <div class="tc-step"><div class="sh"><span class="pdot"></span><code>update_agent</code><span class="tgt">Researcher</span></div><div class="so">→ model → claude-opus-4-8
-→ system += 引用要求
-→ tools += web_search</div></div>
+      <div class="demo wide">
+        <div class="lab">① 工具卡 + 变更 diff（行号 · 绿增红删）—— tool call 的主形态</div>
+        <div class="tcx open" data-tcx>
+          <div class="tcx-h">Used 2 tools <span class="stat"><span class="a">+3</span> <span class="d">−2</span></span> <span class="chev"></span></div>
+          <div class="tcx-body">
+            <div class="opr"><span class="dot"></span><code>read_agent</code><span class="tgt">Researcher</span></div>
+            <div class="opr"><span class="dot"></span><code>update_agent</code><span class="tgt">Researcher</span><span class="stat"><span class="a">+3</span> <span class="d">−2</span></span></div>
+            <div class="dvwrap"><div class="dv">
+              <div class="dv-h"><code>agent · Researcher</code><span class="stat"><span class="a">+3</span> <span class="d">−2</span></span></div>
+              <div class="dv-b">
+                <div class="dl del"><span class="n">12</span><span class="s">−</span><span class="c">model: claude-sonnet-4-6</span></div>
+                <div class="dl add"><span class="n">12</span><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div>
+                <div class="dl"><span class="n">18</span><span class="s"></span><span class="c">system: |</span></div>
+                <div class="dl"><span class="n">19</span><span class="s"></span><span class="c">  你是严谨的调研助手。检索、交叉验证、给出结构化综述。</span></div>
+                <div class="dl add"><span class="n">20</span><span class="s">+</span><span class="c">  务必为每条结论附引用来源（行内链接）。</span></div>
+                <div class="dl del"><span class="n">24</span><span class="s">−</span><span class="c">tools: [web_fetch, read_file, python, summarize]</span></div>
+                <div class="dl add"><span class="n">24</span><span class="s">+</span><span class="c">tools: [web_fetch, read_file, python, summarize, web_search]</span></div>
+              </div>
+            </div></div>
           </div>
         </div>
       </div>
       <div class="demo">
-        <div class="lab">② 命令（就地展开看输出）</div>
-        <div class="tc open" data-tc>
-          <div class="tc-sum">Ran <code>flutter analyze</code> <span class="ok" data-ck></span> <span class="chev"></span></div>
-          <div class="tc-term">$ flutter analyze
+        <div class="lab">② 命令（终端输出）</div>
+        <div class="tcx open" data-tcx>
+          <div class="tcx-h">Ran <code>flutter analyze</code> <span class="ok" data-ck></span> <span class="chev"></span></div>
+          <div class="tcx-body"><div class="dvwrap"><div class="term">$ flutter analyze
 Analyzing forgify…
-No issues found! (ran in 4.1s)</div>
+No issues found! (ran in 4.1s)</div></div></div>
         </div>
       </div>
+      <div class="demo">
+        <div class="lab">③ 折叠态（默认）</div>
+        <div class="tcx" data-tcx>
+          <div class="tcx-h">Used 2 tools <span class="stat"><span class="a">+3</span> <span class="d">−2</span></span> <span class="chev"></span></div>
+          <div class="tcx-body"><div class="opr"><span class="dot"></span><code>read_agent</code><span class="tgt">Researcher</span></div><div class="opr"><span class="dot"></span><code>update_agent</code><span class="tgt">Researcher</span></div></div>
+        </div>
+        <p class="note" style="font-size:12px;margin-top:10px">点标题展开 / 收起。</p>
+      </div>
       <div class="demo wide">
-        <div class="lab">③ 实体变更（对话内的实体卡缩影 → 点开右侧岛看全貌）</div>
+        <div class="lab">④ 实体变更块（对话内缩影 → 点开右侧岛看全貌）</div>
         <div class="tc-entity">
           <span class="etype" data-ag></span>
           <span class="en"><b>Researcher</b><span class="d"><code>update_agent</code> · <span class="to">v4 → v5</span></span></span>
@@ -223,9 +274,6 @@ No issues found! (ran in 4.1s)</div>
       <div class="demo"><div class="lab">用户气泡（灰药丸，唯一的灰填充例外）</div><div class="umsg"><div class="b">把 Researcher 升级到 Opus，并要求结论带引用来源。</div></div></div>
       <div class="demo"><div class="lab">Notion 式切换（选中展开药丸）</div><div class="seg" id="seg"></div></div>
       <div class="demo"><div class="lab">实体引用药丸（行内、中性）</div><span class="ref-pill"><span class="ic" id="rp"></span>Researcher</span></div>
-      <div class="demo"><div class="lab">折叠态工具块（默认，点开展开 diff）</div><div class="tc" data-tc><div class="tc-sum">Edited <code>app_shell.dart</code> <span style="color:var(--ink-3);font-family:var(--mono);font-size:12px">+18 −26</span> <span class="chev"></span></div><div class="tc-term">@@ app_shell.dart
-- Container( margin · boxShadow · radius )
-+ 齐边 + 1px divider + 紧凑行高</div></div></div>
     </div>
   </div>
 
@@ -247,10 +295,10 @@ $('#mk').innerHTML = svg('forge',22,2);
 $('#rp').innerHTML = svg('agent',12);
 $('#seg').innerHTML = `<button class="on">${svg('chat',15)} Chat</button><button>${svg('tasks',15)}</button><button>${svg('code',15)}</button>`;
 // 工具块图标 + 展开/折叠
-document.querySelectorAll('.tc .chev').forEach(c => c.innerHTML = svg('chevr',14));
+document.querySelectorAll('.chev').forEach(c => { if(!c.innerHTML) c.innerHTML = svg('chevr',14); });
 document.querySelectorAll('[data-ck]').forEach(c => c.innerHTML = svg('check',14));
 document.querySelectorAll('[data-ag]').forEach(c => c.innerHTML = svg('agent',17));
-document.querySelectorAll('.tc[data-tc] .tc-sum').forEach(s => s.onclick = () => s.closest('.tc').classList.toggle('open'));
+document.querySelectorAll('[data-tcx] .tcx-h').forEach(h => h.onclick = () => h.closest('.tcx').classList.toggle('open'));
 
 // 配色 swatches
 const SW = [
