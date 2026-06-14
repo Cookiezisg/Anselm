@@ -14,7 +14,7 @@ func TestKindForID(t *testing.T) {
 		{"ag_a1b2c3d4e5f6a7b8", EntityKindAgent, true},
 		{"doc_aabbccdd11223344", EntityKindDocument, true},
 		{"cv_aabbccdd11223344", EntityKindConversation, true},
-		// sk_/mcp_ rule is fixed now; tables come in 波次 3, but resolution already works.
+		// sk_/mcp_ resolve off the prefix alone — skill is file-based (no table) yet still routes.
 		{"sk_aabbccdd11223344", EntityKindSkill, true},
 		{"mcp_aabbccdd11223344", EntityKindMCP, true},
 		{"trg_aabbccdd11223344", EntityKindTrigger, true},
@@ -41,7 +41,7 @@ func TestIsValidKind(t *testing.T) {
 			t.Errorf("IsValidKind(%q) = false, want true", k)
 		}
 	}
-	// old vocabulary must not validate.
+	// strings outside the 4-verb set must not validate.
 	for _, k := range []string{"uses", "forged", "links_to", "equip_function", ""} {
 		if IsValidKind(k) {
 			t.Errorf("IsValidKind(%q) = true, want false", k)

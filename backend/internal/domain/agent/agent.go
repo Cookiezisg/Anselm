@@ -114,10 +114,10 @@ var (
 )
 
 // Repository is the persistence port for the Agent domain. No GetPending / AcceptVersion —
-// edits take effect immediately (the pending/accept machine is gone).
+// edits take effect immediately (there is no pending/accept state machine).
 //
 // Repository 是 Agent domain 的持久化端口。无 GetPending / AcceptVersion——编辑立即生效
-// （pending/accept 机制已去除）。
+// （无 pending/accept 状态机）。
 // VersionListFilter is a cursor page request for one agent's versions (N4 — same shape as
 // function/handler).
 //
@@ -144,8 +144,8 @@ type Repository interface {
 	ListAll(ctx context.Context) ([]*Agent, error)
 	UpdateMeta(ctx context.Context, a *Agent) error                                // name/description/tags only — no version bump
 	SetActiveVersion(ctx context.Context, agentID, versionID string) error         // edit / revert: move the pointer
-	CreateWithVersion(ctx context.Context, e *Agent, v *Version) error             // create + v1, one tx (review PD-3)
-	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx (review PD-3)
+	CreateWithVersion(ctx context.Context, e *Agent, v *Version) error             // create + v1, one tx
+	SaveVersionAndActivate(ctx context.Context, v *Version, entityID string) error // new version + pointer move, one tx
 	SoftDelete(ctx context.Context, id string) error
 
 	CreateVersion(ctx context.Context, v *Version) error // version pre-set to max+1 by the Service

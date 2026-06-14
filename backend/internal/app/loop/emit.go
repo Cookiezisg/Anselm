@@ -12,11 +12,10 @@ import (
 )
 
 // bridgeKey carries the messages-stream Bridge through ctx so block lifecycle can be pushed
-// from deep in the call stack (streamLLM, runOneTool) without threading it as a parameter —
-// the same seam the old eventlog Emitter used.
+// from deep in the call stack (streamLLM, runOneTool) without threading it as a parameter.
 //
 // bridgeKey 经 ctx 携带 messages 流的 Bridge，使 block 生命周期能从深调用栈（streamLLM、
-// runOneTool）推送而无需层层传参——与旧 eventlog Emitter 同一条缝。
+// runOneTool）推送而无需层层传参。
 type bridgeKey struct{}
 
 // WithBridge seeds the messages-stream Bridge so the loop live-pushes block lifecycle as it

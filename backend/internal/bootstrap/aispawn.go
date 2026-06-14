@@ -20,11 +20,11 @@ import (
 	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
 )
 
-// aispawn adapters (R0065): glue the iterate/triage engine onto the concrete conversation + chat
+// aispawn adapters: glue the iterate/triage engine onto the concrete conversation + chat
 // services and a prefix-dispatched execution renderer. Kept here (bootstrap) so aispawn stays a
 // pure app service depending only on its small ports.
 //
-// aispawn 适配器（R0065）：把 iterate/triage 引擎黏到具体 conversation + chat 服务 + 前缀分发的执行渲染器。放在
+// aispawn 适配器：把 iterate/triage 引擎黏到具体 conversation + chat 服务 + 前缀分发的执行渲染器。放在
 // bootstrap，使 aispawn 保持只依赖其小端口的纯 app 服务。
 
 // aispawnConvStarter wraps conversation.CreateWithSystemPrompt, returning just the new id.
@@ -130,9 +130,9 @@ func renderExecution(label string, v any) string {
 }
 
 // newAispawn assembles the iterate/triage engine from the conversation + chat services and a
-// renderer over the four executable kinds.
+// renderer over the six executable kinds.
 //
-// newAispawn 从 conversation + chat 服务 + 覆盖四类可执行体的渲染器组装 iterate/triage 引擎。
+// newAispawn 从 conversation + chat 服务 + 覆盖六类可执行体的渲染器组装 iterate/triage 引擎。
 func newAispawn(s *services, log *zap.Logger) *aispawnapp.Service {
 	return aispawnapp.NewService(
 		aispawnConvStarter{conv: s.conversation},

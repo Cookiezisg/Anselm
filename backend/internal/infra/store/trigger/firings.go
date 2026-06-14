@@ -55,10 +55,6 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 	return rows, nil
 }
 
-// MarkFiringOutcome sets a non-started terminal status (skipped/superseded/shed) — every
-// firing reaches a terminal status, never silently dropped. Best-effort on a missing row.
-//
-// MarkFiringOutcome 置非 started 终态（skipped/superseded/shed）——每条 firing 都有终态，绝不静默丢。
 // SearchFirings pages one trigger's firing inbox newest-first (the disposition surface).
 //
 // SearchFirings 分页某 trigger 的 firing 收件箱（最新优先，处置面）。
@@ -77,6 +73,10 @@ func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFi
 	return rows, next, nil
 }
 
+// MarkFiringOutcome sets a non-started terminal status (skipped/superseded/shed) — every
+// firing reaches a terminal status, never silently dropped. Best-effort on a missing row.
+//
+// MarkFiringOutcome 置非 started 终态（skipped/superseded/shed）——每条 firing 都有终态，绝不静默丢。
 func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) error {
 	if _, err := s.frs.WhereEq("id", firingID).Update(ctx, "status", status); err != nil {
 		return fmt.Errorf("triggerstore.MarkFiringOutcome: %w", err)
@@ -85,12 +85,12 @@ func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) 
 }
 
 // ClaimFiring is store-concrete (NOT in the domain Repository): the single-transaction claim
-// + flowrun build (ADR-021), consumed by the scheduler (波次 4). It atomically claims the
+// + flowrun build, consumed by the scheduler. It atomically claims the
 // firing (pending→claimed only if still pending), runs create(tx) to build the flowrun in the
 // SAME tx, then backfills started + flowrun_id. A crash before commit rolls back (firing stays
 // pending); there is never a claimed-but-no-flowrun strand. ErrFiringNotPending = race lost.
 //
-// ClaimFiring 是 store 具体方法（不在 domain 接口）：单事务 claim + 建 flowrun（ADR-021），波次 4
+// ClaimFiring 是 store 具体方法（不在 domain 接口）：单事务 claim + 建 flowrun，
 // scheduler 消费。同事务内 claim（仅当仍 pending）→ create(tx) 建 flowrun → 回填 started+flowrun_id；
 // commit 前崩溃则回滚（firing 仍 pending），无 claimed-但-无-flowrun 残留态。
 func (s *Store) ClaimFiring(ctx context.Context, firingID string, create func(tx *ormpkg.DB) (string, error)) (string, error) {

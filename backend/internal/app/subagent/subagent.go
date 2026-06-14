@@ -41,9 +41,9 @@ import (
 const attrParentBlockID = "parentBlockId"
 
 // Bundle is a ready-to-run LLM client + pre-filled base Request, self-contained so subagent
-// doesn't import chatapp. The M7 adapter resolves it (model.Resolve(ScenarioDialogue, …)).
+// doesn't import chatapp. The bootstrap resolver fills it (model.Resolve(ScenarioDialogue, …)).
 //
-// Bundle 是即用 LLM client + 预填 base Request，自包含使 subagent 不引 chatapp。M7 适配器解析它。
+// Bundle 是即用 LLM client + 预填 base Request，自包含使 subagent 不引 chatapp。由 bootstrap resolver 解析。
 type Bundle struct {
 	Client   llminfra.Client
 	Request  llminfra.Request
@@ -63,10 +63,10 @@ type ModelResolver interface {
 }
 
 // ToolsProvider returns the parent tool set a subagent's type filters down from. What it
-// contains (resident-only vs full) is the M7 wiring's call; filterTools just applies the
+// contains (resident-only vs full) is the wiring's call; filterTools just applies the
 // per-type allow-list + strips the Subagent tool.
 //
-// ToolsProvider 返回 subagent 类型据以过滤的父工具集。它含什么（仅 resident vs 全量）由 M7 装配定；
+// ToolsProvider 返回 subagent 类型据以过滤的父工具集。它含什么（仅 resident vs 全量）由装配定；
 // filterTools 只套类型白名单 + 剔 Subagent 工具。
 type ToolsProvider interface {
 	Tools() []toolapp.Tool

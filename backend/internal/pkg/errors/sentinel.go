@@ -17,10 +17,10 @@ var (
 
 	// ErrNotFound: a route / sub-action / resource the router or a handler's :action
 	// dispatcher can't resolve. Every unmatched dispatch + unknown :action lands here
-	// (404) — transport never hand-codes a 404 (S20/MD-err).
+	// (404) — transport never hand-codes a 404 (S20).
 	//
 	// ErrNotFound：路由 / 子动作 / 资源解析不出（router 兜底 + handler 的 :action 派发器未
-	// 命中 + 未知 :action 全落此,404）——transport 不再手编 404（S20/MD-err）。
+	// 命中 + 未知 :action 全落此,404）——transport 不再手编 404（S20）。
 	ErrNotFound = New(KindNotFound, "NOT_FOUND", "not found")
 
 	// ErrInternal: an unexpected server fault (recovered panic). Original detail is logged,

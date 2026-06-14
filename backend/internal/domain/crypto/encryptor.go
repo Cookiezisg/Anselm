@@ -7,11 +7,11 @@ package crypto
 import "context"
 
 // Encryptor encrypts/decrypts byte slices, content-agnostic. Ciphertext
-// carries a version tag so multiple algorithms (local AES now, KMS envelope
-// later) can coexist during migration.
+// carries a 'v1:' version tag making the format self-describing; Decrypt
+// rejects any non-v1 ciphertext.
 //
-// Encryptor 加密/解密任意字节切片，与内容无关。密文带版本标识，
-// 让多种算法（本地 AES / 未来 KMS 信封）在迁移期共存。
+// Encryptor 加密/解密任意字节切片，与内容无关。密文带 'v1:' 版本标签使格式
+// 自描述；Decrypt 拒绝任何非 v1 密文。
 type Encryptor interface {
 	// Encrypt seals plaintext into versioned ASCII-safe ciphertext.
 	// Encrypt 封装明文为带版本的 ASCII 安全密文。

@@ -16,10 +16,10 @@ import (
 
 // AttachmentHandler serves the 4 /api/v1/attachments/* endpoints: multipart upload, metadata
 // fetch, raw-bytes download, and soft-delete. Bytes are stored content-addressed (CAS) and
-// reach the LLM later via chat (M5.2) resolving attachment ids into provider content parts.
+// reach the LLM via chat resolving attachment ids into provider content parts.
 //
 // AttachmentHandler 提供 /api/v1/attachments/* 的 4 端点：multipart 上传、元数据取、原始字节下载、
-// 软删。字节内容寻址（CAS）存储，稍后经 chat（M5.2）把 id 解析成 provider content part 进 LLM。
+// 软删。字节内容寻址（CAS）存储，经 chat 把 id 解析成 provider content part 进 LLM。
 type AttachmentHandler struct {
 	svc *attachmentapp.Service
 	log *zap.Logger

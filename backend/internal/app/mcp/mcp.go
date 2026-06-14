@@ -68,9 +68,9 @@ type Service struct {
 	handles map[string]sandboxdomain.LongLivedHandle // mcp_id → sandbox handle (stdio only)
 }
 
-// New constructs a Service; call Boot before serving.
+// NewService constructs a Service; call Boot before serving.
 //
-// New 构造 Service；服务前先 Boot。
+// NewService 构造 Service；服务前先 Boot。
 func NewService(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sandbox SandboxPort, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
@@ -91,11 +91,11 @@ func NewService(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sa
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // SetNotifier installs the notification emitter post-construction — the
-// mcp.{installed,updated,removed,reconnected} family events.md promises; the
-// service shipped without this wire and the family never fired (AC-29).
+// mcp.{installed,updated,removed,reconnected} family events.md promises; nil
+// leaves the whole family silent.
 //
 // SetNotifier 装配后装入通知发射器——events.md 承诺的 mcp.{installed,updated,removed,
-// reconnected} 族；此前缺这条线、整族从未发出（AC-29）。
+// reconnected} 族；为 nil 则整族静默。
 func (s *Service) SetNotifier(n notificationdomain.Emitter) { s.notif = n }
 
 // emitNotif fires one mcp.<action> notification (best-effort, nil-safe).

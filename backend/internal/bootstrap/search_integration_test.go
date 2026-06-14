@@ -150,7 +150,7 @@ func TestBuild_SearchHTTPSurface(t *testing.T) {
 		t.Fatalf("POST reindex: %v", err)
 	}
 	resp.Body.Close()
-	// reindex 无可轮询产物 → 204 NoContent(MD4,标准化 S3)。
+	// reindex 无可轮询产物 → 204 NoContent。
 	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("reindex status = %d, want 204", resp.StatusCode)
 	}

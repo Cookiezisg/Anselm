@@ -152,7 +152,7 @@ func TestWireCodesGloballyUnique(t *testing.T) {
 	}
 }
 
-// TestTransportErrorsUseFromDomainError enforces S6 / MD-err: every error written by an HTTP
+// TestTransportErrorsUseFromDomainError enforces S6: every error written by an HTTP
 // handler or middleware must flow through responsehttpapi.FromDomainError, which maps an
 // *errorspkg.Error's Kind→HTTP status and Code→wire envelope. The three escape hatches that
 // bypass that mapping must be zero in transport code:
@@ -164,7 +164,7 @@ func TestWireCodesGloballyUnique(t *testing.T) {
 // frontend: one envelope shape, one Kind→status table. The response package itself is out of
 // scope (FromDomainError legitimately calls the low-level writer there).
 //
-// 守 S6 / MD-err：HTTP handler / 中间件写出的每个错误都必须走 responsehttpapi.FromDomainError
+// 守 S6：HTTP handler / 中间件写出的每个错误都必须走 responsehttpapi.FromDomainError
 // （它把 *errorspkg.Error 的 Kind→HTTP status、Code→线缆 envelope）。三个绕过映射的逃逸口在
 // transport 代码里必须为零：responsehttpapi.Error（裸 envelope、无 Kind）、http.NotFound、
 // http.Error（标准库纯文本、非 N1 envelope）。这是让前端面对每个端点失败路径完全一致（一种
@@ -220,7 +220,7 @@ func TestTransportErrorsUseFromDomainError(t *testing.T) {
 	if len(violations) > 0 {
 		sort.Strings(violations)
 		t.Errorf("%d transport error-write(s) bypass FromDomainError — route every failure through "+
-			"responsehttpapi.FromDomainError(w, log, err) with a domain/pkg sentinel (S6 / MD-err):\n%s",
+			"responsehttpapi.FromDomainError(w, log, err) with a domain/pkg sentinel (S6):\n%s",
 			len(violations), strings.Join(violations, "\n"))
 	}
 }

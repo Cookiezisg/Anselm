@@ -4,22 +4,22 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
-# 支撑服务十域 —— workspace · apikey · model · websearch · catalog · mention · notification · aispawn · humanloop · contextmgr · entitystream
+# 支撑服务十一域 —— workspace · apikey · model · websearch · catalog · mention · notification · aispawn · humanloop · contextmgr · entitystream
 
-> 十个微域合篇（各 100-900 行）。每节：定位 + 关键设计 + 契约引用。
+> 十一个微域合篇（各 100-900 行）。每节：定位 + 关键设计 + 契约引用。
 
 ## workspace —— 隔离根
 
-唯一**没有** workspace_id 列的表（它就是 workspace 本身，全局表——这正是后台 `forEachWorkspace` 播种能在裸 ctx 列它的原因）。CRUD + 守"最后一个不能删"（`CANNOT_DELETE_LAST_WORKSPACE`）+ 语言校验 + auth 中间件的 `WorkspaceResolver` 端口（`Resolve`——校验 id 并返其 UI locale，使 **workspace.language 权威于 Accept-Language**：识别到 workspace 即覆盖头默认，assistant 按用户显式持久化语言回复，头仅作 onboarding 兜底）。**Delete 级联销毁**（Reaper 端口、bootstrap 后注入）：杀全部 workflow 自动化（摘监听+取消在途 run，连手动 run 一并）→ 停常驻 handler/mcp 进程 → 删盘上文件树（skills/memories）→ 删 ws 行（行消失即数据不可达+后台播种跳过；DB 实体行留作不可达遗留）。全程 Detached(目标 ws) ctx——删除请求可来自另一 workspace；best-effort。携带 per-workspace 模型默认（dialogue/utility/agent 三场景 ModelRef 列 + 默认搜索 key + `webFetchMode`——WebFetch 工具抓取方式，local=本机直 GET（默认，URL 不出本机）| jina=公共 reader（提取更好但 URL 发第三方）；PD-4 裁决 C，PATCH 设置、Service 经 `WebFetchMode(ctx)` 供 tool/web 读、读不到一律收敛 local）。码 `WORKSPACE_*` 7；ID `ws_`。
+唯一**没有** workspace_id 列的表（它就是 workspace 本身，全局表——这正是后台 `forEachWorkspace` 播种能在裸 ctx 列它的原因）。CRUD + 守"最后一个不能删"（`CANNOT_DELETE_LAST_WORKSPACE`）+ 语言校验 + auth 中间件的 `WorkspaceResolver` 端口（`Resolve`——校验 id 并返其 UI locale，使 **workspace.language 权威于 Accept-Language**：识别到 workspace 即覆盖头默认，assistant 按用户显式持久化语言回复，头仅作 onboarding 兜底）。**Delete 级联销毁**（Reaper 端口、bootstrap 后注入）：杀全部 workflow 自动化（摘监听+取消在途 run，连手动 run 一并）→ 停常驻 handler 实例 + 断开 mcp → 清搜索索引 → 删盘上文件树（skills/memories）→ 删 ws 行（行消失即数据不可达+后台播种跳过；DB 实体行留作不可达遗留）。全程 Detached(目标 ws) ctx——删除请求可来自另一 workspace；best-effort。携带 per-workspace 模型默认（dialogue/utility/agent 三场景 ModelRef 列 + 默认搜索 key + `webFetchMode`——WebFetch 工具抓取方式，local=本机直 GET（默认，URL 不出本机）| jina=公共 reader（提取更好但 URL 发第三方）；PATCH 设置、Service 经 `WebFetchMode(ctx)` 供 tool/web 读、读不到一律收敛 local）。码 7（`WORKSPACE_*` 6 + `CANNOT_DELETE_LAST_WORKSPACE`）；ID `ws_`。
 
 ## apikey —— 加密凭据管理
 
-凭据自身生命周期：存（AES-GCM 整密文）、probe 连通性测试、按 id 发放（`KeyProvider`/`ProbeReader` 端口）。**刻意零 provider 语义**——选哪个 key、key 隐含什么模型，是 model/websearch 的事。**删除守卫**：`RefScanner` 端口（boot 注册），Delete 询问每个 scanner、任一命中即拒（`API_KEY_IN_USE` 422）；真实引用来源二——workspace 的三 scenario 默认模型 / 默认搜索 key（`workspace.ReferencesAPIKey`）+ agent active 版本的 modelOverride（`agent.ReferencesAPIKey`），均结构满足端口、build_services 注入。probe 归档供 model 聚合解析。码 `API_KEY_*` 7；ID `aki_`。
+凭据自身生命周期：存（AES-GCM 整密文）、probe 连通性测试、按 id 发放（`KeyProvider`/`ProbeReader` 端口）。**刻意零 provider 语义**——选哪个 key、key 隐含什么模型，是 model/websearch 的事。**删除守卫**：`RefScanner` 端口（boot 注册），Delete 询问每个 scanner、任一命中即拒（`API_KEY_IN_USE` 422）；真实引用来源二——workspace 的三 scenario 默认模型 / 默认搜索 key（`workspace.ReferencesAPIKey`）+ agent active 版本的 modelOverride（`agent.ReferencesAPIKey`），均结构满足端口、build_services 注入。probe 归档供 model 聚合解析。码 `API_KEY_*` 8；ID `aki_`。
 
 ## model —— 模型选择与能力
 

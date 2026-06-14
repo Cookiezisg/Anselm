@@ -30,13 +30,13 @@ func (p *deepseekProvider) DefaultBaseURL() string { return "https://api.deepsee
 //
 // reasoning_content round-trip rule: plain assistant turns (no tool_calls) must strip
 // reasoning_content (DeepSeek rejects it on a continuation that carries no tool response);
-// tool-call turns preserve it (V3.2+ reconstructs the chain-of-thought from it).
+// tool-call turns preserve it (V4 reconstructs the chain-of-thought from it).
 //
 // Native knobs from Options: thinking ("enabled"/"disabled") + reasoning_effort ("high"/"max",
 // DeepSeek's only two native levels).
 //
 // BuildRequest 把 Request 编码为 DeepSeek 请求。reasoning_content round-trip 规则：纯文字
-// turn 剥、含 tool_calls turn 保留（V4）。原生旋钮取自 Options：thinking + reasoning_effort（仅 high/max）。
+// turn 剥、含 tool_calls turn 保留（V4 据此重建思维链）。原生旋钮取自 Options：thinking + reasoning_effort（仅 high/max）。
 func (p *deepseekProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
 	for i := range req.Messages {
 		m := &req.Messages[i]

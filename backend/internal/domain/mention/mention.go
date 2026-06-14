@@ -15,12 +15,12 @@ package mention
 import "context"
 
 // MentionType is the closed set of @-mentionable entity kinds: the Quadrinity + document +
-// trigger / control / approval — forge entities that carry an injectable content snapshot (R0065
-// added the latter three so AI :iterate can seed them). conversation/skill/mcp are NOT mentionable
+// trigger / control / approval — forge entities that carry an injectable content snapshot (the
+// latter three so AI :iterate can seed them). conversation/skill/mcp are NOT mentionable
 // (no single content snapshot to inject).
 //
 // MentionType 是可被 @ 的实体类型封闭集：四件套 + document + trigger / control / approval——有可注入
-// 内容快照的 forge 实体（R0065 加后三个，使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
+// 内容快照的 forge 实体（后三个使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
 type MentionType string
 
 const (
@@ -30,9 +30,9 @@ const (
 	MentionWorkflow MentionType = "workflow"
 	MentionAgent    MentionType = "agent"
 	// trigger / control / approval are forge entities too — mentionable so the AI :iterate verb
-	// (R0065) can seed them by reference, exactly like the five above.
+	// can seed them by reference, exactly like the five above.
 	//
-	// trigger / control / approval 也是 forge 实体——可 @，使 AI :iterate（R0065）能像上面五个一样按引用种入它们。
+	// trigger / control / approval 也是 forge 实体——可 @，使 AI :iterate 能像上面五个一样按引用种入它们。
 	MentionTrigger  MentionType = "trigger"
 	MentionControl  MentionType = "control"
 	MentionApproval MentionType = "approval"

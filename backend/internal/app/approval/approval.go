@@ -3,14 +3,15 @@
 // spans via pkg/cel at create/edit time, and the relation / catalog adapters. The version
 // model is a linear, append-only history with a free-moving ActiveVersionID pointer — no
 // pending/accept, no sandbox/env/executions. There is no run/executions: an approval form
-// is rendered + parked by the durable interpreter (波次 4), never invoked standalone — the
-// Service exposes Resolve so the interpreter reads the pinned version's template + rules.
+// is rendered + parked by the durable interpreter (a parked flowrun_nodes row), never
+// invoked standalone — the Service exposes Resolve so the interpreter reads the pinned
+// version's template + rules.
 //
 // Package approval（app 层）编排审批表 domain：从完整 prompt + 决策规则组锻造版本（无 ops）、
 // create/edit 时用 pkg/cel 编译模板的 `{{ CEL }}` 段、relation / catalog 适配器。版本模型线性、
 // 只增 + 自由 ActiveVersionID 指针——无 pending/accept、无 sandbox/env/executions。无 run/executions
-// ——审批表由 durable 解释器（波次 4）渲染 + park、绝不独立调用——Service 暴露 Resolve 供解释器读
-// pin 版本的 template + 规则。
+// ——审批表由 durable 解释器渲染 + park（一行 parked flowrun_nodes）、绝不独立调用——Service 暴露
+// Resolve 供解释器读 pin 版本的 template + 规则。
 package approval
 
 import (

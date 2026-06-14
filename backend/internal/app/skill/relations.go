@@ -40,13 +40,14 @@ func (s *Service) NamesByIDs(_ context.Context, ids []string) (map[string]string
 	return out, nil
 }
 
-// syncEquipEdges replaces skill→(function/handler/mcp) equip edges parsed from allowed-tools.
+// syncEquipEdges replaces skill→(function/handler) equip edges parsed from allowed-tools.
 // Built-in tool names (Read, Bash(...)) have no entity prefix → KindForID returns "" → skipped.
-// (mcp: refs are skipped until mcp lands in M3.5 — KindForID doesn't recognize the colon form.)
+// (mcp:<name>/<tool> refs are skipped too — KindForID matches the <prefix>_<hex> id scheme, not
+// the colon form mcp tools are referenced by.)
 //
-// syncEquipEdges 用从 allowed-tools 解析出的 skill→(function/handler/mcp) equip 边整组替换。
-// 内置工具名（Read、Bash(...)）无实体前缀 → KindForID 返 "" → 跳过。（mcp: 引用在 mcp
-// 落地 M3.5 前跳过——KindForID 不认冒号形式。）
+// syncEquipEdges 用从 allowed-tools 解析出的 skill→(function/handler) equip 边整组替换。
+// 内置工具名（Read、Bash(...)）无实体前缀 → KindForID 返 "" → 跳过。（mcp:<name>/<tool> 引用
+// 也跳过——KindForID 匹配 <前缀>_<hex> id 方案，不认 mcp 工具引用的冒号形式。）
 func (s *Service) syncEquipEdges(ctx context.Context, name string, allowedTools []string) {
 	if s.relations == nil {
 		return

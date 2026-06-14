@@ -78,11 +78,11 @@ func runTools(
 
 // runOneTool executes one tool call and returns its tool_result block, live-pushing the block
 // lifecycle. A self-reported-dangerous call is gated for human approval first when a humanloop
-// broker is in ctx (chat / nested agent); otherwise pure trust (M2.2) — the danger level rode the
+// broker is in ctx (chat / nested agent); otherwise pure trust — the danger level rode the
 // tool_call node and the call just runs.
 //
 // runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。当 ctx 里有 humanloop
-// broker 时（chat / 嵌套 agent），自报 dangerous 的调用先门控到人批准；否则纯信任（M2.2）——danger 已随
+// broker 时（chat / 嵌套 agent），自报 dangerous 的调用先门控到人批准；否则纯信任——danger 已随
 // tool_call 节点上行、调用直接跑。
 func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, log *zap.Logger) []messagesdomain.Block {
 	argsJSON, _ := json.Marshal(tc.Arguments)
@@ -135,13 +135,13 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // recorded as the result so the model re-routes; a cancelled ctx (the run aborted) records that.
 // approve / approve_always fall through and execute (approve_always also session-whitelists, so the
 // next dangerous call to this tool in this conversation skips the gate). The active skill's
-// allowed-tools also pre-approve (R0040: a skill declares the tools it expects, so a dangerous call
+// allowed-tools also pre-approve (a skill declares the tools it expects, so a dangerous call
 // it intends skips the per-call confirmation) — see skillPreApproves.
 //
 // dispatchWithGate 跑工具，但当 ctx 里有 humanloop broker 时（chat / 嵌套 agent 运行 seed 之；subagent /
 // workflow 不 → 纯信任），先把自报 dangerous 的调用门控到人批准。interrupt-before-side-effect：被拒的工具绝不
 // 执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。approve / approve_always 落下去执行（approve_always
-// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。active skill 的 allowed-tools 同样预授权（R0040：skill
+// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。active skill 的 allowed-tools 同样预授权（skill
 // 声明它期待的工具，故它有意的危险调用跳过逐次确认）——见 skillPreApproves。
 func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
 	if b := humanloopapp.From(ctx); b != nil && tc.Danger == string(toolapp.DangerDangerous) {
@@ -172,12 +172,12 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 }
 
 // skillPreApproves reports whether the run's active skill declared this tool in its allowed-tools.
-// A skill's allowed-tools are a PRE-AUTHORIZATION (R0040), not a restriction: a dangerous call the
+// A skill's allowed-tools are a PRE-AUTHORIZATION, not a restriction: a dangerous call the
 // active skill expects skips the per-call confirmation. No agent state / no active skill → false
 // (the gate stands). The active skill is recorded by skill activation (skill/activate.go).
 //
 // skillPreApproves 报告本次运行的 active skill 是否在其 allowed-tools 里声明了该工具。skill 的 allowed-tools
-// 是**预授权**（R0040）、非限制：active skill 期待的危险调用跳过逐次确认。无 agent state / 无 active skill →
+// 是**预授权**、非限制：active skill 期待的危险调用跳过逐次确认。无 agent state / 无 active skill →
 // false（门照常）。active skill 由 skill 激活记录（skill/activate.go）。
 func skillPreApproves(ctx context.Context, toolName string) bool {
 	st, ok := reqctxpkg.GetAgentState(ctx)
@@ -213,13 +213,13 @@ func capToolResult(s string) string {
 }
 
 // executeTool runs ValidateInput then Execute and shapes the (output, errMsg, ok) tuple.
-// There is no permission gate (M1.9 dissolved central gating) and no error rewriting: a
-// tool owns the quality of its own error message (clean text, any next-step hint), so loop
-// stays a neutral engine and just surfaces err.Error() to the LLM.
+// There is no central permission gate and no error rewriting: a tool owns the quality of its
+// own error message (clean text, any next-step hint), so loop stays a neutral engine and just
+// surfaces err.Error() to the LLM.
 //
-// executeTool 跑 ValidateInput 再 Execute，整形 (output, errMsg, ok) 三元组。无权限门控
-// （M1.9 解散中央门控）、无错误改写：工具自负其 error message 质量（干净文本、必要的 next-step
-// 提示），故 loop 保持中立引擎、只把 err.Error() 透传给 LLM。
+// executeTool 跑 ValidateInput 再 Execute，整形 (output, errMsg, ok) 三元组。无中央权限门控、
+// 无错误改写：工具自负其 error message 质量（干净文本、必要的 next-step 提示），故 loop 保持中立
+// 引擎、只把 err.Error() 透传给 LLM。
 func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
 	if t == nil {
 		// The LLM named a tool not in this turn's set — a wiring bug or a stale catalog.

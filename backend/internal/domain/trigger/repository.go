@@ -4,11 +4,11 @@ import "context"
 
 // Repository persists triggers (soft-deleted) + the firings inbox + the activation log.
 // The single-tx claim (pending→claimed + flowrun INSERT) is NOT here — it spans the
-// flowruns table (波次 4) and must not leak *orm.DB into a domain port; the store exposes
+// flowruns table and must not leak *orm.DB into a domain port; the store exposes
 // it as a concrete method for the scheduler to call.
 //
 // Repository 持久化 triggers（软删）+ firings 收件箱 + activation 日志。单事务 claim
-// （pending→claimed + 建 flowrun）不在此——它跨 flowruns 表（波次 4）、不该把 *orm.DB 漏进
+// （pending→claimed + 建 flowrun）不在此——它跨 flowruns 表、不该把 *orm.DB 漏进
 // domain 端口；store 以具体方法暴露给 scheduler。
 type Repository interface {
 	// triggers

@@ -19,13 +19,13 @@ import (
 const attrMentions = "mentions"
 
 // RegisterMentionResolver registers a domain's @-mention resolver, keyed by the type it handles
-// (document / function / handler / workflow / agent). Each owning app registers its own at M7, so
-// chat never imports the entity packages. Re-registering a type replaces it; a nil resolver is
-// ignored.
+// (document / function / handler / workflow / agent / trigger / control / approval). Each owning
+// app registers its own, so chat never imports the entity packages. Re-registering a type replaces
+// it; a nil resolver is ignored.
 //
 // RegisterMentionResolver 注册某域的 @ mention resolver，按它处理的类型分键（document / function /
-// handler / workflow / agent）。各拥有方 app 在 M7 注册自己的，故 chat 永不 import 实体包。重复注册
-// 同类型即替换；nil resolver 忽略。
+// handler / workflow / agent / trigger / control / approval）。各拥有方 app 注册自己的，故 chat 永不
+// import 实体包。重复注册同类型即替换；nil resolver 忽略。
 func (s *Service) RegisterMentionResolver(r mentiondomain.Resolver) {
 	if r == nil {
 		return

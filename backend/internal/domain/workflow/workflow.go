@@ -9,7 +9,7 @@
 // agent / control / approval) wired by Edges. The graph is the orchestration recipe; it
 // references other entities by id (trg_/fn_/hd_/mcp:/ag_/ctl_/apf_) and wires their I/O
 // with bare CEL in each node's Input map. This package STORES + VALIDATES + PINS that
-// graph — it does NOT execute it: the durable interpreter (later wave) imports the same
+// graph — it does NOT execute it: the durable interpreter (scheduler) imports the same
 // pure helpers (ValidateGraph, BackEdges) and walks the pinned version. CEL is NOT
 // compiled here (domain must not import cel-go, 原则 #3) — the app layer compiles every
 // node.Input value via pkg/cel at create/edit time.
@@ -22,7 +22,7 @@
 // Version 的 Graph 是一张静态「DAG + 回边」的有类型 Node（trigger / action / agent / control /
 // approval）图，由 Edge 接线。图是编排配方；它按 id 引用其它实体（trg_/fn_/hd_/mcp:/ag_/ctl_/
 // apf_），并用每个 node.Input 里的裸 CEL 接线其 I/O。本包 STORE + VALIDATE + PIN 这张图——不执行
-// 它：durable 解释器（后续波次）import 同一批纯 helper（ValidateGraph、BackEdges）并走 pin 的
+// 它：durable 解释器（scheduler）import 同一批纯 helper（ValidateGraph、BackEdges）并走 pin 的
 // 版本。CEL 不在此编译（domain 不准 import cel-go，原则 #3）——app 层 create/edit 时用 pkg/cel
 // 编译每个 node.Input 值。
 package workflow
@@ -34,11 +34,11 @@ import (
 )
 
 // Workflow is a workflow graph entity; its graph lives on the active Version, not here.
-// The lifecycle/concurrency/attention columns govern how the (future) durable scheduler
-// treats it — they live on the header because they outlive any single graph version.
+// The lifecycle/concurrency/attention columns govern how the durable scheduler treats it —
+// they live on the header because they outlive any single graph version.
 //
 // Workflow 是一个 workflow 图实体；图在 active Version 上，不在本表。lifecycle/concurrency/
-// attention 列治理（未来）durable 调度器如何对待它——放在头上，因为它们比任何单个图版本更长寿。
+// attention 列治理 durable 调度器如何对待它——放在头上，因为它们比任何单个图版本更长寿。
 type Workflow struct {
 	ID              string     `db:"id,pk"               json:"id"`
 	WorkspaceID     string     `db:"workspace_id,ws"     json:"-"`

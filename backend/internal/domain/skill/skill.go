@@ -114,11 +114,11 @@ type Repository interface {
 }
 
 // SubagentRunner is the fork-mode port: a context:fork skill dispatches its rendered body as
-// an isolated subagent run. Kept self-contained (no future subagentapp types) so skill builds
-// before subagent (波次 5); a nil runner makes fork degrade to ErrSubagentUnavailable.
+// an isolated subagent run. Kept self-contained (no subagentapp types) so skill carries no
+// dependency on the subagent layer; a nil runner makes fork degrade to ErrSubagentUnavailable.
 //
 // SubagentRunner 是 fork 模式端口：context:fork 的 skill 把渲染后的正文派给隔离 subagent 跑。
-// 自包含（不引未来 subagentapp 类型）使 skill 先于 subagent（波次 5）就能编译；nil runner
+// 自包含（不引 subagentapp 类型）使 skill 不依赖 subagent 层；nil runner
 // 时 fork 降级为 ErrSubagentUnavailable。
 type SubagentRunner interface {
 	Spawn(ctx context.Context, agentType, prompt string) (result string, err error)

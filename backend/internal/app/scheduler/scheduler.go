@@ -1,17 +1,17 @@
-// Package scheduler is the durable workflow interpreter (M4.3): it walks a flowrun's PINNED
-// graph and drives it to completion, crash-recoverably, off the node-result memoization in
-// flowrun_nodes. There is no entity here — it is pure orchestration. The whole engine is one
-// idempotent advance() function (advance.go): read the run's frn rows + the frozen graph →
-// compute which (node, iteration) are ready → run / inline-evaluate them → upsert frn → repeat
-// until none ready. A crash just means advance() runs again; completed rows are copied, never
-// re-executed (record-once). This deliberately replaces the old event-sourcing engine (doc 17):
-// no event journal, no generations, no 14-dispatcher fan-out — see doc 21.
+// Package scheduler is the durable workflow interpreter: it walks a flowrun's PINNED graph and
+// drives it to completion, crash-recoverably, off the node-result memoization in flowrun_nodes.
+// There is no entity here — it is pure orchestration. The whole engine is one idempotent advance()
+// function (advance.go): read the run's frn rows + the frozen graph → compute which (node, iteration)
+// are ready → run / inline-evaluate them → upsert frn → repeat until none ready. A crash just means
+// advance() runs again; completed rows are copied, never re-executed (record-once). The model is
+// node-result memoization, NOT event sourcing: no event journal, no generations, no dispatcher
+// fan-out — see foundation/scheduler-flowrun.md.
 //
-// Package scheduler 是 durable workflow 解释器（M4.3）：照 flowrun 钉死的图走、驱动到完成、可崩溃
-// 恢复，全靠 flowrun_nodes 的节点结果记忆化。这里无实体——纯编排。整个引擎是一个幂等的 advance()
-// （advance.go）：读 run 的 frn 行 + 冻结的图 → 算哪些 (节点,轮次) ready → 跑 / 内联求值 → upsert frn
-// → 直到无人 ready。崩溃 = advance() 再跑一遍；completed 行被抄、绝不重跑（record-once）。本包刻意
-// 取代旧事件溯源引擎（doc 17）：无事件日志、无 generation、无 14-dispatcher 扇出——见 doc 21。
+// Package scheduler 是 durable workflow 解释器：照 flowrun 钉死的图走、驱动到完成、可崩溃恢复，全靠
+// flowrun_nodes 的节点结果记忆化。这里无实体——纯编排。整个引擎是一个幂等的 advance()（advance.go）：
+// 读 run 的 frn 行 + 冻结的图 → 算哪些 (节点,轮次) ready → 跑 / 内联求值 → upsert frn → 直到无人 ready。
+// 崩溃 = advance() 再跑一遍；completed 行被抄、绝不重跑（record-once）。模型是节点结果记忆化、非事件
+// 溯源：无事件日志、无 generation、无 dispatcher 扇出——见 foundation/scheduler-flowrun.md。
 package scheduler
 
 import (
@@ -42,8 +42,8 @@ import (
 const MaxIterations = 1000
 
 // Dispatcher runs the two execution-unit node kinds. BOTH are coarse activities: they run to a
-// final result and return it; a crash mid-run re-runs the whole unit (at-least-once, doc 21 §8).
-// agent has no per-turn sink (resume-mid-agent is v2 — needs a durable loop.Run). M7 adapts the
+// final result and return it; a crash mid-run re-runs the whole unit (at-least-once). agent has no
+// per-turn sink (resume-mid-agent would need a durable loop.Run). The bootstrap adapts the
 // function/handler/mcp + agent Services onto this; tests inject a fake.
 //
 // pinnedVersionID is the run's pin-closure entry for the node's entity ("" when unpinned).
@@ -51,7 +51,7 @@ const MaxIterations = 1000
 // mcp (unversioned external server) are live-binding and ignore it.
 //
 // Dispatcher 跑两类执行单元节点。两者都是粗粒度 activity：跑到最终 result 返回；中途崩溃整体重跑
-// （at-least-once，doc 21 §8）。agent 无逐轮 sink（resume-mid-agent 是 v2）。M7 把
+// （at-least-once）。agent 无逐轮 sink（resume-mid-agent 须 durable loop.Run）。bootstrap 把
 // function/handler/mcp + agent Service 适配进来；测试注 fake。
 //
 // pinnedVersionID 是该节点实体在 run pin 闭包里的版本（未 pin 为 ""）。function/agent 执行该冻结
@@ -88,11 +88,11 @@ type ApprovalResolver interface {
 }
 
 // FiringInbox is the trigger firings surface the scheduler drains. ClaimFiring is the single-tx
-// claim (ADR-021): it claims a pending firing AND builds the flowrun in ONE transaction via the
+// claim: it claims a pending firing AND builds the flowrun in ONE transaction via the
 // create callback (so there is never a claimed-but-no-run strand). Satisfied by *triggerstore.Store.
 // nil-tolerant: a manual-only deployment (or a test) wires no inbox.
 //
-// FiringInbox 是 scheduler 排空的 trigger firings 面。ClaimFiring 是单事务 claim（ADR-021）：在一个
+// FiringInbox 是 scheduler 排空的 trigger firings 面。ClaimFiring 是单事务 claim：在一个
 // 事务内 claim pending firing + 经 create 回调建 flowrun（无 claimed-但-无-run 残留）。由
 // *triggerstore.Store 实现。允许 nil：纯手动部署（或测试）不接 inbox。
 type FiringInbox interface {

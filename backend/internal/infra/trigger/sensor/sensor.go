@@ -1,11 +1,11 @@
-// Package sensor is the sensor source listener: it periodically invokes a bound function or
-// handler method, evaluates a CEL condition over the return value, and fires (with a
-// CEL-built payload) when the condition holds. EVERY probe is reported (fired or not) so the
-// activation log can answer "why didn't it fire". Stateless by design — for incremental /
-// cursor probing, target a handler method (the resident process keeps its own state). One
+// Package sensor is the sensor source listener: it periodically invokes a bound function,
+// handler method, or mcp tool, evaluates a CEL condition over the return value, and fires
+// (with a CEL-built payload) when the condition holds. EVERY probe is reported (fired or not)
+// so the activation log can answer "why didn't it fire". Stateless by design — for incremental
+// / cursor probing, target a handler method (the resident process keeps its own state). One
 // goroutine per triggerID.
 //
-// Package sensor 是 sensor source listener：周期调用绑定的 function 或 handler method，对返回值求
+// Package sensor 是 sensor source listener：周期调用绑定的 function、handler method 或 mcp tool，对返回值求
 // CEL condition，满足则用 CEL output 构造 payload 并 fire。**每次探测都报告**（触没触发都报）让
 // activation 日志能回答「为什么没触发」。无状态——要游标/增量就绑 handler method（常驻进程自记状态）。
 package sensor
@@ -24,12 +24,14 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// SensorInvoker invokes the sensor's bound function or handler-method and returns its result
-// as a map. Implemented by adapters over the function / handler app services (wired at boot).
-// targetKind is "function" | "handler"; method is used only for handler.
+// SensorInvoker invokes the sensor's bound function, handler-method, or mcp-tool and returns
+// its result as a map. Implemented by adapters over the function / handler / mcp app services
+// (wired at boot). targetKind is "function" | "handler" | "mcp"; method names the handler
+// method / mcp tool (function is the whole unit).
 //
-// SensorInvoker 调用 sensor 绑定的 function 或 handler method，返回结果 map。由 function/handler app
-// 适配器实现（boot 注入）。targetKind = "function" | "handler"；method 仅 handler 用。
+// SensorInvoker 调用 sensor 绑定的 function、handler method 或 mcp tool，返回结果 map。由
+// function/handler/mcp app 适配器实现（boot 注入）。targetKind = "function" | "handler" | "mcp"；
+// method = handler 方法名 / mcp 工具名（function 整体即单元）。
 type SensorInvoker interface {
 	Invoke(ctx context.Context, targetKind, targetID, method string) (map[string]any, error)
 }

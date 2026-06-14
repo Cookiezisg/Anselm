@@ -16,7 +16,7 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the trigger tables' DDL (idempotent, ordered) for cmd/server to collect via
+// Schema is the trigger tables' DDL (idempotent, ordered) for bootstrap to collect via
 // db.Migrate. triggers carry a free-form config JSON; firings dedup on
 // (workflow_id, trigger_id, dedup_key) (D3 idx_trf_dedup); activations are an append-only log.
 //

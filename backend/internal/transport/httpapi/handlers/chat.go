@@ -11,11 +11,11 @@ import (
 	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
 )
 
-// ChatHandler serves the chat engine's 3 endpoints: send a message (202, streams over the
+// ChatHandler serves the chat engine's 7 endpoints: send a message (202, streams over the
 // messages SSE), list a conversation's history (paged), and cancel the running turn (204). The
 // assistant turn itself is delivered over the messages stream, not this REST surface.
 //
-// ChatHandler 提供 chat 引擎 3 端点：发消息（202，经 messages SSE 流式）、列对话历史（分页）、取消
+// ChatHandler 提供 chat 引擎 7 端点：发消息（202，经 messages SSE 流式）、列对话历史（分页）、取消
 // 运行回合（204）。assistant 回合本身经 messages 流交付、不在此 REST 面。
 type ChatHandler struct {
 	svc *chatapp.Service
@@ -38,7 +38,7 @@ func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
 func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
-	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel(N5/MD5——取消在途生成是动作、非删子资源)
+	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel(N5——取消在途生成是动作、非删子资源)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
@@ -75,7 +75,7 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": msgID}) // 异步动作返新资源 id 统一 {id}(MD3)
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": msgID}) // 异步动作返新资源 id 统一 {id}
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with
@@ -115,9 +115,9 @@ func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 }
 
 // SystemPromptPreview returns the system prompt a turn in this conversation would receive — a
-// transparency / debugging aid (R0057).
+// transparency / debugging aid.
 //
-// SystemPromptPreview 返回本对话一个回合会收到的 system prompt——透明度 / 调试辅助（R0057）。
+// SystemPromptPreview 返回本对话一个回合会收到的 system prompt——透明度 / 调试辅助。
 func (h *ChatHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request) {
 	prompt, err := h.svc.SystemPromptPreview(r.Context(), r.PathValue("id"))
 	if err != nil {
@@ -128,16 +128,16 @@ func (h *ChatHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request
 }
 
 // ListInteractions returns the human interactions this conversation is currently awaiting — the
-// front end's reconnect/refresh re-sync (the live surface signal is ephemeral, R0064).
+// front end's reconnect/refresh re-sync (the live surface signal is ephemeral).
 //
-// ListInteractions 返回本对话当前在等的人机交互——前端重连/刷新的重新同步（live surface signal 是 ephemeral，R0064）。
+// ListInteractions 返回本对话当前在等的人机交互——前端重连/刷新的重新同步（live surface signal 是 ephemeral）。
 func (h *ChatHandler) ListInteractions(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, h.svc.PendingInteractions(r.Context(), r.PathValue("id")))
 }
 
 // ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline)
 // to a tool blocked awaiting input in this conversation; 202 (the gated tool resumes + streams over
-// the messages SSE). NO_PENDING_INTERACTION (404) if nothing is waiting on that tool_call (R0064).
+// the messages SSE). NO_PENDING_INTERACTION (404) if nothing is waiting on that tool_call.
 //
 // ResolveInteraction 把人的决定（approve / approve_always / deny / accept / decline）送给本对话中阻塞等输入的
 // 工具；202（被门工具续跑 + 经 messages SSE 流式）。该 tool_call 无等待项则 NO_PENDING_INTERACTION (404)。
@@ -154,12 +154,12 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.NoContent(w) // 纯状态变更、无新产物(MD4)
+	responsehttpapi.NoContent(w) // 纯状态变更、无新产物
 }
 
-// Usage returns a conversation's total token cost (the tokensUsed the detail view shows, R0057).
+// Usage returns a conversation's total token cost (the tokensUsed the detail view shows).
 //
-// Usage 返回一个对话的 token 总成本（详情视图显示的 tokensUsed，R0057）。
+// Usage 返回一个对话的 token 总成本（详情视图显示的 tokensUsed）。
 func (h *ChatHandler) Usage(w http.ResponseWriter, r *http.Request) {
 	in, out, err := h.svc.Usage(r.Context(), r.PathValue("id"))
 	if err != nil {

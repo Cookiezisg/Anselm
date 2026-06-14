@@ -89,11 +89,11 @@ func (s *Service) BootstrapError() error {
 	return nil
 }
 
-// Bootstrap prepares the sandbox root dir; idempotent, failure → degraded mode. Runtimes are no
-// longer bootstrapped here — directInstaller fetches each from upstream on first use.
+// Bootstrap prepares the sandbox root dir only; idempotent, failure → degraded mode.
+// Each runtime is fetched from upstream by directInstaller on first use.
 //
-// Bootstrap 准备 sandbox 根目录；幂等，失败进 degraded。运行时不再在此 bootstrap——directInstaller
-// 首次使用时直接从上游拉取。
+// Bootstrap 只准备 sandbox 根目录；幂等，失败进 degraded。每个运行时首次使用时由
+// directInstaller 从上游拉取。
 func (s *Service) Bootstrap(ctx context.Context) error {
 	if err := os.MkdirAll(s.sandboxRoot, 0o755); err != nil {
 		s.log.Warn("sandbox bootstrap failed (degraded mode active)", zap.Error(err))

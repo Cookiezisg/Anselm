@@ -18,11 +18,11 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the handler tables' DDL (idempotent, ordered) for cmd/server to collect via
+// Schema is the handler tables' DDL (idempotent, ordered) for bootstrap to collect via
 // db.Migrate. handlers carry config_encrypted (init-args values); versions are
 // UNIQUE(handler_id, version); calls are an append-only log (no deleted_at — D1).
 //
-// Schema 是 handler 三表 DDL（幂等、按序），由 cmd/server 汇总经 db.Migrate 应用。handlers 带
+// Schema 是 handler 三表 DDL（幂等、按序），由 bootstrap 汇总经 db.Migrate 应用。handlers 带
 // config_encrypted（init-args 值）；versions UNIQUE(handler_id, version)；calls 只增 log（无 deleted_at——D1）。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS handlers (
@@ -351,10 +351,10 @@ func toAny(ss []string) []any {
 	return out
 }
 
-// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction: a
 // create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
 //
-// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// CreateWithVersion 在单事务内插入实体行与其 v1：create 要么完整落地、要么完全不落
 // ——中途失败不留无版本实体行。
 func (s *Store) CreateWithVersion(ctx context.Context, e *handlerdomain.Handler, v *handlerdomain.Version) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
@@ -371,10 +371,10 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *handlerdomain.Handler,
 	})
 }
 
-// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
-// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction:
+// an edit either fully lands or fully doesn't — no orphan version + stale pointer.
 //
-// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针：edit 要么完整生效、
 // 要么完全不生效——不留孤儿版本 + 旧指针。
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *handlerdomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {

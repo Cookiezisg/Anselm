@@ -19,11 +19,11 @@ func (b *recBridge) Subscribe(_ context.Context, _ int64) (<-chan streamdomain.E
 }
 
 // TestFanOut_EmitsFireSignal: every fan-out (FireManual here; cron/webhook/fsnotify/sensor go
-// through the same chokepoint) emits one fire Signal scoped to the trigger (SSE-C C5), carrying the
+// through the same chokepoint) emits one fire Signal scoped to the trigger (SSE-C), carrying the
 // activation id + fired/firingCount so the trigger panel shows activity live.
 //
 // TestFanOut_EmitsFireSignal：每次扇出（此处 FireManual；cron/webhook/fsnotify/sensor 走同一咽喉）发一条
-// trigger scope 的 fire Signal（SSE-C C5），带 activation id + fired/firingCount，使 trigger 面板实时显示活动。
+// trigger scope 的 fire Signal（SSE-C），带 activation id + fired/firingCount，使 trigger 面板实时显示活动。
 func TestFanOut_EmitsFireSignal(t *testing.T) {
 	s, _ := newTestService(t)
 	ent := &recBridge{}

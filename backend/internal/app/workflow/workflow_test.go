@@ -127,11 +127,11 @@ func TestCreate_NonNodeRefRejected(t *testing.T) {
 	}
 }
 
-// TestCreate_NonAncestorRefRejected (D8): a node Input referencing an EXISTING but non-ancestor node
+// TestCreate_NonAncestorRefRejected: a node Input referencing an EXISTING but non-ancestor node
 // is rejected at create — the visibility lint. Here a and b are parallel siblings off the trigger;
 // a reads b.v, but b is not upstream of a (no path b→a), so it must fail.
 //
-// TestCreate_NonAncestorRefRejected（D8）：节点 Input 引用一个**存在但非祖先**的节点在 create 被拒——可见性
+// TestCreate_NonAncestorRefRejected：节点 Input 引用一个**存在但非祖先**的节点在 create 被拒——可见性
 // lint。此处 a、b 是 trigger 下的并行兄弟；a 读 b.v，但 b 不在 a 上游（无 b→a 路径），故必拒。
 func TestCreate_NonAncestorRefRejected(t *testing.T) {
 	svc, ctx := newSvc(t, nil)
@@ -147,10 +147,10 @@ func TestCreate_NonAncestorRefRejected(t *testing.T) {
 	}
 }
 
-// TestCreate_AncestorRefAccepted (D8): a diamond join may read BOTH branches — they are both
+// TestCreate_AncestorRefAccepted: a diamond join may read BOTH branches — they are both
 // ancestors of the join. t→a, t→b, a→c, b→c; c reads a.n + b.n → accepted.
 //
-// TestCreate_AncestorRefAccepted（D8）：菱形 join 可读**两条**分支——它们都是 join 的祖先。
+// TestCreate_AncestorRefAccepted：菱形 join 可读**两条**分支——它们都是 join 的祖先。
 func TestCreate_AncestorRefAccepted(t *testing.T) {
 	svc, ctx := newSvc(t, nil)
 	_, _, err := svc.Create(ctx, CreateInput{Name: "diamond", Ops: opsJSON(t, `[

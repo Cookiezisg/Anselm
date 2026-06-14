@@ -6,20 +6,19 @@
 // revert just moves the pointer.
 //
 // This module STORES + VALIDATES + PINS the graph; it does NOT execute it. The durable
-// interpreter / scheduler (later wave) consumes WorkflowReader + BuildPinClosure and the
-// pure domain helpers (ValidateGraph / BackEdges). Ref resolution (does fn_… exist? does its
-// active version expose this method?) is delegated to an injected RefResolver port, faked in
-// tests and wired to the real capability catalog at assembly (M7).
+// interpreter / scheduler consumes WorkflowReader + BuildPinClosure and the pure domain
+// helpers (ValidateGraph / BackEdges). Ref resolution (does fn_… exist? does its active
+// version expose this method?) is delegated to an injected RefResolver port, faked in tests
+// and wired to the real capability catalog at assembly.
 //
 // Package workflow（app 层）编排 workflow 图 domain：从 ops 锻造图版本、create/edit 时校验 +
 // 编译每版本的 CEL、把图引用的实体 pin 到其 active 版本、relation / catalog 适配器。版本模型线性、
 // 只增 + 可自由移动的 ActiveVersionID 指针——无 pending/accept。create/edit 写新版本并立即生效；
 // revert 只移指针。
 //
-// 本模块 STORE + VALIDATE + PIN 图；不执行它。durable 解释器 / 调度器（后续波次）消费
-// WorkflowReader + BuildPinClosure 与纯 domain helper（ValidateGraph / BackEdges）。ref 解析
-// （fn_… 存在吗？active 版本暴露此方法吗？）委托给注入的 RefResolver 端口，测试里 fake、装配时
-// （M7）接真能力 catalog。
+// 本模块 STORE + VALIDATE + PIN 图；不执行它。durable 解释器 / 调度器消费 WorkflowReader +
+// BuildPinClosure 与纯 domain helper（ValidateGraph / BackEdges）。ref 解析（fn_… 存在吗？
+// active 版本暴露此方法吗？）委托给注入的 RefResolver 端口，测试里 fake、装配时接真能力 catalog。
 package workflow
 
 import (
@@ -53,10 +52,10 @@ type RefInfo struct {
 	AgentCallables   []string // agent only: the fn_/hd_ refs this agent mounts (for pin recursion)
 }
 
-// WorkflowReader is the read surface the future durable scheduler depends on (DIP: the
-// scheduler imports this interface, not the concrete Service). Implemented by *Service.
+// WorkflowReader is the read surface the durable scheduler depends on (DIP: the scheduler
+// imports this interface, not the concrete Service). Implemented by *Service.
 //
-// WorkflowReader 是未来 durable 调度器依赖的读面（DIP：调度器 import 此接口、非具体 Service）。
+// WorkflowReader 是 durable 调度器依赖的读面（DIP：调度器 import 此接口、非具体 Service）。
 // 由 *Service 实现。
 type WorkflowReader interface {
 	// GetActiveVersion returns a workflow's active version with its graph decoded.
@@ -74,11 +73,11 @@ type WorkflowReader interface {
 
 // RefResolver resolves a node ref (trg_/fn_/hd_<id>.method/mcp:server/tool/ag_/ctl_/apf_) to
 // its RefInfo. A miss returns workflowdomain.ErrRefNotFound. The implementation lives outside
-// this module (the capability catalog, M7); it is faked in tests. The Service tolerates a nil
+// this module (the capability catalog); it is faked in tests. The Service tolerates a nil
 // resolver: CapabilityCheck then runs structural-only and says so.
 //
 // RefResolver 把 node ref 解析为 RefInfo。未命中返 workflowdomain.ErrRefNotFound。实现在本模块外
-// （能力 catalog，M7）；测试里 fake。Service 容忍 nil resolver：CapabilityCheck 届时仅结构校验并说明。
+// （能力 catalog）；测试里 fake。Service 容忍 nil resolver：CapabilityCheck 届时仅结构校验并说明。
 type RefResolver interface {
 	Resolve(ctx context.Context, ref string) (RefInfo, error)
 }
@@ -163,10 +162,10 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
 // SetExecutionPorts installs the trigger binder + scheduler runner post-construction — the two
 // collaborators the execution-lifecycle actions (activate/stage/deactivate/trigger/kill) need.
-// Wired at assembly (M7) after both services exist; avoids the workflow ↔ scheduler/trigger DI cycle.
+// Wired at assembly after both services exist; avoids the workflow ↔ scheduler/trigger DI cycle.
 //
 // SetExecutionPorts 装配后注入 trigger binder + scheduler runner——执行生命周期动作
-// （activate/stage/deactivate/trigger/kill）所需的两个协作者。装配时（M7）两服务齐备后接；避 workflow ↔
+// （activate/stage/deactivate/trigger/kill）所需的两个协作者。装配时两服务齐备后接；避 workflow ↔
 // scheduler/trigger 的 DI 环。
 func (s *Service) SetExecutionPorts(b Binder, r Runner) { s.binder, s.runner = b, r }
 

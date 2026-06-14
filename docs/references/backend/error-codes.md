@@ -4,14 +4,14 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 256 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **全 264 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -38,7 +38,7 @@ audience: [human, ai]
 
 **`<ENTITY>_<REASON>`，SCREAMING_SNAKE，按实体命名空间，全库唯一。** infra 原语用独立命名空间避免与 domain 撞码（如 `HANDLER_CLIENT_*` 区别于 domain 的 `HANDLER_*`）。
 
-`pkg/errors/standard_test.go`（`make verify` 内）守两条：① 任何包级 `var Err… = errors.New/fmt.Errorf`（绕过 errorspkg）→ build 失败；② wire code 重复 → 失败。
+`pkg/errors/standard_test.go`（`make verify` 内）守三条：① 任何包级 `var Err… = errors.New/fmt.Errorf`（绕过 errorspkg）→ 测试失败；② wire code 重复 → 失败；③ `transport/httpapi/{handlers,middleware}` 写错误必走 `FromDomainError`（裸 `response.Error` / `http.NotFound` / `http.Error` 逃逸口为零，S6）→ 失败。
 
 ---
 
@@ -52,7 +52,7 @@ audience: [human, ai]
 |---|---|---|
 | `INVALID_REQUEST` | 400 | invalid request（domain 逻辑前的格式/语义无效） |
 | `UNAUTH_NO_WORKSPACE` | 401 | unauthorized: no valid workspace id（隔离路由缺 ws；中间件 `RequireWorkspace` 兜、前端清 workspace 重选） |
-| `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6/MD-err） |
+| `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6） |
 | `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
 | `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter） |
 
@@ -498,7 +498,7 @@ audience: [human, ai]
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |
 | `TRIGGER_INVALID_CONFIG` | 422 | invalid trigger config |
-| `TRIGGER_INVALID_CRON` | 422 | invalid cron expression |
+| `TRIGGER_INVALID_CRON` | 422 | invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported |
 | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval below minimum |
 | `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind |
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |

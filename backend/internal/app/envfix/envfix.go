@@ -1,7 +1,7 @@
 // Package envfix provisions a sandbox env for a set of (runtime, deps) and, when
 // the install fails, asks a utility LLM to revise the dependency list and retries
 // — a self-healing build loop shared by every entity that owns a sandbox env
-// (function / handler / the future polling trigger source).
+// (function / handler).
 //
 // It is deliberately stream-agnostic: progress is surfaced through a caller-supplied
 // Sink (the tool layer pushes it onto an SSE stream; HTTP callers pass nil and the
@@ -9,7 +9,7 @@
 //
 // Package envfix 把一组 (runtime, deps) 物化成 sandbox env；装失败时让 utility LLM
 // 改依赖列表并重试——一个自愈构建循环，被所有持有 sandbox env 的实体共用
-// （function / handler / 未来的轮询触发源）。
+// （function / handler）。
 //
 // 它刻意与流解耦：进度经调用方提供的 Sink 暴露（tool 层把它推到 SSE 流；HTTP 调用方
 // 传 nil，循环静默跑）。本包绝不 import 任何 stream/eventlog 依赖。

@@ -40,12 +40,12 @@ func IsValidCallTrigger(s string) bool {
 	return false
 }
 
-// Call is one terminal audit record of an MCP tool invocation (SSE-C C4: MCP joins function /
+// Call is one terminal audit record of an MCP tool invocation (SSE-C: MCP joins function /
 // handler / agent in having a durable execution log). Log table: append-only, never soft- or
 // hard-deleted (D1). Leaner than handler_calls on purpose: MCP servers are version-less (no
 // version_id) and externally owned (no instance_id — stderr has its own ring).
 //
-// Call 是一次 MCP 工具调用的终态审计记录（SSE-C C4：MCP 与 function/handler/agent 一样有耐久执行日志）。
+// Call 是一次 MCP 工具调用的终态审计记录（SSE-C：MCP 与 function/handler/agent 一样有耐久执行日志）。
 // Log 表：只增，绝不软删/硬删（D1）。刻意比 handler_calls 精简：MCP server 无版本（无 version_id）、外部
 // 所有（无 instance_id——stderr 自有 ring）。
 type Call struct {

@@ -33,9 +33,9 @@ type Service struct {
 }
 
 // NewService wires dependencies; Repo + Log required, bridge optional (nil → persist
-// only, no SSE — wired at boot, M7).
+// only, no SSE — wired at boot).
 //
-// NewService 装配依赖；Repo + Log 必填，bridge 可选（nil → 只持久化、不推 SSE，boot 装配 M7）。
+// NewService 装配依赖；Repo + Log 必填，bridge 可选（nil → 只持久化、不推 SSE，boot 装配）。
 func NewService(repo notificationdomain.Repository, bridge streamdomain.Bridge, log *zap.Logger) *Service {
 	if repo == nil {
 		panic("notificationapp.NewService: repo is nil")

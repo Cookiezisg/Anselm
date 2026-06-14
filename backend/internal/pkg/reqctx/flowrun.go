@@ -18,9 +18,9 @@ type (
 	flowrunNodeIDKey struct{}
 )
 
-// SetFlowrunID returns a copy of ctx carrying the flowrun id (flr_).
+// SetFlowrunID returns a copy of ctx carrying the flowrun id (fr_).
 //
-// SetFlowrunID 返回携带 flowrun id（flr_）的 ctx 拷贝。
+// SetFlowrunID 返回携带 flowrun id（fr_）的 ctx 拷贝。
 func SetFlowrunID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, flowrunIDKey{}, id)
 }

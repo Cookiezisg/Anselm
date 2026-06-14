@@ -14,8 +14,8 @@ import (
 // the app layer's CapabilityCheck. It does NOT compile CEL (原则 #3) — the app does that.
 // A failure returns ErrInvalidGraph carrying a human reason in details["reason"].
 //
-// The future durable interpreter imports THIS SAME function to gate a graph before a run,
-// so it stays pure and dependency-free.
+// The durable interpreter imports THIS SAME function to gate a graph before a run, so it
+// stays pure and dependency-free.
 //
 // ValidateGraph 是 workflow 图的纯结构校验：形状（逐节点 kind/ref/input）、良构（id 唯一、无
 // 悬挂/自环边、≥1 trigger、可达性）、环纪律（每条回边出自 control/approval 节点）、结构性端口
@@ -23,7 +23,7 @@ import (
 // CapabilityCheck。它不编译 CEL（原则 #3）——app 做。失败返回 ErrInvalidGraph，人类原因在
 // details["reason"]。
 //
-// 未来 durable 解释器 import 同一函数在运行前给图设闸，故它保持纯、无依赖。
+// durable 解释器 import 同一函数在运行前给图设闸，故它保持纯、无依赖。
 func ValidateGraph(g *Graph) error {
 	if g == nil {
 		return invalidGraph("graph is nil")
@@ -224,15 +224,15 @@ func validateReachability(g *Graph, byID map[string]*Node) error {
 // exactly that closing edge. Edges referencing a missing endpoint are skipped (ValidateGraph
 // reports those separately), so this is safe to call on a not-yet-validated graph.
 //
-// This is a standalone exported PURE function on purpose: the future durable interpreter
-// imports the SAME function to classify edges identically at run time — there is one
-// definition of "back edge" in the system.
+// This is a standalone exported PURE function on purpose: the durable interpreter imports
+// the SAME function to classify edges identically at run time — there is one definition of
+// "back edge" in the system.
 //
 // BackEdges 返回图的回边：遍历某边时其目标正在当前 DFS 递归栈上的边（经典可归约回边判定）。无环图
 // 为空；由 control/approval 分支闭合的结构化循环恰得那条闭合边。引用缺失端点的边被跳过（ValidateGraph
 // 另行报告），故对未校验图调用也安全。
 //
-// 它刻意是独立导出的纯函数：未来 durable 解释器 import 同一函数在运行时同样分类边——系统里
+// 它刻意是独立导出的纯函数：durable 解释器 import 同一函数在运行时同样分类边——系统里
 // 「回边」只有一个定义。
 func BackEdges(g *Graph) []Edge {
 	if g == nil {

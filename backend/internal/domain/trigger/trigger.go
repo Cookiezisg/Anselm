@@ -87,7 +87,7 @@ var (
 	ErrWebhookSecretMismatch = errorspkg.New(errorspkg.KindUnauthorized, "TRIGGER_WEBHOOK_SECRET_MISMATCH", "webhook secret mismatch")
 	ErrActivationNotFound    = errorspkg.New(errorspkg.KindNotFound, "TRIGGER_ACTIVATION_NOT_FOUND", "activation not found")
 	ErrListenerUnavailable   = errorspkg.New(errorspkg.KindUnavailable, "TRIGGER_LISTENER_UNAVAILABLE", "trigger listener not available")
-	// ErrFiringNotPending: a ClaimFiring lost the race — already claimed/terminal (consumed by scheduler, 波次 4).
-	// ErrFiringNotPending：claim 竞争失败（已被认领/终态），波次 4 scheduler 消费。
+	// ErrFiringNotPending: a ClaimFiring lost the race — already claimed/terminal (consumed by the scheduler).
+	// ErrFiringNotPending：claim 竞争失败（已被认领/终态），scheduler 消费。
 	ErrFiringNotPending = errorspkg.New(errorspkg.KindConflict, "TRIGGER_FIRING_NOT_PENDING", "firing already claimed")
 )

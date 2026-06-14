@@ -16,17 +16,19 @@ import (
 // ToolProgress returns a live progress writer bound to the executing tool_call. A tool calls it
 // from Execute to surface its inner activity — bash stdout, the env-fix dependency-repair log, a
 // handler method's yields — as a streaming `progress` block nested under its tool_call
-// (Open.ParentID = tool_call id). The block is STREAM-ONLY: it is pushed straight onto the messages
-// bus, never persisted to message_blocks and never fed back to the LLM (the final answer is the
-// tool_result). It is nil-safe end to end: outside a streamed tool_call (no messages Bridge in ctx,
-// or no tool_call id) every method is a no-op, so a tool that always emits progress stays correct
-// under REST, tests, and non-streaming hosts.
+// (Open.ParentID = tool_call id). The block is streamed live AND persisted with the turn (folded
+// into the turn's blocks via the progress capture, parented to the tool_call) so a reload can
+// replay it; it is never fed back to the LLM (the history projection is a type whitelist, and the
+// final answer is the tool_result). It is nil-safe end to end: outside a streamed tool_call (no
+// messages Bridge in ctx, or no tool_call id) every method is a no-op, so a tool that always emits
+// progress stays correct under REST, tests, and non-streaming hosts.
 //
 // ToolProgress 返回绑定到当前 tool_call 的实时进度 writer。工具在 Execute 里调它，把内部活动——bash
 // stdout、env-fix 改依赖 log、handler method 的 yield——作为流式 `progress` 块嵌在其 tool_call 下
-// （Open.ParentID=tool_call id）。该块**仅流不持久**：直推 messages 总线，绝不落 message_blocks、绝不
-// 回喂 LLM（最终答案是 tool_result）。端到端 nil 安全：不在流式 tool_call 里（ctx 无 messages Bridge
-// 或无 tool_call id）则全方法 no-op，使「总是发进度」的工具在 REST / 测试 / 非流 host 下仍正确。
+// （Open.ParentID=tool_call id）。该块既实时流、也随回合持久化（经 progress capture 折进回合 blocks、
+// 挂在 tool_call 下）使 reload 能重放；但绝不回喂 LLM（历史投影是类型白名单，最终答案是 tool_result）。
+// 端到端 nil 安全：不在流式 tool_call 里（ctx 无 messages Bridge 或无 tool_call id）则全方法 no-op，
+// 使「总是发进度」的工具在 REST / 测试 / 非流 host 下仍正确。
 func ToolProgress(ctx context.Context) *ToolProgressWriter {
 	id, _ := reqctxpkg.GetToolCallID(ctx)
 	return &ToolProgressWriter{ctx: ctx, em: newEmitter(ctx, zap.NewNop()), parentID: id}

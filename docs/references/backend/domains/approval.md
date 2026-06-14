@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -23,4 +23,4 @@ create/edit 时：模板非空 + `{{ CEL }}` 全部可编译（`APPROVAL_INVALID
 
 ## 3. 契约（引用）
 
-端点（CRUD + `:edit`/`:revert`/`:iterate` + versions；决策端点在 flowrun 侧 `POST /flowruns/{id}/approvals/{node}:decide`）→ [api.md](../api.md) · 表 `approvals`/`approval_versions` → [database.md](../database.md) · 码 `APPROVAL_*` 7+4 → [error-codes.md](../error-codes.md) · ID：`apf_`/`apfv_`。三适配器同构；版本 cap 50 放过 active。
+端点（CRUD + `:edit`/`:revert`/`:iterate` + versions；决策端点在 flowrun 侧 `POST /flowruns/{id}/approvals/{node}:decide`）→ [api.md](../api.md) · 表 `approval_forms`/`approval_form_versions` → [database.md](../database.md) · 码 `APPROVAL_*` 7+4 → [error-codes.md](../error-codes.md) · ID：`apf_`/`apfv_`。三适配器同构；版本 cap 50 放过 active。

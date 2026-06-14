@@ -16,14 +16,14 @@
 | 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
 | 全功能黑盒验收套件（make testend / evals） | `references/testend/overview.md` |
 
-## 后端文档体系（V-next 重写完成，2026-06-11）
+## 后端文档体系
 
-全后端 32 域评审完毕（lab/docswriter P0-P8）。**先读 [overview.md](references/backend/overview.md)**（鸟瞰 + 三条端到端数据流 + 横切机制），再进分域：
+**先读 [overview.md](references/backend/overview.md)**（鸟瞰 + 三条端到端数据流 + 横切机制），再进分域：
 
-- **domains/**（20 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · search · support-services（十微域合篇）
+- **domains/**（20 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · search · support-services（十一微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**：随前端重建填充
+- **frontend/**：随前端 features 落地填充
 
 ## 权威层级
 
-`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`。前版文档在 `version-0.2` 分支。
+`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`。

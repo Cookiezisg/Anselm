@@ -9,15 +9,15 @@ package tool
 // tools cost N overview lines, not N full schemas.
 //
 // The overview (so the LLM knows the full lazy inventory and never blind-searches),
-// search_tools, and the per-conversation "discovered" set are assembled by chat
-// (M5.2); this struct is the partition plus the overview projection.
+// search_tools, and the per-conversation "discovered" set are assembled by chat;
+// this struct is the partition plus the overview projection.
 //
 // Toolset 把系统工具分成常驻 resident 与按需浮出的 lazy。Resident 完整定义每回合都在。
 // Lazy 默认不在 context——只展示一行概览（name + Description，host 注入 system prompt）；
 // LLM 需要时调 search_tools 取某 lazy 工具的完整定义（含它的大 Parameters schema）。这给
 // prompt token 设上限：N 个 lazy 工具只花 N 行概览，而非 N 份完整 schema。
 //
-// 概览（使 LLM 知道 lazy 全集、永不盲搜）、search_tools、每对话"已发现"集由 chat（M5.2）组装；
+// 概览（使 LLM 知道 lazy 全集、永不盲搜）、search_tools、每对话"已发现"集由 chat 组装；
 // 本结构是那份划分 + 概览投影。
 type Toolset struct {
 	// Resident tools' full definitions are present in every LLM turn.

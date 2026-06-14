@@ -22,11 +22,11 @@ import (
 )
 
 // Schema is the manifest DDL, exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. CHECK constraints pin
+// bootstrap to collect and apply via db.Migrate. CHECK constraints pin
 // owner_kind / status to the domain enums (physical guard against a code bug
 // writing a junk value).
 //
-// Schema 是 manifest 表 DDL，按序幂等语句导出，由 cmd/server 汇总经 db.Migrate 应用。
+// Schema 是 manifest 表 DDL，按序幂等语句导出，由 bootstrap 汇总经 db.Migrate 应用。
 // CHECK 把 owner_kind / status 钉死到 domain 枚举（物理兜底，防代码 bug 写脏值）。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS sandbox_runtimes (

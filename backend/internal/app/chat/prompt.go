@@ -10,15 +10,14 @@ import (
 	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
 )
 
-// System prompt static sections. Rewritten for backend-new (not ported): high-density, no product
-// fluff, no safety theater (local single-user) — and deliberately not boxing the agent in. Cache
-// order is stable: invariant static blocks first (identity → how_to_work → tools), dynamic
-// context in the middle, and the two rule blocks last because end-of-prompt instructions get the
-// highest adherence.
+// System prompt static sections: high-density, no product fluff, no safety theater (local
+// single-user) — and deliberately not boxing the agent in. Cache order is stable: invariant
+// static blocks first (identity → how_to_work → tools), dynamic context in the middle, and the
+// two rule blocks last because end-of-prompt instructions get the highest adherence.
 //
-// System prompt 静态段。为 backend-new 重写（非照搬）：高密度、无产品 fluff、无 safety theater
-// （本地单用户）——且刻意不框死 agent。缓存顺序稳定：不变静态块在前（identity → how_to_work →
-// tools），动态上下文居中，两个规则块殿后，因末尾指令遵从度最高。
+// System prompt 静态段：高密度、无产品 fluff、无 safety theater（本地单用户）——且刻意不框死
+// agent。缓存顺序稳定：不变静态块在前（identity → how_to_work → tools），动态上下文居中，两个
+// 规则块殿后，因末尾指令遵从度最高。
 const (
 	identitySection = `You are Forgify, a local-first agentic assistant running on the user's own machine. ` +
 		`You operate over their whole computer (absolute paths, no project root) and a workspace of forged capabilities — ` +

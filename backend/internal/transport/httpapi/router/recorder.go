@@ -1,11 +1,11 @@
 // Package router assembles the HTTP mux + middleware chain. Recorder wraps *http.ServeMux
 // to record (method, path) registrations so a dev endpoint can list real routes without a
 // hand-maintained manifest. (Full route assembly — registering every business handler —
-// lives in cmd/server wiring, since it depends on the whole app.)
+// lives in bootstrap wiring, since it depends on the whole app.)
 //
 // Package router 装配 HTTP mux + 中间件链。Recorder 包装 *http.ServeMux 记录 (method, path)
 // 注册，让 dev 端点无需手维护清单即可列出真实路由。（完整路由装配——注册所有业务 handler——
-// 在 cmd/server 装配，因它依赖整个 app。）
+// 在 bootstrap 装配，因它依赖整个 app。）
 package router
 
 import (

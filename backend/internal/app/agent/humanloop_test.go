@@ -64,13 +64,13 @@ func (m fakeMounts) Resolve(context.Context, []agentdomain.ToolRef) ([]toolapp.T
 	return m.tools, nil
 }
 
-// TestInvoke_DangerGateFromBrokerInCtx is the nested human-in-the-loop proof (R0064): an agent run
+// TestInvoke_DangerGateFromBrokerInCtx is the nested human-in-the-loop proof: an agent run
 // given a humanloop broker via ctx (exactly how a chat turn's broker flows into an invoke_agent
 // sub-run) blocks at the shared loop's danger gate before a dangerous tool executes, and a resolve
 // — delivered to that same broker, keyed by the sub-run's tool_call id — unblocks it. No bubbling,
 // no cascade: the blocked goroutine naturally holds the whole stack, and the run completes inline.
 //
-// TestInvoke_DangerGateFromBrokerInCtx 是嵌套人在环的证明（R0064）：经 ctx 拿到 humanloop broker 的 agent 运行
+// TestInvoke_DangerGateFromBrokerInCtx 是嵌套人在环的证明：经 ctx 拿到 humanloop broker 的 agent 运行
 // （正是 chat 回合的 broker 流进 invoke_agent 子运行的方式）在危险工具执行前于共享 loop 的 danger 门阻塞，一个
 // resolve——送给同一个 broker、按子运行的 tool_call id 键——解阻它。无冒泡、无级联：阻塞的 goroutine 天然 hold
 // 住整个栈、运行就地完成。

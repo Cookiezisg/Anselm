@@ -20,10 +20,10 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the mcp_servers DDL (idempotent), collected by cmd/server via db.Migrate.
+// Schema is the mcp_servers DDL (idempotent), collected by bootstrap via db.Migrate.
 // config_enc holds encrypted {env, headers}; (workspace_id, name) is unique among live rows.
 //
-// Schema 是 mcp_servers DDL（幂等），由 cmd/server 经 db.Migrate 汇总。config_enc 存加密的
+// Schema 是 mcp_servers DDL（幂等），由 bootstrap 经 db.Migrate 汇总。config_enc 存加密的
 // {env, headers}；(workspace_id, name) 在未删行中唯一。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS mcp_servers (

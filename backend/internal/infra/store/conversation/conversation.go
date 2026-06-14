@@ -18,11 +18,11 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the conversations DDL, exported as ordered idempotent statements for cmd/server to
+// Schema is the conversations DDL, exported as ordered idempotent statements for bootstrap to
 // apply via db.Migrate. A business/Log table with soft-delete (deleted_at) per D1; the partial
 // list index keys the pinned-first, newest-next ordering the frontend renders.
 //
-// Schema 是 conversations 表 DDL，按序幂等语句导出、由 cmd/server 经 db.Migrate 应用。业务表带
+// Schema 是 conversations 表 DDL，按序幂等语句导出、由 bootstrap 经 db.Migrate 应用。业务表带
 // 软删（deleted_at，D1）；partial 列表索引键住「置顶优先、再最新」的前端渲染顺序。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS conversations (

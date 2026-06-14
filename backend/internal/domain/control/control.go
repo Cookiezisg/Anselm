@@ -5,7 +5,7 @@
 // the downstream payload) live here. Like function it owns an append-only line of
 // Versions with a free-moving ActiveVersionID pointer — no pending/accept. Unlike
 // function there is no sandbox/env/executions: a control node is pure control flow,
-// evaluated by the durable interpreter (波次 4), never an activity. CEL is NOT compiled
+// evaluated by the durable interpreter, never an activity. CEL is NOT compiled
 // here (domain must not import cel-go, 原则 #3) — the app layer compiles when/emit via
 // pkg/cel at create/edit time.
 //
@@ -13,7 +13,7 @@
 // workflow 的 control 节点按 id 引用 ControlLogic；图把每个分支的 Port 连到下游，分支的 When
 // （布尔 CEL 守卫，first-true-wins）与 Emit（字段→CEL 重塑下游 payload）在此。与 function 同：
 // 持一条只增 Version 线 + 可自由移动的 ActiveVersionID 指针——无 pending/accept。与 function
-// 异：无 sandbox/env/executions——control 节点是纯控制流，由 durable 解释器（波次 4）求值，绝非
+// 异：无 sandbox/env/executions——control 节点是纯控制流，由 durable 解释器求值，绝非
 // activity。CEL 不在此编译（domain 不准 import cel-go，原则 #3）——app 层 create/edit 时用
 // pkg/cel 编译 when/emit。
 package control

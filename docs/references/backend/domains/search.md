@@ -4,14 +4,14 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
-review-due: 2026-09-12
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
 # search —— 统一搜索服务（BM25 + 语义混合）
 
-> 一套索引、四个出口：人的综搜/垂搜（HTTP）、LLM 搜积木（`search_blocks`）、RAG 取数（`Retrieve`）。设计全文与裁决见 working 方案（落地后归档）；本文是代码的精确投影。
+> 一套索引、四个出口：人的综搜/垂搜（HTTP）、LLM 搜积木（`search_blocks`）、8 个 `search_<entity>` 垂搜工具、RAG 取数（`Retrieve`）。本文是代码的精确投影。
 
 ## 心智模型
 
@@ -24,20 +24,20 @@ audience: [human, ai]
 
 ## 代码层级
 
-`domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
+`domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex` + `GET/PATCH /search/settings`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
 
-四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎——全部渲染 `{count, list}` JSON：其中 7 个经 `toolapp.ContentSearch` 渲染共享 `searchdomain.EntitySlim`（`{id,name,description}`；trigger/workflow 内嵌它再加 kind·refCount·listening / lifecycleState·active）；`search_documents` 引擎同源、自有 JSON 渲染器（`{count, documents:[{id,name,path?,description?,snippet?}]}`，多带 path/snippet）。非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线。**当前零生产消费方**——为未来 agent 上下文注入/知识挂载预留的休眠口，单测覆盖管线、黑盒不可达，见 acceptance AC-25）。
+四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎——渲染 `{count, <复数实体名>}` JSON：其中 7 个经 `toolapp.ContentSearch` 渲染共享 `searchdomain.EntitySlim`（`{id,name,description}`；trigger/workflow 内嵌它再加 kind·refCount·listening / lifecycleState·active）；`search_documents` 引擎同源、自有 JSON 渲染器（`{count, documents:[{id,name,path?,description?,snippet?}]}`，多带 path/snippet）。非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线。**当前零生产消费方**——为未来 agent 上下文注入/知识挂载预留的休眠口，单测覆盖管线、黑盒不可达）。
 
-**投影身份键**：各 Source 的 entity_id 用实体的**公开寻址键**——多数实体是行 id；skill 与 **mcp 用 name**（两者 HTTP 即按 name 寻址；mcp 曾按行 id 键控，refHint 发出 `mcp:msv_…/tool` 而挂载只解析 `mcp:<name>/<tool>`，可接线 ref 物理死亡，AC-27 修复）。
+**投影身份键**：各 Source 的 entity_id 用实体的**公开寻址键**——多数实体是行 id；skill 与 **mcp 用 name**（两者 HTTP 即按 name 寻址、挂载解析 `mcp:<name>/<tool>`——投影键须与挂载键一致，refHint 才能直填接线）。
 
 **search_blocks 三段精度链**（对调用方透明）：①目录序列化 ≤4k token（`pkg/tokencount`，常量非配置）→ **整目录直喂 utility 模型精选**（`Sifter` 端口，bootstrap 的 `llmSifter` 走 utility resolve→credentials→build→Generate 链，严格只回编号 JSON）；②超阈 → 索引检索 top-50 → utility 精选；③sifter 缺席/出错 → 纯索引排序。
 
 ## 语义层（默认混合）
 
-- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，五平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、Close 优雅停；`Ollama` = 本机 `/api/embed` 复用其模型库。
+- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，六平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、Close 优雅停；`Ollama` = 本机 `/api/embed` 复用其模型库。
 - **配置**：机器级 search_meta 三键——`embedder = builtin|ollama|off`（空=builtin）+ `ollama_base_url`/`ollama_model`（空=域默认 `127.0.0.1:11434`/`embeddinggemma`，权威在 `searchdomain.DefaultOllama*`），经 `GET/PATCH /search/settings`；Ollama 适配器由 bootstrap 注入工厂、参数变化即重建（app 不 import engine）；**检索模式无配置**——恒混合、降级自动。
 - **补算**：独立 embed worker（与索引 worker 分离，下载/嵌入绝不阻塞 FTS）；索引写成功与 boot 对账后 kick；缺生效模型向量的行批 ≤32 补嵌（title+body，CapRunes）；provider 出错停本轮等下次 kick。
-- **融合**：查询时 provider 在场且向量就绪 → 余弦 top-100 与词法 top-100 做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存，upsert/purge/切换失效。
+- **融合**：查询时 provider 在场且向量就绪 → 余弦 top-100 与词法窗口（≤200=fusionWindow）做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存，upsert/purge/切换失效。
 - **换 embedder**：`search_embeddings.model` 逐行记账——旧模型行对新模型即「缺向量」，自动重嵌，绝不混用。
 
 ## 关键不变量

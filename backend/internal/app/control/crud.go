@@ -234,10 +234,10 @@ func (s *Service) GetVersionByNumber(ctx context.Context, controlID string, vers
 	return s.repo.GetVersionByNumber(ctx, controlID, versionN)
 }
 
-// Resolve returns a version's branches for the durable interpreter (波次 4). versionID==""
+// Resolve returns a version's branches for the durable interpreter. versionID==""
 // means the active version. The interpreter compiles + evals the CEL (pinned per flowrun).
 //
-// Resolve 返某版本的 branches 供 durable 解释器（波次 4）。versionID 空 = active。解释器自行
+// Resolve 返某版本的 branches 供 durable 解释器。versionID 空 = active。解释器自行
 // 编译+求值（按 flowrun pin）。
 func (s *Service) Resolve(ctx context.Context, id, versionID string) ([]controldomain.Branch, error) {
 	c, err := s.repo.GetControl(ctx, id)

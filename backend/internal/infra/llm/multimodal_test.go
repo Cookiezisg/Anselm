@@ -47,10 +47,10 @@ func multimodalBody(t *testing.T, p reqBuilder) string {
 // TestMultimodalRendering verifies each provider renders the neutral multi-modal parts into its
 // own official wire shape: vision-capable providers carry the image natively, the three with
 // native document input (anthropic/openai/gemini) carry the PDF inline, and the rest degrade the
-// PDF (skip the file part — sandbox text-extraction is R0053) while still carrying the image.
+// PDF (skip the file part — sandbox text-extraction handles it) while still carrying the image.
 //
 // TestMultimodalRendering 验证每家把中立多模态块渲成自家官方 wire：视觉模型原生承载图；三家原生
-// 文档输入（anthropic/openai/gemini）内联 PDF；其余降级 PDF（跳过 file part——沙箱抽取是 R0053）
+// 文档输入（anthropic/openai/gemini）内联 PDF；其余降级 PDF（跳过 file part——交由沙箱抽取）
 // 但仍承载图。
 func TestMultimodalRendering(t *testing.T) {
 	cases := []struct {

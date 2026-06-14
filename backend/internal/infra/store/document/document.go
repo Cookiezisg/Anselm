@@ -19,12 +19,12 @@ import (
 )
 
 // Schema is the documents DDL, exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. The UNIQUE index uses
+// bootstrap to collect and apply via db.Migrate. The UNIQUE index uses
 // COALESCE(parent_id,”) so root-level (NULL parent) siblings are also name-unique
 // — SQLite would otherwise treat each NULL as distinct and let root dups through.
 // The partial WHERE deleted_at IS NULL frees a name once its doc is soft-deleted.
 //
-// Schema 是 documents 表 DDL，按序幂等语句导出，由 cmd/server 汇总经 db.Migrate 应用。
+// Schema 是 documents 表 DDL，按序幂等语句导出，由 bootstrap 汇总经 db.Migrate 应用。
 // UNIQUE 索引用 COALESCE(parent_id,”)，使根级（NULL 父）兄弟也按名唯一——否则 SQLite 把
 // 每个 NULL 当作不同值、放过根级重名。partial WHERE deleted_at IS NULL 让软删后名可复用。
 var Schema = []string{

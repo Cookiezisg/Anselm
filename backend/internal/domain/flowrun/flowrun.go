@@ -1,6 +1,6 @@
 // Package flowrun is the domain layer for one workflow execution's DURABLE STATE — the
 // truth a crash recovers from. It is NOT a forgeable entity (no catalog / relation / version);
-// it is a runtime log written by the scheduler (M4.3) as it interprets a pinned graph.
+// it is a runtime log written by the scheduler as it interprets a pinned graph.
 //
 // The model is node-result MEMOIZATION (DBOS / Conductor style), NOT an event-sourcing journal
 // (Temporal style): there is no user code to replay, only a graph interpreter whose entire state
@@ -9,7 +9,7 @@
 // completed row is copied, never re-executed (record-once on UNIQUE(flowrun_id,node_id,iteration)).
 //
 // Package flowrun 是「一次 workflow 执行的持久化状态」的 domain 层——崩溃从这里恢复。它不是可锻造
-// 实体（无 catalog/relation/版本），是 scheduler（M4.3）解释钉死的图时写的运行时日志。
+// 实体（无 catalog/relation/版本），是 scheduler 解释钉死的图时写的运行时日志。
 //
 // 模型是**节点结果记忆化**（DBOS/Conductor 式），不是事件溯源日志（Temporal 式）：没有用户代码可
 // 重放，只有图解释器，其全部状态 = 「哪些 (节点,轮次) 完成了、result 是啥」——这住在 flowrun_nodes
@@ -41,12 +41,12 @@ const (
 
 // Node statuses. Rows are written TERMINAL-ONLY (no transient "running" row): an action runs and
 // completes within one synchronous advance() pass, so there is no mid-flight node state to persist
-// — a crash before the row is written simply re-runs (at-least-once, see doc 21 §8). parked is the
-// one non-terminal state: an approval writes it before suspending, then a decision flips it to
-// completed (first-wins conditional update).
+// — a crash before the row is written simply re-runs (at-least-once). parked is the one non-terminal
+// state: an approval writes it before suspending, then a decision flips it to completed (first-wins
+// conditional update).
 //
 // Node 状态。行只写**终态**（无瞬时 running 行）：action 在一次同步 advance() 内跑完，无中途节点态
-// 可存——写行前崩溃就重跑（at-least-once，doc 21 §8）。parked 是唯一非终态：approval 挂起前写它，
+// 可存——写行前崩溃就重跑（at-least-once）。parked 是唯一非终态：approval 挂起前写它，
 // 决策再把它翻成 completed（first-wins 条件更新）。
 const (
 	NodeCompleted = "completed"
@@ -54,19 +54,19 @@ const (
 	NodeParked    = "parked"
 )
 
-// Result keys — the per-kind shape of FlowRunNode.Result (doc 21 §3.2). control/approval results
-// are structured (a port/decision drives routing + carried data); action/agent results are the
-// raw callable/agent output stored as-is.
+// Result keys — the per-kind shape of FlowRunNode.Result. control/approval results are structured
+// (a port/decision drives routing + carried data); action/agent results are the raw callable/agent
+// output stored as-is.
 //
-// Result keys —— FlowRunNode.Result 的 per-kind 形状（doc 21 §3.2）。control/approval 的 result 有
-// 结构（port/decision 驱动路由 + 携带数据）；action/agent 的 result 是 callable/agent 原始输出原样存。
+// Result keys —— FlowRunNode.Result 的 per-kind 形状。control/approval 的 result 有结构（port/decision
+// 驱动路由 + 携带数据）；action/agent 的 result 是 callable/agent 原始输出原样存。
 const (
 	// ResultKeyPort: a control node's chosen routing port, stored under this RESERVED key ALONGSIDE
 	// the chosen branch's emitted fields (which are stored FLAT) — so downstream reads
-	// gate.<emitField> directly (doc 20 §5.4: "下游按名读 gate.feedback") while the interpreter reads
-	// gate.__port for routing. The double-underscore avoids colliding with a user emit field.
+	// gate.<emitField> directly while the interpreter reads gate.__port for routing. The
+	// double-underscore avoids colliding with a user emit field.
 	// ResultKeyPort：control 节点选中的路由 port，存在这个**保留**键下，与选中分支 emit 的字段（扁平存）
-	// 并列——故下游直接读 gate.<emit字段>（doc 20 §5.4），解释器读 gate.__port 路由。双下划线避免撞 emit 字段。
+	// 并列——故下游直接读 gate.<emit字段>，解释器读 gate.__port 路由。双下划线避免撞 emit 字段。
 	ResultKeyPort     = "__port"   // control: chosen branch port (reserved routing key)
 	ResultKeyDecision = "decision" // approval: yes | no (also downstream-readable)
 	ResultKeyReason   = "reason"   // approval: human reason (optional)
@@ -74,10 +74,10 @@ const (
 )
 
 // ControlResult builds a control node's memoized result: the chosen branch's emitted fields FLAT
-// (so downstream reads gate.feedback, doc 20 §5.4) plus the reserved __port routing key.
+// (so downstream reads gate.feedback) plus the reserved __port routing key.
 //
-// ControlResult 构造 control 节点的记忆化 result：选中分支 emit 的字段**扁平**（下游读 gate.feedback，
-// doc 20 §5.4）+ 保留的 __port 路由键。
+// ControlResult 构造 control 节点的记忆化 result：选中分支 emit 的字段**扁平**（下游读 gate.feedback）
+// + 保留的 __port 路由键。
 func ControlResult(port string, emit map[string]any) map[string]any {
 	out := make(map[string]any, len(emit)+1)
 	for k, v := range emit {
@@ -97,12 +97,10 @@ func ApprovalDecision(decision, reason string) map[string]any {
 // FlowRun is the execution header: the FROZEN topology (VersionID) + the FROZEN referenced-entity
 // versions (PinnedRefs) an interpreter walks, plus status + replay bookkeeping. Pinning is the
 // two locks that make replay deterministic: a mid-run edit to the workflow or any referenced
-// entity cannot change a running flow (doc 21 §6 boundary 1). This is a Log table — NO soft delete
-// (D1).
+// entity cannot change a running flow. This is a Log table — NO soft delete (D1).
 //
 // FlowRun 是执行头：钉死的拓扑（VersionID）+ 钉死的引用实体版本（PinnedRefs），加状态 + replay 记账。
-// pin 是让重放确定的两把锁：运行中编辑 workflow 或任何引用实体都改不动在途 run（doc 21 §6 边界一）。
-// 这是 Log 表——无软删（D1）。
+// pin 是让重放确定的两把锁：运行中编辑 workflow 或任何引用实体都改不动在途 run。这是 Log 表——无软删（D1）。
 type FlowRun struct {
 	ID          string            `db:"id,pk"               json:"id"`
 	WorkspaceID string            `db:"workspace_id,ws"     json:"-"`

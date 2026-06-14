@@ -40,9 +40,9 @@ type Host interface {
 	LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, error)
 
 	// Tools is recomputed every step: on-demand hosts widen the set as the LLM activates
-	// lazy groups (activate_tools), so ctx carries that activation state.
+	// lazy groups (search_tools), so ctx carries that activation state.
 	//
-	// Tools 每步重算：按需 host 随 LLM activate_tools 扩张工具集，故 ctx 携带激活状态。
+	// Tools 每步重算：按需 host 随 LLM search_tools 扩张工具集，故 ctx 携带激活状态。
 	Tools(ctx context.Context) []toolapp.Tool
 
 	WriteFinalize(ctx context.Context, blocks []messagesdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
@@ -50,11 +50,11 @@ type Host interface {
 
 // ReminderProvider is an OPTIONAL Host capability (type-asserted): when implemented, Run
 // injects its system-reminders ahead of each step as transient user messages — the
-// mechanism that keeps live state (the todo checklist, M1.11) in front of the model without
+// mechanism that keeps live state (the todo checklist) in front of the model without
 // polluting persisted history. A host without a todo service simply doesn't implement it.
 //
 // ReminderProvider 是 Host 可选能力（type-asserted）：实现它时，Run 每步前把它的 system-reminder
-// 作为临时 user 消息注入——把 live 状态（todo 清单 M1.11）顶在模型眼前、又不污染持久历史的机制。
+// 作为临时 user 消息注入——把 live 状态（todo 清单）顶在模型眼前、又不污染持久历史的机制。
 // 无 todo 服务的 host 不实现即可。
 type ReminderProvider interface {
 	SystemReminders(ctx context.Context) []string
@@ -62,22 +62,22 @@ type ReminderProvider interface {
 
 // AutoActivator is an OPTIONAL Host capability (type-asserted): it activates the lazy group
 // that contains a requested-but-inactive tool, so the LLM can call a forge tool without
-// remembering to activate_tools first. Returns nil if the tool isn't in any lazy group.
+// remembering to search_tools first. Returns nil if the tool isn't in any lazy group.
 //
 // AutoActivator 是 Host 可选能力（type-asserted）：激活含「被点但未激活」工具的 lazy 组，使 LLM
-// 调 forge 工具前无需先 activate_tools。工具不在任何 lazy 组时返回 nil。
+// 调 forge 工具前无需先 search_tools。工具不在任何 lazy 组时返回 nil。
 type AutoActivator interface {
 	TryActivateForTool(ctx context.Context, toolName string) []toolapp.Tool
 }
 
 // StepRecorder is an OPTIONAL Host capability (type-asserted): it journals each completed
 // tool-step so a durable replay (workflow flowrun :replay) reconstructs history from the
-// journal and skips already-completed steps (ADR-010). The chat host does NOT implement it.
+// journal and skips already-completed steps. The chat host does NOT implement it.
 // RecordStep is called only AFTER a step's tools ran and history extended — a crash before
 // the call re-runs the whole step (at-least-once; tools must be idempotent).
 //
 // StepRecorder 是 Host 可选能力（type-asserted）：记账每个完成的 tool-step，供 flowrun :replay 从
-// journal 重建历史、跳过已完成步（ADR-010）。chat host 不实现。RecordStep 仅在某步工具跑完 + 历史
+// journal 重建历史、跳过已完成步。chat host 不实现。RecordStep 仅在某步工具跑完 + 历史
 // 扩展后调用——调用前崩溃则整步重跑（at-least-once；工具须幂等）。
 type StepRecorder interface {
 	RecordStep(ctx context.Context, step int, assistant, toolResults []messagesdomain.Block)
@@ -97,12 +97,12 @@ type Result struct {
 }
 
 // Run executes the ReAct loop. baseReq.Messages is composed from host.LoadHistory; tools are
-// recomputed per step from host.Tools(ctx) so activate_tools widens the set for later steps;
+// recomputed per step from host.Tools(ctx) so search_tools widens the set for later steps;
 // any ReminderProvider's reminders are injected fresh each step. It always ends with exactly
 // one host.WriteFinalize.
 //
 // Run 执行 ReAct 循环。baseReq.Messages 取自 host.LoadHistory；tools 每步从 host.Tools(ctx) 重算，
-// 使 activate_tools 为后续步扩张工具集；ReminderProvider 的 reminder 每步重新注入。总以恰一次
+// 使 search_tools 为后续步扩张工具集；ReminderProvider 的 reminder 每步重新注入。总以恰一次
 // host.WriteFinalize 收尾。
 func Run(
 	ctx context.Context,
@@ -141,11 +141,11 @@ func Run(
 		req := baseReq
 		req.Messages = injectReminders(ctx, host, history)
 
-		// Recompute per step: a prior activate_tools may have widened the set. byName MUST
+		// Recompute per step: a prior search_tools may have widened the set. byName MUST
 		// match this step's offered tools so dispatch can't resolve a tool the LLM wasn't
 		// shown this turn.
 		//
-		// 每步重算：上一步的 activate_tools 可能已扩张工具集。byName 必须与本步 offer 的集合
+		// 每步重算：上一步的 search_tools 可能已扩张工具集。byName 必须与本步 offer 的集合
 		// 一致，避免调度到本回合未展示给 LLM 的工具。
 		tools := host.Tools(ctx)
 		req.Tools = toolapp.ToLLMDefs(tools)
@@ -241,10 +241,10 @@ func Run(
 
 		history = extendHistory(history, aBlocks, rBlocks)
 
-		// Sub-step replay (ADR-010): journal a fully-completed step so a future :replay
+		// Sub-step replay: journal a fully-completed step so a future :replay
 		// reconstructs history from here instead of re-running this step's LLM + tools.
 		//
-		// 子步重放（ADR-010）：记账一个已完成步，使将来 :replay 从此处重建历史，而非重跑本步的
+		// 子步重放：记账一个已完成步，使将来 :replay 从此处重建历史，而非重跑本步的
 		// LLM + 工具。
 		if rec, ok := host.(StepRecorder); ok {
 			rec.RecordStep(ctx, step, aBlocks, rBlocks)

@@ -30,9 +30,9 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 	})
 
 	// Pre-authorize this skill's allowed-tools for the rest of the run (consumed by the danger
-	// confirmation flow, ask 波次 6). allowed-tools = pre-approval, NOT a restriction whitelist.
+	// confirmation flow). allowed-tools = pre-approval, NOT a restriction whitelist.
 	//
-	// 把本 skill 的 allowed-tools 预授权到本次运行剩余部分（由危险确认流消费，ask 波次 6）。
+	// 把本 skill 的 allowed-tools 预授权到本次运行剩余部分（由危险确认流消费）。
 	// allowed-tools = 预授权，不是限制白名单。
 	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
 		state.SetActiveSkill(sk.Name, sk.Frontmatter.AllowedTools)
@@ -44,7 +44,7 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 			return "", skilldomain.ErrForkRequiresAgent
 		}
 		if s.subagent == nil {
-			return "", skilldomain.ErrSubagentUnavailable // subagent 在波次 5 注入前 fork 降级
+			return "", skilldomain.ErrSubagentUnavailable // subagent runner 未注入时 fork 降级
 		}
 		result, serr := s.subagent.Spawn(ctx, agentType, rendered)
 		if serr != nil {
@@ -86,10 +86,10 @@ type substituteVars struct {
 
 // substitute expands $ARGUMENTS / $1..$n / named placeholders / ${CLAUDE_SESSION_ID}.
 // ${CLAUDE_SKILL_DIR} and !`cmd` shell injection are intentionally NOT supported (the former
-// awaits L3 attached files; the latter is an arbitrary-exec surface we decline).
+// has no attached-files surface to point at; the latter is an arbitrary-exec surface we decline).
 //
 // substitute 展开 $ARGUMENTS / $1..$n / 命名占位 / ${CLAUDE_SESSION_ID}。
-// 刻意不支持 ${CLAUDE_SKILL_DIR}（待 L3 附加文件）与 !`cmd` shell 注入（任意执行面，拒绝）。
+// 刻意不支持 ${CLAUDE_SKILL_DIR}（无附加文件目录可指）与 !`cmd` shell 注入（任意执行面，拒绝）。
 func substitute(body string, v substituteVars) string {
 	pairs := []string{
 		"${CLAUDE_SESSION_ID}", v.SessionID,

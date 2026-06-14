@@ -112,11 +112,11 @@ type ForgeSpec struct {
 // ToJSON renders any value as a compact JSON string for a tool result. Marshal failure (only
 // possible for non-JSON-able values like channels — a programming error, not runtime input)
 // degrades to fmt %v so the LLM still sees something rather than an empty string. One shared
-// helper replaces the per-package copies every tool package used to carry.
+// helper instead of a per-package copy in each tool package.
 //
 // ToJSON 把任意值渲染成紧凑 JSON 字符串作工具结果。Marshal 失败（仅 channel 等不可 JSON 值——
-// 编程错误而非运行期输入）降级 fmt %v，让 LLM 至少看到内容而非空串。一个共享 helper 取代各工具
-// 包人手一份的副本。
+// 编程错误而非运行期输入）降级 fmt %v，让 LLM 至少看到内容而非空串。一个共享 helper 代替各工具
+// 包各自一份副本。
 func ToJSON(v any) string {
 	b, err := json.Marshal(v)
 	if err != nil {

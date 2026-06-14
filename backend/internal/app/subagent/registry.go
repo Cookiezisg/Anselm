@@ -30,10 +30,10 @@ type Type struct {
 }
 
 // Built-in types. Hardcoded (not user entities, no table) — a subagent is a runtime mechanism,
-// not a Quadrinity entity. Tool names are backend-new's actual tool Name()s.
+// not a Quadrinity entity. Tool names are the actual tool Name()s.
 //
 // 内置类型。硬编码（非用户实体、无表）——subagent 是运行时机制、非 Quadrinity 实体。工具名是
-// backend-new 的实际 Name()。
+// 实际的 Name()。
 var builtInTypes = []Type{
 	{
 		Name: "Explore",

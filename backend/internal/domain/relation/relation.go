@@ -40,10 +40,10 @@ type Relation struct {
 
 // RelationView is an edge decorated with both endpoints' current display names,
 // assembled in memory at read time. FromName/ToName fall back to the raw id when
-// the entity is gone or not yet name-resolvable (skill/mcp today).
+// the referenced entity no longer exists.
 //
-// RelationView 是带两端当前显示名的边，读时内存组装。实体已删或暂不可解析名字（当前的
-// skill/mcp）时，FromName/ToName 回退为原始 id。
+// RelationView 是带两端当前显示名的边，读时内存组装。被引用实体已删时，
+// FromName/ToName 回退为原始 id。
 type RelationView struct {
 	Relation
 	FromName string `json:"fromName"`

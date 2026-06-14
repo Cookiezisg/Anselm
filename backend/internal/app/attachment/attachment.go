@@ -140,19 +140,19 @@ func (s *Service) GC(ctx context.Context) (int, error) {
 }
 
 // Capabilities tells ToContentParts what the resolved target model can natively accept, so it can
-// decide whether to hand a file over raw or degrade it. Both flags come from the caller (chat M5.2)
+// decide whether to hand a file over raw or degrade it. Both flags come from the caller (chat loop)
 // via the model catalog — this layer holds no model knowledge.
 //
 // Capabilities 告诉 ToContentParts 解析后的目标模型能原生接受什么，据此决定原样递交还是降级。两个
-// flag 都由调用方（chat M5.2）按模型目录传入——本层不持模型知识。
+// flag 都由调用方（chat loop）按模型目录传入——本层不持模型知识。
 type Capabilities struct {
 	Vision     bool // model can see images natively
 	NativeDocs bool // model can read an inline document (PDF) natively (anthropic / openai / gemini)
 }
 
 // ToContentParts resolves attachment ids into provider-agnostic LLM content parts for one user turn
-// (chat M5.2 prepends the user's own text part, then sends; each provider renders the parts into its
-// own wire). Mapping by Kind:
+// (the chat loop prepends the user's own text part, then sends; each provider renders the parts into
+// its own wire). Mapping by Kind:
 //   - image    → image_url (data-URL) when caps.Vision; else a text note (degrade — don't send a
 //     part the model would reject).
 //   - text     → the file's content inlined as a text part (cheap, universal).
@@ -163,7 +163,7 @@ type Capabilities struct {
 // Order follows ids. A missing/unreadable blob is skipped with a warning — a stale id must never
 // fail the turn (best-effort, like a dangling mention).
 //
-// ToContentParts 把附件 id 解析成与 provider 无关的 LLM 内容块，供一个 user 回合（chat M5.2 前面拼上
+// ToContentParts 把附件 id 解析成与 provider 无关的 LLM 内容块，供一个 user 回合（chat loop 前面拼上
 // 用户文本 part 再发；各家渲成自家 wire）。按 Kind 映射：image→image_url（data-URL，仅 caps.Vision；
 // 否则文字提示降级）；text→文件内容内联 text part；document→caps.NativeDocs ? file part（PDF 原样递交、
 // 原生读）: sandbox 抽取文本（token 截断），无 extractor / 抽取失败则占位；audio/video/other→文字占位

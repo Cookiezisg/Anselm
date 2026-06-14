@@ -39,7 +39,7 @@ audience: [human, ai]
 ## 4. run 生命周期
 
 - **手动**（`StartRun`，HTTP `:trigger`）：读 active 版本 → pin 闭包（`BuildPinClosure`：逐 ref 解析 active 版本，**agent 递归一层**进其挂载的 fn/hd——两层是闭包天然下界）→ 选入口 trigger 节点（显式 entryNode > 按 trg_ > 唯一者；歧义 = `FLOWRUN_INVALID_ENTRY`）→ **单事务**写 run 头 + seed trigger 节点 → Advance。
-- **自动**（firing 路径）：见 [trigger.md](../domains/trigger.md)。`consumeFiring` 先 overlap 决策（serial 在途则**留 pending 下个 tick 再试** / skip 标 skipped / 其余跑），读全做在事务外，然后 **`ClaimFiring` 单事务**：claim（仅当仍 pending）+ `SeedRunOnTx` 建 run + 回填 started——崩溃回滚后 firing 仍 pending，**绝无 claimed-但-无-run 残留**（ADR-021）。
+- **自动**（firing 路径）：见 [trigger.md](../domains/trigger.md)。`consumeFiring` 先 overlap 决策（serial 在途则**留 pending 下个 tick 再试** / skip 标 skipped / 其余跑），读全做在事务外，然后 **`ClaimFiring` 单事务**：claim（仅当仍 pending）+ `SeedRunOnTx` 建 run + 回填 started——崩溃回滚后 firing 仍 pending，**绝无 claimed-但-无-run 残留**。
 - **审批**：approval 节点渲染模板后写 **parked** 行、run 保持 running。人工 `DecideApproval` / 超时 `CheckTimeouts` 都走 `ResolveParkedNode` ——**status='parked' 上的条件更新，first-wins**：人 vs 超时谁先写谁赢，输家 no-op（人工路径上呈 `FLOWRUN_APPROVAL_NOT_PARKED` 422）。超时行为 reject→no / approve→yes / fail→run 失败；timeout 支持 `30d`/`2w` 粗粒度。**这是系统唯一的 durable timer**（5 秒 tick 扫描 parked 行 vs deadline，无定时器持久化）。
 - **失败与修复**：节点失败 = 写 failed 行 + run 标 failed（fail-fast，completed 兄弟行留着）。`:replay` = **物理删 failed 行**（Log 表唯一允许的删除——failed 是"非结果"，删它重试不是抹历史）+ run 翻回 running + `replay_count++` + 重走（completed 复用、被清的重跑）。
 - **kill**：`KillWorkflow` 对每个 running run **先标 cancelled（守卫 WHERE running）再 cancel ctx**——顺序决定终态正确性：被打断的节点会返 ctx.Err()，若先 cancel，failNode 会把 run 写成 failed；先写 cancelled 则 failNode 的 UPDATE 匹配 0 行 no-op。`trackInflight` 给每次 advance 注册可取消 ctx，使 kill 能打断卡在长 agent 里的 run。
@@ -59,4 +59,4 @@ audience: [human, ai]
 
 ## 7. 跨域集成
 
-派发走 4 个窄端口（bootstrap/dispatch.go），签名 `(ctx, ref, pinnedVersionID, input)`：action 按前缀 → fn `RunFunction`（执行 pin 版本）/ hd `Call`（活态绑定，pin 不适用）/ mcp `CallTool`（无版本），agent → `InvokeAgent`（执行 pin 版本；粗粒度 activity——只记忆化最终 result；子步重放是 ADR-010 预留）。派发前调度器把 `flowrunID/nodeID` 注入 ctx（执行实体的审计列就此对账）；pin 版本走显式参数（执行语义非环境身份）。control/approval 由解释器**内联求值**（resolve pin 版本 + CEL first-true-wins / 模板渲染），不是 activity。`OK=false` 转 error fail-fast 使节点行写 failed。
+派发走 4 个窄端口（bootstrap/dispatch.go），签名 `(ctx, ref, pinnedVersionID, input)`：action 按前缀 → fn `RunFunction`（执行 pin 版本）/ hd `Call`（活态绑定，pin 不适用）/ mcp `CallTool`（无版本），agent → `InvokeAgent`（执行 pin 版本；粗粒度 activity——只记忆化最终 result；子步重放是预留）。派发前调度器把 `flowrunID/nodeID` 注入 ctx（执行实体的审计列就此对账）；pin 版本走显式参数（执行语义非环境身份）。control/approval 由解释器**内联求值**（resolve pin 版本 + CEL first-true-wins / 模板渲染），不是 activity。`OK=false` 转 error fail-fast 使节点行写 failed。

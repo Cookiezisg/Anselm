@@ -4,12 +4,12 @@
 //
 // Env-fix progress (the AI dep-repair loop) is captured by a forgeSink and folded into
 // the create/edit tool result, so the LLM sees the full self-heal narrative. Live
-// streaming of each attempt is a chat-host seam (M5.2); the sink is that seam.
+// streaming of each attempt is a chat-host seam; the sink is that seam.
 //
 // Package function 提供操作用户 function 库的 LLM system tool。这些是懒加载工具
 // （Toolset.Lazy）——经 search_tools 浮现，非常驻。env-fix 进度（AI 改依赖循环）由 forgeSink
-// 收集并折进 create/edit 结果，使 LLM 看到完整自愈叙事。逐尝试 live 推流是 chat-host 接缝
-// （M5.2）；sink 即该缝。
+// 收集并折进 create/edit 结果，使 LLM 看到完整自愈叙事。逐尝试 live 推流是 chat-host 接缝；
+// sink 即该缝。
 package function
 
 import (

@@ -18,11 +18,11 @@ import (
 // WorkflowHandler hosts the workflow graph HTTP endpoints. The version model is linear with
 // a free-moving active pointer — no pending/accept endpoints. The execution-lifecycle verbs
 // (:trigger / :stage / :activate / :deactivate / :kill, D1) drive the durable scheduler + trigger
-// binder. The :iterate verb (R0065) opens an AI conversation to edit this workflow via aispawn.
+// binder. The :iterate verb opens an AI conversation to edit this workflow via aispawn.
 //
 // WorkflowHandler 持 workflow 图 HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无
 // pending/accept 端点。执行生命周期动词（:trigger / :stage / :activate / :deactivate / :kill，D1）
-// 驱动 durable 调度器 + trigger binder。:iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本 workflow。
+// 驱动 durable 调度器 + trigger binder。:iterate 动词经 aispawn 开一个 AI 对话来编辑本 workflow。
 type WorkflowHandler struct {
 	svc     *workflowapp.Service
 	aispawn *aispawnapp.Service
@@ -79,7 +79,7 @@ func (h *WorkflowHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	wf.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	wf.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形
 	responsehttpapi.Created(w, wf)
 }
 
@@ -228,7 +228,7 @@ func (h *WorkflowHandler) trigger(w http.ResponseWriter, r *http.Request, id str
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": runID}) // 异步动作返新资源 id 统一 {id}(MD3)
+	responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": runID}) // 异步动作返新资源 id 统一 {id}
 }
 
 // stage backs :stage — arm the workflow for one run on its next real trigger fire, then auto-disarm.
@@ -239,7 +239,7 @@ func (h *WorkflowHandler) stage(w http.ResponseWriter, r *http.Request, id strin
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照,不发 {staged:true} 裸键(MD4)
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照,不发 {staged:true} 裸键
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -248,10 +248,10 @@ func (h *WorkflowHandler) stage(w http.ResponseWriter, r *http.Request, id strin
 }
 
 // activate backs :activate — bring the workflow online (start listening to its trigger) + flip
-// lifecycle to active. Engages the trigger listener, unlike the old DB-only flag flip.
+// lifecycle to active. Engages the trigger listener, not merely a DB flag.
 //
 // activate 支撑 :activate——让 workflow 上线（开始监听其 trigger）+ 翻 lifecycle 为 active。挂上 trigger
-// 监听，区别于旧的只翻 DB 标志。
+// 监听，而非只翻 DB 标志。
 func (h *WorkflowHandler) activate(w http.ResponseWriter, r *http.Request, id string) {
 	wf, err := h.svc.Activate(r.Context(), id)
 	if err != nil {
@@ -283,7 +283,7 @@ func (h *WorkflowHandler) kill(w http.ResponseWriter, r *http.Request, id string
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照;被杀 run 数由 GET /flowruns?status=cancelled 查(MD4)
+	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照;被杀 run 数由 GET /flowruns?status=cancelled 查
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

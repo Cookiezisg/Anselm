@@ -31,7 +31,7 @@ import (
 	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
 )
 
-// Schema is the two tables' DDL, exported as ordered idempotent statements for cmd/server to
+// Schema is the two tables' DDL, exported as ordered idempotent statements for bootstrap to
 // collect via db.Migrate. Both are append-only (no deleted_at, D1). message_blocks' UNIQUE
 // (conversation_id, seq) is the seq monotonicity guarantee (idx_blocks_conv_seq); type /
 // status / context_role are CHECK-closed so a bad value can never reach the LLM history.

@@ -13,11 +13,11 @@ import (
 )
 
 // suggestDeps asks the utility model for a revised dependency list given the failing
-// deps + captured stderr. Resolution goes through modelclient — the one shared chain
-// (a hand-rolled copy here once miswired base URL into the wire model id, AC-26).
+// deps + captured stderr. Resolution goes through modelclient — the one shared chain,
+// so the wire model id is never confused with the base URL.
 //
 // suggestDeps 给定失败的 deps + 捕获的 stderr，让 utility 模型给修正依赖列表。解析走
-// modelclient——唯一共享链（这里曾手抄一份并把 base URL 误接进线缆 model id，AC-26）。
+// modelclient——唯一共享解析链，故 wire model id 不会被误设成 base URL。
 func (p *Provisioner) suggestDeps(ctx context.Context, currentDeps []string, lastErr string, history []Attempt) ([]string, error) {
 	client, req, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, p.picker, p.keys, p.factory)
 	if err != nil {

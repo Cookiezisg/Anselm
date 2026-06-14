@@ -18,11 +18,11 @@ import (
 // ControlHandler hosts the control-logic HTTP endpoints. The version model is linear
 // with a free-moving active pointer — no pending/accept endpoints, no :run (a control
 // logic is evaluated by the workflow interpreter, never invoked standalone). The :iterate
-// verb (R0065) opens an AI conversation to edit this control logic via aispawn.
+// verb opens an AI conversation to edit this control logic via aispawn.
 //
 // ControlHandler 持 control 逻辑 HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无
 // pending/accept 端点、无 :run（control 逻辑由 workflow 解释器求值，绝不独立调用）。:iterate 动词
-// （R0065）经 aispawn 开一个 AI 对话来编辑本 control 逻辑。
+// 经 aispawn 开一个 AI 对话来编辑本 control 逻辑。
 type ControlHandler struct {
 	svc     *controlapp.Service
 	aispawn *aispawnapp.Service
@@ -93,7 +93,7 @@ func (h *ControlHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	c.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	c.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形
 	responsehttpapi.Created(w, c)
 }
 
@@ -147,9 +147,9 @@ func (h *ControlHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnControl dispatches POST /controls/{id}:<action> (:edit / :revert). No :run.
+// postOnControl dispatches POST /controls/{id}:<action> (:edit / :revert / :iterate). No :run.
 //
-// postOnControl 派发 POST /controls/{id}:<action>（:edit / :revert）。无 :run。
+// postOnControl 派发 POST /controls/{id}:<action>（:edit / :revert / :iterate）。无 :run。
 func (h *ControlHandler) postOnControl(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {

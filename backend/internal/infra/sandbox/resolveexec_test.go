@@ -41,10 +41,10 @@ func TestNodeResolveExec_RuntimeToolVsEnvDep(t *testing.T) {
 	}
 }
 
-// TestPythonResolveExec_UvRunner: uvx resolves beside the aqua-installed uv (via ToolRegistry);
+// TestPythonResolveExec_UvRunner: uvx resolves beside the uv runtime binary (via ToolRegistry);
 // a plain bare name resolves under the env's venv.
 //
-// TestPythonResolveExec_UvRunner：uvx 解析到 aqua 装的 uv 同目录（经 ToolRegistry）；普通裸名按
+// TestPythonResolveExec_UvRunner：uvx 解析到 uv runtime 二进制同目录（经 ToolRegistry）；普通裸名按
 // env 的 venv 解析。
 func TestPythonResolveExec_UvRunner(t *testing.T) {
 	if runtime.GOOS == "windows" {

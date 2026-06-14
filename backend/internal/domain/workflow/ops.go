@@ -17,10 +17,10 @@ type Op struct {
 	Raw  json.RawMessage
 }
 
-// Op types. set_meta patches header identity (name/description/tags) and does not touch the
-// graph; the rest mutate the graph.
+// Op types. set_meta patches header identity (name/description/tags/concurrency) and does not
+// touch the graph; the rest mutate the graph.
 //
-// Op 类型。set_meta 改头部身份（name/description/tags）、不动图；其余改图。
+// Op 类型。set_meta 改头部身份（name/description/tags/concurrency）、不动图；其余改图。
 const (
 	OpSetMeta    = "set_meta"
 	OpAddNode    = "add_node"

@@ -18,11 +18,11 @@ import (
 )
 
 // Schema is the control tables' DDL, exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. control_logics has a partial-UNIQUE
+// bootstrap to collect and apply via db.Migrate. control_logics has a partial-UNIQUE
 // name (freed on soft-delete); versions are UNIQUE(control_id, version) and append-only
 // (no deleted_at — cap-trimmed by hard delete).
 //
-// Schema 是 control 两表 DDL，按序幂等导出，由 cmd/server 汇总经 db.Migrate 应用。control_logics
+// Schema 是 control 两表 DDL，按序幂等导出，由 bootstrap 汇总经 db.Migrate 应用。control_logics
 // 用 partial-UNIQUE name（软删后释放）；versions UNIQUE(control_id, version)、只增（无 deleted_at
 // ——按上限硬删裁剪）。
 var Schema = []string{
@@ -252,10 +252,10 @@ func toAny(ss []string) []any {
 	return out
 }
 
-// CreateWithVersion inserts the entity row and its v1 in ONE transaction (review PD-3): a
+// CreateWithVersion inserts the entity row and its v1 in ONE transaction: a
 // create either fully lands or fully doesn't — no versionless entity row on a mid-write failure.
 //
-// CreateWithVersion 在单事务内插入实体行与其 v1（评审 PD-3）：create 要么完整落地、要么完全不落
+// CreateWithVersion 在单事务内插入实体行与其 v1：create 要么完整落地、要么完全不落
 // ——中途失败不留无版本实体行。
 func (s *Store) CreateWithVersion(ctx context.Context, e *controldomain.ControlLogic, v *controldomain.Version) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
@@ -272,10 +272,10 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *controldomain.ControlL
 	})
 }
 
-// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction
-// (review PD-3): an edit either fully lands or fully doesn't — no orphan version + stale pointer.
+// SaveVersionAndActivate inserts a new version and moves the active pointer in ONE transaction:
+// an edit either fully lands or fully doesn't — no orphan version + stale pointer.
 //
-// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针（评审 PD-3）：edit 要么完整生效、
+// SaveVersionAndActivate 在单事务内插入新版本并移动 active 指针：edit 要么完整生效、
 // 要么完全不生效——不留孤儿版本 + 旧指针。
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *controldomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {

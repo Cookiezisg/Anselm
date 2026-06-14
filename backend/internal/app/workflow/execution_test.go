@@ -43,7 +43,7 @@ func (f *fakeRunner) KillWorkflow(_ context.Context, w string) (int, error) {
 }
 func (f *fakeRunner) CountRunning(_ context.Context, _ string) (int, error) { return f.running, nil }
 
-// TestExecutionLifecycle drives all five D1 actions over a real Service + in-memory store with fake
+// TestExecutionLifecycle drives all five execution-lifecycle actions over a real Service + in-memory store with fake
 // binder/runner, asserting each engages the right collaborator and lands the right lifecycle state.
 // The workflow's entry trigger ref is "trg_a" (linearOps).
 func TestExecutionLifecycle(t *testing.T) {

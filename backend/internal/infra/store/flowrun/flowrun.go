@@ -39,12 +39,12 @@ const (
 
 // Schema is the 2-table DDL (idempotent). flowruns is the run header; flowrun_nodes is the
 // memoization truth table. Neither has deleted_at (Log, D1). idx_frn_once is the record-once
-// key (D3, replaces the old journal idx_fre_record_once). idx_fr_running supports cross-ws
-// boot recovery; idx_frn_parked supports the approval inbox.
+// key (D3). idx_fr_running supports cross-ws boot recovery; idx_frn_parked supports the approval
+// inbox.
 //
 // Schema 是 2 表 DDL（幂等）。flowruns 是 run 头；flowrun_nodes 是记忆化真相表。都无 deleted_at
-// （Log，D1）。idx_frn_once 是 record-once 键（D3，取代旧 journal idx_fre_record_once）。
-// idx_fr_running 支撑跨 ws boot 恢复；idx_frn_parked 支撑审批收件箱。
+// （Log，D1）。idx_frn_once 是 record-once 键（D3）。idx_fr_running 支撑跨 ws boot 恢复；
+// idx_frn_parked 支撑审批收件箱。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS flowruns (
 		id            TEXT PRIMARY KEY,
@@ -113,11 +113,11 @@ var _ flowrundomain.Repository = (*Store)(nil)
 
 // SeedRunOnTx creates the run header + seeds its trigger node row on the GIVEN transaction —
 // so the firing path can do it inside triggerstore.ClaimFiring's single tx (claim + run in one
-// atom, ADR-021). Mints ids when empty. The trigger node IS the entry payload (its result), so
+// atom). Mints ids when empty. The trigger node IS the entry payload (its result), so
 // a run never exists without its seed (no "ran nothing" ghost).
 //
 // SeedRunOnTx 在给定事务上建 run 头 + seed 它的 trigger 节点行——使 firing 路径能在
-// triggerstore.ClaimFiring 的单事务内做（claim+建 run 一个原子，ADR-021）。id 空则铸。trigger
+// triggerstore.ClaimFiring 的单事务内做（claim+建 run 一个原子）。id 空则铸。trigger
 // 节点即入口 payload（它的 result），故 run 绝不无 seed 而存在（无「跑了个寂寞」幽灵）。
 func (s *Store) SeedRunOnTx(ctx context.Context, tx *ormpkg.DB, run *flowrundomain.FlowRun, triggerNode *flowrundomain.FlowRunNode) error {
 	if run.ID == "" {

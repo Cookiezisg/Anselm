@@ -8,11 +8,10 @@ import (
 )
 
 // AsCatalogSource exposes the function library to the capability catalog (name +
-// description only; no Granularity / InvokeTool — those were dropped when catalog
-// narrowed to a pure entity menu in M1.5).
+// description only — the catalog is a pure entity menu).
 //
-// AsCatalogSource 把 function 库暴露给能力 catalog（只 name + description；无
-// Granularity / InvokeTool——catalog 在 M1.5 收窄为纯实体名录时已砍）。
+// AsCatalogSource 把 function 库暴露给能力 catalog（只 name + description——catalog
+// 是纯实体名录）。
 func (s *Service) AsCatalogSource() catalogdomain.CatalogSource {
 	return &functionCatalogSource{svc: s}
 }

@@ -1,12 +1,12 @@
 // Package blocks provides search_blocks — the LLM's workflow-palette search.
-// Scope is a hard rule (§7.4): only the six kinds that wire directly into a
+// Scope is a hard rule: only the six kinds that wire directly into a
 // workflow graph (function / handler methods / mcp tools / agent / control /
 // approval). Conversations, documents, skills, memories, workflows and
 // triggers never appear here — cross-entity omni-search belongs to the human
 // search box, and a smaller answer space is exactly what keeps the LLM's
 // mental load low while forging.
 //
-// Package blocks 提供 search_blocks——LLM 的工作流积木面板检索。范围是铁律（§7.4）：
+// Package blocks 提供 search_blocks——LLM 的工作流积木面板检索。范围是铁律：
 // 只搜能直接接进 workflow 图的六类（function / handler 方法 / mcp 工具 / agent /
 // control / approval）。对话、文档、skill、memory、workflow、trigger 永不出现——
 // 跨实体综搜属于人的搜索框，更小的答案空间正是搓工作流时压低 LLM 心智负担的关键。

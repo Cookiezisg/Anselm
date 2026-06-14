@@ -13,12 +13,12 @@ import (
 //
 //	Recover → RequestLogger → CORS → InjectLocale → IdentifyWorkspace → RequireWorkspace(exempt)
 //
-// resolver may be nil (validation skipped) before the workspace module is wired. cmd/server
+// resolver may be nil (validation skipped) before the workspace module is wired. bootstrap
 // builds the mux, registers every handler, then passes the result through Chain.
 //
 // Chain 用标准中间件栈包裹 h（最外层在前）：Recover → RequestLogger → CORS → InjectLocale →
 // IdentifyWorkspace → RequireWorkspace(豁免)。resolver 在 workspace 模块接线前可为 nil（跳过校验）。
-// cmd/server 构造 mux、注册所有 handler 后把结果过 Chain。
+// bootstrap 构造 mux、注册所有 handler 后把结果过 Chain。
 func Chain(h http.Handler, log *zap.Logger, resolver middlewarehttpapi.WorkspaceResolver) http.Handler {
 	h = requireWorkspaceExempt(h)
 	h = middlewarehttpapi.IdentifyWorkspace(resolver)(h)

@@ -174,7 +174,7 @@ func nodeRows(t *testing.T, store *flowrunstore.Store, ctx context.Context, id s
 	return out
 }
 
-// ---- walk: the four control-flow shapes (doc 21 §11) ---------------------
+// ---- walk: the four control-flow shapes ----------------------------------
 
 func TestWalk_Linear(t *testing.T) {
 	g := workflowdomain.Graph{
@@ -348,7 +348,7 @@ func TestWalk_LoopWithBackEdge(t *testing.T) {
 	}
 }
 
-// ---- park / resume + approval first-wins (doc 21 §4.5, §6) ---------------
+// ---- park / resume + approval first-wins ----------------------------------
 
 func approvalGraph() workflowdomain.Graph {
 	return workflowdomain.Graph{

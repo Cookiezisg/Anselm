@@ -85,11 +85,11 @@ type MoveInput struct {
 
 // AttachedDocument is one entry in a conversation / workflow node's attach list. The
 // referenced document is injected verbatim — only that single doc, never its subtree.
-// Subtree auto-injection was deliberately dropped: an attach must be explicit and
-// bounded, not "attach one, drag in a whole tree" that blows the context budget.
+// An attach is deliberately explicit and bounded: no subtree auto-injection, so one
+// attach can't "drag in a whole tree" that blows the context budget.
 //
 // AttachedDocument 是 conversation / workflow 节点挂载列表的一项。被引文档原样注入——只那
-// 一篇，绝不连子树。子树自动注入已刻意砍掉：挂载必须显式且有界，不能"挂一篇拖出一整棵树"
+// 一篇，绝不连子树。挂载刻意显式且有界：不做子树自动注入，使一次挂载不能"拖出一整棵树"
 // 炸 context。
 type AttachedDocument struct {
 	DocumentID string `json:"documentId"`

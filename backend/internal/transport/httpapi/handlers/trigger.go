@@ -18,11 +18,11 @@ import (
 // (cron / webhook / fsnotify / sensor) with no version model. Edit is a plain PATCH (config
 // takes effect immediately); :fire manually fires it. The activation log (GET .../activations)
 // answers "why didn't it fire?". Reference-counted listen lifecycle is driven by workflow
-// activate/deactivate (波次 4), not exposed here.
+// activate/deactivate, not exposed here.
 //
 // TriggerHandler 持 trigger HTTP 端点。trigger 是独立信号源（cron/webhook/fsnotify/sensor），无版本。
 // Edit 是普通 PATCH（config 立即生效）；:fire 手动触发。activation 日志回答「为什么没触发」。
-// 引用计数监听生命周期由 workflow 激活/停用驱动（波次 4），不在此暴露。
+// 引用计数监听生命周期由 workflow 激活/停用驱动，不在此暴露。
 type TriggerHandler struct {
 	svc     *triggerapp.Service
 	aispawn *aispawnapp.Service
@@ -67,7 +67,7 @@ func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, t) // 裸实体(trigger 无版本)(MD1)
+	responsehttpapi.Created(w, t) // 裸实体(trigger 无版本)
 }
 
 func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -122,9 +122,9 @@ func (h *TriggerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnTrigger dispatches POST /triggers/{id}:<action> (only :fire today).
+// postOnTrigger dispatches POST /triggers/{id}:<action> (:fire / :iterate).
 //
-// postOnTrigger 派发 POST /triggers/{id}:<action>（目前仅 :fire）。
+// postOnTrigger 派发 POST /triggers/{id}:<action>（:fire / :iterate）。
 func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -138,7 +138,7 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}
-		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}(MD3)
+		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}
 		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": actID})
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)

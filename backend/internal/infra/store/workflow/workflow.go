@@ -18,11 +18,11 @@ import (
 )
 
 // Schema is the workflow tables' DDL, exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. workflows has a partial-UNIQUE name
+// bootstrap to collect and apply via db.Migrate. workflows has a partial-UNIQUE name
 // (freed on soft-delete) plus CHECK-constrained lifecycle_state / concurrency; versions are
 // UNIQUE(workflow_id, version) and append-only (no deleted_at — cap-trimmed by hard delete).
 //
-// Schema 是 workflow 两表 DDL，按序幂等导出，由 cmd/server 汇总经 db.Migrate 应用。workflows 用
+// Schema 是 workflow 两表 DDL，按序幂等导出，由 bootstrap 汇总经 db.Migrate 应用。workflows 用
 // partial-UNIQUE name（软删后释放）+ CHECK 约束的 lifecycle_state / concurrency；versions
 // UNIQUE(workflow_id, version)、只增（无 deleted_at——按上限硬删裁剪）。
 var Schema = []string{

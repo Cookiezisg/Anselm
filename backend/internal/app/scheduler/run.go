@@ -166,11 +166,11 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 
 // consumeFiring turns one firing into a run, honoring the workflow's overlap policy, in the firing's
 // own workspace context. The single-tx claim (ClaimFiring) does pending→claimed + SeedRunOnTx + the
-// started backfill atomically (ADR-021) so a crash can never leave a claimed-but-no-run strand. The
+// started backfill atomically so a crash can never leave a claimed-but-no-run strand. The
 // run is then advanced outside the claim tx.
 //
 // consumeFiring 把一条 firing 转成 run，遵守 workflow overlap 策略，在 firing 自己的 workspace ctx 里。
-// 单事务 claim（ClaimFiring）原子做 pending→claimed + SeedRunOnTx + started 回填（ADR-021），崩溃绝不
+// 单事务 claim（ClaimFiring）原子做 pending→claimed + SeedRunOnTx + started 回填，崩溃绝不
 // 留 claimed-但-无-run 残留。run 在 claim 事务外 advance。
 func (s *Service) consumeFiring(ctx context.Context, f *triggerdomain.Firing) error {
 	fctx := reqctxpkg.SetWorkspaceID(ctx, f.WorkspaceID)
@@ -289,14 +289,14 @@ func (s *Service) DecideApproval(ctx context.Context, flowrunID, nodeID, decisio
 	return s.Advance(ctx, flowrunID)
 }
 
-// CheckTimeouts settles parked approvals whose deadline has passed (the one durable timer, doc 21
-// §4.5). For each parked node it resolves the pinned form's Timeout/TimeoutBehavior; reject→no,
-// approve→yes, fail→fail the run. first-wins guards against racing a human decision. Workspace-scoped
-// (the caller ticks it per workspace; for a single-user app that is the one workspace).
+// CheckTimeouts settles parked approvals whose deadline has passed (the one durable timer). For each
+// parked node it resolves the pinned form's Timeout/TimeoutBehavior; reject→no, approve→yes,
+// fail→fail the run. first-wins guards against racing a human decision. Workspace-scoped (the caller
+// ticks it per workspace; for a single-user app that is the one workspace).
 //
-// CheckTimeouts 落定到期的 parked approval（唯一 durable timer，doc 21 §4.5）。对每个 parked 节点解析
-// pin 表单的 Timeout/TimeoutBehavior；reject→no、approve→yes、fail→run 失败。first-wins 防与人工决策
-// 竞争。按 workspace 隔离（调用方逐 workspace tick；单用户即一个 workspace）。
+// CheckTimeouts 落定到期的 parked approval（唯一 durable timer）。对每个 parked 节点解析 pin 表单的
+// Timeout/TimeoutBehavior；reject→no、approve→yes、fail→run 失败。first-wins 防与人工决策竞争。
+// 按 workspace 隔离（调用方逐 workspace tick；单用户即一个 workspace）。
 func (s *Service) CheckTimeouts(ctx context.Context, now time.Time) error {
 	parked, err := s.runs.ListParkedNodes(ctx)
 	if err != nil {

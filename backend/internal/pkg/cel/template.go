@@ -65,11 +65,11 @@ func CompileTemplate(tmpl string) (*Template, error) {
 
 // Render evaluates each `{{ expr }}` span over the caller's activation (vars), stringifies
 // the result, and splices it between the literal chunks. A span eval error aborts (the
-// interpreter decides how to surface it). Used by the workflow durable interpreter (波次 4),
+// interpreter decides how to surface it). Used by the workflow durable interpreter,
 // not at authoring.
 //
 // Render 对每个 `{{ expr }}` 段按调用方 activation（vars）求值、字符串化、插回字面间。某段求值错
-// 则中止（解释器决定如何上呈）。由 workflow durable 解释器（波次 4）使用，非编写期。
+// 则中止（解释器决定如何上呈）。由 workflow durable 解释器使用，非编写期。
 func (t *Template) Render(vars map[string]any) (string, error) {
 	var b strings.Builder
 	for _, p := range t.parts {

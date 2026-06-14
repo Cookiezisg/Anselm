@@ -17,11 +17,11 @@ import (
 )
 
 // AgentHandler hosts the agent HTTP endpoints. The version model is linear with a free-moving
-// active pointer — no pending/accept endpoints. The :iterate verb (R0065) opens an AI conversation
+// active pointer — no pending/accept endpoints. The :iterate verb opens an AI conversation
 // to edit this agent via aispawn.
 //
 // AgentHandler 持 agent HTTP 端点。版本模型线性 + 可自由移动的 active 指针——无 pending/accept 端点。
-// :iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本 agent。
+// :iterate 动词经 aispawn 开一个 AI 对话来编辑本 agent。
 type AgentHandler struct {
 	svc     *agentapp.Service
 	aispawn *aispawnapp.Service
@@ -93,7 +93,7 @@ func (h *AgentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	ag.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形(MD1)
+	ag.ActiveVersion = v // 裸实体 + 内嵌 activeVersion,与 GET 同形
 	responsehttpapi.Created(w, ag)
 }
 
@@ -148,9 +148,9 @@ func (h *AgentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnAgent dispatches POST /agents/{id}:<action> (:invoke / :revert / :edit).
+// postOnAgent dispatches POST /agents/{id}:<action> (:invoke / :revert / :edit / :iterate).
 //
-// postOnAgent 派发 POST /agents/{id}:<action>（:invoke / :revert / :edit）。
+// postOnAgent 派发 POST /agents/{id}:<action>（:invoke / :revert / :edit / :iterate）。
 func (h *AgentHandler) postOnAgent(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -291,7 +291,7 @@ func (h *AgentHandler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象(MD2)。
+	// 分页坐标恒顶层(Paged);aggregates 作 list 元数据进 data 子对象。
 	responsehttpapi.Paged(w, map[string]any{"executions": res.Executions, "aggregates": res.Aggregates}, res.NextCursor, res.HasMore)
 }
 

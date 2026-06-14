@@ -4,8 +4,8 @@ type: how-to
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
-review-due: 2026-12-12
+reviewed: 2026-06-14
+review-due: 2026-09-14
 audience: [human, ai]
 ---
 
@@ -19,8 +19,8 @@ audience: [human, ai]
 |---|---|
 | `forgify.db` | SQLite 全库（实体/版本/执行日志/消息/索引） |
 | `workspaces/<ws>/` | 文件式存储：memories / blobs（SHA256 CAS）/ skills |
-| `sandbox/` | 运行时（python/node/uv/llamasrv/embedmodel）+ 各 env——**纯派生缓存，可不迁** |
-| `logs/forgify.log` | 轮转日志（10MB×3，gzip）——报障就发这个文件 |
+| `sandbox/` | 运行时 `runtimes/<kind>/<version>/`（python/node/uv/dotnet/llamasrv/embedmodel）+ env `envs/<kind>/<id>/`——**纯派生缓存，可不迁** |
+| `logs/forgify.log` | 轮转日志（10MB×3，保留 28 天，gzip）——报障就发这个文件 |
 
 ## 备份
 
@@ -28,7 +28,7 @@ audience: [human, ai]
 
 ## 跨机迁移：三类密文需要重填
 
-落盘加密密钥从**机器指纹**派生（防「拷库即解」，见 CR-20）——换机器后密钥不同，下列三类**密文**不可解，迁移后需在新机重新填写：
+落盘加密密钥从**机器指纹**（macOS `IOPlatformSerialNumber` / Windows `MachineGuid` / Linux `/etc/machine-id`）经 AES-256-GCM 派生（防「拷库即解」）——换机器后密钥不同，下列三类**密文**不可解，迁移后需在新机重新填写：
 
 1. **API keys**（模型密钥）——重新录入 + `:test`
 2. **Handler init-config**（init 参数，含密钥类）——重新 `PUT /handlers/{id}/config`

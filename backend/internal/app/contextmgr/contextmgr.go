@@ -1,4 +1,4 @@
-// Package contextmgr is the conversation-compaction engine (M5.3): when a thread approaches the
+// Package contextmgr is the conversation-compaction engine: when a thread approaches the
 // model's context window it compacts older history so the conversation keeps fitting. It is the
 // PRODUCE side — the consume side (loop.BlocksToAssistantLLM dropping archived/compaction +
 // projecting warm/cold; chat.LoadHistory prepending the summary and dropping seq ≤ watermark) is
@@ -14,7 +14,7 @@
 // idempotency key: re-summarization only covers (watermark, …], and a crash between writing the
 // summary and flipping the archived flag can't double-count (LoadHistory drops by watermark).
 //
-// Package contextmgr 是对话压缩引擎（M5.3）：线程逼近模型 context window 时压缩旧历史，使对话持续
+// Package contextmgr 是对话压缩引擎：线程逼近模型 context window 时压缩旧历史，使对话持续
 // 装得下。它是**生产侧**——消费侧（loop.BlocksToAssistantLLM 丢 archived/compaction + 投影
 // warm/cold；chat.LoadHistory 前置 summary + 丢 seq ≤ 水位）已接好。回合边界、两步管线
 // （gentle→aggressive，业界标准）：① demote 旧 tool_result（免 LLM：最新留 hot、再 warm 预览、再
@@ -92,10 +92,10 @@ type Bundle struct {
 // ----- DIP ports -----
 
 // ConversationSummary reads/writes a conversation's running summary + watermark. Narrow (no
-// domain type leak); the M7 adapter wraps conversation.Service.
+// domain type leak); the bootstrap adapter wraps conversation.Service.
 //
-// ConversationSummary 读写一个对话的滚动 summary + 水位。窄口（不泄漏 domain 类型）；M7 适配器包
-// conversation.Service。
+// ConversationSummary 读写一个对话的滚动 summary + 水位。窄口（不泄漏 domain 类型）；bootstrap 适配器
+// 包 conversation.Service。
 type ConversationSummary interface {
 	GetSummary(ctx context.Context, conversationID string) (summary string, coversUpToSeq int64, err error)
 	SetSummary(ctx context.Context, conversationID, summary string, coversUpToSeq int64) error

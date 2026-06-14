@@ -147,10 +147,10 @@ func TestUpdate_InvalidLanguage(t *testing.T) {
 	}
 }
 
-// PD-4 C: web-fetch mode is a workspace preference — set/validate via PATCH, read
+// Web-fetch mode is a workspace preference — set/validate via PATCH, read
 // (already defaulted to local) by the WebFetch tool.
 //
-// PD-4 C：抓取模式是 workspace 偏好——经 PATCH 设置/校验，由 WebFetch 工具读（已兜底 local）。
+// 抓取模式是 workspace 偏好——经 PATCH 设置/校验，由 WebFetch 工具读（已兜底 local）。
 func TestUpdate_WebFetchMode_SetAndValidate(t *testing.T) {
 	s := newService()
 	w, _ := s.Create(context.Background(), CreateInput{Name: "X"})

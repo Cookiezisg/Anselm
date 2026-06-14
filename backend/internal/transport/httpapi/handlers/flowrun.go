@@ -14,11 +14,11 @@ import (
 // FlowrunHandler hosts the durable-execution HTTP surface: list/inspect runs, start one manually
 // ("Run now"), replay a failed one, and decide a parked approval. A flowrun is a runtime record
 // (no version, no forge) — so there is no Create-as-edit / :revert here; "create" is starting a run
-// and its body is the entry trigger's declared Outputs (the manual payload form, doc 21 §4.6).
+// and its body is the entry trigger's declared Outputs (the manual payload form).
 //
 // FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、决策
 // parked 审批。flowrun 是运行时记录（无版本、无锻造）——故无 Create-as-edit/:revert；「create」就是起
-// 一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单，doc 21 §4.6）。
+// 一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
 type FlowrunHandler struct {
 	svc *schedulerapp.Service
 	log *zap.Logger

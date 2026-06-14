@@ -8,10 +8,10 @@ import (
 )
 
 // AsMentionResolver exposes this service as the chat @-mention resolver for approval forms: a
-// reference snapshots the description + active version's prompt template. Enables AI :iterate (R0065).
+// reference snapshots the description + active version's prompt template. Enables AI :iterate.
 //
 // AsMentionResolver 把本 service 暴露为 approval 的 @ resolver：引用快照 description + active 版本的 prompt
-// 模板。使 AI :iterate（R0065）可用。
+// 模板。使 AI :iterate 可用。
 func (s *Service) AsMentionResolver() mentiondomain.Resolver { return &mentionResolver{svc: s} }
 
 type mentionResolver struct{ svc *Service }

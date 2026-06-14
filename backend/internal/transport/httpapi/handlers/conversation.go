@@ -15,11 +15,10 @@ import (
 
 // ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints. The tokensUsed
 // enrichment + the system-prompt-preview endpoint are chat data (message_blocks token sum /
-// prompt assembly) and are added in the chat wave (M5.2).
+// prompt assembly) and live on ChatHandler, not here.
 //
 // ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点。tokensUsed 富化 +
-// system-prompt-preview 端点属 chat 数据（message_blocks token 求和 / prompt 拼装），在 chat
-// 轮（M5.2）加入。
+// system-prompt-preview 端点属 chat 数据（message_blocks token 求和 / prompt 拼装），归 ChatHandler。
 type ConversationHandler struct {
 	svc *conversationapp.Service
 	log *zap.Logger

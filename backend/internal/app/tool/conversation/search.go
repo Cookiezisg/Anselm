@@ -1,10 +1,10 @@
 // Package conversation gives the LLM a recall window into past conversations — the one
-// content kind the omni search indexes that LLM tools previously could not reach. It
+// omni-search-indexed content kind reachable to the LLM only through this tool. It
 // returns snippets + ids only, never full transcripts: recall is a pointer, not a
 // context dump.
 //
-// Package conversation 给 LLM 一扇回忆历史对话的窗——综搜已索引、但 LLM 工具此前唯一够不
-// 着的内容类。只返 snippet + id、绝不返全文：回忆是指针、不是上下文倾倒。
+// Package conversation 给 LLM 一扇回忆历史对话的窗——综搜已索引、且 LLM 仅经本工具够得着
+// 的内容类。只返 snippet + id、绝不返全文：回忆是指针、不是上下文倾倒。
 package conversation
 
 import (

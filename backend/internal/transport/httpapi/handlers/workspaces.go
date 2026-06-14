@@ -58,7 +58,7 @@ type updateWorkspaceRequest struct {
 	Name         *string `json:"name,omitempty"`
 	AvatarColor  *string `json:"avatarColor,omitempty"`
 	Language     *string `json:"language,omitempty"`
-	WebFetchMode *string `json:"webFetchMode,omitempty"` // local | jina (PD-4 C)
+	WebFetchMode *string `json:"webFetchMode,omitempty"` // local | jina
 }
 
 type setDefaultModelRequest struct {

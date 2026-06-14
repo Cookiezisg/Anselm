@@ -25,21 +25,19 @@ import (
 // directInstaller is a RuntimeInstaller that fetches a runtime straight from its upstream
 // distribution channel — no mise, no embedded tool. Each runtime is a pinned tarball/zip with a
 // published checksum; we stream-download, verify, and extract the tree under
-// <sandboxRoot>/runtimes/<kind>/<version>/. This is the whole reason mise (a 76 MB embed that only
-// downloaded these four runtimes on demand) is gone.
+// <sandboxRoot>/runtimes/<kind>/<version>/.
 //
 // directInstaller 是直接从上游分发渠道拉运行时的 RuntimeInstaller——无 mise、无内嵌工具。每个运行时
 // 是钉死版本的 tarball/zip + 公布的校验和；流式下载、校验、解压树到 <sandboxRoot>/runtimes/<kind>/
-// <version>/。这正是干掉 mise（一个只为按需下这四个运行时而存在的 76MB 内嵌）的全部理由。
+// <version>/。
 type directInstaller struct{ r runtimeRecipe }
 
 var _ sandboxdomain.RuntimeInstaller = (*directInstaller)(nil)
 
 // DirectInstallers returns the four runtime installers (python / node / uv / dotnet), registered by
-// the bootstrap composition root in place of the old per-kind MiseInstaller loop.
+// the bootstrap composition root.
 //
-// DirectInstallers 返回四个运行时 installer（python / node / uv / dotnet），由 bootstrap 装配根注册，
-// 取代旧的逐 kind MiseInstaller 循环。
+// DirectInstallers 返回四个运行时 installer（python / node / uv / dotnet），由 bootstrap 装配根注册。
 func DirectInstallers() []sandboxdomain.RuntimeInstaller {
 	recipes := []runtimeRecipe{pythonRecipe(), nodeRecipe(), uvRecipe(), dotnetRecipe()}
 	out := make([]sandboxdomain.RuntimeInstaller, len(recipes))
@@ -55,10 +53,10 @@ func (d *directInstaller) NormalizeVersion(v string) string               { retu
 
 // runtimeRoot is the install dir for a (kind, version): <sandboxRoot>/runtimes/<kind>/<normalized>.
 // Consumers join their own subpaths onto it (node → bin/npm, dotnet → dnx), so it must hold the
-// runtime tree with the wrapper dir stripped — exactly the layout mise produced.
+// runtime tree with the wrapper dir stripped.
 //
 // runtimeRoot 是某 (kind, version) 的安装目录。消费方在其上拼自己的子路径（node→bin/npm，dotnet→dnx），
-// 故它必须是剥掉 wrapper 的运行时树——与 mise 产出的布局一致。
+// 故它必须是剥掉 wrapper 的运行时树。
 func (d *directInstaller) runtimeRoot(sandboxRoot, version string) string {
 	return filepath.Join(sandboxRoot, "runtimes", d.r.kind, d.r.normalize(version))
 }
@@ -172,13 +170,13 @@ func (d *directInstaller) Install(ctx context.Context, version, sandboxRoot stri
 // --- recipes ---------------------------------------------------------------
 
 // runtimeRecipe is the per-kind download identity: how a normalized version maps to a platform asset
-// URL + checksum + extract shape. Versions are PINNED (reproducible builds, like uv/dotnet always
-// were); bumping = edit one line here. python additionally pins the python-build-standalone release
-// tag (its assets carry a +<date> suffix).
+// URL + checksum + extract shape. Versions are PINNED (reproducible builds); bumping = edit one line
+// here. python additionally pins the python-build-standalone release tag (its assets carry a +<date>
+// suffix).
 //
 // runtimeRecipe 是按 kind 的下载身份：normalized 版本如何映射到平台 asset URL + 校验和 + 解压形状。
-// 版本钉死（可复现，一如 uv/dotnet 一向如此）；升级 = 改这里一行。python 额外钉死 python-build-standalone
-// 的 release tag（其 asset 带 +<日期> 后缀）。
+// 版本钉死（可复现）；升级 = 改这里一行。python 额外钉死 python-build-standalone 的 release tag
+// （其 asset 带 +<日期> 后缀）。
 type runtimeRecipe struct {
 	kind       string
 	defVersion string
@@ -216,11 +214,11 @@ type downloadSpec struct {
 
 func (s downloadSpec) isZip() bool { return strings.HasSuffix(s.asset, ".zip") }
 
-// python: astral python-build-standalone install_only tarballs (relocatable, what mise's python core
-// uses too). PINNED release tag + per-minor patch; minors beyond the map error out cleanly.
+// python: astral python-build-standalone install_only tarballs (relocatable). PINNED release tag +
+// per-minor patch; minors beyond the map error out cleanly.
 //
-// python: astral python-build-standalone 的 install_only tarball（可重定位，mise 的 python 核心同源）。
-// 钉死 release tag + 各 minor 的 patch；表外 minor 干净报错。
+// python: astral python-build-standalone 的 install_only tarball（可重定位）。钉死 release tag +
+// 各 minor 的 patch；表外 minor 干净报错。
 func pythonRecipe() runtimeRecipe {
 	const tag = "20260610"
 	patch := map[string]string{"3.11": "3.11.15", "3.12": "3.12.13", "3.13": "3.13.14"}

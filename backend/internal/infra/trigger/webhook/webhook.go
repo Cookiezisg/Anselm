@@ -1,9 +1,11 @@
 // Package webhook is the HTTP-webhook source listener (path + optional secret/HMAC + 10MB
 // body cap), keyed by triggerID and mounted at /api/v1/webhooks/{triggerID}/{path}. It fires
-// once per accepted request with an empty dedupKey (each request is a distinct fire).
+// once per accepted request; the dedupKey is sha256(body)[:8] + a minute bucket so a
+// network-level retry of the same request collapses while a later identical payload fires again.
 //
 // Package webhook 是 HTTP webhook source listener（路径 + 可选 secret/HMAC + 10MB body 上限），
-// 按 triggerID 键、挂在 /api/v1/webhooks/{triggerID}/{path}。每次 accept 的请求触发一次、dedupKey 空。
+// 按 triggerID 键、挂在 /api/v1/webhooks/{triggerID}/{path}。每次 accept 的请求触发一次；dedupKey =
+// sha256(body)[:8] + 分钟桶，使同一请求的网络级重试折叠、之后相同 payload 照常触发。
 package webhook
 
 import (

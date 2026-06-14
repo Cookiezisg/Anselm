@@ -73,12 +73,12 @@ func (p *PythonEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 }
 
 // ResolveExec resolves opts.Cmd. The uv RUNNER (uvx/uv — how mcp python servers launch:
-// `uvx <pkg>`) lives in the aqua-installed uv tool dir, resolved via the ToolRegistry (NOT the
+// `uvx <pkg>`) lives in the uv runtime install dir, resolved via the ToolRegistry (NOT the
 // python runtime/env). The env was created with uv, so uv is already installed → EnsureTool is
 // a fast lookup. Other bare names resolve inside the env's venv; a path-like cmd passes through.
 //
 // ResolveExec 解析 opts.Cmd。uv runner（uvx/uv——mcp python server 的启动方式 `uvx <pkg>`）在
-// aqua 装的 uv 工具目录，经 ToolRegistry 解析（不在 python runtime/env）。env 用 uv 建的，故 uv 已装
+// uv runtime install dir，经 ToolRegistry 解析（不在 python runtime/env）。env 用 uv 建的，故 uv 已装
 // → EnsureTool 是快速查找。其它裸名按 env 的 venv；路径式 cmd 原样透传。
 func (p *PythonEnvManager) ResolveExec(_ string, envPath string, opts sandboxdomain.SpawnOpts) (cmd string, args []string, cwd string) {
 	cmd = opts.Cmd
@@ -98,9 +98,9 @@ func (p *PythonEnvManager) ResolveExec(_ string, envPath string, opts sandboxdom
 }
 
 // isPythonRuntimeTool reports whether cmd is the uv package runner (uvx/uv), which lives in the
-// aqua-installed uv dir, not the python env's venv. uvx is how mcp python servers launch.
+// uv runtime install dir, not the python env's venv. uvx is how mcp python servers launch.
 //
-// isPythonRuntimeTool 报告 cmd 是否为 uv 包运行器（uvx/uv），在 aqua 装的 uv 目录、不在 python env
+// isPythonRuntimeTool 报告 cmd 是否为 uv 包运行器（uvx/uv），在 uv runtime install dir、不在 python env
 // 的 venv。uvx 是 mcp python server 的启动方式。
 func isPythonRuntimeTool(cmd string) bool {
 	switch cmd {

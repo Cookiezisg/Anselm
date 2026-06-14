@@ -17,10 +17,10 @@ import (
 )
 
 // Schema is the api_keys DDL — exported as ordered idempotent statements for
-// cmd/server to collect and apply via db.Migrate. display_name is unique per
+// bootstrap to collect and apply via db.Migrate. display_name is unique per
 // workspace (partial index, active rows only) so a soft-deleted name frees up.
 //
-// Schema 是 api_keys 表 DDL，按序幂等语句导出，由 cmd/server 汇总经 db.Migrate 应用。
+// Schema 是 api_keys 表 DDL，按序幂等语句导出，由 bootstrap 汇总经 db.Migrate 应用。
 // display_name 按 workspace 唯一（partial index 仅活跃行），软删名可重用。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS api_keys (

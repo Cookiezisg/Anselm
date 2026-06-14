@@ -14,9 +14,9 @@ import (
 )
 
 // DocumentHandler hosts the document-tree HTTP endpoints (tree CRUD + move). The :iterate verb
-// (R0065) opens an AI conversation to edit this document via aispawn.
+// opens an AI conversation to edit this document via aispawn.
 //
-// DocumentHandler 持文档树的 HTTP 端点（树 CRUD + move）。:iterate 动词（R0065）经 aispawn 开一个 AI 对话来编辑本文档。
+// DocumentHandler 持文档树的 HTTP 端点（树 CRUD + move）。:iterate 动词经 aispawn 开一个 AI 对话来编辑本文档。
 type DocumentHandler struct {
 	svc     *documentapp.Service
 	aispawn *aispawnapp.Service
@@ -166,9 +166,9 @@ func (h *DocumentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnDoc dispatches POST /api/v1/documents/{id}:move.
+// postOnDoc dispatches POST /api/v1/documents/{id}:move and :iterate.
 //
-// postOnDoc 派发 POST /api/v1/documents/{id}:move。
+// postOnDoc 派发 POST /api/v1/documents/{id}:move 和 :iterate。
 func (h *DocumentHandler) postOnDoc(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {

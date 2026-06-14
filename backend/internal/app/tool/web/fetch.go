@@ -85,12 +85,12 @@ type FetchModePicker interface {
 
 // WebFetch fetches a URL (SSRF-guarded) and returns a utility-model summary
 // answering the prompt — it does not return raw HTML, so a huge page never
-// floods the context window. How the page is retrieved is a workspace setting
-// (PD-4 C): "local" = direct GET only (no URL leaves the machine); "jina" =
+// floods the context window. How the page is retrieved is a workspace setting:
+// "local" = direct GET only (no URL leaves the machine); "jina" =
 // Jina reader first, direct GET fallback.
 //
 // WebFetch 抓 URL（SSRF 守卫）并返回 utility 模型按 prompt 的摘要——不返原始 HTML，
-// 使超大页面永不灌爆上下文窗口。抓取方式是 workspace 配置（PD-4 C）："local" = 仅本机
+// 使超大页面永不灌爆上下文窗口。抓取方式是 workspace 配置："local" = 仅本机
 // 直接 GET（URL 不出本机）；"jina" = Jina reader 优先、直 GET 兜底。
 type WebFetch struct {
 	picker  modeldomain.ModelPicker
@@ -309,12 +309,12 @@ func classifyIP(ip net.IP) string {
 
 // summarise resolves the utility model, builds a client, and asks it to answer
 // prompt against content. Resolution goes through modelclient — the one shared
-// chain (a hand-rolled copy here once miswired base URL into the wire model id,
-// AC-26); no Thinking — knobs ride in ModelRef.Options.
+// chain (a hand-rolled copy here risks miswiring base URL into the wire model id);
+// no Thinking — knobs ride in ModelRef.Options.
 //
 // summarise 解析 utility 模型、构造 client、让它按 prompt 回答 content。解析走
-// modelclient——唯一共享链（这里曾手抄一份并把 base URL 误接进线缆 model id，
-// AC-26）；无 Thinking——旋钮走 ModelRef.Options。
+// modelclient——唯一共享链（这里手抄一份会有把 base URL 误接进线缆 model id 的风险）；
+// 无 Thinking——旋钮走 ModelRef.Options。
 func (t *WebFetch) summarise(ctx context.Context, source, prompt, content string) (string, error) {
 	client, req, _, err := modelclientapp.Resolve(ctx, modeldomain.ScenarioUtility, nil, t.picker, t.keys, t.factory)
 	if err != nil {

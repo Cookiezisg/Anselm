@@ -42,11 +42,11 @@ var writeSchema = json.RawMessage(`{
 }`)
 
 // Write is the create-or-overwrite filesystem tool. It runs under three guards:
-// PathGuard.AllowWrite (R0003 .git/.env/node_modules write extras), parent dir
+// PathGuard.AllowWrite (.git/.env/node_modules write extras), parent dir
 // must exist, and overwrite requires the file to be in AgentState.SeenFiles —
 // fail-closed when AgentState itself is missing, never silently allowed.
 //
-// Write 是创建或覆写的文件系统 tool。三重守卫：PathGuard.AllowWrite（R0003 .git/.env/
+// Write 是创建或覆写的文件系统 tool。三重守卫：PathGuard.AllowWrite（.git/.env/
 // node_modules 写专属 extras）、父目录必须存在、覆写要求文件在 AgentState.SeenFiles ——
 // AgentState 缺失时 fail-closed，永不静默放行。
 type Write struct {

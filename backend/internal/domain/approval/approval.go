@@ -5,9 +5,9 @@
 // downstream nodes. Like control it owns an append-only line of Versions with a free-moving
 // ActiveVersionID pointer — no pending/accept, no sandbox/env/executions.
 //
-// NB: the prefix is apf_/apfv_, NOT apv_ — apv_ belongs to the `approvals` runtime table
-// (parked/approved/... per-flowrun records, 波次 4). The form (config) and the runtime
-// record are two different things, mirroring trigger entity (trg_) vs trigger_firings.
+// The form (config) and the runtime record (a waiting approval) are two different things:
+// the runtime record is not a table of its own but a parked flowrun_nodes row, mirroring
+// trigger entity (trg_) vs trigger_firings.
 //
 // CEL is NOT compiled here (domain must not import cel-go, 原则 #3) — the app layer compiles
 // the template's `{{ CEL }}` spans via pkg/cel at create/edit time.
@@ -17,8 +17,8 @@
 // workflow 的 approval 节点按 id 引用 ApprovalForm；图把它固定的 yes/no 出口连到下游。与 control
 // 同：持只增 Version 线 + 自由 ActiveVersionID 指针——无 pending/accept、无 sandbox/env/executions。
 //
-// 注：前缀 apf_/apfv_，**非** apv_——apv_ 属 `approvals` 运行时表（per-flowrun 的 parked/approved
-// 记录，波次 4）。表（配置）与运行时记录是两回事，对位 trigger 实体（trg_）vs trigger_firings。
+// 表（配置）与运行时记录（等待中的审批）是两回事：运行时记录不是独立表，而是 flowrun_nodes 的
+// parked 行，对位 trigger 实体（trg_）vs trigger_firings。
 //
 // CEL 不在此编译（domain 不准 import cel-go，原则 #3）——app 层 create/edit 时用 pkg/cel 编译模板的
 // `{{ CEL }}` 段。
@@ -71,9 +71,9 @@ type Version struct {
 	UpdatedAt              time.Time         `db:"updated_at,updated"        json:"updatedAt"`
 }
 
-// Timeout behaviors: what happens when a parked approval's deadline passes (波次 4 runtime).
+// Timeout behaviors: what happens when a parked approval's deadline passes.
 //
-// 超时行为：parked 审批到期时怎么处理（波次 4 运行时）。
+// 超时行为：parked 审批到期时怎么处理。
 const (
 	TimeoutReject  = "reject"
 	TimeoutApprove = "approve"

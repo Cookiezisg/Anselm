@@ -8,7 +8,7 @@ import (
 )
 
 // nodeKey addresses one (graph node, loop iteration) — the unit the interpreter schedules and
-// memoizes. iteration is 0 outside loops; a back edge bumps it by 1 (doc 21 §4.3).
+// memoizes. iteration is 0 outside loops; a back edge bumps it by 1.
 //
 // nodeKey 寻址一个 (图节点, 循环轮次)——解释器调度与记忆化的单元。循环外 iteration=0；回边 +1。
 type nodeKey struct {
@@ -102,12 +102,12 @@ func (w *walk) isCtlApf(nodeID string) bool {
 
 // chosenPort returns which outgoing port a completed control/approval node selected: a control's
 // result.port, an approval's result.decision (yes|no). "" for a non-resolved or non-routing node.
-// This is what re-derives the active subgraph from already-recorded decisions (doc 21 §4.3) — no
-// skip-signal propagation.
+// This is what re-derives the active subgraph from already-recorded decisions — no skip-signal
+// propagation.
 //
 // chosenPort 返回一个 completed control/approval 节点选了哪个出口 port：control 的 result.port、
-// approval 的 result.decision。未决或非路由节点返 ""。这正是「从已落库决策重推活跃子图」（doc 21
-// §4.3）——无 skip 信号传播。
+// approval 的 result.decision。未决或非路由节点返 ""。这正是「从已落库决策重推活跃子图」——无 skip
+// 信号传播。
 func (w *walk) chosenPort(nodeID string, iter int) string {
 	r, ok := w.completed(nodeID, iter)
 	if !ok {
@@ -264,12 +264,12 @@ func (w *walk) predecessorsSatisfied(id string, iter int, reached map[nodeKey]bo
 
 // scopeFor builds the model-B namespace for evaluating a node's Input at (·, iter): every node's
 // completed result, addressed by node id, taken at the largest iteration ≤ iter that exists — so a
-// loop-internal ancestor resolves to the current turn, a loop-external one to its fixed result
-// (doc 20 §3). ctx carries the run id (the only true environment value).
+// loop-internal ancestor resolves to the current turn, a loop-external one to its fixed result.
+// ctx carries the run id (the only true environment value).
 //
 // scopeFor 为在 (·, iter) 求值某节点 Input 构建 model-B 命名空间：每个节点的 completed result 按
 // node id 寻址，取「iteration ≤ iter 中最大且存在」那个——故循环内祖先解析到当前轮、循环外到其固定
-// result（doc 20 §3）。ctx 携带 run id（唯一真·环境值）。
+// result。ctx 携带 run id（唯一真·环境值）。
 func (w *walk) scopeFor(runID string, iter int) map[string]any {
 	scope := make(map[string]any, len(w.rows)+1)
 	for nodeID, byIter := range w.rows {
