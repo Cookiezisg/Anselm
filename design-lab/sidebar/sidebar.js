@@ -26,16 +26,8 @@
       <button data-m="scheduler"><span class="ico" data-i="scheduler"></span><span class="lbl">Scheduler</span></button>
       <button data-m="documents"><span class="ico" data-i="doc"></span><span class="lbl">Documents</span></button>
     </div>
-    <div class="sact">
-      <button class="sitem"><span class="ico" data-i="plus"></span> New session</button>
-      <button class="sitem"><span class="ico" data-i="zap"></span> Routines</button>
-      <button class="sitem"><span class="ico" data-i="dispatch"></span> Dispatch <span class="beta">Beta</span></button>
-      <button class="sitem"><span class="ico" data-i="chevd"></span> More</button>
-    </div>
-    <div class="recents">
-      <div class="rec-head"><span>Recents</span><button class="ibtn" data-i="sort"></button></div>
-      <div id="reclist"></div>
-    </div>
+    <!-- 海洋专属内容区:据顶部四导航切换。当前实现 Chat(会话史);其余海洋待设计,占位。 -->
+    <div id="sidebody"></div>
     <!-- 底部:工作区(圆头像+名,点切换、无箭头) + 通知 + 设置。学 Claude Code 用户行清爽;英文名;铃铛/齿轮 15px 同顶部导航。 -->
     <div class="sfoot">
       <button class="ws" title="Switch workspace">
@@ -46,7 +38,7 @@
       <button class="sf-act" title="Settings"><span data-i="gear"></span></button>
     </div>`;
 
-  const sz = { side: 18, search: 18, chat: 18, entities: 18, scheduler: 18, doc: 18, plus: 18, zap: 18, dispatch: 18, chevd: 14, sort: 15, bell: 18, gear: 18 };
+  const sz = { side: 18, search: 18, chat: 18, entities: 18, scheduler: 18, doc: 18, bell: 18, gear: 18 };   // 仅静态结构用;Chat 内容区的图标在 buildChat 里直接 icon() 调
   left.querySelectorAll('[data-i]').forEach(el => { const k = el.dataset.i; el.innerHTML = icon(k, sz[k] || 18); });
 
   // 工作区身份(示意;接后端换真 workspace)。头像 = 名字首字母(最多两词)
@@ -54,24 +46,69 @@
   left.querySelector('#ws-name').textContent = WS;
   left.querySelector('#ws-ava').textContent = WS.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 
-  const SESS = [
-    ['前端设计 (fork)', 'run', true], ['前端部署', 'run', false], ['Backend重构 [Done]', 'done', false],
-    ['列名检查 [adhoc]', 'done', false], ['版本控制管理 [done]', 'done', false], ['Workflow重构 Implement [done]', 'done', false],
-    ['Workflow重构 Review [done]', 'done', false], ['HardCode治理专项 [done]', 'done', false],
-    ['Workflow Feature迭代探索 [done]', 'done', false], ['E2E修复 [Done]', 'done', false], ['Testend修复 [Done]', 'done', false],
-    ['API模型配置迭代 [Done]', 'done', false], ['前端文档页面优化 [Done]', 'done', false],
-  ];
-  const rl = left.querySelector('#reclist');
-  rl.innerHTML = SESS.map(([t, st, on]) =>
-    `<div class="ritem${on ? ' on' : ''}"><span class="d${st === 'run' ? ' run' : ''}"></span><span class="t">${t}</span></div>`).join('');
-  rl.querySelectorAll('.ritem').forEach(it => it.onclick = () => {
-    rl.querySelectorAll('.ritem').forEach(x => x.classList.remove('on')); it.classList.add('on');
-  });
+  // ===== 海洋专属侧栏内容（据四导航切换；当前实现 Chat，其余海洋占位） =====
+  const body = left.querySelector('#sidebody');
+  const OCEAN_NAME = { entities: 'Entities', scheduler: 'Scheduler', documents: 'Documents' };
+
+  // Chat 会话史（示意数据）。接后端：列表/置顶/归档/标题滤已有；运行点=B3 isGenerating；时间分组=B4 last_message_at。
+  function buildChat() {
+    const PINNED = [{ t: '竞品动态日报流程' }, { t: 'Researcher agent 调优', on: true }];
+    const GROUPS = [
+      ['Today', [{ t: '修复 CEL 校验器', run: true }, { t: 'Webhook 入库 handler' }]],
+      ['Yesterday', [{ t: '周报自动汇总 workflow' }, { t: '文档问答 agent' }]],
+      ['Previous 7 days', [{ t: '账单对账流程' }, { t: 'Slack 通知 trigger' }, { t: 'PDF 提取 function' }]],
+      ['Older', [{ t: 'Notion 同步实验' }, { t: '旧版迁移笔记' }]],
+    ];
+    const ARCHIVED = ['临时调试 agent', '废弃的爬虫流程', '一次性数据清洗'];
+    const row = c => `<div class="cv${c.on ? ' on' : ''}"><span class="t">${c.t}</span>${c.run ? '<span class="cv-run" title="生成中"></span>' : ''}<span class="cv-more">${icon('more', 16)}</span></div>`;
+    const sec = (label, items) => `<div class="cvsec"><div class="cvsec-h">${label}</div>${items.map(row).join('')}</div>`;
+    return `
+      <button class="newconv">${icon('plus', 18)} New conversation</button>
+      <div class="cfilter">${icon('search', 16)}<input type="text" placeholder="Filter conversations…"></div>
+      <div class="cvlist">
+        ${sec('Pinned', PINNED)}
+        ${GROUPS.map(([l, items]) => sec(l, items)).join('')}
+        <div class="cvarch">
+          <button class="cvarch-h"><span class="chev">${icon('chevr', 14)}</span> Archived <span class="cnt">12</span></button>
+          <div class="cvarch-list">${ARCHIVED.map(t => row({ t })).join('')}</div>
+        </div>
+      </div>`;
+  }
+
+  function wireChat() {
+    body.querySelectorAll('.cv').forEach(it => it.onclick = e => {
+      if (e.target.closest('.cv-more')) return;
+      body.querySelectorAll('.cv').forEach(x => x.classList.remove('on'));
+      it.classList.add('on');
+    });
+    const arch = body.querySelector('.cvarch');
+    arch.querySelector('.cvarch-h').onclick = () => arch.classList.toggle('open');
+    const fin = body.querySelector('.cfilter input');   // 标题快滤前端体感（对应 List ?q= LIKE）
+    fin.oninput = () => {
+      const q = fin.value.trim().toLowerCase();
+      body.querySelectorAll('.cvsec, .cvarch').forEach(s => {
+        let any = false;
+        s.querySelectorAll('.cv').forEach(cv => {
+          const hit = cv.querySelector('.t').textContent.toLowerCase().includes(q);
+          cv.style.display = hit ? '' : 'none'; if (hit) any = true;
+        });
+        const h = s.querySelector('.cvsec-h'); if (h) h.style.display = any ? '' : 'none';
+      });
+    };
+  }
+
+  function renderBody(ocean) {
+    if (ocean === 'chat') { body.innerHTML = buildChat(); wireChat(); }
+    else { body.innerHTML = `<div class="side-soon">${OCEAN_NAME[ocean] || ocean} 侧栏设计中…</div>`; }
+  }
 
   const seg = left.querySelector('#modeseg');
   seg.querySelectorAll('button').forEach(b => b.onclick = () => {
-    seg.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on');
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    renderBody(b.dataset.m);
   });
+  renderBody('chat');   // 默认进 Chat 海洋
 
   // —— 收起/展开 + 拖拽调宽（状态/交互/持久化全归侧栏；单一真相 = html[data-side]） ——
   function toggle() {

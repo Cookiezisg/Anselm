@@ -38,25 +38,44 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .modeseg button.on { flex: 0 1 auto; min-width: 0; gap: 11px; background: var(--cc-active); color: var(--ink); padding: 0 10px; }
 .modeseg button.on .lbl { max-width: 110px; opacity: 1; }
 
-.sact { display: flex; flex-direction: column; gap: 1px; }
-.sitem { display: flex; align-items: center; gap: 11px; height: 32px; padding: 0 10px; border-radius: 8px;
-  color: var(--ink); font-size: 13px; transition: background .12s; }
-.sitem:hover { background: var(--cc-hover); }
-.sitem .ico { width: 16px; display: grid; place-items: center; color: var(--ink-2); }
-.sitem .beta { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
-.sitem .chev { margin-left: auto; color: var(--ink-3); }
+/* ===== 海洋专属内容区（#sidebody，据四导航切换；当前实现 Chat，其余海洋占位） ===== */
+#sidebody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.side-soon { padding: 22px 12px; color: var(--ink-3); font-size: 12px; }
 
-.recents { flex: 1; min-height: 0; overflow-y: auto; margin-top: 10px; }
-.rec-head { display: flex; align-items: center; padding: 4px 10px 6px; }
-.rec-head span { flex: 1; font-size: 11px; font-weight: 600; color: var(--ink-3); }
-.rec-head .ibtn { width: 22px; height: 22px; }
-.ritem { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 8px;
-  color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; transition: background .12s; }
-.ritem .d { width: 6px; height: 6px; border-radius: 50%; flex: none; border: 1.5px solid var(--ink-3); }
-.ritem .d.run { background: var(--accent); border-color: var(--accent); }
-.ritem .t { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.ritem:hover { background: var(--cc-hover); color: var(--ink); }
-.ritem.on { background: var(--cc-active); color: var(--ink); }
+/* Chat 会话史：新建 + 标题快滤(B/LIKE) + 置顶/时间分组(B4 last_message_at)/归档；运行中(B3 isGenerating)=accent 脉冲点 */
+.newconv { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink); font-size: 13px; font-weight: 500; transition: background .12s; }
+.newconv:hover { background: var(--cc-hover); }
+.newconv svg { color: var(--ink-2); display: block; }
+.cfilter { display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 10px; color: var(--ink-3); }
+.cfilter svg { flex: none; display: block; }
+.cfilter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
+.cfilter input::placeholder { color: var(--ink-3); }
+
+.cvlist { flex: 1; min-height: 0; overflow-y: auto; }
+.cvsec { margin-bottom: 10px; }
+.cvsec-h { padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.cv { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink-2); font-size: 13px; transition: background .12s, color .12s; }
+.cv:hover { background: var(--cc-hover); color: var(--ink); }
+.cv.on { background: var(--cc-active); color: var(--ink); }
+.cv .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-run { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: sidePulse 1.5s ease infinite; }
+.cv-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity .12s; }
+.cv-more svg { display: block; }
+.cv:hover .cv-more { opacity: 1; }
+@keyframes sidePulse { 50% { opacity: .3; } }
+
+.cvarch { margin-top: 2px; }
+.cvarch-h { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink-3); font-size: 12px; font-weight: 600; transition: background .12s; }
+.cvarch-h:hover { background: var(--cc-hover); }
+.cvarch-h .chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
+.cvarch-h .chev svg { display: block; }
+.cvarch.open .cvarch-h .chev { transform: rotate(90deg); }
+.cvarch-h .cnt { margin-left: auto; font-weight: 500; }
+.cvarch-list { display: none; }
+.cvarch.open .cvarch-list { display: block; }
 
 /* 底部:工作区(圆头像+名,点切换;无箭头) + 通知 + 设置。学 Claude Code 用户行的清爽——
    圆头像、留白、右侧只两个轻图标。身份轴 = workspace(本地单用户、无账号/套餐);
