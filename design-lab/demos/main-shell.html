@@ -3,360 +3,342 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Forgify · 主屏（海与岛 + 信号交互）</title>
+<title>Forgify · 1:1 复刻 Claude Code 桌面端</title>
 <link rel="stylesheet" href="../shared/tokens.css">
-<link rel="stylesheet" href="../shared/base.css">
+<style>
+/* ============================================================
+   1:1 复刻 Claude Code 桌面端 —— 齐边双栏，无浮岛/无间隙/无大阴影。
+   仅换：颜色（干净白/近黑，非米白）+ 字体（系统字，非衬线）。
+   ============================================================ */
+:root {
+  --cc-side:   #f7f7f8;   /* 侧栏底（冷灰，非米白） */
+  --cc-hover:  #ececee;
+  --cc-active: #e6e6ea;
+  --cc-input:  #ffffff;
+}
+[data-theme="dark"] {
+  --cc-side:   #161617;
+  --cc-hover:  #242426;
+  --cc-active: #2c2c30;
+  --cc-input:  #1f1f22;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: var(--font); font-size: 13px; color: var(--ink);
+  background: var(--island); -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+code, .mono { font-family: var(--mono); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+
+.win { height: 100vh; display: flex; flex-direction: column; background: var(--island); }
+
+/* ---- 标题栏（红绿灯 + 侧栏顶图标 | 面包屑 + 面板切换） ---- */
+.titlebar { height: 44px; flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.tb-left { width: 264px; flex: none; height: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 0 14px; border-right: 1px solid var(--line); }
+.lights { display: flex; gap: 8px; }
+.light { width: 12px; height: 12px; border-radius: 50%; }
+.light.r { background: #ff5f57; } .light.y { background: #febc2e; } .light.g { background: #28c840; }
+.tb-left .tbi { margin-left: auto; display: flex; gap: 2px; }
+.tb-right { flex: 1; height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 12px; }
+.crumb { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; }
+.crumb .ico { color: var(--ink-3); display: grid; place-items: center; }
+.crumb .sep { color: var(--ink-3); font-weight: 400; }
+.crumb .muted { color: var(--ink-2); font-weight: 400; }
+.crumb .chev { color: var(--ink-3); }
+.grow { flex: 1; }
+.ibtn { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-2);
+  transition: background .15s; }
+.ibtn:hover { background: var(--cc-hover); color: var(--ink); }
+
+.body { flex: 1; min-height: 0; display: flex; }
+
+/* ---- 侧栏 ---- */
+.side { width: 264px; flex: none; background: var(--cc-side); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; padding: 8px; overflow: hidden; }
+
+.modeseg { display: flex; gap: 2px; background: var(--cc-active); border-radius: 9px; padding: 3px; margin-bottom: 10px; }
+.modeseg button { flex: 1; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  gap: 6px; color: var(--ink-2); font-size: 12px; font-weight: 600; transition: all .15s; }
+.modeseg button.on { background: var(--island); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+.sact { display: flex; flex-direction: column; gap: 1px; }
+.sitem { display: flex; align-items: center; gap: 11px; height: 32px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink); font-size: 13px; transition: background .12s; }
+.sitem:hover { background: var(--cc-hover); }
+.sitem .ico { width: 16px; display: grid; place-items: center; color: var(--ink-2); }
+.sitem .beta { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.sitem .chev { margin-left: auto; color: var(--ink-3); }
+
+.recents { flex: 1; min-height: 0; overflow-y: auto; margin-top: 10px; }
+.rec-head { display: flex; align-items: center; padding: 4px 10px 6px; }
+.rec-head span { flex: 1; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.rec-head .ibtn { width: 22px; height: 22px; }
+.ritem { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; transition: background .12s; }
+.ritem .d { width: 6px; height: 6px; border-radius: 50%; flex: none; border: 1.5px solid var(--ink-3); }
+.ritem .d.run { background: var(--accent); border-color: var(--accent); }
+.ritem .t { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.ritem:hover { background: var(--cc-hover); color: var(--ink); }
+.ritem.on { background: var(--cc-active); color: var(--ink); }
+
+.suser { display: flex; align-items: center; gap: 9px; padding: 7px 8px; margin-top: 6px;
+  border-top: 1px solid var(--line); }
+.suser .av { width: 26px; height: 26px; border-radius: 7px; flex: none; display: grid; place-items: center;
+  background: #3b3b40; color: #fff; font-size: 11px; font-weight: 700; }
+.suser .m { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.suser .m b { font-size: 13px; font-weight: 600; }
+.suser .m .plan { font-size: 11px; color: var(--ink-3); }
+.suser .chev { color: var(--ink-3); }
+
+/* ---- 主区 ---- */
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.conv { flex: 1; overflow-y: auto; }
+.col { max-width: 860px; margin: 0 auto; padding: 28px 32px 8px; }
+
+/* 消息 */
+.turn { margin-bottom: 26px; }
+.umsg { display: flex; justify-content: flex-end; margin-bottom: 26px; }
+.umsg .b { background: var(--cc-active); border-radius: 16px; padding: 10px 15px; max-width: 80%; line-height: 1.55; }
+.spark { display: flex; align-items: center; gap: 0; margin-bottom: 12px; color: var(--accent); }
+.amsg { font-size: 14px; line-height: 1.65; }
+.amsg p { margin: 0 0 12px; }
+.amsg p:last-child { margin-bottom: 0; }
+.amsg b { font-weight: 600; }
+.amsg code { font-family: var(--mono); font-size: .9em; background: var(--cc-active); padding: 1px 5px; border-radius: 5px; }
+
+/* 工具摘要行（Claude Code：实时态 → Used N tools › / Edited file +n -m ›） */
+.tool { margin: 12px 0; }
+.tool-h { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 4px 8px; margin-left: -8px;
+  border-radius: 8px; color: var(--ink-2); font-size: 13px; transition: background .12s; }
+.tool-h.click { cursor: pointer; }
+.tool-h.click:hover { background: var(--cc-hover); }
+.tool-h .tk { color: var(--ink-2); }
+.tool-h code { font-family: var(--mono); font-size: 12px; color: var(--ink); background: none; padding: 0; }
+.tool-h .diff { font-family: var(--mono); font-size: 12px; }
+.tool-h .add { color: var(--ok); } .tool-h .del { color: var(--danger); }
+.tool-h .chev { color: var(--ink-3); transition: transform .15s; }
+.tool.open .tool-h .chev { transform: rotate(90deg); }
+.tool-d { display: none; margin: 6px 0 0 6px; padding: 9px 12px; border-left: 2px solid var(--line);
+  font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: pre-wrap; line-height: 1.7; }
+.tool.open .tool-d { display: block; }
+.tool-d b { color: var(--ink); font-weight: 600; }
+.tool.status .tool-h { color: var(--ink-3); }
+
+/* ---- 底部 composer ---- */
+.composer { flex: none; padding: 0 32px 18px; }
+.cwrap { max-width: 860px; margin: 0 auto; }
+.ctx { display: flex; align-items: center; gap: 10px; padding: 7px 12px; margin-bottom: 8px;
+  border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--ink-2); }
+.ctx .repo { display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); }
+.ctx .branch { display: flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.ctx .diff { font-family: var(--mono); font-size: 12px; margin-left: auto; }
+.ctx .diff .add { color: var(--ok); } .ctx .diff .del { color: var(--danger); }
+.ctx .pr { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 11px; border-radius: 7px;
+  border: 1px solid var(--line); background: var(--island); font-weight: 600; color: var(--ink); }
+.ctx .pr:hover { background: var(--cc-hover); }
+.box { border: 1px solid var(--line); border-radius: 16px; background: var(--cc-input); box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+.box:focus-within { border-color: var(--line-strong); }
+.box .field { display: flex; align-items: center; gap: 8px; padding: 13px 14px 6px; }
+.box .field input { flex: 1; border: 0; outline: 0; background: none; font: inherit; font-size: 14px; color: var(--ink); }
+.box .field input::placeholder { color: var(--ink-3); }
+.box .field .enter { color: var(--ink-3); }
+.bar { display: flex; align-items: center; gap: 4px; padding: 4px 8px 8px; }
+.cbtn { height: 28px; padding: 0 9px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2); font-size: 12px; font-weight: 500; transition: background .12s; }
+.cbtn:hover { background: var(--cc-hover); color: var(--ink); }
+.cbtn.ic { width: 28px; padding: 0; justify-content: center; }
+.bar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.bar .right .lbl { font-size: 12px; color: var(--ink-3); }
+.bar .right .spin { color: var(--ink-3); display: grid; place-items: center; }
+.bar .right .spin svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
-<div class="app">
+<div class="win">
 
-  <!-- ===== 左侧栏（Claude 范：New chat + 四导航 + Recents + 用户位） ===== -->
-  <nav class="nav island">
-    <div class="sb-head"><span class="mark" id="brandMark"></span><b>Forgify</b>
-      <button class="icon-btn" id="searchBtn" title="Search"></button></div>
-    <button class="sb-new" id="newChat"><span class="ico"></span> New chat</button>
-    <div class="nav-top" id="navTop">
-      <button class="nav-item is-active" data-pane="chat"><span class="ico"></span><span class="lbl">Chat</span></button>
-      <button class="nav-item"           data-pane="forge"><span class="ico"></span><span class="lbl">Forge</span></button>
-      <button class="nav-item"           data-pane="docs"><span class="ico"></span><span class="lbl">Documents</span></button>
-      <button class="nav-item"           data-pane="bell"><span class="ico"></span><span class="lbl">Notifications</span><span class="count">2</span></button>
+  <!-- ===== 标题栏 ===== -->
+  <div class="titlebar">
+    <div class="tb-left">
+      <div class="lights"><span class="light r"></span><span class="light y"></span><span class="light g"></span></div>
+      <div class="tbi"><button class="ibtn" id="i_side"></button><button class="ibtn" id="i_search"></button></div>
     </div>
-    <div class="sb-list" id="sbList"></div>
-    <div class="sb-user">
-      <span class="ava">F</span>
-      <span class="meta"><b>Forge Studio</b><span>本地工作区 · 已连接</span></span>
-      <button class="icon-btn" id="settingsBtn" title="Settings"></button>
-    </div>
-  </nav>
-
-  <!-- ===== 中间：海（对话平铺其上） ===== -->
-  <main class="stage">
-    <div class="topbar">
-      <span class="title" id="paneTitle">Researcher 升级<small> · Chat</small></span>
+    <div class="tb-right">
+      <div class="crumb"><span class="ico" id="i_repo"></span> Forgify <span class="sep">/</span>
+        <span class="muted">前端设计 (fork)</span> <span class="chev" id="i_cd"></span></div>
       <span class="grow"></span>
-      <button class="icon-btn" id="replayBtn" title="重播演示"></button>
-      <button class="icon-btn" id="themeBtn" title="切换主题"></button>
+      <button class="ibtn" id="i_panel"></button>
+      <button class="ibtn" id="i_theme"></button>
     </div>
+  </div>
 
-    <div class="scroll" id="scroll"><div class="thread" id="thread"></div></div>
+  <div class="body">
+    <!-- ===== 侧栏 ===== -->
+    <aside class="side">
+      <div class="modeseg" id="modeseg">
+        <button data-m="chat"><span id="i_chat"></span></button>
+        <button data-m="tasks"><span id="i_tasks"></span></button>
+        <button class="on" data-m="code"><span id="i_code"></span> Code</button>
+      </div>
 
-    <div class="composer-wrap" id="composerWrap">
-      <div class="composer">
-        <textarea class="ta" id="ta" rows="1" placeholder="给 AI 发消息…（演示，点 ▷ 重播看信号交互）"></textarea>
-        <div class="bar">
-          <button class="cbtn ic" id="attach" title="附件"></button>
-          <button class="cbtn" id="autoChip">Auto</button>
-          <span class="grow"></span>
-          <span class="cbtn muted"><span id="cmodel"></span> claude-opus-4-8</span>
-          <button class="send" id="send"></button>
+      <div class="sact">
+        <button class="sitem"><span class="ico" id="i_new"></span> New session</button>
+        <button class="sitem"><span class="ico" id="i_rt"></span> Routines</button>
+        <button class="sitem"><span class="ico" id="i_dp"></span> Dispatch <span class="beta">Beta</span></button>
+        <button class="sitem"><span class="ico" id="i_cz"></span> Customize</button>
+        <button class="sitem"><span class="ico" id="i_more"></span> More</button>
+      </div>
+
+      <div class="recents">
+        <div class="rec-head"><span>Recents</span><button class="ibtn" id="i_sort"></button></div>
+        <div id="reclist"></div>
+      </div>
+
+      <div class="suser">
+        <span class="av">sw</span>
+        <span class="m"><b>Sun Weilin</b><span class="plan">· Max</span></span>
+        <span class="chev" id="i_cu"></span>
+      </div>
+    </aside>
+
+    <!-- ===== 主区 ===== -->
+    <main class="main">
+      <div class="conv" id="conv">
+        <div class="col">
+
+          <!-- 用户消息 -->
+          <div class="umsg"><div class="b">把左侧栏改成 Claude Code 那种扁平风格，去掉浮岛和阴影。</div></div>
+
+          <!-- 助手回合 -->
+          <div class="turn">
+            <div class="spark" id="sp1"></div>
+            <div class="amsg">
+              <p>好的。我把侧栏从「浮岛」改成<b>齐边扁平</b>：去掉外间距与阴影、加一条发丝分割线、压紧行高，并让选中项用中性灰高亮。</p>
+
+              <div class="tool"><button class="tool-h click"><span class="tk">Read 2 files</span><span class="chev" data-chev></span></button>
+                <div class="tool-d"><b>app_shell.dart</b>  · 142 lines
+<b>tokens.dart</b>  · 68 lines</div></div>
+
+              <p>改动如下：</p>
+
+              <div class="tool"><button class="tool-h click"><span class="tk">Edited</span> <code>app_shell.dart</code>
+                <span class="diff"><span class="add">+18</span> <span class="del">−26</span></span><span class="chev" data-chev></span></button>
+                <div class="tool-d">- 去掉 Container 的 margin / boxShadow / borderRadius
+- 侧栏底色改 surfaceMuted，右侧加 1px divider
++ rowHeight 收到 32，item padding 收紧
++ 选中态用 neutral hover/active，不再用 accent pill</div></div>
+
+              <div class="tool"><button class="tool-h click"><span class="tk">Ran a command</span><span class="chev" data-chev></span></button>
+                <div class="tool-d">$ flutter analyze
+Analyzing forgify…
+No issues found! (ran in 4.1s)</div></div>
+
+              <div class="tool status"><span class="tool-h"><span class="tk">Background shell completed <b style="color:var(--ink-2)">flutter analyze</b></span></span></div>
+
+              <p>分析通过、无告警。侧栏已是扁平齐边风格，和主区无缝衔接。要我把右侧实体面板也一并扁平化吗？</p>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
-  </main>
 
-  <!-- ===== 右侧实体岛（信号交互主角，默认隐藏） ===== -->
-  <aside class="aside island hidden" id="aside"></aside>
-
+      <!-- ===== composer ===== -->
+      <div class="composer">
+        <div class="cwrap">
+          <div class="ctx">
+            <span class="repo"><span id="i_repo2"></span> Forgify</span>
+            <span class="branch"><span id="i_branch"></span> main</span>
+            <span class="diff"><span class="add">+172</span> <span class="del">−1</span></span>
+            <button class="pr">Create PR <span id="i_prc"></span></button>
+          </div>
+          <div class="box">
+            <div class="field"><input id="ta" placeholder="Type / for commands"><span class="enter" id="i_enter"></span></div>
+            <div class="bar">
+              <button class="cbtn" id="b_auto">Auto <span id="i_autoc"></span></button>
+              <button class="cbtn ic" id="b_plus"></button>
+              <button class="cbtn ic" id="b_mic"></button>
+              <span class="right">
+                <span class="lbl">Opus 4.8</span><span class="lbl">Ultracode</span>
+                <span class="spin" id="i_spin"></span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
 </div>
 
-<script src="../shared/mock-data.js"></script>
 <script>
-// ---------- 工具 ----------
 const $ = (s, r=document) => r.querySelector(s);
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const scroll = $('#scroll'), aside = $('#aside');
-let thread = $('#thread');                        // 切面会重建容器，故用 let 兜住闭包
-const sbList = $('#sbList');
-function toBottom(){ scroll.scrollTop = scroll.scrollHeight; }
-let runId = 0;                                   // 重播时让旧时间线作废
-const alive = id => id === runId;
+// —— 图标集（线性描边，1.7） ——
+const P = {
+  side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  repo:'<rect x="2" y="4" width="20" height="14" rx="2"/><path d="M2 18h20M8 22h8"/>',
+  chevd:'<path d="m6 9 6 6 6-6"/>', chevr:'<path d="m9 6 6 6-6 6"/>',
+  panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>', sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  chat:'<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 9 9 0 0 1-4-1L3 20l1.5-5.5a8.5 8.5 0 1 1 16.5-3Z"/>',
+  tasks:'<path d="M11 6h10M11 12h10M11 18h10"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11M3 18l1.5 1.5L7 17"/>',
+  code:'<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  dispatch:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.5A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.5Z"/>',
+  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  sort:'<path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 4v16"/>',
+  branch:'<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="9" r="3"/><path d="M18 12a9 9 0 0 1-9 9M6 9v6"/>',
+  enter:'<path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/>',
+  mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 19v3"/>',
+  spin:'<path d="M21 12a9 9 0 1 1-6.2-8.5"/>',
+  spark:'<path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l3.5 3.5M15.5 15.5 19 19M19 5l-3.5 3.5M8.5 15.5 5 19"/>',
+};
+const svg = (k, n=16, w=1.7) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[k]}</svg>`;
 
 // 注入图标
-$('#brandMark').innerHTML = icon('forge', 14, 2);
-$('#searchBtn').innerHTML = icon('search', 16);
-$('#newChat .ico').innerHTML = icon('newchat', 16);
-$('#settingsBtn').innerHTML = icon('settings', 16);
-$('#replayBtn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
-$('#themeBtn').innerHTML = icon('moon', 16);
-$('#attach').innerHTML = icon('plus', 18);
-$('#cmodel').innerHTML = icon('sparkle', 13);
-$('#send').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
-document.querySelectorAll('.nav-item').forEach(b => {
-  $('.ico', b).innerHTML = icon(b.dataset.pane === 'bell' ? 'bell' : b.dataset.pane, 18);
+$('#i_side').innerHTML = svg('side'); $('#i_search').innerHTML = svg('search');
+$('#i_repo').innerHTML = svg('repo',15); $('#i_cd').innerHTML = svg('chevd',14);
+$('#i_panel').innerHTML = svg('panel'); $('#i_theme').innerHTML = svg('moon');
+$('#i_chat').innerHTML = svg('chat',15); $('#i_tasks').innerHTML = svg('tasks',15); $('#i_code').innerHTML = svg('code',15);
+$('#i_new').innerHTML = svg('plus'); $('#i_rt').innerHTML = svg('zap'); $('#i_dp').innerHTML = svg('dispatch');
+$('#i_cz').innerHTML = svg('sliders'); $('#i_more').innerHTML = svg('chevd',14); $('#i_sort').innerHTML = svg('sort',15);
+$('#i_cu').innerHTML = svg('chevd',14);
+$('#i_repo2').innerHTML = svg('repo',14); $('#i_branch').innerHTML = svg('branch',13); $('#i_prc').innerHTML = svg('chevd',13);
+$('#i_enter').innerHTML = svg('enter',16); $('#i_autoc').innerHTML = svg('chevd',13);
+$('#b_plus').innerHTML = svg('plus',17); $('#b_mic').innerHTML = svg('mic',16); $('#i_spin').innerHTML = svg('spin',14);
+document.querySelectorAll('.spark').forEach(s => s.innerHTML = svg('spark',16,1.6));
+document.querySelectorAll('[data-chev]').forEach(c => c.innerHTML = svg('chevr',14));
+
+// Recents 列表
+const SESS = [
+  ['前端设计 (fork)','run',true],['前端部署','run',false],['Backend重构 [Done]','done',false],
+  ['列名检查 [adhoc]','done',false],['版本控制管理 [done]','done',false],['Workflow重构 Implement [done]','done',false],
+  ['Workflow重构 Review [done]','done',false],['HardCode治理专项 [done]','done',false],
+  ['Workflow Feature迭代探索 [done]','done',false],['E2E修复 [Done]','done',false],['Testend修复 [Done]','done',false],
+  ['API模型配置迭代 [Done]','done',false],['前端文档页面优化 [Done]','done',false],
+];
+$('#reclist').innerHTML = SESS.map(([t,st,on]) =>
+  `<div class="ritem${on?' on':''}"><span class="d${st==='run'?' run':''}"></span><span class="t">${t}</span></div>`).join('');
+$('#reclist').querySelectorAll('.ritem').forEach(it => it.onclick = () => {
+  $('#reclist').querySelectorAll('.ritem').forEach(x=>x.classList.remove('on')); it.classList.add('on');
 });
 
-// ---------- 打字机：把文本流入节点 ----------
-function typeInto(node, text, cps = 60){
-  const id = runId;
-  return new Promise(res => {
-    const caret = document.createElement('span'); caret.className = 'caret';
-    node.appendChild(caret);
-    let i = 0;
-    (function step(){
-      if(!alive(id)){ caret.remove(); return res(); }
-      caret.insertAdjacentText('beforebegin', text[i++] ?? '');
-      toBottom();
-      if(i > text.length){ caret.remove(); return res(); }
-      setTimeout(step, 1000 / cps + Math.random() * 16);
-    })();
-  });
-}
-
-// ---------- 气泡构造 ----------
-function userMsg(html){
-  const m = document.createElement('div'); m.className = 'msg user fade-in';
-  m.innerHTML = `<div class="bubble">${html}</div>`;
-  thread.appendChild(m); toBottom();
-}
-function aiMsg(){
-  const m = document.createElement('div'); m.className = 'msg ai fade-in';
-  m.innerHTML = `<div class="body"></div>`;   // 复刻 Claude Code：无头像，全幅平铺
-  thread.appendChild(m); toBottom();
-  return $('.body', m);
-}
-
-// ---------- 工具活动：复刻 Claude Code 桌面「摘要行」 ----------
-// 运行时显示实时状态，收敛为「Used N tools ›」可展开
-function toolActivity(body){
-  const w = document.createElement('div'); w.className = 'actblock fade-in';
-  w.innerHTML = `<div class="act"><span class="st">${icon('spin',14)}</span>
-      <span class="atext"></span><span class="chev" style="display:none">${icon('chevron',14)}</span></div>
-    <div class="act-detail"></div>`;
-  body.appendChild(w); toBottom();
-  const head = $('.act', w), st = $('.st', w), text = $('.atext', w), chev = $('.chev', w), det = $('.act-detail', w);
-  head.onclick = () => { if(!det.innerHTML) return; head.classList.toggle('open'); det.classList.toggle('open'); };
-  return {
-    status(t){ text.textContent = t; toBottom(); },
-    settle(summary, detailHTML){
-      st.style.display = 'none'; text.textContent = summary; det.innerHTML = detailHTML;
-      chev.style.display = ''; head.classList.add('clickable'); toBottom();
-    },
-  };
-}
-// 「Updated <实体> v4→v5」结果行（对应 Claude Code 的「Edited file +n -m」）
-function editLine(body, name, fromV, toV){
-  const w = document.createElement('div'); w.className = 'editline fade-in';
-  w.innerHTML = `${icon('edit',14)} Updated <span class="ename">${name}</span>
-    <span class="estat">v${fromV} → <span class="to">v${toV}</span></span>`;
-  body.appendChild(w); toBottom();
-}
-
-// ---------- 右侧实体岛：渲染一个 Agent ----------
-function renderAgent({ name, version, model, system, tools, live }){
-  aside.classList.remove('hidden', 'collapsed');
-  aside.innerHTML = `
-    <div class="aside-head">
-      <span class="etype agent">${icon('agent',18)}</span>
-      <span class="htext">
-        <b>${name}</b>
-        <span class="sub">
-          <span class="ver" data-ver>v${version}</span>
-          <span data-live>${live ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : '已保存'}</span>
-        </span>
-      </span>
-      <button class="icon-btn" data-collapse title="收起"></button>
-      <button class="icon-btn" data-close title="关闭"></button>
-    </div>
-    <div class="aside-tabs">
-      <button class="on">Overview</button><button>Versions</button>
-      <button>Runs</button><button>Iterate</button>
-    </div>
-    <div class="aside-body">
-      <div class="field" data-f="model"><label>Model</label><div class="val mono">${model}</div></div>
-      <div class="field" data-f="system"><label>System prompt</label><div class="val">${system}</div></div>
-      <div class="field" data-f="tools"><label>Tools</label><div class="val" style="padding:8px"><div class="taglist">${
-        tools.map(t => `<span class="tag">${t}</span>`).join('')
-      }</div></div></div>
-    </div>`;
-  $('[data-collapse]', aside).innerHTML = icon('collapse',17);
-  $('[data-close]', aside).innerHTML = icon('close',16);
-  $('[data-collapse]', aside).onclick = () => aside.classList.toggle('collapsed');
-  $('[data-close]', aside).onclick = () => aside.classList.add('hidden');
-  aside.querySelectorAll('.aside-tabs button').forEach(b =>
-    b.onclick = () => { aside.querySelectorAll('.aside-tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
-  // 收起态点一下整条 → 展开
-  aside.onclick = e => { if(aside.classList.contains('collapsed') && !e.target.closest('button')) aside.classList.remove('collapsed'); };
-}
-function setLive(on, note){
-  const s = $('[data-live]', aside); if(!s) return;
-  s.innerHTML = on ? '<span class="live"><span class="pulse"></span>AI 正在编辑…</span>' : note;
-}
-
-// ====================================================================
-// 信号交互演示时间线
-// ====================================================================
-async function runDemo(){
-  const id = ++runId;
-  thread.innerHTML = '';
-  aside.className = 'aside island hidden';
-
-  // —— 历史：一段已存在的对话，让进来不空 ——
-  userMsg('帮我把仓库里这周的 PR 理一理。');
-  const h = aiMsg();
-  h.innerHTML = '<p>这周有 9 个 PR，其中 3 个还在等审。要我让 <span class="ref-pill" data-open>'
-    + icon('agent',12) + 'Researcher</span> 出一份带链接的周报吗？</p>';
-  if(!alive(id)) return;
-
-  await sleep(700);
-
-  // —— 用户发新请求 ——
-  userMsg('把 Researcher 升级到 Opus，并要求它所有结论都带引用来源。');
-  await sleep(450); if(!alive(id)) return;
-
-  // —— AI 推理 chip（默认折叠形态） ——
-  const body = aiMsg();
-  const reason = document.createElement('span'); reason.className = 'reason';
-  reason.innerHTML = `<span class="spin">${icon('spin',13)}</span> 思考中…`;
-  body.appendChild(reason);
-  await sleep(1100); if(!alive(id)) return;
-  reason.innerHTML = `${icon('sparkle',13)} 已思考 2 秒`;
-
-  // —— AI 开场 ——
-  const p1 = document.createElement('p'); body.appendChild(p1);
-  await typeInto(p1, '好的，我来更新 Researcher：切换模型到 claude-opus-4-8，并在系统提示里加上引用要求。', 70);
-  if(!alive(id)) return;
-
-  // —— 工具活动（复刻 Claude Code：实时状态 → 收敛摘要）——
-  await sleep(300);
-  const ta = toolActivity(body);
-  ta.status('Reading Researcher…');
-  await sleep(850); if(!alive(id)) return;
-  ta.status('Updating Researcher…');     // ← 这一刻唤出右侧岛
-  await sleep(400); if(!alive(id)) return;
-
-  // —— 实体岛从右滑入，开始流式编辑 ——
-  renderAgent({
-    name: 'Researcher', version: 4, model: 'claude-sonnet-4-6',
-    system: '你是严谨的调研助手。检索、交叉验证、给出结构化综述。',
-    tools: ['web_fetch','read_file','python','summarize'], live: true,
-  });
-  toBottom();
-  await sleep(650); if(!alive(id)) return;
-
-  // 1) 改模型（闪光）
-  const modelVal = $('[data-f="model"] .val', aside);
-  modelVal.classList.add('changed','flash');
-  modelVal.textContent = 'claude-opus-4-8';
-  await sleep(900); if(!alive(id)) return;
-
-  // 2) 系统提示流式追加一行
-  const sysVal = $('[data-f="system"] .val', aside);
-  sysVal.classList.add('changed');
-  await typeInto(sysVal, '\n\n务必为每条结论附引用来源（行内链接）。', 45);
-  if(!alive(id)) return;
-  await sleep(500);
-
-  // 3) 工具新增 web_search（popin）
-  const tagList = $('[data-f="tools"] .taglist', aside);
-  const ntag = document.createElement('span'); ntag.className = 'tag new'; ntag.textContent = 'web_search';
-  tagList.appendChild(ntag);
-  await sleep(700); if(!alive(id)) return;
-
-  // 4) 收尾：版本 bump，停止活体指示
-  $('[data-ver]', aside).textContent = 'v5';
-  setLive(false, '刚刚更新 · v5');
-  modelVal.classList.remove('flash'); sysVal.classList.remove('changed');
-  ta.settle('Used 2 tools', `<b>read_agent</b>(Researcher)\n  → model = claude-sonnet-4-6\n  → tools = [web_fetch, read_file, python, summarize]\n\n<b>update_agent</b>(Researcher)\n  → model = claude-opus-4-8\n  → system += 引用要求（行内链接）\n  → tools += web_search`);
-  editLine(body, 'Researcher', 4, 5);
-  await sleep(400); if(!alive(id)) return;
-
-  // —— AI 收尾 ——
-  const p2 = document.createElement('p'); body.appendChild(p2);
-  await typeInto(p2, '完成 ✅ Researcher 现在跑在 Opus 上，并会为每条结论附引用。', 70);
-  if(!alive(id)) return;
-  const p3 = document.createElement('p'); body.appendChild(p3);
-  p3.innerHTML = '要我顺手给它配一个每日 web 巡检的 <span class="ref-pill" style="background:var(--accent-soft)">'
-    + icon('workflow',12) + 'workflow</span> 吗？';
-  toBottom();
-
-  // 行内引用药丸 → 重新唤出/展开实体岛
-  thread.querySelectorAll('[data-open]').forEach(p => p.onclick = () => aside.classList.remove('hidden','collapsed'));
-}
-
-// ====================================================================
-// 导航切换 + Recents 列表 + 其它面
-// ====================================================================
-// Recents（Claude 范的会话列表，仅 Chat 面显示）
-const CONVOS = ['Researcher 升级到 Opus','PR 周报自动化','Invoice OCR 调试','给 slugify 加单测','Nightly Digest 编排','部署脚本 review','清理 stale 产物'];
-function fillRecents(){
-  sbList.innerHTML = `<div class="sb-sect"><span>Recents</span></div>` +
-    CONVOS.map((c,i)=>`<div class="sb-item${i===0?' is-active':''}"><span class="t">${c}</span></div>`).join('');
-  sbList.querySelectorAll('.sb-item').forEach(it => it.onclick = () => {
-    sbList.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('is-active')); it.classList.add('is-active');
-  });
-}
-
-function paneChat(){
-  $('#composerWrap').style.display = '';
-  $('#paneTitle').innerHTML = 'Researcher 升级<small> · Chat</small>';
-  fillRecents();
-  runDemo();
-}
-function paneForge(){
-  runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
-  $('#paneTitle').innerHTML = 'Forge<small> · 四类实体</small>';
-  scroll.innerHTML = `<div class="fade-in">
-    <div class="pane-head"><h1>Forge</h1><button class="btn primary">${icon('plus',16)} 新建</button></div>
-    <div class="pane-body"><div class="grid">${FORGE.map((e,i)=>`
-      <div class="card" data-i="${i}">
-        <div class="ch"><span class="ei etype ${e.kind}">${icon(e.kind,16)}</span><b>${e.name}</b></div>
-        <div class="desc">${e.desc}</div>
-        <div class="foot"><span class="dot ok"></span>${e.model} · ${e.meta}</div>
-      </div>`).join('')}</div></div></div>`;
-  // 点卡片 → 在右侧岛打开实体（静态，无流式）—— 证明实体岛是通用面
-  scroll.querySelectorAll('.card').forEach(c => c.onclick = () => {
-    const e = FORGE[c.dataset.i];
-    if(e.kind === 'agent') renderAgent({ name:e.name, version:e.meta.match(/v(\d)/)?.[1]||1,
-      model:e.model, system:e.desc, tools:['web_fetch','read_file','python','summarize'], live:false });
-    else { renderAgent({ name:e.name, version:1, model:e.model, system:e.desc, tools:[], live:false });
-      $('.etype', aside).className = `etype ${e.kind}`; $('.etype', aside).innerHTML = icon(e.kind,18); }
-  });
-}
-function paneDocs(){
-  runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
-  $('#paneTitle').innerHTML = 'Documents<small> · 知识库</small>';
-  scroll.innerHTML = `<div class="fade-in">
-    <div class="pane-head"><h1>Documents</h1><button class="btn">${icon('plus',16)} 新文档</button></div>
-    <div class="pane-body">${DOCS.map(d=>`
-      <div class="row"><span class="ri etype function">${icon('docs',16)}</span>
-        <span class="rt"><b>${d.name}</b><span>${d.sub}</span></span>
-        <span class="rtime">${icon('chevron',16)}</span></div>`).join('')}</div></div>`;
-}
-function paneBell(){
-  runId++; aside.className = 'aside island hidden';
-  $('#composerWrap').style.display = 'none'; sbList.innerHTML = '';
-  $('#paneTitle').innerHTML = 'Notifications<small> · 通知</small>';
-  scroll.innerHTML = `<div class="fade-in">
-    <div class="pane-head"><h1>Notifications</h1><button class="btn">全部已读</button></div>
-    <div class="pane-body">${NOTIFS.map(n=>`
-      <div class="row"><span class="ri etype ${n.kind}">${icon(n.kind,16)}</span>
-        <span class="rt"><b>${n.title}</b><span>${n.sub}</span></span>
-        <span class="rtime">${n.time}</span>${n.unread?'<span class="unread"></span>':''}</div>`).join('')}</div></div>`;
-}
-const PANES = { chat: paneChat, forge: paneForge, docs: paneDocs, bell: paneBell };
-document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('is-active'));
-  b.classList.add('is-active');
-  // chat 面需要把 thread 容器还原并重绑闭包引用
-  if(b.dataset.pane === 'chat'){ scroll.innerHTML = '<div class="thread" id="thread"></div>'; thread = document.getElementById('thread'); }
-  PANES[b.dataset.pane]();
+// 交互
+document.querySelectorAll('.tool-h.click').forEach(h => h.onclick = () => h.closest('.tool').classList.toggle('open'));
+$('#modeseg').querySelectorAll('button').forEach(b => b.onclick = () => {
+  $('#modeseg').querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
 });
-
-// ---------- 顶栏交互 ----------
-$('#themeBtn').onclick = () => {
-  const dark = document.documentElement.dataset.theme === 'dark';
-  document.documentElement.dataset.theme = dark ? 'light' : 'dark';
-  $('#themeBtn').innerHTML = icon(dark ? 'moon' : 'sun', 17);
+$('#i_theme').onclick = () => {
+  const d = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = d ? 'light' : 'dark';
+  $('#i_theme').innerHTML = svg(d ? 'moon' : 'sun');
 };
-$('#replayBtn').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
-$('#send').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
-$('#newChat').onclick = () => { document.querySelector('[data-pane="chat"]').click(); };
-
-// ---------- 启动 ----------
-fillRecents();
-runDemo();
 </script>
 </body>
 </html>
