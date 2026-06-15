@@ -8,18 +8,20 @@
 <link rel="stylesheet" href="core/reset.css">
 <style>
   body { padding: 48px 32px; background: var(--sea); }
-  .wrap { max-width: 900px; margin: 0 auto; }
+  .wrap { max-width: 920px; margin: 0 auto; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
   .lead { color: var(--ink-2); font-size: 14px; margin: 0 0 8px; line-height: 1.6; }
   .theme-btn { position: fixed; top: 20px; right: 24px; }
-  .comp { margin: 36px 0 0; }
-  .comp > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; }
+  .comp { margin: 34px 0 0; }
+  .comp > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .comp > h2 .api { font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-weight: 400; }
   .comp > .note { font-size: 12px; color: var(--ink-3); margin: 0 0 14px; }
   .demo { background: var(--island); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island);
-    padding: 20px; display: flex; flex-wrap: wrap; gap: 24px 32px; align-items: center; }
-  .demo .lbl { font-size: 11px; color: var(--ink-3); font-family: var(--mono); margin-right: 8px; }
-  .row { display: flex; align-items: center; gap: 10px; }
+    padding: 20px; display: flex; flex-wrap: wrap; gap: 18px 30px; align-items: center; }
+  .demo.col { flex-direction: column; align-items: stretch; gap: 12px; }
+  .demo .lbl { font-size: 11px; color: var(--ink-3); font-family: var(--mono); margin-right: 6px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .err { color: var(--danger); font-family: var(--mono); font-size: 12px; }
 </style>
 </head>
 <body>
@@ -35,9 +37,21 @@
 <script src="core/icons.js"></script>
 <script src="core/config/state-model.js"></script>
 <script src="core/config/entity-kinds.js"></script>
+<script src="core/intent.js"></script>
+<script src="manifest.js"></script>
 
-<!-- 组件（随建随加一行）-->
+<!-- 叶子组件（随建随加一行）-->
 <script src="core/components/status-dot.js"></script>
+<script src="core/components/ref-pill.js"></script>
+<script src="core/components/thin-table.js"></script>
+<script src="core/components/kv.js"></script>
+<script src="core/components/tabs.js"></script>
+<script src="core/components/attention.js"></script>
+<script src="core/components/tags.js"></script>
+<script src="core/components/segmented.js"></script>
+<script src="core/components/dropdown.js"></script>
+<script src="core/components/run-chip.js"></script>
+<script src="core/components/iteration-stepper.js"></script>
 
 <script>
   document.getElementById('themeBtn').innerHTML = icon('moon');
@@ -46,23 +60,53 @@
     document.documentElement.dataset.theme = d ? 'light' : 'dark';
     this.innerHTML = icon(d ? 'moon' : 'sun');
   };
+  const E = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
 
-  // 规格区块：每个组件一段（name + api + note + demo 内容 html）
   const SPECS = [
     { name: 'status-dot', api: 'StatusDot.dot(state) · .badge(map,state)', note: '通用 5 态点 + 类型化徽。收掉 en-st/eo-st/wf-st/cv-st/rp + ENV/CFG/CONN。',
-      render: () => `
-        <span class="row"><span class="lbl">dot ×6</span>
-          ${['done','run','wait','err','idle','listening'].map(s => `<span class="row">${StatusDot.dot(s)}<span style="font-size:12px;color:var(--ink-3)">${s}</span></span>`).join('')}</span>
-        <span class="row"><span class="lbl">env</span>${StatusDot.badge('ENV','syncing')}${StatusDot.badge('ENV','ready')}${StatusDot.badge('ENV','failed')}</span>
-        <span class="row"><span class="lbl">conn</span>${StatusDot.badge('CONN','ready')}${StatusDot.badge('CONN','failed')}</span>` },
+      build: d => { d.innerHTML =
+        `<span class="row"><span class="lbl">dot</span>${['done','run','wait','err','idle','listening'].map(s => StatusDot.dot(s) + `<span style="font-size:12px;color:var(--ink-3)">${s}</span>`).join('&nbsp;&nbsp;')}</span>
+         <span class="row"><span class="lbl">env</span>${StatusDot.badge('ENV','syncing')}${StatusDot.badge('ENV','ready')}${StatusDot.badge('ENV','failed')}</span>`; } },
+
+    { name: 'ref-pill', api: 'RefPill.html(kind,label,ref) · .wire(root)', note: '实体提及药丸；点击发 Intent.select。收掉 chat/scheduler 两份 refPill。',
+      build: d => { d.innerHTML = ['agent','workflow','function','handler'].map(k => RefPill.html(k, k + '_x', k + '_1')).join(' '); if (window.RefPill && RefPill.wire) RefPill.wire(d); } },
+
+    { name: 'thin-table', api: 'ThinTable.table(host,cols,rows)', note: '细线无填充表（IO/methods/init-args）。收掉 entities.js table。',
+      build: d => ThinTable.table(d, ['参数', '类型', '必填'], [['file', 'bytes', '是'], ['currency', 'string', '可选'], ['since', 'datetime', '可选']]) },
+
+    { name: 'kv', api: 'KV.defs(host,rows)', note: 'k/v 定义行（init-args/元信息）。收掉 entities defs + entity-card kv + settings irow。',
+      build: d => KV.defs(d, [['bot_token', '', { mask: true }], ['default_channel', '#ops', { mono: true }], ['pool_size', '10', { mono: true }]]) },
+
+    { name: 'tabs', api: 'Tabs.mount(host,[{key,label,cnt,render}])', note: '文字下划线 tab（非药丸）。收掉 entities tabsFor。',
+      build: d => Tabs.mount(d, [{ key: 'a', label: '概览', render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">概览内容</div>' }, { key: 'b', label: '版本', cnt: 3, render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">版本内容</div>' }, { key: 'c', label: '运行', render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">运行内容</div>' }], {}) },
+
+    { name: 'attention', api: 'Attention.html(icon,html,{tone})', note: 'callout/警示框。收掉 eo-attn + chat callout + scheduler stuck-line。',
+      build: d => { d.innerHTML = Attention.html('shield', '停在 <b>gate</b> · 等待 manager_approval 审批', { tone: 'warn' }) + Attention.html('close', '<b>extract</b> 失败 · 依赖物化超时', { tone: 'danger' }); } },
+
+    { name: 'tags', api: 'Tags.mount(host,{items,icon,mode,addLabel})', note: '可增删标签药丸行。收掉 entities tags + chat tag。',
+      build: d => Tags.mount(d, { items: ['web_search', 'fetch_url', 'cite'], icon: 'tag', mode: 'multi', addLabel: 'add' }) },
+
+    { name: 'segmented', api: 'Segmented.mount(host,opts,{value})', note: '滑动药丸分段控件。收掉 onboarding seg + settings st-seg。',
+      build: d => Segmented.mount(d, ['亮', '暗', '跟随系统'], { value: 0 }) },
+
+    { name: 'dropdown', api: 'Dropdown.mount(host,{options,value})', note: '富下拉（按钮 + 弹层富行）。收掉 onboarding buildDD + settings st-dd。',
+      build: d => Dropdown.mount(d, { options: [{ value: 'opus', label: 'claude-opus-4-8', meta: '最强' }, { value: 'sonnet', label: 'claude-sonnet-4-6', meta: '均衡' }], value: 'opus' }) },
+
+    { name: 'run-chip', api: 'RunChip.rail(host,runs) · .headBadge(state)', note: '运行历史 rail + run 状态头徽。scheduler 生。',
+      build: d => { const head = E('div', 'row'); head.innerHTML = `<span class="lbl">badge</span>${['running','completed','failed','cancelled','waiting'].map(s => RunChip.headBadge(s)).join(' ')}`; d.appendChild(head); const rail = E('div'); RunChip.rail(rail, [{ id: 'fr_29f1', state: 'completed', when: '昨天' }, { id: 'fr_3a9c', state: 'running', when: '今天', live: true }], { current: 1 }); d.appendChild(rail); } },
+
+    { name: 'iteration-stepper', api: 'IterationStepper.mount(host,{items})', note: '逐迭代行（loop 真相，绝不合并）。收掉 scheduler sa-iter。',
+      build: d => IterationStepper.mount(d, { items: [{ i: 0, status: 'completed', out: 'draft v1 · 320 词' }, { i: 1, status: 'completed', out: 'draft v2 · 286 词' }, { i: 2, status: 'running', out: '生成中…' }] }) },
   ];
 
-  document.getElementById('gallery').innerHTML = SPECS.map(s => `
-    <div class="comp">
-      <h2>${s.name}<span class="api">${s.api || ''}</span></h2>
-      ${s.note ? `<p class="note">${s.note}</p>` : ''}
-      <div class="demo">${s.render()}</div>
-    </div>`).join('');
+  const g = document.getElementById('gallery');
+  SPECS.forEach(s => {
+    const comp = E('div', 'comp');
+    comp.innerHTML = `<h2>${s.name}<span class="api">${s.api || ''}</span></h2>${s.note ? `<p class="note">${s.note}</p>` : ''}`;
+    const demo = E('div', 'demo' + (['kv', 'tabs', 'iteration-stepper'].includes(s.name) ? ' col' : ''));
+    comp.appendChild(demo); g.appendChild(comp);
+    try { s.build(demo); } catch (e) { demo.innerHTML = `<span class="err">✗ ${s.name}: ${e.message}</span>`; console.error(s.name, e); }
+  });
 </script>
 </body>
 </html>
