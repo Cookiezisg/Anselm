@@ -52,3 +52,21 @@ html[data-side="off"] .side-reopen { width: 28px; opacity: 1; margin-left: 0; po
 .sf-act:hover { color: var(--ink); background: var(--cc-hover); }
 /* 未读点：独有类名（勿用通用 .badge，会与海洋 CSS 撞名）。贴铃铛右肩，island 色描边 punch out。 */
 .sf-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 2px solid var(--cc-side); }
+
+/* 铃铛 active 态（对称 modeseg button.on）：通知接管侧栏时高亮，与四 tab 互斥 */
+.sf-act.on { background: var(--cc-active); color: var(--ink); }
+
+/* 左下角 peek：贴铃铛上沿、从底 spring 滑入的极简 pill（微型岛=同色+海岸线+微阴影，绝不发灰）。仅 actionable 到达时冒。 */
+.sf-peek { position: absolute; left: 8px; right: 8px; bottom: 58px; z-index: 6; display: flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 8px 0 11px; border-radius: var(--r-chip);
+  background: var(--cc-side); border: 1px solid var(--line); box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  opacity: 0; transform: translateY(8px); transition: opacity var(--d-mid), transform var(--d-mid) var(--ease-spring); }
+.sf-peek.in { opacity: 1; transform: none; }
+.sf-peek-d { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); animation: sbPulse 1.5s ease infinite; }
+.sf-peek-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--ink); cursor: pointer; }
+.sf-peek-go { flex: none; font-size: 12px; font-weight: 500; color: var(--ink-2); padding: 0 4px; cursor: pointer; transition: color .12s; }
+.sf-peek-go:hover { color: var(--ink); }
+.sf-peek-x { flex: none; width: 20px; height: 20px; display: grid; place-items: center; color: var(--ink-3); border-radius: 6px; }
+.sf-peek-x:hover { color: var(--ink); background: var(--cc-hover); }
+.sf-peek-x svg { display: block; }
+@keyframes sbPulse { 50% { opacity: .3; } }   /* 自含一份（与 chat/notifications 同名等价，并存无害） */
