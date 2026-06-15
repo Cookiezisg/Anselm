@@ -3,8 +3,8 @@
 
 /* 新建文档 */
 .doc-rail-new { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: var(--r-btn);
-  color: var(--ink); font-size: var(--t-md); font-weight: 500; transition: background var(--d-fast); }
-.doc-rail-new:hover { background: var(--cc-hover); }
+  color: var(--ink-2); font-size: var(--t-md); font-weight: 500; transition: background var(--d-fast); }
+.doc-rail-new:hover { background: var(--cc-hover); color: var(--ink); }
 .doc-rail-new svg { color: var(--ink-2); display: block; }
 
 /* 名字过滤行（含排序/筛选 sliders 按钮） */
@@ -38,7 +38,7 @@
 /* 文档树 */
 .doc-rail-node.branch:not(.open) > .doc-rail-children { display: none; }
 .doc-rail-row { display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 8px; border-radius: var(--r-btn);
-  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .doc-rail-row:hover { background: var(--cc-hover); color: var(--ink); }
 .doc-rail-row.on { background: var(--cc-active); color: var(--ink); }
 .doc-rail-flat { padding-left: 10px; }   /* Recent 行无 chevron，单独左缩进 */

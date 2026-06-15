@@ -56,7 +56,7 @@
 
 /* 通知行：组件状态点 + 文案(+实体药丸第二行) + 时间 + 悬浮 ⋯ */
 .ntf-row { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 4px 10px; border-radius: var(--r-btn);
-  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .ntf-row:hover { background: var(--cc-hover); }
 .ntf-st { flex: none; display: grid; place-items: center; }
 .ntf-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -69,16 +69,17 @@
 .ntf-more svg { display: block; }
 .ntf-row:hover .ntf-more { opacity: 1; }
 
-/* Needs you 胖行：唯一例外高度（容纳 prompt + 就地拍板）。行首 wait 橙点表达「等你」，prompt 走 Attention(warn)。 */
+/* Needs you 胖行：唯一例外高度（容纳 prompt + 就地拍板）。行首 wait 橙点表达「等你」，标题灰默认。 */
 .ntf-fat { padding: 6px 8px; border-radius: var(--r-btn); transition: background var(--d-fast); }
 .ntf-fat-top { display: flex; align-items: center; gap: 9px; min-height: 24px; padding: 0 2px; cursor: pointer; }
-.ntf-fat-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 500; }
+.ntf-fat-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-weight: 500; }
+.ntf-fat-top:hover .ntf-fat-title { color: var(--ink); }   /* 灰默认、hover 才黑（不全黑）；color 不入过渡——无头渲染器冻初值 */
 .ntf-fat-top .ntf-time { align-self: center; margin-top: 0; }
 .ntf-fat-top .ntf-chev { flex: none; margin-left: 0; }
 .ntf-fat.open .ntf-fat-top .ntf-chev { transform: rotate(90deg); }
 
-/* 内联拍板区（行内展开、不弹窗、不离侧栏）；卡身由 Attention 组件画，本层只管展开 + 内部排版 */
-.ntf-approve { display: none; margin-top: 6px; }
+/* 内联拍板区（行内展开、不弹窗、不离侧栏）：中性浅底平铺卡（非 warn 彩盒，不报警色），本层管展开 + 内部排版 */
+.ntf-approve { display: none; margin-top: 6px; padding: 10px 12px; background: var(--cc-active); border-radius: var(--r-btn); }
 .ntf-fat.open .ntf-approve { display: block; }
 .ntf-prompt { font-size: var(--t-sm); color: var(--ink-2); line-height: 1.55; white-space: pre-wrap; margin: 0 0 8px; }
 .ntf-ddl { display: flex; align-items: center; gap: 5px; font-size: var(--t-xs); color: var(--warn); margin: 0 0 10px; }

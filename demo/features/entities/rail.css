@@ -3,8 +3,8 @@
 
 /* 新建实体 */
 .ent-new { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: var(--r-btn);
-  text-align: left; color: var(--ink); font-size: var(--t-md); font-weight: 500; transition: background var(--d-fast); }
-.ent-new:hover { background: var(--cc-hover); }
+  text-align: left; color: var(--ink-2); font-size: var(--t-md); font-weight: 500; transition: background var(--d-fast); }
+.ent-new:hover { background: var(--cc-hover); color: var(--ink); }
 .ent-new svg { color: var(--ink-2); display: block; }
 
 /* 搜索 + 排序菜单 */
@@ -35,8 +35,12 @@
 .ent-chev { flex: none; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
 .ent-chev svg { display: block; }
 .ent-cnt { color: var(--ink-3); font-weight: 500; }
-.collapsible.open > .ent-tog .ent-chev { transform: rotate(180deg); }
+.collapsible.open > .ent-tog .ent-chev { transform: rotate(90deg); }   /* 收起=右 chevr / 展开=下（对齐 documents） */
 .collapsible:not(.open) > .ent-cbody { display: none; }
+
+/* 显示开关（sliders 菜单）：精简默认藏版本号/标记；计数可关 */
+.ent-tree.hide-meta .ent-r-meta { display: none; }
+.ent-tree.hide-cnt .ent-cnt { display: none; }
 
 /* 分组头（可折叠：小字灰，箭头在尾） */
 .ent-grp { margin-bottom: 6px; }
@@ -44,14 +48,15 @@
 .ent-grp-h .ent-cnt { margin-left: auto; }
 
 /* 类型头（可展开：箭头在首 + 类型图标 + 名 + 计数在尾） */
-.ent-ty-h { height: 32px; padding: 0 10px; font-size: var(--t-md); font-weight: 500; color: var(--ink); }
+.ent-ty-h { height: 32px; padding: 0 10px; font-size: var(--t-md); font-weight: 500; color: var(--ink-2); }
+.ent-ty-h:hover { color: var(--ink); }   /* 侧栏字色铁律：灰默认、hover 才黑（行/类型头统一）；色不入过渡——按钮 color 过渡在无头渲染器冻初值 */
 .ent-ty-ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }
 .ent-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ent-ty-h .ent-cnt { margin-left: auto; }
 
 /* 实体行（缩进对齐到类型名下） */
 .ent-r { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px 0 32px; border-radius: var(--r-btn);
-  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器会把它冻在继承黑、灰默认失效 */
 .ent-r:hover { background: var(--cc-hover); color: var(--ink); }
 .ent-r.on { background: var(--cc-active); color: var(--ink); }
 .ent-r-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

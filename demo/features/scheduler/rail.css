@@ -6,7 +6,7 @@
 
 .sch-list { flex: 1; min-height: 0; overflow-y: auto; }
 .sch-wf { display: flex; align-items: center; gap: 9px; height: 34px; padding: 0 10px; border-radius: var(--r-btn);
-  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .sch-wf:hover { background: var(--cc-hover); color: var(--ink); }
 .sch-wf.on { background: var(--cc-active); color: var(--ink); }
 .sch-wf-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

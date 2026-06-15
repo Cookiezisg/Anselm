@@ -53,7 +53,7 @@
     exitNotif() { exitNotif(); },
   };
 
-  // ===== 导航中枢：四 tab 切海洋(侧栏+海面)；头像→设置(海面轴)；铃铛→通知(侧栏轴)。两轴镜像、正交。 =====
+  // ===== 导航中枢：四 tab 切海洋(侧栏+海面)；头像→设置 / 铃铛→通知（两轴镜像：均接管侧栏 #sidebody；设置另用海面铺类目详情）。 =====
   const seg = left.querySelector('.modeseg');
   const bell = left.querySelector('.sf-act');
   let cur = NAV.length ? NAV[0][0] : null;
@@ -78,7 +78,7 @@
   Shell.toOcean = nav;
   seg.querySelectorAll('button').forEach(b => b.onclick = () => nav(b.dataset.m));
 
-  // 头像 = 设置入口(海面接管轴)
+  // 头像 = 设置入口（接管侧栏类目导航 features/settings/rail.js + 海面铺详情；镜像铃铛通知）
   left.querySelector('.ws').onclick = () => {
     Shell._back = cur;
     bell.classList.remove('on');

@@ -3,8 +3,8 @@
 
 /* 新建对话 */
 .chat-newconv { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: var(--r-btn);
-  color: var(--ink); font-size: var(--t-md); font-weight: 500; transition: background .12s; }
-.chat-newconv:hover { background: var(--cc-hover); }
+  color: var(--ink-2); font-size: var(--t-md); font-weight: 500; transition: background .12s; }
+.chat-newconv:hover { background: var(--cc-hover); color: var(--ink); }
 .chat-newconv svg { color: var(--ink-2); display: block; }
 
 /* 标题快滤行（含展示菜单 sliders 按钮） */
@@ -45,7 +45,7 @@
 
 /* 会话行（行首状态点由 StatusDot 组件渲染，自带 flex:none；本文件不碰点像素） */
 .chat-cv { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: var(--r-btn);
-  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background .12s, color .12s; }
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background .12s; }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .chat-cv:hover { background: var(--cc-hover); color: var(--ink); }
 .chat-cv.on { background: var(--cc-active); color: var(--ink); }
 .chat-cv-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

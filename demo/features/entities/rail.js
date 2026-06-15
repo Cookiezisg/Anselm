@@ -16,6 +16,8 @@
   const DEFAULT_OPEN = new Set(['function']);   // 默认展开 Functions（与 sea 默认开 process_invoice 同步）
 
   let sort = 'recent';
+  // 显示开关（per-row 版本号/标记 meta + per-header 计数）——默认精简：藏版本号、留计数；sliders 菜单逐项开关（修「右边数字太乱」）
+  let showVersion = false, showCount = true;
   // 按 kind 取实体列表（保 mock 声明顺序）
   const ofKind = kind => Object.keys(D()).filter(name => D()[name].kind === kind);
 
@@ -29,17 +31,18 @@
     return `<div class="ent-r${on}" data-id="${name}">${dot}<span class="ent-r-t">${name}</span>${meta}<span class="ent-r-more">${icon('more', 16)}</span></div>`;
   }
   const sortOpt = (v, label) => `<button class="ent-opt${sort === v ? ' on' : ''}" data-sort="${v}"><span class="ent-ck">${icon('check', 14)}</span>${label}</button>`;
+  const dispOpt = (v, on, label) => `<button class="ent-opt${on ? ' on' : ''}" data-disp="${v}"><span class="ent-ck">${icon('check', 14)}</span>${label}</button>`;
 
   const typeSec = ([kind, label, ic]) => {
     const items = ofKind(kind);
     return `<div class="ent-ty collapsible${DEFAULT_OPEN.has(kind) ? ' open' : ''}">
-      <button class="ent-tog ent-ty-h"><span class="ent-chev">${icon('chevd', 13)}</span><span class="ent-ty-ico">${icon(ic, 15)}</span><span class="ent-lbl">${label}</span><span class="ent-cnt">${items.length}</span></button>
+      <button class="ent-tog ent-ty-h"><span class="ent-chev">${icon('chevr', 13)}</span><span class="ent-ty-ico">${icon(ic, 15)}</span><span class="ent-lbl">${label}</span><span class="ent-cnt">${items.length}</span></button>
       <div class="ent-cbody">${items.map(rowHtml).join('')}</div></div>`;
   };
   const groupSec = ([g, types]) => {
     const total = types.reduce((nn, [kind]) => nn + ofKind(kind).length, 0);
     return `<div class="ent-grp collapsible open">
-      <button class="ent-tog ent-grp-h"><span class="ent-lbl">${g}</span><span class="ent-cnt">${total}</span><span class="ent-chev">${icon('chevd', 13)}</span></button>
+      <button class="ent-tog ent-grp-h"><span class="ent-lbl">${g}</span><span class="ent-cnt">${total}</span><span class="ent-chev">${icon('chevr', 13)}</span></button>
       <div class="ent-cbody">${types.map(typeSec).join('')}</div></div>`;
   };
 
@@ -53,9 +56,12 @@
           ${sortOpt('recent', 'Recent activity')}
           ${sortOpt('name', 'Name A–Z')}
           ${sortOpt('type', 'Type')}
+          <div class="ent-mh">Display</div>
+          ${dispOpt('version', showVersion, 'Version / badge')}
+          ${dispOpt('count', showCount, 'Counts')}
         </div>
       </div>
-      <div class="ent-tree">${GROUPS.map(groupSec).join('')}</div>`;
+      <div class="ent-tree${showVersion ? '' : ' hide-meta'}${showCount ? '' : ' hide-cnt'}">${GROUPS.map(groupSec).join('')}</div>`;
 
     // 折叠：每个 .ent-tog 切最近的 .collapsible（分组 / 类型两层通用）
     host.querySelectorAll('.ent-tog').forEach(h => h.onclick = () => h.closest('.collapsible').classList.toggle('open'));
@@ -71,6 +77,13 @@
     menu.addEventListener('click', e => e.stopPropagation());
     menu.querySelectorAll('[data-sort]').forEach(o => o.onclick = () => {
       menu.querySelectorAll('[data-sort]').forEach(x => x.classList.remove('on')); o.classList.add('on'); sort = o.dataset.sort;
+    });
+    // 显示开关（独立多选，非单选）：实时切 .ent-tree 类、不重绘
+    const tree = host.querySelector('.ent-tree');
+    menu.querySelectorAll('[data-disp]').forEach(o => o.onclick = () => {
+      const on = o.classList.toggle('on'), k = o.dataset.disp;
+      if (k === 'version') { showVersion = on; tree.classList.toggle('hide-meta', !on); }
+      else { showCount = on; tree.classList.toggle('hide-cnt', !on); }
     });
     // 标题快滤：隐藏未命中行；过滤期间有命中的类型自动展开
     const fin = host.querySelector('.ent-filter input');

@@ -1,8 +1,8 @@
 /* Forgify demo — 【通知 Inbox】侧栏接管内容（铃铛轴；薄组合）。
    外壳 core/sidebar.js 的铃铛点击 → SideBar.mount('notifications') 接管 #sidebody（镜像 settings 接管海面）。
    本文件经 SideBar.register('notifications', render) 挂载；只碰 render(host) 宿主 + 外壳暴露的 SideBar.exitNotif / setUnread。
-   组合组件：StatusDot（行首 5 态点）· RefPill（被提及实体 → Intent.select 路由到归属海洋）· Attention（actionable 拍板卡）。
-   点普通行 / RefPill → Intent.select 到被提及实体/run（跨海洋唯一前门）；拥有 kind=notification（Intent.on 兜底接管 Inbox）。
+   组合组件：StatusDot（行首 5 态点；未读黑、已读灰，靠字色明暗分主次——不上药丸、不全黑）。
+   点普通行 → Intent.select 到被提及实体/run（跨海洋唯一前门，走行 data-ref）；拥有 kind=notification（Intent.on 兜底接管 Inbox）。
    依赖 mock/notifications.js（window.MOCK_NOTIFICATIONS，先于本文件加载；缺失则空态）。类名 ntf- 专属，只读令牌。 */
 (function () {
   if (window.cssNextTo) cssNextTo(document.currentScript);
@@ -11,25 +11,22 @@
   // 展示状态（filter 行 + 分组开关；跨重绘保留）
   let flt = 'all', group = true, readOpen = false;
 
-  // 被提及实体药丸（用组件，ref 非空 → 可点路由）
-  const pill = n => n.refKind ? RefPill.html(n.refKind, n.refLabel || n.refId, n.refId) : '';
-
-  // 普通 FYI 行：组件状态点 + 文案 + 时间 + 实体药丸 + 悬浮 ⋯
+  // 普通 FYI 行：状态点 + 单行文案 + 时间 + 悬浮 ⋯（实体引用并入行点击路由，不再独占药丸行——精简去 overwhelm）
   const row = n => `<div class="ntf-row${n.unread ? ' unread' : ''}" data-id="${n.id}" data-kind="${n.refKind || ''}" data-ref="${n.refId || ''}">
       <span class="ntf-st">${StatusDot.dot(n.st || 'idle')}</span>
-      <span class="ntf-body"><span class="ntf-t">${n.title}</span>${pill(n) ? `<span class="ntf-ref">${pill(n)}</span>` : ''}</span>
+      <span class="ntf-body"><span class="ntf-t">${n.title}</span></span>
       <span class="ntf-time">${n.time || ''}</span>
       <span class="ntf-more" title="更多">${icon('more', 16)}</span>
     </div>`;
 
-  // Needs you 胖行：Attention(warn) 包 prompt 摘要 + 就地拍板（批准/驳回 + 在 Scheduler 打开）
+  // Needs you 胖行：wait 橙点表「等你」+ 标题；展开后平铺 prompt + 就地拍板（中性浅底卡，非 warn 彩盒——不全黑、不报警色）
   const fatRow = a => {
     const inner = `<div class="ntf-prompt">${a.prompt || ''}</div>
       ${a.ddl ? `<div class="ntf-ddl">${icon('scheduler', 13)}${a.ddl}</div>` : ''}
       <div class="ntf-acts"><button class="ntf-btn go" data-act="approve">批准</button><button class="ntf-btn" data-act="deny">驳回</button>${a.refKind ? `<span class="ntf-open" data-act="open">在 Scheduler 打开</span>` : ''}</div>`;
     return `<div class="ntf-fat" data-id="${a.id}" data-kind="${a.refKind || ''}" data-ref="${a.refId || ''}">
       <div class="ntf-fat-top"><span class="ntf-st">${StatusDot.dot('wait')}</span><span class="ntf-fat-title">${a.title}</span><span class="ntf-time">${a.time || ''}</span><span class="ntf-chev">${icon('chevr', 14)}</span></div>
-      <div class="ntf-approve">${Attention.html('shield', inner, { tone: 'warn' })}</div>
+      <div class="ntf-approve">${inner}</div>
     </div>`;
   };
 
@@ -77,13 +74,9 @@
     // 折叠「已读」（记住开合态）
     host.querySelectorAll('.tog').forEach(h => h.onclick = () => { const s = h.closest('.collapsible'); readOpen = s.classList.toggle('open'); });
 
-    // 实体药丸委托：点 .fg-ref → Intent.select 路由到被提及实体（组件托管）
-    RefPill.wire(list);
-
-    // 普通行：点击 = 标记已读 + 跳被提及实体/run（pill 区域交给 RefPill.wire，避免重复派发）
-    host.querySelectorAll('.ntf-row').forEach(r => r.onclick = e => {
+    // 普通行：点击 = 标记已读 + 跳被提及实体/run（引用走整行 data-ref，无独立药丸）
+    host.querySelectorAll('.ntf-row').forEach(r => r.onclick = () => {
       r.classList.remove('unread'); refreshUnread();
-      if (e.target.closest('.fg-ref')) return;        // 药丸自身已由 RefPill.wire 路由
       if (r.dataset.ref) Intent.select({ kind: r.dataset.kind, id: r.dataset.ref });
     });
 

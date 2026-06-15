@@ -1,8 +1,8 @@
-/* Forgify demo — 设置海洋海面：薄组合（样板）。接管海面（侧栏头像轴，sidebar 已接 mountSea('settings')）。
-   左类目列（概览/通用/模型密钥/搜索/连接器/运行时/工作区/通知/关于）+ 右详情；← 返回来源海洋。
+/* Forgify demo — 设置海洋海面：薄组合（样板）。仅渲染「当前类目详情」白海——类目导航在侧栏接管（features/settings/rail.js，镜像 notifications）。
+   类目选择来自侧栏 rail → Intent.select({kind:'settingsCat'}) → 本海面 Intent.on('settingsCat') 切详情（settingsCat 无 owner，Intent 直接广播）。
    几乎不画控件像素：Segmented(主题/语言/开关) + Dropdown(模型选择) + KV(工作区/密钥元信息) + StatusDot(密钥/连接器/运行时徽) + ThinTable(工作区/运行时列)。
    概览的「最常用实体」行可点 → Intent.select({kind,id}) 跳实体海洋（一个前门，零跨海洋 import）。
-   依赖 mock/models.js。注册 Shell.registerOcean('settings')。无 owns、无 Intent.on（头像轴，非选中归属）。 */
+   依赖 mock/models.js。注册 Shell.registerOcean('settings')。 */
 (function () {
   if (window.cssNextTo) cssNextTo(document.currentScript);
   const M = () => window.MOCK_MODELS || {};
@@ -225,49 +225,28 @@
       .forEach(mo => months.appendChild(tag('span', mo)));
   }
 
-  // ——— 类目结构（分组 → [id,label]）———
-  const CATS = [
-    ['个人化', [['overview', '概览'], ['general', '通用']]],
-    ['模型', [['models', '模型与密钥'], ['search', '搜索与嵌入']]],
-    ['集成', [['mcp', '连接器'], ['runtimes', '运行时与磁盘']]],
-    ['系统', [['workspace', '工作区'], ['notif', '通知'], ['about', '关于']]],
-  ];
+  // ——— 当前类目详情渲染（detail = 唯一白海；类目导航在侧栏 rail）———
+  let detail;
+  const show = id => {
+    if (!detail) return;   // 海面未挂时（rail 先于海面 build 触发）忽略，build 会补渲染默认类目
+    detail.classList.toggle('center', id === 'overview');
+    detail.innerHTML = '';
+    (RENDER[id] || RENDER.overview)(detail);
+    detail.scrollTop = 0;
+  };
 
-  // ——— 注册海洋（接管海面）———
+  // ——— 注册海洋（仅详情；类目列在侧栏接管，见 rail.js）———
   Shell.registerOcean('settings', {
     crumb: '设置',
     build(sea) {
       const root = tag('div.set-root');
-      // 左导航岛：返回 + 搜索 + 分组类目
-      const nav = tag('nav.set-nav');
-      const back = tag('a.set-back', `${icon('enter', 16)}返回 Forgify`);
-      back.onclick = () => Shell.returnTo(Shell._back || 'chat');
-      nav.appendChild(back);
-      nav.appendChild(tag('div.set-search', `${icon('search', 15)}<input placeholder="搜索设置…">`));
-      CATS.forEach(([g, items]) => {
-        nav.appendChild(tag('div.set-grp', g));
-        items.forEach(([id, label]) => {
-          const c = tag('div.set-cat', { 'data-cat': id }, `<span class="dot"></span>${label}`);
-          nav.appendChild(c);
-        });
-      });
-      root.appendChild(nav);
-
-      const detail = tag('section.set-detail');
+      detail = tag('section.set-detail');
       root.appendChild(detail);
       sea.appendChild(root);
-
-      const cats = nav.querySelectorAll('.set-cat');
-      const show = id => {
-        cats.forEach(c => c.classList.toggle('on', c.dataset.cat === id));
-        detail.classList.toggle('center', id === 'overview');
-        detail.innerHTML = '';
-        (RENDER[id] || RENDER.overview)(detail);
-        detail.scrollTop = 0;
-      };
-      cats.forEach(c => c.onclick = () => show(c.dataset.cat));
-      show('overview');
+      show('overview');   // 默认概览（侧栏 rail 默认也高亮概览，二者同步）
     },
   });
-  // 入口 = 侧栏头像（chrome 已接 mountSea('settings') 并设 Shell._back）；本模块只注册设置海洋。
+
+  // 类目选择来自侧栏 rail（settingsCat 无 owner → Intent 直接广播）→ 切详情
+  Intent.on('settingsCat', sel => show(sel.id));
 })();

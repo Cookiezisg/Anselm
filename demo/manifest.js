@@ -13,7 +13,7 @@ window.MANIFEST = [
   { id: 'documents',     label: 'Documents',  icon: 'doc',       nav: 1,             owns: ['document'], data: ['mock/documents.js', 'features/documents/editor.js'],
     sea: 'features/documents/sea.js',  rail: 'features/documents/rail.js',  gallery: 1, desc: '零-markdown 心智的 WYSIWYG 文档库。' },
   { id: 'settings',      label: 'Settings',   icon: 'gear',      nav: 0, axis: 'avatar', data: ['mock/models.js'],
-    sea: 'features/settings/sea.js',                                        gallery: 1, desc: '工作区 / 模型密钥 / 连接器 / 运行时配置。' },
+    sea: 'features/settings/sea.js',   rail: 'features/settings/rail.js',   gallery: 1, desc: '工作区 / 模型密钥 / 连接器 / 运行时配置。' },
   { id: 'notifications', label: '通知',        icon: 'bell',      nav: 0, axis: 'bell', owns: ['notification'], data: ['mock/notifications.js'],
     rail: 'features/notifications/rail.js' },
   { id: 'onboarding',    label: 'Onboarding', icon: 'spark',     standalone: 'features/onboarding/onboarding.html', gallery: 1, desc: '首启配置向导：外观 / 语言 → API Key。' },
