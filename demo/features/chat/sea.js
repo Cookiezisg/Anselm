@@ -51,9 +51,21 @@
 
   // —— 右岛 = 实体面板：没绑实体 → 完整列表页（点选）；绑了某实体 → EntityCard 预览 + 名字 picker（最近 + 其他级联）。
   //    浏览目录 = 全工作区实体（MOCK_ENTITIES，按类型分组，像侧边栏实体页）；forge seed 是对话锻造的实体、直接预览。
-  let islandCur = null, islandH = null;   // islandCur: null(空态=列表页) | ws-key 字符串 | forge seed 对象
-  const recent = [];                       // 最近预览的 ws-key（picker 快切）
-  const WS = () => window.MOCK_ENTITIES || {};
+  let islandCur = null, islandH = null;   // islandCur: null(未绑→列表页) | {src:'conv'|'ws', key}
+  const WS = () => window.MOCK_ENTITIES || {};                 // 全工作区实体（其他级联 + 空态列表页）
+  const CONV = () => (M().entities || {});                     // 本对话的实体（对话锻造/触达，EntityCard 形状）
+  // 本对话「连接的实体」= 其脚本里 forge / ents 触达的 conv key（picker 顶部快切）
+  function convKeysFor(scriptId) {
+    const beats = SCRIPT(scriptId) || [], conv = CONV(), set = new Set();
+    const byName = nm => Object.keys(conv).find(x => conv[x].name === nm);
+    beats.forEach(b => {
+      if (b.type === 'ents' && b.keys) b.keys.forEach(k => { if (conv[k]) set.add(k); });
+      const f = b.type === 'forge' ? b : (b.type === 'subagent' && b.forge ? b.forge : null);
+      if (f && f.seed) { const k = byName(f.seed.name); if (k) set.add(k); }
+    });
+    return [...set];
+  }
+  const convKeyOf = seed => { const c = CONV(); return Object.keys(c).find(k => c[k].name === seed.name) || null; };
   // 分组（对齐实体侧边栏：Quadrinity / 图件 / 连接 / 技能 → 类型）
   const EGROUPS = [
     ['Quadrinity', [['function', 'Functions'], ['handler', 'Handlers'], ['agent', 'Agents'], ['workflow', 'Workflows']]],
@@ -86,21 +98,24 @@
   const islandAside = () => ((window.Shell && Shell.body) || document.body).querySelector('aside.fg-island[data-ocean-right="entity-card"]');
   const islandShown = () => { const a = islandAside(); return !!(a && a.classList.contains('show')); };
 
-  // picker opts：最近预览（快切）+ 其他级联（按类型浏览全工作区）
+  // picker：顶部 = 本对话连接的实体（快切）；底部 = 其他（按类型浏览全工作区）
   function pickerOpts() {
+    const conv = CONV();
     return {
-      items: recent.map(k => ({ key: k, name: k, kind: (WS()[k] || {}).kind })),
-      current: typeof islandCur === 'string' ? islandCur : null,
-      browse: browseGroups(), onPick: k => islandTo(k),
+      items: convKeysFor(curScript).map(k => ({ key: k, name: (conv[k] || {}).name || k, kind: (conv[k] || {}).kind, src: 'conv' })),
+      current: islandCur && islandCur.src === 'conv' ? islandCur.key : null,
+      browse: browseGroups(), onPick: (k, src) => islandTo(k, src || 'ws'),
     };
   }
-  // 预览：ws-key → 规范化工作区实体；seed 对象 → forge 直接。返回 EntityCard handle。
-  function islandTo(keyOrSeed) {
+  // 预览：seed 对象(forge) / conv-key(本对话实体, 直接) / ws-key(工作区, 经 wsToCard 适配)。返回 EntityCard handle。
+  function islandTo(ref, src) {
     if (window.Shell && Shell._ocean !== 'chat') return;
-    const seed = typeof keyOrSeed === 'string' ? wsToCard(keyOrSeed) : keyOrSeed;
+    let seed, cur;
+    if (typeof ref === 'object' && ref) { seed = ref; cur = { src: 'conv', key: convKeyOf(ref) }; }
+    else if (src === 'conv') { seed = CONV()[ref]; cur = { src: 'conv', key: ref }; }
+    else { seed = wsToCard(ref); cur = { src: 'ws', key: ref }; }
     if (!seed) return;
-    islandCur = keyOrSeed;
-    if (typeof keyOrSeed === 'string') { const i = recent.indexOf(keyOrSeed); if (i >= 0) recent.splice(i, 1); recent.unshift(keyOrSeed); if (recent.length > 5) recent.pop(); }
+    islandCur = cur;
     card = islandH = EntityCard.mount(null, seed, { noIterate: true, picker: pickerOpts() });
     return card;
   }
@@ -122,18 +137,20 @@
         root.appendChild(tag('div.chat-elist-ty', `<span class="chat-elist-tyico">${icon(kindIco(t.kind), 15)}</span><span class="chat-elist-tynm">${t.label}</span><span class="chat-elist-cnt">${t.keys.length}</span>`));
         t.keys.forEach(k => {
           const r = tag('div.chat-elist-row', { 'data-key': k }, `<span class="chat-elist-dot">${StatusDot.dot((WS()[k] || {}).status || 'idle')}</span><span class="chat-elist-nm">${k}</span>`);
-          r.onclick = () => islandTo(k);
+          r.onclick = () => islandTo(k, 'ws');
           root.appendChild(r);
         });
       });
     });
     return root;
   }
-  // 头部按钮唤起/收起：开着 → 收；关着 → 没绑放列表页、绑了放预览
+  // 头部按钮唤起/收起：开着 → 收；有当前预览 → 重显；本对话有连接实体 → 预览第一个；都没（未绑）→ 列表页
   function toggleIsland() {
     if (window.Shell && Shell._ocean !== 'chat') return;
     if (islandShown()) { if (islandH && islandH.hide) islandH.hide(); return; }
-    if (islandCur == null) islandList(); else islandTo(islandCur);
+    if (islandCur) { islandTo(islandCur.key, islandCur.src); return; }
+    const ck = convKeysFor(curScript);
+    if (ck.length) islandTo(ck[0], 'conv'); else islandList();
   }
 
   // —— 单 beat 渲染（声明式 → 组件调用）。返回 Promise（含流式/审批等待）。 ——
@@ -285,7 +302,7 @@
     const beats = SCRIPT(scriptId); if (!beats) return;
     const id = ++runId; curScript = scriptId; curTitle = title || (M().titles || {})[scriptId] || scriptId;
     setTitle(curTitle);
-    col.innerHTML = ''; const _ia = islandAside(); if (_ia) _ia.remove(); card = islandH = null; islandCur = null; recent.length = 0; setGen(true); if (dock) dock.hide();   // 新会话：右岛重置为「未绑」（再唤起 = 列表页）
+    col.innerHTML = ''; const _ia = islandAside(); if (_ia) _ia.remove(); card = islandH = null; islandCur = null; setGen(true); if (dock) dock.hide();   // 新会话：右岛重置为「未绑」（再唤起按连接实体决定 预览/列表）
 
     let turn = null;
     for (const b of beats) {
