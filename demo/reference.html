@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgify · 组件库规格</title>
+<link rel="stylesheet" href="core/tokens.css">
+<link rel="stylesheet" href="core/reset.css">
+<style>
+  body { padding: 48px 32px; background: var(--sea); }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
+  .lead { color: var(--ink-2); font-size: 14px; margin: 0 0 8px; line-height: 1.6; }
+  .theme-btn { position: fixed; top: 20px; right: 24px; }
+  .comp { margin: 36px 0 0; }
+  .comp > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; }
+  .comp > h2 .api { font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-weight: 400; }
+  .comp > .note { font-size: 12px; color: var(--ink-3); margin: 0 0 14px; }
+  .demo { background: var(--island); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island);
+    padding: 20px; display: flex; flex-wrap: wrap; gap: 24px 32px; align-items: center; }
+  .demo .lbl { font-size: 11px; color: var(--ink-3); font-family: var(--mono); margin-right: 8px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="ibtn theme-btn" id="themeBtn" title="明暗"></button>
+  <h1>组件库 · 活体规格</h1>
+  <p class="lead">core/components/* 的单一事实源视觉真相。每个组件一文件、自载 CSS、只读令牌、fg- 前缀。海洋只组合这些、不重造。</p>
+  <div id="gallery"></div>
+</div>
+
+<script src="core/cssload.js"></script>
+<script src="core/dom.js"></script>
+<script src="core/icons.js"></script>
+<script src="core/config/state-model.js"></script>
+<script src="core/config/entity-kinds.js"></script>
+
+<!-- 组件（随建随加一行）-->
+<script src="core/components/status-dot.js"></script>
+
+<script>
+  document.getElementById('themeBtn').innerHTML = icon('moon');
+  document.getElementById('themeBtn').onclick = function () {
+    const d = document.documentElement.dataset.theme === 'dark';
+    document.documentElement.dataset.theme = d ? 'light' : 'dark';
+    this.innerHTML = icon(d ? 'moon' : 'sun');
+  };
+
+  // 规格区块：每个组件一段（name + api + note + demo 内容 html）
+  const SPECS = [
+    { name: 'status-dot', api: 'StatusDot.dot(state) · .badge(map,state)', note: '通用 5 态点 + 类型化徽。收掉 en-st/eo-st/wf-st/cv-st/rp + ENV/CFG/CONN。',
+      render: () => `
+        <span class="row"><span class="lbl">dot ×6</span>
+          ${['done','run','wait','err','idle','listening'].map(s => `<span class="row">${StatusDot.dot(s)}<span style="font-size:12px;color:var(--ink-3)">${s}</span></span>`).join('')}</span>
+        <span class="row"><span class="lbl">env</span>${StatusDot.badge('ENV','syncing')}${StatusDot.badge('ENV','ready')}${StatusDot.badge('ENV','failed')}</span>
+        <span class="row"><span class="lbl">conn</span>${StatusDot.badge('CONN','ready')}${StatusDot.badge('CONN','failed')}</span>` },
+  ];
+
+  document.getElementById('gallery').innerHTML = SPECS.map(s => `
+    <div class="comp">
+      <h2>${s.name}<span class="api">${s.api || ''}</span></h2>
+      ${s.note ? `<p class="note">${s.note}</p>` : ''}
+      <div class="demo">${s.render()}</div>
+    </div>`).join('');
+</script>
+</body>
+</html>
