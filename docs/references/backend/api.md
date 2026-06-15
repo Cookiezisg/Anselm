@@ -102,7 +102,7 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener） |
+| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener）。List/Get 每条带派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影） |
 | `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{data:{id}}`——新产物 activation 的单 id（triggerId 在 URL、fired 被 202 蕴含）；拿 id 直查 activation 闭环 |
 | `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /triggers/{id}/activations` · `GET /trigger-activations/{id}` | 活动审计（触没触发都有记录） |

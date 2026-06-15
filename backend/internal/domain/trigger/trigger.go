@@ -62,6 +62,12 @@ type Trigger struct {
 	// RefCount / Listening 读时由 app 内存监听表算出（多少 active workflow 引用它 / listener 热否），不落库。
 	RefCount  int  `db:"-" json:"refCount"`
 	Listening bool `db:"-" json:"listening"`
+	// LastFiredAt is the created_at of the most recent FIRED activation (nil = never fired),
+	// projected into List/Get so the row can show "fired 3 minutes ago". Read-derived, not stored.
+	//
+	// LastFiredAt 是最近一条**已触发** activation 的 created_at（nil = 从未触发），投影进 List/Get 使行
+	// 可显示「3 分钟前 fire」。读时派生，不落库。
+	LastFiredAt *time.Time `db:"-" json:"lastFiredAt,omitempty"`
 }
 
 // ListFilter paginates the trigger list.

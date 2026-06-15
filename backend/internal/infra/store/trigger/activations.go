@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
@@ -21,6 +22,22 @@ func (s *Store) AppendActivation(ctx context.Context, a *triggerdomain.Activatio
 		return fmt.Errorf("triggerstore.AppendActivation: %w", err)
 	}
 	return nil
+}
+
+// LastFiredAt returns the created_at of the trigger's most recent fired activation (nil = never
+// fired). One indexed First over idx_tra_ws_trigger(workspace_id, trigger_id, created_at DESC).
+//
+// LastFiredAt 返该 trigger 最近一条已触发 activation 的 created_at（nil = 从未触发）。一次走
+// idx_tra_ws_trigger(workspace_id, trigger_id, created_at DESC) 索引的 First。
+func (s *Store) LastFiredAt(ctx context.Context, triggerID string) (*time.Time, error) {
+	a, err := s.acts.Query().WhereEq("trigger_id", triggerID).WhereEq("fired", true).Order("created_at DESC, id DESC").First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("triggerstore.LastFiredAt: %w", err)
+	}
+	return &a.CreatedAt, nil
 }
 
 func (s *Store) GetActivation(ctx context.Context, id string) (*triggerdomain.Activation, error) {

@@ -125,6 +125,9 @@ func (s *Service) Get(ctx context.Context, id string) (*triggerdomain.Trigger, e
 		return nil, err
 	}
 	s.attachRuntime(t)
+	if lf, lerr := s.repo.LastFiredAt(ctx, t.ID); lerr == nil {
+		t.LastFiredAt = lf
+	}
 	return t, nil
 }
 
@@ -138,6 +141,13 @@ func (s *Service) List(ctx context.Context, filter triggerdomain.ListFilter) ([]
 	}
 	for _, t := range ts {
 		s.attachRuntime(t)
+		// Project "fired N ago" from the activation log (best-effort; few triggers per workspace,
+		// one indexed lookup each — no N+1 concern at single-user scale).
+		// 从 activation 日志投影「N 前 fire」（best-effort；每 workspace 触发器少、各一次索引查询——
+		// 单用户规模无 N+1 之虞）。
+		if lf, lerr := s.repo.LastFiredAt(ctx, t.ID); lerr == nil {
+			t.LastFiredAt = lf
+		}
 	}
 	return ts, next, nil
 }

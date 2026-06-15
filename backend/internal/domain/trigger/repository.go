@@ -1,6 +1,9 @@
 package trigger
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Repository persists triggers (soft-deleted) + the firings inbox + the activation log.
 // The single-tx claim (pending→claimed + flowrun INSERT) is NOT here — it spans the
@@ -34,4 +37,10 @@ type Repository interface {
 	AppendActivation(ctx context.Context, a *Activation) error
 	GetActivation(ctx context.Context, id string) (*Activation, error)
 	SearchActivations(ctx context.Context, filter ActivationFilter) ([]*Activation, string, error)
+	// LastFiredAt returns the created_at of a trigger's most recent FIRED activation (nil if it
+	// never fired) — projected into List/Get rows. One indexed lookup (idx_tra_ws_trigger).
+	//
+	// LastFiredAt 返某 trigger 最近一条**已触发** activation 的 created_at（从未触发则 nil）——投影进
+	// List/Get 行。一次走索引的查询（idx_tra_ws_trigger）。
+	LastFiredAt(ctx context.Context, triggerID string) (*time.Time, error)
 }
