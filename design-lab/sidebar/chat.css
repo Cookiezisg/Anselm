@@ -31,7 +31,7 @@
 .cm-ck svg { display: block; }
 
 /* 列表 + 三区（Pinned/Archived 可折叠头 .tog，full-width hover；Recents 纯标签常驻） */
-.cvlist { flex: 1; min-height: 0; overflow-y: auto; }
+.cvlist { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }   /* 稳住滚动条槽,右对齐计数(Archived 12)不随滚动条左移 */
 .cvsec { margin-bottom: 8px; }
 .cvsec-h { display: flex; align-items: center; gap: 6px; width: 100%; height: 28px; padding: 0 10px; border-radius: 8px;
   font-size: 11px; font-weight: 600; color: var(--ink-3); }

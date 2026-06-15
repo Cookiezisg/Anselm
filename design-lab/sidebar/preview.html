@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sidebar preview — Forgify design-lab</title>
+  <!-- 侧栏组自己的预览页：只装外壳(chrome) + 侧栏内容，独立于各海洋 harness。
+       点四导航即可看各海洋侧栏(外壳按需懒加载 sidebar/<id>.js)。海面留空,只验侧栏。 -->
+  <link rel="stylesheet" href="../shared/tokens.css">
+  <link rel="stylesheet" href="../shared/shell.css">
+  <link rel="stylesheet" href="./sidebar.css">
+  <style>
+    body { padding: 16px; }
+    .win { height: calc(100vh - 32px); }
+    .sea::after { content: "(海面——海洋内容,非侧栏)"; color: var(--ink-3); font-size: 12px; padding: 16px; }
+  </style>
+</head>
+<body>
+  <script src="../shared/icons.js"></script>
+  <script src="../shared/shell.js"></script>
+  <script src="./sidebar.js"></script>
+</body>
+</html>

@@ -1,20 +1,34 @@
 /* Forgify design-lab — 【Entities 海洋】左侧栏内容样式（由 sidebar/entities.js 自注入）。
-   New + 搜索 → 竖向折叠树「分组(可折叠) → 类型(可展开) → 实体行」+ 行首状态点。
+   形态对齐 Chat 侧栏(行高/状态点/折叠头/过滤行+sliders 一套语言)。竖向折叠树:分组 → 类型 → 实体行。
    类名全 en- 前缀,勿与 chat(cv-/cm-)及海洋海面 CSS 撞名。依赖 tokens.css + shell.css 的 cc-* 表面色、ink、accent、语义色（只读）。 */
 
-/* 新建实体（文字 span 包,避免 button 默认居中） */
+/* 新建实体（= chat .newconv;文字 span 包避免 button 默认居中） */
 .en-new { display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 10px; border-radius: 8px;
   text-align: left; color: var(--ink); font-size: 13px; font-weight: 500; transition: background .12s; }
 .en-new:hover { background: var(--cc-hover); }
 .en-new svg { color: var(--ink-2); display: block; }
 
-/* 搜索 */
-.en-filter { display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 10px; }
+/* 搜索 + 排序菜单（= chat .cfilter + .cm-*） */
+.en-filter { position: relative; display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 6px 0 10px; }
 .en-filter > svg { flex: none; display: block; color: var(--ink-3); }
 .en-filter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
 .en-filter input::placeholder { color: var(--ink-3); }
+.en-disp { flex: none; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
+.en-disp:hover, .en-disp.on { color: var(--ink); background: var(--cc-hover); }
+.en-disp svg { display: block; }
+.en-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 170px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; padding: 5px; box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none; }
+.en-menu.open { display: block; }
+.en-mh { padding: 6px 8px 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.en-mh:first-child { padding-top: 3px; }
+.en-opt { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px; text-align: left; color: var(--ink); font-size: 13px; transition: background .12s; }
+.en-opt:hover { background: var(--cc-hover); }
+.en-ck { flex: none; width: 14px; display: grid; place-items: center; color: var(--ink); opacity: 0; }
+.en-opt.on .en-ck { opacity: 1; }
+.en-ck svg { display: block; }
 
-.en-tree { flex: 1; min-height: 0; overflow-y: auto; }
+/* 滚动容器：scrollbar-gutter stable —— 展开后内容溢出冒滚动条时，content box 宽度不变，右对齐计数不再左挪 */
+.en-tree { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 
 /* 折叠通用（分组 / 类型两层共用 .tog + .cbody + .chev） */
 .tog { display: flex; align-items: center; gap: 6px; width: 100%; border-radius: 8px; transition: background .12s; }
@@ -25,31 +39,29 @@
 .collapsible.open > .tog .chev { transform: rotate(90deg); }
 .collapsible:not(.open) > .cbody { display: none; }
 
-/* 分组头（可折叠：小字灰，箭头在尾） */
+/* 分组头（可折叠：小字灰，箭头在尾。= chat 区头风格） */
 .en-grp { margin-bottom: 6px; }
-.en-grp-h { height: 26px; padding: 0 10px; font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
+.en-grp-h { height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
 .en-grp-h .cnt { margin-left: auto; }
 
 /* 类型头（可展开：箭头在首 + 类型图标 + 名 + 计数在尾） */
-.en-ty-h { height: 30px; padding: 0 10px; font-size: 13px; font-weight: 500; color: var(--ink); }
-.en-ty-h .en-ty-ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }
+.en-ty-h { height: 32px; padding: 0 10px; font-size: 13px; font-weight: 500; color: var(--ink); }
+.en-ty-h .en-ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }
 .en-ty-h .en-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .en-ty-h .cnt { margin-left: auto; }
 
-/* 实体行（类型展开后，缩进对齐到类型名下） */
-.en { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px; border-radius: 8px;
+/* 实体行（缩进对齐到类型名下；规格 = chat .cv） */
+.en { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px 0 32px; border-radius: 8px;
   color: var(--ink-2); font-size: 13px; transition: background .12s, color .12s; }
-.en-ty > .cbody .en { padding-left: 32px; }
 .en:hover { background: var(--cc-hover); color: var(--ink); }
 .en.on { background: var(--cc-active); color: var(--ink); }
 .en-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.en-ver, .en-tools { flex: none; font-size: 11px; color: var(--ink-3); }
+.en-meta { flex: none; font-size: 11px; color: var(--ink-3); }
 .en-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity .12s; }
 .en-more svg { display: block; }
 .en:hover .en-more { opacity: 1; }
 
-/* 状态点：行首 7px（复用 Chat 五态）。空心=闲置 / 蓝脉冲=锻造·监听 / 橙脉冲=需处理 / 红=失败 / 绿=就绪。
-   .none = skill 占位(文件式无状态,留位对齐不画点)。 */
+/* 状态点（与 chat .cv-st 完全一致）。空心=闲置 / 蓝脉冲=锻造·监听 / 橙脉冲=需处理 / 红=失败 / 绿=就绪;.none=skill 占位 */
 .en-st { flex: none; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; }
 .en-st.idle { border: 1.5px solid var(--ink-3); }
 .en-st.run { background: var(--accent); animation: enPulse 1.5s ease infinite; }
