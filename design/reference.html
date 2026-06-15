@@ -13,6 +13,10 @@
 <script src="core/primitives/section.js"></script>
 <script src="core/primitives/row.js"></script>
 <script src="core/primitives/sidebar-list.js"></script>
+<script src="core/primitives/field.js"></script>
+<script src="core/primitives/input.js"></script>
+<script src="core/primitives/badge.js"></script>
+<script src="core/primitives/tabs.js"></script>
 <style>
   body { padding: var(--sp-8); }
   .wrap { max-width: var(--w-content); margin: 0 auto; }
@@ -38,7 +42,9 @@
   <div class="card"><h2>StatusDot <em>idle · run(呼吸) · wait · err · done</em></h2><div class="demo" id="dots"></div></div>
   <div class="card"><h2>Row <em>核心 · 行首 icon↔chevron · 行尾 meta↔action(hover 同槽互换)</em></h2><div id="rows" style="max-width:320px"></div></div>
   <div class="card"><h2>合成:侧栏 <em>New + 过滤 + 类型头(可折叠) + 实体行 —— 全是 Row/Button,一个原语顶 demo 五份手搓 rail</em></h2><div id="rail"></div></div>
-  <div class="card"><h2>Section <em>小节标题(大写灰) + 内容岛</em></h2><div id="secs"></div></div>
+  <div class="card"><h2>Section + Field <em>小节标题 + 内容岛 + 键值行(label 列/控件列 跨行对齐)</em></h2><div id="secs" style="max-width:520px"></div></div>
+  <div class="card"><h2>Badge <em>状态药丸(语义柔底)</em></h2><div class="demo" id="badges"></div></div>
+  <div class="card"><h2>Tabs <em>下划线选中 · 懒渲染</em></h2><div id="tabs" style="max-width:520px"></div></div>
 </div>
 
 <script>
@@ -82,10 +88,31 @@
     }],
   });
 
-  // —— Section ——
+  // —— Section + Field ——
   qs('#secs').innerHTML =
-    FySection.html({ label: '外观与语言', body: '<div style="height:var(--row);display:flex;align-items:center;color:var(--ink-2);font-size:var(--t-body)">主题 · 语言(Field 原语稍后)</div>' }) +
-    FySection.html({ label: 'API 密钥', body: '<div style="height:var(--row);display:flex;align-items:center;color:var(--ink-2);font-size:var(--t-body)">本地保险箱 · AES-GCM</div>' });
+    FySection.html({ label: '外观与语言', body:
+      FyField.html({ label: '主题', control: FyButton.html({ label: '亮', variant: 'ghost', size: 'sm' }) }) +
+      FyField.html({ label: '界面语言', hint: '影响菜单与回复语言', control: FyInput.html({ value: '中文' }) }) }) +
+    FySection.html({ label: 'API 密钥', body:
+      FyField.html({ label: 'DeepSeek', control: FyBadge.html({ label: '已连接', dot: 'done', tone: 'ok' }) }) +
+      FyField.html({ label: '数据目录', control: '<span class="fy-field-v fy-mono">~/Library/Foryx</span>' }) });
+
+  // —— Badge ——
+  qs('#badges').innerHTML =
+    FyBadge.html({ label: '就绪', dot: 'done', tone: 'ok' }) +
+    FyBadge.html({ label: '等审批', dot: 'wait', tone: 'warn' }) +
+    FyBadge.html({ label: '失败', dot: 'err', tone: 'danger' }) +
+    FyBadge.html({ label: 'v5', tone: 'neutral' }) +
+    FyBadge.html({ label: 'live', dot: 'run', tone: 'accent' });
+
+  // —— Tabs ——
+  FyTabs.mount(qs('#tabs'), {
+    items: [
+      { key: 'overview', label: '概览', render: p => p.innerHTML = '<div style="color:var(--ink-2);font-size:var(--t-body)">概览内容(懒渲染:切到才建)</div>' },
+      { key: 'version', label: '版本', render: p => p.innerHTML = '<div style="color:var(--ink-2);font-size:var(--t-body)">版本历史…</div>' },
+      { key: 'runs', label: '运行', render: p => p.innerHTML = '<div style="color:var(--ink-2);font-size:var(--t-body)">运行记录…</div>' },
+    ],
+  });
 </script>
 </body>
 </html>

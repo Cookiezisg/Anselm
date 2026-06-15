@@ -1,0 +1,7 @@
+/* Foryx 原语 — Badge 皮肤。语义柔底 + 语义字色;药丸圆角。 */
+.fy-badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: var(--r-pill); font-size: var(--t-meta); font-weight: 500; white-space: nowrap; }
+.fy-badge-neutral { background: var(--island-3); color: var(--ink-2); }
+.fy-badge-ok      { background: var(--ok-soft);     color: var(--ok); }
+.fy-badge-warn    { background: var(--warn-soft);   color: var(--warn); }
+.fy-badge-danger  { background: var(--danger-soft); color: var(--danger); }
+.fy-badge-accent  { background: var(--accent-soft); color: var(--accent); }
