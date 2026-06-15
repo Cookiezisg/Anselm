@@ -11,20 +11,22 @@
 
   // —— 片段 ——
   // 树节点（递归）。data-pos 原序(Manual 复位) · data-u 新近度(Recently edited)；行尾 hover 露 ＋/⋯。
+  // 行首槽 = icon ↔ chevron 共享一格（Notion 式）：默认显文档图标，hover 时图标淡出、折叠箭头淡入（仅 branch；leaf 永远图标）。
   const node = (n, depth, pos, curId) => {
     const branch = n.children && n.children.length;
     return `<div class="doc-rail-node${branch ? ' branch open' : ''}">
-      <div class="doc-rail-row${n.id === curId ? ' on' : ''}" data-id="${n.id}" data-pos="${pos}" data-u="${n.u || 0}" style="padding-left:${8 + depth * 15}px">
-        <span class="doc-rail-chev">${branch ? icon('chevr', 13) : ''}</span>
-        <span class="doc-rail-ico">${icon('doc', 15)}</span>
+      <div class="doc-rail-row${n.id === curId ? ' on' : ''}" data-id="${n.id}" data-pos="${pos}" data-u="${n.u || 0}" style="padding-left:${8 + depth * 18}px">
+        <span class="doc-rail-lead"><span class="doc-rail-ico">${icon('doc', 16)}</span>${branch ? `<span class="doc-rail-chev">${icon('chevr', 14)}</span>` : ''}</span>
         <span class="doc-rail-name">${n.name}</span>
-        <button class="doc-rail-act" data-act="add" title="New sub-page">${icon('plus', 15)}</button>
-        <button class="doc-rail-act" data-act="more" title="More">${icon('more', 15)}</button>
+        <span class="doc-rail-acts">
+          <button class="doc-rail-act" data-act="add" title="New sub-page">${icon('plus', 15)}</button>
+          <button class="doc-rail-act" data-act="more" title="More">${icon('more', 15)}</button>
+        </span>
       </div>
       ${branch ? `<div class="doc-rail-children">${n.children.map((c, i) => node(c, depth + 1, i, curId)).join('')}</div>` : ''}
     </div>`;
   };
-  const flatRow = r => `<div class="doc-rail-row doc-rail-flat" data-id="${r.id}"><span class="doc-rail-ico">${icon('doc', 15)}</span><span class="doc-rail-name">${r.name}</span></div>`;
+  const flatRow = r => `<div class="doc-rail-row doc-rail-flat" data-id="${r.id}"><span class="doc-rail-lead"><span class="doc-rail-ico">${icon('doc', 16)}</span></span><span class="doc-rail-name">${r.name}</span></div>`;
   const opt = (k, v, on, label) => `<button class="doc-rail-opt${on ? ' on' : ''}" data-${k}="${v}"><span class="doc-rail-ck">${icon('check', 14)}</span>${label}</button>`;
 
   function build() {
@@ -89,14 +91,14 @@
     const tree = host.querySelector('.doc-rail-tree');
     const sec = host.querySelector('.doc-rail-sec');
 
-    // 树展开/折叠（点 chevron，不冒泡到选中）
-    host.querySelectorAll('.doc-rail-node.branch > .doc-rail-row .doc-rail-chev').forEach(c => c.onclick = e => { e.stopPropagation(); c.closest('.doc-rail-node').classList.toggle('open'); });
+    // 树展开/折叠：点 branch 的行首槽（hover 时显折叠箭头），不冒泡到选中
+    host.querySelectorAll('.doc-rail-node.branch > .doc-rail-row .doc-rail-lead').forEach(c => c.onclick = e => { e.stopPropagation(); c.closest('.doc-rail-node').classList.toggle('open'); });
     // Recent 折叠
     if (sec) sec.querySelector('.doc-rail-sec-h').onclick = () => sec.classList.toggle('open');
 
     // 选中 + 打开：高亮当前行 + 发 Intent.select → 海面装载该文档。
     host.querySelectorAll('.doc-rail-row').forEach(r => r.onclick = e => {
-      if (e.target.closest('.doc-rail-act') || e.target.closest('.doc-rail-chev')) return;
+      if (e.target.closest('.doc-rail-act')) return;   // leaf 行首仍冒泡到选中；branch 行首由上面 stopPropagation 吃掉
       host.querySelectorAll('.doc-rail-row').forEach(x => x.classList.remove('on')); r.classList.add('on');
       if (d.docs) d.cur = r.dataset.id;
       Intent.select({ kind: 'document', id: r.dataset.id });

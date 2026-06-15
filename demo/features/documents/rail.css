@@ -35,30 +35,41 @@
 .doc-rail-sec-t { flex: 1; text-align: left; }
 .doc-rail-sec:not(.open) > .doc-rail-sec-body { display: none; }
 
-/* 文档树 */
+/* 文档树（Notion 度量：行首 20 格 + 图标 16 + 间距 8 + 每级缩进 18） */
 .doc-rail-node.branch:not(.open) > .doc-rail-children { display: none; }
-.doc-rail-row { display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 6px 0 8px; border-radius: var(--r-btn);
+.doc-rail-row { position: relative; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border-radius: var(--r-btn);
   color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .doc-rail-row:hover { background: var(--cc-hover); color: var(--ink); }
 .doc-rail-row.on { background: var(--cc-active); color: var(--ink); }
-.doc-rail-flat { padding-left: 10px; }   /* Recent 行无 chevron，单独左缩进 */
+.doc-rail-flat { padding-left: 8px; }   /* Recent 行无深度，与树 depth-0 对齐 */
 
-/* chevron：树节点 / Recent 区 共用一套；open 时朝下 */
+/* 行首槽：图标 + 折叠箭头共用一格（20×20）。默认显图标；branch hover → 图标淡出、箭头淡入（同 Notion，不另占 chevron 列） */
+.doc-rail-lead { flex: none; position: relative; width: 20px; height: 20px; }
+.doc-rail-lead > * { position: absolute; inset: 0; display: grid; place-items: center; }
+.doc-rail-ico { color: var(--ink-3); }   /* opacity 即时切换、不入过渡：无头渲染器会把 opacity 过渡冻在起点(1) 致默认态错乱 */
+.doc-rail-ico svg { display: block; }
+.doc-rail-lead .doc-rail-chev { color: var(--ink-3); opacity: 0; transition: transform .2s var(--ease-spring); }
+.doc-rail-node.branch > .doc-rail-row:hover .doc-rail-ico { opacity: 0; }
+.doc-rail-node.branch > .doc-rail-row:hover .doc-rail-lead .doc-rail-chev { opacity: 1; }
+
+/* chevron 朝向：收起向右、展开向下（树节点 hover 时可见 / Recent 区头常驻） */
 .doc-rail-chev { flex: none; width: 16px; height: 16px; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
 .doc-rail-chev svg { display: block; }
-.doc-rail-node.branch.open > .doc-rail-row .doc-rail-chev,
+.doc-rail-node.branch.open > .doc-rail-row .doc-rail-lead .doc-rail-chev,
 .doc-rail-sec.open > .doc-rail-sec-h .doc-rail-chev { transform: rotate(90deg); }
 
-.doc-rail-ico { flex: none; display: grid; place-items: center; color: var(--ink-3); }
-.doc-rail-ico svg { display: block; }
 .doc-rail-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* 行尾操作：hover 才露出 */
+/* 行尾操作：绝对定位贴右、默认 0 宽不占位（名字铺满），hover 才浮现于行尾上方；左缘渐隐遮罩防长名穿透 */
+.doc-rail-acts { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 2px;
+  padding-left: 22px; opacity: 0;   /* opacity 即时切换、不入过渡（无头渲染器冻 opacity 致默认露出） */
+  background: linear-gradient(to right, transparent, var(--cc-hover) 55%); }
+.doc-rail-row:hover .doc-rail-acts { opacity: 1; }
+.doc-rail-row.on:hover .doc-rail-acts { background: linear-gradient(to right, transparent, var(--cc-active) 55%); }   /* 选中行 hover 底色更深，遮罩同步 */
 .doc-rail-act { flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: var(--r-tag);
-  color: var(--ink-3); opacity: 0; transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast); }
+  color: var(--ink-3); transition: background var(--d-fast), color var(--d-fast); }
 .doc-rail-act svg { display: block; }
 .doc-rail-act:hover { background: var(--cc-active); color: var(--ink); }
-.doc-rail-row:hover .doc-rail-act { opacity: 1; }
 
 /* 空树态 */
 .doc-rail-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 12px; color: var(--ink-3); }

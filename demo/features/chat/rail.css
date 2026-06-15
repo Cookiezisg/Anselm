@@ -44,14 +44,16 @@
 .chat-cvlist.no-group .chat-cvsub { display: none; }
 
 /* 会话行（行首状态点由 StatusDot 组件渲染，自带 flex:none；本文件不碰点像素） */
-.chat-cv { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: var(--r-btn);
+.chat-cv { position: relative; display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: var(--r-btn);
   color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background .12s; }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .chat-cv:hover { background: var(--cc-hover); color: var(--ink); }
 .chat-cv.on { background: var(--cc-active); color: var(--ink); }
 .chat-cv-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 时间戳：靠右常驻（showTime）；hover 时 opacity 让位（保留占位、不重排），⋯ 浮于同槽 */
 .chat-cv-time { flex: none; font-size: var(--t-xs); color: var(--ink-3); display: none; }
 .chat-cvlist.show-time .chat-cv-time { display: block; }
-.chat-cv-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity .12s; }
+.chat-cvlist.show-time .chat-cv:hover .chat-cv-time { opacity: 0; }
+/* ⋯：绝对贴右、不占位（默认 0 宽不挤标题），hover 浮现于时间槽上方。opacity 即时切换、不入过渡（无头渲染器冻 opacity） */
+.chat-cv-more { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); opacity: 0; color: var(--ink-3); display: grid; place-items: center; }
 .chat-cv-more svg { display: block; }
 .chat-cv:hover .chat-cv-more { opacity: 1; }
-.chat-cvlist.show-time .chat-cv:hover .chat-cv-time { display: none; }

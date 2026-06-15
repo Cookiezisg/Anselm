@@ -30,7 +30,7 @@
 .ent-tree { flex: 1; min-height: 0; overflow-y: auto; scrollbar-gutter: stable; }
 
 /* 折叠通用（分组 / 类型两层共用 .ent-tog + .ent-cbody + .ent-chev） */
-.ent-tog { display: flex; align-items: center; gap: 6px; width: 100%; border-radius: var(--r-btn); transition: background var(--d-fast); }
+.ent-tog { display: flex; align-items: center; gap: 8px; width: 100%; border-radius: var(--r-btn); transition: background var(--d-fast); }
 .ent-tog:hover { background: var(--cc-hover); }
 .ent-chev { flex: none; display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
 .ent-chev svg { display: block; }
@@ -47,21 +47,29 @@
 .ent-grp-h { height: 28px; padding: 0 10px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); letter-spacing: .02em; }
 .ent-grp-h .ent-cnt { margin-left: auto; }
 
-/* 类型头（可展开：箭头在首 + 类型图标 + 名 + 计数在尾） */
+/* 类型头（可展开）：行首 icon↔chevron 共享一格（Notion 式，默认显类型图标、hover 现折叠箭头），名 + 计数在尾 */
 .ent-ty-h { height: 32px; padding: 0 10px; font-size: var(--t-md); font-weight: 500; color: var(--ink-2); }
-.ent-ty-h:hover { color: var(--ink); }   /* 侧栏字色铁律：灰默认、hover 才黑（行/类型头统一）；色不入过渡——按钮 color 过渡在无头渲染器冻初值 */
-.ent-ty-ico { flex: none; display: grid; place-items: center; color: var(--ink-2); }
+.ent-ty-h:hover { color: var(--ink); }   /* 侧栏字色铁律：灰默认、hover 才黑；色不入过渡——按钮 color 过渡在无头渲染器冻初值 */
+.ent-ty-lead { flex: none; position: relative; width: 20px; height: 20px; }
+.ent-ty-lead > * { position: absolute; inset: 0; display: grid; place-items: center; }
+.ent-ty-ico { color: var(--ink-2); }
+.ent-ty-lead .ent-chev { opacity: 0; }   /* 类型头箭头默认藏、hover 现（与图标同格切换）；分组头箭头不在 lead 内、常驻可见 */
+.ent-ty-h:hover .ent-ty-ico { opacity: 0; }
+.ent-ty-h:hover .ent-ty-lead .ent-chev { opacity: 1; }
 .ent-lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ent-ty-h .ent-cnt { margin-left: auto; }
 
 /* 实体行（缩进对齐到类型名下） */
-.ent-r { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px 0 32px; border-radius: var(--r-btn);
+.ent-r { position: relative; display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px 0 32px; border-radius: var(--r-btn);
   color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器会把它冻在继承黑、灰默认失效 */
 .ent-r:hover { background: var(--cc-hover); color: var(--ink); }
 .ent-r.on { background: var(--cc-active); color: var(--ink); }
 .ent-r-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 版本号/标记：靠右常驻，行 hover 时 opacity 让位（保留占位、不重排），⋯ 浮于同槽 */
 .ent-r-meta { flex: none; font-size: var(--t-xs); color: var(--ink-3); }
-.ent-r-more { flex: none; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity var(--d-fast); }
+.ent-r:hover .ent-r-meta { opacity: 0; }
+/* ⋯：绝对贴右、不占位（不挤名字），hover 浮现于 meta 槽上方。opacity 即时切换、不入过渡（无头渲染器冻 opacity） */
+.ent-r-more { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); opacity: 0; color: var(--ink-3); display: grid; place-items: center; }
 .ent-r-more svg { display: block; }
 .ent-r:hover .ent-r-more { opacity: 1; }
 

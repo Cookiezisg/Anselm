@@ -5,8 +5,8 @@
   if (window.cssNextTo) cssNextTo(document.currentScript);
   const S = () => (window.MOCK_CONVERSATIONS || {}).sessions || { pinned: [], groups: [], archived: [] };
 
-  // 展示选项（filter 行 sliders；跨重绘保留）
-  let sort = 'recent', group = true, showTime = false;
+  // 展示选项（filter 行 sliders；跨重绘保留）。showTime 默认开：时间戳常驻靠右，hover 让位给 ⋯（Notion 式 meta↔action 同槽）
+  let sort = 'recent', group = true, showTime = true;
 
   // 行：状态点（StatusDot 通用 5 态）+ 标题 + 时间戳(可选) + 悬浮 ⋯
   const row = c => `<div class="chat-cv${c.on ? ' on' : ''}" data-cid="${c.id || ''}">${StatusDot.dot(c.st || 'idle')}<span class="chat-cv-t">${c.title}</span><span class="chat-cv-time">${c.time || ''}</span><span class="chat-cv-more">${icon('more', 16)}</span></div>`;

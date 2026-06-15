@@ -16,8 +16,8 @@
   const DEFAULT_OPEN = new Set(['function']);   // 默认展开 Functions（与 sea 默认开 process_invoice 同步）
 
   let sort = 'recent';
-  // 显示开关（per-row 版本号/标记 meta + per-header 计数）——默认精简：藏版本号、留计数；sliders 菜单逐项开关（修「右边数字太乱」）
-  let showVersion = false, showCount = true;
+  // 显示开关（per-row 版本号/标记 meta + per-header 计数）——默认都显：靠右常驻，行 hover 时 meta 让位给 ⋯（Notion 式同槽，不再抢空间）；sliders 菜单可逐项关
+  let showVersion = true, showCount = true;
   // 按 kind 取实体列表（保 mock 声明顺序）
   const ofKind = kind => Object.keys(D()).filter(name => D()[name].kind === kind);
 
@@ -36,7 +36,7 @@
   const typeSec = ([kind, label, ic]) => {
     const items = ofKind(kind);
     return `<div class="ent-ty collapsible${DEFAULT_OPEN.has(kind) ? ' open' : ''}">
-      <button class="ent-tog ent-ty-h"><span class="ent-chev">${icon('chevr', 13)}</span><span class="ent-ty-ico">${icon(ic, 15)}</span><span class="ent-lbl">${label}</span><span class="ent-cnt">${items.length}</span></button>
+      <button class="ent-tog ent-ty-h"><span class="ent-ty-lead"><span class="ent-ty-ico">${icon(ic, 16)}</span><span class="ent-chev">${icon('chevr', 14)}</span></span><span class="ent-lbl">${label}</span><span class="ent-cnt">${items.length}</span></button>
       <div class="ent-cbody">${items.map(rowHtml).join('')}</div></div>`;
   };
   const groupSec = ([g, types]) => {

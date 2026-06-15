@@ -54,8 +54,8 @@
 .ntf-list.only-action .ntf-sec.timeline,
 .ntf-list.only-action .ntf-sec.read { display: none; }
 
-/* 通知行：组件状态点 + 文案(+实体药丸第二行) + 时间 + 悬浮 ⋯ */
-.ntf-row { display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 4px 10px; border-radius: var(--r-btn);
+/* 通知行：组件状态点 + 文案 + 时间(靠右常驻) + 悬浮 ⋯（同槽：hover 时间让位给 ⋯） */
+.ntf-row { position: relative; display: flex; align-items: center; gap: 9px; min-height: 32px; padding: 4px 10px; border-radius: var(--r-btn);
   color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值致灰默认失效 */
 .ntf-row:hover { background: var(--cc-hover); }
 .ntf-st { flex: none; display: grid; place-items: center; }
@@ -63,9 +63,10 @@
 .ntf-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ntf-row.unread .ntf-t { color: var(--ink); font-weight: 500; }   /* 未读靠字色明暗，不靠背景块/彩色角标 */
 .ntf-row:not(.unread) .ntf-st .fg-dot { opacity: .5; }            /* 已读：状态点淡化 */
-.ntf-ref { display: flex; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }   /* 实体药丸（RefPill 组件）独占一行可点路由；white-space 继承入药丸文案，防窄栏折断 */
 .ntf-time { flex: none; align-self: flex-start; margin-top: 3px; font-size: var(--t-xs); color: var(--ink-3); }
-.ntf-more { flex: none; align-self: center; opacity: 0; color: var(--ink-3); display: grid; place-items: center; transition: opacity var(--d-fast); }
+.ntf-row:hover .ntf-time { opacity: 0; }   /* hover 让位（保留占位、不重排） */
+/* ⋯：绝对贴右、不占位，hover 浮现于时间槽上方。opacity 即时切换、不入过渡（无头渲染器冻 opacity） */
+.ntf-more { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); opacity: 0; color: var(--ink-3); display: grid; place-items: center; }
 .ntf-more svg { display: block; }
 .ntf-row:hover .ntf-more { opacity: 1; }
 
