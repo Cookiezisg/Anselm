@@ -8,11 +8,27 @@
 .dt-new:hover { background: var(--cc-hover); }
 .dt-new svg { color: var(--ink-2); display: block; }
 
-/* 名字过滤行 */
-.dt-filter { display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 10px; }
+/* 名字过滤行（含排序/筛选 sliders 按钮） */
+.dt-filter { position: relative; display: flex; align-items: center; gap: 11px; height: 32px; margin-bottom: 6px; padding: 0 6px 0 10px; }
 .dt-filter > svg { flex: none; display: block; color: var(--ink-3); }
 .dt-filter input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; }
 .dt-filter input::placeholder { color: var(--ink-3); }
+
+/* 排序/筛选菜单（sliders 按钮 + 下拉：Sort by 单选 + Show recent 开关） */
+.dt-disp { flex: none; width: 26px; height: 26px; display: grid; place-items: center; color: var(--ink-3); border-radius: 7px; transition: color .12s, background .12s; }
+.dt-disp:hover, .dt-disp.on { color: var(--ink); background: var(--cc-hover); }
+.dt-disp svg { display: block; }
+.dt-disp-menu { position: absolute; top: calc(100% + 4px); right: 6px; z-index: 5; min-width: 180px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: 10px; padding: 5px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); display: none; }
+.dt-disp-menu.open { display: block; }
+.dt-disp-h { padding: 6px 8px 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.dt-disp-h:first-child { padding-top: 3px; }
+.dt-disp-opt { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 8px; border-radius: 7px; text-align: left; color: var(--ink); font-size: 13px; transition: background .12s; }
+.dt-disp-opt:hover { background: var(--cc-hover); }
+.dt-disp-ck { flex: none; width: 14px; display: grid; place-items: center; color: var(--ink); opacity: 0; }
+.dt-disp-opt.on .dt-disp-ck { opacity: 1; }
+.dt-disp-ck svg { display: block; }
 
 .dt-list { flex: 1; min-height: 0; overflow-y: auto; }
 
