@@ -31,7 +31,7 @@ audience: [human, ai]
 
 | 流 | node.type 当前全集 |
 |---|---|
-| entities | `forge`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出） |
+| entities | `forge`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
 | messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号）· `todo`（信号） |
 | notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
 
@@ -40,7 +40,9 @@ audience: [human, ai]
 | 域 | 事件 |
 |---|---|
 | function | `function.{created, edited, reverted, updated, deleted, env_rebuilt}` |
-| handler | `handler.{created, edited, reverted, updated, deleted, env_rebuilt, restarted, config_updated, config_cleared}` |
+| handler | `handler.{created, edited, reverted, updated, deleted, env_rebuilt, restarted, config_updated, config_cleared, crashed}` |
+
+> `crashed` = 常驻进程在某次 `:call` 时被发现已死（manager 下次调用回收+重启）——让 handler 行此刻亮红点，而非等下个 :call 才暴露。payload `{handlerId}`。
 | agent | `agent.{created, edited, reverted, updated, deleted}` |
 
 > `updated` = meta 变更（不升版本）；`edited` = 新版本生效；`env_rebuilt` = 空 ops 的 edit 重建了 active env。
@@ -76,7 +78,7 @@ audience: [human, ai]
 
 **notifications**：`skill.{created,updated,deleted}` · `mcp.{installed,updated,removed,reconnected}` 族 · `document.{created,updated,moved,deleted}`。
 
-**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）；skill/document = forge 镜像（create/edit 的 body/content）。
+**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）+ **`status` 信号**（**ephemeral**：连接态转移 connecting→ready / ready↔degraded / →failed，发 `{status, prevStatus, lastError}` → server scope，使 MCP 行状态点实时变色；mcp_servers 行是重连真相、信号丢弃无妨，只在真变化时发，不入 buffer E2）；skill/document = forge 镜像（create/edit 的 body/content）。
 
 **messages 流**：mcp 动态工具（`mcp__*__*`）的进度作为 tool_call 下 progress 块。
 

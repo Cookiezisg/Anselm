@@ -17,6 +17,7 @@ import (
 
 	"go.uber.org/zap"
 
+	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
 	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
 	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
 	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
@@ -187,7 +188,7 @@ func (s *Service) Reconnect(ctx context.Context, name string) (*mcpdomain.Server
 //
 // connectOne 起/连一个 server、缓存 tools/list、status 翻 ready。调用方不可持 s.mu。
 func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
-	s.setConnecting(srv.ID)
+	s.setConnecting(ctx, srv.ID)
 
 	var (
 		spec   mcpinfra.ClientSpec
@@ -200,7 +201,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 			Cmd: srv.Command, Args: srv.Args, Env: srv.Env, LongLived: true,
 		})
 		if err != nil {
-			s.setFailed(srv.ID, err)
+			s.setFailed(ctx, srv.ID, err)
 			return fmt.Errorf("mcpapp.connectOne: spawn %s: %w", srv.Name, err)
 		}
 		handle = h
@@ -212,7 +213,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		if handle != nil {
 			_ = handle.Kill()
 		}
-		s.setFailed(srv.ID, err)
+		s.setFailed(ctx, srv.ID, err)
 		return fmt.Errorf("mcpapp.connectOne: initialize %s: %w", srv.Name, err)
 	}
 	tools, err := client.ListTools(ctx)
@@ -221,7 +222,7 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		if handle != nil {
 			_ = handle.Kill()
 		}
-		s.setFailed(srv.ID, err)
+		s.setFailed(ctx, srv.ID, err)
 		return fmt.Errorf("mcpapp.connectOne: list tools %s: %w", srv.Name, err)
 	}
 
@@ -244,7 +245,9 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 	if handle != nil {
 		s.handles[srv.ID] = handle
 	}
+	prevStatus := ""
 	if st := s.states[srv.ID]; st != nil {
+		prevStatus = st.Status
 		st.Status = mcpdomain.StatusReady
 		st.ConnectedAt = &now
 		st.LastError = ""
@@ -252,6 +255,9 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 		st.Tools = tools
 	}
 	s.mu.Unlock()
+	if prevStatus != "" && prevStatus != mcpdomain.StatusReady {
+		s.signalStatusChanged(ctx, srv.ID, prevStatus, mcpdomain.StatusReady, "")
+	}
 	s.notifySearch(ctx, srv.Name)
 	return nil
 }
@@ -372,23 +378,54 @@ func (s *Service) initStatus(srv *mcpdomain.Server) {
 	s.mu.Unlock()
 }
 
-func (s *Service) setConnecting(id string) {
+func (s *Service) setConnecting(ctx context.Context, id string) {
 	s.mu.Lock()
-	if st := s.states[id]; st != nil {
-		st.Status = mcpdomain.StatusConnecting
+	st := s.states[id]
+	if st == nil {
+		s.mu.Unlock()
+		return
 	}
+	prev := st.Status
+	st.Status = mcpdomain.StatusConnecting
 	s.mu.Unlock()
+	if prev != mcpdomain.StatusConnecting {
+		s.signalStatusChanged(ctx, id, prev, mcpdomain.StatusConnecting, "")
+	}
 }
 
-func (s *Service) setFailed(id string, err error) {
+func (s *Service) setFailed(ctx context.Context, id string, err error) {
 	now := time.Now().UTC()
 	s.mu.Lock()
-	if st := s.states[id]; st != nil {
-		st.Status = mcpdomain.StatusFailed
-		st.LastError = err.Error()
-		st.LastErrorAt = &now
+	st := s.states[id]
+	if st == nil {
+		s.mu.Unlock()
+		return
 	}
+	prev := st.Status
+	st.Status = mcpdomain.StatusFailed
+	st.LastError = err.Error()
+	st.LastErrorAt = &now
+	lastErr := st.LastError
 	s.mu.Unlock()
+	if prev != mcpdomain.StatusFailed {
+		s.signalStatusChanged(ctx, id, prev, mcpdomain.StatusFailed, lastErr)
+	}
+}
+
+// signalStatusChanged pushes a server's status transition as an EPHEMERAL entities-stream signal —
+// the live UI dot. The mcp_servers status (GET /mcp-servers) is the reconnect truth; this is just
+// the live nudge, deliberately NOT a durable notification so the bell never fills with connect/
+// degrade churn. nil bridge → no-op (entitystream.Signal is nil-safe).
+//
+// signalStatusChanged 把 server 状态转移作为 ephemeral entities 流信号推出——实时 UI 圆点。mcp_servers
+// 状态（GET /mcp-servers）是重连真相，这只是 live 推送，刻意**非** durable 通知，免得铃铛被连接/降级
+// churn 灌满。bridge 为 nil → no-op（Signal nil 安全）。
+func (s *Service) signalStatusChanged(ctx context.Context, serverID, prev, status, lastErr string) {
+	entitystreamapp.Signal(ctx, s.entities,
+		streamdomain.Scope{Kind: streamdomain.KindMCP, ID: serverID},
+		"status",
+		streamdomain.JSONContent(map[string]any{"status": status, "prevStatus": prev, "lastError": lastErr}),
+		true)
 }
 
 // ownerFor builds the sandbox owner key for a server's runtime env.

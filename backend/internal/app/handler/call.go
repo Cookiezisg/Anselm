@@ -138,6 +138,14 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	}
 
 	callErr := s.mapCallErr(ctx, err)
+	if errors.Is(callErr, handlerdomain.ErrInstanceCrashed) {
+		// The resident process died (discovered on this call; the manager reaps + respawns on the
+		// next call). Notify so the handler row shows a live red dot now, instead of the crash only
+		// surfacing on whoever's next :call.
+		// 常驻进程已死（本次调用发现；manager 下次调用回收+重启）。发通知使 handler 行此刻就亮红点，
+		// 而非等下一个 :call 才暴露崩溃。
+		s.publish(ctx, "crashed", h.ID, nil)
+	}
 	s.recordCall(ctx, h, inst, in, startedAt, endedAt, result, logs.String(), callErr, ctx.Err())
 	return result, callErr
 }

@@ -82,7 +82,7 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 		runTerm.Close("completed", nil)
 	}
 
-	s.recordResult(serverID, err)
+	s.recordResult(ctx, serverID, err)
 	s.recordCall(ctx, serverID, tool, args, triggeredBy, result, logs.String(), err, cctx.Err(), startedAt, endedAt)
 	return result, err
 }
@@ -201,17 +201,20 @@ func (s *Service) GetCall(ctx context.Context, id string) (*mcpdomain.Call, erro
 }
 
 // recordResult bumps per-server health counters; consecutive failures/successes flip
-// degraded/ready. Holds s.mu.
+// degraded/ready. Mutates state under s.mu, then (lock released) emits an ephemeral status signal
+// if the status actually changed.
 //
-// recordResult 更新 per-server 健康计数；连续失败/成功翻转 degraded/ready。持 s.mu。
-func (s *Service) recordResult(id string, callErr error) {
+// recordResult 更新 per-server 健康计数；连续失败/成功翻转 degraded/ready。在 s.mu 下改状态，
+// 释放锁后若状态真变则发 ephemeral 状态信号。
+func (s *Service) recordResult(ctx context.Context, id string, callErr error) {
 	now := time.Now().UTC()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	st := s.states[id]
 	if st == nil {
+		s.mu.Unlock()
 		return
 	}
+	prev := st.Status
 	st.TotalCalls++
 	if callErr != nil {
 		st.TotalFailures++
@@ -226,5 +229,10 @@ func (s *Service) recordResult(id string, callErr error) {
 		if st.Status == mcpdomain.StatusDegraded {
 			st.Status = mcpdomain.StatusReady
 		}
+	}
+	newStatus, lastErr := st.Status, st.LastError
+	s.mu.Unlock()
+	if newStatus != prev {
+		s.signalStatusChanged(ctx, id, prev, newStatus, lastErr)
 	}
 }
