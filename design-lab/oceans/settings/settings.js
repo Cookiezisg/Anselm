@@ -150,17 +150,10 @@
         wireDetail(id, detail);
       };
       cats.forEach(c => c.onclick = () => show(c.dataset.cat));
-      sea.querySelector('.st-back').onclick = () => Shell.mount('home');
+      // ← 返回：回到来源海洋（chrome 暴露的 Shell.toOcean；缺则回 chat）
+      sea.querySelector('.st-back').onclick = () => (Shell.toOcean || Shell.mount)(Shell._back || 'chat');
       show('overview');
     },
   });
-
-  // 主界面占位（← 返回 的去处；真实里是当前海洋）
-  Shell.registerOcean('home', { crumb: '前端设计 (fork)', build(sea) { sea.innerHTML = `<div style="flex:1;display:grid;place-items:center;color:var(--ink-3);font-size:var(--t-md)">主界面 · 点左下角齿轮打开设置</div>`; } });
-
-  // 侧栏底部齿轮 → 打开设置（chrome ↔ 设置场景的唯一触点）
-  const gear = Shell.left.querySelector('.sf-act[title="设置"]');
-  if (gear) gear.onclick = () => Shell.mount('settings');
-
-  Shell.mount('settings');   // 默认直接展示设置（便于查看；真实首屏是 home/某海洋）
+  // 入口 = 侧栏底部头像（chrome 已接 .ws → mountSea('settings')）；本模块只负责注册设置海洋。
 })();

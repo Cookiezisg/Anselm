@@ -28,9 +28,8 @@
     </div>
     <div id="sidebody"></div>
     <div class="sfoot">
-      <button class="ws" title="切换工作区"><span class="ws-ava"></span><span class="ws-name"></span></button>
+      <button class="ws" title="工作区主页 / 设置"><span class="ws-ava"></span><span class="ws-name"></span></button>
       <button class="sf-act" title="通知">${icon('bell', 18)}<span class="sf-dot"></span></button>
-      <button class="sf-act" title="设置">${icon('gear', 18)}</button>
     </div>`;
 
   // 工作区身份（示意；接后端换真 workspace）。头像 = 名字首字母（最多两词）
@@ -53,12 +52,28 @@
     },
   };
 
-  // 四导航切换 → 挂载对应海洋。data-m 是与海洋 harness 的契约（harness 用 #modeseg [data-m=<id>].click() 切到本海洋侧栏）。
+  // ===== 导航中枢：四 tab 切海洋(侧栏内容 + 海面一起换)；头像 → 设置(工作区主页)。 =====
   const seg = left.querySelector('.modeseg');
-  seg.querySelectorAll('button').forEach(b => b.onclick = () => {
-    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    SideBar.mount(b.dataset.m);
-  });
+  let cur = 'chat';                                                  // 当前内容海洋(供设置「返回」)
+  const mountSea = id => {                                           // 海面:已注册则挂载,否则占位(该海洋未在本页加载)
+    document.querySelectorAll('[data-ocean-head]').forEach(el => el.remove());   // 清上个海洋留在主区头的上下文(如 chat 标题栏);Shell.mount 只清右岛、不清这个
+    if (Shell.oceans && Shell.oceans[id]) Shell.mount(id);
+    else Shell.sea.innerHTML = `<div style="flex:1;display:grid;place-items:center;color:var(--ink-3);font-size:var(--t-md)">${NAME[id] || id} · 海面待接入</div>`;
+  };
+  function nav(id) {                                                 // 切到某海洋:高亮 tab + 侧栏内容 + 海面
+    cur = id;
+    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.m === id));
+    SideBar.mount(id);
+    mountSea(id);
+  }
+  Shell.toOcean = nav;                                              // 暴露:设置「返回」回到来源海洋
+  seg.querySelectorAll('button').forEach(b => b.onclick = () => nav(b.dataset.m));
+  // 头像 = 工作区主页 / 设置入口：记来源海洋、切到设置海面、导航不高亮(已离开内容海)
+  left.querySelector('.ws').onclick = () => {
+    Shell._back = cur;
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    mountSea('settings');
+  };
 
   // ===== 收起/展开 + 拖拽调宽（状态/持久化全归侧栏；单一真相 = html[data-side] + --side-w） =====
   function toggle() {
