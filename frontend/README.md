@@ -1,6 +1,6 @@
-# Forgify 前端（Flutter 桌面端）
+# Foryx 前端（Flutter 桌面端）
 
-Forgify 的桌面客户端。架构、分层、状态/SSE/契约策略与取舍见
+Foryx 的桌面客户端。架构、分层、状态/SSE/契约策略与取舍见
 [`../docs/decisions/0004-frontend-flutter-architecture.md`](../docs/decisions/0004-frontend-flutter-architecture.md)
 与根 [`CLAUDE.md`](../CLAUDE.md) 前端守则节。
 
@@ -16,7 +16,7 @@ make fe-verify    # 三合一 pre-push 门禁
 
 # dev 运行（挂到已跑后端;桌面真跑需完整 Xcode + CocoaPods）:
 make server                                                    # 另开终端起后端（:8742）
-cd frontend && FORGIFY_BACKEND_URL=http://127.0.0.1:8742 flutter run -d macos
+cd frontend && FORYX_BACKEND_URL=http://127.0.0.1:8742 flutter run -d macos
 ```
 
 ## 结构（`lib/`）

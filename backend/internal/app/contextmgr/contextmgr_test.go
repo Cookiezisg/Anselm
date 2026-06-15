@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // --- fakes -----------------------------------------------------------------

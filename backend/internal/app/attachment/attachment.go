@@ -20,10 +20,10 @@ import (
 
 	"go.uber.org/zap"
 
-	attachmentdomain "github.com/sunweilin/forgify/backend/internal/domain/attachment"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
+	attachmentdomain "github.com/sunweilin/foryx/backend/internal/domain/attachment"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
 )
 
 // BlobStore is the content-addressed byte store (port; infra/fs/blob implements it). Put is a

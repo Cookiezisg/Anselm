@@ -3,8 +3,8 @@ package bootstrap
 import (
 	"context"
 
-	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
+	contextmgrapp "github.com/sunweilin/foryx/backend/internal/app/contextmgr"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
 )
 
 // ConversationStore is the slice of conversation.Service the compaction summary adapter needs.

@@ -1,6 +1,6 @@
-/* Forgify design-lab — 对话海洋 · 右岛块（实体卡，九类全能）。
+/* Foryx design-lab — 对话海洋 · 右岛块（实体卡，九类全能）。
    右岛是「本海洋的」：自己 append 到 Shell.body（作第三个 flex 子），自管显隐与流式编辑。
-   信号交互 = 锻造工具（create_/edit_*）的流式 args 经 entities 流 forge 镜像 → 这里实时填充。
+   信号交互 = 构建工具（create_/edit_*）的流式 args 经 entities 流构建镜像 → 这里实时填充。
    一套外壳 / 九种类型：function/handler/agent/workflow/control/approval/trigger/mcp/document，
    只换 etype + 头部副行(HEADSUB) + tabs(TABS) + 字段集(body) + 脚注(FOOT)；状态徽章走统一 badge/setSt。
    ⚠ 回归铁律：function 的 [data-f=code/deps/env] 与 workflow 的 [data-f=graph] 的 data-f key 与内部结构勿改——
@@ -32,7 +32,7 @@ window.ChatEntityCard = (function () {
   }
 
   const liveBadge = v =>
-    v === true || v === 'forge' ? '<span class="live"><span class="pulse"></span>锻造中</span>'
+    v === true || v === 'build' ? '<span class="live"><span class="pulse"></span>构建中</span>'
     : v === 'edit'             ? '<span class="live"><span class="pulse"></span>编辑中</span>'
     : '';
 
@@ -174,7 +174,7 @@ window.ChatEntityCard = (function () {
     return el;
   }
 
-  // ===== 锻造收尾 + 状态推进（统一 setSt；命名别名供编排可读调用） =====
+  // ===== 构建收尾 + 状态推进（统一 setSt；命名别名供编排可读调用） =====
   function setLive(v) {
     const s = el && $('[data-live]', el); if (!s) return;
     s.innerHTML = v === false || v == null ? '<span class="live" style="opacity:.65">已保存</span>' : liveBadge(v);

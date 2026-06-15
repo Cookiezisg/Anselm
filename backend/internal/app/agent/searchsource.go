@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

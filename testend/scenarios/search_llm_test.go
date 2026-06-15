@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // driveTool 让 LLM 在一个新对话里调一次 name(args)，返回回喂给模型的 tool 消息内容
@@ -61,7 +61,7 @@ func waitIndexed(t *testing.T, wc *harness.Client, token, types string) {
 func TestSearchLLM_VerticalToolsContentEngine(t *testing.T) {
 	wc, mock := chatSetup(t, false)
 
-	// Forge one entity per vertical, match-token strictly in body. 每垂一实体、token 只在正文。
+	// Build one entity per vertical, match-token strictly in body. 每垂一实体、token 只在正文。
 	fnID := fnCreate(t, wc, "vt_fn",
 		"def vt_fn(rows: list) -> dict:\n    \"\"\"ledgerreconcile quarterly books\"\"\"\n    return {}\n")
 	hdID := hdCreate(t, wc, "vt_hd", map[string]any{

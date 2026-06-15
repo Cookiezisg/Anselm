@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
-// wfCreate forges a workflow from ops and returns its id.
+// wfCreate builds a workflow from ops and returns its id.
 //
-// wfCreate 从 ops 锻造 workflow 并返回 id。
+// wfCreate 从 ops 构建 workflow 并返回 id。
 func wfCreate(t *testing.T, wc *harness.Client, name string, ops []map[string]any) string {
 	t.Helper()
 	// Create 现返裸实体(MD1):data 顶层即 id + 内嵌 activeVersion。

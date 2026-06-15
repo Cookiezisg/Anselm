@@ -1,4 +1,4 @@
-// Package function (app layer) orchestrates the function domain: forging versions from
+// Package function (app layer) orchestrates the function domain: building versions from
 // ops, materializing each version's sandbox env (delegated to app/envfix, which adds
 // the LLM dep-fix loop), running code, and the relation / catalog / mention adapters.
 //
@@ -6,7 +6,7 @@
 // pointer — no pending/accept state machine. Create/edit write a new version and take
 // effect immediately; revert just moves the pointer.
 //
-// Package function（app 层）编排 function domain：从 ops 锻造版本、物化每个版本的 sandbox env
+// Package function（app 层）编排 function domain：从 ops 构建版本、物化每个版本的 sandbox env
 // （委托 app/envfix，它加 LLM 改依赖循环）、运行代码、relation / catalog / mention 适配器。
 //
 // 版本模型是线性、只增的历史 + 可自由移动的 ActiveVersionID 指针——无 pending/accept 状态机。
@@ -19,14 +19,14 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
 )
 
 // SandboxRunner is the execution + cleanup surface function needs from the sandbox
@@ -77,11 +77,11 @@ type Service struct {
 }
 
 // SetEntitiesBridge installs the entities stream post-construction (SSE-C): every env
-// materialization tees its attempt lines to the function's forge terminal, so the panel
-// shows progress no matter which entry (HTTP editor / chat forge / run rebuild) paid for it.
+// materialization tees its attempt lines to the function's build terminal, so the panel
+// shows progress no matter which entry (HTTP editor / chat build / run rebuild) paid for it.
 //
 // SetEntitiesBridge 装配后装入 entities 流（SSE-C）：每次 env 物化把尝试行 tee 到 function
-// 的锻造终端——不论哪个入口（HTTP 编辑器/chat 锻造/run 重建）买单，面板都看得到进度。
+// 的构建终端——不论哪个入口（HTTP 编辑器/chat 构建/run 重建）买单，面板都看得到进度。
 func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
 
 // NewService wires the service; nil repo / provisioner / runner / log is a wiring bug.
@@ -133,10 +133,10 @@ func envOwner(functionID, envID string) sandboxdomain.Owner {
 func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink envfixapp.Sink) (ready bool, errMsg string) {
 	_ = s.repo.UpdateVersionEnv(ctx, v.ID, functiondomain.EnvStatusSyncing, "", v.Dependencies, nil)
 
-	// Tee attempts to the panel's forge terminal regardless of caller, so the HTTP editor
-	// path and chat forge are equally visible.
-	// 把尝试行 tee 到面板锻造终端、不分调用方——HTTP 编辑器路径与 chat 锻造同等可见。
-	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeForge, nil)
+	// Tee attempts to the panel's build terminal regardless of caller, so the HTTP editor
+	// path and chat build are equally visible.
+	// 把尝试行 tee 到面板构建终端、不分调用方——HTTP 编辑器路径与 chat 构建同等可见。
+	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
 

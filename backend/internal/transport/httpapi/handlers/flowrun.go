@@ -5,19 +5,19 @@ import (
 
 	"go.uber.org/zap"
 
-	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // FlowrunHandler hosts the durable-execution HTTP surface: list/inspect runs, start one manually
 // ("Run now"), replay a failed one, and decide a parked approval. A flowrun is a runtime record
-// (no version, no forge) — so there is no Create-as-edit / :revert here; "create" is starting a run
+// (no version, no build) — so there is no Create-as-edit / :revert here; "create" is starting a run
 // and its body is the entry trigger's declared Outputs (the manual payload form).
 //
 // FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、决策
-// parked 审批。flowrun 是运行时记录（无版本、无锻造）——故无 Create-as-edit/:revert；「create」就是起
+// parked 审批。flowrun 是运行时记录（无版本、无构建）——故无 Create-as-edit/:revert；「create」就是起
 // 一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
 type FlowrunHandler struct {
 	svc *schedulerapp.Service

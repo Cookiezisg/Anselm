@@ -29,7 +29,7 @@
 package shell
 
 import (
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 // ShellTools bundles the shell system tools sharing one ProcessManager. The caller (host

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func wsCtx(t *testing.T) (context.Context, *Store) {

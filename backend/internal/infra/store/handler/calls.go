@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 func (s *Store) SaveCall(ctx context.Context, c *handlerdomain.Call) error {

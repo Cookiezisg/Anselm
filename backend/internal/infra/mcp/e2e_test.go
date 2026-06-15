@@ -11,8 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	sandboxinfra "github.com/sunweilin/foryx/backend/internal/infra/sandbox"
 )
 
 // TestE2E_Context7ViaNpx is a REAL-MACHINE end-to-end of the whole mcp stdio path: the node direct

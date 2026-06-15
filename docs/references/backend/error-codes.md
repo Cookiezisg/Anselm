@@ -351,7 +351,7 @@ audience: [human, ai]
 | `FUNCTION_NAME_DUPLICATE` | 409 | function name already exists |
 | `FUNCTION_NOT_FOUND` | 404 | function not found |
 | `FUNCTION_NO_ACTIVE_VERSION` | 422 | function has no active version |
-| `FUNCTION_OP_INVALID` | 422 | invalid forge op |
+| `FUNCTION_OP_INVALID` | 422 | invalid build op |
 | `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime unavailable |
 | `FUNCTION_VERSION_NOT_FOUND` | 404 | function version not found |
 
@@ -371,7 +371,7 @@ audience: [human, ai]
 | `HANDLER_NAME_DUPLICATE` | 409 | handler name already exists |
 | `HANDLER_NOT_FOUND` | 404 | handler not found |
 | `HANDLER_NO_ACTIVE_VERSION` | 422 | handler has no active version |
-| `HANDLER_OP_INVALID` | 422 | invalid forge op |
+| `HANDLER_OP_INVALID` | 422 | invalid build op |
 | `HANDLER_RPC_TIMEOUT` | 504 | handler instance RPC timeout |
 | `HANDLER_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime unavailable |
 | `HANDLER_VERSION_NOT_FOUND` | 404 | handler version not found |

@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
 )
 
 // fakeCallables records what each port received so the routing + arg mapping can be asserted, and

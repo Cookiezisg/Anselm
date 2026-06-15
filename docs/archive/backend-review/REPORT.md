@@ -59,4 +59,4 @@ audience: [human, ai]
 
 ## 遗留（已登记非本轮）
 
-forgeSink ×2 同构（下沉受依赖环约束，落 envfix 侧再做）；broker.allowed 只增（量级 KB/月）；docswriter 留档的观测议题（agent tokens 持久化等）。
+buildSink ×2 同构（下沉受依赖环约束，落 envfix 侧再做）；broker.allowed 只增（量级 KB/月）；docswriter 留档的观测议题（agent tokens 持久化等）。

@@ -11,14 +11,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // TestSmoke_BootToSearchableEntity: the spine every wave stands on — boot the real
-// binary, create a workspace, forge a function over HTTP, and see it ripple into search.
+// binary, create a workspace, build a function over HTTP, and see it ripple into search.
 //
 // TestSmoke_BootToSearchableEntity：所有波次站立的脊柱——拉起真二进制、建 workspace、
-// 经 HTTP 锻造一个 function、看它涟漪进搜索。
+// 经 HTTP 构建一个 function、看它涟漪进搜索。
 func TestSmoke_BootToSearchableEntity(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -31,8 +31,8 @@ func TestSmoke_BootToSearchableEntity(t *testing.T) {
 	}
 	wc := c.WS(wsID)
 
-	// forge a function via the flat HTTP payload (buildOpsFromDirect path).
-	// 经扁平 HTTP payload 锻造 function（buildOpsFromDirect 路径）。
+	// build a function via the flat HTTP payload (buildOpsFromDirect path).
+	// 经扁平 HTTP payload 构建 function（buildOpsFromDirect 路径）。
 	// create 现返裸实体(MD1):data 顶层即 id。
 	fnID := wc.POST("/api/v1/functions", map[string]any{
 		"name":        "greet_user",

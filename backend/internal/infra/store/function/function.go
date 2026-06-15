@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"time"
 
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the function tables' DDL, exported as ordered idempotent statements for
@@ -58,7 +58,7 @@ var Schema = []string{
 		env_error                 TEXT NOT NULL DEFAULT '',
 		env_synced_at             DATETIME,
 		change_reason             TEXT NOT NULL DEFAULT '',
-		forged_in_conversation_id TEXT,
+		built_in_conversation_id TEXT,
 		created_at                DATETIME NOT NULL,
 		updated_at                DATETIME NOT NULL
 	)`,

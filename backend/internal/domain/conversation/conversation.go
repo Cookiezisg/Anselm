@@ -12,9 +12,9 @@ import (
 	"context"
 	"time"
 
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Conversation is a chat-thread container. The thread's messages live in chat's

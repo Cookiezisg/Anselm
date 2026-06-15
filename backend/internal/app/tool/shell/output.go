@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // ErrEmptyBashID: bash_id missing.

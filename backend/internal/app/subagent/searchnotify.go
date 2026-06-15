@@ -3,7 +3,7 @@ package subagent
 import (
 	"context"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

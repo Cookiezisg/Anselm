@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // NamesByIDs implements relationapp.Namer: a batch id→name lookup so the relation graph can
@@ -24,10 +24,10 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 	return out, nil
 }
 
-// syncForgedEdge records the "create" edge from the originating conversation to v1.
+// syncBuiltEdge records the "create" edge from the originating conversation to v1.
 //
-// syncForgedEdge 记录从原始对话到 v1 的 "create" 边。
-func (s *Service) syncForgedEdge(ctx context.Context, formID string, convID *string) {
+// syncBuiltEdge 记录从原始对话到 v1 的 "create" 边。
+func (s *Service) syncBuiltEdge(ctx context.Context, formID string, convID *string) {
 	if s.relations == nil || convID == nil || *convID == "" {
 		return
 	}
@@ -38,7 +38,7 @@ func (s *Service) syncForgedEdge(ctx context.Context, formID string, convID *str
 	}}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindApproval, formID,
 		[]string{relationdomain.KindCreate}, edges); err != nil {
-		s.log.Warn("approvalapp: sync forged edge failed", zap.String("approvalId", formID), zap.Error(err))
+		s.log.Warn("approvalapp: sync built edge failed", zap.String("approvalId", formID), zap.Error(err))
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *Service) syncEditedEdge(ctx context.Context, formID string) {
 		s.log.Warn("approvalapp: sync edited edge: get active failed", zap.String("approvalId", formID), zap.Error(err))
 		return
 	}
-	editorConv := deref(active.ForgedInConversationID)
+	editorConv := deref(active.BuiltInConversationID)
 	originConv := s.originConvID(ctx, formID)
 
 	var edges []relationdomain.SyncEdge
@@ -89,15 +89,15 @@ func (s *Service) purgeRelations(ctx context.Context, formID string) {
 	}
 }
 
-// originConvID returns the conversation that forged v1 (empty if v1 was trimmed away).
+// originConvID returns the conversation that built v1 (empty if v1 was trimmed away).
 //
-// originConvID 返锻造 v1 的对话（v1 已被裁剪则空）。
+// originConvID 返构建 v1 的对话（v1 已被裁剪则空）。
 func (s *Service) originConvID(ctx context.Context, formID string) string {
 	v1, err := s.repo.GetVersionByNumber(ctx, formID, 1)
 	if err != nil {
 		return ""
 	}
-	return deref(v1.ForgedInConversationID)
+	return deref(v1.BuiltInConversationID)
 }
 
 func deref(p *string) string {

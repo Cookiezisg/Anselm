@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 // DotnetEnvManager runs .NET MCP servers via dnx — .NET 10's "package runner" (pulls a NuGet

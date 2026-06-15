@@ -10,9 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // --- fakes -----------------------------------------------------------------
@@ -352,8 +352,8 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 		finishEv(),
 	}}}
 
-	noForge := func(string) (toolapp.ForgeSpec, bool) { return toolapp.ForgeSpec{}, false }
-	blocks, calls, stop, _, in, out := streamLLM(context.Background(), client, llminfra.Request{}, noForge, nil)
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	blocks, calls, stop, _, in, out := streamLLM(context.Background(), client, llminfra.Request{}, noBuild, nil)
 
 	if stop != messagesdomain.StopReasonEndTurn || in != 10 || out != 5 {
 		t.Fatalf("stop=%q in=%d out=%d", stop, in, out)

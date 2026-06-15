@@ -1,6 +1,6 @@
 // Package envfix provisions a sandbox env for a set of (runtime, deps) and, when
 // the install fails, asks a utility LLM to revise the dependency list and retries
-// — a self-healing build loop shared by every entity that owns a sandbox env
+// — a self-healing provisioning loop shared by every entity that owns a sandbox env
 // (function / handler).
 //
 // It is deliberately stream-agnostic: progress is surfaced through a caller-supplied
@@ -8,7 +8,7 @@
 // loop runs silently). The package never imports a stream/eventlog dependency.
 //
 // Package envfix 把一组 (runtime, deps) 物化成 sandbox env；装失败时让 utility LLM
-// 改依赖列表并重试——一个自愈构建循环，被所有持有 sandbox env 的实体共用
+// 改依赖列表并重试——一个自愈配置循环，被所有持有 sandbox env 的实体共用
 // （function / handler）。
 //
 // 它刻意与流解耦：进度经调用方提供的 Sink 暴露（tool 层把它推到 SSE 流；HTTP 调用方
@@ -20,10 +20,10 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // DefaultMaxAttempts caps total install attempts (1 initial + LLM-suggested retries).
@@ -138,11 +138,11 @@ func NewProvisioner(
 // Provision installs the env, and on failure asks the utility LLM to revise deps and
 // retries up to MaxAttempts. It never returns a Go error: an infra failure or a
 // missing utility model simply ends the loop with OK=false and the last stderr in
-// History — the caller surfaces that to the forging LLM, which can fix the code.
+// History — the caller surfaces that to the authoring LLM, which can fix the code.
 //
 // Provision 装 env，失败则让 utility LLM 改依赖并重试至 MaxAttempts。它从不返回 Go error：
 // 基础设施失败或未配 utility 模型只是以 OK=false 结束循环、最后一段 stderr 留在 History——
-// 由调用方上呈给锻造 LLM 自行改代码。
+// 由调用方上呈给编写 LLM 自行改代码。
 func (p *Provisioner) Provision(ctx context.Context, req Request) Result {
 	max := req.MaxAttempts
 	if max <= 0 {

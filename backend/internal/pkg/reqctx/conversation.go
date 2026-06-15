@@ -2,7 +2,7 @@ package reqctx
 
 import (
 	"context"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // ErrMissingConversationID is returned when a conversation-scoped call runs without a

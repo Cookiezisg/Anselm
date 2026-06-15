@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "Forgify"
+    "name": "Foryx"
   },
   "backend": {
-    "starting": "Starting Forgify…",
+    "starting": "Starting Foryx…",
     "crashedTitle": "Backend failed to start",
     "retry": "Retry"
   },

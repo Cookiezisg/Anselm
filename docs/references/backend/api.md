@@ -21,14 +21,14 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /functions` | 创建（扁平 payload → 反推 ops 走锻造管线），201 |
+| `POST /functions` | 创建（扁平 payload → 反推 ops 走构建管线），201 |
 | `GET /functions` | 分页列表 |
 | `GET /functions/{id}` | 单读（附 activeVersion：代码+env 状态一趟拿全） |
 | `PATCH /functions/{id}` | 改 meta（name/description/tags，不升版本） |
 | `DELETE /functions/{id}` | 软删 + 销毁 env + 清边，204 |
 | `POST /functions/{id}:run` | 执行（TriggeredBy=manual），body `{args, version?}` |
 | `POST /functions/{id}:revert` | active 指针移到指定版本号 |
-| `POST /functions/{id}:edit` | ops 锻造新版本（空 ops = 仅重建 env） |
+| `POST /functions/{id}:edit` | ops 构建新版本（空 ops = 仅重建 env） |
 | `POST /functions/{id}:iterate` | 开 AI 编辑对话，返 `conversationId` |
 | `GET /functions/{id}/versions` | 版本分页 |
 | `GET /functions/{id}/versions/{version}` | 单版本（接受版本号或 fnv_ id） |
@@ -47,7 +47,7 @@ audience: [human, ai]
 | `POST /handlers/{id}:call` | 调方法（manual），body `{method, args}` |
 | `POST /handlers/{id}:restart` | 手动重启常驻实例，返新 runtimeState |
 | `POST /handlers/{id}:revert` | 移 active 指针 + 重启实例 |
-| `POST /handlers/{id}:edit` | ops 锻造新版本 + 重启实例（空 ops = 重建 env + 重启） |
+| `POST /handlers/{id}:edit` | ops 构建新版本 + 重启实例（空 ops = 重建 env + 重启） |
 | `POST /handlers/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /handlers/{id}/versions` · `GET /handlers/{id}/versions/{version}` | 版本（号或 hdv_ id） |
 | `GET /handlers/{id}/config` | 读 config（sensitive 字段掩码 `********`） |
@@ -83,7 +83,7 @@ audience: [human, ai]
 | `POST /workflows/{id}:stage` | 待命恰一次真实触发后自动撤防（已 active → 409） |
 | `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听+inactive 或 draining） |
 | `POST /workflows/{id}:kill` | 硬停：摘监听 + 取消全部在途 run + inactive，返被杀数 |
-| `POST /workflows/{id}:edit` / `:revert` | 图 ops 锻造新版本 / 移 active 指针 |
+| `POST /workflows/{id}:edit` / `:revert` | 图 ops 构建新版本 / 移 active 指针 |
 | `POST /workflows/{id}:capability-check` | ref 解析体检（实体在吗/kind 对吗/port·method 在吗） |
 | `POST /workflows/{id}:iterate` | 开 AI 编辑对话 |
 | `GET /workflows/{id}/versions[/{version}]` | 版本 |

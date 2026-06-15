@@ -20,13 +20,13 @@ import (
 
 	"go.uber.org/zap"
 
-	settingsapp "github.com/sunweilin/forgify/backend/internal/app/settings"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	loggerinfra "github.com/sunweilin/forgify/backend/internal/infra/logger"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	handlershttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/handlers"
-	routerhttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/router"
+	settingsapp "github.com/sunweilin/foryx/backend/internal/app/settings"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	loggerinfra "github.com/sunweilin/foryx/backend/internal/infra/logger"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	handlershttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/handlers"
+	routerhttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/router"
 )
 
 // Config parameterizes Build. DataDir empty → in-memory DB (tests). Addr defaults to :8080.

@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // bridgeKey carries the messages-stream Bridge through ctx so block lifecycle can be pushed

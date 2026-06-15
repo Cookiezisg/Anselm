@@ -9,17 +9,17 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // InvokeInput is the request shape for InvokeAgent (mirrors functionapp.RunInput).

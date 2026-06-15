@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // --- fakes ------------------------------------------------------------------

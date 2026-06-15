@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
+	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
 )
 
 const forgetMemoryDescription = `Delete a memory by name when the fact is obsolete or wrong. Irreversible — the markdown file is removed.`

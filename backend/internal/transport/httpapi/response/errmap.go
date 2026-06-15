@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // statusForKind maps a domain error Kind to its HTTP status — the canonical mapping

@@ -8,7 +8,7 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // widget is the test model exercising every db-tag role.

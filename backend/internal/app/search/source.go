@@ -13,7 +13,7 @@ import (
 	"context"
 	"time"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // Source is the pull-side port each indexed entity implements: Docs projects

@@ -3,35 +3,35 @@ package bootstrap
 import (
 	"fmt"
 
-	cryptodomain "github.com/sunweilin/forgify/backend/internal/domain/crypto"
-	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
-	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	blobfs "github.com/sunweilin/forgify/backend/internal/infra/fs/blob"
-	memoryfs "github.com/sunweilin/forgify/backend/internal/infra/fs/memory"
-	skillfs "github.com/sunweilin/forgify/backend/internal/infra/fs/skill"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	searchstore "github.com/sunweilin/forgify/backend/internal/infra/search"
-	agentstore "github.com/sunweilin/forgify/backend/internal/infra/store/agent"
-	apikeystore "github.com/sunweilin/forgify/backend/internal/infra/store/apikey"
-	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
-	attachmentstore "github.com/sunweilin/forgify/backend/internal/infra/store/attachment"
-	controlstore "github.com/sunweilin/forgify/backend/internal/infra/store/control"
-	conversationstore "github.com/sunweilin/forgify/backend/internal/infra/store/conversation"
-	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
-	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
-	functionstore "github.com/sunweilin/forgify/backend/internal/infra/store/function"
-	handlerstore "github.com/sunweilin/forgify/backend/internal/infra/store/handler"
-	mcpstore "github.com/sunweilin/forgify/backend/internal/infra/store/mcp"
-	messagesstore "github.com/sunweilin/forgify/backend/internal/infra/store/messages"
-	notificationstore "github.com/sunweilin/forgify/backend/internal/infra/store/notification"
-	relationstore "github.com/sunweilin/forgify/backend/internal/infra/store/relation"
-	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
-	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
-	triggerstore "github.com/sunweilin/forgify/backend/internal/infra/store/trigger"
-	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
-	workspacestore "github.com/sunweilin/forgify/backend/internal/infra/store/workspace"
-	streaminfra "github.com/sunweilin/forgify/backend/internal/infra/stream"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
+	cryptoinfra "github.com/sunweilin/foryx/backend/internal/infra/crypto"
+	dbinfra "github.com/sunweilin/foryx/backend/internal/infra/db"
+	blobfs "github.com/sunweilin/foryx/backend/internal/infra/fs/blob"
+	memoryfs "github.com/sunweilin/foryx/backend/internal/infra/fs/memory"
+	skillfs "github.com/sunweilin/foryx/backend/internal/infra/fs/skill"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	searchstore "github.com/sunweilin/foryx/backend/internal/infra/search"
+	agentstore "github.com/sunweilin/foryx/backend/internal/infra/store/agent"
+	apikeystore "github.com/sunweilin/foryx/backend/internal/infra/store/apikey"
+	approvalstore "github.com/sunweilin/foryx/backend/internal/infra/store/approval"
+	attachmentstore "github.com/sunweilin/foryx/backend/internal/infra/store/attachment"
+	controlstore "github.com/sunweilin/foryx/backend/internal/infra/store/control"
+	conversationstore "github.com/sunweilin/foryx/backend/internal/infra/store/conversation"
+	documentstore "github.com/sunweilin/foryx/backend/internal/infra/store/document"
+	flowrunstore "github.com/sunweilin/foryx/backend/internal/infra/store/flowrun"
+	functionstore "github.com/sunweilin/foryx/backend/internal/infra/store/function"
+	handlerstore "github.com/sunweilin/foryx/backend/internal/infra/store/handler"
+	mcpstore "github.com/sunweilin/foryx/backend/internal/infra/store/mcp"
+	messagesstore "github.com/sunweilin/foryx/backend/internal/infra/store/messages"
+	notificationstore "github.com/sunweilin/foryx/backend/internal/infra/store/notification"
+	relationstore "github.com/sunweilin/foryx/backend/internal/infra/store/relation"
+	sandboxstore "github.com/sunweilin/foryx/backend/internal/infra/store/sandbox"
+	todostore "github.com/sunweilin/foryx/backend/internal/infra/store/todo"
+	triggerstore "github.com/sunweilin/foryx/backend/internal/infra/store/trigger"
+	workflowstore "github.com/sunweilin/foryx/backend/internal/infra/store/workflow"
+	workspacestore "github.com/sunweilin/foryx/backend/internal/infra/store/workspace"
+	streaminfra "github.com/sunweilin/foryx/backend/internal/infra/stream"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // stores holds every orm-backed Repository implementation plus the three file-backed stores
@@ -76,9 +76,9 @@ type infra struct {
 }
 
 // buses holds the three (and only three, E1) SSE buses: messages (chat/loop turns), entities
-// (the forge eventlog), notifications (the durable inbox). Each *Bus satisfies streamdomain.Bridge.
+// (the build eventlog), notifications (the durable inbox). Each *Bus satisfies streamdomain.Bridge.
 //
-// buses 持有全系统仅三条（E1）SSE 总线：messages（对话/loop 回合）、entities（锻造 eventlog）、
+// buses 持有全系统仅三条（E1）SSE 总线：messages（对话/loop 回合）、entities（构建 eventlog）、
 // notifications（持久收件箱）。每个 *Bus 满足 streamdomain.Bridge。
 type buses struct {
 	messages      *streaminfra.Bus
@@ -157,7 +157,7 @@ func newEncryptor(fingerprint, dataDir string) (cryptodomain.Encryptor, error) {
 		if fp, err := cryptoinfra.MachineFingerprint(); err == nil {
 			fingerprint = fp
 		} else {
-			fingerprint = "forgify-local:" + dataDir
+			fingerprint = "foryx-local:" + dataDir
 		}
 	}
 	enc, err := cryptoinfra.NewAESGCMEncryptor(cryptoinfra.DeriveKey(fingerprint))

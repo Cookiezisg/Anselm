@@ -1,4 +1,4 @@
-/* Forgify design-lab — Chat 海洋 · 右岛块（实体卡）。
+/* Foryx design-lab — Chat 海洋 · 右岛块（实体卡）。
    右岛是「本海洋的」：自己 append 到 Shell.body（作第三个 flex 子），自管显隐与流式编辑。
    依赖：shared/icons.js（icon）+ shared/shell.js（Shell.body）。样式在同目录 chat.css。 */
 window.ChatEntityCard = (function () {

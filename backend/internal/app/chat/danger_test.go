@@ -11,12 +11,12 @@ import (
 
 	"go.uber.org/zap"
 
-	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // scriptedClient replays a distinct StreamEvent slice per Stream call (one per ReAct step), so a

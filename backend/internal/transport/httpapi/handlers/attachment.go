@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	attachmentapp "github.com/sunweilin/forgify/backend/internal/app/attachment"
-	attachmentdomain "github.com/sunweilin/forgify/backend/internal/domain/attachment"
-	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	attachmentapp "github.com/sunweilin/foryx/backend/internal/app/attachment"
+	attachmentdomain "github.com/sunweilin/foryx/backend/internal/domain/attachment"
+	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // AttachmentHandler serves the 4 /api/v1/attachments/* endpoints: multipart upload, metadata

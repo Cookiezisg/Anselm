@@ -1,4 +1,4 @@
-// Package handler is the domain layer for user-forged stateful Python classes (the
+// Package handler is the domain layer for user-built stateful Python classes (the
 // second Quadrinity element). Unlike a function (stateless, fresh process per call), a
 // handler runs as ONE long-lived resident process per handler — like an MCP server:
 // spawned at boot (or when first configured), kept alive across every call so self.xxx
@@ -8,7 +8,7 @@
 // The version model mirrors function: a linear append-only line of Versions with a
 // free-moving ActiveVersionID pointer — no pending/accept state machine.
 //
-// Package handler 是用户锻造的有状态 Python 类的 domain 层（Quadrinity 第二元）。不同于
+// Package handler 是用户构建的有状态 Python 类的 domain 层（Quadrinity 第二元）。不同于
 // function（无状态、每调用全新进程），handler 以**每 handler 一个常驻长跑进程**运行——像 MCP
 // server：开局（或首次配齐）spawn，跨每次调用保活使 self.xxx 状态留存，edit / 改 config / crash
 // 时重启，仅退出软件优雅关闭。所有调用方（chat / agent / workflow）共享这单一实例。
@@ -19,7 +19,7 @@ package handler
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Handler is the Definition entity; class code / methods / init-args schema / deps live
@@ -57,25 +57,25 @@ const DefaultPythonVersion = "3.12"
 //
 // Version 是 handler 类（各部分）+ 接口 + 依赖的不可变快照。Version 是写入时分配的单调号（max+1）。
 type Version struct {
-	ID                     string        `db:"id,pk"                      json:"id"`
-	WorkspaceID            string        `db:"workspace_id,ws"            json:"-"`
-	HandlerID              string        `db:"handler_id"                 json:"handlerId"`
-	Version                int           `db:"version"                    json:"version"`
-	Imports                string        `db:"imports"                    json:"imports"`
-	InitBody               string        `db:"init_body"                  json:"initBody"`
-	ShutdownBody           string        `db:"shutdown_body"              json:"shutdownBody"`
-	Methods                []MethodSpec  `db:"methods,json"               json:"methods"`
-	InitArgsSchema         []InitArgSpec `db:"init_args_schema,json"      json:"initArgsSchema"`
-	Dependencies           []string      `db:"dependencies,json"          json:"dependencies"`
-	PythonVersion          string        `db:"python_version"             json:"pythonVersion"`
-	EnvID                  string        `db:"env_id"                     json:"envId"`
-	EnvStatus              string        `db:"env_status"                 json:"envStatus"`
-	EnvError               string        `db:"env_error"                  json:"envError,omitempty"`
-	EnvSyncedAt            *time.Time    `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
-	ChangeReason           string        `db:"change_reason"              json:"changeReason,omitempty"`
-	ForgedInConversationID *string       `db:"forged_in_conversation_id"  json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time     `db:"created_at,created"         json:"createdAt"`
-	UpdatedAt              time.Time     `db:"updated_at,updated"         json:"updatedAt"`
+	ID                    string        `db:"id,pk"                      json:"id"`
+	WorkspaceID           string        `db:"workspace_id,ws"            json:"-"`
+	HandlerID             string        `db:"handler_id"                 json:"handlerId"`
+	Version               int           `db:"version"                    json:"version"`
+	Imports               string        `db:"imports"                    json:"imports"`
+	InitBody              string        `db:"init_body"                  json:"initBody"`
+	ShutdownBody          string        `db:"shutdown_body"              json:"shutdownBody"`
+	Methods               []MethodSpec  `db:"methods,json"               json:"methods"`
+	InitArgsSchema        []InitArgSpec `db:"init_args_schema,json"      json:"initArgsSchema"`
+	Dependencies          []string      `db:"dependencies,json"          json:"dependencies"`
+	PythonVersion         string        `db:"python_version"             json:"pythonVersion"`
+	EnvID                 string        `db:"env_id"                     json:"envId"`
+	EnvStatus             string        `db:"env_status"                 json:"envStatus"`
+	EnvError              string        `db:"env_error"                  json:"envError,omitempty"`
+	EnvSyncedAt           *time.Time    `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
+	ChangeReason          string        `db:"change_reason"              json:"changeReason,omitempty"`
+	BuiltInConversationID *string       `db:"built_in_conversation_id"  json:"builtInConversationId,omitempty"`
+	CreatedAt             time.Time     `db:"created_at,created"         json:"createdAt"`
+	UpdatedAt             time.Time     `db:"updated_at,updated"         json:"updatedAt"`
 }
 
 // Env status values (mirror sandbox env lifecycle, surfaced on the version row).
@@ -115,7 +115,7 @@ var (
 	ErrNoActiveVersion     = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_NO_ACTIVE_VERSION", "handler has no active version")
 	ErrEnvNotReady         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_ENV_NOT_READY", "handler env not ready")
 	ErrConfigIncomplete    = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_CONFIG_INCOMPLETE", "handler config incomplete (required init args unset)")
-	ErrOpInvalid           = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_OP_INVALID", "invalid forge op")
+	ErrOpInvalid           = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_OP_INVALID", "invalid build op")
 	ErrInvalidName         = errorspkg.New(errorspkg.KindInvalid, "HANDLER_INVALID_NAME", "invalid handler name (lowercase alphanumeric + dashes/underscores, 1-64 chars)")
 	ErrInvalidCode         = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_INVALID_CODE", "handler class code invalid")
 	ErrSandboxUnavailable  = errorspkg.New(errorspkg.KindUnavailable, "HANDLER_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")

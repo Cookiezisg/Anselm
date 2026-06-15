@@ -17,9 +17,9 @@ import (
 
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // signalNodeType is the messages-stream node.type carried by a todo live push. The "todo"

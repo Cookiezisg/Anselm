@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
 )
 
 // summarySystemPrompt instructs the utility model to maintain a RUNNING summary: extend the

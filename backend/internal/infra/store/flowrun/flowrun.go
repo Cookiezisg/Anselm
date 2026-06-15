@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"time"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Table names, exported so the scheduler's firing-claim callback can bind a Repo on the

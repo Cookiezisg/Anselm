@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // --- fakes -----------------------------------------------------------------

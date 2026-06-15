@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // CreateInput is the create payload: identity (name/description/tags) + the ops that build
@@ -115,7 +115,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workflowdomain.W
 	}
 	v := newVersion(versionID, wfID, 1, graph, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.SaveWorkflow(ctx, w); err != nil { // UNIQUE name → ErrDuplicateName here
@@ -164,7 +164,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 	versionID := idgenpkg.New("wfv")
 	v := newVersion(versionID, in.ID, max+1, graph, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.SaveVersion(ctx, v); err != nil {

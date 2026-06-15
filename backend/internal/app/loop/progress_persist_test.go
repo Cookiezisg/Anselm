@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // progressEmittingTool emits two progress lines then returns a final result, exercising the full

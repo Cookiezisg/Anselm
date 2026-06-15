@@ -9,9 +9,9 @@
 package agent
 
 import (
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 // AgentTools constructs the agent system tools over the app service.

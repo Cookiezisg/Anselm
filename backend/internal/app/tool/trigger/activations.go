@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
 )
 
 // --- search_activations ----------------------------------------------------

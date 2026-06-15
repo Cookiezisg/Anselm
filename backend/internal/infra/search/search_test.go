@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	dbinfra "github.com/sunweilin/foryx/backend/internal/infra/db"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func newStore(t *testing.T) *Store {

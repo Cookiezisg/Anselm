@@ -6,14 +6,14 @@ import (
 
 	"go.uber.org/zap"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // AgentHandler hosts the agent HTTP endpoints. The version model is linear with a free-moving

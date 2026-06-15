@@ -13,14 +13,14 @@ package bootstrap
 import (
 	"context"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
-	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
-	modelclientapp "github.com/sunweilin/forgify/backend/internal/app/modelclient"
-	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
+	contextmgrapp "github.com/sunweilin/foryx/backend/internal/app/contextmgr"
+	modelclientapp "github.com/sunweilin/foryx/backend/internal/app/modelclient"
+	subagentapp "github.com/sunweilin/foryx/backend/internal/app/subagent"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // CredsResolver is the slice of apikey.Service the model resolvers need: an api-key id → decrypted

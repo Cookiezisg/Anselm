@@ -10,7 +10,7 @@ package model
 import (
 	"context"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // ModelRef is a reusable model selection: which key, which model, and the user's native option

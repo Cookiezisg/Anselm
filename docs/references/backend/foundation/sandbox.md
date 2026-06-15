@@ -15,7 +15,7 @@ audience: [human, ai]
 
 **sandbox** 掌管 Runtime/Env 生命周期：按 kind 的 `RuntimeInstaller` + `EnvManager` 两套注册表（`EnvManager` 4 家：python/node/docker/dotnet），per-owner env 构建（owner = `{Kind, ID}` 复合键，如 function 的 `functionID + "_" + envID`，envID 即 `fnenv_…` 版本 env 记录）、懒装、GC、spawn（一次性 `Spawn` / 长跑 `SpawnLongLived` 带 handle 追踪——infra `SpawnLongLived` 刻意丢弃 ctx：常驻进程须活得比拉起它的请求长）。**运行时不预装**——`directInstaller`（[ADR 0001](../../../decisions/0001-sandbox-runtime-direct-install.md)）首用时从上游直拉钉死版本的 tarball/zip，4 家自研 installer（python-build-standalone / node 官方 / uv / dotnet）+ docker installer（`docker pull`，image=runtime/container=env，无宿主装机）+ 引擎 installer（搜索 embedder 的 llama-server + GGUF 模型走同一注册表）；下载后 sha256/512 校验、staging 原子 rename 入正式目录，跨平台 `GOOS/GOARCH` 直出、无内嵌。Bootstrap 只建根目录（失败 = degraded 模式，`:retry-bootstrap` 可救）；boot 时 `RestoreOrCleanupOnBoot` 回收上次残留的 running_pid 进程（杀掉熬过崩溃的长生命周期进程并清零 pid）。安装/构建用 per-key 锁防并发重复。
 
-**envfix** 是共享的**自愈构建循环**：`Provision(owner, runtime, deps)` 失败时把安装错误喂给 utility LLM 改依赖列表重试（默认 ≤3 次），返回 `Result`（终态 OK + 修正后的 deps + 尝试历史）——**从不返回 Go error**：基础设施失败或未配 utility 模型只是以 `OK=false` 结束、stderr 留在 History，由调用方上呈给锻造 LLM 自行改代码。function/handler（+ 未来轮询触发源）共用——"装不上就让 LLM 修"只写一处。
+**envfix** 是共享的**自愈构建循环**：`Provision(owner, runtime, deps)` 失败时把安装错误喂给 utility LLM 改依赖列表重试（默认 ≤3 次），返回 `Result`（终态 OK + 修正后的 deps + 尝试历史）——**从不返回 Go error**：基础设施失败或未配 utility 模型只是以 `OK=false` 结束、stderr 留在 History，由调用方上呈给建构 LLM 自行改代码。function/handler（+ 未来轮询触发源）共用——"装不上就让 LLM 修"只写一处。
 
 ## 2. 契约（引用）
 

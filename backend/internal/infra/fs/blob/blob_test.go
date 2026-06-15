@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func ctxWS(id string) context.Context {

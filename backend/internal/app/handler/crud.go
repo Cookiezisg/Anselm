@@ -9,13 +9,13 @@ import (
 
 	"go.uber.org/zap"
 
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
-// CreateInput is the LLM-forge create payload; Progress (optional) streams env-fix attempts.
+// CreateInput is the LLM-build create payload; Progress (optional) streams env-fix attempts.
 type CreateInput struct {
 	Ops          []Op
 	ChangeReason string
@@ -133,7 +133,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 	}
 	v := newVersionFromDraft(versionID, hID, 1, draft, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.CreateWithVersion(ctx, h, v); err != nil {
@@ -142,7 +142,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 	s.publish(ctx, "created", hID, map[string]any{"versionId": versionID, "version": 1})
 
 	s.ensureEnv(ctx, v, in.Progress)
-	s.syncForgedEdge(ctx, hID, v.ForgedInConversationID)
+	s.syncBuiltEdge(ctx, hID, v.BuiltInConversationID)
 
 	h.ActiveVersion = v
 	return h, v, nil
@@ -201,7 +201,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 	versionID := idgenpkg.New("hdv")
 	v := newVersionFromDraft(versionID, in.ID, nextN, draft, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)

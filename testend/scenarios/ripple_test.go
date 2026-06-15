@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // rpKind 是矩阵一行：建（rp1 名）、改名（rp2 名）、删，及该实体的通知域前缀。
@@ -42,7 +42,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/functions/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/functions/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/functions/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -57,7 +57,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/handlers/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/handlers/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/handlers/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -69,7 +69,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/agents/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/agents/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/agents/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -85,7 +85,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/controls/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/controls/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/controls/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -99,7 +99,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/approvals/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/approvals/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/approvals/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -115,7 +115,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/workflows/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/workflows/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/workflows/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -129,7 +129,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/triggers/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/triggers/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/triggers/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/documents/"+id, map[string]any{"name": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/documents/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/documents/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -153,7 +153,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 				wc.PATCH("/api/v1/conversations/"+id, map[string]any{"title": name}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/conversations/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/conversations/"+id).OK(t, nil)
 			},
 		},
 	}
@@ -337,7 +337,7 @@ func TestRippleR5_RelationGraphFaces(t *testing.T) {
 	})
 
 	// 删除中心实体 → 其边集级联清（agent 邻域消失）。
-	wc.DELETE("/api/v1/agents/" + agID).OK(t, nil)
+	wc.DELETE("/api/v1/agents/"+agID).OK(t, nil)
 	harness.Eventually(t, 15000, "deleted agent's edges purge", func() bool {
 		n := neighborhood("function", fnID)
 		return !strings.Contains(n, agID)
@@ -367,7 +367,7 @@ func TestRippleR5_ReferenceRipples(t *testing.T) {
 	healthy := string(r.Data)
 
 	// 删被引用的 fn → 体检报缺（且含该节点/ref 线索）。
-	wc.DELETE("/api/v1/functions/" + fnID).OK(t, nil)
+	wc.DELETE("/api/v1/functions/"+fnID).OK(t, nil)
 	r = wc.POST("/api/v1/workflows/"+wfID+":capability-check", nil)
 	if r.Status != 200 {
 		t.Fatalf("capability-check after delete: %d %s", r.Status, r.Raw)

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 // checkBinaryExists guards against env corruption — a dangling symlink left

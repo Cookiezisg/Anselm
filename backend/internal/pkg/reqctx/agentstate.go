@@ -3,7 +3,7 @@ package reqctx
 import (
 	"context"
 
-	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
+	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
 )
 
 type agentStateKey struct{}

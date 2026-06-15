@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // NamesByIDs implements relationapp.Namer: a batch id→name lookup for relation-graph
@@ -24,8 +24,8 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 	return out, nil
 }
 
-// syncForgedEdge records the "create" edge from the originating conversation to v1.
-func (s *Service) syncForgedEdge(ctx context.Context, hID string, convID *string) {
+// syncBuiltEdge records the "create" edge from the originating conversation to v1.
+func (s *Service) syncBuiltEdge(ctx context.Context, hID string, convID *string) {
 	if s.relations == nil || convID == nil || *convID == "" {
 		return
 	}
@@ -36,7 +36,7 @@ func (s *Service) syncForgedEdge(ctx context.Context, hID string, convID *string
 	}}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindHandler, hID,
 		[]string{relationdomain.KindCreate}, edges); err != nil {
-		s.log.Warn("handlerapp: sync forged edge failed", zap.String("handlerId", hID), zap.Error(err))
+		s.log.Warn("handlerapp: sync built edge failed", zap.String("handlerId", hID), zap.Error(err))
 	}
 }
 
@@ -55,7 +55,7 @@ func (s *Service) syncEditedEdge(ctx context.Context, hID string) {
 		s.log.Warn("handlerapp: sync edited edge: get active failed", zap.String("handlerId", hID), zap.Error(err))
 		return
 	}
-	editorConv := deref(active.ForgedInConversationID)
+	editorConv := deref(active.BuiltInConversationID)
 	originConv := s.originConvID(ctx, hID)
 
 	var edges []relationdomain.SyncEdge
@@ -88,7 +88,7 @@ func (s *Service) originConvID(ctx context.Context, hID string) string {
 	if err != nil {
 		return ""
 	}
-	return deref(v1.ForgedInConversationID)
+	return deref(v1.BuiltInConversationID)
 }
 
 func deref(p *string) string {

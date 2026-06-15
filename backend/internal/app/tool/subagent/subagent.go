@@ -18,8 +18,8 @@ import (
 	"slices"
 	"strings"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 var _ toolapp.Tool = (*Tool)(nil)

@@ -2,7 +2,7 @@ package reqctx
 
 import (
 	"context"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // ErrMissingWorkspaceID is returned when ctx carries no workspace ID at a point that requires

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
 )
 
 // Advance is the idempotent heart of the engine: walk the run's FROZEN graph against its memoized

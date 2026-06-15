@@ -17,8 +17,8 @@
 package filesystem
 
 import (
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
 )
 
 // FilesystemTools constructs the three file-operation tools wired with their

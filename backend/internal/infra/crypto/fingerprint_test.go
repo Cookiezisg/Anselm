@@ -39,7 +39,7 @@ func TestMachineFingerprint_NoHardcodedFallback(t *testing.T) {
 	// Regression: ensure no hardcoded fallback string ever leaks back in.
 	// 回归：确保任何硬编码 fallback 不再泄漏。
 	fp, _ := MachineFingerprint()
-	forbidden := []string{"forgify-fallback-key", "fallback", "default", "unknown"}
+	forbidden := []string{"foryx-fallback-key", "fallback", "default", "unknown"}
 	for _, bad := range forbidden {
 		if fp == bad {
 			t.Errorf("fingerprint returned forbidden fallback %q", bad)

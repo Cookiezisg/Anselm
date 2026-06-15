@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // configArgs is the shared create/edit config payload (a full snapshot — edit REPLACES).
@@ -52,7 +52,7 @@ type CreateAgent struct{ svc *agentapp.Service }
 func (t *CreateAgent) Name() string { return "create_agent" }
 
 func (t *CreateAgent) Description() string {
-	return "Forge a new agent — a configured LLM worker that runs a ReAct loop. It writes no code; it mounts capabilities by reference: a prompt, an optional skill, knowledge documents, and tools (fn_/hd_/mcp refs). v1 takes effect immediately (no separate accept). Build an agent (not a function) when the task needs LLM reasoning/judgement across multiple tool calls; build a function for deterministic code."
+	return "Build a new agent — a configured LLM worker that runs a ReAct loop. It writes no code; it mounts capabilities by reference: a prompt, an optional skill, knowledge documents, and tools (fn_/hd_/mcp refs). v1 takes effect immediately (no separate accept). Build an agent (not a function) when the task needs LLM reasoning/judgement across multiple tool calls; build a function for deterministic code."
 }
 
 func (t *CreateAgent) Parameters() json.RawMessage {

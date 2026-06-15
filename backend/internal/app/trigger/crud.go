@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	croninfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/cron"
-	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	croninfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/cron"
+	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // CreateInput is a new trigger's fields.
@@ -58,7 +58,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Tr
 	}
 	s.notifySearch(ctx, t.ID)
 	s.syncSensorBinding(ctx, t)
-	s.syncForgedEdge(ctx, t.ID)
+	s.syncBuiltEdge(ctx, t.ID)
 	return t, nil
 }
 

@@ -15,7 +15,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Item statuses. A removed task simply isn't in the next write (whole-list replace) —

@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
 )
 
 // fakeKeys implements apikeydomain.KeyProvider (shared with fetch_test).

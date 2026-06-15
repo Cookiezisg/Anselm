@@ -50,7 +50,7 @@ class _Translations$app$zh implements Translations$app$en {
 	final TranslationsZh _root; // ignore: unused_field
 
 	// Translations
-	@override String get name => 'Forgify';
+	@override String get name => 'Foryx';
 }
 
 // Path: backend
@@ -60,7 +60,7 @@ class _Translations$backend$zh implements Translations$backend$en {
 	final TranslationsZh _root; // ignore: unused_field
 
 	// Translations
-	@override String get starting => '正在启动 Forgify…';
+	@override String get starting => '正在启动 Foryx…';
 	@override String get crashedTitle => '后端启动失败';
 	@override String get retry => '重试';
 }
@@ -100,8 +100,8 @@ class _Translations$nav$zh implements Translations$nav$en {
 extension on TranslationsZh {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
-			'app.name' => 'Forgify',
-			'backend.starting' => '正在启动 Forgify…',
+			'app.name' => 'Foryx',
+			'backend.starting' => '正在启动 Foryx…',
 			'backend.crashedTitle' => '后端启动失败',
 			'backend.retry' => '重试',
 			'workspace.selectTitle' => '选择一个工作区',

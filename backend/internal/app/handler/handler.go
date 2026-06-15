@@ -1,4 +1,4 @@
-// Package handler (app layer) orchestrates the handler domain: forging class versions
+// Package handler (app layer) orchestrates the handler domain: building class versions
 // from ops, encrypted init-args config, env materialization (via app/envfix), and the
 // MCP-style resident-instance lifecycle (boot / restart / shutdown). The relation /
 // catalog / mention adapters mirror function.
@@ -8,7 +8,7 @@
 // handler, spawned at boot / first call, restarted on edit / config-change / crash,
 // gracefully shut down on app exit; all callers share it (true shared state).
 //
-// Package handler（app 层）编排 handler domain：ops 锻造类版本、加密 init-args config、env 物化
+// Package handler（app 层）编排 handler domain：ops 构建类版本、加密 init-args config、env 物化
 // （经 app/envfix）、MCP 式常驻实例生命周期（boot / restart / shutdown）。relation / catalog /
 // mention 适配器镜像 function。版本模型同 function（方案 A）。
 package handler
@@ -20,16 +20,16 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	cryptodomain "github.com/sunweilin/forgify/backend/internal/domain/crypto"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	handlerinfra "github.com/sunweilin/forgify/backend/internal/infra/handler"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	handlerinfra "github.com/sunweilin/foryx/backend/internal/infra/handler"
 )
 
 // SandboxRunner is the long-lived spawn + cleanup surface (env materialization goes
@@ -172,9 +172,9 @@ func envOwner(handlerID, envID string) sandboxdomain.Owner {
 func (s *Service) ensureEnv(ctx context.Context, v *handlerdomain.Version, sink envfixapp.Sink) (ready bool, errMsg string) {
 	_ = s.repo.UpdateVersionEnv(ctx, v.ID, handlerdomain.EnvStatusSyncing, "", v.Dependencies, nil)
 
-	// Tee attempts to the panel's forge terminal regardless of caller (parity with function).
-	// 把尝试行 tee 到面板锻造终端、不分调用方（与 function 对齐）。
-	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: v.HandlerID}, entitystreamapp.NodeForge, nil)
+	// Tee attempts to the panel's build terminal regardless of caller (parity with function).
+	// 把尝试行 tee 到面板构建终端、不分调用方（与 function 对齐）。
+	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: v.HandlerID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
 

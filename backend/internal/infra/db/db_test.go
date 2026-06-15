@@ -25,8 +25,8 @@ func TestOpen_FileDB_CreatesFile(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	if _, err := os.Stat(filepath.Join(dir, "forgify.db")); err != nil {
-		t.Errorf("forgify.db not created: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, "foryx.db")); err != nil {
+		t.Errorf("foryx.db not created: %v", err)
 	}
 }
 

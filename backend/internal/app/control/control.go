@@ -1,4 +1,4 @@
-// Package control (app layer) orchestrates the control-logic domain: forging versions
+// Package control (app layer) orchestrates the control-logic domain: building versions
 // from a full branch set (no ops — branches are an atomic whole), compiling every
 // branch's when/emit via pkg/cel at create/edit time, and the relation / catalog
 // adapters. The version model is a linear, append-only history with a free-moving
@@ -8,7 +8,7 @@
 // an activity — the Service exposes Resolve so the interpreter reads the pinned version's
 // branches.
 //
-// Package control（app 层）编排 control 逻辑 domain：从完整 branch 组锻造版本（无 ops——branches
+// Package control（app 层）编排 control 逻辑 domain：从完整 branch 组构建版本（无 ops——branches
 // 是整体）、create/edit 时用 pkg/cel 编译每个分支的 when/emit、relation / catalog 适配器。版本
 // 模型线性、只增 + 可自由移动的 ActiveVersionID 指针——无 pending/accept。create/edit 写新版本并
 // 立即生效；revert 只移指针。无 run/executions——control 节点是纯控制流，由 durable 解释器
@@ -20,10 +20,10 @@ import (
 
 	"go.uber.org/zap"
 
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service control consumes (nil-tolerant).

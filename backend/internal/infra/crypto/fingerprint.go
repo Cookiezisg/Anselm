@@ -5,7 +5,7 @@ package crypto
 
 import (
 	"fmt"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 	"os"
 	"os/exec"
 	"runtime"

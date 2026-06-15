@@ -1,4 +1,4 @@
-/* Forgify design-lab — 左侧栏【固定外壳 chrome】。与四海洋的侧栏内容彻底解耦，互不打扰。
+/* Foryx design-lab — 左侧栏【固定外壳 chrome】。与四海洋的侧栏内容彻底解耦，互不打扰。
    外壳只管：岛皮肤 + 红绿灯/折叠/搜索 + 四导航切换器 + 工作区/通知/设置 + 收起拖拽 + #sidebody 宿主。
    每个海洋的侧栏内容各自一个文件 sidebar/<id>.{js,css}，经 SideBar.register(id, render) 注册；
    外壳据四导航 mount(id) → 已注册则渲染，未注册则占位并按需懒加载 sidebar/<id>.js（缺文件则保持占位）。

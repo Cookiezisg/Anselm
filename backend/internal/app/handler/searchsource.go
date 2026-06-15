@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

@@ -1,4 +1,4 @@
-// Package agent (app layer) orchestrates the agent domain: forging config versions, running
+// Package agent (app layer) orchestrates the agent domain: building config versions, running
 // the ReAct loop (invoke), the execution-log surface, and the relation / catalog adapters.
 //
 // The version model is linear append-only with a free-moving ActiveVersionID pointer — no
@@ -8,7 +8,7 @@
 // version's fn_/hd_/mcp refs into bound tools), a skill-guide renderer, and a knowledge
 // renderer — none of which the agent owns.
 //
-// Package agent（app 层）编排 agent domain：锻造配置版本、跑 ReAct loop（invoke）、execution-log
+// Package agent（app 层）编排 agent domain：构建配置版本、跑 ReAct loop（invoke）、execution-log
 // 面、relation / catalog 适配器。版本模型线性只增 + 可移动 ActiveVersionID 指针——无 pending/accept。
 // create/edit 写新版本（max+1）立即生效；revert 只移指针。agent 不写代码，故**无 sandbox 依赖**；
 // invoke 需四个注入端口（DIP）：LLM resolver、mount resolver（把版本的 fn_/hd_/mcp ref 合成绑定
@@ -20,15 +20,15 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // LLMBundle is a ready-to-run LLM client + a pre-filled base Request (ModelID/Key/BaseURL/
@@ -109,10 +109,10 @@ type InvokeDeps struct {
 
 // RelationSyncer is the slice of relationapp.Service the agent consumes (nil-tolerant). Agents
 // have both outgoing edges (the mounted skill/doc/fn/hd/mcp) and incoming edges (the
-// conversation that forged/edited a version).
+// conversation that built/edited a version).
 //
 // RelationSyncer 是 agent 消费的 relationapp.Service 切片（允许 nil）。agent 有出边（挂载的
-// skill/doc/fn/hd/mcp）也有入边（锻造/编辑某版本的对话）。
+// skill/doc/fn/hd/mcp）也有入边（构建/编辑某版本的对话）。
 type RelationSyncer interface {
 	SyncOutgoing(ctx context.Context, fromKind, fromID string, kindScope []string, edges []relationdomain.SyncEdge) error
 	SyncIncoming(ctx context.Context, toKind, toID string, kindScope []string, edges []relationdomain.SyncEdge) error

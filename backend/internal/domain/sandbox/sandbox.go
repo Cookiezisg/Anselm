@@ -13,7 +13,7 @@ import (
 	"io"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Owner kinds — the entity types that can own an isolated env. function/handler/mcp/skill/

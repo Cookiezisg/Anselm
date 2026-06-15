@@ -11,12 +11,12 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	approvalapp "github.com/sunweilin/foryx/backend/internal/app/approval"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	approvalstore "github.com/sunweilin/foryx/backend/internal/infra/store/approval"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func newToolSvc(t *testing.T) (*approvalapp.Service, context.Context) {

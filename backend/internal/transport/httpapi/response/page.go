@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	paginationpkg "github.com/sunweilin/forgify/backend/internal/pkg/pagination"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	paginationpkg "github.com/sunweilin/foryx/backend/internal/pkg/pagination"
 )
 
 // Pagination bounds (N4: every List endpoint is cursor-paged).

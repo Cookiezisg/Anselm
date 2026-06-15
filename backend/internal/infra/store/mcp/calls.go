@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 func (s *Store) SaveCall(ctx context.Context, c *mcpdomain.Call) error {

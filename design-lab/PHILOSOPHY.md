@@ -1,6 +1,6 @@
-# Forgify 产品哲学（交互形态）
+# Foryx 产品哲学（交互形态）
 
-> 这里写「Forgify 长什么样、为什么这样」。它是**形态的事实源**——
+> 这里写「Foryx 长什么样、为什么这样」。它是**形态的事实源**——
 > 先在 `design-lab/` 用 HTML 把交互聊清楚，定稿后再统一落 Flutter。
 > 这些 demo **不连后端**，纯讲交互逻辑与视觉语言。
 
@@ -33,7 +33,7 @@
   + 工具条（Auto · + · mic ｜ 模型 · 模式 · spinner）。
 - **明暗双主题**。
 
-> 先把视觉参考做扎实，确认味儿对了，再讨论把 Forgify 自己的 IA（四实体 / 信号交互）映射进这套外壳。
+> 先把视觉参考做扎实，确认味儿对了，再讨论把 Foryx 自己的 IA（四实体 / 信号交互）映射进这套外壳。
 
 ## 二、颜色 + 字体（这两样不取 Claude 的）
 
@@ -47,15 +47,15 @@
 - **紧凑**：行高基准 `32px`；`tool_call` 与 `reasoning` 默认折叠——信息密度高但不喧闹。
 - **动效是灵魂**：收尾微弹的 spring 曲线（`--ease-spring`），让一切切换有「物理感」。
 
-## 三、四导航（Chat · Forge · Documents · Notifications）
+## 三、四导航（Chat · Build · Documents · Notifications）
 
 左导航**顶部**四个可切换项。**选中的展开显示名字 + 高亮 pill，未选的只剩一个图标**；
 切换时旧标签收起、新标签弹开，高亮平滑移动（参考 Notion 2026.03 新版 UI 的切换动效——
 *当前为近似实现，待对照原参考微调*）。导航**底部**是工作区信息 + 设置。
 
 - **Chat**：主入口，与一般对话产品无异（见下「信号交互」是唯一的不同）。
-- **Forge**：四类实体的家（**Quadrinity**：Function / Handler / Agent / Workflow）。
-  *命名建议 `Forge`——契合品牌「锻造能力」；你定。* trigger / control / approval 不进顶层，
+- **Build**：四类实体的家（**Quadrinity**：Function / Handler / Agent / Workflow）。
+  *命名建议 `Build`——契合品牌「构建能力」；你定。* trigger / control / approval 不进顶层，
   它们是 workflow 图里的节点，活在 workflow 构建器内部。
 - **Documents**：知识库（文档 / 记忆 / 技能）。
 - **Notifications**：通知（运行完成、待审批、实体变更…），带未读角标。
@@ -66,7 +66,7 @@
 > 从右滑入，model 闪光改值、system prompt 逐字流入、`web_search` 工具弹入、版本 v4→v5；
 > 中间对话同步出 `Used 2 tools ›` + `Updated Researcher v4→v5`；卡可关闭、ref 药丸点了重唤。
 
-这是 Forgify 与普通 chat 产品**唯一也是最重要的不同**，要非常认真地做：
+这是 Foryx 与普通 chat 产品**唯一也是最重要的不同**，要非常认真地做：
 
 聊天里 AI 调用了和某个**实体**相关的 Tool Call（如 `update_agent`）时——
 **那个实体的卡片从右侧作为一座岛滑入**，并以**流式效果**实时展示 AI 的编辑过程：
@@ -74,11 +74,11 @@
 可**手动切换**看不同实体；但只要 AI 聊到了某个实体，就**动画切换**过去。
 
 - **物理直觉**：左边是「正在发生的对话」，右边是「对话正在塑造的东西」。
-  AI 不只是回字，它在你眼前**锻造实体**——这正是 Forgify 的世界观。
+  AI 不只是回字，它在你眼前**构建实体**——这正是 Foryx 的世界观。
 - **数据契约**：实体卡的流式来自后端三条 SSE 之一（`entities` / `messages`）。
   铁律 **DB 行是真相、流只为实时**：`seq>0` 才耐久落缓存 / 推进续传游标；
   `delta`·`tick`（`seq=0`）只改瞬时视图态、不进耐久层。
-- **它也是通用面**：在 Forge 里点任一实体，同一张卡静态打开（无流式）——
+- **它也是通用面**：在 Build 里点任一实体，同一张卡静态打开（无流式）——
   证明右岛是统一的「实体详情/编辑」面，chat 只是给它接上了 AI 的实时驱动。
 - **工具调用块 = 复刻 Claude Code（不自创；规矩详见 [`reference.html`](reference.html) 四）**：
   平时**一行、无框**（`Used N tools ›`）；**展开**是一个外框，里面是工具列表；**点某个工具**展开它自己的
@@ -104,7 +104,7 @@
 
 ## 七、待定（你来拍）
 
-- 「实体」顶层导航叫 **Forge**？还是别的（Entities / Build / Studio…）。
+- 「实体」顶层导航叫 **Build**？还是别的（Entities / Studio…）。
 - Notion 2026.03 切换动效的精确曲线/位移（现为近似）。
 - 强调色：沿用 Apple blue，还是换回品牌 indigo（`#4F46E5`）/ 其它。
-- Forge 之外，MCP 连接器 / Skills / Memory 挂哪（暂归 Documents / Settings）。
+- Build 之外，MCP 连接器 / Skills / Memory 挂哪（暂归 Documents / Settings）。

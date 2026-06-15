@@ -9,10 +9,10 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	approvalstore "github.com/sunweilin/forgify/backend/internal/infra/store/approval"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	approvalstore "github.com/sunweilin/foryx/backend/internal/infra/store/approval"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func newSvc(t *testing.T) (*Service, context.Context) {

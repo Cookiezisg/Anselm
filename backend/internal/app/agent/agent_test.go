@@ -10,13 +10,13 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	agentstore "github.com/sunweilin/forgify/backend/internal/infra/store/agent"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	agentstore "github.com/sunweilin/foryx/backend/internal/infra/store/agent"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // fakeLLMClient replays one scripted step of stream events.

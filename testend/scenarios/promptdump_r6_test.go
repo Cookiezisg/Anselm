@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // TestPromptR6_SubagentViewpoint: subagent 收到的是自足 prompt——父对话历史零泄漏、
@@ -48,7 +48,7 @@ func TestPromptR6_SubagentViewpoint(t *testing.T) {
 	if !child.HasMessage("user", "focused question") {
 		t.Fatalf("subagent must receive the self-contained prompt, got %+v", child.Messages)
 	}
-	// 工具子集：Explore 是只读侦察集——无 Subagent（递归守卫）、无锻造工具。
+	// 工具子集：Explore 是只读侦察集——无 Subagent（递归守卫）、无构建工具。
 	for _, name := range child.Tools {
 		if name == "Subagent" || name == "create_function" || name == "run_function" {
 			t.Fatalf("Explore subagent toolset leaked %s: %v", name, child.Tools)
@@ -77,7 +77,7 @@ func TestPromptR6_FrontendWireShapes(t *testing.T) {
 		t.Fatalf("turn must complete, got %s", turn.Status)
 	}
 	fnID := fnCreate(t, wc, "wire_fn", "def wire_fn() -> dict:\n    return {}\n")
-	// 帧到达是异步的——审计前先各等到货（entities 帧随 env 物化/锻造镜像）。
+	// 帧到达是异步的——审计前先各等到货（entities 帧随 env 物化/构建镜像）。
 	es.WaitFor(t, 15000, "entities frames arrive", fnID)
 	ns.WaitFor(t, 15000, "notification frame arrives", "function.")
 

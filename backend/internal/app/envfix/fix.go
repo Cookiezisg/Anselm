@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	modelclientapp "github.com/sunweilin/forgify/backend/internal/app/modelclient"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	jsonrepairpkg "github.com/sunweilin/forgify/backend/internal/pkg/jsonrepair"
+	modelclientapp "github.com/sunweilin/foryx/backend/internal/app/modelclient"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	jsonrepairpkg "github.com/sunweilin/foryx/backend/internal/pkg/jsonrepair"
 )
 
 // suggestDeps asks the utility model for a revised dependency list given the failing

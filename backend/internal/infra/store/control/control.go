@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the control tables' DDL, exported as ordered idempotent statements for
@@ -47,7 +47,7 @@ var Schema = []string{
 		inputs                    TEXT NOT NULL DEFAULT '[]',
 		branches                  TEXT NOT NULL DEFAULT '[]',
 		change_reason             TEXT NOT NULL DEFAULT '',
-		forged_in_conversation_id TEXT,
+		built_in_conversation_id TEXT,
 		created_at                DATETIME NOT NULL,
 		updated_at                DATETIME NOT NULL
 	)`,

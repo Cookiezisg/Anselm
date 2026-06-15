@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // promptSetup boots server+mock with a workspace of the given UI language, registers the mock
@@ -50,7 +50,7 @@ var safetyTheaterPhrases = []string{
 // TestPromptDump_ChatSystemPromptStructure 审读 chat 主 LLM 的 system prompt 结构与体验质量。
 func TestPromptDump_ChatSystemPromptStructure(t *testing.T) {
 	wc, mock, _ := promptSetup(t, "en")
-	// 建一个 function 使 capabilities 段非空（forged 实体真出现在菜单里）。
+	// 建一个 function 使 capabilities 段非空（built 实体真出现在菜单里）。
 	fnCreate(t, wc, "weather_lookup", "def f(city: str) -> dict:\n    return {\"c\": city}\n")
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "hi."})
@@ -73,12 +73,12 @@ func TestPromptDump_ChatSystemPromptStructure(t *testing.T) {
 	if n := strings.Count(sys, `name="identity"`); n != 1 {
 		t.Errorf("identity section appears %d times (want 1)", n)
 	}
-	// lazy 工具目录浮出（LLM 知道全集、不盲搜），且 forged function 进了 capabilities 菜单。
+	// lazy 工具目录浮出（LLM 知道全集、不盲搜），且 built function 进了 capabilities 菜单。
 	if !strings.Contains(sys, "Searchable tools:") || !strings.Contains(sys, "run_function") {
 		t.Errorf("tools section did not surface the lazy-tool catalog:\n%s", sys)
 	}
 	if !strings.Contains(sys, "weather_lookup") {
-		t.Errorf("capabilities section did not include the forged function weather_lookup")
+		t.Errorf("capabilities section did not include the built function weather_lookup")
 	}
 	// 无空 section 残壳（每个 <section> 后跟非空内容）。
 	if strings.Contains(sys, "</section>\n\n<section") == false && strings.Contains(sys, "</section>") {
@@ -149,7 +149,7 @@ func TestPromptDump_PreviewEndpointFidelity(t *testing.T) {
 	var pv struct {
 		SystemPrompt string `json:"systemPrompt"`
 	}
-	wc.GET("/api/v1/conversations/" + convID + "/system-prompt-preview").OK(t, &pv)
+	wc.GET("/api/v1/conversations/"+convID+"/system-prompt-preview").OK(t, &pv)
 	if strings.TrimSpace(pv.SystemPrompt) != strings.TrimSpace(d.System) {
 		t.Errorf("preview drifted from the real wire system prompt.\n--- preview ---\n%s\n--- wire ---\n%s",
 			pv.SystemPrompt, d.System)
@@ -190,7 +190,7 @@ func TestPromptDump_UtilityViewpointIsolation(t *testing.T) {
 	}
 }
 
-// TestPromptDump_EmptyStateCoherence 审读空态（自举）：零 forged 实体的 workspace，system prompt
+// TestPromptDump_EmptyStateCoherence 审读空态（自举）：零 built 实体的 workspace，system prompt
 // 仍连贯——capabilities 段要么缺席、要么是连贯的空提示，绝不是半截残壳。
 func TestPromptDump_EmptyStateCoherence(t *testing.T) {
 	wc, mock, _ := promptSetup(t, "en") // 不建任何实体
@@ -215,7 +215,7 @@ func TestPromptDump_EmptyStateCoherence(t *testing.T) {
 
 // TestPromptDump_AgentViewpoint 审读 Agent 实体视角：HTTP :invoke 一个 agent，它收到的 system
 // prompt 是「你是 <name>，一个 workflow 自动化 worker + 你的角色…」——与 chat 主视角（You are
-// Forgify + 全 section 菜单）完全隔离，且只挂载它被授予的工具。
+// Foryx + 全 section 菜单）完全隔离，且只挂载它被授予的工具。
 func TestPromptDump_AgentViewpoint(t *testing.T) {
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
@@ -245,8 +245,8 @@ func TestPromptDump_AgentViewpoint(t *testing.T) {
 	if !strings.Contains(sys, "crunch numbers and report") {
 		t.Errorf("agent system prompt missing its role (description)")
 	}
-	// 与 chat 主视角隔离：无 Forgify 身份、无 chat 的 section 菜单。
-	if strings.Contains(sys, "You are Forgify") || strings.Contains(sys, `name="identity"`) {
+	// 与 chat 主视角隔离：无 Foryx 身份、无 chat 的 section 菜单。
+	if strings.Contains(sys, "You are Foryx") || strings.Contains(sys, `name="identity"`) {
 		t.Errorf("agent prompt leaked the chat main viewpoint:\n%s", sys)
 	}
 }
@@ -271,7 +271,7 @@ func TestPromptDump_I18nReplyLanguage(t *testing.T) {
 				tc.lang, tc.wantReply, d.System)
 		}
 		// prompt 本体英文（不因任何语言把整 prompt 翻译）。
-		if !strings.Contains(d.System, "You are Forgify") {
+		if !strings.Contains(d.System, "You are Foryx") {
 			t.Errorf("lang %q: identity instruction is not English (prompt body should stay English)", tc.lang)
 		}
 	}

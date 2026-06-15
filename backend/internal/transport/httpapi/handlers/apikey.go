@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	apikeyapp "github.com/sunweilin/foryx/backend/internal/app/apikey"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // APIKeyHandler serves /api/v1/api-keys (CRUD + :test) and /api/v1/providers

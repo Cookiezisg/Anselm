@@ -1,4 +1,4 @@
-// Package workflow (app layer) orchestrates the workflow graph domain: forging graph
+// Package workflow (app layer) orchestrates the workflow graph domain: building graph
 // versions from ops, validating + CEL-compiling each version at create/edit time, pinning a
 // graph's referenced entities to their active versions, and the relation / catalog adapters.
 // The version model is a linear, append-only history with a free-moving ActiveVersionID
@@ -11,7 +11,7 @@
 // version expose this method?) is delegated to an injected RefResolver port, faked in tests
 // and wired to the real capability catalog at assembly.
 //
-// Package workflow（app 层）编排 workflow 图 domain：从 ops 锻造图版本、create/edit 时校验 +
+// Package workflow（app 层）编排 workflow 图 domain：从 ops 构建图版本、create/edit 时校验 +
 // 编译每版本的 CEL、把图引用的实体 pin 到其 active 版本、relation / catalog 适配器。版本模型线性、
 // 只增 + 可自由移动的 ActiveVersionID 指针——无 pending/accept。create/edit 写新版本并立即生效；
 // revert 只移指针。
@@ -26,10 +26,10 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
 )
 
 // RefInfo is what a RefResolver reports about a resolved node ref: its entity kind (one of

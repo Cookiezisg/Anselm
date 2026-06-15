@@ -1,9 +1,9 @@
 // sinks.go provides the reusable Sink adapters: WriterSink renders attempts as human
-// lines onto any io.Writer (the entity panel's forge terminal), MultiSink fans one
+// lines onto any io.Writer (the entity panel's build terminal), MultiSink fans one
 // provision's events to several observers (caller's chat progress + the panel).
 //
 // sinks.go 提供可复用 Sink 适配器：WriterSink 把尝试渲染成人类可读行写进任意 io.Writer
-// （实体面板锻造终端），MultiSink 把一次物化的事件扇给多个观察者（调用方 chat 进度 + 面板）。
+// （实体面板构建终端），MultiSink 把一次物化的事件扇给多个观察者（调用方 chat 进度 + 面板）。
 package envfix
 
 import (

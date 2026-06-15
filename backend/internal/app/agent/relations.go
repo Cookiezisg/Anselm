@@ -6,15 +6,15 @@ import (
 
 	"go.uber.org/zap"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // syncRelations re-syncs the agent's outgoing equip edges (the mounted fn/hd/mcp/doc/skill on
-// the active version) plus the incoming create/edit edge from the conversation that forged it.
+// the active version) plus the incoming create/edit edge from the conversation that built it.
 // Recomputed on Create / Edit / Revert (active version changed → mounts may have changed).
 //
-// syncRelations 重 sync agent 的出向 equip 边（active 版本挂载的 fn/hd/mcp/doc/skill）+ 锻造它的
+// syncRelations 重 sync agent 的出向 equip 边（active 版本挂载的 fn/hd/mcp/doc/skill）+ 构建它的
 // 对话的入向 create/edit 边。Create / Edit / Revert 后重算（active 版本变 → 挂载可能变）。
 func (s *Service) syncRelations(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version) {
 	if s.relations == nil {
@@ -24,7 +24,7 @@ func (s *Service) syncRelations(ctx context.Context, a *agentdomain.Agent, v *ag
 		[]string{relationdomain.KindEquip}, computeMountEdges(v)); err != nil {
 		s.log.Warn("agentapp.syncRelations: equip sync failed", zap.String("agentId", a.ID), zap.Error(err))
 	}
-	s.syncForgedEdge(ctx, a.ID, v)
+	s.syncBuiltEdge(ctx, a.ID, v)
 }
 
 // computeMountEdges derives equip out-edges from the active version's mounted refs:
@@ -71,14 +71,14 @@ func equip(kind, id string) relationdomain.SyncEdge {
 	return relationdomain.SyncEdge{OtherKind: kind, OtherID: id, Kind: relationdomain.KindEquip}
 }
 
-// syncForgedEdge records the create (v1) or edit (v>1) incoming edge from the conversation that
+// syncBuiltEdge records the create (v1) or edit (v>1) incoming edge from the conversation that
 // produced the active version. create and edit live in separate kind-scopes so they coexist
 // (v1's create edge survives later edits).
 //
-// syncForgedEdge 记录产出 active 版本的对话的 create（v1）/ edit（v>1）入边。create 与 edit 在不同
+// syncBuiltEdge 记录产出 active 版本的对话的 create（v1）/ edit（v>1）入边。create 与 edit 在不同
 // kind-scope，故共存（v1 的 create 边在后续 edit 后仍在）。
-func (s *Service) syncForgedEdge(ctx context.Context, agentID string, v *agentdomain.Version) {
-	if s.relations == nil || v.ForgedInConversationID == "" {
+func (s *Service) syncBuiltEdge(ctx context.Context, agentID string, v *agentdomain.Version) {
+	if s.relations == nil || v.BuiltInConversationID == "" {
 		return
 	}
 	kind := relationdomain.KindCreate
@@ -86,10 +86,10 @@ func (s *Service) syncForgedEdge(ctx context.Context, agentID string, v *agentdo
 		kind = relationdomain.KindEdit
 	}
 	edges := []relationdomain.SyncEdge{
-		{OtherKind: relationdomain.EntityKindConversation, OtherID: v.ForgedInConversationID, Kind: kind},
+		{OtherKind: relationdomain.EntityKindConversation, OtherID: v.BuiltInConversationID, Kind: kind},
 	}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindAgent, agentID, []string{kind}, edges); err != nil {
-		s.log.Warn("agentapp.syncForgedEdge: failed", zap.String("agentId", agentID), zap.Error(err))
+		s.log.Warn("agentapp.syncBuiltEdge: failed", zap.String("agentId", agentID), zap.Error(err))
 	}
 }
 
@@ -106,10 +106,10 @@ func (s *Service) purgeRelations(ctx context.Context, id string) {
 }
 
 // NamesByIDs implements relationapp.Namer: batch id→name so the relation graph hydrates
-// display names for agent nodes (the target end of workflow equip / conversation forged edges).
+// display names for agent nodes (the target end of workflow equip / conversation built edges).
 //
 // NamesByIDs 实现 relationapp.Namer：批量 id→name，供 relation 图为 agent 节点（workflow equip /
-// conversation forged 边的目标端）hydrate 显示名。
+// conversation built 边的目标端）hydrate 显示名。
 func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
 	rows, err := s.repo.GetByIDs(ctx, ids)
 	if err != nil {

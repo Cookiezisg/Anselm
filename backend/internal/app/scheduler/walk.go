@@ -3,8 +3,8 @@ package scheduler
 import (
 	"sort"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
 )
 
 // nodeKey addresses one (graph node, loop iteration) — the unit the interpreter schedules and

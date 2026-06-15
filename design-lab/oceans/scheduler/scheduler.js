@@ -1,4 +1,4 @@
-/* Forgify design-lab — 运行海洋编排（Scheduler/Operate，单独，一人负责整个 oceans/scheduler/）。
+/* Foryx design-lab — 运行海洋编排（Scheduler/Operate，单独，一人负责整个 oceans/scheduler/）。
    注册：Shell.registerOcean('scheduler',{crumb:'运行',build(sea)})。选中通道：Shell.openWorkflow(name)（沿用 documents/entities 的 Shell.openX 范式；侧栏 .wf 点击调它）。
    海面 = 选中 workflow 的驾驶舱：Zone0 attention rail + Zone1「Conducted Keynote」活运行图 + 运行头 + run-rail 历史。点节点 → 右岛看记忆化结果（loop → 逐迭代 stepper；parked → 内联 :decide）。
    纯静态示意：run 嵌冻结拓扑（镜像 flowruns.version_id）；状态枚举对齐后端（run=running/completed/failed/cancelled，node=completed/failed/parked/running/future）。

@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // chatHost is one generation's loop.Host: it loads the conversation history (history.go),

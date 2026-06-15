@@ -31,7 +31,7 @@ var noiseDirs = map[string]struct{}{
 	".venv":        {},
 	"venv":         {},
 	"__pycache__":  {},
-	".forgify":     {},
+	".foryx":       {},
 }
 
 // hasNoiseSegment reports whether any path segment of rel (slash- or OS-separated) is a noise

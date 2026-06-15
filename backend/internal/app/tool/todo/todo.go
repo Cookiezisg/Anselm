@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
+	todoapp "github.com/sunweilin/foryx/backend/internal/app/todo"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
 )
 
 // TodoTools constructs the todo tool group (resident — planning must not need discovery).

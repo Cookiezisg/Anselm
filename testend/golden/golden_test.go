@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 func TestMain(m *testing.M) {
@@ -141,7 +141,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)
 		var msgs []evalMsg
-		wc.GET("/api/v1/conversations/" + convID + "/messages?limit=80").OK(t, &msgs)
+		wc.GET("/api/v1/conversations/"+convID+"/messages?limit=80").OK(t, &msgs)
 		for _, m := range msgs {
 			if m.ID != msgID {
 				continue
@@ -217,7 +217,7 @@ func TestGolden_J5_DebugFunction(t *testing.T) {
 	var versions []struct {
 		Version int `json:"version"`
 	}
-	wc.GET("/api/v1/functions/" + fnID + "/versions").OK(t, &versions)
+	wc.GET("/api/v1/functions/"+fnID+"/versions").OK(t, &versions)
 	maxV := 0
 	for _, v := range versions {
 		if v.Version > maxV {
@@ -246,7 +246,7 @@ func TestGolden_J3_BuildAndCallHandler(t *testing.T) {
 	}
 }
 
-// ── J7 积木检索：搜到一个已锻造的 function ───────────────────────────────────
+// ── J7 积木检索：搜到一个已构建的 function ───────────────────────────────────
 // 预置一个 function，请真模型用搜索找到它并报出确切名字（驱动 search_tools/search_blocks）。
 func TestGolden_J7_SearchBuildingBlocks(t *testing.T) {
 	wc := evalWS(t)
@@ -257,10 +257,10 @@ func TestGolden_J7_SearchBuildingBlocks(t *testing.T) {
 
 	conv := newConv(t, wc, "find block")
 	out := say(t, wc, conv,
-		"I forged a function earlier that converts Celsius to Fahrenheit but I forget its exact name. "+
+		"I built a function earlier that converts Celsius to Fahrenheit but I forget its exact name. "+
 			"Search my workspace and tell me its exact name.", 180000)
 	if !strings.Contains(out, "celsius_to_fahrenheit") {
-		t.Errorf("model did not find the forged function by search:\n%s", out)
+		t.Errorf("model did not find the built function by search:\n%s", out)
 	}
 }
 

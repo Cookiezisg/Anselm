@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // RunInput is the request shape for RunFunction. TriggeredBy is the execution body

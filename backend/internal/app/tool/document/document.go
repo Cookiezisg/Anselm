@@ -12,10 +12,10 @@
 package document
 
 import (
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Input-validation sentinels shared across the document tools' ValidateInput. The id check

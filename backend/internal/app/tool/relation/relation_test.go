@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // TestGetRelations_Wiring: group shape + kind/id required (reuses the relation domain

@@ -9,9 +9,9 @@
 package approval
 
 import (
-	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	approvalapp "github.com/sunweilin/foryx/backend/internal/app/approval"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 // ApprovalTools constructs the approval-form system tools over the app service.

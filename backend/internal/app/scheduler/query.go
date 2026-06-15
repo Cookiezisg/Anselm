@@ -3,7 +3,7 @@ package scheduler
 import (
 	"context"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
 )
 
 // ListRuns pages a workspace's flowruns (newest-first; optional WorkflowID filter) for the run

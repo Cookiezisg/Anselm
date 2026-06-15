@@ -12,8 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	llmpkg "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	llmpkg "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // CapabilityView is one usable (key, model) pair with its capability specs and native configurable

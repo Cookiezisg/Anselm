@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // CreateInput is the create payload: full metadata + the prompt template + decision rules.
@@ -72,14 +72,14 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*approvaldomain.A
 	}
 	v := newVersion(versionID, formID, 1, in.Inputs, in.Template, in.AllowReason, in.Timeout, in.TimeoutBehavior, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.CreateWithVersion(ctx, f, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("approvalapp.Create: %w", err)
 	}
 	s.publish(ctx, "created", formID, map[string]any{"versionId": versionID, "version": 1})
-	s.syncForgedEdge(ctx, formID, v.ForgedInConversationID)
+	s.syncBuiltEdge(ctx, formID, v.BuiltInConversationID)
 
 	f.ActiveVersion = v
 	return f, v, nil
@@ -103,7 +103,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*approvaldomain.Versi
 	versionID := idgenpkg.New("apfv")
 	v := newVersion(versionID, in.ID, max+1, in.Inputs, in.Template, in.AllowReason, in.Timeout, in.TimeoutBehavior, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("approvalapp.Edit: %w", err)

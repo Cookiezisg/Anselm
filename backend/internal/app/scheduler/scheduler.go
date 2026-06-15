@@ -23,14 +23,14 @@ import (
 
 	"go.uber.org/zap"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // MaxIterations caps how many loop turns a single back edge may drive before the run is failed —

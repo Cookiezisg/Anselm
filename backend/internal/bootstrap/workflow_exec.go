@@ -3,7 +3,7 @@ package bootstrap
 import (
 	"context"
 
-	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
+	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
 )
 
 // runnerAdapter bridges workflowapp.Runner (primitive params, defined in the workflow package so it

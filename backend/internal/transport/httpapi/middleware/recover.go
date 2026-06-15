@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // Recover catches panics into 500 INTERNAL_ERROR; must be the OUTERMOST middleware.

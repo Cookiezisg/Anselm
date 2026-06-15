@@ -1,6 +1,6 @@
 package handler
 
-import schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+import schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 
 // MethodSpec is one Python method's full description (I/O schema + body).
 //

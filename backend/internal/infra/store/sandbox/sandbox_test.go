@@ -9,8 +9,8 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 func newStore(t *testing.T) *Store {

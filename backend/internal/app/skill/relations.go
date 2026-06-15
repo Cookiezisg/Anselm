@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // RelationSyncer is the slice of the relation Service that skill consumes (nil-tolerant).
@@ -70,10 +70,10 @@ func (s *Service) syncEquipEdges(ctx context.Context, name string, allowedTools 
 	}
 }
 
-// syncForgedEdge records the conversation→skill create edge when a skill is authored in a chat.
+// syncBuiltEdge records the conversation→skill create edge when a skill is authored in a chat.
 //
-// syncForgedEdge 在 skill 于对话中被创作时记 conversation→skill 的 create 边。
-func (s *Service) syncForgedEdge(ctx context.Context, name string) {
+// syncBuiltEdge 在 skill 于对话中被创作时记 conversation→skill 的 create 边。
+func (s *Service) syncBuiltEdge(ctx context.Context, name string) {
 	if s.relations == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func (s *Service) syncForgedEdge(ctx context.Context, name string) {
 	}}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindSkill, name,
 		[]string{relationdomain.KindCreate}, edges); err != nil {
-		s.log.Warn("skillapp: sync forged edge failed", zap.String("skill", name), zap.Error(err))
+		s.log.Warn("skillapp: sync build edge failed", zap.String("skill", name), zap.Error(err))
 	}
 }
 

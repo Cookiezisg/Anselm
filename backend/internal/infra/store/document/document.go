@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the documents DDL, exported as ordered idempotent statements for

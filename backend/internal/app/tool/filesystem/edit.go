@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	fspathpkg "github.com/sunweilin/forgify/backend/internal/pkg/fspath"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	fspathpkg "github.com/sunweilin/foryx/backend/internal/pkg/fspath"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 var (
@@ -179,7 +179,7 @@ func (t *Edit) Execute(ctx context.Context, argsJSON string) (string, error) {
 	}
 
 	parent := filepath.Dir(cleaned)
-	tmpFile, err := os.CreateTemp(parent, ".forgify-edit-*")
+	tmpFile, err := os.CreateTemp(parent, ".foryx-edit-*")
 	if err != nil {
 		return fmt.Sprintf("Edit failed (cannot create temp): %v", err), nil
 	}

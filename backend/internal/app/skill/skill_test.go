@@ -7,11 +7,11 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
-	skillfs "github.com/sunweilin/forgify/backend/internal/infra/fs/skill"
-	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
+	skillfs "github.com/sunweilin/foryx/backend/internal/infra/fs/skill"
+	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.Background(), id) }

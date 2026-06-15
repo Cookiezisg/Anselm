@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
-	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	relationapp "github.com/sunweilin/foryx/backend/internal/app/relation"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // RelationHandler serves 3 read-only endpoints over cross-entity relations. Edges

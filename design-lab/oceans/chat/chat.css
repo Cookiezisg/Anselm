@@ -1,6 +1,6 @@
-/* Forgify design-lab — 对话海洋（产品适配 v1，单独，一人负责整个 oceans/chat/ 文件夹）。
+/* Foryx design-lab — 对话海洋（产品适配 v1，单独，一人负责整个 oceans/chat/ 文件夹）。
    把 v0 的视觉语言（海与岛 / 工具块折叠 / 右岛实体卡滑入 / spring）原样保留，
-   内容换成 Forgify 真实对话引擎：六型块 / 锻造四实体 → 右岛实时填充 / 人在环危险闸 / progress 块 / durable flowrun / todo。
+   内容换成 Foryx 真实对话引擎：六型块 / 构建四实体 → 右岛实时填充 / 人在环危险闸 / progress 块 / durable flowrun / todo。
    依赖：shared/tokens.css + shared/shell.css 的 cc-* / 原语(.ibtn/.chev/spin)（只读）。
    ⚠ 右岛是「本海洋的」：.aside 的框 + 内容都在这（外壳只给 Shell.body 让我 append）。
    视觉宪法：海与岛同色、靠海岸线(描边)分；无横向 divider；语义色仅 ok/warn/danger；--accent 只点正在发生；动效走 --ease-spring。 */
@@ -243,7 +243,7 @@
 .mention-row .nm { font-size: 13px; color: var(--ink); }
 .mention-row .kd { margin-left: auto; font-size: 11px; color: var(--ink-3); font-family: var(--mono); }
 
-/* ===== 右岛 = 实体卡（信号交互：锻造工具流式 → 从右滑入实时填充；扩到 function/handler/agent/workflow）===== */
+/* ===== 右岛 = 实体卡（信号交互：构建工具流式 → 从右滑入实时填充；扩到 function/handler/agent/workflow）===== */
 /* 同色 + 海岸线；默认收起(宽0)，唤出滑入。append 到 Shell.body 作第三个 flex 子。 */
 .aside { flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
   background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px;

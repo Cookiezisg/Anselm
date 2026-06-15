@@ -22,20 +22,20 @@ class BackendState {
 
 /// Owns the Go backend as a child process (the sidecar model, ADR 0004 §1). The backend
 /// is a standalone localhost HTTP+SSE server; the client launches it, health-gates it,
-/// and shuts it down with the app — zero backend changes (it already reads `FORGIFY_ADDR`
-/// / `FORGIFY_DATA_DIR` and serves `GET /api/v1/health`, verified in the backend).
+/// and shuts it down with the app — zero backend changes (it already reads `FORYX_ADDR`
+/// / `FORYX_DATA_DIR` and serves `GET /api/v1/health`, verified in the backend).
 ///
 /// Resolution order:
-///  1. `FORGIFY_BACKEND_URL` env — the dev escape hatch: attach to an already-running
+///  1. `FORYX_BACKEND_URL` env — the dev escape hatch: attach to an already-running
 ///     backend (e.g. `make server`), spawn nothing. This is the primary dev path until
 ///     the binary is bundled.
 ///  2. spawn the bundled binary: bind a free ephemeral port in Dart, pass it via
-///     `FORGIFY_ADDR=127.0.0.1:<port>`, launch, then poll `/api/v1/health` until 200.
+///     `FORYX_ADDR=127.0.0.1:<port>`, launch, then poll `/api/v1/health` until 200.
 ///
 /// 以 sidecar 模型托管 Go 后端(ADR 0004 §1)。后端是独立 localhost HTTP+SSE server;客户端拉起、
-/// 健康门控、随 app 关停——零后端改动(它已读 `FORGIFY_ADDR`/`FORGIFY_DATA_DIR`、提供
-/// `GET /api/v1/health`,已核实)。解析序:① `FORGIFY_BACKEND_URL` dev 逃生口(挂到已跑后端、不 spawn);
-/// ② spawn 内置二进制(Dart 抢临时端口→`FORGIFY_ADDR` 注入→轮询 /health 至 200)。
+/// 健康门控、随 app 关停——零后端改动(它已读 `FORYX_ADDR`/`FORYX_DATA_DIR`、提供
+/// `GET /api/v1/health`,已核实)。解析序:① `FORYX_BACKEND_URL` dev 逃生口(挂到已跑后端、不 spawn);
+/// ② spawn 内置二进制(Dart 抢临时端口→`FORYX_ADDR` 注入→轮询 /health 至 200)。
 class BackendController {
   BackendController({
     this.binaryPath,
@@ -44,7 +44,7 @@ class BackendController {
   }) : _probe = probe ?? Dio();
 
   /// Absolute path to the bundled `server` binary; null = resolve next to the app
-  /// executable (packaging concern). Ignored when `FORGIFY_BACKEND_URL` is set.
+  /// executable (packaging concern). Ignored when `FORYX_BACKEND_URL` is set.
   ///
   /// 内置 `server` 二进制的绝对路径;null = 在 app 可执行文件旁解析(打包关注点)。
   final String? binaryPath;
@@ -57,7 +57,7 @@ class BackendController {
 
   Future<void> start() async {
     try {
-      final external = Platform.environment['FORGIFY_BACKEND_URL'];
+      final external = Platform.environment['FORYX_BACKEND_URL'];
       if (external != null && external.isNotEmpty) {
         await _awaitHealth(external);
         state.value = BackendState(BackendPhase.ready, baseUrl: external);
@@ -75,7 +75,7 @@ class BackendController {
     final exe = binaryPath ?? _defaultBinaryPath();
     if (!File(exe).existsSync()) {
       throw StateError(
-          'backend binary not found at $exe (set FORGIFY_BACKEND_URL for dev)');
+          'backend binary not found at $exe (set FORYX_BACKEND_URL for dev)');
     }
     // Bind :0 to claim a free port, then release it for the child to take. The TOCTOU
     // window is tiny and local; bind failure on launch is the retry signal.
@@ -84,9 +84,9 @@ class BackendController {
     final port = socket.port;
     await socket.close();
 
-    final env = {'FORGIFY_ADDR': '127.0.0.1:$port'};
+    final env = {'FORYX_ADDR': '127.0.0.1:$port'};
     final dir = dataDir;
-    if (dir != null) env['FORGIFY_DATA_DIR'] = dir;
+    if (dir != null) env['FORYX_DATA_DIR'] = dir;
     _child = await Process.start(exe, const [], environment: env);
     // Surface the child's stderr to the debug console; supervision (bounded restart) is
     // a packaging-time concern layered on top.
@@ -99,7 +99,7 @@ class BackendController {
 
   String _defaultBinaryPath() {
     final dir = File(Platform.resolvedExecutable).parent.path;
-    final name = Platform.isWindows ? 'forgify-server.exe' : 'forgify-server';
+    final name = Platform.isWindows ? 'foryx-server.exe' : 'foryx-server';
     return '$dir/$name';
   }
 

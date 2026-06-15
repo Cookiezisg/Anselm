@@ -9,13 +9,13 @@ import (
 
 	"go.uber.org/zap"
 
-	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	limitspkg "github.com/sunweilin/forgify/backend/internal/pkg/limits"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // toolResultContent is the tool_result node payload (the loop's slice of the messages

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
+	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
 )
 
 // SaveInput is the create/replace request shape (Name doubles as the slug identity).
@@ -42,7 +42,7 @@ func (s *Service) Create(ctx context.Context, in SaveInput) (*skilldomain.Skill,
 		return nil, fmt.Errorf("skillapp.Create: %w", err)
 	}
 	s.notify(ctx, "created", in.Name)
-	s.syncForgedEdge(ctx, in.Name)
+	s.syncBuiltEdge(ctx, in.Name)
 	s.syncEquipEdges(ctx, in.Name, in.AllowedTools)
 	return s.repo.Get(ctx, in.Name)
 }

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 const listDocumentsDescription = `List direct children one level under parentId (null/omit = root): name, description, path each. Walk the tree progressively; use search_documents for keyword search.`

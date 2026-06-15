@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
 )
 
 // trackInflight wraps an advance with a cancellable context registered under the run id, so

@@ -42,7 +42,7 @@ func TestIsValidKind(t *testing.T) {
 		}
 	}
 	// strings outside the 4-verb set must not validate.
-	for _, k := range []string{"uses", "forged", "links_to", "equip_function", ""} {
+	for _, k := range []string{"uses", "forked", "links_to", "equip_function", ""} {
 		if IsValidKind(k) {
 			t.Errorf("IsValidKind(%q) = true, want false", k)
 		}

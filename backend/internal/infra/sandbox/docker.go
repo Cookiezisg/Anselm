@@ -8,13 +8,13 @@ import (
 	"sort"
 	"strings"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
-// dockerBin is the docker CLI on PATH. Forgify cannot install docker (it needs
+// dockerBin is the docker CLI on PATH. Foryx cannot install docker (it needs
 // root/admin), so the docker runtime probes the host daemon and shells out to it.
 //
-// dockerBin 是 PATH 上的 docker CLI。Forgify 不能装 docker（需 root/admin），故 docker
+// dockerBin 是 PATH 上的 docker CLI。Foryx 不能装 docker（需 root/admin），故 docker
 // runtime 探测宿主 daemon 并外包给它。
 const dockerBin = "docker"
 

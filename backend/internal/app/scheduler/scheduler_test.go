@@ -10,15 +10,15 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
-	triggerstore "github.com/sunweilin/forgify/backend/internal/infra/store/trigger"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	flowrunstore "github.com/sunweilin/foryx/backend/internal/infra/store/flowrun"
+	triggerstore "github.com/sunweilin/foryx/backend/internal/infra/store/trigger"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // ---- fakes ---------------------------------------------------------------

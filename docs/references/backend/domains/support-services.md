@@ -55,4 +55,4 @@ audience: [human, ai]
 
 ## entitystream —— entities 流生产原语
 
-SSE-C 的唯一生产 helper：向 Bridge 发实体锚定的节点（open→delta*→close 或点 Signal），scope = 实体（function/handler/agent/workflow/mcp/…）。所有实体面板的实时活动（run 终端/forge 镜像/fire 信号/节点进度）都经它——**一个原语、十处复用**。nil Bridge 全程容忍（无流不影响业务）。ctx 注入（WithBridge/WithRunScope）供 loop 镜像 forge 工具。
+SSE-C 的唯一生产 helper：向 Bridge 发实体锚定的节点（open→delta*→close 或点 Signal），scope = 实体（function/handler/agent/workflow/mcp/…）。所有实体面板的实时活动（run 终端/build 镜像/fire 信号/节点进度）都经它——**一个原语、十处复用**。nil Bridge 全程容忍（无流不影响业务）。ctx 注入（WithBridge/WithRunScope）供 loop 镜像 build 工具。

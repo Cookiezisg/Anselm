@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // Schema is the search DDL: projection table + FTS5 external-content index +

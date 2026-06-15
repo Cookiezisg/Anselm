@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【通知 Inbox】侧栏接管内容样式（由 sidebar/notifications.js 自注入）。
+/* Foryx design-lab — 【通知 Inbox】侧栏接管内容样式（由 sidebar/notifications.js 自注入）。
    铃铛点击 → 整个 #sidebody 被本内容接管（镜像 settings 接管海面）：← 返回 + 类型/已读快滤 + 三层
    ① Needs you（待审批，置顶不折叠，胖行内联拍板）② 时间线（FYI 按日期）③ 已读（折叠）。
    依赖 tokens.css + shell.css 的 cc-* 表面色 / ink / accent / 语义色（只读）。类名 nt- 专属，勿与海洋/别侧栏重名。 */

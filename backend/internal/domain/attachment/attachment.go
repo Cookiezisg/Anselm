@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Attachment is one uploaded file's metadata row. SHA256 is the content-addressed key into

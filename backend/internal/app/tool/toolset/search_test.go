@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // fakeTool is a minimal toolapp.Tool for ranking/return tests.

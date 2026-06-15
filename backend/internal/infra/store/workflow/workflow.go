@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the workflow tables' DDL, exported as ordered idempotent statements for
@@ -48,15 +48,15 @@ var Schema = []string{
 	`CREATE INDEX IF NOT EXISTS idx_workflows_ws_active ON workflows(workspace_id, active) WHERE deleted_at IS NULL AND active = 1`,
 
 	`CREATE TABLE IF NOT EXISTS workflow_versions (
-		id                        TEXT PRIMARY KEY,
-		workspace_id              TEXT NOT NULL,
-		workflow_id               TEXT NOT NULL,
-		version                   INTEGER NOT NULL,
-		graph                     TEXT NOT NULL DEFAULT '{}',
-		change_reason             TEXT NOT NULL DEFAULT '',
-		forged_in_conversation_id TEXT,
-		created_at                DATETIME NOT NULL,
-		updated_at                DATETIME NOT NULL
+		id                       TEXT PRIMARY KEY,
+		workspace_id             TEXT NOT NULL,
+		workflow_id              TEXT NOT NULL,
+		version                  INTEGER NOT NULL,
+		graph                    TEXT NOT NULL DEFAULT '{}',
+		change_reason            TEXT NOT NULL DEFAULT '',
+		built_in_conversation_id TEXT,
+		created_at               DATETIME NOT NULL,
+		updated_at               DATETIME NOT NULL
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_wfv_workflow_version ON workflow_versions(workflow_id, version)`,
 	`CREATE INDEX IF NOT EXISTS idx_wfv_workflow_created ON workflow_versions(workflow_id, created_at DESC, id DESC)`,

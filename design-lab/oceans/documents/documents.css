@@ -1,4 +1,4 @@
-/* Forgify design-lab — 文档海洋（重写 v2；单独，一人负责整个 oceans/documents/ 文件夹）。
+/* Foryx design-lab — 文档海洋（重写 v2；单独，一人负责整个 oceans/documents/ 文件夹）。
    文档页本身 = 面包屑(path) + 标题 + WYSIWYG markdown 正文；编辑零-markdown 心智（斜杠命令窗 / 选中工具条 / 块手柄 / 即输即渲）；右岛 = 元信息抽屉。
    风格对齐侧栏：px 管布局（行高 32 / radius 8·10·12 / 字号 13·14·11）、token 管色与动效；菜单/岛/行规与 sidebar 一脉。
    依赖：shared/tokens.css + shared/shell.css 的 --cc- 表面色与原语(.ibtn/.chev/.scroll-fade)（只读）。

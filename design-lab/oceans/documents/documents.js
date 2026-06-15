@@ -1,4 +1,4 @@
-/* Forgify design-lab — 文档海洋编排（重写 v2；单独，一人负责整个 oceans/documents/ 文件夹）。
+/* Foryx design-lab — 文档海洋编排（重写 v2；单独，一人负责整个 oceans/documents/ 文件夹）。
    注册进外壳：Shell.registerOcean('documents', { crumb, build(sea) })，渲染文档页到 #sea；右岛交给同目录 right-island.js。
    零-markdown 心智：① 斜杠命令窗(/) 收纳所有「插入」；② 选中即浮工具条点选格式 + AI 询问；③ 块左侧 + / ⋮⋮ 手柄；④ 行首 markdown + 空格 即输即渲。
    依赖：shared/icons.js · shared/shell.js · ./right-island.js（DocAside）。
@@ -30,7 +30,7 @@
 
   // —— 示意正文（markdown 全类型样张；渲染产物，接后端时换真 content）——
   const BODY_HTML = `
-    <p>这是 Forgify 文档海洋的 <b>markdown 全类型样张</b>。内容区<b>放宽</b>了外壳禁横线——可有 <a href="#">下划线链接</a>、分隔线、表格细线，大范围参考 Notion；但正文 <b>不用灰色填充块</b>、行内代码 <code>like_this</code> <b>不学</b> Notion 的红。</p>
+    <p>这是 Foryx 文档海洋的 <b>markdown 全类型样张</b>。内容区<b>放宽</b>了外壳禁横线——可有 <a href="#">下划线链接</a>、分隔线、表格细线，大范围参考 Notion；但正文 <b>不用灰色填充块</b>、行内代码 <code>like_this</code> <b>不学</b> Notion 的红。</p>
     <p><b>不会 markdown 也没关系：</b>空行敲 <code>/</code> 唤出命令窗挑块；选中文字浮出工具条点选格式；块左侧悬停有 <code>+</code> 和拖拽手柄。</p>
 
     <h2>标题层级</h2>

@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // ApprovalForm is an approval-rendering entity; its template + rules live on the active Version.
@@ -56,19 +56,19 @@ type ApprovalForm struct {
 //
 // Version 是审批表的 prompt + 决策规则的一份不可变快照。
 type Version struct {
-	ID                     string            `db:"id,pk"                     json:"id"`
-	WorkspaceID            string            `db:"workspace_id,ws"           json:"-"`
-	ApprovalID             string            `db:"approval_id"               json:"approvalId"`
-	Version                int               `db:"version"                   json:"version"`
-	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"`          // declared inputs the workflow node feeds; template reads input.*
-	Template               string            `db:"template"                  json:"template"`        // markdown，含 {{ input.* }} 插值
-	AllowReason            bool              `db:"allow_reason"              json:"allowReason"`     // 是否允许填备注
-	Timeout                string            `db:"timeout"                   json:"timeout"`         // duration（"30d"）；"" = 永不超时
-	TimeoutBehavior        string            `db:"timeout_behavior"          json:"timeoutBehavior"` // reject|approve|fail（timeout 非空必填）
-	ChangeReason           string            `db:"change_reason"             json:"changeReason,omitempty"`
-	ForgedInConversationID *string           `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time         `db:"created_at,created"        json:"createdAt"`
-	UpdatedAt              time.Time         `db:"updated_at,updated"        json:"updatedAt"`
+	ID                    string            `db:"id,pk"                     json:"id"`
+	WorkspaceID           string            `db:"workspace_id,ws"           json:"-"`
+	ApprovalID            string            `db:"approval_id"               json:"approvalId"`
+	Version               int               `db:"version"                   json:"version"`
+	Inputs                []schemapkg.Field `db:"inputs,json"               json:"inputs"`          // declared inputs the workflow node feeds; template reads input.*
+	Template              string            `db:"template"                  json:"template"`        // markdown，含 {{ input.* }} 插值
+	AllowReason           bool              `db:"allow_reason"              json:"allowReason"`     // 是否允许填备注
+	Timeout               string            `db:"timeout"                   json:"timeout"`         // duration（"30d"）；"" = 永不超时
+	TimeoutBehavior       string            `db:"timeout_behavior"          json:"timeoutBehavior"` // reject|approve|fail（timeout 非空必填）
+	ChangeReason          string            `db:"change_reason"             json:"changeReason,omitempty"`
+	BuiltInConversationID *string           `db:"built_in_conversation_id" json:"builtInConversationId,omitempty"`
+	CreatedAt             time.Time         `db:"created_at,created"        json:"createdAt"`
+	UpdatedAt             time.Time         `db:"updated_at,updated"        json:"updatedAt"`
 }
 
 // Timeout behaviors: what happens when a parked approval's deadline passes.

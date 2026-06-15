@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	tokencountpkg "github.com/sunweilin/forgify/backend/internal/pkg/tokencount"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	tokencountpkg "github.com/sunweilin/foryx/backend/internal/pkg/tokencount"
 )
 
 const (

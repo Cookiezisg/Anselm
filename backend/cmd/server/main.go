@@ -15,14 +15,14 @@ import (
 	"path/filepath"
 	"syscall"
 
-	bootstrappkg "github.com/sunweilin/forgify/backend/internal/bootstrap"
+	bootstrappkg "github.com/sunweilin/foryx/backend/internal/bootstrap"
 )
 
 func main() {
 	app, err := bootstrappkg.Build(bootstrappkg.Config{
 		DataDir: dataDir(),
-		Addr:    os.Getenv("FORGIFY_ADDR"), // "" → :8080
-		Dev:     os.Getenv("FORGIFY_DEV") != "",
+		Addr:    os.Getenv("FORYX_ADDR"), // "" → :8080
+		Dev:     os.Getenv("FORYX_DEV") != "",
 	})
 	if err != nil {
 		log.Fatalf("bootstrap: %v", err)
@@ -40,16 +40,16 @@ func main() {
 	}
 }
 
-// dataDir resolves the local data root: $FORGIFY_DATA_DIR, else ~/.forgify.
+// dataDir resolves the local data root: $FORYX_DATA_DIR, else ~/.foryx.
 //
-// dataDir 解析本地数据根：$FORGIFY_DATA_DIR，否则 ~/.forgify。
+// dataDir 解析本地数据根：$FORYX_DATA_DIR，否则 ~/.foryx。
 func dataDir() string {
-	if d := os.Getenv("FORGIFY_DATA_DIR"); d != "" {
+	if d := os.Getenv("FORYX_DATA_DIR"); d != "" {
 		return d
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".forgify"
+		return ".foryx"
 	}
-	return filepath.Join(home, ".forgify")
+	return filepath.Join(home, ".foryx")
 }

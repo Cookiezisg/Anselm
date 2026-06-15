@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	middlewarehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/middleware"
+	middlewarehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/middleware"
 )
 
 // Chain wraps h with the standard middleware stack, outermost first:

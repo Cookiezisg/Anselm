@@ -5,11 +5,11 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // subagentHost is one Spawn's loop.Host — a hybrid: like agentHost its history is just the task

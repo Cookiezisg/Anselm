@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "Forgify"
+    "name": "Foryx"
   },
   "backend": {
-    "starting": "正在启动 Forgify…",
+    "starting": "正在启动 Foryx…",
     "crashedTitle": "后端启动失败",
     "retry": "重试"
   },

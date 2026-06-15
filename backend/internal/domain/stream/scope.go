@@ -36,8 +36,8 @@ const (
 	KindDocument     = "document"
 	KindMCP          = "mcp"
 	KindSkill        = "skill"
-	KindControl      = "control"  // SSE-C: entities-stream forge activity
-	KindApproval     = "approval" // SSE-C: entities-stream forge activity
+	KindControl      = "control"  // SSE-C: entities-stream build activity
+	KindApproval     = "approval" // SSE-C: entities-stream build activity
 	KindTrigger      = "trigger"  // SSE-C: entities-stream fire activity
 	KindNotification = "notification"
 )

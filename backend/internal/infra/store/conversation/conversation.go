@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the conversations DDL, exported as ordered idempotent statements for bootstrap to

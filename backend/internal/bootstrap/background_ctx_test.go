@@ -7,12 +7,12 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	flowrunstore "github.com/sunweilin/forgify/backend/internal/infra/store/flowrun"
-	triggerstore "github.com/sunweilin/forgify/backend/internal/infra/store/trigger"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	flowrunstore "github.com/sunweilin/foryx/backend/internal/infra/store/flowrun"
+	triggerstore "github.com/sunweilin/foryx/backend/internal/infra/store/trigger"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // TestBackgroundPaths_RequireWorkspaceSeeding locks the P3-1 regression: the background entry

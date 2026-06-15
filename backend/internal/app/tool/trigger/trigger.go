@@ -8,9 +8,9 @@
 package trigger
 
 import (
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
 )
 
 // TriggerTools constructs the trigger system tools over the app service.

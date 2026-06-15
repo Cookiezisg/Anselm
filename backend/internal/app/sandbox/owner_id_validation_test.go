@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 // TestEnsureEnv_RejectsPATHMetaInOwnerID: owner.ID becomes a directory name and

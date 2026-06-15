@@ -76,12 +76,12 @@ InvokeAgent(in)
 
 ## 6. 契约（引用）
 
-端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询（search_agent_executions + get_agent_execution）；create/edit 是 forge 工具（config 镜像 entities 流）。
+端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询（search_agent_executions + get_agent_execution）；create/edit 是 build 工具（config 镜像 entities 流）。
 
 ## 7. 跨域集成
 
 - **invoke 被谁调**：chat loop / HTTP / workflow 调度器（`AgentInvoker` 窄接口）。
 - **mount 端口指向**：functionapp / handlerapp / mcpapp 的具体服务（bootstrap 装配 `mount.NewResolver(fn, hd, mcp)`）。
-- **relation 双向同步**（出 + 入；workflow/skill/trigger 同样双向，function/handler 仅入向）：**出边** equip（挂载的 fn/hd/mcp/doc/skill，每次 active 变更重算——hd 剥 `.method`、mcp 剥 `/tool` 归到容器实体）+ **入边** create/edit（锻造对话，create 和 edit 分 kind-scope 共存）。
+- **relation 双向同步**（出 + 入；workflow/skill/trigger 同样双向，function/handler 仅入向）：**出边** equip（挂载的 fn/hd/mcp/doc/skill，每次 active 变更重算——hd 剥 `.method`、mcp 剥 `/tool` 归到容器实体）+ **入边** create/edit（构建对话，create 和 edit 分 kind-scope 共存）。
 - **catalog 非容器**：只报 name+desc，**不报 Members**——挂载是内部白名单、非 agent 的可调子单元（对比 handler/mcp 的容器形态）。
 - **@ 提及**：快照 name+description（这个员工是干什么的——供模型谈及/转交）。

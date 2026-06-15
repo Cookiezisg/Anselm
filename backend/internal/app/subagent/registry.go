@@ -3,8 +3,8 @@ package subagent
 import (
 	"strings"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // subagentToolName is the Subagent (Task) tool's name — always stripped from a subagent's tool
@@ -129,7 +129,7 @@ func filterTools(t Type, all []toolapp.Tool) []toolapp.Tool {
 // composeSystemPrompt 前置共享 subagent 序言、接类型 prompt、并为非英语工作区加回复语言行。
 func composeSystemPrompt(t Type, locale reqctxpkg.Locale) string {
 	var b strings.Builder
-	b.WriteString("You are a Forgify subagent — a focused sub-task LLM spawned by the main conversation. " +
+	b.WriteString("You are a Foryx subagent — a focused sub-task LLM spawned by the main conversation. " +
 		"Work autonomously toward the task below and finish with a concise, self-contained answer (it " +
 		"becomes the result handed back to the caller).\n\n")
 	b.WriteString(t.SystemPrompt)

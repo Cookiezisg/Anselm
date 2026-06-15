@@ -7,12 +7,12 @@ import (
 
 	"go.uber.org/zap"
 
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // WorkflowHandler hosts the workflow graph HTTP endpoints. The version model is linear with

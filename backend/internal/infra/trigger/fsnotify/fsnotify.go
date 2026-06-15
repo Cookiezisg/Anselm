@@ -18,7 +18,7 @@ import (
 	notifyfsnotify "github.com/fsnotify/fsnotify"
 	"go.uber.org/zap"
 
-	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
+	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
 )
 
 // Listener manages the fsnotify watcher + per-triggerID registrations.

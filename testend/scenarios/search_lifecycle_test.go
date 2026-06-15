@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // lcKind is one entity kind's lifecycle driver: create carrying tokenA, update
@@ -62,7 +62,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				}}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/functions/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/functions/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -80,7 +80,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/handlers/"+id, map[string]any{"description": tok + " resident"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/handlers/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/handlers/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -94,7 +94,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/agents/"+id, map[string]any{"description": tok + " specialist"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/agents/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/agents/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -110,7 +110,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/controls/"+id, map[string]any{"description": tok + " router"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/controls/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/controls/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -124,7 +124,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/approvals/"+id, map[string]any{"description": tok + " gate"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/approvals/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/approvals/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -143,7 +143,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/workflows/"+id, map[string]any{"description": tok + " pipeline"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/workflows/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/workflows/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -158,7 +158,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/triggers/"+id, map[string]any{"description": tok + " listener"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/triggers/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/triggers/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/documents/"+id, map[string]any{"content": tok + " essay body"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/documents/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/documents/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -189,7 +189,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/memories/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/memories/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -208,7 +208,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/skills/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/skills/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -220,7 +220,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				wc.PATCH("/api/v1/conversations/"+id, map[string]any{"title": tok + " chat"}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/conversations/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/conversations/"+id).OK(t, nil)
 			},
 		},
 		{
@@ -239,7 +239,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 				}).OK(t, nil)
 			},
 			del: func(t *testing.T, wc *harness.Client, id string) {
-				wc.DELETE("/api/v1/mcp-servers/" + id).OK(t, nil)
+				wc.DELETE("/api/v1/mcp-servers/"+id).OK(t, nil)
 			},
 		},
 	}
@@ -328,7 +328,7 @@ func TestSearchR1_ConversationMessageIncremental(t *testing.T) {
 		t.Fatalf("conversation hit must carry a message anchor, got %+v", p.Hits)
 	}
 
-	wc.DELETE("/api/v1/conversations/" + convID).OK(t, nil)
+	wc.DELETE("/api/v1/conversations/"+convID).OK(t, nil)
 	harness.Eventually(t, 20000, "deleted conversation evicted from index", func() bool {
 		return len(searchQ(t, wc, "q=ironquill&types=conversation").Hits) == 0 &&
 			len(searchQ(t, wc, "q=glasswing&types=conversation").Hits) == 0

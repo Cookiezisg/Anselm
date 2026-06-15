@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // NamesByIDs implements relationapp.Namer: batch mcp_id → name for relation-graph name

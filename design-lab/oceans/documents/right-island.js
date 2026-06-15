@@ -1,4 +1,4 @@
-/* Forgify design-lab — 文档海洋 · 右岛（元信息抽屉；重写 v2）。
+/* Foryx design-lab — 文档海洋 · 右岛（元信息抽屉；重写 v2）。
    右岛是「本海洋的」：自己 append 到 Shell.body（作第三个 flex 子），自管显隐。默认收起、点主区头面板钮滑入。
    装「真实存在、却不该塞进单块 markdown 正文」的元数据：大纲 TOC / 反向链接 / path·tags·更新·大小。
    分区(.da-sec)/行(.da-toc a) 风格对齐侧栏会话史；接后端时换真数据，形态不变。

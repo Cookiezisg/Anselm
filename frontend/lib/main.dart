@@ -23,7 +23,7 @@ Future<void> main() async {
     size: Size(1280, 820),
     minimumSize: Size(960, 600),
     center: true,
-    title: 'Forgify',
+    title: 'Foryx',
     titleBarStyle: TitleBarStyle.normal,
   );
   unawaited(windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -39,7 +39,7 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [backendControllerProvider.overrideWithValue(backend)],
-      child: TranslationProvider(child: const ForgifyApp()),
+      child: TranslationProvider(child: const ForyxApp()),
     ),
   );
 }

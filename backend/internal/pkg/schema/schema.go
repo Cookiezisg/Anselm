@@ -1,4 +1,4 @@
-// Package schema is the single shared I/O contract for every forge entity. Function,
+// Package schema is the single shared I/O contract for every build entity. Function,
 // handler, agent, mcp, trigger, control and approval all describe what they consume and
 // produce as a flat list of Fields — so a workflow node can uniformly read an entity's
 // Inputs (what to feed) and Outputs (what to read downstream). It is deliberately minimal:
@@ -6,7 +6,7 @@
 // shaping is CEL's job at runtime, not the schema's — so there are no nested fields, enums,
 // required flags or JSON-Schema validators here.
 //
-// Package schema 是所有锻造实体共享的唯一 I/O 契约。function/handler/agent/mcp/trigger/
+// Package schema 是所有构建实体共享的唯一 I/O 契约。function/handler/agent/mcp/trigger/
 // control/approval 都把"吃什么、吐什么"声明成一串 Field——使 workflow 节点统一地读实体的
 // Inputs（喂什么）和 Outputs（下游读什么）。刻意极简：字段 = 引用名 + 粗类型提示 + 描述。
 // 精确的数据塑形是运行时 CEL 的事，不是 schema 的事——故无嵌套、无 enum、无 required、无 JSON-Schema 校验。

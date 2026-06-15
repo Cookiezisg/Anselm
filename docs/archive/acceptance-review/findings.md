@@ -22,7 +22,7 @@ audience: [human, ai]
 - **AC-2 🟡 function 创建同步阻塞 env 物化**（观察，待 W1 定性）
   真机：首建 function 的 POST 阻塞 26.3s（冷启动下载 python + venv + pip）；运行时缓存命中后仍 ~3-6s（venv 构建）。创建即编辑器场景，秒级以上同步阻塞值得裁决（异步物化 + envStatus=installing 已有列支撑）。
 
-## W1 锻造域
+## W1 构建域
 
 - **AC-3 🟢 api.md `:run` body 写 `{input}` 实为 `{args}`**（doc-fix）
   真机：`POST /functions/{id}:run` 带 `{"input":{...}}` 被严格解码拒 400 INVALID_REQUEST；代码收 `{args, version}`（handlers/function.go:167-170），与 run_function 工具一致。api.md 已重述。黑盒按文档打、被代码拒——正是验收要抓的契约漂移。
@@ -37,11 +37,11 @@ audience: [human, ai]
 - **AC-1 复定性：创建响应嵌套形是六版本实体的统一约定**（by-design 关闭）
   真机对照：fn/hd/ctl/apf 创建一律返 `{<entity>, version}`（双对象都需要：实体头+版本体）；workspace 无版本故扁平。前端按「版本实体 vs 平实体」两类解析即可，约定一致。
 - **AC-2 终定性：同步阻塞 env 物化 = by-design，可见性链实测在场**（关闭，场景钉死）
-  用户裁决：同步是预期（环境要搞、崩了有 LLM 修复、再不行打回），要求是「阻塞期间用户看得到在搞」。真机实测：阻塞窗口内 notifications 流三连——`function.created` 立即落（前端可先画实体行）→ `sandbox.env_status_changed`(installing，构建开始即推) → (ready/failed 终态)；LLM 修复链 Provision 不分入口都跑、修不好落 envStatus=failed+envError（打回可见）。`TestFunction_CreateEnvVisibility` 钉死该承诺。nuance：逐行进度（pip 输出）仅 chat 锻造路径流（progress 块），HTTP 路径状态级信号——够用；将来编辑器要逐行再把 envfix Sink 接 entities 流。
+  用户裁决：同步是预期（环境要搞、崩了有 LLM 修复、再不行打回），要求是「阻塞期间用户看得到在搞」。真机实测：阻塞窗口内 notifications 流三连——`function.created` 立即落（前端可先画实体行）→ `sandbox.env_status_changed`(installing，构建开始即推) → (ready/failed 终态)；LLM 修复链 Provision 不分入口都跑、修不好落 envStatus=failed+envError（打回可见）。`TestFunction_CreateEnvVisibility` 钉死该承诺。nuance：逐行进度（pip 输出）仅 chat 构建路径流（progress 块），HTTP 路径状态级信号——够用；将来编辑器要逐行再把 envfix Sink 接 entities 流。
 
 ## W1.5 小尾巴清账（用户指示「这种小问题都顺手做了」）
 
-- **AC-8 🟢 HTTP 编辑器路径 env 物化无逐行进度**（fixed）：`envfix.WriterSink`+`MultiSink` 新地基，function/handler 的 ensureEnv 把尝试/修复行 tee 到 entities 流 forge 终端——不分入口（HTTP/chat/run 重建）面板都看得到逐行；状态级 `env_status_changed` 照旧。
+- **AC-8 🟢 HTTP 编辑器路径 env 物化无逐行进度**（fixed）：`envfix.WriterSink`+`MultiSink` 新地基，function/handler 的 ensureEnv 把尝试/修复行 tee 到 entities 流端端——不分入口（HTTP/chat/run 重建）面板都看得到逐行；状态级 `env_status_changed` 照旧。
 - **PR-14 回收**（fixed）：fire_trigger/HTTP `:fire` 返 `activationId`（fanOut/FireManual 签名升级）。
 - **PR-18 回收**（closed）：env 失败通知实已在场（sandbox.env_status_changed failed+errorMsg），原定性漏看 sandbox 层。
 
@@ -81,7 +81,7 @@ llmmock 进场（`testend/harness/llmmock.go`）：OpenAI 兼容假模型 httpte
 - **AC-16 🔴 `STREAM_IN_PROGRESS` 契约失效——流式中的 Send 被静默排队而非 409**（fixed）
   真机：流式中（SSE 已见 delta）第二次 Send 返 202。根因：容量 5 的 channel + 任务被取走后即不可见——409 只在「积压 5 条」时触发；chat.md 与代码注释都宣称「正在流式直接 409」，注释自身两句互斥。修复：单槽 + `q.running` 标志（生成中拒）；**finalize 即放行**——回合收尾活（同步压缩检查可达秒级真 LLM 调用）期间的 Send 进槽排队，回复刚完就接着发的消息不被弹回。chat.md 同步重述。
 - **AC-17 🔴 provider tool-call id 直接当全局块 PK——撞键整回合静默丢失、行永卡 pending**（fixed）
-  真机：mock 每步发 `call_1`（index 风格 provider 如 deepseek/qwen 的家常）→ `WriteFinalize: UNIQUE constraint failed: message_blocks.id` → **「turn lost from history」**：整回合内容丢失、assistant 行永远 pending（前端永转圈、boot SweepOrphans 才扫成 cancelled）。messages.md 本就声明块 id 是 `blk_`——实现违约。修复：tool_call 块 id 一律服务端铸造（provider id 只是响应内关联句柄，accums 本按 ToolIndex 键控；历史回喂用块 id 配对 assistant tool_calls 与 tool 结果，provider 照单全收）；forge scope / interaction 键 / 溯源 ctx 全链随之一致；5 个单测从硬编码线缆 id 改读 pending id。
+  真机：mock 每步发 `call_1`（index 风格 provider 如 deepseek/qwen 的家常）→ `WriteFinalize: UNIQUE constraint failed: message_blocks.id` → **「turn lost from history」**：整回合内容丢失、assistant 行永远 pending（前端永转圈、boot SweepOrphans 才扫成 cancelled）。messages.md 本就声明块 id 是 `blk_`——实现违约。修复：tool_call 块 id 一律服务端铸造（provider id 只是响应内关联句柄，accums 本按 ToolIndex 键控；历史回喂用块 id 配对 assistant tool_calls 与 tool 结果，provider 照单全收）；build scope / interaction 键 / 溯源 ctx 全链随之一致；5 个单测从硬编码线缆 id 改读 pending id。
 - **AC-18 🔴 压缩水位线只投影 assistant 块——user 回合永远原文随行**（fixed）
   真机：summary 落库、watermark>0，下一请求里 `TURN1-ANCIENT-MARKER` 仍逐字在场。根因：LoadHistory 的 user 分支绕过 `unfolded()`——摘要+原文双份在场，而用户粘贴正是上下文膨胀的大头，压缩对最该压的部分形同虚设。修复：全折叠 user 回合整条跳过（与 assistant 的 isEmptyAssistant 对称）。
 - **AC-19 🟢 EMPTY_CONTENT 不 trim**（fixed）：`"   "` 被 202 接受——落空白 user 回合、为空内容白付一次模型调用。TrimSpace 后再判。
@@ -119,11 +119,11 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
   真机：把 workspace 语言设为 `en` 后发消息，模型收到的 environment 段仍是「Reply in Chinese」。根因：locale 仅由 `InjectLocale` 中间件从 `Accept-Language` 头解析（无头默认 zh-CN），全栈无任何处把 `workspace.language` 灌进 locale ctx；chat runner 的 `t.locale` 也是头派生值。后果：用户在设置页显式选了语言，assistant 却按浏览器头（或默认 zh-CN）回复——显式设置被静默忽略。与「设计完整、接线缺失」同族（字段存在、校验齐全、却不驱动它最该驱动的东西）。**用户裁决：workspace.language 为权威**。修复：`WorkspaceResolver` 端口 `Validate→Resolve`（返 workspace 的 UI locale），`IdentifyWorkspace` 中间件在 workspace 识别后用它 `SetLocale` 压过 `InjectLocale` 设的头默认（中间件链 InjectLocale→IdentifyWorkspace，后者在内层故覆盖生效）；头仅作 pre-workspace（onboarding）兜底。chat 任务 ctx 的 `t.locale` 本就读 `GetLocale(ctx)`，故修复自动贯通到 environment 段，无需改 chat。i18n 场景收紧为 zh-CN→Chinese / en→English 实证。
 - **W6 正面确认（审读通过、无回退——这些是「审了、干净」的事实，进终报）**：
   - **system prompt 结构**：identity→how_to_work→tools→capabilities→memory→documents→user_system_prompt→environment→architecture_rules→critical_rules，每段 `<section name>` 包裹；身份只现一次、无空 section 残壳、无安全剧场套话（"As an AI language model" 等四类均缺席——符合「本地单用户无 safety theater」）。
-  - **lazy 工具目录浮出**：tools 段列全 lazy 工具 name+一句话（LLM 知全集不盲搜）；forged function 真进 capabilities 菜单。
+  - **lazy 工具目录浮出**：tools 段列全 lazy 工具 name+一句话（LLM 知全集不盲搜）；created function 真进 capabilities 菜单。
   - **S18 框架字段注入齐全**：每个线缆工具 schema 的 `properties` 都含 `summary`/`danger`/`execution_group`，且工具 description 非空（LLM 选型靠它）。
   - **R0057 透明度无漂移**：`GET /system-prompt-preview` 与模型真收到的 system prompt **逐字一致**（同对话同日，二者都走 buildSystemPrompt）——用户看到的就是模型看到的。
   - **视角隔离**：Utility（首回合起标题）收到的是紧凑专用 prompt，不泄漏 chat 全 section（无 identity 段/无 Searchable tools），且确实引用了对话内容；Agent 实体 :invoke 收到「You are <name>, a workflow automation worker. Your role: …」自有身份，不漏 chat 主视角。
-  - **空态自举连贯**：零 forged 实体的 workspace，核心身份/规则段仍在、无残壳。
+  - **空态自举连贯**：零 built 实体的 workspace，核心身份/规则段仍在、无残壳。
   - **i18n 接缝在场**：environment 段带「Reply in <lang>」指令、prompt 本体保持英文（不整体翻译）——回复语言来源 AC-24 已修为 workspace.language 权威。
 
 ## W7 金标真模型旅程（柱 C：make evals / deepseek-v4-flash，真烧 token）
@@ -132,14 +132,14 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 
 - **W7 正面结论（7/7 全绿，真模型，首跑即过）——真模型真驱动得了产品工具面**：
   - **J1 Bootstrap**（13.7s）：空 workspace + 完整工具面，开放问题得连贯非报错引导。
-  - **J2 Build+Run Function**（20.5s，旗舰）：真模型 **create_function 再 run_function**——functions 列出实体 + 最终答复报出和 5。锻造→执行整环真模型跑通。
-  - **J3 Build+Call Handler**（26.5s）：真模型 **create_handler**（有状态服务，env 物化 + 进程 spawn）再 call_handler——handlers 列出实体。常驻服务锻造+调用真模型跑通。
+  - **J2 Build+Run Function**（20.5s，旗舰）：真模型 **create_function 再 run_function**——functions 列出实体 + 最终答复报出和 5。构建→执行整环真模型跑通。
+  - **J3 Build+Call Handler**（26.5s）：真模型 **create_handler**（有状态服务，env 物化 + 进程 spawn）再 call_handler——handlers 列出实体。常驻服务构建+调用真模型跑通。
   - **J5 Debug Function**（24.4s）：预置引用未定义变量的 bug function，真模型诊断 + **edit_function 真落新版本**（active 版本号前进 ≥2）。AI 自愈环真模型跑通。
   - **J7 Search Building Blocks**（12.2s）：预置一个 function，真模型用**搜索**找到它并报出确切名字。积木检索（search_tools/search_blocks）真模型跑通。
   - **J9 Memory Write+Recall**（14.1s）：对话 A 真模型 **write_memory** 落库；对话 B（全新）经 system prompt 注入**召回**（命中 codename）。memory 写读环真模型跑通。
   - **J12 Degraded Main Path**（9.7s）：仅配 dialogue（utility 缺）——起标题/压缩静默降级，主问答照常完成不报错。
   - **无新 AC bug**：工具面 schema（S18 框架字段）、懒工具自动发现、danger 门、memory 注入、降级面在真模型下全部如设计工作。**柱 C 证明柱 A/B 的 llmmock 结论不是假模型的假象**。
-  - 范围说明：golden 现 7 旅程覆盖 function 锻造+执行 / handler 常驻服务 / AI 自愈 / 积木检索 / memory / 自举 / 降级七条核心能力线。柱 C 计划的 workflow-to-parked / MCP 真装 / skill / 跨压缩长任务等更重旅程，已在 W2/W3/W4 用 llmmock 结构性覆盖；真模型 golden 视价值/稳定性按需增补（flash 模型搓多节点图易飘，过重项不强求）。
+  - 范围说明：golden 现 7 旅程覆盖 function 构建+执行 / handler 常驻服务 / AI 自愈 / 积木检索 / memory / 自举 / 降级七条核心能力线。柱 C 计划的 workflow-to-parked / MCP 真装 / skill / 跨压缩长任务等更重旅程，已在 W2/W3/W4 用 llmmock 结构性覆盖；真模型 golden 视价值/稳定性按需增补（flash 模型搓多节点图易飘，过重项不强求）。
 
 ## R1 A7 Search 高标准补全（程序重开后首波，标尺=W1/W2）
 
@@ -173,7 +173,7 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 
 六视角/六状态/横切刀的首轮缺格全补，**无新后端 bug**：
 
-- **Subagent 视角**：子请求自足（父用户原文零泄漏、只见 Subagent prompt）；Explore 工具集真是只读侦察（无 Subagent/锻造/run）；自有紧凑 system、非 chat 主 prompt。
+- **Subagent 视角**：子请求自足（父用户原文零泄漏、只见 Subagent prompt）；Explore 工具集真是只读侦察（无 Subagent/构建/run）；自有紧凑 system、非 chat 主 prompt。
 - **前端开发者视角（三流帧线缆形状审读）**：envelope 恒 `{seq, scope:{kind,id}, id, frame}`、frame 带 `kind` 判别（open/delta/close/signal 全集）、**delta 恒 seq=0**（E2）、三流各有 durable 帧、messages scope=conversation。接手须知：帧 kind 是判别字段而非 type-key 对象。
 - **规模态**：5 实体基线 vs 200 实体——system prompt 体积 <3×（懒目录不线性爆炸的物理证明）。
 - **降级态**：零配置 workspace 的 system-prompt-preview 仍连贯渲染（自举调试面活着）。
@@ -191,7 +191,7 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 | **搜索索引** | 建/删 ×12：R1 ProjectionLifecycle（content token）+ R5 Matrix（exact-name）。改名 ×9：R5 Matrix（标题跟名；function/handler 旧名随代码体常驻 = by design 不断言出局） | skill/memory/mcp 改名（name 即 id，无改名操作） |
 | **catalog** | 建/改/删 × 6 积木类（fn/hd/ag/ctl/apf/wf）：R5 Matrix（coverage 进出 + summary 跟名） | document/conversation/trigger/skill/memory（catalog 是能力菜单、内容类不入——代码事实）；mcp 工具经动态工具面呈现（W3） |
 | **通知** | created/deleted ×8 + updated 改名族：R5 Matrix；11 域 created：R4；scheduler 族（run_failed/approval_pending/lifecycle/attention）：W2 | trigger 无生命周期通知（events.md 言明：活动走 activations+fire 信号）；mcp 三态于 R4（AC-29 修复后） |
-| **关系图** | agent 五类挂载出边 + 改名水化跟随 + 删除级联清：R5 RelationGraphFaces；trigger↔workflow 绑定边：R5；document wikilink link 边（按 **id** 链接）：R5；apikey 引用守卫：W5 | conversation @mention **不产边**（快照非引用，relations 仅 purge+Namer——代码事实）；锻造 create/edit 入边随 :iterate（AI 面，R7 酌情） |
+| **关系图** | agent 五类挂载出边 + 改名水化跟随 + 删除级联清：R5 RelationGraphFaces；trigger↔workflow 绑定边：R5；document wikilink link 边（按 **id** 链接）：R5；apikey 引用守卫：W5 | conversation @mention **不产边**（快照非引用，relations 仅 purge+Namer——代码事实）；构建 create/edit 入边随 :iterate（AI 面，R7 酌情） |
 | **挂载方跟随** | agent 挂载按现名重解析（改名跟、删除 fail-fast）：R2；trigger 改绑 workflow 重监听：W2 | hd/mcp 挂载跟名与 fn 同机制（mount 单测 + R2 fn 代表性实证） |
 | **引用方报缺** | workflow :capability-check 删 fn 后报缺 + **同名重建不救**（ref 按 id）：R5 ReferenceRipples；apikey 三引用拒删：W5；env 在用拒删 runtime：R4 | — |
 
@@ -200,7 +200,7 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 ## R4 A9 平台高标准补全（platform_r4_test.go 新建，5/5 全绿）
 
 - **AC-29** 🟡（通知族名义存在、物理哑火——模式 #1 第 11 例）：`events.md` P4 契约写明 `mcp.{installed,updated,removed,reconnected}` 通知族，但 `app/mcp` **从未持有 notification Emitter**（其余 11 个发射域都有）——整族从未发出。R4「11 域通知全到达」机械扫直接抓出（10/11、独缺 mcp）。修复：mcp Service 加 `SetNotifier` + 四事件点（AddServer 区分 installed/updated、InstallFromRegistry、RemoveServer、Reconnect；Import 经 AddServer 自然覆盖）+ bootstrap 接线。
-- **SSE 协议面全绿**：entities 流 forge 镜像 + run 终端 stderr 帧真到达；notifications durable `fromSeq` 续传重放；**环淘汰真验**（>256 durable 后 fromSeq=1 → 410 `SEQ_TOO_OLD` 走 Envelope）。
+- **SSE 协议面全绿**：entities 流 build 镜像 + run 终端 stderr 帧真到达；notifications durable `fromSeq` 续传重放；**环淘汰真验**（>256 durable 后 fromSeq=1 → 410 `SEQ_TOO_OLD` 走 Envelope）。
 - **limits 逐字段热换全验**（与 W4/W5 合计九字段全覆盖）：attachmentMaxMB（1.5MB 在 50 默认过、=1 拒）/ webhookBodyMaxMB（正签 1.5MB 默认过、=1 → 413；入站路由 = `/webhooks/{trgID}/{配置 path}`）/ bashDefaultTimeoutSec=1 真切 5s 命令 / bashOutputCapKB=1 真截 200KB 洪水 / invokeMaxTurns=2 真切死循环 agent（stopReason 诚实带 max）/ llmIdleSec=2 流中 8s 静默 → 回合错误码落地。N/A：mcpCallSec（脚本 server 无慢工具）、readDefaultLines（Read 面随 R5 涟漪酌情）。
 - **通知中心**：11 发射域 created 族全到达；unread 单减 + read-all 清零（线缆：`{unread}`、`PUT /{id}/read`、`POST /read-all`）。
 - **sandbox 治理**：runtimes 列表 / disk-usage / :gc；**删除守卫**（env 在用 → 409 `SANDBOX_ENV_IN_USE`，清 env 后放行）——比计划格更严的正确行为。

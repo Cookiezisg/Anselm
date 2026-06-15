@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
 )
 
 const readDocumentDescription = `Load a document's full markdown body plus path, description, and tags. Use after picking a doc via search_documents / list_documents.`

@@ -3,9 +3,9 @@ package chat
 import (
 	"context"
 
-	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // nodeTypeInteraction is the messages-stream node type for a pending human interaction: an

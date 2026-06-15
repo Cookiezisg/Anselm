@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // --- run_function ----------------------------------------------------------

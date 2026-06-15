@@ -1,4 +1,4 @@
-// Package approval (app layer) orchestrates the approval-form domain: forging versions
+// Package approval (app layer) orchestrates the approval-form domain: building versions
 // from a full prompt + decision-rule set (no ops), compiling the template's `{{ CEL }}`
 // spans via pkg/cel at create/edit time, and the relation / catalog adapters. The version
 // model is a linear, append-only history with a free-moving ActiveVersionID pointer — no
@@ -7,7 +7,7 @@
 // invoked standalone — the Service exposes Resolve so the interpreter reads the pinned
 // version's template + rules.
 //
-// Package approval（app 层）编排审批表 domain：从完整 prompt + 决策规则组锻造版本（无 ops）、
+// Package approval（app 层）编排审批表 domain：从完整 prompt + 决策规则组构建版本（无 ops）、
 // create/edit 时用 pkg/cel 编译模板的 `{{ CEL }}` 段、relation / catalog 适配器。版本模型线性、
 // 只增 + 自由 ActiveVersionID 指针——无 pending/accept、无 sandbox/env/executions。无 run/executions
 // ——审批表由 durable 解释器渲染 + park（一行 parked flowrun_nodes）、绝不独立调用——Service 暴露
@@ -19,10 +19,10 @@ import (
 
 	"go.uber.org/zap"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service approval consumes (nil-tolerant).

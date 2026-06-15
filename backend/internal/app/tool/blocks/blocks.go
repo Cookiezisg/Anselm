@@ -4,12 +4,12 @@
 // approval). Conversations, documents, skills, memories, workflows and
 // triggers never appear here — cross-entity omni-search belongs to the human
 // search box, and a smaller answer space is exactly what keeps the LLM's
-// mental load low while forging.
+// mental load low while building.
 //
 // Package blocks 提供 search_blocks——LLM 的工作流积木面板检索。范围是铁律：
 // 只搜能直接接进 workflow 图的六类（function / handler 方法 / mcp 工具 / agent /
 // control / approval）。对话、文档、skill、memory、workflow、trigger 永不出现——
-// 跨实体综搜属于人的搜索框，更小的答案空间正是搓工作流时压低 LLM 心智负担的关键。
+// 跨实体综搜属于人的搜索框，更小的答案空间正是构建工作流时压低 LLM 心智负担的关键。
 package blocks
 
 import (
@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"strings"
 
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // BlocksTools returns the search_blocks tool group.

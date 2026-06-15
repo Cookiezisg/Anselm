@@ -8,13 +8,13 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // Node content shapes for the messages stream — the loop's slice of the vocabulary. open
@@ -50,20 +50,20 @@ type (
 type toolAccum struct {
 	id, name string
 	args     strings.Builder
-	// forge (non-nil for a ForgeTool call) mirrors this tool_call's arg delta onto the entities
-	// stream so the entity panel fills in live (SSE-C). nil for non-forge calls.
+	// build (non-nil for a BuildTool call) mirrors this tool_call's arg delta onto the entities
+	// stream so the entity panel fills in live (SSE-C). nil for non-build calls.
 	//
-	// forge（ForgeTool 调用时非 nil）把本 tool_call 的 arg delta 镜像到 entities 流，使实体面板实时填充
-	// （SSE-C）。非 forge 调用为 nil。
-	forge *entitystreamapp.Writer
+	// build（BuildTool 调用时非 nil）把本 tool_call 的 arg delta 镜像到 entities 流，使实体面板实时填充
+	// （SSE-C）。非 build 调用为 nil。
+	build *entitystreamapp.Writer
 }
 
-// forgeOpenContent is the entities-stream forge node's open-frame content. (Node type =
-// entitystream.NodeForge; delta = raw arg chunks; close result = the final args.)
+// buildOpenContent is the entities-stream build node's open-frame content. (Node type =
+// entitystream.NodeBuild; delta = raw arg chunks; close result = the final args.)
 //
-// forgeOpenContent 是 entities 流 forge 节点的 open 帧内容。（节点型 = entitystream.NodeForge；delta =
+// buildOpenContent 是 entities 流 build 节点的 open 帧内容。（节点型 = entitystream.NodeBuild；delta =
 // 裸 arg chunk；close 结果 = 最终 args。）
-type forgeOpenContent struct {
+type buildOpenContent struct {
 	Op string `json:"op"` // "create" | "edit"
 }
 
@@ -86,15 +86,15 @@ func streamLLM(
 	ctx context.Context,
 	client llminfra.Client,
 	req llminfra.Request,
-	forgeOf func(toolName string) (toolapp.ForgeSpec, bool),
+	buildOf func(toolName string) (toolapp.BuildSpec, bool),
 	log *zap.Logger,
 ) (blocks []messagesdomain.Block, toolCalls []messagesdomain.ToolCallData, stopReason, errMsg string, inputTokens, outputTokens int) {
 	em := newEmitter(ctx, log)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
-	// entBridge (nil off a streamed chat turn) carries forge tool_call arg deltas onto the entities
-	// stream, scoped to a forge session, so the entity panel fills in live.
+	// entBridge (nil off a streamed chat turn) carries build tool_call arg deltas onto the entities
+	// stream, scoped to a build session, so the entity panel fills in live.
 	//
-	// entBridge（不在流式 chat turn 则 nil）把 forge tool_call 的 arg delta 送上 entities 流、锚到一次 forge
+	// entBridge（不在流式 chat turn 则 nil）把 build tool_call 的 arg delta 送上 entities 流、锚到一次 build
 	// 会话，使实体面板实时填充。
 	entBridge := entitystreamapp.BridgeFrom(ctx)
 
@@ -163,16 +163,16 @@ func streamLLM(
 			accums[event.ToolIndex] = a
 			em.open(ctx, a.id, msgID, messagesdomain.BlockTypeToolCall,
 				streamdomain.JSONContent(toolCallContent{Name: event.ToolName}))
-			// SSE-C: a forge tool_call's args ARE an entity's content being written — mirror the
-			// delta onto the entities stream (scope = a forge session keyed by the tool_call id;
+			// SSE-C: a build tool_call's args ARE an entity's content being written — mirror the
+			// delta onto the entities stream (scope = a build session keyed by the tool_call id;
 			// the front end correlates to the entity via the streamed args + the tool_result).
 			//
-			// SSE-C：forge tool_call 的 args 本身就是某实体正被写出的内容——把 delta 镜像到 entities 流
-			// （scope = 以 tool_call id 为键的 forge 会话；前端经流式 args + tool_result 关联到实体）。
-			if spec, ok := forgeOf(event.ToolName); ok {
-				a.forge = entitystreamapp.New(ctx, entBridge,
+			// SSE-C：build tool_call 的 args 本身就是某实体正被写出的内容——把 delta 镜像到 entities 流
+			// （scope = 以 tool_call id 为键的 build 会话；前端经流式 args + tool_result 关联到实体）。
+			if spec, ok := buildOf(event.ToolName); ok {
+				a.build = entitystreamapp.New(ctx, entBridge,
 					streamdomain.Scope{Kind: spec.Kind, ID: a.id},
-					entitystreamapp.NodeForge, streamdomain.JSONContent(forgeOpenContent{Op: spec.Op}))
+					entitystreamapp.NodeBuild, streamdomain.JSONContent(buildOpenContent{Op: spec.Op}))
 			}
 
 		case llminfra.EventToolDelta:
@@ -181,8 +181,8 @@ func streamLLM(
 				if a.id != "" {
 					em.delta(ctx, a.id, event.ArgsDelta)
 				}
-				if a.forge != nil {
-					_, _ = a.forge.Write([]byte(event.ArgsDelta))
+				if a.build != nil {
+					_, _ = a.build.Write([]byte(event.ArgsDelta))
 				}
 			}
 
@@ -234,11 +234,11 @@ func streamLLM(
 		if a.id != "" {
 			em.close(ctx, a.id, closeStatus, toolCallSnapshot(a), "")
 		}
-		if a.forge != nil {
-			// close the entities forge node with the final args as the reconnect snapshot.
+		if a.build != nil {
+			// close the entities build node with the final args as the reconnect snapshot.
 			//
-			// 用最终 args 作重连快照关 entities forge 节点。
-			a.forge.Close(closeStatus, json.RawMessage(a.args.String()))
+			// 用最终 args 作重连快照关 entities build 节点。
+			a.build.Close(closeStatus, json.RawMessage(a.args.String()))
 		}
 	}
 

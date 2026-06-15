@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Scheduler/Operate 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
+/* Foryx design-lab — 【Scheduler/Operate 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
    定位：每个 workflow 的运行状态一览（运行中/等你审批/失败/上次成功/在线空闲）。点一条 → 主区看该 wf 的详细 run（逐节点 + 历史）。
    触发器不在此（归 Entities 海洋，它是实体）；逐节点钻取/审批卡/firing 台账都在主区，侧栏只给状态一览 + 过滤。
    外壳 sidebar.js 据四导航懒加载本文件；自注入 scheduler.css，经 SideBar.register('scheduler', render) 挂载。依赖 icon()。 */

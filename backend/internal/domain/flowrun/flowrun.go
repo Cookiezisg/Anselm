@@ -1,5 +1,5 @@
 // Package flowrun is the domain layer for one workflow execution's DURABLE STATE — the
-// truth a crash recovers from. It is NOT a forgeable entity (no catalog / relation / version);
+// truth a crash recovers from. It is NOT a buildable entity (no catalog / relation / version);
 // it is a runtime log written by the scheduler as it interprets a pinned graph.
 //
 // The model is node-result MEMOIZATION (DBOS / Conductor style), NOT an event-sourcing journal
@@ -8,7 +8,7 @@
 // truth table. Re-running the interpreter (crash recovery / :replay) is idempotent because a
 // completed row is copied, never re-executed (record-once on UNIQUE(flowrun_id,node_id,iteration)).
 //
-// Package flowrun 是「一次 workflow 执行的持久化状态」的 domain 层——崩溃从这里恢复。它不是可锻造
+// Package flowrun 是「一次 workflow 执行的持久化状态」的 domain 层——崩溃从这里恢复。它不是可构建
 // 实体（无 catalog/relation/版本），是 scheduler 解释钉死的图时写的运行时日志。
 //
 // 模型是**节点结果记忆化**（DBOS/Conductor 式），不是事件溯源日志（Temporal 式）：没有用户代码可
@@ -20,7 +20,7 @@ package flowrun
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Run statuses. A run is running until terminal; "等人审批" is a NODE state (NodeParked), not a

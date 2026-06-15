@@ -1,4 +1,4 @@
-/* Forgify 组件库 — 「海与岛」布局原语 + 聊天 / 实体卡 / 导航组件。
+/* Foryx 组件库 — 「海与岛」布局原语 + 聊天 / 实体卡 / 导航组件。
    纯演示用：类名是各 demo 共享词汇，改一处全 demo 受益。 */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -194,7 +194,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .act-detail.open { display: block; }
 .act-detail b { color: var(--ink); font-weight: 600; }
 
-/* 「Edited file +n -m」式结果行 → Forgify 实体版（Updated <实体> v4→v5）*/
+/* 「Edited file +n -m」式结果行 → Foryx 实体版（Updated <实体> v4→v5）*/
 .editline {
   display: inline-flex; align-items: center; gap: 7px; margin: 12px 0;
   padding: 4px 8px; margin-left: -8px; border-radius: var(--r-chip);
@@ -346,7 +346,7 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .aside-tabs button.on { background: var(--island-3); color: var(--ink); font-weight: 600; }
 
 /* ============================================================
-   通用：按钮 / 占位面 / 列表（给 Forge·Documents·Notifications 面）
+   通用：按钮 / 占位面 / 列表（给 Build·Documents·Notifications 面）
    ============================================================ */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;

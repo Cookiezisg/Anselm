@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
 )
 
 // AsCatalogSource exposes the workflow library to the capability catalog (name + description

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // Create inserts v as a new row, stamping the created + updated columns.

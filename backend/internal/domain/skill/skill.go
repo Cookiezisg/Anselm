@@ -1,12 +1,12 @@
 // Package skill is the domain layer for file-based Agent Skills (SKILL.md directories).
 //
-// skill is an instruction CARRIER, not a forge entity: name(slug) IS its identity — no
+// skill is an instruction CARRIER, not a build entity: name(slug) IS its identity — no
 // generated id, no version (editing overwrites the file). It is memory's kin (a file-backed
 // injectable), NOT function's kin (an execution entity): hence no execution log, no search,
 // zero DB tables, zero LLM dependency.
 //
 // Package skill 是文件式 Agent Skill（SKILL.md 目录）的 domain 层。
-// skill 是「指令载体」非锻造实体：name(slug) 即身份——无生成 id、无版本（编辑即覆盖文件）。
+// skill 是「指令载体」非构建实体：name(slug) 即身份——无生成 id、无版本（编辑即覆盖文件）。
 // 它是 memory 的近亲（文件式注入物），不是 function 的近亲（执行实体）：故无 execution、
 // 无 search、零 DB 表、零 LLM 依赖。
 package skill
@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Skill is one SKILL.md entry's metadata. Body is populated only by Get (single read);
@@ -34,11 +34,11 @@ type Skill struct {
 }
 
 // Frontmatter mirrors the Anthropic SKILL.md spec verbatim — all cross-vendor fields kept
-// for seamless import even though only a subset is consumed today. Source is Forgify's
+// for seamless import even though only a subset is consumed today. Source is Foryx's
 // own extension (who authored the skill), persisted alongside the standard fields.
 //
 // Frontmatter 逐字镜像 Anthropic SKILL.md spec——跨厂字段全留以便无缝导入，当前只消费子集。
-// Source 是 Forgify 自有扩展（谁创作），与标准字段一起持久化。
+// Source 是 Foryx 自有扩展（谁创作），与标准字段一起持久化。
 type Frontmatter struct {
 	Name                   string   `yaml:"name" json:"name"`
 	Description            string   `yaml:"description" json:"description"`
@@ -51,7 +51,7 @@ type Frontmatter struct {
 	WhenToUse              string   `yaml:"when_to_use,omitempty" json:"whenToUse,omitempty"`
 	Model                  string   `yaml:"model,omitempty" json:"model,omitempty"`
 	Effort                 string   `yaml:"effort,omitempty" json:"effort,omitempty"`
-	Source                 string   `yaml:"source,omitempty" json:"source,omitempty"` // Forgify 扩展：user | ai
+	Source                 string   `yaml:"source,omitempty" json:"source,omitempty"` // Foryx 扩展：user | ai
 }
 
 // Context modes: inline injects into the current dialogue; fork dispatches an isolated subagent.

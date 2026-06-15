@@ -1,15 +1,15 @@
 # ──────────────────────────────────────────────────────────────────
-# Forgify — make 命令（后端 Go 单体 + 前端 Flutter 桌面端）
+# Foryx — make 命令（后端 Go 单体 + 前端 Flutter 桌面端）
 # ──────────────────────────────────────────────────────────────────
 #
 #   环境   setup    创建开发环境（mise 装 pin 的 go + flutter）
-#   运行   server   起后端服务（FORGIFY_DEV，端口 $(BACKEND_PORT)）
+#   运行   server   起后端服务（FORYX_DEV，端口 $(BACKEND_PORT)）
 #          stop     优雅关停后端（SIGTERM → App.Serve 有序关停）
 #   测试   unit     Go 单测（in-memory SQLite）
 #          testend  全功能黑盒验收（testend/ 真起后端二进制 + llmmock；分钟级，不进 verify）
 #          evals    金标 LLM 旅程（testend/golden，真模型烧钱；手动触发）
 #   文档   docs     文档规范门禁（cmd/docs，GOVERNANCE §11 全套）
-#   出包   build    后端二进制 → bin/forgify-server
+#   出包   build    后端二进制 → bin/foryx-server
 #   门禁   verify   后端 pre-push：gofmt + vet + build + unit + docs（host 平台）
 #   前端   fe-gen   codegen（freezed/json/slang，build_runner）
 #          fe-analyze / fe-test  Flutter 静态分析 / 单测
@@ -19,7 +19,7 @@
 #
 # ──────────────────────────────────────────────────────────────────
 
-BACKEND_DATA_DIR ?= /tmp/forgify-dev
+BACKEND_DATA_DIR ?= /tmp/foryx-dev
 BACKEND_PORT     ?= 8742
 
 SHELL    := /bin/bash
@@ -34,7 +34,7 @@ RUN  := $(MISE) exec --
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Forgify（后端 Go 单体 + 前端 Flutter 桌面端）"
+	@echo "Foryx（后端 Go 单体 + 前端 Flutter 桌面端）"
 	@echo ""
 	@echo "  环境:   make setup    创建开发环境（mise: go + flutter）"
 	@echo "  运行:   make server   起后端服务（:$(BACKEND_PORT)）"
@@ -43,7 +43,7 @@ help:
 	@echo "          make testend  全功能黑盒验收（真二进制 + llmmock，分钟级）"
 	@echo "          make evals    金标 LLM 旅程（真模型，烧钱，手动跑）"
 	@echo "  文档:   make docs     文档规范门禁（GOVERNANCE §11）"
-	@echo "  出包:   make build    后端二进制 → bin/forgify-server"
+	@echo "  出包:   make build    后端二进制 → bin/foryx-server"
 	@echo "  门禁:   make verify   后端 pre-push（gofmt+vet+build+unit+docs）"
 	@echo "  前端:   make fe-gen   codegen（freezed/json/slang）"
 	@echo "          make fe-verify Flutter pre-push（gen+analyze+test）"
@@ -67,9 +67,9 @@ setup:
 
 # ── 运行 ────────────────────────────────────────────────────────────
 
-# server — 起后端。main 读环境变量（FORGIFY_DEV/ADDR/DATA_DIR），非 flag。
+# server — 起后端。main 读环境变量（FORYX_DEV/ADDR/DATA_DIR），非 flag。
 server:
-	@$(LOAD_ENV) cd backend && FORGIFY_DEV=1 FORGIFY_ADDR=:$(BACKEND_PORT) FORGIFY_DATA_DIR=$(BACKEND_DATA_DIR) $(RUN) go run ./cmd/server
+	@$(LOAD_ENV) cd backend && FORYX_DEV=1 FORYX_ADDR=:$(BACKEND_PORT) FORYX_DATA_DIR=$(BACKEND_DATA_DIR) $(RUN) go run ./cmd/server
 
 # stop — 给监听进程发 SIGTERM → App.Serve 跑有序优雅关停（SSE 流 → HTTP 排空 → 后台 → DB）。非 -9。
 stop:
@@ -87,7 +87,7 @@ unit:
 	@cd backend && $(RUN) go test -count=1 ./...
 
 # testend — 全功能黑盒验收：编译并拉起真 backend 二进制，纯 HTTP/SSE 打全功能场景（零 backend import）。
-# 首跑会下载 sandbox 运行时（之后走 ~/.forgify-testend-cache 缓存）。
+# 首跑会下载 sandbox 运行时（之后走 ~/.foryx-testend-cache 缓存）。
 testend:
 	@cd testend && $(RUN) go test -count=1 -timeout 30m ./scenarios/...
 
@@ -103,10 +103,10 @@ docs:
 # ── 出包 ────────────────────────────────────────────────────────────
 
 # build — 后端 host 二进制。TODO：打包时把它作为 sidecar 二进制随 Flutter app 分发（flutter build
-# <platform> + 把 forgify-server 放进 bundle，客户端经 FORGIFY_ADDR 拉起，见 ADR 0004 §1）。
+# <platform> + 把 foryx-server 放进 bundle，客户端经 FORYX_ADDR 拉起，见 ADR 0004 §1）。
 build:
-	@cd backend && $(RUN) go build -o bin/forgify-server ./cmd/server
-	@echo "✓ backend/bin/forgify-server"
+	@cd backend && $(RUN) go build -o bin/foryx-server ./cmd/server
+	@echo "✓ backend/bin/foryx-server"
 
 # ── 门禁 ────────────────────────────────────────────────────────────
 
@@ -161,12 +161,12 @@ fe-verify:
 
 # fe-run — 起桌面 app（dev:挂到已跑后端,先 make server）。macOS 真跑需完整 Xcode + CocoaPods。
 fe-run:
-	@cd frontend && LANG=en_US.UTF-8 FORGIFY_BACKEND_URL=http://127.0.0.1:$(BACKEND_PORT) $(RUN) flutter run -d macos
+	@cd frontend && LANG=en_US.UTF-8 FORYX_BACKEND_URL=http://127.0.0.1:$(BACKEND_PORT) $(RUN) flutter run -d macos
 
 # ── 清理 ────────────────────────────────────────────────────────────
 
 # clean — 停服务 + 清 dev 数据目录（SQLite + 附件 + sandbox 运行时 + mcp + skills 都在 $(BACKEND_DATA_DIR)）。
-# 不碰 ~/.forgify（真实用户数据）、不碰 docs/。
+# 不碰 ~/.foryx（真实用户数据）、不碰 docs/。
 clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"

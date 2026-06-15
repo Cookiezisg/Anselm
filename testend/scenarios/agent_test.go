@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 const agModel = "mock-agent" // agent 场景默认模型的独立队列。
@@ -231,7 +231,7 @@ func TestAgentR2_RenameReresolutionAndFailFast(t *testing.T) {
 	// Delete the mounted function → the run fails loudly as a failed execution
 	// (mount resolve is fail-fast; the failure is auditable, never a degraded run).
 	// 删挂载物 → 运行落为 failed 执行（fail-fast；失败可审计、绝不降级跑）。
-	wc.DELETE("/api/v1/functions/" + fnID).OK(t, nil)
+	wc.DELETE("/api/v1/functions/"+fnID).OK(t, nil)
 	dangling := agInvoke(t, wc, agID, map[string]any{})
 	if dangling.OK || dangling.Status != "failed" || !strings.Contains(dangling.ErrorMsg, "not found") {
 		t.Fatalf("dangling mount must fail the run with the cause, got %+v", dangling)
@@ -319,7 +319,7 @@ func TestAgentR2_PromptAssembly(t *testing.T) {
 	}
 	// Chat-main-view isolation: none of the chat system sections may leak.
 	// chat 主视角隔离：chat 专属段不得泄漏。
-	for _, leak := range []string{"search_tools", "Forgify", "todo_write"} {
+	for _, leak := range []string{"search_tools", "Foryx", "todo_write"} {
 		if strings.Contains(sys, leak) {
 			t.Fatalf("chat prompt leaked %q into agent view", leak)
 		}

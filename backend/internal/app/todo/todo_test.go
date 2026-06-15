@@ -11,11 +11,11 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
-	todostore "github.com/sunweilin/forgify/backend/internal/infra/store/todo"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
+	todostore "github.com/sunweilin/foryx/backend/internal/infra/store/todo"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // fakeBridge captures published stream events for assertion.

@@ -1,13 +1,13 @@
 // Package relation owns the cross-entity topology graph: directed edges between
 // entities, the entity/edge kind vocabulary, and the id-prefix→kind routing
 // inherited from idgen. Edges are derived data — written explicitly by source
-// domains after they forge/equip/link, never authored directly — so there is no
+// domains after they build/equip/link, never authored directly — so there is no
 // soft-delete (an entity's edges are hard-deleted with it) and the read side is
 // pure projection. Display names are NOT stored: they are looked up fresh at read
 // time so a renamed entity always shows current.
 //
 // Package relation 持有跨实体拓扑图：实体间有向边、实体/边类型词表、从 idgen 收编的
-// id 前缀→类型路由。边是派生数据——由各 source domain 在 forge/equip/link 后显式写入、
+// id 前缀→类型路由。边是派生数据——由各 source domain 在 build/equip/link 后显式写入、
 // 从不直接编写——故无软删（实体的边随实体硬删），读侧是纯投影。显示名不入库：读时现查，
 // 故改名后永远显示最新。
 package relation
@@ -16,7 +16,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Relation is one directed edge: (from_kind, from_id) --kind--> (to_kind, to_id),
@@ -143,11 +143,11 @@ type Service interface {
 	SyncOutgoing(ctx context.Context, fromKind, fromID string, kindScope []string, edges []SyncEdge) error
 
 	// SyncIncoming mirrors SyncOutgoing on the (to) side. Used for create / edit,
-	// which the forged entity declares about itself (the conversation does not know
-	// what it forged).
+	// which the built entity declares about itself (the conversation does not know
+	// what it built).
 	//
-	// SyncIncoming 是 SyncOutgoing 在 (to) 侧的镜像。用于 create / edit，由被锻造实体
-	// 自述（对话不知道自己锻造了什么）。
+	// SyncIncoming 是 SyncOutgoing 在 (to) 侧的镜像。用于 create / edit，由被构建实体
+	// 自述（对话不知道自己构建了什么）。
 	SyncIncoming(ctx context.Context, toKind, toID string, kindScope []string, edges []SyncEdge) error
 
 	// PurgeEntity hard-deletes every edge touching the entity (from OR to). Called

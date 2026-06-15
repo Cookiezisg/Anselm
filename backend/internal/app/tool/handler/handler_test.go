@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 func TestHandlerTools_Wiring(t *testing.T) {

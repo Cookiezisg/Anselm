@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // ── workspace ───────────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ func TestPlatform_WorkspaceCascadeDelete(t *testing.T) {
 	// 在该 ws 里堆资产：一个 function（创建即同步物化 env 落盘）+ 一个对话。
 	fnID := fnCreate(t, wc, "doomed_fn", "def f() -> dict:\n    return {\"ok\": True}\n")
 	convID := convCreate(t, wc, "doomed conv")
-	wc.GET("/api/v1/functions/" + fnID).OK(t, nil) // 删前确在
+	wc.GET("/api/v1/functions/"+fnID).OK(t, nil) // 删前确在
 
 	// 删除整 workspace：必须及时 204（Reaper 摘监听/停进程/删盘/删行全跑完，不死锁）。
 	c.Do("DELETE", "/api/v1/workspaces/"+wsID, nil).OK(t, nil)

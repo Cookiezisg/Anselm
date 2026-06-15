@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // TestSearchConversations_Wiring: group shape + query required (reuses the search domain

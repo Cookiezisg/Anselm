@@ -3,9 +3,9 @@ package agent
 import (
 	"testing"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // TestService_InvokeMirrorsRunToEntities: with an EntitiesBridge wired, an agent run mirrors its

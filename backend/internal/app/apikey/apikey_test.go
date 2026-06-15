@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // --- fakes ---

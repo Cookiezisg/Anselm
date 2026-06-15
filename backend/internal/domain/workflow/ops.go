@@ -7,10 +7,10 @@ import (
 )
 
 // Op is a JSON-discriminated graph-edit op; Type lives in the `op` field, Raw holds the
-// body. Mirrors function's forge-op model but graph-shaped: the seven ops below edit a
+// body. Mirrors function's build-op model but graph-shaped: the seven ops below edit a
 // graph (nodes/edges) plus the header meta, each taking effect in declared order.
 //
-// Op 是 JSON 判别式图编辑 op；Type 在 `op` 字段，Raw 存 body。镜像 function 的锻造 op 模型但图
+// Op 是 JSON 判别式图编辑 op；Type 在 `op` 字段，Raw 存 body。镜像 function 的构建 op 模型但图
 // 形：下面七个 op 编辑图（nodes/edges）+ 头部 meta，按声明序逐个生效。
 type Op struct {
 	Type string

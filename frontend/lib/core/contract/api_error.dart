@@ -14,9 +14,9 @@ class ApiException implements Exception {
   });
 
   /// Stable `<ENTITY>_<REASON>` wire code (globally unique, ~256 registered). The UI
-  /// branches on the handful in [ForgifyErr]; the rest are shown via [message].
+  /// branches on the handful in [ForyxErr]; the rest are shown via [message].
   ///
-  /// 稳定 `<ENTITY>_<REASON>` wire code(全局唯一,~256 登记)。UI 只 branch [ForgifyErr]
+  /// 稳定 `<ENTITY>_<REASON>` wire code(全局唯一,~256 登记)。UI 只 branch [ForyxErr]
   /// 里的少数,其余经 [message] 呈现。
   final String code;
 
@@ -49,7 +49,7 @@ class ApiException implements Exception {
   factory ApiException.fromEnvelope(Map<String, dynamic>? error, int httpStatus) {
     final e = error ?? const {};
     return ApiException(
-      code: e['code'] as String? ?? ForgifyErr.unknown,
+      code: e['code'] as String? ?? ForyxErr.unknown,
       message: e['message'] as String? ?? 'request failed',
       httpStatus: httpStatus,
       details: e['details'],
@@ -60,7 +60,7 @@ class ApiException implements Exception {
   ///
   /// 无 HTTP 信封的传输级失败(后端不可达)。
   factory ApiException.transport(String message) =>
-      ApiException(code: ForgifyErr.transport, message: message, httpStatus: 0);
+      ApiException(code: ForyxErr.transport, message: message, httpStatus: 0);
 
   @override
   String toString() => 'ApiException($code, http=$httpStatus): $message';
@@ -72,7 +72,7 @@ class ApiException implements Exception {
 ///
 /// UI 真正 branch 的少数 wire code(其余仅显示消息)。全 ~256 码目录后续由 `error-codes.md`
 /// 生成;此为驱动 UX 流程的手挑子集。
-abstract final class ForgifyErr {
+abstract final class ForyxErr {
   /// Client-synthesized: transport failure before any response.
   static const transport = 'CLIENT_TRANSPORT';
 

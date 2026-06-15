@@ -31,7 +31,7 @@ audience: [human, ai]
 
 | 流 | node.type 当前全集 |
 |---|---|
-| entities | `forge`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
+| entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移） |
 | messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号）· `todo`（信号） |
 | notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
 
@@ -51,9 +51,9 @@ audience: [human, ai]
 
 | 域 | 挂载 |
 |---|---|
-| function | **run 终端**：每次执行的实时 stderr（= 函数自己的 `print()`，driver 引流）→ function scope；**forge 镜像**：create/edit_function 的流式 code args → 面板实时填充；**env 物化终端**：每次 ensureEnv 的尝试/修复行（不分入口——HTTP 编辑器/chat 锻造/run 重建）→ forge 节点 |
-| handler | **run 终端**：流式 method 的每个 yield → handler scope（不论谁触发）；**forge 镜像**：create/edit_handler 的类代码；**env 物化终端**：同 function |
-| agent | **run 轨迹**：invoke 的完整 ReAct block 流（text/reasoning/tool_call/tool_result）→ agent scope（不论 chat/REST/workflow 触发）；**forge 镜像**：create/edit_agent 的 config |
+| function | **run 终端**：每次执行的实时 stderr（= 函数自己的 `print()`，driver 引流）→ function scope；**build 镜像**：create/edit_function 的流式 code args → 面板实时填充；**env 物化终端**：每次 ensureEnv 的尝试/修复行（不分入口——HTTP 编辑器/chat 构建/run 重建）→ build 节点 |
+| handler | **run 终端**：流式 method 的每个 yield → handler scope（不论谁触发）；**build 镜像**：create/edit_handler 的类代码；**env 物化终端**：同 function |
+| agent | **run 轨迹**：invoke 的完整 ReAct block 流（text/reasoning/tool_call/tool_result）→ agent scope（不论 chat/REST/workflow 触发）；**build 镜像**：create/edit_agent 的 config |
 
 ## messages 流挂载（对话内呈现）
 
@@ -70,15 +70,15 @@ audience: [human, ai]
 **entities 流**：
 | 域 | 挂载 |
 |---|---|
-| workflow | **flowrun 节点进度**：advance 每节点终态发一条 **ephemeral** Signal（`{flowrunId, nodeId, iteration, status}`）→ workflow scope——面板实时看 run 逐节点推进；flowrun_nodes 行是真相、tick 不占 replay 环（E2）；forge 镜像（create/edit_workflow 的图 ops） |
+| workflow | **flowrun 节点进度**：advance 每节点终态发一条 **ephemeral** Signal（`{flowrunId, nodeId, iteration, status}`）→ workflow scope——面板实时看 run 逐节点推进；flowrun_nodes 行是真相、tick 不占 replay 环（E2）；build 镜像（create/edit_workflow 的图 ops） |
 | trigger | **fire 信号**：每次扇出（全 4 源 + manual）发 **ephemeral** Signal `{activationId, kind, fired, firingCount, error}` → trigger scope；durable 记录 = Activation/Firing 行（信号丢弃无妨） |
-| control / approval | forge 镜像（create/edit 的 branches/template） |
+| control / approval | build 镜像（create/edit 的 branches/template） |
 
 ## P4 三域挂载
 
 **notifications**：`skill.{created,updated,deleted}` · `mcp.{installed,updated,removed,reconnected}` 族 · `document.{created,updated,moved,deleted}`。
 
-**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）+ **`status` 信号**（**ephemeral**：连接态转移 connecting→ready / ready↔degraded / →failed，发 `{status, prevStatus, lastError}` → server scope，使 MCP 行状态点实时变色；mcp_servers 行是重连真相、信号丢弃无妨，只在真变化时发，不入 buffer E2）；skill/document = forge 镜像（create/edit 的 body/content）。
+**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）+ **`status` 信号**（**ephemeral**：连接态转移 connecting→ready / ready↔degraded / →failed，发 `{status, prevStatus, lastError}` → server scope，使 MCP 行状态点实时变色；mcp_servers 行是重连真相、信号丢弃无妨，只在真变化时发，不入 buffer E2）；skill/document = build 镜像（create/edit 的 body/content）。
 
 **messages 流**：mcp 动态工具（`mcp__*__*`）的进度作为 tool_call 下 progress 块。
 

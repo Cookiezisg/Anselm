@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
 )
 
 // --- create_workflow -------------------------------------------------------
@@ -17,7 +17,7 @@ type CreateWorkflow struct{ svc *workflowapp.Service }
 func (t *CreateWorkflow) Name() string { return "create_workflow" }
 
 func (t *CreateWorkflow) Description() string {
-	return "Forge a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide the name and an ops array that builds at least a trigger node.\n\n" + opsDoc
+	return "Build a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide the name and an ops array that builds at least a trigger node.\n\n" + opsDoc
 }
 
 func (t *CreateWorkflow) Parameters() json.RawMessage {

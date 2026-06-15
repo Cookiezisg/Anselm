@@ -15,7 +15,7 @@ import (
 	robfigcron "github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 
-	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
+	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
 )
 
 // Validate reports whether expr is a parseable standard (5-field) cron expression. The app

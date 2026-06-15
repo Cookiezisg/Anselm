@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
+	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
 )
 
 // Service aggregates registered CatalogSources into the overview.

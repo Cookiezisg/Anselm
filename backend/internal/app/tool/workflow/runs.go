@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	flowrundomain "github.com/sunweilin/forgify/backend/internal/domain/flowrun"
+	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
 )
 
 // runs.go closes the execution-observability loop trigger_workflow opens: it returns a

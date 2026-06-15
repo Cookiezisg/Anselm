@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func TestUpdates(t *testing.T) {

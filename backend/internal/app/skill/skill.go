@@ -14,9 +14,9 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
 )
 
 // Service ties the file repo, fork-dispatch port, notifier, and relation sync together.

@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Chat 海洋】左侧栏内容样式（由 sidebar/chat.js 自注入）。
+/* Foryx design-lab — 【Chat 海洋】左侧栏内容样式（由 sidebar/chat.js 自注入）。
    会话史：新建 + 标题快滤 + 展示菜单(排序/分组/时间戳) + 三区 Pinned/Recents/Archived + 行首状态点。
    依赖 tokens.css + shell.css 的 cc-* 表面色、ink、accent、语义色（只读）。类名 chat 侧栏专属，勿与海洋海面 CSS 重名。 */
 

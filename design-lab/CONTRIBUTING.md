@@ -70,7 +70,7 @@ design-lab/
   - CSS 变量 `--side-w`（挂 `<html>`，默认 240px）= 侧栏宽，**全仓库只在 shell.css 定义一次**；sidebar 拖拽时写 `<html>` 行内值，sidebar.css **不得再声明 `.side` 的 width**（杜绝「槽 vs 岛谁定宽」打架）。
   - data 属性 `html[data-side]`(`on`|`off`) + `html[data-side-dragging]` — sidebar 写、shell.css 据此回流/关过渡。收起规约由 shell.css 用 `html[data-side="off"] .side{…}`（属性选择器稳压 `.side`，不用 `!important`），**只碰布局量**（width/opacity/margin/overflow/pointer-events），不碰岛皮肤（那是 sidebar 的）。
   - **给海洋的一句话**：你是 `.body` 里 `flex:1` 的 `.main`，侧栏收起/调宽只会让你自动伸缩、flex 平滑回流，**什么都不用做**；布局状态不会也不该泄漏给你（除非内部 canvas 无法 CSS 回流，才读 optional 的 `Shell.sideWidth`）。
-  - 备忘：48px 图标 rail 收起态当前**不做**（窄岛会读成竖直 divider、违「禁分割线」）；**留待侧栏长出 Forge 四实体竖导航时再评估**。
+  - 备忘：48px 图标 rail 收起态当前**不做**（窄岛会读成竖直 divider、违「禁分割线」）；**留待侧栏长出 Build 四实体竖导航时再评估**。
 
 > 契约要变（加槽、改签名）= 提给内核，内核改 `shared/` + 本表 + 同步通知，**绝不各自在海洋里硬塞**。
 

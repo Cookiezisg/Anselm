@@ -7,13 +7,13 @@ import (
 	"os"
 	"strings"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	fspathpkg "github.com/sunweilin/forgify/backend/internal/pkg/fspath"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	fspathpkg "github.com/sunweilin/foryx/backend/internal/pkg/fspath"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
 )
 
 var (

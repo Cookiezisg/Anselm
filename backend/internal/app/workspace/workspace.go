@@ -15,11 +15,11 @@ import (
 
 	"go.uber.org/zap"
 
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	websearchdomain "github.com/sunweilin/forgify/backend/internal/domain/websearch"
-	workspacedomain "github.com/sunweilin/forgify/backend/internal/domain/workspace"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	websearchdomain "github.com/sunweilin/foryx/backend/internal/domain/websearch"
+	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // Service orchestrates Workspace CRUD.

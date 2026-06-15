@@ -9,10 +9,10 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	cryptoinfra "github.com/sunweilin/forgify/backend/internal/infra/crypto"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	cryptoinfra "github.com/sunweilin/foryx/backend/internal/infra/crypto"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func newStore(t *testing.T) (*Store, *sql.DB) {

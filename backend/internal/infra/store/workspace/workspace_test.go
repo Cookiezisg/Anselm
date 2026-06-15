@@ -8,8 +8,8 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	workspacedomain "github.com/sunweilin/forgify/backend/internal/domain/workspace"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // newStore opens an in-memory db, applies the workspaces schema, returns a Store.

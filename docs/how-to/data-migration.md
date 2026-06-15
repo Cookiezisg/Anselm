@@ -13,14 +13,14 @@ audience: [human, ai]
 
 ## 数据都在哪
 
-一切在 `$FORGIFY_DATA_DIR`（默认 `~/.forgify`）：
+一切在 `$FORYX_DATA_DIR`（默认 `~/.foryx`）：
 
 | 路径 | 内容 |
 |---|---|
-| `forgify.db` | SQLite 全库（实体/版本/执行日志/消息/索引） |
+| `foryx.db` | SQLite 全库（实体/版本/执行日志/消息/索引） |
 | `workspaces/<ws>/` | 文件式存储：memories / blobs（SHA256 CAS）/ skills |
 | `sandbox/` | 运行时 `runtimes/<kind>/<version>/`（python/node/uv/dotnet/llamasrv/embedmodel）+ env `envs/<kind>/<id>/`——**纯派生缓存，可不迁** |
-| `logs/forgify.log` | 轮转日志（10MB×3，保留 28 天，gzip）——报障就发这个文件 |
+| `logs/foryx.log` | 轮转日志（10MB×3，保留 28 天，gzip）——报障就发这个文件 |
 
 ## 备份
 

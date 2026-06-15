@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.Background(), id) }

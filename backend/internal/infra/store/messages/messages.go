@@ -26,9 +26,9 @@ import (
 	"errors"
 	"fmt"
 
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the two tables' DDL, exported as ordered idempotent statements for bootstrap to

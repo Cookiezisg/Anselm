@@ -9,17 +9,17 @@ import (
 	"strings"
 	"testing"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 // TestE2E_DirectInstall actually downloads each runtime into a temp sandbox and execs it, proving the
 // self-built directInstaller's download → checksum → extract → layout → run path works on a real
-// host. dotnet is skipped by default (226 MB); set FORGIFY_E2E_DOTNET=1 to include it.
+// host. dotnet is skipped by default (226 MB); set FORYX_E2E_DOTNET=1 to include it.
 //
 // Run: go test -tags e2e -run TestE2E_DirectInstall -v -timeout 600s ./internal/infra/sandbox/
 //
 // TestE2E_DirectInstall 真把每个运行时下到临时 sandbox 并执行，证明自研 directInstaller 的
-// 下载→校验→解压→布局→运行 整条链在真机可用。dotnet 默认跳过（226MB），FORGIFY_E2E_DOTNET=1 纳入。
+// 下载→校验→解压→布局→运行 整条链在真机可用。dotnet 默认跳过（226MB），FORYX_E2E_DOTNET=1 纳入。
 func TestE2E_DirectInstall(t *testing.T) {
 	root := t.TempDir()
 	ctx := context.Background()
@@ -59,9 +59,9 @@ func TestE2E_DirectInstall(t *testing.T) {
 	run("node", "22", "--version")
 	run("python", "3.12", "--version")
 
-	// dotnet (226 MB) is validated on demand: FORGIFY_E2E_DOTNET=1 go test -tags e2e ...
-	// dotnet（226MB）按需验证：FORGIFY_E2E_DOTNET=1 go test -tags e2e ...
-	if os.Getenv("FORGIFY_E2E_DOTNET") == "1" {
+	// dotnet (226 MB) is validated on demand: FORYX_E2E_DOTNET=1 go test -tags e2e ...
+	// dotnet（226MB）按需验证：FORYX_E2E_DOTNET=1 go test -tags e2e ...
+	if os.Getenv("FORYX_E2E_DOTNET") == "1" {
 		run("dotnet", "10.0.300", "--version")
 	}
 }

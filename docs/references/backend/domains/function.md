@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-用户锻造的**无状态** Python 代码：每次调用在**全新隔离的沙箱进程**里跑一遍就退出（对比 handler 的常驻进程）。代码层级：`domain/function`（实体+错误+Repository 端口，零外部依赖）→ `app/function`（锻造/执行/env 编排 + 三适配器）→ `infra/store/function`（orm 三表）+ `app/tool/function`（9 个 LLM 工具）+ transport。
+用户构建的**无状态** Python 代码：每次调用在**全新隔离的沙箱进程**里跑一遍就退出（对比 handler 的常驻进程）。代码层级：`domain/function`（实体+错误+Repository 端口，零外部依赖）→ `app/function`（构建/执行/env 编排 + 三适配器）→ `infra/store/function`（orm 三表）+ `app/tool/function`（9 个 LLM 工具）+ transport。
 
 ## 2. 心智模型（先懂这个，代码就顺了）
 
@@ -34,9 +34,9 @@ audience: [human, ai]
 
 ## 4. 生命周期 / 关键流程
 
-**锻造（create/edit）**：唯一的变更词汇是 **ops**（JSON 判别式：`set_meta/set_code/set_inputs/set_outputs/set_dependencies/set_python_version`，闭集）。三条入口殊途同归——LLM 工具传 ops、HTTP `:edit` 传 ops、HTTP create 的扁平 payload 由 `buildOpsFromDirect` **反推成 ops**——全走 `ApplyOps`：逐 op 应用到 `VersionDraft` + **每步后** `validateIncremental`（name 正则 + 字段 schema）+ 末尾 `validateFinal`。LLM 的脏 JSON 先过 `jsonrepair` 容错。错误码：op 畸形/中途非法 = `FUNCTION_OP_INVALID`；终校验失败 = `FUNCTION_INVALID_CODE`。
+**构建（create/edit）**：唯一的变更词汇是 **ops**（JSON 判别式：`set_meta/set_code/set_inputs/set_outputs/set_dependencies/set_python_version`，闭集）。三条入口殊途同归——LLM 工具传 ops、HTTP `:edit` 传 ops、HTTP create 的扁平 payload 由 `buildOpsFromDirect` **反推成 ops**——全走 `ApplyOps`：逐 op 应用到 `VersionDraft` + **每步后** `validateIncremental`（name 正则 + 字段 schema）+ 末尾 `validateFinal`。LLM 的脏 JSON 先过 `jsonrepair` 容错。错误码：op 畸形/中途非法 = `FUNCTION_OP_INVALID`；终校验失败 = `FUNCTION_INVALID_CODE`。
 
-**代码校验是刻意的词法检查、非 AST**：要求至少一个顶层 `def `（首个 def 名即执行入口）；黑名单 `import forgify_handler`（**无状态/有状态边界**：function 无状态、handler 持久——function 不许碰 handler SDK）。
+**代码校验是刻意的词法检查、非 AST**：要求至少一个顶层 `def `（首个 def 名即执行入口）；黑名单 `import foryx_handler`（**无状态/有状态边界**：function 无状态、handler 持久——function 不许碰 handler SDK）。
 
 **env 物化（`ensureEnv`）**：写 syncing → 委托 `envfix.Provisioner`（带 LLM 改依赖的修复循环，≤3 次——装不上时让 LLM 改依赖列表重试）→ 终态（ready/failed + **修正后的依赖**）写回 Version 行。create/edit **容忍**失败（env failed 也创建成功，状态可见）；run 时未 ready 才报 `FUNCTION_ENV_NOT_READY`。`Edit` 空 ops = "重建 active env"路径（重试失败的安装），发 `function.env_rebuilt`。
 
@@ -44,7 +44,7 @@ audience: [human, ai]
 
 **沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
 
-**env 物化可见性**：ensureEnv 把每次尝试/模型修复行经 `envfix.WriterSink` tee 到 entities 流 forge 终端（不分入口——HTTP 编辑器路径与 chat 锻造同等可见）；状态级信号另走 `sandbox.env_status_changed` 通知（installing/ready/failed 带 errorMsg）。
+**env 物化可见性**：ensureEnv 把每次尝试/模型修复行经 `envfix.WriterSink` tee 到 entities 流 build 终端（不分入口——HTTP 编辑器路径与 chat 构建同等可见）；状态级信号另走 `sandbox.env_status_changed` 通知（installing/ready/failed 带 errorMsg）。
 
 **记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按 `ctx.Err()` 区分 timeout/cancelled/failed；`logs` 随行落盘（List 置空、单条 Get 携带）。
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用，不重列）
 
-端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 10 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **forge 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
+端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 10 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
 
 ## 7. 跨域集成
 

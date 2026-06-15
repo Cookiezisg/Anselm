@@ -55,14 +55,14 @@ func TestDefault_DeniesSystemPaths(t *testing.T) {
 	}
 }
 
-func TestDefault_DeniesForgifyState(t *testing.T) {
+func TestDefault_DeniesForyxState(t *testing.T) {
 	g := NewDefault()
 	home := homeDir(t)
 	cases := []string{
-		filepath.Join(home, ".forgify"),
-		filepath.Join(home, ".forgify", "db.sqlite"),
-		filepath.Join(home, ".forgify", "encryption-key"),
-		filepath.Join(home, ".forgify", "forges", "f_abc"),
+		filepath.Join(home, ".foryx"),
+		filepath.Join(home, ".foryx", "db.sqlite"),
+		filepath.Join(home, ".foryx", "encryption-key"),
+		filepath.Join(home, ".foryx", "builds", "f_abc"),
 	}
 	for _, p := range cases {
 		ok, _ := g.Allow(p)

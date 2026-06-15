@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【通知 Inbox】侧栏接管内容（独立文件，一人负责；与外壳/海洋解耦）。
+/* Foryx design-lab — 【通知 Inbox】侧栏接管内容（独立文件，一人负责；与外壳/海洋解耦）。
    外壳 sidebar.js 的铃铛点击 → SideBar.mount('notifications') 接管 #sidebody（镜像 settings 接管海面）。
    本文件自注入 notifications.css，经 SideBar.register('notifications', render) 挂载；只碰 render(host) 宿主 + 外壳暴露的 SideBar.exitNotif / SideBar.setUnread。
    后端事实：notifications 流唯一 durable actionable = workflow.approval_pending（→ /flowruns/{id}/approvals/{node}:decide）；

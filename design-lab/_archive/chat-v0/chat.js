@@ -1,4 +1,4 @@
-/* Forgify design-lab — Chat 海洋编排（单独，一人负责整个 oceans/chat/ 文件夹）。
+/* Foryx design-lab — Chat 海洋编排（单独，一人负责整个 oceans/chat/ 文件夹）。
    注册进外壳：Shell.registerOcean('chat', { build(sea) })，渲染对话流 + composer 到 #sea，
    右岛(实体卡)交给同目录 entity-card.js。信号交互 = 本海洋的灵魂。
    依赖：shared/icons.js · shared/shell.js · ./entity-card.js（ChatEntityCard）。 */
@@ -16,7 +16,7 @@
         <div class="composer">
           <div class="cwrap">
             <div class="ctx">
-              <span class="repo"><span data-i="repo"></span> Forgify</span>
+              <span class="repo"><span data-i="repo"></span> Foryx</span>
               <span class="branch"><span data-i="branch"></span> main</span>
               <span class="diff"><span class="add">+172</span> <span class="del">−1</span></span>
               <button class="pr">Create PR <span data-i="chevd"></span></button>

@@ -21,8 +21,8 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
 )
 
 // SearchTools constructs the three navigation tools wired with their shared PathGuard.

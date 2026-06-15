@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // Agent is the top-level entity (ag_ prefix); its mutable config lives on the active Version.
@@ -84,10 +84,10 @@ type Version struct {
 	ModelOverride *modeldomain.ModelRef `db:"model_override,json"         json:"modelOverride,omitempty"` // nil → default agent scenario model
 	ChangeReason  string                `db:"change_reason"               json:"changeReason,omitempty"`
 
-	// ForgedInConversationID records which conversation produced this version (relation forged/edited edges).
+	// BuiltInConversationID records which conversation produced this version (relation built/edited edges).
 	//
-	// ForgedInConversationID 记录哪个对话产出此版本（relation forged/edited 边）。
-	ForgedInConversationID string `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
+	// BuiltInConversationID 记录哪个对话产出此版本（relation built/edited 边）。
+	BuiltInConversationID string `db:"built_in_conversation_id" json:"builtInConversationId,omitempty"`
 
 	CreatedAt time.Time `db:"created_at,created" json:"createdAt"`
 	UpdatedAt time.Time `db:"updated_at,updated" json:"updatedAt"`

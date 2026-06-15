@@ -8,65 +8,65 @@ import (
 
 	"go.uber.org/zap"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	apikeyapp "github.com/sunweilin/forgify/backend/internal/app/apikey"
-	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
-	attachmentapp "github.com/sunweilin/forgify/backend/internal/app/attachment"
-	catalogapp "github.com/sunweilin/forgify/backend/internal/app/catalog"
-	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
-	contextmgrapp "github.com/sunweilin/forgify/backend/internal/app/contextmgr"
-	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
-	conversationapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	functionapp "github.com/sunweilin/forgify/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
-	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
-	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	notificationapp "github.com/sunweilin/forgify/backend/internal/app/notification"
-	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
-	sandboxapp "github.com/sunweilin/forgify/backend/internal/app/sandbox"
-	schedulerapp "github.com/sunweilin/forgify/backend/internal/app/scheduler"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	settingsapp "github.com/sunweilin/forgify/backend/internal/app/settings"
-	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
-	subagentapp "github.com/sunweilin/forgify/backend/internal/app/subagent"
-	todoapp "github.com/sunweilin/forgify/backend/internal/app/todo"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agenttool "github.com/sunweilin/forgify/backend/internal/app/tool/agent"
-	approvaltool "github.com/sunweilin/forgify/backend/internal/app/tool/approval"
-	asktool "github.com/sunweilin/forgify/backend/internal/app/tool/ask"
-	blockstool "github.com/sunweilin/forgify/backend/internal/app/tool/blocks"
-	controltool "github.com/sunweilin/forgify/backend/internal/app/tool/control"
-	conversationtool "github.com/sunweilin/forgify/backend/internal/app/tool/conversation"
-	documenttool "github.com/sunweilin/forgify/backend/internal/app/tool/document"
-	filesystemtool "github.com/sunweilin/forgify/backend/internal/app/tool/filesystem"
-	functiontool "github.com/sunweilin/forgify/backend/internal/app/tool/function"
-	handlertool "github.com/sunweilin/forgify/backend/internal/app/tool/handler"
-	mcptool "github.com/sunweilin/forgify/backend/internal/app/tool/mcp"
-	memorytool "github.com/sunweilin/forgify/backend/internal/app/tool/memory"
-	mounttool "github.com/sunweilin/forgify/backend/internal/app/tool/mount"
-	relationtool "github.com/sunweilin/forgify/backend/internal/app/tool/relation"
-	searchtool "github.com/sunweilin/forgify/backend/internal/app/tool/search"
-	shelltool "github.com/sunweilin/forgify/backend/internal/app/tool/shell"
-	skilltool "github.com/sunweilin/forgify/backend/internal/app/tool/skill"
-	subagenttool "github.com/sunweilin/forgify/backend/internal/app/tool/subagent"
-	todotool "github.com/sunweilin/forgify/backend/internal/app/tool/todo"
-	triggertool "github.com/sunweilin/forgify/backend/internal/app/tool/trigger"
-	webtool "github.com/sunweilin/forgify/backend/internal/app/tool/web"
-	workflowtool "github.com/sunweilin/forgify/backend/internal/app/tool/workflow"
-	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	workspaceapp "github.com/sunweilin/forgify/backend/internal/app/workspace"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
-	sandboxinfra "github.com/sunweilin/forgify/backend/internal/infra/sandbox"
-	searchengine "github.com/sunweilin/forgify/backend/internal/infra/search/engine"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	apikeyapp "github.com/sunweilin/foryx/backend/internal/app/apikey"
+	approvalapp "github.com/sunweilin/foryx/backend/internal/app/approval"
+	attachmentapp "github.com/sunweilin/foryx/backend/internal/app/attachment"
+	catalogapp "github.com/sunweilin/foryx/backend/internal/app/catalog"
+	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
+	contextmgrapp "github.com/sunweilin/foryx/backend/internal/app/contextmgr"
+	controlapp "github.com/sunweilin/foryx/backend/internal/app/control"
+	conversationapp "github.com/sunweilin/foryx/backend/internal/app/conversation"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
+	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
+	modelapp "github.com/sunweilin/foryx/backend/internal/app/model"
+	notificationapp "github.com/sunweilin/foryx/backend/internal/app/notification"
+	relationapp "github.com/sunweilin/foryx/backend/internal/app/relation"
+	sandboxapp "github.com/sunweilin/foryx/backend/internal/app/sandbox"
+	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	settingsapp "github.com/sunweilin/foryx/backend/internal/app/settings"
+	skillapp "github.com/sunweilin/foryx/backend/internal/app/skill"
+	subagentapp "github.com/sunweilin/foryx/backend/internal/app/subagent"
+	todoapp "github.com/sunweilin/foryx/backend/internal/app/todo"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agenttool "github.com/sunweilin/foryx/backend/internal/app/tool/agent"
+	approvaltool "github.com/sunweilin/foryx/backend/internal/app/tool/approval"
+	asktool "github.com/sunweilin/foryx/backend/internal/app/tool/ask"
+	blockstool "github.com/sunweilin/foryx/backend/internal/app/tool/blocks"
+	controltool "github.com/sunweilin/foryx/backend/internal/app/tool/control"
+	conversationtool "github.com/sunweilin/foryx/backend/internal/app/tool/conversation"
+	documenttool "github.com/sunweilin/foryx/backend/internal/app/tool/document"
+	filesystemtool "github.com/sunweilin/foryx/backend/internal/app/tool/filesystem"
+	functiontool "github.com/sunweilin/foryx/backend/internal/app/tool/function"
+	handlertool "github.com/sunweilin/foryx/backend/internal/app/tool/handler"
+	mcptool "github.com/sunweilin/foryx/backend/internal/app/tool/mcp"
+	memorytool "github.com/sunweilin/foryx/backend/internal/app/tool/memory"
+	mounttool "github.com/sunweilin/foryx/backend/internal/app/tool/mount"
+	relationtool "github.com/sunweilin/foryx/backend/internal/app/tool/relation"
+	searchtool "github.com/sunweilin/foryx/backend/internal/app/tool/search"
+	shelltool "github.com/sunweilin/foryx/backend/internal/app/tool/shell"
+	skilltool "github.com/sunweilin/foryx/backend/internal/app/tool/skill"
+	subagenttool "github.com/sunweilin/foryx/backend/internal/app/tool/subagent"
+	todotool "github.com/sunweilin/foryx/backend/internal/app/tool/todo"
+	triggertool "github.com/sunweilin/foryx/backend/internal/app/tool/trigger"
+	webtool "github.com/sunweilin/foryx/backend/internal/app/tool/web"
+	workflowtool "github.com/sunweilin/foryx/backend/internal/app/tool/workflow"
+	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	workspaceapp "github.com/sunweilin/foryx/backend/internal/app/workspace"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
+	sandboxinfra "github.com/sunweilin/foryx/backend/internal/infra/sandbox"
+	searchengine "github.com/sunweilin/foryx/backend/internal/infra/search/engine"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // services holds every constructed app Service — the handlers read these, and the boot/shutdown
@@ -154,7 +154,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	todo := todoapp.NewService(st.todo, bus.messages, log)
 	att := attachmentapp.NewService(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
 	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
-	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 锻造终端（不分入口）
+	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 构建终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
 	hd.SetEntitiesBridge(bus.entities) // SSE-C: Call tees method yields to the handler's run terminal
 	ag := agentapp.NewService(st.agent, notif, log)
@@ -189,7 +189,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Namers: map[string]relationapp.Namer{
 			relationdomain.EntityKindFunction:     fn,
 			relationdomain.EntityKindHandler:      hd,
-			relationdomain.EntityKindAgent:        ag, // workflow→agent equip / conversation→agent forged 边的目标端 hydrate
+			relationdomain.EntityKindAgent:        ag, // workflow→agent equip / conversation→agent built 边的目标端 hydrate
 			relationdomain.EntityKindControl:      ctl,
 			relationdomain.EntityKindApproval:     apf,
 			relationdomain.EntityKindWorkflow:     wf,
@@ -352,7 +352,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	doc.SetRelationSyncer(rel)
 	conv.SetRelationSyncer(rel)
 
-	// catalog: the LLM-facing "what entities exist" menu, aggregated from each forge source.
+	// catalog: the LLM-facing "what entities exist" menu, aggregated from each build source.
 	cat.RegisterSource(fn.AsCatalogSource())
 	cat.RegisterSource(hd.AsCatalogSource())
 	cat.RegisterSource(ag.AsCatalogSource())
@@ -364,7 +364,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	cat.RegisterSource(skill.AsCatalogSource())
 	cat.RegisterSource(doc.AsCatalogSource())
 
-	// chat @mention resolvers (freeze-on-send snapshot, eight mentionable forge kinds).
+	// chat @mention resolvers (freeze-on-send snapshot, eight mentionable build kinds).
 	chat.RegisterMentionResolver(doc.AsMentionResolver())
 	chat.RegisterMentionResolver(fn.AsMentionResolver())
 	chat.RegisterMentionResolver(hd.AsMentionResolver())

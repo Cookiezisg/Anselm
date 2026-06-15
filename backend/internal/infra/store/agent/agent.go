@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the agent tables' DDL, exported as ordered idempotent statements for bootstrap to
@@ -56,7 +56,7 @@ var Schema = []string{
 		outputs                   TEXT NOT NULL DEFAULT '[]',
 		model_override            TEXT NOT NULL DEFAULT 'null',
 		change_reason             TEXT NOT NULL DEFAULT '',
-		forged_in_conversation_id TEXT NOT NULL DEFAULT '',
+		built_in_conversation_id TEXT NOT NULL DEFAULT '',
 		created_at                DATETIME NOT NULL,
 		updated_at                DATETIME NOT NULL
 	)`,

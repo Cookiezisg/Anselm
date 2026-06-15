@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // AppendActivation writes one action-log row (fired or not). Append-only (D1, no delete).

@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Entities 海洋】左侧栏内容样式（由 sidebar/entities.js 自注入）。
+/* Foryx design-lab — 【Entities 海洋】左侧栏内容样式（由 sidebar/entities.js 自注入）。
    形态对齐 Chat 侧栏(行高/状态点/折叠头/过滤行+sliders 一套语言)。竖向折叠树:分组 → 类型 → 实体行。
    类名全 en- 前缀,勿与 chat(cv-/cm-)及海洋海面 CSS 撞名。依赖 tokens.css + shell.css 的 cc-* 表面色、ink、accent、语义色（只读）。 */
 
@@ -61,7 +61,7 @@
 .en-more svg { display: block; }
 .en:hover .en-more { opacity: 1; }
 
-/* 状态点（与 chat .cv-st 完全一致）。空心=闲置 / 蓝脉冲=锻造·监听 / 橙脉冲=需处理 / 红=失败 / 绿=就绪;.none=skill 占位 */
+/* 状态点（与 chat .cv-st 完全一致）。空心=闲置 / 蓝脉冲=构建·监听 / 橙脉冲=需处理 / 红=失败 / 绿=就绪;.none=skill 占位 */
 .en-st { flex: none; width: 7px; height: 7px; border-radius: 50%; box-sizing: border-box; }
 .en-st.idle { border: 1.5px solid var(--ink-3); }
 .en-st.run { background: var(--accent); animation: enPulse 1.5s ease infinite; }

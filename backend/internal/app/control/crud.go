@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	celpkg "github.com/sunweilin/forgify/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // CreateInput is the create payload: full metadata + the ordered branch set. No ops —
@@ -73,14 +73,14 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.CreateWithVersion(ctx, c, v); err != nil { // UNIQUE name → ErrDuplicateName
 		return nil, nil, fmt.Errorf("controlapp.Create: %w", err)
 	}
 	s.publish(ctx, "created", ctlID, map[string]any{"versionId": versionID, "version": 1})
-	s.syncForgedEdge(ctx, ctlID, v.ForgedInConversationID)
+	s.syncBuiltEdge(ctx, ctlID, v.BuiltInConversationID)
 
 	c.ActiveVersion = v
 	return c, v, nil
@@ -107,7 +107,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {
 		return nil, fmt.Errorf("controlapp.Edit: %w", err)

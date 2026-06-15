@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the relations DDL. No deleted_at — an entity's edges are hard-deleted

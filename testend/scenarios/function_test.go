@@ -6,12 +6,12 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
-// fnCreate forges a function over HTTP and returns its id (shared W1 helper).
+// fnCreate builds a function over HTTP and returns its id (shared W1 helper).
 //
-// fnCreate 经 HTTP 锻造一个 function 并返回 id（W1 共享 helper）。
+// fnCreate 经 HTTP 构建一个 function 并返回 id（W1 共享 helper）。
 func fnCreate(t *testing.T, wc *harness.Client, name, code string) string {
 	t.Helper()
 	// Create 现返裸实体(MD1):data 顶层即 id + 内嵌 activeVersion。

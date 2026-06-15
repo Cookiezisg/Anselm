@@ -14,7 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
 )
 
 const defaultRegistryEndpoint = "https://api.mcp.github.com/v0/servers?limit=100"
@@ -45,9 +45,9 @@ type GitHubRegistrySource struct {
 }
 
 // NewGitHubRegistrySource builds the source; cacheDir holds the refreshed registry JSON
-// (e.g. ~/.forgify/cache). No network on construction.
+// (e.g. ~/.foryx/cache). No network on construction.
 //
-// NewGitHubRegistrySource 构造 source；cacheDir 存刷新后的 registry JSON（如 ~/.forgify/cache）。
+// NewGitHubRegistrySource 构造 source；cacheDir 存刷新后的 registry JSON（如 ~/.foryx/cache）。
 // 构造时不联网。
 func NewGitHubRegistrySource(cacheDir string, log *zap.Logger) *GitHubRegistrySource {
 	if log == nil {

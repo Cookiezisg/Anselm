@@ -24,7 +24,7 @@ import (
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"go.uber.org/zap"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
 )
 
 const stderrBufferMax = 256 * 1024
@@ -93,7 +93,7 @@ func NewClient(spec ClientSpec, log *zap.Logger) Client {
 //
 // Initialize 构造对应 transport（stdio IOTransport vs remote）并走握手。
 func (c *client) Initialize(ctx context.Context) error {
-	sdkClient := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "forgify", Version: "1.2.0"},
+	sdkClient := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "foryx", Version: "1.2.0"},
 		&mcpsdk.ClientOptions{ProgressNotificationHandler: c.onProgress})
 
 	var transport mcpsdk.Transport

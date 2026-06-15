@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

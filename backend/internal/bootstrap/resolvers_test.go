@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	modelapp "github.com/sunweilin/forgify/backend/internal/app/model"
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	modelapp "github.com/sunweilin/foryx/backend/internal/app/model"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // fakePicker records the scenario it was asked for and returns a fixed default ref.

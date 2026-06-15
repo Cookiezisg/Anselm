@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
+	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
 )
 
 // normalize trims and validates a write: content required, status defaulted to pending

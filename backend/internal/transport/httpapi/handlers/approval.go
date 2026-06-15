@@ -6,13 +6,13 @@ import (
 
 	"go.uber.org/zap"
 
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	approvalapp "github.com/sunweilin/foryx/backend/internal/app/approval"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // ApprovalHandler hosts the approval-form HTTP endpoints. Linear version model with a

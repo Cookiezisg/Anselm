@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
 )
 
 // parseFile splits an optional YAML-ish frontmatter (--- … ---) from the body and

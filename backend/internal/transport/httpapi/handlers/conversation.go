@@ -6,11 +6,11 @@ import (
 
 	"go.uber.org/zap"
 
-	conversationapp "github.com/sunweilin/forgify/backend/internal/app/conversation"
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	conversationapp "github.com/sunweilin/foryx/backend/internal/app/conversation"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints. The tokensUsed

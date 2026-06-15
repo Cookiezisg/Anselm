@@ -13,13 +13,13 @@ audience: [human, ai]
 
 ## 1. 定位
 
-用户锻造的**有状态** Python 类：每个 handler 跑**一个长生命周期的常驻进程**（像 MCP server）——开局/首调 spawn、跨调用保活（`self.xxx` 状态留存）、edit/改 config/crash 时重启、退出软件才优雅关闭。**所有调用方（chat/agent/workflow）共享这一个实例**（真共享状态）。代码层级：`domain/handler` → `app/handler`（16 文件，最大的实体 app）→ `infra/store/handler` + `infra/handler`（RPC 客户端）+ `app/tool/handler`（11 工具）。
+用户构建的**有状态** Python 类：每个 handler 跑**一个长生命周期的常驻进程**（像 MCP server）——开局/首调 spawn、跨调用保活（`self.xxx` 状态留存）、edit/改 config/crash 时重启、退出软件才优雅关闭。**所有调用方（chat/agent/workflow）共享这一个实例**（真共享状态）。代码层级：`domain/handler` → `app/handler`（16 文件，最大的实体 app）→ `infra/store/handler` + `infra/handler`（RPC 客户端）+ `app/tool/handler`（11 工具）。
 
 ## 2. 心智模型
 
 **四个对象**：`Handler`（身份 + active 指针 + **`ConfigEncrypted`**：init-args 的值，加密存盘）→ `Version`（不可变快照：类的**各部分**——imports/init_body/shutdown_body/**methods**/**init_args_schema**/依赖 + env 镜像）→ `Call`（一次方法调用的审计行）→ `Instance`（**内存态**运行时：进程 + RPC 客户端，`hdi_` 前缀，不落库）。
 
-**与 function 的本质差异一句话**：function 的执行单位是"一次进程"，handler 的执行单位是"常驻进程上的一次 RPC"。版本模型/锻造管线/env 物化与 function **完全同构**（见 [function.md](function.md)#2/#4——本文不重复），下面只讲 handler 独有的。
+**与 function 的本质差异一句话**：function 的执行单位是"一次进程"，handler 的执行单位是"常驻进程上的一次 RPC"。版本模型/构建管线/env 物化与 function **完全同构**（见 [function.md](function.md)#2/#4——本文不重复），下面只讲 handler 独有的。
 
 **类不是用户直接写的整文件**——是**组装**出来的：Version 存类的各部分，`AssembleClass` 生成 `user_handler.py`：
 ```python
@@ -51,7 +51,7 @@ class HandlerImpl:
 
 ### spawn 链（`spawnInstance`）
 
-加载 active 版本 + **解密** config → 校验必填 init-args（缺 → `HANDLER_CONFIG_INCOMPLETE`，不 spawn）→ **按 active schema 过滤 config**（孤儿 key——被后续版本删掉的 arg、revert 留下的——会成为 `__init__` 的意外 kwarg → Python TypeError → 永久 spawn 失败；在 spawn 这个唯一咽喉点过滤，防住所有漂移来源）→ env 未 ready 则物化（尝试/修复行 tee 到 entities 流 forge 终端，同 function）→ `AssembleClass` 写 `user_handler.py` + `driver.py` → 起长跑 `python driver.py` → **`ErrEnvNotFound`（env 被 GC）= 重建+重试一次** → stderr 进日志（崩溃诊断）**并进实例级 stderr 扇出**（`stderrFan`——调用挂 per-call sink 收窗口内输出）→ `client.Init(config)` 跑 `__init__`。**driver 协议护盾**：进程启动即把用户态 stdout 整体重定向到 stderr（import/`__init__`/method/shutdown 里的 print() 全部变成调用日志），协议帧只经保存的真 stdout 写——一个 print() 永远炸不了协议（与 function driver 同款护盾）。
+加载 active 版本 + **解密** config → 校验必填 init-args（缺 → `HANDLER_CONFIG_INCOMPLETE`，不 spawn）→ **按 active schema 过滤 config**（孤儿 key——被后续版本删掉的 arg、revert 留下的——会成为 `__init__` 的意外 kwarg → Python TypeError → 永久 spawn 失败；在 spawn 这个唯一咽喉点过滤，防住所有漂移来源）→ env 未 ready 则物化（尝试/修复行 tee 到 entities 流 build 终端，同 function）→ `AssembleClass` 写 `user_handler.py` + `driver.py` → 起长跑 `python driver.py` → **`ErrEnvNotFound`（env 被 GC）= 重建+重试一次** → stderr 进日志（崩溃诊断）**并进实例级 stderr 扇出**（`stderrFan`——调用挂 per-call sink 收窗口内输出）→ `client.Init(config)` 跑 `__init__`。**driver 协议护盾**：进程启动即把用户态 stdout 整体重定向到 stderr（import/`__init__`/method/shutdown 里的 print() 全部变成调用日志），协议帧只经保存的真 stdout 写——一个 print() 永远炸不了协议（与 function driver 同款护盾）。
 
 ### RPC 协议（`infra/handler` 客户端 ↔ `driver.py`）
 
@@ -73,7 +73,7 @@ resolve handler → 解析 method spec（校验 + timeout）→ `manager.Get`（
 ## 5. 关键设计决策
 
 - **单例共享、非池化**：状态留存是 handler 的存在意义，每调用方一份副本就不是共享状态了。
-- **create 不 spawn**：刚锻造的 handler 大概率缺 config——spawn 推迟到 config 配齐（UpdateConfig 的 restart）/Boot/首调。
+- **create 不 spawn**：刚构建的 handler 大概率缺 config——spawn 推迟到 config 配齐（UpdateConfig 的 restart）/Boot/首调。
 - **config 整 blob 加密**而非逐字段：简化密钥管理；掩码在读侧按 schema 的 Sensitive 标志做。
 - **Edit/Revert 必重启实例**：常驻进程不会自己换代码。
 - **`Client` 只有 StreamCall 一个调用动词**（统一入口，progress 回调 nil 即非流式）。

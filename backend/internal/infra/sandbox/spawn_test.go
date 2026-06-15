@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 func echoBin(t *testing.T, msg string) (string, []string) {

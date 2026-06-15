@@ -1,4 +1,4 @@
-/* Forgify design-lab — Chat 海洋（单独，一人负责整个文件夹）。
+/* Foryx design-lab — Chat 海洋（单独，一人负责整个文件夹）。
    含本海洋的全部设计块：对话流 / 工具调用块 / composer / 右岛(实体卡)。
    依赖：shared/tokens.css + shared/shell.css 的 cc-* / 原语(.ibtn/.chev/spin)（只读）。
    ⚠ 右岛是「本海洋的」：.aside 的框 + 内容都在这（外壳只给 Shell.body 让我 append）。 */

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	tododomain "github.com/sunweilin/forgify/backend/internal/domain/todo"
+	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
 )
 
 // TestTodoWrite_Wiring: the group exposes exactly todo_write with the 5-method interface,

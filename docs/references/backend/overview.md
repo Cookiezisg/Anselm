@@ -54,7 +54,7 @@ POST /conversations/{id}/messages
  → 入该对话的串行队列（一次一个 assistant 回合）
  → processTask 重建 ctx（Detached+locale+ids+AgentState+双流桥+humanloop broker+cancel）
  → loop.Run：流式 LLM →（danger 门→）派发工具（执行组并行）→ 扩历史 → 循环
-     工具 progress 实时嵌 tool_call 下；forge 工具的 arg delta 镜像 entities 流
+     工具 progress 实时嵌 tool_call 下；build 工具的 arg delta 镜像 entities 流
  → WriteFinalize（Detached：关页也不留 streaming 孤儿）落 blocks + message_stop
  → 回合后：首回合自动起标题 + 压缩检查（contextmgr 两步管线、水位幂等）
 ```
@@ -78,14 +78,14 @@ cron tick / webhook / 文件变化 / sensor 探测
  → 崩溃恢复 = boot 时对每个 running run 再调一遍 Advance
 ```
 
-### ③ 一次锻造（AI 造实体）的一生
+### ③ 一次构建（AI 造实体）的一生
 
 ```
 LLM 调 create_function（ops 数组，jsonrepair 容错）
  → ApplyOps：逐 op 应用 + 每步校验 + 终校验（词法检查 + import 黑名单：无状态/有状态边界）
  → 写 Function + v1（active 指针）——立即生效、无审批态
  → ensureEnv：envfix 自愈循环（装不上 → LLM 改依赖重试 ≤3）→ env 状态镜像回版本行
- → relation 边（conversation→function create 边）+ 通知 + entities 流 forge 镜像
+ → relation 边（conversation→function create 边）+ 通知 + entities 流 build 镜像
    （编辑=新版本+移指针；revert=纯指针移动；版本 cap 50 放过 active）
 ```
 

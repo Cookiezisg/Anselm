@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	mcpapp "github.com/sunweilin/forgify/backend/internal/app/mcp"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
 )
 
 // calls.go gives the LLM the mcp_calls read surface — every other executable kind

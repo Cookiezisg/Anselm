@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
 )
 
 // --- create_handler --------------------------------------------------------
@@ -18,7 +18,7 @@ type CreateHandler struct{ svc *handlerapp.Service }
 func (t *CreateHandler) Name() string { return "create_handler" }
 
 func (t *CreateHandler) Description() string {
-	return `Forge a new stateful handler (a Python class that stays resident across calls, so self.xxx persists — for DB connections, API sessions, caches). v1 takes effect immediately (no separate accept). Required ops: set_meta + at least one add_method. The class is assembled as HandlerImpl with __init__(self, ...initArgs), shutdown(self), and your methods.
+	return `Build a new stateful handler (a Python class that stays resident across calls, so self.xxx persists — for DB connections, API sessions, caches). v1 takes effect immediately (no separate accept). Required ops: set_meta + at least one add_method. The class is assembled as HandlerImpl with __init__(self, ...initArgs), shutdown(self), and your methods.
 
 OP SHAPES:
   {"op":"set_meta", "name":"snake_case", "description":"one line", "tags":["..."]}
@@ -40,7 +40,7 @@ func (t *CreateHandler) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["ops"],
 		"properties": {
-			"ops": {"type": "array", "description": "Forge ops; each has an 'op' discriminator + op-specific fields.", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops; each has an 'op' discriminator + op-specific fields.", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this creation."}
 		}
 	}`)
@@ -71,13 +71,13 @@ func (t *CreateHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("create_handler: %w", err)
 	}
-	sink := newForgeSink(ctx)
+	sink := newBuildSink(ctx)
 	defer sink.Close()
 	h, v, err := t.svc.Create(ctx, handlerapp.CreateInput{Ops: ops, ChangeReason: args.ChangeReason, Progress: sink})
 	if err != nil {
 		return "", fmt.Errorf("create_handler: %w", err)
 	}
-	return toolapp.ToJSON(forgeOutput(h.ID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(buildOutput(h.ID, v, len(ops), sink.attempts)), nil
 }
 
 // --- edit_handler ----------------------------------------------------------
@@ -96,7 +96,7 @@ func (t *EditHandler) Parameters() json.RawMessage {
 		"required": ["handlerId", "ops"],
 		"properties": {
 			"handlerId": {"type": "string"},
-			"ops": {"type": "array", "description": "Forge ops (empty array = rebuild env + restart).", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart).", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -133,16 +133,16 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 		}
 		ops = parsed
 	}
-	sink := newForgeSink(ctx)
+	sink := newBuildSink(ctx)
 	defer sink.Close()
 	v, err := t.svc.Edit(ctx, handlerapp.EditInput{ID: args.HandlerID, Ops: ops, ChangeReason: args.ChangeReason, Progress: sink})
 	if err != nil {
 		return "", fmt.Errorf("edit_handler: %w", err)
 	}
-	return toolapp.ToJSON(forgeOutput(args.HandlerID, v, len(ops), sink.attempts)), nil
+	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts)), nil
 }
 
-func forgeOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt) map[string]any {
+func buildOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt) map[string]any {
 	out := map[string]any{
 		"id":         handlerID,
 		"versionId":  v.ID,

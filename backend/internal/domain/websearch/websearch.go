@@ -23,11 +23,11 @@ package websearch
 
 import "context"
 
-// Search providers Forgify can route a WebSearch query to. The provider of a
+// Search providers Foryx can route a WebSearch query to. The provider of a
 // chosen key is implied by the api-key itself (apikey.Credentials.Provider) —
 // these constants let the WebSearch tool switch on it without hardcoding strings.
 //
-// Forgify 可把 WebSearch 查询路由到的搜索 provider。选定 key 的 provider 由 api-key 自身隐含
+// Foryx 可把 WebSearch 查询路由到的搜索 provider。选定 key 的 provider 由 api-key 自身隐含
 // （apikey.Credentials.Provider）——这些常量让 WebSearch 工具据以分派、不必硬编码字符串。
 const (
 	ProviderBrave  = "brave"

@@ -3,7 +3,7 @@ package scenarios
 import (
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // TestFunction_CreateEnvVisibility pins the product promise behind the SYNCHRONOUS

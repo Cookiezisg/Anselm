@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
 )
 
 const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body (split into child docs if >1MB). Name must be unique among siblings (auto-suffixed on collision).`

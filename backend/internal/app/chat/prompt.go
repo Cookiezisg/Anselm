@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // System prompt static sections: high-density, no product fluff, no safety theater (local
@@ -19,11 +19,11 @@ import (
 // agent。缓存顺序稳定：不变静态块在前（identity → how_to_work → tools），动态上下文居中，两个
 // 规则块殿后，因末尾指令遵从度最高。
 const (
-	identitySection = `You are Forgify, a local-first agentic assistant running on the user's own machine. ` +
-		`You operate over their whole computer (absolute paths, no project root) and a workspace of forged capabilities — ` +
+	identitySection = `You are Foryx, a local-first agentic assistant running on the user's own machine. ` +
+		`You operate over their whole computer (absolute paths, no project root) and a workspace of built capabilities — ` +
 		`functions, handlers, agents, and workflows the user builds and you can call, create, and refine.`
 
-	howToWorkSection = `Reuse before you build: search the existing library before forging anything new. ` +
+	howToWorkSection = `Reuse before you build: search the existing library before building anything new. ` +
 		`Verify before you claim — run it, read the result, then report. ` +
 		`Prefer the smallest change that works; say what you actually did, not what you intended. ` +
 		`When a step fails, surface the real error rather than papering over it.`

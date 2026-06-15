@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Forgify · 设计参考</title>
+<title>Foryx · 设计参考</title>
 <link rel="stylesheet" href="shared/tokens.css">
 <style>
 /* 设计参考页：把精修后的形态沉淀下来，供后面真实设计 / Flutter 落地参考。
@@ -219,7 +219,7 @@ code, .mono { font-family: var(--mono); }
   <div class="r-head">
     <span class="mk" id="mk"></span>
     <div>
-      <h1>Forgify · 设计参考</h1>
+      <h1>Foryx · 设计参考</h1>
       <p>把 <code>main-shell</code> 精修后的形态沉淀于此，供后面真实设计 / Flutter 落地直接参考。配色 = 干净白/近黑（非米白）。</p>
     </div>
     <span class="grow"></span>
@@ -296,7 +296,7 @@ code, .mono { font-family: var(--mono); }
         <div class="ti open" data-ti style="margin:0">
           <div class="ti-sum" style="padding-left:0"><span class="v">Ran</span> <span class="nm">flutter analyze</span> <span class="ok" data-ck></span> <span class="chev"></span></div>
           <div class="ti-det"><div class="w"><div class="tbox" style="margin:6px 0 2px"><div class="out">$ flutter analyze
-Analyzing forgify…
+Analyzing foryx…
 No issues found! (ran in 4.1s)</div></div></div></div>
         </div>
       </div>
@@ -319,7 +319,7 @@ No issues found! (ran in 4.1s)</div></div></div></div>
 <script>
 const $ = s => document.querySelector(s);
 const P = {
-  forge:'<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  build:'<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
   agent:'<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V5M9 3h6"/><circle cx="9.5" cy="13" r="1.2"/><circle cx="14.5" cy="13" r="1.2"/>',
   close:'<path d="M18 6 6 18M6 6l12 12"/>', chevr:'<path d="m9 6 6 6-6 6"/>',
   chat:'<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 9 9 0 0 1-4-1L3 20l1.5-5.5a8.5 8.5 0 1 1 16.5-3Z"/>',
@@ -328,7 +328,7 @@ const P = {
   check:'<path d="M20 6 9 17l-5-5"/>',
 };
 const svg = (k, n=16, w=1.7) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[k]}</svg>`;
-$('#mk').innerHTML = svg('forge',22,2);
+$('#mk').innerHTML = svg('build',22,2);
 $('#rp').innerHTML = svg('agent',12);
 $('#seg').innerHTML = `<button class="on">${svg('chat',15)} Chat</button><button>${svg('tasks',15)}</button><button>${svg('code',15)}</button>`;
 // 工具块图标 + 展开/折叠

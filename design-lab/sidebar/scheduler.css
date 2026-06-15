@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Scheduler/Operate 海洋】左侧栏内容样式（由 sidebar/scheduler.js 自注入）。
+/* Foryx design-lab — 【Scheduler/Operate 海洋】左侧栏内容样式（由 sidebar/scheduler.js 自注入）。
    每个 workflow 一行：行首运行状态点 + 名 + 状态/时间 meta。复用 Chat 状态点理念，类名 sch-/sm-/wf- 专属防撞。
    依赖 tokens.css + shell.css 的 cc-* 表面色、ink、accent、语义色（只读）。 */
 

@@ -41,7 +41,7 @@ audience: [human, ai]
 ## R4 架构一致性面扫（subagent 报 5 条，亲验后）
 
 - **CR-7 🟡 已修** toJSON ×10 副本（9 同构+1 error 版）：下沉 `toolapp.ToJSON`（带 %v fallback），10 包全改、删本地副本。
-- **🟢 留档** forgeSink ×2 同构（function/handler）：真实重复（仅注释措辞差异），但下沉 toolapp 会引 toolapp→loop 依赖环——若修需落 envfix 侧。低收益，暂留。
+- **🟢 留档** buildSink ×2 同构（function/handler）：真实重复（仅注释措辞差异），但下沉 toolapp 会引 toolapp→loop 依赖环——若修需落 envfix 侧。低收益，暂留。
 - **误报驳回**：llm StreamEvent.Signature（anthropic 产/loop 消费，活代码）；WorkflowReader 同名两接口（不同包各自声明窄端口 = Go DIP 惯例）。
 - TODO/FIXME 残留：0（subagent 与我 grep 双确认）。
 

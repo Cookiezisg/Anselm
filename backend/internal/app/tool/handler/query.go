@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // --- search_handler --------------------------------------------------------

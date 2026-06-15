@@ -16,10 +16,10 @@ import (
 
 	"go.uber.org/zap"
 
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
 )
 
 // Service is the document tree application façade.
@@ -137,7 +137,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*documentdomain.D
 // fresh copy). Wikilink relations re-sync per copy. Best-effort/non-atomic (per-node Insert) — a
 // mid-copy DB error leaves a partial copy the user can delete; fine for a local single-user app.
 //
-// Duplicate 深拷一个文档及其整棵子树。newParentID 选副本落点（nil → 源的兄弟）；铸新 id、自顶向下
+// Duplicate 深拷一个文档及其整棵子树。newParentID 选副本落点（nil → 源的兄弟）；生成新 id、自顶向下
 // （BFS、父先于子）重映射 parent 指针与物化 path、复制 content/description/tags。新根名在目标兄弟间
 // 自动去重；后裔保留原名（在新副本内本就唯一）。逐副本重同步 wikilink relation。逐节点 Insert、非原子
 // ——拷贝中途出错留半棵副本（用户可删）；本地单用户可接受。

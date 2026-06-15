@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // AppendFiring writes a pending firing. UNIQUE(workflow_id, trigger_id, dedup_key) makes a

@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // ChatHandler serves the chat engine's 7 endpoints: send a message (202, streams over the

@@ -6,7 +6,7 @@ import (
 
 	yaml "go.yaml.in/yaml/v3"
 
-	skilldomain "github.com/sunweilin/forgify/backend/internal/domain/skill"
+	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
 )
 
 // parseFrontmatter splits the leading --- YAML fence from the markdown body and unmarshals

@@ -5,13 +5,13 @@ import (
 
 	"go.uber.org/zap"
 
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	triggerapp "github.com/sunweilin/forgify/backend/internal/app/trigger"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // TriggerHandler hosts the trigger HTTP endpoints. A trigger is a standalone signal source

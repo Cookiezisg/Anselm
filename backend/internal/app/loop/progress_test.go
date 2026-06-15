@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // captureBridge records every published Event so the progress frame sequence can be asserted.

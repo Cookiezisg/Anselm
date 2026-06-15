@@ -9,15 +9,15 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	workflowstore "github.com/sunweilin/forgify/backend/internal/infra/store/workflow"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	workflowstore "github.com/sunweilin/foryx/backend/internal/infra/store/workflow"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // TestWorkflowTools_Wiring asserts all 14 tools are constructed with the expected names and
-// each satisfies the 5-method Tool interface: 7 forge/query + 5 execution-lifecycle (D1) +
+// each satisfies the 5-method Tool interface: 7 build/query + 5 execution-lifecycle (D1) +
 // 2 run-observability.
 func TestWorkflowTools_Wiring(t *testing.T) {
 	tools := WorkflowTools(nil, nil, nil) // nil svc OK: we only inspect Name() here

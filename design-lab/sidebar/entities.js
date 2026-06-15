@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Entities 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
+/* Foryx design-lab — 【Entities 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
    外壳 sidebar.js 据四导航懒加载本文件；自注入 entities.css，经 SideBar.register('entities', render) 挂载。
    形态对齐 Chat 侧栏：New + 搜索(含 sliders 排序菜单) → 竖向折叠树「分组(可折叠) → 类型(可展开) → 实体行」。
    行首状态点 .en-st 与 chat .cv-st 同一套(idle/run/wait/err/done),按实体重映射;skill 无状态点(文件式),标 allowed-tools 数。
@@ -21,7 +21,7 @@
   ];
 
   // 示意数据。接后端:各实体 GET list(分页);状态点冷启动取 REST 初值、entities/notifications 流跳变。
-  // st → 五态(done绿=就绪 / run蓝脉冲=锻造·监听 / wait橙脉冲=需处理 / err红=失败 / idle空心=闲置)
+  // st → 五态(done绿=就绪 / run蓝脉冲=构建·监听 / wait橙脉冲=需处理 / err红=失败 / idle空心=闲置)
   const ENTS = [
     { ty: 'fn', name: 'process_invoice', ver: 5, st: 'done', on: true },
     { ty: 'fn', name: 'fetch_news', ver: 2, st: 'run' },

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Extractor pulls plain text out of a binary document (PDF / Office). It is the pluggable port the

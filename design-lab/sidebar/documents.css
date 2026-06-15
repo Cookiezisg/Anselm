@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Documents 海洋】左侧栏样式（由 sidebar/documents.js 自注入）。
+/* Foryx design-lab — 【Documents 海洋】左侧栏样式（由 sidebar/documents.js 自注入）。
    文档库树导航：新建 + 名字过滤 + 排序/筛选菜单 + Recent(可折叠) + 嵌套文档树。数值对齐 chat.css。
    依赖 tokens.css + shell.css 的 cc-* 表面色、ink、accent、ease-spring（只读）。类名全 dt- 专属，避让 doc-/da-/cv-/cm-。 */
 

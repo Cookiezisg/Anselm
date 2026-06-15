@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

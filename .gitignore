@@ -241,4 +241,4 @@ backend/sandbox/
 
 # Test artifacts
 .env
-/tmp/forgify-tests/
+/tmp/foryx-tests/

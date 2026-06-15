@@ -1,7 +1,7 @@
-/* Forgify design-lab — 对话海洋编排（产品适配 v1；单独，一人负责整个 oceans/chat/ 文件夹）。
+/* Foryx design-lab — 对话海洋编排（产品适配 v1；单独，一人负责整个 oceans/chat/ 文件夹）。
    注册进外壳：Shell.registerOcean('chat', { crumb, build(sea) })，渲染对话流 + composer 到 #sea；右岛(实体卡)交给同目录 entity-card.js。
-   一条 teaching-spine 回合演 Forgify 真实对话引擎：说需求 → 实体诞生(锻造→右岛实时填充) → 跑通(progress 块) →
-   求许可(人在环危险闸) → 接线(subagent 子树 + 锻造 workflow) → 看 durable run(flowrun 逐节点) → 诚实终止(max_steps)。
+   一条 teaching-spine 回合演 Foryx 真实对话引擎：说需求 → 实体诞生(构建→右岛实时填充) → 跑通(progress 块) →
+   求许可(人在环危险闸) → 接线(subagent 子树 + 构建 workflow) → 看 durable run(flowrun 逐节点) → 诚实终止(max_steps)。
    依赖：shared/icons.js · shared/shell.js · ./entity-card.js（ChatEntityCard）。 */
 (function () {
   const $ = (s, r = document) => r.querySelector(s);
@@ -18,7 +18,7 @@
   // 图节点 5 类 → 图标 key（approval 复用 shield；其余 kind 即 key）
   const NICON = { trigger: 'trigger', action: 'action', agent: 'agent', control: 'control', approval: 'shield' };
 
-  // —— 本回合锻造/触达的实体（点对话里的药丸即重新唤出对应卡：原型「per-tool-call anchor」）——
+  // —— 本回合构建/触达的实体（点对话里的药丸即重新唤出对应卡：原型「per-tool-call anchor」）——
   const ENT = {
     weekly_digest: { kind: 'function', name: 'weekly_digest', version: 1, id: 'fn_7f3c2a91b04e8d52', runs: 1,
       desc: '抓取竞品 RSS / 变更，归并去重，产出结构化摘要列表。', python: '3.12',
@@ -302,8 +302,8 @@
     userMsg(`帮我搭一个每天早上自动汇总竞品动态、写进 Notion 的流程。背景看 ${refPill('doc', '竞品列表.md')}。`);
     await sleep(550); if (!alive(id)) return;
     const t = aiTurn();
-    reasonBlock(t, '用户要一条「抓取→汇总→发布」的每日自动化。拆解：无状态抓取函数（function）+ 常驻 Notion 写手（handler，已有）+ 一个润色 LLM 员工（agent）+ 一张每天 08:00 触发的编排图（workflow）。先写待办、逐个锻造、跑通后编排。');
-    await typeInto(para(t), '好的。我会先锻造一个抓取 + 汇总的函数，跑通后接上常驻的 Notion 写手，最后编排成每天触发的 workflow。先把任务拆出来：', 70);
+    reasonBlock(t, '用户要一条「抓取→汇总→发布」的每日自动化。拆解：无状态抓取函数（function）+ 常驻 Notion 写手（handler，已有）+ 一个润色 LLM 员工（agent）+ 一张每天 08:00 触发的编排图（workflow）。先写待办、逐个构建、跑通后编排。');
+    await typeInto(para(t), '好的。我会先构建一个抓取 + 汇总的函数，跑通后接上常驻的 Notion 写手，最后编排成每天触发的 workflow。先把任务拆出来：', 70);
     if (!alive(id)) return; await sleep(160);
     const tw = toolGroup(t); tw.status('todo_write…'); await sleep(620); if (!alive(id)) return;
     toolItem(tw.box, { name: 'todo_write', detailHTML: '<div class="tbox"><div class="out">整表替换写入 · 4 项 · LLM 自管、只读</div></div>' });
@@ -312,9 +312,9 @@
     await sleep(750); if (!alive(id)) return;
 
     // BEAT 2 — create_function → 右岛 function 卡实时填充（THE 签名交互，泛化到 Function）
-    await typeInto(para(t), '开始锻造抓取函数。', 60); if (!alive(id)) return; await sleep(150);
-    const cf = toolGroup(t); cf.status('Forging weekly_digest…'); await sleep(520); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'function', name: 'weekly_digest', version: 1, live: 'forge', id: 'fn_7f3c2a91b04e8d52',
+    await typeInto(para(t), '开始构建抓取函数。', 60); if (!alive(id)) return; await sleep(150);
+    const cf = toolGroup(t); cf.status('Building weekly_digest…'); await sleep(520); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'function', name: 'weekly_digest', version: 1, live: 'build', id: 'fn_7f3c2a91b04e8d52',
       desc: '抓取竞品 RSS / 变更，归并去重，产出结构化摘要列表。', python: '3.12', code: '', inputs: ['sources: list[str]', 'since: str'], deps: [], env: 'pending' });
     const card = ChatEntityCard.el; await sleep(420); if (!alive(id)) return;
     await typeInto(ChatEntityCard.$('[data-f="code"] .val', card),
@@ -327,12 +327,12 @@
       ChatEntityCard.$('[data-f="deps"] [data-dc]', card).textContent = tl.children.length;
     }
     await sleep(750); if (!alive(id)) return; ChatEntityCard.setEnv('ready'); ChatEntityCard.setLive(false);
-    toolItem(cf.box, { verb: 'Forged', name: 'create_function(weekly_digest)',
-      detailHTML: `<div class="diff-cap">实体版本 diff · v1（ops 锻造，非 git diff）</div><div class="tbox"><div class="diff">
+    toolItem(cf.box, { verb: 'Built', name: 'create_function(weekly_digest)',
+      detailHTML: `<div class="diff-cap">实体版本 diff · v1（ops 构建，非 git diff）</div><div class="tbox"><div class="diff">
         <div class="dline add"><span class="s">+</span><span class="c">def weekly_digest(sources, since): …</span></div>
         <div class="dline add"><span class="s">+</span><span class="c">deps += feedparser, httpx, beautifulsoup4</span></div>
         <div class="dline add"><span class="s">+</span><span class="c">env → ready</span></div></div></div>` });
-    cf.settle('已锻造 · create_function');
+    cf.settle('已构建 · create_function');
     if (dock) dock.set([['抓取竞品动态并汇总（function）', 'completed'], ['接 Notion 写手（handler）', 'in-progress'], ['编排每日 workflow', 'pending'], ['上线 + 验证一次', 'pending']]);
     await sleep(550); if (!alive(id)) return;
 
@@ -372,8 +372,8 @@
     const sub = subtree(t, 'Subagent · Plan');   // 子树即子 agent 标记（隔离 · 25 轮 · workspace dialogue · 深度 1）
     reasonBlock(sub, '触发用 cron（每天 08:00）；trigger → action(weekly_digest) → agent(摘要润色) → approval(人工过目) → action(notion_writer.publish)。回边只在 approval 上闭合（环纪律）。');
     await sleep(420); if (!alive(id)) return;
-    const cw = toolGroup(sub); cw.status('Forging weekly_report…'); await sleep(520); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'workflow', name: 'weekly_report', version: 1, live: 'forge', id: 'wf_2b91ac7740e8d3f1',
+    const cw = toolGroup(sub); cw.status('Building weekly_report…'); await sleep(520); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'workflow', name: 'weekly_report', version: 1, live: 'build', id: 'wf_2b91ac7740e8d3f1',
       desc: '每天 08:00 抓取 → 润色 → 人工过目 → 发布 的编排图。', concurrency: 'serial', lifecycle: 'inactive', nodes: [] });
     const wcard = ChatEntityCard.el; await sleep(420); if (!alive(id)) return;
     const wnodes = ChatEntityCard.$('[data-f="graph"] .ec-rows', wcard);
@@ -383,13 +383,13 @@
       ChatEntityCard.$('[data-f="graph"] [data-nc]', wcard).textContent = wnodes.children.length + ' 节点';
     }
     await sleep(550); if (!alive(id)) return; ChatEntityCard.setLive(false);
-    toolItem(cw.box, { verb: 'Forged', name: 'create_workflow(weekly_report)',
+    toolItem(cw.box, { verb: 'Built', name: 'create_workflow(weekly_report)',
       detailHTML: `<div class="diff-cap">实体版本 diff · 图 ops（add_node ×5）</div><div class="tbox"><div class="diff">
         <div class="dline add"><span class="s">+</span><span class="c">add_node daily (trigger · cron 08:00)</span></div>
         <div class="dline add"><span class="s">+</span><span class="c">add_node fetch (action · fn_weekly_digest)</span></div>
         <div class="dline add"><span class="s">+</span><span class="c">add_node polish (agent) + review (approval)</span></div>
         <div class="dline add"><span class="s">+</span><span class="c">add_node publish (action · hd_notion_writer.publish)</span></div></div></div>` });
-    cw.settle('已锻造 · create_workflow');
+    cw.settle('已构建 · create_workflow');
     if (dock) dock.set([['抓取竞品动态并汇总（function）', 'completed'], ['接 Notion 写手（handler）', 'completed'], ['编排每日 workflow', 'completed'], ['上线 + 验证一次', 'in-progress']]);
     await sleep(560); if (!alive(id)) return;
 
@@ -411,7 +411,7 @@
     const t2 = aiTurn();
     await typeInto(para(t2), '链路跑通 ✅ 摘要已发布、workflow 已就绪。还差最后一步 activate 上线每日触发——不过这个回合已经到步数上限了。', 60); if (!alive(id)) return;
     await sleep(180);
-    para(t2).innerHTML = `本回合锻造 / 触达的实体：${refPill('function', 'weekly_digest', 'weekly_digest')} ${refPill('handler', 'notion_writer', 'notion_writer')} ${refPill('agent', '摘要润色', 'polish')} ${refPill('workflow', 'weekly_report', 'weekly_report')} —— 点开看右岛详情。`;
+    para(t2).innerHTML = `本回合构建 / 触达的实体：${refPill('function', 'weekly_digest', 'weekly_digest')} ${refPill('handler', 'notion_writer', 'notion_writer')} ${refPill('agent', '摘要润色', 'polish')} ${refPill('workflow', 'weekly_report', 'weekly_report')} —— 点开看右岛详情。`;
     turnEnd(t2, '回合到达步数上限（25 步），诚实终止——<b>未失败</b>。');
     wirePills();
     setGen(false);
@@ -486,11 +486,11 @@
     await sleep(450); if (!alive(id)) return;
     const t = aiTurn();
     reasonBlock(t, '一次性抽取、无跨调用状态 → 选 function（无状态、每调用一个全新沙箱进程）。');
-    await typeInto(para(t), '锻造一个无状态抽取函数 pdf_extract。', 62); if (!alive(id)) return;
-    if (dock) { dock.show(); dock.set([['锻造 pdf_extract（function）', 'in-progress'], ['物化 env + 跑通', 'pending']]); }
+    await typeInto(para(t), '构建一个无状态抽取函数 pdf_extract。', 62); if (!alive(id)) return;
+    if (dock) { dock.show(); dock.set([['构建 pdf_extract（function）', 'in-progress'], ['物化 env + 跑通', 'pending']]); }
     await sleep(180);
-    const cf = toolGroup(t); cf.status('Forging pdf_extract…'); await sleep(480); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'function', name: 'pdf_extract', version: 1, live: 'forge', id: 'fn_3c91a7b240e8f15d', desc: '从 PDF 抽取表格为结构化 JSON。', python: '3.12', code: '', inputs: ['url: str', 'pages: list[int]'], deps: [], env: 'pending' });
+    const cf = toolGroup(t); cf.status('Building pdf_extract…'); await sleep(480); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'function', name: 'pdf_extract', version: 1, live: 'build', id: 'fn_3c91a7b240e8f15d', desc: '从 PDF 抽取表格为结构化 JSON。', python: '3.12', code: '', inputs: ['url: str', 'pages: list[int]'], deps: [], env: 'pending' });
     const card = ChatEntityCard.el; await sleep(360); if (!alive(id)) return;
     await typeInto(ChatEntityCard.$('[data-f="code"] .val', card), 'def pdf_extract(url, pages):\n    doc = pdfplumber.open(fetch(url))\n    out = []\n    for p in pages:\n        out += [t.extract() for t in doc.pages[p].find_tables()]\n    return out', 105); if (!alive(id)) return;
     ChatEntityCard.setEnv('syncing');
@@ -501,19 +501,19 @@
     evp.add('LLM 改依赖 → pdfplumber>=0.11（尝试 2/3）');
     const deps = ChatEntityCard.$('[data-f="deps"] .taglist', card); if (deps && deps.firstChild) { deps.firstChild.className = 'tag fixed'; deps.firstChild.textContent = 'pdfplumber>=0.11'; }
     await sleep(480); if (!alive(id)) return; evp.add('pip install pdfplumber>=0.11 … ✓'); evp.done(); ev.settle('env ready · ensureEnv');
-    ChatEntityCard.setEnv('ready'); ChatEntityCard.setLive(false); cf.settle('已锻造 · create_function');
-    if (dock) dock.set([['锻造 pdf_extract（function）', 'completed'], ['物化 env + 跑通', 'in-progress']]);
+    ChatEntityCard.setEnv('ready'); ChatEntityCard.setLive(false); cf.settle('已构建 · create_function');
+    if (dock) dock.set([['构建 pdf_extract（function）', 'completed'], ['物化 env + 跑通', 'in-progress']]);
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), '跑一页看看。', 54); if (!alive(id)) return; await sleep(140);
     const rf = toolGroup(t); rf.status('run_function(pdf_extract)…'); const rti = toolItem(rf.box, { name: 'run_function(pdf_extract)' }); const rp = progressBox(tdet(rti));
     for (const ln of ['open report.pdf … 14 页', 'find_tables p.3 … 2 表', 'extract → 38 行']) { await sleep(330); if (!alive(id)) return; rp.add(ln); }
     rp.done(); pcode(tdet(rti), '[ { "page": 3, "rows": 38, "cols": ["项目","金额"] }, … ]', '返回结果（单一 JSON · safe 无需确认）'); rf.settle('运行完成 · run_function');
-    if (dock) dock.set([['锻造 pdf_extract（function）', 'completed'], ['物化 env + 跑通', 'completed']]);
+    if (dock) dock.set([['构建 pdf_extract（function）', 'completed'], ['物化 env + 跑通', 'completed']]);
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), '加个超时保护，升个版本。', 54); if (!alive(id)) return; await sleep(140);
     const ed = toolGroup(t); ed.status('edit_function(pdf_extract)…'); await sleep(440); if (!alive(id)) return;
-    toolItem(ed.box, { verb: 'Forged', name: 'edit_function(pdf_extract) → v2', detailHTML: `<div class="diff-cap">实体版本 diff · v1→v2（ops 差量；指针 active→v2，可 revert）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">doc = pdfplumber.open(fetch(url))</span></div><div class="dline add"><span class="s">+</span><span class="c">doc = pdfplumber.open(fetch(url, timeout=30))</span></div></div></div>` });
-    ed.settle('已锻造 · edit_function → v2'); ChatEntityCard.setVersion(2);
+    toolItem(ed.box, { verb: 'Built', name: 'edit_function(pdf_extract) → v2', detailHTML: `<div class="diff-cap">实体版本 diff · v1→v2（ops 差量；指针 active→v2，可 revert）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">doc = pdfplumber.open(fetch(url))</span></div><div class="dline add"><span class="s">+</span><span class="c">doc = pdfplumber.open(fetch(url, timeout=30))</span></div></div></div>` });
+    ed.settle('已构建 · edit_function → v2'); ChatEntityCard.setVersion(2);
     await sleep(440); if (!alive(id)) return;
     const t2 = aiTurn();
     await typeInto(para(t2), '执行台账在这（点行看 logs）：', 54); if (!alive(id)) return;
@@ -529,16 +529,16 @@
     await sleep(450); if (!alive(id)) return;
     const t = aiTurn();
     reasonBlock(t, '需要跨调用保活状态（DB 连接复用）→ 选 handler（常驻进程、self.xxx 留存；区别无状态 function）。');
-    await typeInto(para(t), '锻造常驻 handler webhook_ingest。', 60); if (!alive(id)) return;
-    if (dock) { dock.show(); dock.set([['锻造 webhook_ingest（handler）', 'in-progress'], ['配 config（密钥）→ 起实例', 'pending'], ['调一次 ingest', 'pending']]); }
+    await typeInto(para(t), '构建常驻 handler webhook_ingest。', 60); if (!alive(id)) return;
+    if (dock) { dock.show(); dock.set([['构建 webhook_ingest（handler）', 'in-progress'], ['配 config（密钥）→ 起实例', 'pending'], ['调一次 ingest', 'pending']]); }
     await sleep(180);
-    const cf = toolGroup(t); cf.status('Forging webhook_ingest…'); await sleep(480); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'handler', name: 'webhook_ingest', version: 1, live: 'forge', id: 'hd_8b21fe04a9c7d350', desc: '常驻 webhook 入库：保活 DB 连接、跨调用复用。', runtime: 'stopped', configState: 'unconfigured', env: 'syncing', initArgs: [{ name: 'db_url', required: true, sensitive: true }, { name: 'table', value: 'events' }], methods: ['ingest', 'flush', 'stats'], classCode: '' });
+    const cf = toolGroup(t); cf.status('Building webhook_ingest…'); await sleep(480); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'handler', name: 'webhook_ingest', version: 1, live: 'build', id: 'hd_8b21fe04a9c7d350', desc: '常驻 webhook 入库：保活 DB 连接、跨调用复用。', runtime: 'stopped', configState: 'unconfigured', env: 'syncing', initArgs: [{ name: 'db_url', required: true, sensitive: true }, { name: 'table', value: 'events' }], methods: ['ingest', 'flush', 'stats'], classCode: '' });
     const card = ChatEntityCard.el; await sleep(380); if (!alive(id)) return;
     await typeInto(ChatEntityCard.$('[data-f="class"] .val', card), 'class WebhookIngest:\n    def __init__(self, db_url, table="events"):\n        self.conn = connect(db_url)\n    def ingest(self, payload): ...\n    def shutdown(self): self.conn.close()', 95); if (!alive(id)) return;
     await sleep(400); ChatEntityCard.setEnv('ready'); ChatEntityCard.setLive(false);
-    toolItem(cf.box, { verb: 'Forged', name: 'create_handler(webhook_ingest)', detailHTML: `<div class="diff-cap">实体版本 diff · v1（ops：set_init_args_schema / add_method ×3 / set_shutdown）</div><div class="tbox"><div class="out">create 不 spawn 实例 → Runtime=stopped · Config=unconfigured（等配齐 config / 首调）</div></div>` });
-    cf.settle('已锻造 · create_handler');
+    toolItem(cf.box, { verb: 'Built', name: 'create_handler(webhook_ingest)', detailHTML: `<div class="diff-cap">实体版本 diff · v1（ops：set_init_args_schema / add_method ×3 / set_shutdown）</div><div class="tbox"><div class="out">create 不 spawn 实例 → Runtime=stopped · Config=unconfigured（等配齐 config / 首调）</div></div>` });
+    cf.settle('已构建 · create_handler');
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), '配 DB 连接串（密钥由你填，加密存盘、读时掩码）。', 60); if (!alive(id)) return; await sleep(150);
     const cfgc = toolGroup(t); cfgc.status('update_handler_config…'); await sleep(420); if (!alive(id)) return;
@@ -549,13 +549,13 @@
     if (act !== 'decline') {
       ChatEntityCard.reveal('init', 'db_url'); ChatEntityCard.setConfig('ready'); ChatEntityCard.setRuntime('running');
       cfgc.settle('已更新 config · 重启实例 → running（hdi_4f2a…）');
-      if (dock) dock.set([['锻造 webhook_ingest（handler）', 'completed'], ['配 config（密钥）→ 起实例', 'completed'], ['调一次 ingest', 'in-progress']]);
+      if (dock) dock.set([['构建 webhook_ingest（handler）', 'completed'], ['配 config（密钥）→ 起实例', 'completed'], ['调一次 ingest', 'in-progress']]);
       await sleep(450); if (!alive(id)) return;
       await typeInto(para(t), '调一次 ingest 验证。', 54); if (!alive(id)) return; await sleep(140);
       const cl = toolGroup(t); cl.status('call_handler(webhook_ingest.ingest)…'); const cli = toolItem(cl.box, { name: 'call_handler(webhook_ingest.ingest)' }); const cp = progressBox(tdet(cli));
       for (const ln of ['yield: validate payload … ok', 'yield: INSERT events … 1 行', 'self.conn 复用（实例保活）']) { await sleep(330); if (!alive(id)) return; cp.add(ln); }
       cp.done(); pcode(tdet(cli), '{ "inserted": 1, "id": "evt_9f31" }', '返回结果'); cl.settle('调用完成 · call_handler');
-      if (dock) dock.set([['锻造 webhook_ingest（handler）', 'completed'], ['配 config（密钥）→ 起实例', 'completed'], ['调一次 ingest', 'completed']]);
+      if (dock) dock.set([['构建 webhook_ingest（handler）', 'completed'], ['配 config（密钥）→ 起实例', 'completed'], ['调一次 ingest', 'completed']]);
     }
     await sleep(450); if (!alive(id)) return;
     const t2 = aiTurn();
@@ -574,7 +574,7 @@
     await typeInto(para(t), '读现状 → 全量替换出 v3。', 58); if (!alive(id)) return; await sleep(150);
     const g = toolGroup(t); g.status('get_agent(Researcher)…'); await sleep(420); if (!alive(id)) return;
     ChatEntityCard.render({ kind: 'agent', name: 'Researcher', version: 2, live: 'edit', id: 'ag_5f2c8a10d4e3b7f9', runs: 24, desc: '深度调研员：检索、交叉验证、产出综述。', system: '你是严谨的调研员。检索、交叉验证。', model: 'claude-sonnet-4-6', tools: [{ ref: 'fn_pdf_extract', health: 'ok' }, { ref: 'mcp:web/search', health: 'bad' }], skill: null, knowledge: ['竞品列表.md'] });
-    const card = ChatEntityCard.el; toolItem(g.box, { name: 'get_agent(Researcher)', detailHTML: '<div class="tbox"><div class="out">挂载体检：mcp:web/search 离线（红点）→ invoke 会 fail-fast</div></div>' }); g.settle('已读 · get_agent v2');
+    const card = ChatEntityCard.el; toolItem(g.box, { name: 'get_agent(Researcher)', detailHTML: '<div class="tbox"><div class="out">挂载体检：mcp:web/search 离线（红点）→ call 会 fail-fast</div></div>' }); g.settle('已读 · get_agent v2');
     await sleep(450); if (!alive(id)) return;
     const e = toolGroup(t); e.status('edit_agent(Researcher)…'); await sleep(420); if (!alive(id)) return;
     const sv = ChatEntityCard.$('[data-f="system"] .val', card); sv.classList.add('flash'); sv.textContent = ''; await typeInto(sv, '你是严谨的调研员。检索、交叉验证，每条结论必须附引用来源（行内链接）。', 46); if (!alive(id)) return;
@@ -584,13 +584,13 @@
     const tl = ChatEntityCard.$('[data-f="tools"] .ec-rows', card); if (tl) { tl.innerHTML = '<div class="ec-row"><span class="mh-dot ok"></span><span class="nid">fn_pdf_extract</span></div><div class="ec-row new"><span class="mh-dot ok"></span><span class="nid">mcp:web/fetch</span></div><div class="ec-row new"><span class="mh-dot ok"></span><span class="nid">hd_webhook_ingest.stats</span></div>'; }
     ChatEntityCard.$('[data-f="tools"] [data-tc]', card).textContent = '3';
     await sleep(400); if (!alive(id)) return; ChatEntityCard.setVersion(3); ChatEntityCard.setLive(false);
-    toolItem(e.box, { verb: 'Forged', name: 'edit_agent(Researcher) → v3', detailHTML: `<div class="diff-cap">实体版本 diff · v2→v3（全量 Config 快照替换；含 del + add）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">model: claude-sonnet-4-6 · tools: [web/search✗]</span></div><div class="dline add"><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div><div class="dline add"><span class="s">+</span><span class="c">tools: [pdf_extract, web/fetch, webhook_ingest.stats]（5/5 健康）</span></div><div class="dline add"><span class="s">+</span><span class="c">system += 每条结论附引用来源</span></div></div></div>` });
-    e.settle('已锻造 · edit_agent → v3');
+    toolItem(e.box, { verb: 'Built', name: 'edit_agent(Researcher) → v3', detailHTML: `<div class="diff-cap">实体版本 diff · v2→v3（全量 Config 快照替换；含 del + add）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">model: claude-sonnet-4-6 · tools: [web/search✗]</span></div><div class="dline add"><span class="s">+</span><span class="c">model: claude-opus-4-8</span></div><div class="dline add"><span class="s">+</span><span class="c">tools: [pdf_extract, web/fetch, webhook_ingest.stats]（5/5 健康）</span></div><div class="dline add"><span class="s">+</span><span class="c">system += 每条结论附引用来源</span></div></div></div>` });
+    e.settle('已构建 · edit_agent → v3');
     await sleep(450); if (!alive(id)) return;
-    await typeInto(para(t), 'invoke 一次验证（嵌套 transcript）。', 56); if (!alive(id)) return; await sleep(150);
-    const iv = toolGroup(t); iv.status('invoke_agent(Researcher)…'); await sleep(450); if (!alive(id)) return;
-    iv.settle('员工运行完成 · invoke_agent');
-    const sub = subtree(t, 'invoke_agent · Researcher（嵌套 ReAct，落 Execution.transcript）');
+    await typeInto(para(t), 'call 一次验证（嵌套 transcript）。', 56); if (!alive(id)) return; await sleep(150);
+    const iv = toolGroup(t); iv.status('call_agent(Researcher)…'); await sleep(450); if (!alive(id)) return;
+    iv.settle('员工运行完成 · call_agent');
+    const sub = subtree(t, 'call_agent · Researcher（嵌套 ReAct，落 Execution.transcript）');
     reasonBlock(sub, '先用 web/fetch 取最新动态，再交叉验证、附引用。');
     const it = toolGroup(sub); it.status('mcp__web__fetch…'); await sleep(450); if (!alive(id)) return;
     toolItem(it.box, { name: 'mcp__web__fetch(openai.com/blog)', detailHTML: '<div class="tbox"><div class="out">200 · 3 条新动态</div></div>' }); it.settle('已取 · web/fetch');
@@ -628,8 +628,8 @@
       const cc = el('div', 'branch-row catchall new'); cc.innerHTML = '<span class="bnum">4</span><div class="bbody"><div class="bwhen">true（兜底）</div></div><span class="bport">auto</span>'; br.appendChild(cc);
     }
     await sleep(400); if (!alive(id)) return; ChatEntityCard.setValidation('valid'); ChatEntityCard.setVersion(4); ChatEntityCard.setLive(false);
-    toolItem(e.box, { verb: 'Forged', name: 'edit_control(cel_validator) → v4', detailHTML: `<div class="diff-cap">实体版本 diff · v3→v4（branch ops）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">when: input.catagory == "refund"  ← 拼写</span></div><div class="dline add"><span class="s">+</span><span class="c">when: input.category == "refund"</span></div><div class="dline add"><span class="s">+</span><span class="c">branch[last]: when=true → port auto（兜底）</span></div></div></div>` });
-    e.settle('已锻造 · edit_control → v4');
+    toolItem(e.box, { verb: 'Built', name: 'edit_control(cel_validator) → v4', detailHTML: `<div class="diff-cap">实体版本 diff · v3→v4（branch ops）</div><div class="tbox"><div class="diff"><div class="dline del"><span class="s">−</span><span class="c">when: input.catagory == "refund"  ← 拼写</span></div><div class="dline add"><span class="s">+</span><span class="c">when: input.category == "refund"</span></div><div class="dline add"><span class="s">+</span><span class="c">branch[last]: when=true → port auto（兜底）</span></div></div></div>` });
+    e.settle('已构建 · edit_control → v4');
     if (dock) dock.set([['修拼写 CEL', 'completed'], ['补 catchall 兜底', 'completed'], ['干跑验证 resolved-port', 'in-progress']]);
     await sleep(450); if (!alive(id)) return;
     await typeInto(para(t), '干跑一次，看 control 节点解析出的出口。', 56); if (!alive(id)) return; await sleep(150);
@@ -652,22 +652,22 @@
     await sleep(450); if (!alive(id)) return;
     const t = aiTurn();
     reasonBlock(t, 'approval 是图的「人在环闸」——固定 yes/no 两出口、parked 行即收件箱。区别 chat 内危险工具的内存确认（两个表面）。');
-    await typeInto(para(t), '锻造审批表单 publish_review。', 60); if (!alive(id)) return;
-    if (dock) { dock.show(); dock.set([['锻造 publish_review（approval）', 'in-progress'], ['接进 workflow 图', 'pending'], ['跑到 review 节点决策', 'pending']]); }
+    await typeInto(para(t), '构建审批表单 publish_review。', 60); if (!alive(id)) return;
+    if (dock) { dock.show(); dock.set([['构建 publish_review（approval）', 'in-progress'], ['接进 workflow 图', 'pending'], ['跑到 review 节点决策', 'pending']]); }
     await sleep(180);
-    const cf = toolGroup(t); cf.status('Forging publish_review…'); await sleep(480); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'approval', name: 'publish_review', version: 1, live: 'forge', id: 'apf_2d8f6b71a0c4e93f', desc: '发布前人工过目；2 天无人处理则驳回。', template: '', allowReason: true, timeout: '2d', behavior: 'reject', validity: 'syncing' });
+    const cf = toolGroup(t); cf.status('Building publish_review…'); await sleep(480); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'approval', name: 'publish_review', version: 1, live: 'build', id: 'apf_2d8f6b71a0c4e93f', desc: '发布前人工过目；2 天无人处理则驳回。', template: '', allowReason: true, timeout: '2d', behavior: 'reject', validity: 'syncing' });
     const card = ChatEntityCard.el; await sleep(360); if (!alive(id)) return;
     await typeInto(ChatEntityCard.$('[data-f="template"] .val', card), '## 发布确认\n标题：{{ input.title }}\n块数：{{ input.blocks }}\n是否发布到 {{ input.database }}？', 70); if (!alive(id)) return;
     // 重渲染模板高亮 {{CEL}}
     const tv = ChatEntityCard.$('[data-f="template"] .val', card); if (tv) tv.innerHTML = tv.textContent.replace(/\{\{([^}]*)\}\}/g, '<span class="cel-tok">{{$1}}</span>');
     await sleep(380); if (!alive(id)) return; ChatEntityCard.setValidity('valid'); ChatEntityCard.setLive(false);
-    toolItem(cf.box, { verb: 'Forged', name: 'create_approval(publish_review)', detailHTML: '<div class="tbox"><div class="out">ops：set_template · allowReason=true · timeout=2d · behavior=reject（非空 timeout 必配 behavior）</div></div>' }); cf.settle('已锻造 · create_approval');
-    if (dock) dock.set([['锻造 publish_review（approval）', 'completed'], ['接进 workflow 图', 'in-progress'], ['跑到 review 节点决策', 'pending']]);
+    toolItem(cf.box, { verb: 'Built', name: 'create_approval(publish_review)', detailHTML: '<div class="tbox"><div class="out">ops：set_template · allowReason=true · timeout=2d · behavior=reject（非空 timeout 必配 behavior）</div></div>' }); cf.settle('已构建 · create_approval');
+    if (dock) dock.set([['构建 publish_review（approval）', 'completed'], ['接进 workflow 图', 'in-progress'], ['跑到 review 节点决策', 'pending']]);
     await sleep(420); if (!alive(id)) return;
     const ew = toolGroup(t); ew.status('edit_workflow(weekly_report)…'); await sleep(420); if (!alive(id)) return;
-    toolItem(ew.box, { verb: 'Forged', name: 'edit_workflow → 接 review 节点', detailHTML: '<div class="tbox"><div class="diff"><div class="dline add"><span class="s">+</span><span class="c">add_node review (approval · apf_publish_review)</span></div><div class="dline add"><span class="s">+</span><span class="c">add_edge polish → review → [yes] publish</span></div></div></div>' }); ew.settle('已锻造 · edit_workflow');
-    if (dock) dock.set([['锻造 publish_review（approval）', 'completed'], ['接进 workflow 图', 'completed'], ['跑到 review 节点决策', 'in-progress']]);
+    toolItem(ew.box, { verb: 'Built', name: 'edit_workflow → 接 review 节点', detailHTML: '<div class="tbox"><div class="diff"><div class="dline add"><span class="s">+</span><span class="c">add_node review (approval · apf_publish_review)</span></div><div class="dline add"><span class="s">+</span><span class="c">add_edge polish → review → [yes] publish</span></div></div></div>' }); ew.settle('已构建 · edit_workflow');
+    if (dock) dock.set([['构建 publish_review（approval）', 'completed'], ['接进 workflow 图', 'completed'], ['跑到 review 节点决策', 'in-progress']]);
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), '触发一次，跑到 review 会 parked、唤你决策。', 58); if (!alive(id)) return; await sleep(150);
     const tg = toolGroup(t); tg.status('trigger_workflow(weekly_report)…'); await sleep(420); if (!alive(id)) return; tg.settle('已起 run · trigger_workflow');
@@ -681,7 +681,7 @@
     const ib = inboxCard(t2, { node: 'review', countdown: '1d 22h 后自动 reject', rendered: '## 发布确认\n标题：竞品摘要 · 06-14\n块数：17\n是否发布到 竞品追踪？' });
     const dec = await ib.wait(HOLD() ? null : 'yes', 2400); if (!alive(id)) return;
     ib.settle(dec === 'yes' ? '已通过 · flowrun 续跑 publish（first-wins）' : '已驳回 · 反馈进 run');
-    if (dock) dock.set([['锻造 publish_review（approval）', 'completed'], ['接进 workflow 图', 'completed'], ['跑到 review 节点决策', 'completed']]);
+    if (dock) dock.set([['构建 publish_review（approval）', 'completed'], ['接进 workflow 图', 'completed'], ['跑到 review 节点决策', 'completed']]);
     await sleep(350); if (!alive(id)) return;
     const t3 = aiTurn();
     para(t3).innerHTML = '收件箱决策（通过/驳回 · yes|no）与 chat 危险闸（批准/始终批准/拒绝）是<b>两个表面</b>：前者 durable 带超时、后者内存即时。';
@@ -697,27 +697,27 @@
     await sleep(450); if (!alive(id)) return;
     const t = aiTurn();
     reasonBlock(t, '外部事件驱动 → trigger（四源之一 webhook，非 manual）。trigger 是信号源 + durable 收件箱，无版本模型。');
-    await typeInto(para(t), '锻造一个 webhook trigger。', 58); if (!alive(id)) return;
-    if (dock) { dock.show(); dock.set([['锻造 slack_new_post（trigger）', 'in-progress'], ['attach 上线监听', 'pending'], ['手动 fire 验证', 'pending']]); }
+    await typeInto(para(t), '构建一个 webhook trigger。', 58); if (!alive(id)) return;
+    if (dock) { dock.show(); dock.set([['构建 slack_new_post（trigger）', 'in-progress'], ['attach 上线监听', 'pending'], ['手动 fire 验证', 'pending']]); }
     await sleep(180);
-    const cf = toolGroup(t); cf.status('Forging slack_new_post…'); await sleep(480); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'trigger', name: 'slack_new_post', live: 'forge', id: 'trg_9e1a4f80b2c6d57a', source: 'webhook', listening: false, desc: 'Slack 新帖 webhook → 扇给周报 workflow。', config: [{ k: 'path', v: '/hooks/slack/x9f2' }, { k: 'secret', mask: true }, { k: 'method', v: 'POST' }], dedup: 'sha256(body) + 分钟桶', listeners: [] });
+    const cf = toolGroup(t); cf.status('Building slack_new_post…'); await sleep(480); if (!alive(id)) return;
+    ChatEntityCard.render({ kind: 'trigger', name: 'slack_new_post', live: 'build', id: 'trg_9e1a4f80b2c6d57a', source: 'webhook', listening: false, desc: 'Slack 新帖 webhook → 扇给周报 workflow。', config: [{ k: 'path', v: '/hooks/slack/x9f2' }, { k: 'secret', mask: true }, { k: 'method', v: 'POST' }], dedup: 'sha256(body) + 分钟桶', listeners: [] });
     const card = ChatEntityCard.el; await sleep(500); if (!alive(id)) return; ChatEntityCard.setLive(false);
-    toolItem(cf.box, { verb: 'Forged', name: 'create_trigger(slack_new_post)', detailHTML: '<div class="tbox"><div class="out">config ops · 无版本模型（trigger 不走方案 A）；dedup 防重复材化</div></div>' }); cf.settle('已锻造 · create_trigger');
+    toolItem(cf.box, { verb: 'Built', name: 'create_trigger(slack_new_post)', detailHTML: '<div class="tbox"><div class="out">config ops · 无版本模型（trigger 不走方案 A）；dedup 防重复材化</div></div>' }); cf.settle('已构建 · create_trigger');
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), 'attach 到周报 workflow 并上线监听。', 56); if (!alive(id)) return; await sleep(150);
     const at = toolGroup(t); at.status('attach + activate…'); await sleep(450); if (!alive(id)) return;
     // 右岛：listeners 0→1 + 头部监听点亮（重渲染）
     ChatEntityCard.render({ kind: 'trigger', name: 'slack_new_post', id: 'trg_9e1a4f80b2c6d57a', source: 'webhook', listening: true, desc: 'Slack 新帖 webhook → 扇给周报 workflow。', config: [{ k: 'path', v: '/hooks/slack/x9f2' }, { k: 'secret', mask: true }, { k: 'method', v: 'POST' }], dedup: 'sha256(body) + 分钟桶', listeners: ['weekly_report'] }); ChatEntityCard.setLive(false);
     at.settle('已上线 · refCount 0→1 · listening');
-    if (dock) dock.set([['锻造 slack_new_post（trigger）', 'completed'], ['attach 上线监听', 'completed'], ['手动 fire 验证', 'in-progress']]);
+    if (dock) dock.set([['构建 slack_new_post（trigger）', 'completed'], ['attach 上线监听', 'completed'], ['手动 fire 验证', 'in-progress']]);
     await sleep(450); if (!alive(id)) return;
     await typeInto(para(t), '手动 fire 两次（看 Activation 必写 + overlap）。', 56); if (!alive(id)) return; await sleep(150);
     const fg = toolGroup(t); fg.status(':fire ×2…'); await sleep(420); if (!alive(id)) return; fg.settle('已 fire · 202 { id }');
     const fs = fireStrip(t, 'tra_5c8f… → tra_5c90…');
     fs.activation('fire #1 · activation 写入'); await sleep(400); const f1 = fs.firing('weekly_report'); await sleep(650); if (!alive(id)) return; f1.ok('fr_a1b2');
     await sleep(350); fs.activation('fire #2 · activation 写入（在途未结束）'); const f2 = fs.firing('weekly_report'); await sleep(550); if (!alive(id)) return; f2.skip(); fs.done();
-    if (dock) dock.set([['锻造 slack_new_post（trigger）', 'completed'], ['attach 上线监听', 'completed'], ['手动 fire 验证', 'completed']]);
+    if (dock) dock.set([['构建 slack_new_post（trigger）', 'completed'], ['attach 上线监听', 'completed'], ['手动 fire 验证', 'completed']]);
     await sleep(400); if (!alive(id)) return;
     const t2 = aiTurn();
     await typeInto(para(t2), '双台账（触没触发都查得到）：', 54); if (!alive(id)) return;
@@ -738,7 +738,7 @@
     if (dock) { dock.show(); dock.set([['装 notion MCP server', 'in-progress'], ['补 NOTION_TOKEN + 连接', 'pending'], ['发现工具 + 调用', 'pending']]); }
     await sleep(180);
     const inst = toolGroup(t); inst.status('install_mcp_server(notion)…'); await sleep(480); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'mcp', name: 'notion', live: 'forge', id: 'mcp_notion', source: 'registry', conn: 'connecting', desc: 'Notion MCP server：外部工具网桥。', transport: 'stdio', transportCfg: [{ k: 'command', v: 'npx' }, { k: 'args', v: '@notion/mcp' }], secrets: ['NOTION_TOKEN'], tools: [] });
+    ChatEntityCard.render({ kind: 'mcp', name: 'notion', live: 'build', id: 'mcp_notion', source: 'registry', conn: 'connecting', desc: 'Notion MCP server：外部工具网桥。', transport: 'stdio', transportCfg: [{ k: 'command', v: 'npx' }, { k: 'args', v: '@notion/mcp' }], secrets: ['NOTION_TOKEN'], tools: [] });
     const card = ChatEntityCard.el; await sleep(450); if (!alive(id)) return;
     toolItem(inst.box, { name: 'install_mcp_server(notion)', detailHTML: '<div class="tbox"><div class="out">MCP_ENV_MISSING：缺必填 NOTION_TOKEN</div></div>' }); inst.settle('需要密钥 · install_mcp_server');
     await sleep(300); if (!alive(id)) return;
@@ -789,14 +789,14 @@
     await sleep(400); if (!alive(id)) return;
     await typeInto(para(t), '补一篇监控源文档。', 54); if (!alive(id)) return; await sleep(150);
     const cf = toolGroup(t); cf.status('create_document…'); await sleep(450); if (!alive(id)) return;
-    ChatEntityCard.render({ kind: 'document', name: '竞品列表.md', live: 'forge', id: 'doc_4b7c2e91', path: '/研究/竞品', desc: '竞品清单与监控源。', size: '0 B', body: '', wikilinks: [], tags: ['research'] });
+    ChatEntityCard.render({ kind: 'document', name: '竞品列表.md', live: 'build', id: 'doc_4b7c2e91', path: '/研究/竞品', desc: '竞品清单与监控源。', size: '0 B', body: '', wikilinks: [], tags: ['research'] });
     const card = ChatEntityCard.el; await sleep(360); if (!alive(id)) return;
     await typeInto(ChatEntityCard.$('[data-f="body"] .val', card), '# 竞品列表\n- OpenAI — [[openai-watch]]\n- Anthropic — [[anthropic-watch]]\n\n监控源见 [[rss-sources]]。', 60); if (!alive(id)) return;
     const bv = ChatEntityCard.$('[data-f="body"] .val', card); if (bv) bv.innerHTML = bv.textContent.replace(/\[\[([^\]]*)\]\]/g, '<span class="wikilink-pill">$1</span>');
     const sz = ChatEntityCard.$('[data-f="body"] [data-sz]', card); if (sz) sz.textContent = '4.2 KB';
     const wl = ChatEntityCard.$('[data-f="wikilinks"] .val', card); if (wl) wl.innerHTML = `<div class="taglist">${['openai-watch', 'anthropic-watch', 'rss-sources'].map(w => `<span class="tag new">${w}</span>`).join('')}</div>`;
     await sleep(400); if (!alive(id)) return; ChatEntityCard.setLive(false);
-    toolItem(cf.box, { verb: 'Forged', name: 'create_document(竞品列表.md)', detailHTML: '<div class="tbox"><div class="out">文档内容 diff · content ops（无版本模型）；[[wikilink]] 自动建反链</div></div>' }); cf.settle('已创建 · create_document');
+    toolItem(cf.box, { verb: 'Built', name: 'create_document(竞品列表.md)', detailHTML: '<div class="tbox"><div class="out">文档内容 diff · content ops（无版本模型）；[[wikilink]] 自动建反链</div></div>' }); cf.settle('已创建 · create_document');
     await sleep(420); if (!alive(id)) return;
     await typeInto(para(t), '归档到 /研究/竞品 下（防环）。', 54); if (!alive(id)) return; await sleep(150);
     const mv = toolGroup(t); mv.status('move_document…'); await sleep(420); if (!alive(id)) return; mv.settle('已移动 · move_document');

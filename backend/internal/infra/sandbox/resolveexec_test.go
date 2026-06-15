@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 // fakeToolRegistry resolves "uv" to a fixed path (uvx is derived beside it).

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // scriptedMCP is a dependency-free python MCP stdio server: JSON-RPC 2.0, newline-delimited.

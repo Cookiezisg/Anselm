@@ -8,12 +8,12 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 const addServerTimeout = 3 * time.Minute // install: provision runtime + first connect (npm/pip fetch can be slow)

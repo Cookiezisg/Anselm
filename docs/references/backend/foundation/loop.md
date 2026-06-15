@@ -22,7 +22,7 @@ audience: [human, ai]
 - **danger gate**（tools.go）：ctx 有 humanloop broker 时自报 dangerous 的调用先阻塞等人批（active skill 的 allowed-tools / approve_always 会话白名单可预授权跳过）；broker 仅 chat 注入（含其 ctx 内嵌套调用的 agent/subagent-as-tool）——独立 agent invoke / 顶层 subagent / workflow 节点无 broker = 纯信任直接跑。
 - **执行组并行**：同 `execution_group` 的调用 goroutine 并发，**每调用写预分配下标**（无共享槽、无锁），末尾按调用序拍平 block。
 - **结果封顶**（tools.go `capToolResult`）：任何 tool_result 硬限 256 KiB（保头部 + 收窄提示）——结果会整段落库、整段上 durable SSE open 帧、整段进同回合下一步 LLM 请求（warm/cold 投影只裁后续回合），无界结果（不带 head_limit 的大 Grep、话痨 MCP 工具）会同时打爆三处。与 Bash 自身 cap 同值；Grep 两后端（rg/stdlib）另有同值的内存累积界。
-- **forge 镜像**：tool_call 是 ForgeTool 时，流式 arg delta 同步镜像到 entities 流（实体面板随 LLM 打字填充）。
+- **build 镜像**：tool_call 是 BuildTool 时，流式 arg delta 同步镜像到 entities 流（实体面板随 LLM 打字填充）。
 - **标准字段协议**（tool 契约）：`summary`/`danger`/`execution_group` 由框架注入 schema（ToLLMDefs）+ 从 args 剥离（StripStandardFields）——工具只声明/接收业务参数（S18）。
 
 ## 3. 契约（引用）

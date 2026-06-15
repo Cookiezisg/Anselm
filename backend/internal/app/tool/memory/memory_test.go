@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
+	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
 )
 
 // fakeMemoryRepo is an in-memory memorydomain.Repository for offline tool tests.

@@ -1,7 +1,7 @@
 // platform_r4_test.go — R4（A9 平台高标准补全，首轮缺格的补课）。
 //
 // PLAN A9 逐格：SSE 协议面（durable 重连 fromSeq 续传 / 环淘汰 410 SEQ_TOO_OLD / entities
-// 流 forge 镜像与 run 终端真到达）；limits **每字段** PATCH→对应行为真变（invokeMaxTurns /
+// 流 build 镜像与 run 终端真到达）；limits **每字段** PATCH→对应行为真变（invokeMaxTurns /
 // llmIdleSec / bashDefaultTimeoutSec / bashOutputCapKB / attachmentMaxMB / webhookBodyMaxMB
 // ——maxSteps/triggerRatio/toolResultCapKB 已在 W4/W5 钉死）；通知全事件域（11 域 created
 // 族真到达 + 未读/已读）；sandbox runtime 装/删/gc/disk-usage；workspace 级联删除逐资产
@@ -18,22 +18,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // TestPlatformR4_SSEProtocolFaces: 三流协议面——notifications durable 续传重放、
-// 环淘汰（256）后 fromSeq 太老 → 410 SEQ_TOO_OLD、entities 流 forge 镜像 + run 终端帧真到达。
+// 环淘汰（256）后 fromSeq 太老 → 410 SEQ_TOO_OLD、entities 流 build 镜像 + run 终端帧真到达。
 func TestPlatformR4_SSEProtocolFaces(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "sse-ws"}).Field(t, "id")
 	wc := c.WS(wsID)
 
-	// entities 流：function 锻造镜像 + 执行 print 的 run 终端帧。
+	// entities 流：function 构建镜像 + 执行 print 的 run 终端帧。
 	es := wc.Subscribe(t, "entities")
 	fnID := fnCreate(t, wc, "sse_probe_fn",
 		"def sse_probe_fn() -> dict:\n    print(\"TERMLINE from run\")\n    return {}\n")
-	es.WaitFor(t, 10000, "forge mirror frames on entities stream", fnID)
+	es.WaitFor(t, 10000, "build mirror frames on entities stream", fnID)
 	wc.POST("/api/v1/functions/"+fnID+":run", map[string]any{"args": map[string]any{}}).OK(t, nil)
 	es.WaitFor(t, 15000, "run terminal stderr frame on entities stream", "TERMLINE")
 
@@ -324,9 +324,9 @@ func TestPlatformR4_SandboxRuntimesGCDisk(t *testing.T) {
 	}
 	wc.GET("/api/v1/sandbox/envs?ownerKind=function").OK(t, &envs)
 	for _, e := range envs {
-		wc.DELETE("/api/v1/sandbox/envs/" + e.ID).OK(t, nil)
+		wc.DELETE("/api/v1/sandbox/envs/"+e.ID).OK(t, nil)
 	}
-	wc.DELETE("/api/v1/sandbox/runtimes/" + pyID).OK(t, nil)
+	wc.DELETE("/api/v1/sandbox/runtimes/"+pyID).OK(t, nil)
 	wc.GET("/api/v1/sandbox/runtimes").OK(t, &runtimes)
 	for _, rt := range runtimes {
 		if rt.ID == pyID {
@@ -389,7 +389,7 @@ func TestPlatformR4_CascadeEveryAssetKind(t *testing.T) {
 	harness.Eventually(t, 30000, "doomed assets indexed", func() bool {
 		return searchPageOf(t, doomed, "q=cascadetoken&limit=50").Total >= 12
 	})
-	c.DELETE("/api/v1/workspaces/" + doomedID).OK(t, nil)
+	c.DELETE("/api/v1/workspaces/"+doomedID).OK(t, nil)
 
 	// ws 本体 404；keeper 毫发无损且只见自己的对照实体。
 	c.Do("GET", "/api/v1/workspaces/"+doomedID, nil).Fail(t, 404, "WORKSPACE_NOT_FOUND")

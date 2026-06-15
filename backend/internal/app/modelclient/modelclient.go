@@ -16,9 +16,9 @@ package modelclient
 import (
 	"context"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // CredsResolver is the minimal credential port (consumer-side slice of

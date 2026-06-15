@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
-// hdCreate forges a handler over HTTP and returns its id.
+// hdCreate builds a handler over HTTP and returns its id.
 //
-// hdCreate 经 HTTP 锻造一个 handler 并返回 id。
+// hdCreate 经 HTTP 构建一个 handler 并返回 id。
 func hdCreate(t *testing.T, wc *harness.Client, name string, body map[string]any) string {
 	t.Helper()
 	payload := map[string]any{"name": name, "description": "验收用"}

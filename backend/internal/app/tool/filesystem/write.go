@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	fspathpkg "github.com/sunweilin/forgify/backend/internal/pkg/fspath"
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	fspathpkg "github.com/sunweilin/foryx/backend/internal/pkg/fspath"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // ErrEmptyContent: write called without content (nil); use "" to create an empty file.
@@ -138,7 +138,7 @@ func (t *Write) Execute(ctx context.Context, argsJSON string) (string, error) {
 		}
 	}
 
-	tmpFile, err := os.CreateTemp(parent, ".forgify-write-*")
+	tmpFile, err := os.CreateTemp(parent, ".foryx-write-*")
 	if err != nil {
 		return fmt.Sprintf("Cannot create temp file in %s: %v", parent, err), nil
 	}

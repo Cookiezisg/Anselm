@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	loopapp "github.com/sunweilin/forgify/backend/internal/app/loop"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // recBridge records published frames so the Bash progress stream can be asserted.

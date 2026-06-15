@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // multiClient replays a distinct script per Stream call (one per ReAct step).
@@ -125,9 +125,9 @@ func TestInvoke_DangerGateFromBrokerInCtx(t *testing.T) {
 	default:
 	}
 
-	// Resolve via the same broker, keyed by the sub-run's tool_call id — the SERVER-minted
+	// Resolve via the same broker, keyed by the sub-run's tool_call id — the SERVER-built
 	// block id read off the pending entry (never the provider's recyclable wire id).
-	// 经同一 broker 决议，键为子运行的 tool_call id——从 pending 条目读到的服务端铸造块 id
+	// 经同一 broker 决议，键为子运行的 tool_call id——从 pending 条目读到的服务端构建块 id
 	// （绝非 provider 可复用的线缆 id）。
 	if !broker.Resolve(broker.Pending("c1")[0].ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionApprove}) {
 		t.Fatal("Resolve should find the nested pending interaction")

@@ -1,11 +1,11 @@
-// Package function is the domain layer for user-forged Python sandbox functions:
+// Package function is the domain layer for user-built Python sandbox functions:
 // stateless code that runs in a fresh, isolated sandbox process per call (the first
 // Quadrinity element). A Function owns an append-only line of Versions (each an
 // immutable code+deps snapshot); ActiveVersionID is a free-moving pointer at the
 // version currently in effect. There is NO pending/accept state machine — every edit
 // writes a new version and takes effect immediately; revert just moves the pointer.
 //
-// Package function 是用户锻造的 Python 沙箱函数的 domain 层：每次调用在全新隔离沙箱进程里跑
+// Package function 是用户构建的 Python 沙箱函数的 domain 层：每次调用在全新隔离沙箱进程里跑
 // 的无状态代码（Quadrinity 第一元）。Function 持一条只增的 Version 线（每个是不可变的代码+依赖
 // 快照）；ActiveVersionID 是指向当前生效版本的可自由移动指针。**无 pending/accept 状态机**——
 // 每次编辑写新版本并立即生效；revert 只移指针。
@@ -14,13 +14,13 @@ package function
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
-// Function is a user-forged function; its code lives on the active Version, not here.
+// Function is a user-built function; its code lives on the active Version, not here.
 //
-// Function 是用户锻造的 function；代码在 active Version 上，不在本表。
+// Function 是用户构建的 function；代码在 active Version 上，不在本表。
 type Function struct {
 	ID              string     `db:"id,pk"               json:"id"`
 	WorkspaceID     string     `db:"workspace_id,ws"     json:"-"`
@@ -51,23 +51,23 @@ const DefaultPythonVersion = "3.12"
 // Version 是函数代码+接口+依赖的一份不可变快照。Version 是写入时分配的单调号（max+1）——绝不
 // 重分配、绝不重排号。EnvID 锚定为这组确切依赖物化的 sandbox env。
 type Version struct {
-	ID                     string            `db:"id,pk"                      json:"id"`
-	WorkspaceID            string            `db:"workspace_id,ws"            json:"-"`
-	FunctionID             string            `db:"function_id"                json:"functionId"`
-	Version                int               `db:"version"                    json:"version"`
-	Code                   string            `db:"code"                       json:"code"`
-	Inputs                 []schemapkg.Field `db:"inputs,json"             json:"inputs"`
-	Outputs                []schemapkg.Field `db:"outputs,json"            json:"outputs"`
-	Dependencies           []string          `db:"dependencies,json"          json:"dependencies"`
-	PythonVersion          string            `db:"python_version"             json:"pythonVersion"`
-	EnvID                  string            `db:"env_id"                     json:"envId"`
-	EnvStatus              string            `db:"env_status"                 json:"envStatus"`
-	EnvError               string            `db:"env_error"                  json:"envError,omitempty"`
-	EnvSyncedAt            *time.Time        `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
-	ChangeReason           string            `db:"change_reason"              json:"changeReason,omitempty"`
-	ForgedInConversationID *string           `db:"forged_in_conversation_id"  json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time         `db:"created_at,created"         json:"createdAt"`
-	UpdatedAt              time.Time         `db:"updated_at,updated"         json:"updatedAt"`
+	ID                    string            `db:"id,pk"                      json:"id"`
+	WorkspaceID           string            `db:"workspace_id,ws"            json:"-"`
+	FunctionID            string            `db:"function_id"                json:"functionId"`
+	Version               int               `db:"version"                    json:"version"`
+	Code                  string            `db:"code"                       json:"code"`
+	Inputs                []schemapkg.Field `db:"inputs,json"             json:"inputs"`
+	Outputs               []schemapkg.Field `db:"outputs,json"            json:"outputs"`
+	Dependencies          []string          `db:"dependencies,json"          json:"dependencies"`
+	PythonVersion         string            `db:"python_version"             json:"pythonVersion"`
+	EnvID                 string            `db:"env_id"                     json:"envId"`
+	EnvStatus             string            `db:"env_status"                 json:"envStatus"`
+	EnvError              string            `db:"env_error"                  json:"envError,omitempty"`
+	EnvSyncedAt           *time.Time        `db:"env_synced_at"              json:"envSyncedAt,omitempty"`
+	ChangeReason          string            `db:"change_reason"              json:"changeReason,omitempty"`
+	BuiltInConversationID *string           `db:"built_in_conversation_id"  json:"builtInConversationId,omitempty"`
+	CreatedAt             time.Time         `db:"created_at,created"         json:"createdAt"`
+	UpdatedAt             time.Time         `db:"updated_at,updated"         json:"updatedAt"`
 }
 
 // Env status values (mirror sandbox env lifecycle, surfaced on the version row).
@@ -112,15 +112,15 @@ var (
 	// ErrSandboxUnavailable：sandbox runtime 未就绪（无法物化 venv）。
 	ErrSandboxUnavailable = errorspkg.New(errorspkg.KindUnavailable, "FUNCTION_SANDBOX_UNAVAILABLE", "sandbox runtime unavailable")
 
-	// ErrOpInvalid: a forge op is malformed or leaves the draft invalid.
+	// ErrOpInvalid: a build op is malformed or leaves the draft invalid.
 	//
-	// ErrOpInvalid：锻造 op 畸形，或应用后草稿非法。
-	ErrOpInvalid = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_OP_INVALID", "invalid forge op")
+	// ErrOpInvalid：构建 op 畸形，或应用后草稿非法。
+	ErrOpInvalid = errorspkg.New(errorspkg.KindUnprocessable, "FUNCTION_OP_INVALID", "invalid build op")
 
-	// ErrInvalidName: the name fails the identifier rule (UpdateMeta path — the forge path
+	// ErrInvalidName: the name fails the identifier rule (UpdateMeta path — the build path
 	// reports the same violation as ErrOpInvalid, since there it IS a bad op).
 	//
-	// ErrInvalidName：name 不符标识符规则（UpdateMeta 路径——锻造路径同样的违规报 ErrOpInvalid，
+	// ErrInvalidName：name 不符标识符规则（UpdateMeta 路径——构建路径同样的违规报 ErrOpInvalid，
 	// 因为在那里它就是一个坏 op）。
 	ErrInvalidName = errorspkg.New(errorspkg.KindInvalid, "FUNCTION_INVALID_NAME", "invalid function name (lowercase alphanumeric + dashes/underscores, 1-64 chars)")
 

@@ -3,8 +3,8 @@ package mcp
 import (
 	"context"
 
-	catalogdomain "github.com/sunweilin/forgify/backend/internal/domain/catalog"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
+	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
 )
 
 // AsCatalogSource returns this Service's CatalogSource adapter. An mcp server is a CONTAINER

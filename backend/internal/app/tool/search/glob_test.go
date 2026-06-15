@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	pathguardpkg "github.com/sunweilin/forgify/backend/internal/pkg/pathguard"
+	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
 )
 
 func newGlob() *Glob { return &Glob{pathGuard: pathguardpkg.New(nil)} }

@@ -7,12 +7,12 @@ import (
 
 	"go.uber.org/zap"
 
-	aispawnapp "github.com/sunweilin/forgify/backend/internal/app/aispawn"
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // HandlerHandler hosts the handler HTTP endpoints. The version model is linear with a

@@ -16,8 +16,8 @@ import (
 	"errors"
 	"fmt"
 
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the approval-form tables' DDL, exported as ordered idempotent statements for
@@ -51,7 +51,7 @@ var Schema = []string{
 		timeout                   TEXT NOT NULL DEFAULT '',
 		timeout_behavior          TEXT NOT NULL DEFAULT '',
 		change_reason             TEXT NOT NULL DEFAULT '',
-		forged_in_conversation_id TEXT,
+		built_in_conversation_id TEXT,
 		created_at                DATETIME NOT NULL,
 		updated_at                DATETIME NOT NULL
 	)`,

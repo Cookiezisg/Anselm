@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Documents 海洋】左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
+/* Foryx design-lab — 【Documents 海洋】左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
    外壳 sidebar.js 据四导航按需懒加载本文件；自注入 documents.css，经 SideBar.register('documents', render) 挂载。
    定位：文档库的【树导航器】——浏览/组织/选中打开。编辑器在海面、TOC/反链在右岛，侧栏一概不碰。
    结构对齐 chat.js（自注入 → build/render → sliders 菜单 → 标题过滤 → 外点收起）。类名全 dt- 专属，避让 doc-/da-/cv-/cm-。依赖 icon()。 */

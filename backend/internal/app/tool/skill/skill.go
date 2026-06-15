@@ -9,8 +9,8 @@
 package skill
 
 import (
-	skillapp "github.com/sunweilin/forgify/backend/internal/app/skill"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	skillapp "github.com/sunweilin/foryx/backend/internal/app/skill"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 // SkillTools constructs the skill system tools over the app service.

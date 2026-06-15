@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
 )
 
 func TestPythonEnvManager_Kind(t *testing.T) {

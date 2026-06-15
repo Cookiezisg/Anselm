@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
 )
 
 type capBridge struct{ events []streamdomain.Event }
@@ -22,7 +22,7 @@ func (b *capBridge) Subscribe(_ context.Context, _ int64) (<-chan streamdomain.E
 func TestWriter_StreamsNodeScopedToEntity(t *testing.T) {
 	b := &capBridge{}
 	scope := streamdomain.Scope{Kind: streamdomain.KindFunction, ID: "fn_x"}
-	w := New(context.Background(), b, scope, "forge", json.RawMessage(`{"op":"edit"}`))
+	w := New(context.Background(), b, scope, "build", json.RawMessage(`{"op":"edit"}`))
 	_, _ = w.Write([]byte("def main"))
 	_, _ = w.Write([]byte("(x): return x"))
 	w.Close("completed", json.RawMessage(`{"versionId":"fnv_1"}`))
@@ -31,8 +31,8 @@ func TestWriter_StreamsNodeScopedToEntity(t *testing.T) {
 		t.Fatalf("want 4 frames (open + 2 delta + close), got %d", len(b.events))
 	}
 	open, ok := b.events[0].Frame.(streamdomain.Open)
-	if !ok || open.Node.Type != "forge" {
-		t.Fatalf("frame[0] not a forge Open: %+v", b.events[0])
+	if !ok || open.Node.Type != "build" {
+		t.Fatalf("frame[0] not a build Open: %+v", b.events[0])
 	}
 	if b.events[0].Scope.Kind != streamdomain.KindFunction || b.events[0].Scope.ID != "fn_x" {
 		t.Fatalf("not scoped to function:fn_x: %+v", b.events[0].Scope)

@@ -3,9 +3,9 @@ package trigger
 import (
 	"context"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // RelationSyncer is the subset of the relation Service that trigger consumes (nil-tolerant).
@@ -68,11 +68,11 @@ func (s *Service) syncSensorBinding(ctx context.Context, t *triggerdomain.Trigge
 	}
 }
 
-// syncForgedEdge records the "create" edge from the originating conversation (if the trigger
-// was forged in one). No conversation in ctx → clears the edge (UI-created trigger).
+// syncBuiltEdge records the "create" edge from the originating conversation (if the trigger
+// was built in one). No conversation in ctx → clears the edge (UI-created trigger).
 //
-// syncForgedEdge 记录来自锻造对话的 "create" 边（若 trigger 在对话中创建）。ctx 无对话 → 清边（UI 创建）。
-func (s *Service) syncForgedEdge(ctx context.Context, triggerID string) {
+// syncBuiltEdge 记录来自构建对话的 "create" 边（若 trigger 在对话中创建）。ctx 无对话 → 清边（UI 创建）。
+func (s *Service) syncBuiltEdge(ctx context.Context, triggerID string) {
 	if s.relations == nil {
 		return
 	}
@@ -87,7 +87,7 @@ func (s *Service) syncForgedEdge(ctx context.Context, triggerID string) {
 	}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindTrigger, triggerID,
 		[]string{relationdomain.KindCreate}, edges); err != nil {
-		s.log.Warn("triggerapp: sync forged edge failed", zapTrigger(triggerID), zapErr(err))
+		s.log.Warn("triggerapp: sync built edge failed", zapTrigger(triggerID), zapErr(err))
 	}
 }
 

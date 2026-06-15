@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	settingsapp "github.com/sunweilin/forgify/backend/internal/app/settings"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	settingsapp "github.com/sunweilin/foryx/backend/internal/app/settings"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // LimitsHandler serves the user-tunable operational ceilings (settings.json "limits"

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 var validNameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)

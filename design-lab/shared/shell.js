@@ -1,7 +1,7 @@
-/* Forgify design-lab — 外壳框架（内核，只读消费；勿在海洋/侧栏里改本文件）。
+/* Foryx design-lab — 外壳框架（内核，只读消费；勿在海洋/侧栏里改本文件）。
    只做三件事：搭圆角浮窗、开三个槽位、提供海洋挂载 API。
      槽位： #left（侧栏模块填）· #sea（海洋中区填）· .body（海洋把自己的右岛 append 进来）
-     主区头： #head-lead（侧栏再展开钮）+ #head-extra（海洋加按钮）+ 主题切换（已去「Forgify / 海洋」面包屑：侧栏四导航已表「在哪个海」，海洋各自给上下文）
+     主区头： #head-lead（侧栏再展开钮）+ #head-extra（海洋加按钮）+ 主题切换（已去「Foryx / 海洋」面包屑：侧栏四导航已表「在哪个海」，海洋各自给上下文）
    海洋只需：Shell.registerOcean(id, { crumb, build(sea) }) 然后 Shell.mount(id)。
    ⚠ 右岛是「海洋的」：由海洋自己渲染进 Shell.body 并自管显隐，外壳不掺和。 */
 (function () {

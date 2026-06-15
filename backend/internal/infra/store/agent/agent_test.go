@@ -10,9 +10,9 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 func newStore(t *testing.T) *Store {

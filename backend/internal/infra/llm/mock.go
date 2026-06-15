@@ -5,7 +5,7 @@ import (
 	"iter"
 	"sync"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // MockScript is one canned response; ErrAfter replaces the entire script with a single error event.

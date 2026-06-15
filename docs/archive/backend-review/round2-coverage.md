@@ -169,7 +169,7 @@ audience: [human, ai]
 ## backend/internal/app/loop (2121 行)
 
 - [x] emit.go (131)
-- [x] forge_entities_test.go (77)
+- [x] build_entities_test.go (77)
 - [x] gate_test.go (60)
 - [x] history.go (115)
 - [x] loop.go (314)
@@ -260,8 +260,8 @@ audience: [human, ai]
 - [x] agent.go (31)
 - [x] agent_test.go (50)
 - [x] executions.go (110)
-- [x] forge.go (150)
-- [x] forge_spec.go (11)
+- [x] build.go (150)
+- [x] build_spec.go (11)
 - [x] lifecycle.go (141)
 - [x] query.go (93)
 - [x] sentinels.go (18)
@@ -270,7 +270,7 @@ audience: [human, ai]
 
 - [x] approval.go (28)
 - [x] approval_test.go (137)
-- [x] forge_spec.go (14)
+- [x] build_spec.go (14)
 - [x] lifecycle.go (244)
 - [x] query.go (99)
 - [x] sentinels.go (17)
@@ -283,7 +283,7 @@ audience: [human, ai]
 
 - [x] control.go (47)
 - [x] control_test.go (138)
-- [x] forge_spec.go (12)
+- [x] build_spec.go (12)
 - [x] lifecycle.go (254)
 - [x] query.go (99)
 - [x] sentinels.go (17)
@@ -295,7 +295,7 @@ audience: [human, ai]
 - [x] document.go (53)
 - [x] document_test.go (222)
 - [x] edit.go (85)
-- [x] forge_spec.go (14)
+- [x] build_spec.go (14)
 - [x] list.go (79)
 - [x] move.go (92)
 - [x] read.go (71)
@@ -320,9 +320,9 @@ audience: [human, ai]
 
 ## backend/internal/app/tool/function (795 行)
 
-- [x] forge.go (162)
-- [x] forge_spec.go (15)
-- [x] forge_stream_test.go (59)
+- [x] build.go (162)
+- [x] build_spec.go (15)
+- [x] build_stream_test.go (59)
 - [x] function.go (76)
 - [x] function_test.go (63)
 - [x] lifecycle.go (107)
@@ -333,8 +333,8 @@ audience: [human, ai]
 ## backend/internal/app/tool/handler (810 行)
 
 - [x] call.go (188)
-- [x] forge.go (160)
-- [x] forge_spec.go (12)
+- [x] build.go (160)
+- [x] build_spec.go (12)
 - [x] handler.go (70)
 - [x] handler_test.go (64)
 - [x] manage.go (201)
@@ -389,7 +389,7 @@ audience: [human, ai]
 
 - [x] activate.go (111)
 - [x] crud.go (188)
-- [x] forge_spec.go (10)
+- [x] build_spec.go (10)
 - [x] sentinels.go (12)
 - [x] skill.go (27)
 
@@ -406,7 +406,7 @@ audience: [human, ai]
 ## backend/internal/app/tool/trigger (490 行)
 
 - [x] activations.go (111)
-- [x] forge.go (180)
+- [x] build.go (180)
 - [x] manage.go (54)
 - [x] query.go (100)
 - [x] sentinels.go (16)
@@ -426,8 +426,8 @@ audience: [human, ai]
 
 - [x] capability.go (61)
 - [x] exec.go (230)
-- [x] forge.go (232)
-- [x] forge_spec.go (15)
+- [x] build.go (232)
+- [x] build_spec.go (15)
 - [x] query.go (101)
 - [x] sentinels.go (17)
 - [x] workflow.go (54)

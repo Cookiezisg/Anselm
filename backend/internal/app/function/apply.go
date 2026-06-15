@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	jsonrepairpkg "github.com/sunweilin/forgify/backend/internal/pkg/jsonrepair"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	jsonrepairpkg "github.com/sunweilin/foryx/backend/internal/pkg/jsonrepair"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
-// Op is a JSON-discriminated forge op; Type lives in the `op` field, Raw holds the body.
+// Op is a JSON-discriminated build op; Type lives in the `op` field, Raw holds the body.
 //
-// Op 是 JSON 判别式锻造 op；Type 在 `op` 字段，Raw 存 body。
+// Op 是 JSON 判别式构建 op；Type 在 `op` 字段，Raw 存 body。
 type Op struct {
 	Type string
 	Raw  json.RawMessage

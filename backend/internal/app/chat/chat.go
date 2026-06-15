@@ -19,22 +19,22 @@ import (
 
 	"go.uber.org/zap"
 
-	humanloopapp "github.com/sunweilin/forgify/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	toolsetpkg "github.com/sunweilin/forgify/backend/internal/app/tool/toolset"
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	agentstatepkg "github.com/sunweilin/forgify/backend/internal/pkg/agentstate"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	toolsetpkg "github.com/sunweilin/foryx/backend/internal/app/tool/toolset"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // attrAttachments is the Message.Attrs key under which Send snapshots a user turn's attachment
@@ -182,7 +182,7 @@ type Deps struct {
 	Documents      DocumentRenderer
 	Todo           TodoReminder
 	Bridge         streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
-	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors forge tool_call deltas here; nil → no entity-panel live fill
+	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
 	Titler         ConversationTitler         // auto-title writer; nil → no auto-titling
 	Notifier       notificationdomain.Emitter // auto-title notification; nil → no notify
 	Compactor      Compactor                  // context compaction; nil → no compaction

@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
 )
 
 // NamesByIDs implements relationapp.Namer: a batch id→name lookup so the relation graph can
@@ -29,11 +29,11 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 
 // syncRelations re-syncs the workflow's outgoing equip edges (every entity its active graph
 // references: trigger / fn / hd / mcp / agent / control / approval) plus the incoming
-// create/edit edge from the conversation that forged the active version. Recomputed on
+// create/edit edge from the conversation that built the active version. Recomputed on
 // Create / Edit / Revert (active version changed → references may have changed).
 //
 // syncRelations 重 sync workflow 的出向 equip 边（active 图引用的每个实体：trigger / fn / hd /
-// mcp / agent / control / approval）+ 锻造 active 版本的对话的入向 create/edit 边。Create /
+// mcp / agent / control / approval）+ 构建 active 版本的对话的入向 create/edit 边。Create /
 // Edit / Revert 后重算（active 版本变 → 引用可能变）。
 func (s *Service) syncRelations(ctx context.Context, w *workflowdomain.Workflow, v *workflowdomain.Version, g *workflowdomain.Graph) {
 	if s.relations == nil {
@@ -43,7 +43,7 @@ func (s *Service) syncRelations(ctx context.Context, w *workflowdomain.Workflow,
 		[]string{relationdomain.KindEquip}, computeRefEdges(g)); err != nil {
 		s.log.Warn("workflowapp.syncRelations: equip sync failed", zap.String("workflowId", w.ID), zap.Error(err))
 	}
-	s.syncForgedEdge(ctx, w.ID, v)
+	s.syncBuiltEdge(ctx, w.ID, v)
 }
 
 // computeRefEdges derives equip out-edges from the graph's node refs, one per referenced
@@ -93,14 +93,14 @@ func computeRefEdges(g *workflowdomain.Graph) []relationdomain.SyncEdge {
 	return edges
 }
 
-// syncForgedEdge records the create (v1) or edit (v>1) incoming edge from the conversation
+// syncBuiltEdge records the create (v1) or edit (v>1) incoming edge from the conversation
 // that produced the active version. create and edit live in separate kind-scopes so they
 // coexist (v1's create edge survives later edits).
 //
-// syncForgedEdge 记录产出 active 版本的对话的 create（v1）/ edit（v>1）入边。create 与 edit 在
+// syncBuiltEdge 记录产出 active 版本的对话的 create（v1）/ edit（v>1）入边。create 与 edit 在
 // 不同 kind-scope，故共存（v1 的 create 边在后续 edit 后仍在）。
-func (s *Service) syncForgedEdge(ctx context.Context, workflowID string, v *workflowdomain.Version) {
-	if s.relations == nil || v.ForgedInConversationID == nil || *v.ForgedInConversationID == "" {
+func (s *Service) syncBuiltEdge(ctx context.Context, workflowID string, v *workflowdomain.Version) {
+	if s.relations == nil || v.BuiltInConversationID == nil || *v.BuiltInConversationID == "" {
 		return
 	}
 	kind := relationdomain.KindCreate
@@ -108,10 +108,10 @@ func (s *Service) syncForgedEdge(ctx context.Context, workflowID string, v *work
 		kind = relationdomain.KindEdit
 	}
 	edges := []relationdomain.SyncEdge{
-		{OtherKind: relationdomain.EntityKindConversation, OtherID: *v.ForgedInConversationID, Kind: kind},
+		{OtherKind: relationdomain.EntityKindConversation, OtherID: *v.BuiltInConversationID, Kind: kind},
 	}
 	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindWorkflow, workflowID, []string{kind}, edges); err != nil {
-		s.log.Warn("workflowapp.syncForgedEdge: failed", zap.String("workflowId", workflowID), zap.Error(err))
+		s.log.Warn("workflowapp.syncBuiltEdge: failed", zap.String("workflowId", workflowID), zap.Error(err))
 	}
 }
 

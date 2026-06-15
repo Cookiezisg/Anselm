@@ -30,7 +30,7 @@ package workflow
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
 // Workflow is a workflow graph entity; its graph lives on the active Version, not here.
@@ -70,15 +70,15 @@ type Workflow struct {
 // Version 是 workflow 图的一份不可变快照。Version 是写入时分配的单调号（max+1）——绝不重分配、
 // 绝不重排号。Graph 是 Graph 的 JSON blob；GraphParsed 是解码形式，由 app 读时附上。
 type Version struct {
-	ID                     string    `db:"id,pk"                     json:"id"`
-	WorkspaceID            string    `db:"workspace_id,ws"           json:"-"`
-	WorkflowID             string    `db:"workflow_id"               json:"workflowId"`
-	Version                int       `db:"version"                   json:"version"`
-	Graph                  string    `db:"graph"                     json:"graph"`
-	ChangeReason           string    `db:"change_reason"             json:"changeReason,omitempty"`
-	ForgedInConversationID *string   `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time `db:"created_at,created"        json:"createdAt"`
-	UpdatedAt              time.Time `db:"updated_at,updated"        json:"updatedAt"`
+	ID                    string    `db:"id,pk"                     json:"id"`
+	WorkspaceID           string    `db:"workspace_id,ws"           json:"-"`
+	WorkflowID            string    `db:"workflow_id"               json:"workflowId"`
+	Version               int       `db:"version"                   json:"version"`
+	Graph                 string    `db:"graph"                     json:"graph"`
+	ChangeReason          string    `db:"change_reason"             json:"changeReason,omitempty"`
+	BuiltInConversationID *string   `db:"built_in_conversation_id"  json:"builtInConversationId,omitempty"`
+	CreatedAt             time.Time `db:"created_at,created"        json:"createdAt"`
+	UpdatedAt             time.Time `db:"updated_at,updated"        json:"updatedAt"`
 
 	// GraphParsed is the decoded Graph (non-column), attached by Service.Get / app pipeline
 	// so a reader sees nodes+edges without re-parsing the JSON blob.

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
 )
 
 // exec.go is the workflow EXECUTION-LIFECYCLE tool group (D1) — the five verbs that drive a
-// workflow's runtime, distinct from the forge/query tools that edit its graph:
+// workflow's runtime, distinct from the build/query tools that edit its graph:
 //   trigger_workflow    run it once now (synthetic payload)
 //   stage_workflow      arm it for one run on the next real trigger, then auto-disarm
 //   activate_workflow   bring it online (start listening to its trigger continuously)
@@ -18,7 +18,7 @@ import (
 //   kill_workflow       hard-stop it (stop listening + cancel every in-flight run)
 //
 // exec.go 是 workflow 执行生命周期工具组（D1）——驱动 workflow 运行时的五个动词，区别于编辑其图的
-// forge/query 工具。
+// build/query 工具。
 
 // --- trigger_workflow ------------------------------------------------------
 

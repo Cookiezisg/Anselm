@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/forgify/testend/harness"
+	"github.com/sunweilin/foryx/testend/harness"
 )
 
 // tinyPNG 是 1x1 透明 PNG（合法最小图——vision 路线的载荷）。
@@ -173,7 +173,7 @@ func TestChatR3_SkillForkRoute(t *testing.T) {
 
 	wc.POST("/api/v1/skills", map[string]any{
 		"name": "fork_probe", "description": "forked task",
-		"body": "Compute the answer and reply exactly FORKRESULT-99.",
+		"body":    "Compute the answer and reply exactly FORKRESULT-99.",
 		"context": "fork", "agent": "general-purpose", // fork 必须声明 subagent 类型。
 	}).OK(t, nil)
 
@@ -359,7 +359,7 @@ func TestChatR3_ArchiveUnarchiveAndDeleteCancels(t *testing.T) {
 	sse := wc.Subscribe(t, "messages")
 	_ = sendMsg(t, wc, conv2, "talk slowly please")
 	sse.WaitFor(t, 10000, "stalled stream starts", "very long")
-	wc.DELETE("/api/v1/conversations/" + conv2).OK(t, nil)
+	wc.DELETE("/api/v1/conversations/"+conv2).OK(t, nil)
 	wc.Do("GET", "/api/v1/conversations/"+conv2, nil).Fail(t, 404, "CONVERSATION_NOT_FOUND")
 	// 服务仍健康（取消干净、无残留 streaming 状态阻塞新对话）。
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "fresh after delete"})

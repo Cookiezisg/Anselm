@@ -14,8 +14,8 @@ import (
 
 	"go.uber.org/zap"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 const (

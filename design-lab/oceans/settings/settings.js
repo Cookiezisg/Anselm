@@ -1,4 +1,4 @@
-/* Forgify design-lab — 设置海洋（接管海面的临时场景）。
+/* Foryx design-lab — 设置海洋（接管海面的临时场景）。
    侧栏底部齿轮 → Shell.mount('settings')；内部左类目 + 右详情；← 返回 回到主界面(home 占位)。
    依赖 shared/shell.js(Shell.registerOcean/mount/left) + icons.js(icon)。 */
 (function () {
@@ -25,7 +25,7 @@
       <div class="st-stats">
         <div class="st-stat"><div class="num">28.3m</div><div class="lab">累计 Token</div></div>
         <div class="st-stat"><div class="num">1,284</div><div class="lab">对话</div></div>
-        <div class="st-stat"><div class="num">47</div><div class="lab">锻造实体</div></div>
+        <div class="st-stat"><div class="num">47</div><div class="lab">构建实体</div></div>
         <div class="st-stat"><div class="num">6 天</div><div class="lab">当前连续</div></div>
         <div class="st-stat"><div class="num">23 天</div><div class="lab">最长连续</div></div>
       </div>
@@ -76,7 +76,7 @@
       sec('磁盘', row('沙箱占用', `<span style="font-size:var(--t-md);color:var(--ink-2)">1.24 GB</span><button class="st-btn">清理</button>`)),
 
     workspace: () => '<div class="st-htitle">工作区</div>' +
-      sec('当前工作区', row('名称', `<input class="st-in" value="Personal">`) + row('数据目录', `<span class="st-in mono" style="border:0;min-width:0;color:var(--ink-3)">~/Library/Application Support/Forgify</span>`)) +
+      sec('当前工作区', row('名称', `<input class="st-in" value="Personal">`) + row('数据目录', `<span class="st-in mono" style="border:0;min-width:0;color:var(--ink-3)">~/Library/Application Support/Foryx</span>`)) +
       sec('全部工作区', row('Personal', badge('ok', '当前')) + row('实验场', `<button class="st-btn ghost">切换</button>`) + row('', `<button class="st-btn ghost">${icon('plus', 14)} 新建工作区</button>`)) +
       `<div class="st-danger"><div class="dl">删除工作区</div><div class="dd">将级联永久删除该工作区的全部对话、实体、调度与本地文件，无法恢复。请输入工作区名以确认。</div>
         <div style="display:flex;gap:8px"><input class="st-in" placeholder="输入 Personal 确认" style="flex:1"><button class="st-btn danger" disabled style="opacity:.5">删除</button></div></div>`,
@@ -86,7 +86,7 @@
       sec('通知', row('运行完成', seg(['开', '关'], 0)) + row('待审批', seg(['开', '关'], 0)) + row('实体变更', seg(['开', '关'], 1))),
 
     about: () => '<div class="st-htitle">关于</div>' +
-      sec('', row('版本', `<span style="font-size:var(--t-md);color:var(--ink-2)">Forgify 0.3.0 · design-lab</span>`) +
+      sec('', row('版本', `<span style="font-size:var(--t-md);color:var(--ink-2)">Foryx 0.3.0 · design-lab</span>`) +
         row('数据目录', `<button class="st-btn ghost">打开目录</button>`) +
         row('隐私', `<span style="font-size:var(--t-md);color:var(--ink-2)">只存本地 SQLite · 绝不外传</span>`)),
   };
@@ -135,7 +135,7 @@
         items.map(([id, label]) => `<div class="st-cat" data-cat="${id}"><span class="dot"></span>${label}</div>`).join('')).join('');
       sea.innerHTML = `<div class="st-root">
         <nav class="st-nav">
-          <a class="st-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>返回 Forgify</a>
+          <a class="st-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>返回 Foryx</a>
           <div class="st-search">${icon('search', 15)}<input placeholder="搜索设置…"></div>
           ${nav}
         </nav>

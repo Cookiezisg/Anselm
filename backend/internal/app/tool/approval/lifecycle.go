@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	approvalapp "github.com/sunweilin/forgify/backend/internal/app/approval"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	approvalapp "github.com/sunweilin/foryx/backend/internal/app/approval"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // --- create_approval -------------------------------------------------------

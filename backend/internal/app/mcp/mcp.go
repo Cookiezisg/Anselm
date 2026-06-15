@@ -17,13 +17,13 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	mcpinfra "github.com/sunweilin/forgify/backend/internal/infra/mcp"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
 )
 
 const (

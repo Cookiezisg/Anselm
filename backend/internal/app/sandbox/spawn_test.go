@@ -13,9 +13,9 @@ import (
 
 	"go.uber.org/zap"
 
-	sandboxdomain "github.com/sunweilin/forgify/backend/internal/domain/sandbox"
-	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	sandboxstore "github.com/sunweilin/forgify/backend/internal/infra/store/sandbox"
+	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	dbinfra "github.com/sunweilin/foryx/backend/internal/infra/db"
+	sandboxstore "github.com/sunweilin/foryx/backend/internal/infra/store/sandbox"
 )
 
 // ---- shared test doubles ----

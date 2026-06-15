@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
 )
 
 // Attach registers workflowID as a listener of triggerID. The first reference (0→1) starts

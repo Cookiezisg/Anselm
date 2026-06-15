@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // ControlLogic is a control-logic entity; its branches live on the active Version.
@@ -52,16 +52,16 @@ type ControlLogic struct {
 // Version 是 control 逻辑分支组的一份不可变快照。Version 是写入时分配的单调号（max+1）——绝不
 // 重分配、绝不重排号。
 type Version struct {
-	ID                     string            `db:"id,pk"                     json:"id"`
-	WorkspaceID            string            `db:"workspace_id,ws"           json:"-"`
-	ControlID              string            `db:"control_id"                json:"controlId"`
-	Version                int               `db:"version"                   json:"version"`
-	Inputs                 []schemapkg.Field `db:"inputs,json"               json:"inputs"` // declared inputs the workflow node feeds; when/emit read input.*
-	Branches               []Branch          `db:"branches,json"             json:"branches"`
-	ChangeReason           string            `db:"change_reason"             json:"changeReason,omitempty"`
-	ForgedInConversationID *string           `db:"forged_in_conversation_id" json:"forgedInConversationId,omitempty"`
-	CreatedAt              time.Time         `db:"created_at,created"        json:"createdAt"`
-	UpdatedAt              time.Time         `db:"updated_at,updated"        json:"updatedAt"`
+	ID                    string            `db:"id,pk"                     json:"id"`
+	WorkspaceID           string            `db:"workspace_id,ws"           json:"-"`
+	ControlID             string            `db:"control_id"                json:"controlId"`
+	Version               int               `db:"version"                   json:"version"`
+	Inputs                []schemapkg.Field `db:"inputs,json"               json:"inputs"` // declared inputs the workflow node feeds; when/emit read input.*
+	Branches              []Branch          `db:"branches,json"             json:"branches"`
+	ChangeReason          string            `db:"change_reason"             json:"changeReason,omitempty"`
+	BuiltInConversationID *string           `db:"built_in_conversation_id" json:"builtInConversationId,omitempty"`
+	CreatedAt             time.Time         `db:"created_at,created"        json:"createdAt"`
+	UpdatedAt             time.Time         `db:"updated_at,updated"        json:"updatedAt"`
 }
 
 // Branch is one ordered routing arm. The interpreter evaluates When (bool CEL over input.*)

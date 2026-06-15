@@ -16,9 +16,9 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // maxConsecutiveAllFailTurns caps how many turns in a row may end with every tool call
@@ -61,11 +61,11 @@ type ReminderProvider interface {
 }
 
 // AutoActivator is an OPTIONAL Host capability (type-asserted): it activates the lazy group
-// that contains a requested-but-inactive tool, so the LLM can call a forge tool without
+// that contains a requested-but-inactive tool, so the LLM can call a build tool without
 // remembering to search_tools first. Returns nil if the tool isn't in any lazy group.
 //
 // AutoActivator 是 Host 可选能力（type-asserted）：激活含「被点但未激活」工具的 lazy 组，使 LLM
-// 调 forge 工具前无需先 search_tools。工具不在任何 lazy 组时返回 nil。
+// 调 build 工具前无需先 search_tools。工具不在任何 lazy 组时返回 nil。
 type AutoActivator interface {
 	TryActivateForTool(ctx context.Context, toolName string) []toolapp.Tool
 }
@@ -153,18 +153,18 @@ func Run(
 
 		stepsRun = step + 1
 
-		// forgeOf lets streamLLM recognize a create/edit tool_call (a ForgeTool) and mirror its arg
+		// buildOf lets streamLLM recognize a create/edit tool_call (a BuildTool) and mirror its arg
 		// delta onto the entities stream (SSE-C). Built per step from this step's byName.
 		//
-		// forgeOf 让 streamLLM 识别 create/edit tool_call（ForgeTool）并把 arg delta 镜像到 entities 流
+		// buildOf 让 streamLLM 识别 create/edit tool_call（BuildTool）并把 arg delta 镜像到 entities 流
 		// （SSE-C）。每步据本步 byName 建。
-		forgeOf := func(name string) (toolapp.ForgeSpec, bool) {
-			if ft, ok := byName[name].(toolapp.ForgeTool); ok {
-				return ft.Forge(), true
+		buildOf := func(name string) (toolapp.BuildSpec, bool) {
+			if ft, ok := byName[name].(toolapp.BuildTool); ok {
+				return ft.Build(), true
 			}
-			return toolapp.ForgeSpec{}, false
+			return toolapp.BuildSpec{}, false
 		}
-		aBlocks, toolCalls, sr, streamErr, iT, oT := streamLLM(ctx, client, req, forgeOf, log)
+		aBlocks, toolCalls, sr, streamErr, iT, oT := streamLLM(ctx, client, req, buildOf, log)
 		allBlocks = append(allBlocks, aBlocks...)
 		totalIn += iT
 		totalOut += oT

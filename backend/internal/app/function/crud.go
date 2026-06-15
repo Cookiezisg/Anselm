@@ -9,16 +9,16 @@ import (
 
 	"go.uber.org/zap"
 
-	envfixapp "github.com/sunweilin/forgify/backend/internal/app/envfix"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
-// CreateInput is the LLM-forge create payload; Progress (optional) streams env-fix attempts.
+// CreateInput is the LLM-build create payload; Progress (optional) streams env-fix attempts.
 //
-// CreateInput 是 LLM 锻造 create 载荷；Progress（可选）推 env-fix 尝试进度。
+// CreateInput 是 LLM 构建 create 载荷；Progress（可选）推 env-fix 尝试进度。
 type CreateInput struct {
 	Ops          []Op
 	ChangeReason string
@@ -135,7 +135,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 	}
 	v := newVersionFromDraft(versionID, fnID, 1, draft, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.CreateWithVersion(ctx, f, v); err != nil {
@@ -144,7 +144,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 	s.publish(ctx, "created", fnID, map[string]any{"versionId": versionID, "version": 1})
 
 	s.ensureEnv(ctx, v, in.Progress) // builds env + AI dep-fix loop; writes status/deps back onto v
-	s.syncForgedEdge(ctx, fnID, v.ForgedInConversationID)
+	s.syncBuiltEdge(ctx, fnID, v.BuiltInConversationID)
 
 	f.ActiveVersion = v
 	return f, v, nil
@@ -204,7 +204,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 	versionID := idgenpkg.New("fnv")
 	v := newVersionFromDraft(versionID, in.ID, nextN, draft, in.ChangeReason, now)
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
-		v.ForgedInConversationID = &convID
+		v.BuiltInConversationID = &convID
 	}
 
 	if err := s.repo.SaveVersionAndActivate(ctx, v, in.ID); err != nil {

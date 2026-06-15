@@ -18,9 +18,9 @@ import (
 
 	"go.uber.org/zap"
 
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // Service is the memory CRUD + system-prompt provider.

@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	wikilinkpkg "github.com/sunweilin/forgify/backend/internal/pkg/wikilink"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	wikilinkpkg "github.com/sunweilin/foryx/backend/internal/pkg/wikilink"
 )
 
 // RelationSyncer is the subset of the relation Service that document consumes

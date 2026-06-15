@@ -10,10 +10,10 @@
 package control
 
 import (
-	controlapp "github.com/sunweilin/forgify/backend/internal/app/control"
-	searchapp "github.com/sunweilin/forgify/backend/internal/app/search"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
+	controlapp "github.com/sunweilin/foryx/backend/internal/app/control"
+	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
 )
 
 // ControlTools constructs the control-logic system tools over the app service.

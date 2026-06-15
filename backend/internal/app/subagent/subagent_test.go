@@ -11,12 +11,12 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/forgify/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
-	messagesstore "github.com/sunweilin/forgify/backend/internal/infra/store/messages"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	messagesstore "github.com/sunweilin/foryx/backend/internal/infra/store/messages"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // --- fakes -----------------------------------------------------------------

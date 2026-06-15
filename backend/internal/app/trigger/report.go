@@ -7,12 +7,12 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/forgify/backend/internal/app/entitystream"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // onReport is the ReportFunc handed to every listener. A listener only knows "my trigger did

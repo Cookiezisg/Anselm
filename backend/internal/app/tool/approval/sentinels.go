@@ -1,6 +1,6 @@
 package approval
 
-import errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+import errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 
 // Input-validation sentinels shared across this package's tools (ValidateInput presence /
 // range checks). One sentinel per distinct physical violation — tools reuse them, never

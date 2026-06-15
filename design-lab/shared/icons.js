@@ -1,4 +1,4 @@
-/* Forgify design-lab — 共享图标集（线性描边，1.6–1.7 stroke）。
+/* Foryx design-lab — 共享图标集（线性描边，1.6–1.7 stroke）。
    ⚠ APPEND-ONLY：新增图标只「加 key」；**永不改名 / 删除**已有 key（别的海洋在用，改了就打架）。
    用法：icon('chat', 16) → SVG 字符串。 */
 window.ICONS = {

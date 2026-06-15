@@ -3,12 +3,12 @@ package bootstrap
 import (
 	"context"
 
-	agentapp "github.com/sunweilin/forgify/backend/internal/app/agent"
-	attachmentapp "github.com/sunweilin/forgify/backend/internal/app/attachment"
-	chatapp "github.com/sunweilin/forgify/backend/internal/app/chat"
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/forgify/backend/internal/domain/document"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
+	attachmentapp "github.com/sunweilin/foryx/backend/internal/app/attachment"
+	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // AttachmentParts is the slice of attachment.Service the chat renderer needs (ids + the model's

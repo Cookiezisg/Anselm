@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/forgify/backend/internal/pkg/schema"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
 )
 
 // Config is the mutable agent configuration carried by create/edit (a full snapshot — edit
@@ -331,7 +331,7 @@ func buildVersion(id, agentID string, ver int, cfg Config, now time.Time, convID
 		Prompt: cfg.Prompt, Skill: cfg.Skill,
 		Knowledge: orEmptyStrs(cfg.Knowledge), Tools: orEmptyTools(cfg.Tools),
 		Inputs: cfg.Inputs, Outputs: cfg.Outputs, ModelOverride: cfg.ModelOverride,
-		ChangeReason: cfg.ChangeReason, ForgedInConversationID: convID,
+		ChangeReason: cfg.ChangeReason, BuiltInConversationID: convID,
 		CreatedAt: now,
 	}
 }

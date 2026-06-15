@@ -19,11 +19,11 @@ import (
 
 	"go.uber.org/zap"
 
-	conversationdomain "github.com/sunweilin/forgify/backend/internal/domain/conversation"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/forgify/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
 )
 
 // Re-export the domain payload types so handlers depend on the app package only.

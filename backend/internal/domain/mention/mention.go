@@ -15,12 +15,12 @@ package mention
 import "context"
 
 // MentionType is the closed set of @-mentionable entity kinds: the Quadrinity + document +
-// trigger / control / approval — forge entities that carry an injectable content snapshot (the
+// trigger / control / approval — built entities that carry an injectable content snapshot (the
 // latter three so AI :iterate can seed them). conversation/skill/mcp are NOT mentionable
 // (no single content snapshot to inject).
 //
 // MentionType 是可被 @ 的实体类型封闭集：四件套 + document + trigger / control / approval——有可注入
-// 内容快照的 forge 实体（后三个使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
+// 内容快照的构建实体（后三个使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
 type MentionType string
 
 const (
@@ -29,19 +29,19 @@ const (
 	MentionHandler  MentionType = "handler"
 	MentionWorkflow MentionType = "workflow"
 	MentionAgent    MentionType = "agent"
-	// trigger / control / approval are forge entities too — mentionable so the AI :iterate verb
+	// trigger / control / approval are build entities too — mentionable so the AI :iterate verb
 	// can seed them by reference, exactly like the five above.
 	//
-	// trigger / control / approval 也是 forge 实体——可 @，使 AI :iterate 能像上面五个一样按引用种入它们。
+	// trigger / control / approval 也是 build 实体——可 @，使 AI :iterate 能像上面五个一样按引用种入它们。
 	MentionTrigger  MentionType = "trigger"
 	MentionControl  MentionType = "control"
 	MentionApproval MentionType = "approval"
 )
 
-// IsValidMentionType reports whether t is one of the mentionable forge kinds. Consumers
+// IsValidMentionType reports whether t is one of the mentionable built kinds. Consumers
 // (chat) validate incoming MentionInput against it.
 //
-// IsValidMentionType 报告 t 是否可 @ 的 forge 类型之一。消费方（chat）据此校验 MentionInput。
+// IsValidMentionType 报告 t 是否可 @ 的构建类型之一。消费方（chat）据此校验 MentionInput。
 func IsValidMentionType(t MentionType) bool {
 	switch t {
 	case MentionDocument, MentionFunction, MentionHandler, MentionWorkflow, MentionAgent,

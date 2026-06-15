@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	memoryapp "github.com/sunweilin/forgify/backend/internal/app/memory"
-	memorydomain "github.com/sunweilin/forgify/backend/internal/domain/memory"
+	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
+	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
 )
 
 const writeMemoryDescription = `Save a durable fact to remember across conversations (a user trait, a preference/correction, current-project context, or an external reference). Reusing an existing name updates that memory in place. Recorded as AI-authored and user-editable; pinning is the user's choice (not yours).`

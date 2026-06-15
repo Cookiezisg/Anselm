@@ -4,12 +4,12 @@ import "strings"
 
 // EntityKind enumerates the node types that can appear in the topology graph. The
 // graph shows the Quadrinity (function/handler/workflow/agent) plus the resources
-// they reference (document/skill/mcp), the conversation that forged them, the
+// they reference (document/skill/mcp), the conversation that created them, the
 // trigger signal sources that drive workflows, and the control/approval entities a
 // workflow's nodes reference.
 //
 // EntityKind 枚举可出现在拓扑图中的节点类型：Quadrinity（function/handler/workflow/agent）
-// 加上它们引用的资源（document/skill/mcp）、锻造它们的 conversation、驱动 workflow 的
+// 加上它们引用的资源（document/skill/mcp）、构建它们的 conversation、驱动 workflow 的
 // trigger 信号源，以及 workflow 节点引用的 control/approval 实体。
 const (
 	EntityKindFunction     = "function"

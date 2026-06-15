@@ -1,4 +1,4 @@
-/* Forgify design-lab — 左侧栏【固定外壳 chrome】样式。海洋内容样式各在 sidebar/<id>.css，外壳不掺和。
+/* Foryx design-lab — 左侧栏【固定外壳 chrome】样式。海洋内容样式各在 sidebar/<id>.css，外壳不掺和。
    左岛 = 同色 + 海岸线浮岛；无横向 divider；红绿灯/折叠/搜索在岛顶。
    依赖 shared/tokens.css + shell.css 的 cc-* 表面色与原语（只读）。宽度 --side-w 全仓库唯一处在 shell.css。 */
 

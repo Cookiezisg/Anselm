@@ -11,9 +11,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	relationapp "github.com/sunweilin/forgify/backend/internal/app/relation"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
+	relationapp "github.com/sunweilin/foryx/backend/internal/app/relation"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
 )
 
 // RelationTools constructs the relation tool group (lazy).

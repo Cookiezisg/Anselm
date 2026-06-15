@@ -11,8 +11,8 @@ import (
 	"errors"
 	"fmt"
 
-	attachmentdomain "github.com/sunweilin/forgify/backend/internal/domain/attachment"
-	ormpkg "github.com/sunweilin/forgify/backend/internal/pkg/orm"
+	attachmentdomain "github.com/sunweilin/foryx/backend/internal/domain/attachment"
+	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
 )
 
 // Schema is the attachments DDL (business table, soft-delete per D1). The partial index serves

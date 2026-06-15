@@ -5,23 +5,23 @@ import (
 	stderrors "errors"
 	"strings"
 
-	workflowapp "github.com/sunweilin/forgify/backend/internal/app/workflow"
-	agentdomain "github.com/sunweilin/forgify/backend/internal/domain/agent"
-	approvaldomain "github.com/sunweilin/forgify/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/forgify/backend/internal/domain/control"
-	functiondomain "github.com/sunweilin/forgify/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/forgify/backend/internal/domain/handler"
-	relationdomain "github.com/sunweilin/forgify/backend/internal/domain/relation"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	workflowdomain "github.com/sunweilin/forgify/backend/internal/domain/workflow"
-	errorspkg "github.com/sunweilin/forgify/backend/internal/pkg/errors"
+	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
+	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
 )
 
-// The narrow read ports the resolver inspects per entity family. The forgeable five expose Get
+// The narrow read ports the resolver inspects per entity family. The buildable five expose Get
 // (entity header → ActiveVersionID); handler + agent additionally need GetVersion to read the
 // active version's method/tool list. *functionapp.Service etc. satisfy these.
 //
-// 解析器按实体族查的窄读端口。可锻造的五个暴露 Get（实体头 → ActiveVersionID）；handler + agent
+// 解析器按实体族查的窄读端口。可构建的五个暴露 Get（实体头 → ActiveVersionID）；handler + agent
 // 另需 GetVersion 读 active 版本的方法/工具清单。
 type FunctionVersionReader interface {
 	Get(ctx context.Context, id string) (*functiondomain.Function, error)
@@ -179,7 +179,7 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 		if _, err := r.trg.Get(ctx, ref); err != nil {
 			return refMiss(err)
 		}
-		// Triggers are intentionally version-less (config entity, not forged). Existence = usable:
+		// Triggers are intentionally version-less (config entity, not built). Existence = usable:
 		// HasActiveVersion=true keeps CapabilityCheck from flagging a phantom missing version;
 		// the empty ActiveVersionID makes pin-closure record a no-op (a trigger is the seeded
 		// entry node, never dispatched — there is no version to freeze).

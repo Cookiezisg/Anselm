@@ -1,6 +1,6 @@
-# Forgify · Design Lab
+# Foryx · Design Lab
 
-交互形态 + 产品哲学的**发散场**。这里的 demo **不连后端**——只用来把「Forgify 做成什么样」
+交互形态 + 产品哲学的**发散场**。这里的 demo **不连后端**——只用来把「Foryx 做成什么样」
 聊清楚。形态定稿后，统一在 `frontend/`（Flutter）落地。
 
 > 设计理念见 [`PHILOSOPHY.md`](PHILOSOPHY.md)。Flutter 架构见

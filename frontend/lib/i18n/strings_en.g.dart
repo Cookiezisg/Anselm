@@ -54,8 +54,8 @@ class Translations$app$en {
 
 	// Translations
 
-	/// en: 'Forgify'
-	String get name => 'Forgify';
+	/// en: 'Foryx'
+	String get name => 'Foryx';
 }
 
 // Path: backend
@@ -66,8 +66,8 @@ class Translations$backend$en {
 
 	// Translations
 
-	/// en: 'Starting Forgify…'
-	String get starting => 'Starting Forgify…';
+	/// en: 'Starting Foryx…'
+	String get starting => 'Starting Foryx…';
 
 	/// en: 'Backend failed to start'
 	String get crashedTitle => 'Backend failed to start';
@@ -129,8 +129,8 @@ class Translations$nav$en {
 extension on Translations {
 	dynamic _flatMapFunction(String path) {
 		return switch (path) {
-			'app.name' => 'Forgify',
-			'backend.starting' => 'Starting Forgify…',
+			'app.name' => 'Foryx',
+			'backend.starting' => 'Starting Foryx…',
 			'backend.crashedTitle' => 'Backend failed to start',
 			'backend.retry' => 'Retry',
 			'workspace.selectTitle' => 'Select a workspace',

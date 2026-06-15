@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	mentiondomain "github.com/sunweilin/forgify/backend/internal/domain/mention"
+	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
 )
 
 type starter struct {

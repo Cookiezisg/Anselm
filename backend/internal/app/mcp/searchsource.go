@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	mcpdomain "github.com/sunweilin/forgify/backend/internal/domain/mcp"
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
+	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

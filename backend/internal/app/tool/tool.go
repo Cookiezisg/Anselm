@@ -87,24 +87,24 @@ type Tool interface {
 	Execute(ctx context.Context, argsJSON string) (string, error)
 }
 
-// ForgeTool is an optional interface for create/edit tools whose streaming args ARE an entity's
+// BuildTool is an optional interface for create/edit tools whose streaming args ARE an entity's
 // content being written (a function's code, a workflow's graph …). When a tool implements it, the
 // loop mirrors that arg delta onto the entities SSE stream (SSE-C) so the entity panel fills in
-// live as the LLM types. A forge tool only declares its entity Kind + Op — the loop stays generic
+// live as the LLM types. A build tool only declares its entity Kind + Op — the loop stays generic
 // (no arg parsing) and the front end parses the streamed args to render the entity.
 //
-// ForgeTool 是 create/edit 工具的可选接口——它们的流式 args 本身就是某实体正被写出的内容（function 的代码、
+// BuildTool 是 create/edit 工具的可选接口——它们的流式 args 本身就是某实体正被写出的内容（function 的代码、
 // workflow 的图…）。实现它后，loop 把那份 arg delta 镜像到 entities SSE 流（SSE-C），使实体面板随 LLM 打字
-// 实时填充。forge 工具只声明实体 Kind + Op——loop 保持通用（不解析 args），前端解析流式 args 渲染实体。
-type ForgeTool interface {
-	Forge() ForgeSpec
+// 实时填充。build 工具只声明实体 Kind + Op——loop 保持通用（不解析 args），前端解析流式 args 渲染实体。
+type BuildTool interface {
+	Build() BuildSpec
 }
 
-// ForgeSpec is a forge tool's self-description: the entities-stream scope Kind it forges and whether
+// BuildSpec is a build tool's self-description: the entities-stream scope Kind it builds and whether
 // this call creates or edits.
 //
-// ForgeSpec 是 forge 工具的自描述：它锻造的 entities 流 scope Kind + 本次是创建还是编辑。
-type ForgeSpec struct {
+// BuildSpec 是 build 工具的自描述：它构建的 entities 流 scope Kind + 本次是创建还是编辑。
+type BuildSpec struct {
 	Kind string // entities-stream scope kind: "function" | "handler" | "agent" | "workflow" | "control" | "approval" | "document" | "skill"
 	Op   string // "create" | "edit"
 }

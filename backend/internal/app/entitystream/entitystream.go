@@ -3,16 +3,16 @@
 // (function/handler/agent/workflow/mcp/control/approval/document/skill/trigger). It is the single
 // primitive behind every entities-stream activity:
 //
-//   - forge — the loop mirrors a create/edit tool_call's content delta here (entity panel fills live)
+//   - build — the loop mirrors a create/edit tool_call's content delta here (entity panel fills live)
 //   - run   — an entity's Service tees its execution output here (entity panel's live terminal)
 //   - fire  — a trigger emits a point Signal here (the trigger panel's firing log)
 //
 // Single responsibility: emit ONE node to ONE (bridge, scope). The dual-write to the messages
-// stream (when a run/forge also happens inside a chat tool_call) is composed by the caller
+// stream (when a run/build also happens inside a chat tool_call) is composed by the caller
 // (io.MultiWriter / a second emit), never fanned out here — keeping this primitive simple.
 //
 // Package entitystream 是 entities SSE 流（SSE-C）的生产侧助手：把一个带 scope 的节点（open→delta*→close
-// 或点 Signal）发到 stream Bridge、锚在某实体上。它是 entities 流一切活动背后的唯一原语：forge（loop 把
+// 或点 Signal）发到 stream Bridge、锚在某实体上。它是 entities 流一切活动背后的唯一原语：build（loop 把
 // create/edit tool_call 的内容 delta 镜像到这）、run（实体 Service 把执行输出 tee 到这）、fire（trigger 发点
 // 信号）。单一职责：往一个 (bridge, scope) 发一个节点；到 messages 流的 dual-write 由调用方组合
 // （io.MultiWriter / 二次 emit），绝不在此 fan-out，保持原语简单。
@@ -26,15 +26,15 @@ import (
 
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	idgenpkg "github.com/sunweilin/forgify/backend/internal/pkg/idgen"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
 )
 
 // The three entities-stream node types (Node.Type), one per activity:
 //
 // 三种 entities 流节点型（Node.Type），每种一类活动：
 const (
-	NodeForge = "forge" // an entity's content being written (loop mirrors a create/edit tool_call)
+	NodeBuild = "build" // an entity's content being written (loop mirrors a create/edit tool_call)
 	NodeRun   = "run"   // an entity's execution intermediate (a Service tees stdout / yields / a sub-loop)
 	NodeFire  = "fire"  // a trigger firing — a point Signal
 )
@@ -96,7 +96,7 @@ type Writer struct {
 	bridge   streamdomain.Bridge
 	scope    streamdomain.Scope
 	nodeType string
-	open     json.RawMessage // open-frame node content (e.g. {op:"edit"} for forge)
+	open     json.RawMessage // open-frame node content (e.g. {op:"edit"} for build)
 	log      *zap.Logger
 
 	mu     sync.Mutex

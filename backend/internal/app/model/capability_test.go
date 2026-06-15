@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
 )
 
 // fakeProbeReader feeds canned probe archives without an apikey store.

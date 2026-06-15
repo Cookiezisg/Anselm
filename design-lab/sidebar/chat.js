@@ -1,4 +1,4 @@
-/* Forgify design-lab — 【Chat 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
+/* Foryx design-lab — 【Chat 海洋】的左侧栏内容（独立文件，一人负责；与外壳/别的海洋解耦）。
    外壳 sidebar.js 据四导航按需懒加载本文件；本文件自注入 chat.css，经 SideBar.register('chat', render) 挂载。
    只碰 render(host) 给的宿主元素。依赖 icon()（只读）。
    会话史：新建 + 标题快滤 + 展示选项(排序/分组/时间戳) + 三区 Pinned/Recents/Archived + 行首状态点。 */

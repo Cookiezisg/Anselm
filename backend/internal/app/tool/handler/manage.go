@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	handlerapp "github.com/sunweilin/forgify/backend/internal/app/handler"
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
+	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
 )
 
 // --- revert_handler --------------------------------------------------------

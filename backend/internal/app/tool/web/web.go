@@ -20,11 +20,11 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/forgify/backend/internal/app/tool"
-	apikeydomain "github.com/sunweilin/forgify/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/forgify/backend/internal/domain/model"
-	websearchdomain "github.com/sunweilin/forgify/backend/internal/domain/websearch"
-	llminfra "github.com/sunweilin/forgify/backend/internal/infra/llm"
+	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
+	websearchdomain "github.com/sunweilin/foryx/backend/internal/domain/websearch"
+	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
 )
 
 // WebTools constructs the web system tools. searchKeys resolves the workspace's

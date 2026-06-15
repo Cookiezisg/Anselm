@@ -6,20 +6,20 @@ import (
 
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	responsehttpapi "github.com/sunweilin/forgify/backend/internal/transport/httpapi/response"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
 )
 
 // StreamHandler is the one place that serves all three (and only three, E1) SSE subscriptions the
 // frontend keeps open for the whole session: messages (chat block lifecycle — assistant
-// text/reasoning + tool_call + tool_result), entities (forge pipeline progress), notifications
+// text/reasoning + tool_call + tool_result), entities (build pipeline progress), notifications
 // (durable inbox). Every stream is workspace-scoped and UNFILTERED: the backend always streams the
 // complete delta feed for the workspace; the client filters by conversation/entity itself. The
 // plumbing (resume cursor → Bridge.Subscribe → StreamSSE → 410 on ErrSeqTooOld) is identical for
 // all three. (Notification REST — list/read — stays in NotificationHandler.)
 //
 // StreamHandler 是统一提供全部三条（且仅三条，E1）SSE 订阅的唯一处：messages（chat block 生命周期——
-// assistant 文本/reasoning + tool_call + tool_result）、entities（锻造流水线进度）、notifications
+// assistant 文本/reasoning + tool_call + tool_result）、entities（构建流水线进度）、notifications
 // （持久收件箱）。每条 workspace 级且**不过滤**：后端始终发该 workspace 的完整 delta 流，客户端自滤。
 // 三条管道（续传游标 → Bridge.Subscribe → StreamSSE → ErrSeqTooOld 转 410）完全一致。
 type StreamHandler struct {

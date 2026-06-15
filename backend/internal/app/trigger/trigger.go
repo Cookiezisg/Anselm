@@ -15,14 +15,14 @@ import (
 
 	"go.uber.org/zap"
 
-	searchdomain "github.com/sunweilin/forgify/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/forgify/backend/internal/domain/stream"
-	triggerdomain "github.com/sunweilin/forgify/backend/internal/domain/trigger"
-	triggerinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger"
-	croninfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/cron"
-	fsnotifyinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/fsnotify"
-	sensorinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/sensor"
-	webhookinfra "github.com/sunweilin/forgify/backend/internal/infra/trigger/webhook"
+	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
+	croninfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/cron"
+	fsnotifyinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/fsnotify"
+	sensorinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/sensor"
+	webhookinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/webhook"
 )
 
 // listenEntry is the in-memory registration for one trigger whose listener is hot: which

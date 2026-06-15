@@ -7,10 +7,10 @@ import (
 
 	"go.uber.org/zap"
 
-	documentapp "github.com/sunweilin/forgify/backend/internal/app/document"
-	dbinfra "github.com/sunweilin/forgify/backend/internal/infra/db"
-	documentstore "github.com/sunweilin/forgify/backend/internal/infra/store/document"
-	reqctxpkg "github.com/sunweilin/forgify/backend/internal/pkg/reqctx"
+	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
+	dbinfra "github.com/sunweilin/foryx/backend/internal/infra/db"
+	documentstore "github.com/sunweilin/foryx/backend/internal/infra/store/document"
+	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
 )
 
 // newToolSvc spins a real in-memory document Service (store + SQLite) under a workspace

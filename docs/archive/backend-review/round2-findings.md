@@ -39,7 +39,7 @@ audience: [human, ai]
 - **CR-15 🟡 已修** Glob 不跳噪音目录：与 Grep 的 noiseDirs 政策不一致——JS 项目 `**/*.js` 返回的 100 条几乎全是 node_modules（mtime 降序放大：刚装的包最新）。修：`hasNoiseSegment` 后置过滤（root 自身在噪音目录内不受限——显式意图）；测试断言 node_modules/.git 命中被排除。
 - **✅ PD-4 已裁决 C 并实现（2026-06-12）**：workspace 加 `web_fetch_mode`（local|jina，CHECK 约束，空=local）；WebFetch 经 `FetchModePicker` 端口读模式——local=仅本机直 GET（URL 不出本机，默认），jina=Jina 优先+直 GET 兜底；picker 缺失/读不到一律收敛 local（隐私降级绝不静默）。PATCH /workspaces 接受 `webFetchMode`，新码 `WORKSPACE_WEB_FETCH_MODE_INVALID`。原档案：WebFetch 默认把每个抓取 URL 发给 r.jina.ai——local-first 定位下属产品决策。SSRF 守卫健全（全 DNS 答案检查、逐跳重检、1MB 封顶）不变。
 - **🟢 wontfix/留档**：pathguard 不解析 symlink（本地单用户反足枪层、非安全边界，shell 本就可直读）；DNS rebinding TOCTOU（查后拨号，同阈值）；`invoke_agent` 硬编码 TriggeredByChat 而 `run_function` 有 triggerFromCtx（溯源标签不一致，W6 看 subagent 工具集后定）；grep stdlib `byteOffsetToLine` O(hits×size)（有 32MB 界，可接受）。
-- **整体评价**：工具层质量高——5 方法契约一致、sentinel 共享（S20）、domain 错误全译 LLM 可行动话术、forge 镜像/进度流一致、fs 三件穿越守卫+原子写+隔离齐全、测试覆盖扎实。
+- **整体评价**：工具层质量高——5 方法契约一致、sentinel 共享（S20）、domain 错误全译 LLM 可行动话术、build 镜像/进度流一致、fs 三件穿越守卫+原子写+隔离齐全、测试覆盖扎实。
 
 ### W2 传输层（全部亲读：28 handlers + middleware ×7 + response ×9 + router ×3）
 
@@ -61,7 +61,7 @@ audience: [human, ai]
 
 ### W4 引擎（scheduler ×9 + workflow/flowrun domain ×9 + trigger app×10 + infra/trigger ×6，全读含测试）
 
-- **CR-18 🔴 已修** webhook trigger 产品级完全不可用：webhook 路由挂在共享 mux 的 `/api/v1/webhooks/...`、被 Chain 整体包裹，而 `requireWorkspaceExempt` 豁免表不含它 → 外部调用方（GitHub push、一切第三方回调——**不可能**带 X-Forgify-Workspace-ID）一律 401 UNAUTH_NO_WORKSPACE，请求根本到不了 webhook 监听器。修：豁免 `/api/v1/webhooks/` 前缀（安全性不降——webhook 自带 secret/HMAC 鉴权，workspace 由 trigger app 在 report 时从注册表解析，不依赖 header）；chain_test 加回归 case。**验证过程**：webhook 监听器→trigger Service 共享 mux→bootstrap build.go L82-91（mux 整体过 Chain）→chain.go 豁免表四项无 webhooks，链路逐环确认。
+- **CR-18 🔴 已修** webhook trigger 产品级完全不可用：webhook 路由挂在共享 mux 的 `/api/v1/webhooks/...`、被 Chain 整体包裹，而 `requireWorkspaceExempt` 豁免表不含它 → 外部调用方（GitHub push、一切第三方回调——**不可能**带 X-Foryx-Workspace-ID）一律 401 UNAUTH_NO_WORKSPACE，请求根本到不了 webhook 监听器。修：豁免 `/api/v1/webhooks/` 前缀（安全性不降——webhook 自带 secret/HMAC 鉴权，workspace 由 trigger app 在 report 时从注册表解析，不依赖 header）；chain_test 加回归 case。**验证过程**：webhook 监听器→trigger Service 共享 mux→bootstrap build.go L82-91（mux 整体过 Chain）→chain.go 豁免表四项无 webhooks，链路逐环确认。
 - **零其他缺陷，引擎质量卓越**：
   - advance() 幂等核心精确（completed 行抄、绝不重跑；批后重 walk；全 parked 即 yield；ctx.Err() 退出不误标终态——kill 先写 cancelled 再 cancel ctx 的次序保证记录终态正确）。
   - walk 的活跃子图推导（tentative 前向传播 + 回边仅真实决策走一轮 + 统一 AND-join/simple-merge 规则 + MaxIterations 安全帽 + 声明序确定性排序）逐条兑现 doc 21 §4.3。
@@ -73,7 +73,7 @@ audience: [human, ai]
 ### W5 loop + stream + contextmgr + llm ×34（全读含测试，~9000 行）
 
 - **零缺陷**。此波核对了 W1 留下的 CR-14 定性前提（loop 层确无截断→已修），其余全为质量确认：
-  - loop：取消态提升（provider 静默关流不发 EventError 时把 EndTurn 提升为 Cancelled，防止悬挂块误标 completed）、TOOL_ERROR_STORM 熔断、MAX_STEPS 诚实终态、reminder 注入副本不污染持久历史、forge 镜像 SSE-C、progress 块仅流不回喂 LLM（类型白名单）。
+  - loop：取消态提升（provider 静默关流不发 EventError 时把 EndTurn 提升为 Cancelled，防止悬挂块误标 completed）、TOOL_ERROR_STORM 熔断、MAX_STEPS 诚实终态、reminder 注入副本不污染持久历史、build 镜像 SSE-C、progress 块仅流不回喂 LLM（类型白名单）。
   - stream：E2 语义精确——durable 帧入环 + 阻塞背压、ephemeral 非阻塞丢弃；Subscribe 的 replay 缺口检测（最旧 seq 越过 fromSeq+1 → 410）；cancel 先 close(done) 再争锁（防与阻塞 Publish 死锁）。
   - contextmgr：水位（summary_covers_up_to_seq）幂等键 + SetSummary 先于 archive 标记的崩溃安全次序；触发用真实 InputTokens、闸用 bytes/4 自校正估算；demote 只降不升；archive 按整回合粒度（tool_call 绝不失 tool_result）。
   - llm：唯一 idle 计时器替代总墙钟（健康长流永不杀）；classifyHTTPError 收口 status→sentinel；SanitizeMessages 缝合孤儿 tool_call（防严格 provider 400 锁死）；Generate 的 retry 只许无副作用调用方用（emit 方禁用，注释明示）；11 家 provider 各自自包含（刻意重复防共享分支地狱）、签名/思考块回传、多模态矩阵测试逐家断言官方 wire、PDF 不支持家优雅降级。

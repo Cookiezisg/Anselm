@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Forgify · Onboarding</title>
+<title>Foryx · Onboarding</title>
 <!-- Kernel: tokens only. cc-* surface colors + icons inline (self-contained, same pattern as reference.html). -->
 <link rel="stylesheet" href="../shared/tokens.css">
 <style>
-/* Forgify Onboarding — standalone page (read-only consumer of tokens.css).
+/* Foryx Onboarding — standalone page (read-only consumer of tokens.css).
    Visual constitution = reference.html + chat ocean: sea & islands same color, split only by coastline
    (cc-* white-on-white + 1px line + radius + faint shadow). No gradients, no big color blocks.
    --accent on the primary CTA only; success uses semantic green; everything else neutral.
@@ -255,7 +255,7 @@ button { background: none; border: 0; cursor: pointer; }
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const P = {
-  forge:'<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  build:'<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
   chevd:'<path d="m6 9 6 6 6-6"/>', chevr:'<path d="m9 6 6 6-6 6"/>', check:'<path d="M20 6 9 17l-5-5"/>',
   spin:'<path d="M21 12a9 9 0 1 1-6.2-8.5"/>',
   sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
@@ -263,13 +263,13 @@ const P = {
   monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
 };
 const svg = (k, n=16, w=1.7) => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${P[k]||''}</svg>`;
-$('#mark').innerHTML = svg('forge', 23, 1.9);
+$('#mark').innerHTML = svg('build', 23, 1.9);
 $$('[data-ico]').forEach(el => el.innerHTML = svg(el.dataset.ico, +el.dataset.n || 14, el.classList.contains('box') ? 2.6 : 1.7));
 
 /* ===== Live i18n: the language segment retranslates the whole page ===== */
 const T = {
   en: {
-    back:'Back', next:'Next', enter:'Enter Forgify',
+    back:'Back', next:'Next', enter:'Enter Foryx',
     name:'Name', apiKey:'API key', test:'Test', testing:'Testing…', connected:'Connected',
     providerH:'Provider', searchProviderH:'Search provider', system:'System',
     s0title:'Create your workspace', s0sub:'Local and single-user — your data stays on your machine',
@@ -286,7 +286,7 @@ const T = {
     s2foot:'Optional — lets the assistant search the web. Add or change it anytime in Settings.',
   },
   'zh-CN': {
-    back:'返回', next:'下一步', enter:'进入 Forgify',
+    back:'返回', next:'下一步', enter:'进入 Foryx',
     name:'名称', apiKey:'API 密钥', test:'测试', testing:'测试中…', connected:'已连接',
     providerH:'供应商', searchProviderH:'搜索供应商', system:'跟随系统',
     s0title:'创建你的工作区', s0sub:'本地、单用户——数据只在你的机器上',
