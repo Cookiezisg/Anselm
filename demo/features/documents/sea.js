@@ -1,7 +1,7 @@
 /* Forgify demo — 文档海洋海面：零-markdown WYSIWYG 文档页（薄组合）。
    海面 = 面包屑(path) + 标题 + WYSIWYG 正文 + 右岛元信息抽屉。自己几乎不画像素：
      · 编辑器四件套（斜杠/工具条/手柄/即输即渲）= 本海洋唯一独特逻辑，封在同目录 editor.js（DocEditor），浮层全走组件 Floating；
-     · 右岛（大纲 TOC + 反链 + 信息）= 组件 RightIsland 基座 + KV(元信息) + RefPill(反链可点)；
+     · 右岛（大纲 TOC + 反链 + 信息）= 组件 RightIsland 基座 + 海洋自渲染轻量行（不套 KV/RefPill——侧栏面板求轻、不上药丸/黑粗字）；
      · 代码块高亮 = 组件 CodeEditor.highlight（DocEditor 内部调）。
    选中通道：侧栏文档行 / 正文 @提及·wikilink → Intent.select({kind:'document'/...}) → 本海洋 Intent.on('document') 切文档。
    依赖 mock/documents.js + 同目录 editor.js。注册 Shell.registerOcean('documents')。 */
@@ -64,40 +64,49 @@
     const b = island.body; b.innerHTML = '';
     const heads = [...sea.querySelectorAll('#docBody h2, #docBody h3')];
 
-    // —— 大纲 TOC ——
-    const secToc = tag('div.da-sec', `<div class="da-h">大纲</div>`);
+    // —— 大纲 TOC：缩进列表 + 当前节 accent 细线（文案走 textContent，不经 tag 第三参——避空文本 bug） ——
+    const secToc = tag('div.da-sec'); secToc.appendChild(tag('div.da-h', '大纲'));
     const toc = tag('div.da-toc');
     if (heads.length) heads.forEach((h, i) => {
-      const a = tag('a' + (h.tagName === 'H3' ? '.h3' : '') + (i === 0 ? '.on' : ''), null, h.textContent);
-      a.onclick = e => { e.preventDefault(); toc.querySelectorAll('a').forEach(x => x.classList.remove('on')); a.classList.add('on'); h.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      const a = tag('a.da-toc-a' + (h.tagName === 'H3' ? '.h3' : '') + (i === 0 ? '.on' : ''));
+      a.textContent = h.textContent;
+      a.onclick = e => { e.preventDefault(); toc.querySelectorAll('.da-toc-a').forEach(x => x.classList.remove('on')); a.classList.add('on'); h.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
       toc.appendChild(a);
     });
-    else toc.appendChild(tag('a', { style: 'color:var(--ink-3)' }, '（暂无小节）'));
+    else toc.appendChild(tag('div.da-empty', '暂无小节'));
     secToc.appendChild(toc); b.appendChild(secToc);
 
-    // —— 反向链接（relation 入边的消费视图；可点 → Intent.select 切到那篇文档） ——
+    // —— 反向链接（relation 入边消费视图）：轻行（链接图标 + 名 + 摘要），点 → Intent.select 切那篇 ——
     const back = doc.backlinks || [];
     if (back.length) {
-      const secBack = tag('div.da-sec', `<div class="da-h">反向链接</div>`);
+      const secBack = tag('div.da-sec');
+      secBack.appendChild(tag('div.da-h', `反向链接<span class="da-h-n">${back.length}</span>`));
       const list = tag('div.da-back');
       back.forEach(bl => {
-        const a = tag('a', { href: '#' }, `${RefPill.html('link', bl.name, bl.id)}<span class="snip">${bl.snip || ''}</span>`);
-        list.appendChild(a);
+        const row = tag('div.da-bl');
+        row.innerHTML = `<span class="da-bl-ic">${icon('link', 13)}</span><span class="da-bl-main"><span class="da-bl-name"></span>${bl.snip ? '<span class="da-bl-snip"></span>' : ''}</span>`;
+        row.querySelector('.da-bl-name').textContent = bl.name;
+        if (bl.snip) row.querySelector('.da-bl-snip').textContent = bl.snip;
+        row.onclick = () => Intent.select({ kind: 'document', id: bl.id });
+        list.appendChild(row);
       });
-      RefPill.wire(list);   // 反链行的药丸点击 → Intent.select({kind:'document'/...})
-      list.addEventListener('click', e => e.preventDefault());
       secBack.appendChild(list); b.appendChild(secBack);
     }
 
-    // —— 信息（path / tags / 更新 / 大小）：组件 KV 渲染定义行 ——
-    const secMeta = tag('div.da-sec', `<div class="da-h">信息</div>`);
-    KV.defs(secMeta, [
-      ['路径', '/' + (doc.path || []).join('/'), { mono: true }],
-      ['标签', (doc.tags || []).join(' · ') || '—'],
-      ['更新', doc.updated || '—'],
-      ['大小', doc.size || '—'],
-    ]);
-    b.appendChild(secMeta);
+    // —— 信息：紧凑定义行（窄标签 + 值灰不撑黑；值走 textContent 防长路径撑破） ——
+    const secMeta = tag('div.da-sec'); secMeta.appendChild(tag('div.da-h', '信息'));
+    const info = tag('div.da-info');
+    const irow = (k, v, mono) => {
+      const r = tag('div.da-irow');
+      r.innerHTML = `<span class="da-ik"></span><span class="da-iv${mono ? ' mono' : ''}"></span>`;
+      r.querySelector('.da-ik').textContent = k; r.querySelector('.da-iv').textContent = v;
+      return r;
+    };
+    info.appendChild(irow('路径', '/' + (doc.path || []).join('/'), true));
+    info.appendChild(irow('标签', (doc.tags || []).join(' · ') || '—'));
+    info.appendChild(irow('更新', doc.updated || '—'));
+    info.appendChild(irow('大小', doc.size || '—'));
+    secMeta.appendChild(info); b.appendChild(secMeta);
   }
 
   // ===== 装载一篇文档：头 + 正文(交 DocEditor) + 右岛 =====

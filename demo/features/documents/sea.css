@@ -156,14 +156,35 @@
 .doc-dragging { opacity: .45; }
 .doc-drop { position: absolute; z-index: 14; height: 2px; border-radius: 2px; background: var(--accent); pointer-events: none; }
 
-/* ===== 右岛【内容】皮：框由组件 RightIsland 兜，这里只画 body 内 TOC/反链/信息 行 ===== */
-.da-sec .da-h { padding: 0 10px 6px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); }
-.da-toc { display: flex; flex-direction: column; gap: 1px; }
-.da-toc a { display: block; height: 30px; line-height: 30px; padding: 0 10px; border-radius: var(--r-btn); font-size: var(--t-md); color: var(--ink-2); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
-.da-toc a:hover { background: var(--cc-hover); color: var(--ink); }
-.da-toc a.h3 { padding-left: 22px; color: var(--ink-3); }
-.da-toc a.on { background: var(--cc-active); color: var(--ink); font-weight: 500; }
-.da-back { display: flex; flex-direction: column; gap: 2px; }
-.da-back a { display: block; padding: 6px 10px; border-radius: var(--r-btn); text-decoration: none; cursor: pointer; transition: background var(--d-fast); }
-.da-back a:hover { background: var(--cc-hover); }
-.da-back .snip { display: block; font-size: var(--t-xs); color: var(--ink-3); line-height: 1.5; margin-top: 3px; }
+/* ===== 右岛【内容】皮：框由组件 RightIsland 兜，本块只画 body 内 大纲/反链/信息——轻、通透、产品味（无药丸 / 无黑粗字 / 无灰块；color 一律不入过渡，无头渲染器会冻初值） ===== */
+.da-sec { margin-bottom: 22px; }
+.da-sec:last-child { margin-bottom: 2px; }
+.da-h { display: flex; align-items: center; gap: 6px; padding: 0 10px 7px; font-size: var(--t-xs); font-weight: 600; letter-spacing: .02em; color: var(--ink-3); }
+.da-h-n { font-weight: 500; color: var(--ink-3); opacity: .6; }
+.da-empty { padding: 3px 10px; font-size: var(--t-sm); color: var(--ink-3); }
+
+/* 大纲：缩进列表 + 当前节 accent 细左线（accent 只点「正在看的」，不靠灰块） */
+.da-toc { display: flex; flex-direction: column; }
+.da-toc-a { display: block; padding: 5px 10px; border-left: 2px solid transparent; border-radius: 0 var(--r-btn) var(--r-btn) 0;
+  font-size: var(--t-md); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background var(--d-fast); }
+.da-toc-a:hover { background: var(--cc-hover); color: var(--ink); }
+.da-toc-a.h3 { padding-left: 24px; font-size: var(--t-sm); color: var(--ink-3); }
+.da-toc-a.on { color: var(--ink); border-left-color: var(--accent); }
+
+/* 反向链接：轻行（链接图标 + 名 + 两行摘要），无药丸 / 无描边 / 无黑粗 */
+.da-back { display: flex; flex-direction: column; }
+.da-bl { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; border-radius: var(--r-btn); cursor: pointer; transition: background var(--d-fast); }
+.da-bl:hover { background: var(--cc-hover); }
+.da-bl-ic { flex: none; margin-top: 1px; color: var(--ink-3); display: grid; place-items: center; }
+.da-bl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.da-bl-name { font-size: var(--t-md); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.da-bl:hover .da-bl-name { color: var(--ink); }
+.da-bl-snip { font-size: var(--t-xs); color: var(--ink-3); line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+/* 信息：紧凑定义行（窄标签 40 + 值灰不撑黑），发丝线分隔 */
+.da-info { padding: 0 10px; }
+.da-irow { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; font-size: var(--t-sm); border-bottom: 1px solid var(--line); }
+.da-irow:last-child { border-bottom: 0; }
+.da-ik { flex: none; width: 40px; color: var(--ink-3); }
+.da-iv { flex: 1; min-width: 0; color: var(--ink-2); word-break: break-word; }
+.da-iv.mono { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
