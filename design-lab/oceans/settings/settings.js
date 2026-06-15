@@ -107,7 +107,7 @@
     if (id !== 'overview') return;
     // 概览:热力图 + 最常用实体
     const grid = detail.querySelector('#st-grid'), months = detail.querySelector('#st-months');
-    const cols = 40, fills = ['var(--island-3)', 'rgba(0,113,227,.28)', 'rgba(0,113,227,.5)', 'rgba(0,113,227,.74)', 'rgba(0,113,227,.98)'];
+    const cols = 40, fills = ['var(--island-3)', 'rgba(0,113,227,.16)', 'rgba(0,113,227,.32)', 'rgba(0,113,227,.52)', 'rgba(0,113,227,.74)'];
     for (let w = 0; w < cols; w++) {
       const col = document.createElement('div'); col.className = 'st-col';
       for (let d = 0; d < 7; d++) {

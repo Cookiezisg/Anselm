@@ -14,7 +14,7 @@
 .st-search svg { width: 15px; height: 15px; flex: none; }
 .st-search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: var(--t-md); color: var(--ink); }
 .st-search input::placeholder { color: var(--ink-3); }
-.st-grp { padding: 9px 10px 4px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); }
+.st-grp { padding: 9px 10px 4px; font-size: var(--t-xs); font-weight: 500; color: var(--ink-3); }
 .st-cat { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: 8px; color: var(--ink-2); font-size: var(--t-md); }
 .st-cat:hover { background: var(--cc-hover); color: var(--ink); }
 .st-cat.on { background: var(--cc-active); color: var(--ink); font-weight: 500; }
@@ -25,11 +25,11 @@
 .st-detail { flex: 1; min-width: 0; background: var(--cc-win); border-radius: var(--r-card); overflow-y: auto; padding: 22px 30px 40px; }
 .st-detail.center { display: flex; flex-direction: column; align-items: center; }
 .st-detail.center > * { width: 100%; max-width: 680px; }
-.st-htitle { font-size: var(--t-xl); font-weight: 600; color: var(--ink); margin: 0 0 20px; }
+.st-htitle { font-size: 17px; font-weight: 500; color: var(--ink); margin: 0 0 20px; }
 
 /* 配置分区:uppercase 小标题 + 岛(无横线,靠留白分) */
 .st-sec { margin-bottom: 24px; }
-.st-sec > .lab { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); margin: 0 2px 8px; letter-spacing: .02em; }
+.st-sec > .lab { font-size: var(--t-xs); font-weight: 500; color: var(--ink-3); margin: 0 2px 8px; letter-spacing: .02em; }
 .st-island { background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island); padding: 2px 14px; }
 .st-row { display: flex; align-items: center; gap: 16px; min-height: 48px; padding: 8px 0; }
 .st-row + .st-row { border-top: 1px solid var(--line); }            /* 岛内行分隔=细发丝(非分区横线,属同岛内列表) */
@@ -68,21 +68,21 @@
 /* 危险区 */
 .st-danger { margin-top: 36px; border: 1px solid color-mix(in srgb, var(--danger) 22%, transparent); border-radius: var(--r-card);
   background: color-mix(in srgb, var(--danger) 4%, transparent); padding: 16px 18px; }
-.st-danger .dl { font-size: var(--t-sm); font-weight: 600; color: var(--danger); margin-bottom: 4px; }
+.st-danger .dl { font-size: var(--t-sm); font-weight: 500; color: var(--danger); margin-bottom: 4px; }
 .st-danger .dd { font-size: var(--t-sm); color: var(--ink-2); margin-bottom: 12px; line-height: 1.5; }
 
 /* ===== 概览专属 ===== */
 .st-hero { display: flex; flex-direction: column; align-items: center; gap: 3px; margin-bottom: 26px; }
-.st-av { width: 78px; height: 78px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 29px; font-weight: 600; }
-.st-hero .nm { font-size: 23px; font-weight: 600; color: var(--ink); margin-top: 12px; letter-spacing: -.01em; }
+.st-av { width: 78px; height: 78px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 29px; font-weight: 500; }
+.st-hero .nm { font-size: 20px; font-weight: 500; color: var(--ink); margin-top: 12px; letter-spacing: -.01em; }
 .st-hero .sub { font-size: var(--t-md); color: var(--ink-3); }
 .st-stats { display: flex; background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island); padding: 17px 6px; margin-bottom: 24px; }
 .st-stat { flex: 1; text-align: center; padding: 0 6px; }
-.st-stat .num { font-size: 20px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+.st-stat .num { font-size: 18px; font-weight: 500; color: var(--ink); letter-spacing: -.01em; }
 .st-stat .lab { font-size: var(--t-sm); color: var(--ink-3); margin-top: 4px; }
 .st-actv { margin-bottom: 26px; }
 .st-actv .hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; }
-.st-actv .hd .t { font-size: var(--t-lg); font-weight: 600; color: var(--ink); }
+.st-actv .hd .t { font-size: var(--t-lg); font-weight: 500; color: var(--ink); }
 .st-tog { display: flex; gap: 15px; font-size: var(--t-md); }
 .st-tog span { color: var(--ink-3); cursor: pointer; }
 .st-tog span.on { color: var(--ink); font-weight: 500; }
@@ -92,7 +92,7 @@
 .st-months { display: flex; margin-top: 6px; font-size: var(--t-xs); color: var(--ink-3); }
 .st-months span { flex: 1; }
 .st-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s8); }
-.st-cols h3 { font-size: var(--t-lg); font-weight: 600; color: var(--ink); margin: 0 0 10px; }
+.st-cols h3 { font-size: var(--t-lg); font-weight: 500; color: var(--ink); margin: 0 0 10px; }
 .st-irow { display: flex; align-items: center; justify-content: space-between; height: 34px; font-size: var(--t-md); }
 .st-irow .k { color: var(--ink-2); } .st-irow .v { color: var(--ink); }
 .st-erow { display: flex; align-items: center; gap: 10px; height: 40px; }
