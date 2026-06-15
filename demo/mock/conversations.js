@@ -57,6 +57,22 @@
     },
   };
 
+  // —— 工具友好名：原始 tool id → {动词, 名}（用户读人话、不见 create_function(…) 这类内部名）。
+  //    渲染：toolItem 的「动词 名」两槽；run/call/trigger 保留实体名（用户自己的实体），纯工具(todo)整句友好化。
+  const TOOL_NAMES = {
+    'todo_write': { verb: '更新', name: '任务清单' },
+    'create_function(weekly_digest)': { verb: '锻造', name: 'weekly_digest' },
+    'create_function(pdf_extract)': { verb: '锻造', name: 'pdf_extract' },
+    'create_handler(webhook_ingest)': { verb: '锻造', name: 'webhook_ingest' },
+    'create_workflow(weekly_report)': { verb: '锻造', name: 'weekly_report' },
+    'edit_agent(Researcher)': { verb: '编辑', name: 'Researcher' },
+    'run_function(weekly_digest)': { verb: '运行', name: 'weekly_digest' },
+    'run_function(pdf_extract)': { verb: '运行', name: 'pdf_extract' },
+    'call_handler(webhook_ingest.ingest)': { verb: '调用', name: 'webhook_ingest · ingest' },
+    'trigger_workflow(weekly_report)': { verb: '触发', name: 'weekly_report' },
+    'notion_writer.publish': { verb: '发布', name: 'Notion' },
+  };
+
   // —— 脚本元语：每 beat 是声明式块意图（sea 解释器映射到组件调用）——
   // type ∈ user | ai | reason | tool | forge | run | approval | flowrun | subagent | todo | turnEnd | compaction | ents
   const SCRIPTS = {
@@ -66,11 +82,11 @@
       { type: 'user', html: '帮我搭一个每天早上自动汇总竞品动态、写进 Notion 的流程。背景看 {{doc:竞品列表.md}}。' },
       { type: 'reason', text: '用户要一条「抓取→汇总→发布」的每日自动化。拆解：无状态抓取函数（function）+ 常驻 Notion 写手（handler，已有）+ 一个润色 LLM 员工（agent）+ 一张每天 08:00 触发的编排图（workflow）。先写待办、逐个锻造、跑通后编排。' },
       { type: 'ai', text: '好的。我会先锻造一个抓取 + 汇总的函数，跑通后接上常驻的 Notion 写手，最后编排成每天触发的 workflow。先把任务拆出来：' },
-      { type: 'tool', status: 'todo_write…', settle: '已更新待办 · todo_write', items: [{ name: 'todo_write', detail: '整表替换写入 · 4 项 · LLM 自管、只读' }] },
+      { type: 'tool', status: '更新任务清单…', settle: '已更新待办', items: [{ name: 'todo_write', detail: '整表替换写入 · 4 项 · LLM 自管、只读' }] },
       { type: 'todo', rows: [['抓取竞品动态并汇总（function）', 'in-progress'], ['接 Notion 写手（handler）', 'pending'], ['编排每日 workflow', 'pending'], ['上线 + 验证一次', 'pending']] },
       { type: 'ai', text: '开始锻造抓取函数。' },
       {
-        type: 'forge', status: 'Forging weekly_digest…', settle: '已锻造 · create_function',
+        type: 'forge', status: '锻造 weekly_digest…', settle: '已锻造 · weekly_digest',
         verb: 'Forged', toolName: 'create_function(weekly_digest)',
         seed: { kind: 'function', name: 'weekly_digest', version: 1, live: 'forge', id: 'fn_7f3c2a91b04e8d52', desc: '抓取竞品 RSS / 变更，归并去重，产出结构化摘要列表。', python: '3.12', code: '', inputs: ['sources: list[str]', 'since: str'], deps: [], env: 'pending' },
         stream: [
@@ -83,17 +99,17 @@
       { type: 'todo', rows: [['抓取竞品动态并汇总（function）', 'completed'], ['接 Notion 写手（handler）', 'in-progress'], ['编排每日 workflow', 'pending'], ['上线 + 验证一次', 'pending']] },
       { type: 'ai', text: '跑一次看看输出。' },
       {
-        type: 'run', status: 'run_function(weekly_digest)…', settle: '运行完成 · run_function', toolName: 'run_function(weekly_digest)',
+        type: 'run', status: '运行 weekly_digest…', settle: '运行完成 · weekly_digest', toolName: 'run_function(weekly_digest)',
         progress: ['fetch arxiv.org/list … 12 条', 'fetch openai.com/blog … 3 条', 'fetch anthropic.com/news … 5 条', 'dedupe → 17 条', 'summarize via dialogue model …'],
         result: '{ "count": 17, "items": [ { "title": "…", "url": "…" }, … ] }',
       },
       { type: 'ai', text: '现在把摘要发到 Notion。这一步会写到外部空间，需要你确认。' },
       {
-        type: 'approval', status: 'call_handler(notion_writer.publish)…', tool: 'notion_writer.publish', danger: 'dangerous',
+        type: 'approval', status: '调用 notion_writer · publish…', tool: 'notion_writer.publish', danger: 'dangerous',
         summary: '把今天的竞品摘要发布到 Notion「竞品追踪」数据库（新增 1 页、写 17 个块）。',
         args: '{\n  "database": "竞品追踪",\n  "title": "竞品摘要 · 06-14",\n  "blocks": 17\n}',
         auto: 'approve_always', settleOk: '已批准 · 本会话内始终允许', settleNo: '已拒绝 · 反馈给模型',
-        groupSettle: '已发布 · call_handler', groupSettleNo: '已拒绝 · call_handler',
+        groupSettle: '已发布 · notion_writer', groupSettleNo: '已拒绝 · notion_writer',
         progress: ['connect notion … ok', 'create page 竞品摘要 · 06-14', 'append 17 blocks … done'],
       },
       { type: 'todo', rows: [['抓取竞品动态并汇总（function）', 'completed'], ['接 Notion 写手（handler）', 'completed'], ['编排每日 workflow', 'in-progress'], ['上线 + 验证一次', 'pending']] },
@@ -102,7 +118,7 @@
         type: 'subagent', label: 'Subagent · Plan',
         reason: '触发用 cron（每天 08:00）；trigger → action(weekly_digest) → agent(摘要润色) → approval(人工过目) → action(notion_writer.publish)。回边只在 approval 上闭合（环纪律）。',
         forge: {
-          status: 'Forging weekly_report…', settle: '已锻造 · create_workflow', verb: 'Forged', toolName: 'create_workflow(weekly_report)',
+          status: '锻造 weekly_report…', settle: '已锻造 · weekly_report', verb: 'Forged', toolName: 'create_workflow(weekly_report)',
           seed: { kind: 'workflow', name: 'weekly_report', version: 1, live: 'forge', id: 'wf_2b91ac7740e8d3f1', desc: '每天 08:00 抓取 → 润色 → 人工过目 → 发布 的编排图。', concurrency: 'serial', lifecycle: 'inactive', nodes: [] },
           fillGraph: 'weekly_report',
         },
@@ -110,8 +126,8 @@
       { type: 'todo', rows: [['抓取竞品动态并汇总（function）', 'completed'], ['接 Notion 写手（handler）', 'completed'], ['编排每日 workflow', 'completed'], ['上线 + 验证一次', 'in-progress']] },
       { type: 'ai', text: '先手动触发一次，看整条链路跑通没。' },
       {
-        type: 'tool', status: 'trigger_workflow(weekly_report)…', settle: '已起 run · trigger_workflow',
-        items: [{ name: 'trigger_workflow(weekly_report)', detail: '202 { id } · flowrun fr_9c4e… · 节点结果记忆化、逐节点推进（非事件日志）' }],
+        type: 'tool', status: '触发 weekly_report…', settle: '已起 run · weekly_report',
+        items: [{ name: 'trigger_workflow(weekly_report)', detail: '202 Accepted · flowrun 已起 · 节点结果记忆化、逐节点推进（非事件日志）' }],
       },
       {
         type: 'flowrun', frid: 'fr_9c4e1d77a0b3',
@@ -135,7 +151,7 @@
       { type: 'ai', text: '锻造一个无状态抽取函数 pdf_extract。' },
       { type: 'todo', rows: [['锻造 pdf_extract（function）', 'in-progress'], ['物化 env + 跑通', 'pending']] },
       {
-        type: 'forge', status: 'Forging pdf_extract…', settle: '已锻造 · create_function', verb: 'Forged', toolName: 'create_function(pdf_extract)',
+        type: 'forge', status: '锻造 pdf_extract…', settle: '已锻造 · pdf_extract', verb: 'Forged', toolName: 'create_function(pdf_extract)',
         seed: { kind: 'function', name: 'pdf_extract', version: 1, live: 'forge', id: 'fn_3c91a7b240e8f15d', desc: '从 PDF 抽取表格为结构化 JSON。', python: '3.12', code: '', inputs: ['url: str', 'pages: list[int]'], deps: [], env: 'pending' },
         stream: [
           { f: 'code', code: 'def pdf_extract(url, pages):\n    doc = pdfplumber.open(fetch(url))\n    out = []\n    for p in pages:\n        out += [t.extract() for t in doc.pages[p].find_tables()]\n    return out' },
@@ -147,7 +163,7 @@
       { type: 'todo', rows: [['锻造 pdf_extract（function）', 'completed'], ['物化 env + 跑通', 'in-progress']] },
       { type: 'ai', text: 'env 已就绪，跑一次抽取验证。' },
       {
-        type: 'run', status: 'run_function(pdf_extract)…', settle: '运行完成 · run_function', toolName: 'run_function(pdf_extract)',
+        type: 'run', status: '运行 pdf_extract…', settle: '运行完成 · pdf_extract', toolName: 'run_function(pdf_extract)',
         progress: ['open invoice.pdf … 4 页', 'page 0 · find_tables → 1', 'page 1 · find_tables → 2', 'extract → 3 张表'],
         result: '{ "tables": 3, "rows": 41 }',
       },
@@ -162,7 +178,7 @@
       { type: 'reason', text: 'agent 的能力 = system prompt + 挂载工具集；edit_agent 走版本（v3→v4），挂工具是引用边、非复制。' },
       { type: 'ai', text: '我来改 system prompt 并挂上 pdf_extract，改完是 v4。' },
       {
-        type: 'forge', status: 'edit_agent(Researcher)…', settle: '已更新 · edit_agent', verb: 'Edited', toolName: 'edit_agent(Researcher)', live: 'edit',
+        type: 'forge', status: '编辑 Researcher…', settle: '已更新 · Researcher', verb: 'Edited', toolName: 'edit_agent(Researcher)', live: 'edit',
         seed: { kind: 'agent', name: 'Researcher', version: 3, live: 'edit', id: 'ag_5f2c8a10d4e3b7f9', desc: '深度调研员：检索、交叉验证、产出带引用的结构化综述。', system: '你是严谨的调研员。检索、交叉验证，每条结论必须附引用来源（行内链接）。', model: 'claude-opus-4-8', maxSteps: 20, tools: [{ ref: 'fn_pdf_extract' }, { ref: 'mcp:web/fetch' }], skill: 'cite-sources', knowledge: ['竞品列表.md'] },
         stream: [
           { f: 'system', code: '你是严谨的调研员。检索、交叉验证；每条结论必须附行内引用来源，无引用宁可不下结论。冲突来源需并列陈述并标注分歧。' },
@@ -185,7 +201,7 @@
       { type: 'reason', text: '需要跨调用复用 DB 连接（真共享状态）→ 选 handler（常驻进程，非无状态 function）。改 config 触发重启。' },
       { type: 'ai', text: '锻造常驻 handler webhook_ingest，init 持有 DB 连接。' },
       {
-        type: 'forge', status: 'Forging webhook_ingest…', settle: '已锻造 · create_handler', verb: 'Forged', toolName: 'create_handler(webhook_ingest)',
+        type: 'forge', status: '锻造 webhook_ingest…', settle: '已锻造 · webhook_ingest', verb: 'Forged', toolName: 'create_handler(webhook_ingest)',
         seed: { kind: 'handler', name: 'webhook_ingest', version: 1, live: 'forge', id: 'hd_8b21fe04a9c7d350', desc: '常驻 webhook 入库：保活 DB 连接、跨调用复用 self.conn。', runtime: 'unconfigured', configState: 'unconfigured', env: 'pending', initArgs: [{ name: 'db_url', required: true, sensitive: true }, { name: 'table', value: 'events' }], methods: [], classCode: '' },
         stream: [
           { f: 'class', code: 'class WebhookIngest:\n    def __init__(self, db_url, table="events"):\n        self.conn = connect(db_url)\n    def ingest(self, payload): ...\n    def shutdown(self): self.conn.close()' },
@@ -195,7 +211,7 @@
       },
       { type: 'ai', text: '常驻进程已起、config 就绪。调一次 ingest 验证连接复用。' },
       {
-        type: 'run', status: 'call_handler(webhook_ingest.ingest)…', settle: '调用完成 · call_handler', toolName: 'call_handler(webhook_ingest.ingest)',
+        type: 'run', status: '调用 webhook_ingest · ingest…', settle: '调用完成 · webhook_ingest', toolName: 'call_handler(webhook_ingest.ingest)',
         progress: ['reuse self.conn (alive 4h12m)', 'INSERT events … 1 row', 'commit'],
         result: '{ "ingested": 1, "connReused": true }',
       },
@@ -246,6 +262,7 @@
       'webhook-handler': 'Webhook 入库 handler',
     },
     entities: ENTITY,
+    toolNames: TOOL_NAMES,
     scripts: SCRIPTS,
   };
 })();

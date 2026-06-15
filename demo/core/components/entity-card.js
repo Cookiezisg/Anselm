@@ -259,8 +259,8 @@
     const led = window.tag('div.fg-ec-led'); host.appendChild(led);
     ex.forEach((e, i) => {
       const dot = window.StatusDot ? window.StatusDot.dot(e[0] === 'ok' ? 'done' : 'err', { size: 7 }) : '';
-      const id = `${(a.idPrefix || a.kind)}e_${(i + 7).toString(16)}a${i}`;
-      const r = window.tag('div.fg-ec-lrow', `<span class="fg-ec-cst">${dot}</span><span class="fg-ec-cid">${esc(id)}</span><span class="fg-ec-ctrig">${esc(e[1])}</span><span class="fg-ec-cmeta">${esc(e[3])}</span><span class="fg-ec-cdur">${esc(e[2])}</span>`);
+      const id = `${(a.idPrefix || a.kind)}e_${(i + 7).toString(16)}a${i}`;   // 仅作路由数据，不显（机器 ID 不给人看）
+      const r = window.tag('div.fg-ec-lrow', `<span class="fg-ec-cst">${dot}</span><span class="fg-ec-ctrig">${esc(e[1])}</span><span class="fg-ec-cmeta">${esc(e[3])}</span><span class="fg-ec-cdur">${esc(e[2])}</span>`);
       r.onclick = () => window.Intent && Intent.select({ kind: 'run', id });
       led.appendChild(r);
     });
@@ -273,18 +273,20 @@
   }
 
   // 四 tab 集（按 kind 调整运行/版本可见性，但 key 固定 o/v/r/i，与 PUBLIC API 的 概览/版本/运行/迭代 对齐）
-  function tabsFor(a) {
+  function tabsFor(a, o) {
     const items = [{ key: 'o', label: '概览', render: b => buildBody(b, a) }];
     const verLess = ['trigger', 'mcp', 'skill'].includes(a.kind);
     items.push({ key: 'v', label: verLess ? (a.kind === 'skill' ? '历史' : '编辑历史') : '版本', render: b => versionTab(b, a) });
     if (!['control', 'approval', 'skill'].includes(a.kind)) items.push({ key: 'r', label: a.kind === 'handler' ? '调用' : '运行', render: b => runsTab(b, a) });
-    items.push({ key: 'i', label: '迭代', render: b => iterTab(b) });
+    // 迭代 tab = 「去对话里让 AI 改它」；对话海洋右岛本就在对话里，去掉这个自指 tab（o.noIterate）
+    if (!(o && o.noIterate)) items.push({ key: 'i', label: '迭代', render: b => iterTab(b) });
     return items;
   }
 
   // ===== 工厂 =====
-  function mount(host, entity) {
+  function mount(host, entity, opts) {
     const a = entity || {};
+    const o = opts || {};
     const k = kindMeta(a.kind);
 
     // 外壳：传入 host 则就地渲染；否则用 RightIsland 抽屉（oceanId 取实体 kind 作槽键）
@@ -293,6 +295,7 @@
       root = window.tag('div.fg-ec'); host.appendChild(root); body = root;
     } else if (window.RightIsland && window.RightIsland.create) {
       shell = window.RightIsland.create('entity-card', { title: a.name || '', icon: k.icon, width: 384 });
+      shell.body.innerHTML = '';   // 持久抽屉、内容原位替换：清掉上一个实体卡（切换预览/锻造不重建抽屉、不再滑出滑入）
       shell.show();
       root = window.tag('div.fg-ec'); shell.body.appendChild(root); body = root;
     } else {
@@ -303,23 +306,38 @@
     // 用 EntityCard 自带富头作唯一标题（修双标题 bug）；锚点(data-ec-live/ver)仍在 root 内，handle 的 q 不变。
     if (shell && shell.head) shell.head.style.display = 'none';
     const closeBtn = shell ? `<button class="ibtn fg-ec-x" type="button" title="关闭">${ICO('close', 16)}</button>` : '';
+    // 名字：picker 模式作下拉钮（切换预览的实体）；否则纯标题。下拉单列在 head 内绝对定位。
+    const nameHtml = o.picker
+      ? `<button class="fg-ec-namebtn" type="button"><b class="fg-ec-name">${esc(a.name || '')}</b><span class="fg-ec-pchev">${ICO('chevd', 12)}</span></button>`
+      : `<b class="fg-ec-name">${esc(a.name || '')}</b>`;
+    const pmenu = o.picker
+      ? `<div class="fg-ec-pmenu">` + (o.picker.items || []).map(it =>
+          `<button class="fg-ec-popt${it.key === o.picker.current ? ' on' : ''}" data-key="${esc(it.key)}"><span class="fg-ec-pico">${ICO(kindMeta(it.kind).icon, 15)}</span><span class="fg-ec-pnm">${esc(it.name)}</span><span class="fg-ec-pkd">${esc(kindMeta(it.kind).label)}</span></button>`).join('') + `</div>`
+      : '';
     const headInner = `<span class="fg-ec-etype">${ICO(k.icon, 17)}</span>`
-      + `<span class="fg-ec-ht"><b class="fg-ec-name">${esc(a.name || '')}</b><span class="fg-ec-sub">${headSub(a)}</span></span>`
-      + `<span class="fg-ec-livewrap" data-ec-live>${liveBadge(a.live)}</span>${closeBtn}`;
+      + `<span class="fg-ec-ht">${nameHtml}<span class="fg-ec-sub">${headSub(a)}</span></span>`
+      + `<span class="fg-ec-livewrap" data-ec-live>${liveBadge(a.live)}</span>${closeBtn}${pmenu}`;
     body.appendChild(window.tag('div.fg-ec-head', headInner));
     if (shell) { const x = body.querySelector('.fg-ec-x'); if (x) x.onclick = () => shell.hide(); }
+    // picker：点名字下拉 → 列实体；选一个 → onPick 切预览（外点收起）
+    if (o.picker) {
+      const nameBtn = body.querySelector('.fg-ec-namebtn'), menu = body.querySelector('.fg-ec-pmenu');
+      nameBtn.onclick = e => { e.stopPropagation(); menu.classList.toggle('open'); };
+      menu.querySelectorAll('.fg-ec-popt').forEach(op => op.onclick = e => { e.stopPropagation(); menu.classList.remove('open'); o.picker.onPick && o.picker.onPick(op.dataset.key); });
+      // 外点收起：全局只注册一次（仿 dropdown.js __fgDDClose）。持久抽屉里 mount 反复调——绝不每次挂监听（会累积 + 留住脱离的菜单子树），改全局选择器扫 .fg-ec-pmenu.open
+      if (!window.__fgEcPickerClose) { window.__fgEcPickerClose = true; document.addEventListener('click', () => document.querySelectorAll('.fg-ec-pmenu.open').forEach(m => m.classList.remove('open'))); }
+    }
 
     // 四 tab（经公开 Tabs；懒渲染每 tab）
     const tabsHost = window.tag('div.fg-ec-tabs'); body.appendChild(tabsHost);
-    if (window.Tabs && window.Tabs.mount) window.Tabs.mount(tabsHost, tabsFor(a), {});
-    else { const o = window.tag('div'); tabsHost.appendChild(o); buildBody(o, a); }
+    if (window.Tabs && window.Tabs.mount) window.Tabs.mount(tabsHost, tabsFor(a, o), {});
+    else { const ob = window.tag('div'); tabsHost.appendChild(ob); buildBody(ob, a); }
 
-    // 脚注（id + runs + 历史版本动作）
-    const id = a.id || '';
-    const runs = a.runs != null ? ` · ${esc(a.runs)} runs` : '';
+    // 脚注（runs + 历史版本动作）——不显实体机器 ID
+    const runs = a.runs != null ? `${esc(a.runs)} 次运行` : '';
     const versioned = !['trigger', 'mcp'].includes(a.kind);
     body.appendChild(window.tag('div.fg-ec-foot',
-      `<span class="fg-ec-fid">${esc(id)}</span><span class="fg-ec-frun">${runs}</span><span class="fg-ec-fgap"></span>${versioned ? '<span class="fg-ec-act">历史版本</span>' : ''}`));
+      `<span class="fg-ec-frun">${runs}</span><span class="fg-ec-fgap"></span>${versioned ? '<span class="fg-ec-act">历史版本</span>' : ''}`));
 
     // RefPill 委托点击（整片 root 内的实体提及药丸 → Intent.select）
     if (window.RefPill && window.RefPill.wire) window.RefPill.wire(root);

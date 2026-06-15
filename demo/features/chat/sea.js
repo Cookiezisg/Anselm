@@ -9,6 +9,8 @@
   const M = () => window.MOCK_CONVERSATIONS || {};
   const SCRIPT = id => (M().scripts || {})[id];
   const ENT = key => (M().entities || {})[key];
+  // 工具友好名：原始 tool id → {动词, 名}（用户读人话，不见 create_function(…) 内部名）。缺则原样兜底。
+  const TL = id => (M().toolNames || {})[id] || { name: id };
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // 锚点：当前播放 token（停止/切会话即 ++ → 旧异步循环自检退出）；当前脚本 + 标题
@@ -47,12 +49,31 @@
   const setGen = on => { const c = qs('#chatComposer'); if (c) c.classList.toggle('gen', on); };
   const tdet = ti => qs('.fg-bk-ti-det > .fg-bk-w', ti);   // 取工具项详情宿主（组件结构契约）
 
-  // 右岛实体卡：经 EntityCard.mount(null) 走 RightIsland('entity-card') 槽自渲染；handle 暴露 fill/reveal/setSt
-  function forgeCard(seed) {
-    if (window.Shell && Shell._ocean !== 'chat') return card;   // 已切走 → 不重建右岛（右岛跟海洋走）
-    if (card) card.destroy();
-    card = EntityCard.mount(null, seed);   // host=null → RightIsland 抽屉滑入
+  // —— 右岛 = 常驻实体预览面板：随时唤起，平时 preview（picker 选已有实体）；message 流锻造/触达某实体 → 自动切到它 + 动画流式。
+  //    card = 当前 EntityCard handle；islandKey = 当前预览实体键。持久抽屉：内容原位替换、不重建抽屉（见 entity-card 的 shell 复用）。
+  let islandKey = null;
+  const CAT = () => M().entities || {};   // 预览 picker 的目录 = 本会话触达的实体
+  const pickerItems = () => Object.keys(CAT()).map(key => ({ key, name: CAT()[key].name, kind: CAT()[key].kind }));
+  const firstKey = () => Object.keys(CAT())[0];
+  const keyForSeed = seed => { const c = CAT(); return Object.keys(c).find(k => c[k].name === seed.name) || null; };
+
+  // 挂/切实体卡到右岛。seedOrKey：字符串键 → 取目录预览；对象 → forge seed。返回 EntityCard handle。
+  function islandTo(seedOrKey) {
+    if (window.Shell && Shell._ocean !== 'chat') return card;   // 右岛跟海洋走，别漏到别的海洋
+    const seed = typeof seedOrKey === 'string' ? CAT()[seedOrKey] : seedOrKey;
+    if (!seed) return card;
+    islandKey = typeof seedOrKey === 'string' ? seedOrKey : keyForSeed(seed);
+    card = EntityCard.mount(null, seed, {
+      noIterate: true,   // 对话里就不要「迭代」tab（自指）
+      picker: { items: pickerItems(), current: islandKey, onPick: k => islandTo(k) },
+    });
     return card;
+  }
+  // 头部按钮唤起/收起：无卡 → 以默认实体 preview 唤起；有卡 → 开合（保留内容）
+  function toggleIsland() {
+    if (window.Shell && Shell._ocean !== 'chat') return;
+    if (!card || !card.el || !card.el.isConnected) { islandTo(CAT()[islandKey] ? islandKey : firstKey()); return; }
+    card.toggle();
   }
 
   // —— 单 beat 渲染（声明式 → 组件调用）。返回 Promise（含流式/审批等待）。 ——
@@ -85,14 +106,14 @@
     // 工具组（无流式/无审批）：摘要流光 → 工具项 → 收敛
     if (b.type === 'tool') {
       const tg = BlockKit.toolGroup(t); tg.status(b.status); await sleep(560); if (!alive(id)) return;
-      (b.items || []).forEach(it => BlockKit.toolItem(tg.box, { verb: it.verb, name: it.name, danger: it.danger, detailHTML: it.detail ? `<div class="fg-bk-tbox"><div class="fg-bk-out">${esc(it.detail)}</div></div>` : null }));
+      (b.items || []).forEach(it => { const fl = TL(it.name); BlockKit.toolItem(tg.box, { verb: it.verb || fl.verb, name: fl.name, danger: it.danger, detailHTML: it.detail ? `<div class="fg-bk-tbox"><div class="fg-bk-out">${esc(it.detail)}</div></div>` : null }); });
       tg.settle(b.settle); await sleep(420); return;
     }
 
     // run：progress 块（实时 stderr）+ 独立 result 框
     if (b.type === 'run') {
       const rf = BlockKit.toolGroup(t); rf.status(b.status);
-      const ti = BlockKit.toolItem(rf.box, { name: b.toolName }); rf.open();
+      const rfl = TL(b.toolName); const ti = BlockKit.toolItem(rf.box, { verb: rfl.verb, name: rfl.name }); rf.open();
       const det = tdet(ti); const pb = BlockKit.progressBox(det);
       for (const ln of (b.progress || [])) { await sleep(370); if (!alive(id)) return; pb.add(ln); }
       await sleep(380); if (!alive(id)) return; pb.done();
@@ -112,7 +133,7 @@
       gate.settle(denied ? b.settleNo : b.settleOk);
       await sleep(250); if (!alive(id)) return;
       if (!denied) {
-        const ti = BlockKit.toolItem(ch.box, { name: b.tool, danger: b.danger }); ch.open();
+        const afl = TL(b.tool); const ti = BlockKit.toolItem(ch.box, { verb: afl.verb, name: afl.name, danger: b.danger }); ch.open();
         const pb = BlockKit.progressBox(tdet(ti));
         for (const ln of (b.progress || [])) { await sleep(350); if (!alive(id)) return; pb.add(ln); }
         pb.done(); ch.settle(b.groupSettle);
@@ -151,7 +172,7 @@
   // forge 子例程：锻造工具组 + EntityCard 滑入 + 流式逐字段填充（fill/reveal/setSt/setVersion）
   async function playForge(host, b, id) {
     const cf = BlockKit.toolGroup(host); cf.status(b.status); await sleep(520); if (!alive(id)) return;
-    const h = forgeCard(b.seed); await sleep(420); if (!alive(id)) return;
+    const h = islandTo(b.seed); await sleep(420); if (!alive(id)) return;   // 自动切右岛到这个实体（持久抽屉、流式填充）
     for (const s of (b.stream || [])) {
       if (!alive(id)) return;
       if (s.code != null) { await streamCode(h, s.f, s.code, id); }
@@ -163,7 +184,7 @@
     if (b.fillGraph) await streamGraph(h, b.fillGraph, id);
     await sleep(520); if (!alive(id)) return;
     h.setLive(false);   // 锻造/编辑收口 → 「已保存」
-    BlockKit.toolItem(cf.box, { verb: b.verb, name: b.toolName, detailHTML: `<div class="fg-bk-tbox"><div class="fg-bk-out">${esc(b.toolName)} · 实体版本 ops（非 git diff）</div></div>` });
+    const ffl = TL(b.toolName); BlockKit.toolItem(cf.box, { verb: ffl.verb || b.verb, name: ffl.name, detailHTML: `<div class="fg-bk-tbox"><div class="fg-bk-out">${esc(ffl.name)} · 实体版本 ops（非 git diff）</div></div>` });
     cf.settle(b.settle); await sleep(420);
   }
 
@@ -257,8 +278,9 @@
       conv = qs('#chatConv', sea); col = qs('#chatCol', sea);
       dock = BlockKit.dock(qs('#chatDock', sea));
 
-      // 主区头：重播本回合
-      Shell.headExtra(`<button class="ibtn" id="chatReplay" title="重播本回合">${icon('play', 16)}</button>`);
+      // 主区头：实体预览右岛（随时唤起）+ 重播本回合
+      Shell.headExtra(`<button class="ibtn" id="chatIsland" title="实体预览（右岛）">${icon('panel', 16)}</button><button class="ibtn" id="chatReplay" title="重播本回合">${icon('play', 16)}</button>`);
+      const isl = qs('#chatIsland'); if (isl) isl.onclick = () => toggleIsland();
       const replay = qs('#chatReplay'); if (replay) replay.onclick = () => play(curScript, curTitle);
 
       // 对话标题（head-lead 左角；标题 + 向下箭头快捷操作）

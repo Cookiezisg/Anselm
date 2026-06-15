@@ -6,13 +6,32 @@
 .fg-ec.fg-ec-hidden { display: none; }
 
 /* ===== 头部（图标方块 + 名 + 副行 + live 徽）。度量镜像 chat .aside-head/.etype/.ht ===== */
-.fg-ec-head { display: flex; align-items: center; gap: 10px; padding: 2px 0 8px; }
+.fg-ec-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 2px 0 8px; }
 .fg-ec-etype { width: 30px; height: 30px; border-radius: var(--r-btn); flex: none; display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2); }
 .fg-ec-ht { flex: 1; min-width: 0; }
 .fg-ec-ht b { display: block; font-size: var(--t-lg); font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fg-ec-sub { display: flex; align-items: center; gap: 7px; font-size: var(--t-xs); color: var(--ink-3); margin-top: 1px; }
 .fg-ec-ver { font-family: var(--mono); background: var(--cc-active); color: var(--ink-2); padding: 0 6px; border-radius: var(--r-tag); }
 .fg-ec-path { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
+
+/* ===== picker（对话右岛：名字下拉切换预览实体）===== */
+.fg-ec-namebtn { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 5px 1px 4px; margin-left: -4px; border-radius: var(--r-tag); cursor: pointer; transition: background var(--d-fast); }
+.fg-ec-namebtn:hover { background: var(--cc-hover); }
+.fg-ec-namebtn .fg-ec-name { display: inline-block; max-width: 100%; }
+.fg-ec-pchev { flex: none; display: grid; place-items: center; color: var(--ink-3); }
+.fg-ec-pmenu { position: absolute; top: calc(100% - 4px); left: 40px; z-index: 20; min-width: 196px; max-height: 340px; overflow-y: auto;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-chip); padding: 5px; box-shadow: var(--shadow-pop); display: none; }
+.fg-ec-pmenu.open { display: block; animation: fgEcCardIn .16s var(--ease-out); }
+.fg-ec-popt { display: flex; align-items: center; gap: 9px; width: 100%; height: 34px; padding: 0 9px; border-radius: var(--r-btn); text-align: left; color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }
+.fg-ec-popt:hover { background: var(--cc-hover); color: var(--ink); }
+.fg-ec-popt.on { background: var(--cc-active); color: var(--ink); }
+.fg-ec-pico { flex: none; display: grid; place-items: center; color: var(--ink-3); }
+.fg-ec-pnm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fg-ec-pkd { flex: none; font-size: var(--t-xs); color: var(--ink-3); }
+
+/* 内容原位替换的入场（切换/锻造时淡入上浮——给「自动切换 + 各种动画」的感） */
+.fg-ec { animation: fgEcCardIn .3s var(--ease-out); }
+@keyframes fgEcCardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 /* live 徽（锻造中/编辑中脉冲；已保存 dim）。脉冲环走 accent-soft，节奏 1.4s 同 chat */
 .fg-ec-livewrap { flex: none; }
@@ -84,9 +103,8 @@
 .fg-ec-branch.bad .fg-ec-bwhen { color: var(--danger); }
 .fg-ec-bport { flex: none; font-size: var(--t-xs); font-family: var(--mono); color: var(--ink-2); background: var(--cc-active); padding: 1px 7px; border-radius: var(--r-tag); }
 
-/* ===== 脚注（id + runs + 历史版本动作）。镜像 chat .ec-foot ===== */
+/* ===== 脚注（runs + 历史版本动作；不显机器 ID）。镜像 chat .ec-foot ===== */
 .fg-ec-foot { padding: 10px 0 4px; display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--ink-3); border-top: 1px solid var(--line); margin-top: 8px; }
-.fg-ec-fid { font-family: var(--mono); }
 .fg-ec-fgap { flex: 1; }
 .fg-ec-act { color: var(--ink-2); font-weight: 500; cursor: pointer; }
 .fg-ec-act:hover { color: var(--ink); }
@@ -141,7 +159,6 @@
 .fg-ec-lrow { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: var(--r-btn); cursor: pointer; transition: background .12s; }
 .fg-ec-lrow:hover { background: var(--cc-hover); }
 .fg-ec-cst { display: grid; place-items: center; flex: none; }
-.fg-ec-cid { font-family: var(--mono); font-size: var(--t-sm); color: var(--ink); }
-.fg-ec-ctrig { font-size: var(--t-xs); color: var(--ink-2); }
+.fg-ec-ctrig { font-size: var(--t-sm); color: var(--ink); }   /* 触发标签 = 这条执行的人读标识（机器 ID 不显） */
 .fg-ec-cmeta { margin-left: auto; font-size: var(--t-xs); color: var(--ink-3); }
 .fg-ec-cdur { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); min-width: 44px; text-align: right; }
