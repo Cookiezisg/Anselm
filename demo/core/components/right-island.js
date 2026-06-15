@@ -36,7 +36,10 @@
     else if (!icoEl.innerHTML) icoEl.classList.add('fg-island-ico-empty');
     if (opts.title != null) titleEl.textContent = opts.title;
 
-    const hide = () => el.classList.remove('show');
+    // 宽度走 JS 内联具体 px（width 过渡到 var() 在部分引擎不触发；字面量 px 才可靠滑入）。reflow 提交 0 基线。
+    const W = opts.width || 372;
+    const hide = () => { el.classList.remove('show'); el.style.width = ''; };
+    const reveal = () => { void el.offsetWidth; el.style.width = W + 'px'; el.classList.add('show'); };
     xBtn.onclick = hide;
 
     return {
@@ -45,9 +48,9 @@
       body,
       // 整体替换头部 html（海洋自定义副行/徽章时用；不传则保留默认 图标+标题+关 脚手架）。
       setHead(html) { head.innerHTML = html == null ? '' : html; return head; },
-      show() { el.classList.add('show'); return this; },
+      show() { reveal(); return this; },
       hide() { hide(); return this; },
-      toggle() { el.classList.toggle('show'); return this; },
+      toggle() { el.classList.contains('show') ? hide() : reveal(); return this; },
       isOpen() { return el.classList.contains('show'); },
     };
   }

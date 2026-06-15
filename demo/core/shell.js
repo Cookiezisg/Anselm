@@ -11,23 +11,15 @@
         <main class="main">
           <div class="main-head">
             <span id="head-lead"></span>
-            <div class="crumb"><span class="ico" id="i_repo"></span> Forgify <span class="sep">/</span> <span class="muted" id="crumb-ocean"></span></div>
             <span class="grow"></span>
             <span id="head-extra"></span>
-            <button class="ibtn" id="i_theme" title="明暗主题"></button>
           </div>
           <div class="sea" id="sea"></div>
         </main>
       </div>
     </div>`;
 
-  $('#i_repo').innerHTML = icon('forge', 15);
-  $('#i_theme').innerHTML = icon('moon');
-  $('#i_theme').onclick = () => {
-    const d = document.documentElement.dataset.theme === 'dark';
-    document.documentElement.dataset.theme = d ? 'light' : 'dark';
-    $('#i_theme').innerHTML = icon(d ? 'moon' : 'sun');
-  };
+  // 外壳不再显示面包屑/品牌盾牌/主题钮——海洋自管头部（head-lead/head-extra）；主题归设置海洋。
 
   // 滚动自隐：捕获阶段抓全文档滚动 → 置位 html[data-scrolling]，停 700ms 清
   let st;
@@ -44,7 +36,7 @@
     get headLead() { return $('#head-lead'); },
     get sideWidth() { return parseFloat(getComputedStyle($('#left')).width) || 0; },
     headExtra(html) { const s = $('#head-extra'); s.innerHTML = html; return s; },
-    crumb(text) { $('#crumb-ocean').textContent = text || ''; },
+    crumb() { /* 外壳不再显示面包屑；海洋自管头部。保留空方法供海洋调用不报错。 */ },
     registerOcean(id, def) { this.oceans[id] = def; },
     mount(id) {
       const o = this.oceans[id];

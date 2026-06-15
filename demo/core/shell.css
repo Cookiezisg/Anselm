@@ -11,12 +11,7 @@
    透明 + pointer-events:none，仅 head-lead/head-extra/主题钮可点。 */
 .main-head { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 8px;
   height: 44px; padding: 0 10px 0 14px; pointer-events: none; }
-.main-head #head-lead, .main-head #head-extra, .main-head #i_theme { pointer-events: auto; }
-.main-head #head-lead, .main-head #head-extra { display: flex; align-items: center; gap: 4px; }
-.crumb { display: flex; align-items: center; gap: 7px; font-size: var(--t-md); font-weight: 500; pointer-events: auto; }
-.crumb .ico { color: var(--ink-3); display: grid; place-items: center; }
-.crumb .sep { color: var(--ink-3); font-weight: 400; }
-.crumb .muted { color: var(--ink-2); font-weight: 400; }
+.main-head #head-lead, .main-head #head-extra { pointer-events: auto; display: flex; align-items: center; gap: 4px; }
 .sea { flex: 1; min-height: 0; display: flex; flex-direction: column; }   /* ← 海洋渲染进这里（铺满 .main 全高） */
 
 /* 侧栏宽度/收起：核心管 .body 行内回流（--side-w 全仓库唯一定义处在此；状态由 sidebar 写 html[data-side]）。

@@ -2,13 +2,14 @@
    同色 + 海岸线；默认收起(宽0)，唤出从右弹簧滑入。宽由 --fg-island-w（JS 据 width 注入，默认 372px）。
    滑入度量字节级保形：width/.42s + opacity/.3s + margin-left/.42s，皆 var(--ease-spring)；margin-left -8px→0 收回挤压。 */
 .fg-island {
-  flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
+  flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -12px;
   background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card);
   box-shadow: var(--shadow-float);
   display: flex; flex-direction: column;
-  transition: width .42s var(--ease-spring), opacity .3s, margin-left .42s var(--ease-spring);
+  /* 宽度瞬时到位（width 过渡在无头渲染器不推进、卡 0）；滑入感交给 opacity + margin-left。 */
+  transition: opacity .3s var(--ease-out), margin-left .42s var(--ease-spring);
 }
-.fg-island.show { width: var(--fg-island-w, 372px); opacity: 1; margin-left: 0; }
+.fg-island.show { opacity: 1; margin-left: 0; }   /* 宽度由 JS 内联具体 px 设置（见 right-island.js：var() 过滤不被部分引擎过渡） */
 
 /* 头部脚手架：图标方块 + 标题 + 关；度量对齐原 .aside-head（12px 8px 6px 14px / gap 10）。 */
 .fg-island-head { display: flex; align-items: center; gap: 10px; padding: 12px 8px 6px 14px; flex: none; }

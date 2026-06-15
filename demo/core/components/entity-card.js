@@ -299,11 +299,15 @@
       root = window.tag('div.fg-ec'); document.body.appendChild(root); body = root;
     }
 
-    // 头部（kind 图标 + 名 + 副行 + live 徽）——RightIsland 已含图标+标题，故此处头给副行+live；就地模式给完整头
+    // 头部（kind 图标 + 名 + 副行 + live 徽 + 关闭[抽屉模式]）。抽屉模式：藏 RightIsland 默认头（图标+标题+关），
+    // 用 EntityCard 自带富头作唯一标题（修双标题 bug）；锚点(data-ec-live/ver)仍在 root 内，handle 的 q 不变。
+    if (shell && shell.head) shell.head.style.display = 'none';
+    const closeBtn = shell ? `<button class="ibtn fg-ec-x" type="button" title="关闭">${ICO('close', 16)}</button>` : '';
     const headInner = `<span class="fg-ec-etype">${ICO(k.icon, 17)}</span>`
       + `<span class="fg-ec-ht"><b class="fg-ec-name">${esc(a.name || '')}</b><span class="fg-ec-sub">${headSub(a)}</span></span>`
-      + `<span class="fg-ec-livewrap" data-ec-live>${liveBadge(a.live)}</span>`;
+      + `<span class="fg-ec-livewrap" data-ec-live>${liveBadge(a.live)}</span>${closeBtn}`;
     body.appendChild(window.tag('div.fg-ec-head', headInner));
+    if (shell) { const x = body.querySelector('.fg-ec-x'); if (x) x.onclick = () => shell.hide(); }
 
     // 四 tab（经公开 Tabs；懒渲染每 tab）
     const tabsHost = window.tag('div.fg-ec-tabs'); body.appendChild(tabsHost);

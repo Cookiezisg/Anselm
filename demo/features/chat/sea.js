@@ -14,7 +14,7 @@
   // 锚点：当前播放 token（停止/切会话即 ++ → 旧异步循环自检退出）；当前脚本 + 标题
   let runId = 0, curScript = null, curTitle = '';
   let conv, col, dock, card;
-  const alive = id => id === runId;
+  const alive = id => id === runId && (!window.Shell || Shell._ocean === 'chat');   // 切走对话海洋即令所有异步 demo 自退（右岛不漏到别的海洋）
   const toBottom = () => { if (conv) conv.scrollTop = conv.scrollHeight; };
   // 行内提及标记 {{kind:label}} → RefPill html（kind∈实体类型/doc）。label 缺省同 kind。
   const KMAP = { function: 'function', handler: 'handler', agent: 'agent', workflow: 'workflow', control: 'control', approval: 'approval', trigger: 'trigger', mcp: 'mcp', doc: 'doc', search: 'search' };
@@ -49,6 +49,7 @@
 
   // 右岛实体卡：经 EntityCard.mount(null) 走 RightIsland('entity-card') 槽自渲染；handle 暴露 fill/reveal/setSt
   function forgeCard(seed) {
+    if (window.Shell && Shell._ocean !== 'chat') return card;   // 已切走 → 不重建右岛（右岛跟海洋走）
     if (card) card.destroy();
     card = EntityCard.mount(null, seed);   // host=null → RightIsland 抽屉滑入
     return card;

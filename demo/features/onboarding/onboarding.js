@@ -163,8 +163,8 @@
 
   /* ===== 装配：注入 SVG → 挂段控/下拉/供应商网格 → 接线 ===== */
   function boot() {
-    // 品牌徽 + data-ico 占位图标
-    $('#onbMark').innerHTML = icon('forge', 23, 1.9);
+    // 品牌徽 Foryx（像素 F：6 方块；固定黑白品牌资产，非 CSS 不受裸色令牌约束）+ data-ico 占位图标
+    $('#onbMark').innerHTML = `<svg viewBox="0 0 512 512" width="44" height="44" role="img" aria-label="Foryx"><rect width="512" height="512" rx="114" fill="#ffffff"/><g fill="#141414"><rect x="106" y="106" width="88" height="88"/><rect x="212" y="106" width="88" height="88"/><rect x="318" y="106" width="88" height="88"/><rect x="106" y="212" width="88" height="88"/><rect x="212" y="212" width="88" height="88"/><rect x="106" y="318" width="88" height="88"/></g></svg>`;
     $$('[data-ico]').forEach(el => el.innerHTML = icon(el.dataset.ico, +el.dataset.n || 14, el.classList.contains('onb-box') ? 2.6 : 1.7));
 
     // 语言段控（组件）：切换即重译整页

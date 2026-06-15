@@ -50,7 +50,7 @@
 
   // ===== 右岛 = 元信息抽屉（组件 RightIsland 基座 + 海洋填 body：TOC / 反链 / 信息） =====
   function ensureIsland() {
-    if (island) return island;
+    if (island && island.el && island.el.isConnected) return island;   // 切走再回来时旧元素已被 Shell.mount 清掉 → 重建（修右岛打不开）
     island = RightIsland.create('documents', { title: '文档信息', icon: 'panel', width: 300 });
     island.setHead(`<span class="fg-island-ico">${icon('panel', 17)}</span>
       <span class="fg-island-title">文档信息</span>

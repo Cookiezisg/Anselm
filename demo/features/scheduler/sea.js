@@ -12,7 +12,7 @@
 
   function openNode(run, id) {
     const nd = run.nodes.find(x => x.id === id) || {}, m = run.memo[id] || {}, st = run.state[id] || 'future';
-    if (!island) island = RightIsland.create('scheduler', { title: id, icon: (window.NODE_ICON || {})[nd.kind] || 'action' });
+    if (!island || !island.el || !island.el.isConnected) island = RightIsland.create('scheduler', { title: id, icon: (window.NODE_ICON || {})[nd.kind] || 'action' });   // 切走再回来旧元素被清 → 重建
     island.setHead(`<span class="fg-island-ic">${icon((window.NODE_ICON || {})[nd.kind] || 'action', 17)}</span>
       <span class="sch-ndh"><b>${id}</b><span class="sch-ndsub">${nd.kind || ''} · ${StatusDot.dot(st)} ${ST_TX[window.stState ? window.stState(st) : st] || st}</span></span>
       <button class="fg-island-x">${icon('close', 16)}</button>`);
