@@ -49,31 +49,91 @@
   const setGen = on => { const c = qs('#chatComposer'); if (c) c.classList.toggle('gen', on); };
   const tdet = ti => qs('.fg-bk-ti-det > .fg-bk-w', ti);   // 取工具项详情宿主（组件结构契约）
 
-  // —— 右岛 = 常驻实体预览面板：随时唤起，平时 preview（picker 选已有实体）；message 流锻造/触达某实体 → 自动切到它 + 动画流式。
-  //    card = 当前 EntityCard handle；islandKey = 当前预览实体键。持久抽屉：内容原位替换、不重建抽屉（见 entity-card 的 shell 复用）。
-  let islandKey = null;
-  const CAT = () => M().entities || {};   // 预览 picker 的目录 = 本会话触达的实体
-  const pickerItems = () => Object.keys(CAT()).map(key => ({ key, name: CAT()[key].name, kind: CAT()[key].kind }));
-  const firstKey = () => Object.keys(CAT())[0];
-  const keyForSeed = seed => { const c = CAT(); return Object.keys(c).find(k => c[k].name === seed.name) || null; };
+  // —— 右岛 = 实体面板：没绑实体 → 完整列表页（点选）；绑了某实体 → EntityCard 预览 + 名字 picker（最近 + 其他级联）。
+  //    浏览目录 = 全工作区实体（MOCK_ENTITIES，按类型分组，像侧边栏实体页）；forge seed 是对话锻造的实体、直接预览。
+  let islandCur = null, islandH = null;   // islandCur: null(空态=列表页) | ws-key 字符串 | forge seed 对象
+  const recent = [];                       // 最近预览的 ws-key（picker 快切）
+  const WS = () => window.MOCK_ENTITIES || {};
+  // 分组（对齐实体侧边栏：Quadrinity / 图件 / 连接 / 技能 → 类型）
+  const EGROUPS = [
+    ['Quadrinity', [['function', 'Functions'], ['handler', 'Handlers'], ['agent', 'Agents'], ['workflow', 'Workflows']]],
+    ['Graph parts', [['trigger', 'Triggers'], ['control', 'Controls'], ['approval', 'Approvals']]],
+    ['Connections', [['mcp', 'MCP']]],
+    ['Skills', [['skill', 'Skills']]],
+  ];
+  const kindIco = kind => (window.ENTITY_KINDS && ENTITY_KINDS[kind] ? ENTITY_KINDS[kind].icon : kind);
+  // 工作区实体按类型分组（列表页 + 其他级联共用）
+  function browseGroups() {
+    const ws = WS(), byKind = {};
+    Object.keys(ws).forEach(k => { (byKind[ws[k].kind] = byKind[ws[k].kind] || []).push(k); });
+    return EGROUPS.map(([g, types]) => ({ group: g, types: types.map(([kind, label]) => ({ kind, label, keys: byKind[kind] || [] })).filter(t => t.keys.length) })).filter(x => x.types.length);
+  }
+  // MOCK_ENTITIES → EntityCard 形状适配（两套 mock 字段差异：handler/trigger/mcp/approval/workflow 重映；function/agent/control/skill 直接用）
+  function wsToCard(key) {
+    const e = WS()[key]; if (!e) return null;
+    const a = Object.assign({ name: key, id: e.id || 'ent_' + key }, e);
+    const kv = (arr, k) => { const r = (arr || []).find(x => x[0] === k); return r ? r[1] : undefined; };
+    if (e.kind === 'handler') {
+      a.classCode = e.code; a.runtime = e.life === 'active' ? 'ready' : 'unconfigured'; a.configState = e.cfg;
+      a.methods = (e.methods || []).map(m => Array.isArray(m) ? m[0] : m);
+      a.initArgs = (e.initArgs || []).map(x => Array.isArray(x) ? { name: x[0], value: x[1], sensitive: x[2] } : x);
+    } else if (e.kind === 'workflow') { a.lifecycle = e.life || 'inactive'; }
+    else if (e.kind === 'trigger') { a.source = kv(e.cfg, '源类型') || 'webhook'; a.config = e.cfg || []; a.listeners = (e.rel || []).flatMap(r => (r.rows || []).map(x => x.name)); }
+    else if (e.kind === 'mcp') { a.transport = kv(e.cfg, '传输') || 'stdio'; a.transportCfg = e.cfg || []; a.secrets = []; }
+    else if (e.kind === 'approval') { a.allowReason = kv(e.rules, 'allowReason') === 'true'; a.timeout = kv(e.rules, 'timeout') || '永不超时'; a.behavior = kv(e.rules, 'timeoutBehavior') || 'reject'; a.validity = 'ready'; }
+    return a;
+  }
+  const islandAside = () => ((window.Shell && Shell.body) || document.body).querySelector('aside.fg-island[data-ocean-right="entity-card"]');
+  const islandShown = () => { const a = islandAside(); return !!(a && a.classList.contains('show')); };
 
-  // 挂/切实体卡到右岛。seedOrKey：字符串键 → 取目录预览；对象 → forge seed。返回 EntityCard handle。
-  function islandTo(seedOrKey) {
-    if (window.Shell && Shell._ocean !== 'chat') return card;   // 右岛跟海洋走，别漏到别的海洋
-    const seed = typeof seedOrKey === 'string' ? CAT()[seedOrKey] : seedOrKey;
-    if (!seed) return card;
-    islandKey = typeof seedOrKey === 'string' ? seedOrKey : keyForSeed(seed);
-    card = EntityCard.mount(null, seed, {
-      noIterate: true,   // 对话里就不要「迭代」tab（自指）
-      picker: { items: pickerItems(), current: islandKey, onPick: k => islandTo(k) },
-    });
+  // picker opts：最近预览（快切）+ 其他级联（按类型浏览全工作区）
+  function pickerOpts() {
+    return {
+      items: recent.map(k => ({ key: k, name: k, kind: (WS()[k] || {}).kind })),
+      current: typeof islandCur === 'string' ? islandCur : null,
+      browse: browseGroups(), onPick: k => islandTo(k),
+    };
+  }
+  // 预览：ws-key → 规范化工作区实体；seed 对象 → forge 直接。返回 EntityCard handle。
+  function islandTo(keyOrSeed) {
+    if (window.Shell && Shell._ocean !== 'chat') return;
+    const seed = typeof keyOrSeed === 'string' ? wsToCard(keyOrSeed) : keyOrSeed;
+    if (!seed) return;
+    islandCur = keyOrSeed;
+    if (typeof keyOrSeed === 'string') { const i = recent.indexOf(keyOrSeed); if (i >= 0) recent.splice(i, 1); recent.unshift(keyOrSeed); if (recent.length > 5) recent.pop(); }
+    card = islandH = EntityCard.mount(null, seed, { noIterate: true, picker: pickerOpts() });
     return card;
   }
-  // 头部按钮唤起/收起：无卡 → 以默认实体 preview 唤起；有卡 → 开合（保留内容）
+  // 空态：完整列表页（分组 → 类型 → 实体行，点选 → 预览）。复用抽屉默认头。
+  function islandList() {
+    if (window.Shell && Shell._ocean !== 'chat') return;
+    card = null; islandCur = null;
+    const shell = RightIsland.create('entity-card', { title: '选择实体', icon: 'entities', width: 384 });
+    if (shell.head) shell.head.style.display = '';   // EntityCard 预览时藏了默认头，列表页用回它
+    shell.body.innerHTML = '';
+    shell.body.appendChild(buildListPage());
+    shell.show(); islandH = shell;
+  }
+  function buildListPage() {
+    const root = tag('div.chat-elist');
+    browseGroups().forEach(g => {
+      root.appendChild(tag('div.chat-elist-grp', g.group));
+      g.types.forEach(t => {
+        root.appendChild(tag('div.chat-elist-ty', `<span class="chat-elist-tyico">${icon(kindIco(t.kind), 15)}</span><span class="chat-elist-tynm">${t.label}</span><span class="chat-elist-cnt">${t.keys.length}</span>`));
+        t.keys.forEach(k => {
+          const r = tag('div.chat-elist-row', { 'data-key': k }, `<span class="chat-elist-dot">${StatusDot.dot((WS()[k] || {}).status || 'idle')}</span><span class="chat-elist-nm">${k}</span>`);
+          r.onclick = () => islandTo(k);
+          root.appendChild(r);
+        });
+      });
+    });
+    return root;
+  }
+  // 头部按钮唤起/收起：开着 → 收；关着 → 没绑放列表页、绑了放预览
   function toggleIsland() {
     if (window.Shell && Shell._ocean !== 'chat') return;
-    if (!card || !card.el || !card.el.isConnected) { islandTo(CAT()[islandKey] ? islandKey : firstKey()); return; }
-    card.toggle();
+    if (islandShown()) { if (islandH && islandH.hide) islandH.hide(); return; }
+    if (islandCur == null) islandList(); else islandTo(islandCur);
   }
 
   // —— 单 beat 渲染（声明式 → 组件调用）。返回 Promise（含流式/审批等待）。 ——
@@ -225,7 +285,7 @@
     const beats = SCRIPT(scriptId); if (!beats) return;
     const id = ++runId; curScript = scriptId; curTitle = title || (M().titles || {})[scriptId] || scriptId;
     setTitle(curTitle);
-    col.innerHTML = ''; if (card) { card.destroy(); card = null; } setGen(true); if (dock) dock.hide();
+    col.innerHTML = ''; const _ia = islandAside(); if (_ia) _ia.remove(); card = islandH = null; islandCur = null; recent.length = 0; setGen(true); if (dock) dock.hide();   // 新会话：右岛重置为「未绑」（再唤起 = 列表页）
 
     let turn = null;
     for (const b of beats) {

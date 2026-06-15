@@ -310,9 +310,20 @@
     const nameHtml = o.picker
       ? `<button class="fg-ec-namebtn" type="button"><b class="fg-ec-name">${esc(a.name || '')}</b><span class="fg-ec-pchev">${ICO('chevd', 12)}</span></button>`
       : `<b class="fg-ec-name">${esc(a.name || '')}</b>`;
+    // 其他级联（岛内 inline 手风琴，因右岛 overflow:hidden 飞不出去）：hover 其他 → 类型；hover 类型 → 其实体（点选）
+    const browseMenu = grps => `<div class="fg-ec-potherwrap">`
+      + `<div class="fg-ec-popt fg-ec-pother"><span class="fg-ec-pico">${ICO('more', 15)}</span><span class="fg-ec-pnm">其他</span><span class="fg-ec-pmore">${ICO('chevr', 12)}</span></div>`
+      + `<div class="fg-ec-ptree">` + (grps || []).map(g =>
+          `<div class="fg-ec-pgrp">${esc(g.group)}</div>` + (g.types || []).map(t =>
+            `<div class="fg-ec-ptype"><div class="fg-ec-popt fg-ec-ptyrow"><span class="fg-ec-pico">${ICO(kindMeta(t.kind).icon, 15)}</span><span class="fg-ec-pnm">${esc(t.label)}</span><span class="fg-ec-pcnt">${(t.keys || []).length}</span><span class="fg-ec-pmore">${ICO('chevr', 12)}</span></div>`
+            + `<div class="fg-ec-pents">` + (t.keys || []).map(key =>
+                `<button class="fg-ec-popt fg-ec-pent" data-key="${esc(key)}"><span class="fg-ec-pdot"></span><span class="fg-ec-pnm">${esc(key)}</span></button>`).join('')
+            + `</div></div>`).join('')
+        ).join('') + `</div></div>`;
     const pmenu = o.picker
       ? `<div class="fg-ec-pmenu">` + (o.picker.items || []).map(it =>
-          `<button class="fg-ec-popt${it.key === o.picker.current ? ' on' : ''}" data-key="${esc(it.key)}"><span class="fg-ec-pico">${ICO(kindMeta(it.kind).icon, 15)}</span><span class="fg-ec-pnm">${esc(it.name)}</span><span class="fg-ec-pkd">${esc(kindMeta(it.kind).label)}</span></button>`).join('') + `</div>`
+          `<button class="fg-ec-popt${it.key === o.picker.current ? ' on' : ''}" data-key="${esc(it.key)}"><span class="fg-ec-pico">${ICO(kindMeta(it.kind).icon, 15)}</span><span class="fg-ec-pnm">${esc(it.name)}</span><span class="fg-ec-pkd">${esc(kindMeta(it.kind).label)}</span></button>`).join('')
+          + (o.picker.browse ? ((o.picker.items && o.picker.items.length) ? `<div class="fg-ec-pdiv"></div>` : '') + browseMenu(o.picker.browse) : '') + `</div>`
       : '';
     const headInner = `<span class="fg-ec-etype">${ICO(k.icon, 17)}</span>`
       + `<span class="fg-ec-ht">${nameHtml}<span class="fg-ec-sub">${headSub(a)}</span></span>`
@@ -323,7 +334,7 @@
     if (o.picker) {
       const nameBtn = body.querySelector('.fg-ec-namebtn'), menu = body.querySelector('.fg-ec-pmenu');
       nameBtn.onclick = e => { e.stopPropagation(); menu.classList.toggle('open'); };
-      menu.querySelectorAll('.fg-ec-popt').forEach(op => op.onclick = e => { e.stopPropagation(); menu.classList.remove('open'); o.picker.onPick && o.picker.onPick(op.dataset.key); });
+      menu.querySelectorAll('.fg-ec-popt[data-key]').forEach(op => op.onclick = e => { e.stopPropagation(); menu.classList.remove('open'); o.picker.onPick && o.picker.onPick(op.dataset.key); });
       // 外点收起：全局只注册一次（仿 dropdown.js __fgDDClose）。持久抽屉里 mount 反复调——绝不每次挂监听（会累积 + 留住脱离的菜单子树），改全局选择器扫 .fg-ec-pmenu.open
       if (!window.__fgEcPickerClose) { window.__fgEcPickerClose = true; document.addEventListener('click', () => document.querySelectorAll('.fg-ec-pmenu.open').forEach(m => m.classList.remove('open'))); }
     }

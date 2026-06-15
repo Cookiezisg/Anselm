@@ -19,7 +19,7 @@
 .fg-ec-namebtn:hover { background: var(--cc-hover); }
 .fg-ec-namebtn .fg-ec-name { display: inline-block; max-width: 100%; }
 .fg-ec-pchev { flex: none; display: grid; place-items: center; color: var(--ink-3); }
-.fg-ec-pmenu { position: absolute; top: calc(100% - 4px); left: 40px; z-index: 20; min-width: 196px; max-height: 340px; overflow-y: auto;
+.fg-ec-pmenu { position: absolute; top: calc(100% - 4px); left: 40px; z-index: 20; min-width: 200px; max-height: 70vh; overflow-y: auto;
   background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-chip); padding: 5px; box-shadow: var(--shadow-pop); display: none; }
 .fg-ec-pmenu.open { display: block; animation: fgEcCardIn .16s var(--ease-out); }
 .fg-ec-popt { display: flex; align-items: center; gap: 9px; width: 100%; height: 34px; padding: 0 9px; border-radius: var(--r-btn); text-align: left; color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }
@@ -28,6 +28,21 @@
 .fg-ec-pico { flex: none; display: grid; place-items: center; color: var(--ink-3); }
 .fg-ec-pnm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fg-ec-pkd { flex: none; font-size: var(--t-xs); color: var(--ink-3); }
+
+/* 其他级联（岛内 inline 手风琴；右岛 overflow:hidden 飞不出去 → 就地展开）：hover 其他 → 类型树；hover 类型 → 其实体 */
+.fg-ec-pdiv { height: 1px; background: var(--line); margin: 5px 4px; }
+.fg-ec-pmore { flex: none; display: grid; place-items: center; color: var(--ink-3); transition: transform .15s var(--ease-spring); }
+.fg-ec-pcnt { flex: none; font-size: var(--t-xs); color: var(--ink-3); }
+.fg-ec-ptree { display: none; }
+.fg-ec-potherwrap:hover .fg-ec-ptree { display: block; }
+.fg-ec-potherwrap:hover > .fg-ec-pother .fg-ec-pmore { transform: rotate(90deg); }
+.fg-ec-pgrp { padding: 8px 9px 3px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); }
+.fg-ec-pents { display: none; }
+.fg-ec-ptype:hover .fg-ec-pents { display: block; }
+.fg-ec-ptype:hover > .fg-ec-ptyrow .fg-ec-pmore { transform: rotate(90deg); }
+.fg-ec-pent { height: 30px; padding-left: 30px; }
+.fg-ec-pent .fg-ec-pnm { font-size: var(--t-sm); }
+.fg-ec-pdot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); opacity: .5; }
 
 /* 内容原位替换的入场（切换/锻造时淡入上浮——给「自动切换 + 各种动画」的感） */
 .fg-ec { animation: fgEcCardIn .3s var(--ease-out); }

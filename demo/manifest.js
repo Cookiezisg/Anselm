@@ -4,7 +4,7 @@
         owns[](Intent 选中 kind 归属) · sea/rail/css(模块入口，相对 demo/ 根) · standalone(独立整页) · gallery/desc(画廊卡)。
    规则：append-only；不存在的入口文件 = 该海洋懒加载时占位，不报错。 */
 window.MANIFEST = [
-  { id: 'chat',          label: 'Chat',       icon: 'chat',      nav: 1, default: 1, owns: ['conversation'], data: ['mock/conversations.js'],
+  { id: 'chat',          label: 'Chat',       icon: 'chat',      nav: 1, default: 1, owns: ['conversation'], data: ['mock/conversations.js', 'mock/entities.js'],
     sea: 'features/chat/sea.js',       rail: 'features/chat/rail.js',       gallery: 1, desc: '主对话 + 信号交互：AI 锻造实体时右岛实时编辑。' },
   { id: 'entities',      label: 'Entities',   icon: 'entities',  nav: 1,             owns: ['entity'], data: ['mock/entities.js'],
     sea: 'features/entities/sea.js',   rail: 'features/entities/rail.js',   gallery: 1, desc: '四项全能实体的家：完整展示 + 调试 + 修改。' },

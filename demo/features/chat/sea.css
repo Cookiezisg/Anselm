@@ -89,3 +89,17 @@
 .chat-qaitem:hover { background: var(--cc-hover); }
 .chat-qaitem.danger { color: var(--danger); }
 .chat-qaitem.danger:hover { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+
+/* 右岛空态：实体选择列表页（分组 → 类型 → 实体行，点选预览）。渲进 RightIsland body，类名 chat-elist- 专属。 */
+.chat-elist { display: flex; flex-direction: column; }
+.chat-elist-grp { padding: 13px 4px 4px; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+.chat-elist-grp:first-child { padding-top: 2px; }
+.chat-elist-ty { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; font-size: var(--t-sm); font-weight: 500; color: var(--ink-2); }
+.chat-elist-tyico { flex: none; display: grid; place-items: center; color: var(--ink-3); }
+.chat-elist-tynm { flex: 1; min-width: 0; }
+.chat-elist-cnt { flex: none; font-size: var(--t-xs); color: var(--ink-3); }
+.chat-elist-row { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 8px 0 28px; border-radius: var(--r-btn);
+  color: var(--ink-2); font-size: var(--t-md); cursor: pointer; transition: background var(--d-fast); }   /* color 不入过渡：无头渲染器冻初值 */
+.chat-elist-row:hover { background: var(--cc-hover); color: var(--ink); }
+.chat-elist-dot { flex: none; display: grid; place-items: center; }
+.chat-elist-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
