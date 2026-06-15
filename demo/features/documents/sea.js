@@ -51,14 +51,11 @@
   // ===== 右岛 = 元信息抽屉（组件 RightIsland 基座 + 海洋填 body：TOC / 反链 / 信息） =====
   function ensureIsland() {
     if (island && island.el && island.el.isConnected) return island;   // 切走再回来时旧元素已被 Shell.mount 清掉 → 重建（修右岛打不开）
-    island = RightIsland.create('documents', { title: '文档信息', icon: 'panel', width: 300 });
-    island.setHead(`<span class="fg-island-ico">${icon('panel', 17)}</span>
-      <span class="fg-island-title">文档信息</span>
-      <button class="fg-island-x">${icon('close', 16)}</button>`);
-    island.el.querySelector('.fg-island-x').onclick = () => island.hide();
+    // 不传 icon、不自定义 head：组件默认头隐空图标槽 + 标题 + 关（关已组件内置）——求轻，去掉标题前那个大图标方块
+    island = RightIsland.create('documents', { title: '文档信息', width: 300 });
     return island;
   }
-  // 大纲从正文 H2/H3 实时抽（scroll-spy 示意，当前节中性灰底高亮、非 accent）。
+  // 大纲从正文 H2/H3 实时抽（scroll-spy 示意，当前节 = 黑字，不靠蓝线/灰块）。
   function renderIsland(doc) {
     ensureIsland();
     const b = island.body; b.innerHTML = '';

@@ -163,13 +163,13 @@
 .da-h-n { font-weight: 500; color: var(--ink-3); opacity: .6; }
 .da-empty { padding: 3px 10px; font-size: var(--t-sm); color: var(--ink-3); }
 
-/* 大纲：缩进列表 + 当前节 accent 细左线（accent 只点「正在看的」，不靠灰块） */
+/* 大纲：缩进列表；当前节仅以黑字标示（去蓝线/灰块——黑色足够） */
 .da-toc { display: flex; flex-direction: column; }
-.da-toc-a { display: block; padding: 5px 10px; border-left: 2px solid transparent; border-radius: 0 var(--r-btn) var(--r-btn) 0;
+.da-toc-a { display: block; padding: 5px 10px; border-radius: var(--r-btn);
   font-size: var(--t-md); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: background var(--d-fast); }
 .da-toc-a:hover { background: var(--cc-hover); color: var(--ink); }
 .da-toc-a.h3 { padding-left: 24px; font-size: var(--t-sm); color: var(--ink-3); }
-.da-toc-a.on { color: var(--ink); border-left-color: var(--accent); }
+.da-toc-a.on { color: var(--ink); font-weight: 500; }
 
 /* 反向链接：轻行（链接图标 + 名 + 两行摘要），无药丸 / 无描边 / 无黑粗 */
 .da-back { display: flex; flex-direction: column; }
