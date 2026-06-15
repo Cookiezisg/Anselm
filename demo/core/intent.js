@@ -17,6 +17,7 @@
     select(sel) {
       const fire = () => (subs[sel.kind] || []).forEach(fn => { try { fn(sel); } catch (e) { console.warn('[Intent]', e); } });
       const owner = ownerOf(sel.kind);
+      if (owner && window.Shell && Shell._ocean === owner.id) { fire(); return; }   // 已在归属海洋：只派发、不重挂（保侧栏高亮）
       if (owner && window.Shell && Shell.toOcean) {
         const p = Shell.toOcean(owner.id);
         (p && p.then) ? p.then(fire) : fire();

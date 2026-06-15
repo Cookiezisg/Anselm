@@ -49,6 +49,7 @@
     mount(id) {
       const o = this.oceans[id];
       if (!o) return console.warn('[Shell] ocean not registered:', id);
+      this._ocean = id;   // 当前内容海洋（Intent.select 据此免在同海洋内重挂、保侧栏高亮）
       this.sea.innerHTML = '';
       $('#head-extra').innerHTML = '';
       this.body.querySelectorAll('[data-ocean-right]').forEach(el => el.remove());

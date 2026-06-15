@@ -1,0 +1,28 @@
+/* Forgify demo — 运行海洋海面布局（薄；像素几乎全在组件库）。
+   头部/历史直接铺白底（documents 调性，无盒），图是 RunGraph 自带 canvas。类名 sch- 专属。只读令牌。 */
+.sch { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sch-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.sch-col { max-width: 1040px; margin: 0 auto; padding: 52px 28px 40px; }
+.sch-empty { padding-top: 90px; text-align: center; color: var(--ink-3); font-size: var(--t-md); }
+
+/* 运行头（直接铺白底、无盒；状态徽来自 RunChip.headBadge） */
+.sch-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.sch-rid { font-family: var(--mono); font-size: var(--t-sm); color: var(--ink); }
+.sch-pos { font-size: var(--t-sm); color: var(--ink-2); }
+.sch-pos b { color: var(--ink); font-weight: 600; }
+.sch-ver { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); background: var(--cc-active); padding: 1px 6px; border-radius: var(--r-tag); }
+.sch-src { display: inline-flex; align-items: center; gap: 5px; font-size: var(--t-sm); color: var(--ink-3); }
+.sch-src svg { display: block; }
+.sch-when { font-size: var(--t-sm); color: var(--ink-3); }
+
+.sch-graph { margin-top: 4px; }
+.sch-rail { margin-top: 16px; }
+
+/* 右岛节点详情（RightIsland body 内容） */
+.sch-ndh { flex: 1; min-width: 0; }
+.sch-ndh b { display: block; font-size: var(--t-lg); font-weight: 600; font-family: var(--mono); }
+.sch-ndsub { display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--ink-3); margin-top: 1px; }
+.sch-ndref { font-size: var(--t-sm); color: var(--ink-3); margin: 4px 0 14px; display: flex; align-items: center; gap: 6px; }
+.sch-mono { font-family: var(--mono); }
+.sch-nderr { background: var(--cc-input); border: 1px solid var(--line); border-radius: var(--r-card); padding: 11px 13px; font-family: var(--mono); font-size: var(--t-sm); line-height: 1.6; color: var(--danger); white-space: pre-wrap; }
+.sch-ndout { background: var(--cc-input); border: 1px solid var(--line); border-radius: var(--r-card); padding: 11px 13px; font-family: var(--mono); font-size: var(--t-sm); color: var(--ink); white-space: pre-wrap; }

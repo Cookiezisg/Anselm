@@ -8,7 +8,7 @@ window.MANIFEST = [
     sea: 'features/chat/sea.js',       rail: 'features/chat/rail.js',       gallery: 1, desc: '主对话 + 信号交互：AI 锻造实体时右岛实时编辑。' },
   { id: 'entities',      label: 'Entities',   icon: 'entities',  nav: 1,             owns: ['entity'],
     sea: 'features/entities/sea.js',   rail: 'features/entities/rail.js',   gallery: 1, desc: '四项全能实体的家：完整展示 + 调试 + 修改。' },
-  { id: 'scheduler',     label: 'Scheduler',  icon: 'scheduler', nav: 1,             owns: ['workflow', 'run', 'node'],
+  { id: 'scheduler',     label: 'Scheduler',  icon: 'scheduler', nav: 1,             owns: ['workflow', 'run', 'node'], data: ['mock/workflows.js'],
     sea: 'features/scheduler/sea.js',  rail: 'features/scheduler/rail.js',  gallery: 1, desc: '运维驾驶舱：Conducted Keynote 活运行图 + 历史 + 审批。' },
   { id: 'documents',     label: 'Documents',  icon: 'doc',       nav: 1,             owns: ['document'],
     sea: 'features/documents/sea.js',  rail: 'features/documents/rail.js',  gallery: 1, desc: '零-markdown 心智的 WYSIWYG 文档库。' },
