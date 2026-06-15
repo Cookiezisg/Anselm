@@ -23,14 +23,15 @@
 .ent-life { color: var(--ink-3); }
 .ent-life.active { color: var(--accent); }
 
-/* Tabs 与各项内容间距（Tabs 本体走组件 fg-tabs；此处只调外边距）*/
-.ent-tabwrap { margin-top: 18px; }
+/* 中间编辑器主体（单页竖滚；替代旧 Tabs）*/
+.ent-body { margin-top: 10px; }
 
-/* headExtra 内的操作（顶栏右上；执行钮 + 保存态）*/
-.ent-run { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: var(--r-btn); font-size: var(--t-sm); font-weight: 600;
-  color: var(--ink); border: 1px solid var(--line-strong); transition: background var(--d-fast), border-color var(--d-fast); white-space: nowrap; }
-.ent-run:hover { background: var(--cc-hover); }
-.ent-run svg { display: block; color: var(--ink-2); }
+/* headExtra：保存态 + 「试运行」面板开关（对齐别海洋——右上角开右岛，而非直接 Run）*/
+.ent-dbg { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: var(--r-btn); font-size: var(--t-sm); font-weight: 500;
+  color: var(--ink-2); border: 1px solid var(--line-strong); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); white-space: nowrap; }
+.ent-dbg:hover { background: var(--cc-hover); color: var(--ink); }
+.ent-dbg svg { display: block; }
+.ent-dbg.on { background: var(--cc-active); border-color: transparent; color: var(--ink); }
 .ent-saved { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px; font-size: var(--t-sm); color: var(--ink-3); white-space: nowrap; }
 .ent-saved-ic { display: grid; place-items: center; }
 .ent-saved.dirty { color: var(--accent); }
@@ -91,7 +92,6 @@
 .ent-led { display: flex; flex-direction: column; }
 .ent-lrow { display: flex; align-items: center; gap: 11px; min-height: 36px; padding: 7px 8px; border-radius: var(--r-btn); cursor: pointer; transition: background var(--d-fast); }
 .ent-lrow:hover { background: var(--cc-hover); }
-.ent-cid { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
 .ent-ctrig { font-size: var(--t-xs); color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 0 6px; font-family: var(--mono); }
 .ent-cmeta { font-size: var(--t-sm); color: var(--ink-3); }
 .ent-cdur { margin-left: auto; font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
@@ -125,3 +125,47 @@
 .ent-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ent-stat b { font-size: var(--t-xl); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .ent-stat span { font-size: var(--t-sm); color: var(--ink-3); }
+
+/* ===== 列表分节尾「+ 添加」（完整编辑入口；虚线轻钮）===== */
+.ent-add { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; height: 26px; padding: 0 9px; border-radius: var(--r-btn);
+  font-size: var(--t-sm); color: var(--ink-3); border: 1px dashed var(--line-strong); background: transparent; cursor: pointer; transition: color var(--d-fast), border-color var(--d-fast); }
+.ent-add:hover { color: var(--ink); border-color: var(--ink-3); }
+.ent-add svg { display: block; }
+.ent-newrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--line); }
+.ent-newrow .ent-nm, .ent-newrow .ent-ty { outline: none; border-radius: 3px; }
+.ent-newrow .ent-nm:focus, .ent-newrow .ent-ty:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ===== 折叠分节（版本 / 关系，居中间流末尾）===== */
+.ent-fold { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 4px; }
+.ent-fold-h { display: flex; align-items: center; gap: 7px; width: 100%; height: 36px; text-align: left; font-size: var(--t-md); font-weight: 600; color: var(--ink-2); border-radius: var(--r-btn); cursor: pointer; transition: color var(--d-fast); }
+.ent-fold-h:hover { color: var(--ink); }
+.ent-fold-chev { display: inline-grid; place-items: center; color: var(--ink-3); transition: transform .2s var(--ease-spring); }
+.ent-fold-chev svg { display: block; }
+.ent-fold.open > .ent-fold-h { color: var(--ink); }
+.ent-fold.open .ent-fold-chev { transform: rotate(90deg); }
+.ent-fold-b { padding: 6px 0 2px; }
+.ent-fold:not(.open) > .ent-fold-b { display: none; }
+
+/* ===== 右岛调试中心专属（试运行 + 选择器 + 最近运行 + 节点返回）===== */
+.ent-dbg-pick { margin-bottom: 14px; }
+.ent-dbg-pick > label { display: block; font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); margin-bottom: 7px; }
+.ent-dbg-hint { display: flex; align-items: flex-start; gap: 7px; margin-top: 14px; font-size: var(--t-xs); color: var(--ink-3); line-height: 1.55; }
+.ent-dbg-hint svg { flex: none; margin-top: 1px; display: block; }
+.ent-dbg-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 14px; font-size: var(--t-sm); color: var(--ink-3); cursor: pointer; transition: color var(--d-fast); }
+.ent-dbg-back:hover { color: var(--ink); }
+.ent-dbg-back svg { display: block; transform: rotate(180deg); }   /* chevr 翻 180 = 返回箭头 */
+.ent-dbg-sec { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ent-dbg-h { display: flex; align-items: baseline; gap: 8px; font-size: var(--t-sm); font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.ent-agg-mini { font-weight: 400; font-size: var(--t-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ent-agg-mini b.ok { color: var(--ok); }
+.ent-agg-mini b.bad { color: var(--danger); }
+
+/* ===== 顶栏 ⋯ 更多菜单（Floating 内容；迭代/重命名/复制/删除）===== */
+.ent-omenu { min-width: 184px; background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-chip); padding: 5px; box-shadow: var(--shadow-pop); }
+.ent-oitem { display: flex; align-items: center; gap: 9px; width: 100%; height: 32px; padding: 0 9px; border-radius: var(--r-btn); text-align: left; font-size: var(--t-md); color: var(--ink); transition: background var(--d-fast); }
+.ent-oitem:hover { background: var(--cc-hover); }
+.ent-oico { display: grid; place-items: center; color: var(--ink-3); }
+.ent-oico svg { display: block; }
+.ent-oitem.danger { color: var(--danger); }
+.ent-oitem.danger .ent-oico { color: var(--danger); }
+.ent-osep { height: 1px; background: var(--line); margin: 4px 6px; }
