@@ -8,11 +8,11 @@
 <link rel="stylesheet" href="core/reset.css">
 <style>
   body { padding: 48px 32px; background: var(--sea); }
-  .wrap { max-width: 920px; margin: 0 auto; }
+  .wrap { max-width: 980px; margin: 0 auto; }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 6px; }
   .lead { color: var(--ink-2); font-size: 14px; margin: 0 0 8px; line-height: 1.6; }
-  .theme-btn { position: fixed; top: 20px; right: 24px; }
-  .comp { margin: 34px 0 0; }
+  .theme-btn { position: fixed; top: 20px; right: 24px; z-index: 50; }
+  .comp { margin: 32px 0 0; }
   .comp > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .comp > h2 .api { font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-weight: 400; }
   .comp > .note { font-size: 12px; color: var(--ink-3); margin: 0 0 14px; }
@@ -21,14 +21,16 @@
   .demo.col { flex-direction: column; align-items: stretch; gap: 12px; }
   .demo .lbl { font-size: 11px; color: var(--ink-3); font-family: var(--mono); margin-right: 6px; }
   .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .err { color: var(--danger); font-family: var(--mono); font-size: 12px; }
+  .pbtn { height: 30px; padding: 0 13px; border-radius: 8px; border: 1px solid var(--line-strong); font-size: 13px; font-weight: 600; color: var(--ink); }
+  .pbtn:hover { background: var(--cc-hover); }
+  .bad { color: var(--danger); font-family: var(--mono); font-size: 12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <button class="ibtn theme-btn" id="themeBtn" title="明暗"></button>
   <h1>组件库 · 活体规格</h1>
-  <p class="lead">core/components/* 的单一事实源视觉真相。每个组件一文件、自载 CSS、只读令牌、fg- 前缀。海洋只组合这些、不重造。</p>
+  <p class="lead">core/components/* 的单一事实源视觉真相 · 18 件。每个组件一文件、自载 CSS、只读令牌、fg- 前缀。海洋只组合这些、不重造。</p>
   <div id="gallery"></div>
 </div>
 
@@ -40,7 +42,7 @@
 <script src="core/intent.js"></script>
 <script src="manifest.js"></script>
 
-<!-- 叶子组件（随建随加一行）-->
+<!-- 叶子 11 -->
 <script src="core/components/status-dot.js"></script>
 <script src="core/components/ref-pill.js"></script>
 <script src="core/components/thin-table.js"></script>
@@ -52,6 +54,14 @@
 <script src="core/components/dropdown.js"></script>
 <script src="core/components/run-chip.js"></script>
 <script src="core/components/iteration-stepper.js"></script>
+<!-- 复合 7 -->
+<script src="core/components/code-editor.js"></script>
+<script src="core/components/floating.js"></script>
+<script src="core/components/right-island.js"></script>
+<script src="core/components/approval-gate.js"></script>
+<script src="core/components/run-debug.js"></script>
+<script src="core/components/block-kit.js"></script>
+<script src="core/components/run-graph.js"></script>
 
 <script>
   document.getElementById('themeBtn').innerHTML = icon('moon');
@@ -61,51 +71,62 @@
     this.innerHTML = icon(d ? 'moon' : 'sun');
   };
   const E = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
+  const txt = '<span style="font-size:12px;color:var(--ink-3)">';
 
   const SPECS = [
-    { name: 'status-dot', api: 'StatusDot.dot(state) · .badge(map,state)', note: '通用 5 态点 + 类型化徽。收掉 en-st/eo-st/wf-st/cv-st/rp + ENV/CFG/CONN。',
-      build: d => { d.innerHTML =
-        `<span class="row"><span class="lbl">dot</span>${['done','run','wait','err','idle','listening'].map(s => StatusDot.dot(s) + `<span style="font-size:12px;color:var(--ink-3)">${s}</span>`).join('&nbsp;&nbsp;')}</span>
-         <span class="row"><span class="lbl">env</span>${StatusDot.badge('ENV','syncing')}${StatusDot.badge('ENV','ready')}${StatusDot.badge('ENV','failed')}</span>`; } },
-
-    { name: 'ref-pill', api: 'RefPill.html(kind,label,ref) · .wire(root)', note: '实体提及药丸；点击发 Intent.select。收掉 chat/scheduler 两份 refPill。',
-      build: d => { d.innerHTML = ['agent','workflow','function','handler'].map(k => RefPill.html(k, k + '_x', k + '_1')).join(' '); if (window.RefPill && RefPill.wire) RefPill.wire(d); } },
-
-    { name: 'thin-table', api: 'ThinTable.table(host,cols,rows)', note: '细线无填充表（IO/methods/init-args）。收掉 entities.js table。',
+    { name: 'status-dot', api: 'StatusDot.dot(state) · .badge(map,state)', note: '通用 5 态点 + 类型化徽。',
+      build: d => d.innerHTML = `<span class="row"><span class="lbl">dot</span>${['done','run','wait','err','idle','listening'].map(s => StatusDot.dot(s) + txt + s + '</span>').join('&nbsp;&nbsp;')}</span><span class="row"><span class="lbl">env</span>${StatusDot.badge('ENV','syncing')}${StatusDot.badge('ENV','ready')}${StatusDot.badge('ENV','failed')}</span>` },
+    { name: 'ref-pill', api: 'RefPill.html(kind,label,ref) · .wire(root)', note: '实体提及药丸；点击发 Intent.select。',
+      build: d => { d.innerHTML = ['agent','workflow','function','handler'].map(k => RefPill.html(k, k + '_x', k + '_1')).join(' '); RefPill.wire && RefPill.wire(d); } },
+    { name: 'thin-table', api: 'ThinTable.table(host,cols,rows)', note: '细线无填充表（IO/methods/init-args）。',
       build: d => ThinTable.table(d, ['参数', '类型', '必填'], [['file', 'bytes', '是'], ['currency', 'string', '可选'], ['since', 'datetime', '可选']]) },
-
-    { name: 'kv', api: 'KV.defs(host,rows)', note: 'k/v 定义行（init-args/元信息）。收掉 entities defs + entity-card kv + settings irow。',
+    { name: 'kv', api: 'KV.defs(host,rows)', note: 'k/v 定义行（init-args/元信息）。', col: 1,
       build: d => KV.defs(d, [['bot_token', '', { mask: true }], ['default_channel', '#ops', { mono: true }], ['pool_size', '10', { mono: true }]]) },
-
-    { name: 'tabs', api: 'Tabs.mount(host,[{key,label,cnt,render}])', note: '文字下划线 tab（非药丸）。收掉 entities tabsFor。',
+    { name: 'tabs', api: 'Tabs.mount(host,[{key,label,cnt,render}])', note: '文字下划线 tab（非药丸）。', col: 1,
       build: d => Tabs.mount(d, [{ key: 'a', label: '概览', render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">概览内容</div>' }, { key: 'b', label: '版本', cnt: 3, render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">版本内容</div>' }, { key: 'c', label: '运行', render: b => b.innerHTML = '<div style="padding:6px 0;color:var(--ink-2);font-size:13px">运行内容</div>' }], {}) },
-
-    { name: 'attention', api: 'Attention.html(icon,html,{tone})', note: 'callout/警示框。收掉 eo-attn + chat callout + scheduler stuck-line。',
-      build: d => { d.innerHTML = Attention.html('shield', '停在 <b>gate</b> · 等待 manager_approval 审批', { tone: 'warn' }) + Attention.html('close', '<b>extract</b> 失败 · 依赖物化超时', { tone: 'danger' }); } },
-
-    { name: 'tags', api: 'Tags.mount(host,{items,icon,mode,addLabel})', note: '可增删标签药丸行。收掉 entities tags + chat tag。',
+    { name: 'attention', api: 'Attention.html(icon,html,{tone})', note: 'callout/警示框。',
+      build: d => d.innerHTML = Attention.html('shield', '停在 <b>gate</b> · 等待 manager_approval 审批', { tone: 'warn' }) + Attention.html('close', '<b>extract</b> 失败 · 依赖物化超时', { tone: 'danger' }) },
+    { name: 'tags', api: 'Tags.mount(host,{items,icon,mode,addLabel})', note: '可增删标签药丸行。',
       build: d => Tags.mount(d, { items: ['web_search', 'fetch_url', 'cite'], icon: 'tag', mode: 'multi', addLabel: 'add' }) },
-
-    { name: 'segmented', api: 'Segmented.mount(host,opts,{value})', note: '滑动药丸分段控件。收掉 onboarding seg + settings st-seg。',
+    { name: 'segmented', api: 'Segmented.mount(host,opts,{value})', note: '滑动药丸分段控件。',
       build: d => Segmented.mount(d, ['亮', '暗', '跟随系统'], { value: 0 }) },
-
-    { name: 'dropdown', api: 'Dropdown.mount(host,{options,value})', note: '富下拉（按钮 + 弹层富行）。收掉 onboarding buildDD + settings st-dd。',
+    { name: 'dropdown', api: 'Dropdown.mount(host,{options,value})', note: '富下拉（按钮 + 弹层富行）。',
       build: d => Dropdown.mount(d, { options: [{ value: 'opus', label: 'claude-opus-4-8', meta: '最强' }, { value: 'sonnet', label: 'claude-sonnet-4-6', meta: '均衡' }], value: 'opus' }) },
-
-    { name: 'run-chip', api: 'RunChip.rail(host,runs) · .headBadge(state)', note: '运行历史 rail + run 状态头徽。scheduler 生。',
-      build: d => { const head = E('div', 'row'); head.innerHTML = `<span class="lbl">badge</span>${['running','completed','failed','cancelled','waiting'].map(s => RunChip.headBadge(s)).join(' ')}`; d.appendChild(head); const rail = E('div'); RunChip.rail(rail, [{ id: 'fr_29f1', state: 'completed', when: '昨天' }, { id: 'fr_3a9c', state: 'running', when: '今天', live: true }], { current: 1 }); d.appendChild(rail); } },
-
-    { name: 'iteration-stepper', api: 'IterationStepper.mount(host,{items})', note: '逐迭代行（loop 真相，绝不合并）。收掉 scheduler sa-iter。',
+    { name: 'run-chip', api: 'RunChip.rail(host,runs) · .headBadge(state)', note: '运行历史 rail + run 状态头徽。',
+      build: d => { const h = E('div', 'row'); h.innerHTML = `<span class="lbl">badge</span>${['running','completed','failed','cancelled','waiting'].map(s => RunChip.headBadge(s)).join(' ')}`; d.appendChild(h); const r = E('div'); RunChip.rail(r, [{ id: 'fr_29f1', state: 'completed', when: '昨天' }, { id: 'fr_3a9c', state: 'running', when: '今天', live: true }], { current: 1 }); d.appendChild(r); } },
+    { name: 'iteration-stepper', api: 'IterationStepper.mount(host,{items})', note: '逐迭代行（loop 真相，绝不合并）。', col: 1,
       build: d => IterationStepper.mount(d, { items: [{ i: 0, status: 'completed', out: 'draft v1 · 320 词' }, { i: 1, status: 'completed', out: 'draft v2 · 286 词' }, { i: 2, status: 'running', out: '生成中…' }] }) },
+
+    { name: 'code-editor', api: 'CodeEditor.mount(host,{code,lang,corner}) · .highlight(code)', note: '白底代码块（可改 + Atom-One 高亮）。唯一 TOK/高亮事实源。', col: 1,
+      build: d => CodeEditor.mount(d, { code: 'def process_invoice(file: bytes, currency="USD") -> Invoice:\n    doc = pdfplumber.open(io.BytesIO(file))   # 打开 PDF\n    fields = extract_fields(doc)              # 正则 + 版面启发式\n    return Invoice.model_validate(fields)', corner: 'python 3.12' }) },
+    { name: 'floating', api: 'Floating.open(rect,content,{below}) · .onEscape', note: '光标/选区锚定弹层定位器 + z 层 + Escape 管理。slash/工具条/排序菜单共用。',
+      build: d => { const b = E('button', 'pbtn', '弹出菜单 ▾'); b.onclick = () => { const c = E('div'); c.style.cssText = 'background:var(--cc-side);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:var(--shadow-pop);min-width:150px'; c.innerHTML = ['转换成…', '复制', '删除'].map(t => `<div style="padding:7px 10px;border-radius:7px;font-size:13px;color:var(--ink);cursor:pointer" onmouseover="this.style.background='var(--cc-hover)'" onmouseout="this.style.background=''">${t}</div>`).join(''); Floating.open(b.getBoundingClientRect(), c, { below: true }); }; d.appendChild(b); } },
+    { name: 'right-island', api: 'RightIsland.create(oceanId,{title,icon}) → {show,hide,toggle}', note: '右滑抽屉基座。收掉 chat/scheduler/documents/entities 四份手搓 aside。',
+      build: d => { const b = E('button', 'pbtn', '打开右岛 →'); let isl; b.onclick = () => { if (!isl) { isl = RightIsland.create('ref-demo', { title: 'Researcher', icon: 'agent' }); isl.body.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--ink-2);line-height:1.6">深度调研代理。<br><br>右滑抽屉基座：海洋把详情/实体卡填进 body。</div>'; } isl.toggle(); }; d.appendChild(b); } },
+    { name: 'approval-gate', api: 'ApprovalGate.mount(host,{flavor,...})', note: '人在环决策卡。chat 味（批准/始终/拒绝 + danger 徽）+ durable 味（通过/驳回 + 倒计时）。', col: 1,
+      build: d => { ApprovalGate.mount(d, { flavor: 'chat', title: '执行危险工具', tool: 'delete_branch', danger: 'dangerous', summary: '将删除远程分支 feature/old，不可恢复。', args: '{ "branch": "feature/old" }' }); ApprovalGate.mount(d, { flavor: 'durable', title: '竞品定价变动审批', prompt: '检测到竞品定价页改动（降价 12%）。是否推送告警并触发应对评审？', ddl: '自动驳回 22h', allowReason: true }); } },
+    { name: 'run-debug', api: 'RunDebug.mount(host,{argsSeed,verb,trace})', note: '就地试运行：参数编辑 + 运行钮 + 实时 stdout + 结果摘要。', col: 1,
+      build: d => RunDebug.mount(d, { argsSeed: '{ "file": "<bytes>", "currency": "USD" }', verb: 'Run', vico: 'play', trace: { lines: ['opening pdf…', 'extract_fields: 14 fields', 'pydantic validate ok'], result: { st: 'done', out: '{ vendor: "ACME", total: 1280.5 }', ms: 842 } } }) },
+    { name: 'block-kit', api: 'BlockKit.toolGroup/progressBox/reasonBlock/ledger/dock/turnEnd…', note: 'chat 教学脊块工厂（grid-rows 折叠 + shimmer 流光）。收掉 chat 内联十块。', col: 1,
+      build: d => { BlockKit.compaction(d, '· 上文已压缩 · earlier context summarized ·'); BlockKit.reasonBlock(d, '拆解：无状态抓取函数 + 常驻写手 + 润色 agent + 每日 workflow。'); const tg = BlockKit.toolGroup(d); const it = BlockKit.toolItem(tg.box, { name: 'web_search', args: '{ q: "competitor pricing" }', detailHTML: '<div style="padding:9px 12px;font-family:var(--mono);font-size:12px;color:var(--ink-2)">3 results · cached</div>' }); tg.status('Used 2 tools'); tg.settle && tg.settle('Used 2 tools'); } },
+    { name: 'run-graph', api: 'RunGraph.render(host,{nodes,edges,loopbacks,state,taken,live,iters,ports,vb})', note: 'Conducted Keynote 活运行图：keynote 白卡 + 单束电荷 wireFlow + 焦点景深三层 + loop 重影栈/×N/回边。', col: 1,
+      build: d => RunGraph.render(d, {
+        vb: [1012, 340],
+        nodes: [{ id: 'cron', kind: 'trigger', ref: 'cron_2am', x: 24, y: 150 }, { id: 'fetch', kind: 'action', ref: 'fetch_news', x: 224, y: 40 }, { id: 'parse', kind: 'action', ref: 'parse_pdf', x: 224, y: 260 }, { id: 'summarize', kind: 'agent', ref: 'research_agent', x: 424, y: 150 }, { id: 'route', kind: 'control', ref: 'route_by_amount', x: 624, y: 150 }, { id: 'publish', kind: 'action', ref: 'slack_handler', x: 824, y: 40 }, { id: 'notify', kind: 'approval', ref: 'manager_approval', x: 824, y: 260 }],
+        edges: [['cron', 'fetch'], ['cron', 'parse'], ['fetch', 'summarize'], ['parse', 'summarize'], ['summarize', 'route'], ['route', 'publish'], ['route', 'notify']],
+        loopbacks: [['route', 'summarize']],
+        state: { cron: 'completed', fetch: 'completed', parse: 'completed', summarize: 'running', route: 'completed', publish: 'future', notify: 'future' },
+        taken: ['cron>fetch', 'cron>parse', 'fetch>summarize', 'parse>summarize', 'summarize>route'], ghost: [], live: 'route>summarize', iters: { summarize: 3 }, ports: { route: 'retry' },
+      }) },
   ];
 
   const g = document.getElementById('gallery');
   SPECS.forEach(s => {
     const comp = E('div', 'comp');
     comp.innerHTML = `<h2>${s.name}<span class="api">${s.api || ''}</span></h2>${s.note ? `<p class="note">${s.note}</p>` : ''}`;
-    const demo = E('div', 'demo' + (['kv', 'tabs', 'iteration-stepper'].includes(s.name) ? ' col' : ''));
+    const demo = E('div', 'demo' + (s.col ? ' col' : ''));
     comp.appendChild(demo); g.appendChild(comp);
-    try { s.build(demo); } catch (e) { demo.innerHTML = `<span class="err">✗ ${s.name}: ${e.message}</span>`; console.error(s.name, e); }
+    try { s.build(demo); } catch (e) { demo.innerHTML = `<span class="bad">✗ ${s.name}: ${e.message}</span>`; console.error(s.name, e); }
   });
 </script>
 </body>
