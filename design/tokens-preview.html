@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Foryx · 数系 Number System</title>
+<link rel="stylesheet" href="core/tokens.css">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: var(--font); color: var(--ink); background: var(--sea); padding: var(--sp-8); line-height: var(--lh-ui); }
+  .wrap { max-width: var(--w-content); margin: 0 auto; }
+  h1 { font-size: var(--t-h1); line-height: var(--lh-tight); letter-spacing: -.02em; }
+  .sub { color: var(--ink-3); font-size: var(--t-body); margin-top: var(--sp-2); }
+  .maths { display: flex; gap: var(--sp-2); margin: var(--sp-4) 0 var(--sp-8); flex-wrap: wrap; }
+  .maths span { font-size: var(--t-meta); color: var(--ink-2); background: var(--island); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 6px 12px; }
+  section { background: var(--island); border: 1px solid var(--line); border-radius: var(--r-card); box-shadow: var(--shadow-island); padding: var(--sp-6); margin-bottom: var(--sp-6); }
+  h2 { font-size: var(--t-strong); line-height: var(--lh-tight); }
+  h2 em { font-style: normal; color: var(--ink-3); font-size: var(--t-meta); font-weight: 400; margin-left: var(--sp-2); }
+  .row { display: flex; align-items: center; gap: var(--sp-4); margin-top: var(--sp-4); flex-wrap: wrap; }
+  .lbl { font-size: var(--t-meta); color: var(--ink-3); font-family: var(--mono); }
+
+  /* 密度阶梯:2 的幂方块 */
+  .pow { display: flex; align-items: flex-end; gap: var(--sp-4); margin-top: var(--sp-4); }
+  .pow i { background: var(--ink); border-radius: var(--r-tag); display: block; }
+  .pow figure { text-align: center; }
+  .pow figcaption { font-size: var(--t-meta); color: var(--ink-2); margin-top: var(--sp-2); font-family: var(--mono); }
+
+  /* 间距条 */
+  .sp { display: flex; flex-direction: column; gap: 10px; margin-top: var(--sp-4); }
+  .sp div { display: flex; align-items: center; gap: var(--sp-4); }
+  .sp b { background: var(--accent); height: 12px; border-radius: var(--r-tag); display: block; }
+  .sp span { font-size: var(--t-meta); color: var(--ink-3); font-family: var(--mono); }
+
+  /* 布局 2:3:6 */
+  .layout { display: flex; gap: 6px; align-items: stretch; margin-top: var(--sp-4); height: 96px; }
+  .layout div { border-radius: var(--r-btn); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; color: var(--ink-2); font-size: var(--t-meta); }
+  .layout .s { width: 96px; background: var(--island-3); border: 1px solid var(--line); }       /* 240 ×0.4 */
+  .layout .c { width: 288px; background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent); }  /* 720 ×0.4 */
+  .layout .i { width: 144px; background: var(--island-4); border: 1px solid var(--line); }       /* 360 ×0.4 */
+  .layout b { font-size: var(--t-body); color: inherit; font-weight: 600; }
+  .interval { margin-top: var(--sp-3); font-size: var(--t-meta); color: var(--ink-3); }
+
+  /* 字阶 */
+  .type div { display: flex; align-items: baseline; gap: var(--sp-4); padding: 6px 0; border-top: 1px solid var(--line); }
+  .type div:first-child { border-top: 0; }
+  .type span:first-child { width: 200px; flex: none; }
+
+  /* 圆角 */
+  .radii { display: flex; gap: var(--sp-4); margin-top: var(--sp-4); }
+  .radii i { width: 56px; height: 56px; background: var(--island-3); border: 1px solid var(--line-strong); display: block; }
+  .radii figcaption { font-size: var(--t-meta); color: var(--ink-3); margin-top: 6px; text-align: center; font-family: var(--mono); }
+
+  /* 色 */
+  .sw { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin-top: var(--sp-4); }
+  .sw figure { width: 88px; }
+  .sw i { height: 48px; display: block; border-radius: var(--r-btn); border: 1px solid var(--line); }
+  .sw figcaption { font-size: var(--t-meta); color: var(--ink-3); margin-top: 6px; }
+
+  /* 真·行 预览 */
+  .demo-rail { width: var(--side-w); background: var(--island); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--sp-2); margin-top: var(--sp-4); }
+  .r { display: flex; align-items: center; gap: var(--gap); height: var(--row); padding: 0 var(--pad-row); border-radius: var(--r-btn); color: var(--ink-2); font-size: var(--t-body); cursor: default; }
+  .r:hover { background: var(--island-3); color: var(--ink); }
+  .r.on { background: var(--island-4); color: var(--ink); }
+  .r .ico { width: var(--icon); height: var(--icon); flex: none; display: grid; place-items: center; color: var(--ink-3); }
+  .r .ico svg { width: var(--icon); height: var(--icon); }
+  .r .t { flex: 1; }
+  .r .meta { font-size: var(--t-meta); color: var(--ink-3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Foryx · 数系</h1>
+  <p class="sub">每个数字都有数学出处。三层数学自洽 —— 拒绝任何手调魔数。</p>
+  <div class="maths">
+    <span>密度阶梯 = 2 的幂</span>
+    <span>布局 = 谐波 2:3:6(音乐比例)</span>
+    <span>字阶 = 模数 + 4 网格</span>
+    <span>基 u = 4px</span>
+  </div>
+
+  <section>
+    <h2>密度阶梯 <em>2² → 2³ → 2⁴ → 2⁵ · 纯二进制</em></h2>
+    <div class="pow">
+      <figure><i style="width:4px;height:4px"></i><figcaption>4 · grid · 2²</figcaption></figure>
+      <figure><i style="width:8px;height:8px"></i><figcaption>8 · gap · 2³</figcaption></figure>
+      <figure><i style="width:16px;height:16px"></i><figcaption>16 · icon · 2⁴</figcaption></figure>
+      <figure><i style="width:32px;height:32px"></i><figcaption>32 · row · 2⁵</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>间距 <em>4 网格谐音 · ×1,2,3,4,6,8,12,16</em></h2>
+    <div class="sp">
+      <div><b style="width:4px"></b><span>4 · sp-1 · 字段微距</span></div>
+      <div><b style="width:8px"></b><span>8 · sp-2 · 字段间</span></div>
+      <div><b style="width:12px"></b><span>12 · sp-3 · prose 块</span></div>
+      <div><b style="width:16px"></b><span>16 · sp-4</span></div>
+      <div><b style="width:24px"></b><span>24 · sp-6 · 段间</span></div>
+      <div><b style="width:32px"></b><span>32 · sp-8</span></div>
+      <div><b style="width:48px"></b><span>48 · sp-12</span></div>
+      <div><b style="width:64px"></b><span>64 · sp-16</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>布局宽 <em>谐波 2 : 3 : 6 · u = 120 · 音乐比例</em></h2>
+    <div class="layout">
+      <div class="s">侧栏<b>240</b>2u</div>
+      <div class="c">内容<b>720</b>6u</div>
+      <div class="i">右岛<b>360</b>3u</div>
+    </div>
+    <p class="interval">侧栏:右岛 = 2:3 = <b>纯五度</b> &nbsp;·&nbsp; 右岛:内容 = 3:6 = <b>八度</b> &nbsp;·&nbsp; 整窗 1440 = 12u(2+6+4 平铺)&nbsp;·&nbsp; 读宽=对话宽 统一 720</p>
+  </section>
+
+  <section class="type">
+    <h2>字阶 <em>模数 ≈大三度 · display 落 4 网格</em></h2>
+    <div><span class="lbl">12 · meta · 3u</span><span style="font-size:12px;color:var(--ink-3)">本地优先的 agentic workflow</span></div>
+    <div><span class="lbl">13 · body · 锚</span><span style="font-size:13px">本地优先的 agentic workflow</span></div>
+    <div><span class="lbl">16 · strong · 2⁴</span><span style="font-size:16px;font-weight:600">本地优先的 agentic workflow</span></div>
+    <div><span class="lbl">20 · h3 · 5u</span><span style="font-size:20px;font-weight:600">本地优先的 agentic workflow</span></div>
+    <div><span class="lbl">24 · h2 · 6u</span><span style="font-size:24px;font-weight:600">Foryx workflow</span></div>
+    <div><span class="lbl">32 · h1 · 2⁵</span><span style="font-size:32px;font-weight:700;letter-spacing:-.02em">Foryx</span></div>
+  </section>
+
+  <section>
+    <h2>圆角 <em>4 网格 · ×1..5</em></h2>
+    <div class="radii">
+      <figure><i style="border-radius:4px"></i><figcaption>4 · tag</figcaption></figure>
+      <figure><i style="border-radius:8px"></i><figcaption>8 · btn</figcaption></figure>
+      <figure><i style="border-radius:12px"></i><figcaption>12 · chip</figcaption></figure>
+      <figure><i style="border-radius:16px"></i><figcaption>16 · card</figcaption></figure>
+      <figure><i style="border-radius:20px"></i><figcaption>20 · island</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>色 <em>墨 3 级 · 面深度阶梯 · accent 克制</em></h2>
+    <div class="sw">
+      <figure><i style="background:var(--ink)"></i><figcaption>ink</figcaption></figure>
+      <figure><i style="background:var(--ink-2)"></i><figcaption>ink-2</figcaption></figure>
+      <figure><i style="background:var(--ink-3)"></i><figcaption>ink-3</figcaption></figure>
+      <figure><i style="background:var(--island-2)"></i><figcaption>island-2</figcaption></figure>
+      <figure><i style="background:var(--island-3)"></i><figcaption>island-3</figcaption></figure>
+      <figure><i style="background:var(--island-4)"></i><figcaption>island-4</figcaption></figure>
+      <figure><i style="background:var(--accent)"></i><figcaption>accent</figcaption></figure>
+      <figure><i style="background:var(--ok)"></i><figcaption>ok</figcaption></figure>
+      <figure><i style="background:var(--warn)"></i><figcaption>warn</figcaption></figure>
+      <figure><i style="background:var(--danger)"></i><figcaption>danger</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>合成预览 <em>一条真·行(row 32 · icon 16 · gap 8 · 侧栏 240)</em></h2>
+    <div class="demo-rail">
+      <div class="r on"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span class="t">process_invoice</span><span class="meta">v5</span></div>
+      <div class="r"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/></svg></span><span class="t">fetch_news</span><span class="meta">v2</span></div>
+      <div class="r"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></span><span class="t">parse_pdf</span><span class="meta">v1</span></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

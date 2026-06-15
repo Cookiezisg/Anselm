@@ -58,47 +58,53 @@
 
 ### §2.1 密度与行解剖(一种密度,定死)
 
-基线网格 = **4px**(所有"块/段/纵向"间距是 4 的倍数);行内横向微距允许 2px 半档(行比块读着更紧)。
+> 📌 **值的唯一源 = [`core/tokens.css`](core/tokens.css)**(每个值旁有数学注释)。本节给规则与数学出处;数值以 tokens.css 为准。可视化见 [`tokens-preview.html`](tokens-preview.html)。
+
+**密度阶梯 = 纯 2 的幂**(基 u=4px = 2²):
 
 ```
---row:        32px;   /* 列表/导航行高(唯一标准行高) */
---ctl:        28px;   /* 控件高:按钮/输入/段控/下拉 */
---lead:       16px;   /* 行首槽 = 图标尺寸,零 dead space */
---icon:       16px;   /* 行内图标标准尺寸 */
---icon-sm:    13px;   /* 密集处(meta 内联图标) */
---gap-lead:   6px;    /* 行首槽 ↔ 文字 */
---gap-row:    8px;    /* 行内其余元素间(dot↔文字等同 6) */
---pad-row:    8px;    /* 行左右内边距 */
---inset-trail:10px;   /* 行尾 meta/动作 右内嵌(= 行内容右边缘) */
---indent:     16px;   /* 树每级缩进(= --lead,子项对齐父项标签下) */
+--grid:  4px;   /* 2² 基础网格 */
+--gap:   8px;   /* 2³ 行内间距(图标↔文字 / 点↔文字) */
+--icon: 16px;   /* 2⁴ 标准图标 = 行首槽 */
+--lead: 16px;   /* = --icon,行首槽零死白 */
+--row:  32px;   /* 2⁵ 标准行高(唯一) */
+--ctl:  28px;   /* 7u 控件高 = row − grid(button/input/segmented) */
+--icon-sm: 12px;  /* 3u 密集图标(meta 内联) */
+--indent:  20px;  /* 5u 树每级缩进 */
+--pad-row:  8px;  /* 2³ 行内边距 = 尾槽内嵌 */
 ```
 
 **行解剖铁律**(所有 Row / ListRow / 类型头 一律长这样):
 
 ```
-[ 行首槽 --lead ] --gap-lead [ 标签 flex:1 省略号 ] [ 尾槽:meta 常驻 / 动作 hover ]
+[ 行首槽 --lead ] --gap [ 标签 flex:1 省略号 ] [ 尾槽:meta 常驻 / 动作 hover ]
 ```
 
-- 行首槽**恰好 = 图标尺寸**(16),不留空盒(`demo` 早期 20px 盒有死白,你已手调对了 → 现定为铁律)。
-- ✅ `height:var(--row); gap:var(--gap-lead); padding:0 var(--pad-row)`
-- ❌ 任何 `height:34px` / `gap:11px` / `gap:5px` 这种手调值。
+- 行首槽**恰好 = 图标尺寸**(16=2⁴),不留空盒(`demo` 早期 20px 盒有死白 → 现定为铁律)。
+- ✅ `height:var(--row); gap:var(--gap); padding:0 var(--pad-row)`
+- ❌ 任何 `height:34px` / `gap:11px` / `gap:5px` 这种手调魔数。
 
-> 📐 这套密度对标 **Linear**(13px / 32 行 / 244 侧栏 —— 我们的密度孪生)+ **macOS HIG**;10 源实测见 §3.3 末。想更密(VSCode/macOS 路线)可把 `--row` 降到 28–30,但 32 是文档+workflow 应用的安全甜点。
+> 📐 4·8·16·32 = grid·gap·icon·row 四个最关键密度量,**正好是 2² 2³ 2⁴ 2⁵ 二进制阶梯**。这套密度对标 **Linear**(13px/32 行,我们的密度孪生)+ **macOS HIG**(10 源实测见 §3.3 末)。
 
 ### §2.2 字阶(值已在,补"用哪个 + 行高")
 
+**角色命名**(非尺寸命名——逼组件按语义选,不硬编 px):
+
 ```
---t-xs:11  --t-sm:12  --t-md:13  --t-lg:15  --t-xl:19  --t-2xl:24   (px)
+--t-meta:12  --t-body:13  --t-strong:16  --t-h3:20  --t-h2:24  --t-h1:32   (px)
+模数 ≈大三度;display(16/20/24/32)落 4 网格(16=2⁴·20=5u·24=6u·32=2⁵);body 13 是锚、不入 2 幂。
 ```
 
-| 场景 | 字号 | 字重 | 行高(**永远显式**) |
+| 场景 | token | 字重 | 行高(**永远显式**) |
 |---|---|---|---|
-| 行/正文 body | `--t-md` 13 | 400/500 | `--lh-ui` 1.4 |
-| meta / caption / 时间 / 版本 | `--t-xs` 11 | 400 | 1.3 |
-| 段标题 section-label | `--t-xs` 11 | 600 大写 letter-spacing .04em | 1.3 |
-| 页标题 page-title | `--t-2xl` 24 (或 `--t-xl` 19 次级) | 600/700 | `--lh-tight` 1.25 |
-| 长文 prose | `--t-md` 13 | 400 | `--lh-prose` 1.6 |
-| 代码 | `--t-sm` 12 | mono | 1.5 |
+| meta / caption / 时间 / 版本 | `--t-meta` 12 | 400 | 1.3 |
+| 行/正文 body | `--t-body` 13 | 400/500 | `--lh-ui` 1.4 |
+| 段标题 / 强调 | `--t-strong` 16 | 600(段标题大写 .04em) | `--lh-tight` 1.25 |
+| 小标题 | `--t-h3` 20 | 600 | 1.25 |
+| 标题 | `--t-h2` 24 | 600 | 1.25 |
+| 页标题 | `--t-h1` 32 | 700 letter-spacing -.02em | `--lh-tight` 1.25 |
+| 长文 prose | `--t-body` 13 | 400 | `--lh-prose` 1.6 |
+| 代码 | 12 mono | — | 1.5 |
 
 ```
 --lh-tight: 1.25;  --lh-ui: 1.4;  --lh-prose: 1.6;
@@ -106,11 +112,12 @@
 
 > **双语铁律(血泪)**:① 打包**一族覆盖中英的字体**(MiSans);② **永远显式写 line-height**——`normal` 下 CJK 行更高,中英混排会顿挫。只换字体不够。
 > ❌ 任何组件硬编 `font-size:13px`/`12px`(`demo` 的 code-editor、block-kit 都犯了);一律 `var(--t-*)`。
+> **下限铁律**:UI 文字 **≥12px**(meta = `--t-meta` 12,对齐 Atlassian/无障碍下限;不设更小 token)。meta 与正文(13)只差 1px——层次靠**字色**(`--ink-3` vs `--ink-2`)拉开,不靠字号。
 
 ### §2.3 纵向间距(4px 网格)
 
 ```
---sp-0:0  --sp-1:4  --sp-2:8  --sp-3:12  --sp-4:16  --sp-5:20  --sp-6:24  --sp-8:32
+--sp-1:4  --sp-2:8  --sp-3:12  --sp-4:16  --sp-6:24  --sp-8:32  --sp-12:48  --sp-16:64   (4 网格 ×1,2,3,4,6,8,12,16)
 ```
 
 | 关系 | 值 |
@@ -126,7 +133,7 @@
 ### §2.4 圆角
 
 ```
---r-island:20  --r-card:14  --r-chip:10  --r-btn:8  --r-tag:6  --r-pill:999  (px)
+--r-tag:4  --r-btn:8  --r-chip:12  --r-card:16  --r-island:20  --r-pill:999   (4 网格 ×1..5)
 ```
 | 用途 | token |
 |---|---|
@@ -182,13 +189,14 @@
 │ 240–420   │        flex:1              │  token 宽     │
 └───────────┴────────────────────────────┴──────────────┘
 ```
-- 左岛宽 `--side-w`(240–420 可拖),收起态 `--side-w:0`。
-- 右岛宽用 **token**,不再每海洋手编(`demo`:chat 384/sch 360/doc 300/默认 372 → 收敛):
+- 左岛宽 `--side-w: 240`(2u,默认;拖 240–420),收起态 0。
+- 右岛宽用 **token**,不再每海洋手编(`demo`:chat 384/sch 360/doc 300/默认 372 → 收敛到谐波):
   ```
-  --island-w:     360px;   /* 标准右岛 */
-  --island-w-wide:420px;   /* 宽(实体卡/深读) */
+  --island-w:      360px;   /* 3u 标准右岛 */
+  --island-w-wide: 480px;   /* 4u 宽(实体卡/深读) */
   ```
 - 右岛**幂等键 = feature id**(`demo` chat 用 'entity-card' 是 bug → 一律 oceanId=本海洋 id)。
+- 谐波平铺:侧栏 2u + 内容 6u + 右岛(3u/4u);整窗 1440 = 12u(2+6+4 恰好平铺)。
 
 ### §3.2 海洋结构(纵向三段)
 
@@ -200,23 +208,23 @@ OceanFooter (可选, flex:none)   ← 仅 chat 的 composer 之类
 - **唯一滚动区 = OceanBody**;统一用 `.scroll-fade`(上下缘柔化)。❌ 不再各海洋自定义 overflow。
 - header 不再是裸 `headExtra` 共享槽 → 升级为 `OceanHeader` 原语(自带清理,见 §4.2、§7)。
 
-### §3.3 内容宽(具名,不手编)
+### §3.3 内容宽(统一,不手编)
+
+**读宽 = 对话宽 = 一个值**(都是"中央内容",分开没价值还破整数比):
 
 ```
---w-read:  720px;   /* 记录页/文档/设置:适合读 */
---w-chat:  860px;   /* 对话流:稍宽容纳代码/卡片 */
---w-full:  100%;    /* 表格/图/全宽工具面 */
+--w-content: 720px;   /* 6u · 实体页/文档/设置/对话流 全部用它 */
+--w-full:    100%;    /*      逃生:宽代码块/表/运行图 局部铺满 */
 ```
 | 面 | 宽 |
 |---|---|
-| 实体页 / 文档 / 设置详情 | `--w-read` |
-| 对话流 | `--w-chat`(为代码块/实体卡/agent 推理留宽,故 > 纯文档读宽) |
-| 运行图 / 大表 | `--w-full` |
+| 实体页 / 文档 / 设置 / 对话流 | `--w-content` |
+| 个别宽块(宽代码/表/图) | `--w-full`(那一块铺满,而非整列变宽——同 Notion full-width 块) |
 
-> ❌ `demo`:chat 860 / 设置 680 / 实体 720 无据 → 收敛到三档具名。
-> 📐 **行业基准(2026-06-16 实测 10 源)**:读宽 720 正中文档系共识(Obsidian ~700 · Craft 720–760 · macOS HIG 680–750 · Baymard 研究 680–750);右岛 360 = Linear 360 / Notion 400 / Obsidian·Craft 300–360。`--w-chat` 860 略宽于文档系常态(700–760),是有意为多内容留白(见上注)。
+> ❌ `demo`:chat 860 / 设置 680 / 实体 720 无据、且读/对话乱分 → 收敛到 **一个 720**。
+> 📐 **行业基准(2026-06-16 实测 10 源)**:720 正中文档系共识(Obsidian ~700 · Craft 720–760 · macOS HIG 680–750 · Baymard 研究 680–750);右岛 360 = Linear 360 / Notion 400。行业全员**单一内容宽**(Notion/Obsidian/Linear),宽块按需 full-bleed。
 
-> 📐 **整体密度基准**:Foryx 全套(13px 字 / 32 行 / 240 侧栏 / 4px 网格 / 16 图标)精准落在 **Linear + macOS HIG** 的"紧凑桌面"阵营——本地优先、键盘驱动、桌面生产力工具的同一条线。Notion/Primer/Material/Atlassian 偏宽偏大(16px 字、48–56 行、8px 主网格)是因其为 web/触摸/读重产品,**不照抄**。值得抄的:密度→Linear/macOS,文档读宽→Obsidian/Craft,间距·图标 token→Primer/Atlassian。
+> 📐 **整体密度基准**:Foryx 全套(13px 字 / 32 行 / 240 侧栏 / 4px 网格 / 16 图标)精准落在 **Linear + macOS HIG** 的"紧凑桌面"阵营——本地优先、键盘驱动、桌面生产力工具的同一条线。Notion/Primer/Material/Atlassian 偏宽偏大(16px 字、48–56 行)是因其为 web/触摸/读重产品,**不照抄**。值得抄的:密度→Linear/macOS,读宽→Obsidian/Craft,间距·图标 token→Primer/Atlassian。
 
 ---
 
@@ -227,7 +235,7 @@ OceanFooter (可选, flex:none)   ← 仅 chat 的 composer 之类
 
 ### §4.1 `Page`(记录页骨架)—— 杀掉 sec()/foldSec() 手搓
 - **职责**:一个"记录/文档型"海洋 = `Page(header, sections[], rightIsland?)`。
-- **解剖**:`OceanHeader` + 居中 `--w-read` 列 + `Section` 堆叠。
+- **解剖**:`OceanHeader` + 居中 `--w-content` 列 + `Section` 堆叠。
 - **API**:`Page.mount(sea, { title, crumb, actions, sections, width })`
 - 取代:entities 的 `sec/prose/foldSec`、documents 的 `.doc-root`、scheduler 的 `.sch-col`(三份互不兼容 → 一份)。
 
@@ -237,7 +245,7 @@ OceanFooter (可选, flex:none)   ← 仅 chat 的 composer 之类
 
 ### §4.3 `Section`(段)
 - **职责**:`section-label`(可选,大写灰)+ 内容岛 + 可折叠。
-- **解剖**:label(`--t-xs` 600 大写)/ `--island` 卡 / 折叠态走 §2.5。
+- **解剖**:label(`--t-meta` 12 · 600 · 大写 · `--ink-3`)/ `--island` 卡 / 折叠态走 §2.5。
 - **API**:`Section({ label, fold?:'open'|'closed', body })`
 - 折叠默认态走**参数**,不再 magic(`demo` 实体页"版本恒开、关系恒关"是硬编 → 显式 `fold`)。
 
