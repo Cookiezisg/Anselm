@@ -83,6 +83,8 @@
 - ✅ `height:var(--row); gap:var(--gap-lead); padding:0 var(--pad-row)`
 - ❌ 任何 `height:34px` / `gap:11px` / `gap:5px` 这种手调值。
 
+> 📐 这套密度对标 **Linear**(13px / 32 行 / 244 侧栏 —— 我们的密度孪生)+ **macOS HIG**;10 源实测见 §3.3 末。想更密(VSCode/macOS 路线)可把 `--row` 降到 28–30,但 32 是文档+workflow 应用的安全甜点。
+
 ### §2.2 字阶(值已在,补"用哪个 + 行高")
 
 ```
@@ -208,10 +210,13 @@ OceanFooter (可选, flex:none)   ← 仅 chat 的 composer 之类
 | 面 | 宽 |
 |---|---|
 | 实体页 / 文档 / 设置详情 | `--w-read` |
-| 对话流 | `--w-chat` |
+| 对话流 | `--w-chat`(为代码块/实体卡/agent 推理留宽,故 > 纯文档读宽) |
 | 运行图 / 大表 | `--w-full` |
 
 > ❌ `demo`:chat 860 / 设置 680 / 实体 720 无据 → 收敛到三档具名。
+> 📐 **行业基准(2026-06-16 实测 10 源)**:读宽 720 正中文档系共识(Obsidian ~700 · Craft 720–760 · macOS HIG 680–750 · Baymard 研究 680–750);右岛 360 = Linear 360 / Notion 400 / Obsidian·Craft 300–360。`--w-chat` 860 略宽于文档系常态(700–760),是有意为多内容留白(见上注)。
+
+> 📐 **整体密度基准**:Foryx 全套(13px 字 / 32 行 / 240 侧栏 / 4px 网格 / 16 图标)精准落在 **Linear + macOS HIG** 的"紧凑桌面"阵营——本地优先、键盘驱动、桌面生产力工具的同一条线。Notion/Primer/Material/Atlassian 偏宽偏大(16px 字、48–56 行、8px 主网格)是因其为 web/触摸/读重产品,**不照抄**。值得抄的:密度→Linear/macOS,文档读宽→Obsidian/Craft,间距·图标 token→Primer/Atlassian。
 
 ---
 
