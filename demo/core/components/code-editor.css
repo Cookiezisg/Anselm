@@ -1,7 +1,7 @@
 /* Forgify demo — code-editor 皮肤（移植 design-lab .eo-code + .hl-* 逐像素，令牌化）。
    白底细描边块：行号槽 + 透明 textarea 叠在高亮 pre 上 + 右上角语言标签。
    语法色走 --cd-* Atom One（tokens.css 已含明暗两套，不在此重声明）；插值参数走 --accent。 */
-.fg-ce { position: relative; display: flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; transition: border-color .14s; }
+.fg-ce { position: relative; display: flex; border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; transition: border-color .14s; }
 .fg-ce:focus-within { border-color: var(--line-strong); }
 
 .fg-ce-gut { flex: none; padding: 12px 0; text-align: right; color: var(--ink-3); font-family: var(--mono); font-size: 13px; line-height: 1.7; user-select: none; opacity: .5; }

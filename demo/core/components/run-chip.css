@@ -5,7 +5,7 @@
 .fg-runrail { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s4); padding-top: var(--s1); overflow-x: auto; }
 .fg-runrail-label { font-size: var(--t-xs); font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; flex: none; margin-right: 2px; }
 
-.fg-runchip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 9px; flex: none;
+.fg-runchip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: var(--r-chip); flex: none;
   border: 1px solid var(--line); background: var(--island); cursor: pointer; transition: background var(--d-fast), border-color var(--d-fast); }
 .fg-runchip:hover { background: var(--cc-hover); }
 .fg-runchip.on { border-color: var(--line-strong); background: var(--cc-active); }

@@ -3,7 +3,7 @@
    滑入度量字节级保形：width/.42s + opacity/.3s + margin-left/.42s，皆 var(--ease-spring)；margin-left -8px→0 收回挤压。 */
 .fg-island {
   flex: none; width: 0; opacity: 0; overflow: hidden; margin-left: -8px;
-  background: var(--cc-side); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--cc-side); border: 1px solid var(--line); border-radius: var(--r-card);
   box-shadow: var(--shadow-float);
   display: flex; flex-direction: column;
   transition: width .42s var(--ease-spring), opacity .3s, margin-left .42s var(--ease-spring);
@@ -13,7 +13,7 @@
 /* 头部脚手架：图标方块 + 标题 + 关；度量对齐原 .aside-head（12px 8px 6px 14px / gap 10）。 */
 .fg-island-head { display: flex; align-items: center; gap: 10px; padding: 12px 8px 6px 14px; flex: none; }
 .fg-island-ico {
-  width: 30px; height: 30px; border-radius: 8px; flex: none;
+  width: 30px; height: 30px; border-radius: var(--r-btn); flex: none;
   display: grid; place-items: center; background: var(--cc-active); color: var(--ink-2);
 }
 .fg-island-ico-empty { display: none; }
@@ -22,7 +22,7 @@
   color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .fg-island-x {
-  width: 30px; height: 30px; border-radius: 8px; flex: none;
+  width: 30px; height: 30px; border-radius: var(--r-btn); flex: none;
   display: grid; place-items: center; color: var(--ink-3);
   background: transparent; border: none; cursor: pointer;
   transition: background .15s, color .15s;

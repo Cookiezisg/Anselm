@@ -4,7 +4,7 @@
 .fg-kv-row:last-child { border-bottom: 0; }
 
 .fg-kv-k { width: 132px; flex: none; color: var(--ink-3); }
-.fg-kv-v { flex: 1; min-width: 0; color: var(--ink); font-size: 12.5px; outline: none; border-radius: 4px; }
+.fg-kv-v { flex: 1; min-width: 0; color: var(--ink); font-size: 12.5px; outline: none; border-radius: var(--r-tag); }
 
 .fg-kv-v.mono { font-family: var(--mono); }
 .fg-kv-v.mask { letter-spacing: 1.5px; color: var(--ink-3); }

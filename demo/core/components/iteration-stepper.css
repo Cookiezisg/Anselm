@@ -5,7 +5,7 @@
 .fg-itstep-row {
   display: flex; align-items: center; gap: 9px;
   min-height: 32px; padding: 5px 9px;
-  border-radius: 8px;
+  border-radius: var(--r-btn);
   cursor: pointer;
   transition: background var(--d-fast);
 }

@@ -43,7 +43,7 @@
   --shadow-win:    0 16px 50px rgba(0,0,0,.20);
 
   /* 圆角 radii -------------------------------------------------- */
-  --r-island: 20px; --r-card: 14px; --r-win: 14px; --r-chip: 10px; --r-btn: 8px; --r-pill: 999px;
+  --r-island: 20px; --r-card: 14px; --r-win: 14px; --r-chip: 10px; --r-btn: 8px; --r-tag: 6px; --r-pill: 999px;
 
   /* 间距 spacing ------------------------------------------------ */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px;

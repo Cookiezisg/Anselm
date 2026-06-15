@@ -12,7 +12,7 @@
 .fg-vd-vt { font-size: var(--t-xs); color: var(--ink-3); margin-left: auto; }
 .fg-vd-vd { flex-basis: 100%; font-size: var(--t-xs); color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.fg-vd-diff { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.fg-vd-diff { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
 .fg-vd-cap { display: flex; align-items: center; gap: var(--s2); padding: 9px 13px; font-size: var(--t-sm); color: var(--ink-2); }
 .fg-vd-mono { font-family: var(--mono); }
 .fg-vd-pm { margin-left: auto; font-family: var(--mono); font-size: var(--t-xs); }
