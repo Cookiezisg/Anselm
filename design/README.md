@@ -11,8 +11,9 @@
 
 ## 怎么读
 
-1. **先读 [`SPEC.md`](SPEC.md)** —— 全部规范(宪法)。这是你现在要研究的东西。
-2. 你拍板后,再按 SPEC §8 的路线落 token → 原语 → 重写一个样板面 → 铺开。
+- **新开对话续接 → 先读 [`PROGRESS.md`](PROGRESS.md)**(任务背景 + 进度日志 + 当前状态 + 下一步 + 操作/续接须知)。
+- **规范本身 → [`SPEC.md`](SPEC.md)**(宪法,8 节)。
+- 看效果:起 `design` 预览(端口 4191)→ `entity.html`(实体页样板)· `reference.html`(原语台)· `tokens-preview.html`(数系)。
 
 ## 一句话哲学
 
