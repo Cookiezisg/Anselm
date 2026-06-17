@@ -140,10 +140,15 @@
         const pill = ev.target.closest && ev.target.closest("an-ref-pill");
         if (pill && !pill.contains(ev.relatedTarget)) this._closeCard();
       });
-      // 斜杠 / @ 触发
+      // 斜杠触发块菜单
       doc.addEventListener("keydown", (ev) => {
         if (ev.key === "/") setTimeout(() => this._slash(), 0);
-        else if (ev.key === "@") setTimeout(() => this._mention(), 0);
+      });
+      // @ 提及：复用地基 AnMention（contenteditable 上 @→边打边滤→内联插 ref-pill；与 composer 同源、不再各抄一份）
+      this._mention = window.AnMention.attach(doc, {
+        mentions: () => this._mentions || [],
+        namespace: "doc-at",
+        getSelection: () => (this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection()),
       });
       // 左槽块手柄：悬停某块 → 手柄移到该块左侧并浮现；离开整个编辑器才隐
       const handle = this.$(".gutter");
@@ -161,7 +166,7 @@
           const block = this._handleBlock; if (!block) return;
           window.AnMenu.open(handle, {
             items: SLASH, placement: "bottom", align: "start", namespace: "doc-add",
-            onPick: (type) => { type === "mention" ? this._insertRefInto(this._addBelow(block, "p")) : this._addBelow(block, type); },
+            onPick: (type) => { type === "mention" ? this._mention.pick(this._addBelow(block, "p")) : this._addBelow(block, type); },
           });
         });
       }
@@ -205,7 +210,7 @@
       if (!block || (block.textContent || "").trim() !== "/") return;   // 仅当块内容恰为「/」（行首斜杠）才弹
       window.AnMenu.open(block, {
         items: SLASH, placement: "bottom", align: "start", namespace: "doc-slash",
-        onPick: (type) => { this._stripTrailing(block, "/"); type === "mention" ? this._insertRefInto(block) : this._applyBlock(block, type); },
+        onPick: (type) => { this._stripTrailing(block, "/"); type === "mention" ? this._mention.pick(block) : this._applyBlock(block, type); },
       });
     }
     _applyBlock(block, type) {
@@ -218,78 +223,7 @@
       else this._caretEnd(nb.querySelector(".bt") || nb);
     }
 
-    _sel() { return this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection(); }
-    // 「@」起一段提及会话：开筛选菜单 + 监听后续输入边打边滤；选中/空格/Esc/删掉@ 结束。
-    _mention() {
-      const block = this._curBlock();
-      if (!block) return;
-      this._atBlock = block;
-      this._atQuery = "@@INIT@@";
-      this._atUpdate();
-      if (!this._atInput) {
-        const doc = this.$(".doc");
-        this._atInput = () => this._atUpdate();
-        this._atKey = (ev) => { if (ev.key === "Escape" || ev.key === " " || ev.key === "Enter") this._endAt(); };
-        doc.addEventListener("input", this._atInput);
-        doc.addEventListener("keydown", this._atKey);
-      }
-    }
-    _atQueryText() {
-      const sel = this._sel();
-      if (!sel || !sel.anchorNode || !this._atBlock || !this._atBlock.contains(sel.anchorNode)) return null;
-      const node = sel.anchorNode;
-      if (node.nodeType !== 3) return null;
-      const text = node.textContent.slice(0, sel.anchorOffset);
-      const at = text.lastIndexOf("@");
-      return at < 0 ? null : text.slice(at + 1);
-    }
-    _atUpdate() {
-      const q = this._atQueryText();
-      if (q == null || /\s/.test(q)) { this._endAt(); return; }
-      if (q === this._atQuery) return;
-      this._atQuery = q;
-      const lo = q.toLowerCase();
-      let ms = (this._mentions || []).filter((m) => !lo || (m.label + " " + (m.desc || "") + " " + m.id).toLowerCase().includes(lo));
-      const items = ms.length ? ms.map((m) => ({ value: m.id, label: m.label, icon: m.kind, meta: m.desc || m.kind, _m: m }))
-        : [{ type: "label", label: "无匹配「" + q + "」" }];
-      window.AnMenu.open(this._atBlock, {
-        items, placement: "bottom", align: "start", namespace: "doc-at",
-        onClose: () => { this._closing || this._endAt(); },
-        onPick: (_v, it) => { if (!it._m) return; this._endAt(); this._pickMention(it._m); },
-      });
-    }
-    _endAt() {
-      if (this._atInput) { const doc = this.$(".doc"); doc.removeEventListener("input", this._atInput); doc.removeEventListener("keydown", this._atKey); this._atInput = null; }
-      this._atBlock = null; this._atQuery = null;
-      this._closing = true; window.AnFloating.close("doc-at"); this._closing = false;
-    }
-    // 选中提及：删掉「@query」再插药丸（无则直接插）
-    _pickMention(m) {
-      const sel = this._sel();
-      const node = sel && sel.anchorNode;
-      if (node && node.nodeType === 3) {
-        const text = node.textContent.slice(0, sel.anchorOffset);
-        const at = text.lastIndexOf("@");
-        if (at >= 0) { const r = document.createRange(); r.setStart(node, at); r.setEnd(node, sel.anchorOffset); r.deleteContents(); sel.removeAllRanges(); sel.addRange(r); }
-      }
-      this._insertPill(m);
-    }
-    // 斜杠「@提及」路径：无会话、直接开菜单选一项插（无 @ 可删）
-    _insertRefInto(block) {
-      const items = (this._mentions || []).map((m) => ({ value: m.id, label: m.label, icon: m.kind, meta: m.desc || m.kind, _m: m }));
-      window.AnMenu.open(block, { items, placement: "bottom", align: "start", namespace: "doc-at", onPick: (_v, it) => this._insertPill(it._m) });
-    }
-    _insertPill(m) {
-      const sel = (this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection());
-      const tmp = document.createElement("div");
-      tmp.innerHTML = refHtml({ kind: m.kind, id: m.id, label: m.label }) + "&nbsp;";
-      const pill = tmp.firstChild, sp = tmp.lastChild;
-      const block = this._curBlock() || this.$(".doc");
-      if (sel && sel.rangeCount && block.contains(sel.anchorNode)) {
-        const r = sel.getRangeAt(0); r.insertNode(sp); r.insertNode(pill); r.setStartAfter(sp); r.collapse(true);
-        sel.removeAllRanges(); sel.addRange(r);
-      } else { block.append(pill, sp); }
-    }
+    // @ 提及全套（caret 探测 / @query 删插 / picker）已上提到地基 AnMention（core/primitives/mention.js），见 hydrate 的 attach + _slash/gutter 的 this._mention.pick。
 
     _openCard(pill) {
       this._hovered = pill;

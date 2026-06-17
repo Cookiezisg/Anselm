@@ -14,7 +14,8 @@
    折叠机制：grid-template-rows 0fr→1fr（spring）。运行态：shimmer 流光文字 + 实时脉冲点。
    复用：status-dot · code-editor（inline 高亮）· json-tree · approval-gate(flavor=chat) · icons(toolIcon)。
    交互对外（composed CustomEvent）：an-continue（turnEnd 续跑）· an-decide 由内嵌 approval-gate 自冒泡。
-   数据：.blocks 走 JS 属性（数组不经线缆）；设入即重渲染。块可带 open:true 预展开、running:true 跑态。 */
+   数据：.blocks 走 JS 属性（数组不经线缆）；设入即重渲染。块可带 open:true 预展开、running:true 跑态。
+   流式（对齐后端 Open→Delta*→Close）：消费方 push 空块（一次整渲=Open）→ 每帧 pokeText(i,累积文本)/pokeLog(i,行) 就地增量（=Delta，不整渲、不重建 json-tree、ephemeral 只改视图）→ 同步 blocks[i] 即 Close 快照。 */
 (function () {
   const e = window.anEsc;
   const ic = (name, size, stroke) => (window.icon ? window.icon(name, size, stroke) : "");
@@ -162,11 +163,11 @@
 
     block(b, i) {
       switch (b.type) {
-        case "text": return this.text(b);
+        case "text": return this.text(b, i);
         case "reasoning": return this.reasoning(b, i);
         case "tool_call": return this.toolCall(b, i);
         case "tool_result": return this.toolResult(b);
-        case "progress": return this.progress(b);
+        case "progress": return this.progress(b, i);
         case "compaction": return this.compaction(b);
         case "turnEnd": return this.turnEnd(b);
         case "subtree": return this.subtree(b, i);
@@ -174,11 +175,11 @@
       }
     }
 
-    text(b) {
+    text(b, i) {
       const body = b.html != null ? b.html : md(b.text || b.content || "");
-      // role="user" → 右对齐浅灰气泡；否则 assistant 通栏
-      if (b.role === "user") return `<div class="text user"><div class="bubble">${body}</div></div>`;
-      return `<div class="text">${body}</div>`;
+      // role="user" → 右对齐浅灰气泡；否则 assistant 通栏。data-i 供流式 pokeText 就地增量。
+      if (b.role === "user") return `<div class="text user" data-i="${i}"><div class="bubble">${body}</div></div>`;
+      return `<div class="text" data-i="${i}">${body}</div>`;
     }
 
     reasoning(b, i) {
@@ -266,10 +267,24 @@
       return `<div class="block-sec sec"><div class="sec-label">${e(b.label || "输出")}</div>${this._jsonView(this._payload(b))}</div>`;
     }
 
-    // 独立 progress 块：平铺段（running 显实时脉冲）
-    progress(b) {
+    // 独立 progress 块：平铺段（running 显实时脉冲）；data-i 供流式 pokeLog 就地追加行
+    progress(b, i) {
       const live = b.done ? "" : `<span class="lt"><an-status-dot state="run"></an-status-dot>实时</span>`;
-      return `<div class="block-sec sec"><div class="sec-label">${e(b.label || "日志 · stderr")}${live}</div><div class="log">${this._logLines(b)}</div></div>`;
+      return `<div class="block-sec sec" data-i="${i}"><div class="sec-label">${e(b.label || "日志 · stderr")}${live}</div><div class="log">${this._logLines(b)}</div></div>`;
+    }
+
+    // ── 流式 Delta（对齐后端 Open→Delta*→Close：就地增量改某块 DOM，不整渲、不重建 json-tree；ephemeral 只改视图） ──
+    // 文本/推理块逐 token 追加：消费方先 push 空块（一次整渲）→ 每帧 pokeText(i, 累积文本)。
+    pokeText(i, text) {
+      const host = this.$(`.stream > [data-i="${i}"]`); if (!host) return;
+      const b = (this._blocks || [])[i] || {};
+      if (b.type === "reasoning") { const t = host.querySelector(".reason-text"); if (t) t.textContent = text; }
+      else if (b.type === "text") { const body = b.role === "user" ? host.querySelector(".bubble") : host; if (body) body.innerHTML = md(text); }
+    }
+    // progress 块逐行追加日志（终端式流）：lines = 当前全量行。
+    pokeLog(i, lines) {
+      const host = this.$(`.stream > [data-i="${i}"]`); if (!host) return;
+      const log = host.querySelector(".log"); if (log) log.innerHTML = this._logLines({ lines: lines });
     }
 
     compaction(b) {

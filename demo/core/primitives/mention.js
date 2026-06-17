@@ -53,11 +53,14 @@
       if (q == null || /\s/.test(q)) { end(); return; }
       if (session && q === session.query) return;
       if (session) session.query = q;
+      // reopening：重开菜单时旧浮层 destroy→onClose 不可 end 会话（否则只过滤到首字符就拆了输入监听）。
+      if (session) session.reopening = true;
       window.AnMenu.open(anchorNow(), {
         items: items(q), placement: "bottom", align: "start", namespace: ns,
-        onClose: function () { if (session && !session.closing) end(); },
+        onClose: function () { if (session && !session.closing && !session.reopening) end(); },
         onPick: function (_v, it) { if (!it._m) return; end(); insert(it._m); },
       });
+      if (session) session.reopening = false;
     }
     function start() {
       if (session) return;

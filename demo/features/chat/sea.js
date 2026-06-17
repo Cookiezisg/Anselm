@@ -56,37 +56,65 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       return isl;
     }
 
-    // ── 脚本解释器（消费 data.js 的 turn 步）──
+    // ── 脚本解释器：instant 步（push/patch）+ 流式步（stream 逐 token / islandStream 逐字），对齐后端 Open→Delta*→Close ──
     function applyStep(s) {
       if (!s) return;
       if (s.push) pushBlock(s.push);
       if (s.patch) patchLast(s.patch);
-      if (s.island && island && island._code) {
-        islandCode = s.island.append != null ? islandCode + s.island.append : (s.island.code != null ? s.island.code : islandCode);
-        island._code.value = islandCode;
-      }
+    }
+    // 文本/推理逐 token 流出（先 push 空块=Open 整渲一次 → 每帧 pokeText 就地增量=Delta → 末帧落 blocks[i]=Close 快照）
+    function streamBlock(spec, done) {
+      const b = Object.assign({}, spec, { text: "" });
+      blocks = blocks.concat([b]); tree.blocks = blocks;
+      const i = blocks.length - 1, full = spec.text || "";
+      const toks = full.match(/\s+|\S+/g) || (full ? [full] : []);
+      const tps = spec.tps || 26;   // tokens/sec
+      let acc = "", k = 0;
+      const step = () => {
+        if (!cur) return;
+        if (k >= toks.length) { blocks[i].text = full; tree.pokeText(i, full); page.scrollToBottom(); if (done) done(); return; }
+        acc += toks[k++]; blocks[i].text = acc; tree.pokeText(i, acc); page.scrollToBottom();
+        timers.push(setTimeout(step, Math.round(1000 / tps)));
+      };
+      step();
+    }
+    // 右岛代码逐字流入（= entities build 流镜像：edit_* 工具的 arg delta 镜像到右岛实体面，close 快照才是重连真相）
+    function streamIsland(spec, done) {
+      if (!island || !island._code) { if (done) done(); return; }
+      const full = spec.code || "", chunk = spec.chunk || 2, cps = spec.cps || 140;
+      islandCode = full;
+      let n = 0;
+      const step = () => {
+        if (!cur) return;
+        if (n >= full.length) { island._code.value = full; if (done) done(); return; }
+        n = Math.min(full.length, n + chunk); island._code.value = full.slice(0, n);
+        timers.push(setTimeout(step, Math.round(1000 / (cps / chunk))));
+      };
+      step();
+    }
+    function runStep(s, done) {
+      if (!s) { if (done) done(); return; }
+      if (s.stream) { after(s.ms || 250, () => streamBlock(s.stream, done)); return; }
+      if (s.islandStream) { after(s.ms || 250, () => streamIsland(s.islandStream, done)); return; }
+      after(s.ms || 300, () => { applyStep(s); if (done) done(); });
     }
     function runTurn(steps, i) {
       if (!cur || !steps || i >= steps.length) { composer.removeAttribute("generating"); return; }
-      const s = steps[i];
+      const s = steps[i], next = () => runTurn(steps, i + 1);
       if (s.gate) {   // 危险确认：等 an-block-tree 冒泡的 an-decide（approve→settled / deny→改道）；3.5s 无人动则自动放行（自演）
-        gateListener = (ev) => {
-          clearTurn();
-          const branch = ev.detail.action === "deny" ? s.gate.onDeny : s.gate.onApprove;
-          applyStep(branch); after(branch.ms || 400, () => runTurn(steps, i + 1));
-        };
+        gateListener = (ev) => { clearTurn(); runStep(ev.detail.action === "deny" ? s.gate.onDeny : s.gate.onApprove, next); };
         tree.addEventListener("an-decide", gateListener);
-        after(3500, () => { if (gateListener) { tree.removeEventListener("an-decide", gateListener); gateListener = null; } applyStep(s.gate.onApprove); after(s.gate.onApprove.ms || 400, () => runTurn(steps, i + 1)); });
+        after(3500, () => { if (gateListener) { tree.removeEventListener("an-decide", gateListener); gateListener = null; } runStep(s.gate.onApprove, next); });
         return;
       }
-      after(s.ms || 300, () => { applyStep(s); runTurn(steps, i + 1); });
+      runStep(s, next);
     }
     function startTurn(steps) { if (!steps || !steps.length) return; composer.setAttribute("generating", ""); runTurn(steps, 0); }
 
-    // 用户发送后的脚本回复回合（演示：真实经 messages SSE 流式）
+    // 用户发送后的脚本回复回合（逐 token 流式；演示真实经 messages SSE Delta 帧）
     const replyTurn = () => [
-      { ms: 500, push: { type: "reasoning", open: false, label: "推理", text: "理解用户的追加请求并简短回应。" } },
-      { ms: 950, push: { type: "text", text: "收到 👍 我会按这个调整。\n\n（演示：真实回合经 messages SSE 逐块流式产出，此处为脚本回放。）" } },
+      { ms: 400, stream: { type: "reasoning", open: true, label: "推理", text: "理解用户的追加请求，给出简短回应。", tps: 42 } },
+      { ms: 450, stream: { type: "text", text: "收到 👍 我会按这个调整。\n\n（演示：真实回合经 messages SSE 逐 token 流式产出，此处为脚本流式回放。）", tps: 24 } },
     ];
 
     // ── 切会话 ──
@@ -115,7 +143,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       startTurn(replyTurn());
     });
     composer.addEventListener("an-stop", () => { clearTurn(); composer.removeAttribute("generating"); pushBlock({ type: "text", text: "_（已停止生成）_" }); });
-    tree.addEventListener("an-continue", () => { if (composer.hasAttribute("generating")) return; startTurn([{ ms: 400, push: { type: "text", text: "继续——本回合接着上一步推进（演示）。" } }]); });
+    tree.addEventListener("an-continue", () => { if (composer.hasAttribute("generating")) return; startTurn([{ ms: 300, stream: { type: "text", text: "继续——本回合接着上一步推进（演示，逐 token 流式）。", tps: 24 } }]); });
     // ref-pill 点击（transcript 内 @提及 / 实体引用）→ 统一前门 Intent.select
     root.addEventListener("an-ref", (ev) => { const d = ev.detail || {}; if (d.kind && d.id) ctx.Intent.select({ kind: "entity", id: d.id, source: "chat" }); });
 

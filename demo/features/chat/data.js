@@ -2,7 +2,9 @@
    后端心智：conversation 是纯线程容器（消息单独取）；一次 Send = 202 + messages SSE 流式回合（每对话同时只一个在途回合）。
    :iterate（AI 编辑实体）/ :triage（AI 诊断执行）都返 conversationId 当普通对话接管——故 chat 是所有 AI 对话的唯一容器。
    data 形态：CHAT_CONVOS[id] = { title, crumb, meta, kind, blocks(初始 transcript), autoplay?, turn?(脚本步), island?(右岛 live 编辑) }。
-   脚本步（sea 小解释器消费）：{ ms, push } 追加块 · { ms, patch } 替换末块（running→settled）· { ms, island } 流式喂右岛代码 · { gate:{onApprove,onDeny} } 等 an-decide。 */
+   脚本步（sea 小解释器消费，对齐后端 Open→Delta*→Close）：
+     { ms, push } 追加块（=Open，整渲一次）· { ms, patch } 替换末块（running→settled）· { stream:{type,text,tps} } 文本/推理逐 token 流出（=Delta）·
+     { islandStream:{code,cps} } 右岛代码逐字流入（= entities build 流镜像）· { gate:{onApprove,onDeny} } 等 an-decide（分支本身也是步，可流式）。 */
 (function () {
   // 会话列表（rail）：置顶 / 今天 / 昨天 / 已归档（lastMessageAt 降序；dot=活态）
   window.CHAT_CONVOS_LIST = [
@@ -43,8 +45,8 @@
       ],
       autoplay: true,
       turn: [
-        { ms: 450, push: { type: "reasoning", open: true, label: "推理", text: "用户要两件事：①每天 9:00 定时跑 sync_inventory ②清理 2024 过期快照。\n先建 cron trigger（0 9 * * *）接线到 :run；再用 shell 清理（不可逆，需逐次确认）。" } },
-        { ms: 800, push: { type: "tool_call", running: true, status: "正在创建 cron trigger…", items: [{ verb: "create_trigger", name: "cron · 0 9 * * *" }] } },
+        { ms: 400, stream: { type: "reasoning", open: true, label: "推理", text: "用户要两件事：①每天 9:00 定时跑 sync_inventory ②清理 2024 过期快照。\n先建 cron trigger（0 9 * * *）接线到 :run；再用 shell 清理（不可逆，需逐次确认）。", tps: 46 } },
+        { ms: 600, push: { type: "tool_call", running: true, status: "正在创建 cron trigger…", items: [{ verb: "create_trigger", name: "cron · 0 9 * * *" }] } },
         { ms: 1200, patch: { type: "tool_call", open: true, summary: "已创建 cron trigger 并接线到 sync_inventory:run", items: [
           { verb: "create_trigger", name: "cron · 0 9 * * *", danger: "safe",
             args: { schedule: "0 9 * * *", target: "fn_5e1a9c4d:run", tz: "Asia/Singapore" },
@@ -61,14 +63,14 @@
               progress: { done: true, lines: ["→ scanning /data/snapshots", "stdout: removed 2024-01 … 2024-12 (12 dirs)", "stdout: freed 3.4 GB"] },
               result: { json: { removed: 12, freedGB: 3.4 } } },
           ] } },
-          onDeny: { ms: 450, push: { type: "text", text: "好的，已**跳过**快照清理，仅保留 cron 接线。需要清理时再告诉我。" } },
+          onDeny: { ms: 300, stream: { type: "text", text: "好的，已**跳过**快照清理，仅保留 cron 接线。需要清理时再告诉我。", tps: 24 } },
         } },
-        { ms: 850, push: { type: "subtree", label: "subagent · Explore（核对接线）", open: false, blocks: [
+        { ms: 750, push: { type: "subtree", label: "subagent · Explore（核对接线）", open: false, blocks: [
           { type: "text", text: "核对 cron trigger 是否真接到 sync_inventory。" },
           { type: "tool_call", open: true, items: [{ verb: "read_trigger", name: "trg_3a1f8c2d", result: { json: { schedule: "0 9 * * *", target: "fn_5e1a9c4d:run", listening: true } } }] },
           { type: "text", text: "接线正确，trigger 监听中。" },
         ] } },
-        { ms: 950, push: { type: "text", text: "完成 ✅\n\n- **cron trigger** `trg_3a1f8c2d`（`0 9 * * *`）已接到 `sync_inventory:run`，监听中。\n- 过期快照已清理，释放 **3.4 GB**。\n\n每天 9:00 会自动同步库存。需要我再加一条「失败时告警」吗？" } },
+        { ms: 500, stream: { type: "text", tps: 22, text: "完成 ✅\n\n- **cron trigger** `trg_3a1f8c2d`（`0 9 * * *`）已接到 `sync_inventory:run`，监听中。\n- 过期快照已清理，释放 **3.4 GB**。\n\n每天 9:00 会自动同步库存。需要我再加一条「失败时告警」吗？" } },
       ],
     },
 
@@ -81,17 +83,15 @@
       ],
       autoplay: true,
       turn: [
-        { ms: 450, push: { type: "reasoning", open: true, label: "推理", text: "读 sync_inventory 现有定义 → 在 upsert 外包一层指数退避重试（3 次）。产出 pending 草稿供用户 review，不直接生效。" } },
-        { ms: 800, push: { type: "tool_call", running: true, status: "正在编辑 sync_inventory…", items: [{ verb: "edit_function", name: "sync_inventory" }] } },
-        { ms: 550, island: { code: "import time, requests\n\n" } },
-        { ms: 500, island: { append: "def sync_inventory(warehouse, dry_run=False):\n    skus = fetch_skus(warehouse)\n" } },
-        { ms: 550, island: { append: "    for attempt in range(3):            # 指数退避重试\n        try:\n            return upsert(skus, dry_run=dry_run)\n" } },
-        { ms: 550, island: { append: "        except requests.RequestException:\n            if attempt == 2: raise\n            time.sleep(2 ** attempt)\n" } },
-        { ms: 850, patch: { type: "tool_call", open: true, summary: "已产出 sync_inventory 草稿 v2（加 3 次指数退避重试）", items: [
+        { ms: 400, stream: { type: "reasoning", open: true, label: "推理", tps: 46, text: "读 sync_inventory 现有定义 → 在 upsert 外包一层指数退避重试（3 次）。产出 pending 草稿供用户 review，不直接生效。" } },
+        { ms: 600, push: { type: "tool_call", running: true, status: "正在编辑 sync_inventory…", items: [{ verb: "edit_function", name: "sync_inventory" }] } },
+        // 右岛代码逐字流入（= entities build 流镜像：edit_function 的 arg delta 实时镜像到右岛实体面）
+        { ms: 350, islandStream: { cps: 150, code: "import time, requests\n\ndef sync_inventory(warehouse, dry_run=False):\n    skus = fetch_skus(warehouse)\n    for attempt in range(3):            # 指数退避重试\n        try:\n            return upsert(skus, dry_run=dry_run)\n        except requests.RequestException:\n            if attempt == 2: raise\n            time.sleep(2 ** attempt)\n" } },
+        { ms: 400, patch: { type: "tool_call", open: true, summary: "已产出 sync_inventory 草稿 v2（加 3 次指数退避重试）", items: [
           { verb: "edit_function", name: "sync_inventory", danger: "cautious",
             result: { json: { version: "draft v2", pending: true, diff: "+6 -1" } } },
         ] } },
-        { ms: 700, push: { type: "text", text: "已生成**草稿 v2**：`upsert` 失败时按指数退避（1s/2s）重试，最多 3 次（见右侧）。\n\n确认无误就点右岛「**采用草稿 v2**」生效；要改重试次数告诉我。" } },
+        { ms: 400, stream: { type: "text", tps: 22, text: "已生成**草稿 v2**：`upsert` 失败时按指数退避（1s/2s）重试，最多 3 次（见右侧）。\n\n确认无误就点右岛「**采用草稿 v2**」生效；要改重试次数告诉我。" } },
       ],
     },
 
