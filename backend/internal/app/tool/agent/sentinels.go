@@ -11,6 +11,7 @@ import errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 
 var (
 	ErrAgentIDRequired     = errorspkg.New(errorspkg.KindInvalid, "AGENT_ID_REQUIRED", "agentId is required")
+	ErrAgentInputRequired  = errorspkg.New(errorspkg.KindInvalid, "AGENT_INPUT_REQUIRED", "input is required (an object; pass {} if the agent's prompt is self-contained — there is no 'prompt' field)")
 	ErrExecutionIDRequired = errorspkg.New(errorspkg.KindInvalid, "AGENT_EXECUTION_ID_REQUIRED", "executionId is required")
 	ErrNamePromptRequired  = errorspkg.New(errorspkg.KindInvalid, "AGENT_NAME_PROMPT_REQUIRED", "name and prompt are required")
 	ErrIDPromptRequired    = errorspkg.New(errorspkg.KindInvalid, "AGENT_ID_PROMPT_REQUIRED", "agentId and prompt are required")

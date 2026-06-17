@@ -105,18 +105,26 @@ func (t *InvokeAgent) Description() string {
 }
 
 func (t *InvokeAgent) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","required":["agentId"],"properties":{"agentId":{"type":"string"},"input":{"type":"object","description":"Data fed to the agent (appended to its prompt)."}}}`)
+	return json.RawMessage(`{"type":"object","required":["agentId","input"],"properties":{"agentId":{"type":"string"},"input":{"type":"object","description":"The task/data for THIS run, as an object. Pass {} only if the agent's prompt is fully self-contained. This is where you say what the agent should do — there is no separate 'prompt' field."}}}`)
 }
 
 func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		AgentID string `json:"agentId"`
+		AgentID string         `json:"agentId"`
+		Input   map[string]any `json:"input"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("invoke_agent: bad args: %w", err)
 	}
 	if strings.TrimSpace(a.AgentID) == "" {
 		return ErrAgentIDRequired
+	}
+	// Require input so a misnamed task (e.g. a "prompt" key) fails loudly instead of running the
+	// agent with empty input and returning a misleading ok:true. {} is allowed for self-contained agents.
+	//
+	// 要求 input：任务键写错（如用了 "prompt"）就显式报错，而非空 input 跑出误导的 ok:true。self-contained agent 传 {}。
+	if a.Input == nil {
+		return ErrAgentInputRequired
 	}
 	return nil
 }

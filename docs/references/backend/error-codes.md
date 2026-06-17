@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **264 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **265 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -44,7 +44,7 @@ audience: [human, ai]
 
 ## 全量登记（264 码，按域）
 
-> `errorspkg.New` 机械抽取（259，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（260，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -98,6 +98,7 @@ audience: [human, ai]
 | `AGENT_EXECUTION_ID_REQUIRED` | 400 | executionId is required |
 | `AGENT_ID_PROMPT_REQUIRED` | 400 | agentId and prompt are required |
 | `AGENT_ID_REQUIRED` | 400 | agentId is required |
+| `AGENT_INPUT_REQUIRED` | 400 | input is required (an object; pass {} for a self-contained agent) |
 | `AGENT_NAME_PROMPT_REQUIRED` | 400 | name and prompt are required |
 | `AGENT_REVERT_ARGS_REQUIRED` | 400 | agentId and a positive version are required |
 

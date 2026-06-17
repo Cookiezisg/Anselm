@@ -44,7 +44,12 @@ func TestInvokeAgent_RequiresAgentID(t *testing.T) {
 	if err := tl.ValidateInput(json.RawMessage(`{}`)); err == nil {
 		t.Fatal("missing agentId should fail")
 	}
-	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1"}`)); err != nil {
-		t.Fatalf("valid args rejected: %v", err)
+	// input is now required: a missing/misnamed task (e.g. a "prompt" key) must fail loudly rather
+	// than run the agent with empty input and return a misleading ok:true. {} is allowed.
+	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1"}`)); err == nil {
+		t.Fatal("missing input should fail")
+	}
+	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1","input":{}}`)); err != nil {
+		t.Fatalf("valid args (agentId + input) rejected: %v", err)
 	}
 }
