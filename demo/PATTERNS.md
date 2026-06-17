@@ -18,7 +18,7 @@
 | `tabs` · `segmented` | 页级视图切换（隐藏不销毁；实体页概览/版本）· 就地紧凑选项 |
 | `floating`(模块) · `menu`(模块) | 锚定浮层引擎 · 菜单 |
 | `action-group` · `toolbar` · `ocean-header` | 动作组 · 三段工具条（`bordered` 顶栏 variant）· 海洋页头（`editable` 标题就地改名，派 an-title-change） |
-| `right-island` · `sidebar-list` | 右岛内容壳（皮肤与左岛同源 `--shadow-float`/`--r-chip`）· 左岛列表（New[`no-new` 可隐]+域内垂搜[实时过滤行/空类型组自隐]+排序+**可折叠大组** chat 式头） |
+| `right-island` · `sidebar-list` | 右岛内容壳（皮肤与左岛同源 `--shadow-float`/`--r-chip`）· 左岛列表（New[`no-new` 可隐]+域内垂搜[实时过滤·命中祖先链自动展开]+排序+**可折叠大组** chat 式头 + **headless 类型**[无标题省头·scheduler]+**嵌套行树**[row.children 递归·点 chevron 折叠/点标题选中·`add`/`more` 行尾动作·documents 文档树复用此件而非另造]） |
 | `code-editor` · `json-tree` | 编辑器块（高亮单源 `AnCodeEditor.highlight`；编辑→保存/取消）· 结构化树 |
 | 配置 `config/entity-kinds`(9 kind + `kindIconOf`) · `config/state-model`(`anState`/`anTone`) | 实体类型/图标/动词单源 + 引用→kind 图标派生 · 状态翻译单源 + 状态→徽 tone 单源 |
 | schema `schema/{kind-schema,render}` | 声明式实体页（字段型 text/kv/code/json/rows/card + 段 layout:grid + 块 span） |
@@ -45,8 +45,8 @@
 | 范式 | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
 | `an-graph-canvas` | ✅ 🪂 | 已落 `core/primitives/graph-canvas.js`（移植 `graph-lab/`，一骨多态：edit/run × LR/TB；Sugiyama-lite 布局 + 浮动正交布线 + 回边弧；图标走 NODE_ICON、色走 tokens；后端对齐：5 节点 kind、回边只控制/审批发、(node,iteration) 记忆化、:edit ops）。**外设内化**：`framed`(定高 card 框 `--h-graph-preview`)/`toolbar`(悬浮缩放组)/`enterable`(进入编辑器)——render.js graph leaf 退化成一行、编辑器不再重拼缩放。**伴生 `an-kind-legend`**（5 类节点色图例，自 `window.AnGraph` 取数、零属性；图编辑器 rail + reference 画廊同用，内化原 rail 手搓 flex+拼色） | workflow 图（实体页**定义图**框 edit + 图编辑器海洋 edit·纯编辑无运行态）· scheduler 活运行图（run 态）· relation 邻域图 |
-| `an-doc-tree` | ✅ 🧩 | 已落 `core/primitives/doc-tree.js`（Notion 式嵌套【文档】树，非文件夹）：New Document + 内置实时搜索（命中 + 祖先链自动展开）+ 任意深可折叠（点 chevron 仅折叠、点行选中开文档）+ 每行悬停 ＋（加子文档）/ ⋯（编辑菜单）；tree/selected 属性注入；事件 an-doc-new·an-doc-select·an-doc-add·an-doc-more | documents 左岛 |
-| `an-doc-editor` | ✅ 🪂 | 已落 `core/primitives/doc-editor.js`（contenteditable 块编辑，全 demo 唯一自画像素区，Notion 级阅读密度：16px 正文 + 标题阶 h1/h2/h3 + 16px 待办框）：blocks 属性注入（h1/h2/h3·p[spans 含 @ref]·bullet·todo·quote·code·callout[tone]·divider）；四能力——斜杠「/」→ 块类型菜单(AnMenu) · 「@」→ 实体/文档 picker 边打边滤 → 内联插 an-ref-pill · 悬停 ref-pill → 浮信息卡(AnFloating) · 悬停块 → 左槽 ＋ 手柄插块 | documents 所见即所得 |
+| `an-outline` | ✅ 🧩 | 已落 `core/primitives/outline.js`（文档大纲/ToC：左导引线 + 层级缩进 + 当前节高亮；items/active 属性注入；点条目 emit an-outline-pick → 消费方滚到标题） | documents 右岛大纲 |
+| `an-doc-editor` | ✅ 🪂 | 已落 `core/primitives/doc-editor.js`（contenteditable 块编辑，全 demo 唯一自画像素区，**对齐产品密度**：13px 正文/标题阶 t-h3·t-strong·t-body/16px 待办框，非 Notion 放大）：blocks 属性注入（h1/h2/h3·p[spans 含 @ref]·bullet·todo·quote·code·callout[tone]·divider）；四能力——斜杠「/」→ 块类型菜单(AnMenu) · 「@」→ 实体/文档 picker 边打边滤 → 内联插 an-ref-pill · 悬停 ref-pill → 浮信息卡(AnFloating) · 悬停块 → 左槽 ＋ 手柄插块；`scrollToHeading(i)` 供大纲跳转 | documents 所见即所得 |
 | `an-heatmap` | 🪂 ⬚ | 新建（日历网格，mock 驱动；后端无聚合端点） | 个人/主页活动 |
 | `an-chart` / `an-sparkline` | 🪂 ⬚ | 新建（同件两 mode：有轴/无轴） | 用量/指标趋势 · 实体行内联 |
 | `an-version-diff` | ✅ 🧩 | 已落 `core/primitives/version-diff.js`（移植 design `version-diff.js` 的 LCS 纯函数；单框 unified 红绿 diff，行内着色复用 `AnCodeEditor.highlight`；before/after + lang/range/note/bare） | 实体版本 tab（左 an-row 版本轨 + 右本件）· chat 代码 diff |

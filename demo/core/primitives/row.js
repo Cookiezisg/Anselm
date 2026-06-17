@@ -76,10 +76,13 @@
     }
     hydrate() {
       this.toggleAttribute("has-acts", !!this.querySelector('[slot="actions"]'));
-      const fire = () => { if (!this.has("passive")) this.emit("an-select"); };
+      const select = () => { if (!this.has("passive")) this.emit("an-select"); };
       const lead = this.$(".lead"), main = this.$(".main") || this.$(".label");
-      if (lead) lead.addEventListener("click", fire);
-      if (main) main.addEventListener("click", fire);
+      // 树节点（collapsible 且非 passive）：点行首槽 chevron → an-toggle（仅折叠）、点标题 → an-select（打开）——分流"折叠 vs 选中"。
+      // 非 collapsible / passive 行为不变（行首槽与标题同 an-select；passive 不派）。
+      const onLead = () => { if (this.has("collapsible") && !this.has("passive")) this.emit("an-toggle"); else select(); };
+      if (lead) lead.addEventListener("click", onLead);
+      if (main) main.addEventListener("click", select);
     }
   }
   window.AnElement.define(AnRow);

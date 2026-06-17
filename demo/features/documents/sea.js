@@ -29,20 +29,19 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
     const page = el("an-page");
     const island = el("an-right-island", { title: "文档信息", icon: "doc" });
 
-    function buildIsland(D) {
+    function buildIsland(D, editor) {
       island.innerHTML = "";
-      island.append(el("an-info-card", { title: "大纲", icon: "sliders" },
-        ...((D.outline || []).length ? (D.outline).map((o) => el("an-row", { label: o.text, depth: Math.max(0, (o.level || 2) - 2), passive: true })) : [el("an-row", { label: "（无标题）", passive: true })])));
+      // 大纲 = an-outline（导引线 + 层级缩进 + 当前节高亮 + 点击滚到标题）
+      const tocCard = el("an-info-card", { title: "大纲", icon: "list" });
+      const toc = el("an-outline"); toc.items = D.outline || [];
+      toc.addEventListener("an-outline-pick", (ev) => editor && editor.scrollToHeading(ev.detail.index));
+      tocCard.append(toc);
+      island.append(tocCard);
       island.append(rowsCard("反链 · 被引用", "history", (D.backlinks || []).length ? (D.backlinks).map((b) => ({ icon: b.icon, label: b.label, meta: b.meta, hint: b.hint })) : [{ label: "暂无反链", passive: true }]));
       island.append(rowsCard("出链 · @ 提及", "enter", (D.outlinks || []).length ? (D.outlinks).map((o) => ({ icon: o.icon, label: o.label, meta: o.meta, passive: true })) : [{ label: "暂无出链", passive: true }]));
       const metaCard = el("an-info-card", { title: "元信息", icon: "shield-check" });
       const metaKv = el("an-kv"); metaKv.setAttribute("wrap", ""); metaKv.rows = D.meta || []; metaCard.append(metaKv);
       island.append(metaCard);
-      const aiCard = el("an-info-card", { title: "AI 编辑", icon: "sparkles" });
-      const aiBtn = el("an-button", { icon: "sparkles", block: true }, "AI 编辑本文（:iterate）");
-      aiBtn.addEventListener("click", () => window.AnToast && window.AnToast.show({ text: "开对话编辑文档 → conversationId（接 chat 海洋）" }));
-      aiCard.append(aiBtn, ...(D.history || []).map((h) => el("an-row", { icon: h.icon, label: h.label, meta: h.meta, hint: h.hint, passive: true })));
-      island.append(aiCard);
     }
 
     function loadDoc(id) {
@@ -60,7 +59,7 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
       editor.mentions = window.DOC_MENTIONS || [];
       editor.blocks = D.blocks || [];
       page.append(editor);
-      buildIsland(D);
+      buildIsland(D, editor);
     }
 
     ctx.Intent.on("document", (sel) => { if (page.isConnected && sel && sel.id) loadDoc(sel.id); });

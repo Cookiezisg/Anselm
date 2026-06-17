@@ -46,25 +46,25 @@
     static tag = "an-doc-editor";
     static observed = [];
     static css = `
-      /* Notion 级阅读密度：16px 正文 + 1.6 行高 + 模数标题阶；位置自管供左槽手柄锚定 */
+      /* 阅读密度对齐产品调性（与实体/各海洋同 13px 正文，非 Notion 放大）：正文 t-body + 标题阶 t-h3/t-strong/t-body */
       :host { display: block; position: relative; }
-      .doc { outline: none; color: var(--ink); font-size: var(--t-strong); line-height: var(--lh-prose); }
-      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-strong) * var(--lh-prose)); }
+      .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-prose); }
+      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-body) * var(--lh-prose)); }
       .b:first-child { margin-top: 0; }
 
-      /* 标题阶（h1 32 / h2 24 / h3 20）：前留白拉开节奏、首块不顶白 */
-      .h1, .h2, .h3 { font-weight: 600; line-height: var(--lh-tight); color: var(--ink); }
-      .h1 { font-size: var(--t-h1); font-weight: 700; margin: var(--sp-8) 0 var(--sp-1); }
-      .h2 { font-size: var(--t-h2); margin: var(--sp-6) 0 var(--grid); }
-      .h3 { font-size: var(--t-h3); margin: var(--sp-5) 0 var(--grid); }
+      /* 标题阶（h1 20 / h2 16 / h3 13bold）：克制、与产品字阶一致；前留白拉节奏、首块不顶白 */
+      .h1, .h2, .h3 { font-weight: 600; line-height: var(--lh-tight); color: var(--ink); scroll-margin-top: var(--sp-12); }
+      .h1 { font-size: var(--t-h3); font-weight: 700; margin: var(--sp-6) 0 var(--sp-1); }
+      .h2 { font-size: var(--t-strong); margin: var(--sp-5) 0 var(--grid); }
+      .h3 { font-size: var(--t-body); margin: var(--sp-4) 0 var(--grid); }
       .b.h1:first-child, .b.h2:first-child, .b.h3:first-child { margin-top: 0; }
 
       /* 列表 / 待办：[行首槽 = 图标+缝 | 文本]，标记居中对齐正文首行 */
       .bl, .td { display: grid; grid-template-columns: calc(var(--icon) + var(--gap)) 1fr; align-items: start; }
       .bt { min-width: 0; }
-      .mk { display: grid; place-items: center; height: calc(var(--t-strong) * var(--lh-prose)); color: var(--ink-2); font-size: var(--t-strong); }
-      /* 待办勾选框：16px 方框（不再 24px 大块）·空=描边 / 勾=accent 实底白勾 */
-      .ck { width: var(--icon); height: var(--icon); margin-top: calc((var(--t-strong) * var(--lh-prose) - var(--icon)) / 2);
+      .mk { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-prose)); color: var(--ink-2); font-size: var(--t-body); }
+      /* 待办勾选框：16px 方框 · 空=描边 / 勾=accent 实底白勾 */
+      .ck { width: var(--icon); height: var(--icon); margin-top: calc((var(--t-body) * var(--lh-prose) - var(--icon)) / 2);
         display: grid; place-items: center; border-radius: var(--r-tag); box-shadow: inset 0 0 0 var(--line-2) var(--line-strong);
         color: var(--ink-on-accent); cursor: pointer; transition: background var(--d-fast), box-shadow var(--d-fast); }
       .ck svg { width: var(--icon-sm); height: var(--icon-sm); }
@@ -79,14 +79,14 @@
       .callout { display: grid; grid-template-columns: var(--icon) 1fr; align-items: start; column-gap: var(--gap);
         padding: var(--sp-3) var(--sp-4); border-radius: var(--r-chip); background: var(--accent-soft); }
       .callout.warn { background: var(--warn-soft); }
-      .callout .ci { display: grid; place-items: center; height: calc(var(--t-strong) * var(--lh-prose)); color: var(--accent); }
+      .callout .ci { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-prose)); color: var(--accent); }
       .callout.warn .ci { color: var(--warn); }
       .callout .ci svg { width: var(--icon); height: var(--icon); }
 
       /* 代码块 */
       pre.code { position: relative; margin: var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-card);
         background: var(--island-2); box-shadow: inset 0 0 0 var(--hairline) var(--line);
-        font-family: var(--mono); font-size: var(--t-body); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+        font-family: var(--mono); font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
       pre.code .lang { position: absolute; top: var(--sp-2); right: var(--sp-3); color: var(--ink-3); font-size: var(--t-meta); }
 
       hr.b { border: none; border-top: var(--hairline) solid var(--line); margin: var(--sp-5) 0; min-height: 0; }
@@ -94,9 +94,9 @@
       /* 空块占位提示（仅当前聚焦的空块显示） */
       .b[data-empty]:focus::before { content: attr(data-empty); color: var(--ink-3); pointer-events: none; }
 
-      /* 左槽块手柄（Notion 式 ＋）：悬停某块时浮现于其左空白，点开块菜单插块 */
+      /* 左槽块手柄（＋）：悬停某块时浮现于其左空白，点开块菜单插块 */
       .gutter { position: absolute; left: calc(-1 * (var(--icon) + var(--gap))); width: var(--icon);
-        height: calc(var(--t-strong) * var(--lh-prose)); display: grid; place-items: center;
+        height: calc(var(--t-body) * var(--lh-prose)); display: grid; place-items: center;
         border-radius: var(--r-tag); color: var(--ink-3); opacity: 0; cursor: pointer;
         transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast); }
       .gutter.show { opacity: 1; }
@@ -108,6 +108,8 @@
     get blocks() { return this._blocks || []; }
     set mentions(v) { this._mentions = Array.isArray(v) ? v : []; }
     get mentions() { return this._mentions || []; }
+    // 滚到第 i 个标题（h1/h2/h3 出现序）——供大纲 ToC 点击跳转
+    scrollToHeading(i) { const h = this.$$(".h1, .h2, .h3")[i]; if (h) h.scrollIntoView({ behavior: "smooth", block: "start" }); }
 
     render() {
       return `<div class="doc" contenteditable="true" spellcheck="false">${(this._blocks || []).map(blockHtml).join("")}</div>`

@@ -63,6 +63,8 @@
 
       /* 类型块：折叠关 → 隐藏其行 */
       .type:not(.open) > .rows { display: none; }
+      /* 嵌套树枝（documents 文档树）：行包裹 .nw，折叠关 → 隐藏其子行容器 */
+      .nw:not(.open) > .rows { display: none; }
     `;
 
     render() {
@@ -97,24 +99,29 @@
         + `<div class="grp-body">${types}</div></div>`;
     }
 
-    // 类型块：类型头（可折叠 Row，meta=计数）+ 缩进一级的实体行。折叠靠 DOM 结构（h.parentNode）、选中靠 row.dataset.id，故无需索引属性
+    // 类型块：有标题/图标 → 类型头（可折叠 Row，meta=计数）+ 缩进一级的行；无标题无图标 → headless（无头，行直接铺·depth 0）
+    // headless 用于：scheduler（单类型无需大标题）· documents（文件夹内文档树根）。
     _typeHtml(t) {
       const e = window.anEsc;
-      const open = t.open ? " open" : "";
+      const headless = !t.label && !t.icon;
+      const rows = (t.rows || []).map((r) => this._rowHtml(r, headless ? 0 : 1)).join("");
+      if (headless) return `<div class="type open"><div class="rows">${rows}</div></div>`;
       const head =
         `<an-row class="type-head"` +
         (t.icon ? ` icon="${e(t.icon)}"` : "") +
         ` label="${e(t.label || "")}" collapsible${t.open ? " open" : ""}` +
         (t.count != null ? ` meta="${e(String(t.count))}"` : "") +
         ` passive></an-row>`;
-      const rows = (t.rows || []).map((r) => this._rowHtml(r)).join("");
-      return `<div class="type${open}">${head}<div class="rows">${rows}</div></div>`;
+      return `<div class="type${t.open ? " open" : ""}">${head}<div class="rows">${rows}</div></div>`;
     }
 
-    // 实体行：缩进一级（depth=1），行首槽仍与类型头对齐
-    _rowHtml(r) {
+    // 实体行（可递归树枝）：depth 缩进、有 children → collapsible + 嵌套 .rows（fold on an-toggle）；行尾 ＋(add)/⋯(more) 按 host attr
+    _rowHtml(r, depth) {
       const e = window.anEsc;
-      let a = ` depth="1"`;
+      if (depth == null) depth = 1;
+      const has = r.children && r.children.length;
+      const open = r.open !== false;
+      let a = ` depth="${depth}"`;
       if (r.id != null) a += ` data-id="${e(r.id)}"`;
       if (r.dot) a += ` dot="${e(r.dot)}"`;
       else if (r.icon) a += ` icon="${e(r.icon)}"`;
@@ -122,11 +129,14 @@
       if (r.hint) a += ` hint="${e(r.hint)}"`;
       if (r.meta != null && r.meta !== "") a += ` meta="${e(String(r.meta))}"`;
       if (r.selected) a += ` selected`;
-      // 行 …（host 带 more 时）：进 an-row 动作槽，hover 现于行尾，点 → 派 an-row-more
-      const more = this.has("more") && r.id != null
-        ? `<an-button slot="actions" variant="icon" icon="more" class="row-more" data-more="${e(r.id)}"></an-button>`
-        : "";
-      return `<an-row class="entity"${a}>${more}</an-row>`;
+      if (has) a += ` collapsible${open ? " open" : ""}`;   // 有子 → 可折叠树枝（点 chevron 折叠、点标题选中）
+      const addBtn = this.has("add") && r.id != null
+        ? `<an-button slot="actions" variant="icon" icon="plus" class="row-add" data-add="${e(r.id)}"></an-button>` : "";
+      const moreBtn = this.has("more") && r.id != null
+        ? `<an-button slot="actions" variant="icon" icon="more" class="row-more" data-more="${e(r.id)}"></an-button>` : "";
+      const rowEl = `<an-row class="entity${has ? " branch" : ""}"${a}>${addBtn}${moreBtn}</an-row>`;
+      const kids = has ? `<div class="rows">${r.children.map((c) => this._rowHtml(c, depth + 1)).join("")}</div>` : "";
+      return `<div class="nw${open ? " open" : ""}">${rowEl}${kids}</div>`;
     }
 
     hydrate() {
@@ -171,30 +181,35 @@
         });
       });
 
+      // 树枝折叠：点 chevron（an-row 派 an-toggle）→ 折叠本 .nw（documents 文档树）
+      this.$$(".entity.branch").forEach((row) => {
+        row.addEventListener("an-toggle", () => { const nw = row.closest(".nw"); if (!nw) return; const open = nw.classList.toggle("open"); row.toggleAttribute("open", open); });
+      });
+
+      // 行 ＋ 动作（add）：点 → 派 an-row-add{id, anchor}（如 documents 在此节点下加子文档）
+      this.$$(".row-add").forEach((b) => {
+        b.addEventListener("click", (ev) => { ev.stopPropagation(); this.emit("an-row-add", { id: b.dataset.add, anchor: b }); });
+      });
       // 行 … 动作：点 → 派 an-row-more{id, anchor}（feature 据此开该实体的动作菜单）
       this.$$(".row-more").forEach((b) => {
         b.addEventListener("click", (ev) => { ev.stopPropagation(); this.emit("an-row-more", { id: b.dataset.more, anchor: b }); });
       });
     }
 
-    // 实时过滤：逐行匹配 label+meta，隐藏未命中；命中类型/组强制展开、整组无命中则整组隐
+    // 实时过滤（支持嵌套树）：① 逐行按 label+meta 显隐其 .nw 包裹；② 命中行回填祖先链（可见 + 展开）；③ 空 type/组隐藏
     _applyFilter(q) {
-      this.$$(".type").forEach((type) => {
-        let any = false;
-        type.querySelectorAll(".entity").forEach((row) => {
-          const hay = ((row.getAttribute("label") || "") + " " + (row.getAttribute("meta") || "")).toLowerCase();
-          const show = !q || hay.includes(q);
-          row.style.display = show ? "" : "none";
-          if (show) any = true;
-        });
-        type.style.display = (q && !any) ? "none" : "";
-        if (q && any) type.classList.add("open");
+      const rows = this.$$(".entity");
+      const hayOf = (row) => ((row.getAttribute("label") || "") + " " + (row.getAttribute("meta") || "")).toLowerCase();
+      rows.forEach((row) => { const nw = row.closest(".nw") || row; nw.style.display = (!q || hayOf(row).includes(q)) ? "" : "none"; });
+      if (q) rows.forEach((row) => {
+        if (!hayOf(row).includes(q)) return;
+        let nw = row.closest(".nw");
+        while (nw) { nw.style.display = ""; nw.classList.add("open"); const r = nw.querySelector(":scope > .entity"); if (r) r.setAttribute("open", ""); nw = nw.parentElement && nw.parentElement.closest(".nw"); }
+        const type = row.closest(".type"); if (type) type.classList.add("open");
+        const sec = row.closest(".grp-sec"); if (sec) sec.classList.add("open");
       });
-      this.$$(".grp-sec").forEach((sec) => {
-        const anyType = [...sec.querySelectorAll(".type")].some((t) => t.style.display !== "none");
-        sec.style.display = (q && !anyType) ? "none" : "";
-        if (q && anyType) sec.classList.add("open");
-      });
+      this.$$(".type").forEach((type) => { const vis = [...type.querySelectorAll(".nw")].some((n) => n.style.display !== "none"); type.style.display = (q && !vis) ? "none" : ""; });
+      this.$$(".grp-sec").forEach((sec) => { const vis = [...sec.querySelectorAll(".nw")].some((n) => n.style.display !== "none"); sec.style.display = (q && !vis) ? "none" : ""; });
     }
 
     // 排序 / 显示 默认项（域内垂搜的伴随控制）
