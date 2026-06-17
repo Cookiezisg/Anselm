@@ -69,12 +69,14 @@
       const e = window.anEsc;
       const m = this._model || {};
       const groups = (m.groups || []).map((g, gi) => this._groupHtml(g, gi)).join("");
-      return `
+      // no-new：隐藏 New 行（如 scheduler——工作流不在此新建，仅搜索 + 选中）
+      const newRow = this.has("no-new") ? "" : `
         <button type="button" class="head-row new">
           <span class="lead">${window.icon("plus")}</span>
           <span class="label">${e(m.newLabel || "New")}</span>
           <span></span>
-        </button>
+        </button>`;
+      return `${newRow}
         <div class="head-row filter">
           <span class="lead">${window.icon("search")}</span>
           <input class="input" type="text" placeholder="${e(m.filterPlaceholder || "")}">
@@ -128,12 +130,12 @@
     }
 
     hydrate() {
-      // New
-      this.$(".new").addEventListener("click", () => this.emit("an-new"));
+      // New（no-new 时无此行）
+      const newBtn = this.$(".new"); if (newBtn) newBtn.addEventListener("click", () => this.emit("an-new"));
 
-      // 域内垂搜：原生 input → 收敛成对外 composed 'an-filter'
+      // 域内垂搜：原生 input → 实时过滤本 rail 行（隐藏未命中 · 命中类型/组强制展开）+ 对外派 'an-filter'
       const input = this.$(".input");
-      input.addEventListener("input", () => this.emit("an-filter", { value: input.value }));
+      input.addEventListener("input", () => { this._applyFilter(input.value.trim().toLowerCase()); this.emit("an-filter", { value: input.value }); });
 
       // 排序/显示 sliders 菜单（命令式浮层，body 顶层逃裁剪）
       const sliders = this.$(".sliders");
@@ -172,6 +174,26 @@
       // 行 … 动作：点 → 派 an-row-more{id, anchor}（feature 据此开该实体的动作菜单）
       this.$$(".row-more").forEach((b) => {
         b.addEventListener("click", (ev) => { ev.stopPropagation(); this.emit("an-row-more", { id: b.dataset.more, anchor: b }); });
+      });
+    }
+
+    // 实时过滤：逐行匹配 label+meta，隐藏未命中；命中类型/组强制展开、整组无命中则整组隐
+    _applyFilter(q) {
+      this.$$(".type").forEach((type) => {
+        let any = false;
+        type.querySelectorAll(".entity").forEach((row) => {
+          const hay = ((row.getAttribute("label") || "") + " " + (row.getAttribute("meta") || "")).toLowerCase();
+          const show = !q || hay.includes(q);
+          row.style.display = show ? "" : "none";
+          if (show) any = true;
+        });
+        type.style.display = (q && !any) ? "none" : "";
+        if (q && any) type.classList.add("open");
+      });
+      this.$$(".grp-sec").forEach((sec) => {
+        const anyType = [...sec.querySelectorAll(".type")].some((t) => t.style.display !== "none");
+        sec.style.display = (q && !anyType) ? "none" : "";
+        if (q && anyType) sec.classList.add("open");
       });
     }
 

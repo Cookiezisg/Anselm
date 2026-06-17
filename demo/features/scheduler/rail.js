@@ -1,11 +1,17 @@
-/* Anselm feature — scheduler 侧栏（rail）：active/draining workflow 列表（lifecycle + concurrency 治理态）。
-   时间河含全部 run，rail 给工作流概览与治理态（监听中 / draining / 并发策略）。 */
+/* Anselm feature — scheduler 侧栏（rail）：active/draining workflow 列表（lifecycle + concurrency 治理态）+ 搜索（无 New——workflow 不在此新建）。
+   走 an-sidebar-list[no-new]：单类型「工作流 · 监听中」铺工作流行（dot=活态、meta=治理态）；选中 → Intent.select({kind:workflow}) 路由回本海洋 owns:["workflow"] → sea loadWorkflow。 */
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
   rail: (ctx) => {
     const WFS = window.SCHED_WORKFLOWS || [];
-    return ctx.rail([["g", "工作流 · 监听中"]].concat(
-      WFS.map((w) => ["r", { dot: w.dot, label: w.label, meta: w.meta, id: w.id }])
-    ));
+    const sel = window.SCHED_DEFAULT || (WFS[0] || {}).id;
+    const el = document.createElement("an-sidebar-list");
+    el.setAttribute("no-new", "");   // workflow 不在此新建，仅搜索 + 选中
+    el.model = { filterPlaceholder: "搜索工作流…", groups: [{ types: [{
+      icon: "workflow", label: "工作流 · 监听中", open: true, count: WFS.length,
+      rows: WFS.map((w) => ({ id: w.id, label: w.label, meta: w.meta, dot: w.dot, selected: w.id === sel })),
+    }] }] };
+    el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "workflow", id: ev.detail.id }); });
+    return el;
   },
 });

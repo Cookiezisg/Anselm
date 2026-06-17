@@ -1,15 +1,14 @@
-/* Anselm feature — scheduler 种子数据（durable 执行：flowrun 时间河 + 节点甘特 + 运行图 + 节点调试）。
+/* Anselm feature — scheduler 种子数据（durable 执行：单 workflow 的运行看板 + 运行图 + 节点调试）。
    后端心智：一次执行 = 一条 flowrun（fr_，冻结图版本 + pin 闭包 + 状态 running/completed/failed/cancelled）；
      真相 = flowrun_nodes（frn_，每行一个 (节点,轮次) 记忆化 result，record-once）；parked 唯一非终态；回边=循环（每决策 +1 iteration）。
-   时间河：run.tMin = 距今分钟（起始时刻），sea 据 SCHED_WINDOW_MIN 算胶囊横位 + 刻度。节点甘特 gantt[].atPct/wPct = run 内相对时段（[0,100]）。 */
+   一个 workflow 被 trigger 多次 → 多条 flowrun：run.wf 归属、run.tMin = 距今分钟（用于列表按最近排序）。节点甘特 gantt[].atPct/wPct = run 内相对时段（[0,100]）。 */
 (function () {
   window.SCHED_WORKFLOWS = [
     { id: "wf_9f2a7c1b", label: "pr_merge_flow", dot: "run", meta: "active · serial", lifecycle: "active", concurrency: "serial" },
     { id: "wf_3c1d8e40", label: "nightly_etl", dot: "done", meta: "active · skip", lifecycle: "active", concurrency: "skip" },
     { id: "wf_77a0b2f9", label: "support_triage", dot: "run", meta: "draining · 1 在途", lifecycle: "draining", concurrency: "allow_all" },
   ];
-  window.SCHED_WINDOW = "近 12 小时 · 刻度每时";
-  window.SCHED_WINDOW_MIN = 720;
+  window.SCHED_DEFAULT = "wf_9f2a7c1b";   // 首屏打开的 workflow（pr_merge_flow）
 
   const PR_NODES = [
     { id: "on_pr_merged", kind: "trigger", ref: "trg_3a1f" }, { id: "run_tests", kind: "action", ref: "fn_5b2e1a" },
