@@ -11,6 +11,9 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     const graph = { nodes: (base.nodes || []).map((n) => ({ ...n, input: { ...(n.input || {}) }, retry: n.retry ? { ...n.retry } : undefined })), edges: (base.edges || []).map((e) => ({ ...e })) };
     const KIND = (window.AnGraph && window.AnGraph.KIND) || {}, KORDER = (window.AnGraph && window.AnGraph.KIND_ORDER) || [];
     const toast = (m) => window.AnToast && window.AnToast.show({ text: m });
+    const el = window.el;   // 共享元素工厂（地基 base.js）
+    // 危险删除动作（底部独立 footer 区，复用 an-action-group[footer] + an-button[danger]，不再手搓 margin div + btnDanger 薄封装）
+    const delFooter = (label, fn) => el("an-action-group", { footer: true }, el("an-button", { variant: "danger", size: "sm", icon: "trash", onclick: fn }, label));
 
     const wrap = document.createElement("div");
     wrap.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column;";
@@ -91,11 +94,8 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
       // 出口
       const outs = cv.getGraph().edges.filter((e) => e.from === n.id);
       if (outs.length) { ins.appendChild(sectionLabel("出口")); outs.forEach((e) => { const r = document.createElement("an-row"); r.setAttribute("passive", ""); r.setAttribute("label", "→ " + e.to); if (e.port) r.setAttribute("meta", e.port + (cv.isBack(e.id) ? " ↩" : "")); ins.appendChild(r); }); }
-      const del = document.createElement("div"); del.style.cssText = "margin-top:var(--sp-4);";
-      del.appendChild(btnDanger("trash", "删除节点", () => cv.deleteSelected())); ins.appendChild(del);
+      ins.appendChild(delFooter("删除节点", () => cv.deleteSelected()));
     }
-
-    function btnDanger(icon, label, fn) { const b = document.createElement("an-button"); b.setAttribute("variant", "danger"); b.setAttribute("size", "sm"); b.setAttribute("icon", icon); b.textContent = label; b.addEventListener("click", fn); return b; }
 
     function edgeInspector(id) {
       const e = cv.getEdge(id); if (!e) return empty();
@@ -106,8 +106,7 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
         pin.addEventListener("focusout", () => cv.updateEdge(id, { port: (pin.value || "").trim() }));
         ins.appendChild(fieldRow("端口", pin));
       } else { const h = document.createElement("an-callout"); h.setAttribute("tone", "info"); h.textContent = "仅 control / approval 源的边带端口。"; ins.appendChild(h); }
-      const del = document.createElement("div"); del.style.cssText = "margin-top:var(--sp-4);";
-      del.appendChild(btnDanger("trash", "删除连线", () => cv.deleteSelected())); ins.appendChild(del);
+      ins.appendChild(delFooter("删除连线", () => cv.deleteSelected()));
     }
 
     cv.addEventListener("an-graph-select", (ev) => renderInspector(ev.detail.sel));

@@ -25,9 +25,9 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     outline.style.cssText = "flex:1; min-height:0; overflow-y:auto; margin-top:var(--sp-2);";
     w.appendChild(outline);
 
-    // 图例：5 类节点色——内化进 an-kind-legend（自取 AnGraph 数据）；rail 只做底部分隔 + 留白的放置
+    // 图例：5 类节点色——内化进 an-kind-legend（自取 AnGraph 数据 + divided 脚位分隔皮肤）；rail 不再手描 border/padding
     const legend = document.createElement("an-kind-legend");
-    legend.style.cssText = "flex:none; padding:var(--sp-3) var(--grid) var(--sp-1); border-top:var(--hairline) solid var(--line);";
+    legend.setAttribute("divided", "");
     w.appendChild(legend);
     return w;
   },

@@ -19,6 +19,9 @@
       :host([block]) .group { display: flex; width: 100%; }
       :host([stack]) .group { flex-direction: column; align-items: stretch; }
       :host([stack]) ::slotted(*) { width: 100%; }
+      /* footer：作内容底部的独立动作区——与上方内容拉开间距（替代各处手搓 margin-top 的裸 div） */
+      :host([footer]) { display: flex; width: 100%; margin-top: var(--sp-4); }
+      :host([footer]) .group { width: 100%; }
     `;
     render() {
       const aria = this.attr("label") ? ` aria-label="${window.anEsc(this.attr("label"))}"` : "";

@@ -6,6 +6,8 @@
     static tag = "an-kind-legend";
     static css = `
       :host { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--t-meta); color: var(--ink-3); }
+      /* divided：作脚位图例时自带顶部分隔线 + 留白（rail 不再手描 border-top/padding cssText） */
+      :host([divided]) { padding: var(--sp-3) var(--grid) var(--sp-1); border-top: var(--hairline) solid var(--line); }
       .item { display: inline-flex; align-items: center; gap: var(--gap-tight); }
       .dot { flex: none; width: var(--dot); height: var(--dot); border-radius: var(--r-pill); }
     `;
