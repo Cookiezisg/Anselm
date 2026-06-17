@@ -211,7 +211,7 @@
     function selectEdge(id) { S.sel = { type: "edge", id }; render(); onSelect(S.sel); }
     function resolveApproval(id, decision) { if (!S.run) return; S.run.state[id] = "completed"; const m = S.run.memo[id] || (S.run.memo[id] = {}); delete m.parked; m.decision = decision; const next = S.G.edges.find((e) => e.from === id && e.port === decision); if (next) { S.run.taken.push(next.id); S.run.state[next.to] = "running"; S.run.live = next.id; } render(); onSelect(S.sel); }
 
-    recompute(); render(); layout(S.G, S.dir); render(); requestAnimationFrame(fit);
+    recompute(); layout(S.G, S.dir); render(); requestAnimationFrame(fit);   // 先 layout 赋 x/y 再 render——杜绝首帧 undefined 坐标（SVG translate(NaN) 报错）
     return {
       setMode(m) { S.mode = m; if (m === "run") S.sel = null; render(); onSelect(S.sel); },
       setDir(d) { S.dir = d; layout(S.G, d); render(); fit(); },
