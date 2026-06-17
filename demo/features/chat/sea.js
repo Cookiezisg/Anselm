@@ -14,6 +14,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     // ── 持久骨架（切会话只更新内容，不重建）──
     const page = el("an-page");
     const header = el("an-ocean-header", { editable: true });
+    const metaSpan = el("span", { slot: "meta" }); header.append(metaSpan);   // 模型 / 时间（modelOverride ?? workspace 默认）
     const tree = el("an-block-tree");
     page.append(header, tree);
     const composer = el("an-composer");
@@ -91,17 +92,32 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       };
       step();
     }
+    // progress 终端式 live 流：push 空 progress 块（Open）→ pokeLog 逐行追加（Delta，实时脉冲）→ done:true 落定（Close）
+    function streamLog(spec, done) {
+      const lines = Array.isArray(spec.lines) ? spec.lines : [];
+      blocks = blocks.concat([{ type: "progress", label: spec.label, done: false, lines: [] }]); tree.blocks = blocks;
+      const i = blocks.length - 1, lps = spec.lps || 6;
+      let k = 0;
+      const step = () => {
+        if (!cur) return;
+        if (k >= lines.length) { blocks[i].done = true; blocks[i].lines = lines; tree.blocks = blocks; page.scrollToBottom(); if (done) done(); return; }
+        k++; blocks[i].lines = lines.slice(0, k); tree.pokeLog(i, blocks[i].lines); page.scrollToBottom();
+        timers.push(setTimeout(step, Math.round(1000 / lps)));
+      };
+      step();
+    }
     function runStep(s, done) {
       if (!s) { if (done) done(); return; }
       if (s.stream) { after(s.ms || 250, () => streamBlock(s.stream, done)); return; }
       if (s.islandStream) { after(s.ms || 250, () => streamIsland(s.islandStream, done)); return; }
+      if (s.progressStream) { after(s.ms || 250, () => streamLog(s.progressStream, done)); return; }
       after(s.ms || 300, () => { applyStep(s); if (done) done(); });
     }
     function runTurn(steps, i) {
       if (!cur || !steps || i >= steps.length) { composer.removeAttribute("generating"); return; }
       const s = steps[i], next = () => runTurn(steps, i + 1);
-      if (s.gate) {   // 危险确认：等 an-block-tree 冒泡的 an-decide（approve→settled / deny→改道）；3.5s 无人动则自动放行（自演）
-        gateListener = (ev) => { clearTurn(); runStep(ev.detail.action === "deny" ? s.gate.onDeny : s.gate.onApprove, next); };
+      if (s.gate) {   // 人在环门：等 an-block-tree 冒泡的 an-decide（approve/accept→onApprove · deny/decline→onDeny）；3.5s 无人动自动放行（自演）
+        gateListener = (ev) => { clearTurn(); const a = ev.detail.action; const no = a === "deny" || a === "decline"; runStep(no ? s.gate.onDeny : s.gate.onApprove, next); };
         tree.addEventListener("an-decide", gateListener);
         after(3500, () => { if (gateListener) { tree.removeEventListener("an-decide", gateListener); gateListener = null; } runStep(s.gate.onApprove, next); });
         return;
@@ -123,6 +139,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       cur = c;
       header.setAttribute("crumb", c.crumb || "Chat");
       header.setAttribute("title", c.title || "对话");
+      metaSpan.textContent = c.meta || "";
       composer.removeAttribute("generating");
       composer.attachments = [];
       // 右岛：仅 :iterate 对话展开实体 live 编辑（其余收起、对话全宽）
@@ -141,7 +158,8 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       pushBlock({ type: "text", role: "user", html: d.html || window.anEsc(d.text || "") });
       startTurn(replyTurn());
     });
-    composer.addEventListener("an-stop", () => { clearTurn(); composer.removeAttribute("generating"); pushBlock({ type: "text", text: "_（已停止生成）_" }); });
+    // :cancel → 回合终态快照 stopReason=cancelled（对齐后端 message_stop status=cancelled），非裸文本
+    composer.addEventListener("an-stop", () => { clearTurn(); composer.removeAttribute("generating"); pushBlock({ type: "turnEnd", stopReason: "cancelled" }); });
     tree.addEventListener("an-continue", () => { if (composer.hasAttribute("generating")) return; startTurn([{ ms: 300, stream: { type: "text", text: "继续——本回合接着上一步推进（演示，逐 token 流式）。", tps: 24 } }]); });
     // ref-pill 点击（transcript 内 @提及 / 实体引用）→ 统一前门 Intent.select
     root.addEventListener("an-ref", (ev) => { const d = ev.detail || {}; if (d.kind && d.id) ctx.Intent.select({ kind: "entity", id: d.id, source: "chat" }); });

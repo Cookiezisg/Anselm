@@ -37,9 +37,9 @@
 | `an-callout` | ✅ | 移植 `attention.js`（警示条 + tone） | workflow attention · env 失败 · 错误态承载 |
 | `an-state` + `an-skeleton` | ✅ | 新建（空/加载/错误占位 + shimmer 骨架） | **全 surface（最普遍缺口）** |
 | `AnToast` · `AnDialog` | ✅ | 新建命令式模块（floating/menu 族） | 非阻塞反馈 · 确认/表单弹窗 |
-| `an-approval-gate` | ✅ | 移植 `approval-gate.js`（chat danger + durable decide 双 flavor） | chat 危险确认 · flowrun 审批门 |
+| `an-approval-gate` | ✅ | `approval-gate.js` 三 flavor：chat(danger 批准/拒绝) · ask(ask_user 提交/跳过 + options) · durable(flowrun :decide，仅 scheduler) | chat 危险确认 / ask 提问 · flowrun 审批门 |
 | `an-run-terminal` | ✅ | 移植 `run-debug.js`（args→流式 stdout→结果） | fn/hd/agent/mcp 试运行 |
-| `an-block-tree` | ✅ | 移植 `block-kit.js`（块流 + transcript + subtree E3） | **chat 核心** · agent transcript |
+| `an-block-tree` | ✅ | `block-kit.js` → 9 块型 transcript（text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/todo/subtree E3）；结果按形态分派(终端/列表/JSON/error 标红) · turnEnd 按 stopReason 分态 · pokeText/pokeLog 逐帧 Delta 流式 | **chat 核心** · agent transcript |
 
 ## 三、逃生舱 + 海洋专属 pattern（Phase 3 随海洋建）
 

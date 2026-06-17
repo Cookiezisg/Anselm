@@ -81,15 +81,20 @@
 | 能力 | demo 面 | 后端出处 | 状态 |
 |---|---|---|---|
 | 会话侧栏（置顶/今天/昨天/归档 + 搜索 + New + 每行 ⋯） | `features/chat/rail`（复用 `an-sidebar-list` 可折叠大组，dot=活态） | `conversations`（?sort/?archived） | ✅ mock |
-| 块流 transcript：text/reasoning/tool_call/tool_result/progress/compaction/turnEnd | chat sea（`an-block-tree` 喂 blocks；reasoning/tool_call 默认折叠；脚本化 live 回合回放） | messages 6 块型 + 8 流 node.type（E2） | ✅ mock |
-| subagent 子树嵌套（E3） | `an-block-tree[subtree]` 左导轨缩进 + 递归（深度 ≤1） | E3 `parentBlockId` | ✅ mock |
+| 块流 transcript：text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/todo + 逐 token 流式 | chat sea（`an-block-tree` 喂 blocks；reasoning/tool_call 默认折叠；pokeText/pokeLog 逐帧 Delta 流式） | messages 6 持久块型 + 8 流 node.type（E2，Open→Delta*→Close） | ✅ mock |
+| tool_result 多形态 + 失败态 | `an-block-tree` 结果分派：终端文本(Bash) / 搜索列表(WebSearch) / JSON 树(get_*/run_*) / **error 标红**(status=error) | 各 tool 族 result 形态 + StatusError | ✅ mock |
+| 回合终态变体（end_turn/max_tokens/max_steps/cancelled/error + errorCode） | `an-block-tree[turnEnd]` 按 stopReason 分态（max_steps warn+继续 / max_tokens ok / cancelled muted / error danger+code） | StopReason 五态 + errorCode 四种（MAX_STEPS_REACHED/TOOL_ERROR_STORM/…） | ✅ mock |
+| subagent 子树 + invoke_agent 嵌套（E3） | `an-block-tree[subtree]` 左导轨缩进 + 递归（subagent 深度 ≤1；invoke_agent 轨迹耐久在 Execution.transcript） | E3 `parentBlockId` | ✅ mock |
+| 并行工具批（同 executionGroup 多项 running → 一并 settle） | tool_call items[] 多项逐项 running 脉冲 → settle | `execution_group` 注入字段 · runTools 批并发 | ✅ mock |
 | 工具危险确认（danger 三级自报，逐次确认） | tool_call 行内嵌 `an-approval-gate[chat]`（批准/始终批准/拒绝 + danger 徽） | humanloop interaction（ephemeral 信号；决议靠 tool_result 闭合） | ✅ mock |
-| agent 反问（ask）/ 决议 | 同上交互卡（ask 问答 vs danger 确认同 broker / 同 interaction 通道） | `/interactions`（broker pending 是真相，重连 REST 重取） | ✅ 展示（决策接装配层） |
-| 一次 Send = 202 + SSE 流式回合（每对话单在途回合 → 生成中切「停止」） | `an-composer` generating 态 + 脚本回放（an-send/an-stop） | `:send` 202 · `STREAM_IN_PROGRESS` 409 · `:cancel` | ✅ mock |
+| agent 反问 ask_user（accept{answer}/decline + options 单选） | tool_call 行内嵌 `an-approval-gate[ask]`（提交/跳过 + 选项 chip；区别于 danger 门） | `/interactions`（ask kind；broker pending 真相，重连 REST 重取） | ✅ mock |
+| 一次 Send = 202 + SSE 流式回合（每对话单在途回合 → 生成中切「停止」） | `an-composer` generating 态 + 脚本回放（an-send/an-stop → cancelled 终态条） | `:send` 202 · `STREAM_IN_PROGRESS` 409 · `:cancel` | ✅ mock |
 | 附件（多模态）/ @提及（冻结快照） | `an-composer`（附件 chip 可删 + @ 内联药丸，复用 `AnMention`） | `attachments` · mention freeze-on-send | ✅ mock |
-| 构建实体镜像（:iterate create/edit 流式填充右岛 pending 草稿） | 右岛 `an-right-island` + `an-code-editor`（build 流逐字注入 + 采用/丢弃；仅 :iterate 对话展开） | entities 流 build 镜像（scope=tool_call id） | ✅ mock |
-| Todo 实时面板 | chat dock（待补） | todo 信号（durable） | ▢ |
-| 压缩标记（compaction）/ 用量 / system-prompt 预览 | compaction 块已展示；用量/预览 dev mode | `conversation.compacted` `/usage` | ✅ 部分 / 🅓 |
+| 构建实体镜像（:iterate edit/create → 右岛实时填充【新 active 版本】，立即生效可 revert） | 右岛 `an-right-island` + `an-code-editor`（build 流逐字注入 + revert；**无草稿/采用门**） | entities 流 build 镜像（scope=tool_call id）；edit 写完即 active、revert 移指针 | ✅ mock |
+| Todo 实时清单看板（3 态 pending/in_progress/completed，整表替换写） | `an-block-tree[todo]` 折叠看板（恰一项 in_progress 流光） | todo 信号（durable）`/conversations/{id}/todos` | ✅ mock |
+| :triage 完整闭环（诊断→invoke_agent 深诊→edit 修复→**手动 retry**） | cv_triage：get_flowrun → invoke_agent 子树 → edit_workflow（立即生效）→ 手动 retry 文案（不自动重跑） | triageSteer · `:triage`→conversationId | ✅ mock |
+| 对话模型/时间 meta | ocean-header meta（modelOverride ?? workspace 默认） | conversation.modelOverride · GET /usage（用量/systemPrompt 详情面待补） | ✅ 部分 |
+| 压缩标记（compaction 水位 summaryCoversUpToSeq + 已压缩条数） | `an-block-tree[compaction]` 信息态耳语 | `conversation.summaryCoversUpToSeq`（压缩器自动写，无人工门控） | ✅ mock |
 
 ---
 

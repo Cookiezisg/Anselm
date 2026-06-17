@@ -1,15 +1,16 @@
 /* Anselm 原语 G3 — <an-block-tree>。对话块流 + agent transcript 的统一渲染面（chat 核心，也被 agent 详情页复用）。
    声明式：JS 属性 .blocks = [{type,...}] → 渲染一列块；类型决定语汇。无命令式 builder（杀多海洋内联漂移）。
-   块型（8）：
+   块型（9）：
      text       —— markdown 正文（轻量内联 md：**粗** `码` 段落）；role="user" → 右对齐浅灰气泡，assistant（缺省）→ 左对齐通栏
      reasoning  —— 思考块（脑图标 + 默认折叠 · 视觉灵魂铁律）
-     tool_call  —— 工具组（扳手图标）：running 流光摘要 → settle 收敛摘要。展开见组内逐项；
-                   每项 = 项头（图标 + 人性化动词 + mono 名 + danger 徽）+ 平铺三段：输入(JSON→json-tree) / 日志(stderr 平打印) / 输出(JSON→json-tree)——输入输出同构、一致
-     tool_result—— 独立输出块（JSON → <an-json-tree>；非 JSON 退化 mono 打印）
-     progress   —— 实时 stderr/yield（终端图标 + run 流光头 + live 脉冲点 → done 静态）
+     tool_call  —— 工具组（扳手图标）：running 流光摘要 → settle 收敛摘要；逐项可 running（脉冲）。展开见组内逐项；
+                   每项 = 项头（图标 + 人性化动词 + mono 名 + danger 徽 / error 徽）+ 平铺段：输入(args→json-tree / gate 危险确认门 / ask 提问门) · 日志(progress) · 结果(按形态 _resultSec：终端文本 / 搜索列表 / JSON 树 / error 标红)
+     tool_result—— 独立输出块（error 标红 / 终端(term) / 列表(list) / JSON → <an-json-tree> / 退化 mono）
+     progress   —— 实时 stderr/yield（终端图标 + run 流光头 + live 脉冲点 → done 静态；pokeLog 逐行追加）
      compaction —— 静默压缩标记（无框无线耳语）
-     turnEnd    —— max_steps 诚实终态（旗标 + warn 浮卡 + code 徽 + Continue）
-     subtree    —— E3 subagent 子树（分叉图标 + 可折叠，默认收起 + 嵌套 <an-block-tree> + 左导轨缩进）
+     turnEnd    —— 回合终态条（按 stopReason 分态：max_steps warn+Continue / max_tokens ok+截断 / cancelled muted / error danger+errorCode；end_turn 不渲）
+     todo       —— 任务清单看板（durable todo 信号；3 态 pending/in_progress/completed，可折叠 + 恰一项 in_progress）
+     subtree    —— E3 subagent / invoke_agent 子树（分叉图标 + 可折叠，默认收起 + 嵌套 <an-block-tree> + 左导轨缩进）
    名称铁律：所有 tool 动词经 anLabel 人性化（run_function → run function），从不裸露 snake_case；tool 图标经 toolIcon(动词) 按工具区分。
    折叠机制：grid-template-rows 0fr→1fr（spring）。运行态：shimmer 流光文字 + 实时脉冲点。
    复用：status-dot · code-editor（inline 高亮）· json-tree · approval-gate(flavor=chat) · icons(toolIcon)。
@@ -142,6 +143,46 @@
       .subtree.open .sub-body { grid-template-rows: 1fr; }
       .sub-inner { margin-top: var(--sp-2); padding-left: var(--sp-3); border-left: var(--hairline) solid var(--line); }
       :host([nested]) .stream { gap: 0; }
+
+      /* ── 工具结果形态：error 标红 · 终端文本 · 搜索列表 · 逐项 running 脉冲 ── */
+      .ti-head .lt { display: inline-flex; align-items: center; }
+      .sec-label.err { color: var(--danger); }
+      .log.err { color: var(--danger); }
+      .log.term { background: var(--island-2); border-radius: var(--r-tag); padding: var(--sp-2) var(--sp-3); }
+      .ti.err .ti-head .v, .ti.err .ti-head .nm { color: var(--danger); }
+      .rl { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+      .rl-row { min-width: 0; }
+      .rl-t { font-size: var(--t-body); color: var(--accent); }
+      .rl-m { margin-left: var(--gap-tight); font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); }
+      .rl-h { font-size: var(--t-meta); color: var(--ink-2); line-height: var(--lh-ui); margin-top: var(--grid); overflow-wrap: anywhere; }
+
+      /* ── 回合终态条 tone 变体（默认 .turn-end=warn[max_steps]；ok/muted/danger 覆盖色） ── */
+      .turn-end.ok { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); background: color-mix(in srgb, var(--ok) 5%, transparent); }
+      .turn-end.ok .te-ico { color: var(--ok); }
+      .turn-end.ok .te-code { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+      .turn-end.muted { border-color: var(--line); background: var(--island-2); }
+      .turn-end.muted .te-ico { color: var(--ink-3); }
+      .turn-end.danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); background: color-mix(in srgb, var(--danger) 5%, transparent); }
+      .turn-end.danger .te-ico { color: var(--danger); }
+      .turn-end.danger .te-code { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+      /* ── todo 任务清单看板（可折叠 + 3 态 pending/in_progress/completed） ── */
+      .todo { margin: var(--sp-3) 0; }
+      .td-sum { min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight); color: var(--ink-3); font-size: var(--t-body); cursor: pointer; padding: var(--grid) 0; }
+      .td-sum:hover { color: var(--ink-2); }
+      .td-cnt { font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); }
+      .todo.open .td-sum .chev { transform: rotate(90deg); }
+      .td-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--d-slow) var(--ease-spring); }
+      .todo.open .td-body { grid-template-rows: 1fr; }
+      .td-list { margin-top: var(--sp-2); box-shadow: inset 0 0 0 var(--hairline) var(--line); border-radius: var(--r-card); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+      .td-row { display: grid; grid-template-columns: var(--icon) 1fr; align-items: start; gap: var(--gap); min-width: 0; }
+      .td-ck { width: var(--icon); height: var(--icon); display: grid; place-items: center; border-radius: var(--r-tag); box-shadow: inset 0 0 0 var(--line-2) var(--line-strong); color: var(--ink-on-accent); }
+      .td-ck.done { background: var(--ok); box-shadow: none; }
+      .td-ck svg { width: var(--icon-sm); height: var(--icon-sm); }
+      .td-row.in_progress .td-ck { box-shadow: none; }
+      .td-t { min-width: 0; font-size: var(--t-body); color: var(--ink-2); line-height: var(--lh-ui); }
+      .td-row.completed .td-t { color: var(--ink-3); text-decoration: line-through; }
+      .td-empty { font-size: var(--t-meta); color: var(--ink-3); font-family: var(--mono); }
     `;
 
     // .blocks 走 JS 属性（数组不经线缆）；设入即重渲染。
@@ -170,6 +211,7 @@
         case "progress": return this.progress(b, i);
         case "compaction": return this.compaction(b);
         case "turnEnd": return this.turnEnd(b);
+        case "todo": return this.todo(b, i);
         case "subtree": return this.subtree(b, i);
         default: return "";
       }
@@ -207,22 +249,27 @@
       </div>`;
     }
 
-    // 工具项 = 项头 + 平铺三段（输入 / 日志 / 结果）。输入/日志/结果共用同一段语汇、左缘对齐。
+    // 工具项 = 项头 + 平铺段（输入/确认 · 日志 · 结果/错误）。逐项 running 显脉冲；结果按形态分派（终端/列表/JSON）。
     toolItem(it, i, j) {
       const danger = it.danger;
       const showBadge = danger && danger !== "safe";
       const tone = DANGER_TONE[danger] || "danger";
       const badge = showBadge ? `<an-badge class="danger-badge" tone="${tone}">${e(danger)}</an-badge>` : "";
+      const errBadge = it.error ? `<an-badge class="danger-badge" tone="danger">error</an-badge>` : "";
       const tico = window.toolIcon ? window.toolIcon(it.verb || it.name || "") : "tool";
       const verbText = it.verb ? human(it.verb) : "调用";
       const nm = it.name ? `<span class="nm">${e(it.name)}</span>` : "";
+      const liveDot = it.running ? `<span class="lt"><an-status-dot state="run"></an-status-dot></span>` : "";
 
       const secs = [];
-      // 输入：danger 行挂 chat 审批门（交互确认即输入面）；否则 args 结构化（JSON → json-tree，与输出同构）
+      // 输入：danger 行挂 chat 危险确认门 / ask_user 提问门 / 否则 args 结构化（JSON → json-tree）
       if (it.gate) {
         secs.push(`<an-approval-gate class="gate" flavor="chat" tool="${e(it.name || it.verb || "")}" danger="${e(danger || "dangerous")}"`
           + (it.summary ? ` summary="${e(it.summary)}"` : "")
           + (it.args != null ? ` args="${e(it.args)}"` : "") + `></an-approval-gate>`);
+      } else if (it.ask) {
+        secs.push(`<an-approval-gate class="gate" flavor="ask" prompt="${e(it.ask.message || "")}"`
+          + (it.ask.options ? ` options="${e((it.ask.options || []).join("|"))}"` : "") + `></an-approval-gate>`);
       } else if (it.args != null) {
         secs.push(`<div class="sec"><div class="sec-label">输入</div>${this._jsonView(it.args)}</div>`);
       }
@@ -231,14 +278,24 @@
         const live = it.progress.done ? "" : `<span class="lt"><an-status-dot state="run"></an-status-dot>实时</span>`;
         secs.push(`<div class="sec"><div class="sec-label">日志${live}</div><div class="log">${this._logLines(it.progress)}</div></div>`);
       }
-      // 输出：result 结构化（JSON → json-tree，与输入同构）
-      if (it.result) {
-        secs.push(`<div class="sec"><div class="sec-label">输出</div>${this._jsonView(this._payload(it.result))}</div>`);
-      }
-      return `<div class="ti" data-i="${i}" data-j="${j}">
-        <div class="ti-head"><span class="lico">${ic(tico, 12)}</span><span class="v">${e(verbText)}</span>${nm}${badge}</div>
+      // 输出：error 标红（status=error 终态）/ 否则按形态分派
+      if (it.error) secs.push(`<div class="sec"><div class="sec-label err">错误</div><div class="log err">${e(it.error)}</div></div>`);
+      else if (it.result) secs.push(this._resultSec(it.result));
+      return `<div class="ti${it.error ? " err" : ""}" data-i="${i}" data-j="${j}">
+        <div class="ti-head${it.error ? " err" : ""}">${liveDot}<span class="lico">${ic(tico, 12)}</span><span class="v">${e(verbText)}</span>${nm}${badge}${errBadge}</div>
         ${secs.join("")}
       </div>`;
+    }
+
+    // 结果段按形态分派（对齐后端各 tool 族 result：Bash=终端文本 · WebSearch=列表 · CRUD/run_*/get_*=JSON 树 · 退化 mono）
+    _resultSec(r) {
+      if (r && r.list) {
+        const rows = (r.list || []).map((x) =>
+          `<div class="rl-row"><span class="rl-t">${e(x.title || "")}</span>${x.meta ? `<span class="rl-m">${e(x.meta)}</span>` : ""}${x.hint ? `<div class="rl-h">${e(x.hint)}</div>` : ""}</div>`).join("");
+        return `<div class="sec"><div class="sec-label">结果 · ${(r.list || []).length} 条</div><div class="rl">${rows}</div></div>`;
+      }
+      if (r && r.term != null) return `<div class="sec"><div class="sec-label">${e(r.label || "终端")}</div><div class="log term">${e(r.term)}</div></div>`;
+      return `<div class="sec"><div class="sec-label">输出</div>${this._jsonView(this._payload(r))}</div>`;
     }
 
     // ── 段内容共享（工具项内嵌 + 独立块同源，杜绝两套设计） ──
@@ -262,8 +319,10 @@
       return `<div class="log">${e(raw == null ? "" : raw)}</div>`;
     }
 
-    // 独立 tool_result 块（不在工具组内）：平铺段
+    // 独立 tool_result 块（不在工具组内）：error 标红 / 终端 / 列表 / JSON 分派
     toolResult(b) {
+      if (b.error) return `<div class="block-sec sec"><div class="sec-label err">错误</div><div class="log err">${e(b.error)}</div></div>`;
+      if (b.list || b.term != null) return `<div class="block-sec">${this._resultSec(b)}</div>`;
       return `<div class="block-sec sec"><div class="sec-label">${e(b.label || "输出")}</div>${this._jsonView(this._payload(b))}</div>`;
     }
 
@@ -288,18 +347,50 @@
     }
 
     compaction(b) {
-      return `<div class="compaction">${e(b.text || "· 历史上下文已压缩 · earlier context summarized ·")}</div>`;
+      // 压缩水位线：seq ≤ summaryCoversUpToSeq 的块已并入 summary 从历史丢弃（无人工门控，压缩器自动写）
+      const info = (b.summarizedCount != null || b.coversUpToSeq != null)
+        ? "· 已压缩" + (b.summarizedCount != null ? " " + b.summarizedCount + " 条历史" : "") + (b.coversUpToSeq != null ? " · 覆盖到 seq " + b.coversUpToSeq : "") + " ·"
+        : (b.text || "· 历史上下文已压缩 · earlier context summarized ·");
+      return `<div class="compaction">${e(info)}</div>`;
     }
 
+    // 回合终态条（按 stopReason 分态：max_steps warn / max_tokens ok / cancelled muted / error danger；end_turn 正常完成不渲此条）。
     turnEnd(b) {
-      const code = e(b.code || "MAX_STEPS_REACHED");
-      const msg = b.msg || "已达到单回合步数上限，正常终止（<b>非失败</b>）。";
-      const safeMsg = b.text != null ? e(b.text) : msg;
-      return `<div class="turn-end">
-        <span class="te-ico">${ic("turnend", 16)}</span>
+      const sr = b.stopReason || "max_steps";
+      const M = {
+        max_steps: { cls: "warn", ico: "turnend", code: b.code || "MAX_STEPS_REACHED", msg: "已达单回合步数上限，正常终止（<b>非失败</b>）。", cont: true },
+        max_tokens: { cls: "ok", ico: "turnend", code: "", msg: "输出已达 token 上限被<b>截断</b>（仍是完成态）。", cont: false },
+        cancelled: { cls: "muted", ico: "stop", code: "", msg: "已<b>取消</b>生成。", cont: false },
+        error: { cls: "danger", ico: "error", code: b.code || "INTERNAL_ERROR", msg: "回合<b>失败</b>终止。", cont: b.code === "TOOL_ERROR_STORM" },
+      };
+      const m = M[sr] || M.max_steps;
+      const safeMsg = b.text != null ? e(b.text) : (b.msg != null ? e(b.msg) : m.msg);
+      const codeBadge = m.code ? `<span class="te-code">${e(m.code)}</span>` : "";
+      const showCont = b.continue != null ? b.continue : m.cont;
+      const contBtn = showCont ? `<an-button size="sm" icon="enter" data-continue>${e(b.continueLabel || "继续")}</an-button>` : "";
+      return `<div class="turn-end ${m.cls}">
+        <span class="te-ico">${ic(m.ico, 16)}</span>
         <span class="te-msg">${safeMsg}</span>
-        <span class="te-code">${code}</span>
-        <an-button size="sm" icon="enter" data-continue>${e(b.continueLabel || "继续")}</an-button>
+        ${codeBadge}${contBtn}
+      </div>`;
+    }
+
+    // 任务清单看板（durable todo 信号；3 态 pending/in_progress/completed，整表替换写；恰一项 in_progress）
+    todo(b, i) {
+      const items = Array.isArray(b.items) ? b.items : [];
+      const open = b.open !== false ? " open" : "";
+      const doneN = items.filter((x) => x.status === "completed").length;
+      const rows = items.map((x) => {
+        const st = x.status || "pending";
+        const mark = st === "completed" ? `<span class="td-ck done">${ic("check", 12)}</span>`
+          : st === "in_progress" ? `<span class="td-ck"><an-status-dot state="run"></an-status-dot></span>`
+          : `<span class="td-ck"></span>`;
+        const label = st === "in_progress" ? (x.activeForm || x.content || "") : (x.content || "");
+        return `<div class="td-row ${st}">${mark}<span class="td-t ${st === "in_progress" ? "shimmer" : ""}">${e(label)}</span></div>`;
+      }).join("");
+      return `<div class="todo${open}" data-i="${i}">
+        <div class="td-sum"><span class="chev">${ic("chevr", 12)}</span><span class="lico">${ic("check", 12)}</span>任务清单 <span class="td-cnt">${doneN}/${items.length}</span></div>
+        <div class="td-body"><div class="w"><div class="td-list">${items.length ? rows : `<div class="td-empty">（清单已清空 — 无任务）</div>`}</div></div></div>
       </div>`;
     }
 
@@ -325,6 +416,9 @@
       });
       this.$$(".subtree").forEach((el) => {
         el.querySelector(".sub-sum").addEventListener("click", () => el.classList.toggle("open"));
+      });
+      this.$$(".todo").forEach((el) => {
+        el.querySelector(".td-sum").addEventListener("click", () => el.classList.toggle("open"));
       });
 
       // json-tree 载荷按 DOM 序设入（独立 tool_result + 项内 result 一并覆盖）

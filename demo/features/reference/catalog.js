@@ -2018,7 +2018,7 @@ window.REF_CATALOG = [
       {
         "name": "块流 block-tree",
         "tag": "an-block-tree",
-        "blurb": "对话/agent transcript 统一渲染面，.blocks 走 JS 属性；8 块型（text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/subtree）",
+        "blurb": "对话/agent transcript 统一渲染面，.blocks 走 JS 属性；9 块型（text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/todo/subtree）；tool 结果按形态分派（终端/列表/JSON/error 标红）· turnEnd 按 stopReason 分态 · pokeText/pokeLog 流式增量",
         "specimens": [
           {
             "label": "text · user+assistant",
@@ -2232,8 +2232,85 @@ window.REF_CATALOG = [
             "props": {
               "blocks": [
                 {
-                  "type": "compaction"
+                  "type": "compaction",
+                  "coversUpToSeq": 18,
+                  "summarizedCount": 6
                 }
+              ]
+            }
+          },
+          {
+            "label": "todo · 任务清单看板（3 态）",
+            "span": true,
+            "tag": "an-block-tree",
+            "props": {
+              "blocks": [
+                {
+                  "type": "todo",
+                  "open": true,
+                  "items": [
+                    { "content": "检索竞品资料", "status": "completed" },
+                    { "content": "抓取并摘要文档", "status": "in_progress", "activeForm": "正在抓取 temporal.io/docs" },
+                    { "content": "汇总成要点", "status": "pending" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "label": "tool_call · error 失败态",
+            "span": true,
+            "tag": "an-block-tree",
+            "props": {
+              "blocks": [
+                {
+                  "type": "tool_call",
+                  "open": true,
+                  "items": [
+                    { "verb": "Read", "name": "docs/competitors.md", "error": "ENOENT: no such file or directory, open 'docs/competitors.md'" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "label": "tool_result · 终端文本(Bash)",
+            "span": true,
+            "tag": "an-block-tree",
+            "props": {
+              "blocks": [
+                {
+                  "type": "tool_result",
+                  "term": "removed /data/snapshots/2024-01 … 2024-12 (12 dirs)\nfreed 3.4 GB\n\n[exit code: 0]"
+                }
+              ]
+            }
+          },
+          {
+            "label": "tool_result · 搜索列表(WebSearch)",
+            "span": true,
+            "tag": "an-block-tree",
+            "props": {
+              "blocks": [
+                {
+                  "type": "tool_result",
+                  "list": [
+                    { "title": "Temporal: Durable Execution", "meta": "temporal.io", "hint": "事件溯源 + 确定性重放" },
+                    { "title": "Restate: Durable Execution & State", "meta": "restate.dev", "hint": "日志式 durable，handler SDK 侵入" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "label": "turnEnd · 终态变体（max_tokens/cancelled/error）",
+            "span": true,
+            "tag": "an-block-tree",
+            "props": {
+              "blocks": [
+                { "type": "turnEnd", "stopReason": "max_tokens" },
+                { "type": "turnEnd", "stopReason": "cancelled" },
+                { "type": "turnEnd", "stopReason": "error", "code": "TOOL_ERROR_STORM" }
               ]
             }
           }
@@ -2293,7 +2370,7 @@ window.REF_CATALOG = [
       {
         "name": "审批门 approval-gate",
         "tag": "an-approval-gate",
-        "blurb": "人在环决策门，两 flavor 共皮：chat(批准/始终批准/拒绝 + danger 三级徽 + args) / durable(flowrun :decide 通过/驳回 + 倒计时 + prompt + 可选 reason)；settled 收口",
+        "blurb": "人在环决策门，三 flavor 共皮：chat(danger 批准/始终批准/拒绝 + 三级徽 + args) / ask(ask_user 提交/跳过 + options 单选) / durable(flowrun :decide 通过/驳回 + 倒计时 + reason，仅 scheduler)；settled 收口",
         "specimens": [
           {
             "label": "chat · dangerous",
@@ -2331,6 +2408,17 @@ window.REF_CATALOG = [
               "tool": "search_function",
               "danger": "safe",
               "summary": "只读列出当前 workspace 的 function 实体。"
+            }
+          },
+          {
+            "label": "ask · ask_user 提问门",
+            "span": true,
+            "tag": "an-approval-gate",
+            "attrs": {
+              "flavor": "ask",
+              "title": "需要你的输入",
+              "prompt": "要点用中文还是英文整理？",
+              "options": "中文|英文|中英对照"
             }
           },
           {

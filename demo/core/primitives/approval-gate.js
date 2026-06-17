@@ -1,7 +1,8 @@
-/* Anselm 原语 G1 — <an-approval-gate flavor>。人在环决策门，两 flavor 共一套皮肤（warn 描边浮卡 + 盾牌头 + settled 收口）。
-   为何同一原语两 flavor 而非两原语：~90% 皮肤共享，差异只在头部右侧（danger 徽 vs 倒计时）+ 动作动词 + 主体（args vs rendered/reason）。
+/* Anselm 原语 G1 — <an-approval-gate flavor>。人在环决策门，三 flavor 共一套皮肤（描边浮卡 + 盾牌头 + settled 收口）。
+   为何同一原语多 flavor 而非多原语：~90% 皮肤共享，差异只在头部右侧 + 动作动词 + 主体。
      flavor="chat"    → 内存 danger 门：approve / approve_always / deny；danger 三级自报徽（safe|cautious|dangerous）；顶角 run 脉冲点；工具名 + args 预览；无倒计时。
-     flavor="durable" → flowrun :decide：yes(通过) / no(驳回)；warn 倒计时 deadline；渲染后的 prompt 文本；可选 reason 输入；first-wins 脚注。
+     flavor="ask"     → ask_user 提问门：accept{answer} / decline；accent 盾；渲 prompt.message + options 单选 chip 或文本框；【无】danger 徽/倒计时/reason（区别于 danger 门与 flowrun 门）。
+     flavor="durable" → flowrun :decide：yes(通过) / no(驳回)；warn 倒计时 deadline；渲染后的 prompt 文本；可选 reason 输入；first-wins 脚注。【仅 scheduler 海洋】，非 chat。
    决策属人在环动作（非实体导航）：交互对外 emit composed 'an-decide'{action, reason?}；命令式 settle(text)/wait(autoAct,ms)→Promise 供自动播放复用。
    复用：顶角脉冲 = <an-status-dot state="run">（系统唯一 accent 呼吸，归一一处）；danger 徽 = <an-badge>；动作 = <an-button>；args = <an-code-editor>；不重造。
    属性：flavor | title | tool | danger | summary | args | prompt | ddl | allow-reason | placeholder | settled。 */
@@ -13,7 +14,7 @@
 
   class AnApprovalGate extends window.AnElement {
     static tag = "an-approval-gate";
-    static observed = ["flavor", "title", "tool", "danger", "summary", "args", "prompt", "allow-reason", "placeholder", "settled"];
+    static observed = ["flavor", "title", "tool", "danger", "summary", "args", "prompt", "options", "allow-reason", "placeholder", "settled"];
     static css = `
       :host { display: block; margin: var(--sp-3) 0; }
 
@@ -76,6 +77,15 @@
       /* durable first-wins 脚注 */
       .foot { font-size: var(--t-meta); color: var(--ink-3); margin-top: var(--sp-2); line-height: var(--lh-ui); }
 
+      /* ask 提问门：accent 盾 + 选项 chip 单选（无 danger 徽/倒计时/reason） */
+      .shield.ask { background: var(--accent-soft); color: var(--accent); }
+      .ask-opts { display: flex; flex-wrap: wrap; gap: var(--gap-tight); margin-bottom: var(--sp-3); }
+      .ask-opt { padding: var(--gap-tight) var(--sp-3); border-radius: var(--r-pill);
+        box-shadow: inset 0 0 0 var(--hairline) var(--line); background: var(--island); color: var(--ink-2);
+        font-size: var(--t-body); cursor: pointer; transition: background var(--d-fast), color var(--d-fast), box-shadow var(--d-fast); }
+      .ask-opt:hover { background: var(--island-3); color: var(--ink); }
+      .ask-opt.on { background: var(--accent-soft); box-shadow: inset 0 0 0 var(--hairline) var(--accent-line); color: var(--accent); }
+
       /* settled 收口面：默认藏，settled 后亮（隐头/体 + 亮绿勾） */
       .settled { display: none; align-items: center; gap: var(--sp-2); padding: var(--sp-3); font-size: var(--t-body); color: var(--ink-3); }
       .settled .ico { display: grid; place-items: center; color: var(--ok); }
@@ -87,10 +97,31 @@
     `;
 
     render() {
-      const durable = this.attr("flavor") === "durable";
-      const pulse = durable ? "" : `<span class="pulse"><an-status-dot state="run"></an-status-dot></span>`;
-      return `<div class="gate">${pulse}${durable ? this.durableHtml() : this.chatHtml()}` +
+      const flavor = this.attr("flavor");
+      const pulse = flavor === "durable" ? "" : `<span class="pulse"><an-status-dot state="run"></an-status-dot></span>`;
+      const body = flavor === "durable" ? this.durableHtml() : flavor === "ask" ? this.askHtml() : this.chatHtml();
+      return `<div class="gate">${pulse}${body}` +
         `<div class="settled"><span class="ico">${window.icon("check")}</span><span data-settled></span></div></div>`;
+    }
+
+    // ask 味：ask_user 提问门（accept{answer}/decline）。渲 prompt.message + options 单选 chip 或文本框；【无】danger 徽/倒计时/reason。
+    askHtml() {
+      const prompt = this.attr("prompt") ? `<div class="sum">${e(this.attr("prompt"))}</div>` : "";
+      const opts = (this.attr("options") || "").split("|").filter(Boolean);
+      const optHtml = opts.length
+        ? `<div class="ask-opts">${opts.map((o, k) => `<button type="button" class="ask-opt" data-opt="${k}">${e(o)}</button>`).join("")}</div>`
+        : `<textarea class="reason ask-answer" rows="2" placeholder="${e(this.attr("placeholder", "输入你的回答…"))}"></textarea>`;
+      return `
+        <div class="head">
+          <span class="shield ask">${window.icon("chat")}</span>
+          <span class="tt"><b>${e(this.attr("title", "需要你的输入"))}</b><span class="sub">ask_user · 等待回答</span></span>
+        </div>
+        <div class="body">${prompt}${optHtml}
+          <div class="actions">
+            <an-button variant="primary" size="sm" icon="check" data-act="accept">提交</an-button>
+            <an-button size="sm" data-act="decline">跳过</an-button>
+          </div>
+        </div>`;
     }
 
     // chat 味：危险闸（批准/始终批准/拒绝）。danger 三级自报徽 + args 框 + 预授权说明。
@@ -143,13 +174,21 @@
     }
 
     hydrate() {
-      // 决策派发：读 data-act + durable 的 reason，emit composed an-decide
-      const durable = this.attr("flavor") === "durable";
+      // 决策派发：读 data-act + durable 的 reason / ask 的 answer，emit composed an-decide
+      const flavor = this.attr("flavor");
+      // ask 选项单选（点 chip 选中）
+      if (flavor === "ask") {
+        this.$$(".ask-opt").forEach((o) => o.addEventListener("click", () => {
+          this.$$(".ask-opt").forEach((x) => x.classList.remove("on"));
+          o.classList.add("on"); this._answer = o.textContent;
+        }));
+      }
       this.$$("[data-act]").forEach((b) => {
         b.addEventListener("click", () => {
           if (this._done) return;
           const detail = { action: b.dataset.act };
-          if (durable) { const r = this.$(".reason"); detail.reason = r ? r.value : ""; }
+          if (flavor === "durable") { const r = this.$(".reason"); detail.reason = r ? r.value : ""; }
+          if (flavor === "ask" && b.dataset.act === "accept") { const t = this.$(".ask-answer"); detail.answer = this._answer != null ? this._answer : (t ? t.value : ""); }
           this.emit("an-decide", detail);
         });
       });
