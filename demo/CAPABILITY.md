@@ -80,15 +80,16 @@
 
 | 能力 | demo 面 | 后端出处 | 状态 |
 |---|---|---|---|
-| 会话侧栏（置顶/最近/归档 + 搜索/排序） | `features/chat/rail` | `conversations`（?sort/?archived） | ▢ |
-| 块流：text/reasoning/tool_call/tool_result/progress | chat sea（块原语，tool_call/reasoning 默认折叠） | messages 6 块型（E2） | ▢ |
-| subagent 子树嵌套 | 左导轨缩进 | E3 `parentBlockId` | ▢ |
-| 工具危险确认（danger，逐次内存阻塞） | ApprovalGate(chat 味) | humanloop interaction（ephemeral 信号） | ▢ |
-| agent 反问（ask）/ 决议 | 同上 | `/interactions` | ▢ |
-| Todo 实时面板 | chat dock | todo 信号 | ▢ |
-| 附件（多模态）/ @提及（冻结快照） | composer | `attachments` · mention | ▢ |
-| 构建实体镜像（create/edit 流式填充右岛卡） | 右岛 EntityCard | entities 流 build 镜像 | ▢ |
-| 压缩标记（compaction）/ 用量 / system-prompt 预览 | dev mode | `conversation.compacted` `/usage` | 🅓 |
+| 会话侧栏（置顶/今天/昨天/归档 + 搜索 + New + 每行 ⋯） | `features/chat/rail`（复用 `an-sidebar-list` 可折叠大组，dot=活态） | `conversations`（?sort/?archived） | ✅ mock |
+| 块流 transcript：text/reasoning/tool_call/tool_result/progress/compaction/turnEnd | chat sea（`an-block-tree` 喂 blocks；reasoning/tool_call 默认折叠；脚本化 live 回合回放） | messages 6 块型 + 8 流 node.type（E2） | ✅ mock |
+| subagent 子树嵌套（E3） | `an-block-tree[subtree]` 左导轨缩进 + 递归（深度 ≤1） | E3 `parentBlockId` | ✅ mock |
+| 工具危险确认（danger 三级自报，逐次确认） | tool_call 行内嵌 `an-approval-gate[chat]`（批准/始终批准/拒绝 + danger 徽） | humanloop interaction（ephemeral 信号；决议靠 tool_result 闭合） | ✅ mock |
+| agent 反问（ask）/ 决议 | 同上交互卡（ask 问答 vs danger 确认同 broker / 同 interaction 通道） | `/interactions`（broker pending 是真相，重连 REST 重取） | ✅ 展示（决策接装配层） |
+| 一次 Send = 202 + SSE 流式回合（每对话单在途回合 → 生成中切「停止」） | `an-composer` generating 态 + 脚本回放（an-send/an-stop） | `:send` 202 · `STREAM_IN_PROGRESS` 409 · `:cancel` | ✅ mock |
+| 附件（多模态）/ @提及（冻结快照） | `an-composer`（附件 chip 可删 + @ 内联药丸，复用 `AnMention`） | `attachments` · mention freeze-on-send | ✅ mock |
+| 构建实体镜像（:iterate create/edit 流式填充右岛 pending 草稿） | 右岛 `an-right-island` + `an-code-editor`（build 流逐字注入 + 采用/丢弃；仅 :iterate 对话展开） | entities 流 build 镜像（scope=tool_call id） | ✅ mock |
+| Todo 实时面板 | chat dock（待补） | todo 信号（durable） | ▢ |
+| 压缩标记（compaction）/ 用量 / system-prompt 预览 | compaction 块已展示；用量/预览 dev mode | `conversation.compacted` `/usage` | ✅ 部分 / 🅓 |
 
 ---
 

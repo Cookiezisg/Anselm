@@ -5,7 +5,7 @@
    规则：append-only；模块文件未就绪 = 该海洋懒加载时占位、不报错（Phase 3 逐个铺）。 */
 window.MANIFEST = [
   { id: "chat", label: "Chat", icon: "chat", nav: 1, default: 1, owns: ["conversation"],
-    sea: "features/chat/sea.js", rail: "features/chat/rail.js", desc: "主对话 + AI 锻造实体时右岛实时编辑。" },
+    deps: ["features/chat/data.js"], sea: "features/chat/sea.js", rail: "features/chat/rail.js", desc: "AI 对话运行时：块流 transcript（含 subagent 树 + 危险确认）+ composer + :iterate 右岛实时编辑实体。" },
   { id: "entities", label: "Entities", icon: "entities", nav: 1, owns: ["entity"],
     deps: ["features/entities/data.js", "features/entities/actions.js"], sea: "features/entities/sea.js", rail: "features/entities/rail.js", desc: "四项全能实体的家：完整展示 + 调试 + 修改。" },
   { id: "scheduler", label: "Scheduler", icon: "scheduler", nav: 1, owns: ["workflow", "run", "node"],

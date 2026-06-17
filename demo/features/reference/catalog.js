@@ -2371,6 +2371,44 @@ window.REF_CATALOG = [
         ]
       },
       {
+        "name": "输入条 composer",
+        "tag": "an-composer",
+        "blurb": "chat 输入条：多行 contenteditable + @ 提及内联药丸（复用地基 AnMention）+ 附件 chip（可删）+ Enter 发送 / Shift+Enter 换行；generating 切停止态。派 an-send{text,html,refs,attachments}/an-stop",
+        "specimens": [
+          {
+            "label": "default · 空态（@ 起 picker）",
+            "span": true,
+            "tag": "an-composer",
+            "props": {
+              "mentions": [
+                { "kind": "function", "id": "fn_5e1a9c4d", "label": "sync_inventory", "desc": "同步仓库库存" },
+                { "kind": "agent", "id": "ag_91c3de07", "label": "triage_agent", "desc": "诊断失败执行" },
+                { "kind": "workflow", "id": "wf_9f2a7c1b", "label": "pr_merge_flow", "desc": "PR 合并流程" }
+              ]
+            }
+          },
+          {
+            "label": "附件 chip · 可删",
+            "span": true,
+            "tag": "an-composer",
+            "props": {
+              "attachments": [
+                { "name": "spec.md", "icon": "doc" },
+                { "name": "screenshot.png", "icon": "doc" }
+              ]
+            }
+          },
+          {
+            "label": "generating · 停止态",
+            "span": true,
+            "tag": "an-composer",
+            "attrs": {
+              "generating": true
+            }
+          }
+        ]
+      },
+      {
         "name": "接线组 wire-list",
         "tag": "an-wire-list",
         "blurb": "可增删的 key→表达式(field→CEL) 映射行组；props.rows 设入(map 或 [{field,expr}])，attr keyph/exprph 占位、addlabel 增行钮文案；变更派 an-wire-change{map}",

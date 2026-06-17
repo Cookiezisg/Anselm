@@ -1,12 +1,39 @@
-/* Anselm feature — chat 侧栏（rail）。Phase 3.0：占位会话流，证明 loader 契约；Phase 3.1 接真 conversations（?sort/?archived）。 */
+/* Anselm feature — chat 侧栏（rail）：会话列表（置顶/今天/昨天/已归档 + 搜索 + New Chat + 每行 ⋯）。
+   复用 an-sidebar-list（与 entities/documents/scheduler 同件）：可折叠大组承载会话分组（按 lastMessageAt 降序，dot=活态）。
+   点行 → Intent.select({kind:conversation}) 路由回本海洋 owns:['conversation'] → sea loadConvo；New/⋯ 为 mock（真后端 POST /conversations · PATCH pin/archive · DELETE）。 */
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
-  rail: (ctx) => ctx.rail([
-    ["g", "最近"],
-    ["r", { dot: "run", label: "竞品动态日报流程", meta: "刚刚" }],
-    ["r", { dot: "done", label: "发票处理 v3 迭代", meta: "2 时" }],
-    ["r", { label: "重构 triage agent 提示词", meta: "昨天" }],
-    ["g", "已归档"],
-    ["r", { label: "周报汇总", meta: "上周" }],
-  ]),
+  rail: (ctx) => {
+    const LIST = window.CHAT_CONVOS_LIST || [];
+    const sel = window.CHAT_DEFAULT;
+    const labelOf = (id) => { let f = id; LIST.forEach((g) => (g.rows || []).forEach((r) => { if (r.id === id) f = r.label; })); return f; };
+    const toast = (text) => window.AnToast && window.AnToast.show({ text });
+
+    const elx = document.createElement("an-sidebar-list");
+    elx.setAttribute("more", "");   // 每行悬停 ⋯（会话动作菜单）
+    elx.model = {
+      newLabel: "New Chat", filterPlaceholder: "搜索对话…",
+      groups: LIST.map((g) => ({
+        label: g.group, open: g.open !== false,
+        types: [{ rows: (g.rows || []).map((r) => ({ id: r.id, label: r.label, dot: r.dot, meta: r.meta, selected: r.id === sel })) }],
+      })),
+    };
+
+    elx.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "conversation", id: ev.detail.id }); });
+    elx.addEventListener("an-new", () => toast("已新建对话"));
+    elx.addEventListener("an-row-more", (ev) => {
+      const id = ev.detail.id, name = labelOf(id);
+      window.AnMenu.open(ev.detail.anchor, {
+        align: "start", placement: "bottom", namespace: "chat-menu",
+        items: [
+          { value: "rename", label: "重命名", icon: "edit" },
+          { value: "pin", label: "置顶", icon: "history" },
+          { value: "archive", label: "归档", icon: "enter" },
+          { value: "delete", label: "删除", icon: "trash", danger: true },
+        ],
+        onPick: (v) => toast({ rename: "已重命名「" + name + "」", pin: "已置顶「" + name + "」", archive: "已归档「" + name + "」", delete: "已删除「" + name + "」" }[v]),
+      });
+    });
+    return elx;
+  },
 });

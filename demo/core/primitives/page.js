@@ -31,6 +31,11 @@
     render() {
       return `<div class="page"><div class="scroll"><div class="col"><slot></slot></div></div><span class="scrollbar" aria-hidden="true"><i></i></span></div>`;
     }
+    // 滚到底（chat 流式贴底 / 新回合追加）——对外原语 API，免消费方伸手进 shadow 的 .scroll
+    scrollToBottom(smooth) {
+      const s = this.$(".scroll"); if (!s) return;
+      s.scrollTo ? s.scrollTo({ top: s.scrollHeight, behavior: smooth ? "smooth" : "auto" }) : (s.scrollTop = s.scrollHeight);
+    }
     hydrate() {
       const root = this.$(".page");
       const scroller = this.$(".scroll");
