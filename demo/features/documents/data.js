@@ -39,8 +39,13 @@
   window.DOCS = {
     doc_prd: {
       id: "doc_prd", title: "PRD · Anselm v0.3", path: "/产品 · Anselm/PRD · Anselm v0.3",
+      props: [
+        { name: "状态", badge: "评审中", tone: "warn", dot: "wait" },
+        { name: "Owner", value: "@weilin" },
+        { name: "里程碑", value: "本地优先 v0.3" },
+        { name: "创建", value: "2026-06-15" },
+      ],
       blocks: [
-        { type: "callout", tone: "info", html: "状态 <b>评审中</b> · owner @weilin · 目标里程碑 <b>本地优先 v0.3</b>" },
         { type: "h2", text: "背景" },
         { type: "p", spans: [
           { t: "团队现在靠人肉串起" }, { ref: { kind: "function", id: "fn_5e1a9c4d", label: "fetch_article" } },
@@ -94,6 +99,7 @@
 
     doc_durable: {
       id: "doc_durable", title: "Durable 执行设计", path: "/工程/Durable 执行设计",
+      props: [{ name: "状态", badge: "已定稿", tone: "ok", dot: "done" }, { name: "Owner", value: "@weilin" }, { name: "落点", value: "设计原则 #2" }],
       blocks: [
         { type: "callout", tone: "info", html: "设计原则 #2 的落点：<b>节点结果记忆化 + 解释器幂等重走</b>（非事件溯源）。" },
         { type: "h2", text: "两张表讲完所有状态" },
@@ -115,6 +121,7 @@
 
     doc_roadmap: {
       id: "doc_roadmap", title: "路线图 2026", path: "/产品 · Anselm/路线图 2026",
+      props: [{ name: "状态", badge: "维护中", tone: "accent", dot: "run" }, { name: "Owner", value: "@weilin" }, { name: "周期", value: "2026 H1–H2" }],
       blocks: [
         { type: "h2", text: "H1 · 本地优先 v0.3" },
         { type: "todo", checked: true, text: "后端全实体 + durable 引擎（编译/装配/服务全通）" },
@@ -133,6 +140,7 @@
 
     doc_research: {
       id: "doc_research", title: "竞品调研", path: "/产品 · Anselm/竞品调研",
+      props: [{ name: "状态", badge: "已归档", tone: "neutral" }, { name: "Owner", value: "@weilin" }],
       blocks: [
         { type: "callout", tone: "warn", html: "结论：现有 agent 平台多是 <b>SaaS + 云编排</b>，本地优先 + durable 是差异点。" },
         { type: "h2", text: "对比维度" },

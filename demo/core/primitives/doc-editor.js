@@ -290,10 +290,12 @@
       const kind = pill.getAttribute("kind"), id = pill.getAttribute("id"), label = pill.getAttribute("label");
       const FALLBACK = { doc: { label: "文档", icon: "doc" } };   // 纯提及 kind（非 9 实体）补标签/图标
       const ent = (window.ENTITY_KINDS || {})[kind] || FALLBACK[kind] || {};
-      const rows = [["类型", ent.label || kind], ["ID", id]];
+      const m = (this._mentions || []).find((x) => x.id === id) || {};   // 富信息源：mentions 自带 desc
       const card = `<div class="dc-card">`
-        + `<div class="dc-h"><span class="dc-i">${window.icon(ent.icon || kind)}</span><span class="dc-t">${e(label)}</span></div>`
-        + rows.map((r) => `<div class="dc-r"><span class="dc-k">${e(r[0])}</span><span class="dc-v">${e(r[1])}</span></div>`).join("")
+        + `<div class="dc-h"><span class="dc-i">${window.icon(ent.icon || kind)}</span>`
+        + `<span class="dc-tt"><div class="dc-t">${e(label)}</div><div class="dc-kind">${e(ent.label || kind)}</div></span></div>`
+        + (m.desc ? `<div class="dc-desc">${e(m.desc)}</div>` : "")
+        + `<div class="dc-r"><span class="dc-k">ID</span><span class="dc-v">${e(id)}</span></div>`
         + `<div class="dc-f">点击跳转 · 悬停看卡片</div></div>`;
       window.AnFloating.open(pill, { content: card, placement: "top", align: "start", namespace: "doc-card", className: "dc-float" });
     }
@@ -307,16 +309,20 @@
     const s = document.createElement("style");
     s.id = "an-doc-card-style";
     s.textContent = `
-      .dc-float .dc-card { min-width: calc(var(--side-w) - var(--sp-6)); padding: var(--sp-3) var(--sp-4);
+      .dc-float .dc-card { min-width: calc(var(--side-w) - var(--sp-4)); max-width: var(--side-w); padding: var(--sp-3) var(--sp-4);
         border: var(--hairline) solid var(--line); border-radius: var(--r-chip); background: var(--island); box-shadow: var(--shadow-pop); }
-      .dc-float .dc-h { display: flex; align-items: center; gap: var(--gap); margin-bottom: var(--sp-2); }
-      .dc-float .dc-i { display: grid; place-items: center; color: var(--ink-3); }
+      .dc-float .dc-h { display: flex; align-items: center; gap: var(--gap); }
+      .dc-float .dc-i { display: grid; place-items: center; flex: none; width: var(--ctl-sm); height: var(--ctl-sm);
+        border-radius: var(--r-tag); background: var(--island-3); color: var(--ink-2); }
       .dc-float .dc-i svg { width: var(--icon); height: var(--icon); }
-      .dc-float .dc-t { font-size: var(--t-body); font-weight: 600; color: var(--ink); }
-      .dc-float .dc-r { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--t-meta); line-height: var(--lh-ui); }
+      .dc-float .dc-tt { min-width: 0; }
+      .dc-float .dc-t { font-size: var(--t-body); font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .dc-float .dc-kind { font-size: var(--t-meta); color: var(--ink-3); line-height: var(--lh-ui); }
+      .dc-float .dc-desc { margin-top: var(--sp-2); font-size: var(--t-meta); line-height: var(--lh-ui); color: var(--ink-2); }
+      .dc-float .dc-r { display: flex; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-2); font-size: var(--t-meta); line-height: var(--lh-ui); }
       .dc-float .dc-k { color: var(--ink-3); }
       .dc-float .dc-v { color: var(--ink-2); font-family: var(--mono); }
-      .dc-float .dc-f { margin-top: var(--sp-2); color: var(--ink-3); font-size: var(--t-meta); }
+      .dc-float .dc-f { margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: var(--hairline) solid var(--line); color: var(--ink-3); font-size: var(--t-meta); }
     `;
     document.head.appendChild(s);
   }
