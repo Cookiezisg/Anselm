@@ -45,7 +45,7 @@
 | 范式 | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
 | `an-graph-canvas` | ✅ 🪂 | 已落 `core/primitives/graph-canvas.js`（移植 `graph-lab/`，一骨多态：edit/run × LR/TB；Sugiyama-lite 布局 + 浮动正交布线 + 回边弧；图标走 NODE_ICON、色走 tokens；后端对齐：5 节点 kind、回边只控制/审批发、(node,iteration) 记忆化、:edit ops）。**外设内化**：`framed`(定高 card 框 `--h-graph-preview`)/`toolbar`(悬浮缩放组)/`enterable`(进入编辑器)——render.js graph leaf 退化成一行、编辑器不再重拼缩放。**伴生 `an-kind-legend`**（5 类节点色图例，自 `window.AnGraph` 取数、零属性；图编辑器 rail + reference 画廊同用，内化原 rail 手搓 flex+拼色） | workflow 图（实体页**定义图**框 edit + 图编辑器海洋 edit·纯编辑无运行态）· scheduler 活运行图（run 态）· relation 邻域图 |
-| `an-doc-editor` | 🪂 ⬚ | 移植 `editor.js`（contenteditable，全 demo 唯一自画像素区） | documents 所见即所得 |
+| `an-doc-editor` | ✅ 🪂 | 已落 `core/primitives/doc-editor.js`（contenteditable 块编辑，全 demo 唯一自画像素区）：blocks 属性注入（h1/h2/h3·p[spans 含 @ref]·bullet·todo·quote·code·callout·divider）；三能力——斜杠「/」→ 块类型菜单(AnMenu) · 「@」→ 实体/文档 picker → 内联插 an-ref-pill · 悬停 ref-pill → 浮信息卡(AnFloating) | documents 所见即所得 |
 | `an-heatmap` | 🪂 ⬚ | 新建（日历网格，mock 驱动；后端无聚合端点） | 个人/主页活动 |
 | `an-chart` / `an-sparkline` | 🪂 ⬚ | 新建（同件两 mode：有轴/无轴） | 用量/指标趋势 · 实体行内联 |
 | `an-version-diff` | ✅ 🧩 | 已落 `core/primitives/version-diff.js`（移植 design `version-diff.js` 的 LCS 纯函数；单框 unified 红绿 diff，行内着色复用 `AnCodeEditor.highlight`；before/after + lang/range/note/bare） | 实体版本 tab（左 an-row 版本轨 + 右本件）· chat 代码 diff |
