@@ -34,4 +34,6 @@ landed-into:
 ## 元注（一次性，非 finding）
 - **为什么这 loop 值得**：F1 那条轨迹 `golden J5` 只断言"版本>1"是绿的；轨迹判官却抓到模型把 `get_function` 调错绕一圈——终态测试瞎、判官看见。
 - **workflow + durable 子系统验证通过**（2026-06-18）：F7+F8 修后，agent 建成 workflow（trigger→convert→classify）、`trigger_workflow` 跑通；durable 引擎逐节点记忆化、结果正确（celsius=100 → convert `{fahrenheit:212}` → classify `{label:"hot"}`，三节点 completed）。"整套工程"在此方向确认能转。
+- **handler 子系统验证通过**（2026-06-18）：agent 建 counter handler、add(5)→5、add(3)→**8**（resident 进程跨调用保态）、get()→8。有状态常驻"灵魂"正常。
+- **harness 修**：`testend/loop/setup.sh` 固定 workspace 名 "loop" → 重跑 `WORKSPACE_NAME_CONFLICT` → `ws=null` 卡住 loop 自身；改唯一名（`loop-时间戳-RANDOM`）。属"harness 工程"维度。
 - 永久回归 test：`selfiter_confirm_f1_*`、`_f1batch_*`（F1）· `Test{Function,Handler}_EditPersistsMeta`（F6）· `TestLLMErrText`（F7）· `TestWorkflow_InvalidCELListsAvailableNodes`（F8）。

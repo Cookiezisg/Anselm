@@ -14,8 +14,10 @@ MODEL="${EVALS_MODEL:-deepseek-v4-flash}"
 echo "waiting for backend at $BASE ..."
 for _ in $(seq 1 60); do curl -sf "$BASE/api/v1/health" >/dev/null 2>&1 && break; sleep 1; done
 
+# Unique name per run — workspace names must be unique, so a fixed "loop" conflicts on re-setup
+# (WORKSPACE_NAME_CONFLICT → error envelope → null id). 唯一名：workspace 名唯一，固定名重跑会冲突。
 WS=$(curl -s -X POST "$BASE/api/v1/workspaces" -H 'Content-Type: application/json' \
-  -d '{"name":"loop","language":"en"}' | jq -r .data.id)
+  -d "$(jq -nc --arg n "loop-$(date +%s)-$RANDOM" '{name:$n,language:"en"}')" | jq -r .data.id)
 H="X-Anselm-Workspace-ID: $WS"
 KID=$(curl -s -X POST "$BASE/api/v1/api-keys" -H "$H" -H 'Content-Type: application/json' \
   -d "$(jq -nc --arg k "$KEY" --arg u "$URL" '{provider:"deepseek",displayName:"deepseek",key:$k,baseUrl:$u}')" | jq -r .data.id)
