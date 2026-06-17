@@ -10,8 +10,8 @@
       /* 岛皮肤与左岛（<an-sidebar>）同源：仅宽度不同，圆角/描边/投影一律复用，杜绝两岛观感漂移 */
       .island {
         position: relative; display: flex; flex-direction: column; height: 100%;
-        background: var(--island); border: var(--hairline) solid var(--line);
-        border-radius: var(--r-chip); box-shadow: var(--shadow-float); overflow: hidden;
+        background: var(--island);
+        border-radius: var(--r-chip); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-float); overflow: hidden;
       }
       .head { flex: none; display: flex; align-items: center; gap: var(--gap); height: var(--island-head); padding: var(--sp-2) var(--sp-4) 0; }
       .ico { display: grid; place-items: center; flex: none; color: var(--ink-3); }

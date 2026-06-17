@@ -316,7 +316,7 @@
     s.id = "an-doc-card-style";
     s.textContent = `
       .dc-float .dc-card { min-width: calc(var(--side-w) - var(--sp-4)); max-width: var(--side-w); padding: var(--sp-3) var(--sp-4);
-        border: var(--hairline) solid var(--line); border-radius: var(--r-chip); background: var(--island); box-shadow: var(--shadow-pop); }
+        border-radius: var(--r-chip); background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-pop); }
       .dc-float .dc-h { display: flex; align-items: center; gap: var(--gap); }
       .dc-float .dc-i { display: grid; place-items: center; flex: none; width: var(--ctl-sm); height: var(--ctl-sm);
         border-radius: var(--r-tag); background: var(--island-3); color: var(--ink-2); }

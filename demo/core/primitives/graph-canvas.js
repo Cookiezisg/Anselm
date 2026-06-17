@@ -236,7 +236,7 @@
       :host([framed]) { display: block; width: var(--w-full); height: var(--h-graph-preview); border: var(--hairline) solid var(--line); border-radius: var(--r-card); background: var(--island); overflow: hidden; }
       /* [toolbar]：左上角悬浮缩放组（zoomBy/fit 是画布自有能力，外设随画布走，不在每个消费点重拼） */
       .gtools { position: absolute; left: var(--sp-3); top: var(--sp-3); z-index: 2; display: flex; align-items: center; gap: var(--gap-tight);
-        background: var(--island); border: var(--hairline) solid var(--line); border-radius: var(--r-btn); box-shadow: var(--shadow-float); padding: var(--grid); }
+        background: var(--island); border-radius: var(--r-btn); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-float); padding: var(--grid); }
       .gt { display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-tight); height: var(--ctl-sm); min-width: var(--ctl-sm);
         padding: 0; border: 0; background: none; border-radius: var(--r-tag); color: var(--ink-2); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
       .gt:hover { background: var(--island-3); color: var(--ink); }

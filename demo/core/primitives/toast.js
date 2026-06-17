@@ -23,8 +23,8 @@
         display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center;
         column-gap: var(--gap); min-width: var(--w-block); max-width: var(--island-w);
         padding: var(--sp-2) var(--sp-3); padding-left: var(--sp-2);
-        border: var(--hairline) solid var(--line); border-radius: var(--r-chip);
-        background: var(--island); box-shadow: var(--shadow-pop);
+        border-radius: var(--r-chip);
+        background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-pop);
         color: var(--ink-2); font-size: var(--t-body); line-height: var(--lh-ui);
         opacity: 0; transform: translateY(var(--sp-2));
         transition: opacity var(--d-mid) var(--ease-spring), transform var(--d-mid) var(--ease-spring);

@@ -11,7 +11,7 @@
     static css = `
       :host { display: block; }
       .board { display: grid; grid-template-columns: var(--run-list-w) 1fr; align-items: stretch;
-        border: var(--hairline) solid var(--line); border-radius: var(--r-card); background: var(--island); overflow: hidden; }
+        border-radius: var(--r-card); background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line); overflow: hidden; }
       .runs { display: flex; flex-direction: column; min-width: 0; border-right: var(--hairline) solid var(--line); }
       .gpane { display: flex; flex-direction: column; min-width: 0; }
       .rhead, .ghead { flex: none; height: var(--ctl); display: flex; align-items: center; padding: 0 var(--sp-3);

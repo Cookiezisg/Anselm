@@ -13,8 +13,8 @@
     s.textContent = `
       .an-menu {
         min-width: calc(var(--side-w) - var(--sp-4));
-        padding: var(--sp-1); border: var(--hairline) solid var(--line); border-radius: var(--r-chip);
-        background: var(--island); box-shadow: var(--shadow-pop);
+        padding: var(--sp-1); border-radius: var(--r-chip);
+        background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-pop);
       }
       .an-menu-compact { min-width: calc(var(--side-w) - var(--sp-8)); }
       .an-menu-label {

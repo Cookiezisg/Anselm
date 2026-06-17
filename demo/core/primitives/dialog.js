@@ -24,8 +24,8 @@
       .an-dialog {
         display: flex; flex-direction: column; width: 100%; max-width: var(--w-content);
         max-height: calc(100vh - var(--sp-12));
-        border: var(--hairline) solid var(--line); border-radius: var(--r-island);
-        background: var(--island); box-shadow: var(--shadow-win);
+        border-radius: var(--r-island);
+        background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-win);
         transform: translateY(var(--sp-2)) scale(.98);
         transition: transform var(--d-mid) var(--ease-spring);
       }
