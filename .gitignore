@@ -241,4 +241,4 @@ backend/sandbox/
 
 # Test artifacts
 .env
-/tmp/foryx-tests/
+/tmp/anselm-tests/

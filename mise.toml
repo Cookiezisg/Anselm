@@ -1,4 +1,4 @@
-# Foryx 工具链（mise 管理，替代 devbox/nix）。
+# Anselm 工具链（mise 管理，替代 devbox/nix）。
 # 进入仓库目录自动激活,go/flutter/dart 直接上 PATH——无 `devbox run` 包裹。
 # 版本钉死保证换机一致;装的是真·可写官方 SDK(nix 只读 store 构建不了 macOS app)。
 # 升级:改下方版本号 → `mise install`。

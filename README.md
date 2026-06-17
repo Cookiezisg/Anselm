@@ -1,4 +1,4 @@
-# Foryx
+# Anselm
 
 本地优先的 Agentic Workflow Platform — **Flutter 桌面 app**（macOS/Linux/Windows）+ Go 后端作 sidecar，单进程、单用户、SQLite 落盘，**不做 SaaS**。
 
@@ -8,10 +8,10 @@
 
 ```bash
 make setup             # 首次:装 mise（pin 的 go + flutter）
-make server            # 起后端（FORYX_DEV，:8742）
+make server            # 起后端（ANSELM_DEV，:8742）
 # 另开一个终端跑前端（dev 挂到已跑后端）:
 make fe-gen            # 首次/改注解后:codegen（freezed/json/slang）
-make fe-run            # 起桌面 app（FORYX_BACKEND_URL 挂到 :8742）
+make fe-run            # 起桌面 app（ANSELM_BACKEND_URL 挂到 :8742）
 ```
 
 mise 进仓库目录自动激活（fish 自动;bash/zsh 把 `eval "$(mise activate <shell>)"` 加进 profile），go/flutter 直接上 PATH。
@@ -26,7 +26,7 @@ make stop        # SIGTERM 优雅关停
 make unit        # Go 单测
 make testend     # 全功能黑盒验收（真二进制 + llmmock，分钟级）
 make docs        # 文档规范门禁（GOVERNANCE §11）
-make build       # 后端二进制 → backend/bin/foryx-server
+make build       # 后端二进制 → backend/bin/anselm-server
 make verify      # 后端 pre-push（gofmt+vet+build+unit+docs）
 
 # 前端（Flutter）
