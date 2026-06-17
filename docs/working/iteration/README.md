@@ -44,13 +44,33 @@ landed-into:
 
 回拍 1，开拓新方向，**永不停，直到 API 报告没额度**（见「停止信号」）。
 
-## 跑 probe —— 两种形态
-- **多轮探索 / 评估（主形态，你演用户）**：拉起配置好的 server（helper `selfiter_serve`，待建：server + ws + deepseek 默认模型 + conv），然后**你逐轮驱动**：POST 你的用户消息 → 轮询 assistant 回合到终态 → 读 agent 干了啥（messages：tool_call 名+args / 结果 / text）→ 你作为标准目标驱动用户写**下一句**→ 重复 6-9 轮 → 判整段 + 查后端。每轮自动放行 danger 门。
-- **单轮回归（守已找到的，Go test）**：`testend/golden/selfiter_*_test.go`，零交互可后台跑。**多轮找到的问题，把你当时各轮的用户消息脚本化进一个 Go test**（用户侧固定、agent 侧真模型）做回归。命令：
-  ```bash
-  bash -c 'set -a; . /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/.env; set +a; cd /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/testend && EVALS=1 mise exec -- go test -count=1 -timeout 25m -run <Test> -v ./golden/...'
-  ```
-  轨迹落 `/tmp/anselm_selfiter/<tag>.*.json`。
+## 怎么操作（具体 —— 照着做就能跑）
+
+**① 一次性 · 起真后端 + 配 deepseek**（用我们自己的后端，不是测试 harness）
+```bash
+make server                  # 真后端：端口 8742、数据 /tmp/anselm-dev（持久）；停用 make stop
+bash testend/loop/setup.sh   # 等 health → 建 workspace + deepseek api-key + 默认模型 → 写 serve.json
+```
+
+**② 每个 probe · 一段多轮对话，你（Claude）亲手演用户**
+> **关键：每一轮都是你亲手发的。** 你看 agent 这回合干了啥，自己 decide 下一句。`turn.sh` 只是把「发一句 + 等回合到终态 + 放行危险门 + 打印 agent 干了啥」这套 curl 收成一个命令——**说什么是你定，不是脚本、不是另一个模型。**
+```bash
+testend/loop/turn.sh new                            # 开新对话 → 打印 CONV=cv_xxx
+testend/loop/turn.sh cv_xxx "<你的开场，来自任务目标>"   # 打印 agent 这回合：CALL/RSLT/TEXT
+#  ↑ 你读完，亲手写第 2 轮（纠正它 / 澄清 / 推进 / 说 done）：
+testend/loop/turn.sh cv_xxx "<你的下一句>"
+#  … 6-9 轮，直到目标达成或卡住
+```
+
+**③ 判 · 整段 + 后端 ground-truth**（回复说的不算，查后端真相）
+```bash
+B=$(jq -r .baseURL /tmp/anselm_selfiter/serve.json); W=$(jq -r .workspaceId /tmp/anselm_selfiter/serve.json)
+curl -s "$B/api/v1/functions"     -H "X-Anselm-Workspace-ID: $W" | jq   # 实体真建了没 / 版本对没
+curl -s "$B/api/v1/flowruns/<id>" -H "X-Anselm-Workspace-ID: $W" | jq   # flowrun 真 advance 没 / 恢复没
+```
+你对整段轨迹按 RUBRIC 出判词 + finding。
+
+**④ 回归**：多轮里你的用户各轮消息**脚本化**进一个 Go test（用户侧固定、agent 侧真模型），`testend/golden/selfiter_*_test.go`，`EVALS=1 … go test … ./golden/...` 后台跑；结构性 finding 优先转**零 token 断言**。
 
 ## RUBRIC（判官，判整段对话非单轮）
 六维度各 1-5，**每分必引证据**（轮次/block seq / tool_call 内容 / 后端查询结果）：工具选择 · 参数 · 顺序 · **恢复**（容忍 double-check，**跨轮收敛即满分**）· 效率（含 token）· **系统终态**（query 后端，确定性事实，最硬）。
@@ -72,5 +92,5 @@ landed-into:
 LOG / TASKS 是**索引表非 essay**：一条 = 一行，每格一短语；详情进 commit/test，不进表。违反（写成段落、重复别处已有事实）= 文档腐烂，立刻压回一行。
 
 ## 文件 / 已知 gap
-文件：`README.md` · [`TASKS.md`](TASKS.md) · [`LOG.md`](LOG.md) · 运行器 `selfiter_*_test.go` + **待建 `selfiter_serve`**（多轮 bring-up）。
+文件：`README.md` · [`TASKS.md`](TASKS.md) · [`LOG.md`](LOG.md) · 操作脚本 `testend/loop/{setup,turn}.sh`（起后端后用）· 回归 `testend/golden/selfiter_*_test.go`。
 已知 gap：判官是裸的你 + 单模型（自评偏差，靠后端 ground-truth + 前后对比兜）；EXPLORE 无"已探方向"地图（可能反复挖浅）；回归套真模型成本（尽量转零 token 结构断言）。
