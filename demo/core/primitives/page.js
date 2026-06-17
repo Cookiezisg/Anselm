@@ -6,7 +6,9 @@
     static tag = "an-page";
     static observed = [];
     static css = `
-      :host { display: block; }
+      /* host 自身即填满海面（shell .sea 是 flex 列、slot 默认 display:contents → host 即 flex 项）：
+         flex:1 + min-height:0 让每个返回 an-page 的海洋【天然可滚】，无需各 sea 自记 flex 样板（通用解，杜绝"忘了设就不滚"）。 */
+      :host { display: block; flex: 1 1 auto; min-height: 0; }
       .page { position: relative; flex: 1; min-height: 0; overflow: hidden; height: 100%; }
       .scroll {
         height: 100%; min-height: 0; overflow-y: auto;

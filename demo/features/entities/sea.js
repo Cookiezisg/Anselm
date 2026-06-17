@@ -91,8 +91,7 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     function show(id) {
       const e = byId(id) || reg[0]; if (!e) return;
       cur = e;
-      const page = document.createElement("an-page");
-      page.style.flex = "1"; page.style.minHeight = "0";
+      const page = document.createElement("an-page");   // 填满海面由 an-page :host 自带（flex:1/min-height:0），此处不再手记
       page.appendChild(header(e));
       const versions = e.versions || [];
       if (versions.length) {   // 有版本 → 概览 / 版本 双 tab（版本是并列视图、非概览附属段）
