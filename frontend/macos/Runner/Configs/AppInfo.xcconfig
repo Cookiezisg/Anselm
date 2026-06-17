@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = foryx
+PRODUCT_NAME = anselm
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.foryx.foryx
+PRODUCT_BUNDLE_IDENTIFIER = com.anselm.anselm
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.foryx. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.anselm. All rights reserved.

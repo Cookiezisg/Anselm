@@ -21,11 +21,11 @@ abstract class ModelRef with _$ModelRef {
 }
 
 /// The local isolation unit — and the only auth axis (no accounts; the active workspace
-/// id rides every request as `X-Foryx-Workspace-ID`). The first freezed DTO; the rest
+/// id rides every request as `X-Anselm-Workspace-ID`). The first freezed DTO; the rest
 /// of the entity types follow this exact pattern (camelCase wire ↔ json_serializable,
 /// no rename maps). Mirrors backend `workspace.Workspace`.
 ///
-/// 本地隔离单元——也是唯一鉴权轴(无账号;活动 workspace id 经 `X-Foryx-Workspace-ID` 随每请求)。
+/// 本地隔离单元——也是唯一鉴权轴(无账号;活动 workspace id 经 `X-Anselm-Workspace-ID` 随每请求)。
 /// 首个 freezed DTO;其余实体型循此模式(camelCase 线缆 ↔ json_serializable、无重命名表)。
 /// 镜像后端 `workspace.Workspace`。
 @freezed

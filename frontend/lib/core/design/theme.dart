@@ -8,7 +8,7 @@ import 'tokens.dart';
 ///
 /// 由 [Tokens] 构建的 app ThemeData。当前单一明亮主题(视觉灵魂明亮通透);暗色后续。
 /// widget 从主题或 [Tokens] 读颜色/度量,绝不硬编码。
-abstract final class ForyxTheme {
+abstract final class AnselmTheme {
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
       seedColor: Tokens.accent,

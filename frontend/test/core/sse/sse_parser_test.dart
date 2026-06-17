@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foryx/core/sse/frame.dart';
-import 'package:foryx/core/sse/sse_parser.dart';
+import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/sse/sse_parser.dart';
 
 /// Feed a raw SSE event block (lines joined by \n, terminated by a blank line) through
 /// the parser and return the one envelope it produced (or null).

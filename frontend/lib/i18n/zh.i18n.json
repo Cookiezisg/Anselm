@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "Foryx"
+    "name": "Anselm"
   },
   "backend": {
-    "starting": "正在启动 Foryx…",
+    "starting": "正在启动 Anselm…",
     "crashedTitle": "后端启动失败",
     "retry": "重试"
   },

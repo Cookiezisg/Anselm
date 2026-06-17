@@ -23,7 +23,7 @@ Future<void> main() async {
     size: Size(1280, 820),
     minimumSize: Size(960, 600),
     center: true,
-    title: 'Foryx',
+    title: 'Anselm',
     titleBarStyle: TitleBarStyle.normal,
   );
   unawaited(windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -39,7 +39,7 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [backendControllerProvider.overrideWithValue(backend)],
-      child: TranslationProvider(child: const ForyxApp()),
+      child: TranslationProvider(child: const AnselmApp()),
     ),
   );
 }

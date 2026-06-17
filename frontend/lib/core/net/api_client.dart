@@ -12,12 +12,12 @@ import '../contract/page.dart';
 ///  - 204      → no body                              → [delete] / [postNoContent]
 ///  - error    → `{"error":{code,message,details}}`   → thrown as [ApiException]
 ///
-/// Workspace isolation rides the `X-Foryx-Workspace-ID` header on every request
+/// Workspace isolation rides the `X-Anselm-Workspace-ID` header on every request
 /// (backend middleware.HeaderWorkspaceID); the client never sends/reads workspace_id in
 /// bodies. The id source is injected as a callback so this layer stays Riverpod-free.
 ///
 /// 到本地 Go 后端的 HTTP 边界。把标准化契约(ADR 0003)**只编码一次**,使无 feature 手搓
-/// envelope/error/分页。workspace 隔离经每请求的 `X-Foryx-Workspace-ID` header;客户端
+/// envelope/error/分页。workspace 隔离经每请求的 `X-Anselm-Workspace-ID` header;客户端
 /// 体内绝不带 workspace_id。id 来源以回调注入,使本层不沾 Riverpod。
 class ApiClient {
   ApiClient({required Dio dio, required String? Function() workspaceId})
@@ -32,7 +32,7 @@ class ApiClient {
   void _onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final ws = _workspaceId();
     if (ws != null && ws.isNotEmpty) {
-      options.headers['X-Foryx-Workspace-ID'] = ws;
+      options.headers['X-Anselm-Workspace-ID'] = ws;
     }
     handler.next(options);
   }
@@ -142,7 +142,7 @@ class ApiClient {
     final data = body?['data'];
     if (data is Map<String, dynamic>) return data;
     throw ApiException(
-      code: ForyxErr.unknown,
+      code: AnselmErr.unknown,
       message: 'response had no data object',
       httpStatus: 200,
     );

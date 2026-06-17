@@ -18,8 +18,8 @@ import 'router.dart';
 /// 根 widget。整 app 门控于 sidecar 生命周期(ADR 0004 §1):单一 splash/crash/ready 切换,
 /// 非逐 feature 处理。后端健康后,嵌套 ProviderScope 注入解析后的 base URL 作唯一运行期 override;
 /// 其下一切(Dio、SSE gateway、repo)据之构建。
-class ForyxApp extends ConsumerWidget {
-  const ForyxApp({super.key});
+class AnselmApp extends ConsumerWidget {
+  const AnselmApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -59,8 +59,8 @@ class _ReadyAppState extends State<_ReadyApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      title: 'Foryx',
-      theme: ForyxTheme.light(),
+      title: 'Anselm',
+      theme: AnselmTheme.light(),
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
       routerConfig: _router,
@@ -84,7 +84,7 @@ class _StatusApp extends StatelessWidget {
     final crashed = onRetry != null;
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ForyxTheme.light(),
+      theme: AnselmTheme.light(),
       home: Scaffold(
         body: Center(
           child: Column(
