@@ -2124,12 +2124,12 @@ window.REF_CATALOG = [
                   "open": true,
                   "items": [
                     {
-                      "verb": "exec_shell",
-                      "name": "shell",
+                      "verb": "Bash",
+                      "name": "Bash",
                       "danger": "dangerous",
                       "gate": true,
                       "summary": "将在沙箱内删除过期快照目录。",
-                      "args": "{\n  \"cmd\": \"rm -rf /data/snapshots/2024-*\"\n}"
+                      "args": "{\n  \"command\": \"rm -rf /data/snapshots/2024-*\"\n}"
                     }
                   ]
                 }
@@ -2197,7 +2197,7 @@ window.REF_CATALOG = [
               "blocks": [
                 {
                   "type": "subtree",
-                  "label": "subagent · triage_runner",
+                  "label": "subagent · general-purpose",
                   "open": true,
                   "blocks": [
                     {
@@ -2209,12 +2209,12 @@ window.REF_CATALOG = [
                       "open": true,
                       "items": [
                         {
-                          "verb": "read_flowrun_nodes",
-                          "name": "flowrun_nodes",
+                          "verb": "get_flowrun",
+                          "name": "frn_8a1c…",
                           "result": {
                             "json": {
-                              "parked": "approval",
-                              "node": "review_gate"
+                              "flowrun": { "id": "frn_8a1c4f2e", "status": "running" },
+                              "nodes": [{ "nodeId": "review_gate", "kind": "approval", "status": "parked" }]
                             }
                           }
                         }
@@ -2302,10 +2302,10 @@ window.REF_CATALOG = [
             "attrs": {
               "flavor": "chat",
               "title": "需要审批确认",
-              "tool": "exec_shell",
+              "tool": "Bash",
               "danger": "dangerous",
               "summary": "将在沙箱内删除过期快照目录，操作不可逆。",
-              "args": "{\n  \"cmd\": \"rm -rf /data/snapshots/2024-*\"\n}"
+              "args": "{\n  \"command\": \"rm -rf /data/snapshots/2024-*\"\n}"
             }
           },
           {
@@ -2315,10 +2315,10 @@ window.REF_CATALOG = [
             "attrs": {
               "flavor": "chat",
               "title": "需要审批确认",
-              "tool": "write_file",
+              "tool": "Write",
               "danger": "cautious",
               "summary": "将覆盖 config/triggers.yaml。",
-              "args": "{\n  \"path\": \"config/triggers.yaml\",\n  \"mode\": \"overwrite\"\n}"
+              "args": "{\n  \"file_path\": \"config/triggers.yaml\"\n}"
             }
           },
           {
@@ -2328,7 +2328,7 @@ window.REF_CATALOG = [
             "attrs": {
               "flavor": "chat",
               "title": "需要审批确认",
-              "tool": "list_entities",
+              "tool": "search_function",
               "danger": "safe",
               "summary": "只读列出当前 workspace 的 function 实体。"
             }

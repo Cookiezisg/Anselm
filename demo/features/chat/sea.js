@@ -1,7 +1,7 @@
 /* Anselm feature — chat 海洋（sea）：AI 对话运行时主战场。
-   布局：中央 = an-page（居中列：ocean-header 可改名 + an-block-tree transcript）+ 底部固定 an-composer；右岛 = 仅 :iterate 对话展开（实体 live 编辑 pending 草稿）。
+   布局：中央 = an-page（居中列：ocean-header 可改名 + an-block-tree transcript）+ 底部固定 an-composer；右岛 = 仅 :iterate 对话展开（实体面订阅 entities build 流实时填充【新 active 版本】，edit 立即生效、可 revert，无草稿/采用门）。
    契约落地（mock 演示）：Send=202+SSE → 这里以脚本回放模拟流式回合（每对话同时只一个在途回合 → generating 时 composer 切「停止」）；
-     DB 行是真相 → blocks 数组是耐久态、脚本步增量改它再整渲（block-tree 声明式）；右岛 live 编辑订阅 entities build 流 → 这里以 island 步流式喂 an-code-editor。
+     DB 行是真相 → blocks 数组是耐久态、脚本步增量改它再整渲（block-tree 声明式）；右岛 = entities build 流镜像 → 这里以 islandStream 步逐字喂 an-code-editor（写完即 active）。
    脚本解释器消费 data.js 的 turn 步：push/patch/island/gate（gate 等 an-block-tree 冒泡的 an-decide，approve→settled、deny→改道）。
    串接：composer an-send→追加 user 块 + 跑回复回合 · an-stop→停 · block-tree an-continue→续跑 · an-ref（ref-pill 点击）→Intent.select；rail 选会话→Intent.on('conversation')→loadConvo。 */
 window.FEATURE = window.FEATURE || {};
@@ -40,16 +40,15 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     }
     const after = (ms, fn) => { timers.push(setTimeout(fn, ms)); };
 
-    // ── 右岛（:iterate 对话）：实体 live 编辑 pending 草稿 ──
+    // ── 右岛（:iterate 对话）：实体面订阅 entities build 流实时填充【新 active 版本】（edit 写完即生效，无草稿/采用门；唯一动作 = revert 移指针）──
     function buildIsland(spec) {
       const isl = el("an-right-island", { title: "实时编辑 · " + spec.entity, icon: spec.kind || "function" });
-      const card = el("an-info-card", { title: spec.entity, icon: spec.kind || "function", meta: "待 review · " + (spec.version || "草稿") });
+      const card = el("an-info-card", { title: spec.entity, icon: spec.kind || "function", meta: "已生效 · " + (spec.version || "v2") });
       const code = el("an-code-editor", { lang: spec.lang || "text" });
       code.textContent = "";
       const acts = el("an-action-group", { footer: true });
-      const adopt = el("an-button", { variant: "primary", size: "sm", icon: "check", onclick: () => toast("已采用草稿 · " + spec.entity + " 生效") }, "采用 " + (spec.version || "草稿"));
-      const discard = el("an-button", { size: "sm", icon: "trash", onclick: () => toast("已丢弃草稿") }, "丢弃");
-      acts.append(adopt, discard);
+      const prev = el("an-button", { variant: "ghost", size: "sm", icon: "history", onclick: () => toast("已 revert · " + spec.entity + " 回退到上一版本（revert_* 移 active 指针）") }, "revert 回退");
+      acts.append(prev);
       card.append(code, acts);
       isl.append(card);
       isl._code = code;
