@@ -96,7 +96,7 @@
 
 | 能力 | demo 面 | 后端出处 | 状态 |
 |---|---|---|---|
-| 文档树（嵌套 + 拖拽 + New） | `features/documents/rail` | `/documents/tree` `?parentId` | ▢ |
+| 文档树（嵌套折叠 + New + 搜索 + 每行 ＋/⋯；拖拽待补） | `features/documents/rail`（`an-doc-tree`） | `/documents/tree` `?parentId` | ✅ |
 | 无标记 WYSIWYG 编辑（slash + @提及 + 块手柄＋ + 悬卡；选区工具待补） | documents sea（**逃生舱**：编辑器画布） | `documents` content | ✅ |
 | move / duplicate（深拷子树） | 文档动作 | `:move` `:duplicate` | ▢ |
 | 反链 / wikilink（relation 入边） | 右岛 | relation 边 | ▢ |

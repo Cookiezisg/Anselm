@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 const keepAliveInterval = 15 * time.Second
@@ -24,7 +26,12 @@ func StreamSSE[T any](
 ) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "streaming not supported", nil)
+		// Route the no-Flusher case through the typed sentinel (STREAMING_UNSUPPORTED)
+		// rather than a hand-coded code string, so the wire code matches its registry entry (S20).
+		//
+		// 非 Flusher 分支走 typed sentinel（STREAMING_UNSUPPORTED）而非手编码串——
+		// 让线缆码与登记表一致（S20）。
+		FromDomainError(w, nil, errorspkg.ErrStreamingUnsupported)
 		return
 	}
 

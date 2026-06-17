@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **全 264 个 wire code 完整登记**（按域）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **264 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -54,7 +54,16 @@ audience: [human, ai]
 | `UNAUTH_NO_WORKSPACE` | 401 | unauthorized: no valid workspace id（隔离路由缺 ws；中间件 `RequireWorkspace` 兜、前端清 workspace 重选） |
 | `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6） |
 | `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
-| `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter） |
+| `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter；`response/sse.go` 经 `FromDomainError` 发此 sentinel） |
+
+### transport 合成码（`FromDomainError`，非 `errorspkg.New` sentinel）
+
+> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 264 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
+
+| code | HTTP | message | 触发 |
+|---|---|---|---|
+| `CLIENT_CLOSED` | 499 | client closed request | `errors.Is(err, context.Canceled)`（客户端断连 / 取消） |
+| `REQUEST_TIMEOUT` | 504 | request timed out | `errors.Is(err, context.DeadlineExceeded)`（请求超时） |
 
 ### `app/aispawn`
 
