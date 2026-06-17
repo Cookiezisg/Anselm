@@ -12,89 +12,65 @@ landed-into:
 
 # Iteration Loop —— AI 操作手册（START HERE）
 
-> **你是一个 AI?读完这个文件夹你就能立刻跑这个 loop。** 本文件 = 怎么跑 + 怎么判 + 铁律。
-> [`TASKS.md`](TASKS.md) = 跑什么 + 预期 + **后端 ground-truth 查询**。[`LOG.md`](LOG.md) = 已发现什么（线性记录，别重复）。
-> 仓库根：`/Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx`。真模型 key 在仓库根 `.env`（`DEEPSEEK_API_KEY`，deepseek-v4-flash）。运行器：`testend/golden/selfiter_*_test.go`。
+> AI：读完这个文件夹你就能跑这个 loop。本文件 = 怎么跑 + 怎么判 + 铁律。
+> [`TASKS.md`](TASKS.md) = 跑什么（索引表）。[`LOG.md`](LOG.md) = 已发现什么（索引表，别重复挖）。
+> 仓库根 `/Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx`；真模型 key 在根 `.env`（`DEEPSEEK_API_KEY`，deepseek-v4-flash）；运行器 `testend/golden/selfiter_*_test.go`。
 
-## 这个 loop 是什么
+## 一句话
 
-一条**延绵不断、线性的**迭代线，永远在转：
+让真 agent 在真模型上跑真任务 → 抓整条轨迹 → 你（Claude）当判官判「工具用得对不对 + 整套工程转得对不对」 → **有就都修** → 重跑同测看前后 → 记一行 → commit。一条延绵不断、线性的迭代线。
 
-```
-EXPLORE ──► CONFIRM ──► FIX ──► VERIFY ──► LOG ──┐
-（找下一个问题）  （确认是真的）（动手修）（重跑同样的测）（记账）   │
-  ▲                                                              │
-  └──────────────────────────────────────────────────────────────┘
-```
-
-两个不可省的灵魂：
-- **每个 test 是一段多轮对话**，不是一次问答——一个**目标驱动的 user-simulator** 带着上下文跟 agent 聊 N 轮、会追问会反驳；agent 也带着对话上下文。综合判整段轨迹。
-- **判不只看 LLM 回复，要进后端 query**——回复说"已触发任务"不算数，得查 flowrun 节点真跑上没、跑对没。**后端状态才是 ground truth**（见 RUBRIC + TASKS 每条的 ground-truth 查询）。
+**两个灵魂：**
+- **① 多轮对话，不是一问一答。** **你（Claude）亲自扮演用户**，带一个目标跟 agent 聊 **6-9 轮**——它做错你纠正、它问你答、它绕了你引导，综合判整段。（当前标准目标驱动用户即可，暂不做多人设。）
+- **② 判要进后端 query。** 回复说"已触发"不算，查 flowrun 真跑上没——后端状态才是 ground truth。
 
 ## 架构：EXPLORE 并发 / EXPLOIT 串行
+- **EXPLORE**（找问题）= 多 agent 并发，各探一个没覆盖的方向（每个 agent 也亲自演用户跑多轮）。
+- **EXPLOIT**（CONFIRM→GENERALIZE→FIX→VERIFY→LOG→COMMIT）= 回主 agent，串行，一个问题彻底解决（含同类一起解决）再开下一个。
+- 线性的是骨干（LOG 一行一行长大）；并发只在发现的爆发期。
 
-| 阶段 | 谁干 | 怎么干 |
+## 循环 = 8 拍
+
+| 拍 | 名 | 干什么 |
 |---|---|---|
-| **EXPLORE**（找问题） | **多 agent 并发**（Workflow 扇出） | 每个 agent 选一个方向，跑多轮 probe + 后端查询，报候选问题（带证据） |
-| **EXPLOIT**（处理问题） | **回到主 agent，串行** | CONFIRM → FIX → VERIFY → LOG，一个问题彻底解决再开下一个 |
+| 1 | **REVIEW** | 起手先读本 README，刷新操作模型（防漂移、加深印象）。 |
+| 2 | **EXPLORE** | 多 agent 并发各探一新方向（先读 LOG 避重）；跑**多轮对话** probe + 后端查询，报候选。 |
+| 3 | **CONFIRM** | 多变体各跑 1-2 次，**跨变体一致复现才算真**，出现一次不算。 |
+| 4 | **GENERALIZE** ★ | **修任何东西前的第一反射**：独有还是**范问题**（不止这里）？读共享层 / 同类工具确认范围。 |
+| 5 | **FIX** | 直接修，**有就都修**（不设"值不值得"闸）。范 → 批量 + 修地基一处；独有 → 只修这处。定位到层。 |
+| 6 | **VERIFY** | 重跑确认它的那些测 + 后端 ground-truth，前后对比。**能转成零 token 结构断言的就转**（回归守得便宜）。改进必须可见，否则回拍 5。 |
+| 7 | **LOG** | 在 [`LOG.md`](LOG.md) 表里追一行（索引，不写 essay）。 |
+| 8 | **COMMIT** | **一个 fix = 一个 commit**：fix + 回归 test + LOG 行同提交，专用分支。 |
 
-**线性的是骨干**（问题→问题→问题，LOG 一条线长大）；**并发只在发现的爆发期**。两者不矛盾。
+回拍 1，开拓新方向，**永不停，直到 API 报告没额度**（见「停止信号」）。
 
-## 一圈 = 6 拍
+## 跑 probe —— 两种形态
+- **多轮探索 / 评估（主形态，你演用户）**：拉起配置好的 server（helper `selfiter_serve`，待建：server + ws + deepseek 默认模型 + conv），然后**你逐轮驱动**：POST 你的用户消息 → 轮询 assistant 回合到终态 → 读 agent 干了啥（messages：tool_call 名+args / 结果 / text）→ 你作为标准目标驱动用户写**下一句**→ 重复 6-9 轮 → 判整段 + 查后端。每轮自动放行 danger 门。
+- **单轮回归（守已找到的，Go test）**：`testend/golden/selfiter_*_test.go`，零交互可后台跑。**多轮找到的问题，把你当时各轮的用户消息脚本化进一个 Go test**（用户侧固定、agent 侧真模型）做回归。命令：
+  ```bash
+  bash -c 'set -a; . /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/.env; set +a; cd /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/testend && EVALS=1 mise exec -- go test -count=1 -timeout 25m -run <Test> -v ./golden/...'
+  ```
+  轨迹落 `/tmp/anselm_selfiter/<tag>.*.json`。
 
-### 拍 1 · EXPLORE（多 agent 并发，开拓不同方向）
-解决完上一个问题后，扇出多个 agent，各探一个**没覆盖过**的方向（读 LOG 避重）：handler 常驻、workflow durable 崩溃恢复、search RAG、大工具面下的选择、跨对话 memory、edit 循环里的恢复……每个 agent 跑多轮 probe + 后端查询，报候选问题 + 证据。候选回到主 agent。
-
-### 拍 2 · CONFIRM（主 agent，是真问题还是噪声?）
-围绕候选问题**设计多个变体 probe**（不同措辞/不同实体），各跑 1-2 次。**"确认" = 跨变体一致复现**，不是出现一次就算。一次性 ≠ 系统性。
-
-### 拍 3 · FIX（主 agent，直接动手修）
-确认是真问题 → **直接改**。先定位到层：tool 描述 / tool 实现 `.go` / 引擎 / system prompt。改最小的那处。`make verify` 必绿；改文案触动契约 → 同提交改 `references/`。
-
-### 拍 4 · VERIFY（主 agent，前后对比）
-**重跑确认它的那些 probe**（拍 2 的变体 + 原始发现 probe），对比修前/修后 + 查后端状态。**改进必须可见**（失败调用没了 / 选对了 / 后端状态对了）。没改进 → 回拍 3 换修法，或记为"修法无效"。
-
-### 拍 5 · LOG（追加，线性记账）
-[`LOG.md`](LOG.md) 追一条：证据→定位→修法→前后对比→状态。该 probe 进**永久回归集**（以后每圈重跑守它）。
-
-### 拍 6 · LOOP
-回拍 1，开拓新方向，直到下一个问题。**永不停。**
-
-## 怎么跑一个 probe（命令）
-```bash
-bash -c 'set -a; . /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/.env; set +a; \
-  cd /Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx/testend && \
-  EVALS=1 mise exec -- go test -count=1 -timeout 25m -run <TestName> -v ./golden/...'
-```
-轨迹落 `/tmp/anselm_selfiter/<tag>.*.json`：`.messages.json`（核心轨迹：tool_call 名+args / tool_result / reasoning / text）· `.systemprompt.json`（agent 真看到的 system prompt，工具描述住这）· `.functions.json`/`.handlers.json`（实体终态）· `.usage.json`（token）。**后端 ground-truth 查询**：probe 里直接 `wc.GET(...)` 查 flowrun 节点 / 执行记录 / 版本 / trigger firing，落盘供判官核对。
-
-## RUBRIC —— 把轨迹判成判词
-
-六维度各 1-5，**每分必引证据**（block seq / tool_call 内容 / **后端查询结果**）：
-
-| 维度 | 问 | 怎么判 |
-|---|---|---|
-| 工具选择 | 每个子目标选对工具没? | LLM 判（你） |
-| 参数正确 | args 字段名/形状/值对没? | LLM 判 |
-| 顺序 | 序列合理没? | LLM 判 |
-| 恢复 | 撞错了下一步自纠没? | LLM 判（**容忍 double-check，收敛即满分**） |
-| 效率 | 多余调用/回合?token 合理? | LLM 判 + usage |
-| **系统终态（端到端真相）** | **后端真做成没?** 实体建了/run 出对值/版本前进/**flowrun 真跑上跑对**/trigger 真 fire | **code 判**（query 后端，最硬，不可省） |
-
-**混合判官**：确定性事实（终态/版本/run 结果/崩溃恢复/firing）用 **code query 后端**；模糊质量用 **LLM 判**。能 code 判的绝不用 LLM 判。
+## RUBRIC（判官，判整段对话非单轮）
+六维度各 1-5，**每分必引证据**（轮次/block seq / tool_call 内容 / 后端查询结果）：工具选择 · 参数 · 顺序 · **恢复**（容忍 double-check，**跨轮收敛即满分**）· 效率（含 token）· **系统终态**（query 后端，确定性事实，最硬）。
+混合判官：确定性事实用 code 判；模糊质量用 LLM 判。**finding** = 「第 N 轮/步做了 X，该 Y，因为 Z；坏在<哪层>；建议<怎么改>」——定位到层才知道改哪个文件。
 
 ## 铁律
-1. **判官 ≠ 被测 agent。** 你判轨迹，别把判词喂回去污染被测。
-2. **防自欺靠机制不靠人盯**：confirm-跨变体复现（拍 2）+ before/after-同测对比（拍 4）+ **后端 ground-truth**（拍 4）三件都是客观的，抗 AI 自我合理化。人是**LOG 这条线的审计者**，不是每步的闸。
-3. **绝不改预期/断言来刷绿。** 预期错了就改预期并在 LOG 说明，不为通过而改。
-4. **无回归 case 的修复 = 没修完**（拍 5 进永久集）。
-5. `make verify` 必绿；改文案触动契约 → 同提交改 `references/`（CLAUDE.md 同步触发表）。
+1. **GENERALIZE 先于单修**（拍 4）：修任何东西前先问"范问题吗"、读共享层。修一类别一个个磨。
+2. **有问题就都修**（不设值不值得闸）。
+3. **防自欺靠机制**：CONFIRM 跨变体 + VERIFY 前后 + 后端 ground-truth，三者皆客观。判官 ≠ 被测。
+4. **绝不改预期/断言刷绿**；预期错了改预期并在 LOG 注明。
+5. **无回归 test 的修 = 没修完**（拍 8 进永久集；能零 token 结构断言就优先用它）。
+6. `make verify` 必绿；改文案触动契约 → 同提交改 `references/`（+ Co-Authored-By 尾注）。
+7. **commit 在专用分支**（不动 `main`）；消息 `fix(loop): F<n> <一句话> [范围]`。
 
-## 文件
-- `README.md`（本文件）· [`TASKS.md`](TASKS.md)（任务+预期+后端查询）· [`LOG.md`](LOG.md)（线性账本）。
-- 运行器：`testend/golden/selfiter_probe_test.go`（任务）+ `selfiter_confirm_*_test.go`（变体确认）。
+## 停止信号
+**唯一停止信号 = deepseek API 报额度/余额耗尽**（model 调用持续因无额度失败）。此时**不撂挑子**：把当前卡在一半的修做到**干净态**（`make verify` 绿 + 该 commit 的 commit 掉），再收工等下一步。**绝不留半坏状态。**
 
-## 还要建的（让 loop 真自动转）
-- **多轮 user-simulator**：现在 probe 是单轮。建一个目标驱动的模拟用户（LLM 带 persona+目标，读 agent 回复生成下一轮），把 probe 升成 N 轮对话。
-- **固化判官**：把"判官"变成一个 `judge` 调用（喂轨迹+后端查询+预期 → 结构化判词），不靠人手判（golden 层今天零 LLM 判官）。
-- **explore 扇出**：把拍 1 做成 Workflow（多 agent 各探一方向）。固化后落 `references/`。
+## 文档规范（强制 —— 这些表会无限增长）
+LOG / TASKS 是**索引表非 essay**：一条 = 一行，每格一短语；详情进 commit/test，不进表。违反（写成段落、重复别处已有事实）= 文档腐烂，立刻压回一行。
+
+## 文件 / 已知 gap
+文件：`README.md` · [`TASKS.md`](TASKS.md) · [`LOG.md`](LOG.md) · 运行器 `selfiter_*_test.go` + **待建 `selfiter_serve`**（多轮 bring-up）。
+已知 gap：判官是裸的你 + 单模型（自评偏差，靠后端 ground-truth + 前后对比兜）；EXPLORE 无"已探方向"地图（可能反复挖浅）；回归套真模型成本（尽量转零 token 结构断言）。
