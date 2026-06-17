@@ -101,14 +101,14 @@ window.runEntityAction = function (value, entity, ctx, item) {
   if (value === "iterate") { I && I.select({ kind: "conversation", id: "iterate:" + entity.id }); return; }
   if (value === "editGraph") { I && I.act && I.act({ verb: "editGraph", kind: "workflow", id: entity.id }); return; }
   if (value === "clearConfig") {
-    confirmDanger("清空 " + entity.label + " 的配置？", "将清空全部 init 配置并停止常驻实例（DELETE /config）。", "清空配置",
-      () => toast("已清空配置并停止实例 · " + entity.label + "（mock）", "danger"));
+    confirmDanger("清空 " + entity.label + " 的配置？", "将清空全部配置并停止常驻实例。", "清空配置",
+      () => toast("已清空配置并停止实例 · " + entity.label, "danger"));
     return;
   }
   if (value === "delete") {
-    confirmDanger("删除 " + entity.label + "？", "该实体及其全部版本将被软删除，可在保留期内恢复。", "删除",
-      () => toast("已删除 " + entity.label + "（mock）", "danger"));
+    confirmDanger("删除 " + entity.label + "？", "该实体及其全部版本将被删除，可在保留期内恢复。", "删除",
+      () => toast("已删除 " + entity.label, "danger"));
     return;
   }
-  toast((item ? item.label : value) + " · " + entity.label + "（mock）");
+  toast((item ? item.label : value) + " · " + entity.label);
 };

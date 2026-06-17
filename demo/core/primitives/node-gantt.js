@@ -40,9 +40,9 @@
         const segs = (n.iters && n.iters.length) ? n.iters : ((+n.wPct || 0) > 0 ? [{ atPct: n.atPct, wPct: n.wPct }] : []);
         let bars;
         if (n.parked) {
-          bars = `<span class="bar s-park" style="left:${+n.atPct || 0}%;width:${Math.max(6, +n.wPct || 0)}%"><span class="pk">parked · 等待人工</span></span>`;
+          bars = `<span class="bar s-park" style="left:${+n.atPct || 0}%;width:${Math.max(6, +n.wPct || 0)}%"><span class="pk">等待审批</span></span>`;
         } else if (!segs.length) {
-          bars = `<span class="stub">未起（future）</span>`;
+          bars = `<span class="stub">未运行</span>`;
         } else {
           const cls = SCLS[n.status] || "s-done";
           bars = segs.map((s) => `<span class="bar ${cls}" style="left:${+s.atPct || 0}%;width:${Math.max(2, +s.wPct || 0)}%"></span>`).join("");

@@ -114,10 +114,10 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     page.addEventListener("an-title-change", (ev) => {
       if (!cur) return;
       cur.label = ev.detail.value;
-      window.AnToast && window.AnToast.show({ text: "已重命名为「" + ev.detail.value + "」（mock）" });
+      window.AnToast && window.AnToast.show({ text: "已重命名为「" + ev.detail.value + "」" });
     });
     page.addEventListener("an-field-change", (ev) => {
-      if (cur && (ev.detail.label === "说明" || ev.detail.label === "角色") && cur.data) { cur.data.description = ev.detail.value; window.AnToast && window.AnToast.show({ text: "已更新说明（mock）" }); }
+      if (cur && (ev.detail.label === "说明" || ev.detail.label === "角色") && cur.data) { cur.data.description = ev.detail.value; window.AnToast && window.AnToast.show({ text: "已更新说明" }); }
     });
     if (reg[0]) show(reg[0].id);   // 初始展示首个实体（此刻 page 尚未挂载，是本 sea 自身首渲）
     return page;

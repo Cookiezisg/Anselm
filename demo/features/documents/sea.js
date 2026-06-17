@@ -8,7 +8,7 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
     const el = window.el;   // 共享元素工厂（地基 base.js），不再各 feature 重抄
     const DOCS = window.DOCS || {};
     const treeLabel = (id) => { let f = null; (function walk(ns) { (ns || []).forEach((n) => { if (n.id === id) f = n.label; if (n.children) walk(n.children); }); })(window.DOC_TREE || []); return f; };
-    const stub = (id) => { const t = treeLabel(id) || id; return { id, title: t, path: "/" + t, blocks: [{ type: "callout", tone: "info", text: "这篇文档还没有正文（demo 仅核心文档有内容）。按 / 选块、@ 提及开始写。" }], backlinks: [], outlinks: [], outline: [], meta: [["path", "/" + t], ["状态", "空文档"]], history: [] }; };
+    const stub = (id) => { const t = treeLabel(id) || id; return { id, title: t, path: "/" + t, blocks: [{ type: "callout", tone: "info", text: "这篇文档还没有内容。按 / 选块，或 @ 提及，开始书写。" }], backlinks: [], outlinks: [], outline: [], meta: [["path", "/" + t], ["状态", "空文档"]], history: [] }; };
     const rowsCard = (title, icon, rows) => el("an-info-card", { title, icon }, ...rows.map((r) => el("an-row", r)));
 
     const page = el("an-page");

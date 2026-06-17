@@ -49,7 +49,7 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     island.setAttribute("title", "检查器"); island.setAttribute("icon", "workflow");
     const ins = document.createElement("div"); island.appendChild(ins);
     if (ctx.shell) ctx.shell.setRight(island);
-    const empty = () => { ins.innerHTML = ""; const s = document.createElement("an-state"); s.setAttribute("variant", "empty"); s.setAttribute("icon", "workflow"); s.setAttribute("title", "未选中"); s.setAttribute("hint", "选择节点或连线进行编辑；拖拽空白区域平移画布。"); ins.appendChild(s); };
+    const empty = () => { ins.innerHTML = ""; const s = document.createElement("an-state"); s.setAttribute("variant", "empty"); s.setAttribute("icon", "workflow"); s.setAttribute("title", "未选中"); s.setAttribute("hint", "选择节点或连线进行编辑。"); ins.appendChild(s); };
 
     // ── 检查器渲染 ──
     function fieldRow(label, control) { const f = document.createElement("an-field"); f.setAttribute("label", label); f.appendChild(control); return f; }
@@ -110,7 +110,7 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     }
 
     cv.addEventListener("an-graph-select", (ev) => renderInspector(ev.detail.sel));
-    cv.addEventListener("an-graph-change", (ev) => { (ev.detail.ops || []).forEach((op) => toast("ops · " + op.op)); });
+    cv.addEventListener("an-graph-change", (ev) => { if (!ev.detail.minor && ev.detail.label) toast(ev.detail.label); });
     cv.addEventListener("an-graph-toast", (ev) => toast(ev.detail.msg));
     empty();
     return wrap;

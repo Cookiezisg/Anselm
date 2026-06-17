@@ -15,19 +15,19 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
     el.model = { newLabel: "New Document", filterPlaceholder: "搜索文档…", groups: [{ types: [{ rows: toRows(window.DOC_TREE || []) }] }] };
 
     el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "document", id: ev.detail.id }); });
-    el.addEventListener("an-new", () => toast("New Document → 根新建文档（mock · POST /documents）"));
+    el.addEventListener("an-new", () => toast("已新建文档"));
     el.addEventListener("an-row-more", (ev) => {
       const id = ev.detail.id, name = labelOf(id);
       window.AnMenu.open(ev.detail.anchor, {
         align: "start", placement: "bottom", namespace: "doc-menu",
         items: [
           { value: "rename", label: "重命名", icon: "edit" },
-          { value: "add", label: "加子文档", icon: "plus" },
-          { value: "duplicate", label: "复制（深拷子树）", icon: "diff" },
+          { value: "add", label: "新建子文档", icon: "plus" },
+          { value: "duplicate", label: "复制", icon: "diff" },
           { value: "move", label: "移动到…", icon: "enter" },
-          { value: "delete", label: "删除（软删子树）", icon: "trash", danger: true },
+          { value: "delete", label: "删除", icon: "trash", danger: true },
         ],
-        onPick: (v) => toast("「" + name + "」· " + v + "（mock · " + ({ rename: "PATCH", add: "POST ?parentId", duplicate: ":duplicate", move: ":move", delete: "soft-delete" })[v] + "）"),
+        onPick: (v) => toast({ rename: "已重命名「" + name + "」", add: "已在「" + name + "」下新建子文档", duplicate: "已复制「" + name + "」", move: "已移动「" + name + "」", delete: "已删除「" + name + "」" }[v]),
       });
     });
     return el;

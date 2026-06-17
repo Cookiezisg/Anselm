@@ -31,12 +31,12 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
     const island = el("an-right-island", { title: "运行详情", icon: "scheduler" });
     function renderIsland(r, nodeId) {
       island.innerHTML = "";
-      const headCard = el("an-info-card", { title: "flowrun 头", icon: "workflow", meta: r.status });
+      const headCard = el("an-info-card", { title: "运行信息", icon: "workflow", meta: r.status });
       const kv = el("an-kv"); kv.setAttribute("wrap", ""); kv.rows = r.head || [];
       headCard.append(kv);
       const acts = el("an-action-group");
-      if (r.status === "failed") { const b = el("an-button", { size: "sm", icon: "history" }, ":replay"); b.addEventListener("click", () => window.AnToast.show({ text: ":replay 清 failed 行、自断点续跑 · replay_count++" })); acts.append(b); }
-      if (r.status === "running" || r.status === "parked") { const b = el("an-button", { size: "sm", variant: "danger", icon: "stop" }, ":kill"); b.addEventListener("click", () => window.AnToast.show({ text: ":kill 标 cancelled + 取消在途 ctx" })); acts.append(b); }
+      if (r.status === "failed") { const b = el("an-button", { size: "sm", icon: "history" }, "重跑"); b.addEventListener("click", () => window.AnToast.show({ text: "已重跑（从失败处续跑）" })); acts.append(b); }
+      if (r.status === "running" || r.status === "parked") { const b = el("an-button", { size: "sm", variant: "danger", icon: "stop" }, "终止"); b.addEventListener("click", () => window.AnToast.show({ text: "已终止运行" })); acts.append(b); }
       acts.setAttribute("slot", "actions"); headCard.append(acts);   // 直挂 info-card actions 槽，恢复其空动作自动塌陷
       island.append(headCard);
 
@@ -50,9 +50,9 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
         if (d.parked) nc.append(el("an-approval-gate", { flavor: "durable", title: "待审批", prompt: d.parked.prompt, ddl: d.parked.ddl }));
         island.append(nc);
       } else if (nodeId) {
-        island.append(el("an-callout", { tone: "info" }, "节点 " + nodeId + " 无记忆化详情（future / 本 demo 仅 parked run 含逐节点调试）。"));
+        island.append(el("an-callout", { tone: "info" }, "节点 " + nodeId + " 暂无执行详情。"));
       } else {
-        island.append(el("an-callout", { tone: "info" }, "点运行图节点或甘特行 → 看该 (节点,轮次) 的记忆化 result / 状态 / 耗时 / 错误。"));
+        island.append(el("an-callout", { tone: "info" }, "选择一个节点查看执行详情。"));
       }
     }
 
@@ -60,7 +60,7 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
       curRun = r;
       cv.graph = { nodes: r.graph.nodes, edges: r.graph.edges };
       cv.run = r.graph.run || null;
-      graphSec.setAttribute("label", "运行图 · " + r.id + " · " + r.status);
+      graphSec.setAttribute("label", "运行图");
       renderIsland(r, null);
     }
 
@@ -70,7 +70,7 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
       header.setAttribute("crumb", "Scheduler | " + (wf.label || ""));
       header.setAttribute("title", wf.label || "运行驾驶舱");
       metaSpan.textContent = [wf.meta, runs.length + " 次运行"].filter(Boolean).join(" · ");
-      boardSec.setAttribute("label", "运行 · 每次 trigger 一条 flowrun（点左列表切运行图 + 甘特 + 调试）");
+      boardSec.setAttribute("label", "运行记录");
       board.runs = runs;
       const init = runs.find((r) => r.selected) || runs[0];
       if (init) { board.selectedId = init.id; loadRun(init); }

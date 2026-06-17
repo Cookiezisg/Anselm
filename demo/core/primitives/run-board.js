@@ -36,7 +36,7 @@
       }).join("");
       return `<div class="board">`
         + `<div class="runs"><div class="rhead">运行 · ${runs.length} 次</div><div class="rlist">${items}</div></div>`
-        + `<div class="gpane"><div class="ghead">节点甘特 · 本次 run 内逐节点时段</div><an-node-gantt></an-node-gantt></div>`
+        + `<div class="gpane"><div class="ghead">节点甘特</div><an-node-gantt></an-node-gantt></div>`
         + `</div>`;
     }
     hydrate() {
