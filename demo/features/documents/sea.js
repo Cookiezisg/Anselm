@@ -5,12 +5,7 @@
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
   sea: (ctx) => {
-    const el = (tag, attrs, ...kids) => {
-      const n = document.createElement(tag);
-      if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k === "prop") Object.assign(n, v); else n.setAttribute(k, v === true ? "" : v); }
-      kids.flat().forEach((c) => { if (c == null) return; n.append(c.nodeType ? c : document.createTextNode(String(c))); });
-      return n;
-    };
+    const el = window.el;   // 共享元素工厂（地基 base.js），不再各 feature 重抄
     const DOCS = window.DOCS || {};
     const treeLabel = (id) => { let f = null; (function walk(ns) { (ns || []).forEach((n) => { if (n.id === id) f = n.label; if (n.children) walk(n.children); }); })(window.DOC_TREE || []); return f; };
     const stub = (id) => { const t = treeLabel(id) || id; return { id, title: t, path: "/" + t, blocks: [{ type: "callout", tone: "info", text: "这篇文档还没有正文（demo 仅核心文档有内容）。按 / 选块、@ 提及开始写。" }], backlinks: [], outlinks: [], outline: [], meta: [["path", "/" + t], ["状态", "空文档"]], history: [] }; };

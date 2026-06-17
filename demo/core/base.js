@@ -53,7 +53,25 @@
   // 名称人性化：run_function → run function（标识符去下划线/连字符，供工具名等展示，全 demo 统一）
   function anLabel(s) { return String(s == null ? "" : s).replace(/[_-]+/g, " ").trim(); }
 
+  // 共享元素工厂 el(tag, attrs?, ...children)——地基级糖（同 anEsc，放这避免各 feature/画廊各抄一份；#8 复用优先）。
+  // attrs：on*=addEventListener · html=innerHTML · _=文本快捷 · prop:{…}=直挂 JS 属性（.rows/.blocks/.graph 等）· 其余 setAttribute（true=布尔属性）。
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    if (attrs) for (const k in attrs) {
+      const v = attrs[k];
+      if (v === false || v == null) continue;
+      if (k === "_") { kids.unshift(v); continue; }
+      if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (k === "html") n.innerHTML = v;
+      else if (k === "prop") Object.assign(n, v);
+      else n.setAttribute(k, v === true ? "" : v);
+    }
+    kids.flat().forEach((c) => { if (c == null || c === false) return; n.append(c.nodeType ? c : document.createTextNode(String(c))); });
+    return n;
+  }
+
   window.AnElement = AnElement;
   window.anEsc = anEsc;
   window.anLabel = anLabel;
+  window.el = el;
 })();

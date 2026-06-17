@@ -10,12 +10,7 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
     const RUNS = window.SCHED_RUNS || [];
     const WFS = window.SCHED_WORKFLOWS || [];
 
-    const el = (tag, attrs, ...kids) => {
-      const n = document.createElement(tag);
-      if (attrs) for (const k in attrs) { const v = attrs[k]; if (v == null || v === false) continue; if (k === "prop") Object.assign(n, v); else n.setAttribute(k, v === true ? "" : v); }
-      kids.flat().forEach((c) => { if (c == null) return; n.append(c.nodeType ? c : document.createTextNode(String(c))); });
-      return n;
-    };
+    const el = window.el;   // 共享元素工厂（地基 base.js），不再各 feature 重抄
 
     let curRun = null;
 

@@ -4,22 +4,7 @@
    摆放约定：态格 = 白底圆角 tile（标签在上、实例在下），栅格 align-items:start（按内容贴合、不被同行拉高留空）；宽件整行铺满。 */
 (function () {
   const e = window.anEsc;
-
-  // 极简 el 助手：el(tag, attrs?, ...children)；children 可为 string/Node/数组。供 catalog/gallery 声明活体实例时复用。
-  function el(tag, attrs, ...kids) {
-    const n = document.createElement(tag);
-    if (attrs) for (const k in attrs) {
-      const v = attrs[k];
-      if (v === false || v == null) continue;
-      if (k === "_") { kids.unshift(v); continue; }                 // _ = 文本快捷
-      if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2).toLowerCase(), v);
-      else if (k === "html") n.innerHTML = v;
-      else if (k === "prop") Object.assign(n, v);                   // prop:{...} 直接挂 JS 属性（如 .rows/.data/.graph）
-      else n.setAttribute(k, v === true ? "" : v);
-    }
-    kids.flat().forEach((c) => { if (c == null || c === false) return; n.append(c.nodeType ? c : document.createTextNode(String(c))); });
-    return n;
-  }
+  const el = window.el;   // 复用地基 base.js 的共享 el（此助手原型已上提到地基，此处只引用 + 经 AnRef.el 暴露给 catalog/gallery）
 
   // <an-specimen label span> — 一个状态 tile：mono 标签（上）+ 活体实例（下，默认 slot），白底圆角 + 细描边环。
   class AnSpecimen extends window.AnElement {
