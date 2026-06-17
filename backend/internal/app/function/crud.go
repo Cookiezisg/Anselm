@@ -9,11 +9,11 @@ import (
 
 	"go.uber.org/zap"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // CreateInput is the LLM-build create payload; Progress (optional) streams env-fix attempts.

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 var validNameRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
@@ -29,11 +29,11 @@ func validateIncremental(d *VersionDraft) error {
 // validateFinal checks the completed draft is runnable. This is a deliberately light
 // lexical check — not a real AST parse: code must declare at least one top-level def
 // and must not import the handler SDK (functions are stateless, handlers persistent;
-// a function importing foryx_handler would blur that boundary).
+// a function importing anselm_handler would blur that boundary).
 //
 // validateFinal 校验完成的草稿可运行。这是刻意轻量的词法检查——非真 AST 解析：代码须至少一个
 // 顶层 def，且不得 import handler SDK（function 无状态、handler 常驻；function import
-// foryx_handler 会模糊这条边界）。
+// anselm_handler 会模糊这条边界）。
 func validateFinal(d *VersionDraft) error {
 	if d.Name == "" {
 		return fmt.Errorf("name is required")
@@ -53,8 +53,8 @@ func validateFinal(d *VersionDraft) error {
 }
 
 var handlerImportBlacklist = []string{
-	"from foryx_handler import",
-	"import foryx_handler",
+	"from anselm_handler import",
+	"import anselm_handler",
 }
 
 // entryFuncName extracts the first top-level def's name (the spawn driver calls it).

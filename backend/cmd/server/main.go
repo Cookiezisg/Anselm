@@ -15,14 +15,14 @@ import (
 	"path/filepath"
 	"syscall"
 
-	bootstrappkg "github.com/sunweilin/foryx/backend/internal/bootstrap"
+	bootstrappkg "github.com/sunweilin/anselm/backend/internal/bootstrap"
 )
 
 func main() {
 	app, err := bootstrappkg.Build(bootstrappkg.Config{
 		DataDir: dataDir(),
-		Addr:    os.Getenv("FORYX_ADDR"), // "" → :8080
-		Dev:     os.Getenv("FORYX_DEV") != "",
+		Addr:    os.Getenv("ANSELM_ADDR"), // "" → :8080
+		Dev:     os.Getenv("ANSELM_DEV") != "",
 	})
 	if err != nil {
 		log.Fatalf("bootstrap: %v", err)
@@ -40,16 +40,16 @@ func main() {
 	}
 }
 
-// dataDir resolves the local data root: $FORYX_DATA_DIR, else ~/.foryx.
+// dataDir resolves the local data root: $ANSELM_DATA_DIR, else ~/.anselm.
 //
-// dataDir 解析本地数据根：$FORYX_DATA_DIR，否则 ~/.foryx。
+// dataDir 解析本地数据根：$ANSELM_DATA_DIR，否则 ~/.anselm。
 func dataDir() string {
-	if d := os.Getenv("FORYX_DATA_DIR"); d != "" {
+	if d := os.Getenv("ANSELM_DATA_DIR"); d != "" {
 		return d
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".foryx"
+		return ".anselm"
 	}
-	return filepath.Join(home, ".foryx")
+	return filepath.Join(home, ".anselm")
 }

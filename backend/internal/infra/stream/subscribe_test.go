@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 func TestSubscribeLiveFanout(t *testing.T) {

@@ -1,6 +1,6 @@
 package approval
 
-import toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+import toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 
 // Build marks create/edit_approval as build tools (SSE-C): the streaming template + decision rules
 // mirror onto the entities stream so the approval panel fills in live.

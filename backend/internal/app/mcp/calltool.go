@@ -9,14 +9,14 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
-	logtailpkg "github.com/sunweilin/foryx/backend/internal/pkg/logtail"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	logtailpkg "github.com/sunweilin/anselm/backend/internal/pkg/logtail"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // CallTool routes a tool/call to the server's connected client with a per-call timeout, updates

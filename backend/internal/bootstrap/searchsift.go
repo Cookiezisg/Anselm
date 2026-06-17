@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	modelclientapp "github.com/sunweilin/foryx/backend/internal/app/modelclient"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	modelclientapp "github.com/sunweilin/anselm/backend/internal/app/modelclient"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // llmSifter backs the search_blocks precision chain with the utility model —

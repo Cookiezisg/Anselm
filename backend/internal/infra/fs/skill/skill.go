@@ -1,11 +1,11 @@
 // Package skill is the file-backed store for the skill domain — one directory per skill
-// (~/.foryx/workspaces/<wsID>/skills/<name>/SKILL.md). Pure on-demand: every List rescans
+// (~/.anselm/workspaces/<wsID>/skills/<name>/SKILL.md). Pure on-demand: every List rescans
 // the directory, no cache / no fingerprint / no watcher goroutine. Mirrors memory's infra/fs
 // pattern with a directory (not a flat file) per entry so future references/ assets
 // can live alongside SKILL.md.
 //
 // Package skill 是 skill domain 的文件式 store——每 skill 一个目录
-// （~/.foryx/workspaces/<wsID>/skills/<name>/SKILL.md）。纯按需：每次 List 现扫目录，
+// （~/.anselm/workspaces/<wsID>/skills/<name>/SKILL.md）。纯按需：每次 List 现扫目录，
 // 无缓存 / 无 fingerprint / 无 watcher goroutine。复用 memory 的 infra/fs 范式，
 // 每条用目录（非扁平文件）以便未来附加 references/ assets。
 package skill
@@ -18,13 +18,13 @@ import (
 	"sort"
 	"strings"
 
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// Store reads/writes SKILL.md under a base root; base is ~/.foryx (boot-injected, temp in tests).
+// Store reads/writes SKILL.md under a base root; base is ~/.anselm (boot-injected, temp in tests).
 //
-// Store 在 base 根下读写 SKILL.md；base 是 ~/.foryx（boot 注入，测试用 temp）。
+// Store 在 base 根下读写 SKILL.md；base 是 ~/.anselm（boot 注入，测试用 temp）。
 type Store struct {
 	base string
 }

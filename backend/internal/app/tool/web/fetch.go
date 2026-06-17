@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	modelclientapp "github.com/sunweilin/foryx/backend/internal/app/modelclient"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	modelclientapp "github.com/sunweilin/anselm/backend/internal/app/modelclient"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 const (
@@ -221,7 +221,7 @@ func fetchViaJina(ctx context.Context, target string) (string, error) {
 		return "", err
 	}
 	req.Header.Set("Accept", "text/markdown")
-	req.Header.Set("User-Agent", "ForyxWebFetch/1.0")
+	req.Header.Set("User-Agent", "AnselmWebFetch/1.0")
 	if k := strings.TrimSpace(os.Getenv("JINA_API_KEY")); k != "" {
 		req.Header.Set("Authorization", "Bearer "+k)
 	}
@@ -236,7 +236,7 @@ func fetchDirect(ctx context.Context, target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "ForyxWebFetch/1.0")
+	req.Header.Set("User-Agent", "AnselmWebFetch/1.0")
 	return doRequest(req)
 }
 

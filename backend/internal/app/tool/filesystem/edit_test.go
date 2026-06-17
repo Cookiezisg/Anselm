@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func newEditFixture(t *testing.T) (*Edit, context.Context, *agentstatepkg.AgentState) {
@@ -78,7 +78,7 @@ func TestEdit_Execute_TildeExpanded(t *testing.T) {
 	e := &Edit{pathGuard: pathguardpkg.New(nil)}
 	ctx := reqctxpkg.WithAgentState(context.Background(), agentstatepkg.New())
 	// Nonexistent file under ~ — proves ~ expanded; no side effect.
-	out, err := e.Execute(ctx, `{"file_path":"~/__foryx_nope__.txt","old_string":"a","new_string":"b"}`)
+	out, err := e.Execute(ctx, `{"file_path":"~/__anselm_nope__.txt","old_string":"a","new_string":"b"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestEdit_Execute_SingleReplace(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "a.txt")
 	prepareReadFile(t, state, path, "hello world")
 
-	out, err := e.Execute(ctx, `{"file_path":"`+path+`","old_string":"world","new_string":"foryx"}`)
+	out, err := e.Execute(ctx, `{"file_path":"`+path+`","old_string":"world","new_string":"anselm"}`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,13 +112,13 @@ func TestEdit_Execute_SingleReplace(t *testing.T) {
 		t.Fatalf("expected 1-occurrence message, got %q", out)
 	}
 	got, _ := os.ReadFile(path)
-	if string(got) != "hello foryx" {
-		t.Fatalf("file = %q, want %q", got, "hello foryx")
+	if string(got) != "hello anselm" {
+		t.Fatalf("file = %q, want %q", got, "hello anselm")
 	}
 	// MarkRead must reflect the new size.
 	size, _ := state.WasRead(path)
-	if size != int64(len("hello foryx")) {
-		t.Fatalf("post-edit stamp size = %d, want %d", size, len("hello foryx"))
+	if size != int64(len("hello anselm")) {
+		t.Fatalf("post-edit stamp size = %d, want %d", size, len("hello anselm"))
 	}
 }
 

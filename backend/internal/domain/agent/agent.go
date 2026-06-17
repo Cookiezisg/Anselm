@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // Agent is the top-level entity (ag_ prefix); its mutable config lives on the active Version.

@@ -25,10 +25,10 @@ import (
 	"sort"
 	"strings"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 const defaultSearchToolsLimit = 5

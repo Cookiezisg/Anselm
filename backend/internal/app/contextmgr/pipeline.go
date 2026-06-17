@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // demote ages old tool_result blocks down the hot→warm→cold gradient (the LLM-free first step:

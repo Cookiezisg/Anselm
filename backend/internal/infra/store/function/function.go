@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"time"
 
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the function tables' DDL, exported as ordered idempotent statements for

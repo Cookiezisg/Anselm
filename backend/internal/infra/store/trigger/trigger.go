@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the trigger tables' DDL (idempotent, ordered) for bootstrap to collect via

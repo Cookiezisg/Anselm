@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // newReadFixture builds a permissive Read tool + ctx with AgentState seeded.
@@ -54,7 +54,7 @@ func TestRead_Execute_TildeExpanded(t *testing.T) {
 	r := &Read{pathGuard: pathguardpkg.New(nil)}
 	// Nonexistent file under ~ — proves ~ expanded to home (the not-found message
 	// references the home-based absolute path) without creating anything.
-	out, err := r.Execute(context.Background(), `{"file_path":"~/__foryx_nonexistent_xyz__.txt"}`)
+	out, err := r.Execute(context.Background(), `{"file_path":"~/__anselm_nonexistent_xyz__.txt"}`)
 	if err != nil {
 		t.Fatal(err)
 	}

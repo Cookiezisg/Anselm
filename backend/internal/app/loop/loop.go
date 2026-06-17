@@ -16,9 +16,9 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // maxConsecutiveAllFailTurns caps how many turns in a row may end with every tool call

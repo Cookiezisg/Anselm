@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // TestStreamLLM_BuildDoubleWritesToEntities: a build tool_call's streaming args are mirrored onto

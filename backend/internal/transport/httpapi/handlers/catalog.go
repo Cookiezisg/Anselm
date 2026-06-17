@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	catalogapp "github.com/sunweilin/foryx/backend/internal/app/catalog"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	catalogapp "github.com/sunweilin/anselm/backend/internal/app/catalog"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // CatalogHandler serves GET /api/v1/catalog — the capability overview (what

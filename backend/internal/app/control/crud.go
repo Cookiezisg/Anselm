@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	celpkg "github.com/sunweilin/anselm/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // CreateInput is the create payload: full metadata + the ordered branch set. No ops —

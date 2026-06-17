@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // StreamHandler is the one place that serves all three (and only three, E1) SSE subscriptions the

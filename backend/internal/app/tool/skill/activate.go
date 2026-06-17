@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	skillapp "github.com/sunweilin/foryx/backend/internal/app/skill"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // ActivateSkill is the core skill tool: load → substitute → inject (inline) or fork.

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // CapabilityReport is the result of a capability check: structural validity always, ref

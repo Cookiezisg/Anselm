@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
-	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
+	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
+	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
 )
 
 const readMemoryDescription = `Load one memory's full markdown body by name. The system prompt already lists available memories (pinned ones in full, the rest as a name+description index) — use this to pull the full text of a non-pinned memory before relying on it.`

@@ -3,7 +3,7 @@ package stream
 import (
 	"fmt"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // ErrInvalidEvent marks a malformed event — a producer bug, surfaced at Publish so it

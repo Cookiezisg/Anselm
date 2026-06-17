@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // ApprovalForm is an approval-rendering entity; its template + rules live on the active Version.

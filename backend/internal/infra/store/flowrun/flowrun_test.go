@@ -8,9 +8,9 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func newStore(t *testing.T) *Store {

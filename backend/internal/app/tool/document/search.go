@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // docHit is the unified slim shape both search paths render — the content engine fills

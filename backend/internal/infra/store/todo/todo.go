@@ -16,8 +16,8 @@ import (
 	"errors"
 	"fmt"
 
-	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	tododomain "github.com/sunweilin/anselm/backend/internal/domain/todo"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the todos DDL, exported as ordered idempotent statements for bootstrap to

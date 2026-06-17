@@ -13,15 +13,15 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	messagesstore "github.com/sunweilin/foryx/backend/internal/infra/store/messages"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	messagesstore "github.com/sunweilin/anselm/backend/internal/infra/store/messages"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // --- fakes -----------------------------------------------------------------

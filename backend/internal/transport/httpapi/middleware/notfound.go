@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // NotFound is the unmatched-URL fallback returning an N1 error envelope.

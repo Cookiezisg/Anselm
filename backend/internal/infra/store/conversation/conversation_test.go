@@ -9,11 +9,11 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func newStore(t *testing.T) *Store {

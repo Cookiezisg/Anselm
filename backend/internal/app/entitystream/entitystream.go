@@ -26,8 +26,8 @@ import (
 
 	"go.uber.org/zap"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // The three entities-stream node types (Node.Type), one per activity:

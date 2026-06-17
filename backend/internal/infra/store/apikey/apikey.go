@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the api_keys DDL — exported as ordered idempotent statements for

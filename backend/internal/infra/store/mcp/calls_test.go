@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // TestCalls_RoundTripAndIsolation: a saved call lists back with its fields, filtered by server,

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 )
 
 func newLS() *LS { return &LS{pathGuard: pathguardpkg.New(nil)} }

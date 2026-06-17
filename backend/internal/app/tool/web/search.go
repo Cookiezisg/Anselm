@@ -11,11 +11,11 @@ import (
 
 	"go.uber.org/zap"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	websearchdomain "github.com/sunweilin/foryx/backend/internal/domain/websearch"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	websearchdomain "github.com/sunweilin/anselm/backend/internal/domain/websearch"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Sentinels with real HTTP semantics — upstream provider failures map to 502/429

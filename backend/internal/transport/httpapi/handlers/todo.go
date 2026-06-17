@@ -5,9 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
-	todoapp "github.com/sunweilin/foryx/backend/internal/app/todo"
-	tododomain "github.com/sunweilin/foryx/backend/internal/domain/todo"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	todoapp "github.com/sunweilin/anselm/backend/internal/app/todo"
+	tododomain "github.com/sunweilin/anselm/backend/internal/domain/todo"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // TodoHandler exposes the read-only task-board endpoint. Writes are LLM-only (the

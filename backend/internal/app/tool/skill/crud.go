@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	skillapp "github.com/sunweilin/foryx/backend/internal/app/skill"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
+	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 )
 
 // saveSkillArgs is the shared create/edit payload (both write a full SKILL.md).

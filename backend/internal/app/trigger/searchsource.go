@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
 
 // SetSearchNotifier wires the optional write-side search hook (bootstrap).

@@ -18,10 +18,10 @@ import (
 
 	"go.uber.org/zap"
 
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
-	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
+	celpkg "github.com/sunweilin/anselm/backend/internal/pkg/cel"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // SensorInvoker invokes the sensor's bound function, handler-method, or mcp-tool and returns

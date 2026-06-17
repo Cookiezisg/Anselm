@@ -14,7 +14,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // APIKey is one encrypted credential for one provider. WorkspaceID isolates it

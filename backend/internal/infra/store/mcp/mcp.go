@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"time"
 
-	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the mcp_servers DDL (idempotent), collected by bootstrap via db.Migrate.

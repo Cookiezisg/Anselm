@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // ContentSearch routes a vertical search tool's non-empty query through the

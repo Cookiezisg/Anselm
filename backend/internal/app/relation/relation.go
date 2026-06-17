@@ -18,8 +18,8 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // Namer resolves display names for a batch of one kind's entity ids. Each source

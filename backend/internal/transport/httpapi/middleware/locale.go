@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // InjectLocale parses Accept-Language into ctx; unsupported falls back to the default.

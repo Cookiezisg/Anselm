@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // RelationSyncer is the slice of the relation Service that skill consumes (nil-tolerant).

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	controlapp "github.com/sunweilin/foryx/backend/internal/app/control"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	controlapp "github.com/sunweilin/anselm/backend/internal/app/control"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // --- create_control --------------------------------------------------------

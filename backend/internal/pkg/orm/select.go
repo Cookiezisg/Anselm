@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	paginationpkg "github.com/sunweilin/foryx/backend/internal/pkg/pagination"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 )
 
 // First runs the query with LIMIT 1 and returns the single row, or ErrNotFound.

@@ -16,11 +16,11 @@ import (
 	"context"
 	"fmt"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // FunctionTools constructs the function system tools over the app service.

@@ -20,16 +20,16 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // attrParentBlockID is the sub-message Attrs key holding the spawning tool_call's block id —

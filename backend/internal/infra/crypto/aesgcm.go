@@ -9,7 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	"io"
 )
 
@@ -44,7 +44,7 @@ func NewAESGCMEncryptor(masterKey []byte) (*AESGCMEncryptor, error) {
 //
 // DeriveKey 把指纹拉伸成 32 字节 AES 密钥；改 salt 会让所有 v1 密文失效。
 func DeriveKey(fingerprint string) []byte {
-	const salt = "foryx:aesgcm:v1:1ZOI95qH2X" // do not change / 勿改
+	const salt = "anselm:aesgcm:v1:1ZOI95qH2X" // do not change / 勿改
 	h := sha256.Sum256([]byte(salt + "|" + fingerprint))
 	return h[:]
 }

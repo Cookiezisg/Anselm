@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 const (

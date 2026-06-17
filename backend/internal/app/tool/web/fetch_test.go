@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // fakePicker implements modeldomain.ModelPicker.

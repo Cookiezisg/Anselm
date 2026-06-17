@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Migrate applies schema DDL statements in order, inside one transaction. Every

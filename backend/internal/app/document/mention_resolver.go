@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 )
 
 // AsMentionResolver exposes this Service as the @-mention resolver for documents:

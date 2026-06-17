@@ -16,8 +16,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 )
 
 // ErrLimitsInvalid rejects a PATCH whose values are out of range (negative ceilings, a

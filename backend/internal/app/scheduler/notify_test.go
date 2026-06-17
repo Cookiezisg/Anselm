@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
 type recordingEmitter struct {

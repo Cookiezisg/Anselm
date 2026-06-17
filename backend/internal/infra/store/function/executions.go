@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 func (s *Store) SaveExecution(ctx context.Context, e *functiondomain.Execution) error {

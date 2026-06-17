@@ -26,10 +26,10 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
 // RefInfo is what a RefResolver reports about a resolved node ref: its entity kind (one of

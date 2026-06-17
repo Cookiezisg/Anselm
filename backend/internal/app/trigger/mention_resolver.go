@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 )
 
 // AsMentionResolver exposes this service as the chat @-mention resolver for triggers: a reference

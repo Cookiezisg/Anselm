@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 type capBridge struct{ events []streamdomain.Event }

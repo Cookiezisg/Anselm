@@ -5,9 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
-	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
-	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
+	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // MemoryHandler serves the per-workspace memory management UI: list / get / upsert /

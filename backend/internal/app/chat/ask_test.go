@@ -5,13 +5,13 @@ import (
 
 	"go.uber.org/zap"
 
-	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	asktool "github.com/sunweilin/foryx/backend/internal/app/tool/ask"
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	asktool "github.com/sunweilin/anselm/backend/internal/app/tool/ask"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // askCall scripts one step that calls ask_user (self-reported safe — it routes to the ask block,

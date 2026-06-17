@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // fakeRepo records writes and serves canned lexical hits — app-layer tests pin

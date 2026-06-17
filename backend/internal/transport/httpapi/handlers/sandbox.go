@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	sandboxapp "github.com/sunweilin/foryx/backend/internal/app/sandbox"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // SandboxHandler serves /api/v1/sandbox/* (runtime + env management, disk audit,

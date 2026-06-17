@@ -11,17 +11,17 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	handlerinfra "github.com/sunweilin/foryx/backend/internal/infra/handler"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	handlerstore "github.com/sunweilin/foryx/backend/internal/infra/store/handler"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	handlerstore "github.com/sunweilin/anselm/backend/internal/infra/store/handler"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // --- fakes -----------------------------------------------------------------

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
 const moveDocumentDescription = `Reparent a document; parentId=null moves to root. position is the sibling index (0=first), omit to append. Path cascades to descendants. Cycles and self-parenting are rejected.`

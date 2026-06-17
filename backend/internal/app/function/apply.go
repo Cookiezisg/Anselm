@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	jsonrepairpkg "github.com/sunweilin/foryx/backend/internal/pkg/jsonrepair"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // Op is a JSON-discriminated build op; Type lives in the `op` field, Raw holds the body.

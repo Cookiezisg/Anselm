@@ -8,13 +8,13 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Node content shapes for the messages stream — the loop's slice of the vocabulary. open

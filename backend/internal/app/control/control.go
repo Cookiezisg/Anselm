@@ -20,10 +20,10 @@ import (
 
 	"go.uber.org/zap"
 
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service control consumes (nil-tolerant).

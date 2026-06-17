@@ -10,11 +10,11 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
-	workflowstore "github.com/sunweilin/foryx/backend/internal/infra/store/workflow"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // fakeResolver is an in-memory RefResolver: a map from ref → RefInfo; an absent ref returns

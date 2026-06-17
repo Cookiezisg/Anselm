@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 )
 
 const (

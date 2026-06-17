@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 )
 
 // --- call_handler ----------------------------------------------------------

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func newWriteFixture(t *testing.T) (*Write, context.Context, *agentstatepkg.AgentState) {
@@ -63,7 +63,7 @@ func TestWrite_Execute_TildeExpanded(t *testing.T) {
 	ctx := reqctxpkg.WithAgentState(context.Background(), agentstatepkg.New())
 	// Parent dir missing → fails before writing anything, but the message proves
 	// ~ expanded to the home-based absolute path. No file is created.
-	out, err := w.Execute(ctx, `{"file_path":"~/__foryx_nope_dir__/x.txt","content":"y"}`)
+	out, err := w.Execute(ctx, `{"file_path":"~/__anselm_nope_dir__/x.txt","content":"y"}`)
 	if err != nil {
 		t.Fatal(err)
 	}

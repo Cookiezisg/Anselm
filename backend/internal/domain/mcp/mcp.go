@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Transport kinds. stdio = local subprocess; the other two = remote endpoints.

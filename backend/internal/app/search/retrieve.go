@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 const (

@@ -1,6 +1,6 @@
 // Package fspath normalizes user-supplied file paths into clean absolute paths.
 //
-// It is the single physical enforcement point of Foryx's "always absolute,
+// It is the single physical enforcement point of Anselm's "always absolute,
 // never a current directory" rule. A desktop agent has no project root and no
 // cwd — it navigates the whole machine by absolute path the way a person clicks
 // through Finder. So every file tool (Read/Write/Edit/LS/Glob/Grep) resolves its
@@ -11,7 +11,7 @@
 //
 // Package fspath 把用户给的文件路径规范成干净的绝对路径。
 //
-// 它是 Foryx「永远绝对、没有当前目录」铁律的唯一物理执行点。桌面 agent 没有项目根、
+// 它是 Anselm「永远绝对、没有当前目录」铁律的唯一物理执行点。桌面 agent 没有项目根、
 // 没有 cwd——它像人点 Finder 一样用绝对路径在整台机器上导航。故每个文件工具
 // (Read/Write/Edit/LS/Glob/Grep) 都在此解析路径:展开开头的 ~(用户 home,后端进程
 // 经 os.UserHomeDir 天然知道——agent 自己并不知道这是谁的 home),再拒绝任何非绝对
@@ -19,7 +19,7 @@
 package fspath
 
 import (
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	"os"
 	"path/filepath"
 	"strings"

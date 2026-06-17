@@ -3,9 +3,9 @@ package bootstrap
 import (
 	"context"
 
-	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
-	contextmgrapp "github.com/sunweilin/foryx/backend/internal/app/contextmgr"
-	modelapp "github.com/sunweilin/foryx/backend/internal/app/model"
+	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
+	contextmgrapp "github.com/sunweilin/anselm/backend/internal/app/contextmgr"
+	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
 )
 
 // CapabilityLister is the slice of model.CapabilityService bootstrap needs: the workspace's usable

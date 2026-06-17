@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	sandboxapp "github.com/sunweilin/foryx/backend/internal/app/sandbox"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 // SandboxAdapter satisfies SandboxRunner by writing each version's code files and

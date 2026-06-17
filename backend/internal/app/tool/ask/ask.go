@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"strings"
 
-	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Input sentinels — errorspkg.New like every sentinel; surfaced to the LLM as a tool-result string.

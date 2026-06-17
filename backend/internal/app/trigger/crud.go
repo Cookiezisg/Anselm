@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	croninfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/cron"
-	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	croninfra "github.com/sunweilin/anselm/backend/internal/infra/trigger/cron"
+	celpkg "github.com/sunweilin/anselm/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // CreateInput is a new trigger's fields.

@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
+	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
 )
 
 type fakeRepo struct {

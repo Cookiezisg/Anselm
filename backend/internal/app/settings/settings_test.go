@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 )
 
 // TestLoad_AbsentFileIsDefaults: first boot has no settings.json — pure defaults, no file created.

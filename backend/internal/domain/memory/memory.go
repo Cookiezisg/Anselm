@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Memory is one long-term fact stored as <name>.md (frontmatter + body). Name (the

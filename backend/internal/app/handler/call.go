@@ -10,14 +10,14 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	handlerinfra "github.com/sunweilin/foryx/backend/internal/infra/handler"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	logtailpkg "github.com/sunweilin/foryx/backend/internal/pkg/logtail"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	logtailpkg "github.com/sunweilin/anselm/backend/internal/pkg/logtail"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // CallInput is the request shape for Service.Call. TriggeredBy is the execution body;

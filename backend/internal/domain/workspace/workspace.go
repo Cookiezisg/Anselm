@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Workspace is one local isolation root. Name is a free-form display label,

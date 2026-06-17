@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	sensorinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger/sensor"
+	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	sensorinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger/sensor"
 )
 
 // sensorInvoker adapts the function + handler + mcp Services to sensor.SensorInvoker: a sensor

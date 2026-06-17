@@ -9,11 +9,11 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	conversationstore "github.com/sunweilin/foryx/backend/internal/infra/store/conversation"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	conversationstore "github.com/sunweilin/anselm/backend/internal/infra/store/conversation"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // fakeEmitter records every Emit so tests assert the broadcast action without a real bus.

@@ -10,15 +10,15 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	functionstore "github.com/sunweilin/foryx/backend/internal/infra/store/function"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	functionstore "github.com/sunweilin/anselm/backend/internal/infra/store/function"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // --- fakes -----------------------------------------------------------------

@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 // fakeRepo is an in-memory notificationdomain.Repository.

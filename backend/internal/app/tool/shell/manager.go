@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // bgBufferBytes caps the per-process ring buffer; oldest bytes drop on overflow.

@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	sandboxapp "github.com/sunweilin/foryx/backend/internal/app/sandbox"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	logtailpkg "github.com/sunweilin/foryx/backend/internal/pkg/logtail"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	logtailpkg "github.com/sunweilin/anselm/backend/internal/pkg/logtail"
 )
 
 // SandboxAdapter satisfies SandboxRunner by delegating spawn + cleanup to sandboxapp

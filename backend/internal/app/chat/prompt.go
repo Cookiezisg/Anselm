@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // System prompt static sections: high-density, no product fluff, no safety theater (local
@@ -19,7 +19,7 @@ import (
 // agent。缓存顺序稳定：不变静态块在前（identity → how_to_work → tools），动态上下文居中，两个
 // 规则块殿后，因末尾指令遵从度最高。
 const (
-	identitySection = `You are Foryx, a local-first agentic assistant running on the user's own machine. ` +
+	identitySection = `You are Anselm, a local-first agentic assistant running on the user's own machine. ` +
 		`You operate over their whole computer (absolute paths, no project root) and a workspace of built capabilities — ` +
 		`functions, handlers, agents, and workflows the user builds and you can call, create, and refine.`
 

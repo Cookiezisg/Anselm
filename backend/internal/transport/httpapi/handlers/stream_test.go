@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 // fakeBridge serves a canned channel (or a canned Subscribe error) so the SSE plumbing can be

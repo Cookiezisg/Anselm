@@ -11,10 +11,10 @@
 package workflow
 
 import (
-	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
+	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 )
 
 // WorkflowTools constructs the workflow system tools over the app service; sched is the

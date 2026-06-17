@@ -17,7 +17,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Block is one node of an assistant turn's content tree, persisted to message_blocks.

@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 func TestParsePageDefault(t *testing.T) {

@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	aispawnapp "github.com/sunweilin/anselm/backend/internal/app/aispawn"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // iterateEntity is the shared `:iterate` body for every build entity: decode the user's

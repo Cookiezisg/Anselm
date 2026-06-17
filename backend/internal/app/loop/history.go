@@ -3,8 +3,8 @@ package loop
 import (
 	"fmt"
 
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // warmPreviewBytes caps a warm-projected tool_result's inline length before truncation.

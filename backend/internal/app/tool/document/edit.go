@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
 const editDocumentDescription = `Update a document's fields; only supplied fields change. content and tags are full replacements (no diff/patch). Renaming cascades the path to all descendants. To change parent, use move_document.`

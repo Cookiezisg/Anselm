@@ -2,13 +2,13 @@
 // decision — ask_user, or the danger gate before a self-reported-dangerous tool runs — calls
 // Broker.Request, which surfaces the pending interaction to the front end and BLOCKS the calling
 // goroutine until an HTTP resolve arrives (or the run is cancelled). It is deliberately in-memory:
-// Foryx is a single-process desktop app, so "survive an app restart" buys almost nothing (a
+// Anselm is a single-process desktop app, so "survive an app restart" buys almost nothing (a
 // closed app runs no agents), and a held goroutine is free. Nesting needs zero extra machinery —
 // a sub-agent's tool blocking naturally holds the whole call stack above it.
 //
 // Package humanloop 是内存人在环 broker：需要人决定的工具——ask_user，或自报危险工具执行前的 danger
 // 门——调 Broker.Request，它把待决交互露给前端并**阻塞调用 goroutine**，直到 HTTP resolve 到达（或运行被取消）。
-// 刻意内存：Foryx 是单进程桌面 app，「跨 app 重启存活」几乎无收益（app 关了没 agent 在跑），挂个 goroutine 零成本。
+// 刻意内存：Anselm 是单进程桌面 app，「跨 app 重启存活」几乎无收益（app 关了没 agent 在跑），挂个 goroutine 零成本。
 // 嵌套零额外机制——子 agent 的工具阻塞天然 hold 住它上面整个调用栈。
 package humanloop
 

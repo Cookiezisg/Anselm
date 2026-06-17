@@ -15,7 +15,7 @@ import (
 	"slices"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // EntityType enumerates the 12 indexed entity kinds. The string values are the

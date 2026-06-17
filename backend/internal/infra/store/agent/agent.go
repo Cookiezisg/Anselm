@@ -14,8 +14,8 @@ import (
 	"errors"
 	"fmt"
 
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the agent tables' DDL, exported as ordered idempotent statements for bootstrap to

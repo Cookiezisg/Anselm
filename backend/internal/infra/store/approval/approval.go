@@ -16,8 +16,8 @@ import (
 	"errors"
 	"fmt"
 
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the approval-form tables' DDL, exported as ordered idempotent statements for

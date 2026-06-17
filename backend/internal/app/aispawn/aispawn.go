@@ -19,8 +19,8 @@ import (
 
 	"go.uber.org/zap"
 
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Errors that bubble to HTTP (S20 — Kind→status + stable wire code).
@@ -83,7 +83,7 @@ func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRen
 // definition arrives via the @-mention on the first message, so this needs no per-entity prose.
 //
 // iterateSteer 是每个 iterate 流共用的一句通用引导——实体当前定义经首条消息的 @-mention 到达，故无需 per-entity prose。
-const iterateSteer = "You are helping the user iterate on the Foryx entity they have @-mentioned " +
+const iterateSteer = "You are helping the user iterate on the Anselm entity they have @-mentioned " +
 	"in the message below — its current definition is attached to that mention. Read it, briefly " +
 	"explain your plan, then call the matching edit_* tool (edit_function / edit_handler / edit_agent " +
 	"/ edit_workflow / edit_document) with that entity's id to produce a pending version the user will " +
@@ -94,7 +94,7 @@ const iterateSteer = "You are helping the user iterate on the Foryx entity they 
 // is appended after it.
 //
 // triageSteer 是每个 triage 流共用的一句通用引导——渲染出的执行记录拼在其后。
-const triageSteer = "You are helping the user diagnose a Foryx execution. The execution record is " +
+const triageSteer = "You are helping the user diagnose a Anselm execution. The execution record is " +
 	"below. Analyze what happened — which step or call went wrong, what any error means, whether " +
 	"inputs and outputs line up. Use the read/search tools to dig into the underlying function / " +
 	"handler / agent / workflow if you need more context. Explain the root cause in plain language. " +

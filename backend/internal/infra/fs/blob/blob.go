@@ -17,13 +17,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// Store is the file-backed CAS blob store. base is the ~/.foryx root (injected at boot;
+// Store is the file-backed CAS blob store. base is the ~/.anselm root (injected at boot;
 // a temp dir in tests); each workspace's blobs dir lives under it.
 //
-// Store 是文件式 CAS blob 存储。base 是 ~/.foryx 根（boot 装配；测试用 temp）；各 workspace
+// Store 是文件式 CAS blob 存储。base 是 ~/.anselm 根（boot 装配；测试用 temp）；各 workspace
 // 的 blobs 目录在其下。
 type Store struct {
 	base string

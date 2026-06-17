@@ -13,11 +13,11 @@ import (
 	"context"
 	"fmt"
 
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // HandlerTools constructs the handler system tools over the app service.

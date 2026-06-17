@@ -22,8 +22,8 @@ import (
 
 	"go.uber.org/zap"
 
-	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 )
 
 // Signature algorithms. Only hmac-sha256-hex is implemented (GitHub's X-Hub-Signature-256).

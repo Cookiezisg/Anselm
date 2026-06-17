@@ -12,7 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 )
 
 // newStdlibGrep forces the pure-Go backend (rgPath empty) so tests are

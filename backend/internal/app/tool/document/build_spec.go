@@ -1,6 +1,6 @@
 package document
 
-import toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+import toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 
 // Build marks create/edit_document as build tools (SSE-C): the streaming document body mirrors onto
 // the entities stream so the document panel fills in live.

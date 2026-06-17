@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 type webBridge struct{ events []streamdomain.Event }

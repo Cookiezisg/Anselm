@@ -16,10 +16,10 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // RefScanner reports whether some entity still references a given api_key id.

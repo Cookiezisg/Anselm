@@ -5,16 +5,16 @@ import (
 	stderrors "errors"
 	"strings"
 
-	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // The narrow read ports the resolver inspects per entity family. The buildable five expose Get

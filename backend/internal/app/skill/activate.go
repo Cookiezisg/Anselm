@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Activate loads a skill, substitutes placeholders, records it as the run's active skill (so

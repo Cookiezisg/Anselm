@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 )
 
 var testKey = DeriveKey("test-fingerprint")

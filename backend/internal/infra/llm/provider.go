@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 )
 
 // Provider is one LLM wire dialect: it owns how a Request becomes an HTTP request (body

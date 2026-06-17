@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 type recBridge struct{ events []streamdomain.Event }

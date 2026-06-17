@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 )
 
 // NamesByIDs implements relationapp.Namer: a batch id→name lookup so the relation graph

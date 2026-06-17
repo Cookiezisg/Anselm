@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 
-	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // configArgs is the shared create/edit config payload (a full snapshot — edit REPLACES).

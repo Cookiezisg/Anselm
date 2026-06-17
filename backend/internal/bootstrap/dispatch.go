@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"strings"
 
-	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
-	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
+	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
 // FunctionRunner / HandlerCaller / MCPCaller / AgentInvoker are the narrow slices of the four

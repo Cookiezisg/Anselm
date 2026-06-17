@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the control tables' DDL, exported as ordered idempotent statements for

@@ -5,9 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationapp "github.com/sunweilin/foryx/backend/internal/app/notification"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	notificationapp "github.com/sunweilin/anselm/backend/internal/app/notification"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // NotificationHandler serves the notification center's REST surface (list / unread-count /

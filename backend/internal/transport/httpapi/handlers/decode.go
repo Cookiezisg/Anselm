@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // decodeJSON strictly decodes the request body into v (unknown fields rejected).

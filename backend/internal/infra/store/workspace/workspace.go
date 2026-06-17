@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the workspaces DDL, exported as ordered idempotent statements that

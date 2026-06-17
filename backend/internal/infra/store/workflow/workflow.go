@@ -13,8 +13,8 @@ import (
 	"errors"
 	"fmt"
 
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the workflow tables' DDL, exported as ordered idempotent statements for

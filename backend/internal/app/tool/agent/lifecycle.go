@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
+	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 )
 
 // --- revert_agent ----------------------------------------------------------

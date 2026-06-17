@@ -6,11 +6,11 @@ import (
 
 	"go.uber.org/zap"
 
-	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	agentstatepkg "github.com/sunweilin/foryx/backend/internal/pkg/agentstate"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func dangerTC(name string) messagesdomain.ToolCallData {

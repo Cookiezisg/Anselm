@@ -14,8 +14,8 @@ package function
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // Function is a user-built function; its code lives on the active Version, not here.

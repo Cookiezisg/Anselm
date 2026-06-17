@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // --- create_trigger --------------------------------------------------------

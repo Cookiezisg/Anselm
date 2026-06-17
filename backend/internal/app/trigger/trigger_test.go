@@ -10,11 +10,11 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	triggerstore "github.com/sunweilin/foryx/backend/internal/infra/store/trigger"
-	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
+	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // fakeListener stands in for a real source listener so tests can observe the reference-counted

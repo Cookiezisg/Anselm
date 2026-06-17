@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // whereClause assembles the full WHERE: auto workspace isolation + auto

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"time"
 
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the notifications DDL. No deleted_at — notifications are append-only;

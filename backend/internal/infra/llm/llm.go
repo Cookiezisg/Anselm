@@ -17,7 +17,7 @@ import (
 
 	"encoding/json"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // LLM upstream failures, classified by HTTP status (see classifyHTTPError). These are

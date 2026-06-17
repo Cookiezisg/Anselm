@@ -3,7 +3,7 @@ package trigger
 import (
 	"testing"
 
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
 
 // TestSearchFirings_FilterAndOrder: the inbox pages newest-first, filters by trigger and

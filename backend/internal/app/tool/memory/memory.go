@@ -15,9 +15,9 @@
 package memory
 
 import (
-	memoryapp "github.com/sunweilin/foryx/backend/internal/app/memory"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Input-validation sentinels shared across the memory tools' ValidateInput (presence

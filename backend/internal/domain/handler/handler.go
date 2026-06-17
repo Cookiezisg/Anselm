@@ -19,7 +19,7 @@ package handler
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Handler is the Definition entity; class code / methods / init-args schema / deps live

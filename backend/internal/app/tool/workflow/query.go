@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	workflowapp "github.com/sunweilin/foryx/backend/internal/app/workflow"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // --- search_workflow -------------------------------------------------------

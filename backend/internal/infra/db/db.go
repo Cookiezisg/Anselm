@@ -15,7 +15,7 @@ import (
 	// glebarez/go-sqlite 注册纯 Go 的 "sqlite" database/sql driver（modernc 底层，无 CGO）。
 	_ "github.com/glebarez/go-sqlite"
 
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Config opens the DB; the zero value is an in-memory DB (test default).
@@ -61,7 +61,7 @@ func buildDSN(dataDir string) (string, error) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return "", fmt.Errorf("db: mkdir %s: %w", dataDir, err)
 	}
-	return fmt.Sprintf("file:%s/foryx.db?%s", dataDir, params), nil
+	return fmt.Sprintf("file:%s/anselm.db?%s", dataDir, params), nil
 }
 
 // verifyPragmas confirms foreign_keys is on (always) and, for a file DB, that

@@ -12,8 +12,8 @@ import (
 
 	"go.uber.org/zap"
 
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	sandboxinfra "github.com/sunweilin/foryx/backend/internal/infra/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	sandboxinfra "github.com/sunweilin/anselm/backend/internal/infra/sandbox"
 )
 
 // Spawn runs a one-shot command in the owner's env.

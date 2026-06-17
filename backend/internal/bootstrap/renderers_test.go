@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	attachmentapp "github.com/sunweilin/foryx/backend/internal/app/attachment"
-	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
+	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // fakeParts records the caps it received so the test can assert the chat→attachment bridge maps

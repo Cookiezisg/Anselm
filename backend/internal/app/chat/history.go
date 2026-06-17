@@ -7,9 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // LoadHistory composes the LLM message history the loop generates against: the conversation's

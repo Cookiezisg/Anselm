@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 func TestDockerInstaller_PureContract(t *testing.T) {

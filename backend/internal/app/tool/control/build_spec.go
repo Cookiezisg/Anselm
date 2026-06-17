@@ -1,6 +1,6 @@
 package control
 
-import toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+import toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 
 // Build marks create/edit_control as build tools (SSE-C): the streaming CEL branches mirror onto
 // the entities stream so the control panel fills in live.

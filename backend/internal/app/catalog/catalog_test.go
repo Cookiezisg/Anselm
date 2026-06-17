@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
+	catalogdomain "github.com/sunweilin/anselm/backend/internal/domain/catalog"
 )
 
 // fakeSource is an in-memory CatalogSource: canned items, or a forced error.

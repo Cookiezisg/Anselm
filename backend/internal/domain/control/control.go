@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // ControlLogic is a control-logic entity; its branches live on the active Version.

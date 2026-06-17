@@ -14,8 +14,8 @@ import (
 	"fmt"
 	"time"
 
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the handler tables' DDL (idempotent, ordered) for bootstrap to collect via

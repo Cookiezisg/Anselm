@@ -20,16 +20,16 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	cryptodomain "github.com/sunweilin/foryx/backend/internal/domain/crypto"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	handlerinfra "github.com/sunweilin/foryx/backend/internal/infra/handler"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
 )
 
 // SandboxRunner is the long-lived spawn + cleanup surface (env materialization goes

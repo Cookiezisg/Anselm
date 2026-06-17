@@ -19,7 +19,7 @@ import (
 	"runtime"
 	"strings"
 
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 // directInstaller is a RuntimeInstaller that fetches a runtime straight from its upstream
@@ -425,7 +425,7 @@ func streamDownload(ctx context.Context, url, algo string) (string, string, erro
 		return "", "", fmt.Errorf("get %s: %s", url, resp.Status)
 	}
 
-	tmp, err := os.CreateTemp("", "foryx-runtime-*")
+	tmp, err := os.CreateTemp("", "anselm-runtime-*")
 	if err != nil {
 		return "", "", fmt.Errorf("create temp: %w", err)
 	}

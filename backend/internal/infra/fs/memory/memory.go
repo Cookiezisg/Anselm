@@ -18,14 +18,14 @@ import (
 	"sort"
 	"strings"
 
-	memorydomain "github.com/sunweilin/foryx/backend/internal/domain/memory"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// Store is the file-backed memory repository. base is the ~/.foryx root (injected
+// Store is the file-backed memory repository. base is the ~/.anselm root (injected
 // at boot; a temp dir in tests); the per-workspace memories dir lives under it.
 //
-// Store 是文件式 memory 仓库。base 是 ~/.foryx 根（boot 装配；测试用 temp）；
+// Store 是文件式 memory 仓库。base 是 ~/.anselm 根（boot 装配；测试用 temp）；
 // 各 workspace 的 memories 目录在其下。
 type Store struct {
 	base string

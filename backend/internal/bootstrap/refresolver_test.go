@@ -5,14 +5,14 @@ import (
 	stderrors "errors"
 	"testing"
 
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
 // fakeReaders implements all seven entity read ports with canned data; missing=true makes every

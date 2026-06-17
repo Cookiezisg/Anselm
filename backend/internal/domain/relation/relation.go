@@ -16,7 +16,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Relation is one directed edge: (from_kind, from_id) --kind--> (to_kind, to_id),

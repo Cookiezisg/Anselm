@@ -7,8 +7,8 @@ import (
 	"math"
 	"strings"
 
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // encodeVector packs float32s little-endian — the search_embeddings BLOB format.

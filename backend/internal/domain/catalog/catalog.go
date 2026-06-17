@@ -3,7 +3,7 @@ package catalog
 import (
 	"context"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Catalog is the derived capability overview: Summary is the grouped menu text

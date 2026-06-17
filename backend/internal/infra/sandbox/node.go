@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 // NodeEnvManager is the npm-backed EnvManager for Node plugin envs.
@@ -40,7 +40,7 @@ func (n *NodeEnvManager) CreateEnv(ctx context.Context, runtimePath, envPath str
 		return fmt.Errorf("sandbox.NodeEnvManager.CreateEnv: mkdir env: %w", err)
 	}
 	manifest := map[string]any{
-		"name":    "foryx-env-" + filepath.Base(envPath),
+		"name":    "anselm-env-" + filepath.Base(envPath),
 		"version": "0.0.0",
 		"private": true,
 	}

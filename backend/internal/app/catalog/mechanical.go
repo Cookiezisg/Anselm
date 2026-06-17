@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
+	catalogdomain "github.com/sunweilin/anselm/backend/internal/domain/catalog"
 )
 
 // descMaxRunes caps each description so one verbose entry can't blow up the prompt.

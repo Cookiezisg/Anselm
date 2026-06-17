@@ -9,9 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	workspacedomain "github.com/sunweilin/foryx/backend/internal/domain/workspace"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	workspacedomain "github.com/sunweilin/anselm/backend/internal/domain/workspace"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // fakeRepo is an in-memory workspacedomain.Repository. It mirrors the store's

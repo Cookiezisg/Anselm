@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"sync"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Bus dispatches one stream's events per workspace; safe for concurrent Publish + Subscribe.

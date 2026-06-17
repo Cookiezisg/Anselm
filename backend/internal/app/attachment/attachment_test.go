@@ -14,14 +14,14 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
-	attachmentdomain "github.com/sunweilin/foryx/backend/internal/domain/attachment"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	blobfs "github.com/sunweilin/foryx/backend/internal/infra/fs/blob"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	attachmentstore "github.com/sunweilin/foryx/backend/internal/infra/store/attachment"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	attachmentstore "github.com/sunweilin/anselm/backend/internal/infra/store/attachment"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // newSvc wires the Service over a real in-memory metadata store + a real temp-dir CAS blob

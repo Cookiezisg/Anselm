@@ -3,7 +3,7 @@ package trigger
 import (
 	"testing"
 
-	triggerinfra "github.com/sunweilin/foryx/backend/internal/infra/trigger"
+	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
 )
 
 // TestAttachOnce_AutoDisarmsAfterFire: a one-shot (staged) workflow fires exactly once, then is

@@ -5,9 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
-	modelapp "github.com/sunweilin/foryx/backend/internal/app/model"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // ModelCapabilitiesHandler serves GET /api/v1/model-capabilities — the aggregated "what models can

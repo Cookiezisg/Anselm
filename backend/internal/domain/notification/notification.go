@@ -15,7 +15,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Notification is one persisted event. Type is the event kind (<domain>.<action>,

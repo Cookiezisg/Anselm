@@ -7,11 +7,11 @@ import (
 
 	"go.uber.org/zap"
 
-	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 const mcpImportMaxBytes = 1 << 20

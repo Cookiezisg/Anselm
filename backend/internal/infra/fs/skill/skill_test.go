@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.Background(), id) }

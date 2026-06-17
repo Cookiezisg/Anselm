@@ -30,7 +30,7 @@ package workflow
 import (
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Workflow is a workflow graph entity; its graph lives on the active Version, not here.

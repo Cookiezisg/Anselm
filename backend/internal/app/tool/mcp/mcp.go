@@ -11,9 +11,9 @@ package mcp
 import (
 	"context"
 
-	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
+	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 )
 
 // MCPTools constructs the fixed MCP management tools (resident). Note: NO danger field —

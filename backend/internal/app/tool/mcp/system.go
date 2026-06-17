@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // --- list_mcp_marketplace --------------------------------------------------

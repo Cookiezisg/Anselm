@@ -1,4 +1,4 @@
-module github.com/sunweilin/foryx/backend
+module github.com/sunweilin/anselm/backend
 
 go 1.25.5
 

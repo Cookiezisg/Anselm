@@ -7,10 +7,10 @@ import (
 
 	"go.uber.org/zap"
 
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // ToolProgress returns a live progress writer bound to the executing tool_call. A tool calls it

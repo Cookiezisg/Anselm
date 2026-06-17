@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	controldomain "github.com/sunweilin/foryx/backend/internal/domain/control"
-	flowrundomain "github.com/sunweilin/foryx/backend/internal/domain/flowrun"
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
 
 // fakeReconciler records which workflows the scheduler asked to settle their drain.

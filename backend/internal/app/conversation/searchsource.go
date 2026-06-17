@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // MessageReader is the slice of the messages repository the projection needs —

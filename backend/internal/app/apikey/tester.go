@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 )
 
 // TestResult is the outcome of one connectivity probe. It answers ONLY "is this

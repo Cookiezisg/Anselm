@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 func wireOf(t *testing.T, frame streamdomain.Frame, seq int64) map[string]any {

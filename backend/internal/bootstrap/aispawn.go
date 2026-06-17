@@ -7,17 +7,17 @@ import (
 
 	"go.uber.org/zap"
 
-	agentapp "github.com/sunweilin/foryx/backend/internal/app/agent"
-	aispawnapp "github.com/sunweilin/foryx/backend/internal/app/aispawn"
-	chatapp "github.com/sunweilin/foryx/backend/internal/app/chat"
-	conversationapp "github.com/sunweilin/foryx/backend/internal/app/conversation"
-	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
-	schedulerapp "github.com/sunweilin/foryx/backend/internal/app/scheduler"
-	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
+	aispawnapp "github.com/sunweilin/anselm/backend/internal/app/aispawn"
+	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
+	conversationapp "github.com/sunweilin/anselm/backend/internal/app/conversation"
+	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
+	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // aispawn adapters: glue the iterate/triage engine onto the concrete conversation + chat

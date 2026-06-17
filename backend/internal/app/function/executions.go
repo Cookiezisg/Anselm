@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 )
 
 // SearchExecutionsResult is the response shape for SearchExecutions: a page of rows +

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	jsonrepairpkg "github.com/sunweilin/foryx/backend/internal/pkg/jsonrepair"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 )
 
 // Op is a JSON-discriminated build op; Type is the discriminator, Raw the body.

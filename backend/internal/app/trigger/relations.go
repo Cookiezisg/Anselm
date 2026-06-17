@@ -3,9 +3,9 @@ package trigger
 import (
 	"context"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	triggerdomain "github.com/sunweilin/foryx/backend/internal/domain/trigger"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // RelationSyncer is the subset of the relation Service that trigger consumes (nil-tolerant).

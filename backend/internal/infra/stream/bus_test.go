@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func wsCtx(id string) context.Context {

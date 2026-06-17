@@ -3,7 +3,7 @@ package stream
 import (
 	"context"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Bridge is the per-workspace dispatch port for one stream: assign seq, buffer

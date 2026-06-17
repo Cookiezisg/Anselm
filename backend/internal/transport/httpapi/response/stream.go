@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 // streamWire is the on-wire JSON shape of a stream Envelope (see references/backend/events.md):

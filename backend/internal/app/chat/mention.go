@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 )
 
 // attrMentions is the Message.Attrs key under which Send freezes a user turn's @-mention

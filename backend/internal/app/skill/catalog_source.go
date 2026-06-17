@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
+	catalogdomain "github.com/sunweilin/anselm/backend/internal/domain/catalog"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 )
 
 // AsCatalogSource exposes the skill library to the capability catalog (name + description only).

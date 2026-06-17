@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	workspaceapp "github.com/sunweilin/foryx/backend/internal/app/workspace"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // WorkspacesHandler serves /api/v1/workspaces — local workspace (isolation root)

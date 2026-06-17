@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // Config is the mutable agent configuration carried by create/edit (a full snapshot — edit

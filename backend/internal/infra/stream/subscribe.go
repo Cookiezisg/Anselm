@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // subscriberHeadroom is the extra channel capacity above bufSize, so a full replay

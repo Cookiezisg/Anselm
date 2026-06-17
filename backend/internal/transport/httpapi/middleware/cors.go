@@ -17,9 +17,9 @@ type CORSConfig struct {
 	MaxAge         time.Duration
 }
 
-// DefaultCORSConfig returns Foryx's standard dev/prod origins, methods, and headers.
+// DefaultCORSConfig returns Anselm's standard dev/prod origins, methods, and headers.
 //
-// DefaultCORSConfig 返回 Foryx 标准 dev/prod origin、方法与 header。
+// DefaultCORSConfig 返回 Anselm 标准 dev/prod origin、方法与 header。
 func DefaultCORSConfig() CORSConfig {
 	return CORSConfig{
 		AllowedOrigins: []string{

@@ -3,7 +3,7 @@ package search
 import (
 	"strings"
 
-	tokencountpkg "github.com/sunweilin/foryx/backend/internal/pkg/tokencount"
+	tokencountpkg "github.com/sunweilin/anselm/backend/internal/pkg/tokencount"
 )
 
 // Chunking targets: ~512 estimated tokens per chunk with ~10% line overlap so a

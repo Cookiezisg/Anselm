@@ -8,12 +8,12 @@ import (
 
 	"go.uber.org/zap"
 
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
-	mentiondomain "github.com/sunweilin/foryx/backend/internal/domain/mention"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	dbinfra "github.com/sunweilin/foryx/backend/internal/infra/db"
-	documentstore "github.com/sunweilin/foryx/backend/internal/infra/store/document"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
+	documentstore "github.com/sunweilin/anselm/backend/internal/infra/store/document"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 func newSvc(t *testing.T) (*Service, context.Context) {

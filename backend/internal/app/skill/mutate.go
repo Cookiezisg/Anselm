@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 )
 
 // SaveInput is the create/replace request shape (Name doubles as the slug identity).

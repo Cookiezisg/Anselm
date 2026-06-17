@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 // nodeTypeMessage is the messages-stream node type for a subagent turn — same "message" type

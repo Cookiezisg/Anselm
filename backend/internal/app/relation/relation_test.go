@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 )
 
 // fakeRepo is an in-memory relationdomain.Repository covering diff-sync, neighborhood

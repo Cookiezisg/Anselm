@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
-	jsonrepairpkg "github.com/sunweilin/foryx/backend/internal/pkg/jsonrepair"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 )
 
 // The three framework-injected fields present on every tool call. Tools never declare

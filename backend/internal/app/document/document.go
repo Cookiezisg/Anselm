@@ -16,10 +16,10 @@ import (
 
 	"go.uber.org/zap"
 
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // Service is the document tree application façade.

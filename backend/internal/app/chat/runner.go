@@ -6,12 +6,12 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	humanloopapp "github.com/sunweilin/foryx/backend/internal/app/humanloop"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	messagesdomain "github.com/sunweilin/foryx/backend/internal/domain/messages"
-	limitspkg "github.com/sunweilin/foryx/backend/internal/pkg/limits"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // idleTimeout reclaims a conversation's drain goroutine + queue after this long with no task, so

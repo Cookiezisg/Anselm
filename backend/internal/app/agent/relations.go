@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 )
 
 // syncRelations re-syncs the agent's outgoing equip edges (the mounted fn/hd/mcp/doc/skill on

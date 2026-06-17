@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"strings"
 
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // ConversationTools constructs the conversation tool group (lazy).

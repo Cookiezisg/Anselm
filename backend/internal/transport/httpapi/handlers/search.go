@@ -7,9 +7,9 @@ import (
 
 	"go.uber.org/zap"
 
-	searchapp "github.com/sunweilin/foryx/backend/internal/app/search"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // SearchHandler serves the unified search surface: omni/vertical search (one

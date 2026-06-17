@@ -26,16 +26,16 @@ import (
 	"fmt"
 	"strings"
 
-	functionapp "github.com/sunweilin/foryx/backend/internal/app/function"
-	handlerapp "github.com/sunweilin/foryx/backend/internal/app/handler"
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	mcpdomain "github.com/sunweilin/foryx/backend/internal/domain/mcp"
-	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
-	schemapkg "github.com/sunweilin/foryx/backend/internal/pkg/schema"
+	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
+	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
+	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // FunctionPort / HandlerPort / MCPPort are the narrow slices of the three execution services the

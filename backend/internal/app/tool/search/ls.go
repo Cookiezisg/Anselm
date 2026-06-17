@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	fspathpkg "github.com/sunweilin/foryx/backend/internal/pkg/fspath"
-	pathguardpkg "github.com/sunweilin/foryx/backend/internal/pkg/pathguard"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 )
 
 const (

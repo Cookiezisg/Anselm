@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"time"
 
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	ormpkg "github.com/sunweilin/foryx/backend/internal/pkg/orm"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // Schema is the manifest DDL, exported as ordered idempotent statements for

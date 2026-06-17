@@ -20,15 +20,15 @@ import (
 
 	"go.uber.org/zap"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	agentdomain "github.com/sunweilin/foryx/backend/internal/domain/agent"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // LLMBundle is a ready-to-run LLM client + a pre-filled base Request (ModelID/Key/BaseURL/

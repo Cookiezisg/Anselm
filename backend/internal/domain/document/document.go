@@ -12,7 +12,7 @@ import (
 	"context"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Document is one node in the workspace's markdown tree; ParentID nil = root-level.

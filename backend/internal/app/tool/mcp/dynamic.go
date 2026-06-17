@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	loopapp "github.com/sunweilin/foryx/backend/internal/app/loop"
-	mcpapp "github.com/sunweilin/foryx/backend/internal/app/mcp"
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	mcpinfra "github.com/sunweilin/foryx/backend/internal/infra/mcp"
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 )
 
 // dynamicTool wraps one tool of one installed server as a standard tool.Tool. Name is

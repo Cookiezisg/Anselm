@@ -1,6 +1,6 @@
 package function
 
-import toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+import toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 
 // Build marks create/edit_function as build tools (SSE-C): the loop mirrors their streaming code
 // args onto the entities stream so the function panel fills in live.

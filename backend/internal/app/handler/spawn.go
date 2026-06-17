@@ -9,8 +9,8 @@ import (
 
 	"go.uber.org/zap"
 
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 // spawnInstance builds one fresh resident Instance for handlerID: load active version +

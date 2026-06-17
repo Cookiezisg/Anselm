@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
-	workspaceapp "github.com/sunweilin/foryx/backend/internal/app/workspace"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	middlewarehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/middleware"
+	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	middlewarehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/middleware"
 )
 
 // TestBuild_SearchEndToEnd proves the whole search chain through the real

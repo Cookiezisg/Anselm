@@ -46,7 +46,7 @@ var DefaultDenyList = []string{
 	"~/AppData/Local/Google/Chrome/User Data/Default/Login Data",
 	"~/AppData/Local/Microsoft/Edge/User Data/Default/Login Data",
 
-	"~/.foryx/",
+	"~/.anselm/",
 }
 
 // DefaultWriteOnlyExtras lists paths the AI may READ but never WRITE.

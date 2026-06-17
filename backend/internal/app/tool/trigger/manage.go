@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
-	triggerapp "github.com/sunweilin/foryx/backend/internal/app/trigger"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
 )
 
 // --- fire_trigger ----------------------------------------------------------

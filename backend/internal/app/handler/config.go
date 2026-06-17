@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 )
 
 // LoadConfig fetches + decrypts the init-args config; nil when unconfigured.

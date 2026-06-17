@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	documentapp "github.com/sunweilin/foryx/backend/internal/app/document"
-	documentdomain "github.com/sunweilin/foryx/backend/internal/domain/document"
+	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
 const deleteDocumentDescription = `Soft-delete a document and all of its descendants recursively. Returns the deleted count. The user can still recover tombstoned docs; already-sent messages keep resolving.`

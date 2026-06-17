@@ -16,7 +16,7 @@ import (
 	"regexp"
 	"time"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 // Skill is one SKILL.md entry's metadata. Body is populated only by Get (single read);
@@ -34,11 +34,11 @@ type Skill struct {
 }
 
 // Frontmatter mirrors the Anthropic SKILL.md spec verbatim — all cross-vendor fields kept
-// for seamless import even though only a subset is consumed today. Source is Foryx's
+// for seamless import even though only a subset is consumed today. Source is Anselm's
 // own extension (who authored the skill), persisted alongside the standard fields.
 //
 // Frontmatter 逐字镜像 Anthropic SKILL.md spec——跨厂字段全留以便无缝导入，当前只消费子集。
-// Source 是 Foryx 自有扩展（谁创作），与标准字段一起持久化。
+// Source 是 Anselm 自有扩展（谁创作），与标准字段一起持久化。
 type Frontmatter struct {
 	Name                   string   `yaml:"name" json:"name"`
 	Description            string   `yaml:"description" json:"description"`
@@ -51,7 +51,7 @@ type Frontmatter struct {
 	WhenToUse              string   `yaml:"when_to_use,omitempty" json:"whenToUse,omitempty"`
 	Model                  string   `yaml:"model,omitempty" json:"model,omitempty"`
 	Effort                 string   `yaml:"effort,omitempty" json:"effort,omitempty"`
-	Source                 string   `yaml:"source,omitempty" json:"source,omitempty"` // Foryx 扩展：user | ai
+	Source                 string   `yaml:"source,omitempty" json:"source,omitempty"` // Anselm 扩展：user | ai
 }
 
 // Context modes: inline injects into the current dialogue; fork dispatches an isolated subagent.

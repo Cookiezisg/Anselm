@@ -19,9 +19,9 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // Service is the sandbox application façade.

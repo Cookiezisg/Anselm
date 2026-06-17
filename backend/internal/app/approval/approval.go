@@ -19,10 +19,10 @@ import (
 
 	"go.uber.org/zap"
 
-	approvaldomain "github.com/sunweilin/foryx/backend/internal/domain/approval"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
 // RelationSyncer is the slice of relationapp.Service approval consumes (nil-tolerant).

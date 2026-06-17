@@ -18,9 +18,9 @@ import (
 
 	"go.uber.org/zap"
 
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // Service is the notification emitter + notification-center reader.

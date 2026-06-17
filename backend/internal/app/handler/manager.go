@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
-	handlerdomain "github.com/sunweilin/foryx/backend/internal/domain/handler"
-	handlerinfra "github.com/sunweilin/foryx/backend/internal/infra/handler"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
+	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
 // Instance is one live resident HandlerInstance subprocess + its RPC client. There is

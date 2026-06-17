@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/zap"
 
-	conversationdomain "github.com/sunweilin/foryx/backend/internal/domain/conversation"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 )
 
 // RelationSyncer is the subset of the relation Service conversation consumes (nil-tolerant).

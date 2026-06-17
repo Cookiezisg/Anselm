@@ -19,14 +19,14 @@ import (
 
 	"go.uber.org/zap"
 
-	entitystreamapp "github.com/sunweilin/foryx/backend/internal/app/entitystream"
-	envfixapp "github.com/sunweilin/foryx/backend/internal/app/envfix"
-	functiondomain "github.com/sunweilin/foryx/backend/internal/domain/function"
-	notificationdomain "github.com/sunweilin/foryx/backend/internal/domain/notification"
-	relationdomain "github.com/sunweilin/foryx/backend/internal/domain/relation"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	searchdomain "github.com/sunweilin/foryx/backend/internal/domain/search"
-	streamdomain "github.com/sunweilin/foryx/backend/internal/domain/stream"
+	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 )
 
 // SandboxRunner is the execution + cleanup surface function needs from the sandbox

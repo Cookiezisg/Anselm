@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	catalogdomain "github.com/sunweilin/foryx/backend/internal/domain/catalog"
+	catalogdomain "github.com/sunweilin/anselm/backend/internal/domain/catalog"
 )
 
 // AsCatalogSource returns the CatalogSource adapter for this Service: it reports

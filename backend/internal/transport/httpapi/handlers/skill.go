@@ -5,10 +5,10 @@ import (
 
 	"go.uber.org/zap"
 
-	skillapp "github.com/sunweilin/foryx/backend/internal/app/skill"
-	skilldomain "github.com/sunweilin/foryx/backend/internal/domain/skill"
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // SkillHandler serves the skill REST surface (file-based: human-managed CRUD + manual activate).

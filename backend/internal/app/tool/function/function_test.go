@@ -3,7 +3,7 @@ package function
 import (
 	"testing"
 
-	toolapp "github.com/sunweilin/foryx/backend/internal/app/tool"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // TestFunctionTools_Wiring asserts the 9 tools are constructed with the expected names.

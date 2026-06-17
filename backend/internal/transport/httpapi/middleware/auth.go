@@ -7,16 +7,16 @@ import (
 	"context"
 	"net/http"
 
-	errorspkg "github.com/sunweilin/foryx/backend/internal/pkg/errors"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
-	responsehttpapi "github.com/sunweilin/foryx/backend/internal/transport/httpapi/response"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // HeaderWorkspaceID is the per-request workspace selector; the client (Wails / browser)
 // reads it from localStorage.activeWorkspaceId and sends it on every request.
 //
 // HeaderWorkspaceID 是 per-request workspace 选择 header；客户端从 localStorage 读后填入。
-const HeaderWorkspaceID = "X-Foryx-Workspace-ID"
+const HeaderWorkspaceID = "X-Anselm-Workspace-ID"
 
 // WorkspaceResolver is the minimal port the auth middleware needs: validate a workspace id and
 // return its UI locale (derived from the persisted language). A non-nil error means the id is
@@ -33,11 +33,11 @@ type WorkspaceResolver interface {
 	Resolve(ctx context.Context, id string) (reqctxpkg.Locale, error)
 }
 
-// IdentifyWorkspace reads X-Foryx-Workspace-ID (or ?workspaceID= for SSE), validates it,
+// IdentifyWorkspace reads X-Anselm-Workspace-ID (or ?workspaceID= for SSE), validates it,
 // and stamps ctx. Unknown / missing → ctx left empty; RequireWorkspace 401s if the route
 // needs one. A nil resolver skips validation (pre-workspace-module wiring).
 //
-// IdentifyWorkspace 读 X-Foryx-Workspace-ID（SSE 用 ?workspaceID=），校验后写入 ctx；
+// IdentifyWorkspace 读 X-Anselm-Workspace-ID（SSE 用 ?workspaceID=），校验后写入 ctx；
 // 不识别/缺失 → ctx 不带 workspace，由 RequireWorkspace 决定是否 401。resolver 为 nil 时跳过校验。
 func IdentifyWorkspace(resolver WorkspaceResolver) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

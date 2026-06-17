@@ -20,10 +20,10 @@ import (
 
 	"go.uber.org/zap"
 
-	apikeydomain "github.com/sunweilin/foryx/backend/internal/domain/apikey"
-	modeldomain "github.com/sunweilin/foryx/backend/internal/domain/model"
-	sandboxdomain "github.com/sunweilin/foryx/backend/internal/domain/sandbox"
-	llminfra "github.com/sunweilin/foryx/backend/internal/infra/llm"
+	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // DefaultMaxAttempts caps total install attempts (1 initial + LLM-suggested retries).

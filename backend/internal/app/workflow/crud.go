@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	workflowdomain "github.com/sunweilin/foryx/backend/internal/domain/workflow"
-	celpkg "github.com/sunweilin/foryx/backend/internal/pkg/cel"
-	idgenpkg "github.com/sunweilin/foryx/backend/internal/pkg/idgen"
-	reqctxpkg "github.com/sunweilin/foryx/backend/internal/pkg/reqctx"
+	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	celpkg "github.com/sunweilin/anselm/backend/internal/pkg/cel"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // CreateInput is the create payload: identity (name/description/tags) + the ops that build
