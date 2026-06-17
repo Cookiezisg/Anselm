@@ -180,7 +180,13 @@ func (b *Builtin) ensureRunning(ctx context.Context) (string, error) {
 	cmd := exec.Command(bin,
 		"--embeddings", "-m", model,
 		"--host", "127.0.0.1", "--port", strconv.Itoa(port),
-		"--ctx-size", "2048", "--threads", "4", "--log-disable")
+		// --ubatch-size matches --ctx-size so a whole chunk embeds in ONE physical batch. llama.cpp's
+		// default physical batch (ubatch) is 512, which rejects chunks >512 tokens ("input is too large
+		// to process; increase the physical batch size") and silently drops semantic search to lexical.
+		//
+		// --ubatch-size 与 --ctx-size 一致，使整块 chunk 在一个物理批内嵌入。llama.cpp 默认物理批(ubatch)=512，
+		// >512 token 的 chunk 会被拒（"input too large; increase the physical batch size"）、语义搜索静默退化为 lexical。
+		"--ctx-size", "2048", "--ubatch-size", "2048", "--threads", "4", "--log-disable")
 	if err := cmd.Start(); err != nil {
 		b.fail("spawn llama-server: %v", err)
 		return "", fmt.Errorf("search engine: spawn: %w", err)
