@@ -5,7 +5,7 @@ window.FEATURE = window.FEATURE || {};
 window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
   rail: (ctx) => {
     const TREE = window.DOC_TREE || [];
-    const openId = (window.DOC_OPEN || {}).id;
+    const openId = window.DOC_DEFAULT || "doc_prd";
     const items = [["g", "文档库"]];
     (function walk(nodes, depth) {
       nodes.forEach((n) => {
@@ -16,10 +16,10 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
     const w = ctx.rail(items);
     // 高亮当前打开文档
     w.querySelectorAll("an-row[data-id]").forEach((r) => { if (r.getAttribute("data-id") === openId) r.setAttribute("selected", ""); });
-    // 点其它文档 → toast 提示（demo 仅 PRD 有完整正文）
+    // 点行 → 切到该文档（Intent.select 路由回本海洋 owns:["document"] → sea loadDoc）
     w.addEventListener("an-select", (ev) => {
       const id = ev.target && ev.target.getAttribute && ev.target.getAttribute("data-id");
-      if (id && id !== openId) window.AnToast && window.AnToast.show({ text: "切换文档：" + ev.target.getAttribute("label") + "（demo 仅 PRD 有正文）" });
+      if (id) ctx.Intent.select({ kind: "document", id });
     });
     return w;
   },

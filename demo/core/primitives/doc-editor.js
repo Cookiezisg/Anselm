@@ -147,18 +147,66 @@
       else this._caretEnd(nb.querySelector(".bt") || nb);
     }
 
+    _sel() { return this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection(); }
+    // 「@」起一段提及会话：开筛选菜单 + 监听后续输入边打边滤；选中/空格/Esc/删掉@ 结束。
     _mention() {
       const block = this._curBlock();
       if (!block) return;
-      this._openMentionMenu(block);
+      this._atBlock = block;
+      this._atQuery = "@@INIT@@";
+      this._atUpdate();
+      if (!this._atInput) {
+        const doc = this.$(".doc");
+        this._atInput = () => this._atUpdate();
+        this._atKey = (ev) => { if (ev.key === "Escape" || ev.key === " " || ev.key === "Enter") this._endAt(); };
+        doc.addEventListener("input", this._atInput);
+        doc.addEventListener("keydown", this._atKey);
+      }
     }
-    _insertRefInto(block) { this._openMentionMenu(block); }
-    _openMentionMenu(block) {
-      const items = (this._mentions || []).map((m) => ({ value: m.id, label: m.label, icon: m.kind, meta: m.desc || m.kind, _m: m }));
-      window.AnMenu.open(block, {
+    _atQueryText() {
+      const sel = this._sel();
+      if (!sel || !sel.anchorNode || !this._atBlock || !this._atBlock.contains(sel.anchorNode)) return null;
+      const node = sel.anchorNode;
+      if (node.nodeType !== 3) return null;
+      const text = node.textContent.slice(0, sel.anchorOffset);
+      const at = text.lastIndexOf("@");
+      return at < 0 ? null : text.slice(at + 1);
+    }
+    _atUpdate() {
+      const q = this._atQueryText();
+      if (q == null || /\s/.test(q)) { this._endAt(); return; }
+      if (q === this._atQuery) return;
+      this._atQuery = q;
+      const lo = q.toLowerCase();
+      let ms = (this._mentions || []).filter((m) => !lo || (m.label + " " + (m.desc || "") + " " + m.id).toLowerCase().includes(lo));
+      const items = ms.length ? ms.map((m) => ({ value: m.id, label: m.label, icon: m.kind, meta: m.desc || m.kind, _m: m }))
+        : [{ type: "label", label: "无匹配「" + q + "」" }];
+      window.AnMenu.open(this._atBlock, {
         items, placement: "bottom", align: "start", namespace: "doc-at",
-        onPick: (_v, it) => { this._stripTrailing(block, "@"); this._insertPill(it._m); },
+        onClose: () => { this._closing || this._endAt(); },
+        onPick: (_v, it) => { if (!it._m) return; this._endAt(); this._pickMention(it._m); },
       });
+    }
+    _endAt() {
+      if (this._atInput) { const doc = this.$(".doc"); doc.removeEventListener("input", this._atInput); doc.removeEventListener("keydown", this._atKey); this._atInput = null; }
+      this._atBlock = null; this._atQuery = null;
+      this._closing = true; window.AnFloating.close("doc-at"); this._closing = false;
+    }
+    // 选中提及：删掉「@query」再插药丸（无则直接插）
+    _pickMention(m) {
+      const sel = this._sel();
+      const node = sel && sel.anchorNode;
+      if (node && node.nodeType === 3) {
+        const text = node.textContent.slice(0, sel.anchorOffset);
+        const at = text.lastIndexOf("@");
+        if (at >= 0) { const r = document.createRange(); r.setStart(node, at); r.setEnd(node, sel.anchorOffset); r.deleteContents(); sel.removeAllRanges(); sel.addRange(r); }
+      }
+      this._insertPill(m);
+    }
+    // 斜杠「@提及」路径：无会话、直接开菜单选一项插（无 @ 可删）
+    _insertRefInto(block) {
+      const items = (this._mentions || []).map((m) => ({ value: m.id, label: m.label, icon: m.kind, meta: m.desc || m.kind, _m: m }));
+      window.AnMenu.open(block, { items, placement: "bottom", align: "start", namespace: "doc-at", onPick: (_v, it) => this._insertPill(it._m) });
     }
     _insertPill(m) {
       const sel = (this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection());

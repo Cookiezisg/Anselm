@@ -14,18 +14,21 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
       kids.flat().forEach((c) => { if (c == null) return; n.append(c.nodeType ? c : document.createTextNode(String(c))); });
       return n;
     };
+    const WIN = window.SCHED_WINDOW_MIN || 720;
+    const posOf = (tMin) => 100 * (WIN - Math.min(WIN, Math.max(0, +tMin || 0))) / WIN;   // 距今越近越靠右（按真起始时刻算横位）
     const lanesOf = (selId) => {
       const by = {};
-      RUNS.forEach((r) => { (by[r.wf] = by[r.wf] || { runs: [] }).runs.push({ id: r.id, status: r.status, when: r.when, label: r.id, atPct: r.atPct, wPct: r.wPct, selected: r.id === selId }); });
+      RUNS.forEach((r) => { (by[r.wf] = by[r.wf] || { runs: [] }).runs.push({ id: r.id, status: r.status, when: r.when, label: r.id + " · " + r.when, atPct: posOf(r.tMin), wPct: 3, selected: r.id === selId }); });
       return WFS.filter((w) => by[w.id]).map((w) => ({ label: w.label, meta: w.meta, runs: by[w.id].runs }));
     };
+    const hourTicks = () => { const t = []; for (let m = 60; m < WIN; m += 60) t.push(posOf(m)); return t; };
 
     // ── 主面 ──
     const page = el("an-page");
     page.append(el("an-ocean-header", { crumb: "Scheduler", title: "运行驾驶舱" }, el("span", { slot: "meta" }, "durable 执行 · 时间河 → 运行图 → 节点调试")));
 
     const river = el("an-run-river", { window: window.SCHED_WINDOW || "" });
-    river.ticks = [10, 28, 46, 64, 82];
+    river.ticks = hourTicks();
     page.append(el("an-section", { label: "执行时间线 · 点胶囊切一次执行" }, river));
 
     const graphSec = el("an-section", { label: "运行图" });
