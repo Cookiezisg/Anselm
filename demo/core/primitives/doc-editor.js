@@ -48,8 +48,8 @@
     static css = `
       /* 阅读密度对齐产品调性（与实体/各海洋同 13px 正文，非 Notion 放大）：正文 t-body + 标题阶 t-h3/t-strong/t-body */
       :host { display: block; position: relative; }
-      .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-prose); }
-      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-body) * var(--lh-prose)); }
+      .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-doc); }
+      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-body) * var(--lh-doc)); }
       .b:first-child { margin-top: 0; }
 
       /* 标题阶（h1 20 / h2 16 / h3 13bold）：克制、与产品字阶一致；前留白拉节奏、首块不顶白 */
@@ -62,9 +62,9 @@
       /* 列表 / 待办：[行首槽 = 图标+缝 | 文本]，标记居中对齐正文首行 */
       .bl, .td { display: grid; grid-template-columns: calc(var(--icon) + var(--gap)) 1fr; align-items: start; }
       .bt { min-width: 0; }
-      .mk { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-prose)); color: var(--ink-2); font-size: var(--t-body); }
+      .mk { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-doc)); color: var(--ink-2); font-size: var(--t-body); }
       /* 待办勾选框：16px 方框 · 空=描边 / 勾=accent 实底白勾 */
-      .ck { width: var(--icon); height: var(--icon); margin-top: calc((var(--t-body) * var(--lh-prose) - var(--icon)) / 2);
+      .ck { width: var(--icon); height: var(--icon); margin-top: calc((var(--t-body) * var(--lh-doc) - var(--icon)) / 2);
         display: grid; place-items: center; border-radius: var(--r-tag); box-shadow: inset 0 0 0 var(--line-2) var(--line-strong);
         color: var(--ink-on-accent); cursor: pointer; transition: background var(--d-fast), box-shadow var(--d-fast); }
       .ck svg { width: var(--icon-sm); height: var(--icon-sm); }
@@ -79,7 +79,7 @@
       .callout { display: grid; grid-template-columns: var(--icon) 1fr; align-items: start; column-gap: var(--gap);
         padding: var(--sp-3) var(--sp-4); border-radius: var(--r-chip); background: var(--accent-soft); }
       .callout.warn { background: var(--warn-soft); }
-      .callout .ci { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-prose)); color: var(--accent); }
+      .callout .ci { display: grid; place-items: center; height: calc(var(--t-body) * var(--lh-doc)); color: var(--accent); }
       .callout.warn .ci { color: var(--warn); }
       .callout .ci svg { width: var(--icon); height: var(--icon); }
 
@@ -96,7 +96,7 @@
 
       /* 左槽块手柄（＋）：悬停某块时浮现于其左空白，点开块菜单插块 */
       .gutter { position: absolute; left: calc(-1 * (var(--icon) + var(--gap))); width: var(--icon);
-        height: calc(var(--t-body) * var(--lh-prose)); display: grid; place-items: center;
+        height: calc(var(--t-body) * var(--lh-doc)); display: grid; place-items: center;
         border-radius: var(--r-tag); color: var(--ink-3); opacity: 0; cursor: pointer;
         transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast); }
       .gutter.show { opacity: 1; }

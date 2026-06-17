@@ -64,7 +64,7 @@
   /* ═══════════ 字阶 TYPE · 模数 ═══════════ */
   --t-meta:   12px;  --t-body:   13px;  --t-strong: 16px;
   --t-h3:     20px;  --t-h2:     24px;  --t-h1:     32px;
-  --lh-tight: 1.25;  --lh-ui:    1.4;   --lh-prose: 1.6;
+  --lh-tight: 1.25;  --lh-ui:    1.4;   --lh-prose: 1.6;   --lh-doc: 1.85;   /* 文档正文阅读行距（比 prose 更松、长文更舒展） */
   --font: "MiSans", -apple-system, "SF Pro Text", "Inter", system-ui, "PingFang SC", sans-serif;
   --mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, monospace;
 
