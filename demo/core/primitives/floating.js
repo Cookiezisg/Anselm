@@ -11,11 +11,11 @@
     var s = document.createElement("style");
     s.id = STYLE_ID;
     s.textContent = `
-      .an-float {
-        position: fixed; z-index: 40; max-height: calc(100vh - var(--sp-8));
-        overflow-x: hidden; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none;
-      }
-      .an-float::-webkit-scrollbar { width: var(--zero); height: var(--zero); }
+      /* 外壳【不裁剪】——否则方角 overflow 会把内容根的投影在圆角缺口处裁成灰方块（圆角灰尖刺真因）。 */
+      .an-float { position: fixed; z-index: 40; }
+      /* 限高/滚动移到内容根（自带圆角，裁的是内部条目而非投影）；投影画在不裁剪的 .an-float 上、完整显示。 */
+      .an-float > * { max-height: calc(100vh - var(--sp-8)); overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+      .an-float > *::-webkit-scrollbar { width: var(--zero); height: var(--zero); }
     `;
     document.head.appendChild(s);
   }
