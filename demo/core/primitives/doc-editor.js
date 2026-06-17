@@ -33,7 +33,7 @@
     const t = b.type || "p";
     if (t === "divider") return `<hr class="b" data-t="divider" contenteditable="false">`;
     if (t === "code") return `<pre class="b code" data-t="code"><span class="lang" contenteditable="false">${e(b.lang || "text")}</span><code>${e(b.text || "")}</code></pre>`;
-    if (t === "callout") return `<div class="b callout" data-t="callout"><span class="ci" contenteditable="false">${window.icon("shield")}</span><span class="bt">${b.html != null ? b.html : e(b.text || "")}</span></div>`;
+    if (t === "callout") { const tone = b.tone === "warn" ? "warn" : "info", ic = tone === "warn" ? "error" : "info"; return `<div class="b callout ${tone}" data-t="callout"><span class="ci" contenteditable="false">${window.icon(ic)}</span><span class="bt">${b.html != null ? b.html : e(b.text || "")}</span></div>`; }
     if (t === "quote") return `<blockquote class="b" data-t="quote">${e(b.text || "")}</blockquote>`;
     if (t === "bullet") return `<div class="b bl" data-t="bullet"><span class="mk" contenteditable="false">•</span><span class="bt">${e(b.text || "")}</span></div>`;
     if (t === "todo") return `<div class="b td${b.checked ? " on" : ""}" data-t="todo"><span class="ck" contenteditable="false">${b.checked ? window.icon("check") : ""}</span><span class="bt">${e(b.text || "")}</span></div>`;
@@ -46,30 +46,62 @@
     static tag = "an-doc-editor";
     static observed = [];
     static css = `
-      :host { display: block; }
-      .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-prose); }
-      .b { margin: var(--sp-2) 0; min-height: var(--lh-prose); }
+      /* Notion 级阅读密度：16px 正文 + 1.6 行高 + 模数标题阶；位置自管供左槽手柄锚定 */
+      :host { display: block; position: relative; }
+      .doc { outline: none; color: var(--ink); font-size: var(--t-strong); line-height: var(--lh-prose); }
+      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-strong) * var(--lh-prose)); }
       .b:first-child { margin-top: 0; }
-      .h2 { font-size: var(--t-h3); font-weight: 600; line-height: var(--lh-tight); margin: var(--sp-5) 0 var(--sp-2); }
-      .h3 { font-size: var(--t-strong); font-weight: 600; line-height: var(--lh-tight); margin: var(--sp-4) 0 var(--sp-1); }
-      .bl, .td { display: grid; grid-template-columns: var(--lead) 1fr; align-items: start; column-gap: var(--gap); }
-      .mk, .ck { display: grid; place-items: center; height: var(--lh-prose); color: var(--ink-3); }
-      .ck { width: var(--ctl-sm); height: var(--ctl-sm); border-radius: var(--r-tag); box-shadow: inset 0 0 0 var(--hairline) var(--line); cursor: pointer; color: var(--accent); }
+
+      /* 标题阶（h1 32 / h2 24 / h3 20）：前留白拉开节奏、首块不顶白 */
+      .h1, .h2, .h3 { font-weight: 600; line-height: var(--lh-tight); color: var(--ink); }
+      .h1 { font-size: var(--t-h1); font-weight: 700; margin: var(--sp-8) 0 var(--sp-1); }
+      .h2 { font-size: var(--t-h2); margin: var(--sp-6) 0 var(--grid); }
+      .h3 { font-size: var(--t-h3); margin: var(--sp-5) 0 var(--grid); }
+      .b.h1:first-child, .b.h2:first-child, .b.h3:first-child { margin-top: 0; }
+
+      /* 列表 / 待办：[行首槽 = 图标+缝 | 文本]，标记居中对齐正文首行 */
+      .bl, .td { display: grid; grid-template-columns: calc(var(--icon) + var(--gap)) 1fr; align-items: start; }
+      .bt { min-width: 0; }
+      .mk { display: grid; place-items: center; height: calc(var(--t-strong) * var(--lh-prose)); color: var(--ink-2); font-size: var(--t-strong); }
+      /* 待办勾选框：16px 方框（不再 24px 大块）·空=描边 / 勾=accent 实底白勾 */
+      .ck { width: var(--icon); height: var(--icon); margin-top: calc((var(--t-strong) * var(--lh-prose) - var(--icon)) / 2);
+        display: grid; place-items: center; border-radius: var(--r-tag); box-shadow: inset 0 0 0 var(--line-2) var(--line-strong);
+        color: var(--ink-on-accent); cursor: pointer; transition: background var(--d-fast), box-shadow var(--d-fast); }
       .ck svg { width: var(--icon-sm); height: var(--icon-sm); }
+      .td.on .ck { background: var(--accent); box-shadow: none; }
       .td.on .bt { color: var(--ink-3); text-decoration: line-through; }
-      blockquote.b { margin-left: 0; padding: var(--sp-1) 0 var(--sp-1) var(--sp-4); border-left: var(--line-2) solid var(--line-strong); color: var(--ink-2); }
-      .callout { display: grid; grid-template-columns: var(--lead) 1fr; align-items: start; column-gap: var(--gap);
-        padding: var(--sp-3) var(--btn-pad-x); border-radius: var(--r-chip); background: var(--accent-soft); }
-      .callout .ci { display: grid; place-items: center; height: var(--lh-prose); color: var(--accent); }
+
+      /* 引用：左强调条 + 斜体灰 */
+      blockquote.b { margin-left: 0; padding: var(--grid) 0 var(--grid) var(--sp-4);
+        border-left: var(--pad-hair) solid var(--line-strong); color: var(--ink-2); font-style: italic; }
+
+      /* 提示条（tone：info=accent / warn=warn 底色 + 同色图标） */
+      .callout { display: grid; grid-template-columns: var(--icon) 1fr; align-items: start; column-gap: var(--gap);
+        padding: var(--sp-3) var(--sp-4); border-radius: var(--r-chip); background: var(--accent-soft); }
+      .callout.warn { background: var(--warn-soft); }
+      .callout .ci { display: grid; place-items: center; height: calc(var(--t-strong) * var(--lh-prose)); color: var(--accent); }
+      .callout.warn .ci { color: var(--warn); }
       .callout .ci svg { width: var(--icon); height: var(--icon); }
+
+      /* 代码块 */
       pre.code { position: relative; margin: var(--sp-3) 0; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-card);
         background: var(--island-2); box-shadow: inset 0 0 0 var(--hairline) var(--line);
-        font-family: var(--mono); font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+        font-family: var(--mono); font-size: var(--t-body); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
       pre.code .lang { position: absolute; top: var(--sp-2); right: var(--sp-3); color: var(--ink-3); font-size: var(--t-meta); }
-      hr.b { border: none; border-top: var(--hairline) solid var(--line); margin: var(--sp-5) 0; }
+
+      hr.b { border: none; border-top: var(--hairline) solid var(--line); margin: var(--sp-5) 0; min-height: 0; }
       an-ref-pill { margin: 0 var(--grid); vertical-align: baseline; }
       /* 空块占位提示（仅当前聚焦的空块显示） */
       .b[data-empty]:focus::before { content: attr(data-empty); color: var(--ink-3); pointer-events: none; }
+
+      /* 左槽块手柄（Notion 式 ＋）：悬停某块时浮现于其左空白，点开块菜单插块 */
+      .gutter { position: absolute; left: calc(-1 * (var(--icon) + var(--gap))); width: var(--icon);
+        height: calc(var(--t-strong) * var(--lh-prose)); display: grid; place-items: center;
+        border-radius: var(--r-tag); color: var(--ink-3); opacity: 0; cursor: pointer;
+        transition: opacity var(--d-fast), background var(--d-fast), color var(--d-fast); }
+      .gutter.show { opacity: 1; }
+      .gutter:hover { background: var(--island-3); color: var(--ink); }
+      .gutter svg { width: var(--icon); height: var(--icon); }
     `;
 
     set blocks(v) { this._blocks = Array.isArray(v) ? v : []; if (this.isConnected) this._render(); }
@@ -78,7 +110,8 @@
     get mentions() { return this._mentions || []; }
 
     render() {
-      return `<div class="doc" contenteditable="true" spellcheck="false">${(this._blocks || []).map(blockHtml).join("")}</div>`;
+      return `<div class="doc" contenteditable="true" spellcheck="false">${(this._blocks || []).map(blockHtml).join("")}</div>`
+        + `<button type="button" class="gutter" aria-label="加块" contenteditable="false">${window.icon("plus")}</button>`;
     }
 
     hydrate() {
@@ -106,6 +139,38 @@
         if (ev.key === "/") setTimeout(() => this._slash(), 0);
         else if (ev.key === "@") setTimeout(() => this._mention(), 0);
       });
+      // 左槽块手柄：悬停某块 → 手柄移到该块左侧并浮现；离开整个编辑器才隐
+      const handle = this.$(".gutter");
+      if (handle) {
+        doc.addEventListener("pointerover", (ev) => {
+          const b = ev.target.closest && ev.target.closest(".b");
+          if (!b) return;
+          const hr = this.getBoundingClientRect(), br = b.getBoundingClientRect();
+          handle.style.top = (br.top - hr.top) + "px";
+          handle.classList.add("show");
+          this._handleBlock = b;
+        });
+        this.addEventListener("pointerleave", () => handle.classList.remove("show"));
+        handle.addEventListener("click", () => {
+          const block = this._handleBlock; if (!block) return;
+          window.AnMenu.open(handle, {
+            items: SLASH, placement: "bottom", align: "start", namespace: "doc-add",
+            onPick: (type) => { type === "mention" ? this._insertRefInto(this._addBelow(block, "p")) : this._addBelow(block, type); },
+          });
+        });
+      }
+    }
+
+    // 在某块之后插入新块并落焦（左槽 ＋）；返回新块（divider 后补一个空段）
+    _addBelow(block, type) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = blockHtml({ type, text: "" });
+      const nb = tmp.firstElementChild;
+      if (type !== "divider") nb.setAttribute("data-empty", PLACEHOLDER[type] || "");
+      block.after(nb);
+      if (type === "divider") { const p = document.createElement("p"); p.className = "b"; p.setAttribute("data-t", "p"); p.setAttribute("data-empty", PLACEHOLDER.p); nb.after(p); this._caretEnd(p); return p; }
+      this._caretEnd(nb.querySelector(".bt, code") || nb);
+      return nb;
     }
 
     // 当前 caret 所在块（.b 祖先）
