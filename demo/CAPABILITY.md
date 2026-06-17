@@ -53,11 +53,11 @@
 
 | 能力 | demo 面 | 后端出处 | 状态 |
 |---|---|---|---|
-| 运行图（2D DAG + 回边 + 实时推进） | scheduler sea（复用 `an-graph-canvas` run 态——原语已支持 edit/run，run 态待此处接 flowrun tick；实体页/编辑器均纯定义态、不显运行） | flowrun tick（entities 流 ephemeral） | ▢ 面待建（图原语✅） |
-| 节点逐行记忆化（`已记忆化` 徽标 / 循环 ×N） | run 节点活动列 | `flowrun_nodes` record-once（D3） | ▢ |
-| 运行历史 + 状态（running/completed/failed/cancelled） | run 历史 chip 轨 | `GET /flowruns` | ▢ |
-| 审批收件箱 + 决策（yes/no，倒计时，first-wins） | 右岛 / 通知 deep-link | `flowrun-inbox` · `:decide` | ▢ |
-| replay 修复失败 run | run 动作 | `:replay` | ▢ |
+| 运行图（2D DAG + 回边 + 节点态） | scheduler sea：时间河选 run → `an-graph-canvas[mode=run]` 切该 run 的运行图（节点态着色、parked 高亮、回边 dashed） | flowrun tick（entities 流 ephemeral） | ✅ |
+| 执行时间河 + 节点甘特（每次执行 / 逐节点时段 · 循环 ×N · parked 等待） | `an-run-river`（workflow 泳道 + flowrun 胶囊沿时间轴、色=终态、parked/running 脉冲）+ `an-node-gantt`（逐节点条 + iters 多条 + parked 框 + future 占位） | `GET /flowruns` · `flowrun_nodes` record-once（D3） | ✅ |
+| 节点调试详情（记忆化 result / 状态 / iteration / 耗时 / 错误） | 点图节点 / 甘特行 → 右岛（an-kv + code-editor + json-tree + approval-gate） | `GET /flowruns/{id}`（头 + 全节点行） | ✅ |
+| 审批收件箱 + 决策（yes/no，倒计时，first-wins） | parked 节点 → 右岛 `an-approval-gate[durable]` | `flowrun-inbox` · `:decide` | ✅ 展示（决策接装配层） |
+| replay 修复失败 run | 右岛 run 动作 `:replay` | `:replay` | ✅ 展示 |
 | 生命周期（stage/activate/deactivate/kill） | workflow 头动作 | `workflow :stage/:activate/...` | ▢ |
 | 并发策略（serial/skip/buffer/allow_all） | workflow 设置 | `concurrency` 字段 | ▢ |
 | 关注态（run 失败点亮 / completed 熄灭，自愈） | 侧栏/通知红点 | `workflow.attention_changed` | ▢ |

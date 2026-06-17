@@ -47,6 +47,7 @@
   --w-block:       280px;    /* 检查器 2 列网格最小块轨道（720 内容=2 列、约 <560 塌 1 列） */
   --spec-col:      220px;    /* reference 画廊状态格栅格最小列轨道（an-spec 自适应多列） */
   --w-ref:        1100px;    /* reference 独立页（reference.html）画廊内容列宽 */
+  --lane-w:        132px;    /* scheduler 时间河/节点甘特 左侧泳道标签列宽 */
   --h-graph-preview: 380px;  /* 实体页内嵌 run 图框定高（an-graph-canvas[framed]） */
 
   /* ═══════════ 原语尺寸 PRIMITIVE METRICS ═══════════ */

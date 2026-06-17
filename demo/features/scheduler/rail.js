@@ -1,11 +1,11 @@
-/* Anselm feature — scheduler 侧栏（rail）。Phase 3.0：占位工作流运行；Phase 3.1 接 GET /flowruns（运行态/历史）。 */
+/* Anselm feature — scheduler 侧栏（rail）：active/draining workflow 列表（lifecycle + concurrency 治理态）。
+   时间河含全部 run，rail 给工作流概览与治理态（监听中 / draining / 并发策略）。 */
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
-  rail: (ctx) => ctx.rail([
-    ["g", "工作流"],
-    ["r", { dot: "run", label: "nightly_report", meta: "运行中" }],
-    ["r", { dot: "done", label: "invoice_pipeline", meta: "12m" }],
-    ["r", { dot: "wait", label: "approval_gate_flow", meta: "待审批" }],
-    ["r", { dot: "err", label: "sync_crm", meta: "失败" }],
-  ]),
+  rail: (ctx) => {
+    const WFS = window.SCHED_WORKFLOWS || [];
+    return ctx.rail([["g", "工作流 · 监听中"]].concat(
+      WFS.map((w) => ["r", { dot: w.dot, label: w.label, meta: w.meta, id: w.id }])
+    ));
+  },
 });

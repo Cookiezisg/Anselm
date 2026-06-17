@@ -50,6 +50,7 @@
 | `an-chart` / `an-sparkline` | 🪂 ⬚ | 新建（同件两 mode：有轴/无轴） | 用量/指标趋势 · 实体行内联 |
 | `an-version-diff` | ✅ 🧩 | 已落 `core/primitives/version-diff.js`（移植 design `version-diff.js` 的 LCS 纯函数；单框 unified 红绿 diff，行内着色复用 `AnCodeEditor.highlight`；before/after + lang/range/note/bare） | 实体版本 tab（左 an-row 版本轨 + 右本件）· chat 代码 diff |
 | `an-wire-list` | ✅ 🧩 | 已落 `core/primitives/wire-list.js`（key→expr 可增删接线行组，复用 an-input；focusout 收集 field→CEL map 派 an-wire-change） | 图编辑器节点 input 映射 · control when→port（an-branch-editor 复用其底座）|
+| `an-run-river` · `an-node-gantt` | ✅ 🪂 | 已落（scheduler 专属 viz，self-drawn）：时间河（workflow 泳道 + flowrun 胶囊沿时间轴 atPct/wPct、色=终态、parked/running 脉冲、点 emit an-run-pick）· 节点甘特（单 run 逐节点时段条 + 循环 iters 多条 + ×N 徽 + parked 等待框 + future 占位、点行 emit an-node-pick） | scheduler 执行驾驶舱（河选 run → 切运行图 + 甘特 + 节点调试）|
 | `an-flowrun` | 🧩 ⬚ | 移植 `flowrun.js`（记忆化条 + park 挂审批） | scheduler durable 节点 |
 | `an-branch-editor` | 🧩 ⬚ | 新 pattern（复用 `an-wire-list` + code-editor[cel] + segmented） | control 的 CEL when→port 分支组 |
 | `an-search-results` | 🧩 ⬚ | 新 pattern（hit 行 + `<mark>` 高亮安全注入 + 折叠） | search 综搜/垂搜结果 |

@@ -9,7 +9,7 @@ window.MANIFEST = [
   { id: "entities", label: "Entities", icon: "entities", nav: 1, owns: ["entity"],
     deps: ["features/entities/data.js", "features/entities/actions.js"], sea: "features/entities/sea.js", rail: "features/entities/rail.js", desc: "四项全能实体的家：完整展示 + 调试 + 修改。" },
   { id: "scheduler", label: "Scheduler", icon: "scheduler", nav: 1, owns: ["workflow", "run", "node"],
-    sea: "features/scheduler/sea.js", rail: "features/scheduler/rail.js", desc: "运维驾驶舱：活运行图 + 历史 + 审批。" },
+    deps: ["features/scheduler/data.js"], sea: "features/scheduler/sea.js", rail: "features/scheduler/rail.js", desc: "运维驾驶舱：执行时间河 + 运行图 + 节点甘特 + 节点调试。" },
   { id: "documents", label: "Documents", icon: "doc", nav: 1, owns: ["document"],
     deps: ["features/documents/data.js"], sea: "features/documents/sea.js", rail: "features/documents/rail.js", desc: "零-markdown 心智的 WYSIWYG 文档库（嵌套文档树 + 斜杠/@/悬卡）。" },
   { id: "settings", label: "Settings", icon: "gear", nav: 0, axis: "avatar", owns: ["settingsCat"],
