@@ -547,7 +547,7 @@ func compileGraphCEL(g *workflowdomain.Graph) error {
 		for field, expr := range n.Input {
 			if _, err := fullEnv.Compile(expr); err != nil {
 				return workflowdomain.ErrInvalidGraph.WithDetails(map[string]any{
-					"reason": fmt.Sprintf("node %q input %q has invalid CEL: %v", n.ID, field, err),
+					"reason": fmt.Sprintf("node %q input %q has invalid CEL (reference an upstream result by its node id, e.g. nodeId.field; this node may read: %v): %v", n.ID, field, anc, err),
 				})
 			}
 			if _, err := ancEnv.Compile(expr); err != nil {
