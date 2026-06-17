@@ -49,15 +49,19 @@
       /* 阅读密度对齐产品调性（与实体/各海洋同 13px 正文，非 Notion 放大）：正文 t-body + 标题阶 t-h3/t-strong/t-body */
       :host { display: block; position: relative; }
       .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-doc); }
-      .b { position: relative; margin: var(--grid) 0; min-height: calc(var(--t-body) * var(--lh-doc)); }
+      /* 垂直节奏（best practice：标题"段前" >> "段后"——标题归属其后内容；top-only margin 免折叠歧义） */
+      .b { position: relative; margin-top: var(--sp-3); min-height: calc(var(--t-body) * var(--lh-doc)); }
       .b:first-child { margin-top: 0; }
 
-      /* 标题阶（h1 20 / h2 16 / h3 13bold）：克制、与产品字阶一致；前留白拉节奏、首块不顶白 */
-      .h1, .h2, .h3 { font-weight: 600; line-height: var(--lh-tight); color: var(--ink); scroll-margin-top: var(--sp-12); }
-      .h1 { font-size: var(--t-h3); font-weight: 700; margin: var(--sp-6) 0 var(--sp-1); }
-      .h2 { font-size: var(--t-strong); margin: var(--sp-5) 0 var(--grid); }
-      .h3 { font-size: var(--t-body); margin: var(--sp-4) 0 var(--grid); }
-      .b.h1:first-child, .b.h2:first-child, .b.h3:first-child { margin-top: 0; }
+      /* 标题阶（h1 20 / h2 16 / h3 13bold）：自适应高度（去 min-height 幻影空白）、段前留白足、段后贴附引领内容 */
+      .h1, .h2, .h3 { font-weight: 600; line-height: var(--lh-tight); color: var(--ink); min-height: 0; scroll-margin-top: var(--sp-12); }
+      .h1 { font-size: var(--t-h3); font-weight: 700; margin-top: var(--sp-8); }
+      .h2 { font-size: var(--t-strong); margin-top: var(--sp-6); }
+      .h3 { font-size: var(--t-body); margin-top: var(--sp-5); }
+      /* 标题"段后"：紧跟标题的块贴附标题（间距远小于段前），令标题与其内容成组 */
+      .h1 + .b, .h2 + .b, .h3 + .b { margin-top: var(--sp-2); }
+      /* 同型列表项之间收紧（列表内部是一组，非段落级间距） */
+      .bl + .bl, .td + .td { margin-top: var(--grid); }
 
       /* 列表 / 待办：[行首槽 = 图标+缝 | 文本]，标记居中对齐正文首行 */
       .bl, .td { display: grid; grid-template-columns: calc(var(--icon) + var(--gap)) 1fr; align-items: start; }
@@ -89,7 +93,7 @@
         font-family: var(--mono); font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
       pre.code .lang { position: absolute; top: var(--sp-2); right: var(--sp-3); color: var(--ink-3); font-size: var(--t-meta); }
 
-      hr.b { border: none; border-top: var(--hairline) solid var(--line); margin: var(--sp-5) 0; min-height: 0; }
+      hr.b { border: none; border-top: var(--hairline) solid var(--line); margin-top: var(--sp-5); min-height: 0; }
       an-ref-pill { margin: 0 var(--grid); vertical-align: baseline; }
       /* 空块占位提示（仅当前聚焦的空块显示） */
       .b[data-empty]:focus::before { content: attr(data-empty); color: var(--ink-3); pointer-events: none; }
