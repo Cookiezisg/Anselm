@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // wfCreate builds a workflow from ops and returns its id.

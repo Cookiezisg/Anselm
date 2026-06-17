@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // promptSetup boots server+mock with a workspace of the given UI language, registers the mock
@@ -215,7 +215,7 @@ func TestPromptDump_EmptyStateCoherence(t *testing.T) {
 
 // TestPromptDump_AgentViewpoint 审读 Agent 实体视角：HTTP :invoke 一个 agent，它收到的 system
 // prompt 是「你是 <name>，一个 workflow 自动化 worker + 你的角色…」——与 chat 主视角（You are
-// Foryx + 全 section 菜单）完全隔离，且只挂载它被授予的工具。
+// Anselm + 全 section 菜单）完全隔离，且只挂载它被授予的工具。
 func TestPromptDump_AgentViewpoint(t *testing.T) {
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
@@ -245,8 +245,8 @@ func TestPromptDump_AgentViewpoint(t *testing.T) {
 	if !strings.Contains(sys, "crunch numbers and report") {
 		t.Errorf("agent system prompt missing its role (description)")
 	}
-	// 与 chat 主视角隔离：无 Foryx 身份、无 chat 的 section 菜单。
-	if strings.Contains(sys, "You are Foryx") || strings.Contains(sys, `name="identity"`) {
+	// 与 chat 主视角隔离：无 Anselm 身份、无 chat 的 section 菜单。
+	if strings.Contains(sys, "You are Anselm") || strings.Contains(sys, `name="identity"`) {
 		t.Errorf("agent prompt leaked the chat main viewpoint:\n%s", sys)
 	}
 }
@@ -271,7 +271,7 @@ func TestPromptDump_I18nReplyLanguage(t *testing.T) {
 				tc.lang, tc.wantReply, d.System)
 		}
 		// prompt 本体英文（不因任何语言把整 prompt 翻译）。
-		if !strings.Contains(d.System, "You are Foryx") {
+		if !strings.Contains(d.System, "You are Anselm") {
 			t.Errorf("lang %q: identity instruction is not English (prompt body should stay English)", tc.lang)
 		}
 	}

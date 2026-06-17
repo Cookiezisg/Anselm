@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // TestSmoke_BootToSearchableEntity: the spine every wave stands on — boot the real

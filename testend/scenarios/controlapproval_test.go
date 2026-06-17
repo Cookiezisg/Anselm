@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // TestControl_CRUDAndCELValidation: A3 控制实体——创建/读/版本编辑生效/坏 CEL 拒。

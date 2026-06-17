@@ -24,7 +24,7 @@ import (
 // because testend does not import backend).
 //
 // HeaderWorkspace 是 workspace 身份头（api.md 的线缆事实；testend 不 import backend 故复述）。
-const HeaderWorkspace = "X-Foryx-Workspace-ID"
+const HeaderWorkspace = "X-Anselm-Workspace-ID"
 
 // Server is one running backend instance on a throwaway data dir.
 //
@@ -52,7 +52,7 @@ func binary(t *testing.T) string {
 			buildErr = err
 			return
 		}
-		binPath = filepath.Join(dir, "foryx-server")
+		binPath = filepath.Join(dir, "anselm-server")
 		cmd := exec.Command("go", "build", "-o", binPath, "./cmd/server")
 		cmd.Dir = backendDir()
 		out, err := cmd.CombinedOutput()
@@ -90,7 +90,7 @@ func runtimeCache() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".foryx-testend-cache")
+	return filepath.Join(home, ".anselm-testend-cache")
 }
 
 // Start boots a fresh backend on a free port + temp data dir, waits for health, and
@@ -115,8 +115,8 @@ func Start(t *testing.T) *Server {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	cmd := exec.Command(bin)
 	cmd.Env = append(os.Environ(),
-		"FORYX_DATA_DIR="+dataDir,
-		"FORYX_ADDR="+addr,
+		"ANSELM_DATA_DIR="+dataDir,
+		"ANSELM_ADDR="+addr,
 	)
 	cmd.Stdout = os.Stderr // backend logs interleave with test output for diagnosis. 后端日志混入测试输出便于诊断。
 	cmd.Stderr = os.Stderr
@@ -213,8 +213,8 @@ func (s *Server) Restart(t *testing.T) {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	cmd := exec.Command(bin)
 	cmd.Env = append(os.Environ(),
-		"FORYX_DATA_DIR="+s.DataDir,
-		"FORYX_ADDR="+addr,
+		"ANSELM_DATA_DIR="+s.DataDir,
+		"ANSELM_ADDR="+addr,
 	)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr

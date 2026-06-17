@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // tinyPNG 是 1x1 透明 PNG（合法最小图——vision 路线的载荷）。

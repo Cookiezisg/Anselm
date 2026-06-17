@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // fnCreate builds a function over HTTP and returns its id (shared W1 helper).

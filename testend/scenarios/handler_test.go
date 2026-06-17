@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // hdCreate builds a handler over HTTP and returns its id.

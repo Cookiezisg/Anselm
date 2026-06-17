@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // TestPlatformR4_SSEProtocolFaces: 三流协议面——notifications durable 续传重放、

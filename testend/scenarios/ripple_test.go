@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // rpKind 是矩阵一行：建（rp1 名）、改名（rp2 名）、删，及该实体的通知域前缀。

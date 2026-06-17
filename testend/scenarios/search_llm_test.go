@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // driveTool 让 LLM 在一个新对话里调一次 name(args)，返回回喂给模型的 tool 消息内容

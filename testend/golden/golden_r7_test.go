@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // echoMCP 是零依赖单工具（echo）MCP stdio server——J6 的本地真服务（golden 与 scenarios

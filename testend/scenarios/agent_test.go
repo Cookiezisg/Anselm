@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 const agModel = "mock-agent" // agent 场景默认模型的独立队列。
@@ -319,7 +319,7 @@ func TestAgentR2_PromptAssembly(t *testing.T) {
 	}
 	// Chat-main-view isolation: none of the chat system sections may leak.
 	// chat 主视角隔离：chat 专属段不得泄漏。
-	for _, leak := range []string{"search_tools", "Foryx", "todo_write"} {
+	for _, leak := range []string{"search_tools", "Anselm", "todo_write"} {
 		if strings.Contains(sys, leak) {
 			t.Fatalf("chat prompt leaked %q into agent view", leak)
 		}

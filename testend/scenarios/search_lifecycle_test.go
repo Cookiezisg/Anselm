@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // lcKind is one entity kind's lifecycle driver: create carrying tokenA, update

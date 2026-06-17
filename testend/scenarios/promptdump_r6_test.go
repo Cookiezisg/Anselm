@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunweilin/foryx/testend/harness"
+	"github.com/sunweilin/anselm/testend/harness"
 )
 
 // TestPromptR6_SubagentViewpoint: subagent 收到的是自足 prompt——父对话历史零泄漏、
