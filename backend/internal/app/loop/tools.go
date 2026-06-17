@@ -3,8 +3,10 @@ package loop
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -13,6 +15,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -231,7 +234,7 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 
 	if err := t.ValidateInput(argsJSON); err != nil {
 		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
-		return "input validation failed: " + err.Error(), err.Error(), false
+		return "input validation failed: " + llmErrText(err), err.Error(), false
 	}
 
 	output, err := t.Execute(ctx, string(argsJSON))
@@ -239,11 +242,35 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 	if err != nil {
 		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
 		if output != "" {
-			return output + "\n\n" + err.Error(), err.Error(), false
+			return output + "\n\n" + llmErrText(err), err.Error(), false
 		}
-		return err.Error(), err.Error(), false
+		return llmErrText(err), err.Error(), false
 	}
 	return output, "", true
+}
+
+// llmErrText renders an error for the LLM: the message PLUS any structured Details a tool/domain
+// attached (e.g. a workflow validation's "reason" naming the offending node + the actual CEL error).
+// Error() alone drops Details — they are computed for the N1 envelope yet are exactly the actionable
+// part the agent needs to self-correct. Surfacing them here de-opaques tool errors for EVERY tool,
+// not just the one that prompted it (an opaque "workflow graph is invalid" had the agent guessing
+// CEL syntax blindly across ~8 attempts).
+//
+// llmErrText 把 error 渲给 LLM：message + 工具/domain 附的结构化 Details（如 workflow 校验的 "reason"
+// 点名违例节点 + 真实 CEL 错）。Error() 本身丢 Details——它为 N1 envelope 算出、却正是 agent 自纠所需。
+// 在此浮出，一处给**所有**工具去不透明化（不透明的 "workflow graph is invalid" 曾让 agent 盲猜 CEL ~8 次）。
+func llmErrText(err error) string {
+	msg := err.Error()
+	var de *errorspkg.Error
+	if stderrors.As(err, &de) && len(de.Details) > 0 {
+		parts := make([]string, 0, len(de.Details))
+		for k, v := range de.Details {
+			parts = append(parts, fmt.Sprintf("%s=%v", k, v))
+		}
+		sort.Strings(parts)
+		msg += " (" + strings.Join(parts, "; ") + ")"
+	}
+	return msg
 }
 
 type indexedCall struct {
