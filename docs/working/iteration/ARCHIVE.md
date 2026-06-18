@@ -71,6 +71,7 @@ landed-into:
 | F33（=F12）keep-alive 流困死 scanSSELines→message 卡 streaming | chat·llm-stream（共享 ~11 provider） | 单工具 / 崩溃·robustness | 脆弱/恢复无门/假成功 | fixed·locked |
 | F34 LLM 流错空消息→message finalize 无因无恢复提示 | chat-loop | 单工具 / 报错 | 恢复无门/静默降级 | fixed |
 | F35 capability_check 不查 dataflow→绿检查超额承诺、运行时崩 | workflow(静态校验) | 跨实体 / happy→报错 | promise≠reality/白烧/假成功 | fixed |
+| F42 edit_workflow 静默吞无效 concurrency（Create 校 Edit 不校） | workflow | 单工具 / happy | promise≠reality/假成功 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -99,22 +100,29 @@ landed-into:
 | attachment 经 message.attachmentIds 喂 LLM（读真 CSV、零幻觉） | attachment | happy |
 | @mention 文档冻结快照注入（注入可见、freeze vs fresh 各对） | document·chat | happy |
 | 会话 auto-title 质量 + archive 真实性 | conversation | happy |
+| relation 图发现+推理（get_relations 自发现、what-uses-X/反向/传递依赖全对、删影响推理对） | relation | happy |
+| subagent 真嵌套 spawn（subagent 执行真跑、parentBlockId 子消息真存） | subagent | happy（读回缺口见 F46） |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
 > 这是 backlog，不是 TODO 清单：选哪个由 EXPLORE 的 select 仪式按 novelty × value 判（README）。新轴入场即排这里。
 
 > round-1（0618）填：ai-ops 诊断向、多实体组合、检索可发现、memory、工具选择、agent 嵌套。
-> round-2（0618）填：:iterate happy、todo 机制、attachment(attachmentIds 路径)、@mention 注入、auto-title/archive 真实性（全转绿）；并确诊 F34/F35（已修）+ F36–F39（待修 backlog）。
+> round-2（0618）填：:iterate happy、todo 机制、attachment(attachmentIds 路径)、@mention 注入、auto-title/archive 真实性。
+> round-3（0618）填：relation 图推理、subagent 嵌套 spawn（全转绿）；并确诊 F40–F48（F42 已修，F40/F41 HIGH 待 wind-down）。
 
-**确诊待修 backlog（= LOG F36–F39，"想还有什么"已变"该修什么"）：** :iterate 不校实体存在(F36) · 无 attachment 读工具(F37) · 无会话管理工具+编造 UI(F38) · todo 完成后无读回(F39)。**deepseek 没额度时的收尾 pass 清这批。**
+**确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
+- **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
+- **round-2：** F36 :iterate 不校实体存在 · F37 无 attachment 读工具 · F38 无会话管理工具+编造 UI · F39 todo 完成后无读回。
+- **round-3 其余：** F43 edit 静默 deactivate · F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F47 无 approval 决策工具(待判) · F48 delete 无守卫+删依赖边。
+- **deepseek 没额度时的收尾 pass 清这批（fixing 是代码工不需 deepseek；零 token 回归守）。**
 
 **整列没碰（target 维空白）：**
-- **relation 图** · **subagent 嵌套树渲染**（parentBlockId）· **websearch**（toolpick lane 见 workspace 未配 search backend）。
+- **websearch**（toolpick/convo lane 见 workspace 未配 search backend）· **relation 写/删边的 agent 面**（读已绿）。
 
 **薄格（碰过但只在某 regime / 某席位）：**
 - **kill-9 真崩溃恢复 from agent 席**（T3）：诊断+修+fresh-run 恢复已绿，但**真杀进程→重启→resume** 仍未从 agent 席验（会连累共享后端，留**串行单跑**——可起独立端口+数据目录的专用后端跑）。
-- **concurrency `replace`/`buffer_one` from agent 席**：F29 仅单测；agent 多轮真触发顶替/收敛没验。
+- **concurrency `replace`/`buffer_one` from agent 席**：F29 仅单测、round-3 撞到 F41（skip 退化）；replace/buffer_one 的 agent 席真触发仍未验。
 
 **镜头 / 能力缺口（待判/待探）：**
 - **代码-bug 失败 run 无原地恢复**（triage latent）：replay 按原 pin、改 code 要 fresh trigger（新 id）；无 `:rerun-with-latest`。待判值不值得做。
