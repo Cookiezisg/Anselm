@@ -47,7 +47,7 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 
 ## 4. 生命周期 / 行为
 
-- **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（明文比对或 HMAC-SHA256 验签，不匹配 → 401 纯文本响应，不走标准 envelope 错误码）；fsnotify=路径(必填) + 可选事件类型 + 可选 pattern；sensor=周期 invoke function/handler/mcp（targetKind 三选一；handler/mcp 需 method=方法名/工具名，function 整体即单元）+ CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）。
+- **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（**明文**：caller 带 `X-Webhook-Secret: <secret>` 头或 `?token=<secret>` 查询；**HMAC**（config `signatureAlgo:"hmac-sha256-hex"`）：caller 带 `X-Hub-Signature-256: sha256=<小写 hex hmac_sha256(rawBody,secret)>` 头、头名可经 config `signatureHeader` 改；不匹配 → 401 纯文本响应，不走标准 envelope 错误码）；fsnotify=路径(必填) + 可选事件类型 + 可选 pattern；sensor=周期 invoke function/handler/mcp（targetKind 三选一；handler/mcp 需 method=方法名/工具名，function 整体即单元）+ CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）。
 - **Edit 热更**：正在监听的 trigger 用新 config 重 Register。
 - **`:fire`**（FireManual）：手动催一次——扇给当前监听者（可能 0 个，那就只是一条 0 firing 的 Activation）。
 - webhook 异步 fire + recover（handler 不被慢/panic 拖累）、202 立即返回。
