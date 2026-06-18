@@ -1,13 +1,15 @@
 /* Anselm feature — chat 海洋（sea）：AI 对话运行时主战场。
-   布局：中央 = an-page（居中列：an-block-tree transcript）+ 底部固定 an-composer；会话名走 shell 左上角紧凑标题（恒显，无文章式大标题）；右岛 = 仅 :iterate 对话展开（实体面订阅 entities build 流实时填充【新 active 版本】，edit 立即生效、可 revert，无草稿/采用门）。
+   布局：中央 = an-page（居中列：an-block-tree transcript）+ 底部固定 an-composer；会话名走 shell 左上角紧凑标题（恒显，无文章式大标题）；
+     右岛 = <an-entity-workspace>（本会话碰过的实体各一 tab + 可选 Todo tab；每实体卡按其 tool call 开子视图：create 流式新建 / edit 流式 Diff / run 终端 / flowrun 节点点亮 / trace 嵌套 ReAct）。无实体且无 todo → 右岛收起、对话全宽。
    契约落地（mock 演示）：Send=202+SSE → 这里以脚本回放模拟流式回合（每对话同时只一个在途回合 → generating 时 composer 切「停止」）；
-     DB 行是真相 → blocks 数组是耐久态、脚本步增量改它再整渲（block-tree 声明式）；右岛 = entities build 流镜像 → 这里以 islandStream 步逐字喂 an-code-editor（写完即 active）。
-   脚本解释器消费 data.js 的 turn 步：push/patch/island/gate（gate 等 an-block-tree 冒泡的 an-decide，approve→settled、deny→改道）。
-   串接：composer an-send→追加 user 块 + 跑回复回合 · an-stop→停 · block-tree an-continue→续跑 · an-ref（ref-pill 点击）→Intent.select；rail 选会话→Intent.on('conversation')→loadConvo。 */
+     DB 行是真相 → 对话流 blocks（messages 流）+ 右岛实体面板（entities 流）双写：同一回合步既 push tool_call 块到 transcript，又驱动右岛对应实体 tab 流式填充【新 active 版本】（edit 立即生效、可 revert，无草稿/采用门）。
+   脚本解释器消费 data.js 的 turn 步：push/patch/stream（文本逐 token）/progressStream（终端逐行）/island（驱动右岛：focus 切实体+视图 + op 流式）/islandTodo（喂右岛 Todo 看板）/gate（人在环门，只在对话流渲）。
+   串接：composer an-send→追加 user 块 + 跑回复回合 · an-stop→停 · block-tree an-continue→续跑 · an-ref→Intent.select；rail 选会话→Intent.on('conversation')→loadConvo。 */
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
   sea: (ctx) => {
     const el = window.el;
+    const KIND = window.ENTITY_KINDS || {};
     const CONVOS = window.CHAT_CONVOS || {};
     const toast = (t) => window.AnToast && window.AnToast.show({ text: t });
 
@@ -27,8 +29,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     let blocks = [];         // live transcript（耐久态）
     let timers = [];         // 脚本步定时器（切会话全清）
     let gateListener = null; // 等待中的 an-decide 监听
-    let island = null;       // 右岛（:iterate 对话）
-    let islandCode = "";     // 右岛 live 代码累积
+    let ws = null;           // 右岛实体工作台（an-entity-workspace），无实体/todo 则 null
 
     const setBlocks = (b) => { blocks = b; tree.blocks = blocks; requestAnimationFrame(() => page.scrollToBottom()); };
     const pushBlock = (b) => setBlocks(blocks.concat([b]));
@@ -40,22 +41,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     }
     const after = (ms, fn) => { timers.push(setTimeout(fn, ms)); };
 
-    // ── 右岛（:iterate 对话）：实体面订阅 entities build 流实时填充【新 active 版本】（edit 写完即生效，无草稿/采用门；唯一动作 = revert 移指针）──
-    function buildIsland(spec) {
-      const isl = el("an-right-island", { title: "实时编辑 · " + spec.entity, icon: spec.kind || "function" });
-      const card = el("an-info-card", { title: spec.entity, icon: spec.kind || "function", meta: "已生效 · " + (spec.version || "v2") });
-      const code = el("an-code-editor", { lang: spec.lang || "text" });
-      code.textContent = "";
-      const acts = el("an-action-group", { footer: true });
-      const prev = el("an-button", { variant: "ghost", size: "sm", icon: "history", onclick: () => toast("已 revert · " + spec.entity + " 回退到上一版本（revert_* 移 active 指针）") }, "revert 回退");
-      acts.append(prev);
-      card.append(code, acts);
-      isl.append(card);
-      isl._code = code;
-      return isl;
-    }
-
-    // ── 脚本解释器：instant 步（push/patch）+ 流式步（stream 逐 token / islandStream 逐字），对齐后端 Open→Delta*→Close ──
+    // ── 脚本解释器：instant 步（push/patch）+ 流式步，对齐后端 Open→Delta*→Close ──
     function applyStep(s) {
       if (!s) return;
       if (s.push) pushBlock(s.push);
@@ -77,20 +63,6 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       };
       step();
     }
-    // 右岛代码逐字流入（= entities build 流镜像：edit_* 工具的 arg delta 镜像到右岛实体面，close 快照才是重连真相）
-    function streamIsland(spec, done) {
-      if (!island || !island._code) { if (done) done(); return; }
-      const full = spec.code || "", chunk = spec.chunk || 2, cps = spec.cps || 140;
-      islandCode = full;
-      let n = 0;
-      const step = () => {
-        if (!cur) return;
-        if (n >= full.length) { island._code.value = full; if (done) done(); return; }
-        n = Math.min(full.length, n + chunk); island._code.value = full.slice(0, n);
-        timers.push(setTimeout(step, Math.round(1000 / (cps / chunk))));
-      };
-      step();
-    }
     // progress 终端式 live 流：push 空 progress 块（Open）→ pokeLog 逐行追加（Delta，实时脉冲）→ done:true 落定（Close）
     function streamLog(spec, done) {
       const lines = Array.isArray(spec.lines) ? spec.lines : [];
@@ -105,17 +77,93 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       };
       step();
     }
+
+    // ── 右岛驱动（= entities 流镜像）：focus 切实体 tab + 子视图，再按 op 把流式喂进该 view 的 live 原语 ──
+    // 代码逐字流入（create→an-code-editor.value / 镜像 build 流 arg delta，close 快照才是重连真相）
+    function streamCode(ed, full, cps, done) {
+      if (!ed) { if (done) done(); return; }
+      const chunk = 2; let n = 0;
+      const step = () => {
+        if (!cur) return;
+        if (n >= full.length) { ed.value = full; if (done) done(); return; }
+        n = Math.min(full.length, n + chunk); ed.value = full.slice(0, n);
+        timers.push(setTimeout(step, Math.round(1000 / (cps / chunk))));
+      };
+      step();
+    }
+    // 编辑逐字流入（edit→an-version-diff.after 累积，每设触发 LCS 重算红绿；before=旧 active 版本源、立即生效无审批门）
+    function streamDiff(diff, before, full, cps, done) {
+      if (!diff) { if (done) done(); return; }
+      if (before != null) diff.before = before;
+      diff.after = "";
+      const chunk = 3; let n = 0;
+      const step = () => {
+        if (!cur) return;
+        if (n >= full.length) { diff.after = full; if (done) done(); return; }
+        n = Math.min(full.length, n + chunk); diff.after = full.slice(0, n);
+        timers.push(setTimeout(step, Math.round(1000 / (cps / chunk))));
+      };
+      step();
+    }
+    // flowrun 逐节点点亮（trigger 产出 durable flowrun；镜像 ephemeral Signal 无 open→close，纯终态 tick）
+    function streamGantt(g, nodes, lps, done) {
+      if (!g || !nodes.length) { if (done) done(); return; }
+      const seed = nodes.map((n) => Object.assign({}, n, { status: "future", wPct: 0, iters: null, parked: false }));
+      g.nodes = seed.map((n) => Object.assign({}, n));
+      let k = 0;
+      const step = () => {
+        if (!cur) return;
+        if (k >= nodes.length) { g.nodes = nodes.map((n) => Object.assign({}, n)); if (done) done(); return; }
+        g.nodes = seed.map((s, i) => (i <= k ? Object.assign({}, nodes[i]) : s));
+        k++; timers.push(setTimeout(step, Math.round(1000 / lps)));
+      };
+      step();
+    }
+    // agent 轨迹逐块流入（invoke→嵌套 an-block-tree 的 ReAct；与对话流 subtree 同一轨迹两处呈现）
+    function streamTrace(bt, list, done) {
+      if (!bt || !list.length) { if (done) done(); return; }
+      bt.blocks = []; let acc = [], k = 0;
+      const step = () => {
+        if (!cur) return;
+        if (k >= list.length) { bt.blocks = list.slice(); if (done) done(); return; }
+        acc = acc.concat([list[k++]]); bt.blocks = acc.slice();
+        timers.push(setTimeout(step, 520));
+      };
+      step();
+    }
+    function driveIsland(drive, done) {
+      if (!ws || !drive || !drive.focus) { if (done) done(); return; }
+      const target = ws.focus(drive.focus.id, drive.focus.view);
+      const op = drive.op;
+      if (!op) { if (done) done(); return; }   // 仅切视图（静态切换）
+      if (op === "create") return streamCode(target, drive.code || "", drive.cps || 150, done);
+      if (op === "edit") return streamDiff(target, drive.before, drive.after || "", drive.cps || 150, done);
+      if (op === "run") {
+        if (target) {
+          if (drive.args != null) target.setAttribute("args", drive.args);
+          if (drive.trace) target.setAttribute("data-trace", JSON.stringify(drive.trace));
+          if (target.run) target.run();
+        }
+        const ln = (drive.trace && drive.trace.lines ? drive.trace.lines.length : 3);
+        after((ln + 2) * 260, done); return;
+      }
+      if (op === "flowrun") return streamGantt(target, drive.nodes || [], drive.lps || 3, done);
+      if (op === "trace") return streamTrace(target, drive.blocks || [], done);
+      if (done) done();
+    }
+
     function runStep(s, done) {
       if (!s) { if (done) done(); return; }
       if (s.stream) { after(s.ms || 250, () => streamBlock(s.stream, done)); return; }
-      if (s.islandStream) { after(s.ms || 250, () => streamIsland(s.islandStream, done)); return; }
       if (s.progressStream) { after(s.ms || 250, () => streamLog(s.progressStream, done)); return; }
-      after(s.ms || 300, () => { applyStep(s); if (done) done(); });
+      // island 步：与对话流块同步推进——先落 push/patch（messages 真相），再驱动右岛（entities 镜像）
+      if (s.island) { after(s.ms || 250, () => { applyStep(s); if (s.islandTodo) ws && ws.setTodo(s.islandTodo); driveIsland(s.island, done); }); return; }
+      after(s.ms || 300, () => { applyStep(s); if (s.islandTodo && ws) ws.setTodo(s.islandTodo); if (done) done(); });
     }
     function runTurn(steps, i) {
       if (!cur || !steps || i >= steps.length) { composer.removeAttribute("generating"); return; }
       const s = steps[i], next = () => runTurn(steps, i + 1);
-      if (s.gate) {   // 人在环门：等 an-block-tree 冒泡的 an-decide（approve/accept→onApprove · deny/decline→onDeny）；3.5s 无人动自动放行（自演）
+      if (s.gate) {   // 人在环门（只在对话流 block-tree 渲，右岛不重复门）：等 an-decide（approve/accept→onApprove · deny/decline→onDeny）；3.5s 无人动自动放行（自演）
         gateListener = (ev) => { clearTurn(); const a = ev.detail.action; const no = a === "deny" || a === "decline"; runStep(no ? s.gate.onDeny : s.gate.onApprove, next); };
         tree.addEventListener("an-decide", gateListener);
         after(3500, () => { if (gateListener) { tree.removeEventListener("an-decide", gateListener); gateListener = null; } runStep(s.gate.onApprove, next); });
@@ -130,6 +178,23 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       { ms: 400, stream: { type: "reasoning", open: true, label: "推理", text: "理解用户的追加请求，给出简短回应。", tps: 42 } },
       { ms: 450, stream: { type: "text", text: "收到 👍 我会按这个调整。\n\n（演示：真实回合经 messages SSE 逐 token 流式产出，此处为脚本流式回放。）", tps: 24 } },
     ];
+
+    // ── 右岛实体工作台：据 c.islands（碰过的实体清单）+ c.todo 建；静态对话直接显 view 种子值，autoplay 对话靠 turn 步流式 ──
+    function buildWorkspace(c) {
+      ws = null;
+      const ents = c.islands || [];
+      if (!ents.length && !c.todo) { if (ctx.shell) ctx.shell.setRight(null); return; }
+      const title = ents.length ? (ents.length > 1 ? "工作台 · " + ents.length + " 个实体" : (ents[0].name || "实体")) : "Todo";
+      const icon = ents.length ? ((KIND[ents[0].kind] || {}).icon || "workflow") : "list";
+      const shellIsl = el("an-right-island", { title, icon });
+      ws = el("an-entity-workspace");
+      ws.model = { entities: ents, todo: !!c.todo };
+      ws.addEventListener("an-revert", (e) => toast("已 revert · " + (e.detail.name || "") + " 回退到上一版本（revert_* 移 active 指针）"));
+      shellIsl.append(ws);
+      if (ctx.shell) ctx.shell.setRight(shellIsl);
+      // 静态对话（无 autoplay）：终态 todo 直接落定（view 种子值已在 model build 时设入）
+      if (!c.autoplay && c.todo && c.todoFinal) ws.setTodo(c.todoFinal);
+    }
 
     // ── 切会话 ──
     function loadConvo(id) {
@@ -153,10 +218,8 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       }
       composer.removeAttribute("generating");
       composer.attachments = [];
-      // 右岛：仅 :iterate 对话展开实体 live 编辑（其余收起、对话全宽）
-      island = null; islandCode = "";
-      if (c.island) { island = buildIsland(c.island); if (ctx.shell) ctx.shell.setRight(island); }
-      else if (ctx.shell) ctx.shell.setRight(null);
+      // 右岛实体工作台
+      buildWorkspace(c);
       // 初始 transcript + 自动播放脚本回合
       setBlocks((c.blocks || []).slice());
       if (c.autoplay && c.turn) after(700, () => startTurn(c.turn));

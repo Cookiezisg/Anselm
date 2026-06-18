@@ -26,7 +26,7 @@
 
 ## 二、Pattern 层（共享件，Phase 2.5）
 
-> **✅ 12 件已全部落地** `demo/core/primitives/`（lint 绿 · reference.html 活体规格台已展示 · 0 console 错误 · 0 missing icon）。
+> **✅ 13 件已全部落地** `demo/core/primitives/`（lint 绿 · reference.html 活体规格台已展示 · 0 console 错误 · 0 missing icon）。
 
 | Pattern | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
@@ -40,6 +40,7 @@
 | `an-approval-gate` | ✅ | `approval-gate.js` 三 flavor：chat(danger 批准/拒绝) · ask(ask_user 提交/跳过 + options) · durable(flowrun :decide，仅 scheduler) | chat 危险确认 / ask 提问 · flowrun 审批门 |
 | `an-run-terminal` | ✅ | 移植 `run-debug.js`（args→流式 stdout→结果） | fn/hd/agent/mcp 试运行 |
 | `an-block-tree` | ✅ | `block-kit.js` → 9 块型 transcript（text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/todo/subtree E3）；结果按形态分派(终端/列表/JSON/error 标红) · turnEnd 按 stopReason 分态 · pokeText/pokeLog 逐帧 Delta 流式 | **chat 核心** · agent transcript |
+| `an-entity-workspace` | ✅ 🧩 | `entity-workspace.js`（chat 右岛实体工作台 = **entities SSE 流的实体面板镜像**，与对话流 block-tree[messages] 并行双写）：顶层 an-tabs[本对话每碰过实体一 tab + 可选 Todo] + 按 kind 卡工厂[an-info-card>an-segmented 子视图]；子视图按 tool call 分派——create→code-editor 流式新建 · edit→version-diff 流式红绿 · run→run-terminal 终端 · flowrun→node-gantt 节点点亮 · trace→嵌套 block-tree[ReAct] · detail/config/mounts→kv；命令式 focus(id,view)/viewEl/setTodo 供 sea 持 timer 流式驱动（本件只承载结构 + live 子元素入口） | chat 右岛（:iterate/:triage/create/run 各实体面板 + 多实体切换 + Todo） |
 
 ## 三、逃生舱 + 海洋专属 pattern（Phase 3 随海洋建）
 

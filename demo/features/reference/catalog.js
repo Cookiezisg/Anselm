@@ -3966,6 +3966,48 @@ window.REF_CATALOG = [
         ]
       },
       {
+        "name": "实体工作台 entity-workspace",
+        "tag": "an-entity-workspace",
+        "blurb": "chat 右岛实体工作台 = entities 流的实体面板镜像：顶层 tab[每碰过实体 + 可选 Todo] + 按 kind 卡工厂（an-info-card>an-segmented 子视图）；create→流式新建源码 · edit→流式红绿 Diff · run→终端 · flowrun→节点点亮 · trace→嵌套 ReAct · detail→kv。命令式 focus/viewEl/setTodo 供 chat sea 持 timer 流式驱动。",
+        "specimens": [
+          {
+            "label": "多实体 tab + 子视图 + Todo（model 注入）",
+            "span": true,
+            "tag": "an-entity-workspace",
+            "props": {
+              "model": {
+                "entities": [
+                  {
+                    "id": "fn_demo", "kind": "function", "name": "sync_inventory", "lang": "python", "meta": "v2 · 已生效", "revert": "revert 回 v1",
+                    "views": [
+                      { "key": "edit", "label": "Diff", "range": "v1 → v2", "note": "加指数退避重试",
+                        "before": "import requests\n\ndef sync_inventory(wh):\n    return upsert(fetch_skus(wh))\n",
+                        "after": "import time, requests\n\ndef sync_inventory(wh):\n    for i in range(3):\n        try:\n            return upsert(fetch_skus(wh))\n        except requests.RequestException:\n            if i == 2: raise\n            time.sleep(2 ** i)\n" },
+                      { "key": "detail", "label": "详情", "rows": [["version", "2"], ["envStatus", "ready"], ["opsApplied", "1"]] }
+                    ]
+                  },
+                  {
+                    "id": "wf_demo", "kind": "workflow", "name": "pr_merge_flow", "lang": "json", "meta": "failed",
+                    "views": [
+                      { "key": "flowrun", "label": "运行图", "nodes": [
+                        { "id": "trigger", "kind": "trigger", "label": "pr.webhook", "status": "completed", "atPct": 0, "wPct": 12 },
+                        { "id": "fetch", "kind": "action", "label": "fetch", "status": "failed", "atPct": 14, "wPct": 38 },
+                        { "id": "transform", "kind": "action", "label": "transform", "status": "completed", "atPct": 14, "wPct": 26 }
+                      ] }
+                    ]
+                  }
+                ],
+                "todos": [
+                  { "content": "建图并三层校验", "status": "completed" },
+                  { "content": "trigger 冒烟", "status": "in_progress", "activeForm": "正在冒烟" },
+                  { "content": "接真实 webhook", "status": "pending" }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
         "name": "记录页骨架 page",
         "tag": "an-page",
         "blurb": "记录页滚动壳：居中 --w-content 列 + 唯一滚动区 + 浮动 overlay 滚轮（rAF 节流、空闲隐藏，不占 gutter）。零属性、零 props；header/tabs/sections 全塞默认 slot。",
