@@ -74,10 +74,12 @@
     return s;
   }
   function placeholderRail() {
-    const d = document.createElement("div");
-    d.style.cssText = "padding:var(--sp-6) var(--sp-3); color:var(--ink-3); font-size:var(--t-meta);";
-    d.textContent = "侧栏设计中…";
-    return d;
+    // 与 placeholderSea 对称走 an-state（皮肤=原语 static css），feature 装配层不再内联字色/字阶
+    const s = document.createElement("an-state");
+    s.setAttribute("icon", "panel-left");
+    s.setAttribute("title", "侧栏设计中…");
+    s.setAttribute("hint", "Phase 3 · 待铺");
+    return s;
   }
 
   function boot() {

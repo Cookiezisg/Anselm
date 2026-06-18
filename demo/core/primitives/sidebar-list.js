@@ -35,13 +35,8 @@
       }
       .input::placeholder { color: var(--ink-3); }
       .input:focus { outline: none; }
-      .sliders {
-        display: grid; place-items: center; width: var(--trail); height: var(--trail);
-        color: var(--ink-3); border-radius: var(--r-tag); cursor: pointer;
-        transition: background var(--d-fast), color var(--d-fast);
-      }
-      .sliders svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
-      .sliders:hover { background: var(--island-3); color: var(--ink); }
+      /* sliders 菜单锚钮皮肤归 an-button variant=icon size=sm（不再 raw button 重抄）；仅保留行尾对齐 */
+      .sliders { justify-self: end; }
 
       /* 树主体 */
       .tree { display: flex; flex-direction: column; min-height: 0; }
@@ -82,7 +77,7 @@
         <div class="head-row filter">
           <span class="lead">${window.icon("search")}</span>
           <input class="input" type="text" placeholder="${e(m.filterPlaceholder || "")}">
-          <button type="button" class="sliders" title="显示选项">${window.icon("sliders")}</button>
+          <an-button class="sliders" variant="icon" size="sm" icon="sliders" aria-label="显示选项"></an-button>
         </div>
         <div class="tree">${groups}</div>`;
     }

@@ -10,14 +10,6 @@
       .list { display: flex; flex-direction: column; gap: var(--grid); }
       .wire { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto; align-items: center; gap: var(--gap-tight); }
       .arr { color: var(--ink-3); }
-      .wx { display: grid; place-items: center; flex: none; width: var(--ctl-sm); height: var(--ctl-sm); border-radius: var(--r-tag);
-        color: var(--ink-3); transition: background var(--d-fast), color var(--d-fast); }
-      .wx:hover { background: var(--island-3); color: var(--ink); }
-      .wx svg { width: var(--icon-sm); height: var(--icon-sm); }
-      .add { display: inline-flex; align-items: center; gap: var(--gap-tight); height: var(--ctl-sm); padding: 0 var(--btn-pad-x-sm);
-        border-radius: var(--r-tag); color: var(--ink-2); font-size: var(--t-meta); transition: background var(--d-fast), color var(--d-fast); }
-      .add:hover { background: var(--island-3); color: var(--ink); }
-      .add svg { width: var(--icon-sm); height: var(--icon-sm); }
     `;
 
     set rows(v) {
@@ -36,9 +28,9 @@
         + `<an-input class="wk" mono value="${e(r.field)}" placeholder="${e(kp)}"></an-input>`
         + `<span class="arr">→</span>`
         + `<an-input class="wv" mono value="${e(r.expr)}" placeholder="${e(vp)}"></an-input>`
-        + `<button type="button" class="wx" data-x="${i}" title="删除映射">${window.icon("close")}</button>`
+        + `<an-button class="wx" variant="icon" size="sm" icon="close" data-x="${i}" aria-label="删除映射"></an-button>`
         + `</div>`).join("");
-      return `<div class="list">${list}</div><button type="button" class="add" data-add>${window.icon("enter")}${e(this.attr("addlabel", "添加映射"))}</button>`;
+      return `<div class="list">${list}</div><an-button class="add" size="sm" icon="enter" data-add>${e(this.attr("addlabel", "添加映射"))}</an-button>`;
     }
 
     hydrate() {

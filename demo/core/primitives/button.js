@@ -27,6 +27,9 @@
       :host([variant="icon"]) button { width: var(--ctl); padding: 0; color: var(--ink-3); }
       :host([variant="icon"]) button:hover { background: var(--island-3); color: var(--ink); }
       :host([size="sm"]) button { height: var(--ctl-sm); padding: 0 var(--btn-pad-x-sm); font-size: var(--t-meta); }
+      /* icon 钮密集态：方钮缩到 --ctl-sm + 图标缩到 --icon-sm（紧凑头/行尾的小图标钮单源，免各处 raw button 重抄皮肤） */
+      :host([variant="icon"][size="sm"]) button { width: var(--ctl-sm); }
+      :host([size="sm"]) .ico svg { width: var(--icon-sm); height: var(--icon-sm); }
       :host([block]) button { width: 100%; justify-content: flex-start; }
     `;
     render() {

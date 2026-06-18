@@ -43,11 +43,9 @@
         color: var(--ink); font-size: var(--t-body); font-weight: 600; cursor: pointer;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background var(--d-fast); }
       .ht-text:hover { background: var(--island-3); }
-      .ht-chev { flex: none; display: none; place-items: center; width: var(--ctl-sm); height: var(--ctl-sm);
-        border-radius: var(--r-tag); color: var(--ink-3); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
-      :host([head-menu]) .ht-chev { display: inline-grid; }
-      .ht-chev:hover { background: var(--island-3); color: var(--ink); }
-      .ht-chev svg { width: var(--icon-sm); height: var(--icon-sm); }
+      /* ⌄ 钮皮肤归 an-button variant=icon size=sm（不再 raw button 重抄）；这里只控显隐：无 head-menu 时藏 */
+      .ht-chev { display: none; flex: none; }
+      :host([head-menu]) .ht-chev { display: inline-flex; }
       :host([head="hide"]) .htitle { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); pointer-events: none; }
       :host([head="show"]) .htitle { opacity: 1; transform: none; }
       .grow { flex: 1; }
@@ -74,7 +72,7 @@
             <div class="head">
               <span class="lead">
                 <an-button class="reopen" variant="icon" icon="panel-left"></an-button>
-                <span class="htitle"><button type="button" class="ht-text" aria-label="回到顶部"></button><button type="button" class="ht-chev" aria-label="操作">${window.icon("chevd", 12)}</button></span>
+                <span class="htitle"><button type="button" class="ht-text" aria-label="回到顶部"></button><an-button class="ht-chev" variant="icon" size="sm" icon="chevd" aria-label="操作"></an-button></span>
                 <slot name="head-lead"></slot>
               </span>
               <span class="grow"></span>
