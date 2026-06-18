@@ -221,11 +221,16 @@ func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage
 				c.spec.Name, name, mcpdomain.ErrToolCallTimeout, err)
 		}
 		return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %v",
-			c.spec.Name, name, mcpdomain.ErrToolCallFailed, err)
+			c.spec.Name, name, mcpdomain.ErrToolCallFailed.WithDetails(map[string]any{"reason": err.Error()}), err)
 	}
 	if res.IsError {
+		// Carry the tool's error content (which names the bad field) into Details so the HTTP :invoke
+		// envelope surfaces it instead of a bare MCP_RPC_ERROR — the LLM/workflow path already reads it
+		// from the message, this gives the direct-invoke face parity (cf F8/F69).
+		// 把工具错误内容（点名坏字段）带进 Details，使 HTTP :invoke envelope 透出而非裸 MCP_RPC_ERROR。
+		detail := joinContent(res.Content)
 		return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %s",
-			c.spec.Name, name, mcpdomain.ErrToolCallFailed, joinContent(res.Content))
+			c.spec.Name, name, mcpdomain.ErrToolCallFailed.WithDetails(map[string]any{"reason": detail}), detail)
 	}
 	return joinContent(res.Content), nil
 }
