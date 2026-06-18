@@ -98,12 +98,16 @@ func (r fakeResolver) ResolveUtility(_ context.Context) (Bundle, error) {
 	}, nil
 }
 
-// fakeConvs returns one fixed conversation for any id.
+// fakeConvs returns one fixed conversation for any id (or err, if set, to simulate a foreign/missing id).
 type fakeConvs struct {
 	conv *conversationdomain.Conversation
+	err  error
 }
 
 func (c fakeConvs) Get(_ context.Context, id string) (*conversationdomain.Conversation, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
 	cp := *c.conv
 	cp.ID = id
 	return &cp, nil
@@ -530,6 +534,20 @@ func TestAutoTitle_FirstTurn(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("auto-title was not invoked for the first turn")
+	}
+}
+
+// TestListMessagesUsage_ForeignConversation404 — F72: a cross-ws / nonexistent conversation id must
+// 404 via the ownership pre-check (like SystemPromptPreview), not return 200-empty / 0-tokens.
+func TestListMessagesUsage_ForeignConversation404(t *testing.T) {
+	_, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	svc := NewService(store, Deps{Conversations: fakeConvs{err: conversationdomain.ErrNotFound}}, zap.NewNop())
+	ctx := ctxWS("ws_1")
+	if _, _, err := svc.ListMessages(ctx, "cv_foreign", "", 10); !errors.Is(err, conversationdomain.ErrNotFound) {
+		t.Fatalf("ListMessages on a foreign id must return CONVERSATION_NOT_FOUND, got %v", err)
+	}
+	if _, _, err := svc.Usage(ctx, "cv_foreign"); !errors.Is(err, conversationdomain.ErrNotFound) {
+		t.Fatalf("Usage on a foreign id must return CONVERSATION_NOT_FOUND, got %v", err)
 	}
 }
 

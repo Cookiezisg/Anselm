@@ -505,6 +505,14 @@ func (s *Service) Shutdown() {
 // ListMessages 返回一个对话回合的一页 keyset（每条带 blocks）给 REST 历史端点——薄转 messages
 // store（N4 分页、最新在前）。
 func (s *Service) ListMessages(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
+	// Confirm the conversation exists in this workspace first (cross-ws / nonexistent → 404) instead of
+	// returning 200-empty — consistency with SystemPromptPreview and the other conversation-scoped reads
+	// (the ORM workspace filter already prevents any cross-ws leak; this is honesty, not a leak fix).
+	// 先确认对话在本 workspace 存在（跨 ws / 不存在 → 404）、而非返 200-空——与 SystemPromptPreview 等对话
+	// 范围读一致（ORM workspace 过滤本就杜绝跨 ws 泄露，这里是诚实、非补泄露）。
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, "", err
+	}
 	return s.messages.ListMessages(ctx, conversationID, cursor, limit)
 }
 
@@ -527,6 +535,11 @@ func (s *Service) SystemPromptPreview(ctx context.Context, conversationID string
 //
 // Usage 返回一个对话所有回合的 input + output token 总成本——GET /usage 端点（对话详情的 tokensUsed）。
 func (s *Service) Usage(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error) {
+	// Same ownership pre-check as ListMessages: a foreign/nonexistent id → 404, not 200-with-0-tokens.
+	// 与 ListMessages 同款归属前置校验：外部 / 不存在 id → 404，而非 200-零-token。
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return 0, 0, err
+	}
 	return s.messages.SumTokens(ctx, conversationID)
 }
 
