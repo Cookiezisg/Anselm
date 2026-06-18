@@ -60,8 +60,17 @@ func writeBody(b *strings.Builder, body string) {
 		b.WriteString("        pass\n")
 		return
 	}
-	for _, line := range strings.Split(body, "\n") {
-		if line == "" {
+	// Normalise the body's common leading indent to 0 before re-indenting to the method-body column.
+	// An agent that writes the body already-indented (the natural "this is inside a method" style)
+	// otherwise gets double-indented into a Python IndentationError that — because the import is at
+	// module top, outside the run try/except — surfaces only as an opaque "subprocess crashed". A
+	// flush-left body has common indent 0, so dedent leaves it untouched (purely additive).
+	//
+	// 重新缩进到方法体列前，把 body 的公共前导缩进归一到 0。agent 若按"这是在方法里"的自然风格已缩进写，
+	// 否则被双重缩进成 Python IndentationError——因 import 在模块顶、在 run 的 try/except 之外，只表现为
+	// 不透明的 "subprocess crashed"。flush-left body 公共缩进为 0、dedent 不动它（纯增量）。
+	for _, line := range strings.Split(dedent(body), "\n") {
+		if strings.TrimSpace(line) == "" {
 			b.WriteByte('\n')
 			continue
 		}
@@ -69,6 +78,32 @@ func writeBody(b *strings.Builder, body string) {
 		b.WriteString(line)
 		b.WriteByte('\n')
 	}
+}
+
+// dedent strips the common leading whitespace from all non-blank lines (Python textwrap.dedent),
+// preserving relative indentation. Returns the input unchanged when the common indent is 0.
+// dedent 剥去所有非空行的公共前导空白（同 Python textwrap.dedent），保留相对缩进；公共缩进为 0 时原样返回。
+func dedent(s string) string {
+	lines := strings.Split(s, "\n")
+	common := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		n := len(line) - len(strings.TrimLeft(line, " \t"))
+		if common < 0 || n < common {
+			common = n
+		}
+	}
+	if common <= 0 {
+		return s
+	}
+	for i, line := range lines {
+		if len(line) >= common {
+			lines[i] = line[common:]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func pythonType(t string) string {
