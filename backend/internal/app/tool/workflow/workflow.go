@@ -57,6 +57,12 @@ const opsDoc = `OP SHAPES (each has an "op" discriminator):
   {"op":"delete_edge", "id":"<edgeId>"}
 
 NODE KINDS & REF PREFIXES: trigger→trg_, action→fn_ | hd_<id>.method | mcp:server/tool, agent→ag_, control→ctl_, approval→apf_.
-A node's "input" wires each field to a bare CEL expression over upstream results (payload/ctx for a trigger's signal, input for node-fed data). A trigger node has no input.
+A node's "input" wires each field to a bare CEL expression that reads UPSTREAM NODES' RESULTS BY NODE ID — "<upstreamNodeId>.<field>", e.g. "start.amount" or "check_amount.score". There is NO payload/ctx/input root in a node's input CEL; address the producing node directly. A trigger node has no input.
+NODE RESULT SHAPES — what "<nodeId>.<field>" can read from each kind:
+  • trigger  → the fire payload's fields (e.g. start.amount).
+  • action   → a function's declared outputs / a handler method's return / an mcp tool's result.
+  • control  → the chosen branch's emit fields (flattened) plus "__port" (the branch name taken).
+  • approval → {decision: "yes"|"no", reason} ONLY — an approval does NOT pass its input through. To use the original data downstream (e.g. the amount), read it from an upstream node like "start.amount", NOT from the approval node.
+  • agent    → the agent's structured output fields.
 fromPort is required on an edge leaving a control node (a branch name) or an approval node (yes|no), and must be absent otherwise.
 The graph must have ≥1 trigger, no orphan nodes, and any loop must be closed by a control or approval branch (a back edge).`
