@@ -86,7 +86,7 @@ func (p *zhipuProvider) BuildRequest(ctx context.Context, req Request) (*http.Re
 func (p *zhipuProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
 		state := newZhipuToolState()
-		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
 			}

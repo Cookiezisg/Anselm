@@ -75,7 +75,7 @@ func (p *moonshotProvider) BuildRequest(ctx context.Context, req Request) (*http
 func (p *moonshotProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
 	return func(yield func(StreamEvent) bool) {
 		state := newmoonshotToolState()
-		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
 			}

@@ -79,7 +79,7 @@ func (p *customProvider) ParseStream(ctx context.Context, resp *http.Response, r
 			return
 		}
 		state := newCustomToolState()
-		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
 			}

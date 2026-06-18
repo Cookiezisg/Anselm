@@ -2,6 +2,7 @@ package llm
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -62,10 +63,21 @@ const maxSSELineBytes = 8 << 20
 //
 // scanSSELines 是通用 SSE 扫描器：读行、剥 "data: " 前缀、跳过注释行、对每个 JSON
 // payload 调 fn（返 false 提前停）；遇 "[DONE]" 终止。SSE 协议本身的语义，各 provider 复用。
-func scanSSELines(r io.Reader, fn func(payload []byte) bool) error {
+func scanSSELines(ctx context.Context, r io.Reader, fn func(payload []byte) bool) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64*1024), maxSSELineBytes)
 	for scanner.Scan() {
+		// Break on a cancelled ctx even when the stream only dribbles non-data lines (SSE
+		// keep-alive comments). Those skip fn — where ctx is otherwise checked — so without this a
+		// silent keep-alive stream traps the scan forever: the idle-timer's cancel never lands, no
+		// EventError is surfaced, and the turn never finalizes (message stuck `streaming`). F33/F12.
+		//
+		// ctx 取消时必须能打断扫描——即便流只在滴非 data 行（SSE keep-alive 注释）。这些行跳过 fn（ctx 本在
+		// fn 内才查），否则静默 keep-alive 流把扫描死困：idle 计时器的 cancel 永不生效、不报 EventError、回合
+		// 永不收尾（message 卡 streaming）。F33/F12。
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
 			continue // comment lines, blank lines, event: / id: lines

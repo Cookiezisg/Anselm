@@ -91,7 +91,7 @@ func (p *deepseekProvider) ParseStream(ctx context.Context, resp *http.Response,
 			return
 		}
 		state := newDeepSeekToolState()
-		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
 			}

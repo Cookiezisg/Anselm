@@ -103,7 +103,7 @@ func (p *geminiProvider) ParseStream(ctx context.Context, resp *http.Response, r
 		// Gemini does not number tool calls; count emission order for a stream-local index.
 		// Gemini 不编号工具调用，按出现顺序计数作流内序号。
 		toolIdx := 0
-		scanErr := scanSSELines(resp.Body, func(payload []byte) bool {
+		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
 			}
