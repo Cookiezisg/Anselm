@@ -136,3 +136,29 @@ func TestTriage_RendererErrorBubbles(t *testing.T) {
 		t.Fatal("no conversation should be created when rendering fails")
 	}
 }
+
+type validator struct{ err error }
+
+func (v validator) ValidateMention(_ context.Context, _ mentiondomain.MentionType, _ string) error {
+	return v.err
+}
+
+// TestIterate_ValidatesTargetExists — F36: a bogus/deleted :iterate target must fail with the
+// resolver's NOT_FOUND BEFORE spawning, not open a phantom AI-edit conversation on a missing premise.
+func TestIterate_ValidatesTargetExists(t *testing.T) {
+	notFound := errors.New("function not found")
+	sd := &sender{}
+	svc := NewService(&starter{}, sd, nil, nil)
+	svc.SetMentionValidator(validator{err: notFound})
+	if _, err := svc.Iterate(context.Background(), mentiondomain.MentionFunction, "fn_bogus", "do x"); !errors.Is(err, notFound) {
+		t.Fatalf("iterate on a non-existent target should return the not-found error, got %v", err)
+	}
+	if sd.sent {
+		t.Fatal("no conversation should be spawned for a non-existent target")
+	}
+	// A resolvable target still spawns.
+	svc.SetMentionValidator(validator{err: nil})
+	if _, err := svc.Iterate(context.Background(), mentiondomain.MentionFunction, "fn_ok", "do x"); err != nil {
+		t.Fatalf("valid target should spawn, got %v", err)
+	}
+}

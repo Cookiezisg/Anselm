@@ -60,6 +60,22 @@ func (s *Service) resolveMentions(ctx context.Context, mentions []mentiondomain.
 	return out
 }
 
+// ValidateMention confirms a mention target resolves (the entity exists). aispawn calls it before
+// spawning an :iterate conversation so a bogus/deleted id returns the entity's NOT_FOUND (404)
+// instead of a phantom AI-edit conversation. A type with no registered resolver can't be validated
+// → nil (never a false block). Mirrors resolveMentions' resolution but surfaces the error.
+//
+// ValidateMention 确认 mention 目标可解析（实体存在）。aispawn 在 spawn :iterate 对话前调它，使坏/已删 id
+// 返实体 NOT_FOUND(404)、而非前提缺失的幻影 AI-编辑对话。无注册 resolver 的类型无法验 → nil（绝不误挡）。
+func (s *Service) ValidateMention(ctx context.Context, t mentiondomain.MentionType, id string) error {
+	r, ok := s.mentionResolvers[t]
+	if !ok {
+		return nil
+	}
+	_, err := r.Resolve(ctx, id)
+	return err
+}
+
 // mentionSnapshot is the read-back form of one frozen mention.
 type mentionSnapshot struct{ Type, ID, Name, Content string }
 

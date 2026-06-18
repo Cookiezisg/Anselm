@@ -62,12 +62,29 @@ type ExecutionRenderer interface {
 // Service is the iterate/triage engine.
 //
 // Service 是 iterate/triage 引擎。
+// MentionValidator confirms an :iterate target entity exists before a conversation is spawned around
+// it — so a bogus/deleted id returns NOT_FOUND (404) instead of a phantom AI-edit conversation whose
+// premise (the entity, frozen in via @-mention) is missing. nil → skip (tests / not wired). The chat
+// service's ValidateMention satisfies it. Mirrors Triage's eager renderer.Render validation.
+//
+// MentionValidator 在 spawn 围绕某实体的对话前确认 :iterate 目标存在——坏/已删 id 返 NOT_FOUND(404)、而非
+// 前提（实体经 @-mention 冻结进来）缺失的幻影 AI-编辑对话。nil → 跳过（测试/未接）。chat 的 ValidateMention 满足。
+type MentionValidator interface {
+	ValidateMention(ctx context.Context, t mentiondomain.MentionType, id string) error
+}
+
 type Service struct {
 	conv     ConversationStarter
 	chat     TurnSender
 	renderer ExecutionRenderer
+	mentions MentionValidator
 	log      *zap.Logger
 }
+
+// SetMentionValidator wires the iterate-target existence check post-construction (avoids a
+// constructor-signature churn + a chat↔aispawn ordering knot). Optional; nil → Iterate skips it.
+// SetMentionValidator 在构造后接 iterate 目标存在校验（免构造签名变动 + chat↔aispawn 顺序结）。可选；nil → Iterate 跳过。
+func (s *Service) SetMentionValidator(v MentionValidator) { s.mentions = v }
 
 func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRenderer, log *zap.Logger) *Service {
 	if conv == nil || chat == nil {
@@ -110,6 +127,14 @@ const triageSteer = "You are helping the user diagnose a Anselm execution. The e
 func (s *Service) Iterate(ctx context.Context, mentionType mentiondomain.MentionType, entityID, request string) (string, error) {
 	if request == "" {
 		return "", ErrEmptyRequest
+	}
+	// Validate the target exists BEFORE spawning — else a bogus/deleted id yields a 202 + a real
+	// conversation whose @-mention degraded to "(unavailable)", wasting an AI turn on a missing premise.
+	// 在 spawn 前确认目标存在——否则坏/已删 id 会出 202 + 一个 @-mention 降级成 "(unavailable)" 的真对话、白烧一轮。
+	if s.mentions != nil {
+		if err := s.mentions.ValidateMention(ctx, mentionType, entityID); err != nil {
+			return "", err
+		}
 	}
 	return s.spawn(ctx, iterateSteer, request, []mentiondomain.MentionInput{{Type: mentionType, ID: entityID}})
 }

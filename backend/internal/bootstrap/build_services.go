@@ -421,6 +421,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	//
 	// aispawn 组合 conversation + chat + 前缀分发执行渲染器；最后建（它读已装配的 services）。
 	s.aispawn = newAispawn(s, log)
+	// Let :iterate validate its target exists before spawning (chat owns the mention resolvers).
+	// 让 :iterate 在 spawn 前确认目标存在（chat 持 mention resolver）。
+	s.aispawn.SetMentionValidator(s.chat)
 	return s
 }
 
