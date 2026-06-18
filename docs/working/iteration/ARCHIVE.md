@@ -76,6 +76,7 @@ landed-into:
 | F36 :iterate 对不存在 id 返 202 而非 404（aispawn 不校、Triage 校的不对称） | ai-ops(aispawn) | 单工具 / happy | promise≠reality/假成功 | fixed·locked |
 | F50 空 function 名误报 INVALID_CODE（误导查代码） | function | 单工具 / 边界 | promise≠reality/选错工具 | fixed·locked |
 | F54 无搜索后端引导广告不存在的 keyless duckduckgo MCP | web(搜索引导) | 单工具 / happy | promise≠reality/能力缺口 | fixed·locked |
+| F60 approval `0s`/零时长 timeout 校验过但永不触发→run 永 park | approval | 单工具 / 报错 | promise≠reality/静默降级 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -111,6 +112,10 @@ landed-into:
 | function 入参类型运行时不强制（鸭子类型、文档化设计、坏类型干净 traceback 不崩） | function | 边界 |
 | handler crash/restart 韧性（崩溃丢实例、config-edit 重启、状态语义、agent 能推理） | handler | 报错→崩溃恢复 |
 | WebSearch 无后端**诚实降级**（不假装搜过、报可操作信息、转 keyless WebFetch） | web | happy |
+| approval **durable timer**（1ms–5s reject-timeout 全正确解析 parked→{decision:no,reason:timeout}+run completed；first-wins race 码验对） | approval·durable-engine | 报错→超时 |
+| document 树深操作（嵌套 create 落对父、内容 edit 持久、跨父 move 级联 path、cascade delete 不留孤儿、reorder 连续、环 move 拒） | document | happy |
+| 大复杂图（11 节点/13 边、多 control 分支、并行 re-join、durable 全节点记忆化、agent 不丢失） | workflow·durable-engine | happy |
+| 多会话隔离（B 见 A 的 workspace 实体+memory、不见 A 的聊天记录；隔离 vs 共享边界正确） | conversation | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
@@ -121,6 +126,7 @@ landed-into:
 > round-3（0618）填：relation 图推理、subagent 嵌套 spawn（全转绿）；并确诊 F40–F48（F42 已修，F40/F41 HIGH 待 wind-down）。
 > round-4（0618）填：version/revert 语义、名校验健壮、入参鸭子类型（全转绿）；确诊 F49（已修）+ F50–F53。F52（chat 调 mcp）= 设计判断。
 > round-5（0618）填：handler crash/restart 韧性、WebSearch 诚实降级（绿）；确诊 F54（已修）+ F55–F59。
+> round-6（0619）填：approval durable timer、document 树深操作、大复杂图、多会话隔离（全转绿）；确诊 F60（已修）+ F61/F62 + **F47 双 lane 重confirm**（无 decide_approval 工具）。**收敛信号**：真 clean bug 产出率降、not-bug/设计议题升、产品在硬化。
 
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
