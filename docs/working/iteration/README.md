@@ -84,6 +84,9 @@ landed-into:
 make server                  # 真后端：端口 8742、数据 /tmp/anselm-dev（持久）；停用 make stop
 bash testend/loop/setup.sh   # 等 health → 建 workspace + deepseek api-key + 默认模型 → 写 serve.json
 ```
+> **★ 铁律：探针必须打在『当前源 build 的 fresh backend』（0619 血泪教训）。** `make server` 若端口已被既存进程占住会复用那个 **stale** binary——**每次提交 fix 后、每轮探针前，必须确保 :8742 跑的是当前源**：`make stop && make server`（或核对 `lsof -ti:8742` 进程启动时刻 `ps -o lstart` **晚于**你最后的 fix commit 时间）。harness 会拦截 kill 共享进程——那就 `go build ./cmd/server` 后**另起一个端口**（`ANSELM_ADDR=:8743 ANSELM_DATA_DIR=/tmp/anselm-x <binary>`）、探针 serve.json 指向它。**复用 stale backend = find/verify 全失真**：round 6-12 误打 16:25 旧码、行为复验对已修格全假（fix 靠 commit+make verify 单测+代码确诊才没白做）。
+
+**复验既修格**：直 curl 当前源 fresh backend 比跑 agent lane 更确定——例：`POST /controls {when:"input.("}` 应带 `details.reason`（F69）；`POST /approvals {template,timeout:"0s"}` 应 `APPROVAL_INVALID_TIMEOUT`（F60）；add_node 顶层误放 input 应 `WORKFLOW_INVALID_OPS`（F70）。
 
 **② 每个 probe · 一段多轮对话，你（Claude）亲手演用户**
 > **关键：每一轮都是你亲手发的。** 你看 agent 这回合干了啥，自己 decide 下一句。`turn.sh` 只是把「发一句 + 等回合到终态 + 放行危险门 + 打印 agent 干了啥」这套 curl 收成一个命令——**说什么是你定，不是脚本、不是另一个模型。**
