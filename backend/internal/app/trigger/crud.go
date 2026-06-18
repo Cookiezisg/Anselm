@@ -53,6 +53,15 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Tr
 		Config:      cfg,
 		Outputs:     in.Outputs,
 	}
+	// cron/webhook/fsnotify deliver a FIXED fire payload — stamp the canonical Outputs so the
+	// declaration cannot drift from what the listener actually emits (an author-supplied list is
+	// ignored for these kinds). sensor keeps its author-defined output shape (from config.output).
+	//
+	// cron/webhook/fsnotify 交付固定 fire payload——盖上规范 Outputs 使声明永不与 listener emit 漂移
+	// （这些 kind 忽略作者所填）。sensor 保留 config.output 的作者自定义输出形状。
+	if co := triggerdomain.CanonicalOutputs(t.Kind); co != nil {
+		t.Outputs = co
+	}
 	if err := s.repo.SaveTrigger(ctx, t); err != nil {
 		return nil, err
 	}
@@ -82,6 +91,12 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 	}
 	if in.Outputs != nil {
 		t.Outputs = in.Outputs
+	}
+	// Same as Create: a fixed-payload kind's Outputs is canonical, never the author's (see Create).
+	//
+	// 同 Create：固定 payload 的 kind 其 Outputs 是规范值、非作者所填（见 Create）。
+	if co := triggerdomain.CanonicalOutputs(t.Kind); co != nil {
+		t.Outputs = co
 	}
 	if err := s.validate(t.Kind, t.Config); err != nil {
 		return nil, err

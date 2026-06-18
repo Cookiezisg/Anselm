@@ -43,6 +43,8 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 | fsnotify | path + op + **秒桶** | 编辑器一次保存的事件突发 | `{firedAt, path, eventKind}`；**eventKind 用配置词汇**（create/modify/delete/rename/chmod 小写、组合事件 `\|` 连，非 fsnotify 原始大写 Op）——`configEventKind` 在交付端归一 |
 | sensor | trigger + probe 时刻（秒） | 一次探测至多一条/工作流 | = `config.output` CEL 产出的形状（作者自定义） |
 
+**`outputs` 字段（声明下游可读的 payload 字段）**：cron/webhook/fsnotify 在 create/edit 时由 `triggerdomain.CanonicalOutputs(kind)` **盖上**（= 上表 Fire Payload、**覆盖作者所填、永不与 listener emit 漂移**）；sensor 由作者按 `config.output` 自定义、app 不覆盖。`CanonicalOutputs` 须与 listeners 的 fire payload 同步。
+
 ## 4. 生命周期 / 行为
 
 - **4 源 config**（`ValidateConfig` 按 kind 分检）：cron=robfig **5 段**表达式（分钟粒度，与分钟桶 dedup 一致；`@every`/秒级不支持，错误消息指路）（`TRIGGER_INVALID_CRON`）；webhook=挂载路径 + 可选 secret（明文比对或 HMAC-SHA256 验签，不匹配 → 401 纯文本响应，不走标准 envelope 错误码）；fsnotify=路径(必填) + 可选事件类型 + 可选 pattern；sensor=周期 invoke function/handler/mcp（targetKind 三选一；handler/mcp 需 method=方法名/工具名，function 整体即单元）+ CEL 条件（`TRIGGER_INVALID_CEL`/`TRIGGER_INVALID_INTERVAL`/`TRIGGER_SENSOR_TARGET_REQUIRED`）。

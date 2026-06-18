@@ -39,6 +39,42 @@ func IsValidKind(k string) bool {
 	return false
 }
 
+// CanonicalOutputs returns the FIXED fire-payload fields a cron/webhook/fsnotify trigger delivers to
+// listening workflows — the same keys the infra listeners emit (cron/webhook/fsnotify .go), so a
+// workflow node can discover them by node id. The app stamps these onto Outputs at create/edit for
+// these kinds, OVERRIDING any author-supplied list, so the declaration cannot drift from the real
+// payload. sensor returns nil: its payload shape is author-defined via config.output, so the author
+// keeps control of Outputs there. Keep these in sync with the listeners' fire payloads.
+//
+// CanonicalOutputs 返回 cron/webhook/fsnotify 触发器交付给监听 workflow 的固定 fire-payload 字段——
+// 与 infra listeners 实际 emit 的键一致，使 workflow 节点能按 node id 发现。app 在 create/edit 时对这些
+// kind 把它盖到 Outputs、**覆盖**作者所填，使声明永不与真实 payload 漂移。sensor 返 nil：其 payload 形状
+// 由 config.output 作者定义、Outputs 由作者掌控。须与 listeners 的 fire payload 保持同步。
+func CanonicalOutputs(kind string) []schemapkg.Field {
+	switch kind {
+	case KindCron:
+		return []schemapkg.Field{
+			{Name: "firedAt", Type: schemapkg.TypeString, Description: "When the trigger fired (RFC3339)."},
+		}
+	case KindWebhook:
+		return []schemapkg.Field{
+			{Name: "firedAt", Type: schemapkg.TypeString, Description: "When the request arrived (RFC3339)."},
+			{Name: "method", Type: schemapkg.TypeString, Description: "HTTP method of the request."},
+			{Name: "path", Type: schemapkg.TypeString, Description: "The mounted webhook path that was hit."},
+			{Name: "headers", Type: schemapkg.TypeObject, Description: "Request headers (flattened)."},
+			{Name: "body", Type: schemapkg.TypeObject, Description: "Posted body parsed as JSON (present when the body is valid JSON)."},
+			{Name: "bodyRaw", Type: schemapkg.TypeString, Description: "Raw body string (present when the body is not JSON)."},
+		}
+	case KindFsnotify:
+		return []schemapkg.Field{
+			{Name: "firedAt", Type: schemapkg.TypeString, Description: "When the event fired (RFC3339)."},
+			{Name: "path", Type: schemapkg.TypeString, Description: "The file/dir path that changed."},
+			{Name: "eventKind", Type: schemapkg.TypeString, Description: "create|modify|delete|rename|chmod (combined events join with |)."},
+		}
+	}
+	return nil
+}
+
 // Trigger is the entity row. Config holds the source-specific settings (see config.go);
 // it is kept as a free map so adding a source kind needs no column change.
 //

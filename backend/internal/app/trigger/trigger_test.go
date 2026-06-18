@@ -15,6 +15,7 @@ import (
 	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // fakeListener stands in for a real source listener so tests can observe the reference-counted
@@ -147,6 +148,39 @@ func TestCreate_RejectsBadConfig(t *testing.T) {
 	}})
 	if !errors.Is(err, triggerdomain.ErrInvalidCEL) {
 		t.Fatalf("invalid CEL condition should be ErrInvalidCEL, got %v", err)
+	}
+}
+
+// TestCreate_CanonicalOutputs — F24/#3 (iteration loop): a fixed-payload kind's Outputs is stamped
+// from the canonical fire payload and an author-supplied list is ignored, so the declaration can't
+// drift from what the listener emits. sensor keeps its author-defined output shape.
+func TestCreate_CanonicalOutputs(t *testing.T) {
+	s, _ := newTestService(t)
+	ctx := ctxWS("ws_1")
+	// cron: author passes a bogus outputs list; canonical {firedAt} must override it.
+	tr, err := s.Create(ctx, CreateInput{
+		Name: "c", Kind: triggerdomain.KindCron, Config: map[string]any{"expression": "* * * * *"},
+		Outputs: []schemapkg.Field{{Name: "bogus", Type: schemapkg.TypeString}},
+	})
+	if err != nil {
+		t.Fatalf("create cron: %v", err)
+	}
+	if len(tr.Outputs) != 1 || tr.Outputs[0].Name != "firedAt" {
+		t.Errorf("cron Outputs should be canonical {firedAt}, got %+v", tr.Outputs)
+	}
+	// sensor: author-defined output shape (from config.output) is kept.
+	sr, err := s.Create(ctx, CreateInput{
+		Name: "snr", Kind: triggerdomain.KindSensor, Config: map[string]any{
+			"targetKind": "function", "targetId": "fn_1", "intervalSec": float64(10),
+			"condition": "payload.ok", "output": `{"x": payload.v}`,
+		},
+		Outputs: []schemapkg.Field{{Name: "x", Type: schemapkg.TypeNumber}},
+	})
+	if err != nil {
+		t.Fatalf("create sensor: %v", err)
+	}
+	if len(sr.Outputs) != 1 || sr.Outputs[0].Name != "x" {
+		t.Errorf("sensor Outputs should keep the author's {x}, got %+v", sr.Outputs)
 	}
 }
 

@@ -36,7 +36,7 @@ func (t *CreateTrigger) Parameters() json.RawMessage {
 			"description": {"type": "string"},
 			"kind": {"type": "string", "enum": ["cron", "webhook", "fsnotify", "sensor"]},
 			"config": {"type": "object", "description": "Source-specific settings; see the tool description per kind."},
-			"outputs": {"type": "array", "description": "Declared payload fields this trigger delivers to listening workflows: each {name, type, description}.", "items": {"type": "object"}}
+			"outputs": {"type": "array", "description": "Declared payload fields delivered to listening workflows: each {name, type, description}. ONLY needed for sensor (describe what config.output emits); for cron/webhook/fsnotify it is set automatically from the kind's fixed fire payload and any value you pass is ignored.", "items": {"type": "object"}}
 		}
 	}`)
 }
@@ -97,7 +97,7 @@ func (t *EditTrigger) Parameters() json.RawMessage {
 			"name": {"type": "string"},
 			"description": {"type": "string"},
 			"config": {"type": "object", "description": "Full replacement config for the trigger's kind."},
-			"outputs": {"type": "array", "description": "Declared payload fields delivered to workflows: each {name, type, description}.", "items": {"type": "object"}}
+			"outputs": {"type": "array", "description": "Declared payload fields delivered to workflows: each {name, type, description}. ONLY needed for sensor; for cron/webhook/fsnotify it is set automatically from the kind's fixed fire payload (any value passed is ignored).", "items": {"type": "object"}}
 		}
 	}`)
 }
