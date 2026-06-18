@@ -72,6 +72,7 @@ landed-into:
 | F34 LLM 流错空消息→message finalize 无因无恢复提示 | chat-loop | 单工具 / 报错 | 恢复无门/静默降级 | fixed |
 | F35 capability_check 不查 dataflow→绿检查超额承诺、运行时崩 | workflow(静态校验) | 跨实体 / happy→报错 | promise≠reality/白烧/假成功 | fixed |
 | F42 edit_workflow 静默吞无效 concurrency（Create 校 Edit 不校） | workflow | 单工具 / happy | promise≠reality/假成功 | fixed·locked |
+| F49 CEL 混类型算术（double+int）裸 `no such overload`、capability 放行、agent 烧 4 版本 | pkg/cel（每条节点 input/条件 eval） | 单工具 / 报错 | promise≠reality/不可发现/白烧 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -102,6 +103,9 @@ landed-into:
 | 会话 auto-title 质量 + archive 真实性 | conversation | happy |
 | relation 图发现+推理（get_relations 自发现、what-uses-X/反向/传递依赖全对、删影响推理对） | relation | happy |
 | subagent 真嵌套 spawn（subagent 执行真跑、parentBlockId 子消息真存） | subagent | happy（读回缺口见 F46） |
+| version/revert 语义（v1→v4 编辑、revert 到旧版 + 再编辑、回退码真跑、版本号/active/实跑码全一致） | function | 多轮 / 版本交织 |
+| function/handler 名校验对边界/恶意输入健壮（emoji/SQL注入/超长全干净拒、无 500、无脏行） | function·handler | 边界/malformed |
+| function 入参类型运行时不强制（鸭子类型、文档化设计、坏类型干净 traceback 不崩） | function | 边界 |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
@@ -110,11 +114,13 @@ landed-into:
 > round-1（0618）填：ai-ops 诊断向、多实体组合、检索可发现、memory、工具选择、agent 嵌套。
 > round-2（0618）填：:iterate happy、todo 机制、attachment(attachmentIds 路径)、@mention 注入、auto-title/archive 真实性。
 > round-3（0618）填：relation 图推理、subagent 嵌套 spawn（全转绿）；并确诊 F40–F48（F42 已修，F40/F41 HIGH 待 wind-down）。
+> round-4（0618）填：version/revert 语义、名校验健壮、入参鸭子类型（全转绿）；确诊 F49（已修）+ F50–F53。F52（chat 调 mcp）= 设计判断。
 
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
 - **round-2：** F36 :iterate 不校实体存在 · F37 无 attachment 读工具 · F38 无会话管理工具+编造 UI · F39 todo 完成后无读回。
 - **round-3 其余：** F43 edit 静默 deactivate · F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F47 无 approval 决策工具(待判) · F48 delete 无守卫+删依赖边。
+- **round-4：** F50 空名错码误标(low) · F51 capability_check 不校 mcp tool 存在(medium) · **F52 chat 不可调 mcp（DynamicTools 死代码）= 设计判断(HIGH)**。
 - **deepseek 没额度时的收尾 pass 清这批（fixing 是代码工不需 deepseek；零 token 回归守）。**
 
 **整列没碰（target 维空白）：**
