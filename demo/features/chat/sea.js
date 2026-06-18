@@ -136,10 +136,20 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       clearTurn();
       const c = CONVOS[id] || CONVOS[window.CHAT_DEFAULT]; if (!c) return;
       cur = c;
-      // 会话名 → 左上角紧凑标题（chat 恒 collapsed=一上来即显）；点击回顶
+      // 会话名 → 左上角紧凑标题（chat 恒 collapsed=一上来即显）；标题点回顶，⌄ 开对话动作菜单
       if (ctx.shell && ctx.shell.setHeadTitle) {
         ctx.shell.setHeadTitle(c.title || "对话", () => page.scrollToTop(true));
         ctx.shell.setHeadCollapsed(true);
+        ctx.shell.setHeadMenu && ctx.shell.setHeadMenu((a) => window.AnMenu.open(a, {
+          align: "end", placement: "bottom", namespace: "chat-head-menu",
+          items: [
+            { value: "rename", label: "重命名", icon: "edit" },
+            { value: "pin", label: "置顶", icon: "history" },
+            { value: "archive", label: "归档", icon: "enter" },
+            { value: "delete", label: "删除", icon: "trash", danger: true },
+          ],
+          onPick: (v) => toast(({ rename: "已重命名", pin: "已置顶", archive: "已归档", delete: "已删除" }[v]) + "「" + (c.title || "") + "」"),
+        }));
       }
       composer.removeAttribute("generating");
       composer.attachments = [];

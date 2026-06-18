@@ -24,7 +24,7 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
       .filter((g) => g.types.length);
     const el = document.createElement("an-sidebar-list");
     el.setAttribute("more", "");   // 每行尾 … 动作（#8）
-    el.model = { newLabel: "New Entity", filterPlaceholder: "过滤实体…", groups };
+    el.model = { newLabel: "New Entity", filterPlaceholder: "搜索", groups };
     // 只认带 id 的选中（sidebar-list 自身 re-emit）；内层 an-row 的无 id an-select 经 shadow 重定向也冒到这，须滤掉
     el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "entity", id: ev.detail.id }); });
     el.addEventListener("an-new", () => ctx.Intent.act && ctx.Intent.act({ verb: "create", kind: "entity" }));

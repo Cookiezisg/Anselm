@@ -45,6 +45,18 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
       editor.blocks = D.blocks || [];
       page.append(editor);
       buildIsland(D, editor);
+      // 大标题收起后，左上角 ⌄ = 文档动作菜单
+      if (ctx.shell && ctx.shell.setHeadMenu) ctx.shell.setHeadMenu((a) => window.AnMenu.open(a, {
+        align: "end", placement: "bottom", namespace: "doc-head-menu",
+        items: [
+          { value: "rename", label: "重命名", icon: "edit" },
+          { value: "addChild", label: "新建子文档", icon: "plus" },
+          { value: "duplicate", label: "复制", icon: "diff" },
+          { value: "move", label: "移动到…", icon: "enter" },
+          { value: "delete", label: "删除", icon: "trash", danger: true },
+        ],
+        onPick: (v) => window.AnToast && window.AnToast.show({ text: ({ rename: "已重命名", addChild: "已在其下新建子文档", duplicate: "已复制", move: "已移动", delete: "已删除" }[v]) + "「" + (D.title || "") + "」" }),
+      }));
     }
 
     ctx.Intent.on("document", (sel) => { if (page.isConnected && sel && sel.id) loadDoc(sel.id); });

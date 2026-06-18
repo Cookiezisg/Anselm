@@ -35,16 +35,19 @@
         background: linear-gradient(to bottom, var(--island) 40%, transparent); pointer-events: none; z-index: -1; }
       .lead, .extra { pointer-events: auto; display: flex; align-items: center; gap: var(--grid); min-width: 0; }
 
-      /* 紧凑标题（大标题滑出后浮现于左上角，左岛钮之后；带 ⌄ 回顶下拉）——chat 一上来即显，其余滚动收起态显 */
-      .htitle { display: none; align-items: center; gap: var(--gap-tight); height: var(--ctl); max-width: 50vw;
-        padding: 0 var(--sp-2); border-radius: var(--r-btn); pointer-events: auto; cursor: pointer;
-        color: var(--ink); font-size: var(--t-body); font-weight: 600;
-        transition: background var(--d-fast), opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
+      /* 紧凑标题（大标题滑出后浮现于左上角，左岛钮之后）：标题文字（点回顶）+ ⌄ 按钮（点开海洋动作菜单 = 原 … 内容 + run/trigger） */
+      .htitle { display: none; align-items: center; max-width: 50vw; pointer-events: auto;
+        transition: opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
       :host([head-title]) .htitle { display: inline-flex; }
-      .htitle:hover { background: var(--island-3); }
-      .htitle .ht-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .htitle .ht-chev { flex: none; color: var(--ink-3); display: inline-grid; place-items: center; }
-      .htitle .ht-chev svg { width: var(--icon-sm); height: var(--icon-sm); }
+      .ht-text { min-width: 0; height: var(--ctl); padding: 0 var(--gap-tight) 0 var(--sp-2); border-radius: var(--r-btn);
+        color: var(--ink); font-size: var(--t-body); font-weight: 600; cursor: pointer;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background var(--d-fast); }
+      .ht-text:hover { background: var(--island-3); }
+      .ht-chev { flex: none; display: none; place-items: center; width: var(--ctl-sm); height: var(--ctl-sm);
+        border-radius: var(--r-tag); color: var(--ink-3); cursor: pointer; transition: background var(--d-fast), color var(--d-fast); }
+      :host([head-menu]) .ht-chev { display: inline-grid; }
+      .ht-chev:hover { background: var(--island-3); color: var(--ink); }
+      .ht-chev svg { width: var(--icon-sm); height: var(--icon-sm); }
       :host([head="hide"]) .htitle { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); pointer-events: none; }
       :host([head="show"]) .htitle { opacity: 1; transform: none; }
       .grow { flex: 1; }
@@ -71,7 +74,7 @@
             <div class="head">
               <span class="lead">
                 <an-button class="reopen" variant="icon" icon="panel-left"></an-button>
-                <button type="button" class="htitle" aria-label="回到顶部"><span class="ht-text"></span><span class="ht-chev">${window.icon("chevd", 12)}</span></button>
+                <span class="htitle"><button type="button" class="ht-text" aria-label="回到顶部"></button><button type="button" class="ht-chev" aria-label="操作">${window.icon("chevd", 12)}</button></span>
                 <slot name="head-lead"></slot>
               </span>
               <span class="grow"></span>
@@ -94,7 +97,8 @@
 
       this.$(".reopen").addEventListener("click", () => this.toggleLeft());
       this.$(".pright").addEventListener("click", () => this.toggleRight());
-      this.$(".htitle").addEventListener("click", () => { if (this._headClick) this._headClick(); });
+      this.$(".ht-text").addEventListener("click", () => { if (this._headClick) this._headClick(); });
+      this.$(".ht-chev").addEventListener("click", () => { if (this._headMenu) this._headMenu(this.$(".ht-chev")); });
       this._wireGrip();
       this._wireScroll();
     }
@@ -143,9 +147,11 @@
       this._headClick = onClick || null;
       const t = this.$(".ht-text"); if (t) t.textContent = text || "";
       this.toggleAttribute("head-title", !!text);
-      if (!text) this.removeAttribute("head");
+      if (!text) { this.removeAttribute("head"); this.setHeadMenu(null); }
       else if (!this.hasAttribute("head")) this.setAttribute("head", "hide");
     }
+    // ⌄ 动作菜单：onMenu(anchor) 由海洋注入（实体=run/trigger+…、文档=重命名/复制…、对话=置顶/归档…）；空 → 隐 ⌄。
+    setHeadMenu(onMenu) { this._headMenu = onMenu || null; this.toggleAttribute("head-menu", !!onMenu); }
     // 收起态切换：大标题滑出 → show 紧凑标题（淡入）；大标题可见 → hide。chat 恒 show（一上来即显）。
     setHeadCollapsed(on) { if (this.hasAttribute("head-title")) this.setAttribute("head", on ? "show" : "hide"); }
     // 注入即开、清空即合（feature 给了右岛内容就展开，给 null 就收起）

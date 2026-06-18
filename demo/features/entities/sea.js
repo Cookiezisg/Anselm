@@ -104,6 +104,8 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
       }
       page.replaceChildren(...kids);   // 复用同一 an-page，仅换光 DOM 内容（滚动壳/RO 持久）
       if (ctx.shell) ctx.shell.setRight(runIsland(e));   // 注入即开 / null 即收
+      // 大标题收起后，左上角 ⌄ 菜单 = 该实体全动作（run/trigger + … 单源 openEntityMenu）
+      if (ctx.shell && ctx.shell.setHeadMenu) ctx.shell.setHeadMenu((a) => window.openEntityMenu && window.openEntityMenu(a, e, ctx));
     }
 
     // 反应式选中：旧 sea（page 已 detached）不再抢渲染——多次进入叠加 Intent.on，靠此守卫只让当前 sea 响应

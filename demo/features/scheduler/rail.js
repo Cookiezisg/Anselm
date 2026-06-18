@@ -7,7 +7,7 @@ window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
     const sel = window.SCHED_DEFAULT || (WFS[0] || {}).id;
     const el = document.createElement("an-sidebar-list");
     el.setAttribute("no-new", "");   // workflow 不在此新建，仅搜索 + 选中
-    el.model = { filterPlaceholder: "搜索工作流…", groups: [{ types: [{
+    el.model = { filterPlaceholder: "搜索", groups: [{ types: [{
       rows: WFS.map((w) => ({ id: w.id, label: w.label, meta: w.meta, dot: w.dot, selected: w.id === sel })),
     }] }] };
     el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "workflow", id: ev.detail.id }); });

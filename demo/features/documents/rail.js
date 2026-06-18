@@ -12,7 +12,7 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
 
     const el = document.createElement("an-sidebar-list");
     el.setAttribute("more", "");   // 每行悬停 ⋯（编辑菜单，同 entities）
-    el.model = { newLabel: "New Document", filterPlaceholder: "搜索文档…", groups: [{ types: [{ rows: toRows(window.DOC_TREE || []) }] }] };
+    el.model = { newLabel: "New Document", filterPlaceholder: "搜索", groups: [{ types: [{ rows: toRows(window.DOC_TREE || []) }] }] };
 
     el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "document", id: ev.detail.id }); });
     el.addEventListener("an-new", () => toast("已新建文档"));

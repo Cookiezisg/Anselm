@@ -50,12 +50,10 @@
       /* 工具栏行：@ / 附件 钮（左）· 提示 + 发送/停止（右） */
       .tools { display: flex; align-items: center; gap: var(--grid); padding: var(--grid) var(--sp-2) var(--sp-2) var(--sp-2); }
       .tools .grow { flex: 1; }
-      .hint { font-size: var(--t-meta); color: var(--ink-3); margin-right: var(--sp-2); }
 
       /* generating：send↔stop 互换（纯 CSS） */
       :host(:not([generating])) .t-stop { display: none; }
       :host([generating]) .t-send { display: none; }
-      :host([generating]) .hint { display: none; }
     `;
 
     set mentions(v) { this._mentions = Array.isArray(v) ? v : []; }
@@ -68,7 +66,8 @@
     clear() { const ed = this.$(".edit"); if (ed) ed.innerHTML = ""; this._atts = []; this._renderChips(); }
 
     render() {
-      const ph = e(this.attr("placeholder", "发消息，@ 提及实体 / 文档…"));
+      // 无占位文字 / 无 hint / send·stop 纯图标——干净空条（Enter 发送 / Shift+Enter 换行靠键位约定，不写字）
+      const ph = e(this.attr("placeholder", ""));
       return `<div class="bar"><div class="box">
         <div class="chips"></div>
         <div class="edit" contenteditable="true" spellcheck="false" data-ph="${ph}"></div>
@@ -76,9 +75,8 @@
           <an-button class="t-at" variant="icon" icon="at-sign">提及</an-button>
           <an-button class="t-att" variant="icon" icon="paperclip">附件</an-button>
           <span class="grow"></span>
-          <span class="hint">Enter 发送 · Shift+Enter 换行</span>
-          <an-button class="t-send" variant="primary" size="sm" icon="arrow-up">发送</an-button>
-          <an-button class="t-stop" variant="danger" size="sm" icon="stop">停止</an-button>
+          <an-button class="t-send" variant="primary" size="sm" icon="arrow-up" aria-label="发送"></an-button>
+          <an-button class="t-stop" variant="danger" size="sm" icon="stop" aria-label="停止"></an-button>
         </div>
       </div></div>`;
     }

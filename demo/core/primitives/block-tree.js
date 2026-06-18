@@ -234,8 +234,10 @@
 
     toolCall(b, i) {
       const running = !!b.running;
-      const open = b.open && !running ? " open" : "";
       const items = Array.isArray(b.items) ? b.items : [];
+      // 默认收起；仅「需用户操作」的（危险确认 gate / 提问 ask）强制展开，或 b.open 显式要求
+      const needsAction = items.some((it) => it && (it.gate || it.ask));
+      const open = (b.open || needsAction) && !running ? " open" : "";
       // settled 摘要：作者 summary or 由项动词人性化自动生成（绝不裸 snake_case）
       const auto = items.length
         ? items.map((it) => human(it.verb || it.name || "")).filter(Boolean).join(" · ")

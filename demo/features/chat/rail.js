@@ -12,7 +12,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     const elx = document.createElement("an-sidebar-list");
     elx.setAttribute("more", "");   // 每行悬停 ⋯（会话动作菜单）
     elx.model = {
-      newLabel: "New Chat", filterPlaceholder: "搜索对话…",
+      newLabel: "New Chat", filterPlaceholder: "搜索",
       groups: LIST.map((g) => ({
         label: g.group, open: g.open !== false,
         types: [{ rows: (g.rows || []).map((r) => ({ id: r.id, label: r.label, dot: r.dot, meta: r.meta, selected: r.id === sel })) }],
