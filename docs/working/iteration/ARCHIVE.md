@@ -69,6 +69,8 @@ landed-into:
 | F31 create_agent 禁 ag_ 无指路 | agent | 跨实体(agent→agent) / happy | 能力缺口/组合摩擦/不可发现 | fixed·locked |
 | F32 schema-less 节点输出静默键 .text | 全节点 kind | 跨实体 / happy→报错 | promise≠reality/不可发现/白烧 | fixed·locked |
 | F33（=F12）keep-alive 流困死 scanSSELines→message 卡 streaming | chat·llm-stream（共享 ~11 provider） | 单工具 / 崩溃·robustness | 脆弱/恢复无门/假成功 | fixed·locked |
+| F34 LLM 流错空消息→message finalize 无因无恢复提示 | chat-loop | 单工具 / 报错 | 恢复无门/静默降级 | fixed |
+| F35 capability_check 不查 dataflow→绿检查超额承诺、运行时崩 | workflow(静态校验) | 跨实体 / happy→报错 | promise≠reality/白烧/假成功 | fixed |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -92,25 +94,31 @@ landed-into:
 | 跨任务记忆（write/read/forget 全可、跨会话真召回、forget 后不臆造） | memory | happy |
 | 工具选择可发现性（cron vs fsnotify 按义选对、kind 不可变→delete+recreate、整图合法） | cross-tool | happy |
 | agent→agent 嵌套（经 workflow agent 节点真嵌套、结果由 specialist 真输出背书） | agent | 跨实体 |
+| :iterate AI-编辑 happy path（edit 真落 DB v1→v2→v3、honest、turn.sh 可驱动） | ai-ops(:iterate) | happy |
+| todo_write 机制（持久、逐步状态、整写保历史、真 fsnotify fire） | todo | happy |
+| attachment 经 message.attachmentIds 喂 LLM（读真 CSV、零幻觉） | attachment | happy |
+| @mention 文档冻结快照注入（注入可见、freeze vs fresh 各对） | document·chat | happy |
+| 会话 auto-title 质量 + archive 真实性 | conversation | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
 > 这是 backlog，不是 TODO 清单：选哪个由 EXPLORE 的 select 仪式按 novelty × value 判（README）。新轴入场即排这里。
 
-> round-1（0618）填掉了：ai-ops 诊断向、多实体组合、检索可发现、memory、工具选择、agent 嵌套（全转绿，移上 §2）。
+> round-1（0618）填：ai-ops 诊断向、多实体组合、检索可发现、memory、工具选择、agent 嵌套。
+> round-2（0618）填：:iterate happy、todo 机制、attachment(attachmentIds 路径)、@mention 注入、auto-title/archive 真实性（全转绿）；并确诊 F34/F35（已修）+ F36–F39（待修 backlog）。
+
+**确诊待修 backlog（= LOG F36–F39，"想还有什么"已变"该修什么"）：** :iterate 不校实体存在(F36) · 无 attachment 读工具(F37) · 无会话管理工具+编造 UI(F38) · todo 完成后无读回(F39)。**deepseek 没额度时的收尾 pass 清这批。**
 
 **整列没碰（target 维空白）：**
-- **ai-ops `:iterate`（AI 对话式编辑实体）** —— round-1 只探了 :triage 诊断向（已绿）；`:iterate` 仍空。
-- **conversation 管理**（archive/compact/auto-title）· **attachment** 上传/取/content · **todo** · **relation 图** · **subagent 嵌套树渲染**（parentBlockId）。
+- **relation 图** · **subagent 嵌套树渲染**（parentBlockId）· **websearch**（toolpick lane 见 workspace 未配 search backend）。
 
 **薄格（碰过但只在某 regime / 某席位）：**
-- **kill-9 真崩溃恢复 from agent 席**（T3）：round-1 triage lane 验了"诊断+修+fresh-run 恢复"（绿），但**真杀进程→重启→resume** 仍未从 agent 席验（故意未入并发轮——会连累共享后端，留**串行单跑**）。
+- **kill-9 真崩溃恢复 from agent 席**（T3）：诊断+修+fresh-run 恢复已绿，但**真杀进程→重启→resume** 仍未从 agent 席验（会连累共享后端，留**串行单跑**——可起独立端口+数据目录的专用后端跑）。
 - **concurrency `replace`/`buffer_one` from agent 席**：F29 仅单测；agent 多轮真触发顶替/收敛没验。
-- **@mention 聊天注入冻结快照**：compose lane 验了 doc 作 agent knowledge 挂载（绿）；聊天里 @mention 的冻结快照语义没碰。
 
-**镜头 / 能力缺口（round-1 新冒出，待判/待探）：**
-- **代码-bug 失败 run 无原地恢复**（triage latent）：replay 按原 pin 重走、改 code 要 fresh trigger（新 id）；按 id 跟踪的用户无 `:rerun-with-latest`。待判是否值得做。
-- **capability_check 不校 schema-less 节点的 input-CEL 字段引用**（F32 深层）：doc 已补、但 check 仍放行坏 key、第一次跑才崩——可加 check 期校验（比 doc 更硬）。
-- **无原生 email/通知投递工具**（toolpick lane）：'email me' 无一等路径、要手搓 SMTP——疑产品设计取舍（同 F23 待你拍板），非 bug。
-- **`白烧` 直接猎**：仍没**直接**以"能做但绕远/耗 turn"为目标探。
-- **跨轴迁移未尽**（沿 pattern 轴扫）：F33 的"非-data 行跳过 ctx"已扫到 anthropic（它对的）；F32 的 schema-less `.text` 已跨 fn/hd/mcp/agent；「广告选项是否真实现」「数据传递点隐形契约」等轴待续。
+**镜头 / 能力缺口（待判/待探）：**
+- **代码-bug 失败 run 无原地恢复**（triage latent）：replay 按原 pin、改 code 要 fresh trigger（新 id）；无 `:rerun-with-latest`。待判值不值得做。
+- **capability_check 静态 dataflow 校验**（F35 深层）：F35 已让绿检查诚实（doc 声明不校），但**真做静态 node-input 字段校验**（比 doc 更硬）仍开放。
+- **无原生 email/通知投递工具**（toolpick lane）：疑产品设计取舍（同 F23 待拍板），非 bug。
+- **`白烧` 直接猎**：round-2 wasted lane 撞到 F35（绿检查骗人）；纯 ergonomics（绕远/耗 turn）仍可深挖。
+- **跨轴迁移未尽**（沿 pattern 轴扫）：F33「非-data 行跳 ctx」已扫 anthropic（对）；F32/F35 的 schema-less/dataflow 已跨 fn/hd/mcp/agent；「广告选项是否真实现」「数据传递隐形契约」等轴待续。
