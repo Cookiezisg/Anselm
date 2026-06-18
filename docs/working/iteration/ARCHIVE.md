@@ -77,6 +77,7 @@ landed-into:
 | F50 空 function 名误报 INVALID_CODE（误导查代码） | function | 单工具 / 边界 | promise≠reality/选错工具 | fixed·locked |
 | F54 无搜索后端引导广告不存在的 keyless duckduckgo MCP | web(搜索引导) | 单工具 / happy | promise≠reality/能力缺口 | fixed·locked |
 | F60 approval `0s`/零时长 timeout 校验过但永不触发→run 永 park | approval | 单工具 / 报错 | promise≠reality/静默降级 | fixed·locked |
+| F47 agent 无工具决策 parked approval（人在环半边不可达）→ 加 `decide_approval` | approval·durable-engine | 跨实体 / happy（人在环） | 能力缺口/组合摩擦 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -131,7 +132,7 @@ landed-into:
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
 - **round-2：** F36 :iterate 不校实体存在 · F37 无 attachment 读工具 · F38 无会话管理工具+编造 UI · F39 todo 完成后无读回。
-- **round-3 其余：** F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F47 无 approval 决策工具(待判) · F48 delete 无守卫+删依赖边。（F43 查实 not-bug——Edit 保留 lifecycle、是 agent 没 :activate 的误读。）
+- **round-3 其余：** F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F48 delete 无守卫+删依赖边。（F43 查实 not-bug——Edit 保留 lifecycle、是 agent 没 :activate 的误读。）
 - **round-4：** F51 capability_check 不校 mcp tool 存在(medium) · **F52 chat 不可调 mcp（DynamicTools 死代码）= 设计判断(HIGH)**。（F50 已修）
 - **round-5：** F55 compaction trigger/gate 量纲不一致→触发后静默不压(medium) · F57 skill allowed-tools 挂 agent 不授权(medium 待判) · F58 无 intra-loop context 窗守卫(low)。
 - **deepseek 没额度时的收尾 pass 清这批（fixing 是代码工不需 deepseek；零 token 回归守）。**
