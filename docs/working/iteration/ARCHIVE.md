@@ -142,6 +142,8 @@ landed-into:
 | webhook auth（auth 强制 / body-size cap / method gate / dedup idx_trf_dedup 防重放双触发 全按广告——仅 HMAC 验证 header 不可发现 F79） | trigger(webhook)·安全 | 边界/恶意 |
 | memory 深用（12 写全召回无 cap、按名 slug upsert 替换不重、长内容完整、矛盾按名去重、forget 真删·无幻影召回、workspace 隔离 401） | memory | happy/边界 |
 | conversation 管理（rename 持久不被 auto-title 覆盖、archive/unarchive 正确、soft-delete→404、分页 cursor 0重0漏 recent/pinned-first、usage 与逐条 token 和精确） | conversation | happy/边界 |
+| chat 体验深用（cancel→cancelled+partial 存·无 streaming 孤儿、danger confirm/deny=副作用前中断、并发 2nd→409 STREAM_IN_PROGRESS 干净终态、6 轮上下文连贯、空→400 EMPTY_CONTENT） | chat·conversation | 崩溃恢复/并发 |
+| i18n/locale（CJK desc/tags/content 零 mojibake、locale 软指令=有意、name 拒 CJK=有意 slug 约束、搜索跨非 ASCII 工作） | 全实体·i18n | 边界 |
 | 语义搜索召回+排序（"send mail"→email_dispatcher 真语义命中、best-match-first、per-type scoping 对——**仅无匹配 query 无下限灌全 workspace** F80） | search | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）

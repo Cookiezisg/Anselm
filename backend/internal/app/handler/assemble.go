@@ -229,7 +229,17 @@ def main():
                 result = method(**args)
                 if hasattr(result, "__iter__") and not isinstance(result, (str, bytes, list, dict)):
                     final = None
-                    for item in result:
+                    gen = iter(result)
+                    while True:
+                        try:
+                            item = next(gen)
+                        except StopIteration as si:
+                            # A generator's return-statement value surfaces as StopIteration.value,
+                            # invisible to a for-loop; honor it as the final so the natural
+                            # "yield {progress} ... then return the result" idiom works (not only yield-the-final).
+                            if si.value is not None:
+                                final = si.value
+                            break
                         if isinstance(item, dict) and "progress" in item:
                             respond({"type": "progress", "id": request_id, "data": item["progress"]})
                         else:

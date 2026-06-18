@@ -32,7 +32,7 @@ OP SHAPES:
   {"op":"set_dependencies", "dependencies":["requests==2.31"]}
   {"op":"set_python_version", "version":"3.12"}
 
-init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A method body that yields {"progress": ...} streams progress. The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.`
+init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A streaming method body yields {"progress": ...} items to stream progress; its call result is then either the last NON-progress value it yields OR its return-statement value (both honored — a bare return is NOT dropped). The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.`
 }
 
 func (t *CreateHandler) Parameters() json.RawMessage {

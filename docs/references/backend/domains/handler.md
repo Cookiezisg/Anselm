@@ -55,7 +55,7 @@ class HandlerImpl:
 
 ### RPC 协议（`infra/handler` 客户端 ↔ `driver.py`）
 
-stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`return`/`error`（带 Python traceback）/`progress`×N（generator 的每个 `{"progress":...}` yield）；`shutdown`→跑 `shutdown()`。要点：
+stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`return`/`error`（带 Python traceback）/`progress`×N（generator 的每个 `{"progress":...}` yield）；`shutdown`→跑 `shutdown()`。**generator 终值**：driver 取「最后一个**非** `{progress}` yield」**或** generator 的 `return` 值（driver 显式捕获 `StopIteration.value`，故 `yield 终值` 与 `return 终值` 两种写法都生效、裸 return 不被吞）。要点：
 - **mutex 串行**：单 stdio 管道，并发调用方逐个过——这正是 method timeout 重要的原因（一个卡死的 method 会堵死整条管道）。
 - **`Timeout`（MethodSpec，ms）**：app 层 `Call` 先解析 method spec——找不到 method 即报 `HANDLER_METHOD_NOT_FOUND`（不进 RPC）；`Timeout>0` 给本次调用加 ctx deadline。
 - **crashed 语义（重要）**：任何读写失败/EOF/协议错乱/**ctx 取消**都把客户端标 `crashed`——包括取消：取消等待意味着回复还在路上，下一个调用会读到错位的迟到回复，**管道已脏**，唯一正确动作是废弃实例（下次 Get 自动重生）。这不是 bug，是协议正确性。
