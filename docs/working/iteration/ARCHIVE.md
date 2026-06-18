@@ -127,7 +127,7 @@ landed-into:
 - **round-2：** F36 :iterate 不校实体存在 · F37 无 attachment 读工具 · F38 无会话管理工具+编造 UI · F39 todo 完成后无读回。
 - **round-3 其余：** F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F47 无 approval 决策工具(待判) · F48 delete 无守卫+删依赖边。（F43 查实 not-bug——Edit 保留 lifecycle、是 agent 没 :activate 的误读。）
 - **round-4：** F51 capability_check 不校 mcp tool 存在(medium) · **F52 chat 不可调 mcp（DynamicTools 死代码）= 设计判断(HIGH)**。（F50 已修）
-- **round-5：** F55 compaction trigger/gate 量纲不一致→触发后静默不压(medium) · F56 create_skill 对 search_tools 不可见(medium) · F57 skill allowed-tools 挂 agent 不授权(medium 待判) · F58 无 intra-loop context 窗守卫(low)。
+- **round-5：** F55 compaction trigger/gate 量纲不一致→触发后静默不压(medium) · F57 skill allowed-tools 挂 agent 不授权(medium 待判) · F58 无 intra-loop context 窗守卫(low)。
 - **deepseek 没额度时的收尾 pass 清这批（fixing 是代码工不需 deepseek；零 token 回归守）。**
 
 **整列没碰（target 维空白）：**
