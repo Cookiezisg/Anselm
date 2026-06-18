@@ -147,6 +147,8 @@ landed-into:
 | relation 图深用（transitive/reverse/impact 至 depth、diamond 去重不双算、删中链更新边、cycle 处理、14+ 实体规模准确；引擎 BFS edgesSeen/visited 去重） | relation | 边界/规模 |
 | replay/durable 恢复深用（record-once 记忆化早节点不重跑、仅失败节点重跑、pinned-version replay、approval 存活、replay_count 幂等、completed run 拒 replay） | durable-engine | 崩溃恢复 |
 | handler sensitive config 加密/掩码（config_enc AES-GCM 整 blob、GET/list/versions 不序列化、/config 掩 ********、rotate 重加密、__init__ 收解密值——仅 call-log 投影泄露 F82） | handler·安全 | 边界/安全 |
+| **chaos 鲁棒性**（深JSON/病态CEL/unicode·RTL·控制符/mem-bomb/inf-loop/环图/并发dup/SQLi头 全干净降级——零 500·panic·腐败·sandbox逃逸；inf-loop 经 pgroup-SIGKILL 容器化） | 全实体·安全 | 边界/恶意 |
+| **第二新域 e2e 编排**（内容审核管线：webhook→toxicity-fn→3分支control→publish-handler/approval/reject-log + cron stats，8 实体三分支全对、agent 自恢复——编排泛化到新域） | 全实体·组合 | happy（真实世界目标） |
 | 语义搜索召回+排序（"send mail"→email_dispatcher 真语义命中、best-match-first、per-type scoping 对——**仅无匹配 query 无下限灌全 workspace** F80） | search | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
