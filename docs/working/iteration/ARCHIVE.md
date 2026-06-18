@@ -78,6 +78,7 @@ landed-into:
 | F54 无搜索后端引导广告不存在的 keyless duckduckgo MCP | web(搜索引导) | 单工具 / happy | promise≠reality/能力缺口 | fixed·locked |
 | F60 approval `0s`/零时长 timeout 校验过但永不触发→run 永 park | approval | 单工具 / 报错 | promise≠reality/静默降级 | fixed·locked |
 | F47 agent 无工具决策 parked approval（人在环半边不可达）→ 加 `decide_approval` | approval·durable-engine | 跨实体 / happy（人在环） | 能力缺口/组合摩擦 | fixed·locked |
+| F63 handler 多行 body 非 flush-left→双重缩进 IndentationError→不透明 crash | handler(assemble) | 单工具 / 报错 | promise≠reality/脆弱 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -117,6 +118,9 @@ landed-into:
 | document 树深操作（嵌套 create 落对父、内容 edit 持久、跨父 move 级联 path、cascade delete 不留孤儿、reorder 连续、环 move 拒） | document | happy |
 | 大复杂图（11 节点/13 边、多 control 分支、并行 re-join、durable 全节点记忆化、agent 不丢失） | workflow·durable-engine | happy |
 | 多会话隔离（B 见 A 的 workspace 实体+memory、不见 A 的聊天记录；隔离 vs 共享边界正确） | conversation | happy |
+| mcp 运行时错路径（分层可操作错、双落 flowrun_nodes+mcp_calls 交叉链、offline→MCP_SERVER_NOT_FOUND、agent 轻松诊断） | mcp→workflow | 报错 |
+| 最大实体组合（一 agent 挂 fn+hd+doc+skill 全生效、handler 跨 invoke 保态、doc 实时注入） | agent·多实体 | happy |
+| 多分支 control 路由（4+ 分支 first-true-wins 全对、各 input 路由正确） | control | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
@@ -128,6 +132,7 @@ landed-into:
 > round-4（0618）填：version/revert 语义、名校验健壮、入参鸭子类型（全转绿）；确诊 F49（已修）+ F50–F53。F52（chat 调 mcp）= 设计判断。
 > round-5（0618）填：handler crash/restart 韧性、WebSearch 诚实降级（绿）；确诊 F54（已修）+ F55–F59。
 > round-6（0619）填：approval durable timer、document 树深操作、大复杂图、多会话隔离（全转绿）；确诊 F60（已修）+ F61/F62 + **F47 双 lane 重confirm**（无 decide_approval 工具）。**收敛信号**：真 clean bug 产出率降、not-bug/设计议题升、产品在硬化。
+> round-7（0619）填：mcp 运行时错路径、最大实体组合、多分支 control（3/4 lane 全绿）；仅 handler-build 面有料：F63（已修）+ F64（HIGH 队，import 错不透明）+ F65（sensor level-trigger，设计）。**产品高度硬化**。
 
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
