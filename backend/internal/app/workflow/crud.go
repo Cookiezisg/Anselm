@@ -50,7 +50,7 @@ type UpdateMetaInput struct {
 	Name        *string
 	Description *string
 	Tags        *[]string
-	// Concurrency switches the overlap policy (serial|skip|buffer_one|buffer_all|allow_all)
+	// Concurrency switches the overlap policy (serial|skip|buffer_one|replace|allow_all)
 	// — a runtime header knob, not version content; takes effect on the NEXT firing drain.
 	// Concurrency 切换 overlap 政策——运行时头部旋钮、非版本内容；下一次 firing drain 生效。
 	Concurrency *string

@@ -53,7 +53,7 @@ ID：`ag_` `agv_` `agx_`（agent 无 env——不写代码无 sandbox）
 
 | 表 | 特有列 | 约束 |
 |---|---|---|
-| `workflows` | active(bool) · **lifecycle_state**(CHECK active/draining/inactive) · **concurrency**(CHECK serial/skip/buffer_one/buffer_all/allow_all，DEFAULT serial) · needs_attention/attention_reason/last_action_by | partial-UNIQUE(ws,name) |
+| `workflows` | active(bool) · **lifecycle_state**(CHECK active/draining/inactive) · **concurrency**(CHECK serial/skip/buffer_one/replace/allow_all，DEFAULT serial) · needs_attention/attention_reason/last_action_by | partial-UNIQUE(ws,name) |
 | `workflow_versions` | **graph**(JSON blob：nodes+edges) | UNIQUE(workflow_id,version) |
 | `control_logics` / `control_logic_versions` | versions：inputs(json) · **branches**(json Branch[]：port/when/emit) | 同构 |
 | `approval_forms` / `approval_form_versions` | versions：inputs · **template**(markdown+{{CEL}}) · allow_reason(bool：是否允许填备注) · timeout("30d"/"2w"/""=永不) · timeout_behavior(reject/approve/fail) | 同构 |

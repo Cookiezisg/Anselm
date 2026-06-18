@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -77,6 +78,31 @@ func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, err
 		s.cancelInflight(r.ID)
 	}
 	return len(runs), nil
+}
+
+// cancelRunningForReplace gracefully cancels every in-flight run of a workflow so a `replace`-policy
+// firing can run in their place. It mirrors KillWorkflow's race-safe order — mark each run cancelled
+// (first-wins, guarded WHERE running) BEFORE interrupting its advance via ctx — so a run that finished
+// in the same instant keeps its real terminal and the interrupted advance's failNode is a no-op.
+// cancelled (not failed) is correct: a superseded run is not a fault, so it lights no attention banner.
+// Unlike KillWorkflow it does NOT touch lifecycle (the workflow stays active — a new run follows).
+//
+// cancelRunningForReplace 优雅取消一个 workflow 所有在途 run，使 `replace` 策略的 firing 顶替它们跑。镜像
+// KillWorkflow 的 race-safe 顺序——先标 cancelled（first-wins、守卫 WHERE running）再经 ctx 打断 advance——
+// 故同一瞬间结束的 run 保留真实终态、被打断 advance 的 failNode no-op。标 cancelled（非 failed）正确：被顶替
+// 的 run 不是故障、不点 attention 横幅。与 KillWorkflow 不同，它不动 lifecycle（workflow 仍 active——随即有新 run）。
+func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string) error {
+	runs, err := s.runs.ListRunningByWorkflow(ctx, workflowID)
+	if err != nil {
+		return fmt.Errorf("schedulerapp.cancelRunningForReplace: %w", err)
+	}
+	for _, r := range runs {
+		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "replaced by a newer trigger"); err != nil {
+			s.log.Warn("schedulerapp.cancelRunningForReplace: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
+		}
+		s.cancelInflight(r.ID)
+	}
+	return nil
 }
 
 // CountRunning reports a workflow's in-flight run count (the workflow service's Runner port uses it

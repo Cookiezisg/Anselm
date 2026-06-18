@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
@@ -82,6 +83,29 @@ func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) 
 		return fmt.Errorf("triggerstore.MarkFiringOutcome: %w", err)
 	}
 	return nil
+}
+
+// SupersedePendingOlderThan marks a workflow's PENDING firings created before `before` as superseded
+// — buffer_one's "keep only the latest waiting" disposition: when a new firing defers behind an
+// in-flight run, every earlier waiting firing for that workflow is dropped (superseded, never run),
+// so only the newest pending survives. Workspace-isolated by the orm from ctx. Returns the count.
+//
+// SupersedePendingOlderThan 把某 workflow 在 `before` 之前创建的 PENDING firing 标 superseded——buffer_one
+// 「只留最新待处理」处置：新 firing 在在途 run 后排队时，该 workflow 更早的每条待处理 firing 被丢弃
+// （superseded、永不跑），只留最新待处理。orm 据 ctx 按 workspace 隔离。返被 supersede 数。
+func (s *Store) SupersedePendingOlderThan(ctx context.Context, workflowID string, before time.Time) (int64, error) {
+	// created_at is stored UTC; normalize the cutoff to UTC so the comparison can never be skewed by
+	// a caller passing a local-zone time (production passes the firing's own UTC created_at).
+	//
+	// created_at 存 UTC；把截止时刻归一到 UTC，使比较不会因调用方传本地时区时间而偏（生产传 firing 自身 UTC created_at）。
+	n, err := s.frs.WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Where("created_at < ?", before.UTC()).
+		Update(ctx, "status", triggerdomain.FiringSuperseded)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.SupersedePendingOlderThan: %w", err)
+	}
+	return n, nil
 }
 
 // ClaimFiring is store-concrete (NOT in the domain Repository): the single-transaction claim

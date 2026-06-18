@@ -181,9 +181,14 @@ func (s *Service) consumeFiring(ctx context.Context, f *triggerdomain.Firing) er
 	}
 	switch action {
 	case overlapDefer:
-		return nil // serial + a run already in flight → leave pending, re-drained later
+		return nil // serial/buffer_one + a run already in flight → leave pending, re-drained later
 	case overlapSkip:
 		return s.inbox.MarkFiringOutcome(fctx, f.ID, outcome)
+	case overlapReplace:
+		// replace: gracefully cancel the in-flight run(s), then fall through to run this firing.
+		if err := s.cancelRunningForReplace(fctx, f.WorkflowID); err != nil {
+			return err
+		}
 	}
 
 	// reads outside the tx (active version + pin + entry resolution).
@@ -218,34 +223,49 @@ const (
 	overlapRun overlapAction = iota
 	overlapSkip
 	overlapDefer
+	overlapReplace
 )
 
-// overlapDecision applies the workflow's concurrency policy to a new firing. v1 implements serial
-// (defer while a run is in flight), skip (drop), and allow_all (always run). buffer_one/buffer_all
-// are v2 — treated as allow_all so firings are never silently lost.
+// overlapDecision applies the workflow's concurrency policy to a new firing when a run is already in
+// flight. All five policies are implemented: skip drops the new firing, serial defers it, buffer_one
+// defers it AND supersedes this workflow's older pending firings (keep only the latest waiting),
+// replace cancels the in-flight run(s) so the new firing runs in their place (consumeFiring does the
+// cancel), and allow_all runs concurrently. With nothing in flight, every policy just runs.
 //
-// overlapDecision 对新 firing 应用 workflow 并发策略。v1 实现 serial（有 run 在途则推迟）、skip（丢）、
-// allow_all（总跑）。buffer_one/buffer_all 是 v2——按 allow_all 处理使 firing 绝不静默丢失。
+// overlapDecision 在已有 run 在途时对新 firing 应用 workflow 并发策略。五种全实现：skip 丢新 firing，serial
+// 推迟它，buffer_one 推迟它**并** supersede 该 workflow 更早的待处理 firing（只留最新待处理），replace 取消
+// 在途 run 使新 firing 顶替（取消在 consumeFiring 做），allow_all 并发跑。无 run 在途时各策略都直接跑。
 func (s *Service) overlapDecision(ctx context.Context, f *triggerdomain.Firing) (overlapAction, string, error) {
 	w, err := s.workflows.GetWorkflow(ctx, f.WorkflowID)
 	if err != nil {
 		return overlapRun, "", fmt.Errorf("schedulerapp.overlapDecision: %w", err)
 	}
+	running, err := s.runs.CountRunningByWorkflow(ctx, f.WorkflowID)
+	if err != nil {
+		return overlapRun, "", err
+	}
+	if running == 0 {
+		return overlapRun, "", nil // nothing in flight — every policy just runs it
+	}
 	switch w.Concurrency {
-	case workflowdomain.ConcurrencySerial, workflowdomain.ConcurrencySkip:
-		running, err := s.runs.CountRunningByWorkflow(ctx, f.WorkflowID)
-		if err != nil {
-			return overlapRun, "", err
-		}
-		if running > 0 {
-			if w.Concurrency == workflowdomain.ConcurrencySkip {
-				return overlapSkip, triggerdomain.FiringSkipped, nil
+	case workflowdomain.ConcurrencySkip:
+		return overlapSkip, triggerdomain.FiringSkipped, nil
+	case workflowdomain.ConcurrencySerial:
+		return overlapDefer, "", nil // wait, stays pending
+	case workflowdomain.ConcurrencyBufferOne:
+		// Keep only the latest waiting: drop this workflow's older pending firings, then defer this one.
+		// Each newer firing supersedes the strictly-older pending, so the newest always survives,
+		// regardless of drain order; nil inbox = manual-only (never reaches here).
+		if s.inbox != nil {
+			if _, err := s.inbox.SupersedePendingOlderThan(ctx, f.WorkflowID, f.CreatedAt); err != nil {
+				return overlapRun, "", fmt.Errorf("schedulerapp.overlapDecision: buffer_one supersede: %w", err)
 			}
-			return overlapDefer, "", nil // serial: wait, stays pending
 		}
+		return overlapDefer, "", nil
+	case workflowdomain.ConcurrencyReplace:
+		return overlapReplace, "", nil // consumeFiring cancels the in-flight run(s), then runs this one
+	default: // allow_all
 		return overlapRun, "", nil
-	default:
-		return overlapRun, "", nil // allow_all / buffer_one / buffer_all(v2) → run
 	}
 }
 

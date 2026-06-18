@@ -2,9 +2,44 @@ package trigger
 
 import (
 	"testing"
+	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
+
+// TestSupersedePendingOlderThan — buffer_one's "keep only the latest waiting" disposition: marks a
+// workflow's pending firings older than a cutoff as superseded, scoped to that workflow + status.
+func TestSupersedePendingOlderThan(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mk := func(id, wf string) {
+		t.Helper()
+		f := &triggerdomain.Firing{ID: id, TriggerID: "trg_a", WorkflowID: wf, ActivationID: "tra_1", DedupKey: id, Status: triggerdomain.FiringPending}
+		if _, err := s.AppendFiring(ctx, f); err != nil {
+			t.Fatalf("AppendFiring %s: %v", id, err)
+		}
+	}
+	mk("trf_a1", "wf_1")
+	mk("trf_a2", "wf_1")
+	mk("trf_b1", "wf_2") // a different workflow — must NOT be touched
+
+	// A future cutoff supersedes ALL of wf_1's pending firings (created_at < future); wf_2 untouched.
+	n, err := s.SupersedePendingOlderThan(ctx, "wf_1", time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("supersede: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("should supersede both wf_1 pending firings, superseded %d", n)
+	}
+	pend, _ := s.ListPendingFirings(ctx, 10)
+	if len(pend) != 1 || pend[0].WorkflowID != "wf_2" {
+		t.Fatalf("only wf_2's firing should remain pending, got %+v", pend)
+	}
+	// A past cutoff supersedes nothing (no pending firing is older than it).
+	if n2, _ := s.SupersedePendingOlderThan(ctx, "wf_2", time.Now().Add(-time.Hour)); n2 != 0 {
+		t.Fatalf("a past cutoff should supersede nothing, superseded %d", n2)
+	}
+}
 
 // TestSearchFirings_FilterAndOrder: the inbox pages newest-first, filters by trigger and
 // status, and stays inside the workspace (D2).

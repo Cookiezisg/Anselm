@@ -743,3 +743,54 @@ func TestFiring_OverlapSerialDefers_SkipDrops(t *testing.T) {
 	}
 	_ = f2
 }
+
+// TestFiring_OverlapBufferOneDefers — buffer_one keeps the latest waiting: with a run in flight, a
+// single new firing is deferred (stays pending), like serial (the supersede-older path is covered by
+// the trigger store's TestSupersedePendingOlderThan).
+func TestFiring_OverlapBufferOneDefers(t *testing.T) {
+	disp := newDisp()
+	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyBufferOne)
+	ctx := ctxWS("ws_1")
+	pre := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
+	if _, err := store.CreateRunWithTrigger(ctx, pre, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{}}); err != nil {
+		t.Fatalf("pre-run: %v", err)
+	}
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{}}); err != nil {
+		t.Fatalf("firing: %v", err)
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain buffer_one: %v", err)
+	}
+	if p, _ := trg.ListPendingFirings(ctx, 10); len(p) != 1 {
+		t.Fatalf("buffer_one should DEFER the firing (keep it waiting), %d pending", len(p))
+	}
+}
+
+// TestFiring_OverlapReplace — replace gracefully cancels the in-flight run and runs the new firing in
+// its place: the pre-seeded running run ends up cancelled and the firing is consumed (not left pending).
+func TestFiring_OverlapReplace(t *testing.T) {
+	disp := newDisp()
+	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyReplace)
+	ctx := ctxWS("ws_1")
+	pre := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
+	preID, err := store.CreateRunWithTrigger(ctx, pre, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{}})
+	if err != nil {
+		t.Fatalf("pre-run: %v", err)
+	}
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{}}); err != nil {
+		t.Fatalf("firing: %v", err)
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain replace: %v", err)
+	}
+	got, err := store.GetRun(ctx, preID)
+	if err != nil {
+		t.Fatalf("get pre-run: %v", err)
+	}
+	if got.Status != flowrundomain.StatusCancelled {
+		t.Fatalf("replace should cancel the in-flight run, status=%q", got.Status)
+	}
+	if p, _ := trg.ListPendingFirings(ctx, 10); len(p) != 0 {
+		t.Fatalf("replace should consume the firing (run it in place), %d still pending", len(p))
+	}
+}

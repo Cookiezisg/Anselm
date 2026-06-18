@@ -46,6 +46,6 @@ const (
 	FiringClaimed    = "claimed"    // claimed in the single tx (transient, inside the claim)
 	FiringStarted    = "started"    // claimed + flowrun created (terminal-ok)
 	FiringSkipped    = "skipped"    // overlap policy Skip
-	FiringSuperseded = "superseded" // overlap policy buffer_one replaced it (v2)
+	FiringSuperseded = "superseded" // overlap policy buffer_one dropped this older waiting firing
 	FiringShed       = "shed"       // resource cap
 )

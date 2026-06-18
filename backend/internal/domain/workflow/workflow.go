@@ -204,18 +204,26 @@ func IsValidLifecycle(s string) bool {
 }
 
 // Concurrency policies decide what the scheduler does when a run is requested while one is
-// already in flight. serial waits; skip drops the new request; buffer_one keeps only the
-// latest pending; buffer_all queues every request; allow_all runs them concurrently
-// (buffer_* are v2 placeholders — treated as allow_all so firings are never silently lost).
+// already in flight — five distinct, fully-implemented behaviors (the canonical overlap menu):
 //
-// Concurrency 策略决定有运行在途时再请求运行调度器怎么办。serial 等待；skip 丢弃新请求；buffer_one
-// 仅留最新待处理；buffer_all 全排队；allow_all 并发跑（buffer_* 是 v2 占位——按 allow_all 处理，
-// firing 绝不静默丢失）。
+//	serial     — queue the new request, run it after the current one (all run, in order);
+//	skip       — drop the new request, keep the current run (firing recorded as skipped);
+//	buffer_one — queue, but keep ONLY the latest pending; older pending firings are superseded;
+//	replace    — gracefully cancel the in-flight run(s) and run the new request instead;
+//	allow_all  — run the new request concurrently with the current one.
+//
+// Concurrency 策略决定有运行在途时再请求运行怎么办——五种各不相同、均已实现（标准重叠菜单）：
+//
+//	serial     — 新请求排队、当前跑完再跑（都跑、按序）；
+//	skip       — 丢弃新请求、保当前 run（firing 记为 skipped）；
+//	buffer_one — 排队但只留最新待处理；更早的待处理 firing 被 superseded；
+//	replace    — 优雅取消在途 run、改跑新请求；
+//	allow_all  — 新请求与当前并发跑。
 const (
 	ConcurrencySerial    = "serial"
 	ConcurrencySkip      = "skip"
 	ConcurrencyBufferOne = "buffer_one"
-	ConcurrencyBufferAll = "buffer_all"
+	ConcurrencyReplace   = "replace"
 	ConcurrencyAllowAll  = "allow_all"
 )
 
@@ -224,7 +232,7 @@ const (
 // IsValidConcurrency 报告 s 是否五种 concurrency 策略之一。
 func IsValidConcurrency(s string) bool {
 	switch s {
-	case ConcurrencySerial, ConcurrencySkip, ConcurrencyBufferOne, ConcurrencyBufferAll, ConcurrencyAllowAll:
+	case ConcurrencySerial, ConcurrencySkip, ConcurrencyBufferOne, ConcurrencyReplace, ConcurrencyAllowAll:
 		return true
 	}
 	return false

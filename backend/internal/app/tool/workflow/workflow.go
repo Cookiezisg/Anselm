@@ -51,8 +51,8 @@ func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service, sched *
 //
 // opsDoc 记录 create_workflow / edit_workflow 共用的图编辑 op 形状。
 const opsDoc = `OP SHAPES (each has an "op" discriminator):
-  {"op":"set_meta", "name":"snake_case", "description":"one line", "tags":["..."], "concurrency":"serial|skip|allow_all"}
-      // concurrency = overlap policy when a fire arrives while a run is in flight: serial (queue the new one, run after), skip (drop the new one), allow_all (run concurrently). buffer_one/buffer_all are ACCEPTED but NOT yet implemented — they currently behave exactly as allow_all, so do not rely on supersede/buffering semantics.
+  {"op":"set_meta", "name":"snake_case", "description":"one line", "tags":["..."], "concurrency":"serial|skip|buffer_one|replace|allow_all"}
+      // concurrency = overlap policy when a fire arrives while a run is in flight: serial (queue the new one, run after the current), skip (drop the new one), buffer_one (queue but keep only the LATEST — older waiting fires are superseded), replace (gracefully cancel the in-flight run and run the new one instead), allow_all (run concurrently). Default serial.
   {"op":"add_node", "node":{"id":"<graphLocalId>", "kind":"trigger|action|agent|control|approval", "ref":"<entityRef>", "input":{"<field>":"<bareCEL>"}}}
   {"op":"update_node", "id":"<nodeId>", "patch":{...partial node fields, merged...}}
   {"op":"delete_node", "id":"<nodeId>"}   // cascades: its edges are removed too
