@@ -44,6 +44,15 @@ landed-into:
 
 回拍 1，开拓新方向，**永不停，直到 API 报告没额度**（见「停止信号」）。
 
+## DOC-ALIGN —— 里程碑全量文档对齐（per-fix sync 的安全网）
+
+每个 fix 已在 COMMIT 同提交做 1:1 doc-sync（铁律 #6 / CLAUDE.md #9）——第一道防线。但一批改动里**跨面的 drift 会漏**（如某轮把 `api.md` 漏了、靠对抗审查才逮到）。故**里程碑**（一批 fix 后 / 周期性）跑一次**全量对齐**：
+
+- **审计扇出**（多 agent 并发、每面一个、只读）：`api.md` / `database.md` / `error-codes.md` / `events.md` / `domains/*` / `foundation/*` / `overview.md` 各自 diff 文档 vs 权威代码——端点 / 表·列·CHECK·索引 / 错误码 + **计数** / SSE 事件 / 实体字段 / op / 文档化行为，逐项核（**计数必须真去数代码**，别信文档自报）。本轮改最多的面（trigger / workflow 并发 / control·approval / function / mcp / scheduler / cel）**优先审**。每 agent 报 confirmed drift（doc 位置 + doc 说什么 + 代码真相 `file:line` + 精确修法）。
+- **修**：回主 agent **串行**修 drift（high→low），`make docs` 绿，`docs(loop): align <面> 到代码` 精确 commit。
+- **判据**：reference 文档 = 代码的**精确投影**（rule #9），任何事实不符 = bug（与编译失败同级）；只修事实 drift、不碰文案偏好。
+- **机制**：审计与修都是 Workflow 扇出（EXPLORE 并发审 / EXPLOIT 串行修），与主 loop 同骨架。
+
 ## 怎么操作（具体 —— 照着做就能跑）
 
 **① 一次性 · 起真后端 + 配 deepseek**（用我们自己的后端，不是测试 harness）
