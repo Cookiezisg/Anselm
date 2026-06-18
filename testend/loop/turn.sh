@@ -7,7 +7,7 @@
 #   turn.sh new                 -> create a fresh conversation, print CONV=cv_xxx
 #   turn.sh <convId> "<msg>"    -> send <msg> to that conversation, print the agent's turn
 set -euo pipefail
-SVC=/tmp/anselm_selfiter/serve.json
+SVC=${SVC:-/tmp/anselm_selfiter/serve.json}   # per-lane override: SVC=/tmp/anselm_selfiter/serve_<lane>.json
 BASE=$(jq -r .baseURL "$SVC"); WS=$(jq -r .workspaceId "$SVC")
 H_WS="X-Anselm-Workspace-ID: $WS"; H_JSON="Content-Type: application/json"
 CID="${1:-}"; MSG="${2:-}"
