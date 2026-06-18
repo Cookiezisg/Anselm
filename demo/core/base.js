@@ -70,8 +70,15 @@
     return n;
   }
 
+  // 时间感知英文问候（chat / documents 空态共用单源）——缺省取当前小时；放地基免两海洋各写一份。
+  function greetOf(h) {
+    const hr = h == null ? new Date().getHours() : h;
+    return (hr >= 5 && hr < 12) ? "Good morning" : (hr >= 12 && hr < 18) ? "Good afternoon" : "Good evening";
+  }
+
   window.AnElement = AnElement;
   window.anEsc = anEsc;
   window.anLabel = anLabel;
   window.el = el;
+  window.greetOf = greetOf;
 })();

@@ -106,6 +106,20 @@
     { kind: "doc", id: "doc_durable", label: "Durable 执行设计", desc: "引擎设计文档" },
   ];
 
+  // 空态（New-chat 落地）：问候打字机轮播后半句（英文、纯文案）+ Anselm 专属 suggestion chips（点击进对应真会话，零造假）
+  window.CHAT_GREET_PHRASES = [
+    "what should we automate today?",
+    "diagnose a failed flowrun?",
+    "build a release-notes agent?",
+    "research durable execution?",
+  ];
+  window.CHAT_SUGGESTIONS = [
+    { text: "造一个发布说明 Agent", convo: "cv_agent_new", icon: "agent" },
+    { text: "诊断 flowrun frn_8a1c 失败", convo: "cv_triage", icon: "scheduler" },
+    { text: "给 sync_inventory 加重试", convo: "cv_iterate", icon: "function" },
+    { text: "调研竞品 durable 方案", convo: "cv_research", icon: "search" },
+  ];
+
   window.CHAT_CONVOS = {
     // ── 旗舰：多类 item 右岛（Trigger 配置 + Function 终端 + Subagent 轨迹）+ 危险确认门 ──
     cv_daily: {

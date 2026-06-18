@@ -57,11 +57,34 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
         ],
         onPick: (v) => window.AnToast && window.AnToast.show({ text: ({ rename: "已重命名", addChild: "已在其下新建子文档", duplicate: "已复制", move: "已移动", delete: "已删除" }[v]) + "「" + (D.title || "") + "」" }),
       }));
+      if (ctx.shell) ctx.shell.setRight(island);   // setRight 决策下沉到 loadDoc（空态 loadHome 收起）
     }
 
-    ctx.Intent.on("document", (sel) => { if (page.isConnected && sel && sel.id) loadDoc(sel.id); });
-    loadDoc(window.DOC_DEFAULT || "doc_prd");
-    if (ctx.shell) ctx.shell.setRight(island);
+    // ── 空态（Notion 主页式）：时间问候 + 最近访问卡片网格 + 开始动作；右岛收起。复用原语不手搓。──
+    function loadHome() {
+      page.innerHTML = "";
+      if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); }
+      page.append(el("an-ocean-header", { crumb: "Documents", title: window.greetOf() + ", weilin" }));
+      const recent = el("an-section", { label: "最近访问" });
+      const grid = el("div");
+      grid.style.cssText = "display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--w-block), 1fr)); gap:var(--sp-3);";
+      (window.DOC_RECENTS || []).forEach((d) => {
+        const card = el("an-info-card", { title: d.label, icon: d.icon || "doc", meta: d.meta, onclick: () => ctx.Intent.select({ kind: "document", id: d.id }) });
+        card.style.cursor = "pointer";
+        card.append(el("an-badge", { tone: d.tone || "neutral", dot: d.dot }, d.badge));
+        grid.append(card);
+      });
+      recent.append(grid);
+      const start = el("an-section", { label: "开始" });
+      const acts = el("an-action-group");
+      acts.append(el("an-button", { variant: "primary", icon: "plus", onclick: () => window.AnToast && window.AnToast.show({ text: "已新建空白文档" }) }, "新建文档"));
+      acts.append(el("an-button", { icon: "diff", onclick: () => window.AnToast && window.AnToast.show({ text: "从模板新建…" }) }, "从模板"));
+      start.append(acts);
+      page.append(recent, start);
+    }
+
+    ctx.Intent.on("document", (sel) => { if (!page.isConnected) return; if (sel && sel.id) loadDoc(sel.id); else loadHome(); });
+    loadHome();   // 默认进海洋 = Notion 式主页（选文档 / 点最近卡才进文档）
     return page;
   },
 });

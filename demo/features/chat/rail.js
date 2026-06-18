@@ -5,7 +5,7 @@ window.FEATURE = window.FEATURE || {};
 window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
   rail: (ctx) => {
     const LIST = window.CHAT_CONVOS_LIST || [];
-    const sel = window.CHAT_DEFAULT;
+    const sel = null;   // 默认空态：列表无选中行（选会话才高亮）
     const labelOf = (id) => { let f = id; LIST.forEach((g) => (g.rows || []).forEach((r) => { if (r.id === id) f = r.label; })); return f; };
     const toast = (text) => window.AnToast && window.AnToast.show({ text });
 
@@ -20,7 +20,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     };
 
     elx.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "conversation", id: ev.detail.id }); });
-    elx.addEventListener("an-new", () => toast("已新建对话"));
+    elx.addEventListener("an-new", () => ctx.Intent.select({ kind: "conversation", id: null }));   // New Chat → 回空态
     elx.addEventListener("an-row-more", (ev) => {
       const id = ev.detail.id, name = labelOf(id);
       window.AnMenu.open(ev.detail.anchor, {

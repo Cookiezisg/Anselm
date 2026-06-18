@@ -22,6 +22,14 @@
   ];
   window.DOC_DEFAULT = "doc_prd";
 
+  // 空态（Notion 主页式）「最近访问」：从 DOCS 抽真实四篇 + 状态徽 + 更新时间（按近→远），避免空态再 parse DOCS 内部结构。
+  window.DOC_RECENTS = [
+    { id: "doc_prd", label: "PRD · Anselm v0.3", icon: "doc", meta: "今天 14:08", badge: "评审中", tone: "warn", dot: "wait" },
+    { id: "doc_durable", label: "Durable 执行设计", icon: "doc", meta: "昨天 16:20", badge: "已定稿", tone: "ok", dot: "done" },
+    { id: "doc_roadmap", label: "路线图 2026", icon: "doc", meta: "06-15", badge: "维护中", tone: "accent", dot: "run" },
+    { id: "doc_research", label: "竞品调研", icon: "doc", meta: "06-13", badge: "已归档", tone: "neutral" },
+  ];
+
   // @ / 斜杠选取池（统一搜索投影）：实体 + 文档。
   window.DOC_MENTIONS = [
     { kind: "function", id: "fn_5e1a9c4d", label: "fetch_article", desc: "抓取 URL 正文" },

@@ -442,6 +442,20 @@ window.REF_CATALOG = [
             }
           }
         ]
+      },
+      {
+        "name": "打字机 typewriter",
+        "tag": "an-typewriter",
+        "blurb": "纯视觉打字机：循环 type → 停 → delete → 换下一句（轮播）。.phrases 数组属性注入；attr prefix 恒定前缀（常显左侧）；光标闪烁走 token；字号继承宿主。chat/documents 空态问候用。disconnectedCallback 清 timer。",
+        "specimens": [
+          {
+            "label": "prefix + 轮播",
+            "span": true,
+            "tag": "an-typewriter",
+            "attrs": { "prefix": "Good evening, " },
+            "props": { "phrases": ["what should we automate today?", "diagnose a failed flowrun?", "build a release-notes agent?"] }
+          }
+        ]
       }
     ]
   },

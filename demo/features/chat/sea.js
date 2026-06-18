@@ -214,11 +214,42 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       } else if (ctx.shell) ctx.shell.setRight(null);   // 跟着对话长出来：首个 island 步才挂
     }
 
+    // ── 空态（New-chat 落地）：问候打字机 + suggestion chips；composer 仍在底部、右岛收起。复用原语不手搓。──
+    function buildHero() {
+      const hero = el("div", { class: "chat-hero" });
+      hero.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-7); padding:var(--sp-6);";
+      const greet = el("div");   // 大字号容器（typewriter 继承字号、自带 ink/ink-2 色，故只设排版尺度、不内联皮肤色）
+      greet.style.cssText = "font-size:var(--t-h1); font-weight:600; line-height:var(--lh-tight); text-align:center; max-width:var(--w-content);";
+      const tw = el("an-typewriter", { prefix: window.greetOf() + ", " });
+      tw.phrases = window.CHAT_GREET_PHRASES || [];
+      greet.append(tw);
+      const chips = el("div");
+      chips.style.cssText = "display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:var(--sp-2); max-width:var(--w-content);";
+      (window.CHAT_SUGGESTIONS || []).forEach((s) => chips.append(
+        el("an-button", { icon: s.icon, onclick: () => ctx.Intent.select({ kind: "conversation", id: s.convo }) }, s.text)
+      ));
+      hero.append(greet, chips);
+      return hero;
+    }
+    function showEmpty() {
+      clearTurn(); cur = null;
+      composer.removeAttribute("generating"); composer.attachments = [];
+      if (ctx.shell) {
+        ctx.shell.setRight(null);
+        ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("New chat");
+        ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true);
+        ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null);
+      }
+      page.replaceChildren(buildHero());
+    }
+
     // ── 切会话 ──
     function loadConvo(id) {
       clearTurn();
+      if (id == null) return showEmpty();   // 无选中 / 点 New → New-chat 空态
       const c = CONVOS[id] || CONVOS[window.CHAT_DEFAULT]; if (!c) return;
       cur = c;
+      if (tree.parentNode !== page) page.replaceChildren(tree);   // 从空态回来 → 恢复 transcript
       // 会话名 → 左上角紧凑标题（chat 恒 collapsed=一上来即显）；标题点回顶，⌄ 开对话动作菜单
       if (ctx.shell && ctx.shell.setHeadTitle) {
         ctx.shell.setHeadTitle(c.title || "对话", () => page.scrollToTop(true));
@@ -247,6 +278,12 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     composer.addEventListener("an-send", (ev) => {
       if (composer.hasAttribute("generating")) return;
       const d = ev.detail || {};
+      if (!cur) {   // 空态首条消息 → 起一个新对话（空 transcript 接管），不写进 hero
+        cur = { id: "__new__", title: "新对话", kind: "chat" };
+        if (tree.parentNode !== page) page.replaceChildren(tree);
+        if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("新对话"); ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); }
+        blocks = [];
+      }
       pushBlock({ type: "text", role: "user", html: d.html || window.anEsc(d.text || "") });
       startTurn(replyTurn());
     });
@@ -256,8 +293,8 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     // ref-pill 点击（transcript 内 @提及 / 实体引用）→ 统一前门 Intent.select
     root.addEventListener("an-ref", (ev) => { const d = ev.detail || {}; if (d.kind && d.id) ctx.Intent.select({ kind: "entity", id: d.id, source: "chat" }); });
 
-    ctx.Intent.on("conversation", (sel) => { if (root.isConnected && sel && sel.id) loadConvo(sel.id); });
-    loadConvo(window.CHAT_DEFAULT || Object.keys(CONVOS)[0]);
+    ctx.Intent.on("conversation", (sel) => { if (!root.isConnected) return; if (sel && sel.id) loadConvo(sel.id); else showEmpty(); });
+    showEmpty();   // 默认进海洋 = New-chat 空态（选会话 / 点 chip 才进对话）
     return root;
   },
 });

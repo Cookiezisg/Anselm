@@ -87,8 +87,36 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
       return isle;
     }
 
+    // ── 空态（能力主页）：按 kind 计数 + 4 核心 Quadrinity kind 新建 launcher + 全部实体列表；右岛收起。复用原语不手搓。──
+    function showEmpty() {
+      const el = window.el;
+      cur = null;
+      if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); ctx.shell.setHeadTitle && ctx.shell.setHeadTitle(null); }
+      const head = el("an-ocean-header", { crumb: "Entities", title: "能力" });
+      head.append(el("an-badge", { slot: "meta" }, reg.length + " 个实体"));
+      const launch = el("an-section", { label: "新建" });
+      const grid = el("div"); grid.style.cssText = "display:grid; grid-template-columns:repeat(auto-fill, minmax(var(--w-block), 1fr)); gap:var(--sp-3);";
+      ["function", "handler", "agent", "workflow"].forEach((k) => {
+        const kd = K[k] || {}, n = reg.filter((x) => x.kind === k).length;
+        const card = el("an-info-card", { title: kd.label || k, icon: kd.icon || k, meta: n + " 个 · " + (kd.verb || "") });
+        card.append(el("an-button", { variant: "ghost", size: "sm", icon: "plus",
+          onclick: () => window.AnToast && window.AnToast.show({ text: "新建 " + (kd.label || k) + " — 描述需求让 AI 来建，或填表单" }) }, "新建"));
+        grid.append(card);
+      });
+      launch.append(grid);
+      const listSec = el("an-section", { label: "全部实体" });
+      const list = el("div"); list.style.cssText = "display:flex; flex-direction:column;";
+      reg.forEach((e) => {
+        const r = el("an-row", { icon: (K[e.kind] || {}).icon || e.kind, label: e.label, meta: e.meta });
+        r.addEventListener("an-select", () => ctx.Intent.select({ kind: "entity", id: e.id }));
+        list.append(r);
+      });
+      listSec.append(list);
+      page.replaceChildren(head, launch, listSec);
+    }
+
     function show(id) {
-      const e = byId(id) || reg[0]; if (!e) return;
+      const e = byId(id); if (!e) { showEmpty(); return; }   // 选不到 / 无选中 → 能力主页空态
       cur = e;
       const kids = [header(e)];
       const versions = e.versions || [];
@@ -109,7 +137,8 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     }
 
     // 反应式选中：旧 sea（page 已 detached）不再抢渲染——多次进入叠加 Intent.on，靠此守卫只让当前 sea 响应
-    ctx.Intent.on("entity", (sel) => { if (page.isConnected) show(sel.id); });
+    ctx.Intent.on("entity", (sel) => { if (page.isConnected) { if (sel && sel.id) show(sel.id); else showEmpty(); } });
+    ctx.Intent.onAct((a) => { if (a.verb === "create" && a.kind === "entity" && page.isConnected) showEmpty(); });   // rail New Entity → 回能力主页
     // 图框「进入编辑器」→ 切编辑器海洋（带当前实体 id）
     page.addEventListener("an-graph-editor", () => { if (cur && ctx.Intent.act) ctx.Intent.act({ verb: "editGraph", kind: cur.kind, id: cur.id }); });
     // 就地改名 / 改说明 → 回写注册表（rail 行同源、下次渲染即新值）；真后端走 PATCH，失败回滚
@@ -121,7 +150,7 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     page.addEventListener("an-field-change", (ev) => {
       if (cur && (ev.detail.label === "说明" || ev.detail.label === "角色") && cur.data) { cur.data.description = ev.detail.value; window.AnToast && window.AnToast.show({ text: "已更新说明" }); }
     });
-    if (reg[0]) show(reg[0].id);   // 初始展示首个实体（此刻 page 尚未挂载，是本 sea 自身首渲）
+    showEmpty();   // 默认进海洋 = 能力主页空态（选实体 / 点 New 才进实体页）
     return page;
   },
 });

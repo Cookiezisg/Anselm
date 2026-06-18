@@ -4,7 +4,7 @@ window.FEATURE = window.FEATURE || {};
 window.FEATURE.scheduler = Object.assign(window.FEATURE.scheduler || {}, {
   rail: (ctx) => {
     const WFS = window.SCHED_WORKFLOWS || [];
-    const sel = window.SCHED_DEFAULT || (WFS[0] || {}).id;
+    const sel = null;   // 默认总览空态：列表无选中（选 workflow 才高亮）
     const el = document.createElement("an-sidebar-list");
     el.setAttribute("no-new", "");   // workflow 不在此新建，仅搜索 + 选中
     el.model = { filterPlaceholder: "搜索", groups: [{ types: [{
