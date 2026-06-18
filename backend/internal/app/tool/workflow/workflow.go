@@ -41,6 +41,9 @@ func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service, sched *
 		// 运行可观测——把生命周期动词启动的东西读回来
 		&GetFlowrun{sched: sched},
 		&SearchFlowruns{sched: sched},
+		// durable recovery — re-run a failed run from where it broke (clears failed nodes, keeps memoized)
+		// durable 恢复——从断点重跑失败 run（清 failed 节点、留记忆化）
+		&ReplayFlowrun{sched: sched},
 	}
 }
 

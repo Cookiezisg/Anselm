@@ -28,8 +28,8 @@ func TestWorkflowTools_Wiring(t *testing.T) {
 		// execution lifecycle (D1)
 		"trigger_workflow": false, "stage_workflow": false, "activate_workflow": false,
 		"deactivate_workflow": false, "kill_workflow": false,
-		// run observability
-		"get_flowrun": false, "search_flowruns": false,
+		// run observability + recovery
+		"get_flowrun": false, "search_flowruns": false, "replay_flowrun": false,
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("want %d tools, got %d", len(want), len(tools))
@@ -88,6 +88,8 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		{"getrun ok", &GetFlowrun{}, `{"flowrunId":"fr_1"}`, false},
 		{"searchruns any", &SearchFlowruns{}, `{}`, false},
 		{"searchruns scoped", &SearchFlowruns{}, `{"workflowId":"wf_1","limit":5}`, false},
+		{"replay no id", &ReplayFlowrun{}, `{}`, true},
+		{"replay ok", &ReplayFlowrun{}, `{"flowrunId":"fr_1"}`, false},
 	}
 	for _, c := range cases {
 		err := c.tool.ValidateInput([]byte(c.args))

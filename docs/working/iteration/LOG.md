@@ -53,6 +53,8 @@ landed-into:
 | F25 | fixed | fsnotify 交付的 `eventKind` 用 fsnotify 原始**大写** Op（CREATE/WRITE/REMOVE…），但 config 词汇是**小写** create/modify/delete（且 modify↔write、delete↔remove 别名）→ agent 按文档枚举写 CEL 过滤永不匹配 | 系统性（任何 fsnotify 事件过滤） | `fsnotify.go` fire 用新 `configEventKind(op)` 归一到配置词汇小写 token（组合事件 `\|` 连），交付端与 config 圆桌一致 | 零 token 单测 `TestConfigEventKind`（Create→create、Write→modify、Remove→delete、Create\|Write→`create\|modify`）绿；make verify 绿 | _pending_ |
 | F26 | fixed | webhook 真实可调 URL `/api/v1/webhooks/{triggerId}/{path}` **不可发现**：任何工具描述/参数/result/DTO 都不露这前缀 → agent 把 `config.path` 当全路径、给用户一个 404 URL | 系统性（任何 webhook trigger） | `create_trigger` 描述点明「config.path 只是子路径、外部 POST 到 /api/v1/webhooks/{triggerId}/{config.path}、id=本次返回的」+ trigger.md 同记 | 同 F24 簇行为复验；make verify 绿 | _pending_ |
 
+| F27 | fixed | durable `:replay`（清 failed 节点、留记忆化、按 run 原 pin 版本重走）后端实现完整且**正确**（round-2 replay lane 经直接 POST 验通：只清 failed 节点、保 trigger 记忆化、replayCount 0→1），但 **agent 无工具**调它——失败 run 无法从 agent 侧恢复 | 系统性（任何 agent 想重跑失败 run） | `tool/workflow/runs.go` 加 `replay_flowrun`(sched.Replay 同步→GetRunWithNodes 返更新后 run+nodes)；WorkflowTools 注册（14→15）；描述点明仅 failed 可重放 + 按**原 pin 版本**（失败后改实体不生效、要新 run）；doc 同步 workflow.md/scheduler-flowrun.md | ValidateInput 单测入表（replay no id→err、ok）绿；make verify 绿 | _pending_ |
+
 ## 元注（一次性，非 finding）
 - **为什么这 loop 值得**：F1 那条轨迹 `golden J5` 只断言"版本>1"是绿的；轨迹判官却抓到模型把 `get_function` 调错绕一圈——终态测试瞎、判官看见。
 - **workflow + durable 子系统验证通过**（2026-06-18）：F7+F8 修后，agent 建成 workflow（trigger→convert→classify）、`trigger_workflow` 跑通；durable 引擎逐节点记忆化、结果正确（celsius=100 → convert `{fahrenheit:212}` → classify `{label:"hot"}`，三节点 completed）。"整套工程"在此方向确认能转。
