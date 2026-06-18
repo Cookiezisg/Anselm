@@ -1,5 +1,5 @@
 /* Anselm feature — chat 海洋（sea）：AI 对话运行时主战场。
-   布局：中央 = an-page（居中列：ocean-header 可改名 + an-block-tree transcript）+ 底部固定 an-composer；右岛 = 仅 :iterate 对话展开（实体面订阅 entities build 流实时填充【新 active 版本】，edit 立即生效、可 revert，无草稿/采用门）。
+   布局：中央 = an-page（居中列：an-block-tree transcript）+ 底部固定 an-composer；会话名走 shell 左上角紧凑标题（恒显，无文章式大标题）；右岛 = 仅 :iterate 对话展开（实体面订阅 entities build 流实时填充【新 active 版本】，edit 立即生效、可 revert，无草稿/采用门）。
    契约落地（mock 演示）：Send=202+SSE → 这里以脚本回放模拟流式回合（每对话同时只一个在途回合 → generating 时 composer 切「停止」）；
      DB 行是真相 → blocks 数组是耐久态、脚本步增量改它再整渲（block-tree 声明式）；右岛 = entities build 流镜像 → 这里以 islandStream 步逐字喂 an-code-editor（写完即 active）。
    脚本解释器消费 data.js 的 turn 步：push/patch/island/gate（gate 等 an-block-tree 冒泡的 an-decide，approve→settled、deny→改道）。
@@ -12,11 +12,10 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     const toast = (t) => window.AnToast && window.AnToast.show({ text: t });
 
     // ── 持久骨架（切会话只更新内容，不重建）──
+    // chat 无文章式大标题——会话名一上来即显于左上角紧凑标题（shell.setHeadTitle，恒 collapsed）；transcript 直接顶到头栏下。
     const page = el("an-page");
-    const header = el("an-ocean-header", { editable: true });
-    const metaSpan = el("span", { slot: "meta" }); header.append(metaSpan);   // 模型 / 时间（modelOverride ?? workspace 默认）
     const tree = el("an-block-tree");
-    page.append(header, tree);
+    page.append(tree);
     const composer = el("an-composer");
     composer.mentions = window.CHAT_MENTIONS || [];
     const root = el("div", { class: "chat-sea" });
@@ -137,9 +136,11 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       clearTurn();
       const c = CONVOS[id] || CONVOS[window.CHAT_DEFAULT]; if (!c) return;
       cur = c;
-      header.setAttribute("crumb", c.crumb || "Chat");
-      header.setAttribute("title", c.title || "对话");
-      metaSpan.textContent = c.meta || "";
+      // 会话名 → 左上角紧凑标题（chat 恒 collapsed=一上来即显）；点击回顶
+      if (ctx.shell && ctx.shell.setHeadTitle) {
+        ctx.shell.setHeadTitle(c.title || "对话", () => page.scrollToTop(true));
+        ctx.shell.setHeadCollapsed(true);
+      }
       composer.removeAttribute("generating");
       composer.attachments = [];
       // 右岛：仅 :iterate 对话展开实体 live 编辑（其余收起、对话全宽）

@@ -16,7 +16,8 @@ window.FEATURE["graph-editor"] = Object.assign(window.FEATURE["graph-editor"] ||
     const delFooter = (label, fn) => el("an-action-group", { footer: true }, el("an-button", { variant: "danger", size: "sm", icon: "trash", onclick: fn }, label));
 
     const wrap = document.createElement("div");
-    wrap.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column;";
+    // padding-top 让自带 toolbar 落到 shell 浮动头栏之下，不被头栏 scrim 渐变盖淡（头栏 reopen/pright 浮于上方留白带）
+    wrap.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column; padding-top: var(--island-head);";
     const bar = document.createElement("an-toolbar");
     bar.setAttribute("bordered", ""); bar.style.flex = "none";
     const stage = document.createElement("div");

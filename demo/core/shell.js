@@ -8,7 +8,7 @@
 
   class AnShell extends window.AnElement {
     static tag = "an-shell";
-    static observed = ["side", "right"];
+    static observed = [];   // side/right/head/head-title 全由 :host([…]) CSS 实时响应，不进 observed——否则 toggle 触发整壳重渲、擦掉命令式设入的紧凑标题文本/slot 锚
     static css = `
       :host { display: block; height: 100%; }
       .win { height: 100%; display: flex; flex-direction: column;
@@ -30,7 +30,23 @@
       /* 海洋头 = 不占流的顶部浮层：正文滚到顶不被横带切。透明 + pointer-events:none，仅角落控件可点。 */
       .head { position: absolute; top: var(--zero); left: var(--zero); right: var(--zero); z-index: 5;
         display: flex; align-items: center; gap: var(--gap); height: var(--island-head); padding: 0 var(--sp-2) 0 var(--sp-3); pointer-events: none; }
-      .lead, .extra { pointer-events: auto; display: flex; align-items: center; gap: var(--grid); }
+      /* scrim：头部渐隐背板——内容滚到标题/岛钮附近淡出（island→透明），杜绝重叠遮挡。z 在内容之上、标题/钮之下。 */
+      .head::before { content: ""; position: absolute; inset: 0 0 auto 0; height: calc(var(--island-head) + var(--sp-3));
+        background: linear-gradient(to bottom, var(--island) 40%, transparent); pointer-events: none; z-index: -1; }
+      .lead, .extra { pointer-events: auto; display: flex; align-items: center; gap: var(--grid); min-width: 0; }
+
+      /* 紧凑标题（大标题滑出后浮现于左上角，左岛钮之后；带 ⌄ 回顶下拉）——chat 一上来即显，其余滚动收起态显 */
+      .htitle { display: none; align-items: center; gap: var(--gap-tight); height: var(--ctl); max-width: 50vw;
+        padding: 0 var(--sp-2); border-radius: var(--r-btn); pointer-events: auto; cursor: pointer;
+        color: var(--ink); font-size: var(--t-body); font-weight: 600;
+        transition: background var(--d-fast), opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
+      :host([head-title]) .htitle { display: inline-flex; }
+      .htitle:hover { background: var(--island-3); }
+      .htitle .ht-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .htitle .ht-chev { flex: none; color: var(--ink-3); display: inline-grid; place-items: center; }
+      .htitle .ht-chev svg { width: var(--icon-sm); height: var(--icon-sm); }
+      :host([head="hide"]) .htitle { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); pointer-events: none; }
+      :host([head="show"]) .htitle { opacity: 1; transform: none; }
       .grow { flex: 1; }
       .reopen { width: var(--zero); opacity: 0; overflow: hidden; pointer-events: none;
         transition: opacity var(--d-mid), width var(--d-slow) var(--ease-spring); }
@@ -55,6 +71,7 @@
             <div class="head">
               <span class="lead">
                 <an-button class="reopen" variant="icon" icon="panel-left"></an-button>
+                <button type="button" class="htitle" aria-label="回到顶部"><span class="ht-text"></span><span class="ht-chev">${window.icon("chevd", 12)}</span></button>
                 <slot name="head-lead"></slot>
               </span>
               <span class="grow"></span>
@@ -77,6 +94,7 @@
 
       this.$(".reopen").addEventListener("click", () => this.toggleLeft());
       this.$(".pright").addEventListener("click", () => this.toggleRight());
+      this.$(".htitle").addEventListener("click", () => { if (this._headClick) this._headClick(); });
       this._wireGrip();
       this._wireScroll();
     }
@@ -120,6 +138,16 @@
     }
     setSea(node) { this._slot("sea", node); }
     setHeadExtra(node) { this._slot("head-extra", node); }
+    // 紧凑标题：text=当前海洋标题（喂左上角头栏）；onClick=点击回调（回顶/菜单）；空 text → 清除占位。
+    setHeadTitle(text, onClick) {
+      this._headClick = onClick || null;
+      const t = this.$(".ht-text"); if (t) t.textContent = text || "";
+      this.toggleAttribute("head-title", !!text);
+      if (!text) this.removeAttribute("head");
+      else if (!this.hasAttribute("head")) this.setAttribute("head", "hide");
+    }
+    // 收起态切换：大标题滑出 → show 紧凑标题（淡入）；大标题可见 → hide。chat 恒 show（一上来即显）。
+    setHeadCollapsed(on) { if (this.hasAttribute("head-title")) this.setAttribute("head", on ? "show" : "hide"); }
     // 注入即开、清空即合（feature 给了右岛内容就展开，给 null 就收起）
     setRight(node) { this._slot("right", node); this.toggleAttribute("has-right", !!node); this.setAttribute("right", node ? "open" : "closed"); }
 

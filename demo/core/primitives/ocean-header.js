@@ -67,7 +67,24 @@
 
     hydrate() {
       const edit = this.$(".t-edit"); if (edit) edit.addEventListener("click", () => this._beginTitleEdit());
+      this._wireCollapse();
     }
+
+    // 滚动收起：大标题滑出顶部 → 喂 shell 左上角紧凑标题（含回顶回调）+ collapsed 切换；标题可见时收起紧凑标题。
+    _wireCollapse() {
+      const shell = this.closest("an-shell");
+      const titleEl = this.$(".title");
+      if (!shell || !titleEl || !shell.setHeadTitle || !window.IntersectionObserver) return;
+      shell.setHeadTitle(this.attr("title", ""), () => titleEl.scrollIntoView({ behavior: "smooth", block: "start" }));
+      if (this._io) this._io.disconnect();
+      const head = parseFloat(getComputedStyle(this).getPropertyValue("--island-head")) || 44;
+      this._io = new IntersectionObserver((ents) => {
+        const en = ents[0]; if (!en || !shell.setHeadCollapsed) return;
+        shell.setHeadCollapsed(en.intersectionRatio < 0.02);   // 大标题滑出头栏线 → 紧凑标题浮现
+      }, { root: null, rootMargin: "-" + Math.round(head) + "px 0px 0px 0px", threshold: [0, 0.02, 1] });
+      this._io.observe(titleEl);
+    }
+    disconnectedCallback() { if (this._io) { this._io.disconnect(); this._io = null; } }
 
     // 内生就地编辑：<h1> 本体原地 contenteditable（同字号同盒），done 一次性守卫（✓/✕ mousedown 与 blur 双触只生效一次）。
     _beginTitleEdit() {

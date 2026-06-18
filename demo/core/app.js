@@ -105,6 +105,7 @@
       current = id; prevNav = id;
       sidebar.setActive(f.axis === "avatar" ? "avatar" : id);
       shell.setRight(null);   // 进新海洋先清右岛（feature sea 按需自行 setRight）
+      if (shell.setHeadTitle) shell.setHeadTitle(null);   // 清紧凑标题（新海洋的 ocean-header / chat sea 自行重设）
       const [rail, sea] = await Promise.all([part(id, "rail"), part(id, "sea")]);
       if (my !== token) return;   // 已切走，丢弃
       sidebar.setRail(rail || placeholderRail());

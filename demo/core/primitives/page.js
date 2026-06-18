@@ -15,7 +15,8 @@
         scrollbar-width: none; -ms-overflow-style: none;
       }
       .scroll::-webkit-scrollbar { width: 0; height: 0; }
-      .col { max-width: var(--w-content); margin: 0 auto; padding: var(--sp-6) var(--sp-6) var(--sp-12); }
+      /* 顶部留白避开浮动头栏（--island-head）：大标题坐于头栏之下、不被切；滚动时滑入 scrim 淡出、紧凑标题接管 */
+      .col { max-width: var(--w-content); margin: 0 auto; padding: calc(var(--island-head) + var(--sp-3)) var(--sp-6) var(--sp-12); }
       .scrollbar {
         position: absolute; top: var(--sp-2); right: calc(var(--grid) / 2); bottom: var(--sp-2);
         display: block; width: var(--grid);
@@ -35,6 +36,10 @@
     scrollToBottom(smooth) {
       const s = this.$(".scroll"); if (!s) return;
       s.scrollTo ? s.scrollTo({ top: s.scrollHeight, behavior: smooth ? "smooth" : "auto" }) : (s.scrollTop = s.scrollHeight);
+    }
+    scrollToTop(smooth) {
+      const s = this.$(".scroll"); if (!s) return;
+      s.scrollTo ? s.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" }) : (s.scrollTop = 0);
     }
     hydrate() {
       const root = this.$(".page");
