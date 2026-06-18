@@ -22,11 +22,12 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     const composer = el("an-composer");
     composer.mentions = window.CHAT_MENTIONS || [];
     const root = el("div", { class: "chat-sea" });
-    root.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column;";
+    root.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column; position:relative;";   // relative：承载空态居中浮层
     root.append(page, composer);
 
     // ── 会话/回合态 ──
     let cur = null;          // 当前会话
+    let landing = null;      // 空态居中浮层（New-chat 落地：问候 + 居中药丸 composer）
     let blocks = [];         // live transcript（耐久态）
     let timers = [];         // 脚本步定时器（切会话全清）
     let gateListener = null; // 等待中的 an-decide 监听
@@ -214,41 +215,63 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       } else if (ctx.shell) ctx.shell.setRight(null);   // 跟着对话长出来：首个 island 步才挂
     }
 
-    // ── 空态（New-chat 落地）：问候打字机 + suggestion chips；composer 仍在底部、右岛收起。复用原语不手搓。──
-    function buildHero() {
-      const hero = el("div", { class: "chat-hero" });
-      hero.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-7); padding:var(--sp-6);";
-      const greet = el("div");   // 大字号容器（typewriter 继承字号、自带 ink/ink-2 色，故只设排版尺度、不内联皮肤色）
-      greet.style.cssText = "font-size:var(--t-h1); font-weight:600; line-height:var(--lh-tight); text-align:center; max-width:var(--w-content);";
-      const tw = el("an-typewriter", { prefix: window.greetOf() + ", " });
-      tw.phrases = window.CHAT_GREET_PHRASES || [];
-      greet.append(tw);
-      const chips = el("div");
-      chips.style.cssText = "display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:var(--sp-2); max-width:var(--w-content);";
-      (window.CHAT_SUGGESTIONS || []).forEach((s) => chips.append(
-        el("an-button", { icon: s.icon, onclick: () => ctx.Intent.select({ kind: "conversation", id: s.convo }) }, s.text)
-      ));
-      hero.append(greet, chips);
-      return hero;
-    }
+    // ── 空态（New-chat 居中落地，ChatGPT 式）：root 内绝对浮层，垂直居中 = 问候打字机（不加粗，prefix + 5s 轮播）+ 居中药丸 composer。无 chips、无左上角标题、右岛收起。──
     function showEmpty() {
       clearTurn(); cur = null;
-      composer.removeAttribute("generating"); composer.attachments = [];
+      composer.removeAttribute("generating"); composer.clear && composer.clear();
+      composer.style.transition = ""; composer.style.transform = "";
       if (ctx.shell) {
         ctx.shell.setRight(null);
-        ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("New chat");
-        ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true);
+        ctx.shell.setHeadTitle && ctx.shell.setHeadTitle(null);   // 左上角不显示 New Chat
         ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null);
       }
-      page.replaceChildren(buildHero());
+      page.replaceChildren();   // 清空 transcript（landing 浮层覆盖之）
+      if (landing) landing.remove();
+      landing = el("div", { class: "chat-landing" });
+      landing.style.cssText = "position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-7); padding:var(--sp-6);";
+      const greet = el("div");   // 排版尺度容器（typewriter 自带 ink/ink-2 色，故不内联皮肤色）；字体不加粗
+      greet.style.cssText = "font-size:var(--t-h2); font-weight:400; line-height:var(--lh-tight); text-align:center; max-width:var(--w-content);";
+      const tw = el("an-typewriter", { prefix: window.greetOf() + ", ", pause: "5000" });
+      tw.phrases = window.CHAT_GREET_PHRASES || [];
+      greet.append(tw);
+      composer.setAttribute("pill", "");
+      composer.style.width = "100%";   // 居中浮层 align-items:center 会 shrink-fit composer → 强制满宽，让药丸到 .bar 的 --w-content（宽药丸、非小圆）
+      landing.append(greet, composer);   // 把 composer 移进居中浮层（药丸态）
+      root.append(landing);
+    }
+    // 取消落地态、composer 复位到底部（导航进会话用，无动画）
+    function restoreComposer() {
+      if (landing) { landing.remove(); landing = null; }
+      composer.removeAttribute("pill"); composer.style.transition = ""; composer.style.transform = ""; composer.style.width = "";
+      if (composer.parentNode !== root) root.append(composer);
+    }
+    // 首条消息：composer 从居中药丸 FLIP 滑到底部（First-Last-Invert-Play），transcript 浮现
+    function slideToChat() {
+      const first = composer.getBoundingClientRect();
+      composer.removeAttribute("pill"); composer.style.width = "";
+      if (tree.parentNode !== page) page.replaceChildren(tree);
+      if (landing) { landing.remove(); landing = null; }
+      if (composer.parentNode !== root) root.append(composer);
+      if (ctx.shell) { ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("新对话"); ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true); }
+      const last = composer.getBoundingClientRect();
+      composer.style.transition = "none";
+      composer.style.transform = "translate(" + (first.left - last.left) + "px, " + (first.top - last.top) + "px)";
+      composer.getBoundingClientRect();   // 强制 reflow 锁定 invert 起点
+      requestAnimationFrame(() => {
+        composer.style.transition = "transform var(--d-slow) var(--ease-spring)";
+        composer.style.transform = "translate(0px, 0px)";
+      });
+      const done = () => { composer.style.transition = ""; composer.style.transform = ""; composer.removeEventListener("transitionend", done); };
+      composer.addEventListener("transitionend", done);
     }
 
     // ── 切会话 ──
     function loadConvo(id) {
       clearTurn();
-      if (id == null) return showEmpty();   // 无选中 / 点 New → New-chat 空态
+      if (id == null) return showEmpty();   // 无选中 / 点 New → New-chat 居中空态
       const c = CONVOS[id] || CONVOS[window.CHAT_DEFAULT]; if (!c) return;
       cur = c;
+      restoreComposer();
       if (tree.parentNode !== page) page.replaceChildren(tree);   // 从空态回来 → 恢复 transcript
       // 会话名 → 左上角紧凑标题（chat 恒 collapsed=一上来即显）；标题点回顶，⌄ 开对话动作菜单
       if (ctx.shell && ctx.shell.setHeadTitle) {
@@ -278,11 +301,10 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     composer.addEventListener("an-send", (ev) => {
       if (composer.hasAttribute("generating")) return;
       const d = ev.detail || {};
-      if (!cur) {   // 空态首条消息 → 起一个新对话（空 transcript 接管），不写进 hero
+      if (!cur) {   // 空态首条消息 → composer 从居中药丸 FLIP 滑到底部 + 起新对话
         cur = { id: "__new__", title: "新对话", kind: "chat" };
-        if (tree.parentNode !== page) page.replaceChildren(tree);
-        if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("新对话"); ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); }
         blocks = [];
+        slideToChat();
       }
       pushBlock({ type: "text", role: "user", html: d.html || window.anEsc(d.text || "") });
       startTurn(replyTurn());

@@ -18,9 +18,11 @@
       .box {
         border-radius: var(--r-card); background: var(--island);
         box-shadow: inset 0 0 0 var(--hairline) var(--line);
-        transition: box-shadow var(--d-fast);
+        transition: box-shadow var(--d-fast), border-radius var(--d-slow) var(--ease-spring);
       }
       .box:focus-within { box-shadow: inset 0 0 0 var(--hairline) var(--accent-line), 0 0 0 var(--focus-ring) var(--accent-soft); }
+      /* pill：空态落地的圆边药丸形（chat New-chat 居中态用；slide 到底时去 pill → 圆角面，border-radius 过渡自然） */
+      :host([pill]) .box { border-radius: var(--r-pill); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-float); }
 
       /* 附件 chip 行（空则整行塌陷） */
       .chips { display: flex; flex-wrap: wrap; gap: var(--gap-tight); padding: var(--sp-2) var(--sp-3) 0; }

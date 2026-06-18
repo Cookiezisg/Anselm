@@ -1,6 +1,6 @@
 /* Anselm 原语 — <an-typewriter prefix>。纯视觉打字机：循环 type → 停 → delete → 换下一句。
    why：chat 空态「时间问候 + 轮播意图」、任何"活"标语需打字机动效——抽成单源原语（可复用、可单测），不在 feature 手搓定时器。
-   数据：.phrases=["…","…"]（JS 属性，循环句数组，setter 即重启循环）；attr prefix（恒定前缀如 "Good morning, "，不参与打字、常显左侧、主墨）。
+   数据：.phrases=["…","…"]（JS 属性，循环句数组，setter 即重启循环）；attr prefix（恒定前缀如 "Good morning, "，不参与打字、常显左侧、主墨）；attr pause（一句打满停留毫秒，缺省 PAUSE_MS）。
    行为：typing 逐字加 → holding 停 PAUSE_MS → deleting 逐字删（半速、删比打快、视觉自然）→ idx=(idx+1)%n 打下一句。
    生命周期：单 setTimeout 链 this._timer；hydrate 启动；disconnectedCallback 清（移出 DOM 即停，杜绝 poke 已 detached 节点）。
    节拍 SPEED_MS/PAUSE_MS 是 JS 定时器常量（CSS token 触达不到 JS），集中此处、注释挂钩 motion 阶梯；光标闪烁等纯 CSS 仍走 token。字号/行高继承宿主（标题处大、副文处小复用同件）。 */
@@ -41,7 +41,7 @@
       let delay = SPEED_MS;
       if (this._phase === "typing") {
         this._shown = full.slice(0, this._shown.length + 1);
-        if (this._shown === full) { this._phase = "holding"; delay = PAUSE_MS; }
+        if (this._shown === full) { this._phase = "holding"; delay = this.num("pause", PAUSE_MS); }   // 一句打满停留（attr pause 可配，chat 空态 5s）
       } else if (this._phase === "holding") {
         this._phase = "deleting"; delay = Math.round(SPEED_MS / 2);
       } else {   // deleting
