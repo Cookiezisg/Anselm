@@ -270,12 +270,18 @@ func (s *Service) validateBranches(branches []controldomain.Branch) error {
 	if err := controldomain.ValidateBranches(branches); err != nil {
 		return err
 	}
+	// A control's when/emit are evaluated at runtime over `input` ONLY (scheduler binds {input}), so
+	// validate against exactly that namespace — a payload.x / ctx.x ref is now rejected at create/edit
+	// instead of compiling against the permissive env and failing only when the workflow runs.
+	//
+	// 控制的 when/emit 运行时只在 `input` 上求值（scheduler 绑 {input}），故恰在该命名空间上校验——
+	// payload.x / ctx.x 引用现在 create/edit 即被拒、而非编过宽容 env、仅工作流运行时才崩。
 	for _, b := range branches {
-		if _, err := celpkg.Compile(b.When); err != nil {
+		if _, err := celpkg.CompileFor([]string{"input"}, b.When); err != nil {
 			return controldomain.ErrInvalidCEL
 		}
 		for _, expr := range b.Emit {
-			if _, err := celpkg.Compile(expr); err != nil {
+			if _, err := celpkg.CompileFor([]string{"input"}, expr); err != nil {
 				return controldomain.ErrInvalidCEL
 			}
 		}

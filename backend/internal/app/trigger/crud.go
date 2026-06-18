@@ -238,10 +238,16 @@ func (s *Service) validate(kind string, config map[string]any) error {
 		}
 	case triggerdomain.KindSensor:
 		sc := triggerdomain.ParseSensorConfig(config)
-		if _, err := celpkg.Compile(sc.Condition); err != nil {
+		// A sensor's condition/output are evaluated at runtime over `payload` ONLY (the probe's
+		// return value — the listener binds {payload}), so validate against exactly that namespace:
+		// a ctx.x / input.x ref is rejected at create/edit, not silently at the first probe.
+		//
+		// sensor 的 condition/output 运行时只在 `payload` 上求值（探测返回值——listener 绑 {payload}），
+		// 故恰在该命名空间上校验：ctx.x / input.x 引用在 create/edit 即被拒、而非首次探测时静默崩。
+		if _, err := celpkg.CompileFor([]string{"payload"}, sc.Condition); err != nil {
 			return triggerdomain.ErrInvalidCEL
 		}
-		if _, err := celpkg.Compile(sc.Output); err != nil {
+		if _, err := celpkg.CompileFor([]string{"payload"}, sc.Output); err != nil {
 			return triggerdomain.ErrInvalidCEL
 		}
 	}

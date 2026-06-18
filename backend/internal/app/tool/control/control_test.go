@@ -91,7 +91,7 @@ func TestControlTools_RoundTrip(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 
 	out, err := (&CreateControl{svc: svc}).Execute(ctx,
-		`{"name":"router","description":"d","branches":[{"port":"pass","when":"payload.score >= 0.9","emit":{"n":"payload.n + 1"}},{"port":"else","when":"true"}]}`)
+		`{"name":"router","description":"d","branches":[{"port":"pass","when":"input.score >= 0.9","emit":{"n":"input.n + 1"}},{"port":"else","when":"true"}]}`)
 	if err != nil {
 		t.Fatalf("create execute: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestControlTools_RoundTrip(t *testing.T) {
 func TestCreateControl_InvalidCEL(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	_, err := (&CreateControl{svc: svc}).Execute(ctx,
-		`{"name":"bad","branches":[{"port":"x","when":"payload.("},{"port":"y","when":"true"}]}`)
+		`{"name":"bad","branches":[{"port":"x","when":"input.("},{"port":"y","when":"true"}]}`)
 	if !errors.Is(err, controldomain.ErrInvalidCEL) {
 		t.Fatalf("want ErrInvalidCEL bubbled (framework softens at loop layer), got %v", err)
 	}

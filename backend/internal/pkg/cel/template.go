@@ -35,6 +35,22 @@ type tmplPart struct {
 // CompileTemplate 解析 `{{ expr }}` 段，各自经共享 env 编译，保留其间字面文本。未闭合的 `{{`、
 // 任一段语法错 / 未知函数在此失败——create/edit 时调以快速失败。无 `{{ }}` 段的纯字面模板亦合法。
 func CompileTemplate(tmpl string) (*Template, error) {
+	return compileTemplate(tmpl, Compile)
+}
+
+// CompileTemplateFor compiles a template restricting every `{{ expr }}` span to EXACTLY the given
+// root variables (via CompileFor) — author-time validation for a template whose runtime activation
+// binds a known set: an approval template renders over `input` only, so a wrong-namespace span
+// (e.g. `{{ payload.x }}`) is rejected at create/edit instead of failing at render.
+//
+// CompileTemplateFor 编译模板、把每个 `{{ expr }}` 段限制在恰好给定的根变量上（经 CompileFor）——
+// 用于运行时活化绑定已知集的模板的编写期校验：approval 模板只在 `input` 上渲染，故错命名空间段
+// （如 `{{ payload.x }}`）在 create/edit 即被拒、而非渲染时才崩。
+func CompileTemplateFor(roots []string, tmpl string) (*Template, error) {
+	return compileTemplate(tmpl, func(expr string) (*Program, error) { return CompileFor(roots, expr) })
+}
+
+func compileTemplate(tmpl string, compile func(string) (*Program, error)) (*Template, error) {
 	t := &Template{src: tmpl}
 	rest := tmpl
 	for {
@@ -54,7 +70,7 @@ func CompileTemplate(tmpl string) (*Template, error) {
 			return nil, fmt.Errorf("cel.CompileTemplate %q: unterminated {{", tmpl)
 		}
 		expr := strings.TrimSpace(rest[:end])
-		prog, err := Compile(expr)
+		prog, err := compile(expr)
 		if err != nil {
 			return nil, fmt.Errorf("cel.CompileTemplate: %w", err)
 		}

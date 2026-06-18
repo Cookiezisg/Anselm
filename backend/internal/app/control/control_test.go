@@ -80,6 +80,30 @@ func TestCreate_InvalidEmitCEL(t *testing.T) {
 	}
 }
 
+// TestCreate_WrongNamespaceCEL — F14 (iteration loop): a control's when/emit run over `input` ONLY at
+// runtime, so a syntactically-valid but wrong-namespace ref (payload.x / ctx.x) must be rejected at
+// create time (CompileFor restricts to [input]), not compile against the permissive env and fail
+// only when the workflow runs. input.x stays valid.
+func TestCreate_WrongNamespaceCEL(t *testing.T) {
+	svc, ctx := newSvc(t)
+	if _, _, err := svc.Create(ctx, CreateInput{Name: "ns_when", Branches: []controldomain.Branch{
+		{Port: "x", When: "payload.score > 1"}, catchAll("y"),
+	}}); !errors.Is(err, controldomain.ErrInvalidCEL) {
+		t.Fatalf("payload.x in a control when must be ErrInvalidCEL, got %v", err)
+	}
+	if _, _, err := svc.Create(ctx, CreateInput{Name: "ns_emit", Branches: []controldomain.Branch{
+		{Port: "x", When: "true", Emit: map[string]string{"k": "ctx.runId"}},
+	}}); !errors.Is(err, controldomain.ErrInvalidCEL) {
+		t.Fatalf("ctx.x in a control emit must be ErrInvalidCEL, got %v", err)
+	}
+	// input.* stays valid (the actual runtime namespace).
+	if _, _, err := svc.Create(ctx, CreateInput{Name: "ns_ok", Branches: []controldomain.Branch{
+		{Port: "x", When: "input.score >= 0.9", Emit: map[string]string{"n": "input.n + 1"}}, catchAll("y"),
+	}}); err != nil {
+		t.Fatalf("input.* control must stay valid, got %v", err)
+	}
+}
+
 func TestCreate_NoCatchAll(t *testing.T) {
 	svc, ctx := newSvc(t)
 	_, _, err := svc.Create(ctx, CreateInput{Name: "nc", Branches: []controldomain.Branch{

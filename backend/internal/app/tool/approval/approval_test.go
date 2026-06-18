@@ -91,7 +91,7 @@ func TestApprovalTools_RoundTrip(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 
 	out, err := (&CreateApproval{svc: svc}).Execute(ctx,
-		`{"name":"email","template":"发送给 {{ payload.to }}?","allowReason":true,"timeout":"30d","timeoutBehavior":"reject"}`)
+		`{"name":"email","template":"发送给 {{ input.to }}?","allowReason":true,"timeout":"30d","timeoutBehavior":"reject"}`)
 	if err != nil {
 		t.Fatalf("create execute: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestApprovalTools_RoundTrip(t *testing.T) {
 	if _, err := (&GetApproval{svc: svc}).Execute(ctx, `{"approvalId":"`+id+`"}`); err != nil {
 		t.Fatalf("get execute: %v", err)
 	}
-	if _, err := (&EditApproval{svc: svc}).Execute(ctx, `{"approvalId":"`+id+`","template":"改 {{ payload.x }}?"}`); err != nil {
+	if _, err := (&EditApproval{svc: svc}).Execute(ctx, `{"approvalId":"`+id+`","template":"改 {{ input.x }}?"}`); err != nil {
 		t.Fatalf("edit execute: %v", err)
 	}
 	if _, err := (&RevertApproval{svc: svc}).Execute(ctx, `{"approvalId":"`+id+`","version":1}`); err != nil {
@@ -117,7 +117,7 @@ func TestApprovalTools_RoundTrip(t *testing.T) {
 
 func TestCreateApproval_InvalidTemplate(t *testing.T) {
 	svc, ctx := newToolSvc(t)
-	_, err := (&CreateApproval{svc: svc}).Execute(ctx, `{"name":"bad","template":"bad {{ payload.( }}"}`)
+	_, err := (&CreateApproval{svc: svc}).Execute(ctx, `{"name":"bad","template":"bad {{ input.( }}"}`)
 	if !errors.Is(err, approvaldomain.ErrInvalidTemplate) {
 		t.Fatalf("want ErrInvalidTemplate bubbled (framework softens at loop layer), got %v", err)
 	}

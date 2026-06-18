@@ -265,7 +265,12 @@ func (s *Service) validateForm(template, timeout, timeoutBehavior string) error 
 	if err := approvaldomain.ValidateForm(template, timeout, timeoutBehavior); err != nil {
 		return err
 	}
-	if _, err := celpkg.CompileTemplate(template); err != nil {
+	// The template renders at runtime over `input` ONLY (scheduler binds {input}), so validate each
+	// {{ span }} against exactly that namespace — a {{ payload.x }} is rejected at create/edit, not at render.
+	//
+	// 模板运行时只在 `input` 上渲染（scheduler 绑 {input}），故每个 {{ 段 }} 恰在该命名空间上校验——
+	// {{ payload.x }} 在 create/edit 即被拒、而非渲染时才崩。
+	if _, err := celpkg.CompileTemplateFor([]string{"input"}, template); err != nil {
 		return approvaldomain.ErrInvalidTemplate
 	}
 	return nil

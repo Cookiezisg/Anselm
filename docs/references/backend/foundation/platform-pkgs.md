@@ -15,7 +15,7 @@ audience: [human, ai]
 
 ## pkg/cel
 
-裸 CEL 编译求值，根变量固定三个：`payload`/`ctx`（trigger sensor）、`input`（control when/emit + approval 模板）。**env 无 now()/墙钟**——guard 重放确定（durable 引擎的前提之一）。`ScopedEnv`（scheduler 用）以图 node id 为根。模板模式 `{{ CEL }}`（approval 渲染）。
+裸 CEL 编译求值。宽容 `Compile` 一并声明 `payload`/`ctx`/`input`（RUNTIME 用、存储表达式已校验）；**`CompileFor(roots,expr)` 在恰好给定根集上编译（无自动 ctx）**——AUTHOR 期镜像各上下文真实活化、当场拒错命名空间：control when/emit + approval 模板只读 `input`、sensor condition/output 只读 `payload`（control/approval/trigger 的 create/edit 校验已切到它）。**env 无 now()/墙钟**——guard 重放确定（durable 引擎的前提之一）。`ScopedEnv`（scheduler 用）以图 node id 为根。模板模式 `{{ CEL }}`（approval 渲染，`CompileTemplateFor` 同受限）。
 
 ## infra/crypto
 

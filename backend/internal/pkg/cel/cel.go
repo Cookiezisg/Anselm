@@ -1,14 +1,17 @@
-// Package cel compiles and evaluates bare CEL expressions over a fixed set of dynamic root
-// variables: `payload` / `ctx` (trigger sensor condition/output) and `input` (control
-// when/emit + approval template — the node-fed entity input). The env exposes no
-// now()/wall-clock function, so guards stay replay-deterministic. Callers pass an activation
-// map naming whichever roots their expression reads. Shared by trigger sensors and the
-// entity layer, so it lives in pkg, not a domain.
+// Package cel compiles and evaluates bare CEL expressions. The permissive package env (Compile)
+// declares `payload`/`ctx`/`input` together, and the caller's activation binds whichever roots its
+// expression reads — fine at RUNTIME, where the stored expression is already validated. CompileFor
+// compiles over EXACTLY a caller-given root set (no auto-ctx) and is used at AUTHOR time to reject a
+// wrong-namespace ref up front, mirroring each context's real runtime activation: a control's
+// when/emit and an approval template read `input` only; a sensor's condition/output reads `payload`
+// only. The env exposes no now()/wall-clock function, so guards stay replay-deterministic. Lives in
+// pkg (shared by trigger sensors and the entity layer), not a domain.
 //
-// Package cel 编译并求值裸 CEL 表达式，根变量固定三个：`payload`/`ctx`（trigger sensor 的
-// condition/output）与 `input`（control 的 when/emit + approval 的 template，即节点喂给实体的
-// 输入）。env 无 now()/墙钟，保证重放确定。调用方传一个 activation map，命名表达式实际读的根。
-// 由 trigger sensor 与实体层共用，故放 pkg 而非某个 domain。
+// Package cel 编译并求值裸 CEL。宽容包 env（Compile）一并声明 `payload`/`ctx`/`input`，调用方 activation
+// 绑表达式实际读的根——RUNTIME 用（存储的表达式已校验过）足够。CompileFor 在恰好给定的根集上编译（无
+// 自动 ctx），AUTHOR 期用于当场拒绝错命名空间引用，镜像各上下文真实运行时活化：control 的 when/emit 与
+// approval 模板只读 `input`；sensor 的 condition/output 只读 `payload`。env 无 now()/墙钟，保证重放确定。
+// 放 pkg（trigger sensor 与实体层共用）、非某个 domain。
 package cel
 
 import (
@@ -55,6 +58,39 @@ func Compile(expr string) (*Program, error) {
 		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
 	}
 	prg, err := env.Program(ast)
+	if err != nil {
+		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
+	}
+	return &Program{prg: prg, src: expr}, nil
+}
+
+// CompileFor compiles expr over EXACTLY the given root variables (each DynType) — a reference to any
+// OTHER root fails compile. Use it at AUTHOR time for entity CEL whose runtime activation binds a
+// known, restricted set: control/approval read only `input`, a sensor reads only `payload`. The
+// permissive package env (Compile, above) declares payload/ctx/input all at once, so a wrong-namespace
+// ref (e.g. payload.x in a control) compiles there and only fails at runtime; CompileFor rejects it
+// at create/edit. Author-time only (envs are built per call — not a hot path). No auto-`ctx`: pass
+// every root the runtime actually binds, so the env mirrors the activation exactly.
+//
+// CompileFor 在恰好给定的根变量上编译 expr（各 DynType），引用任何其它根即编译失败。用于 AUTHOR 期
+// 校验运行时活化绑定已知受限集的实体 CEL：control/approval 只读 `input`、sensor 只读 `payload`。宽容
+// 包 env（上面的 Compile）一次声明 payload/ctx/input，故错命名空间引用（如 control 里的 payload.x）在那
+// 能编过、仅运行时崩；CompileFor 在 create/edit 即拒。仅编写期（env 每次现建，非热路径）。无自动 `ctx`：
+// 传运行时真正绑定的每个根，使 env 与活化精确一致。
+func CompileFor(roots []string, expr string) (*Program, error) {
+	opts := make([]celgo.EnvOption, 0, len(roots))
+	for _, r := range roots {
+		opts = append(opts, celgo.Variable(r, celgo.DynType))
+	}
+	e, err := celgo.NewEnv(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("cel.CompileFor %v: %w", roots, err)
+	}
+	ast, iss := e.Compile(expr)
+	if iss != nil && iss.Err() != nil {
+		return nil, fmt.Errorf("cel.Compile %q: %w", expr, iss.Err())
+	}
+	prg, err := e.Program(ast)
 	if err != nil {
 		return nil, fmt.Errorf("cel.Compile %q: program: %w", expr, err)
 	}
