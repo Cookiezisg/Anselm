@@ -220,17 +220,24 @@ func TestToContentParts_NonVisionDegradesImage(t *testing.T) {
 	}
 }
 
-func TestToContentParts_SkipsMissingPreservingOrder(t *testing.T) {
+func TestToContentParts_NotesMissingPreservingOrder(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	txt, _ := svc.Upload(ctx, "a.txt", "text/plain", []byte("A"))
 
-	// A stale id between two real ones is skipped; the rest keep their order and the turn survives.
+	// A stale id between real ones now yields a placeholder note (F78), not a silent drop; the turn
+	// survives and order is preserved (the note first, then the live text).
 	parts, err := svc.ToContentParts(ctx, []string{"att_deadbeefdeadbeef", txt.ID}, Capabilities{Vision: true})
 	if err != nil {
 		t.Fatalf("ToContentParts: %v", err)
 	}
-	if len(parts) != 1 || parts[0].Type != llminfra.PartText || !strings.Contains(parts[0].Text, "A") {
-		t.Errorf("parts = %+v, want only the live text part", parts)
+	if len(parts) != 2 {
+		t.Fatalf("parts = %d, want 2 (missing-attachment note + live text)", len(parts))
+	}
+	if parts[0].Type != llminfra.PartText || !strings.Contains(parts[0].Text, "no longer available") {
+		t.Errorf("part[0] = %+v, want a missing-attachment placeholder note", parts[0])
+	}
+	if parts[1].Type != llminfra.PartText || !strings.Contains(parts[1].Text, "A") {
+		t.Errorf("part[1] = %+v, want the live text part", parts[1])
 	}
 }
 
@@ -377,5 +384,20 @@ func TestSandboxExtractor_NonZeroExitErrors(t *testing.T) {
 	_, err := NewSandboxExtractor(sb).Extract(context.Background(), "application/pdf", []byte("x"))
 	if err == nil {
 		t.Error("want error on non-zero python exit")
+	}
+}
+
+// TestInlineText_CapsOversized — F77: oversized inline text is capped (like extracted documents),
+// not passed whole into the model context; small text is inlined unchanged.
+func TestInlineText_CapsOversized(t *testing.T) {
+	out := inlineText("big.txt", []byte(strings.Repeat("x", maxExtractedChars+100)))
+	if !strings.Contains(out, "(truncated)") {
+		t.Fatalf("oversized text must be marked truncated, got prefix %q", out[:60])
+	}
+	if len(out) > maxExtractedChars+200 {
+		t.Fatalf("oversized text not capped: len=%d", len(out))
+	}
+	if small := inlineText("s.txt", []byte("hello")); strings.Contains(small, "truncated") || !strings.Contains(small, "hello") {
+		t.Fatalf("small text should be inlined whole, got %q", small)
 	}
 }

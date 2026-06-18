@@ -138,6 +138,8 @@ landed-into:
 | document 块编辑（markdown-tree 模型、各块型 round-trip 字节精确、单块编辑 siblings 不动、reorder 位置连续、1MB guard 精确 413/201 无截断、200 项大文档不腐） | document | happy/边界 |
 | :triage AI 诊断（正确诊断真失败因 + 提可操作修、eagerly 校验 execution 存在无幻影会话、pin-replay 须 fresh trigger 才拾修=有意 pin 语义） | ai-ops(:triage)·durable | 报错→恢复 |
 | notification / needsAttention 生命周期（run_failed→点亮、replay completed→熄灭、approval park→pending、completed/cancelled 不误报、workspace 正确 scoped） | notification·SSE | happy/报错 |
+| **e2e 系统编排**（一句话目标→agent 搭 webhook→classify(fn)→urgency(control)→approval gate→reply(fn)→log 全系统：选型/dataflow/capability_check/真 webhook POST 三路径全对——除工具描述漏 merge 规则 F76 致首建漏分支汇聚） | 全实体·组合 | happy（真实世界目标） |
+| webhook auth（auth 强制 / body-size cap / method gate / dedup idx_trf_dedup 防重放双触发 全按广告——仅 HMAC 验证 header 不可发现 F79） | trigger(webhook)·安全 | 边界/恶意 |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 

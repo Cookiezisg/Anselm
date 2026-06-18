@@ -189,13 +189,18 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 	for _, id := range ids {
 		a := byID[id]
 		if a == nil {
-			s.log.Warn("attachmentapp.ToContentParts: attachment not found, skipping", zap.String("attachment_id", id))
+			// Surface the gap to the model instead of silently dropping it — a referenced-but-missing
+			// attachment that vanishes from the turn with no signal misleads both model and user (F78).
+			// 把缺口透给模型而非静默丢弃——被引用却失踪的附件无声消失会同时误导模型与用户（F78）。
+			s.log.Warn("attachmentapp.ToContentParts: attachment not found, noting", zap.String("attachment_id", id))
+			out = append(out, textNote("a referenced attachment (%s) is no longer available", id))
 			continue
 		}
 		data, err := s.blobs.Get(ctx, a.SHA256)
 		if err != nil {
-			s.log.Warn("attachmentapp.ToContentParts: blob unreadable, skipping",
+			s.log.Warn("attachmentapp.ToContentParts: blob unreadable, noting",
 				zap.String("attachment_id", a.ID), zap.String("sha256", a.SHA256), zap.Error(err))
+			out = append(out, textNote("attachment %q is no longer available", a.Filename))
 			continue
 		}
 		switch a.Kind {
@@ -236,10 +241,21 @@ func dataURL(mime string, data []byte) string {
 //
 // inlineText 把文本文件内容包成带文件名标注的 text part，让模型知道文件名。
 func inlineText(filename string, data []byte) string {
-	if filename != "" {
-		return fmt.Sprintf("Attached file %q:\n%s", filename, data)
+	// Cap oversized text the same way extracted documents are capped — an unbounded inline text/CSV
+	// would otherwise silently overflow the model's context with no app-side guard or signal (F77).
+	// 像抽取文档一样给超大文本封顶——否则无界内联 text/CSV 会静默撑爆模型 context、无护栏无信号（F77）。
+	body, truncated := truncateForLLM(string(data))
+	suffix := ""
+	if truncated {
+		suffix = " (truncated)"
 	}
-	return string(data)
+	if filename != "" {
+		return fmt.Sprintf("Attached file %q%s:\n%s", filename, suffix, body)
+	}
+	if truncated {
+		return body + "\n[truncated]"
+	}
+	return body
 }
 
 // textNote renders a degraded-attachment placeholder as a text part.
