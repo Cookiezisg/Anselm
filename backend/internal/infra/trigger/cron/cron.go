@@ -30,6 +30,21 @@ func Validate(expr string) error {
 	return nil
 }
 
+// NextAfter returns the first scheduled fire strictly after `after` for a 5-field cron expression
+// (same ParseStandard semantics the listener schedules on). The app projects it as the read-time
+// NextFireAt so the UI can show "next fire in N" without re-deriving the schedule; an invalid expr
+// errors (create-time Validate already rejects those).
+//
+// NextAfter 返回 5 字段 cron 表达式在 `after` 之后的首次调度触发（与 listener 调度同 ParseStandard 语义）。
+// app 把它作读时 NextFireAt 投影，使 UI 不必重算 schedule 即可显示「N 后触发」；非法 expr 报错（create 时 Validate 已拒）。
+func NextAfter(expr string, after time.Time) (time.Time, error) {
+	sched, err := robfigcron.ParseStandard(expr)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return sched.Next(after), nil
+}
+
 func dedupKey(triggerID string, tick time.Time) string {
 	return triggerID + "|cron|" + strconv.FormatInt(tick.Truncate(time.Minute).Unix(), 10)
 }

@@ -29,7 +29,7 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 
 - **Activation**（`tra_`）= "trigger 动了一下"的审计——**触没触发都记**（sensor 每次探测都报，Fired=false 带 ReturnValue/Error/Detail——这让"为什么没触发"可查）；cron/webhook/fsnotify 只在真 fire 时报。
 - **Firing**（`trf_`）= **persist-before-act** 的收件箱行：fire 瞬间先落库、早于任何 flowrun。单一 status 枚举即处置结果：pending→claimed（claim 事务内瞬态）→started（终态-ok）；skipped（overlap）/superseded（v2）/shed。
-- **引用计数监听**：N 个 active workflow 共享一个 trigger 只跑**一个** listener（0→1 Register 启动、1→0 Unregister 停止；注册表在内存，boot 由 workflow.ReattachActive 重放）。`RefCount/Listening` 是读时算的非列字段；**`LastFiredAt`** 同为读时派生（非列）——List/Get 各行从 activation 日志取最近一条 `fired=true` 的 `created_at`（走 `idx_tra_ws_trigger` 一次 First；单用户触发器少、无 N+1），供行显示「N 前 fire」。
+- **引用计数监听**：N 个 active workflow 共享一个 trigger 只跑**一个** listener（0→1 Register 启动、1→0 Unregister 停止；注册表在内存，boot 由 workflow.ReattachActive 重放）。`RefCount/Listening` 是读时算的非列字段；**`LastFiredAt`** 同为读时派生（非列）——List/Get 各行从 activation 日志取最近一条 `fired=true` 的 `created_at`（走 `idx_tra_ws_trigger` 一次 First；单用户触发器少、无 N+1），供行显示「N 前 fire」。**`NextFireAt`**（仅 cron）亦读时派生（非列）——`attachRuntime` 用 `croninfra.NextAfter(expression, now)` 算下次调度触发，供行显示「N 后触发」（非 cron 或 expr 不可解析则 nil）。
 - **一次性待命**（stage）：`AttachOnce` 标记 once，fanOut 后自动 Detach（可能把 listener 1→0 停掉）。
 
 ## 3. 去重（D3：`idx_trf_dedup` = UNIQUE(workflow_id, trigger_id, dedup_key)）

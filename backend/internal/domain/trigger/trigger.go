@@ -68,6 +68,13 @@ type Trigger struct {
 	// LastFiredAt 是最近一条**已触发** activation 的 created_at（nil = 从未触发），投影进 List/Get 使行
 	// 可显示「3 分钟前 fire」。读时派生，不落库。
 	LastFiredAt *time.Time `db:"-" json:"lastFiredAt,omitempty"`
+	// NextFireAt is the next scheduled fire of a CRON trigger (nil for non-cron, or an unparseable
+	// expr), projected into List/Get so the UI can show "next fire in N". Read-derived from the cron
+	// expression at request time, not stored.
+	//
+	// NextFireAt 是 CRON 触发器下次调度触发时刻（非 cron 或 expr 不可解析则 nil），投影进 List/Get 使
+	// UI 可显示「N 后触发」。请求时从 cron 表达式读时派生，不落库。
+	NextFireAt *time.Time `db:"-" json:"nextFireAt,omitempty"`
 }
 
 // ListFilter paginates the trigger list.

@@ -3,8 +3,10 @@ package trigger
 import (
 	"context"
 	"fmt"
+	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
+	croninfra "github.com/sunweilin/anselm/backend/internal/infra/trigger/cron"
 )
 
 // Attach registers workflowID as a listener of triggerID. The first reference (0→1) starts
@@ -87,10 +89,20 @@ func (s *Service) Detach(triggerID, workflowID string) {
 // attachRuntime 从内存监听表填充计算字段 RefCount/Listening。
 func (s *Service) attachRuntime(t *triggerdomain.Trigger) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	if e, ok := s.listeners[t.ID]; ok {
 		t.RefCount = len(e.workflows)
 		t.Listening = true
+	}
+	s.mu.RUnlock()
+	// Project the next scheduled fire for a cron trigger (read-time, like LastFiredAt) so the UI can
+	// show "next fire in N". Best-effort: a non-cron kind or unparseable expr leaves it nil.
+	//
+	// 对 cron 触发器投影下次调度触发时刻（读时派生，类比 LastFiredAt），使 UI 可显示「N 后触发」。
+	// best-effort：非 cron 或 expr 不可解析则留 nil。
+	if t.Kind == triggerdomain.KindCron {
+		if next, err := croninfra.NextAfter(triggerdomain.CronExpression(t.Config), time.Now()); err == nil {
+			t.NextFireAt = &next
+		}
 	}
 }
 
