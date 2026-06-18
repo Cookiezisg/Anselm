@@ -57,6 +57,8 @@ landed-into:
 
 | F28 | fixed | durable 循环引擎本身**正确**（per-iteration 记忆化、终止、MaxIterations(1000) 干净失败——round-2 loop lane 验通），但**自累加循环不可编排**：循环内前驱在首轮未跑、其 node-id 根在 CEL activation 缺省，cel-go 对表达式引用到的未绑已声明根硬报「no such attribute」**即便在 has() 内**→ `has(check.count)?check.count:start.count`（自然 loop init）也崩 → agent 被迫退化到 side-effecting stateful handler（破坏跨 run 隔离/并发） | **系统性 + 引擎**（任何跨轮累加/重试带态的循环；round-2 loop lane + skeptic 双复现 + cel-go 独立复现 + 验证修法） | `scheduler/walk.go scopeFor` 把每个无 completed result 的已声明图节点绑**空 map**（非缺省）→ `has(pred.f)` 干净为 false、loop init 可写；既有接线不变（只引用 completed 祖先）；opsDoc 加 **LOOP STATE** 段（has()-guard + control emit 携态）；doc 同步 scheduler-flowrun.md | 零 token 单测 `TestScopeFor_BindsAbsentNodesToEmptyMap`（缺省→{}、completed 保 result）+ `TestWalk_LoopWithBackEdge` 不回归；make verify 绿 | _pending_ |
 
+| F29 | fixed | `buffer_one`/`buffer_all` 被 API/CHECK/set_meta 接受 + **opsDoc 当五个平等策略广告**，但 `overlapDecision` 只实现 serial/skip、二者 default 落 `overlapRun` = **静默 allow_all**（无 buffering/supersede）→ agent 选 buffer_one 求「新替旧」得静默 no-op | **系统性**（agent-facing 契约 enum 与运行时不符；round-2 concurrency lane + skeptic 变体复现 4 run 全并发完成） | 值班分两半：**实现真 buffering=特性决策（留讨论）**；本轮做**诚实契约**——opsDoc concurrency enum 改 `serial\|skip\|allow_all` + 注明 buffer_one/all「接受但未实现、暂同 allow_all」（docs 本就对：workflow.md:24 已标 v2 占位，故 code-only） | make verify 绿；是否实现真 supersede/queue 语义**留用户定** | _pending_ |
+
 ## 元注（一次性，非 finding）
 - **为什么这 loop 值得**：F1 那条轨迹 `golden J5` 只断言"版本>1"是绿的；轨迹判官却抓到模型把 `get_function` 调错绕一圈——终态测试瞎、判官看见。
 - **workflow + durable 子系统验证通过**（2026-06-18）：F7+F8 修后，agent 建成 workflow（trigger→convert→classify）、`trigger_workflow` 跑通；durable 引擎逐节点记忆化、结果正确（celsius=100 → convert `{fahrenheit:212}` → classify `{label:"hot"}`，三节点 completed）。"整套工程"在此方向确认能转。
