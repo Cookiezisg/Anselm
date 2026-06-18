@@ -182,8 +182,6 @@ import sys, json, traceback
 _real_stdout = sys.stdout
 sys.stdout = sys.stderr
 
-from user_handler import HandlerImpl
-
 
 def respond(payload):
     _real_stdout.write(json.dumps(payload) + "\n")
@@ -196,6 +194,11 @@ def main():
         return
     init_msg = json.loads(init_line)
     try:
+        # Import user code INSIDE the init try so a syntax / import error (IndentationError,
+        # SyntaxError, missing dependency) surfaces as a structured init_error WITH the traceback —
+        # not as a crash before the protocol starts, which the client could only report as the opaque
+        # "subprocess crashed" with no cause (F64). The traceback names the file/line/offending source.
+        from user_handler import HandlerImpl
         handler = HandlerImpl(**(init_msg.get("args") or {}))
         respond({"type": "ready"})
     except Exception as e:

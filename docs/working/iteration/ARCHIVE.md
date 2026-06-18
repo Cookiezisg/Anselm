@@ -82,6 +82,7 @@ landed-into:
 | F66 agent invoke 失败记不透明 "agent loop error"、丢真因（Result 不带 ErrMsg） | agent·loop | 跨实体 / 报错 | 恢复无门/静默降级 | fixed·locked |
 | F69 author-time control/approval/sensor CEL 编译错丢真因（裸 sentinel）→ agent 猜 | control·approval·trigger | 单工具 / 报错 | promise≠reality/不可发现 | fixed·locked |
 | F70 add_node 顶层误放 input 静默丢弃→节点无接线运行时崩 | workflow(ops) | 单工具 / 报错 | promise≠reality/静默降级 | fixed·locked |
+| F64 handler import-time 错（语法/缩进/坏import）不透明 crash→import 移进 init try、走 init_error 带 traceback | handler(driver) | 单工具 / 报错·崩溃 | 恢复无门/不可发现 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
