@@ -244,11 +244,13 @@ func (s *Service) validate(kind string, config map[string]any) error {
 		//
 		// sensor 的 condition/output 运行时只在 `payload` 上求值（探测返回值——listener 绑 {payload}），
 		// 故恰在该命名空间上校验：ctx.x / input.x 引用在 create/edit 即被拒、而非首次探测时静默崩。
+		// Carry the real cel-go reason so the agent fixes the sensor CEL instead of guessing (cf F8).
+		// 把真 cel-go 因带进错误，使 agent 直接修 sensor CEL 而非猜（参 F8）。
 		if _, err := celpkg.CompileFor([]string{"payload"}, sc.Condition); err != nil {
-			return triggerdomain.ErrInvalidCEL
+			return triggerdomain.ErrInvalidCEL.WithDetails(map[string]any{"field": "condition", "cel": sc.Condition, "reason": err.Error()})
 		}
 		if _, err := celpkg.CompileFor([]string{"payload"}, sc.Output); err != nil {
-			return triggerdomain.ErrInvalidCEL
+			return triggerdomain.ErrInvalidCEL.WithDetails(map[string]any{"field": "output", "cel": sc.Output, "reason": err.Error()})
 		}
 	}
 	return nil

@@ -271,7 +271,9 @@ func (s *Service) validateForm(template, timeout, timeoutBehavior string) error 
 	// 模板运行时只在 `input` 上渲染（scheduler 绑 {input}），故每个 {{ 段 }} 恰在该命名空间上校验——
 	// {{ payload.x }} 在 create/edit 即被拒、而非渲染时才崩。
 	if _, err := celpkg.CompileTemplateFor([]string{"input"}, template); err != nil {
-		return approvaldomain.ErrInvalidTemplate
+		// Carry the real cel-go reason so the agent fixes the template instead of guessing (cf F8).
+		// 把真 cel-go 因带进错误，使 agent 直接修模板而非猜（参 F8）。
+		return approvaldomain.ErrInvalidTemplate.WithDetails(map[string]any{"reason": err.Error()})
 	}
 	return nil
 }

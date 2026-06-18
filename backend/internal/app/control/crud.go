@@ -278,11 +278,14 @@ func (s *Service) validateBranches(branches []controldomain.Branch) error {
 	// payload.x / ctx.x 引用现在 create/edit 即被拒、而非编过宽容 env、仅工作流运行时才崩。
 	for _, b := range branches {
 		if _, err := celpkg.CompileFor([]string{"input"}, b.When); err != nil {
-			return controldomain.ErrInvalidCEL
+			// Carry the real cel-go reason (e.g. undeclared ref, parse error) into the error so the
+			// agent fixes it instead of guessing — the bare sentinel discarded it. (Same class as F8.)
+			// 把真 cel-go 因（未声明引用 / 解析错）带进错误，使 agent 直接修而非猜——裸 sentinel 丢了它。
+			return controldomain.ErrInvalidCEL.WithDetails(map[string]any{"branch": b.Port, "when": b.When, "reason": err.Error()})
 		}
 		for _, expr := range b.Emit {
 			if _, err := celpkg.CompileFor([]string{"input"}, expr); err != nil {
-				return controldomain.ErrInvalidCEL
+				return controldomain.ErrInvalidCEL.WithDetails(map[string]any{"branch": b.Port, "emit": expr, "reason": err.Error()})
 			}
 		}
 	}

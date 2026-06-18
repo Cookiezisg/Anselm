@@ -11,6 +11,7 @@ import (
 
 	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
 	controlstore "github.com/sunweilin/anselm/backend/internal/infra/store/control"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -67,6 +68,12 @@ func TestCreate_InvalidWhenCEL(t *testing.T) {
 	}})
 	if !errors.Is(err, controldomain.ErrInvalidCEL) {
 		t.Fatalf("want ErrInvalidCEL, got %v", err)
+	}
+	// F69: the real cel-go reason must be carried (Details.reason), not discarded, so the agent
+	// fixes the CEL instead of guessing.
+	var ee *errorspkg.Error
+	if !errors.As(err, &ee) || ee.Details["reason"] == nil || ee.Details["reason"] == "" {
+		t.Fatalf("invalid-CEL error must carry the cel-go reason in Details; got %+v", err)
 	}
 }
 
