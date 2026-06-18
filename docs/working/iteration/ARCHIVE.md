@@ -81,6 +81,7 @@ landed-into:
 | F63 handler 多行 body 非 flush-left→双重缩进 IndentationError→不透明 crash | handler(assemble) | 单工具 / 报错 | promise≠reality/脆弱 | fixed·locked |
 | F66 agent invoke 失败记不透明 "agent loop error"、丢真因（Result 不带 ErrMsg） | agent·loop | 跨实体 / 报错 | 恢复无门/静默降级 | fixed·locked |
 | F69 author-time control/approval/sensor CEL 编译错丢真因（裸 sentinel）→ agent 猜 | control·approval·trigger | 单工具 / 报错 | promise≠reality/不可发现 | fixed·locked |
+| F70 add_node 顶层误放 input 静默丢弃→节点无接线运行时崩 | workflow(ops) | 单工具 / 报错 | promise≠reality/静默降级 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -127,6 +128,8 @@ landed-into:
 | handler config 工具（update 重启带新 init-args、merge-patch 保键、clear 停实例、重启清内存态=有意 durable） | handler | happy |
 | function 运行错透明（自定义异常/ImportError/非JSON返回 真 traceback 逐字穿 run_function+flowrun节点+执行记录） | function | 报错 |
 | trigger 失败路径可追（webhook 坏 body、cron/fsnotify 坏配、sensor 探错 各有可追因） | trigger | 报错 |
+| 深 durable 循环（25 迭代累加器 + 双体节点循环 per-iteration 全对、按真条件退、远低于 MaxIterations、scopeFor 多体验对） | durable-engine | 多轮 loop |
+| **D2 workspace 隔离边界**（跨 ws 读/写/run 全 404/401、无泄露、缺头 401；ORM workspace 过滤兜底） | 安全·全实体 | 边界/恶意 |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
@@ -141,6 +144,7 @@ landed-into:
 > round-7（0619）填：mcp 运行时错路径、最大实体组合、多分支 control（3/4 lane 全绿）；仅 handler-build 面有料：F63（已修）+ F64（HIGH 队，import 错不透明）+ F65（sensor level-trigger，设计）。**产品高度硬化**。
 > round-8（0619）填：approval approve/fail timeout、handler config 工具（全绿）；仅 modelOverride 面有料：F66（HIGH 修，执行记录真因）+ F67/F68（队）。**8 轮收敛**：HIGH 多为透明度族（流错 F33/F34/F66、handler F63/F64）。
 > round-9（0619）透明度轴 sweep：function 运行错、trigger 失败路径全绿；ctlerr 逮 F69（author-time CEL 丢因，已修）。透明度轴大体硬化（F7/F8/F33/F34/F35/F49/F63/F66/F69），剩 F64/F67 同族。
+> round-10（0619）：深 durable 循环引擎全绿、D2 隔离边界全程守住（无泄露）；逮 F70（add_node 静默丢 input，已修）+ F71（capability dataflow，=F35 深层）+ F72（跨ws messages 200-空 vs 404 一致性，low）。
 
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
