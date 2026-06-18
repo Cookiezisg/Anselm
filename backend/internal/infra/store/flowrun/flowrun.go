@@ -324,6 +324,24 @@ func (s *Store) ListParkedNodes(ctx context.Context) ([]*flowrundomain.FlowRunNo
 	return rows, nil
 }
 
+// CancelParkedNodes resolves a run's still-parked nodes to a terminal state when the run itself is
+// being cancelled (replace / kill while it was parked on an approval). Without this, the parked
+// approval row outlives its cancelled run and lingers in the inbox (ListParkedNodes) as a dead,
+// undecidable entry. NodeFailed is the only non-completed node terminal; the run header already
+// records the real cause (cancelled). Returns how many parked nodes were resolved.
+//
+// CancelParkedNodes 在 run 本身被取消时（parked 在审批上却遭 replace/kill）把其仍 parked 的节点收到终态。
+// 否则该 parked 审批行会比被取消的 run 活得久、留在收件箱（ListParkedNodes）成死的不可决策项。NodeFailed 是
+// 唯一非 completed 的节点终态；run 头已记真实因（cancelled）。返被收的 parked 节点数。
+func (s *Store) CancelParkedNodes(ctx context.Context, flowrunID string) (int64, error) {
+	n, err := s.nodes.WhereEq("flowrun_id", flowrunID).WhereEq("status", flowrundomain.NodeParked).
+		Update(ctx, "status", flowrundomain.NodeFailed)
+	if err != nil {
+		return 0, fmt.Errorf("flowrunstore.CancelParkedNodes: %w", err)
+	}
+	return n, nil
+}
+
 // DeleteFailedNodes hard-deletes a run's failed rows (flowrun_nodes has no deleted column → the
 // query Delete is a physical DELETE). The ONE permitted delete on a Log table: a failed row is a
 // non-result, removing it to retry is not erasing history.

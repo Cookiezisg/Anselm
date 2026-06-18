@@ -94,6 +94,11 @@ type Repository interface {
 	// ListParkedNodes 返 workspace 内所有 parked 节点行——审批收件箱（无独立投影表；parked 行即收件箱）。
 	ListParkedNodes(ctx context.Context) ([]*FlowRunNode, error)
 
+	// CancelParkedNodes resolves a run's still-parked nodes to a terminal state when the run is being
+	// cancelled (replace/kill while parked) — so a dead approval row does not linger in the inbox.
+	// CancelParkedNodes 在 run 被取消时（parked 时遭 replace/kill）把其仍 parked 的节点收到终态——免死审批行滞留收件箱。
+	CancelParkedNodes(ctx context.Context, flowrunID string) (int64, error)
+
 	// DeleteFailedNodes hard-deletes a run's failed node rows (the :replay node half — clears the
 	// failures so a re-walk re-runs them; completed rows stay memoized). Returns rows removed. This is
 	// the ONE permitted physical delete on a Log table: a failed row is a non-result (the activity did

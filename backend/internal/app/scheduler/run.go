@@ -244,26 +244,44 @@ func (s *Service) overlapDecision(ctx context.Context, f *triggerdomain.Firing) 
 	if err != nil {
 		return overlapRun, "", err
 	}
-	if running == 0 {
-		return overlapRun, "", nil // nothing in flight — every policy just runs it
-	}
 	switch w.Concurrency {
 	case workflowdomain.ConcurrencySkip:
-		return overlapSkip, triggerdomain.FiringSkipped, nil
+		if running > 0 {
+			return overlapSkip, triggerdomain.FiringSkipped, nil
+		}
+		return overlapRun, "", nil
 	case workflowdomain.ConcurrencySerial:
-		return overlapDefer, "", nil // wait, stays pending
+		if running > 0 {
+			return overlapDefer, "", nil // wait, stays pending
+		}
+		return overlapRun, "", nil
 	case workflowdomain.ConcurrencyBufferOne:
-		// Keep only the latest waiting: drop this workflow's older pending firings, then defer this one.
-		// Each newer firing supersedes the strictly-older pending, so the newest always survives,
-		// regardless of drain order; nil inbox = manual-only (never reaches here).
+		// Keep only the LATEST waiting firing — collapse this workflow's pending firings to the newest
+		// REGARDLESS of the in-flight count. (If we only superseded when running>0, an older waiting
+		// firing evaluated while nothing is in flight would slip through overlapRun and execute,
+		// violating keep-only-latest.) If this firing is not the survivor, it was just superseded → defer.
+		//
+		// 只留最新待处理 firing——无论是否有 run 在途，都把该 workflow 的待处理 firing 收敛到最新一条。（若只在
+		// running>0 时 supersede，一条更早的待处理 firing 在无 run 在途时被评估就会从 overlapRun 漏过去执行、
+		// 违反只留最新。）若本 firing 非存活者，它刚被 supersede → defer。
 		if s.inbox != nil {
-			if _, err := s.inbox.SupersedePendingOlderThan(ctx, f.WorkflowID, f.CreatedAt); err != nil {
-				return overlapRun, "", fmt.Errorf("schedulerapp.overlapDecision: buffer_one supersede: %w", err)
+			newestID, _, err := s.inbox.SupersedeAllButNewestPending(ctx, f.WorkflowID)
+			if err != nil {
+				return overlapRun, "", fmt.Errorf("schedulerapp.overlapDecision: buffer_one: %w", err)
+			}
+			if f.ID != newestID {
+				return overlapDefer, "", nil // not the latest — this firing was superseded
 			}
 		}
-		return overlapDefer, "", nil
+		if running > 0 {
+			return overlapDefer, "", nil // the latest, but a run is in flight → wait
+		}
+		return overlapRun, "", nil // the latest + nothing in flight → run it
 	case workflowdomain.ConcurrencyReplace:
-		return overlapReplace, "", nil // consumeFiring cancels the in-flight run(s), then runs this one
+		if running > 0 {
+			return overlapReplace, "", nil // consumeFiring cancels the in-flight run(s), then runs this one
+		}
+		return overlapRun, "", nil
 	default: // allow_all
 		return overlapRun, "", nil
 	}

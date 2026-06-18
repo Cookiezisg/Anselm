@@ -75,6 +75,11 @@ func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, err
 		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "killed by user"); err != nil {
 			s.log.Warn("schedulerapp.KillWorkflow: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
 		}
+		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
+		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
+		if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
+			s.log.Warn("schedulerapp.KillWorkflow: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
+		}
 		s.cancelInflight(r.ID)
 	}
 	return len(runs), nil
@@ -99,6 +104,11 @@ func (s *Service) cancelRunningForReplace(ctx context.Context, workflowID string
 	for _, r := range runs {
 		if err := s.runs.MarkRunTerminal(ctx, r.ID, flowrundomain.StatusCancelled, "replaced by a newer trigger"); err != nil {
 			s.log.Warn("schedulerapp.cancelRunningForReplace: mark cancelled", zap.String("flowrun", r.ID), zap.Error(err))
+		}
+		// Resolve any approval the run was parked on so it doesn't linger as a dead inbox entry.
+		// 收掉 run 所 park 的审批，免其作为死收件箱项滞留。
+		if _, err := s.runs.CancelParkedNodes(ctx, r.ID); err != nil {
+			s.log.Warn("schedulerapp.cancelRunningForReplace: cancel parked nodes", zap.String("flowrun", r.ID), zap.Error(err))
 		}
 		s.cancelInflight(r.ID)
 	}

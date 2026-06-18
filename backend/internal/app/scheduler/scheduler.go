@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -100,10 +99,10 @@ type FiringInbox interface {
 	ListPendingFirings(ctx context.Context, limit int) ([]*triggerdomain.Firing, error)
 	ClaimFiring(ctx context.Context, firingID string, create func(tx *ormpkg.DB) (string, error)) (string, error)
 	MarkFiringOutcome(ctx context.Context, firingID, status string) error
-	// SupersedePendingOlderThan drops a workflow's pending firings older than `before` (buffer_one's
-	// keep-only-latest disposition). Returns the count superseded.
-	// SupersedePendingOlderThan 丢弃某 workflow `before` 之前的待处理 firing（buffer_one 只留最新）。返被 supersede 数。
-	SupersedePendingOlderThan(ctx context.Context, workflowID string, before time.Time) (int64, error)
+	// SupersedeAllButNewestPending collapses a workflow's pending firings to the newest (buffer_one's
+	// keep-only-latest disposition), returning the survivor's id ("" if none) and the count superseded.
+	// SupersedeAllButNewestPending 把某 workflow 的待处理 firing 收敛到最新一条（buffer_one 只留最新），返存活者 id（无则 ""）与被 supersede 数。
+	SupersedeAllButNewestPending(ctx context.Context, workflowID string) (string, int64, error)
 }
 
 // RunStore is the flowrun persistence the scheduler needs: the domain Repository plus the two

@@ -794,3 +794,28 @@ func TestFiring_OverlapReplace(t *testing.T) {
 		t.Fatalf("replace should consume the firing (run it in place), %d still pending", len(p))
 	}
 }
+
+// TestFiring_OverlapBufferOneRunsNewestOnly — regression for the review's major finding: buffer_one
+// must keep ONLY the latest waiting firing even when NOTHING is in flight when they are evaluated.
+// Two pending firings + no running run must produce exactly ONE run (the newest); the older is
+// superseded, not run. (The pre-fix running==0 short-circuit ran both.)
+func TestFiring_OverlapBufferOneRunsNewestOnly(t *testing.T) {
+	disp := newDisp()
+	svc, _, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyBufferOne)
+	ctx := ctxWS("ws_1")
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{"orderId": "o-1"}}); err != nil {
+		t.Fatalf("firing1: %v", err)
+	}
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k2", Payload: map[string]any{"orderId": "o-2"}}); err != nil {
+		t.Fatalf("firing2: %v", err)
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain: %v", err)
+	}
+	if disp.actionCalls["fn_a"] != 1 {
+		t.Fatalf("buffer_one should run only the newest firing (1 run), got %d action calls", disp.actionCalls["fn_a"])
+	}
+	if p, _ := trg.ListPendingFirings(ctx, 10); len(p) != 0 {
+		t.Fatalf("both firings resolved (1 run + 1 superseded), %d still pending", len(p))
+	}
+}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
@@ -85,27 +84,36 @@ func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) 
 	return nil
 }
 
-// SupersedePendingOlderThan marks a workflow's PENDING firings created before `before` as superseded
-// — buffer_one's "keep only the latest waiting" disposition: when a new firing defers behind an
-// in-flight run, every earlier waiting firing for that workflow is dropped (superseded, never run),
-// so only the newest pending survives. Workspace-isolated by the orm from ctx. Returns the count.
+// SupersedeAllButNewestPending collapses a workflow's PENDING firings to the latest — buffer_one's
+// "keep only the latest waiting" disposition. It finds the newest pending firing (created_at, then id,
+// DESC for a deterministic same-instant tiebreak) and marks every OTHER pending firing for that
+// workflow superseded, returning the survivor's id ("" if none pending) and the count superseded.
+// Order-independent: whichever firing the drain happens to process, only the newest is ever a run
+// candidate — so an older waiting firing can never escape the policy by being evaluated when nothing
+// is in flight. Workspace-isolated by the orm from ctx.
 //
-// SupersedePendingOlderThan 把某 workflow 在 `before` 之前创建的 PENDING firing 标 superseded——buffer_one
-// 「只留最新待处理」处置：新 firing 在在途 run 后排队时，该 workflow 更早的每条待处理 firing 被丢弃
-// （superseded、永不跑），只留最新待处理。orm 据 ctx 按 workspace 隔离。返被 supersede 数。
-func (s *Store) SupersedePendingOlderThan(ctx context.Context, workflowID string, before time.Time) (int64, error) {
-	// created_at is stored UTC; normalize the cutoff to UTC so the comparison can never be skewed by
-	// a caller passing a local-zone time (production passes the firing's own UTC created_at).
-	//
-	// created_at 存 UTC；把截止时刻归一到 UTC，使比较不会因调用方传本地时区时间而偏（生产传 firing 自身 UTC created_at）。
+// SupersedeAllButNewestPending 把某 workflow 的 PENDING firing 收敛到最新一条——buffer_one「只留最新待处理」
+// 处置。找最新待处理 firing（created_at、再 id，DESC 使同刻确定 tiebreak），把该 workflow **其余**每条待处理
+// firing 标 superseded，返存活者 id（无待处理则 ""）与被 supersede 数。与处理顺序无关：无论 drain 先处理哪条，
+// 只有最新一条会成为 run 候选——故更早的待处理 firing 不会因「评估时恰无 run 在途」而漏过策略。orm 据 ctx 隔离。
+func (s *Store) SupersedeAllButNewestPending(ctx context.Context, workflowID string) (string, int64, error) {
+	newest, err := s.frs.WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Order("created_at DESC, id DESC").First(ctx)
+	if err != nil {
+		if errors.Is(err, ormpkg.ErrNotFound) {
+			return "", 0, nil // nothing pending for this workflow
+		}
+		return "", 0, fmt.Errorf("triggerstore.SupersedeAllButNewestPending: newest: %w", err)
+	}
 	n, err := s.frs.WhereEq("workflow_id", workflowID).
 		WhereEq("status", triggerdomain.FiringPending).
-		Where("created_at < ?", before.UTC()).
+		Where("id != ?", newest.ID).
 		Update(ctx, "status", triggerdomain.FiringSuperseded)
 	if err != nil {
-		return 0, fmt.Errorf("triggerstore.SupersedePendingOlderThan: %w", err)
+		return "", 0, fmt.Errorf("triggerstore.SupersedeAllButNewestPending: %w", err)
 	}
-	return n, nil
+	return newest.ID, n, nil
 }
 
 // ClaimFiring is store-concrete (NOT in the domain Repository): the single-transaction claim

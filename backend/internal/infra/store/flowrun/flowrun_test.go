@@ -257,3 +257,35 @@ func TestWorkspaceIsolation_AndCrossWsBoot(t *testing.T) {
 		t.Fatalf("boot recovery should cross workspaces, got %d runs", len(running))
 	}
 }
+
+// TestCancelParkedNodes — the review's minor fix: when a run is cancelled (replace/kill) while
+// parked on an approval, its parked node is resolved to a terminal state so it leaves the inbox.
+// Scoped to the run; other runs' parked approvals are untouched.
+func TestCancelParkedNodes(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	park := func(fr string) {
+		t.Helper()
+		if _, err := s.InsertNodeResult(ctx, &flowrundomain.FlowRunNode{
+			FlowRunID: fr, NodeID: "gate", Iteration: 0, Kind: "approval",
+			Status: flowrundomain.NodeParked, Result: map[string]any{},
+		}); err != nil {
+			t.Fatalf("seed parked %s: %v", fr, err)
+		}
+	}
+	park("fr_1")
+	park("fr_2")
+
+	n, err := s.CancelParkedNodes(ctx, "fr_1")
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("should resolve 1 parked node for fr_1, got %d", n)
+	}
+	// fr_1's parked approval is gone from the inbox; fr_2's remains decidable.
+	parked, _ := s.ListParkedNodes(ctx)
+	if len(parked) != 1 || parked[0].FlowRunID != "fr_2" {
+		t.Fatalf("only fr_2's parked node should remain in the inbox, got %+v", parked)
+	}
+}

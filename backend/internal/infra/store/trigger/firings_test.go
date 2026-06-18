@@ -2,14 +2,14 @@ package trigger
 
 import (
 	"testing"
-	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
 
-// TestSupersedePendingOlderThan — buffer_one's "keep only the latest waiting" disposition: marks a
-// workflow's pending firings older than a cutoff as superseded, scoped to that workflow + status.
-func TestSupersedePendingOlderThan(t *testing.T) {
+// TestSupersedeAllButNewestPending — buffer_one's "keep only the latest waiting" disposition: collapse
+// a workflow's pending firings to the newest, mark the rest superseded, return the survivor's id.
+// Order-independent + scoped to the workflow; idempotent; empty when nothing is pending.
+func TestSupersedeAllButNewestPending(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
 	mk := func(id, wf string) {
@@ -21,23 +21,29 @@ func TestSupersedePendingOlderThan(t *testing.T) {
 	}
 	mk("trf_a1", "wf_1")
 	mk("trf_a2", "wf_1")
+	mk("trf_a3", "wf_1") // newest (latest insert → latest created_at; the id DESC tiebreak also picks it)
 	mk("trf_b1", "wf_2") // a different workflow — must NOT be touched
 
-	// A future cutoff supersedes ALL of wf_1's pending firings (created_at < future); wf_2 untouched.
-	n, err := s.SupersedePendingOlderThan(ctx, "wf_1", time.Now().Add(time.Hour))
+	keep, n, err := s.SupersedeAllButNewestPending(ctx, "wf_1")
 	if err != nil {
 		t.Fatalf("supersede: %v", err)
 	}
+	if keep != "trf_a3" {
+		t.Fatalf("newest survivor should be trf_a3, got %q", keep)
+	}
 	if n != 2 {
-		t.Fatalf("should supersede both wf_1 pending firings, superseded %d", n)
+		t.Fatalf("should supersede the 2 older wf_1 firings, superseded %d", n)
 	}
-	pend, _ := s.ListPendingFirings(ctx, 10)
-	if len(pend) != 1 || pend[0].WorkflowID != "wf_2" {
-		t.Fatalf("only wf_2's firing should remain pending, got %+v", pend)
+	if pend, _ := s.ListPendingFirings(ctx, 10); len(pend) != 2 {
+		t.Fatalf("2 pending should remain (trf_a3 + wf_2's trf_b1), got %d", len(pend))
 	}
-	// A past cutoff supersedes nothing (no pending firing is older than it).
-	if n2, _ := s.SupersedePendingOlderThan(ctx, "wf_2", time.Now().Add(-time.Hour)); n2 != 0 {
-		t.Fatalf("a past cutoff should supersede nothing, superseded %d", n2)
+	// Idempotent: a second call (only trf_a3 pending for wf_1) supersedes nothing, keeps trf_a3.
+	if keep2, n2, _ := s.SupersedeAllButNewestPending(ctx, "wf_1"); keep2 != "trf_a3" || n2 != 0 {
+		t.Fatalf("second call should keep trf_a3 + supersede 0, got keep=%q n=%d", keep2, n2)
+	}
+	// No pending for an unknown workflow → empty survivor + 0.
+	if keep3, n3, _ := s.SupersedeAllButNewestPending(ctx, "wf_none"); keep3 != "" || n3 != 0 {
+		t.Fatalf("no pending → empty survivor + 0, got keep=%q n=%d", keep3, n3)
 	}
 }
 
