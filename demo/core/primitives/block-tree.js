@@ -39,7 +39,9 @@
     static observed = ["nested"];
     static css = `
       :host { display: block; }
-      .stream { display: flex; flex-direction: column; min-width: 0; }
+      /* 块间节奏单源 = 容器 gap（flex 列不折叠 margin，故各块【不再】各带 margin:sp-3 0——否则相邻块 12+12=24px 过疏）；
+         需额外呼吸的块（compaction/turn-end 分隔符）自带小 margin 叠加在 gap 上。 */
+      .stream { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 
       /* 共用：折叠容器内壁（grid-rows 0fr→1fr 的被裁子） + chevron + 行首语义图标 */
       .w { overflow: hidden; min-width: 0; }
@@ -58,19 +60,19 @@
       @keyframes bkLineIn { from { opacity: 0; transform: translateY(var(--line-2)); } to { opacity: 1; transform: none; } }
 
       /* ── text：assistant 通栏 / user 右对齐浅灰气泡 ── */
-      .text { font-size: var(--t-body); color: var(--ink); line-height: var(--lh-prose); margin: var(--sp-2) 0; }
+      .text { font-size: var(--t-body); color: var(--ink); line-height: var(--lh-prose); margin: 0; }
       .text p { margin: 0 0 var(--sp-2); }
       .text p:last-child { margin-bottom: 0; }
       .text b { font-weight: 600; }
       .text .md-code { font-family: var(--mono); font-size: var(--t-meta);
         background: var(--island-3); border-radius: var(--r-tag); padding: var(--hairline) var(--gap-tight); }
-      .text.user { display: flex; justify-content: flex-end; margin: var(--sp-3) 0; }
+      .text.user { display: flex; justify-content: flex-end; margin: 0; }
       .text.user .bubble { max-width: 80%; min-width: 0; background: var(--island-3); color: var(--ink);
         padding: var(--sp-2) var(--sp-3); border-radius: var(--r-chip); overflow-wrap: anywhere; }
       .text.user .bubble p:last-child { margin-bottom: 0; }
 
       /* ── reasoning：脑图标 + 默认折叠 ── */
-      .reason { margin: var(--sp-3) 0; }
+      .reason { margin: 0; }
       .reason-sum { min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight);
         color: var(--ink-3); font-size: var(--t-body); cursor: pointer; padding: var(--grid) 0; }
       .reason-sum:hover { color: var(--ink-2); }
@@ -81,7 +83,7 @@
         line-height: var(--lh-prose); white-space: pre-wrap; }
 
       /* ── tool_call：扳手图标 + 运行流光 → settle 收敛 + 外框工具列表 ── */
-      .tg { margin: var(--sp-3) 0; }
+      .tg { margin: 0; }
       .tg-sum { min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight);
         color: var(--ink-3); font-size: var(--t-body); cursor: pointer; padding: var(--grid) 0; }
       .tg-sum:hover { color: var(--ink-2); }
@@ -113,15 +115,15 @@
       .log { min-width: 0; font-family: var(--mono); font-size: var(--t-meta); line-height: var(--lh-prose); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
       .log .pline { animation: bkLineIn var(--d-slow) var(--ease-spring) both; }
 
-      /* 独立 progress / tool_result 块（不在工具组内时）：同样的平铺段 + 上下留白 */
-      .block-sec { margin: var(--sp-3) 0; }
+      /* 独立 progress / tool_result 块（不在工具组内时）：节奏归容器 gap */
+      .block-sec { margin: 0; }
 
-      /* ── compaction：安静耳语（无框无线） ── */
+      /* ── compaction：安静耳语（无框无线）；分隔符自带小 margin 叠在 gap 上、多一档呼吸 ── */
       .compaction { text-align: center; color: var(--ink-3); font-size: var(--t-meta);
-        font-family: var(--mono); margin: var(--sp-6) 0; opacity: .8; }
+        font-family: var(--mono); margin: var(--sp-3) 0; opacity: .8; }
 
-      /* ── turnEnd：旗标 + max_steps 诚实终态 ── */
-      .turn-end { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-4) 0 var(--grid);
+      /* ── turnEnd：旗标 + max_steps 诚实终态（自带小 margin 叠 gap） ── */
+      .turn-end { display: flex; align-items: center; gap: var(--sp-2); margin: var(--grid) 0;
         padding: var(--sp-3); border-radius: var(--r-card);
         border: var(--hairline) solid color-mix(in srgb, var(--warn) 40%, var(--line));
         background: color-mix(in srgb, var(--warn) 5%, transparent); }
@@ -134,7 +136,7 @@
         color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 
       /* ── subtree：E3 subagent 嵌套（可折叠 + 展开后左 1px 导轨） ── */
-      .subtree { margin: var(--sp-2) 0; }
+      .subtree { margin: 0; }
       .sub-sum { min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight);
         font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); cursor: pointer; padding: var(--grid) 0; }
       .sub-sum:hover { color: var(--ink-2); }
@@ -142,7 +144,7 @@
       .sub-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--d-slow) var(--ease-spring); }
       .subtree.open .sub-body { grid-template-rows: 1fr; }
       .sub-inner { margin-top: var(--sp-2); padding-left: var(--sp-3); border-left: var(--hairline) solid var(--line); }
-      :host([nested]) .stream { gap: 0; }
+      :host([nested]) .stream { gap: var(--sp-2); }   /* 嵌套子树更紧一档 */
 
       /* ── 工具结果形态：error 标红 · 终端文本 · 搜索列表 · 逐项 running 脉冲 ── */
       .ti-head .lt { display: inline-flex; align-items: center; }
@@ -167,7 +169,7 @@
       .turn-end.danger .te-code { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
       /* ── todo 任务清单看板（可折叠 + 3 态 pending/in_progress/completed） ── */
-      .todo { margin: var(--sp-3) 0; }
+      .todo { margin: 0; }
       .td-sum { min-width: 0; display: inline-flex; align-items: center; gap: var(--gap-tight); color: var(--ink-3); font-size: var(--t-body); cursor: pointer; padding: var(--grid) 0; }
       .td-sum:hover { color: var(--ink-2); }
       .td-cnt { font-family: var(--mono); font-size: var(--t-meta); color: var(--ink-3); }
