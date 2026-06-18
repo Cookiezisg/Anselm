@@ -73,6 +73,9 @@ landed-into:
 | F35 capability_check 不查 dataflow→绿检查超额承诺、运行时崩 | workflow(静态校验) | 跨实体 / happy→报错 | promise≠reality/白烧/假成功 | fixed |
 | F42 edit_workflow 静默吞无效 concurrency（Create 校 Edit 不校） | workflow | 单工具 / happy | promise≠reality/假成功 | fixed·locked |
 | F49 CEL 混类型算术（double+int）裸 `no such overload`、capability 放行、agent 烧 4 版本 | pkg/cel（每条节点 input/条件 eval） | 单工具 / 报错 | promise≠reality/不可发现/白烧 | fixed·locked |
+| F36 :iterate 对不存在 id 返 202 而非 404（aispawn 不校、Triage 校的不对称） | ai-ops(aispawn) | 单工具 / happy | promise≠reality/假成功 | fixed·locked |
+| F50 空 function 名误报 INVALID_CODE（误导查代码） | function | 单工具 / 边界 | promise≠reality/选错工具 | fixed·locked |
+| F54 无搜索后端引导广告不存在的 keyless duckduckgo MCP | web(搜索引导) | 单工具 / happy | promise≠reality/能力缺口 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
@@ -106,6 +109,8 @@ landed-into:
 | version/revert 语义（v1→v4 编辑、revert 到旧版 + 再编辑、回退码真跑、版本号/active/实跑码全一致） | function | 多轮 / 版本交织 |
 | function/handler 名校验对边界/恶意输入健壮（emoji/SQL注入/超长全干净拒、无 500、无脏行） | function·handler | 边界/malformed |
 | function 入参类型运行时不强制（鸭子类型、文档化设计、坏类型干净 traceback 不崩） | function | 边界 |
+| handler crash/restart 韧性（崩溃丢实例、config-edit 重启、状态语义、agent 能推理） | handler | 报错→崩溃恢复 |
+| WebSearch 无后端**诚实降级**（不假装搜过、报可操作信息、转 keyless WebFetch） | web | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
@@ -115,12 +120,14 @@ landed-into:
 > round-2（0618）填：:iterate happy、todo 机制、attachment(attachmentIds 路径)、@mention 注入、auto-title/archive 真实性。
 > round-3（0618）填：relation 图推理、subagent 嵌套 spawn（全转绿）；并确诊 F40–F48（F42 已修，F40/F41 HIGH 待 wind-down）。
 > round-4（0618）填：version/revert 语义、名校验健壮、入参鸭子类型（全转绿）；确诊 F49（已修）+ F50–F53。F52（chat 调 mcp）= 设计判断。
+> round-5（0618）填：handler crash/restart 韧性、WebSearch 诚实降级（绿）；确诊 F54（已修）+ F55–F59。
 
 **确诊待修 backlog（"想还有什么"已变"该修什么"，= LOG）：**
 - **HIGH（wind-down careful 修）：** F40 declared-outputs 静默 no-op（标量返回忽略声明名、落 .text）· F41 concurrency=skip 对阻塞工作流退化成 serial（同步 Advance 蒸发 overlap 信号）。
 - **round-2：** F36 :iterate 不校实体存在 · F37 无 attachment 读工具 · F38 无会话管理工具+编造 UI · F39 todo 完成后无读回。
 - **round-3 其余：** F44 错 turn 留孤儿实体 · F45 无工作区 health 审计 · F46 无 subagent trace 读 · F47 无 approval 决策工具(待判) · F48 delete 无守卫+删依赖边。（F43 查实 not-bug——Edit 保留 lifecycle、是 agent 没 :activate 的误读。）
-- **round-4：** F50 空名错码误标(low) · F51 capability_check 不校 mcp tool 存在(medium) · **F52 chat 不可调 mcp（DynamicTools 死代码）= 设计判断(HIGH)**。
+- **round-4：** F51 capability_check 不校 mcp tool 存在(medium) · **F52 chat 不可调 mcp（DynamicTools 死代码）= 设计判断(HIGH)**。（F50 已修）
+- **round-5：** F55 compaction trigger/gate 量纲不一致→触发后静默不压(medium) · F56 create_skill 对 search_tools 不可见(medium) · F57 skill allowed-tools 挂 agent 不授权(medium 待判) · F58 无 intra-loop context 窗守卫(low)。
 - **deepseek 没额度时的收尾 pass 清这批（fixing 是代码工不需 deepseek；零 token 回归守）。**
 
 **整列没碰（target 维空白）：**
