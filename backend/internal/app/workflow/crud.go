@@ -189,7 +189,13 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*workflowdomain.Versi
 		if meta.Tags != nil {
 			w.Tags, dirty = orEmpty(*meta.Tags), true
 		}
-		if meta.Concurrency != nil && workflowdomain.IsValidConcurrency(*meta.Concurrency) {
+		// Reject an invalid concurrency value loudly (mirror Create) — silently skipping it let the
+		// agent believe it set a policy that was never applied (the version even bumps from other meta).
+		// 无效 concurrency 值响亮报错（镜像 Create）——静默跳过会让 agent 以为设了从未生效的策略（版本还因其它 meta 升号）。
+		if meta.Concurrency != nil {
+			if !workflowdomain.IsValidConcurrency(*meta.Concurrency) {
+				return nil, workflowdomain.ErrInvalidOps.WithDetails(map[string]any{"reason": "invalid concurrency policy"})
+			}
 			w.Concurrency, dirty = *meta.Concurrency, true
 		}
 		if dirty {

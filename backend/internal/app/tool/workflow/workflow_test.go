@@ -216,3 +216,28 @@ func TestOpsDoc_SchemaLessTextConvention(t *testing.T) {
 		}
 	}
 }
+
+// TestEdit_RejectsInvalidConcurrency — F42: a set_meta op carrying an unknown concurrency value must
+// error (mirror Create), not be silently swallowed — else the agent believes it set a policy that
+// was never applied (the workflow keeps its old policy while the version bumps from other meta).
+func TestEdit_RejectsInvalidConcurrency(t *testing.T) {
+	svc, ctx := newSvc(t)
+	out, err := (&CreateWorkflow{svc: svc}).Execute(ctx, `{"name":"cc","ops":[
+		{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+		{"op":"add_node","node":{"id":"a","kind":"action","ref":"fn_b","input":{"x":"t.v"}}},
+		{"op":"add_edge","edge":{"id":"e1","from":"t","to":"a"}}
+	]}`)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	json.Unmarshal([]byte(out), &created)
+	if _, err := (&EditWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`","ops":[{"op":"set_meta","concurrency":"bogus"}]}`); err == nil {
+		t.Fatal("edit_workflow with invalid concurrency should error, got nil (silent swallow)")
+	}
+	if _, err := (&EditWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`","ops":[{"op":"set_meta","concurrency":"replace"}]}`); err != nil {
+		t.Fatalf("valid concurrency 'replace' rejected: %v", err)
+	}
+}
