@@ -169,3 +169,70 @@ func (t *ReplayFlowrun) Execute(ctx context.Context, argsJSON string) (string, e
 	}
 	return toolapp.ToJSON(map[string]any{"flowrun": run, "nodes": nodes}), nil
 }
+
+// --- decide_approval ---------------------------------------------------------
+//
+// Without this an agent can build + trigger an approval-gated workflow but can never approve/reject a
+// run parked on its approval node — the human-in-the-loop half of the feature is unreachable, and a
+// parked run is unrescuable except by killing it. Wraps the same DecideApproval the HTTP :decide
+// endpoint uses (first-decision-wins; a later decide or a timeout no-ops).
+//
+// 没有它，agent 能建+触发带审批门的 workflow，却永远无法批/拒 park 在审批节点上的 run——人在环那半边不可达、
+// park 的 run 除了 kill 无从解救。包 HTTP :decide 同一个 DecideApproval（首决胜；后续 decide 或超时 no-op）。
+
+type DecideApproval struct{ sched *schedulerapp.Service }
+
+func (t *DecideApproval) Name() string { return "decide_approval" }
+
+func (t *DecideApproval) Description() string {
+	return "Approve or reject a workflow run PARKED on an approval node (the human-in-the-loop decision). Args: flowrunId, the approval node's id (nodeId), decision ('yes' approves / 'no' rejects), and an optional reason. First decision wins (a later decide, or the approval's timeout, no-ops). Find a parked run + its approval node id with get_flowrun / search_flowruns. Returns the updated run + nodes after the decision resumes (yes) or stops (no, per the node's branches) the run."
+}
+
+func (t *DecideApproval) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"required": ["flowrunId", "nodeId", "decision"],
+		"properties": {
+			"flowrunId": {"type": "string", "description": "The run parked on the approval."},
+			"nodeId": {"type": "string", "description": "The approval node's id in the graph."},
+			"decision": {"type": "string", "enum": ["yes", "no"], "description": "yes = approve, no = reject."},
+			"reason": {"type": "string", "description": "Optional reason recorded with the decision."}
+		}
+	}`)
+}
+
+func (t *DecideApproval) ValidateInput(args json.RawMessage) error {
+	var a struct {
+		FlowrunID string `json:"flowrunId"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return fmt.Errorf("decide_approval: bad args: %w", err)
+	}
+	if a.FlowrunID == "" {
+		return ErrFlowrunIDRequired
+	}
+	// nodeId + decision are validated by scheduler.DecideApproval (a missing/wrong node → not-parked;
+	// a non-yes|no decision → invalid) — those errors surface via Execute, so no new wire codes here.
+	// nodeId + decision 由 scheduler.DecideApproval 校（坏/缺节点→未 park；非 yes|no→无效）——经 Execute 透出，免新码。
+	return nil
+}
+
+func (t *DecideApproval) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args struct {
+		FlowrunID string `json:"flowrunId"`
+		NodeID    string `json:"nodeId"`
+		Decision  string `json:"decision"`
+		Reason    string `json:"reason"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("decide_approval: bad args: %w", err)
+	}
+	if err := t.sched.DecideApproval(ctx, args.FlowrunID, args.NodeID, args.Decision, args.Reason); err != nil {
+		return "", fmt.Errorf("decide_approval: %w", err)
+	}
+	run, nodes, err := t.sched.GetRunWithNodes(ctx, args.FlowrunID)
+	if err != nil {
+		return "", fmt.Errorf("decide_approval: %w", err)
+	}
+	return toolapp.ToJSON(map[string]any{"flowrun": run, "nodes": nodes}), nil
+}

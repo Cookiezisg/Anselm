@@ -44,6 +44,9 @@ func WorkflowTools(svc *workflowapp.Service, content *searchapp.Service, sched *
 		// durable recovery — re-run a failed run from where it broke (clears failed nodes, keeps memoized)
 		// durable 恢复——从断点重跑失败 run（清 failed 节点、留记忆化）
 		&ReplayFlowrun{sched: sched},
+		// human-in-the-loop — approve/reject a run parked on an approval node (the :decide half)
+		// 人在环——批/拒 park 在审批节点上的 run（:decide 那半边）
+		&DecideApproval{sched: sched},
 	}
 }
 
