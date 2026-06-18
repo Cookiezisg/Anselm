@@ -76,7 +76,7 @@ InvokeAgent(in)
 
 ## 6. 契约（引用）
 
-端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 5）· 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询（search_agent_executions + get_agent_execution）；create/edit 是 build 工具（config 镜像 entities 流）。
+端点 → [api.md](../api.md)#agent · 表 → [database.md](../database.md)#agent · 码 → [error-codes.md](../error-codes.md)（domain `AGENT_*` 9 + 工具校验 6）· 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete_agent + invoke_agent + 执行日志查询（search_agent_executions + get_agent_execution）；create/edit 是 build 工具（config 镜像 entities 流）。
 
 ## 7. 跨域集成
 

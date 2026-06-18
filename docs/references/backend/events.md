@@ -45,7 +45,7 @@ audience: [human, ai]
 > `crashed` = 常驻进程在某次 `:call` 时被发现已死（manager 下次调用回收+重启）——让 handler 行此刻亮红点，而非等下个 :call 才暴露。payload `{handlerId}`。
 | agent | `agent.{created, edited, reverted, updated, deleted}` |
 
-> `updated` = meta 变更（不升版本）；`edited` = 新版本生效；`env_rebuilt` = 空 ops 的 edit 重建了 active env。
+> `updated` = meta 变更（不升版本）；`edited` = 新版本生效。`env_rebuilt`（空 ops 的 edit 重建了 active env）只在 **function / handler** 发，agent 不发。
 
 ## entities 流挂载（实体面板实时呈现，SSE-C）
 
@@ -86,7 +86,7 @@ audience: [human, ai]
 
 **messages 流（主战场）**：message_start/stop（durable，close 带快照）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral——broker pending 表是真相、重连走 REST 重同步）· todo 信号 · subagent 子树经 `Open.ParentID` 嵌套（E3）。
 
-**notifications**：`conversation.{created, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, compacted}`（archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory.{created, updated, deleted}` · `sandbox.env_status_changed`（payload 含 env/状态）· `sandbox.env_deleted` · 上传/删除类生命周期。
+**notifications**：`conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, compacted}`（`updated` = 仅改 title/systemPrompt/attachedDocuments 的默认动作；archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory.{created, updated, deleted}` · `sandbox.env_status_changed`（payload 含 env/状态）· `sandbox.env_deleted` · 上传/删除类生命周期。
 
 ## P6 支撑域挂载
 

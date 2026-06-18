@@ -42,7 +42,7 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（264 码，按域）
+## 全量登记（265 码，按域）
 
 > `errorspkg.New` 机械抽取（260，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ### transport 合成码（`FromDomainError`，非 `errorspkg.New` sentinel）
 
-> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 264 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
+> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 265 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
 
 | code | HTTP | message | 触发 |
 |---|---|---|---|
@@ -98,7 +98,7 @@ audience: [human, ai]
 | `AGENT_EXECUTION_ID_REQUIRED` | 400 | executionId is required |
 | `AGENT_ID_PROMPT_REQUIRED` | 400 | agentId and prompt are required |
 | `AGENT_ID_REQUIRED` | 400 | agentId is required |
-| `AGENT_INPUT_REQUIRED` | 400 | input is required (an object; pass {} for a self-contained agent) |
+| `AGENT_INPUT_REQUIRED` | 400 | input is required (an object; pass {} if the agent's prompt is self-contained — there is no 'prompt' field) |
 | `AGENT_NAME_PROMPT_REQUIRED` | 400 | name and prompt are required |
 | `AGENT_REVERT_ARGS_REQUIRED` | 400 | agentId and a positive version are required |
 

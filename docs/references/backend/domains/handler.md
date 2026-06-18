@@ -80,7 +80,7 @@ resolve handler → 解析 method spec（校验 + timeout）→ `manager.Get`（
 
 ## 6. 契约（引用）
 
-端点 → [api.md](../api.md)#handler（注意 config 三端点 + `:restart`）· 表 → [database.md](../database.md)#handler · 码 → [error-codes.md](../error-codes.md)（domain `HANDLER_*` 16 + infra `HANDLER_CLIENT_*` 5——RPC 客户端原语独立命名空间 + 工具校验 5）· 事件 → [events.md](../events.md)（9 个通知——实体里最多，含 restarted/config_updated/config_cleared）。LLM 工具 11 个。
+端点 → [api.md](../api.md)#handler（注意 config 三端点 + `:restart`）· 表 → [database.md](../database.md)#handler · 码 → [error-codes.md](../error-codes.md)（domain `HANDLER_*` 16 + infra `HANDLER_CLIENT_*` 5——RPC 客户端原语独立命名空间 + 工具校验 5）· 事件 → [events.md](../events.md)（10 个通知——实体里最多，含 restarted/config_updated/config_cleared/crashed）。LLM 工具 11 个。
 
 ## 7. 跨域集成
 
