@@ -18,12 +18,12 @@ type CreateTrigger struct{ svc *triggerapp.Service }
 func (t *CreateTrigger) Name() string { return "create_trigger" }
 
 func (t *CreateTrigger) Description() string {
-	return "Create a trigger — a signal source that fires the workflows listening to it. " +
-		"kind + config:\n" +
-		"• cron — config.expression (5-field cron, e.g. \"0 9 * * *\").\n" +
-		"• webhook — config.path (mount subpath); optional config.secret (+ signatureAlgo \"hmac-sha256-hex\" for HMAC).\n" +
-		"• fsnotify — config.path (absolute dir/file to watch); optional config.events [create|modify|delete|rename|chmod] and config.pattern (glob).\n" +
-		"• sensor — periodically invokes a function/handler and fires when a CEL condition holds: config.targetKind (function|handler), config.targetId, config.method (handler only), config.intervalSec (≥5), config.condition (CEL bool over `payload` = the return value), config.output (CEL building the fire payload). For stateful/incremental probing bind a handler method (the resident process keeps its own cursor).\n" +
+	return "Create a trigger — a signal source that fires the workflows listening to it. The trigger node's " +
+		"result (what a downstream node reads by node id, e.g. start.path) IS the FIRE PAYLOAD listed per kind:\n" +
+		"• cron — config.expression (5-field cron, e.g. \"0 9 * * *\"). Fire payload: {firedAt}.\n" +
+		"• webhook — config.path is the mount SUBpath, NOT the full URL: callers POST to /api/v1/webhooks/{triggerId}/{config.path} (triggerId = the id THIS call returns). Optional config.secret (+ signatureAlgo \"hmac-sha256-hex\" for HMAC). Fire payload: {firedAt, method, path, headers, body (the POSTed JSON, parsed) | bodyRaw (the raw string when the body is not JSON)}.\n" +
+		"• fsnotify — config.path (absolute dir/file to watch); optional config.events [create|modify|delete|rename|chmod] and config.pattern (glob). Fire payload: {firedAt, path, eventKind} — eventKind is one of those same lowercase tokens (combined events join with \"|\", e.g. \"create|modify\").\n" +
+		"• sensor — periodically invokes a function/handler and fires when a CEL condition holds: config.targetKind (function|handler), config.targetId, config.method (handler only), config.intervalSec (≥5), config.condition (CEL bool over `payload` = the return value), config.output (CEL building the fire payload — YOU define its shape here, so that is the fire payload). For stateful/incremental probing bind a handler method (the resident process keeps its own cursor).\n" +
 		"A trigger only runs while an active workflow references it."
 }
 

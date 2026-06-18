@@ -36,12 +36,12 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 
 `AppendFiring` 幂等：撞键返已存在行（不丢不重）。**UNIQUE 永久，故 key 必须含时间成分**（裸内容键会永久吞掉之后的合法重复触发）。四源各自的"同一物理事件"标识：
 
-| 源 | DedupKey | 折叠什么 |
-|---|---|---|
-| cron | trigger + tick 时刻 | 同一刻度的重复材化 |
-| webhook | sha256(body) 前 8 字节(16 hex) + **分钟桶** | 秒级网络重试；下一分钟起同 payload 照常触发 |
-| fsnotify | path + op + **秒桶** | 编辑器一次保存的事件突发 |
-| sensor | trigger + probe 时刻（秒） | 一次探测至多一条/工作流 |
+| 源 | DedupKey | 折叠什么 | Fire Payload（trigger 节点 result、下游按 node id 读） |
+|---|---|---|---|
+| cron | trigger + tick 时刻 | 同一刻度的重复材化 | `{firedAt}` |
+| webhook | sha256(body) 前 8 字节(16 hex) + **分钟桶** | 秒级网络重试；下一分钟起同 payload 照常触发 | `{firedAt, method, path, headers, body(JSON 解析)\|bodyRaw(非 JSON 原串)}`；外部 POST 到 `/api/v1/webhooks/{triggerId}/{config.path}`（config.path 只是子路径） |
+| fsnotify | path + op + **秒桶** | 编辑器一次保存的事件突发 | `{firedAt, path, eventKind}`；**eventKind 用配置词汇**（create/modify/delete/rename/chmod 小写、组合事件 `\|` 连，非 fsnotify 原始大写 Op）——`configEventKind` 在交付端归一 |
+| sensor | trigger + probe 时刻（秒） | 一次探测至多一条/工作流 | = `config.output` CEL 产出的形状（作者自定义） |
 
 ## 4. 生命周期 / 行为
 

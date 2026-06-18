@@ -187,11 +187,12 @@ func (l *Listener) dispatch(ev notifyfsnotify.Event) {
 		// save collapses per workflow; a later real change (next second on) fires again.
 		// 去重键：path + op + 秒桶——编辑器一次保存的重复事件突发按 workflow 折叠；之后（下一秒起）
 		// 的真实变化照常触发。
+		kind := configEventKind(ev.Op)
 		l.fire(spec.TriggerID, map[string]any{
 			"firedAt":   time.Now(),
 			"path":      ev.Name,
-			"eventKind": ev.Op.String(),
-		}, ev.Name+"|"+ev.Op.String()+"|"+time.Now().UTC().Format("20060102150405"))
+			"eventKind": kind,
+		}, ev.Name+"|"+kind+"|"+time.Now().UTC().Format("20060102150405"))
 	}
 }
 
@@ -231,6 +232,37 @@ func parseEvents(arr []any) []notifyfsnotify.Op {
 		}
 	}
 	return out
+}
+
+// configEventKind renders an fsnotify Op as the lowercase config-vocabulary token(s) the
+// create_trigger description advertises (create|modify|delete|rename|chmod) — NOT fsnotify's raw
+// UPPERCASE Op.String() (CREATE/WRITE/REMOVE…), so a CEL filter against the documented enum matches
+// the delivered eventKind. Combined ops join their tokens with "|". The delivery inverse of parseEvents.
+//
+// configEventKind 把 fsnotify Op 渲成 create_trigger 描述声明的小写配置词汇 token（create|modify|delete|
+// rename|chmod）——而非 fsnotify 原始大写 Op.String()（CREATE/WRITE/REMOVE…），使针对文档枚举的 CEL 过滤
+// 能匹配交付的 eventKind。组合 op 以 "|" 连接。parseEvents 的交付逆。
+func configEventKind(op notifyfsnotify.Op) string {
+	var toks []string
+	if op&notifyfsnotify.Create != 0 {
+		toks = append(toks, "create")
+	}
+	if op&notifyfsnotify.Write != 0 {
+		toks = append(toks, "modify")
+	}
+	if op&notifyfsnotify.Remove != 0 {
+		toks = append(toks, "delete")
+	}
+	if op&notifyfsnotify.Rename != 0 {
+		toks = append(toks, "rename")
+	}
+	if op&notifyfsnotify.Chmod != 0 {
+		toks = append(toks, "chmod")
+	}
+	if len(toks) == 0 {
+		return strings.ToLower(op.String())
+	}
+	return strings.Join(toks, "|")
 }
 
 var _ triggerinfra.Listener = (*Listener)(nil)
