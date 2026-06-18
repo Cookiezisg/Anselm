@@ -133,6 +133,8 @@ landed-into:
 | 删被引用实体级联（删 fn→消费 workflow/agent run 干净报 ref-not-found、链可恢复、capability_check 报 dangling、pin 闭包 run 不受影响） | 跨实体·durable | 报错→恢复 |
 | 大规模（15-25 节点图 build+run、多 input/output、长内容、版本 cap-50 trim 不丢 active）无截断·腐败 | workflow·全实体 | 大输入/scale |
 | create_function 名竞态（DB 唯一索引兜底、并发同名 1×201+N×409 DUPLICATE）· serial-trigger firing 路径串行（单 ticker drain） | function·workflow | 并发 |
+| **tool-pick 准确性**（5 相似 fn + 4 相邻 agent：每次选对、无则建新、有完美匹配则复用不重建——零误选/零静默近似/零冗余重建） | 全实体·选错工具镜 | happy（多相似实体） |
+| skill 深用（danger gate 恰为 dangerous 调用触发·精确 scoped、body 32KB cap 干净、sequential activate=替换非并、entity-by-name 不建边） | skill | 报错/边界 |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
 
