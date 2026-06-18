@@ -2,7 +2,7 @@
    「跟着对话长出来」：对话起步无右岛；主对话首个 tool call 触发某 item → ws.ensure + setActive → 外层 setRight 让右岛出现；后续触发的 item 进右上角下拉选择器，active 随最新触发而变。
    组织（自绘头，故宿主 an-right-island 用 headless 只给皮肤）：
      .head 左 = an-status-dot(active item 态) + 真名（fetch_article / Todo / 'Explore · …'，非 'function'）；右 = 下拉钮。
-     .body 双态：item 态 = 该 item 的 canonical 完整岛屿（一个 an-tabs 切 facet，懒建隐藏不销毁）；picker 态 = 下拉钮点开后整岛变「分类选择列表」（an-segmented 状态筛 + an-sidebar-list，仅显非空分类，类左岛实体页）。
+     .body 双态：item 态 = 该 item 的 canonical 完整岛屿（多 facet→an-tabs 切，单 facet 如 Todo→直接显内容不挂 tab 条）；picker 态 = 下拉钮点开后整岛变「分类选择列表」（复用 an-sidebar-list，仅显非空分类，搜索 + sliders 菜单状态/种类筛，类左岛实体页）。
    每 item 按 category/kind 一套固定 facet（全量），未触及 facet 显 an-state 空态：
      Function 概览/源码/版本/终端/历史 · Handler 概览/源码/配置/终端/历史 · Agent 概览/指令/挂载/版本/轨迹/历史 · Workflow 概览/图/版本/运行图/历史 · Trigger 概览/firing · Todo 看板 · Subagent 轨迹/概览。
    本件只承载结构 + live 子元素入口；逐字/逐行流式由 chat sea 持 timer 驱动（守「DB 行真相、流只实时」）。
@@ -36,9 +36,8 @@
       .body { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; padding: var(--sp-1) var(--sp-4) var(--sp-4);
         scrollbar-width: none; -ms-overflow-style: none; }
       .body::-webkit-scrollbar { width: 0; height: 0; }
-      .item-host > an-tabs[hidden] { display: none; }
-      .picker-host { display: flex; flex-direction: column; gap: var(--sp-3); }
-      .picker-host .pfilter { align-self: flex-start; }
+      .item-host > [hidden] { display: none; }
+      .picker-host { display: block; }
       :host([picker]) .item-host { display: none; }
       :host(:not([picker])) .picker-host { display: none; }
     `;
@@ -53,18 +52,21 @@
         </div>
         <div class="body">
           <div class="item-host"></div>
-          <div class="picker-host">
-            <an-segmented class="pfilter"></an-segmented>
-            <an-sidebar-list class="plist" no-new></an-sidebar-list>
-          </div>
+          <div class="picker-host"><an-sidebar-list class="plist" no-new></an-sidebar-list></div>
         </div>`;
     }
 
     hydrate() {
       this.$(".pbtn").addEventListener("click", () => (this.hasAttribute("picker") ? this.closePicker() : this.openPicker()));
-      const seg = this.$(".pfilter"); seg.items = FILTERS;
-      seg.addEventListener("an-pick", (e) => { this._filter = e.detail.value; this._rebuildPicker(); });
-      this.$(".plist").addEventListener("an-select", (e) => { this.closePicker(); this.setActive(e.detail.id); });
+      const list = this.$(".plist");
+      list.addEventListener("an-select", (e) => { this.closePicker(); this.setActive(e.detail.id); });
+      // 状态/种类筛选移入搜索右侧的 sliders 菜单（与 sort/display 同列），不再顶部 segmented 条
+      list.addEventListener("an-menu", (e) => {
+        const v = e.detail.value || "";
+        if (v.indexOf("st:") === 0) this._filter = v.slice(3);
+        else if (v.indexOf("ty:") === 0) this._typeFilter = v.slice(3) === "all" ? null : v.slice(3);
+        this._rebuildPicker();
+      });
       this._build();
     }
 
@@ -76,6 +78,7 @@
       this._ensured = new Set();
       this._active = null;
       this._filter = "all";
+      this._typeFilter = null;
       (this._spec && this._spec.items || []).forEach((it) => this._byId.set(it.id, it));
       this._rebuildPicker();
       // auto：静态展示（reference 画廊 / 独立页）——全 ensure + 停首项；非 auto 由 sea 逐次 ensure（= 跟着对话动态出现）
@@ -86,17 +89,21 @@
       }
     }
 
-    // ── item 岛（懒建，ensure 触发）：一个 an-tabs 切该 item 的全量 facet ──
+    // ── item 岛（懒建，ensure 触发）：多 facet → an-tabs 切；单 facet（如 Todo 看板）→ 直接显内容、不挂 tab 条 ──
     _buildItem(spec) {
-      const tabs = el("an-tabs", { hidden: true });
       const facets = new Map();
-      tabs.items = (spec.facets || []).map((f) => {
-        const built = this._buildFacet(spec, f);
-        facets.set(f.key, built);
-        return { key: f.key, label: f.label || f.key, render: (pane) => pane.append(built.root) };
-      });
-      this.$(".item-host").append(tabs);
-      const isl = { tabs, facets, spec };
+      const built = (spec.facets || []).map((f) => { const b = this._buildFacet(spec, f); facets.set(f.key, b); return { f: f, b: b }; });
+      let root, tabs = null;
+      if (built.length <= 1) {
+        root = el("div", { hidden: true });
+        if (built[0]) root.append(built[0].b.root);
+      } else {
+        tabs = el("an-tabs", { hidden: true });
+        tabs.items = built.map((x) => ({ key: x.f.key, label: x.f.label || x.f.key, render: (pane) => pane.append(x.b.root) }));
+        root = tabs;
+      }
+      this.$(".item-host").append(root);
+      const isl = { root: root, tabs: tabs, facets: facets, spec: spec };
       this._islands.set(spec.id, isl);
       return isl;
     }
@@ -187,7 +194,7 @@
       if (!id) return;
       this.ensure(id);
       this._active = id;
-      this._islands.forEach((isl, k) => isl.tabs.toggleAttribute("hidden", k !== id));
+      this._islands.forEach((isl, k) => isl.root.toggleAttribute("hidden", k !== id));
       const spec = this._byId.get(id) || {};
       this.closePicker();
       const nm = this.$(".hname"); if (nm) nm.textContent = spec.name || id;
@@ -198,7 +205,7 @@
     focus(id, facetKey) {   // 切实体 + facet → 返回该 facet 的 live 流式元素
       this.setActive(id);
       const isl = this._islands.get(id); if (!isl) return null;
-      if (facetKey && isl.facets.has(facetKey)) { isl.tabs.select(facetKey, false); return (isl.facets.get(facetKey) || {}).stream || null; }
+      if (facetKey && isl.facets.has(facetKey)) { if (isl.tabs) isl.tabs.select(facetKey, false); return (isl.facets.get(facetKey) || {}).stream || null; }
       return null;
     }
     facetEl(id, facetKey) { const isl = this._islands.get(id); return isl && isl.facets.has(facetKey) ? (isl.facets.get(facetKey).stream || null) : null; }
@@ -233,14 +240,16 @@
       const nm = this.$(".hname"); if (nm) nm.textContent = spec.name || "";
     }
 
-    // picker 列表 = an-sidebar-list model：按 category 分组（仅非空 + 状态筛），每行 状态点 + 真名 + meta
+    // picker 列表 = an-sidebar-list model：按 category 分组（仅非空 + 状态/种类筛），每行 状态点 + 真名 + meta；
+    //   状态/种类筛选走 sliders 菜单（搜索右侧按钮），不再顶部 segmented。
     _rebuildPicker() {
       const list = this.$(".plist"); if (!list) return;
       const byCat = {};
       (this._spec && this._spec.items || []).forEach((it) => {
         if (!this._ensured.has(it.id)) return;
-        if (this._filter && this._filter !== "all" && (it.status || "idle") !== this._filter) return;
         const cat = it.category === "entity" ? it.kind : it.category;
+        if (this._filter && this._filter !== "all" && (it.status || "idle") !== this._filter) return;
+        if (this._typeFilter && cat !== this._typeFilter) return;
         (byCat[cat] = byCat[cat] || []).push(it);
       });
       const types = CAT_ORDER.filter((c) => byCat[c] && byCat[c].length).map((c) => {
@@ -248,7 +257,20 @@
         return { icon: m.icon, label: m.label, count: byCat[c].length, open: true,
           rows: byCat[c].map((it) => ({ id: it.id, dot: it.status || "idle", label: it.name, meta: it.meta || "", selected: it.id === this._active })) };
       });
-      list.model = { filterPlaceholder: "搜索", groups: [{ types }] };
+      list.model = { filterPlaceholder: "搜索", menuItems: this._menuItems(), groups: [{ types }] };
+    }
+    // sliders 菜单项：状态 段（全部/活动中/已结束/失败）+ 种类 段（ensured 跨 ≥2 类时出，按当前对话非空分类）
+    _menuItems() {
+      const f = this._filter || "all", tf = this._typeFilter;
+      const items = [{ type: "label", label: "状态" }].concat(FILTERS.map((o) => ({ label: o.label, value: "st:" + o.value, checked: f === o.value })));
+      const cats = [];
+      (this._spec && this._spec.items || []).forEach((it) => { if (!this._ensured.has(it.id)) return; const c = it.category === "entity" ? it.kind : it.category; if (cats.indexOf(c) < 0) cats.push(c); });
+      if (cats.length > 1) {
+        items.push({ type: "label", label: "种类" });
+        items.push({ label: "全部类型", value: "ty:all", checked: !tf });
+        CAT_ORDER.filter((c) => cats.indexOf(c) >= 0).forEach((c) => items.push({ label: catMeta(c).label, value: "ty:" + c, checked: tf === c }));
+      }
+      return items;
     }
   }
   window.AnElement.define(AnEntityWorkspace);

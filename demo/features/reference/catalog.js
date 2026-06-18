@@ -702,63 +702,6 @@ window.REF_CATALOG = [
         ]
       },
       {
-        "name": "分段切换 segmented",
-        "tag": "an-segmented",
-        "blurb": "灰药丸分段器，items 走 property（字符串或 {value,label}），value 设初选，弹簧滑动，切换派发 an-pick",
-        "specimens": [
-          {
-            "label": "items (字符串)",
-            "tag": "an-segmented",
-            "props": {
-              "items": [
-                "全部",
-                "Function",
-                "Handler",
-                "Agent",
-                "Workflow"
-              ]
-            },
-            "center": true
-          },
-          {
-            "label": "value=初选",
-            "tag": "an-segmented",
-            "props": {
-              "value": "parked",
-              "items": [
-                {
-                  "value": "running",
-                  "label": "running"
-                },
-                {
-                  "value": "parked",
-                  "label": "parked"
-                },
-                {
-                  "value": "done",
-                  "label": "done"
-                }
-              ]
-            },
-            "center": true
-          },
-          {
-            "label": "disabled",
-            "tag": "an-segmented",
-            "attrs": {
-              "disabled": true
-            },
-            "props": {
-              "items": [
-                "only",
-                "readonly"
-              ]
-            },
-            "center": true
-          }
-        ]
-      },
-      {
         "name": "标签页 tabs",
         "tag": "an-tabs",
         "blurb": "文字下划线切换器，items 走 property [{key,label,count?,render}]，懒建 pane，切换派发 an-pick",
