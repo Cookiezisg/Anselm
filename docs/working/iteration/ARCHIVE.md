@@ -144,6 +144,9 @@ landed-into:
 | conversation 管理（rename 持久不被 auto-title 覆盖、archive/unarchive 正确、soft-delete→404、分页 cursor 0重0漏 recent/pinned-first、usage 与逐条 token 和精确） | conversation | happy/边界 |
 | chat 体验深用（cancel→cancelled+partial 存·无 streaming 孤儿、danger confirm/deny=副作用前中断、并发 2nd→409 STREAM_IN_PROGRESS 干净终态、6 轮上下文连贯、空→400 EMPTY_CONTENT） | chat·conversation | 崩溃恢复/并发 |
 | i18n/locale（CJK desc/tags/content 零 mojibake、locale 软指令=有意、name 拒 CJK=有意 slug 约束、搜索跨非 ASCII 工作） | 全实体·i18n | 边界 |
+| relation 图深用（transitive/reverse/impact 至 depth、diamond 去重不双算、删中链更新边、cycle 处理、14+ 实体规模准确；引擎 BFS edgesSeen/visited 去重） | relation | 边界/规模 |
+| replay/durable 恢复深用（record-once 记忆化早节点不重跑、仅失败节点重跑、pinned-version replay、approval 存活、replay_count 幂等、completed run 拒 replay） | durable-engine | 崩溃恢复 |
+| handler sensitive config 加密/掩码（config_enc AES-GCM 整 blob、GET/list/versions 不序列化、/config 掩 ********、rotate 重加密、__init__ 收解密值——仅 call-log 投影泄露 F82） | handler·安全 | 边界/安全 |
 | 语义搜索召回+排序（"send mail"→email_dispatcher 真语义命中、best-match-first、per-type scoping 对——**仅无匹配 query 无下限灌全 workspace** F80） | search | happy |
 
 ## §3 Frontier（空格 / 薄格——"想还有什么"的起点）
