@@ -138,8 +138,17 @@ func ValidateForm(template, timeout, timeoutBehavior string) error {
 		if !IsValidTimeoutBehavior(timeoutBehavior) {
 			return ErrInvalidTimeout
 		}
-		if _, err := ParseTimeout(timeout); err != nil {
+		d, err := ParseTimeout(timeout)
+		if err != nil {
 			return err
+		}
+		// A timeout explicitly set but parsing to 0 (e.g. "0s") would NEVER fire — the run parks
+		// forever despite a configured behavior, with no signal. Reject it; "" already means
+		// "no timeout". (Interpreter: run.go skips d==0 as never-times-out.)
+		// 显式设却解析成 0 的 timeout（如 "0s"）永不触发——run 永 park 却配了 behavior、无任何信号。拒；
+		// "" 已表"无 timeout"。（解释器 run.go 把 d==0 当永不超时跳过。）
+		if d == 0 {
+			return ErrInvalidTimeout
 		}
 	} else if strings.TrimSpace(timeoutBehavior) != "" && !IsValidTimeoutBehavior(timeoutBehavior) {
 		// A stray behavior without a timeout is inert today but poisons the row the moment

@@ -19,6 +19,9 @@ func TestValidateForm(t *testing.T) {
 		{"timeout ok reject", "批准?", "30d", "reject", nil},
 		{"timeout ok approve", "批准?", "2h", "approve", nil},
 		{"timeout bad duration", "批准?", "30x", "reject", ErrInvalidTimeout},
+		// F60: an explicitly-set zero-duration timeout would never fire (run parks forever) — reject it.
+		{"timeout zero seconds", "批准?", "0s", "reject", ErrInvalidTimeout},
+		{"timeout zero ms", "批准?", "0ms", "approve", ErrInvalidTimeout},
 	}
 	for _, c := range cases {
 		if err := ValidateForm(c.template, c.timeout, c.behavior); !errors.Is(err, c.want) {
