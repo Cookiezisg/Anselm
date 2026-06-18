@@ -26,7 +26,7 @@
 
 ## 二、Pattern 层（共享件，Phase 2.5）
 
-> **✅ 13 件已全部落地** `demo/core/primitives/`（lint 绿 · reference.html 活体规格台已展示 · 0 console 错误 · 0 missing icon）。
+> **✅ 14 件已全部落地** `demo/core/primitives/`（lint 绿 · reference.html 活体规格台已展示 · 0 console 错误 · 0 missing icon）。
 
 | Pattern | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
@@ -59,6 +59,7 @@
 | `an-search-results` | 🧩 ⬚ | 新 pattern（hit 行 + `<mark>` 高亮安全注入 + 折叠） | search 综搜/垂搜结果 |
 | `an-block-kit`（search） | 🧩 ⬚ | 新 pattern（积木接线单元，refHint→填节点） | workflow 编排挑可接线单元 |
 | `an-notification-inbox` | 🧩 ⬚ | 新 pattern + **通知类型→{图标,可操作} 单源表** | 需要你 / FYI 两段收件箱 |
+| `an-edit-affordance` | ✅ 🧩 | 已落 `core/primitives/edit-affordance.js`（就地编辑三连钮 铅笔→✓/✕ 单源，复用 an-button；`editing` 切铅笔↔✓✕[✓ 经 ::part 着 accent]；铅笔 click→`an-edit-start`、✓/✕ mousedown(preventDefault)→`an-edit-commit`/`an-edit-abort`[抢 contenteditable blur=提交 前定调、取消优先回滚]；可见性由父 hover/editing 揭示）。**收敛**：field/kv/ocean-header 原各手搓 .a-btn/.t-btn raw 钮，今统一用此件 | 任何 in-place 编辑（字段值 / kv 行 / 海洋标题改名） |
 | `an-composer` | ✅ 🧩 | 已落 `core/primitives/composer.js`（多行 contenteditable + @ 提及内联药丸[复用地基 `AnMention`] + 附件 chip[可删] + Enter 发送 / Shift+Enter 换行 / generating 切停止；派 an-send{text,html,refs,attachments}/an-stop/an-attach） | chat 输入条 |
 | `an-stepper` | 🧩 ⬚ | 新建（线性多步外壳） | onboarding 向导 |
 

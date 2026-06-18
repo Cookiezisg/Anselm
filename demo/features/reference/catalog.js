@@ -1431,6 +1431,15 @@ window.REF_CATALOG = [
         ]
       },
       {
+        "name": "就地编辑钮 edit-affordance",
+        "tag": "an-edit-affordance",
+        "blurb": "就地编辑三连钮（铅笔 → ✓/✕）单源，field/kv/ocean-header 共用：editing 属性切铅笔↔✓✕（✓ accent，经 an-button ::part 着绿）。铅笔 click 派 an-edit-start；✓/✕ mousedown(preventDefault) 派 an-edit-commit/an-edit-abort——抢 contenteditable blur(blur=提交) 前定调，取消优先回滚。可见性由父按 hover/editing 揭示。",
+        "specimens": [
+          { "label": "默认（铅笔）", "tag": "an-edit-affordance", "center": true },
+          { "label": "editing（✓ accent / ✕）", "tag": "an-edit-affordance", "attrs": { "editing": "" }, "center": true }
+        ]
+      },
+      {
         "name": "定义列表 kv",
         "tag": "an-kv",
         "blurb": "紧凑键值列表；rows 是 PROP（[k,v] 或 {key,value,editable,editor,options}），值右贴边、过长自动换行；mono/wrap 修饰",

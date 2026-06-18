@@ -66,23 +66,11 @@
     wrap.appendChild(dd); valueEl.replaceWith(wrap);
   }
 
-  // 编辑尾槽片段（与 ocean-header 标题编辑【同款】：铅笔 hover 现，编辑态换 ✓/✕；同尺寸不引发偏移）。
-  function actsHtml() {
-    return `<span class="acts">`
-      + `<button type="button" class="a-btn a-edit" data-edit aria-label="编辑">${window.icon("edit")}</button>`
-      + `<button type="button" class="a-btn a-save" data-save aria-label="保存">${window.icon("check")}</button>`
-      + `<button type="button" class="a-btn a-cancel" data-cancel aria-label="取消">${window.icon("close")}</button>`
-      + `</span>`;
-  }
-  /* 编辑尾槽【绝对浮层】（不占网格列、不偷值宽——值始终满列，长内容才换行不被挤）；hover/编辑态显，背景接 island-3 与行 hover 底融为一体。 */
+  // 编辑尾槽 = <an-edit-affordance>（铅笔→✓/✕ 三连钮收口到该原语，含 focus-安全 mousedown + accent 保存）；本处只给定位类 .acts。
+  function actsHtml() { return `<an-edit-affordance class="acts"></an-edit-affordance>`; }
+  /* .acts = an-edit-affordance 的【绝对浮层定位】壳（不占网格列、不偷值宽）；皮肤/三钮在 an-edit-affordance；揭示可见性由各父 hover/focus/editing 规则控（见 AnField/AnKv css）。 */
   const ACTS_CSS = `
-    .acts { position: absolute; top: 50%; right: var(--pad-row); transform: translateY(-50%); display: inline-flex; align-items: center; gap: var(--gap-tight);
-      background: var(--island-3); border-radius: var(--r-tag); padding-left: var(--grid); z-index: 1; }
-    .a-btn { display: none; place-items: center; flex: none; width: var(--ctl-sm); height: var(--ctl-sm); border-radius: var(--r-tag);
-      color: var(--ink-3); transition: background var(--d-fast), color var(--d-fast); }
-    .a-btn svg { width: var(--icon-sm); height: var(--icon-sm); }
-    .a-edit:hover, .a-cancel:hover { background: var(--island-4); color: var(--ink); }
-    .a-save { color: var(--accent); } .a-save:hover { background: var(--accent-soft); color: var(--accent); }
+    .acts { position: absolute; top: 50%; right: var(--pad-row); transform: translateY(-50%); z-index: 1; }
     .v.editing { outline: none; box-shadow: inset 0 0 0 var(--line-2) var(--accent-line); border-radius: var(--r-tag); background: var(--accent-soft); cursor: text; }
   `;
 
@@ -102,9 +90,9 @@
       .hint { min-width: 0; font-size: var(--t-meta); color: var(--ink-3); line-height: var(--lh-ui); margin-top: calc(var(--grid) / 2); overflow-wrap: anywhere; }
       .c { min-width: 0; display: block; }
       .v { min-width: 0; display: block; font-size: var(--t-body); color: var(--ink-2); white-space: normal; overflow-wrap: anywhere; }
-      :host([editable]:hover) .a-edit, :host([editable]:focus-within) .a-edit { display: grid; }
-      .acts.editing .a-edit { display: none; }
-      .acts.editing .a-save, .acts.editing .a-cancel { display: grid; }
+      /* 揭示 affordance：hover/focus 或编辑中才显（默认藏）；:host .acts(0,2,0) 压过 affordance :host(0,1,0) */
+      :host .acts { display: none; }
+      :host([editable]:hover) .acts, :host([editable]:focus-within) .acts, :host .acts[editing] { display: inline-flex; }
       ${ACTS_CSS}
     `;
 
@@ -125,18 +113,18 @@
 
     hydrate() {
       this._editing = false;  // 每次重渲解锁（编辑收尾必经重渲）——配合 _startEdit 守卫挡快速双击
-      const edit = this.$(".a-edit"); if (!edit) return;
-      edit.addEventListener("click", () => this._startEdit());
+      const aff = this.$(".acts"); if (!aff) return;   // 三连钮收口 an-edit-affordance：铅笔→start / ✓→commit / ✕→abort
+      aff.addEventListener("an-edit-start", () => this._startEdit());
+      aff.addEventListener("an-edit-commit", () => this._finish && this._finish(true));
+      aff.addEventListener("an-edit-abort", () => this._finish && this._finish(false));
     }
     _startEdit() {
-      if (this._editing) return;  // 守卫：编辑中再点铅笔不重入（否则两套 editText 监听器抢同一 .v、收尾互踩）
-      const vEl = this.$(".v"), acts = this.$(".acts"); if (!vEl) return;
-      this._editing = true;
+      if (this._editing) return;  // 守卫：编辑中再触发不重入（否则两套 editText 监听器抢同一 .v、收尾互踩）
+      const vEl = this.$(".v"), aff = this.$(".acts"); if (!vEl) return;
       const commit = (value) => { this.setAttribute("value", value); this.emit("an-field-change", { label: this.attr("label"), value }); };
       if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
-      const finish = editText(this, vEl, this.attr("value"), commit, (on) => acts && acts.classList.toggle("editing", on));
-      this.$(".a-save").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(true); });
-      this.$(".a-cancel").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(false); });
+      this._editing = true;
+      this._finish = editText(this, vEl, this.attr("value"), commit, (on) => aff && aff.toggleAttribute("editing", on));
     }
   }
   window.AnElement.define(AnField);
@@ -167,8 +155,9 @@
       /* 过长值：转多行换行（自检命中 .row.w 或全件 [wrap]）——在 1fr 列内消化，绝不溢出/重叠 key；保持右贴边（两端对齐：key 左、value 右） */
       :host([wrap]) .row, .row.w { align-items: start; }
       :host([wrap]) .v, .row.w .v { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: right; }
-      /* kv 行编辑槽走 ACTS 同款；编辑触发与显示对齐 Field/标题（hover 现铅笔） */
-      .row.editable:hover .a-edit, .row.editable:focus-within .a-edit { display: grid; }
+      /* kv 行编辑槽 = an-edit-affordance（同 Field）；hover/focus/editing 才揭示（.row .acts 0,2,0 压过 affordance :host 0,1,0） */
+      .row .acts { display: none; }
+      .row.editable:hover .acts, .row.editable:focus-within .acts, .row .acts[editing] { display: inline-flex; }
       ${ACTS_CSS}
     `;
 
@@ -201,17 +190,20 @@
       this._autowrap();
       this.$$('.row.editable').forEach((row) => {
         const i = Number(row.dataset.i);
+        const aff = row.querySelector(".acts");   // 该行就地编辑三连钮（an-edit-affordance）
         const start = () => {
-          if (this._editing) return;  // 守卫：编辑中再点铅笔不重入（含同行双击）
-          const vEl = row.querySelector(".v"), acts = row.querySelector(".acts"), rec = this._rows[i];
+          if (this._editing) return;  // 守卫：编辑中再触发不重入（含同行双击）
+          const vEl = row.querySelector(".v"), rec = this._rows[i];
           const commit = (value) => this._commit(i, value);
           if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
           this._editing = true;
-          const finish = editText(this, vEl, rec.value, commit, (on) => acts && acts.classList.toggle("editing", on));
-          row.querySelector(".a-save").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(true); });
-          row.querySelector(".a-cancel").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(false); });
+          this._finish = editText(this, vEl, rec.value, commit, (on) => aff && aff.toggleAttribute("editing", on));
         };
-        const eb = row.querySelector(".a-edit"); if (eb) eb.addEventListener("click", start);
+        if (aff) {
+          aff.addEventListener("an-edit-start", start);
+          aff.addEventListener("an-edit-commit", () => this._finish && this._finish(true));
+          aff.addEventListener("an-edit-abort", () => this._finish && this._finish(false));
+        }
       });
     }
     // 过长值自检 → 给该行加 .w 转多行（value scrollWidth 超列宽即溢出）。idempotent（add 不重复）；

@@ -31,15 +31,10 @@
       }
       .title.editing { outline: none; box-shadow: 0 0 0 var(--line-2) var(--accent-line); border-radius: var(--r-tag);
         background: var(--accent-soft); cursor: text; }
-      .t-acts { flex: none; display: inline-flex; align-items: center; gap: var(--gap-tight); align-self: center; }
-      .t-btn { display: none; place-items: center; flex: none; width: var(--ctl-sm); height: var(--ctl-sm); border-radius: var(--r-tag);
-        color: var(--ink-3); transition: background var(--d-fast), color var(--d-fast); }
-      .t-btn svg { width: var(--icon-sm); height: var(--icon-sm); }
-      .title-row:hover .t-edit, .title-row:focus-within .t-edit, .t-acts.editing .t-save, .t-acts.editing .t-cancel { display: grid; }
-      .t-acts.editing .t-edit { display: none; }
-      .t-edit:hover, .t-cancel:hover { background: var(--island-3); color: var(--ink); }
-      .t-save { color: var(--accent); }
-      .t-save:hover { background: var(--accent-soft); color: var(--accent); }
+      /* 标题编辑三连钮 = an-edit-affordance（皮肤/铅笔↔✓✕ 在该原语）；这里只定位 + 揭示（hover/focus/editing 才显） */
+      .t-acts { flex: none; align-self: center; }
+      .title-row .t-acts { display: none; }
+      .title-row:hover .t-acts, .title-row:focus-within .t-acts, .title-row .t-acts[editing] { display: inline-flex; }
     `;
     render() {
       const e = window.anEsc;
@@ -50,12 +45,7 @@
       if (title != null) {
         const h1 = `<h1 class="title">${e(title)}</h1>`;
         titleEl = this.has("editable")
-          ? `<div class="title-row"><h1 class="title">${e(title)}</h1>`
-            + `<span class="t-acts">`
-            + `<button type="button" class="t-btn t-edit" data-edit aria-label="编辑标题">${window.icon("edit")}</button>`
-            + `<button type="button" class="t-btn t-save" data-save aria-label="保存">${window.icon("check")}</button>`
-            + `<button type="button" class="t-btn t-cancel" data-cancel aria-label="取消">${window.icon("close")}</button>`
-            + `</span></div>`
+          ? `<div class="title-row"><h1 class="title">${e(title)}</h1><an-edit-affordance class="t-acts"></an-edit-affordance></div>`
           : h1;
       }
       return `<header class="oh">`
@@ -66,7 +56,12 @@
     }
 
     hydrate() {
-      const edit = this.$(".t-edit"); if (edit) edit.addEventListener("click", () => this._beginTitleEdit());
+      const aff = this.$(".t-acts");   // 标题编辑三连钮收口 an-edit-affordance：铅笔→start / ✓→commit / ✕→abort
+      if (aff) {
+        aff.addEventListener("an-edit-start", () => this._beginTitleEdit());
+        aff.addEventListener("an-edit-commit", () => this._finish && this._finish(true));
+        aff.addEventListener("an-edit-abort", () => this._finish && this._finish(false));
+      }
       this._wireCollapse();
     }
 
@@ -92,7 +87,7 @@
       const orig = this.attr("title", "");
       let done = false;
       h1.setAttribute("contenteditable", "plaintext-only");
-      h1.classList.add("editing"); acts.classList.add("editing");
+      h1.classList.add("editing"); acts.setAttribute("editing", "");   // affordance 切 ✓/✕ + 编辑中常显
       const sel = window.getSelection();
       if (sel) { const r = document.createRange(); r.selectNodeContents(h1); sel.removeAllRanges(); sel.addRange(r); }
       h1.focus();
@@ -103,6 +98,8 @@
         if (ok && v && v !== orig) { this.setAttribute("title", v); this.emit("an-title-change", { value: v, prev: orig }); }
         else this._render();   // 取消 / 空标题（必填，唯一物理校验）/ 未改 → 回显
       };
+      // ✓/✕ 经 an-edit-affordance 的 commit/abort 事件回调本 finish（mousedown+preventDefault 在 affordance 内、抢 h1 blur 前定调，取消优先回滚）；done 守卫兜双触
+      this._finish = finish;
       const onKey = (ev) => {
         if (ev.key === "Escape") { ev.preventDefault(); finish(false); }
         else if (ev.key === "Enter") { ev.preventDefault(); finish(true); }
@@ -110,9 +107,6 @@
       const onBlur = () => finish(true);
       h1.addEventListener("keydown", onKey);
       h1.addEventListener("blur", onBlur);
-      // ✓/✕：mousedown 抢在 h1 blur 之前定调（取消优先回滚），done 守卫兜双触
-      this.$(".t-save").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(true); });
-      this.$(".t-cancel").addEventListener("mousedown", (ev) => { ev.preventDefault(); finish(false); });
     }
   }
   window.AnElement.define(AnOceanHeader);
