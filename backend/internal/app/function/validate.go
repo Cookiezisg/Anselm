@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
@@ -34,19 +35,25 @@ func validateIncremental(d *VersionDraft) error {
 // validateFinal 校验完成的草稿可运行。这是刻意轻量的词法检查——非真 AST 解析：代码须至少一个
 // 顶层 def，且不得 import handler SDK（function 无状态、handler 常驻；function import
 // anselm_handler 会模糊这条边界）。
+// validateFinal carries the right sentinel so the wire code/message points the user at the actual
+// problem: a missing name is FUNCTION_INVALID_NAME, not FUNCTION_INVALID_CODE — else an empty name on
+// perfectly valid code reads as "function code invalid" and sends the user to debug their fine code.
+//
+// validateFinal 带对的 sentinel，使 wire code/message 指向真问题：缺名是 FUNCTION_INVALID_NAME、非
+// FUNCTION_INVALID_CODE——否则合法代码上的空名报成"function code invalid"、误导用户去查没问题的代码。
 func validateFinal(d *VersionDraft) error {
 	if d.Name == "" {
-		return fmt.Errorf("name is required")
+		return fmt.Errorf("%w: name is required", functiondomain.ErrInvalidName)
 	}
 	if strings.TrimSpace(d.Code) == "" {
-		return fmt.Errorf("code is required")
+		return fmt.Errorf("%w: code is required", functiondomain.ErrInvalidCode)
 	}
 	if !strings.HasPrefix(d.Code, "def ") && !strings.Contains(d.Code, "\ndef ") {
-		return fmt.Errorf("code must declare at least one top-level def")
+		return fmt.Errorf("%w: code must declare at least one top-level def", functiondomain.ErrInvalidCode)
 	}
 	for _, banned := range handlerImportBlacklist {
 		if strings.Contains(d.Code, banned) {
-			return fmt.Errorf("function code may not import the handler SDK (%q)", banned)
+			return fmt.Errorf("%w: function code may not import the handler SDK (%q)", functiondomain.ErrInvalidCode, banned)
 		}
 	}
 	return nil

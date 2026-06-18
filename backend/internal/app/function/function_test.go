@@ -258,3 +258,13 @@ func editCodeOps(t *testing.T, code string) []Op {
 	}
 	return ops
 }
+
+// TestCreate_EmptyName_IsNameError — F50: an empty name on perfectly valid code must report
+// FUNCTION_INVALID_NAME, not FUNCTION_INVALID_CODE (which misdirected the user to debug their fine code).
+func TestCreate_EmptyName_IsNameError(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	_, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "", goodCode)})
+	if !errors.Is(err, functiondomain.ErrInvalidName) {
+		t.Fatalf("empty name on valid code should be ErrInvalidName, got %v", err)
+	}
+}

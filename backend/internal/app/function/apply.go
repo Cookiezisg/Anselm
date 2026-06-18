@@ -59,7 +59,10 @@ func (s *Service) ApplyOps(base *VersionDraft, ops []Op) (*VersionDraft, []OpRes
 		results = append(results, OpResult{Index: i, Type: op.Type, OK: true})
 	}
 	if err := validateFinal(state); err != nil {
-		return nil, results, fmt.Errorf("functionapp.ApplyOps: final validation: %w: %v", functiondomain.ErrInvalidCode, err)
+		// Propagate validateFinal's sentinel (name vs code) instead of blanket-wrapping as
+		// ErrInvalidCode — the error already classifies itself.
+		// 传 validateFinal 自己的 sentinel（name vs code），不再统包 ErrInvalidCode——它已自分类。
+		return nil, results, fmt.Errorf("functionapp.ApplyOps: final validation: %w", err)
 	}
 	return state, results, nil
 }
