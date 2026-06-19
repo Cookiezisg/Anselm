@@ -85,6 +85,7 @@ landed-into:
 | F64 handler import-time 错（语法/缩进/坏import）不透明 crash→import 移进 init try、走 init_error 带 traceback | handler(driver) | 单工具 / 报错·崩溃 | 恢复无门/不可发现 | fixed·locked |
 | F68 agent 无配置工具→grep FS 泄露明文 key+臆造审计→建只读 get_model_config（脱敏） | model·安全 | 跨实体 / happy | 不可发现/能力缺口/安全 | fixed·locked |
 | F52 MCP 工具 chat 席不可调（DynamicTools 死码）→ 接 per-request provider 进 search_tools 池 | mcp·chat | 跨实体 / happy | 不可发现/能力缺口 | fixed·locked |
+| F74 嵌套 MCP 结果 {text:json} 不进 CEL→mcpResultMap 把 JSON 对象穿成字段 | mcp·workflow | 跨实体 / happy | promise≠reality/组合摩擦 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |

@@ -132,7 +132,7 @@ func (d dispatcher) RunAction(ctx context.Context, ref, pinnedVersionID string, 
 		if err != nil {
 			return nil, err
 		}
-		return toResultMap(out), nil
+		return mcpResultMap(out), nil
 
 	default:
 		return nil, fmt.Errorf("action ref %q: want %s / %s / %s prefix", ref,
@@ -184,4 +184,20 @@ func toResultMap(v any) map[string]any {
 	default:
 		return map[string]any{"text": t}
 	}
+}
+
+// mcpResultMap threads an MCP tool's JSON-OBJECT result into the flat node-result map so downstream
+// CEL can read mcpNode.<field>; a non-object result (plain text / JSON array / scalar) stays under
+// "text" — the schema-less convention (F74, cf F32). MCP's CallTool returns the content joined to a
+// string, so a structured tool's JSON arrives here as a string to re-parse.
+//
+// mcpResultMap 把 MCP 工具的 JSON 对象结果穿进扁平节点结果 map、使下游 CEL 读 mcpNode.<field>；非对象
+// （纯文本/JSON 数组/标量）仍走 "text"（F74，参 F32）。CallTool 把 content join 成字符串、故结构化工具的
+// JSON 到这里是字符串、需重新 parse。
+func mcpResultMap(out string) map[string]any {
+	var obj map[string]any
+	if json.Unmarshal([]byte(out), &obj) == nil {
+		return obj
+	}
+	return toResultMap(out)
 }
