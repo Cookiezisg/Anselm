@@ -53,6 +53,8 @@ durable 收件箱 trigger_firings（pending）……scheduler 每 5s 逐 workspa
 - **Edit 热更**：正在监听的 trigger 用新 config 重 Register。
 - **`:fire`**（FireManual）：手动催一次——扇给当前监听者（可能 0 个，那就只是一条 0 firing 的 Activation）。
 - webhook 异步 fire + recover（handler 不被慢/panic 拖累）、202 立即返回。
+- **webhook 路由模型**：listener 在 `New` 时只挂**一个 catch-all** route（`/api/v1/webhooks/` 前缀，共享 mux 上独占此前缀）；Register/Unregister 只动内存 registry map（`full path → registration`），mux 永不增长。catch-all 用确切请求路径重建 registry 键派发，registry miss → 404（Unregister / Edit 改路径后旧路径自然 404）。**故意不 per-trigger HandleFunc**——stdlib ServeMux 不能 unmount，且重注册一个已注销路径会因重复 pattern panic；单 catch-all 两患皆除。
+- **优雅关闭 join**：进程退出 `Shutdown` 顺停 4 listener。cron `Stop` 阻塞至 `cron.Stop()` ctx Done、fsnotify `Stop` `wg.Wait()`、**sensor `Stop` cancel 所有探测 goroutine 后 `wg.Wait()` join**（探测中途的 Invoke 持 function/handler 子进程，须收尾再让调用方 `db.Close`）；webhook `Stop` no-op（mux 归 HTTP server）。
 
 ## 5. 关键设计决策
 

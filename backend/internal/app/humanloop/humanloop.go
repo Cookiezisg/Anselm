@@ -15,6 +15,7 @@ package humanloop
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 )
 
@@ -169,6 +170,23 @@ func (b *Broker) Allow(conversationID, tool string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.allowed[conversationID+"\x00"+tool] = true
+}
+
+// Forget drops every always-allow grant for a conversation. The app-wide Broker outlives any one
+// conversation, so without this its grants leak forever; the conversation-delete cascade calls it
+// (whitelists are conversation-scoped state, torn down with the conversation).
+//
+// Forget 删一个对话的全部 always-allow 授权。app 级 Broker 比任一对话活得久，没有它授权会永久泄漏；
+// 对话删除级联调用它（白名单是对话级状态，随对话一并拆除）。
+func (b *Broker) Forget(conversationID string) {
+	prefix := conversationID + "\x00"
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for k := range b.allowed {
+		if strings.HasPrefix(k, prefix) {
+			delete(b.allowed, k)
+		}
+	}
 }
 
 // Pending lists the interactions currently awaiting a human in a conversation — the front end's

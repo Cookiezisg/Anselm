@@ -1,6 +1,7 @@
 package agentstate
 
 import (
+	"strconv"
 	"sync"
 	"testing"
 )
@@ -39,6 +40,51 @@ func TestWasRead_OtherPath_NotSeen(t *testing.T) {
 	s.MarkRead("/x/a.go", 1)
 	if _, ok := s.WasRead("/x/b.go"); ok {
 		t.Fatalf("WasRead /x/b.go = ok=true; seenFiles must be per-path")
+	}
+}
+
+// TestMarkRead_BoundedLRU: across more than seenFilesCap distinct paths the seenFiles set stays
+// bounded (the oldest age out), while a path re-marked just before the flood stays resident — the
+// recent-working-set invariant the write-before-read check relies on (R17).
+//
+// TestMarkRead_BoundedLRU：跨超过 seenFilesCap 个不同路径时 seenFiles 集保持有界（最旧的淘汰），
+// 而刚在洪流前重标的路径仍常驻——写前必读所依赖的近期工作集不变式（R17）。
+func TestMarkRead_BoundedLRU(t *testing.T) {
+	s := New()
+
+	// "hot" is marked, then kept fresh right before the eviction wave, so it must survive.
+	s.MarkRead("/hot.go", 1)
+
+	// Flood with cap*2 distinct paths. Refresh /hot.go near the END (within the last cap/2 marks)
+	// so it stays inside the resident window and is NOT the LRU tail when eviction settles.
+	flood := seenFilesCap * 2
+	refreshAt := flood - seenFilesCap/2
+	for i := 0; i < flood; i++ {
+		if i == refreshAt {
+			s.MarkRead("/hot.go", 1) // refresh recency late in the flood
+		}
+		s.MarkRead("/x/"+strconv.Itoa(i)+".go", int64(i))
+	}
+
+	// Bounded: the live set never exceeds the cap (white-box read of the LRU + index, both guarded).
+	s.seenMu.Lock()
+	lruLen, idxLen := s.seenLRU.Len(), len(s.seenIndex)
+	s.seenMu.Unlock()
+	if lruLen > seenFilesCap || idxLen > seenFilesCap {
+		t.Fatalf("seenFiles grew to lru=%d index=%d, must be <= cap %d", lruLen, idxLen, seenFilesCap)
+	}
+	if lruLen != idxLen {
+		t.Fatalf("LRU/index drift: lru=%d index=%d (eviction must remove from both)", lruLen, idxLen)
+	}
+
+	// The recently-refreshed hot path still reads back.
+	if _, ok := s.WasRead("/hot.go"); !ok {
+		t.Fatalf("recently-marked /hot.go was evicted; write-before-read invariant broken for the working set")
+	}
+
+	// A very early flood path (long past the cap window) has aged out.
+	if _, ok := s.WasRead("/x/0.go"); ok {
+		t.Fatalf("/x/0.go should have been evicted after %d newer marks", flood)
 	}
 }
 

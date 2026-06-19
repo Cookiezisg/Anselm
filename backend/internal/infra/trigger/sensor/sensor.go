@@ -49,6 +49,13 @@ type Listener struct {
 	invoker SensorInvoker
 	report  triggerinfra.ReportFunc
 	log     *zap.Logger
+
+	// wg joins every probe goroutine on Stop — a probe mid-Invoke spawns a function/handler
+	// subprocess, so shutdown must wait for it to unwind before db.Close (mirrors fsnotify.wg).
+	//
+	// wg 在 Stop 时 join 每个探测 goroutine——probe 中途的 Invoke 会起 function/handler 子进程，
+	// 故 shutdown 必须等它收尾再 db.Close（对齐 fsnotify.wg）。
+	wg sync.WaitGroup
 }
 
 // New constructs a sensor Listener; invoker resolves the bound function/handler.
@@ -90,6 +97,7 @@ func (l *Listener) Register(triggerID, workspaceID string, config map[string]any
 	}
 	ctx, cancel := context.WithCancel(reqctxpkg.Detached(workspaceID))
 	l.entries[triggerID] = &entry{cancel: cancel}
+	l.wg.Add(1)
 	go l.loop(ctx, triggerID, sc, condProg, outProg, interval)
 	return nil
 }
@@ -111,19 +119,26 @@ func (l *Listener) Unregister(triggerID string) {
 // Start 是 no-op——每个探测 goroutine 在 Register 里启动。
 func (l *Listener) Start() {}
 
-// Stop cancels all probe goroutines.
+// Stop cancels all probe goroutines and waits for them to return — a probe mid-Invoke holds a
+// function/handler subprocess that must finish unwinding before the caller closes the DB.
 //
-// Stop 取消所有探测 goroutine。
+// Stop 取消所有探测 goroutine 并等其退出——probe 中途的 Invoke 持有 function/handler 子进程，
+// 须在调用方关 DB 前收尾。
 func (l *Listener) Stop() {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	for _, e := range l.entries {
 		e.cancel()
 	}
 	l.entries = make(map[string]*entry)
+	l.mu.Unlock()
+	// Wait OUTSIDE the lock — a probe in flight may take l.mu (none today, but Register/Unregister
+	// do), so joining under the lock could self-deadlock.
+	// 在锁外 wait——飞行中的 probe 可能拿 l.mu（今天不会，但 Register/Unregister 会），锁内 join 会自锁。
+	l.wg.Wait()
 }
 
 func (l *Listener) loop(ctx context.Context, triggerID string, sc triggerdomain.SensorConfig, cond, out *celpkg.Program, interval time.Duration) {
+	defer l.wg.Done()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	l.probe(ctx, triggerID, sc, cond, out) // probe once on registration

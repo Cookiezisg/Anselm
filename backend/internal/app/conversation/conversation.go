@@ -65,11 +65,18 @@ type Service struct {
 	querier GeneratingQuerier
 }
 
-// GenerationCanceler stops a conversation's in-flight generation (chatapp.Service satisfies it).
+// GenerationCanceler is the chat-side hook for conversation lifecycle (chatapp.Service satisfies it):
+// Cancel stops in-flight generation (also used by the stream DELETE endpoint, so it must NOT drop
+// per-conversation grants), while ForgetConversation tears down conversation-scoped chat state — the
+// humanloop always-allow whitelist — and is delete-only (a deleted conversation's grants must not
+// linger on the app-wide broker).
 //
-// GenerationCanceler 停止对话的在途生成（chatapp.Service 满足之）。
+// GenerationCanceler 是对话生命周期的 chat 侧钩子（chatapp.Service 满足之）：Cancel 停在途生成（stream
+// DELETE 端点也用，故**不能**丢对话级授权），ForgetConversation 拆除对话级 chat 状态——humanloop
+// always-allow 白名单——仅删除时调（已删对话的授权不该残留在 app 级 broker）。
 type GenerationCanceler interface {
 	Cancel(ctx context.Context, conversationID string) error
+	ForgetConversation(conversationID string)
 }
 
 // SetGenerationCanceler injects the chat cancel hook after construction (bootstrap breaks the
@@ -303,6 +310,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		if err := s.canceler.Cancel(ctx, id); err != nil {
 			s.log.Warn("conversation.Delete: cancel generation failed", zap.String("id", id), zap.Error(err))
 		}
+		// Drop the conversation's humanloop always-allow grants — they are conversation-scoped state
+		// on the app-wide broker that would otherwise leak past deletion. Delete-only (Cancel alone,
+		// from the stream-stop endpoint, must keep grants for the still-live conversation).
+		// 丢弃对话的 humanloop always-allow 授权——它是 app 级 broker 上的对话级状态，否则会越过删除泄漏。
+		// 仅删除时（单独 Cancel 来自 stream-stop 端点，须为仍活的对话保留授权）。
+		s.canceler.ForgetConversation(id)
 	}
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return err

@@ -585,6 +585,18 @@ func (s *Service) Cancel(_ context.Context, conversationID string) error {
 	}
 }
 
+// ForgetConversation drops a conversation's per-conversation chat state on delete — currently the
+// humanloop always-allow whitelist on the app-wide broker, which would otherwise outlive the
+// conversation forever. The conversation-delete cascade (conversationapp.Delete) calls it.
+//
+// ForgetConversation 在删除时丢弃对话的对话级 chat 状态——当前是 app 级 broker 上的 humanloop
+// always-allow 白名单，否则会永远比对话活得久。对话删除级联（conversationapp.Delete）调用它。
+func (s *Service) ForgetConversation(conversationID string) {
+	if s.broker != nil {
+		s.broker.Forget(conversationID)
+	}
+}
+
 // finalizeCancelled marks a never-started assistant turn cancelled + pushes message_stop, on a
 // detached context (same orphan-avoidance discipline as WriteFinalize).
 //

@@ -90,6 +90,30 @@ func TestResolveUnknownIsNoop(t *testing.T) {
 	}
 }
 
+// TestForgetDropsConversationGrants: Forget removes every always-allow grant for the named
+// conversation and leaves other conversations' grants intact (R16 — grants must not leak past
+// conversation deletion on the app-wide broker).
+//
+// TestForgetDropsConversationGrants：Forget 删指定对话的全部 always-allow 授权、保留其他对话的授权
+// （R16——授权不得在 app 级 broker 上越过对话删除泄漏）。
+func TestForgetDropsConversationGrants(t *testing.T) {
+	b := New(nil)
+	b.Allow("cv1", "deploy")
+	b.Allow("cv1", "rm")
+	b.Allow("cv2", "deploy")
+
+	b.Forget("cv1")
+
+	if b.IsAllowed("cv1", "deploy") || b.IsAllowed("cv1", "rm") {
+		t.Fatal("Forget must drop all of cv1's grants")
+	}
+	if !b.IsAllowed("cv2", "deploy") {
+		t.Fatal("Forget(cv1) must not touch cv2's grants")
+	}
+	// Forgetting a conversation with no grants is a safe no-op.
+	b.Forget("cv_unknown")
+}
+
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
 	deadline := time.After(time.Second)

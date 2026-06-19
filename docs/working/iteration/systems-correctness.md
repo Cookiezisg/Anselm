@@ -105,7 +105,7 @@ Open/Close/non-ephemeral Signal are durable (frame.go:85-88). The subscriber cha
 
 Cardinality is worse…
 
-## R8 [MEDIUM] (unbounded-memory) — _pending_
+## R8 [MEDIUM] (unbounded-memory) — ✅ FIXED
 
 **Webhook trigger routes are never unmounted from the stdlib http.ServeMux — every distinct path ever registered leaks a handler closure**
 
@@ -201,7 +201,7 @@ QUERY: embeddings.go:58-63 MissingEmbeddings = `SELECT d.id,d.title,d.body FROM 
 - **修法**: Make embedding writes update the in-memory cache incrementally instead of invalidating wholesale -- backfill already holds the doc_id->vector it just wrote, so patch those into vecCache under its lock rather than dropping the whole ws entry. That removes the repeated full-table BLOB scan on the single connection during active editing.
 - **复核**: Verified the whole chain against the code and it holds. (1) vecCache.get (semantic.go:143) on a miss calls repo.WorkspaceVectors, which is an unbounded `SELECT e.doc_id, e.vector FROM search_embeddings e JOIN search_docs d ... WHERE d.workspace_id=? AND e.model=?` (embeddings.go:87-91) — every workspace vector BLOB read and decodeVector'd into a map. (2) This runs on the single pinned connection (SetMaxOpenConns(1), db.go:45), serializing against the drainLoop, the embed worker's UpsertEmbedding writes, and every other request. (3) The invalidation cadence is the amplifier and is real: onAppli…
 
-## R16 [LOW] (unbounded-memory) — _pending_
+## R16 [LOW] (unbounded-memory) — ✅ FIXED
 
 **humanloop Broker always-allow whitelist (`allowed` map) is append-only — never pruned, even on conversation delete**
 
@@ -212,7 +212,7 @@ QUERY: embeddings.go:58-63 MissingEmbeddings = `SELECT d.id,d.title,d.body FROM 
 - **修法**: Add `b.Forget(conversationID)` that ranges/deletes keys with the `conversationID+"\x00"` prefix, and call it from the conversation-delete cascade (where the chat/conversation service already tears down per-conversation state). Cheap and bounds the map to live conversations × approved tools.
 - **复核**: Every factual claim in the finding checks out against the code. The `allowed map[string]bool` (humanloop.go:85) lives on the app-wide singleton Broker — one per app, constructed once at chat.go:250 (one chat service per process). The only writer is Allow (humanloop.go:171, via Request at line 120 on DecisionApproveAlways), the only reader is IsAllowed (humanloop.go:159, consumed at loop/tools.go:152). A grep across the whole tree for delete/clear/remove on this map returns nothing — entries are never reclaimed. The hunter's contrast with the sibling `pending` map is genuine: pending IS cleaned…
 
-## R17 [LOW] (unbounded-memory) — _pending_
+## R17 [LOW] (unbounded-memory) — ✅ FIXED
 
 **Per-conversation AgentState.seenFiles grows unbounded across an active conversation (one entry per distinct file path)**
 
@@ -238,7 +238,7 @@ LIFECYCLE — the key claim, confirmed: the "per-run" doc (agentstate.go:2,23) i
 - **修法**: Change line 134 to `defer detach()` (right after attach at line 123), keeping the stderrGrace sleep before it via a small wrapper or by moving the sleep into the deferred func. Guarantees the sink is removed on every exit path including panic, matching the already-deferred prog.Close().
 - **复核**: Structural claim verified and accurate. call.go:123 registers a sink in the resident instance's stderrFan.sinks map (stderrfan.go:31-42) via `detach := inst.Stderr.attach(...)`, and detach() at call.go:134 is genuinely NOT deferred, while prog.Close() at call.go:122 IS deferred — confirmed asymmetry. inst.Stderr is the per-handler resident singleton's *stderrFan (manager.go:28; created once at spawn.go:91 and stored at spawn.go:106), kept alive across the whole session until crash/edit/config-change/shutdown; captureStderr (spawn.go:151-167) keeps writing every stderr line to every sink in the…
 
-## R19 [LOW] (graceful-shutdown) — _pending_
+## R19 [LOW] (graceful-shutdown) — ✅ FIXED
 
 **Sensor probe goroutines are cancelled but not waited on; an in-flight Invoke (subprocess/handler call) continues past shutdown**
 
