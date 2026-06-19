@@ -46,7 +46,7 @@ audience: [human, ai]
 
 **env 物化可见性**：ensureEnv 把每次尝试/模型修复行经 `envfix.WriterSink` tee 到 entities 流 build 终端（不分入口——HTTP 编辑器路径与 chat 构建同等可见）；状态级信号另走 `sandbox.env_status_changed` 通知（installing/ready/failed 带 errorMsg）。
 
-**记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按 `ctx.Err()` 区分 timeout/cancelled/failed；`logs` 随行落盘（List 置空、单条 Get 携带）。
+**记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按运行 ctx.Err() 区分 timeout/cancelled/failed——**timeout** 来自 `RunFunction` 给运行套的墙钟 deadline `limits.Timeout.FunctionRunSec`（默认 300s，`PATCH /limits` 可调、校验 >0；deadline 下沉到 sandbox exec ctx 触 pgroup-SIGKILL，使失控/死循环 function 不钉死 worker——workflow 函数节点 timeout 即 fail-fast 失败该 run，与 handler/mcp 调用同款墙钟）；`logs` 随行落盘（List 置空、单条 Get 携带）。
 
 ## 5. 关键设计决策
 

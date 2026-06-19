@@ -11,6 +11,7 @@ import (
 	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -65,8 +66,17 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 		input = map[string]any{}
 	}
 	owner := envOwner(v.FunctionID, v.EnvID)
+	// Bound the run's wall clock so a runaway / infinite-loop function can't pin a worker (esp. a
+	// workflow node, which has no client to navigate away and cancel) — the deadline descends into the
+	// sandbox exec ctx (pgroup-SIGKILL) and surfaces as the durable ExecutionStatusTimeout. Mirrors
+	// handler/call.go + mcp/calltool.go. (Bounding the OUTER ctx, not SpawnOpts.Timeout, is what makes
+	// ctx.Err()==DeadlineExceeded reachable in recordExecution — a child Spawn deadline would not.)
+	// 限运行墙钟，使失控/死循环 function 不钉死 worker（尤其 workflow 节点：无客户端可取消）——deadline 下沉到
+	// sandbox exec ctx（pgroup-SIGKILL）、记为 durable ExecutionStatusTimeout。对标 handler/call.go + mcp/calltool.go。
+	cctx, cancel := context.WithTimeout(ctx, time.Duration(limitspkg.Current().Timeout.FunctionRunSec)*time.Second)
+	defer cancel()
 	startedAt := time.Now().UTC()
-	res, sandboxErr := s.runner.Run(ctx, owner, v.FunctionID, v.ID, v.Code, input)
+	res, sandboxErr := s.runner.Run(cctx, owner, v.FunctionID, v.ID, v.Code, input)
 
 	// Env reclaimed externally (GC / manual cleanup): rebuild from the version snapshot
 	// and retry once.
@@ -75,12 +85,12 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 		s.log.Info("function env reclaimed; rebuilding then retrying",
 			zap.String("functionId", v.FunctionID), zap.String("versionId", v.ID))
 		if ready, _ := s.ensureEnv(ctx, v, nil); ready {
-			res, sandboxErr = s.runner.Run(ctx, owner, v.FunctionID, v.ID, v.Code, input)
+			res, sandboxErr = s.runner.Run(cctx, owner, v.FunctionID, v.ID, v.Code, input)
 		}
 	}
 	endedAt := time.Now().UTC()
 
-	s.recordExecution(ctx, in, v, startedAt, endedAt, res, sandboxErr, ctx.Err())
+	s.recordExecution(ctx, in, v, startedAt, endedAt, res, sandboxErr, cctx.Err())
 
 	if sandboxErr != nil {
 		return nil, fmt.Errorf("functionapp.RunFunction: %w", sandboxErr)

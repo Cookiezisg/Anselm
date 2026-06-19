@@ -51,6 +51,12 @@ type TimeoutLimits struct {
 	// BashDefaultTimeoutSec is the bash tool's default when the LLM passes none (consumer: shell).
 	// BashDefaultTimeoutSec 是 LLM 未传超时时 bash 工具的默认（消费方：shell）。
 	BashDefaultTimeoutSec int `json:"bashDefaultTimeoutSec"`
+	// FunctionRunSec bounds one function run's wall clock (consumer: functionapp.RunFunction) — a
+	// runaway / infinite-loop function otherwise pins a worker (esp. a workflow node, with no client
+	// to navigate away and cancel). Deadline-exceeded surfaces as the durable ExecutionStatusTimeout.
+	// FunctionRunSec 限一次 function 运行的墙钟（消费方：functionapp.RunFunction）——失控/死循环 function
+	// 否则钉死一个 worker（尤其 workflow 节点：无客户端可导航走取消）。超时记为 ExecutionStatusTimeout。
+	FunctionRunSec int `json:"functionRunSec"`
 }
 
 type ToolLimits struct {
@@ -86,6 +92,7 @@ func Default() Limits {
 			LLMIdleSec:            150,
 			MCPCallSec:            180,
 			BashDefaultTimeoutSec: 120,
+			FunctionRunSec:        300,
 		},
 		Tools: ToolLimits{
 			ReadDefaultLines: 2000,
@@ -119,6 +126,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Timeout.BashDefaultTimeoutSec == 0 {
 		l.Timeout.BashDefaultTimeoutSec = d.Timeout.BashDefaultTimeoutSec
+	}
+	if l.Timeout.FunctionRunSec == 0 {
+		l.Timeout.FunctionRunSec = d.Timeout.FunctionRunSec
 	}
 	if l.Tools.ReadDefaultLines == 0 {
 		l.Tools.ReadDefaultLines = d.Tools.ReadDefaultLines

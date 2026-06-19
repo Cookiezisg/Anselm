@@ -17,6 +17,7 @@ import (
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	functionstore "github.com/sunweilin/anselm/backend/internal/infra/store/function"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -34,11 +35,16 @@ func (okSandbox) EnsureEnv(_ context.Context, _ sandboxdomain.Owner, spec sandbo
 type fakeRunner struct {
 	ran    int
 	result *functiondomain.ExecutionResult
+	block  bool // F83: when true, Run blocks until ctx is done then returns ctx.Err() (wall-clock timeout test)
 }
 
 func (f *fakeRunner) Ready() bool { return true }
-func (f *fakeRunner) Run(_ context.Context, _ sandboxdomain.Owner, _, _, _ string, _ map[string]any) (*functiondomain.ExecutionResult, error) {
+func (f *fakeRunner) Run(ctx context.Context, _ sandboxdomain.Owner, _, _, _ string, _ map[string]any) (*functiondomain.ExecutionResult, error) {
 	f.ran++
+	if f.block {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	if f.result != nil {
 		return f.result, nil
 	}
@@ -217,6 +223,33 @@ func TestRun_RecordsExecution(t *testing.T) {
 	}
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("aggregates: %+v", page.Aggregates)
+	}
+}
+
+// TestRunFunction_WallClockTimeout — F83: a function that runs past FunctionRunSec is killed by the
+// wall-clock deadline and recorded as ExecutionStatusTimeout (the previously-unreachable status), not
+// a generic failure — so a runaway/infinite-loop function can't pin a worker (esp. a workflow node).
+func TestRunFunction_WallClockTimeout(t *testing.T) {
+	limitspkg.SetProvider(func() limitspkg.Limits {
+		l := limitspkg.Default()
+		l.Timeout.FunctionRunSec = 1
+		return l
+	})
+	defer limitspkg.SetProvider(limitspkg.Default)
+
+	svc, runner, ctx := newSvc(t)
+	runner.block = true
+	f, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "slow", goodCode)})
+
+	if _, err := svc.RunFunction(ctx, RunInput{FunctionID: f.ID, TriggeredBy: functiondomain.TriggeredByWorkflow}); err == nil {
+		t.Fatal("a timed-out run should return an error")
+	}
+	page, err := svc.SearchExecutions(ctx, functiondomain.ExecutionFilter{FunctionID: f.ID})
+	if err != nil || len(page.Executions) != 1 {
+		t.Fatalf("execution not recorded: count=%d err=%v", len(page.Executions), err)
+	}
+	if got := page.Executions[0].Status; got != functiondomain.ExecutionStatusTimeout {
+		t.Fatalf("status = %q, want %q", got, functiondomain.ExecutionStatusTimeout)
 	}
 }
 
