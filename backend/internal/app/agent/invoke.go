@@ -17,6 +17,7 @@ import (
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
@@ -122,6 +123,22 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 			}
 		}
 		res.Output = result.LastMessage
+		// Declared outputs: outputsInstruction told the LLM to answer with a single JSON object of exactly
+		// these fields, so parse it back — a downstream workflow node reads node.<field>, not the whole
+		// answer buried under node.text (which is what the schema-less toResultMap would otherwise do).
+		// If the final answer can't be mapped to the declared shape, fail loudly rather than silently
+		// hand the next node an unusable text blob (F40).
+		// 有声明输出：把终答解析回结构，使下游节点读 node.<字段> 而非整段塞进 node.text；无法映射则大声失败。
+		if res.OK && len(v.Outputs) > 0 {
+			obj, perr := coerceDeclaredOutputs(result.LastMessage, v.Outputs)
+			if perr != nil {
+				res.OK = false
+				res.Status = agentdomain.ExecutionStatusFailed
+				res.ErrorMsg = perr.Error()
+			} else {
+				res.Output = obj
+			}
+		}
 		res.StopReason = result.StopReason
 		res.Steps = result.Steps
 		res.TokensIn = result.TokensIn
@@ -389,4 +406,31 @@ func outputsInstruction(fields []schemapkg.Field) string {
 		}
 	}
 	return b.String()
+}
+
+// coerceDeclaredOutputs maps an agent's final message to the named-field map a workflow node reads
+// (node.<field>), given the agent declared those outputs (outputsInstruction asked for exactly that
+// JSON object). Tolerant of a ```json fence and the usual LLM JSON dirt (jsonrepair). A valid JSON
+// object passes through. If the answer isn't an object: one declared field → wrap the raw text under
+// that name (free-text-to-single-output convenience); multiple declared fields → ErrOutputNotStructured
+// (a bare scalar can't be split into several named fields — fail loudly).
+//
+// coerceDeclaredOutputs 把 agent 终答映射成节点读的命名字段 map。容忍 ```json 围栏 + LLM JSON 脏字。对象直通；
+// 非对象时：单声明 → 裹进该名；多声明 → 报错（标量拆不进多字段、大声失败）。
+func coerceDeclaredOutputs(msg string, fields []schemapkg.Field) (map[string]any, error) {
+	s := strings.TrimSpace(msg)
+	if rest, ok := strings.CutPrefix(s, "```"); ok { // strip a ```json … ``` fence
+		if nl := strings.IndexByte(rest, '\n'); nl >= 0 {
+			rest = rest[nl+1:]
+		}
+		s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "```"))
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(jsonrepairpkg.Repair(s)), &obj); err == nil {
+		return obj, nil
+	}
+	if len(fields) == 1 {
+		return map[string]any{fields[0].Name: s}, nil
+	}
+	return nil, agentdomain.ErrOutputNotStructured
 }

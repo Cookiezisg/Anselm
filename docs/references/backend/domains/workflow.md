@@ -17,7 +17,7 @@ audience: [human, ai]
 
 ## 2. 心智模型
 
-**图 = 静态"DAG + 回边"的有类型节点 + 接线边**。节点五类，各按 ref 前缀引用一个实体族：`trigger`(trg_) / `action`(fn_/hd_…method/mcp:server/tool) / `agent`(ag_) / `control`(ctl_) / `approval`(apf_)。节点 `ID` 是图内局部名——**也是下游 Input CEL 引用其 result 的名字**。`Input` 把被引用实体的每个声明字段映射到一条读上游节点结果的裸 CEL。边的 `FromPort` 只在 control（分支名）/approval（yes|no）源上有值——解释器把分支结局路由到 FromPort 匹配的边。
+**图 = 静态"DAG + 回边"的有类型节点 + 接线边**。节点五类，各按 ref 前缀引用一个实体族：`trigger`(trg_) / `action`(fn_/hd_…method/mcp:server/tool) / `agent`(ag_) / `control`(ctl_) / `approval`(apf_)。节点 `ID` 是图内局部名——**也是下游 Input CEL 引用其 result 的名字**。`Input` 把被引用实体的每个声明字段映射到一条读上游节点结果的裸 CEL。**节点结果整形**（`dispatch.toResultMap`）：callable 返 JSON 对象 → 直通（下游读 `node.<字段>`）；fn/hd 返标量 → 落 `node.text`（**声明输出对 fn/hd 是 advisory**——要 `node.<字段>` 须返 dict，F40）；**唯 agent 在 invoke 处回解析**自己的终答（恰 1 声明 → 裹进该名、2+ 声明 + 非对象 → 报 `AGENT_OUTPUT_NOT_STRUCTURED` 大声失败）。边的 `FromPort` 只在 control（分支名）/approval（yes|no）源上有值——解释器把分支结局路由到 FromPort 匹配的边。
 
 **头部三轴**（比任何图版本长寿，住 Workflow 行）：
 - `LifecycleState`：active（监听中）/ draining（跑完在途、不起新——deactivate 时有 run 在飞）/ inactive。

@@ -128,6 +128,11 @@ var (
 	ErrMountInvalid         = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_MOUNT_INVALID", "agent mounted tool ref is invalid or unresolvable")
 	ErrInvalidModelOverride = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_INVALID_MODEL_OVERRIDE", "invalid modelOverride (apiKeyId and modelId both required)")
 	ErrExecutionNotFound    = errorspkg.New(errorspkg.KindNotFound, "AGENT_EXECUTION_NOT_FOUND", "agent execution not found")
+	// ErrOutputNotStructured: the agent declared 2+ structured outputs but its final answer wasn't a
+	// JSON object, so it can't be split into the named fields a workflow node reads (node.<field>) —
+	// loud-fail instead of silently delivering an unusable text blob (a single declared output instead
+	// wraps the free text under that one name). 声明多输出但终答非 JSON 对象、无法拆成命名字段——大声失败。
+	ErrOutputNotStructured = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_OUTPUT_NOT_STRUCTURED", "agent declared multiple structured outputs but its final answer was not a JSON object")
 )
 
 // Repository is the persistence port for the Agent domain. No GetPending / AcceptVersion —

@@ -126,8 +126,11 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("expected OK, got %+v", res)
 	}
-	if res.Output != "approve" {
-		t.Fatalf("expected output 'approve', got %v", res.Output)
+	// F40: with one declared output, the agent's final answer is coerced to node.decision (a map),
+	// not left as a bare string that toResultMap would bury under node.text.
+	out, ok := res.Output.(map[string]any)
+	if !ok || out["decision"] != "approve" {
+		t.Fatalf("declared output should map to node.decision, got %#v", res.Output)
 	}
 	if res.ExecutionID == "" {
 		t.Fatalf("expected an execution to be recorded")
@@ -136,6 +139,62 @@ func TestService_InvokeRunsLoopAndRecords(t *testing.T) {
 	sr, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: a.ID})
 	if err != nil || len(sr.Executions) != 1 || sr.Aggregates.OKCount != 1 {
 		t.Fatalf("execution not recorded as ok: %v %+v", err, sr)
+	}
+}
+
+// TestService_InvokeCoercesJSONOutput — F40: an agent declaring multiple outputs that answers with the
+// JSON object has each field land as node.<field> (the object passes through, not buried in node.text).
+func TestService_InvokeCoercesJSONOutput(t *testing.T) {
+	svc, ctx := newSvc(t)
+	svc.SetInvokeDeps(InvokeDeps{
+		Resolver: fakeResolver{client: &fakeLLMClient{events: []llminfra.StreamEvent{
+			{Type: llminfra.EventText, Delta: `{"decision": "approve", "score": 8}`},
+			{Type: llminfra.EventFinish, InputTokens: 10, OutputTokens: 5},
+		}}},
+		Knowledge: fakeKnowledge{},
+	})
+	a, _, _ := svc.Create(ctx, CreateInput{Name: "judge", Config: Config{
+		Prompt: "judge",
+		Outputs: []schemapkg.Field{
+			{Name: "decision", Type: schemapkg.TypeString},
+			{Name: "score", Type: schemapkg.TypeNumber},
+		},
+	}})
+	res, err := svc.InvokeAgent(ctx, InvokeInput{AgentID: a.ID, TriggeredBy: agentdomain.TriggeredByChat})
+	if err != nil || !res.OK {
+		t.Fatalf("invoke: err=%v res=%+v", err, res)
+	}
+	out, ok := res.Output.(map[string]any)
+	if !ok || out["decision"] != "approve" {
+		t.Fatalf("JSON output should pass through to the field map, got %#v", res.Output)
+	}
+}
+
+// TestService_InvokeLoudFailsUnstructuredMultiOutput — F40: an agent declaring 2+ outputs that answers
+// with prose (not a JSON object) fails loudly — a bare string can't be split into the named fields, so
+// the run records failed instead of silently handing the next node an unusable text blob.
+func TestService_InvokeLoudFailsUnstructuredMultiOutput(t *testing.T) {
+	svc, ctx := newSvc(t)
+	svc.SetInvokeDeps(InvokeDeps{
+		Resolver: fakeResolver{client: &fakeLLMClient{events: []llminfra.StreamEvent{
+			{Type: llminfra.EventText, Delta: "I think we should approve it, the score is high."},
+			{Type: llminfra.EventFinish, InputTokens: 10, OutputTokens: 5},
+		}}},
+		Knowledge: fakeKnowledge{},
+	})
+	a, _, _ := svc.Create(ctx, CreateInput{Name: "judge", Config: Config{
+		Prompt: "judge",
+		Outputs: []schemapkg.Field{
+			{Name: "decision", Type: schemapkg.TypeString},
+			{Name: "score", Type: schemapkg.TypeNumber},
+		},
+	}})
+	res, err := svc.InvokeAgent(ctx, InvokeInput{AgentID: a.ID, TriggeredBy: agentdomain.TriggeredByChat})
+	if err != nil {
+		t.Fatalf("invoke: %v", err)
+	}
+	if res.OK || res.Status != agentdomain.ExecutionStatusFailed || res.ErrorMsg == "" {
+		t.Fatalf("a multi-output agent answering with prose must fail loudly, got %+v", res)
 	}
 }
 
