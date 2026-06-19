@@ -329,8 +329,9 @@ func (a *App) drainLoop(ctx context.Context) {
 // Shutdown stops everything in reverse dependency order, then closes the DB last. ctx bounds the
 // graceful drain. Order: stop the firing-drain ticker (no new runs) → trigger listeners → chat
 // queues → mcp / handler resident processes → sandbox (kills any remaining spawned long-lived
-// handles its consumers didn't) → flush logs → close the DB (checkpoints the SQLite WAL). Each step
-// is best-effort logged so one stuck subsystem cannot block the rest.
+// handles its consumers didn't) → shell background jobs (run_in_background children + their trees,
+// R1) → flush logs → close the DB (checkpoints the SQLite WAL). Each step is best-effort logged so
+// one stuck subsystem cannot block the rest.
 //
 // Shutdown 逆依赖序停一切、最后关 DB。ctx 限优雅排空。顺序：停 firing-drain ticker（不再起新 run）→
 // trigger listener → chat 队列 → mcp / handler 常驻进程 → sandbox（杀消费者没杀干净的 spawned long-lived
@@ -347,6 +348,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	if err := a.svc.sandbox.Shutdown(ctx); err != nil {
 		a.log.Warn("bootstrap: sandbox shutdown", zap.Error(err))
 	}
+	a.svc.shellMgr.Stop() // reap run_in_background children + their whole process trees (R1)
 	_ = a.log.Sync()
 	if err := a.db.Close(); err != nil {
 		a.log.Warn("bootstrap: db close", zap.Error(err))

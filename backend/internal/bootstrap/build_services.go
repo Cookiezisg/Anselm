@@ -106,6 +106,7 @@ type services struct {
 	contextmgr   *contextmgrapp.Service
 	aispawn      *aispawnapp.Service
 	search       *searchapp.Service
+	shellMgr     *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -206,11 +207,16 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 
 	// --- toolset: Resident (filesystem/search/shell) + Lazy (entity tools + web) ---
 	guard := pathguardpkg.NewDefault()
+	// Capture the struct, not just .Tools: its Manager owns every run_in_background child's process
+	// group, and App.Shutdown must call Manager.Stop() to reap them — else backgrounded jobs (and
+	// their whole trees) orphan on every backend exit (R1).
+	// 留住整个 struct 而非只 .Tools：Manager 持每个后台子进程的进程组，Shutdown 须调 Manager.Stop() 回收（R1）。
+	shellTools := shelltool.NewShellTools()
 	toolset := toolapp.Toolset{
 		Resident: concat(
 			filesystemtool.FilesystemTools(guard),
 			searchtool.SearchTools(guard, log),
-			shelltool.NewShellTools().Tools,
+			shellTools.Tools,
 			[]toolapp.Tool{asktool.New()}, // ask_user — agent asks the human (blocks on the humanloop broker)
 			todotool.TodoTools(todo),      // todo_write — the checklist's only write path (the HTTP board is read-only)
 		),
@@ -433,7 +439,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
-		search: searchSvc,
+		search: searchSvc, shellMgr: shellTools.Manager,
 	}
 	// aispawn composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.
