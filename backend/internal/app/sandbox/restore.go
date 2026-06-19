@@ -50,9 +50,25 @@ func (s *Service) RestoreOrCleanupOnBoot(ctx context.Context) {
 }
 
 // killIfAlive reports whether pid was alive (and kills it). Signal(0) probes
-// liveness without killing; on success Kill terminates the survivor.
+// liveness without killing; on success killSurvivor terminates the survivor.
 //
-// killIfAlive 报告 pid 是否存活（并杀掉）。Signal(0) 探活不杀；存活则 Kill 终结残留。
+// The recorded pid is the DIRECT child the backend spawned (spawn.go SetEnvRunningPID
+// records inner.PID()), which is its process-group LEADER — SpawnOnce/SpawnLongLived
+// both setupProcessGroup (Setpgid, so pgid == pid). A bare positive-pid kill would
+// only reap that leader and orphan its grandchildren: a python MCP server's recorded
+// pid is the `uvx`/`npx` wrapper, which forks the real python/node server into the
+// SAME group — kill the leader alone and that server survives reparented to init. So
+// the boot reaper must SIGKILL the whole group (negative pgid on unix), mirroring the
+// live kill path's killProcessGroup; windows stays best-effort single-pid (no pgroups).
+//
+// killIfAlive 报告 pid 是否存活（并杀掉）。Signal(0) 探活不杀；存活则 killSurvivor 终结残留。
+//
+// 记录的 pid 是后端 spawn 的直接子进程（spawn.go SetEnvRunningPID 记 inner.PID()），它是
+// 进程组组长——SpawnOnce/SpawnLongLived 都 setupProcessGroup（Setpgid，故 pgid == pid）。裸正
+// pid kill 只会收割组长、留下孙进程成孤儿：python MCP server 记录的 pid 是 `uvx`/`npx` 包装器，
+// 它把真正的 python/node server fork 进同一组——只杀组长那个 server 会熬过来、被 init 收养。故 boot
+// 回收器必须对整组发 SIGKILL（unix 用负 pgid），与 live kill 路径的 killProcessGroup 对齐；windows
+// 保持 best-effort 单 pid（无进程组）。
 func killIfAlive(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -66,8 +82,5 @@ func killIfAlive(pid int) bool {
 			return false
 		}
 	}
-	if err := p.Kill(); err != nil {
-		return false
-	}
-	return true
+	return killSurvivor(p, pid)
 }

@@ -32,14 +32,23 @@ func (s *Service) Spawn(ctx context.Context, owner sandboxdomain.Owner, opts san
 		defer cancel()
 	}
 
-	return sandboxinfra.SpawnOnce(spawnCtx, sandboxinfra.SpawnOptions{
+	// Register the live one-shot in oneShots so Shutdown reaps it if the backend exits
+	// mid-run; unregister when SpawnOnce returns (the normal path). The completion
+	// unregister and a racing Shutdown are both keyed by id and idempotent on the map.
+	// 把 live 一次性进程登记进 oneShots，使后端在运行中退出时 Shutdown 能收割它；SpawnOnce 返回即
+	// 反注册（常态路径）。完成反注册与并发 Shutdown 都按 id 寻址、对 map 幂等。
+	id := s.nextOneShot.Add(1)
+	res, err := sandboxinfra.SpawnOnce(spawnCtx, sandboxinfra.SpawnOptions{
 		Cmd:       cmd,
 		Args:      args,
 		Cwd:       cwd,
 		Env:       env,
 		Stdin:     opts.Stdin,
 		StreamErr: opts.StreamErr,
+		OnStarted: func(p *os.Process) { s.oneShots.Store(id, p) },
 	})
+	s.oneShots.Delete(id)
+	return res, err
 }
 
 // SpawnLongLived starts a long-running process; the handle auto-unregisters on Wait/Kill.
@@ -80,10 +89,27 @@ func (s *Service) SpawnLongLived(ctx context.Context, owner sandboxdomain.Owner,
 	return tracked, nil
 }
 
-// Shutdown kills all active LongLived handles; blocks until done or ctx expires.
+// Shutdown kills all active LongLived handles AND any in-flight one-shot Spawn
+// processes; blocks until done or ctx expires.
 //
-// Shutdown 杀掉所有活跃 LongLived handle，阻塞直到完成或 ctx 过期。
+// Shutdown 杀掉所有活跃 LongLived handle 与在途一次性 Spawn 进程，阻塞直到完成或 ctx 过期。
 func (s *Service) Shutdown(ctx context.Context) error {
+	// Reap in-flight one-shots (python function-runners): their ctx may never cancel on
+	// shutdown (a drained workflow Advance runs on a Detached ctx), so the only reliable
+	// reaper is this explicit group-kill of every registered live process.
+	// 收割在途一次性进程（python function-runner）：其 ctx 在 shutdown 时可能永不取消（被排空的
+	// 工作流 Advance 跑在 Detached ctx 上），故唯一可靠的回收器是此处对每个已登记 live 进程的整组杀。
+	oneShots := 0
+	s.oneShots.Range(func(_, v any) bool {
+		p := v.(*os.Process)
+		oneShots++
+		killSurvivor(p, p.Pid)
+		return true
+	})
+	if oneShots > 0 {
+		s.log.Info("sandbox shutdown: killed in-flight one-shots", zap.Int("count", oneShots))
+	}
+
 	var wg sync.WaitGroup
 	count := 0
 	s.activeHandles.Range(func(_, v any) bool {

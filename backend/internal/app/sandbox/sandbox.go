@@ -48,6 +48,14 @@ type Service struct {
 
 	activeHandles sync.Map
 	nextHandleID  atomic.Uint64
+
+	// oneShots tracks in-flight one-shot Spawn processes (id → *os.Process group leader)
+	// so Shutdown can reap a run still executing at backend exit — they are NOT in
+	// activeHandles (only SpawnLongLived is) and would otherwise leak detached.
+	// oneShots 追踪在途一次性 Spawn 进程（id → *os.Process 组长），使 Shutdown 能收割后端退出时仍
+	// 在执行的运行——它们不在 activeHandles（只有 SpawnLongLived 在），否则会脱离泄漏。
+	oneShots    sync.Map
+	nextOneShot atomic.Uint64
 }
 
 // New constructs a Service; Bootstrap must succeed before EnsureRuntime/Spawn.
@@ -386,12 +394,36 @@ func (s *Service) Destroy(ctx context.Context, owner sandboxdomain.Owner) error 
 
 	existing, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
 	if errors.Is(err, sandboxdomain.ErrEnvNotFound) {
+		s.dropOwnerLock(owner)
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("sandboxapp.Destroy: lookup %s/%s: %w", owner.Kind, owner.ID, err)
 	}
-	return s.destroyLocked(ctx, existing)
+	if err := s.destroyLocked(ctx, existing); err != nil {
+		return err
+	}
+	s.dropOwnerLock(owner)
+	return nil
+}
+
+// dropOwnerLock evicts the owner's keyed mutex from envLocks (owner IDs are unique
+// per Quadrinity entity and never recur, so without this the map grows for the whole
+// process lifetime — one *sync.Mutex per entity ever materialized). MUST be called
+// while still holding that very lock: a concurrent op blocked on the same key woke us
+// up only because we Unlock after this returns; if a racer instead LoadOrStores a
+// FRESH mutex after this Delete, the env is already gone so it operates on a brand-new
+// env under a brand-new lock — correct. Two concurrent Destroys are idempotent (the
+// second finds ErrEnvNotFound) and each holds its own lock pointer, so a double Delete
+// is a no-op.
+//
+// dropOwnerLock 从 envLocks 逐出 owner 的 keyed mutex（owner ID 按 Quadrinity 实体唯一、永不
+// 重现，不删则该 map 随进程整生命周期增长——每个曾物化的实体一个 *sync.Mutex）。**必须在仍持
+// 该锁时调用**：阻在同 key 上的并发 op 之所以会被唤醒，是因为本函数返回后我们才 Unlock；若 racer
+// 在本 Delete 后 LoadOrStore 一个新 mutex，env 已不在、它在全新 env + 全新锁上操作——正确。两个并
+// 发 Destroy 幂等（第二个撞 ErrEnvNotFound）、各持自己的锁指针，重复 Delete 是 no-op。
+func (s *Service) dropOwnerLock(owner sandboxdomain.Owner) {
+	s.envLocks.Delete(owner.Kind + ":" + owner.ID)
 }
 
 func (s *Service) destroyLocked(ctx context.Context, env *sandboxdomain.Env) error {
@@ -513,4 +545,13 @@ func (s *Service) ActiveHandleCountForTest() int {
 		return true
 	})
 	return count
+}
+
+// HasOwnerLockForTest reports whether an owner's keyed mutex is still in envLocks
+// (asserts the leak fix evicts it on Destroy).
+//
+// HasOwnerLockForTest 报告 owner 的 keyed mutex 是否仍在 envLocks（断言泄漏修复在 Destroy 时逐出）。
+func (s *Service) HasOwnerLockForTest(owner sandboxdomain.Owner) bool {
+	_, ok := s.envLocks.Load(owner.Kind + ":" + owner.ID)
+	return ok
 }

@@ -71,6 +71,13 @@ type SpawnOptions struct {
 	//
 	// StreamErr（可选）在捕获 buffer 之外实时接收 stderr——工具据此流式推子进程进度输出的接缝。nil = 仅捕获。
 	StreamErr io.Writer
+	// OnStarted (optional) is called once with the live process right after a one-shot
+	// SpawnOnce starts it (process group already set up), so the app layer can register
+	// it in a kill-set and reap an in-flight run on Shutdown. nil = no tracking.
+	//
+	// OnStarted（可选）在一次性 SpawnOnce 启动进程后（进程组已就绪）以 live process 调用一次，
+	// 让 app 层把它登记进 kill-set、在 Shutdown 时收割在途运行。nil = 不追踪。
+	OnStarted func(*os.Process)
 }
 
 // SpawnOnce runs cmd to completion; a non-zero exit → Ok=false, an infra failure
@@ -106,7 +113,22 @@ func SpawnOnce(ctx context.Context, opts SpawnOptions) (*sandboxdomain.Execution
 	cmd.Cancel = func() error { return killProcessGroup(cmd) }
 
 	start := time.Now()
-	runErr := cmd.Run()
+	// Start + Wait (not Run) so OnStarted can hand the live process to the app layer's
+	// kill-set the instant it exists — closing the window where an in-flight one-shot
+	// (a python function-runner) is invisible to sandbox.Shutdown.
+	//
+	// 用 Start + Wait（非 Run），使 OnStarted 能在 live process 一存在就交给 app 层的 kill-set——
+	// 关掉「在途一次性进程（python function-runner）对 sandbox.Shutdown 不可见」的窗口。
+	if err := cmd.Start(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("sandbox.SpawnOnce: %w", sandboxdomain.ErrSpawnTimeout)
+		}
+		return nil, fmt.Errorf("sandbox.SpawnOnce: %w (cause: %w)", sandboxdomain.ErrSpawnFailed, err)
+	}
+	if opts.OnStarted != nil {
+		opts.OnStarted(cmd.Process)
+	}
+	runErr := cmd.Wait()
 	elapsed := time.Since(start)
 
 	result := &sandboxdomain.ExecutionResult{

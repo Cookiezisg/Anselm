@@ -81,7 +81,7 @@ Open/Close/non-ephemeral Signal are durable (frame.go:85-88). The subscriber cha
 - **修法**: Durable fan-out to a per-subscriber channel must not be able to block the shared producer indefinitely. Options: (1) give the durable send a bounded timeout/escape that is independent of the (possibly-Detached) publisher ctx — e.g. select on s.ch, s.done, AND a time.After(writeDeadline); on timeout, mark that subscriber as lagging and close its done (force-disconnect the slow client) so the bus self-heals, mirroring the SEQ_TOO_OLD recovery the client already handles. (2) Do the fan-out send OUTSIDE st.mu (snapshot subs under the lock, release, then send) so a wedged subscriber can never serialize unrelated publishers — combine with a per-subscriber send deadline. (3) Never publish durable frames on a context that cannot cancel: thread a bounded-timeout context (context.WithTimeout off Detached) into WriteFinalize/notification.push so ctx.Done() is a guaranteed escape. Option (1)+(2) together is the robust fix: bound per-subscriber send time and don't hold the workspace lock across a network-paced send.
 - **复核**: Every link in the causal chain checks out against the actual code. (1) Durable fan-out holds the per-workspace lock with exactly three escapes — bus.go:106-113, and st.mu.Lock() is unconditional at bus.go:82-83 (acquired before the durable/ephemeral branch). (2) Open/Close/non-ephemeral Signal are durable — frame.go:85-88. (3) Subscriber channel cap is sseBufSize(256, build_data.go:89) + subscriberHeadroom(256, subscribe.go:16) = 512, allocated at subscribe.go:32. (4) The SSE pump writes then flushes inline at sse.go:59-60 with NO write deadline: the http.Server is built with only Addr/Handler…
 
-## R6 [MEDIUM] (subprocess-reaping) — _pending_
+## R6 [MEDIUM] (subprocess-reaping) — ✅ FIXED
 
 **Boot crash-recovery kills only the recorded parent PID, orphaning uvx/npx grandchildren (python/node)**
 
@@ -92,7 +92,7 @@ Open/Close/non-ephemeral Signal are durable (frame.go:85-88). The subscriber cha
 - **修法**: In killIfAlive (restore.go), kill the process GROUP, not the bare pid: on unix do `syscall.Kill(-pid, SIGKILL)` (the recorded child is the group leader since spawn sets Setpgid, so pgid == pid), with a positive-pid `p.Kill()` fallback if the group is already gone; on windows use the existing taskkill /T path. This mirrors what killProcessGroup already does on the live path. Reuse the existing proc_*.go primitive rather than re-implementing.
 - **复核**: Verified against the actual code; the finding is accurate and not already handled. ASYMMETRY confirmed: the live kill path uses the correct process-group primitive — longLivedHandle.Kill -> killProcessGroup -> syscall.Kill(-cmd.Process.Pid, SIGKILL) (infra/sandbox/proc_darwin.go:24, proc_linux.go:27), reaping wrapper + grandchildren. The crash-recovery path does NOT: RestoreOrCleanupOnBoot (app/sandbox/restore.go:30) -> killIfAlive -> p.Kill() (restore.go:69) is a POSITIVE-pid SIGKILL hitting one process only. RECORDED PID is the wrapper: app/sandbox/spawn.go:74 SetEnvRunningPID(envID, inner.P…
 
-## R7 [MEDIUM] (unbounded-memory) — _pending_
+## R7 [MEDIUM] (unbounded-memory) — ✅ FIXED
 
 **Per-owner env mutex map (sandbox envLocks) grows forever — one *sync.Mutex per entity, never deleted**
 
@@ -168,7 +168,7 @@ ROUTE LEAK (finding's headline, mild): webhook.go:112 `l.mux.HandleFunc(full, l.
 
 QUERY: embeddings.go:58-63 MissingEmbeddings = `SELECT d.id,d.title,d.body FROM search_docs d LEFT JOIN search_embeddings e ON e.doc_id=d.id AND e.model=? WHERE d.workspace_id=? AND e.doc_id IS NULL ORDER BY d.updated_at DESC LIMIT ?`. The ONLY index on search_docs is idx_sd_ws_entity(workspace_id,entity_type,entity_id) (search.go:54) — confirmed it is the only one (grep + no migrations add another). EXPLAIN QUERY PLAN on the exact schema: `SEARCH d USING INDEX idx_sd_ws_entity (workspace_id=?)` …
 
-## R13 [MEDIUM] (graceful-shutdown) — _pending_
+## R13 [MEDIUM] (graceful-shutdown) — ✅ FIXED
 
 **Orphaned function-runner subprocesses: one-shot Spawn() processes are not tracked in activeHandles, so sandbox.Shutdown never kills them**
 
