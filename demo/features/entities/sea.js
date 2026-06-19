@@ -87,39 +87,8 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
       return isle;
     }
 
-    // ── 空态（能力主页）：页头 能力 + 计数 + 新建（4 核心 kind 菜单）；按 kind 分组的清单（无边、靠留白层级）。复用原语不手搓。──
-    function showEmpty() {
-      const el = window.el;
-      cur = null;
-      if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); ctx.shell.setHeadTitle && ctx.shell.setHeadTitle(null); }
-      const head = el("an-ocean-header", { crumb: "Entities", title: "能力" });
-      head.append(el("an-badge", { slot: "meta" }, reg.length + " 个实体"));
-      const newBtn = el("an-button", { slot: "actions", variant: "primary", size: "sm", icon: "plus" }, "新建");
-      newBtn.addEventListener("click", () => window.AnMenu && window.AnMenu.open(newBtn, {
-        align: "end", placement: "bottom", namespace: "ent-new",
-        items: ["function", "handler", "agent", "workflow"].map((k) => ({ value: k, label: (K[k] || {}).label || k, icon: (K[k] || {}).icon })),
-        onPick: (v) => window.AnToast && window.AnToast.show({ text: "新建 " + ((K[v] || {}).label || v) + " — 描述需求让 AI 来建，或填表单" }),
-      }));
-      head.append(newBtn);
-      // 按 4 大组（逻辑节点/控制节点/工作流/外部组件）分组，每组一个 section + 清单——与左岛同源分组，无边靠留白
-      const GROUPS = [["逻辑节点", ["function", "handler", "agent", "trigger"]], ["控制节点", ["control", "approval"]], ["工作流", ["workflow"]], ["外部组件", ["mcp", "skill"]]];
-      const kids = [head];
-      GROUPS.forEach(([label, kinds]) => {
-        const ents = reg.filter((e) => kinds.indexOf(e.kind) >= 0);
-        if (!ents.length) return;
-        const sec = el("an-section", { label: label });
-        ents.forEach((e) => {
-          const r = el("an-row", { icon: (K[e.kind] || {}).icon || e.kind, label: e.label, hint: (K[e.kind] || {}).label, meta: e.meta });
-          r.addEventListener("an-select", () => ctx.Intent.select({ kind: "entity", id: e.id }));
-          sec.append(r);
-        });
-        kids.push(sec);
-      });
-      page.replaceChildren.apply(page, kids);
-    }
-
     function show(id) {
-      const e = byId(id); if (!e) { showEmpty(); return; }   // 选不到 / 无选中 → 能力主页空态
+      const e = byId(id) || reg[0]; if (!e) return;   // 选不到 → 退回首个实体
       cur = e;
       const kids = [header(e)];
       const versions = e.versions || [];
@@ -140,8 +109,7 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     }
 
     // 反应式选中：旧 sea（page 已 detached）不再抢渲染——多次进入叠加 Intent.on，靠此守卫只让当前 sea 响应
-    ctx.Intent.on("entity", (sel) => { if (page.isConnected) { if (sel && sel.id) show(sel.id); else showEmpty(); } });
-    ctx.Intent.onAct((a) => { if (a.verb === "create" && a.kind === "entity" && page.isConnected) showEmpty(); });   // rail New Entity → 回能力主页
+    ctx.Intent.on("entity", (sel) => { if (page.isConnected && sel && sel.id) show(sel.id); });
     // 图框「进入编辑器」→ 切编辑器海洋（带当前实体 id）
     page.addEventListener("an-graph-editor", () => { if (cur && ctx.Intent.act) ctx.Intent.act({ verb: "editGraph", kind: cur.kind, id: cur.id }); });
     // 就地改名 / 改说明 → 回写注册表（rail 行同源、下次渲染即新值）；真后端走 PATCH，失败回滚
@@ -153,7 +121,7 @@ window.FEATURE.entities = Object.assign(window.FEATURE.entities || {}, {
     page.addEventListener("an-field-change", (ev) => {
       if (cur && (ev.detail.label === "说明" || ev.detail.label === "角色") && cur.data) { cur.data.description = ev.detail.value; window.AnToast && window.AnToast.show({ text: "已更新说明" }); }
     });
-    showEmpty();   // 默认进海洋 = 能力主页空态（选实体 / 点 New 才进实体页）
+    if (reg[0]) show(reg[0].id);   // 默认进海洋 = 载入首个实体
     return page;
   },
 });

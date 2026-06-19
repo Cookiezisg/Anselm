@@ -4,7 +4,7 @@
 window.FEATURE = window.FEATURE || {};
 window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
   rail: (ctx) => {
-    const openId = null;   // 默认主页空态：文档树无选中（选文档才高亮）
+    const openId = window.DOC_DEFAULT;   // 默认预选首篇文档（与 sea 默认 loadDoc 对齐）
     const labelOf = (id) => { let f = id; (function w(ns) { (ns || []).forEach((n) => { if (n.id === id) f = n.label; if (n.children) w(n.children); }); })(window.DOC_TREE || []); return f; };
     const toast = (text) => window.AnToast && window.AnToast.show({ text });
     // DOC_TREE → sidebar-list 嵌套行（全文档图标；有子 → 可折叠树枝）
@@ -15,7 +15,7 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
     el.model = { newLabel: "New Document", filterPlaceholder: "搜索", groups: [{ types: [{ rows: toRows(window.DOC_TREE || []) }] }] };
 
     el.addEventListener("an-select", (ev) => { if (ev.detail && ev.detail.id != null) ctx.Intent.select({ kind: "document", id: ev.detail.id }); });
-    el.addEventListener("an-new", () => ctx.Intent.select({ kind: "document", id: null }));   // New Document → 回主页空态
+    el.addEventListener("an-new", () => toast("已新建文档"));   // New Document → mock 新建（真后端 POST）
     el.addEventListener("an-row-more", (ev) => {
       const id = ev.detail.id, name = labelOf(id);
       window.AnMenu.open(ev.detail.anchor, {

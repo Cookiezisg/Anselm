@@ -1,4 +1,6 @@
-/* Anselm 原语 🧩 — <an-composer>。chat 输入条：多行 contenteditable + @ 提及内联药丸 + 附件 chip + send/stop。
+/* Anselm 原语 🧩 — <an-composer>。chat 输入条 = 输入框原语家族的富成员（演变型）：单行 contenteditable + @ 提及内联药丸 + 附件 chip + send/stop。
+   演变输入：1 行时是圆边药丸（radius=box 高/2，JS _updateRadius 据高度算），随换行增高 radius 渐变到 --r-card（阈值后恒为普通输入框圆角）；发送钮极简 icon、空输入时藏（_syncHasInput）。
+   归属：contenteditable 物理刚需（@ ref-pill 是内联子元素 + radius 高度演变都要富容器），an-input(textarea·纯字符串值) 不能替代——故演变逻辑内化于本件，本件即 chat 的输入框原语。
    why 新建：现有 an-input[multiline] 只是裸 textarea，缺 @picker/附件/send 态——是 chat 海洋唯一必须新建的件。
    复用底座：AnMention（@ → 边打边滤 picker → 内联 an-ref-pill，与 doc-editor 同源）· an-button（工具钮/send/stop）· an-ref-pill（提及药丸）· icons。
    能力：① 多行自增高 contenteditable（max 6 行后内滚）；② 「@」起会话 or 工具栏 @ 钮开 picker → 内联插药丸；③ 附件 chip 行（可删）；
@@ -15,14 +17,15 @@
       :host { display: block; }
       .bar { max-width: var(--w-content); margin: 0 auto; padding: var(--sp-2) var(--sp-6) var(--sp-4); }
       /* 输入盒：圆角面 + inset 描边环（半透 border 圆角会叠灰尖，用 inset 均匀）；聚焦叠 accent 光环 */
+      /* border-radius 由 JS _updateRadius() 据高度演变（1 行=药丸 → 增高渐变到 --r-card）；transition 让换行平滑 */
       .box {
-        border-radius: var(--r-card); background: var(--island);
+        background: var(--island);
         box-shadow: inset 0 0 0 var(--hairline) var(--line);
         transition: box-shadow var(--d-fast), border-radius var(--d-slow) var(--ease-spring);
       }
       .box:focus-within { box-shadow: inset 0 0 0 var(--hairline) var(--accent-line), 0 0 0 var(--focus-ring) var(--accent-soft); }
-      /* pill：空态落地的圆边药丸形（chat New-chat 居中态用；slide 到底时去 pill → 圆角面，border-radius 过渡自然） */
-      :host([pill]) .box { border-radius: var(--r-pill); box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-float); }
+      /* pill attr 降级为「浮起」修饰（landing 居中态用）——只加阴影，radius 全权交演变、不再强制圆 */
+      :host([pill]) .box { box-shadow: inset 0 0 0 var(--hairline) var(--line), var(--shadow-float); }
 
       /* 附件 chip 行（空则整行塌陷） */
       .chips { display: flex; flex-wrap: wrap; gap: var(--gap-tight); padding: var(--sp-2) var(--sp-3) 0; }
@@ -38,9 +41,12 @@
       .chip .x:hover { background: var(--island-4); color: var(--ink); }
       .chip .x svg { width: var(--icon-sm); height: var(--icon-sm); }
 
-      /* contenteditable 编辑区：多行自增、超 6 行内滚（无 native gutter）；空态占位 */
+      /* 单行：左钮组 + edit(flex) + 右钮组 同行；align-items:flex-end → 多行时 edit 向上长高、左右钮贴底（ChatGPT 式） */
+      .row { display: flex; align-items: flex-end; gap: var(--grid); padding: var(--grid) var(--sp-2) var(--sp-2); }
+      .row .lead, .row .tail { display: inline-flex; align-items: center; gap: var(--grid); flex: none; }
+      /* contenteditable 编辑区：flex 独吞中段、多行自增、超 6 行内滚（无 native gutter）；空态占位 */
       .edit {
-        outline: none; padding: var(--sp-3) var(--sp-3) var(--sp-2);
+        flex: 1; min-width: var(--zero); outline: none; padding: var(--sp-2) var(--zero);
         font-size: var(--t-body); line-height: var(--lh-ui); color: var(--ink);
         min-height: calc(var(--t-body) * var(--lh-ui)); max-height: calc(var(--row) * 6);
         overflow-y: auto; overflow-wrap: anywhere; scrollbar-width: none; -ms-overflow-style: none;
@@ -49,10 +55,8 @@
       .edit:empty::before { content: attr(data-ph); color: var(--ink-3); pointer-events: none; }
       an-ref-pill { margin: 0 var(--grid); vertical-align: baseline; }
 
-      /* 工具栏行：@ / 附件 钮（左）· 提示 + 发送/停止（右） */
-      .tools { display: flex; align-items: center; gap: var(--grid); padding: var(--grid) var(--sp-2) var(--sp-2) var(--sp-2); }
-      .tools .grow { flex: 1; }
-
+      /* 发送钮：空输入且非 generating 时藏（单行只剩左两钮）；有输入才现 */
+      :host(:not([has-input]):not([generating])) .t-send { display: none; }
       /* generating：send↔stop 互换（纯 CSS） */
       :host(:not([generating])) .t-stop { display: none; }
       :host([generating]) .t-send { display: none; }
@@ -64,21 +68,41 @@
     get attachments() { return this._atts || []; }
     // 焦点入编辑区（feature 切会话后聚焦）
     focus() { const ed = this.$(".edit"); if (ed) ed.focus(); }
-    // 清空输入（feature 发送后 / 切会话）
-    clear() { const ed = this.$(".edit"); if (ed) ed.innerHTML = ""; this._atts = []; this._renderChips(); }
+    // 清空输入（feature 发送后 / 切会话）：回单行药丸 + 藏发送钮
+    clear() { const ed = this.$(".edit"); if (ed) ed.innerHTML = ""; this._atts = []; this._renderChips(); this.removeAttribute("has-input"); this._updateRadius(); }
+
+    // has-input：有文字 or @ 内联药丸即「有输入」→ 切宿主属性（纯 CSS 显隐发送钮，不重渲、不抹 editable）
+    _syncHasInput() {
+      const ed = this.$(".edit"); if (!ed) return;
+      this.toggleAttribute("has-input", !!(ed.textContent.trim() || ed.querySelector("an-ref-pill")));
+    }
+    // 演变 radius：据 .box 实测高度 lerp（1 行=minH/2 全圆药丸 → 增高渐变到 --r-card → 阈值后恒 r-card）。JS 计算 px 写 inline（lint 仅管 CSS 源）。
+    _updateRadius() {
+      const box = this.$(".box"); if (!box) return;
+      const cs = getComputedStyle(this);
+      const rCard = parseFloat(cs.getPropertyValue("--r-card")) || 16;
+      const h = box.offsetHeight; if (!h) return;
+      const minH = this._minH || (this._minH = h);            // connect 时单行 box 高 = 药丸基线
+      const targetH = minH + (parseFloat(cs.getPropertyValue("--row")) || 32) * 2;   // +2 行即达 box 阈值
+      const t = Math.min(1, Math.max(0, (h - minH) / (targetH - minH)));
+      box.style.borderRadius = ((minH / 2) + (rCard - minH / 2) * t) + "px";
+    }
 
     render() {
-      // 无占位文字 / 无 hint / send·stop 纯图标——干净空条（Enter 发送 / Shift+Enter 换行靠键位约定，不写字）
+      // 单行：左 @/附件 + edit + 右 发送/停止（发送极简 icon 钮、空输入时藏）。无占位文字（Enter 发送 / Shift+Enter 换行靠键位约定）。
       const ph = e(this.attr("placeholder", ""));
       return `<div class="bar"><div class="box">
         <div class="chips"></div>
-        <div class="edit" contenteditable="true" spellcheck="false" data-ph="${ph}"></div>
-        <div class="tools">
-          <an-button class="t-at" variant="icon" icon="at-sign">提及</an-button>
-          <an-button class="t-att" variant="icon" icon="paperclip">附件</an-button>
-          <span class="grow"></span>
-          <an-button class="t-send" variant="primary" size="sm" icon="arrow-up" aria-label="发送"></an-button>
-          <an-button class="t-stop" variant="danger" size="sm" icon="stop" aria-label="停止"></an-button>
+        <div class="row">
+          <span class="lead">
+            <an-button class="t-at" variant="icon" icon="at-sign">提及</an-button>
+            <an-button class="t-att" variant="icon" icon="paperclip">附件</an-button>
+          </span>
+          <div class="edit" contenteditable="true" spellcheck="false" data-ph="${ph}"></div>
+          <span class="tail">
+            <an-button class="t-send" variant="icon" size="sm" icon="arrow-up" aria-label="发送"></an-button>
+            <an-button class="t-stop" variant="danger" size="sm" icon="stop" aria-label="停止"></an-button>
+          </span>
         </div>
       </div></div>`;
     }
@@ -86,6 +110,8 @@
     hydrate() {
       const ed = this.$(".edit");
       this._renderChips();
+      // 布局后首算：锁单行 box 高（radius 演变基线 minH）+ 同步发送钮显隐
+      requestAnimationFrame(() => { this._updateRadius(); this._syncHasInput(); });
 
       // @ 提及（复用地基 AnMention：「@」起会话 + 工具栏钮 pick；shadow 内取 shadowRoot 选区）
       this._mention = window.AnMention.attach(ed, {
@@ -105,7 +131,7 @@
       ed.addEventListener("keydown", (ev) => {
         if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); this._send(); }
       });
-      ed.addEventListener("input", () => { if (!ed.textContent.trim() && !ed.querySelector("an-ref-pill")) ed.innerHTML = ""; });
+      ed.addEventListener("input", () => { if (!ed.textContent.trim() && !ed.querySelector("an-ref-pill")) ed.innerHTML = ""; this._syncHasInput(); this._updateRadius(); });
 
       this.$(".t-send").addEventListener("click", () => this._send());
       this.$(".t-stop").addEventListener("click", () => this.emit("an-stop", {}));
@@ -142,7 +168,7 @@
       if (!text.trim() && !atts.length) return;
       const refs = this.$$("an-ref-pill").map((p) => ({ kind: p.getAttribute("kind"), id: p.getAttribute("id"), label: p.getAttribute("label") }));
       this.emit("an-send", { text: text, html: ed.innerHTML, refs: refs, attachments: atts });
-      ed.innerHTML = ""; this._atts = []; this._renderChips();
+      ed.innerHTML = ""; this._atts = []; this._renderChips(); this.removeAttribute("has-input"); this._updateRadius();
     }
   }
   window.AnElement.define(AnComposer);

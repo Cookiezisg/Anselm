@@ -57,26 +57,11 @@ window.FEATURE.documents = Object.assign(window.FEATURE.documents || {}, {
         ],
         onPick: (v) => window.AnToast && window.AnToast.show({ text: ({ rename: "已重命名", addChild: "已在其下新建子文档", duplicate: "已复制", move: "已移动", delete: "已删除" }[v]) + "「" + (D.title || "") + "」" }),
       }));
-      if (ctx.shell) ctx.shell.setRight(island);   // setRight 决策下沉到 loadDoc（空态 loadHome 收起）
+      if (ctx.shell) ctx.shell.setRight(island);   // 文档海洋恒有右岛文档信息
     }
 
-    // ── 空态（主页）：时间问候 + 最近访问清单（无边、靠留白层级）；新建归页头动作；右岛收起。复用原语不手搓。──
-    function loadHome() {
-      page.innerHTML = "";
-      if (ctx.shell) { ctx.shell.setRight(null); ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null); }
-      const head = el("an-ocean-header", { crumb: "Documents", title: window.greetOf() + ", weilin" });
-      head.append(el("an-button", { slot: "actions", variant: "primary", size: "sm", icon: "plus", onclick: () => window.AnToast && window.AnToast.show({ text: "已新建空白文档" }) }, "新建"));
-      const recent = el("an-section", { label: "最近访问" });
-      (window.DOC_RECENTS || []).forEach((d) => {
-        const r = el("an-row", { icon: "doc", label: d.label, hint: d.badge, meta: d.meta });
-        r.addEventListener("an-select", () => ctx.Intent.select({ kind: "document", id: d.id }));
-        recent.append(r);
-      });
-      page.append(head, recent);
-    }
-
-    ctx.Intent.on("document", (sel) => { if (!page.isConnected) return; if (sel && sel.id) loadDoc(sel.id); else loadHome(); });
-    loadHome();   // 默认进海洋 = Notion 式主页（选文档 / 点最近卡才进文档）
+    ctx.Intent.on("document", (sel) => { if (page.isConnected && sel && sel.id) loadDoc(sel.id); });
+    loadDoc(window.DOC_DEFAULT);   // 默认进海洋 = 载入首篇文档
     return page;
   },
 });
