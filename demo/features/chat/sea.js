@@ -21,8 +21,17 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
     page.append(tree);
     const composer = el("an-composer");
     composer.mentions = window.CHAT_MENTIONS || [];
-    composer.models = window.CHAT_MODELS;
-    composer.addEventListener("an-model-change", (ev) => toast("已切换 " + ev.detail.modelLabel + " · " + ev.detail.keyLabel));
+
+    // 模型/API 切换器：移到 shell 左上角头（标题 · 模型名[浅色] · ⋯），点模型名开 AnModelPicker；chat 海洋常显（含空态）。
+    const MODELS = window.CHAT_MODELS || { providers: [], current: {} };
+    function curModelLabel() { let l = "选择模型"; (MODELS.providers || []).forEach((p) => (p.models || []).forEach((m) => { if (m.id === (MODELS.current || {}).model) l = m.label; })); return l; }
+    function syncHeadModel() {
+      if (!ctx.shell || !ctx.shell.setHeadModel) return;
+      ctx.shell.setHeadModel(curModelLabel(), (anchor) => window.AnModelPicker.open(anchor, {
+        models: MODELS, namespace: "head-model", placement: "bottom",
+        onPick: (model, key, info) => { MODELS.current = { model: model, key: key }; syncHeadModel(); toast("已切换 " + info.modelLabel + " · " + info.keyLabel); },
+      }));
+    }
     const root = el("div", { class: "chat-sea" });
     root.style.cssText = "flex:1; min-height:0; display:flex; flex-direction:column; position:relative;";   // relative：承载空态居中浮层
     root.append(page, composer);
@@ -224,13 +233,14 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       composer.style.transition = ""; composer.style.transform = "";
       if (ctx.shell) {
         ctx.shell.setRight(null);
-        ctx.shell.setHeadTitle && ctx.shell.setHeadTitle(null);   // 左上角不显示 New Chat
+        ctx.shell.setHeadTitle && ctx.shell.setHeadTitle(null);   // 左上角不显示 New Chat 标题
         ctx.shell.setHeadMenu && ctx.shell.setHeadMenu(null);
+        syncHeadModel();   // 模型名钮空态也常显（ChatGPT 式）
       }
       page.replaceChildren();   // 清空 transcript（landing 浮层覆盖之）
       if (landing) landing.remove();
       landing = el("div", { class: "chat-landing" });
-      landing.style.cssText = "position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-16); padding:var(--sp-6);";
+      landing.style.cssText = "position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-12); padding:var(--sp-6);";
       const greet = el("div");   // 排版尺度容器（typewriter 自带 ink/ink-2 色，故不内联皮肤色）；字体不加粗
       greet.style.cssText = "font-size:var(--t-h2); font-weight:400; line-height:var(--lh-tight); text-align:center; max-width:var(--w-content);";
       const tw = el("an-typewriter", { prefix: window.greetOf() + ", ", pause: "5000" });
@@ -254,7 +264,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       if (tree.parentNode !== page) page.replaceChildren(tree);
       if (landing) { landing.remove(); landing = null; }
       if (composer.parentNode !== root) root.append(composer);
-      if (ctx.shell) { ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("新对话"); ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true); }
+      if (ctx.shell) { ctx.shell.setHeadTitle && ctx.shell.setHeadTitle("新对话"); ctx.shell.setHeadCollapsed && ctx.shell.setHeadCollapsed(true); syncHeadModel(); }
       const last = composer.getBoundingClientRect();
       composer.style.transition = "none";
       composer.style.transform = "translate(" + (first.left - last.left) + "px, " + (first.top - last.top) + "px)";
@@ -289,6 +299,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
           ],
           onPick: (v) => toast(({ rename: "已重命名", pin: "已置顶", archive: "已归档", delete: "已删除" }[v]) + "「" + (c.title || "") + "」"),
         }));
+        syncHeadModel();   // 模型名钮（浅色，标题与 ⋯ 之间）
       }
       composer.removeAttribute("generating");
       composer.attachments = [];

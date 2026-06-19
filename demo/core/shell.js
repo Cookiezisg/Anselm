@@ -35,19 +35,21 @@
         background: linear-gradient(to bottom, var(--island) 40%, transparent); pointer-events: none; z-index: -1; }
       .lead, .extra { pointer-events: auto; display: flex; align-items: center; gap: var(--grid); min-width: 0; }
 
-      /* 紧凑标题（大标题滑出后浮现于左上角，左岛钮之后）：标题文字（点回顶）+ ⌄ 按钮（点开海洋动作菜单 = 原 … 内容 + run/trigger） */
-      .htitle { display: none; align-items: center; max-width: 50vw; pointer-events: auto;
-        transition: opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
-      :host([head-title]) .htitle { display: inline-flex; }
-      .ht-text { min-width: 0; height: var(--ctl); padding: 0 var(--gap-tight) 0 var(--sp-2); border-radius: var(--r-btn);
-        color: var(--ink); font-size: var(--t-body); font-weight: 600; cursor: pointer;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background var(--d-fast); }
+      /* 紧凑左上角头：标题文字（点回顶）· 模型名（浅色，点开模型/key 选择器，chat 海洋恒显含空态）· ⋯ 动作菜单。标题/⋯ 随 head=show/hide 滑入，模型名常显不动。 */
+      .ht-text { display: none; align-items: center; min-width: 0; max-width: 30vw; height: var(--ctl); padding: 0 var(--gap-tight) 0 var(--sp-2); border-radius: var(--r-btn);
+        color: var(--ink); font-size: var(--t-body); font-weight: 600; cursor: pointer; pointer-events: auto;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background var(--d-fast), opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
+      :host([head-title]) .ht-text { display: inline-flex; }
       .ht-text:hover { background: var(--island-3); }
-      /* ⌄ 钮皮肤归 an-button variant=icon size=sm（不再 raw button 重抄）；这里只控显隐：无 head-menu 时藏 */
-      .ht-chev { display: none; flex: none; }
+      /* 模型名：浅色（ink-3）、不加粗，点击开 AnModelPicker；chat 海洋常显（含空态、不随 head 滑动） */
+      .ht-model { display: none; flex: none; pointer-events: auto; }
+      :host([head-model]) .ht-model { display: inline-flex; }
+      .ht-model::part(button) { color: var(--ink-3); font-weight: 400; }
+      /* ⌄→⋯ 动作菜单钮：皮肤归 an-button variant=icon size=sm；无 head-menu 时藏，随 head 滑入 */
+      .ht-chev { display: none; flex: none; pointer-events: auto; transition: opacity var(--d-mid), transform var(--d-slow) var(--ease-spring); }
       :host([head-menu]) .ht-chev { display: inline-flex; }
-      :host([head="hide"]) .htitle { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); pointer-events: none; }
-      :host([head="show"]) .htitle { opacity: 1; transform: none; }
+      :host([head="hide"]) .ht-text, :host([head="hide"]) .ht-chev { opacity: 0; transform: translateY(calc(-1 * var(--sp-2))); pointer-events: none; }
+      :host([head="show"]) .ht-text, :host([head="show"]) .ht-chev { opacity: 1; transform: none; }
       .grow { flex: 1; }
       .reopen { width: var(--zero); opacity: 0; overflow: hidden; pointer-events: none;
         transition: opacity var(--d-mid), width var(--d-slow) var(--ease-spring); }
@@ -72,7 +74,9 @@
             <div class="head">
               <span class="lead">
                 <an-button class="reopen" variant="icon" icon="panel-left"></an-button>
-                <span class="htitle"><button type="button" class="ht-text" aria-label="回到顶部"></button><an-button class="ht-chev" variant="icon" size="sm" icon="chevd" aria-label="操作"></an-button></span>
+                <button type="button" class="ht-text" aria-label="回到顶部"></button>
+                <an-button class="ht-model" variant="ghost" size="sm" aria-haspopup="menu"></an-button>
+                <an-button class="ht-chev" variant="icon" size="sm" icon="more" aria-label="操作"></an-button>
                 <slot name="head-lead"></slot>
               </span>
               <span class="grow"></span>
@@ -96,6 +100,7 @@
       this.$(".reopen").addEventListener("click", () => this.toggleLeft());
       this.$(".pright").addEventListener("click", () => this.toggleRight());
       this.$(".ht-text").addEventListener("click", () => { if (this._headClick) this._headClick(); });
+      this.$(".ht-model").addEventListener("click", () => { if (this._headModel) this._headModel(this.$(".ht-model")); });
       this.$(".ht-chev").addEventListener("click", () => { if (this._headMenu) this._headMenu(this.$(".ht-chev")); });
       this._wireGrip();
       this._wireScroll();
@@ -148,8 +153,14 @@
       if (!text) { this.removeAttribute("head"); this.setHeadMenu(null); }
       else if (!this.hasAttribute("head")) this.setAttribute("head", "hide");
     }
-    // ⌄ 动作菜单：onMenu(anchor) 由海洋注入（实体=run/trigger+…、文档=重命名/复制…、对话=置顶/归档…）；空 → 隐 ⌄。
+    // ⋯ 动作菜单：onMenu(anchor) 由海洋注入（实体=run/trigger+…、文档=重命名/复制…、对话=置顶/归档…）；空 → 隐 ⋯。
     setHeadMenu(onMenu) { this._headMenu = onMenu || null; this.toggleAttribute("head-menu", !!onMenu); }
+    // 模型名钮（浅色）：label=当前模型名，onClick(anchor)=开 AnModelPicker；空 label → 隐。chat 海洋注入（含空态常显，切海洋时 app 清掉）。
+    setHeadModel(label, onClick) {
+      this._headModel = onClick || null;
+      const m = this.$(".ht-model"); if (m) m.textContent = label || "";
+      this.toggleAttribute("head-model", !!label);
+    }
     // 收起态切换：大标题滑出 → show 紧凑标题（淡入）；大标题可见 → hide。chat 恒 show（一上来即显）。
     setHeadCollapsed(on) { if (this.hasAttribute("head-title")) this.setAttribute("head", on ? "show" : "hide"); }
     // 注入即开、清空即合（feature 给了右岛内容就展开，给 null 就收起）
