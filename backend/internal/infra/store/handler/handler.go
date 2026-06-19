@@ -379,6 +379,9 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *handlerdomain.Handler,
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *handlerdomain.Version, h *handlerdomain.Handler) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[handlerdomain.Version](tx, "handler_versions").Save(ctx, v); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return handlerdomain.ErrVersionConflict
+			}
 			return fmt.Errorf("handlerstore.SaveVersionAndActivate: version: %w", err)
 		}
 		// Persist the row (active pointer AND meta) in the same tx: a set_meta op carried by the

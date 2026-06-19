@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（CRUD + 9 个 `POST :action`——构建/查询 `:edit`/`:revert`/`:capability-check`/`:iterate` + 执行生命周期 `:trigger`/`:stage`/`:activate`/`:deactivate`/`:kill` + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 15 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 16 个：7 构建/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 4 运行可观测/恢复/决策（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环；`replay_flowrun`——从断点重跑失败 run，清 failed 节点、留记忆化、按 run 原 pin 版本重走；`decide_approval`——批/拒 park 在审批节点的 run，包 `:decide` 同一 `DecideApproval`、首决胜，补全 agent 席不可达的人在环决策半边）。
+端点（CRUD + 9 个 `POST :action`——构建/查询 `:edit`/`:revert`/`:capability-check`/`:iterate` + 执行生命周期 `:trigger`/`:stage`/`:activate`/`:deactivate`/`:kill` + versions）→ [api.md](../api.md) · 表（`workflows`/`workflow_versions`，CHECK lifecycle+concurrency）→ [database.md](../database.md) · 码 `WORKFLOW_*` 16 个 → [error-codes.md](../error-codes.md) · ID：`wf_`/`wfv_`。LLM 工具 16 个：7 构建/查询 + 5 执行生命周期（trigger/stage/activate/deactivate/kill）+ 4 运行可观测/恢复/决策（`get_flowrun`——run 头 + 全节点记录；`search_flowruns`——闭合 `trigger_workflow` 返回 flowrunId 后的检查环；`replay_flowrun`——从断点重跑失败 run，清 failed 节点、留记忆化、按 run 原 pin 版本重走；`decide_approval`——批/拒 park 在审批节点的 run，包 `:decide` 同一 `DecideApproval`、首决胜，补全 agent 席不可达的人在环决策半边）。
 
 ## 7. 跨域集成
 

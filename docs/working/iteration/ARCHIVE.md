@@ -88,6 +88,7 @@ landed-into:
 | F74 嵌套 MCP 结果 {text:json} 不进 CEL→mcpResultMap 把 JSON 对象穿成字段 | mcp·workflow | 跨实体 / happy | promise≠reality/组合摩擦 | fixed·locked |
 | F83 function 无墙钟 timeout→runaway 钉死 worker→RunFunction 套 FunctionRunSec 外层 ctx deadline | function·durable | 单工具 / 崩溃·并发 | 脆弱/白烧 | fixed·locked |
 | F61 并发同父 create_document position 竞态→InsertAtNextPosition 单 tx 原子赋 position（Create+Duplicate 根） | document | 并发 | 组合摩擦/脆弱 | fixed·locked |
+| F73 并发 :edit 版本碰撞泄露泛 ORM_CONFLICT→6 域各加 <E>_VERSION_CONFLICT 翻译 | 6 版本化实体 | 并发 | 静默降级 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |

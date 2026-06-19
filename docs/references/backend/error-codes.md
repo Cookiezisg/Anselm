@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **265 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **271 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,7 +42,7 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（265 码，按域）
+## 全量登记（271 码，按域）
 
 > `errorspkg.New` 机械抽取（260，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ### transport 合成码（`FromDomainError`，非 `errorspkg.New` sentinel）
 
-> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 265 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
+> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 271 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
 
 | code | HTTP | message | 触发 |
 |---|---|---|---|
@@ -268,6 +268,7 @@ audience: [human, ai]
 | `AGENT_TOOLS_AGENT_REF` | 422 | agent tools cannot reference another agent (ag_ forbidden) |
 | `AGENT_TOOL_REF_BLANK` | 422 | agent tool ref must not be blank |
 | `AGENT_VERSION_NOT_FOUND` | 404 | agent version not found |
+| `AGENT_VERSION_CONFLICT` | 409 | agent version already exists (concurrent edit) |
 
 ### `domain/apikey`
 
@@ -293,6 +294,7 @@ audience: [human, ai]
 | `APPROVAL_NOT_FOUND` | 404 | approval form not found |
 | `APPROVAL_NO_ACTIVE_VERSION` | 422 | approval form has no active version |
 | `APPROVAL_VERSION_NOT_FOUND` | 404 | approval form version not found |
+| `APPROVAL_VERSION_CONFLICT` | 409 | approval form version already exists (concurrent edit) |
 
 ### `domain/attachment`
 
@@ -321,6 +323,7 @@ audience: [human, ai]
 | `CONTROL_NO_ACTIVE_VERSION` | 422 | control logic has no active version |
 | `CONTROL_NO_CATCHALL` | 422 | last branch must be when:"true" |
 | `CONTROL_VERSION_NOT_FOUND` | 404 | control logic version not found |
+| `CONTROL_VERSION_CONFLICT` | 409 | control logic version already exists (concurrent edit) |
 
 ### `domain/conversation`
 
@@ -364,6 +367,7 @@ audience: [human, ai]
 | `FUNCTION_OP_INVALID` | 422 | invalid build op |
 | `FUNCTION_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime unavailable |
 | `FUNCTION_VERSION_NOT_FOUND` | 404 | function version not found |
+| `FUNCTION_VERSION_CONFLICT` | 409 | function version already exists (concurrent edit) |
 
 ### `domain/handler`
 
@@ -385,6 +389,7 @@ audience: [human, ai]
 | `HANDLER_RPC_TIMEOUT` | 504 | handler instance RPC timeout |
 | `HANDLER_SANDBOX_UNAVAILABLE` | 503 | sandbox runtime unavailable |
 | `HANDLER_VERSION_NOT_FOUND` | 404 | handler version not found |
+| `HANDLER_VERSION_CONFLICT` | 409 | handler version already exists (concurrent edit) |
 
 ### `domain/mcp`
 
@@ -531,6 +536,7 @@ audience: [human, ai]
 | `WORKFLOW_NO_TRIGGER_ENTRY` | 422 | workflow has no entry trigger node to listen on |
 | `WORKFLOW_REF_NOT_FOUND` | 422 | workflow node ref not found or mismatched |
 | `WORKFLOW_VERSION_NOT_FOUND` | 404 | workflow version not found |
+| `WORKFLOW_VERSION_CONFLICT` | 409 | workflow version already exists (concurrent edit) |
 
 ### `domain/workspace`
 

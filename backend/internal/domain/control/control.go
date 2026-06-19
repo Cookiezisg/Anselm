@@ -119,6 +119,7 @@ var (
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
 	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "CONTROL_VERSION_NOT_FOUND", "control logic version not found")
+	ErrVersionConflict = errorspkg.New(errorspkg.KindConflict, "CONTROL_VERSION_CONFLICT", "control logic version already exists (concurrent edit)")
 
 	// ErrNoActiveVersion: control logic has no active version.
 	// ErrNoActiveVersion：control 逻辑无 active 版本。

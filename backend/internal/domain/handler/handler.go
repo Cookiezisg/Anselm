@@ -110,6 +110,7 @@ var (
 	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "HANDLER_NOT_FOUND", "handler not found")
 	ErrDuplicateName       = errorspkg.New(errorspkg.KindConflict, "HANDLER_NAME_DUPLICATE", "handler name already exists")
 	ErrVersionNotFound     = errorspkg.New(errorspkg.KindNotFound, "HANDLER_VERSION_NOT_FOUND", "handler version not found")
+	ErrVersionConflict     = errorspkg.New(errorspkg.KindConflict, "HANDLER_VERSION_CONFLICT", "handler version already exists (concurrent edit)")
 	ErrCallNotFound        = errorspkg.New(errorspkg.KindNotFound, "HANDLER_CALL_NOT_FOUND", "handler call not found")
 	ErrMethodNotFound      = errorspkg.New(errorspkg.KindNotFound, "HANDLER_METHOD_NOT_FOUND", "handler method not found")
 	ErrNoActiveVersion     = errorspkg.New(errorspkg.KindUnprocessable, "HANDLER_NO_ACTIVE_VERSION", "handler has no active version")

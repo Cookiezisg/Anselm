@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用，不重列）
 
-端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 10 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
+端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 11 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
 
 ## 7. 跨域集成
 

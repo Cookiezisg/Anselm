@@ -342,6 +342,9 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *agentdomain.Agent, v *
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *agentdomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[agentdomain.Version](tx, "agent_versions").Create(ctx, v); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return agentdomain.ErrVersionConflict
+			}
 			return fmt.Errorf("agentstore.SaveVersionAndActivate: version: %w", err)
 		}
 		n, err := ormpkg.For[agentdomain.Agent](tx, "agents").

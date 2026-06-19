@@ -259,6 +259,7 @@ var (
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
 	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "WORKFLOW_VERSION_NOT_FOUND", "workflow version not found")
+	ErrVersionConflict = errorspkg.New(errorspkg.KindConflict, "WORKFLOW_VERSION_CONFLICT", "workflow version already exists (concurrent edit)")
 
 	// ErrNoActiveVersion: workflow has no active version (graph) yet.
 	// ErrNoActiveVersion：workflow 尚无 active 版本（图）。

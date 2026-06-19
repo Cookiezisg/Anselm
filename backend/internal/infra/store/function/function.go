@@ -359,6 +359,9 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *functiondomain.Functio
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *functiondomain.Version, f *functiondomain.Function) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[functiondomain.Version](tx, "function_versions").Save(ctx, v); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return functiondomain.ErrVersionConflict // (entity_id, version) collision = concurrent :edit
+			}
 			return fmt.Errorf("functionstore.SaveVersionAndActivate: version: %w", err)
 		}
 		// Persist the row (active pointer AND meta) in the same tx: a set_meta op carried by the

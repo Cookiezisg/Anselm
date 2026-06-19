@@ -121,6 +121,7 @@ var (
 	ErrNotFound             = errorspkg.New(errorspkg.KindNotFound, "AGENT_NOT_FOUND", "agent not found")
 	ErrNameConflict         = errorspkg.New(errorspkg.KindConflict, "AGENT_NAME_CONFLICT", "agent name already exists")
 	ErrVersionNotFound      = errorspkg.New(errorspkg.KindNotFound, "AGENT_VERSION_NOT_FOUND", "agent version not found")
+	ErrVersionConflict      = errorspkg.New(errorspkg.KindConflict, "AGENT_VERSION_CONFLICT", "agent version already exists (concurrent edit)")
 	ErrNoActiveVersion      = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_NO_ACTIVE_VERSION", "agent has no active version to invoke")
 	ErrToolsAgentRef        = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOLS_AGENT_REF", "agent tools cannot reference another agent (ag_ forbidden)")
 	ErrToolRefBlank         = errorspkg.New(errorspkg.KindUnprocessable, "AGENT_TOOL_REF_BLANK", "agent tool ref must not be blank")

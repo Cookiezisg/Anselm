@@ -95,6 +95,10 @@ var (
 	//
 	// ErrVersionNotFound：version id / 号未命中。
 	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "FUNCTION_VERSION_NOT_FOUND", "function version not found")
+	// ErrVersionConflict: a concurrent :edit raced the (entity_id, version) unique index — data is
+	// intact (no two same-numbered versions), this is the honest wire code for the loser (vs the
+	// generic orm ORM_CONFLICT fallback). 并发 :edit 撞版本号唯一索引——数据完整、输家的诚实码。
+	ErrVersionConflict = errorspkg.New(errorspkg.KindConflict, "FUNCTION_VERSION_CONFLICT", "function version already exists (concurrent edit)")
 
 	// ErrNoActiveVersion: function has no active version to run.
 	//

@@ -79,6 +79,27 @@ func TestFunction_DuplicateName(t *testing.T) {
 	}
 }
 
+// TestFunction_VersionConflict — F73: a concurrent :edit that races the (function_id, version) unique
+// index gets the specific FUNCTION_VERSION_CONFLICT, not the generic orm ORM_CONFLICT fallback. The
+// same translation is applied verbatim in all 6 versioned-entity stores' version Save.
+func TestFunction_VersionConflict(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkFn(t, s, ctx, "fn_1", "a", "")
+	mkVer(t, s, ctx, "fnv_1", "fn_1", 1)
+	f, err := s.GetFunction(ctx, "fn_1")
+	if err != nil {
+		t.Fatalf("GetFunction: %v", err)
+	}
+	v2 := &functiondomain.Version{
+		ID: "fnv_2", FunctionID: "fn_1", Version: 1, Code: "def main():\n    return 2",
+		Inputs: []schemapkg.Field{}, Outputs: []schemapkg.Field{}, Dependencies: []string{}, EnvStatus: functiondomain.EnvStatusPending,
+	}
+	if err := s.SaveVersionAndActivate(ctx, v2, f); !errors.Is(err, functiondomain.ErrVersionConflict) {
+		t.Fatalf("a same-number version save should be ErrVersionConflict, got %v", err)
+	}
+}
+
 func TestFunction_WorkspaceIsolation(t *testing.T) {
 	s := newStore(t)
 	mkFn(t, s, ctxWS("ws_1"), "fn_1", "a", "")

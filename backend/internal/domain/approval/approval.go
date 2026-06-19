@@ -172,6 +172,7 @@ var (
 	// ErrVersionNotFound: version id / number miss.
 	// ErrVersionNotFound：version id / 号未命中。
 	ErrVersionNotFound = errorspkg.New(errorspkg.KindNotFound, "APPROVAL_VERSION_NOT_FOUND", "approval form version not found")
+	ErrVersionConflict = errorspkg.New(errorspkg.KindConflict, "APPROVAL_VERSION_CONFLICT", "approval form version already exists (concurrent edit)")
 
 	// ErrNoActiveVersion: approval form has no active version.
 	// ErrNoActiveVersion：审批表无 active 版本。

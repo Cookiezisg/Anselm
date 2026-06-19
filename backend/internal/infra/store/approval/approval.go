@@ -284,6 +284,9 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *approvaldomain.Approva
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *approvaldomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[approvaldomain.Version](tx, "approval_form_versions").Save(ctx, v); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return approvaldomain.ErrVersionConflict
+			}
 			return fmt.Errorf("approvalstore.SaveVersionAndActivate: version: %w", err)
 		}
 		n, err := ormpkg.For[approvaldomain.ApprovalForm](tx, "approval_forms").

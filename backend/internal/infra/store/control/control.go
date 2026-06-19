@@ -280,6 +280,9 @@ func (s *Store) CreateWithVersion(ctx context.Context, e *controldomain.ControlL
 func (s *Store) SaveVersionAndActivate(ctx context.Context, v *controldomain.Version, entityID string) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[controldomain.Version](tx, "control_logic_versions").Save(ctx, v); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return controldomain.ErrVersionConflict
+			}
 			return fmt.Errorf("controlstore.SaveVersionAndActivate: version: %w", err)
 		}
 		n, err := ormpkg.For[controldomain.ControlLogic](tx, "control_logics").

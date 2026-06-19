@@ -244,6 +244,9 @@ func (s *Store) MarkInactiveIfDraining(ctx context.Context, workflowID string) e
 
 func (s *Store) SaveVersion(ctx context.Context, v *workflowdomain.Version) error {
 	if err := s.vers.Save(ctx, v); err != nil {
+		if errors.Is(err, ormpkg.ErrConflict) {
+			return workflowdomain.ErrVersionConflict
+		}
 		return fmt.Errorf("workflowstore.SaveVersion: %w", err)
 	}
 	return nil
