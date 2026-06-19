@@ -101,6 +101,15 @@ func (s *Service) Get(ctx context.Context, id string) (*attachmentdomain.Attachm
 	return s.repo.Get(ctx, id)
 }
 
+// List returns every live attachment's metadata in the ctx workspace (newest first), for the
+// list_attachments tool + catalog source. Bytes are not touched — discovery is metadata-only.
+//
+// List 返 ctx workspace 内每条活跃附件的元数据（新→旧），供 list_attachments 工具 + catalog
+// source。不碰字节——发现只读元数据。
+func (s *Service) List(ctx context.Context) ([]*attachmentdomain.Attachment, error) {
+	return s.repo.List(ctx)
+}
+
 // Download returns an attachment's metadata + its blob bytes.
 //
 // Download 返回附件元数据 + 其 blob 字节。

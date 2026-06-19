@@ -92,6 +92,17 @@ func (s *Store) SoftDelete(ctx context.Context, id string) error {
 	return nil
 }
 
+// List returns every live attachment row in the ctx workspace, newest first (created_at DESC).
+//
+// List 返 ctx workspace 内每条活跃附件行，新→旧（created_at DESC）。
+func (s *Store) List(ctx context.Context) ([]*attachmentdomain.Attachment, error) {
+	rows, err := s.repo.Order("created_at DESC").Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("attachmentstore.List: %w", err)
+	}
+	return rows, nil
+}
+
 // ListLiveSHAs returns the distinct sha256 of every live attachment in the ctx workspace.
 //
 // ListLiveSHAs 返 ctx workspace 内每个活跃附件的去重 sha256。

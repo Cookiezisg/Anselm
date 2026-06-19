@@ -127,6 +127,27 @@ func TestListLiveSHAs_DistinctAndSoftDeleteAware(t *testing.T) {
 	}
 }
 
+func TestList_LiveRowsAndSoftDeleteAware(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	ins(t, s, ctx, "att_1", "h1", attachmentdomain.KindText)
+	ins(t, s, ctx, "att_2", "h2", attachmentdomain.KindImage)
+
+	rows, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("list len = %d, want 2", len(rows))
+	}
+	// A soft-deleted row drops out (List carries full metadata rows, soft-delete aware via orm).
+	_ = s.SoftDelete(ctx, "att_1")
+	rows, _ = s.List(ctx)
+	if len(rows) != 1 || rows[0].ID != "att_2" {
+		t.Fatalf("after delete, list = %v, want [att_2]", rows)
+	}
+}
+
 func TestWorkspaceIsolation(t *testing.T) {
 	s := newStore(t)
 	ins(t, s, ctxWS("ws_1"), "att_1", "h1", attachmentdomain.KindText)

@@ -38,6 +38,7 @@ import (
 	agenttool "github.com/sunweilin/anselm/backend/internal/app/tool/agent"
 	approvaltool "github.com/sunweilin/anselm/backend/internal/app/tool/approval"
 	asktool "github.com/sunweilin/anselm/backend/internal/app/tool/ask"
+	attachmenttool "github.com/sunweilin/anselm/backend/internal/app/tool/attachment"
 	blockstool "github.com/sunweilin/anselm/backend/internal/app/tool/blocks"
 	controltool "github.com/sunweilin/anselm/backend/internal/app/tool/control"
 	conversationtool "github.com/sunweilin/anselm/backend/internal/app/tool/conversation"
@@ -222,6 +223,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			workflowtool.WorkflowTools(wf, searchSvc, sched),
 			triggertool.TriggerTools(trg, searchSvc),
 			documenttool.DocumentTools(doc, searchSvc),
+			attachmenttool.AttachmentTools(att),
 			memorytool.MemoryTools(mem),
 			modeltool.ModelConfigTools(ws, keys, modelCaps),
 			mcptool.MCPTools(mcp),
@@ -379,6 +381,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	cat.RegisterSource(mcp.AsCatalogSource())
 	cat.RegisterSource(skill.AsCatalogSource())
 	cat.RegisterSource(doc.AsCatalogSource())
+	cat.RegisterSource(att.AsCatalogSource())
 
 	// chat @mention resolvers (freeze-on-send snapshot, eight mentionable build kinds).
 	chat.RegisterMentionResolver(doc.AsMentionResolver())

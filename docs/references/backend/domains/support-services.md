@@ -31,7 +31,7 @@ audience: [human, ai]
 
 ## catalog —— 能力总览（派生、不存）
 
-按需聚合注册 source（function/handler/agent/skill/mcp/document…各自实现 `ListItems`）：`Summary`=注入 system prompt 的分组菜单文本；`Coverage`=结构化 source→ids 供 HTTP。**永不持久化、永不缓存**——每次现扫当前真相。容器实体（handler/mcp）带 `Members` 子单元列表。码 `CATALOG_ALL_SOURCES_FAILED`。
+按需聚合注册 source（function/handler/agent/skill/mcp/document/attachment…各自实现 `ListItems`）：`Summary`=注入 system prompt 的分组菜单文本；`Coverage`=结构化 source→ids 供 HTTP。**永不持久化、永不缓存**——每次现扫当前真相。容器实体（handler/mcp）带 `Members` 子单元列表。码 `CATALOG_ALL_SOURCES_FAILED`。
 
 ## mention —— @ 引用契约
 

@@ -132,6 +132,14 @@ type Repository interface {
 	GetBatch(ctx context.Context, ids []string) ([]*Attachment, error)
 	SoftDelete(ctx context.Context, id string) error
 
+	// List returns every live attachment row in the ctx workspace (newest first) — the discovery
+	// surface for the list_attachments tool / catalog source. Distinct from ListLiveSHAs (which
+	// projects to GC sha strings): this carries full metadata rows for the LLM to reference by id.
+	//
+	// List 返 ctx workspace 内每条活跃附件行（新→旧）——list_attachments 工具 / catalog source 的
+	// 发现面。与 ListLiveSHAs（投影成 GC sha 串）不同：本方法带完整元数据行，供 LLM 按 id 引用。
+	List(ctx context.Context) ([]*Attachment, error)
+
 	// ListLiveSHAs returns the distinct sha256 of every live (non-deleted) attachment in the
 	// ctx workspace — the keep-set for blob GC.
 	//
