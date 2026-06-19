@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap"
@@ -29,6 +30,49 @@ func newSvc(t *testing.T) (*Service, context.Context) {
 	svc := NewService(documentstore.New(db), nil, zap.NewNop())
 	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_test")
 	return svc, ctx
+}
+
+// TestCreate_ConcurrentPositionsDistinct — F61: N concurrent same-parent creates must each get a
+// distinct position (the max-read + insert run in one tx, so they can't read the same max and
+// collide). Pre-fix, 20 concurrent creates produced duplicate positions.
+func TestCreate_ConcurrentPositionsDistinct(t *testing.T) {
+	svc, ctx := newSvc(t)
+	root, _ := svc.Create(ctx, CreateInput{Name: "Root"})
+
+	const n = 20
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make([]error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			_, errs[i] = svc.Create(ctx, CreateInput{Name: "child", ParentID: &root.ID})
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent create %d: %v", i, err)
+		}
+	}
+	kids, err := svc.repo.ListByParent(ctx, &root.ID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(kids) != n {
+		t.Fatalf("want %d children, got %d", n, len(kids))
+	}
+	seen := map[int]bool{}
+	for _, k := range kids {
+		if seen[k.Position] {
+			t.Fatalf("duplicate position %d among concurrent creates — race not closed", k.Position)
+		}
+		seen[k.Position] = true
+	}
 }
 
 func TestCreate_AutoUniquify(t *testing.T) {

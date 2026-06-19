@@ -103,6 +103,11 @@ type AttachedDocument struct {
 // 软删（deleted_at）——删除的子树留墓碑，不同于 sandbox manifest 的硬删。
 type Repository interface {
 	Insert(ctx context.Context, d *Document) error
+	// InsertAtNextPosition assigns d.Position atomically (max sibling position + 1) and inserts in one
+	// tx — Create uses it so concurrent same-parent creates can't collide on position. Insert stays
+	// for callers that set Position verbatim (Duplicate's subtree copy).
+	// InsertAtNextPosition 在单事务内原子赋 d.Position（max 兄弟+1）并插入——Create 用它防并发同父 position 撞车。
+	InsertAtNextPosition(ctx context.Context, d *Document) error
 	Get(ctx context.Context, id string) (*Document, error)
 	GetBatch(ctx context.Context, ids []string) ([]*Document, error)
 	ListByParent(ctx context.Context, parentID *string) ([]*Document, error)

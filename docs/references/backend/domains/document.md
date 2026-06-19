@@ -17,7 +17,7 @@ audience: [human, ai]
 
 ## 2. 关键行为（树不变式都在 app 层）
 
-- **Create 自动加后缀**（"foo"→"foo 2"…重试 cap 100）：POST 不该因重名失败；显式改名（PATCH）保留严格 `DOCUMENT_NAME_CONFLICT`——同一约束两种出口对应两种用户意图。
+- **Create 自动加后缀 + position 原子赋**（"foo"→"foo 2"…重试 cap 100）：POST 不该因重名失败；**`position`（同级序）在单事务内 `max(兄弟)+1` 赋值并插入（`InsertAtNextPosition`）**，故并发同父创建不会读到同一 max 而 position 撞车（无 position 唯一索引——Move 重排 + Duplicate 原样复制 position 会瞬时违反）；显式改名（PATCH）保留严格 `DOCUMENT_NAME_CONFLICT`——同一约束两种出口对应两种用户意图。
 - **改名 → 子树 path 级联**（批量重写后裔 path）；**Move 防环**（`IsAncestor` 拒把节点挂到自己后裔下，`DOCUMENT_INVALID_PARENT`）、nil parent=移根、nil position=追加末尾。
 - **Delete = 软删整子树**（`SoftDeleteSubtree`）+ 清全部后裔的 relation 边（`ListSubtreeIDs` BFS）。
 - **attach 单篇不拖子树**（`AttachedDocument`）：挂载必须显式有界——子树自动注入刻意不做（防"挂一篇拖出一整棵树"炸 context）。

@@ -86,22 +86,19 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*documentdomain.D
 		parentPath = parent.Path
 	}
 
-	maxPos, err := s.repo.MaxSiblingPosition(ctx, in.ParentID)
-	if err != nil {
-		return nil, fmt.Errorf("documentapp.Create: MaxSiblingPosition: %w", err)
-	}
-
 	tags := in.Tags
 	if tags == nil {
 		tags = []string{}
 	}
+	// Position is assigned atomically inside InsertAtNextPosition (one tx: max-sibling read + insert) so
+	// concurrent same-parent creates can't read the same max and collide (F61).
+	// Position 在 InsertAtNextPosition 内单事务原子赋（max 兄弟读 + 插入），防并发同父读到同一 max 撞车（F61）。
 	d := &documentdomain.Document{
 		ID:          idgenpkg.New("doc"),
 		ParentID:    in.ParentID,
 		Description: strings.TrimSpace(in.Description),
 		Content:     in.Content,
 		Tags:        tags,
-		Position:    maxPos + 1,
 		SizeBytes:   int64(len(in.Content)),
 	}
 
@@ -111,7 +108,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*documentdomain.D
 	for retry := 1; retry <= nameConflictRetryCap; retry++ {
 		d.Name = attempted
 		d.Path = parentPath + "/" + attempted
-		insertErr = s.repo.Insert(ctx, d)
+		insertErr = s.repo.InsertAtNextPosition(ctx, d)
 		if insertErr == nil {
 			break
 		}
@@ -200,15 +197,15 @@ func (s *Service) Duplicate(ctx context.Context, sourceID string, newParentID *s
 		}
 		if oldID == sourceID {
 			cp.ParentID = newParentID
-			maxPos, mErr := s.repo.MaxSiblingPosition(ctx, newParentID)
-			if mErr != nil {
-				return nil, fmt.Errorf("documentapp.Duplicate: MaxSiblingPosition: %w", mErr)
-			}
-			cp.Position = maxPos + 1
+			// The duplicate's ROOT lands among the target parent's existing siblings → atomic
+			// next-position + name-uniquify (same race as Create, F61). Descendants below keep their
+			// verbatim source position via plain Insert.
+			// 副本的根落在目标父的现有兄弟中 → 原子取下一 position + 去重（与 Create 同款竞态，F61）。下面的后裔经
+			// 普通 Insert 保留 source position 原样。
 			base, insErr := so.Name, error(nil)
-			for retry := 1; retry <= 100; retry++ { // root lands among existing siblings → uniquify
+			for retry := 1; retry <= 100; retry++ {
 				cp.Path = newParentPath + "/" + cp.Name
-				if insErr = s.repo.Insert(ctx, cp); insErr == nil {
+				if insErr = s.repo.InsertAtNextPosition(ctx, cp); insErr == nil {
 					break
 				}
 				if !errors.Is(insErr, documentdomain.ErrNameConflict) {

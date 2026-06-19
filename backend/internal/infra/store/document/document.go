@@ -75,6 +75,43 @@ func (s *Store) Insert(ctx context.Context, d *documentdomain.Document) error {
 	return nil
 }
 
+// InsertAtNextPosition assigns d.Position = max(sibling position)+1 and inserts d in ONE transaction,
+// so concurrent same-parent creates can't read the same max and collide on position — the read +
+// insert run atomically on the single pinned connection (SetMaxOpenConns(1)). A name conflict →
+// ErrNameConflict (the caller retries with a suffixed name; the failed insert's tx rolls back, so a
+// retry recomputes the position cleanly). The whole-tx race fix needs no unique position index (which
+// Move's renumber + Duplicate's verbatim-position copy would transiently violate).
+//
+// InsertAtNextPosition 在单事务内把 d.Position 设为 max(兄弟 position)+1 并插入——使并发同父创建不会读到同一
+// max 而 position 撞车（读+插在单钉连接上原子）。名冲突 → ErrNameConflict（调用方换后缀重试；失败 tx 回滚、
+// 重试干净重算 position）。整事务修法无需 position 唯一索引（Move 重排 + Duplicate 原样复制 position 会瞬时违反）。
+func (s *Store) InsertAtNextPosition(ctx context.Context, d *documentdomain.Document) error {
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		r := ormpkg.For[documentdomain.Document](tx, "documents")
+		q := r.Query()
+		if d.ParentID == nil {
+			q = q.WhereNull("parent_id")
+		} else {
+			q = q.WhereEq("parent_id", *d.ParentID)
+		}
+		rows, err := q.Order("position DESC").Limit(1).Find(ctx)
+		if err != nil {
+			return fmt.Errorf("documentstore.InsertAtNextPosition: maxpos: %w", err)
+		}
+		d.Position = 0
+		if len(rows) > 0 {
+			d.Position = rows[0].Position + 1
+		}
+		if err := r.Create(ctx, d); err != nil {
+			if errors.Is(err, ormpkg.ErrConflict) {
+				return documentdomain.ErrNameConflict
+			}
+			return fmt.Errorf("documentstore.InsertAtNextPosition: %w", err)
+		}
+		return nil
+	})
+}
+
 func (s *Store) Get(ctx context.Context, id string) (*documentdomain.Document, error) {
 	d, err := s.repo.Get(ctx, id)
 	if errors.Is(err, ormpkg.ErrNotFound) {
