@@ -59,9 +59,9 @@
 | `an-search-results` | 🧩 ⬚ | 新 pattern（hit 行 + `<mark>` 高亮安全注入 + 折叠） | search 综搜/垂搜结果 |
 | `an-block-kit`（search） | 🧩 ⬚ | 新 pattern（积木接线单元，refHint→填节点） | workflow 编排挑可接线单元 |
 | `an-notification-inbox` | 🧩 ⬚ | 新 pattern + **通知类型→{图标,可操作} 单源表** | 需要你 / FYI 两段收件箱 |
-| `an-typewriter` | ✅ 🧩 | 已落 `core/primitives/typewriter.js`（纯视觉打字机：循环 type→停→delete→换句轮播；`.phrases` 数组属性 + attr `prefix` 恒定前缀 + attr `pause`[一句打满停留毫秒，chat 空态 5s]；光标闪烁复用 `--d-breath`、字号继承宿主；单 setTimeout 链 + disconnectedCallback 清 timer；打字节拍 SPEED/PAUSE_MS 为 JS 常量[CSS token 触达不到 JS]）。**四海洋空态**之 chat New-chat 落地问候 + documents 可选 | chat/documents 空态时间问候轮播 |
+| `an-typewriter` | ✅ 🧩 | 已落 `core/primitives/typewriter.js`（纯视觉打字机：循环 type→停→delete→换句轮播；`.phrases` 数组属性 + attr `prefix` 恒定前缀 + attr `pause`[一句打满停留毫秒，chat 空态 5s]；光标闪烁复用 `--d-breath`、字号继承宿主；单 setTimeout 链 + disconnectedCallback 清 timer；打字节拍 SPEED/PAUSE_MS 为 JS 常量[CSS token 触达不到 JS]）。chat New-chat 居中落地问候用 | chat 空态时间问候轮播 |
 | `an-edit-affordance` | ✅ 🧩 | 已落 `core/primitives/edit-affordance.js`（就地编辑三连钮 铅笔→✓/✕ 单源，复用 an-button；`editing` 切铅笔↔✓✕[✓ 经 ::part 着 accent]；铅笔 click→`an-edit-start`、✓/✕ mousedown(preventDefault)→`an-edit-commit`/`an-edit-abort`[抢 contenteditable blur=提交 前定调、取消优先回滚]；可见性由父 hover/editing 揭示）。**收敛**：field/kv/ocean-header 原各手搓 .a-btn/.t-btn raw 钮，今统一用此件 | 任何 in-place 编辑（字段值 / kv 行 / 海洋标题改名） |
-| `an-composer` | ✅ 🧩 | 已落 `core/primitives/composer.js`（多行 contenteditable + @ 提及内联药丸[复用地基 `AnMention`] + 附件 chip[可删] + Enter 发送 / Shift+Enter 换行 / generating 切停止；attr `pill`[圆边药丸态，chat 空态居中落地用，border-radius 过渡]；派 an-send{text,html,refs,attachments}/an-stop/an-attach） | chat 输入条 · chat New-chat 居中落地（FLIP 滑到底） |
+| `an-composer` | ✅ 🧩 | 已落 `core/primitives/composer.js`（**演变型输入框**：单行 contenteditable + @ 提及内联药丸[复用地基 `AnMention`] + 附件 chip + 极简 icon 发送[空输入藏、有输入现] + Enter 发送 / Shift+Enter 换行 / generating 切停止；border-radius 据高度 JS 演变[1 行=药丸→换行渐变到 --r-card→阈值后恒]；attr `pill`=浮起阴影修饰[landing 居中态]；派 an-send/an-stop/an-attach） | chat 输入条 · New-chat 居中落地（FLIP 滑到底） |
 | `an-stepper` | 🧩 ⬚ | 新建（线性多步外壳） | onboarding 向导 |
 
 ## 四、Compose（无需新件，拼现有原语——约 60 范式，节选拼装规则）
