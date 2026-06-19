@@ -15,6 +15,7 @@ import (
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // The narrow read ports the resolver inspects per entity family. The buildable five expose Get
@@ -25,6 +26,7 @@ import (
 // 另需 GetVersion 读 active 版本的方法/工具清单。
 type FunctionVersionReader interface {
 	Get(ctx context.Context, id string) (*functiondomain.Function, error)
+	GetVersion(ctx context.Context, versionID string) (*functiondomain.Version, error) // F71: the active version's declared inputs
 }
 type HandlerVersionReader interface {
 	Get(ctx context.Context, id string) (*handlerdomain.Handler, error)
@@ -99,11 +101,19 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 		if err != nil {
 			return refMiss(err)
 		}
-		return workflowapp.RefInfo{
+		info := workflowapp.RefInfo{
 			Kind:             relationdomain.EntityKindFunction,
 			HasActiveVersion: f.ActiveVersionID != "",
 			ActiveVersionID:  f.ActiveVersionID,
-		}, nil
+		}
+		// DeclaredInputs feeds CapabilityCheck's required-input-wiring check (declared = required, F71)
+		// — best-effort: a version read miss leaves it empty (the structural check still runs).
+		if f.ActiveVersionID != "" {
+			if v, verr := r.fn.GetVersion(ctx, f.ActiveVersionID); verr == nil && v != nil {
+				info.DeclaredInputs = fieldNames(v.Inputs)
+			}
+		}
+		return info, nil
 
 	case strings.HasPrefix(ref, workflowdomain.RefPrefixHandler):
 		id := ref
@@ -123,8 +133,16 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 		// version read miss leaves the list empty (structural check still runs).
 		if h.ActiveVersionID != "" {
 			if v, verr := r.hd.GetVersion(ctx, h.ActiveVersionID); verr == nil && v != nil {
+				method := ""
+				if i := strings.IndexByte(ref, '.'); i > 0 {
+					method = ref[i+1:]
+				}
 				for i := range v.Methods {
 					info.MethodNames = append(info.MethodNames, v.Methods[i].Name)
+					// The required-input check is per the specific .method this ref names (F71).
+					if v.Methods[i].Name == method {
+						info.DeclaredInputs = fieldNames(v.Methods[i].Inputs)
+					}
 				}
 			}
 		}
@@ -147,6 +165,7 @@ func (r refResolver) Resolve(ctx context.Context, ref string) (workflowapp.RefIn
 				for i := range v.Tools {
 					info.AgentCallables = append(info.AgentCallables, v.Tools[i].Ref)
 				}
+				info.DeclaredInputs = fieldNames(v.Inputs) // F71: the agent's declared inputs must all be wired
 			}
 		}
 		return info, nil
@@ -230,4 +249,17 @@ func refMiss(err error) (workflowapp.RefInfo, error) {
 		return workflowapp.RefInfo{}, workflowdomain.ErrRefNotFound
 	}
 	return workflowapp.RefInfo{}, err
+}
+
+// fieldNames pulls the declared field names from a schema field list (the names a workflow node must
+// wire — declared = required, F71). 取声明字段名（节点须接线的名——声明即必填，F71）。
+func fieldNames(fields []schemapkg.Field) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	out := make([]string, len(fields))
+	for i := range fields {
+		out[i] = fields[i].Name
+	}
+	return out
 }

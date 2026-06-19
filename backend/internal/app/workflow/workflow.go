@@ -51,6 +51,7 @@ type RefInfo struct {
 	MethodNames      []string // handler only: the hd_ active version's method names
 	MCPToolNames     []string // mcp only: the connected server's tool names (empty if disconnected — check skips)
 	AgentCallables   []string // agent only: the fn_/hd_ refs this agent mounts (for pin recursion)
+	DeclaredInputs   []string // fn/hd(.method)/agent: declared input field names — ALL must be wired (declared = required; F71)
 }
 
 // WorkflowReader is the read surface the durable scheduler depends on (DIP: the scheduler

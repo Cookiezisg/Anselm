@@ -456,6 +456,39 @@ func TestCapabilityCheck_MCPToolName(t *testing.T) {
 	}
 }
 
+// TestCapabilityCheck_RequiredInputWiring — F71: every DECLARED input of a node must be wired
+// (declared = required by the schema model); a missing wire is faulted here instead of crashing at
+// runtime with "missing argument".
+func TestCapabilityCheck_RequiredInputWiring(t *testing.T) {
+	resolver := &fakeResolver{m: map[string]RefInfo{
+		"trg_a": {Kind: relationdomain.EntityKindTrigger, HasActiveVersion: true},
+		"fn_x":  {Kind: relationdomain.EntityKindFunction, HasActiveVersion: true, DeclaredInputs: []string{"a", "b"}},
+	}}
+	svc, ctx := newSvc(t, resolver)
+
+	// wires only 'a' — the declared 'b' is unwired → a problem.
+	miss := opsJSON(t, `[
+		{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+		{"op":"add_node","node":{"id":"f","kind":"action","ref":"fn_x","input":{"a":"payload.a"}}},
+		{"op":"add_edge","edge":{"id":"e1","from":"t","to":"f"}}
+	]`)
+	gMiss, _ := workflowdomain.ApplyOps(nil, miss)
+	if rep, _ := svc.CapabilityCheck(ctx, gMiss); rep.OK() {
+		t.Fatalf("an unwired required input should surface a problem: %+v", rep)
+	}
+
+	// wires both 'a' + 'b' → clean.
+	full := opsJSON(t, `[
+		{"op":"add_node","node":{"id":"t","kind":"trigger","ref":"trg_a"}},
+		{"op":"add_node","node":{"id":"f","kind":"action","ref":"fn_x","input":{"a":"payload.a","b":"payload.b"}}},
+		{"op":"add_edge","edge":{"id":"e1","from":"t","to":"f"}}
+	]`)
+	gFull, _ := workflowdomain.ApplyOps(nil, full)
+	if rep, _ := svc.CapabilityCheck(ctx, gFull); !rep.OK() {
+		t.Fatalf("all required inputs wired should be clean: %+v", rep)
+	}
+}
+
 // --- BuildPinClosure ---
 
 func TestBuildPinClosure_AgentDepth2(t *testing.T) {

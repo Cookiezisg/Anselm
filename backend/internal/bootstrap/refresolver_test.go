@@ -13,6 +13,7 @@ import (
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // fakeReaders implements all seven entity read ports with canned data; missing=true makes every
@@ -26,13 +27,21 @@ func (f fakeReaders) Get(_ context.Context, _ string) (*functiondomain.Function,
 	return &functiondomain.Function{ActiveVersionID: "fnv_1"}, nil
 }
 
+// GetVersion (F71): the function active version's declared inputs.
+func (f fakeReaders) GetVersion(_ context.Context, _ string) (*functiondomain.Version, error) {
+	return &functiondomain.Version{Inputs: []schemapkg.Field{{Name: "x", Type: schemapkg.TypeString}}}, nil
+}
+
 type fakeHandler struct{ fakeReaders }
 
 func (fakeHandler) Get(_ context.Context, _ string) (*handlerdomain.Handler, error) {
 	return &handlerdomain.Handler{ActiveVersionID: "hdv_1"}, nil
 }
 func (fakeHandler) GetVersion(_ context.Context, _ string) (*handlerdomain.Version, error) {
-	return &handlerdomain.Version{Methods: []handlerdomain.MethodSpec{{Name: "doThing"}, {Name: "other"}}}, nil
+	return &handlerdomain.Version{Methods: []handlerdomain.MethodSpec{
+		{Name: "doThing", Inputs: []schemapkg.Field{{Name: "to", Type: schemapkg.TypeString}}},
+		{Name: "other"},
+	}}, nil
 }
 
 type fakeAgent struct{ fakeReaders }
@@ -41,7 +50,10 @@ func (fakeAgent) Get(_ context.Context, _ string) (*agentdomain.Agent, error) {
 	return &agentdomain.Agent{ActiveVersionID: "agv_1"}, nil
 }
 func (fakeAgent) GetVersion(_ context.Context, _ string) (*agentdomain.Version, error) {
-	return &agentdomain.Version{Tools: []agentdomain.ToolRef{{Ref: "fn_mounted"}, {Ref: "hd_mounted.m"}}}, nil
+	return &agentdomain.Version{
+		Tools:  []agentdomain.ToolRef{{Ref: "fn_mounted"}, {Ref: "hd_mounted.m"}},
+		Inputs: []schemapkg.Field{{Name: "task", Type: schemapkg.TypeString}},
+	}, nil
 }
 
 type fakeControl struct{ fakeReaders }
@@ -83,8 +95,8 @@ func TestRefResolver_ResolvesEachKind(t *testing.T) {
 	ctx := context.Background()
 	r := NewRefResolver(fakeReaders{}, fakeHandler{}, fakeAgent{}, fakeControl{}, fakeApproval{}, fakeTrigger{}, fakeMCP{present: true})
 
-	// fn_ → function + active version.
-	if info, err := r.Resolve(ctx, "fn_abc"); err != nil || info.Kind != relationdomain.EntityKindFunction || info.ActiveVersionID != "fnv_1" || !info.HasActiveVersion {
+	// fn_ → function + active version + declared inputs (F71).
+	if info, err := r.Resolve(ctx, "fn_abc"); err != nil || info.Kind != relationdomain.EntityKindFunction || info.ActiveVersionID != "fnv_1" || !info.HasActiveVersion || len(info.DeclaredInputs) != 1 || info.DeclaredInputs[0] != "x" {
 		t.Fatalf("fn resolve: %+v err=%v", info, err)
 	}
 
@@ -96,6 +108,9 @@ func TestRefResolver_ResolvesEachKind(t *testing.T) {
 	if len(info.MethodNames) != 2 || info.MethodNames[0] != "doThing" {
 		t.Fatalf("hd method names: %+v", info.MethodNames)
 	}
+	if len(info.DeclaredInputs) != 1 || info.DeclaredInputs[0] != "to" { // F71: the .method's inputs
+		t.Fatalf("hd declared inputs (method doThing): %+v", info.DeclaredInputs)
+	}
 
 	// ag_ → agent; AgentCallables = its mounted fn_/hd_ refs (for pin recursion).
 	info, err = r.Resolve(ctx, "ag_1")
@@ -104,6 +119,9 @@ func TestRefResolver_ResolvesEachKind(t *testing.T) {
 	}
 	if len(info.AgentCallables) != 2 || info.AgentCallables[0] != "fn_mounted" {
 		t.Fatalf("agent callables: %+v", info.AgentCallables)
+	}
+	if len(info.DeclaredInputs) != 1 || info.DeclaredInputs[0] != "task" { // F71
+		t.Fatalf("agent declared inputs: %+v", info.DeclaredInputs)
 	}
 
 	// ctl_ → control; BranchPorts from the active version's branches.

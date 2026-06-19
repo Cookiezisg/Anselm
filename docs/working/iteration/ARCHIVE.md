@@ -100,6 +100,7 @@ landed-into:
 | F51 capability_check 校 mcp server 不校 tool→ServerToolNames 灌 RefInfo.MCPToolNames + mcpTool 校验(镜像 handler .method) | workflow·mcp | 不可发现 | promise≠reality | fixed·locked |
 | F46 agent 读不回 subagent 子树→get_subagent_trace 工具(列runs+全trace、复用 LoadThread 内存滤 SubagentID) | subagent·messages | 不可发现 | 能力缺口 | fixed·locked |
 | F37 agent 读不回上传 attachment→list_attachments+read_attachment 工具(Kind 分流文本/binary、第 11 catalog source) | attachment | 不可发现 | 能力缺口 | fixed·locked |
+| F71 capability_check 不校必填 input 接线→Option A「声明即必填」(RefInfo.DeclaredInputs+resolver 灌+check)、不动 schema | workflow·校验 | 跨实体/happy→报错 | promise≠reality/不可发现 | fixed·locked |
 | F45 无工作区级坏链接体检工具→运行时 fail-fast 已兜、relation 边硬删无法 cheap 扫→产品设计不做 | workflow·relation | 能力缺口 | 用户判定非问题 | 评估关闭(产品设计) |
 | F65b
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
