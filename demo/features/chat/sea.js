@@ -240,7 +240,7 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       page.replaceChildren();   // 清空 transcript（landing 浮层覆盖之）
       if (landing) landing.remove();
       landing = el("div", { class: "chat-landing" });
-      landing.style.cssText = "position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-12); padding:var(--sp-6);";
+      landing.style.cssText = "position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; padding:0 var(--sp-6);";
       const greet = el("div");   // 排版尺度容器（typewriter 自带 ink/ink-2 色，故不内联皮肤色）；字体不加粗
       greet.style.cssText = "font-size:var(--t-h2); font-weight:400; line-height:var(--lh-tight); text-align:center; max-width:var(--w-content);";
       const tw = el("an-typewriter", { prefix: window.greetOf() + ", ", pause: "5000" });
@@ -248,7 +248,13 @@ window.FEATURE.chat = Object.assign(window.FEATURE.chat || {}, {
       greet.append(tw);
       composer.setAttribute("pill", "");
       composer.style.width = "100%";   // 居中浮层 align-items:center 会 shrink-fit composer → 强制满宽，让药丸到 .bar 的 --w-content（宽药丸、非小圆）
-      landing.append(greet, composer);   // 把 composer 移进居中浮层（药丸态）
+      // 问候 + composer 成组，上下 flex 撑子 2:3 把组顶到「上中部」——参 ChatGPT 空态相对位置（composer 心 ≈ 46% 窗高），非死正中（避免新增头元素后观感靠下）
+      const group = el("div");
+      group.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:var(--sp-12); flex:none; width:100%; max-width:var(--w-content);";
+      group.append(greet, composer);
+      const spTop = el("div"); spTop.style.cssText = "flex:2 0 0;";
+      const spBot = el("div"); spBot.style.cssText = "flex:3 0 0;";
+      landing.append(spTop, group, spBot);
       root.append(landing);
     }
     // 取消落地态、composer 复位到底部（导航进会话用，无动画）
