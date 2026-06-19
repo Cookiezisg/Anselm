@@ -93,6 +93,7 @@ func Build(cfg Config) (*App, error) {
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
 	svc.settings = settingsSvc
 	registerHandlers(mux, svc, bus, log)
+	registerDebug(mux, cfg.Dev, log) // dev-only /debug/pprof + /debug/stats (observability)
 
 	addr := cfg.Addr
 	if addr == "" {
