@@ -245,10 +245,19 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Windows:       lookup.WindowResolver(),
 	}, log)
 	chat := chatapp.NewService(st.messages, chatapp.Deps{
-		Conversations:  conv,
-		Resolver:       resolvers.Chat(),
-		Attachments:    NewAttachmentRenderer(att),
-		Toolset:        toolset,
+		Conversations: conv,
+		Resolver:      resolvers.Chat(),
+		Attachments:   NewAttachmentRenderer(att),
+		Toolset:       toolset,
+		// Per-request MCP dynamic tools for the ctx workspace (F52): chat ranks + offers them via
+		// search_tools just like static lazy tools. Error → no MCP tools (best-effort, never fails a turn).
+		DynamicTools: func(ctx context.Context) []toolapp.Tool {
+			tools, err := mcptool.DynamicTools(ctx, mcp)
+			if err != nil {
+				return nil
+			}
+			return tools
+		},
 		Memory:         mem,
 		Catalog:        cat,
 		Documents:      NewDocumentRenderer(doc),

@@ -59,14 +59,38 @@ var searchToolsSchema = json.RawMessage(`{
 // 后续回合把它们纳入工具列表。
 type SearchTools struct {
 	lazy []toolapp.Tool
+	// dynamic returns extra per-request lazy tools to also rank over — the ctx workspace's connected
+	// MCP server tools (DynamicTools). nil → none. These aren't in the static lazy snapshot or the
+	// system-prompt Overview, so search_tools is the LLM's only discovery path for them (F52).
+	// dynamic 返回本请求要一并排序的额外 lazy 工具——ctx workspace 已连 MCP server 的工具。nil → 无。
+	dynamic func(context.Context) []toolapp.Tool
 }
 
-// NewSearchTools snapshots the lazy tools this search will surface. The host builds
-// it from Toolset.Lazy and puts it in the resident set.
+// NewSearchTools snapshots the static lazy tools this search surfaces, plus an optional dynamic
+// provider for per-request tools (the ctx workspace's MCP server tools). The host builds it from
+// Toolset.Lazy and puts it in the resident set.
 //
-// NewSearchTools 快照本 search 将浮出的 lazy 工具。host 从 Toolset.Lazy 构造、放入 resident 集。
-func NewSearchTools(lazy []toolapp.Tool) *SearchTools {
-	return &SearchTools{lazy: lazy}
+// NewSearchTools 快照静态 lazy 工具 + 可选动态 provider（ctx workspace 的 MCP 工具）。host 从 Toolset.Lazy
+// 构造、放入 resident 集。
+func NewSearchTools(lazy []toolapp.Tool, dynamic func(context.Context) []toolapp.Tool) *SearchTools {
+	return &SearchTools{lazy: lazy, dynamic: dynamic}
+}
+
+// pool returns the full ranking pool for this request: the static lazy tools plus any per-request
+// dynamic tools (MCP). Allocates a fresh slice so the static snapshot is never mutated.
+//
+// pool 返回本请求的完整排序池：静态 lazy + per-request 动态工具（MCP）。新分配切片、绝不改静态快照。
+func (t *SearchTools) pool(ctx context.Context) []toolapp.Tool {
+	if t.dynamic == nil {
+		return t.lazy
+	}
+	dyn := t.dynamic(ctx)
+	if len(dyn) == 0 {
+		return t.lazy
+	}
+	out := make([]toolapp.Tool, 0, len(t.lazy)+len(dyn))
+	out = append(out, t.lazy...)
+	return append(out, dyn...)
 }
 
 func (t *SearchTools) Name() string                { return "search_tools" }
@@ -112,7 +136,7 @@ func (t *SearchTools) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("search_tools.Execute: %w", err)
 	}
 
-	matches := rankLazy(t.lazy, args.Query, defaultSearchToolsLimit)
+	matches := rankLazy(t.pool(ctx), args.Query, defaultSearchToolsLimit)
 	if len(matches) == 0 {
 		return fmt.Sprintf("No tools matched %q. The system prompt lists all available tools; try different keywords.", args.Query), nil
 	}

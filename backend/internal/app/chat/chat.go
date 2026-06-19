@@ -173,10 +173,16 @@ type (
 // Deps 是 chat 注入的协作者（DIP）。分组使 New 可读；bootstrap 填真实现、测试填 fake。可选 provider
 // 为 nil 时该 System Prompt 段降级为空（chat 不硬要求 memory/catalog/documents 接线）。
 type Deps struct {
-	Conversations  ConversationReader
-	Resolver       ModelResolver
-	Attachments    AttachmentRenderer
-	Toolset        toolapp.Toolset
+	Conversations ConversationReader
+	Resolver      ModelResolver
+	Attachments   AttachmentRenderer
+	Toolset       toolapp.Toolset
+	// DynamicTools returns the ctx workspace's connected MCP server tools (mcp__server__tool), lazily
+	// per request — they aren't in the static Toolset (MCP servers are workspace-scoped + mutable).
+	// nil → chat has no MCP tools (degrades gracefully). Wired in build_services to mcptool.DynamicTools.
+	// DynamicTools 返回 ctx workspace 已连 MCP server 的工具（per-request 懒取）——它们不在静态 Toolset
+	// （MCP server 是 workspace 域 + 可变）。nil → chat 无 MCP 工具（优雅降级）。
+	DynamicTools   func(context.Context) []toolapp.Tool
 	Memory         MemoryProvider
 	Catalog        CatalogProvider
 	Documents      DocumentRenderer
@@ -236,7 +242,7 @@ func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) 
 	s := &Service{
 		messages:         messages,
 		deps:             deps,
-		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy),
+		searchTool:       toolsetpkg.NewSearchTools(deps.Toolset.Lazy, deps.DynamicTools),
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
 		log:              log,
 		stop:             make(chan struct{}),

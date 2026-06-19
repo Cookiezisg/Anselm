@@ -34,7 +34,7 @@ func lazySet() []toolapp.Tool {
 }
 
 func TestSearchTools_ValidateInput(t *testing.T) {
-	st := NewSearchTools(lazySet())
+	st := NewSearchTools(lazySet(), nil)
 	if err := st.ValidateInput([]byte(`{"query":""}`)); !errors.Is(err, ErrEmptyQuery) {
 		t.Fatalf("empty query: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestSearchTools_ValidateInput(t *testing.T) {
 }
 
 func TestSearchTools_Execute_MatchesAndReturnsFullDef(t *testing.T) {
-	st := NewSearchTools(lazySet())
+	st := NewSearchTools(lazySet(), nil)
 	state := agentstatepkg.New()
 	ctx := reqctxpkg.WithAgentState(context.Background(), state)
 
@@ -76,7 +76,7 @@ func TestSearchTools_Execute_MatchesAndReturnsFullDef(t *testing.T) {
 }
 
 func TestSearchTools_Execute_NoMatch(t *testing.T) {
-	st := NewSearchTools(lazySet())
+	st := NewSearchTools(lazySet(), nil)
 	ctx := reqctxpkg.WithAgentState(context.Background(), agentstatepkg.New())
 	out, err := st.Execute(ctx, `{"query":"quantum teleportation"}`)
 	if err != nil {
@@ -90,7 +90,7 @@ func TestSearchTools_Execute_NoMatch(t *testing.T) {
 func TestSearchTools_Execute_NoAgentState_Tolerated(t *testing.T) {
 	// search_tools is read-only discovery — absent AgentState just skips the
 	// discovered-mark (host falls back to re-search), not a failure.
-	st := NewSearchTools(lazySet())
+	st := NewSearchTools(lazySet(), nil)
 	out, err := st.Execute(context.Background(), `{"query":"workflow"}`)
 	if err != nil {
 		t.Fatal(err)
@@ -116,5 +116,31 @@ func TestRankLazy_ScoreOrderAndLimit(t *testing.T) {
 	// limit caps results.
 	if capped := rankLazy(lazy, "alpha", 1); len(capped) != 1 {
 		t.Fatalf("limit=1 should cap to 1, got %d", len(capped))
+	}
+}
+
+// TestSearchTools_RanksDynamicMCPTools — F52: a per-request dynamic tool (an MCP server tool from the
+// ctx workspace) is discoverable via search_tools alongside the static lazy set, and is marked
+// discovered so the host then offers it.
+func TestSearchTools_RanksDynamicMCPTools(t *testing.T) {
+	dyn := func(context.Context) []toolapp.Tool {
+		return []toolapp.Tool{fakeTool{name: "mcp__weather__forecast", desc: "Get the weather forecast for a city.", params: `{"type":"object"}`}}
+	}
+	st := NewSearchTools(lazySet(), dyn)
+	state := agentstatepkg.New()
+	ctx := reqctxpkg.WithAgentState(context.Background(), state)
+	out, err := st.Execute(ctx, `{"query":"weather forecast city"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "mcp__weather__forecast") {
+		t.Fatalf("dynamic MCP tool should be discoverable via search_tools; got %s", out)
+	}
+	if !state.IsToolDiscovered("mcp__weather__forecast") {
+		t.Fatalf("a found dynamic tool must be marked discovered")
+	}
+	// nil dynamic provider must still work (degrade gracefully).
+	if NewSearchTools(lazySet(), nil).pool(ctx) == nil {
+		t.Fatalf("nil dynamic provider should return the static lazy pool, not nil")
 	}
 }

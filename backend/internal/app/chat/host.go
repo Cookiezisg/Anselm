@@ -70,6 +70,16 @@ func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 				tools = append(tools, t)
 			}
 		}
+		// Per-workspace MCP dynamic tools discovered this conversation are offered too (F52) — they
+		// aren't in the static Toolset, so they ride the same discovered-via-search_tools contract.
+		// 本对话已 discovered 的 per-workspace MCP 动态工具也 offer（F52）——不在静态 Toolset，走同款契约。
+		if h.svc.deps.DynamicTools != nil {
+			for _, t := range h.svc.deps.DynamicTools(ctx) {
+				if state.IsToolDiscovered(t.Name()) {
+					tools = append(tools, t)
+				}
+			}
+		}
 	}
 	return tools
 }
@@ -81,7 +91,17 @@ func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 // TryActivateForTool（loop.AutoActivator）让 LLM 直接调它点名的 lazy 工具而无需先跑 search_tools：
 // 若该名是 lazy 工具，标记 discovered 并重建集合。工具不在任何 lazy 组时返回 nil（loop 按普通 miss 处理）。
 func (h *chatHost) TryActivateForTool(ctx context.Context, name string) []toolapp.Tool {
-	if t := h.svc.deps.Toolset.FindLazy(name); t == nil {
+	known := h.svc.deps.Toolset.FindLazy(name) != nil
+	if !known && h.svc.deps.DynamicTools != nil {
+		// Maybe a per-workspace MCP dynamic tool (mcp__server__tool), not in the static Toolset (F52).
+		for _, t := range h.svc.deps.DynamicTools(ctx) {
+			if t.Name() == name {
+				known = true
+				break
+			}
+		}
+	}
+	if !known {
 		return nil
 	}
 	state, ok := reqctxpkg.GetAgentState(ctx)
