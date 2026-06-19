@@ -21,7 +21,7 @@ type SearchTriggers struct {
 func (t *SearchTriggers) Name() string { return "search_triggers" }
 
 func (t *SearchTriggers) Description() string {
-	return "Find triggers by case-insensitive substring over name / description / kind. Returns id + name + kind + description + whether its listener is currently live (refCount of active workflows). Empty query lists all. Use get_trigger for full config."
+	return "Find triggers by keyword + semantic relevance over name / description / kind. Returns id + name + kind + description + whether its listener is currently live (refCount of active workflows). Empty query lists all. Use get_trigger for full config."
 }
 
 func (t *SearchTriggers) Parameters() json.RawMessage {

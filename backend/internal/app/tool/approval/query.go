@@ -21,7 +21,7 @@ type SearchApproval struct {
 func (t *SearchApproval) Name() string { return "search_approval" }
 
 func (t *SearchApproval) Description() string {
-	return "Find approval forms by case-insensitive substring over name / description. Returns id + name + description; empty query lists all. Use get_approval for the full template + rules."
+	return "Find approval forms by keyword + semantic relevance over name / description. Returns id + name + description; empty query lists all. Use get_approval for the full template + rules."
 }
 
 func (t *SearchApproval) Parameters() json.RawMessage {

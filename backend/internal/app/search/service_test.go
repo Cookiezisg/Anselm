@@ -509,6 +509,39 @@ func TestHybrid_SemanticOnlyHitSurfaces(t *testing.T) {
 	}
 }
 
+// TestHybrid_CosineFloorRejectsNoise — F80: a vector whose cosine to the query is below cosineFloor
+// (noise, on a model with a high baseline similarity) must NOT surface semantically — only genuinely
+// near vectors clear the floor. Without it, a no-match query floods the whole workspace.
+func TestHybrid_CosineFloorRejectsNoise(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{} // no lexical hits — isolate the semantic floor
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_near": {DocID: "sd_near", EntityType: searchdomain.TypeDocument, EntityID: "doc_near", Title: "near", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+		"sd_far":  {DocID: "sd_far", EntityType: searchdomain.TypeDocument, EntityID: "doc_far", Title: "far", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+	}
+	repo.embedded = map[string][]float32{
+		"m1/sd_near": {1, 0, 0},       // cosine 1.0 with the query → above the 0.7 floor
+		"m1/sd_far":  {0.5, 0.866, 0}, // cosine 0.5 with the query → below the floor (noise)
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"q": {1, 0, 0}}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "q", IncludeArchived: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, h := range page.Hits {
+		ids[h.EntityID] = true
+	}
+	if !ids["doc_near"] {
+		t.Errorf("a near vector (cosine 1.0 > floor) must surface; got %+v", page.Hits)
+	}
+	if ids["doc_far"] {
+		t.Errorf("a far vector (cosine 0.5 < cosineFloor 0.7) must NOT surface — that is the F80 flood")
+	}
+}
+
 func TestHybrid_DegradesWhenProviderFails(t *testing.T) {
 	repo := newFakeRepo()
 	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "天气预报文档", 5.0)}

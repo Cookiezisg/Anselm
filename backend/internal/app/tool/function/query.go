@@ -21,7 +21,7 @@ type SearchFunction struct {
 func (t *SearchFunction) Name() string { return "search_function" }
 
 func (t *SearchFunction) Description() string {
-	return "Find functions by case-insensitive substring over name / description / tags. Returns id + name + description; empty query lists all. Use get_function for full code + parameters."
+	return "Find functions by keyword + semantic relevance over name / description / tags. Returns id + name + description; empty query lists all. Use get_function for full code + parameters."
 }
 
 func (t *SearchFunction) Parameters() json.RawMessage {

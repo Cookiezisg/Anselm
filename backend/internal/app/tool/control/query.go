@@ -21,7 +21,7 @@ type SearchControl struct {
 func (t *SearchControl) Name() string { return "search_control" }
 
 func (t *SearchControl) Description() string {
-	return "Find control logics by case-insensitive substring over name / description. Returns id + name + description; empty query lists all. Use get_control for the full branch set."
+	return "Find control logics by keyword + semantic relevance over name / description. Returns id + name + description; empty query lists all. Use get_control for the full branch set."
 }
 
 func (t *SearchControl) Parameters() json.RawMessage {

@@ -89,6 +89,7 @@ landed-into:
 | F83 function 无墙钟 timeout→runaway 钉死 worker→RunFunction 套 FunctionRunSec 外层 ctx deadline | function·durable | 单工具 / 崩溃·并发 | 脆弱/白烧 | fixed·locked |
 | F61 并发同父 create_document position 竞态→InsertAtNextPosition 单 tx 原子赋 position（Create+Duplicate 根） | document | 并发 | 组合摩擦/脆弱 | fixed·locked |
 | F73 并发 :edit 版本碰撞泄露泛 ORM_CONFLICT→6 域各加 <E>_VERSION_CONFLICT 翻译 | 6 版本化实体 | 并发 | 静默降级 | fixed·locked |
+| F80 语义搜索无相关性下限→无匹配 query 灌全 workspace→cosineFloor=0.7（:8743 实测校准） | search | happy/边界 | 静默降级/假成功 | fixed·locked |
 
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |

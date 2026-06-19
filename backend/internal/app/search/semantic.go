@@ -18,6 +18,12 @@ const (
 	vecTopK        = 100
 	rrfK           = 60.0
 	embedKickQueue = 64
+	// cosineFloor admits only vectors whose raw cosine similarity to the query clears this bar, so a
+	// no-match / gibberish query can't flood the whole workspace with cosine noise (F80). Calibrated
+	// on the builtin embeddinggemma-300m, which has a HIGH baseline similarity (~0.5–0.63 even for
+	// unrelated text): measured gibberish tops ≤0.63, genuine relevant matches ≥0.81 — a clean empty
+	// gap, so 0.7 robustly rejects noise (0.07 margin) while keeping every real match (0.11 margin).
+	cosineFloor = 0.7
 )
 
 // StatusReporter is the optional provider capability behind the settings
@@ -268,7 +274,7 @@ func (s *Service) fuseSemantic(ctx context.Context, q *searchdomain.Query, lex [
 	}
 	vhits := make([]vecHit, 0, len(vectors))
 	for id, v := range vectors {
-		if c := cosine(qvec, v); c > 0 {
+		if c := cosine(qvec, v); c > cosineFloor {
 			vhits = append(vhits, vecHit{id: id, score: c})
 		}
 	}

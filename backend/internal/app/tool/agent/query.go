@@ -22,7 +22,7 @@ type SearchAgent struct {
 func (t *SearchAgent) Name() string { return "search_agent" }
 
 func (t *SearchAgent) Description() string {
-	return "Find agents by case-insensitive substring over name / description / tags. Returns id + name + description; empty query lists all. Use get_agent for the full config (prompt / mounted skill / knowledge / tools)."
+	return "Find agents by keyword + semantic relevance over name / description / tags. Returns id + name + description; empty query lists all. Use get_agent for the full config (prompt / mounted skill / knowledge / tools)."
 }
 
 func (t *SearchAgent) Parameters() json.RawMessage {

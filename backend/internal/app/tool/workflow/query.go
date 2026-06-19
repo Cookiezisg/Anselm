@@ -21,7 +21,7 @@ type SearchWorkflow struct {
 func (t *SearchWorkflow) Name() string { return "search_workflow" }
 
 func (t *SearchWorkflow) Description() string {
-	return "Find workflows by case-insensitive substring over name / description / tags. Returns id + name + description + lifecycle state; empty query lists all. Use get_workflow for the full graph."
+	return "Find workflows by keyword + semantic relevance over name / description / tags. Returns id + name + description + lifecycle state; empty query lists all. Use get_workflow for the full graph."
 }
 
 func (t *SearchWorkflow) Parameters() json.RawMessage {
