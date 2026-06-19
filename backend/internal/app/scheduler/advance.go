@@ -49,6 +49,22 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		return fmt.Errorf("schedulerapp.Advance: cel env: %w", err)
 	}
 
+	// Read the run's memoized rows ONCE, then carry them in memory across drive turns: each node
+	// runNode writes is appended to this slice (record-once — every (node,iteration) is written by
+	// exactly one turn, and computeReady only schedules nodes that have no row yet). This avoids the
+	// O(N²) re-read where a looping run re-pulled every row's full `result` blob from the single
+	// SQLite connection on every one of its up-to-MaxIterations turns. The durable rows are still the
+	// truth (a crash just re-enters Advance, which re-reads here); the carried slice is only this
+	// drive's working set, rebuilt from disk on the next entry.
+	//
+	// 一次读 run 记忆化行，再跨驱动轮在内存里携带：每个 runNode 写的节点追加进本切片（record-once——
+	// 每个 (节点,轮次) 恰由一轮写、且 computeReady 只调度还没行的节点）。避免了循环 run 在单 SQLite 连接上
+	// 每轮（至多 MaxIterations 轮）重拉每行完整 `result` blob 的 O(N²) 重读。durable 行仍是真相（崩溃即
+	// 重入 Advance、在此重读）；携带切片只是本次驱动的工作集，下次进入时从盘重建。
+	rows, err := s.runs.GetNodes(ctx, flowrunID)
+	if err != nil {
+		return err
+	}
 	for {
 		// Bail if this drive was interrupted (KillWorkflow cancelled our ctx, or the app is shutting
 		// down). Not an error: the durable state is authoritative — kill already marked the run
@@ -57,10 +73,6 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		// 已标 run cancelled；shutdown 留 run running 待下次 boot 的 Recover 重走。
 		if ctx.Err() != nil {
 			return nil
-		}
-		rows, err := s.runs.GetNodes(ctx, flowrunID)
-		if err != nil {
-			return err
 		}
 		w := newWalk(graph, rows)
 		ready, overflow := w.computeReady()
@@ -71,10 +83,21 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 			break
 		}
 		advanced := false
+		staleRows := false
 		for _, rn := range ready {
-			status, err := s.runNode(ctx, run, senv, w, rn)
+			row, status, err := s.runNode(ctx, run, senv, w, rn)
 			if err != nil {
 				return err
+			}
+			if row != nil {
+				rows = append(rows, row) // carry the just-written row into the next turn's walk
+			} else if status != flowrundomain.NodeFailed {
+				// A non-failed node with no returned row = a record-once conflict (an existing row won).
+				// Our in-memory set lacks that authoritative row, so re-read it from disk before the next
+				// walk — else computeReady, seeing no row, would re-schedule the node forever.
+				// 非失败却无返回行 = record-once 冲突（已有行胜）。内存集缺该权威行，下轮 walk 前从盘重读——
+				// 否则 computeReady 见无行会永远重排该节点。
+				staleRows = true
 			}
 			s.emitNodeProgress(ctx, run, rn, status) // SSE-C: workflow panel run terminal
 			if status == flowrundomain.NodeFailed {
@@ -82,6 +105,11 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 			}
 			if status == flowrundomain.NodeCompleted {
 				advanced = true
+			}
+		}
+		if staleRows {
+			if rows, err = s.runs.GetNodes(ctx, flowrunID); err != nil {
+				return err
 			}
 		}
 		if !advanced {

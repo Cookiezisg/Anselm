@@ -129,7 +129,7 @@ ROUTE LEAK (finding's headline, mild): webhook.go:112 `l.mux.HandleFunc(full, l.
 - **修法**: Make the loop terminate (or back off) when a batch makes no forward progress. Track per-iteration whether ANY row in the batch was successfully upserted; if a full batch failed to write (0 successes), break out of the loop (the next kickEmbed will retry later) instead of re-embedding the same rows. Concretely: add `wroteThisBatch := false` set true inside the success branch (line 231 area), and after the per-row upsert loop add `if !wroteThisBatch { s.log.Warn("search embed: batch fully failed to persist; aborting backfill round"); break }`. This bounds it to one wasted embed call per kick instead of an infinite hot re-embed spin, matching the existing 'next kick retries' contract already used for the Embed-error path.
 - **复核**: Verified against the actual code. In backfill() (internal/app/search/semantic.go:202-234) the `for {}` has only three exits: MissingEmbeddings error (211-212), empty missing set (213-214), and prov.Embed error (224-225). The UpsertEmbedding failure path (227-233) ONLY logs ("search embed: upsert failed") and continues; the `wrote` flag is set true on success (line 231) but is never consulted inside the loop — it is read only after the loop at line 235 for cache invalidation, so it does not gate continuation. There is no sleep/backoff anywhere in the loop body (the only extra select case, 203-2…
 
-## R10 [MEDIUM] (disk-io-amplification) — _pending_
+## R10 [MEDIUM] (disk-io-amplification) — ✅ FIXED
 
 **loop.Run re-reads the ENTIRE conversation (every block + content) from disk on every user turn**
 
@@ -140,7 +140,7 @@ ROUTE LEAK (finding's headline, mild): webhook.go:112 `l.mux.HandleFunc(full, l.
 - **修法**: Push the watermark/role filter into SQL so folded history is never re-read: in hydrate/LoadThread accept a minSeq (the compaction watermark) and add `WHERE seq > ? AND context_role != 'archived'` (plus exclude subagent_id rows the parent never uses). Better: cache the assembled LLMMessage history per conversation in memory keyed by last-seen seq and only read blocks newer than the cache high-water mark, since blocks are append-only and finalized-once.
 - **复核**: VERIFIED against actual code. Mechanism is exactly as claimed: (1) each user turn -> one processTask (runner.go:97) builds a FRESH chatHost (runner.go:152) and calls loop.Run (runner.go:177); loop.Run calls host.LoadHistory exactly ONCE per turn (loop.go:121) -- within a Run, extendHistory appends in memory (loop.go:253), so the per-step concern is absent, but per-turn it re-reads. (2) LoadHistory -> LoadThread (messages.go:185) -> hydrate (messages.go:247) runs s.blocks.WhereIn("message_id", ids...).Order("seq ASC").Find(ctx), reading EVERY block of the conversation. (3) orm Find has NO colum…
 
-## R11 [MEDIUM] (disk-io-amplification) — _pending_
+## R11 [MEDIUM] (disk-io-amplification) — ✅ FIXED
 
 **Advance re-reads ALL flowrun_nodes rows on every walk iteration of a looping run (O(N^2))**
 
@@ -249,7 +249,7 @@ LIFECYCLE — the key claim, confirmed: the "per-run" doc (agentstate.go:2,23) i
 - **修法**: Add a sync.WaitGroup to the sensor Listener: Add(1) before `go l.loop`, Done() on loop return, and Stop() should cancel all then wg.Wait() — matching fsnotify's pattern — so trigger.Shutdown() genuinely joins probe goroutines before the DB closes.
 - **复核**: Mechanically the finding is correct and I verified every link. sensor.Stop() (internal/infra/trigger/sensor/sensor.go:117-124) ranges e.cancel() and resets the entries map with NO sync.WaitGroup and NO wait — asymmetric with cron.Stop() blocking on <-ctx.Done() (cron.go:130) and fsnotify.Stop() doing wg.Wait() (fsnotify.go:129). The probe goroutine (sensor.go:126-176) runs probe() synchronously: l.invoker.Invoke -> for a function, RunFunction (internal/app/function/run.go:35) which synchronously calls recordExecution (run.go:93) -> SaveExecution on a DETACHED ctx (run.go:171), and l.report -> …
 
-## R20 [LOW] (context-lifecycle) — _pending_
+## R20 [LOW] (context-lifecycle) — ✅ FIXED
 
 **Agent ReAct loop (InvokeAgent) has no overall wall-clock deadline; when dispatched from the workflow drainLoop on a never-cancelled Detached ctx it can pin the single drain goroutine for a very long time**
 

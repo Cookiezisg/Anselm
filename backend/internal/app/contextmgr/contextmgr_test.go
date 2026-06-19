@@ -31,6 +31,11 @@ func (f *fakeMessages) LoadThread(context.Context, string) ([]*messagesdomain.Me
 	return f.thread, nil
 }
 
+// contextmgr only uses LoadThread (full content); LoadThreadForLLM is here for interface conformance.
+func (f *fakeMessages) LoadThreadForLLM(context.Context, string, int64) ([]*messagesdomain.Message, error) {
+	return f.thread, nil
+}
+
 func (f *fakeMessages) UpdateBlocksContextRole(_ context.Context, ids []string, role string) error {
 	if len(ids) > 0 {
 		f.roleUpdates = append(f.roleUpdates, roleUpdate{ids: ids, role: role})

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -98,17 +99,44 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 	}
 
 	startedAt := time.Now().UTC()
-	result, modelID, runErr := s.runLoop(ctx, a, v, in)
+	result, modelID, runCtxErr, runErr := s.runLoop(ctx, a, v, in)
 	endedAt := time.Now().UTC()
 
 	res := &InvokeResult{
 		Status:    agentdomain.ExecutionStatusOK,
 		ElapsedMs: endedAt.Sub(startedAt).Milliseconds(),
 	}
-	if runErr != nil {
+	// A wall-clock deadline (the workflow-drain starvation guard) is authoritative and overrides the
+	// loop's own terminal status — on ctx-cancel the loop reports StopReasonCancelled / StatusCancelled
+	// (NOT StatusError), so res.OK would otherwise read true and the run would record as ok despite
+	// being cut off. Map the deadline to the durable, :replay-able ExecutionStatusTimeout (a plain
+	// caller-cancel → Cancelled). Mirrors function/handler/mcp surfacing the run ctx error.
+	// 墙钟 deadline（workflow-drain 饿死防护）是权威信号、压过 loop 自报终态——ctx 取消时 loop 报
+	// StopReasonCancelled / StatusCancelled（**非** StatusError），故 res.OK 否则会读成 true、被截断却记成
+	// ok。把 deadline 映射成 durable、可 :replay 的 ExecutionStatusTimeout（普通调用方取消 → Cancelled）。
+	// 对标 function/handler/mcp 透出运行 ctx 错。
+	timedOut := errors.Is(runCtxErr, context.DeadlineExceeded)
+	cancelled := errors.Is(runCtxErr, context.Canceled)
+	switch {
+	case runErr != nil:
 		res.Status = agentdomain.ExecutionStatusFailed
 		res.ErrorMsg = runErr.Error()
-	} else {
+	case timedOut || cancelled:
+		res.OK = false
+		res.Status = agentdomain.ExecutionStatusCancelled
+		if timedOut {
+			res.Status = agentdomain.ExecutionStatusTimeout
+		}
+		res.ErrorMsg = result.ErrMsg
+		if res.ErrorMsg == "" {
+			res.ErrorMsg = "agent invoke " + res.Status
+		}
+		res.Output = result.LastMessage
+		res.StopReason = result.StopReason
+		res.Steps = result.Steps
+		res.TokensIn = result.TokensIn
+		res.TokensOut = result.TokensOut
+	default:
 		res.OK = result.Status != messagesdomain.StatusError
 		if !res.OK {
 			res.Status = agentdomain.ExecutionStatusFailed
@@ -155,18 +183,18 @@ func (s *Service) InvokeAgent(ctx context.Context, in InvokeInput) (*InvokeResul
 //
 // runLoop 构造 agent host + LLM bundle 并跑 app/loop.Run（ReAct 循环）。loop 的 emitter 把 block
 // 推到 ctx 携带的 stream scope（chat 内调用时即 eventlog）——agent 不写流式代码。
-func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version, in InvokeInput) (loopapp.Result, string, error) {
+func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdomain.Version, in InvokeInput) (loopapp.Result, string, error, error) {
 	// Knowledge prefix (the agent's attached docs) prepended to the user message. A mounted
 	// capability with its dep unwired is a wiring bug — fail loudly, never run degraded.
 	// Knowledge 前缀（agent 挂的文档）前置到 user 消息。挂了能力而依赖未装配是装配 bug——大声失败、绝不降级跑。
 	prefix := ""
 	if len(v.Knowledge) > 0 {
 		if s.invoke.Knowledge == nil {
-			return loopapp.Result{}, "", fmt.Errorf("agent mounts knowledge but no KnowledgeProvider is wired")
+			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts knowledge but no KnowledgeProvider is wired")
 		}
 		p, kErr := s.invoke.Knowledge.BuildKnowledgePrefix(ctx, v.Knowledge)
 		if kErr != nil {
-			return loopapp.Result{}, "", fmt.Errorf("resolve knowledge: %w", kErr)
+			return loopapp.Result{}, "", nil, fmt.Errorf("resolve knowledge: %w", kErr)
 		}
 		prefix = p
 	}
@@ -184,12 +212,12 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	var tools []toolapp.Tool
 	if len(v.Tools) > 0 {
 		if s.invoke.Mounts == nil {
-			return loopapp.Result{}, "", fmt.Errorf("agent mounts tools but no MountResolver is wired")
+			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts tools but no MountResolver is wired")
 		}
 		var mErr error
 		tools, mErr = s.invoke.Mounts.Resolve(ctx, v.Tools)
 		if mErr != nil {
-			return loopapp.Result{}, "", fmt.Errorf("resolve mounts: %w", mErr)
+			return loopapp.Result{}, "", nil, fmt.Errorf("resolve mounts: %w", mErr)
 		}
 	}
 
@@ -198,18 +226,18 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	skillGuide := ""
 	if v.Skill != "" {
 		if s.invoke.Skill == nil {
-			return loopapp.Result{}, "", fmt.Errorf("agent mounts skill %q but no SkillGuide is wired", v.Skill)
+			return loopapp.Result{}, "", nil, fmt.Errorf("agent mounts skill %q but no SkillGuide is wired", v.Skill)
 		}
 		g, gErr := s.invoke.Skill.Guide(ctx, v.Skill)
 		if gErr != nil {
-			return loopapp.Result{}, "", fmt.Errorf("resolve skill: %w", gErr)
+			return loopapp.Result{}, "", nil, fmt.Errorf("resolve skill: %w", gErr)
 		}
 		skillGuide = g
 	}
 
 	bundle, err := s.invoke.Resolver.ResolveAgent(ctx, v.ModelOverride)
 	if err != nil {
-		return loopapp.Result{}, "", fmt.Errorf("resolve LLM: %w", err)
+		return loopapp.Result{}, "", nil, fmt.Errorf("resolve LLM: %w", err)
 	}
 
 	host := &agentHost{
@@ -253,8 +281,20 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	ctx = entitystreamapp.WithBridge(ctx, s.invoke.EntitiesBridge)
 	ctx = entitystreamapp.WithRunScope(ctx, streamdomain.Scope{Kind: streamdomain.KindAgent, ID: a.ID})
 
-	result := loopapp.Run(ctx, host, bundle.Client, req, remaining, s.log)
-	return result, req.ModelID, nil
+	// Bound the whole ReAct run's wall clock: InvokeMaxTurns caps turns but NOT time, so a slow agent
+	// (turns × (LLM idle + per-tool wait)) run synchronously on the single workflow drain goroutine
+	// would starve draining + approval timeouts for ALL workspaces. The deadline cancels the loop ctx;
+	// the loop ends with an error result that InvokeAgent maps to the durable, :replay-able
+	// ExecutionStatusTimeout (recordExecution still lands on a detached ctx). Mirrors FunctionRunSec.
+	// 限整次 ReAct 运行的墙钟：InvokeMaxTurns 封轮数、不封时间，慢 agent（轮数 ×（LLM idle + 每工具等待））
+	// 在单条 workflow drain 协程上同步跑会饿死所有 workspace 的排空 + 审批超时。deadline 取消 loop ctx；
+	// loop 以 error result 收尾、由 InvokeAgent 映射成 durable、可 :replay 的 ExecutionStatusTimeout
+	// （recordExecution 仍落 detached ctx）。对标 FunctionRunSec。
+	lctx, cancel := context.WithTimeout(ctx, time.Duration(limitspkg.Current().Timeout.AgentInvokeSec)*time.Second)
+	defer cancel()
+
+	result := loopapp.Run(lctx, host, bundle.Client, req, remaining, s.log)
+	return result, req.ModelID, lctx.Err(), nil
 }
 
 // recordExecution writes one terminal Execution row (best-effort, on a detached ctx that keeps

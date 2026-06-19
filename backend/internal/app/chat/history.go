@@ -22,7 +22,16 @@ import (
 // user 回合渲成文本（+ 按模型能力门控的多模态附件部件）；assistant 回合经 loopapp.BlocksToAssistantLLM
 // 投影其 block 树（hot/warm/cold）。在飞的 assistant 回合（本次生成、开时暂无 block）被跳过。
 func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, error) {
-	thread, err := h.svc.messages.LoadThread(ctx, h.conversationID)
+	// Read-minimized load: the SQL already drops subagent sub-messages (never in the parent's LLM
+	// history) and the compaction-folded blocks (seq ≤ watermark, content now in the summary), so a
+	// long single-conversation session stops re-reading the whole folded-inclusive block table from
+	// disk every turn (R10). The Go filters below (subagent skip, unfolded) stay as a belt-and-braces
+	// invariant — they are no-ops on this pre-filtered set, keeping the LLM-visible set byte-identical.
+	//
+	// 读最小化加载：SQL 已丢 subagent 子消息（从不属父 LLM 历史）+ 压缩已折叠 block（seq ≤ 水位、内容已在
+	// 摘要），使长单对话会话不再每轮从盘重读整张含折叠的 block 表（R10）。下方 Go 过滤（subagent 跳过、
+	// unfolded）留作双保险——对已过滤集是 no-op，使 LLM 可见集逐字不变。
+	thread, err := h.svc.messages.LoadThreadForLLM(ctx, h.conversationID, h.summaryCoversUpToSeq)
 	if err != nil {
 		return nil, fmt.Errorf("chatapp.LoadHistory: %w", err)
 	}
@@ -54,9 +63,15 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 			// The watermark governs user turns too: a fully-folded user turn (its text already
 			// lives in the summary) must not ride along verbatim — user pastes are the bulk of
 			// context growth, and summary + verbatim double-presence would defeat compaction.
-			// 水位线同样统辖 user 回合：已整体并入摘要的 user 回合不得原文随行——用户粘贴本就是
-			// 上下文膨胀的大头，摘要+原文双份在场会让压缩形同虚设。
-			if len(m.Blocks) > 0 && len(h.unfolded(m.Blocks)) == 0 {
+			// A folded turn has NO LLM-visible blocks: either the load already SQL-filtered them
+			// out (LoadThreadForLLM, seq ≤ watermark → empty Blocks) or unfolded() drops them here —
+			// both paths skip it (and so does a turn that loaded with no blocks at all, which would
+			// otherwise emit an empty user message).
+			// 水位线同样统辖 user 回合：已整体并入摘要的 user 回合不得原文随行——用户粘贴本就是上下文膨胀
+			// 的大头，摘要+原文双份在场会让压缩形同虚设。已折叠回合无 LLM 可见 block：要么加载时已 SQL 滤掉
+			// （LoadThreadForLLM，seq ≤ 水位 → 空 Blocks），要么此处 unfolded() 丢掉——两路都跳过（无任何
+			// block 的回合也跳，否则会发空 user 消息）。
+			if len(h.unfolded(m.Blocks)) == 0 {
 				continue
 			}
 			out = append(out, h.userMessage(ctx, m))

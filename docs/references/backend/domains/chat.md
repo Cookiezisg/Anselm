@@ -24,7 +24,7 @@ audience: [human, ai]
 ## 3. 回合生命周期
 
 `chatHost` 实现 loop.Host（agentHost 的持久化对应物）：
-- **LoadHistory**：整线程载入 → 排除 `SubagentID != ""` 的回合（subagent 内部 trace 不进父历史）→ **压缩水位线投影**（seq ≤ `summaryCoversUpToSeq` 的块已并入 conversation.summary、从历史丢弃，summary 前置）→ user 回合按模型能力渲染多模态附件。
+- **LoadHistory**：经 `LoadThreadForLLM(convID, 水位)` **读最小化载入**——subagent 子消息排除（`subagent_id = ''`，内部 trace 不进父历史）+ 压缩已折叠块过滤（`seq > 水位`，即 seq ≤ `summaryCoversUpToSeq` 的块已并入 conversation.summary、从不读盘）**双双下推 SQL**，故长单对话会话不再每轮从盘重读整张含折叠的 block 表。水位是折叠的权威信号（`archived` 是其 best-effort 冗余标记、恒 seq ≤ 水位；水位恒落回合边界），故 LLM 可见集与"整 LoadThread + 读后 Go 过滤"逐字相同——读后的 Go 过滤（subagent 跳过、`unfolded`、空回合跳过）留作双保险、对已过滤集是 no-op。summary 前置；user 回合按模型能力渲染多模态附件。（`LoadThread`——全内容——仍服务 UI reload / 自动标题 / 压缩 / subagent 轨迹读。）
 - **Tools 每步重算**：resident + `search_tools` + 本对话已 discovered 的 lazy 工具（记在 AgentState）；**AutoActivator**——LLM 直接点名 lazy 工具时自动标记 discovered（免先跑 search_tools）。
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **WriteFinalize 在 Detached ctx**：用户中途关页也绝不留永久 streaming 孤儿；**硬崩溃**（kill -9）的孤儿由 boot 对账兜底（`SweepOrphans`——每 workspace 把 pending/streaming 行扫成 cancelled，messages 版 scheduler.Recover）。

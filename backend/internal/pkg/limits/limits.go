@@ -57,6 +57,16 @@ type TimeoutLimits struct {
 	// FunctionRunSec 限一次 function 运行的墙钟（消费方：functionapp.RunFunction）——失控/死循环 function
 	// 否则钉死一个 worker（尤其 workflow 节点：无客户端可导航走取消）。超时记为 ExecutionStatusTimeout。
 	FunctionRunSec int `json:"functionRunSec"`
+	// AgentInvokeSec bounds one agent invocation's wall clock (consumer: agentapp.InvokeAgent) — the
+	// ReAct loop is otherwise only turn-capped (InvokeMaxTurns), so a slow agent (turns × idle/tool
+	// waits) run synchronously on the single workflow drain goroutine starves draining + approval
+	// timeouts for ALL workspaces. Deadline-exceeded surfaces as the durable, :replay-able
+	// ExecutionStatusTimeout. Default is generous (a multi-turn agent can legitimately run minutes).
+	// AgentInvokeSec 限一次 agent 调用的墙钟（消费方：agentapp.InvokeAgent）——ReAct 循环否则只受轮数封顶
+	// （InvokeMaxTurns），慢 agent（轮数 × idle/工具等待）在单条 workflow drain 协程上同步跑会饿死所有
+	// workspace 的排空 + 审批超时。超时记为 durable、可 :replay 的 ExecutionStatusTimeout。默认从宽
+	// （多轮 agent 合理地可跑数分钟）。
+	AgentInvokeSec int `json:"agentInvokeSec"`
 }
 
 type ToolLimits struct {
@@ -93,6 +103,7 @@ func Default() Limits {
 			MCPCallSec:            180,
 			BashDefaultTimeoutSec: 120,
 			FunctionRunSec:        300,
+			AgentInvokeSec:        900,
 		},
 		Tools: ToolLimits{
 			ReadDefaultLines: 2000,
@@ -129,6 +140,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Timeout.FunctionRunSec == 0 {
 		l.Timeout.FunctionRunSec = d.Timeout.FunctionRunSec
+	}
+	if l.Timeout.AgentInvokeSec == 0 {
+		l.Timeout.AgentInvokeSec = d.Timeout.AgentInvokeSec
 	}
 	if l.Tools.ReadDefaultLines == 0 {
 		l.Tools.ReadDefaultLines = d.Tools.ReadDefaultLines

@@ -54,8 +54,9 @@ InvokeAgent(in)
   │   ├─ skill.Guide(v.Skill) → system prompt 的执行指南段
   │   ├─ Resolver.ResolveAgent(modelOverride) → LLM bundle（nil=默认 agent 场景模型）
   │   ├─ ctx 装饰：tool_call 嵌套（E3）+ entities 流 agent scope 镜像（SSE-C）
+  │   ├─ ctx WithTimeout(limits.Timeout.AgentInvokeSec) — 整次运行墙钟封顶
   │   └─ loop.Run(agentHost, maxTurns 默认 10 − 已重放步数)
-  └─ recordExecution（Detached ctx，best-effort）
+  └─ recordExecution（Detached ctx，best-effort；status 按运行 ctx.Err() 区分 timeout/cancelled）
 ```
 
 - **InvokeDeps**（DIP 后注入：Resolver/Mounts/Skill/Knowledge/EntitiesBridge）——"挂载了某能力却 nil 对应依赖" = 装配 bug，invoke **大声失败**（不静默跳过）。
@@ -63,6 +64,7 @@ InvokeAgent(in)
 - **system prompt 组装**：身份（"You are <Name>… Your role: <Description>"）+ worker 纪律（只用给的工具）+ skill 指南段 + **outputs 硬约束**（声明了 Outputs → "最终答案必须是恰含这些字段的单个 JSON"；未声明 → 自由作答）。
 - **outputs 回解析（声明输出非 advisory，F40）**：invoke 后把终答**解析回命名字段 map**（容忍 ```json 围栏 + jsonrepair），使下游 workflow 节点读 `node.<字段>` 而非整段塞进 `node.text`。终答非对象时：**恰 1 声明** → 裹进该名（自由文本→单输出便利）；**2+ 声明** → 无法拆成多字段、报 `AGENT_OUTPUT_NOT_STRUCTURED` 大声失败（节点行写 failed，非静默交废 text）。未声明 → 原样 `node.text`。**与 fn/hd 非对称**：function/handler 的 dispatch 侧 `toResultMap` 不接声明输出（标量→`.text`、声明输出对其为 advisory——返回 dict 才得 `node.<字段>`），唯 agent 在 invoke 处回解析。
 - **三条触发路径**：chat 的 `invoke_agent` 工具（TriggeredBy=chat；toolCallID 设进 ctx 使流式 block 嵌套其下）/ HTTP `:invoke`（manual）/ workflow agent 节点 `dispatch.RunAgent`（workflow；**粗粒度 activity**——只记忆化最终 result，`ReplaySteps/Recorder/FlowrunID` 等 InvokeInput 字段是子步重放的预留，调度器 v1 留空）。
+- **运行墙钟（与 fn/hd/mcp 同款）**：`runLoop` 给 `loop.Run` 套外层 `WithTimeout(limits.Timeout.AgentInvokeSec)`（默认 900s，`PATCH /limits` 可调、校验 >0）。`InvokeMaxTurns` 只封轮数、不封时间，慢 agent（轮数 ×（LLM idle + 每工具等待））在单条 workflow drain 协程上同步跑会饿死所有 workspace 的排空 + 审批超时——墙钟是补位安全帽。**status 映射**：超时为权威信号、压过 loop 自报终态（ctx 取消时 loop 报 cancelled 非 error），运行 ctx `DeadlineExceeded` → `ExecutionStatusTimeout`（durable、可 `:replay`），`Canceled` → `ExecutionStatusCancelled`；记录仍落 Detached ctx。
 - **溯源**：conversation/message/toolCall 从 ctx；flowrun **InvokeInput 显式字段优先、ctx 注入兜底**（调度器派发前 `reqctx.SetFlowrunID`）。
 - **人在环**：ctx 带 humanloop broker（chat 回合的 broker 自然流进子运行）时，自报 dangerous 的工具在共享 loop 的 danger 门**阻塞**至用户 resolve——嵌套不冒泡，阻塞的 goroutine 天然 hold 整个栈。
 - **状态判定**：runErr → failed；loop 结果 StatusError → failed；其余 ok。tokens/steps/stopReason 在 `InvokeResult` 同步返回（**不持久化**——留全局观测议题；transcript 已含全过程）。

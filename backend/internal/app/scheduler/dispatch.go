@@ -22,7 +22,7 @@ import (
 // control/approval 内联求值。任何失败 fail-fast：节点行写 failed + run 标 failed。CEL 双轴：node.Input
 // 对 model-B scope（node-id 根）求值；control when/emit + approval template 读 `input`（节点解析出的
 // input map）。
-func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv *celpkg.ScopedEnv, w *walk, rn readyNode) (string, error) {
+func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv *celpkg.ScopedEnv, w *walk, rn readyNode) (*flowrundomain.FlowRunNode, string, error) {
 	node := rn.node
 	iter := rn.iter
 	scope := w.scopeFor(run.ID, iter)
@@ -70,7 +70,7 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 		if err != nil {
 			return s.failNode(ctx, run, node, iter, err.Error())
 		}
-		status, werr := s.writeNode(ctx, run, node, iter, flowrundomain.NodeParked, result, "")
+		row, status, werr := s.writeNode(ctx, run, node, iter, flowrundomain.NodeParked, result, "")
 		if werr == nil {
 			// Summon the human: a parked approval blocks the run until someone decides — the
 			// inbox alone only helps whoever already checks it. At-least-once (a crash between
@@ -81,7 +81,7 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 				"workflowId": run.WorkflowID, "flowrunId": run.ID, "nodeId": node.ID,
 			})
 		}
-		return status, werr
+		return row, status, werr
 
 	default:
 		return s.failNode(ctx, run, node, iter, fmt.Sprintf("unschedulable node kind %q", node.Kind))
@@ -89,11 +89,17 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 }
 
 // writeNode upserts the node's terminal/parked row (record-once, first-wins). completed/failed stamp
-// completed_at; parked leaves it nil.
+// completed_at; parked leaves it nil. Returns the persisted row so Advance can carry it into the next
+// walk turn without re-reading the whole node set from disk. On a record-once conflict (the row
+// already existed — only reachable via a crash-replay/concurrent race, never within one drive since
+// computeReady skips nodes that already have a row) it returns a nil row: Advance then re-reads the
+// authoritative set, so the in-memory working set never diverges from the durable truth.
 //
 // writeNode upsert 节点的终态/parked 行（record-once，first-wins）。completed/failed 打 completed_at；
-// parked 留 nil。
-func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, status string, result map[string]any, errMsg string) (string, error) {
+// parked 留 nil。返回持久化的行，使 Advance 能携带进下一轮 walk、不必从盘重读整套节点。record-once 冲突
+// （行已存在——只在崩溃重放/并发竞争可达，单次驱动内绝无，因 computeReady 跳过已有行的节点）时返 nil 行：
+// Advance 据此重读权威集，使内存工作集绝不偏离 durable 真相。
+func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, status string, result map[string]any, errMsg string) (*flowrundomain.FlowRunNode, string, error) {
 	n := &flowrundomain.FlowRunNode{
 		FlowRunID: run.ID, NodeID: node.ID, Iteration: iter, Kind: node.Kind, Ref: node.Ref,
 		Status: status, Result: result, Error: errMsg,
@@ -102,25 +108,30 @@ func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, nod
 		now := time.Now().UTC()
 		n.CompletedAt = &now
 	}
-	if _, err := s.runs.InsertNodeResult(ctx, n); err != nil {
-		return "", fmt.Errorf("schedulerapp: write node %s: %w", node.ID, err)
+	inserted, err := s.runs.InsertNodeResult(ctx, n)
+	if err != nil {
+		return nil, "", fmt.Errorf("schedulerapp: write node %s: %w", node.ID, err)
 	}
-	return status, nil
+	if !inserted {
+		return nil, status, nil // record-once loser: an existing row is authoritative, signal a re-read
+	}
+	return n, status, nil
 }
 
 // failNode writes the failed node row then fail-fasts the whole run: completed sibling rows stay
-// memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance loop stops.
+// memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance loop stops
+// (the row itself is unused — the loop bails on NodeFailed before carrying it).
 //
 // failNode 写 failed 节点行后 fail-fast 整个 run：completed 兄弟行留作记忆化；:replay 清 failed 行
-// 重走。返 NodeFailed 使 advance 循环停。
-func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string) (string, error) {
-	if _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason); err != nil {
-		return "", err
+// 重走。返 NodeFailed 使 advance 循环停（行本身不用——循环遇 NodeFailed 即 bail、不携带）。
+func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string) (*flowrundomain.FlowRunNode, string, error) {
+	if _, _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason); err != nil {
+		return nil, "", err
 	}
 	if err := s.markRunTerminal(ctx, run, flowrundomain.StatusFailed, fmt.Sprintf("node %s: %s", node.ID, reason)); err != nil {
-		return "", fmt.Errorf("schedulerapp: mark run failed: %w", err)
+		return nil, "", fmt.Errorf("schedulerapp: mark run failed: %w", err)
 	}
-	return flowrundomain.NodeFailed, nil
+	return nil, flowrundomain.NodeFailed, nil
 }
 
 // evalInput evaluates each node.Input field's CEL against the model-B scope (ancestor results by

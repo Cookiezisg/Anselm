@@ -286,13 +286,30 @@ type Repository interface {
 	// ListMessages 返回一个对话回合的一页 keyset（最新在前），每条 hydrate Blocks（REST 历史端点，N4 分页）。
 	ListMessages(ctx context.Context, conversationID, cursor string, limit int) (items []*Message, next string, err error)
 
-	// LoadThread returns the whole conversation, oldest-first, every turn with Blocks hydrated
-	// — the source chat's LoadHistory composes LLM history from (not paginated: a single local
-	// user's thread fits in memory).
+	// LoadThread returns the whole conversation, oldest-first, every turn with ALL Blocks hydrated
+	// — the full content path (UI reload, auto-title, compaction, subagent-trace read). Not
+	// paginated: a single local user's thread fits in memory.
 	//
-	// LoadThread 返回整个对话（最旧在前），每个回合都 hydrate Blocks——chat 的 LoadHistory 据此
-	// 组装 LLM 历史（不分页：单用户本地一条线程可装进内存）。
+	// LoadThread 返回整个对话（最旧在前），每个回合 hydrate 全部 Blocks——全内容路径（UI reload、
+	// 自动标题、压缩、subagent 轨迹读）。不分页：单用户本地一条线程可装进内存。
 	LoadThread(ctx context.Context, conversationID string) ([]*Message, error)
+
+	// LoadThreadForLLM is LoadThread's read-minimized sibling for assembling LLM history only: it
+	// EXCLUDES subagent sub-messages (subagent_id != '' — never part of the parent's LLM history)
+	// and hydrates each turn with only its blocks past the compaction watermark (seq > minSeq —
+	// folded blocks live in conversation.summary). This pushes chat.LoadHistory's post-read Go
+	// filters (subagent skip + unfolded) into SQL, so a long single-conversation session stops
+	// re-reading the whole (folded-included) block table from disk every turn. The watermark is the
+	// authoritative fold signal (archived is its best-effort redundant flag, always seq ≤ watermark),
+	// and the watermark always lands on a turn boundary, so the LLM-visible set is byte-identical to
+	// LoadThread + the old Go filters.
+	//
+	// LoadThreadForLLM 是 LoadThread 的读最小化兄弟，仅供组装 LLM 历史：**排除** subagent 子消息
+	// （subagent_id != ''——从不属父的 LLM 历史），每回合只 hydrate 越过压缩水位的 block（seq > minSeq——
+	// 已折叠 block 在 conversation.summary）。把 chat.LoadHistory 的读后 Go 过滤（subagent 跳过 + unfolded）
+	// 下推 SQL，使长单对话会话不再每轮从盘重读整张（含已折叠）block 表。水位是折叠的权威信号（archived 是其
+	// best-effort 冗余标记、恒 seq ≤ 水位）、且水位恒落在回合边界，故 LLM 可见集与 LoadThread + 旧 Go 过滤逐字相同。
+	LoadThreadForLLM(ctx context.Context, conversationID string, minSeq int64) ([]*Message, error)
 
 	// SumTokens returns a conversation's total input + output tokens across all turns — the
 	// usage endpoint's source. Zero for an empty / unknown conversation.

@@ -21,7 +21,7 @@ audience: [human, ai]
 - `flowruns`（run 头）= **冻结的拓扑**（`version_id` pin 死图）+ **冻结的引用实体版本**（`pinned_refs`：pin 闭包 `{实体id: active版本id}`）+ 状态。pin 是重放确定性的两把锁——运行中编辑 workflow 或被引用的 function/agent/control/approval 都改不动在途 run（handler 是常驻实例、永远跑 active 类代码；mcp 是无版本的外部 server——两者活态绑定、pin 不约束）。
 - `flowrun_nodes`（★真相表）= 每条是一个 `(节点, 轮次)` 的**记忆化 result**。`UNIQUE(flowrun_id, node_id, iteration)`（`idx_frn_once`，D3）是 **record-once 键**：`INSERT OR IGNORE` 语义、首写赢。
 
-**整个引擎是一个幂等函数** `Advance(runID)`：读 frn 行 + 冻结图 → 算哪些 (节点,轮次) ready → 跑/求值 → 写行 → 重复直到无人 ready。**崩溃 = 再调一遍 Advance**：completed 行被"抄"（record-once 拒绝重写）、绝不重跑。没有事件日志、没有 generation、没有 dispatcher 扇出。
+**整个引擎是一个幂等函数** `Advance(runID)`：**进入时读一次 frn 行** + 冻结图 → 算哪些 (节点,轮次) ready → 跑/求值 → 写行 → 重复直到无人 ready。**行集跨轮在内存携带**：每轮写的节点行追加进内存工作集（record-once：每个 (节点,轮次) 恰由一轮写、ready 计算只调度还没行的节点），故一次驱动**不每轮重读整套行**（避免循环 run 把每行 `result` blob 重拉的 O(N²) 磁盘读）；record-once 冲突（崩溃重放/并发已有行胜）才从盘重读权威集。durable 行仍是真相——**崩溃 = 再调一遍 Advance**（进入时重读）：completed 行被"抄"（record-once 拒绝重写）、绝不重跑。没有事件日志、没有 generation、没有 dispatcher 扇出。
 
 **节点行只写终态**（completed/failed/parked，无瞬时 running 行）：action 在一次同步 advance 内跑完，写行前崩溃就整体重跑（**at-least-once**——副作用靠下游幂等，引擎不装 exactly-once）。`parked` 是唯一非终态：approval 挂起；"哪些 run 在等人"从 parked 行**派生**（parked 行即审批收件箱，无投影表）。
 

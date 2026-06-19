@@ -192,6 +192,32 @@ func (s *Store) LoadThread(ctx context.Context, conversationID string) ([]*messa
 	return rows, nil
 }
 
+// LoadThreadForLLM returns the conversation oldest-first for LLM-history assembly: it drops subagent
+// sub-messages at the message level (subagent_id = ”, never part of the parent's LLM history) and
+// hydrates each turn with only its blocks past the compaction watermark (seq > minSeq, the folded
+// rows whose content now lives in conversation.summary). This is the read-minimized path — the
+// folded/subagent rows are never read from disk — replacing the prior full LoadThread + post-read Go
+// filtering on the hot LLM-history path. minSeq ≤ 0 reads every block (no compaction yet).
+//
+// LoadThreadForLLM 返回对话（最旧在前）供组装 LLM 历史：在消息层丢 subagent 子消息（subagent_id = ”、
+// 从不属父 LLM 历史），每回合只 hydrate 越过压缩水位的 block（seq > minSeq、内容已并入 conversation.summary
+// 的已折叠行）。这是读最小化路径——已折叠/subagent 行从不读盘——替代 LLM-history 热路径上原本的整 LoadThread +
+// 读后 Go 过滤。minSeq ≤ 0 读所有 block（尚无压缩）。
+func (s *Store) LoadThreadForLLM(ctx context.Context, conversationID string, minSeq int64) ([]*messagesdomain.Message, error) {
+	rows, err := s.msgs.
+		WhereEq("conversation_id", conversationID).
+		WhereEq("subagent_id", "").
+		Order("created_at ASC, id ASC").
+		Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("messagesstore.LoadThreadForLLM: %w", err)
+	}
+	if err := s.hydrateMinSeq(ctx, rows, minSeq); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // SumTokens totals a conversation's input + output tokens. It loads the turn rows (no blocks)
 // and sums in Go — a single conversation's turns fit in memory, and the orm workspace filter
 // keeps it scoped. Empty conversation → (0, 0).
@@ -237,6 +263,16 @@ func (s *Store) UpdateBlocksContextRole(ctx context.Context, blockIDs []string, 
 // hydrate 一次查出给定 messages 的所有 block，把每个 message 的 block（按 seq 排序）挂到其
 // Blocks 字段。无 block 的 message 得 nil 切片。
 func (s *Store) hydrate(ctx context.Context, msgs []*messagesdomain.Message) error {
+	return s.hydrateMinSeq(ctx, msgs, 0)
+}
+
+// hydrateMinSeq is hydrate with an optional block-level watermark filter: when minSeq > 0 only blocks
+// with seq > minSeq are read from disk (the compaction-folded rows are never pulled). minSeq ≤ 0 is
+// the full hydrate. Both load all blocks of the given messages in ONE query.
+//
+// hydrateMinSeq 是带可选 block 级水位过滤的 hydrate：minSeq > 0 时只从盘读 seq > minSeq 的 block
+// （压缩已折叠行从不拉取）。minSeq ≤ 0 即全量 hydrate。两者都用一条查询取给定 messages 的全部 block。
+func (s *Store) hydrateMinSeq(ctx context.Context, msgs []*messagesdomain.Message, minSeq int64) error {
 	if len(msgs) == 0 {
 		return nil
 	}
@@ -244,7 +280,11 @@ func (s *Store) hydrate(ctx context.Context, msgs []*messagesdomain.Message) err
 	for i, m := range msgs {
 		ids[i] = m.ID
 	}
-	blocks, err := s.blocks.WhereIn("message_id", ids...).Order("seq ASC").Find(ctx)
+	q := s.blocks.WhereIn("message_id", ids...)
+	if minSeq > 0 {
+		q = q.Where("seq > ?", minSeq)
+	}
+	blocks, err := q.Order("seq ASC").Find(ctx)
 	if err != nil {
 		return fmt.Errorf("messagesstore.hydrate: %w", err)
 	}
