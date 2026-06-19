@@ -47,15 +47,24 @@ type Config struct {
 //
 // App 是装配好的应用：HTTP handler + 持后台工作的 Service 的 boot/shutdown 生命周期。
 type App struct {
-	Handler  http.Handler
-	Addr     string
-	log      *zap.Logger
-	svc      *services
-	db       *ormpkg.DB
-	tickStop context.CancelFunc
+	Handler   http.Handler
+	Addr      string
+	log       *zap.Logger
+	svc       *services
+	db        *ormpkg.DB
+	tickStop  context.CancelFunc
+	drainDone chan struct{} // closed when drainLoop returns; Shutdown waits on it (R3 grace). drainLoop 退出时关闭，Shutdown 等它（R3 宽限）。
 }
 
 const drainInterval = 5 * time.Second
+
+// drainShutdownGrace bounds how long Shutdown lets an in-flight workflow Advance finish its current
+// node before interrupting it (R3 option C — clean durability for fast nodes, bounded shutdown for
+// slow). Kept under shutdownGrace so the rest of the ordered shutdown keeps budget.
+//
+// drainShutdownGrace 限 Shutdown 给在飞 Advance 跑完当前节点的时长，超则打断（R3 选项 C——快节点干净、慢节点有界）。
+// 留在 shutdownGrace 之下，使关停其余步骤仍有预算。
+const drainShutdownGrace = 6 * time.Second
 
 // Build assembles the whole backend. The returned App is ready to serve immediately (health works
 // before Boot); call Boot to start background work and Shutdown to stop it.
@@ -278,6 +287,7 @@ func (a *App) Boot(ctx context.Context) {
 	// claims + advances them here on a fixed cadence, and sweeps approval/timer timeouts.
 	tickCtx, stop := context.WithCancel(context.Background())
 	a.tickStop = stop
+	a.drainDone = make(chan struct{})
 	go a.drainLoop(tickCtx)
 }
 
@@ -307,6 +317,7 @@ func (a *App) forEachWorkspace(ctx context.Context, fn func(wsCtx context.Contex
 // drainLoop 周期 drain 待处理 firing + 检查超时，直到 app 关停——每 tick 逐 workspace（firings /
 // parked-nodes 表按 workspace 隔离；CheckTimeouts 的契约就是「调用方逐 workspace tick」）。
 func (a *App) drainLoop(ctx context.Context) {
+	defer close(a.drainDone) // signal Shutdown the loop (and its current tick's Advance) has returned (R3)
 	t := time.NewTicker(drainInterval)
 	defer t.Stop()
 	for {
@@ -327,18 +338,42 @@ func (a *App) drainLoop(ctx context.Context) {
 }
 
 // Shutdown stops everything in reverse dependency order, then closes the DB last. ctx bounds the
-// graceful drain. Order: stop the firing-drain ticker (no new runs) → trigger listeners → chat
-// queues → mcp / handler resident processes → sandbox (kills any remaining spawned long-lived
-// handles its consumers didn't) → shell background jobs (run_in_background children + their trees,
-// R1) → flush logs → close the DB (checkpoints the SQLite WAL). Each step is best-effort logged so
-// one stuck subsystem cannot block the rest.
+// graceful drain. Order: stop the firing-drain ticker (no new runs) → bounded-grace the in-flight
+// workflow Advance to finish its current node, then cancel every in-flight Advance + wait for the
+// drain loop to return (R3, option C — so nothing keeps spawning or races db.Close) → trigger
+// listeners → chat queues → mcp / handler resident processes → sandbox (kills any remaining spawned
+// long-lived handles its consumers didn't) → shell background jobs (run_in_background children + their
+// trees, R1) → flush logs → close the DB (checkpoints the SQLite WAL). Each step is best-effort logged
+// so one stuck subsystem cannot block the rest.
 //
 // Shutdown 逆依赖序停一切、最后关 DB。ctx 限优雅排空。顺序：停 firing-drain ticker（不再起新 run）→
-// trigger listener → chat 队列 → mcp / handler 常驻进程 → sandbox（杀消费者没杀干净的 spawned long-lived
-// handle）→ flush 日志 → 关 DB（checkpoint SQLite WAL）。每步 best-effort 记日志，一个卡死子系统不拖垮其余。
+// 给在飞 Advance 有限宽限跑完当前节点、再取消所有在飞 Advance + 等 drain 循环返回（R3 选项 C——免其继续
+// spawn 或撞 db.Close）→ trigger listener → chat 队列 → mcp / handler 常驻进程 → sandbox（杀消费者没杀干净的
+// spawned long-lived handle）→ shell 后台任务（run_in_background 子进程 + 整树，R1）→ flush 日志 → 关 DB
+// （checkpoint SQLite WAL）。每步 best-effort 记日志，一个卡死子系统不拖垮其余。
 func (a *App) Shutdown(ctx context.Context) {
 	if a.tickStop != nil {
-		a.tickStop()
+		a.tickStop() // no new ticks; the drain loop returns after its current tick's Advance
+	}
+	// R3 (option C): give an in-flight Advance a bounded grace to finish its CURRENT node — record-once
+	// makes a completed node durable, so the run resumes cleanly on the next boot. If the grace expires
+	// (a long node still mid-flight), cancel every in-flight Advance (drained AND manual :trigger) so it
+	// can't keep spawning subprocesses or race db.Close; the interrupted run records failed (:replay-able).
+	// R3 选项 C：给在飞 Advance 有限宽限跑完当前节点（record-once 持久化、下次 boot 干净续）；宽限超时（长节点在飞）则
+	// 取消所有在飞 Advance（drained + 手动 :trigger），免其继续 spawn 子进程或撞 db.Close；被打断的 run 记 failed、可 :replay。
+	if a.drainDone != nil {
+		grace := time.NewTimer(drainShutdownGrace)
+		select {
+		case <-a.drainDone: // the in-flight node finished within the grace — clean
+		case <-grace.C: // grace expired
+		case <-ctx.Done(): // overall shutdown deadline
+		}
+		grace.Stop()
+		a.svc.scheduler.Shutdown() // cancel any still-in-flight Advance (grace expired, or a manual :trigger run)
+		select {
+		case <-a.drainDone: // the interrupted loop returns
+		case <-ctx.Done():
+		}
 	}
 	a.svc.trigger.Shutdown()
 	a.svc.chat.Shutdown()

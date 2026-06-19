@@ -38,7 +38,7 @@ landed-into:
 - **修法**: Bring the embedder under the same crash-recovery contract as handlers/MCP. Minimal: after `cmd.Start()`, set `cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid:true}` (before Start) and record the PID in the sandbox running_pid manifest (or a dedicated engine manifest) so RestoreOrCleanupOnBoot kills a survivor on next boot; change Close() to pgroup-kill. Cleanest: route the spawn through sandbox.SpawnLongLived (it already gives pgroup kill + activeHandles tracking + running_pid manifest), so both the Shutdown safety-net AND boot-scan cover it for free — though llama-server isn't an 'env owner', so a lightweight dedicated PID-manifest entry may be simpler.
 - **复核**: Verified every claim against the code. (1) Raw spawn: engine.go:180-194 uses exec.Command + cmd.Start() with go func(){cmd.Wait()}(), NOT sandbox.SpawnLongLived — confirmed grep for Setpgid/SysProcAttr/SetEnvRunningPID/SpawnLongLived in internal/infra/search/ returns EMPTY. So the embedder is never in sandbox.activeHandles and has no running_pid row. (2) Boot-scan can't reach it: restore.go:17-50 RestoreOrCleanupOnBoot scans repo.ListEnvsWithRunningPID — since the embedder never calls SetEnvRunningPID (only SpawnLongLived does, spawn.go:74), there is no manifest row, so a survivor llama-server…
 
-## R3 [HIGH] (graceful-shutdown) — _pending_
+## R3 [HIGH] (graceful-shutdown) — ✅ FIXED (option C)
 
 **In-flight workflow Advance is never interrupted on shutdown; it spawns subprocesses on a never-cancelled detached context and races db.Close()**
 

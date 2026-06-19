@@ -49,6 +49,28 @@ func (s *Service) cancelInflight(flowrunID string) {
 	}
 }
 
+// Shutdown cancels EVERY in-flight advance so a backend shutdown can interrupt any run still wedged
+// mid-node after its grace window expires (R3, option C). Unlike KillWorkflow it does NOT mark runs
+// cancelled in the store — a shutdown is not a user kill: an interrupted node simply isn't memoized,
+// so the run records failed and a :replay resumes it from the last memoized node (a run whose node
+// finished within the grace stays running and boot recovery resumes it). No-op if nothing in flight.
+//
+// Shutdown 取消每个在飞 advance，使后端关停在宽限超时后能打断仍卡在节点中的 run（R3 选项 C）。不同于 KillWorkflow：
+// 不在 store 标 cancelled——关停非用户 kill：被打断的节点未记忆化、run 记 failed，:replay 从末个记忆化节点续；宽限内
+// 跑完节点的 run 保持 running、由 boot 恢复续跑。无在飞则 no-op。
+func (s *Service) Shutdown() {
+	s.inflightMu.Lock()
+	cancels := make([]context.CancelFunc, 0, len(s.inflight))
+	for id, cancel := range s.inflight {
+		cancels = append(cancels, cancel)
+		delete(s.inflight, id)
+	}
+	s.inflightMu.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
+}
+
 // KillWorkflow hard-stops a workflow's execution: every currently-running run is cancelled — its
 // in-progress advance interrupted via ctx (so a long agent / function returns at once), then its
 // header marked cancelled (first-wins; a run that finished in the same instant keeps its real

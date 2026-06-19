@@ -147,3 +147,24 @@ func TestKillWorkflow_InterruptsBlockedAgent(t *testing.T) {
 	}
 	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCancelled)
 }
+
+// TestService_Shutdown_CancelsAllInflight — R3: scheduler.Shutdown cancels EVERY in-flight advance's
+// ctx (so a backend shutdown interrupts runs wedged mid-node after the grace) and clears the registry.
+func TestService_Shutdown_CancelsAllInflight(t *testing.T) {
+	s := &Service{inflight: map[string]context.CancelFunc{}}
+	c1, _ := s.trackInflight(context.Background(), "fr_1")
+	c2, _ := s.trackInflight(context.Background(), "fr_2")
+
+	s.Shutdown()
+
+	for i, c := range []context.Context{c1, c2} {
+		select {
+		case <-c.Done():
+		case <-time.After(time.Second):
+			t.Fatalf("in-flight ctx %d not cancelled by Shutdown", i)
+		}
+	}
+	if len(s.inflight) != 0 {
+		t.Fatalf("inflight registry not cleared: %d entries", len(s.inflight))
+	}
+}
