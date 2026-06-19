@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -217,6 +218,18 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		input = map[string]any{}
 	}
 
+	// Scrub the platform's OWN injected sensitive config values from the persisted audit — a secret it
+	// gave __init__ may surface verbatim in a user-code exception URL or a print(); redact the value
+	// while keeping the rest of the trace debuggable. Cannot redact arbitrary user secrets, only these
+	// (F82, defense-in-depth — config-at-rest is encrypted + read-masked separately).
+	if inst != nil && len(inst.SecretValues) > 0 {
+		errMsg = scrubSecrets(errMsg, inst.SecretValues)
+		logs = scrubSecrets(logs, inst.SecretValues)
+		if out, ok := result.(string); ok {
+			result = scrubSecrets(out, inst.SecretValues)
+		}
+	}
+
 	// Provenance comes off ctx: chat identity (conversation/message/toolCall) from the loop,
 	// flowrun identity from the scheduler's dispatch injection — whichever path ran us.
 	// 溯源取自 ctx：chat 身份（conversation/message/toolCall）来自 loop，flowrun 身份来自调度器
@@ -255,6 +268,20 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		s.log.Warn("handlerapp.recordCall: save failed (best-effort)",
 			zap.String("handlerId", h.ID), zap.String("method", in.Method), zap.Error(err))
 	}
+}
+
+// scrubSecrets masks every known injected sensitive config value in s — the platform redacts its OWN
+// injected secrets from the call audit (a value it gave __init__ that user code leaked into a
+// traceback / print), keeping the rest of the trace intact. No-op when secrets is empty (F82).
+//
+// scrubSecrets 把 s 里每个已知的平台注入 sensitive config 值掩成 ********——保留其余 trace。空即原样（F82）。
+func scrubSecrets(s string, secrets []string) string {
+	for _, sec := range secrets {
+		if sec != "" {
+			s = strings.ReplaceAll(s, sec, "********")
+		}
+	}
+	return s
 }
 
 // triggerFromCtx derives the execution body: a subagent context means an agent run,

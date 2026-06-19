@@ -171,6 +171,57 @@ func TestCreate_NoEagerSpawn(t *testing.T) {
 	}
 }
 
+// TestScrubSecrets — F82: the platform's injected sensitive config value is masked in the call audit
+// (a secret user code leaked into a traceback / print), while the rest of the trace stays intact.
+func TestScrubSecrets(t *testing.T) {
+	got := scrubSecrets("HTTPError: GET https://api.example.com/x?appid=sk-SECRET123&q=1 failed", []string{"sk-SECRET123"})
+	if strings.Contains(got, "sk-SECRET123") {
+		t.Fatalf("secret not scrubbed: %q", got)
+	}
+	if !strings.Contains(got, "********") || !strings.Contains(got, "HTTPError") {
+		t.Fatalf("scrub must mask the secret AND keep the rest of the trace: %q", got)
+	}
+	if scrubSecrets("plain text", nil) != "plain text" {
+		t.Fatal("no secrets should be a no-op")
+	}
+}
+
+// TestCall_ScrubsLeakedSecretInAudit — F82 end-to-end wiring: a sensitive api_key the platform
+// injected into __init__, if user code leaks it verbatim into a call error, must be masked in the
+// persisted call audit (captured at spawn into Instance.SecretValues, scrubbed in recordCall).
+func TestCall_ScrubsLeakedSecretInAudit(t *testing.T) {
+	svc, _, cl, ctx := newSvc(t)
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "leaky", true)}) // reqArg=true → sensitive api_key
+	if err := svc.UpdateConfig(ctx, h.ID, map[string]any{"api_key": "sk-LEAKED-789"}); err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	// Warm call spawns the instance, capturing the decrypted api_key into Instance.SecretValues.
+	if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+		t.Fatalf("warm call: %v", err)
+	}
+	// Now user code leaks the secret verbatim in an exception message.
+	cl.clients[len(cl.clients)-1].callErr = errors.New("RequestError: GET https://api/x?key=sk-LEAKED-789 -> 401")
+	_, _ = svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}})
+
+	page, _ := svc.SearchCalls(ctx, handlerdomain.CallFilter{HandlerID: h.ID})
+	failed := false
+	for _, c := range page.Calls {
+		if c.Status != handlerdomain.CallStatusFailed {
+			continue
+		}
+		failed = true
+		if strings.Contains(c.ErrorMessage, "sk-LEAKED-789") {
+			t.Fatalf("leaked secret NOT scrubbed from the call audit: %q", c.ErrorMessage)
+		}
+		if !strings.Contains(c.ErrorMessage, "********") {
+			t.Fatalf("the secret should be masked, keeping the rest: %q", c.ErrorMessage)
+		}
+	}
+	if !failed {
+		t.Fatal("no failed call recorded")
+	}
+}
+
 func TestCall_SpawnsRecordsReuses(t *testing.T) {
 	svc, runner, cl, ctx := newSvc(t)
 	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "a", false)})

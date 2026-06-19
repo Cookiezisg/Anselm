@@ -26,6 +26,12 @@ type Instance struct {
 	Client    handlerinfra.Client
 	Kill      func() error
 	Stderr    *stderrFan
+	// SecretValues holds the decrypted values of this version's sensitive init-args, captured at spawn
+	// so recordCall can scrub the platform's OWN injected secrets from the call audit (error/logs/
+	// output) if user code leaks one into a traceback or print — defense-in-depth (F82).
+	// SecretValues 持本版本 sensitive init-arg 的解密值（spawn 时捕获），供 recordCall 把平台自注入密钥从
+	// 调用审计（error/logs/output）抹掉——若用户代码把它泄进 traceback/print（防御纵深，F82）。
+	SecretValues []string
 }
 
 // spawnFn builds a fresh resident Instance for handlerID (load active version + config,

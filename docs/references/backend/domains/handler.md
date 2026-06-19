@@ -68,7 +68,7 @@ stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`retur
 
 ### 调用与记账（`Call`）
 
-resolve handler → 解析 method spec（校验 + timeout）→ `manager.Get`（懒 spawn）→ **一律 `StreamCall`**（非流式 method 无 yield 自然退化为普通返回）：yield 三写到 entities run 终端 + 调用方 progress sink + 限长 logtail；调用窗口同时在实例 stderr 扇出上挂 sink（print()/日志 → chat progress + run 终端 + logtail，**窗口归属**：同实例并发调用各收各窗口的行、明示可能串扰；收尾留 30ms stderr 宽限——stdout/stderr 两管道乱序，先于 return 写出的 print 可能后到）→ `recordCall`（Detached ctx，best-effort；溯源 5 列从 ctx 读，同 function；`logs` 随行落盘，List 置空、单条 Get 携带）。TriggeredBy 空时按 ctx 推（subagent→agent，否则 chat）。
+resolve handler → 解析 method spec（校验 + timeout）→ `manager.Get`（懒 spawn）→ **一律 `StreamCall`**（非流式 method 无 yield 自然退化为普通返回）：yield 三写到 entities run 终端 + 调用方 progress sink + 限长 logtail；调用窗口同时在实例 stderr 扇出上挂 sink（print()/日志 → chat progress + run 终端 + logtail，**窗口归属**：同实例并发调用各收各窗口的行、明示可能串扰；收尾留 30ms stderr 宽限——stdout/stderr 两管道乱序，先于 return 写出的 print 可能后到）→ `recordCall`（Detached ctx，best-effort；溯源 5 列从 ctx 读，同 function；**记账前把本实例 sensitive init-arg 的解密值从 error/logs/output 掩成 `********`**——平台抹自己注入密钥的防御纵深（用户代码若把它泄进 traceback/print；只能抹平台已知的注入密钥、非任意用户密钥；config-at-rest 加密 + 读时掩码另算，F82）；`logs` 随行落盘，List 置空、单条 Get 携带）。TriggeredBy 空时按 ctx 推（subagent→agent，否则 chat）。
 
 ## 5. 关键设计决策
 

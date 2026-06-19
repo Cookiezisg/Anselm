@@ -54,6 +54,18 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 	// 防住所有漂移来源，且无需改写存储的 config。
 	config = filterConfigToSchema(config, active.InitArgsSchema)
 
+	// Capture the decrypted sensitive init-arg values so recordCall can scrub the platform's OWN
+	// injected secrets from the call audit (error/logs/output) if user code leaks one — F82.
+	// 捕获 sensitive init-arg 的解密值，供 recordCall 把平台自注入密钥从调用审计抹掉（若用户代码泄漏）——F82。
+	var secretVals []string
+	for _, arg := range active.InitArgsSchema {
+		if arg.Sensitive {
+			if sv, ok := config[arg.Name].(string); ok && sv != "" {
+				secretVals = append(secretVals, sv)
+			}
+		}
+	}
+
 	if active.EnvStatus != handlerdomain.EnvStatusReady {
 		if ready, errMsg := s.ensureEnv(ctx, active, nil); !ready {
 			return nil, fmt.Errorf("handlerapp.spawnInstance: %s: %w", errMsg, handlerdomain.ErrEnvNotReady)
@@ -86,12 +98,13 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 	}
 
 	return &Instance{
-		ID:        newInstanceID(),
-		HandlerID: handlerID,
-		VersionID: active.ID,
-		Client:    client,
-		Kill:      handle.Kill,
-		Stderr:    fan,
+		ID:           newInstanceID(),
+		HandlerID:    handlerID,
+		VersionID:    active.ID,
+		Client:       client,
+		Kill:         handle.Kill,
+		Stderr:       fan,
+		SecretValues: secretVals,
 	}, nil
 }
 
