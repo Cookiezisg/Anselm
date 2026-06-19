@@ -107,8 +107,14 @@ func (b *Bus) Publish(ctx context.Context, e streamdomain.Event) (streamdomain.E
 		select {
 		case s.ch <- env:
 		case <-s.done:
-		case <-ctx.Done():
-			return env, ctx.Err()
+		default:
+			// R5: a FULL durable buffer means a wedged/slow client — durable frames are low-rate, so a
+			// full buffer is real wedging, not a token-rate burst. Disconnect it instead of blocking the
+			// whole workspace's fan-out (and piling up every other publisher on st.mu) forever waiting on
+			// a client that may never read; it reconnects and replays the missed seq from the ring (or
+			// re-fetches via REST on SEQ_TOO_OLD). closed.Once is shared with the unsubscribe path, so the
+			// close is idempotent. The event is already durably in the ring above, so delivery is best-effort.
+			s.closed.Do(func() { close(s.done) })
 		}
 	}
 	return env, nil

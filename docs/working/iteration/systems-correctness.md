@@ -62,7 +62,7 @@ landed-into:
 - **修法**: Add a handler-spawn/Init timeout (mirror MCP's connectTimeout). In spawnInstance, before client.Init, wrap: `ctx, cancel := context.WithTimeout(ctx, handlerInitTimeout); defer cancel()` (e.g. a new limits.Timeout.HandlerInitSec or a 30–60s const), so a hung __init__ surfaces as ErrInstanceSpawnFailed and `handle.Kill()` (spawn.go:96) reaps the subprocess. Independently, fix the goroutine leak in infra/handler/client.go readMessage: the inner ReadString goroutine outlives a ctx-cancelled call until the process emits a byte — acceptable only because fail()→crashed triggers a later Kill, but on the Boot path nothing kills it; bounding Init (above) makes the Kill happen, closing both leaks.
 - **复核**: Verified against the actual code. The mechanism is real and triggerable: spawn.go:95 client.Init runs synchronously over stdio RPC; infra/handler/client.go:206-232 readMessage blocks on <-resCh with the only escape being <-ctx.Done(); on the Boot path the ctx is reqctxpkg.Detached(ws.ID) = SetWorkspaceID(context.Background(),…) (workspace.go:61-63) which is never cancelled and has no deadline. grep confirms the ONLY WithTimeout/WithDeadline in internal/{app,infra}/handler is call.go:76, gated on spec.Timeout>0 and only on the per-method CALL path, not Boot. The asymmetry with MCP is real: mcp.…
 
-## R5 [HIGH] (channel-deadlock) — _pending_
+## R5 [HIGH] (channel-deadlock) — ✅ FIXED
 
 **Durable SSE Publish on a never-cancelling Detached context blocks forever behind one wedged (connected-but-not-reading) client, freezing the whole workspace stream bus**
 

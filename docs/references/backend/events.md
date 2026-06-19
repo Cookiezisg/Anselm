@@ -16,7 +16,7 @@ audience: [human, ai]
 
 ## Frame 协议与 node.type 词表（非穷举）
 
-三流共用统一帧 envelope `{seq, scope:{kind,id}, id, frame}`，`frame` 是四动词封闭联合。`durable` 报告该帧是否进 replay 环（重连可重建）；`seq=0` = ephemeral、不入 buffer、不产生背压。
+三流共用统一帧 envelope `{seq, scope:{kind,id}, id, frame}`，`frame` 是四动词封闭联合。`durable` 报告该帧是否进 replay 环（重连可重建）；`seq=0` = ephemeral、不入 buffer、不产生背压。**durable 帧入订阅者 buffer（`bufSize+256`）；buffer 满 = 客户端卡死（durable 低频、满即真卡）→ 发布方断开该订阅者（关 `done`、幂等）、它重连并从环重放（缺口超环走 REST 重取）——绝不让一个卡死客户端永久卡住整工作区扇出 + 堆积所有 producer（R5）。**
 
 | 动词 | durable | 说明 |
 |---|---|---|

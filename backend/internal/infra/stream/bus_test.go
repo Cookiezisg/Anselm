@@ -4,10 +4,39 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
+
+// TestBus_DurablePublishDisconnectsWedgedSubscriber — R5: a subscriber that stops reading (wedged)
+// must NOT block durable Publish forever holding st.mu; the publisher disconnects it once its buffer
+// fills. Before the fix Publish blocked on `s.ch <- env` indefinitely (one wedged client froze the
+// whole workspace's stream + piled up every other publisher).
+func TestBus_DurablePublishDisconnectsWedgedSubscriber(t *testing.T) {
+	b := New(16)
+	ctx := wsCtx("ws1")
+	ch, cancel, err := b.Subscribe(ctx, 0)
+	if err != nil {
+		t.Fatalf("subscribe: %v", err)
+	}
+	defer cancel()
+	_ = ch // deliberately never read → wedge the subscriber
+
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 16+subscriberHeadroom+10; i++ { // fill the buffer, then overflow
+			_, _ = b.Publish(ctx, durableEvent())
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("durable Publish blocked on a wedged subscriber (R5 not fixed)")
+	}
+}
 
 func wsCtx(id string) context.Context {
 	return reqctxpkg.SetWorkspaceID(context.Background(), id)
