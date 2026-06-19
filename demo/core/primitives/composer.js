@@ -41,12 +41,15 @@
       .chip .x:hover { background: var(--island-4); color: var(--ink); }
       .chip .x svg { width: var(--icon-sm); height: var(--icon-sm); }
 
-      /* 单行：左钮组 + edit(flex) + 右钮组 同行；align-items:flex-end → 多行时 edit 向上长高、左右钮贴底（ChatGPT 式） */
-      .row { display: flex; align-items: flex-end; gap: var(--grid); padding: var(--grid) var(--sp-2) var(--sp-2); }
-      .row .lead, .row .tail { display: inline-flex; align-items: center; gap: var(--grid); flex: none; }
+      /* 单行：[lead][edit][tail] 一行、垂直居中。多行：edit 占整行在上、钮组下移成一行（左 lead · 右 tail）——ChatGPT 式 reflow，靠 grid-template-areas 切换（multiline attr 由高度判定）。 */
+      .row { display: grid; grid-template-columns: auto minmax(var(--zero), 1fr) auto; grid-template-areas: "lead edit tail";
+        align-items: center; column-gap: var(--grid); row-gap: var(--sp-2); padding: var(--sp-2); }
+      :host([multiline]) .row { grid-template-areas: "edit edit edit" "lead . tail"; }
+      .row .lead { grid-area: lead; } .row .tail { grid-area: tail; justify-self: end; }
+      .row .lead, .row .tail { display: inline-flex; align-items: center; gap: var(--grid); }
       /* contenteditable 编辑区：flex 独吞中段、多行自增、超 6 行内滚（无 native gutter）；空态占位 */
       .edit {
-        flex: 1; min-width: var(--zero); outline: none; padding: var(--sp-2) var(--zero);
+        grid-area: edit; min-width: var(--zero); outline: none; padding: var(--zero);
         font-size: var(--t-body); line-height: var(--lh-ui); color: var(--ink);
         min-height: calc(var(--t-body) * var(--lh-ui)); max-height: calc(var(--row) * 6);
         overflow-y: auto; overflow-wrap: anywhere; scrollbar-width: none; -ms-overflow-style: none;
@@ -83,6 +86,7 @@
       const rCard = parseFloat(cs.getPropertyValue("--r-card")) || 16;
       const h = box.offsetHeight; if (!h) return;
       const minH = this._minH || (this._minH = h);            // connect 时单行 box 高 = 药丸基线
+      this.toggleAttribute("multiline", h - minH > 6);         // 换行后 = 多行（贴底对齐）；单行 = 居中
       const targetH = minH + (parseFloat(cs.getPropertyValue("--row")) || 32) * 2;   // +2 行即达 box 阈值
       const t = Math.min(1, Math.max(0, (h - minH) / (targetH - minH)));
       box.style.borderRadius = ((minH / 2) + (rCard - minH / 2) * t) + "px";
@@ -112,6 +116,9 @@
       this._renderChips();
       // 布局后首算：锁单行 box 高（radius 演变基线 minH）+ 同步发送钮显隐
       requestAnimationFrame(() => { this._updateRadius(); this._syncHasInput(); });
+      // 点 box 空白处（非钮/chip/药丸/edit 本体）→ 聚焦编辑区（edit 居中后比 box 矮，留白处也要能聚焦）
+      const box = this.$(".box");
+      if (box) box.addEventListener("mousedown", (ev) => { if (ev.target.closest("an-button, an-ref-pill, .chip, .edit")) return; ev.preventDefault(); ed.focus(); });
 
       // @ 提及（复用地基 AnMention：「@」起会话 + 工具栏钮 pick；shadow 内取 shadowRoot 选区）
       this._mention = window.AnMention.attach(ed, {
