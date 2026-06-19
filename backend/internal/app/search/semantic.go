@@ -36,11 +36,13 @@ type StatusReporter interface {
 }
 
 // ProviderCloser is the optional shutdown capability (the builtin engine stops
-// its subprocess).
+// its subprocess). Close takes a ctx so shutdown stays bounded even if a
+// first-demand model download is in flight (R14).
 //
-// ProviderCloser 是可选关停能力（builtin 引擎停其子进程）。
+// ProviderCloser 是可选关停能力（builtin 引擎停其子进程）。Close 收 ctx，使首用模型
+// 下载在飞时关停仍有界（R14）。
 type ProviderCloser interface {
-	Close()
+	Close(ctx context.Context)
 }
 
 // SetEmbeddingProviders wires the builtin adapter + the Ollama factory (bootstrap). The
@@ -160,6 +162,33 @@ func (c *vecCache) invalidate(ws string) {
 	}
 }
 
+// patch folds the just-written vectors into a LOADED ws cache instead of dropping
+// it — steady-state indexing (every entity edit kicks a backfill) otherwise nukes
+// the whole ws entry, forcing the next search to re-scan + re-decode every BLOB on
+// the single pinned connection (R15 contention). If the ws/model is not cached
+// (never loaded, or just invalidated), patch is a no-op: the next get() loads the
+// full set fresh — never seed a PARTIAL entry that a cache hit would treat as whole.
+//
+// patch 把刚写入的向量并入**已加载**的 ws 缓存而非丢弃——稳态索引（每次实体编辑都 kick
+// 补算）否则整体作废 ws 项、逼下次搜索在单连接上重扫+重解全部 BLOB（R15 争用）。ws/model
+// 未缓存（从未加载/刚失效）时 patch 为 no-op：下次 get() 重载全集——绝不种下会被命中误当
+// 全集的**部分**项。
+func (c *vecCache) patch(ws, model string, vecs map[string][]float32) {
+	if len(vecs) == 0 {
+		return
+	}
+	key := ws + "\x00" + model
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cur, ok := c.data[key]
+	if !ok {
+		return // not loaded — get() will read the full set incl. these rows. 未加载——get() 会读全集含这些行。
+	}
+	for id, v := range vecs {
+		cur[id] = v
+	}
+}
+
 // --- embed backfill worker ----------------------------------------------------
 
 // kickEmbed schedules a workspace for vector backfill (non-blocking; a full
@@ -198,7 +227,13 @@ func (s *Service) backfill(ws string) {
 		return
 	}
 	model := prov.Model()
-	wrote := false
+	// Accumulate what we wrote so the cache is PATCHED incrementally, not nuked —
+	// nuking forces the next search to re-scan every workspace BLOB on the single
+	// connection (R15). A wholesale invalidate stays the right call for purge /
+	// reindex / embedder switch, where the whole vector set genuinely changes.
+	// 累计已写向量以**增量 patch** 缓存而非作废——作废逼下次搜索在单连接上重扫全部 BLOB
+	// （R15）。purge/reindex/换 embedder 仍走整体 invalidate（向量全集确实变了）。
+	written := map[string][]float32{}
 	for {
 		select {
 		case <-s.embedQuit:
@@ -224,17 +259,29 @@ func (s *Service) backfill(ws string) {
 			s.log.Info("search embed: provider unavailable, staying lexical", zap.Error(err))
 			break
 		}
+		// Track per-batch persistence: if a whole batch fails to write (disk full,
+		// corrupt table, a wedged write holding the single conn), MissingEmbeddings
+		// returns the SAME rows next pass — re-embedding them forever is a hot loop
+		// burning CPU + the embedder. Abort the round on a fully-failed batch; the
+		// next kick retries (same contract as the Embed-error path above) (R9).
+		// 跟踪逐批落盘：整批写失败（盘满/表损/写卡死占用单连接），MissingEmbeddings 下轮
+		// 返回同一批——无限重嵌即烧 CPU+embedder 的热循环。整批失败即中止本轮、下次 kick
+		// 重试（与上方 Embed 错误路径同约）（R9）。
+		wroteThisBatch := false
 		for i, d := range missing {
 			if err := s.repo.UpsertEmbedding(ctx, d.DocID, model, vecs[i]); err != nil {
 				s.log.Warn("search embed: upsert failed", zap.String("doc", d.DocID), zap.Error(err))
 			} else {
-				wrote = true
+				written[d.DocID], wroteThisBatch = vecs[i], true
 			}
 		}
+		if !wroteThisBatch {
+			s.log.Warn("search embed: batch fully failed to persist; aborting backfill round, next kick retries",
+				zap.String("ws", ws), zap.Int("dropped", len(missing)))
+			break
+		}
 	}
-	if wrote {
-		s.vectors.invalidate(ws)
-	}
+	s.vectors.patch(ws, model, written)
 }
 
 func embedText(title, body string) string {

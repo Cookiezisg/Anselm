@@ -105,7 +105,7 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 
 | 表 | 关键列 | 约束/索引 |
 |---|---|---|
-| `search_docs` | workspace_id · entity_type(CHECK 12 类) · entity_id · chunk_no · anchor（message_id/方法名/工具名/标题链/节点 id）· title · body · tags(json) · archived | UNIQUE(ws,entity_type,entity_id,chunk_no)；ws+entity 索引 |
+| `search_docs` | workspace_id · entity_type(CHECK 12 类) · entity_id · chunk_no · anchor（message_id/方法名/工具名/标题链/节点 id）· title · body · tags(json) · archived | UNIQUE(ws,entity_type,entity_id,chunk_no)；`idx_sd_ws_entity`(ws,entity_type,entity_id)；`idx_sd_ws_updated`(ws,updated_at)——服务补算扫描/LIKE 回退的 `ORDER BY updated_at LIMIT` 走索引区间扫而非全表 filesort（R12） |
 | `search_fts` | FTS5 **external-content 虚表**（content=search_docs，`tokenize='trigram'`，title/body 两列）+ 三触发器（AI/AD/AU）构造性同步 | bm25 权重 title:body=4:1 在查询侧 |
 | `search_meta` | key/value：`fts_schema_version`（不匹配→boot 清空重建）· `embedder`（builtin\|ollama\|off，空=builtin，机器级） | PK(key) |
 | `search_embeddings` | doc_id(=search_docs.id) · model · dims · vector(BLOB float32 LE)——model 逐行记账，换 embedder 旧向量直接可辨失效 | PK(doc_id) |

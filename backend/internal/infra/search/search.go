@@ -52,6 +52,13 @@ var Schema = []string{
 		UNIQUE(workspace_id, entity_type, entity_id, chunk_no)
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_sd_ws_entity ON search_docs(workspace_id, entity_type, entity_id)`,
+	// idx_sd_ws_updated serves the `WHERE workspace_id=? ... ORDER BY updated_at DESC LIMIT ?`
+	// shape (MissingEmbeddings' embed-backfill scan, the LIKE fallback) as an index range scan
+	// instead of a full-table filesort fired on EVERY indexed write (R12 disk-io amplification).
+	//
+	// idx_sd_ws_updated 让 `WHERE workspace_id=? ... ORDER BY updated_at DESC LIMIT ?` 形（补算扫描
+	// MissingEmbeddings、LIKE 回退）走索引区间扫而非每次写都触发的全表 filesort（R12 磁盘 I/O 放大）。
+	`CREATE INDEX IF NOT EXISTS idx_sd_ws_updated ON search_docs(workspace_id, updated_at)`,
 	`CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
 		title, body, content='search_docs', content_rowid='rowid', tokenize='trigram')`,
 	`CREATE TRIGGER IF NOT EXISTS search_docs_ai AFTER INSERT ON search_docs BEGIN

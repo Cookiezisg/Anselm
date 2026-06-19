@@ -30,7 +30,7 @@ func TestBuild_SearchEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	defer app.svc.search.Close()
+	defer app.svc.search.Close(context.Background())
 
 	ws, err := app.svc.workspace.Create(context.Background(), workspaceapp.CreateInput{Name: "搜索测试"})
 	if err != nil {
@@ -100,7 +100,7 @@ func TestBuild_SearchHTTPSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	defer app.svc.search.Close()
+	defer app.svc.search.Close(context.Background())
 	srv := httptest.NewServer(app.Handler)
 	defer srv.Close()
 
@@ -166,7 +166,7 @@ func TestBuild_SearchSettingsSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	defer app.svc.search.Close()
+	defer app.svc.search.Close(context.Background())
 	srv := httptest.NewServer(app.Handler)
 	defer srv.Close()
 

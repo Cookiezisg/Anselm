@@ -245,6 +245,43 @@ func TestEntityStampsAndMeta(t *testing.T) {
 	}
 }
 
+// TestMissingEmbeddings_UsesUpdatedAtIndex — R12: the embed-backfill scan
+// (`WHERE workspace_id=? ... ORDER BY updated_at DESC LIMIT ?`) fires on every
+// indexed write; without idx_sd_ws_updated SQLite filesorts the whole table.
+// EXPLAIN QUERY PLAN must show the index covers the ORDER BY (no "USE TEMP
+// B-TREE FOR ORDER BY").
+func TestMissingEmbeddings_UsesUpdatedAtIndex(t *testing.T) {
+	s := newStore(t)
+	rows, err := s.db.Query(context.Background(),
+		`EXPLAIN QUERY PLAN
+		 SELECT d.id, d.title, d.body FROM search_docs d
+		 LEFT JOIN search_embeddings e ON e.doc_id = d.id AND e.model = ?
+		 WHERE d.workspace_id = ? AND e.doc_id IS NULL
+		 ORDER BY d.updated_at DESC LIMIT ?`,
+		"m1", "ws_a", 32)
+	if err != nil {
+		t.Fatalf("explain: %v", err)
+	}
+	defer rows.Close()
+	var plan strings.Builder
+	for rows.Next() {
+		var id, parent, notused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &notused, &detail); err != nil {
+			t.Fatalf("scan plan: %v", err)
+		}
+		plan.WriteString(detail)
+		plan.WriteString("\n")
+	}
+	got := plan.String()
+	if !strings.Contains(got, "idx_sd_ws_updated") {
+		t.Fatalf("backfill scan must use idx_sd_ws_updated, plan was:\n%s", got)
+	}
+	if strings.Contains(got, "USE TEMP B-TREE FOR ORDER BY") {
+		t.Fatalf("ORDER BY must be served by the index, not a filesort, plan was:\n%s", got)
+	}
+}
+
 func count(t *testing.T, s *Store, ctx context.Context, q string) int {
 	t.Helper()
 	hits, err := s.SearchLexical(ctx, lexical(q))

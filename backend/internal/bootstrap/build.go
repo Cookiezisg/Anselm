@@ -377,7 +377,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	}
 	a.svc.trigger.Shutdown()
 	a.svc.chat.Shutdown()
-	a.svc.search.Close()
+	a.svc.search.Close(ctx) // bounded by the shutdown ctx — a first-demand model download can't stall shutdown (R14)
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)
 	if err := a.svc.sandbox.Shutdown(ctx); err != nil {

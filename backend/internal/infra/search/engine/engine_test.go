@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fakeOpenAI serves /v1/embeddings in the OpenAI shape llama-server emits.
@@ -70,6 +71,63 @@ type failEnsurer struct{}
 
 func (failEnsurer) EnsureTool(context.Context, string, string) (string, error) {
 	return "", context.DeadlineExceeded
+}
+
+// slowEnsurer blocks EnsureTool until its ctx is cancelled — a stand-in for a
+// first-demand model download in flight. Signals once it is actually inside the
+// call (so the test knows ensureRunning is holding b.mu).
+//
+// slowEnsurer 阻塞 EnsureTool 直到 ctx 取消——模拟在飞的首用下载。进入调用即发信号
+// （让测试知道 ensureRunning 已持 b.mu）。
+type slowEnsurer struct {
+	entered  chan struct{}
+	released chan struct{}
+}
+
+func (s *slowEnsurer) EnsureTool(ctx context.Context, _, _ string) (string, error) {
+	close(s.entered)
+	<-ctx.Done() // unblocks only when Close cancels the install ctx (R14)
+	close(s.released)
+	return "", ctx.Err()
+}
+
+// TestBuiltin_CloseBoundedDuringDownload — R14: Close must return promptly even
+// while ensureRunning holds b.mu across a (simulated long) first-demand download.
+// Close aborts the install ctx so ensureRunning unwinds and releases b.mu; Close
+// itself must not block on App.Shutdown's deadline.
+func TestBuiltin_CloseBoundedDuringDownload(t *testing.T) {
+	ens := &slowEnsurer{entered: make(chan struct{}), released: make(chan struct{})}
+	b := NewBuiltin(ens, nil)
+
+	// Drive ensureRunning into the download (it now holds b.mu inside EnsureTool).
+	// 把 ensureRunning 推进到下载（此刻它在 EnsureTool 内持 b.mu）。
+	go func() { _, _ = b.Embed(context.Background(), []string{"x"}) }()
+	select {
+	case <-ens.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("ensureRunning never reached the download")
+	}
+
+	// Close with a deadline that is shorter than the (infinite) download. It must
+	// return well within the test budget — the abort cancels the install ctx.
+	// 用比（无限）下载短的 deadline 调 Close，必须在预算内返回——中止取消安装 ctx。
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	done := make(chan struct{})
+	go func() { b.Close(ctx); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Close blocked on the in-flight download (R14 unbounded shutdown)")
+	}
+
+	// The abort must have propagated: the stuck EnsureTool unblocked and returned.
+	// 中止须已传播：卡住的 EnsureTool 解阻并返回。
+	select {
+	case <-ens.released:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Close did not abort the in-flight install ctx (R14)")
+	}
 }
 
 func TestOllama_EmbedShape(t *testing.T) {

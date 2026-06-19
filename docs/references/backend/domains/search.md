@@ -34,10 +34,10 @@ audience: [human, ai]
 
 ## 语义层（默认混合）
 
-- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，六平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、Close 优雅停；**持久化 pid 到 `runtimes/llamasrv/embedder.pid`、下次 spawn best-effort 回收上次非优雅退出（kill-9/崩溃/OOM/IDE 停/断电 绕过 Close）残留的 ~2GB 孤儿**（R2，对标 sandbox boot 扫描）；`Ollama` = 本机 `/api/embed` 复用其模型库。
+- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，六平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、**Close(ctx) 由关停 ctx 限界**（撞上首用下载途中即中止安装 ctx 令 ensureRunning 释放锁、不把 App.Shutdown 及 db.Close 阻塞在 ~600MB 下载上，R14）；**持久化 pid 到 `runtimes/llamasrv/embedder.pid`、下次 spawn best-effort 回收上次非优雅退出（kill-9/崩溃/OOM/IDE 停/断电 绕过 Close）残留的 ~2GB 孤儿**（R2，对标 sandbox boot 扫描）；`Ollama` = 本机 `/api/embed` 复用其模型库。
 - **配置**：机器级 search_meta 三键——`embedder = builtin|ollama|off`（空=builtin）+ `ollama_base_url`/`ollama_model`（空=域默认 `127.0.0.1:11434`/`embeddinggemma`，权威在 `searchdomain.DefaultOllama*`），经 `GET/PATCH /search/settings`；Ollama 适配器由 bootstrap 注入工厂、参数变化即重建（app 不 import engine）；**检索模式无配置**——恒混合、降级自动。
-- **补算**：独立 embed worker（与索引 worker 分离，下载/嵌入绝不阻塞 FTS）；索引写成功与 boot 对账后 kick；缺生效模型向量的行批 ≤32 补嵌（title+body，CapRunes）；provider 出错停本轮等下次 kick。
-- **融合**：查询时 provider 在场且向量就绪 → 余弦相似度**过 `cosineFloor`(0.7) 才纳入**（embeddinggemma 基线相似度高——无关文本也 ~0.5-0.63，**无相关性下限则无匹配/乱码 query 会按余弦噪声灌全 workspace**；实测乱码 top ≤0.63、真相关命中 ≥0.81、0.7 落在空隙——F80）的 top-100 与词法窗口（≤200=fusionWindow）做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存，upsert/purge/切换失效。
+- **补算**：独立 embed worker（与索引 worker 分离，下载/嵌入绝不阻塞 FTS）；索引写成功与 boot 对账后 kick；缺生效模型向量的行批 ≤32 补嵌（title+body，CapRunes）；provider 出错停本轮等下次 kick；**整批 upsert 全失败（盘满/表损/写卡死）即中止本轮——否则同批行仍缺、下轮重取即无限重嵌热循环（R9）**，下次 kick 重试。
+- **融合**：查询时 provider 在场且向量就绪 → 余弦相似度**过 `cosineFloor`(0.7) 才纳入**（embeddinggemma 基线相似度高——无关文本也 ~0.5-0.63，**无相关性下限则无匹配/乱码 query 会按余弦噪声灌全 workspace**；实测乱码 top ≤0.63、真相关命中 ≥0.81、0.7 落在空隙——F80）的 top-100 与词法窗口（≤200=fusionWindow）做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存：补算把刚写入的向量**增量 patch 进已加载缓存**（不整体作废——否则每次实体编辑 kick 补算都丢整 ws 项、逼下次搜索在单连接上重扫全部 BLOB，R15），purge/reindex/换 embedder 才整体 invalidate（向量全集确实变了）。
 - **换 embedder**：`search_embeddings.model` 逐行记账——旧模型行对新模型即「缺向量」，自动重嵌，绝不混用。
 
 ## 关键不变量

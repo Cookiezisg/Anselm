@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,11 +29,14 @@ type fakeRepo struct {
 	purged   []string
 	purgeGo  chan struct{} // non-nil → PurgeWorkspace blocks until closed. 非 nil → PurgeWorkspace 阻塞到关闭。
 
-	embedded   map[string][]float32 // key: model/docID
-	embedQueue []searchdomain.EmbedDoc
-	docsByID   map[string]*searchdomain.DocHit
-	bodies     map[string]string
-	blockRows  []*searchdomain.DocHit
+	embedded     map[string][]float32 // key: model/docID
+	embedQueue   []searchdomain.EmbedDoc
+	docsByID     map[string]*searchdomain.DocHit
+	bodies       map[string]string
+	blockRows    []*searchdomain.DocHit
+	upsertFail   bool  // true → UpsertEmbedding always errors. true → UpsertEmbedding 恒错。
+	upsertEmbeds int32 // count of UpsertEmbedding calls. UpsertEmbedding 调用计数。
+	wsVecScans   int32 // count of WorkspaceVectors full scans. WorkspaceVectors 全扫计数。
 }
 
 func newFakeRepo() *fakeRepo {
@@ -273,7 +277,7 @@ func TestIndexer_ChangedRoutesFullAndIncremental(t *testing.T) {
 	svc := NewService(repo, nil)
 	svc.RegisterSource(src)
 	svc.Start(nil)
-	defer svc.Close()
+	defer svc.Close(context.Background())
 
 	// Full re-projection.
 	// 整体重投影。
@@ -324,7 +328,7 @@ func TestIndexer_ReconcileDiffsAndOrphans(t *testing.T) {
 	svc := NewService(repo, nil)
 	svc.RegisterSource(src)
 	svc.Start([]string{"ws_a"})
-	defer svc.Close()
+	defer svc.Close(context.Background())
 
 	waitFor(t, func() bool {
 		repo.mu.Lock()
@@ -349,7 +353,7 @@ func TestReindex_ConflictWhileRunning(t *testing.T) {
 	repo.purgeGo = make(chan struct{})
 	svc := NewService(repo, nil)
 	svc.Start(nil)
-	defer svc.Close()
+	defer svc.Close(context.Background())
 
 	if err := svc.Reindex(ctxWS("ws_a")); err != nil {
 		t.Fatalf("first reindex: %v", err)
@@ -405,8 +409,12 @@ func TestSearchBlocks_PaletteSemantics(t *testing.T) {
 // --- semantic-layer fakes ----------------------------------------------------
 
 func (f *fakeRepo) UpsertEmbedding(_ context.Context, docID, model string, vec []float32) error {
+	atomic.AddInt32(&f.upsertEmbeds, 1)
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.upsertFail {
+		return errors.New("disk full")
+	}
 	if f.embedded == nil {
 		f.embedded = map[string][]float32{}
 	}
@@ -431,6 +439,7 @@ func (f *fakeRepo) MissingEmbeddings(_ context.Context, model string, limit int)
 }
 
 func (f *fakeRepo) WorkspaceVectors(_ context.Context, model string) (map[string][]float32, error) {
+	atomic.AddInt32(&f.wsVecScans, 1)
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := map[string][]float32{}
@@ -572,7 +581,7 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 	svc := NewService(repo, nil)
 	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{}}, nil)
 	svc.Start(nil)
-	defer svc.Close()
+	defer svc.Close(context.Background())
 
 	svc.kickEmbed("ws_a")
 	waitFor(t, func() bool {
@@ -580,6 +589,94 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 		defer repo.mu.Unlock()
 		return len(repo.embedded) == 2
 	})
+}
+
+// TestEmbedWorker_PersistentUpsertFailureTerminatesRound — R9: when every
+// UpsertEmbedding in a batch fails (disk full, corrupt table, wedged write), the
+// rows stay missing so MissingEmbeddings returns the SAME batch forever. The
+// backfill round must NOT tight-loop re-embedding them — it aborts after the
+// fully-failed batch (bounded to one embed call), the next kick retries.
+func TestEmbedWorker_PersistentUpsertFailureTerminatesRound(t *testing.T) {
+	repo := newFakeRepo()
+	repo.upsertFail = true
+	repo.embedQueue = []searchdomain.EmbedDoc{
+		{DocID: "sd_1", Title: "标题", Body: "正文"},
+		{DocID: "sd_2", Title: "另一", Body: "再来"},
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{}}, nil)
+
+	done := make(chan struct{})
+	go func() {
+		svc.backfill("ws_a") // synchronous; must RETURN, not spin forever
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("backfill spun forever on persistent upsert failure (R9 hot loop)")
+	}
+	// One fully-failed batch's worth of attempts, never a re-embed of the same rows.
+	// 仅一整批失败的尝试量，绝不重嵌同一批。
+	if n := atomic.LoadInt32(&repo.upsertEmbeds); n != int32(len(repo.embedQueue)) {
+		t.Fatalf("expected exactly %d upsert attempts (one batch), got %d (loop re-embedded)", len(repo.embedQueue), n)
+	}
+}
+
+// TestVecCache_BackfillPatchesIncrementally — R15: a backfill must fold its
+// just-written vectors INTO a loaded ws cache, not nuke it. Otherwise every
+// entity edit (which kicks a backfill) drops the whole ws entry, forcing the next
+// search to re-scan + re-decode every BLOB on the single pinned connection.
+func TestVecCache_BackfillPatchesIncrementally(t *testing.T) {
+	repo := newFakeRepo()
+	repo.embedded = map[string][]float32{"m1/sd_old": {0, 1, 0}} // one row already embedded
+	repo.embedQueue = []searchdomain.EmbedDoc{{DocID: "sd_new", Title: "新", Body: "正文"}}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{}}, nil)
+
+	ctx := ctxWS("ws_a")
+	// Prime the cache (one full scan).
+	// 先把缓存灌满（一次全扫）。
+	if _, err := svc.vectors.get(ctx, repo, "ws_a", "m1"); err != nil {
+		t.Fatalf("prime: %v", err)
+	}
+	if got := atomic.LoadInt32(&repo.wsVecScans); got != 1 {
+		t.Fatalf("priming must scan once, got %d", got)
+	}
+
+	// Backfill the new row — it must PATCH the live cache, not invalidate it.
+	// 补算新行——必须 patch 现存缓存而非作废。
+	svc.backfill("ws_a")
+
+	// The next read must hit the cache (NO second full scan) and see the new row.
+	// 下次读必须命中缓存（无第二次全扫）且能看到新行。
+	v, err := svc.vectors.get(ctx, repo, "ws_a", "m1")
+	if err != nil {
+		t.Fatalf("get after backfill: %v", err)
+	}
+	if got := atomic.LoadInt32(&repo.wsVecScans); got != 1 {
+		t.Fatalf("backfill must patch the cache, not force a re-scan: %d scans (R15)", got)
+	}
+	if _, ok := v["sd_new"]; !ok {
+		t.Fatalf("patched cache must contain the just-written vector: %+v", v)
+	}
+	if _, ok := v["sd_old"]; !ok {
+		t.Fatalf("patch must not drop pre-existing rows: %+v", v)
+	}
+}
+
+// TestVecCache_PatchSkipsUnloadedWorkspace — patch must be a no-op when the ws is
+// not cached, so it never seeds a PARTIAL entry that a later cache hit treats as
+// the whole set (which would hide rows from search).
+func TestVecCache_PatchSkipsUnloadedWorkspace(t *testing.T) {
+	c := newVecCache()
+	c.patch("ws_a", "m1", map[string][]float32{"sd_1": {1, 0, 0}})
+	c.mu.RLock()
+	_, ok := c.data["ws_a\x00m1"]
+	c.mu.RUnlock()
+	if ok {
+		t.Fatal("patch on an unloaded ws must NOT seed a partial cache entry (R15)")
+	}
 }
 
 func TestSettings_SwitchAndValidate(t *testing.T) {

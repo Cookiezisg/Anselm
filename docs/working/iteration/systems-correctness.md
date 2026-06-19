@@ -118,7 +118,7 @@ Cardinality is worse…
 
 ROUTE LEAK (finding's headline, mild): webhook.go:112 `l.mux.HandleFunc(full, l.handleWebhook(full))` mounts a permanent stdlib ServeMux entry the first time a path is seen. Unregister (122-129) and the path-change branch (106-110) only `delete(l.registry,...)`/`delete(l.paths,...)`; the mux route never unmounts (the code admits this at line 107 and 119). So editing a webhook trigger's `path` while listening (app/trigger/lifecycle.go:124 restartIfListening → Register with a changed `full`) mounts a new route and orphans…
 
-## R9 [MEDIUM] (busy-loops-retry) — _pending_
+## R9 [MEDIUM] (busy-loops-retry) — ✅ FIXED
 
 **search embed backfill can tight-loop forever, re-embedding the same batch, when UpsertEmbedding keeps failing**
 
@@ -155,7 +155,7 @@ ROUTE LEAK (finding's headline, mild): webhook.go:112 `l.mux.HandleFunc(full, l.
 
 2) GetNodes (flowrun.go:276-282) = `s.nodes.WhereEq("flowrun_id", flowrunID).Find(ctx)`. Find → buildSelect (c…
 
-## R12 [MEDIUM] (disk-io-amplification) — _pending_
+## R12 [MEDIUM] (disk-io-amplification) — ✅ FIXED
 
 **MissingEmbeddings does an unindexed ORDER BY updated_at sort on every indexed change (embed kick storm)**
 
@@ -179,7 +179,7 @@ QUERY: embeddings.go:58-63 MissingEmbeddings = `SELECT d.id,d.title,d.body FROM 
 - **修法**: Track one-shot Spawn children too: register the *exec.Cmd (or its process group pid) in a registry that sandbox.Shutdown kills, OR ensure every Spawn ctx ultimately derives from a shutdown-cancellable root so exec.CommandContext + the process-group Cancel tears them down. Pairs with #1's fix of threading tickCtx into the drain path.
 - **复核**: Structural claims verified against code. (1) sandbox.Shutdown (app/sandbox/spawn.go:86-117) ranges only s.activeHandles; only SpawnLongLived stores into it (spawn.go:72). The one-shot Spawn path (spawn.go:22-43 → SpawnOnce, infra/sandbox/spawn.go:80) used by EVERY function node (function/sandbox_adapter.go:86) is never registered, so the kill-set genuinely omits this whole class. (2) The drain tick (build.go:309 drainLoop on tickCtx) runs DrainFirings/CheckTimeouts via forEachWorkspace, which passes reqctxpkg.Detached(ws.ID) (build.go:299) — a fresh uncancellable ctx — NOT tickCtx. So consumeF…
 
-## R14 [MEDIUM] (graceful-shutdown) — _pending_
+## R14 [MEDIUM] (graceful-shutdown) — ✅ FIXED
 
 **Shutdown can hang indefinitely: search.Close() takes no ctx/timeout and blocks on the embedder mutex held across the full first-demand model download**
 
@@ -190,7 +190,7 @@ QUERY: embeddings.go:58-63 MissingEmbeddings = `SELECT d.id,d.title,d.body FROM 
 - **修法**: Give Service.Close()/Builtin.Close() a ctx and make it best-effort under sctx (select on a done channel vs ctx.Done()), or kill the subprocess and abandon the lock instead of waiting for b.mu. Better: pass an install/shutdown ctx into ensureRunning's EnsureTool so the download itself is cancellable on shutdown, and never let Close() block behind an in-flight install.
 - **复核**: Verified against the actual code. Chain confirmed: (1) App.Shutdown (bootstrap/build.go:338-354) runs steps sequentially with NO per-step timeout — and crucially calls a.svc.search.Close() at line 344 with NO ctx, so unlike mcp/handler/sandbox (which receive sctx, the 10s shutdownGrace from build.go:166/208) it is unbounded. (2) Service.Close() (search/service.go:152) takes no context and calls Builtin.Close(). (3) Builtin.Close() (engine.go:223-225) does b.mu.Lock()/defer Unlock() unconditionally — it MUST acquire b.mu before doing anything. (4) ensureRunning (engine.go:152-153) holds b.mu vi…
 
-## R15 [MEDIUM] (sqlite-contention) — _pending_
+## R15 [MEDIUM] (sqlite-contention) — ✅ FIXED
 
 **vecCache.get re-reads and decodes the workspace's ENTIRE embedding BLOB table on the single connection on every cache miss, and the cache is invalidated after every entity edit -- so active editing/agent sessions force a full-table BLOB scan on the one conn before each search**
 

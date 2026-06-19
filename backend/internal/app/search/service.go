@@ -146,15 +146,18 @@ func (s *Service) Start(workspaceIDs []string) {
 	}()
 }
 
-// Close stops the index worker, the embed worker and any provider subprocess.
+// Close stops the index worker, the embed worker and any provider subprocess,
+// BOUNDED by ctx — a first-demand model download in flight must not stall
+// App.Shutdown (and the db.Close after it). The provider's Close honors ctx (R14).
 //
-// Close 停索引 worker、嵌入 worker 与 provider 子进程。
-func (s *Service) Close() {
+// Close 停索引 worker、嵌入 worker 与 provider 子进程，由 ctx **限界**——首用模型下载在飞
+// 不能拖住 App.Shutdown（及其后 db.Close）。provider 的 Close 遵从 ctx（R14）。
+func (s *Service) Close(ctx context.Context) {
 	close(s.embedQuit)
 	s.indexer.close()
 	for _, p := range []searchdomain.EmbeddingProvider{s.builtinProv, s.ollamaProv} {
 		if c, ok := p.(ProviderCloser); ok {
-			c.Close()
+			c.Close(ctx)
 		}
 	}
 }

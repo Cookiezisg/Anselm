@@ -79,6 +79,17 @@ type Builtin struct {
 	baseURL string // set in tests to bypass install+spawn. 测试注入以绕过安装+spawn。
 	pidPath string // persisted pid of the resident embedder, so the next boot can reap an orphan (R2). 常驻 embedder 的持久化 pid，供下次 boot 回收孤儿（R2）。
 
+	// closed is closed once by Close to ABORT an in-flight first-demand download: ensureRunning
+	// holds mu across EnsureTool (which can download a ~600MB model for minutes), so a shutdown
+	// landing mid-download must not block on mu — it cancels the install ctx via this channel so
+	// ensureRunning fails fast and releases mu, and Close stays bounded (R14).
+	//
+	// closed 由 Close 关一次以**中止**在飞的首用下载：ensureRunning 持 mu 跨 EnsureTool（可下载
+	// ~600MB 模型数分钟），关停撞上下载途中不能阻塞在 mu——经此 channel 取消安装 ctx，令
+	// ensureRunning 快速失败释放 mu，Close 保持有界（R14）。
+	closed    chan struct{}
+	closeOnce sync.Once
+
 	// stmu is a leaf lock for the status snapshot: GET /search/settings polls Status()
 	// while an install is in flight — it must report "downloading" instantly, never
 	// queue behind mu for the duration of a model download.
@@ -99,7 +110,7 @@ func NewBuiltin(ensure Ensurer, log *zap.Logger) *Builtin {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Builtin{ensure: ensure, log: log.Named("search.engine"), status: StatusAbsent, client: &http.Client{Timeout: embedTimeout}}
+	return &Builtin{ensure: ensure, log: log.Named("search.engine"), status: StatusAbsent, client: &http.Client{Timeout: embedTimeout}, closed: make(chan struct{})}
 }
 
 // NewBuiltinForTest wires a fake /v1/embeddings server in place of the real
@@ -107,7 +118,7 @@ func NewBuiltin(ensure Ensurer, log *zap.Logger) *Builtin {
 //
 // NewBuiltinForTest 用假 /v1/embeddings server 替代真实安装+spawn 链。
 func NewBuiltinForTest(baseURL string) *Builtin {
-	return &Builtin{baseURL: baseURL, status: StatusReady, log: zap.NewNop(), client: &http.Client{Timeout: embedTimeout}}
+	return &Builtin{baseURL: baseURL, status: StatusReady, log: zap.NewNop(), client: &http.Client{Timeout: embedTimeout}, closed: make(chan struct{})}
 }
 
 // Model identifies stored vectors (switching embedders invalidates, never
@@ -163,6 +174,19 @@ func (b *Builtin) ensureRunning(ctx context.Context) (string, error) {
 	if b.baseURL != "" && b.cmd == nil {
 		return b.baseURL, nil // test mode: injected URL, no process. 测试态：注入 URL、无进程。
 	}
+
+	// Tie the install+spawn ctx to Close: a shutdown landing mid-download cancels this so
+	// EnsureTool/waitHealthy abort and mu is released promptly (R14).
+	// 把安装+spawn ctx 绑到 Close：关停撞上下载途中即取消，令 EnsureTool/waitHealthy 中止、mu 及时释放（R14）。
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		select {
+		case <-b.closed:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
 
 	b.setStatus(StatusDownloading, "")
 	bin, err := b.ensure.EnsureTool(ctx, "llamasrv", llamasrvVersion)
@@ -234,13 +258,43 @@ func (b *Builtin) fail(format string, args ...any) {
 	b.log.Warn("search engine: " + msg)
 }
 
-// Close stops the resident process (app shutdown). Off ≠ uninstall: files stay,
-// re-enabling is instant.
+// Close stops the resident process (app shutdown), BOUNDED by ctx. Off ≠ uninstall:
+// files stay, re-enabling is instant.
 //
-// Close 停常驻进程（app 关停）。off ≠ 卸载：文件保留，再启秒回。
-func (b *Builtin) Close() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+// It first aborts any in-flight first-demand download (closing b.closed cancels
+// ensureRunning's install ctx so it releases mu), then waits up to ctx for mu. On a
+// normal close mu is free instantly and we kill the resident process under it. If a
+// download is still unwinding when ctx expires, we kill b.cmd best-effort WITHOUT mu
+// rather than block App.Shutdown (and db.Close) on the download — the abort already
+// guarantees no fresh process is spawned (R14).
+//
+// Close 停常驻进程（app 关停），由 ctx **限界**。off ≠ 卸载：文件保留，再启秒回。先中止在飞首用
+// 下载（关 b.closed 取消 ensureRunning 安装 ctx 令其释放 mu），再至多等 ctx 拿 mu。正常关停 mu 立得、
+// 锁内杀常驻进程；ctx 到期下载仍在收尾则**不持 mu** best-effort 杀 b.cmd 而非把 App.Shutdown（及
+// db.Close）阻塞在下载上——中止已保证不会再 spawn 新进程（R14）。
+func (b *Builtin) Close(ctx context.Context) {
+	b.closeOnce.Do(func() { close(b.closed) }) // abort any in-flight download. 中止在飞下载。
+
+	locked := make(chan struct{})
+	go func() { b.mu.Lock(); close(locked) }()
+	select {
+	case <-locked:
+		defer b.mu.Unlock()
+	case <-ctx.Done():
+		// mu still held by an unwinding ensureRunning — don't wait. Kill best-effort.
+		// mu 仍被收尾的 ensureRunning 持有——不等。best-effort 杀。
+		b.log.Warn("search engine: close deadline before lock; killing process unlocked (R14)")
+		b.killProcess()
+		return
+	}
+	b.killProcess()
+}
+
+// killProcess kills the resident process and clears the lifecycle state. Caller decides
+// whether mu is held (the unlocked path on a shutdown deadline accepts the small race).
+//
+// killProcess 杀常驻进程并清生命周期态。由调用方决定是否持 mu（关停超时的无锁路径接受微小竞态）。
+func (b *Builtin) killProcess() {
 	if b.cmd != nil && b.cmd.ProcessState == nil {
 		_ = b.cmd.Process.Kill()
 	}
