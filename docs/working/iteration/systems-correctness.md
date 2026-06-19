@@ -27,7 +27,7 @@ landed-into:
 - **修法**: In build_services.go capture the struct: `shellTools := shelltool.NewShellTools()`, use `shellTools.Tools` in the toolset, store `shellTools.Manager` on the App (alongside the other shutdown-reachable services), and call `manager.Stop()` inside App.Shutdown (build.go) in the same reverse-order block as handler/mcp. Optionally also call it from the workspace-delete reaper if background jobs ever become workspace-scoped (today they are not, so shutdown is sufficient).
 - **复核**: Verified against the actual code; the finding is accurate. (1) build_services.go:213 wires `shelltool.NewShellTools().Tools`, keeping only the `.Tools` slice and discarding the returned `*ShellTools`, which is the sole holder of `Manager *ProcessManager` (shell.go:40-43). (2) `ProcessManager.Stop()` (manager.go:158-171) is the ONLY code that iterates every registered background proc and kills its process group via `killProcessTree` → `syscall.Kill(-pid, SIGKILL)` (proc_unix.go:24-32). (3) Grep over all non-test Go confirms the ONLY reference to `NewShellTools` is line 213, and there is ZERO re…
 
-## R2 [HIGH] (subprocess-reaping) — _pending_
+## R2 [HIGH] (subprocess-reaping) — ✅ FIXED
 
 **llama-server embedder has no crash-recovery reaping — only graceful Close() kills it, so SIGKILL/panic/OOM orphans a ~2GB process (the seed's 7 orphans)**
 

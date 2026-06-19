@@ -25,9 +25,14 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -72,6 +77,7 @@ type Builtin struct {
 	mu      sync.Mutex // serializes install+spawn — held across the whole first-demand download. 串行化安装+spawn——首用下载全程持有。
 	cmd     *exec.Cmd
 	baseURL string // set in tests to bypass install+spawn. 测试注入以绕过安装+spawn。
+	pidPath string // persisted pid of the resident embedder, so the next boot can reap an orphan (R2). 常驻 embedder 的持久化 pid，供下次 boot 回收孤儿（R2）。
 
 	// stmu is a leaf lock for the status snapshot: GET /search/settings polls Status()
 	// while an install is in flight — it must report "downloading" instantly, never
@@ -170,6 +176,17 @@ func (b *Builtin) ensureRunning(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("search engine: download model: %w", err)
 	}
 
+	// Reap a survivor embedder from a PRIOR ungraceful exit before spawning a fresh one — only graceful
+	// Close() kills the resident llama-server, so kill -9 / crash / OOM / IDE-stop / power-loss bypass it
+	// and orphan a ~2GB mmap'd process. Persisting our pid + best-effort killing it on the next spawn
+	// (mirrors the sandbox boot-scan, app/sandbox/restore.go) stops these accumulating across hard
+	// restarts — the seed defect's 7 orphans (R2).
+	// 起新 embedder 前先杀掉上次非优雅退出残留的——只有优雅 Close() 杀常驻 llama-server，kill -9/崩溃/OOM/IDE 停/
+	// 断电都绕过它、孤儿掉一个 ~2GB mmap 进程。持久化 pid + 下次 spawn best-effort 杀（对标 sandbox boot 扫描）防其
+	// 跨硬重启累积——种子缺陷的 7 个孤儿（R2）。
+	b.pidPath = embedderPIDPath(bin)
+	reapStalePID(b.pidPath, b.log)
+
 	port, err := freePort()
 	if err != nil {
 		b.fail("no free port: %v", err)
@@ -191,7 +208,8 @@ func (b *Builtin) ensureRunning(ctx context.Context) (string, error) {
 		b.fail("spawn llama-server: %v", err)
 		return "", fmt.Errorf("search engine: spawn: %w", err)
 	}
-	go func() { _ = cmd.Wait() }() // reap; liveness checked via ProcessState. 收尸；存活经 ProcessState 判断。
+	go func() { _ = cmd.Wait() }()        // reap; liveness checked via ProcessState. 收尸；存活经 ProcessState 判断。
+	recordPID(b.pidPath, cmd.Process.Pid) // persist so the NEXT boot reaps us if we orphan (R2). 持久化 pid，孤儿时下次 boot 回收（R2）。
 
 	base := "http://127.0.0.1:" + strconv.Itoa(port)
 	if err := waitHealthy(ctx, b.client, base, spawnHealthTimeout); err != nil {
@@ -227,11 +245,65 @@ func (b *Builtin) Close() {
 		_ = b.cmd.Process.Kill()
 	}
 	b.cmd = nil
+	if b.pidPath != "" {
+		_ = os.Remove(b.pidPath) // graceful kill → drop the record so the next boot doesn't chase a dead pid (R2)
+	}
 	b.stmu.Lock()
 	if b.status == StatusReady {
 		b.status = StatusAbsent
 	}
 	b.stmu.Unlock()
+}
+
+// embedderPIDPath is the version-independent pidfile for the resident embedder, derived from the
+// installed binary (…/runtimes/llamasrv/<ver>/llama-server → …/runtimes/llamasrv/embedder.pid) so a
+// pinned-version bump still finds (and reaps) an orphan from the old version.
+//
+// embedderPIDPath 是常驻 embedder 的版本无关 pidfile，从二进制路径推（…/llamasrv/<ver>/… → …/llamasrv/embedder.pid），
+// 故版本号变更仍能找到并回收旧版本的孤儿。
+func embedderPIDPath(bin string) string {
+	return filepath.Join(filepath.Dir(filepath.Dir(bin)), "embedder.pid")
+}
+
+// reapStalePID best-effort kills a previously-recorded embedder that survived an ungraceful exit.
+// Mirrors the sandbox boot-scan (app/sandbox/restore.go killIfAlive): a dead or reused pid is a
+// harmless no-op on a single-user local machine; the record is rewritten on every spawn so the
+// window is just one prior run.
+//
+// reapStalePID best-effort 杀掉先前记录、熬过非优雅退出的 embedder。对标 sandbox boot 扫描；死/复用 pid 无害
+// no-op；记录每次 spawn 重写、窗口仅上一次运行。
+func reapStalePID(path string, log *zap.Logger) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return // no record → nothing to reap
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil {
+		return
+	}
+	if killIfAlive(pid) {
+		log.Info("search engine: reaped a stale embedder from a prior ungraceful exit", zap.Int("pid", pid))
+	}
+}
+
+func recordPID(path string, pid int) { _ = os.WriteFile(path, []byte(strconv.Itoa(pid)), 0o644) }
+
+// killIfAlive probes pid with signal 0 (liveness, non-windows) then SIGKILLs it; reports whether it
+// was alive. 探活（signal 0，非 windows）后 SIGKILL；报告是否曾存活。
+func killIfAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	if runtime.GOOS != "windows" {
+		if err := p.Signal(syscall.Signal(0)); err != nil {
+			return false
+		}
+	}
+	return p.Kill() == nil
 }
 
 // Ollama adapts a local Ollama daemon (/api/embed) for users reusing its
