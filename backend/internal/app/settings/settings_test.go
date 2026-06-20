@@ -123,6 +123,11 @@ func TestPatch_RejectsOutOfRange(t *testing.T) {
 		`{"agent":{"maxSteps":-1}}`,
 		`{"context":{"triggerRatio":1.5}}`,
 		`{"agent":{"maxSteps":`, // malformed JSON
+		// Explicit 0 on a positive-minimum field must be REJECTED, not silently snapped back to the
+		// default — the present-zero-vs-absent bug (WithDefaults previously refilled it before validate).
+		`{"timeout":{"functionRunSec":0}}`,
+		`{"agent":{"maxSteps":0}}`,
+		`{"context":{"triggerRatio":0}}`,
 	} {
 		if _, err := s.PatchLimits(json.RawMessage(patch)); !errors.Is(err, ErrLimitsInvalid) {
 			t.Fatalf("patch %q: want ErrLimitsInvalid, got %v", patch, err)

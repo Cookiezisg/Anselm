@@ -103,11 +103,19 @@ func (s *Service) DataDir() string { return filepath.Dir(s.path) }
 func (s *Service) PatchLimits(patch json.RawMessage) (limitspkg.Limits, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.cur
+	// Fill defaults on the BASE (defensive — current limits should already be complete), THEN apply the
+	// patch, THEN validate. Crucially WithDefaults must NOT run AFTER the unmarshal: it refills every
+	// zero field from Default(), which would mask an EXPLICIT out-of-range 0 in the patch (every limit
+	// has a positive minimum — validate rejects <=0) and silently reset it instead of returning 400.
+	// A client lowering functionRunSec to 0 got a 200 + a silent snap-back to 300 (present-zero-vs-absent
+	// bug, sibling of F115).
+	// 先在 BASE 上补默认（防御性——当前 limits 本应完整），再套 patch，再校验。关键：WithDefaults 绝不能在
+	// unmarshal 之后跑——它会把每个零值字段从 Default() 回填，从而掩盖 patch 里显式的越界 0（每个 limit 都有
+	// 正下限、validate 拒 <=0）、静默重置而非返 400。客户端把 functionRunSec 降到 0 本会得 200 + 静默弹回 300。
+	next := limitspkg.WithDefaults(s.cur)
 	if err := json.Unmarshal(patch, &next); err != nil {
 		return limitspkg.Limits{}, fmt.Errorf("%w: %v", ErrLimitsInvalid, err)
 	}
-	next = limitspkg.WithDefaults(next)
 	if err := validate(next); err != nil {
 		return limitspkg.Limits{}, err
 	}
