@@ -202,16 +202,16 @@ func (h *SandboxHandler) BootstrapStatus(w http.ResponseWriter, r *http.Request)
 	responsehttpapi.Success(w, http.StatusOK, body)
 }
 
-// GC handles POST /api/v1/sandbox:gc?olderThanDays=N (default 30).
+// GC handles POST /api/v1/sandbox:gc?olderThanDays=N (default 30). olderThanDays=0 is honored as
+// "reclaim every idle env now" — the manual remedy for freshly-orphaned venvs (e.g. trimmed function/
+// handler versions); coercing 0 to the default 30 would silently block that aggressive reclaim. A
+// negative value is ignored (keeps the default). A reclaimed env that's still wanted rebuilds lazily.
 //
-// GC 处理 POST /api/v1/sandbox:gc?olderThanDays=N（默认 30）。
+// GC 处理 POST /api/v1/sandbox:gc?olderThanDays=N（默认 30）。olderThanDays=0 视为「立即回收所有空闲 env」
+// ——刚孤儿化的 venv（如被 trim 的 function/handler 版本）的手动补救；把 0 强制成 30 会静默挡掉该激进回收。
+// 负值忽略（保默认）。被回收的 env 若仍需用会懒重建。
 func (h *SandboxHandler) GC(w http.ResponseWriter, r *http.Request) {
-	days := 30
-	if v := r.URL.Query().Get("olderThanDays"); v != "" {
-		if d, err := strconv.Atoi(v); err == nil && d > 0 {
-			days = d
-		}
-	}
+	days := gcOlderThanDays(r.URL.Query().Get("olderThanDays"))
 	removed, err := h.svc.GC(r.Context(), time.Duration(days)*24*time.Hour)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -221,6 +221,20 @@ func (h *SandboxHandler) GC(w http.ResponseWriter, r *http.Request) {
 		"removed":       removed,
 		"olderThanDays": days,
 	})
+}
+
+// gcOlderThanDays parses the olderThanDays query param. Empty / negative / non-numeric → the 30-day
+// default; an explicit 0 is honored (reclaim all idle now) rather than coerced to the default, so the
+// manual remedy for freshly-orphaned venvs actually works. Pure, so the 0-vs-unset distinction is
+// unit-testable without standing up a sandbox service.
+//
+// gcOlderThanDays 解析 olderThanDays 查询参数。空/负/非数→30 天默认；显式 0 被尊重（立即回收所有空闲）
+// 而非强制成默认，使刚孤儿化 venv 的手动补救真生效。纯函数，使 0-vs-未设 之分无需起 sandbox 服务即可单测。
+func gcOlderThanDays(raw string) int {
+	if d, err := strconv.Atoi(raw); err == nil && d >= 0 {
+		return d
+	}
+	return 30
 }
 
 // RetryBootstrap handles POST /api/v1/sandbox:retry-bootstrap; reports the new
