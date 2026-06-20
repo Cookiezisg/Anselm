@@ -1,0 +1,627 @@
+{
+  "servers": [
+    {
+      "slug": "microsoft/markitdown"
+    },
+    {
+      "slug": "io.github.upstash/context7"
+    },
+    {
+      "slug": "io.github.ChromeDevTools/chrome-devtools-mcp"
+    },
+    {
+      "slug": "microsoft/playwright-mcp"
+    },
+    {
+      "slug": "oraios/serena"
+    },
+    {
+      "slug": "coplaydev/unity-mcp"
+    },
+    {
+      "slug": "firecrawl/firecrawl-mcp-server"
+    },
+    {
+      "slug": "io.github.wonderwhy-er/desktop-commander"
+    },
+    {
+      "slug": "com.microsoft/azure"
+    },
+    {
+      "slug": "com.microsoft/microsoft-fabric"
+    },
+    {
+      "slug": "io.github.bytebase/dbhub"
+    },
+    {
+      "slug": "io.github.brightdata/brightdata-mcp"
+    },
+    {
+      "slug": "io.github.tavily-ai/tavily-mcp"
+    },
+    {
+      "slug": "microsoft/azure-devops-mcp"
+    },
+    {
+      "slug": "microsoftdocs/mcp"
+    },
+    {
+      "slug": "com.microsoft/nuget"
+    },
+    {
+      "slug": "io.github.hashicorp/terraform-mcp-server"
+    },
+    {
+      "slug": "io.github.mongodb-js/mongodb-mcp-server"
+    },
+    {
+      "slug": "antfu/nuxt-mcp"
+    },
+    {
+      "slug": "io.github.vercel/next-devtools-mcp"
+    },
+    {
+      "slug": "elastic/mcp-server-elasticsearch"
+    },
+    {
+      "slug": "io.github.SonarSource/sonarqube-mcp-server"
+    },
+    {
+      "slug": "chroma-core/chroma-mcp"
+    },
+    {
+      "slug": "io.github.mapbox/mcp-server"
+    },
+    {
+      "slug": "sunriseapps/imagesorcery-mcp"
+    },
+    {
+      "slug": "dev.svelte/mcp"
+    },
+    {
+      "slug": "azure-ai-foundry/mcp-foundry"
+    },
+    {
+      "slug": "io.github.microsoft/awesome-copilot"
+    },
+    {
+      "slug": "io.github.CrowdStrike/falcon-mcp"
+    },
+    {
+      "slug": "io.github.pgEdge/postgres-mcp"
+    },
+    {
+      "slug": "pydantic/logfire-mcp"
+    },
+    {
+      "slug": "io.github.SAP/fiori-mcp-server"
+    },
+    {
+      "slug": "azure/aks-mcp"
+    },
+    {
+      "slug": "microsoft/fabric-rti-mcp"
+    },
+    {
+      "slug": "io.github.cap-js/mcp-server"
+    },
+    {
+      "slug": "octopusdeploy/mcp-server"
+    },
+    {
+      "slug": "io.github.UI5/mcp-server"
+    },
+    {
+      "slug": "microsoft/clarity-mcp-server"
+    },
+    {
+      "slug": "io.github.ScrapeGraphAI/scrapegraph-mcp"
+    },
+    {
+      "slug": "cognitionai/deepwiki"
+    },
+    {
+      "slug": "io.github.arm/arm-mcp"
+    },
+    {
+      "slug": "io.github.PagerDuty/pagerduty-mcp"
+    },
+    {
+      "slug": "codacy/codacy-mcp-server"
+    },
+    {
+      "slug": "io.snyk/mcp",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "npx",
+          "name": "snyk",
+          "args": [
+            "mcp",
+            "-t",
+            "stdio"
+          ]
+        },
+        "env": {
+          "name": "SNYK_TOKEN",
+          "description": "Snyk API token — create at app.snyk.io (Account Settings → Auth Token)",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.zscaler/zscaler-mcp-server"
+    },
+    {
+      "slug": "io.github.contextstreamio/mcp-server"
+    },
+    {
+      "slug": "io.github.pubnub/mcp-server"
+    },
+    {
+      "slug": "io.github.f/prompts.chat-mcp"
+    },
+    {
+      "slug": "io.github.goreleaser/mcp"
+    },
+    {
+      "slug": "launchdarkly/mcp-server"
+    },
+    {
+      "slug": "io.github.dynatrace-oss/dynatrace-managed-mcp"
+    },
+    {
+      "slug": "io.github.rigour-labs/rigour"
+    },
+    {
+      "slug": "io.github.venomseven/nslookup"
+    },
+    {
+      "slug": "io.github.UI5/webcomponents-mcp-server"
+    },
+    {
+      "slug": "microsoft/devbox-mcp-server"
+    },
+    {
+      "slug": "com.stackhawk/stackhawk"
+    },
+    {
+      "slug": "io.github.holomodular/servicebricks"
+    },
+    {
+      "slug": "io.github.Wopee-io/wopee-mcp"
+    },
+    {
+      "slug": "com.shipstatic/mcp"
+    },
+    {
+      "slug": "io.github.netdata/mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://app.netdata.cloud/api/v1/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {NETDATA_CLOUD_API_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "NETDATA_CLOUD_API_TOKEN",
+          "description": "Netdata Cloud API token with scope:mcp — create at Netdata Cloud → User Settings → API Tokens.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.github/github-mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {GITHUB_PERSONAL_ACCESS_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "description": "GitHub Personal Access Token (classic ghp_ or fine-grained github_pat_) — create at github.com/settings/personal-access-tokens/new, granting only the scopes you want the agent to have (e.g. repo, read:org, read:packages).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "makenotion/notion-mcp-server",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@notionhq/notion-mcp-server"
+        },
+        "env": {
+          "name": "NOTION_TOKEN",
+          "description": "Notion Internal Integration Secret (starts with ntn_) — create at notion.so/my-integrations, then connect target pages to the integration",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.supabase/mcp",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@supabase/mcp-server-supabase"
+        },
+        "env": {
+          "name": "SUPABASE_ACCESS_TOKEN",
+          "description": "Supabase Personal Access Token — create at supabase.com/dashboard/account/tokens (Account > Access Tokens).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.stripe/mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.stripe.com",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {STRIPE_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "STRIPE_API_KEY",
+          "description": "Stripe restricted API key (RAK) — create at dashboard.stripe.com/apikeys",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.apify/apify-mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.apify.com/",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {APIFY_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "APIFY_TOKEN",
+          "description": "Apify API token — create at Apify Console → Settings → API & Integrations (console.apify.com/settings/integrations)",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.getsentry/sentry-mcp",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@sentry/mcp-server"
+        },
+        "env": {
+          "name": "SENTRY_ACCESS_TOKEN",
+          "description": "Sentry User Auth Token — create at Sentry → Settings → User Auth Tokens (scopes: org:read, project:read, project:write, team:read, team:write, event:write)",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "neondatabase/mcp-server-neon",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.neon.tech/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {NEON_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "NEON_API_KEY",
+          "description": "Neon API key — create at the Neon Console under Account settings → API keys",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "doist/todoist-ai",
+      "auth": {
+        "transport": "remote",
+        "url": "https://ai.todoist.net/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {TODOIST_API_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "TODOIST_API_TOKEN",
+          "description": "Personal Todoist API token — create in Todoist app at Settings > Integrations > Developer (copy the API token).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.monday/monday.com",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.monday.com/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {MONDAY_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "MONDAY_TOKEN",
+          "description": "monday.com Personal API Token — create at monday.com avatar → Developers → API token (or Admin → Connections → Personal API token).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "zapier/zapier-mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.zapier.com/api/v1/connect",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {ZAPIER_MCP_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "ZAPIER_MCP_TOKEN",
+          "description": "Zapier MCP connection token — create at mcp.zapier.com (your server's Connect tab → Generate token; shown once)",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.postman/postman-mcp-server",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@postman/postman-mcp-server"
+        },
+        "env": {
+          "name": "POSTMAN_API_KEY",
+          "description": "Postman API key — create in Postman > Settings > Account settings > API keys > Generate API Key",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "huggingface/hf-mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://huggingface.co/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {HF_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "HF_TOKEN",
+          "description": "HuggingFace access token (READ permission) — create at huggingface.co/settings/tokens",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.serpapi/serpapi-mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.serpapi.com/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {SERPAPI_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "SERPAPI_API_KEY",
+          "description": "SerpApi API key — create/copy at serpapi.com/manage-api-key",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.dynatrace-oss/Dynatrace-mcp",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@dynatrace-oss/dynatrace-mcp-server"
+        },
+        "env": {
+          "name": "DT_PLATFORM_TOKEN",
+          "description": "Dynatrace Platform Token (dt0s16.*) — create in your Dynatrace environment under Settings → Platform Tokens (Account Management / apps.dynatrace.com); also requires the non-secret DT_ENVIRONMENT env set to https://<tenant>.apps.dynatrace.com.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.sonatype/dependency-management-mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.guide.sonatype.com/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {SONATYPE_API_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "SONATYPE_API_TOKEN",
+          "description": "Sonatype Guide personal API token — create at guide.sonatype.com/settings/tokens (requires a Sonatype Guide account).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.mapbox/mcp-devkit-server",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "@mapbox/mcp-devkit-server"
+        },
+        "env": {
+          "name": "MAPBOX_ACCESS_TOKEN",
+          "description": "Mapbox access token — create a free public token at account.mapbox.com/access-tokens",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "host.justcall.mcp/justcall-mcp-server",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.justcall.host/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {JUSTCALL_API_KEY_SECRET}",
+          "secret": true
+        },
+        "env": {
+          "name": "JUSTCALL_API_KEY_SECRET",
+          "description": "JustCall API key secret — create in JustCall → Settings → Developers (API keys).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.port/Port",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.port.io/v1",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {PORT_ACCESS_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "PORT_ACCESS_TOKEN",
+          "description": "Port short-lived access token (JWT) — mint it by POSTing your Port clientId+clientSecret to https://api.port.io/v1/auth/access_token (use api.us.port.io for the US region); credentials come from the Port dashboard under Settings → Credentials.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.sourcegraph/mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://{sourcegraph_hostname}/.api/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "token {SOURCEGRAPH_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "SOURCEGRAPH_TOKEN",
+          "description": "Sourcegraph access token with 'mcp' scope — create in your Sourcegraph instance under Settings > Access tokens.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "co.axiom/mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.axiom.co/mcp?org-id=YOUR_ORG_ID",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {AXIOM_TOKEN}",
+          "secret": true
+        },
+        "env": {
+          "name": "AXIOM_TOKEN",
+          "description": "Axiom Personal Access Token (xapt-…) — create at Axiom Console > Settings > Personal access tokens. You also need your Organization ID (substitute into the URL's org-id param).",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.jfrog/jfrog-mcp-server",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "node",
+          "name": "github:jfrog/mcp-jfrog"
+        },
+        "env": {
+          "name": "JFROG_ACCESS_TOKEN",
+          "description": "JFrog Access/Identity Token — create in JFrog Platform UI (Administration > User Management > Access Tokens / Identity Tokens) or via JFrog CLI `jf access-token-create`. Also requires JFROG_URL (your JPD base URL, e.g. https://acme.jfrog.io) set as a non-secret env var.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.github.AnimaApp/anima",
+      "auth": {
+        "transport": "remote",
+        "url": "https://public-api.animaapp.com/v1/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {ANIMA_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "ANIMA_API_KEY",
+          "description": "Anima API key — create at dev.animaapp.com → Settings → API Keys (gear icon)",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "com.qualityclouds/mcp-server-qualityclouds",
+      "auth": {
+        "transport": "remote",
+        "url": "https://mcp.qualityclouds.com/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "{QUALITYCLOUDS_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "QUALITYCLOUDS_API_KEY",
+          "description": "Quality Clouds API key — generate in the admin portal under Account > API Keys > Add (select cloud/channel/instance/developer/team), then copy the key.",
+          "secret": true
+        }
+      }
+    },
+    {
+      "slug": "io.shipbook/mcp",
+      "auth": {
+        "transport": "remote",
+        "url": "https://api.shipbook.io/mcp",
+        "transportType": "streamable-http",
+        "header": {
+          "name": "Authorization",
+          "value": "Bearer {SHIPBOOK_API_KEY}",
+          "secret": true
+        },
+        "env": {
+          "name": "SHIPBOOK_API_KEY",
+          "description": "Shipbook API key — create in the Shipbook console \"Authentication Keys\" section at console.shipbook.io",
+          "secret": true
+        }
+      }
+    }
+  ]
+}

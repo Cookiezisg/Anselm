@@ -163,7 +163,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag := agentapp.NewService(st.agent, notif, log)
 	ctl := controlapp.NewService(st.control, notif, log)
 	apf := approvalapp.NewService(st.approval, notif, log)
-	mcp := mcpapp.NewService(st.mcp, mcpinfra.NewGitHubRegistrySource(dataDir, log), sbx, log)
+	mcp := mcpapp.NewService(st.mcp, mcpinfra.NewCuratedCatalog(mcpinfra.NewGitHubRegistrySource(dataDir, log)), sbx, log)
 	mcp.SetEntitiesBridge(bus.entities) // SSE-C: CallTool tees progress to the server's run terminal
 	conv := conversationapp.NewService(st.conversation, notif, log)
 	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd, mcp), log)
