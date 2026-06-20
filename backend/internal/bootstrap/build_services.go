@@ -235,7 +235,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			mcptool.MCPTools(mcp),
 			skilltool.SkillTools(skill),
 			blockstool.BlocksTools(searchSvc),
-			conversationtool.ConversationTools(searchSvc),
+			conversationtool.ConversationTools(searchSvc, conv),
 			relationtool.RelationTools(rel),
 			webtool.WebTools(ws, keys, inf.factory, ws, ws, log),
 		),

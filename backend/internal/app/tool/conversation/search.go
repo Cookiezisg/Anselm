@@ -18,11 +18,16 @@ import (
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 )
 
-// ConversationTools constructs the conversation tool group (lazy).
+// ConversationTools constructs the conversation tool group (lazy): search_conversations (recall
+// past content) + manage_conversation (archive/pin THIS thread + state that compaction is automatic).
 //
-// ConversationTools 构造 conversation 工具组（懒加载）。
-func ConversationTools(engine *searchapp.Service) []toolapp.Tool {
-	return []toolapp.Tool{&SearchConversations{engine: engine}}
+// ConversationTools 构造 conversation 工具组（懒加载）：search_conversations（回忆历史内容）
+// + manage_conversation（归档/置顶本对话 + 声明 compaction 自动）。
+func ConversationTools(engine *searchapp.Service, mgr Manager) []toolapp.Tool {
+	return []toolapp.Tool{
+		&SearchConversations{engine: engine},
+		&ManageConversation{mgr: mgr},
+	}
 }
 
 const (

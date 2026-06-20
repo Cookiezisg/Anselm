@@ -25,6 +25,6 @@ audience: [human, ai]
 
 ## 2. 契约（引用）
 
-LLM 工具：`search_conversations`（内容混合检索历史对话——只返 conversationId/title/snippet/messageId，绝不返全文；回忆是指针、不是上下文倾倒）。
+LLM 工具：`search_conversations`（内容混合检索历史对话——只返 conversationId/title/snippet/messageId，绝不返全文；回忆是指针、不是上下文倾倒）· `manage_conversation`（归档/置顶**本**对话——`action: archive|unarchive|pin|unpin`，复用 `Service.Update` 的 PATCH 面、无新端点/表/码；从 ctx 取 conversationId，对话外降级 tool-result 串。描述声明**压缩是自动的**——无手动 compact/summarize 动作、无 UI 按钮，杜绝 agent 臆造按钮；chat system prompt 的 `conversation_management` 段同述此真相）。
 
 端点（CRUD）→ [api.md](../api.md) · 表 `conversations` → [database.md](../database.md) · 码 `CONVERSATION_*` 2 个 → [error-codes.md](../error-codes.md) · ID：`cv_`。被消费：chat（每回合读配置）、relation（conversation↔实体的 create/edit 边的另一端）、aispawn（`:iterate`/`:triage` 创建）。

@@ -40,6 +40,16 @@ const (
 	criticalRulesSection = `Do not fabricate results or tool output. ` +
 		`If you cannot complete the request with the tools you have, say so plainly instead of pretending. ` +
 		`Keep responses concise.`
+
+	// conversationSection states the truth about thread management so the agent stops inventing a
+	// non-existent "compact" UI button (F38): compaction is automatic, and archive/pin go through
+	// the manage_conversation tool — not the user clicking anything.
+	//
+	// conversationSection 声明对话管理的真相，使 agent 不再臆造不存在的「compact」UI 按钮（F38）：
+	// compaction 自动发生，归档/置顶走 manage_conversation 工具——而非让用户点击什么。
+	conversationSection = `Conversation history is compacted automatically as it nears the model's context window — ` +
+		`there is no manual "compact" or "summarize" action and no UI button for it; never tell the user to click one. ` +
+		`To archive or pin the current thread, use manage_conversation.`
 )
 
 // buildSystemPrompt assembles the turn's system prompt from static sections + live context
@@ -72,6 +82,7 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *conversationdomai
 		section{"user_system_prompt", conv.SystemPrompt},
 		section{"environment", environmentSection(ctx)},
 		section{"architecture_rules", architectureRulesSection},
+		section{"conversation_management", conversationSection},
 		section{"critical_rules", criticalRulesSection},
 	)
 
