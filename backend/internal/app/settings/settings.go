@@ -79,6 +79,14 @@ func (s *Service) Limits() limitspkg.Limits {
 	return s.cur
 }
 
+// DataDir returns the resolved data directory (the parent of settings.json) — surfaced
+// read-only so the desktop UI can show where this local-first app persists everything
+// and offer "open in file manager". Immutable after Load, so no lock.
+//
+// DataDir 返回解析后的数据目录（settings.json 的父目录）——只读透出本地优先 app 的落盘位置,
+// 供桌面 UI 显示并「在文件管理器打开」。Load 后不变,无需加锁。
+func (s *Service) DataDir() string { return filepath.Dir(s.path) }
+
 // PatchLimits merges a partial JSON object over the current limits (absent fields keep
 // their value), validates, persists atomically and hot-swaps the live source.
 //

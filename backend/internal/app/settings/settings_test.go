@@ -29,6 +29,23 @@ func TestLoad_AbsentFileIsDefaults(t *testing.T) {
 	}
 }
 
+// TestDataDir pins G11: DataDir() returns the resolved data directory (settings.json's
+// parent), which GET /api/v1/system/data-dir surfaces read-only to the desktop UI.
+//
+// TestDataDir 锁 G11:DataDir() 返回解析后的数据目录（settings.json 的父目录）,即
+// GET /api/v1/system/data-dir 只读透出给桌面 UI 的值。
+func TestDataDir(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := s.DataDir(); got != dir {
+		t.Fatalf("DataDir() = %q, want %q", got, dir)
+	}
+}
+
 // TestPatch_PersistsAndHotSwaps: a patch survives reload and limits.Current() sees it
 // immediately (the hot-swap consumers rely on).
 //

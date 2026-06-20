@@ -161,4 +161,4 @@ workspace：CRUD（守最后一个；PATCH 含 `webFetchMode`: local|jina）+ `P
 
 ## 系统 / 可观测性
 
-`GET /api/v1/health`（liveness，N1 envelope，免 workspace）。**仅 dev**（`ANSELM_DEV=1`，`bootstrap.registerDebug`，非 /api/v1 路径故免 workspace 中间件、出货 sidecar 不挂——pprof 是信息泄露/DoS 面）：`GET /debug/pprof/*`（Go pprof——`goroutine`(`?debug=2` 列卡住的栈)/`heap`/`allocs`/`profile`(cpu)/`trace`，抓 goroutine 泄漏=数只涨、内存泄漏=堆只涨、CPU 失控）+ `GET /debug/stats`（运行时快照 JSON：`goroutines`/`heapAllocMB`/`heapObjects`/`stackInuseMB`/`numGC`/`gomaxprocs`/`cgoCalls`）。
+`GET /api/v1/health`（liveness，N1 envelope，免 workspace）· `GET /api/v1/system/data-dir`（返 `{dataDir}`——解析后的数据目录 = 本地优先存储位置，供桌面端「显示 / 在文件管理器打开」；guarded，与 `/limits` 同走 workspace 门）。**仅 dev**（`ANSELM_DEV=1`，`bootstrap.registerDebug`，非 /api/v1 路径故免 workspace 中间件、出货 sidecar 不挂——pprof 是信息泄露/DoS 面）：`GET /debug/pprof/*`（Go pprof——`goroutine`(`?debug=2` 列卡住的栈)/`heap`/`allocs`/`profile`(cpu)/`trace`，抓 goroutine 泄漏=数只涨、内存泄漏=堆只涨、CPU 失控）+ `GET /debug/stats`（运行时快照 JSON：`goroutines`/`heapAllocMB`/`heapObjects`/`stackInuseMB`/`numGC`/`gomaxprocs`/`cgoCalls`）。
