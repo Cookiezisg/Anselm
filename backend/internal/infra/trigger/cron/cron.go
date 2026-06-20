@@ -9,6 +9,7 @@ package cron
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,18 @@ import (
 //
 // Validate 报告 expr 是否可解析的标准（5 字段）cron 表达式；app 在 create/edit 时调以快速失败。
 func Validate(expr string) error {
+	// robfig ParseStandard ALSO accepts @descriptors (@every/@daily/@hourly/...), but the listener's
+	// dedupKey truncates to the minute (5-field resolution) — an @every fires at non-minute-aligned
+	// instants it would mis-fold. Reject them here so the documented "5-field only; @every unsupported"
+	// contract (TRIGGER_INVALID_CRON message + trigger.md) is TRUE, not a lie that silently schedules
+	// an @every (F103).
+	//
+	// robfig ParseStandard 还接受 @descriptors（@every/@daily/...），但 listener 的 dedupKey 截断到分钟
+	// （5 字段分辨率）——@every 在非分钟对齐时刻 fire、会被误折。在此拒绝它们，使文档化的「仅 5 字段、@every
+	// 不支持」契约（TRIGGER_INVALID_CRON 消息 + trigger.md）为真，而非谎称不支持却静默调度（F103）。
+	if strings.HasPrefix(strings.TrimSpace(expr), "@") {
+		return fmt.Errorf("cron: @descriptors are not supported — use a 5-field expression")
+	}
 	if _, err := robfigcron.ParseStandard(expr); err != nil {
 		return err
 	}

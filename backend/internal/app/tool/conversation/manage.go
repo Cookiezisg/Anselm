@@ -37,10 +37,9 @@ type ManageConversation struct{ mgr Manager }
 func (t *ManageConversation) Name() string { return "manage_conversation" }
 
 func (t *ManageConversation) Description() string {
-	return "Archive or pin THIS current conversation (archive | unarchive | pin | unpin). " +
-		"Note: compaction/summarization happens AUTOMATICALLY when the thread nears the model's " +
-		"context window — there is no manual compact/summarize action and no UI button for it; " +
-		"never tell the user to click one. This tool changes the thread's archived/pinned state only."
+	return "Archive, pin, or rename THIS current conversation (archive | unarchive | pin | unpin | rename — rename needs a `title`). " +
+		"IMPORTANT: archiving the thread you are CURRENTLY chatting in is effectively moot — sending ANY further message to an archived thread AUTOMATICALLY unarchives it; if the user wants the open conversation kept archived, tell them it stays archived only once they stop messaging it (don't silently let the next message undo it). " +
+		"Compaction/summarization happens AUTOMATICALLY when the thread nears the model's context window — there is no manual compact/summarize action and no UI button for it; never tell the user to click one, and never invent a UI gesture for rename either (use this tool's rename action)."
 }
 
 func (t *ManageConversation) Parameters() json.RawMessage {
@@ -48,13 +47,15 @@ func (t *ManageConversation) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["action"],
 		"properties": {
-			"action": {"type": "string", "enum": ["archive", "unarchive", "pin", "unpin"], "description": "What to do to this conversation."}
+			"action": {"type": "string", "enum": ["archive", "unarchive", "pin", "unpin", "rename"], "description": "What to do to this conversation."},
+			"title": {"type": "string", "description": "New title — REQUIRED when action is 'rename', ignored otherwise."}
 		}
 	}`)
 }
 
 type manageArgs struct {
 	Action string `json:"action"`
+	Title  string `json:"title"`
 }
 
 // ValidateInput rejects malformed JSON and any action outside the enum.
@@ -68,8 +69,13 @@ func (t *ManageConversation) ValidateInput(args json.RawMessage) error {
 	switch a.Action {
 	case "archive", "unarchive", "pin", "unpin":
 		return nil
+	case "rename":
+		if a.Title == "" {
+			return fmt.Errorf("manage_conversation: rename requires a non-empty title")
+		}
+		return nil
 	default:
-		return fmt.Errorf("manage_conversation: action must be one of archive/unarchive/pin/unpin, got %q", a.Action)
+		return fmt.Errorf("manage_conversation: action must be one of archive/unarchive/pin/unpin/rename, got %q", a.Action)
 	}
 }
 
@@ -104,8 +110,12 @@ func (t *ManageConversation) Execute(ctx context.Context, argsJSON string) (stri
 	case "unpin":
 		v := false
 		in.Pinned = &v
+	case "rename":
+		// UpdateInput.Title already exists + Service.Update applies it (the HTTP PATCH renames fine);
+		// the tool was just asymmetric, so the agent fabricated a UI gesture for rename (F107, the F38 class).
+		in.Title = &a.Title
 	default:
-		return "", fmt.Errorf("manage_conversation: action must be one of archive/unarchive/pin/unpin, got %q", a.Action)
+		return "", fmt.Errorf("manage_conversation: action must be one of archive/unarchive/pin/unpin/rename, got %q", a.Action)
 	}
 
 	c, err := t.mgr.Update(ctx, convID, in)
@@ -115,6 +125,7 @@ func (t *ManageConversation) Execute(ctx context.Context, argsJSON string) (stri
 	return toolapp.ToJSON(map[string]any{
 		"conversationId": convID,
 		"action":         a.Action,
+		"title":          c.Title,
 		"archived":       c.Archived,
 		"pinned":         c.Pinned,
 	}), nil

@@ -34,3 +34,20 @@ func TestNextAfter(t *testing.T) {
 		t.Fatal("an invalid expression must error")
 	}
 }
+
+// TestValidate_RejectsAtDescriptors — F103 (iteration loop): robfig ParseStandard accepts @every/@daily
+// descriptors, but the listener's minute-truncated dedupKey would mis-fold a non-minute-aligned @every,
+// and both the TRIGGER_INVALID_CRON message and trigger.md assert @every is unsupported. Validate must
+// reject @descriptors so that contract is true, while still accepting real 5-field expressions.
+func TestValidate_RejectsAtDescriptors(t *testing.T) {
+	for _, bad := range []string{"@every 5m", "@daily", "@hourly", "  @reboot", "garbage", "1 2 3"} {
+		if err := Validate(bad); err == nil {
+			t.Errorf("Validate(%q) should reject, got nil", bad)
+		}
+	}
+	for _, ok := range []string{"*/5 * * * *", "0 9 * * 1", "30 8 1 * *"} {
+		if err := Validate(ok); err != nil {
+			t.Errorf("Validate(%q) should accept a 5-field expression, got %v", ok, err)
+		}
+	}
+}

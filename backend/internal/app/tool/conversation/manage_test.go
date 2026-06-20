@@ -42,12 +42,17 @@ func Test_manageConversation_Schema(t *testing.T) {
 		t.Fatalf("parameters not valid JSON: %v", err)
 	}
 	got := strings.Join(schema.Properties.Action.Enum, ",")
-	if got != "archive,unarchive,pin,unpin" {
+	if got != "archive,unarchive,pin,unpin,rename" {
 		t.Fatalf("action enum = %q", got)
 	}
 	desc := tool.Description()
 	if !strings.Contains(desc, "AUTOMATICALLY") || !strings.Contains(strings.ToLower(desc), "button") {
-		t.Fatalf("description must state compaction is automatic + no button: %q", desc)
+		t.Fatalf("description must state compaction is automatic + no button (F38): %q", desc)
+	}
+	// F106: the hidden auto-unarchive contract is disclosed so the agent can warn rather than let the
+	// next message silently undo an archive of the active thread.
+	if !strings.Contains(strings.ToLower(desc), "unarchive") {
+		t.Fatalf("description must disclose that messaging an archived thread auto-unarchives it (F106): %q", desc)
 	}
 }
 
@@ -94,6 +99,26 @@ func Test_manageConversation_Actions(t *testing.T) {
 				t.Fatalf("Pinned = %v, want %v", deref(fm.gotIn.Pinned), deref(c.wantPinned))
 			}
 		})
+	}
+}
+
+// Test_manageConversation_Rename — F107: rename sets the Title PATCH (UpdateInput.Title already exists +
+// HTTP PATCH renames). The tool was archive/pin-only, so the agent fabricated a UI gesture for rename.
+func Test_manageConversation_Rename(t *testing.T) {
+	fm := &fakeManager{}
+	tool := &ManageConversation{mgr: fm}
+	ctx := reqctxpkg.SetConversationID(context.Background(), "cv_1")
+	if _, err := tool.Execute(ctx, `{"action":"rename","title":"Deploy planning"}`); err != nil {
+		t.Fatalf("rename execute: %v", err)
+	}
+	if fm.gotIn.Title == nil || *fm.gotIn.Title != "Deploy planning" {
+		t.Fatalf("rename should set Title to 'Deploy planning', got %v", fm.gotIn.Title)
+	}
+	if err := tool.ValidateInput([]byte(`{"action":"rename"}`)); err == nil {
+		t.Fatal("rename without a title must reject")
+	}
+	if err := tool.ValidateInput([]byte(`{"action":"rename","title":"x"}`)); err != nil {
+		t.Fatalf("rename with a title must pass: %v", err)
 	}
 }
 
