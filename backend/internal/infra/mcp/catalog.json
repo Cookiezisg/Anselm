@@ -13,10 +13,26 @@
       "slug": "microsoft/playwright-mcp"
     },
     {
-      "slug": "oraios/serena"
+      "slug": "oraios/serena",
+      "auth": {
+        "transport": "stdio",
+        "package": {
+          "runtimeHint": "uvx",
+          "name": "serena",
+          "from": "git+https://github.com/oraios/serena",
+          "args": [
+            "start-mcp-server",
+            "--context",
+            "ide-assistant",
+            "--transport",
+            "stdio"
+          ]
+        }
+      }
     },
     {
-      "slug": "coplaydev/unity-mcp"
+      "slug": "coplaydev/unity-mcp",
+      "prerequisite": "Requires the Unity Editor running with the MCP for Unity package installed in your project."
     },
     {
       "slug": "firecrawl/firecrawl-mcp-server",
@@ -39,7 +55,8 @@
       "slug": "com.microsoft/microsoft-fabric"
     },
     {
-      "slug": "io.github.bytebase/dbhub"
+      "slug": "io.github.bytebase/dbhub",
+      "prerequisite": "Requires a database to connect to — set DSN (or DB_HOST/DB_USER/DB_PASSWORD/DB_NAME) to your own database."
     },
     {
       "slug": "io.github.brightdata/brightdata-mcp"
@@ -78,13 +95,15 @@
       "slug": "io.github.mapbox/mcp-server"
     },
     {
-      "slug": "sunriseapps/imagesorcery-mcp"
+      "slug": "sunriseapps/imagesorcery-mcp",
+      "prerequisite": "Requires OpenCV native libraries available on this machine."
     },
     {
       "slug": "dev.svelte/mcp"
     },
     {
-      "slug": "azure-ai-foundry/mcp-foundry"
+      "slug": "azure-ai-foundry/mcp-foundry",
+      "prerequisite": "Requires Azure sign-in on this machine (e.g. `az login`) — it uses your ambient Azure credentials."
     },
     {
       "slug": "io.github.microsoft/awesome-copilot"

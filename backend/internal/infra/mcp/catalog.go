@@ -28,9 +28,10 @@ var curatedCatalog []byte
 // catalogEntry 是一条白名单 server。仅 Slug = 可用、按上游 registry 行原样装（works-now）。Auth != nil
 // 钉死原始行缺失/写错的已核验认证（无 header 的静态 token remote，或 stdio token env）。
 type catalogEntry struct {
-	Slug  string       `json:"slug"`
-	Auth  *authOverlay `json:"auth,omitempty"`
-	Local *localEntry  `json:"local,omitempty"` // a self-contained server NOT in the registry (e.g. a local loopback MCP)
+	Slug         string       `json:"slug"`
+	Auth         *authOverlay `json:"auth,omitempty"`
+	Local        *localEntry  `json:"local,omitempty"`        // a self-contained server NOT in the registry (e.g. a local loopback MCP)
+	Prerequisite string       `json:"prerequisite,omitempty"` // a runtime prereq surfaced to the user (DB / running app / cloud sign-in)
 }
 
 // localEntry fully defines a whitelisted server that isn't in the upstream registry — a local
@@ -73,8 +74,9 @@ type overlayHeader struct {
 }
 
 type overlayPackage struct {
-	RuntimeHint string   `json:"runtimeHint"` // npx | uvx | docker | dnx
-	Name        string   `json:"name"`        // package/image name
+	RuntimeHint string   `json:"runtimeHint"`    // npx | uvx | docker | dnx
+	Name        string   `json:"name"`           // package/image name (or run command when From is set)
+	From        string   `json:"from,omitempty"` // python: uvx --from spec (e.g. a git URL)
 	Args        []string `json:"args,omitempty"`
 }
 
@@ -156,7 +158,9 @@ func (c *CuratedCatalog) List(ctx context.Context) ([]mcpdomain.RegistryEntry, e
 	for _, slug := range c.order {
 		ce := c.bySlug[slug]
 		if ce.Local != nil {
-			out = append(out, buildLocal(ce.Local))
+			e := buildLocal(ce.Local)
+			e.Prerequisite = ce.Prerequisite
+			out = append(out, e)
 			continue
 		}
 		raw, ok := idx[slug]
@@ -166,6 +170,7 @@ func (c *CuratedCatalog) List(ctx context.Context) ([]mcpdomain.RegistryEntry, e
 			}
 		}
 		applyOverlay(&raw, ce)
+		raw.Prerequisite = ce.Prerequisite
 		out = append(out, raw)
 	}
 	return out, nil
@@ -182,6 +187,7 @@ func (c *CuratedCatalog) Get(ctx context.Context, name string) (*mcpdomain.Regis
 	}
 	if ce.Local != nil {
 		e := buildLocal(ce.Local)
+		e.Prerequisite = ce.Prerequisite
 		return &e, nil
 	}
 	raw, err := c.under.Get(ctx, name)
@@ -193,6 +199,7 @@ func (c *CuratedCatalog) Get(ctx context.Context, name string) (*mcpdomain.Regis
 		raw = &fb
 	}
 	applyOverlay(raw, ce)
+	raw.Prerequisite = ce.Prerequisite
 	return raw, nil
 }
 
@@ -252,7 +259,7 @@ func applyOverlay(e *mcpdomain.RegistryEntry, ce catalogEntry) {
 		// doesn't resolve to a runtime (e.g. the Snyk CLI's `snyk mcp -t stdio`).
 		// 钉死的 package 替换原始行的 package——上游裸名解析不出 runtime 时用（如 Snyk CLI 的 `snyk mcp -t stdio`）。
 		if a.Package != nil {
-			pkg := mcpdomain.Package{RuntimeHint: a.Package.RuntimeHint, Name: a.Package.Name, Args: a.Package.Args}
+			pkg := mcpdomain.Package{RuntimeHint: a.Package.RuntimeHint, Name: a.Package.Name, From: a.Package.From, Args: a.Package.Args}
 			if ev != nil {
 				pkg.EnvVars = []mcpdomain.EnvVar{*ev}
 			}

@@ -16,6 +16,12 @@ type RegistryEntry struct {
 	Description string    `json:"description"`
 	Packages    []Package `json:"packages,omitempty"`
 	Remotes     []Remote  `json:"remotes,omitempty"`
+	// Prerequisite (catalog-curated) is a runtime prereq the user must have for the server to work
+	// (a database to connect to, the Unity Editor running, cloud sign-in) — kept separate from the
+	// MCP's own Description so it never overwrites the registry's faithful text.
+	// Prerequisite（catalog 标注）= 该 server 能跑所需的运行时前置（要连的数据库、跑着的 Unity、云登录）——
+	// 与 MCP 自己的 Description 分开，绝不覆盖 registry 原话。
+	Prerequisite string `json:"prerequisite,omitempty"`
 }
 
 // Package is one install option. RuntimeHint (npx/uvx/docker/dnx) maps to a sandbox
@@ -27,6 +33,7 @@ type Package struct {
 	RuntimeHint string   `json:"runtimeHint"`
 	Name        string   `json:"name"`
 	Version     string   `json:"version,omitempty"`
+	From        string   `json:"from,omitempty"` // python: a uvx --from spec (e.g. a git URL) when the command differs from the install source
 	Args        []string `json:"args,omitempty"`
 	EnvVars     []EnvVar `json:"envVars,omitempty"`
 }
@@ -231,6 +238,12 @@ func launchCommand(runtime string, p Package) (string, []string) {
 	case RuntimeNode:
 		return "npx", append([]string{"-y", p.Name}, p.Args...)
 	case RuntimePython:
+		// `uvx --from <spec> <command>` when the run command differs from the install source (e.g. a
+		// git-installed tool: serena = `uvx --from git+...serena serena start-mcp-server`).
+		// 安装源与运行命令不同时用 `uvx --from <spec> <command>`（如 git 装的工具：serena）。
+		if p.From != "" {
+			return "uvx", append([]string{"--from", p.From, p.Name}, p.Args...)
+		}
 		return "uvx", append([]string{p.Name}, p.Args...)
 	case RuntimeDotnet:
 		return "dnx", append([]string{p.Name, "--yes"}, p.Args...)
