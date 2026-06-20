@@ -33,13 +33,14 @@
       .soon { padding: var(--sp-6) var(--sp-3); color: var(--ink-3); font-size: var(--t-meta); }
 
       .foot { display: flex; align-items: center; gap: calc(var(--grid) / 2); margin-top: var(--gap-tight); }
-      .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--btn-pad-x-sm); height: var(--island-head); padding: 0 var(--gap-tight);
+      /* 工作区长条 = 设置入口：名称（左，撑满）+ ⚙ 齿轮（右）。整条点击开设置。 */
+      .ws { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--gap-tight); height: var(--island-head); padding: 0 var(--gap-tight) 0 var(--sp-2);
         border-radius: var(--r-btn); color: var(--ink); transition: background var(--d-fast); }
       .ws:hover { background: var(--island-3); }
       .ws.on { background: var(--island-4); }
-      .ava { flex: none; width: var(--ctl); height: var(--ctl); border-radius: var(--r-pill); display: grid; place-items: center;
-        background: var(--island-4); color: var(--ink-2); font-size: var(--t-meta); font-weight: 600; }
       .wsname { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-body); font-weight: 600; }
+      .ws-gear { flex: none; display: grid; place-items: center; width: var(--ctl-sm); height: var(--ctl-sm); color: var(--ink-3); }
+      .ws:hover .ws-gear { color: var(--ink-2); }
       .bell { flex: none; position: relative; width: var(--ctl-sm); height: var(--ctl-sm); display: grid; place-items: center;
         color: var(--ink-3); border-radius: var(--r-btn); transition: color var(--d-fast), background var(--d-fast); }
       .bell:hover { color: var(--ink); background: var(--island-3); }
@@ -63,7 +64,6 @@
 
     render() {
       const m = this._model || { ws: "Personal", nav: [] };
-      const ava = (m.ws || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
       const nav = (m.nav || []).map((n) =>
         `<button class="navbtn" data-id="${window.anEsc(n.id)}"><span class="ico">${window.icon(n.icon, 18)}</span><span class="lbl">${window.anEsc(n.label)}</span></button>`
       ).join("");
@@ -77,7 +77,7 @@
         <div class="nav">${nav}</div>
         <div id="sidebody"></div>
         <div class="foot">
-          <button class="ws" title="工作区 / 设置"><span class="ava">${window.anEsc(ava)}</span><span class="wsname">${window.anEsc(m.ws || "")}</span></button>
+          <button class="ws" title="工作区 · 打开设置"><span class="wsname">${window.anEsc(m.ws || "")}</span><span class="ws-gear">${window.icon("gear", 16)}</span></button>
           <button class="bell" title="通知">${window.icon("bell", 18)}<span class="dot" hidden></span></button>
         </div>`;
     }

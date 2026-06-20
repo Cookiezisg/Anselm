@@ -22,20 +22,28 @@ window.FEATURE.settings = Object.assign(window.FEATURE.settings || {}, {
     function general() {
       const ws = S.workspace || {};
       const wsSec = el("an-section", { label: "工作区" });
-      wsSec.append(
-        field("名称", ws.name),
-        field("头像色", ws.color),
-        field("语言", ws.language, { hint: "同时决定 AI 回复语言" }),
-      );
+      wsSec.append(nameField(ws.name), field("语言", ws.language, { hint: "同时决定 AI 回复语言" }));
       const prefSec = el("an-section", { label: "偏好 · 仅本机" });
-      prefSec.append(segRow("主题", ["明亮", "暗色"], "明亮"), segRow("紧凑度", ["标准", "紧凑"], "紧凑"));
-      const dataSec = el("an-section", { label: "数据" });
-      const locRow = el("an-row", { icon: "box", label: "数据位置", hint: "~/.anselm" });
-      locRow.append(actBtn("打开目录", "enter", () => toast("已打开数据目录")));
-      const delRow = el("an-row", { icon: "trash", label: "删除此工作区", hint: "不可撤销 · 级联清空" });
-      delRow.append(actBtn("删除", "trash", () => toast("（mock）删除工作区需二次确认"), "danger"));
-      dataSec.append(locRow, delRow);
-      return [head("通用"), wsSec, prefSec, dataSec];
+      prefSec.append(segRow("主题", ["明亮", "暗色"], "明亮"));
+      // 工作区管理（切换 / 删除——这俩后续单独设计）
+      const mgmtSec = el("an-section", { label: "工作区管理" });
+      const switchRow = el("an-row", { icon: "history", label: "切换工作区", hint: "在多个工作区间切换" });
+      switchRow.append(actBtn("切换", "enter", () => toast("（待单独设计）工作区选择器")));
+      const delRow = el("an-row", { icon: "trash", label: "删除此工作区", hint: "不可撤销 · 级联清空所有数据" });
+      delRow.append(actBtn("删除", "trash", () => toast("（待单独设计）删除确认流"), "danger"));
+      mgmtSec.append(switchRow, delRow);
+      return [head("通用"), wsSec, prefSec, mgmtSec];
+    }
+    // 名称编辑：清爽的带标签输入框 + 保存（直接可改，非 hover 找铅笔）
+    function nameField(value) {
+      const wrap = el("div"); wrap.style.cssText = "display:flex; flex-direction:column; gap:var(--sp-2);";
+      const lbl = el("div"); lbl.style.cssText = "font-size:var(--t-meta); font-weight:600; text-transform:uppercase; color:var(--ink-3); line-height:var(--lh-ui);";
+      lbl.textContent = "名称";
+      const row = el("div"); row.style.cssText = "display:flex; align-items:center; gap:var(--sp-2); max-width:var(--w-block);";
+      const inp = el("an-input", { value: value, placeholder: "工作区名称", full: "" }); inp.style.cssText = "flex:1; min-width:var(--zero);";
+      const save = el("an-button", { variant: "primary", size: "sm" }); save.textContent = "保存";
+      save.addEventListener("click", () => toast("已保存工作区名称"));
+      row.append(inp, save); wrap.append(lbl, row); return wrap;
     }
     function segRow(label, items, val) {
       const seg = el("an-segmented"); seg.items = items; seg.value = val;
