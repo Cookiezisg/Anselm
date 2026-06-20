@@ -115,6 +115,7 @@ landed-into:
 | F93 LLM 流无总墙钟→idle-timer 每事件重置、病态流永困钉 CPU 25min+阻塞 graceful shutdown+泄漏子进程→加 `LLMStreamMaxSec` 不重置总墙钟（provider.go 第二计时器、区分 total-budget 错） | chat·llm-stream·systems | 单工具/崩溃·robustness | 脆弱/假成功 | fixed·locked |
 | F94 fire_trigger 描述诱导传 body 但只发 {manual:true} 丢之→描述点明不带自定义 payload、指向 trigger_workflow | trigger | 单工具/happy | 不可发现/promise≠reality | fixed(措辞)·locked |
 | F96 create/edit_agent 不校 skill 存在→dangling 名建 dead-on-arrival agent、只 invoke 才报→Create/Edit eager 校验（同 invoke SkillGuide、新码 AGENT_SKILL_NOT_FOUND） | agent·校验 | 单工具/happy→报错 | 假成功/promise≠reality | fixed·locked |
+| F97 F83 函数墙钟封顶但误分类：deadline-SIGKILL→ExitError 先被 errors.As 捕获、status=failed 非 timeout（:triage 不可辨）→ spawn.go 先查 ctx.Err() 返 ErrSpawnTimeout（adapter→run.go 链已对）；真路径测替假信心 fakeRunner | function·sandbox·systems | 单工具/崩溃 | promise≠reality/leaked-internals | fixed·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|

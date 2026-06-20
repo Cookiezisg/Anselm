@@ -142,6 +142,25 @@ func SpawnOnce(ctx context.Context, opts SpawnOptions) (*sandboxdomain.Execution
 		return result, nil
 	}
 
+	// A deadline/cancel-killed process surfaces as an *exec.ExitError (CommandContext SIGKILLs it on
+	// ctx Done), NOT a Go ctx error — so consult the ctx FIRST. Otherwise the errors.As(ExitError)
+	// branch below swallows it (Ok=false + nil error) and the caller records a deadline kill as a
+	// generic non-zero-exit crash, indistinguishable from a real code bug to :triage (F97). Naming
+	// ErrSpawnTimeout on deadline lets the function recorder reclassify the execution as timeout (it
+	// reads the run ctx for the timeout-vs-cancel verdict); a cancel returns a non-nil error so the
+	// same reclassification fires instead of a phantom failure.
+	//
+	// 被 deadline/cancel 杀死的进程现身为 *exec.ExitError（CommandContext 在 ctx Done 时 SIGKILL），**非**
+	// Go ctx 错误——故先查 ctx。否则下面的 errors.As(ExitError) 分支吞掉它（Ok=false + nil 错），调用方把
+	// deadline kill 记成与真代码 bug 无异的非零退出崩溃，对 :triage 不可辨（F97）。deadline 时报 ErrSpawnTimeout
+	// 使 function 记录器把执行重分类为 timeout（它读运行 ctx 给出 timeout-vs-cancel 判定）；cancel 同样返非 nil
+	// 错使重分类触发、而非幻象失败。
+	if ctxErr := ctx.Err(); errors.Is(ctxErr, context.DeadlineExceeded) {
+		return result, fmt.Errorf("sandbox.SpawnOnce: %w", sandboxdomain.ErrSpawnTimeout)
+	} else if ctxErr != nil {
+		return result, fmt.Errorf("sandbox.SpawnOnce: %w (cause: %w)", sandboxdomain.ErrSpawnFailed, ctxErr)
+	}
+
 	var exitErr *exec.ExitError
 	if errors.As(runErr, &exitErr) {
 		result.Ok = false
@@ -149,9 +168,6 @@ func SpawnOnce(ctx context.Context, opts SpawnOptions) (*sandboxdomain.Execution
 		return result, nil
 	}
 
-	if errors.Is(runErr, context.DeadlineExceeded) {
-		return result, fmt.Errorf("sandbox.SpawnOnce: %w", sandboxdomain.ErrSpawnTimeout)
-	}
 	return result, fmt.Errorf("sandbox.SpawnOnce: %w (cause: %w)", sandboxdomain.ErrSpawnFailed, runErr)
 }
 

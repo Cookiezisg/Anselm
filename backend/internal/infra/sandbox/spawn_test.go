@@ -255,3 +255,26 @@ func TestCheckBinaryExists_PathResolvedSkipped(t *testing.T) {
 		}
 	}
 }
+
+// TestSpawnOnce_DeadlineReturnsTimeout: round-3 resource lane — F83's function wall-clock killed a
+// runaway cleanly but the spawn returned (Ok=false, nil err) because a deadline-SIGKILLed process
+// surfaces as an *exec.ExitError, which the errors.As branch caught before any ctx check — so the run
+// recorder logged the timeout as a generic "python exit -1" crash, indistinguishable from a code bug
+// to :triage. This exercises the REAL path the function-layer fakeRunner test mocks away: a deadline
+// kill must surface ErrSpawnTimeout so the execution is reclassified as timeout.
+func TestSpawnOnce_DeadlineReturnsTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses 'sleep' command")
+	}
+	bin, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Fatalf("look up sleep: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	res, err := SpawnOnce(ctx, SpawnOptions{Cmd: bin, Args: []string{"30"}})
+	if !errors.Is(err, sandboxdomain.ErrSpawnTimeout) {
+		t.Fatalf("a deadline-killed spawn must return ErrSpawnTimeout (not a swallowed nil), got err=%v res=%+v", err, res)
+	}
+}
