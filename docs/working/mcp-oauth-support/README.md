@@ -24,7 +24,14 @@ landed-into:
 结果：works-now 59 + static-token 25 + oauth-dcr 10 = **94 可用**；oauth-app-registration **5 永不做**。决策记入 [ADR 0006](../../decisions/0006-mcp-curated-whitelist.md)。
 
 - **档 1（works-now + static-token，84 个）已实现**：`infra/mcp` 的 `CuratedCatalog` 白名单 + `catalog.json` auth 覆盖，结构性根治本文 §0/§3 的「静默坏连接」+「空 Authorization」两 bug。
-- **档 2（oauth-dcr）= 本文 §1–§5 的 OAuth 客户端，已实现并纳入全部 10 个**：`infra/mcp/oauth`（纯协议：发现 RFC 9728/8414 → DCR RFC 7591 → PKCE RFC 7636 → 授权码 + 资源指示符 RFC 8707 → token 交换/刷新）+ `app/mcp/oauth_flow.go`（探测 + loopback 回调 RFC 8252 + 系统浏览器拉起 + token 加密存储/刷新/重存）。已纳入 atlassian/webflow/miro/amplitude/stackoverflow/wix/intercom/getguru/oakallow + **Glean**（每租户模板 URL 经安装时用户填 `GLEAN_MCP_URL` 解析——`Remote.URLEnv` 机制）。下面 §1–§5 即已落地的 OAuth 客户端规格（保留作参考）；§4 的 Google 等仍是「永不做」。**至此 94/99 可用，5 个永不做。**
+- **档 2（oauth-dcr）= 本文 §1–§5 的 OAuth 客户端，已实现并纳入全部 10 个**：`infra/mcp/oauth`（纯协议：发现 RFC 9728/8414 → DCR RFC 7591 → PKCE RFC 7636 → 授权码 + 资源指示符 RFC 8707 → token 交换/刷新）+ `app/mcp/oauth_flow.go`（探测 + loopback 回调 RFC 8252 + 系统浏览器拉起 + token 加密存储/刷新/重存）。已纳入 atlassian/webflow/miro/amplitude/stackoverflow/wix/intercom/getguru/oakallow + **Glean**（每租户模板 URL 经安装时用户填 `GLEAN_MCP_URL` 解析——`Remote.URLEnv` 机制）。下面 §1–§5 即已落地的 OAuth 客户端规格（保留作参考）；§4 的 Google 等仍是「永不做」。
+
+**复核修正（0620，对原「5 永不做」逐个实网复核 + 交叉验证）：原判据没错，但有 server 被误判。**
+- **Vercel 实为 oauth-dcr（误判已纠）**：实网 DCR POST `vercel.com/api/login/oauth/register` → **201 + 真 client_id**（公共客户端、无 allowlist 门控，与 Figma 的 403 截然不同）。原 297-agent 研究 + 初次探测（探测有 header 大小写 bug）误判成 allowlist。**已纳入** → 95/99 可用。
+- **真·厂商合作只剩 figma remote 一个**：实测它的 DCR 端点 POST → **403 Forbidden**，确证客户端要 Figma 批准/进 allowlist（用户自己无解）。其 LOCAL Dev Mode MCP（`127.0.0.1:3845/mcp`、无认证、用户开个开关即可）是纯代码可解的旁路，但不在 registry。
+- **box / MS-EnterpriseMCP / MS-sentinel 不是厂商合作**：授权服务器（Box / Entra ID）无 DCR，但**用户（或其组织管理员）可自行在厂商控制台注册自己的 OAuth app、把 client_id（+secret）填进来**，用现有授权码+PKCE 流程跑通——是「自带 OAuth 客户端」自助路径，非跟厂商谈。要支持需给 OAuth 装机加一个「用户自带 client_id/secret」输入（跳过 DCR）。待决策。
+
+**至此 95/99 可用；剩 4 个：figma(真合作) + box/MS×2（可经「自带 client_id」自助解，待决策是否做）。**
 
 ---
 

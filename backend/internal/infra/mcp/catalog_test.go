@@ -118,7 +118,7 @@ func TestCuratedCatalog_DeterministicViaFallback(t *testing.T) {
 // TestCuratedCatalog_GetRejectsNonWhitelisted 确保未核验 server 无法被解析安装——市场绝不放行。
 func TestCuratedCatalog_GetRejectsNonWhitelisted(t *testing.T) {
 	cat := NewCuratedCatalog(newFakeRegistry(t))
-	for _, slug := range []string{"com.figma.mcp/mcp", "com.vercel/vercel-mcp", "box/mcp-server-box-remote"} {
+	for _, slug := range []string{"com.figma.mcp/mcp", "box/mcp-server-box-remote", "io.github.microsoft/EnterpriseMCP"} {
 		if _, err := cat.Get(context.Background(), slug); !errors.Is(err, mcpdomain.ErrRegistryEntryNotFound) {
 			t.Errorf("Get(%q) = %v, want ErrRegistryEntryNotFound", slug, err)
 		}
@@ -187,7 +187,7 @@ func TestCuratedCatalog_OverlayServersRequireTheirToken(t *testing.T) {
 func TestCuratedCatalog_ExcludesBusinessStep(t *testing.T) {
 	cat := NewCuratedCatalog(newFakeRegistry(t))
 	excluded := []string{
-		"com.figma.mcp/mcp", "io.github.microsoft/EnterpriseMCP", "com.vercel/vercel-mcp",
+		"com.figma.mcp/mcp", "io.github.microsoft/EnterpriseMCP",
 		"box/mcp-server-box-remote", "com.microsoft/sentinel-data-exploration",
 	}
 	for _, slug := range excluded {
@@ -233,6 +233,7 @@ func TestCuratedCatalog_OAuthServersPlanAsOAuth(t *testing.T) {
 		"com.atlassian/atlassian-mcp-server", "com.webflow/mcp", "io.github.miroapp/mcp-server",
 		"amplitude/mcp-server-guide", "com.stackoverflow.mcp/mcp", "com.wix/mcp",
 		"intercom/intercom-mcp-server", "com.getguru/mcp-server", "io.github.oakallow/oakallow",
+		"com.vercel/vercel-mcp", // re-verified: open DCR (POST register → 201), not allowlist-gated
 	}
 	for _, slug := range oauthServers {
 		entry, err := cat.Get(context.Background(), slug)
