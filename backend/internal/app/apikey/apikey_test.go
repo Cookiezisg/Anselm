@@ -195,6 +195,52 @@ func TestUpdate_KeyRotationResetsProbe(t *testing.T) {
 	}
 }
 
+// TestUpdate_KeyRotationAutoReprobes pins G7: with a tester wired, rotating the key resets the
+// probe to pending then auto-reprobes, so the returned row already carries the resolved status
+// (not the silent pending that would drop the key's models from the selector).
+//
+// TestUpdate_KeyRotationAutoReprobes 锁 G7:接了 tester 时,旋转 key 先把探测重置为 pending 再自动
+// 重探,故返回的行已带解析后的状态(而非会让该 key 模型从选择器消失的静默 pending)。
+func TestUpdate_KeyRotationAutoReprobes(t *testing.T) {
+	s, _ := newSvc(fakeTester{result: &TestResult{OK: true, RawResponse: `{"data":[{"id":"m"}]}`}})
+	k, err := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "k", Key: "sk-old1234567890"})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if k.TestStatus != apikeydomain.TestStatusPending {
+		t.Fatalf("precondition: create should leave status pending, got %q", k.TestStatus)
+	}
+	newKey := "sk-new1234567890"
+	got, err := s.Update(ctxWS(), k.ID, UpdateInput{Key: &newKey})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got.TestStatus != apikeydomain.TestStatusOK {
+		t.Errorf("after rotation TestStatus = %q, want ok (auto-reprobed)", got.TestStatus)
+	}
+}
+
+// TestUpdate_KeyRotationProbeFailureStillSucceeds pins G7's guard: a failed post-rotation probe
+// must NOT fail the PATCH — the rotation succeeded; the row just reflects the error status.
+//
+// TestUpdate_KeyRotationProbeFailureStillSucceeds 锁 G7 的守:旋转后探测失败不得让 PATCH 失败——
+// 旋转成功了,行只是带上 error 状态。
+func TestUpdate_KeyRotationProbeFailureStillSucceeds(t *testing.T) {
+	s, _ := newSvc(fakeTester{err: errors.New("dial tcp: refused")})
+	k, _ := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "k", Key: "sk-old1234567890"})
+	newKey := "sk-new1234567890"
+	got, err := s.Update(ctxWS(), k.ID, UpdateInput{Key: &newKey})
+	if err != nil {
+		t.Fatalf("rotation must succeed even when the probe fails, got: %v", err)
+	}
+	if got.KeyEncrypted != "ENC:sk-new1234567890" {
+		t.Errorf("key not rotated: %q", got.KeyEncrypted)
+	}
+	if got.TestStatus != apikeydomain.TestStatusError {
+		t.Errorf("after failed reprobe TestStatus = %q, want error", got.TestStatus)
+	}
+}
+
 func TestDelete_RefScannerBlocks(t *testing.T) {
 	s, _ := newSvc(nil)
 	k, _ := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "m", Key: "sk-1234567890"})

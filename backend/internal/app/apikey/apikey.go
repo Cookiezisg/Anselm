@@ -246,6 +246,25 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*apike
 	if err := s.repo.Save(ctx, k); err != nil {
 		return nil, err
 	}
+	// Rotating the key reset the probe archive to pending, which drops the key's models from
+	// the selector until it's re-probed. Auto-probe now (when a tester is wired) so the response
+	// carries the resolved status (ok|error) instead of a silent pending. A failed probe is
+	// SWALLOWED — the rotation itself succeeded; surfacing the probe failure as a non-2xx PATCH
+	// would be wrong (mirrors the CreateManaged split-brain rationale). Re-Get reflects the
+	// persisted outcome.
+	//
+	// 旋转 key 把探测档案重置为 pending,会让该 key 的模型从选择器消失直到重探。这里(有 tester 时)自动
+	// 探一次,使响应带上解析后的状态(ok|error)、而非静默 pending。探测失败被吞——旋转本身成功了,把探测
+	// 失败报成非 2xx 的 PATCH 是错的(同 CreateManaged 脑裂取舍)。re-Get 反映已落库结果。
+	if in.Key != nil && s.tester != nil {
+		if _, terr := s.Test(ctx, id); terr != nil {
+			s.log.Info("apikey.Service.Update: post-rotation probe failed (rotation still succeeded)",
+				zap.String("key_id", id), zap.Error(terr))
+		}
+		if fresh, gerr := s.repo.Get(ctx, id); gerr == nil {
+			k = fresh
+		}
+	}
 	return k, nil
 }
 
