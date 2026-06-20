@@ -52,10 +52,16 @@ const (
 	TestStatusError   = "error"
 )
 
-// APIFormatAnthropicCompatible marks a custom key whose wire dialect is Anthropic's.
+// APIFormat values for a custom key's wire dialect. The set is closed: dispatch and
+// probe both branch "anthropic-compatible else OpenAI", so any other string silently
+// drives the wrong dialect — validateCreate rejects junk at the write boundary.
 //
-// APIFormatAnthropicCompatible 标记 wire 方言为 Anthropic 的 custom key。
-const APIFormatAnthropicCompatible = "anthropic-compatible"
+// custom key 的 wire 方言取值。集合封闭:派发与探测都按「anthropic-compatible 否则 OpenAI」
+// 分流,任何别的串都会静默走错方言——validateCreate 在写入边界拒非法值。
+const (
+	APIFormatAnthropicCompatible = "anthropic-compatible"
+	APIFormatOpenAICompatible    = "openai-compatible"
+)
 
 // Credentials is the per-call plaintext bundle handed to LLM/search callers.
 // Key is plaintext — never log, never persist.
@@ -102,6 +108,7 @@ var (
 	ErrKeyRequired         = errorspkg.New(errorspkg.KindInvalid, "API_KEY_VALUE_REQUIRED", "key value is required")
 	ErrBaseURLRequired     = errorspkg.New(errorspkg.KindInvalid, "API_KEY_BASE_URL_REQUIRED", "base url is required for this provider")
 	ErrAPIFormatRequired   = errorspkg.New(errorspkg.KindInvalid, "API_KEY_API_FORMAT_REQUIRED", "api format is required for custom provider")
+	ErrAPIFormatInvalid    = errorspkg.New(errorspkg.KindInvalid, "API_KEY_API_FORMAT_INVALID", "api format must be openai-compatible or anthropic-compatible")
 	ErrDisplayNameConflict = errorspkg.New(errorspkg.KindConflict, "API_KEY_DISPLAY_NAME_CONFLICT", "display name already in use")
 	ErrInUse               = errorspkg.New(errorspkg.KindUnprocessable, "API_KEY_IN_USE", "api key is referenced and cannot be deleted")
 	// ErrTestFailed: the :test probe reached the provider but it rejected the key.

@@ -147,6 +147,35 @@ func TestCreate_Validation(t *testing.T) {
 	}
 }
 
+// TestValidateCreate_APIFormatWhitelist pins G9: a custom key's apiFormat is a closed
+// set — empty is missing, anything outside the whitelist is rejected (would otherwise
+// silently fall through to the OpenAI-compat dialect at dispatch/probe).
+//
+// TestValidateCreate_APIFormatWhitelist 锁 G9:custom key 的 apiFormat 是封闭集——空=缺,
+// 白名单外的串被拒(否则会在派发/探测时静默落 OpenAI-compat 方言)。
+func TestValidateCreate_APIFormatWhitelist(t *testing.T) {
+	custom := func(f string) CreateInput {
+		return CreateInput{Provider: "custom", Key: "k", BaseURL: "http://x", APIFormat: f}
+	}
+	cases := []struct {
+		name string
+		in   CreateInput
+		want error
+	}{
+		{"empty rejected", custom(""), apikeydomain.ErrAPIFormatRequired},
+		{"junk rejected", custom("gpt-ish"), apikeydomain.ErrAPIFormatInvalid},
+		{"openai-compatible accepted", custom("openai-compatible"), nil},
+		{"anthropic-compatible accepted", custom("anthropic-compatible"), nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if err := validateCreate(c.in); !errors.Is(err, c.want) {
+				t.Errorf("validateCreate = %v, want %v", err, c.want)
+			}
+		})
+	}
+}
+
 func TestUpdate_KeyRotationResetsProbe(t *testing.T) {
 	s, repo := newSvc(nil)
 	k, _ := s.Create(ctxWS(), CreateInput{Provider: "openai", DisplayName: "m", Key: "sk-old1234567890"})

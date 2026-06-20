@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **279 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **282 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（279 码，按域）
+## 全量登记（282 码，按域）
 
-> `errorspkg.New` 机械抽取（274，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（277，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ### transport 合成码（`FromDomainError`，非 `errorspkg.New` sentinel）
 
-> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 279 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
+> `transport/httpapi/response/errmap.go::FromDomainError` 把 stdlib `context` 错误直发为 wire 码——不走 `errorspkg.New`，故不在上面 282 的机械抽取内，但前端确会收到。这是 transport 唯一认识的非 `Error` sentinel（见 errmap.go 注释）。
 
 | code | HTTP | message | 触发 |
 |---|---|---|---|
@@ -281,6 +281,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `API_KEY_API_FORMAT_INVALID` | 400 | api format must be openai-compatible or anthropic-compatible |
 | `API_KEY_API_FORMAT_REQUIRED` | 400 | api format is required for custom provider |
 | `API_KEY_BASE_URL_REQUIRED` | 400 | base url is required for this provider |
 | `API_KEY_DISPLAY_NAME_CONFLICT` | 409 | display name already in use |

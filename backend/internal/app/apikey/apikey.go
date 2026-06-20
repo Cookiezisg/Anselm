@@ -185,8 +185,18 @@ func validateCreate(in CreateInput) error {
 	if meta.BaseURLRequired && strings.TrimSpace(in.BaseURL) == "" {
 		return apikeydomain.ErrBaseURLRequired
 	}
-	if in.Provider == "custom" && strings.TrimSpace(in.APIFormat) == "" {
-		return apikeydomain.ErrAPIFormatRequired
+	if in.Provider == "custom" {
+		// Closed dialect set: empty is missing, anything outside the whitelist would
+		// silently fall through to the OpenAI-compat branch at dispatch/probe — reject it.
+		//
+		// 方言集封闭:空=缺,白名单外的串会在派发/探测时静默落到 OpenAI-compat 分支——拒掉。
+		f := strings.TrimSpace(in.APIFormat)
+		if f == "" {
+			return apikeydomain.ErrAPIFormatRequired
+		}
+		if f != apikeydomain.APIFormatOpenAICompatible && f != apikeydomain.APIFormatAnthropicCompatible {
+			return apikeydomain.ErrAPIFormatInvalid
+		}
 	}
 	return nil
 }
