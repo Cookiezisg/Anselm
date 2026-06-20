@@ -68,10 +68,12 @@ type Repository interface {
 	UpdateVersionEnv(ctx context.Context, versionID, envStatus, envError string, deps []string, syncedAt *time.Time) error
 
 	// TrimOldestVersions hard-deletes versions beyond the newest `keep`, never deleting
-	// the function's current active version.
+	// the function's current active version, and returns the deleted versions' EnvIDs so
+	// the caller can reclaim their orphaned per-version venvs.
 	//
-	// TrimOldestVersions 硬删超出最新 keep 个的版本，绝不删 function 当前 active 版本。
-	TrimOldestVersions(ctx context.Context, functionID string, keep int) error
+	// TrimOldestVersions 硬删超出最新 keep 个的版本，绝不删 function 当前 active 版本，
+	// 返回被删版本的 EnvID 列表，供调用方回收其孤儿 per-version venv。
+	TrimOldestVersions(ctx context.Context, functionID string, keep int) ([]string, error)
 
 	ExecutionRepository
 }

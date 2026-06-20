@@ -22,7 +22,7 @@ audience: [human, ai]
 **版本模型 = 线性只增 + 自由指针**（全实体统一，"方案 A"）：
 - 每次 edit = 在 active 基础上套 ops → 写**新** Version（号 = max+1，永不重排）→ 指针移过去，**立即生效**。没有 pending/accept/审批态。
 - revert = **纯指针移动**到旧版本号——不复制、不删"更新的"版本，可以再 revert 回来。
-- 版本数 cap 50，超出硬删最老的，**但绝不删 active**（revert 后 active 可能很老）。
+- 版本数 cap 50，超出硬删最老的，**但绝不删 active**（revert 后 active 可能很老）；trim 同时**回收被删版本的 per-version venv**（`TrimOldestVersions` 返回被删版本 EnvID，`reclaimTrimmedEnvs` 经 `runner.DestroyEnv` 逐个销毁，best-effort）——否则孤儿 venv 泄漏到盘上直到手动 `sandbox:gc`。
 
 **env 模型**：每个 Version 配独立 venv（`EnvID`，前缀 `fnenv_`——infra 自有前缀，不从 fn_ 派生）。sandbox 的 owner key = `functionID_envID` 复合（每版本的 venv 独立可寻址；Destroy 按 `functionID_` 前缀扫）。Version 行上有 env 的**状态镜像**（pending/syncing/ready/failed + 错误 + 同步时间）——读 Version 即知 env 健康度，不用查 sandbox。
 
@@ -65,4 +65,4 @@ audience: [human, ai]
 - **执行被谁调**：chat loop（`run_function`）/ HTTP / workflow 调度器（窄接口 `FunctionRunner`，bootstrap/dispatch.go）/ sensor。
 - **能力暴露**：catalog（name+desc 名录）· @ 提及（快照 description+active 代码）· relation 图（`NamesByIDs` 读时 hydrate + conversation→function 的 create/edit 边，edit 边在每次 active 变更时重算、origin 对话除外）。
 - **agent 挂载**：`fn_<id>` 可被 agent 挂为专属工具（见 [agent.md](agent.md)#3）。
-- **依赖的端口**：sandbox（Run/Destroy/Ready）· envfix.Provisioner（env 物化+LLM 修复）· relation/notification（nil 容忍）。
+- **依赖的端口**：sandbox（Run/Destroy/DestroyEnv/Ready；`DestroyEnv` 回收单个 trim 掉的版本 venv）· envfix.Provisioner（env 物化+LLM 修复）· relation/notification（nil 容忍）。

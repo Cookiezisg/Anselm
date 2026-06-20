@@ -66,8 +66,9 @@ func (nopWC) Write(p []byte) (int, error) { return len(p), nil }
 func (nopWC) Close() error                { return nil }
 
 type fakeRunner struct {
-	spawns  int
-	handles []*fakeHandle
+	spawns       int
+	handles      []*fakeHandle
+	destroyedEnv []string // owner IDs passed to DestroyEnv (per-version venv reclaim on trim)
 }
 
 func (r *fakeRunner) Ready() bool { return true }
@@ -78,6 +79,10 @@ func (r *fakeRunner) Spawn(_ context.Context, _ sandboxdomain.Owner, _, _, _ str
 	return h, nil
 }
 func (r *fakeRunner) Destroy(context.Context, string) error { return nil }
+func (r *fakeRunner) DestroyEnv(_ context.Context, owner sandboxdomain.Owner) error {
+	r.destroyedEnv = append(r.destroyedEnv, owner.ID)
+	return nil
+}
 
 type fakeClient struct {
 	calls   int

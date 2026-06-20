@@ -50,6 +50,13 @@ type SandboxRunner interface {
 
 	// Destroy removes every env owned by the handler and its on-disk code dir.
 	Destroy(ctx context.Context, handlerID string) error
+
+	// DestroyEnv reclaims a single per-version env by owner key (no-op if already gone);
+	// used to clean up a trimmed version's orphaned venv.
+	//
+	// DestroyEnv 按 owner key 回收单个 per-version env（已不存在则 no-op）；用于清理被 trim
+	// 版本的孤儿 venv。
+	DestroyEnv(ctx context.Context, owner sandboxdomain.Owner) error
 }
 
 // ClientFactory wraps subprocess pipes into a handlerinfra.Client (overridable in tests).
@@ -163,6 +170,21 @@ func (s *Service) Shutdown(ctx context.Context) { s.manager.StopAll(ctx) }
 // envOwner 是某版本 env 的 sandbox owner key。
 func envOwner(handlerID, envID string) sandboxdomain.Owner {
 	return sandboxdomain.Owner{Kind: sandboxdomain.OwnerKindHandler, ID: handlerID + "_" + envID}
+}
+
+// reclaimTrimmedEnvs destroys the per-version venvs of versions just removed by
+// TrimOldestVersions; best-effort — a failure leaves a venv for the next sandbox:gc but
+// never blocks the edit.
+//
+// reclaimTrimmedEnvs 销毁刚被 TrimOldestVersions 删掉的版本的 per-version venv；尽力而为
+// ——失败则把 venv 留给下次 sandbox:gc，绝不阻断 edit。
+func (s *Service) reclaimTrimmedEnvs(ctx context.Context, handlerID string, envIDs []string) {
+	for _, envID := range envIDs {
+		if err := s.runner.DestroyEnv(ctx, envOwner(handlerID, envID)); err != nil {
+			s.log.Warn("handlerapp: reclaim trimmed env failed",
+				zap.String("handlerId", handlerID), zap.String("envId", envID), zap.Error(err))
+		}
+	}
 }
 
 // ensureEnv materializes v's env via the envfix loop and writes terminal state + deps

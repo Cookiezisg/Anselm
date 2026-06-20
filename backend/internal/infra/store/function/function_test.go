@@ -47,6 +47,7 @@ func mkVer(t *testing.T, s *Store, ctx context.Context, id, fnID string, n int) 
 		Inputs:       []schemapkg.Field{{Name: "x", Type: schemapkg.TypeString}},
 		Outputs:      []schemapkg.Field{{Name: "y", Type: schemapkg.TypeNumber}},
 		Dependencies: []string{}, EnvStatus: functiondomain.EnvStatusPending,
+		EnvID: "env_" + id, // deterministic per-version env so trim's returned reclaim list is assertable
 	}
 	if err := s.SaveVersion(ctx, v); err != nil {
 		t.Fatalf("SaveVersion %s: %v", id, err)
@@ -195,10 +196,15 @@ func TestVersion_TrimProtectsActive(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		mkVer(t, s, ctx, "fnv_"+string(rune('0'+i)), "fn_1", i)
 	}
-	if err := s.TrimOldestVersions(ctx, "fn_1", 3); err != nil {
+	trimmedEnvs, err := s.TrimOldestVersions(ctx, "fn_1", 3)
+	if err != nil {
 		t.Fatalf("trim: %v", err)
 	}
 	// keep newest 3 (v3,v4,v5); v1,v2 are beyond — but v1 is active → only v2 deleted.
+	// The returned reclaim list must name exactly v2's env (so the caller frees its orphaned venv).
+	if len(trimmedEnvs) != 1 || trimmedEnvs[0] != "env_fnv_2" {
+		t.Fatalf("trim must return only v2's env id for reclaim, got %v", trimmedEnvs)
+	}
 	if _, err := s.GetVersion(ctx, "fnv_1"); err != nil {
 		t.Fatalf("active v1 must survive trim, got %v", err)
 	}

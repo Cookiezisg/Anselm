@@ -55,7 +55,12 @@ type Repository interface {
 	ListVersions(ctx context.Context, handlerID string, filter VersionListFilter) ([]*Version, string, error)
 	MaxVersionNumber(ctx context.Context, handlerID string) (int, error)
 	UpdateVersionEnv(ctx context.Context, versionID, envStatus, envError string, deps []string, syncedAt *time.Time) error
-	TrimOldestVersions(ctx context.Context, handlerID string, keep int) error
+	// TrimOldestVersions hard-deletes versions beyond the newest `keep`, sparing the active,
+	// and returns the deleted versions' EnvIDs so the caller can reclaim their orphaned venvs.
+	//
+	// TrimOldestVersions 硬删超出最新 keep 个的版本，放过 active，返回被删版本的 EnvID 列表，
+	// 供调用方回收其孤儿 venv。
+	TrimOldestVersions(ctx context.Context, handlerID string, keep int) ([]string, error)
 
 	CallRepository
 }

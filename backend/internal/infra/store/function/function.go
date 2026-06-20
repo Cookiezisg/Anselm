@@ -289,35 +289,50 @@ func (s *Store) UpdateVersionEnv(ctx context.Context, versionID, envStatus, envE
 }
 
 // TrimOldestVersions hard-deletes versions below the keep-th newest version number,
-// always sparing the function's active version (which may be old after a revert).
+// always sparing the function's active version (which may be old after a revert), and
+// returns the deleted versions' EnvIDs so the caller can reclaim their orphaned venvs
+// (each version owns a unique per-version env — without this they leak on disk until a
+// manual sandbox:gc).
 //
 // TrimOldestVersions 硬删低于第 keep 新版本号的版本，始终放过 function 的 active 版本
-// （revert 后它可能很老）。
-func (s *Store) TrimOldestVersions(ctx context.Context, functionID string, keep int) error {
+// （revert 后它可能很老），返回被删版本的 EnvID 列表，供调用方回收其孤儿 venv（每个版本
+// 独占一份 per-version env——不回收则泄漏到盘上直到手动 sandbox:gc）。
+func (s *Store) TrimOldestVersions(ctx context.Context, functionID string, keep int) ([]string, error) {
 	if keep <= 0 {
 		keep = functiondomain.VersionCap
 	}
 	var nums []int
 	if err := s.vers.WhereEq("function_id", functionID).Order("version DESC").Pluck(ctx, "version", &nums); err != nil {
-		return fmt.Errorf("functionstore.TrimOldestVersions: %w", err)
+		return nil, fmt.Errorf("functionstore.TrimOldestVersions: %w", err)
 	}
 	if len(nums) <= keep {
-		return nil
+		return nil, nil
 	}
 	cutoff := nums[keep-1] // keep versions with number >= cutoff (the keep newest)
 
 	f, err := s.fns.Get(ctx, functionID)
 	if err != nil {
-		return fmt.Errorf("functionstore.TrimOldestVersions: load active: %w", err)
+		return nil, fmt.Errorf("functionstore.TrimOldestVersions: load active: %w", err)
+	}
+	// Capture the doomed versions' EnvIDs BEFORE the delete (the rows vanish after) so the
+	// caller can destroy their venvs. Same predicate as the delete — single source of truth.
+	// 删除前先抓住将死版本的 EnvID（删后行就没了），让调用方销毁其 venv。与删除同谓词——单一真相源。
+	var envIDs []string
+	if err := s.vers.
+		WhereEq("function_id", functionID).
+		Where("version < ?", cutoff).
+		Where("id != ?", f.ActiveVersionID).
+		Pluck(ctx, "env_id", &envIDs); err != nil {
+		return nil, fmt.Errorf("functionstore.TrimOldestVersions: pluck env ids: %w", err)
 	}
 	if _, err := s.vers.
 		WhereEq("function_id", functionID).
 		Where("version < ?", cutoff).
 		Where("id != ?", f.ActiveVersionID).
 		Delete(ctx); err != nil { // hard-delete: function_versions has no deleted_at
-		return fmt.Errorf("functionstore.TrimOldestVersions: %w", err)
+		return nil, fmt.Errorf("functionstore.TrimOldestVersions: %w", err)
 	}
-	return nil
+	return envIDs, nil
 }
 
 // toAny widens a []string to []any for orm WhereIn variadic args.

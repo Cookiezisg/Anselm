@@ -45,6 +45,7 @@ func mkVer(t *testing.T, s *Store, ctx context.Context, id, hID string, n int) {
 		ID: id, HandlerID: hID, Version: n,
 		Methods: []handlerdomain.MethodSpec{}, InitArgsSchema: []handlerdomain.InitArgSpec{},
 		Dependencies: []string{}, EnvStatus: handlerdomain.EnvStatusPending,
+		EnvID: "env_" + id, // deterministic per-version env so trim's returned reclaim list is assertable
 	}
 	if err := s.SaveVersion(ctx, v); err != nil {
 		t.Fatalf("SaveVersion %s: %v", id, err)
@@ -101,8 +102,13 @@ func TestVersion_TrimProtectsActive(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		mkVer(t, s, ctx, "hdv_"+string(rune('0'+i)), "hd_1", i)
 	}
-	if err := s.TrimOldestVersions(ctx, "hd_1", 3); err != nil {
+	trimmedEnvs, err := s.TrimOldestVersions(ctx, "hd_1", 3)
+	if err != nil {
 		t.Fatalf("trim: %v", err)
+	}
+	// Only v2 is trimmed (v1 active, v3-v5 kept) → its env id must come back for venv reclaim.
+	if len(trimmedEnvs) != 1 || trimmedEnvs[0] != "env_hdv_2" {
+		t.Fatalf("trim must return only v2's env id for reclaim, got %v", trimmedEnvs)
 	}
 	if _, err := s.GetVersion(ctx, "hdv_1"); err != nil {
 		t.Fatalf("active v1 must survive trim, got %v", err)

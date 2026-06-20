@@ -52,6 +52,13 @@ type SandboxRunner interface {
 	//
 	// Destroy 删除 function 拥有的所有 env 与盘上代码目录。
 	Destroy(ctx context.Context, functionID string) error
+
+	// DestroyEnv reclaims a single per-version env by owner key (no-op if already gone);
+	// used to clean up a trimmed version's orphaned venv.
+	//
+	// DestroyEnv 按 owner key 回收单个 per-version env（已不存在则 no-op）；用于清理被 trim
+	// 版本的孤儿 venv。
+	DestroyEnv(ctx context.Context, owner sandboxdomain.Owner) error
 }
 
 // RelationSyncer is the slice of relationapp.Service function consumes (nil-tolerant).
@@ -164,6 +171,21 @@ func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink
 	v.EnvError = errMsg
 	v.EnvSyncedAt = &now
 	return false, errMsg
+}
+
+// reclaimTrimmedEnvs destroys the per-version venvs of versions just removed by
+// TrimOldestVersions; best-effort — a failure leaves a venv for the next sandbox:gc but
+// never blocks the edit.
+//
+// reclaimTrimmedEnvs 销毁刚被 TrimOldestVersions 删掉的版本的 per-version venv；尽力而为
+// ——失败则把 venv 留给下次 sandbox:gc，绝不阻断 edit。
+func (s *Service) reclaimTrimmedEnvs(ctx context.Context, functionID string, envIDs []string) {
+	for _, envID := range envIDs {
+		if err := s.runner.DestroyEnv(ctx, envOwner(functionID, envID)); err != nil {
+			s.log.Warn("functionapp: reclaim trimmed env failed",
+				zap.String("functionId", functionID), zap.String("envId", envID), zap.Error(err))
+		}
+	}
 }
 
 func lastEnvError(history []envfixapp.Attempt) string {

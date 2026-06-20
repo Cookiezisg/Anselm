@@ -34,9 +34,10 @@ func (okSandbox) EnsureEnv(_ context.Context, _ sandboxdomain.Owner, spec sandbo
 }
 
 type fakeRunner struct {
-	ran    int
-	result *functiondomain.ExecutionResult
-	block  bool // F83: when true, Run blocks until ctx is done then returns ctx.Err() (wall-clock timeout test)
+	ran          int
+	result       *functiondomain.ExecutionResult
+	block        bool     // F83: when true, Run blocks until ctx is done then returns ctx.Err() (wall-clock timeout test)
+	destroyedEnv []string // owner IDs passed to DestroyEnv (per-version venv reclaim on trim)
 }
 
 func (f *fakeRunner) Ready() bool { return true }
@@ -52,6 +53,10 @@ func (f *fakeRunner) Run(ctx context.Context, _ sandboxdomain.Owner, _, _, _ str
 	return &functiondomain.ExecutionResult{OK: true, Output: "ok"}, nil
 }
 func (f *fakeRunner) Destroy(context.Context, string) error { return nil }
+func (f *fakeRunner) DestroyEnv(_ context.Context, owner sandboxdomain.Owner) error {
+	f.destroyedEnv = append(f.destroyedEnv, owner.ID)
+	return nil
+}
 
 type fakePicker struct{}
 
@@ -204,6 +209,32 @@ func TestEdit_EmptyOpsRebuildsEnv(t *testing.T) {
 	}
 	if v.ID != v1.ID { // no new version, same active
 		t.Fatalf("empty-ops edit should not create a new version: %s vs %s", v.ID, v1.ID)
+	}
+}
+
+// TestEdit_ReclaimsTrimmedVersionEnv proves an edit that pushes the version count past the
+// cap destroys the trimmed (oldest non-active) version's per-version venv via the sandbox
+// port — without this the venv leaks on disk until a manual sandbox:gc.
+//
+// TestEdit_ReclaimsTrimmedVersionEnv 证明越过版本上限的 edit 会经 sandbox 端口销毁被 trim
+// （最旧非 active）版本的 per-version venv——无此则 venv 泄漏到盘上直到手动 sandbox:gc。
+func TestEdit_ReclaimsTrimmedVersionEnv(t *testing.T) {
+	svc, runner, ctx := newSvc(t)
+	f, v1, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "a", goodCode)})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// Create made v1; VersionCap edits bring the total to cap+1, trimming exactly v1 (active
+	// always points at the newest after an edit).
+	for i := 0; i < functiondomain.VersionCap; i++ {
+		body := fmt.Sprintf("def main():\n    return %d", i)
+		if _, err := svc.Edit(ctx, EditInput{ID: f.ID, Ops: editCodeOps(t, body)}); err != nil {
+			t.Fatalf("edit %d: %v", i, err)
+		}
+	}
+	want := f.ID + "_" + v1.EnvID
+	if len(runner.destroyedEnv) != 1 || runner.destroyedEnv[0] != want {
+		t.Fatalf("trimmed v1 env must be reclaimed: want [%s], got %v", want, runner.destroyedEnv)
 	}
 }
 

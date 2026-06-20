@@ -211,9 +211,11 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 	if err := s.repo.SaveVersionAndActivate(ctx, v, h); err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)
 	}
-	if err := s.repo.TrimOldestVersions(ctx, in.ID, handlerdomain.VersionCap); err != nil {
+	trimmedEnvs, err := s.repo.TrimOldestVersions(ctx, in.ID, handlerdomain.VersionCap)
+	if err != nil {
 		s.log.Warn("handlerapp.Edit: trim versions failed", zap.String("handlerId", in.ID), zap.Error(err))
 	}
+	s.reclaimTrimmedEnvs(ctx, in.ID, trimmedEnvs)
 	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN})
 
 	s.ensureEnv(ctx, v, in.Progress)

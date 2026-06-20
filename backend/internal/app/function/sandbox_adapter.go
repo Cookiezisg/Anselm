@@ -141,6 +141,14 @@ func (a *SandboxAdapter) Destroy(ctx context.Context, functionID string) error {
 	return nil
 }
 
+// DestroyEnv reclaims one per-version env by owner key (delegates to the sandbox service,
+// which no-ops if the env was never materialized).
+//
+// DestroyEnv 按 owner key 回收单个 per-version env（委托 sandbox service，env 从未物化则 no-op）。
+func (a *SandboxAdapter) DestroyEnv(ctx context.Context, owner sandboxdomain.Owner) error {
+	return a.svc.Destroy(ctx, owner)
+}
+
 func (a *SandboxAdapter) versionDir(functionID, versionID string) string {
 	return filepath.Join(a.dataDir, "functions", functionID, "versions", versionID)
 }
