@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **282 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **283 个 sentinel wire code 完整登记**（按域）+ **2 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发、非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -42,9 +42,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（282 码，按域）
+## 全量登记（283 码，按域）
 
-> `errorspkg.New` 机械抽取（277，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（278，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -84,6 +84,12 @@ audience: [human, ai]
 | `EMPTY_CONTENT` | 400 | message has no text and no attachments |
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
+
+### `app/freetier`
+
+| code | HTTP | message |
+|---|---|---|
+| `FREETIER_NOT_PROVISIONED` | 404 | free tier not provisioned for this workspace（无受管 anselm 凭证：in-memory/测试模式或 provision 仍 pending；设置页据此隐藏免费档仪表。网关 quota 自身失败原样冒泡 `LLM_AUTH_FAILED`/`LLM_RATE_LIMITED`/`LLM_PROVIDER_ERROR`） |
 
 ### `app/settings`
 

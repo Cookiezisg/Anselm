@@ -140,6 +140,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, log *zap.Logge
 		handlershttpapi.NewSandboxHandler(s.sandbox, log),
 		handlershttpapi.NewLimitsHandler(s.settings, log),
 		handlershttpapi.NewSystemHandler(s.settings, log),
+		handlershttpapi.NewFreetierHandler(s.freetierQuota, log),
 		handlershttpapi.NewDocumentHandler(s.document, s.aispawn, log),
 		handlershttpapi.NewTodoHandler(s.todo, log),
 		handlershttpapi.NewAttachmentHandler(s.attachment, log),

@@ -16,6 +16,8 @@ landed-into:
 > 用法：这是**给后端实现者的待办清单**，不是设计。每条给【缺什么 · 设置为啥要 · 大致补什么 · 代码锚点】。按 P0/P1/P2 优先级分档——P0 不补，设置页会明显残缺或误导用户。
 > 范围：只列「设置 UI 想要、后端缺」的。**刻意不可配的**（运行时版本钉死/下载源固定 = ADR 0001；加密绑机器指纹）不在此列——那是设计决定、别动。
 
+> **实现进度（截至 2026-06-21）**：**已落** —— P0 `G1`（免费档配额 `GET /freetier/quota`，后端代理网关 Bearer）· `G3`（清场景默认模型）· `G4`（`API_KEY_IN_USE` 带 `details.references`）；P1 `G5`（`GET /limits/schema` + `GET /sandbox/runtimes/available`）· `G6`（`POST /limits:reset`）· `G7`（旋转 key 自动重探）· `G9`（custom `apiFormat` 白名单）。**剩** —— P0 `G2`（装机进度，需 SSE + 计数 writer，前提已校正：当前 `progress()` 恒 -1 无字节进度）· P1 `G8`（Ollama 连测端点）· P2 `G10`–`G16`（多数 defer / 前端更合适 / 产品决策）。
+
 ---
 
 ## P0 —— 不补，设置页就残缺/误导

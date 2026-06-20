@@ -81,36 +81,37 @@ import (
 // services 持有所有构造好的 app Service——handler 读它们，boot/shutdown 序列对少数持后台工作的
 // （sandbox/handler/mcp/trigger/scheduler/chat）调生命周期方法。
 type services struct {
-	workspace    *workspaceapp.Service
-	apikey       *apikeyapp.Service
-	freetier     *freetierapp.Provisioner
-	modelCaps    *modelapp.CapabilityService
-	relation     *relationapp.Service
-	catalog      *catalogapp.Service
-	notification *notificationapp.Service
-	memory       *memoryapp.Service
-	sandbox      *sandboxapp.Service
-	document     *documentapp.Service
-	todo         *todoapp.Service
-	attachment   *attachmentapp.Service
-	function     *functionapp.Service
-	handler      *handlerapp.Service
-	agent        *agentapp.Service
-	trigger      *triggerapp.Service
-	mcp          *mcpapp.Service
-	skill        *skillapp.Service
-	control      *controlapp.Service
-	approval     *approvalapp.Service
-	workflow     *workflowapp.Service
-	scheduler    *schedulerapp.Service
-	settings     *settingsapp.Service
-	conversation *conversationapp.Service
-	chat         *chatapp.Service
-	subagent     *subagentapp.Service
-	contextmgr   *contextmgrapp.Service
-	aispawn      *aispawnapp.Service
-	search       *searchapp.Service
-	shellMgr     *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
+	workspace     *workspaceapp.Service
+	apikey        *apikeyapp.Service
+	freetier      *freetierapp.Provisioner
+	freetierQuota *freetierapp.QuotaReader
+	modelCaps     *modelapp.CapabilityService
+	relation      *relationapp.Service
+	catalog       *catalogapp.Service
+	notification  *notificationapp.Service
+	memory        *memoryapp.Service
+	sandbox       *sandboxapp.Service
+	document      *documentapp.Service
+	todo          *todoapp.Service
+	attachment    *attachmentapp.Service
+	function      *functionapp.Service
+	handler       *handlerapp.Service
+	agent         *agentapp.Service
+	trigger       *triggerapp.Service
+	mcp           *mcpapp.Service
+	skill         *skillapp.Service
+	control       *controlapp.Service
+	approval      *approvalapp.Service
+	workflow      *workflowapp.Service
+	scheduler     *schedulerapp.Service
+	settings      *settingsapp.Service
+	conversation  *conversationapp.Service
+	chat          *chatapp.Service
+	subagent      *subagentapp.Service
+	contextmgr    *contextmgrapp.Service
+	aispawn       *aispawnapp.Service
+	search        *searchapp.Service
+	shellMgr      *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -136,6 +137,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ws := workspaceapp.NewService(st.workspace, log)
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(http.DefaultClient), log)
 	freetier := freetierapp.NewProvisioner(keys, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
+	freetierQuota := freetierapp.NewQuotaReader(keys, llminfra.NewQuotaClient(), log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
 	cat := catalogapp.NewService(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
@@ -457,7 +459,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
-		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier,
+		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier, freetierQuota: freetierQuota,
 	}
 	// aispawn composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.
