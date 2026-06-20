@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-用户构建的**无状态** Python 代码：每次调用在**全新隔离的沙箱进程**里跑一遍就退出（对比 handler 的常驻进程）。代码层级：`domain/function`（实体+错误+Repository 端口，零外部依赖）→ `app/function`（构建/执行/env 编排 + 三适配器）→ `infra/store/function`（orm 三表）+ `app/tool/function`（9 个 LLM 工具）+ transport。
+用户构建的**无状态** Python 代码：每次调用在**全新隔离的沙箱进程**里跑一遍就退出（对比 handler 的常驻进程）。代码层级：`domain/function`（实体+错误+Repository 端口，零外部依赖）→ `app/function`（构建/执行/env 编排 + 三适配器）→ `infra/store/function`（orm 三表）+ `app/tool/function`（10 个 LLM 工具）+ transport。
 
 ## 2. 心智模型（先懂这个，代码就顺了）
 
@@ -58,7 +58,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用，不重列）
 
-端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 11 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 9 个：search/get/create/edit/revert/delete/run + 执行日志两查询；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
+端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 11 + 工具校验 4）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 10 个：search/get/create/edit/revert/delete/run + 执行日志两查询 + **`update_function_meta`**（只改 row 的 name/desc/tags、不铸版本/不重建 env——纯改名/改述用它，免 edit set_meta 的冗余同码版本+env 重建）；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
 
 ## 7. 跨域集成
 

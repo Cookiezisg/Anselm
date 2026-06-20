@@ -42,7 +42,7 @@ func TestHandlerTools_Wiring(t *testing.T) {
 		"search_handler": false, "get_handler": false, "create_handler": false,
 		"edit_handler": false, "revert_handler": false, "delete_handler": false,
 		"call_handler": false, "update_handler_config": false, "restart_handler": false,
-		"search_handler_calls": false, "get_handler_call": false,
+		"search_handler_calls": false, "get_handler_call": false, "update_handler_meta": false,
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("want %d tools, got %d", len(want), len(tools))

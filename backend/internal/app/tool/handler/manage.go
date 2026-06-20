@@ -17,7 +17,7 @@ type RevertHandler struct{ svc *handlerapp.Service }
 func (t *RevertHandler) Name() string { return "revert_handler" }
 
 func (t *RevertHandler) Description() string {
-	return "Switch a handler's active version to an existing version by number, then restart the resident instance to run it. Only moves the active pointer — newer versions stay in history. Note: name, description and tags are NOT versioned (they live on the handler), so a revert restores only the versioned snapshot (methods/code) and leaves name/description/tags unchanged — use edit_handler set_meta to also change those."
+	return "Switch a handler's active version to an existing version by number, then restart the resident instance to run it. Only moves the active pointer — newer versions stay in history. Note: name, description and tags are NOT versioned (they live on the handler), so a revert restores only the versioned snapshot (methods/code) and leaves name/description/tags unchanged — use update_handler_meta to also change those (without a restart)."
 }
 
 func (t *RevertHandler) Parameters() json.RawMessage {
@@ -203,4 +203,57 @@ func (t *UpdateHandlerConfig) Execute(ctx context.Context, argsJSON string) (str
 		return "", fmt.Errorf("update_handler_config: %w", err)
 	}
 	return toolapp.ToJSON(map[string]any{"id": args.HandlerID, "configUpdated": true}), nil
+}
+
+// --- update_handler_meta ---------------------------------------------------
+
+type UpdateHandlerMeta struct{ svc *handlerapp.Service }
+
+func (t *UpdateHandlerMeta) Name() string { return "update_handler_meta" }
+
+func (t *UpdateHandlerMeta) Description() string {
+	return "Rename or re-describe a handler WITHOUT restarting it: patches name/description/tags on the handler row only — NO new version, NO restart — so the resident instance keeps running and its in-memory state (self.xxx) survives. This is the correct tool for a pure rename/redescribe. Do NOT reach for edit_handler to rename: a code edit restarts the instance and WIPES its state. Pass only the fields you want to change (omit the rest)."
+}
+
+func (t *UpdateHandlerMeta) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"required": ["handlerId"],
+		"properties": {
+			"handlerId": {"type": "string"},
+			"name": {"type": "string", "description": "New name (lowercase alphanumeric + dashes/underscores, 1-64 chars)."},
+			"description": {"type": "string"},
+			"tags": {"type": "array", "items": {"type": "string"}}
+		}
+	}`)
+}
+
+func (t *UpdateHandlerMeta) ValidateInput(args json.RawMessage) error {
+	var a struct {
+		HandlerID string `json:"handlerId"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return fmt.Errorf("update_handler_meta: bad args: %w", err)
+	}
+	if a.HandlerID == "" {
+		return ErrHandlerIDRequired
+	}
+	return nil
+}
+
+func (t *UpdateHandlerMeta) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args struct {
+		HandlerID   string    `json:"handlerId"`
+		Name        *string   `json:"name"`
+		Description *string   `json:"description"`
+		Tags        *[]string `json:"tags"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("update_handler_meta: bad args: %w", err)
+	}
+	h, err := t.svc.UpdateMeta(ctx, handlerapp.UpdateMetaInput{ID: args.HandlerID, Name: args.Name, Description: args.Description, Tags: args.Tags})
+	if err != nil {
+		return "", fmt.Errorf("update_handler_meta: %w", err)
+	}
+	return toolapp.ToJSON(map[string]any{"id": h.ID, "name": h.Name, "description": h.Description, "tags": h.Tags}), nil
 }

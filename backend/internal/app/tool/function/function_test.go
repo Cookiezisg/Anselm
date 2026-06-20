@@ -6,13 +6,14 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
-// TestFunctionTools_Wiring asserts the 9 tools are constructed with the expected names.
+// TestFunctionTools_Wiring asserts the 10 tools are constructed with the expected names.
 func TestFunctionTools_Wiring(t *testing.T) {
 	tools := FunctionTools(nil, nil, nil) // nil svc OK: we only inspect Name() here
 	want := map[string]bool{
 		"search_function": false, "get_function": false, "create_function": false,
 		"edit_function": false, "revert_function": false, "delete_function": false,
 		"run_function": false, "search_function_executions": false, "get_function_execution": false,
+		"update_function_meta": false,
 	}
 	if len(tools) != len(want) {
 		t.Fatalf("want %d tools, got %d", len(want), len(tools))

@@ -36,6 +36,7 @@ func FunctionTools(svc *functionapp.Service, content *searchapp.Service, deps to
 		&EditFunction{svc: svc},
 		&RevertFunction{svc: svc},
 		&DeleteFunction{svc: svc, deps: deps},
+		&UpdateFunctionMeta{svc: svc},
 		&RunFunction{svc: svc},
 		&SearchFunctionExecutions{svc: svc},
 		&GetFunctionExecution{svc: svc},

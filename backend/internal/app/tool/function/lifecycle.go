@@ -17,7 +17,7 @@ type RevertFunction struct{ svc *functionapp.Service }
 func (t *RevertFunction) Name() string { return "revert_function" }
 
 func (t *RevertFunction) Description() string {
-	return "Switch a function's active version to an existing version by its number. This only moves the active pointer — newer versions are kept in history and can be switched back to. Note: name, description and tags are NOT versioned (they live on the function), so a revert restores only the versioned snapshot (code/inputs/outputs/dependencies) and leaves name/description/tags unchanged — use edit_function set_meta to also change those."
+	return "Switch a function's active version to an existing version by its number. This only moves the active pointer — newer versions are kept in history and can be switched back to. Note: name, description and tags are NOT versioned (they live on the function), so a revert restores only the versioned snapshot (code/inputs/outputs/dependencies) and leaves name/description/tags unchanged — use update_function_meta to also change those."
 }
 
 func (t *RevertFunction) Parameters() json.RawMessage {
@@ -111,4 +111,57 @@ func (t *DeleteFunction) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("delete_function: %w", err)
 	}
 	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{"id": args.FunctionID, "deleted": true}, deps)), nil
+}
+
+// --- update_function_meta --------------------------------------------------
+
+type UpdateFunctionMeta struct{ svc *functionapp.Service }
+
+func (t *UpdateFunctionMeta) Name() string { return "update_function_meta" }
+
+func (t *UpdateFunctionMeta) Description() string {
+	return "Rename or re-describe a function: patches name/description/tags on the function row only — NO new version, NO env rebuild. This is the right tool for a pure rename/redescribe; edit_function with set_meta would mint a redundant identical-code version and rebuild its env. Pass only the fields you want to change (omit the rest)."
+}
+
+func (t *UpdateFunctionMeta) Parameters() json.RawMessage {
+	return json.RawMessage(`{
+		"type": "object",
+		"required": ["functionId"],
+		"properties": {
+			"functionId": {"type": "string"},
+			"name": {"type": "string", "description": "New name (lowercase alphanumeric + dashes/underscores, 1-64 chars)."},
+			"description": {"type": "string"},
+			"tags": {"type": "array", "items": {"type": "string"}}
+		}
+	}`)
+}
+
+func (t *UpdateFunctionMeta) ValidateInput(args json.RawMessage) error {
+	var a struct {
+		FunctionID string `json:"functionId"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return fmt.Errorf("update_function_meta: bad args: %w", err)
+	}
+	if a.FunctionID == "" {
+		return ErrFunctionIDRequired
+	}
+	return nil
+}
+
+func (t *UpdateFunctionMeta) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args struct {
+		FunctionID  string    `json:"functionId"`
+		Name        *string   `json:"name"`
+		Description *string   `json:"description"`
+		Tags        *[]string `json:"tags"`
+	}
+	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("update_function_meta: bad args: %w", err)
+	}
+	f, err := t.svc.UpdateMeta(ctx, functionapp.UpdateMetaInput{ID: args.FunctionID, Name: args.Name, Description: args.Description, Tags: args.Tags})
+	if err != nil {
+		return "", fmt.Errorf("update_function_meta: %w", err)
+	}
+	return toolapp.ToJSON(map[string]any{"id": f.ID, "name": f.Name, "description": f.Description, "tags": f.Tags}), nil
 }

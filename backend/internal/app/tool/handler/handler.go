@@ -32,6 +32,7 @@ func HandlerTools(svc *handlerapp.Service, content *searchapp.Service, deps tool
 		&DeleteHandler{svc: svc, deps: deps},
 		&CallHandler{svc: svc},
 		&UpdateHandlerConfig{svc: svc},
+		&UpdateHandlerMeta{svc: svc},
 		&RestartHandler{svc: svc},
 		&SearchHandlerCalls{svc: svc},
 		&GetHandlerCall{svc: svc},
