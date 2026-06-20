@@ -4,7 +4,37 @@ import (
 	"testing"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 )
+
+// TestBuildOutput_SurfacesRuntimeState — F-handler-broken-init-outage (round-8): edit_handler must
+// surface the post-edit runtimeState (+ a warning when not running) so a broken __init__ that builds
+// the env fine but fails to spawn doesn't read as a clean "successful" edit. Create (runtimeState="")
+// stays silent — a fresh handler not running is expected, not a bricking.
+func TestBuildOutput_SurfacesRuntimeState(t *testing.T) {
+	v := &handlerdomain.Version{ID: "hdv_1", Version: 2, EnvStatus: "ready"}
+
+	running := buildOutput("hd_1", v, 1, nil, handlerdomain.RuntimeStateRunning)
+	if running["runtimeState"] != handlerdomain.RuntimeStateRunning {
+		t.Fatalf("running edit must report runtimeState, got %+v", running)
+	}
+	if _, hasWarn := running["runtimeWarning"]; hasWarn {
+		t.Fatalf("a running instance must NOT carry a warning, got %+v", running)
+	}
+
+	broken := buildOutput("hd_1", v, 1, nil, handlerdomain.RuntimeStateStopped)
+	if broken["runtimeState"] != handlerdomain.RuntimeStateStopped {
+		t.Fatalf("broken edit must report runtimeState=stopped, got %+v", broken)
+	}
+	if _, hasWarn := broken["runtimeWarning"]; !hasWarn {
+		t.Fatalf("a not-running instance after edit MUST carry a warning (else the brick is silent), got %+v", broken)
+	}
+
+	created := buildOutput("hd_1", v, 1, nil, "")
+	if _, has := created["runtimeState"]; has {
+		t.Fatalf("create (runtimeState=\"\") must stay silent on runtime state, got %+v", created)
+	}
+}
 
 func TestHandlerTools_Wiring(t *testing.T) {
 	tools := HandlerTools(nil, nil, nil)

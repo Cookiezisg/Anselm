@@ -77,7 +77,11 @@ func (t *CreateHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", fmt.Errorf("create_handler: %w", err)
 	}
-	return toolapp.ToJSON(buildOutput(h.ID, v, len(ops), sink.attempts)), nil
+	// No runtimeState on create: a fresh handler does not spawn (it almost always needs config first),
+	// so "not running" is expected here and would only be noise. The signal matters on EDIT, where a
+	// broken change can brick a previously-running instance.
+	// create 不报 runtimeState：新建 handler 不 spawn（几乎总要先配 config），此处"未运行"是预期、只会成噪声。
+	return toolapp.ToJSON(buildOutput(h.ID, v, len(ops), sink.attempts, "")), nil
 }
 
 // --- edit_handler ----------------------------------------------------------
@@ -87,7 +91,7 @@ type EditHandler struct{ svc *handlerapp.Service }
 func (t *EditHandler) Name() string { return "edit_handler" }
 
 func (t *EditHandler) Description() string {
-	return `Edit a handler: apply ops on top of its active version, producing a new version that takes effect immediately — the resident instance is restarted to load the new code. Same op shapes as create_handler. Empty ops rebuilds the environment + restarts. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
+	return `Edit a handler: apply ops on top of its active version, producing a new version that takes effect immediately — the resident instance is restarted to load the new code (which WIPES in-memory state). EXCEPTION: a metadata-only edit (all ops are set_meta — just name/description/tags) does NOT mint a version or restart, so it preserves in-memory state; prefer it for pure renames. Same op shapes as create_handler. Empty ops rebuilds the environment + restarts. The result includes runtimeState: if it is not "running" after a code edit, the new version failed to spawn (broken __init__ or missing config) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
 }
 
 func (t *EditHandler) Parameters() json.RawMessage {
@@ -139,10 +143,20 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	if err != nil {
 		return "", fmt.Errorf("edit_handler: %w", err)
 	}
-	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts)), nil
+	// Surface the post-edit runtime state: a broken __init__ (or other spawn failure) builds the env
+	// fine (envStatus=ready) but fails to start the resident instance — the restart error is swallowed,
+	// so without this the agent reads a "successful" edit and never learns it bricked the handler
+	// (F-handler-broken-init-outage). runtimeState != running after a code edit → fix the code or revert.
+	// 上呈编辑后的运行态：坏 __init__（或别的 spawn 失败）env 照样 ready、却起不了常驻实例——restart 错误被吞，
+	// 没有这里 agent 读到"成功"编辑、永远不知 handler 已 brick。runtimeState != running → 改代码或 revert。
+	runtimeState := ""
+	if h, gerr := t.svc.Get(ctx, args.HandlerID); gerr == nil {
+		runtimeState = h.RuntimeState
+	}
+	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts, runtimeState)), nil
 }
 
-func buildOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt) map[string]any {
+func buildOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt, runtimeState string) map[string]any {
 	out := map[string]any{
 		"id":         handlerID,
 		"versionId":  v.ID,
@@ -152,6 +166,14 @@ func buildOutput(handlerID string, v *handlerdomain.Version, opsApplied int, att
 	}
 	if v.EnvError != "" {
 		out["envError"] = v.EnvError
+	}
+	if runtimeState != "" {
+		out["runtimeState"] = runtimeState
+		// A non-running instance after an edit means the new code/config didn't come up (broken
+		// __init__, missing config, env not ready) — the env can be "ready" yet the handler unusable.
+		if runtimeState != handlerdomain.RuntimeStateRunning {
+			out["runtimeWarning"] = "the resident instance is not running after this edit — the new version may have a broken __init__ or need config; call get_handler for crash/config details, fix the code, or revert_handler to the last good version"
+		}
 	}
 	if len(attempts) > 1 {
 		out["envFixAttempts"] = attempts
