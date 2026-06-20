@@ -176,7 +176,19 @@ func (p *Program) Eval(vars map[string]any) (any, error) {
 // run 都崩在裸 "no such overload"、agent 无从解码（白烧若干轮）。放这：每条节点 input/条件求值的唯一收口。
 func overloadHint(err error) string {
 	if err != nil && strings.Contains(err.Error(), "no such overload") {
-		return " (operands have mismatched types — if mixing a payload/result number with an integer literal, cast one: int(start.n) + 5, or write the literal as 5.0)"
+		// cel-go emits a bare "no such overload" with NO operand types, so the hint can't know which
+		// mismatch this is — it must cover BOTH common cases instead of asserting one as THE fix. The
+		// old hint pushed int()/5.0 unconditionally, which is WRONG (and actively misleads) when one
+		// operand is a string (e.g. input.name > 5): casting an int there doesn't help; the real issue
+		// is the field isn't the type the expression assumes (F-cel-overload-string).
+		// cel-go 只给裸 "no such overload"、无操作数类型，故提示无从判断是哪种不匹配——必须同时覆盖两种常见
+		// 情形、而非把一种当作唯一解。旧提示无条件推 int()/5.0，当某操作数是字符串时（如 input.name > 5）就错
+		// 且误导：那里强转 int 没用，真问题是字段不是表达式假设的类型。
+		return " (operands have mismatched types. Two common causes: (1) mixing a payload/result number" +
+			" (binds as a double) with an integer literal — cast one: int(start.n) + 5, or write the" +
+			" literal as 5.0; (2) comparing/operating across incompatible kinds like a string and a" +
+			" number — these are NOT interchangeable: confirm the field's actual type, convert explicitly" +
+			" with int(x)/double(x)/string(x), or use size(x) for a string's length)"
 	}
 	return ""
 }

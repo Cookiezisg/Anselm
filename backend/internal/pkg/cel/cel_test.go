@@ -61,3 +61,23 @@ func TestEval_NoSuchOverloadHint(t *testing.T) {
 		t.Fatalf("int(start.n)+5 should eval to 7, got %v err=%v", got, err)
 	}
 }
+
+// TestEvalBool_StringNumberMismatchHint — F-cel-overload-string (round-8 celedge): a string-vs-number
+// comparison (input.name > 5 where name is a string) also fails with a bare "no such overload", but the
+// old blanket hint pushed int()/5.0 — WRONG here (casting an int doesn't fix a string operand; the agent
+// in the lane correctly rejected that advice). The hint must now also name the string/incompatible-kind
+// case so the agent diagnoses the real problem (wrong field type) instead of chasing the cast.
+func TestEvalBool_StringNumberMismatchHint(t *testing.T) {
+	prg, err := CompileFor([]string{"input"}, "input.name > 5")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	_, err = prg.EvalBool(map[string]any{"input": map[string]any{"name": "Alice"}})
+	if err == nil {
+		t.Fatal("string > int comparison should error (cel-go no-such-overload)")
+	}
+	// The hint must cover the string/incompatible-kind case, not only the numeric cast.
+	if !strings.Contains(err.Error(), "string") || !strings.Contains(err.Error(), "actual type") {
+		t.Fatalf("hint must name the string/incompatible-kind case (not just int cast), got: %v", err)
+	}
+}
