@@ -243,3 +243,15 @@ func TestEdit_RejectsInvalidConcurrency(t *testing.T) {
 		t.Fatalf("valid concurrency 'replace' rejected: %v", err)
 	}
 }
+
+// TestTriggerWorkflow_PayloadDescribesEntryShape: round-1 ergo+rename lanes saw agents trial-and-error
+// the synthetic payload (guessing flat {amount} before the correct {body:{amount}}). The payload param
+// must disclose the per-kind fire-payload shape so the agent doesn't burn failed runs guessing it.
+func TestTriggerWorkflow_PayloadDescribesEntryShape(t *testing.T) {
+	params := string((&TriggerWorkflow{}).Parameters())
+	for _, want := range []string{"body", "fsnotify", "create_trigger"} {
+		if !strings.Contains(params, want) {
+			t.Errorf("trigger_workflow payload description must mention %q to disclose the entry-trigger fire-payload shape; got: %s", want, params)
+		}
+	}
+}

@@ -109,6 +109,8 @@ landed-into:
 | F87 手动 trigger_workflow 绕过并发策略(StartRun 不走 overlapDecision)但工具不说→agent 困惑→描述+workflow.md 点明仅真 fire 受策略 | workflow·trigger | happy | promise≠reality/不可发现 | fixed(措辞)·locked |
 | F88 capability_check 不校引用上游不存在的声明 output 字段→**static 校 unsound**(F40 声明 output 对 fn/hd advisory、toResultMap 直通真 dict)·假阳+假阴比诚实不校更糟→运行时 fail-fast+needsAttention 是正解 | workflow·capability | happy→报错 | promise≠reality | 评估关闭(非问题·unsound) |
 | F89 LLM tool 错误泄露内部 Go 包.方法路径(`functionapp.RunFunction:`)→llmErrText 基于 sentinel `de.Message`+Details 渲染、非 `err.Error()` 整链（一处净化全工具错误面，忠 S20） | 全 tool 错误边界 | 单工具 / 报错 | promise≠reality/契约卫生 | fixed·locked |
+| F90 trigger_workflow payload 不给 per-kind 形状→agent 试错（猜平铺非 webhook `{body:{}}`）→描述列各 kind fire-payload 形状（双 lane CONFIRM） | workflow(手动 run) | 单工具/happy | 不可发现/白烧 | fixed(措辞)·locked |
+| F91 list_mcp_marketplace 倾倒全 ~96 server inline 撑爆 context→加 `query` 能力过滤（filterMarketViews 纯函数、向后兼容） | mcp | 单工具/happy | 不可发现/白烧 | fixed·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|

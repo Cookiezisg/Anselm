@@ -36,7 +36,7 @@ func (t *TriggerWorkflow) Parameters() json.RawMessage {
 		"required": ["workflowId"],
 		"properties": {
 			"workflowId": {"type": "string"},
-			"payload": {"type": "object", "description": "Data fed to the entry trigger node as its result (the workflow reads <triggerNode>.field). Optional; defaults to {}."}
+			"payload": {"type": "object", "description": "Data fed to the entry trigger node as its result (the workflow reads <triggerNode>.field). MUST match the entry trigger's fire-payload shape: a webhook nests the POSTed JSON under 'body' (so {\"body\":{...your fields...}}, NOT the fields flat); cron emits {\"firedAt\":...}; fsnotify emits {\"path\":...,\"eventKind\":...,\"firedAt\":...}; a sensor emits its configured output. create_trigger documents each kind's fire payload. Optional; defaults to {}."}
 		}
 	}`)
 }

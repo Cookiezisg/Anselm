@@ -8,6 +8,7 @@ import (
 
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 )
 
 // --- list_mcp_marketplace --------------------------------------------------
@@ -21,11 +22,11 @@ type ListMarketplace struct{ svc *mcpapp.Service }
 
 func (t *ListMarketplace) Name() string { return "list_mcp_marketplace" }
 func (t *ListMarketplace) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","properties":{}}`)
+	return json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","description":"Optional case-insensitive substring filter on server name + description (e.g. \"notif\", \"github\", \"database\"). STRONGLY prefer it when you want a specific capability — the catalog is large and an unfiltered list dumps every server. Omit to browse everything."}}}`)
 }
 func (t *ListMarketplace) ValidateInput(json.RawMessage) error { return nil }
 func (t *ListMarketplace) Description() string {
-	return "Browse the MCP server marketplace (the GitHub MCP Registry). Returns installable servers — each with its full name, description, runtime, and the environment variables you must provide. To install one, call install_mcp_server with its name."
+	return "Browse the MCP server marketplace (the GitHub MCP Registry). Returns installable servers — each with its full name, description, runtime, and the environment variables you must provide. Pass a `query` to filter by capability/name (preferred — the catalog is large); omit it to list everything. To install one, call install_mcp_server with its name."
 }
 
 type marketView struct {
@@ -40,16 +41,42 @@ type envView struct {
 	Description string `json:"description,omitempty"`
 }
 
-func (t *ListMarketplace) Execute(ctx context.Context, _ string) (string, error) {
+func (t *ListMarketplace) Execute(ctx context.Context, argsJSON string) (string, error) {
+	// query is an optional capability filter — the registry is large, so an unfiltered dump bloats the
+	// agent's context (a single call returned ~96 servers when it only needed a notifier).
+	//
+	// query 是可选能力过滤——registry 很大，无过滤倾倒会撑爆 agent 上下文（一次调用返 ~96 个 server，而它只要一个通知器）。
+	var a struct {
+		Query string `json:"query"`
+	}
+	if strings.TrimSpace(argsJSON) != "" {
+		_ = json.Unmarshal([]byte(argsJSON), &a) // optional arg; a parse error just means no filter
+	}
+	q := strings.ToLower(strings.TrimSpace(a.Query))
+
 	entries, err := t.svc.ListRegistry(ctx)
 	if err != nil {
 		return "", fmt.Errorf("list_mcp_marketplace: %w", err)
 	}
+	views := filterMarketViews(entries, q)
+	return toolapp.ToJSON(map[string]any{"servers": views, "count": len(views)}), nil
+}
+
+// filterMarketViews turns installable registry entries into views, hiding the un-installable
+// (Plan ok=false) and, when q (already lowercased) is non-empty, those whose name+description don't
+// contain it. Pure so the capability filter is unit-testable without a live registry.
+//
+// filterMarketViews 把可装 registry 条目转成 view，隐去不可装的（Plan ok=false）；q（已小写）非空时
+// 再隐去 name+description 不含它的。纯函数，使能力过滤无需 live registry 即可单测。
+func filterMarketViews(entries []mcpdomain.RegistryEntry, q string) []marketView {
 	views := make([]marketView, 0, len(entries))
 	for _, e := range entries {
 		plan, ok := e.Plan()
 		if !ok {
 			continue // unsupported runtime + no remote → can't install, hide it
+		}
+		if q != "" && !strings.Contains(strings.ToLower(e.Name), q) && !strings.Contains(strings.ToLower(e.Description), q) {
+			continue // capability filter: skip servers whose name+description don't match
 		}
 		v := marketView{Name: e.Name, Description: e.Description, Runtime: plan.Runtime}
 		if plan.Remote {
@@ -60,7 +87,7 @@ func (t *ListMarketplace) Execute(ctx context.Context, _ string) (string, error)
 		}
 		views = append(views, v)
 	}
-	return toolapp.ToJSON(map[string]any{"servers": views, "count": len(views)}), nil
+	return views
 }
 
 // --- install_mcp_server ----------------------------------------------------
