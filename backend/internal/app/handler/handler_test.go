@@ -360,6 +360,18 @@ func TestConfig_GatesSpawn(t *testing.T) {
 	if runner.spawns != 0 {
 		t.Fatalf("should not spawn without config, spawns=%d", runner.spawns)
 	}
+	// F-spawn-fail-audit (round-7/8): a spawn/config-gate failure must leave a failed handler_calls
+	// row (visible in call history + failedCount + :triage), not vanish with no audit trace.
+	res, serr := svc.SearchCalls(ctx, handlerdomain.CallFilter{HandlerID: h.ID})
+	if serr != nil {
+		t.Fatalf("search calls: %v", serr)
+	}
+	if res.Aggregates.FailedCount != 1 {
+		t.Fatalf("spawn failure must record a failed call row (failedCount=1), got %d", res.Aggregates.FailedCount)
+	}
+	if len(res.Calls) != 1 || res.Calls[0].Status != handlerdomain.CallStatusFailed || res.Calls[0].Method != "ping" {
+		t.Fatalf("failed call row must record method=ping status=failed, got %+v", res.Calls)
+	}
 
 	// set config → UpdateConfig restarts → now running
 	if err := svc.UpdateConfig(ctx, h.ID, map[string]any{"api_key": "secret"}); err != nil {

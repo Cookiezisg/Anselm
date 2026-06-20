@@ -80,8 +80,18 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	ctx, cancel = context.WithTimeout(ctx, methodCallTimeout(spec.Timeout, limitspkg.Current().Timeout.HandlerCallSec))
 	defer cancel()
 
+	// A spawn/__init__ failure (broken init body, missing required config, env-not-ready, sandbox
+	// down) is a real call attempt that failed at the instance level — audit it as a failed
+	// handler_calls row so it shows in call history + failedCount + :triage, instead of vanishing with
+	// no trace (an operator debugging "why did my workflow node fail" had nothing to read). recordCall
+	// is nil-instance-tolerant; pass the raw err (clean domain message) for the audit, return the
+	// wrapped err for caller log breadcrumbs.
+	// spawn/__init__ 失败（坏 init 体、缺必填 config、env 未就绪、sandbox 挂）是真实抵达实例层却失败的
+	// 调用——记成 failed handler_calls 行，使其现身调用历史 + failedCount + :triage，而非无迹消失。
+	spawnStartedAt := time.Now().UTC()
 	inst, err := s.manager.Get(ctx, h.ID)
 	if err != nil {
+		s.recordCall(ctx, h, nil, in, spawnStartedAt, time.Now().UTC(), nil, "", err, ctx.Err())
 		return nil, fmt.Errorf("handlerapp.Call: %w", err)
 	}
 
@@ -264,6 +274,14 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
 	flowrunNodeID, _ := reqctxpkg.GetFlowrunNodeID(ctx)
 
+	// inst is nil on the spawn-failure audit path (no instance was ever obtained) — record an empty
+	// instance id rather than dereferencing nil.
+	// 在 spawn 失败的审计路径上 inst 为 nil（从未取得实例）——记空实例 id，不解引用 nil。
+	instanceID := ""
+	if inst != nil {
+		instanceID = inst.ID
+	}
+
 	call := &handlerdomain.Call{
 		ID:             idgenpkg.New("hcl"),
 		HandlerID:      h.ID,
@@ -278,7 +296,7 @@ func (s *Service) recordCall(ctx context.Context, h *handlerdomain.Handler, inst
 		ElapsedMs:      endedAt.Sub(startedAt).Milliseconds(),
 		StartedAt:      startedAt,
 		EndedAt:        endedAt,
-		InstanceID:     inst.ID,
+		InstanceID:     instanceID,
 		ConversationID: convID,
 		MessageID:      msgID,
 		ToolCallID:     toolCallID,
