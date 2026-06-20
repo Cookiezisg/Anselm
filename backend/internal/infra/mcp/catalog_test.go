@@ -151,8 +151,8 @@ func TestCuratedCatalog_AllEntriesPlannable(t *testing.T) {
 func TestCuratedCatalog_OverlayServersRequireTheirToken(t *testing.T) {
 	cat := NewCuratedCatalog(newFakeRegistry(t))
 	for _, ce := range parsedCatalog {
-		if ce.Auth == nil {
-			continue
+		if ce.Auth == nil || ce.Auth.Transport == "oauth" {
+			continue // oauth servers mint the token via the interactive flow, not a static env
 		}
 		entry, err := cat.Get(context.Background(), ce.Slug)
 		if err != nil {
@@ -179,27 +179,50 @@ func TestCuratedCatalog_OverlayServersRequireTheirToken(t *testing.T) {
 	}
 }
 
-// TestCuratedCatalog_ExcludesDeferredAndSkipped pins the Tier-1 boundary: the 5 servers that need
-// a vendor business step (OAuth app registration / allowlist) and the 10 deferred oauth-dcr servers
-// (which await the MCP OAuth client, Tier 2) must NOT be installable — guards against one slipping
-// into the whitelist before it genuinely works.
+// TestCuratedCatalog_ExcludesBusinessStepAndGlean pins what stays OFF the whitelist: the 5 servers
+// needing a vendor business step (OAuth app registration / allowlist — never), and Glean (oauth-dcr
+// but its endpoint is a per-tenant templated URL that needs a base-URL input we don't collect yet).
 //
-// TestCuratedCatalog_ExcludesDeferredAndSkipped 钉死档 1 边界：5 个需厂商业务步骤（注册 OAuth app/
-// allowlist）+ 10 个待 OAuth 客户端的 oauth-dcr（档 2）server 必须不可装——防任一在真正可用前混入白名单。
-func TestCuratedCatalog_ExcludesDeferredAndSkipped(t *testing.T) {
+// TestCuratedCatalog_ExcludesBusinessStepAndGlean 钉死仍不在白名单的：5 个需厂商业务步骤（注册 OAuth
+// app/allowlist——永不）+ Glean（oauth-dcr 但端点是每租户模板 URL，需我们尚未收集的 base-URL 输入）。
+func TestCuratedCatalog_ExcludesBusinessStepAndGlean(t *testing.T) {
 	cat := NewCuratedCatalog(newFakeRegistry(t))
 	excluded := []string{
-		// oauth-app-registration (vendor business step — never)
 		"com.figma.mcp/mcp", "io.github.microsoft/EnterpriseMCP", "com.vercel/vercel-mcp",
 		"box/mcp-server-box-remote", "com.microsoft/sentinel-data-exploration",
-		// oauth-dcr (Tier 2 — needs the MCP OAuth client, not built yet)
-		"com.atlassian/atlassian-mcp-server", "com.glean/mcp", "com.webflow/mcp",
-		"io.github.miroapp/mcp-server", "amplitude/mcp-server-guide", "com.stackoverflow.mcp/mcp",
-		"com.wix/mcp", "intercom/intercom-mcp-server", "com.getguru/mcp-server", "io.github.oakallow/oakallow",
+		"com.glean/mcp", // oauth-dcr but per-tenant templated URL — deferred
 	}
 	for _, slug := range excluded {
 		if _, err := cat.Get(context.Background(), slug); !errors.Is(err, mcpdomain.ErrRegistryEntryNotFound) {
 			t.Errorf("excluded server %q must not be installable, got err=%v", slug, err)
+		}
+	}
+}
+
+// TestCuratedCatalog_OAuthServersPlanAsOAuth verifies the Tier-2 oauth-dcr servers are now offered
+// and resolve to an OAuth install plan (remote + OAuth flag + URL, no static token) — so install
+// runs the authorization flow rather than collecting a credential.
+//
+// TestCuratedCatalog_OAuthServersPlanAsOAuth 验证档 2 的 oauth-dcr server 现已上架并解析成 OAuth 安装
+// 计划（remote + OAuth 标志 + URL、无静态 token）——故安装走授权流程而非收凭据。
+func TestCuratedCatalog_OAuthServersPlanAsOAuth(t *testing.T) {
+	cat := NewCuratedCatalog(newFakeRegistry(t))
+	oauthServers := []string{
+		"com.atlassian/atlassian-mcp-server", "com.webflow/mcp", "io.github.miroapp/mcp-server",
+		"amplitude/mcp-server-guide", "com.stackoverflow.mcp/mcp", "com.wix/mcp",
+		"intercom/intercom-mcp-server", "com.getguru/mcp-server", "io.github.oakallow/oakallow",
+	}
+	for _, slug := range oauthServers {
+		entry, err := cat.Get(context.Background(), slug)
+		if err != nil {
+			t.Fatalf("Get(%q): %v", slug, err)
+		}
+		plan, ok := entry.Plan()
+		if !ok || !plan.OAuth || plan.URL == "" {
+			t.Errorf("%q should plan as OAuth (remote, OAuth=true, URL set), got ok=%v plan=%+v", slug, ok, plan)
+		}
+		if len(plan.EnvVars) != 0 {
+			t.Errorf("%q OAuth plan must collect no static env, got %v", slug, plan.EnvVars)
 		}
 	}
 }

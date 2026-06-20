@@ -91,6 +91,7 @@ type Server struct {
 
 	URL     string            // remote only
 	Headers map[string]string // remote only
+	OAuth   *OAuthCredentials // remote only: set when the server authenticates via OAuth 2.1 (Tier 2)
 
 	Env        map[string]string
 	TimeoutSec int
@@ -102,10 +103,46 @@ type Server struct {
 	UpdatedAt time.Time
 }
 
+// OAuthCredentials is one remote server's OAuth 2.1 grant — the DCR-registered client plus the
+// live token pair, persisted (encrypted in config_enc, like Env/Headers). The access token is
+// injected as a Bearer header; when it nears Expiry the refresh token mints a new one and the
+// bundle is re-persisted. A blank RefreshToken with an expired AccessToken ⇒ re-authorization.
+//
+// OAuthCredentials 是一个 remote server 的 OAuth 2.1 授权——DCR 注册的客户端 + 实时 token 对，持久化
+// （加密在 config_enc，同 Env/Headers）。access token 作 Bearer 注入；临 Expiry 时 refresh token 换新、
+// 整束重存。RefreshToken 空且 AccessToken 过期 ⇒ 需重新授权。
+type OAuthCredentials struct {
+	Resource            string    `json:"resource"`            // RFC 8707 resource indicator = the server's canonical URL
+	AuthorizationServer string    `json:"authorizationServer"` // discovered issuer
+	TokenEndpoint       string    `json:"tokenEndpoint"`       // where refresh posts
+	ClientID            string    `json:"clientId"`            // from DCR
+	ClientSecret        string    `json:"clientSecret"`        // empty for a public (PKCE) client
+	Scopes              []string  `json:"scopes,omitempty"`
+	AccessToken         string    `json:"accessToken"`
+	RefreshToken        string    `json:"refreshToken"`
+	Expiry              time.Time `json:"expiry"` // absolute; zero = unknown
+}
+
+// Expired reports whether the access token is at/within skew of expiry (skew leaves refresh
+// headroom). A zero Expiry means "unknown" → treated as not expired.
+//
+// Expired 报告 access token 是否到/进入 skew 内（skew 给刷新留余量）。零 Expiry = 未知 → 视为未过期。
+func (c *OAuthCredentials) Expired(now time.Time, skew time.Duration) bool {
+	if c.Expiry.IsZero() {
+		return false
+	}
+	return !now.Add(skew).Before(c.Expiry)
+}
+
 // IsRemote reports whether this is a remote endpoint (vs a stdio subprocess).
 //
 // IsRemote 报告这是否为远程端点（相对 stdio 子进程）。
 func (s *Server) IsRemote() bool { return s.URL != "" }
+
+// IsOAuth reports whether this remote server authenticates via the OAuth 2.1 flow.
+//
+// IsOAuth 报告该 remote server 是否走 OAuth 2.1 流程认证。
+func (s *Server) IsOAuth() bool { return s.OAuth != nil }
 
 // ToolDef is one tool a server advertises (cached from tools/list). InputSchema is the
 // MCP JSON Schema, reused VERBATIM as the wrapped tool's Parameters — we don't author it.
@@ -166,4 +203,17 @@ var (
 	ErrRegistryEntryNotFound = errorspkg.New(errorspkg.KindNotFound, "MCP_REGISTRY_NOT_FOUND", "mcp registry entry not found")
 	ErrNoRunnablePackage     = errorspkg.New(errorspkg.KindUnprocessable, "MCP_NO_RUNNABLE_PACKAGE", "no package with a supported runtime (node/python/docker/dotnet) and no remote endpoint")
 	ErrCallNotFound          = errorspkg.New(errorspkg.KindNotFound, "MCP_CALL_NOT_FOUND", "mcp call not found")
+
+	// OAuth (remote servers whose auth is an OAuth 2.1 + PKCE + DCR flow, Tier 2). Discovery /
+	// registration / token / authorize are upstream-facing (502); NotSupported is a config dead-end
+	// (422); ReauthRequired (401) tells the user a stored grant expired and they must authorize again.
+	//
+	// OAuth（认证走 OAuth 2.1 + PKCE + DCR 的 remote server，档 2）。发现/注册/token/授权 面向上游（502）；
+	// NotSupported 是配置死路（422）；ReauthRequired（401）告诉用户已存授权过期、须重新授权。
+	ErrOAuthDiscovery      = errorspkg.New(errorspkg.KindBadGateway, "MCP_OAUTH_DISCOVERY_FAILED", "mcp oauth discovery failed")
+	ErrOAuthRegistration   = errorspkg.New(errorspkg.KindBadGateway, "MCP_OAUTH_REGISTRATION_FAILED", "mcp oauth dynamic client registration failed")
+	ErrOAuthToken          = errorspkg.New(errorspkg.KindBadGateway, "MCP_OAUTH_TOKEN_FAILED", "mcp oauth token request failed")
+	ErrOAuthAuthorize      = errorspkg.New(errorspkg.KindBadGateway, "MCP_OAUTH_AUTHORIZE_FAILED", "mcp oauth authorization flow failed")
+	ErrOAuthNotSupported   = errorspkg.New(errorspkg.KindUnprocessable, "MCP_OAUTH_NOT_SUPPORTED", "mcp server requires oauth but its authorization server does not support dynamic client registration")
+	ErrOAuthReauthRequired = errorspkg.New(errorspkg.KindUnauthorized, "MCP_OAUTH_REAUTH_REQUIRED", "mcp server oauth grant expired or revoked; re-authorization required")
 )

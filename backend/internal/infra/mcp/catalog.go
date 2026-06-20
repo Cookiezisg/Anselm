@@ -195,6 +195,15 @@ func applyOverlay(e *mcpdomain.RegistryEntry, ce catalogEntry) {
 		}
 		e.Remotes = []mcpdomain.Remote{rem}
 		e.Packages = nil
+	case "oauth":
+		// OAuth 2.1 + DCR endpoint — no static credential; install runs the interactive flow.
+		// OAuth 2.1 + DCR 端点——无静态凭据；安装走交互流程。
+		tt := a.TransportType
+		if tt == "" {
+			tt = mcpdomain.TransportStreamableHTTP
+		}
+		e.Remotes = []mcpdomain.Remote{{Transport: tt, URL: a.URL, Auth: mcpdomain.AuthOAuth}}
+		e.Packages = nil
 	case "stdio":
 		var ev *mcpdomain.EnvVar
 		if a.Env != nil {

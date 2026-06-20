@@ -46,6 +46,11 @@ type ClientSpec struct {
 	URL       string
 	Transport string // sse | streamable-http
 	Headers   map[string]string
+
+	// remote OAuth: when set, every request gets a freshly-valid Bearer from the source (refreshed
+	// + re-persisted by app/mcp) instead of a static Authorization header.
+	// remote OAuth：设了则每个请求从 source 取实时有效 Bearer（由 app/mcp 刷新+重存）而非静态 Authorization。
+	TokenSource TokenSource
 }
 
 func (s ClientSpec) isRemote() bool { return s.URL != "" }
@@ -125,7 +130,13 @@ func (c *client) Initialize(ctx context.Context) error {
 // remoteTransport 构造 SSE / streamable-HTTP transport，其 HTTP client 在每个请求注入配置的
 // header（Authorization: Bearer ...）。
 func (c *client) remoteTransport() (mcpsdk.Transport, error) {
-	httpClient := &http.Client{Transport: &headerRoundTripper{base: http.DefaultTransport, headers: c.spec.Headers}}
+	var rt http.RoundTripper
+	if c.spec.TokenSource != nil {
+		rt = &oauthRoundTripper{base: http.DefaultTransport, src: c.spec.TokenSource, extra: c.spec.Headers}
+	} else {
+		rt = &headerRoundTripper{base: http.DefaultTransport, headers: c.spec.Headers}
+	}
+	httpClient := &http.Client{Transport: rt}
 	switch c.spec.Transport {
 	case mcpdomain.TransportSSE:
 		return &mcpsdk.SSEClientTransport{Endpoint: c.spec.URL, HTTPClient: httpClient}, nil
@@ -290,6 +301,40 @@ func (h *headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 		req.Header.Set(k, v)
 	}
 	return h.base.RoundTrip(req)
+}
+
+// TokenSource yields a currently-valid OAuth access token for a remote server, refreshing +
+// re-persisting it as needed. Implemented in app/mcp (which owns the store + the oauth flow); infra
+// only consumes it, so the HTTP layer stays oblivious to storage/encryption (DIP).
+//
+// TokenSource 为 remote server 产出当前有效的 OAuth access token，按需刷新+重存。由 app/mcp 实现（它持
+// store + oauth 流程）；infra 只消费，故 HTTP 层对存储/加密无感（DIP）。
+type TokenSource interface {
+	Token(ctx context.Context) (string, error)
+}
+
+// oauthRoundTripper injects a freshly-valid OAuth bearer on every remote request (plus any non-auth
+// static headers). The token comes from the source per-request so a refresh between calls is picked
+// up transparently.
+//
+// oauthRoundTripper 在每个 remote 请求注入实时有效的 OAuth bearer（外加任何非认证静态 header）。token 每次
+// 从 source 取，故两次调用间的刷新被透明拾取。
+type oauthRoundTripper struct {
+	base  http.RoundTripper
+	src   TokenSource
+	extra map[string]string
+}
+
+func (o *oauthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	tok, err := o.src.Token(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range o.extra {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	return o.base.RoundTrip(req)
 }
 
 // joinContent flattens an MCP content array; text verbatim, non-text → placeholder.

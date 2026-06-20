@@ -55,7 +55,18 @@ func (s *Service) InstallFromRegistry(ctx context.Context, fullName string, user
 		RegistryID:  entry.Name,
 		Env:         userEnv,
 	}
-	if plan.Remote {
+	if plan.OAuth {
+		// Interactive OAuth: discover → register → browser consent → token. Blocks until the user
+		// authorizes (or times out); the grant is stored encrypted and refreshed on use.
+		// 交互 OAuth：发现→注册→浏览器同意→token。阻塞到用户授权（或超时）；授权加密落盘、用时刷新。
+		creds, err := s.authorizeOAuth(ctx, plan.URL)
+		if err != nil {
+			return nil, fmt.Errorf("mcpapp.InstallFromRegistry %s: %w", name, err)
+		}
+		srv.Transport = plan.Transport
+		srv.URL = plan.URL
+		srv.OAuth = creds
+	} else if plan.Remote {
 		srv.Transport = plan.Transport
 		srv.URL = plan.URL
 		srv.Headers = resolveHeaders(plan.Headers, userEnv)

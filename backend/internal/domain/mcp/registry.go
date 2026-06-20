@@ -37,8 +37,14 @@ type Package struct {
 type Remote struct {
 	Transport string   `json:"transport"` // sse | streamable-http
 	URL       string   `json:"url"`
+	Auth      string   `json:"auth,omitempty"` // "" static header | "oauth" (OAuth 2.1 + PKCE + DCR flow)
 	Headers   []Header `json:"headers,omitempty"`
 }
+
+// AuthOAuth marks a remote endpoint as OAuth-authenticated (vs a static header).
+//
+// AuthOAuth 标记 remote 端点走 OAuth 认证（相对静态 header）。
+const AuthOAuth = "oauth"
 
 // EnvVar is one env var the user must supply before install; IsSecret drives UI masking.
 //
@@ -75,6 +81,7 @@ type RegistrySource interface {
 // （Transport/URL/Headers）。EnvVars 是调用方要收集的必填值。
 type InstallPlan struct {
 	Remote    bool
+	OAuth     bool     // remote: authenticate via the OAuth 2.1 flow instead of collecting a static token
 	Runtime   string   // stdio: node|python|docker|dotnet
 	Command   string   // stdio: npx|uvx|dnx | image
 	Args      []string // stdio
@@ -112,6 +119,11 @@ func (e *RegistryEntry) Plan() (InstallPlan, bool) {
 		t := r.Transport
 		if t == "" {
 			t = TransportStreamableHTTP // registry default when transport_type is blank
+		}
+		// OAuth endpoints collect no static token — the interactive flow mints one at install.
+		// OAuth 端点不收静态 token——安装时由交互流程铸一个。
+		if r.Auth == AuthOAuth {
+			return InstallPlan{Remote: true, OAuth: true, Transport: t, URL: r.URL}, true
 		}
 		// remote env requirements live in headers' {TOKEN} placeholders → surfaced as EnvVars
 		envs := make([]EnvVar, 0, len(r.Headers))

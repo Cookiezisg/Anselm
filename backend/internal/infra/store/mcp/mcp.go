@@ -99,8 +99,9 @@ type serverRow struct {
 //
 // configBlob 是加密进 config_enc 前的明文形态。
 type configBlob struct {
-	Env     map[string]string `json:"env,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
+	Env     map[string]string           `json:"env,omitempty"`
+	Headers map[string]string           `json:"headers,omitempty"`
+	OAuth   *mcpdomain.OAuthCredentials `json:"oauth,omitempty"` // OAuth grant (client + tokens) — secrets, hence inside config_enc
 }
 
 // Store implements mcpdomain.Repository over pkg/orm with config_enc encryption.
@@ -184,11 +185,11 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// toRow encrypts {env, headers} into config_enc.
+// toRow encrypts {env, headers, oauth} into config_enc.
 //
-// toRow 把 {env, headers} 加密进 config_enc。
+// toRow 把 {env, headers, oauth} 加密进 config_enc。
 func (s *Store) toRow(ctx context.Context, srv *mcpdomain.Server) (*serverRow, error) {
-	blob, err := json.Marshal(configBlob{Env: srv.Env, Headers: srv.Headers})
+	blob, err := json.Marshal(configBlob{Env: srv.Env, Headers: srv.Headers, OAuth: srv.OAuth})
 	if err != nil {
 		return nil, fmt.Errorf("mcpstore.toRow: marshal config: %w", err)
 	}
@@ -205,9 +206,9 @@ func (s *Store) toRow(ctx context.Context, srv *mcpdomain.Server) (*serverRow, e
 	}, nil
 }
 
-// fromRow decrypts config_enc back into Env + Headers.
+// fromRow decrypts config_enc back into Env + Headers + OAuth.
 //
-// fromRow 把 config_enc 解密回 Env + Headers。
+// fromRow 把 config_enc 解密回 Env + Headers + OAuth。
 func (s *Store) fromRow(ctx context.Context, r *serverRow) (*mcpdomain.Server, error) {
 	srv := &mcpdomain.Server{
 		ID: r.ID, WorkspaceID: r.WorkspaceID, Name: r.Name, Description: r.Description,
@@ -226,6 +227,7 @@ func (s *Store) fromRow(ctx context.Context, r *serverRow) (*mcpdomain.Server, e
 		}
 		srv.Env = blob.Env
 		srv.Headers = blob.Headers
+		srv.OAuth = blob.OAuth
 	}
 	return srv, nil
 }

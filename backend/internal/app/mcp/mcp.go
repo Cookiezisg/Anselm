@@ -63,6 +63,9 @@ type Service struct {
 	// newClient builds a Client from a spec; swappable in tests.
 	newClient func(spec mcpinfra.ClientSpec, log *zap.Logger) mcpinfra.Client
 
+	// opener launches the system browser for the OAuth authorize step; swappable in tests.
+	opener BrowserOpener
+
 	mu      sync.RWMutex
 	states  map[string]*mcpdomain.ServerStatus       // mcp_id → live status
 	clients map[string]mcpinfra.Client               // mcp_id → connected client
@@ -82,6 +85,7 @@ func NewService(repo mcpdomain.Repository, registry mcpdomain.RegistrySource, sa
 		sandbox:   sandbox,
 		log:       log,
 		newClient: mcpinfra.NewClient,
+		opener:    osBrowserOpener{},
 		states:    map[string]*mcpdomain.ServerStatus{},
 		clients:   map[string]mcpinfra.Client{},
 		handles:   map[string]sandboxdomain.LongLivedHandle{},
@@ -117,6 +121,9 @@ func (s *Service) emitNotif(ctx context.Context, action, name string) {
 // SetEntitiesBridge 装配后装入 entities 流（SSE-C）：CallTool 把工具调用的进度通知 tee 到 server 的 run
 // 终端供实体面板。
 func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
+
+// SetBrowserOpener swaps the OAuth browser launcher (tests only).
+func (s *Service) SetBrowserOpener(o BrowserOpener) { s.opener = o }
 
 // SetClientFactory swaps the Client constructor (tests only).
 func (s *Service) SetClientFactory(f func(spec mcpinfra.ClientSpec, log *zap.Logger) mcpinfra.Client) {
@@ -196,6 +203,11 @@ func (s *Service) connectOne(ctx context.Context, srv *mcpdomain.Server) error {
 	)
 	if srv.IsRemote() {
 		spec = mcpinfra.ClientSpec{Name: srv.Name, URL: srv.URL, Transport: srv.Transport, Headers: srv.Headers}
+		if srv.IsOAuth() {
+			// OAuth: a refreshing Bearer replaces any static header. 静态 header 让位给会刷新的 Bearer。
+			spec.Headers = nil
+			spec.TokenSource = s.newTokenSource(srv)
+		}
 	} else {
 		h, err := s.sandbox.SpawnLongLived(ctx, ownerFor(srv), sandboxdomain.SpawnOpts{
 			Cmd: srv.Command, Args: srv.Args, Env: srv.Env, LongLived: true,
