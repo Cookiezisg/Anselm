@@ -109,6 +109,9 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 			in.OnProgress(v)
 		}
 		line := yieldBytes(v)
+		if len(inst.SecretValues) > 0 {
+			line = []byte(scrubSecrets(string(line), inst.SecretValues))
+		}
 		_, _ = runTerm.Write(line)
 		_, _ = logs.Write(line)
 	}
@@ -123,7 +126,22 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	// 并发调用各收各窗口的行。
 	prog := loopapp.ToolProgress(ctx)
 	defer prog.Close()
-	detach := inst.Stderr.attach(io.MultiWriter(prog, runTerm, logs))
+	// Scrub injected secrets at the SOURCE — before the handler's print()/stderr reaches the live
+	// messages SSE (prog), the entities SSE run terminal (runTerm), or the persisted progress block.
+	// recordCall scrubs only the buffered audit copy AFTER the fact, so without this a secret printed by
+	// user code would already have streamed in plaintext on both SSE channels (F108 — the live-stream
+	// sibling of F82's call-log scrub). The audit-side scrub at recordCall still covers a secret split
+	// across two Writes (it sees the full buffer).
+	//
+	// 在**源头**擦注入的 secret——先于 handler 的 print()/stderr 到达 live messages SSE(prog)、entities SSE
+	// run 终端(runTerm)、或持久 progress block。recordCall 只**事后**擦缓冲审计副本，没有这里、用户代码打印的
+	// secret 已在两条 SSE 上明文流出（F108——F82 call-log 擦除的 live-stream 兄弟）。审计侧 recordCall 仍兜
+	// 跨两次 Write 切分的 secret（它见完整缓冲）。
+	var fan io.Writer = io.MultiWriter(prog, runTerm, logs)
+	if len(inst.SecretValues) > 0 {
+		fan = &scrubbingWriter{w: fan, secrets: inst.SecretValues}
+	}
+	detach := inst.Stderr.attach(fan)
 	defer detach() // panic-safety net: a panic between here and the explicit detach() below would
 	//             otherwise leak this call's sink into the resident instance's fan forever (R18).
 	//             detach is idempotent, so the explicit post-grace detach() below still controls timing.
@@ -288,6 +306,26 @@ func scrubSecrets(s string, secrets []string) string {
 		}
 	}
 	return s
+}
+
+// scrubbingWriter masks known injected secrets in a byte stream before it reaches the live progress /
+// SSE sinks, so a handler's print()/stderr carrying an injected secret never streams in plaintext
+// (F108). Per-Write scrubbing catches the common case (a secret within one print); a secret split
+// across two Writes is still masked in the durable audit copy by recordCall's full-buffer scrub.
+//
+// scrubbingWriter 在字节流到达 live progress / SSE sink 前掩去已知注入 secret，使 handler 的 print()/stderr
+// 携带的注入 secret 绝不明文流出（F108）。逐 Write 擦覆盖常态（secret 在一次 print 内）；跨两次 Write 切分的
+// secret 仍由 recordCall 的全缓冲擦在持久审计副本里兜住。
+type scrubbingWriter struct {
+	w       io.Writer
+	secrets []string
+}
+
+func (sw *scrubbingWriter) Write(p []byte) (int, error) {
+	if _, err := sw.w.Write([]byte(scrubSecrets(string(p), sw.secrets))); err != nil {
+		return 0, err
+	}
+	return len(p), nil // report the original input length (masking changes the byte count)
 }
 
 // triggerFromCtx derives the execution body: a subagent context means an agent run,

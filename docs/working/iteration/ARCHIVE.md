@@ -120,6 +120,7 @@ landed-into:
 | F98 F96 未泛化→knowledge dangling **静默丢弃**(invoke 报 ok·比 DOA 更糟)+tool dangling DOA→BuildKnowledgePrefix 缺 doc 返 AGENT_KNOWLEDGE_NOT_FOUND + Create/Edit eager 校验 knowledge/tool(复用 invoke resolver) | agent·校验·systems | 单工具/happy→报错 | 假成功/静默降级 | fixed·locked |
 | F100 chat 回合无 per-turn 墙钟→流/工具卡过每步守卫则 detached ctx 永跑、卡 isGenerating+阻塞 graceful shutdown(SIGTERM 需 SIGKILL)→加 ChatTurnSec 兜底(同 F83/F92/F93 族)；F101=深层不查-ctx busy-loop 待 pprof。**F100 round-5 实测验证：同负载 round-4 钉 180%+阻塞、round-5 全清 0% CPU/0 stuck** | chat·runner·systems | 单工具/崩溃·robustness | 脆弱/假成功 | fixed·locked(F101 open) |
 | F105 F97 函数 timeout 持久消息仍是泄露的 "spawn process timeout"(暗示启动失败、误导 :triage)→run.go timeout 分支改"run exceeded Ns wall-clock limit"(镜像 handler RPC timeout) | function·systems | 单工具/崩溃 | promise≠reality/leaked-internals | fixed·locked |
+| F108 F82 secret 擦除只盖 recordCall 审计、漏 live progress/SSE→print 携 secret 明文先流 messages/entities SSE+持久 block→scrubbingWriter 源头掩 stderr 扇出 sink+onProgress（F82 的 live-stream 兄弟） | handler·安全 | 单工具/安全 | 安全/静默降级 | fixed·locked |
 ### 已探·无缺陷（绿格——探过、当前行为正确；记下免重挖。details→LOG 元注 0618 + round-1）
 | 绿格 | target | regime |
 |---|---|---|

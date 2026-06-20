@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -183,6 +184,26 @@ func TestScrubSecrets(t *testing.T) {
 	}
 	if scrubSecrets("plain text", nil) != "plain text" {
 		t.Fatal("no secrets should be a no-op")
+	}
+}
+
+// TestScrubbingWriter — F108: the live progress / SSE path must mask injected secrets AT THE SOURCE,
+// not only in the after-the-fact audit copy (F82 covered only recordCall). A secret a handler print()s
+// reaches the stderr fan and must be masked before it streams to the messages/entities SSE + the
+// persisted progress block.
+func TestScrubbingWriter(t *testing.T) {
+	var buf bytes.Buffer
+	sw := &scrubbingWriter{w: &buf, secrets: []string{"sk-SECRET123"}}
+	const line = "connecting with key=sk-SECRET123 ok"
+	n, err := sw.Write([]byte(line))
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if n != len(line) {
+		t.Errorf("Write must report the original input length (masking changes byte count), got %d want %d", n, len(line))
+	}
+	if got := buf.String(); strings.Contains(got, "sk-SECRET123") || !strings.Contains(got, "********") {
+		t.Errorf("secret must be masked before reaching the sink, got: %q", got)
 	}
 }
 
