@@ -125,6 +125,7 @@ func (r *Resolver) Resolve(ctx context.Context, refs []agentdomain.ToolRef) ([]t
 // 遇首个失败即停。
 func (r *Resolver) CheckHealth(ctx context.Context, refs []agentdomain.ToolRef) []agentdomain.MountHealth {
 	out := make([]agentdomain.MountHealth, 0, len(refs))
+	seen := make(map[string]string, len(refs)) // synthesized tool name → first ref that claimed it
 	for _, tr := range refs {
 		ref := strings.TrimSpace(tr.Ref)
 		var (
@@ -144,8 +145,22 @@ func (r *Resolver) CheckHealth(ctx context.Context, refs []agentdomain.ToolRef) 
 		h := agentdomain.MountHealth{Ref: ref, Healthy: err == nil}
 		if err != nil {
 			h.Error = err.Error()
+			out = append(out, h)
+			continue
+		}
+		h.Name = t.Name()
+		// A mount that resolves on its own but synthesizes a tool name an earlier mount already
+		// claimed is dead-on-arrival: Resolve (the invoke path) rejects the WHOLE set on this exact
+		// collision, so every invoke fails 0-step. Mirror that guard here (symmetry with Resolve) so
+		// the eager create/edit validation rejects it instead of minting a DOA agent (F98 collision-gap).
+		// 单独能解析、但合成出更早挂载已占用的工具名 = dead-on-arrival：Resolve（invoke 路径）正是按此撞名
+		// 拒整组，故每次 invoke 0 步即败。此处镜像该守卫（与 Resolve 对称），使 create/edit 预检直接拒、
+		// 不再铸出 DOA agent。
+		if prev, dup := seen[h.Name]; dup {
+			h.Healthy = false
+			h.Error = fmt.Sprintf("tool name %q collides with an earlier mount %q — both synthesize the same agent tool name", h.Name, prev)
 		} else {
-			h.Name = t.Name()
+			seen[h.Name] = ref
 		}
 		out = append(out, h)
 	}

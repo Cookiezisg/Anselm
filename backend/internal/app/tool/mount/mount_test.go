@@ -152,6 +152,28 @@ func TestCheckHealth_MixedMounts(t *testing.T) {
 	}
 }
 
+// TestCheckHealth_FlagsNameCollision — F98 collision-gap (round-7 agentmaxtools): two mounts that
+// each resolve fine but synthesize the SAME tool name are dead-on-arrival (Resolve rejects the whole
+// set, so every invoke fails 0-step). CheckHealth must flag the collision too, so eager create/edit
+// validation rejects it instead of minting a DOA agent.
+func TestCheckHealth_FlagsNameCollision(t *testing.T) {
+	fn := &fakeFn{f: fixtureFn()} // fn_1 → tool "add_numbers"
+	r := NewResolver(fn, nil, nil)
+	health := r.CheckHealth(context.Background(), []agentdomain.ToolRef{
+		{Ref: "fn_1"}, // first claim of "add_numbers"
+		{Ref: "fn_1"}, // same synthesized name → collision
+	})
+	if len(health) != 2 {
+		t.Fatalf("want 2 results, got %d", len(health))
+	}
+	if !health[0].Healthy {
+		t.Errorf("first mount must stay healthy: %+v", health[0])
+	}
+	if health[1].Healthy || !strings.Contains(health[1].Error, "collides") {
+		t.Errorf("second mount must be flagged as a name collision (DOA at invoke), got %+v", health[1])
+	}
+}
+
 // TestResolve_HandlerMount: hd_<id>.<method> becomes <handlerName>__<method> bound to that
 // method's spec, calling with TriggeredBy=agent.
 //
