@@ -43,7 +43,7 @@ func (p *anselmProvider) DefaultBaseURL() string { return AnselmBaseURL }
 // 剥离 thinking/reasoning_effort，给 picker 这些钮是死 UI。与 deepseekSpecs 分开，正是为让下面的
 // DescribeModels 覆盖产出无旋钮条目。
 var anselmSpecs = []modelSpec{
-	{"deepseek-v4-flash", 1_000_000, 384_000, nil, false, false},
+	{AnselmModelID, 1_000_000, 384_000, nil, false, false},
 }
 
 // DescribeModels parses the gateway's id-only /models body against anselmSpecs (NOT deepseekSpecs).
@@ -56,4 +56,23 @@ var anselmSpecs = []modelSpec{
 // thinking/reasoning_effort 钮。
 func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 	return describeFromSpecs(anselmSpecs, raw), nil
+}
+
+// AnselmModelID is the single model the free-tier gateway serves (it coerces any requested model to
+// this). Single source for anselmSpecs, the seeded probe body, and the managed key's pinned model id.
+//
+// AnselmModelID 是免费档网关唯一服务的模型（它把任何请求模型 coerce 成它）。anselmSpecs / 播种探测 body /
+// 受管 key 钉定模型 id 的单一事实源。
+const AnselmModelID = "deepseek-v4-flash"
+
+// AnselmProbeBody returns the synthetic OpenAI /models body the free-tier provisioner seeds into the
+// managed key's probe archive, so the model module surfaces AnselmModelID without a live probe. It
+// mirrors what the gateway's GET /v1/models returns and MUST list an id anselmSpecs matches, else
+// describeFromSpecs would drop it and the picker would show no model.
+//
+// AnselmProbeBody 返回免费档 provisioner 植入受管 key 探测档案的合成 OpenAI /models body，使 model 模块
+// 无需 live 探针即可呈现 AnselmModelID。镜像网关 GET /v1/models，且必须列 anselmSpecs 命中的 id，否则
+// describeFromSpecs 丢弃它、picker 无模型。
+func AnselmProbeBody() string {
+	return `{"object":"list","data":[{"id":"` + AnselmModelID + `","object":"model"}]}`
 }
